@@ -3,7 +3,7 @@
 namespace io {
 
 TcpStream::TcpStream(Reactor::Ptr reactor) :
-    Reactor::Object(reactor, true)
+    Reactor::Object(reactor, 0)
 {}
 
 int TcpStream::accepted(uv_handle_t* acceptor) {

@@ -3,6 +3,7 @@ set(IO_SRC
     asyncevent.cpp
     tcpserver.cpp
     tcpstream.cpp
+    tcpconnector.cpp
 # ~etc
 )
 

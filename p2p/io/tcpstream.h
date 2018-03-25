@@ -1,5 +1,6 @@
 #pragma once
 #include "reactor.h"
+#include <functional>
 
 namespace io {
 
@@ -12,10 +13,12 @@ public:
 
 private:
     friend class TcpServer;
+    friend class TcpConnector;
 
     // returns status code
     int accepted(uv_handle_t* acceptor);
 
+    void connected(uv_stream_t* handle);
 };
 
 } //namespace

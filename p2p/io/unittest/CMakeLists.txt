@@ -6,5 +6,6 @@ endfunction()
 
 add_snippet(reactor_test)
 add_snippet(asyncevent_test)
+add_snippet(tcpserver_test)
 
 # ~ etc

@@ -51,9 +51,14 @@ private:
             return *this;
         }
 
-        explicit Object(Reactor::Ptr reactor, bool emptyObject=false) :
+        explicit Object(Reactor::Ptr reactor) :
             _reactor(reactor),
-            _handle(emptyObject ? 0 : _reactor->init_object(this))
+            _handle(_reactor->init_object(this))
+        {}
+
+        Object(Reactor::Ptr reactor, uv_handle_t* handle) :
+            _reactor(reactor),
+            _handle(handle)
         {}
 
         ~Object() {
@@ -68,6 +73,7 @@ private:
         uv_handle_t* _handle;
     };
 
+    uv_handle_t* new_handle();
     uv_handle_t* init_object(Object* o);
     void async_close(uv_handle_t*& handle);
     void release(uv_handle_t* handle);
@@ -75,6 +81,7 @@ private:
     friend class AsyncEvent;
     friend class TcpServer;
     friend class TcpStream;
+    friend class TcpConnector;
 };
 
 }
