@@ -30,3 +30,11 @@
 *.exe
 *.out
 *.app
+
+*~
+*.kate-swp
+.idea/
+build/
+debug/
+release/
+
