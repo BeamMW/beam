@@ -10,5 +10,8 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 endif()
 
+message(${PROJECT_SOURCE_DIR})
+include_directories(${PROJECT_SOURCE_DIR})
+
 add_subdirectory(io)
 
