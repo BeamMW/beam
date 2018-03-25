@@ -1,6 +1,7 @@
 set(IO_SRC
     reactor.cpp
     asyncevent.cpp
+    timer.cpp
     tcpserver.cpp
     tcpstream.cpp
     tcpconnector.cpp

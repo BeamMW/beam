@@ -79,6 +79,7 @@ private:
     void release(uv_handle_t* handle);
 
     friend class AsyncEvent;
+    friend class Timer;
     friend class TcpServer;
     friend class TcpStream;
     friend class TcpConnector;

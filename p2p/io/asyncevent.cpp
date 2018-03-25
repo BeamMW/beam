@@ -3,8 +3,8 @@
 
 namespace io {
 
-AsyncEvent::AsyncEvent(Reactor::Ptr _reactor, AsyncEvent::Callback&& callback) :
-    Reactor::Object(_reactor),
+AsyncEvent::AsyncEvent(Reactor::Ptr reactor, AsyncEvent::Callback&& callback) :
+    Reactor::Object(reactor),
     _callback(std::move(callback))
 {
     int r = uv_async_init(
