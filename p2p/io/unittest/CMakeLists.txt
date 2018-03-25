@@ -5,5 +5,6 @@ function(add_snippet EXE_NAME)
 endfunction()
 
 add_snippet(reactor_test)
+add_snippet(asyncevent_test)
 
 # ~ etc

@@ -1,5 +1,7 @@
 #include "reactor.h"
 #include "exception.h"
+#include <assert.h>
+#include <stdlib.h>
 
 namespace io {
 
@@ -55,5 +57,35 @@ void Reactor::stop() {
     }
 }
 
+uv_handle_t* Reactor::init_object(io::Reactor::Object* o) {
+    // TODO create handle pool
+
+    uv_handle_t* h = (uv_handle_t*)(calloc(1, sizeof(uv_any_handle)));
+    h->data = o;
+    return h;
+}
+
+void Reactor::async_close(uv_handle_t*& handle) {
+    if (handle && !uv_is_closing(handle)) {
+        handle->data = 0;
+
+        uv_close(
+            handle,
+            [](uv_handle_s* handle) {
+                assert(handle->loop);
+                Reactor* reactor = reinterpret_cast<Reactor*>(handle->loop->data);
+                assert(reactor);
+                reactor->release(handle);
+            }
+        );
+    }
+
+    handle = 0;
+}
+
+void Reactor::release(uv_handle_t* handle) {
+    // TODO return it to handle pool
+    free(handle);
+}
 
 } //namespace
