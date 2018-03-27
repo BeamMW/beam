@@ -1,0 +1,65 @@
+#pragma once
+#include <string>
+#include <stdint.h>
+#include <string.h>
+#include <netinet/ip.h>
+
+namespace io {
+
+// IPv4 + port peer address
+struct Address {
+    static const uint64_t LOCALHOST = 0x7F0000010000;
+
+    uint64_t packed=0;
+
+    operator uint64_t() const {
+        return packed;
+    }
+
+    bool operator==(const Address& a) const {
+        return packed == a.packed;
+    }
+
+    bool operator<(const Address& a) const {
+        return packed < a.packed;
+    }
+
+    Address() {}
+
+    Address(uint32_t a, uint16_t p) {
+        packed = ((uint64_t)a << 16) + p;
+    }
+
+    uint32_t ip() const {
+        return (uint32_t)(packed >> 16);
+    }
+
+    Address& ip(uint32_t a) {
+        packed = ((uint64_t)a << 16) + (packed & 0xFFFF);
+        return *this;
+    }
+
+    uint16_t port() const {
+        return (uint16_t)packed;
+    }
+
+    Address& port(uint16_t p) {
+        packed = (packed & 0xFFFFFFFF0000) + p;
+        return *this;
+    }
+
+    void fill_sockaddr_in(sockaddr_in& out) const {
+        memset(&out, 0, sizeof(sockaddr_in));
+        out.sin_family = AF_INET;
+        out.sin_addr.s_addr = htonl(ip());
+        out.sin_port = htons(port());
+    }
+
+    // NOTE: blocks
+    bool resolve(const char* str);
+
+    std::string str() const;
+};
+
+} //namespace
+

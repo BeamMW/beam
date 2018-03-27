@@ -10,5 +10,19 @@ Environment Profile=
 Extra Arguments=
 Install Directory=
 
+[Launch]
+Launch Configurations=Launch Configuration 0
+
+[Launch][Launch Configuration 0]
+Configured Launch Modes=execute
+Configured Launchers=nativeAppLauncher
+Name=address_test
+Type=Native Application
+
+[Launch][Launch Configuration 0][Data]
+Project Target=p2p,io,unittest,address_test
+Working Directory=file:///home/artem/p/beam/p2p/build/io/unittest/
+isExecutable=false
+
 [Project]
 VersionControlSupport=kdevgit
