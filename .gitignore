@@ -42,3 +42,5 @@ compile_commands.json
 CTestTestfile.cmake
 
 .vscode/*
+miner/pow/unittests/equihash_test
+
