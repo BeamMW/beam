@@ -3,20 +3,26 @@
 #include "impl/crypto/equihash.h"
 #include "impl/uint256.h"
 #include "impl/arith_uint256.h"
+#include <utility>
 
 namespace pow
 {
+const int N = 200;
+const int K = 9;
 
-bool Equihash::solve()
+Proof::Proof(Proof &&other) : nonce(std::move(nonce)), solution(std::move(solution))
 {
-    enum{N = 200, K = 9};
+}
 
-    uint256 nNonce;
-    std::vector<unsigned char> nSolution;
-    std::string testValue{"test string"};
-    std::function<bool(std::vector<unsigned char>)> validBlock =
-        [&nSolution](std::vector<unsigned char> soln) {
-            nSolution = soln;
+pow::Proof get_solution(const Input &input, const uint256_t &initial_nonce)
+{
+
+    Proof proof;
+    proof.nonce = initial_nonce;
+
+    std::function<bool(Input)> valid_block =
+        [&proof](Input soln) {
+            proof.solution = soln;
             return true;
         };
 
@@ -29,61 +35,38 @@ bool Equihash::solve()
         crypto_generichash_blake2b_state state;
         EhInitialiseState(N, K, state);
 
-        // I = the block header minus nonce and solution.
-        // CEquihashInput I{*pblock};
-        // CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-        // ss << I;
-
         // H(I||...
-        crypto_generichash_blake2b_update(&state, (unsigned char *)&testValue[0], testValue.size());
+        crypto_generichash_blake2b_update(&state, &input[0], input.size());
 
         // H(I||V||...
         crypto_generichash_blake2b_state curr_state;
         curr_state = state;
-        crypto_generichash_blake2b_update(&curr_state,
-                                          nNonce.begin(),
-                                          nNonce.size());
+        crypto_generichash_blake2b_update(&curr_state, proof.nonce.begin(), proof.nonce.size());
 
-        bool found = EhOptimisedSolve(N, K, curr_state, validBlock, cancelled);
+        bool found = EhOptimisedSolve(N, K, curr_state, valid_block, cancelled);
         if (found)
         {
             break;
         }
-        nNonce = ArithToUint256(UintToArith256(nNonce) + 1);
+        auto tt = uint256(std::vector<uint8_t>(proof.nonce.begin(), proof.nonce.end()));
+        auto t = ArithToUint256(UintToArith256(tt) + 1);
+        std::copy(t.begin(), t.end(), proof.nonce.begin());
     }
 
-    // verifier code
-    if(false)
-    {
-        // Hash state
-        crypto_generichash_blake2b_state state;
-        EhInitialiseState(N, K, state);
-
-        // I = the block header minus nonce and solution.
-        //CEquihashInput I{*pblock};
-        // I||V
-        //CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-        //ss << I;
-        //ss << pblock->nNonce;
-
-        // H(I||V||...
-        crypto_generichash_blake2b_update(&state, (unsigned char *)&testValue[0], testValue.size());
-        crypto_generichash_blake2b_update(&state, nNonce.begin(), nNonce.size());
-
-        bool isValid;
-        EhIsValidSolution(N, K, state, nSolution, isValid);
-        if (isValid)
-        {
-            printf("%s", "start miner test!!!\n");
-        }
-
-        //if (!isValid)
-        //    return error("CheckEquihashSolution(): invalid solution");
-
-        //return true;
-    }
-
-    return 0;
+    return proof;
 }
 
+bool is_valid_proof(const Input &input, const Proof &proof)
+{
+    crypto_generichash_blake2b_state state;
+    EhInitialiseState(N, K, state);
+
+    // H(I||V||...
+    crypto_generichash_blake2b_update(&state, &input[0], input.size());
+    crypto_generichash_blake2b_update(&state, proof.nonce.begin(), proof.nonce.size());
+
+    bool is_valid = false;
+    EhIsValidSolution(N, K, state, proof.solution, is_valid);
+    return is_valid;
+}
 }
