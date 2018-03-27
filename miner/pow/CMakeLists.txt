@@ -4,3 +4,4 @@ set(POW_SRC
 )
 
 add_library(pow STATIC ${POW_SRC})
+add_subdirectory(unittests)
