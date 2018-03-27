@@ -32,7 +32,7 @@ TcpServer::TcpServer(
     uv_ip4_addr(bindInterface, port, &addr);
 
     r = uv_tcp_bind((uv_tcp_t*)_handle, (const struct sockaddr*)&addr, 0);
-    if (r != 0) IO_EXCEPTION(r, (std::string("cannot bind tcp server to ") + bindInterface).c_str());
+    if (r != 0) IO_EXCEPTION(r, (std::string("cannot bind tcp server to ") + bindInterface + ":" + std::to_string(port)).c_str());
 
     r = uv_listen(
         (uv_stream_t*)_handle,
@@ -48,7 +48,8 @@ TcpServer::TcpServer(
 }
 
 void TcpServer::internal_callback(int status) {
-    TcpStream stream(_reactor);
+    // TODO move stuff into Reactor
+    TcpStream stream(_reactor, Config());
 
     if (status != 0) {
         _callback(std::move(stream), status);

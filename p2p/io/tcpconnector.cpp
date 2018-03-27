@@ -1,5 +1,6 @@
 #include "tcpconnector.h"
 #include "exception.h"
+#include "config.h"
 #include <assert.h>
 
 namespace io {
@@ -74,7 +75,8 @@ void TcpConnector::internal_callback(uv_stream_t* handle, int status) {
     auto it = _connections.find(handle);
     assert(it != _connections.end());
 
-    TcpStream stream(_reactor);
+    // TODO move this all stuff into Reactor
+    TcpStream stream(_reactor, Config());
     Callback callback = std::move(it->second.callback);
     _connections.erase(it);
 
