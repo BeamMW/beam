@@ -1,10 +1,12 @@
 #pragma once
 #include "io/libuv/include/uv.h"
 #include <memory>
+#include <vector>
+#include <string.h>
 
 namespace io {
 
-class Reactor : public std::enable_shared_from_this<Reactor> {
+class Reactor /*: public std::enable_shared_from_this<Reactor>*/ {
 public:
     Reactor(const Reactor&) = delete;
     Reactor& operator=(const Reactor&) = delete;
@@ -28,9 +30,46 @@ public:
 private:
     Reactor();
 
-    uv_loop_t  _loop;
-    uv_async_t _stopEvent;
+    class HandlePool {
+        static const size_t DATA_SIZE = sizeof(uv_any_handle);
+    public:
+        explicit HandlePool(unsigned maxSize) :
+            _maxSize(maxSize)
+        {}
 
+        ~HandlePool() {
+            for (uv_handle_t* h: _pool) {
+                free(h);
+            }
+        }
+
+        uv_handle_t* alloc() {
+            uv_handle_t* r = 0;
+            if (!_pool.empty()) {
+                r = _pool.back();
+                _pool.pop_back();
+            } else {
+                r = (uv_handle_t*)calloc(1, DATA_SIZE);
+            }
+            return r;
+        }
+
+        void release(uv_handle_t* h) {
+            if (_pool.size() > _maxSize) {
+                free(h);
+            } else {
+                memset(h, 0, DATA_SIZE);
+                _pool.push_back(h);
+            }
+        }
+
+    private:
+        using Pool = std::vector<uv_handle_t*>;
+
+        Pool _pool;
+        unsigned _maxSize;
+    };
+    
     class Object {
     protected:
         Object() = delete;
@@ -83,6 +122,10 @@ private:
     friend class TcpServer;
     friend class TcpStream;
     friend class TcpConnector;
+    
+    uv_loop_t  _loop;
+    uv_async_t _stopEvent;
+    HandlePool _handlePool;
 };
 
 }

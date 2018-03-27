@@ -9,7 +9,9 @@ Reactor::Ptr Reactor::create() {
     return Reactor::Ptr(new Reactor());
 }
 
-Reactor::Reactor() {
+Reactor::Reactor() :
+    _handlePool(512) // TODO config
+{
     int r = uv_loop_init(&_loop);
     if (r != 0) IO_EXCEPTION(r, "cannot initialize uv loop");
 
@@ -58,9 +60,7 @@ void Reactor::stop() {
 }
 
 uv_handle_t* Reactor::init_object(io::Reactor::Object* o) {
-    // TODO create handle pool
-
-    uv_handle_t* h = (uv_handle_t*)(calloc(1, sizeof(uv_any_handle)));
+    uv_handle_t* h = _handlePool.alloc();
     h->data = o;
     return h;
 }
@@ -84,8 +84,7 @@ void Reactor::async_close(uv_handle_t*& handle) {
 }
 
 void Reactor::release(uv_handle_t* handle) {
-    // TODO return it to handle pool
-    free(handle);
+    _handlePool.release(handle);
 }
 
 } //namespace
