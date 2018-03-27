@@ -1,3 +1,7 @@
+set (CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR};${CMAKE_MODULE_PATH}")
+
+find_package(sodium REQUIRED)
+
 include_directories(impl)
 
 set(POW_SRC
@@ -11,5 +15,6 @@ set(POW_SRC
 
 add_library(pow STATIC ${POW_SRC})
 target_compile_definitions(pow PRIVATE ENABLE_MINING)
-target_link_libraries(pow -lsodium)
+target_link_libraries(pow sodium)
+
 add_subdirectory(unittests)
