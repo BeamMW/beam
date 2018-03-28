@@ -6,6 +6,7 @@ script:
   - cmake .
   - make
   - make CTEST_OUTPUT_ON_FAILURE=1 test
+
 addons:
   apt:
     sources:
