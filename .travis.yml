@@ -1,1 +1,18 @@
-language: c++
+language: cpp
+script:
+  - cd miner
+  - cmake .
+  - make
+  - cd ..
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+      - george-edison55-precise-backports
+    packages:
+      - g++-7
+      - cmake-data
+      - cmake
+      - libsodium-dev
+    env:
+      - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
