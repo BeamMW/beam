@@ -11,6 +11,9 @@ addons:
     sources:
       - ubuntu-toolchain-r-test
     packages:
+      - g++-7
       - cmake-data
       - cmake
       - libboost-all-dev
+env:
+  - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
