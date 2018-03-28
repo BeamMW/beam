@@ -12,7 +12,7 @@ if [ ! -d "$HOME/libsodium/lib" ]; then
   cd libsodium-1.0.16
   ./configure --prefix=$HOME/libsodium
   make
-  make install
+  sudo make install
 else
   echo 'Using cached directory.'
 fi

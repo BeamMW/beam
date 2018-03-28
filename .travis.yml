@@ -9,10 +9,7 @@ addons:
   apt:
     sources:
       - ubuntu-toolchain-r-test
-      - george-edison55-precise-backports
     packages:
-      - g++-7
       - cmake-data
       - cmake
-    env:
-      - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
+      - libboost-all-dev
