@@ -1,11 +1,11 @@
 language: cpp
 sudo: required
 script:
-  - miner/pow/travis-install-libsodium.sh
   - cd miner
+  - pow/travis-install-libsodium.sh
   - cmake .
   - make
-  - cd ..
+  - make test
 addons:
   apt:
     sources:

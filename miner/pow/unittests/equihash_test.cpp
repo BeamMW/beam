@@ -1,24 +1,15 @@
 #include "../equihash.h"
 
-#include <iostream>
+#define BOOST_TEST_MODULE equihash_test
+#include <boost/test/unit_test.hpp>
 
-// TODO: use boost tests here
-// and call all the tests on Travis CI
-
-int main(int argc, char *argv[])
+BOOST_AUTO_TEST_CASE( equihash_test )
 {
-    std::cout << "start miner test!!!\n"
-              << std::endl;
-
     pow::Input input{1, 2, 3, 4, 56};
 
     pow::uint256_t nonce{1, 2, 4};
     auto proof = pow::get_solution(input, nonce);
     std::cout << proof.solution.size() << std::endl;
-    if (pow::is_valid_proof(input, proof))
-    {
-        std::cout << "Valid solution found" << std::endl;
-    }
 
-    return 0;
+    BOOST_CHECK(pow::is_valid_proof(input, proof));
 }
