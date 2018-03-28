@@ -43,4 +43,6 @@ CTestTestfile.cmake
 
 .vscode/*
 miner/pow/unittests/equihash_test
+libsodium-1.0.16
+
 

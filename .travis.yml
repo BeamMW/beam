@@ -1,5 +1,6 @@
 language: cpp
 script:
+  - miner/pow/travis-install-libsodium.sh
   - cd miner
   - cmake .
   - make
@@ -13,6 +14,5 @@ addons:
       - g++-7
       - cmake-data
       - cmake
-      - libsodium-dev
     env:
       - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
