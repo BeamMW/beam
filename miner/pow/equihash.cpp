@@ -14,7 +14,7 @@ Proof::Proof(Proof &&other) : nonce(std::move(nonce)), solution(std::move(soluti
 {
 }
 
-pow::Proof get_solution(const Input &input, const uint256_t &initial_nonce)
+pow::Proof get_solution(const Input &input, const uint256_t &initial_nonce, const Cancel cancel)
 {
 
     Proof proof;
@@ -26,8 +26,8 @@ pow::Proof get_solution(const Input &input, const uint256_t &initial_nonce)
             return true;
         };
 
-    std::function<bool(EhSolverCancelCheck)> cancelled = [](EhSolverCancelCheck pos) {
-        return false;
+    std::function<bool(EhSolverCancelCheck)> cancelled = [cancel](EhSolverCancelCheck pos) {
+        return cancel();
     };
 
     while (true)

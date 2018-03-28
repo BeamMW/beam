@@ -4,12 +4,14 @@
 #include <vector>
 #include <array>
 #include <cstdint>
+#include <functional>
 
 namespace pow
 {
 using uint256_t = std::array<uint8_t, 32>;
 using Solution = std::vector<uint8_t>;
 using Input = std::vector<uint8_t>;
+using Cancel = std::function<bool()>;
 
 struct Proof
 {
@@ -19,6 +21,6 @@ struct Proof
     Proof(Proof &&);
 };
 
-Proof get_solution(const Input &input, const uint256_t &initial_nonce);
+Proof get_solution(const Input &input, const uint256_t &initial_nonce, const Cancel = []{ return false; });
 bool is_valid_proof(const Input &input, const Proof &proof);
 }
