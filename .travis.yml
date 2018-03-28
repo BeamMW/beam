@@ -5,7 +5,7 @@ script:
   - pow/travis-install-libsodium.sh
   - cmake .
   - make
-  - make test
+  - make CTEST_OUTPUT_ON_FAILURE=1 test
 addons:
   apt:
     sources:
