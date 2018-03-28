@@ -1,7 +1,5 @@
 set (CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR};${CMAKE_MODULE_PATH}")
 
-find_package(sodium REQUIRED)
-
 include_directories(impl)
 
 set(POW_SRC
