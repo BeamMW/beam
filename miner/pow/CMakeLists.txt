@@ -13,6 +13,6 @@ set(POW_SRC
 
 add_library(pow STATIC ${POW_SRC})
 target_compile_definitions(pow PRIVATE ENABLE_MINING)
-target_link_libraries(pow sodium)
+target_link_libraries(pow -l:libsodium.a)
 
 add_subdirectory(unittests)
