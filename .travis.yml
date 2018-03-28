@@ -1,4 +1,5 @@
 language: cpp
+sudo: required
 script:
   - miner/pow/travis-install-libsodium.sh
   - cd miner
