@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common.h"
+#include "core/common.h"
 #include <vector>
 #include <array>
 #include <cstdint>
@@ -8,19 +8,11 @@
 
 namespace equi
 {
-using uint256_t = std::array<uint8_t, 32>;
-using Solution = std::vector<uint8_t>;
-using Input = std::vector<uint8_t>;
+
+using ByteBuffer = std::vector<uint8_t>;
 using Cancel = std::function<bool()>;
 
-struct Proof
-{
-    uint256_t nonce;
-    Solution solution;
-    Proof() = default;
-    Proof(Proof &&);
-};
+beam::Proof get_solution(const ByteBuffer &input, const beam::uint256_t &initial_nonce, const Cancel = []{ return false; });
+bool is_valid_proof(const ByteBuffer &input, const beam::Proof &proof);
 
-Proof get_solution(const Input &input, const uint256_t &initial_nonce, const Cancel = []{ return false; });
-bool is_valid_proof(const Input &input, const Proof &proof);
 }

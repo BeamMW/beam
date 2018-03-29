@@ -1,0 +1,2 @@
+add_test_snippet(equihash_test pow)
+add_test_snippet(miner_test miner)

@@ -1,0 +1,1 @@
+add_test_snippet(pool_test pool)

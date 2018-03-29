@@ -7,21 +7,18 @@
 
 namespace equi
 {
+
 const int N = 200;
 const int K = 9;
 
-Proof::Proof(Proof &&other) : nonce(std::move(nonce)), solution(std::move(solution))
-{
-}
-
-equi::Proof get_solution(const Input &input, const uint256_t &initial_nonce, const Cancel cancel)
+beam::Proof get_solution(const ByteBuffer &input, const beam::uint256_t &initial_nonce, const Cancel cancel)
 {
 
-    Proof proof;
+    beam::Proof proof;
     proof.nonce = initial_nonce;
 
-    std::function<bool(Input)> valid_block =
-        [&proof](Input soln) {
+    std::function<bool(ByteBuffer)> valid_block =
+        [&proof](ByteBuffer soln) {
             proof.solution = soln;
             return true;
         };
@@ -56,7 +53,7 @@ equi::Proof get_solution(const Input &input, const uint256_t &initial_nonce, con
     return proof;
 }
 
-bool is_valid_proof(const Input &input, const Proof &proof)
+bool is_valid_proof(const ByteBuffer &input, const beam::Proof &proof)
 {
     blake2b_state state;
     EhInitialiseState(N, K, state);

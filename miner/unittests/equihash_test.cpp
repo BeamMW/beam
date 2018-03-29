@@ -1,10 +1,11 @@
-#include "../equihash.h"
+#include "miner/pow/equihash.h"
+#include <iostream>
 
 int main()
 {
-    equi::Input input{1, 2, 3, 4, 56};
+    equi::ByteBuffer input{1, 2, 3, 4, 56};
 
-    equi::uint256_t nonce{1, 2, 4};
+    beam::uint256_t nonce{1, 2, 4};
     auto proof = equi::get_solution(input, nonce);
     std::cout << proof.solution.size() << std::endl;
 

@@ -21,11 +21,3 @@ set(POW_SRC
 
 add_library(pow STATIC ${POW_SRC})
 target_compile_definitions(pow PRIVATE ENABLE_MINING)
-
-#IF (WIN32)
-#ELSE()
-#    target_compile_definitions(pow PRIVATE HAVE_BYTESWAP_H)
-#    target_compile_definitions(pow PRIVATE HAVE_ENDIAN_H)
-#ENDIF()
-
-add_subdirectory(unittests)
