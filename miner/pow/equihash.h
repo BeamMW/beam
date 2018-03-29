@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <functional>
 
-namespace pow
+namespace equi
 {
 using uint256_t = std::array<uint8_t, 32>;
 using Solution = std::vector<uint8_t>;

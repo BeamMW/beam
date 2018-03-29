@@ -5,7 +5,7 @@
 #include "impl/arith_uint256.h"
 #include <utility>
 
-namespace pow
+namespace equi
 {
 const int N = 200;
 const int K = 9;
@@ -14,7 +14,7 @@ Proof::Proof(Proof &&other) : nonce(std::move(nonce)), solution(std::move(soluti
 {
 }
 
-pow::Proof get_solution(const Input &input, const uint256_t &initial_nonce, const Cancel cancel)
+equi::Proof get_solution(const Input &input, const uint256_t &initial_nonce, const Cancel cancel)
 {
 
     Proof proof;
@@ -32,16 +32,16 @@ pow::Proof get_solution(const Input &input, const uint256_t &initial_nonce, cons
 
     while (true)
     {
-        crypto_generichash_blake2b_state state;
+        blake2b_state state;
         EhInitialiseState(N, K, state);
 
         // H(I||...
-        crypto_generichash_blake2b_update(&state, &input[0], input.size());
+        blake2b_update(&state, &input[0], input.size());
 
         // H(I||V||...
-        crypto_generichash_blake2b_state curr_state;
+        blake2b_state curr_state;
         curr_state = state;
-        crypto_generichash_blake2b_update(&curr_state, proof.nonce.begin(), proof.nonce.size());
+        blake2b_update(&curr_state, &proof.nonce[0], proof.nonce.size());
 
         bool found = EhOptimisedSolve(N, K, curr_state, valid_block, cancelled);
         if (found)
@@ -58,12 +58,12 @@ pow::Proof get_solution(const Input &input, const uint256_t &initial_nonce, cons
 
 bool is_valid_proof(const Input &input, const Proof &proof)
 {
-    crypto_generichash_blake2b_state state;
+    blake2b_state state;
     EhInitialiseState(N, K, state);
 
     // H(I||V||...
-    crypto_generichash_blake2b_update(&state, &input[0], input.size());
-    crypto_generichash_blake2b_update(&state, proof.nonce.begin(), proof.nonce.size());
+    blake2b_update(&state, &input[0], input.size());
+    blake2b_update(&state, &proof.nonce[0], proof.nonce.size());
 
     bool is_valid = false;
     EhIsValidSolution(N, K, state, proof.solution, is_valid);

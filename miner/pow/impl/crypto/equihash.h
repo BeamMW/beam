@@ -9,7 +9,7 @@
 #include "crypto/sha256.h"
 #include "utilstrencodings.h"
 
-#include "sodium.h"
+#include "blake/blake2.h"
 
 #include <cstring>
 #include <exception>
@@ -18,7 +18,7 @@
 #include <set>
 #include <vector>
 
-typedef crypto_generichash_blake2b_state eh_HashState;
+typedef blake2b_state eh_HashState;
 typedef uint32_t eh_index;
 typedef uint8_t eh_trunc;
 

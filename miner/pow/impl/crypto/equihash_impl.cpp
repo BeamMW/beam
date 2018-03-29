@@ -16,7 +16,7 @@
 #include "config/bitcoin-config.h"
 #endif
 
-//#include "compat/endian.h"
+#include "compat/endian.h"
 #include "crypto/equihash.h"
 //#include "util.h"
 
@@ -34,15 +34,11 @@ int Equihash<N,K>::InitialiseState(eh_HashState& base_state)
 {
     uint32_t le_N = htole32(N);
     uint32_t le_K = htole32(K);
-    unsigned char personalization[crypto_generichash_blake2b_PERSONALBYTES] = {};
+    unsigned char personalization[BLAKE2B_PERSONALBYTES] = {};
     memcpy(personalization, "ZcashPoW", 8);
     memcpy(personalization+8,  &le_N, 4);
     memcpy(personalization+12, &le_K, 4);
-    return crypto_generichash_blake2b_init_salt_personal(&base_state,
-                                                         NULL, 0, // No key.
-                                                         (512/N)*N/8,
-                                                         NULL,    // No salt.
-                                                         personalization);
+    return blake2b_init_personal(&base_state, (512/N)*N/8, personalization);
 }
 
 void GenerateHash(const eh_HashState& base_state, eh_index g,
@@ -51,9 +47,9 @@ void GenerateHash(const eh_HashState& base_state, eh_index g,
     eh_HashState state;
     state = base_state;
     eh_index lei = htole32(g);
-    crypto_generichash_blake2b_update(&state, (const unsigned char*) &lei,
+    blake2b_update(&state, (const unsigned char*) &lei,
                                       sizeof(eh_index));
-    crypto_generichash_blake2b_final(&state, hash, hLen);
+    blake2b_final(&state, hash, hLen);
 }
 
 void ExpandArray(const unsigned char* in, size_t in_len,

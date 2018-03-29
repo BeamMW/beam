@@ -1,8 +1,6 @@
 language: cpp
-sudo: required
 script:
   - cd miner
-  - pow/travis-install-libsodium.sh
   - cmake .
   - make
   - make CTEST_OUTPUT_ON_FAILURE=1 test
@@ -15,6 +13,5 @@ addons:
       - g++-7
       - cmake-data
       - cmake
-      - libboost-all-dev
 before_install:
     - eval "CC=gcc-7 && CXX=g++-7"
