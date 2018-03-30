@@ -6,7 +6,7 @@ set(MINER_SRC
 )
 
 add_library(miner STATIC ${MINER_SRC})
-add_dependencies(miner pow)
-target_link_libraries(miner pow)
+add_dependencies(miner pow chain pool)
+target_link_libraries(miner pow chain pool)
 
 add_subdirectory(unittests)

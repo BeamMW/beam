@@ -9,10 +9,9 @@
 namespace equi
 {
 
-using ByteBuffer = std::vector<uint8_t>;
 using Cancel = std::function<bool()>;
 
-beam::Proof get_solution(const ByteBuffer &input, const beam::uint256_t &initial_nonce, const Cancel = []{ return false; });
-bool is_valid_proof(const ByteBuffer &input, const beam::Proof &proof);
+beam::Proof getSolution(const beam::ByteBuffer &input, const beam::uint256_t &initial_nonce, const Cancel = []{ return false; });
+bool isValidProof(const beam::ByteBuffer &input, const beam::Proof &proof);
 
 }

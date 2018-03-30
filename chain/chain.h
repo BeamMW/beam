@@ -7,9 +7,11 @@ namespace beam
     class Chain
     {
     public:
+        Chain();
         const Block& getHeadBlock() const;
+        void processBlock(BlockUniquePtr&& block);
     private:
         // TODO: replace
-        std::vector<Block> m_blockChain;
+        std::vector<BlockUniquePtr> m_blockChain;
     };
 }

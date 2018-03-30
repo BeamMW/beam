@@ -6,16 +6,20 @@
 namespace beam
 {
 
+class Chain;
+class TxPool;
 class Miner
 {
 public:
-    Miner();
+    Miner(Chain& blockChain, TxPool& txPool);
 
     void start();
-    void mine();
-
-    Block createBlock(const BlockHeader& prevHeader);
-
+    void mineBlock();
+private:
+    BlockUniquePtr createBlock(const BlockHeader& prevHeader);
+private:
+    Chain& m_blockChain;
+    TxPool& m_txPool;
 };
 
 }

@@ -1,14 +1,16 @@
 #include "miner/miner.h"
+#include "chain/chain.h"
+#include "pool/txpool.h"
 #include <iostream>
 
 int main()
 {
-    beam::Miner miner;
-    beam::BlockHeader header;
+    using namespace beam;
+    Chain chain;
+    TxPool txPool;
+    Miner miner{ chain, txPool };
 
-
-    
-    beam::Block block = miner.createBlock(header);
+    miner.mineBlock();
 
     return 0;
 }

@@ -11,14 +11,14 @@ namespace equi
 const int N = 200;
 const int K = 9;
 
-beam::Proof get_solution(const ByteBuffer &input, const beam::uint256_t &initial_nonce, const Cancel cancel)
+beam::Proof getSolution(const beam::ByteBuffer &input, const beam::uint256_t &initial_nonce, const Cancel cancel)
 {
 
     beam::Proof proof;
     proof.nonce = initial_nonce;
 
-    std::function<bool(ByteBuffer)> valid_block =
-        [&proof](ByteBuffer soln) {
+    std::function<bool(beam::ByteBuffer)> valid_block =
+        [&proof](beam::ByteBuffer soln) {
             proof.solution = soln;
             return true;
         };
@@ -53,7 +53,7 @@ beam::Proof get_solution(const ByteBuffer &input, const beam::uint256_t &initial
     return proof;
 }
 
-bool is_valid_proof(const ByteBuffer &input, const beam::Proof &proof)
+bool isValidProof(const beam::ByteBuffer &input, const beam::Proof &proof)
 {
     blake2b_state state;
     EhInitialiseState(N, K, state);
