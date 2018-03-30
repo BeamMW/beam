@@ -7,24 +7,25 @@ script:
 
 matrix:
   include:
-    - os: linux
-      compiler:
-        - gcc
-      addons:
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-          packages:
-            - g++-7
-            - cmake-data
-            - cmake
-      env:
-        - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
+    # - os: linux
+    #   compiler:
+    #     - gcc
+    #   addons:
+    #     apt:
+    #       sources:
+    #         - ubuntu-toolchain-r-test
+    #       packages:
+    #         - g++-7
+    #         - cmake-data
+    #         - cmake
+    #   before_install:
+    #     - eval "CC=gcc-7 && CXX=g++-7"
 
     - os: osx
       osx_image: xcode9.3beta
       compiler:
         - clang
-
-before_install:
-  - eval "${MATRIX_EVAL}"
+      install:
+        # Set the ${CXX} variable properly
+        - export CXX=clang++
+        - ${CXX} --version
