@@ -5,6 +5,8 @@ int main()
 {
     beam::Miner miner;
     beam::BlockHeader header;
+
+
     
     beam::Block block = miner.createBlock(header);
 

@@ -7,6 +7,6 @@ namespace beam
     class TxPool
     {
     public:
-        std::vector<Transaction> getMinableTransaction(size_t maxCount = 5000);
+        std::vector<Transaction> getMinableTransactions(size_t maxCount = 5000);
     };
 }

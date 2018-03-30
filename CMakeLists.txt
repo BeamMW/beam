@@ -24,6 +24,7 @@ include_directories(${PROJECT_SOURCE_DIR})
 
 add_subdirectory(miner)
 add_subdirectory(chain)
+add_subdirectory(pool)
 
 
 set_target_properties(miner
