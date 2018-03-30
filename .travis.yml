@@ -27,5 +27,5 @@ matrix:
         - clang
       before_install:
         # Set the ${CXX} variable properly
-        - export CXX=clang++
+        - eval "CXX=clang++"
         - ${CXX} --version
