@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <assert.h>
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || defined(__APPLE__)
 #include "compat/endian.h"
 #endif
 
