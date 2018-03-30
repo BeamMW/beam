@@ -1,9 +1,5 @@
 language: cpp
 
-os:
-  - linux
-  - osx
-
 script:
   - cmake .
   - make
@@ -27,7 +23,7 @@ matrix:
 
     - os: osx
       osx_image: xcode9.3beta
-        compiler:
+      compiler:
         - clang
 
 before_install:
