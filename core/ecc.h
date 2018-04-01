@@ -115,7 +115,8 @@ namespace ECC
 
 	struct Hash
 	{
-		typedef uintBig_t<256> Result;
+		typedef uintBig_t<256> Value;
+		Value m_Value;
 
 		Hash();
 
