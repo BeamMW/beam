@@ -13,6 +13,7 @@ namespace beam
 	// sorry for replacing 'using' by 'typedefs', some compilers don't support it
 	typedef uint64_t Timestamp;
 	typedef uint64_t Difficulty;
+	typedef uint64_t Height;
 
 #pragma pack(push, 1)
 
@@ -27,7 +28,7 @@ namespace beam
 		{
 			ECC::Hash::Value	m_HashPrev;
 			ECC::Hash::Value	m_FullDescription; // merkle hash
-		    uint64_t			m_Height;
+		    Height				m_Height;
 		    Timestamp			m_TimeStamp;
 		    Difficulty			m_TotalDifficulty;
 		};
@@ -51,6 +52,61 @@ namespace beam
 			uint8_t				m_pSolution[nSolutionBytes];
 
 			bool IsValid(const Header&) const;
+		};
+
+		struct Input
+		{
+			ECC::Point	m_Commitment;
+			Height		m_HeightAndFlags;
+
+			static const Height s_CoinbaseOutput	= (Height(-1) >> 1) + 1;
+			static const Height s_HeightMask		= s_CoinbaseOutput - 1;
+
+			// In case there are multiple UTXOs with the same commitment value (which we permit) the height should be used to distinguish between them
+		};
+
+		struct OutputBase
+		{
+			struct Flags {
+				static const uint8_t CoinbaseOutput	= 1;
+				static const uint8_t SumExposed		= 2;
+			};
+
+			ECC::Point	m_Commitment;
+			uint8_t		m_Flags;
+		};
+
+		struct OutputConfidential
+			:public OutputBase
+		{
+			ECC::RangeProof m_RangeProof;
+		};
+
+		struct OutputExposed
+			:public OutputBase
+		{
+			uint64_t m_Value;
+			ECC::Signature m_Signature;
+		};
+
+		struct TxKernel
+		{
+			struct Flags {
+				static const uint8_t Fee		= 1;
+				static const uint8_t Height		= 2;
+				static const uint8_t CustomMsg	= 4;
+				static const uint8_t PubKey		= 8;
+			};
+
+			ECC::Point		m_Excess;
+			ECC::Signature	m_Signature;
+			uint8_t			m_Flags;
+
+			// optional fields are *optionally* included in this order
+			//uint64_t			m_Fee;
+			//uint64_t			m_Height;
+			//ECC::Hash::Value	m_CustomMsg;
+			//ECC::Point			m_PubKey;
 		};
 
 		struct Body

@@ -122,5 +122,22 @@ namespace ECC
 
 		void Process(const void*, uint32_t);
 	};
+
+	struct RangeProof
+	{
+		uint8_t m_pOpaque[700]; // TODO
+
+		bool IsValid(const Point&, uint64_t nMinimum = 1) const;
+		void Generate(const Point&, uint64_t nMinimum = 1);
+	};
+
+	struct Signature
+	{
+		uintBig m_NonceX;
+		Scalar m_Value;
+
+		bool IsValid(const Hash::Value& msg);
+		void Create(const Hash::Value& msg);
+	};
 }
 
