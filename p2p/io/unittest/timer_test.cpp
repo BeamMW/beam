@@ -9,17 +9,18 @@ using namespace std;
 // TODO use spdlog
 
 void timer_test() {
-    Reactor::Ptr reactor = Reactor::create();
-    Timer timer(reactor);
+    Config config;
+    Reactor::Ptr reactor = Reactor::create(config);
+    Timer::Ptr timer = Timer::create(reactor);
     int countdown = 5;
 
     cout << "setting up one-short timer" << endl;
-    timer.start(
+    timer->start(
         600,
         false,
         [&reactor, &countdown, &timer] {
             cout << "starting periodic timer" << endl;
-            timer.start(
+            timer->start(
                 300,
                 true,
                 [&reactor, &countdown] {

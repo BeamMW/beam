@@ -1,28 +1,31 @@
 #include "asyncevent.h"
-#include "exception.h"
+#include <assert.h>
 
 namespace io {
 
-AsyncEvent::AsyncEvent(Reactor::Ptr reactor, AsyncEvent::Callback&& callback) :
-    Reactor::Object(reactor),
-    _callback(std::move(callback))
-{
-    int r = uv_async_init(
-        &(_reactor->_loop),
-        (uv_async_t*)_handle,
+AsyncEvent::Ptr AsyncEvent::create(const Reactor::Ptr& reactor, AsyncEvent::Callback&& callback) {
+    assert(reactor);
+    Ptr event(new AsyncEvent(std::move(callback)));  
+    if (reactor->init_asyncevent(
+        event.get(),
         [](uv_async_t* handle) {
+            assert(handle);
+            assert(handle->data);
             reinterpret_cast<AsyncEvent*>(handle->data)->_callback();
         }
-    );
-
-    if (r != 0) IO_EXCEPTION(r, "cannot initialize AsyncEvent");
+        
+    )) {
+        return event;
+    }
+    return Ptr();    
 }
-
-AsyncEvent::~AsyncEvent()
+    
+AsyncEvent::AsyncEvent(AsyncEvent::Callback&& callback) :
+    _callback(std::move(callback))
 {}
 
-void AsyncEvent::trigger() {
-    uv_async_send((uv_async_t*)_handle);
+bool AsyncEvent::trigger() {
+    return (uv_async_send((uv_async_t*)_handle) == 0);
 
     // TODO log on errors
 }

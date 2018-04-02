@@ -10,9 +10,10 @@ using namespace std;
 // TODO use spdlog
 
 void asyncevent_test() {
-    Reactor::Ptr reactor = Reactor::create();
+    Config config;
+    Reactor::Ptr reactor = Reactor::create(config);
 
-    shared_ptr<AsyncEvent> e = make_shared<AsyncEvent>(
+    AsyncEvent::Ptr e = AsyncEvent::create(
         reactor,
         []() {
             cout << "event triggered in reactor thread" << endl;

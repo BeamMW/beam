@@ -10,18 +10,18 @@ using namespace std;
 
 void tcpserver_test() {
     try {
-        Reactor::Ptr reactor = Reactor::create();
-        TcpServer server(
+        Config config;
+        Reactor::Ptr reactor = Reactor::create(config);
+        TcpServer::Ptr server = TcpServer::create(
             reactor,
-            33333,
-            [](TcpStream&&, int errorCode) {
+            Address(0, 33333),
+            [](TcpStream::Ptr&&, int errorCode) {
                 if (errorCode == 0) {
                     cout << "Stream accepted" << endl;
                 } else {
                     cout << "Error code " << errorCode << endl;
                 }
-            },
-            true
+            }
         );
 
         cout << "starting reactor..." << endl;

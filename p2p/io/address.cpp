@@ -4,6 +4,8 @@
 
 namespace io {
 
+const Address Address::LOCALHOST = Address(0x7F000001, 0);
+    
 namespace {
 
 uint32_t resolve_host(std::string&& host) {

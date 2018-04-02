@@ -1,11 +1,11 @@
 set(IO_SRC
+    bufferchain.cpp
     reactor.cpp
     asyncevent.cpp
     timer.cpp
     address.cpp
     tcpserver.cpp
     tcpstream.cpp
-    tcpconnector.cpp
 # ~etc
 )
 

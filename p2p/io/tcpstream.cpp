@@ -2,22 +2,16 @@
 #include <assert.h>
 
 namespace io {
-
-TcpStream::TcpStream(Reactor::Ptr reactor, const Config& config) :
-    Reactor::Object(reactor, 0)
-{
-    _readBuffer.resize(config.stream_read_buffer_size);
-}
-
-bool TcpStream::enable(TcpStream::Callback&& callback) {
-    if (!is_connected()) return false;
-    if (!callback) {
-        if (_callback) {
-            uv_read_stop((uv_stream_t*)_handle);
-            _callback = Callback();
-        }
-        return true;
+    
+bool TcpStream::enable_read(TcpStream::Callback&& callback) {
+    assert(callback);
+    
+    if (!is_connected()) {
+        _lastError = UV_ENOTCONN;
+        return false;
     }
+        
+    _readBuffer.resize(_reactor->config().stream_read_buffer_size);
 
     static uv_alloc_cb read_alloc_cb = [](uv_handle_t* handle, size_t /*suggested_size*/, uv_buf_t* buf) {
         TcpStream* self = reinterpret_cast<TcpStream*>(handle->data);
@@ -34,6 +28,7 @@ bool TcpStream::enable(TcpStream::Callback&& callback) {
                 assert(buf->base == self->_readBuffer.data());
                 assert(buf->len <= self->_readBuffer.size());
                 assert(buf->len >= (size_t)nread);
+                self->_state.received += nread;
                 self->_callback(0, buf->base, (size_t)nread);
             } else if (nread < 0) {
                 self->_callback((int)nread, 0, 0);
@@ -41,8 +36,8 @@ bool TcpStream::enable(TcpStream::Callback&& callback) {
         }
     };
 
-    int r = uv_read_start((uv_stream_t*)_handle, read_alloc_cb, read_cb);
-    if (r != 0) {
+    _lastError = uv_read_start((uv_stream_t*)_handle, read_alloc_cb, read_cb);
+    if (_lastError != 0) {
         _callback = Callback();
         return false;
     }
@@ -51,36 +46,97 @@ bool TcpStream::enable(TcpStream::Callback&& callback) {
     return true;
 }
 
+bool TcpStream::disable_read() {
+    _lastError = 0;
+    if (!is_connected()) {
+        _lastError = UV_ENOTCONN;
+        return false;
+    }
+    if (_callback) {
+        _lastError = uv_read_stop((uv_stream_t*)_handle);
+        _callback = Callback();
+    }
+    return (_lastError == 0);
+}
+
 size_t TcpStream::try_write(const void* data, size_t size) {
-    if (!is_connected()) return 0;
-    uv_buf_t buf;
-    buf.base = (char*)data;
-    buf.len = size;
-    int result = uv_try_write((uv_stream_t*)_handle, &buf, 1);
-    if (result <= 0) return 0; //TODO this is a stub
+    if (!is_connected() || !_writeBuffer.empty()) return 0;
+    IOVec buf(data, size);
+    return try_write(&buf);
+}
+
+size_t TcpStream::try_write(const IOVec* buf) {
+    int result = uv_try_write((uv_stream_t*)_handle, (uv_buf_t*)buf, 1);
+    if (result <= 0){
+        return 0; //TODO this is a stub append disconnect events
+    } 
+    _state.sent += result;
     return (size_t) result;
 }
 
-bool TcpStream::is_connected() {
-    return _handle != 0;
+bool TcpStream::write(const SharedBuffer& buf) {
+    if (buf.empty()) return true;
+    if (!is_connected()) return false;
+    if (_writeBuffer.empty()) {
+        size_t sent = try_write(&buf);
+        if (sent == 0) {
+            return false;
+        }
+        _state.sent += sent;
+        if (sent == buf.size) {
+            return true;
+        } else {
+            SharedBuffer b(buf);
+            b.advance(sent);
+            _writeBuffer.append(b);
+        }
+    } else {
+        _writeBuffer.append(buf);
+    }
+    _state.unsent = _writeBuffer.size();
+    return send_write_request();
 }
 
-int TcpStream::accepted(uv_handle_t* acceptor) {
-    _handle = _reactor->init_object(this);
-    int r = uv_tcp_init(
-        &(_reactor->_loop),
-        (uv_tcp_t*)_handle
+bool TcpStream::send_write_request() {
+    static uv_write_cb write_cb = [](uv_write_t* req, int status) {
+        if (status == UV_ECANCELED) {
+            // object may be no longer alive ???
+            return;
+        }
+        TcpStream* self = reinterpret_cast<TcpStream*>(req->handle->data);
+        assert(self);
+        assert(&(self->_writeRequest) == req);
+        if (status != 0) {
+            if (self->_callback) self->_callback(status, 0, 0);
+        } else {
+            size_t sent = self->_state.unsent;
+            self->_writeBuffer.advance(sent);
+            self->_state.sent += sent;
+            self->_state.unsent = self->_writeBuffer.size();
+            self->_writeRequestSent = false;
+            if (self->_state.unsent) {
+                self->send_write_request();
+            }
+        }
+    };
+    
+    if (_writeRequestSent) return true;
+
+    int r = uv_write(&_writeRequest, (uv_stream_t*)_handle,
+        (uv_buf_t*)_writeBuffer.fragments(), _writeBuffer.num_fragments(), write_cb
     );
+    
     if (r != 0) {
-        _reactor->release(_handle);
-        return r;
+        // TODO close handle ??
+        _lastError = r;
+        return false;
     }
-    r = uv_accept((uv_stream_t*)acceptor, (uv_stream_t*)_handle);
-    if (r != 0) {
-        async_close();
-        return r;
-    }
-    return 0;
+    _writeRequestSent = true;
+    return true;
+}
+
+bool TcpStream::is_connected() const {
+    return _handle != 0;
 }
 
 } //namespace

@@ -10,7 +10,8 @@ using namespace std;
 // TODO use spdlog
 
 void reactor_start_stop() {
-    Reactor::Ptr reactor = Reactor::create();
+    Config config;
+    Reactor::Ptr reactor = Reactor::create(config);
 
     auto f = std::async(
         std::launch::async,

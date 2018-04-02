@@ -31,6 +31,8 @@
 *.out
 *.app
 
+p2p/.kdev4/
+*.kdev4
 *~
 *.kate-swp
 .idea/

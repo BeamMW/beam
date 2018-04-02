@@ -8,13 +8,9 @@ namespace io {
 
 // IPv4 + port peer address
 struct Address {
-    static const uint64_t LOCALHOST = 0x7F0000010000;
+    static const Address LOCALHOST;
 
     uint64_t packed=0;
-
-    operator uint64_t() const {
-        return packed;
-    }
 
     bool operator==(const Address& a) const {
         return packed == a.packed;
@@ -23,13 +19,17 @@ struct Address {
     bool operator<(const Address& a) const {
         return packed < a.packed;
     }
+    
+    operator bool() const {
+        return packed != 0;
+    }
 
     Address() {}
 
     Address(uint32_t a, uint16_t p) {
         packed = ((uint64_t)a << 16) + p;
     }
-
+    
     uint32_t ip() const {
         return (uint32_t)(packed >> 16);
     }
