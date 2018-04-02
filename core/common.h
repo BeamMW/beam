@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <array>
+#include <list>
 #include <utility>
 #include <cstdint>
 #include <memory>
@@ -15,7 +16,95 @@ namespace beam
 	typedef uint64_t Difficulty;
 	typedef uint64_t Height;
 
-#pragma pack(push, 1)
+	namespace Merkle {
+		struct Hash;
+
+		typedef std::pair<bool, Hash>	Node;
+		typedef std::list<Node>			Proof;
+
+		struct Hash :public ECC::Hash::Value
+		{
+			void Interpret(const Proof&);
+		};
+	}
+
+
+	struct Input
+	{
+		typedef std::unique_ptr<Input> Ptr;
+
+		ECC::Point	m_Commitment;
+		bool		m_Coinbase;
+		Height		m_Height;
+
+		// In case there are multiple UTXOs with the same commitment value (which we permit) the height should be used to distinguish between them
+		// If not specified (no UTXO with the specified height) - it will automatically be selected.
+
+		void get_Hash(Merkle::Hash&) const;
+		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
+	};
+
+	struct Output
+	{
+		typedef std::unique_ptr<Output> Ptr;
+
+		ECC::Point	m_Commitment;
+		bool		m_Coinbase;
+
+		// one of the following *must* be specified
+		struct Condidential {
+			ECC::RangeProof m_RangeProof;
+		};
+
+		struct Public {
+			uint64_t m_Value;
+			ECC::Signature m_Signature;
+		};
+
+		std::unique_ptr<Condidential>	m_pCondidential;
+		std::unique_ptr<Public>			m_pPublic;
+	};
+
+
+	struct TxKernel
+	{
+		typedef std::unique_ptr<TxKernel> Ptr;
+
+		// Mandatory
+		ECC::Point		m_Excess;
+		ECC::Signature	m_Signature;
+
+		// Optional
+		std::unique_ptr<uint64_t>			m_pFee;
+		std::unique_ptr<Height>				m_pHeight;
+		std::unique_ptr<ECC::Hash::Value>	m_pCustomMsg;
+		std::unique_ptr<ECC::Point>			m_pPublicKey;
+
+		std::list<Ptr> m_vNested; // nested kernels, included in the signature.
+
+		void CalculateSignature();
+		bool IsValid() const;
+
+		void get_Hash(Merkle::Hash&) const;
+		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
+	};
+
+	struct TxBase
+	{
+		std::list<Input::Ptr> m_vInputs;
+		std::list<Output::Ptr> m_vOutputs;
+		std::list<TxKernel::Ptr> m_vKernels;
+		ECC::Scalar m_Offset;
+	};
+
+	struct Transaction
+		:public TxBase
+	{
+		// tests the validity of all the components, and overall arithmetics.
+		// Does *not* check the existence of the input UTXOs
+		// Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
+		bool IsValid() const;
+	};
 
 	struct Block
 	{
@@ -27,10 +116,11 @@ namespace beam
 		struct Header
 		{
 			ECC::Hash::Value	m_HashPrev;
-			ECC::Hash::Value	m_FullDescription; // merkle hash
-		    Height				m_Height;
+			Merkle::Hash		m_FullDescription; // merkle hash
+		    Height				m_Height; // of this specific block
 		    Timestamp			m_TimeStamp;
 		    Difficulty			m_TotalDifficulty;
+			uint8_t				m_Difficulty; // of this specific block
 		};
 
 		struct PoW
@@ -54,75 +144,19 @@ namespace beam
 			bool IsValid(const Header&) const;
 		};
 
-		struct Input
-		{
-			ECC::Point	m_Commitment;
-			Height		m_HeightAndFlags;
-
-			static const Height s_CoinbaseOutput	= (Height(-1) >> 1) + 1;
-			static const Height s_HeightMask		= s_CoinbaseOutput - 1;
-
-			// In case there are multiple UTXOs with the same commitment value (which we permit) the height should be used to distinguish between them
-		};
-
-		struct OutputBase
-		{
-			struct Flags {
-				static const uint8_t CoinbaseOutput	= 1;
-				static const uint8_t SumExposed		= 2;
-			};
-
-			ECC::Point	m_Commitment;
-			uint8_t		m_Flags;
-		};
-
-		struct OutputConfidential
-			:public OutputBase
-		{
-			ECC::RangeProof m_RangeProof;
-		};
-
-		struct OutputExposed
-			:public OutputBase
-		{
-			uint64_t m_Value;
-			ECC::Signature m_Signature;
-		};
-
-		struct TxKernel
-		{
-			struct Flags {
-				static const uint8_t Fee		= 1;
-				static const uint8_t Height		= 2;
-				static const uint8_t CustomMsg	= 4;
-				static const uint8_t PubKey		= 8;
-			};
-
-			ECC::Point		m_Excess;
-			ECC::Signature	m_Signature;
-			uint8_t			m_Flags;
-
-			// optional fields are *optionally* included in this order
-			//uint64_t			m_Fee;
-			//uint64_t			m_Height;
-			//ECC::Hash::Value	m_CustomMsg;
-			//ECC::Point			m_PubKey;
-		};
-
 		struct Body
+			:public TxBase
 		{
-			uint64_t m_NumInputs;
-			uint64_t m_NumOutputs;
-			uint64_t m_NumKernels;
+			// TODO: additional parameters, such as block explicit subsidy, sidechains and etc.
 
-			// Probably should account for additional parameters, such as block explicit subsidy, sidechains and etc.
-
-			// followed by inputs, outputs and kernels in a lexicographical order
-
-			void Verify(); // format & arithmetics only, regardless to the existence of the input UTXOs
+			// Test the following:
+			//		Validity of all the components, and overall arithmetics, whereas explicit fees are already collected by extra UTXO(s) put by the miner
+			//		All components are specified in a lexicographical order, to conceal the actual transaction graph
+			// Not tested by this function (but should be tested by nodes!)
+			//		Existence of all the input UTXOs, and their "liquidity" (by the policy UTXO liquidity may be restricted wrt its maturity)
+			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
+			//		Existence of the treasury output UTXO, if needed by the policy.
+			bool IsValid() const;
 		};
 	};
-
-#pragma pack(pop)
-
 }
