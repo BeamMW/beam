@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/block.h"
+#include "core/common.h"
 
 namespace beam
 {
@@ -9,9 +9,9 @@ namespace beam
     public:
         Chain();
         const Block& getHeadBlock() const;
-        void processBlock(BlockUniquePtr&& block);
+        void processBlock(BlockPtr&& block);
     private:
         // TODO: replace
-        std::vector<BlockUniquePtr> m_blockChain;
+        std::vector<BlockPtr> m_blockChain;
     };
 }

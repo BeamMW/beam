@@ -1,7 +1,6 @@
 #pragma once
 
 #include "core/common.h"
-#include "core/block.h"
 
 namespace beam
 {
@@ -16,7 +15,7 @@ public:
     void start();
     void mineBlock();
 private:
-    BlockUniquePtr createBlock(const BlockHeader& prevHeader);
+    BlockPtr createBlock(const Block::Header& prevHeader);
 private:
     Chain& m_blockChain;
     TxPool& m_txPool;

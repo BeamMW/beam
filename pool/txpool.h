@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/transaction.h"
+#include "core/common.h"
 
 namespace beam
 {

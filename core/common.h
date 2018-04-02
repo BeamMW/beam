@@ -15,6 +15,8 @@ namespace beam
 	typedef uint64_t Timestamp;
 	typedef uint64_t Difficulty;
 	typedef uint64_t Height;
+	typedef ECC::uintBig_t<256> uint256_t;
+	typedef std::vector<uint8_t> ByteBuffer;
 
 	namespace Merkle {
 		struct Hash;
@@ -121,7 +123,13 @@ namespace beam
 		    Timestamp			m_TimeStamp;
 		    Difficulty			m_TotalDifficulty;
 			uint8_t				m_Difficulty; // of this specific block
-		};
+
+		    template<typename Buffer>
+			void serializeTo(Buffer& b)
+			{
+
+			}
+		} header;
 
 		struct PoW
 		{
@@ -130,19 +138,22 @@ namespace beam
 			static const uint32_t K = 9;
 
 			static const uint32_t nNumIndices		= 1 << K; // 512 
-			static const uint32_t nBitsPerIndex		= N / (K + 1); // 20. actually tha last index may be wider (equal to max bound), but since indexes are sorted it can be encoded as 0.
+			static const uint32_t nBitsPerIndex		= N / (K + 1) + 1; // 20. actually tha last index may be wider (equal to max bound), but since indexes are sorted it can be encoded as 0.
 
 			static const uint32_t nSolutionBits		= nNumIndices * nBitsPerIndex;
 
 			static_assert(!(nSolutionBits & 7), "PoW solution should be byte-aligned");
-			static const uint32_t nSolutionBytes	= nSolutionBits >> 3; // 1280 bytes
+			static const uint32_t nSolutionBytes	= nSolutionBits >> 3; // !TODO: 1280 bytes, 1344 for now due to current implementation
 
-			ECC::uintBig_t<256>	m_Nonce;
-			uint8_t				m_Difficulty;
-			uint8_t				m_pSolution[nSolutionBytes];
+			uint256_t							m_Nonce;
+			std::array<uint8_t, nSolutionBytes>	m_Indices;
+
+			uint8_t								m_Difficulty;
 
 			bool IsValid(const Header&) const;
 		};
+		typedef std::unique_ptr<PoW> PoWPtr;
+		PoWPtr m_ProofOfWork;
 
 		struct Body
 			:public TxBase
@@ -159,4 +170,6 @@ namespace beam
 			bool IsValid() const;
 		};
 	};
+
+	typedef std::unique_ptr<Block> BlockPtr;
 }

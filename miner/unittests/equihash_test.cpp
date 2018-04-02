@@ -7,9 +7,9 @@ int main()
 
     beam::uint256_t nonce{1, 2, 4};
     auto proof = equi::getSolution(input, nonce);
-    std::cout << proof.solution.size() << std::endl;
+    std::cout << proof->m_Indices.size() << std::endl;
 
-    if (equi::isValidProof(input, proof))
+    if (equi::isValidProof(input, *proof))
     {
         std::cout << "Solution is correct\n";
         return 0;

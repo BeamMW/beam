@@ -4,7 +4,7 @@ namespace beam
 {
     Chain::Chain()
     {
-        m_blockChain.emplace_back(std::make_unique<Block>());
+        m_blockChain.push_back(std::make_unique<Block>());
     }
 
     const Block& Chain::getHeadBlock() const
@@ -12,8 +12,8 @@ namespace beam
         return *m_blockChain.back();
     }
 
-    void Chain::processBlock(BlockUniquePtr&& block)
+    void Chain::processBlock(BlockPtr&& block)
     {
-        m_blockChain.emplace_back(std::move(block));
+        m_blockChain.push_back(std::move(block));
     }
 };

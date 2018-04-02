@@ -21,6 +21,11 @@ namespace ECC
 		// in Big-Endian representation
 		uint8_t m_pData[nBits_ >> 3];
 
+		constexpr size_t size() const
+		{
+			return sizeof(m_pData);
+		}
+
 		void SetZero()
 		{
 			memset(m_pData, 0, sizeof(m_pData));
