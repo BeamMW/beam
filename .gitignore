@@ -45,4 +45,13 @@ CTestTestfile.cmake
 miner/pow/unittests/equihash_test
 libsodium-1.0.16
 
+.kdev4/
+*.kdev4
+*~
+*.kate-swp
+.idea/
+build/
+debug/
+release/
+
 
