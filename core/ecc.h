@@ -2,7 +2,6 @@
 
 #include <stdint.h>
 #include <string.h> // memcmp
-//#include "../secp256k1-zkp/include/secp256k1.h"
 
 #ifndef _countof
 #	define _countof(_Array) (sizeof(_Array) / sizeof(_Array[0])) 
@@ -21,14 +20,22 @@ namespace ECC
 		// in Big-Endian representation
 		uint8_t m_pData[nBits_ >> 3];
 
-		constexpr size_t size() const
-		{
-			return sizeof(m_pData);
-		}
+		//constexpr size_t size() const
+		//{
+		//	return sizeof(m_pData);
+		//}
 
 		void SetZero()
 		{
 			memset(m_pData, 0, sizeof(m_pData));
+		}
+
+		bool IsZero() const
+		{
+			for (int i = 0; i < _countof(m_pData); i++)
+				if (m_pData[i])
+					return false;
+			return true;
 		}
 
 		void SetRandom()
@@ -66,22 +73,11 @@ namespace ECC
 		bool operator == (const uintBig_t& x) const { return cmp(x) == 0; }
 	};
 
-	class Context
-	{
-		// secp256k1_context* m_pOpaque;
-		// TODO
-	public:
-
-		Context();
-		~Context();
-
-		static Context& get();
-	};
-
 	static const uint32_t nBits = 256;
 	typedef uintBig_t<nBits> uintBig;
 
 	extern const uintBig g_Prime;
+
 
 	struct Scalar
 	{
@@ -89,33 +85,16 @@ namespace ECC
 
 		bool IsValid() const;
 		void SetRandom();
+
+		class Native;
 	};
-
-	namespace Native
-	{
-		struct Generator {
-			// TODO
-			bool Create(const char* szSeed);
-		};
-
-		struct Point {
-			// TODO
-			void Set(const Generator&);
-			void Set(const Generator&, const uintBig&);
-			void Add(const Point&);
-			void Sub(const Point&);
-		};
-	}
 
 	struct Point
 	{
-		// compressed form, suitable for serialiation and etc.
+		Scalar m_X;
+		bool m_bQuadraticResidue; // analogous to the sign
 
-		uint8_t m_Sign; // only 1st bit (lsb) is considered. Actually specifies if the element is a quadratic residual
-		uintBig m_X;
-
-		void Import(const Native::Point&);
-		void Export(Native::Point&) const;
+		class Native;
 	};
 
 	struct Hash
@@ -123,9 +102,7 @@ namespace ECC
 		typedef uintBig_t<256> Value;
 		Value m_Value;
 
-		Hash();
-
-		void Process(const void*, uint32_t);
+		class Processor;
 	};
 
 	struct RangeProof
