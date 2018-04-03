@@ -4,7 +4,7 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#include "include/secp256k1.h"
+#include "../include/secp256k1.h"
 
 #include "util.h"
 #include "num_impl.h"
@@ -19,11 +19,11 @@
 #include "hash_impl.h"
 
 #ifdef ENABLE_MODULE_GENERATOR
-# include "include/secp256k1_generator.h"
+# include "../include/secp256k1_generator.h"
 #endif
 
 #ifdef ENABLE_MODULE_RANGEPROOF
-# include "include/secp256k1_rangeproof.h"
+# include "../include/secp256k1_rangeproof.h"
 # include "modules/rangeproof/pedersen.h"
 # include "modules/rangeproof/rangeproof.h"
 #endif

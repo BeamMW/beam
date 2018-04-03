@@ -43,7 +43,7 @@ static void secp256k1_fe_normalize_var(secp256k1_fe *r);
 
 /** Verify whether a field element represents zero i.e. would normalize to a zero value. The field
  *  implementation may optionally normalize the input, but this should not be relied upon. */
-static int secp256k1_fe_normalizes_to_zero(secp256k1_fe *r);
+static int secp256k1_fe_normalizes_to_zero(const secp256k1_fe *r);
 
 /** Verify whether a field element represents zero i.e. would normalize to a zero value. The field
  *  implementation may optionally normalize the input, but this should not be relied upon. */
