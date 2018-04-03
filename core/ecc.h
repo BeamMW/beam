@@ -20,10 +20,10 @@ namespace ECC
 		// in Big-Endian representation
 		uint8_t m_pData[nBits_ >> 3];
 
-		//constexpr size_t size() const
-		//{
-		//	return sizeof(m_pData);
-		//}
+		constexpr size_t size() const
+		{
+			return sizeof(m_pData);
+		}
 
 		void SetZero()
 		{
