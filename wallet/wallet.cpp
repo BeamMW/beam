@@ -19,6 +19,10 @@ namespace beam
 
     void Wallet::Receiver::handleConfirmation()
     {
+    }
+
+    void Wallet::sendDummyTransaction()
+    {
         // create dummy transaction here, serealize it and post to the Node TX pool
         Transaction tx;
 

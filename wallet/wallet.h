@@ -22,5 +22,8 @@ namespace beam
             void handleInvitation();
             void handleConfirmation();
         };
+
+        // TODO: remove this, just for test
+        void sendDummyTransaction();
     };
 }

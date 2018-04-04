@@ -108,10 +108,10 @@ namespace beam
 		bool IsValid() const;
 
 		template<typename Buffer>
-		void serializeTo(Buffer& b)
-		{
+		void serializeTo(Buffer& b) {}
 
-		}
+		template<typename Buffer>
+		void deserializeFrom(const Buffer& b) {}
 	};
 
 	struct Block

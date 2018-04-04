@@ -4,6 +4,8 @@ set(NODE_SRC
 )
 
 add_library(node STATIC ${NODE_SRC})
+add_dependencies(node chain pool)
+target_link_libraries(node chain pool)
 
 add_executable(beam beam.cpp)
 

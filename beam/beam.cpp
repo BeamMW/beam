@@ -1,6 +1,7 @@
 #include "core/common.h"
 
 #include "node.h"
+#include "wallet/wallet.h"
 
 #include <iostream>
 #include <boost/program_options.hpp>
@@ -42,6 +43,9 @@ int main(int argc, char* argv[])
         else if (vm.count("wallet")) 
         {
             std::cout << "starting a wallet..." << std::endl;
+
+            beam::Wallet wallet;
+            wallet.sendDummyTransaction();
         }
         else
         {
