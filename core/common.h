@@ -137,7 +137,7 @@ namespace beam
 			static const uint32_t N = 200;
 			static const uint32_t K = 9;
 
-			static const uint32_t nNumIndices		= 1 << K; // 512 
+			static const uint32_t nNumIndices		= 1 << K; // 512
 			static const uint32_t nBitsPerIndex		= N / (K + 1) + 1; // 20. actually tha last index may be wider (equal to max bound), but since indexes are sorted it can be encoded as 0.
 
 			static const uint32_t nSolutionBits		= nNumIndices * nBitsPerIndex;

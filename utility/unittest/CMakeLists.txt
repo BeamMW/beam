@@ -1,0 +1,1 @@
+add_test_snippet(serialize_test utility)
