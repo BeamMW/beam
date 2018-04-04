@@ -5,34 +5,38 @@
 
 namespace po = boost::program_options;
 
-
 int main(int argc, char* argv[])
 {
-    po::options_description desc("Allowed options");
+    po::options_description desc("allowed options");
 
     desc.add_options()
-        ("help", "produce help message")
-        ("compression", po::value<int>(), "set compression level")
+        ("help", "list of all options")
+        ("node", "start Beam node")
+        ("wallet", "start Beam wallet")
     ;
 
-    po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);
-
-    if (vm.count("help")) 
+    try
     {
-        std::cout << desc << "\n";
-        return 1;
+        po::variables_map vm;
+        po::store(po::parse_command_line(argc, argv, desc), vm);
+        po::notify(vm);
+
+        if (vm.count("node")) 
+        {
+            std::cout << "starting as node..." << std::endl;
+        } 
+        else if (vm.count("wallet")) 
+        {
+            std::cout << "starting as wallet..." << std::endl;
+        }
+        else
+        {
+            std::cout << desc << std::endl;
+        }
     }
-
-    if (vm.count("compression")) 
+    catch(const po::error& e)
     {
-        std::cout << "Compression level was set to " 
-            << vm["compression"].as<int>() << ".\n";
-    } 
-    else 
-    {
-        std::cout << "Compression level was not set.\n";
+        std::cout << e.what() << std::endl;
     }
 
     return 0;
