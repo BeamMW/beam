@@ -106,6 +106,12 @@ namespace beam
 		// Does *not* check the existence of the input UTXOs
 		// Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
 		bool IsValid() const;
+
+		template<typename Buffer>
+		void serializeTo(Buffer& b)
+		{
+
+		}
 	};
 
 	struct Block

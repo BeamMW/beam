@@ -31,7 +31,7 @@ int main(int argc, char* argv[])
 
         if (vm.count("node")) 
         {
-            beam::NodeConfig config;
+            beam::Node::Config config;
             config.port = vm["port"].as<int>();
 
             std::cout << "starting a node on " << config.port << " port..." << std::endl;

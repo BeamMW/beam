@@ -4,13 +4,14 @@
 
 namespace beam
 {
-    struct NodeConfig
-    {
-        int port;
-    };
 
     struct Node
     {
-        void listen(const NodeConfig& config);
+        struct Config
+        {
+            int port;
+        };
+
+        void listen(const Config& config);
     };
 }
