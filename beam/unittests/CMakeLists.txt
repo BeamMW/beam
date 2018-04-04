@@ -1,0 +1,1 @@
+add_test_snippet(node_test node)
