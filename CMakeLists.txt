@@ -26,6 +26,7 @@ add_subdirectory(miner)
 add_subdirectory(chain)
 add_subdirectory(pool)
 add_subdirectory(p2p)
+add_subdirectory(utility)
 
 set_target_properties(miner
     PROPERTIES
