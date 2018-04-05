@@ -68,3 +68,4 @@ miner/unittests/equihash_test
 miner/unittests/miner_test
 pool/unittests/pool_test
 utility/unittest/serialize_test
+utility/unittest/serialization_adapters_test
