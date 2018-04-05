@@ -1,1 +1,2 @@
 add_test_snippet(serialize_test utility)
+add_test_snippet(serialization_adapters_test utility)

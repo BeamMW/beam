@@ -1,4 +1,5 @@
 #include "wallet.h"
+#include "core/serialization_adapters.h"
 
 namespace beam
 {
@@ -26,9 +27,11 @@ namespace beam
         // create dummy transaction here, serealize it and post to the Node TX pool
         Transaction tx;
 
-        ByteBuffer buffer;
-        tx.serializeTo(buffer);
+        Serializer ser;
+        ser & tx;
 
-        // and call something like net.post("/pool/push", buffer)
+        auto buffer = ser.buffer();
+
+        // and call something like net.post("/pool/push", buf)
     }
 }
