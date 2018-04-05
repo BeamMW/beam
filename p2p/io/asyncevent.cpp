@@ -25,7 +25,9 @@ AsyncEvent::AsyncEvent(AsyncEvent::Callback&& callback) :
 {}
 
 bool AsyncEvent::trigger() {
-    return (uv_async_send((uv_async_t*)_handle) == 0);
+    // TODO atomics on handle!
+    
+    return (_handle && uv_async_send((uv_async_t*)_handle) == 0);
 
     // TODO log on errors
 }
