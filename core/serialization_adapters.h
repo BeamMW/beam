@@ -1,0 +1,226 @@
+#pragma once
+
+#include "common.h"
+#include "utility/serialize.h"
+
+namespace yas 
+{
+namespace detail 
+{
+    // unique_ptr adapter (copied from serialize_test.cpp)
+    template<std::size_t F, typename T>
+    struct serializer<
+        type_prop::not_a_fundamental,
+        ser_method::use_internal_serializer,
+        F,
+        std::unique_ptr<T>
+    > {
+        template<typename Archive>
+        static Archive& save(Archive& ar, const std::unique_ptr<T>& ptr) {
+            T* t = ptr.get();
+            if (t) {
+                ar & true;
+                ar & *t;
+            } else {
+                ar & false;
+            }
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, std::unique_ptr<T>& ptr) {
+            bool b=false;
+            ar & b;
+            if (b) {
+                ptr.reset(new T());
+                ar & *ptr;
+            } else {
+                ptr.reset();
+            }
+            return ar;
+        }
+    };
+
+    template<std::size_t F, typename T>
+    struct serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, T> 
+    {
+
+        ///////////////////////////////////////////////////////////
+        /// ECC serialization adapters
+        ///////////////////////////////////////////////////////////
+
+        /// ECC::Point serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::Point& point) 
+        {
+            ar 
+                & point.m_X 
+                & point.m_bQuadraticResidue;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::Point& point) 
+        {
+            ar 
+                & point.m_X 
+                & point.m_bQuadraticResidue;
+                
+            return ar;
+        }
+
+        /// ECC::Scalar serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::Scalar& scalar) 
+        {
+            ar & scalar.m_Value.m_pData;
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::Scalar& scalar) 
+        {
+            ar & scalar.m_Value.m_pData;
+            return ar;
+        }
+
+        /// ECC::Signature serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::Signature& val) 
+        {
+            ar 
+                & val.m_NonceX.m_pData
+                & val.m_Value
+            ;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::Signature& val) 
+        {
+            return ar;
+        }
+
+
+        ///////////////////////////////////////////////////////////
+        /// Common Beam serialization adapters
+        ///////////////////////////////////////////////////////////
+
+        /// beam::Input serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const beam::Input& input) 
+        {
+            ar 
+                & input.m_Commitment
+                & input.m_Coinbase
+                & input.m_Height;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::Input& input) 
+        {
+            return ar;
+        }
+
+        /// beam::Output serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const beam::Output& output) 
+        {
+            ar 
+                & output.m_Commitment
+                & output.m_Coinbase
+                & output.m_pCondidential
+                & output.m_pPublic;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::Output& output) 
+        {
+            return ar;
+        }
+
+        /// beam::TxKernel serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const beam::TxKernel& val) 
+        {
+            ar 
+                & val.m_Excess
+                & val.m_Signature
+                & val.m_pFee
+                & val.m_pHeight
+                & val.m_pCustomMsg->m_pData
+                & val.m_pPublicKey
+
+            // !TODO: uncomment this    
+                // & output.m_vNested
+            ;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::TxKernel& val) 
+        {
+            return ar;
+        }
+
+        /// beam::Transaction serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const beam::Transaction& tx) 
+        {
+            ar 
+                & tx.m_vInputs
+                & tx.m_vOutputs
+                & tx.m_vKernels
+                & tx.m_Offset;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::Transaction& tx) 
+        {
+            return ar;
+        }
+
+        /// beam::Output::Condidential serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const beam::Output::Condidential& cond) 
+        {
+            ar & cond.m_RangeProof.m_pOpaque;
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::Output::Condidential& cond) 
+        {
+            ar & cond.m_RangeProof.m_pOpaque;
+            return ar;
+        }
+
+        /// beam::Output::Public serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const beam::Output::Public& val) 
+        {
+            ar 
+                & val.m_Value
+                & val.m_Signature
+            ;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::Output::Public& val) 
+        {
+            return ar;
+        }
+    };
+}
+}

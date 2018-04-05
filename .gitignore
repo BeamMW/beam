@@ -55,3 +55,16 @@ debug/
 release/
 
 
+wallet/unittests/wallet_test
+beam/beam
+beam/unittests/node_test
+bin/address_test
+bin/asyncevent_test
+bin/reactor_test
+bin/tcpserver_test
+bin/timer_test
+chain/unittests/chain_test
+miner/unittests/equihash_test
+miner/unittests/miner_test
+pool/unittests/pool_test
+utility/unittest/serialize_test

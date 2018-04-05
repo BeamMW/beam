@@ -1,4 +1,5 @@
 #include "node.h"
+#include "core/serialization_adapters.h"
 
 namespace beam
 {
@@ -11,6 +12,10 @@ namespace beam
     void Node::handlePoolPush(const ByteBuffer& data)
     {
         Transaction tx;
-        tx.deserializeFrom(data);
+
+        Deserializer des;
+        des.reset(&data[0], data.size());
+
+        des & tx;
     }
 }
