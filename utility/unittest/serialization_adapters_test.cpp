@@ -6,7 +6,7 @@ int main()
     // test for the ECC::Point adapter
     {
         ECC::Point in;
-        in.m_X.m_Value.m_pData[0] = 123;
+        in.m_X.m_pData[0] = 123;
         in.m_bQuadraticResidue = true;
 
         beam::Serializer ser;
@@ -20,7 +20,7 @@ int main()
         ECC::Point out;
         des & out;
 
-        assert(in.m_X.m_Value == out.m_X.m_Value);
+        assert(in.m_X == out.m_X);
         assert(in.m_bQuadraticResidue == out.m_bQuadraticResidue);
     }
 

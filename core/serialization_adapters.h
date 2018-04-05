@@ -70,18 +70,33 @@ namespace detail
             return ar;
         }
 
+        /// ECC::uintBig serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::uintBig& val) 
+        {
+            ar & val.m_pData;
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::uintBig& val) 
+        {
+            ar & val.m_pData;
+            return ar;
+        }
+
         /// ECC::Scalar serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::Scalar& scalar) 
         {
-            ar & scalar.m_Value.m_pData;
+            ar & scalar.m_Value;
             return ar;
         }
 
         template<typename Archive>
         static Archive& load(Archive& ar, ECC::Scalar& scalar) 
         {
-            ar & scalar.m_Value.m_pData;
+            ar & scalar.m_Value;
             return ar;
         }
 
@@ -90,7 +105,7 @@ namespace detail
         static Archive& save(Archive& ar, const ECC::Signature& val) 
         {
             ar 
-                & val.m_NonceX.m_pData
+                & val.m_NonceX
                 & val.m_Value
             ;
 
@@ -100,6 +115,11 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, ECC::Signature& val) 
         {
+            ar 
+                & val.m_NonceX
+                & val.m_Value
+            ;
+
             return ar;
         }
 
@@ -123,6 +143,11 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, beam::Input& input) 
         {
+            ar 
+                & input.m_Commitment
+                & input.m_Coinbase
+                & input.m_Height;
+
             return ar;
         }
 
@@ -142,6 +167,12 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, beam::Output& output) 
         {
+            ar 
+                & output.m_Commitment
+                & output.m_Coinbase
+                & output.m_pCondidential
+                & output.m_pPublic;
+
             return ar;
         }
 
@@ -154,11 +185,9 @@ namespace detail
                 & val.m_Signature
                 & val.m_pFee
                 & val.m_pHeight
-                & val.m_pCustomMsg->m_pData
+                & val.m_pCustomMsg
                 & val.m_pPublicKey
-
-            // !TODO: uncomment this    
-                // & output.m_vNested
+                & val.m_vNested
             ;
 
             return ar;
@@ -167,6 +196,16 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, beam::TxKernel& val) 
         {
+            ar 
+                & val.m_Excess
+                & val.m_Signature
+                & val.m_pFee
+                & val.m_pHeight
+                & val.m_pCustomMsg
+                & val.m_pPublicKey
+                & val.m_vNested
+            ;
+
             return ar;
         }
 
@@ -186,6 +225,12 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, beam::Transaction& tx) 
         {
+            ar 
+                & tx.m_vInputs
+                & tx.m_vOutputs
+                & tx.m_vKernels
+                & tx.m_Offset;
+
             return ar;
         }
 
@@ -219,6 +264,11 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, beam::Output::Public& val) 
         {
+            ar 
+                & val.m_Value
+                & val.m_Signature
+            ;
+
             return ar;
         }
     };
