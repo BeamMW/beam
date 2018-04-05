@@ -67,6 +67,18 @@ namespace ECC {
 		return overflow != 0;
 	}
 
+	void Scalar::Native::ImportFix(uintBig& v)
+	{
+		static_assert(sizeof(v) == sizeof(Scalar), "");
+		while (Import((const Scalar&) v))
+		{
+			// overflow - better to retry (to have uniform distribution)
+			Hash::Processor hp; // NoLeak?
+			hp.Write(v.m_pData, sizeof(v.m_pData));
+			hp.Finalize(v);
+		}
+	}
+
 	void Scalar::Native::Export(Scalar& v) const
 	{
 		secp256k1_scalar_get_b32(v.m_Value.m_pData, this);
@@ -257,6 +269,21 @@ namespace ECC {
 		SetX2(*this);
 	}
 
+	void Point::Native::Mul(const Scalar& k)
+	{
+		Point::Native pt = *this;
+		SetZero();
+
+		for (uint32_t iByte = _countof(k.m_Value.m_pData); iByte--; )
+		{
+			uint8_t n = k.m_Value.m_pData[iByte];
+
+			for (uint32_t iBit = 0; iBit < 8; iBit++, pt.X2())
+				if (1 & (n >> iBit))
+					Add(pt);
+		}
+	}
+
 	/////////////////////
 	// Generator
 	namespace Generator
@@ -412,18 +439,9 @@ namespace ECC {
 			Point::Native pt2 = g;
 			CreatePts(m_pPts, pt2, nLevels);
 
-			Scalar k;
-			HashFromSeedEx(k.m_Value, szSeed, "blind-scalar");
-			while (true)
-			{
-				if (!m_AddScalar.Import(k))
-					break;
-
-				// overflow - better to retry (to have uniform distribution)
-				Hash::Processor hp;
-				hp.Write(k.m_Value.m_pData, sizeof(k.m_Value.m_pData));
-				hp.Finalize(k.m_Value);
-			}
+			Hash::Value hv;
+			HashFromSeedEx(hv, szSeed, "blind-scalar");
+			m_AddScalar.ImportFix(hv);
 
 			Generator::SetMul(pt2, true, m_pPts, nLevels, m_AddScalar); // pt2 = G * blind
 			pt2.Export(m_AddPt);
@@ -431,7 +449,7 @@ namespace ECC {
 			m_AddScalar.Neg();
 		}
 
-		void Obscured::SetMulInternal(Point::Native& res, bool bSet, Scalar::Native& k) const
+		void Obscured::SetMul(Point::Native& res, bool bSet, const Scalar::Native& k) const
 		{
 			if (bSet)
 				res.Import(m_AddPt);
@@ -442,25 +460,138 @@ namespace ECC {
 				res.Add(pt);
 			}
 
-			k.Add(m_AddScalar);
-
-			Generator::SetMul(res, false, m_pPts, nLevels, k);
-		}
-
-		void Obscured::SetMul(Point::Native& res, bool bSet, const Scalar::Native& k) const
-		{
 			NoLeak<Scalar::Native> k2;
-			k2.V = k;
-			SetMulInternal(res, bSet, k2.V);
+			k2.V.SetSum(k, m_AddScalar);
+
+			Generator::SetMul(res, false, m_pPts, nLevels, k2.V);
 		}
 
 		void Obscured::SetMul(Point::Native& res, bool bSet, const Scalar& k) const
 		{
 			NoLeak<Scalar::Native> k2;
 			k2.V.Import(k); // don't care if overflown (still valid operation)
-			SetMulInternal(res, bSet, k2.V);
+			SetMul(res, bSet, k2.V);
 		}
 
 	} // namespace Generator
+
+	/////////////////////
+	// Context
+	Context::Context()
+		:G("G-gen")
+		,H("H-gen")
+	{
+	}
+
+	void Context::Excess(Point::Native& res, const Scalar::Native& k) const
+	{
+		G.SetMul(res, true, k);
+	}
+
+	void Context::Commit(Point::Native& res, const Scalar::Native& k, const Scalar::Native& v) const
+	{
+		Excess(res, k);
+		H.SetMul(res, false, v);
+	}
+
+	void Context::Commit(Point::Native& res, const Scalar::Native& k, const Amount& v, Scalar::Native& vOut) const
+	{
+		vOut.Set(v);
+		Commit(res, k, vOut);
+	}
+
+	void Context::Commit(Point::Native& res, const Scalar::Native& k, const Amount& v) const
+	{
+		NoLeak<Scalar::Native> vOut;
+		Commit(res, k, v, vOut.V);
+	}
+
+	/////////////////////
+	// Oracle
+	void Oracle::Reset()
+	{
+		m_hp.Reset();
+	}
+
+	void Oracle::GetChallenge(Scalar::Native& out)
+	{
+		Hash::Value hv; // not secret
+		m_hp.Finalize(hv);
+		out.ImportFix(hv);
+	}
+
+	void Oracle::Add(const void* p, uint32_t n)
+	{
+		m_hp.Write(p, n);
+	}
+
+	void Oracle::Add(const uintBig& v)
+	{
+		Add(v.m_pData, sizeof(v.m_pData));
+	}
+
+	/////////////////////
+	// Signature
+	void Signature::get_Challenge(Scalar::Native& out, const Hash::Value& msg) const
+	{
+		Oracle oracle;
+		oracle.Add(msg);
+		oracle.Add(m_NonceX);
+		oracle.GetChallenge(out);
+	}
+
+	void Signature::ValFromPt(uintBig& out, const Point::Native& pt)
+	{
+		Point pt2;
+		pt.Export(pt2);
+		out = pt2.m_X;
+	}
+
+	void Signature::Create(const Hash::Value& msg, const Scalar::Native& sk)
+	{
+		NoLeak<Scalar::Native> nonce;
+		{
+			NoLeak<Scalar> s0;
+			s0.V.SetRandom();
+			nonce.V.ImportFix(s0.V.m_Value);
+
+			Point::Native pt; // not secret
+			Context::get().Excess(pt, nonce.V);
+
+			ValFromPt(m_NonceX, pt);
+		}
+
+		Scalar::Native sig;
+		get_Challenge(sig, msg);
+
+		sig.Mul(sk);
+		sig.Add(nonce.V);
+
+		sig.Export(m_Value);
+	}
+
+	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
+	{
+		Scalar::Native sig;
+		sig.Import(m_Value);
+
+		Point::Native pt;
+		Context::get().Excess(pt, sig);
+
+		get_Challenge(sig, msg);
+		Scalar e;
+		sig.Export(e);
+
+		Point::Native pt2 = pk;
+		pt2.Neg();
+		pt2.Mul(e);
+
+		pt.Add(pt2);
+
+		uintBig val;
+		ValFromPt(val, pt);
+
+		return val == m_NonceX;
+	}
 
 } // namespace ECC

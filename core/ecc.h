@@ -155,8 +155,12 @@ namespace ECC
 		uintBig m_NonceX;
 		Scalar m_Value;
 
-		bool IsValid(const Hash::Value& msg);
-		void Create(const Hash::Value& msg);
+		bool IsValid(const Hash::Value& msg, const Point::Native& pk) const;
+		void Create(const Hash::Value& msg, const Scalar::Native& sk);
+
+	private:
+		void get_Challenge(Scalar::Native&, const Hash::Value& msg) const;
+		static void ValFromPt(uintBig&, const Point::Native&);
 	};
 }
 

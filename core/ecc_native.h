@@ -36,6 +36,7 @@ namespace ECC
 		bool IsZero() const;
 
 		bool Import(const Scalar&); // on overflow auto-normalizes and returns true
+		void ImportFix(uintBig&); // on overflow input is mutated (auto-hashed)
 		void Export(Scalar&) const;
 	};
 
@@ -53,6 +54,7 @@ namespace ECC
 		void Neg();
 		void Add(const Native&);
 		void X2();
+		void Mul(const Scalar&); // naive (non-secure) implementation, suitable for casual use (such as signature verification), otherwise should use generators
 
 		bool IsZero() const;
 
@@ -110,8 +112,6 @@ namespace ECC
 			secp256k1_ge_storage m_AddPt;
 			Scalar::Native m_AddScalar;
 
-			void SetMulInternal(Point::Native& res, bool bSet, Scalar::Native& k) const;
-
 		public:
 			Obscured(const char* szSeed);
 
@@ -131,5 +131,29 @@ namespace ECC
 		void Write(const void*, uint32_t);
 		void Finalize(Hash::Value&);
 	};
-}
 
+	struct Context
+	{
+		Context();
+		static const Context& get();
+
+		const Generator::Obscured						G;
+		const Generator::Simple<sizeof(Amount) << 3>	H;
+
+		void Commit(Point::Native& res, const Scalar::Native& k, const Scalar::Native& v) const;
+		void Commit(Point::Native& res, const Scalar::Native&, const Amount&) const;
+		void Commit(Point::Native& res, const Scalar::Native&, const Amount& v, Scalar::Native& vOut) const;
+		void Excess(Point::Native& res, const Scalar::Native&) const;
+	};
+
+	class Oracle
+	{
+		Hash::Processor m_hp;
+	public:
+		void Reset();
+		void GetChallenge(Scalar::Native&);
+
+		void Add(const void*, uint32_t);
+		void Add(const uintBig&);
+	};
+}
