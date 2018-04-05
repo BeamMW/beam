@@ -11,6 +11,39 @@
 namespace ECC
 {
 	void GenerateRandom(void*, uint32_t);
+	void SecureErase(void*, uint32_t);
+/*
+	template <class T>
+	class SecureEraseGuard {
+		T* m_pObj;
+	public:
+		SecureEraseGuard(T* p = NULL) :m_pObj(p) {}
+		SecureEraseGuard(T& t) :m_pObj(&t) {}
+		~SecureEraseGuard() { Erase(); }
+
+		void Erase() {
+			if (m_pObj) {
+				SecureErase(m_pObj, sizeof(T));
+				m_pObj = NULL;
+			}
+		}
+
+		void Detach() { m_pObj = NULL; }
+
+		void Set(T* p) {
+			Erase();
+			m_pObj = p;
+		}
+
+		void Set(T& t) { Set(&t); }
+	};
+*/
+	template <typename T>
+	struct NoLeak
+	{
+		T V;
+		~NoLeak() { SecureErase(&V, sizeof(T)); }
+	};
 
 	template <uint32_t nBits_>
 	struct uintBig_t
@@ -105,12 +138,14 @@ namespace ECC
 		class Processor;
 	};
 
+	typedef uint64_t Amount;
+
 	struct RangeProof
 	{
 		uint8_t m_pOpaque[700]; // TODO
 
-		bool IsValid(const Point&, uint64_t nMinimum = 1) const;
-		void Generate(const Point&, uint64_t nMinimum = 1);
+		bool IsValid(const Point&, const Amount& nMinimum = 1) const;
+		void Generate(const Point&, const Amount& nMinimum = 1);
 	};
 
 	struct Signature
