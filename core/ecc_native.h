@@ -4,6 +4,7 @@
 #define USE_BASIC_CONFIG
 #include "../secp256k1-zkp/src/basic-config.h"
 #include "../secp256k1-zkp/include/secp256k1.h"
+#include "../secp256k1-zkp/src/scalar.h"
 #include "../secp256k1-zkp/src/group.h"
 #include "../secp256k1-zkp/src/hash.h"
 
@@ -12,33 +13,30 @@ namespace ECC
 {
 
 	class Scalar::Native
-		:private secp256k1_fe
+		:private secp256k1_scalar
 	{
-		void PostModify(); // for simplicity we add a "weak normalization" after every modifying operation.
 	public:
-		const secp256k1_fe& get() const { return *this; }
+		const secp256k1_scalar& get() const { return *this; }
 
 		void SetZero();
 		void Set(uint32_t);
+		void Set(uint64_t);
 		void SetNeg(const Native&);
+		void SetSum(const Native& a, const Native& b);
 		void SetMul(const Native& a, const Native& b);
 		void SetSqr(const Native&);
-		bool SetSqrt(const Native&);
 		void SetInv(const Native&); // for 0 the result is also 0
 
 		void Neg();
 		void Add(const Native&); // not efective for big summations, due to excessive normalizations
 		void Mul(const Native&);
-		void Mul(uint32_t);
 		void Sqr();
-		bool Sqrt();
 		void Inv(); // for 0 the result is also 0
 
 		bool IsZero() const;
-		bool IsQuadraticResidue() const; // analogous to positive/negative in some sense
 
-		bool Import(const Scalar&);
-		void Export(Scalar&); // internally normalizes itself, hence non-const.
+		bool Import(const Scalar&); // on overflow auto-normalizes and returns true
+		void Export(Scalar&) const;
 	};
 
 	class Point::Native
@@ -82,7 +80,7 @@ namespace ECC
 		void Create(secp256k1_ge_storage* pPts, Blind&, uint32_t nLevels, const char* szSeed);
 
 		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Blind&, Scalar::Native& k);
-		bool SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Blind&, const Scalar& k);
+		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Blind&, const Scalar& k);
 
 		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Scalar& k);
 

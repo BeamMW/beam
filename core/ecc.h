@@ -109,12 +109,11 @@ namespace ECC
 	static const uint32_t nBits = 256;
 	typedef uintBig_t<nBits> uintBig;
 
-	extern const uintBig g_Prime;
-
-
 	struct Scalar
 	{
-		uintBig m_Value; // valid range is [0 .. g_Prime)
+		static const uintBig s_Order;
+
+		uintBig m_Value; // valid range is [0 .. s_Order)
 
 		bool IsValid() const;
 		void SetRandom();
@@ -124,7 +123,10 @@ namespace ECC
 
 	struct Point
 	{
-		Scalar m_X;
+		static const uintBig s_FieldOrder; // The field order, it's different from the group order (a little bigger).
+
+		uintBig m_X; // valid range is [0 .. s_FieldOrder)
+
 		bool m_bQuadraticResidue; // analogous to the sign
 
 		class Native;

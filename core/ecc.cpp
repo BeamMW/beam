@@ -20,17 +20,16 @@ namespace ECC {
 		memset(p, 0, n);
 	}
 
-	const uintBig g_Prime = { 
-		0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-		0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFE,0xFF,0xFF,0xFC,0x2F
-	};
-
 	/////////////////////
 	// Scalar
+	const uintBig Scalar::s_Order = { // fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
+		0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFE,
+		0xBA,0xAE,0xDC,0xE6,0xAF,0x48,0xA0,0x3B,0xBF,0xD2,0x5E,0x8C,0xD0,0x36,0x41,0x41
+	};
 
 	bool Scalar::IsValid() const
 	{
-		return m_Value < g_Prime;
+		return m_Value < s_Order;
 	}
 
 	void Scalar::SetRandom()
@@ -41,25 +40,19 @@ namespace ECC {
 		while (!IsValid());
 	}
 
-	void Scalar::Native::PostModify()
-	{
-		secp256k1_fe_normalize_weak(this);
-	}
-
 	void Scalar::Native::SetZero()
 	{
-		secp256k1_fe_clear(this);
+		secp256k1_scalar_clear(this);
 	}
 
 	bool Scalar::Native::IsZero() const
 	{
-		return secp256k1_fe_normalizes_to_zero(this) != 0;
+		return secp256k1_scalar_is_zero(this) != 0;
 	}
 
 	void Scalar::Native::SetNeg(const Native& v)
 	{
-		secp256k1_fe_negate(this, &v, 1);
-		PostModify();
+		secp256k1_scalar_negate(this, &v);
 	}
 
 	void Scalar::Native::Neg()
@@ -69,29 +62,39 @@ namespace ECC {
 
 	bool Scalar::Native::Import(const Scalar& v)
 	{
-		return secp256k1_fe_set_b32(this, v.m_Value.m_pData) != 0;
+		int overflow;
+		secp256k1_scalar_set_b32(this, v.m_Value.m_pData, &overflow);
+		return overflow != 0;
 	}
 
-	void Scalar::Native::Export(Scalar& v)
+	void Scalar::Native::Export(Scalar& v) const
 	{
-		secp256k1_fe_normalize(this);
-		secp256k1_fe_get_b32(v.m_Value.m_pData, this);
+		secp256k1_scalar_get_b32(v.m_Value.m_pData, this);
 	}
 
 	void Scalar::Native::Set(uint32_t v)
 	{
-		secp256k1_fe_set_int(this, v);
+		secp256k1_scalar_set_int(this, v);
+	}
+
+	void Scalar::Native::Set(uint64_t v)
+	{
+		secp256k1_scalar_set_u64(this, v);
+	}
+
+	void Scalar::Native::SetSum(const Native& a, const Native& b)
+	{
+		secp256k1_scalar_add(this, &a, &b);
 	}
 
 	void Scalar::Native::Add(const Native& v)
 	{
-		secp256k1_fe_add(this, &v);
-		PostModify();
+		SetSum(*this, v);
 	}
 
 	void Scalar::Native::SetMul(const Native& a, const Native& b)
 	{
-		secp256k1_fe_mul(this, &a, &b);
+		secp256k1_scalar_mul(this, &a, &b);
 	}
 
 	void Scalar::Native::Mul(const Native& v)
@@ -99,15 +102,9 @@ namespace ECC {
 		SetMul(*this, v);
 	}
 
-	void Scalar::Native::Mul(uint32_t v)
-	{
-		secp256k1_fe_mul_int(this, v);
-		PostModify();
-	}
-
 	void Scalar::Native::SetSqr(const Native& v)
 	{
-		secp256k1_fe_sqr(this, &v);
+		secp256k1_scalar_sqr(this, &v);
 	}
 
 	void Scalar::Native::Sqr()
@@ -115,25 +112,9 @@ namespace ECC {
 		SetSqr(*this);
 	}
 
-	bool Scalar::Native::SetSqrt(const Native& v)
-	{
-		assert(this != &v); // inplace isn't allowed. Actually the calculation'd be ok, but the retval will be false
-		return secp256k1_fe_sqrt(this, &v) != 0;
-	}
-
-	bool Scalar::Native::Sqrt()
-	{
-		return SetSqrt(Native(*this));
-	}
-
-	bool Scalar::Native::IsQuadraticResidue() const
-	{
-		return secp256k1_fe_is_quad_var(this) != 0;
-	}
-
 	void Scalar::Native::SetInv(const Native& v)
 	{
-		secp256k1_fe_inv(this, &v);
+		secp256k1_scalar_inverse(this, &v);
 	}
 
 	void Scalar::Native::Inv()
@@ -166,23 +147,23 @@ namespace ECC {
 
 	/////////////////////
 	// Point
+	const uintBig Point::s_FieldOrder = { // fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f
+		0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+		0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFE,0xFF,0xFF,0xFC,0x2F
+	};
 
 	bool Point::Native::ImportInternal(const Point& v)
 	{
-		NoLeak<Scalar::Native> nx;
-		if (!nx.V.Import(v.m_X))
+		NoLeak<secp256k1_fe> nx;
+		if (!secp256k1_fe_set_b32(&nx.V, v.m_X.m_pData))
 			return false;
 
 		NoLeak<secp256k1_ge> ge;
-		if (!secp256k1_ge_set_xquad(&ge.V, &nx.V.get()))
+		if (!secp256k1_ge_set_xquad(&ge.V, &nx.V))
 			return false;
 
 		if (!v.m_bQuadraticResidue)
-		{
-			static_assert(sizeof(ge.V.y) == sizeof(Scalar::Native), "");
-			Scalar::Native& ny = (Scalar::Native&) ge.V.y;
-			ny.Neg();
-		}
+			secp256k1_fe_negate(&ge.V.y, &ge.V.y, 1);
 
 		secp256k1_gej_set_ge(this, &ge.V);
 
@@ -211,9 +192,7 @@ namespace ECC {
 		NoLeak<secp256k1_ge> ge;
 		secp256k1_ge_set_gej(&ge.V, &dup.V);
 
-		Scalar::Native& nx = (Scalar::Native&) ge.V.x;
-		nx.Export(v.m_X);
-
+		secp256k1_fe_get_b32(v.m_X.m_pData, &ge.V.x);
 		v.m_bQuadraticResidue = (secp256k1_gej_has_quad_y_var(this) != 0);
 
 		return true;
@@ -285,7 +264,7 @@ namespace ECC {
 		void CreatePointUntilSucceed(Point::Native& out, const uintBig& x)
 		{
 			Point pt;
-			pt.m_X.m_Value = x;
+			pt.m_X = x;
 			pt.m_bQuadraticResidue = false;
 
 			while (true)
@@ -294,11 +273,11 @@ namespace ECC {
 					break;
 
 				Hash::Processor hp;
-				hp.Write(pt.m_X.m_Value.m_pData, sizeof(pt.m_X.m_Value));
+				hp.Write(pt.m_X.m_pData, sizeof(pt.m_X));
 
 				static const char sz[] = "point-gen-retry";
 				hp.Write(sz, sizeof(sz)-1);
-				hp.Finalize(pt.m_X.m_Value);
+				hp.Finalize(pt.m_X);
 			}
 		}
 
@@ -416,9 +395,10 @@ namespace ECC {
 			HashFromSeedEx(k.m_Value, szSeed, "blind-scalar");
 			while (true)
 			{
-				if (blind.m_AddScalar.Import(k))
+				if (!blind.m_AddScalar.Import(k))
 					break;
 
+				// overflow - retry
 				Hash::Processor hp;
 				hp.Write(k.m_Value.m_pData, sizeof(k.m_Value.m_pData));
 				hp.Finalize(k.m_Value);
@@ -458,14 +438,11 @@ namespace ECC {
 			SetMul(res, /*false*/bSet, pPts, nLevels, k2.V);
 		}
 
-		bool SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Blind& blind, const Scalar& k)
+		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Blind& blind, const Scalar& k)
 		{
 			NoLeak<Scalar::Native> k2;
-			if (!k2.V.Import(k))
-				return false;
-
+			k2.V.Import(k);
 			SetMul(res, bSet, pPts, nLevels, blind, k2.V);
-			return true;
 		}
 
 
