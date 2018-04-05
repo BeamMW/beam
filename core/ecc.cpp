@@ -375,6 +375,13 @@ namespace ECC {
 			}
 		}
 
+		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Scalar::Native& k)
+		{
+			NoLeak<Scalar> k2;
+			k.Export(k2.V);
+			SetMul(res, bSet, pPts, nLevels, k2.V);
+		}
+
 		void HashFromSeedEx(Hash::Value& out, const char* szSeed, const char* szSeed2)
 		{
 			Hash::Processor hp;
@@ -383,68 +390,76 @@ namespace ECC {
 			hp.Finalize(out);
 		}
 
-		void Create(secp256k1_ge_storage* pPts, Blind& blind, uint32_t nLevels, const char* szSeed)
+		void GetPointFromSeed(const char* szSeed, Point::Native& g)
 		{
-			Point::Native g;
-
 			Hash::Value hv;
 			HashFromSeedEx(hv, szSeed, "generator");
 			CreatePointUntilSucceed(g, hv);
+		}
+
+		void GeneratePts(const char* szSeed, secp256k1_ge_storage* pPts, uint32_t nLevels)
+		{
+			Point::Native g;
+			GetPointFromSeed(szSeed, g);
+			CreatePts(pPts, g, nLevels);
+		}
+
+		Obscured::Obscured(const char* szSeed)
+		{
+			Point::Native g;
+			GetPointFromSeed(szSeed, g);
+
+			Point::Native pt2 = g;
+			CreatePts(m_pPts, pt2, nLevels);
 
 			Scalar k;
 			HashFromSeedEx(k.m_Value, szSeed, "blind-scalar");
 			while (true)
 			{
-				if (!blind.m_AddScalar.Import(k))
+				if (!m_AddScalar.Import(k))
 					break;
 
-				// overflow - retry
+				// overflow - better to retry (to have uniform distribution)
 				Hash::Processor hp;
 				hp.Write(k.m_Value.m_pData, sizeof(k.m_Value.m_pData));
 				hp.Finalize(k.m_Value);
 			}
 
-			// multiply the g by the blind.m_AddScalar
-			const uint32_t nLevelsMax = nBits / nBitsPerLevel;
-			secp256k1_ge_storage pPts2[nLevelsMax * nPointsPerLevel];
+			Generator::SetMul(pt2, true, m_pPts, nLevels, m_AddScalar); // pt2 = G * blind
+			pt2.Export(m_AddPt);
 
-			Point::Native ptBlind = g;
-			CreatePts(pPts2, ptBlind, nLevelsMax);
-
-			SetMul(ptBlind, true, pPts2, nLevelsMax, k);
-
-			ptBlind.Export(blind.m_AddPt);
-			blind.m_AddScalar.Neg();
-
-			CreatePts(pPts, g, nLevels); // finally
+			m_AddScalar.Neg();
 		}
 
-		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Blind& blind, Scalar::Native& k)
+		void Obscured::SetMulInternal(Point::Native& res, bool bSet, Scalar::Native& k) const
 		{
-/*			if (bSet)
-				res.Import(blind.m_AddPt);
+			if (bSet)
+				res.Import(m_AddPt);
 			else
 			{
 				Point::Native pt;
-				pt.Import(blind.m_AddPt);
+				pt.Import(m_AddPt);
 				res.Add(pt);
 			}
 
-			k.Add(blind.m_AddScalar);
-*/
-			NoLeak<Scalar> k2;
-			k.Export(k2.V);
+			k.Add(m_AddScalar);
 
-			SetMul(res, /*false*/bSet, pPts, nLevels, k2.V);
+			Generator::SetMul(res, false, m_pPts, nLevels, k);
 		}
 
-		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Blind& blind, const Scalar& k)
+		void Obscured::SetMul(Point::Native& res, bool bSet, const Scalar::Native& k) const
 		{
 			NoLeak<Scalar::Native> k2;
-			k2.V.Import(k);
-			SetMul(res, bSet, pPts, nLevels, blind, k2.V);
+			k2.V = k;
+			SetMulInternal(res, bSet, k2.V);
 		}
 
+		void Obscured::SetMul(Point::Native& res, bool bSet, const Scalar& k) const
+		{
+			NoLeak<Scalar::Native> k2;
+			k2.V.Import(k); // don't care if overflown (still valid operation)
+			SetMulInternal(res, bSet, k2.V);
+		}
 
 	} // namespace Generator
 

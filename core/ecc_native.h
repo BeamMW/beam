@@ -72,45 +72,52 @@ namespace ECC
 		static const uint32_t nBitsPerLevel = 4;
 		static const uint32_t nPointsPerLevel = 1 << nBitsPerLevel; // 16
 
-		struct Blind {
-			secp256k1_ge_storage m_AddPt;
-			Scalar::Native m_AddScalar;
-		};
-
-		void Create(secp256k1_ge_storage* pPts, Blind&, uint32_t nLevels, const char* szSeed);
-
-		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Blind&, Scalar::Native& k);
-		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Blind&, const Scalar& k);
-
-		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Scalar& k);
-
 		template <uint32_t nBits_>
-		class Instance
+		class Base
 		{
+		protected:
 			static const uint32_t nLevels = nBits_ / nBitsPerLevel;
 			static_assert(nLevels * nBitsPerLevel == nBits_, "");
 
-			Blind m_Blind;
 			secp256k1_ge_storage m_pPts[nLevels * nPointsPerLevel];
+		};
 
+		void GeneratePts(const char* szSeed, secp256k1_ge_storage* pPts, uint32_t nLevels);
+		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Scalar&);
+		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Scalar::Native&);
+
+		template <uint32_t nBits_>
+		class Simple
+			:public Base<nBits_>
+		{
 		public:
-			Instance(const char* szSeed) { Create(m_pPts, m_Blind, nLevels, szSeed); }
-			// Generators are not secret
+			Simple(const char* szSeed) { GeneratePts(szSeed, m_pPts, nLevels); }
 
 			void SetMul(Point::Native& res, bool bSet, const Scalar::Native& k) const
 			{
-				NoLeak<Scalar::Native> k2;
-				k2.V = k;
-				Generator::SetMul(res, bSet, m_pPts, nLevels, m_Blind, k2.V);
+				Generator::SetMul(res, bSet, m_pPts, nLevels, k);
 			}
 
-			bool SetMul(Point::Native& res, bool bSet, const Scalar& k) const
+			void SetMul(Point::Native& res, bool bSet, const Scalar& k) const
 			{
-				//return Generator::SetMul(res, bSet, m_pPts, nLevels, m_Blind, k);
-				Generator::SetMul(res, bSet, m_pPts, nLevels, k); return true;
+				Generator::SetMul(res, bSet, m_pPts, nLevels, k);
 			}
 		};
 
+		class Obscured
+			:public Base<nBits>
+		{
+			secp256k1_ge_storage m_AddPt;
+			Scalar::Native m_AddScalar;
+
+			void SetMulInternal(Point::Native& res, bool bSet, Scalar::Native& k) const;
+
+		public:
+			Obscured(const char* szSeed);
+
+			void SetMul(Point::Native& res, bool bSet, const Scalar::Native& k) const;
+			void SetMul(Point::Native& res, bool bSet, const Scalar& k) const;
+		};
 
 	} // namespace Generator
 
