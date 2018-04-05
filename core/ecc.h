@@ -152,15 +152,14 @@ namespace ECC
 
 	struct Signature
 	{
-		uintBig m_NonceX;
-		Scalar m_Value;
+		Scalar m_e;
+		Scalar m_k;
 
 		bool IsValid(const Hash::Value& msg, const Point::Native& pk) const;
 		void Create(const Hash::Value& msg, const Scalar::Native& sk);
 
 	private:
-		void get_Challenge(Scalar::Native&, const Hash::Value& msg) const;
-		static void ValFromPt(uintBig&, const Point::Native&);
+		static void get_Challenge(Scalar::Native&, const Point::Native&, const Hash::Value& msg);
 	};
 }
 

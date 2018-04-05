@@ -532,24 +532,24 @@ namespace ECC {
 
 	/////////////////////
 	// Signature
-	void Signature::get_Challenge(Scalar::Native& out, const Hash::Value& msg) const
+	void Signature::get_Challenge(Scalar::Native& out, const Point::Native& pt, const Hash::Value& msg)
 	{
-		Oracle oracle;
-		oracle.Add(msg);
-		oracle.Add(m_NonceX);
-		oracle.GetChallenge(out);
-	}
-
-	void Signature::ValFromPt(uintBig& out, const Point::Native& pt)
-	{
-		Point pt2;
+		Point pt2; // not secret
 		pt.Export(pt2);
-		out = pt2.m_X;
+		uint8_t nFlag = pt2.m_bQuadraticResidue ? 1 : 0;
+
+		Oracle oracle;
+		oracle.Add(pt2.m_X);
+		oracle.Add(&nFlag, sizeof(nFlag));
+		oracle.Add(msg);
+
+		oracle.GetChallenge(out);
 	}
 
 	void Signature::Create(const Hash::Value& msg, const Scalar::Native& sk)
 	{
 		NoLeak<Scalar::Native> nonce;
+		NoLeak<Scalar::Native> e;
 		{
 			NoLeak<Scalar> s0;
 			s0.V.SetRandom();
@@ -558,40 +558,36 @@ namespace ECC {
 			Point::Native pt; // not secret
 			Context::get().Excess(pt, nonce.V);
 
-			ValFromPt(m_NonceX, pt);
+			get_Challenge(e.V, pt, msg);
 		}
 
-		Scalar::Native sig;
-		get_Challenge(sig, msg);
+		e.V.Export(m_e);
 
-		sig.Mul(sk);
-		sig.Add(nonce.V);
+		e.V.Mul(sk);
+		e.V.Neg();
+		e.V.Add(nonce.V);
 
-		sig.Export(m_Value);
+		e.V.Export(m_k);
 	}
 
 	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
 	{
 		Scalar::Native sig;
-		sig.Import(m_Value);
+		sig.Import(m_k);
 
-		Point::Native pt;
+		Point::Native pt, pt2;
 		Context::get().Excess(pt, sig);
 
-		get_Challenge(sig, msg);
-		Scalar e;
-		sig.Export(e);
-
-		Point::Native pt2 = pk;
-		pt2.Neg();
-		pt2.Mul(e);
+		pt2 = pk;
+		pt2.Mul(m_e);
 
 		pt.Add(pt2);
 
-		uintBig val;
-		ValFromPt(val, pt);
+		get_Challenge(sig, pt, msg);
+		Scalar e;
+		sig.Export(e);
 
-		return val == m_NonceX;
+		return e.m_Value == m_e.m_Value;
 	}
 
 } // namespace ECC
