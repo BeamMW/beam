@@ -4,7 +4,7 @@
 #include <string.h> // memcmp
 
 #ifndef _countof
-#	define _countof(_Array) (sizeof(_Array) / sizeof(_Array[0])) 
+#	define _countof(_Array) (sizeof(_Array) / sizeof(_Array[0]))
 #endif // _countof
 
 
