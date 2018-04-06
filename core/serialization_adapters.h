@@ -105,8 +105,8 @@ namespace detail
         static Archive& save(Archive& ar, const ECC::Signature& val) 
         {
             ar 
-                & val.m_NonceX
-                & val.m_Value
+                & val.m_e
+                & val.m_k
             ;
 
             return ar;
@@ -116,8 +116,8 @@ namespace detail
         static Archive& load(Archive& ar, ECC::Signature& val) 
         {
             ar 
-                & val.m_NonceX
-                & val.m_Value
+                & val.m_e
+                & val.m_k
             ;
 
             return ar;
