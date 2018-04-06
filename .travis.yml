@@ -7,10 +7,10 @@ script:
 
 matrix:
   include:
-    # - os: osx
-    #   osx_image: xcode9.3beta
-    #   before_install:
-    #     - eval "brew update && brew cask uninstall --force oclint && brew install gcc@7 && CC=gcc-7 && CXX=g++-7"
+    - os: osx
+      osx_image: xcode9.3beta
+      before_install:
+        - eval "brew update && brew cask uninstall --force oclint && brew install gcc@7 && CC=gcc-7 && CXX=g++-7 && brew install boost"
 
     - os: linux
       addons:
