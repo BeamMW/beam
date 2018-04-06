@@ -41,6 +41,8 @@
 #include <yas/detail/io/endian_conv.hpp>
 #include <yas/detail/type_traits/type_traits.hpp>
 
+#include <algorithm>
+
 namespace yas {
 namespace detail {
 

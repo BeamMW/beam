@@ -43,7 +43,6 @@
 
 #include <cstdint>
 #include <type_traits>
-#include <algorithm>
 
 namespace yas {
 namespace detail {
