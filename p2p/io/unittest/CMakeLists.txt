@@ -9,5 +9,6 @@ add_snippet(asyncevent_test)
 add_snippet(tcpserver_test)
 add_snippet(timer_test)
 add_snippet(address_test)
+add_snippet(channel_test)
 
 # ~ etc

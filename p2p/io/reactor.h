@@ -1,5 +1,9 @@
 #pragma once
-#include "libuv/include/uv.h"
+#ifdef UV_INTERNAL
+    #include "libuv/include/uv.h"
+#else
+    #include <uv.h>
+#endif
 #include "mempool.h"
 #include "config.h"
 #include "address.h"
