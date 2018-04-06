@@ -37,6 +37,8 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
         ${UV_SRC_DIR}/win/util.c
         ${UV_SRC_DIR}/win/winapi.c
         ${UV_SRC_DIR}/win/winsock.c)
+        
+        set(UV_LDFLAGS advapi32 iphlpapi psapi userenv shell32 ws2_32)
 else()
     set(UV_FLAGS -Wall -Wextra -Wno-unused-parameter -pedantic -march=native)
 
@@ -48,6 +50,8 @@ else()
     
     set(UV_LDFLAGS dl)
 
+    set(UV_COMPILE_DEFS _LARGEFILE_SOURCE _FILE_OFFSET_BITS=64)
+    
     set(UV_INCLUDE_DIRS ${UV_INCLUDE_DIRS} ${UV_SRC_DIR} ${UV_SRC_DIR}/unix)
     set(UV_SOURCES ${UV_SOURCES}
         ${UV_SRC_DIR}/unix/async.c
@@ -70,7 +74,7 @@ else()
         ${UV_SRC_DIR}/unix/udp.c
         ${UV_SRC_DIR}/unix/proctitle.c)
     if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-        set(UV_COMPILE_DEFS _GNU_SOURCE _LARGEFILE_SOURCE _FILE_OFFSET_BITS=64)
+        set(UV_COMPILE_DEFS ${UV_COMPILE_DEFS} _GNU_SOURCE)
         set(UV_SOURCES ${UV_SOURCES}
             ${UV_SRC_DIR}/unix/linux-core.c
             ${UV_SRC_DIR}/unix/linux-inotify.c
@@ -80,7 +84,7 @@ else()
             ${UV_SRC_DIR}/unix/sysinfo-loadavg.c
             ${UV_SRC_DIR}/unix/sysinfo-memory.c)
     elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-        set(UV_COMPILE_DEFS _DARWIN_USE_64_BIT_INODE=1 _DARWIN_UNLIMITED_SELECT=1)
+        set(UV_COMPILE_DEFS ${UV_COMPILE_DEFS} _DARWIN_USE_64_BIT_INODE=1 _DARWIN_UNLIMITED_SELECT=1)
         set(UV_SOURCES ${UV_SOURCES}
             ${UV_SRC_DIR}/unix/darwin.c
             ${UV_SRC_DIR}/unix/darwin-proctitle.c
@@ -90,10 +94,8 @@ else()
     endif()
 endif()
 
-
-
-add_library(uv STATIC ${UV_SOURCES})
-target_compile_definitions(uv PRIVATE ${UV_COMPILE_DEFS})
-target_include_directories(uv PRIVATE ${UV_INCLUDE_DIRS})
-target_compile_options(uv PRIVATE ${UV_FLAGS})
-target_link_libraries(uv PRIVATE ${UV_LDFLAGS})
+add_library(uvinternal STATIC ${UV_SOURCES})
+target_compile_definitions(uvinternal PRIVATE ${UV_COMPILE_DEFS})
+target_include_directories(uvinternal PRIVATE ${UV_INCLUDE_DIRS})
+target_compile_options(uvinternal PRIVATE ${UV_FLAGS})
+target_link_libraries(uvinternal PRIVATE ${UV_LDFLAGS})

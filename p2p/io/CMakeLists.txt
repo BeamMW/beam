@@ -9,10 +9,18 @@ set(IO_SRC
 # ~etc
 )
 
-include(libuv.cmake)
+if(UV_INTERNAL)
+    include(libuv.cmake)
+    add_definitions(-DUV_INTERNAL)
+endif()
 
 add_library(io STATIC ${IO_SRC})
-add_dependencies(io uv)
-target_link_libraries(io uv)
+if (UV_INTERNAL)
+    add_dependencies(io uvinternal)
+    target_link_libraries(io uvinternal)
+else()
+    target_link_libraries(io uv)
+endif()
+
 
 add_subdirectory(unittest)
