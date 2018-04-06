@@ -36,7 +36,7 @@
 #ifndef __yas__types__std__std_optional_serializers_hpp
 #define __yas__types__std__std_optional_serializers_hpp
 
-#if __cplusplus >= 201703L && !defined(APPLE) // Apple Clang doesn't have <optional> :(
+#if __cplusplus >= 201703L
 
 #include <yas/detail/type_traits/type_traits.hpp>
 #include <yas/detail/type_traits/serializer.hpp>
