@@ -156,6 +156,10 @@ namespace ECC {
 		secp256k1_sha256_finalize(this, v.m_pData);
 	}
 
+	void Hash::Processor::Write(const char* sz)
+	{
+		Write(sz, strlen(sz));
+	}
 
 	/////////////////////
 	// Point
@@ -269,10 +273,9 @@ namespace ECC {
 		SetX2(*this);
 	}
 
-	void Point::Native::Mul(const Scalar& k)
+	void Point::Native::AddMul(const Native& v, const Scalar& k)
 	{
-		Point::Native pt = *this;
-		SetZero();
+		Point::Native pt = v;
 
 		for (uint32_t iByte = _countof(k.m_Value.m_pData); iByte--; )
 		{
@@ -288,39 +291,30 @@ namespace ECC {
 	// Generator
 	namespace Generator
 	{
-		void CreatePointUntilSucceed(Point::Native& out, const uintBig& x)
+		bool CreatePointNnz(Point::Native& out, const uintBig& x)
 		{
 			Point pt;
 			pt.m_X = x;
 			pt.m_bQuadraticResidue = false;
 
-			while (true)
-			{
-				if (out.Import(pt) && !out.IsZero())
-					break;
-
-				Hash::Processor hp;
-				hp.Write(pt.m_X.m_pData, sizeof(pt.m_X));
-
-				static const char sz[] = "point-gen-retry";
-				hp.Write(sz, sizeof(sz)-1);
-				hp.Finalize(pt.m_X);
-			}
+			return out.Import(pt) && !out.IsZero();
 		}
 
-		void GetNums(Point::Native& nums)
+		bool CreatePointNnz(Point::Native& out, Hash::Processor& hp)
 		{
-			static const char sz[] = "The scalar for this x is unknown";
-			static_assert(sizeof(sz) == sizeof(uintBig) + 1, "");
-
-			CreatePointUntilSucceed(nums, (const uintBig&) sz);
+			Hash::Value hv;
+			hp.Finalize(hv);
+			return CreatePointNnz(out, hv);
 		}
 
-		void CreatePts(secp256k1_ge_storage* pPts, Point::Native& gpos, uint32_t nLevels)
+		bool CreatePts(secp256k1_ge_storage* pPts, Point::Native& gpos, uint32_t nLevels, Hash::Processor& hp)
 		{
 			Point::Native nums, npos, pt;
 
-			GetNums(nums);
+			hp.Write("nums");
+			if (!CreatePointNnz(nums, hp))
+				return false;
+
 			nums.Add(gpos);
 
 			npos = nums;
@@ -331,6 +325,9 @@ namespace ECC {
 
 				for (uint32_t iPt = 1; ; iPt++)
 				{
+					if (pt.IsZero())
+						return false;
+
 					pt.Export(*pPts++);
 
 					if (iPt == nPointsPerLevel)
@@ -351,8 +348,9 @@ namespace ECC {
 					npos.Neg();
 					npos.Add(nums);
 				}
-
 			}
+
+			return true;
 		}
 
 		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Scalar& k)
@@ -409,44 +407,58 @@ namespace ECC {
 			SetMul(res, bSet, pPts, nLevels, k2.V);
 		}
 
-		void HashFromSeedEx(Hash::Value& out, const char* szSeed, const char* szSeed2)
+		void InitSeedIteration(Hash::Processor& hp, const char* szSeed, uint32_t n)
 		{
-			Hash::Processor hp;
-			hp.Write(szSeed, strlen(szSeed));
-			hp.Write(szSeed2, strlen(szSeed2));
-			hp.Finalize(out);
-		}
+			hp.Write(szSeed);
 
-		void GetPointFromSeed(const char* szSeed, Point::Native& g)
-		{
-			Hash::Value hv;
-			HashFromSeedEx(hv, szSeed, "generator");
-			CreatePointUntilSucceed(g, hv);
+			for (uint8_t x; n; n >>= 8)
+				hp.Write(&(x = uint8_t(n)), sizeof(x));
 		}
 
 		void GeneratePts(const char* szSeed, secp256k1_ge_storage* pPts, uint32_t nLevels)
 		{
-			Point::Native g;
-			GetPointFromSeed(szSeed, g);
-			CreatePts(pPts, g, nLevels);
+			for (uint32_t nCounter = 0; ; nCounter++)
+			{
+				Hash::Processor hp;
+				InitSeedIteration(hp, szSeed, nCounter);
+
+				Point::Native g;
+				if (!CreatePointNnz(g, hp))
+					continue;
+
+				if (CreatePts(pPts, g, nLevels, hp))
+					break;
+			}
 		}
 
 		Obscured::Obscured(const char* szSeed)
 		{
-			Point::Native g;
-			GetPointFromSeed(szSeed, g);
+			for (uint32_t nCounter = 0; ; nCounter++)
+			{
+				Hash::Processor hp;
+				InitSeedIteration(hp, szSeed, nCounter);
 
-			Point::Native pt2 = g;
-			CreatePts(m_pPts, pt2, nLevels);
+				Point::Native g;
+				if (!CreatePointNnz(g, hp))
+					continue;
 
-			Hash::Value hv;
-			HashFromSeedEx(hv, szSeed, "blind-scalar");
-			m_AddScalar.ImportFix(hv);
+				Point::Native pt2 = g;
+				if (!CreatePts(m_pPts, pt2, nLevels, hp))
+					continue;
 
-			Generator::SetMul(pt2, true, m_pPts, nLevels, m_AddScalar); // pt2 = G * blind
-			pt2.Export(m_AddPt);
+				hp.Write("blind-scalar");
+				Scalar s0;
+				hp.Finalize(s0.m_Value);
+				if (m_AddScalar.Import(s0))
+					continue;
 
-			m_AddScalar.Neg();
+				Generator::SetMul(pt2, true, m_pPts, nLevels, m_AddScalar); // pt2 = G * blind
+				pt2.Export(m_AddPt);
+
+				m_AddScalar.Neg();
+
+				break;
+			}
 		}
 
 		void Obscured::SetMul(Point::Native& res, bool bSet, const Scalar::Native& k) const
@@ -551,9 +563,12 @@ namespace ECC {
 		NoLeak<Scalar::Native> nonce;
 		NoLeak<Scalar::Native> e;
 		{
-			NoLeak<Scalar> s0;
-			s0.V.SetRandom();
-			nonce.V.ImportFix(s0.V.m_Value);
+			NoLeak<Scalar> s0, sk_;
+			sk.Export(sk_.V);
+
+			for (uint32_t nAttempt = 0; ; nAttempt++)
+				if (secp256k1_nonce_function_default(s0.V.m_Value.m_pData, msg.m_pData, sk_.V.m_Value.m_pData, NULL, NULL, nAttempt) && !nonce.V.Import(s0.V))
+					break;
 
 			Point::Native pt; // not secret
 			Context::get().Excess(pt, nonce.V);
@@ -575,13 +590,10 @@ namespace ECC {
 		Scalar::Native sig;
 		sig.Import(m_k);
 
-		Point::Native pt, pt2;
+		Point::Native pt;
 		Context::get().Excess(pt, sig);
 
-		pt2 = pk;
-		pt2.Mul(m_e);
-
-		pt.Add(pt2);
+		pt.AddMul(pk, m_e);
 
 		get_Challenge(sig, pt, msg);
 		Scalar e;

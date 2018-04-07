@@ -53,8 +53,8 @@ namespace ECC
 
 		void Neg();
 		void Add(const Native&);
+		void AddMul(const Native&, const Scalar&); // naive (non-secure) implementation, suitable for casual use (such as signature verification), otherwise should use generators
 		void X2();
-		void Mul(const Scalar&); // naive (non-secure) implementation, suitable for casual use (such as signature verification), otherwise should use generators
 
 		bool IsZero() const;
 
@@ -129,6 +129,7 @@ namespace ECC
 
 		void Reset();
 		void Write(const void*, uint32_t);
+		void Write(const char*);
 		void Finalize(Hash::Value&);
 	};
 
