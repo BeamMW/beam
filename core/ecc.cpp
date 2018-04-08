@@ -396,8 +396,15 @@ namespace ECC {
 			NoLeak<Point::Native> np;
 			NoLeak<secp256k1_ge_storage> ge;
 
+			uint32_t n0 = _countof(k.m_Value.m_pData) - nLevels / nLevelsPerByte;
+
+#ifdef _DEBUG
+			for (uint32_t i = 0; i < n0; i++)
+				assert(!k.m_Value.m_pData[i]);
+#endif // _DEBUG
+
 			// iterating in lsb to msb order
-			for (uint32_t iByte = nLevels / nLevelsPerByte; iByte--; )
+			for (uint32_t iByte = _countof(k.m_Value.m_pData); iByte-- > n0; )
 			{
 				uint8_t n = k.m_Value.m_pData[iByte];
 
