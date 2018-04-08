@@ -130,6 +130,21 @@ namespace ECC
 		void Reset();
 		void Write(const void*, uint32_t);
 		void Write(const char*);
+		void Write(bool);
+		void Write(uint8_t);
+		void Write(const uintBig&);
+		void Write(const Scalar&);
+		void Write(const Point&);
+		void Write(const Point::Native&);
+
+		template <typename T>
+		void WriteOrd(T v)
+		{
+			static_assert(T(-1) > 0, "must be unsigned");
+			for (; v; v >>= 8)
+				Write((uint8_t) v);
+		}
+
 		void Finalize(Hash::Value&);
 	};
 
@@ -155,6 +170,8 @@ namespace ECC
 		void GetChallenge(Scalar::Native&);
 
 		void Add(const void*, uint32_t);
-		void Add(const uintBig&);
+
+		template <typename T>
+		void Add(const T& t) { m_hp.Write(t); }
 	};
 }

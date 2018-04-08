@@ -74,7 +74,7 @@ namespace ECC {
 		{
 			// overflow - better to retry (to have uniform distribution)
 			Hash::Processor hp; // NoLeak?
-			hp.Write(v.m_pData, sizeof(v.m_pData));
+			hp.Write(v);
 			hp.Finalize(v);
 		}
 	}
@@ -159,6 +159,40 @@ namespace ECC {
 	void Hash::Processor::Write(const char* sz)
 	{
 		Write(sz, strlen(sz));
+	}
+
+	void Hash::Processor::Write(bool b)
+	{
+		uint8_t n = (false != b);
+		Write(n);
+	}
+
+	void Hash::Processor::Write(uint8_t n)
+	{
+		Write(&n, sizeof(n));
+	}
+
+	void Hash::Processor::Write(const uintBig& v)
+	{
+		Write(v.m_pData, sizeof(v.m_pData));
+	}
+
+	void Hash::Processor::Write(const Scalar& v)
+	{
+		Write(v.m_Value);
+	}
+
+	void Hash::Processor::Write(const Point& v)
+	{
+		Write(v.m_X);
+		Write(v.m_bQuadraticResidue);
+	}
+
+	void Hash::Processor::Write(const Point::Native& v)
+	{
+		Point pt;
+		v.Export(pt);
+		Write(pt);
 	}
 
 	/////////////////////
@@ -410,9 +444,7 @@ namespace ECC {
 		void InitSeedIteration(Hash::Processor& hp, const char* szSeed, uint32_t n)
 		{
 			hp.Write(szSeed);
-
-			for (uint8_t x; n; n >>= 8)
-				hp.Write(&(x = uint8_t(n)), sizeof(x));
+			hp.WriteOrd(n);
 		}
 
 		void GeneratePts(const char* szSeed, secp256k1_ge_storage* pPts, uint32_t nLevels)
@@ -537,22 +569,12 @@ namespace ECC {
 		m_hp.Write(p, n);
 	}
 
-	void Oracle::Add(const uintBig& v)
-	{
-		Add(v.m_pData, sizeof(v.m_pData));
-	}
-
 	/////////////////////
 	// Signature
 	void Signature::get_Challenge(Scalar::Native& out, const Point::Native& pt, const Hash::Value& msg)
 	{
-		Point pt2; // not secret
-		pt.Export(pt2);
-		uint8_t nFlag = pt2.m_bQuadraticResidue ? 1 : 0;
-
 		Oracle oracle;
-		oracle.Add(pt2.m_X);
-		oracle.Add(&nFlag, sizeof(nFlag));
+		oracle.Add(pt);
 		oracle.Add(msg);
 
 		oracle.GetChallenge(out);
