@@ -601,31 +601,37 @@ namespace ECC {
 		oracle.GetChallenge(out);
 	}
 
-	void Signature::Create(const Hash::Value& msg, const Scalar::Native& sk)
+	void Signature::MultiSig::GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk)
 	{
-		NoLeak<Scalar::Native> nonce;
-		NoLeak<Scalar::Native> e;
-		{
-			NoLeak<Scalar> s0, sk_;
-			sk.Export(sk_.V);
+		NoLeak<Scalar> s0, sk_;
+		sk.Export(sk_.V);
 
-			for (uint32_t nAttempt = 0; ; nAttempt++)
-				if (secp256k1_nonce_function_default(s0.V.m_Value.m_pData, msg.m_pData, sk_.V.m_Value.m_pData, NULL, NULL, nAttempt) && !nonce.V.Import(s0.V))
-					break;
+		for (uint32_t nAttempt = 0; ; nAttempt++)
+			if (secp256k1_nonce_function_default(s0.V.m_Value.m_pData, msg.m_pData, sk_.V.m_Value.m_pData, NULL, NULL, nAttempt) && !m_Nonce.V.Import(s0.V))
+				break;
 
-			Point::Native pt; // not secret
-			Context::get().Excess(pt, nonce.V);
+		Context::get().Excess(m_NoncePub, m_Nonce.V);
+	}
 
-			get_Challenge(e.V, pt, msg);
-		}
+	void Signature::CoSign(const Hash::Value& msg, const Scalar::Native& sk, const MultiSig& msig)
+	{
+		Scalar::Native e;
+		get_Challenge(e, msig.m_NoncePub, msg);
 
-		e.V.Export(m_e);
+		e.Export(m_e);
 
-		e.V.Mul(sk);
-		e.V.Neg();
-		e.V.Add(nonce.V);
+		e.Mul(sk);
+		e.Neg();
+		e.Add(msig.m_Nonce.V);
 
-		e.V.Export(m_k);
+		e.Export(m_k);
+	}
+
+	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
+	{
+		MultiSig msig;
+		msig.GenerateNonce(msg, sk);
+		CoSign(msg, sk, msig);
 	}
 
 	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
@@ -658,10 +664,9 @@ namespace ECC {
 	// RangeProof
 	namespace RangeProof
 	{
-		bool get_PtMinusVal(Point::Native& out, const Point& comm, Amount val)
+		void get_PtMinusVal(Point::Native& out, const Point& comm, Amount val)
 		{
-			if (!out.Import(comm))
-				return false;
+			out.Import(comm);
 
 			Scalar s;
 			s.m_Value.Set(val);
@@ -671,8 +676,6 @@ namespace ECC {
 
 			ptAmount.Neg();
 			out.Add(ptAmount);
-
-			return true;
 		}
 
 
@@ -709,8 +712,7 @@ namespace ECC {
 				return false;
 
 			Point::Native pk;
-			if (!get_PtMinusVal(pk, comm, m_Value))
-				return false;
+			get_PtMinusVal(pk, comm, m_Value);
 
 			Hash::Value hv;
 			get_Msg(hv);
@@ -724,7 +726,7 @@ namespace ECC {
 			Hash::Value hv;
 			get_Msg(hv);
 
-			m_Signature.Create(hv, sk);
+			m_Signature.Sign(hv, sk);
 		}
 
 		int Public::cmp(const Public& x) const

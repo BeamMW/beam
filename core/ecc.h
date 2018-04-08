@@ -150,7 +150,13 @@ namespace ECC
 		Scalar m_k;
 
 		bool IsValid(const Hash::Value& msg, const Point::Native& pk) const;
-		void Create(const Hash::Value& msg, const Scalar::Native& sk);
+
+		// simple signature
+		void Sign(const Hash::Value& msg, const Scalar::Native& sk);
+
+		// multi-signature
+		struct MultiSig;
+		void CoSign(const Hash::Value& msg, const Scalar::Native& sk, const MultiSig&);
 
 		int cmp(const Signature&) const;
 
