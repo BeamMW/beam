@@ -129,6 +129,8 @@ namespace ECC
 
 		bool m_bQuadraticResidue; // analogous to the sign
 
+		int cmp(const Point&) const;
+
 		class Native;
 	};
 
@@ -142,14 +144,6 @@ namespace ECC
 
 	typedef uint64_t Amount;
 
-	struct RangeProof
-	{
-		uint8_t m_pOpaque[700]; // TODO
-
-		bool IsValid(const Point&, const Amount& nMinimum = 1) const;
-		void Generate(const Point&, const Amount& nMinimum = 1);
-	};
-
 	struct Signature
 	{
 		Scalar m_e;
@@ -158,8 +152,37 @@ namespace ECC
 		bool IsValid(const Hash::Value& msg, const Point::Native& pk) const;
 		void Create(const Hash::Value& msg, const Scalar::Native& sk);
 
+		int cmp(const Signature&) const;
+
 	private:
 		static void get_Challenge(Scalar::Native&, const Point::Native&, const Hash::Value& msg);
 	};
+
+	namespace RangeProof
+	{
+		static const Amount s_MinimumValue = 1;
+
+		struct Confidential
+		{
+			uint8_t m_pOpaque[700]; // TODO
+
+			void Create(const Scalar::Native& sk, Amount);
+			bool IsValid(const Point&) const;
+			int cmp(const Confidential&) const;
+		};
+
+		struct Public
+		{
+			Signature m_Signature;
+			Amount m_Value;
+
+			void Create(const Scalar::Native& sk); // amount should have been set
+			bool IsValid(const Point&) const;
+			int cmp(const Public&) const;
+
+		private:
+			void get_Msg(Hash::Value&) const;
+		};
+	}
 }
 

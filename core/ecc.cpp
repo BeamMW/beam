@@ -202,6 +202,20 @@ namespace ECC {
 		0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFE,0xFF,0xFF,0xFC,0x2F
 	};
 
+	int Point::cmp(const Point& v) const
+	{
+		int n = m_X.cmp(v.m_X);
+		if (n)
+			return n;
+
+		if (m_bQuadraticResidue < v.m_bQuadraticResidue)
+			return -1;
+		if (m_bQuadraticResidue > v.m_bQuadraticResidue)
+			return 1;
+
+		return 0;
+	}
+
 	bool Point::Native::ImportInternal(const Point& v)
 	{
 		NoLeak<secp256k1_fe> nx;
@@ -630,5 +644,104 @@ namespace ECC {
 
 		return e.m_Value == m_e.m_Value;
 	}
+
+	int Signature::cmp(const Signature& x) const
+	{
+		int n = m_e.m_Value.cmp(x.m_e.m_Value);
+		if (n)
+			return n;
+
+		return m_k.m_Value.cmp(x.m_k.m_Value);
+	}
+
+	/////////////////////
+	// RangeProof
+	namespace RangeProof
+	{
+		bool get_PtMinusVal(Point::Native& out, const Point& comm, Amount val)
+		{
+			if (!out.Import(comm))
+				return false;
+
+			Scalar s;
+			s.m_Value.Set(val);
+
+			Point::Native ptAmount;
+			Context::get().H.SetMul(ptAmount, true, s);
+
+			ptAmount.Neg();
+			out.Add(ptAmount);
+
+			return true;
+		}
+
+
+		// Confidential - mock only
+		bool Confidential::IsValid(const Point&) const
+		{
+			for (int i = 0; i < _countof(m_pOpaque); i++)
+				if (m_pOpaque[i])
+					return false;
+			return true;
+		}
+
+		void Confidential::Create(const Scalar::Native& sk, Amount val)
+		{
+			memset(m_pOpaque, 0, sizeof(m_pOpaque));
+		}
+
+		int Confidential::cmp(const Confidential& x) const
+		{
+			return memcmp(m_pOpaque, x.m_pOpaque, sizeof(m_pOpaque));
+		}
+
+		// Public
+		void Public::get_Msg(Hash::Value& hv) const
+		{
+			Hash::Processor hp;
+			hp.WriteOrd(m_Value);
+			hp.Finalize(hv);
+		}
+
+		bool Public::IsValid(const Point& comm) const
+		{
+			if (m_Value < s_MinimumValue)
+				return false;
+
+			Point::Native pk;
+			if (!get_PtMinusVal(pk, comm, m_Value))
+				return false;
+
+			Hash::Value hv;
+			get_Msg(hv);
+
+			return m_Signature.IsValid(hv, pk);
+		}
+
+		void Public::Create(const Scalar::Native& sk)
+		{
+			assert(m_Value >= s_MinimumValue);
+			Hash::Value hv;
+			get_Msg(hv);
+
+			m_Signature.Create(hv, sk);
+		}
+
+		int Public::cmp(const Public& x) const
+		{
+			int n = m_Signature.cmp(x.m_Signature);
+			if (n)
+				return n;
+
+			if (m_Value < x.m_Value)
+				return -1;
+			if (m_Value > x.m_Value)
+				return 1;
+
+			return 0;
+		}
+
+
+	} // namespace RangeProof
 
 } // namespace ECC

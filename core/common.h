@@ -17,19 +17,16 @@ namespace beam
 	typedef uint64_t Height;
 	typedef ECC::uintBig_t<256> uint256_t;
 	typedef std::vector<uint8_t> ByteBuffer;
+	typedef ECC::Amount Amount;
 
-	namespace Merkle {
-		struct Hash;
-
+	namespace Merkle
+	{
+		typedef ECC::Hash::Value Hash;
 		typedef std::pair<bool, Hash>	Node;
 		typedef std::list<Node>			Proof;
 
-		struct Hash :public ECC::Hash::Value
-		{
-			void Interpret(const Proof&);
-		};
+		void Interpret(Hash&, const Proof&);
 	}
-
 
 	struct Input
 	{
@@ -42,6 +39,8 @@ namespace beam
 		// In case there are multiple UTXOs with the same commitment value (which we permit) the height should be used to distinguish between them
 		// If not specified (no UTXO with the specified height) - it will automatically be selected.
 
+		int cmp(const Input&) const;
+
 		void get_Hash(Merkle::Hash&) const;
 		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
 	};
@@ -53,18 +52,14 @@ namespace beam
 		ECC::Point	m_Commitment;
 		bool		m_Coinbase;
 
+		static const Amount s_MinimumValue = 1;
+
 		// one of the following *must* be specified
-		struct Condidential {
-			ECC::RangeProof m_RangeProof;
-		};
+		std::unique_ptr<ECC::RangeProof::Confidential>	m_pCondidential;
+		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
-		struct Public {
-			uint64_t m_Value;
-			ECC::Signature m_Signature;
-		};
-
-		std::unique_ptr<Condidential>	m_pCondidential;
-		std::unique_ptr<Public>			m_pPublic;
+		bool IsValid() const;
+		int cmp(const Output&) const;
 	};
 
 
@@ -77,7 +72,7 @@ namespace beam
 		ECC::Signature	m_Signature;
 
 		// Optional
-		std::unique_ptr<uint64_t>			m_pFee;
+		std::unique_ptr<Amount>				m_pFee;
 		std::unique_ptr<Height>				m_pHeight;
 		std::unique_ptr<ECC::Hash::Value>	m_pCustomMsg;
 		std::unique_ptr<ECC::Point>			m_pPublicKey;
@@ -89,6 +84,8 @@ namespace beam
 
 		void get_Hash(Merkle::Hash&) const;
 		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
+
+		int cmp(const TxKernel&) const;
 	};
 
 	struct TxBase
@@ -129,7 +126,7 @@ namespace beam
 			{
 
 			}
-		} header;
+		};
 
 		struct PoW
 		{
