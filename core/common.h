@@ -55,7 +55,7 @@ namespace beam
 		static const Amount s_MinimumValue = 1;
 
 		// one of the following *must* be specified
-		std::unique_ptr<ECC::RangeProof::Confidential>	m_pCondidential;
+		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		bool IsValid() const;

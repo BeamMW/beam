@@ -85,12 +85,12 @@ namespace beam
 	// Output
 	bool Output::IsValid() const
 	{
-		if (m_pCondidential)
+		if (m_pConfidential)
 		{
 			if (m_pPublic)
 				return false;
 
-			return m_pCondidential->IsValid(m_Commitment);
+			return m_pConfidential->IsValid(m_Commitment);
 		}
 
 		if (!m_pPublic)
@@ -103,7 +103,7 @@ namespace beam
 	{
 		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER_EX(m_Commitment)
-		CMP_MEMBER_PTR(m_pCondidential)
+		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
 
 		return 0;
