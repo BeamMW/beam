@@ -24,9 +24,13 @@ if(UNIX)
 endif()
 
 include_directories(${PROJECT_SOURCE_DIR})
-include_directories(${PROJECT_SOURCE_DIR}/utility)
+add_definitions(-DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 
-add_subdirectory(miner)
+message(STATUS "XXXXXXXXXXXXXXXXXXXX" "${PROJECT_SOURCE_DIR}")
+
+include_directories(${PROJECT_SOURCE_DIR}/utility) # TODO  move to ./3rdparty all that stuff that requires to add this line
+
+# TODO fix build issues add_subdirectory(miner)
 add_subdirectory(chain)
 add_subdirectory(pool)
 add_subdirectory(p2p)

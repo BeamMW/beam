@@ -77,6 +77,7 @@ int main() {
         }
     ));
 
+    // readers
     for (size_t i=0; i<nReaders; ++i) {
         futures.push_back(std::async(
             std::launch::async,
