@@ -137,7 +137,7 @@ namespace beam
 			{
 
 			}
-		};
+		} header;
 
 		struct PoW
 		{
