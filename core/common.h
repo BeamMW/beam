@@ -66,26 +66,37 @@ namespace beam
 	struct TxKernel
 	{
 		typedef std::unique_ptr<TxKernel> Ptr;
+		typedef std::list<Ptr> List;
 
 		// Mandatory
 		ECC::Point		m_Excess;
-		ECC::Signature	m_Signature;
+		ECC::Signature	m_Signature;	// For the whole tx body, including nested kernels, excluding contract signature
+		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
+		Height			m_Height;		// Minimum block height for the tx to be valid. Set to 0 if irrelevant
 
 		// Optional
-		std::unique_ptr<Amount>				m_pFee;
-		std::unique_ptr<Height>				m_pHeight;
-		std::unique_ptr<ECC::Hash::Value>	m_pCustomMsg;
-		std::unique_ptr<ECC::Point>			m_pPublicKey;
+		struct Contract
+		{
+			ECC::Hash::Value	m_Msg;
+			ECC::Point			m_PublicKey;
+			ECC::Signature		m_Signature;
 
-		std::list<Ptr> m_vNested; // nested kernels, included in the signature.
+			int cmp(const Contract&) const;
+		};
 
-		void CalculateSignature();
-		bool IsValid() const;
+		std::unique_ptr<Contract> m_pContract;
 
-		void get_Hash(Merkle::Hash&) const;
+		List m_vNested; // nested kernels, included in the signature.
+
+		bool IsValid(Amount& fee, ECC::Point::Native& exc) const;
+
+		void get_Hash(Merkle::Hash&) const; // Hash doesn't include signatures
 		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
 
 		int cmp(const TxKernel&) const;
+
+	private:
+		bool Traverse(ECC::Hash::Value&, Amount*, ECC::Point::Native*) const;
 	};
 
 	struct TxBase
