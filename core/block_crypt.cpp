@@ -220,5 +220,60 @@ namespace beam
 		return 0;
 	}
 
+	/////////////
+	// Transaction
+	bool TxBase::ValidateAndSummarize(Amount& fee, ECC::Point::Native& sigma, Height nHeight) const
+	{
+		fee = 0;
+		sigma.SetZero();
+
+		for (std::list<Input::Ptr>::const_iterator it = m_vInputs.begin(); m_vInputs.end() != it; it++)
+		{
+			const Input& v = *(*it);
+
+			ECC::Point::Native p;
+			p.Import(v.m_Commitment);
+			sigma.Add(p);
+		}
+
+		sigma.Neg();
+
+		for (std::list<Output::Ptr>::const_iterator it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
+		{
+			const Output& v = *(*it);
+			if (!v.IsValid())
+				return false;
+
+			ECC::Point::Native p;
+			p.Import(v.m_Commitment);
+			sigma.Add(p);
+		}
+
+		for (std::list<TxKernel::Ptr>::const_iterator it = m_vKernels.begin(); m_vKernels.end() != it; it++)
+		{
+			const TxKernel& v = *(*it);
+			if (v.m_Height > nHeight)
+				return false;
+			if (!v.IsValid(fee, sigma))
+				return false;
+		}
+
+		ECC::Context::get().G.SetMul(sigma, false, m_Offset);
+
+		return true;
+	}
+
+	bool Transaction::IsValid(Amount& fee, Height nHeight) const
+	{
+		ECC::Point::Native sigma;
+		if (!ValidateAndSummarize(fee, sigma, nHeight))
+			return false;
+
+		ECC::Scalar s;
+		s.m_Value.Set(fee);
+		ECC::Context::get().H.SetMul(sigma, false, s);
+
+		return sigma.IsZero();
+	}
 
 } // namespace beam

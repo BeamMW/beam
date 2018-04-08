@@ -105,15 +105,27 @@ namespace beam
 		std::list<Output::Ptr> m_vOutputs;
 		std::list<TxKernel::Ptr> m_vKernels;
 		ECC::Scalar m_Offset;
+
+		// tests the validity of all the components, and overall arithmetics.
+		// Does *not* check the existence of the input UTXOs
+		// 
+		// Validation formula
+		//
+		// Sum(Inputs) - Sum(Outputs) = Sum(TxKernels.Excess) + m_Offset*G [ + Sum(Fee)*H ]
+		//
+		// For a block validation Fees are not accounted for, since they are consumed by new outputs injected by the miner.
+		//
+		// Define: Sigma = Sum(Outputs) - Sum(Inputs) + Sum(TxKernels.Excess) + m_Offset*G
+		// Sigma is either zero or -Sum(Fee)*H, depending on what we validate
+
+		bool ValidateAndSummarize(Amount& fee, ECC::Point::Native& sigma, Height nHeight) const;
 	};
 
 	struct Transaction
 		:public TxBase
 	{
-		// tests the validity of all the components, and overall arithmetics.
-		// Does *not* check the existence of the input UTXOs
 		// Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
-		bool IsValid() const;
+		bool IsValid(Amount& fee, Height nHeight) const;
 	};
 
 	struct Block
