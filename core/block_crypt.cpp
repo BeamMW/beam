@@ -143,7 +143,7 @@ namespace beam
 			if (!m_Signature.IsValid(hv, pt))
 				return false;
 
-			pExcess->Add(pt);
+			*pExcess += pt;
 
 			if (m_pContract)
 			{
@@ -233,10 +233,10 @@ namespace beam
 
 			ECC::Point::Native p;
 			p.Import(v.m_Commitment);
-			sigma.Add(p);
+			sigma += p;
 		}
 
-		sigma.Neg();
+		sigma = -sigma;
 
 		for (std::list<Output::Ptr>::const_iterator it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
 		{
@@ -246,7 +246,7 @@ namespace beam
 
 			ECC::Point::Native p;
 			p.Import(v.m_Commitment);
-			sigma.Add(p);
+			sigma += p;
 		}
 
 		for (std::list<TxKernel::Ptr>::const_iterator it = m_vKernels.begin(); m_vKernels.end() != it; it++)

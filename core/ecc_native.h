@@ -15,25 +15,31 @@ namespace ECC
 	class Scalar::Native
 		:private secp256k1_scalar
 	{
+		typedef Op::Unary<Op::Minus, Native>			Minus;
+		typedef Op::Binary<Op::Plus, Native, Native>	Plus;
+		typedef Op::Binary<Op::Mul, Native, Native>		Mul;
 	public:
 		const secp256k1_scalar& get() const { return *this; }
 
-		Native& operator = (Zero_);
-		void Set(uint32_t);
-		void Set(uint64_t);
-		void SetNeg(const Native&);
-		void SetSum(const Native& a, const Native& b);
-		void SetMul(const Native& a, const Native& b);
-		void SetSqr(const Native&);
-		void SetInv(const Native&); // for 0 the result is also 0
-
-		void Neg();
-		void Add(const Native&);
-		void Mul(const Native&);
-		void Sqr();
-		void Inv(); // for 0 the result is also 0
+		Minus	operator - () const { return Minus(*this); }
+		Plus	operator + (const Native& y) const { return Plus(*this, y); }
+		Mul		operator * (const Native& y) const { return Mul(*this, y); }
 
 		bool operator == (Zero_) const;
+
+		Native& operator = (Zero_);
+		Native& operator = (uint32_t);
+		Native& operator = (uint64_t);
+		Native& operator = (Minus);
+		Native& operator = (Plus);
+		Native& operator = (Mul);
+		Native& operator += (const Native& v) { return *this = *this + v; }
+		Native& operator *= (const Native& v) { return *this = *this * v; }
+
+		void SetSqr(const Native&);
+		void Sqr();
+		void SetInv(const Native&); // for 0 the result is also 0
+		void Inv();
 
 		bool Import(const Scalar&); // on overflow auto-normalizes and returns true
 		void ImportFix(uintBig&); // on overflow input is mutated (auto-hashed)
@@ -43,21 +49,28 @@ namespace ECC
 	class Point::Native
 		:private secp256k1_gej
 	{
+		typedef Op::Unary<Op::Minus, Native>			Minus;
+		typedef Op::Unary<Op::Double, Native>			Double;
+		typedef Op::Binary<Op::Plus, Native, Native>	Plus;
+		typedef Op::Binary<Op::Mul, Native, Scalar>		Mul;
+
 		bool ImportInternal(const Point&);
 	public:
 		secp256k1_gej& get_Raw() { return *this; } // use with care
 
-		Native& operator = (Zero_);
-		void SetNeg(const Native&);
-		void SetSum(const Native&, const Native&);
-		void SetX2(const Native&);
-
-		void Neg();
-		void Add(const Native&);
-		void AddMul(const Native&, const Scalar&); // naive (non-secure) implementation, suitable for casual use (such as signature verification), otherwise should use generators
-		void X2();
+		Minus	operator - () const { return Minus(*this); }
+		Plus	operator + (const Native& y) const { return Plus(*this, y); }
+		Mul		operator * (const Scalar& y) const { return Mul(*this, y); }
+		Double	operator * (Two_) const { return Double(*this); }
 
 		bool operator == (Zero_) const;
+
+		Native& operator = (Zero_);
+		Native& operator = (Minus);
+		Native& operator = (Plus);
+		Native& operator = (Double);
+		Native& operator += (const Native& v) { return *this = *this + v; }
+		Native& operator += (Mul); // naive (non-secure) implementation, suitable for casual use (such as signature verification), otherwise should use generators
 
 		bool Import(const Point&);
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result

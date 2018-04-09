@@ -48,14 +48,10 @@ namespace ECC {
 		return secp256k1_scalar_is_zero(this) != 0;
 	}
 
-	void Scalar::Native::SetNeg(const Native& v)
+	Scalar::Native& Scalar::Native::operator = (Minus v)
 	{
-		secp256k1_scalar_negate(this, &v);
-	}
-
-	void Scalar::Native::Neg()
-	{
-		SetNeg(*this);
+		secp256k1_scalar_negate(this, &v.x);
+		return *this;
 	}
 
 	bool Scalar::Native::Import(const Scalar& v)
@@ -82,34 +78,28 @@ namespace ECC {
 		secp256k1_scalar_get_b32(v.m_Value.m_pData, this);
 	}
 
-	void Scalar::Native::Set(uint32_t v)
+	Scalar::Native& Scalar::Native::operator = (uint32_t v)
 	{
 		secp256k1_scalar_set_int(this, v);
+		return *this;
 	}
 
-	void Scalar::Native::Set(uint64_t v)
+	Scalar::Native& Scalar::Native::operator = (uint64_t v)
 	{
 		secp256k1_scalar_set_u64(this, v);
+		return *this;
 	}
 
-	void Scalar::Native::SetSum(const Native& a, const Native& b)
+	Scalar::Native& Scalar::Native::operator = (Plus v)
 	{
-		secp256k1_scalar_add(this, &a, &b);
+		secp256k1_scalar_add(this, &v.x, &v.y);
+		return *this;
 	}
 
-	void Scalar::Native::Add(const Native& v)
+	Scalar::Native& Scalar::Native::operator = (Mul v)
 	{
-		SetSum(*this, v);
-	}
-
-	void Scalar::Native::SetMul(const Native& a, const Native& b)
-	{
-		secp256k1_scalar_mul(this, &a, &b);
-	}
-
-	void Scalar::Native::Mul(const Native& v)
-	{
-		SetMul(*this, v);
+		secp256k1_scalar_mul(this, &v.x, &v.y);
+		return *this;
 	}
 
 	void Scalar::Native::SetSqr(const Native& v)
@@ -273,48 +263,38 @@ namespace ECC {
 		return secp256k1_gej_is_infinity(this) != 0;
 	}
 
-	void Point::Native::SetNeg(const Native& v)
+	Point::Native& Point::Native::operator = (Minus v)
 	{
-		secp256k1_gej_neg(this, &v);
+		secp256k1_gej_neg(this, &v.x);
+		return *this;
 	}
 
-	void Point::Native::Neg()
+	Point::Native& Point::Native::operator = (Plus v)
 	{
-		SetNeg(*this);
+		secp256k1_gej_add_var(this, &v.x, &v.y, NULL);
+		return *this;
 	}
 
-	void Point::Native::SetSum(const Native& a, const Native& b)
+	Point::Native& Point::Native::operator = (Double v)
 	{
-		secp256k1_gej_add_var(this, &a, &b, NULL);
+		secp256k1_gej_double_var(this, &v.x, NULL);
+		return *this;
 	}
 
-	void Point::Native::Add(const Native& v)
+	Point::Native& Point::Native::operator += (Mul v)
 	{
-		SetSum(*this, v);
-	}
+		Point::Native pt = v.x;
 
-	void Point::Native::SetX2(const Native& v)
-	{
-		secp256k1_gej_double_var(this, &v, NULL);
-	}
-
-	void Point::Native::X2()
-	{
-		SetX2(*this);
-	}
-
-	void Point::Native::AddMul(const Native& v, const Scalar& k)
-	{
-		Point::Native pt = v;
-
-		for (uint32_t iByte = _countof(k.m_Value.m_pData); iByte--; )
+		for (uint32_t iByte = _countof(v.y.m_Value.m_pData); iByte--; )
 		{
-			uint8_t n = k.m_Value.m_pData[iByte];
+			uint8_t n = v.y.m_Value.m_pData[iByte];
 
-			for (uint32_t iBit = 0; iBit < 8; iBit++, pt.X2())
+			for (uint32_t iBit = 0; iBit < 8; iBit++, pt = pt * Two)
 				if (1 & (n >> iBit))
-					Add(pt);
+					*this += pt;
 		}
+
+		return *this;
 	}
 
 	/////////////////////
@@ -362,7 +342,7 @@ namespace ECC {
 			if (!CreatePointNnz(nums, hp))
 				return false;
 
-			nums.Add(gpos);
+			nums += gpos;
 
 			npos = nums;
 
@@ -380,20 +360,20 @@ namespace ECC {
 					if (iPt == nPointsPerLevel)
 						break;
 
-					pt.Add(gpos);
+					pt += gpos;
 				}
 
 				if (iLev == nLevels)
 					break;
 
 				for (uint32_t i = 0; i < nBitsPerLevel; i++)
-					gpos.X2();
+					gpos = gpos * Two;
 
-				npos.X2();
+				npos = npos * Two;
 				if (iLev + 1 == nLevels)
 				{
-					npos.Neg();
-					npos.Add(nums);
+					npos = -npos;
+					npos += nums;
 				}
 			}
 
@@ -499,7 +479,7 @@ namespace ECC {
 				Generator::SetMul(pt2, true, m_pPts, nLevels, m_AddScalar); // pt2 = G * blind
 				FromPt(m_AddPt, pt2);
 
-				m_AddScalar.Neg();
+				m_AddScalar = -m_AddScalar;
 
 				break;
 			}
@@ -511,7 +491,7 @@ namespace ECC {
 			ToPt(res, ge, m_AddPt, bSet);
 
 			NoLeak<Scalar::Native> k2;
-			k2.V.SetSum(k, m_AddScalar);
+			k2.V = k + m_AddScalar;
 
 			Generator::SetMul(res, false, m_pPts, nLevels, k2.V);
 		}
@@ -546,7 +526,7 @@ namespace ECC {
 
 	void Context::Commit(Point::Native& res, const Scalar::Native& k, const Amount& v, Scalar::Native& vOut) const
 	{
-		vOut.Set(v);
+		vOut = v;
 		Commit(res, k, vOut);
 	}
 
@@ -605,9 +585,9 @@ namespace ECC {
 
 		e.Export(m_e);
 
-		e.Mul(sk);
-		e.Neg();
-		e.Add(msig.m_Nonce.V);
+		e *= sk;
+		e = -e;
+		e += msig.m_Nonce.V;
 
 		e.Export(m_k);
 	}
@@ -627,7 +607,7 @@ namespace ECC {
 		Point::Native pt;
 		Context::get().Excess(pt, sig);
 
-		pt.AddMul(pk, m_e);
+		pt += pk * m_e;
 
 		get_Challenge(sig, pt, msg);
 		Scalar e;
@@ -659,8 +639,8 @@ namespace ECC {
 			Point::Native ptAmount;
 			Context::get().H.SetMul(ptAmount, true, s);
 
-			ptAmount.Neg();
-			out.Add(ptAmount);
+			ptAmount = -ptAmount;
+			out += ptAmount;
 		}
 
 

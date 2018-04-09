@@ -11,8 +11,31 @@
 namespace ECC
 {
 	// Syntactic sugar!
-	enum Zero_ {
-		Zero
+	enum Zero_ { Zero };
+	enum Two_ { Two };
+
+	struct Op
+	{
+		enum Sign {
+			Plus,
+			Minus,
+			Mul,
+			Div,
+			Double
+		};
+
+		template <Sign, typename X>
+		struct Unary {
+			const X& x;
+			Unary(const X& x_) :x(x_) {}
+		};
+
+		template <Sign, typename X, typename Y>
+		struct Binary {
+			const X& x;
+			const Y& y;
+			Binary(const X& x_, const Y& y_) :x(x_) ,y(y_) {}
+		};
 	};
 
 	void SecureErase(void*, uint32_t);
