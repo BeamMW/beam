@@ -76,8 +76,8 @@ namespace ECC
 
 		// from ordinal types (unsigned)
 		template <typename T>
-		void Set(T x)
-		{
+		uintBig_t& operator = (T x)
+	{
 			static_assert(sizeof(m_pData) >= sizeof(x), "too small");
 			static_assert(T(-1) > 0, "must be unsigned");
 
@@ -85,6 +85,8 @@ namespace ECC
 
 			for (int i = 0; i < sizeof(x); i++, x >>= 8)
 				m_pData[_countof(m_pData) - 1 - i] = (uint8_t) x;
+
+			return *this;
 		}
 
 		void Inc()

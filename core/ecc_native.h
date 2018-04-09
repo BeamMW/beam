@@ -111,7 +111,11 @@ namespace ECC
 
 				void Assign(Point::Native& res, bool bSet) const
 				{
-					Generator::SetMul(res, bSet, me.m_pPts, nLevels, k);
+					static_assert(sizeof(TScalar) * 8 <= nBits_, "generator too short");
+
+					NoLeak<Scalar> s;
+					s.V.m_Value = k;
+					Generator::SetMul(res, bSet, me.m_pPts, nLevels, s.V);
 				}
 			};
 

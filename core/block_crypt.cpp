@@ -269,9 +269,7 @@ namespace beam
 		if (!ValidateAndSummarize(fee, sigma, nHeight))
 			return false;
 
-		ECC::Scalar s;
-		s.m_Value.Set(fee);
-		sigma += ECC::Context::get().H * s;
+		sigma += ECC::Context::get().H * fee;
 
 		return sigma == ECC::Zero;
 	}

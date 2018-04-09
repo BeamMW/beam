@@ -519,10 +519,7 @@ namespace ECC {
 	void Commitment::Assign(Point::Native& res, bool bSet) const
 	{
 		(Context::get().G * k).Assign(res, bSet);
-
-		NoLeak<Scalar::Native> v;
-		v.V = val;
-		res += Context::get().H * v.V;
+		res += Context::get().H * val;
 	}
 
 	/////////////////////
@@ -622,11 +619,8 @@ namespace ECC {
 		{
 			out.Import(comm);
 
-			Scalar s;
-			s.m_Value.Set(val);
-
 			Point::Native ptAmount;
-			ptAmount = Context::get().H * s;
+			ptAmount = Context::get().H * val;
 
 			ptAmount = -ptAmount;
 			out += ptAmount;
