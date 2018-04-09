@@ -45,6 +45,7 @@ namespace ECC
 	{
 		bool ImportInternal(const Point&);
 	public:
+		secp256k1_gej& get_Raw() { return *this; } // use with care
 
 		void SetZero();
 		void SetNeg(const Native&);
@@ -60,13 +61,6 @@ namespace ECC
 
 		bool Import(const Point&);
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result
-
-		// more compact form, yet straightforward import
-		// non-native Point is more compressed (just 1 coordinate and flag), but import is complex
-		void Import(const secp256k1_ge_storage&);
-		void Export(secp256k1_ge_storage&);
-
-		void Import(const secp256k1_ge&);
 	};
 
 	namespace Generator

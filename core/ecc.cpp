@@ -255,25 +255,6 @@ namespace ECC {
 		return true;
 	}
 
-	void Point::Native::Import(const secp256k1_ge_storage& v)
-	{
-		NoLeak<secp256k1_ge> ge;
-		secp256k1_ge_from_storage(&ge.V, &v);
-		Import(ge.V);
-	}
-
-	void Point::Native::Import(const secp256k1_ge& v)
-	{
-		secp256k1_gej_set_ge(this, &v);
-	}
-
-	void Point::Native::Export(secp256k1_ge_storage& v)
-	{
-		NoLeak<secp256k1_ge> ge;
-		secp256k1_ge_set_gej(&ge.V, this);
-		secp256k1_ge_to_storage(&v, &ge.V);
-	}
-
 	void Point::Native::SetZero()
 	{
 		secp256k1_gej_set_infinity(this);
@@ -332,6 +313,23 @@ namespace ECC {
 	// Generator
 	namespace Generator
 	{
+		void FromPt(secp256k1_ge_storage& out, Point::Native& p)
+		{
+			secp256k1_ge ge; // used only for non-secret
+			secp256k1_ge_set_gej(&ge, &p.get_Raw());
+			secp256k1_ge_to_storage(&out, &ge);
+		}
+
+		void ToPt(Point::Native& p, secp256k1_ge& ge, const secp256k1_ge_storage& ge_s, bool bSet)
+		{
+			secp256k1_ge_from_storage(&ge, &ge_s);
+
+			if (bSet)
+				secp256k1_gej_set_ge(&p.get_Raw(), &ge);
+			else
+				secp256k1_gej_add_ge(&p.get_Raw(), &p.get_Raw(), &ge);
+		}
+
 		bool CreatePointNnz(Point::Native& out, const uintBig& x)
 		{
 			Point pt;
@@ -369,7 +367,7 @@ namespace ECC {
 					if (pt.IsZero())
 						return false;
 
-					pt.Export(*pPts++);
+					FromPt(*pPts++, pt);
 
 					if (iPt == nPointsPerLevel)
 						break;
@@ -400,8 +398,8 @@ namespace ECC {
 			const uint8_t nLevelsPerByte = 8 / nBitsPerLevel;
 			static_assert(!(nLevelsPerByte & (nLevelsPerByte - 1)), "should be power-of-2");
 
-			NoLeak<Point::Native> np;
-			NoLeak<secp256k1_ge_storage> ge;
+			NoLeak<secp256k1_ge_storage> ge_s;
+			NoLeak<secp256k1_ge> ge;
 
 			uint32_t n0 = _countof(k.m_Value.m_pData) - nLevels / nLevelsPerByte;
 
@@ -432,18 +430,10 @@ namespace ECC {
 					*/
 
 					for (uint32_t i = 0; i < nPointsPerLevel; i++)
-						secp256k1_ge_storage_cmov(&ge.V, pPts + i, i == nSel);
+						secp256k1_ge_storage_cmov(&ge_s.V, pPts + i, i == nSel);
 
-					if (bSet)
-					{
-						bSet = false;
-						res.Import(ge.V);
-					} else
-					{
-						// secp256k1_gej_add_ge(r, r, &add);
-						np.V.Import(ge.V);
-						res.Add(np.V);
-					} 
+					ToPt(res, ge.V, ge_s.V, bSet);
+					bSet = false;
 				}
 			}
 		}
@@ -499,7 +489,7 @@ namespace ECC {
 					continue;
 
 				Generator::SetMul(pt2, true, m_pPts, nLevels, m_AddScalar); // pt2 = G * blind
-				pt2.Export(m_AddPt);
+				FromPt(m_AddPt, pt2);
 
 				m_AddScalar.Neg();
 
@@ -509,14 +499,8 @@ namespace ECC {
 
 		void Obscured::SetMul(Point::Native& res, bool bSet, const Scalar::Native& k) const
 		{
-			if (bSet)
-				res.Import(m_AddPt);
-			else
-			{
-				Point::Native pt;
-				pt.Import(m_AddPt);
-				res.Add(pt);
-			}
+			secp256k1_ge ge;
+			ToPt(res, ge, m_AddPt, bSet);
 
 			NoLeak<Scalar::Native> k2;
 			k2.V.SetSum(k, m_AddScalar);
