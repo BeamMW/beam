@@ -190,11 +190,15 @@ namespace ECC
 
 		const Generator::Obscured						G;
 		const Generator::Simple<sizeof(Amount) << 3>	H;
+	};
 
-		void Commit(Point::Native& res, const Scalar::Native& k, const Scalar::Native& v) const;
-		void Commit(Point::Native& res, const Scalar::Native&, const Amount&) const;
-		void Commit(Point::Native& res, const Scalar::Native&, const Amount& v, Scalar::Native& vOut) const;
-		void Excess(Point::Native& res, const Scalar::Native&) const;
+	class Commitment
+	{
+		const Scalar::Native& k;
+		const Amount& val;
+	public:
+		Commitment(const Scalar::Native& k_, const Amount& val_) :k(k_) ,val(val_) {}
+		void Assign(Point::Native& res, bool bSet) const;
 	};
 
 	class Oracle

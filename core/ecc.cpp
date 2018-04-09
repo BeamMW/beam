@@ -514,27 +514,15 @@ namespace ECC {
 	{
 	}
 
-	void Context::Excess(Point::Native& res, const Scalar::Native& k) const
+	/////////////////////
+	// Commitment
+	void Commitment::Assign(Point::Native& res, bool bSet) const
 	{
-		res = G * k;
-	}
+		(Context::get().G * k).Assign(res, bSet);
 
-	void Context::Commit(Point::Native& res, const Scalar::Native& k, const Scalar::Native& v) const
-	{
-		Excess(res, k);
-		res += H * v;
-	}
-
-	void Context::Commit(Point::Native& res, const Scalar::Native& k, const Amount& v, Scalar::Native& vOut) const
-	{
-		vOut = v;
-		Commit(res, k, vOut);
-	}
-
-	void Context::Commit(Point::Native& res, const Scalar::Native& k, const Amount& v) const
-	{
-		NoLeak<Scalar::Native> vOut;
-		Commit(res, k, v, vOut.V);
+		NoLeak<Scalar::Native> v;
+		v.V = val;
+		res += Context::get().H * v.V;
 	}
 
 	/////////////////////
@@ -576,7 +564,7 @@ namespace ECC {
 			if (secp256k1_nonce_function_default(s0.V.m_Value.m_pData, msg.m_pData, sk_.V.m_Value.m_pData, NULL, NULL, nAttempt) && !m_Nonce.V.Import(s0.V))
 				break;
 
-		Context::get().Excess(m_NoncePub, m_Nonce.V);
+		m_NoncePub = Context::get().G * m_Nonce.V;
 	}
 
 	void Signature::CoSign(const Hash::Value& msg, const Scalar::Native& sk, const MultiSig& msig)
@@ -606,7 +594,7 @@ namespace ECC {
 		sig.Import(m_k);
 
 		Point::Native pt;
-		Context::get().Excess(pt, sig);
+		pt = Context::get().G * sig;
 
 		pt += pk * m_e;
 
