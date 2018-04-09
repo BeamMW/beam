@@ -15,9 +15,14 @@
 
 namespace ECC {
 
+	//void* NoErase(void*, int, size_t) { return NULL; }
+
+	// Pointer to the 'eraser' function. The pointer should be non-const (i.e. variable that can be changed at run-time), so that optimizer won't remove this.
+	void* (*g_pfnEraseFunc)(void*, int, size_t) = memset/*NoErase*/;
+
 	void SecureErase(void* p, uint32_t n)
 	{
-		memset(p, 0, n);
+		g_pfnEraseFunc(p, 0, n);
 	}
 
 	/////////////////////
