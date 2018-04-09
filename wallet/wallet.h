@@ -6,6 +6,13 @@ namespace beam
 {
     struct Wallet
     {
+        struct ToNetwork
+        {
+            using Ptr = std::unique_ptr<ToNetwork>;
+
+            virtual void sendTransaction(const Transaction& tx) = 0;
+        };
+
         struct Config
         {
 
@@ -23,7 +30,12 @@ namespace beam
             void handleConfirmation();
         };
 
+        Wallet();
+
         // TODO: remove this, just for test
         void sendDummyTransaction();
+
+    private:
+        ToNetwork::Ptr m_net;
     };
 }

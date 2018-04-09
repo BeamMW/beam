@@ -3,6 +3,27 @@
 
 namespace beam
 {
+    // temporary impl of WalletToNetwork interface
+    struct WalletToNetworkDummyImpl : public Wallet::ToNetwork
+    {
+        virtual void sendTransaction(const Transaction& tx)
+        {
+            // serealize tx and post and to the Node TX pool
+            Serializer ser;
+            ser & tx;
+
+            auto buffer = ser.buffer();
+
+            // and send buffer to other side
+        }
+    };
+
+    Wallet::Wallet()
+        : m_net(std::make_unique<WalletToNetworkDummyImpl>())
+    {
+
+    }
+
     void Wallet::Sender::sendInvitation()
     {
         
@@ -24,14 +45,8 @@ namespace beam
 
     void Wallet::sendDummyTransaction()
     {
-        // create dummy transaction here, serealize it and post to the Node TX pool
+        // create dummy transaction here
         Transaction tx;
-
-        Serializer ser;
-        ser & tx;
-
-        auto buffer = ser.buffer();
-
-        // and call something like net.post("/pool/push", buf)
+        m_net->sendTransaction(tx);
     }
 }
