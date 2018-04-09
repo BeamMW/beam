@@ -256,8 +256,9 @@ namespace ECC {
 		NoLeak<secp256k1_ge> ge;
 		secp256k1_ge_set_gej(&ge.V, &dup.V);
 
+		secp256k1_fe_normalize(&ge.V.x);
 		secp256k1_fe_get_b32(v.m_X.m_pData, &ge.V.x);
-		v.m_bQuadraticResidue = (secp256k1_gej_has_quad_y_var(this) != 0);
+		v.m_bQuadraticResidue = (secp256k1_fe_is_quad_var(&ge.V.y) != 0);
 
 		return true;
 	}
