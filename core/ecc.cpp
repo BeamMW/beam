@@ -37,12 +37,13 @@ namespace ECC {
 		return m_Value < s_Order;
 	}
 
-	void Scalar::Native::SetZero()
+	Scalar::Native& Scalar::Native::operator = (Zero_)
 	{
 		secp256k1_scalar_clear(this);
+		return *this;
 	}
 
-	bool Scalar::Native::IsZero() const
+	bool Scalar::Native::operator == (Zero_) const
 	{
 		return secp256k1_scalar_is_zero(this) != 0;
 	}
@@ -236,15 +237,16 @@ namespace ECC {
 		if (ImportInternal(v))
 			return true;
 
-		SetZero();
+		*this = Zero;
 		return false;
 	}
 
 	bool Point::Native::Export(Point& v) const
 	{
-		if (IsZero())
+		if (*this == Zero)
 		{
-			memset(&v, 0, sizeof(v));
+			v.m_X = Zero;
+			v.m_bQuadraticResidue = false;
 			return false;
 		}
 
@@ -260,12 +262,13 @@ namespace ECC {
 		return true;
 	}
 
-	void Point::Native::SetZero()
+	Point::Native& Point::Native::operator = (Zero_)
 	{
 		secp256k1_gej_set_infinity(this);
+		return *this;
 	}
 
-	bool Point::Native::IsZero() const
+	bool Point::Native::operator == (Zero_) const
 	{
 		return secp256k1_gej_is_infinity(this) != 0;
 	}
@@ -341,7 +344,7 @@ namespace ECC {
 			pt.m_X = x;
 			pt.m_bQuadraticResidue = false;
 
-			return out.Import(pt) && !out.IsZero();
+			return out.Import(pt) && !(out == Zero);
 		}
 
 		bool CreatePointNnz(Point::Native& out, Hash::Processor& hp)
@@ -369,7 +372,7 @@ namespace ECC {
 
 				for (uint32_t iPt = 1; ; iPt++)
 				{
-					if (pt.IsZero())
+					if (pt == Zero)
 						return false;
 
 					FromPt(*pPts++, pt);

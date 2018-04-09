@@ -225,7 +225,7 @@ namespace beam
 	bool TxBase::ValidateAndSummarize(Amount& fee, ECC::Point::Native& sigma, Height nHeight) const
 	{
 		fee = 0;
-		sigma.SetZero();
+		sigma = ECC::Zero;
 
 		for (std::list<Input::Ptr>::const_iterator it = m_vInputs.begin(); m_vInputs.end() != it; it++)
 		{
@@ -273,7 +273,7 @@ namespace beam
 		s.m_Value.Set(fee);
 		ECC::Context::get().H.SetMul(sigma, false, s);
 
-		return sigma.IsZero();
+		return sigma == ECC::Zero;
 	}
 
 } // namespace beam

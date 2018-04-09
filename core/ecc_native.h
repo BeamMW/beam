@@ -18,7 +18,7 @@ namespace ECC
 	public:
 		const secp256k1_scalar& get() const { return *this; }
 
-		void SetZero();
+		Native& operator = (Zero_);
 		void Set(uint32_t);
 		void Set(uint64_t);
 		void SetNeg(const Native&);
@@ -28,12 +28,12 @@ namespace ECC
 		void SetInv(const Native&); // for 0 the result is also 0
 
 		void Neg();
-		void Add(const Native&); // not efective for big summations, due to excessive normalizations
+		void Add(const Native&);
 		void Mul(const Native&);
 		void Sqr();
 		void Inv(); // for 0 the result is also 0
 
-		bool IsZero() const;
+		bool operator == (Zero_) const;
 
 		bool Import(const Scalar&); // on overflow auto-normalizes and returns true
 		void ImportFix(uintBig&); // on overflow input is mutated (auto-hashed)
@@ -47,7 +47,7 @@ namespace ECC
 	public:
 		secp256k1_gej& get_Raw() { return *this; } // use with care
 
-		void SetZero();
+		Native& operator = (Zero_);
 		void SetNeg(const Native&);
 		void SetSum(const Native&, const Native&);
 		void SetX2(const Native&);
@@ -57,7 +57,7 @@ namespace ECC
 		void AddMul(const Native&, const Scalar&); // naive (non-secure) implementation, suitable for casual use (such as signature verification), otherwise should use generators
 		void X2();
 
-		bool IsZero() const;
+		bool operator == (Zero_) const;
 
 		bool Import(const Point&);
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result

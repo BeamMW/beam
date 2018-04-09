@@ -10,33 +10,13 @@
 
 namespace ECC
 {
-	void SecureErase(void*, uint32_t);
-/*
-	template <class T>
-	class SecureEraseGuard {
-		T* m_pObj;
-	public:
-		SecureEraseGuard(T* p = NULL) :m_pObj(p) {}
-		SecureEraseGuard(T& t) :m_pObj(&t) {}
-		~SecureEraseGuard() { Erase(); }
-
-		void Erase() {
-			if (m_pObj) {
-				SecureErase(m_pObj, sizeof(T));
-				m_pObj = NULL;
-			}
-		}
-
-		void Detach() { m_pObj = NULL; }
-
-		void Set(T* p) {
-			Erase();
-			m_pObj = p;
-		}
-
-		void Set(T& t) { Set(&t); }
+	// Syntactic sugar!
+	enum Zero_ {
+		Zero
 	};
-*/
+
+	void SecureErase(void*, uint32_t);
+
 	template <typename T>
 	struct NoLeak
 	{
@@ -57,12 +37,13 @@ namespace ECC
 			return sizeof(m_pData);
 		}
 
-		void SetZero()
+		uintBig_t& operator = (Zero_)
 		{
 			memset(m_pData, 0, sizeof(m_pData));
+			return *this;
 		}
 
-		bool IsZero() const
+		bool operator == (Zero_) const
 		{
 			for (int i = 0; i < _countof(m_pData); i++)
 				if (m_pData[i])
