@@ -485,22 +485,23 @@ namespace ECC {
 			}
 		}
 
-		void Obscured::SetMul(Point::Native& res, bool bSet, const Scalar::Native& k) const
+		void Obscured::Mul<Scalar::Native>::Assign(Point::Native& res, bool bSet) const
 		{
 			secp256k1_ge ge;
-			ToPt(res, ge, m_AddPt, bSet);
+			ToPt(res, ge, me.m_AddPt, bSet);
 
 			NoLeak<Scalar::Native> k2;
-			k2.V = k + m_AddScalar;
+			k2.V = k + me.m_AddScalar;
 
-			Generator::SetMul(res, false, m_pPts, nLevels, k2.V);
+			Generator::SetMul(res, false, me.m_pPts, nLevels, k2.V);
 		}
 
-		void Obscured::SetMul(Point::Native& res, bool bSet, const Scalar& k) const
+		void Obscured::Mul<Scalar>::Assign(Point::Native& res, bool bSet) const
 		{
 			NoLeak<Scalar::Native> k2;
 			k2.V.Import(k); // don't care if overflown (still valid operation)
-			SetMul(res, bSet, k2.V);
+
+			Mul<Scalar::Native>(me, k2.V).Assign(res, bSet);
 		}
 
 	} // namespace Generator
@@ -515,13 +516,13 @@ namespace ECC {
 
 	void Context::Excess(Point::Native& res, const Scalar::Native& k) const
 	{
-		G.SetMul(res, true, k);
+		res = G * k;
 	}
 
 	void Context::Commit(Point::Native& res, const Scalar::Native& k, const Scalar::Native& v) const
 	{
 		Excess(res, k);
-		H.SetMul(res, false, v);
+		res += H * v;
 	}
 
 	void Context::Commit(Point::Native& res, const Scalar::Native& k, const Amount& v, Scalar::Native& vOut) const
@@ -637,7 +638,7 @@ namespace ECC {
 			s.m_Value.Set(val);
 
 			Point::Native ptAmount;
-			Context::get().H.SetMul(ptAmount, true, s);
+			ptAmount = Context::get().H * s;
 
 			ptAmount = -ptAmount;
 			out += ptAmount;

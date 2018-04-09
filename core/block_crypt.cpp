@@ -258,7 +258,7 @@ namespace beam
 				return false;
 		}
 
-		ECC::Context::get().G.SetMul(sigma, false, m_Offset);
+		sigma += ECC::Context::get().G * m_Offset;
 
 		return true;
 	}
@@ -271,7 +271,7 @@ namespace beam
 
 		ECC::Scalar s;
 		s.m_Value.Set(fee);
-		ECC::Context::get().H.SetMul(sigma, false, s);
+		sigma += ECC::Context::get().H * s;
 
 		return sigma == ECC::Zero;
 	}

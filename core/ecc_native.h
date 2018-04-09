@@ -72,6 +72,9 @@ namespace ECC
 		Native& operator += (const Native& v) { return *this = *this + v; }
 		Native& operator += (Mul); // naive (non-secure) implementation, suitable for casual use (such as signature verification), otherwise should use generators
 
+		template <class Setter> Native& operator = (const Setter& v) { v.Assign(*this, true); return *this; }
+		template <class Setter> Native& operator += (const Setter& v) { v.Assign(*this, false); return *this; }
+
 		bool Import(const Point&);
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result
 	};
@@ -99,18 +102,24 @@ namespace ECC
 		class Simple
 			:public Base<nBits_>
 		{
+			template <typename TScalar>
+			struct Mul
+			{
+				const Simple& me;
+				const TScalar k;
+				Mul(const Simple& me_, const TScalar k_) :me(me_) ,k(k_) {}
+
+				void Assign(Point::Native& res, bool bSet) const
+				{
+					Generator::SetMul(res, bSet, me.m_pPts, nLevels, k);
+				}
+			};
+
 		public:
 			Simple(const char* szSeed) { GeneratePts(szSeed, m_pPts, nLevels); }
 
-			void SetMul(Point::Native& res, bool bSet, const Scalar::Native& k) const
-			{
-				Generator::SetMul(res, bSet, m_pPts, nLevels, k);
-			}
-
-			void SetMul(Point::Native& res, bool bSet, const Scalar& k) const
-			{
-				Generator::SetMul(res, bSet, m_pPts, nLevels, k);
-			}
+			template <typename TScalar>
+			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
 		};
 
 		class Obscured
@@ -119,11 +128,21 @@ namespace ECC
 			secp256k1_ge_storage m_AddPt;
 			Scalar::Native m_AddScalar;
 
+			template <typename TScalar>
+			struct Mul
+			{
+				const Obscured& me;
+				const TScalar k;
+				Mul(const Obscured& me_, const TScalar k_) :me(me_) ,k(k_) {}
+
+				void Assign(Point::Native& res, bool bSet) const;
+			};
+
 		public:
 			Obscured(const char* szSeed);
 
-			void SetMul(Point::Native& res, bool bSet, const Scalar::Native& k) const;
-			void SetMul(Point::Native& res, bool bSet, const Scalar& k) const;
+			template <typename TScalar>
+			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
 		};
 
 	} // namespace Generator
