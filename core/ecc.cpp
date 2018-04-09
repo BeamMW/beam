@@ -32,14 +32,6 @@ namespace ECC {
 		return m_Value < s_Order;
 	}
 
-	void Scalar::SetRandom()
-	{
-		// accept/reject strategy
-		do
-			m_Value.SetRandom();
-		while (!IsValid());
-	}
-
 	void Scalar::Native::SetZero()
 	{
 		secp256k1_scalar_clear(this);

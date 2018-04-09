@@ -10,7 +10,6 @@
 
 namespace ECC
 {
-	void GenerateRandom(void*, uint32_t);
 	void SecureErase(void*, uint32_t);
 /*
 	template <class T>
@@ -71,11 +70,6 @@ namespace ECC
 			return true;
 		}
 
-		void SetRandom()
-		{
-			GenerateRandom(m_pData, sizeof(m_pData));
-		}
-
 		// from ordinal types (unsigned)
 		template <typename T>
 		void Set(T x)
@@ -116,7 +110,6 @@ namespace ECC
 		uintBig m_Value; // valid range is [0 .. s_Order)
 
 		bool IsValid() const;
-		void SetRandom();
 
 		class Native;
 	};
