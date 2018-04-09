@@ -121,6 +121,15 @@ namespace ECC
 
 	} // namespace Generator
 
+	struct Signature::MultiSig
+	{
+		NoLeak<Scalar::Native> m_Nonce; // specific signer
+		Point::Native m_NoncePub;		// sum of all co-signers
+
+		void GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk);
+	};
+
+
 	class Hash::Processor
 		:private secp256k1_sha256_t
 	{

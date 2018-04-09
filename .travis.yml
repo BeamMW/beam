@@ -24,3 +24,8 @@ matrix:
             - libboost-all-dev
       before_install:
         - eval "CC=gcc-7 && CXX=g++-7"
+
+notifications:
+  email:
+    - big.romanov@gmail.com
+

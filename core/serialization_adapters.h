@@ -123,6 +123,43 @@ namespace detail
             return ar;
         }
 
+        /// ECC::RangeProof::Confidential serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& cond) 
+        {
+            ar & cond.m_pOpaque;
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential& cond) 
+        {
+            ar & cond.m_pOpaque;
+            return ar;
+        }
+
+        /// ECC::RangeProof::Public serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::RangeProof::Public& val) 
+        {
+            ar 
+                & val.m_Value
+                & val.m_Signature
+            ;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::RangeProof::Public& val) 
+        {
+            ar 
+                & val.m_Value
+                & val.m_Signature
+            ;
+
+            return ar;
+        }
 
         ///////////////////////////////////////////////////////////
         /// Common Beam serialization adapters
@@ -158,7 +195,7 @@ namespace detail
             ar
                 & output.m_Commitment
                 & output.m_Coinbase
-                & output.m_pCondidential
+                & output.m_pConfidential
                 & output.m_pPublic;
 
             return ar;
@@ -170,8 +207,33 @@ namespace detail
             ar
                 & output.m_Commitment
                 & output.m_Coinbase
-                & output.m_pCondidential
+                & output.m_pConfidential
                 & output.m_pPublic;
+
+            return ar;
+        }
+
+        /// beam::TxKernel::Contract serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const beam::TxKernel::Contract& val) 
+        {
+            ar 
+                & val.m_Msg
+                & val.m_PublicKey
+                & val.m_Signature
+            ;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::TxKernel::Contract& val) 
+        {
+            ar 
+                & val.m_Msg
+                & val.m_PublicKey
+                & val.m_Signature
+            ;
 
             return ar;
         }
@@ -183,10 +245,9 @@ namespace detail
             ar
                 & val.m_Excess
                 & val.m_Signature
-                & val.m_pFee
-                & val.m_pHeight
-                & val.m_pCustomMsg
-                & val.m_pPublicKey
+                & val.m_Fee
+                & val.m_Height
+                & val.m_pContract
                 & val.m_vNested
             ;
 
@@ -199,10 +260,9 @@ namespace detail
             ar
                 & val.m_Excess
                 & val.m_Signature
-                & val.m_pFee
-                & val.m_pHeight
-                & val.m_pCustomMsg
-                & val.m_pPublicKey
+                & val.m_Fee
+                & val.m_Height
+                & val.m_pContract
                 & val.m_vNested
             ;
 
@@ -230,44 +290,6 @@ namespace detail
                 & tx.m_vOutputs
                 & tx.m_vKernels
                 & tx.m_Offset;
-
-            return ar;
-        }
-
-        /// beam::Output::Condidential serialization
-        template<typename Archive>
-        static Archive& save(Archive& ar, const beam::Output::Condidential& cond)
-        {
-            ar & cond.m_RangeProof.m_pOpaque;
-            return ar;
-        }
-
-        template<typename Archive>
-        static Archive& load(Archive& ar, beam::Output::Condidential& cond)
-        {
-            ar & cond.m_RangeProof.m_pOpaque;
-            return ar;
-        }
-
-        /// beam::Output::Public serialization
-        template<typename Archive>
-        static Archive& save(Archive& ar, const beam::Output::Public& val)
-        {
-            ar
-                & val.m_Value
-                & val.m_Signature
-            ;
-
-            return ar;
-        }
-
-        template<typename Archive>
-        static Archive& load(Archive& ar, beam::Output::Public& val)
-        {
-            ar
-                & val.m_Value
-                & val.m_Signature
-            ;
 
             return ar;
         }

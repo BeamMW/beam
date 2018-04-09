@@ -55,7 +55,7 @@ namespace beam
 		static const Amount s_MinimumValue = 1;
 
 		// one of the following *must* be specified
-		std::unique_ptr<ECC::RangeProof::Confidential>	m_pCondidential;
+		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		bool IsValid() const;
@@ -66,26 +66,37 @@ namespace beam
 	struct TxKernel
 	{
 		typedef std::unique_ptr<TxKernel> Ptr;
+		typedef std::list<Ptr> List;
 
 		// Mandatory
 		ECC::Point		m_Excess;
-		ECC::Signature	m_Signature;
+		ECC::Signature	m_Signature;	// For the whole tx body, including nested kernels, excluding contract signature
+		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
+		Height			m_Height;		// Minimum block height for the tx to be valid. Set to 0 if irrelevant
 
 		// Optional
-		std::unique_ptr<Amount>				m_pFee;
-		std::unique_ptr<Height>				m_pHeight;
-		std::unique_ptr<ECC::Hash::Value>	m_pCustomMsg;
-		std::unique_ptr<ECC::Point>			m_pPublicKey;
+		struct Contract
+		{
+			ECC::Hash::Value	m_Msg;
+			ECC::Point			m_PublicKey;
+			ECC::Signature		m_Signature;
 
-		std::list<Ptr> m_vNested; // nested kernels, included in the signature.
+			int cmp(const Contract&) const;
+		};
 
-		void CalculateSignature();
-		bool IsValid() const;
+		std::unique_ptr<Contract> m_pContract;
 
-		void get_Hash(Merkle::Hash&) const;
+		List m_vNested; // nested kernels, included in the signature.
+
+		bool IsValid(Amount& fee, ECC::Point::Native& exc) const;
+
+		void get_Hash(Merkle::Hash&) const; // Hash doesn't include signatures
 		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
 
 		int cmp(const TxKernel&) const;
+
+	private:
+		bool Traverse(ECC::Hash::Value&, Amount*, ECC::Point::Native*) const;
 	};
 
 	struct TxBase
@@ -94,15 +105,27 @@ namespace beam
 		std::list<Output::Ptr> m_vOutputs;
 		std::list<TxKernel::Ptr> m_vKernels;
 		ECC::Scalar m_Offset;
+
+		// tests the validity of all the components, and overall arithmetics.
+		// Does *not* check the existence of the input UTXOs
+		// 
+		// Validation formula
+		//
+		// Sum(Inputs) - Sum(Outputs) = Sum(TxKernels.Excess) + m_Offset*G [ + Sum(Fee)*H ]
+		//
+		// For a block validation Fees are not accounted for, since they are consumed by new outputs injected by the miner.
+		//
+		// Define: Sigma = Sum(Outputs) - Sum(Inputs) + Sum(TxKernels.Excess) + m_Offset*G
+		// Sigma is either zero or -Sum(Fee)*H, depending on what we validate
+
+		bool ValidateAndSummarize(Amount& fee, ECC::Point::Native& sigma, Height nHeight) const;
 	};
 
 	struct Transaction
 		:public TxBase
 	{
-		// tests the validity of all the components, and overall arithmetics.
-		// Does *not* check the existence of the input UTXOs
 		// Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
-		bool IsValid() const;
+		bool IsValid(Amount& fee, Height nHeight) const;
 	};
 
 	struct Block
@@ -126,7 +149,7 @@ namespace beam
 			{
 
 			}
-		};
+		} header;
 
 		struct PoW
 		{

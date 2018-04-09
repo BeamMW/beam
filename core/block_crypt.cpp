@@ -5,10 +5,6 @@ namespace beam
 
 	namespace Merkle
 	{
-		typedef ECC::Hash::Value Hash;
-		typedef std::pair<bool, Hash>	Node;
-		typedef std::list<Node>			Proof;
-
 		void Interpret(Hash& hash, const Proof& p)
 		{
 			for (Proof::const_iterator it = p.begin(); p.end() != it; it++)
@@ -39,24 +35,26 @@ namespace beam
 			return 1;
 
 #define CMP_MEMBER_EX(member) \
-	{ \
-		int n = member.cmp(v.member); \
-		if (n) \
-			return n; \
-	}
+		{ \
+			int n = member.cmp(v.member); \
+			if (n) \
+				return n; \
+		}
 
 #define CMP_MEMBER_PTR(member) \
-	if (member) \
-	{ \
-		if (!v.member) \
-			return 1; \
-		int n = member->cmp(*v.member); \
-		if (n) \
-			return n; \
-	} else \
-		if (v.member) \
-			return -1;
+		if (member) \
+		{ \
+			if (!v.member) \
+				return 1; \
+			int n = member->cmp(*v.member); \
+			if (n) \
+				return n; \
+		} else \
+			if (v.member) \
+				return -1;
 
+	/////////////
+	// Input
 	int Input::cmp(const Input& v) const
 	{
 		CMP_MEMBER(m_Coinbase)
@@ -83,14 +81,16 @@ namespace beam
 		return hv == root;
 	}
 
+	/////////////
+	// Output
 	bool Output::IsValid() const
 	{
-		if (m_pCondidential)
+		if (m_pConfidential)
 		{
 			if (m_pPublic)
 				return false;
 
-			return m_pCondidential->IsValid(m_Commitment);
+			return m_pConfidential->IsValid(m_Commitment);
 		}
 
 		if (!m_pPublic)
@@ -103,11 +103,177 @@ namespace beam
 	{
 		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER_EX(m_Commitment)
-		CMP_MEMBER_PTR(m_pCondidential)
+		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
 
 		return 0;
 	}
 
+	/////////////
+	// TxKernel
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, Amount* pFee, ECC::Point::Native* pExcess) const
+	{
+		ECC::Hash::Processor hp;
+
+		hp.WriteOrd(m_Fee);
+		hp.Write(m_Excess);
+		hp.WriteOrd(m_Height);
+
+		if (m_pContract)
+		{
+			hp.Write("contract");
+			hp.Write(m_pContract->m_Msg);
+			hp.Write(m_pContract->m_PublicKey);
+		}
+
+		for (List::const_iterator it = m_vNested.begin(); m_vNested.end() != it; it++)
+		{
+			if (!(*it)->Traverse(hv, pFee, pExcess))
+				return false;
+			hp.Write(hv);
+		}
+
+		hp.Finalize(hv);
+
+		if (pExcess)
+		{
+			ECC::Point::Native pt;
+			pt.Import(m_Excess);
+
+			if (!m_Signature.IsValid(hv, pt))
+				return false;
+
+			pExcess->Add(pt);
+
+			if (m_pContract)
+			{
+				hp.Reset();
+				hp.Write(hv);
+				hp.Write(m_Excess);
+
+				ECC::Hash::Value hv2;
+				hp.Finalize(hv2);
+
+				pt.Import(m_pContract->m_PublicKey);
+				if (!m_pContract->m_Signature.IsValid(hv2, pt))
+					return false;
+			}
+		}
+
+		if (pFee)
+			*pFee += m_Fee;
+
+		return true;
+	}
+
+	void TxKernel::get_Hash(Merkle::Hash& out) const
+	{
+		Traverse(out, NULL, NULL);
+	}
+
+	bool TxKernel::IsValid(Amount& fee, ECC::Point::Native& exc) const
+	{
+		ECC::Hash::Value hv;
+		return Traverse(hv, &fee, &exc);
+	}
+
+	bool TxKernel::IsValidProof(const Merkle::Proof& proof, const Merkle::Hash& root) const
+	{
+		Merkle::Hash hv;
+		get_Hash(hv);
+		Merkle::Interpret(hv, proof);
+		return hv == root;
+	}
+
+	int TxKernel::Contract::cmp(const Contract& v) const
+	{
+		CMP_MEMBER_EX(m_Msg)
+		CMP_MEMBER_EX(m_PublicKey)
+		CMP_MEMBER_EX(m_Signature)
+		return 0;
+	}
+
+	int TxKernel::cmp(const TxKernel& v) const
+	{
+		CMP_MEMBER_EX(m_Excess)
+		CMP_MEMBER_EX(m_Signature)
+		CMP_MEMBER(m_Fee)
+		CMP_MEMBER(m_Height)
+		CMP_MEMBER_PTR(m_pContract)
+
+		List::const_iterator it0 = m_vNested.begin();
+		List::const_iterator it1 = v.m_vNested.begin();
+
+		for ( ; m_vNested.end() != it0; it0++, it1++)
+		{
+			if (v.m_vNested.end() == it1)
+				return 1;
+
+			int n = (*it0)->cmp(*(*it1));
+			if (n)
+				return n;
+		}
+
+		if (v.m_vNested.end() != it1)
+			return -1;
+
+		return 0;
+	}
+
+	/////////////
+	// Transaction
+	bool TxBase::ValidateAndSummarize(Amount& fee, ECC::Point::Native& sigma, Height nHeight) const
+	{
+		fee = 0;
+		sigma.SetZero();
+
+		for (std::list<Input::Ptr>::const_iterator it = m_vInputs.begin(); m_vInputs.end() != it; it++)
+		{
+			const Input& v = *(*it);
+
+			ECC::Point::Native p;
+			p.Import(v.m_Commitment);
+			sigma.Add(p);
+		}
+
+		sigma.Neg();
+
+		for (std::list<Output::Ptr>::const_iterator it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
+		{
+			const Output& v = *(*it);
+			if (!v.IsValid())
+				return false;
+
+			ECC::Point::Native p;
+			p.Import(v.m_Commitment);
+			sigma.Add(p);
+		}
+
+		for (std::list<TxKernel::Ptr>::const_iterator it = m_vKernels.begin(); m_vKernels.end() != it; it++)
+		{
+			const TxKernel& v = *(*it);
+			if (v.m_Height > nHeight)
+				return false;
+			if (!v.IsValid(fee, sigma))
+				return false;
+		}
+
+		ECC::Context::get().G.SetMul(sigma, false, m_Offset);
+
+		return true;
+	}
+
+	bool Transaction::IsValid(Amount& fee, Height nHeight) const
+	{
+		ECC::Point::Native sigma;
+		if (!ValidateAndSummarize(fee, sigma, nHeight))
+			return false;
+
+		ECC::Scalar s;
+		s.m_Value.Set(fee);
+		ECC::Context::get().H.SetMul(sigma, false, s);
+
+		return sigma.IsZero();
+	}
 
 } // namespace beam
