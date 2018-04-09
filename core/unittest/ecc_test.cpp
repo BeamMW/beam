@@ -279,12 +279,44 @@ void TestCommitments()
 	verify(sigma == Zero);
 }
 
+void TestRangeProof()
+{
+	Scalar::Native sk;
+	SetRandom(sk);
+
+	RangeProof::Public rp;
+	rp.m_Value = 345000;
+	rp.Create(sk);
+
+	Point::Native comm;
+	Point comm_;
+
+	comm = Commitment(sk, rp.m_Value);
+	comm.Export(comm_);
+
+	verify(rp.IsValid(comm_));
+
+	// tamper value
+	rp.m_Value++;
+	verify(!rp.IsValid(comm_));
+	rp.m_Value--;
+
+	// try with invalid key
+	SetRandom(sk);
+
+	comm = Commitment(sk, rp.m_Value);
+	comm.Export(comm_);
+
+	verify(!rp.IsValid(comm_));
+}
+
 void TestAll()
 {
 	TestScalars();
 	TestPoints();
 	TestSigning();
 	TestCommitments();
+	TestRangeProof();
 }
 
 } // namespace ECC
