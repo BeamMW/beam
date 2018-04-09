@@ -188,6 +188,105 @@ void TestPoints()
 
 }
 
+void TestSigning()
+{
+	for (int i = 0; i < 30; i++)
+	{
+		Scalar::Native sk; // private key
+		SetRandom(sk);
+
+		Point::Native pk; // public key
+		pk = Context::get().G * sk;
+
+		Signature mysig;
+
+		uintBig msg;
+		SetRandom(msg); // assumed message
+
+		mysig.Sign(msg, sk);
+
+		verify(mysig.IsValid(msg, pk));
+
+		// tamper msg
+		uintBig msg2 = msg;
+		msg2.Inc();
+
+		verify(!mysig.IsValid(msg2, pk));
+
+		// try to sign with different key
+		Scalar::Native sk2;
+		SetRandom(sk2);
+
+		Signature mysig2;
+		mysig2.Sign(msg, sk2);
+		verify(!mysig2.IsValid(msg, pk));
+
+		// tamper signature
+		mysig2 = mysig;
+		SetRandom(mysig2.m_e.m_Value);
+		verify(!mysig2.IsValid(msg, pk));
+
+		mysig2 = mysig;
+		SetRandom(mysig2.m_k.m_Value);
+		verify(!mysig2.IsValid(msg, pk));
+	}
+}
+
+void TestCommitments()
+{
+	Scalar::Native kExcess;
+	kExcess = Zero;
+
+	Amount vSum = 0;
+
+	Point::Native commInp;
+	commInp = Zero;
+
+	// inputs
+	for (uint32_t i = 0; i < 7; i++)
+	{
+		Amount v = (i+50) * 400;
+		Scalar::Native sk;
+		SetRandom(sk);
+
+		commInp += Commitment(sk, v);
+
+		kExcess += sk;
+		vSum += v;
+	}
+
+	// single output
+	Point::Native commOutp;
+	commOutp = Zero;
+	{
+		Scalar::Native sk;
+		SetRandom(sk);
+
+		Point::Native comm;
+		commOutp += Commitment(sk, vSum);
+
+		sk = -sk;
+		kExcess += sk;
+	}
+
+	Point::Native sigma;
+	sigma = Context::get().G * kExcess;
+	sigma += commOutp;
+
+	sigma = -sigma;
+	sigma += commInp;
+
+	verify(sigma == Zero);
+}
+
+void TestAll()
+{
+	TestScalars();
+	TestPoints();
+	TestSigning();
+	TestCommitments();
+}
+
 } // namespace ECC
 
 //int main()
