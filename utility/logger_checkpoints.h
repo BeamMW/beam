@@ -72,53 +72,20 @@ public:
     void flush(LogMessage* to);
 
     ~Checkpoint();
-/*
-    template <typename T, typename = std::enable_if<std::is_arithmetic<T>::value>>
-    Checkpoint& operator<<(T value) {
-        assert(_ptr < _items + _maxItems);
-        _ptr->fn = detail::flush_value<T>;
-        (T&)(_ptr->data.value) = value;
-        ++_ptr;
-        return *this;
-    }
 
-    template <typename T>
-    Checkpoint& operator<<(T* ptr) {
-        assert(_ptr < _items + _maxItems);
-        if constexpr (std::is_same<T*, const char*>::value) {
-            _ptr->fn = detail::flush_cstr;
-        } else {
-            _ptr->fn = detail::flush_pointer<T>;
-        }
-        _ptr->data.ptr = ptr;
-        ++_ptr;
-        return *this;
-    }
-
-    template <typename T>
-    Checkpoint& operator<<(T* ptr) {
-        assert(_ptr < _items + _maxItems);
-        if constexpr (std::is_same<T*, const char*>::value) {
-            _ptr->fn = detail::flush_cstr;
-        } else {
-            _ptr->fn = detail::flush_pointer<T>;
-        }
-        _ptr->data.ptr = ptr;
-        ++_ptr;
-        return *this;
-    }
-*/
-        template <typename T> Checkpoint& operator<<(T value) {
+    template <typename T> Checkpoint& operator<<(T value) {
         assert(_ptr < _items + _maxItems);
         if constexpr (std::is_same<T, const char*>::value) {
             _ptr->fn = detail::flush_cstr;
             _ptr->data.ptr = value;
         } else if constexpr (std::is_pointer<T>::value) {
-            _ptr->fn = detail::flush_pointer<T>;
+            _ptr->fn = detail::flush_pointer<typename std::remove_pointer<T>::type>;
             _ptr->data.ptr = value;
-        } else {
+        } else if constexpr (std::is_arithmetic<T>::value) {
             _ptr->fn = detail::flush_value<T>;
-        (T&)(_ptr->data.value) = value;
+            (T&)(_ptr->data.value) = value;
+        } else {
+            assert(false && "Non-supported type in checkpoint, use pointers");
         }
 
         ++_ptr;

@@ -29,13 +29,13 @@ void test_logger_1() {
 void test_ndc_1() {
     LoggerConfig c;
     auto logger = Logger::create (c);
+    //CHECKPOINT_CREATE (6);
+    //CHECKPOINT_ADD() << "ssss" << 333 << 555;
     CHECKPOINT_CREATE (6);
-    CHECKPOINT_ADD() << "ssss" << 333 << 555;
-    CHECKPOINT_CREATE (6);
-    CHECKPOINT_ADD() << "zzz" << 777 << 888;
+    //CHECKPOINT_ADD() << "zzz" << 777 << 888;
     std::string zzz("Blablabla");
     CHECKPOINT_ADD() << &zzz;
-    CHECKPOINT (3333, 44444, 5555, 66666, 77777, 88888, FlushAllCheckpoints());
+    //CHECKPOINT (3333, 44444, 5555, 66666, 77777, 88888, FlushAllCheckpoints());
     LOG_ERROR() << FlushAllCheckpoints();
 }
 
