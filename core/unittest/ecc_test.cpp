@@ -351,7 +351,7 @@ struct BenchmarkMeter
 	static uint64_t get_Time()
 	{
 		timespec tp;
-		Test::SysRet(clock_gettime(CLOCK_MONOTONIC, &tp));
+		verify(!clock_gettime(CLOCK_MONOTONIC, &tp));
 		return uint64_t(tp.tv_sec) * m_Freq + tp.tv_nsec;
 	}
 
