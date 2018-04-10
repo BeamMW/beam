@@ -1,10 +1,12 @@
 #include "../ecc_native.h"
 #include <iostream>
 
+int g_TestsFailed = 0;
+
 void TestFailed(const char* szExpr, uint32_t nLine)
 {
-	printf("Test failed! Line=%u, Expression: %s", nLine, szExpr);
-	abort();
+	printf("Test failed! Line=%u, Expression: %s\n", nLine, szExpr);
+	g_TestsFailed++;
 }
 
 #define verify(x) \
@@ -616,7 +618,10 @@ void RunBenchmark()
 
 } // namespace ECC
 
-//int main()
-//{
-//    return 0;
-//}
+int main()
+{
+	ECC::TestAll();
+	ECC::RunBenchmark();
+
+    return g_TestsFailed ? -1 : 0;
+}
