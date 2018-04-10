@@ -485,6 +485,7 @@ namespace ECC {
 			}
 		}
 
+		template <>
 		void Obscured::Mul<Scalar::Native>::Assign(Point::Native& res, bool bSet) const
 		{
 			secp256k1_ge ge;
@@ -496,6 +497,7 @@ namespace ECC {
 			Generator::SetMul(res, false, me.m_pPts, nLevels, k2.V);
 		}
 
+		template <>
 		void Obscured::Mul<Scalar>::Assign(Point::Native& res, bool bSet) const
 		{
 			NoLeak<Scalar::Native> k2;
