@@ -1,3 +1,5 @@
+#include <utility> // std::swap
+#include "common.h"
 #include "ecc_native.h"
 
 namespace beam

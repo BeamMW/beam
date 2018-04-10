@@ -115,12 +115,12 @@ namespace ECC
 
 					NoLeak<Scalar> s;
 					s.V.m_Value = k;
-					Generator::SetMul(res, bSet, me.m_pPts, nLevels, s.V);
+					Generator::SetMul(res, bSet, me.m_pPts, Base<nBits_>::nLevels, s.V);
 				}
 			};
 
 		public:
-			Simple(const char* szSeed) { GeneratePts(szSeed, m_pPts, nLevels); }
+			Simple(const char* szSeed) { GeneratePts(szSeed, Base<nBits_>::m_pPts, Base<nBits_>::nLevels); }
 
 			template <typename TScalar>
 			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
