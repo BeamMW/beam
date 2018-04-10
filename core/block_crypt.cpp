@@ -118,7 +118,7 @@ namespace beam
 		ECC::Hash::Processor hp;
 
 		hp.WriteOrd(m_Fee);
-		hp.Write(m_Excess);
+		hp.Write("sep");
 		hp.WriteOrd(m_Height);
 
 		if (m_pContract)
@@ -130,6 +130,7 @@ namespace beam
 
 		for (List::const_iterator it = m_vNested.begin(); m_vNested.end() != it; it++)
 		{
+			hp.Write("sep");
 			if (!(*it)->Traverse(hv, pFee, pExcess))
 				return false;
 			hp.Write(hv);
@@ -149,12 +150,8 @@ namespace beam
 
 			if (m_pContract)
 			{
-				hp.Reset();
-				hp.Write(hv);
-				hp.Write(m_Excess);
-
 				ECC::Hash::Value hv2;
-				hp.Finalize(hv2);
+				get_HashForContract(hv2, hv);
 
 				pt.Import(m_pContract->m_PublicKey);
 				if (!m_pContract->m_Signature.IsValid(hv2, pt))
@@ -166,6 +163,14 @@ namespace beam
 			*pFee += m_Fee;
 
 		return true;
+	}
+
+	void TxKernel::get_HashForContract(ECC::Hash::Value& out, const ECC::Hash::Value& msg) const
+	{
+		ECC::Hash::Processor hp;
+		hp.Write(msg);
+		hp.Write(m_Excess);
+		hp.Finalize(out);
 	}
 
 	void TxKernel::get_Hash(Merkle::Hash& out) const

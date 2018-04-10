@@ -93,6 +93,8 @@ namespace beam
 		void get_Hash(Merkle::Hash&) const; // Hash doesn't include signatures
 		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
 
+		void get_HashForContract(ECC::Hash::Value&, const ECC::Hash::Value& msg) const;
+
 		int cmp(const TxKernel&) const;
 
 	private:

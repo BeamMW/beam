@@ -1,5 +1,6 @@
 #include <iostream>
 #include "../ecc_native.h"
+#include "../common.h"
 
 
 #include "../beam/secp256k1-zkp/include/secp256k1_rangeproof.h" // For benchmark comparison with secp256k1
@@ -315,6 +316,187 @@ void TestRangeProof()
 	verify(!rp.IsValid(comm_));
 }
 
+struct TransactionMaker
+{
+	beam::Transaction m_Trans;
+
+	TransactionMaker()
+	{
+		m_Trans.m_Offset.m_Value = Zero;
+	}
+
+	struct Peer
+	{
+		Scalar::Native m_k;
+
+		Peer()
+		{
+			m_k = Zero;
+		}
+
+		void EncodeAmount(Point& out, Scalar::Native& k, Amount val)
+		{
+			SetRandom(k);
+
+			Point::Native pt;
+			pt = Commitment(k, val);
+			pt.Export(out);
+		}
+
+		void FinalizeExcess(Point::Native& kG, Scalar::Native& kOffset)
+		{
+			kOffset += m_k;
+
+			SetRandom(m_k);
+			kOffset += m_k;
+
+			m_k = -m_k;
+			kG += Context::get().G * m_k;
+		}
+
+
+		void AddInput(beam::Transaction& t, Amount val)
+		{
+			std::unique_ptr<beam::Input> pInp(new beam::Input);
+			pInp->m_Height = 0;
+			pInp->m_Coinbase = false;
+
+			Scalar::Native k;
+			EncodeAmount(pInp->m_Commitment, k, val);
+
+			t.m_vInputs.push_back(std::move(pInp));
+
+			m_k += k;
+		}
+
+		void AddOutput(beam::Transaction& t, Amount val)
+		{
+			std::unique_ptr<beam::Output> pOut(new beam::Output);
+			pOut->m_Coinbase = false;
+
+			Scalar::Native k;
+			EncodeAmount(pOut->m_Commitment, k, val);
+
+			pOut->m_pPublic.reset(new RangeProof::Public);
+			pOut->m_pPublic->m_Value = val;
+			pOut->m_pPublic->Create(k);
+
+			t.m_vOutputs.push_back(std::move(pOut));
+
+			k = -k;
+			m_k += k;
+		}
+
+	};
+
+	Peer m_pPeers[2]; // actually can be more
+
+	void CoSignKernel(beam::TxKernel& krn)
+	{
+		Hash::Value msg;
+		krn.get_Hash(msg);
+
+		// 1st pass. Public excesses and Nonces are summed.
+		Scalar::Native offset;
+		offset.Import(m_Trans.m_Offset);
+
+		Point::Native kG, xG;
+		kG = Zero;
+		xG = Zero;
+
+		for (int i = 0; i < _countof(m_pPeers); i++)
+		{
+			Peer& p = m_pPeers[i];
+			p.FinalizeExcess(kG, offset);
+
+			Signature::MultiSig msig;
+			msig.GenerateNonce(msg, p.m_k);
+
+			xG += Context::get().G * msig.m_Nonce.V;
+		}
+
+		offset.Export(m_Trans.m_Offset);
+		kG.Export(krn.m_Excess);
+
+		// 2nd pass. Signing. Total excess is the signature public key
+		offset = Zero;
+
+		for (int i = 0; i < _countof(m_pPeers); i++)
+		{
+			Peer& p = m_pPeers[i];
+
+			Signature::MultiSig msig;
+			msig.GenerateNonce(msg, p.m_k);
+			msig.m_NoncePub = xG;
+
+			Scalar::Native k;
+			krn.m_Signature.CoSign(k, msg, p.m_k, msig);
+
+			offset += k;
+		}
+
+		offset.Export(krn.m_Signature.m_k);
+
+	}
+
+	void CreateTxKernel(std::unique_ptr<beam::TxKernel>& pKrn, Amount fee)
+	{
+		pKrn.reset(new beam::TxKernel);
+		pKrn->m_Fee = fee;
+		pKrn->m_Height = 0;
+
+		// contract
+		Scalar::Native skContract;
+		SetRandom(skContract);
+
+		pKrn->m_pContract.reset(new beam::TxKernel::Contract);
+		SetRandom(pKrn->m_pContract->m_Msg);
+
+		Point::Native pkContract;
+		pkContract = Context::get().G * skContract;
+		pkContract.Export(pKrn->m_pContract->m_PublicKey);
+
+		CoSignKernel(*pKrn);
+
+		// sign contract
+		Hash::Value hv;
+		pKrn->get_Hash(hv);
+		pKrn->get_HashForContract(hv, hv);
+
+		pKrn->m_pContract->m_Signature.Sign(hv, skContract);
+	}
+
+	void AddInput(int i, Amount val)
+	{
+		m_pPeers[i].AddInput(m_Trans, val);
+	}
+
+	void AddOutput(int i, Amount val)
+	{
+		m_pPeers[i].AddOutput(m_Trans, val);
+	}
+};
+
+void TestTransaction()
+{
+	TransactionMaker tm;
+	tm.AddInput(0, 3000);
+	tm.AddInput(0, 2000);
+	tm.AddOutput(0, 500);
+
+	tm.AddInput(1, 1000);
+	tm.AddOutput(1, 5400);
+
+	Amount fee = 100, fee2;
+
+	std::unique_ptr<beam::TxKernel> pKrn;
+	tm.CreateTxKernel(pKrn, fee);
+	tm.m_Trans.m_vKernels.push_back(std::move(pKrn));
+
+	verify(tm.m_Trans.IsValid(fee2, 0));
+	verify(fee == fee2);
+}
+
 void TestAll()
 {
 	TestScalars();
@@ -322,6 +504,7 @@ void TestAll()
 	TestSigning();
 	TestCommitments();
 	TestRangeProof();
+	TestTransaction();
 }
 
 
@@ -622,10 +805,10 @@ void RunBenchmark()
 
 } // namespace ECC
 
-int main()
-{
-	ECC::TestAll();
-	ECC::RunBenchmark();
-
-    return g_TestsFailed ? -1 : 0;
-}
+//int main()
+//{
+//	ECC::TestAll();
+//	ECC::RunBenchmark();
+//
+//    return g_TestsFailed ? -1 : 0;
+//}
