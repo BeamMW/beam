@@ -23,8 +23,11 @@ namespace beam
 
         struct PartialTx
         {
+            using Ptr = std::unique_ptr<PartialTx>;
+            using Uuid = std::array<uint8_t, 16>;
             Phase m_phase;
-
+            Uuid  m_id;
+            
             // pub phase: PartialTxPhase,
             // pub id: Uuid,
             // pub amount: u64,

@@ -1,5 +1,6 @@
 #include "wallet.h"
 #include "core/serialization_adapters.h"
+#include <boost/uuid/uuid.hpp>
 
 namespace beam
 {
@@ -74,19 +75,29 @@ namespace beam
         return false;
     }
 
-    Wallet::PartialTx Wallet::createInitialPartialTx()
+    Wallet::PartialTx::Ptr Wallet::createInitialPartialTx(uint64_t amount)
     {
-        PartialTx tx;
-        tx.m_phase = SenderInitiation;
+        PartialTx::Ptr tx = std::make_unique<PartialTx>();
+        tx->m_phase = SenderInitiation;
+        // 1. Create transaction Uuid
+        boost::uuids::uuid id;
+        std::copy(id.begin(), id.end(), tx->m_id.begin());
+        // 2. Set lock_height for output (current chain height)
+        auto tip = m_node.getChainTip();
+        uint64_t lockHeight = tip.height;
+        // 3. Select inputs using desired selection strategy
+        std::vector<Input> inputs;
+        // 4. Create change_output
+
+        // 5. Select blinding factor for change_output
+        // 6. calculate
 
         return tx;
     }
 
     Wallet::Result Wallet::sendMoneyTo(const Config& config, uint64_t amount)
     {
-        auto initialPartialTx = createInitialPartialTx();
-        //lockInputs(partialTx.inputs);
-        //storeChangeOutputs(partialTx.changeOutputs);
+        auto initialTx = createInitialPartialTx(amount);
 
         return sendInvitation(initialPartialTx);
     }
