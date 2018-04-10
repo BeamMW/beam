@@ -390,9 +390,9 @@ struct BenchmarkMeter
 
 void RunBenchmark()
 {
-	ECC::Scalar::Native k1, k2;
-	ECC::SetRandom(k1);
-	ECC::SetRandom(k2);
+	Scalar::Native k1, k2;
+	SetRandom(k1);
+	SetRandom(k2);
 
 /*	{
 		BenchmarkMeter bm("s.Add");
@@ -425,7 +425,7 @@ void RunBenchmark()
 		} while (bm.ShouldContinue());
 	}
 
-	ECC::Scalar k_;
+	Scalar k_;
 /*
 	{
 		BenchmarkMeter bm("s.Exp");
@@ -447,16 +447,16 @@ void RunBenchmark()
 		} while (bm.ShouldContinue());
 	}
 */
-	ECC::Point::Native p0, p1;
+	Point::Native p0, p1;
 
-	ECC::Point p_;
+	Point p_;
 	p_.m_bQuadraticResidue = false;
 
-	ECC::SetRandom(p_.m_X);
+	SetRandom(p_.m_X);
 	while (!p0.Import(p_))
 		p_.m_X.Inc();
 
-	ECC::SetRandom(p_.m_X);
+	SetRandom(p_.m_X);
 	while (!p1.Import(p_))
 		p_.m_X.Inc();
 
@@ -475,7 +475,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 = p0 * ECC::Two;
+				p0 = p0 * Two;
 
 		} while (bm.ShouldContinue());
 	}
@@ -529,7 +529,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 += ECC::Context::get().H * uint64_t(-1);
+				p0 += Context::get().H * uint64_t(-1);
 
 		} while (bm.ShouldContinue());
 	}
@@ -537,8 +537,8 @@ void RunBenchmark()
 	{
 		k1 = uint64_t(-1);
 
-		ECC::Point p_;
-		p_.m_X = ECC::Zero;
+		Point p_;
+		p_.m_X = Zero;
 		p_.m_bQuadraticResidue = false;
 
 		while (!p0.Import(p_))
@@ -548,7 +548,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 += ECC::Context::get().G * k1;
+				p0 += Context::get().G * k1;
 
 		} while (bm.ShouldContinue());
 	}
@@ -558,19 +558,19 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 = ECC::Commitment(k1, 275);
+				p0 = Commitment(k1, 275);
 
 		} while (bm.ShouldContinue());
 	}
 
-	ECC::Hash::Value hv;
+	Hash::Value hv;
 	{
-		ECC::Hash::Processor hp;
+		Hash::Processor hp;
 		hp.Write("abcd");
 		hp.Finalize(hv);
 	}
 
-	ECC::Signature sig;
+	Signature sig;
 	{
 		BenchmarkMeter bm("S.Sig");
 		do
@@ -581,7 +581,7 @@ void RunBenchmark()
 		} while (bm.ShouldContinue());
 	}
 
-	p1 = ECC::Context::get().G * k1;
+	p1 = Context::get().G * k1;
 	{
 		BenchmarkMeter bm("S.Ver");
 		do
