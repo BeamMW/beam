@@ -4,6 +4,7 @@ set(CORE_SRC
 # ~etc
 )
 add_library(core STATIC ${CORE_SRC})
+target_include_directories(core PUBLIC ${PROJECT_SOURCE_DIR}/secp256k1-zkp/src)
 
 include_directories(${PROJECT_SOURCE_DIR}/core)
 
