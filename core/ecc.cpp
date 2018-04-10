@@ -695,3 +695,9 @@ namespace ECC {
 	} // namespace RangeProof
 
 } // namespace ECC
+
+// Needed for test
+void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a)
+{
+	secp256k1_ecmult_gen(&pCtx->ecmult_gen_ctx, r, a);
+}

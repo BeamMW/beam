@@ -1,5 +1,9 @@
-#include "../ecc_native.h"
 #include <iostream>
+#include "../ecc_native.h"
+
+
+#include "../beam/secp256k1-zkp/include/secp256k1_rangeproof.h" // For benchmark comparison with secp256k1
+void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a);
 
 int g_TestsFailed = 0;
 
@@ -607,7 +611,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				secp256k1_ecmult_gen(&pCtx->ecmult_gen_ctx, &p0.get_Raw(), &k1.get());
+				secp256k1_ecmult_gen(pCtx, &p0.get_Raw(), &k1.get());
 
 		} while (bm.ShouldContinue());
 	}
