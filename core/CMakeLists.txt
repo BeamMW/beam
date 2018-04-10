@@ -1,4 +1,5 @@
 set(CORE_SRC
+    ecc.cpp
     block_crypt.cpp
 # ~etc
 )
