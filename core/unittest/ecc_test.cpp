@@ -262,7 +262,6 @@ void TestCommitments()
 		Scalar::Native sk;
 		SetRandom(sk);
 
-		Point::Native comm;
 		commOutp += Commitment(sk, vSum);
 
 		sk = -sk;
@@ -318,6 +317,302 @@ void TestAll()
 	TestCommitments();
 	TestRangeProof();
 }
+
+
+struct BenchmarkMeter
+{
+	const char* m_sz;
+
+	uint64_t m_Start;
+	uint64_t m_Cycles;
+
+	uint32_t N;
+
+#ifdef WIN32
+
+	uint64_t m_Freq;
+
+	static uint64_t get_Time()
+	{
+		uint64_t n;
+		QueryPerformanceCounter((LARGE_INTEGER*) &n);
+		return n;
+	}
+
+#else // WIN32
+
+	static const uint64_t m_Freq = 1000000000;
+	static uint64_t get_Time()
+	{
+		timespec tp;
+		Test::SysRet(clock_gettime(CLOCK_MONOTONIC, &tp));
+		return uint64_t(tp.tv_sec) * m_Freq + tp.tv_nsec;
+	}
+
+#endif // WIN32
+
+
+	BenchmarkMeter(const char* sz)
+		:m_sz(sz)
+		,m_Cycles(0)
+		,N(1000)
+	{
+#ifdef WIN32
+		QueryPerformanceFrequency((LARGE_INTEGER*) &m_Freq);
+#endif // WIN32
+
+		m_Start = get_Time();
+	}
+
+	bool ShouldContinue()
+	{
+		m_Cycles += N;
+
+		double dt_s = double(get_Time() - m_Start) / double(m_Freq);
+		if (dt_s >= 1.)
+		{
+			printf("%s: %.2f us\n", m_sz, dt_s * 1e6 / double(m_Cycles));
+			return false;
+		}
+
+		if (dt_s < 0.5)
+			N <<= 1;
+
+		return true;
+	}
+};
+
+void RunBenchmark()
+{
+	ECC::Scalar::Native k1, k2;
+	ECC::SetRandom(k1);
+	ECC::SetRandom(k2);
+
+/*	{
+		BenchmarkMeter bm("s.Add");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				k1.Add(k2);
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		BenchmarkMeter bm("s.Mul");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				k1.Mul(k2);
+
+		} while (bm.ShouldContinue());
+	}
+*/
+
+	{
+		BenchmarkMeter bm("s.Inv");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				k1.Inv();
+
+		} while (bm.ShouldContinue());
+	}
+
+	ECC::Scalar k_;
+/*
+	{
+		BenchmarkMeter bm("s.Exp");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				k1.Export(k_);
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		BenchmarkMeter bm("s.Imp");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				k1.Import(k_);
+
+		} while (bm.ShouldContinue());
+	}
+*/
+	ECC::Point::Native p0, p1;
+
+	ECC::Point p_;
+	p_.m_bQuadraticResidue = false;
+
+	ECC::SetRandom(p_.m_X);
+	while (!p0.Import(p_))
+		p_.m_X.Inc();
+
+	ECC::SetRandom(p_.m_X);
+	while (!p1.Import(p_))
+		p_.m_X.Inc();
+
+	{
+		BenchmarkMeter bm("p.Neg");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				p0 = -p0;
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		BenchmarkMeter bm("p.X_2");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				p0 = p0 * ECC::Two;
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		BenchmarkMeter bm("p.Add");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				p0 += p1;
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		k1 = 1U;
+		k1.Inv();
+		k1.Export(k_);
+
+		BenchmarkMeter bm("p.Mul");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				p0 += p1 * k_;
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		BenchmarkMeter bm("p.Exp");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				p0.Export(p_);
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		BenchmarkMeter bm("p.Imp");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				p0.Import(p_);
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		BenchmarkMeter bm("H.Mul");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				p0 += ECC::Context::get().H * uint64_t(-1);
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		k1 = uint64_t(-1);
+
+		ECC::Point p_;
+		p_.m_X = ECC::Zero;
+		p_.m_bQuadraticResidue = false;
+
+		while (!p0.Import(p_))
+			p_.m_X.Inc();
+
+		BenchmarkMeter bm("G.Mul");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				p0 += ECC::Context::get().G * k1;
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		BenchmarkMeter bm("Commt");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				p0 = ECC::Commitment(k1, 275);
+
+		} while (bm.ShouldContinue());
+	}
+
+	ECC::Hash::Value hv;
+	{
+		ECC::Hash::Processor hp;
+		hp.Write("abcd");
+		hp.Finalize(hv);
+	}
+
+	ECC::Signature sig;
+	{
+		BenchmarkMeter bm("S.Sig");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				sig.Sign(hv, k1);
+
+		} while (bm.ShouldContinue());
+	}
+
+	p1 = ECC::Context::get().G * k1;
+	{
+		BenchmarkMeter bm("S.Ver");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				sig.IsValid(hv, p1);
+
+		} while (bm.ShouldContinue());
+	}
+
+	secp256k1_context* pCtx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+
+	{
+		secp256k1_pedersen_commitment comm;
+
+		BenchmarkMeter bm("Pdrsn");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+			secp256k1_pedersen_commit(pCtx, &comm, k_.m_Value.m_pData, 78945, secp256k1_generator_h);
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		BenchmarkMeter bm("ecmul");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				secp256k1_ecmult_gen(&pCtx->ecmult_gen_ctx, &p0.get_Raw(), &k1.get());
+
+		} while (bm.ShouldContinue());
+	}
+
+	secp256k1_context_destroy(pCtx);
+}
+
 
 } // namespace ECC
 
