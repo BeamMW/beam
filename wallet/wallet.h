@@ -2,6 +2,10 @@
 
 #include "core/common.h"
 
+namespace ECC{
+    class Point::Native;
+}
+
 namespace beam
 {
     struct Wallet
@@ -23,11 +27,19 @@ namespace beam
 
         struct PartialTx
         {
+            // TODO: impl constructors
+            PartialTx() {}
+            PartialTx(const PartialTx& from) {}
+
             using Ptr = std::unique_ptr<PartialTx>;
             using Uuid = std::array<uint8_t, 16>;
             Phase m_phase;
             Uuid  m_id;
             
+            // TODO: replace with unique_ptr?
+            std::shared_ptr<ECC::Point::Native> m_kSG, m_xSG;
+            std::shared_ptr<ECC::Point::Native> m_kRG, m_xRG;
+
             // pub phase: PartialTxPhase,
             // pub id: Uuid,
             // pub amount: u64,
@@ -42,8 +54,8 @@ namespace beam
         {
             using Shared = std::shared_ptr<ToWallet>;
 
-            virtual PartialTx handleInvitation(const PartialTx& tx);
-            virtual PartialTx handleConfirmation(const PartialTx& tx);
+            virtual PartialTx::Ptr handleInvitation(const PartialTx& tx);
+            virtual PartialTx::Ptr handleConfirmation(const PartialTx& tx);
         };
 
         struct Config
@@ -64,7 +76,7 @@ namespace beam
         Result sendInvitation(const PartialTx& tx);
         Result sendConfirmation(const PartialTx& tx);
 
-        PartialTx createInitialPartialTx();
+        PartialTx::Ptr createInitialPartialTx(uint64_t amount);
 
     private:
         ToNode::Ptr m_net;

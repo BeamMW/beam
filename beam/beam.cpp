@@ -2,6 +2,7 @@
 
 #include "node.h"
 #include "wallet/wallet.h"
+#include "core/ecc_native.h"
 
 #include <iostream>
 #include <boost/program_options.hpp>
