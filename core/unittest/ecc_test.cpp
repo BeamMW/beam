@@ -433,17 +433,21 @@ struct TransactionMaker
 			krn.m_Signature.CoSign(k, msg, p.m_k, msig);
 
 			offset += k;
+
+			p.m_k = Zero; // signed, prepare for next tx
 		}
 
 		offset.Export(krn.m_Signature.m_k);
 
 	}
 
-	void CreateTxKernel(std::unique_ptr<beam::TxKernel>& pKrn, Amount fee)
+	void CreateTxKernel(beam::TxKernel::List& lstTrg, Amount fee, beam::TxKernel::List& lstNested)
 	{
-		pKrn.reset(new beam::TxKernel);
+		std::unique_ptr<beam::TxKernel> pKrn(new beam::TxKernel);
 		pKrn->m_Fee = fee;
 		pKrn->m_Height = 0;
+
+		pKrn->m_vNested.swap(lstNested);
 
 		// contract
 		Scalar::Native skContract;
@@ -464,6 +468,8 @@ struct TransactionMaker
 		pKrn->get_HashForContract(hv, hv);
 
 		pKrn->m_pContract->m_Signature.Sign(hv, skContract);
+
+		lstTrg.push_back(std::move(pKrn));
 	}
 
 	void AddInput(int i, Amount val)
@@ -487,14 +493,19 @@ void TestTransaction()
 	tm.AddInput(1, 1000);
 	tm.AddOutput(1, 5400);
 
-	Amount fee = 100, fee2;
+	beam::TxKernel::List lstNested, lstDummy;
 
-	std::unique_ptr<beam::TxKernel> pKrn;
-	tm.CreateTxKernel(pKrn, fee);
-	tm.m_Trans.m_vKernels.push_back(std::move(pKrn));
+	Amount fee1 = 100, fee2 = 2;
 
-	verify(tm.m_Trans.IsValid(fee2, 0));
-	verify(fee == fee2);
+	tm.CreateTxKernel(lstNested, fee1, lstDummy);
+
+	tm.AddOutput(0, 738);
+	tm.AddInput(1, 740);
+	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested);
+
+	Amount fee;
+	verify(tm.m_Trans.IsValid(fee, 0));
+	verify(fee == fee1 + fee2);
 }
 
 void TestAll()
