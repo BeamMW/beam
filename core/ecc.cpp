@@ -562,29 +562,27 @@ namespace ECC {
 		for (uint32_t nAttempt = 0; ; nAttempt++)
 			if (secp256k1_nonce_function_default(s0.V.m_Value.m_pData, msg.m_pData, sk_.V.m_Value.m_pData, NULL, NULL, nAttempt) && !m_Nonce.V.Import(s0.V))
 				break;
-
-		m_NoncePub = Context::get().G * m_Nonce.V;
 	}
 
-	void Signature::CoSign(const Hash::Value& msg, const Scalar::Native& sk, const MultiSig& msig)
+	void Signature::CoSign(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk, const MultiSig& msig)
 	{
-		Scalar::Native e;
-		get_Challenge(e, msig.m_NoncePub, msg);
+		get_Challenge(k, msig.m_NoncePub, msg);
+		k.Export(m_e);
 
-		e.Export(m_e);
-
-		e *= sk;
-		e = -e;
-		e += msig.m_Nonce.V;
-
-		e.Export(m_k);
+		k *= sk;
+		k = -k;
+		k += msig.m_Nonce.V;
 	}
 
 	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
 	{
 		MultiSig msig;
 		msig.GenerateNonce(msg, sk);
-		CoSign(msg, sk, msig);
+		msig.m_NoncePub = Context::get().G * msig.m_Nonce.V;
+
+		Scalar::Native k;
+		CoSign(k, msg, sk, msig);
+		k.Export(m_k);
 	}
 
 	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
