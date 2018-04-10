@@ -1,3 +1,5 @@
+#include <utility> // std::swap
+#include "common.h"
 #include "ecc_native.h"
 
 namespace beam
@@ -143,7 +145,7 @@ namespace beam
 			if (!m_Signature.IsValid(hv, pt))
 				return false;
 
-			pExcess->Add(pt);
+			*pExcess += pt;
 
 			if (m_pContract)
 			{
@@ -225,7 +227,7 @@ namespace beam
 	bool TxBase::ValidateAndSummarize(Amount& fee, ECC::Point::Native& sigma, Height nHeight) const
 	{
 		fee = 0;
-		sigma.SetZero();
+		sigma = ECC::Zero;
 
 		for (std::list<Input::Ptr>::const_iterator it = m_vInputs.begin(); m_vInputs.end() != it; it++)
 		{
@@ -233,10 +235,10 @@ namespace beam
 
 			ECC::Point::Native p;
 			p.Import(v.m_Commitment);
-			sigma.Add(p);
+			sigma += p;
 		}
 
-		sigma.Neg();
+		sigma = -sigma;
 
 		for (std::list<Output::Ptr>::const_iterator it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
 		{
@@ -246,7 +248,7 @@ namespace beam
 
 			ECC::Point::Native p;
 			p.Import(v.m_Commitment);
-			sigma.Add(p);
+			sigma += p;
 		}
 
 		for (std::list<TxKernel::Ptr>::const_iterator it = m_vKernels.begin(); m_vKernels.end() != it; it++)
@@ -258,7 +260,7 @@ namespace beam
 				return false;
 		}
 
-		ECC::Context::get().G.SetMul(sigma, false, m_Offset);
+		sigma += ECC::Context::get().G * m_Offset;
 
 		return true;
 	}
@@ -269,11 +271,9 @@ namespace beam
 		if (!ValidateAndSummarize(fee, sigma, nHeight))
 			return false;
 
-		ECC::Scalar s;
-		s.m_Value.Set(fee);
-		ECC::Context::get().H.SetMul(sigma, false, s);
+		sigma += ECC::Context::get().H * fee;
 
-		return sigma.IsZero();
+		return sigma == ECC::Zero;
 	}
 
 } // namespace beam

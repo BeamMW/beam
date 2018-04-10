@@ -10,34 +10,36 @@
 
 namespace ECC
 {
-	void GenerateRandom(void*, uint32_t);
-	void SecureErase(void*, uint32_t);
-/*
-	template <class T>
-	class SecureEraseGuard {
-		T* m_pObj;
-	public:
-		SecureEraseGuard(T* p = NULL) :m_pObj(p) {}
-		SecureEraseGuard(T& t) :m_pObj(&t) {}
-		~SecureEraseGuard() { Erase(); }
+	// Syntactic sugar!
+	enum Zero_ { Zero };
+	enum Two_ { Two };
 
-		void Erase() {
-			if (m_pObj) {
-				SecureErase(m_pObj, sizeof(T));
-				m_pObj = NULL;
-			}
-		}
+	struct Op
+	{
+		enum Sign {
+			Plus,
+			Minus,
+			Mul,
+			Div,
+			Double
+		};
 
-		void Detach() { m_pObj = NULL; }
+		template <Sign, typename X>
+		struct Unary {
+			const X& x;
+			Unary(const X& x_) :x(x_) {}
+		};
 
-		void Set(T* p) {
-			Erase();
-			m_pObj = p;
-		}
-
-		void Set(T& t) { Set(&t); }
+		template <Sign, typename X, typename Y>
+		struct Binary {
+			const X& x;
+			const Y& y;
+			Binary(const X& x_, const Y& y_) :x(x_) ,y(y_) {}
+		};
 	};
-*/
+
+	void SecureErase(void*, uint32_t);
+
 	template <typename T>
 	struct NoLeak
 	{
@@ -58,12 +60,13 @@ namespace ECC
 			return sizeof(m_pData);
 		}
 
-		void SetZero()
+		uintBig_t& operator = (Zero_)
 		{
 			memset(m_pData, 0, sizeof(m_pData));
+			return *this;
 		}
 
-		bool IsZero() const
+		bool operator == (Zero_) const
 		{
 			for (int i = 0; i < _countof(m_pData); i++)
 				if (m_pData[i])
@@ -71,15 +74,10 @@ namespace ECC
 			return true;
 		}
 
-		void SetRandom()
-		{
-			GenerateRandom(m_pData, sizeof(m_pData));
-		}
-
 		// from ordinal types (unsigned)
 		template <typename T>
-		void Set(T x)
-		{
+		uintBig_t& operator = (T x)
+	{
 			static_assert(sizeof(m_pData) >= sizeof(x), "too small");
 			static_assert(T(-1) > 0, "must be unsigned");
 
@@ -87,6 +85,8 @@ namespace ECC
 
 			for (int i = 0; i < sizeof(x); i++, x >>= 8)
 				m_pData[_countof(m_pData) - 1 - i] = (uint8_t) x;
+
+			return *this;
 		}
 
 		void Inc()
@@ -116,7 +116,6 @@ namespace ECC
 		uintBig m_Value; // valid range is [0 .. s_Order)
 
 		bool IsValid() const;
-		void SetRandom();
 
 		class Native;
 	};

@@ -19,5 +19,7 @@ set(POW_SRC
     impl/utilstrencodings.cpp
 )
 
+set_source_files_properties(impl/crypto/equihash_impl.cpp PROPERTIES COMPILE_FLAGS -w)
+
 add_library(pow STATIC ${POW_SRC})
 target_compile_definitions(pow PRIVATE ENABLE_MINING)

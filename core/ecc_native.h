@@ -15,25 +15,31 @@ namespace ECC
 	class Scalar::Native
 		:private secp256k1_scalar
 	{
+		typedef Op::Unary<Op::Minus, Native>			Minus;
+		typedef Op::Binary<Op::Plus, Native, Native>	Plus;
+		typedef Op::Binary<Op::Mul, Native, Native>		Mul;
 	public:
 		const secp256k1_scalar& get() const { return *this; }
 
-		void SetZero();
-		void Set(uint32_t);
-		void Set(uint64_t);
-		void SetNeg(const Native&);
-		void SetSum(const Native& a, const Native& b);
-		void SetMul(const Native& a, const Native& b);
+		Minus	operator - () const { return Minus(*this); }
+		Plus	operator + (const Native& y) const { return Plus(*this, y); }
+		Mul		operator * (const Native& y) const { return Mul(*this, y); }
+
+		bool operator == (Zero_) const;
+
+		Native& operator = (Zero_);
+		Native& operator = (uint32_t);
+		Native& operator = (uint64_t);
+		Native& operator = (Minus);
+		Native& operator = (Plus);
+		Native& operator = (Mul);
+		Native& operator += (const Native& v) { return *this = *this + v; }
+		Native& operator *= (const Native& v) { return *this = *this * v; }
+
 		void SetSqr(const Native&);
-		void SetInv(const Native&); // for 0 the result is also 0
-
-		void Neg();
-		void Add(const Native&); // not efective for big summations, due to excessive normalizations
-		void Mul(const Native&);
 		void Sqr();
-		void Inv(); // for 0 the result is also 0
-
-		bool IsZero() const;
+		void SetInv(const Native&); // for 0 the result is also 0
+		void Inv();
 
 		bool Import(const Scalar&); // on overflow auto-normalizes and returns true
 		void ImportFix(uintBig&); // on overflow input is mutated (auto-hashed)
@@ -43,30 +49,34 @@ namespace ECC
 	class Point::Native
 		:private secp256k1_gej
 	{
+		typedef Op::Unary<Op::Minus, Native>			Minus;
+		typedef Op::Unary<Op::Double, Native>			Double;
+		typedef Op::Binary<Op::Plus, Native, Native>	Plus;
+		typedef Op::Binary<Op::Mul, Native, Scalar>		Mul;
+
 		bool ImportInternal(const Point&);
 	public:
+		secp256k1_gej& get_Raw() { return *this; } // use with care
 
-		void SetZero();
-		void SetNeg(const Native&);
-		void SetSum(const Native&, const Native&);
-		void SetX2(const Native&);
+		Minus	operator - () const { return Minus(*this); }
+		Plus	operator + (const Native& y) const { return Plus(*this, y); }
+		Mul		operator * (const Scalar& y) const { return Mul(*this, y); }
+		Double	operator * (Two_) const { return Double(*this); }
 
-		void Neg();
-		void Add(const Native&);
-		void AddMul(const Native&, const Scalar&); // naive (non-secure) implementation, suitable for casual use (such as signature verification), otherwise should use generators
-		void X2();
+		bool operator == (Zero_) const;
 
-		bool IsZero() const;
+		Native& operator = (Zero_);
+		Native& operator = (Minus);
+		Native& operator = (Plus);
+		Native& operator = (Double);
+		Native& operator += (const Native& v) { return *this = *this + v; }
+		Native& operator += (Mul); // naive (non-secure) implementation, suitable for casual use (such as signature verification), otherwise should use generators
+
+		template <class Setter> Native& operator = (const Setter& v) { v.Assign(*this, true); return *this; }
+		template <class Setter> Native& operator += (const Setter& v) { v.Assign(*this, false); return *this; }
 
 		bool Import(const Point&);
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result
-
-		// more compact form, yet straightforward import
-		// non-native Point is more compressed (just 1 coordinate and flag), but import is complex
-		void Import(const secp256k1_ge_storage&);
-		void Export(secp256k1_ge_storage&);
-
-		void Import(const secp256k1_ge&);
 	};
 
 	namespace Generator
@@ -92,18 +102,28 @@ namespace ECC
 		class Simple
 			:public Base<nBits_>
 		{
+			template <typename TScalar>
+			struct Mul
+			{
+				const Simple& me;
+				const TScalar k;
+				Mul(const Simple& me_, const TScalar k_) :me(me_) ,k(k_) {}
+
+				void Assign(Point::Native& res, bool bSet) const
+				{
+					static_assert(sizeof(TScalar) * 8 <= nBits_, "generator too short");
+
+					NoLeak<Scalar> s;
+					s.V.m_Value = k;
+					Generator::SetMul(res, bSet, me.m_pPts, Base<nBits_>::nLevels, s.V);
+				}
+			};
+
 		public:
-			Simple(const char* szSeed) { GeneratePts(szSeed, m_pPts, nLevels); }
+			Simple(const char* szSeed) { GeneratePts(szSeed, Base<nBits_>::m_pPts, Base<nBits_>::nLevels); }
 
-			void SetMul(Point::Native& res, bool bSet, const Scalar::Native& k) const
-			{
-				Generator::SetMul(res, bSet, m_pPts, nLevels, k);
-			}
-
-			void SetMul(Point::Native& res, bool bSet, const Scalar& k) const
-			{
-				Generator::SetMul(res, bSet, m_pPts, nLevels, k);
-			}
+			template <typename TScalar>
+			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
 		};
 
 		class Obscured
@@ -112,11 +132,21 @@ namespace ECC
 			secp256k1_ge_storage m_AddPt;
 			Scalar::Native m_AddScalar;
 
+			template <typename TScalar>
+			struct Mul
+			{
+				const Obscured& me;
+				const TScalar k;
+				Mul(const Obscured& me_, const TScalar k_) :me(me_) ,k(k_) {}
+
+				void Assign(Point::Native& res, bool bSet) const;
+			};
+
 		public:
 			Obscured(const char* szSeed);
 
-			void SetMul(Point::Native& res, bool bSet, const Scalar::Native& k) const;
-			void SetMul(Point::Native& res, bool bSet, const Scalar& k) const;
+			template <typename TScalar>
+			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
 		};
 
 	} // namespace Generator
@@ -164,11 +194,15 @@ namespace ECC
 
 		const Generator::Obscured						G;
 		const Generator::Simple<sizeof(Amount) << 3>	H;
+	};
 
-		void Commit(Point::Native& res, const Scalar::Native& k, const Scalar::Native& v) const;
-		void Commit(Point::Native& res, const Scalar::Native&, const Amount&) const;
-		void Commit(Point::Native& res, const Scalar::Native&, const Amount& v, Scalar::Native& vOut) const;
-		void Excess(Point::Native& res, const Scalar::Native&) const;
+	class Commitment
+	{
+		const Scalar::Native& k;
+		const Amount& val;
+	public:
+		Commitment(const Scalar::Native& k_, const Amount& val_) :k(k_) ,val(val_) {}
+		void Assign(Point::Native& res, bool bSet) const;
 	};
 
 	class Oracle
