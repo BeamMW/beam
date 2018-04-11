@@ -163,7 +163,6 @@ namespace ECC
 	class Hash::Processor
 		:private secp256k1_sha256_t
 	{
-		void Write(const void*, uint32_t);
 		void Write(const char*);
 		void Write(bool);
 		void Write(uint8_t);
@@ -190,6 +189,8 @@ namespace ECC
 		Processor();
 
 		void Reset();
+
+		void Write(const void*, uint32_t);
 
 		template <typename T>
 		Processor& operator << (const T& t) { Write(t); return *this; }

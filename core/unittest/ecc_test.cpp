@@ -759,6 +759,24 @@ void RunBenchmark()
 	}
 
 	Hash::Value hv;
+
+	{
+		uint8_t pBuf[0x400];
+		GenerateRandom(pBuf, sizeof(pBuf));
+
+		BenchmarkMeter bm("Hash.Init.1K.Out");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+			{
+				Hash::Processor hp;
+				hp.Write(pBuf, sizeof(pBuf));
+				hp >> hv;
+			}
+
+		} while (bm.ShouldContinue());
+	}
+
 	Hash::Processor() << "abcd" >> hv;
 
 	Signature sig;
