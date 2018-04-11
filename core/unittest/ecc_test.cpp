@@ -128,7 +128,6 @@ void TestPoints()
 
 	// multiplication
 	Scalar::Native s0, s1;
-	Scalar s_;
 
 	s0 = 1U;
 
@@ -140,8 +139,7 @@ void TestPoints()
 	p0 = Context::get().G * s0;
 	verify(p0 == Zero);
 
-	s0.Export(s_);
-	p0 += g * s_;
+	p0 += g * s0;
 	verify(p0 == Zero);
 
 	for (int i = 0; i < 300; i++)
@@ -155,9 +153,8 @@ void TestPoints()
 		p1 += Context::get().G * s1; // inverse, also testing +=
 		verify(p1 == Zero);
 
-		s1.Export(s_);
 		p1 = p0;
-		p1 += g * s_; // simple multiplication
+		p1 += g * s1; // simple multiplication
 
 		verify(p1 == Zero);
 	}
@@ -178,10 +175,9 @@ void TestPoints()
 		p0 = Context::get().H * val; // via generator
 
 		s0 = val;
-		s0.Export(s_);
 
 		p1 = Zero;
-		p1 += h * s_;
+		p1 += h * s0;
 		p1 = -p1;
 		p1 += p0;
 
@@ -700,13 +696,13 @@ void RunBenchmark()
 	}
 
 	{
-		k_.m_Value = Zero;
+		k1 = Zero;
 
 		BenchmarkMeter bm("point.Multiply.Min");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 += p1 * k_;
+				p0 += p1 * k1;
 
 		} while (bm.ShouldContinue());
 	}
@@ -715,9 +711,9 @@ void RunBenchmark()
 		BenchmarkMeter bm("point.Multiply.Avg");
 		do
 		{
-			SetRandom(k_.m_Value); // don't care for overflow
+			SetRandom(k1);
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 += p1 * k_;
+				p0 += p1 * k1;
 
 		} while (bm.ShouldContinue());
 	}

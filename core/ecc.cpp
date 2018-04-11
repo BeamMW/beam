@@ -48,6 +48,12 @@ namespace ECC {
 		return secp256k1_scalar_is_zero(this) != 0;
 	}
 
+	bool Scalar::Native::operator == (const Native& v) const
+	{
+		static_assert(sizeof(d) == sizeof(Scalar), "");
+		return !memcmp(d, v.d, sizeof(d));
+	}
+
 	Scalar::Native& Scalar::Native::operator = (Minus v)
 	{
 		secp256k1_scalar_negate(this, &v.x);
@@ -303,11 +309,14 @@ namespace ECC {
 		int carry = 0, count = 0;
 		p[carry] = v.x;
 
-		for (uint32_t iByte = _countof(v.y.m_Value.m_pData); iByte--; )
-		{
-			uint8_t n = v.y.m_Value.m_pData[iByte];
+		const secp256k1_scalar& k = v.y.get(); // alias
+		const int nBits = sizeof(Scalar::Native::uint) << 3;
 
-			for (uint32_t iBit = 0; iBit < 8; iBit++)
+		for (int iWord = 0; iWord < _countof(k.d); iWord++)
+		{
+			const Scalar::Native::uint n = k.d[iWord];
+
+			for (int iBit = 0; iBit < nBits; iBit++)
 			{
 				int carry1 = (1 & (n >> iBit));
 				if (carry == carry1)
@@ -426,30 +435,23 @@ namespace ECC {
 			return true;
 		}
 
-		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Scalar& k)
+		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, const Scalar::Native::uint* p, int nWords)
 		{
 			static_assert(8 % nBitsPerLevel == 0, "");
-			const uint8_t nLevelsPerByte = 8 / nBitsPerLevel;
-			static_assert(!(nLevelsPerByte & (nLevelsPerByte - 1)), "should be power-of-2");
+			const int nLevelsPerWord = (sizeof(Scalar::Native::uint) << 3) / nBitsPerLevel;
+			static_assert(!(nLevelsPerWord & (nLevelsPerWord - 1)), "should be power-of-2");
 
 			NoLeak<secp256k1_ge_storage> ge_s;
 			NoLeak<secp256k1_ge> ge;
 
-			uint32_t n0 = _countof(k.m_Value.m_pData) - nLevels / nLevelsPerByte;
-
-#ifdef _DEBUG
-			for (uint32_t i = 0; i < n0; i++)
-				assert(!k.m_Value.m_pData[i]);
-#endif // _DEBUG
-
 			// iterating in lsb to msb order
-			for (uint32_t iByte = _countof(k.m_Value.m_pData); iByte-- > n0; )
+			for (int iWord = 0; iWord < nWords; iWord++)
 			{
-				uint8_t n = k.m_Value.m_pData[iByte];
+				Scalar::Native::uint n = p[iWord];
 
-				for (uint8_t j = 0; j < nLevelsPerByte; j++, pPts += nPointsPerLevel)
+				for (int j = 0; j < nLevelsPerWord; j++, pPts += nPointsPerLevel)
 				{
-					uint32_t nSel = (nPointsPerLevel - 1) & n;
+					int nSel = (nPointsPerLevel - 1) & n;
 					n >>= nBitsPerLevel;
 
 					/** This uses a conditional move to avoid any secret data in array indexes.
@@ -472,12 +474,11 @@ namespace ECC {
 			}
 		}
 
-		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Scalar::Native& k)
+		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, const Scalar::Native& k)
 		{
-			NoLeak<Scalar> k2;
-			k.Export(k2.V);
-			SetMul(res, bSet, pPts, nLevels, k2.V);
+			SetMul(res, bSet, pPts, k.get().d, _countof(k.get().d));
 		}
+
 
 		void InitSeedIteration(Hash::Processor& hp, const char* szSeed, uint32_t n)
 		{
@@ -521,7 +522,7 @@ namespace ECC {
 				if (m_AddScalar.Import(s0))
 					continue;
 
-				Generator::SetMul(pt2, true, m_pPts, nLevels, m_AddScalar); // pt2 = G * blind
+				Generator::SetMul(pt2, true, m_pPts, m_AddScalar); // pt2 = G * blind
 				FromPt(m_AddPt, pt2);
 
 				m_AddScalar = -m_AddScalar;
@@ -539,7 +540,7 @@ namespace ECC {
 			NoLeak<Scalar::Native> k2;
 			k2.V = k + me.m_AddScalar;
 
-			Generator::SetMul(res, false, me.m_pPts, nLevels, k2.V);
+			Generator::SetMul(res, false, me.m_pPts, k2.V);
 		}
 
 		template <>
@@ -623,19 +624,18 @@ namespace ECC {
 
 	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
 	{
-		Scalar::Native sig;
-		sig.Import(m_k);
+		Scalar::Native k, e;
+		k.Import(m_k);
+		e.Import(m_e);
 
 		Point::Native pt;
-		pt = Context::get().G * sig;
+		pt = Context::get().G * k;
 
-		pt += pk * m_e;
+		pt += pk * e;
 
-		get_Challenge(sig, pt, msg);
-		Scalar e;
-		sig.Export(e);
+		get_Challenge(k, pt, msg);
 
-		return e.m_Value == m_e.m_Value;
+		return e == k;
 	}
 
 	int Signature::cmp(const Signature& x) const
