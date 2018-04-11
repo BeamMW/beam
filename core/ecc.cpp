@@ -280,18 +280,67 @@ namespace ECC {
 
 	Point::Native& Point::Native::operator += (Mul v)
 	{
-		Point::Native pt = v.x;
+		// Naive (basic) summation algorithm:
+		//
+		//	for each bit in scalar
+		//	{
+		//		if (bit==1)
+		//			res += p;
+		//		p *= 2
+		//	}
+		//
+		// We use an improved algorithm, which accounts for ranges of consecutive bits.
+		// Instead if adding p for every bit we just add it for the post-last bit, and subtract for the first bit.
+		// 
+		// For example the following calculation: res = 15 * p
+		// 
+		// Naive algorithm:
+		//		res = p + 2p + 4p + 8p;
+		// Improved algorithm:
+		//		res = 16p - p;
+
+		Point::Native p[2];
+		int carry = 0, count = 0;
+		p[carry] = v.x;
 
 		for (uint32_t iByte = _countof(v.y.m_Value.m_pData); iByte--; )
 		{
 			uint8_t n = v.y.m_Value.m_pData[iByte];
 
-			for (uint32_t iBit = 0; iBit < 8; iBit++, pt = pt * Two)
-				if (1 & (n >> iBit))
-					*this += pt;
+			for (uint32_t iBit = 0; iBit < 8; iBit++)
+			{
+				int carry1 = (1 & (n >> iBit));
+				if (carry == carry1)
+					count++;
+				else
+				{
+					OnCarryChange(p, carry, count);
+					count = 0;
+				}
+
+				p[carry1] = p[carry] * Two;
+				carry = carry1;
+
+			}
 		}
 
+		OnCarryChange(p, carry, count);
+
 		return *this;
+	}
+
+	void Point::Native::OnCarryChange(Point::Native* p, int carry, int count)
+	{
+		if (carry)
+		{
+			if (count)
+			{
+				*this += p[1];
+				p[0] = -p[0];
+			}
+
+			*this += p[0];
+		}
 	}
 
 	/////////////////////

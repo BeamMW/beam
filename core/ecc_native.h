@@ -55,6 +55,7 @@ namespace ECC
 		typedef Op::Binary<Op::Mul, Native, Scalar>		Mul;
 
 		bool ImportInternal(const Point&);
+		void OnCarryChange(Point::Native*, int carry, int count);
 	public:
 		secp256k1_gej& get_Raw() { return *this; } // use with care
 

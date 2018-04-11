@@ -700,8 +700,7 @@ void RunBenchmark()
 	}
 
 	{
-		k1 = 1U;
-		k1.Export(k_);
+		k_.m_Value = Zero;
 
 		BenchmarkMeter bm("point.Multiply.Min");
 		do
@@ -713,12 +712,10 @@ void RunBenchmark()
 	}
 
 	{
-		k1 = -k1;
-		k1.Export(k_);
-
-		BenchmarkMeter bm("point.Multiply.Max");
+		BenchmarkMeter bm("point.Multiply.Avg");
 		do
 		{
+			SetRandom(k_.m_Value); // don't care for overflow
 			for (uint32_t i = 0; i < bm.N; i++)
 				p0 += p1 * k_;
 
