@@ -246,7 +246,8 @@ namespace detail
                 & val.m_Excess
                 & val.m_Signature
                 & val.m_Fee
-                & val.m_Height
+                & val.m_HeightMin
+                & val.m_HeightMax
                 & val.m_pContract
                 & val.m_vNested
             ;
@@ -261,7 +262,8 @@ namespace detail
                 & val.m_Excess
                 & val.m_Signature
                 & val.m_Fee
-                & val.m_Height
+                & val.m_HeightMin
+                & val.m_HeightMax
                 & val.m_pContract
                 & val.m_vNested
             ;

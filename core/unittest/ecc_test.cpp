@@ -445,7 +445,8 @@ struct TransactionMaker
 	{
 		std::unique_ptr<beam::TxKernel> pKrn(new beam::TxKernel);
 		pKrn->m_Fee = fee;
-		pKrn->m_Height = 0;
+		pKrn->m_HeightMin = 0;
+		pKrn->m_HeightMax = -1;
 
 		pKrn->m_vNested.swap(lstNested);
 

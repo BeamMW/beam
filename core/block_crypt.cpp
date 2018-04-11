@@ -119,7 +119,9 @@ namespace beam
 
 		hp.WriteOrd(m_Fee);
 		hp.Write("sep");
-		hp.WriteOrd(m_Height);
+		hp.WriteOrd(m_HeightMin);
+		hp.Write("sep");
+		hp.WriteOrd(m_HeightMax);
 
 		if (m_pContract)
 		{
@@ -205,7 +207,8 @@ namespace beam
 		CMP_MEMBER_EX(m_Excess)
 		CMP_MEMBER_EX(m_Signature)
 		CMP_MEMBER(m_Fee)
-		CMP_MEMBER(m_Height)
+		CMP_MEMBER(m_HeightMin)
+		CMP_MEMBER(m_HeightMax)
 		CMP_MEMBER_PTR(m_pContract)
 
 		List::const_iterator it0 = m_vNested.begin();
@@ -259,7 +262,7 @@ namespace beam
 		for (std::list<TxKernel::Ptr>::const_iterator it = m_vKernels.begin(); m_vKernels.end() != it; it++)
 		{
 			const TxKernel& v = *(*it);
-			if (v.m_Height > nHeight)
+			if (nHeight < v.m_HeightMin || nHeight > v.m_HeightMax)
 				return false;
 			if (!v.IsValid(fee, sigma))
 				return false;
