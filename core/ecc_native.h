@@ -114,8 +114,8 @@ namespace ECC
 			struct Mul
 			{
 				const Simple& me;
-				const T k;
-				Mul(const Simple& me_, const T k_) :me(me_) ,k(k_) {}
+				const T& k;
+				Mul(const Simple& me_, const T& k_) :me(me_) ,k(k_) {}
 
 				void Assign(Point::Native& res, bool bSet) const
 				{
@@ -160,8 +160,8 @@ namespace ECC
 			struct Mul
 			{
 				const Obscured& me;
-				const TScalar k;
-				Mul(const Obscured& me_, const TScalar k_) :me(me_) ,k(k_) {}
+				const TScalar& k;
+				Mul(const Obscured& me_, const TScalar& k_) :me(me_) ,k(k_) {}
 
 				void Assign(Point::Native& res, bool bSet) const;
 			};
