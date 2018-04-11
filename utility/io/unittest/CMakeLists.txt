@@ -1,15 +1,9 @@
-function(add_snippet EXE_NAME)
-    add_executable(${EXE_NAME} ${EXE_NAME}.cpp)
-    add_dependencies(${EXE_NAME} io)
-    target_link_libraries(${EXE_NAME} io)
-endfunction()
-
-add_snippet(reactor_test)
-add_snippet(asyncevent_test)
-add_snippet(tcpserver_test)
-add_snippet(tcpclient_test)
-add_snippet(timer_test)
-add_snippet(address_test)
-add_snippet(channel_test)
+add_test_snippet(reactor_test utility)
+add_test_snippet(asyncevent_test utility)
+add_test_snippet(tcpserver_test utility)
+add_test_snippet(tcpclient_test utility)
+add_test_snippet(timer_test utility)
+add_test_snippet(address_test utility)
+add_test_snippet(channel_test utility)
 
 # ~ etc

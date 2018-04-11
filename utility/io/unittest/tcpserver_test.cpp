@@ -1,4 +1,5 @@
 #include "../tcpserver.h"
+#include "../timer.h"
 #include "../exception.h"
 #include <iostream>
 
@@ -12,12 +13,23 @@ void tcpserver_test() {
         TcpServer::Ptr server = TcpServer::create(
             reactor,
             Address(0, 33333),
-            [](TcpStream::Ptr&&, int errorCode) {
+            [&reactor](TcpStream::Ptr&&, int errorCode) {
                 if (errorCode == 0) {
                     cout << "Stream accepted" << endl;
                 } else {
                     cout << "Error code " << errorCode << endl;
                 }
+                reactor->stop();
+            }
+        );
+
+        Timer::Ptr timer = Timer::create(reactor);
+        timer->start(
+            2000,
+            false,
+            [&reactor, &timer] {
+                // TODO timer->cancel();
+                reactor->tcp_connect(Address(Address::LOCALHOST).port(33333), 1, [](uint64_t, shared_ptr<TcpStream>&&, int){});
             }
         );
 
