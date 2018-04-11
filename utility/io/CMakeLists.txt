@@ -11,7 +11,6 @@ set(IO_SRC
 
 if(UV_INTERNAL)
     include(libuv.cmake)
-    add_definitions(-DUV_INTERNAL)
 endif()
 
 add_library(io STATIC ${IO_SRC})

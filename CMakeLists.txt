@@ -21,6 +21,7 @@ endif()
 
 if(UNIX)
     set(UV_INTERNAL ON)
+    add_definitions(-DUV_INTERNAL)
 endif()
 
 include_directories(${PROJECT_SOURCE_DIR})
