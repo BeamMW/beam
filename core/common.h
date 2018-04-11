@@ -72,7 +72,8 @@ namespace beam
 		ECC::Point		m_Excess;
 		ECC::Signature	m_Signature;	// For the whole tx body, including nested kernels, excluding contract signature
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
-		Height			m_Height;		// Minimum block height for the tx to be valid. Set to 0 if irrelevant
+		Height			m_HeightMin;
+		Height			m_HeightMax;
 
 		// Optional
 		struct Contract
@@ -92,6 +93,8 @@ namespace beam
 
 		void get_Hash(Merkle::Hash&) const; // Hash doesn't include signatures
 		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
+
+		void get_HashForContract(ECC::Hash::Value&, const ECC::Hash::Value& msg) const;
 
 		int cmp(const TxKernel&) const;
 
