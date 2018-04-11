@@ -39,12 +39,13 @@ namespace ECC
 	};
 
 	void SecureErase(void*, uint32_t);
+	template <typename T> void SecureErase(T& t) { SecureErase(&t, sizeof(T)); }
 
 	template <typename T>
 	struct NoLeak
 	{
 		T V;
-		~NoLeak() { SecureErase(&V, sizeof(T)); }
+		~NoLeak() { SecureErase(V); }
 	};
 
 	template <uint32_t nBits_>
@@ -124,9 +125,8 @@ namespace ECC
 	{
 		static const uintBig s_FieldOrder; // The field order, it's different from the group order (a little bigger).
 
-		uintBig m_X; // valid range is [0 .. s_FieldOrder)
-
-		bool m_bQuadraticResidue; // analogous to the sign
+		uintBig	m_X; // valid range is [0 .. s_FieldOrder)
+		bool	m_Y; // Flag for Y. Currently specifies if it's odd
 
 		int cmp(const Point&) const;
 

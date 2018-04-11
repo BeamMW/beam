@@ -19,13 +19,24 @@ namespace ECC
 		typedef Op::Binary<Op::Plus, Native, Native>	Plus;
 		typedef Op::Binary<Op::Mul, Native, Native>		Mul;
 	public:
+
 		const secp256k1_scalar& get() const { return *this; }
+
+#ifdef USE_SCALAR_4X64
+		typedef uint64_t uint;
+#else // USE_SCALAR_4X64
+		typedef uint32_t uint;
+#endif // USE_SCALAR_4X64
+
+		Native() {}
+		~Native() { SecureErase(*this); }
 
 		Minus	operator - () const { return Minus(*this); }
 		Plus	operator + (const Native& y) const { return Plus(*this, y); }
 		Mul		operator * (const Native& y) const { return Mul(*this, y); }
 
 		bool operator == (Zero_) const;
+		bool operator == (const Native&) const;
 
 		Native& operator = (Zero_);
 		Native& operator = (uint32_t);
@@ -42,25 +53,28 @@ namespace ECC
 		void Inv();
 
 		bool Import(const Scalar&); // on overflow auto-normalizes and returns true
-		void ImportFix(uintBig&); // on overflow input is mutated (auto-hashed)
 		void Export(Scalar&) const;
 	};
 
 	class Point::Native
 		:private secp256k1_gej
 	{
-		typedef Op::Unary<Op::Minus, Native>			Minus;
-		typedef Op::Unary<Op::Double, Native>			Double;
-		typedef Op::Binary<Op::Plus, Native, Native>	Plus;
-		typedef Op::Binary<Op::Mul, Native, Scalar>		Mul;
+		typedef Op::Unary<Op::Minus, Native>				Minus;
+		typedef Op::Unary<Op::Double, Native>				Double;
+		typedef Op::Binary<Op::Plus, Native, Native>		Plus;
+		typedef Op::Binary<Op::Mul, Native, Scalar::Native>	Mul;
 
 		bool ImportInternal(const Point&);
+		void OnCarryChange(Point::Native*, int carry, int count);
 	public:
 		secp256k1_gej& get_Raw() { return *this; } // use with care
 
+		Native() {}
+		~Native() { SecureErase(*this); }
+
 		Minus	operator - () const { return Minus(*this); }
 		Plus	operator + (const Native& y) const { return Plus(*this, y); }
-		Mul		operator * (const Scalar& y) const { return Mul(*this, y); }
+		Mul		operator * (const Scalar::Native& y) const { return Mul(*this, y); }
 		Double	operator * (Two_) const { return Double(*this); }
 
 		bool operator == (Zero_) const;
@@ -95,32 +109,47 @@ namespace ECC
 		};
 
 		void GeneratePts(const char* szSeed, secp256k1_ge_storage* pPts, uint32_t nLevels);
-		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Scalar&);
-		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, uint32_t nLevels, const Scalar::Native&);
+		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, const Scalar::Native::uint* p, int nWords);
 
 		template <uint32_t nBits_>
 		class Simple
 			:public Base<nBits_>
 		{
-			template <typename TScalar>
+			template <typename T>
 			struct Mul
 			{
 				const Simple& me;
-				const TScalar k;
-				Mul(const Simple& me_, const TScalar k_) :me(me_) ,k(k_) {}
+				const T& k;
+				Mul(const Simple& me_, const T& k_) :me(me_) ,k(k_) {}
 
 				void Assign(Point::Native& res, bool bSet) const
 				{
-					static_assert(sizeof(TScalar) * 8 <= nBits_, "generator too short");
+					const int nWordBits = sizeof(Scalar::Native::uint) << 3;
+					static_assert(!(nBits_ % nWordBits), "generator size should be multiple of native words");
+					const int nWords = nBits_ / nWordBits;
 
-					NoLeak<Scalar> s;
-					s.V.m_Value = k;
-					Generator::SetMul(res, bSet, me.m_pPts, Base<nBits_>::nLevels, s.V);
+					const int nWordsSrc = (sizeof(T) + sizeof(Scalar::Native::uint) - 1) / sizeof(Scalar::Native::uint);
+
+					static_assert(nWordsSrc <= nWords, "generator too short");
+
+					Scalar::Native::uint p[nWords];
+					for (int i = 0; i < nWordsSrc; i++)
+						p[i] = (Scalar::Native::uint) (k >> (i * nWordBits));
+
+					for (int i = nWordsSrc; i < nWords; i++)
+						p[i] = 0;
+
+					Generator::SetMul(res, bSet, me.m_pPts, p, nWords);
+
+					SecureErase(p, sizeof(Scalar::Native::uint) * nWordsSrc);
 				}
 			};
 
 		public:
-			Simple(const char* szSeed) { GeneratePts(szSeed, Base<nBits_>::m_pPts, Base<nBits_>::nLevels); }
+			Simple(const char* szSeed)
+			{
+				GeneratePts(szSeed, Base<nBits_>::m_pPts, Base<nBits_>::nLevels);
+			}
 
 			template <typename TScalar>
 			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
@@ -136,11 +165,13 @@ namespace ECC
 			struct Mul
 			{
 				const Obscured& me;
-				const TScalar k;
-				Mul(const Obscured& me_, const TScalar k_) :me(me_) ,k(k_) {}
+				const TScalar& k;
+				Mul(const Obscured& me_, const TScalar& k_) :me(me_) ,k(k_) {}
 
 				void Assign(Point::Native& res, bool bSet) const;
 			};
+
+			void AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native&) const;
 
 		public:
 			Obscured(const char* szSeed);
@@ -153,8 +184,8 @@ namespace ECC
 
 	struct Signature::MultiSig
 	{
-		NoLeak<Scalar::Native> m_Nonce; // specific signer
-		Point::Native m_NoncePub;		// sum of all co-signers
+		Scalar::Native	m_Nonce;	// specific signer
+		Point::Native	m_NoncePub;	// sum of all co-signers
 
 		void GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk);
 	};
@@ -163,7 +194,6 @@ namespace ECC
 	class Hash::Processor
 		:private secp256k1_sha256_t
 	{
-		void Write(const void*, uint32_t);
 		void Write(const char*);
 		void Write(bool);
 		void Write(uint8_t);
@@ -190,6 +220,8 @@ namespace ECC
 		Processor();
 
 		void Reset();
+
+		void Write(const void*, uint32_t);
 
 		template <typename T>
 		Processor& operator << (const T& t) { Write(t); return *this; }

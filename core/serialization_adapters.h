@@ -55,7 +55,7 @@ namespace detail
         {
             ar 
                 & point.m_X 
-                & point.m_bQuadraticResidue;
+                & point.m_Y;
 
             return ar;
         }
@@ -65,7 +65,7 @@ namespace detail
         {
             ar 
                 & point.m_X 
-                & point.m_bQuadraticResidue;
+                & point.m_Y;
                 
             return ar;
         }
