@@ -71,7 +71,7 @@ namespace beam
 		hp.Write(m_Coinbase);
 		hp.Write(m_Commitment.m_X);
 		hp.Write(m_Commitment.m_bQuadraticResidue);
-		hp.WriteOrd(m_Height);
+		hp.Write(m_Height);
 		hp.Finalize(out);
 	}
 
@@ -117,22 +117,20 @@ namespace beam
 	{
 		ECC::Hash::Processor hp;
 
-		hp.WriteOrd(m_Fee);
-		hp.Write("sep");
-		hp.WriteOrd(m_HeightMin);
-		hp.Write("sep");
-		hp.WriteOrd(m_HeightMax);
+		hp.Write(m_Fee);
+		hp.Write(m_HeightMin);
+		hp.Write(m_HeightMax);
+
+		hp.Write((bool) m_pContract);
 
 		if (m_pContract)
 		{
-			hp.Write("contract");
 			hp.Write(m_pContract->m_Msg);
 			hp.Write(m_pContract->m_PublicKey);
 		}
 
 		for (List::const_iterator it = m_vNested.begin(); m_vNested.end() != it; it++)
 		{
-			hp.Write("sep");
 			if (!(*it)->Traverse(hv, pFee, pExcess))
 				return false;
 			hp.Write(hv);

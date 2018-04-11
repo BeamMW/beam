@@ -177,11 +177,15 @@ namespace ECC
 		void Write(const Point::Native&);
 
 		template <typename T>
-		void WriteOrd(T v)
+		void Write(T v)
 		{
 			static_assert(T(-1) > 0, "must be unsigned");
-			for (; v; v >>= 8)
+			for (; ; v >>= 8)
+			{
 				Write((uint8_t) v);
+				if (!v)
+					break;
+			}
 		}
 
 		void Finalize(Hash::Value&);

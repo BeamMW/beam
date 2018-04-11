@@ -436,7 +436,7 @@ namespace ECC {
 		void InitSeedIteration(Hash::Processor& hp, const char* szSeed, uint32_t n)
 		{
 			hp.Write(szSeed);
-			hp.WriteOrd(n);
+			hp.Write(n);
 		}
 
 		void GeneratePts(const char* szSeed, secp256k1_ge_storage* pPts, uint32_t nLevels)
@@ -650,7 +650,7 @@ namespace ECC {
 		void Public::get_Msg(Hash::Value& hv) const
 		{
 			Hash::Processor hp;
-			hp.WriteOrd(m_Value);
+			hp.Write(m_Value);
 			hp.Finalize(hv);
 		}
 
