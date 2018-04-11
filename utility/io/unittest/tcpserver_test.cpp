@@ -5,9 +5,6 @@
 using namespace io;
 using namespace std;
 
-// TODO use catch2 TF
-// TODO use spdlog
-
 void tcpserver_test() {
     try {
         Config config;
