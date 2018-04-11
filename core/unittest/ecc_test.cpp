@@ -94,7 +94,7 @@ void TestPoints()
 
 	for (int i = 0; i < 1000; i++)
 	{
-		Point p_;
+		Point p_, p2_;
 		SetRandom(p_.m_X);
 		p_.m_bQuadraticResidue = 0 != (1 & i);
 
@@ -110,6 +110,9 @@ void TestPoints()
 
 		p1 += p0;
 		verify(p1 == Zero);
+
+		verify(p0.Export(p2_));
+		verify(!p_.cmp(p2_));
 	}
 
 	// multiplication
