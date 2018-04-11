@@ -7,7 +7,7 @@ int main()
     {
         ECC::Point in;
         in.m_X.m_pData[0] = 123;
-        in.m_bQuadraticResidue = true;
+        in.m_Y = true;
 
         beam::Serializer ser;
         ser & in;
@@ -21,7 +21,7 @@ int main()
         des & out;
 
         assert(in.m_X == out.m_X);
-        assert(in.m_bQuadraticResidue == out.m_bQuadraticResidue);
+        assert(in.m_Y == out.m_Y);
     }
 
     // and etc...

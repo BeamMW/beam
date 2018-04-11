@@ -1,3 +1,5 @@
+#include <utility> // std::swap
+#include "common.h"
 #include "ecc_native.h"
 
 namespace beam
@@ -18,12 +20,9 @@ namespace beam
 				ECC::Hash::Processor hp;
 
 				for (int i = 0; i < _countof(pp); i++)
-				{
-					const ECC::uintBig& v = *pp[i];
-					hp.Write(v.m_pData, sizeof(v.m_pData));
-				}
+					hp << *pp[i];
 
-				hp.Finalize(hash);
+				hp >> hash;
 			}
 		}
 	}
@@ -65,12 +64,11 @@ namespace beam
 
 	void Input::get_Hash(Merkle::Hash& out) const
 	{
-		ECC::Hash::Processor hp;
-		hp.Write(m_Coinbase);
-		hp.Write(m_Commitment.m_X);
-		hp.Write(m_Commitment.m_bQuadraticResidue);
-		hp.WriteOrd(m_Height);
-		hp.Finalize(out);
+		ECC::Hash::Processor()
+			<< m_Coinbase
+			<< m_Commitment
+			<< m_Height
+			>> out;
 	}
 
 	bool Input::IsValidProof(const Merkle::Proof& proof, const Merkle::Hash& root) const
@@ -114,26 +112,25 @@ namespace beam
 	bool TxKernel::Traverse(ECC::Hash::Value& hv, Amount* pFee, ECC::Point::Native* pExcess) const
 	{
 		ECC::Hash::Processor hp;
-
-		hp.WriteOrd(m_Fee);
-		hp.Write(m_Excess);
-		hp.WriteOrd(m_Height);
+		hp	<< m_Fee
+			<< m_HeightMin
+			<< m_HeightMax
+			<< (bool) m_pContract;
 
 		if (m_pContract)
 		{
-			hp.Write("contract");
-			hp.Write(m_pContract->m_Msg);
-			hp.Write(m_pContract->m_PublicKey);
+			hp	<< m_pContract->m_Msg
+				<< m_pContract->m_PublicKey;
 		}
 
 		for (List::const_iterator it = m_vNested.begin(); m_vNested.end() != it; it++)
 		{
 			if (!(*it)->Traverse(hv, pFee, pExcess))
 				return false;
-			hp.Write(hv);
+			hp << hv;
 		}
 
-		hp.Finalize(hv);
+		hp >> hv;
 
 		if (pExcess)
 		{
@@ -143,16 +140,12 @@ namespace beam
 			if (!m_Signature.IsValid(hv, pt))
 				return false;
 
-			pExcess->Add(pt);
+			*pExcess += pt;
 
 			if (m_pContract)
 			{
-				hp.Reset();
-				hp.Write(hv);
-				hp.Write(m_Excess);
-
 				ECC::Hash::Value hv2;
-				hp.Finalize(hv2);
+				get_HashForContract(hv2, hv);
 
 				pt.Import(m_pContract->m_PublicKey);
 				if (!m_pContract->m_Signature.IsValid(hv2, pt))
@@ -164,6 +157,14 @@ namespace beam
 			*pFee += m_Fee;
 
 		return true;
+	}
+
+	void TxKernel::get_HashForContract(ECC::Hash::Value& out, const ECC::Hash::Value& msg) const
+	{
+		ECC::Hash::Processor()
+			<< msg
+			<< m_Excess
+			>> out;
 	}
 
 	void TxKernel::get_Hash(Merkle::Hash& out) const
@@ -198,7 +199,8 @@ namespace beam
 		CMP_MEMBER_EX(m_Excess)
 		CMP_MEMBER_EX(m_Signature)
 		CMP_MEMBER(m_Fee)
-		CMP_MEMBER(m_Height)
+		CMP_MEMBER(m_HeightMin)
+		CMP_MEMBER(m_HeightMax)
 		CMP_MEMBER_PTR(m_pContract)
 
 		List::const_iterator it0 = m_vNested.begin();
@@ -225,7 +227,7 @@ namespace beam
 	bool TxBase::ValidateAndSummarize(Amount& fee, ECC::Point::Native& sigma, Height nHeight) const
 	{
 		fee = 0;
-		sigma.SetZero();
+		sigma = ECC::Zero;
 
 		for (std::list<Input::Ptr>::const_iterator it = m_vInputs.begin(); m_vInputs.end() != it; it++)
 		{
@@ -233,10 +235,10 @@ namespace beam
 
 			ECC::Point::Native p;
 			p.Import(v.m_Commitment);
-			sigma.Add(p);
+			sigma += p;
 		}
 
-		sigma.Neg();
+		sigma = -sigma;
 
 		for (std::list<Output::Ptr>::const_iterator it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
 		{
@@ -246,19 +248,19 @@ namespace beam
 
 			ECC::Point::Native p;
 			p.Import(v.m_Commitment);
-			sigma.Add(p);
+			sigma += p;
 		}
 
 		for (std::list<TxKernel::Ptr>::const_iterator it = m_vKernels.begin(); m_vKernels.end() != it; it++)
 		{
 			const TxKernel& v = *(*it);
-			if (v.m_Height > nHeight)
+			if (nHeight < v.m_HeightMin || nHeight > v.m_HeightMax)
 				return false;
 			if (!v.IsValid(fee, sigma))
 				return false;
 		}
 
-		ECC::Context::get().G.SetMul(sigma, false, m_Offset);
+		sigma += ECC::Context::get().G * m_Offset;
 
 		return true;
 	}
@@ -269,11 +271,9 @@ namespace beam
 		if (!ValidateAndSummarize(fee, sigma, nHeight))
 			return false;
 
-		ECC::Scalar s;
-		s.m_Value.Set(fee);
-		ECC::Context::get().H.SetMul(sigma, false, s);
+		sigma += ECC::Context::get().H * fee;
 
-		return sigma.IsZero();
+		return sigma == ECC::Zero;
 	}
 
 } // namespace beam

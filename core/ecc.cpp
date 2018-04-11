@@ -15,9 +15,14 @@
 
 namespace ECC {
 
+	//void* NoErase(void*, int, size_t) { return NULL; }
+
+	// Pointer to the 'eraser' function. The pointer should be non-const (i.e. variable that can be changed at run-time), so that optimizer won't remove this.
+	void* (*g_pfnEraseFunc)(void*, int, size_t) = memset/*NoErase*/;
+
 	void SecureErase(void* p, uint32_t n)
 	{
-		memset(p, 0, n);
+		g_pfnEraseFunc(p, 0, n);
 	}
 
 	/////////////////////
@@ -32,32 +37,21 @@ namespace ECC {
 		return m_Value < s_Order;
 	}
 
-	void Scalar::SetRandom()
-	{
-		// accept/reject strategy
-		do
-			m_Value.SetRandom();
-		while (!IsValid());
-	}
-
-	void Scalar::Native::SetZero()
+	Scalar::Native& Scalar::Native::operator = (Zero_)
 	{
 		secp256k1_scalar_clear(this);
+		return *this;
 	}
 
-	bool Scalar::Native::IsZero() const
+	bool Scalar::Native::operator == (Zero_) const
 	{
 		return secp256k1_scalar_is_zero(this) != 0;
 	}
 
-	void Scalar::Native::SetNeg(const Native& v)
+	Scalar::Native& Scalar::Native::operator = (Minus v)
 	{
-		secp256k1_scalar_negate(this, &v);
-	}
-
-	void Scalar::Native::Neg()
-	{
-		SetNeg(*this);
+		secp256k1_scalar_negate(this, &v.x);
+		return *this;
 	}
 
 	bool Scalar::Native::Import(const Scalar& v)
@@ -71,12 +65,8 @@ namespace ECC {
 	{
 		static_assert(sizeof(v) == sizeof(Scalar), "");
 		while (Import((const Scalar&) v))
-		{
 			// overflow - better to retry (to have uniform distribution)
-			Hash::Processor hp; // NoLeak?
-			hp.Write(v);
-			hp.Finalize(v);
-		}
+			Hash::Processor() << v >> v; // NoLeak?
 	}
 
 	void Scalar::Native::Export(Scalar& v) const
@@ -84,34 +74,28 @@ namespace ECC {
 		secp256k1_scalar_get_b32(v.m_Value.m_pData, this);
 	}
 
-	void Scalar::Native::Set(uint32_t v)
+	Scalar::Native& Scalar::Native::operator = (uint32_t v)
 	{
 		secp256k1_scalar_set_int(this, v);
+		return *this;
 	}
 
-	void Scalar::Native::Set(uint64_t v)
+	Scalar::Native& Scalar::Native::operator = (uint64_t v)
 	{
 		secp256k1_scalar_set_u64(this, v);
+		return *this;
 	}
 
-	void Scalar::Native::SetSum(const Native& a, const Native& b)
+	Scalar::Native& Scalar::Native::operator = (Plus v)
 	{
-		secp256k1_scalar_add(this, &a, &b);
+		secp256k1_scalar_add(this, &v.x, &v.y);
+		return *this;
 	}
 
-	void Scalar::Native::Add(const Native& v)
+	Scalar::Native& Scalar::Native::operator = (Mul v)
 	{
-		SetSum(*this, v);
-	}
-
-	void Scalar::Native::SetMul(const Native& a, const Native& b)
-	{
-		secp256k1_scalar_mul(this, &a, &b);
-	}
-
-	void Scalar::Native::Mul(const Native& v)
-	{
-		SetMul(*this, v);
+		secp256k1_scalar_mul(this, &v.x, &v.y);
+		return *this;
 	}
 
 	void Scalar::Native::SetSqr(const Native& v)
@@ -185,7 +169,7 @@ namespace ECC {
 	void Hash::Processor::Write(const Point& v)
 	{
 		Write(v.m_X);
-		Write(v.m_bQuadraticResidue);
+		Write(v.m_Y);
 	}
 
 	void Hash::Processor::Write(const Point::Native& v)
@@ -208,9 +192,9 @@ namespace ECC {
 		if (n)
 			return n;
 
-		if (m_bQuadraticResidue < v.m_bQuadraticResidue)
+		if (m_Y < v.m_Y)
 			return -1;
-		if (m_bQuadraticResidue > v.m_bQuadraticResidue)
+		if (m_Y > v.m_Y)
 			return 1;
 
 		return 0;
@@ -223,11 +207,8 @@ namespace ECC {
 			return false;
 
 		NoLeak<secp256k1_ge> ge;
-		if (!secp256k1_ge_set_xquad(&ge.V, &nx.V))
+		if (!secp256k1_ge_set_xo_var(&ge.V, &nx.V, false != v.m_Y))
 			return false;
-
-		if (!v.m_bQuadraticResidue)
-			secp256k1_fe_negate(&ge.V.y, &ge.V.y, 1);
 
 		secp256k1_gej_set_ge(this, &ge.V);
 
@@ -239,15 +220,16 @@ namespace ECC {
 		if (ImportInternal(v))
 			return true;
 
-		SetZero();
+		*this = Zero;
 		return false;
 	}
 
 	bool Point::Native::Export(Point& v) const
 	{
-		if (IsZero())
+		if (*this == Zero)
 		{
-			memset(&v, 0, sizeof(v));
+			v.m_X = Zero;
+			v.m_Y = false;
 			return false;
 		}
 
@@ -256,82 +238,108 @@ namespace ECC {
 		NoLeak<secp256k1_ge> ge;
 		secp256k1_ge_set_gej(&ge.V, &dup.V);
 
+		// seems like normalization can be omitted (already done by secp256k1_ge_set_gej), but not guaranteed according to docs.
+		// But this has a negligible impact on the performance
+		secp256k1_fe_normalize(&ge.V.x);
+		secp256k1_fe_normalize(&ge.V.y);
+
 		secp256k1_fe_get_b32(v.m_X.m_pData, &ge.V.x);
-		v.m_bQuadraticResidue = (secp256k1_gej_has_quad_y_var(this) != 0);
+		v.m_Y = (secp256k1_fe_is_odd(&ge.V.y) != 0);
 
 		return true;
 	}
 
-	void Point::Native::Import(const secp256k1_ge_storage& v)
-	{
-		NoLeak<secp256k1_ge> ge;
-		secp256k1_ge_from_storage(&ge.V, &v);
-		Import(ge.V);
-	}
-
-	void Point::Native::Import(const secp256k1_ge& v)
-	{
-		secp256k1_gej_set_ge(this, &v);
-	}
-
-	void Point::Native::Export(secp256k1_ge_storage& v)
-	{
-		NoLeak<secp256k1_ge> ge;
-		secp256k1_ge_set_gej(&ge.V, this);
-		secp256k1_ge_to_storage(&v, &ge.V);
-	}
-
-	void Point::Native::SetZero()
+	Point::Native& Point::Native::operator = (Zero_)
 	{
 		secp256k1_gej_set_infinity(this);
+		return *this;
 	}
 
-	bool Point::Native::IsZero() const
+	bool Point::Native::operator == (Zero_) const
 	{
 		return secp256k1_gej_is_infinity(this) != 0;
 	}
 
-	void Point::Native::SetNeg(const Native& v)
+	Point::Native& Point::Native::operator = (Minus v)
 	{
-		secp256k1_gej_neg(this, &v);
+		secp256k1_gej_neg(this, &v.x);
+		return *this;
 	}
 
-	void Point::Native::Neg()
+	Point::Native& Point::Native::operator = (Plus v)
 	{
-		SetNeg(*this);
+		secp256k1_gej_add_var(this, &v.x, &v.y, NULL);
+		return *this;
 	}
 
-	void Point::Native::SetSum(const Native& a, const Native& b)
+	Point::Native& Point::Native::operator = (Double v)
 	{
-		secp256k1_gej_add_var(this, &a, &b, NULL);
+		secp256k1_gej_double_var(this, &v.x, NULL);
+		return *this;
 	}
 
-	void Point::Native::Add(const Native& v)
+	Point::Native& Point::Native::operator += (Mul v)
 	{
-		SetSum(*this, v);
-	}
+		// Naive (basic) summation algorithm:
+		//
+		//	for each bit in scalar
+		//	{
+		//		if (bit==1)
+		//			res += p;
+		//		p *= 2
+		//	}
+		//
+		// We use an improved algorithm, which accounts for ranges of consecutive bits.
+		// Instead if adding p for every bit we just add it for the post-last bit, and subtract for the first bit.
+		// 
+		// For example the following calculation: res = 15 * p
+		// 
+		// Naive algorithm:
+		//		res = p + 2p + 4p + 8p;
+		// Improved algorithm:
+		//		res = 16p - p;
 
-	void Point::Native::SetX2(const Native& v)
-	{
-		secp256k1_gej_double_var(this, &v, NULL);
-	}
+		Point::Native p[2];
+		int carry = 0, count = 0;
+		p[carry] = v.x;
 
-	void Point::Native::X2()
-	{
-		SetX2(*this);
-	}
-
-	void Point::Native::AddMul(const Native& v, const Scalar& k)
-	{
-		Point::Native pt = v;
-
-		for (uint32_t iByte = _countof(k.m_Value.m_pData); iByte--; )
+		for (uint32_t iByte = _countof(v.y.m_Value.m_pData); iByte--; )
 		{
-			uint8_t n = k.m_Value.m_pData[iByte];
+			uint8_t n = v.y.m_Value.m_pData[iByte];
 
-			for (uint32_t iBit = 0; iBit < 8; iBit++, pt.X2())
-				if (1 & (n >> iBit))
-					Add(pt);
+			for (uint32_t iBit = 0; iBit < 8; iBit++)
+			{
+				int carry1 = (1 & (n >> iBit));
+				if (carry == carry1)
+					count++;
+				else
+				{
+					OnCarryChange(p, carry, count);
+					count = 0;
+				}
+
+				p[carry1] = p[carry] * Two;
+				carry = carry1;
+
+			}
+		}
+
+		OnCarryChange(p, carry, count);
+
+		return *this;
+	}
+
+	void Point::Native::OnCarryChange(Point::Native* p, int carry, int count)
+	{
+		if (carry)
+		{
+			if (count)
+			{
+				*this += p[1];
+				p[0] = -p[0];
+			}
+
+			*this += p[0];
 		}
 	}
 
@@ -339,19 +347,36 @@ namespace ECC {
 	// Generator
 	namespace Generator
 	{
+		void FromPt(secp256k1_ge_storage& out, Point::Native& p)
+		{
+			secp256k1_ge ge; // used only for non-secret
+			secp256k1_ge_set_gej(&ge, &p.get_Raw());
+			secp256k1_ge_to_storage(&out, &ge);
+		}
+
+		void ToPt(Point::Native& p, secp256k1_ge& ge, const secp256k1_ge_storage& ge_s, bool bSet)
+		{
+			secp256k1_ge_from_storage(&ge, &ge_s);
+
+			if (bSet)
+				secp256k1_gej_set_ge(&p.get_Raw(), &ge);
+			else
+				secp256k1_gej_add_ge(&p.get_Raw(), &p.get_Raw(), &ge);
+		}
+
 		bool CreatePointNnz(Point::Native& out, const uintBig& x)
 		{
 			Point pt;
 			pt.m_X = x;
-			pt.m_bQuadraticResidue = false;
+			pt.m_Y = false;
 
-			return out.Import(pt) && !out.IsZero();
+			return out.Import(pt) && !(out == Zero);
 		}
 
 		bool CreatePointNnz(Point::Native& out, Hash::Processor& hp)
 		{
 			Hash::Value hv;
-			hp.Finalize(hv);
+			hp >> hv;
 			return CreatePointNnz(out, hv);
 		}
 
@@ -359,11 +384,11 @@ namespace ECC {
 		{
 			Point::Native nums, npos, pt;
 
-			hp.Write("nums");
+			hp << "nums";
 			if (!CreatePointNnz(nums, hp))
 				return false;
 
-			nums.Add(gpos);
+			nums += gpos;
 
 			npos = nums;
 
@@ -373,28 +398,28 @@ namespace ECC {
 
 				for (uint32_t iPt = 1; ; iPt++)
 				{
-					if (pt.IsZero())
+					if (pt == Zero)
 						return false;
 
-					pt.Export(*pPts++);
+					FromPt(*pPts++, pt);
 
 					if (iPt == nPointsPerLevel)
 						break;
 
-					pt.Add(gpos);
+					pt += gpos;
 				}
 
 				if (iLev == nLevels)
 					break;
 
 				for (uint32_t i = 0; i < nBitsPerLevel; i++)
-					gpos.X2();
+					gpos = gpos * Two;
 
-				npos.X2();
+				npos = npos * Two;
 				if (iLev + 1 == nLevels)
 				{
-					npos.Neg();
-					npos.Add(nums);
+					npos = -npos;
+					npos += nums;
 				}
 			}
 
@@ -407,8 +432,8 @@ namespace ECC {
 			const uint8_t nLevelsPerByte = 8 / nBitsPerLevel;
 			static_assert(!(nLevelsPerByte & (nLevelsPerByte - 1)), "should be power-of-2");
 
-			NoLeak<Point::Native> np;
-			NoLeak<secp256k1_ge_storage> ge;
+			NoLeak<secp256k1_ge_storage> ge_s;
+			NoLeak<secp256k1_ge> ge;
 
 			uint32_t n0 = _countof(k.m_Value.m_pData) - nLevels / nLevelsPerByte;
 
@@ -439,18 +464,10 @@ namespace ECC {
 					*/
 
 					for (uint32_t i = 0; i < nPointsPerLevel; i++)
-						secp256k1_ge_storage_cmov(&ge.V, pPts + i, i == nSel);
+						secp256k1_ge_storage_cmov(&ge_s.V, pPts + i, i == nSel);
 
-					if (bSet)
-					{
-						bSet = false;
-						res.Import(ge.V);
-					} else
-					{
-						// secp256k1_gej_add_ge(r, r, &add);
-						np.V.Import(ge.V);
-						res.Add(np.V);
-					} 
+					ToPt(res, ge.V, ge_s.V, bSet);
+					bSet = false;
 				}
 			}
 		}
@@ -464,8 +481,7 @@ namespace ECC {
 
 		void InitSeedIteration(Hash::Processor& hp, const char* szSeed, uint32_t n)
 		{
-			hp.Write(szSeed);
-			hp.WriteOrd(n);
+			hp << szSeed << n;
 		}
 
 		void GeneratePts(const char* szSeed, secp256k1_ge_storage* pPts, uint32_t nLevels)
@@ -499,43 +515,40 @@ namespace ECC {
 				if (!CreatePts(m_pPts, pt2, nLevels, hp))
 					continue;
 
-				hp.Write("blind-scalar");
+				hp << "blind-scalar";
 				Scalar s0;
-				hp.Finalize(s0.m_Value);
+				hp >> s0.m_Value;
 				if (m_AddScalar.Import(s0))
 					continue;
 
 				Generator::SetMul(pt2, true, m_pPts, nLevels, m_AddScalar); // pt2 = G * blind
-				pt2.Export(m_AddPt);
+				FromPt(m_AddPt, pt2);
 
-				m_AddScalar.Neg();
+				m_AddScalar = -m_AddScalar;
 
 				break;
 			}
 		}
 
-		void Obscured::SetMul(Point::Native& res, bool bSet, const Scalar::Native& k) const
+		template <>
+		void Obscured::Mul<Scalar::Native>::Assign(Point::Native& res, bool bSet) const
 		{
-			if (bSet)
-				res.Import(m_AddPt);
-			else
-			{
-				Point::Native pt;
-				pt.Import(m_AddPt);
-				res.Add(pt);
-			}
+			secp256k1_ge ge;
+			ToPt(res, ge, me.m_AddPt, bSet);
 
 			NoLeak<Scalar::Native> k2;
-			k2.V.SetSum(k, m_AddScalar);
+			k2.V = k + me.m_AddScalar;
 
-			Generator::SetMul(res, false, m_pPts, nLevels, k2.V);
+			Generator::SetMul(res, false, me.m_pPts, nLevels, k2.V);
 		}
 
-		void Obscured::SetMul(Point::Native& res, bool bSet, const Scalar& k) const
+		template <>
+		void Obscured::Mul<Scalar>::Assign(Point::Native& res, bool bSet) const
 		{
 			NoLeak<Scalar::Native> k2;
 			k2.V.Import(k); // don't care if overflown (still valid operation)
-			SetMul(res, bSet, k2.V);
+
+			Mul<Scalar::Native>(me, k2.V).Assign(res, bSet);
 		}
 
 	} // namespace Generator
@@ -548,27 +561,12 @@ namespace ECC {
 	{
 	}
 
-	void Context::Excess(Point::Native& res, const Scalar::Native& k) const
+	/////////////////////
+	// Commitment
+	void Commitment::Assign(Point::Native& res, bool bSet) const
 	{
-		G.SetMul(res, true, k);
-	}
-
-	void Context::Commit(Point::Native& res, const Scalar::Native& k, const Scalar::Native& v) const
-	{
-		Excess(res, k);
-		H.SetMul(res, false, v);
-	}
-
-	void Context::Commit(Point::Native& res, const Scalar::Native& k, const Amount& v, Scalar::Native& vOut) const
-	{
-		vOut.Set(v);
-		Commit(res, k, vOut);
-	}
-
-	void Context::Commit(Point::Native& res, const Scalar::Native& k, const Amount& v) const
-	{
-		NoLeak<Scalar::Native> vOut;
-		Commit(res, k, v, vOut.V);
+		(Context::get().G * k).Assign(res, bSet);
+		res += Context::get().H * val;
 	}
 
 	/////////////////////
@@ -578,27 +576,18 @@ namespace ECC {
 		m_hp.Reset();
 	}
 
-	void Oracle::GetChallenge(Scalar::Native& out)
+	void Oracle::operator >> (Scalar::Native& out)
 	{
 		Hash::Value hv; // not secret
-		m_hp.Finalize(hv);
+		m_hp >> hv;
 		out.ImportFix(hv);
-	}
-
-	void Oracle::Add(const void* p, uint32_t n)
-	{
-		m_hp.Write(p, n);
 	}
 
 	/////////////////////
 	// Signature
 	void Signature::get_Challenge(Scalar::Native& out, const Point::Native& pt, const Hash::Value& msg)
 	{
-		Oracle oracle;
-		oracle.Add(pt);
-		oracle.Add(msg);
-
-		oracle.GetChallenge(out);
+		Oracle() << pt << msg >> out;
 	}
 
 	void Signature::MultiSig::GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk)
@@ -609,29 +598,27 @@ namespace ECC {
 		for (uint32_t nAttempt = 0; ; nAttempt++)
 			if (secp256k1_nonce_function_default(s0.V.m_Value.m_pData, msg.m_pData, sk_.V.m_Value.m_pData, NULL, NULL, nAttempt) && !m_Nonce.V.Import(s0.V))
 				break;
-
-		Context::get().Excess(m_NoncePub, m_Nonce.V);
 	}
 
-	void Signature::CoSign(const Hash::Value& msg, const Scalar::Native& sk, const MultiSig& msig)
+	void Signature::CoSign(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk, const MultiSig& msig)
 	{
-		Scalar::Native e;
-		get_Challenge(e, msig.m_NoncePub, msg);
+		get_Challenge(k, msig.m_NoncePub, msg);
+		k.Export(m_e);
 
-		e.Export(m_e);
-
-		e.Mul(sk);
-		e.Neg();
-		e.Add(msig.m_Nonce.V);
-
-		e.Export(m_k);
+		k *= sk;
+		k = -k;
+		k += msig.m_Nonce.V;
 	}
 
 	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
 	{
 		MultiSig msig;
 		msig.GenerateNonce(msg, sk);
-		CoSign(msg, sk, msig);
+		msig.m_NoncePub = Context::get().G * msig.m_Nonce.V;
+
+		Scalar::Native k;
+		CoSign(k, msg, sk, msig);
+		k.Export(m_k);
 	}
 
 	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
@@ -640,9 +627,9 @@ namespace ECC {
 		sig.Import(m_k);
 
 		Point::Native pt;
-		Context::get().Excess(pt, sig);
+		pt = Context::get().G * sig;
 
-		pt.AddMul(pk, m_e);
+		pt += pk * m_e;
 
 		get_Challenge(sig, pt, msg);
 		Scalar e;
@@ -668,14 +655,11 @@ namespace ECC {
 		{
 			out.Import(comm);
 
-			Scalar s;
-			s.m_Value.Set(val);
-
 			Point::Native ptAmount;
-			Context::get().H.SetMul(ptAmount, true, s);
+			ptAmount = Context::get().H * val;
 
-			ptAmount.Neg();
-			out.Add(ptAmount);
+			ptAmount = -ptAmount;
+			out += ptAmount;
 		}
 
 
@@ -701,9 +685,7 @@ namespace ECC {
 		// Public
 		void Public::get_Msg(Hash::Value& hv) const
 		{
-			Hash::Processor hp;
-			hp.WriteOrd(m_Value);
-			hp.Finalize(hv);
+			Hash::Processor() << m_Value >> hv;
 		}
 
 		bool Public::IsValid(const Point& comm) const
@@ -747,3 +729,9 @@ namespace ECC {
 	} // namespace RangeProof
 
 } // namespace ECC
+
+// Needed for test
+void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a)
+{
+	secp256k1_ecmult_gen(&pCtx->ecmult_gen_ctx, r, a);
+}

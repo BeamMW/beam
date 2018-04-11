@@ -55,8 +55,7 @@ namespace detail
         {
             ar
                 & point.m_X
-                & point.m_bQuadraticResidue;
-
+                & point.m_Y;
             return ar;
         }
 
@@ -65,8 +64,7 @@ namespace detail
         {
             ar
                 & point.m_X
-                & point.m_bQuadraticResidue;
-
+                & point.m_Y;
             return ar;
         }
 
@@ -125,14 +123,14 @@ namespace detail
 
         /// ECC::RangeProof::Confidential serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& cond) 
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& cond)
         {
             ar & cond.m_pOpaque;
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::RangeProof::Confidential& cond) 
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential& cond)
         {
             ar & cond.m_pOpaque;
             return ar;
@@ -140,9 +138,9 @@ namespace detail
 
         /// ECC::RangeProof::Public serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::RangeProof::Public& val) 
+        static Archive& save(Archive& ar, const ECC::RangeProof::Public& val)
         {
-            ar 
+            ar
                 & val.m_Value
                 & val.m_Signature
             ;
@@ -151,9 +149,9 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::RangeProof::Public& val) 
+        static Archive& load(Archive& ar, ECC::RangeProof::Public& val)
         {
-            ar 
+            ar
                 & val.m_Value
                 & val.m_Signature
             ;
@@ -215,9 +213,9 @@ namespace detail
 
         /// beam::TxKernel::Contract serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxKernel::Contract& val) 
+        static Archive& save(Archive& ar, const beam::TxKernel::Contract& val)
         {
-            ar 
+            ar
                 & val.m_Msg
                 & val.m_PublicKey
                 & val.m_Signature
@@ -227,9 +225,9 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::TxKernel::Contract& val) 
+        static Archive& load(Archive& ar, beam::TxKernel::Contract& val)
         {
-            ar 
+            ar
                 & val.m_Msg
                 & val.m_PublicKey
                 & val.m_Signature
@@ -246,7 +244,8 @@ namespace detail
                 & val.m_Excess
                 & val.m_Signature
                 & val.m_Fee
-                & val.m_Height
+                & val.m_HeightMin
+                & val.m_HeightMax
                 & val.m_pContract
                 & val.m_vNested
             ;
@@ -261,7 +260,8 @@ namespace detail
                 & val.m_Excess
                 & val.m_Signature
                 & val.m_Fee
-                & val.m_Height
+                & val.m_HeightMin
+                & val.m_HeightMax
                 & val.m_pContract
                 & val.m_vNested
             ;
