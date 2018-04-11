@@ -817,10 +817,10 @@ void RunBenchmark()
 
 } // namespace ECC
 
-//int main()
-//{
-//	ECC::TestAll();
-//	ECC::RunBenchmark();
-//
-//    return g_TestsFailed ? -1 : 0;
-//}
+int main()
+{
+	ECC::TestAll();
+	ECC::RunBenchmark();
+
+    return g_TestsFailed ? -1 : 0;
+}
