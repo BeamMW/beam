@@ -96,7 +96,7 @@ void TestPoints()
 	{
 		Point p_, p2_;
 		SetRandom(p_.m_X);
-		p_.m_bQuadraticResidue = 0 != (1 & i);
+		p_.m_Y = 0 != (1 & i);
 
 		while (!p0.Import(p_))
 		{
@@ -648,7 +648,7 @@ void RunBenchmark()
 	Point::Native p0, p1;
 
 	Point p_;
-	p_.m_bQuadraticResidue = false;
+	p_.m_Y = false;
 
 	SetRandom(p_.m_X);
 	while (!p0.Import(p_))
@@ -737,7 +737,7 @@ void RunBenchmark()
 
 		Point p_;
 		p_.m_X = Zero;
-		p_.m_bQuadraticResidue = false;
+		p_.m_Y = false;
 
 		while (!p0.Import(p_))
 			p_.m_X.Inc();

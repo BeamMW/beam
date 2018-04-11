@@ -169,7 +169,7 @@ namespace ECC {
 	void Hash::Processor::Write(const Point& v)
 	{
 		Write(v.m_X);
-		Write(v.m_bQuadraticResidue);
+		Write(v.m_Y);
 	}
 
 	void Hash::Processor::Write(const Point::Native& v)
@@ -192,9 +192,9 @@ namespace ECC {
 		if (n)
 			return n;
 
-		if (m_bQuadraticResidue < v.m_bQuadraticResidue)
+		if (m_Y < v.m_Y)
 			return -1;
-		if (m_bQuadraticResidue > v.m_bQuadraticResidue)
+		if (m_Y > v.m_Y)
 			return 1;
 
 		return 0;
@@ -210,7 +210,7 @@ namespace ECC {
 		if (!secp256k1_ge_set_xquad(&ge.V, &nx.V))
 			return false;
 
-		if (!v.m_bQuadraticResidue)
+		if (!v.m_Y)
 			secp256k1_fe_negate(&ge.V.y, &ge.V.y, 1);
 
 		secp256k1_gej_set_ge(this, &ge.V);
@@ -232,7 +232,7 @@ namespace ECC {
 		if (*this == Zero)
 		{
 			v.m_X = Zero;
-			v.m_bQuadraticResidue = false;
+			v.m_Y = false;
 			return false;
 		}
 
@@ -243,7 +243,7 @@ namespace ECC {
 
 		secp256k1_fe_normalize(&ge.V.x);
 		secp256k1_fe_get_b32(v.m_X.m_pData, &ge.V.x);
-		v.m_bQuadraticResidue = (secp256k1_fe_is_quad_var(&ge.V.y) != 0);
+		v.m_Y = (secp256k1_fe_is_quad_var(&ge.V.y) != 0);
 
 		return true;
 	}
@@ -318,7 +318,7 @@ namespace ECC {
 		{
 			Point pt;
 			pt.m_X = x;
-			pt.m_bQuadraticResidue = false;
+			pt.m_Y = false;
 
 			return out.Import(pt) && !(out == Zero);
 		}
