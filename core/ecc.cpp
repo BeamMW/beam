@@ -207,11 +207,8 @@ namespace ECC {
 			return false;
 
 		NoLeak<secp256k1_ge> ge;
-		if (!secp256k1_ge_set_xquad(&ge.V, &nx.V))
+		if (!secp256k1_ge_set_xo_var(&ge.V, &nx.V, false != v.m_Y))
 			return false;
-
-		if (!v.m_Y)
-			secp256k1_fe_negate(&ge.V.y, &ge.V.y, 1);
 
 		secp256k1_gej_set_ge(this, &ge.V);
 
@@ -241,9 +238,13 @@ namespace ECC {
 		NoLeak<secp256k1_ge> ge;
 		secp256k1_ge_set_gej(&ge.V, &dup.V);
 
+		// seems like normalization can be omitted (already done by secp256k1_ge_set_gej), but not guaranteed according to docs.
+		// But this has a negligible impact on the performance
 		secp256k1_fe_normalize(&ge.V.x);
+		secp256k1_fe_normalize(&ge.V.y);
+
 		secp256k1_fe_get_b32(v.m_X.m_pData, &ge.V.x);
-		v.m_Y = (secp256k1_fe_is_quad_var(&ge.V.y) != 0);
+		v.m_Y = (secp256k1_fe_is_odd(&ge.V.y) != 0);
 
 		return true;
 	}
