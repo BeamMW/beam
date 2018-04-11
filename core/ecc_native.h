@@ -28,6 +28,9 @@ namespace ECC
 		typedef uint32_t uint;
 #endif // USE_SCALAR_4X64
 
+		Native() {}
+		~Native() { SecureErase(*this); }
+
 		Minus	operator - () const { return Minus(*this); }
 		Plus	operator + (const Native& y) const { return Plus(*this, y); }
 		Mul		operator * (const Native& y) const { return Mul(*this, y); }
@@ -50,7 +53,6 @@ namespace ECC
 		void Inv();
 
 		bool Import(const Scalar&); // on overflow auto-normalizes and returns true
-		void ImportFix(uintBig&); // on overflow input is mutated (auto-hashed)
 		void Export(Scalar&) const;
 	};
 
@@ -66,6 +68,9 @@ namespace ECC
 		void OnCarryChange(Point::Native*, int carry, int count);
 	public:
 		secp256k1_gej& get_Raw() { return *this; } // use with care
+
+		Native() {}
+		~Native() { SecureErase(*this); }
 
 		Minus	operator - () const { return Minus(*this); }
 		Plus	operator + (const Native& y) const { return Plus(*this, y); }
@@ -166,6 +171,8 @@ namespace ECC
 				void Assign(Point::Native& res, bool bSet) const;
 			};
 
+			void AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native&) const;
+
 		public:
 			Obscured(const char* szSeed);
 
@@ -177,8 +184,8 @@ namespace ECC
 
 	struct Signature::MultiSig
 	{
-		NoLeak<Scalar::Native> m_Nonce; // specific signer
-		Point::Native m_NoncePub;		// sum of all co-signers
+		Scalar::Native	m_Nonce;	// specific signer
+		Point::Native	m_NoncePub;	// sum of all co-signers
 
 		void GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk);
 	};

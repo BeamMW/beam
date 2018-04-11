@@ -438,7 +438,7 @@ struct TransactionMaker
 			Signature::MultiSig msig;
 			msig.GenerateNonce(msg, p.m_k);
 
-			xG += Context::get().G * msig.m_Nonce.V;
+			xG += Context::get().G * msig.m_Nonce;
 		}
 
 		offset.Export(m_Trans.m_Offset);

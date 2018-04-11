@@ -67,14 +67,6 @@ namespace ECC {
 		return overflow != 0;
 	}
 
-	void Scalar::Native::ImportFix(uintBig& v)
-	{
-		static_assert(sizeof(v) == sizeof(Scalar), "");
-		while (Import((const Scalar&) v))
-			// overflow - better to retry (to have uniform distribution)
-			Hash::Processor() << v >> v; // NoLeak?
-	}
-
 	void Scalar::Native::Export(Scalar& v) const
 	{
 		secp256k1_scalar_get_b32(v.m_Value.m_pData, this);
@@ -531,25 +523,29 @@ namespace ECC {
 			}
 		}
 
+		void Obscured::AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native& k) const
+		{
+			secp256k1_ge ge;
+			ToPt(res, ge, m_AddPt, bSet);
+
+			kTmp = k + m_AddScalar;
+
+			Generator::SetMul(res, false, m_pPts, kTmp);
+		}
+
 		template <>
 		void Obscured::Mul<Scalar::Native>::Assign(Point::Native& res, bool bSet) const
 		{
-			secp256k1_ge ge;
-			ToPt(res, ge, me.m_AddPt, bSet);
-
-			NoLeak<Scalar::Native> k2;
-			k2.V = k + me.m_AddScalar;
-
-			Generator::SetMul(res, false, me.m_pPts, k2.V);
+			Scalar::Native k2;
+			me.AssignInternal(res, bSet, k2, k);
 		}
 
 		template <>
 		void Obscured::Mul<Scalar>::Assign(Point::Native& res, bool bSet) const
 		{
-			NoLeak<Scalar::Native> k2;
-			k2.V.Import(k); // don't care if overflown (still valid operation)
-
-			Mul<Scalar::Native>(me, k2.V).Assign(res, bSet);
+			Scalar::Native k2;
+			k2.Import(k); // don't care if overflown (still valid operation)
+			me.AssignInternal(res, bSet, k2, k2);
 		}
 
 	} // namespace Generator
@@ -579,9 +575,11 @@ namespace ECC {
 
 	void Oracle::operator >> (Scalar::Native& out)
 	{
-		Hash::Value hv; // not secret
-		m_hp >> hv;
-		out.ImportFix(hv);
+		Scalar s; // not secret
+
+		do
+			m_hp >> s.m_Value;
+		while (out.Import(s));
 	}
 
 	/////////////////////
@@ -597,7 +595,7 @@ namespace ECC {
 		sk.Export(sk_.V);
 
 		for (uint32_t nAttempt = 0; ; nAttempt++)
-			if (secp256k1_nonce_function_default(s0.V.m_Value.m_pData, msg.m_pData, sk_.V.m_Value.m_pData, NULL, NULL, nAttempt) && !m_Nonce.V.Import(s0.V))
+			if (secp256k1_nonce_function_default(s0.V.m_Value.m_pData, msg.m_pData, sk_.V.m_Value.m_pData, NULL, NULL, nAttempt) && !m_Nonce.Import(s0.V))
 				break;
 	}
 
@@ -608,14 +606,14 @@ namespace ECC {
 
 		k *= sk;
 		k = -k;
-		k += msig.m_Nonce.V;
+		k += msig.m_Nonce;
 	}
 
 	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
 	{
 		MultiSig msig;
 		msig.GenerateNonce(msg, sk);
-		msig.m_NoncePub = Context::get().G * msig.m_Nonce.V;
+		msig.m_NoncePub = Context::get().G * msig.m_Nonce;
 
 		Scalar::Native k;
 		CoSign(k, msg, sk, msig);

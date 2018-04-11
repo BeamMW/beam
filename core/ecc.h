@@ -39,12 +39,13 @@ namespace ECC
 	};
 
 	void SecureErase(void*, uint32_t);
+	template <typename T> void SecureErase(T& t) { SecureErase(&t, sizeof(T)); }
 
 	template <typename T>
 	struct NoLeak
 	{
 		T V;
-		~NoLeak() { SecureErase(&V, sizeof(T)); }
+		~NoLeak() { SecureErase(V); }
 	};
 
 	template <uint32_t nBits_>
