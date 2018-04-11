@@ -91,10 +91,21 @@ void TestPoints()
 {
 	// generate, import, export
 	Point::Native p0, p1;
+	Point p_, p2_;
+
+	p_.m_X = Zero; // should be zero-point
+	p_.m_Y = true;
+	verify(!p0.Import(p_));
+	verify(p0 == Zero);
+
+	p_.m_Y = false;
+	verify(!p0.Import(p_));
+
+	p0.Export(p2_);
+	verify(!p_.cmp(p2_));
 
 	for (int i = 0; i < 1000; i++)
 	{
-		Point p_, p2_;
 		SetRandom(p_.m_X);
 		p_.m_Y = 0 != (1 & i);
 
@@ -690,10 +701,22 @@ void RunBenchmark()
 
 	{
 		k1 = 1U;
-		k1.Inv();
 		k1.Export(k_);
 
-		BenchmarkMeter bm("point.Multiply");
+		BenchmarkMeter bm("point.Multiply.Min");
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				p0 += p1 * k_;
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		k1 = -k1;
+		k1.Export(k_);
+
+		BenchmarkMeter bm("point.Multiply.Max");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
