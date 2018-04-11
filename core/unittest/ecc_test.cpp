@@ -572,7 +572,7 @@ struct BenchmarkMeter
 		double dt_s = double(get_Time() - m_Start) / double(m_Freq);
 		if (dt_s >= 1.)
 		{
-			printf("%s: %.2f us\n", m_sz, dt_s * 1e6 / double(m_Cycles));
+			printf("%-24s: %.2f us\n", m_sz, dt_s * 1e6 / double(m_Cycles));
 			return false;
 		}
 
@@ -590,7 +590,7 @@ void RunBenchmark()
 	SetRandom(k2);
 
 /*	{
-		BenchmarkMeter bm("s.Add");
+		BenchmarkMeter bm("scalar.Add");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -600,7 +600,7 @@ void RunBenchmark()
 	}
 
 	{
-		BenchmarkMeter bm("s.Mul");
+		BenchmarkMeter bm("scalar.Multiply");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -611,7 +611,7 @@ void RunBenchmark()
 */
 
 	{
-		BenchmarkMeter bm("s.Inv");
+		BenchmarkMeter bm("scalar.Inverse");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -623,7 +623,7 @@ void RunBenchmark()
 	Scalar k_;
 /*
 	{
-		BenchmarkMeter bm("s.Exp");
+		BenchmarkMeter bm("scalar.Export");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -633,7 +633,7 @@ void RunBenchmark()
 	}
 
 	{
-		BenchmarkMeter bm("s.Imp");
+		BenchmarkMeter bm("scalar.Import");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -656,7 +656,7 @@ void RunBenchmark()
 		p_.m_X.Inc();
 
 	{
-		BenchmarkMeter bm("p.Neg");
+		BenchmarkMeter bm("point.Negate");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -666,7 +666,7 @@ void RunBenchmark()
 	}
 
 	{
-		BenchmarkMeter bm("p.X_2");
+		BenchmarkMeter bm("point.Double");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -676,7 +676,7 @@ void RunBenchmark()
 	}
 
 	{
-		BenchmarkMeter bm("p.Add");
+		BenchmarkMeter bm("point.Add");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -690,7 +690,7 @@ void RunBenchmark()
 		k1.Inv();
 		k1.Export(k_);
 
-		BenchmarkMeter bm("p.Mul");
+		BenchmarkMeter bm("point.Multiply");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -700,7 +700,7 @@ void RunBenchmark()
 	}
 
 	{
-		BenchmarkMeter bm("p.Exp");
+		BenchmarkMeter bm("point.Export");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -710,7 +710,7 @@ void RunBenchmark()
 	}
 
 	{
-		BenchmarkMeter bm("p.Imp");
+		BenchmarkMeter bm("point.Import");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -720,7 +720,7 @@ void RunBenchmark()
 	}
 
 	{
-		BenchmarkMeter bm("H.Mul");
+		BenchmarkMeter bm("H.Multiply");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -739,7 +739,7 @@ void RunBenchmark()
 		while (!p0.Import(p_))
 			p_.m_X.Inc();
 
-		BenchmarkMeter bm("G.Mul");
+		BenchmarkMeter bm("G.Multiply");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -749,7 +749,7 @@ void RunBenchmark()
 	}
 
 	{
-		BenchmarkMeter bm("Commt");
+		BenchmarkMeter bm("Commit");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -763,7 +763,7 @@ void RunBenchmark()
 
 	Signature sig;
 	{
-		BenchmarkMeter bm("S.Sig");
+		BenchmarkMeter bm("signature.Sign");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -774,7 +774,7 @@ void RunBenchmark()
 
 	p1 = Context::get().G * k1;
 	{
-		BenchmarkMeter bm("S.Ver");
+		BenchmarkMeter bm("signature.Verify");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -788,7 +788,7 @@ void RunBenchmark()
 	{
 		secp256k1_pedersen_commitment comm;
 
-		BenchmarkMeter bm("Pdrsn");
+		BenchmarkMeter bm("secp256k1.Commit");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -798,7 +798,7 @@ void RunBenchmark()
 	}
 
 	{
-		BenchmarkMeter bm("ecmul");
+		BenchmarkMeter bm("secp256k1.G.Multiply");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
