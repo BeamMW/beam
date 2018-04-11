@@ -163,10 +163,6 @@ namespace ECC
 	class Hash::Processor
 		:private secp256k1_sha256_t
 	{
-	public:
-		Processor();
-
-		void Reset();
 		void Write(const void*, uint32_t);
 		void Write(const char*);
 		void Write(bool);
@@ -188,7 +184,17 @@ namespace ECC
 			}
 		}
 
-		void Finalize(Hash::Value&);
+		void Finalize(Value&);
+
+	public:
+		Processor();
+
+		void Reset();
+
+		template <typename T>
+		Processor& operator << (const T& t) { Write(t); return *this; }
+
+		void operator >> (Value& hv) { Finalize(hv); }
 	};
 
 	struct Context
@@ -214,11 +220,10 @@ namespace ECC
 		Hash::Processor m_hp;
 	public:
 		void Reset();
-		void GetChallenge(Scalar::Native&);
-
-		void Add(const void*, uint32_t);
 
 		template <typename T>
-		void Add(const T& t) { m_hp.Write(t); }
+		Oracle& operator << (const T& t) { m_hp << t; return *this; }
+
+		void operator >> (Scalar::Native&);
 	};
 }

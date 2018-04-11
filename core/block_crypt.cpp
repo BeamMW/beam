@@ -20,12 +20,9 @@ namespace beam
 				ECC::Hash::Processor hp;
 
 				for (int i = 0; i < _countof(pp); i++)
-				{
-					const ECC::uintBig& v = *pp[i];
-					hp.Write(v.m_pData, sizeof(v.m_pData));
-				}
+					hp << *pp[i];
 
-				hp.Finalize(hash);
+				hp >> hash;
 			}
 		}
 	}
@@ -67,12 +64,11 @@ namespace beam
 
 	void Input::get_Hash(Merkle::Hash& out) const
 	{
-		ECC::Hash::Processor hp;
-		hp.Write(m_Coinbase);
-		hp.Write(m_Commitment.m_X);
-		hp.Write(m_Commitment.m_bQuadraticResidue);
-		hp.Write(m_Height);
-		hp.Finalize(out);
+		ECC::Hash::Processor()
+			<< m_Coinbase
+			<< m_Commitment
+			<< m_Height
+			>> out;
 	}
 
 	bool Input::IsValidProof(const Merkle::Proof& proof, const Merkle::Hash& root) const
@@ -116,27 +112,25 @@ namespace beam
 	bool TxKernel::Traverse(ECC::Hash::Value& hv, Amount* pFee, ECC::Point::Native* pExcess) const
 	{
 		ECC::Hash::Processor hp;
-
-		hp.Write(m_Fee);
-		hp.Write(m_HeightMin);
-		hp.Write(m_HeightMax);
-
-		hp.Write((bool) m_pContract);
+		hp	<< m_Fee
+			<< m_HeightMin
+			<< m_HeightMax
+			<< (bool) m_pContract;
 
 		if (m_pContract)
 		{
-			hp.Write(m_pContract->m_Msg);
-			hp.Write(m_pContract->m_PublicKey);
+			hp	<< m_pContract->m_Msg
+				<< m_pContract->m_PublicKey;
 		}
 
 		for (List::const_iterator it = m_vNested.begin(); m_vNested.end() != it; it++)
 		{
 			if (!(*it)->Traverse(hv, pFee, pExcess))
 				return false;
-			hp.Write(hv);
+			hp << hv;
 		}
 
-		hp.Finalize(hv);
+		hp >> hv;
 
 		if (pExcess)
 		{
@@ -167,10 +161,10 @@ namespace beam
 
 	void TxKernel::get_HashForContract(ECC::Hash::Value& out, const ECC::Hash::Value& msg) const
 	{
-		ECC::Hash::Processor hp;
-		hp.Write(msg);
-		hp.Write(m_Excess);
-		hp.Finalize(out);
+		ECC::Hash::Processor()
+			<< msg
+			<< m_Excess
+			>> out;
 	}
 
 	void TxKernel::get_Hash(Merkle::Hash& out) const

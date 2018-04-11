@@ -65,12 +65,8 @@ namespace ECC {
 	{
 		static_assert(sizeof(v) == sizeof(Scalar), "");
 		while (Import((const Scalar&) v))
-		{
 			// overflow - better to retry (to have uniform distribution)
-			Hash::Processor hp; // NoLeak?
-			hp.Write(v);
-			hp.Finalize(v);
-		}
+			Hash::Processor() << v >> v; // NoLeak?
 	}
 
 	void Scalar::Native::Export(Scalar& v) const
@@ -330,7 +326,7 @@ namespace ECC {
 		bool CreatePointNnz(Point::Native& out, Hash::Processor& hp)
 		{
 			Hash::Value hv;
-			hp.Finalize(hv);
+			hp >> hv;
 			return CreatePointNnz(out, hv);
 		}
 
@@ -338,7 +334,7 @@ namespace ECC {
 		{
 			Point::Native nums, npos, pt;
 
-			hp.Write("nums");
+			hp << "nums";
 			if (!CreatePointNnz(nums, hp))
 				return false;
 
@@ -435,8 +431,7 @@ namespace ECC {
 
 		void InitSeedIteration(Hash::Processor& hp, const char* szSeed, uint32_t n)
 		{
-			hp.Write(szSeed);
-			hp.Write(n);
+			hp << szSeed << n;
 		}
 
 		void GeneratePts(const char* szSeed, secp256k1_ge_storage* pPts, uint32_t nLevels)
@@ -470,9 +465,9 @@ namespace ECC {
 				if (!CreatePts(m_pPts, pt2, nLevels, hp))
 					continue;
 
-				hp.Write("blind-scalar");
+				hp << "blind-scalar";
 				Scalar s0;
-				hp.Finalize(s0.m_Value);
+				hp >> s0.m_Value;
 				if (m_AddScalar.Import(s0))
 					continue;
 
@@ -531,27 +526,18 @@ namespace ECC {
 		m_hp.Reset();
 	}
 
-	void Oracle::GetChallenge(Scalar::Native& out)
+	void Oracle::operator >> (Scalar::Native& out)
 	{
 		Hash::Value hv; // not secret
-		m_hp.Finalize(hv);
+		m_hp >> hv;
 		out.ImportFix(hv);
-	}
-
-	void Oracle::Add(const void* p, uint32_t n)
-	{
-		m_hp.Write(p, n);
 	}
 
 	/////////////////////
 	// Signature
 	void Signature::get_Challenge(Scalar::Native& out, const Point::Native& pt, const Hash::Value& msg)
 	{
-		Oracle oracle;
-		oracle.Add(pt);
-		oracle.Add(msg);
-
-		oracle.GetChallenge(out);
+		Oracle() << pt << msg >> out;
 	}
 
 	void Signature::MultiSig::GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk)
@@ -649,9 +635,7 @@ namespace ECC {
 		// Public
 		void Public::get_Msg(Hash::Value& hv) const
 		{
-			Hash::Processor hp;
-			hp.Write(m_Value);
-			hp.Finalize(hv);
+			Hash::Processor() << m_Value >> hv;
 		}
 
 		bool Public::IsValid(const Point& comm) const

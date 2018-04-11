@@ -759,11 +759,7 @@ void RunBenchmark()
 	}
 
 	Hash::Value hv;
-	{
-		Hash::Processor hp;
-		hp.Write("abcd");
-		hp.Finalize(hv);
-	}
+	Hash::Processor() << "abcd" >> hv;
 
 	Signature sig;
 	{
