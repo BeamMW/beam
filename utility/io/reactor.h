@@ -39,7 +39,7 @@ public:
 
     using ConnectCallback = std::function<void(uint64_t tag, std::shared_ptr<TcpStream>&& newStream, int status)>;
 
-    bool tcp_connect(Address address, uint64_t tag, ConnectCallback&& callback);
+    bool tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback);
 
     void cancel_tcp_connect(uint64_t tag);
 

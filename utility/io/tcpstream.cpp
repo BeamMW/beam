@@ -2,15 +2,15 @@
 #include <assert.h>
 
 namespace io {
-    
-bool TcpStream::enable_read(TcpStream::Callback&& callback) {
+
+bool TcpStream::enable_read(const TcpStream::Callback& callback) {
     assert(callback);
-    
+
     if (!is_connected()) {
         _lastError = UV_ENOTCONN;
         return false;
     }
-        
+
     _readBuffer.resize(_reactor->config().stream_read_buffer_size);
 
     static uv_alloc_cb read_alloc_cb = [](uv_handle_t* handle, size_t /*suggested_size*/, uv_buf_t* buf) {
@@ -42,7 +42,7 @@ bool TcpStream::enable_read(TcpStream::Callback&& callback) {
         return false;
     }
 
-    _callback = std::move(callback);
+    _callback = callback;
     return true;
 }
 
@@ -69,7 +69,7 @@ size_t TcpStream::try_write(const IOVec* buf) {
     int result = uv_try_write((uv_stream_t*)_handle, (uv_buf_t*)buf, 1);
     if (result <= 0){
         return 0; //TODO this is a stub append disconnect events
-    } 
+    }
     _state.sent += result;
     return (size_t) result;
 }
@@ -119,13 +119,13 @@ bool TcpStream::send_write_request() {
             }
         }
     };
-    
+
     if (_writeRequestSent) return true;
 
     int r = uv_write(&_writeRequest, (uv_stream_t*)_handle,
         (uv_buf_t*)_writeBuffer.fragments(), _writeBuffer.num_fragments(), write_cb
     );
-    
+
     if (r != 0) {
         // TODO close handle ??
         _lastError = r;

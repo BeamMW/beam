@@ -28,14 +28,14 @@ Reactor::Reactor(const Config& config) :
 
 Reactor::~Reactor() {
     uv_close((uv_handle_t*)&_stopEvent, 0);
-    
+
     if (!_connectRequests.empty()) {
         for (auto& c : _connectRequests) {
             uv_handle_t* h = (uv_handle_t*)c.first;
             async_close(h);
         }
     }
-    
+
     // run one cycle to release all closing handles
     uv_run(&_loop, UV_RUN_NOWAIT);
 
@@ -85,7 +85,7 @@ bool Reactor::init_object(int status, Reactor::Object* o, uv_handle_t* h) {
 bool Reactor::init_asyncevent(Reactor::Object* o, uv_async_cb cb) {
     assert(o);
     assert(cb);
-    
+
     uv_handle_t* h = _handlePool.alloc();
     int status = uv_async_init(
         &_loop,
@@ -106,20 +106,20 @@ bool Reactor::start_timer(Reactor::Object* o, unsigned intervalMsec, bool isPeri
     assert(o);
     assert(cb);
     assert(o->_handle && o->_handle->type == UV_TIMER);
-    
+
     _lastError = uv_timer_start(
         (uv_timer_t*)o->_handle,
         cb,
         intervalMsec,
         isPeriodic ? intervalMsec : 0
     );
-    
+
     return (_lastError == 0);
 }
 
 void Reactor::cancel_timer(Object* o) {
     assert(o);
-    
+
     uv_handle_t* h = o->_handle;
     if (h) {
         assert(h->type == UV_TIMER);
@@ -141,10 +141,10 @@ bool Reactor::init_tcpserver(Object* o, Address bindAddress, uv_connection_cb cb
     if (!init_object(status, o, h)) {
         return false;
     }
-        
+
     sockaddr_in addr;
     bindAddress.fill_sockaddr_in(addr);
-    
+
     _lastError = uv_tcp_bind((uv_tcp_t*)h, (const sockaddr*)&addr, 0);
     if (_lastError) {
         return false;
@@ -168,11 +168,11 @@ bool Reactor::init_tcpstream(Object* o) {
 
 int Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     assert(acceptor->_handle);
-            
+
     if (!init_tcpstream(newConnection)) {
         return _lastError;
     }
-        
+
     int status = uv_accept((uv_stream_t*)acceptor->_handle, (uv_stream_t*)newConnection->_handle);
     if (status != 0) {
         newConnection->async_close();
@@ -181,14 +181,14 @@ int Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     return status;
 }
 
-bool Reactor::tcp_connect(Address address, uint64_t tag, ConnectCallback&& callback) {
+bool Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback) {
     assert(callback);
-    
+
     if (!address || _connectRequests.count(tag) > 0) {
         _lastError = UV_EINVAL;
         return false;
     }
-    
+
     uv_handle_t* h = _handlePool.alloc();
     _lastError = uv_tcp_init(&_loop, (uv_tcp_t*)h);
     if (_lastError) {
@@ -196,15 +196,15 @@ bool Reactor::tcp_connect(Address address, uint64_t tag, ConnectCallback&& callb
         return false;
     }
     h->data = this;
-    
-    ConnectContext ctx;
+
+    ConnectContext& ctx = _connectRequests[tag];
     ctx.tag = tag;
-    ctx.callback = std::move(callback);
+    ctx.callback = callback;
     ctx.request.data = &ctx;
-    
+
     sockaddr_in addr;
     address.fill_sockaddr_in(addr);
-    
+
     _lastError = uv_tcp_connect(
         &(ctx.request),
         (uv_tcp_t*)h,
@@ -225,10 +225,10 @@ bool Reactor::tcp_connect(Address address, uint64_t tag, ConnectCallback&& callb
     );
     if (_lastError) {
         async_close(h);
+        _connectRequests.erase(tag);
         return false;
     }
 
-    _connectRequests[tag] = std::move(ctx);
     return true;
 }
 
@@ -238,7 +238,7 @@ void Reactor::connect_callback(Reactor::ConnectContext* ctx, int status) {
     uint64_t tag = ctx->tag;
     ConnectCallback callback = std::move(ctx->callback);
     uv_handle_t* h = (uv_handle_t*)ctx->request.handle;
-    
+
     TcpStream::Ptr stream;
     if (status == 0) {
         stream.reset(new TcpStream());
@@ -248,9 +248,9 @@ void Reactor::connect_callback(Reactor::ConnectContext* ctx, int status) {
     } else {
         async_close(h);
     }
-    
+
     _connectRequests.erase(tag);
-    
+
     callback(tag, std::move(stream), status);
 }
 
