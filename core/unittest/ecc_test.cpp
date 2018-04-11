@@ -47,6 +47,22 @@ void SetRandom(Scalar::Native& x)
 Context g_Ctx;
 const Context& Context::get() { return g_Ctx; }
 
+void TestHash()
+{
+	Hash::Processor hp;
+	Hash::Value hv;
+	hp >> hv;
+
+	for (int i = 0; i < 10; i++)
+	{
+		Hash::Value hv2 = hv;
+		hp >> hv;
+
+		// hash values must change, even if no explicit input was fed.
+		verify(!(hv == hv2));
+	}
+}
+
 void TestScalars()
 {
 	Scalar::Native s0, s1, s2;
@@ -521,6 +537,7 @@ void TestTransaction()
 
 void TestAll()
 {
+	TestHash();
 	TestScalars();
 	TestPoints();
 	TestSigning();
