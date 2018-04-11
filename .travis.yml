@@ -3,7 +3,7 @@ language: cpp
 script:
   - cmake .
   - make
-  - ctest --verbose test
+  - ctest --verbose
 
 matrix:
   include:
