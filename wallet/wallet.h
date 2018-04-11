@@ -2,12 +2,22 @@
 
 #include "core/common.h"
 
-namespace ECC{
-    class Point::Native;
-}
-
 namespace beam
 {
+    struct Coin
+    {
+        Coin(uint64_t key, ECC::Amount amount);
+        ECC::Scalar m_key;
+        ECC::Amount m_amount;
+    };
+
+    struct IKeyChain
+    {
+        using Ptr = std::shared_ptr<IKeyChain>;
+        virtual std::vector<beam::Coin> getCoins(const ECC::Amount& amount) = 0;
+        virtual ~IKeyChain(){}
+    };
+
     struct Wallet
     {
         struct ToNode
@@ -29,6 +39,7 @@ namespace beam
         {
             // TODO: impl constructors
             PartialTx() {}
+            PartialTx(ECC::Amount amount, const std::vector<Coin>& coins);
             PartialTx(const PartialTx& from) {}
 
             using Ptr = std::unique_ptr<PartialTx>;
@@ -36,9 +47,11 @@ namespace beam
             Phase m_phase;
             Uuid  m_id;
             
-            // TODO: replace with unique_ptr?
-            std::shared_ptr<ECC::Point::Native> m_kSG, m_xSG;
-            std::shared_ptr<ECC::Point::Native> m_kRG, m_xRG;
+            ECC::Amount m_amount;
+            beam::Transaction m_transaction;
+            ECC::Scalar m_totalBlindingExcess;
+            ECC::Scalar m_nonce;
+           
 
             // pub phase: PartialTxPhase,
             // pub id: Uuid,
@@ -48,6 +61,9 @@ namespace beam
             // pub kernel_offset: String,
             // pub part_sig: String,
             // pub tx: String,
+        private:
+            std::vector<Input::Ptr> createInputs(const std::vector<Coin>& coins);
+            Output::Ptr createChangeOutput(const std::vector<Coin>& coins);
         };
 
         struct ToWallet
@@ -63,7 +79,7 @@ namespace beam
         };
 
         Wallet();
-        Wallet(ToWallet::Shared receiver);
+        Wallet(ToWallet::Shared receiver, IKeyChain::Ptr keyChain);
 
         using Result = bool;
 
@@ -76,11 +92,12 @@ namespace beam
         Result sendInvitation(const PartialTx& tx);
         Result sendConfirmation(const PartialTx& tx);
 
-        PartialTx::Ptr createInitialPartialTx(uint64_t amount);
-
+        PartialTx::Ptr createInitialPartialTx(const ECC::Amount& amount);
     private:
         ToNode::Ptr m_net;
 
         ToWallet::Shared m_receiver;
+
+        IKeyChain::Ptr m_keyChain;
     };
 }

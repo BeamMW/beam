@@ -66,7 +66,7 @@ namespace beam
 	struct TxKernel
 	{
 		typedef std::unique_ptr<TxKernel> Ptr;
-		typedef std::list<Ptr> List;
+		typedef std::vector<Ptr> List;
 
 		// Mandatory
 		ECC::Point		m_Excess;
@@ -104,9 +104,9 @@ namespace beam
 
 	struct TxBase
 	{
-		std::list<Input::Ptr> m_vInputs;
-		std::list<Output::Ptr> m_vOutputs;
-		std::list<TxKernel::Ptr> m_vKernels;
+		std::vector<Input::Ptr> m_vInputs;
+		std::vector<Output::Ptr> m_vOutputs;
+		std::vector<TxKernel::Ptr> m_vKernels;
 		ECC::Scalar m_Offset;
 
 		// tests the validity of all the components, and overall arithmetics.

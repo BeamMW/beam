@@ -229,7 +229,7 @@ namespace beam
 		fee = 0;
 		sigma = ECC::Zero;
 
-		for (std::list<Input::Ptr>::const_iterator it = m_vInputs.begin(); m_vInputs.end() != it; it++)
+		for (auto it = m_vInputs.cbegin(); m_vInputs.cend() != it; it++)
 		{
 			const Input& v = *(*it);
 
@@ -240,7 +240,7 @@ namespace beam
 
 		sigma = -sigma;
 
-		for (std::list<Output::Ptr>::const_iterator it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
+		for (auto it = m_vOutputs.cbegin(); m_vOutputs.cend() != it; it++)
 		{
 			const Output& v = *(*it);
 			if (!v.IsValid())
@@ -251,7 +251,7 @@ namespace beam
 			sigma += p;
 		}
 
-		for (std::list<TxKernel::Ptr>::const_iterator it = m_vKernels.begin(); m_vKernels.end() != it; it++)
+		for (auto it = m_vKernels.cbegin(); m_vKernels.cend() != it; it++)
 		{
 			const TxKernel& v = *(*it);
 			if (nHeight < v.m_HeightMin || nHeight > v.m_HeightMax)
