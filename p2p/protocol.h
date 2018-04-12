@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 
-namespace p2p {
+namespace beam { namespace protocol {
 
 /// Message type
 enum class MsgType : uint8_t {
@@ -123,4 +123,4 @@ struct MsgHeader {
 
 
 
-} //namespace
+}} //namespaces

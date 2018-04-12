@@ -2,6 +2,7 @@
 #include <iostream>
 #include <memory>
 #include <type_traits>
+#include <string.h>
 #include <assert.h>
 
 #ifndef LOG_VERBOSE_ENABLED
@@ -17,10 +18,10 @@
 // API
 
 #define LOG_LEVEL_CRITICAL 6
-#define LOG_LEVEL_ERROR    5 
+#define LOG_LEVEL_ERROR    5
 #define LOG_LEVEL_WARNING  4
 #define LOG_LEVEL_INFO     3
-#define LOG_LEVEL_DEBUG    2  
+#define LOG_LEVEL_DEBUG    2
 #define LOG_LEVEL_VERBOSE  1
 
 #define LOG_SINK_DISABLED  0
@@ -40,50 +41,66 @@ struct LoggerConfig {
     int fileLevel=LOG_SINK_DISABLED;
     int consoleLevel=LOG_LEVEL_INFO;
     int checkpointsLevel=LOG_LEVEL_ERROR;
-    
+
     // ~etc flushLevel, baseFileName, rotation
 };
-    
+
 // Logger interface
 class Logger {
 public:
-    static Logger* get() { 
+    static Logger* get() {
         assert(g_logger);
-        return g_logger; 
+        return g_logger;
     }
-    
+
     // RAII
     static std::shared_ptr<Logger> create(const LoggerConfig& config);
-    virtual ~Logger();
-    
+    virtual ~Logger() {}
+
     virtual void write_message(int level, const char* buf, size_t size) = 0;
-    
+
     static bool will_log(int level) {
         return g_logger && g_logger->level_accepted(level);
     }
-    
+
 protected:
     virtual bool level_accepted(int level) = 0;
-        
+
     static Logger* g_logger;
 };
-    
+
 // __FILE__, __LINE__, __FUNCTION__ **references** in a single struct
 struct From {
     From(const char* _file, int _line, const char* _func) :
         file(_file), line(_line), func(_func)
     {}
-            
+
+    From() : file(""), line(0), func("")
+    {}
+
     const char* file;
     int line;
     const char* func;
-    
+
     friend std::ostream& operator<<(std::ostream& o, const From& from) {
         // TODO header formatters
-        o << from.func << " (" << from.file << ':' << from.line << ')';
+#ifdef PROJECT_SOURCE_DIR
+        //std::cout << PROJECT_SOURCE_DIR ;
+        //static const size_t offset = 0;
+        static const size_t offset = strlen(PROJECT_SOURCE_DIR)+1;
+#else
+        static const size_t offset = 0;
+#endif
+        o << " (" << from.func << ", " << from.file + offset << ':' << from.line << ") ";
         return o;
     }
 };
+
+struct FlushCheckpoint {};
+struct FlushAllCheckpoints {};
+
+void flush_all_checkpoints(class LogMessage* to);
+void flush_last_checkpoint(class LogMessage* to);
 
 // Log message, supports operator<< and writes itself in destructor
 class LogMessage {
@@ -91,37 +108,42 @@ public:
     static LogMessage create(int level, const char* file, int line, const char* func) {
         return LogMessage(level, file, line, func);
     }
-    
+
     static LogMessage create(int level, const From& from) {
         return LogMessage(level, from.file, from.line, from.func);
     }
 
-    template <class T> LogMessage& operator<<(const T& any) {
-        *_formatter << any;
-        return *this;
-    }
-    
-    template <class T> LogMessage& operator<<(T* any) {
-        if (any) {
-            if constexpr (std::is_same<T*, const char*>::value) {
-                *_formatter << any;
-            } else {
-                *_formatter << *any;
-            }
-        } else *_formatter << "null";
-        
-        // TODO format pointer as hex
-        
+    template <class T> LogMessage& operator<<(T x) {
+        if constexpr (std::is_same<T, const char*>::value) {
+            *_formatter << x;
+        }
+        else if constexpr (std::is_same<T, FlushAllCheckpoints>::value) {
+            flush_all_checkpoints(this);
+        }
+        else if constexpr (std::is_same<T, FlushCheckpoint>::value) {
+            flush_last_checkpoint(this);
+        }
+        else if constexpr (std::is_pointer<T>::value) {
+            if (x) {
+                *_formatter << *x;
+            } else *_formatter << "{null}";
+        }
+        else {
+            *_formatter << x;
+        }
         return *this;
     }
 
     ~LogMessage();
 
+    LogMessage() {}
+
 private:
     LogMessage(int level, const char* file, int line, const char* func);
 
-    int _level;
-    std::ostream* _formatter;
+    int _level=0;
+    From _from;
+    std::ostream* _formatter=0;
 };
 
 

@@ -21,16 +21,19 @@ endif()
 
 if(UNIX)
     set(UV_INTERNAL ON)
+    add_definitions(-DUV_INTERNAL)
 endif()
 
 include_directories(${PROJECT_SOURCE_DIR})
-include_directories(${PROJECT_SOURCE_DIR}/utility)
+add_definitions(-DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 
+include_directories(${PROJECT_SOURCE_DIR}/utility) # TODO  move to ./3rdparty all that stuff that requires to add this line
+
+add_subdirectory(utility)
 add_subdirectory(core)
 add_subdirectory(miner)
 add_subdirectory(chain)
 add_subdirectory(pool)
 add_subdirectory(p2p)
-add_subdirectory(utility)
 add_subdirectory(wallet)
 add_subdirectory(beam)
