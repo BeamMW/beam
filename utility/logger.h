@@ -99,7 +99,6 @@ struct From {
 struct FlushCheckpoint {};
 struct FlushAllCheckpoints {};
 
-
 void flush_all_checkpoints(class LogMessage* to);
 void flush_last_checkpoint(class LogMessage* to);
 
