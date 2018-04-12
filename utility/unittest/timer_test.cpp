@@ -1,12 +1,10 @@
-#include "../timer.h"
+#include "utility/io/timer.h"
 #include <unistd.h>
 #include <iostream>
 
-using namespace io;
+using namespace beam::io;
 using namespace std;
 
-// TODO use catch2 TF
-// TODO use spdlog
 
 void timer_test() {
     Config config;

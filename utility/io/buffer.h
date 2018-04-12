@@ -5,8 +5,8 @@
 #include <string.h>
 #include <sys/uio.h>
 
-namespace io {
-   
+namespace beam { namespace io {
+
 /// IOVec casts to iovec, just holds const uint8_t* instead of void*
 struct IOVec {
     const uint8_t* data;
@@ -41,7 +41,7 @@ struct IOVec {
         data = 0;
         size = 0;
     }
-    
+
     bool empty() const {
         return (size == 0);
     }
@@ -84,5 +84,5 @@ struct SharedBuffer : IOVec {
         guard.reset();
     }
 };
-    
-} //namespace
+
+}} //namespaces

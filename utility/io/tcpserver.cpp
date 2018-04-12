@@ -1,12 +1,12 @@
 #include "tcpserver.h"
 #include <assert.h>
 
-namespace io {
+namespace beam { namespace io {
 
 TcpServer::Ptr TcpServer::create(const Reactor::Ptr& reactor, Address bindAddress, Callback&& callback) {
     assert(reactor);
     assert(callback);
-    
+
     Ptr server(new TcpServer(std::move(callback)));
     if (reactor->init_tcpserver(
         server.get(),
@@ -37,5 +37,5 @@ void TcpServer::internal_callback(int status) {
     _callback(std::move(stream), status);
 }
 
-} //namespace
+}} //namespaces
 

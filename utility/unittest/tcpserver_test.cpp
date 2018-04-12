@@ -1,9 +1,9 @@
-#include "../tcpserver.h"
-#include "../timer.h"
-#include "../exception.h"
+#include "utility/io/tcpserver.h"
+#include "utility/io/timer.h"
+#include "utility/io/exception.h"
 #include <iostream>
 
-using namespace io;
+using namespace beam::io;
 using namespace std;
 
 void tcpserver_test() {

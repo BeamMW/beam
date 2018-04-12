@@ -4,7 +4,7 @@
 #include <string.h>
 #include <netinet/ip.h>
 
-namespace io {
+namespace beam { namespace io {
 
 // IPv4 + port peer address
 struct Address {
@@ -19,7 +19,7 @@ struct Address {
     bool operator<(const Address& a) const {
         return packed < a.packed;
     }
-    
+
     operator bool() const {
         return packed != 0;
     }
@@ -29,7 +29,7 @@ struct Address {
     Address(uint32_t a, uint16_t p) {
         packed = ((uint64_t)a << 16) + p;
     }
-    
+
     uint32_t ip() const {
         return (uint32_t)(packed >> 16);
     }
@@ -61,5 +61,5 @@ struct Address {
     std::string str() const;
 };
 
-} //namespace
+}} //namespaces
 

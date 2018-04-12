@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-namespace io {
-    
+namespace beam { namespace io {
+
 template <class T, size_t DATA_SIZE> class MemPool {
 public:
     explicit MemPool(size_t maxSize) :
@@ -45,6 +45,6 @@ private:
     Pool _pool;
     size_t _maxSize;
 };
-    
-} //namespace
+
+}} //namespaces
 

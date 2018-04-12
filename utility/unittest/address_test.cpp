@@ -1,8 +1,8 @@
-#include "../address.h"
+#include "utility/io/address.h"
 #include <iostream>
 #include <assert.h>
 
-using namespace io;
+using namespace beam::io;
 using namespace std;
 
 void address_test() {

@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-namespace io {
+namespace beam { namespace io {
 
 Reactor::Ptr Reactor::create(const Config& config) {
     return Reactor::Ptr(new Reactor(config));
@@ -272,4 +272,4 @@ void Reactor::async_close(uv_handle_t*& handle) {
     handle = 0;
 }
 
-} //namespace
+}} //namespaces

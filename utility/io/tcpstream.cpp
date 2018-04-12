@@ -1,7 +1,7 @@
 #include "tcpstream.h"
 #include <assert.h>
 
-namespace io {
+namespace beam { namespace io {
 
 bool TcpStream::enable_read(const TcpStream::Callback& callback) {
     assert(callback);
@@ -139,5 +139,5 @@ bool TcpStream::is_connected() const {
     return _handle != 0;
 }
 
-} //namespace
+}} //namespaces
 

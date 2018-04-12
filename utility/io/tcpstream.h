@@ -4,7 +4,7 @@
 #include "bufferchain.h"
 #include "reactor.h"
 
-namespace io {
+namespace beam { namespace io {
 
 class TcpStream : protected Reactor::Object {
 public:
@@ -84,5 +84,5 @@ private:
     int _lastError=0;
 };
 
-} //namespace
+}} //namespaces
 

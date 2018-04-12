@@ -2,12 +2,12 @@
 #include "tcpstream.h"
 #include "address.h"
 
-namespace io {
+namespace beam { namespace io {
 
 class TcpServer : protected Reactor::Object {
 public:
     using Ptr = std::shared_ptr<TcpServer>;
-    
+
     // Either newStream is accepted or status != 0
     using Callback = std::function<void(TcpStream::Ptr&& newStream, int status)>;
 
@@ -16,11 +16,11 @@ public:
 
 private:
     TcpServer(Callback&& callback);
-    
+
     void internal_callback(int status);
 
     Callback _callback;
 };
 
-} //namespace
+}} //namespaces
 

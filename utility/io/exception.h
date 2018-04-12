@@ -2,7 +2,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace io {
+namespace beam { namespace io {
 
 struct Exception : public std::runtime_error {
     std::string function;
@@ -21,4 +21,4 @@ struct Exception : public std::runtime_error {
 
 #define IO_EXCEPTION(Code, Message) throw io::Exception(__FUNCTION__, __FILE__, __LINE__, Code, Message)
 
-} //namespace
+}} //namespaces

@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <netdb.h>
 
-namespace io {
+namespace beam { namespace io {
 
 const Address Address::LOCALHOST = Address(0x7F000001, 0);
-    
+
 namespace {
 
 uint32_t resolve_host(std::string&& host) {
@@ -67,5 +67,5 @@ std::string Address::str() const {
     return std::string(buf);
 }
 
-} //namespace
+}} //namespaces
 

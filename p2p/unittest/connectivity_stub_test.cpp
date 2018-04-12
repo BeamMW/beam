@@ -8,7 +8,7 @@
 #include <future>
 #include <assert.h>
 
-using namespace io;
+using namespace beam::io;
 using namespace std;
 
 namespace beam {

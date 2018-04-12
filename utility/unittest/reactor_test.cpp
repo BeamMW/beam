@@ -1,33 +1,22 @@
-#include "../asyncevent.h"
+#include "utility/io/reactor.h"
 #include <future>
 #include <unistd.h>
 #include <iostream>
 
-using namespace io;
+using namespace beam::io;
 using namespace std;
 
 // TODO use catch2 TF
 // TODO use spdlog
 
-void asyncevent_test() {
+void reactor_start_stop() {
     Config config;
     Reactor::Ptr reactor = Reactor::create(config);
 
-    AsyncEvent::Ptr e = AsyncEvent::create(
-        reactor,
-        []() {
-            cout << "event triggered in reactor thread" << endl;
-        }
-    );
-
     auto f = std::async(
         std::launch::async,
-        [reactor, e]() {
-            for (int i=0; i<4; ++i) {
-                cout << "triggering async event from foreign thread..." << endl;
-                e->trigger();
-                usleep(300000);
-            }
+        [reactor]() {
+            usleep(300000);
             cout << "stopping reactor from foreign thread..." << endl;
             reactor->stop();
         }
@@ -41,6 +30,5 @@ void asyncevent_test() {
 }
 
 int main() {
-    asyncevent_test();
+    reactor_start_stop();
 }
-

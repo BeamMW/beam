@@ -1,5 +1,5 @@
-set(UV_SRC_DIR libuv/src)
-set(UV_INCLUDE_DIRS libuv/include)
+set(UV_SRC_DIR ${PROJECT_SOURCE_DIR}/utility/io/libuv/src)
+set(UV_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/utility/io/libuv/include)
 
 set(UV_SOURCES
     ${UV_SRC_DIR}/fs-poll.c
@@ -7,7 +7,7 @@ set(UV_SOURCES
     ${UV_SRC_DIR}/threadpool.c
     ${UV_SRC_DIR}/uv-common.c
     ${UV_SRC_DIR}/version.c)
-    
+
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(UV_COMPILE_DEFS WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0600 _CRT_SECURE_NO_WARNINGS)
     set(UV_INCLUDE_DIRS ${UV_INCLUDE_DIRS} ${UV_SRC_DIR}/src/win)
@@ -37,7 +37,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
         ${UV_SRC_DIR}/win/util.c
         ${UV_SRC_DIR}/win/winapi.c
         ${UV_SRC_DIR}/win/winsock.c)
-        
+
         set(UV_LDFLAGS advapi32 iphlpapi psapi userenv shell32 ws2_32)
 else()
     set(UV_FLAGS -Wall -Wextra -Wno-unused-parameter -pedantic -march=native)
@@ -47,11 +47,11 @@ else()
     else()
         list(APPEND UV_FLAGS -O3)
     endif()
-    
+
     set(UV_LDFLAGS dl)
 
     set(UV_COMPILE_DEFS _LARGEFILE_SOURCE _FILE_OFFSET_BITS=64)
-    
+
     set(UV_INCLUDE_DIRS ${UV_INCLUDE_DIRS} ${UV_SRC_DIR} ${UV_SRC_DIR}/unix)
     set(UV_SOURCES ${UV_SOURCES}
         ${UV_SRC_DIR}/unix/async.c

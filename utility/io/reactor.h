@@ -7,7 +7,7 @@
 #include <functional>
 #include <unordered_map>
 
-namespace io {
+namespace beam { namespace io {
 
 class TcpStream;
 
@@ -117,4 +117,4 @@ private:
     friend class TcpStream;
 };
 
-}
+}} //namespaces

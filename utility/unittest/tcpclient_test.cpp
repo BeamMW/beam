@@ -1,10 +1,10 @@
-#include "../reactor.h"
-#include "../tcpstream.h"
-#include "../exception.h"
+#include "utility/io/reactor.h"
+#include "utility/io/tcpstream.h"
+#include "utility/io/exception.h"
 #include <iostream>
 #include <assert.h>
 
-using namespace io;
+using namespace beam::io;
 using namespace std;
 
 void tcpclient_test() {

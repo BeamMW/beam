@@ -1,15 +1,15 @@
 #include "bufferchain.h"
 #include <assert.h>
 
-namespace io {
+namespace beam { namespace io {
 
 void BufferChain::append(const void* data, size_t len, SharedMem guard, bool tryToJoin) {
     if (len == 0) return;
     _totalSize += len;
     if (tryToJoin && _totalSize != len) {
-        
+
         assert(_iovecs.size() > 0 && _guards.size() == _iovecs.size());
-        
+
         IOVec& iov = _iovecs.back();
         const void* ptr = guard.get();
         if (_guards.back().get() == ptr && (iov.data + iov.size == data)) {
@@ -21,16 +21,16 @@ void BufferChain::append(const void* data, size_t len, SharedMem guard, bool try
     _iovecs.emplace_back(data, len);
     _guards.push_back(std::move(guard));
 }
-    
+
 void BufferChain::advance(size_t nBytes) {
     if (nBytes == 0 || _totalSize == 0) return;
     if (nBytes >= _totalSize) {
         clear();
         return;
     }
-    
+
     assert(num_fragments() > 0 && _guards.size() == _iovecs.size());
-    
+
     _totalSize -= nBytes;
     size_t bytesRemaining = nBytes;
     for (size_t i=_index, sz=_iovecs.size(); i<sz; ++i) {
@@ -73,6 +73,6 @@ void BufferChain::rebase() {
 
     _index = 0;
 }
-    
-} //namespace
+
+}} //namespaces
 
