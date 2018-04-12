@@ -45,7 +45,7 @@ int main() {
     vector<future<void>> futures;
 
     size_t nIterations = 100500;
-    size_t nReaders = 100;
+    size_t nReaders = 10;
     // + 2 writers: the 1st modifies x, the second modifies y
     Barrier barrier(nReaders + 2);
 
