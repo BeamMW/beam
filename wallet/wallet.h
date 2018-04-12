@@ -49,12 +49,20 @@ namespace beam
             Uuid  m_id;
             
             ECC::Amount m_amount;
+            
             beam::Transaction m_transaction;
-            ECC::Scalar::Native m_totalBlindingExcess;
-            ECC::Scalar::Native m_nonce;
-            ECC::Point::Native m_publicTotalBlindingExcess;
-            ECC::Point::Native m_publicNonce;
-           
+
+            struct TxData
+            {
+                ECC::Scalar::Native m_blindingExcess;
+                ECC::Scalar::Native m_nonce;
+                ECC::Point::Native  m_publicBlindingExcess;
+                ECC::Point::Native  m_publicNonce;
+                ECC::Scalar::Native m_signature;
+            };
+            TxData m_senderData;
+            TxData m_receiverData;
+            
 
             // pub phase: PartialTxPhase,
             // pub id: Uuid,
@@ -75,6 +83,7 @@ namespace beam
 
             virtual PartialTx::Ptr handleInvitation(const PartialTx& tx);
             virtual PartialTx::Ptr handleConfirmation(const PartialTx& tx);
+
         };
 
         struct Config
