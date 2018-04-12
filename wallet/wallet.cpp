@@ -79,13 +79,11 @@ namespace beam
         // 6. calculate tx_weight
         // 7. calculate fee
         // 8. Calculate total blinding excess for all inputs and outputs xS
-
         // 9. Select random nonce kS
-        ECC::Scalar::Native nonce;
-        SetRandom(nonce);
-        nonce.Export(m_nonce);
+        SetRandom(m_nonce);
         // 10. Multiply xS and kS by generator G to create public curve points xSG and kSG
-
+        m_publicTotalBlindingExcess = ECC::Context::get().G * m_totalBlindingExcess;
+        m_publicNonce = ECC::Context::get().G * m_nonce;
         // an attempt to implement "stingy" transaction
     }
 
@@ -93,8 +91,7 @@ namespace beam
     std::vector<Input::Ptr> Wallet::PartialTx::createInputs(const std::vector<Coin>& coins)
     {
         std::vector<Input::Ptr> inputs{coins.size()};
-        ECC::Scalar::Native totalBlindingExcess;
-        totalBlindingExcess = ECC::Zero;
+        m_totalBlindingExcess = ECC::Zero;
         for (const auto& coin: coins)
         {
             beam::Input::Ptr input{new beam::Input};
@@ -109,9 +106,8 @@ namespace beam
 
             inputs.push_back(std::move(input));
             
-            totalBlindingExcess += key;
+            m_totalBlindingExcess += key;
         }
-        totalBlindingExcess.Export(m_totalBlindingExcess);
         return inputs;        
     }
 
@@ -137,11 +133,9 @@ namespace beam
 		output->m_pPublic->m_Value = change;
 		output->m_pPublic->Create(blindingFactor);
         // TODO: need to store new key and amount in keyChain
-        ECC::Scalar::Native totalBlindingExcess;
-        totalBlindingExcess.Import(m_totalBlindingExcess);
+        
         blindingFactor = -blindingFactor;
-        totalBlindingExcess += blindingFactor;
-        totalBlindingExcess.Export(m_totalBlindingExcess);
+        m_totalBlindingExcess += blindingFactor;
 
         return output;
     }

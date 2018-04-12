@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/common.h"
+#include "core/ecc_native.h"
 
 namespace beam
 {
@@ -49,8 +50,10 @@ namespace beam
             
             ECC::Amount m_amount;
             beam::Transaction m_transaction;
-            ECC::Scalar m_totalBlindingExcess;
-            ECC::Scalar m_nonce;
+            ECC::Scalar::Native m_totalBlindingExcess;
+            ECC::Scalar::Native m_nonce;
+            ECC::Point::Native m_publicTotalBlindingExcess;
+            ECC::Point::Native m_publicNonce;
            
 
             // pub phase: PartialTxPhase,
