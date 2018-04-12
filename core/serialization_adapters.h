@@ -3,9 +3,9 @@
 #include "common.h"
 #include "utility/serialize.h"
 
-namespace yas 
+namespace yas
 {
-namespace detail 
+namespace detail
 {
     // unique_ptr adapter (copied from serialize_test.cpp)
     template<std::size_t F, typename T>
@@ -42,7 +42,7 @@ namespace detail
     };
 
     template<std::size_t F, typename T>
-    struct serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, T> 
+    struct serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, T>
     {
 
         ///////////////////////////////////////////////////////////
@@ -51,35 +51,33 @@ namespace detail
 
         /// ECC::Point serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::Point& point) 
+        static Archive& save(Archive& ar, const ECC::Point& point)
         {
-            ar 
-                & point.m_X 
+            ar
+                & point.m_X
                 & point.m_Y;
-
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::Point& point) 
+        static Archive& load(Archive& ar, ECC::Point& point)
         {
-            ar 
-                & point.m_X 
+            ar
+                & point.m_X
                 & point.m_Y;
-                
             return ar;
         }
 
         /// ECC::uintBig serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::uintBig& val) 
+        static Archive& save(Archive& ar, const ECC::uintBig& val)
         {
             ar & val.m_pData;
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::uintBig& val) 
+        static Archive& load(Archive& ar, ECC::uintBig& val)
         {
             ar & val.m_pData;
             return ar;
@@ -87,14 +85,14 @@ namespace detail
 
         /// ECC::Scalar serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::Scalar& scalar) 
+        static Archive& save(Archive& ar, const ECC::Scalar& scalar)
         {
             ar & scalar.m_Value;
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::Scalar& scalar) 
+        static Archive& load(Archive& ar, ECC::Scalar& scalar)
         {
             ar & scalar.m_Value;
             return ar;
@@ -102,9 +100,9 @@ namespace detail
 
         /// ECC::Signature serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::Signature& val) 
+        static Archive& save(Archive& ar, const ECC::Signature& val)
         {
-            ar 
+            ar
                 & val.m_e
                 & val.m_k
             ;
@@ -113,9 +111,9 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::Signature& val) 
+        static Archive& load(Archive& ar, ECC::Signature& val)
         {
-            ar 
+            ar
                 & val.m_e
                 & val.m_k
             ;
@@ -125,14 +123,14 @@ namespace detail
 
         /// ECC::RangeProof::Confidential serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& cond) 
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& cond)
         {
             ar & cond.m_pOpaque;
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::RangeProof::Confidential& cond) 
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential& cond)
         {
             ar & cond.m_pOpaque;
             return ar;
@@ -140,9 +138,9 @@ namespace detail
 
         /// ECC::RangeProof::Public serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::RangeProof::Public& val) 
+        static Archive& save(Archive& ar, const ECC::RangeProof::Public& val)
         {
-            ar 
+            ar
                 & val.m_Value
                 & val.m_Signature
             ;
@@ -151,9 +149,9 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::RangeProof::Public& val) 
+        static Archive& load(Archive& ar, ECC::RangeProof::Public& val)
         {
-            ar 
+            ar
                 & val.m_Value
                 & val.m_Signature
             ;
@@ -167,9 +165,9 @@ namespace detail
 
         /// beam::Input serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::Input& input) 
+        static Archive& save(Archive& ar, const beam::Input& input)
         {
-            ar 
+            ar
                 & input.m_Commitment
                 & input.m_Coinbase
                 & input.m_Height;
@@ -178,9 +176,9 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::Input& input) 
+        static Archive& load(Archive& ar, beam::Input& input)
         {
-            ar 
+            ar
                 & input.m_Commitment
                 & input.m_Coinbase
                 & input.m_Height;
@@ -190,9 +188,9 @@ namespace detail
 
         /// beam::Output serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::Output& output) 
+        static Archive& save(Archive& ar, const beam::Output& output)
         {
-            ar 
+            ar
                 & output.m_Commitment
                 & output.m_Coinbase
                 & output.m_pConfidential
@@ -202,9 +200,9 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::Output& output) 
+        static Archive& load(Archive& ar, beam::Output& output)
         {
-            ar 
+            ar
                 & output.m_Commitment
                 & output.m_Coinbase
                 & output.m_pConfidential
@@ -215,9 +213,9 @@ namespace detail
 
         /// beam::TxKernel::Contract serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxKernel::Contract& val) 
+        static Archive& save(Archive& ar, const beam::TxKernel::Contract& val)
         {
-            ar 
+            ar
                 & val.m_Msg
                 & val.m_PublicKey
                 & val.m_Signature
@@ -227,9 +225,9 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::TxKernel::Contract& val) 
+        static Archive& load(Archive& ar, beam::TxKernel::Contract& val)
         {
-            ar 
+            ar
                 & val.m_Msg
                 & val.m_PublicKey
                 & val.m_Signature
@@ -240,9 +238,9 @@ namespace detail
 
         /// beam::TxKernel serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxKernel& val) 
+        static Archive& save(Archive& ar, const beam::TxKernel& val)
         {
-            ar 
+            ar
                 & val.m_Excess
                 & val.m_Signature
                 & val.m_Fee
@@ -256,9 +254,9 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::TxKernel& val) 
+        static Archive& load(Archive& ar, beam::TxKernel& val)
         {
-            ar 
+            ar
                 & val.m_Excess
                 & val.m_Signature
                 & val.m_Fee
@@ -273,9 +271,9 @@ namespace detail
 
         /// beam::Transaction serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::Transaction& tx) 
+        static Archive& save(Archive& ar, const beam::Transaction& tx)
         {
-            ar 
+            ar
                 & tx.m_vInputs
                 & tx.m_vOutputs
                 & tx.m_vKernels
@@ -285,9 +283,9 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::Transaction& tx) 
+        static Archive& load(Archive& ar, beam::Transaction& tx)
         {
-            ar 
+            ar
                 & tx.m_vInputs
                 & tx.m_vOutputs
                 & tx.m_vKernels

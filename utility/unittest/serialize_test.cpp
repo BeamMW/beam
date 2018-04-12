@@ -1,4 +1,6 @@
 #include "utility/serialize.h"
+#include "helpers.h"
+#include <iostream>
 
 using namespace beam;
 
@@ -93,10 +95,12 @@ bool operator==(const X& x, const X &y) {
 }
 
 int main() {
-    std::uint16_t v0 = 128, v1 = 0;
-    std::string s0("ABCDE"), s1;
-    std::unique_ptr<X> p0(new X()), p1;
-    std::shared_ptr<X> sp0(new X()), sp1;
+    using namespace std;
+
+    uint16_t v0 = 128, v1 = 0;
+    string s0("ABCDE"), s1;
+    unique_ptr<X> p0(new X()), p1;
+    shared_ptr<X> sp0(new X()), sp1;
 
     X x0 { 31, { "xxx", "yyy", "abcdefghijklmnopqrstuvwxyz" }, { uint64_t(-1), 20, 30, 40}, true };
     X x1;
@@ -113,4 +117,7 @@ int main() {
     des & x1 & v1 & s1 & p1 & sp1;
 
     assert ( v0 == v1 && s0 == s1 && x0 == x1 && p1->i == 333 && sp1->i == 333);
+
+    char xxx[80];
+    cout << '\n' << format_timestamp(xxx, 80, "%Y-%m-%d.%T", local_timestamp_msec()) << " bytes for " << xxx << '\n';
 }
