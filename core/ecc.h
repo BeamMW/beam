@@ -116,9 +116,13 @@ namespace ECC
 
 		uintBig m_Value; // valid range is [0 .. s_Order)
 
+		Scalar() {}
+		template <typename T> Scalar(const T& t) { *this = t; }
+
 		bool IsValid() const;
 
 		class Native;
+		Scalar& operator = (const Native&);
 	};
 
 	struct Point
@@ -128,9 +132,13 @@ namespace ECC
 		uintBig	m_X; // valid range is [0 .. s_FieldOrder)
 		bool	m_Y; // Flag for Y. Currently specifies if it's odd
 
+		Point() {}
+		template <typename T> Point(const T& t) { *this = t; }
+
 		int cmp(const Point&) const;
 
 		class Native;
+		Point& operator = (const Native&);
 	};
 
 	struct Hash

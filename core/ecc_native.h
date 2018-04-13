@@ -29,6 +29,7 @@ namespace ECC
 #endif // USE_SCALAR_4X64
 
 		Native() {}
+		template <typename T> Native(const T& t) { *this = t; }
 		~Native() { SecureErase(*this); }
 
 		Minus	operator - () const { return Minus(*this); }
@@ -44,6 +45,7 @@ namespace ECC
 		Native& operator = (Minus);
 		Native& operator = (Plus);
 		Native& operator = (Mul);
+		Native& operator = (const Scalar&);
 		Native& operator += (const Native& v) { return *this = *this + v; }
 		Native& operator *= (const Native& v) { return *this = *this * v; }
 
@@ -70,6 +72,7 @@ namespace ECC
 		secp256k1_gej& get_Raw() { return *this; } // use with care
 
 		Native() {}
+		template <typename T> Native(const T& t) { *this = t; }
 		~Native() { SecureErase(*this); }
 
 		Minus	operator - () const { return Minus(*this); }
@@ -83,6 +86,7 @@ namespace ECC
 		Native& operator = (Minus);
 		Native& operator = (Plus);
 		Native& operator = (Double);
+		Native& operator = (const Point&);
 		Native& operator += (const Native& v) { return *this = *this + v; }
 		Native& operator += (Mul); // naive (non-secure) implementation, suitable for casual use (such as signature verification), otherwise should use generators
 

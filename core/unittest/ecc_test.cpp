@@ -93,9 +93,9 @@ void TestScalars()
 	{
 		SetRandom(s0);
 
-		Scalar s_;
-		s0.Export(s_);
-		s1.Import(s_);
+		Scalar s_(s0);
+		s1 = s_;
+		verify(s0 == s1);
 
 		s1 = -s1;
 		s1 += s0;
@@ -117,7 +117,7 @@ void TestPoints()
 	p_.m_Y = false;
 	verify(!p0.Import(p_));
 
-	p0.Export(p2_);
+	p2_ = p0;
 	verify(!p_.cmp(p2_));
 
 	for (int i = 0; i < 1000; i++)
@@ -138,7 +138,7 @@ void TestPoints()
 		p1 += p0;
 		verify(p1 == Zero);
 
-		verify(p0.Export(p2_));
+		p2_ = p0;
 		verify(!p_.cmp(p2_));
 	}
 
@@ -147,8 +147,7 @@ void TestPoints()
 
 	s0 = 1U;
 
-	Point::Native g;
-	g = Context::get().G * s0;
+	Point::Native g = Context::get().G * s0;
 	verify(!(g == Zero));
 
 	s0 = Zero;
@@ -176,8 +175,7 @@ void TestPoints()
 	}
 
 	// H-gen
-	Point::Native h;
-	h = Context::get().H * 1U;
+	Point::Native h = Context::get().H * 1U;
 	verify(!(h == Zero));
 
 	p0 = Context::get().H * 0U;
@@ -267,13 +265,11 @@ void TestSigning()
 
 void TestCommitments()
 {
-	Scalar::Native kExcess;
-	kExcess = Zero;
+	Scalar::Native kExcess(Zero);
 
 	Amount vSum = 0;
 
-	Point::Native commInp;
-	commInp = Zero;
+	Point::Native commInp(Zero);
 
 	// inputs
 	for (uint32_t i = 0; i < 7; i++)
@@ -289,8 +285,7 @@ void TestCommitments()
 	}
 
 	// single output
-	Point::Native commOutp;
-	commOutp = Zero;
+	Point::Native commOutp(Zero);
 	{
 		Scalar::Native sk;
 		SetRandom(sk);
@@ -301,8 +296,7 @@ void TestCommitments()
 		kExcess += sk;
 	}
 
-	Point::Native sigma;
-	sigma = Context::get().G * kExcess;
+	Point::Native sigma = Context::get().G * kExcess;
 	sigma += commOutp;
 
 	sigma = -sigma;
@@ -320,26 +314,21 @@ void TestRangeProof()
 	rp.m_Value = 345000;
 	rp.Create(sk);
 
-	Point::Native comm;
-	Point comm_;
+	Point::Native comm = Commitment(sk, rp.m_Value);
 
-	comm = Commitment(sk, rp.m_Value);
-	comm.Export(comm_);
-
-	verify(rp.IsValid(comm_));
+	verify(rp.IsValid(Point(comm)));
 
 	// tamper value
 	rp.m_Value++;
-	verify(!rp.IsValid(comm_));
+	verify(!rp.IsValid(Point(comm)));
 	rp.m_Value--;
 
 	// try with invalid key
 	SetRandom(sk);
 
 	comm = Commitment(sk, rp.m_Value);
-	comm.Export(comm_);
 
-	verify(!rp.IsValid(comm_));
+	verify(!rp.IsValid(Point(comm)));
 }
 
 struct TransactionMaker
@@ -363,10 +352,7 @@ struct TransactionMaker
 		void EncodeAmount(Point& out, Scalar::Native& k, Amount val)
 		{
 			SetRandom(k);
-
-			Point::Native pt;
-			pt = Commitment(k, val);
-			pt.Export(out);
+			out = Point::Native(Commitment(k, val));
 		}
 
 		void FinalizeExcess(Point::Native& kG, Scalar::Native& kOffset)
@@ -423,12 +409,9 @@ struct TransactionMaker
 		krn.get_Hash(msg);
 
 		// 1st pass. Public excesses and Nonces are summed.
-		Scalar::Native offset;
-		offset.Import(m_Trans.m_Offset);
+		Scalar::Native offset(m_Trans.m_Offset);
 
-		Point::Native kG, xG;
-		kG = Zero;
-		xG = Zero;
+		Point::Native kG(Zero), xG(Zero);
 
 		for (int i = 0; i < _countof(m_pPeers); i++)
 		{
@@ -441,8 +424,8 @@ struct TransactionMaker
 			xG += Context::get().G * msig.m_Nonce;
 		}
 
-		offset.Export(m_Trans.m_Offset);
-		kG.Export(krn.m_Excess);
+		m_Trans.m_Offset = offset;
+		krn.m_Excess = kG;
 
 		// 2nd pass. Signing. Total excess is the signature public key
 		offset = Zero;
@@ -463,7 +446,7 @@ struct TransactionMaker
 			p.m_k = Zero; // signed, prepare for next tx
 		}
 
-		offset.Export(krn.m_Signature.m_k);
+		krn.m_Signature.m_k = offset;
 
 	}
 
@@ -483,9 +466,7 @@ struct TransactionMaker
 		pKrn->m_pContract.reset(new beam::TxKernel::Contract);
 		SetRandom(pKrn->m_pContract->m_Msg);
 
-		Point::Native pkContract;
-		pkContract = Context::get().G * skContract;
-		pkContract.Export(pKrn->m_pContract->m_PublicKey);
+		pKrn->m_pContract->m_PublicKey = Point::Native(Context::get().G * skContract);
 
 		CoSignKernel(*pKrn);
 

@@ -134,8 +134,7 @@ namespace beam
 
 		if (pExcess)
 		{
-			ECC::Point::Native pt;
-			pt.Import(m_Excess);
+			ECC::Point::Native pt(m_Excess);
 
 			if (!m_Signature.IsValid(hv, pt))
 				return false;
@@ -147,8 +146,7 @@ namespace beam
 				ECC::Hash::Value hv2;
 				get_HashForContract(hv2, hv);
 
-				pt.Import(m_pContract->m_PublicKey);
-				if (!m_pContract->m_Signature.IsValid(hv2, pt))
+				if (!m_pContract->m_Signature.IsValid(hv2, ECC::Point::Native(m_pContract->m_PublicKey)))
 					return false;
 			}
 		}
@@ -226,16 +224,10 @@ namespace beam
 	// Transaction
 	bool TxBase::ValidateAndSummarize(Amount& fee, ECC::Point::Native& sigma, Height nHeight) const
 	{
-		fee = 0;
-		sigma = ECC::Zero;
-
 		for (std::list<Input::Ptr>::const_iterator it = m_vInputs.begin(); m_vInputs.end() != it; it++)
 		{
 			const Input& v = *(*it);
-
-			ECC::Point::Native p;
-			p.Import(v.m_Commitment);
-			sigma += p;
+			sigma += ECC::Point::Native(v.m_Commitment);
 		}
 
 		sigma = -sigma;
@@ -246,9 +238,7 @@ namespace beam
 			if (!v.IsValid())
 				return false;
 
-			ECC::Point::Native p;
-			p.Import(v.m_Commitment);
-			sigma += p;
+			sigma += ECC::Point::Native(v.m_Commitment);
 		}
 
 		for (std::list<TxKernel::Ptr>::const_iterator it = m_vKernels.begin(); m_vKernels.end() != it; it++)
@@ -267,7 +257,9 @@ namespace beam
 
 	bool Transaction::IsValid(Amount& fee, Height nHeight) const
 	{
-		ECC::Point::Native sigma;
+		ECC::Point::Native sigma(ECC::Zero);
+		fee = 0;
+
 		if (!ValidateAndSummarize(fee, sigma, nHeight))
 			return false;
 
