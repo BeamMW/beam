@@ -91,16 +91,9 @@ namespace beam
 
             /////////////////////////////////////////////////
 
-            ECC::Scalar::Native m_blindingExcess;
-            ECC::Scalar::Native m_nonce;
-
             ECC::Point::Native m_publicBlindingExcess;
             ECC::Point::Native m_publicNonce;
             // ECC::Scalar::Native m_signature;
-
-          private:
-            std::vector<Input::Ptr> createInputs(const std::vector<Coin>& coins);
-            Output::Ptr createChangeOutput(const std::vector<Coin>& coins);
         };
 
         struct SendConfirmationData
@@ -118,6 +111,17 @@ namespace beam
             using Ptr = std::shared_ptr<HandleConfirmationData>;
         };
 
+        struct SenderState
+        {
+            ECC::Scalar::Native m_blindingExcess;
+            ECC::Scalar::Native m_nonce;
+        };
+
+        struct ReceiverState
+        {
+
+        };
+
         struct ToWallet
         {
             using Shared = std::shared_ptr<ToWallet>;
@@ -125,6 +129,7 @@ namespace beam
             virtual HandleInvitationData::Ptr handleInvitation(const SendInvitationData& data);
             virtual HandleConfirmationData::Ptr handleConfirmation(const SendConfirmationData& data);
 
+            ReceiverState m_state;
         };
 
         struct Config
@@ -146,12 +151,14 @@ namespace beam
         Result sendInvitation(const SendInvitationData& data);
         Result sendConfirmation(const SendConfirmationData& data);
 
-        SendInvitationData::Ptr createInitialPartialTx(const ECC::Amount& amount);
+        SendInvitationData::Ptr createInvitationData(const ECC::Amount& amount);
     private:
         ToNode::Ptr m_net;
 
         ToWallet::Shared m_receiver;
 
         IKeyChain::Ptr m_keyChain;
+
+        SenderState m_state;
     };
 }
