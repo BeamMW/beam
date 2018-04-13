@@ -104,6 +104,9 @@ namespace beam
         struct HandleInvitationData
         {
             using Ptr = std::shared_ptr<HandleInvitationData>;
+
+            ECC::Point::Native m_publicBlindingExcess;
+            ECC::Point::Native m_publicNonce;
         };
 
         struct HandleConfirmationData
@@ -119,7 +122,9 @@ namespace beam
 
         struct ReceiverState
         {
-
+            ECC::Scalar::Native m_blindingExcess;
+            ECC::Scalar::Native m_nonce;
+            ECC::Scalar::Native m_signature;
         };
 
         struct ToWallet

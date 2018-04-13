@@ -116,7 +116,7 @@ namespace beam
 
     Wallet::Result Wallet::sendInvitation(const SendInvitationData& data)
     {
-        HandleInvitationData::Ptr res = m_receiver->handleInvitation(data);
+        auto res = m_receiver->handleInvitation(data);
 
         // if(partialTx->m_phase == ReceiverInitiation)
         // {
@@ -259,40 +259,40 @@ namespace beam
         return sendInvitation(*data);
     }
 
-    Wallet::HandleInvitationData::Ptr Wallet::ToWallet::handleInvitation(const SendInvitationData& tx)
+    Wallet::HandleInvitationData::Ptr Wallet::ToWallet::handleInvitation(const SendInvitationData& data)
     {
-        HandleInvitationData::Ptr res = std::make_shared<HandleInvitationData>();
+        auto res = std::make_shared<HandleInvitationData>();
         // if (tx.m_phase == SenderInitiation)
         // {
         //     // do all the job
         
-        // ECC::Hash::Value message;
-        // message = 1U;
+        ECC::Hash::Value message;
+        message = 1U;
         // res->m_senderData.m_publicBlindingExcess = tx.m_senderData.m_publicBlindingExcess;
         // res->m_senderData.m_publicNonce = tx.m_senderData.m_publicNonce;
 
-        // // 1. Check fee
-        // // 2. Create receiver_output
-        // // 3. Choose random blinding factor for receiver_output
-        // SetRandom(res->m_receiverData.m_blindingExcess);
-        // // 4. Calculate message M
-        // // 5. Choose random nonce
-        // SetRandom(res->m_receiverData.m_nonce);
-        // // 6. Make public nonce and blinding factor
-        // res->m_receiverData.m_publicBlindingExcess = ECC::Context::get().G * res->m_receiverData.m_blindingExcess;
-        // res->m_receiverData.m_publicNonce = ECC::Context::get().G * res->m_receiverData.m_nonce;
-        // // 7. Compute Shnorr challenge e = H(M|K)
-        // ECC::Point::Native k;
-        // k = res->m_senderData.m_publicNonce + res->m_receiverData.m_publicNonce;
+        // 1. Check fee
+        // 2. Create receiver_output
+        // 3. Choose random blinding factor for receiver_output
+        SetRandom(m_state.m_blindingExcess);
+        // 4. Calculate message M
+        // 5. Choose random nonce
+        SetRandom(m_state.m_nonce);
+        // 6. Make public nonce and blinding factor
+        res->m_publicBlindingExcess = ECC::Context::get().G * m_state.m_blindingExcess;
+        res->m_publicNonce = ECC::Context::get().G * m_state.m_nonce;
+        // 7. Compute Shnorr challenge e = H(M|K)
+        ECC::Point::Native k;
+        k = data.m_publicNonce + data.m_publicNonce;
 
-        // ECC::Scalar::Native e;
+        ECC::Scalar::Native e;
 
-        // ECC::Oracle() << message << k >> e;
+        ECC::Oracle() << message << k >> e;
 
-        // // 8. Compute recepient Shnorr signature
-        // e *= res->m_receiverData.m_blindingExcess;
+        // 8. Compute recepient Shnorr signature
+        e *= m_state.m_blindingExcess;
         
-        // res->m_receiverData.m_signature = res->m_receiverData.m_nonce + e;
+        m_state.m_signature = m_state.m_nonce + e;
 
         //     res->m_phase = ReceiverInitiation;
         // }
