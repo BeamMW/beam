@@ -61,9 +61,8 @@ namespace beam
         }
     };
 
-    Wallet::PartialTx::PartialTx(ECC::Amount amount, const std::vector<Coin>& coins)
-        : m_phase(SenderInitiation)
-        , m_amount(amount)
+    Wallet::SendInvitationData::SendInvitationData(ECC::Amount amount, const std::vector<Coin>& coins)
+        : m_amount(amount) 
     {
         // 1. Create transaction Uuid
         boost::uuids::uuid id;
@@ -80,18 +79,44 @@ namespace beam
         // 7. calculate fee
         // 8. Calculate total blinding excess for all inputs and outputs xS
         // 9. Select random nonce kS
-        SetRandom(m_senderData.m_nonce);
+        SetRandom(m_nonce);
         // 10. Multiply xS and kS by generator G to create public curve points xSG and kSG
-        m_senderData.m_publicBlindingExcess = ECC::Context::get().G * m_senderData.m_blindingExcess;
-        m_senderData.m_publicNonce = ECC::Context::get().G * m_senderData.m_nonce;
+        m_publicBlindingExcess = ECC::Context::get().G * m_blindingExcess;
+        m_publicNonce = ECC::Context::get().G * m_nonce;
         // an attempt to implement "stingy" transaction
     }
 
+    // Wallet::PartialTx::PartialTx(ECC::Amount amount, const std::vector<Coin>& coins)
+    //     : m_phase(SenderInitiation)
+    //     , m_amount(amount)
+    // {
+    //     // 1. Create transaction Uuid
+    //     boost::uuids::uuid id;
+    //     std::copy(id.begin(), id.end(), m_id.begin());
+    //     // 2. Set lock_height for output (current chain height)
+    //     // auto tip = m_node.getChainTip();
+    //     // uint64_t lockHeight = tip.height;
+    //     // 3. Select inputs using desired selection strategy
+    //     m_transaction.m_vInputs = createInputs(coins);
+    //     // 4. Create change_output
+    //     // 5. Select blinding factor for change_output
+    //     m_transaction.m_vOutputs.push_back(createChangeOutput(coins));
+    //     // 6. calculate tx_weight
+    //     // 7. calculate fee
+    //     // 8. Calculate total blinding excess for all inputs and outputs xS
+    //     // 9. Select random nonce kS
+    //     SetRandom(m_senderData.m_nonce);
+    //     // 10. Multiply xS and kS by generator G to create public curve points xSG and kSG
+    //     m_senderData.m_publicBlindingExcess = ECC::Context::get().G * m_senderData.m_blindingExcess;
+    //     m_senderData.m_publicNonce = ECC::Context::get().G * m_senderData.m_nonce;
+    //     // an attempt to implement "stingy" transaction
+    // }
 
-    std::vector<Input::Ptr> Wallet::PartialTx::createInputs(const std::vector<Coin>& coins)
+
+    std::vector<Input::Ptr> Wallet::SendInvitationData::createInputs(const std::vector<Coin>& coins)
     {
         std::vector<Input::Ptr> inputs{coins.size()};
-        m_senderData.m_blindingExcess = ECC::Zero;
+        m_blindingExcess = ECC::Zero;
         for (const auto& coin: coins)
         {
             beam::Input::Ptr input{new beam::Input};
@@ -106,12 +131,12 @@ namespace beam
 
             inputs.push_back(std::move(input));
             
-            m_senderData.m_blindingExcess += key;
+            m_blindingExcess += key;
         }
         return inputs;        
     }
 
-    Output::Ptr Wallet::PartialTx::createChangeOutput(const std::vector<Coin>& coins)
+    Output::Ptr Wallet::SendInvitationData::createChangeOutput(const std::vector<Coin>& coins)
     {
         Amount change = 0;
         for(const auto& coin : coins)
@@ -135,7 +160,7 @@ namespace beam
         // TODO: need to store new key and amount in keyChain
         
         blindingFactor = -blindingFactor;
-        m_senderData.m_blindingExcess += blindingFactor;
+        m_blindingExcess += blindingFactor;
 
         return output;
     }
@@ -160,137 +185,139 @@ namespace beam
         m_net->sendTransaction(tx);
     }
 
-    Wallet::Result Wallet::sendInvitation(const PartialTx& tx)
+    Wallet::Result Wallet::sendInvitation(const SendInvitationData& data)
     {
-        PartialTx::Ptr partialTx = m_receiver->handleInvitation(tx);
+        HandleInvitationData::Ptr res = m_receiver->handleInvitation(data);
 
-        if(partialTx->m_phase == ReceiverInitiation)
-        {
-            partialTx->m_phase = SenderConfirmation;
+        // if(partialTx->m_phase == ReceiverInitiation)
+        // {
+        //     partialTx->m_phase = SenderConfirmation;
 
-            // 1. Calculate message m
-            ECC::Hash::Value message;
-            message = 1U;
-            // 2. Compute Schnorr challenge e
-            ECC::Point::Native k;
-            k = partialTx->m_senderData.m_publicNonce + partialTx->m_receiverData.m_publicNonce;
-            ECC::Scalar::Native e;
-            ECC::Oracle() << message << k >> e;
-            // 3. Verify recepients Schnorr signature
-            ECC::Point::Native s, s2;
-            s = partialTx->m_receiverData.m_publicNonce;
-            s +=  partialTx->m_receiverData.m_publicBlindingExcess * e;
+        //     // 1. Calculate message m
+        //     ECC::Hash::Value message;
+        //     message = 1U;
+        //     // 2. Compute Schnorr challenge e
+        //     ECC::Point::Native k;
+        //     k = partialTx->m_senderData.m_publicNonce + partialTx->m_receiverData.m_publicNonce;
+        //     ECC::Scalar::Native e;
+        //     ECC::Oracle() << message << k >> e;
+        //     // 3. Verify recepients Schnorr signature
+        //     ECC::Point::Native s, s2;
+        //     s = partialTx->m_receiverData.m_publicNonce;
+        //     s +=  partialTx->m_receiverData.m_publicBlindingExcess * e;
             
-            s2 = ECC::Context::get().G * partialTx->m_receiverData.m_signature;
-            ECC::Point p, p2;
-            s.Export(p);
-            s2.Export(p2);
-            if (p.cmp(p2) != 0)
-            {
-                return false;
-            }
-            // 4. Compute Sender Schnorr signature
-            ECC::Scalar::Native signature;
-            signature = partialTx->m_senderData.m_blindingExcess;
-            signature *= e;
-            partialTx->m_senderData.m_signature = partialTx->m_senderData.m_nonce + e; 
-            return sendConfirmation(*partialTx);
-        }
-        else
-        {
-            // error/rollback
-        }
+        //     s2 = ECC::Context::get().G * partialTx->m_receiverData.m_signature;
+        //     ECC::Point p, p2;
+        //     s.Export(p);
+        //     s2.Export(p2);
+        //     if (p.cmp(p2) != 0)
+        //     {
+        //         return false;
+        //     }
+        //     // 4. Compute Sender Schnorr signature
+        //     ECC::Scalar::Native signature;
+        //     signature = partialTx->m_senderData.m_blindingExcess;
+        //     signature *= e;
+        //     partialTx->m_senderData.m_signature = partialTx->m_senderData.m_nonce + e; 
+        //     return sendConfirmation(*partialTx);
+        // }
+        // else
+        // {
+        //     // error/rollback
+        // }
 
         return false;
     }
 
-    Wallet::Result Wallet::sendConfirmation(const PartialTx& tx)
+    Wallet::Result Wallet::sendConfirmation(const SendConfirmationData& data)
     {
-        auto partialTx = m_receiver->handleConfirmation(tx);
+        HandleConfirmationData::Ptr res = m_receiver->handleConfirmation(data);
 
-        if(partialTx->m_phase == ReceiverConfirmation)
-        {
+        // if(partialTx->m_phase == ReceiverConfirmation)
+        // {
             
 
-            return true;
-        }
-        else
-        {
-            // error/rollback
-        }
+        //     return true;
+        // }
+        // else
+        // {
+        //     // error/rollback
+        // }
 
         return false;
     }
 
-    Wallet::PartialTx::Ptr Wallet::createInitialPartialTx(const ECC::Amount& amount)
+    Wallet::SendInvitationData::Ptr Wallet::createInitialPartialTx(const ECC::Amount& amount)
     {
         auto coins = m_keyChain->getCoins(amount); // need to lock 
-        return std::make_unique<PartialTx>(amount, coins);
+        return std::make_shared<SendInvitationData>(amount, coins);
     }
 
     Wallet::Result Wallet::sendMoneyTo(const Config& config, uint64_t amount)
     {
-        auto initialTx = createInitialPartialTx(amount);
+        auto data = createInitialPartialTx(amount);
 
-        return sendInvitation(*initialTx);
+        //SendInvitationData data;
+
+        return sendInvitation(*data);
     }
 
-    Wallet::PartialTx::Ptr Wallet::ToWallet::handleInvitation(const PartialTx& tx)
+    Wallet::HandleInvitationData::Ptr Wallet::ToWallet::handleInvitation(const SendInvitationData& tx)
     {
-        PartialTx::Ptr res = std::make_unique<PartialTx>();
-        if (tx.m_phase == SenderInitiation)
-        {
-            // do all the job
-            ECC::Hash::Value message;
-            message = 1U;
-            res->m_senderData.m_publicBlindingExcess = tx.m_senderData.m_publicBlindingExcess;
-            res->m_senderData.m_publicNonce = tx.m_senderData.m_publicNonce;
+        HandleInvitationData::Ptr res = std::make_shared<HandleInvitationData>();
+        // if (tx.m_phase == SenderInitiation)
+        // {
+        //     // do all the job
+        //     ECC::Hash::Value message;
+        //     message = 1U;
+        //     res->m_senderData.m_publicBlindingExcess = tx.m_senderData.m_publicBlindingExcess;
+        //     res->m_senderData.m_publicNonce = tx.m_senderData.m_publicNonce;
 
-            // 1. Check fee
-            // 2. Create receiver_output
-            // 3. Choose random blinding factor for receiver_output
-            SetRandom(res->m_receiverData.m_blindingExcess);
-            // 4. Calculate message M
-            // 5. Choose random nonce
-            SetRandom(res->m_receiverData.m_nonce);
-            // 6. Make public nonce and blinding factor
-            res->m_receiverData.m_publicBlindingExcess = ECC::Context::get().G * res->m_receiverData.m_blindingExcess;
-            res->m_receiverData.m_publicNonce = ECC::Context::get().G * res->m_receiverData.m_nonce;
-            // 7. Compute Shnorr challenge e = H(M|K)
-            ECC::Point::Native k;
-            k = res->m_senderData.m_publicNonce + res->m_receiverData.m_publicNonce;
+        //     // 1. Check fee
+        //     // 2. Create receiver_output
+        //     // 3. Choose random blinding factor for receiver_output
+        //     SetRandom(res->m_receiverData.m_blindingExcess);
+        //     // 4. Calculate message M
+        //     // 5. Choose random nonce
+        //     SetRandom(res->m_receiverData.m_nonce);
+        //     // 6. Make public nonce and blinding factor
+        //     res->m_receiverData.m_publicBlindingExcess = ECC::Context::get().G * res->m_receiverData.m_blindingExcess;
+        //     res->m_receiverData.m_publicNonce = ECC::Context::get().G * res->m_receiverData.m_nonce;
+        //     // 7. Compute Shnorr challenge e = H(M|K)
+        //     ECC::Point::Native k;
+        //     k = res->m_senderData.m_publicNonce + res->m_receiverData.m_publicNonce;
 
-            ECC::Scalar::Native e;
+        //     ECC::Scalar::Native e;
 
-		    ECC::Oracle() << message << k >> e;
+		//     ECC::Oracle() << message << k >> e;
 
-            // 8. Compute recepient Shnorr signature
-            e *= res->m_receiverData.m_blindingExcess;
+        //     // 8. Compute recepient Shnorr signature
+        //     e *= res->m_receiverData.m_blindingExcess;
             
-            res->m_receiverData.m_signature = res->m_receiverData.m_nonce + e;
+        //     res->m_receiverData.m_signature = res->m_receiverData.m_nonce + e;
 
-            res->m_phase = ReceiverInitiation;
-        }
+        //     res->m_phase = ReceiverInitiation;
+        // }
 
         return res;
     }
 
-    Wallet::PartialTx::Ptr Wallet::ToWallet::handleConfirmation(const PartialTx& tx)
+    Wallet::HandleConfirmationData::Ptr Wallet::ToWallet::handleConfirmation(const SendConfirmationData& data)
     {
-        PartialTx::Ptr res = std::make_unique<PartialTx>(tx);
+        HandleConfirmationData::Ptr res = std::make_shared<HandleConfirmationData>();
 
-        if(tx.m_phase == SenderConfirmation)
-        {
-            // 1. Verify sender's Schnor signature
+        // if(tx.m_phase == SenderConfirmation)
+        // {
+        //     // 1. Verify sender's Schnor signature
             
-            // 2. Calculate final signature
-            // 3. Calculate public key for excess
-            // 4. Verify excess value in final transaction
-            // 5. Create transaction kernel
-            // 6. Create final transaction and send it to mempool
+        //     // 2. Calculate final signature
+        //     // 3. Calculate public key for excess
+        //     // 4. Verify excess value in final transaction
+        //     // 5. Create transaction kernel
+        //     // 6. Create final transaction and send it to mempool
 
-            res->m_phase = ReceiverConfirmation;
-        }
+        //     res->m_phase = ReceiverConfirmation;
+        // }
 
         return res;
     }

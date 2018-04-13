@@ -73,16 +73,57 @@ namespace beam
             // pub part_sig: String,
             // pub tx: String,
         private:
+            // std::vector<Input::Ptr> createInputs(const std::vector<Coin>& coins);
+            // Output::Ptr createChangeOutput(const std::vector<Coin>& coins);
+        };
+
+        struct SendInvitationData
+        {
+            using Ptr = std::shared_ptr<SendInvitationData>;
+
+            SendInvitationData(ECC::Amount amount, const std::vector<Coin>& coins);
+
+            using Uuid = std::array<uint8_t, 16>;
+            Uuid  m_id;
+
+            ECC::Amount m_amount;
+            beam::Transaction m_transaction;
+
+            /////////////////////////////////////////////////
+
+            ECC::Scalar::Native m_blindingExcess;
+            ECC::Scalar::Native m_nonce;
+
+            ECC::Point::Native m_publicBlindingExcess;
+            ECC::Point::Native m_publicNonce;
+            // ECC::Scalar::Native m_signature;
+
+          private:
             std::vector<Input::Ptr> createInputs(const std::vector<Coin>& coins);
             Output::Ptr createChangeOutput(const std::vector<Coin>& coins);
+        };
+
+        struct SendConfirmationData
+        {
+            using Ptr = std::shared_ptr<SendConfirmationData>;
+        };
+
+        struct HandleInvitationData
+        {
+            using Ptr = std::shared_ptr<HandleInvitationData>;
+        };
+
+        struct HandleConfirmationData
+        {
+            using Ptr = std::shared_ptr<HandleConfirmationData>;
         };
 
         struct ToWallet
         {
             using Shared = std::shared_ptr<ToWallet>;
 
-            virtual PartialTx::Ptr handleInvitation(const PartialTx& tx);
-            virtual PartialTx::Ptr handleConfirmation(const PartialTx& tx);
+            virtual HandleInvitationData::Ptr handleInvitation(const SendInvitationData& data);
+            virtual HandleConfirmationData::Ptr handleConfirmation(const SendConfirmationData& data);
 
         };
 
@@ -101,10 +142,11 @@ namespace beam
         void sendDummyTransaction();
 
     private:
-        Result sendInvitation(const PartialTx& tx);
-        Result sendConfirmation(const PartialTx& tx);
 
-        PartialTx::Ptr createInitialPartialTx(const ECC::Amount& amount);
+        Result sendInvitation(const SendInvitationData& data);
+        Result sendConfirmation(const SendConfirmationData& data);
+
+        SendInvitationData::Ptr createInitialPartialTx(const ECC::Amount& amount);
     private:
         ToNode::Ptr m_net;
 
