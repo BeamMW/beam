@@ -61,39 +61,6 @@ namespace beam
         }
     };
 
-    Wallet::SendInvitationData::SendInvitationData(ECC::Amount amount, const std::vector<Coin>& coins)
-        : m_amount(amount) 
-    {
-
-    }
-
-    // Wallet::PartialTx::PartialTx(ECC::Amount amount, const std::vector<Coin>& coins)
-    //     : m_phase(SenderInitiation)
-    //     , m_amount(amount)
-    // {
-    //     // 1. Create transaction Uuid
-    //     boost::uuids::uuid id;
-    //     std::copy(id.begin(), id.end(), m_id.begin());
-    //     // 2. Set lock_height for output (current chain height)
-    //     // auto tip = m_node.getChainTip();
-    //     // uint64_t lockHeight = tip.height;
-    //     // 3. Select inputs using desired selection strategy
-    //     m_transaction.m_vInputs = createInputs(coins);
-    //     // 4. Create change_output
-    //     // 5. Select blinding factor for change_output
-    //     m_transaction.m_vOutputs.push_back(createChangeOutput(coins));
-    //     // 6. calculate tx_weight
-    //     // 7. calculate fee
-    //     // 8. Calculate total blinding excess for all inputs and outputs xS
-    //     // 9. Select random nonce kS
-    //     SetRandom(m_senderData.m_nonce);
-    //     // 10. Multiply xS and kS by generator G to create public curve points xSG and kSG
-    //     m_senderData.m_publicBlindingExcess = ECC::Context::get().G * m_senderData.m_blindingExcess;
-    //     m_senderData.m_publicNonce = ECC::Context::get().G * m_senderData.m_nonce;
-    //     // an attempt to implement "stingy" transaction
-    // }
-
-
     Wallet::Wallet(ToWallet::Shared receiver, IKeyChain::Ptr keyChain)
         : m_receiver(receiver)
         , m_keyChain(keyChain)
@@ -118,24 +85,20 @@ namespace beam
     {
         auto invitationData = m_receiver->handleInvitation(data);
 
-        // if(partialTx->m_phase == ReceiverInitiation)
-        // {
-        //     partialTx->m_phase = SenderConfirmation;
-
         // 1. Calculate message m
         ECC::Hash::Value message;
         message = 1U;
         // 2. Compute Schnorr challenge e
         ECC::Point::Native k;
-        k = data.m_publicNonce + invitationData->m_publicNonce;
+        k = data.m_publicSenderNonce + invitationData->m_publicReceiverNonce;
         ECC::Scalar::Native e;
         ECC::Oracle() << message << k >> e;
         // 3. Verify recepients Schnorr signature
         ECC::Point::Native s, s2;
-        s = invitationData->m_publicNonce;
-        s += invitationData->m_publicBlindingExcess * e;
+        s = invitationData->m_publicReceiverNonce;
+        s += invitationData->m_publicReceiverBlindingExcess * e;
 
-        s2 = ECC::Context::get().G * invitationData->m_signature;
+        s2 = ECC::Context::get().G * invitationData->m_receiverSignature;
         ECC::Point p, p2;
         s.Export(p);
         s2.Export(p2);
@@ -151,40 +114,22 @@ namespace beam
 
         auto confirmationData = std::make_shared<SendConfirmationData>();
         
-        confirmationData->m_signature = m_state.m_nonce + e;
+        confirmationData->m_senderSignature = m_state.m_nonce + e;
 
         return sendConfirmation(*confirmationData);
-        // }
-        // else
-        // {
-        //     // error/rollback
-        // }
-
-        // return false;
     }
 
     Wallet::Result Wallet::sendConfirmation(const SendConfirmationData& data)
     {
         HandleConfirmationData::Ptr res = m_receiver->handleConfirmation(data);
 
-        // if(partialTx->m_phase == ReceiverConfirmation)
-        // {
-            
-
-        //     return true;
-        // }
-        // else
-        // {
-        //     // error/rollback
-        // }
-
-        return false;
+        return true;
     }
 
     Wallet::SendInvitationData::Ptr Wallet::createInvitationData(const ECC::Amount& amount)
     {
         auto coins = m_keyChain->getCoins(amount); // need to lock 
-        auto res = std::make_shared<SendInvitationData>(amount, coins);
+        auto res = std::make_shared<SendInvitationData>();
 
         // 1. Create transaction Uuid
         boost::uuids::uuid id;
@@ -194,7 +139,7 @@ namespace beam
         // uint64_t lockHeight = tip.height;
         // 3. Select inputs using desired selection strategy
         {
-            res->m_transaction.m_vInputs.resize(coins.size());
+            m_state.m_transaction.m_vInputs.resize(coins.size());
             m_state.m_blindingExcess = ECC::Zero;
             for (const auto& coin: coins)
             {
@@ -208,7 +153,7 @@ namespace beam
                 pt = ECC::Commitment(key, coin.m_amount);
                 pt.Export(input->m_Commitment);
 
-                res->m_transaction.m_vInputs.push_back(std::move(input));
+                m_state.m_transaction.m_vInputs.push_back(std::move(input));
                 
                 m_state.m_blindingExcess += key;
             }
@@ -222,7 +167,8 @@ namespace beam
             {
                 change += coin.m_amount;
             }
-            change -= res->m_amount;
+
+            change -= amount;
 
             Output::Ptr output = std::make_unique<Output>();
             output->m_Coinbase = false;
@@ -241,7 +187,7 @@ namespace beam
             blindingFactor = -blindingFactor;
             m_state.m_blindingExcess += blindingFactor;
 
-            res->m_transaction.m_vOutputs.push_back(std::move(output));
+            m_state.m_transaction.m_vOutputs.push_back(std::move(output));
         }
         // 6. calculate tx_weight
         // 7. calculate fee
@@ -250,8 +196,8 @@ namespace beam
 
         SetRandom(m_state.m_nonce);
         // 10. Multiply xS and kS by generator G to create public curve points xSG and kSG
-        res->m_publicBlindingExcess = ECC::Context::get().G * m_state.m_blindingExcess;
-        res->m_publicNonce = ECC::Context::get().G * m_state.m_nonce;
+        res->m_publicSenderBlindingExcess = ECC::Context::get().G * m_state.m_blindingExcess;
+        res->m_publicSenderNonce = ECC::Context::get().G * m_state.m_nonce;
         // an attempt to implement "stingy" transaction
 
         return res;
@@ -267,14 +213,11 @@ namespace beam
     Wallet::HandleInvitationData::Ptr Wallet::ToWallet::handleInvitation(const SendInvitationData& data)
     {
         auto res = std::make_shared<HandleInvitationData>();
-        // if (tx.m_phase == SenderInitiation)
-        // {
-        //     // do all the job
         
         ECC::Hash::Value message;
         message = 1U;
-        // res->m_senderData.m_publicBlindingExcess = tx.m_senderData.m_publicBlindingExcess;
-        // res->m_senderData.m_publicNonce = tx.m_senderData.m_publicNonce;
+        // res->m_publicBlindingExcess = data.m_publicBlindingExcess;
+        // res->m_publicNonce = data.m_publicNonce;
 
         // 1. Check fee
         // 2. Create receiver_output
@@ -284,11 +227,11 @@ namespace beam
         // 5. Choose random nonce
         SetRandom(m_state.m_nonce);
         // 6. Make public nonce and blinding factor
-        res->m_publicBlindingExcess = ECC::Context::get().G * m_state.m_blindingExcess;
-        res->m_publicNonce = ECC::Context::get().G * m_state.m_nonce;
+        res->m_publicReceiverBlindingExcess = ECC::Context::get().G * m_state.m_blindingExcess;
+        res->m_publicReceiverNonce = ECC::Context::get().G * m_state.m_nonce;
         // 7. Compute Shnorr challenge e = H(M|K)
         ECC::Point::Native k;
-        k = data.m_publicNonce + data.m_publicNonce;
+        k = data.m_publicSenderNonce + res->m_publicReceiverNonce;
 
         ECC::Scalar::Native e;
 
@@ -297,10 +240,7 @@ namespace beam
         // 8. Compute recepient Shnorr signature
         e *= m_state.m_blindingExcess;
         
-        res->m_signature = m_state.m_nonce + e;
-
-        //     res->m_phase = ReceiverInitiation;
-        // }
+        res->m_receiverSignature = m_state.m_nonce + e;
 
         return res;
     }
@@ -309,18 +249,13 @@ namespace beam
     {
         HandleConfirmationData::Ptr res = std::make_shared<HandleConfirmationData>();
 
-        // if(tx.m_phase == SenderConfirmation)
-        // {
-        //     // 1. Verify sender's Schnor signature
-            
-        //     // 2. Calculate final signature
-        //     // 3. Calculate public key for excess
-        //     // 4. Verify excess value in final transaction
-        //     // 5. Create transaction kernel
-        //     // 6. Create final transaction and send it to mempool
+        // 1. Verify sender's Schnor signature
 
-        //     res->m_phase = ReceiverConfirmation;
-        // }
+        // 2. Calculate final signature
+        // 3. Calculate public key for excess
+        // 4. Verify excess value in final transaction
+        // 5. Create transaction kernel
+        // 6. Create final transaction and send it to mempool
 
         return res;
     }

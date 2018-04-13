@@ -28,88 +28,31 @@ namespace beam
             virtual void sendTransaction(const Transaction& tx) = 0;
         };
 
-        enum Phase
-        {
-            SenderInitiation,
-            ReceiverInitiation,
-            SenderConfirmation,
-            ReceiverConfirmation,
-        };
-
-        struct PartialTx
-        {
-            // TODO: impl constructors
-            PartialTx() {}
-            PartialTx(ECC::Amount amount, const std::vector<Coin>& coins);
-            PartialTx(const PartialTx& from) {}
-
-            using Ptr = std::unique_ptr<PartialTx>;
-            using Uuid = std::array<uint8_t, 16>;
-            Phase m_phase;
-            Uuid  m_id;
-            
-            ECC::Amount m_amount;
-            
-            beam::Transaction m_transaction;
-
-            struct TxData
-            {
-                ECC::Scalar::Native m_blindingExcess;
-                ECC::Scalar::Native m_nonce;
-                ECC::Point::Native  m_publicBlindingExcess;
-                ECC::Point::Native  m_publicNonce;
-                ECC::Scalar::Native m_signature;
-            };
-            TxData m_senderData;
-            TxData m_receiverData;
-            
-
-            // pub phase: PartialTxPhase,
-            // pub id: Uuid,
-            // pub amount: u64,
-            // pub public_blind_excess: String,
-            // pub public_nonce: String,
-            // pub kernel_offset: String,
-            // pub part_sig: String,
-            // pub tx: String,
-        private:
-            // std::vector<Input::Ptr> createInputs(const std::vector<Coin>& coins);
-            // Output::Ptr createChangeOutput(const std::vector<Coin>& coins);
-        };
-
         struct SendInvitationData
         {
             using Ptr = std::shared_ptr<SendInvitationData>;
 
-            SendInvitationData(ECC::Amount amount, const std::vector<Coin>& coins);
-
             using Uuid = std::array<uint8_t, 16>;
-            Uuid  m_id;
+            Uuid m_id;
 
-            ECC::Amount m_amount;
-            beam::Transaction m_transaction;
-
-            /////////////////////////////////////////////////
-
-            ECC::Point::Native m_publicBlindingExcess;
-            ECC::Point::Native m_publicNonce;
-            ECC::Scalar::Native m_signature;
+            ECC::Point::Native m_publicSenderBlindingExcess;
+            ECC::Point::Native m_publicSenderNonce;
         };
 
         struct SendConfirmationData
         {
             using Ptr = std::shared_ptr<SendConfirmationData>;
 
-            ECC::Scalar::Native m_signature;
+            ECC::Scalar::Native m_senderSignature;
         };
 
         struct HandleInvitationData
         {
             using Ptr = std::shared_ptr<HandleInvitationData>;
 
-            ECC::Point::Native m_publicBlindingExcess;
-            ECC::Point::Native m_publicNonce;
-            ECC::Scalar::Native m_signature;
+            ECC::Point::Native m_publicReceiverBlindingExcess;
+            ECC::Point::Native m_publicReceiverNonce;
+            ECC::Scalar::Native m_receiverSignature;
         };
 
         struct HandleConfirmationData
@@ -119,6 +62,8 @@ namespace beam
 
         struct SenderState
         {
+            beam::Transaction m_transaction; //???
+
             ECC::Scalar::Native m_blindingExcess;
             ECC::Scalar::Native m_nonce;
         };
