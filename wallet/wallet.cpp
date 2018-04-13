@@ -116,46 +116,51 @@ namespace beam
 
     Wallet::Result Wallet::sendInvitation(const SendInvitationData& data)
     {
-        auto res = m_receiver->handleInvitation(data);
+        auto invitationData = m_receiver->handleInvitation(data);
 
         // if(partialTx->m_phase == ReceiverInitiation)
         // {
         //     partialTx->m_phase = SenderConfirmation;
 
-        //     // 1. Calculate message m
-        //     ECC::Hash::Value message;
-        //     message = 1U;
-        //     // 2. Compute Schnorr challenge e
-        //     ECC::Point::Native k;
-        //     k = partialTx->m_senderData.m_publicNonce + partialTx->m_receiverData.m_publicNonce;
-        //     ECC::Scalar::Native e;
-        //     ECC::Oracle() << message << k >> e;
-        //     // 3. Verify recepients Schnorr signature
-        //     ECC::Point::Native s, s2;
-        //     s = partialTx->m_receiverData.m_publicNonce;
-        //     s +=  partialTx->m_receiverData.m_publicBlindingExcess * e;
-            
-        //     s2 = ECC::Context::get().G * partialTx->m_receiverData.m_signature;
-        //     ECC::Point p, p2;
-        //     s.Export(p);
-        //     s2.Export(p2);
-        //     if (p.cmp(p2) != 0)
-        //     {
-        //         return false;
-        //     }
-        //     // 4. Compute Sender Schnorr signature
-        //     ECC::Scalar::Native signature;
-        //     signature = partialTx->m_senderData.m_blindingExcess;
-        //     signature *= e;
-        //     partialTx->m_senderData.m_signature = partialTx->m_senderData.m_nonce + e; 
-        //     return sendConfirmation(*partialTx);
+        // 1. Calculate message m
+        ECC::Hash::Value message;
+        message = 1U;
+        // 2. Compute Schnorr challenge e
+        ECC::Point::Native k;
+        k = data.m_publicNonce + invitationData->m_publicNonce;
+        ECC::Scalar::Native e;
+        ECC::Oracle() << message << k >> e;
+        // 3. Verify recepients Schnorr signature
+        ECC::Point::Native s, s2;
+        s = invitationData->m_publicNonce;
+        s += invitationData->m_publicBlindingExcess * e;
+
+        s2 = ECC::Context::get().G * invitationData->m_signature;
+        ECC::Point p, p2;
+        s.Export(p);
+        s2.Export(p2);
+        if (p.cmp(p2) != 0)
+        {
+            return false;
+        }
+
+        // 4. Compute Sender Schnorr signature
+        ECC::Scalar::Native signature;
+        signature = m_state.m_blindingExcess;
+        signature *= e;
+
+        auto confirmationData = std::make_shared<SendConfirmationData>();
+        
+        confirmationData->m_signature = m_state.m_nonce + e;
+
+        return sendConfirmation(*confirmationData);
         // }
         // else
         // {
         //     // error/rollback
         // }
 
-        return false;
+        // return false;
     }
 
     Wallet::Result Wallet::sendConfirmation(const SendConfirmationData& data)
@@ -292,7 +297,7 @@ namespace beam
         // 8. Compute recepient Shnorr signature
         e *= m_state.m_blindingExcess;
         
-        m_state.m_signature = m_state.m_nonce + e;
+        res->m_signature = m_state.m_nonce + e;
 
         //     res->m_phase = ReceiverInitiation;
         // }

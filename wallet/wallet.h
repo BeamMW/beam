@@ -93,12 +93,14 @@ namespace beam
 
             ECC::Point::Native m_publicBlindingExcess;
             ECC::Point::Native m_publicNonce;
-            // ECC::Scalar::Native m_signature;
+            ECC::Scalar::Native m_signature;
         };
 
         struct SendConfirmationData
         {
             using Ptr = std::shared_ptr<SendConfirmationData>;
+
+            ECC::Scalar::Native m_signature;
         };
 
         struct HandleInvitationData
@@ -107,6 +109,7 @@ namespace beam
 
             ECC::Point::Native m_publicBlindingExcess;
             ECC::Point::Native m_publicNonce;
+            ECC::Scalar::Native m_signature;
         };
 
         struct HandleConfirmationData
@@ -124,7 +127,6 @@ namespace beam
         {
             ECC::Scalar::Native m_blindingExcess;
             ECC::Scalar::Native m_nonce;
-            ECC::Scalar::Native m_signature;
         };
 
         struct ToWallet
