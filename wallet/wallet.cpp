@@ -84,13 +84,12 @@ namespace beam
         auto invitationData = m_receiver->handleInvitation(data);
 
         // 1. Calculate message m
-        ECC::Hash::Value message;
-        message = 1U;
+       // m_state.m_message = data.m_message;
         // 2. Compute Schnorr challenge e
         ECC::Point::Native k;
         k = data.m_publicSenderNonce + invitationData->m_publicReceiverNonce;
         ECC::Scalar::Native e;
-        ECC::Oracle() << message << k >> e;
+        ECC::Oracle() << data.m_message << k >> e;
         // 3. Verify recepients Schnorr signature
         ECC::Point::Native s, s2;
         s = invitationData->m_publicReceiverNonce;
@@ -128,6 +127,7 @@ namespace beam
         auto coins = m_keyChain->getCoins(amount); // need to lock 
         auto res = std::make_shared<SendInvitationData>();
         res->m_amount = amount;
+        res->m_message = 1U;
 
         // 1. Create transaction Uuid
         boost::uuids::uuid id;
@@ -209,8 +209,7 @@ namespace beam
     {
         auto res = std::make_shared<HandleInvitationData>();
         
-        ECC::Hash::Value message;
-        message = 1U;
+        m_state.m_message = data.m_message;
         // res->m_publicBlindingExcess = data.m_publicBlindingExcess;
         // res->m_publicNonce = data.m_publicNonce;
 
@@ -254,7 +253,7 @@ namespace beam
 
         // ECC::Scalar::Native e;
 
-        ECC::Oracle() << message << k >> m_state.m_schnorrChallenge;
+        ECC::Oracle() << m_state.m_message << k >> m_state.m_schnorrChallenge;
 
         // 8. Compute recepient Shnorr signature
         ECC::Scalar::Native t;
@@ -295,13 +294,15 @@ namespace beam
         // 5. Create transaction kernel
         TxKernel::Ptr kernel = std::make_unique<TxKernel>();
         kernel->m_Excess = x;
-        // TODO: fill signature
+        kernel->m_Signature.m_e = m_state.m_schnorrChallenge;
+        kernel->m_Signature.m_k = finialSignature;      
+
         m_state.m_transaction.m_vKernels.push_back(std::move(kernel));
         // 6. Create final transaction and send it to mempool
         ECC::Amount fee = 0U;
         
         // TODO: uncomment assert
-        // assert(m_state.m_transaction.IsValid(fee, 0U));
+        assert(m_state.m_transaction.IsValid(fee, 0U));
         return res;
     }
 

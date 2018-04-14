@@ -36,6 +36,7 @@ namespace beam
             Uuid m_id;
 
             ECC::Amount m_amount; ///??
+            ECC::Hash::Value m_message;
             ECC::Point::Native m_publicSenderBlindingExcess;
             ECC::Point::Native m_publicSenderNonce;
             std::vector<Input::Ptr> m_inputs;
@@ -84,6 +85,7 @@ namespace beam
             ECC::Scalar::Native m_receiverSignature;
 
             ECC::Scalar::Native m_schnorrChallenge;
+            ECC::Hash::Value m_message;
         };
 
         struct ToWallet
