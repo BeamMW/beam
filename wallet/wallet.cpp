@@ -79,7 +79,7 @@ namespace beam
         m_net->sendTransaction(tx);
     }
 
-    Wallet::Result Wallet::sendInvitation(const SendInvitationData& data)
+    Wallet::Result Wallet::sendInvitation(SendInvitationData& data)
     {
         auto invitationData = m_receiver->handleInvitation(data);
 
@@ -127,6 +127,7 @@ namespace beam
     {
         auto coins = m_keyChain->getCoins(amount); // need to lock 
         auto res = std::make_shared<SendInvitationData>();
+        res->m_amount = amount;
 
         // 1. Create transaction Uuid
         boost::uuids::uuid id;
@@ -136,7 +137,7 @@ namespace beam
         // uint64_t lockHeight = tip.height;
         // 3. Select inputs using desired selection strategy
         {
-            m_state.m_transaction.m_vInputs.resize(coins.size());
+            res->m_inputs.resize(coins.size());
             m_state.m_blindingExcess = ECC::Zero;
             for (const auto& coin: coins)
             {
@@ -150,7 +151,7 @@ namespace beam
 
                 input->m_Commitment = pt;
 
-                m_state.m_transaction.m_vInputs.push_back(std::move(input));
+                res->m_inputs.push_back(std::move(input));
                 
                 m_state.m_blindingExcess += key;
             }
@@ -184,7 +185,7 @@ namespace beam
             blindingFactor = -blindingFactor;
             m_state.m_blindingExcess += blindingFactor;
 
-            m_state.m_transaction.m_vOutputs.push_back(std::move(output));
+            res->m_outputs.push_back(std::move(output));
         }
         // 6. calculate tx_weight
         // 7. calculate fee
@@ -207,7 +208,7 @@ namespace beam
         return sendInvitation(*data);
     }
 
-    Wallet::HandleInvitationData::Ptr Wallet::ToWallet::handleInvitation(const SendInvitationData& data)
+    Wallet::HandleInvitationData::Ptr Wallet::ToWallet::handleInvitation(SendInvitationData& data)
     {
         auto res = std::make_shared<HandleInvitationData>();
         
@@ -217,27 +218,57 @@ namespace beam
         // res->m_publicNonce = data.m_publicNonce;
 
         // 1. Check fee
+
+       
+        m_state.m_transaction.m_vInputs = std::move(data.m_inputs);
+        m_state.m_transaction.m_vOutputs = std::move(data.m_outputs);
+
         // 2. Create receiver_output
         // 3. Choose random blinding factor for receiver_output
-        SetRandom(m_state.m_blindingExcess);
+        ECC::Amount amount = data.m_amount;
+        Output::Ptr output = std::make_unique<Output>();
+        output->m_Coinbase = false;
+
+        ECC::Scalar::Native blindingFactor;
+        SetRandom(blindingFactor);
+        ECC::Point::Native pt;
+        pt = ECC::Commitment(blindingFactor, amount);
+        output->m_Commitment = pt;
+
+        output->m_pPublic.reset(new ECC::RangeProof::Public);
+        output->m_pPublic->m_Value = amount;
+        output->m_pPublic->Create(blindingFactor);
+
+        m_state.m_blindingExcess = blindingFactor;
+
+        m_state.m_transaction.m_vOutputs.push_back(std::move(output));
+
         // 4. Calculate message M
         // 5. Choose random nonce
         SetRandom(m_state.m_nonce);
         // 6. Make public nonce and blinding factor
-        res->m_publicReceiverBlindingExcess = ECC::Context::get().G * m_state.m_blindingExcess;
+        m_state.m_publicReceiverBlindingExcess 
+            = res->m_publicReceiverBlindingExcess 
+            = ECC::Context::get().G * m_state.m_blindingExcess;
+
         res->m_publicReceiverNonce = ECC::Context::get().G * m_state.m_nonce;
         // 7. Compute Shnorr challenge e = H(M|K)
         ECC::Point::Native k;
         k = data.m_publicSenderNonce + res->m_publicReceiverNonce;
 
-        ECC::Scalar::Native e;
+        // ECC::Scalar::Native e;
 
-        ECC::Oracle() << message << k >> e;
+        ECC::Oracle() << message << k >> m_state.m_schnorrChallenge;
 
         // 8. Compute recepient Shnorr signature
-        e *= m_state.m_blindingExcess;
+        ECC::Scalar::Native t;
+        t = m_state.m_schnorrChallenge * m_state.m_blindingExcess;
         
-        res->m_receiverSignature = m_state.m_nonce + e;
+        res->m_receiverSignature = m_state.m_nonce + t;
+        m_state.m_receiverSignature = res->m_receiverSignature;
+
+        m_state.m_publicSenderBlindingExcess = data.m_publicSenderBlindingExcess;
+        m_state.m_publicSenderNonce = data.m_publicSenderNonce;
 
         return res;
     }
@@ -247,11 +278,29 @@ namespace beam
         HandleConfirmationData::Ptr res = std::make_shared<HandleConfirmationData>();
 
         // 1. Verify sender's Schnor signature
+        ECC::Point::Native s, s2;
+        s = m_state.m_publicSenderNonce;
+        s += m_state.m_publicSenderBlindingExcess * m_state.m_schnorrChallenge;
+
+        s2 = ECC::Context::get().G * data.m_senderSignature;
+        ECC::Point p(s), p2(s2);
+
+        if (p.cmp(p2) != 0)
+        {
+            return HandleConfirmationData::Ptr();
+        }
 
         // 2. Calculate final signature
+        ECC::Scalar::Native finialSignature = data.m_senderSignature + m_state.m_receiverSignature;
+
         // 3. Calculate public key for excess
+        ECC::Point::Native x = m_state.m_publicReceiverBlindingExcess + m_state.m_publicSenderBlindingExcess;
         // 4. Verify excess value in final transaction
         // 5. Create transaction kernel
+        TxKernel::Ptr kernel = std::make_unique<TxKernel>();
+        kernel->m_Excess = x;
+        // TODO: fill signature
+        m_state.m_transaction.m_vKernels.push_back(std::move(kernel));
         // 6. Create final transaction and send it to mempool
 
         return res;

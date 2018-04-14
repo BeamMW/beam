@@ -35,8 +35,11 @@ namespace beam
             using Uuid = std::array<uint8_t, 16>;
             Uuid m_id;
 
+            ECC::Amount m_amount; ///??
             ECC::Point::Native m_publicSenderBlindingExcess;
             ECC::Point::Native m_publicSenderNonce;
+            std::vector<Input::Ptr> m_inputs;
+            std::vector<Output::Ptr> m_outputs;
         };
 
         struct SendConfirmationData
@@ -62,23 +65,32 @@ namespace beam
 
         struct SenderState
         {
-            beam::Transaction m_transaction; //???
-
             ECC::Scalar::Native m_blindingExcess;
             ECC::Scalar::Native m_nonce;
         };
 
         struct ReceiverState
         {
+            Transaction m_transaction;
+
             ECC::Scalar::Native m_blindingExcess;
             ECC::Scalar::Native m_nonce;
+
+            ECC::Point::Native m_publicReceiverBlindingExcess;
+            
+            ECC::Point::Native m_publicSenderBlindingExcess;
+            ECC::Point::Native m_publicSenderNonce;
+
+            ECC::Scalar::Native m_receiverSignature;
+
+            ECC::Scalar::Native m_schnorrChallenge;
         };
 
         struct ToWallet
         {
             using Shared = std::shared_ptr<ToWallet>;
 
-            virtual HandleInvitationData::Ptr handleInvitation(const SendInvitationData& data);
+            virtual HandleInvitationData::Ptr handleInvitation(SendInvitationData& data);
             virtual HandleConfirmationData::Ptr handleConfirmation(const SendConfirmationData& data);
 
             ReceiverState m_state;
@@ -100,7 +112,7 @@ namespace beam
 
     private:
 
-        Result sendInvitation(const SendInvitationData& data);
+        Result sendInvitation(SendInvitationData& data);
         Result sendConfirmation(const SendConfirmationData& data);
 
         SendInvitationData::Ptr createInvitationData(const ECC::Amount& amount);
