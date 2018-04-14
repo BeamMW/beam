@@ -111,7 +111,7 @@ namespace beam
 
         auto confirmationData = std::make_shared<SendConfirmationData>();
         
-        confirmationData->m_senderSignature = m_state.m_nonce + e;
+        confirmationData->m_senderSignature = m_state.m_nonce + signature;
 
         return sendConfirmation(*confirmationData);
     }
@@ -218,7 +218,6 @@ namespace beam
         // res->m_publicNonce = data.m_publicNonce;
 
         // 1. Check fee
-
        
         m_state.m_transaction.m_vInputs = std::move(data.m_inputs);
         m_state.m_transaction.m_vOutputs = std::move(data.m_outputs);
@@ -286,7 +285,7 @@ namespace beam
         ECC::Point p(s), p2(s2);
 
         if (p.cmp(p2) != 0)
-        {
+        {      
             return HandleConfirmationData::Ptr();
         }
 
@@ -302,7 +301,10 @@ namespace beam
         // TODO: fill signature
         m_state.m_transaction.m_vKernels.push_back(std::move(kernel));
         // 6. Create final transaction and send it to mempool
-
+        ECC::Amount fee = 0U;
+        
+        // TODO: uncomment assert
+        // assert(m_state.m_transaction.IsValid(fee, 0U));
         return res;
     }
 
