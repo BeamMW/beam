@@ -4,6 +4,8 @@
 #	include <errno.h>
 #	include <sys/stat.h>
 #	include <fcntl.h>
+#	include <sys/mman.h>
+#	include <unistd.h>
 #endif // WIN32
 
 namespace beam
@@ -110,7 +112,7 @@ namespace beam
 			m_hMapping = CreateFileMapping(m_hFile, NULL, PAGE_READWRITE, 0, 0, NULL);
 			test_SysRet(!m_hMapping);
 
-			m_pMapping = (PBYTE) MapViewOfFile(m_hMapping, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, (size_t) m_nMapping);
+			m_pMapping = (uint8_t*) MapViewOfFile(m_hMapping, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, (size_t) m_nMapping);
 			test_SysRet(!m_pMapping);
 		}
 
@@ -122,7 +124,7 @@ namespace beam
 
 		if (m_nMapping)
 		{
-			PBYTE pPtr = (PBYTE) mmap(NULL, m_nMapping, PROT_READ | PROT_WRITE, MAP_SHARED, m_hFile, 0);
+			uint8_t* pPtr = (uint8_t*) mmap(NULL, m_nMapping, PROT_READ | PROT_WRITE, MAP_SHARED, m_hFile, 0);
 			test_SysRet(MAP_FAILED == pPtr);
 
 			m_pMapping = pPtr;
@@ -201,7 +203,7 @@ namespace beam
 		m_hFile = CreateFileA(sz, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, 0, NULL);
 		test_SysRet(INVALID_HANDLE_VALUE == m_hFile);
 #else // WIN32
-		m_hFile = open(szPath, O_RDWR | O_CREAT);
+		m_hFile = open(sz, O_RDWR | O_CREAT);
 		test_SysRet(-1 == m_hFile);
 #endif // WIN32
 
