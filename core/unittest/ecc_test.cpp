@@ -14,11 +14,11 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 	g_TestsFailed++;
 }
 
-#define verify(x) \
+#define verify_test(x) \
 	do { \
 		if (!(x)) \
 			TestFailed(#x, __LINE__); \
-	} while (false);
+	} while (false)
 
 namespace ECC {
 
@@ -59,7 +59,7 @@ void TestHash()
 		hp >> hv;
 
 		// hash values must change, even if no explicit input was fed.
-		verify(!(hv == hv2));
+		verify_test(!(hv == hv2));
 	}
 }
 
@@ -70,22 +70,22 @@ void TestScalars()
 
 	// neg
 	s1 = -s0;
-	verify(!(s1 == Zero));
+	verify_test(!(s1 == Zero));
 	s1 += s0;
-	verify(s1 == Zero);
+	verify_test(s1 == Zero);
 
 	// inv, mul
 	s1.SetInv(s0);
 
 	s2 = -s1;
 	s2 += s0;
-	verify(!(s2 == Zero));
+	verify_test(!(s2 == Zero));
 
 	s1 *= s0;
 	s2 = 1U;
 	s2 = -s2;
 	s2 += s1;
-	verify(s2 == Zero);
+	verify_test(s2 == Zero);
 
 	// import,export
 
@@ -95,11 +95,11 @@ void TestScalars()
 
 		Scalar s_(s0);
 		s1 = s_;
-		verify(s0 == s1);
+		verify_test(s0 == s1);
 
 		s1 = -s1;
 		s1 += s0;
-		verify(s1 == Zero);
+		verify_test(s1 == Zero);
 	}
 }
 
@@ -111,14 +111,14 @@ void TestPoints()
 
 	p_.m_X = Zero; // should be zero-point
 	p_.m_Y = true;
-	verify(!p0.Import(p_));
-	verify(p0 == Zero);
+	verify_test(!p0.Import(p_));
+	verify_test(p0 == Zero);
 
 	p_.m_Y = false;
-	verify(!p0.Import(p_));
+	verify_test(!p0.Import(p_));
 
 	p2_ = p0;
-	verify(!p_.cmp(p2_));
+	verify_test(!p_.cmp(p2_));
 
 	for (int i = 0; i < 1000; i++)
 	{
@@ -127,19 +127,19 @@ void TestPoints()
 
 		while (!p0.Import(p_))
 		{
-			verify(p0 == Zero);
+			verify_test(p0 == Zero);
 			p_.m_X.Inc();
 		}
-		verify(!(p0 == Zero));
+		verify_test(!(p0 == Zero));
 
 		p1 = -p0;
-		verify(!(p1 == Zero));
+		verify_test(!(p1 == Zero));
 
 		p1 += p0;
-		verify(p1 == Zero);
+		verify_test(p1 == Zero);
 
 		p2_ = p0;
-		verify(!p_.cmp(p2_));
+		verify_test(!p_.cmp(p2_));
 	}
 
 	// multiplication
@@ -148,14 +148,14 @@ void TestPoints()
 	s0 = 1U;
 
 	Point::Native g = Context::get().G * s0;
-	verify(!(g == Zero));
+	verify_test(!(g == Zero));
 
 	s0 = Zero;
 	p0 = Context::get().G * s0;
-	verify(p0 == Zero);
+	verify_test(p0 == Zero);
 
 	p0 += g * s0;
-	verify(p0 == Zero);
+	verify_test(p0 == Zero);
 
 	for (int i = 0; i < 300; i++)
 	{
@@ -166,20 +166,20 @@ void TestPoints()
 		s1 = -s0;
 		p1 = p0;
 		p1 += Context::get().G * s1; // inverse, also testing +=
-		verify(p1 == Zero);
+		verify_test(p1 == Zero);
 
 		p1 = p0;
 		p1 += g * s1; // simple multiplication
 
-		verify(p1 == Zero);
+		verify_test(p1 == Zero);
 	}
 
 	// H-gen
 	Point::Native h = Context::get().H * 1U;
-	verify(!(h == Zero));
+	verify_test(!(h == Zero));
 
 	p0 = Context::get().H * 0U;
-	verify(p0 == Zero);
+	verify_test(p0 == Zero);
 
 	for (int i = 0; i < 300; i++)
 	{
@@ -195,7 +195,7 @@ void TestPoints()
 		p1 = -p1;
 		p1 += p0;
 
-		verify(p1 == Zero);
+		verify_test(p1 == Zero);
 	}
 
 	// doubling, all bits test
@@ -207,12 +207,12 @@ void TestPoints()
 	{
 		s0 *= s1;
 		p1 = Context::get().G * s0;
-		verify(!(p1 == Zero));
+		verify_test(!(p1 == Zero));
 
 		p0 = p0 * Two;
 		p0 = -p0;
 		p0 += p1;
-		verify(p0 == Zero);
+		verify_test(p0 == Zero);
 
 		p0 = p1;
 	}
@@ -236,13 +236,13 @@ void TestSigning()
 
 		mysig.Sign(msg, sk);
 
-		verify(mysig.IsValid(msg, pk));
+		verify_test(mysig.IsValid(msg, pk));
 
 		// tamper msg
 		uintBig msg2 = msg;
 		msg2.Inc();
 
-		verify(!mysig.IsValid(msg2, pk));
+		verify_test(!mysig.IsValid(msg2, pk));
 
 		// try to sign with different key
 		Scalar::Native sk2;
@@ -250,16 +250,16 @@ void TestSigning()
 
 		Signature mysig2;
 		mysig2.Sign(msg, sk2);
-		verify(!mysig2.IsValid(msg, pk));
+		verify_test(!mysig2.IsValid(msg, pk));
 
 		// tamper signature
 		mysig2 = mysig;
 		SetRandom(mysig2.m_e.m_Value);
-		verify(!mysig2.IsValid(msg, pk));
+		verify_test(!mysig2.IsValid(msg, pk));
 
 		mysig2 = mysig;
 		SetRandom(mysig2.m_k.m_Value);
-		verify(!mysig2.IsValid(msg, pk));
+		verify_test(!mysig2.IsValid(msg, pk));
 	}
 }
 
@@ -302,7 +302,7 @@ void TestCommitments()
 	sigma = -sigma;
 	sigma += commInp;
 
-	verify(sigma == Zero);
+	verify_test(sigma == Zero);
 }
 
 void TestRangeProof()
@@ -316,11 +316,11 @@ void TestRangeProof()
 
 	Point::Native comm = Commitment(sk, rp.m_Value);
 
-	verify(rp.IsValid(Point(comm)));
+	verify_test(rp.IsValid(Point(comm)));
 
 	// tamper value
 	rp.m_Value++;
-	verify(!rp.IsValid(Point(comm)));
+	verify_test(!rp.IsValid(Point(comm)));
 	rp.m_Value--;
 
 	// try with invalid key
@@ -328,7 +328,7 @@ void TestRangeProof()
 
 	comm = Commitment(sk, rp.m_Value);
 
-	verify(!rp.IsValid(Point(comm)));
+	verify_test(!rp.IsValid(Point(comm)));
 }
 
 struct TransactionMaker
@@ -512,8 +512,8 @@ void TestTransaction()
 	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested);
 
 	Amount fee;
-	verify(tm.m_Trans.IsValid(fee, 0));
-	verify(fee == fee1 + fee2);
+	verify_test(tm.m_Trans.IsValid(fee, 0));
+	verify_test(fee == fee1 + fee2);
 }
 
 void TestAll()
@@ -554,7 +554,7 @@ struct BenchmarkMeter
 	static uint64_t get_Time()
 	{
 		timespec tp;
-		verify(!clock_gettime(CLOCK_MONOTONIC, &tp));
+		verify_test(!clock_gettime(CLOCK_MONOTONIC, &tp));
 		return uint64_t(tp.tv_sec) * m_Freq + tp.tv_nsec;
 	}
 
