@@ -7,6 +7,16 @@
 #include <cstdint>
 #include <memory>
 
+#include <assert.h>
+
+#ifndef verify
+#	ifdef  NDEBUG
+#		define verify(x) ((void)(x))
+#	else //  NDEBUG
+#		define verify(x) assert(x)
+#	endif //  NDEBUG
+#endif // verify
+
 #include "ecc.h"
 
 namespace beam
