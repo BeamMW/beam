@@ -181,7 +181,7 @@ namespace beam
 		test_SysRet(!SetFilePointerEx(m_hFile, (const LARGE_INTEGER&) n, NULL, FILE_BEGIN));
 		test_SysRet(!SetEndOfFile(m_hFile));
 #else // WIN32
-		test_SysRet(truncate(m_hFile, n) != 0);
+		test_SysRet(ftruncate(m_hFile, n) != 0);
 #endif // WIN32
 	}
 
