@@ -38,12 +38,10 @@ namespace ECC
 namespace beam
 {
 
-    Coin::Coin(uint64_t key, ECC::Amount amount)
+    Coin::Coin(const ECC::Scalar& key, ECC::Amount amount)
         : m_amount(amount)
     {
-        ECC::Scalar::Native s;
-        s = key;
-        s.Export(m_key);
+        m_key = ECC::Scalar::Native(key);
     }
 
     // temporary impl of WalletToNetwork interface
@@ -99,9 +97,8 @@ namespace beam
         s += invitationData->m_publicReceiverBlindingExcess * e;
 
         s2 = ECC::Context::get().G * invitationData->m_receiverSignature;
-        ECC::Point p, p2;
-        s.Export(p);
-        s2.Export(p2);
+        ECC::Point p(s), p2(s2);
+
         if (p.cmp(p2) != 0)
         {
             return false;
@@ -147,11 +144,11 @@ namespace beam
                 input->m_Height = 0;
                 input->m_Coinbase = false;
 
-                ECC::Scalar::Native key;
-                key.Import(coin.m_key);
+                ECC::Scalar::Native key(coin.m_key);
                 ECC::Point::Native pt;
                 pt = ECC::Commitment(key, coin.m_amount);
-                pt.Export(input->m_Commitment);
+
+                input->m_Commitment = pt;
 
                 m_state.m_transaction.m_vInputs.push_back(std::move(input));
                 
@@ -177,7 +174,7 @@ namespace beam
             SetRandom(blindingFactor);
             ECC::Point::Native pt;
             pt = ECC::Commitment(blindingFactor, change);
-            pt.Export(output->m_Commitment);
+            output->m_Commitment = pt;
 
             output->m_pPublic.reset(new ECC::RangeProof::Public);
             output->m_pPublic->m_Value = change;

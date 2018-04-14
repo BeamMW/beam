@@ -11,10 +11,9 @@ namespace
     public:
         TestKeyChain()
         {
-            m_coins.emplace_back(200, 5);
-            m_coins.emplace_back(201, 2);
-            m_coins.emplace_back(202, 3);
-       //     m_coins.push_back(std::make_unique<Coin>(203, 1));
+            m_coins.emplace_back(ECC::Scalar::Native(200U), 5);
+            m_coins.emplace_back(ECC::Scalar::Native(201U), 2);
+            m_coins.emplace_back(ECC::Scalar::Native(202U), 3);
         }
 
         std::vector<beam::Coin> getCoins(const ECC::Amount& amount)
