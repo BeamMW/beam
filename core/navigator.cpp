@@ -5,6 +5,7 @@
 #	include <sys/stat.h>
 #	include <fcntl.h>
 #	include <sys/mman.h>
+#	include <sys/types.h>
 #	include <unistd.h>
 #endif // WIN32
 
@@ -22,7 +23,7 @@ namespace beam
 
 			char sz[0x20];
 			sprintf(sz, "Error=%d", nErrorCode);
-			throw std::exception(sz);
+			throw std::runtime_error(sz);
 		}
 	}
 
