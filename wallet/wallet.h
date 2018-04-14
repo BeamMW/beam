@@ -68,12 +68,14 @@ namespace beam
         {
             ECC::Scalar::Native m_blindingExcess;
             ECC::Scalar::Native m_nonce;
+            TxKernel m_kernel;
         };
 
         struct ReceiverState
         {
             Transaction m_transaction;
-
+            TxKernel* m_kernel;
+            
             ECC::Scalar::Native m_blindingExcess;
             ECC::Scalar::Native m_nonce;
 
