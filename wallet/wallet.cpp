@@ -137,17 +137,15 @@ namespace beam
         // uint64_t lockHeight = tip.height;
         // 3. Select inputs using desired selection strategy
         {
-            res->m_inputs.resize(coins.size());
             m_state.m_blindingExcess = ECC::Zero;
             for (const auto& coin: coins)
             {
-                beam::Input::Ptr input{new beam::Input};
+                Input::Ptr input = std::make_unique<Input>();
                 input->m_Height = 0;
                 input->m_Coinbase = false;
 
                 ECC::Scalar::Native key(coin.m_key);
-                ECC::Point::Native pt;
-                pt = ECC::Commitment(key, coin.m_amount);
+                ECC::Point::Native pt = ECC::Commitment(key, coin.m_amount);
 
                 input->m_Commitment = pt;
 
@@ -173,8 +171,7 @@ namespace beam
 
             ECC::Scalar::Native blindingFactor;
             SetRandom(blindingFactor);
-            ECC::Point::Native pt;
-            pt = ECC::Commitment(blindingFactor, change);
+            ECC::Point::Native pt = ECC::Commitment(blindingFactor, change);
             output->m_Commitment = pt;
 
             output->m_pPublic.reset(new ECC::RangeProof::Public);
