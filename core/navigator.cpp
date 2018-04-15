@@ -331,6 +331,12 @@ namespace beam
 		return m_Mapping.get_At<TagMarker>(x);
 	}
 
+	ChainNavigator::Patch& ChainNavigator::get_Patch_(Offset x) const
+	{
+		assert(x);
+		return m_Mapping.get_At<Patch>(x);
+	}
+
 	ChainNavigator::Offset ChainNavigator::get_ChildTag(Offset x) const
 	{
 		return get_Tag(x).m_Child0;
@@ -362,7 +368,7 @@ namespace beam
 		int iDir = !bFwd;
 		for (nOffs = tag.m_Patches.p[iDir]; nOffs; )
 		{
-			const Patch& patch = m_Mapping.get_At<Patch>(nOffs);
+			const Patch& patch = get_Patch_(nOffs);
 			nOffs = patch.m_Links.p[iDir];
 			Apply(patch, bFwd);
 		}
@@ -384,33 +390,52 @@ namespace beam
 		return true;
 	}
 
-	template <bool bAdd>
-	void ChainNavigator::PatchListOperate(TagMarker& tag, Patch& patch)
+	template <class T>
+	void ChainNavigator::ListOperate(T& node, bool bAdd, Offset* pE, int nE)
 	{
-		Offset x = m_Mapping.get_Offset(&patch);
+		Offset x = m_Mapping.get_Offset(&node);
 
-		for (int i = 0; i < _countof(patch.m_Links.p); i++)
+		for (int i = 0; i < _countof(node.m_Links.p); i++)
+			ListOperateDir(node, x, i, bAdd, pE, nE);
+	}
+
+	template <class T>
+	void ChainNavigator::ListOperateDir(T& node, Offset n, int iDir, bool bAdd, Offset* pE, int nE)
+	{
+		Offset* pTrg;
+		if (node.m_Links.p[iDir])
+			pTrg = m_Mapping.get_At<Patch>(node.m_Links.p[iDir]).m_Links.p + !iDir;
+		else
 		{
-			Offset x1 = patch.m_Links.p[i];
-			Offset x2 = patch.m_Links.p[!i];
-
-			Offset& trg = (x1 ? m_Mapping.get_At<Patch>(x1).m_Links : tag.m_Patches).p[!i];
-
-			if (bAdd)
-			{
-				assert(trg == x2);
-				trg = x;
-			} else
-			{
-				assert(trg == x);
-				trg = x2;
-			}
+			if (iDir > nE)
+				return;
+			pTrg = pE + !iDir;
 		}
+
+		if (bAdd)
+		{
+			assert(*pTrg == node.m_Links.p[!iDir]);
+			*pTrg = n;
+		} else
+		{
+			assert(*pTrg == n);
+			*pTrg = node.m_Links.p[!iDir];
+		}
+	}
+
+	void ChainNavigator::PatchListOperate(TagMarker& tag, Patch& patch, bool bAdd)
+	{
+		ListOperate(patch, bAdd, tag.m_Patches.p, _countof(tag.m_Patches.p));
 	}
 
 	void ChainNavigator::Commit(Patch& patch, bool bApply /* = true */)
 	{
-		PatchListOperate<true>(get_Tag_(get_Hdr().m_TagCursor), patch);
+		TagMarker& tag = get_Tag_(get_Hdr().m_TagCursor);
+		patch.m_Links.p[0] = 0;
+		patch.m_Links.p[1] = tag.m_Patches.p[1];
+
+		PatchListOperate(tag, patch, true);
+
 		if (bApply)
 			Apply(patch, true);
 	}
@@ -425,16 +450,9 @@ namespace beam
 		FixedHdr& hdr = get_Hdr_();
 		TagMarker& tag = get_Tag_(hdr.m_TagCursor);
 
-		if (tag.m_Child0)
-		{
-			TagMarker& tag1 = get_Tag_(tag.m_Child0);
-			assert(!tag.m_Links.p[1]);
+		pVal->m_Links.p[0] = tag.m_Child0;
+		ListOperate(*pVal, true, &tag.m_Child0, 1);
 
-			tag.m_Links.p[1] = xVal;
-			pVal->m_Links.p[0] = tag.m_Child0;
-		}
-
-		tag.m_Child0 = xVal;
 		pVal->m_Parent = hdr.m_TagCursor;
 
 		pVal->m_Diff = ti;
@@ -448,7 +466,85 @@ namespace beam
 	{
 		assert(x);
 
+		assert(&get_Hdr_().m_Root != &get_Tag_(x));
+		if (get_Hdr_().m_TagCursor == x)
+			MoveBwd();
 
+		MovePatchesToChildren(x);
+
+		// move children to the parent
+		TagMarker& t = get_Tag_(x);
+		TagMarker& tParent = get_Tag_(t.m_Parent);
+
+		while (t.m_Child0)
+		{
+			TagMarker& tC = get_Tag_(t.m_Child0);
+			ListOperate(tC, false, &t.m_Child0, 1);
+
+			assert(!tC.m_Links.p[1]);
+			tC.m_Links.p[0] = tParent.m_Child0;
+			ListOperate(tC, true, &tParent.m_Child0, 1);
+		}
+	}
+
+	void ChainNavigator::MovePatchesToChildren(Offset xTag)
+	{
+		TagMarker& tag = get_Tag_(xTag);
+		Links patches = tag.m_Links;
+
+		if (!patches.p[0])
+			return;
+
+		for (Offset xC1 = tag.m_Child0; xC1; )
+		{
+			Offset xC = xC1;
+			TagMarker& c = get_Tag_(xC);
+			xC1 = c.m_Links.p[0];
+
+			Offset xFirst = c.m_Patches.p[0];
+
+			if (!xC1)
+			{
+				if (xFirst)
+				{
+					// append
+					get_Patch_(patches.p[1]).m_Links.p[0] = xFirst;
+					get_Patch_(xFirst).m_Links.p[1] = patches.p[1];
+
+					c.m_Patches.p[0] = patches.p[0];
+
+				} else
+					// assign
+					c.m_Patches = patches;
+
+				return;
+			}
+
+			// clone (multiple children)
+			for (Offset xP = patches.p[1]; xP; )
+			{
+				Patch* pPatch = &get_Patch_(xP);
+				xP = pPatch->m_Links.p[1];
+
+				pPatch = Clone(*pPatch);
+				Offset xNew = m_Mapping.get_Offset(pPatch);
+
+				pPatch->m_Links.p[0] = xFirst;
+				pPatch->m_Links.p[1] = 0;
+				PatchListOperate(get_Tag_(xC), *pPatch, true);
+
+				xFirst = xNew;
+			}
+		}
+
+		// not consumed - delete them
+		for (Offset xP = patches.p[1]; xP; )
+		{
+			Patch* pPatch = &get_Patch_(xP);
+			xP = pPatch->m_Links.p[1];
+
+			Delete(*pPatch);
+		}
 	}
 
 

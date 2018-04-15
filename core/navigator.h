@@ -150,17 +150,24 @@ namespace beam
 	protected:
 
 		TagMarker& get_Tag_(Offset) const;
+		Patch& get_Patch_(Offset) const;
 		FixedHdr& get_Hdr_() const { return *(FixedHdr*) m_Mapping.get_FixedHdr(); }
 
 		void ApplyTagChanges(Offset, bool bFwd);
+		void MovePatchesToChildren(Offset xTag);
 
-		template <bool bAdd>
-		void PatchListOperate(TagMarker&, Patch&);
+		void PatchListOperate(TagMarker&, Patch&, bool bAdd);
+
+		template <class T>
+		void ListOperate(T& node, bool bAdd, Offset* pE, int nE);
+
+		template <class T>
+		void ListOperateDir(T& node, Offset n, int iDir, bool bAdd, Offset* pE, int nE);
 
 		virtual void AdjustDefs(MappedFile::Defs&) {}
 		virtual void OnOpen() {}
 		virtual void OnClose() {}
-		virtual void OnDelete(Patch&) {}
+		virtual void Delete(Patch&) {}
 		virtual void Apply(const Patch&, bool bFwd) = 0;
 		virtual Patch* Clone(Patch&) = 0;
 	};
