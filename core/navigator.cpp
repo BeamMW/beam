@@ -11,7 +11,7 @@
 
 namespace beam
 {
-	void test_SysRet(bool bFail)
+	void test_SysRet(bool bFail, const char* str)
 	{
 		if (bFail)
 		{
@@ -21,8 +21,8 @@ namespace beam
 			int nErrorCode = errno;
 #endif // WIN32
 
-			char sz[0x20];
-			sprintf(sz, "Error=%d", nErrorCode);
+			char sz[0x100];
+			sprintf(sz, "Error=%d (%s)", nErrorCode, str);
 			throw std::runtime_error(sz);
 		}
 	}
@@ -120,13 +120,13 @@ namespace beam
 #else // WIN32
 
 		struct stat stats;
-		test_SysRet(fstat(m_hFile, &stats) != 0);
+		test_SysRet(fstat(m_hFile, &stats) != 0, "fstat");
 		m_nMapping = stats.st_size;
 
 		if (m_nMapping)
 		{
 			uint8_t* pPtr = (uint8_t*) mmap(NULL, m_nMapping, PROT_READ | PROT_WRITE, MAP_SHARED, m_hFile, 0);
-			test_SysRet(MAP_FAILED == pPtr);
+			test_SysRet(MAP_FAILED == pPtr, "mmap");
 
 			m_pMapping = pPtr;
 		}
@@ -182,7 +182,7 @@ namespace beam
 		test_SysRet(!SetFilePointerEx(m_hFile, (const LARGE_INTEGER&) n, NULL, FILE_BEGIN));
 		test_SysRet(!SetEndOfFile(m_hFile));
 #else // WIN32
-		test_SysRet(ftruncate(m_hFile, n) != 0);
+		test_SysRet(ftruncate(m_hFile, n) != 0, "ftruncate");
 #endif // WIN32
 	}
 
@@ -206,7 +206,7 @@ namespace beam
 		test_SysRet(INVALID_HANDLE_VALUE == m_hFile);
 #else // WIN32
 		m_hFile = open(sz, O_RDWR | O_CREAT);
-		test_SysRet(-1 == m_hFile);
+		test_SysRet(-1 == m_hFile, "open");
 #endif // WIN32
 
 		OpenMapping();
