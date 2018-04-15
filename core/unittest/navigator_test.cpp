@@ -1,6 +1,9 @@
 #include <iostream>
 #include "../navigator.h"
 
+#ifndef WIN32
+#	include <unistd.h>
+#endif // WIN32
 
 int g_TestsFailed = 0;
 
