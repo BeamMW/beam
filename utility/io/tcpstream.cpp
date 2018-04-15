@@ -97,6 +97,18 @@ bool TcpStream::write(const SharedBuffer& buf) {
     return send_write_request();
 }
 
+bool TcpStream::write(const std::vector<SharedBuffer>& fragments) {
+    size_t n = fragments.size();
+    if (n == 0) return true;
+    if (n == 1) return write(fragments[0]);
+    if (!is_connected()) return false;
+    for (const auto& f : fragments) {
+        _writeBuffer.append(f);
+    }
+    _state.unsent = _writeBuffer.size();
+    return send_write_request();
+}
+
 bool TcpStream::send_write_request() {
     static uv_write_cb write_cb = [](uv_write_t* req, int status) {
         if (status == UV_ECANCELED) {

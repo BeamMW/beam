@@ -45,6 +45,8 @@ public:
 
     bool write(const SharedBuffer& buf);
 
+    bool write(const std::vector<SharedBuffer>& fragments);
+
     bool write(const BufferChain& buf);
 
     bool is_connected() const;
