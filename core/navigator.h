@@ -136,6 +136,7 @@ namespace beam
 		const FixedHdr& get_Hdr() const { return get_Hdr_(); }
 		const TagMarker& get_Tag(Offset x) const { return get_Tag_(x); }
 
+		Offset get_ChildTag() const;
 		Offset get_ChildTag(Offset) const;
 		Offset get_NextTag(Offset) const;
 
@@ -146,6 +147,8 @@ namespace beam
 		void CreateTag(const TagInfo&, bool bMoveTo = true);
 
 		void DeleteTag(Offset); // can't be root. If has children - changes are applied to children
+
+		void assert_valid() const; // diagnostic, for tests only
 
 	protected:
 
@@ -164,11 +167,14 @@ namespace beam
 		template <class T>
 		void ListOperateDir(T& node, Offset n, int iDir, bool bAdd, Offset* pE, int nE);
 
+		void assert_valid(const TagMarker&, bool& bCursorHit) const;
+
 		virtual void AdjustDefs(MappedFile::Defs&) {}
 		virtual void OnOpen() {}
 		virtual void OnClose() {}
 		virtual void Delete(Patch&) {}
 		virtual void Apply(const Patch&, bool bFwd) = 0;
-		virtual Patch* Clone(Patch&) = 0;
+		virtual Patch* Clone(Offset) = 0;
+		virtual void assert_valid(bool b) const { assert(b); }
 	};
 }

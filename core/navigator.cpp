@@ -342,9 +342,14 @@ namespace beam
 		return get_Tag(x).m_Child0;
 	}
 
+	ChainNavigator::Offset ChainNavigator::get_ChildTag() const
+	{
+		return get_ChildTag(get_Hdr().m_TagCursor);
+	}
+
 	ChainNavigator::Offset ChainNavigator::get_NextTag(Offset x) const
 	{
-		return get_Tag(x).m_Links.p[1];
+		return get_Tag(x).m_Links.p[0];
 	}
 
 	void ChainNavigator::ApplyTagChanges(Offset nOffs, bool bFwd)
@@ -404,10 +409,10 @@ namespace beam
 	{
 		Offset* pTrg;
 		if (node.m_Links.p[iDir])
-			pTrg = m_Mapping.get_At<Patch>(node.m_Links.p[iDir]).m_Links.p + !iDir;
+			pTrg = m_Mapping.get_At<T>(node.m_Links.p[iDir]).m_Links.p + !iDir;
 		else
 		{
-			if (iDir > nE)
+			if (int(!iDir) >= nE)
 				return;
 			pTrg = pE + !iDir;
 		}
@@ -476,21 +481,27 @@ namespace beam
 		TagMarker& t = get_Tag_(x);
 		TagMarker& tParent = get_Tag_(t.m_Parent);
 
+		ListOperate(t, false, &tParent.m_Child0, 1);
+
 		while (t.m_Child0)
 		{
 			TagMarker& tC = get_Tag_(t.m_Child0);
+			assert(tC.m_Parent == x);
 			ListOperate(tC, false, &t.m_Child0, 1);
 
 			assert(!tC.m_Links.p[1]);
 			tC.m_Links.p[0] = tParent.m_Child0;
 			ListOperate(tC, true, &tParent.m_Child0, 1);
+			tC.m_Parent = t.m_Parent;
 		}
+
+		m_Mapping.Free(Type::Tag, &t);
 	}
 
 	void ChainNavigator::MovePatchesToChildren(Offset xTag)
 	{
 		TagMarker& tag = get_Tag_(xTag);
-		Links patches = tag.m_Links;
+		Links patches = tag.m_Patches;
 
 		if (!patches.p[0])
 			return;
@@ -523,10 +534,11 @@ namespace beam
 			// clone (multiple children)
 			for (Offset xP = patches.p[1]; xP; )
 			{
+				Offset xP0 = xP;
 				Patch* pPatch = &get_Patch_(xP);
 				xP = pPatch->m_Links.p[1];
 
-				pPatch = Clone(*pPatch);
+				pPatch = Clone(xP0);
 				Offset xNew = m_Mapping.get_Offset(pPatch);
 
 				pPatch->m_Links.p[0] = xFirst;
@@ -547,5 +559,73 @@ namespace beam
 		}
 	}
 
+	void ChainNavigator::TagInfo::ModifyBy(const TagInfo& ti, bool bFwd)
+	{
+		if (bFwd)
+		{
+			m_Difficulty += ti.m_Difficulty;
+			m_Height += ti.m_Height;
+		} else
+		{
+			m_Difficulty += ti.m_Difficulty;
+			m_Height += ti.m_Height;
+		}
+
+		for (int i = 0; i < _countof(m_Tag.m_pData); i++)
+			m_Tag.m_pData[i] ^= ti.m_Tag.m_pData[i];
+	}
+
+	void ChainNavigator::assert_valid() const
+	{
+		const FixedHdr& hdr = get_Hdr();
+
+		const uint8_t* p = (uint8_t*) &hdr.m_Root.m_Diff;
+		for (int i = 0; i < sizeof(hdr.m_Root.m_Diff); i++)
+			assert_valid(!p[i]); // 1st tag is zero
+
+		assert_valid(!hdr.m_Root.m_Parent);
+
+		// no branching as well
+		assert_valid(!hdr.m_Root.m_Links.p[0]);
+		assert_valid(!hdr.m_Root.m_Links.p[1]);
+
+		bool bCursorHit = false;
+		assert_valid(hdr.m_Root, bCursorHit);
+		assert_valid(bCursorHit);
+	}
+
+	void ChainNavigator::assert_valid(const TagMarker& t, bool& bCursorHit) const
+	{
+		if (m_Mapping.get_Offset(&t) == get_Hdr().m_TagCursor)
+			bCursorHit = true;
+
+		// patch list
+		Offset xPrev = 0;
+		for (Offset x = t.m_Patches.p[0]; x; )
+		{
+			const Patch& patch = get_Patch_(x);
+			assert_valid(patch.m_Links.p[1] == xPrev);
+
+			xPrev = x;
+			x = patch.m_Links.p[0];
+		}
+		assert_valid(t.m_Patches.p[1] == xPrev);
+
+		// children
+		xPrev = 0;
+
+		for (Offset x = t.m_Child0; x; )
+		{
+			const TagMarker& tag = get_Tag(x);
+			assert_valid(tag.m_Parent == m_Mapping.get_Offset(&t));
+
+			assert_valid(tag.m_Links.p[1] == xPrev);
+
+			assert_valid(tag, bCursorHit);
+
+			xPrev = x;
+			x = tag.m_Links.p[0];
+		}
+	}
 
 } // namespace beam
