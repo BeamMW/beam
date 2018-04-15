@@ -66,29 +66,102 @@ namespace beam
 			return *(T*) (m_pMapping  + n);
 		}
 
+		Offset get_Offset(const void* p) const;
+
 		void* Allocate(uint32_t iBank, uint32_t nSize);
 		void Free(uint32_t iBank, void*);
 	};
-/*
+
 	class ChainNavigator
 	{
+	protected:
+
+		MappedFile m_Mapping;
+
+		struct Type {
+			enum Enum {
+				Tag,
+				count
+			};
+		};
+
 	public:
 
 		typedef ECC::Hash::Value TagType;
+		typedef MappedFile::Offset Offset;
 
-		struct Patch {
+#pragma pack (push, 8)
+
+		struct Links {
+			Offset p[2];
 		};
 
-		ChainNavigator(const char* szPath);
+		struct TagInfo
+		{
+			Height		m_Height;
+			Difficulty	m_Difficulty;
+			TagType		m_Tag;
 
-		TagType	m_Tag;
-		Height	m_Height;
+			void ModifyBy(const TagInfo&, bool bFwd);
+		};
 
-		void Commit(const Patch&);
-		void Tag(const TagType&);
+		struct TagMarker
+		{
+			TagInfo m_Diff;
 
-	private:
-		virtual uint32_t get_Size(const Patch&) = 0;
-		virtual void Apply(const Patch&, bool bReverse) = 0;
-	};*/
+			Links m_Links;		// next/prev
+			Links m_Patches;	// head/tail
+			Offset m_Child0;
+			Offset m_Parent;
+		};
+
+		struct Patch {
+			Links m_Links;		// next/prev
+		};
+
+		struct FixedHdr
+		{
+			TagMarker	m_Root;
+			Offset		m_TagCursor; // current tag
+			TagInfo		m_TagInfo;
+		};
+
+#pragma pack (pop)
+
+		void Open(const char* sz);
+		void Close();
+
+
+		// Interface
+		const FixedHdr& get_Hdr() const { return get_Hdr_(); }
+		const TagMarker& get_Tag(Offset x) const { return get_Tag_(x); }
+
+		Offset get_ChildTag(Offset) const;
+		Offset get_NextTag(Offset) const;
+
+		void MoveFwd(Offset);
+		bool MoveBwd();
+
+		void Commit(Patch&, bool bApply = true);
+		void CreateTag(const TagInfo&, bool bMoveTo = true);
+
+		void DeleteTag(Offset); // can't be root. If has children - changes are applied to children
+
+	protected:
+
+		TagMarker& get_Tag_(Offset) const;
+		FixedHdr& get_Hdr_() const { return *(FixedHdr*) m_Mapping.get_FixedHdr(); }
+
+		void ApplyTagChanges(Offset, bool bFwd);
+
+		template <bool bAdd>
+		void PatchListOperate(TagMarker&, Patch&);
+
+		virtual void AdjustDefs(MappedFile::Defs&) {}
+		virtual void OnOpen() {}
+		virtual void OnClose() {}
+		virtual void OnDelete(Patch&) {}
+		virtual void Apply(const Patch&, bool bFwd) = 0;
+		virtual Patch* Clone(Patch&) = 0;
+	};
 }

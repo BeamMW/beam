@@ -235,6 +235,13 @@ namespace beam
 		return m_pMapping + m_nBank0 + m_nBanks * sizeof(Bank);
 	}
 
+	MappedFile::Offset MappedFile::get_Offset(const void* p) const
+	{
+		Offset x = ((const uint8_t*) p) - m_pMapping;
+		assert(x < m_nMapping);
+		return x;
+	}
+
 	MappedFile::Bank& MappedFile::get_Bank(uint32_t iBank)
 	{
 		assert(m_pMapping && (iBank < m_nBanks));
@@ -289,6 +296,159 @@ namespace beam
 
 		b.m_Tail = ((uint8_t*) p) - m_pMapping;
 		assert(b.m_Tail < m_nMapping);
+	}
+
+	////////////////////////////////////////
+	// ChainNavigator
+	void ChainNavigator::Open(const char* sz)
+	{
+		MappedFile::Defs d;
+		d.m_pSig = NULL;
+		d.m_nSizeSig = 0;
+		d.m_nFixedHdr = sizeof(FixedHdr);
+		d.m_nBanks = Type::count;
+
+		AdjustDefs(d);
+
+		m_Mapping.Open(sz, d);
+
+		FixedHdr& hdr = get_Hdr_();
+		if (!hdr.m_TagCursor)
+			hdr.m_TagCursor = m_Mapping.get_Offset(&hdr.m_Root);
+
+		OnOpen();
+	}
+
+	void ChainNavigator::Close()
+	{
+		OnClose();
+		m_Mapping.Close();
+	}
+
+	ChainNavigator::TagMarker& ChainNavigator::get_Tag_(Offset x) const
+	{
+		assert(x);
+		return m_Mapping.get_At<TagMarker>(x);
+	}
+
+	ChainNavigator::Offset ChainNavigator::get_ChildTag(Offset x) const
+	{
+		return get_Tag(x).m_Child0;
+	}
+
+	ChainNavigator::Offset ChainNavigator::get_NextTag(Offset x) const
+	{
+		return get_Tag(x).m_Links.p[1];
+	}
+
+	void ChainNavigator::ApplyTagChanges(Offset nOffs, bool bFwd)
+	{
+		FixedHdr& hdr = get_Hdr_();
+		const TagMarker& tag = get_Tag(nOffs);
+
+		if (bFwd)
+		{
+			assert(hdr.m_TagCursor == tag.m_Parent);
+			hdr.m_TagCursor = nOffs;
+		} else
+		{
+			assert(hdr.m_TagCursor == nOffs);
+			hdr.m_TagCursor = tag.m_Parent;
+			assert(hdr.m_TagCursor);
+		}
+
+		hdr.m_TagInfo.ModifyBy(tag.m_Diff, bFwd);
+
+		int iDir = !bFwd;
+		for (nOffs = tag.m_Patches.p[iDir]; nOffs; )
+		{
+			const Patch& patch = m_Mapping.get_At<Patch>(nOffs);
+			nOffs = patch.m_Links.p[iDir];
+			Apply(patch, bFwd);
+		}
+	}
+
+	void ChainNavigator::MoveFwd(Offset x)
+	{
+		ApplyTagChanges(x, true);
+	}
+
+	bool ChainNavigator::MoveBwd()
+	{
+		FixedHdr& hdr = get_Hdr_();
+		assert(hdr.m_TagCursor);
+		if (hdr.m_TagCursor == m_Mapping.get_Offset(&hdr.m_Root))
+			return false;
+
+		ApplyTagChanges(hdr.m_TagCursor, false);
+		return true;
+	}
+
+	template <bool bAdd>
+	void ChainNavigator::PatchListOperate(TagMarker& tag, Patch& patch)
+	{
+		Offset x = m_Mapping.get_Offset(&patch);
+
+		for (int i = 0; i < _countof(patch.m_Links.p); i++)
+		{
+			Offset x1 = patch.m_Links.p[i];
+			Offset x2 = patch.m_Links.p[!i];
+
+			Offset& trg = (x1 ? m_Mapping.get_At<Patch>(x1).m_Links : tag.m_Patches).p[!i];
+
+			if (bAdd)
+			{
+				assert(trg == x2);
+				trg = x;
+			} else
+			{
+				assert(trg == x);
+				trg = x2;
+			}
+		}
+	}
+
+	void ChainNavigator::Commit(Patch& patch, bool bApply /* = true */)
+	{
+		PatchListOperate<true>(get_Tag_(get_Hdr().m_TagCursor), patch);
+		if (bApply)
+			Apply(patch, true);
+	}
+
+	void ChainNavigator::CreateTag(const TagInfo& ti, bool bMoveTo /* = true */)
+	{
+		TagMarker* pVal = (TagMarker*) m_Mapping.Allocate(Type::Tag, sizeof(TagMarker));
+		Offset xVal = m_Mapping.get_Offset(pVal);
+
+		memset(pVal, 0, sizeof(TagMarker));
+
+		FixedHdr& hdr = get_Hdr_();
+		TagMarker& tag = get_Tag_(hdr.m_TagCursor);
+
+		if (tag.m_Child0)
+		{
+			TagMarker& tag1 = get_Tag_(tag.m_Child0);
+			assert(!tag.m_Links.p[1]);
+
+			tag.m_Links.p[1] = xVal;
+			pVal->m_Links.p[0] = tag.m_Child0;
+		}
+
+		tag.m_Child0 = xVal;
+		pVal->m_Parent = hdr.m_TagCursor;
+
+		pVal->m_Diff = ti;
+		pVal->m_Diff.ModifyBy(hdr.m_TagInfo, false);
+
+		if (bMoveTo)
+			MoveFwd(xVal);
+	}
+
+	void ChainNavigator::DeleteTag(Offset x)
+	{
+		assert(x);
+
+
 	}
 
 
