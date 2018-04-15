@@ -134,16 +134,17 @@ namespace beam
 #endif // WIN32
 	}
 
-	bool MappedFile::TestSig(const uint8_t* pSig, unsigned int nSizeSig)
+	uint32_t MappedFile::Defs::get_Bank0() const
 	{
-		if ((nSizeSig > m_nMapping) || memcmp(m_pMapping, pSig, nSizeSig))
-			return false;
+		return AlignUp(m_nSizeSig, sizeof(Offset));
+	}
 
-		m_nBank0 = AlignUp(nSizeSig, sizeof(Offset));
-		if (m_nBank0 + m_nBanks * sizeof(Bank) > m_nMapping)
-			return false;
-
-		return true;
+	uint32_t MappedFile::Defs::get_SizeMin() const
+	{
+		return
+			get_Bank0() +
+			m_nBanks * sizeof(Bank) + 
+			AlignUp(m_nFixedHdr, sizeof(Offset));
 	}
 
 //	void MappedFile::Write(const void* p, uint32_t n)
@@ -185,7 +186,7 @@ namespace beam
 #endif // WIN32
 	}
 
-	void MappedFile::Open(const char* sz, const uint8_t* pSig, uint32_t nSizeSig, uint32_t nBanks)
+	void MappedFile::Open(const char* sz, const Defs& d)
 	{
 		Close();
 
@@ -208,23 +209,30 @@ namespace beam
 		test_SysRet(-1 == m_hFile);
 #endif // WIN32
 
-		m_nBanks = nBanks;
-
 		OpenMapping();
 
-		if (!TestSig(pSig, nSizeSig))
+		uint32_t nSizeMin = d.get_SizeMin();
+		if ((m_nMapping < nSizeMin) || memcmp(d.m_pSig, m_pMapping, d.m_nSizeSig))
 		{
+			bool bShouldZeroInit = (m_nMapping > d.m_nSizeSig);
 			CloseMapping();
 
-			if (m_nMapping > nSizeSig)
-				Resize(nSizeSig); // will zero-init all this data
+			if (bShouldZeroInit)
+				Resize(d.m_nSizeSig); // will zero-init all this data
 
-			m_nBank0 = AlignUp(nSizeSig, sizeof(Offset));
-			Resize(m_nBank0 + sizeof(Bank) * m_nBanks);
+			Resize(nSizeMin);
 
 			OpenMapping();
-			memcpy(m_pMapping, pSig, nSizeSig);
+			memcpy(m_pMapping, d.m_pSig, d.m_nSizeSig);
 		}
+
+		m_nBank0 = d.get_Bank0();
+		m_nBanks = d.m_nBanks;
+	}
+
+	void* MappedFile::get_FixedHdr() const
+	{
+		return m_pMapping + m_nBank0 + m_nBanks * sizeof(Bank);
 	}
 
 	MappedFile::Bank& MappedFile::get_Bank(uint32_t iBank)
@@ -260,16 +268,16 @@ namespace beam
 
 				assert(! *p);
 				*p = n0;
-				p = (Offset*) (m_pMapping + n0);
+				p = &get_At<Offset>(n0);
 
 				n0 = n0_;
 			}
 		}
 
-		Offset* pRet = (Offset*) (m_pMapping + pBank->m_Tail);
-		pBank->m_Tail = *pRet;
+		Offset& ret = get_At<Offset>(pBank->m_Tail);
+		pBank->m_Tail = ret;
 
-		return pRet;
+		return &ret;
 	}
 
 	void MappedFile::Free(uint32_t iBank, void* p)
