@@ -40,9 +40,10 @@ namespace beam {
 struct LoggerConfig {
     int fileLevel=LOG_SINK_DISABLED;
     int consoleLevel=LOG_LEVEL_INFO;
-    int checkpointsLevel=LOG_LEVEL_ERROR;
+    int flushLevel=LOG_LEVEL_WARNING;
+    std::string filePrefix;
 
-    // ~etc flushLevel, baseFileName, rotation
+    // ~etc rotation
 };
 
 // Logger interface
