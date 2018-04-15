@@ -129,7 +129,12 @@ void DeleteFile(const char* szPath)
 
 	void TestNavigator()
 	{
+#ifdef WIN32
 		const char* sz = "mytest.bin";
+#else // WIN32
+		const char* sz = "/tmp/mytest.bin";
+#endif // WIN32
+
 		DeleteFile(sz);
 
 		BlockChainClient bcc;
