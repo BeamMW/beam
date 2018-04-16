@@ -205,7 +205,7 @@ namespace beam
 		m_hFile = CreateFileA(sz, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, 0, NULL);
 		test_SysRet(INVALID_HANDLE_VALUE == m_hFile);
 #else // WIN32
-		m_hFile = open(sz, O_RDWR | O_CREAT);
+		m_hFile = open(sz, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP);
 		test_SysRet(-1 == m_hFile, "open");
 #endif // WIN32
 
