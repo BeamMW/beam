@@ -3,7 +3,6 @@
 #include "utility/io/buffer.h"
 #include "utility/serialize_fwd.h"
 #include "utility/serialize_streams.h"
-#include "utility/yas/binary_iarchive.hpp"
 #include "utility/yas/binary_oarchive.hpp"
 #include "utility/yas/std_types.hpp"
 #include <functional>
@@ -125,7 +124,6 @@ private:
     size_t _currentMsgSize=0;
     void* _currentHeader=0;
     protocol::MsgType _type=protocol::MsgType::null;
-
 };
 
 constexpr int SERIALIZE_OPTIONS = yas::binary | yas::no_header | yas::elittle | yas::compacted;
@@ -141,39 +139,6 @@ public:
 
 private:
     yas::binary_oarchive<MsgSerializeOstream, SERIALIZE_OPTIONS> _oa;
-};
-
-class MsgDeserializer {
-public:
-    MsgDeserializer() : _ia(_is) {}
-
-    void reset(const void* buf, size_t size) {
-        _is.reset(buf, size);
-    }
-
-    size_t bytes_left() {
-        return _is.bytes_left();
-    }
-
-    template <typename T> bool deserialize(T& object) {
-        try {
-            _ia & object;
-        } catch (...) {
-            return false;
-        }
-        return true;
-    }
-
-    template <typename T> MsgDeserializer& operator&(T& object) {
-        _ia & object;
-        return *this;
-    }
-
-private:
-    using Istream = detail::SerializeIstream;
-
-    Istream _is;
-    yas::binary_iarchive<Istream, SERIALIZE_OPTIONS> _ia;
 };
 
 } //namespace

@@ -1,4 +1,5 @@
 #include "p2p/msg_serializer.h"
+#include "p2p/msg_deserializer.h"
 #include "utility/helpers.h"
 #include <iostream>
 #include <assert.h>
@@ -37,7 +38,7 @@ void fragment_writer_test() {
     }
 }
 
-void msg_serializer_test() {
+void msg_serializer_test_1() {
     MsgSerializeOstream os(50);
     MsgSerializer ser(os);
 
@@ -58,7 +59,8 @@ void msg_serializer_test() {
     assert(!fragments.empty() && fragments[0].size >= protocol::MsgHeader::SIZE);
 
     protocol::MsgHeader header;
-    bool ok = header.read(fragments[0].data);
+    header.read(fragments[0].data);
+    bool ok = header.verify();
     assert(ok && "read header");
     assert(header.type == protocol::MsgType::ping);
 
@@ -83,9 +85,80 @@ void msg_serializer_test() {
     assert(i == 3);
     assert(x == 0xFFFFFFFF);
     assert(v == ooo);
+
+    // now it must reset correctly
+    i=666; x=333;
+    des.reset(buffer, bytes);
+    des & i & x & v;
+    assert(i == 3);
+    assert(x == 0xFFFFFFFF);
+    assert(v == ooo);
+
+    // now it must throw
+    try {
+        des.reset(buffer, bytes-1);
+        des & i & x & v;
+        assert(false && "must have been thrown here");
+    } catch (...) {}
+}
+
+struct SomeObject {
+    int i=0;
+    size_t x=0;
+    std::vector<int> ooo;
+
+    bool operator==(const SomeObject& o) const { return i==o.i && x==o.x && ooo==o.ooo; }
+
+    SERIALIZE(i,x,ooo);
+};
+
+void msg_serializer_test_2() {
+    MsgSerializeOstream os(50);
+    MsgSerializer ser(os);
+
+    os.new_message(protocol::MsgType::ping);
+
+    SomeObject msg;
+    msg.i = 3;
+    msg.x = 0xFFFFFFFF;
+    for (int i=0; i<123; ++i) msg.ooo.push_back(i);
+
+    ser & msg;
+
+    std::vector<io::SharedBuffer> fragments;
+    os.finalize(fragments);
+
+    assert(!fragments.empty() && fragments[0].size >= protocol::MsgHeader::SIZE);
+
+    SomeObject deserialized;
+    MsgDeserializer des;
+    int errorCode=0;
+
+    MsgReader reader(
+        12,
+        [&des, &deserialized, &errorCode]
+        (MsgReader::Error ec, protocol::MsgType type, const void* data, size_t size) -> bool
+        {
+            errorCode = ec;
+            if (ec == MsgReader::no_error) {
+                assert(type == protocol::MsgType::ping);
+                des.reset(data, size);
+                des.deserialize(deserialized);
+                return true;
+            }
+            return false;
+        }
+    );
+
+    for (const auto& f: fragments) {
+        reader.new_data_from_stream(f.data, f.size);
+    }
+
+    assert(msg == deserialized);
 }
 
 int main() {
     fragment_writer_test();
-    msg_serializer_test();
+    msg_serializer_test_1();
+    msg_serializer_test_2();
 }

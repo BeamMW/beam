@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
 #include <string.h>
+#include <assert.h>
+
 
 namespace beam { namespace protocol {
 
@@ -33,7 +35,9 @@ struct MsgHeader {
     static constexpr size_t SIZE = 8;
 
     /// Protocol ID, contains magic bits & version (==1)
-    static constexpr uint8_t protocol[3] = { 0xBE, 0xA0, 0x01 };
+    static constexpr uint8_t PROTOCOL_VERSION_0 = 0xBE;
+    static constexpr uint8_t PROTOCOL_VERSION_1 = 0xA0;
+    static constexpr uint8_t PROTOCOL_VERSION_2 = 0x01;
 
     /// Minimal serialized message size by type
     static constexpr uint32_t minSizes[] = {
@@ -79,45 +83,61 @@ struct MsgHeader {
         1 << 24  // txHashSet
     };
 
+    /// protocol version, must be equal PROTOCOL_VERSION on receiving a new message
+    uint8_t V0, V1, V2;
+
     /// Message type, 1 byte
     MsgType type;
 
     /// Size of underlying serialized message
     uint32_t size;
 
-    MsgHeader() : type(MsgType::null), size(0) {}
+    MsgHeader(MsgType _type = MsgType::null, size_t _size=0) :
+        V0(PROTOCOL_VERSION_0),
+        V1(PROTOCOL_VERSION_1),
+        V2(PROTOCOL_VERSION_2),
+        type(_type),
+        size(_size)
+    {
+        static_assert(sizeof(MsgHeader) == MsgHeader::SIZE);
+        // TODO check little endian at compile time
+    }
 
-    MsgHeader(MsgType _type, uint32_t _size) : type(_type), size(_size) {}
+    MsgHeader(const void* data) {
+        read(data);
+    }
+
+    void reset(MsgType _type = MsgType::null, size_t _size=0) {
+        type = _type;
+        size = _size;
+    }
 
     /// Reads from stream, verifies header
     /// NOTE: caller makes sure that src points to at least SIZE bytes
-    bool read(const void* src) {
-        const uint8_t* p = (const uint8_t*)src;
-        if (p[0] != protocol[0] ||
-            p[1] != protocol[1] ||
-            p[2] != protocol[2] ||
-            p[3] >= uint8_t(MsgType::invalid_type)
-        ) {
-            return false;
-        }
-        type = MsgType(p[3]);
-        memcpy(&size, p+4, 4);
-        return true;
+    void read(const void* src) {
+        memcpy(this, src, SIZE);
+    }
+
+    bool verify_protocol_version() const {
+        return V0 == PROTOCOL_VERSION_0 && V1 == PROTOCOL_VERSION_1 && V2 == PROTOCOL_VERSION_2;
+    }
+
+    bool verify_type() const {
+        return (uint8_t)type < uint8_t(MsgType::invalid_type);
     }
 
     /// Verifies min/max size of incoming message
-    bool verify_size() {
+    bool verify_size() const {
         size_t i = size_t(type);
         return (i < uint8_t(MsgType::invalid_type) && size >= minSizes[i] && size <= maxSizes[i]);
     }
 
+    bool verify() const {
+        return verify_protocol_version() && verify_type() && verify_size();
+    }
+
     void write(void* dst) {
-        uint8_t* p = (uint8_t*)dst;
-        *p++ = protocol[0];
-        *p++ = protocol[1];
-        *p++ = protocol[2];
-        *p++ = uint8_t(type);
-        memcpy(p, &size, 4);
+        memcpy(dst, this, SIZE);
     }
 };
 
