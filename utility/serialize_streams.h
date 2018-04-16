@@ -4,61 +4,77 @@
 
 namespace beam { namespace detail {
 
-    struct SerializeOstream {
+/// Sink for static buffer serializer
+template <size_t BUFFER_SIZE> struct SerializeOstream {
+    enum { bufsize = 1024*100 };
 
-        // TODO replace by growing streams and shared chunk allocator
+    SerializeOstream()
+        :cur(buf)
+    {
+        memset(buf, 0, bufsize);
+    }
 
-        enum { bufsize = 1024*100 };
+    /// Called by serializer
+    size_t write(const void *ptr, size_t size) {
+        size_t avail = buf + BUFFER_SIZE - cur;
+        size_t n = avail < size ? avail : size;
+        if (n > 0) {
+            memcpy(cur, ptr, n);
+            cur += n;
+        }
+        return n;
+    }
 
-        SerializeOstream()
-            :cur(buf)
-        {
-            memset(buf, 0, bufsize);
+    /// Resets buffer
+    void clear() {
+        cur = buf;
+    }
+
+    /// Static buffer
+    char buf[BUFFER_SIZE];
+
+    /// Cursor
+    char *cur;
+};
+
+/// Source for deserializer. References to contiguous byte buffer
+struct SerializeIstream {
+    /// Ctor. Initial state
+    SerializeIstream() : cur(0), end(0)
+    {}
+
+    /// Resets to a new buffer
+    void reset(const void *ptr, size_t size) {
+        cur = (const char*)ptr;
+        end = cur + size;
+    }
+
+    /// Reads from buffer
+    size_t read(void *ptr, const size_t size) {
+        if (cur + size > end) {
+            // this will cause deserializer error, not enough data
+            return 0;
         }
 
-        size_t write(const void *ptr, const size_t size) {
-            memcpy(cur, ptr, size);
-            cur += size;
-            *cur = 0;
-            return size;
-        }
+        memcpy(ptr, cur, size);
+        cur += size;
+        return size;
+    }
 
-        void clear() {
-            cur = buf;
-        }
+    size_t bytes_left() {
+        return end - cur;
+    }
 
-        char buf[bufsize];
-        char *cur;
-    };
+// Fns needed by Yas deserializer
+    char peekch() const { return *cur; }
+    char getch() { return *cur++; }
+    void ungetch(char) { --cur; }
 
-    struct SerializeIstream {
-        SerializeIstream() : cur(0), end(0)
-        {}
+    /// Read cursor
+    const char *cur;
 
-        void reset(const void *ptr, size_t size) {
-            cur = (const char*)ptr;
-            end = cur + size;
-        }
-
-        size_t read(void *ptr, const size_t size) {
-            if ( cur+size > end )
-                return 0;
-
-            memcpy(ptr, cur, size);
-            cur += size;
-            return size;
-        }
-
-        size_t bytes_left() {
-            return end - cur;
-        }
-
-        char peekch() const { return *cur; }
-        char getch() { return *cur++; }
-        void ungetch(char) { --cur; }
-
-        const char *cur;
-        const char *end;
-    };
+    /// Buffer end
+    const char *end;
+};
 
 }} //namespaces

@@ -7,15 +7,16 @@
 
 namespace beam {
 
+/// Yas lib options
 constexpr int SERIALIZE_OPTIONS = yas::binary | yas::no_header | yas::elittle | yas::compacted;
 
-// TODO turn to shared buffers
+/// Raw data reference
 using SerializeBuffer = std::pair<const char*, size_t>;
 
-// TODO deprecating...
-class Serializer {
+/// Serializer to contiguous buffer
+template <size_t BUFFER_SIZE> class StaticBufferSerializer {
 public:
-    Serializer() : _oa(_os) {}
+    StaticBufferSerializer() : _oa(_os) {}
 
     void reset() {
         _os.clear();
@@ -25,7 +26,7 @@ public:
         return { _os.buf, _os.cur - _os.buf };
     }
 
-    template <typename T> Serializer& operator&(const T& object) {
+    template <typename T> StaticBufferSerializer& operator&(const T& object) {
         _oa & object;
         return *this;
     }
@@ -37,24 +38,32 @@ public:
     }
 
 private:
-    using Ostream = detail::SerializeOstream;
+    using Ostream = detail::SerializeOstream<BUFFER_SIZE>;
 
     Ostream _os;
     yas::binary_oarchive<Ostream, SERIALIZE_OPTIONS> _oa;
 };
 
+/// Default serializer has 100K buffer inside
+using Serializer = StaticBufferSerializer<100*1024>;
+
+/// Deserializer from static buffer
 class Deserializer {
 public:
+    /// Ctor
     Deserializer() : _ia(_is) {}
 
+    /// Resets to new input buffer
     void reset(const void* buf, size_t size) {
         _is.reset(buf, size);
     }
 
+    /// Returns bytes unconsumed from the buffer
     size_t bytes_left() {
         return _is.bytes_left();
     }
 
+    /// Deserializes arbitrary object and suppresses yas exception
     template <typename T> bool deserialize(T& object) {
         try {
             _ia & object;
@@ -64,12 +73,14 @@ public:
         return true;
     }
 
+    /// Deserializes whatever from the buffer
     template <typename T> Deserializer& operator&(T& object) {
         _ia & object;
         return *this;
     }
 
 private:
+    /// Contiguous buffer istream
     using Istream = detail::SerializeIstream;
 
     Istream _is;

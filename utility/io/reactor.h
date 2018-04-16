@@ -3,6 +3,7 @@
 #include "mempool.h"
 #include "config.h"
 #include "address.h"
+//#include "utility/expected.h"
 #include <memory>
 #include <functional>
 #include <unordered_map>
@@ -22,6 +23,8 @@ public:
     /// NOTE: throws on errors
     static Ptr create(const Config& config);
 
+    //TODO static expected<Ptr, int> create(const Config& config);
+
     /// Performs shutdown and cleanup.
     ~Reactor();
 
@@ -37,8 +40,9 @@ public:
 
     const Config& config() const { return _config; }
 
-    using ConnectCallback = std::function<void(uint64_t tag, std::shared_ptr<TcpStream>&& newStream, int status)>;
+    using ConnectCallback = std::function<void(uint64_t tag, std::unique_ptr<TcpStream>&& newStream, int status)>;
 
+    // TODO expected
     bool tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback);
 
     void cancel_tcp_connect(uint64_t tag);

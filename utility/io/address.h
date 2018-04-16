@@ -10,6 +10,10 @@ namespace beam { namespace io {
 struct Address {
     static const Address LOCALHOST;
 
+    static Address localhost() {
+        return Address(LOCALHOST);
+    }
+
     uint64_t packed=0;
 
     bool operator==(const Address& a) const {

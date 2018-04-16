@@ -8,7 +8,8 @@ namespace beam { namespace io {
 
 class TcpStream : protected Reactor::Object {
 public:
-    using Ptr = std::shared_ptr<TcpStream>;
+    //using Ptr = std::shared_ptr<TcpStream>;
+    using Ptr = std::unique_ptr<TcpStream>;
 
     // TODO hide library-specifics
     // errors<=>description platform-independent
@@ -35,19 +36,19 @@ public:
 
     bool disable_read();
 
-    // TODO: iovecs[], shared buffers to immutable memory
-    // deprecated
-    size_t try_write(const void* data, size_t size);
-
-    bool write(const void* data, size_t size) {
+    /// Writes raw data, returns status code
+    int write(const void* data, size_t size) {
         return write(SharedBuffer(data, size));
     }
 
-    bool write(const SharedBuffer& buf);
+    /// Writes raw data, returns status code
+    int write(const SharedBuffer& buf);
 
-    bool write(const std::vector<SharedBuffer>& fragments);
+    /// Writes raw data, returns status code
+    int write(const std::vector<SharedBuffer>& fragments);
 
-    bool write(const BufferChain& buf);
+    /// Writes raw data, returns status code
+    int write(const BufferChain& buf);
 
     bool is_connected() const;
 
@@ -67,10 +68,11 @@ private:
 
     TcpStream() = default;
 
-    size_t try_write(const IOVec* buf);
-
     // sends async write request
-    bool send_write_request();
+    int send_write_request();
+
+    // callback from write request
+    void on_data_written(int status);
 
     // returns status code
     int accepted(uv_handle_t* acceptor);

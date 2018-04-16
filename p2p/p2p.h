@@ -1,78 +1,15 @@
-#include "p2p/protocol.h"
-#include "utility/io/reactor.h"
-#include "utility/io/tcpserver.h"
-#include "utility/io/exception.h"
+#pragma once
+#include "connection.h"
 #include "utility/message_queue.h"
-#include <iostream>
-#include <list>
-#include <future>
-#include <assert.h>
-
-using namespace beam::io;
-using namespace std;
 
 namespace beam {
 
-// TODO proof of concepts here
-
-struct PingStub {
-    uint64_t data;
-};
-
-struct PongStub {
-    uint64_t data;
-};
-
-struct TransactionStub {
-    uint64_t data;
-    std::list<uint64_t> moreData;
-};
-
-class NetworkToNode {
+class P2P {
 public:
-    virtual ~NetworkToNode() {}
-    virtual void on_transaction(const TransactionStub& tx) = 0;
-};
+    /// Will be more complex scheme soon...
+    P2P(io::Address listenAddress, const std::vector<io::Address>& _connectTo);
 
-class NodeToNetwork {
-public:
-    virtual ~NodeToNetwork() {}
-    virtual void send_transaction(const TransactionStub& tx) = 0;
-};
-
-struct Message {
-    using Ptr = std::unique_ptr<Message>;
-
-    protocol::MsgType type;
-
-    virtual ~Message() {}
-
-    virtual void transfer(NetworkToNode& bridge) = 0;
-
-    explicit Message(protocol::MsgType t) : type(t) {}
-};
-
-struct PingMessage : Message, PingStub {
-    void transfer(NetworkToNode&) {}
-};
-
-struct PongMessage : Message, PongStub {
-    void transfer(NetworkToNode&) {}
-};
-
-struct TxMessage : Message, TransactionStub {
-    void transfer(NetworkToNode& bridge) {
-        bridge.on_transaction(*this);
-    }
-};
-
-//~etc
-
-class Peers : public NodeToNetwork {
-public:
-    Peers(Address listenAddress, const std::vector<Address>& _peers);
-
-    ~Peers();
+    ~P2P();
 
     TX<Message::Ptr> run() {
         io::Config config;
@@ -143,8 +80,8 @@ private:
     void on_new_connection_active(uint64_t connId, TcpStream::Ptr&& newStream, int status);
 
 
-    Address _listenTo;
-    std::vector<Address> _connectTo; // this is stub
+    io::Address _listenTo;
+    std::vector<io::Address> _connectTo; // this is stub
     std::unordered_map<uint64_t, Connection> _connections;
     uint64_t _connIdCounter=0;
     io::Reactor::Ptr _reactor;
@@ -152,35 +89,4 @@ private:
     TcpServer::Ptr _server;
     std::future<void> _future;
 };
-
-struct WalletStub : public NetworkToNode {
-private:
-    // NetworkToNode impl
-    void on_transaction(const TransactionStub& tx) override;
-
-    io::Reactor::Ptr _reactor;
-};
-
-class NodeStub {
-    Peers peers;
-    WalletStub wallet;
-};
-
 } //namespace
-
-void connectivity_stub_test() {
-    try {
-
-    }
-    catch (const Exception& e) {
-        cout << e.what();
-    }
-}
-
-int main() {
-    connectivity_stub_test();
-}
-
-
-
-
