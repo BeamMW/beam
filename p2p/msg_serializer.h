@@ -1,8 +1,11 @@
 #pragma once
 #include "protocol.h"
-#include "utility/serialize_streams.h"
 #include "utility/io/buffer.h"
-#include <vector>
+#include "utility/serialize_fwd.h"
+#include "utility/serialize_streams.h"
+#include "utility/yas/binary_iarchive.hpp"
+#include "utility/yas/binary_oarchive.hpp"
+#include "utility/yas/std_types.hpp"
 #include <functional>
 #include <assert.h>
 
@@ -87,6 +90,7 @@ public:
         )
     {}
 
+    // TODO type needed here to prevent from huge messages
     void new_message(protocol::MsgType type) {
         assert(_currentMsgSize == 0 && _currentHeader == 0);
         _type = type;
@@ -97,6 +101,7 @@ public:
     size_t write(const void *ptr, size_t size) {
         assert(_currentHeader != 0);
         _writer.write(ptr, size);
+        return size;
     }
 
     void finalize(std::vector<io::SharedBuffer>& fragments) {
@@ -121,6 +126,54 @@ private:
     void* _currentHeader=0;
     protocol::MsgType _type=protocol::MsgType::null;
 
+};
+
+constexpr int SERIALIZE_OPTIONS = yas::binary | yas::no_header | yas::elittle | yas::compacted;
+
+class MsgSerializer {
+public:
+    explicit MsgSerializer(MsgSerializeOstream& os) : _oa(os) {}
+
+    template <typename T> MsgSerializer& operator&(const T& object) {
+        _oa & object;
+        return *this;
+    }
+
+private:
+    yas::binary_oarchive<MsgSerializeOstream, SERIALIZE_OPTIONS> _oa;
+};
+
+class MsgDeserializer {
+public:
+    MsgDeserializer() : _ia(_is) {}
+
+    void reset(const void* buf, size_t size) {
+        _is.reset(buf, size);
+    }
+
+    size_t bytes_left() {
+        return _is.bytes_left();
+    }
+
+    template <typename T> bool deserialize(T& object) {
+        try {
+            _ia & object;
+        } catch (...) {
+            return false;
+        }
+        return true;
+    }
+
+    template <typename T> MsgDeserializer& operator&(T& object) {
+        _ia & object;
+        return *this;
+    }
+
+private:
+    using Istream = detail::SerializeIstream;
+
+    Istream _is;
+    yas::binary_iarchive<Istream, SERIALIZE_OPTIONS> _ia;
 };
 
 } //namespace

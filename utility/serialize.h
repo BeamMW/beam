@@ -12,6 +12,7 @@ constexpr int SERIALIZE_OPTIONS = yas::binary | yas::no_header | yas::elittle | 
 // TODO turn to shared buffers
 using SerializeBuffer = std::pair<const char*, size_t>;
 
+// TODO deprecating...
 class Serializer {
 public:
     Serializer() : _oa(_os) {}

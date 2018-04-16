@@ -26,15 +26,15 @@ enum class MsgType : uint8_t {
     // ~etc
     invalid_type        // 17
 };
-    
+
 /// Message header
 struct MsgHeader {
     /// Serialized header size
     static constexpr size_t SIZE = 8;
-    
+
     /// Protocol ID, contains magic bits & version (==1)
     static constexpr uint8_t protocol[3] = { 0xBE, 0xA0, 0x01 };
-    
+
     /// Minimal serialized message size by type
     static constexpr uint32_t minSizes[] = {
         // TODO real sizes
@@ -78,17 +78,17 @@ struct MsgHeader {
         1 << 24, // txHashSetRequest
         1 << 24  // txHashSet
     };
-    
+
     /// Message type, 1 byte
     MsgType type;
-    
+
     /// Size of underlying serialized message
     uint32_t size;
-    
+
     MsgHeader() : type(MsgType::null), size(0) {}
-    
+
     MsgHeader(MsgType _type, uint32_t _size) : type(_type), size(_size) {}
-    
+
     /// Reads from stream, verifies header
     /// NOTE: caller makes sure that src points to at least SIZE bytes
     bool read(const void* src) {
@@ -101,16 +101,16 @@ struct MsgHeader {
             return false;
         }
         type = MsgType(p[3]);
-        memcpy(&size, p+3, 4);
+        memcpy(&size, p+4, 4);
         return true;
     }
-    
+
     /// Verifies min/max size of incoming message
     bool verify_size() {
         size_t i = size_t(type);
         return (i < uint8_t(MsgType::invalid_type) && size >= minSizes[i] && size <= maxSizes[i]);
     }
-    
+
     void write(void* dst) {
         uint8_t* p = (uint8_t*)dst;
         *p++ = protocol[0];
