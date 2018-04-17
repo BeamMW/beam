@@ -146,19 +146,29 @@ namespace beam
 		// Different parts of the block are split into different structs, so that they can be manipulated (transferred, processed, saved and etc.) independently
 		// For instance, there is no need to keep PoW (at least in SPV client) once it has been validated.
 
-		struct SystemState
+		struct SystemStateShort
 		{
+			Merkle::Hash	m_Hash; // merkle hash. explained later
 			Height			m_Height;
+		};
+
+		struct SystemState
+			:public SystemStateShort
+		{
 			Difficulty		m_Difficulty;
 		    Timestamp		m_TimeStamp;
 
-			Merkle::Hash	m_Hash; // merkle hash. Consists of the following:
+			// Merkle hash consists of the following:
 			// All the unspent UTXOs with their signatures
 			// All Tx kernels
-			// All previous *otiginal* system state hashes
+			// All previous *original* system state hashes
 			// Current height, difficulty and timestamp
 			//
-			// The node that actually has the current system state can construct the Merkle proof for all the included values
+			// The node that actually has the current system state can construct the Merkle proof for all the included values. In particular it can confirm:
+			//		unspent UTXO (and their count, in case there are several such UTXOs)
+			//		Tx kernel
+			//		Correctness of the specified, height, difficulty and timestamp
+			//		That an older system state is actually included in this state.
 		};
 
 		struct Header
@@ -190,12 +200,10 @@ namespace beam
 			static_assert(!(nSolutionBits & 7), "PoW solution should be byte-aligned");
 			static const uint32_t nSolutionBytes	= nSolutionBits >> 3; // !TODO: 1280 bytes, 1344 for now due to current implementation
 
-			uint256_t							m_Nonce;
+			uint256_t							m_Nonce; // does it always have to be 256-bit long?
 			std::array<uint8_t, nSolutionBytes>	m_Indices;
 
-			uint8_t								m_Difficulty;
-
-			bool IsValid(const SystemState&) const;
+			bool IsValid(const SystemState& prev, const SystemState& next) const;
 		};
 		typedef std::unique_ptr<PoW> PoWPtr;
 		PoWPtr m_ProofOfWork;
