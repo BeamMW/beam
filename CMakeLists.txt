@@ -28,8 +28,9 @@ if (WIN32)
     set(Boost_DEBUG On)
     find_package(Boost)
     if (Boost_FOUND)
-        include_directories(${Boost_INCLUDE_DIRS})
         add_definitions( -DBOOST_ALL_DYN_LINK )
+        include_directories(${Boost_INCLUDE_DIRS})
+        
     endif()
 endif()
 

@@ -2,6 +2,8 @@
 
 #include "core/common.h"
 #include "core/ecc_native.h"
+#include "wallet/sender.h"
+#include "wallet/receiver.h"
 
 namespace beam
 {
@@ -32,7 +34,6 @@ namespace beam
         {
             using Ptr = std::shared_ptr<SendInvitationData>;
 
-            using Uuid = std::array<uint8_t, 16>;
             Uuid m_id;
 
             ECC::Amount m_amount; ///??

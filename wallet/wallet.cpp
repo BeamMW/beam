@@ -141,6 +141,8 @@ namespace beam
         auto res = std::make_shared<SendInvitationData>();
         res->m_amount = amount;
         m_state.m_kernel.m_Fee = 0;
+        m_state.m_kernel.m_HeightMin = 0;
+        m_state.m_kernel.m_HeightMax = -1;
         m_state.m_kernel.get_Hash(res->m_message);
         
         // 1. Create transaction Uuid
@@ -227,6 +229,8 @@ namespace beam
         auto res = std::make_shared<HandleInvitationData>();
         TxKernel::Ptr kernel = std::make_unique<TxKernel>();
         kernel->m_Fee = 0;
+        kernel->m_HeightMin = 0;
+        kernel->m_HeightMax = -1;
         m_state.m_kernel = kernel.get();
         m_state.m_transaction.m_vKernels.push_back(std::move(kernel));
         m_state.m_message = data.m_message;
@@ -318,7 +322,9 @@ namespace beam
         ECC::Scalar::Native finialSignature = data.m_senderSignature + m_state.m_receiverSignature;
 
         // 3. Calculate public key for excess
-        ECC::Point::Native x = m_state.m_publicReceiverBlindingExcess + m_state.m_publicSenderBlindingExcess;
+        ECC::Point::Native x = m_state.m_publicReceiverBlindingExcess;
+        x = -x;
+        x += m_state.m_publicSenderBlindingExcess;
         // 4. Verify excess value in final transaction
         // 5. Create transaction kernel
        // TxKernel::Ptr kernel = std::make_unique<TxKernel>();
@@ -330,7 +336,7 @@ namespace beam
         ECC::Amount fee = 0U;
         
         // TODO: uncomment assert
-        //assert(m_state.m_transaction.IsValid(fee, 0U));
+     //   assert(m_state.m_transaction.IsValid(fee, 0U));
         return res;
     }
 

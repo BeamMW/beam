@@ -1,8 +1,10 @@
 #include "wallet/wallet.h"
 #include <assert.h>
 
-using namespace beam;
+#include "wallet/sender.h"
+#include "wallet/receiver.h"
 
+using namespace beam;
 
 namespace
 {
@@ -39,6 +41,35 @@ namespace
     {
         return std::static_pointer_cast<IKeyChain>(std::make_shared<TestKeyChain>());
     }
+
+    struct TestGateway : wallet::sender::IGateway
+                       , wallet::receiver::IGateway
+    {
+        void sendTxInitiation(const wallet::sender::InvitationData&) override
+        {
+
+        }
+
+        void sendTxConfirmation(const wallet::sender::ConfirmationData&) override
+        {
+
+        }
+
+        void sendChangeOutputConfirmation() override
+        {
+
+        }
+
+        void sendTxConfirmation(const wallet::receiver::ConfirmationData&) override
+        {
+
+        }
+
+        void registerTx(const Transaction&) override
+        {
+
+        }
+    };
 }
 
 int main()
@@ -51,7 +82,19 @@ int main()
 
     Wallet::Result result = sender.sendMoneyTo(cfg, 6);
 
-    assert(result);
-  
+    //assert(result);
+    TestGateway gateway;
+    wallet::Sender s{ gateway };
+    s.m_fsm.start();
+    s.m_fsm.process_event(wallet::Sender::TxInitCompleted());
+    s.m_fsm.process_event(wallet::Sender::TxConfirmationFailed());
+    s.m_fsm.stop();
+
+    wallet::Receiver r{ gateway };
+    r.m_fsm.start();
+    r.m_fsm.process_event(wallet::Receiver::TxConfirmationFailed());
+    r.m_fsm.process_event(wallet::Receiver::TxConfirmationCompleted());
+    r.m_fsm.stop();
+
     return 0;
 }
