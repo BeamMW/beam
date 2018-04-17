@@ -7,7 +7,7 @@
 #pragma warning (disable: 4244) // conversion from ... to ..., possible loss of data, signed/unsigned mismatch
 #pragma warning (disable: 4018) // signed/unsigned mismatch
 
-#include "../beam/secp256k1-zkp/src/secp256k1.c"
+#include "../secp256k1-zkp/src/secp256k1.c"
 
 #pragma warning (default: 4018)
 #pragma warning (default: 4244)
