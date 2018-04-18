@@ -32,14 +32,11 @@ ScalarValue Nonce::get() {
     current += nonce;
 
     return current;
-
 }
-
 
 ScalarValue Nonce::get_init_state() {
     return init_state;
 }
-
 
 void Nonce::reset() {
     counter = 0;
@@ -95,21 +92,20 @@ PrivateKeyPoint KeyGenerator::next(){
     return PrivateKeyPoint(point_gen, scalar, nonce);
 }
 
-
 void KeyGenerator::reset() {
     nonce.reset();
 }
-
 
 void KeyGenerator::write(std::ofstream &os) {
     reset();
 	os.write(reinterpret_cast<char*>(this), SIZKEYGEN);
 };
 
-
 KeyGenerator KeyGenerator::recover(std::ifstream &is) {
+
     KeyGenerator *out = new KeyGenerator();
     is.read(reinterpret_cast<char*>(out), SIZKEYGEN);
+
     return *out;
 }
 // KeyGenerator

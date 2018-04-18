@@ -24,17 +24,17 @@ void test_storage(const char* filename) {
 
     std::ifstream is(filename, std::fstream::in);
 
-    UTXO* pu1 = recover(is, 0*SIZEUTXO);
-    UTXO* pu2 = recover(is, 1*SIZEUTXO);
-    UTXO* pu3 = recover(is, 2*SIZEUTXO);
+    UTXO* pu1 = recover<UTXO>(is, 0*SIZEUTXO);
+    UTXO* pu2 = recover<UTXO>(is, 1*SIZEUTXO);
+    UTXO* pu3 = recover<UTXO>(is, 2*SIZEUTXO);
 
     std::cout << "UTXO #1: id = " << pu1->id << "; info = " << pu1->info << "\n";
     std::cout << "UTXO #2: id = " << pu2->id << "; info = " << pu2->info << "\n";
     std::cout << "UTXO #3: id = " << pu3->id << "; info = " << pu3->info << "\n\n";
 
-    UTXO* pu4 = recover(is, 3*SIZEUTXO, skey);
-    UTXO* pu5 = recover(is, 4*SIZEUTXO, skey);
-    UTXO* pu6 = recover(is, 5*SIZEUTXO, skey);
+    UTXO* pu4 = recover<UTXO>(is, 3*SIZEUTXO, skey);
+    UTXO* pu5 = recover<UTXO>(is, 4*SIZEUTXO, skey);
+    UTXO* pu6 = recover<UTXO>(is, 5*SIZEUTXO, skey);
 
     std::cout << "After recover by key:\n";
     std::cout << "UTXO #1: id = " << pu4->id << "; info = " << pu4->info << "\n";
