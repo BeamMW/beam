@@ -12,8 +12,10 @@ namespace beam::wallet
     namespace msmf = boost::msm::front;
     namespace mpl = boost::mpl;
 
-    namespace sender
+    class Sender
     {
+    public:
+        // interface to communicate with receiver
         struct InvitationData
         {
             Uuid m_txId;
@@ -38,11 +40,6 @@ namespace beam::wallet
             virtual void sendChangeOutputConfirmation() = 0;
         };
 
-    }
-
-    class Sender
-    {
-    public:
         // events
         struct TxEventBase {};
         struct TxInitCompleted : TxEventBase {};
@@ -52,11 +49,19 @@ namespace beam::wallet
         struct TxOutputConfirmCompleted : TxEventBase {};
         struct TxOutputConfirmFailed : TxEventBase {};
 
-        Sender(sender::IGateway& gateway) 
-            : m_gateway{gateway}
-        {}
+        Sender(IGateway& gateway) 
+            : m_fsm{boost::ref(gateway)}
+        {
+            m_fsm.start();
+        }
 
-    //private:
+        template<typename Event>
+        bool processEvent(const Event& event)
+        {
+            return m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
+        }
+
+    private:
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
             // states
@@ -66,11 +71,14 @@ namespace beam::wallet
             struct TxConfirming : public msmf::state<> {};
             struct TxOutputConfirming : public msmf::state<> {};
 
+            FSMDefinition(IGateway& gateway)
+                : m_gateway{ gateway }
+            {}
+
             // transition actions
             void initTx(const msmf::none&)
             {
-                std::cout << "Sender::sentTxInitiation\n";
- //               m_gateway.send();
+                m_gateway.sendTxInitiation(InvitationData());
             }
 
             bool isValidSignature(const TxInitCompleted& event)
@@ -87,8 +95,7 @@ namespace beam::wallet
 
             void confirmTx(const TxInitCompleted& event)
             {
-                std::cout << "Sender::confirmTx\n";
-  //              m_gateway.send();
+                m_gateway.sendTxConfirmation(ConfirmationData());
             }
 
             void rollbackTx(const TxInitFailed& event)
@@ -113,14 +120,12 @@ namespace beam::wallet
 
             void confirmChangeOutput(const TxConfirmationCompleted& event)
             {
-                std::cout << "Sender::confirmChangeOutput\n";
-     //           m_gateway.send();
+                m_gateway.sendChangeOutputConfirmation();
             }
 
             void completeTx(const TxOutputConfirmCompleted& event)
             {
                 std::cout << "Sender::completeTx\n";
-     //           m_gateway.send();
             }
 
             using initial_state = Init;
@@ -143,11 +148,8 @@ namespace beam::wallet
                 std::cout << "no transition from state \n";
             }
 
+            IGateway& m_gateway;
         };
-        using FSM = boost::msm::back::state_machine<FSMDefinition>;
-
-        FSM m_fsm;
-    private: 
-        sender::IGateway& m_gateway;
+        msm::back::state_machine<FSMDefinition> m_fsm;
     };
 }

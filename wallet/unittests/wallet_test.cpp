@@ -3,8 +3,10 @@
 
 #include "wallet/sender.h"
 #include "wallet/receiver.h"
+#include <iostream>
 
 using namespace beam;
+using namespace std;
 
 namespace
 {
@@ -42,38 +44,57 @@ namespace
         return std::static_pointer_cast<IKeyChain>(std::make_shared<TestKeyChain>());
     }
 
-    struct TestGateway : wallet::sender::IGateway
-                       , wallet::receiver::IGateway
+    struct TestGateway : wallet::Sender::IGateway
+                       , wallet::Receiver::IGateway
     {
-        void sendTxInitiation(const wallet::sender::InvitationData&) override
+        void sendTxInitiation(const wallet::Sender::InvitationData&) override
         {
-
+            cout << "sent tx initiation message\n";
         }
 
-        void sendTxConfirmation(const wallet::sender::ConfirmationData&) override
+        void sendTxConfirmation(const wallet::Sender::ConfirmationData&) override
         {
-
+            cout << "sent senders's tx confirmation message\n";
         }
 
         void sendChangeOutputConfirmation() override
         {
-
+            cout << "sent change output confirmation message\n";
         }
 
-        void sendTxConfirmation(const wallet::receiver::ConfirmationData&) override
+        void sendTxConfirmation(const wallet::Receiver::ConfirmationData&) override
         {
-
+            cout << "sent recever's tx confirmation message\n";
         }
 
         void registerTx(const Transaction&) override
         {
-
+            cout << "sent tx registration request\n";
         }
     };
 }
 
+int g_failureCount = 0;
+
+void PrintFailure(const char* expression, const char* file, int line)
+{
+    cout << "\"" << expression << "\"" <<" assertion failed. File: "<< file << " at line: " << line << "\n";
+    ++g_failureCount;
+}
+
+#define WALLET_CHECK(s) \
+do {\
+    if (!s) {\
+        PrintFailure(#s, __FILE__, __LINE__);\
+    }\
+} while(false)\
+
+#define WALLET_CHECK_RESULT g_failureCount ? -1 : 0;
+
+
 int main()
 {
+    TestGateway gateway;
     Wallet::Config cfg;
 
     Wallet::ToWallet::Shared receiver(std::make_shared<Wallet::ToWallet>());
@@ -83,18 +104,16 @@ int main()
     Wallet::Result result = sender.sendMoneyTo(cfg, 6);
 
     //assert(result);
-    TestGateway gateway;
+
     wallet::Sender s{ gateway };
-    s.m_fsm.start();
-    s.m_fsm.process_event(wallet::Sender::TxInitCompleted());
-    s.m_fsm.process_event(wallet::Sender::TxConfirmationFailed());
-    s.m_fsm.stop();
+    WALLET_CHECK(s.processEvent(wallet::Sender::TxInitCompleted()));
+    WALLET_CHECK(s.processEvent(wallet::Sender::TxConfirmationFailed()));
 
     wallet::Receiver r{ gateway };
-    r.m_fsm.start();
-    r.m_fsm.process_event(wallet::Receiver::TxConfirmationFailed());
-    r.m_fsm.process_event(wallet::Receiver::TxConfirmationCompleted());
-    r.m_fsm.stop();
+    
+    WALLET_CHECK(!r.processEvent(wallet::Receiver::TxRegistrationCompleted()));
+    WALLET_CHECK(r.processEvent(wallet::Receiver::TxConfirmationFailed()));
+    WALLET_CHECK(r.processEvent(wallet::Receiver::TxConfirmationCompleted()));
 
-    return 0;
+    return WALLET_CHECK_RESULT;
 }
