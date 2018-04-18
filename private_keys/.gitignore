@@ -1,3 +1,11 @@
-bin/
-obj/
+/codeblocks
+/lib
+/CMakeFiles
+
+main
+Makefile
+*.cmake
+*.bin
+*.txt
+!CMakeLists.txt
 

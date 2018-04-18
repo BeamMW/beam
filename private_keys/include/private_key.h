@@ -1,8 +1,8 @@
 #ifndef PRIVATE_KEY_INCLUDED
 #define PRIVATE_KEY_INCLUDED
 
-#include "ecc_native.h"
-#include "ecc.h"
+#include "../core/ecc_native.h"
+#include "../core/ecc.h"
 #include <string.h>
 #include <vector>
 #include <iostream>
