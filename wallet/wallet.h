@@ -21,7 +21,29 @@ namespace beam
         virtual ~IKeyChain(){}
     };
 
-    struct Wallet
+    struct PeerLocator {};
+
+    struct NetworkIO
+    {
+        virtual void sendTxInitiation(const PeerLocator& locator, const wallet::Sender::InvitationData&) = 0;
+        virtual void sendTxConfirmation(const PeerLocator& locator, const wallet::Sender::ConfirmationData&) = 0;
+        virtual void sendChangeOutputConfirmation(const PeerLocator& locator) = 0;
+        virtual void sendTxConfirmation(const PeerLocator& locator, const wallet::Receiver::ConfirmationData&) = 0;
+        virtual void registerTx(const PeerLocator& locator, const Transaction&) = 0;
+    };
+
+    struct IWallet
+    {
+        virtual void handleTxInitiation(const wallet::Sender::InvitationData&) = 0;
+        virtual void handleTxConfirmation(const wallet::Sender::ConfirmationData&) = 0;
+        //virtual void handleChangeOutputConfirmation(const PeerLocator& locator) = 0;
+        virtual void handleTxConfirmation(const wallet::Receiver::ConfirmationData&) = 0;
+    };
+    
+
+    struct Wallet : public IWallet
+                  , public wallet::Receiver::IGateway
+                  , public wallet::Sender::IGateway
     {
         struct ToNode
         {
@@ -105,11 +127,13 @@ namespace beam
         {
         };
 
-        Wallet();
-        Wallet(ToWallet::Shared receiver, IKeyChain::Ptr keyChain);
+        //Wallet();
+        //Wallet(ToWallet::Shared receiver, IKeyChain::Ptr keyChain);
+        Wallet(IKeyChain::Ptr keyChain, NetworkIO& network);
 
         using Result = bool;
 
+        void sendMoney(const PeerLocator& locator, const ECC::Amount& amount);
         Result sendMoneyTo(const Config& config, uint64_t amount);
 
         // TODO: remove this, just for test
@@ -121,6 +145,17 @@ namespace beam
         Result sendConfirmation(const SendConfirmationData& data);
 
         SendInvitationData::Ptr createInvitationData(const ECC::Amount& amount);
+
+        void sendTxInitiation(const wallet::Sender::InvitationData&) override;
+        void sendTxConfirmation(const wallet::Sender::ConfirmationData&) override;
+        void sendChangeOutputConfirmation() override;
+        void sendTxConfirmation(const wallet::Receiver::ConfirmationData&) override;
+        void registerTx(const Transaction&) override;
+        
+        void handleTxInitiation(const wallet::Sender::InvitationData&) override;
+        void handleTxConfirmation(const wallet::Sender::ConfirmationData&) override;
+        //void handleChangeOutputConfirmation(const PeerLocator& locator) override0;
+        void handleTxConfirmation(const wallet::Receiver::ConfirmationData&) override;
     private:
         ToNode::Ptr m_net;
 
@@ -129,5 +164,9 @@ namespace beam
         IKeyChain::Ptr m_keyChain;
 
         SenderState m_state;
+
+        NetworkIO& m_network;
+        std::map<Uuid, wallet::Sender>   m_senders;
+        std::map<Uuid, wallet::Receiver> m_receivers;
     };
 }

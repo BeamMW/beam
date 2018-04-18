@@ -39,8 +39,12 @@ namespace beam::wallet
         struct TxOutputConfirmCompleted : TxEventBase {};
         struct TxOutputConfirmFailed : TxEventBase {};
 
-        Receiver(IGateway& gateway)
-            : m_fsm{boost::ref(gateway)}
+        Receiver(IGateway& gateway, const Uuid& txId)
+            : m_fsm{boost::ref(gateway), boost::ref(txId)}
+        {
+        }
+
+        void start()
         {
             m_fsm.start();
         }
@@ -61,14 +65,17 @@ namespace beam::wallet
             struct TxRegistering : public msmf::state<> {};
             struct TxOutputConfirming : public msmf::state<> {};
 
-            FSMDefinition(IGateway& gateway)
+            FSMDefinition(IGateway& gateway, const Uuid& txId)
                 : m_gateway{ gateway }
+                , m_txId{ txId }
             {}
 
             // transition actions
             void confirmTx(const msmf::none&)
             {
-                m_gateway.sendTxConfirmation(ConfirmationData());
+                ConfirmationData data;
+                data.m_txId = m_txId;
+                m_gateway.sendTxConfirmation(data);
             }
 
             bool isValidSignature(const TxConfirmationCompleted& event)
@@ -139,6 +146,7 @@ namespace beam::wallet
             }
 
             IGateway& m_gateway;
+            Uuid m_txId;
         };
         msm::back::state_machine<FSMDefinition> m_fsm;
     };

@@ -1,6 +1,7 @@
 #include "wallet.h"
 #include "core/serialization_adapters.h"
 #include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
 #include "core/ecc_native.h"
 #include <algorithm>
 
@@ -37,7 +38,6 @@ namespace ECC
 
 namespace beam
 {
-
     Coin::Coin(const ECC::Scalar& key, ECC::Amount amount)
         : m_amount(amount)
     {
@@ -59,17 +59,24 @@ namespace beam
         }
     };
 
-    Wallet::Wallet(ToWallet::Shared receiver, IKeyChain::Ptr keyChain)
-        : m_receiver(receiver)
-        , m_keyChain(keyChain)
+    //Wallet::Wallet(ToWallet::Shared receiver, IKeyChain::Ptr keyChain)
+    //    : m_receiver(receiver)
+    //    , m_keyChain(keyChain)
+    //{
+
+    //}
+
+    //Wallet::Wallet()
+    //    : m_net(std::make_unique<WalletToNetworkDummyImpl>())
+    //{
+
+    //}
+
+    Wallet::Wallet(IKeyChain::Ptr keyChain, NetworkIO& network)
+        : m_network{ network }
+        , m_keyChain{ keyChain }
     {
-
-    }
-
-    Wallet::Wallet()
-        : m_net(std::make_unique<WalletToNetworkDummyImpl>())
-    {
-
+        //m_network.addListener(this);
     }
 
     void Wallet::sendDummyTransaction()
@@ -217,6 +224,15 @@ namespace beam
         return res;
     }
 
+    void Wallet::sendMoney(const PeerLocator& locator, const ECC::Amount& amount)
+    {
+        boost::uuids::uuid id = boost::uuids::random_generator()();
+        Uuid txId;
+        std::copy(id.begin(), id.end(), txId.begin());
+        auto [it, _] = m_senders.emplace(txId, wallet::Sender{ *this, txId });
+        it->second.start();
+    }
+
     Wallet::Result Wallet::sendMoneyTo(const Config& config, uint64_t amount)
     {
         auto data = createInvitationData(amount);
@@ -340,4 +356,74 @@ namespace beam
         return res;
     }
 
+    void Wallet::sendTxInitiation(const wallet::Sender::InvitationData& data)
+    {
+        m_network.sendTxInitiation(PeerLocator(), data);
+    }
+
+    void Wallet::sendTxConfirmation(const wallet::Sender::ConfirmationData& data)
+    {
+        m_network.sendTxConfirmation(PeerLocator(), data);
+    }
+
+    void Wallet::sendChangeOutputConfirmation()
+    {
+        m_network.sendChangeOutputConfirmation(PeerLocator());
+    }
+
+    void Wallet::sendTxConfirmation(const wallet::Receiver::ConfirmationData& data)
+    {
+        m_network.sendTxConfirmation(PeerLocator(), data);
+    }
+
+    void Wallet::registerTx(const Transaction& transaction)
+    {
+        m_network.registerTx(PeerLocator(), transaction);
+    }
+
+
+    void Wallet::handleTxInitiation(const wallet::Sender::InvitationData& data)
+    {
+        auto it = m_receivers.find(data.m_txId);
+        if (it == m_receivers.end())
+        {
+            auto [it, _] = m_receivers.emplace(data.m_txId, wallet::Receiver{*this, data.m_txId});
+            it->second.start();
+        }
+        else
+        {
+            // TODO: log unexpected TxInitation
+        }
+    }
+    
+    void Wallet::handleTxConfirmation(const wallet::Sender::ConfirmationData& data)
+    {
+        auto it = m_receivers.find(data.m_txId);
+        if (it != m_receivers.end())
+        {
+            it->second.processEvent(wallet::Receiver::TxConfirmationCompleted());
+        }
+        else
+        {
+            // TODO: log unexpected TxConfirmation
+        }
+    }
+
+    //void Wallet::handleChangeOutputConfirmation(const PeerLocator& locator)
+    //{
+
+    //}
+    
+    void Wallet::handleTxConfirmation(const wallet::Receiver::ConfirmationData& data)
+    {
+        auto it = m_senders.find(data.m_txId);
+        if (it != m_senders.end())
+        {
+            it->second.processEvent(wallet::Sender::TxConfirmationCompleted());
+        }
+        else
+        {
+            // TODO: log unexpected TxConfirmation
+        }
+    }
 }
