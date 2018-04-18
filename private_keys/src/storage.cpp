@@ -6,6 +6,7 @@ std::ofstream create_out_filestream(const char* filename) {
     return os;
 }
 
+// UTXO implementation
 void UTXO::write(std::ofstream &os) {
 	os.write(reinterpret_cast<char*>(this), SIZEUTXO);
 };
@@ -14,6 +15,17 @@ void UTXO::write(std::ofstream &os, char* key) {
     char* encoded = encode(this, key);
 	os.write(encoded, SIZEUTXO);
 };
+
+UTXO* UTXO::recover(std::ifstream &is, size_t offset) {
+    UTXO* out = recover_from<UTXO>(is, offset);
+    return out;
+}
+
+UTXO* UTXO::recover(std::ifstream &is, size_t offset, const char* key) {
+    UTXO* out = recover_from<UTXO>(is, offset, key);
+    return out;
+}
+// UTXO
 
 void crypto_by_key(char* input, char* output, const char* key, size_t N) {
 
@@ -27,7 +39,6 @@ void crypto_by_key(char* input, char* output, const char* key, size_t N) {
 void decode(char* encoded, size_t data_size, const char* key) {
     crypto_by_key(encoded, encoded, key, data_size);
 }
-
 
 // For testing
 std::string crypto(const std::string& data, const std::string& key) {

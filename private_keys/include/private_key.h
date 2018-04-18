@@ -1,12 +1,13 @@
 #ifndef PRIVATE_KEY_INCLUDED
 #define PRIVATE_KEY_INCLUDED
 
-#include "../core/ecc_native.h"
-#include "../core/ecc.h"
 #include <string.h>
 #include <vector>
 #include <iostream>
-
+#include <iostream>
+#include "../core/ecc_native.h"
+#include "../core/ecc.h"
+#include "storage.h"
 
 // Pseudonyms for usefull work
 using ScalarValue = ECC::Scalar::Native;
@@ -43,6 +44,8 @@ struct Nonce {
 
     ScalarValue get();
     ScalarValue get_init_state();
+
+    // Set counter of Nonce to zero
     void reset();
 };
 
@@ -123,10 +126,14 @@ struct KeyGenerator {
     // Generate next key
     PrivateKeyPoint next();
 
+    // Set counter of Nonce to zero
     void reset();
-    void write(std::ofstream &os);
 
-    static KeyGenerator recover(std::ifstream &is);
+    void write(std::ofstream &os);
+    void write(std::ofstream &os, const char* key);
+
+    static KeyGenerator* recover(std::ifstream &is);
+    static KeyGenerator* recover(std::ifstream &is, const char* key);
 };
 
 constexpr size_t SIZKEYGEN = sizeof(KeyGenerator);

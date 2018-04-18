@@ -11,7 +11,6 @@ namespace ECC {
   const Context& Context::get() { return g_Ctx; }
 }
 
-
 // Random generator implementation
 unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 std::default_random_engine generator(seed);
@@ -21,7 +20,6 @@ unsigned int get_random() {
     return (unsigned int) distribution(generator);
 }
 // Random generator
-
 
 // Nonce implementation
 ScalarValue Nonce::get() {
@@ -42,7 +40,6 @@ void Nonce::reset() {
     counter = 0;
 }
 // Nonce
-
 
 // PrivateKeyScalar implementation
 PrivateKeyScalar& PrivateKeyScalar::operator += (Nonce& nonce) {
@@ -66,7 +63,6 @@ ScalarValue PrivateKeyScalar::getNative() const {
 }
 // PrivateKeyScalar
 
-
 // PrivateKeyPoint implementation
 int PrivateKeyPoint::cmp(const PrivateKeyPoint& other) const {
     return value.cmp(other.value);
@@ -86,7 +82,6 @@ std::vector<PrivateKeyPoint> PrivateKeyPoint::create_keyset(PointGen& gen,
 }
 // PrivateKeyPoint
 
-
 // KeyGenerator implementation
 PrivateKeyPoint KeyGenerator::next(){
     return PrivateKeyPoint(point_gen, scalar, nonce);
@@ -101,11 +96,19 @@ void KeyGenerator::write(std::ofstream &os) {
 	os.write(reinterpret_cast<char*>(this), SIZKEYGEN);
 };
 
-KeyGenerator KeyGenerator::recover(std::ifstream &is) {
+void KeyGenerator::write(std::ofstream &os, const char* key) {
+    reset();
+    char* buf = encode(this, key);
+	os.write(buf, SIZKEYGEN);
+}
 
-    KeyGenerator *out = new KeyGenerator();
-    is.read(reinterpret_cast<char*>(out), SIZKEYGEN);
+KeyGenerator* KeyGenerator::recover(std::ifstream &is) {
+    KeyGenerator* out = recover_from<KeyGenerator>(is, 0);
+    return out;
+}
 
-    return *out;
+KeyGenerator* KeyGenerator::recover(std::ifstream &is, const char* key) {
+    KeyGenerator* out = recover_from<KeyGenerator>(is, 0, key);
+    return out;
 }
 // KeyGenerator

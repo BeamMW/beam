@@ -4,22 +4,24 @@
 #include <stdio.h>
 #include <fstream>
 #include <string.h>
-#include "common.h"
+#include "../core/common.h"
 
 // Prototype of UTXO
 struct UTXO : beam::Output {
 
     int id;
-    std::string info;
+    char* info;
 
     UTXO() = default;
-    UTXO(int id_, const char* info_) : id(id_), info(info_) {}
+    UTXO(int num, char* data) : id(num), info(data) {}
 
     // Encrypt UTXO and write it to filestream
     void write(std::ofstream &os, char* key);
-
     // Write UTXO to filestream
     void write(std::ofstream &os);
+
+    static UTXO* recover(std::ifstream &is, size_t offset);
+    static UTXO* recover(std::ifstream &is, size_t offset, const char* key);
 };
 
 constexpr size_t SIZEUTXO = sizeof(UTXO);
@@ -51,7 +53,7 @@ void decode(char* encoded, size_t data_size, const char* key);
 
 // Recover from binary file
 template<class T>
-T* recover(std::ifstream &is, size_t offset, const char* key = nullptr) {
+T* recover_from(std::ifstream &is, size_t offset, const char* key = nullptr) {
 
     size_t size_ = sizeof(T);
 
@@ -65,10 +67,13 @@ T* recover(std::ifstream &is, size_t offset, const char* key = nullptr) {
 
     T* pu = reinterpret_cast<T*>(buf);
 
+    return pu;
 }
+
+// For test encryption/decryption (encode some data by key)
+std::string crypto(const std::string& data, const std::string& key);
 
 // For test encryption/decryption
 char* create_some_secret_key();
-
 
 #endif // STORAGE_H_INCLUDED
