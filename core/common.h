@@ -146,16 +146,38 @@ namespace beam
 		// Different parts of the block are split into different structs, so that they can be manipulated (transferred, processed, saved and etc.) independently
 		// For instance, there is no need to keep PoW (at least in SPV client) once it has been validated.
 
-		// TBD: decide the serialization format. Basically it consists entirely of structs and ordinal data types, can be stored as-is. Only the matter of big/little-endian should be defined.
+		struct SystemStateShort
+		{
+			Merkle::Hash	m_Hash; // merkle hash. explained later
+			Height			m_Height;
+		};
+
+		struct SystemState
+			:public SystemStateShort
+		{
+			Difficulty		m_Difficulty;
+		    Timestamp		m_TimeStamp;
+
+			// Merkle hash consists of the following:
+			// All the unspent UTXOs with their signatures
+			// All Tx kernels
+			// All previous *original* system state hashes
+			// Current height, difficulty and timestamp
+			//
+			// The node that actually has the current system state can construct the Merkle proof for all the included values. In particular it can confirm:
+			//		unspent UTXO (and their count, in case there are several such UTXOs)
+			//		Tx kernel
+			//		Correctness of the specified, height, difficulty and timestamp
+			//		That an older system state is actually included in this state.
+		};
 
 		struct Header
 		{
-			ECC::Hash::Value	m_HashPrev;
-			Merkle::Hash		m_FullDescription; // merkle hash
-		    Height				m_Height; // of this specific block
-		    Timestamp			m_TimeStamp;
-		    Difficulty			m_TotalDifficulty;
-			uint8_t				m_Difficulty; // of this specific block
+			SystemState			m_StateNew; // after the block changes are applied
+			SystemState			m_StatePrev;
+
+			// Normally the difference between m_StatePrev and m_StateNew corresponds to 1 original block, Height is increased by 1
+			// But if/when history is compressed, blocks can encode compressed diff of several original blocks
 
 		    template<typename Buffer>
 			void serializeTo(Buffer& b)
@@ -178,12 +200,10 @@ namespace beam
 			static_assert(!(nSolutionBits & 7), "PoW solution should be byte-aligned");
 			static const uint32_t nSolutionBytes	= nSolutionBits >> 3; // !TODO: 1280 bytes, 1344 for now due to current implementation
 
-			uint256_t							m_Nonce;
+			uint256_t							m_Nonce; // does it always have to be 256-bit long?
 			std::array<uint8_t, nSolutionBytes>	m_Indices;
 
-			uint8_t								m_Difficulty;
-
-			bool IsValid(const Header&) const;
+			bool IsValid(const SystemState& prev, const SystemState& next) const;
 		};
 		typedef std::unique_ptr<PoW> PoWPtr;
 		PoWPtr m_ProofOfWork;
