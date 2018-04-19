@@ -7,6 +7,13 @@
 #include <iostream>
 #include <boost/program_options.hpp>
 
+namespace ECC 
+{
+	// not really used, it's just the stupid linker
+	Context g_Ctx;
+	const Context& Context::get() { return g_Ctx; }
+}
+
 namespace po = boost::program_options;
 
 // !TODO: replace cout with log
