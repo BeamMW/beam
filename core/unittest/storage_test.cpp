@@ -276,6 +276,8 @@ void DeleteFile(const char* szPath)
 
 		t.get_Hash(hv2);
 		verify_test(hv2 == hv1);
+
+		verify_test(vKeys.size() == t.Count());
 	}
 
 

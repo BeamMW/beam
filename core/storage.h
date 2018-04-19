@@ -73,11 +73,21 @@ public:
 
 	void Delete(CursorBase& cu);
 
+	struct ITraveler {
+		virtual bool OnLeaf(const Leaf&) = 0;
+	};
+
+	bool Traverse(ITraveler&) const;
+	static bool Traverse(const CursorBase&, ITraveler&);
+
+	size_t Count() const; // implemented via the whole tree traversing, shouldn't use frequently.
+
 private:
 	Node* m_pRoot;
 
 	void DeleteNode(Node*);
 	void ReplaceTip(CursorBase& cu, Node* pNew);
+	static bool Traverse(const Node&, ITraveler&);
 };
 
 

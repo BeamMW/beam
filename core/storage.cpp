@@ -283,6 +283,46 @@ void RadixTree::Delete(CursorBase& cu)
 	}
 }
 
+bool RadixTree::Traverse(const Node& n, ITraveler& t)
+{
+	if (Node::s_Leaf & n.m_Bits)
+		return t.OnLeaf((const Leaf&) n);
+
+	const Joint& x = (const Joint&) n;
+	for (int i = 0; i < _countof(x.m_ppC); i++)
+		if (!Traverse(*x.m_ppC[i], t))
+			return false;
+
+	return true;
+}
+
+bool RadixTree::Traverse(ITraveler& t) const
+{
+	return m_pRoot ? Traverse(*m_pRoot, t) : false;
+}
+
+bool RadixTree::Traverse(const CursorBase& cu, ITraveler& t)
+{
+	return cu.m_nPtrs ? Traverse(*cu.m_pp[cu.m_nPtrs - 1], t) : true;
+}
+
+size_t RadixTree::Count() const
+{
+	struct Traveler
+		:public ITraveler
+	{
+		size_t m_Count;
+		virtual bool OnLeaf(const Leaf&) override {
+			m_Count++;
+			return true;
+		}
+	} t;
+
+	t.m_Count = 0;
+	Traverse(t);
+	return t.m_Count;
+}
+
 /////////////////////////////
 // UtxoTree
 void UtxoTree::get_Hash(Merkle::Hash& hv)
