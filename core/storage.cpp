@@ -260,7 +260,7 @@ void RadixTree::Delete(CursorBase& cu)
 				const uint8_t* pKey1 = (p->m_Bits & Node::s_Leaf) ? ((Leaf*) p)->m_pKeyArr : ((Joint*) p)->m_pKeyPtr;
 				assert(pKey1 != pKeyDead);
 
-				for (UINT32 j = cu.m_nPtrs; j--; )
+				for (uint32_t j = cu.m_nPtrs; j--; )
 				{
 					Joint* pPrev2 = (Joint*) cu.m_pp[j];
 					if (pPrev2->m_pKeyPtr != pKeyDead)
