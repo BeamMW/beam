@@ -1,9 +1,12 @@
 #pragma once
 
 #include "storage.h"
+#include "ecc_native.h"
 
 namespace beam {
 
+/////////////////////////////
+// RadixTree
 uint16_t RadixTree::Node::get_Bits() const
 {
 	return m_Bits & ~(s_Clean | s_Leaf);
@@ -278,6 +281,51 @@ void RadixTree::Delete(CursorBase& cu)
 			}
 		}
 	}
+}
+
+/////////////////////////////
+// UtxoTree
+void UtxoTree::get_Hash(Merkle::Hash& hv)
+{
+	Node* p = get_Root();
+	if (p)
+		hv = get_Hash(*p, hv);
+	else
+		hv = ECC::Zero;
+}
+
+const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
+{
+	if (Node::s_Leaf & n.m_Bits)
+	{
+		MyLeaf& x = (MyLeaf&) n;
+		x.m_Bits |= Node::s_Clean;
+
+		ECC::Hash::Processor hp;
+		hp.Write(x.m_pKeyArr, Key::s_Bytes); // whole description of the UTXO
+		hp << x.m_Count;
+
+		hp >> hv;
+		return hv;
+
+	}
+
+	MyJoint& x = (MyJoint&) n;
+	if (!(Node::s_Clean & x.m_Bits))
+	{
+		ECC::Hash::Processor hp;
+
+		for (int i = 0; i < _countof(x.m_ppC); i++)
+		{
+			ECC::Hash::Value hv;
+			hp << get_Hash(*x.m_ppC[i], hv);
+		}
+
+		hp >> x.m_Hash;
+		x.m_Bits |= Node::s_Clean;
+	}
+
+	return x.m_Hash;
 }
 
 } // namespace beam

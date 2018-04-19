@@ -28,6 +28,8 @@ protected:
 		uint8_t m_pKeyArr[1]; // to be extended
 	};
 
+	Node* get_Root() const { return m_pRoot; }
+
 	virtual Joint* CreateJoint() = 0;
 	virtual Leaf* CreateLeaf() = 0;
 
@@ -78,5 +80,53 @@ private:
 	void ReplaceTip(CursorBase& cu, Node* pNew);
 };
 
+
+class UtxoTree
+	:public beam::RadixTree
+{
+public:
+
+	struct Key
+	{
+		static const uint32_t s_Bits =
+			257 +	// curve point
+			2 +		// coinbase flag, confidential flag
+			64;		// block height
+
+		static const uint32_t s_Bytes = (s_Bits + 7) >> 3;
+
+		uint8_t m_pArr[s_Bytes];
+	};
+
+	struct MyJoint :public Joint {
+		Merkle::Hash m_Hash;
+	};
+
+	struct MyLeaf :public Leaf
+	{
+		uint8_t m_pPlaceholder[Key::s_Bytes - 1]; // 1 byte is already included in the base
+		uint32_t m_Count;
+	};
+
+	typedef RadixTree::Cursor_T<Key::s_Bits> Cursor;
+
+	MyLeaf* Find(CursorBase& cu, const Key& key, bool& bCreate)
+	{
+		return (MyLeaf*) RadixTree::Find(cu, key.m_pArr, key.s_Bits, bCreate);
+	}
+
+	~UtxoTree() { Clear(); }
+
+	void get_Hash(Merkle::Hash&);
+
+protected:
+	virtual Joint* CreateJoint() override { return new MyJoint; }
+	virtual Leaf* CreateLeaf() override { return new MyLeaf; }
+
+	virtual void DeleteJoint(Joint* p) override { delete (MyJoint*) p; }
+	virtual void DeleteLeaf(Leaf* p) override { delete (MyLeaf*) p; }
+
+	static const Merkle::Hash& get_Hash(Node&, Merkle::Hash&);
+};
 
 } // namespace beam
