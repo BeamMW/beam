@@ -4,6 +4,7 @@
 #include "core/ecc_native.h"
 #include "wallet/sender.h"
 #include "wallet/receiver.h"
+#include <mutex>
 
 namespace beam
 {
@@ -130,6 +131,7 @@ namespace beam
         //Wallet();
         //Wallet(ToWallet::Shared receiver, IKeyChain::Ptr keyChain);
         Wallet(IKeyChain::Ptr keyChain, NetworkIO& network);
+        virtual ~Wallet() {};
 
         using Result = bool;
 
@@ -138,6 +140,8 @@ namespace beam
 
         // TODO: remove this, just for test
         void sendDummyTransaction();
+
+        void pumpEvents(); // for test only
 
     private:
 
@@ -156,6 +160,7 @@ namespace beam
         void handleTxConfirmation(const wallet::Sender::ConfirmationData&) override;
         //void handleChangeOutputConfirmation(const PeerLocator& locator) override0;
         void handleTxConfirmation(const wallet::Receiver::ConfirmationData&) override;
+
     private:
         ToNode::Ptr m_net;
 
@@ -166,6 +171,8 @@ namespace beam
         SenderState m_state;
 
         NetworkIO& m_network;
+        std::mutex m_sendersMutex;
+        std::mutex m_receiversMutex;
         std::map<Uuid, wallet::Sender>   m_senders;
         std::map<Uuid, wallet::Receiver> m_receivers;
     };

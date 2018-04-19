@@ -4,6 +4,8 @@
 #include "wallet/sender.h"
 #include "wallet/receiver.h"
 #include <iostream>
+#include <thread>
+#include <mutex>
 
 using namespace beam;
 using namespace std;
@@ -126,6 +128,51 @@ namespace
 
     struct TestNetwork : public NetworkIO
     {
+        using Task = function<void()>;
+        TestNetwork()
+            :m_thread{ [this] {ioLoop(); } }
+        {
+
+        }
+
+        void ioLoop()
+        {
+            while (true)
+            {
+                Task task;
+                {
+                    unique_lock<mutex> lock(m_tasksMutex);
+                    if (!m_tasks.empty())
+                    {
+                        task = move(m_tasks.front());
+                        m_tasks.pop_front();
+                    }
+                    else
+                    {
+                        m_cv.wait(lock, [this] { return !m_tasks.empty(); });
+                    }
+                }
+                if (task)
+                {
+                    try
+                    {
+                        task();
+                    }
+                    catch (...)
+                    {
+
+                    }
+                }
+            }
+        }
+
+        void enqueueTask(Task&& task)
+        {
+            lock_guard<mutex> lock{ m_tasksMutex };
+            m_tasks.push_back(move(task));
+            m_cv.notify_one();
+        }
+        
         void registerPeer(IWallet* walletPeer)
         {
             m_peers.push_back(walletPeer);
@@ -133,29 +180,38 @@ namespace
 
         void sendTxInitiation(const PeerLocator& locator, const wallet::Sender::InvitationData& data) override
         {
-            m_peers[1]->handleTxInitiation(data);
+            cout << "[Sender]: sendTxInitiation\n";
+            enqueueTask([this, data] {m_peers[1]->handleTxInitiation(data); });
         }
 
         void sendTxConfirmation(const PeerLocator& locator, const wallet::Sender::ConfirmationData& data) override
         {
-            m_peers[1]->handleTxConfirmation(data);
+            cout << "[Sender]: sendTxConfirmation\n";
+            enqueueTask([this, data] {m_peers[1]->handleTxConfirmation(data); });
         }
 
         void sendChangeOutputConfirmation(const PeerLocator& locator) override
         {
+            cout << "[Sender]: sendChangeOutputConfirmation\n";
             //m_peers[1]->();
         }
 
         void sendTxConfirmation(const PeerLocator& locator, const wallet::Receiver::ConfirmationData& data) override
         {
-            m_peers[0]->handleTxConfirmation(data);
+            cout << "[Receiver]: sendTxConfirmation\n";
+            enqueueTask([this, data] {m_peers[0]->handleTxConfirmation(data); });
         }
 
         void registerTx(const PeerLocator& locator, const Transaction&) override
         {
-
+            cout << "[Receiver]: registerTx\n";
         }
-        std::vector<IWallet*> m_peers;
+
+        vector<IWallet*> m_peers;
+        deque<Task> m_tasks;
+        mutex m_tasksMutex;
+        condition_variable m_cv;
+        thread m_thread;
     };
 }
 
@@ -165,13 +221,18 @@ void TestWalletNegotiation()
     PeerLocator senderNodeLocator, receiverNodeLocator;
     PeerLocator receiverLocator;
     TestNetwork network;
-    Wallet sender{ createKeyChain(), network };
-    Wallet receiver{ createKeyChain2(), network };
+    Wallet sender( createKeyChain(), network );
+    Wallet receiver( createKeyChain2(), network );
 
     network.registerPeer(&sender);
     network.registerPeer(&receiver);
     
     sender.sendMoney(receiverLocator, 6);
+    while (true)
+    {
+        sender.pumpEvents();
+        receiver.pumpEvents();
+    }
 }
 
 void TestFSM()
@@ -194,7 +255,7 @@ void TestFSM()
 int main()
 {
     TestWalletNegotiation();
-    TestFSM();
+//    TestFSM();
     //Wallet::Config cfg;
 
     //Wallet::ToWallet::Shared receiver(std::make_shared<Wallet::ToWallet>());

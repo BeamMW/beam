@@ -23,8 +23,8 @@ namespace beam::wallet
             ECC::Hash::Value m_message;
             ECC::Point::Native m_publicSenderBlindingExcess;
             ECC::Point::Native m_publicSenderNonce;
-            std::vector<Input::Ptr> m_inputs;
-            std::vector<Output::Ptr> m_outputs;
+            //std::vector<Input::Ptr> m_inputs;
+            //std::vector<Output::Ptr> m_outputs;
         };
 
         struct ConfirmationData
@@ -66,6 +66,17 @@ namespace beam::wallet
             return m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
         }
 
+        template<typename Event>
+        void enqueueEvent(const Event& event)
+        {
+            m_fsm.enqueue_event(event);
+        }
+
+        void executeQueuedEvents()
+        {
+            m_fsm.execute_queued_events();
+        }
+
     private:
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
@@ -84,9 +95,8 @@ namespace beam::wallet
             // transition actions
             void initTx(const msmf::none&)
             {
-                InvitationData data;
-                data.m_txId = m_txId;
-                m_gateway.sendTxInitiation(data);
+                m_invitationData.m_txId = m_txId;
+                m_gateway.sendTxInitiation(m_invitationData);
             }
 
             bool isValidSignature(const TxInitCompleted& event)
@@ -103,7 +113,8 @@ namespace beam::wallet
 
             void confirmTx(const TxInitCompleted& event)
             {
-                m_gateway.sendTxConfirmation(ConfirmationData());
+                m_confirmationData.m_txId = m_txId;
+                m_gateway.sendTxConfirmation(m_confirmationData);
             }
 
             void rollbackTx(const TxInitFailed& event)
@@ -153,11 +164,14 @@ namespace beam::wallet
             template <class FSM, class Event>
             void no_transition(Event const& e, FSM&, int state)
             {
-                std::cout << "no transition from state \n";
+                std::cout << "Sender: no transition from state " << state
+                    << " on event " << typeid(e).name() << std::endl;
             }
 
             IGateway& m_gateway;
             Uuid m_txId;
+            InvitationData m_invitationData;
+            ConfirmationData m_confirmationData;
         };
         msm::back::state_machine<FSMDefinition> m_fsm;
     };

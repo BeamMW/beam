@@ -226,6 +226,7 @@ namespace beam
 
     void Wallet::sendMoney(const PeerLocator& locator, const ECC::Amount& amount)
     {
+        std::lock_guard<std::mutex> lock{ m_sendersMutex };
         boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId;
         std::copy(id.begin(), id.end(), txId.begin());
@@ -384,6 +385,7 @@ namespace beam
 
     void Wallet::handleTxInitiation(const wallet::Sender::InvitationData& data)
     {
+        std::lock_guard<std::mutex> lock{ m_receiversMutex };
         auto it = m_receivers.find(data.m_txId);
         if (it == m_receivers.end())
         {
@@ -398,10 +400,11 @@ namespace beam
     
     void Wallet::handleTxConfirmation(const wallet::Sender::ConfirmationData& data)
     {
+        std::lock_guard<std::mutex> lock{ m_receiversMutex };
         auto it = m_receivers.find(data.m_txId);
         if (it != m_receivers.end())
         {
-            it->second.processEvent(wallet::Receiver::TxConfirmationCompleted());
+            it->second.enqueueEvent(wallet::Receiver::TxConfirmationCompleted());
         }
         else
         {
@@ -416,14 +419,33 @@ namespace beam
     
     void Wallet::handleTxConfirmation(const wallet::Receiver::ConfirmationData& data)
     {
+        std::lock_guard<std::mutex> lock{ m_sendersMutex };
         auto it = m_senders.find(data.m_txId);
         if (it != m_senders.end())
         {
-            it->second.processEvent(wallet::Sender::TxConfirmationCompleted());
+            it->second.enqueueEvent(wallet::Sender::TxConfirmationCompleted());
         }
         else
         {
             // TODO: log unexpected TxConfirmation
+        }
+    }
+
+    void Wallet::pumpEvents()
+    {
+        {
+            std::lock_guard<std::mutex> lock{ m_sendersMutex };
+            for (auto& s : m_senders)
+            {
+                s.second.executeQueuedEvents();
+            }
+        }
+        {
+            std::lock_guard<std::mutex> lock{ m_receiversMutex };
+            for (auto& r : m_receivers)
+            {
+                r.second.executeQueuedEvents();
+            }
         }
     }
 }

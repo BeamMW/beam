@@ -55,6 +55,17 @@ namespace beam::wallet
             return m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
         }
 
+        template<typename Event>
+        void enqueueEvent(const Event& event)
+        {
+            m_fsm.enqueue_event(event);
+        }
+
+        void executeQueuedEvents()
+        {
+            m_fsm.execute_queued_events();
+        }
+
     private:
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
@@ -73,9 +84,8 @@ namespace beam::wallet
             // transition actions
             void confirmTx(const msmf::none&)
             {
-                ConfirmationData data;
-                data.m_txId = m_txId;
-                m_gateway.sendTxConfirmation(data);
+                m_confirmationData.m_txId = m_txId;
+                m_gateway.sendTxConfirmation(m_confirmationData);
             }
 
             bool isValidSignature(const TxConfirmationCompleted& event)
@@ -92,7 +102,7 @@ namespace beam::wallet
 
             void registerTx(const TxConfirmationCompleted& event)
             {
-                m_gateway.registerTx(Transaction());
+                m_gateway.registerTx(m_transaction);
             }
 
             void rollbackTx(const TxConfirmationFailed& event)
@@ -142,11 +152,14 @@ namespace beam::wallet
             template <class FSM, class Event>
             void no_transition(Event const& e, FSM&, int state)
             {
-                std::cout << "no transition from state \n";
+                std::cout << "Receiver: no transition from state " << state
+                    << " on event " << typeid(e).name() << std::endl;
             }
 
             IGateway& m_gateway;
             Uuid m_txId;
+            ConfirmationData m_confirmationData;
+            Transaction m_transaction;
         };
         msm::back::state_machine<FSMDefinition> m_fsm;
     };
