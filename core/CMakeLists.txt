@@ -2,6 +2,7 @@ set(CORE_SRC
     ecc.cpp
     block_crypt.cpp
     navigator.cpp
+    storage.cpp
 # ~etc
 )
 add_library(core STATIC ${CORE_SRC})
