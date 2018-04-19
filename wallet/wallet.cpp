@@ -276,7 +276,8 @@ namespace beam
         output->m_pPublic->m_Value = amount;
         output->m_pPublic->Create(blindingFactor);
 
-        m_state.m_blindingExcess = blindingFactor;
+        blindingFactor = -blindingFactor;
+        m_state.m_blindingExcess += blindingFactor;
 
         m_state.m_transaction.m_vOutputs.push_back(std::move(output));
 
@@ -340,7 +341,6 @@ namespace beam
 
         // 3. Calculate public key for excess
         ECC::Point::Native x = m_state.m_publicReceiverBlindingExcess;
-        x = -x;
         x += m_state.m_publicSenderBlindingExcess;
         // 4. Verify excess value in final transaction
         // 5. Create transaction kernel
