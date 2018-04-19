@@ -21,7 +21,7 @@ public:
     }
 
     SerializeBuffer buffer() {
-        return { _os.buf, _os.cur - _os.buf };
+        return { (const char*) &_os.m_vec.at(0), _os.m_vec.size() };
     }
 
     template <typename T> Serializer& operator&(const T& object) {

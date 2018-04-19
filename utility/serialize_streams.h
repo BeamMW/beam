@@ -6,29 +6,18 @@ namespace beam { namespace detail {
 
     struct SerializeOstream {
 
-        // TODO replace by growing streams and shared chunk allocator
-
-        enum { bufsize = 1024*100 };
-
-        SerializeOstream()
-            :cur(buf)
-        {
-            memset(buf, 0, bufsize);
-        }
-
         size_t write(const void *ptr, const size_t size) {
-            memcpy(cur, ptr, size);
-            cur += size;
-            *cur = 0;
+			size_t n = m_vec.size();
+			m_vec.resize(n + size);
+			memcpy(&m_vec.at(n), ptr, size);
             return size;
         }
 
         void clear() {
-            cur = buf;
+			m_vec.clear();
         }
 
-        char buf[bufsize];
-        char *cur;
+		std::vector<uint8_t> m_vec;
     };
 
     struct SerializeIstream {
