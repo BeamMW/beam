@@ -193,9 +193,87 @@ void DeleteFile(const char* szPath)
 		}
 	}
 
+
+	void TestUtxoTree()
+	{
+		std::vector<UtxoTree::Key> vKeys;
+		vKeys.resize(70000);
+
+		UtxoTree t;
+		Merkle::Hash hv1, hv2, hvMid;
+
+		for (size_t i = 0; i < vKeys.size(); i++)
+		{
+			UtxoTree::Key& key = vKeys[i];
+
+			// random key
+			for (int j = 0; j < key.s_Bytes; j++)
+				key.m_pArr[j] = (uint8_t) rand();
+
+			UtxoTree::Cursor cu;
+			bool bCreate = true;
+			UtxoTree::MyLeaf* p = t.Find(cu, key, bCreate);
+
+			verify_test(p && bCreate);
+			p->m_Count = i;
+
+			if (!(i % 17))
+				t.get_Hash(hv1); // try to confuse clean/dirty
+		}
+
+		t.get_Hash(hv1);
+
+		for (size_t i = 0; i < vKeys.size(); i++)
+		{
+			if (i == vKeys.size()/2)
+				t.get_Hash(hvMid);
+
+			UtxoTree::Cursor cu;
+			bool bCreate = true;
+			UtxoTree::MyLeaf* p = t.Find(cu, vKeys[i], bCreate);
+
+			verify_test(p && !bCreate);
+			verify_test(p->m_Count == i);
+			t.Delete(cu);
+
+			if (!(i % 31))
+				t.get_Hash(hv2); // try to confuse clean/dirty
+		}
+
+		t.get_Hash(hv2);
+		verify_test(hv2 == ECC::Zero);
+
+		// construct tree in different order
+		for (size_t i = vKeys.size(); i--; )
+		{
+			const UtxoTree::Key& key = vKeys[i];
+
+			UtxoTree::Cursor cu;
+			bool bCreate = true;
+			UtxoTree::MyLeaf* p = t.Find(cu, key, bCreate);
+
+			verify_test(p && bCreate);
+			p->m_Count = i;
+
+			if (!(i % 11))
+				t.get_Hash(hv2); // try to confuse clean/dirty
+
+			if (i == vKeys.size()/2)
+			{
+				t.get_Hash(hv2);
+				verify_test(hv2 == hvMid);
+			}
+		}
+
+		t.get_Hash(hv2);
+		verify_test(hv2 == hv1);
+	}
+
+
 } // namespace beam
 
 int main()
 {
 	beam::TestNavigator();
+	beam::TestUtxoTree();
 }
