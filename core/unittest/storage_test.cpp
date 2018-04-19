@@ -2,6 +2,14 @@
 #include "../storage.h"
 #include "../navigator.h"
 
+#include "../ecc_native.h"
+
+namespace ECC {
+	// not really used, it's just the stupid linker
+	Context g_Ctx;
+	const Context& Context::get() { return g_Ctx; }
+}
+
 #ifndef WIN32
 #	include <unistd.h>
 #endif // WIN32
@@ -272,12 +280,6 @@ void DeleteFile(const char* szPath)
 
 
 } // namespace beam
-
-namespace ECC {
-	// not really used, it's just the stupid linker
-	Context g_Ctx;
-	const Context& Context::get() { return g_Ctx; }
-}
 
 int main()
 {
