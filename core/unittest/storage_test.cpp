@@ -273,6 +273,12 @@ void DeleteFile(const char* szPath)
 
 } // namespace beam
 
+namespace ECC {
+	// not really used, it's just the stupid linker
+	Context g_Ctx;
+	const Context& Context::get() { return g_Ctx; }
+}
+
 int main()
 {
 	beam::TestNavigator();
