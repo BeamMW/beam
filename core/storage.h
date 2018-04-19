@@ -177,7 +177,7 @@ protected:
 	static const Merkle::Hash& get_Hash(Node&, Merkle::Hash&);
 
 	struct ISerializer {
-		virtual void Process(size_t&) = 0;
+		virtual void Process(uint32_t&) = 0;
 		virtual void Process(Key&) = 0;
 		virtual void Process(Value&) = 0;
 	};
@@ -187,7 +187,7 @@ protected:
 		Archive& m_ar;
 		Serializer(Archive& ar) :m_ar(ar) {}
 
-		virtual void Process(size_t& n) override { m_ar & n; }
+		virtual void Process(uint32_t& n) override { m_ar & n; }
 		virtual void Process(Key& k) override { m_ar & k.m_pArr; }
 		virtual void Process(Value& v) override { m_ar & v.m_Count; }
 	};

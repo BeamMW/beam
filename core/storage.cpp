@@ -370,7 +370,7 @@ const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 
 void UtxoTree::SaveIntenral(ISerializer& s) const
 {
-	size_t n = Count();
+	uint32_t n = (uint32_t) Count();
 	s.Process(n);
 
 	struct Traveler
@@ -392,12 +392,12 @@ void UtxoTree::LoadIntenral(ISerializer& s)
 {
 	Clear();
 
-	size_t n = 0;
+	uint32_t n = 0;
 	s.Process(n);
 
 	Key pKey[2];
 
-	for (size_t i = 0; i < n; i++)
+	for (uint32_t i = 0; i < n; i++)
 	{
 		Key& key = pKey[1 & i];
 		const Key& keyPrev = pKey[!(1 & i)];
