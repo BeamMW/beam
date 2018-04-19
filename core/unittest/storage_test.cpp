@@ -1,6 +1,7 @@
 #include <iostream>
 #include "../storage.h"
 #include "../navigator.h"
+#include "../../utility/serialize.h"
 
 #include "../ecc_native.h"
 
@@ -299,6 +300,20 @@ void DeleteFile(const char* szPath)
 		verify_test(hv2 == hv1);
 
 		verify_test(vKeys.size() == t.Count());
+
+		// serialization
+		Serializer ser;
+		t.save(ser);
+
+		SerializeBuffer sb = ser.buffer();
+
+		Deserializer der;
+		der.reset(sb.first, sb.second);
+
+		t.load(der);
+
+		t.get_Hash(hv2);
+		verify_test(hv2 == hv1);
 	}
 
 
