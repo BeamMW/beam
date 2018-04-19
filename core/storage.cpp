@@ -368,6 +368,57 @@ const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 	return x.m_Hash;
 }
 
+void UtxoTree::SaveIntenral(ISerializer& s) const
+{
+	size_t n = Count();
+	s.Process(n);
+
+	struct Traveler
+		:public ITraveler
+	{
+		ISerializer* m_pS;
+		virtual bool OnLeaf(const Leaf& n) override {
+			MyLeaf& x = (MyLeaf&) n;
+			m_pS->Process(x.get_Key());
+			m_pS->Process(x.m_Value);
+			return true;
+		}
+	} t;
+	t.m_pS = &s;
+	Traverse(t);
+}
+
+void UtxoTree::LoadIntenral(ISerializer& s)
+{
+	Clear();
+
+	size_t n;
+	s.Process(n);
+
+	Key pKey[2];
+
+	for (size_t i = 0; i < n; i++)
+	{
+		Key& key = pKey[1 & i];
+		const Key& keyPrev = pKey[!(1 & i)];
+
+		s.Process(key);
+
+		if (i)
+		{
+			// must be in ascending order
+			if (keyPrev.cmp(key) >= 0)
+				throw std::runtime_error("incorrect order");
+		}
+
+		Cursor cu;
+		bool bCreate = true;
+		MyLeaf* p = Find(cu, key, bCreate);
+
+		s.Process(p->m_Value);
+	}
+}
+
 int UtxoTree::Key::cmp(const Key& k) const
 {
 	return memcmp(m_pArr, k.m_pArr, sizeof(m_pArr));

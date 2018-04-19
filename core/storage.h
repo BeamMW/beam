@@ -150,6 +150,23 @@ public:
 
 	void get_Hash(Merkle::Hash&);
 
+    template<typename Archive>
+    Archive& save(Archive& ar) const
+	{
+		Serializer<Archive> s(ar);
+		SaveIntenral(s);
+		return ar;
+	}
+
+    template<typename Archive>
+    Archive& load(Archive& ar)
+    {
+		Serializer<Archive> s(ar);
+		LoadIntenral(s);
+		return ar;
+	}
+
+
 protected:
 	virtual Joint* CreateJoint() override { return new MyJoint; }
 	virtual Leaf* CreateLeaf() override { return new MyLeaf; }
@@ -158,6 +175,25 @@ protected:
 	virtual void DeleteLeaf(Leaf* p) override { delete (MyLeaf*) p; }
 
 	static const Merkle::Hash& get_Hash(Node&, Merkle::Hash&);
+
+	struct ISerializer {
+		virtual void Process(size_t&) = 0;
+		virtual void Process(Key&) = 0;
+		virtual void Process(Value&) = 0;
+	};
+
+	template <typename Archive>
+	struct Serializer :public ISerializer {
+		Archive& m_ar;
+		Serializer(Archive& ar) :m_ar(ar) {}
+
+		virtual void Process(size_t& n) override { m_ar & n; }
+		virtual void Process(Key& k) override { m_ar & k; }
+		virtual void Process(Value& v) override { m_ar & v; }
+	};
+
+	void SaveIntenral(ISerializer&) const;
+	void LoadIntenral(ISerializer&);
 };
 
 } // namespace beam
