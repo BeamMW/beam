@@ -45,8 +45,8 @@ int main(int argc, char* argv[])
         {
             std::cout << "starting a wallet..." << std::endl;
 
-            beam::Wallet wallet;
-            wallet.sendDummyTransaction();
+            // beam::Wallet wallet;
+            // wallet.sendDummyTransaction();
         }
         else
         {
