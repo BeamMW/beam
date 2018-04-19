@@ -382,7 +382,6 @@ namespace beam
         m_network.registerTx(PeerLocator(), transaction);
     }
 
-
     void Wallet::handleTxInitiation(const wallet::Sender::InvitationData& data)
     {
         std::lock_guard<std::mutex> lock{ m_receiversMutex };
@@ -423,12 +422,30 @@ namespace beam
         auto it = m_senders.find(data.m_txId);
         if (it != m_senders.end())
         {
-            it->second.enqueueEvent(wallet::Sender::TxConfirmationCompleted());
+            it->second.enqueueEvent(wallet::Sender::TxInitCompleted());
         }
         else
         {
             // TODO: log unexpected TxConfirmation
         }
+    }
+
+    void Wallet::handleTxRegistration(const Transaction& tx)
+    {
+        std::lock_guard<std::mutex> lock{ m_receiversMutex };
+        if (!m_receivers.empty())
+        {
+            m_receivers.begin()->second.enqueueEvent(wallet::Receiver::TxRegistrationCompleted());
+        }
+        //auto it = m_receivers.find(data.m_txId);
+        //if (it != m_receivers.end())
+        //{
+        //    it->second.enqueueEvent(wallet::Receiver::TxConfirmationCompleted());
+        //}
+        //else
+        //{
+        //    // TODO: log unexpected TxConfirmation
+        //}
     }
 
     void Wallet::pumpEvents()

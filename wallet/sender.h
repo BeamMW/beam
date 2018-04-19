@@ -81,11 +81,26 @@ namespace beam::wallet
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
             // states
-            struct Init : public msmf::state<> {};
-            struct Terminate : public msmf::terminate_state<> {};
-            struct TxInitiating : public msmf::state<> {};
-            struct TxConfirming : public msmf::state<> {};
-            struct TxOutputConfirming : public msmf::state<> {};
+            struct Init : public msmf::state<> {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                { std::cout << "[Sender] Init stat\n"; } };
+            struct Terminate : public msmf::terminate_state<> {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                { std::cout << "[Sender] Terminate stat\n"; } };
+            struct TxInitiating : public msmf::state<> {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                { std::cout << "[Sender] TxInitiating stat\n"; } };
+            struct TxConfirming : public msmf::state<> {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                { std::cout << "[Sender] TxConfirming stat\n"; } };
+            struct TxOutputConfirming : public msmf::state<> {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                { std::cout << "[Sender] TxOutputConfirming stat\n"; } };
 
             FSMDefinition(IGateway& gateway, const Uuid& txId)
                 : m_gateway{ gateway }
@@ -164,7 +179,7 @@ namespace beam::wallet
             template <class FSM, class Event>
             void no_transition(Event const& e, FSM&, int state)
             {
-                std::cout << "Sender: no transition from state " << state
+                std::cout << "[Sender] no transition from state " << state
                     << " on event " << typeid(e).name() << std::endl;
             }
 

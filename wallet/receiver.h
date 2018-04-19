@@ -102,7 +102,7 @@ namespace beam::wallet
 
             void registerTx(const TxConfirmationCompleted& event)
             {
-                m_gateway.registerTx(m_transaction);
+                m_gateway.registerTx(Transaction());
             }
 
             void rollbackTx(const TxConfirmationFailed& event)
@@ -159,7 +159,7 @@ namespace beam::wallet
             IGateway& m_gateway;
             Uuid m_txId;
             ConfirmationData m_confirmationData;
-            Transaction m_transaction;
+        //    Transaction m_transaction;
         };
         msm::back::state_machine<FSMDefinition> m_fsm;
     };

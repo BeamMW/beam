@@ -39,6 +39,7 @@ namespace beam
         virtual void handleTxConfirmation(const wallet::Sender::ConfirmationData&) = 0;
         //virtual void handleChangeOutputConfirmation(const PeerLocator& locator) = 0;
         virtual void handleTxConfirmation(const wallet::Receiver::ConfirmationData&) = 0;
+        virtual void handleTxRegistration(const Transaction& tx) = 0;
     };
     
 
@@ -160,6 +161,7 @@ namespace beam
         void handleTxConfirmation(const wallet::Sender::ConfirmationData&) override;
         //void handleChangeOutputConfirmation(const PeerLocator& locator) override0;
         void handleTxConfirmation(const wallet::Receiver::ConfirmationData&) override;
+        void handleTxRegistration(const Transaction& tx) override;
 
     private:
         ToNode::Ptr m_net;
