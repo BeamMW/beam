@@ -156,6 +156,7 @@ namespace beam
 		struct SystemState
 			:public SystemStateShort
 		{
+			Merkle::Hash	m_Utxos; // merkle hash of Utxos only.
 			Difficulty		m_Difficulty;
 		    Timestamp		m_TimeStamp;
 
