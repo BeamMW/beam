@@ -202,6 +202,18 @@ void DeleteFile(const char* szPath)
 		}
 	}
 
+	void SetRandomUtxoKey(UtxoTree::Key::Formatted& fmt)
+	{
+		for (int i = 0; i < sizeof(fmt.m_Commitment.m_X.m_pData); i++)
+			fmt.m_Commitment.m_X.m_pData[i] = (uint8_t) rand();
+
+		fmt.m_Commitment.m_Y	= (1 & rand()) != 0;
+		fmt.m_bConfidential		= (1 & rand()) != 0;
+		fmt.m_bCoinbase			= (1 & rand()) != 0;
+
+		for (int i = 0; i < sizeof(fmt.m_Height); i++)
+			((uint8_t*) &fmt.m_Height)[i] = (uint8_t) rand();
+	}
 
 	void TestUtxoTree()
 	{
@@ -216,15 +228,24 @@ void DeleteFile(const char* szPath)
 			UtxoTree::Key& key = vKeys[i];
 
 			// random key
-			for (int j = 0; j < key.s_Bytes; j++)
-				key.m_pArr[j] = (uint8_t) rand();
+			UtxoTree::Key::Formatted fmt0, fmt1;
+			SetRandomUtxoKey(fmt0);
+
+			key = fmt0;
+			fmt1 = key;
+
+			verify_test(
+				!fmt0.m_Commitment.cmp(fmt1.m_Commitment) &&
+				(fmt0.m_Height == fmt1.m_Height) &&
+				(fmt0.m_bCoinbase == fmt1.m_bCoinbase) &&
+				(fmt0.m_bConfidential == fmt1.m_bConfidential));
 
 			UtxoTree::Cursor cu;
 			bool bCreate = true;
 			UtxoTree::MyLeaf* p = t.Find(cu, key, bCreate);
 
 			verify_test(p && bCreate);
-			p->m_Count = i;
+			p->m_Value.m_Count = i;
 
 			if (!(i % 17))
 				t.get_Hash(hv1); // try to confuse clean/dirty
@@ -242,7 +263,7 @@ void DeleteFile(const char* szPath)
 			UtxoTree::MyLeaf* p = t.Find(cu, vKeys[i], bCreate);
 
 			verify_test(p && !bCreate);
-			verify_test(p->m_Count == i);
+			verify_test(p->m_Value.m_Count == i);
 			t.Delete(cu);
 
 			if (!(i % 31))
@@ -262,7 +283,7 @@ void DeleteFile(const char* szPath)
 			UtxoTree::MyLeaf* p = t.Find(cu, key, bCreate);
 
 			verify_test(p && bCreate);
-			p->m_Count = i;
+			p->m_Value.m_Count = i;
 
 			if (!(i % 11))
 				t.get_Hash(hv2); // try to confuse clean/dirty

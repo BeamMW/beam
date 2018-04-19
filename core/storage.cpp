@@ -343,7 +343,7 @@ const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 
 		ECC::Hash::Processor hp;
 		hp.Write(x.m_pKeyArr, Key::s_Bytes); // whole description of the UTXO
-		hp << x.m_Count;
+		hp << x.m_Value.m_Count;
 
 		hp >> hv;
 		return hv;
@@ -366,6 +366,56 @@ const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 	}
 
 	return x.m_Hash;
+}
+
+int UtxoTree::Key::cmp(const Key& k) const
+{
+	return memcmp(m_pArr, k.m_pArr, sizeof(m_pArr));
+}
+
+UtxoTree::Key::Formatted& UtxoTree::Key::Formatted::operator = (const Key& key)
+{
+	memcpy(m_Commitment.m_X.m_pData, key.m_pArr, sizeof(m_Commitment.m_X.m_pData));
+	const uint8_t* pKey = key.m_pArr + sizeof(m_Commitment.m_X.m_pData);
+
+	m_Commitment.m_Y	= (1 & (pKey[0] >> 7)) != 0;
+	m_bCoinbase			= (1 & (pKey[0] >> 6)) != 0;
+	m_bConfidential		= (1 & (pKey[0] >> 5)) != 0;
+
+	m_Height = 0;
+	for (int i = 0; i < sizeof(m_Height); i++, pKey++)
+		m_Height = (m_Height << 8) | (pKey[0] << 3) | (pKey[1] >> 5);
+
+	return *this;
+}
+
+UtxoTree::Key& UtxoTree::Key::operator = (const Key::Formatted& fmt)
+{
+	memcpy(m_pArr, fmt.m_Commitment.m_X.m_pData, sizeof(fmt.m_Commitment.m_X.m_pData));
+
+	uint8_t* pKey = m_pArr + sizeof(fmt.m_Commitment.m_X.m_pData);
+	memset(pKey, 0, sizeof(m_pArr) - sizeof(fmt.m_Commitment.m_X.m_pData));
+
+	if (fmt.m_Commitment.m_Y)
+		pKey[0] |= (1 << 7);
+	if (fmt.m_bCoinbase)
+		pKey[0] |= (1 << 6);
+	if (fmt.m_bConfidential)
+		pKey[0] |= (1 << 5);
+
+	for (int i = 0; i < sizeof(fmt.m_Height); i++)
+	{
+		uint8_t val = uint8_t(fmt.m_Height >> ((sizeof(fmt.m_Height) - i - 1) << 3));
+		pKey[i] |= val >> 3;
+		pKey[i + 1] |= (val << 5);
+	}
+
+	return *this;
+}
+
+UtxoTree::Key& UtxoTree::MyLeaf::get_Key() const
+{
+	return (Key&) m_pKeyArr; // should be fine
 }
 
 } // namespace beam

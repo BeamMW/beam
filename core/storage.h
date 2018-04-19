@@ -98,14 +98,33 @@ public:
 
 	struct Key
 	{
+		struct Formatted
+		{
+			ECC::Point	m_Commitment;
+			Height		m_Height;
+			bool		m_bCoinbase;
+			bool		m_bConfidential;
+
+			Formatted& operator = (const Key&);
+		};
+
+		static const uint32_t s_BitsCommitment = sizeof(ECC::uintBig) * 8 + 1; // curve point
+
 		static const uint32_t s_Bits =
-			257 +	// curve point
-			2 +		// coinbase flag, confidential flag
-			64;		// block height
+			s_BitsCommitment +
+			2 + // coinbase flag, confidential flag
+			sizeof(Height) * 8; // block height
 
 		static const uint32_t s_Bytes = (s_Bits + 7) >> 3;
 
+		Key& operator = (const Formatted&);
+		int cmp(const Key&) const;
+
 		uint8_t m_pArr[s_Bytes];
+	};
+
+	struct Value {
+		uint32_t m_Count;
 	};
 
 	struct MyJoint :public Joint {
@@ -115,7 +134,9 @@ public:
 	struct MyLeaf :public Leaf
 	{
 		uint8_t m_pPlaceholder[Key::s_Bytes - 1]; // 1 byte is already included in the base
-		uint32_t m_Count;
+		Value m_Value;
+
+		Key& get_Key() const;
 	};
 
 	typedef RadixTree::Cursor_T<Key::s_Bits> Cursor;
