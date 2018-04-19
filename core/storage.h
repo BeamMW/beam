@@ -188,8 +188,8 @@ protected:
 		Serializer(Archive& ar) :m_ar(ar) {}
 
 		virtual void Process(size_t& n) override { m_ar & n; }
-		virtual void Process(Key& k) override { m_ar & k; }
-		virtual void Process(Value& v) override { m_ar & v; }
+		virtual void Process(Key& k) override { m_ar & k.m_pArr; }
+		virtual void Process(Value& v) override { m_ar & v.m_Count; }
 	};
 
 	void SaveIntenral(ISerializer&) const;
