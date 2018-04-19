@@ -392,7 +392,7 @@ void UtxoTree::LoadIntenral(ISerializer& s)
 {
 	Clear();
 
-	size_t n;
+	size_t n = 0;
 	s.Process(n);
 
 	Key pKey[2];
@@ -415,6 +415,7 @@ void UtxoTree::LoadIntenral(ISerializer& s)
 		bool bCreate = true;
 		MyLeaf* p = Find(cu, key, bCreate);
 
+		p->m_Value.m_Count = 0;
 		s.Process(p->m_Value);
 	}
 }
