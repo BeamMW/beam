@@ -1,4 +1,5 @@
 #include <iostream>
+#include "../storage.h"
 #include "../navigator.h"
 
 #ifndef WIN32
