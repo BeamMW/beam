@@ -1,10 +1,12 @@
 #pragma once
 
+#include "wallet/common.h"
+#include "wallet/keychain.h"
+
 #include <boost/msm/back/state_machine.hpp>
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
 #include <iostream>
-#include "wallet/common.h"
 
 namespace beam::wallet
 {
@@ -49,8 +51,10 @@ namespace beam::wallet
         struct TxOutputConfirmCompleted : TxEventBase {};
         struct TxOutputConfirmFailed : TxEventBase {};
 
-        Sender(IGateway& gateway, const Uuid& txId)
+        Sender(IGateway& gateway, const Uuid& txId, beam::IKeyChain::Ptr keychain, const ECC::Amount& amount)
             : m_fsm{boost::ref(gateway), boost::ref(txId)}
+            , m_keychain(keychain)
+            , m_amount(amount)
         {
             
         }
@@ -108,11 +112,7 @@ namespace beam::wallet
             {}
 
             // transition actions
-            void initTx(const msmf::none&)
-            {
-                m_invitationData.m_txId = m_txId;
-                m_gateway.sendTxInitiation(m_invitationData);
-            }
+            void initTx(const msmf::none&);
 
             bool isValidSignature(const TxInitCompleted& event)
             {
@@ -189,5 +189,8 @@ namespace beam::wallet
             ConfirmationData m_confirmationData;
         };
         msm::back::state_machine<FSMDefinition> m_fsm;
+
+        beam::IKeyChain::Ptr m_keychain;
+        const ECC::Amount& m_amount;
     };
 }

@@ -230,7 +230,7 @@ namespace beam
         boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId;
         std::copy(id.begin(), id.end(), txId.begin());
-        auto [it, _] = m_senders.emplace(txId, wallet::Sender{ *this, txId });
+        auto [it, _] = m_senders.emplace(txId, wallet::Sender{ *this, txId, m_keyChain, amount });
         it->second.start();
     }
 

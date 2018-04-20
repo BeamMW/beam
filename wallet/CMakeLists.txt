@@ -1,6 +1,8 @@
 set(WALLET_SRC
     wallet.h
     wallet.cpp
+    sender.cpp
+    receiver.cpp
 )
 
 add_library(wallet STATIC ${WALLET_SRC})

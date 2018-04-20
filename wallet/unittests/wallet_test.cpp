@@ -258,14 +258,14 @@ void TestFSM()
     cout << "\nTesting wallet's fsm...\nsender\n";
     TestGateway gateway;
     Uuid id;
-    wallet::Sender s{ gateway, id };
+    wallet::Sender s{ gateway, id, createKeyChain(), 6};
     s.start();
     WALLET_CHECK(s.processEvent(wallet::Sender::TxInitCompleted()));
     WALLET_CHECK(s.processEvent(wallet::Sender::TxConfirmationCompleted()));
     WALLET_CHECK(s.processEvent(wallet::Sender::TxOutputConfirmCompleted()));
     
     cout << "\nreceiver\n";
-    wallet::Receiver r{ gateway, id };
+    wallet::Receiver r{ gateway, id};
     r.start();
     WALLET_CHECK(!r.processEvent(wallet::Receiver::TxRegistrationCompleted()));
     WALLET_CHECK(r.processEvent(wallet::Receiver::TxConfirmationFailed()));
