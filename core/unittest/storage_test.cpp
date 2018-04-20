@@ -249,7 +249,27 @@ void DeleteFile(const char* szPath)
 			p->m_Value.m_Count = i;
 
 			if (!(i % 17))
+			{
 				t.get_Hash(hv1); // try to confuse clean/dirty
+
+				for (int k = 0; k < 10; k++)
+				{
+					size_t j = rand() % (i + 1);
+
+					bCreate = false;
+					p = t.Find(cu, vKeys[j], bCreate);
+					assert(p && !bCreate);
+
+					Merkle::Proof proof;
+					cu.get_Proof(proof);
+
+					Merkle::Hash hvElement;
+					p->m_Value.get_Hash(hvElement, p->get_Key());
+
+					Merkle::Interpret(hvElement, proof);
+					verify_test(hvElement == hv1);
+				}
+			}
 		}
 
 		t.get_Hash(hv1);

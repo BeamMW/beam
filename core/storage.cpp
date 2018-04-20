@@ -334,6 +334,15 @@ void UtxoTree::get_Hash(Merkle::Hash& hv)
 		hv = ECC::Zero;
 }
 
+void UtxoTree::Value::get_Hash(Merkle::Hash& hv, const Key& key) const
+{
+	ECC::Hash::Processor hp;
+	hp.Write(key.m_pArr, Key::s_Bytes); // whole description of the UTXO
+	hp << m_Count;
+
+	hp >> hv;
+}
+
 const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 {
 	if (Node::s_Leaf & n.m_Bits)
@@ -341,11 +350,8 @@ const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 		MyLeaf& x = (MyLeaf&) n;
 		x.m_Bits |= Node::s_Clean;
 
-		ECC::Hash::Processor hp;
-		hp.Write(x.m_pKeyArr, Key::s_Bytes); // whole description of the UTXO
-		hp << x.m_Value.m_Count;
+		x.m_Value.get_Hash(hv, x.get_Key());
 
-		hp >> hv;
 		return hv;
 
 	}
@@ -366,6 +372,24 @@ const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 	}
 
 	return x.m_Hash;
+}
+
+void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
+{
+	uint32_t n = m_nPtrs;
+	assert(n);
+	
+	for (const Node* pPrev = m_pp[--n]; n--; )
+	{
+		const Joint& x = (const Joint&) *m_pp[n];
+
+		Merkle::Node node;
+		node.first = (x.m_ppC[0] == pPrev);
+		node.second = get_Hash(*x.m_ppC[node.first != false], node.second);
+
+		proof.push_back(std::move(node));
+		pPrev = &x;
+	}
 }
 
 void UtxoTree::SaveIntenral(ISerializer& s) const

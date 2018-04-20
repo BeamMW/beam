@@ -45,6 +45,7 @@ public:
 
 	class CursorBase
 	{
+	protected:
 		uint32_t m_nBits;
 		uint32_t m_nPtrs;
 		uint32_t m_nPosInLastNode;
@@ -123,8 +124,10 @@ public:
 		uint8_t m_pArr[s_Bytes];
 	};
 
-	struct Value {
+	struct Value
+	{
 		uint32_t m_Count;
+		void get_Hash(Merkle::Hash&, const Key&) const;
 	};
 
 	struct MyJoint :public Joint {
@@ -139,7 +142,11 @@ public:
 		Key& get_Key() const;
 	};
 
-	typedef RadixTree::Cursor_T<Key::s_Bits> Cursor;
+	struct Cursor
+		:public RadixTree::Cursor_T<Key::s_Bits>
+	{
+		void get_Proof(Merkle::Proof&) const; // must be valid of course
+	};
 
 	MyLeaf* Find(CursorBase& cu, const Key& key, bool& bCreate)
 	{
