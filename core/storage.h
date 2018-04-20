@@ -73,11 +73,21 @@ public:
 
 	void Delete(CursorBase& cu);
 
+	struct ITraveler {
+		virtual bool OnLeaf(const Leaf&) = 0;
+	};
+
+	bool Traverse(ITraveler&) const;
+	static bool Traverse(const CursorBase&, ITraveler&);
+
+	size_t Count() const; // implemented via the whole tree traversing, shouldn't use frequently.
+
 private:
 	Node* m_pRoot;
 
 	void DeleteNode(Node*);
 	void ReplaceTip(CursorBase& cu, Node* pNew);
+	static bool Traverse(const Node&, ITraveler&);
 };
 
 
@@ -88,14 +98,33 @@ public:
 
 	struct Key
 	{
+		struct Formatted
+		{
+			ECC::Point	m_Commitment;
+			Height		m_Height;
+			bool		m_bCoinbase;
+			bool		m_bConfidential;
+
+			Formatted& operator = (const Key&);
+		};
+
+		static const uint32_t s_BitsCommitment = sizeof(ECC::uintBig) * 8 + 1; // curve point
+
 		static const uint32_t s_Bits =
-			257 +	// curve point
-			2 +		// coinbase flag, confidential flag
-			64;		// block height
+			s_BitsCommitment +
+			2 + // coinbase flag, confidential flag
+			sizeof(Height) * 8; // block height
 
 		static const uint32_t s_Bytes = (s_Bits + 7) >> 3;
 
+		Key& operator = (const Formatted&);
+		int cmp(const Key&) const;
+
 		uint8_t m_pArr[s_Bytes];
+	};
+
+	struct Value {
+		uint32_t m_Count;
 	};
 
 	struct MyJoint :public Joint {
@@ -105,7 +134,9 @@ public:
 	struct MyLeaf :public Leaf
 	{
 		uint8_t m_pPlaceholder[Key::s_Bytes - 1]; // 1 byte is already included in the base
-		uint32_t m_Count;
+		Value m_Value;
+
+		Key& get_Key() const;
 	};
 
 	typedef RadixTree::Cursor_T<Key::s_Bits> Cursor;
@@ -119,6 +150,23 @@ public:
 
 	void get_Hash(Merkle::Hash&);
 
+    template<typename Archive>
+    Archive& save(Archive& ar) const
+	{
+		Serializer<Archive> s(ar);
+		SaveIntenral(s);
+		return ar;
+	}
+
+    template<typename Archive>
+    Archive& load(Archive& ar)
+    {
+		Serializer<Archive> s(ar);
+		LoadIntenral(s);
+		return ar;
+	}
+
+
 protected:
 	virtual Joint* CreateJoint() override { return new MyJoint; }
 	virtual Leaf* CreateLeaf() override { return new MyLeaf; }
@@ -127,6 +175,25 @@ protected:
 	virtual void DeleteLeaf(Leaf* p) override { delete (MyLeaf*) p; }
 
 	static const Merkle::Hash& get_Hash(Node&, Merkle::Hash&);
+
+	struct ISerializer {
+		virtual void Process(uint32_t&) = 0;
+		virtual void Process(Key&) = 0;
+		virtual void Process(Value&) = 0;
+	};
+
+	template <typename Archive>
+	struct Serializer :public ISerializer {
+		Archive& m_ar;
+		Serializer(Archive& ar) :m_ar(ar) {}
+
+		virtual void Process(uint32_t& n) override { m_ar & n; }
+		virtual void Process(Key& k) override { m_ar & k.m_pArr; }
+		virtual void Process(Value& v) override { m_ar & v.m_Count; }
+	};
+
+	void SaveIntenral(ISerializer&) const;
+	void LoadIntenral(ISerializer&);
 };
 
 } // namespace beam
