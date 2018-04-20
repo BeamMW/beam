@@ -153,7 +153,7 @@ namespace beam::wallet
             void no_transition(Event const& e, FSM&, int state)
             {
                 std::cout << "Receiver: no transition from state " << state
-                    << " on event " << typeid(e).name() << std::endl;
+                    << " on event "/* << typeid(e).name()*/ << std::endl;
             }
 
             IGateway& m_gateway;

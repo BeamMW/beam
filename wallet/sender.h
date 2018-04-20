@@ -12,7 +12,7 @@ namespace beam::wallet
     namespace msmf = boost::msm::front;
     namespace mpl = boost::mpl;
 
-    class Sender
+    class Sender 
     {
     public:
         // interface to communicate with receiver
@@ -23,8 +23,8 @@ namespace beam::wallet
             ECC::Hash::Value m_message;
             ECC::Point::Native m_publicSenderBlindingExcess;
             ECC::Point::Native m_publicSenderNonce;
-            //std::vector<Input::Ptr> m_inputs;
-            //std::vector<Output::Ptr> m_outputs;
+            std::vector<Input::Ptr> m_inputs;
+            std::vector<Output::Ptr> m_outputs;
         };
 
         struct ConfirmationData
@@ -180,7 +180,7 @@ namespace beam::wallet
             void no_transition(Event const& e, FSM&, int state)
             {
                 std::cout << "[Sender] no transition from state " << state
-                    << " on event " << typeid(e).name() << std::endl;
+                    << " on event "/* << typeid(e).name()*/ << std::endl;
             }
 
             IGateway& m_gateway;
