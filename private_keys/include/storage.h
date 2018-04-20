@@ -3,17 +3,27 @@
 
 #include <stdio.h>
 #include <fstream>
+#include <algorithm>
 #include <string.h>
 #include "../core/common.h"
+
+constexpr const size_t BUFSIZE = 256;
 
 // Prototype of UTXO
 struct UTXO : beam::Output {
 
-    int id;
-    char* info;
+    unsigned int id;
+    char info[BUFSIZE+1];
 
     UTXO() = default;
-    UTXO(int num, char* data) : id(num), info(data) {}
+
+    UTXO(unsigned int num, char* data) : id(num) {
+
+        auto n = std::min(strlen(data)+1, BUFSIZE+1);
+
+		for(int i=0; i<n; ++i) info[i] = data[i];
+		info[n] = '\0';
+    }
 
     // Encrypt UTXO and write it to filestream
     void write(std::ofstream &os, char* key);

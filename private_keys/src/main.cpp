@@ -28,23 +28,24 @@ void test_storage(const char* filename) {
     UTXO* pu2 = UTXO::recover(is, 1*SIZEUTXO);
     UTXO* pu3 = UTXO::recover(is, 2*SIZEUTXO);
 
+    std::cout << "After recover from file " << filename << "\n";
     std::cout << "UTXO #1: id = " << pu1->id << "; info = " << pu1->info << "\n";
     std::cout << "UTXO #2: id = " << pu2->id << "; info = " << pu2->info << "\n";
     std::cout << "UTXO #3: id = " << pu3->id << "; info = " << pu3->info << "\n\n";
 
-    UTXO* pu4 = UTXO::recover(is, 3*SIZEUTXO, skey);
-    UTXO* pu5 = UTXO::recover(is, 4*SIZEUTXO, skey);
+    UTXO* pu4 = UTXO::recover(is, 3*SIZEUTXO, "other secret key #1");
+    UTXO* pu5 = UTXO::recover(is, 4*SIZEUTXO, "other secret key #2");
     UTXO* pu6 = UTXO::recover(is, 5*SIZEUTXO, skey);
 
     std::cout << "After recover by key from file " << filename << "\n";
-    std::cout << "UTXO #1: id = " << pu4->id << "; info = " << pu4->info << "\n";
-    std::cout << "UTXO #2: id = " << pu5->id << "; info = " << pu5->info << "\n";
-    std::cout << "UTXO #3: id = " << pu6->id << "; info = " << pu6->info << "\n\n";
+    std::cout << "UTXO #1 with INCORRECT key: id = " << pu4->id << "; info = " << pu4->info << "\n";
+    std::cout << "UTXO #2 with INCORRECT key: id = " << pu5->id << "; info = " << pu5->info << "\n";
+    std::cout << "UTXO #3 with CORRECT   key: id = " << pu6->id << "; info = " << pu6->info << "\n\n";
 
     is.close();
 }
 
-void test_keygenerator(const char* filename) {
+void test_keygenerator(const char* filename, const char* encode_key, const char* decode_key) {
 
     KeyGenerator key_gen_1("secret_word_to_initiate");
 
@@ -53,24 +54,13 @@ void test_keygenerator(const char* filename) {
     auto key31 = key_gen_1.next();
 
     std::ofstream os = create_out_filestream(filename);
-    key_gen_1.write(os, "some secret key");
+    key_gen_1.write(os, encode_key);
 
     os.close();
 
-    std::cout << "\nComparing keys:\n";
-
-    if (key11.cmp(key21) == 0) std::cout << "key11 == key21\n";
-    else std::cout << "key11 != key21\n";
-
-    if (key11.cmp(key31) == 0) std::cout << "key11 == key31\n";
-    else std::cout << "key11 != key31\n";
-
-    if (key21.cmp(key31) == 0) std::cout << "key21 == key31\n";
-    else std::cout << "key21 != key31\n";
-
     std::ifstream is(filename, std::fstream::in);
 
-    KeyGenerator* key_gen_2 = KeyGenerator::recover(is, "some secret key");
+    KeyGenerator* key_gen_2 = KeyGenerator::recover(is, decode_key);
 
     auto key12 = key_gen_2->next();
     auto key22 = key_gen_2->next();
@@ -78,7 +68,11 @@ void test_keygenerator(const char* filename) {
 
     is.close();
 
-    std::cout << "\nComparing after recover key generator from file " << filename << "\n";
+    if (encode_key == decode_key)
+        std::cout << "\nComparing after recover key generator with CORRECT secret key from file " << filename << "\n";
+    else
+        std::cout << "\nComparing after recover key generator with INCORRECT secret key from file " << filename << "\n";
+
     std::cout << "second index = 1 = original generator;\nsecond index = 2 = recovered generator\n\n";
 
     if (key11.cmp(key12) == 0) std::cout << "key11 == key12\n";
@@ -93,7 +87,8 @@ void test_keygenerator(const char* filename) {
 
 int main() {
     test_storage("./utxo.bin");
-    test_keygenerator("./keygen.bin");
+    test_keygenerator("./keygen.bin", "secret key", "secret key");
+    test_keygenerator("./keygen.bin", "secret key", "another key");
 }
 
 
