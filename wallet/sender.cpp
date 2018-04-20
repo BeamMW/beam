@@ -8,36 +8,34 @@ namespace beam::wallet
         m_invitationData.m_txId = m_txId;
 
         // {
-        //     auto& res = m_invitationData;
-        //     auto coins = m_keychain.getCoins(amount); // need to lock 
-        //     res->m_amount = amount;
-        //     m_state.m_kernel.m_Fee = 0;
-        //     m_state.m_kernel.m_HeightMin = 0;
-        //     m_state.m_kernel.m_HeightMax = -1;
-        //     m_state.m_kernel.get_Hash(res->m_message);
+            // auto& res = m_invitationData;
+            auto coins = m_sender.m_keychain->getCoins(m_sender.m_amount); // need to lock 
+            m_invitationData.m_amount = m_sender.m_amount;
+            m_sender.m_kernel.m_Fee = 0;
+            m_sender.m_kernel.m_HeightMin = 0;
+            m_sender.m_kernel.m_HeightMax = -1;
+            m_sender.m_kernel.get_Hash(m_invitationData.m_message);
             
-        //     // 2. Set lock_height for output (current chain height)
-        //     // auto tip = m_node.getChainTip();
-        //     // uint64_t lockHeight = tip.height;
-        //     // 3. Select inputs using desired selection strategy
-        //     {
-        //         m_state.m_blindingExcess = ECC::Zero;
-        //         for (const auto& coin: coins)
-        //         {
-        //             Input::Ptr input = std::make_unique<Input>();
-        //             input->m_Height = 0;
-        //             input->m_Coinbase = false;
+            // 2. Set lock_height for output (current chain height)
+            // 3. Select inputs using desired selection strategy
+            {
+                m_sender.m_blindingExcess = ECC::Zero;
+                for (const auto& coin: coins)
+                {
+                    // Input::Ptr input = std::make_unique<Input>();
+                    // input->m_Height = 0;
+                    // input->m_Coinbase = false;
 
-        //             ECC::Scalar::Native key(coin.m_key);
-        //             ECC::Point::Native pt = ECC::Commitment(key, coin.m_amount);
+                    ECC::Scalar::Native key(coin.m_key);
+                    // ECC::Point::Native pt = ECC::Commitment(key, coin.m_amount);
 
-        //             input->m_Commitment = pt;
+                    // input->m_Commitment = pt;
 
-        //             res->m_inputs.push_back(std::move(input));
+                    m_invitationData.m_inputs.emplace_back(0, false, coin.m_amount, coin.m_key);
                     
-        //             m_state.m_blindingExcess += key;
-        //         }
-        //     }
+                    m_sender.m_blindingExcess += key;
+                }
+            }
         //     // 4. Create change_output
         //     // 5. Select blinding factor for change_output
         //     // m_transaction.m_vOutputs.push_back(createChangeOutput(coins));

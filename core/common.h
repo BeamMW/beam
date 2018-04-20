@@ -50,6 +50,9 @@ namespace beam
 		// In case there are multiple UTXOs with the same commitment value (which we permit) the height should be used to distinguish between them
 		// If not specified (no UTXO with the specified height) - it will automatically be selected.
 
+		Input(Height height, bool coinbase, const Amount& amount, const ECC::Scalar& blindingFactor);
+		Input() = default;
+
 		int cmp(const Input&) const;
 
 		void get_Hash(Merkle::Hash&) const;

@@ -25,7 +25,7 @@ namespace beam::wallet
             ECC::Hash::Value m_message;
             ECC::Point::Native m_publicSenderBlindingExcess;
             ECC::Point::Native m_publicSenderNonce;
-            //std::vector<Input::Ptr> m_inputs;
+            std::vector<Input> m_inputs;
             //std::vector<Output::Ptr> m_outputs;
         };
 
@@ -52,7 +52,7 @@ namespace beam::wallet
         struct TxOutputConfirmFailed : TxEventBase {};
 
         Sender(IGateway& gateway, const Uuid& txId, beam::IKeyChain::Ptr keychain, const ECC::Amount& amount)
-            : m_fsm{boost::ref(gateway), boost::ref(txId)}
+            : m_fsm{boost::ref(gateway), boost::ref(txId), std::ref(*this)}
             , m_keychain(keychain)
             , m_amount(amount)
         {
@@ -106,9 +106,10 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm&)
                 { std::cout << "[Sender] TxOutputConfirming stat\n"; } };
 
-            FSMDefinition(IGateway& gateway, const Uuid& txId)
+            FSMDefinition(IGateway& gateway, const Uuid& txId, Sender& sender)
                 : m_gateway{ gateway }
                 , m_txId{txId}
+                , m_sender(sender)
             {}
 
             // transition actions
@@ -187,10 +188,19 @@ namespace beam::wallet
             Uuid m_txId;
             InvitationData m_invitationData;
             ConfirmationData m_confirmationData;
+
+            Sender& m_sender;
         };
-        msm::back::state_machine<FSMDefinition> m_fsm;
+        ECC::Amount m_amount;
 
         beam::IKeyChain::Ptr m_keychain;
-        const ECC::Amount& m_amount;
+
+        friend FSMDefinition;
+
+        ECC::Scalar::Native m_blindingExcess;
+        ECC::Scalar::Native m_nonce;
+        TxKernel m_kernel;
+        
+        msm::back::state_machine<FSMDefinition> m_fsm;
     };
 }
