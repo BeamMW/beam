@@ -23,8 +23,8 @@ namespace beam::wallet
             ECC::Hash::Value m_message;
             ECC::Point::Native m_publicSenderBlindingExcess;
             ECC::Point::Native m_publicSenderNonce;
-            std::vector<Input::Ptr> m_inputs;
-            std::vector<Output::Ptr> m_outputs;
+            std::vector<Input> m_inputs;
+          //  std::vector<Output> m_outputs;
         };
 
         struct ConfirmationData
