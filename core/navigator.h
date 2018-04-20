@@ -4,8 +4,6 @@
 
 namespace beam
 {
-	void test_SysRet(bool bFail);
-
 	class MappedFile
 	{
 	public:

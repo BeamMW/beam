@@ -5,6 +5,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 set(CORE_SRC
     ecc.cpp
     block_crypt.cpp
+<<<<<<< HEAD
+=======
+    navigator.cpp
+    storage.cpp
+>>>>>>> 8531b8b0083d8e915bbfc8523385ab5476322002
 # ~etc
 )
 

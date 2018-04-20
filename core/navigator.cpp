@@ -107,14 +107,14 @@ namespace beam
 
 #ifdef WIN32
 
-		test_SysRet(!GetFileSizeEx(m_hFile, (LARGE_INTEGER*) &m_nMapping));
+		test_SysRet(!GetFileSizeEx(m_hFile, (LARGE_INTEGER*) &m_nMapping), "GetFileSizeEx");
 		if (m_nMapping)
 		{
 			m_hMapping = CreateFileMapping(m_hFile, NULL, PAGE_READWRITE, 0, 0, NULL);
-			test_SysRet(!m_hMapping);
+			test_SysRet(!m_hMapping, "CreateFileMapping");
 
 			m_pMapping = (uint8_t*) MapViewOfFile(m_hMapping, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, (size_t) m_nMapping);
-			test_SysRet(!m_pMapping);
+			test_SysRet(!m_pMapping, "MapViewOfFile");
 		}
 
 #else // WIN32
@@ -179,8 +179,8 @@ namespace beam
 	void MappedFile::Resize(Offset n)
 	{
 #ifdef WIN32
-		test_SysRet(!SetFilePointerEx(m_hFile, (const LARGE_INTEGER&) n, NULL, FILE_BEGIN));
-		test_SysRet(!SetEndOfFile(m_hFile));
+		test_SysRet(!SetFilePointerEx(m_hFile, (const LARGE_INTEGER&) n, NULL, FILE_BEGIN), "SetFilePointerEx");
+		test_SysRet(!SetEndOfFile(m_hFile), "SetEndOfFile");
 #else // WIN32
 		test_SysRet(ftruncate(m_hFile, n) != 0, "ftruncate");
 #endif // WIN32
@@ -203,7 +203,7 @@ namespace beam
 
 #ifdef WIN32
 		m_hFile = CreateFileA(sz, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, 0, NULL);
-		test_SysRet(INVALID_HANDLE_VALUE == m_hFile);
+		test_SysRet(INVALID_HANDLE_VALUE == m_hFile, "CreateFile");
 #else // WIN32
 		m_hFile = open(sz, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP);
 		test_SysRet(-1 == m_hFile, "open");

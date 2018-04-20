@@ -1,5 +1,15 @@
 #include <iostream>
+#include "../storage.h"
 #include "../navigator.h"
+#include "../../utility/serialize.h"
+
+#include "../ecc_native.h"
+
+namespace ECC {
+	// not really used, it's just the stupid linker
+	Context g_Ctx;
+	const Context& Context::get() { return g_Ctx; }
+}
 
 #ifndef WIN32
 #	include <unistd.h>
@@ -193,9 +203,124 @@ void DeleteFile(const char* szPath)
 		}
 	}
 
+	void SetRandomUtxoKey(UtxoTree::Key::Formatted& fmt)
+	{
+		for (int i = 0; i < sizeof(fmt.m_Commitment.m_X.m_pData); i++)
+			fmt.m_Commitment.m_X.m_pData[i] = (uint8_t) rand();
+
+		fmt.m_Commitment.m_Y	= (1 & rand()) != 0;
+		fmt.m_bConfidential		= (1 & rand()) != 0;
+		fmt.m_bCoinbase			= (1 & rand()) != 0;
+
+		for (int i = 0; i < sizeof(fmt.m_Height); i++)
+			((uint8_t*) &fmt.m_Height)[i] = (uint8_t) rand();
+	}
+
+	void TestUtxoTree()
+	{
+		std::vector<UtxoTree::Key> vKeys;
+		vKeys.resize(70000);
+
+		UtxoTree t;
+		Merkle::Hash hv1, hv2, hvMid;
+
+		for (size_t i = 0; i < vKeys.size(); i++)
+		{
+			UtxoTree::Key& key = vKeys[i];
+
+			// random key
+			UtxoTree::Key::Formatted fmt0, fmt1;
+			SetRandomUtxoKey(fmt0);
+
+			key = fmt0;
+			fmt1 = key;
+
+			verify_test(
+				!fmt0.m_Commitment.cmp(fmt1.m_Commitment) &&
+				(fmt0.m_Height == fmt1.m_Height) &&
+				(fmt0.m_bCoinbase == fmt1.m_bCoinbase) &&
+				(fmt0.m_bConfidential == fmt1.m_bConfidential));
+
+			UtxoTree::Cursor cu;
+			bool bCreate = true;
+			UtxoTree::MyLeaf* p = t.Find(cu, key, bCreate);
+
+			verify_test(p && bCreate);
+			p->m_Value.m_Count = i;
+
+			if (!(i % 17))
+				t.get_Hash(hv1); // try to confuse clean/dirty
+		}
+
+		t.get_Hash(hv1);
+
+		for (size_t i = 0; i < vKeys.size(); i++)
+		{
+			if (i == vKeys.size()/2)
+				t.get_Hash(hvMid);
+
+			UtxoTree::Cursor cu;
+			bool bCreate = true;
+			UtxoTree::MyLeaf* p = t.Find(cu, vKeys[i], bCreate);
+
+			verify_test(p && !bCreate);
+			verify_test(p->m_Value.m_Count == i);
+			t.Delete(cu);
+
+			if (!(i % 31))
+				t.get_Hash(hv2); // try to confuse clean/dirty
+		}
+
+		t.get_Hash(hv2);
+		verify_test(hv2 == ECC::Zero);
+
+		// construct tree in different order
+		for (size_t i = vKeys.size(); i--; )
+		{
+			const UtxoTree::Key& key = vKeys[i];
+
+			UtxoTree::Cursor cu;
+			bool bCreate = true;
+			UtxoTree::MyLeaf* p = t.Find(cu, key, bCreate);
+
+			verify_test(p && bCreate);
+			p->m_Value.m_Count = i;
+
+			if (!(i % 11))
+				t.get_Hash(hv2); // try to confuse clean/dirty
+
+			if (i == vKeys.size()/2)
+			{
+				t.get_Hash(hv2);
+				verify_test(hv2 == hvMid);
+			}
+		}
+
+		t.get_Hash(hv2);
+		verify_test(hv2 == hv1);
+
+		verify_test(vKeys.size() == t.Count());
+
+		// serialization
+		Serializer ser;
+		t.save(ser);
+
+		SerializeBuffer sb = ser.buffer();
+
+		Deserializer der;
+		der.reset(sb.first, sb.second);
+
+		t.load(der);
+
+		t.get_Hash(hv2);
+		verify_test(hv2 == hv1);
+	}
+
+
 } // namespace beam
 
 int main()
 {
 	beam::TestNavigator();
+	beam::TestUtxoTree();
 }
