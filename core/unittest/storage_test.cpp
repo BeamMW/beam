@@ -252,7 +252,7 @@ void DeleteFile(const char* szPath)
 			{
 				t.get_Hash(hv1); // try to confuse clean/dirty
 
-				for (int k = 0; k < 10; k++)
+				//for (int k = 0; k < 10; k++)
 				{
 					size_t j = rand() % (i + 1);
 
