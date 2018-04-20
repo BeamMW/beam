@@ -316,6 +316,72 @@ void DeleteFile(const char* szPath)
 		verify_test(hv2 == hv1);
 	}
 
+	struct MyMmr
+		:public Merkle::Mmr
+	{
+		typedef std::vector<Merkle::Hash> HashVector;
+		typedef std::unique_ptr<HashVector> HashVectorPtr;
+
+		std::vector<HashVectorPtr> m_vec;
+
+		Merkle::Hash& get_At(uint32_t nIdx, uint32_t nHeight)
+		{
+			if (m_vec.size() <= nHeight)
+				m_vec.resize(nHeight + 1);
+
+			HashVectorPtr& ptr = m_vec[nHeight];
+			if (!ptr)
+				ptr.reset(new HashVector);
+
+		
+			HashVector& vec = *ptr;
+			if (vec.size() <= nIdx)
+				vec.resize(nIdx + 1);
+
+			return vec[nIdx];
+		}
+
+		virtual void LoadElement(Merkle::Hash& hv, uint32_t nIdx, uint32_t nHeight) const override
+		{
+			hv = ((MyMmr*) this)->get_At(nIdx, nHeight);
+		}
+
+		virtual void SaveElement(const Merkle::Hash& hv, uint32_t nIdx, uint32_t nHeight) override
+		{
+			get_At(nIdx, nHeight) = hv;
+		}
+	};
+
+	void TestMmr()
+	{
+		std::vector<Merkle::Hash> vHashes;
+		vHashes.resize(300);
+
+		MyMmr mmr;
+
+		for (size_t i = 0; i < vHashes.size(); i++)
+		{
+			Merkle::Hash& hv = vHashes[i];
+
+			for (int i = 0; i < sizeof(hv.m_pData); i++)
+				hv.m_pData[i] = (uint8_t)rand();
+
+			mmr.Append(hv);
+
+			Merkle::Hash hvRoot;
+			mmr.get_Hash(hvRoot);
+
+			for (size_t j = 0; j <= i; j++)
+			{
+				Merkle::Proof proof;
+				mmr.get_Proof(proof, j);
+
+				Merkle::Hash hv2 = vHashes[j];
+				Merkle::Interpret(hv2, proof);
+				verify_test(hv2 == hvRoot);
+			}
+		}
+	}
 
 } // namespace beam
 
@@ -323,4 +389,7 @@ int main()
 {
 	beam::TestNavigator();
 	beam::TestUtxoTree();
+	beam::TestMmr();
+
+	return g_TestsFailed ? -1 : 0;
 }

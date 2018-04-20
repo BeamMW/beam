@@ -196,4 +196,24 @@ protected:
 	void LoadIntenral(ISerializer&);
 };
 
+namespace Merkle
+{
+	struct Mmr
+	{
+		uint32_t m_Count;
+		Mmr() :m_Count(0) {}
+
+		void Append(const Merkle::Hash&);
+
+		void get_Hash(Merkle::Hash&) const;
+		void get_Proof(Proof&, uint32_t i) const;
+
+	protected:
+		bool get_HashForRange(Merkle::Hash&, uint32_t n0, uint32_t n) const;
+
+		virtual void LoadElement(Merkle::Hash&, uint32_t nIdx, uint32_t nHeight) const = 0;
+		virtual void SaveElement(const Merkle::Hash&, uint32_t nIdx, uint32_t nHeight) = 0;
+	};
+}
+
 } // namespace beam

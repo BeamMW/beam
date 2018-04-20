@@ -470,4 +470,89 @@ UtxoTree::Key& UtxoTree::MyLeaf::get_Key() const
 	return (Key&) m_pKeyArr; // should be fine
 }
 
+/////////////////////////////
+// Merkle::Mmr
+void Merkle::Mmr::Append(const Merkle::Hash& hv)
+{
+	Merkle::Hash hv1 = hv;
+	uint32_t n = m_Count;
+
+	for (uint32_t nHeight = 0; ; nHeight++, n >>= 1)
+	{
+		SaveElement(hv1, n, nHeight);
+		if (!(1 & n))
+			break;
+
+		Merkle::Hash hv0;
+		LoadElement(hv0, n ^ 1, nHeight);
+
+		ECC::Hash::Processor() << hv0 << hv1 >> hv1;
+	}
+
+	m_Count++;
+}
+
+void Merkle::Mmr::get_Hash(Merkle::Hash& hv) const
+{
+	if (!get_HashForRange(hv, 0, m_Count))
+		hv = ECC::Zero;
+}
+
+bool Merkle::Mmr::get_HashForRange(Merkle::Hash& hv, uint32_t n0, uint32_t n) const
+{
+	bool bEmpty = true;
+
+	for (uint32_t nHeight = 0; n; nHeight++, n >>= 1, n0 >>= 1)
+		if (1 & n)
+		{
+			Merkle::Hash hv0;
+			LoadElement(hv0, n0 + n ^ 1, nHeight);
+
+			if (bEmpty)
+			{
+				hv = hv0;
+				bEmpty = false;
+			}
+			else
+				ECC::Hash::Processor() << hv0 << hv >> hv;
+		}
+
+	return !bEmpty;
+}
+
+void Merkle::Mmr::get_Proof(Proof& proof, uint32_t i) const
+{
+	assert(i < m_Count);
+
+	uint32_t n = m_Count;
+	for (uint32_t nHeight = 0; n; nHeight++, n >>= 1, i >>= 1)
+	{
+		Merkle::Node node;
+		node.first = !(i & 1);
+
+		uint32_t nSibling = i ^ 1;
+		bool bFullSibling = !node.first;
+
+		if (!bFullSibling)
+		{
+			uint32_t n0 = nSibling << nHeight;
+			if (n0 >= m_Count)
+				continue;
+
+			uint32_t nRemaining = m_Count - n0;
+			if (nRemaining >> nHeight)
+				bFullSibling = true;
+			else
+				verify(get_HashForRange(node.second, n0, nRemaining));
+		}
+
+		if (bFullSibling)
+			LoadElement(node.second, nSibling, nHeight);
+
+		proof.push_back(std::move(node));
+	}
+}
+
+
+
 } // namespace beam
