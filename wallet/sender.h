@@ -84,23 +84,23 @@ namespace beam::wallet
             struct Init : public msmf::state<> {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { std::cout << "[Sender] Init stat\n"; } };
+                { std::cout << "[Sender] Init state\n"; } };
             struct Terminate : public msmf::terminate_state<> {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { std::cout << "[Sender] Terminate stat\n"; } };
+                { std::cout << "[Sender] Terminate state\n"; } };
             struct TxInitiating : public msmf::state<> {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { std::cout << "[Sender] TxInitiating stat\n"; } };
+                { std::cout << "[Sender] TxInitiating state\n"; } };
             struct TxConfirming : public msmf::state<> {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { std::cout << "[Sender] TxConfirming stat\n"; } };
+                { std::cout << "[Sender] TxConfirming state\n"; } };
             struct TxOutputConfirming : public msmf::state<> {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { std::cout << "[Sender] TxOutputConfirming stat\n"; } };
+                { std::cout << "[Sender] TxOutputConfirming state\n"; } };
 
             FSMDefinition(IGateway& gateway, const Uuid& txId)
                 : m_gateway{ gateway }
@@ -180,7 +180,7 @@ namespace beam::wallet
             void no_transition(Event const& e, FSM&, int state)
             {
                 std::cout << "[Sender] no transition from state " << state
-                    << " on event "/* << typeid(e).name()*/ << std::endl;
+                    << " on event " << typeid(e).name() << std::endl;
             }
 
             IGateway& m_gateway;

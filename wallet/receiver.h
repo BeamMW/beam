@@ -70,11 +70,41 @@ namespace beam::wallet
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
             // states
-            struct Init : public msmf::state<> {};
-            struct Terminate : public msmf::terminate_state<> {};
-            struct TxConfirming : public msmf::state<> {};
-            struct TxRegistering : public msmf::state<> {};
-            struct TxOutputConfirming : public msmf::state<> {};
+            struct Init : public msmf::state<> {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                {
+                    std::cout << "[Receiver] Init state\n";
+                }
+            };
+            struct Terminate : public msmf::terminate_state<> {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                {
+                    std::cout << "[Receiver] Terminate state\n";
+                }
+            };
+            struct TxConfirming : public msmf::state<> {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                {
+                    std::cout << "[Receiver] TxConfirming state\n";
+                }
+            };
+            struct TxRegistering : public msmf::state<> {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                {
+                    std::cout << "[Receiver] TxRegistering state\n";
+                }
+            };
+            struct TxOutputConfirming : public msmf::state<> {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                {
+                    std::cout << "[Receiver] TxOutputConfirming state\n";
+                }
+            };
 
             FSMDefinition(IGateway& gateway, const Uuid& txId)
                 : m_gateway{ gateway }
@@ -153,7 +183,7 @@ namespace beam::wallet
             void no_transition(Event const& e, FSM&, int state)
             {
                 std::cout << "Receiver: no transition from state " << state
-                    << " on event "/* << typeid(e).name()*/ << std::endl;
+                    << " on event " << typeid(e).name() << std::endl;
             }
 
             IGateway& m_gateway;
