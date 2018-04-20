@@ -9,6 +9,11 @@
 
 #include <assert.h>
 
+#ifdef WIN32
+#	define NOMINMAX
+#	include <windows.h>
+#endif // WIN32
+
 #ifndef verify
 #	ifdef  NDEBUG
 #		define verify(x) ((void)(x))

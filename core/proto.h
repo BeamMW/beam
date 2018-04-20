@@ -59,7 +59,7 @@
 	macro(beam::Height, CountBack)
 
 #define Beam_ProtoMsg_ret_StateRange(macro) \
-	macro(std::vector<beam::Block::SystemStateShort>, States)
+	macro(std::vector<beam::Block::SystemState>, States)
 
 #define Beam_ProtoMsg_get_PoW(macro) \
 	macro(beam::Block::SystemStateShort, State)
