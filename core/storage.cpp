@@ -378,14 +378,30 @@ void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
 {
 	uint32_t n = m_nPtrs;
 	assert(n);
-	
+
+	printf("\t\tm_nPtrs = %u\n", n);
+	fflush(stdout);
+
 	for (const Node* pPrev = m_pp[--n]; n--; )
 	{
 		const Joint& x = (const Joint&) *m_pp[n];
 
+		printf("\t\t\tpPrev=%08x, x=%08x\n", pPrev, &x);
+		fflush(stdout);
+
+		printf("\t\t\tx.ppC = [%08x, %08x]\n", x.m_ppC[0], x.m_ppC[1]);
+		fflush(stdout);
+
 		Merkle::Node node;
 		node.first = (x.m_ppC[0] == pPrev);
+
+		printf("\t\t\tnode.first=%u\n", int(node.first));
+		fflush(stdout);
+
 		node.second = get_Hash(*x.m_ppC[node.first != false], node.second);
+
+		printf("\t\t\tCalculated, added\n");
+		fflush(stdout);
 
 		proof.push_back(std::move(node));
 		pPrev = &x;
