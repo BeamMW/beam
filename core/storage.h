@@ -95,35 +95,6 @@ private:
 	static bool Traverse(const Node&, ITraveler&);
 };
 
-template <uint32_t nTag, uint32_t nBufSize = 0x100>
-struct StackCorruptionDetector {
-	uint8_t m_pBuf[nBufSize];
-
-	StackCorruptionDetector()
-	{
-		memset(m_pBuf, 0, sizeof(m_pBuf));
-		printf("+StackGuard %u, Ptr=%p\n", nTag, m_pBuf);
-		fflush(stdout);
-	}
-
-	void TestPrint(char ch = ' ')
-	{
-		uint32_t nErrors = 0;
-		for (int i = 0; i < _countof(m_pBuf); i++)
-			if (m_pBuf[i])
-				nErrors++;
-
-		printf("%cStackGuard %u, Ptr=%p. Errors=%u\n", ch, nTag, m_pBuf, nErrors);
-		fflush(stdout);
-	}
-
-
-	~StackCorruptionDetector()
-	{
-		TestPrint('-');
-	}
-};
-
 class UtxoTree
 	:public beam::RadixTree
 {

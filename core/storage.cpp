@@ -334,6 +334,7 @@ UtxoTree::UtxoTree()
 		RadixTree::CursorBase& y = x;
 		printf("UtxoTree::Cursor=%p, Buf=%p, RadixTree::Leaf=%p, Key=%p\n", &x, x.get_ppExtra(), &y, y.get_pp());
 	}
+	fflush(stdout);
 }
 
 void UtxoTree::get_Hash(Merkle::Hash& hv)
@@ -387,50 +388,17 @@ const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 
 void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
 {
-	//StackCorruptionDetector<15> scd0;
-
 	uint32_t n = m_nPtrs;
 	assert(n);
-
-	//StackCorruptionDetector<16> scd1;
-
-	printf("\t\tm_nPtrs = %u, &n=%p\n", n, &n);
-	fflush(stdout);
-
-	//scd1.TestPrint();
-	//scd0.TestPrint();
-
-	for (uint32_t m = 0; m < n; m++)
-	{
-		printf("\t\tpp[%u] = %p\n", m, m_pp[m]);
-		fflush(stdout);
-	}
-
-	printf("\t\tm_nPtrs = %u, &n=%p\n", n, &n);
-
-	//scd1.TestPrint();
-	//scd0.TestPrint();
 
 	for (const Node* pPrev = m_pp[--n]; n--; )
 	{
 		const Joint& x = (const Joint&) *m_pp[n];
 
-		printf("\t\t\tpPrev=%p, x=%p (%p). n=%u\n", pPrev, &x, m_pp[n], n);
-		fflush(stdout);
-
-		printf("\t\t\tx.ppC = %p, [%p, %p]\n", x.m_ppC, x.m_ppC[0], x.m_ppC[1]);
-		fflush(stdout);
-
 		Merkle::Node node;
 		node.first = (x.m_ppC[0] == pPrev);
 
-		printf("\t\t\tnode.first=%u\n", int(node.first));
-		fflush(stdout);
-
 		node.second = get_Hash(*x.m_ppC[node.first != false], node.second);
-
-		printf("\t\t\tCalculated, added\n");
-		fflush(stdout);
 
 		proof.push_back(std::move(node));
 		pPrev = &x;
