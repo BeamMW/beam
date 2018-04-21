@@ -374,18 +374,24 @@ const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 
 void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
 {
+	char szBuf0[0x200];
+
 	uint32_t n = m_nPtrs;
 	assert(n);
 
-	printf("\t\tm_nPtrs = %u\n", n);
+	char szBuf1[0x200];
+
+	printf("\t\tm_nPtrs = %u, szBuf0=%p, &n=%p, szBuf1=%p\n", n, szBuf0, &n, szBuf1);
 	fflush(stdout);
-/*
+
 	for (uint32_t m = 0; m < n; m++)
 	{
 		printf("\t\tpp[%u] = %p\n", m, m_pp[m]);
 		fflush(stdout);
 	}
-*/
+
+	printf("\t\tm_nPtrs = %u, szBuf0=%p, &n=%p, szBuf1=%p\n", n, szBuf0, &n, szBuf1);
+
 	for (const Node* pPrev = m_pp[--n]; n--; )
 	{
 		const Joint& x = (const Joint&) *m_pp[n];
