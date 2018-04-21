@@ -226,6 +226,7 @@ void DeleteFile(const char* szPath)
 #else // NDEBUG
 		printf("TestUtxoTree. Cfg=debug, Ptr=%u\n", sizeof(ptrdiff_t));
 #endif // NDEBUG
+		fflush(stdout);
 
 		UtxoTree t;
 		Merkle::Hash hv1, hv2, hvMid;
@@ -263,27 +264,32 @@ void DeleteFile(const char* szPath)
 					size_t j = rand() % (i + 1);
 
 					printf("utxo i=%u, j=%u\n", i, j);
+					fflush(stdout);
 
 					bCreate = false;
 					p = t.Find(cu, vKeys[j], bCreate);
 					assert(p && !bCreate);
 
 					printf("\tfound=%u\n", (p != NULL));
+					fflush(stdout);
 
 					Merkle::Proof proof;
 					cu.get_Proof(proof);
 
 					printf("\tProof len=%u\n", proof.size());
+					fflush(stdout);
 
 					Merkle::Hash hvElement;
 					p->m_Value.get_Hash(hvElement, p->get_Key());
 
 					printf("\tElement hash\n");
+					fflush(stdout);
 
 					Merkle::Interpret(hvElement, proof);
 					verify_test(hvElement == hv1);
 
 					printf("\tProof valid=%u\n", int(hvElement == hv1));
+					fflush(stdout);
 				}
 			}
 		}
