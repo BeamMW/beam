@@ -386,7 +386,7 @@ void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
 	{
 		const Joint& x = (const Joint&) *m_pp[n];
 
-		printf("\t\t\tpPrev=%08x, x=%08x (%08x)\n", pPrev, &x, m_pp[n]);
+		printf("\t\t\tpPrev=%08x, x=%08x (%08x). n=%u\n", pPrev, &x, m_pp[n], n);
 		fflush(stdout);
 
 		printf("\t\t\tx.ppC = %08x, [%08x, %08x]\n", x.m_ppC, x.m_ppC[0], x.m_ppC[1]);
