@@ -260,7 +260,7 @@ void DeleteFile(const char* szPath)
 				t.get_Hash(hv1); // try to confuse clean/dirty
 
 				//for (int k = 0; k < 10; k++)
-/*				{
+				{
 					size_t j = rand() % (i + 1);
 
 					printf("utxo i=%u, j=%u, sizeof(cu)=%u\n", i, j, sizeof(cu));
@@ -290,7 +290,7 @@ void DeleteFile(const char* szPath)
 
 					printf("\tProof valid=%u\n", int(hvElement == hv1));
 					fflush(stdout);
-				}*/
+				}
 			}
 		}
 
