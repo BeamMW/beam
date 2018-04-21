@@ -264,7 +264,7 @@ void DeleteFile(const char* szPath)
 					cu.get_Proof(proof);
 
 					Merkle::Hash hvElement;
-					p->m_Value.get_Hash(hvElement, p->get_Key());
+					p->m_Value.get_Hash(hvElement, p->m_Key);
 
 					Merkle::Interpret(hvElement, proof);
 					verify_test(hvElement == hv1);

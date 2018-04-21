@@ -10,9 +10,9 @@ uint16_t RadixTree::Node::get_Bits() const
 	return m_Bits & ~(s_Clean | s_Leaf);
 }
 
-const uint8_t* RadixTree::Node::get_Key() const
+const uint8_t* RadixTree::get_NodeKey(const Node& n) const
 {
-	return (s_Leaf & m_Bits) ? ((Leaf*) this)->m_pKeyArr : ((Joint*) this)->m_pKeyPtr;
+	return (Node::s_Leaf & n.m_Bits) ? GetLeafKey((const Leaf&) n) : ((const Joint&) n).m_pKeyPtr;
 }
 
 RadixTree::RadixTree()
@@ -127,7 +127,7 @@ bool RadixTree::Goto(CursorBase& cu, const uint8_t* pKey, uint32_t nBits) const
 		if (!p)
 			return false;
 
-		const uint8_t* pKeyNode = p->get_Key();
+		const uint8_t* pKeyNode = get_NodeKey(*p);
 
 		uint32_t nThreshold = std::min(cu.m_nBits + p->get_Bits(), nBits);
 
@@ -184,7 +184,7 @@ RadixTree::Leaf* RadixTree::Find(CursorBase& cu, const uint8_t* pKey, uint32_t n
 	g.m_pLeaf = pN;
 
 
-	memcpy(pN->m_pKeyArr, pKey, (nBits + 7) >> 3);
+	memcpy(GetLeafKey(*pN), pKey, (nBits + 7) >> 3);
 
 	if (cu.m_nPtrs)
 	{
@@ -195,12 +195,12 @@ RadixTree::Leaf* RadixTree::Find(CursorBase& cu, const uint8_t* pKey, uint32_t n
 		Node* p = cu.m_pp[cu.m_nPtrs - 1];
 		assert(p);
 
-		const uint8_t* pKey1 = p->get_Key();
+		const uint8_t* pKey1 = get_NodeKey(*p);
 		assert(cu.get_Bit(pKey1) != iC);
 
 		// split
 		Joint* pJ = CreateJoint();
-		pJ->m_pKeyPtr = /*pN->m_pKeyArr*/pKey1;
+		pJ->m_pKeyPtr = pKey1;
 		pJ->m_Bits = cu.m_nPosInLastNode;
 
 		ReplaceTip(cu, pJ);
@@ -240,7 +240,7 @@ void RadixTree::Delete(CursorBase& cu)
 	Leaf* p = (Leaf*) cu.m_pp[cu.m_nPtrs - 1];
 	assert(Node::s_Leaf & p->m_Bits);
 
-	const uint8_t* pKeyDead = p->m_pKeyArr;
+	const uint8_t* pKeyDead = GetLeafKey(*p);
 
 	ReplaceTip(cu, NULL);
 	DeleteLeaf(p);
@@ -258,7 +258,7 @@ void RadixTree::Delete(CursorBase& cu)
 			Node* p = pPrev->m_ppC[i];
 			if (p)
 			{
-				const uint8_t* pKey1 = (p->m_Bits & Node::s_Leaf) ? ((Leaf*) p)->m_pKeyArr : ((Joint*) p)->m_pKeyPtr;
+				const uint8_t* pKey1 = get_NodeKey(*p);
 				assert(pKey1 != pKeyDead);
 
 				for (uint32_t j = cu.m_nPtrs; j--; )
@@ -325,10 +325,6 @@ size_t RadixTree::Count() const
 // UtxoTree
 UtxoTree::UtxoTree()
 {
-	MyLeaf x;
-	RadixTree::Leaf& y = x;
-	printf("UtxoTree::MyLeaf=%p, Buf=%p, RadixTree::Leaf=%p, Key=%p\n", &x, x.m_pPlaceholder, &y, y.m_pKeyArr);
-
 	{
 		UtxoTree::Cursor x;
 		RadixTree::CursorBase& y = x;
@@ -362,7 +358,7 @@ const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 		MyLeaf& x = (MyLeaf&) n;
 		x.m_Bits |= Node::s_Clean;
 
-		x.m_Value.get_Hash(hv, x.get_Key());
+		x.m_Value.get_Hash(hv, x.m_Key);
 
 		return hv;
 
@@ -416,7 +412,7 @@ void UtxoTree::SaveIntenral(ISerializer& s) const
 		ISerializer* m_pS;
 		virtual bool OnLeaf(const Leaf& n) override {
 			MyLeaf& x = (MyLeaf&) n;
-			m_pS->Process(x.get_Key());
+			m_pS->Process(x.m_Key);
 			m_pS->Process(x.m_Value);
 			return true;
 		}
@@ -500,11 +496,6 @@ UtxoTree::Key& UtxoTree::Key::operator = (const Key::Formatted& fmt)
 	}
 
 	return *this;
-}
-
-UtxoTree::Key& UtxoTree::MyLeaf::get_Key() const
-{
-	return (Key&) m_pKeyArr; // should be fine
 }
 
 /////////////////////////////

@@ -16,7 +16,6 @@ protected:
 		static const uint16_t s_Leaf = 1 << 0xe;
 
 		uint16_t get_Bits() const;
-		const uint8_t* get_Key() const;
 	};
 
 	struct Joint :public Node {
@@ -25,14 +24,14 @@ protected:
 	};
 
 	struct Leaf :public Node {
-		uint8_t m_pKeyArr[1]; // to be extended
 	};
 
 	Node* get_Root() const { return m_pRoot; }
+	const uint8_t* get_NodeKey(const Node&) const;
 
 	virtual Joint* CreateJoint() = 0;
 	virtual Leaf* CreateLeaf() = 0;
-
+	virtual uint8_t* GetLeafKey(const Leaf&) const = 0;
 	virtual void DeleteJoint(Joint*) = 0;
 	virtual void DeleteLeaf(Leaf*) = 0;
 
@@ -139,10 +138,8 @@ public:
 
 	struct MyLeaf :public Leaf
 	{
-		uint8_t m_pPlaceholder[Key::s_Bytes - 1]; // 1 byte is already included in the base
+		Key m_Key;
 		Value m_Value;
-
-		Key& get_Key() const;
 	};
 
 	struct Cursor
@@ -181,7 +178,7 @@ public:
 protected:
 	virtual Joint* CreateJoint() override { return new MyJoint; }
 	virtual Leaf* CreateLeaf() override { return new MyLeaf; }
-
+	virtual uint8_t* GetLeafKey(const Leaf& x) const override { return ((MyLeaf&) x).m_Key.m_pArr; }
 	virtual void DeleteJoint(Joint* p) override { delete (MyJoint*) p; }
 	virtual void DeleteLeaf(Leaf* p) override { delete (MyLeaf*) p; }
 
