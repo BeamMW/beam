@@ -263,7 +263,7 @@ void DeleteFile(const char* szPath)
 				{
 					size_t j = rand() % (i + 1);
 
-					printf("utxo i=%u, j=%u\n", i, j);
+					printf("utxo i=%u, j=%u, sizeof(cu)=%u\n", i, j, sizeof(cu));
 					fflush(stdout);
 
 					bCreate = false;
