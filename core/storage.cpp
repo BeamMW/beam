@@ -377,18 +377,22 @@ void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
 	uint32_t n = m_nPtrs;
 	assert(n);
 
-	for (const Node* pPrev = m_pp[--n]; n--; )
+	const Node* pPrev = m_pp[--n];
+	size_t nOut = proof.size(); // may already be non-empty, we'll append
+
+	for (proof.resize(nOut + n); n--; nOut++)
 	{
 		const Joint& x = (const Joint&) *m_pp[n];
 
-		Merkle::Node node;
+		Merkle::Node& node = proof[nOut];
 		node.first = (x.m_ppC[0] == pPrev);
 
 		node.second = get_Hash(*x.m_ppC[node.first != false], node.second);
 
-		proof.push_back(std::move(node));
 		pPrev = &x;
 	}
+
+	assert(proof.size() == nOut);
 }
 
 void UtxoTree::SaveIntenral(ISerializer& s) const
@@ -567,7 +571,7 @@ void Merkle::Mmr::get_Proof(Proof& proof, uint32_t i) const
 		if (bFullSibling)
 			LoadElement(node.second, nSibling, nHeight);
 
-		proof.push_back(std::move(node));
+		proof.push_back(std::move(node)); // TODO: avoid copy?
 	}
 }
 
