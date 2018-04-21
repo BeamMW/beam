@@ -384,7 +384,7 @@ void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
 
 	for (uint32_t m = 0; m < n; m++)
 	{
-		printf("\t\tpp[%u] = %08x\n", m, m_pp[m]);
+		printf("\t\tpp[%u] = %08x\n", m, uint32_t(m_pp[m]));
 		fflush(stdout);
 	}
 
@@ -392,10 +392,10 @@ void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
 	{
 		const Joint& x = (const Joint&) *m_pp[n];
 
-		printf("\t\t\tpPrev=%08x, x=%08x (%08x). n=%u\n", pPrev, &x, m_pp[n], n);
+		printf("\t\t\tpPrev=%08x, x=%08x (%08x). n=%u\n", uint32_t(pPrev), uint32_t(&x), uint32_t(m_pp[n]), n);
 		fflush(stdout);
 
-		printf("\t\t\tx.ppC = %08x, [%08x, %08x]\n", x.m_ppC, x.m_ppC[0], x.m_ppC[1]);
+		printf("\t\t\tx.ppC = %08x, [%08x, %08x]\n", uint32_t(x.m_ppC), uint32_t(x.m_ppC[0]), uint32_t(x.m_ppC[1]));
 		fflush(stdout);
 
 		Merkle::Node node;
