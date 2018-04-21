@@ -323,16 +323,6 @@ size_t RadixTree::Count() const
 
 /////////////////////////////
 // UtxoTree
-UtxoTree::UtxoTree()
-{
-	{
-		UtxoTree::Cursor x;
-		RadixTree::CursorBase& y = x;
-		printf("UtxoTree::Cursor=%p, Buf=%p, RadixTree::Leaf=%p, Key=%p\n", &x, x.get_ppExtra(), &y, y.get_pp());
-	}
-	fflush(stdout);
-}
-
 void UtxoTree::get_Hash(Merkle::Hash& hv)
 {
 	Node* p = get_Root();

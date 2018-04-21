@@ -49,26 +49,28 @@ public:
 		uint32_t m_nPtrs;
 		uint32_t m_nPosInLastNode;
 
-		Node* m_pp[1];
+		Node** const m_pp;
 
 		uint8_t get_BitRaw(const uint8_t* p0) const;
 		uint8_t get_Bit(const uint8_t* p0) const;
 
 		friend class RadixTree;
 
+		CursorBase(Node** pp) :m_pp(pp) {}
+
 	public:
 		Leaf& get_Leaf() const;
 		void Invalidate();
 
-		Node* const* get_pp() const { return m_pp; }
+		Node** get_pp() const { return m_pp; }
 	};
 
 	template <uint32_t nKeyBits>
 	class Cursor_T :public CursorBase
 	{
-		Node* m_ppExtra[nKeyBits];
+		Node* m_ppBuf[nKeyBits + 1];
 	public:
-		Node* const* get_ppExtra() const { return m_ppExtra;  }
+		Cursor_T() :CursorBase(m_ppBuf) {}
 	};
 
 	bool Goto(CursorBase& cu, const uint8_t* pKey, uint32_t nBits) const;
@@ -153,7 +155,6 @@ public:
 		return (MyLeaf*) RadixTree::Find(cu, key.m_pArr, key.s_Bits, bCreate);
 	}
 
-	UtxoTree();
 	~UtxoTree() { Clear(); }
 
 	void get_Hash(Merkle::Hash&);
