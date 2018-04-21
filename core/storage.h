@@ -16,7 +16,6 @@ protected:
 		static const uint16_t s_Leaf = 1 << 0xe;
 
 		uint16_t get_Bits() const;
-		const uint8_t* get_Key() const;
 	};
 
 	struct Joint :public Node {
@@ -25,14 +24,14 @@ protected:
 	};
 
 	struct Leaf :public Node {
-		uint8_t m_pKeyArr[1]; // to be extended
 	};
 
 	Node* get_Root() const { return m_pRoot; }
+	const uint8_t* get_NodeKey(const Node&) const;
 
 	virtual Joint* CreateJoint() = 0;
 	virtual Leaf* CreateLeaf() = 0;
-
+	virtual uint8_t* GetLeafKey(const Leaf&) const = 0;
 	virtual void DeleteJoint(Joint*) = 0;
 	virtual void DeleteLeaf(Leaf*) = 0;
 
@@ -50,22 +49,28 @@ public:
 		uint32_t m_nPtrs;
 		uint32_t m_nPosInLastNode;
 
-		Node* m_pp[1];
+		Node** const m_pp;
 
 		uint8_t get_BitRaw(const uint8_t* p0) const;
 		uint8_t get_Bit(const uint8_t* p0) const;
 
 		friend class RadixTree;
 
+		CursorBase(Node** pp) :m_pp(pp) {}
+
 	public:
 		Leaf& get_Leaf() const;
 		void Invalidate();
+
+		Node** get_pp() const { return m_pp; }
 	};
 
 	template <uint32_t nKeyBits>
 	class Cursor_T :public CursorBase
 	{
-		Node* m_ppExtra[nKeyBits];
+		Node* m_ppBuf[nKeyBits + 1];
+	public:
+		Cursor_T() :CursorBase(m_ppBuf) {}
 	};
 
 	bool Goto(CursorBase& cu, const uint8_t* pKey, uint32_t nBits) const;
@@ -90,7 +95,6 @@ private:
 	void ReplaceTip(CursorBase& cu, Node* pNew);
 	static bool Traverse(const Node&, ITraveler&);
 };
-
 
 class UtxoTree
 	:public beam::RadixTree
@@ -136,10 +140,8 @@ public:
 
 	struct MyLeaf :public Leaf
 	{
-		uint8_t m_pPlaceholder[Key::s_Bytes - 1]; // 1 byte is already included in the base
+		Key m_Key;
 		Value m_Value;
-
-		Key& get_Key() const;
 	};
 
 	struct Cursor
@@ -177,7 +179,7 @@ public:
 protected:
 	virtual Joint* CreateJoint() override { return new MyJoint; }
 	virtual Leaf* CreateLeaf() override { return new MyLeaf; }
-
+	virtual uint8_t* GetLeafKey(const Leaf& x) const override { return ((MyLeaf&) x).m_Key.m_pArr; }
 	virtual void DeleteJoint(Joint* p) override { delete (MyJoint*) p; }
 	virtual void DeleteLeaf(Leaf* p) override { delete (MyLeaf*) p; }
 
