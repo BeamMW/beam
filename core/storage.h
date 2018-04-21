@@ -60,12 +60,16 @@ public:
 	public:
 		Leaf& get_Leaf() const;
 		void Invalidate();
+
+		Node* const* get_pp() const { return m_pp; }
 	};
 
 	template <uint32_t nKeyBits>
 	class Cursor_T :public CursorBase
 	{
 		Node* m_ppExtra[nKeyBits];
+	public:
+		Node* const* get_ppExtra() const { return m_ppExtra;  }
 	};
 
 	bool Goto(CursorBase& cu, const uint8_t* pKey, uint32_t nBits) const;
@@ -181,6 +185,7 @@ public:
 		return (MyLeaf*) RadixTree::Find(cu, key.m_pArr, key.s_Bits, bCreate);
 	}
 
+	UtxoTree();
 	~UtxoTree() { Clear(); }
 
 	void get_Hash(Merkle::Hash&);
