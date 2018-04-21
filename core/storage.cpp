@@ -374,15 +374,18 @@ const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 
 void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
 {
-	char szBuf0[0x200];
+	StackCorruptionDetector<15> scd0;
 
 	uint32_t n = m_nPtrs;
 	assert(n);
 
-	char szBuf1[0x200];
+	StackCorruptionDetector<16> scd1;
 
-	printf("\t\tm_nPtrs = %u, szBuf0=%p, &n=%p, szBuf1=%p\n", n, szBuf0, &n, szBuf1);
+	printf("\t\tm_nPtrs = %u, &n=%p\n", n, &n);
 	fflush(stdout);
+
+	scd1.TestPrint();
+	scd0.TestPrint();
 
 	for (uint32_t m = 0; m < n; m++)
 	{
@@ -390,7 +393,10 @@ void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
 		fflush(stdout);
 	}
 
-	printf("\t\tm_nPtrs = %u, szBuf0=%p, &n=%p, szBuf1=%p\n", n, szBuf0, &n, szBuf1);
+	printf("\t\tm_nPtrs = %u, &n=%p\n", n, &n);
+
+	scd1.TestPrint();
+	scd0.TestPrint();
 
 	for (const Node* pPrev = m_pp[--n]; n--; )
 	{
