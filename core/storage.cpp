@@ -382,6 +382,12 @@ void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
 	printf("\t\tm_nPtrs = %u\n", n);
 	fflush(stdout);
 
+	for (uint32_t m = 0; m < n; m++)
+	{
+		printf("\t\tpp[%u] = %08x\n", m, m_pp[m]);
+		fflush(stdout);
+	}
+
 	for (const Node* pPrev = m_pp[--n]; n--; )
 	{
 		const Joint& x = (const Joint&) *m_pp[n];
