@@ -323,6 +323,19 @@ size_t RadixTree::Count() const
 
 /////////////////////////////
 // UtxoTree
+UtxoTree::UtxoTree()
+{
+	MyLeaf x;
+	RadixTree::Leaf& y = x;
+	printf("UtxoTree::MyLeaf=%p, Buf=%p, RadixTree::Leaf=%p, Key=%p\n", &x, x.m_pPlaceholder, &y, y.m_pKeyArr);
+
+	{
+		UtxoTree::Cursor x;
+		RadixTree::CursorBase& y = x;
+		printf("UtxoTree::Cursor=%p, Buf=%p, RadixTree::Leaf=%p, Key=%p\n", &x, x.get_ppExtra(), &y, y.get_pp());
+	}
+}
+
 void UtxoTree::get_Hash(Merkle::Hash& hv)
 {
 	Node* p = get_Root();
@@ -374,18 +387,18 @@ const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 
 void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
 {
-	StackCorruptionDetector<15> scd0;
+	//StackCorruptionDetector<15> scd0;
 
 	uint32_t n = m_nPtrs;
 	assert(n);
 
-	StackCorruptionDetector<16> scd1;
+	//StackCorruptionDetector<16> scd1;
 
 	printf("\t\tm_nPtrs = %u, &n=%p\n", n, &n);
 	fflush(stdout);
 
-	scd1.TestPrint();
-	scd0.TestPrint();
+	//scd1.TestPrint();
+	//scd0.TestPrint();
 
 	for (uint32_t m = 0; m < n; m++)
 	{
@@ -395,8 +408,8 @@ void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
 
 	printf("\t\tm_nPtrs = %u, &n=%p\n", n, &n);
 
-	scd1.TestPrint();
-	scd0.TestPrint();
+	//scd1.TestPrint();
+	//scd0.TestPrint();
 
 	for (const Node* pPrev = m_pp[--n]; n--; )
 	{
