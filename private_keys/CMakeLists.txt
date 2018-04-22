@@ -10,9 +10,9 @@ include_directories(./include
                     ../core)
 
 
-add_executable(main ./src/main.cpp
-                    ./src/storage.cpp
-                    ./src/private_key.cpp
-                    )
+add_executable(testkey ./src/main.cpp
+					   ./src/utill.cpp
+                       ./src/utxo.cpp
+                       ./src/private_key.cpp)
 
-target_link_libraries(main core)
+target_link_libraries(testkey core)

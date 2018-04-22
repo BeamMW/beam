@@ -1,6 +1,8 @@
 #include <iostream>
+#include <assert.h>
 #include "private_key.h"
-#include "storage.h"
+#include "utill.h"
+#include "utxo.h"
 
 void test_storage(const char* filename) {
 
@@ -75,20 +77,35 @@ void test_keygenerator(const char* filename, const char* encode_key, const char*
 
     std::cout << "second index = 1 = original generator;\nsecond index = 2 = recovered generator\n\n";
 
-    if (key11.cmp(key12) == 0) std::cout << "key11 == key12\n";
+    if (key11.cmp(key12)) std::cout << "key11 == key12\n";
     else std::cout << "key11 != key12\n";
 
-    if (key21.cmp(key22) == 0) std::cout << "key21 == key22\n";
+    if (key21.cmp(key22)) std::cout << "key21 == key22\n";
     else std::cout << "key21 != key22\n";
 
-    if (key31.cmp(key32) == 0) std::cout << "key31 == key32\n";
+    if (key31.cmp(key32)) std::cout << "key31 == key32\n";
     else std::cout << "key31 != key32\n";
 }
 
+
+void test_create_UTXO() {
+
+    UTXO::init_keygen("some phrase to init");
+
+    UTXO u1(123);
+    UTXO* pu2 = new UTXO(777);
+
+    std::cout << "Test of creation of UTXO is passed.\n";
+}
+
 int main() {
+
     test_storage("./utxo.bin");
+
     test_keygenerator("./keygen.bin", "secret key", "secret key");
     test_keygenerator("./keygen.bin", "secret key", "another key");
+
+    test_create_UTXO();
 }
 
 

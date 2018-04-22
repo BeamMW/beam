@@ -1,6 +1,6 @@
 #include "private_key.h"
+#include "utill.h"
 
-#include <fstream>
 #include <chrono>
 #include <random>
 #include <limits>
@@ -61,30 +61,42 @@ ScalarValue PrivateKeyScalar::getNative() const {
 
     return sv;
 }
+
+Scalar PrivateKeyScalar::get() const {
+    return key;
+}
 // PrivateKeyScalar
 
-// PrivateKeyPoint implementation
-int PrivateKeyPoint::cmp(const PrivateKeyPoint& other) const {
-    return value.cmp(other.value);
+// PrivateKey implementation
+Scalar PrivateKey::get() {
+    return key;
+}
+
+bool PrivateKey::cmp(const PrivateKey& other) const {
+
+    ScalarValue v1 = key;
+    ScalarValue v2 = other.key;
+
+    return v1 == v2;
 }
 
 
-std::vector<PrivateKeyPoint> PrivateKeyPoint::create_keyset(PointGen& gen,
-                                                            const PrivateKeyScalar scalar,
-                                                            Nonce& nonce,
-                                                            size_t count_key)
+std::vector<PrivateKey> PrivateKey::create_keyset(PointGen& gen,
+                                                  const PrivateKeyScalar scalar,
+                                                  Nonce& nonce,
+                                                  size_t count_key)
 {
-    std::vector<PrivateKeyPoint> keyset;
+    std::vector<PrivateKey> keyset;
     keyset.reserve(count_key);
 
     for(size_t i=0; i<count_key; ++i)
-        keyset.push_back(PrivateKeyPoint(gen, scalar, nonce));
+        keyset.push_back(PrivateKey(gen, scalar, nonce));
 }
-// PrivateKeyPoint
+// PrivateKey
 
 // KeyGenerator implementation
-PrivateKeyPoint KeyGenerator::next(){
-    return PrivateKeyPoint(point_gen, scalar, nonce);
+PrivateKey KeyGenerator::next(){
+    return PrivateKey(point_gen, scalar, nonce);
 }
 
 void KeyGenerator::reset() {
