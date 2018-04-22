@@ -1,4 +1,7 @@
 #pragma once
+#include <cstddef>
+
+using std::size_t;
 
 template<typename A, typename... Args>
 void ampersand_folded(A& a, Args&... args) {

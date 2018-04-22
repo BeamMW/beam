@@ -39,7 +39,7 @@ namespace beam {
 // Logger options
 struct LoggerConfig {
     int fileLevel=LOG_SINK_DISABLED;
-    int consoleLevel=LOG_LEVEL_INFO;
+    int consoleLevel=LOG_LEVEL_DEBUG;
     int flushLevel=LOG_LEVEL_WARNING;
     std::string filePrefix;
 

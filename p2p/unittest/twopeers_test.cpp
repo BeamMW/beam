@@ -3,36 +3,13 @@
 #include "p2p/protocol.h"
 #include "utility/io/tcpserver.h"
 #include "utility/io/timer.h"
+#include "utility/helpers.h"
 #include <iostream>
-#include <thread>
 #include <unistd.h>
-
-using ThreadPtr = std::unique_ptr<std::thread>;
 
 using namespace beam;
 using namespace beam::io;
 using namespace std;
-
-struct Thread {
-    ThreadPtr theThread;
-
-    void start() {
-        theThread = make_unique<thread>([this]() { thread_func(); });
-    }
-
-    void join() {
-        if (theThread) {
-            theThread->join();
-            theThread.reset();
-        }
-    }
-
-    virtual ~Thread() {
-        assert(!theThread);
-    }
-
-    virtual void thread_func() = 0;
-};
 
 constexpr uint16_t g_port = 33333;
 
@@ -49,8 +26,31 @@ struct SomeObject {
     SERIALIZE(i,x,ooo);
 };
 
+// Response to SomeObject
+struct Response {
+    size_t z=0;
+
+    SERIALIZE(z);
+};
+
+// Logic->Network interface
+struct ILogicToNetwork {
+    virtual ~ILogicToNetwork() {}
+    virtual void send_object(uint64_t to, const SomeObject& o) = 0;
+    virtual void send_response(uint64_t to, const Response& r) = 0;
+};
+
+// Network->Logic interface
+struct INetworkToLogic {
+    virtual ~INetworkToLogic() {}
+    virtual void send_object(uint64_t to, const SomeObject& o) = 0;
+    virtual void send_response(uint64_t to, const Response& r) = 0;
+};
+
 // Message handler for both sides in this test
+// It resides on network side and handles local logic
 struct MessageHandler : IMsgHandler {
+
     void on_protocol_error(uint64_t fromStream, ProtocolError error) override {
         cout << __FUNCTION__ << "(" << fromStream << "," << error << ")" << endl;
     }
@@ -65,18 +65,34 @@ struct MessageHandler : IMsgHandler {
         return true;
     }
 
+    bool on_response(uint64_t fromStream, const Response& msg) {
+        cout << __FUNCTION__ << "(" << fromStream << "," << msg.z << ")" << endl;
+        receivedResponse = msg;
+        return true;
+    }
+
     SomeObject receivedObj;
+    Response receivedResponse;
 };
 
-struct Server : Thread {
+struct Server {
     MessageHandler handler;
     Protocol<MessageHandler> protocol;
     unique_ptr<Connection> connection;
+    Thread t;
 
     Server() :
-        protocol(0xAA, 0xBB, 0xCC, handler)
+        protocol(0xAA, 0xBB, 0xCC, handler, 200)
     {
         protocol.add_message_handler<SomeObject, &MessageHandler::on_some_object>(msgTypeForSomeObject, 8, 10000000);
+    }
+
+    void start() {
+        t.start(BIND_THIS_MEMFN(thread_func));
+    }
+
+    void join() {
+        t.join();
     }
 
     void thread_func() {
@@ -85,17 +101,9 @@ struct Server : Thread {
         try {
             Config config;
             Reactor::Ptr reactor = Reactor::create(config);
+
             TcpServer::Ptr server = TcpServer::create(
-                reactor,
-                Address::localhost().port(g_port),
-                [this](TcpStream::Ptr&& newStream, int errorCode) {
-                    if (errorCode == 0) {
-                        cout << "Stream accepted" << endl;
-                        on_stream_accepted(move(newStream));
-                    } else {
-                        cout << "Error code " << errorCode << endl;
-                    }
-                }
+                reactor, Address::localhost().port(g_port), BIND_THIS_MEMFN(on_stream_accepted)
             );
 
             Timer::Ptr timer = Timer::create(reactor);
@@ -116,24 +124,29 @@ struct Server : Thread {
         }
     }
 
-    void on_stream_accepted(TcpStream::Ptr&& newStream) {
-        if (!connection) {
-            connection = make_unique<Connection>(
-                protocol,
-                12345,
-                100,
-                move(newStream)
-            );
+    void on_stream_accepted(TcpStream::Ptr&& newStream, int errorCode) {
+        if (errorCode == 0) {
+            cout << "Stream accepted" << endl;
+            if (!connection) {
+                connection = make_unique<Connection>(
+                    protocol,
+                    12345,
+                    100,
+                    move(newStream)
+                );
+            }
+        } else {
+            cout << "Error code " << errorCode << endl;
         }
+
     }
 };
 
-struct Client : Thread {
+struct Client {
     MessageHandler handler;
     Protocol<MessageHandler> protocol;
     unique_ptr<Connection> connection;
 
-    MsgSerializer serializer;
     vector<SharedBuffer> serializedMsg;
 
     Reactor::Ptr reactor;
@@ -142,11 +155,20 @@ struct Client : Thread {
 
     SomeObject msg;
 
+    Thread t;
+
     Client() :
-        protocol(0xAA, 0xBB, 0xCC, handler),
-        serializer(200, protocol.get_default_header())
+        protocol(0xAA, 0xBB, 0xCC, handler,200)
     {
         protocol.add_message_handler<SomeObject, &MessageHandler::on_some_object>(msgTypeForSomeObject, 8, 10000000);
+    }
+
+    void start() {
+        t.start(BIND_THIS_MEMFN(thread_func));
+    }
+
+    void join() {
+        t.join();
     }
 
     void thread_func() {
@@ -159,8 +181,8 @@ struct Client : Thread {
 
             reactor->tcp_connect
                 (Address::localhost().port(g_port),
-                 streamId,
-                [this](uint64_t tag, TcpStream::Ptr&& newStream, int status) { on_client_connected(tag, move(newStream), status); }
+                streamId,
+                BIND_THIS_MEMFN(on_client_connected)
             );
 
             Timer::Ptr timer = Timer::create(reactor);
@@ -187,16 +209,11 @@ struct Client : Thread {
     }
 
     void produce_message() {
-        serializer.new_message(msgTypeForSomeObject);
-
         msg.i = 3;
         msg.x = 0xFFFFFFFF;
         msg.ooo.reserve(1000000);
         for (int i=0; i<1000000; ++i) msg.ooo.push_back(i);
-
-        serializer & msg;
-
-        serializer.finalize(serializedMsg);
+        protocol.serialize(serializedMsg, msgTypeForSomeObject, msg);
     }
 
     void on_client_connected(uint64_t tag, TcpStream::Ptr&& newStream, int status) {

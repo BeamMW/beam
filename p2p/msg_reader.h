@@ -1,5 +1,6 @@
 #pragma once
 #include "protocol_base.h"
+#include <vector>
 
 namespace beam {
 

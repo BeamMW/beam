@@ -49,14 +49,14 @@ std::string load_and_filter(const std::string& fileName) {
     return filtered;
 }
 
-using Values = std::unordered_map<std::string, std::any>;
+using Values = std::unordered_map<std::string, any>;
 
-template <typename T, typename ...Args> std::any array_values(const json& o) {
+template <typename T, typename ...Args> any array_values(const json& o) {
     std::vector<T, Args...> vec;
     for (const auto& x : o) {
         vec.push_back(x.get<T>());
     }
-    return std::any(std::move(vec));
+    return any(std::move(vec));
 }
 
 void add_array(Values& v, const json& o, const std::string& name) {
@@ -84,16 +84,16 @@ void add_object(Values& v, const json& o, const std::string& name) {
     switch (o.type()) {
         case json::value_t::number_integer:
         case json::value_t::number_unsigned:
-            v[name] = std::any(o.get<int64_t>());
+            v[name] = any(o.get<int64_t>());
             break;
         case json::value_t::boolean:
-            v[name] = std::any(o.get<bool>());
+            v[name] = any(o.get<bool>());
             break;
         case json::value_t::string:
-            v[name] = std::any(o.get<std::string>());
+            v[name] = any(o.get<std::string>());
             break;
         case json::value_t::number_float:
-            v[name] = std::any(o.get<double>());
+            v[name] = any(o.get<double>());
             break;
         case json::value_t::object:
             for (json::const_iterator it = o.begin(); it != o.end(); ++it) {

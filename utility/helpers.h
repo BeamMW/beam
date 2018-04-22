@@ -1,7 +1,9 @@
 #pragma once
 #include <string>
+#include <functional>
+#include <thread>
 #include <stdint.h>
-#include <stddef.h>
+#include <assert.h>
 
 namespace beam {
 
@@ -24,6 +26,33 @@ char* to_hex(char* dst, const void* bytes, size_t size);
 
 // Converts bytes to base16 string.
 std::string to_hex(const void* bytes, size_t size);
+
+template <typename R, typename ...Args, typename T> std::function<R(Args...)> bind_memfn(T* object, R(T::*fn)(Args...)) {
+    return [object, fn](Args ...args) { return (object->*fn)(std::forward<Args>(args)...); };
+}
+
+#define BIND_THIS_MEMFN(M) bind_memfn(this, &std::remove_pointer<decltype(this)>::type::M)
+
+struct Thread {
+    template <typename Func, typename ...Args> void start(Func func, Args ...args) {
+        assert(!_thread);
+        _thread = std::make_unique<std::thread>(func, std::forward<Args>(args)...);
+    }
+
+    void join() {
+        if (_thread) {
+            _thread->join();
+            _thread.reset();
+        }
+    }
+
+    virtual ~Thread() {
+        assert(!_thread);
+    }
+
+private:
+    std::unique_ptr<std::thread> _thread;
+};
 
 } //namespace
 

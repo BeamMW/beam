@@ -3,7 +3,16 @@
 #include <stdint.h>
 #include <unordered_map>
 #include <vector>
-#include <any>
+#if __has_include(<any>)
+    #include <any>
+    using std::any;
+    using std::any_cast;
+#else
+    // TODO temporary workaround
+    #include <boost/any.hpp>
+    using boost::any;
+    using boost::any_cast;
+#endif
 
 namespace beam {
 
@@ -41,11 +50,11 @@ public:
     // todo: load from environment
 
     template<typename T> void set(const std::string& key, T&& value) {
-        _values[key] = std::any(std::move(value));
+        _values[key] = any(std::move(value));
     }
 
     template<typename T> void set(const std::string& key, const T& value) {
-        _values[key] = std::any(value);
+        _values[key] = any(value);
     }
 
     bool has_key(const std::string& key) const {
@@ -55,7 +64,7 @@ public:
     template <typename T> const T& get(const std::string& key, const T& defValue=T()) const {
         auto it = _values.find(key);
         if (it == _values.end()) return defValue;
-        const T* value = std::any_cast<T>(&it->second);
+        const T* value = any_cast<T>(&it->second);
         return value ? *value : defValue;
     }
 
@@ -82,7 +91,7 @@ public:
     // ~etc
 
 private:
-    std::unordered_map<std::string, std::any> _values;
+    std::unordered_map<std::string, any> _values;
 };
 
 } //namespace

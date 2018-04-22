@@ -1,23 +1,30 @@
 #pragma once
 #include "protocol_base.h"
-#include "utility/serialize.h"
+#include "msg_serializer.h"
 
 namespace beam {
 
 /// Network<=>App logic message-oriented protocol
 template <typename MsgHandler> class Protocol : public ProtocolBase {
 public:
+    /// May have fragments...
+    using SerializedMsg = std::vector<io::SharedBuffer>;
+
     Protocol(
         /// 3 bytes for magic # and/or protocol version
         uint8_t protocol_version_0,
         uint8_t protocol_version_1,
         uint8_t protocol_version_2,
-        MsgHandler& handler
+        MsgHandler& handler,
+        size_t serializedFragmentsSize
     ) :
-        ProtocolBase(protocol_version_0, protocol_version_1, protocol_version_2, handler)
+        ProtocolBase(protocol_version_0, protocol_version_1, protocol_version_2, handler),
+        _ser(serializedFragmentsSize, get_default_header())
     {
         // must static cast
         assert(&handler == (IMsgHandler*)(&handler));
+
+        // avoid ing code bloat for those included protocol_base.h
         _deserializer = &_des;
     }
 
@@ -30,7 +37,10 @@ public:
     }
 
     /// Called on protocol dispatch table setup
-    template <typename MsgObject, bool(MsgHandler::*MessageFn)(uint64_t, const MsgObject&)>
+    template <
+        typename MsgObject,
+        bool(MsgHandler::*MessageFn)(uint64_t, const MsgObject&)
+    >
     void add_message_handler(MsgType type, uint32_t minMsgSize, uint32_t maxMsgSize) {
         add_custom_message_handler(
             type, minMsgSize, maxMsgSize,
@@ -45,8 +55,16 @@ public:
             }
         );
     }
+
+    template <typename MsgObject> void serialize(SerializedMsg& out, MsgType type, const MsgObject& obj) {
+        _ser.new_message(type);
+        _ser & obj;
+        _ser.finalize(out);
+    }
+
 private:
     Deserializer _des;
+    MsgSerializer _ser;
 };
 
 } //namespace

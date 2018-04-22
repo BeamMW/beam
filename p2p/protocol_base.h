@@ -1,6 +1,7 @@
 #pragma once
-#include "utility/io/buffer.h"
-#include <vector>
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
 
 namespace beam {
 
@@ -46,7 +47,7 @@ struct MsgHeader {
     void read(const void* src) {
         static_assert(sizeof(MsgHeader) == MsgHeader::SIZE);
 #ifdef __BYTE_ORDER__
-        static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__, "Big endian not supported");
+        static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__, "Only little endian supported yet");
 #endif
         memcpy(this, src, SIZE);
     }
@@ -87,8 +88,6 @@ class Deserializer;
 /// Protocol base
 class ProtocolBase {
 public:
-    using Message = std::vector<io::SharedBuffer>;
-
     ProtocolBase(
         /// 3 bytes for magic # and/or protocol version
         uint8_t protocol_version_0,

@@ -80,7 +80,7 @@ void msg_serializer_test_1() {
     MsgType type = 99;
 
     MsgHandler handler;
-    Protocol<MsgHandler> protocol(0xBE, 0xA6, 0x66, handler);
+    Protocol<MsgHandler> protocol(0xBE, 0xA6, 0x66, handler, 50);
     protocol.add_message_handler<IntList, &MsgHandler::on_ints>(type, 8, 1<<24);
 
     MsgSerializer ser(50, protocol.get_default_header());
@@ -142,23 +142,17 @@ void msg_serializer_test_2() {
     MsgType type = 222;
 
     MsgHandler handler;
-    Protocol<MsgHandler> protocol(0xAA, 0xBB, 0xCC, handler);
+    Protocol<MsgHandler> protocol(0xAA, 0xBB, 0xCC, handler, 50);
 
     protocol.add_message_handler<SomeObject, &MsgHandler::on_some_object>(type, 8, 1<<24);
-
-    MsgSerializer ser(50, protocol.get_default_header());
-
-    ser.new_message(type);
 
     SomeObject msg;
     msg.i = 3;
     msg.x = 0xFFFFFFFF;
     for (int i=0; i<123; ++i) msg.ooo.push_back(i);
 
-    ser & msg;
-
     std::vector<io::SharedBuffer> fragments;
-    ser.finalize(fragments);
+    protocol.serialize(fragments, type, msg);
 
     assert(!fragments.empty() && fragments[0].size >= MsgHeader::SIZE);
 

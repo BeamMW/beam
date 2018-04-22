@@ -33,7 +33,7 @@ void* FragmentWriter::write(const void *ptr, size_t size) {
     }
     while (sz > 0) {
         new_fragment();
-        size_t n = std::min(_remaining, sz);
+        size_t n = _remaining < sz ? _remaining : sz;
         memcpy(_cursor, p, n);
         p += n;
         sz -= n;
