@@ -15,6 +15,8 @@ namespace beam::wallet
         // interface to communicate with sender
         struct ConfirmationData
         {
+            using Ptr = std::shared_ptr<ConfirmationData>;
+
             Uuid m_txId;
             ECC::Point::Native m_publicReceiverBlindingExcess;
             ECC::Point::Native m_publicReceiverNonce;
@@ -23,7 +25,7 @@ namespace beam::wallet
 
         struct IGateway
         {
-            virtual void sendTxConfirmation(const ConfirmationData&) = 0;
+            virtual void sendTxConfirmation(ConfirmationData::Ptr) = 0;
             virtual void registerTx(const Transaction&) = 0;
         };
 
@@ -90,6 +92,7 @@ namespace beam::wallet
             FSMDefinition(IGateway& gateway, Receiver& receiver)
                 : m_gateway{ gateway }
                 , m_receiver{ receiver }
+                , m_confirmationData(std::make_shared<wallet::Receiver::ConfirmationData>())
             {}
 
             // transition actions
@@ -165,7 +168,7 @@ namespace beam::wallet
 
             IGateway& m_gateway;
             Receiver& m_receiver;
-            ConfirmationData m_confirmationData;
+            ConfirmationData::Ptr m_confirmationData;
         //    Transaction m_transaction;
         };
 

@@ -364,7 +364,7 @@ namespace beam
         m_network.sendTxInitiation(PeerLocator(), std::move(data));
     }
 
-    void Wallet::sendTxConfirmation(const wallet::Sender::ConfirmationData& data)
+    void Wallet::sendTxConfirmation(wallet::Sender::ConfirmationData::Ptr data)
     {
         m_network.sendTxConfirmation(PeerLocator(), data);
     }
@@ -374,7 +374,7 @@ namespace beam
         m_network.sendChangeOutputConfirmation(PeerLocator());
     }
 
-    void Wallet::sendTxConfirmation(const wallet::Receiver::ConfirmationData& data)
+    void Wallet::sendTxConfirmation(wallet::Receiver::ConfirmationData::Ptr data)
     {
         m_network.sendTxConfirmation(PeerLocator(), data);
     }
@@ -390,7 +390,7 @@ namespace beam
         auto it = m_receivers.find(data->m_txId);
         if (it == m_receivers.end())
         {
-            auto [it, _] = m_receivers.emplace(data->m_txId, std::make_unique<wallet::Receiver>(*this, std::move(data)));
+            auto [it, _] = m_receivers.emplace(data->m_txId, std::make_unique<wallet::Receiver>(*this, data));
             it->second->start();
         }
         else
@@ -399,10 +399,10 @@ namespace beam
         }
     }
     
-    void Wallet::handleTxConfirmation(const wallet::Sender::ConfirmationData& data)
+    void Wallet::handleTxConfirmation(wallet::Sender::ConfirmationData::Ptr data)
     {
         std::lock_guard<std::mutex> lock{ m_receiversMutex };
-        auto it = m_receivers.find(data.m_txId);
+        auto it = m_receivers.find(data->m_txId);
         if (it != m_receivers.end())
         {
             it->second->enqueueEvent(wallet::Receiver::TxConfirmationCompleted());
@@ -418,10 +418,10 @@ namespace beam
 
     //}
     
-    void Wallet::handleTxConfirmation(const wallet::Receiver::ConfirmationData& data)
+    void Wallet::handleTxConfirmation(wallet::Receiver::ConfirmationData::Ptr data)
     {
         std::lock_guard<std::mutex> lock{ m_sendersMutex };
-        auto it = m_senders.find(data.m_txId);
+        auto it = m_senders.find(data->m_txId);
         if (it != m_senders.end())
         {
             it->second->enqueueEvent(wallet::Sender::TxInitCompleted());

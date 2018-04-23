@@ -107,7 +107,7 @@ namespace
             cout << "sent tx initiation message\n";
         }
 
-        void sendTxConfirmation(const wallet::Sender::ConfirmationData&) override
+        void sendTxConfirmation(wallet::Sender::ConfirmationData::Ptr) override
         {
             cout << "sent senders's tx confirmation message\n";
         }
@@ -117,7 +117,7 @@ namespace
             cout << "sent change output confirmation message\n";
         }
 
-        void sendTxConfirmation(const wallet::Receiver::ConfirmationData&) override
+        void sendTxConfirmation(wallet::Receiver::ConfirmationData::Ptr) override
         {
             cout << "sent recever's tx confirmation message\n";
         }
@@ -195,10 +195,10 @@ namespace
         void sendTxInitiation(const PeerLocator& locator, wallet::Sender::InvitationData::Ptr data) override
         {
             cout << "[Sender] sendTxInitiation\n";
-            enqueueTask([this, &data] {m_peers[1]->handleTxInitiation(std::move(data)); });
+            enqueueTask([this, data] {m_peers[1]->handleTxInitiation(data); });
         }
 
-        void sendTxConfirmation(const PeerLocator& locator, const wallet::Sender::ConfirmationData& data) override
+        void sendTxConfirmation(const PeerLocator& locator, wallet::Sender::ConfirmationData::Ptr data) override
         {
             cout << "[Sender] sendTxConfirmation\n";
             enqueueTask([this, data] {m_peers[1]->handleTxConfirmation(data); });
@@ -210,7 +210,7 @@ namespace
             //m_peers[1]->();
         }
 
-        void sendTxConfirmation(const PeerLocator& locator, const wallet::Receiver::ConfirmationData& data) override
+        void sendTxConfirmation(const PeerLocator& locator, wallet::Receiver::ConfirmationData::Ptr data) override
         {
             cout << "[Receiver] sendTxConfirmation\n";
             enqueueTask([this, data] {m_peers[0]->handleTxConfirmation(data); });

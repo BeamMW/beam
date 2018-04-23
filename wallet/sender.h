@@ -13,7 +13,7 @@ namespace beam::wallet
         // interface to communicate with receiver
         struct InvitationData
         {
-            using Ptr = std::unique_ptr<InvitationData>;
+            using Ptr = std::shared_ptr<InvitationData>;
 
             Uuid m_txId;
             ECC::Amount m_amount; ///??
@@ -26,6 +26,8 @@ namespace beam::wallet
 
         struct ConfirmationData
         {
+            using Ptr = std::shared_ptr<ConfirmationData>;
+
             Uuid m_txId;
             ECC::Scalar::Native m_senderSignature;
         };
@@ -33,7 +35,7 @@ namespace beam::wallet
         struct IGateway
         {
             virtual void sendTxInitiation(InvitationData::Ptr) = 0;
-            virtual void sendTxConfirmation(const ConfirmationData&) = 0;
+            virtual void sendTxConfirmation(ConfirmationData::Ptr) = 0;
             virtual void sendChangeOutputConfirmation() = 0;
         };
 
@@ -82,7 +84,8 @@ namespace beam::wallet
                 : m_gateway{ gateway }
                 , m_txId{txId}
                 , m_sender(sender)
-                , m_invitationData(std::make_unique<wallet::Sender::InvitationData>())
+                , m_invitationData(std::make_shared<wallet::Sender::InvitationData>())
+                , m_confirmationData(std::make_shared<wallet::Sender::ConfirmationData>())
             {}
 
             // transition actions
@@ -102,7 +105,7 @@ namespace beam::wallet
 
             void confirmTx(const TxInitCompleted& event)
             {
-                m_confirmationData.m_txId = m_txId;
+                m_confirmationData->m_txId = m_txId;
                 m_gateway.sendTxConfirmation(m_confirmationData);
             }
 
@@ -160,7 +163,7 @@ namespace beam::wallet
             IGateway& m_gateway;
             Uuid m_txId;
             InvitationData::Ptr m_invitationData;
-            ConfirmationData m_confirmationData;
+            ConfirmationData::Ptr m_confirmationData;
 
             Sender& m_sender;
         };
