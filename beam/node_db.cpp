@@ -1,4 +1,4 @@
-#include "node.h"
+#include "node_db.h"
 
 namespace beam {
 
