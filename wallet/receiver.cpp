@@ -29,23 +29,19 @@ namespace beam::wallet
 {
     void Receiver::FSMDefinition::confirmTx(const msmf::none&)
     {
-        m_confirmationData->m_txId = m_receiver.m_txId;
+        m_confirmationData->m_txId = m_state.m_txId;
 
         TxKernel::Ptr kernel = std::make_unique<TxKernel>();
         kernel->m_Fee = 0;
         kernel->m_HeightMin = 0;
         kernel->m_HeightMax = -1;
-        m_receiver.m_kernel = kernel.get();
-        m_receiver.m_transaction.m_vKernels.push_back(std::move(kernel));
-        
-
+        m_state.m_kernel = kernel.get();
+        m_state.m_transaction.m_vKernels.push_back(std::move(kernel));
 
         // 1. Check fee
-       
-
         // 2. Create receiver_output
         // 3. Choose random blinding factor for receiver_output
-        ECC::Amount amount = m_receiver.m_amount;
+        ECC::Amount amount = m_state.m_amount;
         Output::Ptr output = std::make_unique<Output>();
         output->m_Coinbase = false;
 
@@ -60,31 +56,74 @@ namespace beam::wallet
         output->m_pPublic->Create(blindingFactor);
 
         blindingFactor = -blindingFactor;
-        m_receiver.m_blindingExcess += blindingFactor;
+        m_state.m_blindingExcess += blindingFactor;
 
-        m_receiver.m_transaction.m_vOutputs.push_back(std::move(output));
+        m_state.m_transaction.m_vOutputs.push_back(std::move(output));
 
         // 4. Calculate message M
         // 5. Choose random nonce
         ECC::Signature::MultiSig msig;
-        SetRandom(m_receiver.m_nonce);
+        SetRandom(m_state.m_nonce);
         //msig.GenerateNonce(m_state.m_message, m_state.m_blindingExcess);
         //m_state.m_nonce = msig.m_Nonce;
-        msig.m_Nonce = m_receiver.m_nonce;
+        msig.m_Nonce = m_state.m_nonce;
         // 6. Make public nonce and blinding factor
-        m_receiver.m_publicReceiverBlindingExcess 
+        m_state.m_publicReceiverBlindingExcess 
             = m_confirmationData->m_publicReceiverBlindingExcess 
-            = ECC::Context::get().G * m_receiver.m_blindingExcess;
+            = ECC::Context::get().G * m_state.m_blindingExcess;
 
-        m_confirmationData->m_publicReceiverNonce = ECC::Context::get().G * m_receiver.m_nonce;
+        m_confirmationData->m_publicReceiverNonce = ECC::Context::get().G * m_state.m_nonce;
         // 7. Compute Shnorr challenge e = H(M|K)
 
-        msig.m_NoncePub = m_receiver.m_publicSenderNonce + m_confirmationData->m_publicReceiverNonce;
+        msig.m_NoncePub = m_state.m_publicSenderNonce + m_confirmationData->m_publicReceiverNonce;
         // 8. Compute recepient Shnorr signature
-        m_receiver.m_kernel->m_Signature.CoSign(m_receiver.m_receiverSignature, m_receiver.m_message, m_receiver.m_blindingExcess, msig);
+        m_state.m_kernel->m_Signature.CoSign(m_state.m_receiverSignature, m_state.m_message, m_state.m_blindingExcess, msig);
         
-        m_confirmationData->m_receiverSignature = m_receiver.m_receiverSignature;
+        m_confirmationData->m_receiverSignature = m_state.m_receiverSignature;
 
         m_gateway.sendTxConfirmation(m_confirmationData);
+    }
+
+    bool Receiver::FSMDefinition::isValidSignature(const TxConfirmationCompleted& event)
+    {
+        auto data = event.data;
+        // 1. Verify sender's Schnor signature
+        ECC::Scalar::Native ne = m_state.m_kernel->m_Signature.m_e;
+        ne = -ne;
+        ECC::Point::Native s, s2;
+
+        s = m_state.m_publicSenderNonce;
+        s += m_state.m_publicSenderBlindingExcess * ne;
+
+        s2 = ECC::Context::get().G * data->m_senderSignature;
+        ECC::Point p(s), p2(s2);
+
+        return (p.cmp(p2) == 0);
+    }
+
+    bool Receiver::FSMDefinition::isInvalidSignature(const TxConfirmationCompleted& event)
+    {
+        return !isValidSignature(event);
+    }
+
+    void Receiver::FSMDefinition::registerTx(const TxConfirmationCompleted& event)
+    {
+        // 2. Calculate final signature
+        ECC::Scalar::Native finialSignature = event.data->m_senderSignature + m_state.m_receiverSignature;
+
+        // 3. Calculate public key for excess
+        ECC::Point::Native x = m_state.m_publicReceiverBlindingExcess;
+        x += m_state.m_publicSenderBlindingExcess;
+        // 4. Verify excess value in final transaction
+        // 5. Create transaction kernel
+        m_state.m_kernel->m_Excess = x;
+        m_state.m_kernel->m_Signature.m_k = finialSignature;      
+
+        // 6. Create final transaction and send it to mempool
+        ECC::Amount fee = 0U;
+        
+        // TODO: uncomment assert
+        assert(m_state.m_transaction.IsValid(fee, 0U));
+        m_gateway.registerTx(m_state.m_transaction);
     }
 }

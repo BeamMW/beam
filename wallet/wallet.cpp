@@ -405,7 +405,7 @@ namespace beam
         auto it = m_receivers.find(data->m_txId);
         if (it != m_receivers.end())
         {
-            it->second->enqueueEvent(wallet::Receiver::TxConfirmationCompleted());
+            it->second->enqueueEvent(wallet::Receiver::TxConfirmationCompleted{data});
         }
         else
         {
@@ -439,15 +439,6 @@ namespace beam
         {
             m_receivers.begin()->second->enqueueEvent(wallet::Receiver::TxRegistrationCompleted());
         }
-        //auto it = m_receivers.find(data.m_txId);
-        //if (it != m_receivers.end())
-        //{
-        //    it->second.enqueueEvent(wallet::Receiver::TxConfirmationCompleted());
-        //}
-        //else
-        //{
-        //    // TODO: log unexpected TxConfirmation
-        //}
     }
 
     void Wallet::pumpEvents()

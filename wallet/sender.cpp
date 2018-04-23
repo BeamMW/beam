@@ -154,7 +154,7 @@ namespace beam::wallet
         msig.m_NoncePub = m_state.m_publicNonce + data->m_publicReceiverNonce;
         ECC::Hash::Value message;
         m_state.m_kernel.get_Hash(message);
-        m_state.m_kernel.m_Signature.CoSign(confirmationData->m_senderSignature, message, m_state.m_blindingExcess, msig);
+        m_state.m_kernel.m_Signature.CoSign(m_confirmationData->m_senderSignature, message, m_state.m_blindingExcess, msig);
         m_gateway.sendTxConfirmation(m_confirmationData);
     }
 }

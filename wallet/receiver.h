@@ -14,9 +14,9 @@ namespace beam::wallet
     public:
         // events
         struct TxEventBase {};
-        struct TxConfirmationCompleted : TxEventBase
+        struct TxConfirmationCompleted
         {
-
+            sender::ConfirmationData::Ptr data;
         };
         struct TxConfirmationFailed : TxEventBase {};
         struct TxRegistrationCompleted : TxEventBase {};
@@ -77,29 +77,18 @@ namespace beam::wallet
 
             FSMDefinition(receiver::IGateway& gateway, Receiver& receiver)
                 : m_gateway{ gateway }
-                , m_receiver{ receiver }
+                , m_state{ receiver }
                 , m_confirmationData(std::make_shared<wallet::receiver::ConfirmationData>())
             {}
 
             // transition actions
             void confirmTx(const msmf::none&);
 
-            bool isValidSignature(const TxConfirmationCompleted& event)
-            {
-                std::cout << "Receiver::isValidSignature\n";
-                return true;
-            }
+            bool isValidSignature(const TxConfirmationCompleted& event);
 
-            bool isInvalidSignature(const TxConfirmationCompleted& event)
-            {
-                std::cout << "Receiver::isInvalidSignature\n";
-                return false;
-            }
+            bool isInvalidSignature(const TxConfirmationCompleted& event);
 
-            void registerTx(const TxConfirmationCompleted& event)
-            {
-                m_gateway.registerTx(Transaction());
-            }
+            void registerTx(const TxConfirmationCompleted& event);
 
             void rollbackTx(const TxConfirmationFailed& event)
             {
@@ -152,7 +141,7 @@ namespace beam::wallet
                     << " on event " << typeid(e).name() << std::endl;
             }
 
-            Receiver& m_receiver;
+            Receiver& m_state;
             receiver::IGateway& m_gateway;
             receiver::ConfirmationData::Ptr m_confirmationData;
             Transaction m_transaction;
