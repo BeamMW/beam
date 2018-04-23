@@ -1,7 +1,7 @@
 #include "utxo.h"
 
 // UTXO implementation
-KeyGenerator UTXO::keygen = KeyGenerator();
+KeyGenerator UTXO::keygen;
 
 void UTXO::init_keygen(KeyPhrase some_users_phrase) {
     keygen = KeyGenerator(some_users_phrase);
@@ -9,6 +9,10 @@ void UTXO::init_keygen(KeyPhrase some_users_phrase) {
     std::ofstream os = create_out_filestream("./keygen.bin");
     keygen.write(os, some_users_phrase);
     os.close();
+}
+
+KeyGenerator UTXO::get_keygen() {
+    return keygen;
 }
 
 Scalar UTXO::get_amount_coins() {

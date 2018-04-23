@@ -44,6 +44,7 @@ struct UTXO : beam::Output {
     }
 
     static void init_keygen(KeyPhrase some_users_phrase);
+    static KeyGenerator get_keygen();
 
     Scalar get_amount_coins();
     // Returns private key of this UTXO

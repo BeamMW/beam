@@ -6,12 +6,8 @@ namespace ECC {
   const Context& Context::get() { return g_Ctx; }
 }
 
-bool operator==(const Scalar& left, const Scalar& rigth) {
-
-    ScalarValue v1 = left;
-    ScalarValue v2 = rigth;
-
-    return v1 == v2;
+bool operator==(const Scalar& left, const Scalar& right) {
+    return ScalarValue(left) == ScalarValue(right);
 }
 
 // Random generator implementation
@@ -98,8 +94,13 @@ std::vector<PrivateKey> PrivateKey::create_keyset(PointGen& gen,
 // PrivateKey
 
 // KeyGenerator implementation
-PrivateKey KeyGenerator::next(){
+PrivateKey KeyGenerator::next() {
+    ++count_key;
     return PrivateKey(point_gen, scalar, nonce);
+}
+
+size_t KeyGenerator::get_count() {
+    return count_key;
 }
 
 void KeyGenerator::reset() {

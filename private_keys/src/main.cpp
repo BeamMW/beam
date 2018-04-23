@@ -4,7 +4,9 @@
 #include "utill.h"
 #include "utxo.h"
 
-void test_storage(const char* filename) {
+void test_UTXO(const char* filename) {
+
+    std::cout << "Test #1 is working...\n";
 
     UTXO u1(123, "Some secret data.");
     UTXO u2(1,   "File top secret #1!");
@@ -45,9 +47,13 @@ void test_storage(const char* filename) {
     std::cout << "UTXO #3 with CORRECT   key: id = " << pu6->id << "; info = " << pu6->info << "\n\n";
 
     is.close();
+
+    std::cout << "Test #1 is done.\n\n";
 }
 
 void test_keygenerator(const char* filename, const char* encode_key, const char* decode_key) {
+
+    std::cout << "Test #2 is working\n";
 
     KeyGenerator key_gen_1("secret_word_to_initiate");
 
@@ -85,18 +91,22 @@ void test_keygenerator(const char* filename, const char* encode_key, const char*
 
     if (key31.cmp(key32)) std::cout << "key31 == key32\n";
     else std::cout << "key31 != key32\n";
+
+    std::cout << "Test #2 is done.\n\n";
 }
 
-void test_create_UTXO() {
+void test_key_UTXO() {
+
+    std::cout << "Test #3 is working...\n";
 
     UTXO::init_keygen("some phrase to init");
 
     UTXO u1(123);
     UTXO* pu2 = new UTXO(777);
-    UTXO* pu3 = new UTXO(123);
+    UTXO* pu3 = new UTXO(122 + 1);
 
-    auto key1 = u1.get_blinding_factor();
-    auto key2 = pu2->get_blinding_factor();
+    Scalar key1 = u1.get_blinding_factor();
+    Scalar key2 = pu2->get_blinding_factor();
 
     if (key1 == key2) std::cout << "key1 == key2\n";
     else std::cout << "key1 != key2\n";
@@ -107,21 +117,21 @@ void test_create_UTXO() {
 
     assert(n1 == n3);
 
-    std::cout << "Test of creation of UTXO is passed.\n";
+    KeyGenerator keygen = UTXO::get_keygen();
+
+    std::cout << "Count of UTXO: " << keygen.get_count() << "\n";
+
+    std::cout << "Test #3 is done.\n\n";
 }
 
 int main() {
 
-    std::cout << "Testing...\n";
-
-    test_storage("./utxo.bin");
+    test_UTXO("./utxo.bin");
 
     test_keygenerator("./keygen1.bin", "secret key", "secret key");
     test_keygenerator("./keygen2.bin", "secret key", "another key");
 
-    test_create_UTXO();
-
-    std::cout << "Done.\n";
+    test_key_UTXO();
 }
 
 

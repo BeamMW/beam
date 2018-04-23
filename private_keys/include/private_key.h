@@ -136,10 +136,12 @@ struct KeyGenerator {
     KeyGenerator(PointGen  gen_,
                  KeyPhrase phrase_) : point_gen(gen_),
                                       phrase(phrase_),
-                                      scalar(phrase_)  {}
+                                      scalar(phrase_),
+                                      count_key(0)  {}
 
     KeyGenerator(KeyPhrase phrase_) : phrase(phrase_),
-                                      scalar(phrase_)  {}
+                                      scalar(phrase_),
+                                      count_key(0)  {}
 
     KeyGenerator& operator=(const KeyGenerator& other) {
 
@@ -149,6 +151,8 @@ struct KeyGenerator {
 
         return *this;
     }
+
+    size_t get_count();
 
     // Generate next key
     PrivateKey next();
@@ -163,6 +167,7 @@ struct KeyGenerator {
     static KeyGenerator* recover(std::ifstream &is, const char* key);
 
     private:
+        size_t           count_key;
         PointGen         point_gen;
         KeyPhrase        phrase;
         Nonce            nonce;
