@@ -1,14 +1,17 @@
 #include "private_key.h"
-#include "utill.h"
-
-#include <chrono>
-#include <random>
-#include <limits>
 
 // Valdo's point generator of elliptic curve
 namespace ECC {
   Context g_Ctx;
   const Context& Context::get() { return g_Ctx; }
+}
+
+bool operator==(const Scalar& left, const Scalar& rigth) {
+
+    ScalarValue v1 = left;
+    ScalarValue v2 = rigth;
+
+    return v1 == v2;
 }
 
 // Random generator implementation

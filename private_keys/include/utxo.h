@@ -5,9 +5,11 @@
 #include <fstream>
 #include <algorithm>
 #include <string.h>
+
 #include "../core/common.h"
 #include "../core/ecc.h"
 #include "private_key.h"
+#include "utill.h"
 
 constexpr const size_t BUFSIZE = 32;
 
@@ -48,7 +50,7 @@ struct UTXO : beam::Output {
     Scalar get_blinding_factor();
 
     // Encrypt UTXO and write it to filestream
-    void write(std::ofstream &os, char* key);
+    void write(std::ofstream &os, const char* key);
     // Write UTXO to filestream
     void write(std::ofstream &os);
 

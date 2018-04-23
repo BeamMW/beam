@@ -87,25 +87,41 @@ void test_keygenerator(const char* filename, const char* encode_key, const char*
     else std::cout << "key31 != key32\n";
 }
 
-
 void test_create_UTXO() {
 
     UTXO::init_keygen("some phrase to init");
 
     UTXO u1(123);
     UTXO* pu2 = new UTXO(777);
+    UTXO* pu3 = new UTXO(123);
+
+    auto key1 = u1.get_blinding_factor();
+    auto key2 = pu2->get_blinding_factor();
+
+    if (key1 == key2) std::cout << "key1 == key2\n";
+    else std::cout << "key1 != key2\n";
+
+    auto n1 = u1.get_amount_coins();
+    auto n2 = pu2->get_amount_coins();
+    auto n3 = pu3->get_amount_coins();
+
+    assert(n1 == n3);
 
     std::cout << "Test of creation of UTXO is passed.\n";
 }
 
 int main() {
 
+    std::cout << "Testing...\n";
+
     test_storage("./utxo.bin");
 
-    test_keygenerator("./keygen.bin", "secret key", "secret key");
-    test_keygenerator("./keygen.bin", "secret key", "another key");
+    test_keygenerator("./keygen1.bin", "secret key", "secret key");
+    test_keygenerator("./keygen2.bin", "secret key", "another key");
 
     test_create_UTXO();
+
+    std::cout << "Done.\n";
 }
 
 

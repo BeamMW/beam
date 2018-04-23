@@ -4,8 +4,13 @@
 #include <string.h>
 #include <vector>
 #include <iostream>
+#include <chrono>
+#include <random>
+#include <limits>
+
 #include "../core/ecc_native.h"
 #include "../core/ecc.h"
+#include "utill.h"
 
 // Pseudonyms for usefull work
 using ScalarValue = ECC::Scalar::Native;
@@ -14,6 +19,8 @@ using Point       = ECC::Point;
 using PointValue  = ECC::Point::Native;
 using PointGen    = ECC::Context;
 using KeyPhrase   = const char*; // it's created by user
+
+bool operator==(const Scalar& left, const Scalar& rigth);
 
 const ScalarValue ONE = 1U;
 
@@ -27,7 +34,7 @@ unsigned int get_random();
 // PrivateKeyPoint[i] = (PrivateKeyScalar + Nonce[i]) * G,
 // PrivateKey[i]      = PrivateKeyPoint[i].X
 //
-// where G     - point-generator of elliptic urve and
+// where G     - point-generator of elliptic curve and
 //       Nonce - some generator of scalar with specific rule of scalar generating
 //       i     = 0...(count of keys) - 1
 struct Nonce {
@@ -108,7 +115,7 @@ struct PrivateKey {
 
     Scalar get();
 
-    // Compare two PrivateKeyPoint
+    // Compare two PrivateKey
     bool cmp(const PrivateKey& other) const;
 
     // Create a vector of private keys
@@ -121,7 +128,7 @@ struct PrivateKey {
 
 };
 
-// Generator of private keys (i.e. generator of points on elliptic curve)
+// Generator of private keys
 struct KeyGenerator {
 
     KeyGenerator() = default;
