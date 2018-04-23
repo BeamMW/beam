@@ -38,13 +38,10 @@ namespace beam::wallet
         m_receiver.m_kernel = kernel.get();
         m_receiver.m_transaction.m_vKernels.push_back(std::move(kernel));
         
-        // res->m_publicBlindingExcess = data.m_publicBlindingExcess;
-        // res->m_publicNonce = data.m_publicNonce;
+
 
         // 1. Check fee
        
-     //   m_transaction.m_vInputs = std::move(data.m_inputs);
-     //   m_transaction.m_vOutputs = std::move(data.m_outputs);
 
         // 2. Create receiver_output
         // 3. Choose random blinding factor for receiver_output
@@ -81,17 +78,9 @@ namespace beam::wallet
 
         m_confirmationData->m_publicReceiverNonce = ECC::Context::get().G * m_receiver.m_nonce;
         // 7. Compute Shnorr challenge e = H(M|K)
-        //ECC::Point::Native k;
-        //k = data.m_publicSenderNonce + res->m_publicReceiverNonce;
 
         msig.m_NoncePub = m_receiver.m_publicSenderNonce + m_confirmationData->m_publicReceiverNonce;
-
-        // ECC::Scalar::Native e;
-
-        //ECC::Oracle() << m_state.m_message << k >> m_state.m_schnorrChallenge;
-
         // 8. Compute recepient Shnorr signature
-        //calcSignature(m_state.m_schnorrChallenge, m_state.m_nonce, m_state.m_blindingExcess, m_state.m_receiverSignature)
         m_receiver.m_kernel->m_Signature.CoSign(m_receiver.m_receiverSignature, m_receiver.m_message, m_receiver.m_blindingExcess, msig);
         
         m_confirmationData->m_receiverSignature = m_receiver.m_receiverSignature;

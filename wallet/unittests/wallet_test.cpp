@@ -99,15 +99,15 @@ namespace
         return std::static_pointer_cast<IKeyChain>(std::make_shared<TestKeyChain2>());
     }
 
-    struct TestGateway : wallet::Sender::IGateway
-                       , wallet::Receiver::IGateway
+    struct TestGateway : wallet::sender::IGateway
+                       , wallet::receiver::IGateway
     {
-        void sendTxInitiation(wallet::Sender::InvitationData::Ptr) override
+        void sendTxInitiation(wallet::sender::InvitationData::Ptr) override
         {
             cout << "sent tx initiation message\n";
         }
 
-        void sendTxConfirmation(wallet::Sender::ConfirmationData::Ptr) override
+        void sendTxConfirmation(wallet::sender::ConfirmationData::Ptr) override
         {
             cout << "sent senders's tx confirmation message\n";
         }
@@ -117,7 +117,7 @@ namespace
             cout << "sent change output confirmation message\n";
         }
 
-        void sendTxConfirmation(wallet::Receiver::ConfirmationData::Ptr) override
+        void sendTxConfirmation(wallet::receiver::ConfirmationData::Ptr) override
         {
             cout << "sent recever's tx confirmation message\n";
         }
@@ -192,13 +192,13 @@ namespace
             m_peers.push_back(walletPeer);
         }
 
-        void sendTxInitiation(const PeerLocator& locator, wallet::Sender::InvitationData::Ptr data) override
+        void sendTxInitiation(const PeerLocator& locator, wallet::sender::InvitationData::Ptr data) override
         {
             cout << "[Sender] sendTxInitiation\n";
             enqueueTask([this, data] {m_peers[1]->handleTxInitiation(data); });
         }
 
-        void sendTxConfirmation(const PeerLocator& locator, wallet::Sender::ConfirmationData::Ptr data) override
+        void sendTxConfirmation(const PeerLocator& locator, wallet::sender::ConfirmationData::Ptr data) override
         {
             cout << "[Sender] sendTxConfirmation\n";
             enqueueTask([this, data] {m_peers[1]->handleTxConfirmation(data); });
@@ -210,7 +210,7 @@ namespace
             //m_peers[1]->();
         }
 
-        void sendTxConfirmation(const PeerLocator& locator, wallet::Receiver::ConfirmationData::Ptr data) override
+        void sendTxConfirmation(const PeerLocator& locator, wallet::receiver::ConfirmationData::Ptr data) override
         {
             cout << "[Receiver] sendTxConfirmation\n";
             enqueueTask([this, data] {m_peers[0]->handleTxConfirmation(data); });
@@ -259,14 +259,14 @@ void TestFSM()
     Uuid id;
     wallet::Sender s{ gateway, id, createKeyChain(), 6};
     s.start();
-    WALLET_CHECK(s.processEvent(wallet::Sender::TxInitCompleted()));
+    WALLET_CHECK(s.processEvent(wallet::Sender::TxInitCompleted{std::make_shared<wallet::receiver::ConfirmationData>()}));
     WALLET_CHECK(s.processEvent(wallet::Sender::TxConfirmationCompleted()));
     WALLET_CHECK(s.processEvent(wallet::Sender::TxOutputConfirmCompleted()));
     
     cout << "\nreceiver\n";
-    wallet::Sender::InvitationData::Ptr initData = std::make_unique<wallet::Sender::InvitationData>();
+    wallet::sender::InvitationData::Ptr initData = std::make_shared<wallet::sender::InvitationData>();
     initData->m_amount = 100;
-    wallet::Receiver r{ gateway, std::move(initData)};
+    wallet::Receiver r{ gateway, initData};
     r.start();
     WALLET_CHECK(!r.processEvent(wallet::Receiver::TxRegistrationCompleted()));
     WALLET_CHECK(r.processEvent(wallet::Receiver::TxConfirmationFailed()));
@@ -277,17 +277,6 @@ int main()
 {
     TestFSM();
     TestWalletNegotiation();
-//    
-    //Wallet::Config cfg;
-
-    //Wallet::ToWallet::Shared receiver(std::make_shared<Wallet::ToWallet>());
-
-    //Wallet sender(receiver, createKeyChain());
-
-    //Wallet::Result result = sender.sendMoneyTo(cfg, 6);
-
-    //assert(result);
-    
 
     return WALLET_CHECK_RESULT;
 }

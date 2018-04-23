@@ -1,8 +1,10 @@
 #pragma once
 
-#include <iostream>
 #include "wallet/common.h"
 #include "wallet/keychain.h"
+
+
+#include <iostream>
 #include <boost/msm/front/functor_row.hpp>
 
 namespace beam::wallet
@@ -10,45 +12,19 @@ namespace beam::wallet
     class Sender : public FSMHelper<Sender>
     {
     public:
-        // interface to communicate with receiver
-        struct InvitationData
-        {
-            using Ptr = std::shared_ptr<InvitationData>;
-
-            Uuid m_txId;
-            ECC::Amount m_amount; ///??
-            ECC::Hash::Value m_message;
-            ECC::Point::Native m_publicSenderBlindingExcess;
-            ECC::Point::Native m_publicSenderNonce;
-            std::vector<Input::Ptr> m_inputs;
-            std::vector<Output::Ptr> m_outputs;
-        };
-
-        struct ConfirmationData
-        {
-            using Ptr = std::shared_ptr<ConfirmationData>;
-
-            Uuid m_txId;
-            ECC::Scalar::Native m_senderSignature;
-        };
-
-        struct IGateway
-        {
-            virtual void sendTxInitiation(InvitationData::Ptr) = 0;
-            virtual void sendTxConfirmation(ConfirmationData::Ptr) = 0;
-            virtual void sendChangeOutputConfirmation() = 0;
-        };
-
         // events
         struct TxEventBase {};
-        struct TxInitCompleted : TxEventBase {};
+        struct TxInitCompleted
+        {
+            receiver::ConfirmationData::Ptr data;
+        };
         struct TxInitFailed : TxEventBase {};
         struct TxConfirmationCompleted : TxEventBase {};
         struct TxConfirmationFailed : TxEventBase {};
         struct TxOutputConfirmCompleted : TxEventBase {};
         struct TxOutputConfirmFailed : TxEventBase {};
 
-        Sender(IGateway& gateway, const Uuid& txId, beam::IKeyChain::Ptr keychain, const ECC::Amount& amount)
+        Sender(sender::IGateway& gateway, const Uuid& txId, beam::IKeyChain::Ptr keychain, const ECC::Amount& amount)
             : m_keychain(keychain)
             , m_amount(amount)
             , m_fsm{boost::ref(gateway), boost::ref(txId), std::ref(*this)}
@@ -80,34 +56,22 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm&)
                 { std::cout << "[Sender] TxOutputConfirming state\n"; } };
 
-            FSMDefinition(IGateway& gateway, const Uuid& txId, Sender& sender)
+            FSMDefinition(sender::IGateway& gateway, const Uuid& txId, Sender& sender)
                 : m_gateway{ gateway }
                 , m_txId{txId}
-                , m_sender(sender)
-                , m_invitationData(std::make_shared<wallet::Sender::InvitationData>())
-                , m_confirmationData(std::make_shared<wallet::Sender::ConfirmationData>())
+                , m_state(sender)
+                , m_invitationData(std::make_shared<wallet::sender::InvitationData>())
+                , m_confirmationData(std::make_shared<wallet::sender::ConfirmationData>())
             {}
 
             // transition actions
             void initTx(const msmf::none&);
 
-            bool isValidSignature(const TxInitCompleted& event)
-            {
-                std::cout << "Sender::isValidSignature\n";
-                return true;
-            }
+            bool isValidSignature(const TxInitCompleted& event);
 
-            bool isInvalidSignature(const TxInitCompleted& event)
-            {
-                std::cout << "Sender::isInvalidSignature\n";
-                return false;
-            }
+            bool isInvalidSignature(const TxInitCompleted& event);
 
-            void confirmTx(const TxInitCompleted& event)
-            {
-                m_confirmationData->m_txId = m_txId;
-                m_gateway.sendTxConfirmation(m_confirmationData);
-            }
+            void confirmTx(const TxInitCompleted& event);
 
             void rollbackTx(const TxInitFailed& event)
             {
@@ -160,12 +124,12 @@ namespace beam::wallet
                     << " on event " << typeid(e).name() << std::endl;
             }
 
-            IGateway& m_gateway;
             Uuid m_txId;
-            InvitationData::Ptr m_invitationData;
-            ConfirmationData::Ptr m_confirmationData;
+            sender::IGateway& m_gateway;
+            sender::InvitationData::Ptr m_invitationData;
+            sender::ConfirmationData::Ptr m_confirmationData;
 
-            Sender& m_sender;
+            Sender& m_state;
         };
         ECC::Amount m_amount;
 
@@ -175,6 +139,9 @@ namespace beam::wallet
 
         ECC::Scalar::Native m_blindingExcess;
         ECC::Scalar::Native m_nonce;
+        ECC::Scalar::Native m_senderSignature;
+        ECC::Point::Native m_publicBlindingExcess;
+        ECC::Point::Native m_publicNonce;
         TxKernel m_kernel;
         
     protected:

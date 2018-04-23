@@ -43,5 +43,57 @@ namespace beam
                 }
             }
         };
+
+        namespace sender
+        {
+            // interface to communicate with receiver
+            struct InvitationData
+            {
+                using Ptr = std::shared_ptr<InvitationData>;
+
+                Uuid m_txId;
+                ECC::Amount m_amount; ///??
+                ECC::Hash::Value m_message;
+                ECC::Point::Native m_publicSenderBlindingExcess;
+                ECC::Point::Native m_publicSenderNonce;
+                std::vector<Input::Ptr> m_inputs;
+                std::vector<Output::Ptr> m_outputs;
+            };
+
+            struct ConfirmationData
+            {
+                using Ptr = std::shared_ptr<ConfirmationData>;
+
+                Uuid m_txId;
+                ECC::Scalar::Native m_senderSignature;
+            };
+
+            struct IGateway
+            {
+                virtual void sendTxInitiation(InvitationData::Ptr) = 0;
+                virtual void sendTxConfirmation(ConfirmationData::Ptr) = 0;
+                virtual void sendChangeOutputConfirmation() = 0;
+            };
+        }
+
+        namespace receiver
+        {
+            // interface to communicate with sender
+            struct ConfirmationData
+            {
+                using Ptr = std::shared_ptr<ConfirmationData>;
+
+                Uuid m_txId;
+                ECC::Point::Native m_publicReceiverBlindingExcess;
+                ECC::Point::Native m_publicReceiverNonce;
+                ECC::Scalar::Native m_receiverSignature;
+            };
+
+            struct IGateway
+            {
+                virtual void sendTxConfirmation(ConfirmationData::Ptr) = 0;
+                virtual void registerTx(const Transaction&) = 0;
+            };
+        }
     }
 }

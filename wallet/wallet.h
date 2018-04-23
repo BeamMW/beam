@@ -11,26 +11,26 @@ namespace beam
 
     struct NetworkIO
     {
-        virtual void sendTxInitiation(const PeerLocator& locator, wallet::Sender::InvitationData::Ptr) = 0;
-        virtual void sendTxConfirmation(const PeerLocator& locator, wallet::Sender::ConfirmationData::Ptr) = 0;
+        virtual void sendTxInitiation(const PeerLocator& locator, wallet::sender::InvitationData::Ptr) = 0;
+        virtual void sendTxConfirmation(const PeerLocator& locator, wallet::sender::ConfirmationData::Ptr) = 0;
         virtual void sendChangeOutputConfirmation(const PeerLocator& locator) = 0;
-        virtual void sendTxConfirmation(const PeerLocator& locator, wallet::Receiver::ConfirmationData::Ptr) = 0;
+        virtual void sendTxConfirmation(const PeerLocator& locator, wallet::receiver::ConfirmationData::Ptr) = 0;
         virtual void registerTx(const PeerLocator& locator, const Transaction&) = 0;
     };
 
     struct IWallet
     {
-        virtual void handleTxInitiation(wallet::Sender::InvitationData::Ptr) = 0;
-        virtual void handleTxConfirmation(wallet::Sender::ConfirmationData::Ptr) = 0;
+        virtual void handleTxInitiation(wallet::sender::InvitationData::Ptr) = 0;
+        virtual void handleTxConfirmation(wallet::sender::ConfirmationData::Ptr) = 0;
         //virtual void handleChangeOutputConfirmation(const PeerLocator& locator) = 0;
-        virtual void handleTxConfirmation(wallet::Receiver::ConfirmationData::Ptr) = 0;
+        virtual void handleTxConfirmation(wallet::receiver::ConfirmationData::Ptr) = 0;
         virtual void handleTxRegistration(const Transaction& tx) = 0;
     };
     
 
     struct Wallet : public IWallet
-                  , public wallet::Receiver::IGateway
-                  , public wallet::Sender::IGateway
+                  , public wallet::receiver::IGateway
+                  , public wallet::sender::IGateway
     {
         struct ToNode
         {
@@ -136,16 +136,16 @@ namespace beam
 
         SendInvitationData::Ptr createInvitationData(const ECC::Amount& amount);
 
-        void sendTxInitiation(wallet::Sender::InvitationData::Ptr) override;
-        void sendTxConfirmation(wallet::Sender::ConfirmationData::Ptr) override;
+        void sendTxInitiation(wallet::sender::InvitationData::Ptr) override;
+        void sendTxConfirmation(wallet::sender::ConfirmationData::Ptr) override;
         void sendChangeOutputConfirmation() override;
-        void sendTxConfirmation(wallet::Receiver::ConfirmationData::Ptr) override;
+        void sendTxConfirmation(wallet::receiver::ConfirmationData::Ptr) override;
         void registerTx(const Transaction&) override;
         
-        void handleTxInitiation(wallet::Sender::InvitationData::Ptr) override;
-        void handleTxConfirmation(wallet::Sender::ConfirmationData::Ptr) override;
+        void handleTxInitiation(wallet::sender::InvitationData::Ptr) override;
+        void handleTxConfirmation(wallet::sender::ConfirmationData::Ptr) override;
         //void handleChangeOutputConfirmation(const PeerLocator& locator) override0;
-        void handleTxConfirmation(wallet::Receiver::ConfirmationData::Ptr) override;
+        void handleTxConfirmation(wallet::receiver::ConfirmationData::Ptr) override;
         void handleTxRegistration(const Transaction& tx) override;
 
     private:

@@ -12,42 +12,28 @@ namespace beam::wallet
     class Receiver : public FSMHelper<Receiver>
     {
     public:
-        // interface to communicate with sender
-        struct ConfirmationData
-        {
-            using Ptr = std::shared_ptr<ConfirmationData>;
-
-            Uuid m_txId;
-            ECC::Point::Native m_publicReceiverBlindingExcess;
-            ECC::Point::Native m_publicReceiverNonce;
-            ECC::Scalar::Native m_receiverSignature;
-        };
-
-        struct IGateway
-        {
-            virtual void sendTxConfirmation(ConfirmationData::Ptr) = 0;
-            virtual void registerTx(const Transaction&) = 0;
-        };
-
         // events
         struct TxEventBase {};
-        struct TxConfirmationCompleted : TxEventBase {};
+        struct TxConfirmationCompleted : TxEventBase
+        {
+
+        };
         struct TxConfirmationFailed : TxEventBase {};
         struct TxRegistrationCompleted : TxEventBase {};
         struct TxRegistrationFailed : TxEventBase {};
         struct TxOutputConfirmCompleted : TxEventBase {};
         struct TxOutputConfirmFailed : TxEventBase {};
         
-        Receiver(IGateway& gateway, Sender::InvitationData::Ptr initData)
+        Receiver(receiver::IGateway& gateway, sender::InvitationData::Ptr initData)
             : m_txId{initData->m_txId}
             , m_amount{initData->m_amount}
             , m_message{initData->m_message}
             , m_publicSenderBlindingExcess{initData->m_publicSenderBlindingExcess}
             , m_publicSenderNonce{initData->m_publicSenderNonce}
-           // , m_inputs;
-           // , m_outputs;
             , m_fsm{boost::ref(gateway), boost::ref(*this)}
         {
+            m_transaction.m_vInputs = std::move(initData->m_inputs);
+            m_transaction.m_vOutputs = std::move(initData->m_outputs);
         }  
     private:
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
@@ -89,10 +75,10 @@ namespace beam::wallet
                 }
             };
 
-            FSMDefinition(IGateway& gateway, Receiver& receiver)
+            FSMDefinition(receiver::IGateway& gateway, Receiver& receiver)
                 : m_gateway{ gateway }
                 , m_receiver{ receiver }
-                , m_confirmationData(std::make_shared<wallet::Receiver::ConfirmationData>())
+                , m_confirmationData(std::make_shared<wallet::receiver::ConfirmationData>())
             {}
 
             // transition actions
@@ -166,10 +152,10 @@ namespace beam::wallet
                     << " on event " << typeid(e).name() << std::endl;
             }
 
-            IGateway& m_gateway;
             Receiver& m_receiver;
-            ConfirmationData::Ptr m_confirmationData;
-        //    Transaction m_transaction;
+            receiver::IGateway& m_gateway;
+            receiver::ConfirmationData::Ptr m_confirmationData;
+            Transaction m_transaction;
         };
 
         Uuid m_txId;
