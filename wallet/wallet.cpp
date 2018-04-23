@@ -390,7 +390,7 @@ namespace beam
         auto it = m_receivers.find(data.m_txId);
         if (it == m_receivers.end())
         {
-            auto [it, _] = m_receivers.emplace(data.m_txId, std::make_unique<wallet::Receiver>(*this, data.m_txId));
+            auto [it, _] = m_receivers.emplace(data.m_txId, std::make_unique<wallet::Receiver>(*this, data));
             it->second->start();
         }
         else

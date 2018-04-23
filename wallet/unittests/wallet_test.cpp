@@ -264,7 +264,8 @@ void TestFSM()
     WALLET_CHECK(s.processEvent(wallet::Sender::TxOutputConfirmCompleted()));
     
     cout << "\nreceiver\n";
-    wallet::Receiver r{ gateway, id};
+    wallet::Sender::InvitationData initData;
+    wallet::Receiver r{ gateway, initData};
     r.start();
     WALLET_CHECK(!r.processEvent(wallet::Receiver::TxRegistrationCompleted()));
     WALLET_CHECK(r.processEvent(wallet::Receiver::TxConfirmationFailed()));

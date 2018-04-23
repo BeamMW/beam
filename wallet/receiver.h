@@ -2,6 +2,7 @@
 
 #include "wallet/common.h"
 #include "wallet/keychain.h"
+#include "wallet/sender.h"
 
 #include <iostream>
 #include <boost/msm/front/functor_row.hpp>
@@ -35,8 +36,15 @@ namespace beam::wallet
         struct TxOutputConfirmCompleted : TxEventBase {};
         struct TxOutputConfirmFailed : TxEventBase {};
         
-        Receiver(IGateway& gateway, const Uuid& txId)
-            : m_fsm{boost::ref(gateway), boost::ref(txId)}
+        Receiver(IGateway& gateway, const Sender::InvitationData& initData)
+            : m_txId{initData.m_txId}
+            , m_amount{initData.m_amount}
+            , m_message{initData.m_message}
+            , m_publicSenderBlindingExcess{initData.m_publicSenderBlindingExcess}
+            , m_publicSenderNonce{initData.m_publicSenderNonce}
+           // , m_inputs;
+           // , m_outputs;
+            , m_fsm{boost::ref(gateway), boost::ref(*this)}
         {
         }  
     private:
@@ -79,17 +87,13 @@ namespace beam::wallet
                 }
             };
 
-            FSMDefinition(IGateway& gateway, const Uuid& txId)
+            FSMDefinition(IGateway& gateway, Receiver& receiver)
                 : m_gateway{ gateway }
-                , m_txId{ txId }
+                , m_receiver{ receiver }
             {}
 
             // transition actions
-            void confirmTx(const msmf::none&)
-            {
-                m_confirmationData.m_txId = m_txId;
-                m_gateway.sendTxConfirmation(m_confirmationData);
-            }
+            void confirmTx(const msmf::none&);
 
             bool isValidSignature(const TxConfirmationCompleted& event)
             {
@@ -160,11 +164,28 @@ namespace beam::wallet
             }
 
             IGateway& m_gateway;
-            Uuid m_txId;
+            Receiver& m_receiver;
             ConfirmationData m_confirmationData;
         //    Transaction m_transaction;
         };
-    private:
+
+        Uuid m_txId;
+        ECC::Amount m_amount; ///??
+        ECC::Hash::Value m_message;
+        std::vector<Input::Ptr> m_inputs;
+        std::vector<Output::Ptr> m_outputs;
+        
+        ECC::Point::Native m_publicReceiverBlindingExcess;
+        ECC::Point::Native m_publicSenderBlindingExcess;
+        ECC::Point::Native m_publicSenderNonce;
+        ECC::Scalar::Native m_receiverSignature;
+        ECC::Scalar::Native m_blindingExcess;
+        ECC::Scalar::Native m_nonce;
+        ECC::Scalar::Native m_schnorrChallenge;
+
+        Transaction m_transaction;
+        TxKernel* m_kernel;
+
         friend FSMHelper<Receiver>;
         msm::back::state_machine<FSMDefinition> m_fsm;
 
