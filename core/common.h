@@ -20,6 +20,7 @@
 
 #include "ecc.h"
 
+#include <iostream>
 namespace beam
 {
 	// sorry for replacing 'using' by 'typedefs', some compilers don't support it
@@ -49,9 +50,6 @@ namespace beam
 
 		// In case there are multiple UTXOs with the same commitment value (which we permit) the height should be used to distinguish between them
 		// If not specified (no UTXO with the specified height) - it will automatically be selected.
-
-		Input(Height height, bool coinbase, const Amount& amount, const ECC::Scalar& blindingFactor);
-		Input() = default;
 
 		int cmp(const Input&) const;
 

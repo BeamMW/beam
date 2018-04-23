@@ -55,15 +55,6 @@ namespace beam
 	/////////////
 	// Input
 
-	Input::Input(Height height, bool coinbase, const Amount &amount, const ECC::Scalar& blindingFactor)
-		: m_Height(height), m_Coinbase(coinbase)
-	{
-		ECC::Scalar::Native key(blindingFactor);
-		ECC::Point::Native pt = ECC::Commitment(key, amount);
-
-		m_Commitment = pt;
-	}
-
 	int Input::cmp(const Input& v) const
 	{
 		CMP_MEMBER(m_Coinbase)

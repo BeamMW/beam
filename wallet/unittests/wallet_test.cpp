@@ -196,7 +196,7 @@ namespace
         void sendTxInitiation(const PeerLocator& locator, const wallet::Sender::InvitationData& data) override
         {
             cout << "[Sender] sendTxInitiation\n";
-            enqueueTask([this, data] {m_peers[1]->handleTxInitiation(data); });
+            enqueueTask([this, &data] {m_peers[1]->handleTxInitiation(data); });
         }
 
         void sendTxConfirmation(const PeerLocator& locator, const wallet::Sender::ConfirmationData& data) override

@@ -25,8 +25,8 @@ namespace beam::wallet
             ECC::Hash::Value m_message;
             ECC::Point::Native m_publicSenderBlindingExcess;
             ECC::Point::Native m_publicSenderNonce;
-            std::vector<Input> m_inputs;
-            //std::vector<Output::Ptr> m_outputs;
+            std::vector<Input::Ptr> m_inputs;
+            std::vector<Output::Ptr> m_outputs;
         };
 
         struct ConfirmationData
@@ -52,9 +52,9 @@ namespace beam::wallet
         struct TxOutputConfirmFailed : TxEventBase {};
 
         Sender(IGateway& gateway, const Uuid& txId, beam::IKeyChain::Ptr keychain, const ECC::Amount& amount)
-            : m_fsm{boost::ref(gateway), boost::ref(txId), std::ref(*this)}
-            , m_keychain(keychain)
+            : m_keychain(keychain)
             , m_amount(amount)
+            , m_fsm{boost::ref(gateway), boost::ref(txId), std::ref(*this)}
         {
             
         }

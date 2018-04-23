@@ -230,10 +230,9 @@ namespace beam
         boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId;
         std::copy(id.begin(), id.end(), txId.begin());
-        auto s = wallet::Sender{ *this, txId, m_keyChain, amount };
-        auto p = std::make_pair(txId, std::move(s));
-        auto [it, _] = m_senders.insert(std::move(p));
-        it->second.start();
+        auto s = std::make_unique<wallet::Sender>(*this, txId, m_keyChain, amount );
+        auto [it, _] = m_senders.emplace(txId, std::move(s));
+        it->second->start();
     }
 
     Wallet::Result Wallet::sendMoneyTo(const Config& config, uint64_t amount)
@@ -390,8 +389,8 @@ namespace beam
         auto it = m_receivers.find(data.m_txId);
         if (it == m_receivers.end())
         {
-            auto [it, _] = m_receivers.emplace(data.m_txId, wallet::Receiver{*this, data.m_txId});
-            it->second.start();
+            auto [it, _] = m_receivers.emplace(data.m_txId, std::make_unique<wallet::Receiver>(*this, data.m_txId));
+            it->second->start();
         }
         else
         {
@@ -405,7 +404,7 @@ namespace beam
         auto it = m_receivers.find(data.m_txId);
         if (it != m_receivers.end())
         {
-            it->second.enqueueEvent(wallet::Receiver::TxConfirmationCompleted());
+            it->second->enqueueEvent(wallet::Receiver::TxConfirmationCompleted());
         }
         else
         {
@@ -424,7 +423,7 @@ namespace beam
         auto it = m_senders.find(data.m_txId);
         if (it != m_senders.end())
         {
-            it->second.enqueueEvent(wallet::Sender::TxInitCompleted());
+            it->second->enqueueEvent(wallet::Sender::TxInitCompleted());
         }
         else
         {
@@ -437,7 +436,7 @@ namespace beam
         std::lock_guard<std::mutex> lock{ m_receiversMutex };
         if (!m_receivers.empty())
         {
-            m_receivers.begin()->second.enqueueEvent(wallet::Receiver::TxRegistrationCompleted());
+            m_receivers.begin()->second->enqueueEvent(wallet::Receiver::TxRegistrationCompleted());
         }
         //auto it = m_receivers.find(data.m_txId);
         //if (it != m_receivers.end())
@@ -456,14 +455,14 @@ namespace beam
             std::lock_guard<std::mutex> lock{ m_sendersMutex };
             for (auto& s : m_senders)
             {
-                s.second.executeQueuedEvents();
+                s.second->executeQueuedEvents();
             }
         }
         {
             std::lock_guard<std::mutex> lock{ m_receiversMutex };
             for (auto& r : m_receivers)
             {
-                r.second.executeQueuedEvents();
+                r.second->executeQueuedEvents();
             }
         }
     }

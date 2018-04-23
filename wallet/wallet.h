@@ -160,7 +160,7 @@ namespace beam
         NetworkIO& m_network;
         std::mutex m_sendersMutex;
         std::mutex m_receiversMutex;
-        std::map<Uuid, wallet::Sender>   m_senders;
-        std::map<Uuid, wallet::Receiver> m_receivers;
+        std::map<Uuid, std::unique_ptr<wallet::Sender>>   m_senders;
+        std::map<Uuid, std::unique_ptr<wallet::Receiver>> m_receivers;
     };
 }
