@@ -39,90 +39,16 @@ namespace beam
             virtual void sendTransaction(const Transaction& tx) = 0;
         };
 
-        struct SendInvitationData
-        {
-            using Ptr = std::shared_ptr<SendInvitationData>;
-
-            Uuid m_id;
-
-            ECC::Amount m_amount; ///??
-            ECC::Hash::Value m_message;
-            ECC::Point::Native m_publicSenderBlindingExcess;
-            ECC::Point::Native m_publicSenderNonce;
-            std::vector<Input::Ptr> m_inputs;
-            std::vector<Output::Ptr> m_outputs;
-        };
-
-        struct SendConfirmationData
-        {
-            using Ptr = std::shared_ptr<SendConfirmationData>;
-
-            ECC::Scalar::Native m_senderSignature;
-        };
-
-        struct HandleInvitationData
-        {
-            using Ptr = std::shared_ptr<HandleInvitationData>;
-
-            ECC::Point::Native m_publicReceiverBlindingExcess;
-            ECC::Point::Native m_publicReceiverNonce;
-            ECC::Scalar::Native m_receiverSignature;
-        };
-
-        struct HandleConfirmationData
-        {
-            using Ptr = std::shared_ptr<HandleConfirmationData>;
-        };
-
-        struct SenderState
-        {
-            ECC::Scalar::Native m_blindingExcess;
-            ECC::Scalar::Native m_nonce;
-            TxKernel m_kernel;
-        };
-
-        struct ReceiverState
-        {
-            Transaction m_transaction;
-            TxKernel* m_kernel;
-            
-            ECC::Scalar::Native m_blindingExcess;
-            ECC::Scalar::Native m_nonce;
-
-            ECC::Point::Native m_publicReceiverBlindingExcess;
-            
-            ECC::Point::Native m_publicSenderBlindingExcess;
-            ECC::Point::Native m_publicSenderNonce;
-
-            ECC::Scalar::Native m_receiverSignature;
-
-            ECC::Scalar::Native m_schnorrChallenge;
-            ECC::Hash::Value m_message;
-        };
-
-        struct ToWallet
-        {
-            using Shared = std::shared_ptr<ToWallet>;
-
-            virtual HandleInvitationData::Ptr handleInvitation(SendInvitationData& data);
-            virtual HandleConfirmationData::Ptr handleConfirmation(const SendConfirmationData& data);
-
-            ReceiverState m_state;
-        };
-
         struct Config
         {
         };
 
-        //Wallet();
-        //Wallet(ToWallet::Shared receiver, IKeyChain::Ptr keyChain);
         Wallet(IKeyChain::Ptr keyChain, NetworkIO& network);
         virtual ~Wallet() {};
 
         using Result = bool;
 
         void sendMoney(const PeerLocator& locator, const ECC::Amount& amount);
-        Result sendMoneyTo(const Config& config, uint64_t amount);
 
         // TODO: remove this, just for test
         void sendDummyTransaction();
@@ -130,18 +56,11 @@ namespace beam
         void pumpEvents(); // for test only
 
     private:
-
-        Result sendInvitation(SendInvitationData& data);
-        Result sendConfirmation(const SendConfirmationData& data);
-
-        SendInvitationData::Ptr createInvitationData(const ECC::Amount& amount);
-
         void sendTxInitiation(wallet::sender::InvitationData::Ptr) override;
         void sendTxConfirmation(wallet::sender::ConfirmationData::Ptr) override;
         void sendChangeOutputConfirmation() override;
         void sendTxConfirmation(wallet::receiver::ConfirmationData::Ptr) override;
         void registerTx(const Transaction&) override;
-        
         void handleTxInitiation(wallet::sender::InvitationData::Ptr) override;
         void handleTxConfirmation(wallet::sender::ConfirmationData::Ptr) override;
         //void handleChangeOutputConfirmation(const PeerLocator& locator) override0;
@@ -151,11 +70,7 @@ namespace beam
     private:
         ToNode::Ptr m_net;
 
-        ToWallet::Shared m_receiver;
-
         IKeyChain::Ptr m_keyChain;
-
-        SenderState m_state;
 
         NetworkIO& m_network;
         std::mutex m_sendersMutex;

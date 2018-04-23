@@ -78,7 +78,6 @@ namespace beam::wallet
             FSMDefinition(receiver::IGateway& gateway, Receiver& receiver)
                 : m_gateway{ gateway }
                 , m_state{ receiver }
-                , m_confirmationData(std::make_shared<wallet::receiver::ConfirmationData>())
             {}
 
             // transition actions
@@ -143,7 +142,6 @@ namespace beam::wallet
 
             Receiver& m_state;
             receiver::IGateway& m_gateway;
-            receiver::ConfirmationData::Ptr m_confirmationData;
             Transaction m_transaction;
         };
 

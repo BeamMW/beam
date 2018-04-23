@@ -29,7 +29,8 @@ namespace beam::wallet
 {
     void Receiver::FSMDefinition::confirmTx(const msmf::none&)
     {
-        m_confirmationData->m_txId = m_state.m_txId;
+        auto confirmationData = std::make_shared<receiver::ConfirmationData>();
+        confirmationData->m_txId = m_state.m_txId;
 
         TxKernel::Ptr kernel = std::make_unique<TxKernel>();
         kernel->m_Fee = 0;
@@ -69,19 +70,19 @@ namespace beam::wallet
         msig.m_Nonce = m_state.m_nonce;
         // 6. Make public nonce and blinding factor
         m_state.m_publicReceiverBlindingExcess 
-            = m_confirmationData->m_publicReceiverBlindingExcess 
+            = confirmationData->m_publicReceiverBlindingExcess 
             = ECC::Context::get().G * m_state.m_blindingExcess;
 
-        m_confirmationData->m_publicReceiverNonce = ECC::Context::get().G * m_state.m_nonce;
+        confirmationData->m_publicReceiverNonce = ECC::Context::get().G * m_state.m_nonce;
         // 7. Compute Shnorr challenge e = H(M|K)
 
-        msig.m_NoncePub = m_state.m_publicSenderNonce + m_confirmationData->m_publicReceiverNonce;
+        msig.m_NoncePub = m_state.m_publicSenderNonce + confirmationData->m_publicReceiverNonce;
         // 8. Compute recepient Shnorr signature
         m_state.m_kernel->m_Signature.CoSign(m_state.m_receiverSignature, m_state.m_message, m_state.m_blindingExcess, msig);
         
-        m_confirmationData->m_receiverSignature = m_state.m_receiverSignature;
+        confirmationData->m_receiverSignature = m_state.m_receiverSignature;
 
-        m_gateway.sendTxConfirmation(m_confirmationData);
+        m_gateway.sendTxConfirmation(confirmationData);
     }
 
     bool Receiver::FSMDefinition::isValidSignature(const TxConfirmationCompleted& event)

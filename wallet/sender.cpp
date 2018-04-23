@@ -29,15 +29,16 @@ namespace beam::wallet
 {
     void Sender::FSMDefinition::initTx(const msmf::none&)
     {
+        auto invitationData = std::make_shared<sender::InvitationData>();
         // 1. Create transaction Uuid
-        m_invitationData->m_txId = m_txId;
+        invitationData->m_txId = m_txId;
 
         auto coins = m_state.m_keychain->getCoins(m_state.m_amount); // need to lock 
-        m_invitationData->m_amount = m_state.m_amount;
+        invitationData->m_amount = m_state.m_amount;
         m_state.m_kernel.m_Fee = 0;
         m_state.m_kernel.m_HeightMin = 0;
         m_state.m_kernel.m_HeightMax = -1;
-        m_state.m_kernel.get_Hash(m_invitationData->m_message);
+        m_state.m_kernel.get_Hash(invitationData->m_message);
         
         // 2. Set lock_height for output (current chain height)
         // 3. Select inputs using desired selection strategy
@@ -54,7 +55,7 @@ namespace beam::wallet
 
                 input->m_Commitment = pt;
 
-                m_invitationData->m_inputs.push_back(std::move(input));
+                invitationData->m_inputs.push_back(std::move(input));
                 
                 m_state.m_blindingExcess += key;
             }
@@ -86,7 +87,7 @@ namespace beam::wallet
             blindingFactor = -blindingFactor;
             m_state.m_blindingExcess += blindingFactor;
 
-            m_invitationData->m_outputs.push_back(std::move(output));
+            invitationData->m_outputs.push_back(std::move(output));
         }
         // 6. calculate tx_weight
         // 7. calculate fee
@@ -98,14 +99,14 @@ namespace beam::wallet
         msig.m_Nonce = m_state.m_nonce;
         // 10. Multiply xS and kS by generator G to create public curve points xSG and kSG
         m_state.m_publicBlindingExcess 
-            = m_invitationData->m_publicSenderBlindingExcess
+            = invitationData->m_publicSenderBlindingExcess
             = ECC::Context::get().G * m_state.m_blindingExcess;
         m_state.m_publicNonce 
-            = m_invitationData->m_publicSenderNonce
+            = invitationData->m_publicSenderNonce
             = ECC::Context::get().G * m_state.m_nonce;
         // an attempt to implement "stingy" transaction
 
-        m_gateway.sendTxInitiation(m_invitationData);
+        m_gateway.sendTxInitiation(invitationData);
     }
 
     bool Sender::FSMDefinition::isValidSignature(const TxInitCompleted& event)
@@ -148,13 +149,13 @@ namespace beam::wallet
         auto data = event.data;
         // 4. Compute Sender Schnorr signature
         auto confirmationData = std::make_shared<sender::ConfirmationData>();
-        m_confirmationData->m_txId = m_txId;
+        confirmationData->m_txId = m_txId;
         ECC::Signature::MultiSig msig;
         msig.m_Nonce = m_state.m_nonce;
         msig.m_NoncePub = m_state.m_publicNonce + data->m_publicReceiverNonce;
         ECC::Hash::Value message;
         m_state.m_kernel.get_Hash(message);
-        m_state.m_kernel.m_Signature.CoSign(m_confirmationData->m_senderSignature, message, m_state.m_blindingExcess, msig);
-        m_gateway.sendTxConfirmation(m_confirmationData);
+        m_state.m_kernel.m_Signature.CoSign(confirmationData->m_senderSignature, message, m_state.m_blindingExcess, msig);
+        m_gateway.sendTxConfirmation(confirmationData);
     }
 }

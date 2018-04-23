@@ -60,8 +60,6 @@ namespace beam::wallet
                 : m_gateway{ gateway }
                 , m_txId{txId}
                 , m_state(sender)
-                , m_invitationData(std::make_shared<wallet::sender::InvitationData>())
-                , m_confirmationData(std::make_shared<wallet::sender::ConfirmationData>())
             {}
 
             // transition actions
@@ -126,8 +124,6 @@ namespace beam::wallet
 
             Uuid m_txId;
             sender::IGateway& m_gateway;
-            sender::InvitationData::Ptr m_invitationData;
-            sender::ConfirmationData::Ptr m_confirmationData;
 
             Sender& m_state;
         };
