@@ -36,12 +36,12 @@ namespace beam::wallet
         struct TxOutputConfirmCompleted : TxEventBase {};
         struct TxOutputConfirmFailed : TxEventBase {};
         
-        Receiver(IGateway& gateway, const Sender::InvitationData& initData)
-            : m_txId{initData.m_txId}
-            , m_amount{initData.m_amount}
-            , m_message{initData.m_message}
-            , m_publicSenderBlindingExcess{initData.m_publicSenderBlindingExcess}
-            , m_publicSenderNonce{initData.m_publicSenderNonce}
+        Receiver(IGateway& gateway, Sender::InvitationData::Ptr initData)
+            : m_txId{initData->m_txId}
+            , m_amount{initData->m_amount}
+            , m_message{initData->m_message}
+            , m_publicSenderBlindingExcess{initData->m_publicSenderBlindingExcess}
+            , m_publicSenderNonce{initData->m_publicSenderNonce}
            // , m_inputs;
            // , m_outputs;
             , m_fsm{boost::ref(gateway), boost::ref(*this)}

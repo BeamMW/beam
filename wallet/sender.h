@@ -13,6 +13,8 @@ namespace beam::wallet
         // interface to communicate with receiver
         struct InvitationData
         {
+            using Ptr = std::unique_ptr<InvitationData>;
+
             Uuid m_txId;
             ECC::Amount m_amount; ///??
             ECC::Hash::Value m_message;
@@ -30,7 +32,7 @@ namespace beam::wallet
 
         struct IGateway
         {
-            virtual void sendTxInitiation(const InvitationData&) = 0;
+            virtual void sendTxInitiation(InvitationData::Ptr) = 0;
             virtual void sendTxConfirmation(const ConfirmationData&) = 0;
             virtual void sendChangeOutputConfirmation() = 0;
         };
@@ -80,6 +82,7 @@ namespace beam::wallet
                 : m_gateway{ gateway }
                 , m_txId{txId}
                 , m_sender(sender)
+                , m_invitationData(std::make_unique<wallet::Sender::InvitationData>())
             {}
 
             // transition actions
@@ -156,7 +159,7 @@ namespace beam::wallet
 
             IGateway& m_gateway;
             Uuid m_txId;
-            InvitationData m_invitationData;
+            InvitationData::Ptr m_invitationData;
             ConfirmationData m_confirmationData;
 
             Sender& m_sender;

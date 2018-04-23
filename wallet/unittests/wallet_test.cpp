@@ -102,7 +102,7 @@ namespace
     struct TestGateway : wallet::Sender::IGateway
                        , wallet::Receiver::IGateway
     {
-        void sendTxInitiation(const wallet::Sender::InvitationData&) override
+        void sendTxInitiation(wallet::Sender::InvitationData::Ptr) override
         {
             cout << "sent tx initiation message\n";
         }
@@ -192,10 +192,10 @@ namespace
             m_peers.push_back(walletPeer);
         }
 
-        void sendTxInitiation(const PeerLocator& locator, const wallet::Sender::InvitationData& data) override
+        void sendTxInitiation(const PeerLocator& locator, wallet::Sender::InvitationData::Ptr data) override
         {
             cout << "[Sender] sendTxInitiation\n";
-            enqueueTask([this, &data] {m_peers[1]->handleTxInitiation(data); });
+            enqueueTask([this, &data] {m_peers[1]->handleTxInitiation(std::move(data)); });
         }
 
         void sendTxConfirmation(const PeerLocator& locator, const wallet::Sender::ConfirmationData& data) override
@@ -264,8 +264,9 @@ void TestFSM()
     WALLET_CHECK(s.processEvent(wallet::Sender::TxOutputConfirmCompleted()));
     
     cout << "\nreceiver\n";
-    wallet::Sender::InvitationData initData;
-    wallet::Receiver r{ gateway, initData};
+    wallet::Sender::InvitationData::Ptr initData = std::make_unique<wallet::Sender::InvitationData>();
+    initData->m_amount = 100;
+    wallet::Receiver r{ gateway, std::move(initData)};
     r.start();
     WALLET_CHECK(!r.processEvent(wallet::Receiver::TxRegistrationCompleted()));
     WALLET_CHECK(r.processEvent(wallet::Receiver::TxConfirmationFailed()));

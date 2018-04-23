@@ -30,14 +30,14 @@ namespace beam::wallet
     void Sender::FSMDefinition::initTx(const msmf::none&)
     {
         // 1. Create transaction Uuid
-        m_invitationData.m_txId = m_txId;
+        m_invitationData->m_txId = m_txId;
 
         auto coins = m_sender.m_keychain->getCoins(m_sender.m_amount); // need to lock 
-        m_invitationData.m_amount = m_sender.m_amount;
+        m_invitationData->m_amount = m_sender.m_amount;
         m_sender.m_kernel.m_Fee = 0;
         m_sender.m_kernel.m_HeightMin = 0;
         m_sender.m_kernel.m_HeightMax = -1;
-        m_sender.m_kernel.get_Hash(m_invitationData.m_message);
+        m_sender.m_kernel.get_Hash(m_invitationData->m_message);
         
         // 2. Set lock_height for output (current chain height)
         // 3. Select inputs using desired selection strategy
@@ -54,7 +54,7 @@ namespace beam::wallet
 
                 input->m_Commitment = pt;
 
-                m_invitationData.m_inputs.push_back(std::move(input));
+                m_invitationData->m_inputs.push_back(std::move(input));
                 
                 m_sender.m_blindingExcess += key;
             }
@@ -86,7 +86,7 @@ namespace beam::wallet
             blindingFactor = -blindingFactor;
             m_sender.m_blindingExcess += blindingFactor;
 
-            m_invitationData.m_outputs.push_back(std::move(output));
+            m_invitationData->m_outputs.push_back(std::move(output));
         }
         // 6. calculate tx_weight
         // 7. calculate fee
@@ -97,12 +97,12 @@ namespace beam::wallet
 
         msig.m_Nonce = m_sender.m_nonce;
         // 10. Multiply xS and kS by generator G to create public curve points xSG and kSG
-        m_invitationData.m_publicSenderBlindingExcess = ECC::Context::get().G * m_sender.m_blindingExcess;
-        m_invitationData.m_publicSenderNonce = ECC::Context::get().G * m_sender.m_nonce;
+        m_invitationData->m_publicSenderBlindingExcess = ECC::Context::get().G * m_sender.m_blindingExcess;
+        m_invitationData->m_publicSenderNonce = ECC::Context::get().G * m_sender.m_nonce;
         // an attempt to implement "stingy" transaction
 
 
-        m_gateway.sendTxInitiation(m_invitationData);
+        m_gateway.sendTxInitiation(std::move(m_invitationData));
     }
 
 }

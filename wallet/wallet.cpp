@@ -359,9 +359,9 @@ namespace beam
         return res;
     }
 
-    void Wallet::sendTxInitiation(const wallet::Sender::InvitationData& data)
+    void Wallet::sendTxInitiation(wallet::Sender::InvitationData::Ptr data)
     {
-        m_network.sendTxInitiation(PeerLocator(), data);
+        m_network.sendTxInitiation(PeerLocator(), std::move(data));
     }
 
     void Wallet::sendTxConfirmation(const wallet::Sender::ConfirmationData& data)
@@ -384,13 +384,13 @@ namespace beam
         m_network.registerTx(PeerLocator(), transaction);
     }
 
-    void Wallet::handleTxInitiation(const wallet::Sender::InvitationData& data)
+    void Wallet::handleTxInitiation(wallet::Sender::InvitationData::Ptr data)
     {
         std::lock_guard<std::mutex> lock{ m_receiversMutex };
-        auto it = m_receivers.find(data.m_txId);
+        auto it = m_receivers.find(data->m_txId);
         if (it == m_receivers.end())
         {
-            auto [it, _] = m_receivers.emplace(data.m_txId, std::make_unique<wallet::Receiver>(*this, data));
+            auto [it, _] = m_receivers.emplace(data->m_txId, std::make_unique<wallet::Receiver>(*this, std::move(data)));
             it->second->start();
         }
         else

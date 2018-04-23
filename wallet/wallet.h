@@ -11,7 +11,7 @@ namespace beam
 
     struct NetworkIO
     {
-        virtual void sendTxInitiation(const PeerLocator& locator, const wallet::Sender::InvitationData&) = 0;
+        virtual void sendTxInitiation(const PeerLocator& locator, wallet::Sender::InvitationData::Ptr) = 0;
         virtual void sendTxConfirmation(const PeerLocator& locator, const wallet::Sender::ConfirmationData&) = 0;
         virtual void sendChangeOutputConfirmation(const PeerLocator& locator) = 0;
         virtual void sendTxConfirmation(const PeerLocator& locator, const wallet::Receiver::ConfirmationData&) = 0;
@@ -20,7 +20,7 @@ namespace beam
 
     struct IWallet
     {
-        virtual void handleTxInitiation(const wallet::Sender::InvitationData&) = 0;
+        virtual void handleTxInitiation(wallet::Sender::InvitationData::Ptr) = 0;
         virtual void handleTxConfirmation(const wallet::Sender::ConfirmationData&) = 0;
         //virtual void handleChangeOutputConfirmation(const PeerLocator& locator) = 0;
         virtual void handleTxConfirmation(const wallet::Receiver::ConfirmationData&) = 0;
@@ -136,13 +136,13 @@ namespace beam
 
         SendInvitationData::Ptr createInvitationData(const ECC::Amount& amount);
 
-        void sendTxInitiation(const wallet::Sender::InvitationData&) override;
+        void sendTxInitiation(wallet::Sender::InvitationData::Ptr) override;
         void sendTxConfirmation(const wallet::Sender::ConfirmationData&) override;
         void sendChangeOutputConfirmation() override;
         void sendTxConfirmation(const wallet::Receiver::ConfirmationData&) override;
         void registerTx(const Transaction&) override;
         
-        void handleTxInitiation(const wallet::Sender::InvitationData&) override;
+        void handleTxInitiation(wallet::Sender::InvitationData::Ptr) override;
         void handleTxConfirmation(const wallet::Sender::ConfirmationData&) override;
         //void handleChangeOutputConfirmation(const PeerLocator& locator) override0;
         void handleTxConfirmation(const wallet::Receiver::ConfirmationData&) override;
