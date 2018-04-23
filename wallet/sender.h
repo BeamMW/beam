@@ -1,18 +1,12 @@
 #pragma once
 
-#include <boost/msm/back/state_machine.hpp>
-#include <boost/msm/front/state_machine_def.hpp>
-#include <boost/msm/front/functor_row.hpp>
 #include <iostream>
 #include "wallet/common.h"
+#include <boost/msm/front/functor_row.hpp>
 
 namespace beam::wallet
 {
-    namespace msm = boost::msm;
-    namespace msmf = boost::msm::front;
-    namespace mpl = boost::mpl;
-
-    class Sender 
+    class Sender : public FSMHelper<Sender>
     {
     public:
         // interface to communicate with receiver
@@ -48,35 +42,12 @@ namespace beam::wallet
         struct TxConfirmationFailed : TxEventBase {};
         struct TxOutputConfirmCompleted : TxEventBase {};
         struct TxOutputConfirmFailed : TxEventBase {};
-
+        
         Sender(IGateway& gateway, const Uuid& txId)
             : m_fsm{boost::ref(gateway), boost::ref(txId)}
         {
             
-        }
-
-        void start()
-        {
-            m_fsm.start();
-        }
-
-        template<typename Event>
-        bool processEvent(const Event& event)
-        {
-            return m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
-        }
-
-        template<typename Event>
-        void enqueueEvent(const Event& event)
-        {
-            m_fsm.enqueue_event(event);
-        }
-
-        void executeQueuedEvents()
-        {
-            m_fsm.execute_queued_events();
-        }
-
+        }    
     private:
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
@@ -188,6 +159,8 @@ namespace beam::wallet
             InvitationData m_invitationData;
             ConfirmationData m_confirmationData;
         };
+    protected:
+        friend FSMHelper<Sender>;
         msm::back::state_machine<FSMDefinition> m_fsm;
     };
 }
