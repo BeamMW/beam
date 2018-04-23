@@ -131,10 +131,9 @@ namespace
     struct TestNetwork : public NetworkIO
     {
         using Task = function<void()>;
-        std::atomic<bool> m_shutdown;
         TestNetwork()
-            : m_thread{ [this] {ioLoop(); } }
-            , m_shutdown{false}
+            : m_shutdown{false}
+            , m_thread{ [this] {ioLoop(); } }
         {
 
         }
@@ -228,6 +227,7 @@ namespace
         deque<Task> m_tasks;
         mutex m_tasksMutex;
         condition_variable m_cv;
+        atomic<bool> m_shutdown;
         thread m_thread;
     };
 }
@@ -235,7 +235,6 @@ namespace
 void TestWalletNegotiation()
 {
     cout << "\nTesting wallets negotiation...\n";
-    PeerLocator senderNodeLocator, receiverNodeLocator;
     PeerLocator receiverLocator;
     TestNetwork network;
     Wallet sender( createKeyChain(), network );

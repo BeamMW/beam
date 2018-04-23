@@ -73,8 +73,9 @@ namespace beam
     //}
 
     Wallet::Wallet(IKeyChain::Ptr keyChain, NetworkIO& network)
-        : m_network{ network }
-        , m_keyChain{ keyChain }
+        : m_keyChain{ keyChain }
+        , m_network{ network }
+
     {
         //m_network.addListener(this);
     }

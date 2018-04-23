@@ -1,20 +1,13 @@
 #pragma once
 
+#include <iostream>
 #include "wallet/common.h"
 #include "wallet/keychain.h"
-
-#include <boost/msm/back/state_machine.hpp>
-#include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
-#include <iostream>
 
 namespace beam::wallet
 {
-    namespace msm = boost::msm;
-    namespace msmf = boost::msm::front;
-    namespace mpl = boost::mpl;
-
-    class Sender
+    class Sender : public FSMHelper<Sender>
     {
     public:
         // interface to communicate with receiver
@@ -57,30 +50,7 @@ namespace beam::wallet
             , m_fsm{boost::ref(gateway), boost::ref(txId), std::ref(*this)}
         {
             
-        }
-
-        void start()
-        {
-            m_fsm.start();
-        }
-
-        template<typename Event>
-        bool processEvent(const Event& event)
-        {
-            return m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
-        }
-
-        template<typename Event>
-        void enqueueEvent(const Event& event)
-        {
-            m_fsm.enqueue_event(event);
-        }
-
-        void executeQueuedEvents()
-        {
-            m_fsm.execute_queued_events();
-        }
-
+        }    
     private:
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
@@ -88,23 +58,23 @@ namespace beam::wallet
             struct Init : public msmf::state<> {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { std::cout << "[Sender] Init stat\n"; } };
+                { std::cout << "[Sender] Init state\n"; } };
             struct Terminate : public msmf::terminate_state<> {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { std::cout << "[Sender] Terminate stat\n"; } };
+                { std::cout << "[Sender] Terminate state\n"; } };
             struct TxInitiating : public msmf::state<> {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { std::cout << "[Sender] TxInitiating stat\n"; } };
+                { std::cout << "[Sender] TxInitiating state\n"; } };
             struct TxConfirming : public msmf::state<> {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { std::cout << "[Sender] TxConfirming stat\n"; } };
+                { std::cout << "[Sender] TxConfirming state\n"; } };
             struct TxOutputConfirming : public msmf::state<> {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { std::cout << "[Sender] TxOutputConfirming stat\n"; } };
+                { std::cout << "[Sender] TxOutputConfirming state\n"; } };
 
             FSMDefinition(IGateway& gateway, const Uuid& txId, Sender& sender)
                 : m_gateway{ gateway }
@@ -201,6 +171,8 @@ namespace beam::wallet
         ECC::Scalar::Native m_nonce;
         TxKernel m_kernel;
         
+    protected:
+        friend FSMHelper<Sender>;
         msm::back::state_machine<FSMDefinition> m_fsm;
     };
 }

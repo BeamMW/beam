@@ -3,21 +3,15 @@
 #include "wallet/common.h"
 #include "wallet/keychain.h"
 
-#include <boost/msm/back/state_machine.hpp>
-#include <boost/msm/front/state_machine_def.hpp>
-#include <boost/msm/front/functor_row.hpp>
 #include <iostream>
+#include <boost/msm/front/functor_row.hpp>
 
 namespace beam::wallet
 {
-    namespace msm = boost::msm;
-    namespace msmf = boost::msm::front;
-    namespace mpl = boost::mpl;
-
-    class Receiver
+    class Receiver : public FSMHelper<Receiver>
     {
     public:
-        // interface to communicate with 
+        // interface to communicate with sender
         struct ConfirmationData
         {
             Uuid m_txId;
@@ -40,43 +34,50 @@ namespace beam::wallet
         struct TxRegistrationFailed : TxEventBase {};
         struct TxOutputConfirmCompleted : TxEventBase {};
         struct TxOutputConfirmFailed : TxEventBase {};
-
+        
         Receiver(IGateway& gateway, const Uuid& txId)
             : m_fsm{boost::ref(gateway), boost::ref(txId)}
         {
-        }
-
-        void start()
-        {
-            m_fsm.start();
-        }
-
-        template<typename Event>
-        bool processEvent(const Event& event)
-        {
-            return m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
-        }
-
-        template<typename Event>
-        void enqueueEvent(const Event& event)
-        {
-            m_fsm.enqueue_event(event);
-        }
-
-        void executeQueuedEvents()
-        {
-            m_fsm.execute_queued_events();
-        }
-
+        }  
     private:
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
             // states
-            struct Init : public msmf::state<> {};
-            struct Terminate : public msmf::terminate_state<> {};
-            struct TxConfirming : public msmf::state<> {};
-            struct TxRegistering : public msmf::state<> {};
-            struct TxOutputConfirming : public msmf::state<> {};
+            struct Init : public msmf::state<> {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                {
+                    std::cout << "[Receiver] Init state\n";
+                }
+            };
+            struct Terminate : public msmf::terminate_state<> {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                {
+                    std::cout << "[Receiver] Terminate state\n";
+                }
+            };
+            struct TxConfirming : public msmf::state<> {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                {
+                    std::cout << "[Receiver] TxConfirming state\n";
+                }
+            };
+            struct TxRegistering : public msmf::state<> {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                {
+                    std::cout << "[Receiver] TxRegistering state\n";
+                }
+            };
+            struct TxOutputConfirming : public msmf::state<> {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                {
+                    std::cout << "[Receiver] TxOutputConfirming state\n";
+                }
+            };
 
             FSMDefinition(IGateway& gateway, const Uuid& txId)
                 : m_gateway{ gateway }
@@ -163,6 +164,9 @@ namespace beam::wallet
             ConfirmationData m_confirmationData;
         //    Transaction m_transaction;
         };
+    private:
+        friend FSMHelper<Receiver>;
         msm::back::state_machine<FSMDefinition> m_fsm;
+
     };
 }
