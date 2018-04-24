@@ -153,12 +153,14 @@ namespace beam
 		struct SystemState
 		{
 			struct ID {
-				Merkle::Hash	m_Hash; // merkle hash. explained later
+				Merkle::Hash	m_Hash; // explained later
 				Height			m_Height;
 			};
 
 			struct Extra {
+				Merkle::Hash	m_HashPrev;
 				Merkle::Hash	m_Utxos; // merkle hash of Utxos only.
+				Merkle::Hash	m_Kernels; // merkle hash of kernels only. Needed if/when we decide to allow kernel consuming
 				Difficulty		m_Difficulty;
 				Timestamp		m_TimeStamp;
 			};

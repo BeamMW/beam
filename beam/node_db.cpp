@@ -3,7 +3,7 @@
 namespace beam {
 
 
-const char* const NodeDB::s_szSql[NodeDB::Query::count] = {
+const char* const NodeDB::s_szSql[Query::count] = {
 	#define MacroSqlDecl(name, sql) sql,
 	AllQueries(MacroSqlDecl)
 };
@@ -91,7 +91,7 @@ bool NodeDB::Recordset::FetchRow()
 
 bool NodeDB::Recordset::IsNull(int col)
 {
-	return SQLITE_NULL == sqlite3_column_type(m_pStmt, col+1);
+	return SQLITE_NULL == sqlite3_column_type(m_pStmt, col);
 }
 
 void NodeDB::Recordset::putNull(int col)
@@ -122,18 +122,18 @@ void NodeDB::Recordset::put(int col, const Merkle::Hash& x)
 
 void NodeDB::Recordset::get(int col, int& x)
 {
-	x = sqlite3_column_int(m_pStmt, col+1);
+	x = sqlite3_column_int(m_pStmt, col);
 }
 
 void NodeDB::Recordset::get(int col, int64_t& x)
 {
-	x = sqlite3_column_int64(m_pStmt, col+1);
+	x = sqlite3_column_int64(m_pStmt, col);
 }
 
 void NodeDB::Recordset::get(int col, Blob& x)
 {
-	x.p = sqlite3_column_blob(m_pStmt, col+1);
-	x.n = sqlite3_column_bytes(m_pStmt, col+1);
+	x.p = sqlite3_column_blob(m_pStmt, col);
+	x.n = sqlite3_column_bytes(m_pStmt, col);
 }
 
 const void* NodeDB::Recordset::get_BlobStrict(int col, uint32_t n)
@@ -213,6 +213,14 @@ bool NodeDB::ExecStep(sqlite3_stmt* pStmt)
 		return false;
 
 	case SQLITE_ROW:
+		//{
+		//	int nCount = sqlite3_column_count(pStmt);
+		//	for (int ii = 0; ii < nCount; ii++)
+		//	{
+		//		const char* sz = sqlite3_column_name(pStmt, ii);
+		//		sz = sz;
+		//	}
+		//}
 		return true;
 	}
 }
@@ -320,6 +328,51 @@ void NodeDB::Transaction::Rollback()
 		}
 		m_pDB = NULL;
 	}
+}
+
+int64_t NodeDB::get_State(const Block::SystemState::ID& id, Block::SystemState::Full* pOut /* = NULL */)
+{
+	Recordset rs(*this, Query::StateGet);
+	rs.put(Query::States::Height, (int64_t) id.m_Height);
+	rs.put_As(Query::States::Hash, id.m_Hash);
+
+	if (!rs.FetchRow())
+		return 0;
+
+	if (pOut)
+	{
+		rs.get(Query::States::Height, (int64_t&) pOut->m_Height);
+		rs.get_As(Query::States::Hash, pOut->m_Hash);
+		rs.get_As(Query::States::HashPrev, pOut->m_HashPrev);
+		rs.get(Query::States::Difficulty, (int64_t&) pOut->m_Difficulty);
+		rs.get(Query::States::Timestamp, (int64_t&) pOut->m_TimeStamp);
+		rs.get_As(Query::States::HashUtxos, pOut->m_Utxos);
+		rs.get_As(Query::States::HashKernels, pOut->m_Kernels);
+		//rs.get(Query::States::StateFlags, 0);
+		//rs.get(Query::States::CountNext, 0);
+	}
+
+	int64_t rowid;
+	rs.get(Query::States::count, rowid);
+	assert(rowid);
+	return rowid;
+}
+
+int64_t NodeDB::InsertState(const Block::SystemState::Full& s)
+{
+	Recordset rs(*this, Query::StateIns);
+	rs.put(Query::States::Height, (int64_t) s.m_Height);
+	rs.put_As(Query::States::Hash, s.m_Hash);
+	rs.put_As(Query::States::HashPrev, s.m_HashPrev);
+	rs.put(Query::States::Difficulty, (int64_t) s.m_Difficulty);
+	rs.put(Query::States::Timestamp, (int64_t) s.m_TimeStamp);
+	rs.put_As(Query::States::HashUtxos, s.m_Utxos);
+	rs.put_As(Query::States::HashKernels, s.m_Kernels);
+	rs.put(Query::States::StateFlags, 0);
+	rs.put(Query::States::CountNext, 0);
+
+	rs.FetchRow();
+	return get_LastInsertRowID();
 }
 
 } // namespace beam

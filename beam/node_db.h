@@ -13,6 +13,7 @@ namespace beam {
 #define M_1(a, ...) a
 #define M_1_Comma(a, ...) a,
 #define M0_Comma_Str ","
+#define M_1_Str(a, ...) #a
 
 
 #define NodeDb_Table_States(macro, sep) \
@@ -47,10 +48,11 @@ public:
 	macro(Begin,	"BEGIN") \
 	macro(Commit,	"COMMIT") \
 	macro(Rollback,	"ROLLBACK") \
-	macro(ParamGet,	"SELECT * FROM Params WHERE ID=?") \
+	macro(ParamGet,	"SELECT " NodeDb_Table_Params(M_1_Str, M0_Comma_Str) " FROM Params WHERE ID=?") \
 	macro(ParamIns,	"INSERT INTO Params VALUES(?," NodeDb_Table_Params(THE_MACRO_Ins, M0_Comma_Str) ")") \
 	macro(ParamUpd,	"UPDATE Params SET " NodeDb_Table_Params(THE_MACRO_Upd, M0_Comma_Str) " WHERE ID=?") \
 	macro(StateIns,	"INSERT INTO States VALUES(" NodeDb_Table_States(THE_MACRO_Ins, M0_Comma_Str) ")") \
+	macro(StateGet,	"SELECT *,rowid FROM States WHERE Height=? AND Hash=?") \
 
 	struct Query
 	{
@@ -137,6 +139,10 @@ public:
 			return *(const T*) get_BlobStrict(col, sizeof(T));
 		}
 
+		template <typename T> void get_As(int col, T& out) {
+			out = get_As<T>(col);
+		}
+
 		void putNull(int col);
 		bool IsNull(int col);
 	};
@@ -155,6 +161,11 @@ public:
 		void Commit();
 		void Rollback();
 	};
+
+	// Hi-level functions
+	int64_t InsertState(const Block::SystemState::Full&); // Fails if state already exists
+	int64_t get_State(const Block::SystemState::ID&, Block::SystemState::Full* pOut = NULL);
+
 
 private:
 
