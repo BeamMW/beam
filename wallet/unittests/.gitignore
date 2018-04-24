@@ -1,0 +1,12 @@
+/codeblocks
+/lib
+/CMakeFiles
+
+main
+testkey
+Makefile
+*.cmake
+*.bin
+*.txt
+!CMakeLists.txt
+

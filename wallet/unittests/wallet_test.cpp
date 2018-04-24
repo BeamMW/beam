@@ -1,8 +1,10 @@
 #include "wallet/wallet.h"
-#include <assert.h>
-
 #include "wallet/sender.h"
 #include "wallet/receiver.h"
+
+#include "coin.h"
+
+#include <assert.h>
 #include <iostream>
 #include <thread>
 #include <mutex>
@@ -32,7 +34,29 @@ do {\
 
 namespace
 {
-    class TestKeyChain : public IKeyChain
+    class BaseTestKeyChain : public IKeyChain
+    {
+    public:
+        std::vector<beam::Coin> getCoins(const ECC::Amount& amount)
+        {
+            std::vector<beam::Coin> res;
+            ECC::Amount t = 0;
+            for (auto& c : m_coins)
+            {
+                t += c.m_amount;
+                res.push_back(c);
+                if (t >= amount)
+                {
+                    break;
+                }
+            }
+            return res;
+        }
+    protected:
+        std::vector<beam::Coin> m_coins;
+    };
+
+    class TestKeyChain : public BaseTestKeyChain
     {
     public:
         TestKeyChain()
@@ -41,27 +65,9 @@ namespace
             m_coins.emplace_back(ECC::Scalar::Native(201U), 2);
             m_coins.emplace_back(ECC::Scalar::Native(202U), 3);
         }
-
-        std::vector<beam::Coin> getCoins(const ECC::Amount& amount)
-        {
-            std::vector<beam::Coin> res;
-            ECC::Amount t = 0;
-            for (auto& c : m_coins)
-            {
-                t += c.m_amount;
-                res.push_back(c);
-                if (t >= amount)
-                {
-                    break;
-                }
-            }
-            return res;
-        }
-    private:
-        std::vector<beam::Coin> m_coins;
     };
 
-    class TestKeyChain2 : public IKeyChain
+    class TestKeyChain2 : public BaseTestKeyChain
     {
     public:
         TestKeyChain2()
@@ -69,34 +75,34 @@ namespace
             m_coins.emplace_back(ECC::Scalar::Native(300U), 1);
             m_coins.emplace_back(ECC::Scalar::Native(301U), 3);
         }
-
-        std::vector<beam::Coin> getCoins(const ECC::Amount& amount)
-        {
-            std::vector<beam::Coin> res;
-            ECC::Amount t = 0;
-            for (auto& c : m_coins)
-            {
-                t += c.m_amount;
-                res.push_back(c);
-                if (t >= amount)
-                {
-                    break;
-                }
-            }
-            return res;
-        }
-    private:
-        std::vector<beam::Coin> m_coins;
     };
 
+    class TestKeyChainIntegration : public BaseTestKeyChain
+    {
+    public:
+        TestKeyChainIntegration()
+            : m_generator("secret_word_to_initiate")
+        {
+            addCoin(4);
+            addCoin(3);
+            addCoin(2);
+        }
+
+        void addCoin(const ECC::Amount& amount)
+        {
+            auto pk = m_generator.next();
+            m_coins.emplace_back(ECC::Scalar::Native(pk.get()), amount);
+        }
+
+    private:
+
+        KeyGenerator m_generator;
+    };
+
+    template<typename KeychainImpl>
     IKeyChain::Ptr createKeyChain()
     {
-        return std::static_pointer_cast<IKeyChain>(std::make_shared<TestKeyChain>());
-    }
-
-    IKeyChain::Ptr createKeyChain2()
-    {
-        return std::static_pointer_cast<IKeyChain>(std::make_shared<TestKeyChain2>());
+        return std::static_pointer_cast<IKeyChain>(std::make_shared<KeychainImpl>());
     }
 
     struct TestGateway : wallet::sender::IGateway
@@ -359,14 +365,16 @@ namespace
     };
 }
 
+template<typename KeychainS, typename KeychainR>
 void TestWalletNegotiation()
 {
     cout << "\nTesting wallets negotiation...\n";
+
     Peer receiverLocator;
     IOLoop mainLoop;
     TestNetwork network{ mainLoop };
-    Wallet sender(createKeyChain(), network);
-    Wallet receiver(createKeyChain2(), network);
+    Wallet sender(createKeyChain<KeychainS>(), network);
+    Wallet receiver(createKeyChain<KeychainR>(), network);
 
     network.registerPeer(&sender);
     network.registerPeer(&receiver);
@@ -400,7 +408,8 @@ void TestFSM()
     cout << "\nTesting wallet's fsm...\nsender\n";
     TestGateway gateway;
     Uuid id;
-    wallet::Sender s{ gateway, id, createKeyChain(), 6 };
+
+    wallet::Sender s{ gateway, id, createKeyChain<TestKeyChain>(), 6};
     s.start();
     WALLET_CHECK(s.processEvent(wallet::Sender::TxInitCompleted{ std::make_shared<wallet::receiver::ConfirmationData>() }));
     WALLET_CHECK(s.processEvent(wallet::Sender::TxConfirmationCompleted()));
@@ -419,7 +428,8 @@ void TestFSM()
 int main()
 {
     TestFSM();
-    TestWalletNegotiation();
+    TestWalletNegotiation<TestKeyChain, TestKeyChain2>();
+    TestWalletNegotiation<TestKeyChainIntegration, TestKeyChain2>();
     TestRollback();
 
     return WALLET_CHECK_RESULT;

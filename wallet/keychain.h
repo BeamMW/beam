@@ -7,6 +7,7 @@ namespace beam
 {
     struct Coin
     {
+        Coin();
         Coin(const ECC::Scalar& key, ECC::Amount amount);
         ECC::Scalar m_key;
         ECC::Amount m_amount;

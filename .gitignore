@@ -70,3 +70,15 @@ pool/unittests/pool_test
 utility/unittest/serialize_test
 utility/unittest/serialization_adapters_test
 bin/channel_test
+utility/unittest/timer_test
+keychain/unittests/keychain_test
+p2p/unittest/connectivity_stub_test
+utility/unittest/address_test
+utility/unittest/asyncevent_test
+utility/unittest/channel_test
+utility/unittest/logger_test
+utility/unittest/reactor_test
+utility/unittest/shared_data_test
+utility/unittest/tcpclient_test
+utility/unittest/tcpserver_test
+wallet/unittests/keychain_test
