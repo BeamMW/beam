@@ -5,12 +5,6 @@
 #include "core/ecc_native.h"
 #include <algorithm>
 
-namespace ECC
-{
-    Context g_Ctx;
-    const Context& Context::get() { return g_Ctx; }
-}
-
 namespace beam
 {
     Coin::Coin(const ECC::Scalar& key, ECC::Amount amount)
