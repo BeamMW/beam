@@ -7,6 +7,11 @@
 
 namespace beam
 {
+    Coin::Coin()
+    {
+
+    }
+
     Coin::Coin(const ECC::Scalar& key, ECC::Amount amount)
         : m_amount(amount)
     {

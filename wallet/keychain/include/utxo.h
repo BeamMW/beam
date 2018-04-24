@@ -11,20 +11,20 @@
 #include "private_key.h"
 #include "utill.h"
 
+#include "wallet/keychain.h"
+
 constexpr const size_t BUFSIZE = 32;
 
-// Prototype of UTXO
-struct UTXO : beam::Output {
-
-    using Public = ECC::RangeProof::Public;
+// Prototype of CoinData
+struct CoinData : beam::Coin {
 
     unsigned int id;
     char info[BUFSIZE+1];
 
-    UTXO() = default;
+    CoinData() = default;
 
     // For testing
-    UTXO(unsigned int num, char* data) : id(num) {
+    CoinData(unsigned int num, char* data) : id(num) {
 
         auto n = std::min(strlen(data)+1, BUFSIZE+1);
 
@@ -32,21 +32,16 @@ struct UTXO : beam::Output {
 		info[n] = '\0';
     }
 
-    // Create UTXO with known amount of coins
-    UTXO(unsigned int coins) {
-
-        Public* ptr_pub = new Public;
-        ptr_pub->m_Value = coins;
-
-        m_pPublic = std::unique_ptr<Public>(ptr_pub);
-
-        key = keygen.next();
+    // Create CoinData with known amount of coins
+    CoinData(const ECC::Amount& amount) 
+        : beam::Coin(keygen.next().get(), amount)
+    {
     }
 
     static void init_keygen(KeyPhrase some_users_phrase);
     static KeyGenerator get_keygen();
 
-    Scalar get_amount_coins();
+    ECC::Amount get_amount_coins();
     // Returns private key of this UTXO
     Scalar get_blinding_factor();
 
@@ -55,17 +50,15 @@ struct UTXO : beam::Output {
     // Write UTXO to filestream
     void write(std::ofstream &os);
 
-    static UTXO* recover(std::ifstream &is, size_t offset);
-    static UTXO* recover(std::ifstream &is, size_t offset, const char* key);
+    static CoinData* recover(std::ifstream &is, size_t offset);
+    static CoinData* recover(std::ifstream &is, size_t offset, const char* key);
 
-    virtual ~UTXO() {}
+    virtual ~CoinData() {}
 
     private:
         static KeyGenerator keygen;
-        PrivateKey key;
-
 };
 
-constexpr size_t SIZEUTXO = sizeof(UTXO);
+constexpr size_t SIZE_COIN_DATA = sizeof(CoinData);
 
 #endif // UTXO_INCLUDED

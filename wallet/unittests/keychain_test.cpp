@@ -1,16 +1,16 @@
 #include <iostream>
 #include <assert.h>
-#include "../include/private_key.h"
-#include "../include/utill.h"
-#include "../include/utxo.h"
+#include "private_key.h"
+#include "utill.h"
+#include "utxo.h"
 
 void test_UTXO(const char* filename) {
 
     std::cout << "Test #1 is working...\n";
 
-    UTXO u1(123, "Some secret data.");
-    UTXO u2(1,   "File top secret #1!");
-    UTXO u3(789, "bank account #879 with money");
+    CoinData u1(123, "Some secret data.");
+    CoinData u2(1,   "File top secret #1!");
+    CoinData u3(789, "bank account #879 with money");
 
     char* skey = create_some_secret_key();
 
@@ -28,23 +28,23 @@ void test_UTXO(const char* filename) {
 
     std::ifstream is(filename, std::fstream::in);
 
-    UTXO* pu1 = UTXO::recover(is, 0*SIZEUTXO);
-    UTXO* pu2 = UTXO::recover(is, 1*SIZEUTXO);
-    UTXO* pu3 = UTXO::recover(is, 2*SIZEUTXO);
+    CoinData* pu1 = CoinData::recover(is, 0*SIZE_COIN_DATA);
+    CoinData* pu2 = CoinData::recover(is, 1*SIZE_COIN_DATA);
+    CoinData* pu3 = CoinData::recover(is, 2*SIZE_COIN_DATA);
 
     std::cout << "After recover from file " << filename << "\n";
-    std::cout << "UTXO #1: id = " << pu1->id << "; info = " << pu1->info << "\n";
-    std::cout << "UTXO #2: id = " << pu2->id << "; info = " << pu2->info << "\n";
-    std::cout << "UTXO #3: id = " << pu3->id << "; info = " << pu3->info << "\n\n";
+    std::cout << "CoinData #1: id = " << pu1->id << "; info = " << pu1->info << "\n";
+    std::cout << "CoinData #2: id = " << pu2->id << "; info = " << pu2->info << "\n";
+    std::cout << "CoinData #3: id = " << pu3->id << "; info = " << pu3->info << "\n\n";
 
-    UTXO* pu4 = UTXO::recover(is, 3*SIZEUTXO, "other secret key #1");
-    UTXO* pu5 = UTXO::recover(is, 4*SIZEUTXO, "other secret key #2");
-    UTXO* pu6 = UTXO::recover(is, 5*SIZEUTXO, skey);
+    CoinData* pu4 = CoinData::recover(is, 3*SIZE_COIN_DATA, "other secret key #1");
+    CoinData* pu5 = CoinData::recover(is, 4*SIZE_COIN_DATA, "other secret key #2");
+    CoinData* pu6 = CoinData::recover(is, 5*SIZE_COIN_DATA, skey);
 
     std::cout << "After recover by key from file " << filename << "\n";
-    std::cout << "UTXO #1 with INCORRECT key: id = " << pu4->id << "; info = " << pu4->info << "\n";
-    std::cout << "UTXO #2 with INCORRECT key: id = " << pu5->id << "; info = " << pu5->info << "\n";
-    std::cout << "UTXO #3 with CORRECT   key: id = " << pu6->id << "; info = " << pu6->info << "\n\n";
+    std::cout << "CoinData #1 with INCORRECT key: id = " << pu4->id << "; info = " << pu4->info << "\n";
+    std::cout << "CoinData #2 with INCORRECT key: id = " << pu5->id << "; info = " << pu5->info << "\n";
+    std::cout << "CoinData #3 with CORRECT   key: id = " << pu6->id << "; info = " << pu6->info << "\n\n";
 
     is.close();
 
@@ -99,11 +99,11 @@ void test_key_UTXO() {
 
     std::cout << "Test #3 is working...\n";
 
-    UTXO::init_keygen("some phrase to init");
+    CoinData::init_keygen("some phrase to init");
 
-    UTXO u1(123);
-    UTXO* pu2 = new UTXO(777);
-    UTXO* pu3 = new UTXO(122 + 1);
+    CoinData u1(123);
+    CoinData* pu2 = new CoinData(777);
+    CoinData* pu3 = new CoinData(122 + 1);
 
     Scalar key1 = u1.get_blinding_factor();
     Scalar key2 = pu2->get_blinding_factor();
@@ -117,9 +117,9 @@ void test_key_UTXO() {
 
     assert(n1 == n3);
 
-    KeyGenerator keygen = UTXO::get_keygen();
+    KeyGenerator keygen = CoinData::get_keygen();
 
-    std::cout << "Count of UTXO: " << keygen.get_count() << "\n";
+    std::cout << "Count of CoinData: " << keygen.get_count() << "\n";
 
     std::cout << "Test #3 is done.\n\n";
 }

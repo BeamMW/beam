@@ -81,3 +81,4 @@ utility/unittest/reactor_test
 utility/unittest/shared_data_test
 utility/unittest/tcpclient_test
 utility/unittest/tcpserver_test
+wallet/unittests/keychain_test
