@@ -34,16 +34,9 @@ do {\
 
 namespace
 {
-    class TestKeyChain : public IKeyChain
+    class BaseTestKeyChain : public IKeyChain
     {
     public:
-        TestKeyChain()
-        {
-            m_coins.emplace_back(ECC::Scalar::Native(200U), 5);
-            m_coins.emplace_back(ECC::Scalar::Native(201U), 2);
-            m_coins.emplace_back(ECC::Scalar::Native(202U), 3);
-        }
-
         std::vector<beam::Coin> getCoins(const ECC::Amount& amount)
         {
             std::vector<beam::Coin> res;
@@ -59,11 +52,22 @@ namespace
             }
             return res;
         }
-    private:
+    protected:
         std::vector<beam::Coin> m_coins;
     };
 
-    class TestKeyChain2 : public IKeyChain
+    class TestKeyChain : public BaseTestKeyChain
+    {
+    public:
+        TestKeyChain()
+        {
+            m_coins.emplace_back(ECC::Scalar::Native(200U), 5);
+            m_coins.emplace_back(ECC::Scalar::Native(201U), 2);
+            m_coins.emplace_back(ECC::Scalar::Native(202U), 3);
+        }
+    };
+
+    class TestKeyChain2 : public BaseTestKeyChain
     {
     public:
         TestKeyChain2()
@@ -71,30 +75,12 @@ namespace
             m_coins.emplace_back(ECC::Scalar::Native(300U), 1);
             m_coins.emplace_back(ECC::Scalar::Native(301U), 3);
         }
-
-        std::vector<beam::Coin> getCoins(const ECC::Amount& amount)
-        {
-            std::vector<beam::Coin> res;
-            ECC::Amount t = 0;
-            for (auto& c : m_coins)
-            {
-                t += c.m_amount;
-                res.push_back(c);
-                if (t >= amount)
-                {
-                    break;
-                }
-            }
-            return res;
-        }
-    private:
-        std::vector<beam::Coin> m_coins;
     };
 
-    class TestKeyChainImpl : public IKeyChain
+    class TestKeyChainIntegration : public BaseTestKeyChain
     {
     public:
-        TestKeyChainImpl()
+        TestKeyChainIntegration()
             : m_generator("secret_word_to_initiate")
         {
             addCoin(4);
@@ -108,23 +94,7 @@ namespace
             m_coins.emplace_back(ECC::Scalar::Native(pk.get()), amount);
         }
 
-        std::vector<beam::Coin> getCoins(const ECC::Amount& amount)
-        {
-            std::vector<beam::Coin> res;
-            ECC::Amount t = 0;
-            for(auto& c : m_coins)
-            {
-                t += c.m_amount;
-                res.push_back(c); 
-                if (t >= amount)
-                {
-                    break;
-                }
-            }
-            return res;
-        }
     private:
-        std::vector<beam::Coin> m_coins;
 
         KeyGenerator m_generator;
     };
@@ -314,7 +284,7 @@ int main()
 {
     TestFSM();
     TestWalletNegotiation<TestKeyChain, TestKeyChain2>();
-    TestWalletNegotiation<TestKeyChainImpl, TestKeyChain2>();
+    TestWalletNegotiation<TestKeyChainIntegration, TestKeyChain2>();
 
     return WALLET_CHECK_RESULT;
 }

@@ -42,12 +42,12 @@ struct CoinData : beam::Coin {
     static KeyGenerator get_keygen();
 
     ECC::Amount get_amount_coins();
-    // Returns private key of this UTXO
+    // Returns private key of this Coin
     Scalar get_blinding_factor();
 
-    // Encrypt UTXO and write it to filestream
+    // Encrypt Coin and write it to filestream
     void write(std::ofstream &os, const char* key);
-    // Write UTXO to filestream
+    // Write Coin to filestream
     void write(std::ofstream &os);
 
     static CoinData* recover(std::ifstream &is, size_t offset);

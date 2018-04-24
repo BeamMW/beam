@@ -4,7 +4,7 @@
 #include "utill.h"
 #include "coin.h"
 
-void test_UTXO(const char* filename) {
+void test_CoinData(const char* filename) {
 
     std::cout << "Test #1 is working...\n";
 
@@ -95,7 +95,7 @@ void test_keygenerator(const char* filename, const char* encode_key, const char*
     std::cout << "Test #2 is done.\n\n";
 }
 
-void test_key_UTXO() {
+void test_key_CoinData() {
 
     std::cout << "Test #3 is working...\n";
 
@@ -126,10 +126,10 @@ void test_key_UTXO() {
 
 int main() {
 
-    test_UTXO("./utxo.bin");
+    test_CoinData("./coin_data.bin");
 
     test_keygenerator("./keygen1.bin", "secret key", "secret key");
     test_keygenerator("./keygen2.bin", "secret key", "another key");
 
-    test_key_UTXO();
+    test_key_CoinData();
 }
