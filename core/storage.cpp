@@ -473,7 +473,7 @@ UtxoTree::Key& UtxoTree::Key::operator = (const Key::Formatted& fmt)
 	memcpy(m_pArr, fmt.m_Commitment.m_X.m_pData, sizeof(fmt.m_Commitment.m_X.m_pData));
 
 	uint8_t* pKey = m_pArr + sizeof(fmt.m_Commitment.m_X.m_pData);
-	memset(pKey, 0, sizeof(m_pArr) - sizeof(fmt.m_Commitment.m_X.m_pData));
+	memset0(pKey, sizeof(m_pArr) - sizeof(fmt.m_Commitment.m_X.m_pData));
 
 	if (fmt.m_Commitment.m_Y)
 		pKey[0] |= (1 << 7);

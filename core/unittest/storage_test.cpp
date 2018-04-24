@@ -73,7 +73,7 @@ namespace beam
 		void Tag(uint8_t n)
 		{
 			TagInfo ti;
-			memset(&ti, 0, sizeof(ti));
+			ZeroObject(ti);
 
 			ti.m_Tag.m_pData[0] = n;
 			ti.m_Difficulty = 1;
@@ -224,7 +224,7 @@ void DeleteFile(const char* szPath)
 		UtxoTree t;
 		Merkle::Hash hv1, hv2, hvMid;
 
-		for (size_t i = 0; i < vKeys.size(); i++)
+		for (uint32_t i = 0; i < vKeys.size(); i++)
 		{
 			UtxoTree::Key& key = vKeys[i];
 
@@ -254,7 +254,7 @@ void DeleteFile(const char* szPath)
 
 				for (int k = 0; k < 10; k++)
 				{
-					size_t j = rand() % (i + 1);
+					uint32_t j = rand() % (i + 1);
 
 					bCreate = false;
 					p = t.Find(cu, vKeys[j], bCreate);
@@ -274,7 +274,7 @@ void DeleteFile(const char* szPath)
 
 		t.get_Hash(hv1);
 
-		for (size_t i = 0; i < vKeys.size(); i++)
+		for (uint32_t i = 0; i < vKeys.size(); i++)
 		{
 			if (i == vKeys.size()/2)
 				t.get_Hash(hvMid);
@@ -295,7 +295,7 @@ void DeleteFile(const char* szPath)
 		verify_test(hv2 == ECC::Zero);
 
 		// construct tree in different order
-		for (size_t i = vKeys.size(); i--; )
+		for (uint32_t i = (uint32_t) vKeys.size(); i--; )
 		{
 			const UtxoTree::Key& key = vKeys[i];
 
@@ -379,7 +379,7 @@ void DeleteFile(const char* szPath)
 
 		MyMmr mmr;
 
-		for (size_t i = 0; i < vHashes.size(); i++)
+		for (uint32_t i = 0; i < vHashes.size(); i++)
 		{
 			Merkle::Hash& hv = vHashes[i];
 
@@ -391,7 +391,7 @@ void DeleteFile(const char* szPath)
 			Merkle::Hash hvRoot;
 			mmr.get_Hash(hvRoot);
 
-			for (size_t j = 0; j <= i; j++)
+			for (uint32_t j = 0; j <= i; j++)
 			{
 				Merkle::Proof proof;
 				mmr.get_Proof(proof, j);

@@ -7,6 +7,15 @@
 #	define _countof(_Array) (sizeof(_Array) / sizeof(_Array[0]))
 #endif // _countof
 
+void memset0(void* p, size_t n);
+bool memis0(const void* p, size_t n);
+
+template <typename T>
+inline void ZeroObject(T& x)
+{
+	memset0(&x, sizeof(x));
+}
+
 
 namespace ECC
 {
@@ -63,16 +72,13 @@ namespace ECC
 
 		uintBig_t& operator = (Zero_)
 		{
-			memset(m_pData, 0, sizeof(m_pData));
+			ZeroObject(m_pData);
 			return *this;
 		}
 
 		bool operator == (Zero_) const
 		{
-			for (int i = 0; i < _countof(m_pData); i++)
-				if (m_pData[i])
-					return false;
-			return true;
+			return memis0(m_pData, sizeof(m_pData));
 		}
 
 		// from ordinal types (unsigned)
@@ -82,7 +88,7 @@ namespace ECC
 			static_assert(sizeof(m_pData) >= sizeof(x), "too small");
 			static_assert(T(-1) > 0, "must be unsigned");
 
-			memset(m_pData, 0, sizeof(m_pData) - sizeof(x));
+			memset0(m_pData, sizeof(m_pData) - sizeof(x));
 
 			for (int i = 0; i < sizeof(x); i++, x >>= 8)
 				m_pData[_countof(m_pData) - 1 - i] = (uint8_t) x;

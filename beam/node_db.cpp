@@ -11,7 +11,7 @@ const char* const NodeDB::s_szSql[NodeDB::Query::count] = {
 NodeDB::NodeDB()
 	:m_pDb(NULL)
 {
-	memset(m_pPrep, 0, sizeof(m_pPrep));
+	ZeroObject(m_pPrep);
 }
 
 NodeDB::~NodeDB()
