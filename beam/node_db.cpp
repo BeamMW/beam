@@ -3,10 +3,30 @@
 namespace beam {
 
 
-const char* const NodeDB::s_szSql[Query::count] = {
-	#define MacroSqlDecl(name, sql) sql,
-	AllQueries(MacroSqlDecl)
-};
+// Literal constants
+#define TblParams				"Params"
+#define TblParams_ID			"ID"
+#define TblParams_Int			"ParamInt"
+#define TblParams_Blob			"ParamBlob"
+
+#define TblStates				"States"
+#define TblStates_Height		"Height"
+#define TblStates_Hash			"Hash"
+#define TblStates_HashPrev		"HashPrev"
+#define TblStates_Difficulty	"Difficulty"
+#define TblStates_Timestamp		"Timestamp"
+#define TblStates_HashUtxos		"HashUtxos"
+#define TblStates_HashKernels	"HashKernels"
+#define TblStates_StateFlags	"StateFlags"
+#define TblStates_RowPrev		"RowPrev"
+#define TblStates_CountNext		"CountNext"
+#define TblStates_PoW			"PoW"
+#define TblStates_BlindOffset	"BlindOffset"
+#define TblStates_Mmr			"Mmr"
+#define TblStates_Body			"Body"
+
+
+
 
 NodeDB::NodeDB()
 	:m_pDb(NULL)
@@ -57,11 +77,11 @@ NodeDB::Recordset::Recordset(NodeDB& db)
 {
 }
 
-NodeDB::Recordset::Recordset(NodeDB& db, Query::Enum val)
+NodeDB::Recordset::Recordset(NodeDB& db, Query::Enum val, const char* sql)
 	:m_DB(db)
 	,m_pStmt(NULL)
 {
-	m_pStmt = m_DB.get_Statement(val);
+	m_pStmt = m_DB.get_Statement(val, sql);
 }
 
 NodeDB::Recordset::~Recordset()
@@ -78,10 +98,10 @@ void NodeDB::Recordset::Reset()
 	}
 }
 
-void NodeDB::Recordset::Reset(Query::Enum val)
+void NodeDB::Recordset::Reset(Query::Enum val, const char* sql)
 {
 	Reset();
-	m_pStmt = m_DB.get_Statement(val);
+	m_pStmt = m_DB.get_Statement(val, sql);
 }
 
 bool NodeDB::Recordset::FetchRow()
@@ -99,12 +119,12 @@ void NodeDB::Recordset::putNull(int col)
 	m_DB.TestRet(sqlite3_bind_null(m_pStmt, col+1));
 }
 
-void NodeDB::Recordset::put(int col, int x)
+void NodeDB::Recordset::put(int col, uint32_t x)
 {
 	m_DB.TestRet(sqlite3_bind_int(m_pStmt, col+1, x));
 }
 
-void NodeDB::Recordset::put(int col, int64_t x)
+void NodeDB::Recordset::put(int col, uint64_t x)
 {
 	m_DB.TestRet(sqlite3_bind_int64(m_pStmt, col+1, x));
 }
@@ -114,18 +134,12 @@ void NodeDB::Recordset::put(int col, const Blob& x)
 	m_DB.TestRet(sqlite3_bind_blob(m_pStmt, col+1, x.p, x.n, NULL));
 }
 
-void NodeDB::Recordset::put(int col, const Merkle::Hash& x)
-{
-	static_assert(sizeof(x) == sizeof(x.m_pData), "");
-	put(col, Blob(&x, sizeof(x)));
-}
-
-void NodeDB::Recordset::get(int col, int& x)
+void NodeDB::Recordset::get(int col, uint32_t& x)
 {
 	x = sqlite3_column_int(m_pStmt, col);
 }
 
-void NodeDB::Recordset::get(int col, int64_t& x)
+void NodeDB::Recordset::get(int col, uint64_t& x)
 {
 	x = sqlite3_column_int64(m_pStmt, col);
 }
@@ -156,23 +170,23 @@ void NodeDB::Open(const char* szPath, bool bCreate)
 	TestRet(sqlite3_config(SQLITE_CONFIG_SINGLETHREAD));
 	TestRet(sqlite3_open(szPath, &m_pDb));
 
-	ExecStep(Query::Begin);
+	Transaction t(*this);
 
-	const int DB_VER = 8;
+	const uint32_t DB_VER = 8;
 
 	if (bCreate)
 	{
 		Create();
-		ParamIntSet(Query::Params::ID::DbVer, DB_VER);
+		ParamIntSet(ParamID::DbVer, DB_VER);
 	}
 	else
 	{
 		// test the DB version
-		if (DB_VER != ParamIntGetDef(Query::Params::ID::DbVer))
+		if (DB_VER != ParamIntGetDef(ParamID::DbVer))
 			throw std::runtime_error("wrong version");
 	}
 
-	ExecStep(Query::Commit);
+	t.Commit();
 }
 
 void NodeDB::Create()
@@ -180,18 +194,28 @@ void NodeDB::Create()
 	// create tables
 #define TblPrefix_Any(name) "CREATE TABLE [" #name "] ("
 
-#define THE_MACRO(name, type) ",[" #name "]" type
-	ExecQuick(TblPrefix_Any(Params) "[ID] INTEGER NOT NULL PRIMARY KEY" NodeDb_Table_Params(THE_MACRO, NOP0) ")");
-#undef THE_MACRO
+	ExecQuick("CREATE TABLE [" TblParams "] ("
+		"[" TblParams_ID	"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblParams_Int	"] INTEGER,"
+		"[" TblParams_Blob	"] BLOB)");
 
-#define THE_MACRO(name, type) "[" #name "]" type
-	ExecQuick(TblPrefix_Any(States) NodeDb_Table_States(THE_MACRO, M0_Comma_Str)
-		",FOREIGN KEY (RowPrev) REFERENCES States(OID)"
-		")");
-#undef THE_MACRO
-
-	ExecQuick("CREATE UNIQUE INDEX [IdxStateID] ON [States] ([Height] ASC, [Hash] ASC)");
-	
+	ExecQuick("CREATE TABLE [" TblStates "] ("
+		"[" TblStates_Height		"] INTEGER NOT NULL,"
+		"[" TblStates_Hash			"] BLOB NOT NULL,"
+		"[" TblStates_HashPrev		"] BLOB NOT NULL,"
+		"[" TblStates_Difficulty	"] INTEGER NOT NULL,"
+		"[" TblStates_Timestamp		"] INTEGER NOT NULL,"
+		"[" TblStates_HashUtxos		"] BLOB NOT NULL,"
+		"[" TblStates_HashKernels	"] BLOB NOT NULL,"
+		"[" TblStates_StateFlags	"] INTEGER NOT NULL,"
+		"[" TblStates_RowPrev		"] INTEGER,"
+		"[" TblStates_CountNext		"] INTEGER NOT NULL,"
+		"[" TblStates_PoW			"] BLOB,"
+		"[" TblStates_BlindOffset	"] BLOB,"
+		"[" TblStates_Mmr			"] BLOB,"
+		"[" TblStates_Body			"] BLOB,"
+		"PRIMARY KEY (" TblStates_Height "," TblStates_Hash "),"
+		"FOREIGN KEY (" TblStates_RowPrev ") REFERENCES " TblStates "(OID))");
 }
 
 void NodeDB::ExecQuick(const char* szSql)
@@ -225,19 +249,19 @@ bool NodeDB::ExecStep(sqlite3_stmt* pStmt)
 	}
 }
 
-bool NodeDB::ExecStep(Query::Enum val)
+bool NodeDB::ExecStep(Query::Enum val, const char* sql)
 {
-	return ExecStep(get_Statement(val));
+	return ExecStep(get_Statement(val, sql));
 
 }
 
-sqlite3_stmt* NodeDB::get_Statement(Query::Enum val)
+sqlite3_stmt* NodeDB::get_Statement(Query::Enum val, const char* sql)
 {
 	assert(val < _countof(m_pPrep));
 	if (!m_pPrep[val])
 	{
 		const char* szTail;
-		int nRet = sqlite3_prepare_v2(m_pDb, s_szSql[val], -1, m_pPrep + val, &szTail);
+		int nRet = sqlite3_prepare_v2(m_pDb, sql, -1, m_pPrep + val, &szTail);
 		TestRet(nRet);
 		assert(m_pPrep[val]);
 	}
@@ -251,41 +275,41 @@ int NodeDB::get_RowsChanged() const
 	return sqlite3_changes(m_pDb);
 }
 
-int64_t NodeDB::get_LastInsertRowID() const
+uint64_t NodeDB::get_LastInsertRowID() const
 {
 	return sqlite3_last_insert_rowid(m_pDb);
 }
 
-void NodeDB::ParamIntSet(int ID, int val)
+void NodeDB::ParamIntSet(uint32_t ID, uint32_t val)
 {
-	Recordset rs(*this, Query::ParamUpd);
-	rs.put(Query::Params::count, ID);
-	rs.put(Query::Params::ParamInt, val);
+	Recordset rs(*this, Query::ParamIntUpd, "UPDATE " TblParams " SET " TblParams_Int "=? WHERE " TblParams_ID "=?");
+	rs.put(0, val);
+	rs.put(1, ID);
 	rs.FetchRow();
 
 	if (!get_RowsChanged())
 	{
-		rs.Reset(Query::ParamIns);
+		rs.Reset(Query::ParamIntIns, "INSERT INTO " TblParams " (" TblParams_ID ", " TblParams_Int ") VALUES(?,?)");
 
 		rs.put(0, ID);
-		rs.put(Query::Params::ParamInt + 1, val);
+		rs.put(1, val);
 		rs.FetchRow();
 	}
 }
 
-bool NodeDB::ParamIntGet(int ID, int& val)
+bool NodeDB::ParamIntGet(uint32_t ID, uint32_t& val)
 {
-	Recordset rs(*this, Query::ParamGet);
+	Recordset rs(*this, Query::ParamIntGet, "SELECT " TblParams_Int " FROM " TblParams " WHERE " TblParams_ID "=?");
 	rs.put(0, ID);
 
 	if (!rs.FetchRow())
 		return false;
 
-	rs.get(Query::Params::ParamInt, val);
+	rs.get(0, val);
 	return true;
 }
 
-int NodeDB::ParamIntGetDef(int ID, int def /* = 0 */)
+uint32_t NodeDB::ParamIntGetDef(int ID, uint32_t def /* = 0 */)
 {
 	ParamIntGet(ID, def);
 	return def;
@@ -306,14 +330,14 @@ NodeDB::Transaction::~Transaction()
 void NodeDB::Transaction::Start(NodeDB& db)
 {
 	assert(!m_pDB);
-	db.ExecStep(Query::Begin);
+	db.ExecStep(Query::Begin, "BEGIN");
 	m_pDB = &db;
 }
 
 void NodeDB::Transaction::Commit()
 {
 	assert(m_pDB);
-	m_pDB->ExecStep(Query::Commit);
+	m_pDB->ExecStep(Query::Commit, "COMMIT");
 	m_pDB = NULL;
 }
 
@@ -322,7 +346,7 @@ void NodeDB::Transaction::Rollback()
 	if (m_pDB)
 	{
 		try {
-			m_pDB->ExecStep(Query::Rollback);
+			m_pDB->ExecStep(Query::Rollback, "ROLLBACK");
 		} catch (std::exception&) {
 			// TODO: DB is compromised!
 		}
@@ -330,47 +354,83 @@ void NodeDB::Transaction::Rollback()
 	}
 }
 
-int64_t NodeDB::get_State(const Block::SystemState::ID& id, Block::SystemState::Full* pOut /* = NULL */)
+#define StateCvt_Key(macro, sep) \
+	macro(Height,		m_Height) sep \
+	macro(Hash,			m_Hash)
+
+#define StateCvt_Fields(macro, sep) \
+	macro(HashPrev,		m_HashPrev) sep \
+	macro(Difficulty,	m_Difficulty) sep \
+	macro(Timestamp,	m_TimeStamp) sep \
+	macro(HashUtxos,	m_Utxos) sep \
+	macro(HashKernels,	m_Kernels)
+
+#define StateCvt_All(macro, sep) \
+	StateCvt_Key(macro, sep) sep \
+	StateCvt_Fields(macro, sep)
+
+#define THE_MACRO_NOP0
+#define THE_MACRO_AND " AND "
+
+uint64_t NodeDB::get_State(const Block::SystemState::ID& id, Block::SystemState::Full* pOut /* = NULL */)
 {
-	Recordset rs(*this, Query::StateGet);
-	rs.put(Query::States::Height, (int64_t) id.m_Height);
-	rs.put_As(Query::States::Hash, id.m_Hash);
+#define THE_MACRO_1(dbname, extname) "," TblStates_##dbname
+#define THE_MACRO_2(dbname, extname) TblStates_##dbname "=?"
+
+	Recordset rs(*this, Query::StateGet, "SELECT rowid" StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0)
+		" FROM " TblStates
+		" WHERE " StateCvt_Key(THE_MACRO_2, THE_MACRO_AND));
+
+#undef THE_MACRO_1
+#undef THE_MACRO_2
+
+	int iCol = 0;
+
+#define THE_MACRO_1(dbname, extname) rs.put(iCol++, id.extname);
+	StateCvt_Key(THE_MACRO_1, THE_MACRO_NOP0)
+#undef THE_MACRO_1
 
 	if (!rs.FetchRow())
 		return 0;
 
+	uint64_t rowid;
+	rs.get(0, rowid);
+	assert(rowid);
+
 	if (pOut)
 	{
-		rs.get(Query::States::Height, (int64_t&) pOut->m_Height);
-		rs.get_As(Query::States::Hash, pOut->m_Hash);
-		rs.get_As(Query::States::HashPrev, pOut->m_HashPrev);
-		rs.get(Query::States::Difficulty, (int64_t&) pOut->m_Difficulty);
-		rs.get(Query::States::Timestamp, (int64_t&) pOut->m_TimeStamp);
-		rs.get_As(Query::States::HashUtxos, pOut->m_Utxos);
-		rs.get_As(Query::States::HashKernels, pOut->m_Kernels);
-		//rs.get(Query::States::StateFlags, 0);
-		//rs.get(Query::States::CountNext, 0);
-	}
+		iCol = 1;
 
-	int64_t rowid;
-	rs.get(Query::States::count, rowid);
-	assert(rowid);
+#define THE_MACRO_1(dbname, extname) rs.get(iCol++, pOut->extname);
+		StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0)
+#undef THE_MACRO_1
+
+		// common fields
+		Block::SystemState::ID& trg = *pOut;
+		trg = id;
+
+	}
 	return rowid;
 }
 
-int64_t NodeDB::InsertState(const Block::SystemState::Full& s)
+uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 {
-	Recordset rs(*this, Query::StateIns);
-	rs.put(Query::States::Height, (int64_t) s.m_Height);
-	rs.put_As(Query::States::Hash, s.m_Hash);
-	rs.put_As(Query::States::HashPrev, s.m_HashPrev);
-	rs.put(Query::States::Difficulty, (int64_t) s.m_Difficulty);
-	rs.put(Query::States::Timestamp, (int64_t) s.m_TimeStamp);
-	rs.put_As(Query::States::HashUtxos, s.m_Utxos);
-	rs.put_As(Query::States::HashKernels, s.m_Kernels);
-	rs.put(Query::States::StateFlags, 0);
-	rs.put(Query::States::CountNext, 0);
+#define THE_MACRO_1(dbname, extname) TblStates_##dbname ","
+#define THE_MACRO_2(dbname, extname) "?,"
 
+	Recordset rs(*this, Query::StateIns, "INSERT INTO " TblStates
+		" (" StateCvt_All(THE_MACRO_1, THE_MACRO_NOP0) TblStates_StateFlags "," TblStates_CountNext ")"
+		" VALUES (" StateCvt_All(THE_MACRO_2, THE_MACRO_NOP0) "0,0)");
+
+#undef THE_MACRO_1
+#undef THE_MACRO_2
+
+	int iCol = 0;
+
+#define THE_MACRO_1(dbname, extname) rs.put(iCol++, s.extname);
+	StateCvt_All(THE_MACRO_1, THE_MACRO_NOP0)
+#undef THE_MACRO_1
+		
 	rs.FetchRow();
 	return get_LastInsertRowID();
 }

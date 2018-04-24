@@ -6,82 +6,37 @@
 
 namespace beam {
 
-
-#define NOP(...)
-#define NOP0
-#define M0_Comma ,
-#define M_1(a, ...) a
-#define M_1_Comma(a, ...) a,
-#define M0_Comma_Str ","
-#define M_1_Str(a, ...) #a
-
-
-#define NodeDb_Table_States(macro, sep) \
-	macro(Height,		"INTEGER NOT NULL") sep \
-	macro(Hash,			"BLOB NOT NULL") sep \
-	macro(HashPrev,		"BLOB NOT NULL") sep \
-	macro(Difficulty,	"INTEGER NOT NULL") sep \
-	macro(Timestamp,	"INTEGER NOT NULL") sep \
-	macro(HashUtxos,	"BLOB NOT NULL") sep \
-	macro(HashKernels,	"BLOB NOT NULL") sep \
-	macro(StateFlags,	"INTEGER NOT NULL") sep \
-	macro(RowPrev,		"INTEGER") sep \
-	macro(CountNext,	"INTEGER NOT NULL") sep \
-	macro(PoW,			"BLOB") sep \
-	macro(BlindOffset,	"BLOB") sep \
-	macro(Mmr,			"BLOB") sep \
-	macro(Body,			"BLOB")
-
-
-#define NodeDb_Table_Params(macro, sep) \
-	macro(ParamInt,		"INTEGER") sep \
-	macro(ParamBlob,	"BLOB")
-
 class NodeDB
 {
 public:
 
-#define THE_MACRO_Ins(...) "?"
-#define THE_MACRO_Upd(name, ...) #name "=?"
+	struct StateFlags {
+		static const uint32_t Functional	= 0x1;	// has valid PoW and block body
+		static const uint32_t Reachable		= 0x2;	// has only functional nodes up to the genesis state
+		static const uint32_t Active		= 0x4;	// part of the current blockchain.
+		static const uint32_t OverHorizon	= 0x8;	// block body is deleted, rollback is no more possible.
+	};
 
-#define AllQueries(macro) \
-	macro(Begin,	"BEGIN") \
-	macro(Commit,	"COMMIT") \
-	macro(Rollback,	"ROLLBACK") \
-	macro(ParamGet,	"SELECT " NodeDb_Table_Params(M_1_Str, M0_Comma_Str) " FROM Params WHERE ID=?") \
-	macro(ParamIns,	"INSERT INTO Params VALUES(?," NodeDb_Table_Params(THE_MACRO_Ins, M0_Comma_Str) ")") \
-	macro(ParamUpd,	"UPDATE Params SET " NodeDb_Table_Params(THE_MACRO_Upd, M0_Comma_Str) " WHERE ID=?") \
-	macro(StateIns,	"INSERT INTO States VALUES(" NodeDb_Table_States(THE_MACRO_Ins, M0_Comma_Str) ")") \
-	macro(StateGet,	"SELECT *,rowid FROM States WHERE Height=? AND Hash=?") \
+	struct ParamID {
+		enum Enum {
+			DbVer
+		};
+	};
 
 	struct Query
 	{
 		enum Enum
 		{
-			AllQueries(M_1_Comma)
+			Begin,
+			Commit,
+			Rollback,
+			ParamIntGet,
+			ParamIntIns,
+			ParamIntUpd,
+			StateIns,
+			StateGet,
+
 			count
-		};
-
-		struct States
-		{
-			enum Enum {
-				NodeDb_Table_States(M_1_Comma, NOP0)
-				count
-			};
-		};
-
-		struct Params
-		{
-			enum Enum {
-				NodeDb_Table_Params(M_1_Comma, NOP0)
-				count
-			};
-
-			struct ID {
-				enum Enum {
-					DbVer = 1,
-				};
-			};
 		};
 	};
 
@@ -91,11 +46,6 @@ public:
 
 	void Close();
 	void Open(const char* szPath, bool bCreate);
-
-	void ParamIntSet(int ID, int val);
-	bool ParamIntGet(int ID, int& val);
-
-	int ParamIntGetDef(int ID, int def = 0);
 
 	struct Blob {
 		const void* p;
@@ -112,43 +62,38 @@ public:
 	public:
 
 		Recordset(NodeDB&);
-		Recordset(NodeDB&, Query::Enum);
+		Recordset(NodeDB&, Query::Enum, const char*);
 		~Recordset();
 
 		void Reset();
-		void Reset(Query::Enum);
+		void Reset(Query::Enum, const char*);
 
 		// Perform the transaction/fetch the next row
 		bool FetchRow();
 
 		// in/out
-		void put(int col, int);
-		void put(int col, int64_t);
+		void put(int col, uint32_t);
+		void put(int col, uint64_t);
 		void put(int col, const Blob&);
-		void put(int col, const Merkle::Hash&);
-		void get(int col, int&);
-		void get(int col, int64_t&);
+		void get(int col, uint32_t&);
+		void get(int col, uint64_t&);
 		void get(int col, Blob&);
+
 		const void* get_BlobStrict(int col, uint32_t n);
 
-		template <typename T> void put_As(int col, const T& x) {
-			put(col, Blob(&x, sizeof(x)));
-		}
-
-		template <typename T> const T& get_As(int col) {
-			return *(const T*) get_BlobStrict(col, sizeof(T));
-		}
-
-		template <typename T> void get_As(int col, T& out) {
-			out = get_As<T>(col);
-		}
+		template <typename T> void put_As(int col, const T& x) { put(col, Blob(&x, sizeof(x))); }
+		template <typename T> void get_As(int col, T& out) { out = get_As<T>(col); }
+		template <typename T> const T& get_As(int col) { return *(const T*) get_BlobStrict(col, sizeof(T)); }
 
 		void putNull(int col);
 		bool IsNull(int col);
+
+		void put(int col, const Merkle::Hash& x) { put_As(col, x); }
+		void get(int col, Merkle::Hash& x) { get_As(col, x); }
 	};
 
 	int get_RowsChanged() const;
-	int64_t get_LastInsertRowID() const;
+	uint64_t get_LastInsertRowID() const;
 
 	class Transaction {
 		NodeDB* m_pDB;
@@ -163,15 +108,19 @@ public:
 	};
 
 	// Hi-level functions
-	int64_t InsertState(const Block::SystemState::Full&); // Fails if state already exists
-	int64_t get_State(const Block::SystemState::ID&, Block::SystemState::Full* pOut = NULL);
+	void ParamIntSet(uint32_t ID, uint32_t val);
+	bool ParamIntGet(uint32_t ID, uint32_t& val);
+
+	uint32_t ParamIntGetDef(int ID, uint32_t def = 0);
+
+	uint64_t InsertState(const Block::SystemState::Full&); // Fails if state already exists
+	uint64_t get_State(const Block::SystemState::ID&, Block::SystemState::Full* pOut = NULL);
 
 
 private:
 
 	sqlite3* m_pDb;
 	sqlite3_stmt* m_pPrep[Query::count];
-	static const char* const s_szSql[Query::count];
 
 	void TestRet(int);
 	void ThrowError(int);
@@ -179,9 +128,9 @@ private:
 	void Create();
 	void ExecQuick(const char*);
 	bool ExecStep(sqlite3_stmt*);
-	bool ExecStep(Query::Enum); // returns true while there's a row
+	bool ExecStep(Query::Enum, const char*); // returns true while there's a row
 
-	sqlite3_stmt* get_Statement(Query::Enum);
+	sqlite3_stmt* get_Statement(Query::Enum, const char*);
 };
 
 
