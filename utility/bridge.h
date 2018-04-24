@@ -10,6 +10,9 @@ public:
     /// Functions with captured args go into the queue
     using BridgeMessage = std::function<void(Interface& receiver)>;
 
+    /// Macros helper
+    using BridgeInterface = Interface;
+
     /// Sets up the channel
     Bridge(Interface& _forwardTo, const io::Reactor::Ptr& _reactor) :
         receiver(_forwardTo),
@@ -22,6 +25,12 @@ public:
         rx.close();
     }
 
+// Default initialization for derived classes
+#define BRIDGE_INIT(DerivedClassName) \
+    DerivedClassName(BridgeInterface& _forwardTo, const io::Reactor::Ptr& _reactor) : \
+        Bridge<BridgeInterface>(_forwardTo, _reactor) \
+    {}
+
 // Use in derived classes to implement Interface's functions like this:
 // E.g. to implement
 // struct ISomeInterface { ...
@@ -29,18 +38,18 @@ public:
 //      ... };
 // do this in proxy class derived from Bridge<IsomeInterface>:
 // struct SomeInterfaceBridge { ...
-//      BRIDGE_FORWARD_IMPL(ISomeInterface, send_req_1, Req1); ... }
-#define BRIDGE_FORWARD_IMPL(Interface, Func, MessageObject) \
+//      BRIDGE_FORWARD_IMPL(send_req_1, Req1); ... }
+#define BRIDGE_FORWARD_IMPL(Func, MessageObject) \
     void Func(uint64_t to, MessageObject&& r) { \
         tx.send( \
-            [to, r{std::move(r)} ](Interface& receiver) mutable { \
+            [to, r{std::move(r)} ](BridgeInterface& receiver) mutable { \
                 receiver.Func(to, std::move(r)); \
             } \
         ); \
     }
 
 protected:
-    Interface& receiver;
+    BridgeInterface& receiver;
     RX<BridgeMessage> rx;
     TX<BridgeMessage> tx;
 

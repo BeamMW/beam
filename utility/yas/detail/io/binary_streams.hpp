@@ -258,8 +258,7 @@ struct binary_istream {
     {}
 
     std::size_t read_seq_size() {
-        //TODO std::uint64_t size{};
-        std::uint32_t size{};
+        std::uint64_t size{};
         read(size);
 
         return __YAS_SCAST(std::size_t, size);

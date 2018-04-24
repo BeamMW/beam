@@ -5,6 +5,9 @@
 
 namespace beam {
 
+/// May have fragments...
+using SerializedMsg = std::vector<io::SharedBuffer>;
+
 /// Accumulates messages being serialized into shared fragments of memory,
 /// takes care of proper message header
 class MsgSerializeOstream {
@@ -19,7 +22,7 @@ public:
     size_t write(const void *ptr, size_t size);
 
     /// Called by msg serializer on finalizing msg
-    void finalize(std::vector<io::SharedBuffer>& fragments);
+    void finalize(SerializedMsg& fragments);
 
     /// Resets state
     void clear();
@@ -29,7 +32,7 @@ private:
     FragmentWriter _writer;
 
     /// Fragments of current message
-    std::vector<io::SharedBuffer> _fragments;
+    SerializedMsg _fragments;
 
     /// Total size of message
     size_t _currentMsgSize=0;
@@ -61,7 +64,7 @@ public:
     }
 
     /// Finalizes current message serialization. Returns serialized data in fragments
-    void finalize(std::vector<io::SharedBuffer>& fragments) {
+    void finalize(SerializedMsg& fragments) {
         _os.finalize(fragments);
     }
 

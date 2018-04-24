@@ -21,16 +21,17 @@ struct IXxx {
 
 // Inter-thread bridge impl
 struct XxxBridge : public Bridge<IXxx> {
-    // TODO all that stuff can be also wrapped into macros if needed
-
+    /*
     using Base = Bridge<IXxx>;
     XxxBridge(IXxx& _forwardTo, const io::Reactor::Ptr& _reactor) :
         Base(_forwardTo, _reactor)
     {}
+    */
+    BRIDGE_INIT(XxxBridge);
 
-    BRIDGE_FORWARD_IMPL(IXxx, send_req_1, Req1);
-    BRIDGE_FORWARD_IMPL(IXxx, send_req_2, Req2);
-    BRIDGE_FORWARD_IMPL(IXxx, stop, StopRequest);
+    BRIDGE_FORWARD_IMPL(send_req_1, Req1);
+    BRIDGE_FORWARD_IMPL(send_req_2, Req2);
+    BRIDGE_FORWARD_IMPL(stop, StopRequest);
 };
 
 // Implementation of IXxx that executes in remote thread

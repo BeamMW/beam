@@ -33,20 +33,6 @@ struct Response {
     SERIALIZE(z);
 };
 
-// Logic->Network interface
-struct ILogicToNetwork {
-    virtual ~ILogicToNetwork() {}
-    virtual void send_object(uint64_t to, const SomeObject& o) = 0;
-    virtual void send_response(uint64_t to, const Response& r) = 0;
-};
-
-// Network->Logic interface
-struct INetworkToLogic {
-    virtual ~INetworkToLogic() {}
-    virtual void send_object(uint64_t to, const SomeObject& o) = 0;
-    virtual void send_response(uint64_t to, const Response& r) = 0;
-};
-
 // Message handler for both sides in this test
 // It resides on network side and handles local logic
 struct MessageHandler : IMsgHandler {

@@ -7,9 +7,6 @@ namespace beam {
 /// Network<=>App logic message-oriented protocol
 template <typename MsgHandler> class Protocol : public ProtocolBase {
 public:
-    /// May have fragments...
-    using SerializedMsg = std::vector<io::SharedBuffer>;
-
     Protocol(
         /// 3 bytes for magic # and/or protocol version
         uint8_t protocol_version_0,
@@ -21,8 +18,8 @@ public:
         ProtocolBase(protocol_version_0, protocol_version_1, protocol_version_2, handler),
         _ser(serializedFragmentsSize, get_default_header())
     {
-        // must static cast
-        assert(&handler == (IMsgHandler*)(&handler));
+        // must static cast - i.e. IMsgHandler must be the 1st base of handler impl
+        assert(&handler == static_cast<IMsgHandler*>(&handler));
 
         // avoid ing code bloat for those included protocol_base.h
         _deserializer = &_des;

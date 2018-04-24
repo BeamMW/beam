@@ -27,7 +27,7 @@ size_t MsgSerializeOstream::write(const void *ptr, size_t size) {
     return size;
 }
 
-void MsgSerializeOstream::finalize(std::vector<io::SharedBuffer>& fragments) {
+void MsgSerializeOstream::finalize(SerializedMsg& fragments) {
     assert(_currentHeaderPtr != 0);
     _writer.finalize();
     assert(_currentMsgSize >= MsgHeader::SIZE);
