@@ -25,8 +25,10 @@ namespace beam {
 #define TblStates_Mmr			"Mmr"
 #define TblStates_Body			"Body"
 
-
-
+#define TblTips					"Tips"
+#define TblTipsReachable		"TipsReachable"
+#define TblTips_Height			"Height"
+#define TblTips_State			"State"
 
 NodeDB::NodeDB()
 	:m_pDb(NULL)
@@ -216,6 +218,18 @@ void NodeDB::Create()
 		"[" TblStates_Body			"] BLOB,"
 		"PRIMARY KEY (" TblStates_Height "," TblStates_Hash "),"
 		"FOREIGN KEY (" TblStates_RowPrev ") REFERENCES " TblStates "(OID))");
+
+	ExecQuick("CREATE TABLE [" TblTips "] ("
+		"[" TblTips_Height	"] INTEGER NOT NULL,"
+		"[" TblTips_State	"] INTEGER NOT NULL,"
+		"PRIMARY KEY (" TblTips_Height "," TblTips_State "),"
+		"FOREIGN KEY (" TblTips_State ") REFERENCES " TblStates "(OID))");
+
+	ExecQuick("CREATE TABLE [" TblTipsReachable "] ("
+		"[" TblTips_Height	"] INTEGER NOT NULL,"
+		"[" TblTips_State	"] INTEGER NOT NULL,"
+		"PRIMARY KEY (" TblTips_Height "," TblTips_State "),"
+		"FOREIGN KEY (" TblTips_State ") REFERENCES " TblStates "(OID))");
 }
 
 void NodeDB::ExecQuick(const char* szSql)
@@ -354,63 +368,34 @@ void NodeDB::Transaction::Rollback()
 	}
 }
 
-#define StateCvt_Key(macro, sep) \
-	macro(Height,		m_Height) sep \
-	macro(Hash,			m_Hash)
-
 #define StateCvt_Fields(macro, sep) \
+	macro(Height,		m_Height) sep \
+	macro(Hash,			m_Hash) sep \
 	macro(HashPrev,		m_HashPrev) sep \
 	macro(Difficulty,	m_Difficulty) sep \
 	macro(Timestamp,	m_TimeStamp) sep \
 	macro(HashUtxos,	m_Utxos) sep \
 	macro(HashKernels,	m_Kernels)
 
-#define StateCvt_All(macro, sep) \
-	StateCvt_Key(macro, sep) sep \
-	StateCvt_Fields(macro, sep)
-
 #define THE_MACRO_NOP0
-#define THE_MACRO_AND " AND "
+#define THE_MACRO_COMMA_S ","
 
-uint64_t NodeDB::get_State(const Block::SystemState::ID& id, Block::SystemState::Full* pOut /* = NULL */)
+void NodeDB::get_State(uint64_t rowid, Block::SystemState::Full& out)
 {
-#define THE_MACRO_1(dbname, extname) "," TblStates_##dbname
-#define THE_MACRO_2(dbname, extname) TblStates_##dbname "=?"
-
-	Recordset rs(*this, Query::StateGet, "SELECT rowid" StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0)
-		" FROM " TblStates
-		" WHERE " StateCvt_Key(THE_MACRO_2, THE_MACRO_AND));
-
+#define THE_MACRO_1(dbname, extname) TblStates_##dbname
+	Recordset rs(*this, Query::StateGet, "SELECT " StateCvt_Fields(THE_MACRO_1, THE_MACRO_COMMA_S) " FROM " TblStates " WHERE rowid=?");
 #undef THE_MACRO_1
-#undef THE_MACRO_2
+
+	rs.put(0, rowid);
+
+	if (!rs.FetchRow())
+		throw "State not found!";
 
 	int iCol = 0;
 
-#define THE_MACRO_1(dbname, extname) rs.put(iCol++, id.extname);
-	StateCvt_Key(THE_MACRO_1, THE_MACRO_NOP0)
+#define THE_MACRO_1(dbname, extname) rs.get(iCol++, out.extname);
+	StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0)
 #undef THE_MACRO_1
-
-	if (!rs.FetchRow())
-		return 0;
-
-	uint64_t rowid;
-	rs.get(0, rowid);
-	assert(rowid);
-
-	if (pOut)
-	{
-		iCol = 1;
-
-#define THE_MACRO_1(dbname, extname) rs.get(iCol++, pOut->extname);
-		StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0)
-#undef THE_MACRO_1
-
-		// common fields
-		Block::SystemState::ID& trg = *pOut;
-		trg = id;
-
-	}
-	return rowid;
 }
 
 uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
@@ -419,8 +404,8 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 #define THE_MACRO_2(dbname, extname) "?,"
 
 	Recordset rs(*this, Query::StateIns, "INSERT INTO " TblStates
-		" (" StateCvt_All(THE_MACRO_1, THE_MACRO_NOP0) TblStates_StateFlags "," TblStates_CountNext ")"
-		" VALUES (" StateCvt_All(THE_MACRO_2, THE_MACRO_NOP0) "0,0)");
+		" (" StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0) TblStates_StateFlags "," TblStates_CountNext ")"
+		" VALUES (" StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0)");
 
 #undef THE_MACRO_1
 #undef THE_MACRO_2
@@ -428,11 +413,158 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 	int iCol = 0;
 
 #define THE_MACRO_1(dbname, extname) rs.put(iCol++, s.extname);
-	StateCvt_All(THE_MACRO_1, THE_MACRO_NOP0)
+	StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0)
 #undef THE_MACRO_1
 		
 	rs.FetchRow();
-	return get_LastInsertRowID();
+
+	uint64_t rowid = get_LastInsertRowID();
+	assert(rowid);
+
+	Block::SystemState::ID kPrev;
+	kPrev.m_Height = s.m_Height - 1;
+	kPrev.m_Hash = s.m_HashPrev;
+	uint64_t rowPrev = StateFindSafe(kPrev);
+
+	OnStateAddRemove(s, rowid, rowPrev, true);
+
+	return rowid;
 }
+
+void NodeDB::DeleteIdleState(uint64_t rowid)
+{
+	Block::SystemState::Full s;
+	get_State(rowid, s);
+
+	StateAuxData d;
+	get_StateAux(rowid, d);
+
+	OnStateAddRemove(s, rowid, d.m_RowPrev, false);
+
+	Recordset rs(*this, Query::StateDel, "DELETE FROM " TblStates " WHERE rowid=?");
+	rs.put(0, rowid);
+
+	rs.FetchRow();
+
+	if (1 != get_RowsChanged())
+		throw "oops1";
+}
+
+uint64_t NodeDB::StateFindSafe(const Block::SystemState::ID& k)
+{
+	Recordset rs(*this, Query::StateFind, "SELECT rowid FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_Hash "=?");
+	rs.put(0, k.m_Height);
+	rs.put(1, k.m_Hash);
+	if (!rs.FetchRow())
+		return 0;
+
+	uint64_t rowid;
+	rs.get(0, rowid);
+	assert(rowid);
+	return rowid;
+}
+
+void NodeDB::get_StateAux(uint64_t rowid, StateAuxData& out)
+{
+	Recordset rs(*this, Query::StateAuxGet, "SELECT " TblStates_RowPrev "," TblStates_CountNext "," TblStates_StateFlags  " FROM " TblStates " WHERE rowid=?");
+	rs.put(0, rowid);
+
+	if (!rs.FetchRow())
+		throw "State not found!";
+
+	if (rs.IsNull(0))
+		out.m_RowPrev = 0;
+	else
+	{
+		rs.get(0, out.m_RowPrev);
+		assert(out.m_RowPrev);
+	}
+
+	rs.get(1, out.m_CountNext);
+	rs.get(2, out.m_Flags);
+}
+
+void NodeDB::OnStateAddRemove(const Block::SystemState::ID& k, uint64_t rowid, uint64_t rowPrev, bool bAdd)
+{
+	// The being added/removed element *must* be non-functional! It's illegal to remove a functional element without first making it non-functional
+
+	Recordset rs(*this, Query::StateUpdPrevRow, "UPDATE " TblStates " SET " TblStates_RowPrev "=? WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=?");
+
+	if (bAdd)
+		rs.put(0, rowid); // otherwise it's NULL
+
+	rs.put(1, k.m_Height + 1);
+	rs.put(2, k.m_Hash);
+
+	rs.FetchRow();
+	uint32_t nCountAncestors = get_RowsChanged();
+
+	if (nCountAncestors)
+	{
+		if (bAdd)
+			AddNextCount(rowid, nCountAncestors);
+	} else
+	{
+		if (bAdd)
+			TipAdd(rowid, k.m_Height);
+		else
+			TipDel(rowid, k.m_Height);
+	}
+
+	if (rowPrev)
+	{
+		AddNextCount(rowPrev, bAdd ? 1 : uint32_t(-1));
+
+		if (bAdd)
+		{
+			rs.Reset(Query::StateUpdPrevRow2, "UPDATE " TblStates " SET " TblStates_RowPrev "=? WHERE rowid=?");
+			rs.put(0, rowPrev);
+			rs.put(1, rowid);
+
+			rs.FetchRow();
+
+			if (1 != get_RowsChanged())
+				throw "oops1";
+
+			TipDel(rowPrev, k.m_Height - 1);
+		}
+		else
+			TipAdd(rowPrev, k.m_Height - 1);
+	}
+}
+
+void NodeDB::AddNextCount(uint64_t rowid, uint32_t nDelta)
+{
+	Recordset rs(*this, Query::StateUpdNextCount, "UPDATE " TblStates " SET " TblStates_CountNext "=" TblStates_CountNext "+? WHERE rowid=?");
+	rs.put(0, nDelta);
+	rs.put(1, rowid);
+
+	rs.FetchRow();
+
+	if (1 != get_RowsChanged())
+		throw "oops1";
+}
+
+void NodeDB::TipAdd(uint64_t rowid, Height h)
+{
+	Recordset rs(*this, Query::TipAdd, "INSERT INTO " TblTips " VALUES(?,?)");
+	rs.put(0, h);
+	rs.put(1, rowid);
+
+	rs.FetchRow();
+}
+
+void NodeDB::TipDel(uint64_t rowid, Height h)
+{
+	Recordset rs(*this, Query::TipDel, "DELETE FROM " TblTips " WHERE " TblTips_Height "=? AND " TblTips_State "=?");
+	rs.put(0, h);
+	rs.put(1, rowid);
+
+	rs.FetchRow();
+
+	if (1 != get_RowsChanged())
+		throw "oops2";
+}
+
 
 } // namespace beam

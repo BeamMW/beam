@@ -34,7 +34,15 @@ public:
 			ParamIntIns,
 			ParamIntUpd,
 			StateIns,
+			StateDel,
 			StateGet,
+			StateFind,
+			StateAuxGet,
+			StateUpdPrevRow,
+			StateUpdPrevRow2,
+			StateUpdNextCount,
+			TipAdd,
+			TipDel,
 
 			count
 		};
@@ -114,8 +122,18 @@ public:
 	uint32_t ParamIntGetDef(int ID, uint32_t def = 0);
 
 	uint64_t InsertState(const Block::SystemState::Full&); // Fails if state already exists
-	uint64_t get_State(const Block::SystemState::ID&, Block::SystemState::Full* pOut = NULL);
 
+	struct StateAuxData {
+		uint64_t m_RowPrev;
+		uint32_t m_CountNext;
+		uint32_t m_Flags;
+	};
+
+	uint64_t StateFindSafe(const Block::SystemState::ID&);
+	void get_StateAux(uint64_t rowid, StateAuxData&);
+	void get_State(uint64_t rowid, Block::SystemState::Full&);
+
+	void DeleteIdleState(uint64_t rowid);
 
 private:
 
@@ -131,6 +149,13 @@ private:
 	bool ExecStep(Query::Enum, const char*); // returns true while there's a row
 
 	sqlite3_stmt* get_Statement(Query::Enum, const char*);
+
+
+	void TipAdd(uint64_t rowid, Height);
+	void TipDel(uint64_t rowid, Height);
+	void AddNextCount(uint64_t rowid, uint32_t nDelta);
+
+	void OnStateAddRemove(const Block::SystemState::ID&, uint64_t rowid, uint64_t rowPrev, bool bAdd);
 };
 
 
