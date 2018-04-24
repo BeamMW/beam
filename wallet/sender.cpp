@@ -33,17 +33,17 @@ namespace beam::wallet
         // 1. Create transaction Uuid
         invitationData->m_txId = m_txId;
 
-        auto coins = m_state.m_keychain->getCoins(m_state.m_amount); // need to lock 
-        invitationData->m_amount = m_state.m_amount;
-        m_state.m_kernel.m_Fee = 0;
-        m_state.m_kernel.m_HeightMin = 0;
-        m_state.m_kernel.m_HeightMax = -1;
-        m_state.m_kernel.get_Hash(invitationData->m_message);
+        auto coins = m_keychain->getCoins(m_amount); // need to lock 
+        invitationData->m_amount = m_amount;
+        m_kernel.m_Fee = 0;
+        m_kernel.m_HeightMin = 0;
+        m_kernel.m_HeightMax = -1;
+        m_kernel.get_Hash(invitationData->m_message);
         
         // 2. Set lock_height for output (current chain height)
         // 3. Select inputs using desired selection strategy
         {
-            m_state.m_blindingExcess = ECC::Zero;
+            m_blindingExcess = ECC::Zero;
             for (const auto& coin: coins)
             {
                 Input::Ptr input = std::make_unique<Input>();
@@ -57,7 +57,7 @@ namespace beam::wallet
 
                 invitationData->m_inputs.push_back(std::move(input));
                 
-                m_state.m_blindingExcess += key;
+                m_blindingExcess += key;
             }
         }
         // 4. Create change_output
@@ -69,7 +69,7 @@ namespace beam::wallet
                 change += coin.m_amount;
             }
 
-            change -= m_state.m_amount;
+            change -= m_amount;
 
             Output::Ptr output = std::make_unique<Output>();
             output->m_Coinbase = false;
@@ -85,7 +85,7 @@ namespace beam::wallet
             // TODO: need to store new key and amount in keyChain
 
             blindingFactor = -blindingFactor;
-            m_state.m_blindingExcess += blindingFactor;
+            m_blindingExcess += blindingFactor;
 
             invitationData->m_outputs.push_back(std::move(output));
         }
@@ -94,16 +94,16 @@ namespace beam::wallet
         // 8. Calculate total blinding excess for all inputs and outputs xS
         // 9. Select random nonce kS
         ECC::Signature::MultiSig msig;
-        SetRandom(m_state.m_nonce);
+        SetRandom(m_nonce);
 
-        msig.m_Nonce = m_state.m_nonce;
+        msig.m_Nonce = m_nonce;
         // 10. Multiply xS and kS by generator G to create public curve points xSG and kSG
-        m_state.m_publicBlindingExcess 
+        m_publicBlindingExcess 
             = invitationData->m_publicSenderBlindingExcess
-            = ECC::Context::get().G * m_state.m_blindingExcess;
-        m_state.m_publicNonce 
+            = ECC::Context::get().G * m_blindingExcess;
+        m_publicNonce 
             = invitationData->m_publicSenderNonce
-            = ECC::Context::get().G * m_state.m_nonce;
+            = ECC::Context::get().G * m_nonce;
         // an attempt to implement "stingy" transaction
 
         m_gateway.sendTxInitiation(invitationData);
@@ -114,17 +114,17 @@ namespace beam::wallet
         auto data = event.data;
         // 4. Compute Sender Schnorr signature
         ECC::Signature::MultiSig msig;
-        msig.m_Nonce = m_state.m_nonce;
-        msig.m_NoncePub = m_state.m_publicNonce + data->m_publicReceiverNonce;
+        msig.m_Nonce = m_nonce;
+        msig.m_NoncePub = m_publicNonce + data->m_publicReceiverNonce;
         ECC::Hash::Value message;
-        m_state.m_kernel.get_Hash(message);
-        m_state.m_kernel.m_Signature.CoSign(m_state.m_senderSignature, message, m_state.m_blindingExcess, msig);
+        m_kernel.get_Hash(message);
+        m_kernel.m_Signature.CoSign(m_senderSignature, message, m_blindingExcess, msig);
         // 1. Calculate message m
 
         // 2. Compute Schnorr challenge e
         ECC::Point::Native k;
-        k = m_state.m_publicNonce + data->m_publicReceiverNonce;
-        ECC::Scalar::Native e = m_state.m_kernel.m_Signature.m_e;
+        k = m_publicNonce + data->m_publicReceiverNonce;
+        ECC::Scalar::Native e = m_kernel.m_Signature.m_e;
  
         // 3. Verify recepients Schnorr signature 
         ECC::Point::Native s, s2;
@@ -151,11 +151,11 @@ namespace beam::wallet
         auto confirmationData = std::make_shared<sender::ConfirmationData>();
         confirmationData->m_txId = m_txId;
         ECC::Signature::MultiSig msig;
-        msig.m_Nonce = m_state.m_nonce;
-        msig.m_NoncePub = m_state.m_publicNonce + data->m_publicReceiverNonce;
+        msig.m_Nonce = m_nonce;
+        msig.m_NoncePub = m_publicNonce + data->m_publicReceiverNonce;
         ECC::Hash::Value message;
-        m_state.m_kernel.get_Hash(message);
-        m_state.m_kernel.m_Signature.CoSign(confirmationData->m_senderSignature, message, m_state.m_blindingExcess, msig);
+        m_kernel.get_Hash(message);
+        m_kernel.m_Signature.CoSign(confirmationData->m_senderSignature, message, m_blindingExcess, msig);
         m_gateway.sendTxConfirmation(confirmationData);
     }
 }

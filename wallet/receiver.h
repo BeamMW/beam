@@ -25,15 +25,8 @@ namespace beam::wallet
         struct TxOutputConfirmFailed : TxEventBase {};
         
         Receiver(receiver::IGateway& gateway, sender::InvitationData::Ptr initData)
-            : m_txId{initData->m_txId}
-            , m_amount{initData->m_amount}
-            , m_message{initData->m_message}
-            , m_publicSenderBlindingExcess{initData->m_publicSenderBlindingExcess}
-            , m_publicSenderNonce{initData->m_publicSenderNonce}
-            , m_fsm{boost::ref(gateway), boost::ref(*this)}
+            : m_fsm{boost::ref(gateway), initData}
         {
-            m_transaction.m_vInputs = std::move(initData->m_inputs);
-            m_transaction.m_vOutputs = std::move(initData->m_outputs);
         }  
     private:
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
@@ -75,10 +68,17 @@ namespace beam::wallet
                 }
             };
 
-            FSMDefinition(receiver::IGateway& gateway, Receiver& receiver)
-                : m_gateway{ gateway }
-                , m_state{ receiver }
-            {}
+            FSMDefinition(receiver::IGateway &gateway, sender::InvitationData::Ptr initData)
+                : m_gateway{gateway}
+                , m_txId{initData->m_txId}
+                , m_amount{initData->m_amount}
+                , m_message{initData->m_message}
+                , m_publicSenderBlindingExcess{initData->m_publicSenderBlindingExcess}
+                , m_publicSenderNonce{initData->m_publicSenderNonce}
+            {
+                m_transaction.m_vInputs = std::move(initData->m_inputs);
+                m_transaction.m_vOutputs = std::move(initData->m_outputs);
+            }
 
             // transition actions
             void confirmTx(const msmf::none&);
@@ -140,27 +140,26 @@ namespace beam::wallet
                     << " on event " << typeid(e).name() << std::endl;
             }
 
-            Receiver& m_state;
             receiver::IGateway& m_gateway;
+
+            Uuid m_txId;
+
+            ECC::Amount m_amount; ///??
+            ECC::Hash::Value m_message;
+            std::vector<Input::Ptr> m_inputs;
+            std::vector<Output::Ptr> m_outputs;
+            
+            ECC::Point::Native m_publicReceiverBlindingExcess;
+            ECC::Point::Native m_publicSenderBlindingExcess;
+            ECC::Point::Native m_publicSenderNonce;
+            ECC::Scalar::Native m_receiverSignature;
+            ECC::Scalar::Native m_blindingExcess;
+            ECC::Scalar::Native m_nonce;
+            ECC::Scalar::Native m_schnorrChallenge;
+
             Transaction m_transaction;
+            TxKernel* m_kernel;
         };
-
-        Uuid m_txId;
-        ECC::Amount m_amount; ///??
-        ECC::Hash::Value m_message;
-        std::vector<Input::Ptr> m_inputs;
-        std::vector<Output::Ptr> m_outputs;
-        
-        ECC::Point::Native m_publicReceiverBlindingExcess;
-        ECC::Point::Native m_publicSenderBlindingExcess;
-        ECC::Point::Native m_publicSenderNonce;
-        ECC::Scalar::Native m_receiverSignature;
-        ECC::Scalar::Native m_blindingExcess;
-        ECC::Scalar::Native m_nonce;
-        ECC::Scalar::Native m_schnorrChallenge;
-
-        Transaction m_transaction;
-        TxKernel* m_kernel;
 
         friend FSMHelper<Receiver>;
         msm::back::state_machine<FSMDefinition> m_fsm;

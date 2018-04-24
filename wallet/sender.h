@@ -25,9 +25,10 @@ namespace beam::wallet
         struct TxOutputConfirmFailed : TxEventBase {};
 
         Sender(sender::IGateway& gateway, const Uuid& txId, beam::IKeyChain::Ptr keychain, const ECC::Amount& amount)
-            : m_keychain(keychain)
-            , m_amount(amount)
-            , m_fsm{boost::ref(gateway), boost::ref(txId), std::ref(*this)}
+            : m_fsm{boost::ref(gateway)
+            , boost::ref(txId)
+            , keychain
+            , boost::ref(amount)}
         {
             
         }    
@@ -56,10 +57,11 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm&)
                 { std::cout << "[Sender] TxOutputConfirming state\n"; } };
 
-            FSMDefinition(sender::IGateway& gateway, const Uuid& txId, Sender& sender)
+            FSMDefinition(sender::IGateway& gateway, const Uuid& txId, beam::IKeyChain::Ptr keychain, const ECC::Amount& amount)
                 : m_gateway{ gateway }
                 , m_txId{txId}
-                , m_state(sender)
+                , m_keychain(keychain)
+                , m_amount(amount)
             {}
 
             // transition actions
@@ -122,23 +124,18 @@ namespace beam::wallet
                     << " on event " << typeid(e).name() << std::endl;
             }
 
-            Uuid m_txId;
             sender::IGateway& m_gateway;
+            beam::IKeyChain::Ptr m_keychain;
 
-            Sender& m_state;
+            Uuid m_txId;
+            ECC::Amount m_amount;
+            ECC::Scalar::Native m_blindingExcess;
+            ECC::Scalar::Native m_nonce;
+            ECC::Scalar::Native m_senderSignature;
+            ECC::Point::Native m_publicBlindingExcess;
+            ECC::Point::Native m_publicNonce;
+            TxKernel m_kernel;
         };
-        ECC::Amount m_amount;
-
-        beam::IKeyChain::Ptr m_keychain;
-
-        friend FSMDefinition;
-
-        ECC::Scalar::Native m_blindingExcess;
-        ECC::Scalar::Native m_nonce;
-        ECC::Scalar::Native m_senderSignature;
-        ECC::Point::Native m_publicBlindingExcess;
-        ECC::Point::Native m_publicNonce;
-        TxKernel m_kernel;
         
     protected:
         friend FSMHelper<Sender>;
