@@ -452,7 +452,7 @@ struct TransactionMaker
 
 	}
 
-	void CreateTxKernel(beam::TxKernel::List& lstTrg, Amount fee, beam::TxKernel::List& lstNested)
+	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested)
 	{
 		std::unique_ptr<beam::TxKernel> pKrn(new beam::TxKernel);
 		pKrn->m_Fee = fee;
@@ -503,7 +503,7 @@ void TestTransaction()
 	tm.AddInput(1, 1000);
 	tm.AddOutput(1, 5400);
 
-	beam::TxKernel::List lstNested, lstDummy;
+	std::vector<beam::TxKernel::Ptr> lstNested, lstDummy;
 
 	Amount fee1 = 100, fee2 = 2;
 

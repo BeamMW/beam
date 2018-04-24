@@ -10,6 +10,11 @@
 
 #include <assert.h>
 
+#ifdef WIN32
+#	define NOMINMAX
+#	include <windows.h>
+#endif // WIN32
+
 #ifndef verify
 #	ifdef  NDEBUG
 #		define verify(x) ((void)(x))
@@ -35,7 +40,7 @@ namespace beam
 	{
 		typedef ECC::Hash::Value Hash;
 		typedef std::pair<bool, Hash>	Node;
-		typedef std::list<Node>			Proof;
+		typedef std::vector<Node>		Proof;
 
 		void Interpret(Hash&, const Proof&);
 	}
@@ -78,7 +83,6 @@ namespace beam
 	struct TxKernel
 	{
 		typedef std::unique_ptr<TxKernel> Ptr;
-		typedef std::vector<Ptr> List;
 
 		// Mandatory
 		ECC::Point		m_Excess;
@@ -99,7 +103,7 @@ namespace beam
 
 		std::unique_ptr<Contract> m_pContract;
 
-		List m_vNested; // nested kernels, included in the signature.
+		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
 		bool IsValid(Amount& fee, ECC::Point::Native& exc) const;
 
@@ -148,21 +152,27 @@ namespace beam
 		// Different parts of the block are split into different structs, so that they can be manipulated (transferred, processed, saved and etc.) independently
 		// For instance, there is no need to keep PoW (at least in SPV client) once it has been validated.
 
-		struct SystemStateShort
-		{
-			Merkle::Hash	m_Hash; // merkle hash. explained later
-			Height			m_Height;
-		};
-
 		struct SystemState
-			:public SystemStateShort
 		{
-			Merkle::Hash	m_Utxos; // merkle hash of Utxos only.
-			Difficulty		m_Difficulty;
-		    Timestamp		m_TimeStamp;
+			struct ID {
+				Merkle::Hash	m_Hash; // merkle hash. explained later
+				Height			m_Height;
+			};
 
-			// Merkle hash consists of the following:
-			// All the unspent UTXOs with their signatures
+			struct Extra {
+				Merkle::Hash	m_Utxos; // merkle hash of Utxos only.
+				Difficulty		m_Difficulty;
+				Timestamp		m_TimeStamp;
+			};
+
+			struct Full
+				:public ID
+				,public Extra
+			{
+			};
+
+			// System hash consists of the following:
+			// All the unspent UTXOs description (with their signatures?)
 			// All Tx kernels
 			// All previous *original* system state hashes
 			// Current height, difficulty and timestamp
@@ -174,10 +184,11 @@ namespace beam
 			//		That an older system state is actually included in this state.
 		};
 
+
 		struct Header
 		{
-			SystemState			m_StateNew; // after the block changes are applied
-			SystemState			m_StatePrev;
+			SystemState::Full	m_StateNew; // after the block changes are applied
+			SystemState::Full	m_StatePrev;
 
 			// Normally the difference between m_StatePrev and m_StateNew corresponds to 1 original block, Height is increased by 1
 			// But if/when history is compressed, blocks can encode compressed diff of several original blocks
@@ -206,7 +217,7 @@ namespace beam
 			uint256_t							m_Nonce; // does it always have to be 256-bit long?
 			std::array<uint8_t, nSolutionBytes>	m_Indices;
 
-			bool IsValid(const SystemState& prev, const SystemState& next) const;
+			bool IsValid(const SystemState::Full& prev, const SystemState::Full& next) const;
 		};
 		typedef std::unique_ptr<PoW> PoWPtr;
 		PoWPtr m_ProofOfWork;

@@ -52,24 +52,24 @@
 #define Beam_ProtoMsg_get_Tip(macro)
 
 #define Beam_ProtoMsg_ret_Tip(macro) \
-	macro(beam::Block::SystemState, State)
+	macro(beam::Block::SystemState::Full, State)
 
 #define Beam_ProtoMsg_get_StateRange(macro) \
-	macro(beam::Block::SystemStateShort, StateTop) \
+	macro(beam::Block::SystemState::ID, StateTop) \
 	macro(beam::Height, CountBack)
 
 #define Beam_ProtoMsg_ret_StateRange(macro) \
-	macro(std::vector<beam::Block::SystemStateShort>, States)
+	macro(std::vector<beam::Block::SystemState::Full>, States)
 
 #define Beam_ProtoMsg_get_PoW(macro) \
-	macro(beam::Block::SystemStateShort, State)
+	macro(beam::Block::SystemState::ID, State)
 
 #define Beam_ProtoMsg_ret_PoW(macro) \
 	macro(std::unique_ptr<beam::Block::PoW>, PoW)
 
 #define Beam_ProtoMsg_get_ProofState(macro) \
-	macro(beam::Block::SystemStateShort, State) \
-	macro(beam::Block::SystemStateShort, Parent)
+	macro(beam::Block::SystemState::ID, State) \
+	macro(beam::Block::SystemState::ID, Parent)
 
 #define Beam_ProtoMsg_ret_ProofState(macro) \
 	macro(beam::Merkle::Proof, Proof)
@@ -78,11 +78,11 @@
 	macro(ECC::Point, Utxo) \
 
 #define Beam_ProtoMsg_ret_ProofUtxo(macro) \
-	macro(beam::Block::SystemStateShort, Tip) \
+	macro(beam::Block::SystemState::ID, Tip) \
 	macro(std::vector<beam::proto::UtxoProof>, Proofs)
 
 #define Beam_ProtoMsg_get_ProofKernel(macro) \
-	macro(beam::Block::SystemStateShort, State) \
+	macro(beam::Block::SystemState::ID, State) \
 	macro(beam::TxKernel, Kernel)
 
 #define Beam_ProtoMsg_ret_ProofKernel(macro) \

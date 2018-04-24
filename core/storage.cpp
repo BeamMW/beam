@@ -1,5 +1,3 @@
-#pragma once
-
 #include "storage.h"
 #include "ecc_native.h"
 
@@ -12,9 +10,9 @@ uint16_t RadixTree::Node::get_Bits() const
 	return m_Bits & ~(s_Clean | s_Leaf);
 }
 
-const uint8_t* RadixTree::Node::get_Key() const
+const uint8_t* RadixTree::get_NodeKey(const Node& n) const
 {
-	return (s_Leaf & m_Bits) ? ((Leaf*) this)->m_pKeyArr : ((Joint*) this)->m_pKeyPtr;
+	return (Node::s_Leaf & n.m_Bits) ? GetLeafKey((const Leaf&) n) : ((const Joint&) n).m_pKeyPtr;
 }
 
 RadixTree::RadixTree()
@@ -129,7 +127,7 @@ bool RadixTree::Goto(CursorBase& cu, const uint8_t* pKey, uint32_t nBits) const
 		if (!p)
 			return false;
 
-		const uint8_t* pKeyNode = p->get_Key();
+		const uint8_t* pKeyNode = get_NodeKey(*p);
 
 		uint32_t nThreshold = std::min(cu.m_nBits + p->get_Bits(), nBits);
 
@@ -186,7 +184,7 @@ RadixTree::Leaf* RadixTree::Find(CursorBase& cu, const uint8_t* pKey, uint32_t n
 	g.m_pLeaf = pN;
 
 
-	memcpy(pN->m_pKeyArr, pKey, (nBits + 7) >> 3);
+	memcpy(GetLeafKey(*pN), pKey, (nBits + 7) >> 3);
 
 	if (cu.m_nPtrs)
 	{
@@ -197,12 +195,12 @@ RadixTree::Leaf* RadixTree::Find(CursorBase& cu, const uint8_t* pKey, uint32_t n
 		Node* p = cu.m_pp[cu.m_nPtrs - 1];
 		assert(p);
 
-		const uint8_t* pKey1 = p->get_Key();
+		const uint8_t* pKey1 = get_NodeKey(*p);
 		assert(cu.get_Bit(pKey1) != iC);
 
 		// split
 		Joint* pJ = CreateJoint();
-		pJ->m_pKeyPtr = /*pN->m_pKeyArr*/pKey1;
+		pJ->m_pKeyPtr = pKey1;
 		pJ->m_Bits = cu.m_nPosInLastNode;
 
 		ReplaceTip(cu, pJ);
@@ -242,7 +240,7 @@ void RadixTree::Delete(CursorBase& cu)
 	Leaf* p = (Leaf*) cu.m_pp[cu.m_nPtrs - 1];
 	assert(Node::s_Leaf & p->m_Bits);
 
-	const uint8_t* pKeyDead = p->m_pKeyArr;
+	const uint8_t* pKeyDead = GetLeafKey(*p);
 
 	ReplaceTip(cu, NULL);
 	DeleteLeaf(p);
@@ -260,7 +258,7 @@ void RadixTree::Delete(CursorBase& cu)
 			Node* p = pPrev->m_ppC[i];
 			if (p)
 			{
-				const uint8_t* pKey1 = (p->m_Bits & Node::s_Leaf) ? ((Leaf*) p)->m_pKeyArr : ((Joint*) p)->m_pKeyPtr;
+				const uint8_t* pKey1 = get_NodeKey(*p);
 				assert(pKey1 != pKeyDead);
 
 				for (uint32_t j = cu.m_nPtrs; j--; )
@@ -334,6 +332,15 @@ void UtxoTree::get_Hash(Merkle::Hash& hv)
 		hv = ECC::Zero;
 }
 
+void UtxoTree::Value::get_Hash(Merkle::Hash& hv, const Key& key) const
+{
+	ECC::Hash::Processor hp;
+	hp.Write(key.m_pArr, Key::s_Bytes); // whole description of the UTXO
+	hp << m_Count;
+
+	hp >> hv;
+}
+
 const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 {
 	if (Node::s_Leaf & n.m_Bits)
@@ -341,11 +348,8 @@ const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 		MyLeaf& x = (MyLeaf&) n;
 		x.m_Bits |= Node::s_Clean;
 
-		ECC::Hash::Processor hp;
-		hp.Write(x.m_pKeyArr, Key::s_Bytes); // whole description of the UTXO
-		hp << x.m_Value.m_Count;
+		x.m_Value.get_Hash(hv, x.m_Key);
 
-		hp >> hv;
 		return hv;
 
 	}
@@ -368,6 +372,29 @@ const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 	return x.m_Hash;
 }
 
+void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
+{
+	uint32_t n = m_nPtrs;
+	assert(n);
+
+	const Node* pPrev = m_pp[--n];
+	size_t nOut = proof.size(); // may already be non-empty, we'll append
+
+	for (proof.resize(nOut + n); n--; nOut++)
+	{
+		const Joint& x = (const Joint&) *m_pp[n];
+
+		Merkle::Node& node = proof[nOut];
+		node.first = (x.m_ppC[0] == pPrev);
+
+		node.second = get_Hash(*x.m_ppC[node.first != false], node.second);
+
+		pPrev = &x;
+	}
+
+	assert(proof.size() == nOut);
+}
+
 void UtxoTree::SaveIntenral(ISerializer& s) const
 {
 	uint32_t n = (uint32_t) Count();
@@ -379,7 +406,7 @@ void UtxoTree::SaveIntenral(ISerializer& s) const
 		ISerializer* m_pS;
 		virtual bool OnLeaf(const Leaf& n) override {
 			MyLeaf& x = (MyLeaf&) n;
-			m_pS->Process(x.get_Key());
+			m_pS->Process(x.m_Key);
 			m_pS->Process(x.m_Value);
 			return true;
 		}
@@ -465,9 +492,89 @@ UtxoTree::Key& UtxoTree::Key::operator = (const Key::Formatted& fmt)
 	return *this;
 }
 
-UtxoTree::Key& UtxoTree::MyLeaf::get_Key() const
+/////////////////////////////
+// Merkle::Mmr
+void Merkle::Mmr::Append(const Merkle::Hash& hv)
 {
-	return (Key&) m_pKeyArr; // should be fine
+	Merkle::Hash hv1 = hv;
+	uint32_t n = m_Count;
+
+	for (uint32_t nHeight = 0; ; nHeight++, n >>= 1)
+	{
+		SaveElement(hv1, n, nHeight);
+		if (!(1 & n))
+			break;
+
+		Merkle::Hash hv0;
+		LoadElement(hv0, n ^ 1, nHeight);
+
+		ECC::Hash::Processor() << hv0 << hv1 >> hv1;
+	}
+
+	m_Count++;
 }
+
+void Merkle::Mmr::get_Hash(Merkle::Hash& hv) const
+{
+	if (!get_HashForRange(hv, 0, m_Count))
+		hv = ECC::Zero;
+}
+
+bool Merkle::Mmr::get_HashForRange(Merkle::Hash& hv, uint32_t n0, uint32_t n) const
+{
+	bool bEmpty = true;
+
+	for (uint32_t nHeight = 0; n; nHeight++, n >>= 1, n0 >>= 1)
+		if (1 & n)
+		{
+			Merkle::Hash hv0;
+			LoadElement(hv0, n0 + n ^ 1, nHeight);
+
+			if (bEmpty)
+			{
+				hv = hv0;
+				bEmpty = false;
+			}
+			else
+				ECC::Hash::Processor() << hv0 << hv >> hv;
+		}
+
+	return !bEmpty;
+}
+
+void Merkle::Mmr::get_Proof(Proof& proof, uint32_t i) const
+{
+	assert(i < m_Count);
+
+	uint32_t n = m_Count;
+	for (uint32_t nHeight = 0; n; nHeight++, n >>= 1, i >>= 1)
+	{
+		Merkle::Node node;
+		node.first = !(i & 1);
+
+		uint32_t nSibling = i ^ 1;
+		bool bFullSibling = !node.first;
+
+		if (!bFullSibling)
+		{
+			uint32_t n0 = nSibling << nHeight;
+			if (n0 >= m_Count)
+				continue;
+
+			uint32_t nRemaining = m_Count - n0;
+			if (nRemaining >> nHeight)
+				bFullSibling = true;
+			else
+				verify(get_HashForRange(node.second, n0, nRemaining));
+		}
+
+		if (bFullSibling)
+			LoadElement(node.second, nSibling, nHeight);
+
+		proof.push_back(std::move(node)); // TODO: avoid copy?
+	}
+}
+
+
 
 } // namespace beam
