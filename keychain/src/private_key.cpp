@@ -16,7 +16,9 @@ std::default_random_engine generator(seed);
 std::uniform_int_distribution<int> distribution(0, std::numeric_limits<unsigned int>::max());
 
 unsigned int get_random() {
-    return (unsigned int) distribution(generator);
+    // TODO: will be fixed by Sergey
+    // return (unsigned int) distribution(generator);
+    return rand();
 }
 // Random generator
 

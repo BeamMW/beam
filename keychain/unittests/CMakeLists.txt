@@ -1,0 +1,1 @@
+add_test_snippet(keychain_test keychain)

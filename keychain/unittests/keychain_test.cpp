@@ -1,8 +1,8 @@
 #include <iostream>
 #include <assert.h>
-#include "private_key.h"
-#include "utill.h"
-#include "utxo.h"
+#include "../include/private_key.h"
+#include "../include/utill.h"
+#include "../include/utxo.h"
 
 void test_UTXO(const char* filename) {
 
@@ -133,5 +133,3 @@ int main() {
 
     test_key_UTXO();
 }
-
-

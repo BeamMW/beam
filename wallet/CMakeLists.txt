@@ -6,6 +6,6 @@ set(WALLET_SRC
 )
 
 add_library(wallet STATIC ${WALLET_SRC})
-add_dependencies(wallet core)
-target_link_libraries(wallet core)
+add_dependencies(wallet core keychain)
+target_link_libraries(wallet core keychain)
 add_subdirectory(unittests)
