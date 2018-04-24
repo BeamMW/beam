@@ -95,6 +95,14 @@ public:
 
 	int ParamIntGetDef(int ID, int def = 0);
 
+	struct Blob {
+		const void* p;
+		uint32_t n;
+
+		Blob() {}
+		Blob(const void* p_, uint32_t n_) :p(p_) ,n(n_) {}
+	};
+
 	class Recordset
 	{
 		NodeDB& m_DB;
@@ -114,13 +122,39 @@ public:
 		// in/out
 		void put(int col, int);
 		void put(int col, int64_t);
+		void put(int col, const Blob&);
+		void put(int col, const Merkle::Hash&);
 		void get(int col, int&);
 		void get(int col, int64_t&);
+		void get(int col, Blob&);
+		const void* get_BlobStrict(int col, uint32_t n);
+
+		template <typename T> void put_As(int col, const T& x) {
+			put(col, Blob(&x, sizeof(x)));
+		}
+
+		template <typename T> const T& get_As(int col) {
+			return *(const T*) get_BlobStrict(col, sizeof(T));
+		}
+
 		void putNull(int col);
 		bool IsNull(int col);
 	};
 
 	int get_RowsChanged() const;
+	int64_t get_LastInsertRowID() const;
+
+	class Transaction {
+		NodeDB* m_pDB;
+	public:
+		Transaction(NodeDB* = NULL);
+		Transaction(NodeDB& db) :Transaction(&db) {}
+		~Transaction(); // by default - rolls back
+
+		void Start(NodeDB&);
+		void Commit();
+		void Rollback();
+	};
 
 private:
 

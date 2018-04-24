@@ -72,7 +72,10 @@ NodeDB::Recordset::~Recordset()
 void NodeDB::Recordset::Reset()
 {
 	if (m_pStmt)
+	{
 		sqlite3_reset(m_pStmt); // don't care about retval
+		sqlite3_clear_bindings(m_pStmt);
+	}
 }
 
 void NodeDB::Recordset::Reset(Query::Enum val)
@@ -106,6 +109,17 @@ void NodeDB::Recordset::put(int col, int64_t x)
 	m_DB.TestRet(sqlite3_bind_int64(m_pStmt, col+1, x));
 }
 
+void NodeDB::Recordset::put(int col, const Blob& x)
+{
+	m_DB.TestRet(sqlite3_bind_blob(m_pStmt, col+1, x.p, x.n, NULL));
+}
+
+void NodeDB::Recordset::put(int col, const Merkle::Hash& x)
+{
+	static_assert(sizeof(x) == sizeof(x.m_pData), "");
+	put(col, Blob(&x, sizeof(x)));
+}
+
 void NodeDB::Recordset::get(int col, int& x)
 {
 	x = sqlite3_column_int(m_pStmt, col+1);
@@ -114,6 +128,27 @@ void NodeDB::Recordset::get(int col, int& x)
 void NodeDB::Recordset::get(int col, int64_t& x)
 {
 	x = sqlite3_column_int64(m_pStmt, col+1);
+}
+
+void NodeDB::Recordset::get(int col, Blob& x)
+{
+	x.p = sqlite3_column_blob(m_pStmt, col+1);
+	x.n = sqlite3_column_bytes(m_pStmt, col+1);
+}
+
+const void* NodeDB::Recordset::get_BlobStrict(int col, uint32_t n)
+{
+	Blob x;
+	get(col, x);
+
+	if (x.n != n)
+	{
+		char sz[0x80];
+		snprintf(sz, sizeof(sz), "Blob size expected=%u, actual=%u", n, x.n);
+		throw std::runtime_error(sz);
+	}
+
+	return x.p;
 }
 
 void NodeDB::Open(const char* szPath, bool bCreate)
@@ -208,6 +243,11 @@ int NodeDB::get_RowsChanged() const
 	return sqlite3_changes(m_pDb);
 }
 
+int64_t NodeDB::get_LastInsertRowID() const
+{
+	return sqlite3_last_insert_rowid(m_pDb);
+}
+
 void NodeDB::ParamIntSet(int ID, int val)
 {
 	Recordset rs(*this, Query::ParamUpd);
@@ -241,6 +281,45 @@ int NodeDB::ParamIntGetDef(int ID, int def /* = 0 */)
 {
 	ParamIntGet(ID, def);
 	return def;
+}
+
+NodeDB::Transaction::Transaction(NodeDB* pDB)
+	:m_pDB(NULL)
+{
+	if (pDB)
+		Start(*pDB);
+}
+
+NodeDB::Transaction::~Transaction()
+{
+	Rollback();
+}
+
+void NodeDB::Transaction::Start(NodeDB& db)
+{
+	assert(!m_pDB);
+	db.ExecStep(Query::Begin);
+	m_pDB = &db;
+}
+
+void NodeDB::Transaction::Commit()
+{
+	assert(m_pDB);
+	m_pDB->ExecStep(Query::Commit);
+	m_pDB = NULL;
+}
+
+void NodeDB::Transaction::Rollback()
+{
+	if (m_pDB)
+	{
+		try {
+			m_pDB->ExecStep(Query::Rollback);
+		} catch (std::exception&) {
+			// TODO: DB is compromised!
+		}
+		m_pDB = NULL;
+	}
 }
 
 } // namespace beam
