@@ -2,7 +2,7 @@
 #include <assert.h>
 #include "private_key.h"
 #include "utill.h"
-#include "utxo.h"
+#include "coin.h"
 
 void test_UTXO(const char* filename) {
 

@@ -2,8 +2,7 @@
 #include "wallet/sender.h"
 #include "wallet/receiver.h"
 
-// TODO: have to decide, is UTXO proper name for the keychain data???
-#include "utxo.h"
+#include "coin.h"
 
 #include <assert.h>
 #include <iostream>

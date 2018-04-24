@@ -9,7 +9,7 @@ set(KEYCHAIN_SRC_DIR keychain/src)
 
 set(KEYCHAIN_SRC
     ${KEYCHAIN_SRC_DIR}/utill.cpp
-    ${KEYCHAIN_SRC_DIR}/utxo.cpp
+    ${KEYCHAIN_SRC_DIR}/coin.cpp
     ${KEYCHAIN_SRC_DIR}/private_key.cpp
 )
 

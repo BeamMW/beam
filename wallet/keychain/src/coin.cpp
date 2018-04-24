@@ -1,4 +1,4 @@
-#include "utxo.h"
+#include "coin.h"
 
 // CoinData implementation
 KeyGenerator CoinData::keygen;
