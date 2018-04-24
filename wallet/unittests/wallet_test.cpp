@@ -100,7 +100,7 @@ namespace
     };
 
     template<typename KeychainImpl>
-    constexpr IKeyChain::Ptr createKeyChain()
+    IKeyChain::Ptr createKeyChain()
     {
         return std::static_pointer_cast<IKeyChain>(std::make_shared<KeychainImpl>());
     }
