@@ -13,6 +13,8 @@ namespace ECC
 
 namespace beam
 {
+    using namespace wallet;
+
     Coin::Coin(const ECC::Scalar& key, ECC::Amount amount)
         : m_amount(amount)
     {
@@ -37,9 +39,7 @@ namespace beam
     Wallet::Wallet(IKeyChain::Ptr keyChain, NetworkIO& network)
         : m_keyChain{ keyChain }
         , m_network{ network }
-
     {
-        //m_network.addListener(this);
     }
 
     void Wallet::sendDummyTransaction()
@@ -49,50 +49,75 @@ namespace beam
         m_net->sendTransaction(tx);
     }
 
-    void Wallet::sendMoney(const PeerLocator& locator, const ECC::Amount& amount)
+    void Wallet::sendMoney(const Peer& locator, const ECC::Amount& amount)
     {
-        std::lock_guard<std::mutex> lock{ m_sendersMutex };
         boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId;
         std::copy(id.begin(), id.end(), txId.begin());
-        auto s = std::make_unique<wallet::Sender>(*this, txId, m_keyChain, amount );
-        auto [it, _] = m_senders.emplace(txId, std::move(s));
-        it->second->start();
+        auto s = std::make_unique<Sender>(*this, txId, m_keyChain, amount );
+        auto p = m_senders.emplace(txId, std::move(s));
+        p.first->second->start();
     }
 
-    void Wallet::sendTxInitiation(wallet::sender::InvitationData::Ptr data)
+    void Wallet::sendTxInitiation(sender::InvitationData::Ptr data)
     {
-        m_network.sendTxInitiation(PeerLocator(), std::move(data));
+        m_network.sendTxInitiation(Peer(), data);
     }
 
-    void Wallet::sendTxConfirmation(wallet::sender::ConfirmationData::Ptr data)
+    void Wallet::sendTxConfirmation(sender::ConfirmationData::Ptr data)
     {
-        m_network.sendTxConfirmation(PeerLocator(), data);
+        m_network.sendTxConfirmation(Peer(), data);
     }
 
     void Wallet::sendChangeOutputConfirmation()
     {
-        m_network.sendChangeOutputConfirmation(PeerLocator());
+        m_network.sendChangeOutputConfirmation(Peer());
     }
 
-    void Wallet::sendTxConfirmation(wallet::receiver::ConfirmationData::Ptr data)
+    void Wallet::removeSender(const Uuid& txId)
     {
-        m_network.sendTxConfirmation(PeerLocator(), data);
+        auto it = m_senders.find(txId);
+        assert(it != m_senders.end());
+        if (it != m_senders.end())
+        {
+            m_removedSenders.push_back(std::move(it->second));
+            m_senders.erase(txId);
+        }
     }
 
-    void Wallet::registerTx(const Transaction& transaction)
+    void Wallet::sendTxConfirmation(receiver::ConfirmationData::Ptr data)
     {
-        m_network.registerTx(PeerLocator(), transaction);
+        m_network.sendTxConfirmation(Peer(), data);
     }
 
-    void Wallet::handleTxInitiation(wallet::sender::InvitationData::Ptr data)
+    void Wallet::registerTx(const Uuid& txId, TransactionPtr transaction)
     {
-        std::lock_guard<std::mutex> lock{ m_receiversMutex };
+        m_network.registerTx(Peer(), txId, transaction);
+    }
+
+    void Wallet::sendTxRegistered(const Uuid& txId)
+    {
+        m_network.sendTxRegistered(Peer(), txId);
+    }
+
+    void Wallet::removeReceiver(const Uuid& txId)
+    {
+        auto it = m_receivers.find(txId);
+        assert(it != m_receivers.end());
+        if (it != m_receivers.end())
+        {
+            m_removedReceivers.push_back(std::move(it->second));
+            m_receivers.erase(it);
+        }
+    }
+
+    void Wallet::handleTxInitiation(sender::InvitationData::Ptr data)
+    {
         auto it = m_receivers.find(data->m_txId);
         if (it == m_receivers.end())
         {
-            auto [it, _] = m_receivers.emplace(data->m_txId, std::make_unique<wallet::Receiver>(*this, data));
-            it->second->start();
+            auto p = m_receivers.emplace(data->m_txId, std::make_unique<Receiver>(*this, data));
+            p.first->second->start();
         }
         else
         {
@@ -100,27 +125,40 @@ namespace beam
         }
     }
     
-    void Wallet::handleTxConfirmation(wallet::sender::ConfirmationData::Ptr data)
+    void Wallet::handleTxConfirmation(sender::ConfirmationData::Ptr data)
     {
-        std::lock_guard<std::mutex> lock{ m_receiversMutex };
         auto it = m_receivers.find(data->m_txId);
         if (it != m_receivers.end())
         {
-            it->second->enqueueEvent(wallet::Receiver::TxConfirmationCompleted{data});
+            it->second->processEvent(Receiver::TxConfirmationCompleted{data});
         }
         else
         {
             // TODO: log unexpected TxConfirmation
+        }
+    }
+
+    void Wallet::handleOutputConfirmation(const Peer& peer)
+    {
+        // TODO: this code is for test only, it should be rewrited
+        if (!m_receivers.empty())
+        {
+            m_receivers.begin()->second->processEvent(Receiver::TxOutputConfirmCompleted());
+            return;
+        }
+        if (!m_senders.empty())
+        {
+            m_senders.begin()->second->processEvent(Sender::TxOutputConfirmCompleted());
+            return;
         }
     }
    
-    void Wallet::handleTxConfirmation(wallet::receiver::ConfirmationData::Ptr data)
+    void Wallet::handleTxConfirmation(receiver::ConfirmationData::Ptr data)
     {
-        std::lock_guard<std::mutex> lock{ m_sendersMutex };
         auto it = m_senders.find(data->m_txId);
         if (it != m_senders.end())
         {
-            it->second->enqueueEvent(wallet::Sender::TxInitCompleted{data});
+            it->second->processEvent(Sender::TxInitCompleted{data});
         }
         else
         {
@@ -128,30 +166,40 @@ namespace beam
         }
     }
 
-    void Wallet::handleTxRegistration(const Transaction& tx)
+    void Wallet::handleTxRegistration(const Uuid& txId)
     {
-        std::lock_guard<std::mutex> lock{ m_receiversMutex };
-        if (!m_receivers.empty())
         {
-            m_receivers.begin()->second->enqueueEvent(wallet::Receiver::TxRegistrationCompleted());
+            auto it = m_receivers.find(txId);
+            if (it != m_receivers.end())
+            {
+                it->second->processEvent(Receiver::TxRegistrationCompleted{ txId });
+                return;
+            }
+        }
+        {
+            auto it = m_senders.find(txId);
+            if (it != m_senders.end())
+            {
+                it->second->processEvent(Sender::TxConfirmationCompleted());
+                return;
+            }
         }
     }
 
-    void Wallet::pumpEvents()
+    void Wallet::handleTxFailed(const Uuid& txId)
     {
+        auto sit = m_senders.find(txId);
+        if (sit != m_senders.end())
         {
-            std::lock_guard<std::mutex> lock{ m_sendersMutex };
-            for (auto& s : m_senders)
-            {
-                s.second->executeQueuedEvents();
-            }
+            sit->second->processEvent(Sender::TxFailed());
+            return;
         }
+        auto rit = m_receivers.find(txId);
+        if (rit != m_receivers.end())
         {
-            std::lock_guard<std::mutex> lock{ m_receiversMutex };
-            for (auto& r : m_receivers)
-            {
-                r.second->executeQueuedEvents();
-            }
+            rit->second->processEvent(Receiver::TxFailed());
+            return;
         }
+        // TODO: log unexpected TxConfirmation
     }
 }

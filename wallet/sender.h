@@ -12,17 +12,15 @@ namespace beam::wallet
     class Sender : public FSMHelper<Sender>
     {
     public:
+        using Ptr = std::unique_ptr<Sender>;
         // events
-        struct TxEventBase {};
+        struct TxFailed {};
         struct TxInitCompleted
         {
             receiver::ConfirmationData::Ptr data;
         };
-        struct TxInitFailed : TxEventBase {};
-        struct TxConfirmationCompleted : TxEventBase {};
-        struct TxConfirmationFailed : TxEventBase {};
-        struct TxOutputConfirmCompleted : TxEventBase {};
-        struct TxOutputConfirmFailed : TxEventBase {};
+        struct TxConfirmationCompleted {};
+        struct TxOutputConfirmCompleted {};
 
         Sender(sender::IGateway& gateway, const Uuid& txId, beam::IKeyChain::Ptr keychain, const ECC::Amount& amount)
             : m_fsm{boost::ref(gateway)
@@ -40,10 +38,15 @@ namespace beam::wallet
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 { std::cout << "[Sender] Init state\n"; } };
-            struct Terminate : public msmf::terminate_state<> {
+            struct Terminate : public msmf::terminate_state<>
+            {
                 template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
-                { std::cout << "[Sender] Terminate state\n"; } };
+                void on_entry(Event const&, Fsm& fsm)
+                {
+                    std::cout << "[Sender] Terminate state\n";
+                    fsm.m_gateway.removeSender(fsm.m_txId);
+                } 
+            };
             struct TxInitiating : public msmf::state<> {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
@@ -59,62 +62,40 @@ namespace beam::wallet
 
             FSMDefinition(sender::IGateway& gateway, const Uuid& txId, beam::IKeyChain::Ptr keychain, const ECC::Amount& amount)
                 : m_gateway{ gateway }
-                , m_txId{txId}
                 , m_keychain(keychain)
+                , m_txId{txId}
                 , m_amount(amount)
             {}
 
             // transition actions
             void initTx(const msmf::none&);
 
-            bool isValidSignature(const TxInitCompleted& event);
+            bool isValidSignature(const TxInitCompleted& );
 
-            bool isInvalidSignature(const TxInitCompleted& event);
+            bool isInvalidSignature(const TxInitCompleted& );
 
-            void confirmTx(const TxInitCompleted& event);
+            void confirmTx(const TxInitCompleted& );
 
-            void rollbackTx(const TxInitFailed& event)
-            {
-                std::cout << "Sender::rollbackTx\n";
-            }
+            void rollbackTx(const TxFailed& );
 
-            void rollbackTx(const TxConfirmationFailed& event)
-            {
-                std::cout << "Sender::rollbackTx\n";
-            }
-            
-            void rollbackTx(const TxOutputConfirmFailed& event)
-            {
-                std::cout << "Sender::rollbackTx\n";
-            }
+            void cancelTx(const TxInitCompleted& );
 
-            void cancelTx(const TxInitCompleted& event)
-            {
-                std::cout << "Sender::cancelTx\n";
-            }
+            void confirmChangeOutput(const TxConfirmationCompleted&);
 
-            void confirmChangeOutput(const TxConfirmationCompleted& event)
-            {
-                m_gateway.sendChangeOutputConfirmation();
-            }
-
-            void completeTx(const TxOutputConfirmCompleted& event)
-            {
-                std::cout << "Sender::completeTx\n";
-            }
+            void completeTx(const TxOutputConfirmCompleted&);
 
             using initial_state = Init;
             using d = FSMDefinition;
             struct transition_table : mpl::vector<
                 //   Start                 Event                     Next                  Action                    Guard
                 a_row< Init              , msmf::none              , TxInitiating        , &d::initTx                                      >,
-                a_row< TxInitiating      , TxInitFailed            , Terminate           , &d::rollbackTx                                  >,
+                a_row< TxInitiating      , TxFailed                , Terminate           , &d::rollbackTx                                  >,
                 row  < TxInitiating      , TxInitCompleted         , TxConfirming        , &d::confirmTx           , &d::isValidSignature  >,
                 row  < TxInitiating      , TxInitCompleted         , Terminate           , &d::cancelTx            , &d::isInvalidSignature>,
                 a_row< TxConfirming      , TxConfirmationCompleted , TxOutputConfirming  , &d::confirmChangeOutput                         >,
-                a_row< TxConfirming      , TxConfirmationFailed    , Terminate           , &d::rollbackTx                                  >,
+                a_row< TxConfirming      , TxFailed                , Terminate           , &d::rollbackTx                                  >,
                 a_row< TxOutputConfirming, TxOutputConfirmCompleted, Terminate           , &d::completeTx                                  >,
-                a_row< TxOutputConfirming, TxOutputConfirmFailed   , Terminate           , &d::rollbackTx                                  >
+                a_row< TxOutputConfirming, TxFailed                , Terminate           , &d::rollbackTx                                  >
             > {};
 
             template <class FSM, class Event>

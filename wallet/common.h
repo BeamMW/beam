@@ -8,6 +8,7 @@
 namespace beam
 {
     using Uuid = std::array<uint8_t, 16>;
+    using TransactionPtr = std::shared_ptr<Transaction>;
     namespace wallet
     {
         namespace msm = boost::msm;
@@ -27,20 +28,6 @@ namespace beam
             bool processEvent(const Event& event)
             {
                 return static_cast<Derived*>(this)->m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
-            }
-
-            template<typename Event>
-            void enqueueEvent(const Event& event)
-            {
-                static_cast<Derived*>(this)->m_fsm.enqueue_event(event);
-            }
-
-            void executeQueuedEvents()
-            {
-                if (!static_cast<Derived*>(this)->m_fsm.get_message_queue().empty())
-                {
-                    static_cast<Derived*>(this)->m_fsm.execute_queued_events();
-                }
             }
         };
 
@@ -73,6 +60,7 @@ namespace beam
                 virtual void sendTxInitiation(InvitationData::Ptr) = 0;
                 virtual void sendTxConfirmation(ConfirmationData::Ptr) = 0;
                 virtual void sendChangeOutputConfirmation() = 0;
+                virtual void removeSender(const Uuid&) = 0;
             };
         }
 
@@ -92,7 +80,9 @@ namespace beam
             struct IGateway
             {
                 virtual void sendTxConfirmation(ConfirmationData::Ptr) = 0;
-                virtual void registerTx(const Transaction&) = 0;
+                virtual void registerTx(const Uuid& txId, TransactionPtr) = 0;
+                virtual void sendTxRegistered(const Uuid& txId) = 0;
+                virtual void removeReceiver(const Uuid&) = 0;
             };
         }
     }

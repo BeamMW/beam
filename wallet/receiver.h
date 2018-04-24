@@ -12,17 +12,18 @@ namespace beam::wallet
     class Receiver : public FSMHelper<Receiver>
     {
     public:
+        using Ptr = std::unique_ptr<Receiver>;
         // events
-        struct TxEventBase {};
+        struct TxFailed {};
         struct TxConfirmationCompleted
         {
             sender::ConfirmationData::Ptr data;
         };
-        struct TxConfirmationFailed : TxEventBase {};
-        struct TxRegistrationCompleted : TxEventBase {};
-        struct TxRegistrationFailed : TxEventBase {};
-        struct TxOutputConfirmCompleted : TxEventBase {};
-        struct TxOutputConfirmFailed : TxEventBase {};
+        struct TxRegistrationCompleted 
+        {
+            Uuid m_txId;
+        };
+        struct TxOutputConfirmCompleted {};
         
         Receiver(receiver::IGateway& gateway, sender::InvitationData::Ptr initData)
             : m_fsm{boost::ref(gateway), initData}
@@ -41,9 +42,10 @@ namespace beam::wallet
             };
             struct Terminate : public msmf::terminate_state<> {
                 template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
+                void on_entry(Event const&, Fsm& fsm)
                 {
                     std::cout << "[Receiver] Terminate state\n";
+                    fsm.m_gateway.removeReceiver(fsm.m_txId);
                 }
             };
             struct TxConfirming : public msmf::state<> {
@@ -75,9 +77,10 @@ namespace beam::wallet
                 , m_message{initData->m_message}
                 , m_publicSenderBlindingExcess{initData->m_publicSenderBlindingExcess}
                 , m_publicSenderNonce{initData->m_publicSenderNonce}
+                , m_transaction{std::make_shared<Transaction>()}
             {
-                m_transaction.m_vInputs = std::move(initData->m_inputs);
-                m_transaction.m_vOutputs = std::move(initData->m_outputs);
+                m_transaction->m_vInputs = std::move(initData->m_inputs);
+                m_transaction->m_vOutputs = std::move(initData->m_outputs);
             }
 
             // transition actions
@@ -89,48 +92,26 @@ namespace beam::wallet
 
             void registerTx(const TxConfirmationCompleted& event);
 
-            void rollbackTx(const TxConfirmationFailed& event)
-            {
-                std::cout << "Receiver::rollbackTx\n";
-            }
+            void rollbackTx(const TxFailed& event);
 
-            void rollbackTx(const TxRegistrationFailed& event)
-            {
-                std::cout << "Receiver::rollbackTx\n";
-            }
+            void cancelTx(const TxConfirmationCompleted& event);
 
-            void rollbackTx(const TxOutputConfirmFailed& event)
-            {
-                std::cout << "Receiver::rollbackTx\n";
-            }
+            void confirmOutput(const TxRegistrationCompleted& event);
 
-            void cancelTx(const TxConfirmationCompleted& event)
-            {
-                std::cout << "Receiver::cancelTx\n";
-            }
-
-            void confirmOutput(const TxRegistrationCompleted& event)
-            {
-                std::cout << "Receiver::confirmOutput\n";
-            }
-
-            void completeTx(const TxOutputConfirmCompleted& event)
-            {
-                std::cout << "Receiver::completeTx\n";
-            }
+            void completeTx(const TxOutputConfirmCompleted& event);
 
             using initial_state = Init;
             using d = FSMDefinition;
             struct transition_table : mpl::vector<
                 //   Start                 Event                     Next                   Action              Guard
                 a_row< Init              , msmf::none              , TxConfirming         , &d::confirmTx                             >,
-                a_row< TxConfirming      , TxConfirmationFailed    , Terminate            , &d::rollbackTx                            >,
+                a_row< TxConfirming      , TxFailed                , Terminate            , &d::rollbackTx                            >,
                 row  < TxConfirming      , TxConfirmationCompleted , TxRegistering        , &d::registerTx    , &d::isValidSignature  >,
                 row  < TxConfirming      , TxConfirmationCompleted , Terminate            , &d::cancelTx      , &d::isInvalidSignature>,
                 a_row< TxRegistering     , TxRegistrationCompleted , TxOutputConfirming   , &d::confirmOutput                         >,
-                a_row< TxRegistering     , TxRegistrationFailed    , Terminate            , &d::rollbackTx                            >,
+                a_row< TxRegistering     , TxFailed                , Terminate            , &d::rollbackTx                            >,
                 a_row< TxOutputConfirming, TxOutputConfirmCompleted, Terminate            , &d::completeTx                            >,
-                a_row< TxOutputConfirming, TxOutputConfirmFailed   , Terminate            , &d::rollbackTx                            >
+                a_row< TxOutputConfirming, TxFailed                , Terminate            , &d::rollbackTx                            >
             > {};
 
             template <class FSM, class Event>
@@ -144,7 +125,7 @@ namespace beam::wallet
 
             Uuid m_txId;
 
-            ECC::Amount m_amount; ///??
+            ECC::Amount m_amount; 
             ECC::Hash::Value m_message;
             std::vector<Input::Ptr> m_inputs;
             std::vector<Output::Ptr> m_outputs;
@@ -157,7 +138,7 @@ namespace beam::wallet
             ECC::Scalar::Native m_nonce;
             ECC::Scalar::Native m_schnorrChallenge;
 
-            Transaction m_transaction;
+            TransactionPtr m_transaction;
             TxKernel* m_kernel;
         };
 

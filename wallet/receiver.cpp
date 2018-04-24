@@ -35,9 +35,9 @@ namespace beam::wallet
         TxKernel::Ptr kernel = std::make_unique<TxKernel>();
         kernel->m_Fee = 0;
         kernel->m_HeightMin = 0;
-        kernel->m_HeightMax = -1;
+        kernel->m_HeightMax = static_cast<Height>(-1);
         m_kernel = kernel.get();
-        m_transaction.m_vKernels.push_back(std::move(kernel));
+        m_transaction->m_vKernels.push_back(std::move(kernel));
 
         // 1. Check fee
         // 2. Create receiver_output
@@ -59,7 +59,7 @@ namespace beam::wallet
         blindingFactor = -blindingFactor;
         m_blindingExcess += blindingFactor;
 
-        m_transaction.m_vOutputs.push_back(std::move(output));
+        m_transaction->m_vOutputs.push_back(std::move(output));
 
         // 4. Calculate message M
         // 5. Choose random nonce
@@ -124,7 +124,27 @@ namespace beam::wallet
         ECC::Amount fee = 0U;
         
         // TODO: uncomment assert
-        assert(m_transaction.IsValid(fee, 0U));
-        m_gateway.registerTx(m_transaction);
+       // assert(m_transaction->IsValid(fee, 0U));
+        m_gateway.registerTx(m_txId, m_transaction);
+    }
+
+    void Receiver::FSMDefinition::rollbackTx(const TxFailed& event)
+    {
+        std::cout << "Receiver::rollbackTx\n";
+    }
+
+    void Receiver::FSMDefinition::cancelTx(const TxConfirmationCompleted& )
+    {
+        std::cout << "Receiver::cancelTx\n";
+    }
+
+    void Receiver::FSMDefinition::confirmOutput(const TxRegistrationCompleted& )
+    {
+        m_gateway.sendTxRegistered(m_txId);
+    }
+
+    void Receiver::FSMDefinition::completeTx(const TxOutputConfirmCompleted& )
+    {
+        std::cout << "Receiver::completeTx\n";
     }
 }

@@ -37,7 +37,7 @@ namespace beam::wallet
         invitationData->m_amount = m_amount;
         m_kernel.m_Fee = 0;
         m_kernel.m_HeightMin = 0;
-        m_kernel.m_HeightMax = -1;
+        m_kernel.m_HeightMax = static_cast<Height>(-1);
         m_kernel.get_Hash(invitationData->m_message);
         
         // 2. Set lock_height for output (current chain height)
@@ -105,7 +105,6 @@ namespace beam::wallet
             = invitationData->m_publicSenderNonce
             = ECC::Context::get().G * m_nonce;
         // an attempt to implement "stingy" transaction
-
         m_gateway.sendTxInitiation(invitationData);
     }
 
@@ -157,5 +156,25 @@ namespace beam::wallet
         m_kernel.get_Hash(message);
         m_kernel.m_Signature.CoSign(confirmationData->m_senderSignature, message, m_blindingExcess, msig);
         m_gateway.sendTxConfirmation(confirmationData);
+    }
+
+    void Sender::FSMDefinition::rollbackTx(const TxFailed& )
+    {
+
+    }
+
+    void Sender::FSMDefinition::cancelTx(const TxInitCompleted& )
+    {
+        
+    }
+
+    void Sender::FSMDefinition::confirmChangeOutput(const TxConfirmationCompleted&)
+    {
+        m_gateway.sendChangeOutputConfirmation();
+    }
+
+    void Sender::FSMDefinition::completeTx(const TxOutputConfirmCompleted&)
+    {
+        std::cout << "Sender::completeTx\n";
     }
 }
