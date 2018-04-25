@@ -76,8 +76,8 @@ public:
 		void Reset();
 		void Reset(Query::Enum, const char*);
 
-		// Perform the transaction/fetch the next row
-		bool FetchRow();
+		// Perform the query step. SELECT only: returns true while there're rows to read
+		bool Step();
 
 		// in/out
 		void put(int col, uint32_t);
@@ -156,6 +156,7 @@ private:
 	void AddNextCount(uint64_t rowid, uint32_t nDelta);
 
 	void OnStateAddRemove(const Block::SystemState::ID&, uint64_t rowid, uint64_t rowPrev, bool bAdd);
+	void TestChanged1Row();
 };
 
 

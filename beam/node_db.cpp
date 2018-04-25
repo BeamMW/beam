@@ -106,7 +106,7 @@ void NodeDB::Recordset::Reset(Query::Enum val, const char* sql)
 	m_pStmt = m_DB.get_Statement(val, sql);
 }
 
-bool NodeDB::Recordset::FetchRow()
+bool NodeDB::Recordset::Step()
 {
 	return m_DB.ExecStep(m_pStmt);
 }
@@ -294,12 +294,18 @@ uint64_t NodeDB::get_LastInsertRowID() const
 	return sqlite3_last_insert_rowid(m_pDb);
 }
 
+void NodeDB::TestChanged1Row()
+{
+	if (1 != get_RowsChanged())
+		throw std::runtime_error("oops1");
+}
+
 void NodeDB::ParamIntSet(uint32_t ID, uint32_t val)
 {
 	Recordset rs(*this, Query::ParamIntUpd, "UPDATE " TblParams " SET " TblParams_Int "=? WHERE " TblParams_ID "=?");
 	rs.put(0, val);
 	rs.put(1, ID);
-	rs.FetchRow();
+	rs.Step();
 
 	if (!get_RowsChanged())
 	{
@@ -307,7 +313,9 @@ void NodeDB::ParamIntSet(uint32_t ID, uint32_t val)
 
 		rs.put(0, ID);
 		rs.put(1, val);
-		rs.FetchRow();
+		rs.Step();
+
+		TestChanged1Row();
 	}
 }
 
@@ -316,7 +324,7 @@ bool NodeDB::ParamIntGet(uint32_t ID, uint32_t& val)
 	Recordset rs(*this, Query::ParamIntGet, "SELECT " TblParams_Int " FROM " TblParams " WHERE " TblParams_ID "=?");
 	rs.put(0, ID);
 
-	if (!rs.FetchRow())
+	if (!rs.Step())
 		return false;
 
 	rs.get(0, val);
@@ -388,7 +396,7 @@ void NodeDB::get_State(uint64_t rowid, Block::SystemState::Full& out)
 
 	rs.put(0, rowid);
 
-	if (!rs.FetchRow())
+	if (!rs.Step())
 		throw "State not found!";
 
 	int iCol = 0;
@@ -416,7 +424,8 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 	StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0)
 #undef THE_MACRO_1
 		
-	rs.FetchRow();
+	rs.Step();
+	TestChanged1Row();
 
 	uint64_t rowid = get_LastInsertRowID();
 	assert(rowid);
@@ -444,10 +453,8 @@ void NodeDB::DeleteIdleState(uint64_t rowid)
 	Recordset rs(*this, Query::StateDel, "DELETE FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 
-	rs.FetchRow();
-
-	if (1 != get_RowsChanged())
-		throw "oops1";
+	rs.Step();
+	TestChanged1Row();
 }
 
 uint64_t NodeDB::StateFindSafe(const Block::SystemState::ID& k)
@@ -455,7 +462,7 @@ uint64_t NodeDB::StateFindSafe(const Block::SystemState::ID& k)
 	Recordset rs(*this, Query::StateFind, "SELECT rowid FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_Hash "=?");
 	rs.put(0, k.m_Height);
 	rs.put(1, k.m_Hash);
-	if (!rs.FetchRow())
+	if (!rs.Step())
 		return 0;
 
 	uint64_t rowid;
@@ -469,7 +476,7 @@ void NodeDB::get_StateAux(uint64_t rowid, StateAuxData& out)
 	Recordset rs(*this, Query::StateAuxGet, "SELECT " TblStates_RowPrev "," TblStates_CountNext "," TblStates_StateFlags  " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 
-	if (!rs.FetchRow())
+	if (!rs.Step())
 		throw "State not found!";
 
 	if (rs.IsNull(0))
@@ -496,7 +503,7 @@ void NodeDB::OnStateAddRemove(const Block::SystemState::ID& k, uint64_t rowid, u
 	rs.put(1, k.m_Height + 1);
 	rs.put(2, k.m_Hash);
 
-	rs.FetchRow();
+	rs.Step();
 	uint32_t nCountAncestors = get_RowsChanged();
 
 	if (nCountAncestors)
@@ -521,10 +528,8 @@ void NodeDB::OnStateAddRemove(const Block::SystemState::ID& k, uint64_t rowid, u
 			rs.put(0, rowPrev);
 			rs.put(1, rowid);
 
-			rs.FetchRow();
-
-			if (1 != get_RowsChanged())
-				throw "oops1";
+			rs.Step();
+			TestChanged1Row();
 
 			TipDel(rowPrev, k.m_Height - 1);
 		}
@@ -539,10 +544,8 @@ void NodeDB::AddNextCount(uint64_t rowid, uint32_t nDelta)
 	rs.put(0, nDelta);
 	rs.put(1, rowid);
 
-	rs.FetchRow();
-
-	if (1 != get_RowsChanged())
-		throw "oops1";
+	rs.Step();
+	TestChanged1Row();
 }
 
 void NodeDB::TipAdd(uint64_t rowid, Height h)
@@ -551,7 +554,7 @@ void NodeDB::TipAdd(uint64_t rowid, Height h)
 	rs.put(0, h);
 	rs.put(1, rowid);
 
-	rs.FetchRow();
+	rs.Step();
 }
 
 void NodeDB::TipDel(uint64_t rowid, Height h)
@@ -560,10 +563,8 @@ void NodeDB::TipDel(uint64_t rowid, Height h)
 	rs.put(0, h);
 	rs.put(1, rowid);
 
-	rs.FetchRow();
-
-	if (1 != get_RowsChanged())
-		throw "oops2";
+	rs.Step();
+	TestChanged1Row();
 }
 
 
