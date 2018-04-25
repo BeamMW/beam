@@ -43,7 +43,7 @@ T* recover_from(std::ifstream &is, size_t offset, const char* key = nullptr) {
 
     is.seekg(offset);
     is.read(buf, size_);
-    bool done = is;    
+    bool done = !is.fail();
     is.seekg(pos);
 
     if(done)

@@ -8,9 +8,7 @@ script:
 matrix:
   include:
     - os: osx
-      osx_image: xcode9.3beta
-     # before_install:
-     #   - eval "brew install boost"
+      osx_image: xcode9.3
 
     - os: linux
       addons:
@@ -28,4 +26,3 @@ matrix:
 notifications:
   email:
     - big.romanov@gmail.com
-
