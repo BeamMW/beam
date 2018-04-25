@@ -1,5 +1,6 @@
 #include "p2p/protocol.h"
 #include "p2p/connection.h"
+#define LOG_DEBUG_ENABLED false
 #include "utility/logger.h"
 #include "utility/bridge.h"
 #include "utility/io/tcpserver.h"
@@ -123,7 +124,7 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork {
     }
 
     void thread_func() {
-        LOG_DEBUG() << __PRETTY_FUNCTION__ << " starting";
+        LOG_INFO() << __PRETTY_FUNCTION__ << " starting";
         reactor->run();
         LOG_DEBUG() << __PRETTY_FUNCTION__ << " exiting";
         bridge.stop_rx();
@@ -254,7 +255,7 @@ struct AppSideAsyncContext {
     }
 
     void thread_func() {
-        LOG_DEBUG() << " starting";
+        LOG_INFO() << " starting";
         reactor->run();
         LOG_DEBUG() << " exiting";
         bridge.stop_rx();
@@ -325,7 +326,7 @@ struct App {
     NetworkSide networkLogic;
 
     App(io::Address _address, bool _thisIsServer, unsigned _timerPeriod) :
-        appLogic(_timerPeriod, _address.packed + (_thisIsServer ? 100500 : 0)),
+        appLogic(_timerPeriod, _thisIsServer ? 1 : 2),
         networkLogic(appLogic, _address, _thisIsServer)
     {}
 
@@ -341,16 +342,19 @@ struct App {
 };
 
 int main() {
-    auto logger = Logger::create(LoggerConfig());
+    LoggerConfig lc;
+    lc.consoleLevel = LOG_LEVEL_DEBUG;
+    lc.flushLevel = LOG_LEVEL_DEBUG;
+    auto logger = Logger::create(lc);
     try {
         constexpr uint16_t port = 32123;
 
-        LOG_INFO() << "Creating apps";
+        LOG_DEBUG() << "Creating apps";
 
         // server
-        App app1(io::Address::localhost().port(port), true, 157);
+        App app1(io::Address::localhost().port(port), true, 57);
         // client
-        App app2(io::Address::localhost().port(port), false, 183);
+        App app2(io::Address::localhost().port(port), false, 83);
 
         LOG_INFO() << "Starting apps";
 

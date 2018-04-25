@@ -141,6 +141,8 @@ LogThreadContext* get_context() {
 LogMessage::LogMessage(int level, const char* file, int line, const char* func) : _level(level) {
     LogThreadContext* ctx = get_context();
 
+
+
     assert(!ctx->in_use);
 
     ctx->in_use = true;
@@ -153,6 +155,8 @@ LogMessage::LogMessage(int level, const char* file, int line, const char* func) 
     char b[80];
     format_timestamp(b, 80, " %Y-%m-%d.%T", local_timestamp_msec());
     *_formatter << logTags[level] << b << From(file, line, func);
+
+
 }
 
 LogMessage::~LogMessage() {
@@ -164,9 +168,7 @@ LogMessage::~LogMessage() {
         logger->write_message(_level, get_context()->buffer, _formatter->tellp());
 
     }
+
 }
-
-
-
 
 } //namespace

@@ -9,10 +9,12 @@
     #define LOG_VERBOSE_ENABLED 0
 #endif
 
-#ifndef NDEBUG
-    #define LOG_DEBUG_ENABLED 1
-#else
-    #define LOG_DEBUG_ENABLED 0
+#ifndef LOG_DEBUG_ENABLED
+    #ifndef NDEBUG
+        #define LOG_DEBUG_ENABLED 1
+    #else
+        #define LOG_DEBUG_ENABLED 0
+    #endif
 #endif
 
 // API
@@ -26,7 +28,7 @@
 
 #define LOG_SINK_DISABLED  0
 
-#define LOG_MESSAGE(LEVEL) if (beam::Logger::will_log(LEVEL)) beam::LogMessage::create(LEVEL, __FILE__, __LINE__, __FUNCTION__)
+#define LOG_MESSAGE(LEVEL) if (beam::Logger::will_log(LEVEL)) beam::LogMessage(LEVEL, __FILE__, __LINE__, __FUNCTION__)
 #define LOG_CRITICAL() LOG_MESSAGE(LOG_LEVEL_CRITICAL)
 #define LOG_ERROR() LOG_MESSAGE(LOG_LEVEL_ERROR)
 #define LOG_WARNING() LOG_MESSAGE(LOG_LEVEL_WARNING)
@@ -114,6 +116,8 @@ public:
         return LogMessage(level, from.file, from.line, from.func);
     }
 
+    LogMessage(int level, const char* file, int line, const char* func);
+
     template <class T> LogMessage& operator<<(T x) {
         if constexpr (std::is_same<T, const char*>::value) {
             *_formatter << x;
@@ -140,8 +144,6 @@ public:
     LogMessage() {}
 
 private:
-    LogMessage(int level, const char* file, int line, const char* func);
-
     int _level=0;
     From _from;
     std::ostream* _formatter=0;

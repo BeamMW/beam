@@ -1,4 +1,5 @@
 #pragma once
+#include <stdexcept>
 #include <stdint.h>
 #include <string.h>
 
@@ -52,8 +53,7 @@ struct SerializeIstream {
     /// Reads from buffer
     size_t read(void *ptr, const size_t size) {
         if (cur + size > end) {
-            // this will cause deserializer error, not enough data
-            return 0;
+            raise_underflow();
         }
 
         memcpy(ptr, cur, size);
@@ -66,8 +66,16 @@ struct SerializeIstream {
     }
 
 // Fns needed by Yas deserializer
-    char peekch() const { return *cur; }
-    char getch() { return *cur++; }
+    char peekch() const {
+        if (cur >= end) raise_underflow();
+        return *cur;
+    }
+
+    char getch() {
+        if (cur >= end) raise_underflow();
+        return *cur++;
+
+    }
     void ungetch(char) { --cur; }
 
     /// Read cursor
@@ -75,6 +83,10 @@ struct SerializeIstream {
 
     /// Buffer end
     const char *end;
+
+    void raise_underflow() const {
+        throw std::runtime_error("deserialize buffer underflow");
+    }
 };
 
 }} //namespaces

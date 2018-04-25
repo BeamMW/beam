@@ -45,7 +45,7 @@ size_t MsgReader::feed_data(const uint8_t* p, size_t sz) {
             }
 
             // header deserialized successfully
-            if (_msgBuffer.size() < header.size) _msgBuffer.resize(header.size);
+            _msgBuffer.resize(header.size);
             _type = header.type;
             _cursor = _msgBuffer.data();
             _bytesLeft = header.size;
@@ -68,10 +68,10 @@ size_t MsgReader::feed_data(const uint8_t* p, size_t sz) {
                 }
                 // preventing from excessive memory consumption per individual stream
                 _msgBuffer.resize(_defaultSize);
-                _cursor = _msgBuffer.data();
-                _bytesLeft = MsgHeader::SIZE;
-                _state = reading_header;
             }
+            _cursor = _msgBuffer.data();
+            _bytesLeft = MsgHeader::SIZE;
+            _state = reading_header;
         } else {
             _cursor += consumed;
             _bytesLeft -= consumed;

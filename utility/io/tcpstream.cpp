@@ -86,7 +86,10 @@ int TcpStream::send_write_request() {
             return;
         }
         TcpStream* self = reinterpret_cast<TcpStream*>(req->handle->data);
-        assert(self);
+        if (!self) {
+            //stream was closed
+            return;
+        }
         assert(&(self->_writeRequest) == req);
         self->on_data_written(status);
     };
