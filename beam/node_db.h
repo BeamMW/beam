@@ -41,6 +41,7 @@ public:
 			StateFind2,
 			StateAuxGet,
 			StateUpdPrevRow,
+			StateGetNextFCount,
 			StateSetNextCount,
 			StateSetNextCountF,
 			StateGetHeightAndAux,
@@ -141,7 +142,7 @@ public:
 	void get_StateAux(uint64_t rowid, StateAuxData&);
 	void get_State(uint64_t rowid, Block::SystemState::Full&);
 
-	bool DeleteIdleState(uint64_t rowid, uint64_t& rowPrev); // State must exist. Returns false if there are ancestors.
+	bool DeleteState(uint64_t rowid, uint64_t& rowPrev); // State must exist. Returns false if there are ancestors.
 
 	void SetStateFunctional(uint64_t rowid);
 	void SetStateNotFunctional(uint64_t rowid);

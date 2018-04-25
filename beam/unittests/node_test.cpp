@@ -116,7 +116,7 @@ namespace beam
 		for (; ; h--)
 		{
 			assert(rowLast0);
-			if (!db.DeleteIdleState(rowLast0, rowLast0))
+			if (!db.DeleteState(rowLast0, rowLast0))
 				break;
 		}
 
@@ -126,7 +126,7 @@ namespace beam
 		{
 			if (!rowLast1)
 				break;
-			verify_test(db.DeleteIdleState(rowLast1, rowLast1));
+			verify_test(db.DeleteState(rowLast1, rowLast1));
 		}
 		
 		verify_test(!h);

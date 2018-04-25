@@ -418,7 +418,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 	rs.put(0, s.m_Height - 1);
 	rs.put(1, s.m_HashPrev);
 
-	uint32_t nPrevCountNext;
+	uint32_t nPrevCountNext, nCountNextF;
 	uint64_t rowPrev;
 	if (rs.Step())
 	{
@@ -428,6 +428,15 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 	else
 		rowPrev = 0;
 
+	// Count next functional
+	rs.Reset(Query::StateGetNextFCount, "SELECT COUNT() FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=? AND (" TblStates_StateFlags " & ?)");
+	rs.put(0, s.m_Height + 1);
+	rs.put(1, s.m_Hash);
+	rs.put(2, StateFlags::Functional);
+
+	verify(rs.Step());
+	rs.get(0, nCountNextF);
+
 	// Insert row
 
 #define THE_MACRO_1(dbname, extname) TblStates_##dbname ","
@@ -435,7 +444,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 
 	rs.Reset(Query::StateIns, "INSERT INTO " TblStates
 		" (" StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0) TblStates_StateFlags "," TblStates_CountNext "," TblStates_CountNextF "," TblStates_RowPrev ")"
-		" VALUES (" StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0,0,?)");
+		" VALUES (" StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0,?,?)");
 
 #undef THE_MACRO_1
 #undef THE_MACRO_2
@@ -446,6 +455,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 	StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0)
 #undef THE_MACRO_1
 
+	rs.put(iCol++, nCountNextF);
 	if (rowPrev)
 		rs.put(iCol, rowPrev); // otherwise it'd be NULL
 
@@ -477,17 +487,18 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 	else
 		TipAdd(rowid, s.m_Height);
 
-
 	return rowid;
 }
 
-bool NodeDB::DeleteIdleState(uint64_t rowid, uint64_t& rowPrev)
+bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 {
 	Recordset rs(*this, Query::StateGetHeightAndPrev, "SELECT "
 		TblStates "." TblStates_Height ","
 		TblStates "." TblStates_RowPrev ","
-		TblStates "." TblStates_CountNext
-		",prv." TblStates_CountNext
+		TblStates "." TblStates_CountNext ","
+		"prv." TblStates_CountNext ","
+		TblStates "." TblStates_StateFlags ","
+		"prv." TblStates_CountNextF
 		" FROM " TblStates " LEFT JOIN " TblStates " prv ON " TblStates "." TblStates_RowPrev "=prv.rowid" " WHERE " TblStates ".rowid=?");
 
 	rs.put(0, rowid);
@@ -499,13 +510,15 @@ bool NodeDB::DeleteIdleState(uint64_t rowid, uint64_t& rowPrev)
 	else
 		rs.get(1, rowPrev);
 
-	uint32_t nCountNext;
+	uint32_t nCountNext, nFlags, nCountPrevF;
 	rs.get(2, nCountNext);
 	if (nCountNext)
 		return false;
 
 	Height h;
 	rs.get(0, h);
+
+	rs.get(4, nFlags);
 
 	if (!rs.IsNull(1))
 	{
@@ -519,9 +532,27 @@ bool NodeDB::DeleteIdleState(uint64_t rowid, uint64_t& rowPrev)
 
 		if (!nCountNext)
 			TipAdd(rowPrev, h - 1);
+
+		if (StateFlags::Functional & nFlags)
+		{
+			rs.get(5, nCountPrevF);
+
+			if (!nCountPrevF)
+				throw "oops";
+
+			nCountPrevF--;
+			SetNextCountFunctional(rowPrev, nCountPrevF);
+
+			if (!nCountPrevF && (StateFlags::Reachable & nFlags))
+				TipReachableAdd(rowPrev, h - 1);
+
+		}
 	}
 
 	TipDel(rowid, h);
+
+	if (StateFlags::Reachable & nFlags)
+		TipReachableDel(rowid, h);
 
 	rs.Reset(Query::StateDel, "DELETE FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
