@@ -77,11 +77,10 @@ namespace
         }
     };
 
-    class TestKeyChainIntegration : public BaseTestKeyChain
+    class TestKeyChainIntegration : public IKeyChain
     {
     public:
         TestKeyChainIntegration()
-            : m_generator("secret_word_to_initiate")
         {
             addCoin(4);
             addCoin(3);
@@ -90,13 +89,27 @@ namespace
 
         void addCoin(const ECC::Amount& amount)
         {
-            auto pk = m_generator.next();
-            m_coins.emplace_back(ECC::Scalar::Native(pk.get()), amount);
+            m_coins.emplace_back(amount);
         }
 
+        std::vector<beam::Coin> getCoins(const ECC::Amount& amount)
+        {
+            std::vector<beam::Coin> res;
+            ECC::Amount t = 0;
+            for (auto& c : m_coins)
+            {
+                t += c.get_amount_coins();
+                res.push_back(c);
+                if (t >= amount)
+                {
+                    break;
+                }
+            }
+            return res;
+        }
+        
     private:
-
-        KeyGenerator m_generator;
+        std::vector<CoinData> m_coins;
     };
 
     template<typename KeychainImpl>
