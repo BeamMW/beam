@@ -4,7 +4,6 @@ IF (WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX")
 ELSE()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
-    
 ENDIF()
 
 include_directories(impl)

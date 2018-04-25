@@ -14,7 +14,12 @@ uint64_t local_timestamp_msec() {
 size_t format_timestamp(char* buffer, size_t bufferCap, const char* formatStr, uint64_t timestamp, bool formatMsec) {
     time_t seconds = (time_t)(timestamp/1000);
     struct tm tm;
+#ifdef WIN32
+    localtime_s(&tm, &seconds);
+    size_t nBytes = strftime(buffer, bufferCap, formatStr, &tm);
+#else
     size_t nBytes = strftime(buffer, bufferCap, formatStr, localtime_r(&seconds, &tm));
+#endif
     if (formatMsec && bufferCap - nBytes > 4) {
         snprintf(buffer + nBytes, 5, ".%03d", int(timestamp % 1000));
         nBytes += 4;
