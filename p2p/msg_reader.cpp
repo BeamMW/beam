@@ -1,5 +1,6 @@
 #include "msg_reader.h"
 #include <assert.h>
+#include <algorithm>
 
 namespace beam {
 

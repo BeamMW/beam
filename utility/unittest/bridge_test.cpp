@@ -1,7 +1,11 @@
 #include "utility/bridge.h"
 #include "utility/logger.h"
-#include <unistd.h>
 #include <assert.h>
+
+#ifdef WIN32
+#define __PRETTY_FUNCTION__ __FUNCSIG__
+#endif // WIN32
+
 
 using namespace std;
 using namespace beam;

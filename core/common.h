@@ -7,6 +7,11 @@
 #include <cstdint>
 #include <memory>
 
+#ifdef WIN32
+#	define NOMINMAX
+#	include <windows.h>
+#endif // WIN32
+
 #include "ecc.h"
 
 namespace beam

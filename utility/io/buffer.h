@@ -3,14 +3,23 @@
 #include <cstddef>
 #include <stdint.h>
 #include <string.h>
+#ifdef WIN32
+#include <Winsock2.h>
+#else
 #include <sys/uio.h>
-
+#endif
 namespace beam { namespace io {
 
 /// IOVec casts to iovec, just holds const uint8_t* instead of void*
 struct IOVec {
+#ifdef WIN32
+    size_t size;
+    const uint8_t* data;
+#else
     const uint8_t* data;
     size_t size;
+#endif
+    
 
     IOVec() : data(0), size(0)
     {}
@@ -19,12 +28,21 @@ struct IOVec {
     IOVec(const void* _data, size_t _size) :
         data((const uint8_t*)_data), size(_size)
     {
+#ifdef WIN32
+        static_assert(
+            sizeof(IOVec) == sizeof(WSABUF) &&
+            offsetof(IOVec, data) == offsetof(WSABUF, buf) &&
+            offsetof(IOVec, size) == offsetof(WSABUF, len),
+            "IOVec must cast to iovec"
+            );
+#else
         static_assert(
             sizeof(IOVec) == sizeof(iovec) &&
             offsetof(IOVec, data) == offsetof(iovec, iov_base) &&
             offsetof(IOVec, size) == offsetof(iovec, iov_len),
             "IOVec must cast to iovec"
         );
+#endif
     }
 
     /// Advances the pointer

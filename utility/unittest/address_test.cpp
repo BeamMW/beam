@@ -17,7 +17,25 @@ void address_test() {
     assert(b == Address::LOCALHOST);
 }
 
+#ifdef WIN32
+struct WSAInit {
+    WSAInit() {
+        WSADATA wsaData = { 0 };
+        int errorno = WSAStartup(MAKEWORD(2, 2), &wsaData);
+        if (errorno != 0) {
+            throw std::runtime_error("Failed to init WSA");
+        }
+    }
+    ~WSAInit() {
+        WSACleanup();
+    }
+};
+#endif
+
 int main() {
+#ifdef WIN32
+    WSAInit init;
+#endif // !WIN32
     address_test();
 }
 

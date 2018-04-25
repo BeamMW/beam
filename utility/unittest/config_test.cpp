@@ -1,7 +1,6 @@
 #include "utility/config.h"
 #include <iostream>
 #include <fstream>
-#include <unistd.h>
 #include <assert.h>
 
 using namespace beam;

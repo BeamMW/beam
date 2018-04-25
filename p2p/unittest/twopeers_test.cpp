@@ -5,7 +5,7 @@
 #include "utility/io/timer.h"
 #include "utility/helpers.h"
 #include <iostream>
-#include <unistd.h>
+//#include <unistd.h>
 
 using namespace beam;
 using namespace beam::io;
@@ -225,7 +225,8 @@ void twopeers_test() {
     Server server;
     server.start();
 
-    usleep(500);
+    this_thread::sleep_for(chrono::microseconds(500));
+    //usleep(500);
 
     Client client;
     client.start();

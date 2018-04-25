@@ -10,10 +10,11 @@ set(UV_SOURCES
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(UV_COMPILE_DEFS WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0600 _CRT_SECURE_NO_WARNINGS)
-    set(UV_INCLUDE_DIRS ${UV_INCLUDE_DIRS} ${UV_SRC_DIR}/src/win)
+    set(UV_INCLUDE_DIRS ${UV_INCLUDE_DIRS} ${UV_SRC_DIR} ${UV_SRC_DIR}/win)
     set(UV_SOURCES ${UV_SOURCES}
         ${UV_SRC_DIR}/win/async.c
         ${UV_SRC_DIR}/win/core.c
+        ${UV_SRC_DIR}/win/detect-wakeup.c
         ${UV_SRC_DIR}/win/dl.c
         ${UV_SRC_DIR}/win/error.c
         ${UV_SRC_DIR}/win/fs-event.c

@@ -21,9 +21,15 @@ public:
         return _iovecs.size() - _index;
     }
 
+#ifdef WIN32
+    const WSABUF* fragments() const {
+        return (const WSABUF*)_iovecs.data() + _index;
+    }
+#else
     const iovec* fragments() const {
         return (const iovec*)_iovecs.data() + _index;
     }
+#endif
 
     size_t size() const {
         return _totalSize;

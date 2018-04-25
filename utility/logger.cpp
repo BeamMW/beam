@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <mutex>
+#include <algorithm>
 
 namespace beam {
 

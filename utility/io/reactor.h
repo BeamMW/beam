@@ -18,7 +18,7 @@ public:
     Reactor& operator=(const Reactor&) = delete;
 
     using Ptr = std::shared_ptr<Reactor>;
-
+    
     /// Creates a new reactor.
     /// NOTE: throws on errors
     static Ptr create(const Config& config);

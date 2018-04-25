@@ -19,9 +19,19 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 endif()
 
-if(UNIX)
+if(UNIX OR WIN32)
     set(UV_INTERNAL ON)
     add_definitions(-DUV_INTERNAL)
+endif()
+
+if (WIN32)
+    set(Boost_DEBUG On)
+    find_package(Boost)
+    if (Boost_FOUND)
+        add_definitions( -DBOOST_ALL_DYN_LINK )
+        include_directories(${Boost_INCLUDE_DIRS})
+        
+    endif()
 endif()
 
 include_directories(${PROJECT_SOURCE_DIR})
