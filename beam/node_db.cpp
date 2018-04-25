@@ -169,7 +169,9 @@ const void* NodeDB::Recordset::get_BlobStrict(int col, uint32_t n)
 
 void NodeDB::Open(const char* szPath, bool bCreate)
 {
-	TestRet(sqlite3_config(SQLITE_CONFIG_SINGLETHREAD));
+	sqlite3_config(SQLITE_CONFIG_MULTITHREAD); // can use several connections concurrently, but each of them is single-threaded, i.e. not internal locking/serialization per-connection.
+	// Will fail on consequent calls (SQLITE_MISUSE). Ignore this.
+
 	TestRet(sqlite3_open(szPath, &m_pDb));
 
 	Transaction t(*this);
