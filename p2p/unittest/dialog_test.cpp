@@ -3,6 +3,7 @@
 #include "utility/logger.h"
 #include "utility/bridge.h"
 #include "utility/io/tcpserver.h"
+#include "utility/io/timer.h"
 
 using namespace beam;
 using namespace std;
@@ -10,9 +11,6 @@ using namespace std;
 // peer locators must be (at the moment) convertible to and from uint64_t
 // also here can be any id required by logic and convertible into uint64_t
 using PeerLocator = uint64_t;
-
-// port to listen to
-constexpr uint16_t g_port = 33333;
 
 // Serializable request object
 struct Request {
@@ -83,6 +81,10 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork {
     LogicToNetworkBridge bridge;
     Thread t;
     std::unique_ptr<Connection> connection;
+
+    // just for example, more complex logic can be implied
+    PeerLocator someId=0;
+
     io::TcpServer::Ptr server;
     SerializedMsg msgToSend;
 
@@ -172,7 +174,8 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork {
         LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << errorCode << ")";
     }
 
-    void send_request(PeerLocator /*to*/, Request&& req) override {
+    void send_request(PeerLocator to, Request&& req) override {
+        someId = to;
         if (connection) {
             protocol.serialize(msgToSend, requestCode, req);
 
@@ -186,7 +189,8 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork {
         }
     }
 
-    void send_response(PeerLocator /*to*/, Response&& res) override {
+    void send_response(PeerLocator to, Response&& res) override {
+        someId = to;
         if (connection) {
             protocol.serialize(msgToSend, responseCode, res);
             connection->write_msg(msgToSend);
@@ -205,7 +209,7 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork {
         if (!req.is_valid()) return false; // shut down stream
 
         // TODO const Object& --> Object&&, they are not needed any more on protocol side
-        proxy.handle_request(address.packed, Request(req));
+        proxy.handle_request(someId, Request(req));
         return true;
     }
 
@@ -213,12 +217,155 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork {
         // this assertion is for this test only
         assert(connectionId = address.packed);
         if (!res.is_valid()) return false; // shut down stream
-        proxy.handle_response(address.packed, Response(res));
+        proxy.handle_response(someId, Response(res));
         return true;
     }
 
 };
 
+// App-side async thread context
+struct AppSideAsyncContext {
+    io::Reactor::Ptr reactor;
+    NetworkToLogicBridge bridge;
+    Thread t;
+
+    AppSideAsyncContext(INetworkToLogic& logicCallbacks) :
+        reactor(io::Reactor::create(io::Config())),
+        bridge(logicCallbacks, reactor)
+    {}
+
+    ~AppSideAsyncContext() {
+        t.join();
+    }
+
+    INetworkToLogic& get_proxy() {
+        return bridge;
+    }
+
+    // periodic timer for this example, can also setup a one-shot timer
+    io::Timer::Ptr set_timer(unsigned periodMsec, io::Timer::Callback&& onTimer) {
+        io::Timer::Ptr timer(io::Timer::create(reactor));
+        timer->start(periodMsec, true, std::move(onTimer));
+        return timer;
+    }
+
+    void run() {
+        t.start(BIND_THIS_MEMFN(thread_func));
+    }
+
+    void thread_func() {
+        LOG_DEBUG() << " starting";
+        reactor->run();
+        LOG_DEBUG() << " exiting";
+        bridge.stop_rx();
+    }
+
+    void stop() {
+        reactor->stop();
+    }
+
+    void wait() {
+        t.join();
+    }
+};
+
+// Application logic, resides in thread distinct to network one
+struct EventDrivenAppLogic : INetworkToLogic {
+    AppSideAsyncContext ctx;
+    unsigned timerPeriod=1000;
+    io::Timer::Ptr timer;
+    PeerLocator someId = 0;
+    int counter = 0;
+    ILogicToNetwork* proxy=0;
+
+    EventDrivenAppLogic(unsigned _timerPeriod, PeerLocator id) :
+        ctx(*this), timerPeriod(_timerPeriod), someId(id)
+    {}
+
+    void run(ILogicToNetwork* _proxy) {
+        proxy = _proxy;
+        timer = ctx.set_timer(timerPeriod, BIND_THIS_MEMFN(on_timer));
+        ctx.run();
+    }
+
+    void stop() {
+        ctx.stop();
+    }
+
+    void wait() {
+        ctx.wait();
+    }
+
+    void on_timer() {
+        if (counter > 10) {
+            LOG_INFO() << "stopping";
+            stop();
+            return;
+        }
+        LOG_DEBUG() << "sending request, x=" << ++counter;
+        Request req;
+        req.x = counter;
+        for (int i=0, sz = 13 * counter; i<sz; ++i) req.ooo.push_back(i);
+        if (proxy) proxy->send_request(someId, std::move(req));
+    }
+
+    void handle_request(PeerLocator from, Request&& req) override {
+        LOG_INFO() << "Request from " << from << " x=" << req.x << " size=" << req.ooo.size();
+        Response res { req.x, req.ooo.size() };
+        if (proxy) proxy->send_response(from, std::move(res));
+    }
+
+    void handle_response(PeerLocator from, Response&& res) override {
+        LOG_INFO() << "Response from " << from << " x=" << res.x << " z=" << res.z;
+    }
+};
+
+struct App {
+    EventDrivenAppLogic appLogic;
+    NetworkSide networkLogic;
+
+    App(io::Address _address, bool _thisIsServer, unsigned _timerPeriod) :
+        appLogic(_timerPeriod, _address.packed + (_thisIsServer ? 100500 : 0)),
+        networkLogic(appLogic, _address, _thisIsServer)
+    {}
+
+    void run() {
+        networkLogic.start();
+        appLogic.run(&networkLogic.get_proxy());
+    }
+
+    void wait() {
+        appLogic.wait();
+        networkLogic.stop();
+    }
+};
+
 int main() {
-    // TODO
+    auto logger = Logger::create(LoggerConfig());
+    try {
+        constexpr uint16_t port = 32123;
+
+        LOG_INFO() << "Creating apps";
+
+        // server
+        App app1(io::Address::localhost().port(port), true, 157);
+        // client
+        App app2(io::Address::localhost().port(port), false, 183);
+
+        LOG_INFO() << "Starting apps";
+
+        app1.run();
+        app2.run();
+
+        LOG_INFO() << "Waiting";
+
+        app1.wait();
+        app2.wait();
+
+        LOG_INFO() << "Done";
+    } catch (const std::exception& e) {
+        LOG_ERROR() << "Exception: " << e.what();
+    } catch (...) {
+        LOG_ERROR() << "Unknown exception";
+    }
 }
