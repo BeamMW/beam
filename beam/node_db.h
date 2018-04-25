@@ -45,6 +45,7 @@ public:
 			StateGetHeightAndAux,
 			StateGetNextFunctional,
 			StateSetFlags,
+			StateGetFlags1,
 			TipAdd,
 			TipDel,
 			TipReachableAdd,
@@ -141,7 +142,8 @@ public:
 
 	bool DeleteIdleState(uint64_t rowid, uint64_t& rowPrev); // State must exist. Returns false if there are ancestors.
 
-	void SetStateFunctional(uint64_t rowid); // set or clear
+	void SetStateFunctional(uint64_t rowid);
+	void SetStateNotFunctional(uint64_t rowid);
 
 private:
 
@@ -165,7 +167,7 @@ private:
 	void TipReachableDel(uint64_t rowid, Height);
 	void SetNextCount(uint64_t rowid, uint32_t);
 	void SetFlags(uint64_t rowid, uint32_t);
-	void OnStateReachable(uint64_t rowid, Height);
+	void OnStateReachable(uint64_t rowid, Height, bool);
 
 	void TestChanged1Row();
 };

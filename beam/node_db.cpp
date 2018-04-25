@@ -659,10 +659,49 @@ void NodeDB::SetStateFunctional(uint64_t rowid)
 	SetFlags(rowid, nFlags);
 
 	if (StateFlags::Reachable & nFlags)
-		OnStateReachable(rowid, h);
+		OnStateReachable(rowid, h, true);
 }
 
-void NodeDB::OnStateReachable(uint64_t rowid, Height h)
+void NodeDB::SetStateNotFunctional(uint64_t rowid)
+{
+	Recordset rs(*this, Query::StateGetFlags1, "SELECT " TblStates_StateFlags "," TblStates_Height "," TblStates_RowPrev " FROM " TblStates " WHERE rowid=?");
+	rs.put(0, rowid);
+	if (!rs.Step())
+		throw "State not found!";
+
+	uint32_t nFlags;
+	rs.get(0, nFlags);
+
+	if (!(StateFlags::Functional & nFlags))
+		return; // ?!
+	nFlags &= ~StateFlags::Functional;
+
+	Height h;
+	rs.get(1, h);
+
+	if (StateFlags::Reachable & nFlags)
+	{
+		nFlags &= ~StateFlags::Reachable;
+
+		if (h)
+		{
+			assert(!rs.IsNull(2));
+
+			uint64_t rowPrev;
+			rs.get(2, rowPrev);
+
+			TipReachableAdd(rowPrev, h - 1);
+
+		} else
+			assert(rs.IsNull(2));
+
+		OnStateReachable(rowid, h, false);
+	}
+
+	SetFlags(rowid, nFlags);
+}
+
+void NodeDB::OnStateReachable(uint64_t rowid, Height h, bool b)
 {
 	typedef std::pair<uint64_t, uint32_t> RowAndFlags;
 	std::vector<RowAndFlags> rows;
@@ -681,25 +720,29 @@ void NodeDB::OnStateReachable(uint64_t rowid, Height h)
 				uint32_t nFlags;
 				rs.get(1, nFlags);
 				assert(StateFlags::Functional & nFlags);
-				assert(!(StateFlags::Reachable & nFlags));
+				assert(!(StateFlags::Reachable & nFlags) == b);
 				rows.push_back(RowAndFlags(rowid, nFlags));
 			}
 		}
 
 		if (rows.empty())
 		{
-			TipReachableAdd(rowid, h);
+			if (b)
+				TipReachableAdd(rowid, h);
+			else
+				TipReachableDel(rowid, h);
+
 			break;
 		}
 
 		for (size_t i = 0; i < rows.size(); i++)
-			SetFlags(rows[i].first, rows[i].second | StateFlags::Reachable);
+			SetFlags(rows[i].first, rows[i].second ^ StateFlags::Reachable);
 
 		rowid = rows[0].first;
 		h++;
 
 		for (size_t i = 1; i < rows.size(); i++)
-			OnStateReachable(rows[i].first, h);
+			OnStateReachable(rows[i].first, h, b);
 
 		rows.clear();
 	}

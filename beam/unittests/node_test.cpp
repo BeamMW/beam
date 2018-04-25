@@ -104,6 +104,10 @@ namespace beam
 
 		db.SetStateFunctional(rowZero); // this should trigger big update
 
+		db.SetStateNotFunctional(rowZero);
+		db.SetStateFunctional(rowZero);
+		db.SetStateNotFunctional(rowZero);
+
 		tr.Commit();
 		tr.Start(db);
 
