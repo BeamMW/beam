@@ -28,13 +28,29 @@
 
 #define LOG_SINK_DISABLED  0
 
+// This stub will be optimized out;
+struct LogMessageStub {
+    LogMessageStub() {}
+    template <typename T> LogMessageStub& operator<<(const T&) { return *this; }
+};
+
 #define LOG_MESSAGE(LEVEL) if (beam::Logger::will_log(LEVEL)) beam::LogMessage(LEVEL, __FILE__, __LINE__, __FUNCTION__)
 #define LOG_CRITICAL() LOG_MESSAGE(LOG_LEVEL_CRITICAL)
 #define LOG_ERROR() LOG_MESSAGE(LOG_LEVEL_ERROR)
 #define LOG_WARNING() LOG_MESSAGE(LOG_LEVEL_WARNING)
 #define LOG_INFO() LOG_MESSAGE(LOG_LEVEL_INFO)
-#define LOG_DEBUG() if (LOG_DEBUG_ENABLED) LOG_MESSAGE(LOG_LEVEL_DEBUG)
-#define LOG_VERBOSE() if (LOG_VERBOSE_ENABLED) LOG_MESSAGE(LOG_LEVEL_VERBOSE)
+
+#if LOG_DEBUG_ENABLED
+    #define LOG_DEBUG() LOG_MESSAGE(LOG_LEVEL_DEBUG)
+#else
+    #define LOG_DEBUG() LogMessageStub()
+#endif
+
+#if LOG_VERBOSE_ENABLED
+    #define LOG_VERBOSE() LOG_MESSAGE(LOG_LEVEL_VERBOSE)
+#else
+    #define LOG_VERBOSE() LogMessageStub()
+#endif
 
 namespace beam {
 

@@ -1,6 +1,6 @@
 #include "p2p/protocol.h"
 #include "p2p/connection.h"
-#define LOG_DEBUG_ENABLED false
+#define LOG_DEBUG_ENABLED 0
 #include "utility/logger.h"
 #include "utility/bridge.h"
 #include "utility/io/tcpserver.h"
