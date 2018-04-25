@@ -408,12 +408,29 @@ void NodeDB::get_State(uint64_t rowid, Block::SystemState::Full& out)
 
 uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 {
+	// Is there a prev? Is it a tip currently?
+	Recordset rs(*this, Query::StateFind2, "SELECT rowid," TblStates_CountNext " FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_Hash "=?");
+	rs.put(0, s.m_Height - 1);
+	rs.put(1, s.m_HashPrev);
+
+	uint32_t nPrevCountNext;
+	uint64_t rowPrev;
+	if (rs.Step())
+	{
+		rs.get(0, rowPrev);
+		rs.get(1, nPrevCountNext);
+	}
+	else
+		rowPrev = 0;
+
+	// Insert row
+
 #define THE_MACRO_1(dbname, extname) TblStates_##dbname ","
 #define THE_MACRO_2(dbname, extname) "?,"
 
-	Recordset rs(*this, Query::StateIns, "INSERT INTO " TblStates
-		" (" StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0) TblStates_StateFlags "," TblStates_CountNext ")"
-		" VALUES (" StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0)");
+	rs.Reset(Query::StateIns, "INSERT INTO " TblStates
+		" (" StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0) TblStates_StateFlags "," TblStates_CountNext "," TblStates_RowPrev ")"
+		" VALUES (" StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0,?)");
 
 #undef THE_MACRO_1
 #undef THE_MACRO_2
@@ -423,34 +440,83 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 #define THE_MACRO_1(dbname, extname) rs.put(iCol++, s.extname);
 	StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0)
 #undef THE_MACRO_1
-		
+
+	if (rowPrev)
+		rs.put(iCol, rowPrev); // otherwise it'd be NULL
+
 	rs.Step();
 	TestChanged1Row();
 
 	uint64_t rowid = get_LastInsertRowID();
 	assert(rowid);
 
-	Block::SystemState::ID kPrev;
-	kPrev.m_Height = s.m_Height - 1;
-	kPrev.m_Hash = s.m_HashPrev;
-	uint64_t rowPrev = StateFindSafe(kPrev);
+	if (rowPrev)
+	{
+		SetNextCount(rowPrev, nPrevCountNext + 1);
 
-	OnStateAddRemove(s, rowid, rowPrev, true);
+		if (!nPrevCountNext)
+			TipDel(rowPrev, s.m_Height - 1);
+	}
+
+	// Ancestors
+	rs.Reset(Query::StateUpdPrevRow, "UPDATE " TblStates " SET " TblStates_RowPrev "=? WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=?");
+	rs.put(0, rowid);
+	rs.put(1, s.m_Height + 1);
+	rs.put(2, s.m_Hash);
+
+	rs.Step();
+	uint32_t nCountAncestors = get_RowsChanged();
+
+	if (nCountAncestors)
+		SetNextCount(rowid, nCountAncestors);
+	else
+		TipAdd(rowid, s.m_Height);
+
 
 	return rowid;
 }
 
 void NodeDB::DeleteIdleState(uint64_t rowid)
 {
-	Block::SystemState::Full s;
-	get_State(rowid, s);
+	Recordset rs(*this, Query::StateGetHeightAndPrev, "SELECT "
+		TblStates "." TblStates_Height ","
+		TblStates "." TblStates_RowPrev ","
+		TblStates "." TblStates_CountNext
+		",prv." TblStates_CountNext
+		" FROM " TblStates " LEFT JOIN " TblStates " prv ON " TblStates "." TblStates_RowPrev "=prv.rowid" " WHERE " TblStates ".rowid=?");
 
-	StateAuxData d;
-	get_StateAux(rowid, d);
+	rs.put(0, rowid);
+	if (!rs.Step())
+		throw "State not found!";
 
-	OnStateAddRemove(s, rowid, d.m_RowPrev, false);
+	uint32_t nCountNext;
+	rs.get(2, nCountNext);
+	if (nCountNext)
+		throw "Attempt to delete a state with ancestors!";
 
-	Recordset rs(*this, Query::StateDel, "DELETE FROM " TblStates " WHERE rowid=?");
+	Height h;
+	rs.get(0, h);
+
+	if (!rs.IsNull(1))
+	{
+		uint64_t rowPrev;
+		rs.get(1, rowPrev);
+
+		rs.get(3, nCountNext);
+		if (!nCountNext)
+			throw "oops!";
+
+		nCountNext--;
+
+		SetNextCount(rowPrev, nCountNext);
+
+		if (!nCountNext)
+			TipAdd(rowPrev, h - 1);
+	}
+
+	TipDel(rowid, h);
+
+	rs.Reset(Query::StateDel, "DELETE FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 
 	rs.Step();
@@ -491,57 +557,10 @@ void NodeDB::get_StateAux(uint64_t rowid, StateAuxData& out)
 	rs.get(2, out.m_Flags);
 }
 
-void NodeDB::OnStateAddRemove(const Block::SystemState::ID& k, uint64_t rowid, uint64_t rowPrev, bool bAdd)
+void NodeDB::SetNextCount(uint64_t rowid, uint32_t n)
 {
-	// The being added/removed element *must* be non-functional! It's illegal to remove a functional element without first making it non-functional
-
-	Recordset rs(*this, Query::StateUpdPrevRow, "UPDATE " TblStates " SET " TblStates_RowPrev "=? WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=?");
-
-	if (bAdd)
-		rs.put(0, rowid); // otherwise it's NULL
-
-	rs.put(1, k.m_Height + 1);
-	rs.put(2, k.m_Hash);
-
-	rs.Step();
-	uint32_t nCountAncestors = get_RowsChanged();
-
-	if (nCountAncestors)
-	{
-		if (bAdd)
-			AddNextCount(rowid, nCountAncestors);
-	} else
-	{
-		if (bAdd)
-			TipAdd(rowid, k.m_Height);
-		else
-			TipDel(rowid, k.m_Height);
-	}
-
-	if (rowPrev)
-	{
-		AddNextCount(rowPrev, bAdd ? 1 : uint32_t(-1));
-
-		if (bAdd)
-		{
-			rs.Reset(Query::StateUpdPrevRow2, "UPDATE " TblStates " SET " TblStates_RowPrev "=? WHERE rowid=?");
-			rs.put(0, rowPrev);
-			rs.put(1, rowid);
-
-			rs.Step();
-			TestChanged1Row();
-
-			TipDel(rowPrev, k.m_Height - 1);
-		}
-		else
-			TipAdd(rowPrev, k.m_Height - 1);
-	}
-}
-
-void NodeDB::AddNextCount(uint64_t rowid, uint32_t nDelta)
-{
-	Recordset rs(*this, Query::StateUpdNextCount, "UPDATE " TblStates " SET " TblStates_CountNext "=" TblStates_CountNext "+? WHERE rowid=?");
-	rs.put(0, nDelta);
+	Recordset rs(*this, Query::StateSetNextCount, "UPDATE " TblStates " SET " TblStates_CountNext "=? WHERE rowid=?");
+	rs.put(0, n);
 	rs.put(1, rowid);
 
 	rs.Step();

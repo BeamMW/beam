@@ -36,11 +36,13 @@ public:
 			StateIns,
 			StateDel,
 			StateGet,
+			StateGetHeightAndPrev,
 			StateFind,
+			StateFind2,
 			StateAuxGet,
 			StateUpdPrevRow,
 			StateUpdPrevRow2,
-			StateUpdNextCount,
+			StateSetNextCount,
 			TipAdd,
 			TipDel,
 
@@ -153,9 +155,8 @@ private:
 
 	void TipAdd(uint64_t rowid, Height);
 	void TipDel(uint64_t rowid, Height);
-	void AddNextCount(uint64_t rowid, uint32_t nDelta);
+	void SetNextCount(uint64_t rowid, uint32_t);
 
-	void OnStateAddRemove(const Block::SystemState::ID&, uint64_t rowid, uint64_t rowPrev, bool bAdd);
 	void TestChanged1Row();
 };
 
