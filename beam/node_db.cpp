@@ -20,6 +20,7 @@ namespace beam {
 #define TblStates_StateFlags	"StateFlags"
 #define TblStates_RowPrev		"RowPrev"
 #define TblStates_CountNext		"CountNext"
+#define TblStates_CountNextF	"CountNextFunctional"
 #define TblStates_PoW			"PoW"
 #define TblStates_BlindOffset	"BlindOffset"
 #define TblStates_Mmr			"Mmr"
@@ -215,6 +216,7 @@ void NodeDB::Create()
 		"[" TblStates_StateFlags	"] INTEGER NOT NULL,"
 		"[" TblStates_RowPrev		"] INTEGER,"
 		"[" TblStates_CountNext		"] INTEGER NOT NULL,"
+		"[" TblStates_CountNextF	"] INTEGER NOT NULL,"
 		"[" TblStates_PoW			"] BLOB,"
 		"[" TblStates_BlindOffset	"] BLOB,"
 		"[" TblStates_Mmr			"] BLOB,"
@@ -432,8 +434,8 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 #define THE_MACRO_2(dbname, extname) "?,"
 
 	rs.Reset(Query::StateIns, "INSERT INTO " TblStates
-		" (" StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0) TblStates_StateFlags "," TblStates_CountNext "," TblStates_RowPrev ")"
-		" VALUES (" StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0,?)");
+		" (" StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0) TblStates_StateFlags "," TblStates_CountNext "," TblStates_CountNextF "," TblStates_RowPrev ")"
+		" VALUES (" StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0,0,?)");
 
 #undef THE_MACRO_1
 #undef THE_MACRO_2
@@ -574,6 +576,16 @@ void NodeDB::SetNextCount(uint64_t rowid, uint32_t n)
 	TestChanged1Row();
 }
 
+void NodeDB::SetNextCountFunctional(uint64_t rowid, uint32_t n)
+{
+	Recordset rs(*this, Query::StateSetNextCountF, "UPDATE " TblStates " SET " TblStates_CountNextF "=? WHERE rowid=?");
+	rs.put(0, n);
+	rs.put(1, rowid);
+
+	rs.Step();
+	TestChanged1Row();
+}
+
 void NodeDB::TipAdd(uint64_t rowid, Height h)
 {
 	Recordset rs(*this, Query::TipAdd, "INSERT INTO " TblTips " VALUES(?,?)");
@@ -617,15 +629,16 @@ void NodeDB::SetStateFunctional(uint64_t rowid)
 	Recordset rs(*this, Query::StateGetHeightAndAux, "SELECT "
 		TblStates "." TblStates_Height ","
 		TblStates "." TblStates_RowPrev ","
-		TblStates "." TblStates_StateFlags
-		",prv." TblStates_StateFlags
+		TblStates "." TblStates_StateFlags ","
+		"prv." TblStates_StateFlags ","
+		"prv." TblStates_CountNextF
 		" FROM " TblStates " LEFT JOIN " TblStates " prv ON " TblStates "." TblStates_RowPrev "=prv.rowid" " WHERE " TblStates ".rowid=?");
 
 	rs.put(0, rowid);
 	if (!rs.Step())
 		throw "not found";
 
-	uint32_t nFlags, nFlagsPrev;
+	uint32_t nFlags, nFlagsPrev, nCountPrevF;
 	rs.get(2, nFlags);
 	if (StateFlags::Functional & nFlags)
 		return; // ?!
@@ -639,14 +652,19 @@ void NodeDB::SetStateFunctional(uint64_t rowid)
 	{
 		if (!rs.IsNull(1))
 		{
+			uint64_t rowPrev;
+			rs.get(1, rowPrev);
 			rs.get(3, nFlagsPrev);
+			rs.get(4, nCountPrevF);
+
+			SetNextCountFunctional(rowPrev, nCountPrevF + 1);
+
 			if (StateFlags::Reachable & nFlagsPrev)
 			{
-				uint64_t rowPrev;
-				rs.get(1, rowPrev);
-
-				TipReachableDel(rowPrev, h - 1);
 				nFlags |= StateFlags::Reachable;
+
+				if (!nCountPrevF)
+					TipReachableDel(rowPrev, h - 1);
 			}
 		}
 
@@ -664,41 +682,57 @@ void NodeDB::SetStateFunctional(uint64_t rowid)
 
 void NodeDB::SetStateNotFunctional(uint64_t rowid)
 {
-	Recordset rs(*this, Query::StateGetFlags1, "SELECT " TblStates_StateFlags "," TblStates_Height "," TblStates_RowPrev " FROM " TblStates " WHERE rowid=?");
+	Recordset rs(*this, Query::StateGetFlags1, "SELECT "
+		TblStates "." TblStates_Height ","
+		TblStates "." TblStates_RowPrev ","
+		TblStates "." TblStates_StateFlags ","
+		"prv." TblStates_CountNextF
+		" FROM " TblStates " LEFT JOIN " TblStates " prv ON " TblStates "." TblStates_RowPrev "=prv.rowid" " WHERE " TblStates ".rowid=?");
+
 	rs.put(0, rowid);
 	if (!rs.Step())
 		throw "State not found!";
 
-	uint32_t nFlags;
-	rs.get(0, nFlags);
+	uint32_t nFlags, nCountPrevF;
+	rs.get(2, nFlags);
 
 	if (!(StateFlags::Functional & nFlags))
 		return; // ?!
 	nFlags &= ~StateFlags::Functional;
 
 	Height h;
-	rs.get(1, h);
+	rs.get(0, h);
 
-	if (StateFlags::Reachable & nFlags)
-	{
+	bool bReachable = (StateFlags::Reachable & nFlags) != 0;
+	if (bReachable)
 		nFlags &= ~StateFlags::Reachable;
 
-		if (h)
+	if (h)
+	{
+		if (rs.IsNull(1))
+			assert(!bReachable); // orphan
+		else
 		{
-			assert(!rs.IsNull(2));
-
 			uint64_t rowPrev;
-			rs.get(2, rowPrev);
+			rs.get(1, rowPrev);
+			rs.get(3, nCountPrevF);
 
-			TipReachableAdd(rowPrev, h - 1);
+			if (!nCountPrevF)
+				throw "oops";
 
-		} else
-			assert(rs.IsNull(2));
+			nCountPrevF--;
+			SetNextCountFunctional(rowPrev, nCountPrevF);
 
-		OnStateReachable(rowid, h, false);
-	}
+			if (!nCountPrevF && bReachable)
+				TipReachableAdd(rowPrev, h - 1);
+		}
+	} else
+		assert(rs.IsNull(1) && bReachable);
 
 	SetFlags(rowid, nFlags);
+
+	if (bReachable)
+		OnStateReachable(rowid, h, false);
 }
 
 void NodeDB::OnStateReachable(uint64_t rowid, Height h, bool b)

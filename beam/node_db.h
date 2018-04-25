@@ -42,6 +42,7 @@ public:
 			StateAuxGet,
 			StateUpdPrevRow,
 			StateSetNextCount,
+			StateSetNextCountF,
 			StateGetHeightAndAux,
 			StateGetNextFunctional,
 			StateSetFlags,
@@ -166,6 +167,7 @@ private:
 	void TipReachableAdd(uint64_t rowid, Height);
 	void TipReachableDel(uint64_t rowid, Height);
 	void SetNextCount(uint64_t rowid, uint32_t);
+	void SetNextCountFunctional(uint64_t rowid, uint32_t);
 	void SetFlags(uint64_t rowid, uint32_t);
 	void OnStateReachable(uint64_t rowid, Height, bool);
 
