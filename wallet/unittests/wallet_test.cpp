@@ -77,39 +77,56 @@ namespace
         }
     };
 
+    static const char* WalletName = "wallet.dat";
+    static const char* TestPassword = "test password";
     class TestKeyChainIntegration : public IKeyChain
     {
     public:
+
         TestKeyChainIntegration()
         {
-            addCoin(4);
-            addCoin(3);
-            addCoin(2);
-        }
+            std::ofstream os;
+            os.open(WalletName, std::ofstream::binary);
 
-        void addCoin(const ECC::Amount& amount)
-        {
-            m_coins.emplace_back(amount);
+            addCoin(os, 4);
+            addCoin(os, 3);
+            addCoin(os, 2);
+
+            os.close();
         }
 
         std::vector<beam::Coin> getCoins(const ECC::Amount& amount)
         {
             std::vector<beam::Coin> res;
-            ECC::Amount t = 0;
-            for (auto& c : m_coins)
+
+            std::ifstream is;
+            is.open(WalletName, std::ofstream::binary);
+
+            size_t offset = 0;
+
+            while(true)
             {
-                t += c.get_amount_coins();
-                res.push_back(c);
-                if (t >= amount)
-                {
-                    break;
-                }
+                std::unique_ptr<CoinData> coin(CoinData::recover(is, offset, TestPassword));
+
+                if(coin) 
+                    res.push_back(*coin);
+                else break;
+
+                offset += SIZE_COIN_DATA;
             }
+
+            is.close();
+
             return res;
         }
         
     private:
-        std::vector<CoinData> m_coins;
+
+        void addCoin(std::ofstream& os, const ECC::Amount& amount)
+        {
+            CoinData coin(amount);
+            coin.write(os, TestPassword);
+        }
     };
 
     template<typename KeychainImpl>

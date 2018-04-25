@@ -28,8 +28,8 @@ void CoinData::write(std::ofstream &os) {
 };
 
 void CoinData::write(std::ofstream &os, const char* key) {
-    char* encoded = encode(this, key);
-	os.write(encoded, SIZE_COIN_DATA);
+    std::unique_ptr<char> encoded(encode(this, key));
+	os.write(encoded.get(), SIZE_COIN_DATA);
 };
 
 CoinData* CoinData::recover(std::ifstream &is, size_t offset) {

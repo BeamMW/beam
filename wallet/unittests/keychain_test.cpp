@@ -12,7 +12,7 @@ void test_CoinData(const char* filename) {
     CoinData u2(1,   "File top secret #1!");
     CoinData u3(789, "bank account #879 with money");
 
-    char* skey = create_some_secret_key();
+    std::unique_ptr<char> skey(create_some_secret_key());
 
     std::ofstream os = create_out_filestream(filename);
 
@@ -20,26 +20,26 @@ void test_CoinData(const char* filename) {
     u2.write(os);
     u3.write(os);
 
-    u1.write(os, skey);
-    u2.write(os, skey);
-    u3.write(os, skey);
+    u1.write(os, skey.get());
+    u2.write(os, skey.get());
+    u3.write(os, skey.get());
 
     os.close();
 
     std::ifstream is(filename, std::fstream::in);
 
-    CoinData* pu1 = CoinData::recover(is, 0*SIZE_COIN_DATA);
-    CoinData* pu2 = CoinData::recover(is, 1*SIZE_COIN_DATA);
-    CoinData* pu3 = CoinData::recover(is, 2*SIZE_COIN_DATA);
+    std::unique_ptr<CoinData> pu1(CoinData::recover(is, 0*SIZE_COIN_DATA));
+    std::unique_ptr<CoinData> pu2(CoinData::recover(is, 1*SIZE_COIN_DATA));
+    std::unique_ptr<CoinData> pu3(CoinData::recover(is, 2*SIZE_COIN_DATA));
 
     std::cout << "After recover from file " << filename << "\n";
     std::cout << "CoinData #1: id = " << pu1->id << "; info = " << pu1->info << "\n";
     std::cout << "CoinData #2: id = " << pu2->id << "; info = " << pu2->info << "\n";
     std::cout << "CoinData #3: id = " << pu3->id << "; info = " << pu3->info << "\n\n";
 
-    CoinData* pu4 = CoinData::recover(is, 3*SIZE_COIN_DATA, "other secret key #1");
-    CoinData* pu5 = CoinData::recover(is, 4*SIZE_COIN_DATA, "other secret key #2");
-    CoinData* pu6 = CoinData::recover(is, 5*SIZE_COIN_DATA, skey);
+    std::unique_ptr<CoinData> pu4(CoinData::recover(is, 3*SIZE_COIN_DATA, "other secret key #1"));
+    std::unique_ptr<CoinData> pu5(CoinData::recover(is, 4*SIZE_COIN_DATA, "other secret key #2"));
+    std::unique_ptr<CoinData> pu6(CoinData::recover(is, 5*SIZE_COIN_DATA, skey.get()));
 
     std::cout << "After recover by key from file " << filename << "\n";
     std::cout << "CoinData #1 with INCORRECT key: id = " << pu4->id << "; info = " << pu4->info << "\n";
@@ -102,8 +102,8 @@ void test_key_CoinData() {
     CoinData::init_keygen("some phrase to init");
 
     CoinData u1(123);
-    CoinData* pu2 = new CoinData(777);
-    CoinData* pu3 = new CoinData(122 + 1);
+    std::unique_ptr<CoinData> pu2(std::make_unique<CoinData>(777));
+    std::unique_ptr<CoinData> pu3(std::make_unique<CoinData>(122 + 1));
 
     Scalar key1 = u1.get_blinding_factor();
     Scalar key2 = pu2->get_blinding_factor();

@@ -36,17 +36,26 @@ T* recover_from(std::ifstream &is, size_t offset, const char* key = nullptr) {
 
     size_t size_ = sizeof(T);
 
-    char* buf = new char[size_];
+    T* pu = new T;
+    char* buf = reinterpret_cast<char*>(pu);
+
+    std::streampos pos = is.tellg();
 
     is.seekg(offset);
     is.read(buf, size_);
-    is.seekg(0);
+    bool done = is;    
+    is.seekg(pos);
 
-    if (key) decode(buf, size_, key);
+    if(done)
+    {
+        if (key) decode(buf, size_, key);
 
-    T* pu = reinterpret_cast<T*>(buf);
+        return pu;
+    }
 
-    return pu;
+    delete pu;
+
+    return nullptr;
 }
 
 // For test encryption/decryption (encode some data by key)

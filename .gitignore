@@ -82,3 +82,4 @@ utility/unittest/shared_data_test
 utility/unittest/tcpclient_test
 utility/unittest/tcpserver_test
 wallet/unittests/keychain_test
+wallet/unittests/wallet.dat
