@@ -41,10 +41,14 @@ public:
 			StateFind2,
 			StateAuxGet,
 			StateUpdPrevRow,
-			StateUpdPrevRow2,
 			StateSetNextCount,
+			StateGetHeightAndAux,
+			StateGetNextFunctional,
+			StateSetFlags,
 			TipAdd,
 			TipDel,
+			TipReachableAdd,
+			TipReachableDel,
 
 			count
 		};
@@ -137,6 +141,8 @@ public:
 
 	bool DeleteIdleState(uint64_t rowid, uint64_t& rowPrev); // State must exist. Returns false if there are ancestors.
 
+	void SetStateFunctional(uint64_t rowid); // set or clear
+
 private:
 
 	sqlite3* m_pDb;
@@ -155,7 +161,11 @@ private:
 
 	void TipAdd(uint64_t rowid, Height);
 	void TipDel(uint64_t rowid, Height);
+	void TipReachableAdd(uint64_t rowid, Height);
+	void TipReachableDel(uint64_t rowid, Height);
 	void SetNextCount(uint64_t rowid, uint32_t);
+	void SetFlags(uint64_t rowid, uint32_t);
+	void OnStateReachable(uint64_t rowid, Height);
 
 	void TestChanged1Row();
 };

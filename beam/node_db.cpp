@@ -593,5 +593,127 @@ void NodeDB::TipDel(uint64_t rowid, Height h)
 	TestChanged1Row();
 }
 
+void NodeDB::TipReachableAdd(uint64_t rowid, Height h)
+{
+	Recordset rs(*this, Query::TipReachableAdd, "INSERT INTO " TblTipsReachable " VALUES(?,?)");
+	rs.put(0, h);
+	rs.put(1, rowid);
+
+	rs.Step();
+}
+
+void NodeDB::TipReachableDel(uint64_t rowid, Height h)
+{
+	Recordset rs(*this, Query::TipReachableDel, "DELETE FROM " TblTipsReachable " WHERE " TblTips_Height "=? AND " TblTips_State "=?");
+	rs.put(0, h);
+	rs.put(1, rowid);
+
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::SetStateFunctional(uint64_t rowid)
+{
+	Recordset rs(*this, Query::StateGetHeightAndAux, "SELECT "
+		TblStates "." TblStates_Height ","
+		TblStates "." TblStates_RowPrev ","
+		TblStates "." TblStates_StateFlags
+		",prv." TblStates_StateFlags
+		" FROM " TblStates " LEFT JOIN " TblStates " prv ON " TblStates "." TblStates_RowPrev "=prv.rowid" " WHERE " TblStates ".rowid=?");
+
+	rs.put(0, rowid);
+	if (!rs.Step())
+		throw "not found";
+
+	uint32_t nFlags, nFlagsPrev;
+	rs.get(2, nFlags);
+	if (StateFlags::Functional & nFlags)
+		return; // ?!
+
+	nFlags |= StateFlags::Functional;
+
+	Height h;
+	rs.get(0, h);
+
+	if (h)
+	{
+		if (!rs.IsNull(1))
+		{
+			rs.get(3, nFlagsPrev);
+			if (StateFlags::Reachable & nFlagsPrev)
+			{
+				uint64_t rowPrev;
+				rs.get(1, rowPrev);
+
+				TipReachableDel(rowPrev, h - 1);
+				nFlags |= StateFlags::Reachable;
+			}
+		}
+
+	} else
+	{
+		assert(rs.IsNull(1));
+		nFlags |= StateFlags::Reachable;
+	}
+
+	SetFlags(rowid, nFlags);
+
+	if (StateFlags::Reachable & nFlags)
+		OnStateReachable(rowid, h);
+}
+
+void NodeDB::OnStateReachable(uint64_t rowid, Height h)
+{
+	typedef std::pair<uint64_t, uint32_t> RowAndFlags;
+	std::vector<RowAndFlags> rows;
+
+	while (true)
+	{
+		{
+			Recordset rs(*this, Query::StateGetNextFunctional, "SELECT rowid," TblStates_StateFlags " FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_RowPrev "=? AND (" TblStates_StateFlags " & ?)");
+			rs.put(0, h + 1);
+			rs.put(1, rowid);
+			rs.put(2, StateFlags::Functional);
+
+			while (rs.Step())
+			{
+				rs.get(0, rowid);
+				uint32_t nFlags;
+				rs.get(1, nFlags);
+				assert(StateFlags::Functional & nFlags);
+				assert(!(StateFlags::Reachable & nFlags));
+				rows.push_back(RowAndFlags(rowid, nFlags));
+			}
+		}
+
+		if (rows.empty())
+		{
+			TipReachableAdd(rowid, h);
+			break;
+		}
+
+		for (size_t i = 0; i < rows.size(); i++)
+			SetFlags(rows[i].first, rows[i].second | StateFlags::Reachable);
+
+		rowid = rows[0].first;
+		h++;
+
+		for (size_t i = 1; i < rows.size(); i++)
+			OnStateReachable(rows[i].first, h);
+
+		rows.clear();
+	}
+}
+
+void NodeDB::SetFlags(uint64_t rowid, uint32_t n)
+{
+	Recordset rs(*this, Query::StateSetFlags, "UPDATE " TblStates " SET " TblStates_StateFlags "=? WHERE rowid=?");
+	rs.put(0, n);
+	rs.put(1, rowid);
+
+	rs.Step();
+	TestChanged1Row();
+}
+
 
 } // namespace beam

@@ -66,7 +66,7 @@ namespace beam
 		Block::SystemState::Full s;
 		ZeroObject(s);
 
-		uint64_t rowLast0 = 0;
+		uint64_t rowLast0 = 0, rowZero = 0;
 
 		// insert states in random order
 		for (uint32_t h1 = 0; h1 < nOrd; h1++)
@@ -78,6 +78,11 @@ namespace beam
 
 				if (hMax-1 == h)
 					rowLast0 = row;
+
+				if (h)
+					db.SetStateFunctional(row);
+				else
+					rowZero = row;
 			}
 		}
 
@@ -90,10 +95,14 @@ namespace beam
 		const uint32_t hFork0 = 700;
 
 		GetState(s, hFork0, 1, 0);
-		db.InsertState(s); // should be 2 tips
+		uint64_t r0 = db.InsertState(s); // should be 2 tips
+		db.SetStateFunctional(r0);
 
 		GetState(s, hFork0+1, 1, 1);
 		uint64_t rowLast1 = db.InsertState(s); // still 2 tips
+		db.SetStateFunctional(rowLast1);
+
+		db.SetStateFunctional(rowZero); // this should trigger big update
 
 		tr.Commit();
 		tr.Start(db);
