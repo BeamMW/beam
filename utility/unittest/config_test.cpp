@@ -2,6 +2,9 @@
 #include <iostream>
 #include <fstream>
 #include <assert.h>
+#ifndef WIN32
+#include <unistd.h>
+#endif
 
 using namespace beam;
 using namespace std;
