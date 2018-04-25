@@ -3,6 +3,7 @@
 #include <vector>
 #include <array>
 #include <list>
+#include <map>
 #include <utility>
 #include <cstdint>
 #include <memory>
@@ -24,6 +25,7 @@
 
 #include "ecc.h"
 
+#include <iostream>
 namespace beam
 {
 	// sorry for replacing 'using' by 'typedefs', some compilers don't support it

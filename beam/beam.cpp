@@ -2,9 +2,17 @@
 
 #include "node.h"
 #include "wallet/wallet.h"
+#include "core/ecc_native.h"
 
 #include <iostream>
 #include <boost/program_options.hpp>
+
+namespace ECC 
+{
+	// not really used, it's just the stupid linker
+	Context g_Ctx;
+	const Context& Context::get() { return g_Ctx; }
+}
 
 namespace po = boost::program_options;
 
@@ -44,8 +52,8 @@ int main(int argc, char* argv[])
         {
             std::cout << "starting a wallet..." << std::endl;
 
-            beam::Wallet wallet;
-            wallet.sendDummyTransaction();
+            //beam::Wallet wallet;
+            // wallet.sendDummyTransaction();
         }
         else
         {

@@ -54,6 +54,7 @@ namespace beam
 
 	/////////////
 	// Input
+
 	int Input::cmp(const Input& v) const
 	{
 		CMP_MEMBER(m_Coinbase)

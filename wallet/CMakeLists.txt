@@ -1,8 +1,21 @@
 set(WALLET_SRC
     wallet.h
     wallet.cpp
+    sender.cpp
+    receiver.cpp
 )
 
-add_library(wallet STATIC ${WALLET_SRC})
+set(KEYCHAIN_SRC_DIR keychain/src)
 
+set(KEYCHAIN_SRC
+    ${KEYCHAIN_SRC_DIR}/utill.cpp
+    ${KEYCHAIN_SRC_DIR}/coin.cpp
+    ${KEYCHAIN_SRC_DIR}/private_key.cpp
+)
+
+add_library(wallet STATIC ${WALLET_SRC} ${KEYCHAIN_SRC})
+add_dependencies(wallet core)
+target_link_libraries(wallet core)
 add_subdirectory(unittests)
+
+target_include_directories(wallet PRIVATE ${PROJECT_SOURCE_DIR}/wallet/keychain/include)

@@ -85,7 +85,7 @@ public:
 
     template<typename ...Args> SharedData(Args&& ... args) : _data(std::move(args...)) {}
 
-    const Reader read() const {
+    Reader read() const {
         _rwLock.lock_shared();
         return Reader(this);
     }

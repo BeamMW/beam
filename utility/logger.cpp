@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <mutex>
+#include <algorithm>
 
 namespace beam {
 

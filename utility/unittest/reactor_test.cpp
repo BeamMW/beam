@@ -1,6 +1,6 @@
 #include "utility/io/reactor.h"
 #include <future>
-#include <unistd.h>
+//#include <unistd.h>
 #include <iostream>
 
 using namespace beam::io;
@@ -16,7 +16,8 @@ void reactor_start_stop() {
     auto f = std::async(
         std::launch::async,
         [reactor]() {
-            usleep(300000);
+            this_thread::sleep_for(chrono::microseconds(300000));
+            //usleep(300000);
             cout << "stopping reactor from foreign thread..." << endl;
             reactor->stop();
         }

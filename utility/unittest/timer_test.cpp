@@ -1,5 +1,4 @@
 #include "utility/io/timer.h"
-#include <unistd.h>
 #include <iostream>
 
 using namespace beam::io;

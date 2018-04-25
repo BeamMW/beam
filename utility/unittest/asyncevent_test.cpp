@@ -1,6 +1,6 @@
 #include "utility/io/asyncevent.h"
 #include <future>
-#include <unistd.h>
+//#include <unistd.h>
 #include <iostream>
 
 using namespace beam::io;
@@ -23,7 +23,8 @@ void asyncevent_test() {
             for (int i=0; i<4; ++i) {
                 cout << "triggering async event from foreign thread..." << endl;
                 e->trigger();
-                usleep(300000);
+                this_thread::sleep_for(chrono::microseconds(300000));
+                //usleep(300000);
             }
             cout << "stopping reactor from foreign thread..." << endl;
             reactor->stop();

@@ -1,6 +1,8 @@
 #pragma once
 #include "common.h"
-
+#ifdef WIN32
+#include <windows.h>
+#endif
 
 namespace beam
 {
