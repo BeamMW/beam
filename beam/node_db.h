@@ -53,6 +53,12 @@ public:
 			TipReachableAdd,
 			TipReachableDel,
 
+			Dbg0,
+			Dbg1,
+			Dbg2,
+			Dbg3,
+			Dbg4,
+
 			count
 		};
 	};
@@ -146,6 +152,8 @@ public:
 
 	void SetStateFunctional(uint64_t rowid);
 	void SetStateNotFunctional(uint64_t rowid);
+
+	void assert_valid(); // diagnostic, for tests only
 
 private:
 

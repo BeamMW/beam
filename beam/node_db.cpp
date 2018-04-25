@@ -823,5 +823,138 @@ void NodeDB::SetFlags(uint64_t rowid, uint32_t n)
 	TestChanged1Row();
 }
 
+void NodeDB::assert_valid()
+{
+	uint32_t nTips = 0, nTipsReachable = 0;
+
+	Recordset rs(*this, Query::Dbg0, "SELECT "
+		TblStates ".rowid,"
+		TblStates "." TblStates_Height ","
+		TblStates "." TblStates_StateFlags ","
+		TblStates "." TblStates_RowPrev ","
+		TblStates "." TblStates_CountNext ","
+		TblStates "." TblStates_CountNextF ","
+		"prv.rowid,"
+		"prv." TblStates_StateFlags
+		" FROM " TblStates " LEFT JOIN " TblStates " prv ON (" TblStates "." TblStates_Height "=prv." TblStates_Height "+1) AND (" TblStates "." TblStates_HashPrev "=prv." TblStates_Hash ")");
+
+	while (rs.Step())
+	{
+		uint64_t rowid, rowPrev, rowPrev2;
+		uint32_t nFlags, nFlagsPrev, nNext, nNextF;
+		Height h;
+
+		rs.get(0, rowid);
+		rs.get(1, h);
+		rs.get(2, nFlags);
+		rs.get(4, nNext);
+		rs.get(5, nNextF);
+
+		if (StateFlags::Reachable & nFlags)
+			assert(StateFlags::Functional & nFlags);
+
+		assert(rs.IsNull(3) == rs.IsNull(6));
+		if (!rs.IsNull(3))
+		{
+			rs.get(3, rowPrev);
+			rs.get(6, rowPrev2);
+			rs.get(7, nFlagsPrev);
+			assert(rowPrev == rowPrev2);
+
+			if (StateFlags::Reachable & nFlags)
+				assert(StateFlags::Reachable & nFlagsPrev);
+			else
+				if (StateFlags::Functional & nFlags)
+					assert(!(StateFlags::Reachable & nFlagsPrev));
+
+
+		} else
+		{
+			if (StateFlags::Reachable & nFlags)
+				assert(!h);
+		}
+
+		assert(nNext >= nNextF);
+
+		if (!nNext)
+			nTips++;
+
+		if (!nNextF && (StateFlags::Reachable & nFlags))
+			nTipsReachable++;
+	}
+	
+	rs.Reset(Query::Dbg1, "SELECT "
+		TblTips "." TblTips_Height ","
+		TblStates "." TblStates_Height ","
+		TblStates "." TblStates_CountNext
+		" FROM " TblTips " LEFT JOIN " TblStates " ON " TblTips "." TblTips_State "=" TblStates ".rowid");
+
+	for (; rs.Step(); nTips--)
+	{
+		Height h0, h1;
+		rs.get(0, h0);
+		rs.get(1, h1);
+		assert(h0 == h1);
+
+		uint32_t nNext;
+		rs.get(2, nNext);
+		assert(!nNext);
+	}
+
+	assert(!nTips);
+
+	rs.Reset(Query::Dbg2, "SELECT "
+		TblTipsReachable "." TblTips_Height ","
+		TblStates "." TblStates_Height ","
+		TblStates "." TblStates_CountNextF ","
+		TblStates "." TblStates_StateFlags
+		" FROM " TblTipsReachable " LEFT JOIN " TblStates " ON " TblTipsReachable "." TblTips_State "=" TblStates ".rowid");
+
+	for (; rs.Step(); nTipsReachable--)
+	{
+		Height h0, h1;
+		rs.get(0, h0);
+		rs.get(1, h1);
+		assert(h0 == h1);
+
+		uint32_t nNextF, nFlags;
+		rs.get(2, nNextF);
+		rs.get(3, nFlags);
+		assert(!nNextF);
+		assert(StateFlags::Reachable & nFlags);
+	}
+
+	assert(!nTipsReachable);
+
+	rs.Reset(Query::Dbg3, "SELECT "
+		TblStates ".rowid," TblStates "." TblStates_CountNext ",COUNT(nxt.rowid) FROM " TblStates
+		" LEFT JOIN " TblStates " nxt ON (" TblStates "." TblStates_Height "=nxt." TblStates_Height "-1) AND (" TblStates "." TblStates_Hash "=nxt." TblStates_HashPrev ")"
+		"GROUP BY " TblStates ".rowid");
+
+	while (rs.Step())
+	{
+		uint64_t rowid;
+		uint32_t n0, n1;
+		rs.get(0, rowid);
+		rs.get(1, n0);
+		rs.get(2, n1);
+		assert(n0 == n1);
+	}
+
+	rs.Reset(Query::Dbg4, "SELECT "
+		TblStates ".rowid," TblStates "." TblStates_CountNextF ",COUNT(nxt.rowid) FROM " TblStates
+		" LEFT JOIN " TblStates " nxt ON (" TblStates "." TblStates_Height "=nxt." TblStates_Height "-1) AND (" TblStates "." TblStates_Hash "=nxt." TblStates_HashPrev ") AND (nxt." TblStates_StateFlags " & 1) "
+		"GROUP BY " TblStates ".rowid");
+
+	while (rs.Step())
+	{
+		uint64_t rowid;
+		uint32_t n0, n1;
+		rs.get(0, rowid);
+		rs.get(1, n0);
+		rs.get(2, n1);
+		assert(n0 == n1);
+	}
+}
 
 } // namespace beam

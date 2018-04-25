@@ -60,7 +60,7 @@ namespace beam
 
 		NodeDB::Transaction tr(db);
 
-		const uint32_t hMax = 1000;
+		const uint32_t hMax = 250;
 		const uint32_t nOrd = 3;
 
 		Block::SystemState::Full s;
@@ -75,12 +75,16 @@ namespace beam
 			{
 				GetState(s, h, 0, 0);
 				uint64_t row = db.InsertState(s);
+				db.assert_valid();
 
 				if (hMax-1 == h)
 					rowLast0 = row;
 
 				if (h)
+				{
 					db.SetStateFunctional(row);
+					db.assert_valid();
+				}
 				else
 					rowZero = row;
 			}
@@ -92,21 +96,28 @@ namespace beam
 		// should only be 1 tip
 
 		// a subbranch
-		const uint32_t hFork0 = 700;
+		const uint32_t hFork0 = 70;
 
 		GetState(s, hFork0, 1, 0);
 		uint64_t r0 = db.InsertState(s); // should be 2 tips
+		db.assert_valid();
 		db.SetStateFunctional(r0);
+		db.assert_valid();
 
 		GetState(s, hFork0+1, 1, 1);
 		uint64_t rowLast1 = db.InsertState(s); // still 2 tips
 		db.SetStateFunctional(rowLast1);
+		db.assert_valid();
 
 		db.SetStateFunctional(rowZero); // this should trigger big update
+		db.assert_valid();
 
 		db.SetStateNotFunctional(rowZero);
+		db.assert_valid();
 		db.SetStateFunctional(rowZero);
+		db.assert_valid();
 		db.SetStateNotFunctional(rowZero);
+		db.assert_valid();
 
 		tr.Commit();
 		tr.Start(db);
@@ -118,6 +129,7 @@ namespace beam
 			assert(rowLast0);
 			if (!db.DeleteState(rowLast0, rowLast0))
 				break;
+			db.assert_valid();
 		}
 
 		assert(rowLast0 && (h == hFork0));
@@ -127,6 +139,7 @@ namespace beam
 			if (!rowLast1)
 				break;
 			verify_test(db.DeleteState(rowLast1, rowLast1));
+			db.assert_valid();
 		}
 		
 		verify_test(!h);
