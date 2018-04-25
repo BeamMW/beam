@@ -14,6 +14,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(UV_SOURCES ${UV_SOURCES}
         ${UV_SRC_DIR}/win/async.c
         ${UV_SRC_DIR}/win/core.c
+        ${UV_SRC_DIR}/win/detect-wakeup.c
         ${UV_SRC_DIR}/win/dl.c
         ${UV_SRC_DIR}/win/error.c
         ${UV_SRC_DIR}/win/fs-event.c
