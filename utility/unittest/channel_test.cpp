@@ -1,6 +1,5 @@
 #include "utility/message_queue.h"
 #include <future>
-#include <unistd.h>
 #include <iostream>
 #include <assert.h>
 

@@ -1,6 +1,10 @@
 #include "address.h"
 #include <stdlib.h>
+#ifdef WIN32
+#include <Ws2tcpip.h>
+#else
 #include <netdb.h>
+#endif // WIN32
 
 namespace beam { namespace io {
 
