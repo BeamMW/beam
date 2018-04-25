@@ -478,7 +478,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 	return rowid;
 }
 
-void NodeDB::DeleteIdleState(uint64_t rowid)
+bool NodeDB::DeleteIdleState(uint64_t rowid, uint64_t& rowPrev)
 {
 	Recordset rs(*this, Query::StateGetHeightAndPrev, "SELECT "
 		TblStates "." TblStates_Height ","
@@ -491,19 +491,21 @@ void NodeDB::DeleteIdleState(uint64_t rowid)
 	if (!rs.Step())
 		throw "State not found!";
 
+	if (rs.IsNull(1))
+		rowPrev = 0;
+	else
+		rs.get(1, rowPrev);
+
 	uint32_t nCountNext;
 	rs.get(2, nCountNext);
 	if (nCountNext)
-		throw "Attempt to delete a state with ancestors!";
+		return false;
 
 	Height h;
 	rs.get(0, h);
 
 	if (!rs.IsNull(1))
 	{
-		uint64_t rowPrev;
-		rs.get(1, rowPrev);
-
 		rs.get(3, nCountNext);
 		if (!nCountNext)
 			throw "oops!";
@@ -523,6 +525,8 @@ void NodeDB::DeleteIdleState(uint64_t rowid)
 
 	rs.Step();
 	TestChanged1Row();
+
+	return true;
 }
 
 uint64_t NodeDB::StateFindSafe(const Block::SystemState::ID& k)
