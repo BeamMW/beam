@@ -17,7 +17,7 @@ namespace beam {
 #define TblStates_Timestamp		"Timestamp"
 #define TblStates_HashUtxos		"HashUtxos"
 #define TblStates_HashKernels	"HashKernels"
-#define TblStates_StateFlags	"StateFlags"
+#define TblStates_Flags			"Flags"
 #define TblStates_RowPrev		"RowPrev"
 #define TblStates_CountNext		"CountNext"
 #define TblStates_CountNextF	"CountNextFunctional"
@@ -213,7 +213,7 @@ void NodeDB::Create()
 		"[" TblStates_Timestamp		"] INTEGER NOT NULL,"
 		"[" TblStates_HashUtxos		"] BLOB NOT NULL,"
 		"[" TblStates_HashKernels	"] BLOB NOT NULL,"
-		"[" TblStates_StateFlags	"] INTEGER NOT NULL,"
+		"[" TblStates_Flags			"] INTEGER NOT NULL,"
 		"[" TblStates_RowPrev		"] INTEGER,"
 		"[" TblStates_CountNext		"] INTEGER NOT NULL,"
 		"[" TblStates_CountNextF	"] INTEGER NOT NULL,"
@@ -429,7 +429,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 		rowPrev = 0;
 
 	// Count next functional
-	rs.Reset(Query::StateGetNextFCount, "SELECT COUNT() FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=? AND (" TblStates_StateFlags " & ?)");
+	rs.Reset(Query::StateGetNextFCount, "SELECT COUNT() FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=? AND (" TblStates_Flags " & ?)");
 	rs.put(0, s.m_Height + 1);
 	rs.put(1, s.m_Hash);
 	rs.put(2, StateFlags::Functional);
@@ -443,7 +443,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 #define THE_MACRO_2(dbname, extname) "?,"
 
 	rs.Reset(Query::StateIns, "INSERT INTO " TblStates
-		" (" StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0) TblStates_StateFlags "," TblStates_CountNext "," TblStates_CountNextF "," TblStates_RowPrev ")"
+		" (" StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0) TblStates_Flags "," TblStates_CountNext "," TblStates_CountNextF "," TblStates_RowPrev ")"
 		" VALUES (" StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0,?,?)");
 
 #undef THE_MACRO_1
@@ -497,7 +497,7 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 		TblStates "." TblStates_RowPrev ","
 		TblStates "." TblStates_CountNext ","
 		"prv." TblStates_CountNext ","
-		TblStates "." TblStates_StateFlags ","
+		TblStates "." TblStates_Flags ","
 		"prv." TblStates_CountNextF
 		" FROM " TblStates " LEFT JOIN " TblStates " prv ON " TblStates "." TblStates_RowPrev "=prv.rowid" " WHERE " TblStates ".rowid=?");
 
@@ -577,26 +577,6 @@ uint64_t NodeDB::StateFindSafe(const Block::SystemState::ID& k)
 	return rowid;
 }
 
-void NodeDB::get_StateAux(uint64_t rowid, StateAuxData& out)
-{
-	Recordset rs(*this, Query::StateAuxGet, "SELECT " TblStates_RowPrev "," TblStates_CountNext "," TblStates_StateFlags  " FROM " TblStates " WHERE rowid=?");
-	rs.put(0, rowid);
-
-	if (!rs.Step())
-		throw "State not found!";
-
-	if (rs.IsNull(0))
-		out.m_RowPrev = 0;
-	else
-	{
-		rs.get(0, out.m_RowPrev);
-		assert(out.m_RowPrev);
-	}
-
-	rs.get(1, out.m_CountNext);
-	rs.get(2, out.m_Flags);
-}
-
 void NodeDB::SetNextCount(uint64_t rowid, uint32_t n)
 {
 	Recordset rs(*this, Query::StateSetNextCount, "UPDATE " TblStates " SET " TblStates_CountNext "=? WHERE rowid=?");
@@ -660,8 +640,8 @@ void NodeDB::SetStateFunctional(uint64_t rowid)
 	Recordset rs(*this, Query::StateGetHeightAndAux, "SELECT "
 		TblStates "." TblStates_Height ","
 		TblStates "." TblStates_RowPrev ","
-		TblStates "." TblStates_StateFlags ","
-		"prv." TblStates_StateFlags ","
+		TblStates "." TblStates_Flags ","
+		"prv." TblStates_Flags ","
 		"prv." TblStates_CountNextF
 		" FROM " TblStates " LEFT JOIN " TblStates " prv ON " TblStates "." TblStates_RowPrev "=prv.rowid" " WHERE " TblStates ".rowid=?");
 
@@ -716,7 +696,7 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 	Recordset rs(*this, Query::StateGetFlags1, "SELECT "
 		TblStates "." TblStates_Height ","
 		TblStates "." TblStates_RowPrev ","
-		TblStates "." TblStates_StateFlags ","
+		TblStates "." TblStates_Flags ","
 		"prv." TblStates_CountNextF
 		" FROM " TblStates " LEFT JOIN " TblStates " prv ON " TblStates "." TblStates_RowPrev "=prv.rowid" " WHERE " TblStates ".rowid=?");
 
@@ -774,7 +754,7 @@ void NodeDB::OnStateReachable(uint64_t rowid, Height h, bool b)
 	while (true)
 	{
 		{
-			Recordset rs(*this, Query::StateGetNextFunctional, "SELECT rowid," TblStates_StateFlags " FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_RowPrev "=? AND (" TblStates_StateFlags " & ?)");
+			Recordset rs(*this, Query::StateGetNextFunctional, "SELECT rowid," TblStates_Flags " FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_RowPrev "=? AND (" TblStates_Flags " & ?)");
 			rs.put(0, h + 1);
 			rs.put(1, rowid);
 			rs.put(2, StateFlags::Functional);
@@ -815,7 +795,7 @@ void NodeDB::OnStateReachable(uint64_t rowid, Height h, bool b)
 
 void NodeDB::SetFlags(uint64_t rowid, uint32_t n)
 {
-	Recordset rs(*this, Query::StateSetFlags, "UPDATE " TblStates " SET " TblStates_StateFlags "=? WHERE rowid=?");
+	Recordset rs(*this, Query::StateSetFlags, "UPDATE " TblStates " SET " TblStates_Flags "=? WHERE rowid=?");
 	rs.put(0, n);
 	rs.put(1, rowid);
 
@@ -830,12 +810,12 @@ void NodeDB::assert_valid()
 	Recordset rs(*this, Query::Dbg0, "SELECT "
 		TblStates ".rowid,"
 		TblStates "." TblStates_Height ","
-		TblStates "." TblStates_StateFlags ","
+		TblStates "." TblStates_Flags ","
 		TblStates "." TblStates_RowPrev ","
 		TblStates "." TblStates_CountNext ","
 		TblStates "." TblStates_CountNextF ","
 		"prv.rowid,"
-		"prv." TblStates_StateFlags
+		"prv." TblStates_Flags
 		" FROM " TblStates " LEFT JOIN " TblStates " prv ON (" TblStates "." TblStates_Height "=prv." TblStates_Height "+1) AND (" TblStates "." TblStates_HashPrev "=prv." TblStates_Hash ")");
 
 	while (rs.Step())
@@ -907,7 +887,7 @@ void NodeDB::assert_valid()
 		TblTipsReachable "." TblTips_Height ","
 		TblStates "." TblStates_Height ","
 		TblStates "." TblStates_CountNextF ","
-		TblStates "." TblStates_StateFlags
+		TblStates "." TblStates_Flags
 		" FROM " TblTipsReachable " LEFT JOIN " TblStates " ON " TblTipsReachable "." TblTips_State "=" TblStates ".rowid");
 
 	for (; rs.Step(); nTipsReachable--)
@@ -943,7 +923,7 @@ void NodeDB::assert_valid()
 
 	rs.Reset(Query::Dbg4, "SELECT "
 		TblStates ".rowid," TblStates "." TblStates_CountNextF ",COUNT(nxt.rowid) FROM " TblStates
-		" LEFT JOIN " TblStates " nxt ON (" TblStates "." TblStates_Height "=nxt." TblStates_Height "-1) AND (" TblStates "." TblStates_Hash "=nxt." TblStates_HashPrev ") AND (nxt." TblStates_StateFlags " & 1) "
+		" LEFT JOIN " TblStates " nxt ON (" TblStates "." TblStates_Height "=nxt." TblStates_Height "-1) AND (" TblStates "." TblStates_Hash "=nxt." TblStates_HashPrev ") AND (nxt." TblStates_Flags " & 1) "
 		"GROUP BY " TblStates ".rowid");
 
 	while (rs.Step())
@@ -955,6 +935,48 @@ void NodeDB::assert_valid()
 		rs.get(2, n1);
 		assert(n0 == n1);
 	}
+}
+
+bool NodeDB::EnumTips(IEnumTip& x)
+{
+	Recordset rs(*this, Query::EnumTips, "SELECT " TblTips_Height "," TblTips_State " FROM " TblTips " ORDER BY "  TblTips_Height " ASC," TblTips_State " ASC");
+	return EnumTipsEx(rs, x);
+}
+
+bool NodeDB::EnumFunctionalTips(IEnumTip& x)
+{
+	Recordset rs(*this, Query::EnumFunctionalTips, "SELECT " TblTips_Height "," TblTips_State " FROM " TblTipsReachable " ORDER BY "  TblTips_Height " DESC," TblTips_State " DESC");
+	return EnumTipsEx(rs, x);
+}
+
+bool NodeDB::EnumTipsEx(Recordset& rs, IEnumTip& x)
+{
+	while (rs.Step())
+	{
+		StateID sid;
+		rs.get(0, sid.m_Height);
+		rs.get(1, sid.m_Row);
+		if (x.OnTip(sid))
+			return true;
+	}
+	return false;
+}
+
+bool NodeDB::get_Prev(StateID& sid)
+{
+	assert(sid.m_Row);
+	Recordset rs(*this, Query::StateGetPrev, "SELECT " TblStates_RowPrev " FROM " TblStates " WHERE rowid=?");
+	rs.put(0, sid.m_Row);
+
+	if (!rs.Step())
+		throw "oops";
+
+	if (rs.IsNull(0))
+		return false;
+
+	rs.get(0, sid.m_Row);
+	sid.m_Height--;
+	return true;
 }
 
 } // namespace beam

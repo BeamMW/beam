@@ -53,6 +53,30 @@ namespace beam
 		GetStateHash(s.m_HashPrev, h-1, iBranchPrev);
 	}
 
+	uint32_t CountTips(NodeDB& db, bool bFunctional, NodeDB::StateID* pLast = NULL)
+	{
+		struct MyTipEnum :public NodeDB::IEnumTip {
+			uint32_t m_Tips;
+			NodeDB::StateID* m_pLast;
+			virtual bool OnTip(const NodeDB::StateID& sid) override {
+				m_Tips++;
+				if (m_pLast)
+					*m_pLast = sid;
+				return false;
+			}
+		};
+
+		MyTipEnum mte;
+		mte.m_pLast = pLast;
+		mte.m_Tips = 0;
+		if (bFunctional)
+			db.EnumFunctionalTips(mte);
+		else
+			db.EnumTips(mte);
+
+		return mte.m_Tips;
+	}
+
 	void TestNodeDB(const char* sz, bool bCreate)
 	{
 		NodeDB db;
@@ -93,31 +117,49 @@ namespace beam
 		tr.Commit();
 		tr.Start(db);
 
-		// should only be 1 tip
+		assert(CountTips(db, false) == 1);
+		assert(CountTips(db, true) == 0);
 
 		// a subbranch
 		const uint32_t hFork0 = 70;
 
 		GetState(s, hFork0, 1, 0);
-		uint64_t r0 = db.InsertState(s); // should be 2 tips
+		uint64_t r0 = db.InsertState(s);
+
+		assert(CountTips(db, false) == 2);
+
 		db.assert_valid();
 		db.SetStateFunctional(r0);
 		db.assert_valid();
 
+		assert(CountTips(db, true) == 0);
+
 		GetState(s, hFork0+1, 1, 1);
-		uint64_t rowLast1 = db.InsertState(s); // still 2 tips
+		uint64_t rowLast1 = db.InsertState(s);
+
+		NodeDB::StateID sid;
+		assert(CountTips(db, false, &sid) == 2);
+		assert(sid.m_Height == hMax-1);
+
 		db.SetStateFunctional(rowLast1);
 		db.assert_valid();
 
 		db.SetStateFunctional(rowZero); // this should trigger big update
 		db.assert_valid();
+		assert(CountTips(db, true, &sid) == 2);
+		assert(sid.m_Height == hFork0 + 1);
+
+		while (db.get_Prev(sid))
+			;
+		assert(sid.m_Height == 0);
 
 		db.SetStateNotFunctional(rowZero);
 		db.assert_valid();
+		assert(CountTips(db, true) == 0);
+
 		db.SetStateFunctional(rowZero);
 		db.assert_valid();
-		db.SetStateNotFunctional(rowZero);
-		db.assert_valid();
+		assert(CountTips(db, true) == 2);
 
 		tr.Commit();
 		tr.Start(db);

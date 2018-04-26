@@ -39,7 +39,6 @@ public:
 			StateGetHeightAndPrev,
 			StateFind,
 			StateFind2,
-			StateAuxGet,
 			StateUpdPrevRow,
 			StateGetNextFCount,
 			StateSetNextCount,
@@ -52,6 +51,9 @@ public:
 			TipDel,
 			TipReachableAdd,
 			TipReachableDel,
+			EnumTips,
+			EnumFunctionalTips,
+			StateGetPrev,
 
 			Dbg0,
 			Dbg1,
@@ -138,20 +140,27 @@ public:
 
 	uint64_t InsertState(const Block::SystemState::Full&); // Fails if state already exists
 
-	struct StateAuxData {
-		uint64_t m_RowPrev;
-		uint32_t m_CountNext;
-		uint32_t m_Flags;
-	};
-
 	uint64_t StateFindSafe(const Block::SystemState::ID&);
-	void get_StateAux(uint64_t rowid, StateAuxData&);
 	void get_State(uint64_t rowid, Block::SystemState::Full&);
 
 	bool DeleteState(uint64_t rowid, uint64_t& rowPrev); // State must exist. Returns false if there are ancestors.
 
 	void SetStateFunctional(uint64_t rowid);
 	void SetStateNotFunctional(uint64_t rowid);
+
+	struct StateID {
+		uint64_t m_Row;
+		Height m_Height;
+		//Merkle::Hash m_Hash; //?
+	};
+
+	struct IEnumTip {
+		virtual bool OnTip(const StateID&) = 0; // return true to stop iteration
+	};
+
+	bool EnumTips(IEnumTip&); // lowest to highest
+	bool EnumFunctionalTips(IEnumTip&); // highest to lowest
+	bool get_Prev(StateID&);
 
 	void assert_valid(); // diagnostic, for tests only
 
@@ -169,6 +178,7 @@ private:
 	bool ExecStep(Query::Enum, const char*); // returns true while there's a row
 
 	sqlite3_stmt* get_Statement(Query::Enum, const char*);
+	static bool EnumTipsEx(Recordset&, IEnumTip&);
 
 
 	void TipAdd(uint64_t rowid, Height);
