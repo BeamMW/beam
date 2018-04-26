@@ -305,7 +305,7 @@ void NodeDB::TestChanged1Row()
 		throw std::runtime_error("oops1");
 }
 
-void NodeDB::ParamIntSet(uint32_t ID, uint32_t val)
+void NodeDB::ParamIntSet(uint32_t ID, uint64_t val)
 {
 	Recordset rs(*this, Query::ParamIntUpd, "UPDATE " TblParams " SET " TblParams_Int "=? WHERE " TblParams_ID "=?");
 	rs.put(0, val);
@@ -324,7 +324,7 @@ void NodeDB::ParamIntSet(uint32_t ID, uint32_t val)
 	}
 }
 
-bool NodeDB::ParamIntGet(uint32_t ID, uint32_t& val)
+bool NodeDB::ParamIntGet(uint32_t ID, uint64_t& val)
 {
 	Recordset rs(*this, Query::ParamIntGet, "SELECT " TblParams_Int " FROM " TblParams " WHERE " TblParams_ID "=?");
 	rs.put(0, ID);
@@ -336,7 +336,7 @@ bool NodeDB::ParamIntGet(uint32_t ID, uint32_t& val)
 	return true;
 }
 
-uint32_t NodeDB::ParamIntGetDef(int ID, uint32_t def /* = 0 */)
+uint64_t NodeDB::ParamIntGetDef(int ID, uint64_t def /* = 0 */)
 {
 	ParamIntGet(ID, def);
 	return def;
@@ -977,6 +977,19 @@ bool NodeDB::get_Prev(StateID& sid)
 	rs.get(0, sid.m_Row);
 	sid.m_Height--;
 	return true;
+}
+
+bool NodeDB::get_Cursor(StateID& sid)
+{
+	sid.m_Row = ParamIntGetDef(ParamID::CursorRow);
+	sid.m_Height = ParamIntGetDef(ParamID::CursorHeight);
+	return (sid.m_Row > 0);
+}
+
+void NodeDB::put_Cursor(const StateID& sid)
+{
+	ParamIntSet(ParamID::CursorRow, sid.m_Row);
+	ParamIntGetDef(ParamID::CursorHeight, sid.m_Height);
 }
 
 } // namespace beam

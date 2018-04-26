@@ -19,7 +19,9 @@ public:
 
 	struct ParamID {
 		enum Enum {
-			DbVer
+			DbVer,
+			CursorRow,
+			CursorHeight,
 		};
 	};
 
@@ -133,10 +135,10 @@ public:
 	};
 
 	// Hi-level functions
-	void ParamIntSet(uint32_t ID, uint32_t val);
-	bool ParamIntGet(uint32_t ID, uint32_t& val);
+	void ParamIntSet(uint32_t ID, uint64_t val);
+	bool ParamIntGet(uint32_t ID, uint64_t& val);
 
-	uint32_t ParamIntGetDef(int ID, uint32_t def = 0);
+	uint64_t ParamIntGetDef(int ID, uint64_t def = 0);
 
 	uint64_t InsertState(const Block::SystemState::Full&); // Fails if state already exists
 
@@ -161,6 +163,9 @@ public:
 	bool EnumTips(IEnumTip&); // lowest to highest
 	bool EnumFunctionalTips(IEnumTip&); // highest to lowest
 	bool get_Prev(StateID&);
+
+	bool get_Cursor(StateID& sid);
+	void put_Cursor(const StateID& sid);
 
 	void assert_valid(); // diagnostic, for tests only
 
