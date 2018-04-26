@@ -23,7 +23,7 @@ public:
     }
 
     SerializeBuffer buffer() {
-        return { _os.buf, _os.cur - _os.buf };
+        return { (const char*) &_os.m_vec.at(0), _os.m_vec.size() };
     }
 
     template <typename T> StaticBufferSerializer& operator&(const T& object) {
@@ -38,14 +38,45 @@ public:
     }
 
 private:
-    using Ostream = detail::SerializeOstream<BUFFER_SIZE>;
+    using Ostream = detail::SerializeOstreamStatic<BUFFER_SIZE>;
 
     Ostream _os;
     yas::binary_oarchive<Ostream, SERIALIZE_OPTIONS> _oa;
 };
 
 /// Default serializer has 100K buffer inside
-using Serializer = StaticBufferSerializer<100*1024>;
+using DefStaticSerializer = StaticBufferSerializer<100*1024>;
+
+/// Serializer to growing buffer
+class Serializer {
+public:
+    Serializer() : _oa(_os) {}
+
+    void reset() {
+        _os.clear();
+    }
+
+    SerializeBuffer buffer() {
+        return { (const char*) &_os.m_vec.at(0), _os.m_vec.size() };
+    }
+
+    template <typename T> Serializer& operator&(const T& object) {
+        _oa & object;
+        return *this;
+    }
+
+    template <typename T> SerializeBuffer serialize(const T& object) {
+        reset();
+        _oa & object;
+        return buffer();
+    }
+
+private:
+    using Ostream = detail::SerializeOstream;
+
+    Ostream _os;
+    yas::binary_oarchive<Ostream, SERIALIZE_OPTIONS> _oa;
+};
 
 /// Deserializer from static buffer
 class Deserializer {

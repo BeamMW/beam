@@ -6,8 +6,14 @@
 
 namespace beam
 {
-    struct Node
+    struct NetworkToWallet
     {
+        virtual void onNewTransaction(const Transaction& tx) = 0;
+    };
+
+    struct Node : public NetworkToWallet
+    {
+
         struct Config
         {
             int port;
@@ -15,9 +21,7 @@ namespace beam
 
         void listen(const Config& config);
 
-    private:
-
-        void handlePoolPush(const ByteBuffer& data);
+        virtual void onNewTransaction(const Transaction& tx);
 
     private:
         Chain chain;

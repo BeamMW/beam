@@ -2,18 +2,31 @@
 #include <stdexcept>
 #include <stdint.h>
 #include <string.h>
+#include <vector>
 
 namespace beam { namespace detail {
 
-/// Sink for static buffer serializer
-template <size_t BUFFER_SIZE> struct SerializeOstream {
-    enum { bufsize = 1024*100 };
-
-    SerializeOstream()
-        :cur(buf)
-    {
-        memset(buf, 0, bufsize);
+// Growing buffer serializer ostream
+struct SerializeOstream {
+    size_t write(const void *ptr, const size_t size) {
+        size_t n = m_vec.size();
+        m_vec.resize(n + size);
+        memcpy(&m_vec.at(n), ptr, size);
+        return size;
     }
+
+    void clear() {
+        m_vec.clear();
+    }
+
+    std::vector<uint8_t> m_vec;
+};
+
+/// Sink for static buffer serializer
+template <size_t BUFFER_SIZE> struct SerializeOstreamStatic {
+    SerializeOstreamStatic()
+        :cur(buf)
+    {}
 
     /// Called by serializer
     size_t write(const void *ptr, size_t size) {

@@ -7,7 +7,7 @@
 #pragma warning (disable: 4244) // conversion from ... to ..., possible loss of data, signed/unsigned mismatch
 #pragma warning (disable: 4018) // signed/unsigned mismatch
 
-#include "../beam/secp256k1-zkp/src/secp256k1.c"
+#include "../secp256k1-zkp/src/secp256k1.c"
 
 #pragma warning (default: 4018)
 #pragma warning (default: 4244)
@@ -37,6 +37,12 @@ namespace ECC {
 		return m_Value < s_Order;
 	}
 
+	Scalar& Scalar::operator = (const Native& v)
+	{
+		v.Export(*this);
+		return *this;
+	}
+
 	Scalar::Native& Scalar::Native::operator = (Zero_)
 	{
 		secp256k1_scalar_clear(this);
@@ -50,8 +56,10 @@ namespace ECC {
 
 	bool Scalar::Native::operator == (const Native& v) const
 	{
-		static_assert(sizeof(d) == sizeof(Scalar), "");
-		return !memcmp(d, v.d, sizeof(d));
+		for (int i = 0; i < _countof(d); i++)
+			if (d[i] != v.d[i])
+				return false;
+		return true;
 	}
 
 	Scalar::Native& Scalar::Native::operator = (Minus v)
@@ -65,6 +73,12 @@ namespace ECC {
 		int overflow;
 		secp256k1_scalar_set_b32(this, v.m_Value.m_pData, &overflow);
 		return overflow != 0;
+	}
+
+	Scalar::Native& Scalar::Native::operator = (const Scalar& v)
+	{
+		Import(v);
+		return *this;
 	}
 
 	void Scalar::Native::Export(Scalar& v) const
@@ -172,9 +186,7 @@ namespace ECC {
 
 	void Hash::Processor::Write(const Point::Native& v)
 	{
-		Point pt;
-		v.Export(pt);
-		Write(pt);
+		Write(Point(v));
 	}
 
 	/////////////////////
@@ -196,6 +208,12 @@ namespace ECC {
 			return 1;
 
 		return 0;
+	}
+
+	Point& Point::operator = (const Native& v)
+	{
+		v.Export(*this);
+		return *this;
 	}
 
 	bool Point::Native::ImportInternal(const Point& v)
@@ -220,6 +238,12 @@ namespace ECC {
 
 		*this = Zero;
 		return false;
+	}
+
+	Point::Native& Point::Native::operator = (const Point& v)
+	{
+		Import(v);
+		return *this;
 	}
 
 	bool Point::Native::Export(Point& v) const
@@ -592,7 +616,7 @@ namespace ECC {
 	void Signature::MultiSig::GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk)
 	{
 		NoLeak<Scalar> s0, sk_;
-		sk.Export(sk_.V);
+		sk_.V = sk;
 
 		for (uint32_t nAttempt = 0; ; nAttempt++)
 			if (secp256k1_nonce_function_default(s0.V.m_Value.m_pData, msg.m_pData, sk_.V.m_Value.m_pData, NULL, NULL, nAttempt) && !m_Nonce.Import(s0.V))
@@ -602,7 +626,7 @@ namespace ECC {
 	void Signature::CoSign(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk, const MultiSig& msig)
 	{
 		get_Challenge(k, msig.m_NoncePub, msg);
-		k.Export(m_e);
+		m_e = k;
 
 		k *= sk;
 		k = -k;
@@ -617,17 +641,14 @@ namespace ECC {
 
 		Scalar::Native k;
 		CoSign(k, msg, sk, msig);
-		k.Export(m_k);
+		m_k = k;
 	}
 
 	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
 	{
-		Scalar::Native k, e;
-		k.Import(m_k);
-		e.Import(m_e);
+		Scalar::Native k(m_k), e(m_e);
 
-		Point::Native pt;
-		pt = Context::get().G * k;
+		Point::Native pt = Context::get().G * k;
 
 		pt += pk * e;
 
@@ -651,10 +672,9 @@ namespace ECC {
 	{
 		void get_PtMinusVal(Point::Native& out, const Point& comm, Amount val)
 		{
-			out.Import(comm);
+			out = comm;
 
-			Point::Native ptAmount;
-			ptAmount = Context::get().H * val;
+			Point::Native ptAmount = Context::get().H * val;
 
 			ptAmount = -ptAmount;
 			out += ptAmount;

@@ -54,6 +54,7 @@ namespace beam
 
 	/////////////
 	// Input
+
 	int Input::cmp(const Input& v) const
 	{
 		CMP_MEMBER(m_Coinbase)
@@ -123,7 +124,7 @@ namespace beam
 				<< m_pContract->m_PublicKey;
 		}
 
-		for (List::const_iterator it = m_vNested.begin(); m_vNested.end() != it; it++)
+		for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
 		{
 			if (!(*it)->Traverse(hv, pFee, pExcess))
 				return false;
@@ -134,8 +135,7 @@ namespace beam
 
 		if (pExcess)
 		{
-			ECC::Point::Native pt;
-			pt.Import(m_Excess);
+			ECC::Point::Native pt(m_Excess);
 
 			if (!m_Signature.IsValid(hv, pt))
 				return false;
@@ -147,8 +147,7 @@ namespace beam
 				ECC::Hash::Value hv2;
 				get_HashForContract(hv2, hv);
 
-				pt.Import(m_pContract->m_PublicKey);
-				if (!m_pContract->m_Signature.IsValid(hv2, pt))
+				if (!m_pContract->m_Signature.IsValid(hv2, ECC::Point::Native(m_pContract->m_PublicKey)))
 					return false;
 			}
 		}
@@ -203,8 +202,8 @@ namespace beam
 		CMP_MEMBER(m_HeightMax)
 		CMP_MEMBER_PTR(m_pContract)
 
-		List::const_iterator it0 = m_vNested.begin();
-		List::const_iterator it1 = v.m_vNested.begin();
+		auto it0 = m_vNested.begin();
+		auto it1 = v.m_vNested.begin();
 
 		for ( ; m_vNested.end() != it0; it0++, it1++)
 		{
@@ -226,32 +225,24 @@ namespace beam
 	// Transaction
 	bool TxBase::ValidateAndSummarize(Amount& fee, ECC::Point::Native& sigma, Height nHeight) const
 	{
-		fee = 0;
-		sigma = ECC::Zero;
-
-		for (std::list<Input::Ptr>::const_iterator it = m_vInputs.begin(); m_vInputs.end() != it; it++)
+		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
 		{
 			const Input& v = *(*it);
-
-			ECC::Point::Native p;
-			p.Import(v.m_Commitment);
-			sigma += p;
+			sigma += ECC::Point::Native(v.m_Commitment);
 		}
 
 		sigma = -sigma;
 
-		for (std::list<Output::Ptr>::const_iterator it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
+		for (auto it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
 		{
 			const Output& v = *(*it);
 			if (!v.IsValid())
 				return false;
 
-			ECC::Point::Native p;
-			p.Import(v.m_Commitment);
-			sigma += p;
+			sigma += ECC::Point::Native(v.m_Commitment);
 		}
 
-		for (std::list<TxKernel::Ptr>::const_iterator it = m_vKernels.begin(); m_vKernels.end() != it; it++)
+		for (auto it = m_vKernels.begin(); m_vKernels.end() != it; it++)
 		{
 			const TxKernel& v = *(*it);
 			if (nHeight < v.m_HeightMin || nHeight > v.m_HeightMax)
@@ -267,7 +258,9 @@ namespace beam
 
 	bool Transaction::IsValid(Amount& fee, Height nHeight) const
 	{
-		ECC::Point::Native sigma;
+		ECC::Point::Native sigma(ECC::Zero);
+		fee = 0;
+
 		if (!ValidateAndSummarize(fee, sigma, nHeight))
 			return false;
 

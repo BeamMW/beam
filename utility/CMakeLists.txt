@@ -17,8 +17,15 @@ set(IO_SRC
 # ~etc
 )
 
+IF (WIN32)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX")
+ELSE()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
+ENDIF()
 
 add_library(utility STATIC ${UTILITY_SRC} ${IO_SRC})
+add_library(crypto STATIC crypto/blake/blake2b.cpp)
+include_directories(${PROJECT_SOURCE_DIR}/utility)
 
 if (UV_INTERNAL)
     include(io/libuv.cmake)

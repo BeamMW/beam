@@ -6,7 +6,7 @@ enable_testing()
 function(add_test_snippet EXE_NAME LIB_NAME)
     add_executable(${EXE_NAME} ${EXE_NAME}.cpp)
     add_dependencies(${EXE_NAME} ${LIB_NAME})
-	target_link_libraries(${EXE_NAME} ${LIB_NAME})
+    target_link_libraries(${EXE_NAME} ${LIB_NAME})
     add_test( ${EXE_NAME} ${EXE_NAME} )
 endfunction()
 
