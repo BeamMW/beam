@@ -43,6 +43,9 @@ namespace beam
 		typedef std::vector<Node>		Proof;
 
 		void Interpret(Hash&, const Proof&);
+		void Interpret(Hash&, const Node&);
+		void Interpret(Hash&, const Hash& hLeft, const Hash& hRight);
+		void Interpret(Hash&, const Hash& hNew, bool bNewOnRight);
 	}
 
 	struct Input

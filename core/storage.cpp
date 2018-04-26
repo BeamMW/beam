@@ -508,7 +508,7 @@ void Merkle::Mmr::Append(const Merkle::Hash& hv)
 		Merkle::Hash hv0;
 		LoadElement(hv0, n ^ 1, nHeight);
 
-		ECC::Hash::Processor() << hv0 << hv1 >> hv1;
+		Merkle::Interpret(hv1, hv0, false);
 	}
 
 	m_Count++;
@@ -536,7 +536,7 @@ bool Merkle::Mmr::get_HashForRange(Merkle::Hash& hv, uint32_t n0, uint32_t n) co
 				bEmpty = false;
 			}
 			else
-				ECC::Hash::Processor() << hv0 << hv >> hv;
+				Merkle::Interpret(hv, hv0, false);
 		}
 
 	return !bEmpty;

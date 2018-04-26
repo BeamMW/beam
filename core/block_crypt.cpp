@@ -7,23 +7,28 @@ namespace beam
 
 	namespace Merkle
 	{
+		void Interpret(Hash& out, const Hash& hLeft, const Hash& hRight)
+		{
+			ECC::Hash::Processor() << hLeft << hRight >> out;
+		}
+
+		void Interpret(Hash& hOld, const Hash& hNew, bool bNewOnRight)
+		{
+			if (bNewOnRight)
+				Interpret(hOld, hOld, hNew);
+			else
+				Interpret(hOld, hNew, hOld);
+		}
+
+		void Interpret(Hash& hash, const Node& n)
+		{
+			Interpret(hash, n.second, n.first);
+		}
+
 		void Interpret(Hash& hash, const Proof& p)
 		{
 			for (Proof::const_iterator it = p.begin(); p.end() != it; it++)
-			{
-				const Node& n = *it;
-
-				const ECC::uintBig* pp[] = { &hash, &n.second };
-				if (!n.first)
-					std::swap(pp[0], pp[1]);
-
-				ECC::Hash::Processor hp;
-
-				for (int i = 0; i < _countof(pp); i++)
-					hp << *pp[i];
-
-				hp >> hash;
-			}
+				Interpret(hash, *it);
 		}
 	}
 
