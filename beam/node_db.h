@@ -56,6 +56,8 @@ public:
 			EnumTips,
 			EnumFunctionalTips,
 			StateGetPrev,
+			Unactivate,
+			Activate,
 
 			Dbg0,
 			Dbg1,
@@ -165,7 +167,10 @@ public:
 	bool get_Prev(StateID&);
 
 	bool get_Cursor(StateID& sid);
-	void put_Cursor(const StateID& sid);
+
+	// the following functions move the curos, and mark the states with 'Active' flag
+	void MoveBack(StateID&);
+	void MoveFwd(const StateID&);
 
 	void assert_valid(); // diagnostic, for tests only
 
@@ -194,6 +199,7 @@ private:
 	void SetNextCountFunctional(uint64_t rowid, uint32_t);
 	void SetFlags(uint64_t rowid, uint32_t);
 	void OnStateReachable(uint64_t rowid, Height, bool);
+	void put_Cursor(const StateID& sid); // jump
 
 	void TestChanged1Row();
 };

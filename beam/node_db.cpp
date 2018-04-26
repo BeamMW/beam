@@ -23,9 +23,10 @@ namespace beam {
 #define TblStates_CountNext		"CountNext"
 #define TblStates_CountNextF	"CountNextFunctional"
 #define TblStates_PoW			"PoW"
-#define TblStates_BlindOffset	"BlindOffset"
+//#define TblStates_BlindOffset	"BlindOffset"
 #define TblStates_Mmr			"Mmr"
 #define TblStates_Body			"Body"
+#define TblStates_Peer			"Peer"
 
 #define TblTips					"Tips"
 #define TblTipsReachable		"TipsReachable"
@@ -220,9 +221,10 @@ void NodeDB::Create()
 		"[" TblStates_CountNext		"] INTEGER NOT NULL,"
 		"[" TblStates_CountNextF	"] INTEGER NOT NULL,"
 		"[" TblStates_PoW			"] BLOB,"
-		"[" TblStates_BlindOffset	"] BLOB,"
+		//"[" TblStates_BlindOffset	"] BLOB,"
 		"[" TblStates_Mmr			"] BLOB,"
 		"[" TblStates_Body			"] BLOB,"
+		"[" TblStates_Peer			"] BLOB,"
 		"PRIMARY KEY (" TblStates_Height "," TblStates_Hash "),"
 		"FOREIGN KEY (" TblStates_RowPrev ") REFERENCES " TblStates "(OID))");
 
@@ -521,10 +523,12 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 	if (nCountNext)
 		return false;
 
+	rs.get(4, nFlags);
+	if (StateFlags::Active & nFlags)
+		throw "attempt to delete an active state";
+
 	Height h;
 	rs.get(0, h);
-
-	rs.get(4, nFlags);
 
 	if (!rs.IsNull(1))
 	{
@@ -995,7 +999,32 @@ bool NodeDB::get_Cursor(StateID& sid)
 void NodeDB::put_Cursor(const StateID& sid)
 {
 	ParamIntSet(ParamID::CursorRow, sid.m_Row);
-	ParamIntGetDef(ParamID::CursorHeight, sid.m_Height);
+	ParamIntSet(ParamID::CursorHeight, sid.m_Height);
+}
+
+void NodeDB::MoveBack(StateID& sid)
+{
+	Recordset rs(*this, Query::Unactivate, "UPDATE " TblStates " SET " TblStates_Flags "=" TblStates_Flags " & ? WHERE rowid=?");
+	rs.put(0, ~uint32_t(StateFlags::Active));
+	rs.put(1, sid.m_Row);
+	rs.Step();
+	TestChanged1Row();
+
+	if (!get_Prev(sid))
+		ZeroObject(sid);
+
+	put_Cursor(sid);
+}
+
+void NodeDB::MoveFwd(const StateID& sid)
+{
+	Recordset rs(*this, Query::Activate, "UPDATE " TblStates " SET " TblStates_Flags "=" TblStates_Flags " | ? WHERE rowid=?");
+	rs.put(0, StateFlags::Active);
+	rs.put(1, sid.m_Row);
+	rs.Step();
+	TestChanged1Row();
+
+	put_Cursor(sid);
 }
 
 } // namespace beam

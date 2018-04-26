@@ -87,7 +87,7 @@ namespace beam
 			s.m_Prev = pHashes[i];
 		}
 
-		uint64_t rowLast0 = 0, rowZero = 0;
+		uint64_t pRows[hMax];
 
 		// insert states in random order
 		for (uint32_t h1 = 0; h1 < nOrd; h1++)
@@ -100,19 +100,14 @@ namespace beam
 				else
 					ZeroObject(s.m_Prev);
 
-				uint64_t row = db.InsertState(s);
+				pRows[h] = db.InsertState(s);
 				db.assert_valid();
-
-				if (hMax-1 == h)
-					rowLast0 = row;
 
 				if (h)
 				{
-					db.SetStateFunctional(row);
+					db.SetStateFunctional(pRows[h]);
 					db.assert_valid();
 				}
-				else
-					rowZero = row;
 			}
 		}
 
@@ -151,7 +146,7 @@ namespace beam
 		db.SetStateFunctional(rowLast1);
 		db.assert_valid();
 
-		db.SetStateFunctional(rowZero); // this should trigger big update
+		db.SetStateFunctional(pRows[0]); // this should trigger big update
 		db.assert_valid();
 		assert(CountTips(db, true, &sid) == 2);
 		assert(sid.m_Height == hFork0 + 1);
@@ -160,28 +155,41 @@ namespace beam
 			;
 		assert(sid.m_Height == 0);
 
-		db.SetStateNotFunctional(rowZero);
+		db.SetStateNotFunctional(pRows[0]);
 		db.assert_valid();
 		assert(CountTips(db, true) == 0);
 
-		db.SetStateFunctional(rowZero);
+		db.SetStateFunctional(pRows[0]);
 		db.assert_valid();
 		assert(CountTips(db, true) == 2);
+
+		for (sid.m_Height = 0; sid.m_Height < hMax; sid.m_Height++)
+		{
+			sid.m_Row = pRows[sid.m_Height];
+			db.MoveFwd(sid);
+		}
+
+		tr.Commit();
+		tr.Start(db);
+
+		while (sid.m_Row)
+			db.MoveBack(sid);
 
 		tr.Commit();
 		tr.Start(db);
 
 		// Delete main branch up to this tip
+		uint64_t row = pRows[hMax-1];
 		uint32_t h = hMax;
 		for (; ; h--)
 		{
-			assert(rowLast0);
-			if (!db.DeleteState(rowLast0, rowLast0))
+			assert(row);
+			if (!db.DeleteState(row, row))
 				break;
 			db.assert_valid();
 		}
 
-		assert(rowLast0 && (h == hFork0));
+		assert(row && (h == hFork0));
 
 		for (h += 2; ; h--)
 		{
