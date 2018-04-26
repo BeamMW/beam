@@ -162,31 +162,18 @@ namespace beam
 				Height			m_Height;
 			};
 
-			struct Extra {
-				Merkle::Hash	m_HashPrev;
-				Merkle::Hash	m_Utxos; // merkle hash of Utxos only.
-				Merkle::Hash	m_Kernels; // merkle hash of kernels only. Needed if/when we decide to allow kernel consuming
+			struct Full {
+				Height			m_Height;
+				Merkle::Hash	m_Prev;			// explicit referebce to prev
+				Merkle::Hash	m_States;		// all previous states
+				Merkle::Hash	m_Utxos;		// current UTXOs
+				Merkle::Hash	m_Kernels;		// kernels
 				Difficulty		m_Difficulty;
 				Timestamp		m_TimeStamp;
-			};
 
-			struct Full
-				:public ID
-				,public Extra
-			{
+				void get_Hash(Merkle::Hash&) const; // Calculated from all the above
+				void get_ID(ID&) const;
 			};
-
-			// System hash consists of the following:
-			// All the unspent UTXOs description (with their signatures?)
-			// All Tx kernels
-			// All previous *original* system state hashes
-			// Current height, difficulty and timestamp
-			//
-			// The node that actually has the current system state can construct the Merkle proof for all the included values. In particular it can confirm:
-			//		unspent UTXO (and their count, in case there are several such UTXOs)
-			//		Tx kernel
-			//		Correctness of the specified, height, difficulty and timestamp
-			//		That an older system state is actually included in this state.
 		};
 
 

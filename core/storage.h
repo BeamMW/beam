@@ -282,16 +282,6 @@ public:
 	//		Current Height, Hash, Difficulty.
 	//
 
-	struct State
-	{
-		typedef Block::SystemState::ID ID; // Height and state hash
-
-		struct Definition :public Block::SystemState::Extra {
-			Merkle::Hash m_HashPrev;
-		};
-
-		typedef std::vector<TxKernel::Ptr> Kernels;
-	};
 
 
 };

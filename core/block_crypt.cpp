@@ -274,4 +274,52 @@ namespace beam
 		return sigma == ECC::Zero;
 	}
 
+	/////////////
+	// Block
+	void Block::SystemState::Full::get_Hash(Merkle::Hash& out) const
+	{
+		// Our formula:
+		//
+		//	[
+		//		[
+		//			m_Height
+		//			[
+		//				m_Difficulty
+		//				m_TimeStamp
+		//			]
+		//		]
+		//		[
+		//			[
+		//				m_Prev
+		//				m_States
+		//			]
+		//			[
+		//				m_Utxos
+		//				m_Kernels
+		//			]
+		//		]
+		//	]
+
+		Merkle::Hash h0, h1, h2;
+
+		ECC::Hash::Processor() << m_Difficulty >> h1;
+		ECC::Hash::Processor() << m_TimeStamp >> h0;
+		Merkle::Interpret(h1, h0, true); // [ m_Difficulty, m_TimeStamp]
+
+		ECC::Hash::Processor() << m_Height >> h0;
+		Merkle::Interpret(h0, h1, true); // [ m_Height, [ m_Difficulty, m_TimeStamp] ]
+
+		Merkle::Interpret(h1, m_Prev, m_States);
+		Merkle::Interpret(h2, m_Utxos, m_Kernels);
+		Merkle::Interpret(h1, h2, true); // [ [m_Prev, m_States], [m_States, m_Utxos] ]
+
+		Merkle::Interpret(out, h0, h1);
+	}
+
+	void Block::SystemState::Full::get_ID(ID& out) const
+	{
+		out.m_Height = m_Height;
+		get_Hash(out.m_Hash);
+	}
+
 } // namespace beam

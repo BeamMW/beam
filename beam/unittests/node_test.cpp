@@ -41,18 +41,6 @@ void DeleteFile(const char* szPath)
 namespace beam
 {
 
-	void GetStateHash(Merkle::Hash& hash, Height h, uint8_t iBranch)
-	{
-		ECC::Hash::Processor() << h << iBranch >> hash;
-	}
-
-	void GetState(Block::SystemState::Full& s, Height h, uint8_t iBranch, uint8_t iBranchPrev)
-	{
-		s.m_Height = h;
-		GetStateHash(s.m_Hash, h, iBranch);
-		GetStateHash(s.m_HashPrev, h-1, iBranchPrev);
-	}
-
 	uint32_t CountTips(NodeDB& db, bool bFunctional, NodeDB::StateID* pLast = NULL)
 	{
 		struct MyTipEnum :public NodeDB::IEnumTip {
@@ -90,6 +78,15 @@ namespace beam
 		Block::SystemState::Full s;
 		ZeroObject(s);
 
+		Merkle::Hash pHashes[hMax];
+
+		for (int i = 0; i < hMax; i++)
+		{
+			s.m_Height = i;
+			s.get_Hash(pHashes[i]);
+			s.m_Prev = pHashes[i];
+		}
+
 		uint64_t rowLast0 = 0, rowZero = 0;
 
 		// insert states in random order
@@ -97,7 +94,12 @@ namespace beam
 		{
 			for (uint32_t h = h1; h < hMax; h += nOrd)
 			{
-				GetState(s, h, 0, 0);
+				s.m_Height = h;
+				if (h)
+					s.m_Prev = pHashes[h-1];
+				else
+					ZeroObject(s.m_Prev);
+
 				uint64_t row = db.InsertState(s);
 				db.assert_valid();
 
@@ -123,7 +125,10 @@ namespace beam
 		// a subbranch
 		const uint32_t hFork0 = 70;
 
-		GetState(s, hFork0, 1, 0);
+		s.m_Height = hFork0;
+		s.m_Prev = pHashes[hFork0-1];
+		s.m_Kernels.Inc(); // alter
+
 		uint64_t r0 = db.InsertState(s);
 
 		assert(CountTips(db, false) == 2);
@@ -134,7 +139,9 @@ namespace beam
 
 		assert(CountTips(db, true) == 0);
 
-		GetState(s, hFork0+1, 1, 1);
+		s.get_Hash(s.m_Prev);
+		s.m_Height++;
+
 		uint64_t rowLast1 = db.InsertState(s);
 
 		NodeDB::StateID sid;

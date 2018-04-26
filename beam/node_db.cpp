@@ -17,6 +17,7 @@ namespace beam {
 #define TblStates_Timestamp		"Timestamp"
 #define TblStates_HashUtxos		"HashUtxos"
 #define TblStates_HashKernels	"HashKernels"
+#define TblStates_HashStates	"HashStates"
 #define TblStates_Flags			"Flags"
 #define TblStates_RowPrev		"RowPrev"
 #define TblStates_CountNext		"CountNext"
@@ -213,6 +214,7 @@ void NodeDB::Create()
 		"[" TblStates_Timestamp		"] INTEGER NOT NULL,"
 		"[" TblStates_HashUtxos		"] BLOB NOT NULL,"
 		"[" TblStates_HashKernels	"] BLOB NOT NULL,"
+		"[" TblStates_HashStates	"] BLOB NOT NULL,"
 		"[" TblStates_Flags			"] INTEGER NOT NULL,"
 		"[" TblStates_RowPrev		"] INTEGER,"
 		"[" TblStates_CountNext		"] INTEGER NOT NULL,"
@@ -383,12 +385,12 @@ void NodeDB::Transaction::Rollback()
 
 #define StateCvt_Fields(macro, sep) \
 	macro(Height,		m_Height) sep \
-	macro(Hash,			m_Hash) sep \
-	macro(HashPrev,		m_HashPrev) sep \
+	macro(HashPrev,		m_Prev) sep \
 	macro(Difficulty,	m_Difficulty) sep \
 	macro(Timestamp,	m_TimeStamp) sep \
 	macro(HashUtxos,	m_Utxos) sep \
-	macro(HashKernels,	m_Kernels)
+	macro(HashKernels,	m_Kernels) \
+	macro(HashStates,	m_States)
 
 #define THE_MACRO_NOP0
 #define THE_MACRO_COMMA_S ","
@@ -416,7 +418,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 	// Is there a prev? Is it a tip currently?
 	Recordset rs(*this, Query::StateFind2, "SELECT rowid," TblStates_CountNext " FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_Hash "=?");
 	rs.put(0, s.m_Height - 1);
-	rs.put(1, s.m_HashPrev);
+	rs.put(1, s.m_Prev);
 
 	uint32_t nPrevCountNext, nCountNextF;
 	uint64_t rowPrev;
@@ -428,10 +430,13 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 	else
 		rowPrev = 0;
 
+	Merkle::Hash hash;
+	s.get_Hash(hash);
+
 	// Count next functional
 	rs.Reset(Query::StateGetNextFCount, "SELECT COUNT() FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=? AND (" TblStates_Flags " & ?)");
 	rs.put(0, s.m_Height + 1);
-	rs.put(1, s.m_Hash);
+	rs.put(1, hash);
 	rs.put(2, StateFlags::Functional);
 
 	verify(rs.Step());
@@ -443,13 +448,14 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 #define THE_MACRO_2(dbname, extname) "?,"
 
 	rs.Reset(Query::StateIns, "INSERT INTO " TblStates
-		" (" StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0) TblStates_Flags "," TblStates_CountNext "," TblStates_CountNextF "," TblStates_RowPrev ")"
-		" VALUES (" StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0,?,?)");
+		" (" TblStates_Hash "," StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0) TblStates_Flags "," TblStates_CountNext "," TblStates_CountNextF "," TblStates_RowPrev ")"
+		" VALUES (?," StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0,?,?)");
 
 #undef THE_MACRO_1
 #undef THE_MACRO_2
 
 	int iCol = 0;
+	rs.put(iCol++, hash);
 
 #define THE_MACRO_1(dbname, extname) rs.put(iCol++, s.extname);
 	StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0)
@@ -477,7 +483,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 	rs.Reset(Query::StateUpdPrevRow, "UPDATE " TblStates " SET " TblStates_RowPrev "=? WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=?");
 	rs.put(0, rowid);
 	rs.put(1, s.m_Height + 1);
-	rs.put(2, s.m_Hash);
+	rs.put(2, hash);
 
 	rs.Step();
 	uint32_t nCountAncestors = get_RowsChanged();
