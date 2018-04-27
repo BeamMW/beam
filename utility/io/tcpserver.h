@@ -6,7 +6,7 @@ namespace beam { namespace io {
 
 class TcpServer : protected Reactor::Object {
 public:
-    using Ptr = std::shared_ptr<TcpServer>;
+    using Ptr = std::unique_ptr<TcpServer>;
 
     // Either newStream is accepted or status != 0
     using Callback = std::function<void(TcpStream::Ptr&& newStream, int status)>;

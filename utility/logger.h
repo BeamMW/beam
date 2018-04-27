@@ -9,10 +9,12 @@
     #define LOG_VERBOSE_ENABLED 0
 #endif
 
-#ifndef NDEBUG
-    #define LOG_DEBUG_ENABLED 1
-#else
-    #define LOG_DEBUG_ENABLED 0
+#ifndef LOG_DEBUG_ENABLED
+    #ifndef NDEBUG
+        #define LOG_DEBUG_ENABLED 1
+    #else
+        #define LOG_DEBUG_ENABLED 0
+    #endif
 #endif
 
 // API
@@ -26,23 +28,40 @@
 
 #define LOG_SINK_DISABLED  0
 
-#define LOG_MESSAGE(LEVEL) if (beam::Logger::will_log(LEVEL)) beam::LogMessage::create(LEVEL, __FILE__, __LINE__, __FUNCTION__)
+// This stub will be optimized out;
+struct LogMessageStub {
+    LogMessageStub() {}
+    template <typename T> LogMessageStub& operator<<(const T&) { return *this; }
+};
+
+#define LOG_MESSAGE(LEVEL) if (beam::Logger::will_log(LEVEL)) beam::LogMessage(LEVEL, __FILE__, __LINE__, __FUNCTION__)
 #define LOG_CRITICAL() LOG_MESSAGE(LOG_LEVEL_CRITICAL)
 #define LOG_ERROR() LOG_MESSAGE(LOG_LEVEL_ERROR)
 #define LOG_WARNING() LOG_MESSAGE(LOG_LEVEL_WARNING)
 #define LOG_INFO() LOG_MESSAGE(LOG_LEVEL_INFO)
-#define LOG_DEBUG() if (LOG_DEBUG_ENABLED) LOG_MESSAGE(LOG_LEVEL_DEBUG)
-#define LOG_VERBOSE() if (LOG_VERBOSE_ENABLED) LOG_MESSAGE(LOG_LEVEL_VERBOSE)
+
+#if LOG_DEBUG_ENABLED
+    #define LOG_DEBUG() LOG_MESSAGE(LOG_LEVEL_DEBUG)
+#else
+    #define LOG_DEBUG() LogMessageStub()
+#endif
+
+#if LOG_VERBOSE_ENABLED
+    #define LOG_VERBOSE() LOG_MESSAGE(LOG_LEVEL_VERBOSE)
+#else
+    #define LOG_VERBOSE() LogMessageStub()
+#endif
 
 namespace beam {
 
 // Logger options
 struct LoggerConfig {
     int fileLevel=LOG_SINK_DISABLED;
-    int consoleLevel=LOG_LEVEL_INFO;
-    int checkpointsLevel=LOG_LEVEL_ERROR;
+    int consoleLevel=LOG_LEVEL_DEBUG;
+    int flushLevel=LOG_LEVEL_WARNING;
+    std::string filePrefix;
 
-    // ~etc flushLevel, baseFileName, rotation
+    // ~etc rotation
 };
 
 // Logger interface
@@ -113,6 +132,8 @@ public:
         return LogMessage(level, from.file, from.line, from.func);
     }
 
+    LogMessage(int level, const char* file, int line, const char* func);
+
     template <class T> LogMessage& operator<<(T x) {
         if constexpr (std::is_same<T, const char*>::value) {
             *_formatter << x;
@@ -139,8 +160,6 @@ public:
     LogMessage() {}
 
 private:
-    LogMessage(int level, const char* file, int line, const char* func);
-
     int _level=0;
     From _from;
     std::ostream* _formatter=0;

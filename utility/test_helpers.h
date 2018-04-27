@@ -33,5 +33,4 @@ private:
     std::chrono::high_resolution_clock::time_point started;
     uint64_t elapsed;
 };
-
 }} //namespaces

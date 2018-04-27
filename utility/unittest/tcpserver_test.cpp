@@ -2,6 +2,7 @@
 #include "utility/io/timer.h"
 #include "utility/io/exception.h"
 #include <iostream>
+#include <assert.h>
 
 using namespace beam::io;
 using namespace std;
@@ -13,9 +14,10 @@ void tcpserver_test() {
         TcpServer::Ptr server = TcpServer::create(
             reactor,
             Address(0, 33333),
-            [&reactor](TcpStream::Ptr&&, int errorCode) {
+            [&reactor](TcpStream::Ptr&& newStream, int errorCode) {
                 if (errorCode == 0) {
                     cout << "Stream accepted" << endl;
+                    assert(newStream);
                 } else {
                     cout << "Error code " << errorCode << endl;
                 }

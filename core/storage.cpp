@@ -1,5 +1,6 @@
 #include "storage.h"
 #include "ecc_native.h"
+#include <assert.h>
 
 namespace beam {
 

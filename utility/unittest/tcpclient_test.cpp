@@ -25,7 +25,7 @@ void tcpclient_test() {
             reactor->stop();
         };
 
-        Reactor::ConnectCallback on_connected = [theTag, &on_recv, &theStream](uint64_t tag, shared_ptr<TcpStream>&& newStream, int status) {
+        Reactor::ConnectCallback on_connected = [theTag, &on_recv, &theStream](uint64_t tag, unique_ptr<TcpStream>&& newStream, int status) {
             assert(tag == theTag);
             if (newStream) {
                 theStream = move(newStream);

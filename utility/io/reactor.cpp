@@ -6,6 +6,7 @@
 
 namespace beam { namespace io {
 
+//expected<Reactor::Ptr, int>
 Reactor::Ptr Reactor::create(const Config& config) {
     return Reactor::Ptr(new Reactor(config));
 }

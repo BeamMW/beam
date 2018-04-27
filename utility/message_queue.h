@@ -109,7 +109,7 @@ public:
 
     /// Dtor closes channel
     ~RX() {
-        _queue->close_rx();
+        close();
     }
 
     /// RX creates TXes
@@ -119,6 +119,10 @@ public:
 
     size_t queue_size() {
         return _queue.current_size();
+    }
+
+    void close() {
+        _queue->close_rx();
     }
 
 private:

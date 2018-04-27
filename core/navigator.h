@@ -3,6 +3,7 @@
 #ifdef WIN32
 #include <windows.h>
 #endif
+#include <assert.h>
 
 namespace beam
 {

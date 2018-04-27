@@ -27,5 +27,25 @@ size_t format_timestamp(char* buffer, size_t bufferCap, const char* formatStr, u
     return nBytes;
 }
 
+char* to_hex(char* dst, const void* bytes, size_t size) {
+    static const char digits[] = "0123456789abcdef";
+    char* d = dst;
+
+    const uint8_t* ptr = (const uint8_t*)bytes;
+    const uint8_t* end = ptr + size;
+    while (ptr < end) {
+        uint8_t c = *ptr++;
+        *d++ = digits[c >> 4];
+        *d++ = digits[c & 0xF];
+    }
+    *d = '\0';
+    return dst;
+}
+
+std::string to_hex(const void* bytes, size_t size) {
+    char* buf = (char*)alloca(2 * size + 1);
+    return std::string(to_hex(buf, bytes, size));
+}
+
 } //namespace
 
