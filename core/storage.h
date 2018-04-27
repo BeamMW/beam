@@ -209,19 +209,19 @@ namespace Merkle
 {
 	struct Mmr
 	{
-		uint32_t m_Count;
+		uint64_t m_Count;
 		Mmr() :m_Count(0) {}
 
-		void Append(const Merkle::Hash&);
+		void Append(const Hash&);
 
-		void get_Hash(Merkle::Hash&) const;
-		void get_Proof(Proof&, uint32_t i) const;
+		void get_Hash(Hash&) const;
+		void get_Proof(Proof&, uint64_t i) const;
 
 	protected:
-		bool get_HashForRange(Merkle::Hash&, uint32_t n0, uint32_t n) const;
+		bool get_HashForRange(Hash&, uint64_t n0, uint64_t n) const;
 
-		virtual void LoadElement(Merkle::Hash&, uint32_t nIdx, uint32_t nHeight) const = 0;
-		virtual void SaveElement(const Merkle::Hash&, uint32_t nIdx, uint32_t nHeight) = 0;
+		virtual void LoadElement(Hash&, uint64_t nIdx, uint8_t nHeight) const = 0;
+		virtual void SaveElement(const Hash&, uint64_t nIdx, uint8_t nHeight) = 0;
 	};
 }
 

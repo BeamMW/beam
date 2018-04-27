@@ -344,7 +344,7 @@ void DeleteFile(const char* szPath)
 
 		std::vector<HashVectorPtr> m_vec;
 
-		Merkle::Hash& get_At(uint32_t nIdx, uint32_t nHeight)
+		Merkle::Hash& get_At(uint64_t nIdx, uint8_t nHeight)
 		{
 			if (m_vec.size() <= nHeight)
 				m_vec.resize(nHeight + 1);
@@ -355,18 +355,18 @@ void DeleteFile(const char* szPath)
 
 		
 			HashVector& vec = *ptr;
-			if (vec.size() <= nIdx)
-				vec.resize(nIdx + 1);
+			if (vec.size() <= size_t(nIdx))
+				vec.resize(size_t(nIdx) + 1);
 
-			return vec[nIdx];
+			return vec[size_t(nIdx)];
 		}
 
-		virtual void LoadElement(Merkle::Hash& hv, uint32_t nIdx, uint32_t nHeight) const override
+		virtual void LoadElement(Merkle::Hash& hv, uint64_t nIdx, uint8_t nHeight) const override
 		{
 			hv = ((MyMmr*) this)->get_At(nIdx, nHeight);
 		}
 
-		virtual void SaveElement(const Merkle::Hash& hv, uint32_t nIdx, uint32_t nHeight) override
+		virtual void SaveElement(const Merkle::Hash& hv, uint64_t nIdx, uint8_t nHeight) override
 		{
 			get_At(nIdx, nHeight) = hv;
 		}

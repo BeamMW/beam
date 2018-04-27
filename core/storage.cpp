@@ -494,40 +494,40 @@ UtxoTree::Key& UtxoTree::Key::operator = (const Key::Formatted& fmt)
 
 /////////////////////////////
 // Merkle::Mmr
-void Merkle::Mmr::Append(const Merkle::Hash& hv)
+void Merkle::Mmr::Append(const Hash& hv)
 {
-	Merkle::Hash hv1 = hv;
-	uint32_t n = m_Count;
+	Hash hv1 = hv;
+	uint64_t n = m_Count;
 
-	for (uint32_t nHeight = 0; ; nHeight++, n >>= 1)
+	for (uint8_t nHeight = 0; ; nHeight++, n >>= 1)
 	{
 		SaveElement(hv1, n, nHeight);
 		if (!(1 & n))
 			break;
 
-		Merkle::Hash hv0;
+		Hash hv0;
 		LoadElement(hv0, n ^ 1, nHeight);
 
-		Merkle::Interpret(hv1, hv0, false);
+		Interpret(hv1, hv0, false);
 	}
 
 	m_Count++;
 }
 
-void Merkle::Mmr::get_Hash(Merkle::Hash& hv) const
+void Merkle::Mmr::get_Hash(Hash& hv) const
 {
 	if (!get_HashForRange(hv, 0, m_Count))
 		hv = ECC::Zero;
 }
 
-bool Merkle::Mmr::get_HashForRange(Merkle::Hash& hv, uint32_t n0, uint32_t n) const
+bool Merkle::Mmr::get_HashForRange(Hash& hv, uint64_t n0, uint64_t n) const
 {
 	bool bEmpty = true;
 
-	for (uint32_t nHeight = 0; n; nHeight++, n >>= 1, n0 >>= 1)
+	for (uint8_t nHeight = 0; n; nHeight++, n >>= 1, n0 >>= 1)
 		if (1 & n)
 		{
-			Merkle::Hash hv0;
+			Hash hv0;
 			LoadElement(hv0, n0 + n ^ 1, nHeight);
 
 			if (bEmpty)
@@ -536,32 +536,32 @@ bool Merkle::Mmr::get_HashForRange(Merkle::Hash& hv, uint32_t n0, uint32_t n) co
 				bEmpty = false;
 			}
 			else
-				Merkle::Interpret(hv, hv0, false);
+				Interpret(hv, hv0, false);
 		}
 
 	return !bEmpty;
 }
 
-void Merkle::Mmr::get_Proof(Proof& proof, uint32_t i) const
+void Merkle::Mmr::get_Proof(Proof& proof, uint64_t i) const
 {
 	assert(i < m_Count);
 
-	uint32_t n = m_Count;
-	for (uint32_t nHeight = 0; n; nHeight++, n >>= 1, i >>= 1)
+	uint64_t n = m_Count;
+	for (uint8_t nHeight = 0; n; nHeight++, n >>= 1, i >>= 1)
 	{
-		Merkle::Node node;
+		Node node;
 		node.first = !(i & 1);
 
-		uint32_t nSibling = i ^ 1;
+		uint64_t nSibling = i ^ 1;
 		bool bFullSibling = !node.first;
 
 		if (!bFullSibling)
 		{
-			uint32_t n0 = nSibling << nHeight;
+			uint64_t n0 = nSibling << nHeight;
 			if (n0 >= m_Count)
 				continue;
 
-			uint32_t nRemaining = m_Count - n0;
+			uint64_t nRemaining = m_Count - n0;
 			if (nRemaining >> nHeight)
 				bFullSibling = true;
 			else
