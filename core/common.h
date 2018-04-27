@@ -7,6 +7,7 @@
 #include <utility>
 #include <cstdint>
 #include <memory>
+#include <assert.h>
 
 #ifdef WIN32
 #	define NOMINMAX
