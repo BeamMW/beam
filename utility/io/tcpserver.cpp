@@ -32,7 +32,7 @@ void TcpServer::internal_callback(int status) {
         _callback(TcpStream::Ptr(), status);
         return;
     }
-    TcpStream::Ptr stream = TcpStream::Ptr(new TcpStream());
+    TcpStream::Ptr stream(new TcpStream());
     status = _reactor->accept_tcpstream(this, stream.get());
     _callback(std::move(stream), status);
 }

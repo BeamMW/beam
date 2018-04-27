@@ -3,9 +3,9 @@
 #include <stdint.h>
 #include <string.h>
 #ifdef WIN32
-#include <winsock2.h>
+    #include <winsock2.h>
 #else
-#include <netinet/ip.h>
+    #include <netinet/ip.h>
 #endif // WIN32
 
 namespace beam { namespace io {
@@ -13,6 +13,10 @@ namespace beam { namespace io {
 // IPv4 + port peer address
 struct Address {
     static const Address LOCALHOST;
+
+    static Address localhost() {
+        return Address(LOCALHOST);
+    }
 
     uint64_t packed=0;
 

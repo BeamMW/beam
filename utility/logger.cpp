@@ -3,6 +3,7 @@
 #include <boost/interprocess/streams/bufferstream.hpp>
 #include <stdexcept>
 #include <iostream>
+#include <fstream>
 #include <mutex>
 #include <algorithm>
 
@@ -14,9 +15,11 @@ Logger* Logger::g_logger = 0;
 
 class LoggerImpl : public Logger {
 protected:
-    explicit LoggerImpl(int minLevel, int checkpointsLevel) : _minLevel(minLevel) {
+    explicit LoggerImpl(int minLevel, int flushLevel) :
+        _minLevel(minLevel),
+        _flushLevel(flushLevel)
+    {
         assert(minLevel > 0);
-        assert(checkpointsLevel > 0);
     }
 
     virtual ~LoggerImpl() {
@@ -31,31 +34,43 @@ protected:
     }
 
     int _minLevel;
-    int _checkpointsLevel;
+    int _flushLevel;
 };
 
 class ConsoleLogger : public LoggerImpl {
     mutex _mutex;
 public:
     ConsoleLogger(const LoggerConfig& config) :
-        LoggerImpl(config.consoleLevel, config.checkpointsLevel)
+        LoggerImpl(config.consoleLevel, config.flushLevel)
     {}
 
-    void write_message(int /*level*/, const char* buf, size_t size) override {
+    void write_message(int level, const char* buf, size_t size) override {
         lock_guard<mutex> lock(_mutex);
         cout.write(buf, size);
-        cout << '\n';
+        if (level >= _flushLevel) cout.flush();
     }
 };
 
 class FileLogger : public LoggerImpl {
+    mutex _mutex;
+    ofstream _os;
 public:
     FileLogger(const LoggerConfig& config) :
-        LoggerImpl(config.consoleLevel, config.checkpointsLevel)
-    {}
+        LoggerImpl(config.consoleLevel, config.flushLevel)
+    {
+        string fileName(config.filePrefix);
+#ifndef _WIN32
+        fileName += to_string(getpid());
+#endif
+        fileName += ".log";
+        _os.open(fileName);
+        if (!_os) throw runtime_error(string("cannot open file ") + fileName);
+    }
 
-    void write_message(int /*level*/, const char* buf, size_t size) override {
-        // TODO
+    void write_message(int level, const char* buf, size_t size) override {
+        lock_guard<mutex> lock(_mutex);
+        _os.write(buf, size);
+        if (level >= _flushLevel) _os.flush();
     }
 };
 
@@ -65,7 +80,7 @@ class CombinedLogger : public LoggerImpl {
 
 public:
     CombinedLogger(const LoggerConfig& config) :
-        LoggerImpl(min(config.fileLevel, config.consoleLevel), config.checkpointsLevel),
+        LoggerImpl(min(config.fileLevel, config.consoleLevel), config.flushLevel),
         _fileSink(config),
         _consoleSink(config)
     {}
@@ -127,6 +142,8 @@ LogThreadContext* get_context() {
 LogMessage::LogMessage(int level, const char* file, int line, const char* func) : _level(level) {
     LogThreadContext* ctx = get_context();
 
+
+
     assert(!ctx->in_use);
 
     ctx->in_use = true;
@@ -139,19 +156,20 @@ LogMessage::LogMessage(int level, const char* file, int line, const char* func) 
     char b[80];
     format_timestamp(b, 80, " %Y-%m-%d.%T", local_timestamp_msec());
     *_formatter << logTags[level] << b << From(file, line, func);
+
+
 }
 
 LogMessage::~LogMessage() {
     if (_formatter) {
+        *_formatter << '\n';
         Logger* logger = Logger::get();
         get_context()->in_use = false;
         if (!logger) return;
         logger->write_message(_level, get_context()->buffer, _formatter->tellp());
 
     }
+
 }
-
-
-
 
 } //namespace

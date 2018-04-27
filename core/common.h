@@ -8,8 +8,6 @@
 #include <cstdint>
 #include <memory>
 
-#include <assert.h>
-
 #ifdef WIN32
 #	define NOMINMAX
 #	include <windows.h>
@@ -127,7 +125,7 @@ namespace beam
 
 		// tests the validity of all the components, and overall arithmetics.
 		// Does *not* check the existence of the input UTXOs
-		// 
+		//
 		// Validation formula
 		//
 		// Sum(Inputs) - Sum(Outputs) = Sum(TxKernels.Excess) + m_Offset*G [ + Sum(Fee)*H ]

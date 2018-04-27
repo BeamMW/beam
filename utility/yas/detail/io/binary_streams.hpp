@@ -74,9 +74,8 @@ struct binary_ostream {
         :os(os)
     {}
 
-    // TODO:
     void write_seq_size(std::size_t size) {
-        const auto tsize = uint32_t(size);//TODO __YAS_SCAST(std::uint64_t, size);
+        const auto tsize = __YAS_SCAST(std::uint64_t, size);
         write(tsize);
     }
 
@@ -222,7 +221,7 @@ struct binary_ostream {
         }
     }
     template<typename T>
-    void write(T v, __YAS_ENABLE_IF_IS_ANY_OF(T, std::uint64_t)) {
+    void write(T v, __YAS_ENABLE_IF_IS_ANY_OF(T, std::uint64_t, unsigned long)) {
         __YAS_CONSTEXPR_IF ( F & yas::compacted ) {
             if ( v >= (1u<<7) ) {
                 const std::uint8_t ns = __YAS_CALC_STORAGE_SIZE_64(v);
@@ -259,8 +258,7 @@ struct binary_istream {
     {}
 
     std::size_t read_seq_size() {
-        //TODO std::uint64_t size{};
-        std::uint32_t size{};
+        std::uint64_t size{};
         read(size);
 
         return __YAS_SCAST(std::size_t, size);
@@ -306,7 +304,7 @@ struct binary_istream {
 
     // for unsigned
     template<typename T>
-    void read(T &v, __YAS_ENABLE_IF_IS_ANY_OF(T, std::uint16_t, std::uint32_t, std::uint64_t)) {
+    void read(T &v, __YAS_ENABLE_IF_IS_ANY_OF(T, std::uint16_t, std::uint32_t, std::uint64_t, unsigned long)) {
         __YAS_CONSTEXPR_IF ( F & yas::compacted ) {
             std::uint8_t ns = __YAS_SCAST(std::uint8_t, is.getch());
             const bool onebyte = __YAS_SCAST(bool, (ns >> 7) & 1u);

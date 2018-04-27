@@ -15,6 +15,8 @@ std::ostream& operator<<(std::ostream& os, const XXX& xxx) {
 
 void test_logger_1() {
     LoggerConfig c;
+    c.fileLevel = LOG_LEVEL_WARNING;
+    c.filePrefix = "Zzzzz";
     auto logger = Logger::create (c);
 
     LOG_CRITICAL() << "Let's die";
@@ -28,6 +30,8 @@ void test_logger_1() {
 
 void test_ndc_1() {
     LoggerConfig c;
+    c.fileLevel = LOG_LEVEL_WARNING;
+    c.filePrefix = "Zzzzz";
     auto logger = Logger::create (c);
     CHECKPOINT_CREATE (6);
     CHECKPOINT_ADD() << "ssss" << 333 << 555;

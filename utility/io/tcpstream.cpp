@@ -59,65 +59,39 @@ bool TcpStream::disable_read() {
     return (_lastError == 0);
 }
 
-size_t TcpStream::try_write(const void* data, size_t size) {
-    if (!is_connected() || !_writeBuffer.empty()) return 0;
-    IOVec buf(data, size);
-    return try_write(&buf);
+int TcpStream::write(const SharedBuffer& buf) {
+    if (buf.empty()) return 0;
+    if (!is_connected()) return ENOTCONN;
+    _writeBuffer.append(buf);
+    _state.unsent = _writeBuffer.size();
+    return send_write_request();
 }
 
-size_t TcpStream::try_write(const IOVec* buf) {
-    int result = uv_try_write((uv_stream_t*)_handle, (uv_buf_t*)buf, 1);
-    if (result <= 0){
-        return 0; //TODO this is a stub append disconnect events
-    }
-    _state.sent += result;
-    return (size_t) result;
-}
-
-bool TcpStream::write(const SharedBuffer& buf) {
-    if (buf.empty()) return true;
+int TcpStream::write(const std::vector<SharedBuffer>& fragments) {
+    size_t n = fragments.size();
+    if (n == 0) return true;
+    if (n == 1) return write(fragments[0]);
     if (!is_connected()) return false;
-    if (_writeBuffer.empty()) {
-        size_t sent = try_write(&buf);
-        if (sent == 0) {
-            return false;
-        }
-        _state.sent += sent;
-        if (sent == buf.size) {
-            return true;
-        } else {
-            SharedBuffer b(buf);
-            b.advance(sent);
-            _writeBuffer.append(b);
-        }
-    } else {
-        _writeBuffer.append(buf);
+    for (const auto& f : fragments) {
+        _writeBuffer.append(f);
     }
     _state.unsent = _writeBuffer.size();
     return send_write_request();
 }
 
-bool TcpStream::send_write_request() {
+int TcpStream::send_write_request() {
     static uv_write_cb write_cb = [](uv_write_t* req, int status) {
         if (status == UV_ECANCELED) {
-            // object may be no longer alive ???
+            // object may be no longer alive
             return;
         }
         TcpStream* self = reinterpret_cast<TcpStream*>(req->handle->data);
-        assert(self);
-        assert(&(self->_writeRequest) == req);
-        if (status != 0) {
-            if (self->_callback) self->_callback(status, 0, 0);
-        } else {
-            size_t sent = self->_state.unsent;
-            self->_writeBuffer.advance(sent);
-            self->_state.sent += sent;
-            self->_state.unsent = self->_writeBuffer.size();
-            self->_writeRequestSent = false;
-            if (self->_state.unsent) {
-                self->send_write_request();
-            }
+        if (!self) {
+            //stream was closed
+            return;
         }
+        assert(&(self->_writeRequest) == req);
+        self->on_data_written(status);
     };
 
     if (_writeRequestSent) return true;
@@ -129,10 +103,25 @@ bool TcpStream::send_write_request() {
     if (r != 0) {
         // TODO close handle ??
         _lastError = r;
-        return false;
+        return r;
     }
     _writeRequestSent = true;
-    return true;
+    return 0;
+}
+
+void TcpStream::on_data_written(int status) {
+    if (status != 0) {
+        if (_callback) _callback(status, 0, 0);
+    } else {
+        size_t sent = _state.unsent;
+        _writeBuffer.advance(sent);
+        _state.sent += sent;
+        _state.unsent = _writeBuffer.size();
+        _writeRequestSent = false;
+        if (_state.unsent) {
+            send_write_request();
+        }
+    }
 }
 
 bool TcpStream::is_connected() const {
