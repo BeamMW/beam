@@ -695,6 +695,7 @@ Merkle::DistributedMmr::Key Merkle::DistributedMmr::Impl::FindElement(uint64_t n
 				{
 					n2.m_nIdx = nPos + dn - 1;
 					n2.m_Key = pK[h - 1];
+					break;
 				}
 
 				h--;
@@ -705,11 +706,9 @@ Merkle::DistributedMmr::Key Merkle::DistributedMmr::Impl::FindElement(uint64_t n
 		{
 			n2.m_nIdx = nPos - 1;
 			n2.m_Key = pK[h];
-
 		}
 	}
 }
-
 
 void Merkle::DistributedMmr::Append(Key k, void* pBuf, const Hash& hash)
 {
@@ -730,5 +729,16 @@ void Merkle::DistributedMmr::Append(Key k, void* pBuf, const Hash& hash)
 	m_kLast = k;
 }
 
+void Merkle::DistributedMmr::get_Hash(Hash& hv) const
+{
+	Impl impl((DistributedMmr&) *this);
+	impl.get_Hash(hv);
+}
+
+void Merkle::DistributedMmr::get_Proof(Proof& proof, uint64_t i) const
+{
+	Impl impl((DistributedMmr&) *this);
+	impl.get_Proof(proof, i);
+}
 
 } // namespace beam

@@ -372,12 +372,52 @@ void DeleteFile(const char* szPath)
 		}
 	};
 
+	struct MyDmmr
+		:public Merkle::DistributedMmr
+	{
+		struct Node
+		{
+			typedef std::unique_ptr<Node> Ptr;
+
+			Merkle::Hash m_MyHash;
+			std::unique_ptr<uint8_t[]> m_pArr;
+		};
+
+		std::vector<Node::Ptr> m_AllNodes;
+
+		virtual const void* get_NodeData(Key key) const override
+		{
+			assert(key);
+			return ((Node*) key)->m_pArr.get();
+		}
+
+		virtual void get_NodeHash(Merkle::Hash& hash, Key key) const override
+		{
+			hash = ((Node*) key)->m_MyHash;
+		}
+
+		void MyAppend(const Merkle::Hash& hv)
+		{
+			uint32_t n = get_NodeSize(m_Count);
+
+			MyDmmr::Node::Ptr p(new MyDmmr::Node);
+			p->m_MyHash = hv;
+
+			if (n)
+				p->m_pArr.reset(new uint8_t[n]);
+
+			Append((Key) p.get(), p->m_pArr.get(), p->m_MyHash);
+			m_AllNodes.push_back(std::move(p));
+		}
+	};
+
 	void TestMmr()
 	{
 		std::vector<Merkle::Hash> vHashes;
 		vHashes.resize(300);
 
 		MyMmr mmr;
+		MyDmmr dmmr;
 
 		for (uint32_t i = 0; i < vHashes.size(); i++)
 		{
@@ -387,14 +427,21 @@ void DeleteFile(const char* szPath)
 				hv.m_pData[i] = (uint8_t)rand();
 
 			mmr.Append(hv);
+			dmmr.MyAppend(hv);
 
-			Merkle::Hash hvRoot;
+			Merkle::Hash hvRoot, hvRoot2;
 			mmr.get_Hash(hvRoot);
+			dmmr.get_Hash(hvRoot2);
+
+			verify_test(hvRoot == hvRoot2);
 
 			for (uint32_t j = 0; j <= i; j++)
 			{
-				Merkle::Proof proof;
+				Merkle::Proof proof, proof2;
 				mmr.get_Proof(proof, j);
+				dmmr.get_Proof(proof2, j);
+
+				verify_test(proof == proof2);
 
 				Merkle::Hash hv2 = vHashes[j];
 				Merkle::Interpret(hv2, proof);
@@ -407,8 +454,8 @@ void DeleteFile(const char* szPath)
 
 int main()
 {
-	beam::TestNavigator();
-	beam::TestUtxoTree();
+	//beam::TestNavigator();
+	//beam::TestUtxoTree();
 	beam::TestMmr();
 
 	return g_TestsFailed ? -1 : 0;
