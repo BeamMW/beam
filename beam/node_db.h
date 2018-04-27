@@ -58,6 +58,8 @@ public:
 			StateGetPrev,
 			Unactivate,
 			Activate,
+			MmrGet,
+			MmrSet,
 
 			Dbg0,
 			Dbg1,
@@ -198,10 +200,13 @@ private:
 	void SetNextCount(uint64_t rowid, uint32_t);
 	void SetNextCountFunctional(uint64_t rowid, uint32_t);
 	void SetFlags(uint64_t rowid, uint32_t);
-	void OnStateReachable(uint64_t rowid, Height, bool);
+	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
+	void BuildMmr(uint64_t rowid, uint64_t rowPrev, Height);
 	void put_Cursor(const StateID& sid); // jump
 
 	void TestChanged1Row();
+
+	struct Dmmr;
 };
 
 

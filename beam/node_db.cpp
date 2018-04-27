@@ -1,4 +1,5 @@
 #include "node_db.h"
+#include "../core/storage.h"
 
 namespace beam {
 
@@ -669,11 +670,12 @@ void NodeDB::SetStateFunctional(uint64_t rowid)
 	Height h;
 	rs.get(0, h);
 
+	uint64_t rowPrev = 0;
+
 	if (h)
 	{
 		if (!rs.IsNull(1))
 		{
-			uint64_t rowPrev;
 			rs.get(1, rowPrev);
 			rs.get(3, nFlagsPrev);
 			rs.get(4, nCountPrevF);
@@ -698,7 +700,7 @@ void NodeDB::SetStateFunctional(uint64_t rowid)
 	SetFlags(rowid, nFlags);
 
 	if (StateFlags::Reachable & nFlags)
-		OnStateReachable(rowid, h, true);
+		OnStateReachable(rowid, rowPrev, h, true);
 }
 
 void NodeDB::SetStateNotFunctional(uint64_t rowid)
@@ -724,6 +726,8 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 	Height h;
 	rs.get(0, h);
 
+	uint64_t rowPrev = 0;
+
 	bool bReachable = (StateFlags::Reachable & nFlags) != 0;
 	if (bReachable)
 		nFlags &= ~StateFlags::Reachable;
@@ -734,7 +738,6 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 			assert(!bReachable); // orphan
 		else
 		{
-			uint64_t rowPrev;
 			rs.get(1, rowPrev);
 			rs.get(3, nCountPrevF);
 
@@ -753,16 +756,20 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 	SetFlags(rowid, nFlags);
 
 	if (bReachable)
-		OnStateReachable(rowid, h, false);
+		OnStateReachable(rowid, rowPrev, h, false);
 }
 
-void NodeDB::OnStateReachable(uint64_t rowid, Height h, bool b)
+void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, bool b)
 {
 	typedef std::pair<uint64_t, uint32_t> RowAndFlags;
 	std::vector<RowAndFlags> rows;
 
 	while (true)
 	{
+		if (b)
+			BuildMmr(rowid, rowPrev, h);
+		rowPrev = rowid;
+
 		{
 			Recordset rs(*this, Query::StateGetNextFunctional, "SELECT rowid," TblStates_Flags " FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_RowPrev "=? AND (" TblStates_Flags " & ?)");
 			rs.put(0, h + 1);
@@ -797,7 +804,7 @@ void NodeDB::OnStateReachable(uint64_t rowid, Height h, bool b)
 		h++;
 
 		for (size_t i = 1; i < rows.size(); i++)
-			OnStateReachable(rows[i].first, h, b);
+			OnStateReachable(rows[i].first, rowPrev, h, b);
 
 		rows.clear();
 	}
@@ -1025,6 +1032,88 @@ void NodeDB::MoveFwd(const StateID& sid)
 	TestChanged1Row();
 
 	put_Cursor(sid);
+}
+
+struct NodeDB::Dmmr
+	:public Merkle::DistributedMmr
+{
+	NodeDB& m_This;
+	Recordset m_Rs;
+	uint64_t m_RowLast;
+
+	Dmmr(NodeDB& x)
+		:m_This(x)
+		,m_Rs(x)
+		,m_RowLast(0)
+	{}
+
+	void Goto(uint64_t rowid);
+
+	// DistributedMmr
+	virtual const void* get_NodeData(Key) const override;
+	virtual void get_NodeHash(Merkle::Hash&, Key) const override;
+};
+
+void NodeDB::Dmmr::Goto(uint64_t rowid)
+{
+	if (m_RowLast == rowid)
+		return;
+	m_RowLast = rowid;
+
+	m_Rs.Reset(Query::MmrGet, "SELECT " TblStates_Mmr "," TblStates_HashPrev " FROM " TblStates " WHERE rowid=?");
+	m_Rs.put(0, rowid);
+	if (!m_Rs.Step())
+		throw "state not found";
+}
+
+const void* NodeDB::Dmmr::get_NodeData(Key rowid) const
+{
+	Dmmr* pThis = (Dmmr*) this;
+	pThis->Goto(rowid);
+
+	Blob b;
+	pThis->m_Rs.get(0, b);
+	return b.p;
+}
+
+void NodeDB::Dmmr::get_NodeHash(Merkle::Hash& hv, Key rowid) const
+{
+	Dmmr* pThis = (Dmmr*) this;
+	pThis->Goto(rowid);
+	pThis->m_Rs.get(1, hv);
+}
+
+void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
+{
+	assert(!h == !rowPrev);
+	assert(rowid != rowPrev);
+
+	Dmmr dmmr(*this);
+	dmmr.Goto(rowid);
+
+	if (!dmmr.m_Rs.IsNull(0))
+		return;
+
+	dmmr.m_Count = h;
+	dmmr.m_kLast = rowPrev;
+
+	Merkle::Hash hv;
+	dmmr.m_Rs.get(1, hv);
+
+	Blob b;
+	b.n = dmmr.get_NodeSize(h);
+	std::unique_ptr<uint8_t[]> pRes(new uint8_t[b.n]);
+	b.p = pRes.get();
+
+	dmmr.Append(rowid, pRes.get(), hv);
+
+	dmmr.m_Rs.Reset();
+
+	Recordset rs(*this, Query::MmrSet, "UPDATE " TblStates " SET " TblStates_Mmr "=? WHERE rowid=?");
+	rs.put(0, b);
+	rs.put(1, rowid);
+	rs.Step();
+	TestChanged1Row();
 }
 
 } // namespace beam
