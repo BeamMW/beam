@@ -223,6 +223,34 @@ namespace Merkle
 		virtual void LoadElement(Hash&, uint64_t nIdx, uint8_t nHeight) const = 0;
 		virtual void SaveElement(const Hash&, uint64_t nIdx, uint8_t nHeight) = 0;
 	};
+
+	struct DistributedMmr
+	{
+		typedef uint64_t Key;
+
+		uint64_t m_Count;
+		Key m_kLast;
+
+		DistributedMmr()
+			:m_Count(0)
+			,m_kLast(0)
+		{
+		}
+
+		static uint32_t get_NodeSize(uint64_t n);
+
+		void Append(Key, void* pBuf, const Hash&);
+
+		void get_Hash(Hash&) const;
+		void get_Proof(Proof&, uint64_t i) const;
+
+	protected:
+		// Get the data of the node referenced by Key. The data of this node will only be used until this function is called for another node.
+		virtual const void* get_NodeData(Key) const = 0;
+		virtual void get_NodeHash(Hash&, Key) const = 0;
+
+		struct Impl;
+	};
 }
 
 class StorageManager

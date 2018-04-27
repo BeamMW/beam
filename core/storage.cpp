@@ -575,6 +575,160 @@ void Merkle::Mmr::get_Proof(Proof& proof, uint64_t i) const
 	}
 }
 
+/////////////////////////////
+// Merkle::DistributedMmr
+struct Merkle::DistributedMmr::Impl
+	:public Mmr
+{
+	Impl(DistributedMmr& x)
+		:m_This(x)
+		,m_nDepth(0)
+	{
+		m_Count = x.m_Count;
+		m_pNodes[0].m_Key = x.m_kLast;
+		m_pNodes[0].m_nIdx = m_Count - 1;
+	}
+
+	DistributedMmr& m_This;
+	Hash* m_pTrgHash;
+	Key* m_pTrgKey;
+
+	static const uint32_t nDepthMax = sizeof(uint64_t) << 4; // 128, extra cautions because of multiple-peaks structure
+
+	struct Node {
+		Key m_Key;
+		uint64_t m_nIdx;
+	};
+
+	Node m_pNodes[nDepthMax];
+	uint32_t m_nDepth;
+
+	Key FindElement(uint64_t nIdx);
+
+	static uint8_t get_Height(uint64_t n)
+	{
+		uint8_t h = 0;
+		for ( ; 1 & n; n >>= 1)
+			h++;
+		return h;
+	}
+
+	static uint8_t get_NextPeak(uint64_t& n0)
+	{
+		uint8_t h = get_Height(n0);
+		n0 -= (uint64_t(1) << h) - 1;
+		return h;
+	}
+
+	// Mmr
+	virtual void LoadElement(Hash&, uint64_t nIdx, uint8_t nHeight) const override;
+	virtual void SaveElement(const Hash&, uint64_t nIdx, uint8_t nHeight) override;
+};
+
+uint32_t Merkle::DistributedMmr::get_NodeSize(uint64_t n)
+{
+	uint8_t h = Impl::get_NextPeak(n);
+	uint32_t nSize = h * (sizeof(Hash) + sizeof(Key)); // 1st peak - must contain hashes and refs
+
+	if (n)
+		nSize += sizeof(Key); // ref to next peak
+
+	return nSize;
+}
+
+void Merkle::DistributedMmr::Impl::SaveElement(const Hash& hash, uint64_t nIdx, uint8_t nHeight)
+{
+	if (nHeight) // we don't store explicitly the hash of the element itself.
+	{
+		m_pTrgHash[nHeight - 1] = hash;
+
+		assert(m_pNodes[m_nDepth].m_nIdx == m_Count - (uint64_t(1) << (nHeight - 1)));
+		m_pTrgKey[nHeight - 1] = m_pNodes[m_nDepth].m_Key;
+	}
+}
+
+void Merkle::DistributedMmr::Impl::LoadElement(Hash& hash, uint64_t nIdx, uint8_t nHeight) const
+{
+	// index of the element that carries the information
+	nIdx = ((nIdx + 1) << nHeight) - 1;
+	Key k = ((Impl*) this)->FindElement(nIdx);
+
+	if (nHeight)
+		hash = ((const Hash*) m_This.get_NodeData(k))[nHeight - 1];
+	else
+		m_This.get_NodeHash(hash, k);
+}
+
+Merkle::DistributedMmr::Key Merkle::DistributedMmr::Impl::FindElement(uint64_t nIdx)
+{
+	while (true)
+	{
+		Node& n = m_pNodes[m_nDepth];
+		uint64_t nPos = n.m_nIdx;
+
+		if (nPos == nIdx)
+			return n.m_Key;
+
+		if (nPos < nIdx)
+		{
+			assert(m_nDepth);
+			m_nDepth--;
+			continue;
+		}
+
+		assert(m_nDepth + 1 < _countof(m_pNodes));
+		Node& n2 = m_pNodes[++m_nDepth];
+
+		uint64_t nPos1 = nPos;
+		uint8_t h = get_NextPeak(nPos);
+		const Key* pK = (Key*) (((Hash*) m_This.get_NodeData(n.m_Key)) + h);
+
+		if (nPos <= nIdx)
+		{
+			uint64_t dn = nPos1 - nPos + 1;
+			while (true)
+			{
+				dn >>= 1;
+				assert(h);
+
+				if (nIdx < nPos + dn)
+				{
+					n2.m_nIdx = nPos + dn - 1;
+					n2.m_Key = pK[h - 1];
+				}
+
+				h--;
+				nPos += dn;
+			}
+
+		} else
+		{
+			n2.m_nIdx = nPos - 1;
+			n2.m_Key = pK[h];
+
+		}
+	}
+}
+
+
+void Merkle::DistributedMmr::Append(Key k, void* pBuf, const Hash& hash)
+{
+	uint64_t n = m_Count;
+	uint8_t h = Impl::get_NextPeak(n);
+
+	Impl impl(*this);
+	impl.m_pTrgHash = (Hash*) pBuf;
+	impl.m_pTrgKey = (Key*) (impl.m_pTrgHash + h);
+
+	impl.Append(hash);
+
+
+	if (n)
+		impl.m_pTrgKey[h] = impl.FindElement(n - 1);
+
+	m_Count++;
+	m_kLast = k;
+}
 
 
 } // namespace beam
