@@ -392,7 +392,7 @@ void NodeDB::Transaction::Rollback()
 	macro(Difficulty,	m_Difficulty) sep \
 	macro(Timestamp,	m_TimeStamp) sep \
 	macro(HashUtxos,	m_Utxos) sep \
-	macro(HashKernels,	m_Kernels) \
+	macro(HashKernels,	m_Kernels) sep \
 	macro(HashStates,	m_States)
 
 #define THE_MACRO_NOP0
