@@ -34,9 +34,37 @@ do {\
 
 namespace
 {
+    void generateRandom(void* p, uint32_t n)
+    {
+        for (uint32_t i = 0; i < n; i++)
+            ((uint8_t*)p)[i] = (uint8_t)rand();
+    }
+
+    void setRandom(ECC::uintBig& x)
+    {
+        generateRandom(x.m_pData, sizeof(x.m_pData));
+    }
+
+    void setRandom(ECC::Scalar::Native& x)
+    {
+        ECC::Scalar s;
+        while (true)
+        {
+            setRandom(s.m_Value);
+            if (!x.Import(s))
+                break;
+        }
+    }
+
     class BaseTestKeyChain : public IKeyChain
     {
     public:
+        
+        ECC::Scalar getNextKey()
+        {
+            return CoinData::keygen.next().get();
+        }
+        
         std::vector<beam::Coin> getCoins(const ECC::Amount& amount)
         {
             std::vector<beam::Coin> res;
@@ -52,6 +80,17 @@ namespace
             }
             return res;
         }
+
+        void update(const std::vector<beam::Coin>& coins)
+        {
+
+        }
+
+        void remove(const std::vector<beam::Coin>& coins)
+        {
+
+        }
+
     protected:
         std::vector<beam::Coin> m_coins;
     };
@@ -95,6 +134,11 @@ namespace
             os.close();
         }
 
+        ECC::Scalar getNextKey()
+        {
+            return CoinData::keygen.next().get();
+        }
+
         std::vector<beam::Coin> getCoins(const ECC::Amount& amount)
         {
             std::vector<beam::Coin> res;
@@ -118,6 +162,16 @@ namespace
             is.close();
 
             return res;
+        }
+
+        void update(const std::vector<beam::Coin>& coins)
+        {
+
+        }
+
+        void remove(const std::vector<beam::Coin>& coins)
+        {
+
         }
         
     private:
@@ -439,7 +493,7 @@ void TestFSM()
     TestGateway gateway;
     Uuid id;
 
-    wallet::Sender s{ gateway, id, createKeyChain<TestKeyChain>(), 6};
+    wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), id , 6};
     s.start();
     WALLET_CHECK(s.processEvent(wallet::Sender::TxInitCompleted{ std::make_shared<wallet::receiver::ConfirmationData>() }));
     WALLET_CHECK(s.processEvent(wallet::Sender::TxConfirmationCompleted()));
@@ -448,7 +502,7 @@ void TestFSM()
     cout << "\nreceiver\n";
     wallet::sender::InvitationData::Ptr initData = std::make_shared<wallet::sender::InvitationData>();
     initData->m_amount = 100;
-    wallet::Receiver r{ gateway, initData };
+    wallet::Receiver r{ gateway, createKeyChain<TestKeyChain>(), initData };
     r.start();
     WALLET_CHECK(!r.processEvent(wallet::Receiver::TxRegistrationCompleted()));
     WALLET_CHECK(r.processEvent(wallet::Receiver::TxFailed()));
@@ -457,7 +511,7 @@ void TestFSM()
 
 int main()
 {
-    TestFSM();
+  //  TestFSM();
     TestWalletNegotiation<TestKeyChain, TestKeyChain2>();
     TestWalletNegotiation<TestKeyChainIntegration, TestKeyChain2>();
     TestRollback();

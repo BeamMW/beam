@@ -1,30 +1,5 @@
 #include "sender.h"
 
-namespace
-{
-    void GenerateRandom(void* p, uint32_t n)
-    {
-        for (uint32_t i = 0; i < n; i++)
-            ((uint8_t*) p)[i] = (uint8_t) rand();
-    }
-
-    void SetRandom(ECC::uintBig& x)
-    {
-        GenerateRandom(x.m_pData, sizeof(x.m_pData));
-    }
-
-    void SetRandom(ECC::Scalar::Native& x)
-    {
-        ECC::Scalar s;
-        while (true)
-        {
-            SetRandom(s.m_Value);
-            if (!x.Import(s))
-                break;
-        }
-    }
-}
-
 namespace beam::wallet
 {
     void Sender::FSMDefinition::initTx(const msmf::none&)
@@ -74,8 +49,8 @@ namespace beam::wallet
             Output::Ptr output = std::make_unique<Output>();
             output->m_Coinbase = false;
 
-            ECC::Scalar::Native blindingFactor;
-            SetRandom(blindingFactor);
+            ECC::Scalar::Native blindingFactor = m_keychain->getNextKey();
+
             ECC::Point::Native pt = ECC::Commitment(blindingFactor, change);
             output->m_Commitment = pt;
 
@@ -94,7 +69,7 @@ namespace beam::wallet
         // 8. Calculate total blinding excess for all inputs and outputs xS
         // 9. Select random nonce kS
         ECC::Signature::MultiSig msig;
-        SetRandom(m_nonce);
+        m_nonce = generateNonce();
 
         msig.m_Nonce = m_nonce;
         // 10. Multiply xS and kS by generator G to create public curve points xSG and kSG

@@ -25,8 +25,8 @@ namespace beam::wallet
         };
         struct TxOutputConfirmCompleted {};
         
-        Receiver(receiver::IGateway& gateway, sender::InvitationData::Ptr initData)
-            : m_fsm{boost::ref(gateway), initData}
+        Receiver(receiver::IGateway& gateway, beam::IKeyChain::Ptr keychain, sender::InvitationData::Ptr initData)
+            : m_fsm{boost::ref(gateway), keychain, initData}
         {
         }  
     private:
@@ -70,18 +70,7 @@ namespace beam::wallet
                 }
             };
 
-            FSMDefinition(receiver::IGateway &gateway, sender::InvitationData::Ptr initData)
-                : m_gateway{gateway}
-                , m_txId{initData->m_txId}
-                , m_amount{initData->m_amount}
-                , m_message{initData->m_message}
-                , m_publicSenderBlindingExcess{initData->m_publicSenderBlindingExcess}
-                , m_publicSenderNonce{initData->m_publicSenderNonce}
-                , m_transaction{std::make_shared<Transaction>()}
-            {
-                m_transaction->m_vInputs = std::move(initData->m_inputs);
-                m_transaction->m_vOutputs = std::move(initData->m_outputs);
-            }
+            FSMDefinition(receiver::IGateway &gateway, beam::IKeyChain::Ptr keychain, sender::InvitationData::Ptr initData);
 
             // transition actions
             void confirmTx(const msmf::none&);
@@ -122,6 +111,7 @@ namespace beam::wallet
             }
 
             receiver::IGateway& m_gateway;
+            beam::IKeyChain::Ptr m_keychain;
 
             Uuid m_txId;
 

@@ -22,10 +22,10 @@ namespace beam::wallet
         struct TxConfirmationCompleted {};
         struct TxOutputConfirmCompleted {};
 
-        Sender(sender::IGateway& gateway, const Uuid& txId, beam::IKeyChain::Ptr keychain, const ECC::Amount& amount)
+        Sender(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, const ECC::Amount& amount)
             : m_fsm{boost::ref(gateway)
-            , boost::ref(txId)
             , keychain
+            , boost::ref(txId)
             , boost::ref(amount)}
         {
             
@@ -60,7 +60,7 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm&)
                 { std::cout << "[Sender] TxOutputConfirming state\n"; } };
 
-            FSMDefinition(sender::IGateway& gateway, const Uuid& txId, beam::IKeyChain::Ptr keychain, const ECC::Amount& amount)
+            FSMDefinition(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, const ECC::Amount& amount)
                 : m_gateway{ gateway }
                 , m_keychain(keychain)
                 , m_txId{txId}

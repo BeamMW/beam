@@ -4,19 +4,46 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include "core/ecc_native.h"
 #include <algorithm>
+#include <random>
 
 namespace beam
 {
     using namespace wallet;
+    using namespace std;
+    using namespace ECC;
+
+    Scalar::Native generateNonce()
+    {
+        Scalar nonce;
+        Scalar::Native n;
+        random_device r;
+        default_random_engine e{ r() };
+        uniform_int_distribution<uint32_t> d;
+        uint32_t *p = reinterpret_cast<uint32_t*>(nonce.m_Value.m_pData);
+        constexpr size_t const count = sizeof(nonce.m_Value.m_pData) / sizeof(uint32_t);
+        while (true)
+        {
+            generate(p, p + count, [&d, &e] { return d(e); });
+            // better generator should be used
+            //generate(nonce.m_Value.m_pData, nonce.m_Value.m_pData + sizeof(nonce.m_Value.m_pData), rand);
+            if (!n.Import(nonce))
+            {
+                break;
+            }
+        }
+        return n;
+    }
+
+    
     Coin::Coin()
     {
 
     }
 
-    Coin::Coin(const ECC::Scalar& key, ECC::Amount amount)
+    Coin::Coin(const Scalar& key, Amount amount)
         : m_amount(amount)
     {
-        m_key = ECC::Scalar::Native(key);
+        m_key = Scalar::Native(key);
     }
 
     // temporary impl of WalletToNetwork interface
@@ -47,13 +74,13 @@ namespace beam
         m_net->sendTransaction(tx);
     }
 
-    void Wallet::sendMoney(const Peer& locator, const ECC::Amount& amount)
+    void Wallet::sendMoney(const Peer& locator, const Amount& amount)
     {
         boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId;
-        std::copy(id.begin(), id.end(), txId.begin());
-        auto s = std::make_unique<Sender>(*this, txId, m_keyChain, amount );
-        auto p = m_senders.emplace(txId, std::move(s));
+        copy(id.begin(), id.end(), txId.begin());
+        auto s = make_unique<Sender>(*this, m_keyChain, txId, amount );
+        auto p = m_senders.emplace(txId, move(s));
         p.first->second->start();
     }
 
@@ -78,7 +105,7 @@ namespace beam
         assert(it != m_senders.end());
         if (it != m_senders.end())
         {
-            m_removedSenders.push_back(std::move(it->second));
+            m_removedSenders.push_back(move(it->second));
             m_senders.erase(txId);
         }
     }
@@ -104,7 +131,7 @@ namespace beam
         assert(it != m_receivers.end());
         if (it != m_receivers.end())
         {
-            m_removedReceivers.push_back(std::move(it->second));
+            m_removedReceivers.push_back(move(it->second));
             m_receivers.erase(it);
         }
     }
@@ -114,7 +141,7 @@ namespace beam
         auto it = m_receivers.find(data->m_txId);
         if (it == m_receivers.end())
         {
-            auto p = m_receivers.emplace(data->m_txId, std::make_unique<Receiver>(*this, data));
+            auto p = m_receivers.emplace(data->m_txId, make_unique<Receiver>(*this, m_keyChain, data));
             p.first->second->start();
         }
         else

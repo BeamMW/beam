@@ -9,6 +9,7 @@ namespace beam
 {
     using Uuid = std::array<uint8_t, 16>;
     using TransactionPtr = std::shared_ptr<Transaction>;
+    ECC::Scalar::Native generateNonce();
     namespace wallet
     {
         namespace msm = boost::msm;
