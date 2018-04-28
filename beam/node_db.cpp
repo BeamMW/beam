@@ -1116,4 +1116,28 @@ void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
 	TestChanged1Row();
 }
 
+void NodeDB::get_Proof(Merkle::Proof& proof, const StateID& sid, Height hPrev)
+{
+	assert(hPrev <= sid.m_Height);
+
+    Dmmr dmmr(*this);
+    dmmr.m_Count = sid.m_Height + 1;
+    dmmr.m_kLast = sid.m_Row;
+
+    dmmr.get_Proof(proof, hPrev);
+}
+
+void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
+{
+	Block::SystemState::Full s;
+	get_State(sid.m_Row, s);
+	s.get_Hash(hv);
+
+    Dmmr dmmr(*this);
+    dmmr.m_Count = sid.m_Height + 1;
+    dmmr.m_kLast = sid.m_Row;
+
+    dmmr.get_PredictedHash(hv, hv);
+}
+
 } // namespace beam

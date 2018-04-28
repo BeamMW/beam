@@ -170,6 +170,9 @@ public:
 
 	bool get_Cursor(StateID& sid);
 
+    void get_Proof(Merkle::Proof&, const StateID& sid, Height hPrev);
+    void get_PredictedStatesHash(Merkle::Hash&, const StateID& sid); // For the next block.
+
 	// the following functions move the curos, and mark the states with 'Active' flag
 	void MoveBack(StateID&);
 	void MoveFwd(const StateID&);

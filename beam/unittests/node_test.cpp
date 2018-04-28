@@ -74,17 +74,28 @@ namespace beam
 
 		const uint32_t hMax = 250;
 		const uint32_t nOrd = 3;
+		const uint32_t hFork0 = 70;
 
-		Block::SystemState::Full s;
-		ZeroObject(s);
+		std::vector<Block::SystemState::Full> vStates;
+		vStates.resize(hMax);
+		memset0(&vStates.at(0), vStates.size());
 
-		Merkle::Hash pHashes[hMax];
+		Merkle::CompactMmr cmmr, cmmrFork;
 
-		for (int i = 0; i < hMax; i++)
+		for (uint32_t h = 0; h < hMax; h++)
 		{
-			s.m_Height = i;
-			s.get_Hash(pHashes[i]);
-			s.m_Prev = pHashes[i];
+			Block::SystemState::Full& s = vStates[h];
+			s.m_Height = h;
+
+			if (h)
+				vStates[h-1].get_Hash(s.m_Prev);
+
+			cmmr.Append(s.m_Prev);
+
+			if (hFork0 == h)
+				cmmrFork = cmmr;
+
+			cmmr.get_Hash(s.m_States);
 		}
 
 		uint64_t pRows[hMax];
@@ -94,13 +105,7 @@ namespace beam
 		{
 			for (uint32_t h = h1; h < hMax; h += nOrd)
 			{
-				s.m_Height = h;
-				if (h)
-					s.m_Prev = pHashes[h-1];
-				else
-					ZeroObject(s.m_Prev);
-
-				pRows[h] = db.InsertState(s);
+				pRows[h] = db.InsertState(vStates[h]);
 				db.assert_valid();
 
 				if (h)
@@ -114,54 +119,85 @@ namespace beam
 		tr.Commit();
 		tr.Start(db);
 
-		assert(CountTips(db, false) == 1);
-		assert(CountTips(db, true) == 0);
+		verify_test(CountTips(db, false) == 1);
+		verify_test(CountTips(db, true) == 0);
 
 		// a subbranch
-		const uint32_t hFork0 = 70;
-
-		s.m_Height = hFork0;
-		s.m_Prev = pHashes[hFork0-1];
+		Block::SystemState::Full s = vStates[hFork0];
 		s.m_Kernels.Inc(); // alter
 
 		uint64_t r0 = db.InsertState(s);
 
-		assert(CountTips(db, false) == 2);
+		verify_test(CountTips(db, false) == 2);
 
 		db.assert_valid();
 		db.SetStateFunctional(r0);
 		db.assert_valid();
 
-		assert(CountTips(db, true) == 0);
+		verify_test(CountTips(db, true) == 0);
 
 		s.get_Hash(s.m_Prev);
+		cmmrFork.Append(s.m_Prev);
+		cmmrFork.get_Hash(s.m_States);
 		s.m_Height++;
 
 		uint64_t rowLast1 = db.InsertState(s);
 
 		NodeDB::StateID sid;
-		assert(CountTips(db, false, &sid) == 2);
-		assert(sid.m_Height == hMax-1);
+		verify_test(CountTips(db, false, &sid) == 2);
+		verify_test(sid.m_Height == hMax-1);
 
 		db.SetStateFunctional(rowLast1);
 		db.assert_valid();
 
 		db.SetStateFunctional(pRows[0]); // this should trigger big update
 		db.assert_valid();
-		assert(CountTips(db, true, &sid) == 2);
-		assert(sid.m_Height == hFork0 + 1);
+		verify_test(CountTips(db, true, &sid) == 2);
+		verify_test(sid.m_Height == hFork0 + 1);
+
+		tr.Commit();
+		tr.Start(db);
+
+		// test proofs
+		NodeDB::StateID sid2;
+		verify_test(CountTips(db, false, &sid2) == 2);
+		verify_test(sid2.m_Height == hMax-1);
+
+		do
+		{
+			if (sid2.m_Height + 1 < hMax)
+			{
+				Merkle::Hash hv;
+				db.get_PredictedStatesHash(hv, sid2);
+				verify_test(hv == vStates[(size_t) sid2.m_Height + 1].m_States);
+			}
+
+			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height].m_States;
+
+			for (uint32_t h = 0; h <= sid2.m_Height; h++)
+			{
+				Merkle::Proof proof;
+				db.get_Proof(proof, sid2, h);
+
+				Merkle::Hash hv = vStates[h].m_Prev;
+				Merkle::Interpret(hv, proof);
+
+				verify_test(hvRoot == hv);
+			}
+
+		} while (db.get_Prev(sid2));
 
 		while (db.get_Prev(sid))
 			;
-		assert(sid.m_Height == 0);
+		verify_test(sid.m_Height == 0);
 
 		db.SetStateNotFunctional(pRows[0]);
 		db.assert_valid();
-		assert(CountTips(db, true) == 0);
+		verify_test(CountTips(db, true) == 0);
 
 		db.SetStateFunctional(pRows[0]);
 		db.assert_valid();
-		assert(CountTips(db, true) == 2);
+		verify_test(CountTips(db, true) == 2);
 
 		for (sid.m_Height = 0; sid.m_Height < hMax; sid.m_Height++)
 		{
@@ -183,13 +219,13 @@ namespace beam
 		uint32_t h = hMax;
 		for (; ; h--)
 		{
-			assert(row);
+			verify_test(row);
 			if (!db.DeleteState(row, row))
 				break;
 			db.assert_valid();
 		}
 
-		assert(row && (h == hFork0));
+		verify_test(row && (h == hFork0));
 
 		for (h += 2; ; h--)
 		{
