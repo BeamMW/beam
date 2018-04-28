@@ -515,6 +515,21 @@ void Merkle::Mmr::Append(const Hash& hv)
 	m_Count++;
 }
 
+void Merkle::Mmr::get_PredictedHash(Hash& hv, const Hash& hvAppend) const
+{
+	hv = hvAppend;
+	uint64_t n = m_Count;
+
+	for (uint8_t nHeight = 0; n; nHeight++, n >>= 1)
+		if (1 & n)
+		{
+			Hash hv0;
+			LoadElement(hv0, n ^ 1, nHeight);
+
+			Interpret(hv, hv0, false);
+		}
+}
+
 void Merkle::Mmr::get_Hash(Hash& hv) const
 {
 	if (!get_HashForRange(hv, 0, m_Count))
@@ -736,10 +751,68 @@ void Merkle::DistributedMmr::get_Hash(Hash& hv) const
 	impl.get_Hash(hv);
 }
 
+void Merkle::DistributedMmr::get_PredictedHash(Hash& hv, const Hash& hvAppend) const
+{
+	Impl impl((DistributedMmr&) *this);
+	impl.get_PredictedHash(hv, hvAppend);
+}
+
 void Merkle::DistributedMmr::get_Proof(Proof& proof, uint64_t i) const
 {
 	Impl impl((DistributedMmr&) *this);
 	impl.get_Proof(proof, i);
 }
+
+/////////////////////////////
+// Merkle::CompactMmr
+void Merkle::CompactMmr::get_Hash(Hash& hv) const
+{
+	uint32_t i = (uint32_t) m_vNodes.size();
+	if (i)
+	{
+		for (hv = m_vNodes[--i]; i; )
+			Interpret(hv, m_vNodes[--i], false);
+	} else
+		ZeroObject(hv);
+}
+
+void Merkle::CompactMmr::get_PredictedHash(Hash& hv, const Hash& hvAppend) const
+{
+	hv = hvAppend;
+	uint64_t n = m_Count;
+	size_t iPos = m_vNodes.size();
+
+	for (uint8_t nHeight = 0; n; nHeight++, n >>= 1)
+		if (1 & n)
+		{
+			assert(n > 0);
+			Interpret(hv, m_vNodes[--iPos], false);
+		}
+	assert(!iPos);
+}
+
+void Merkle::CompactMmr::Append(const Hash& hv)
+{
+	Hash hv1 = hv;
+	uint64_t n = m_Count;
+
+	for (uint8_t nHeight = 0; ; nHeight++, n >>= 1)
+	{
+		if (!(1 & n))
+			break;
+
+		assert(!m_vNodes.empty());
+
+		Interpret(hv1, m_vNodes.back(), false);
+		m_vNodes.pop_back();
+	}
+
+	m_vNodes.push_back(hv1);
+	m_Count++;
+}
+
+//void Merkle::CompactMmr::Append(CompactMmr& out, Hash& hv) const
+//{
+//}
 
 } // namespace beam

@@ -418,6 +418,7 @@ void DeleteFile(const char* szPath)
 
 		MyMmr mmr;
 		MyDmmr dmmr;
+		Merkle::CompactMmr cmmr;
 
 		for (uint32_t i = 0; i < vHashes.size(); i++)
 		{
@@ -426,14 +427,24 @@ void DeleteFile(const char* szPath)
 			for (int i = 0; i < sizeof(hv.m_pData); i++)
 				hv.m_pData[i] = (uint8_t)rand();
 
+			Merkle::Hash hvRoot, hvRoot2, hvRoot3;
+
+			mmr.get_PredictedHash(hvRoot, hv);
+			dmmr.get_PredictedHash(hvRoot2, hv);
+			cmmr.get_PredictedHash(hvRoot3, hv);
+			verify_test(hvRoot == hvRoot2);
+			verify_test(hvRoot == hvRoot3);
+
 			mmr.Append(hv);
 			dmmr.MyAppend(hv);
+			cmmr.Append(hv);
 
-			Merkle::Hash hvRoot, hvRoot2;
 			mmr.get_Hash(hvRoot);
-			dmmr.get_Hash(hvRoot2);
-
-			verify_test(hvRoot == hvRoot2);
+			verify_test(hvRoot == hvRoot3);
+			dmmr.get_Hash(hvRoot);
+			verify_test(hvRoot == hvRoot3);
+			cmmr.get_Hash(hvRoot);
+			verify_test(hvRoot == hvRoot3);
 
 			for (uint32_t j = 0; j <= i; j++)
 			{
@@ -454,8 +465,8 @@ void DeleteFile(const char* szPath)
 
 int main()
 {
-	beam::TestNavigator();
-	beam::TestUtxoTree();
+	//beam::TestNavigator();
+	//beam::TestUtxoTree();
 	beam::TestMmr();
 
 	return g_TestsFailed ? -1 : 0;

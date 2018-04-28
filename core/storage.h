@@ -216,6 +216,7 @@ namespace Merkle
 
 		void get_Hash(Hash&) const;
 		void get_Proof(Proof&, uint64_t i) const;
+		void get_PredictedHash(Hash&, const Hash& hvAppend) const;
 
 	protected:
 		bool get_HashForRange(Hash&, uint64_t n0, uint64_t n) const;
@@ -243,6 +244,7 @@ namespace Merkle
 
 		void get_Hash(Hash&) const;
 		void get_Proof(Proof&, uint64_t i) const;
+		void get_PredictedHash(Hash&, const Hash& hvAppend) const;
 
 	protected:
 		// Get the data of the node referenced by Key. The data of this node will only be used until this function is called for another node.
@@ -250,6 +252,24 @@ namespace Merkle
 		virtual void get_NodeHash(Hash&, Key) const = 0;
 
 		struct Impl;
+	};
+
+	class CompactMmr
+	{
+		// Only used to recalculate the new root hash after appending the element
+		// Can't generate proofs.
+
+		uint64_t m_Count;
+		std::vector<Hash> m_vNodes; // rightmost branch, in top-down order
+
+	public:
+
+		CompactMmr() :m_Count(0) {}
+
+		void Append(const Hash&);
+
+		void get_Hash(Hash&) const;
+		void get_PredictedHash(Hash&, const Hash& hvAppend) const;
 	};
 }
 
