@@ -25,6 +25,7 @@ if(UNIX OR WIN32)
 endif()
 
 if (WIN32)
+    add_definitions(-DNOMINMAX)
     set(Boost_DEBUG On)
     find_package(Boost)
     if (Boost_FOUND)
