@@ -151,6 +151,11 @@ void NodeDB::Recordset::put(int col, const Blob& x)
 	m_DB.TestRet(sqlite3_bind_blob(m_pStmt, col+1, x.p, x.n, NULL));
 }
 
+void NodeDB::Recordset::put(int col, const char* sz)
+{
+	m_DB.TestRet(sqlite3_bind_text(m_pStmt, col+1, sz, -1, NULL));
+}
+
 void NodeDB::Recordset::get(int col, uint32_t& x)
 {
 	x = sqlite3_column_int(m_pStmt, col);
@@ -195,22 +200,25 @@ const void* NodeDB::Recordset::get_BlobStrict(int col, uint32_t n)
 	return x.p;
 }
 
-void NodeDB::Open(const char* szPath, bool bCreate)
+void NodeDB::Open(const char* szPath)
 {
-	uint32_t nFlags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX;
-	if (bCreate)
-		nFlags |= SQLITE_OPEN_CREATE;
+	TestRet(sqlite3_open_v2(szPath, &m_pDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL));
 
-	TestRet(sqlite3_open_v2(szPath, &m_pDb, nFlags, NULL));
-
-	Transaction t(*this);
+	bool bCreate;
+	{
+		Recordset rs(*this, Query::Scheme, "SELECT name FROM sqlite_master WHERE type='table' AND name=?");
+		rs.put(0, TblParams);
+		bCreate = !rs.Step();
+	}
 
 	const uint32_t DB_VER = 8;
 
 	if (bCreate)
 	{
+		Transaction t(*this);
 		Create();
 		ParamIntSet(ParamID::DbVer, DB_VER);
+		t.Commit();
 	}
 	else
 	{
@@ -218,8 +226,6 @@ void NodeDB::Open(const char* szPath, bool bCreate)
 		if (DB_VER != ParamIntGetDef(ParamID::DbVer))
 			throw std::runtime_error("wrong version");
 	}
-
-	t.Commit();
 }
 
 void NodeDB::Create()

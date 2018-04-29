@@ -61,13 +61,10 @@ namespace beam
 		return nTips;
 	}
 
-	void TestNodeDB(const char* sz, bool bCreate)
+	void TestNodeDB(const char* sz)
 	{
 		NodeDB db;
-		db.Open(sz, bCreate);
-
-		if (!bCreate)
-			return; // DB successfully opened. Skip the rest.
+		db.Open(sz);
 
 		NodeDB::Transaction tr(db);
 
@@ -298,8 +295,12 @@ namespace beam
 #endif // WIN32
 
 		DeleteFile(sz);
-		TestNodeDB(sz, true);
-		TestNodeDB(sz, false);
+		TestNodeDB(sz); // will create
+
+		{
+			NodeDB db;
+			db.Open(sz); // test to open already-existing DB
+		}
 		DeleteFile(sz);
 	}
 

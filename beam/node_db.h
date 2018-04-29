@@ -32,6 +32,7 @@ public:
 			Begin,
 			Commit,
 			Rollback,
+			Scheme,
 			ParamIntGet,
 			ParamIntIns,
 			ParamIntUpd,
@@ -87,7 +88,7 @@ public:
 	~NodeDB();
 
 	void Close();
-	void Open(const char* szPath, bool bCreate);
+	void Open(const char* szPath);
 
 	struct Blob {
 		const void* p;
@@ -117,6 +118,7 @@ public:
 		void put(int col, uint32_t);
 		void put(int col, uint64_t);
 		void put(int col, const Blob&);
+		void put(int col, const char*);
 		void get(int col, uint32_t&);
 		void get(int col, uint64_t&);
 		void get(int col, Blob&);
