@@ -512,9 +512,9 @@ void TestTransaction()
 
 	tm.m_Trans.Sort();
 
-	Amount fee;
-	verify_test(tm.m_Trans.IsValid(fee, 0));
-	verify_test(fee == fee1 + fee2);
+	beam::TxBase::Context ctx;
+	verify_test(tm.m_Trans.IsValid(ctx));
+	verify_test(ctx.m_Fee == fee1 + fee2);
 }
 
 void TestAll()

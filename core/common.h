@@ -56,7 +56,13 @@ namespace beam
 		Height		m_Height;
 
 		// In case there are multiple UTXOs with the same commitment value (which we permit) the height should be used to distinguish between them
-		// If not specified (no UTXO with the specified height) - it will automatically be selected.
+		//
+		// Transactions:
+		//		In case there's no UTXO with the specified height - the node is allowed to increase it to match the existing UTXO.
+		//		So that if m_Height is the minimum height to spend. Set to 0 (by default?) to spend the most mature.
+		//
+		// In the block
+		//		The m_Height must exactly match the existing UTXO, no auto-adjustments.
 
 		int cmp(const Input&) const;
 		COMPARISON_VIA_CMP(Input)
@@ -139,7 +145,8 @@ namespace beam
 
 		void Sort(); // w.r.t. the standard
 
-		// tests the validity of all the components, and overall arithmetics.
+		// tests the validity of all the components, overall arithmetics, and the lexicographical order of the components.
+		// Determines the min/max block height that the transaction can fit, wrt component heights and maturity policies
 		// Does *not* check the existence of the input UTXOs
 		//
 		// Validation formula
@@ -151,14 +158,25 @@ namespace beam
 		// Define: Sigma = Sum(Outputs) - Sum(Inputs) + Sum(TxKernels.Excess) + m_Offset*G
 		// Sigma is either zero or -Sum(Fee)*H, depending on what we validate
 
-		bool ValidateAndSummarize(Amount& fee, ECC::Point::Native& sigma, Height nHeight) const;
+		struct Context
+		{
+			Amount m_Fee; // TODO: may overflow!
+			Amount m_Coinbase; // TODO: may overflow!
+			Height m_hMin;
+			Height m_hMax;
+
+			Context() { Reset(); }
+			void Reset();
+		};
+
+		bool ValidateAndSummarize(Context&, ECC::Point::Native& sigma) const;
 	};
 
 	struct Transaction
 		:public TxBase
 	{
 		// Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
-		bool IsValid(Amount& fee, Height nHeight) const;
+		bool IsValid(Context&) const;
 	};
 
 	struct Block
@@ -225,6 +243,10 @@ namespace beam
 		typedef std::unique_ptr<PoW> PoWPtr;
 		PoWPtr m_ProofOfWork;
 
+		static const Amount s_CoinbaseEmission = 1000000 * 15; // the maximum allowed coinbase in a single block
+		static const Height s_MaturityCoinbase	= 60; // 1 hour
+		static const Height s_MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+
 		struct Body
 			:public TxBase
 		{
@@ -233,11 +255,12 @@ namespace beam
 			// Test the following:
 			//		Validity of all the components, and overall arithmetics, whereas explicit fees are already collected by extra UTXO(s) put by the miner
 			//		All components are specified in a lexicographical order, to conceal the actual transaction graph
+			//		Liquidity of the components wrt height and maturity policies
 			// Not tested by this function (but should be tested by nodes!)
-			//		Existence of all the input UTXOs, and their "liquidity" (by the policy UTXO liquidity may be restricted wrt its maturity)
+			//		Existence of all the input UTXOs
 			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
 			//		Existence of the treasury output UTXO, if needed by the policy.
-			bool IsValid() const;
+			bool IsValid(Height h0, Height h1) const;
 		};
 	};
 

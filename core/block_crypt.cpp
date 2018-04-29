@@ -91,6 +91,9 @@ namespace beam
 	{
 		if (m_pConfidential)
 		{
+			if (m_Coinbase)
+				return false; // coinbase must have visible amount
+
 			if (m_pPublic)
 				return false;
 
@@ -234,8 +237,17 @@ namespace beam
 
 	/////////////
 	// Transaction
-	bool TxBase::ValidateAndSummarize(Amount& fee, ECC::Point::Native& sigma, Height nHeight) const
+	void TxBase::Context::Reset()
 	{
+		m_Fee = m_Coinbase = 0;
+		m_hMin = 0;
+		m_hMax = -1;
+	}
+
+	bool TxBase::ValidateAndSummarize(Context& ctx, ECC::Point::Native& sigma) const
+	{
+		sigma = ECC::Zero;
+
 		const Input* p0Inp = NULL;
 		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
 		{
@@ -244,6 +256,11 @@ namespace beam
 			if (p0Inp && (*p0Inp > v))
 				return false;
 			p0Inp = &v;
+
+			Height h = v.m_Coinbase ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
+			h = std::min(v.m_Height + h, Height(-1)); // overflow protection
+			ctx.m_hMin = std::max(ctx.m_hMin, h);
+
 			sigma += ECC::Point::Native(v.m_Commitment);
 		}
 
@@ -261,25 +278,32 @@ namespace beam
 			p0Out = &v;
 
 			sigma += ECC::Point::Native(v.m_Commitment);
+
+			if (v.m_Coinbase)
+			{
+				assert(v.m_pPublic);
+				ctx.m_Coinbase += v.m_pPublic->m_Value;
+			}
 		}
 
 		const TxKernel* p0Krn = NULL;
 		for (auto it = m_vKernels.begin(); m_vKernels.end() != it; it++)
 		{
 			const TxKernel& v = *(*it);
-			if (nHeight < v.m_HeightMin || nHeight > v.m_HeightMax)
-				return false;
-			if (!v.IsValid(fee, sigma))
+			if (!v.IsValid(ctx.m_Fee, sigma))
 				return false;
 
 			if (p0Krn && (*p0Krn > v))
 				return false;
 			p0Krn = &v;
+
+			ctx.m_hMin = std::max(ctx.m_hMin, v.m_HeightMin);
+			ctx.m_hMax = std::min(ctx.m_hMax, v.m_HeightMax);
 		}
 
 		sigma += ECC::Context::get().G * m_Offset;
 
-		return true;
+		return ctx.m_hMin <= ctx.m_hMax;
 	}
 
 	void TxBase::Sort()
@@ -289,15 +313,17 @@ namespace beam
 		std::sort(m_vKernels.begin(), m_vKernels.end());
 	}
 
-	bool Transaction::IsValid(Amount& fee, Height nHeight) const
+	bool Transaction::IsValid(Context& ctx) const
 	{
 		ECC::Point::Native sigma(ECC::Zero);
-		fee = 0;
 
-		if (!ValidateAndSummarize(fee, sigma, nHeight))
+		if (!ValidateAndSummarize(ctx, sigma))
 			return false;
 
-		sigma += ECC::Context::get().H * fee;
+		if (ctx.m_Coinbase)
+			return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
+
+		sigma += ECC::Context::get().H * ctx.m_Fee;
 
 		return sigma == ECC::Zero;
 	}
@@ -348,6 +374,25 @@ namespace beam
 	{
 		out.m_Height = m_Height;
 		get_Hash(out.m_Hash);
+	}
+
+	bool Block::Body::IsValid(Height h0, Height h1) const
+	{
+		assert(h0 <= h1);
+
+		Context ctx;
+		ctx.m_hMin = h0;
+		ctx.m_hMax = h1;
+
+		ECC::Point::Native sigma;
+		if (!ValidateAndSummarize(ctx, sigma))
+			return false;
+
+		if (!(sigma == ECC::Zero)) // No need to add fees explicitly, they must have already been consumed
+			return false;
+
+		Amount nCoinbaseMax = s_CoinbaseEmission * (h1 - h0); // TODO: overflow!
+		return (ctx.m_Coinbase <= nCoinbaseMax);
 	}
 
 } // namespace beam
