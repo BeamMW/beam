@@ -234,6 +234,43 @@ namespace beam
 		verify_test(!h);
 
 		tr.Commit();
+
+		// utxos and kernels
+		NodeDB::Blob b0(vStates[0].m_Prev.m_pData, sizeof(vStates[0].m_Prev.m_pData));
+
+		db.AddUtxo(b0, NodeDB::Blob("hello, world!", 13), 5, 3);
+
+		NodeDB::WalkerUtxo wutxo(db);
+		for (db.EnumLiveUtxos(wutxo); wutxo.MoveNext(); )
+			;
+		db.ModifyUtxo(b0, 0, -3);
+		for (db.EnumLiveUtxos(wutxo); wutxo.MoveNext(); )
+			;
+
+		db.ModifyUtxo(b0, 0, 2);
+		for (db.EnumLiveUtxos(wutxo); wutxo.MoveNext(); )
+			;
+
+		db.DeleteUtxo(b0);
+		for (db.EnumLiveUtxos(wutxo); wutxo.MoveNext(); )
+			;
+
+		db.AddKernel(b0, NodeDB::Blob("hello, world!", 13), 1);
+
+		NodeDB::WalkerKernel wkrn(db);
+		for (db.EnumLiveKernels(wkrn); wkrn.MoveNext(); )
+			;
+		db.ModifyKernel(b0, -1);
+		for (db.EnumLiveKernels(wkrn); wkrn.MoveNext(); )
+			;
+
+		db.ModifyKernel(b0, 1);
+		for (db.EnumLiveKernels(wkrn); wkrn.MoveNext(); )
+			;
+
+		db.DeleteKernel(b0);
+		for (db.EnumLiveKernels(wkrn); wkrn.MoveNext(); )
+			;
 	}
 
 	void TestNodeDB()

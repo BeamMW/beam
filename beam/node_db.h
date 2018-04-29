@@ -60,6 +60,14 @@ public:
 			Activate,
 			MmrGet,
 			MmrSet,
+			UtxoAdd,
+			UtxoDel,
+			UtxoModify,
+			UtxoEnum,
+			KernelAdd,
+			KernelDel,
+			KernelModify,
+			KernelEnum,
 
 			Dbg0,
 			Dbg1,
@@ -181,6 +189,37 @@ public:
 	// the following functions move the curos, and mark the states with 'Active' flag
 	void MoveBack(StateID&);
 	void MoveFwd(const StateID&);
+
+	// Utxos & kernels
+	struct WalkerUtxo {
+		Recordset m_Rs;
+		Blob m_Key;
+		uint32_t m_nUnspentCount;
+
+		WalkerUtxo(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
+	};
+
+	struct WalkerKernel {
+		Recordset m_Rs;
+		Blob m_Key;
+
+		WalkerKernel(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
+	};
+
+
+	void EnumLiveUtxos(WalkerUtxo&);
+	void EnumLiveKernels(WalkerKernel&);
+
+	void AddUtxo(const Blob& key, const Blob& sig, uint32_t nTotal, uint32_t nUnspentCount);
+	void AddKernel(const Blob& key, const Blob& val, bool bUnspent);
+
+	void DeleteUtxo(const Blob& key);
+	void DeleteKernel(const Blob& key);
+
+	void ModifyUtxo(const Blob& key, int32_t nTotalDelta, int32_t nUnspentDelta);
+	void ModifyKernel(const Blob& key, int32_t nUnspentDelta);
 
 	void assert_valid(); // diagnostic, for tests only
 
