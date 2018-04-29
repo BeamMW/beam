@@ -510,6 +510,8 @@ void TestTransaction()
 	tm.AddInput(1, 740);
 	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested);
 
+	tm.m_Trans.Sort();
+
 	Amount fee;
 	verify_test(tm.m_Trans.IsValid(fee, 0));
 	verify_test(fee == fee1 + fee2);

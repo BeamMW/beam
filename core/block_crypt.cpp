@@ -129,9 +129,15 @@ namespace beam
 				<< m_pContract->m_PublicKey;
 		}
 
+		const TxKernel* p0Krn = NULL;
 		for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
 		{
-			if (!(*it)->Traverse(hv, pFee, pExcess))
+			const TxKernel& v = *(*it);
+			if (p0Krn && (*p0Krn > v))
+				return false;
+			p0Krn = &v;
+
+			if (!v.Traverse(hv, pFee, pExcess))
 				return false;
 			hp << hv;
 		}
@@ -230,23 +236,34 @@ namespace beam
 	// Transaction
 	bool TxBase::ValidateAndSummarize(Amount& fee, ECC::Point::Native& sigma, Height nHeight) const
 	{
+		const Input* p0Inp = NULL;
 		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
 		{
 			const Input& v = *(*it);
+
+			if (p0Inp && (*p0Inp > v))
+				return false;
+			p0Inp = &v;
 			sigma += ECC::Point::Native(v.m_Commitment);
 		}
 
 		sigma = -sigma;
 
+		const Output* p0Out = NULL;
 		for (auto it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
 		{
 			const Output& v = *(*it);
 			if (!v.IsValid())
 				return false;
 
+			if (p0Out && (*p0Out > v))
+				return false;
+			p0Out = &v;
+
 			sigma += ECC::Point::Native(v.m_Commitment);
 		}
 
+		const TxKernel* p0Krn = NULL;
 		for (auto it = m_vKernels.begin(); m_vKernels.end() != it; it++)
 		{
 			const TxKernel& v = *(*it);
@@ -254,11 +271,22 @@ namespace beam
 				return false;
 			if (!v.IsValid(fee, sigma))
 				return false;
+
+			if (p0Krn && (*p0Krn > v))
+				return false;
+			p0Krn = &v;
 		}
 
 		sigma += ECC::Context::get().G * m_Offset;
 
 		return true;
+	}
+
+	void TxBase::Sort()
+	{
+		std::sort(m_vInputs.begin(), m_vInputs.end());
+		std::sort(m_vOutputs.begin(), m_vOutputs.end());
+		std::sort(m_vKernels.begin(), m_vKernels.end());
 	}
 
 	bool Transaction::IsValid(Amount& fee, Height nHeight) const

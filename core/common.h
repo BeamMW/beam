@@ -137,6 +137,8 @@ namespace beam
 		std::vector<TxKernel::Ptr> m_vKernels;
 		ECC::Scalar m_Offset;
 
+		void Sort(); // w.r.t. the standard
+
 		// tests the validity of all the components, and overall arithmetics.
 		// Does *not* check the existence of the input UTXOs
 		//
