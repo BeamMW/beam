@@ -236,7 +236,7 @@ void DeleteFile(const char* szPath)
 			fmt1 = key;
 
 			verify_test(
-				!fmt0.m_Commitment.cmp(fmt1.m_Commitment) &&
+				(fmt0.m_Commitment == fmt1.m_Commitment) &&
 				(fmt0.m_Height == fmt1.m_Height) &&
 				(fmt0.m_bCoinbase == fmt1.m_bCoinbase) &&
 				(fmt0.m_bConfidential == fmt1.m_bConfidential));

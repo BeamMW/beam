@@ -117,7 +117,7 @@ void TestPoints()
 	verify_test(!p0.Import(p_));
 
 	p2_ = p0;
-	verify_test(!p_.cmp(p2_));
+	verify_test(p_ == p2_);
 
 	for (int i = 0; i < 1000; i++)
 	{
@@ -138,7 +138,7 @@ void TestPoints()
 		verify_test(p1 == Zero);
 
 		p2_ = p0;
-		verify_test(!p_.cmp(p2_));
+		verify_test(p_ == p2_);
 	}
 
 	// multiplication

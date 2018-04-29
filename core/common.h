@@ -59,10 +59,13 @@ namespace beam
 		// If not specified (no UTXO with the specified height) - it will automatically be selected.
 
 		int cmp(const Input&) const;
+		COMPARISON_VIA_CMP(Input)
 
 		void get_Hash(Merkle::Hash&) const;
 		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
 	};
+
+	inline bool operator < (const Input::Ptr& a, const Input::Ptr& b) { return *a < *b; }
 
 	struct Output
 	{
@@ -78,9 +81,12 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		bool IsValid() const;
+
 		int cmp(const Output&) const;
+		COMPARISON_VIA_CMP(Output)
 	};
 
+	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
 
 	struct TxKernel
 	{
@@ -101,6 +107,7 @@ namespace beam
 			ECC::Signature		m_Signature;
 
 			int cmp(const Contract&) const;
+			COMPARISON_VIA_CMP(Contract)
 		};
 
 		std::unique_ptr<Contract> m_pContract;
@@ -115,10 +122,13 @@ namespace beam
 		void get_HashForContract(ECC::Hash::Value&, const ECC::Hash::Value& msg) const;
 
 		int cmp(const TxKernel&) const;
+		COMPARISON_VIA_CMP(TxKernel)
 
 	private:
 		bool Traverse(ECC::Hash::Value&, Amount*, ECC::Point::Native*) const;
 	};
+
+	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
 
 	struct TxBase
 	{

@@ -16,6 +16,13 @@ inline void ZeroObject(T& x)
 	memset0(&x, sizeof(x));
 }
 
+#define COMPARISON_VIA_CMP(class_name) \
+	bool operator < (const class_name& x) const { return cmp(x) < 0; } \
+	bool operator > (const class_name& x) const { return cmp(x) > 0; } \
+	bool operator <= (const class_name& x) const { return cmp(x) <= 0; } \
+	bool operator >= (const class_name& x) const { return cmp(x) >= 0; } \
+	bool operator == (const class_name& x) const { return cmp(x) == 0; } \
+	bool operator != (const class_name& x) const { return cmp(x) != 0; }
 
 namespace ECC
 {
@@ -105,12 +112,7 @@ namespace ECC
 		}
 
 		int cmp(const uintBig_t& x) const { return memcmp(m_pData, x.m_pData, sizeof(m_pData)); }
-
-		bool operator < (const uintBig_t& x) const { return cmp(x) < 0; }
-		bool operator > (const uintBig_t& x) const { return cmp(x) > 0; }
-		bool operator <= (const uintBig_t& x) const { return cmp(x) <= 0; }
-		bool operator >= (const uintBig_t& x) const { return cmp(x) >= 0; }
-		bool operator == (const uintBig_t& x) const { return cmp(x) == 0; }
+		COMPARISON_VIA_CMP(uintBig_t)
 	};
 
 	static const uint32_t nBits = 256;
@@ -142,6 +144,7 @@ namespace ECC
 		template <typename T> Point(const T& t) { *this = t; }
 
 		int cmp(const Point&) const;
+		COMPARISON_VIA_CMP(Point)
 
 		class Native;
 		Point& operator = (const Native&);
@@ -172,6 +175,7 @@ namespace ECC
 		void CoSign(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk, const MultiSig&);
 
 		int cmp(const Signature&) const;
+		COMPARISON_VIA_CMP(Signature)
 
 	private:
 		static void get_Challenge(Scalar::Native&, const Point::Native&, const Hash::Value& msg);
@@ -187,7 +191,9 @@ namespace ECC
 
 			void Create(const Scalar::Native& sk, Amount);
 			bool IsValid(const Point&) const;
+
 			int cmp(const Confidential&) const;
+			COMPARISON_VIA_CMP(Confidential)
 		};
 
 		struct Public
@@ -197,7 +203,9 @@ namespace ECC
 
 			void Create(const Scalar::Native& sk); // amount should have been set
 			bool IsValid(const Point&) const;
+
 			int cmp(const Public&) const;
+			COMPARISON_VIA_CMP(Public)
 
 		private:
 			void get_Msg(Hash::Value&) const;

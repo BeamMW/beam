@@ -99,7 +99,7 @@ namespace beam::wallet
         s2 = ECC::Context::get().G * data->m_senderSignature;
         ECC::Point p(s), p2(s2);
 
-        return (p.cmp(p2) == 0);
+        return (p == p2);
     }
 
     bool Receiver::FSMDefinition::isInvalidSignature(const TxConfirmationCompleted& event)
