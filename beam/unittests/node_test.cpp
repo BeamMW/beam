@@ -118,12 +118,12 @@ namespace beam
 
 		db.SetStateBlock(pRows[0], bBody, peerID);
 
-		ByteBuffer bbBody, bbRbData;
+		ByteBuffer bbBody;
 		ZeroObject(peerID);
-		db.GetStateBlock(pRows[0], bbBody, bbRbData, peerID);
+		db.GetStateBlock(pRows[0], bbBody, peerID);
 		db.DelStateBlock(pRows[0]);
 		ZeroObject(peerID);
-		db.GetStateBlock(pRows[0], bbBody, bbRbData, peerID);
+		db.GetStateBlock(pRows[0], bbBody, peerID);
 
 		tr.Commit();
 		tr.Start(db);

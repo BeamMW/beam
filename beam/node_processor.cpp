@@ -158,8 +158,19 @@ void NodeProcessor::PruneOld(Height h)
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool bFwd)
 {
-	ByteBuffer bb, rbData;
-	m_DB.GetStateBlock(sid.m_Row, bb, rbData, peer);
+	ByteBuffer bb;
+	m_DB.GetStateBlock(sid.m_Row, bb, peer);
+
+	uint32_t nFlags;
+	bool bFirstTime;
+
+	if (bFwd)
+	{
+		nFlags = m_DB.GetStateFlags(sid.m_Row);
+		bFirstTime = !(NodeDB::StateFlags::BlockPassed & nFlags);
+	} else
+		bFirstTime = false;
+
 
 	Block::Body block;
 	try {
@@ -168,22 +179,13 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool b
 		der.reset(bb.empty() ? NULL :& bb.at(0), bb.size());
 		der & block;
 	} catch (const std::exception&) {
-		assert(bFwd && rbData.empty());
 		return false;
 	}
 
 	bb.clear();
-	size_t nSizeRbData = std::max(block.m_vInputs.size(), size_t(1));
-	bool bFirstTime = (rbData.size() != nSizeRbData);
 
-	if (bFirstTime)
-	{
-		assert(bFwd);
-		if (!block.IsValid(sid.m_Height, sid.m_Height))
-			return false;
-
-		rbData.resize(nSizeRbData);
-	}
+	if (bFirstTime && !block.IsValid(sid.m_Height, sid.m_Height))
+		return false;
 
 	size_t nInp = 0, nOut = 0, nKrn = 0;
 
@@ -191,7 +193,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool b
 	if (bFwd)
 	{
 		for ( ; nInp < block.m_vInputs.size(); nInp++)
-			if (!HandleBlockElement(*block.m_vInputs[nInp], rbData[nInp], bFwd, bFirstTime))
+			if (!HandleBlockElement(*block.m_vInputs[nInp], bFwd))
 			{
 				bOk = false;
 				break;
@@ -233,22 +235,22 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool b
 			HandleBlockElement(*block.m_vOutputs[nOut], sid.m_Height, false);
 
 		while (nInp--)
-			HandleBlockElement(*block.m_vInputs[nInp], rbData[nInp], bFwd, bFirstTime);
+			HandleBlockElement(*block.m_vInputs[nInp], bFwd);
 	}
 
 	if (bOk && bFirstTime)
-		m_DB.SetStateBlockRb(sid.m_Row, NodeDB::Blob(&rbData.at(0), rbData.size()));
+		m_DB.SetFlags(sid.m_Row, nFlags | NodeDB::StateFlags::BlockPassed);
 
 	return bOk;
 }
 
-bool NodeProcessor::HandleBlockElement(const Input& v, uint8_t& rbData, bool bFwd, bool bFirstTime)
+bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd)
 {
 	UtxoTree::Key::Formatted kf;
 	kf.m_Commitment = v.m_Commitment;
 	kf.m_Height = v.m_Height;
 	kf.m_bCoinbase = v.m_Coinbase;
-	kf.m_bConfidential = bFirstTime ? true : (0 != rbData);
+	kf.m_bConfidential = v.m_Confidential;
 
 	UtxoTree::Key key;
 	key = kf;
@@ -258,20 +260,9 @@ bool NodeProcessor::HandleBlockElement(const Input& v, uint8_t& rbData, bool bFw
 	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
 
 	if (!p)
-	{
-		assert(bFirstTime && bFwd);
-		kf.m_bConfidential = false;
-		key = kf;
-		p = m_Utxos.Find(cu, key, bCreate);
-
-		if (!p)
-			return false; // attempt to spend a non-existing UTXO!
-	}
+		return false; // attempt to spend a non-existing UTXO!
 
 	cu.Invalidate();
-
-	if (bFirstTime && bFwd)
-		rbData = kf.m_bConfidential ? 1 : 0;
 
 	if (bFwd)
 	{
@@ -394,7 +385,7 @@ void NodeProcessor::Rollback(const NodeDB::StateID& sid)
 {
 	PeerID peer;
 	if (!HandleBlock(sid, peer, false))
-		throw "corrupted!";
+		OnCorrupted();
 
 	NodeDB::StateID sid2(sid);
 	m_DB.MoveBack(sid2);
@@ -451,23 +442,7 @@ bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob
 	uint32_t nFlags = m_DB.GetStateFlags(rowid);
 	if (NodeDB::StateFlags::Functional & nFlags)
 		return true;
-/*
-	try {
 
-		Deserializer der;
-		der.reset(block.p, block.n);
-
-		Block::Body block;
-		der & block;
-
-		if (!block.IsValid(id.m_Height, id.m_Height))
-			throw std::runtime_error("block validation failed");
-
-	} catch (const std::exception&) {
-		OnPeerInsane(peer);
-		return false;
-	}
-*/
 	NodeDB::Transaction t(m_DB);
 
 	m_DB.SetStateBlock(rowid, block, peer);

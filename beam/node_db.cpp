@@ -24,10 +24,8 @@ namespace beam {
 #define TblStates_CountNext		"CountNext"
 #define TblStates_CountNextF	"CountNextFunctional"
 #define TblStates_PoW			"PoW"
-//#define TblStates_BlindOffset	"BlindOffset"
 #define TblStates_Mmr			"Mmr"
 #define TblStates_Body			"Body"
-#define TblStates_RbData		"RollbackData"
 #define TblStates_Peer			"Peer"
 
 #define TblTips					"Tips"
@@ -256,7 +254,6 @@ void NodeDB::Create()
 		//"[" TblStates_BlindOffset	"] BLOB,"
 		"[" TblStates_Mmr			"] BLOB,"
 		"[" TblStates_Body			"] BLOB,"
-		"[" TblStates_RbData		"] BLOB,"
 		"[" TblStates_Peer			"] BLOB,"
 		"PRIMARY KEY (" TblStates_Height "," TblStates_Hash "),"
 		"FOREIGN KEY (" TblStates_RowPrev ") REFERENCES " TblStates "(OID))");
@@ -869,20 +866,9 @@ void NodeDB::SetStateBlock(uint64_t rowid, const Blob& body, const PeerID& peer)
 	TestChanged1Row();
 }
 
-void NodeDB::SetStateBlockRb(uint64_t rowid, const Blob& rbData)
+void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, PeerID& peer)
 {
-	Recordset rs(*this, Query::StateSetBlockRb, "UPDATE " TblStates " SET " TblStates_RbData "=? WHERE rowid=?");
-	if (rbData.n)
-		rs.put(0, rbData);
-	rs.put(1, rowid);
-
-	rs.Step();
-	TestChanged1Row();
-}
-
-void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rbData, PeerID& peer)
-{
-	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_Body "," TblStates_RbData "," TblStates_Peer " FROM " TblStates " WHERE rowid=?");
+	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_Body "," TblStates_Peer " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 	if (!rs.Step())
 		throw "oops3";
@@ -890,8 +876,7 @@ void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rbData,
 	if (!rs.IsNull(0))
 	{
 		rs.get(0, body);
-		rs.get(1, rbData);
-		rs.get_As(2, peer);
+		rs.get_As(1, peer);
 	}
 }
 
@@ -900,7 +885,6 @@ void NodeDB::DelStateBlock(uint64_t rowid)
 	Blob bEmpty(NULL, 0);
 	PeerID dummy;
 	SetStateBlock(rowid, bEmpty, dummy);
-	SetStateBlockRb(rowid, bEmpty);
 }
 
 void NodeDB::SetFlags(uint64_t rowid, uint32_t n)

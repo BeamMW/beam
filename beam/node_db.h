@@ -15,6 +15,7 @@ public:
 		static const uint32_t Reachable		= 0x2;	// has only functional nodes up to the genesis state
 		static const uint32_t Active		= 0x4;	// part of the current blockchain.
 		static const uint32_t OverHorizon	= 0x8;	// block body is deleted, rollback is no more possible.
+		static const uint32_t BlockPassed	= 0x10;	// block verification may be simplified (already verified)
 	};
 
 	struct ParamID {
@@ -72,7 +73,6 @@ public:
 			KernelEnum,
 			StateGetBlock,
 			StateSetBlock,
-			StateSetBlockRb,
 			StateDelBlock,
 
 			Dbg0,
@@ -168,6 +168,7 @@ public:
 	bool DeleteState(uint64_t rowid, uint64_t& rowPrev); // State must exist. Returns false if there are ancestors.
 
 	uint32_t GetStateFlags(uint64_t rowid);
+	void SetFlags(uint64_t rowid, uint32_t);
 
 	void SetStateFunctional(uint64_t rowid);
 	void SetStateNotFunctional(uint64_t rowid);
@@ -175,8 +176,7 @@ public:
 	typedef Merkle::Hash PeerID;
 
 	void SetStateBlock(uint64_t rowid, const Blob& body, const PeerID& peer);
-	void SetStateBlockRb(uint64_t rowid, const Blob& rbData);
-	void GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rbData, PeerID& peer);
+	void GetStateBlock(uint64_t rowid, ByteBuffer& body, PeerID& peer);
 	void DelStateBlock(uint64_t rowid);
 
 	struct StateID {
@@ -263,7 +263,6 @@ private:
 	void TipReachableDel(uint64_t rowid, Height);
 	void SetNextCount(uint64_t rowid, uint32_t);
 	void SetNextCountFunctional(uint64_t rowid, uint32_t);
-	void SetFlags(uint64_t rowid, uint32_t);
 	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
 	void BuildMmr(uint64_t rowid, uint64_t rowPrev, Height);
 	void put_Cursor(const StateID& sid); // jump
