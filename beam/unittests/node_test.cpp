@@ -66,6 +66,9 @@ namespace beam
 		NodeDB db;
 		db.Open(sz, bCreate);
 
+		if (!bCreate)
+			return; // DB successfully opened. Skip the rest.
+
 		NodeDB::Transaction tr(db);
 
 		const uint32_t hMax = 250;
@@ -111,6 +114,19 @@ namespace beam
 				}
 			}
 		}
+
+		NodeDB::Blob bBody("body", 4);
+		Merkle::Hash peerID;
+		memset(peerID.m_pData, 0x66, sizeof(peerID.m_pData));
+
+		db.SetStateBlock(pRows[0], bBody, peerID);
+
+		ByteBuffer bbBody;
+		ZeroObject(peerID);
+		db.GetStateBlock(pRows[0], bbBody, peerID);
+		db.DelStateBlock(pRows[0]);
+		ZeroObject(peerID);
+		db.GetStateBlock(pRows[0], bbBody, peerID);
 
 		tr.Commit();
 		tr.Start(db);

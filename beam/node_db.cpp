@@ -167,6 +167,19 @@ void NodeDB::Recordset::get(int col, Blob& x)
 	x.n = sqlite3_column_bytes(m_pStmt, col);
 }
 
+void NodeDB::Recordset::get(int col, ByteBuffer& x)
+{
+	Blob b;
+	get(col, b);
+
+	if (b.n)
+	{
+		x.resize(b.n);
+		memcpy(&x.at(0), b.p, b.n);
+	} else
+		x.clear();
+}
+
 const void* NodeDB::Recordset::get_BlobStrict(int col, uint32_t n)
 {
 	Blob x;
@@ -832,6 +845,41 @@ void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, bool b
 
 		rows.clear();
 	}
+}
+
+void NodeDB::SetStateBlock(uint64_t rowid, const Blob& body, const PeerID& peer)
+{
+	Recordset rs(*this, Query::StateSetBlock, "UPDATE " TblStates " SET " TblStates_Body "=?," TblStates_Peer "=? WHERE rowid=?");
+	if (body.n)
+	{
+		rs.put(0, body);
+		rs.put_As(1, peer);
+	}
+	rs.put(2, rowid);
+
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, PeerID& peer)
+{
+	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_Body "," TblStates_Peer " FROM " TblStates " WHERE rowid=?");
+	rs.put(0, rowid);
+	if (!rs.Step())
+		throw "oops3";
+
+	if (!rs.IsNull(0))
+	{
+		rs.get(0, body);
+		rs.get_As(1, peer);
+	}
+}
+
+void NodeDB::DelStateBlock(uint64_t rowid)
+{
+	Blob bEmpty(NULL, 0);
+	PeerID dummy;
+	SetStateBlock(rowid, bEmpty, dummy);
 }
 
 void NodeDB::SetFlags(uint64_t rowid, uint32_t n)

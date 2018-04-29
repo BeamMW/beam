@@ -68,6 +68,9 @@ public:
 			KernelDel,
 			KernelModify,
 			KernelEnum,
+			StateGetBlock,
+			StateSetBlock,
+			StateDelBlock,
 
 			Dbg0,
 			Dbg1,
@@ -117,6 +120,7 @@ public:
 		void get(int col, uint32_t&);
 		void get(int col, uint64_t&);
 		void get(int col, Blob&);
+		void get(int col, ByteBuffer&); // don't over-use
 
 		const void* get_BlobStrict(int col, uint32_t n);
 
@@ -161,6 +165,12 @@ public:
 
 	void SetStateFunctional(uint64_t rowid);
 	void SetStateNotFunctional(uint64_t rowid);
+
+	typedef Merkle::Hash PeerID;
+
+	void SetStateBlock(uint64_t rowid, const Blob& body, const PeerID& peer);
+	void GetStateBlock(uint64_t rowid, ByteBuffer& body, PeerID& peer);
+	void DelStateBlock(uint64_t rowid);
 
 	struct StateID {
 		uint64_t m_Row;
