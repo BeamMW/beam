@@ -49,6 +49,7 @@ public:
 			StateGetHeightAndAux,
 			StateGetNextFunctional,
 			StateSetFlags,
+			StateGetFlags0,
 			StateGetFlags1,
 			TipAdd,
 			TipDel,
@@ -71,6 +72,7 @@ public:
 			KernelEnum,
 			StateGetBlock,
 			StateSetBlock,
+			StateSetBlockRb,
 			StateDelBlock,
 
 			Dbg0,
@@ -165,13 +167,16 @@ public:
 
 	bool DeleteState(uint64_t rowid, uint64_t& rowPrev); // State must exist. Returns false if there are ancestors.
 
+	uint32_t GetStateFlags(uint64_t rowid);
+
 	void SetStateFunctional(uint64_t rowid);
 	void SetStateNotFunctional(uint64_t rowid);
 
 	typedef Merkle::Hash PeerID;
 
 	void SetStateBlock(uint64_t rowid, const Blob& body, const PeerID& peer);
-	void GetStateBlock(uint64_t rowid, ByteBuffer& body, PeerID& peer);
+	void SetStateBlockRb(uint64_t rowid, const Blob& rbData);
+	void GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rbData, PeerID& peer);
 	void DelStateBlock(uint64_t rowid);
 
 	struct StateID {
@@ -192,6 +197,7 @@ public:
 	void EnumTips(WalkerState&); // lowest to highest
 	void EnumFunctionalTips(WalkerState&); // highest to lowest
 	bool get_Prev(StateID&);
+	bool get_Prev(uint64_t&);
 
 	bool get_Cursor(StateID& sid);
 
