@@ -452,7 +452,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 
 	rs.Reset(Query::StateIns, "INSERT INTO " TblStates
 		" (" TblStates_Hash "," StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0) TblStates_Flags "," TblStates_CountNext "," TblStates_CountNextF "," TblStates_RowPrev ")"
-		" VALUES (?," StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0,?,?)");
+		" VALUES(?," StateCvt_Fields(THE_MACRO_2, THE_MACRO_NOP0) "0,0,?,?)");
 
 #undef THE_MACRO_1
 #undef THE_MACRO_2
@@ -954,29 +954,23 @@ void NodeDB::assert_valid()
 	}
 }
 
-bool NodeDB::EnumTips(IEnumTip& x)
+void NodeDB::EnumTips(WalkerState& x)
 {
-	Recordset rs(*this, Query::EnumTips, "SELECT " TblTips_Height "," TblTips_State " FROM " TblTips " ORDER BY "  TblTips_Height " ASC," TblTips_State " ASC");
-	return EnumTipsEx(rs, x);
+	x.m_Rs.Reset(Query::EnumTips, "SELECT " TblTips_Height "," TblTips_State " FROM " TblTips " ORDER BY "  TblTips_Height " ASC," TblTips_State " ASC");
 }
 
-bool NodeDB::EnumFunctionalTips(IEnumTip& x)
+void NodeDB::EnumFunctionalTips(WalkerState& x)
 {
-	Recordset rs(*this, Query::EnumFunctionalTips, "SELECT " TblTips_Height "," TblTips_State " FROM " TblTipsReachable " ORDER BY "  TblTips_Height " DESC," TblTips_State " DESC");
-	return EnumTipsEx(rs, x);
+	x.m_Rs.Reset(Query::EnumFunctionalTips, "SELECT " TblTips_Height "," TblTips_State " FROM " TblTipsReachable " ORDER BY "  TblTips_Height " DESC," TblTips_State " DESC");
 }
 
-bool NodeDB::EnumTipsEx(Recordset& rs, IEnumTip& x)
+bool NodeDB::WalkerState::MoveNext()
 {
-	while (rs.Step())
-	{
-		StateID sid;
-		rs.get(0, sid.m_Height);
-		rs.get(1, sid.m_Row);
-		if (x.OnTip(sid))
-			return true;
-	}
-	return false;
+	if (!m_Rs.Step())
+		return false;
+	m_Rs.get(0, m_Sid.m_Height);
+	m_Rs.get(1, m_Sid.m_Row);
+	return true;
 }
 
 bool NodeDB::get_Prev(StateID& sid)

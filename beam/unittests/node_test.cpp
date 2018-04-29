@@ -43,26 +43,22 @@ namespace beam
 
 	uint32_t CountTips(NodeDB& db, bool bFunctional, NodeDB::StateID* pLast = NULL)
 	{
-		struct MyTipEnum :public NodeDB::IEnumTip {
-			uint32_t m_Tips;
-			NodeDB::StateID* m_pLast;
-			virtual bool OnTip(const NodeDB::StateID& sid) override {
-				m_Tips++;
-				if (m_pLast)
-					*m_pLast = sid;
-				return false;
-			}
-		};
+		uint32_t nTips = 0;
 
-		MyTipEnum mte;
-		mte.m_pLast = pLast;
-		mte.m_Tips = 0;
+		NodeDB::WalkerState ws(db);
+
 		if (bFunctional)
-			db.EnumFunctionalTips(mte);
+			db.EnumFunctionalTips(ws);
 		else
-			db.EnumTips(mte);
+			db.EnumTips(ws);
 
-		return mte.m_Tips;
+		while (ws.MoveNext())
+			nTips++;
+
+		if (pLast)
+			*pLast = ws.m_Sid;
+
+		return nTips;
 	}
 
 	void TestNodeDB(const char* sz, bool bCreate)

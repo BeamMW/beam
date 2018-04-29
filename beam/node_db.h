@@ -160,12 +160,17 @@ public:
 		//Merkle::Hash m_Hash; //?
 	};
 
-	struct IEnumTip {
-		virtual bool OnTip(const StateID&) = 0; // return true to stop iteration
+
+	struct WalkerState {
+		Recordset m_Rs;
+		StateID m_Sid;
+
+		WalkerState(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
 	};
 
-	bool EnumTips(IEnumTip&); // lowest to highest
-	bool EnumFunctionalTips(IEnumTip&); // highest to lowest
+	void EnumTips(WalkerState&); // lowest to highest
+	void EnumFunctionalTips(WalkerState&); // highest to lowest
 	bool get_Prev(StateID&);
 
 	bool get_Cursor(StateID& sid);
@@ -193,7 +198,6 @@ private:
 	bool ExecStep(Query::Enum, const char*); // returns true while there's a row
 
 	sqlite3_stmt* get_Statement(Query::Enum, const char*);
-	static bool EnumTipsEx(Recordset&, IEnumTip&);
 
 
 	void TipAdd(uint64_t rowid, Height);
