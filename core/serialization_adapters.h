@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common.h"
-#include "utility/serialize.h"
+#include "../utility/serialize.h"
 
 namespace yas
 {
