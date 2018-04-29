@@ -1,4 +1,5 @@
 #include <utility> // std::swap
+#include <algorithm>
 #include "common.h"
 #include "ecc_native.h"
 
