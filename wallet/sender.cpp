@@ -47,8 +47,6 @@ namespace beam::wallet
             for (const auto& coin: coins)
             {
                 Input::Ptr input = std::make_unique<Input>();
-                input->m_Height = 0;
-                input->m_Coinbase = false;
 
                 ECC::Scalar::Native key(coin.m_key);
                 ECC::Point::Native pt = ECC::Commitment(key, coin.m_amount);
@@ -72,7 +70,6 @@ namespace beam::wallet
             change -= m_amount;
 
             Output::Ptr output = std::make_unique<Output>();
-            output->m_Coinbase = false;
 
             ECC::Scalar::Native blindingFactor;
             SetRandom(blindingFactor);

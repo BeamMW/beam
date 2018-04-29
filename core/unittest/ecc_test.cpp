@@ -369,8 +369,6 @@ struct TransactionMaker
 		void AddInput(beam::Transaction& t, Amount val)
 		{
 			std::unique_ptr<beam::Input> pInp(new beam::Input);
-			pInp->m_Height = 0;
-			pInp->m_Coinbase = false;
 
 			Scalar::Native k;
 			EncodeAmount(pInp->m_Commitment, k, val);
@@ -383,7 +381,6 @@ struct TransactionMaker
 		void AddOutput(beam::Transaction& t, Amount val)
 		{
 			std::unique_ptr<beam::Output> pOut(new beam::Output);
-			pOut->m_Coinbase = false;
 
 			Scalar::Native k;
 			EncodeAmount(pOut->m_Commitment, k, val);

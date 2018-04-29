@@ -44,7 +44,6 @@ namespace beam::wallet
         // 3. Choose random blinding factor for receiver_output
         ECC::Amount amount = m_amount;
         Output::Ptr output = std::make_unique<Output>();
-        output->m_Coinbase = false;
 
         ECC::Scalar::Native blindingFactor;
         SetRandom(blindingFactor);

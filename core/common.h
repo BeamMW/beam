@@ -53,16 +53,25 @@ namespace beam
 
 		ECC::Point	m_Commitment;
 		bool		m_Coinbase;
+		bool		m_Confidential;
 		Height		m_Height;
+
+		Input()
+			:m_Coinbase(false)
+			,m_Confidential(false)
+			,m_Height(0)
+		{
+		}
 
 		// In case there are multiple UTXOs with the same commitment value (which we permit) the height should be used to distinguish between them
 		//
 		// Transactions:
 		//		In case there's no UTXO with the specified height - the node is allowed to increase it to match the existing UTXO.
 		//		So that if m_Height is the minimum height to spend. Set to 0 (by default?) to spend the most mature.
+		//		Same rule applies for 'Confidential 'flag.
 		//
 		// In the block
-		//		The m_Height must exactly match the existing UTXO, no auto-adjustments.
+		//		The m_Height and m_Confidential must exactly match the existing UTXO, no auto-adjustments.
 
 		int cmp(const Input&) const;
 		COMPARISON_VIA_CMP(Input)
@@ -79,6 +88,11 @@ namespace beam
 
 		ECC::Point	m_Commitment;
 		bool		m_Coinbase;
+
+		Output()
+			:m_Coinbase(false)
+		{
+		}
 
 		static const Amount s_MinimumValue = 1;
 
