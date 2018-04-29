@@ -63,6 +63,7 @@ public:
 		void Invalidate();
 
 		Node** get_pp() const { return m_pp; }
+		uint32_t get_Depth() const { return m_nPtrs; }
 	};
 
 	template <uint32_t nKeyBits>
@@ -96,8 +97,30 @@ private:
 	static bool Traverse(const Node&, ITraveler&);
 };
 
+class RadixHashTree
+	:public RadixTree
+{
+public:
+
+	struct MyJoint :public Joint {
+		Merkle::Hash m_Hash;
+	};
+
+	void get_Hash(Merkle::Hash&);
+	void get_Proof(Merkle::Proof&, const CursorBase&);
+
+protected:
+	// RadixTree
+	virtual Joint* CreateJoint() override { return new MyJoint; }
+	virtual void DeleteJoint(Joint* p) override { delete (MyJoint*) p; }
+
+	const Merkle::Hash& get_Hash(Node&, Merkle::Hash&);
+
+	virtual const Merkle::Hash& get_LeafHash(Node&, Merkle::Hash&) = 0;
+};
+
 class UtxoTree
-	:public beam::RadixTree
+	:public RadixHashTree
 {
 public:
 
@@ -134,21 +157,13 @@ public:
 		void get_Hash(Merkle::Hash&, const Key&) const;
 	};
 
-	struct MyJoint :public Joint {
-		Merkle::Hash m_Hash;
-	};
-
 	struct MyLeaf :public Leaf
 	{
 		Key m_Key;
 		Value m_Value;
 	};
 
-	struct Cursor
-		:public RadixTree::Cursor_T<Key::s_Bits>
-	{
-		void get_Proof(Merkle::Proof&) const; // must be valid of course
-	};
+	typedef RadixTree::Cursor_T<Key::s_Bits> Cursor;
 
 	MyLeaf* Find(CursorBase& cu, const Key& key, bool& bCreate)
 	{
@@ -156,8 +171,6 @@ public:
 	}
 
 	~UtxoTree() { Clear(); }
-
-	void get_Hash(Merkle::Hash&);
 
     template<typename Archive>
     Archive& save(Archive& ar) const
@@ -177,13 +190,10 @@ public:
 
 
 protected:
-	virtual Joint* CreateJoint() override { return new MyJoint; }
 	virtual Leaf* CreateLeaf() override { return new MyLeaf; }
 	virtual uint8_t* GetLeafKey(const Leaf& x) const override { return ((MyLeaf&) x).m_Key.m_pArr; }
-	virtual void DeleteJoint(Joint* p) override { delete (MyJoint*) p; }
 	virtual void DeleteLeaf(Leaf* p) override { delete (MyLeaf*) p; }
-
-	static const Merkle::Hash& get_Hash(Node&, Merkle::Hash&);
+	virtual const Merkle::Hash& get_LeafHash(Node&, Merkle::Hash&) override;
 
 	struct ISerializer {
 		virtual void Process(uint32_t&) = 0;

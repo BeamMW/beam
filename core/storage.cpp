@@ -323,8 +323,8 @@ size_t RadixTree::Count() const
 }
 
 /////////////////////////////
-// UtxoTree
-void UtxoTree::get_Hash(Merkle::Hash& hv)
+// RadixHashTree
+void RadixHashTree::get_Hash(Merkle::Hash& hv)
 {
 	Node* p = get_Root();
 	if (p)
@@ -333,26 +333,13 @@ void UtxoTree::get_Hash(Merkle::Hash& hv)
 		hv = ECC::Zero;
 }
 
-void UtxoTree::Value::get_Hash(Merkle::Hash& hv, const Key& key) const
-{
-	ECC::Hash::Processor hp;
-	hp.Write(key.m_pArr, Key::s_Bytes); // whole description of the UTXO
-	hp << m_Count;
-
-	hp >> hv;
-}
-
-const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
+const Merkle::Hash& RadixHashTree::get_Hash(Node& n, Merkle::Hash& hv)
 {
 	if (Node::s_Leaf & n.m_Bits)
 	{
-		MyLeaf& x = (MyLeaf&) n;
-		x.m_Bits |= Node::s_Clean;
-
-		x.m_Value.get_Hash(hv, x.m_Key);
-
-		return hv;
-
+		const Merkle::Hash& ret = get_LeafHash(n, hv);
+		n.m_Bits |= Node::s_Clean;
+		return ret;
 	}
 
 	MyJoint& x = (MyJoint&) n;
@@ -373,17 +360,19 @@ const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 	return x.m_Hash;
 }
 
-void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
+void RadixHashTree::get_Proof(Merkle::Proof& proof, const CursorBase& cu)
 {
-	uint32_t n = m_nPtrs;
+	uint32_t n = cu.get_Depth();
 	assert(n);
 
-	const Node* pPrev = m_pp[--n];
+	Node** pp = cu.get_pp();
+
+	const Node* pPrev = pp[--n];
 	size_t nOut = proof.size(); // may already be non-empty, we'll append
 
 	for (proof.resize(nOut + n); n--; nOut++)
 	{
-		const Joint& x = (const Joint&) *m_pp[n];
+		const Joint& x = (const Joint&) *pp[n];
 
 		Merkle::Node& node = proof[nOut];
 		node.first = (x.m_ppC[0] == pPrev);
@@ -394,6 +383,24 @@ void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
 	}
 
 	assert(proof.size() == nOut);
+}
+
+/////////////////////////////
+// UtxoTree
+void UtxoTree::Value::get_Hash(Merkle::Hash& hv, const Key& key) const
+{
+	ECC::Hash::Processor hp;
+	hp.Write(key.m_pArr, Key::s_Bytes); // whole description of the UTXO
+	hp << m_Count;
+
+	hp >> hv;
+}
+
+const Merkle::Hash& UtxoTree::get_LeafHash(Node& n, Merkle::Hash& hv)
+{
+	MyLeaf& x = (MyLeaf&) n;
+	x.m_Value.get_Hash(hv, x.m_Key);
+	return hv;
 }
 
 void UtxoTree::SaveIntenral(ISerializer& s) const
