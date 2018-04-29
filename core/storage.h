@@ -119,10 +119,44 @@ protected:
 	virtual const Merkle::Hash& get_LeafHash(Node&, Merkle::Hash&) = 0;
 };
 
+class RadixHashOnlyTree
+	:public RadixHashTree
+{
+public:
+
+	// Just store hashes.
+
+	struct MyLeaf :public Leaf
+	{
+		Merkle::Hash m_Hash;
+	};
+
+	typedef RadixTree::Cursor_T<ECC::nBits> Cursor;
+
+	MyLeaf* Find(CursorBase& cu, const Merkle::Hash& key, bool& bCreate)
+	{
+		static_assert(sizeof(key.m_pData) << 3 == ECC::nBits, "");
+		return (MyLeaf*) RadixTree::Find(cu, key.m_pData, ECC::nBits, bCreate);
+	}
+
+	~RadixHashOnlyTree() { Clear(); }
+
+protected:
+	virtual Leaf* CreateLeaf() override { return new MyLeaf; }
+	virtual uint8_t* GetLeafKey(const Leaf& x) const override { return ((MyLeaf&) x).m_Hash.m_pData; }
+	virtual void DeleteLeaf(Leaf* p) override { delete (MyLeaf*) p; }
+	virtual const Merkle::Hash& get_LeafHash(Node& n, Merkle::Hash&) override { return ((MyLeaf&) n).m_Hash; }
+};
+
+
 class UtxoTree
 	:public RadixHashTree
 {
 public:
+
+	// This tree is different from RadixHashOnlyTree in 2 ways:
+	//	1. Each key comes with a count (i.e. duplicates are allowed)
+	//	2. We support "group search", i.e. all elements with s specified subkey. Given the UTXO commitment we can find all the counts and originating blocks.
 
 	struct Key
 	{
