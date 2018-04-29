@@ -465,8 +465,8 @@ void DeleteFile(const char* szPath)
 
 int main()
 {
-	//beam::TestNavigator();
-	//beam::TestUtxoTree();
+	beam::TestNavigator();
+	beam::TestUtxoTree();
 	beam::TestMmr();
 
 	return g_TestsFailed ? -1 : 0;
