@@ -392,7 +392,7 @@ namespace beam
 		if (!(sigma == ECC::Zero)) // No need to add fees explicitly, they must have already been consumed
 			return false;
 
-		Amount nCoinbaseMax = s_CoinbaseEmission * (h1 - h0); // TODO: overflow!
+		Amount nCoinbaseMax = s_CoinbaseEmission * (h1 - h0 + 1); // TODO: overflow!
 		return (ctx.m_Coinbase <= nCoinbaseMax);
 	}
 
