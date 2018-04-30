@@ -8,7 +8,7 @@ namespace beam::wallet
         // 1. Create transaction Uuid
         invitationData->m_txId = m_txId;
 
-        auto coins = m_keychain->getCoins(m_amount); // need to lock 
+        m_coins = m_keychain->getCoins(m_amount); // need to lock 
         invitationData->m_amount = m_amount;
         m_kernel.m_Fee = 0;
         m_kernel.m_HeightMin = 0;
@@ -19,7 +19,7 @@ namespace beam::wallet
         // 3. Select inputs using desired selection strategy
         {
             m_blindingExcess = ECC::Zero;
-            for (const auto& coin: coins)
+            for (const auto& coin: m_coins)
             {
                 Input::Ptr input = std::make_unique<Input>();
                 input->m_Height = 0;
@@ -39,7 +39,7 @@ namespace beam::wallet
         // 5. Select blinding factor for change_output
         {
             Amount change = 0;
-            for (const auto &coin : coins)
+            for (const auto &coin : m_coins)
             {
                 change += coin.m_amount;
             }
@@ -57,7 +57,10 @@ namespace beam::wallet
             output->m_pPublic.reset(new ECC::RangeProof::Public);
             output->m_pPublic->m_Value = change;
             output->m_pPublic->Create(blindingFactor);
-            // TODO: need to store new key and amount in keyChain
+            
+            m_changeOutput = Coin(blindingFactor, change);
+            m_changeOutput->m_status = Coin::Status::Unconfirmed;
+            m_keychain->store(*m_changeOutput);
 
             blindingFactor = -blindingFactor;
             m_blindingExcess += blindingFactor;
@@ -135,7 +138,6 @@ namespace beam::wallet
 
     void Sender::FSMDefinition::rollbackTx(const TxFailed& )
     {
-
     }
 
     void Sender::FSMDefinition::cancelTx(const TxInitCompleted& )
@@ -151,5 +153,15 @@ namespace beam::wallet
     void Sender::FSMDefinition::completeTx(const TxOutputConfirmCompleted&)
     {
         std::cout << "Sender::completeTx\n";
+        for (auto& c : m_coins)
+        {
+            c.m_status = Coin::Status::Spent;
+        }
+        if (m_changeOutput != boost::none)
+        {
+            m_changeOutput->m_status = Coin::Status::Unspent;
+            m_coins.push_back(*m_changeOutput);
+        }
+        m_keychain->update(m_coins);
     }
 }

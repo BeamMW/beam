@@ -65,7 +65,7 @@ namespace
             return CoinData::keygen.next().get();
         }
         
-        std::vector<beam::Coin> getCoins(const ECC::Amount& amount)
+        std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock)
         {
             std::vector<beam::Coin> res;
             ECC::Amount t = 0;
@@ -79,6 +79,11 @@ namespace
                 }
             }
             return res;
+        }
+
+        void store(const beam::Coin& coin)
+        {
+
         }
 
         void update(const std::vector<beam::Coin>& coins)
@@ -139,7 +144,7 @@ namespace
             return CoinData::keygen.next().get();
         }
 
-        std::vector<beam::Coin> getCoins(const ECC::Amount& amount)
+        std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock)
         {
             std::vector<beam::Coin> res;
 
@@ -162,6 +167,11 @@ namespace
             is.close();
 
             return res;
+        }
+
+        void store(const beam::Coin& coin)
+        {
+
         }
 
         void update(const std::vector<beam::Coin>& coins)
@@ -294,7 +304,6 @@ namespace
         mutex m_tasksMutex;
         condition_variable m_cv;
         atomic<bool> m_shutdown;
-        thread m_thread;
     };
 
 

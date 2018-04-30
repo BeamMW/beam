@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <boost/msm/front/functor_row.hpp>
+#include <boost/optional.hpp>
 
 namespace beam::wallet
 {
@@ -116,6 +117,9 @@ namespace beam::wallet
             ECC::Point::Native m_publicBlindingExcess;
             ECC::Point::Native m_publicNonce;
             TxKernel m_kernel;
+
+            std::vector<Coin> m_coins;
+            boost::optional<Coin> m_changeOutput;
         };
         
     protected:
