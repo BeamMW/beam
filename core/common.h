@@ -257,9 +257,9 @@ namespace beam
 		typedef std::unique_ptr<PoW> PoWPtr;
 		PoWPtr m_ProofOfWork;
 
-		static const Amount s_CoinbaseEmission = 1000000 * 15; // the maximum allowed coinbase in a single block
-		static const Height s_MaturityCoinbase	= 60; // 1 hour
-		static const Height s_MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+		static const Amount s_CoinbaseEmission; // the maximum allowed coinbase in a single block
+		static const Height s_MaturityCoinbase;
+		static const Height s_MaturityStd;
 
 		struct Body
 			:public TxBase
