@@ -460,39 +460,37 @@ int UtxoTree::Key::cmp(const Key& k) const
 	return memcmp(m_pArr, k.m_pArr, sizeof(m_pArr));
 }
 
-UtxoTree::Key::Formatted& UtxoTree::Key::Formatted::operator = (const Key& key)
+void UtxoTree::Key::ToID(UtxoID& id) const
 {
-	memcpy(m_Commitment.m_X.m_pData, key.m_pArr, sizeof(m_Commitment.m_X.m_pData));
-	const uint8_t* pKey = key.m_pArr + sizeof(m_Commitment.m_X.m_pData);
+	memcpy(id.m_Commitment.m_X.m_pData, m_pArr, sizeof(id.m_Commitment.m_X.m_pData));
+	const uint8_t* pKey = m_pArr + sizeof(id.m_Commitment.m_X.m_pData);
 
-	m_Commitment.m_Y	= (1 & (pKey[0] >> 7)) != 0;
-	m_bCoinbase			= (1 & (pKey[0] >> 6)) != 0;
-	m_bConfidential		= (1 & (pKey[0] >> 5)) != 0;
+	id.m_Commitment.m_Y	= (1 & (pKey[0] >> 7)) != 0;
+	id.m_Coinbase			= (1 & (pKey[0] >> 6)) != 0;
+	id.m_Confidential		= (1 & (pKey[0] >> 5)) != 0;
 
-	m_Height = 0;
-	for (int i = 0; i < sizeof(m_Height); i++, pKey++)
-		m_Height = (m_Height << 8) | (pKey[0] << 3) | (pKey[1] >> 5);
-
-	return *this;
+	id.m_Height = 0;
+	for (int i = 0; i < sizeof(id.m_Height); i++, pKey++)
+		id.m_Height = (id.m_Height << 8) | (pKey[0] << 3) | (pKey[1] >> 5);
 }
 
-UtxoTree::Key& UtxoTree::Key::operator = (const Key::Formatted& fmt)
+UtxoTree::Key& UtxoTree::Key::operator = (const UtxoID& id)
 {
-	memcpy(m_pArr, fmt.m_Commitment.m_X.m_pData, sizeof(fmt.m_Commitment.m_X.m_pData));
+	memcpy(m_pArr, id.m_Commitment.m_X.m_pData, sizeof(id.m_Commitment.m_X.m_pData));
 
-	uint8_t* pKey = m_pArr + sizeof(fmt.m_Commitment.m_X.m_pData);
-	memset0(pKey, sizeof(m_pArr) - sizeof(fmt.m_Commitment.m_X.m_pData));
+	uint8_t* pKey = m_pArr + sizeof(id.m_Commitment.m_X.m_pData);
+	memset0(pKey, sizeof(m_pArr) - sizeof(id.m_Commitment.m_X.m_pData));
 
-	if (fmt.m_Commitment.m_Y)
+	if (id.m_Commitment.m_Y)
 		pKey[0] |= (1 << 7);
-	if (fmt.m_bCoinbase)
+	if (id.m_Coinbase)
 		pKey[0] |= (1 << 6);
-	if (fmt.m_bConfidential)
+	if (id.m_Confidential)
 		pKey[0] |= (1 << 5);
 
-	for (int i = 0; i < sizeof(fmt.m_Height); i++)
+	for (int i = 0; i < sizeof(id.m_Height); i++)
 	{
-		uint8_t val = uint8_t(fmt.m_Height >> ((sizeof(fmt.m_Height) - i - 1) << 3));
+		uint8_t val = uint8_t(id.m_Height >> ((sizeof(id.m_Height) - i - 1) << 3));
 		pKey[i] |= val >> 3;
 		pKey[i + 1] |= (val << 5);
 	}

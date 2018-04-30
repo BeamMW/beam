@@ -160,16 +160,6 @@ public:
 
 	struct Key
 	{
-		struct Formatted
-		{
-			ECC::Point	m_Commitment;
-			Height		m_Height;
-			bool		m_bCoinbase;
-			bool		m_bConfidential;
-
-			Formatted& operator = (const Key&);
-		};
-
 		static const uint32_t s_BitsCommitment = sizeof(ECC::uintBig) * 8 + 1; // curve point
 
 		static const uint32_t s_Bits =
@@ -179,7 +169,9 @@ public:
 
 		static const uint32_t s_Bytes = (s_Bits + 7) >> 3;
 
-		Key& operator = (const Formatted&);
+		Key& operator = (const UtxoID&);
+		void ToID(UtxoID&) const;
+
 		int cmp(const Key&) const;
 
 		uint8_t m_pArr[s_Bytes];

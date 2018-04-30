@@ -61,20 +61,22 @@ namespace beam
 	/////////////
 	// Input
 
-	int Input::cmp(const Input& v) const
+	int UtxoID::cmp(const UtxoID& v) const
 	{
-		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER_EX(m_Commitment)
 		CMP_MEMBER(m_Height)
+		CMP_MEMBER(m_Coinbase)
+		CMP_MEMBER(m_Confidential)
 		return 0;
 	}
 
 	void Input::get_Hash(Merkle::Hash& out) const
 	{
 		ECC::Hash::Processor()
-			<< m_Coinbase
 			<< m_Commitment
 			<< m_Height
+			<< m_Coinbase
+			<< m_Confidential
 			>> out;
 	}
 
@@ -109,12 +111,20 @@ namespace beam
 
 	int Output::cmp(const Output& v) const
 	{
-		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER_EX(m_Commitment)
+		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
 
 		return 0;
+	}
+
+	void Output::get_ID(UtxoID& id, Height h) const
+	{
+		id.m_Commitment = m_Commitment;
+		id.m_Height = h;
+		id.m_Coinbase = m_Coinbase;
+		id.m_Confidential = m_pConfidential.get() != NULL;
 	}
 
 	/////////////

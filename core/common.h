@@ -47,20 +47,28 @@ namespace beam
 		void Interpret(Hash&, const Hash& hNew, bool bNewOnRight);
 	}
 
+	struct UtxoID
+	{
+		// canonical description
+		ECC::Point	m_Commitment;
+		Height		m_Height;
+		bool		m_Coinbase;
+		bool		m_Confidential;
+
+		int cmp(const UtxoID&) const;
+		COMPARISON_VIA_CMP(UtxoID)
+	};
+
 	struct Input
+		:public UtxoID
 	{
 		typedef std::unique_ptr<Input> Ptr;
 
-		ECC::Point	m_Commitment;
-		bool		m_Coinbase;
-		bool		m_Confidential;
-		Height		m_Height;
-
 		Input()
-			:m_Coinbase(false)
-			,m_Confidential(false)
-			,m_Height(0)
 		{
+			m_Coinbase = false;
+			m_Confidential = false;
+			m_Height = 0;
 		}
 
 		// In case there are multiple UTXOs with the same commitment value (which we permit) the height should be used to distinguish between them
@@ -73,7 +81,6 @@ namespace beam
 		// In the block
 		//		The m_Height and m_Confidential must exactly match the existing UTXO, no auto-adjustments.
 
-		int cmp(const Input&) const;
 		COMPARISON_VIA_CMP(Input)
 
 		void get_Hash(Merkle::Hash&) const;
@@ -101,6 +108,7 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		bool IsValid() const;
+		void get_ID(UtxoID&, Height) const;
 
 		int cmp(const Output&) const;
 		COMPARISON_VIA_CMP(Output)
@@ -189,6 +197,7 @@ namespace beam
 	struct Transaction
 		:public TxBase
 	{
+		typedef std::unique_ptr<Transaction> Ptr;
 		// Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
 		bool IsValid(Context&) const;
 	};

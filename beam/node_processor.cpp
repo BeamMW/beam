@@ -201,43 +201,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool b
 	if (bFirstTime && !block.IsValid(sid.m_Height, sid.m_Height))
 		return false;
 
-	size_t nInp = 0, nOut = 0, nKrn = 0;
-
-	bool bOk = true;
-	if (bFwd)
-	{
-		for ( ; nInp < block.m_vInputs.size(); nInp++)
-			if (!HandleBlockElement(*block.m_vInputs[nInp], bFwd))
-			{
-				bOk = false;
-				break;
-			}
-	} else
-	{
-		nInp = block.m_vInputs.size();
-		nOut = block.m_vOutputs.size();
-		nKrn = block.m_vKernels.size();
-	}
-
-	if (bFwd && bOk)
-	{
-		for ( ; nOut < block.m_vOutputs.size(); nOut++)
-			if (!HandleBlockElement(*block.m_vOutputs[nOut], sid.m_Height, bFwd))
-			{
-				bOk = false;
-				break;
-			}
-	}
-
-	if (bFwd && bOk)
-	{
-		for ( ; nKrn < block.m_vKernels.size(); nKrn++)
-			if (!HandleBlockElement(*block.m_vKernels[nKrn], bFwd))
-			{
-				bOk = false;
-				break;
-			}
-	}
+	bool bOk = HandleValidatedTx(block, sid.m_Height, bFwd);
 
 	if (bFirstTime && bOk)
 	{
@@ -250,37 +214,76 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool b
 		m_Kernels.get_Hash(hv);
 		if (s.m_Kernels != hv)
 			bOk = false;
+
+		if (bOk)
+			m_DB.SetFlags(sid.m_Row, nFlags | NodeDB::StateFlags::BlockPassed);
+		else
+			HandleValidatedTx(block, sid.m_Height, false);
+	}
+
+	return bOk;
+}
+
+bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd)
+{
+	size_t nInp = 0, nOut = 0, nKrn = 0;
+
+	bool bOk = true;
+	if (bFwd)
+	{
+		for ( ; nInp < tx.m_vInputs.size(); nInp++)
+			if (!HandleBlockElement(*tx.m_vInputs[nInp], bFwd))
+			{
+				bOk = false;
+				break;
+			}
+	} else
+	{
+		nInp = tx.m_vInputs.size();
+		nOut = tx.m_vOutputs.size();
+		nKrn = tx.m_vKernels.size();
+	}
+
+	if (bFwd && bOk)
+	{
+		for ( ; nOut < tx.m_vOutputs.size(); nOut++)
+			if (!HandleBlockElement(*tx.m_vOutputs[nOut], h, bFwd))
+			{
+				bOk = false;
+				break;
+			}
+	}
+
+	if (bFwd && bOk)
+	{
+		for ( ; nKrn < tx.m_vKernels.size(); nKrn++)
+			if (!HandleBlockElement(*tx.m_vKernels[nKrn], bFwd))
+			{
+				bOk = false;
+				break;
+			}
 	}
 
 	if (!(bFwd && bOk))
 	{
 		// Rollback all the changes. Must succeed!
 		while (nKrn--)
-			HandleBlockElement(*block.m_vKernels[nKrn], false);
+			HandleBlockElement(*tx.m_vKernels[nKrn], false);
 
 		while (nOut--)
-			HandleBlockElement(*block.m_vOutputs[nOut], sid.m_Height, false);
+			HandleBlockElement(*tx.m_vOutputs[nOut], h, false);
 
 		while (nInp--)
-			HandleBlockElement(*block.m_vInputs[nInp], bFwd);
+			HandleBlockElement(*tx.m_vInputs[nInp], false);
 	}
-
-	if (bOk && bFirstTime)
-		m_DB.SetFlags(sid.m_Row, nFlags | NodeDB::StateFlags::BlockPassed);
 
 	return bOk;
 }
 
 bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd)
 {
-	UtxoTree::Key::Formatted kf;
-	kf.m_Commitment = v.m_Commitment;
-	kf.m_Height = v.m_Height;
-	kf.m_bCoinbase = v.m_Coinbase;
-	kf.m_bConfidential = v.m_Confidential;
-
 	UtxoTree::Key key;
-	key = kf;
+	key = v;
 
 	UtxoTree::Cursor cu;
 	bool bCreate = !bFwd;
@@ -311,14 +314,11 @@ bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd)
 
 bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 {
-	UtxoTree::Key::Formatted kf;
-	kf.m_Commitment = v.m_Commitment;
-	kf.m_Height = h;
-	kf.m_bCoinbase = v.m_Coinbase;
-	kf.m_bConfidential = v.m_pConfidential != NULL;
+	UtxoID utxoid;
+	v.get_ID(utxoid, h);
 
 	UtxoTree::Key key;
-	key = kf;
+	key = utxoid;
 	NodeDB::Blob blob(&key, sizeof(key));
 
 	UtxoTree::Cursor cu;

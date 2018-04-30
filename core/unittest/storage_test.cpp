@@ -203,17 +203,17 @@ void DeleteFile(const char* szPath)
 		}
 	}
 
-	void SetRandomUtxoKey(UtxoTree::Key::Formatted& fmt)
+	void SetRandomUtxoKey(UtxoID& id)
 	{
-		for (int i = 0; i < sizeof(fmt.m_Commitment.m_X.m_pData); i++)
-			fmt.m_Commitment.m_X.m_pData[i] = (uint8_t) rand();
+		for (int i = 0; i < sizeof(id.m_Commitment.m_X.m_pData); i++)
+			id.m_Commitment.m_X.m_pData[i] = (uint8_t) rand();
 
-		fmt.m_Commitment.m_Y	= (1 & rand()) != 0;
-		fmt.m_bConfidential		= (1 & rand()) != 0;
-		fmt.m_bCoinbase			= (1 & rand()) != 0;
+		id.m_Commitment.m_Y	= (1 & rand()) != 0;
+		id.m_Confidential		= (1 & rand()) != 0;
+		id.m_Coinbase			= (1 & rand()) != 0;
 
-		for (int i = 0; i < sizeof(fmt.m_Height); i++)
-			((uint8_t*) &fmt.m_Height)[i] = (uint8_t) rand();
+		for (int i = 0; i < sizeof(id.m_Height); i++)
+			((uint8_t*) &id.m_Height)[i] = (uint8_t) rand();
 	}
 
 	void TestUtxoTree()
@@ -229,17 +229,13 @@ void DeleteFile(const char* szPath)
 			UtxoTree::Key& key = vKeys[i];
 
 			// random key
-			UtxoTree::Key::Formatted fmt0, fmt1;
-			SetRandomUtxoKey(fmt0);
+			UtxoID id0, id1;
+			SetRandomUtxoKey(id0);
 
-			key = fmt0;
-			fmt1 = key;
+			key = id0;
+			key.ToID(id1);
 
-			verify_test(
-				(fmt0.m_Commitment == fmt1.m_Commitment) &&
-				(fmt0.m_Height == fmt1.m_Height) &&
-				(fmt0.m_bCoinbase == fmt1.m_bCoinbase) &&
-				(fmt0.m_bConfidential == fmt1.m_bConfidential));
+			verify_test(id0 == id1);
 
 			UtxoTree::Cursor cu;
 			bool bCreate = true;
