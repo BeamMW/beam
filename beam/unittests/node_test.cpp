@@ -329,61 +329,30 @@ namespace beam
 		DeleteFile(g_sz);
 	}
 
-
+	class MyNodeProcessor
+		:public NodeProcessor
+	{
+		// NodeProcessor
+		virtual void get_Key(ECC::Scalar::Native& k, Height h, bool bCoinbase) override
+		{
+			ECC::SetRandom(k);
+		}
+	};
 
 
 	void TestNodeProcessor()
 	{
 		DeleteFile(g_sz);
 
-		NodeProcessor np;
+		MyNodeProcessor np;
 		np.Initialize(g_sz, 240);
 
-		Block::SystemState::Full s;
-		ZeroObject(s);
-
-		NodeProcessor::PeerID peer;
-		ZeroObject(peer);
-
-		Merkle::CompactMmr cmmr;
-
-		for (; s.m_Height < 2000; s.m_Height++)
+		for (Height h = 0; h < 2000; h++)
 		{
-			cmmr.Append(s.m_Prev);
-			cmmr.get_Hash(s.m_States);
+			Block::SystemState::Full s;
+			ByteBuffer bbBlock, bbPoW;
 
-			Block::Body bb;
-
-			// just add the coinbase
-			ECC::Scalar::Native k;
-			ECC::SetRandom(k);
-
-			ECC::Point::Native comm(ECC::Commitment(k, Block::s_CoinbaseEmission));
-
-			Output::Ptr pOutp(new Output);
-			pOutp->m_Commitment = comm;
-			pOutp->m_Coinbase = true;
-			pOutp->m_pPublic.reset(new ECC::RangeProof::Public);
-			pOutp->m_pPublic->m_Value = Block::s_CoinbaseEmission;
-			pOutp->m_pPublic->Create(k);
-			bb.m_vOutputs.push_back(std::move(pOutp));
-
-			k = -k;
-			bb.m_Offset = k;
-
-			bb.Sort();
-
-			Serializer ser;
-			ser & bb;
-			SerializeBuffer sb = ser.buffer();
-
-			np.OnState(s, NodeDB::Blob(NULL, 0), peer);
-
-			Block::SystemState::ID id;
-			s.get_ID(id);
-			np.OnBlock(id, NodeDB::Blob(sb.first, sb.second), peer);
-
-			s.m_Prev = id.m_Hash;
+			np.SimulateMinedBlock(s, bbBlock, bbPoW);
 		}
 
 	}
@@ -392,7 +361,7 @@ namespace beam
 
 int main()
 {
-	beam::TestNodeDB();
+//	beam::TestNodeDB();
 	beam::TestNodeProcessor();
 
     //beam::Node node;

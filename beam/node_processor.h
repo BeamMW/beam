@@ -29,6 +29,9 @@ class NodeProcessor
 
 	void OnCorrupted();
 
+	std::list<Transaction::Ptr> m_lstCurrentlyMining;
+	struct BlockBulder;
+
 public:
 
 	typedef NodeDB::PeerID PeerID;
@@ -45,6 +48,12 @@ public:
 	virtual void RequestBody(const Block::SystemState::ID&) {}
 	virtual void OnPeerInsane(const PeerID&) {}
 	virtual void OnNewState() {}
+
+	// Mining simulation
+	bool FeedTransaction(Transaction::Ptr&&); // returns false if the transaction isn't valid in its context
+	void SimulateMinedBlock(Block::SystemState::Full&, ByteBuffer& block, ByteBuffer& pow);
+
+	virtual void get_Key(ECC::Scalar::Native&, Height h, bool bCoinbase) = 0;
 };
 
 

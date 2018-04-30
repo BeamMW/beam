@@ -1,5 +1,6 @@
 #include "node_processor.h"
 #include "../utility/serialize.h"
+#include "../core/ecc_native.h"
 #include "../core/serialization_adapters.h"
 
 namespace beam {
@@ -480,6 +481,138 @@ bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob
 	t.Commit();
 
 	return true;
+}
+
+bool NodeProcessor::FeedTransaction(Transaction::Ptr&& p)
+{
+	assert(p);
+/*
+	NodeDB::StateID sid;
+	m_DB.get_Cursor(sid);
+
+	Transaction::Context ctx;
+	ctx.m_hMin = ctx.m_hMax = sid.m_Row ? (sid.m_Height+1) : 0; // consider only this block, deny future/past transactions
+
+	if (!p->IsValid(ctx))
+		return false;
+
+	if (m_lstCurrentlyMining.empty())
+		m_CurrentFees = ctx.m_Fee;
+	else
+		m_CurrentFees += ctx.m_Fee;
+*/
+	m_lstCurrentlyMining.push_back(std::move(p));
+	return true;
+}
+
+template <typename T>
+void AppendMoveArray(std::vector<T>& trg, std::vector<T>& src)
+{
+	trg.reserve(trg.size() + src.size());
+	for (size_t i = 0; i < src.size(); i++)
+		trg.push_back(std::move(src[i]));
+}
+
+struct NodeProcessor::BlockBulder
+{
+	Block::Body m_Block;
+	ECC::Scalar::Native m_Offset;
+
+	void AddOutput(const ECC::Scalar::Native& k, Amount val, bool bCoinbase)
+	{
+		Output::Ptr pOutp(new Output);
+		pOutp->m_Commitment = ECC::Point::Native(ECC::Commitment(k, val));
+		pOutp->m_Coinbase = bCoinbase;
+		pOutp->m_pPublic.reset(new ECC::RangeProof::Public);
+		pOutp->m_pPublic->m_Value = val;
+		pOutp->m_pPublic->Create(k);
+		m_Block.m_vOutputs.push_back(std::move(pOutp));
+
+		ECC::Scalar::Native km = -k;
+		m_Offset += km;
+	}
+};
+
+void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& block, ByteBuffer& pow)
+{
+	// build the new block on top of the currently reachable blockchain
+	NodeDB::StateID sid;
+	m_DB.get_Cursor(sid);
+
+	Height h = sid.m_Row ? (sid.m_Height + 1) : 0;
+	Amount fee = 0;
+
+	BlockBulder ctxBlock;
+	ctxBlock.m_Offset = ECC::Zero;
+
+	for (auto it = m_lstCurrentlyMining.begin(); m_lstCurrentlyMining.end() != it; it++)
+	{
+		Transaction& tx = *(*it);
+
+		Transaction::Context ctx;
+		ctx.m_hMin = ctx.m_hMax = h;
+		if (tx.IsValid(ctx) && HandleValidatedTx(tx, h, true))
+		{
+			fee += ctx.m_Fee;
+
+			AppendMoveArray(ctxBlock.m_Block.m_vInputs, tx.m_vInputs);
+			AppendMoveArray(ctxBlock.m_Block.m_vOutputs, tx.m_vOutputs);
+			AppendMoveArray(ctxBlock.m_Block.m_vKernels, tx.m_vKernels);
+
+			ctxBlock.m_Offset += ECC::Scalar::Native(tx.m_Offset);
+		}
+	}
+	m_lstCurrentlyMining.clear();
+
+	if (fee)
+	{
+		ECC::Scalar::Native k;
+		get_Key(k, h, false);
+		ctxBlock.AddOutput(k, fee, false);
+
+		HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true);
+	}
+
+	ECC::Scalar::Native k;
+	get_Key(k, h, true);
+	ctxBlock.AddOutput(k, Block::s_CoinbaseEmission, true);
+
+	HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true);
+
+	ctxBlock.m_Block.Sort();
+	ctxBlock.m_Block.DeleteIntermediateOutputs(h);
+	ctxBlock.m_Block.m_Offset = ctxBlock.m_Offset;
+
+	// Finalize block construction.
+	if (h)
+	{
+		m_DB.get_State(sid.m_Row, s);
+		s.get_Hash(s.m_Prev);
+		m_DB.get_PredictedStatesHash(s.m_States, sid);
+	}
+	else
+	{
+		ZeroObject(s.m_Prev);
+		ZeroObject(s.m_States);
+	}
+
+	s.m_Height = h;
+
+	m_Utxos.get_Hash(s.m_Utxos);
+	m_Kernels.get_Hash(s.m_Kernels);
+
+	Serializer ser;
+	ser & ctxBlock.m_Block;
+	ser.swap_buf(block);
+
+	// For test: undo the changes, and then redo, using the newly-created block
+	HandleValidatedTx(ctxBlock.m_Block, h, false);
+
+	OnState(s, NodeDB::Blob(NULL, 0), PeerID());
+
+	Block::SystemState::ID id;
+	s.get_ID(id);
+	OnBlock(id, NodeDB::Blob(&block.at(0), block.size()), PeerID());
 }
 
 } // namespace beam
