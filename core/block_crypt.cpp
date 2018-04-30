@@ -324,6 +324,56 @@ namespace beam
 		std::sort(m_vKernels.begin(), m_vKernels.end());
 	}
 
+	template <class T>
+	void RebuildVectorWithoutNulls(std::vector<T>& v, size_t nDel)
+	{
+		std::vector<T> vSrc;
+		vSrc.swap(v);
+		v.reserve(vSrc.size() - nDel);
+
+		for (size_t i = 0; i < vSrc.size(); i++)
+			if (vSrc[i])
+				v.push_back(std::move(vSrc[i]));
+	}
+
+	size_t TxBase::DeleteIntermediateOutputs(Height h)
+	{
+		size_t nDel = 0;
+
+		size_t i1 = m_vOutputs.size();
+		for (size_t i0 = 0; i0 < m_vInputs.size(); i0++)
+		{
+			Input::Ptr& pInp = m_vInputs[i0];
+
+			for (; i1 < m_vOutputs.size(); i1++)
+			{
+				Output::Ptr& pOut = m_vOutputs[i1];
+				UtxoID id;
+				pOut->get_ID(id, h);
+
+				int n = pInp->cmp(id);
+				if (n <= 0)
+				{
+					if (!n)
+					{
+						pInp.reset();
+						pOut.reset();
+						nDel++;
+					}
+					break;
+				}
+			}
+		}
+
+		if (nDel)
+		{
+			RebuildVectorWithoutNulls(m_vInputs, nDel);
+			RebuildVectorWithoutNulls(m_vOutputs, nDel);
+		}
+
+		return nDel;
+	}
+
 	bool Transaction::IsValid(Context& ctx) const
 	{
 		ECC::Point::Native sigma(ECC::Zero);
