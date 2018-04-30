@@ -389,6 +389,9 @@ namespace beam
 		if (!ValidateAndSummarize(ctx, sigma))
 			return false;
 
+		sigma = -sigma;
+		sigma += ECC::Context::get().H * ctx.m_Coinbase;
+
 		if (!(sigma == ECC::Zero)) // No need to add fees explicitly, they must have already been consumed
 			return false;
 
