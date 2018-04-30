@@ -168,9 +168,23 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool b
 	{
 		nFlags = m_DB.GetStateFlags(sid.m_Row);
 		bFirstTime = !(NodeDB::StateFlags::BlockPassed & nFlags);
+
 	} else
 		bFirstTime = false;
 
+	Block::SystemState::Full s;
+
+	if (bFirstTime)
+	{
+		m_DB.get_State(sid.m_Row, s);
+
+		Merkle::Proof proof;
+		m_DB.get_Proof(proof, sid, sid.m_Height);
+
+		Merkle::Interpret(s.m_Prev, proof);
+		if (s.m_States != s.m_Prev)
+			return false; // The state (even the header) is formed incorrectly!
+	}
 
 	Block::Body block;
 	try {
@@ -223,6 +237,19 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool b
 				bOk = false;
 				break;
 			}
+	}
+
+	if (bFirstTime && bOk)
+	{
+		// check the validity of state description.
+		Merkle::Hash hv;
+		m_Utxos.get_Hash(hv);
+		if (s.m_Utxos != hv)
+			bOk = false;
+
+		m_Kernels.get_Hash(hv);
+		if (s.m_Kernels != hv)
+			bOk = false;
 	}
 
 	if (!(bFwd && bOk))

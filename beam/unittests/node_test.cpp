@@ -1,13 +1,37 @@
 //#include "../node.h"
 
 #include "../node_db.h"
+#include "../node_processor.h"
 #include "../../core/ecc_native.h"
+#include "../../utility/serialize.h"
+#include "../../core/serialization_adapters.h"
 
 namespace ECC {
 
 	Context g_Ctx;
 	const Context& Context::get() { return g_Ctx; }
 
+	void GenerateRandom(void* p, uint32_t n)
+	{
+		for (uint32_t i = 0; i < n; i++)
+			((uint8_t*) p)[i] = (uint8_t) rand();
+	}
+
+	void SetRandom(uintBig& x)
+	{
+		GenerateRandom(x.m_pData, sizeof(x.m_pData));
+	}
+
+	void SetRandom(Scalar::Native& x)
+	{
+		Scalar s;
+		while (true)
+		{
+			SetRandom(s.m_Value);
+			if (!x.Import(s))
+				break;
+		}
+	}
 }
 
 #ifndef WIN32
@@ -286,22 +310,82 @@ namespace beam
 			;
 	}
 
-	void TestNodeDB()
-	{
 #ifdef WIN32
-		const char* sz = "mytest.db";
+		const char* g_sz = "mytest.db";
 #else // WIN32
-		const char* sz = "/tmp/mytest.db";
+		const char* g_sz = "/tmp/mytest.db";
 #endif // WIN32
 
-		DeleteFile(sz);
-		TestNodeDB(sz); // will create
+	void TestNodeDB()
+	{
+
+		DeleteFile(g_sz);
+		TestNodeDB(g_sz); // will create
 
 		{
 			NodeDB db;
-			db.Open(sz); // test to open already-existing DB
+			db.Open(g_sz); // test to open already-existing DB
 		}
-		DeleteFile(sz);
+		DeleteFile(g_sz);
+	}
+
+
+
+
+	void TestNodeProcessor()
+	{
+		DeleteFile(g_sz);
+
+		NodeProcessor np;
+		np.Initialize(g_sz, 240);
+
+		Block::SystemState::Full s;
+		ZeroObject(s);
+
+		NodeProcessor::PeerID peer;
+		ZeroObject(peer);
+
+		Merkle::CompactMmr cmmr;
+
+		for (; s.m_Height < 2000; s.m_Height++)
+		{
+			cmmr.Append(s.m_Prev);
+			cmmr.get_Hash(s.m_States);
+
+			Block::Body bb;
+
+			// just add the coinbase
+			ECC::Scalar::Native k;
+			ECC::SetRandom(k);
+
+			ECC::Point::Native comm(ECC::Commitment(k, Block::s_CoinbaseEmission));
+
+			Output::Ptr pOutp(new Output);
+			pOutp->m_Commitment = comm;
+			pOutp->m_Coinbase = true;
+			pOutp->m_pPublic.reset(new ECC::RangeProof::Public);
+			pOutp->m_pPublic->m_Value = Block::s_CoinbaseEmission;
+			pOutp->m_pPublic->Create(k);
+			bb.m_vOutputs.push_back(std::move(pOutp));
+
+			k = -k;
+			bb.m_Offset = k;
+
+			bb.Sort();
+
+			Serializer ser;
+			ser & bb;
+			SerializeBuffer sb = ser.buffer();
+
+			np.OnState(s, NodeDB::Blob(NULL, 0), peer);
+
+			Block::SystemState::ID id;
+			s.get_ID(id);
+			np.OnBlock(id, NodeDB::Blob(sb.first, sb.second), peer);
+
+			s.m_Prev = id.m_Hash;
+		}
+
 	}
 
 }
@@ -309,6 +393,7 @@ namespace beam
 int main()
 {
 	beam::TestNodeDB();
+	beam::TestNodeProcessor();
 
     //beam::Node node;
     
