@@ -401,6 +401,8 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd)
 {
 	Merkle::Hash hv;
 	v.get_Hash(hv);
+	ECC::Hash::Processor() << hv << v.m_Excess >> hv; // add the public excess, it's not included by default
+
 
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = true;
