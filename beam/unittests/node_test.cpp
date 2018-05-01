@@ -332,12 +332,104 @@ namespace beam
 	class MyNodeProcessor
 		:public NodeProcessor
 	{
+	public:
+
+		struct MyUtxo {
+			ECC::Scalar m_Key;
+			Amount m_Value;
+			//Height m_Height;
+			//bool m_Coinbase;
+		};
+
+		typedef std::multimap<Height, MyUtxo> UtxoQueue;
+		UtxoQueue m_MyUtxos;
+
+		void AddMyUtxo(const ECC::Scalar::Native& key, Amount n, Height h, bool bCoinbase)
+		{
+			if (!n)
+				return;
+
+			MyUtxo utxo;
+			utxo.m_Key = key;
+			utxo.m_Value = n;
+			//utxo.m_Height = h;
+			//utxo.m_Coinbase = bCoinbase;
+
+			h += bCoinbase ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
+
+			m_MyUtxos.insert(std::make_pair(h, utxo));
+		}
+
 		// NodeProcessor
 		virtual void get_Key(ECC::Scalar::Native& k, Height h, bool bCoinbase) override
 		{
 			ECC::SetRandom(k);
 		}
+
+		virtual void OnMined(Height h, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase) override
+		{
+			AddMyUtxo(kFee, nFee, h, false);
+			AddMyUtxo(kCoinbase, nCoinbase, h, true);
+		}
 	};
+
+	void SpendUtxo(Transaction& tx, const MyNodeProcessor::MyUtxo& utxo, MyNodeProcessor::MyUtxo& utxoOut)
+	{
+		if (!utxo.m_Value)
+			return; //?!
+
+		TxKernel::Ptr pKrn(new TxKernel);
+		pKrn->m_HeightMin = 0;
+		pKrn->m_HeightMax = Height(-1);
+		pKrn->m_Fee = 1090000;
+
+		Input::Ptr pInp(new Input);
+		pInp->m_Commitment = ECC::Point::Native(ECC::Commitment(utxo.m_Key, utxo.m_Value));
+		tx.m_vInputs.push_back(std::move(pInp));
+
+		ECC::Scalar::Native kOffset = utxo.m_Key;
+		ECC::Scalar::Native k;
+
+		if (pKrn->m_Fee >= utxo.m_Value)
+		{
+			pKrn->m_Fee = utxo.m_Value;
+			utxoOut.m_Value = 0;
+		}
+		else
+		{
+			utxoOut.m_Value = utxo.m_Value - pKrn->m_Fee;
+
+			ECC::SetRandom(k);
+			utxoOut.m_Key = k;
+
+			Output::Ptr pOut(new Output);
+			pOut->m_pPublic.reset(new ECC::RangeProof::Public);
+			pOut->m_pPublic->m_Value = utxoOut.m_Value;
+			pOut->m_pPublic->Create(k);
+			pOut->m_Commitment = ECC::Point::Native(ECC::Commitment(k, utxoOut.m_Value));
+			tx.m_vOutputs.push_back(std::move(pOut));
+
+			k = -k;
+			kOffset += k;
+		}
+
+		ECC::SetRandom(k);
+		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * k);
+
+		ECC::Hash::Value hv;
+		pKrn->get_Hash(hv);
+		pKrn->m_Signature.Sign(hv, k);
+		tx.m_vKernels.push_back(std::move(pKrn));
+
+
+		k = -k;
+		kOffset += k;
+		tx.m_Offset = kOffset;
+
+		tx.Sort();
+		Transaction::Context ctx;
+		verify_test(tx.IsValid(ctx));
+	}
 
 
 	void TestNodeProcessor()
@@ -347,8 +439,35 @@ namespace beam
 		MyNodeProcessor np;
 		np.Initialize(g_sz, 240);
 
-		for (Height h = 0; h < 2000; h++)
+		for (Height h = 0; h < 200; h++)
 		{
+			std::list<MyNodeProcessor::MyUtxo> lstNewOutputs;
+
+			while (true)
+			{
+				MyNodeProcessor::UtxoQueue::iterator it = np.m_MyUtxos.begin();
+				if (np.m_MyUtxos.end() == it)
+					break;
+
+				if (it->first > h)
+					break; // not spendable yet
+
+				// Spend it in a transaction
+				Transaction::Ptr pTx(new Transaction);
+				MyNodeProcessor::MyUtxo utxoOut;
+				SpendUtxo(*pTx, it->second, utxoOut);
+
+				np.m_MyUtxos.erase(it);
+
+				if (utxoOut.m_Value)
+					lstNewOutputs.push_back(utxoOut);
+
+				np.FeedTransaction(std::move(pTx));
+			}
+
+			for (; !lstNewOutputs.empty(); lstNewOutputs.pop_front())
+				np.m_MyUtxos.insert(std::make_pair(h + 3, lstNewOutputs.front()));
+
 			Block::SystemState::Full s;
 			ByteBuffer bbBlock, bbPoW;
 

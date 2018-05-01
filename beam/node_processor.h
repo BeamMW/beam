@@ -54,6 +54,7 @@ public:
 	void SimulateMinedBlock(Block::SystemState::Full&, ByteBuffer& block, ByteBuffer& pow);
 
 	virtual void get_Key(ECC::Scalar::Native&, Height h, bool bCoinbase) = 0;
+	virtual void OnMined(Height, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase) {}
 };
 
 

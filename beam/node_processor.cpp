@@ -568,6 +568,8 @@ struct NodeProcessor::BlockBulder
 
 void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& block, ByteBuffer& pow)
 {
+	NodeDB::Transaction t(m_DB);
+
 	// build the new block on top of the currently reachable blockchain
 	NodeDB::StateID sid;
 	m_DB.get_Cursor(sid);
@@ -597,20 +599,21 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	}
 	m_lstCurrentlyMining.clear();
 
+	ECC::Scalar::Native kFee, kCoinbase;
+
 	if (fee)
 	{
-		ECC::Scalar::Native k;
-		get_Key(k, h, false);
-		ctxBlock.AddOutput(k, fee, false);
+		get_Key(kFee, h, false);
+		ctxBlock.AddOutput(kFee, fee, false);
 
-		HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true);
+		verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
 	}
 
-	ECC::Scalar::Native k;
-	get_Key(k, h, true);
-	ctxBlock.AddOutput(k, Block::s_CoinbaseEmission, true);
+	get_Key(kCoinbase, h, true);
+	const Amount nCoinbase = Block::s_CoinbaseEmission;
+	ctxBlock.AddOutput(kCoinbase, nCoinbase, true);
 
-	HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true);
+	verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
 
 	ctxBlock.m_Block.Sort();
 	ctxBlock.m_Block.DeleteIntermediateOutputs(h);
@@ -641,11 +644,15 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	// For test: undo the changes, and then redo, using the newly-created block
 	verify(HandleValidatedTx(ctxBlock.m_Block, h, false, false));
 
+	t.Commit();
+
 	OnState(s, NodeDB::Blob(NULL, 0), PeerID());
 
 	Block::SystemState::ID id;
 	s.get_ID(id);
 	OnBlock(id, NodeDB::Blob(&block.at(0), block.size()), PeerID());
+
+	OnMined(h, kFee, fee, kCoinbase, nCoinbase);
 }
 
 } // namespace beam
