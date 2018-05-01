@@ -202,7 +202,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool b
 	if (bFirstTime && !block.IsValid(sid.m_Height, sid.m_Height))
 		return false;
 
-	bool bOk = HandleValidatedTx(block, sid.m_Height, bFwd);
+	bool bOk = HandleValidatedTx(block, sid.m_Height, bFwd, false);
 
 	if (bFirstTime && bOk)
 	{
@@ -219,13 +219,13 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool b
 		if (bOk)
 			m_DB.SetFlags(sid.m_Row, nFlags | NodeDB::StateFlags::BlockPassed);
 		else
-			HandleValidatedTx(block, sid.m_Height, false);
+			HandleValidatedTx(block, sid.m_Height, false, false);
 	}
 
 	return bOk;
 }
 
-bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd)
+bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, bool bAutoAdjustInp)
 {
 	size_t nInp = 0, nOut = 0, nKrn = 0;
 
@@ -233,7 +233,7 @@ bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd)
 	if (bFwd)
 	{
 		for ( ; nInp < tx.m_vInputs.size(); nInp++)
-			if (!HandleBlockElement(*tx.m_vInputs[nInp], bFwd))
+			if (!HandleBlockElement(*tx.m_vInputs[nInp], bFwd, bAutoAdjustInp))
 			{
 				bOk = false;
 				break;
@@ -275,13 +275,13 @@ bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd)
 			HandleBlockElement(*tx.m_vOutputs[nOut], h, false);
 
 		while (nInp--)
-			HandleBlockElement(*tx.m_vInputs[nInp], false);
+			HandleBlockElement(*tx.m_vInputs[nInp], false, false);
 	}
 
 	return bOk;
 }
 
-bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd)
+bool NodeProcessor::HandleBlockElement(Input& v, bool bFwd, bool bAutoAdjustInp)
 {
 	UtxoTree::Key key;
 	key = v;
@@ -289,6 +289,37 @@ bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd)
 	UtxoTree::Cursor cu;
 	bool bCreate = !bFwd;
 	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
+
+	if (!p && bAutoAdjustInp)
+	{
+		// try to find the closest match
+		struct Traveler :public UtxoTree::ITraveler
+		{
+			UtxoTree::MyLeaf* m_pLeaf;
+			virtual bool OnLeaf(const RadixTree::Leaf& x) override
+			{
+				m_pLeaf = (UtxoTree::MyLeaf*) &x;
+				return false; // stop iteration
+			}
+		};
+
+		Traveler t;
+		if (!UtxoTree::Traverse(cu, t))
+		{
+			Input v2;
+			t.m_pLeaf->m_Key.ToID(v2);
+
+			if (v.m_Commitment == v2.m_Commitment)
+			{
+				// Found!
+				p = t.m_pLeaf;
+				v = v2; // adjust
+				key = t.m_pLeaf->m_Key;
+			}
+		}
+
+	}
+
 
 	if (!p)
 		return false; // attempt to spend a non-existing UTXO!
@@ -551,7 +582,7 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 
 		Transaction::Context ctx;
 		ctx.m_hMin = ctx.m_hMax = h;
-		if (tx.IsValid(ctx) && HandleValidatedTx(tx, h, true))
+		if (tx.IsValid(ctx) && HandleValidatedTx(tx, h, true, true))
 		{
 			fee += ctx.m_Fee;
 
@@ -606,7 +637,7 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	ser.swap_buf(block);
 
 	// For test: undo the changes, and then redo, using the newly-created block
-	HandleValidatedTx(ctxBlock.m_Block, h, false);
+	verify(HandleValidatedTx(ctxBlock.m_Block, h, false, false));
 
 	OnState(s, NodeDB::Blob(NULL, 0), PeerID());
 

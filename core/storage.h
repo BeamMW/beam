@@ -23,9 +23,13 @@ protected:
 		const uint8_t* m_pKeyPtr; // should be equal to one of the ancestors
 	};
 
+public:
+
 	struct Leaf :public Node {
 	};
 
+
+protected:
 	Node* get_Root() const { return m_pRoot; }
 	const uint8_t* get_NodeKey(const Node&) const;
 

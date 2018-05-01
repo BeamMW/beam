@@ -19,9 +19,9 @@ class NodeProcessor
 	void PruneOld(Height);
 
 	bool HandleBlock(const NodeDB::StateID&, NodeDB::PeerID&, bool bFwd);
-	bool HandleValidatedTx(const TxBase&, Height, bool bFwd);
+	bool HandleValidatedTx(const TxBase&, Height, bool bFwd, bool bAutoAdjustInp);
 
-	bool HandleBlockElement(const Input&, bool bFwd);
+	bool HandleBlockElement(Input&, bool bFwd, bool bAutoAdjustInp);
 	bool HandleBlockElement(const Output&, Height, bool bFwd);
 	bool HandleBlockElement(const TxKernel&, bool bFwd);
 
