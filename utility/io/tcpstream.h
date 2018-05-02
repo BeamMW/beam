@@ -30,6 +30,8 @@ public:
         size_t unsent=0; // == _writeBuffer.size()
     };
 
+    ~TcpStream();
+
     // Sets callback and enables reading from the stream if callback is not empty
     // returns false if stream disconnected
     bool enable_read(const Callback& callback);
@@ -63,6 +65,8 @@ public:
     int get_last_error() const { return _lastError; }
 
 private:
+    static void on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf);
+
     friend class TcpServer;
     friend class Reactor;
 
@@ -79,7 +83,8 @@ private:
 
     void connected(uv_stream_t* handle);
 
-    std::vector<char> _readBuffer;
+    //std::vector<char> _readBuffer;
+    uv_buf_t _readBuffer={0, 0};
     BufferChain _writeBuffer;
     Callback _callback;
     State _state;

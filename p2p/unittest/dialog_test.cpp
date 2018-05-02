@@ -6,10 +6,6 @@
 #include "utility/io/tcpserver.h"
 #include "utility/io/timer.h"
 
-#ifdef WIN32
-#define __PRETTY_FUNCTION__ __FUNCSIG__
-#endif // WIN32
-
 using namespace beam;
 using namespace std;
 

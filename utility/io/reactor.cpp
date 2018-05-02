@@ -4,6 +4,9 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#define LOG_VERBOSE_ENABLED 1
+#include "utility/logger.h"
+
 namespace beam { namespace io {
 
 //expected<Reactor::Ptr, int>
@@ -256,9 +259,12 @@ void Reactor::connect_callback(Reactor::ConnectContext* ctx, int status) {
 }
 
 void Reactor::async_close(uv_handle_t*& handle) {
-    if (handle && !uv_is_closing(handle)) {
-        handle->data = 0;
+    LOG_VERBOSE() << "handle=" << handle;
 
+    if (!handle) return;
+    handle->data = 0;
+
+    if (!uv_is_closing(handle)) {
         uv_close(
             handle,
             [](uv_handle_s* handle) {
