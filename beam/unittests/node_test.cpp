@@ -384,7 +384,7 @@ namespace beam
 		pKrn->m_Fee = 1090000;
 
 		Input::Ptr pInp(new Input);
-		pInp->m_Commitment = ECC::Point::Native(ECC::Commitment(utxo.m_Key, utxo.m_Value));
+		pInp->m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
 		tx.m_vInputs.push_back(std::move(pInp));
 
 		ECC::Scalar::Native kOffset = utxo.m_Key;
@@ -406,7 +406,7 @@ namespace beam
 			pOut->m_pPublic.reset(new ECC::RangeProof::Public);
 			pOut->m_pPublic->m_Value = utxoOut.m_Value;
 			pOut->m_pPublic->Create(k);
-			pOut->m_Commitment = ECC::Point::Native(ECC::Commitment(k, utxoOut.m_Value));
+			pOut->m_Commitment = ECC::Commitment(k, utxoOut.m_Value);
 			tx.m_vOutputs.push_back(std::move(pOut));
 
 			k = -k;

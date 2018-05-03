@@ -47,9 +47,7 @@ namespace beam::wallet
 
         ECC::Scalar::Native blindingFactor;
         SetRandom(blindingFactor);
-        ECC::Point::Native pt;
-        pt = ECC::Commitment(blindingFactor, amount);
-        output->m_Commitment = pt;
+        output->m_Commitment = ECC::Commitment(blindingFactor, amount);
 
         output->m_pPublic.reset(new ECC::RangeProof::Public);
         output->m_pPublic->m_Value = amount;

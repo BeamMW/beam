@@ -225,6 +225,18 @@ namespace ECC {
 		return *this;
 	}
 
+	Point& Point::operator = (const Point& v)
+	{
+		m_X = v.m_X;
+		m_Y = v.m_Y;
+		return *this;
+	}
+
+	Point& Point::operator = (const Commitment& v)
+	{
+		return operator = (Native(v));
+	}
+
 	bool Point::Native::ImportInternal(const Point& v)
 	{
 		NoLeak<secp256k1_fe> nx;

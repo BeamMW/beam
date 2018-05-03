@@ -373,7 +373,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 
 			SerializeBuffer sb = ser.buffer();
 
-			m_DB.AddUtxo(blob, NodeDB::Blob(sb.first, sb.second), 1, 1);
+			m_DB.AddUtxo(blob, NodeDB::Blob(sb.first, (uint32_t) sb.second), 1, 1);
 		}
 		else
 		{
@@ -417,7 +417,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd)
 		ser & v;
 		SerializeBuffer sb = ser.buffer();
 
-		m_DB.AddKernel(NodeDB::Blob(hv.m_pData, sizeof(hv.m_pData)), NodeDB::Blob(sb.first, sb.second), true);
+		m_DB.AddKernel(NodeDB::Blob(hv.m_pData, sizeof(hv.m_pData)), NodeDB::Blob(sb.first, (uint32_t) sb.second), true);
 	} else
 	{
 		m_Kernels.Delete(cu);
@@ -554,7 +554,7 @@ struct NodeProcessor::BlockBulder
 	void AddOutput(const ECC::Scalar::Native& k, Amount val, bool bCoinbase)
 	{
 		Output::Ptr pOutp(new Output);
-		pOutp->m_Commitment = ECC::Point::Native(ECC::Commitment(k, val));
+		pOutp->m_Commitment = ECC::Commitment(k, val);
 		pOutp->m_Coinbase = bCoinbase;
 		pOutp->m_pPublic.reset(new ECC::RangeProof::Public);
 		pOutp->m_pPublic->m_Value = val;
@@ -650,7 +650,7 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 
 	Block::SystemState::ID id;
 	s.get_ID(id);
-	OnBlock(id, NodeDB::Blob(&block.at(0), block.size()), PeerID());
+	OnBlock(id, NodeDB::Blob(&block.at(0), (uint32_t) block.size()), PeerID());
 
 	OnMined(h, kFee, fee, kCoinbase, nCoinbase);
 }
