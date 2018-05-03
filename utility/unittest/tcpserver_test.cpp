@@ -1,20 +1,28 @@
 #include "utility/io/tcpserver.h"
 #include "utility/io/timer.h"
-#include "utility/io/exception.h"
+#include "utility/logger.h"
 #include <iostream>
 #include <assert.h>
 
+using namespace beam;
 using namespace beam::io;
 using namespace std;
 
+Reactor::Ptr reactor;
+Timer::Ptr timer;
+
+void on_timer() {
+    timer->cancel();
+    reactor->tcp_connect(Address(Address::LOCALHOST).port(33333), 1, [](uint64_t, shared_ptr<TcpStream>&&, int){});
+}
+
 void tcpserver_test() {
     try {
-        Config config;
-        Reactor::Ptr reactor = Reactor::create(config);
+        reactor = Reactor::create();
         TcpServer::Ptr server = TcpServer::create(
             reactor,
             Address(0, 33333),
-            [&reactor](TcpStream::Ptr&& newStream, int errorCode) {
+            [](TcpStream::Ptr&& newStream, int errorCode) {
                 if (errorCode == 0) {
                     cout << "Stream accepted" << endl;
                     assert(newStream);
@@ -25,26 +33,27 @@ void tcpserver_test() {
             }
         );
 
-        Timer::Ptr timer = Timer::create(reactor);
+        timer = Timer::create(reactor);
         timer->start(
-            2000,
+            200,
             false,
-            [&reactor, &timer] {
-                // TODO timer->cancel();
-                reactor->tcp_connect(Address(Address::LOCALHOST).port(33333), 1, [](uint64_t, shared_ptr<TcpStream>&&, int){});
-            }
+            on_timer
         );
 
         cout << "starting reactor..." << endl;
         reactor->run();
         cout << "reactor stopped" << endl;
     }
-    catch (const Exception& e) {
+    catch (const std::exception& e) {
         cout << e.what();
     }
 }
 
 int main() {
+    LoggerConfig lc;
+    lc.consoleLevel = LOG_LEVEL_VERBOSE;
+    lc.flushLevel = LOG_LEVEL_VERBOSE;
+    auto logger = Logger::create(lc);
     tcpserver_test();
 }
 

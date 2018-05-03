@@ -12,8 +12,8 @@ public:
 
     ~Connection();
 
-    /// Returns error code, 0 if no error
-    int write_msg(const std::vector<io::SharedBuffer>& fragments);
+    /// Writes fragments to stream
+    expected<void,int> write_msg(const std::vector<io::SharedBuffer>& fragments);
 
 private:
     /// stream message handler

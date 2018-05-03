@@ -1,8 +1,6 @@
 #pragma once
 #include "reactor.h"
-#include "config.h"
 #include "bufferchain.h"
-#include "reactor.h"
 
 namespace beam { namespace io {
 
@@ -21,8 +19,8 @@ public:
     // 1) call back with sub-chunk of shared memory
     // 2) embed deserializer (protocol-specific) object into stream
 
-    // what==0 on new data
-    using Callback = std::function<void(int what, void* data, size_t size)>;
+    // errorCode==0 on new data
+    using Callback = std::function<void(int errorCode, void* data, size_t size)>;
 
     struct State {
         uint64_t received=0;
@@ -34,23 +32,23 @@ public:
 
     // Sets callback and enables reading from the stream if callback is not empty
     // returns false if stream disconnected
-    bool enable_read(const Callback& callback);
+    expected<void, int> enable_read(const Callback& callback);
 
-    bool disable_read();
+    void disable_read();
 
     /// Writes raw data, returns status code
-    int write(const void* data, size_t size) {
+    expected<void, int> write(const void* data, size_t size) {
         return write(SharedBuffer(data, size));
     }
 
     /// Writes raw data, returns status code
-    int write(const SharedBuffer& buf);
+    expected<void, int> write(const SharedBuffer& buf);
 
     /// Writes raw data, returns status code
-    int write(const std::vector<SharedBuffer>& fragments);
+    expected<void, int> write(const std::vector<SharedBuffer>& fragments);
 
     /// Writes raw data, returns status code
-    int write(const BufferChain& buf);
+    expected<void, int> write(const BufferChain& buf);
 
     bool is_connected() const;
 
@@ -62,8 +60,6 @@ public:
 
     Address peer_address() const;
 
-    int get_last_error() const { return _lastError; }
-
 private:
     static void on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf);
 
@@ -71,12 +67,15 @@ private:
     friend class Reactor;
 
     TcpStream() = default;
+    
+    void alloc_read_buffer();
+    void free_read_buffer();
 
     // sends async write request
-    int send_write_request();
+    expected<void, int> send_write_request();
 
     // callback from write request
-    void on_data_written(int status);
+    void on_data_written(int errorCode);
 
     // returns status code
     int accepted(uv_handle_t* acceptor);
@@ -90,7 +89,6 @@ private:
     State _state;
     uv_write_t _writeRequest;
     bool _writeRequestSent=false;
-    int _lastError=0;
 };
 
 }} //namespaces

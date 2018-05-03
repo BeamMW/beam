@@ -85,8 +85,7 @@ struct Server {
         cout << "In server thread" << endl;
 
         try {
-            Config config;
-            Reactor::Ptr reactor = Reactor::create(config);
+            Reactor::Ptr reactor = Reactor::create();
 
             TcpServer::Ptr server = TcpServer::create(
                 reactor, Address::localhost().port(g_port), BIND_THIS_MEMFN(on_stream_accepted)
@@ -161,9 +160,7 @@ struct Client {
         cout << "In client thread" << endl;
 
         try {
-
-            Config config;
-            reactor = Reactor::create(config);
+            reactor = Reactor::create();
 
             reactor->tcp_connect
                 (Address::localhost().port(g_port),

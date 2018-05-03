@@ -6,8 +6,7 @@ using namespace std;
 
 
 void timer_test() {
-    Config config;
-    Reactor::Ptr reactor = Reactor::create(config);
+    Reactor::Ptr reactor = Reactor::create();
     Timer::Ptr timer = Timer::create(reactor);
     int countdown = 5;
 

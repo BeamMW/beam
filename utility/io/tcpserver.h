@@ -17,7 +17,7 @@ public:
 private:
     TcpServer(Callback&& callback);
 
-    void internal_callback(int status);
+    void on_accept(int errorCode);
 
     Callback _callback;
 };

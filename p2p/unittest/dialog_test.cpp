@@ -94,7 +94,7 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork {
         proxy(_proxy),
         address(_address),
         thisIsServer(_thisIsServer),
-        reactor(io::Reactor::create(io::Config())),
+        reactor(io::Reactor::create()),
         bridge(*this, reactor)
     {
         // TODO can be wrapped into macros
@@ -231,7 +231,7 @@ struct AppSideAsyncContext {
     Thread t;
 
     AppSideAsyncContext(INetworkToLogic& logicCallbacks) :
-        reactor(io::Reactor::create(io::Config())),
+        reactor(io::Reactor::create()),
         bridge(logicCallbacks, reactor)
     {}
 

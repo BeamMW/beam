@@ -24,8 +24,7 @@ void on_recv(int what, void* data, size_t size) {
 
 void tcpclient_test() {
     try {
-        Config config;
-        reactor = Reactor::create(config);
+        reactor = Reactor::create();
 
         const uint64_t theTag = 202020;
 

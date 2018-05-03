@@ -1,6 +1,7 @@
 #include "reactor.h"
-#include "exception.h"
 #include "tcpstream.h"
+#include "exception.h"
+#include "utility/config.h"
 #include <assert.h>
 #include <stdlib.h>
 
@@ -9,29 +10,43 @@
 
 namespace beam { namespace io {
 
-//expected<Reactor::Ptr, int>
-Reactor::Ptr Reactor::create(const Config& config) {
-    return Reactor::Ptr(new Reactor(config));
+Reactor::Ptr Reactor::create() {
+    Reactor::Ptr ptr(new Reactor());
+    int errorCode = ptr->initialize();
+    IO_EXCEPTION_IF(errorCode);
+    return ptr;
 }
 
-Reactor::Reactor(const Config& config) :
-    _config(config),
-    _handlePool(config.handle_pool_size)
+Reactor::Reactor() :
+    _handlePool(config().get_int("io.handle_pool_size", 256, 0, 65536))
 {
-    int r = uv_loop_init(&_loop);
-    if (r != 0) IO_EXCEPTION(r, "cannot initialize uv loop");
+    memset(&_loop,0,sizeof(uv_loop_t));
+    memset(&_stopEvent, 0, sizeof(uv_async_t));
+}
 
+int Reactor::initialize() {
+    int errorCode = uv_loop_init(&_loop);
+    if (errorCode != 0) {
+        LOG_ERROR() << "cannot initialize uv loop, error=" << errorCode;
+        return errorCode;
+    }
+    
     _loop.data = this;
 
-    r = uv_async_init(&_loop, &_stopEvent, [](uv_async_t* handle) { uv_stop(handle->loop); });
-    if (r != 0) {
+    errorCode = uv_async_init(&_loop, &_stopEvent, [](uv_async_t* handle) { uv_stop(handle->loop); });
+    if (errorCode != 0) {
         uv_loop_close(&_loop);
-        IO_EXCEPTION(r, "cannot initialize loop stop event");
+        LOG_ERROR() << "cannot initialize loop stop event, error=" << errorCode;
+        return errorCode;
     }
+    _stopEvent.data = this;
+        
+    return 0;
 }
 
 Reactor::~Reactor() {
-    uv_close((uv_handle_t*)&_stopEvent, 0);
+    if (_stopEvent.data)
+        uv_close((uv_handle_t*)&_stopEvent, 0);
 
     if (!_connectRequests.empty()) {
         for (auto& c : _connectRequests) {
@@ -40,11 +55,16 @@ Reactor::~Reactor() {
         }
     }
 
+    if (!_loop.data) {
+        LOG_DEBUG() << "loop wasn't initialized";
+        return;
+    }
+    
     // run one cycle to release all closing handles
     uv_run(&_loop, UV_RUN_NOWAIT);
 
     if (uv_loop_close(&_loop) == UV_EBUSY) {
-        //TODO log
+        LOG_DEBUG() << "closing unclosed handles";
         uv_walk(
             &_loop,
             [](uv_handle_t* handle, void*) {
@@ -63,62 +83,65 @@ Reactor::~Reactor() {
 }
 
 void Reactor::run() {
+    if (!_loop.data) {
+        LOG_DEBUG() << "loop wasn't initialized";
+        return;
+    }
+    
     // NOTE: blocks
     uv_run(&_loop, UV_RUN_DEFAULT);
 }
 
 void Reactor::stop() {
-    int r = uv_async_send(&_stopEvent);
-    if (r != 0) {
-        // TODO log
+    int errorCode = uv_async_send(&_stopEvent);
+    if (errorCode != 0) {
+        LOG_DEBUG() << "cannot post stopsignal to event loop";
     }
 }
 
-bool Reactor::init_object(int status, Reactor::Object* o, uv_handle_t* h) {
-    _lastError = status;
-    if (status != 0) {
+int Reactor::init_object(int errorCode, Reactor::Object* o, uv_handle_t* h) {
+    if (errorCode != 0) {
         _handlePool.release(h);
-        return false;
+        return errorCode;
     }
     h->data = o;
     o->_reactor = shared_from_this();
     o->_handle = h;
-    return true;
+    return 0;
 }
 
-bool Reactor::init_asyncevent(Reactor::Object* o, uv_async_cb cb) {
+int Reactor::init_asyncevent(Reactor::Object* o, uv_async_cb cb) {
     assert(o);
     assert(cb);
 
     uv_handle_t* h = _handlePool.alloc();
-    int status = uv_async_init(
+    int errorCode = uv_async_init(
         &_loop,
         (uv_async_t*)h,
         cb
     );
-    return init_object(status, o, h);
+    return init_object(errorCode, o, h);
 }
 
-bool Reactor::init_timer(Reactor::Object* o) {
+int Reactor::init_timer(Reactor::Object* o) {
     assert(o);
+    
     uv_handle_t* h = _handlePool.alloc();
-    int status = uv_timer_init(&_loop, (uv_timer_t*)h);
-    return init_object(status, o, h);
+    int errorCode = uv_timer_init(&_loop, (uv_timer_t*)h);
+    return init_object(errorCode, o, h);
 }
 
-bool Reactor::start_timer(Reactor::Object* o, unsigned intervalMsec, bool isPeriodic, uv_timer_cb cb) {
+int Reactor::start_timer(Reactor::Object* o, unsigned intervalMsec, bool isPeriodic, uv_timer_cb cb) {
     assert(o);
     assert(cb);
     assert(o->_handle && o->_handle->type == UV_TIMER);
 
-    _lastError = uv_timer_start(
+    return uv_timer_start(
         (uv_timer_t*)o->_handle,
         cb,
         intervalMsec,
         isPeriodic ? intervalMsec : 0
     );
-
-    return (_lastError == 0);
 }
 
 void Reactor::cancel_timer(Object* o) {
@@ -128,77 +151,80 @@ void Reactor::cancel_timer(Object* o) {
     if (h) {
         assert(h->type == UV_TIMER);
         if (uv_is_active(h)) {
-            int r = uv_timer_stop((uv_timer_t*)h);
-            if (r != 0) {
-                //TODO log
+            int errorCode = uv_timer_stop((uv_timer_t*)h);
+            if (errorCode != 0) {
+                LOG_DEBUG() << "cannot stop timer";
             }
         }
     }
 }
 
-bool Reactor::init_tcpserver(Object* o, Address bindAddress, uv_connection_cb cb) {
+int Reactor::init_tcpserver(Object* o, Address bindAddress, uv_connection_cb cb) {
     assert(o);
     assert(cb);
 
     uv_handle_t* h = _handlePool.alloc();
-    int status = uv_tcp_init(&_loop, (uv_tcp_t*)h);
-    if (!init_object(status, o, h)) {
-        return false;
+    int errorCode = uv_tcp_init(&_loop, (uv_tcp_t*)h);
+    errorCode = init_object(errorCode, o, h);
+    if (errorCode != 0) {
+        return errorCode;
     }
 
     sockaddr_in addr;
     bindAddress.fill_sockaddr_in(addr);
 
-    _lastError = uv_tcp_bind((uv_tcp_t*)h, (const sockaddr*)&addr, 0);
-    if (_lastError) {
-        return false;
+    errorCode = uv_tcp_bind((uv_tcp_t*)h, (const sockaddr*)&addr, 0);
+    if (errorCode != 0) {
+        return errorCode;
     }
 
-    _lastError = uv_listen(
+    errorCode = uv_listen(
         (uv_stream_t*)h,
-        _config.tcp_listen_backlog,
+        config().get_int("io.tcp_listen_backlog", 32, 5, 2000),
         cb
     );
 
-    return (_lastError == 0);
+    return errorCode;
 }
 
-bool Reactor::init_tcpstream(Object* o) {
+int Reactor::init_tcpstream(Object* o) {
     assert(o);
+    
     uv_handle_t* h = _handlePool.alloc();
-    int status = uv_tcp_init(&_loop, (uv_tcp_t*)h);
-    return init_object(status, o, h);
+    int errorCode = uv_tcp_init(&_loop, (uv_tcp_t*)h);
+    return init_object(errorCode, o, h);
 }
 
 int Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     assert(acceptor->_handle);
 
-    if (!init_tcpstream(newConnection)) {
-        return _lastError;
+    int errorCode = init_tcpstream(newConnection);
+    if (errorCode != 0) {
+        return errorCode;
     }
-
-    int status = uv_accept((uv_stream_t*)acceptor->_handle, (uv_stream_t*)newConnection->_handle);
-    if (status != 0) {
+    
+    errorCode = uv_accept((uv_stream_t*)acceptor->_handle, (uv_stream_t*)newConnection->_handle);
+    if (errorCode != 0) {
         newConnection->async_close();
     }
 
-    return status;
+    return errorCode;
 }
 
-bool Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback) {
+expected<void, int> Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback) {
     assert(callback);
 
     if (!address || _connectRequests.count(tag) > 0) {
-        _lastError = UV_EINVAL;
-        return false;
+        return make_unexpected(UV_EINVAL);
     }
 
     uv_handle_t* h = _handlePool.alloc();
-    _lastError = uv_tcp_init(&_loop, (uv_tcp_t*)h);
-    if (_lastError) {
+    int errorCode = uv_tcp_init(&_loop, (uv_tcp_t*)h);
+    if (errorCode != 0) {
         _handlePool.release(h);
-        return false;
+        return make_unexpected(errorCode);
     }
+    
     h->data = this;
 
     ConnectContext& ctx = _connectRequests[tag];
@@ -209,12 +235,12 @@ bool Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& 
     sockaddr_in addr;
     address.fill_sockaddr_in(addr);
 
-    _lastError = uv_tcp_connect(
+    errorCode = uv_tcp_connect(
         &(ctx.request),
         (uv_tcp_t*)h,
         (const sockaddr*)&addr,
-        [](uv_connect_t* request, int status) {
-            if (status == UV_ECANCELED) {
+        [](uv_connect_t* request, int errorCode) {
+            if (errorCode == UV_ECANCELED) {
                 return;
             }
             assert(request);
@@ -224,19 +250,19 @@ bool Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& 
             assert(request->handle->loop->data);
             ConnectContext* ctx = reinterpret_cast<ConnectContext*>(request->data);
             Reactor* reactor = reinterpret_cast<Reactor*>(request->handle->loop->data);
-            reactor->connect_callback(ctx, status);
+            reactor->connect_callback(ctx, errorCode);
         }
     );
-    if (_lastError) {
+    if (errorCode) {
         async_close(h);
         _connectRequests.erase(tag);
-        return false;
+        return make_unexpected(errorCode);
     }
-
-    return true;
+    
+    return ok();
 }
 
-void Reactor::connect_callback(Reactor::ConnectContext* ctx, int status) {
+void Reactor::connect_callback(Reactor::ConnectContext* ctx, int errorCode) {
     assert(_connectRequests.count(ctx->tag)==1);
 
     uint64_t tag = ctx->tag;
@@ -244,7 +270,7 @@ void Reactor::connect_callback(Reactor::ConnectContext* ctx, int status) {
     uv_handle_t* h = (uv_handle_t*)ctx->request.handle;
 
     TcpStream::Ptr stream;
-    if (status == 0) {
+    if (errorCode == 0) {
         stream.reset(new TcpStream());
         stream->_handle = h;
         stream->_handle->data = stream.get();
@@ -255,7 +281,7 @@ void Reactor::connect_callback(Reactor::ConnectContext* ctx, int status) {
 
     _connectRequests.erase(tag);
 
-    callback(tag, std::move(stream), status);
+    callback(tag, std::move(stream), errorCode);
 }
 
 void Reactor::async_close(uv_handle_t*& handle) {

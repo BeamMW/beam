@@ -6,12 +6,8 @@
 using namespace beam::io;
 using namespace std;
 
-// TODO use catch2 TF
-// TODO use spdlog
-
 void reactor_start_stop() {
-    Config config;
-    Reactor::Ptr reactor = Reactor::create(config);
+    Reactor::Ptr reactor = Reactor::create();
 
     auto f = std::async(
         std::launch::async,

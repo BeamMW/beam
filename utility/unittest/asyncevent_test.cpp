@@ -1,14 +1,12 @@
 #include "utility/io/asyncevent.h"
 #include <future>
-//#include <unistd.h>
 #include <iostream>
 
 using namespace beam::io;
 using namespace std;
 
 void asyncevent_test() {
-    Config config;
-    Reactor::Ptr reactor = Reactor::create(config);
+    Reactor::Ptr reactor = Reactor::create();
 
     AsyncEvent::Ptr e = AsyncEvent::create(
         reactor,

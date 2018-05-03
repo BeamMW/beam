@@ -16,7 +16,7 @@ Connection::Connection(ProtocolBase& protocol, uint64_t peerId, size_t defaultMs
 Connection::~Connection()
 {}
 
-int Connection::write_msg(const std::vector<io::SharedBuffer>& fragments) {
+expected<void,int> Connection::write_msg(const std::vector<io::SharedBuffer>& fragments) {
     return _stream->write(fragments);
 }
 
