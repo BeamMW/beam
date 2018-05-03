@@ -35,9 +35,6 @@ namespace beam::wallet
 
         auto coins = m_keychain->getCoins(m_amount); // need to lock 
         invitationData->m_amount = m_amount;
-        m_kernel.m_Fee = 0;
-        m_kernel.m_HeightMin = 0;
-        m_kernel.m_HeightMax = static_cast<Height>(-1);
         m_kernel.get_Hash(invitationData->m_message);
         
         // 2. Set lock_height for output (current chain height)

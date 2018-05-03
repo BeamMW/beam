@@ -450,8 +450,6 @@ struct TransactionMaker
 	{
 		std::unique_ptr<beam::TxKernel> pKrn(new beam::TxKernel);
 		pKrn->m_Fee = fee;
-		pKrn->m_HeightMin = 0;
-		pKrn->m_HeightMax = -1;
 
 		pKrn->m_vNested.swap(lstNested);
 
@@ -505,7 +503,7 @@ void TestTransaction()
 
 	tm.AddOutput(0, 738);
 	tm.AddInput(1, 740);
-	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested);
+	tm.CreateTxKernel(tm.m_Trans.m_vKernelsOutput, fee2, lstNested);
 
 	tm.m_Trans.Sort();
 

@@ -23,7 +23,7 @@ class NodeProcessor
 
 	bool HandleBlockElement(Input&, bool bFwd, bool bAutoAdjustInp);
 	bool HandleBlockElement(const Output&, Height, bool bFwd);
-	bool HandleBlockElement(const TxKernel&, bool bFwd);
+	bool HandleBlockElement(const TxKernel&, bool bAdd);
 
 	Height m_Horizon;
 

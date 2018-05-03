@@ -123,9 +123,18 @@ namespace beam
 		// Mandatory
 		ECC::Point		m_Excess;
 		ECC::Signature	m_Signature;	// For the whole tx body, including nested kernels, excluding contract signature
+		uint64_t		m_Multiplier;
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
 		Height			m_HeightMin;
 		Height			m_HeightMax;
+
+		TxKernel()
+			:m_Multiplier(0) // 0-based, 
+			,m_Fee(0)
+			, m_HeightMin(0)
+			, m_HeightMax(Height(-1))
+		{
+		}
 
 		// Optional
 		struct Contract
@@ -162,7 +171,8 @@ namespace beam
 	{
 		std::vector<Input::Ptr> m_vInputs;
 		std::vector<Output::Ptr> m_vOutputs;
-		std::vector<TxKernel::Ptr> m_vKernels;
+		std::vector<TxKernel::Ptr> m_vKernelsInput;
+		std::vector<TxKernel::Ptr> m_vKernelsOutput;
 		ECC::Scalar m_Offset;
 
 		void Sort(); // w.r.t. the standard

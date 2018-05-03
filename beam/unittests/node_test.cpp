@@ -379,8 +379,6 @@ namespace beam
 			return; //?!
 
 		TxKernel::Ptr pKrn(new TxKernel);
-		pKrn->m_HeightMin = 0;
-		pKrn->m_HeightMax = Height(-1);
 		pKrn->m_Fee = 1090000;
 
 		Input::Ptr pInp(new Input);
@@ -419,7 +417,7 @@ namespace beam
 		ECC::Hash::Value hv;
 		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, k);
-		tx.m_vKernels.push_back(std::move(pKrn));
+		tx.m_vKernelsOutput.push_back(std::move(pKrn));
 
 
 		k = -k;

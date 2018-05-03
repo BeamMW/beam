@@ -161,6 +161,8 @@ namespace beam
 		if (pExcess)
 		{
 			ECC::Point::Native pt(m_Excess);
+			if (m_Multiplier)
+				pt += pt * m_Multiplier;
 
 			if (!m_Signature.IsValid(hv, pt))
 				return false;
@@ -259,6 +261,8 @@ namespace beam
 	{
 		sigma = ECC::Zero;
 
+		// Inputs
+
 		const Input* p0Inp = NULL;
 		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
 		{
@@ -275,7 +279,47 @@ namespace beam
 			sigma += ECC::Point::Native(v.m_Commitment);
 		}
 
+		auto itKrnOut = m_vKernelsOutput.begin();
+		const TxKernel* p0Krn = NULL;
+
+		for (auto it = m_vKernelsInput.begin(); m_vKernelsInput.end() != it; it++)
+		{
+			const TxKernel& v = *(*it);
+
+			// locate the corresponding output kernel. Use the fact that kernels are sorted by excess, and then by multiplier
+			while (true)
+			{
+				if (m_vKernelsOutput.end() == itKrnOut)
+					return false;
+
+				const TxKernel& vOut = *(*itKrnOut);
+				itKrnOut++;
+
+				if (vOut.m_Excess > v.m_Excess)
+					return false;
+
+				if (vOut.m_Excess == v.m_Excess)
+				{
+					if (vOut.m_Multiplier <= v.m_Multiplier)
+						return false;
+					break; // ok
+				}
+			}
+
+			if (!v.IsValid(ctx.m_Fee, sigma))
+				return false;
+
+			if (p0Krn && (*p0Krn > v))
+				return false;
+			p0Krn = &v;
+
+			ctx.m_hMin = std::max(ctx.m_hMin, v.m_HeightMin);
+			ctx.m_hMax = std::min(ctx.m_hMax, v.m_HeightMax);
+		}
+
 		sigma = -sigma;
+
+		// Outputs
 
 		const Output* p0Out = NULL;
 		for (auto it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
@@ -297,8 +341,8 @@ namespace beam
 			}
 		}
 
-		const TxKernel* p0Krn = NULL;
-		for (auto it = m_vKernels.begin(); m_vKernels.end() != it; it++)
+		p0Krn = NULL;
+		for (auto it = m_vKernelsOutput.begin(); m_vKernelsOutput.end() != it; it++)
 		{
 			const TxKernel& v = *(*it);
 			if (!v.IsValid(ctx.m_Fee, sigma))
@@ -321,7 +365,8 @@ namespace beam
 	{
 		std::sort(m_vInputs.begin(), m_vInputs.end());
 		std::sort(m_vOutputs.begin(), m_vOutputs.end());
-		std::sort(m_vKernels.begin(), m_vKernels.end());
+		std::sort(m_vKernelsInput.begin(), m_vKernelsInput.end());
+		std::sort(m_vKernelsOutput.begin(), m_vKernelsOutput.end());
 	}
 
 	template <class T>

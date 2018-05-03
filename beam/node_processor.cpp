@@ -234,7 +234,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool b
 
 bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, bool bAutoAdjustInp)
 {
-	size_t nInp = 0, nOut = 0, nKrn = 0;
+	size_t nInp = 0, nOut = 0, nKrnInp = 0, nKrnOut = 0;
 
 	bool bOk = true;
 	if (bFwd)
@@ -249,7 +249,8 @@ bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, boo
 	{
 		nInp = tx.m_vInputs.size();
 		nOut = tx.m_vOutputs.size();
-		nKrn = tx.m_vKernels.size();
+		nKrnInp = tx.m_vKernelsInput.size();
+		nKrnOut = tx.m_vKernelsOutput.size();
 	}
 
 	if (bFwd && bOk)
@@ -264,8 +265,18 @@ bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, boo
 
 	if (bFwd && bOk)
 	{
-		for ( ; nKrn < tx.m_vKernels.size(); nKrn++)
-			if (!HandleBlockElement(*tx.m_vKernels[nKrn], bFwd))
+		for ( ; nKrnInp < tx.m_vKernelsInput.size(); nKrnInp++)
+			if (!HandleBlockElement(*tx.m_vKernelsInput[nKrnInp], !bFwd))
+			{
+				bOk = false;
+				break;
+			}
+	}
+
+	if (bFwd && bOk)
+	{
+		for (; nKrnOut < tx.m_vKernelsOutput.size(); nKrnOut++)
+			if (!HandleBlockElement(*tx.m_vKernelsOutput[nKrnOut], bFwd))
 			{
 				bOk = false;
 				break;
@@ -275,8 +286,11 @@ bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, boo
 	if (!(bFwd && bOk))
 	{
 		// Rollback all the changes. Must succeed!
-		while (nKrn--)
-			HandleBlockElement(*tx.m_vKernels[nKrn], false);
+		while (nKrnOut--)
+			HandleBlockElement(*tx.m_vKernelsOutput[nKrnOut], false);
+
+		while (nKrnInp--)
+			HandleBlockElement(*tx.m_vKernelsInput[nKrnInp], true);
 
 		while (nOut--)
 			HandleBlockElement(*tx.m_vOutputs[nOut], h, false);
@@ -404,7 +418,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 	return true;
 }
 
-bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd)
+bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bAdd)
 {
 	Merkle::Hash hv;
 	v.get_Hash(hv);
@@ -412,10 +426,10 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd)
 
 
 	RadixHashOnlyTree::Cursor cu;
-	bool bCreate = true;
+	bool bCreate = bAdd;
 	RadixHashOnlyTree::MyLeaf* p = m_Kernels.Find(cu, hv, bCreate);
 
-	if (bFwd)
+	if (bAdd)
 	{
 		if (!bCreate)
 			return false; // attempt to use the same exactly kernel twice. This should be banned!
@@ -427,6 +441,9 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd)
 		m_DB.AddKernel(NodeDB::Blob(hv.m_pData, sizeof(hv.m_pData)), NodeDB::Blob(sb.first, (uint32_t) sb.second), true);
 	} else
 	{
+		if (!p)
+			return false; // no such a kernel
+
 		m_Kernels.Delete(cu);
 		m_DB.DeleteKernel(NodeDB::Blob(hv.m_pData, sizeof(hv.m_pData)));
 	}
@@ -599,7 +616,8 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 
 			AppendMoveArray(ctxBlock.m_Block.m_vInputs, tx.m_vInputs);
 			AppendMoveArray(ctxBlock.m_Block.m_vOutputs, tx.m_vOutputs);
-			AppendMoveArray(ctxBlock.m_Block.m_vKernels, tx.m_vKernels);
+			AppendMoveArray(ctxBlock.m_Block.m_vKernelsInput, tx.m_vKernelsInput);
+			AppendMoveArray(ctxBlock.m_Block.m_vKernelsOutput, tx.m_vKernelsOutput);
 
 			ctxBlock.m_Offset += ECC::Scalar::Native(tx.m_Offset);
 		}

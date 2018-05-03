@@ -33,11 +33,8 @@ namespace beam::wallet
         confirmationData->m_txId = m_txId;
 
         TxKernel::Ptr kernel = std::make_unique<TxKernel>();
-        kernel->m_Fee = 0;
-        kernel->m_HeightMin = 0;
-        kernel->m_HeightMax = static_cast<Height>(-1);
         m_kernel = kernel.get();
-        m_transaction->m_vKernels.push_back(std::move(kernel));
+        m_transaction->m_vKernelsOutput.push_back(std::move(kernel));
 
         // 1. Check fee
         // 2. Create receiver_output
