@@ -360,33 +360,38 @@ namespace ECC {
 					count++;
 				else
 				{
-					OnCarryChange(p, carry, count);
+					for (int i = 0; i < count; i++)
+						p[carry] = p[carry] * Two;
+
+					if (carry)
+						FlushCarry(p, count);
 					count = 0;
+
+					p[carry1] = p[carry] * Two;
+					carry = carry1;
 				}
-
-				p[carry1] = p[carry] * Two;
-				carry = carry1;
-
 			}
 		}
 
-		OnCarryChange(p, carry, count);
+		if (carry)
+		{
+			for (int i = 0; i < count; i++)
+				p[carry] = p[carry] * Two;
+			FlushCarry(p, count);
+		}
 
 		return *this;
 	}
 
-	void Point::Native::OnCarryChange(Point::Native* p, int carry, int count)
+	void Point::Native::FlushCarry(Point::Native* p, int count)
 	{
-		if (carry)
+		if (count)
 		{
-			if (count)
-			{
-				*this += p[1];
-				p[0] = -p[0];
-			}
-
-			*this += p[0];
+			*this += p[1];
+			p[0] = -p[0];
 		}
+
+		*this += p[0];
 	}
 
 	/////////////////////
