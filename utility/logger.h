@@ -52,6 +52,11 @@ struct LogMessageStub {
     #define LOG_VERBOSE() LogMessageStub()
 #endif
 
+
+#ifdef WIN32
+#define __PRETTY_FUNCTION__ __FUNCSIG__
+#endif // WIN32
+
 namespace beam {
 
 // Logger options
