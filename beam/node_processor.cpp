@@ -266,7 +266,7 @@ bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, boo
 	if (bFwd && bOk)
 	{
 		for ( ; nKrnInp < tx.m_vKernelsInput.size(); nKrnInp++)
-			if (!HandleBlockElement(*tx.m_vKernelsInput[nKrnInp], !bFwd))
+			if (!HandleBlockElement(*tx.m_vKernelsInput[nKrnInp], bFwd, true))
 			{
 				bOk = false;
 				break;
@@ -276,7 +276,7 @@ bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, boo
 	if (bFwd && bOk)
 	{
 		for (; nKrnOut < tx.m_vKernelsOutput.size(); nKrnOut++)
-			if (!HandleBlockElement(*tx.m_vKernelsOutput[nKrnOut], bFwd))
+			if (!HandleBlockElement(*tx.m_vKernelsOutput[nKrnOut], bFwd, false))
 			{
 				bOk = false;
 				break;
@@ -287,10 +287,10 @@ bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, boo
 	{
 		// Rollback all the changes. Must succeed!
 		while (nKrnOut--)
-			HandleBlockElement(*tx.m_vKernelsOutput[nKrnOut], false);
+			HandleBlockElement(*tx.m_vKernelsOutput[nKrnOut], false, false);
 
 		while (nKrnInp--)
-			HandleBlockElement(*tx.m_vKernelsInput[nKrnInp], true);
+			HandleBlockElement(*tx.m_vKernelsInput[nKrnInp], false, true);
 
 		while (nOut--)
 			HandleBlockElement(*tx.m_vOutputs[nOut], h, false);
@@ -418,12 +418,13 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 	return true;
 }
 
-bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bAdd)
+bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInput)
 {
+	bool bAdd = (bFwd != bIsInput);
+
 	Merkle::Hash hv;
 	v.get_Hash(hv);
-	ECC::Hash::Processor() << hv << v.m_Excess >> hv; // add the public excess, it's not included by default
-
+	ECC::Hash::Processor() << hv << v.m_Excess << v.m_Multiplier >> hv; // add the public excess, it's not included by default
 
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = bAdd;
@@ -438,15 +439,23 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bAdd)
 		ser & v;
 		SerializeBuffer sb = ser.buffer();
 
-		m_DB.AddKernel(NodeDB::Blob(hv.m_pData, sizeof(hv.m_pData)), NodeDB::Blob(sb.first, (uint32_t) sb.second), true);
+		if (bIsInput)
+			m_DB.ModifyKernel(NodeDB::Blob(hv.m_pData, sizeof(hv.m_pData)), 1);
+		else
+			m_DB.AddKernel(NodeDB::Blob(hv.m_pData, sizeof(hv.m_pData)), NodeDB::Blob(sb.first, (uint32_t) sb.second), true);
 	} else
 	{
 		if (!p)
 			return false; // no such a kernel
 
 		m_Kernels.Delete(cu);
-		m_DB.DeleteKernel(NodeDB::Blob(hv.m_pData, sizeof(hv.m_pData)));
+
+		if (bIsInput)
+			m_DB.ModifyKernel(NodeDB::Blob(hv.m_pData, sizeof(hv.m_pData)), -1);
+		else
+			m_DB.DeleteKernel(NodeDB::Blob(hv.m_pData, sizeof(hv.m_pData)));
 	}
+
 	return true;
 }
 
