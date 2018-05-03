@@ -512,6 +512,58 @@ void TestTransaction()
 	verify_test(ctx.m_Fee == fee1 + fee2);
 }
 
+void TestTransactionKernelConsuming()
+{
+	beam::Transaction t;
+
+	Scalar::Native kOffs = Zero;
+
+	for (int i = 0; i < 20; i++)
+	{
+		Scalar::Native kExc;
+		SetRandom(kExc);
+
+		Hash::Value hv;
+		Point::Native p = Context::get().G * kExc;
+
+		Amount mul0 = i, mul1 = (i + 10) * (i + 2);
+
+		// input kernel
+		Scalar::Native sk0 = kExc * (mul0 + 1);
+
+		beam::TxKernel::Ptr pKrn(new beam::TxKernel);
+		pKrn->get_Hash(hv);
+		pKrn->m_Signature.Sign(hv, sk0);
+		pKrn->m_Excess = p;
+		pKrn->m_Multiplier = mul0;
+
+		t.m_vKernelsInput.push_back(std::move(pKrn));
+
+		kOffs += sk0;
+
+		// output kernel
+		Scalar::Native sk1 = kExc * (mul1 + 1);
+
+		pKrn.reset(new beam::TxKernel);
+		pKrn->get_Hash(hv);
+		pKrn->m_Signature.Sign(hv, sk1);
+		pKrn->m_Excess = p;
+		pKrn->m_Multiplier = mul1;
+
+		t.m_vKernelsOutput.push_back(std::move(pKrn));
+
+		sk1 = -sk1;
+		kOffs += sk1;
+	}
+
+	t.m_Offset = kOffs;
+	t.Sort();
+
+	beam::TxBase::Context ctx;
+	verify_test(t.IsValid(ctx));
+	verify_test(ctx.m_Fee == 0);
+}
+
 void TestAll()
 {
 	TestHash();
@@ -521,6 +573,7 @@ void TestAll()
 	TestCommitments();
 	TestRangeProof();
 	TestTransaction();
+	TestTransactionKernelConsuming();
 }
 
 
