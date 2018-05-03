@@ -480,7 +480,7 @@ namespace beam
 
 int main()
 {
-//	beam::TestNodeDB();
+	beam::TestNodeDB();
 	beam::TestNodeProcessor();
 
     //beam::Node node;
