@@ -41,7 +41,7 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm& fsm)
                 {
                     std::cout << "[Sender] Terminate state\n";
-                    fsm.m_gateway.removeSender(fsm.m_txId);
+                    fsm.m_gateway.remove_sender(fsm.m_txId);
                 } 
             };
             struct TxInitiating : public msmf::state<> {

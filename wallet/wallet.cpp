@@ -70,7 +70,7 @@ namespace beam
         }
     };
 
-    Wallet::Wallet(IKeyChain::Ptr keyChain, NetworkIO& network)
+    Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO& network)
         : m_keyChain{ keyChain }
         , m_network{ network }
     {
@@ -94,14 +94,14 @@ namespace beam
         p.first->second->start();
     }
 
-    void Wallet::sendTxInitiation(sender::InvitationData::Ptr data)
+    void Wallet::send_tx_invitation(sender::InvitationData::Ptr data)
     {
-        m_network.sendTxInitiation(Peer(), data);
+        m_network.send_tx_invitation(Peer(), data);
     }
 
-    void Wallet::sendTxConfirmation(sender::ConfirmationData::Ptr data)
+    void Wallet::send_tx_confirmation(sender::ConfirmationData::Ptr data)
     {
-        m_network.sendTxConfirmation(Peer(), data);
+        m_network.send_tx_confirmation(Peer(), data);
     }
 
     void Wallet::sendChangeOutputConfirmation()
@@ -109,7 +109,7 @@ namespace beam
         m_network.sendChangeOutputConfirmation(Peer());
     }
 
-    void Wallet::removeSender(const Uuid& txId)
+    void Wallet::remove_sender(const Uuid& txId)
     {
         auto it = m_senders.find(txId);
         assert(it != m_senders.end());
@@ -120,22 +120,22 @@ namespace beam
         }
     }
 
-    void Wallet::sendTxConfirmation(receiver::ConfirmationData::Ptr data)
+    void Wallet::send_tx_confirmation(receiver::ConfirmationData::Ptr data)
     {
-        m_network.sendTxConfirmation(Peer(), data);
+        m_network.send_tx_confirmation(Peer(), data);
     }
 
-    void Wallet::registerTx(const Uuid& txId, TransactionPtr transaction)
+    void Wallet::register_tx(receiver::RegisterTxData::Ptr data)
     {
-        m_network.registerTx(Peer(), txId, transaction);
+        m_network.register_tx(Peer(), data);
     }
 
-    void Wallet::sendTxRegistered(const Uuid& txId)
+    void Wallet::send_tx_registered(UuidPtr&& txId)
     {
-        m_network.sendTxRegistered(Peer(), txId);
+        m_network.send_tx_registered(Peer(), move(txId));
     }
 
-    void Wallet::removeReceiver(const Uuid& txId)
+    void Wallet::remove_receiver(const Uuid& txId)
     {
         auto it = m_receivers.find(txId);
         assert(it != m_receivers.end());
@@ -146,7 +146,7 @@ namespace beam
         }
     }
 
-    void Wallet::handleTxInitiation(sender::InvitationData::Ptr data)
+    void Wallet::handle_tx_invitation(Peer from, sender::InvitationData::Ptr data)
     {
         auto it = m_receivers.find(data->m_txId);
         if (it == m_receivers.end())
@@ -161,7 +161,7 @@ namespace beam
         }
     }
     
-    void Wallet::handleTxConfirmation(sender::ConfirmationData::Ptr data)
+    void Wallet::handle_tx_confirmation(Peer from, sender::ConfirmationData::Ptr data)
     {
         auto it = m_receivers.find(data->m_txId);
         if (it != m_receivers.end())
@@ -174,7 +174,7 @@ namespace beam
         }
     }
 
-    void Wallet::handleOutputConfirmation(const Peer& peer)
+    void Wallet::handleOutputConfirmation(Peer from)
     {
         // TODO: this code is for test only, it should be rewrited
         if (!m_receivers.empty())
@@ -189,7 +189,7 @@ namespace beam
         }
     }
    
-    void Wallet::handleTxConfirmation(receiver::ConfirmationData::Ptr data)
+    void Wallet::handle_tx_confirmation(Peer from, receiver::ConfirmationData::Ptr data)
     {
         auto it = m_senders.find(data->m_txId);
         if (it != m_senders.end())
@@ -202,28 +202,28 @@ namespace beam
         }
     }
 
-    void Wallet::handleTxRegistration(const Uuid& txId)
+    void Wallet::handle_tx_registration(Peer from, UuidPtr&& txId)
     {
-        if (auto it = m_receivers.find(txId); it != m_receivers.end())
+        if (auto it = m_receivers.find(*txId); it != m_receivers.end())
         {
-            it->second->processEvent(Receiver::TxRegistrationCompleted{ txId });
+            it->second->processEvent(Receiver::TxRegistrationCompleted{ *txId });
             return;
         }
-        if (auto it = m_senders.find(txId); it != m_senders.end())
+        if (auto it = m_senders.find(*txId); it != m_senders.end())
         {
             it->second->processEvent(Sender::TxConfirmationCompleted());
             return;
         }
     }
 
-    void Wallet::handleTxFailed(const Uuid& txId)
+    void Wallet::handle_tx_failed(Peer from, UuidPtr&& txId)
     {
-        if (auto it = m_senders.find(txId); it != m_senders.end())
+        if (auto it = m_senders.find(*txId); it != m_senders.end())
         {
             it->second->processEvent(Sender::TxFailed());
             return;
         }
-        if (auto it = m_receivers.find(txId); it != m_receivers.end())
+        if (auto it = m_receivers.find(*txId); it != m_receivers.end())
         {
             it->second->processEvent(Receiver::TxFailed());
             return;

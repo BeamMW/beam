@@ -8,6 +8,7 @@
 namespace beam
 {
     using Uuid = std::array<uint8_t, 16>;
+    using UuidPtr = std::shared_ptr<Uuid>;
     using TransactionPtr = std::shared_ptr<Transaction>;
     ECC::Scalar::Native generateNonce();
     namespace wallet
@@ -58,10 +59,10 @@ namespace beam
 
             struct IGateway
             {
-                virtual void sendTxInitiation(InvitationData::Ptr) = 0;
-                virtual void sendTxConfirmation(ConfirmationData::Ptr) = 0;
+                virtual void send_tx_invitation(InvitationData::Ptr) = 0;
+                virtual void send_tx_confirmation(ConfirmationData::Ptr) = 0;
                 virtual void sendChangeOutputConfirmation() = 0;
-                virtual void removeSender(const Uuid&) = 0;
+                virtual void remove_sender(const Uuid&) = 0;
             };
         }
 
@@ -78,12 +79,20 @@ namespace beam
                 ECC::Scalar::Native m_receiverSignature;
             };
 
+            struct RegisterTxData
+            {
+                using Ptr = std::shared_ptr<RegisterTxData>;
+
+                Uuid m_txId;
+                TransactionPtr m_transaction;
+            };
+
             struct IGateway
             {
-                virtual void sendTxConfirmation(ConfirmationData::Ptr) = 0;
-                virtual void registerTx(const Uuid& txId, TransactionPtr) = 0;
-                virtual void sendTxRegistered(const Uuid& txId) = 0;
-                virtual void removeReceiver(const Uuid&) = 0;
+                virtual void send_tx_confirmation(ConfirmationData::Ptr) = 0;
+                virtual void register_tx(RegisterTxData::Ptr) = 0;
+                virtual void send_tx_registered(UuidPtr&&) = 0;
+                virtual void remove_receiver(const Uuid&) = 0;
             };
         }
     }

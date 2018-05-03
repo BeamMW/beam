@@ -45,7 +45,7 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm& fsm)
                 {
                     std::cout << "[Receiver] Terminate state\n";
-                    fsm.m_gateway.removeReceiver(fsm.m_txId);
+                    fsm.m_gateway.remove_receiver(fsm.m_txId);
                 }
             };
             struct TxConfirming : public msmf::state<> {
@@ -79,7 +79,7 @@ namespace beam::wallet
 
             bool isInvalidSignature(const TxConfirmationCompleted& event);
 
-            void registerTx(const TxConfirmationCompleted& event);
+            void register_tx(const TxConfirmationCompleted& event);
 
             void rollbackTx(const TxFailed& event);
 
@@ -95,7 +95,7 @@ namespace beam::wallet
                 //   Start                 Event                     Next                   Action              Guard
                 a_row< Init              , msmf::none              , TxConfirming         , &d::confirmTx                             >,
                 a_row< TxConfirming      , TxFailed                , Terminate            , &d::rollbackTx                            >,
-                row  < TxConfirming      , TxConfirmationCompleted , TxRegistering        , &d::registerTx    , &d::isValidSignature  >,
+                row  < TxConfirming      , TxConfirmationCompleted , TxRegistering        , &d::register_tx    , &d::isValidSignature  >,
                 row  < TxConfirming      , TxConfirmationCompleted , Terminate            , &d::cancelTx      , &d::isInvalidSignature>,
                 a_row< TxRegistering     , TxRegistrationCompleted , TxOutputConfirming   , &d::confirmOutput                         >,
                 a_row< TxRegistering     , TxFailed                , Terminate            , &d::rollbackTx                            >,

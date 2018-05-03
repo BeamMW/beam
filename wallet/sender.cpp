@@ -84,7 +84,7 @@ namespace beam::wallet
             = invitationData->m_publicSenderNonce
             = Context::get().G * m_nonce;
         // an attempt to implement "stingy" transaction
-        m_gateway.sendTxInitiation(invitationData);
+        m_gateway.send_tx_invitation(invitationData);
     }
 
     bool Sender::FSMDefinition::isValidSignature(const TxInitCompleted& event)
@@ -135,7 +135,7 @@ namespace beam::wallet
         Hash::Value message;
         m_kernel.get_Hash(message);
         m_kernel.m_Signature.CoSign(confirmationData->m_senderSignature, message, m_blindingExcess, msig);
-        m_gateway.sendTxConfirmation(confirmationData);
+        m_gateway.send_tx_confirmation(confirmationData);
     }
 
     void Sender::FSMDefinition::rollbackTx(const TxFailed& )

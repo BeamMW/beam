@@ -71,7 +71,7 @@ namespace beam::wallet
         
         confirmationData->m_receiverSignature = m_receiverSignature;
 
-        m_gateway.sendTxConfirmation(confirmationData);
+        m_gateway.send_tx_confirmation(confirmationData);
     }
 
     bool Receiver::FSMDefinition::isValidSignature(const TxConfirmationCompleted& event)
@@ -96,7 +96,7 @@ namespace beam::wallet
         return !isValidSignature(event);
     }
 
-    void Receiver::FSMDefinition::registerTx(const TxConfirmationCompleted& event)
+    void Receiver::FSMDefinition::register_tx(const TxConfirmationCompleted& event)
     {
         // 2. Calculate final signature
         Scalar::Native finialSignature = event.data->m_senderSignature + m_receiverSignature;
@@ -114,7 +114,9 @@ namespace beam::wallet
         
         // TODO: uncomment assert
         assert(m_transaction->IsValid(fee, 0U));
-        m_gateway.registerTx(m_txId, m_transaction);
+
+        auto data = shared_ptr<receiver::RegisterTxData>(new receiver::RegisterTxData{ m_txId, move(m_transaction) });
+        m_gateway.register_tx(data);
     }
 
     void Receiver::FSMDefinition::rollbackTx(const TxFailed& event)
@@ -129,7 +131,7 @@ namespace beam::wallet
 
     void Receiver::FSMDefinition::confirmOutput(const TxRegistrationCompleted& )
     {
-        m_gateway.sendTxRegistered(m_txId);
+        m_gateway.send_tx_registered(make_unique<Uuid>(m_txId));
     }
 
     void Receiver::FSMDefinition::completeTx(const TxOutputConfirmCompleted& )

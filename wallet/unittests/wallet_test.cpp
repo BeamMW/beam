@@ -3,6 +3,7 @@
 #include "wallet/receiver.h"
 
 #include "coin.h"
+#include "test_helpers.h"
 
 #include <assert.h>
 #include <iostream>
@@ -14,23 +15,7 @@
 using namespace beam;
 using namespace std;
 
-int g_failureCount = 0;
-
-void PrintFailure(const char* expression, const char* file, int line)
-{
-    cout << "\"" << expression << "\"" << " assertion failed. File: " << file << " at line: " << line << "\n";
-    ++g_failureCount;
-}
-
-#define WALLET_CHECK(s) \
-do {\
-    if (!s) {\
-        PrintFailure(#s, __FILE__, __LINE__);\
-    }\
-} while(false)\
-
-#define WALLET_CHECK_RESULT g_failureCount ? -1 : 0;
-
+WALLET_TEST_INIT
 
 namespace
 {
@@ -206,12 +191,12 @@ namespace
     struct TestGateway : wallet::sender::IGateway
                        , wallet::receiver::IGateway
     {
-        void sendTxInitiation(wallet::sender::InvitationData::Ptr) override
+        void send_tx_invitation(wallet::sender::InvitationData::Ptr) override
         {
             cout << "sent tx initiation message\n";
         }
 
-        void sendTxConfirmation(wallet::sender::ConfirmationData::Ptr) override
+        void send_tx_confirmation(wallet::sender::ConfirmationData::Ptr) override
         {
             cout << "sent senders's tx confirmation message\n";
         }
@@ -221,27 +206,27 @@ namespace
             cout << "sent change output confirmation message\n";
         }
 
-        void sendTxConfirmation(wallet::receiver::ConfirmationData::Ptr) override
+        void send_tx_confirmation(wallet::receiver::ConfirmationData::Ptr) override
         {
             cout << "sent recever's tx confirmation message\n";
         }
 
-        void registerTx(const Uuid& txId, TransactionPtr) override
+        void register_tx(wallet::receiver::RegisterTxData::Ptr) override
         {
             cout << "sent tx registration request\n";
         }
 
-        void sendTxRegistered(const Uuid& txId) override
+        void send_tx_registered(UuidPtr&&) override
         {
             cout << "sent tx registration completed \n";
         }
 
-        void removeSender(const Uuid&)
+        void remove_sender(const Uuid&)
         {
 
         }
 
-        void removeReceiver(const Uuid&)
+        void remove_receiver(const Uuid&)
         {
 
         }
@@ -314,7 +299,7 @@ namespace
     //
     // Test impl of the network io. The second thread isn't really needed, though this is much close to reality
     //
-    struct TestNetworkBase : public NetworkIO
+    struct TestNetworkBase : public INetworkIO
     {
         using Task = function<void()>;
         TestNetworkBase(IOLoop& mainLoop)
@@ -358,41 +343,42 @@ namespace
         TestNetwork(IOLoop& mainLoop) : TestNetworkBase{mainLoop}
         {}
 
-        void sendTxInitiation(const Peer& peer, wallet::sender::InvitationData::Ptr data) override
+        void send_tx_invitation(Peer to, wallet::sender::InvitationData::Ptr data) override
         {
-            cout << "[Sender] sendTxInitiation\n";
-            enqueueNetworkTask([this, data] {m_peers[1]->handleTxInitiation(data); });
+            cout << "[Sender] send_tx_invitation\n";
+            enqueueNetworkTask([this, to, data] {m_peers[1]->handle_tx_invitation(to, data); });
         }
 
-        void sendTxConfirmation(const Peer& peer, wallet::sender::ConfirmationData::Ptr data) override
+        void send_tx_confirmation(Peer to, wallet::sender::ConfirmationData::Ptr data) override
         {
-            cout << "[Sender] sendTxConfirmation\n";
-            enqueueNetworkTask([this, data] {m_peers[1]->handleTxConfirmation(data); });
+            cout << "[Sender] send_tx_confirmation\n";
+            enqueueNetworkTask([this, to, data] {m_peers[1]->handle_tx_confirmation(to, data); });
         }
 
-        void sendChangeOutputConfirmation(const Peer& peer) override
+        void sendChangeOutputConfirmation(Peer to) override
         {
             cout << "[Sender] sendChangeOutputConfirmation\n";
-            enqueueNetworkTask([this, peer] {m_peers[0]->handleOutputConfirmation(peer); });
+            enqueueNetworkTask([this, to] {m_peers[0]->handleOutputConfirmation(to); });
         }
 
-        void sendTxConfirmation(const Peer& peer, wallet::receiver::ConfirmationData::Ptr data) override
+        void send_tx_confirmation(Peer to, wallet::receiver::ConfirmationData::Ptr data) override
         {
-            cout << "[Receiver] sendTxConfirmation\n";
-            enqueueNetworkTask([this, data] {m_peers[0]->handleTxConfirmation(data); });
+            cout << "[Receiver] send_tx_confirmation\n";
+            enqueueNetworkTask([this, to, data] {m_peers[0]->handle_tx_confirmation(to, data); });
         }
 
-        void registerTx(const Peer& peer, const Uuid& txId, TransactionPtr tx) override
+        void register_tx(Peer to, wallet::receiver::RegisterTxData::Ptr data) override
         {
-            cout << "[Receiver] registerTx\n";
-            enqueueNetworkTask([this, txId] {m_peers[1]->handleTxRegistration(txId); });
+            cout << "[Receiver] register_tx\n";
+            enqueueNetworkTask([this, to, data] {m_peers[1]->handle_tx_registration(to, make_unique<Uuid>(data->m_txId)); });
          
         }
 
-        void sendTxRegistered(const Peer& peer, const Uuid& txId)
+        void send_tx_registered(Peer to, UuidPtr&& txId) override
         {
-            cout << "[Receiver] sendTxRegistered\n";
-            enqueueNetworkTask([this, txId] {m_peers[0]->handleTxRegistration(txId); });
+            cout << "[Receiver] send_tx_registered\n";
+
+            enqueueNetworkTask([this, to, txId] () mutable {m_peers[0]->handle_tx_registration(to, move(txId)); });
             shutdown();
         }
     };
@@ -407,56 +393,56 @@ namespace
             return (std::rand() % 2) == 0;
         }
 
-        bool tryToSendTxFailed(const Uuid& txId, size_t peerId)
+        bool tryToSendTxFailed(const Uuid& txId, Peer peerId)
         {
             if (isFailed())
             {
                 enqueueNetworkTask([this, txId, peerId]
                 {
                     cout << "[Sender/Receiver] sendTxFailed\n";
-                    m_peers[peerId]->handleTxFailed(txId);
+                    m_peers[peerId]->handle_tx_failed(Peer(), make_unique<Uuid>(txId));
                 });
                 return true;
             }
             return false;
         }
 
-        void sendTxInitiation(const Peer& peer, wallet::sender::InvitationData::Ptr data) override
+        void send_tx_invitation(Peer to, wallet::sender::InvitationData::Ptr data) override
         {
             if (!tryToSendTxFailed(data->m_txId, 0))
             {
-                TestNetwork::sendTxInitiation(peer, data);
+                TestNetwork::send_tx_invitation(to, data);
             }
         }
 
-        void sendTxConfirmation(const Peer& peer, wallet::sender::ConfirmationData::Ptr data) override
+        void send_tx_confirmation(Peer to, wallet::sender::ConfirmationData::Ptr data) override
         {
             if (!tryToSendTxFailed(data->m_txId, 0))
             {
-                TestNetwork::sendTxConfirmation(peer, data);
+                TestNetwork::send_tx_confirmation(to, data);
             }
         }
 
-        void sendChangeOutputConfirmation(const Peer& peer) override
+        void sendChangeOutputConfirmation(Peer to) override
         {
            /* if (!tryToSendTxFailed(data->m_txId))
             {
-                TestNetwork::sendTxInitiation(peer, data);
+                TestNetwork::send_tx_invitation(peer, data);
             }*/
         }
 
-        void sendTxConfirmation(const Peer& peer, wallet::receiver::ConfirmationData::Ptr data) override
+        void send_tx_confirmation(Peer to, wallet::receiver::ConfirmationData::Ptr data) override
         {
             if (!tryToSendTxFailed(data->m_txId, 1))
             {
-                TestNetwork::sendTxConfirmation(peer, data);
+                TestNetwork::send_tx_confirmation(to, data);
             };
         }
 
-        void registerTx(const Peer& peer, const Uuid& txId, TransactionPtr) override
+        void register_tx(Peer to, wallet::receiver::RegisterTxData::Ptr) override
         {
-            cout << "[Receiver] registerTx\n";
-            //enqueueTask([this] {m_peers[1]->handleTxRegistration(Transaction()); });
+            cout << "[Receiver] register_tx\n";
+            //enqueueTask([this] {m_peers[1]->handle_tx_registration(Transaction()); });
             m_networkLoop.shutdown();
         }
     };
@@ -524,7 +510,7 @@ void TestFSM()
 
 int main()
 {
-  //  TestFSM();
+ //   TestFSM();
     TestWalletNegotiation<TestKeyChain, TestKeyChain2>();
     TestWalletNegotiation<TestKeyChainIntegration, TestKeyChain2>();
     TestRollback();
