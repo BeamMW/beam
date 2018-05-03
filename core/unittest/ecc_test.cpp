@@ -407,24 +407,24 @@ struct TransactionMaker
 		// 1st pass. Public excesses and Nonces are summed.
 		Scalar::Native offset(m_Trans.m_Offset);
 
-		Point::Native kG(Zero), xG(Zero);
+		Point::Native xG(Zero), kG(Zero);
 
 		for (int i = 0; i < _countof(m_pPeers); i++)
 		{
 			Peer& p = m_pPeers[i];
-			p.FinalizeExcess(kG, offset);
+			p.FinalizeExcess(xG, offset);
 
 			Signature::MultiSig msig;
 			msig.GenerateNonce(msg, p.m_k);
 
-			xG += Context::get().G * msig.m_Nonce;
+			kG += Context::get().G * msig.m_Nonce;
 		}
 
 		m_Trans.m_Offset = offset;
-		krn.m_Excess = kG;
+		krn.m_Excess = xG;
 
-		// 2nd pass. Signing. Total excess is the signature public key
-		offset = Zero;
+		// 2nd pass. Signing. Total excess is the signature public key.
+		Scalar::Native kSig = Zero;
 
 		for (int i = 0; i < _countof(m_pPeers); i++)
 		{
@@ -432,17 +432,17 @@ struct TransactionMaker
 
 			Signature::MultiSig msig;
 			msig.GenerateNonce(msg, p.m_k);
-			msig.m_NoncePub = xG;
+			msig.m_NoncePub = kG;
 
 			Scalar::Native k;
 			krn.m_Signature.CoSign(k, msg, p.m_k, msig);
 
-			offset += k;
+			kSig += k;
 
 			p.m_k = Zero; // signed, prepare for next tx
 		}
 
-		krn.m_Signature.m_k = offset;
+		krn.m_Signature.m_k = kSig;
 
 	}
 
