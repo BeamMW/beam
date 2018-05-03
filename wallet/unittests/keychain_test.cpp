@@ -4,6 +4,9 @@
 #include "utill.h"
 #include "coin.h"
 
+#include "wallet/keychain.h"
+#include "wallet/sqlite/sqlite3.h"
+
 void test_CoinData(const char* filename) {
 
     std::cout << "Test #1 is working...\n";
@@ -128,12 +131,65 @@ void test_key_CoinData() {
     std::cout << "Test #3 is done.\n\n";
 }
 
+namespace
+{
+	struct TestKeychain : beam::IKeyChain
+	{
+		TestKeychain()
+		{
+
+		}
+
+		virtual ~TestKeychain() {}
+
+		virtual ECC::Scalar getNextKey()
+		{
+			return ECC::Scalar();
+		}
+
+		virtual std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock = true)
+		{
+			return std::vector<beam::Coin>();
+		}
+
+		virtual void store(const beam::Coin& coin)
+		{
+
+		}
+
+		virtual void update(const std::vector<beam::Coin>& coins)
+		{
+
+		}
+
+		virtual void remove(const std::vector<beam::Coin>& coins)
+		{
+
+		}
+
+	private:
+
+	};
+}
+
+void testKeychain()
+{
+	sqlite3* db = nullptr;
+	int ret = sqlite3_open_v2("./wallet.db", &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
+
+	assert(ret == SQLITE_OK);
+
+	sqlite3_close_v2(db);
+}
+
 int main() {
 
-    test_CoinData("./coin_data.bin");
+	testKeychain();
 
-    test_keygenerator("./keygen1.bin", "secret key", "secret key");
-    test_keygenerator("./keygen2.bin", "secret key", "another key");
+    //test_CoinData("./coin_data.bin");
 
-    test_key_CoinData();
+    //test_keygenerator("./keygen1.bin", "secret key", "secret key");
+    //test_keygenerator("./keygen2.bin", "secret key", "another key");
+
+    //test_key_CoinData();
 }
