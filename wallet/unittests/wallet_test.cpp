@@ -72,6 +72,7 @@ namespace
             for (auto& c : m_coins)
             {
                 t += c.m_amount;
+                c.m_status = Coin::Locked;
                 res.push_back(c);
                 if (t >= amount)
                 {
@@ -157,8 +158,11 @@ namespace
             {
                 std::unique_ptr<CoinData> coin(CoinData::recover(is, offset, TestPassword));
 
-                if(coin) 
+                if (coin)
+                {
+                    coin->m_status = Coin::Locked;
                     res.push_back(*coin);
+                }
                 else break;
 
                 offset += SIZE_COIN_DATA;
@@ -502,7 +506,7 @@ void TestFSM()
     TestGateway gateway;
     Uuid id;
 
-    wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), id , 6};
+    wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), id , 6, 1};
     s.start();
     WALLET_CHECK(s.processEvent(wallet::Sender::TxInitCompleted{ std::make_shared<wallet::receiver::ConfirmationData>() }));
     WALLET_CHECK(s.processEvent(wallet::Sender::TxConfirmationCompleted()));

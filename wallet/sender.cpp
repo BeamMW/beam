@@ -2,10 +2,13 @@
 
 namespace beam::wallet
 {
+    using namespace ECC;
+    using namespace std;
+
     void Sender::FSMDefinition::initTx(const msmf::none&)
     {
-        auto invitationData = std::make_shared<sender::InvitationData>();
         // 1. Create transaction Uuid
+        auto invitationData = make_shared<sender::InvitationData>();
         invitationData->m_txId = m_txId;
 
         m_coins = m_keychain->getCoins(m_amount); // need to lock 
@@ -18,20 +21,19 @@ namespace beam::wallet
         // 2. Set lock_height for output (current chain height)
         // 3. Select inputs using desired selection strategy
         {
-            m_blindingExcess = ECC::Zero;
+            m_blindingExcess = Zero;
             for (const auto& coin: m_coins)
             {
-                Input::Ptr input = std::make_unique<Input>();
-                input->m_Height = 0;
-                input->m_Coinbase = false;
+                assert(coin.m_status == Coin::Locked);
+                Input::Ptr input = make_unique<Input>();
+                input->m_Height = coin.m_height;
+                input->m_Coinbase = coin.m_isCoinbase;
 
-                ECC::Scalar::Native key(coin.m_key);
-                ECC::Point::Native pt = ECC::Commitment(key, coin.m_amount);
-
+                Scalar::Native key{ coin.m_key };
+                Point::Native pt = Commitment(key, coin.m_amount);
                 input->m_Commitment = pt;
 
-                invitationData->m_inputs.push_back(std::move(input));
-                
+                invitationData->m_inputs.push_back(move(input));
                 m_blindingExcess += key;
             }
         }
@@ -46,42 +48,41 @@ namespace beam::wallet
 
             change -= m_amount;
 
-            Output::Ptr output = std::make_unique<Output>();
+            Output::Ptr output = make_unique<Output>();
             output->m_Coinbase = false;
 
-            ECC::Scalar::Native blindingFactor = m_keychain->getNextKey();
+            Scalar::Native blindingFactor = m_keychain->getNextKey();
 
-            ECC::Point::Native pt = ECC::Commitment(blindingFactor, change);
+            Point::Native pt = Commitment(blindingFactor, change);
             output->m_Commitment = pt;
 
-            output->m_pPublic.reset(new ECC::RangeProof::Public);
+            output->m_pPublic.reset(new RangeProof::Public);
             output->m_pPublic->m_Value = change;
             output->m_pPublic->Create(blindingFactor);
             
-            m_changeOutput = Coin(blindingFactor, change);
-            m_changeOutput->m_status = Coin::Status::Unconfirmed;
+            m_changeOutput = Coin(blindingFactor, change, Coin::Unconfirmed, m_height, false);
             m_keychain->store(*m_changeOutput);
 
             blindingFactor = -blindingFactor;
             m_blindingExcess += blindingFactor;
 
-            invitationData->m_outputs.push_back(std::move(output));
+            invitationData->m_outputs.push_back(move(output));
         }
         // 6. calculate tx_weight
         // 7. calculate fee
         // 8. Calculate total blinding excess for all inputs and outputs xS
         // 9. Select random nonce kS
-        ECC::Signature::MultiSig msig;
+        Signature::MultiSig msig;
         m_nonce = generateNonce();
 
         msig.m_Nonce = m_nonce;
         // 10. Multiply xS and kS by generator G to create public curve points xSG and kSG
         m_publicBlindingExcess 
             = invitationData->m_publicSenderBlindingExcess
-            = ECC::Context::get().G * m_blindingExcess;
+            = Context::get().G * m_blindingExcess;
         m_publicNonce 
             = invitationData->m_publicSenderNonce
-            = ECC::Context::get().G * m_nonce;
+            = Context::get().G * m_nonce;
         // an attempt to implement "stingy" transaction
         m_gateway.sendTxInitiation(invitationData);
     }
@@ -90,28 +91,29 @@ namespace beam::wallet
     {
         auto data = event.data;
         // 4. Compute Sender Schnorr signature
-        ECC::Signature::MultiSig msig;
+        // 1. Calculate message m
+        Signature::MultiSig msig;
         msig.m_Nonce = m_nonce;
         msig.m_NoncePub = m_publicNonce + data->m_publicReceiverNonce;
-        ECC::Hash::Value message;
+        Hash::Value message;
         m_kernel.get_Hash(message);
         m_kernel.m_Signature.CoSign(m_senderSignature, message, m_blindingExcess, msig);
-        // 1. Calculate message m
+        
 
         // 2. Compute Schnorr challenge e
-        ECC::Point::Native k;
+        Point::Native k;
         k = m_publicNonce + data->m_publicReceiverNonce;
-        ECC::Scalar::Native e = m_kernel.m_Signature.m_e;
+        Scalar::Native e = m_kernel.m_Signature.m_e;
  
         // 3. Verify recepients Schnorr signature 
-        ECC::Point::Native s, s2;
-        ECC::Scalar::Native ne;
+        Point::Native s, s2;
+        Scalar::Native ne;
         ne = -e;
         s = data->m_publicReceiverNonce;
         s += data->m_publicReceiverBlindingExcess * ne;
 
-        s2 = ECC::Context::get().G * data->m_receiverSignature;
-        ECC::Point p(s), p2(s2);
+        s2 = Context::get().G * data->m_receiverSignature;
+        Point p(s), p2(s2);
 
         return (p.cmp(p2) == 0);
     }
@@ -125,12 +127,12 @@ namespace beam::wallet
     {
         auto data = event.data;
         // 4. Compute Sender Schnorr signature
-        auto confirmationData = std::make_shared<sender::ConfirmationData>();
+        auto confirmationData = make_shared<sender::ConfirmationData>();
         confirmationData->m_txId = m_txId;
-        ECC::Signature::MultiSig msig;
+        Signature::MultiSig msig;
         msig.m_Nonce = m_nonce;
         msig.m_NoncePub = m_publicNonce + data->m_publicReceiverNonce;
-        ECC::Hash::Value message;
+        Hash::Value message;
         m_kernel.get_Hash(message);
         m_kernel.m_Signature.CoSign(confirmationData->m_senderSignature, message, m_blindingExcess, msig);
         m_gateway.sendTxConfirmation(confirmationData);
@@ -152,14 +154,14 @@ namespace beam::wallet
 
     void Sender::FSMDefinition::completeTx(const TxOutputConfirmCompleted&)
     {
-        std::cout << "Sender::completeTx\n";
+        cout << "Sender::completeTx\n";
         for (auto& c : m_coins)
         {
-            c.m_status = Coin::Status::Spent;
+            c.m_status = Coin::Spent;
         }
         if (m_changeOutput != boost::none)
         {
-            m_changeOutput->m_status = Coin::Status::Unspent;
+            m_changeOutput->m_status = Coin::Unspent;
             m_coins.push_back(*m_changeOutput);
         }
         m_keychain->update(m_coins);

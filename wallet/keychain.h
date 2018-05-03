@@ -16,10 +16,14 @@ namespace beam
         };
 
         Coin();
-        Coin(const ECC::Scalar& key, ECC::Amount amount);
+        Coin(const ECC::Scalar& key, const ECC::Amount& amount, Status status, const Height& height, bool isCoinbase);
+        Coin(const ECC::Scalar& key, const ECC::Amount& amount);
+
         ECC::Scalar m_key;
         ECC::Amount m_amount;
         Status m_status;
+        Height m_height;
+        bool m_isCoinbase;
     };
 
     struct IKeyChain

@@ -34,16 +34,25 @@ namespace beam
         return n;
     }
 
-    
     Coin::Coin()
     {
 
     }
 
-    Coin::Coin(const Scalar& key, Amount amount)
-        : m_amount(amount)
+    Coin::Coin(const Scalar& key, const Amount& amount, Status status, const Height& height, bool isCoinbase)
+        : m_key{key}
+        , m_amount{amount}
+        , m_status{status}
+        , m_height{height}
+        , m_isCoinbase{isCoinbase}
     {
-        m_key = Scalar::Native(key);
+
+    } 
+    
+    Coin::Coin(const ECC::Scalar& key, const ECC::Amount& amount)
+        : Coin(key, amount, Coin::Unspent, 0, false)
+    {
+
     }
 
     // temporary impl of WalletToNetwork interface
@@ -78,8 +87,9 @@ namespace beam
     {
         boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId;
+        Height height = 0;
         copy(id.begin(), id.end(), txId.begin());
-        auto s = make_unique<Sender>(*this, m_keyChain, txId, amount );
+        auto s = make_unique<Sender>(*this, m_keyChain, txId, amount, height);
         auto p = m_senders.emplace(txId, move(s));
         p.first->second->start();
     }
@@ -141,7 +151,8 @@ namespace beam
         auto it = m_receivers.find(data->m_txId);
         if (it == m_receivers.end())
         {
-            auto p = m_receivers.emplace(data->m_txId, make_unique<Receiver>(*this, m_keyChain, data));
+            auto txId = data->m_txId;
+            auto p = m_receivers.emplace(txId, make_unique<Receiver>(*this, m_keyChain, data));
             p.first->second->start();
         }
         else
@@ -193,36 +204,28 @@ namespace beam
 
     void Wallet::handleTxRegistration(const Uuid& txId)
     {
+        if (auto it = m_receivers.find(txId); it != m_receivers.end())
         {
-            auto it = m_receivers.find(txId);
-            if (it != m_receivers.end())
-            {
-                it->second->processEvent(Receiver::TxRegistrationCompleted{ txId });
-                return;
-            }
+            it->second->processEvent(Receiver::TxRegistrationCompleted{ txId });
+            return;
         }
+        if (auto it = m_senders.find(txId); it != m_senders.end())
         {
-            auto it = m_senders.find(txId);
-            if (it != m_senders.end())
-            {
-                it->second->processEvent(Sender::TxConfirmationCompleted());
-                return;
-            }
+            it->second->processEvent(Sender::TxConfirmationCompleted());
+            return;
         }
     }
 
     void Wallet::handleTxFailed(const Uuid& txId)
     {
-        auto sit = m_senders.find(txId);
-        if (sit != m_senders.end())
+        if (auto it = m_senders.find(txId); it != m_senders.end())
         {
-            sit->second->processEvent(Sender::TxFailed());
+            it->second->processEvent(Sender::TxFailed());
             return;
         }
-        auto rit = m_receivers.find(txId);
-        if (rit != m_receivers.end())
+        if (auto it = m_receivers.find(txId); it != m_receivers.end())
         {
-            rit->second->processEvent(Receiver::TxFailed());
+            it->second->processEvent(Receiver::TxFailed());
             return;
         }
         // TODO: log unexpected TxConfirmation
