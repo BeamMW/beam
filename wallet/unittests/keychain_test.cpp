@@ -137,11 +137,22 @@ namespace
 	struct TestKeychain : beam::IKeyChain
 	{
 		TestKeychain()
+			: _db(nullptr)
 		{
+			int ret = sqlite3_open_v2("wallet.dat", &_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
+			assert(ret == SQLITE_OK);
 
+			ret = sqlite3_exec(_db, "CREATE TABLE IF NOT EXISTS storage (id integer PRIMARY KEY AUTOINCREMENT, amount integer);", NULL, NULL, NULL);
+			assert(ret == SQLITE_OK);
+
+			//ret = sqlite3_exec(_db, "INSERT INTO sqlite_sequence (name,seq) VALUES('storage', 18);" , NULL, NULL, NULL);
+			//assert(ret == SQLITE_OK);
 		}
 
-		virtual ~TestKeychain() {}
+		virtual ~TestKeychain() 
+		{
+			sqlite3_close_v2(_db);
+		}
 
 		virtual ECC::Scalar getNextKey()
 		{
@@ -168,35 +179,32 @@ namespace
 
 		}
 
-	private:
+		void addCoin(const ECC::Amount& amount)
+		{
+			static const char* str = "INSERT INTO storage (amount) VALUES(?1);";
+			sqlite3_stmt* stm = nullptr;
+			int ret = sqlite3_prepare_v2(_db, str, strlen(str), &stm, NULL);
+			assert(ret == SQLITE_OK);
 
+			sqlite3_bind_int64(stm, 1, amount);
+			assert(ret == SQLITE_OK);
+
+			ret = sqlite3_step(stm);
+			assert(ret == SQLITE_DONE);
+
+			sqlite3_finalize(stm);
+		}
+
+	private:
+		sqlite3* _db;
 	};
 }
 
 void testKeychain()
 {
-	sqlite3* db = nullptr;
-	int ret = sqlite3_open_v2("wallet.dat", &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
+	TestKeychain keychain;
 
-	assert(ret == SQLITE_OK);
-
-	ret = sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS storage (id integer PRIMARY KEY AUTOINCREMENT, amount integer);", NULL, NULL, NULL);
-
-	assert(ret == SQLITE_OK);
-
-	//ret = sqlite3_exec(db, "INSERT INTO sqlite_sequence (name,seq) VALUES('storage', 18);" , NULL, NULL, NULL);
-
-	//assert(ret == SQLITE_OK);
-
-	for (int i = 0; i < 10; i++)
-	{
-		std::stringstream req;
-		req << "INSERT INTO storage (amount) VALUES(" << (100 + i) << ");";
-		ret = sqlite3_exec(db, req.str().c_str(), NULL, NULL, NULL);
-		assert(ret == SQLITE_OK);
-	}
-
-	sqlite3_close_v2(db);
+	keychain.addCoin(123);
 }
 
 int main() {
