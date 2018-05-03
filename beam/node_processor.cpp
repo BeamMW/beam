@@ -157,6 +157,16 @@ void NodeProcessor::PruneOld(Height h)
 	}
 }
 
+void NodeProcessor::get_CurrentLive(Merkle::Hash& hv)
+{
+	m_Utxos.get_Hash(hv);
+
+	Merkle::Hash hv2;
+	m_Kernels.get_Hash(hv2);
+
+	Merkle::Interpret(hv, hv2, true);
+}
+
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool bFwd)
 {
 	ByteBuffer bb;
@@ -183,7 +193,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool b
 		m_DB.get_Proof(proof, sid, sid.m_Height);
 
 		Merkle::Interpret(s.m_Prev, proof);
-		if (s.m_States != s.m_Prev)
+		if (s.m_History != s.m_Prev)
 			return false; // The state (even the header) is formed incorrectly!
 	}
 
@@ -208,12 +218,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool b
 	{
 		// check the validity of state description.
 		Merkle::Hash hv;
-		m_Utxos.get_Hash(hv);
-		if (s.m_Utxos != hv)
-			bOk = false;
+		get_CurrentLive(hv);
 
-		m_Kernels.get_Hash(hv);
-		if (s.m_Kernels != hv)
+		if (s.m_LiveObjects != hv)
 			bOk = false;
 
 		if (bOk)
@@ -624,18 +631,16 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	{
 		m_DB.get_State(sid.m_Row, s);
 		s.get_Hash(s.m_Prev);
-		m_DB.get_PredictedStatesHash(s.m_States, sid);
+		m_DB.get_PredictedStatesHash(s.m_History, sid);
 	}
 	else
 	{
 		ZeroObject(s.m_Prev);
-		ZeroObject(s.m_States);
+		ZeroObject(s.m_History);
 	}
 
 	s.m_Height = h;
-
-	m_Utxos.get_Hash(s.m_Utxos);
-	m_Kernels.get_Hash(s.m_Kernels);
+	get_CurrentLive(s.m_LiveObjects);
 
 	Serializer ser;
 	ser & ctxBlock.m_Block;

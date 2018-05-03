@@ -412,14 +412,12 @@ namespace beam
 		//				m_Prev
 		//				m_States
 		//			]
-		//			[
-		//				m_Utxos
-		//				m_Kernels
+		//			m_LiveObjects
 		//			]
 		//		]
 		//	]
 
-		Merkle::Hash h0, h1, h2;
+		Merkle::Hash h0, h1;
 
 		ECC::Hash::Processor() << m_Difficulty >> h1;
 		ECC::Hash::Processor() << m_TimeStamp >> h0;
@@ -428,9 +426,8 @@ namespace beam
 		ECC::Hash::Processor() << m_Height >> h0;
 		Merkle::Interpret(h0, h1, true); // [ m_Height, [ m_Difficulty, m_TimeStamp] ]
 
-		Merkle::Interpret(h1, m_Prev, m_States);
-		Merkle::Interpret(h2, m_Utxos, m_Kernels);
-		Merkle::Interpret(h1, h2, true); // [ [m_Prev, m_States], [m_States, m_Utxos] ]
+		Merkle::Interpret(h1, m_Prev, m_History);
+		Merkle::Interpret(h1, m_LiveObjects, true); // [ [m_Prev, m_States], m_LiveObjects ]
 
 		Merkle::Interpret(out, h0, h1);
 	}

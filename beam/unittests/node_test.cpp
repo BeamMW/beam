@@ -115,7 +115,7 @@ namespace beam
 			if (hFork0 == h)
 				cmmrFork = cmmr;
 
-			cmmr.get_Hash(s.m_States);
+			cmmr.get_Hash(s.m_History);
 		}
 
 		uint64_t pRows[hMax];
@@ -157,7 +157,7 @@ namespace beam
 
 		// a subbranch
 		Block::SystemState::Full s = vStates[hFork0];
-		s.m_Kernels.Inc(); // alter
+		s.m_LiveObjects.Inc(); // alter
 
 		uint64_t r0 = db.InsertState(s);
 
@@ -171,7 +171,7 @@ namespace beam
 
 		s.get_Hash(s.m_Prev);
 		cmmrFork.Append(s.m_Prev);
-		cmmrFork.get_Hash(s.m_States);
+		cmmrFork.get_Hash(s.m_History);
 		s.m_Height++;
 
 		uint64_t rowLast1 = db.InsertState(s);
@@ -202,10 +202,10 @@ namespace beam
 			{
 				Merkle::Hash hv;
 				db.get_PredictedStatesHash(hv, sid2);
-				verify_test(hv == vStates[(size_t) sid2.m_Height + 1].m_States);
+				verify_test(hv == vStates[(size_t) sid2.m_Height + 1].m_History);
 			}
 
-			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height].m_States;
+			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height].m_History;
 
 			for (uint32_t h = 0; h <= sid2.m_Height; h++)
 			{

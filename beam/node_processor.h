@@ -28,6 +28,7 @@ class NodeProcessor
 	Height m_Horizon;
 
 	void OnCorrupted();
+	void get_CurrentLive(Merkle::Hash&);
 
 	std::list<Transaction::Ptr> m_lstCurrentlyMining;
 	struct BlockBulder;

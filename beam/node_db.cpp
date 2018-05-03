@@ -16,9 +16,8 @@ namespace beam {
 #define TblStates_HashPrev		"HashPrev"
 #define TblStates_Difficulty	"Difficulty"
 #define TblStates_Timestamp		"Timestamp"
-#define TblStates_HashUtxos		"HashUtxos"
-#define TblStates_HashKernels	"HashKernels"
-#define TblStates_HashStates	"HashStates"
+#define TblStates_LiveObjects	"LiveObjects"
+#define TblStates_History		"History"
 #define TblStates_Flags			"Flags"
 #define TblStates_RowPrev		"RowPrev"
 #define TblStates_CountNext		"CountNext"
@@ -243,9 +242,8 @@ void NodeDB::Create()
 		"[" TblStates_HashPrev		"] BLOB NOT NULL,"
 		"[" TblStates_Difficulty	"] INTEGER NOT NULL,"
 		"[" TblStates_Timestamp		"] INTEGER NOT NULL,"
-		"[" TblStates_HashUtxos		"] BLOB NOT NULL,"
-		"[" TblStates_HashKernels	"] BLOB NOT NULL,"
-		"[" TblStates_HashStates	"] BLOB NOT NULL,"
+		"[" TblStates_LiveObjects	"] BLOB NOT NULL,"
+		"[" TblStates_History		"] BLOB NOT NULL,"
 		"[" TblStates_Flags			"] INTEGER NOT NULL,"
 		"[" TblStates_RowPrev		"] INTEGER,"
 		"[" TblStates_CountNext		"] INTEGER NOT NULL,"
@@ -433,9 +431,8 @@ void NodeDB::Transaction::Rollback()
 	macro(HashPrev,		m_Prev) sep \
 	macro(Difficulty,	m_Difficulty) sep \
 	macro(Timestamp,	m_TimeStamp) sep \
-	macro(HashUtxos,	m_Utxos) sep \
-	macro(HashKernels,	m_Kernels) sep \
-	macro(HashStates,	m_States)
+	macro(LiveObjects,	m_LiveObjects) sep \
+	macro(History,		m_History)
 
 #define THE_MACRO_NOP0
 #define THE_MACRO_COMMA_S ","

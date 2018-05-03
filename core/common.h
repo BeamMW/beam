@@ -218,9 +218,8 @@ namespace beam
 			struct Full {
 				Height			m_Height;
 				Merkle::Hash	m_Prev;			// explicit referebce to prev
-				Merkle::Hash	m_States;		// all previous states
-				Merkle::Hash	m_Utxos;		// current UTXOs
-				Merkle::Hash	m_Kernels;		// kernels
+				Merkle::Hash	m_History;		// Objects that are only added and never deleted. Currently: previous states.
+				Merkle::Hash	m_LiveObjects;	// Objects that can be both added and deleted. Currently: UTXOs and kernels
 				Difficulty		m_Difficulty;
 				Timestamp		m_TimeStamp;
 
