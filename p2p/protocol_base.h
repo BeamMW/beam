@@ -141,11 +141,6 @@ public:
         return callback(_handler, *_deserializer, fromStream, data, size);
     }
 
-    // serializes
-    //template <typename MsgObject> expected<void, ProtocolError> create_message(Message& out, uint8_t type, const MsgObject& o);
-
-    //void on_new_data(uint64_t fromStream, const void* data, size_t size);
-
 private:
     /// protocol version, all received messages must have these bytes
     uint8_t V0, V1, V2;
