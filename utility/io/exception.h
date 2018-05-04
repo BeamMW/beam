@@ -1,27 +1,48 @@
 #pragma once
+#include "utility/expected.h"
+#include "libuv.h"
 #include <stdexcept>
 #include <string>
 
 namespace beam { namespace io {
+    
+enum ErrorCode {
+    EC_OK = 0,
+    EC_WRITE_BUFFER_OVERFLOW = UV_ERRNO_MAX - 1,
+#define XX(code, _) EC_ ## code = UV_ ## code,
+    UV_ERRNO_MAP(XX)
+#undef XX
+};
 
+inline expected<void,ErrorCode> ok() { return expected<void,ErrorCode>(); }
+inline expected<void,ErrorCode> make_result(ErrorCode errorCode) { return errorCode ? make_unexpected(errorCode) : ok(); }
+
+/// Returns short error string, e.g. "EINVAL"
+const char* error_str(ErrorCode errorCode);
+
+/// Returns more verbose error description
+const char* error_descr(ErrorCode errorCode);
+
+/// Formats error code to be shown by exception::what()
+std::string format_io_error(const char* _function, const char* _file, int _line, ErrorCode _code);
+
+/// Exception from beam::io
 struct Exception : public std::runtime_error {
 #ifdef SHOW_CODE_LOCATION
     std::string function;
     std::string file;
     int line;
 #endif
-    int code;
+    ErrorCode errorCode;
 
-    Exception(const char* _function, const char* _file, int _line, int _code) :
+    Exception(const char* _function, const char* _file, int _line, ErrorCode _code) :
+        std::runtime_error(format_io_error(_function,_file,_line,_code)),
 #ifdef SHOW_CODE_LOCATION
-        std::runtime_error(std::string("io::Exception code=") + std::to_string(_code) + " " + _file + ":" + std::to_string(_line) + " " + _function),
         function(_function),
         file(_file),
         line(_line),
-#else
-        std::runtime_error(std::string("io::Exception code=") + std::to_string(_code)),
 #endif
-        code(_code)
+        errorCode(_code)
     {}
 };
 

@@ -10,17 +10,17 @@ Connection::Connection(ProtocolBase& protocol, uint64_t peerId, size_t defaultMs
     _stream(std::move(stream))
 {
     assert(_stream);
-    _stream->enable_read([this](int what, void* data, size_t size){ on_recv(what, data, size); });
+    _stream->enable_read([this](io::ErrorCode what, void* data, size_t size){ on_recv(what, data, size); });
 }
 
 Connection::~Connection()
 {}
 
-expected<void,int> Connection::write_msg(const std::vector<io::SharedBuffer>& fragments) {
+expected<void, io::ErrorCode> Connection::write_msg(const std::vector<io::SharedBuffer>& fragments) {
     return _stream->write(fragments);
 }
 
-void Connection::on_recv(int what, const void* data, size_t size) {
+void Connection::on_recv(io::ErrorCode what, const void* data, size_t size) {
     if (what == 0) {
         assert(data && size);
         _msgReader.new_data_from_stream(data, size);

@@ -9,16 +9,16 @@ TcpServer::Ptr TcpServer::create(const Reactor::Ptr& reactor, Address bindAddres
     assert(callback);
     
     if (!reactor || !callback)
-        IO_EXCEPTION(EINVAL);
+        IO_EXCEPTION(EC_EINVAL);
 
     Ptr server(new TcpServer(std::move(callback)));
-    int errorCode = reactor->init_tcpserver(
+    ErrorCode errorCode = reactor->init_tcpserver(
         server.get(),
         bindAddress,
         [](uv_stream_t* handle, int errorCode) {
             assert(handle);
             TcpServer* s = reinterpret_cast<TcpServer*>(handle->data);
-            if (s) s->on_accept(errorCode);
+            if (s) s->on_accept(ErrorCode(errorCode));
         }
     );
     IO_EXCEPTION_IF(errorCode);
@@ -29,7 +29,7 @@ TcpServer::TcpServer(Callback&& callback) :
     _callback(std::move(callback))
 {}
 
-void TcpServer::on_accept(int errorCode) {
+void TcpServer::on_accept(ErrorCode errorCode) {
     if (errorCode != 0) {
         _callback(TcpStream::Ptr(), errorCode);
         return;

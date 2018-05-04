@@ -26,11 +26,11 @@ void TcpStream::free_read_buffer() {
     _readBuffer.len = 0;
 }
 
-expected<void,int> TcpStream::enable_read(const TcpStream::Callback& callback) {
+expected<void, ErrorCode> TcpStream::enable_read(const TcpStream::Callback& callback) {
     assert(callback);
 
     if (!is_connected()) {
-        return make_unexpected(UV_ENOTCONN);
+        return make_unexpected(EC_ENOTCONN);
     }
 
     alloc_read_buffer();
@@ -46,7 +46,7 @@ expected<void,int> TcpStream::enable_read(const TcpStream::Callback& callback) {
         }
     };
 
-    int errorCode = uv_read_start((uv_stream_t*)_handle, read_alloc_cb, on_read);
+    ErrorCode errorCode = (ErrorCode)uv_read_start((uv_stream_t*)_handle, read_alloc_cb, on_read);
     if (errorCode != 0) {
         _callback = Callback();
         free_read_buffer();
@@ -68,9 +68,9 @@ void TcpStream::disable_read() {
     }
 }
 
-expected<void, int> TcpStream::write(const SharedBuffer& buf) {
+expected<void, ErrorCode> TcpStream::write(const SharedBuffer& buf) {
     if (!buf.empty()) {
-        if (!is_connected()) return make_unexpected(ENOTCONN);
+        if (!is_connected()) return make_unexpected(EC_ENOTCONN);
         _writeBuffer.append(buf);
         _state.unsent = _writeBuffer.size();
         return send_write_request();
@@ -78,11 +78,11 @@ expected<void, int> TcpStream::write(const SharedBuffer& buf) {
     return ok();
 }
 
-expected<void, int> TcpStream::write(const std::vector<SharedBuffer>& fragments) {
+expected<void, ErrorCode> TcpStream::write(const std::vector<SharedBuffer>& fragments) {
     size_t n = fragments.size();
     if (n != 0) {
         if (n == 1) return write(fragments[0]);
-        if (!is_connected()) return make_unexpected(ENOTCONN);
+        if (!is_connected()) return make_unexpected(EC_ENOTCONN);
         for (const auto& f : fragments) {
             _writeBuffer.append(f);
         }
@@ -92,7 +92,7 @@ expected<void, int> TcpStream::write(const std::vector<SharedBuffer>& fragments)
     return ok();
 }
 
-expected<void, int> TcpStream::send_write_request() {
+expected<void, ErrorCode> TcpStream::send_write_request() {
     static uv_write_cb write_cb = [](uv_write_t* req, int errorCode) {
         if (errorCode == UV_ECANCELED) {
             // object may be no longer alive
@@ -104,11 +104,11 @@ expected<void, int> TcpStream::send_write_request() {
             return;
         }
         assert(&(self->_writeRequest) == req);
-        self->on_data_written(errorCode);
+        self->on_data_written(ErrorCode(errorCode));
     };
 
     if (!_writeRequestSent) {
-        int errorCode = uv_write(&_writeRequest, (uv_stream_t*)_handle,
+        ErrorCode errorCode = (ErrorCode)uv_write(&_writeRequest, (uv_stream_t*)_handle,
             (uv_buf_t*)_writeBuffer.fragments(), _writeBuffer.num_fragments(), write_cb
         );
 
@@ -121,7 +121,7 @@ expected<void, int> TcpStream::send_write_request() {
     return ok();
 }
 
-void TcpStream::on_data_written(int errorCode) {
+void TcpStream::on_data_written(ErrorCode errorCode) {
     if (errorCode != 0) {
         if (_callback) _callback(errorCode, 0, 0);
     } else {
@@ -149,9 +149,9 @@ void TcpStream::on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf)
     if (self && self->_callback) {
         if (nread > 0) {
             self->_state.received += nread;
-            self->_callback(0, buf->base, (size_t)nread);
+            self->_callback(EC_OK, buf->base, (size_t)nread);
         } else if (nread < 0) {
-            self->_callback((int)nread, 0, 0);
+            self->_callback((ErrorCode)nread, 0, 0);
         }
     }
     LOG_VERBOSE() << "~";

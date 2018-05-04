@@ -14,7 +14,7 @@ public:
     static Ptr create(const Reactor::Ptr& reactor, Callback&& callback);
 
     /// Posts the event. Can be triggered from any thread
-    expected<void,int> trigger();
+    expected<void,ErrorCode> trigger();
 
     ~AsyncEvent();
     

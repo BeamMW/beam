@@ -9,10 +9,10 @@ AsyncEvent::Ptr AsyncEvent::create(const Reactor::Ptr& reactor, AsyncEvent::Call
     assert(callback);
     
     if (!reactor || !callback)
-        IO_EXCEPTION(EINVAL);
+        IO_EXCEPTION(EC_EINVAL);
     
     Ptr event(new AsyncEvent(std::move(callback)));
-    int errorCode = reactor->init_asyncevent(
+    ErrorCode errorCode = reactor->init_asyncevent(
         event.get(),
         [](uv_async_t* handle) {
             assert(handle);
@@ -33,13 +33,9 @@ AsyncEvent::~AsyncEvent() {
     //_valid = false;
 }
 
-expected<void, int> AsyncEvent::trigger() {
-    int errorCode = uv_async_send((uv_async_t*)_handle);
-    if (errorCode) {
-        return make_unexpected(errorCode);
-        // TODO log on errors
-    }
-    return ok();
+expected<void, ErrorCode> AsyncEvent::trigger() {
+    ErrorCode errorCode = (ErrorCode)uv_async_send((uv_async_t*)_handle);
+    return make_result(errorCode);
 }
 
 }} //namespaces

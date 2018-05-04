@@ -13,11 +13,11 @@ public:
     ~Connection();
 
     /// Writes fragments to stream
-    expected<void,int> write_msg(const std::vector<io::SharedBuffer>& fragments);
+    expected<void, io::ErrorCode> write_msg(const std::vector<io::SharedBuffer>& fragments);
 
 private:
     /// stream message handler
-    void on_recv(int what, const void* data, size_t size);
+    void on_recv(io::ErrorCode what, const void* data, size_t size);
 
     ProtocolBase& _protocol;
     uint64_t _peerId;

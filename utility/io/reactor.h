@@ -1,5 +1,5 @@
 #pragma once
-#include "libuv.h"
+#include "exception.h"
 #include "mempool.h"
 #include "address.h"
 #include "utility/expected.h"
@@ -31,9 +31,9 @@ public:
     /// NOTE: Called from another thread.
     void stop();
 
-    using ConnectCallback = std::function<void(uint64_t tag, std::unique_ptr<TcpStream>&& newStream, int status)>;
+    using ConnectCallback = std::function<void(uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode errorCode)>;
 
-    expected<void, int> tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback);
+    expected<void, ErrorCode> tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback);
 
     void cancel_tcp_connect(uint64_t tag);
 
@@ -42,7 +42,7 @@ private:
     Reactor();
     
     // called by create()returns error code
-    int initialize();
+    ErrorCode initialize();
 
     /// Pollable objects' base
     struct Object {
@@ -82,19 +82,19 @@ private:
         uv_connect_t request;
     };
 
-    void connect_callback(ConnectContext* ctx, int errorCode);
+    void connect_callback(ConnectContext* ctx, ErrorCode errorCode);
 
-    int init_asyncevent(Object* o, uv_async_cb cb);
+    ErrorCode init_asyncevent(Object* o, uv_async_cb cb);
 
-    int init_timer(Object* o);
-    int start_timer(Object* o, unsigned intervalMsec, bool isPeriodic, uv_timer_cb cb);
+    ErrorCode init_timer(Object* o);
+    ErrorCode start_timer(Object* o, unsigned intervalMsec, bool isPeriodic, uv_timer_cb cb);
     void cancel_timer(Object* o);
 
-    int init_tcpserver(Object* o, Address bindAddress, uv_connection_cb cb);
-    int init_tcpstream(Object* o);
-    int accept_tcpstream(Object* acceptor, Object* newConnection);
+    ErrorCode init_tcpserver(Object* o, Address bindAddress, uv_connection_cb cb);
+    ErrorCode init_tcpstream(Object* o);
+    ErrorCode accept_tcpstream(Object* acceptor, Object* newConnection);
 
-    int init_object(int errorCode, Object* o, uv_handle_t* h);
+    ErrorCode init_object(ErrorCode errorCode, Object* o, uv_handle_t* h);
     void async_close(uv_handle_t*& handle);
 
     union Handles {
