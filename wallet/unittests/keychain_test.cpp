@@ -8,6 +8,8 @@
 #include "wallet/keychain.h"
 #include "wallet/sqlite/sqlite3.h"
 
+#include <boost/filesystem.hpp>
+
 void test_CoinData(const char* filename) {
 
     std::cout << "Test #1 is working...\n";
@@ -139,10 +141,15 @@ namespace
 		TestKeychain()
 			: _db(nullptr)
 		{
-			int ret = sqlite3_open_v2("wallet.dat", &_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
+			static const char* Name = "wallet.dat";
+
+			if (boost::filesystem::exists(Name))
+				boost::filesystem::remove(Name);
+
+			int ret = sqlite3_open_v2(Name, &_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
 			assert(ret == SQLITE_OK);
 
-			ret = sqlite3_exec(_db, "CREATE TABLE IF NOT EXISTS storage (id integer PRIMARY KEY AUTOINCREMENT, amount integer);", NULL, NULL, NULL);
+			ret = sqlite3_exec(_db, "CREATE TABLE IF NOT EXISTS storage (id integer PRIMARY KEY AUTOINCREMENT, amount integer, status integer);", NULL, NULL, NULL);
 			assert(ret == SQLITE_OK);
 
 			//ret = sqlite3_exec(_db, "INSERT INTO sqlite_sequence (name,seq) VALUES('storage', 18);" , NULL, NULL, NULL);
@@ -179,14 +186,17 @@ namespace
 
 		}
 
-		void addCoin(const ECC::Amount& amount)
+		void addCoin(const ECC::Amount& amount, beam::Coin::Status status)
 		{
-			static const char* str = "INSERT INTO storage (amount) VALUES(?1);";
+			static const char* str = "INSERT INTO storage (amount, status) VALUES(?1, ?2);";
 			sqlite3_stmt* stm = nullptr;
 			int ret = sqlite3_prepare_v2(_db, str, strlen(str), &stm, NULL);
 			assert(ret == SQLITE_OK);
 
 			sqlite3_bind_int64(stm, 1, amount);
+			assert(ret == SQLITE_OK);
+
+			sqlite3_bind_int(stm, 2, status);
 			assert(ret == SQLITE_OK);
 
 			ret = sqlite3_step(stm);
@@ -204,7 +214,7 @@ void testKeychain()
 {
 	TestKeychain keychain;
 
-	keychain.addCoin(123);
+	keychain.addCoin(123, beam::Coin::Unspent);
 }
 
 int main() {
