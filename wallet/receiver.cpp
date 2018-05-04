@@ -99,7 +99,9 @@ namespace beam::wallet
     void Receiver::FSMDefinition::register_tx(const TxConfirmationCompleted& event)
     {
         // 2. Calculate final signature
-        Scalar::Native finialSignature = event.data->m_senderSignature + m_receiverSignature;
+        Scalar::Native senderSignature;
+        senderSignature = event.data->m_senderSignature;
+        Scalar::Native finialSignature = senderSignature + m_receiverSignature;
 
         // 3. Calculate public key for excess
         Point::Native x = m_publicReceiverBlindingExcess;

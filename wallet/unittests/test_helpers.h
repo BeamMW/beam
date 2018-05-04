@@ -1,10 +1,12 @@
 #pragma once
 
+#include <iostream>
+
 #define WALLET_TEST_INIT \
 namespace {\
 int g_failureCount = 0;\
 void PrintFailure(const char* expression, const char* file, int line){\
-    cout << "\"" << expression << "\"" << " assertion failed. File: " << file << " at line: " << line << "\n";\
+    std::cout << "\"" << expression << "\"" << " assertion failed. File: " << file << " at line: " << line << "\n";\
     ++g_failureCount;\
 }}\
 

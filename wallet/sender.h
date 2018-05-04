@@ -57,7 +57,7 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm&)
                 { std::cout << "[Sender] TxOutputConfirming state\n"; } };
 
-            FSMDefinition(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, const ECC::Amount& amount, const Height& currentHeight)
+            FSMDefinition(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, ECC::Amount amount, Height currentHeight)
                 : m_gateway{ gateway }
                 , m_keychain{ keychain }
                 , m_txId{ txId }

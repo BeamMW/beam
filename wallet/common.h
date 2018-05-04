@@ -4,6 +4,7 @@
 #include "core/ecc_native.h"
 #include <boost/msm/back/state_machine.hpp>
 #include <boost/msm/front/state_machine_def.hpp>
+#include "core/serialization_adapters.h"
 
 namespace beam
 {
@@ -43,10 +44,12 @@ namespace beam
                 Uuid m_txId;
                 ECC::Amount m_amount; ///??
                 ECC::Hash::Value m_message;
-                ECC::Point::Native m_publicSenderBlindingExcess;
-                ECC::Point::Native m_publicSenderNonce;
+                ECC::Point m_publicSenderBlindingExcess;
+                ECC::Point m_publicSenderNonce;
                 std::vector<Input::Ptr> m_inputs;
                 std::vector<Output::Ptr> m_outputs;
+
+                SERIALIZE(m_txId, m_amount, m_message, m_publicSenderBlindingExcess, m_publicSenderNonce, m_inputs, m_outputs);
             };
 
             struct ConfirmationData
@@ -54,7 +57,9 @@ namespace beam
                 using Ptr = std::shared_ptr<ConfirmationData>;
 
                 Uuid m_txId;
-                ECC::Scalar::Native m_senderSignature;
+                ECC::Scalar m_senderSignature;
+
+                SERIALIZE(m_txId, m_senderSignature);
             };
 
             struct IGateway
@@ -74,9 +79,11 @@ namespace beam
                 using Ptr = std::shared_ptr<ConfirmationData>;
 
                 Uuid m_txId;
-                ECC::Point::Native m_publicReceiverBlindingExcess;
-                ECC::Point::Native m_publicReceiverNonce;
-                ECC::Scalar::Native m_receiverSignature;
+                ECC::Point m_publicReceiverBlindingExcess;
+                ECC::Point m_publicReceiverNonce;
+                ECC::Scalar m_receiverSignature;
+
+                SERIALIZE(m_txId, m_publicReceiverBlindingExcess, m_publicReceiverNonce, m_receiverSignature);
             };
 
             struct RegisterTxData
@@ -85,6 +92,8 @@ namespace beam
 
                 Uuid m_txId;
                 TransactionPtr m_transaction;
+
+                SERIALIZE(m_txId, m_transaction);
             };
 
             struct IGateway

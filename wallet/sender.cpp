@@ -77,12 +77,11 @@ namespace beam::wallet
 
         msig.m_Nonce = m_nonce;
         // 10. Multiply xS and kS by generator G to create public curve points xSG and kSG
-        m_publicBlindingExcess 
-            = invitationData->m_publicSenderBlindingExcess
-            = Context::get().G * m_blindingExcess;
-        m_publicNonce 
-            = invitationData->m_publicSenderNonce
-            = Context::get().G * m_nonce;
+        m_publicBlindingExcess = Context::get().G * m_blindingExcess;
+        invitationData->m_publicSenderBlindingExcess = m_publicBlindingExcess;
+            
+        m_publicNonce = Context::get().G * m_nonce;
+        invitationData->m_publicSenderNonce = m_publicNonce;
         // an attempt to implement "stingy" transaction
         m_gateway.send_tx_invitation(invitationData);
     }
@@ -108,9 +107,11 @@ namespace beam::wallet
         // 3. Verify recepients Schnorr signature 
         Point::Native s, s2;
         Scalar::Native ne;
+        Point::Native publicReceiverBlindingExcess;
+        publicReceiverBlindingExcess = data->m_publicReceiverBlindingExcess;
         ne = -e;
         s = data->m_publicReceiverNonce;
-        s += data->m_publicReceiverBlindingExcess * ne;
+        s += publicReceiverBlindingExcess * ne;
 
         s2 = Context::get().G * data->m_receiverSignature;
         Point p(s), p2(s2);
@@ -134,7 +135,9 @@ namespace beam::wallet
         msig.m_NoncePub = m_publicNonce + data->m_publicReceiverNonce;
         Hash::Value message;
         m_kernel.get_Hash(message);
-        m_kernel.m_Signature.CoSign(confirmationData->m_senderSignature, message, m_blindingExcess, msig);
+        Scalar::Native senderSignature;
+        m_kernel.m_Signature.CoSign(senderSignature, message, m_blindingExcess, msig);
+        confirmationData->m_senderSignature = senderSignature;
         m_gateway.send_tx_confirmation(confirmationData);
     }
 
