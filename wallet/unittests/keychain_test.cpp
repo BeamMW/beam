@@ -74,8 +74,12 @@ namespace
 			int ret = sqlite3_prepare_v2(_db, "SELECT * FROM storage WHERE status=1 ORDER BY amount ASC;", -1, &stmt, 0);
 			assert(ret == SQLITE_OK);
 
+			ECC::Amount sum = 0;
+
 			while (true)
 			{
+				if (sum >= amount) break;
+
 				if (sqlite3_step(stmt) == SQLITE_ROW)
 				{
 					beam::Coin coin;
@@ -84,6 +88,8 @@ namespace
 					coin.m_status = static_cast<beam::Coin::Status>(sqlite3_column_int(stmt, 2));
 
 					coins.push_back(coin);
+
+					sum += coin.m_amount;
 				}
 				else break;
 			}
