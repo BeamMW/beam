@@ -5,11 +5,20 @@
 
 #include <boost/filesystem.hpp>
 
+#include <algorithm>
+#include <functional>
+
+// Valdo's point generator of elliptic curve
+namespace ECC {
+	Context g_Ctx;
+	const Context& Context::get() { return g_Ctx; }
+}
+
 namespace
 {
-	struct TestKeychain : beam::IKeyChain
+	struct SqliteKeychain : beam::IKeyChain
 	{
-		TestKeychain()
+		SqliteKeychain()
 			: _db(nullptr)
 		{
 			static const char* Name = "wallet.dat";
@@ -27,7 +36,7 @@ namespace
 			//assert(ret == SQLITE_OK);
 		}
 
-		virtual ~TestKeychain() 
+		virtual ~SqliteKeychain() 
 		{
 			sqlite3_close_v2(_db);
 		}
@@ -53,40 +62,48 @@ namespace
 
 		virtual ECC::Scalar calcKey(uint64_t id)
 		{
+			// TODO: calculate key by id
 			return ECC::Scalar();
 		}
 
 		virtual std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock = true)
 		{
-			return std::vector<beam::Coin>();
+			std::vector<beam::Coin> coins;
+
+			sqlite3_stmt* stmt = nullptr;
+			int ret = sqlite3_prepare_v2(_db, "SELECT * FROM storage WHERE status=1 ORDER BY amount ASC;", -1, &stmt, 0);
+			assert(ret == SQLITE_OK);
+
+			while (true)
+			{
+				if (sqlite3_step(stmt) == SQLITE_ROW)
+				{
+					beam::Coin coin;
+					coin.m_id = sqlite3_column_int64(stmt, 0);
+					coin.m_amount = sqlite3_column_int64(stmt, 1);
+					coin.m_status = static_cast<beam::Coin::Status>(sqlite3_column_int(stmt, 2));
+
+					coins.push_back(coin);
+				}
+				else break;
+			}
+
+			sqlite3_finalize(stmt);
+
+			return coins;
 		}
 
 		virtual void store(const beam::Coin& coin)
-		{
-
-		}
-
-		virtual void update(const std::vector<beam::Coin>& coins)
-		{
-
-		}
-
-		virtual void remove(const std::vector<beam::Coin>& coins)
-		{
-
-		}
-
-		void addCoin(const ECC::Amount& amount, beam::Coin::Status status)
 		{
 			static const char* str = "INSERT INTO storage (amount, status) VALUES(?1, ?2);";
 			sqlite3_stmt* stm = nullptr;
 			int ret = sqlite3_prepare_v2(_db, str, strlen(str), &stm, NULL);
 			assert(ret == SQLITE_OK);
 
-			sqlite3_bind_int64(stm, 1, amount);
+			sqlite3_bind_int64(stm, 1, coin.m_amount);
 			assert(ret == SQLITE_OK);
 
-			sqlite3_bind_int(stm, 2, status);
+			sqlite3_bind_int(stm, 2, coin.m_status);
 			assert(ret == SQLITE_OK);
 
 			ret = sqlite3_step(stm);
@@ -95,24 +112,48 @@ namespace
 			sqlite3_finalize(stm);
 		}
 
+		virtual void update(const std::vector<beam::Coin>& coins)
+		{
+			std::for_each(coins.begin(), coins.end(), [](const beam::Coin& coin) 
+			{
+				// TODO: update coin
+			});
+		}
+
+		virtual void remove(const std::vector<beam::Coin>& coins)
+		{
+			std::for_each(coins.begin(), coins.end(), [](const beam::Coin& coin)
+			{
+				// TODO: remove coin
+			});
+		}
+
+
 	private:
 		sqlite3* _db;
 	};
 }
 
-void testKeychain()
+void TestKeychain()
 {
-	TestKeychain keychain;
+	SqliteKeychain keychain;
 
 	assert(keychain.getNextID() == 1);
 
-	keychain.addCoin(123, beam::Coin::Unspent);
-	keychain.addCoin(456, beam::Coin::Unspent);
+	beam::Coin coin1(keychain.getNextID(), 5);
+	beam::Coin coin2(keychain.getNextID(), 2);
+
+	keychain.store(coin1);
+	keychain.store(coin2);
 
 	assert(keychain.getNextID() == 3);
+
+	auto coins = keychain.getCoins(7);
+
+	assert(coins.size() == 2);
 }
 
 int main() {
 
-	testKeychain();
+	TestKeychain();
 }

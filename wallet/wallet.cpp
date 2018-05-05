@@ -36,6 +36,7 @@ namespace beam
 
     
     Coin::Coin()
+		: m_status(Unspent)
     {
 
     }
@@ -43,6 +44,7 @@ namespace beam
     Coin::Coin(uint64_t id, Amount amount)
 		: m_id(id)
         , m_amount(amount)
+		, m_status(Unspent)
     {
         //m_key = Scalar::Native(key);
     }
