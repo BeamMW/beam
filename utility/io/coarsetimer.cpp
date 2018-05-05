@@ -37,8 +37,7 @@ expected<void, ErrorCode> CoarseTimer::set_timer(unsigned intervalMsec, ID id) {
     Clock clock = now + intervalMsec;
     _queue.insert({ clock, id });
     _validIds.insert({ id, clock });
-    update_timer(now);
-    return ok();
+    return update_timer(now);
 }
 
 void CoarseTimer::cancel(ID id) {
@@ -55,23 +54,36 @@ void CoarseTimer::cancel_all() {
     }
 }
 
-void CoarseTimer::update_timer(CoarseTimer::Clock now) {
+expected<void, ErrorCode> CoarseTimer::update_timer(CoarseTimer::Clock now) {
+    if (_insideCallback) return ok();
+    
     assert (!_queue.empty());
+    
     Clock next = _queue.begin()->first;
     if (_nextTime != next) {
         _nextTime = (now < next) ? next : now;
-        _timer->restart(unsigned(next-now), false);
+        return _timer->restart(unsigned(next-now), false);
     }
+    
+    return ok();
 }
 
 void CoarseTimer::on_timer() {
     if (_queue.empty()) return;
     Clock now = mono_clock();
-    auto it = _queue.begin();
-    for (auto end = _queue.end(); it != end; ++it) {
+    
+    _insideCallback = true;
+    
+    while (!_queue.empty()) {
+        auto it = _queue.begin();
+        
         Clock clock = it->first;
         if (clock > now) break;
         ID id = it->second;
+        
+        // this helps calling set_timer(), cancel(), cancel_all() from inside callbacks
+        _queue.erase(it); 
+        
         auto v = _validIds.find(id);
         if (v != _validIds.end()) {
             if (v->second == clock) {
@@ -80,7 +92,9 @@ void CoarseTimer::on_timer() {
             }
         }
     }
-    _queue.erase(_queue.begin(), it);
+    
+    _insideCallback = false;
+    
     if (_queue.empty()) {
         cancel_all();
     } else {
@@ -89,4 +103,3 @@ void CoarseTimer::on_timer() {
 }
     
 }} //namespaces
-

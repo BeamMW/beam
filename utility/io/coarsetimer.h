@@ -1,6 +1,7 @@
 #pragma once
 #include "timer.h"
 #include <map>
+#include <vector>
 
 namespace beam { namespace io {
     
@@ -33,8 +34,11 @@ private:
     using Clock = uint64_t;
    
     /// Updates timer after insertion
-    void update_timer(Clock now);
-           
+    expected<void, ErrorCode> update_timer(Clock now);
+
+    /// Flag that prevents from updating timer too often
+    bool _insideCallback=false;
+    
     /// Coarse msec resolution
     const unsigned _resolution;
     
@@ -46,7 +50,7 @@ private:
     
     /// Valid Ids
     std::map<ID, Clock> _validIds;
-    
+  
     /// Next time to wake
     Clock _nextTime=0;
     
