@@ -3,33 +3,36 @@
 #include "utility/io/exception.h"
 #include <iostream>
 #include <assert.h>
+#include "utility/logger.h"
 
+using namespace beam;
 using namespace beam::io;
 using namespace std;
 
+Reactor::Ptr reactor;
+TcpStream::Ptr theStream;
+
+void on_recv(int what, void* data, size_t size) {
+    if (data && size) {
+          cout << "RECEIVED:\n" << std::string((const char*)data, size) << "\n";
+    } else {
+        cout << "ERROR: " << what;
+    }
+    theStream.reset();
+    reactor->stop();
+};
+
 void tcpclient_test() {
     try {
-        Config config;
-        Reactor::Ptr reactor = Reactor::create(config);
+        reactor = Reactor::create();
 
         const uint64_t theTag = 202020;
-        TcpStream::Ptr theStream;
 
-        TcpStream::Callback on_recv = [&theStream, &reactor](int what, void* data, size_t size) {
-            if (data && size) {
-                cout << "RECEIVED:\n" << std::string((const char*)data, size) << "\n";
-            } else {
-                cout << "ERROR: " << what;
-            }
-            theStream.reset();
-            reactor->stop();
-        };
-
-        Reactor::ConnectCallback on_connected = [theTag, &on_recv, &theStream](uint64_t tag, unique_ptr<TcpStream>&& newStream, int status) {
+        Reactor::ConnectCallback on_connected = [theTag](uint64_t tag, unique_ptr<TcpStream>&& newStream, int status) {
             assert(tag == theTag);
             if (newStream) {
                 theStream = move(newStream);
-                theStream->enable_read(move(on_recv));
+                theStream->enable_read(on_recv);
                 static const char* request = "GET / HTTP/1.0\r\n\r\n";
                 theStream->write(request, strlen(request));
             } else {
@@ -54,6 +57,10 @@ void tcpclient_test() {
 }
 
 int main() {
+    LoggerConfig lc;
+    lc.consoleLevel = LOG_LEVEL_VERBOSE;
+    lc.flushLevel = LOG_LEVEL_VERBOSE;
+    auto logger = Logger::create(lc);
     tcpclient_test();
 }
 

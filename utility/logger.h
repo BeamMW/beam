@@ -140,19 +140,11 @@ public:
     LogMessage(int level, const char* file, int line, const char* func);
 
     template <class T> LogMessage& operator<<(T x) {
-        if constexpr (std::is_same<T, const char*>::value) {
-            *_formatter << x;
-        }
-        else if constexpr (std::is_same<T, FlushAllCheckpoints>::value) {
+        if constexpr (std::is_same<T, FlushAllCheckpoints>::value) {
             flush_all_checkpoints(this);
         }
         else if constexpr (std::is_same<T, FlushCheckpoint>::value) {
             flush_last_checkpoint(this);
-        }
-        else if constexpr (std::is_pointer<T>::value) {
-            if (x) {
-                *_formatter << *x;
-            } else *_formatter << "{null}";
         }
         else {
             *_formatter << x;

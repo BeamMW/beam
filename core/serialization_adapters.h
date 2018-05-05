@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common.h"
-#include "utility/serialize.h"
+#include "../utility/serialize.h"
 
 namespace yas
 {
@@ -271,7 +271,7 @@ namespace detail
 
         /// beam::Transaction serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::Transaction& tx)
+        static Archive& save(Archive& ar, const beam::TxBase& tx)
         {
             ar
                 & tx.m_vInputs
@@ -283,7 +283,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::Transaction& tx)
+        static Archive& load(Archive& ar, beam::TxBase& tx)
         {
             ar
                 & tx.m_vInputs
@@ -293,6 +293,38 @@ namespace detail
 
             return ar;
         }
-    };
+
+		template<typename Archive>
+        static Archive& save(Archive& ar, const beam::Transaction& tx)
+        {
+            ar & (const beam::TxBase&) tx;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::Transaction& tx)
+        {
+            ar & (beam::TxBase&) tx;
+
+            return ar;
+        }
+
+		template<typename Archive>
+        static Archive& save(Archive& ar, const beam::Block::Body& bb)
+        {
+            ar & (const beam::TxBase&) bb;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::Block::Body& bb)
+        {
+            ar & (beam::TxBase&) bb;
+
+            return ar;
+        }
+	};
 }
 }

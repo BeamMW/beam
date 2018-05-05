@@ -1,4 +1,5 @@
 #include <utility> // std::swap
+#include <algorithm>
 #include "common.h"
 #include "ecc_native.h"
 
@@ -7,23 +8,28 @@ namespace beam
 
 	namespace Merkle
 	{
+		void Interpret(Hash& out, const Hash& hLeft, const Hash& hRight)
+		{
+			ECC::Hash::Processor() << hLeft << hRight >> out;
+		}
+
+		void Interpret(Hash& hOld, const Hash& hNew, bool bNewOnRight)
+		{
+			if (bNewOnRight)
+				Interpret(hOld, hOld, hNew);
+			else
+				Interpret(hOld, hNew, hOld);
+		}
+
+		void Interpret(Hash& hash, const Node& n)
+		{
+			Interpret(hash, n.second, n.first);
+		}
+
 		void Interpret(Hash& hash, const Proof& p)
 		{
 			for (Proof::const_iterator it = p.begin(); p.end() != it; it++)
-			{
-				const Node& n = *it;
-
-				const ECC::uintBig* pp[] = { &hash, &n.second };
-				if (!n.first)
-					std::swap(pp[0], pp[1]);
-
-				ECC::Hash::Processor hp;
-
-				for (int i = 0; i < _countof(pp); i++)
-					hp << *pp[i];
-
-				hp >> hash;
-			}
+				Interpret(hash, *it);
 		}
 	}
 
@@ -55,20 +61,22 @@ namespace beam
 	/////////////
 	// Input
 
-	int Input::cmp(const Input& v) const
+	int UtxoID::cmp(const UtxoID& v) const
 	{
-		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER_EX(m_Commitment)
 		CMP_MEMBER(m_Height)
+		CMP_MEMBER(m_Coinbase)
+		CMP_MEMBER(m_Confidential)
 		return 0;
 	}
 
 	void Input::get_Hash(Merkle::Hash& out) const
 	{
 		ECC::Hash::Processor()
-			<< m_Coinbase
 			<< m_Commitment
 			<< m_Height
+			<< m_Coinbase
+			<< m_Confidential
 			>> out;
 	}
 
@@ -86,6 +94,9 @@ namespace beam
 	{
 		if (m_pConfidential)
 		{
+			if (m_Coinbase)
+				return false; // coinbase must have visible amount
+
 			if (m_pPublic)
 				return false;
 
@@ -100,12 +111,20 @@ namespace beam
 
 	int Output::cmp(const Output& v) const
 	{
-		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER_EX(m_Commitment)
+		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
 
 		return 0;
+	}
+
+	void Output::get_ID(UtxoID& id, Height h) const
+	{
+		id.m_Commitment = m_Commitment;
+		id.m_Height = h;
+		id.m_Coinbase = m_Coinbase;
+		id.m_Confidential = m_pConfidential.get() != NULL;
 	}
 
 	/////////////
@@ -124,9 +143,15 @@ namespace beam
 				<< m_pContract->m_PublicKey;
 		}
 
+		const TxKernel* p0Krn = NULL;
 		for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
 		{
-			if (!(*it)->Traverse(hv, pFee, pExcess))
+			const TxKernel& v = *(*it);
+			if (p0Krn && (*p0Krn > v))
+				return false;
+			p0Krn = &v;
+
+			if (!v.Traverse(hv, pFee, pExcess))
 				return false;
 			hp << hv;
 		}
@@ -223,50 +248,219 @@ namespace beam
 
 	/////////////
 	// Transaction
-	bool TxBase::ValidateAndSummarize(Amount& fee, ECC::Point::Native& sigma, Height nHeight) const
+	void TxBase::Context::Reset()
 	{
+		m_Fee = m_Coinbase = 0;
+		m_hMin = 0;
+		m_hMax = -1;
+	}
+
+	bool TxBase::ValidateAndSummarize(Context& ctx, ECC::Point::Native& sigma) const
+	{
+		sigma = ECC::Zero;
+
+		const Input* p0Inp = NULL;
 		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
 		{
 			const Input& v = *(*it);
+
+			if (p0Inp && (*p0Inp > v))
+				return false;
+			p0Inp = &v;
+
+			Height h = v.m_Coinbase ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
+			h = std::min(v.m_Height + h, Height(-1)); // overflow protection
+			ctx.m_hMin = std::max(ctx.m_hMin, h);
+
 			sigma += ECC::Point::Native(v.m_Commitment);
 		}
 
 		sigma = -sigma;
 
+		const Output* p0Out = NULL;
 		for (auto it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
 		{
 			const Output& v = *(*it);
 			if (!v.IsValid())
 				return false;
 
+			if (p0Out && (*p0Out > v))
+				return false;
+			p0Out = &v;
+
 			sigma += ECC::Point::Native(v.m_Commitment);
+
+			if (v.m_Coinbase)
+			{
+				assert(v.m_pPublic);
+				ctx.m_Coinbase += v.m_pPublic->m_Value;
+			}
 		}
 
+		const TxKernel* p0Krn = NULL;
 		for (auto it = m_vKernels.begin(); m_vKernels.end() != it; it++)
 		{
 			const TxKernel& v = *(*it);
-			if (nHeight < v.m_HeightMin || nHeight > v.m_HeightMax)
+			if (!v.IsValid(ctx.m_Fee, sigma))
 				return false;
-			if (!v.IsValid(fee, sigma))
+
+			if (p0Krn && (*p0Krn > v))
 				return false;
+			p0Krn = &v;
+
+			ctx.m_hMin = std::max(ctx.m_hMin, v.m_HeightMin);
+			ctx.m_hMax = std::min(ctx.m_hMax, v.m_HeightMax);
 		}
 
 		sigma += ECC::Context::get().G * m_Offset;
 
-		return true;
+		return ctx.m_hMin <= ctx.m_hMax;
 	}
 
-	bool Transaction::IsValid(Amount& fee, Height nHeight) const
+	void TxBase::Sort()
+	{
+		std::sort(m_vInputs.begin(), m_vInputs.end());
+		std::sort(m_vOutputs.begin(), m_vOutputs.end());
+		std::sort(m_vKernels.begin(), m_vKernels.end());
+	}
+
+	template <class T>
+	void RebuildVectorWithoutNulls(std::vector<T>& v, size_t nDel)
+	{
+		std::vector<T> vSrc;
+		vSrc.swap(v);
+		v.reserve(vSrc.size() - nDel);
+
+		for (size_t i = 0; i < vSrc.size(); i++)
+			if (vSrc[i])
+				v.push_back(std::move(vSrc[i]));
+	}
+
+	size_t TxBase::DeleteIntermediateOutputs(Height h)
+	{
+		size_t nDel = 0;
+
+		size_t i1 = m_vOutputs.size();
+		for (size_t i0 = 0; i0 < m_vInputs.size(); i0++)
+		{
+			Input::Ptr& pInp = m_vInputs[i0];
+
+			for (; i1 < m_vOutputs.size(); i1++)
+			{
+				Output::Ptr& pOut = m_vOutputs[i1];
+				UtxoID id;
+				pOut->get_ID(id, h);
+
+				int n = pInp->cmp(id);
+				if (n <= 0)
+				{
+					if (!n)
+					{
+						pInp.reset();
+						pOut.reset();
+						nDel++;
+					}
+					break;
+				}
+			}
+		}
+
+		if (nDel)
+		{
+			RebuildVectorWithoutNulls(m_vInputs, nDel);
+			RebuildVectorWithoutNulls(m_vOutputs, nDel);
+		}
+
+		return nDel;
+	}
+
+	bool Transaction::IsValid(Context& ctx) const
 	{
 		ECC::Point::Native sigma(ECC::Zero);
-		fee = 0;
 
-		if (!ValidateAndSummarize(fee, sigma, nHeight))
+		if (!ValidateAndSummarize(ctx, sigma))
 			return false;
 
-		sigma += ECC::Context::get().H * fee;
+		if (ctx.m_Coinbase)
+			return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
+
+		sigma += ECC::Context::get().H * ctx.m_Fee;
 
 		return sigma == ECC::Zero;
+	}
+
+	/////////////
+	// Block
+	const Amount Block::s_CoinbaseEmission = 1000000 * 15; // the maximum allowed coinbase in a single block
+	const Height Block::s_MaturityCoinbase	= 60; // 1 hour
+	const Height Block::s_MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+
+	void Block::SystemState::Full::get_Hash(Merkle::Hash& out) const
+	{
+		// Our formula:
+		//
+		//	[
+		//		[
+		//			m_Height
+		//			[
+		//				m_Difficulty
+		//				m_TimeStamp
+		//			]
+		//		]
+		//		[
+		//			[
+		//				m_Prev
+		//				m_States
+		//			]
+		//			[
+		//				m_Utxos
+		//				m_Kernels
+		//			]
+		//		]
+		//	]
+
+		Merkle::Hash h0, h1, h2;
+
+		ECC::Hash::Processor() << m_Difficulty >> h1;
+		ECC::Hash::Processor() << m_TimeStamp >> h0;
+		Merkle::Interpret(h1, h0, true); // [ m_Difficulty, m_TimeStamp]
+
+		ECC::Hash::Processor() << m_Height >> h0;
+		Merkle::Interpret(h0, h1, true); // [ m_Height, [ m_Difficulty, m_TimeStamp] ]
+
+		Merkle::Interpret(h1, m_Prev, m_States);
+		Merkle::Interpret(h2, m_Utxos, m_Kernels);
+		Merkle::Interpret(h1, h2, true); // [ [m_Prev, m_States], [m_States, m_Utxos] ]
+
+		Merkle::Interpret(out, h0, h1);
+	}
+
+	void Block::SystemState::Full::get_ID(ID& out) const
+	{
+		out.m_Height = m_Height;
+		get_Hash(out.m_Hash);
+	}
+
+	bool Block::Body::IsValid(Height h0, Height h1) const
+	{
+		assert(h0 <= h1);
+
+		Context ctx;
+		ctx.m_hMin = h0;
+		ctx.m_hMax = h1;
+
+		ECC::Point::Native sigma;
+		if (!ValidateAndSummarize(ctx, sigma))
+			return false;
+
+		sigma = -sigma;
+		sigma += ECC::Context::get().H * ctx.m_Coinbase;
+
+		if (!(sigma == ECC::Zero)) // No need to add fees explicitly, they must have already been consumed
+			return false;
+
+		Amount nCoinbaseMax = s_CoinbaseEmission * (h1 - h0 + 1); // TODO: overflow!
+		return (ctx.m_Coinbase <= nCoinbaseMax);
 	}
 
 } // namespace beam

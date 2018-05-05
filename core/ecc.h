@@ -7,6 +7,22 @@
 #	define _countof(_Array) (sizeof(_Array) / sizeof(_Array[0]))
 #endif // _countof
 
+void memset0(void* p, size_t n);
+bool memis0(const void* p, size_t n);
+
+template <typename T>
+inline void ZeroObject(T& x)
+{
+	memset0(&x, sizeof(x));
+}
+
+#define COMPARISON_VIA_CMP(class_name) \
+	bool operator < (const class_name& x) const { return cmp(x) < 0; } \
+	bool operator > (const class_name& x) const { return cmp(x) > 0; } \
+	bool operator <= (const class_name& x) const { return cmp(x) <= 0; } \
+	bool operator >= (const class_name& x) const { return cmp(x) >= 0; } \
+	bool operator == (const class_name& x) const { return cmp(x) == 0; } \
+	bool operator != (const class_name& x) const { return cmp(x) != 0; }
 
 namespace ECC
 {
@@ -63,16 +79,13 @@ namespace ECC
 
 		uintBig_t& operator = (Zero_)
 		{
-			memset(m_pData, 0, sizeof(m_pData));
+			ZeroObject(m_pData);
 			return *this;
 		}
 
 		bool operator == (Zero_) const
 		{
-			for (int i = 0; i < _countof(m_pData); i++)
-				if (m_pData[i])
-					return false;
-			return true;
+			return memis0(m_pData, sizeof(m_pData));
 		}
 
 		// from ordinal types (unsigned)
@@ -82,7 +95,7 @@ namespace ECC
 			static_assert(sizeof(m_pData) >= sizeof(x), "too small");
 			static_assert(T(-1) > 0, "must be unsigned");
 
-			memset(m_pData, 0, sizeof(m_pData) - sizeof(x));
+			memset0(m_pData, sizeof(m_pData) - sizeof(x));
 
 			for (int i = 0; i < sizeof(x); i++, x >>= 8)
 				m_pData[_countof(m_pData) - 1 - i] = (uint8_t) x;
@@ -99,12 +112,7 @@ namespace ECC
 		}
 
 		int cmp(const uintBig_t& x) const { return memcmp(m_pData, x.m_pData, sizeof(m_pData)); }
-
-		bool operator < (const uintBig_t& x) const { return cmp(x) < 0; }
-		bool operator > (const uintBig_t& x) const { return cmp(x) > 0; }
-		bool operator <= (const uintBig_t& x) const { return cmp(x) <= 0; }
-		bool operator >= (const uintBig_t& x) const { return cmp(x) >= 0; }
-		bool operator == (const uintBig_t& x) const { return cmp(x) == 0; }
+		COMPARISON_VIA_CMP(uintBig_t)
 	};
 
 	static const uint32_t nBits = 256;
@@ -136,6 +144,7 @@ namespace ECC
 		template <typename T> Point(const T& t) { *this = t; }
 
 		int cmp(const Point&) const;
+		COMPARISON_VIA_CMP(Point)
 
 		class Native;
 		Point& operator = (const Native&);
@@ -166,6 +175,7 @@ namespace ECC
 		void CoSign(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk, const MultiSig&);
 
 		int cmp(const Signature&) const;
+		COMPARISON_VIA_CMP(Signature)
 
 	private:
 		static void get_Challenge(Scalar::Native&, const Point::Native&, const Hash::Value& msg);
@@ -181,7 +191,9 @@ namespace ECC
 
 			void Create(const Scalar::Native& sk, Amount);
 			bool IsValid(const Point&) const;
+
 			int cmp(const Confidential&) const;
+			COMPARISON_VIA_CMP(Confidential)
 		};
 
 		struct Public
@@ -191,7 +203,9 @@ namespace ECC
 
 			void Create(const Scalar::Native& sk); // amount should have been set
 			bool IsValid(const Point&) const;
+
 			int cmp(const Public&) const;
+			COMPARISON_VIA_CMP(Public)
 
 		private:
 			void get_Msg(Hash::Value&) const;

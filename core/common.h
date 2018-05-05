@@ -7,6 +7,7 @@
 #include <utility>
 #include <cstdint>
 #include <memory>
+#include <assert.h>
 
 #ifdef WIN32
 #	define NOMINMAX
@@ -41,24 +42,52 @@ namespace beam
 		typedef std::vector<Node>		Proof;
 
 		void Interpret(Hash&, const Proof&);
+		void Interpret(Hash&, const Node&);
+		void Interpret(Hash&, const Hash& hLeft, const Hash& hRight);
+		void Interpret(Hash&, const Hash& hNew, bool bNewOnRight);
 	}
 
+	struct UtxoID
+	{
+		// canonical description
+		ECC::Point	m_Commitment;
+		Height		m_Height;
+		bool		m_Coinbase;
+		bool		m_Confidential;
+
+		int cmp(const UtxoID&) const;
+		COMPARISON_VIA_CMP(UtxoID)
+	};
+
 	struct Input
+		:public UtxoID
 	{
 		typedef std::unique_ptr<Input> Ptr;
 
-		ECC::Point	m_Commitment;
-		bool		m_Coinbase;
-		Height		m_Height;
+		Input()
+		{
+			m_Coinbase = false;
+			m_Confidential = false;
+			m_Height = 0;
+		}
 
 		// In case there are multiple UTXOs with the same commitment value (which we permit) the height should be used to distinguish between them
-		// If not specified (no UTXO with the specified height) - it will automatically be selected.
+		//
+		// Transactions:
+		//		In case there's no UTXO with the specified height - the node is allowed to increase it to match the existing UTXO.
+		//		So that if m_Height is the minimum height to spend. Set to 0 (by default?) to spend the most mature.
+		//		Same rule applies for 'Confidential 'flag.
+		//
+		// In the block
+		//		The m_Height and m_Confidential must exactly match the existing UTXO, no auto-adjustments.
 
-		int cmp(const Input&) const;
+		COMPARISON_VIA_CMP(Input)
 
 		void get_Hash(Merkle::Hash&) const;
 		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
 	};
+
+	inline bool operator < (const Input::Ptr& a, const Input::Ptr& b) { return *a < *b; }
 
 	struct Output
 	{
@@ -67,6 +96,11 @@ namespace beam
 		ECC::Point	m_Commitment;
 		bool		m_Coinbase;
 
+		Output()
+			:m_Coinbase(false)
+		{
+		}
+
 		static const Amount s_MinimumValue = 1;
 
 		// one of the following *must* be specified
@@ -74,9 +108,13 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		bool IsValid() const;
+		void get_ID(UtxoID&, Height) const;
+
 		int cmp(const Output&) const;
+		COMPARISON_VIA_CMP(Output)
 	};
 
+	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
 
 	struct TxKernel
 	{
@@ -97,6 +135,7 @@ namespace beam
 			ECC::Signature		m_Signature;
 
 			int cmp(const Contract&) const;
+			COMPARISON_VIA_CMP(Contract)
 		};
 
 		std::unique_ptr<Contract> m_pContract;
@@ -111,10 +150,13 @@ namespace beam
 		void get_HashForContract(ECC::Hash::Value&, const ECC::Hash::Value& msg) const;
 
 		int cmp(const TxKernel&) const;
+		COMPARISON_VIA_CMP(TxKernel)
 
 	private:
 		bool Traverse(ECC::Hash::Value&, Amount*, ECC::Point::Native*) const;
 	};
+
+	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
 
 	struct TxBase
 	{
@@ -123,7 +165,11 @@ namespace beam
 		std::vector<TxKernel::Ptr> m_vKernels;
 		ECC::Scalar m_Offset;
 
-		// tests the validity of all the components, and overall arithmetics.
+		void Sort(); // w.r.t. the standard
+		size_t DeleteIntermediateOutputs(Height); // assumed to be already sorted. Retruns the num deleted
+
+		// tests the validity of all the components, overall arithmetics, and the lexicographical order of the components.
+		// Determines the min/max block height that the transaction can fit, wrt component heights and maturity policies
 		// Does *not* check the existence of the input UTXOs
 		//
 		// Validation formula
@@ -135,14 +181,26 @@ namespace beam
 		// Define: Sigma = Sum(Outputs) - Sum(Inputs) + Sum(TxKernels.Excess) + m_Offset*G
 		// Sigma is either zero or -Sum(Fee)*H, depending on what we validate
 
-		bool ValidateAndSummarize(Amount& fee, ECC::Point::Native& sigma, Height nHeight) const;
+		struct Context
+		{
+			Amount m_Fee; // TODO: may overflow!
+			Amount m_Coinbase; // TODO: may overflow!
+			Height m_hMin;
+			Height m_hMax;
+
+			Context() { Reset(); }
+			void Reset();
+		};
+
+		bool ValidateAndSummarize(Context&, ECC::Point::Native& sigma) const;
 	};
 
 	struct Transaction
 		:public TxBase
 	{
+		typedef std::unique_ptr<Transaction> Ptr;
 		// Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
-		bool IsValid(Amount& fee, Height nHeight) const;
+		bool IsValid(Context&) const;
 	};
 
 	struct Block
@@ -153,33 +211,22 @@ namespace beam
 		struct SystemState
 		{
 			struct ID {
-				Merkle::Hash	m_Hash; // merkle hash. explained later
+				Merkle::Hash	m_Hash; // explained later
 				Height			m_Height;
 			};
 
-			struct Extra {
-				Merkle::Hash	m_Utxos; // merkle hash of Utxos only.
+			struct Full {
+				Height			m_Height;
+				Merkle::Hash	m_Prev;			// explicit referebce to prev
+				Merkle::Hash	m_States;		// all previous states
+				Merkle::Hash	m_Utxos;		// current UTXOs
+				Merkle::Hash	m_Kernels;		// kernels
 				Difficulty		m_Difficulty;
 				Timestamp		m_TimeStamp;
-			};
 
-			struct Full
-				:public ID
-				,public Extra
-			{
+				void get_Hash(Merkle::Hash&) const; // Calculated from all the above
+				void get_ID(ID&) const;
 			};
-
-			// System hash consists of the following:
-			// All the unspent UTXOs description (with their signatures?)
-			// All Tx kernels
-			// All previous *original* system state hashes
-			// Current height, difficulty and timestamp
-			//
-			// The node that actually has the current system state can construct the Merkle proof for all the included values. In particular it can confirm:
-			//		unspent UTXO (and their count, in case there are several such UTXOs)
-			//		Tx kernel
-			//		Correctness of the specified, height, difficulty and timestamp
-			//		That an older system state is actually included in this state.
 		};
 
 
@@ -220,6 +267,10 @@ namespace beam
 		typedef std::unique_ptr<PoW> PoWPtr;
 		PoWPtr m_ProofOfWork;
 
+		static const Amount s_CoinbaseEmission; // the maximum allowed coinbase in a single block
+		static const Height s_MaturityCoinbase;
+		static const Height s_MaturityStd;
+
 		struct Body
 			:public TxBase
 		{
@@ -228,11 +279,12 @@ namespace beam
 			// Test the following:
 			//		Validity of all the components, and overall arithmetics, whereas explicit fees are already collected by extra UTXO(s) put by the miner
 			//		All components are specified in a lexicographical order, to conceal the actual transaction graph
+			//		Liquidity of the components wrt height and maturity policies
 			// Not tested by this function (but should be tested by nodes!)
-			//		Existence of all the input UTXOs, and their "liquidity" (by the policy UTXO liquidity may be restricted wrt its maturity)
+			//		Existence of all the input UTXOs
 			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
 			//		Existence of the treasury output UTXO, if needed by the policy.
-			bool IsValid() const;
+			bool IsValid(Height h0, Height h1) const;
 		};
 	};
 

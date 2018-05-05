@@ -94,7 +94,7 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork {
         proxy(_proxy),
         address(_address),
         thisIsServer(_thisIsServer),
-        reactor(io::Reactor::create(io::Config())),
+        reactor(io::Reactor::create()),
         bridge(*this, reactor)
     {
         // TODO can be wrapped into macros
@@ -204,21 +204,20 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork {
         }
     }
 
-    bool on_request(uint64_t connectionId, const Request& req) {
+    bool on_request(uint64_t connectionId, Request&& req) {
         // this assertion is for this test only
         assert(connectionId = address.packed);
         if (!req.is_valid()) return false; // shut down stream
 
-        // TODO const Object& --> Object&&, they are not needed any more on protocol side
-        proxy.handle_request(someId, Request(req));
+        proxy.handle_request(someId, std::move(req));
         return true;
     }
 
-    bool on_response(uint64_t connectionId, const Response& res) {
+    bool on_response(uint64_t connectionId, Response&& res) {
         // this assertion is for this test only
         assert(connectionId = address.packed);
         if (!res.is_valid()) return false; // shut down stream
-        proxy.handle_response(someId, Response(res));
+        proxy.handle_response(someId, std::move(res));
         return true;
     }
 
@@ -231,7 +230,7 @@ struct AppSideAsyncContext {
     Thread t;
 
     AppSideAsyncContext(INetworkToLogic& logicCallbacks) :
-        reactor(io::Reactor::create(io::Config())),
+        reactor(io::Reactor::create()),
         bridge(logicCallbacks, reactor)
     {}
 

@@ -4,25 +4,34 @@
 #define ENABLE_MODULE_GENERATOR
 #define ENABLE_MODULE_RANGEPROOF
 
-#pragma warning (disable: 4244) // conversion from ... to ..., possible loss of data, signed/unsigned mismatch
-#pragma warning (disable: 4018) // signed/unsigned mismatch
-
+#pragma warning (push, 0) // suppress warnings from secp256k1
 #include "../secp256k1-zkp/src/secp256k1.c"
+#pragma warning (pop)
 
-#pragma warning (default: 4018)
-#pragma warning (default: 4244)
+// misc
+void memset0(void* p, size_t n)
+{
+	memset(p, 0, n);
+}
 
+bool memis0(const void* p, size_t n)
+{
+	for (size_t i = 0; i < n; i++)
+		if (((const uint8_t*)p)[i])
+			return false;
+	return true;
+}
 
 namespace ECC {
 
-	//void* NoErase(void*, int, size_t) { return NULL; }
+	//void* NoErase(void*, size_t) { return NULL; }
 
 	// Pointer to the 'eraser' function. The pointer should be non-const (i.e. variable that can be changed at run-time), so that optimizer won't remove this.
-	void* (*g_pfnEraseFunc)(void*, int, size_t) = memset/*NoErase*/;
+	void (*g_pfnEraseFunc)(void*, size_t) = memset0/*NoErase*/;
 
 	void SecureErase(void* p, uint32_t n)
 	{
-		g_pfnEraseFunc(p, 0, n);
+		g_pfnEraseFunc(p, n);
 	}
 
 	/////////////////////
@@ -154,7 +163,7 @@ namespace ECC {
 
 	void Hash::Processor::Write(const char* sz)
 	{
-		Write(sz, strlen(sz));
+		Write(sz, (uint32_t) strlen(sz));
 	}
 
 	void Hash::Processor::Write(bool b)
@@ -684,15 +693,12 @@ namespace ECC {
 		// Confidential - mock only
 		bool Confidential::IsValid(const Point&) const
 		{
-			for (int i = 0; i < _countof(m_pOpaque); i++)
-				if (m_pOpaque[i])
-					return false;
-			return true;
+			return memis0(m_pOpaque, sizeof(m_pOpaque));
 		}
 
 		void Confidential::Create(const Scalar::Native& sk, Amount val)
 		{
-			memset(m_pOpaque, 0, sizeof(m_pOpaque));
+			ZeroObject(m_pOpaque);
 		}
 
 		int Confidential::cmp(const Confidential& x) const

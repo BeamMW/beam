@@ -88,7 +88,7 @@ namespace beam::wallet
         s2 = Context::get().G * data->m_senderSignature;
         Point p(s), p2(s2);
 
-        return (p.cmp(p2) == 0);
+        return (p == p2);
     }
 
     bool Receiver::FSMDefinition::isInvalidSignature(const TxConfirmationCompleted& event)

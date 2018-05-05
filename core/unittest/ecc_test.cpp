@@ -117,7 +117,7 @@ void TestPoints()
 	verify_test(!p0.Import(p_));
 
 	p2_ = p0;
-	verify_test(!p_.cmp(p2_));
+	verify_test(p_ == p2_);
 
 	for (int i = 0; i < 1000; i++)
 	{
@@ -138,7 +138,7 @@ void TestPoints()
 		verify_test(p1 == Zero);
 
 		p2_ = p0;
-		verify_test(!p_.cmp(p2_));
+		verify_test(p_ == p2_);
 	}
 
 	// multiplication
@@ -369,8 +369,6 @@ struct TransactionMaker
 		void AddInput(beam::Transaction& t, Amount val)
 		{
 			std::unique_ptr<beam::Input> pInp(new beam::Input);
-			pInp->m_Height = 0;
-			pInp->m_Coinbase = false;
 
 			Scalar::Native k;
 			EncodeAmount(pInp->m_Commitment, k, val);
@@ -383,7 +381,6 @@ struct TransactionMaker
 		void AddOutput(beam::Transaction& t, Amount val)
 		{
 			std::unique_ptr<beam::Output> pOut(new beam::Output);
-			pOut->m_Coinbase = false;
 
 			Scalar::Native k;
 			EncodeAmount(pOut->m_Commitment, k, val);
@@ -510,9 +507,11 @@ void TestTransaction()
 	tm.AddInput(1, 740);
 	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested);
 
-	Amount fee;
-	verify_test(tm.m_Trans.IsValid(fee, 0));
-	verify_test(fee == fee1 + fee2);
+	tm.m_Trans.Sort();
+
+	beam::TxBase::Context ctx;
+	verify_test(tm.m_Trans.IsValid(ctx));
+	verify_test(ctx.m_Fee == fee1 + fee2);
 }
 
 void TestAll()

@@ -323,8 +323,8 @@ size_t RadixTree::Count() const
 }
 
 /////////////////////////////
-// UtxoTree
-void UtxoTree::get_Hash(Merkle::Hash& hv)
+// RadixHashTree
+void RadixHashTree::get_Hash(Merkle::Hash& hv)
 {
 	Node* p = get_Root();
 	if (p)
@@ -333,26 +333,13 @@ void UtxoTree::get_Hash(Merkle::Hash& hv)
 		hv = ECC::Zero;
 }
 
-void UtxoTree::Value::get_Hash(Merkle::Hash& hv, const Key& key) const
-{
-	ECC::Hash::Processor hp;
-	hp.Write(key.m_pArr, Key::s_Bytes); // whole description of the UTXO
-	hp << m_Count;
-
-	hp >> hv;
-}
-
-const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
+const Merkle::Hash& RadixHashTree::get_Hash(Node& n, Merkle::Hash& hv)
 {
 	if (Node::s_Leaf & n.m_Bits)
 	{
-		MyLeaf& x = (MyLeaf&) n;
-		x.m_Bits |= Node::s_Clean;
-
-		x.m_Value.get_Hash(hv, x.m_Key);
-
-		return hv;
-
+		const Merkle::Hash& ret = get_LeafHash(n, hv);
+		n.m_Bits |= Node::s_Clean;
+		return ret;
 	}
 
 	MyJoint& x = (MyJoint&) n;
@@ -373,17 +360,19 @@ const Merkle::Hash& UtxoTree::get_Hash(Node& n, Merkle::Hash& hv)
 	return x.m_Hash;
 }
 
-void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
+void RadixHashTree::get_Proof(Merkle::Proof& proof, const CursorBase& cu)
 {
-	uint32_t n = m_nPtrs;
+	uint32_t n = cu.get_Depth();
 	assert(n);
 
-	const Node* pPrev = m_pp[--n];
+	Node** pp = cu.get_pp();
+
+	const Node* pPrev = pp[--n];
 	size_t nOut = proof.size(); // may already be non-empty, we'll append
 
 	for (proof.resize(nOut + n); n--; nOut++)
 	{
-		const Joint& x = (const Joint&) *m_pp[n];
+		const Joint& x = (const Joint&) *pp[n];
 
 		Merkle::Node& node = proof[nOut];
 		node.first = (x.m_ppC[0] == pPrev);
@@ -394,6 +383,24 @@ void UtxoTree::Cursor::get_Proof(Merkle::Proof& proof) const
 	}
 
 	assert(proof.size() == nOut);
+}
+
+/////////////////////////////
+// UtxoTree
+void UtxoTree::Value::get_Hash(Merkle::Hash& hv, const Key& key) const
+{
+	ECC::Hash::Processor hp;
+	hp.Write(key.m_pArr, Key::s_Bytes); // whole description of the UTXO
+	hp << m_Count;
+
+	hp >> hv;
+}
+
+const Merkle::Hash& UtxoTree::get_LeafHash(Node& n, Merkle::Hash& hv)
+{
+	MyLeaf& x = (MyLeaf&) n;
+	x.m_Value.get_Hash(hv, x.m_Key);
+	return hv;
 }
 
 void UtxoTree::SaveIntenral(ISerializer& s) const
@@ -453,39 +460,37 @@ int UtxoTree::Key::cmp(const Key& k) const
 	return memcmp(m_pArr, k.m_pArr, sizeof(m_pArr));
 }
 
-UtxoTree::Key::Formatted& UtxoTree::Key::Formatted::operator = (const Key& key)
+void UtxoTree::Key::ToID(UtxoID& id) const
 {
-	memcpy(m_Commitment.m_X.m_pData, key.m_pArr, sizeof(m_Commitment.m_X.m_pData));
-	const uint8_t* pKey = key.m_pArr + sizeof(m_Commitment.m_X.m_pData);
+	memcpy(id.m_Commitment.m_X.m_pData, m_pArr, sizeof(id.m_Commitment.m_X.m_pData));
+	const uint8_t* pKey = m_pArr + sizeof(id.m_Commitment.m_X.m_pData);
 
-	m_Commitment.m_Y	= (1 & (pKey[0] >> 7)) != 0;
-	m_bCoinbase			= (1 & (pKey[0] >> 6)) != 0;
-	m_bConfidential		= (1 & (pKey[0] >> 5)) != 0;
+	id.m_Commitment.m_Y	= (1 & (pKey[0] >> 7)) != 0;
+	id.m_Coinbase			= (1 & (pKey[0] >> 6)) != 0;
+	id.m_Confidential		= (1 & (pKey[0] >> 5)) != 0;
 
-	m_Height = 0;
-	for (int i = 0; i < sizeof(m_Height); i++, pKey++)
-		m_Height = (m_Height << 8) | (pKey[0] << 3) | (pKey[1] >> 5);
-
-	return *this;
+	id.m_Height = 0;
+	for (int i = 0; i < sizeof(id.m_Height); i++, pKey++)
+		id.m_Height = (id.m_Height << 8) | (pKey[0] << 3) | (pKey[1] >> 5);
 }
 
-UtxoTree::Key& UtxoTree::Key::operator = (const Key::Formatted& fmt)
+UtxoTree::Key& UtxoTree::Key::operator = (const UtxoID& id)
 {
-	memcpy(m_pArr, fmt.m_Commitment.m_X.m_pData, sizeof(fmt.m_Commitment.m_X.m_pData));
+	memcpy(m_pArr, id.m_Commitment.m_X.m_pData, sizeof(id.m_Commitment.m_X.m_pData));
 
-	uint8_t* pKey = m_pArr + sizeof(fmt.m_Commitment.m_X.m_pData);
-	memset(pKey, 0, sizeof(m_pArr) - sizeof(fmt.m_Commitment.m_X.m_pData));
+	uint8_t* pKey = m_pArr + sizeof(id.m_Commitment.m_X.m_pData);
+	memset0(pKey, sizeof(m_pArr) - sizeof(id.m_Commitment.m_X.m_pData));
 
-	if (fmt.m_Commitment.m_Y)
+	if (id.m_Commitment.m_Y)
 		pKey[0] |= (1 << 7);
-	if (fmt.m_bCoinbase)
+	if (id.m_Coinbase)
 		pKey[0] |= (1 << 6);
-	if (fmt.m_bConfidential)
+	if (id.m_Confidential)
 		pKey[0] |= (1 << 5);
 
-	for (int i = 0; i < sizeof(fmt.m_Height); i++)
+	for (int i = 0; i < sizeof(id.m_Height); i++)
 	{
-		uint8_t val = uint8_t(fmt.m_Height >> ((sizeof(fmt.m_Height) - i - 1) << 3));
+		uint8_t val = uint8_t(id.m_Height >> ((sizeof(id.m_Height) - i - 1) << 3));
 		pKey[i] |= val >> 3;
 		pKey[i + 1] |= (val << 5);
 	}
@@ -495,40 +500,55 @@ UtxoTree::Key& UtxoTree::Key::operator = (const Key::Formatted& fmt)
 
 /////////////////////////////
 // Merkle::Mmr
-void Merkle::Mmr::Append(const Merkle::Hash& hv)
+void Merkle::Mmr::Append(const Hash& hv)
 {
-	Merkle::Hash hv1 = hv;
-	uint32_t n = m_Count;
+	Hash hv1 = hv;
+	uint64_t n = m_Count;
 
-	for (uint32_t nHeight = 0; ; nHeight++, n >>= 1)
+	for (uint8_t nHeight = 0; ; nHeight++, n >>= 1)
 	{
 		SaveElement(hv1, n, nHeight);
 		if (!(1 & n))
 			break;
 
-		Merkle::Hash hv0;
+		Hash hv0;
 		LoadElement(hv0, n ^ 1, nHeight);
 
-		ECC::Hash::Processor() << hv0 << hv1 >> hv1;
+		Interpret(hv1, hv0, false);
 	}
 
 	m_Count++;
 }
 
-void Merkle::Mmr::get_Hash(Merkle::Hash& hv) const
+void Merkle::Mmr::get_PredictedHash(Hash& hv, const Hash& hvAppend) const
+{
+	hv = hvAppend;
+	uint64_t n = m_Count;
+
+	for (uint8_t nHeight = 0; n; nHeight++, n >>= 1)
+		if (1 & n)
+		{
+			Hash hv0;
+			LoadElement(hv0, n ^ 1, nHeight);
+
+			Interpret(hv, hv0, false);
+		}
+}
+
+void Merkle::Mmr::get_Hash(Hash& hv) const
 {
 	if (!get_HashForRange(hv, 0, m_Count))
 		hv = ECC::Zero;
 }
 
-bool Merkle::Mmr::get_HashForRange(Merkle::Hash& hv, uint32_t n0, uint32_t n) const
+bool Merkle::Mmr::get_HashForRange(Hash& hv, uint64_t n0, uint64_t n) const
 {
 	bool bEmpty = true;
 
-	for (uint32_t nHeight = 0; n; nHeight++, n >>= 1, n0 >>= 1)
+	for (uint8_t nHeight = 0; n; nHeight++, n >>= 1, n0 >>= 1)
 		if (1 & n)
 		{
-			Merkle::Hash hv0;
+			Hash hv0;
 			LoadElement(hv0, n0 + n ^ 1, nHeight);
 
 			if (bEmpty)
@@ -537,32 +557,32 @@ bool Merkle::Mmr::get_HashForRange(Merkle::Hash& hv, uint32_t n0, uint32_t n) co
 				bEmpty = false;
 			}
 			else
-				ECC::Hash::Processor() << hv0 << hv >> hv;
+				Interpret(hv, hv0, false);
 		}
 
 	return !bEmpty;
 }
 
-void Merkle::Mmr::get_Proof(Proof& proof, uint32_t i) const
+void Merkle::Mmr::get_Proof(Proof& proof, uint64_t i) const
 {
 	assert(i < m_Count);
 
-	uint32_t n = m_Count;
-	for (uint32_t nHeight = 0; n; nHeight++, n >>= 1, i >>= 1)
+	uint64_t n = m_Count;
+	for (uint8_t nHeight = 0; n; nHeight++, n >>= 1, i >>= 1)
 	{
-		Merkle::Node node;
+		Node node;
 		node.first = !(i & 1);
 
-		uint32_t nSibling = i ^ 1;
+		uint64_t nSibling = i ^ 1;
 		bool bFullSibling = !node.first;
 
 		if (!bFullSibling)
 		{
-			uint32_t n0 = nSibling << nHeight;
+			uint64_t n0 = nSibling << nHeight;
 			if (n0 >= m_Count)
 				continue;
 
-			uint32_t nRemaining = m_Count - n0;
+			uint64_t nRemaining = m_Count - n0;
 			if (nRemaining >> nHeight)
 				bFullSibling = true;
 			else
@@ -576,6 +596,228 @@ void Merkle::Mmr::get_Proof(Proof& proof, uint32_t i) const
 	}
 }
 
+/////////////////////////////
+// Merkle::DistributedMmr
+struct Merkle::DistributedMmr::Impl
+	:public Mmr
+{
+	Impl(DistributedMmr& x)
+		:m_This(x)
+		,m_nDepth(0)
+	{
+		m_Count = x.m_Count;
+		m_pNodes[0].m_Key = x.m_kLast;
+		m_pNodes[0].m_nIdx = m_Count - 1;
+	}
 
+	DistributedMmr& m_This;
+	Hash* m_pTrgHash;
+	Key* m_pTrgKey;
+
+	static const uint32_t nDepthMax = sizeof(uint64_t) << 4; // 128, extra cautions because of multiple-peaks structure
+
+	struct Node {
+		Key m_Key;
+		uint64_t m_nIdx;
+	};
+
+	Node m_pNodes[nDepthMax];
+	uint32_t m_nDepth;
+
+	Key FindElement(uint64_t nIdx);
+
+	static uint8_t get_Height(uint64_t n)
+	{
+		uint8_t h = 0;
+		for ( ; 1 & n; n >>= 1)
+			h++;
+		return h;
+	}
+
+	static uint8_t get_NextPeak(uint64_t& n0)
+	{
+		uint8_t h = get_Height(n0);
+		n0 -= (uint64_t(1) << h) - 1;
+		return h;
+	}
+
+	// Mmr
+	virtual void LoadElement(Hash&, uint64_t nIdx, uint8_t nHeight) const override;
+	virtual void SaveElement(const Hash&, uint64_t nIdx, uint8_t nHeight) override;
+};
+
+uint32_t Merkle::DistributedMmr::get_NodeSize(uint64_t n)
+{
+	uint8_t h = Impl::get_NextPeak(n);
+	uint32_t nSize = h * (sizeof(Hash) + sizeof(Key)); // 1st peak - must contain hashes and refs
+
+	if (n)
+		nSize += sizeof(Key); // ref to next peak
+
+	return nSize;
+}
+
+void Merkle::DistributedMmr::Impl::SaveElement(const Hash& hash, uint64_t nIdx, uint8_t nHeight)
+{
+	if (nHeight) // we don't store explicitly the hash of the element itself.
+	{
+		m_pTrgHash[nHeight - 1] = hash;
+
+		assert(m_pNodes[m_nDepth].m_nIdx == m_Count - (uint64_t(1) << (nHeight - 1)));
+		m_pTrgKey[nHeight - 1] = m_pNodes[m_nDepth].m_Key;
+	}
+}
+
+void Merkle::DistributedMmr::Impl::LoadElement(Hash& hash, uint64_t nIdx, uint8_t nHeight) const
+{
+	// index of the element that carries the information
+	nIdx = ((nIdx + 1) << nHeight) - 1;
+	Key k = ((Impl*) this)->FindElement(nIdx);
+
+	if (nHeight)
+		hash = ((const Hash*) m_This.get_NodeData(k))[nHeight - 1];
+	else
+		m_This.get_NodeHash(hash, k);
+}
+
+Merkle::DistributedMmr::Key Merkle::DistributedMmr::Impl::FindElement(uint64_t nIdx)
+{
+	while (true)
+	{
+		Node& n = m_pNodes[m_nDepth];
+		uint64_t nPos = n.m_nIdx;
+
+		if (nPos == nIdx)
+			return n.m_Key;
+
+		if (nPos < nIdx)
+		{
+			assert(m_nDepth);
+			m_nDepth--;
+			continue;
+		}
+
+		assert(m_nDepth + 1 < _countof(m_pNodes));
+		Node& n2 = m_pNodes[++m_nDepth];
+
+		uint64_t nPos1 = nPos;
+		uint8_t h = get_NextPeak(nPos);
+		const Key* pK = (Key*) (((Hash*) m_This.get_NodeData(n.m_Key)) + h);
+
+		if (nPos <= nIdx)
+		{
+			uint64_t dn = nPos1 - nPos + 1;
+			while (true)
+			{
+				dn >>= 1;
+				assert(h);
+
+				if (nIdx < nPos + dn)
+				{
+					n2.m_nIdx = nPos + dn - 1;
+					n2.m_Key = pK[h - 1];
+					break;
+				}
+
+				h--;
+				nPos += dn;
+			}
+
+		} else
+		{
+			n2.m_nIdx = nPos - 1;
+			n2.m_Key = pK[h];
+		}
+	}
+}
+
+void Merkle::DistributedMmr::Append(Key k, void* pBuf, const Hash& hash)
+{
+	uint64_t n = m_Count;
+	uint8_t h = Impl::get_NextPeak(n);
+
+	Impl impl(*this);
+	impl.m_pTrgHash = (Hash*) pBuf;
+	impl.m_pTrgKey = (Key*) (impl.m_pTrgHash + h);
+
+	impl.Append(hash);
+
+
+	if (n)
+		impl.m_pTrgKey[h] = impl.FindElement(n - 1);
+
+	m_Count++;
+	m_kLast = k;
+}
+
+void Merkle::DistributedMmr::get_Hash(Hash& hv) const
+{
+	Impl impl((DistributedMmr&) *this);
+	impl.get_Hash(hv);
+}
+
+void Merkle::DistributedMmr::get_PredictedHash(Hash& hv, const Hash& hvAppend) const
+{
+	Impl impl((DistributedMmr&) *this);
+	impl.get_PredictedHash(hv, hvAppend);
+}
+
+void Merkle::DistributedMmr::get_Proof(Proof& proof, uint64_t i) const
+{
+	Impl impl((DistributedMmr&) *this);
+	impl.get_Proof(proof, i);
+}
+
+/////////////////////////////
+// Merkle::CompactMmr
+void Merkle::CompactMmr::get_Hash(Hash& hv) const
+{
+	uint32_t i = (uint32_t) m_vNodes.size();
+	if (i)
+	{
+		for (hv = m_vNodes[--i]; i; )
+			Interpret(hv, m_vNodes[--i], false);
+	} else
+		ZeroObject(hv);
+}
+
+void Merkle::CompactMmr::get_PredictedHash(Hash& hv, const Hash& hvAppend) const
+{
+	hv = hvAppend;
+	uint64_t n = m_Count;
+	size_t iPos = m_vNodes.size();
+
+	for (uint8_t nHeight = 0; n; nHeight++, n >>= 1)
+		if (1 & n)
+		{
+			assert(n > 0);
+			Interpret(hv, m_vNodes[--iPos], false);
+		}
+	assert(!iPos);
+}
+
+void Merkle::CompactMmr::Append(const Hash& hv)
+{
+	Hash hv1 = hv;
+	uint64_t n = m_Count;
+
+	for (uint8_t nHeight = 0; ; nHeight++, n >>= 1)
+	{
+		if (!(1 & n))
+			break;
+
+		assert(!m_vNodes.empty());
+
+		Interpret(hv1, m_vNodes.back(), false);
+		m_vNodes.pop_back();
+	}
+
+	m_vNodes.push_back(hv1);
+	m_Count++;
+}
+
+//void Merkle::CompactMmr::Append(CompactMmr& out, Hash& hv) const
+//{
+//}
 
 } // namespace beam

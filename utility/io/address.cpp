@@ -16,12 +16,15 @@ uint32_t resolve_host(std::string&& host) {
     uint32_t ip = 0;
 
     addrinfo hint;
-    memset(&hint, 0, sizeof(hint));
+    memset(&hint, 0, sizeof(struct addrinfo));
     hint.ai_flags = AF_INET;
     hint.ai_socktype = SOCK_STREAM;
 
     addrinfo* ai=0;
+
+    // NOTE: leaks memory, but only once
     int r = getaddrinfo(host.c_str(), 0, &hint, &ai);
+
     if (r == 0) {
         for (addrinfo* p = ai; p; p = p->ai_next) {
             if (p->ai_family == AF_INET) {
@@ -29,9 +32,9 @@ uint32_t resolve_host(std::string&& host) {
                 break;
             }
         }
-        freeaddrinfo(ai);
     }
 
+    if (ai) freeaddrinfo(ai);
     return ip;
 }
 

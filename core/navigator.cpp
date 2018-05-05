@@ -22,7 +22,7 @@ namespace beam
 #endif // WIN32
 
 			char sz[0x100];
-			sprintf(sz, "Error=%d (%s)", nErrorCode, str);
+			snprintf(sz, _countof(sz), "Error=%d (%s)", nErrorCode, str);
 			throw std::runtime_error(sz);
 		}
 	}
@@ -32,7 +32,7 @@ namespace beam
 	{
 		uint32_t msk = nAlignment - 1;
 		assert(!(msk & nAlignment)); // alignment must be power-2
-		return (x + msk) & ~msk;
+		return (x + T(msk)) & ~T(msk);
 	}
 
 	////////////////////////////////////////
@@ -450,7 +450,7 @@ namespace beam
 		TagMarker* pVal = (TagMarker*) m_Mapping.Allocate(Type::Tag, sizeof(TagMarker));
 		Offset xVal = m_Mapping.get_Offset(pVal);
 
-		memset(pVal, 0, sizeof(TagMarker));
+		ZeroObject(*pVal);
 
 		FixedHdr& hdr = get_Hdr_();
 		TagMarker& tag = get_Tag_(hdr.m_TagCursor);

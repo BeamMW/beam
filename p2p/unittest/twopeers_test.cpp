@@ -45,13 +45,13 @@ struct MessageHandler : IMsgHandler {
         cout << __FUNCTION__ << "(" << fromStream << "," << errorCode << ")" << endl;
     }
 
-    bool on_some_object(uint64_t fromStream, const SomeObject& msg) {
+    bool on_some_object(uint64_t fromStream, SomeObject&& msg) {
         cout << __FUNCTION__ << "(" << fromStream << "," << msg.i << ")" << endl;
         receivedObj = msg;
         return true;
     }
 
-    bool on_response(uint64_t fromStream, const Response& msg) {
+    bool on_response(uint64_t fromStream, Response&& msg) {
         cout << __FUNCTION__ << "(" << fromStream << "," << msg.z << ")" << endl;
         receivedResponse = msg;
         return true;
@@ -85,8 +85,7 @@ struct Server {
         cout << "In server thread" << endl;
 
         try {
-            Config config;
-            Reactor::Ptr reactor = Reactor::create(config);
+            Reactor::Ptr reactor = Reactor::create();
 
             TcpServer::Ptr server = TcpServer::create(
                 reactor, Address::localhost().port(g_port), BIND_THIS_MEMFN(on_stream_accepted)
@@ -161,9 +160,7 @@ struct Client {
         cout << "In client thread" << endl;
 
         try {
-
-            Config config;
-            reactor = Reactor::create(config);
+            reactor = Reactor::create();
 
             reactor->tcp_connect
                 (Address::localhost().port(g_port),

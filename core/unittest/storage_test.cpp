@@ -73,7 +73,7 @@ namespace beam
 		void Tag(uint8_t n)
 		{
 			TagInfo ti;
-			memset(&ti, 0, sizeof(ti));
+			ZeroObject(ti);
 
 			ti.m_Tag.m_pData[0] = n;
 			ti.m_Difficulty = 1;
@@ -203,17 +203,17 @@ void DeleteFile(const char* szPath)
 		}
 	}
 
-	void SetRandomUtxoKey(UtxoTree::Key::Formatted& fmt)
+	void SetRandomUtxoKey(UtxoID& id)
 	{
-		for (int i = 0; i < sizeof(fmt.m_Commitment.m_X.m_pData); i++)
-			fmt.m_Commitment.m_X.m_pData[i] = (uint8_t) rand();
+		for (int i = 0; i < sizeof(id.m_Commitment.m_X.m_pData); i++)
+			id.m_Commitment.m_X.m_pData[i] = (uint8_t) rand();
 
-		fmt.m_Commitment.m_Y	= (1 & rand()) != 0;
-		fmt.m_bConfidential		= (1 & rand()) != 0;
-		fmt.m_bCoinbase			= (1 & rand()) != 0;
+		id.m_Commitment.m_Y	= (1 & rand()) != 0;
+		id.m_Confidential		= (1 & rand()) != 0;
+		id.m_Coinbase			= (1 & rand()) != 0;
 
-		for (int i = 0; i < sizeof(fmt.m_Height); i++)
-			((uint8_t*) &fmt.m_Height)[i] = (uint8_t) rand();
+		for (int i = 0; i < sizeof(id.m_Height); i++)
+			((uint8_t*) &id.m_Height)[i] = (uint8_t) rand();
 	}
 
 	void TestUtxoTree()
@@ -224,22 +224,18 @@ void DeleteFile(const char* szPath)
 		UtxoTree t;
 		Merkle::Hash hv1, hv2, hvMid;
 
-		for (size_t i = 0; i < vKeys.size(); i++)
+		for (uint32_t i = 0; i < vKeys.size(); i++)
 		{
 			UtxoTree::Key& key = vKeys[i];
 
 			// random key
-			UtxoTree::Key::Formatted fmt0, fmt1;
-			SetRandomUtxoKey(fmt0);
+			UtxoID id0, id1;
+			SetRandomUtxoKey(id0);
 
-			key = fmt0;
-			fmt1 = key;
+			key = id0;
+			key.ToID(id1);
 
-			verify_test(
-				!fmt0.m_Commitment.cmp(fmt1.m_Commitment) &&
-				(fmt0.m_Height == fmt1.m_Height) &&
-				(fmt0.m_bCoinbase == fmt1.m_bCoinbase) &&
-				(fmt0.m_bConfidential == fmt1.m_bConfidential));
+			verify_test(id0 == id1);
 
 			UtxoTree::Cursor cu;
 			bool bCreate = true;
@@ -254,14 +250,14 @@ void DeleteFile(const char* szPath)
 
 				for (int k = 0; k < 10; k++)
 				{
-					size_t j = rand() % (i + 1);
+					uint32_t j = rand() % (i + 1);
 
 					bCreate = false;
 					p = t.Find(cu, vKeys[j], bCreate);
 					assert(p && !bCreate);
 
 					Merkle::Proof proof;
-					cu.get_Proof(proof);
+					t.get_Proof(proof, cu);
 
 					Merkle::Hash hvElement;
 					p->m_Value.get_Hash(hvElement, p->m_Key);
@@ -274,7 +270,7 @@ void DeleteFile(const char* szPath)
 
 		t.get_Hash(hv1);
 
-		for (size_t i = 0; i < vKeys.size(); i++)
+		for (uint32_t i = 0; i < vKeys.size(); i++)
 		{
 			if (i == vKeys.size()/2)
 				t.get_Hash(hvMid);
@@ -295,7 +291,7 @@ void DeleteFile(const char* szPath)
 		verify_test(hv2 == ECC::Zero);
 
 		// construct tree in different order
-		for (size_t i = vKeys.size(); i--; )
+		for (uint32_t i = (uint32_t) vKeys.size(); i--; )
 		{
 			const UtxoTree::Key& key = vKeys[i];
 
@@ -344,7 +340,7 @@ void DeleteFile(const char* szPath)
 
 		std::vector<HashVectorPtr> m_vec;
 
-		Merkle::Hash& get_At(uint32_t nIdx, uint32_t nHeight)
+		Merkle::Hash& get_At(uint64_t nIdx, uint8_t nHeight)
 		{
 			if (m_vec.size() <= nHeight)
 				m_vec.resize(nHeight + 1);
@@ -355,20 +351,59 @@ void DeleteFile(const char* szPath)
 
 		
 			HashVector& vec = *ptr;
-			if (vec.size() <= nIdx)
-				vec.resize(nIdx + 1);
+			if (vec.size() <= size_t(nIdx))
+				vec.resize(size_t(nIdx) + 1);
 
-			return vec[nIdx];
+			return vec[size_t(nIdx)];
 		}
 
-		virtual void LoadElement(Merkle::Hash& hv, uint32_t nIdx, uint32_t nHeight) const override
+		virtual void LoadElement(Merkle::Hash& hv, uint64_t nIdx, uint8_t nHeight) const override
 		{
 			hv = ((MyMmr*) this)->get_At(nIdx, nHeight);
 		}
 
-		virtual void SaveElement(const Merkle::Hash& hv, uint32_t nIdx, uint32_t nHeight) override
+		virtual void SaveElement(const Merkle::Hash& hv, uint64_t nIdx, uint8_t nHeight) override
 		{
 			get_At(nIdx, nHeight) = hv;
+		}
+	};
+
+	struct MyDmmr
+		:public Merkle::DistributedMmr
+	{
+		struct Node
+		{
+			typedef std::unique_ptr<Node> Ptr;
+
+			Merkle::Hash m_MyHash;
+			std::unique_ptr<uint8_t[]> m_pArr;
+		};
+
+		std::vector<Node::Ptr> m_AllNodes;
+
+		virtual const void* get_NodeData(Key key) const override
+		{
+			assert(key);
+			return ((Node*) key)->m_pArr.get();
+		}
+
+		virtual void get_NodeHash(Merkle::Hash& hash, Key key) const override
+		{
+			hash = ((Node*) key)->m_MyHash;
+		}
+
+		void MyAppend(const Merkle::Hash& hv)
+		{
+			uint32_t n = get_NodeSize(m_Count);
+
+			MyDmmr::Node::Ptr p(new MyDmmr::Node);
+			p->m_MyHash = hv;
+
+			if (n)
+				p->m_pArr.reset(new uint8_t[n]);
+
+			Append((Key) p.get(), p->m_pArr.get(), p->m_MyHash);
+			m_AllNodes.push_back(std::move(p));
 		}
 	};
 
@@ -378,23 +413,42 @@ void DeleteFile(const char* szPath)
 		vHashes.resize(300);
 
 		MyMmr mmr;
+		MyDmmr dmmr;
+		Merkle::CompactMmr cmmr;
 
-		for (size_t i = 0; i < vHashes.size(); i++)
+		for (uint32_t i = 0; i < vHashes.size(); i++)
 		{
 			Merkle::Hash& hv = vHashes[i];
 
 			for (int i = 0; i < sizeof(hv.m_pData); i++)
 				hv.m_pData[i] = (uint8_t)rand();
 
+			Merkle::Hash hvRoot, hvRoot2, hvRoot3;
+
+			mmr.get_PredictedHash(hvRoot, hv);
+			dmmr.get_PredictedHash(hvRoot2, hv);
+			cmmr.get_PredictedHash(hvRoot3, hv);
+			verify_test(hvRoot == hvRoot2);
+			verify_test(hvRoot == hvRoot3);
+
 			mmr.Append(hv);
+			dmmr.MyAppend(hv);
+			cmmr.Append(hv);
 
-			Merkle::Hash hvRoot;
 			mmr.get_Hash(hvRoot);
+			verify_test(hvRoot == hvRoot3);
+			dmmr.get_Hash(hvRoot);
+			verify_test(hvRoot == hvRoot3);
+			cmmr.get_Hash(hvRoot);
+			verify_test(hvRoot == hvRoot3);
 
-			for (size_t j = 0; j <= i; j++)
+			for (uint32_t j = 0; j <= i; j++)
 			{
-				Merkle::Proof proof;
+				Merkle::Proof proof, proof2;
 				mmr.get_Proof(proof, j);
+				dmmr.get_Proof(proof2, j);
+
+				verify_test(proof == proof2);
 
 				Merkle::Hash hv2 = vHashes[j];
 				Merkle::Interpret(hv2, proof);

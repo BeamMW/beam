@@ -1,11 +1,12 @@
 set(NODE_SRC
-    node.h
     node.cpp
+    node_db.cpp
+    node_processor.cpp
 )
 
 add_library(node STATIC ${NODE_SRC})
-add_dependencies(node chain pool)
-target_link_libraries(node chain pool)
+add_dependencies(node chain pool sqlite core)
+target_link_libraries(node chain pool sqlite core)
 
 add_executable(beam beam.cpp)
 

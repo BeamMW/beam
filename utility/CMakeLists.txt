@@ -14,6 +14,7 @@ set(IO_SRC
     io/address.cpp
     io/tcpserver.cpp
     io/tcpstream.cpp
+    io/exception.cpp
 # ~etc
 )
 

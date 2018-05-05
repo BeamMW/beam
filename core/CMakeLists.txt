@@ -15,4 +15,4 @@ target_include_directories(core PUBLIC ../secp256k1-zkp/src)
 
 include_directories(${PROJECT_SOURCE_DIR}/core)
 
-# add_subdirectory(unittest)
+add_subdirectory(unittest)

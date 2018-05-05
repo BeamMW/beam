@@ -7,7 +7,8 @@ using namespace std;
 
 void address_test() {
     Address a;
-    a.resolve("google.com");
+    // getaddrinfo leaks memory
+    for (int i=0; i<100; ++i) a.resolve("google.com");
     Address b;
     b.resolve("google.com:666");
     cout << a.str() << " " << b.str() << endl;

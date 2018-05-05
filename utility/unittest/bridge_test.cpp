@@ -66,7 +66,7 @@ struct RemoteThreadLogicExample {
     Thread t;
 
     RemoteThreadLogicExample() :
-        reactor(io::Reactor::create(io::Config())),
+        reactor(io::Reactor::create()),
         handler(reactor),
         bridge(handler, reactor)
     {}
