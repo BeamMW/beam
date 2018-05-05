@@ -6,6 +6,7 @@
 #include <memory>
 #include <functional>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace beam { namespace io {
 
@@ -79,7 +80,7 @@ private:
     struct ConnectContext {
         uint64_t tag;
         ConnectCallback callback;
-        uv_connect_t request;
+        uv_connect_t* request;
     };
 
     void connect_callback(ConnectContext* ctx, ErrorCode errorCode);
@@ -106,8 +107,10 @@ private:
     uv_loop_t _loop;
     uv_async_t _stopEvent;
     MemPool<uv_handle_t, sizeof(Handles)> _handlePool;
+    MemPool<uv_connect_t, sizeof(uv_connect_t)> _connectRequestsPool;
     std::unordered_map<uint64_t, ConnectContext> _connectRequests;
-
+    std::unordered_set<uv_connect_t*> _cancelledConnectRequests;
+    
     friend class AsyncEvent;
     friend class Timer;
     friend class TcpServer;

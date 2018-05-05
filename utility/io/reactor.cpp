@@ -18,7 +18,8 @@ Reactor::Ptr Reactor::create() {
 }
 
 Reactor::Reactor() :
-    _handlePool(config().get_int("io.handle_pool_size", 256, 0, 65536))
+    _handlePool(config().get_int("io.handle_pool_size", 256, 0, 65536)),
+    _connectRequestsPool(config().get_int("io.connect_pool_size", 16, 0, 512))
 {
     memset(&_loop,0,sizeof(uv_loop_t));
     memset(&_stopEvent, 0, sizeof(uv_async_t));
@@ -211,8 +212,10 @@ ErrorCode Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
 
 expected<void, ErrorCode> Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback) {
     assert(callback);
+    assert(address);
+    assert(_connectRequests.count(tag) == 0);
 
-    if (!address || _connectRequests.count(tag) > 0) {
+    if (!callback || !address || _connectRequests.count(tag) > 0) {
         return make_unexpected(EC_EINVAL);
     }
 
@@ -228,27 +231,32 @@ expected<void, ErrorCode> Reactor::tcp_connect(Address address, uint64_t tag, co
     ConnectContext& ctx = _connectRequests[tag];
     ctx.tag = tag;
     ctx.callback = callback;
-    ctx.request.data = &ctx;
+    ctx.request = _connectRequestsPool.alloc();
+    ctx.request->data = &ctx;
 
     sockaddr_in addr;
     address.fill_sockaddr_in(addr);
 
     errorCode = (ErrorCode)uv_tcp_connect(
-        &(ctx.request),
+        ctx.request,
         (uv_tcp_t*)h,
         (const sockaddr*)&addr,
         [](uv_connect_t* request, int errorCode) {
-            if (errorCode == UV_ECANCELED) {
-                return;
-            }
             assert(request);
             assert(request->data);
             assert(request->handle);
             assert(request->handle->loop);
             assert(request->handle->loop->data);
-            ConnectContext* ctx = reinterpret_cast<ConnectContext*>(request->data);
             Reactor* reactor = reinterpret_cast<Reactor*>(request->handle->loop->data);
-            reactor->connect_callback(ctx, (ErrorCode)errorCode);
+            if (errorCode == UV_ECANCELED) {
+                LOG_VERBOSE() << "callback on cancelled connect request=" << request;
+                assert(reactor->_cancelledConnectRequests.count(request)==1);
+                reactor->_cancelledConnectRequests.erase(request);
+                reactor->_connectRequestsPool.release(request);
+            } else {
+                ConnectContext* ctx = reinterpret_cast<ConnectContext*>(request->data);
+                reactor->connect_callback(ctx, (ErrorCode)errorCode);
+            }
         }
     );
     if (errorCode) {
@@ -262,10 +270,12 @@ expected<void, ErrorCode> Reactor::tcp_connect(Address address, uint64_t tag, co
 
 void Reactor::connect_callback(Reactor::ConnectContext* ctx, ErrorCode errorCode) {
     assert(_connectRequests.count(ctx->tag)==1);
-
     uint64_t tag = ctx->tag;
+        
     ConnectCallback callback = std::move(ctx->callback);
-    uv_handle_t* h = (uv_handle_t*)ctx->request.handle;
+    uv_handle_t* h = (uv_handle_t*)ctx->request->handle;
+    
+    _connectRequestsPool.release(ctx->request);
 
     TcpStream::Ptr stream;
     if (errorCode == 0) {
@@ -280,6 +290,17 @@ void Reactor::connect_callback(Reactor::ConnectContext* ctx, ErrorCode errorCode
     _connectRequests.erase(tag);
 
     callback(tag, std::move(stream), errorCode);
+}
+
+void Reactor::cancel_tcp_connect(uint64_t tag) {
+    auto it = _connectRequests.find(tag);
+    if (it != _connectRequests.end()) {
+        uv_connect_t* request = it->second.request;
+        uv_handle_t* h = (uv_handle_t*)request->handle;
+        async_close(h);
+        _cancelledConnectRequests.insert(request);
+        _connectRequests.erase(it);
+    }
 }
 
 void Reactor::async_close(uv_handle_t*& handle) {
