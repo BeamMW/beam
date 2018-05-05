@@ -16,8 +16,9 @@ namespace beam
         };
 
         Coin();
-        Coin(const ECC::Scalar& key, ECC::Amount amount);
-        ECC::Scalar m_key;
+        Coin(uint64_t id, ECC::Amount amount);
+
+		uint64_t m_id;
         ECC::Amount m_amount;
         Status m_status;
     };
@@ -26,7 +27,12 @@ namespace beam
     {
         using Ptr = std::shared_ptr<IKeyChain>;
         virtual ~IKeyChain() {}
-        virtual ECC::Scalar getNextKey() = 0;
+
+        virtual uint64_t getNextID() = 0;
+
+		// TODO: change it to native
+		virtual ECC::Scalar calcKey(uint64_t id) = 0;
+
         virtual std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock = true) = 0;
         virtual void store(const beam::Coin& coin) = 0;
         virtual void update(const std::vector<beam::Coin>& coins) = 0;

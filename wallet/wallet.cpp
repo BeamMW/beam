@@ -40,10 +40,11 @@ namespace beam
 
     }
 
-    Coin::Coin(const Scalar& key, Amount amount)
-        : m_amount(amount)
+    Coin::Coin(uint64_t id, Amount amount)
+		: m_id(id)
+        , m_amount(amount)
     {
-        m_key = Scalar::Native(key);
+        //m_key = Scalar::Native(key);
     }
 
     // temporary impl of WalletToNetwork interface

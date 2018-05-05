@@ -2,8 +2,6 @@
 #include "wallet/sender.h"
 #include "wallet/receiver.h"
 
-#include "coin.h"
-
 #include <assert.h>
 #include <iostream>
 #include <thread>
@@ -13,6 +11,12 @@
 
 using namespace beam;
 using namespace std;
+
+// Valdo's point generator of elliptic curve
+namespace ECC {
+	Context g_Ctx;
+	const Context& Context::get() { return g_Ctx; }
+}
 
 int g_failureCount = 0;
 
@@ -60,11 +64,16 @@ namespace
     {
     public:
         
-        ECC::Scalar getNextKey()
-        {
-            return CoinData::keygen.next().get();
-        }
-        
+		uint64_t getNextID()
+		{
+			return 1;
+		}
+
+		ECC::Scalar calcKey(uint64_t id)
+		{
+			return ECC::Scalar();
+		}
+
         std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock)
         {
             std::vector<beam::Coin> res;
@@ -105,9 +114,9 @@ namespace
     public:
         TestKeyChain()
         {
-            m_coins.emplace_back(ECC::Scalar::Native(200U), 5);
-            m_coins.emplace_back(ECC::Scalar::Native(201U), 2);
-            m_coins.emplace_back(ECC::Scalar::Native(202U), 3);
+            m_coins.emplace_back(1, 5);
+            m_coins.emplace_back(2, 2);
+            m_coins.emplace_back(3, 3);
         }
     };
 
@@ -116,82 +125,82 @@ namespace
     public:
         TestKeyChain2()
         {
-            m_coins.emplace_back(ECC::Scalar::Native(300U), 1);
-            m_coins.emplace_back(ECC::Scalar::Native(301U), 3);
+            m_coins.emplace_back(1, 1);
+            m_coins.emplace_back(2, 3);
         }
     };
 
-    static const char* WalletName = "wallet.dat";
-    static const char* TestPassword = "test password";
-    class TestKeyChainIntegration : public IKeyChain
-    {
-    public:
+    //static const char* WalletName = "wallet.dat";
+    //static const char* TestPassword = "test password";
+    //class TestKeyChainIntegration : public IKeyChain
+    //{
+    //public:
 
-        TestKeyChainIntegration()
-        {
-            std::ofstream os;
-            os.open(WalletName, std::ofstream::binary);
+    //    TestKeyChainIntegration()
+    //    {
+    //        std::ofstream os;
+    //        os.open(WalletName, std::ofstream::binary);
 
-            addCoin(os, 4);
-            addCoin(os, 3);
-            addCoin(os, 2);
+    //        addCoin(os, 4);
+    //        addCoin(os, 3);
+    //        addCoin(os, 2);
 
-            os.close();
-        }
+    //        os.close();
+    //    }
 
-        ECC::Scalar getNextKey()
-        {
-            return CoinData::keygen.next().get();
-        }
+    //    ECC::Scalar getNextKey()
+    //    {
+    //        return CoinData::keygen.next().get();
+    //    }
 
-        std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock)
-        {
-            std::vector<beam::Coin> res;
+    //    std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock)
+    //    {
+    //        std::vector<beam::Coin> res;
 
-            std::ifstream is;
-            is.open(WalletName, std::ofstream::binary);
+    //        std::ifstream is;
+    //        is.open(WalletName, std::ofstream::binary);
 
-            size_t offset = 0;
+    //        size_t offset = 0;
 
-            while(true)
-            {
-                std::unique_ptr<CoinData> coin(CoinData::recover(is, offset, TestPassword));
+    //        while(true)
+    //        {
+    //            std::unique_ptr<CoinData> coin(CoinData::recover(is, offset, TestPassword));
 
-                if(coin) 
-                    res.push_back(*coin);
-                else break;
+    //            if(coin) 
+    //                res.push_back(*coin);
+    //            else break;
 
-                offset += SIZE_COIN_DATA;
-            }
+    //            offset += SIZE_COIN_DATA;
+    //        }
 
-            is.close();
+    //        is.close();
 
-            return res;
-        }
+    //        return res;
+    //    }
 
-        void store(const beam::Coin& coin)
-        {
+    //    void store(const beam::Coin& coin)
+    //    {
 
-        }
+    //    }
 
-        void update(const std::vector<beam::Coin>& coins)
-        {
+    //    void update(const std::vector<beam::Coin>& coins)
+    //    {
 
-        }
+    //    }
 
-        void remove(const std::vector<beam::Coin>& coins)
-        {
+    //    void remove(const std::vector<beam::Coin>& coins)
+    //    {
 
-        }
-        
-    private:
+    //    }
+    //    
+    //private:
 
-        void addCoin(std::ofstream& os, const ECC::Amount& amount)
-        {
-            CoinData coin(amount);
-            coin.write(os, TestPassword);
-        }
-    };
+    //    void addCoin(std::ofstream& os, const ECC::Amount& amount)
+    //    {
+    //        CoinData coin(amount);
+    //        coin.write(os, TestPassword);
+    //    }
+    //};
 
     template<typename KeychainImpl>
     IKeyChain::Ptr createKeyChain()
@@ -522,7 +531,7 @@ int main()
 {
   //  TestFSM();
     TestWalletNegotiation<TestKeyChain, TestKeyChain2>();
-    TestWalletNegotiation<TestKeyChainIntegration, TestKeyChain2>();
+    //TestWalletNegotiation<TestKeyChainIntegration, TestKeyChain2>();
     TestRollback();
 
     return WALLET_CHECK_RESULT;
