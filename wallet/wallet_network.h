@@ -26,7 +26,7 @@ namespace beam
 
         BRIDGE_FORWARD_IMPL(send_tx_invitation, wallet::sender::InvitationData::Ptr);
         BRIDGE_FORWARD_IMPL(send_tx_confirmation, wallet::sender::ConfirmationData::Ptr);
-        //BRIDGE_FORWARD_IMPL(sendChangeOutputConfirmation(const PeerId& peer);
+        BRIDGE_FORWARD_IMPL(send_output_confirmation, None);
         BRIDGE_FORWARD_IMPL(send_tx_confirmation, wallet::receiver::ConfirmationData::Ptr);
         BRIDGE_FORWARD_IMPL(register_tx, wallet::receiver::RegisterTxData::Ptr);
         BRIDGE_FORWARD_IMPL(send_tx_registered, UuidPtr);
@@ -37,7 +37,7 @@ namespace beam
 
         BRIDGE_FORWARD_IMPL(handle_tx_invitation, wallet::sender::InvitationData::Ptr);
         BRIDGE_FORWARD_IMPL(handle_tx_confirmation,wallet::sender::ConfirmationData::Ptr);
-       // BRIDGE_FORWARD_IMPL(handleOutputConfirmation,(PeerId from);
+        BRIDGE_FORWARD_IMPL(handle_output_confirmation, None);
         BRIDGE_FORWARD_IMPL(handle_tx_confirmation, wallet::receiver::ConfirmationData::Ptr);
         BRIDGE_FORWARD_IMPL(handle_tx_registration, UuidPtr);
         BRIDGE_FORWARD_IMPL(handle_tx_failed, UuidPtr);
@@ -52,19 +52,24 @@ namespace beam
         void start();
         void stop();
         void wait();
+        INetworkIO& get_network_proxy();
+        void set_wallet_proxy(IWallet* wallet);
         void connect(io::Address address, ConnectCallback&& callback);
     private:
         // INetworkIO
-        void send_tx_invitation(PeerId to, wallet::sender::InvitationData::Ptr) override;
-        void send_tx_confirmation(PeerId to, wallet::sender::ConfirmationData::Ptr) override;
-        void sendChangeOutputConfirmation(PeerId to) override;
-        void send_tx_confirmation(PeerId to, wallet::receiver::ConfirmationData::Ptr) override;
-        void register_tx(PeerId to, wallet::receiver::RegisterTxData::Ptr) override;
+        void send_tx_invitation(PeerId to, wallet::sender::InvitationData::Ptr&&) override;
+        void send_tx_confirmation(PeerId to, wallet::sender::ConfirmationData::Ptr&&) override;
+        void send_output_confirmation(PeerId to, None&&) override;
+        void send_tx_confirmation(PeerId to, wallet::receiver::ConfirmationData::Ptr&&) override;
+        void register_tx(PeerId to, wallet::receiver::RegisterTxData::Ptr&&) override;
         void send_tx_registered(PeerId to, UuidPtr&& txId) override;
 
         // IMsgHandler
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;
         void on_connection_error(uint64_t fromStream, int errorCode) override;
+
+        // handlers for the protocol messages
+        bool on_sender_inviatation(uint64_t connectionId, wallet::sender::InvitationData&& data);
 
         void thread_func();
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, int errorCode);
@@ -95,6 +100,8 @@ namespace beam
         io::Address m_address;
         io::Reactor::Ptr m_reactor;
         io::TcpServer::Ptr m_server;
+        WalletToNetworkBridge m_bridge;
+        IWallet* m_wallet;
         Thread m_thread;
         std::map<uint64_t, std::unique_ptr<Connection>> m_connections;
         std::map<uint64_t, ConnectCallback> m_connections_callbacks;

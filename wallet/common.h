@@ -66,7 +66,7 @@ namespace beam
             {
                 virtual void send_tx_invitation(InvitationData::Ptr) = 0;
                 virtual void send_tx_confirmation(ConfirmationData::Ptr) = 0;
-                virtual void sendChangeOutputConfirmation() = 0;
+                virtual void send_output_confirmation() = 0;
                 virtual void remove_sender(const Uuid&) = 0;
             };
         }

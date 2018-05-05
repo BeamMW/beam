@@ -97,7 +97,7 @@ namespace beam
     void Wallet::send_tx_invitation(sender::InvitationData::Ptr data)
     {
         if (auto it = m_peers.find(data->m_txId); it != m_peers.end()) {
-            m_network.send_tx_invitation(it->second, data);
+            m_network.send_tx_invitation(it->second, move(data));
         }
         else {
             // log
@@ -108,16 +108,16 @@ namespace beam
     void Wallet::send_tx_confirmation(sender::ConfirmationData::Ptr data)
     {
         if (auto it = m_peers.find(data->m_txId); it != m_peers.end()) {
-            m_network.send_tx_confirmation(it->second, data);
+            m_network.send_tx_confirmation(it->second, move(data));
         }
         else {
             // log
         }
     }
 
-    void Wallet::sendChangeOutputConfirmation()
+    void Wallet::send_output_confirmation()
     {
-        m_network.sendChangeOutputConfirmation(PeerId());
+        m_network.send_output_confirmation(PeerId(), None{});
     }
 
     void Wallet::remove_sender(const Uuid& txId)
@@ -134,14 +134,14 @@ namespace beam
     void Wallet::send_tx_confirmation(receiver::ConfirmationData::Ptr data)
     {
         if (auto it = m_peers.find(data->m_txId); it != m_peers.end()) {
-            m_network.send_tx_confirmation(it->second, data);
+            m_network.send_tx_confirmation(it->second, move(data));
         }
     }
 
     void Wallet::register_tx(receiver::RegisterTxData::Ptr data)
     {
         if (auto it = m_peers.find(data->m_txId); it != m_peers.end()) {
-            m_network.register_tx(it->second, data);
+            m_network.register_tx(it->second, move(data));
         }
     }
 
@@ -163,7 +163,7 @@ namespace beam
         }
     }
 
-    void Wallet::handle_tx_invitation(PeerId from, sender::InvitationData::Ptr data)
+    void Wallet::handle_tx_invitation(PeerId from, sender::InvitationData::Ptr&& data)
     {
         auto it = m_receivers.find(data->m_txId);
         if (it == m_receivers.end())
@@ -178,7 +178,7 @@ namespace beam
         }
     }
     
-    void Wallet::handle_tx_confirmation(PeerId from, sender::ConfirmationData::Ptr data)
+    void Wallet::handle_tx_confirmation(PeerId from, sender::ConfirmationData::Ptr&& data)
     {
         auto it = m_receivers.find(data->m_txId);
         if (it != m_receivers.end())
@@ -191,7 +191,7 @@ namespace beam
         }
     }
 
-    void Wallet::handleOutputConfirmation(PeerId from)
+    void Wallet::handle_output_confirmation(PeerId from, None&&)
     {
         // TODO: this code is for test only, it should be rewrited
         if (!m_receivers.empty())
@@ -206,7 +206,7 @@ namespace beam
         }
     }
    
-    void Wallet::handle_tx_confirmation(PeerId from, receiver::ConfirmationData::Ptr data)
+    void Wallet::handle_tx_confirmation(PeerId from, receiver::ConfirmationData::Ptr&& data)
     {
         auto it = m_senders.find(data->m_txId);
         if (it != m_senders.end())

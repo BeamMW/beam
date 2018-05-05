@@ -152,7 +152,7 @@ namespace beam::wallet
 
     void Sender::FSMDefinition::confirmChangeOutput(const TxConfirmationCompleted&)
     {
-        m_gateway.sendChangeOutputConfirmation();
+        m_gateway.send_output_confirmation();
     }
 
     void Sender::FSMDefinition::completeTx(const TxOutputConfirmCompleted&)

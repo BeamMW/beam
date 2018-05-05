@@ -12,9 +12,11 @@ namespace beam {
         : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, *this, 200 }
         , m_address{address}
         , m_reactor{ io::Reactor::create(io::Config()) }
+        , m_bridge{*this, m_reactor }
+        , m_wallet{nullptr}
         , m_connection_tag{0}
     {
-       // m_protocol.add_message_handler<wallet::sender::InvitationData::Ptr, &WalletNetworkIO::on_request>(requestCode, 1, 2000000);
+      // m_protocol.add_message_handler<wallet::sender::InvitationData, &WalletNetworkIO::on_sender_inviatation>(senderInvitationCode, 1, 2000);
        // m_protocol.add_message_handler<Response, &WalletNetworkIO::on_response>(responseCode, 1, 200);
     }
 
@@ -37,34 +39,46 @@ namespace beam {
         m_thread.join();
     }
 
+    INetworkIO& WalletNetworkIO::get_network_proxy()
+    {
+        return m_bridge;
+    }
+
+    void WalletNetworkIO::set_wallet_proxy(IWallet* wallet)
+    {
+        assert(wallet != nullptr && m_wallet == nullptr);
+        m_wallet = wallet;
+    }
+
     void WalletNetworkIO::connect(io::Address address, ConnectCallback&& callback)
     {
+        assert(m_wallet != nullptr);
         auto tag = get_connection_tag();
         m_connections_callbacks.emplace(tag, callback);
         m_reactor->tcp_connect(address, tag, BIND_THIS_MEMFN(on_client_connected));
     }
 
-    void WalletNetworkIO::send_tx_invitation(PeerId to, wallet::sender::InvitationData::Ptr data)
+    void WalletNetworkIO::send_tx_invitation(PeerId to, wallet::sender::InvitationData::Ptr&& data)
     {
         send(to, senderInvitationCode, *data);
     }
 
-    void WalletNetworkIO::send_tx_confirmation(PeerId to, wallet::sender::ConfirmationData::Ptr data)
+    void WalletNetworkIO::send_tx_confirmation(PeerId to, wallet::sender::ConfirmationData::Ptr&& data)
     {
         send(to, senderConfirmationCode, *data);
     }
 
-    void WalletNetworkIO::sendChangeOutputConfirmation(PeerId to)
+    void WalletNetworkIO::send_output_confirmation(PeerId to, None&&)
     {
 
     }
 
-    void WalletNetworkIO::send_tx_confirmation(PeerId to, wallet::receiver::ConfirmationData::Ptr data)
+    void WalletNetworkIO::send_tx_confirmation(PeerId to, wallet::receiver::ConfirmationData::Ptr&& data)
     {
         send(to, receiverConfirmationCode, *data);
     }
 
-    void WalletNetworkIO::register_tx(PeerId to, wallet::receiver::RegisterTxData::Ptr data)
+    void WalletNetworkIO::register_tx(PeerId to, wallet::receiver::RegisterTxData::Ptr&& data)
     {
        // send(to, receiverConfirmationCode, *data);
         stop();
@@ -74,6 +88,18 @@ namespace beam {
     {
         send(to, receiverTxRegisteredCode, *txId);
     }
+
+    bool WalletNetworkIO::on_sender_inviatation(uint64_t connectionId, wallet::sender::InvitationData&& data)
+    {
+        // this assertion is for this test only
+        //assert(connectionId = address.packed);
+        //if (!req.is_valid()) return false; // shut down stream
+
+        //                                   // TODO const Object& --> Object&&, they are not needed any more on protocol side
+      //  m_wallet->handle_tx_invitation(connectionId, wallet::sender::InvitationData::Ptr(move(data)));
+        return true;
+    }
+
 
     void WalletNetworkIO::thread_func()
     {
