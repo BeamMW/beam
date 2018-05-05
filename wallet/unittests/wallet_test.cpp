@@ -9,6 +9,8 @@
 #include <atomic>
 #include <condition_variable>
 
+#include "sqlite_keychain.hpp"
+
 using namespace beam;
 using namespace std;
 
@@ -130,77 +132,15 @@ namespace
         }
     };
 
-    //static const char* WalletName = "wallet.dat";
-    //static const char* TestPassword = "test password";
-    //class TestKeyChainIntegration : public IKeyChain
-    //{
-    //public:
-
-    //    TestKeyChainIntegration()
-    //    {
-    //        std::ofstream os;
-    //        os.open(WalletName, std::ofstream::binary);
-
-    //        addCoin(os, 4);
-    //        addCoin(os, 3);
-    //        addCoin(os, 2);
-
-    //        os.close();
-    //    }
-
-    //    ECC::Scalar getNextKey()
-    //    {
-    //        return CoinData::keygen.next().get();
-    //    }
-
-    //    std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock)
-    //    {
-    //        std::vector<beam::Coin> res;
-
-    //        std::ifstream is;
-    //        is.open(WalletName, std::ofstream::binary);
-
-    //        size_t offset = 0;
-
-    //        while(true)
-    //        {
-    //            std::unique_ptr<CoinData> coin(CoinData::recover(is, offset, TestPassword));
-
-    //            if(coin) 
-    //                res.push_back(*coin);
-    //            else break;
-
-    //            offset += SIZE_COIN_DATA;
-    //        }
-
-    //        is.close();
-
-    //        return res;
-    //    }
-
-    //    void store(const beam::Coin& coin)
-    //    {
-
-    //    }
-
-    //    void update(const std::vector<beam::Coin>& coins)
-    //    {
-
-    //    }
-
-    //    void remove(const std::vector<beam::Coin>& coins)
-    //    {
-
-    //    }
-    //    
-    //private:
-
-    //    void addCoin(std::ofstream& os, const ECC::Amount& amount)
-    //    {
-    //        CoinData coin(amount);
-    //        coin.write(os, TestPassword);
-    //    }
-    //};
+	struct SqliteKeychainInt : SqliteKeychain
+	{
+		SqliteKeychainInt()
+		{
+			store(beam::Coin(getNextID(), 5));
+			store(beam::Coin(getNextID(), 2));
+			store(beam::Coin(getNextID(), 3));
+		}
+	};
 
     template<typename KeychainImpl>
     IKeyChain::Ptr createKeyChain()
@@ -531,7 +471,7 @@ int main()
 {
   //  TestFSM();
     TestWalletNegotiation<TestKeyChain, TestKeyChain2>();
-    //TestWalletNegotiation<TestKeyChainIntegration, TestKeyChain2>();
+    TestWalletNegotiation<SqliteKeychainInt, TestKeyChain2>();
     TestRollback();
 
     return WALLET_CHECK_RESULT;
