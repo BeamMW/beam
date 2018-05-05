@@ -10,7 +10,7 @@ void timer_test() {
     Timer::Ptr timer = Timer::create(reactor);
     int countdown = 5;
 
-    cout << "setting up one-short timer" << endl;
+    cout << "setting up one-shot timer" << endl;
     timer->start(
         600,
         false,

@@ -15,6 +15,10 @@ Timer::Ptr Timer::create(const Reactor::Ptr& reactor) {
 expected<void, ErrorCode> Timer::start(unsigned intervalMsec, bool isPeriodic, Callback&& callback) {
     assert(callback);
     _callback = std::move(callback);
+    if (intervalMsec == unsigned(-1)) {
+        // just set callback
+        return ok();
+    }
     return restart(intervalMsec, isPeriodic);
 }
 
