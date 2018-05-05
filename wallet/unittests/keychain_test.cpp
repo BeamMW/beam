@@ -6,7 +6,6 @@
 #include <boost/filesystem.hpp>
 
 #include <algorithm>
-#include <functional>
 
 // Valdo's point generator of elliptic curve
 namespace ECC {
@@ -101,9 +100,8 @@ namespace
 
 		virtual void store(const beam::Coin& coin)
 		{
-			static const char* str = "INSERT INTO storage (amount, status) VALUES(?1, ?2);";
 			sqlite3_stmt* stm = nullptr;
-			int ret = sqlite3_prepare_v2(_db, str, strlen(str), &stm, NULL);
+			int ret = sqlite3_prepare_v2(_db, "INSERT INTO storage (amount, status) VALUES(?1, ?2);", -1, &stm, NULL);
 			assert(ret == SQLITE_OK);
 
 			sqlite3_bind_int64(stm, 1, coin.m_amount);
@@ -147,9 +145,9 @@ void TestKeychain()
 	assert(keychain.getNextID() == 1);
 
 	beam::Coin coin1(keychain.getNextID(), 5);
-	beam::Coin coin2(keychain.getNextID(), 2);
-
 	keychain.store(coin1);
+
+	beam::Coin coin2(keychain.getNextID(), 2);
 	keychain.store(coin2);
 
 	assert(keychain.getNextID() == 3);
@@ -157,6 +155,17 @@ void TestKeychain()
 	auto coins = keychain.getCoins(7);
 
 	assert(coins.size() == 2);
+
+	std::vector<beam::Coin> localCoins;
+	localCoins.push_back(coin2);
+	localCoins.push_back(coin1);
+
+	for (int i = 0; i < coins.size(); ++i)
+	{
+		assert(localCoins[i].m_id == coins[i].m_id);
+		assert(localCoins[i].m_amount == coins[i].m_amount);
+		assert(localCoins[i].m_status == coins[i].m_status);
+	}
 }
 
 int main() {
