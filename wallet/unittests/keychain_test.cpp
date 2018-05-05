@@ -105,10 +105,7 @@ namespace
 			assert(ret == SQLITE_OK);
 
 			sqlite3_bind_int64(stm, 1, coin.m_amount);
-			assert(ret == SQLITE_OK);
-
 			sqlite3_bind_int(stm, 2, coin.m_status);
-			assert(ret == SQLITE_OK);
 
 			ret = sqlite3_step(stm);
 			assert(ret == SQLITE_DONE);
@@ -118,9 +115,20 @@ namespace
 
 		virtual void update(const std::vector<beam::Coin>& coins)
 		{
-			std::for_each(coins.begin(), coins.end(), [](const beam::Coin& coin) 
+			std::for_each(coins.begin(), coins.end(), [&](const beam::Coin& coin) 
 			{
-				// TODO: update coin
+				sqlite3_stmt* stm = nullptr;
+				int ret = sqlite3_prepare_v2(_db, "UPDATE storage SET amount=?2, status=?3 WHERE id=?1;", -1, &stm, NULL);
+				assert(ret == SQLITE_OK);
+
+				sqlite3_bind_int64(stm, 1, coin.m_id);
+				sqlite3_bind_int64(stm, 2, coin.m_amount);
+				sqlite3_bind_int(stm, 3, coin.m_status);
+
+				ret = sqlite3_step(stm);
+				assert(ret == SQLITE_DONE);
+
+				sqlite3_finalize(stm);
 			});
 		}
 
@@ -156,15 +164,27 @@ void TestKeychain()
 
 	assert(coins.size() == 2);
 
-	std::vector<beam::Coin> localCoins;
-	localCoins.push_back(coin2);
-	localCoins.push_back(coin1);
-
-	for (int i = 0; i < coins.size(); ++i)
 	{
-		assert(localCoins[i].m_id == coins[i].m_id);
-		assert(localCoins[i].m_amount == coins[i].m_amount);
-		assert(localCoins[i].m_status == coins[i].m_status);
+		std::vector<beam::Coin> localCoins;
+		localCoins.push_back(coin2);
+		localCoins.push_back(coin1);
+
+		for (int i = 0; i < coins.size(); ++i)
+		{
+			assert(localCoins[i].m_id == coins[i].m_id);
+			assert(localCoins[i].m_amount == coins[i].m_amount);
+			assert(localCoins[i].m_status == coins[i].m_status);
+		}
+	}
+
+	{
+		std::vector<beam::Coin> coins;
+		coin2.m_status = beam::Coin::Spent;
+		coins.push_back(coin2);
+
+		keychain.update(coins);
+
+		assert(keychain.getCoins(7).size() == 1);
 	}
 }
 
