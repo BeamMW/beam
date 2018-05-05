@@ -2,7 +2,6 @@
 #include "exception.h"
 #include "mempool.h"
 #include "address.h"
-#include "utility/expected.h"
 #include <memory>
 #include <functional>
 #include <unordered_map>
@@ -11,6 +10,7 @@
 namespace beam { namespace io {
 
 class TcpStream;
+class CoarseTimer;
 
 class Reactor : public std::enable_shared_from_this<Reactor> {
 public:
@@ -34,7 +34,7 @@ public:
 
     using ConnectCallback = std::function<void(uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode errorCode)>;
 
-    expected<void, ErrorCode> tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback);
+    expected<void, ErrorCode> tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec=-1);
 
     void cancel_tcp_connect(uint64_t tag);
 
@@ -84,6 +84,10 @@ private:
     };
 
     void connect_callback(ConnectContext* ctx, ErrorCode errorCode);
+    
+    void connect_timeout_callback(uint64_t tag);
+    
+    void cancel_tcp_connect_impl(std::unordered_map<uint64_t, ConnectContext>::iterator& it);
 
     ErrorCode init_asyncevent(Object* o, uv_async_cb cb);
 
@@ -110,6 +114,7 @@ private:
     MemPool<uv_connect_t, sizeof(uv_connect_t)> _connectRequestsPool;
     std::unordered_map<uint64_t, ConnectContext> _connectRequests;
     std::unordered_set<uv_connect_t*> _cancelledConnectRequests;
+    std::unique_ptr<CoarseTimer> _connectTimer;
     
     friend class AsyncEvent;
     friend class Timer;

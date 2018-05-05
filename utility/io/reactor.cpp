@@ -1,7 +1,8 @@
 #include "reactor.h"
 #include "tcpstream.h"
-#include "exception.h"
+#include "coarsetimer.h"
 #include "utility/config.h"
+#include "utility/helpers.h"
 #include <assert.h>
 #include <stdlib.h>
 
@@ -41,7 +42,13 @@ ErrorCode Reactor::initialize() {
         return errorCode;
     }
     _stopEvent.data = this;
-        
+
+    _connectTimer = CoarseTimer::create(
+        shared_from_this(), 
+        config().get_int("io.connect_timer_resolution", 1000, 1, 60000),
+        BIND_THIS_MEMFN(connect_timeout_callback)
+    );
+    
     return EC_OK;
 }
 
@@ -210,7 +217,7 @@ ErrorCode Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     return errorCode;
 }
 
-expected<void, ErrorCode> Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback) {
+expected<void, ErrorCode> Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec) {
     assert(callback);
     assert(address);
     assert(_connectRequests.count(tag) == 0);
@@ -259,12 +266,18 @@ expected<void, ErrorCode> Reactor::tcp_connect(Address address, uint64_t tag, co
             }
         }
     );
+    
+    if (!errorCode && timeoutMsec >= 0) {
+        auto result = _connectTimer->set_timer(tag, timeoutMsec);
+        if (!result) errorCode = result.error();
+    }
+    
     if (errorCode) {
         async_close(h);
         _connectRequests.erase(tag);
         return make_unexpected(errorCode);
     }
-    
+  
     return ok();
 }
 
@@ -292,15 +305,29 @@ void Reactor::connect_callback(Reactor::ConnectContext* ctx, ErrorCode errorCode
     callback(tag, std::move(stream), errorCode);
 }
 
+void Reactor::connect_timeout_callback(uint64_t tag) {
+    auto it = _connectRequests.find(tag);
+    if (it != _connectRequests.end()) {
+        ConnectCallback cb = it->second.callback;
+        cancel_tcp_connect_impl(it);
+        cb(tag, TcpStream::Ptr(), EC_ETIMEDOUT);
+    }
+}
+
 void Reactor::cancel_tcp_connect(uint64_t tag) {
     auto it = _connectRequests.find(tag);
     if (it != _connectRequests.end()) {
-        uv_connect_t* request = it->second.request;
-        uv_handle_t* h = (uv_handle_t*)request->handle;
-        async_close(h);
-        _cancelledConnectRequests.insert(request);
-        _connectRequests.erase(it);
+        cancel_tcp_connect_impl(it);
+        _connectTimer->cancel(tag);
     }
+}
+
+void Reactor::cancel_tcp_connect_impl(std::unordered_map<uint64_t, ConnectContext>::iterator& it) {
+    uv_connect_t* request = it->second.request;
+    uv_handle_t* h = (uv_handle_t*)request->handle;
+    async_close(h);
+    _cancelledConnectRequests.insert(request);
+    _connectRequests.erase(it);
 }
 
 void Reactor::async_close(uv_handle_t*& handle) {
