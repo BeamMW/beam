@@ -1,5 +1,4 @@
 #include "timer.h"
-#include "exception.h"
 #include <assert.h>
 
 namespace beam { namespace io {
@@ -12,17 +11,17 @@ Timer::Ptr Timer::create(const Reactor::Ptr& reactor) {
     return timer;
 }
 
-expected<void, ErrorCode> Timer::start(unsigned intervalMsec, bool isPeriodic, Callback&& callback) {
+Result Timer::start(unsigned intervalMsec, bool isPeriodic, Callback&& callback) {
     assert(callback);
     _callback = std::move(callback);
     if (intervalMsec == unsigned(-1)) {
         // just set callback
-        return ok();
+        return Ok();
     }
     return restart(intervalMsec, isPeriodic);
 }
 
-expected<void, ErrorCode> Timer::restart(unsigned intervalMsec, bool isPeriodic) {
+Result Timer::restart(unsigned intervalMsec, bool isPeriodic) {
     assert(_callback);
 
     return make_result(

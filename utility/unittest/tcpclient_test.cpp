@@ -1,6 +1,5 @@
 #include "utility/io/reactor.h"
 #include "utility/io/tcpstream.h"
-#include "utility/io/exception.h"
 #include <iostream>
 #include <assert.h>
 #include "utility/logger.h"

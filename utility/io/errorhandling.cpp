@@ -1,4 +1,4 @@
-#include "exception.h"
+#include "errorhandling.h"
 #include <stdio.h>
 
 namespace beam { namespace io {

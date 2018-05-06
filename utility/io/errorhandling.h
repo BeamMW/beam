@@ -5,7 +5,8 @@
 #include <string>
 
 namespace beam { namespace io {
-    
+
+/// Error codes from libuv + custom error codes    
 enum ErrorCode {
     EC_OK = 0,
     EC_WRITE_BUFFER_OVERFLOW = UV_ERRNO_MAX - 1,
@@ -14,8 +15,17 @@ enum ErrorCode {
 #undef XX
 };
 
-inline expected<void,ErrorCode> ok() { return expected<void,ErrorCode>(); }
-inline expected<void,ErrorCode> make_result(ErrorCode errorCode) { return errorCode ? make_unexpected(errorCode) : ok(); }
+/// Tag struct for returning no errors
+struct Ok {
+    operator bool() const { return true; }
+    bool operator==(Ok) { return true; }
+};
+
+/// Result type for functions that may return error codes
+using Result = expected<Ok, ErrorCode>;
+
+/// Result returning helper
+inline Result make_result(ErrorCode errorCode) { return errorCode ? make_unexpected(errorCode) : Result(); }
 
 /// Returns short error string, e.g. "EINVAL"
 const char* error_str(ErrorCode errorCode);

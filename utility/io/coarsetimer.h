@@ -16,7 +16,7 @@ public:
     static Ptr create(const Reactor::Ptr& reactor, unsigned resolutionMsec, const Callback& cb);
     
     /// Sets up timer callback for id, EC_EINVAL if id is already there or on timer setup failure
-    expected<void, ErrorCode> set_timer(unsigned intervalMsec, ID id);
+    Result set_timer(unsigned intervalMsec, ID id);
     
     /// Cancels callback for id
     void cancel(ID id);
@@ -34,7 +34,7 @@ private:
     using Clock = uint64_t;
    
     /// Updates timer after insertion
-    expected<void, ErrorCode> update_timer(Clock now);
+    Result update_timer(Clock now);
 
     /// Flag that prevents from updating timer too often
     bool _insideCallback=false;

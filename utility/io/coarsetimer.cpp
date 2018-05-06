@@ -27,7 +27,7 @@ static inline uint64_t mono_clock() {
     return uv_hrtime() / 1000000; //nsec->msec, monotonic clock
 }
 
-expected<void, ErrorCode> CoarseTimer::set_timer(unsigned intervalMsec, ID id) {
+Result CoarseTimer::set_timer(unsigned intervalMsec, ID id) {
     if (_validIds.count(id)) return make_unexpected(EC_EINVAL);
     if (intervalMsec > 0 && intervalMsec < unsigned(-1) - _resolution) {
         // if 0 then callback will fire on next event loop cycle, otherwise adjust to coarse resolution
@@ -54,8 +54,8 @@ void CoarseTimer::cancel_all() {
     }
 }
 
-expected<void, ErrorCode> CoarseTimer::update_timer(CoarseTimer::Clock now) {
-    if (_insideCallback) return ok();
+Result CoarseTimer::update_timer(CoarseTimer::Clock now) {
+    if (_insideCallback) return Ok();
     
     assert (!_queue.empty());
     
@@ -65,7 +65,7 @@ expected<void, ErrorCode> CoarseTimer::update_timer(CoarseTimer::Clock now) {
         return _timer->restart(unsigned(next-now), false);
     }
     
-    return ok();
+    return Ok();
 }
 
 void CoarseTimer::on_timer() {

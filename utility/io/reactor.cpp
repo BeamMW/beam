@@ -217,7 +217,7 @@ ErrorCode Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     return errorCode;
 }
 
-expected<void, ErrorCode> Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec) {
+Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec) {
     assert(callback);
     assert(address);
     assert(_connectRequests.count(tag) == 0);
@@ -278,7 +278,7 @@ expected<void, ErrorCode> Reactor::tcp_connect(Address address, uint64_t tag, co
         return make_unexpected(errorCode);
     }
   
-    return ok();
+    return Ok();
 }
 
 void Reactor::connect_callback(Reactor::ConnectContext* ctx, ErrorCode errorCode) {
