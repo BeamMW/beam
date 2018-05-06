@@ -40,7 +40,12 @@ Result CoarseTimer::set_timer(unsigned intervalMsec, ID id) {
     Clock clock = now + intervalMsec;
     _queue.insert({ clock, id });
     _validIds.insert({ id, clock });
-    return update_timer(now, clock);
+    if (!_insideCallback && _timerSetTo > clock) {
+        LOG_VERBOSE() << "restart=" << intervalMsec;
+        _timerSetTo = clock;
+        return _timer->restart(intervalMsec, false);
+    }
+    return Ok();
 }
 
 void CoarseTimer::cancel(ID id) {
@@ -51,24 +56,10 @@ void CoarseTimer::cancel(ID id) {
 void CoarseTimer::cancel_all() {
     _validIds.clear();
     _queue.clear();
-    if (_nextTime != NEVER) {
+    if (_timerSetTo != NEVER) {
         _timer->cancel();
-        _nextTime = NEVER;
+        _timerSetTo = NEVER;
     }
-}
-
-Result CoarseTimer::update_timer(CoarseTimer::Clock now, CoarseTimer::Clock next) {
-    if (_insideCallback) return Ok();
-    
-    LOG_VERBOSE() << "now=" << now << " next=" << next << " _nextTime=" << _nextTime;
-    
-    if (next < _nextTime) {
-        _nextTime = (now < next) ? next : now;
-        LOG_DEBUG() << "restart=" << unsigned(_nextTime - now);
-        return _timer->restart(unsigned(_nextTime - now), false);
-    }
-    
-    return Ok();
 }
 
 // uv timers inaccurate intervals
@@ -89,7 +80,7 @@ void CoarseTimer::on_timer() {
         
         clock = it->first;
         
-        LOG_VERBOSE() << "now=" << now << " clock=" << clock << " _nextTime=" << _nextTime;
+        LOG_VERBOSE() << "now=" << now << " clock=" << clock << " _timerSetTo=" << _timerSetTo;
         
         if (clock > now + TIMER_ACCURACY) break;
         ID id = it->second;
@@ -113,7 +104,16 @@ void CoarseTimer::on_timer() {
     if (_queue.empty()) {
         cancel_all();
     } else {
-        update_timer(mono_clock(), clock);
+        now = mono_clock();
+        unsigned intervalMsec = 0;
+        if (clock > now) intervalMsec = unsigned(clock - now);
+        LOG_VERBOSE() << "restart=" << intervalMsec;
+        Result res =_timer->restart(intervalMsec, false);
+        if (!res) {
+            LOG_ERROR() << "cannot restart timer, code=" << res.error(); 
+        } else {
+            _timerSetTo = now + intervalMsec;
+        }
     }
 }
     

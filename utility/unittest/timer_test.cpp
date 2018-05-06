@@ -1,6 +1,8 @@
 #include "utility/io/coarsetimer.h"
-#include "utility/logger.h"
 #include <set>
+
+#define LOG_VERBOSE_ENABLED 1
+#include "utility/logger.h"
 
 using namespace beam;
 using namespace beam::io;
@@ -83,8 +85,12 @@ void coarsetimer_test() {
 
 int main() {
     LoggerConfig lc;
-    lc.consoleLevel = LOG_LEVEL_DEBUG;
-    lc.flushLevel = LOG_LEVEL_DEBUG;
+    int logLevel = LOG_LEVEL_DEBUG;
+#if LOG_VERBOSE_ENABLED
+    logLevel = LOG_LEVEL_VERBOSE;
+#endif
+    lc.consoleLevel = logLevel;
+    lc.flushLevel = logLevel;
     auto logger = Logger::create(lc);
     timer_test();
     coarsetimer_test();

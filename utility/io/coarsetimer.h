@@ -35,9 +35,6 @@ private:
     using Clock = uint64_t;
     static constexpr Clock NEVER = std::numeric_limits<Clock>::max();
    
-    /// Updates timer after insertion
-    Result update_timer(Clock now, Clock next);
-
     /// Flag that prevents from updating timer too often
     bool _insideCallback=false;
     
@@ -54,7 +51,7 @@ private:
     std::map<ID, Clock> _validIds;
   
     /// Next time to wake
-    Clock _nextTime=NEVER;
+    Clock _timerSetTo=NEVER;
     
     /// Timer object
     Timer::Ptr _timer;
