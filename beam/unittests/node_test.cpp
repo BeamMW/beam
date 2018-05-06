@@ -142,12 +142,15 @@ namespace beam
 
 		db.SetStateBlock(pRows[0], bBody, peerID);
 
-		ByteBuffer bbBody;
+		ByteBuffer bbBody, bbRollback;
 		ZeroObject(peerID);
-		db.GetStateBlock(pRows[0], bbBody, peerID);
+		db.GetStateBlock(pRows[0], bbBody, bbRollback, peerID);
+		db.SetStateRollback(pRows[0], bBody);
+		db.GetStateBlock(pRows[0], bbBody, bbRollback, peerID);
+
 		db.DelStateBlock(pRows[0]);
 		ZeroObject(peerID);
-		db.GetStateBlock(pRows[0], bbBody, peerID);
+		db.GetStateBlock(pRows[0], bbBody, bbRollback, peerID);
 
 		tr.Commit();
 		tr.Start(db);

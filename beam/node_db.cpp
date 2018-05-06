@@ -25,6 +25,7 @@ namespace beam {
 #define TblStates_PoW			"PoW"
 #define TblStates_Mmr			"Mmr"
 #define TblStates_Body			"Body"
+#define TblStates_Rollback		"Rollback"
 #define TblStates_Peer			"Peer"
 
 #define TblTips					"Tips"
@@ -252,6 +253,7 @@ void NodeDB::Create()
 		//"[" TblStates_BlindOffset	"] BLOB,"
 		"[" TblStates_Mmr			"] BLOB,"
 		"[" TblStates_Body			"] BLOB,"
+		"[" TblStates_Rollback		"] BLOB,"
 		"[" TblStates_Peer			"] BLOB,"
 		"PRIMARY KEY (" TblStates_Height "," TblStates_Hash "),"
 		"FOREIGN KEY (" TblStates_RowPrev ") REFERENCES " TblStates "(OID))");
@@ -863,9 +865,9 @@ void NodeDB::SetStateBlock(uint64_t rowid, const Blob& body, const PeerID& peer)
 	TestChanged1Row();
 }
 
-void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, PeerID& peer)
+void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rollback, PeerID& peer)
 {
-	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_Body "," TblStates_Peer " FROM " TblStates " WHERE rowid=?");
+	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_Body "," TblStates_Rollback "," TblStates_Peer " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 	if (!rs.Step())
 		throw "oops3";
@@ -873,8 +875,20 @@ void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, PeerID& peer)
 	if (!rs.IsNull(0))
 	{
 		rs.get(0, body);
-		rs.get_As(1, peer);
+		if (!rs.IsNull(1))
+			rs.get(1, rollback);
+		rs.get_As(2, peer);
 	}
+}
+
+void NodeDB::SetStateRollback(uint64_t rowid, const Blob& rollback)
+{
+	Recordset rs(*this, Query::StateSetRollback, "UPDATE " TblStates " SET " TblStates_Rollback "=? WHERE rowid=?");
+	rs.put(0, rollback);
+	rs.put(1, rowid);
+
+	rs.Step();
+	TestChanged1Row();
 }
 
 void NodeDB::DelStateBlock(uint64_t rowid)

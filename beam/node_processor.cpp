@@ -169,8 +169,8 @@ void NodeProcessor::get_CurrentLive(Merkle::Hash& hv)
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool bFwd)
 {
-	ByteBuffer bb;
-	m_DB.GetStateBlock(sid.m_Row, bb, peer);
+	ByteBuffer bb, rrRollback;
+	m_DB.GetStateBlock(sid.m_Row, bb, rrRollback, peer);
 
 	uint32_t nFlags;
 	bool bFirstTime;

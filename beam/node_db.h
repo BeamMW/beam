@@ -74,6 +74,7 @@ public:
 			StateGetBlock,
 			StateSetBlock,
 			StateDelBlock,
+			StateSetRollback,
 
 			Dbg0,
 			Dbg1,
@@ -176,7 +177,8 @@ public:
 	typedef Merkle::Hash PeerID;
 
 	void SetStateBlock(uint64_t rowid, const Blob& body, const PeerID& peer);
-	void GetStateBlock(uint64_t rowid, ByteBuffer& body, PeerID& peer);
+	void GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rollback, PeerID& peer);
+	void SetStateRollback(uint64_t rowid, const Blob& rollback);
 	void DelStateBlock(uint64_t rowid);
 
 	struct StateID {
