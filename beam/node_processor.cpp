@@ -171,7 +171,7 @@ struct NodeProcessor::RollbackData
 {
 	// helper structures for rollback
 	struct Utxo {
-		Height m_Height; // the extra info we need to restore an UTXO, in addition to the Input.
+		Height m_Maturity; // the extra info we need to restore an UTXO, in addition to the Input.
 	};
 
 	ByteBuffer m_Buf;
@@ -265,7 +265,7 @@ bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, Rol
 	if (bFwd)
 	{
 		for ( ; nInp < tx.m_vInputs.size(); nInp++)
-			if (!HandleBlockElement(*tx.m_vInputs[nInp], bFwd, rbData))
+			if (!HandleBlockElement(*tx.m_vInputs[nInp], bFwd, h, rbData))
 			{
 				bOk = false;
 				break;
@@ -321,22 +321,27 @@ bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, Rol
 			HandleBlockElement(*tx.m_vOutputs[nOut], h, false);
 
 		while (nInp--)
-			HandleBlockElement(*tx.m_vInputs[nInp], false, rbData);
+			HandleBlockElement(*tx.m_vInputs[nInp], false, h, rbData);
 	}
 
 	return bOk;
 }
 
-bool NodeProcessor::HandleBlockElement(Input& v, bool bFwd, RollbackData& rbData)
+bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd, Height h, RollbackData& rbData)
 {
-	UtxoTree::Key key;
-	key = v;
+	UtxoTree::Key::Data d;
+	d.m_Commitment = v.m_Commitment;
 
-	if (!bFwd)
+	if (bFwd)
+		d.m_Maturity = 0; // find min
+	else
 	{
-		// TODO
-		const RollbackData::Utxo& x = * --rbData.m_pUtxo;
+		const RollbackData::Utxo& x = *--rbData.m_pUtxo;
+		d.m_Maturity = x.m_Maturity;
 	}
+
+	UtxoTree::Key key;
+	key = d;
 
 	UtxoTree::Cursor cu;
 	bool bCreate = !bFwd;
@@ -356,25 +361,21 @@ bool NodeProcessor::HandleBlockElement(Input& v, bool bFwd, RollbackData& rbData
 		};
 
 		Traveler t;
-		if (!UtxoTree::Traverse(cu, t))
-		{
-			Input v2;
-			t.m_pLeaf->m_Key.ToID(v2);
+		if (UtxoTree::Traverse(cu, t))
+			return false; // not found
 
-			if (v.m_Commitment == v2.m_Commitment)
-			{
-				// Found!
-				p = t.m_pLeaf;
-				v = v2; // adjust
-				key = t.m_pLeaf->m_Key;
-			}
-		}
+		d = t.m_pLeaf->m_Key;
+
+		if (v.m_Commitment != d.m_Commitment)
+			return false; // not found
+
+		if (d.m_Maturity > h)
+			return false; // not mature enough!
+
+		p = t.m_pLeaf;
+		key = t.m_pLeaf->m_Key;
 
 	}
-
-
-	if (!p)
-		return false; // attempt to spend a non-existing UTXO!
 
 	cu.Invalidate();
 
@@ -384,6 +385,10 @@ bool NodeProcessor::HandleBlockElement(Input& v, bool bFwd, RollbackData& rbData
 
 		if (! --p->m_Value.m_Count)
 			m_Utxos.Delete(cu);
+
+		rbData.m_pUtxo->m_Maturity = d.m_Maturity;
+		rbData.m_pUtxo++;
+
 	} else
 	{
 		if (bCreate)
@@ -392,23 +397,19 @@ bool NodeProcessor::HandleBlockElement(Input& v, bool bFwd, RollbackData& rbData
 			p->m_Value.m_Count++;
 	}
 
-	if (bFwd)
-	{
-		// TODO
-		const RollbackData::Utxo& x = *rbData.m_pUtxo++;
-	}
-
 	m_DB.ModifyUtxo(NodeDB::Blob(&key, sizeof(key)), 0, bFwd ? -1 : 1);
 	return true;
 }
 
 bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 {
-	UtxoID utxoid;
-	v.get_ID(utxoid, h);
+	UtxoTree::Key::Data d;
+	d.m_Commitment = v.m_Commitment;
+	d.m_Maturity = h;
+	d.m_Maturity += v.m_Coinbase ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
 
 	UtxoTree::Key key;
-	key = utxoid;
+	key = d;
 	NodeDB::Blob blob(&key, sizeof(key));
 
 	UtxoTree::Cursor cu;
@@ -697,10 +698,6 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 
 	verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
 
-	ctxBlock.m_Block.Sort();
-	ctxBlock.m_Block.DeleteIntermediateOutputs(h);
-	ctxBlock.m_Block.m_Offset = ctxBlock.m_Offset;
-
 	// Finalize block construction.
 	if (h)
 	{
@@ -717,14 +714,18 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	s.m_Height = h;
 	get_CurrentLive(s.m_LiveObjects);
 
-	Serializer ser;
-	ser & ctxBlock.m_Block;
-	ser.swap_buf(block);
-
 	// For test: undo the changes, and then redo, using the newly-created block
 	verify(HandleValidatedTx(ctxBlock.m_Block, h, false, rbData));
 
 	t.Commit();
+
+	ctxBlock.m_Block.Sort();
+	ctxBlock.m_Block.DeleteIntermediateOutputs();
+	ctxBlock.m_Block.m_Offset = ctxBlock.m_Offset;
+
+	Serializer ser;
+	ser & ctxBlock.m_Block;
+	ser.swap_buf(block);
 
 	OnState(s, NodeDB::Blob(NULL, 0), PeerID());
 

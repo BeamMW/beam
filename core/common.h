@@ -47,44 +47,18 @@ namespace beam
 		void Interpret(Hash&, const Hash& hNew, bool bNewOnRight);
 	}
 
-	struct UtxoID
-	{
-		// canonical description
-		ECC::Point	m_Commitment;
-		Height		m_Height;
-		bool		m_Coinbase;
-		bool		m_Confidential;
-
-		int cmp(const UtxoID&) const;
-		COMPARISON_VIA_CMP(UtxoID)
-	};
-
 	struct Input
-		:public UtxoID
 	{
 		typedef std::unique_ptr<Input> Ptr;
+		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system
 
-		Input()
-		{
-			m_Coinbase = false;
-			m_Confidential = false;
-			m_Height = 0;
-		}
-
-		// In case there are multiple UTXOs with the same commitment value (which we permit) the height should be used to distinguish between them
-		//
-		// Transactions:
-		//		In case there's no UTXO with the specified height - the node is allowed to increase it to match the existing UTXO.
-		//		So that if m_Height is the minimum height to spend. Set to 0 (by default?) to spend the most mature.
-		//		Same rule applies for 'Confidential 'flag.
-		//
-		// In the block
-		//		The m_Height and m_Confidential must exactly match the existing UTXO, no auto-adjustments.
-
+		ECC::Point	m_Commitment; // If there are multiple UTXOs matching this commitment (which is supported) the Node always selects the most mature one.
+	
+		int cmp(const Input&) const;
 		COMPARISON_VIA_CMP(Input)
 
-		void get_Hash(Merkle::Hash&) const;
-		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
+		void get_Hash(Merkle::Hash&, Count) const;
+		bool IsValidProof(Count, const Merkle::Proof&, const Merkle::Hash& root) const;
 	};
 
 	inline bool operator < (const Input::Ptr& a, const Input::Ptr& b) { return *a < *b; }
@@ -108,7 +82,6 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		bool IsValid() const;
-		void get_ID(UtxoID&, Height) const;
 
 		int cmp(const Output&) const;
 		COMPARISON_VIA_CMP(Output)
@@ -176,7 +149,7 @@ namespace beam
 		ECC::Scalar m_Offset;
 
 		void Sort(); // w.r.t. the standard
-		size_t DeleteIntermediateOutputs(Height); // assumed to be already sorted. Retruns the num deleted
+		size_t DeleteIntermediateOutputs(); // assumed to be already sorted. Retruns the num deleted
 
 		// tests the validity of all the components, overall arithmetics, and the lexicographical order of the components.
 		// Determines the min/max block height that the transaction can fit, wrt component heights and maturity policies

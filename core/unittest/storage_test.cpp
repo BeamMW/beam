@@ -203,17 +203,15 @@ void DeleteFile(const char* szPath)
 		}
 	}
 
-	void SetRandomUtxoKey(UtxoID& id)
+	void SetRandomUtxoKey(UtxoTree::Key::Data& d)
 	{
-		for (int i = 0; i < sizeof(id.m_Commitment.m_X.m_pData); i++)
-			id.m_Commitment.m_X.m_pData[i] = (uint8_t) rand();
+		for (int i = 0; i < sizeof(d.m_Commitment.m_X.m_pData); i++)
+			d.m_Commitment.m_X.m_pData[i] = (uint8_t) rand();
 
-		id.m_Commitment.m_Y	= (1 & rand()) != 0;
-		id.m_Confidential		= (1 & rand()) != 0;
-		id.m_Coinbase			= (1 & rand()) != 0;
+		d.m_Commitment.m_Y	= (1 & rand()) != 0;
 
-		for (int i = 0; i < sizeof(id.m_Height); i++)
-			((uint8_t*) &id.m_Height)[i] = (uint8_t) rand();
+		for (int i = 0; i < sizeof(d.m_Maturity); i++)
+			((uint8_t*) &d.m_Maturity)[i] = (uint8_t) rand();
 	}
 
 	void TestUtxoTree()
@@ -229,13 +227,14 @@ void DeleteFile(const char* szPath)
 			UtxoTree::Key& key = vKeys[i];
 
 			// random key
-			UtxoID id0, id1;
-			SetRandomUtxoKey(id0);
+			UtxoTree::Key::Data d0, d1;
+			SetRandomUtxoKey(d0);
 
-			key = id0;
-			key.ToID(id1);
+			key = d0;
+			d1 = key;
 
-			verify_test(id0 == id1);
+			verify_test(d0.m_Commitment == d1.m_Commitment);
+			verify_test(d0.m_Maturity == d1.m_Maturity);
 
 			UtxoTree::Cursor cu;
 			bool bCreate = true;

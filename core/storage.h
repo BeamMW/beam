@@ -160,21 +160,22 @@ public:
 
 	// This tree is different from RadixHashOnlyTree in 2 ways:
 	//	1. Each key comes with a count (i.e. duplicates are allowed)
-	//	2. We support "group search", i.e. all elements with s specified subkey. Given the UTXO commitment we can find all the counts and originating blocks.
+	//	2. We support "group search", i.e. all elements with a specified subkey. Given the UTXO commitment we can find all the counts and parameters.
 
 	struct Key
 	{
 		static const uint32_t s_BitsCommitment = sizeof(ECC::uintBig) * 8 + 1; // curve point
 
-		static const uint32_t s_Bits =
-			s_BitsCommitment +
-			2 + // coinbase flag, confidential flag
-			sizeof(Height) * 8; // block height
+		struct Data {
+			ECC::Point m_Commitment;
+			Height m_Maturity;
+			Data& operator = (const Key&);
+		};
 
+		static const uint32_t s_Bits = s_BitsCommitment + sizeof(Height) * 8; // maturity
 		static const uint32_t s_Bytes = (s_Bits + 7) >> 3;
 
-		Key& operator = (const UtxoID&);
-		void ToID(UtxoID&) const;
+		Key& operator = (const Data&);
 
 		int cmp(const Key&) const;
 
@@ -183,7 +184,7 @@ public:
 
 	struct Value
 	{
-		uint32_t m_Count;
+		Input::Count m_Count;
 		void get_Hash(Merkle::Hash&, const Key&) const;
 	};
 

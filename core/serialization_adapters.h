@@ -167,10 +167,8 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Input& input)
         {
-            ar
-                & input.m_Commitment
-                & input.m_Coinbase
-                & input.m_Height;
+			ar
+				& input.m_Commitment;
 
             return ar;
         }
@@ -178,10 +176,8 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, beam::Input& input)
         {
-            ar
-                & input.m_Commitment
-                & input.m_Coinbase
-                & input.m_Height;
+			ar
+				& input.m_Commitment;
 
             return ar;
         }

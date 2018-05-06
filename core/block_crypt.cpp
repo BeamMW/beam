@@ -61,29 +61,23 @@ namespace beam
 	/////////////
 	// Input
 
-	int UtxoID::cmp(const UtxoID& v) const
+	int Input::cmp(const Input& v) const
 	{
-		CMP_MEMBER_EX(m_Commitment)
-		CMP_MEMBER(m_Height)
-		CMP_MEMBER(m_Coinbase)
-		CMP_MEMBER(m_Confidential)
-		return 0;
+		return m_Commitment.cmp(v.m_Commitment);
 	}
 
-	void Input::get_Hash(Merkle::Hash& out) const
+	void Input::get_Hash(Merkle::Hash& out, Count n) const
 	{
 		ECC::Hash::Processor()
 			<< m_Commitment
-			<< m_Height
-			<< m_Coinbase
-			<< m_Confidential
+			<< n
 			>> out;
 	}
 
-	bool Input::IsValidProof(const Merkle::Proof& proof, const Merkle::Hash& root) const
+	bool Input::IsValidProof(Count n, const Merkle::Proof& proof, const Merkle::Hash& root) const
 	{
 		Merkle::Hash hv;
-		get_Hash(hv);
+		get_Hash(hv, n);
 		Merkle::Interpret(hv, proof);
 		return hv == root;
 	}
@@ -117,14 +111,6 @@ namespace beam
 		CMP_MEMBER_PTR(m_pPublic)
 
 		return 0;
-	}
-
-	void Output::get_ID(UtxoID& id, Height h) const
-	{
-		id.m_Commitment = m_Commitment;
-		id.m_Height = h;
-		id.m_Coinbase = m_Coinbase;
-		id.m_Confidential = m_pConfidential.get() != NULL;
 	}
 
 	/////////////
@@ -272,10 +258,6 @@ namespace beam
 				return false;
 			p0Inp = &v;
 
-			Height h = v.m_Coinbase ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
-			h = std::min(v.m_Height + h, Height(-1)); // overflow protection
-			ctx.m_hMin = std::max(ctx.m_hMin, h);
-
 			sigma += ECC::Point::Native(v.m_Commitment);
 		}
 
@@ -381,7 +363,7 @@ namespace beam
 				v.push_back(std::move(vSrc[i]));
 	}
 
-	size_t TxBase::DeleteIntermediateOutputs(Height h)
+	size_t TxBase::DeleteIntermediateOutputs()
 	{
 		size_t nDel = 0;
 
@@ -393,10 +375,8 @@ namespace beam
 			for (; i1 < m_vOutputs.size(); i1++)
 			{
 				Output::Ptr& pOut = m_vOutputs[i1];
-				UtxoID id;
-				pOut->get_ID(id, h);
 
-				int n = pInp->cmp(id);
+				int n = pInp->m_Commitment.cmp(pOut->m_Commitment);
 				if (n <= 0)
 				{
 					if (!n)

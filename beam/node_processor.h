@@ -23,7 +23,7 @@ class NodeProcessor
 	bool HandleBlock(const NodeDB::StateID&, NodeDB::PeerID&, bool bFwd);
 	bool HandleValidatedTx(const TxBase&, Height, bool bFwd, RollbackData&);
 
-	bool HandleBlockElement(Input&, bool bFwd, RollbackData&);
+	bool HandleBlockElement(const Input&, bool bFwd, Height, RollbackData&);
 	bool HandleBlockElement(const Output&, Height, bool bFwd);
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
 

@@ -460,39 +460,35 @@ int UtxoTree::Key::cmp(const Key& k) const
 	return memcmp(m_pArr, k.m_pArr, sizeof(m_pArr));
 }
 
-void UtxoTree::Key::ToID(UtxoID& id) const
+UtxoTree::Key::Data& UtxoTree::Key::Data::operator = (const Key& key)
 {
-	memcpy(id.m_Commitment.m_X.m_pData, m_pArr, sizeof(id.m_Commitment.m_X.m_pData));
-	const uint8_t* pKey = m_pArr + sizeof(id.m_Commitment.m_X.m_pData);
+	memcpy(m_Commitment.m_X.m_pData, key.m_pArr, sizeof(m_Commitment.m_X.m_pData));
+	const uint8_t* pKey = key.m_pArr + sizeof(m_Commitment.m_X.m_pData);
 
-	id.m_Commitment.m_Y	= (1 & (pKey[0] >> 7)) != 0;
-	id.m_Coinbase			= (1 & (pKey[0] >> 6)) != 0;
-	id.m_Confidential		= (1 & (pKey[0] >> 5)) != 0;
+	m_Commitment.m_Y	= (1 & (pKey[0] >> 7)) != 0;
 
-	id.m_Height = 0;
-	for (int i = 0; i < sizeof(id.m_Height); i++, pKey++)
-		id.m_Height = (id.m_Height << 8) | (pKey[0] << 3) | (pKey[1] >> 5);
+	m_Maturity = 0;
+	for (int i = 0; i < sizeof(m_Maturity); i++, pKey++)
+		m_Maturity = (m_Maturity << 8) | (pKey[0] << 1) | (pKey[1] >> 7);
+
+	return *this;
 }
 
-UtxoTree::Key& UtxoTree::Key::operator = (const UtxoID& id)
+UtxoTree::Key& UtxoTree::Key::operator = (const Data& d)
 {
-	memcpy(m_pArr, id.m_Commitment.m_X.m_pData, sizeof(id.m_Commitment.m_X.m_pData));
+	memcpy(m_pArr, d.m_Commitment.m_X.m_pData, sizeof(d.m_Commitment.m_X.m_pData));
 
-	uint8_t* pKey = m_pArr + sizeof(id.m_Commitment.m_X.m_pData);
-	memset0(pKey, sizeof(m_pArr) - sizeof(id.m_Commitment.m_X.m_pData));
+	uint8_t* pKey = m_pArr + sizeof(d.m_Commitment.m_X.m_pData);
+	memset0(pKey, sizeof(m_pArr) - sizeof(d.m_Commitment.m_X.m_pData));
 
-	if (id.m_Commitment.m_Y)
+	if (d.m_Commitment.m_Y)
 		pKey[0] |= (1 << 7);
-	if (id.m_Coinbase)
-		pKey[0] |= (1 << 6);
-	if (id.m_Confidential)
-		pKey[0] |= (1 << 5);
 
-	for (int i = 0; i < sizeof(id.m_Height); i++)
+	for (int i = 0; i < sizeof(d.m_Maturity); i++)
 	{
-		uint8_t val = uint8_t(id.m_Height >> ((sizeof(id.m_Height) - i - 1) << 3));
-		pKey[i] |= val >> 3;
-		pKey[i + 1] |= (val << 5);
+		uint8_t val = uint8_t(d.m_Maturity >> ((sizeof(d.m_Maturity) - i - 1) << 3));
+		pKey[i] |= val >> 1;
+		pKey[i + 1] |= (val << 7);
 	}
 
 	return *this;
