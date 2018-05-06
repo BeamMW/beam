@@ -167,52 +167,77 @@ void NodeProcessor::get_CurrentLive(Merkle::Hash& hv)
 	Merkle::Interpret(hv, hv2, true);
 }
 
+struct NodeProcessor::RollbackData
+{
+	// helper structures for rollback
+	struct Utxo {
+		Height m_Height; // the extra info we need to restore an UTXO, in addition to the Input.
+	};
+
+	ByteBuffer m_Buf;
+	Utxo* m_pUtxo;
+
+	Utxo* get_BufAs() const
+	{
+		assert(!m_Buf.empty());
+		return (Utxo*) &m_Buf.at(0);
+	}
+
+	size_t get_Utxos() const { return m_pUtxo - get_BufAs(); }
+};
+
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool bFwd)
 {
-	ByteBuffer bb, rrRollback;
-	m_DB.GetStateBlock(sid.m_Row, bb, rrRollback, peer);
-
-	uint32_t nFlags;
-	bool bFirstTime;
-
-	if (bFwd)
-	{
-		nFlags = m_DB.GetStateFlags(sid.m_Row);
-		bFirstTime = !(NodeDB::StateFlags::BlockPassed & nFlags);
-
-	} else
-		bFirstTime = false;
-
-	Block::SystemState::Full s;
-
-	if (bFirstTime)
-	{
-		m_DB.get_State(sid.m_Row, s);
-
-		Merkle::Proof proof;
-		m_DB.get_Proof(proof, sid, sid.m_Height);
-
-		Merkle::Interpret(s.m_Prev, proof);
-		if (s.m_History != s.m_Prev)
-			return false; // The state (even the header) is formed incorrectly!
-	}
+	ByteBuffer bb;
+	RollbackData rbData;
+	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf, peer);
 
 	Block::Body block;
 	try {
 
 		Deserializer der;
-		der.reset(bb.empty() ? NULL :& bb.at(0), bb.size());
+		der.reset(bb.empty() ? NULL : &bb.at(0), bb.size());
 		der & block;
-	} catch (const std::exception&) {
+	}
+	catch (const std::exception&) {
 		return false;
 	}
 
 	bb.clear();
 
-	if (bFirstTime && !block.IsValid(sid.m_Height, sid.m_Height))
-		return false;
+	bool bFirstTime = false;
+	Block::SystemState::Full s;
 
-	bool bOk = HandleValidatedTx(block, sid.m_Height, bFwd, false);
+	if (bFwd)
+	{
+		size_t n = std::max(size_t(1), block.m_vInputs.size() * sizeof(RollbackData::Utxo));
+		if (rbData.m_Buf.size() != n)
+		{
+			bFirstTime = true;
+
+			m_DB.get_State(sid.m_Row, s);
+
+			Merkle::Proof proof;
+			m_DB.get_Proof(proof, sid, sid.m_Height);
+
+			Merkle::Interpret(s.m_Prev, proof);
+			if (s.m_History != s.m_Prev)
+				return false; // The state (even the header) is formed incorrectly!
+
+			if (!block.IsValid(sid.m_Height, sid.m_Height))
+				return false;
+
+			rbData.m_Buf.resize(n);
+		}
+	} else
+		assert(!rbData.m_Buf.empty());
+
+
+	rbData.m_pUtxo = rbData.get_BufAs();
+	if (!bFwd)
+		rbData.m_pUtxo += block.m_vInputs.size();
+
+	bool bOk = HandleValidatedTx(block, sid.m_Height, bFwd, rbData);
 
 	if (bFirstTime && bOk)
 	{
@@ -224,15 +249,15 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool b
 			bOk = false;
 
 		if (bOk)
-			m_DB.SetFlags(sid.m_Row, nFlags | NodeDB::StateFlags::BlockPassed);
+			m_DB.SetStateRollback(sid.m_Row, NodeDB::Blob(&rbData.m_Buf.at(0), rbData.m_Buf.size()));
 		else
-			HandleValidatedTx(block, sid.m_Height, false, false);
+			HandleValidatedTx(block, sid.m_Height, false, rbData);
 	}
 
 	return bOk;
 }
 
-bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, bool bAutoAdjustInp)
+bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, RollbackData& rbData)
 {
 	size_t nInp = 0, nOut = 0, nKrnInp = 0, nKrnOut = 0;
 
@@ -240,7 +265,7 @@ bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, boo
 	if (bFwd)
 	{
 		for ( ; nInp < tx.m_vInputs.size(); nInp++)
-			if (!HandleBlockElement(*tx.m_vInputs[nInp], bFwd, bAutoAdjustInp))
+			if (!HandleBlockElement(*tx.m_vInputs[nInp], bFwd, rbData))
 			{
 				bOk = false;
 				break;
@@ -296,22 +321,28 @@ bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, boo
 			HandleBlockElement(*tx.m_vOutputs[nOut], h, false);
 
 		while (nInp--)
-			HandleBlockElement(*tx.m_vInputs[nInp], false, false);
+			HandleBlockElement(*tx.m_vInputs[nInp], false, rbData);
 	}
 
 	return bOk;
 }
 
-bool NodeProcessor::HandleBlockElement(Input& v, bool bFwd, bool bAutoAdjustInp)
+bool NodeProcessor::HandleBlockElement(Input& v, bool bFwd, RollbackData& rbData)
 {
 	UtxoTree::Key key;
 	key = v;
+
+	if (!bFwd)
+	{
+		// TODO
+		const RollbackData::Utxo& x = * --rbData.m_pUtxo;
+	}
 
 	UtxoTree::Cursor cu;
 	bool bCreate = !bFwd;
 	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
 
-	if (!p && bAutoAdjustInp)
+	if (!p && bFwd)
 	{
 		// try to find the closest match
 		struct Traveler :public UtxoTree::ITraveler
@@ -359,6 +390,12 @@ bool NodeProcessor::HandleBlockElement(Input& v, bool bFwd, bool bAutoAdjustInp)
 			p->m_Value.m_Count = 1;
 		else
 			p->m_Value.m_Count++;
+	}
+
+	if (bFwd)
+	{
+		// TODO
+		const RollbackData::Utxo& x = *rbData.m_pUtxo++;
 	}
 
 	m_DB.ModifyUtxo(NodeDB::Blob(&key, sizeof(key)), 0, bFwd ? -1 : 1);
@@ -613,13 +650,24 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	BlockBulder ctxBlock;
 	ctxBlock.m_Offset = ECC::Zero;
 
+	ByteBuffer bbRbData;
+	RollbackData rbData;
+	rbData.m_pUtxo = NULL;
+
 	for (auto it = m_lstCurrentlyMining.begin(); m_lstCurrentlyMining.end() != it; it++)
 	{
 		Transaction& tx = *(*it);
 
+		if (!tx.m_vInputs.empty())
+		{
+			size_t nInputs = rbData.m_pUtxo ? rbData.get_Utxos() : 0;
+			rbData.m_Buf.resize(rbData.m_Buf.size() + sizeof(RollbackData::Utxo) * tx.m_vInputs.size());
+			rbData.m_pUtxo = rbData.get_BufAs() + nInputs;
+		}
+
 		Transaction::Context ctx;
 		ctx.m_hMin = ctx.m_hMax = h;
-		if (tx.IsValid(ctx) && HandleValidatedTx(tx, h, true, true))
+		if (tx.IsValid(ctx) && HandleValidatedTx(tx, h, true, rbData))
 		{
 			fee += ctx.m_Fee;
 
@@ -674,7 +722,7 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	ser.swap_buf(block);
 
 	// For test: undo the changes, and then redo, using the newly-created block
-	verify(HandleValidatedTx(ctxBlock.m_Block, h, false, false));
+	verify(HandleValidatedTx(ctxBlock.m_Block, h, false, rbData));
 
 	t.Commit();
 

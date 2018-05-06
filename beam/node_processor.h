@@ -18,10 +18,12 @@ class NodeProcessor
 	void Rollback(const NodeDB::StateID&);
 	void PruneOld(Height);
 
-	bool HandleBlock(const NodeDB::StateID&, NodeDB::PeerID&, bool bFwd);
-	bool HandleValidatedTx(const TxBase&, Height, bool bFwd, bool bAutoAdjustInp);
+	struct RollbackData;
 
-	bool HandleBlockElement(Input&, bool bFwd, bool bAutoAdjustInp);
+	bool HandleBlock(const NodeDB::StateID&, NodeDB::PeerID&, bool bFwd);
+	bool HandleValidatedTx(const TxBase&, Height, bool bFwd, RollbackData&);
+
+	bool HandleBlockElement(Input&, bool bFwd, RollbackData&);
 	bool HandleBlockElement(const Output&, Height, bool bFwd);
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
 
