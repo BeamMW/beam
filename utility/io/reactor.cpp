@@ -268,7 +268,7 @@ Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback
     );
     
     if (!errorCode && timeoutMsec >= 0) {
-        auto result = _connectTimer->set_timer(tag, timeoutMsec);
+        auto result = _connectTimer->set_timer(timeoutMsec, tag);
         if (!result) errorCode = result.error();
     }
     
@@ -306,6 +306,7 @@ void Reactor::connect_callback(Reactor::ConnectContext* ctx, ErrorCode errorCode
 }
 
 void Reactor::connect_timeout_callback(uint64_t tag) {
+    LOG_VERBOSE() << "tag=" << tag;
     auto it = _connectRequests.find(tag);
     if (it != _connectRequests.end()) {
         ConnectCallback cb = it->second.callback;
@@ -315,6 +316,7 @@ void Reactor::connect_timeout_callback(uint64_t tag) {
 }
 
 void Reactor::cancel_tcp_connect(uint64_t tag) {
+    LOG_VERBOSE() << "tag=" << tag;
     auto it = _connectRequests.find(tag);
     if (it != _connectRequests.end()) {
         cancel_tcp_connect_impl(it);

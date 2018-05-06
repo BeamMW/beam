@@ -2,6 +2,7 @@
 #include "timer.h"
 #include <map>
 #include <vector>
+#include <limits>
 
 namespace beam { namespace io {
     
@@ -32,9 +33,10 @@ private:
     
     /// abs. time
     using Clock = uint64_t;
+    static constexpr Clock NEVER = std::numeric_limits<Clock>::max();
    
     /// Updates timer after insertion
-    Result update_timer(Clock now);
+    Result update_timer(Clock now, Clock next);
 
     /// Flag that prevents from updating timer too often
     bool _insideCallback=false;
@@ -52,7 +54,7 @@ private:
     std::map<ID, Clock> _validIds;
   
     /// Next time to wake
-    Clock _nextTime=0;
+    Clock _nextTime=NEVER;
     
     /// Timer object
     Timer::Ptr _timer;

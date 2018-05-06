@@ -2,6 +2,9 @@
 #include "utility/helpers.h"
 #include <assert.h>
 
+#define LOG_VERBOSE_ENABLED 1
+#include "utility/logger.h"
+
 namespace beam { namespace io {
 
 CoarseTimer::Ptr CoarseTimer::create(const Reactor::Ptr& reactor, unsigned resolutionMsec, const Callback& cb) {
@@ -37,7 +40,7 @@ Result CoarseTimer::set_timer(unsigned intervalMsec, ID id) {
     Clock clock = now + intervalMsec;
     _queue.insert({ clock, id });
     _validIds.insert({ id, clock });
-    return update_timer(now);
+    return update_timer(now, clock);
 }
 
 void CoarseTimer::cancel(ID id) {
@@ -48,38 +51,50 @@ void CoarseTimer::cancel(ID id) {
 void CoarseTimer::cancel_all() {
     _validIds.clear();
     _queue.clear();
-    if (_nextTime > 0) {
+    if (_nextTime != NEVER) {
         _timer->cancel();
-        _nextTime = 0;
+        _nextTime = NEVER;
     }
 }
 
-Result CoarseTimer::update_timer(CoarseTimer::Clock now) {
+Result CoarseTimer::update_timer(CoarseTimer::Clock now, CoarseTimer::Clock next) {
     if (_insideCallback) return Ok();
     
-    assert (!_queue.empty());
+    LOG_VERBOSE() << "now=" << now << " next=" << next << " _nextTime=" << _nextTime;
     
-    Clock next = _queue.begin()->first;
-    if (_nextTime != next) {
+    if (next < _nextTime) {
         _nextTime = (now < next) ? next : now;
-        return _timer->restart(unsigned(next-now), false);
+        LOG_DEBUG() << "restart=" << unsigned(_nextTime - now);
+        return _timer->restart(unsigned(_nextTime - now), false);
     }
     
     return Ok();
 }
 
+// uv timers inaccurate intervals
+static constexpr unsigned TIMER_ACCURACY = 10;
+
 void CoarseTimer::on_timer() {
+    LOG_VERBOSE() << "queue size " << _queue.size();
+    
     if (_queue.empty()) return;
     Clock now = mono_clock();
     
     _insideCallback = true;
     
+    Clock clock = 0;
+    
     while (!_queue.empty()) {
         auto it = _queue.begin();
         
-        Clock clock = it->first;
-        if (clock > now) break;
+        clock = it->first;
+        
+        LOG_VERBOSE() << "now=" << now << " clock=" << clock << " _nextTime=" << _nextTime;
+        
+        if (clock > now + TIMER_ACCURACY) break;
         ID id = it->second;
+        
+        LOG_VERBOSE() << "id=" << id;
         
         // this helps calling set_timer(), cancel(), cancel_all() from inside callbacks
         _queue.erase(it); 
@@ -98,7 +113,7 @@ void CoarseTimer::on_timer() {
     if (_queue.empty()) {
         cancel_all();
     } else {
-        update_timer(now);
+        update_timer(mono_clock(), clock);
     }
 }
     
