@@ -41,7 +41,7 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm& fsm)
                 {
                     std::cout << "[Sender] Terminate state\n";
-                    fsm.m_gateway.remove_sender(fsm.m_txId);
+                    fsm.m_gateway.on_tx_completed(fsm.m_txId);
                 } 
             };
             struct TxInitiating : public msmf::state<> {
@@ -68,32 +68,32 @@ namespace beam::wallet
             // transition actions
             void initTx(const msmf::none&);
 
-            bool isValidSignature(const TxInitCompleted& );
+            bool is_valid_signature(const TxInitCompleted& );
 
-            bool isInvalidSignature(const TxInitCompleted& );
+            bool is_invalid_signature(const TxInitCompleted& );
 
-            void confirmTx(const TxInitCompleted& );
+            void confirm_tx(const TxInitCompleted& );
 
-            void rollbackTx(const TxFailed& );
+            void rollback_tx(const TxFailed& );
 
-            void cancelTx(const TxInitCompleted& );
+            void cancel_tx(const TxInitCompleted& );
 
-            void confirmChangeOutput(const TxConfirmationCompleted&);
+            void confirm_change_output(const TxConfirmationCompleted&);
 
-            void completeTx(const TxOutputConfirmCompleted&);
+            void complete_tx(const TxOutputConfirmCompleted&);
 
             using initial_state = Init;
             using d = FSMDefinition;
             struct transition_table : mpl::vector<
-                //   Start                 Event                     Next                  Action                    Guard
-                a_row< Init              , msmf::none              , TxInitiating        , &d::initTx                                      >,
-                a_row< TxInitiating      , TxFailed                , Terminate           , &d::rollbackTx                                  >,
-                row  < TxInitiating      , TxInitCompleted         , TxConfirming        , &d::confirmTx           , &d::isValidSignature  >,
-                row  < TxInitiating      , TxInitCompleted         , Terminate           , &d::cancelTx            , &d::isInvalidSignature>,
-                a_row< TxConfirming      , TxConfirmationCompleted , TxOutputConfirming  , &d::confirmChangeOutput                         >,
-                a_row< TxConfirming      , TxFailed                , Terminate           , &d::rollbackTx                                  >,
-                a_row< TxOutputConfirming, TxOutputConfirmCompleted, Terminate           , &d::completeTx                                  >,
-                a_row< TxOutputConfirming, TxFailed                , Terminate           , &d::rollbackTx                                  >
+                //   Start                 Event                     Next                  Action                     Guard
+                a_row< Init              , msmf::none              , TxInitiating        , &d::initTx                                         >,
+                a_row< TxInitiating      , TxFailed                , Terminate           , &d::rollback_tx                                    >,
+                row  < TxInitiating      , TxInitCompleted         , TxConfirming        , &d::confirm_tx           , &d::is_valid_signature  >,
+                row  < TxInitiating      , TxInitCompleted         , Terminate           , &d::cancel_tx            , &d::is_invalid_signature>,
+                a_row< TxConfirming      , TxConfirmationCompleted , TxOutputConfirming  , &d::confirm_change_output                          >,
+                a_row< TxConfirming      , TxFailed                , Terminate           , &d::rollback_tx                                    >,
+                a_row< TxOutputConfirming, TxOutputConfirmCompleted, Terminate           , &d::complete_tx                                    >,
+                a_row< TxOutputConfirming, TxFailed                , Terminate           , &d::rollback_tx                                    >
             > {};
 
             template <class FSM, class Event>

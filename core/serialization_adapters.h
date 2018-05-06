@@ -42,6 +42,42 @@ namespace detail
     };
 
     template<std::size_t F, typename T>
+    struct serializer<
+        type_prop::not_a_fundamental,
+        ser_method::use_internal_serializer,
+        F,
+        std::shared_ptr<T>
+    > {
+        template<typename Archive>
+        static Archive& save(Archive& ar, const std::shared_ptr<T>& ptr) {
+            T* t = ptr.get();
+            if (t) {
+                ar & true;
+                ar & *t;
+            }
+            else {
+                ar & false;
+            }
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, std::shared_ptr<T>& ptr) {
+            bool b = false;
+            ar & b;
+            if (b) {
+                ptr.reset(new T());
+                ar & *ptr;
+            }
+            else {
+                ptr.reset();
+            }
+            return ar;
+        }
+    };
+
+
+    template<std::size_t F, typename T>
     struct serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, T>
     {
 

@@ -19,7 +19,7 @@ namespace beam::wallet
         m_transaction->m_vOutputs = move(initData->m_outputs);
     }
 
-    void Receiver::FSMDefinition::confirmTx(const msmf::none&)
+    void Receiver::FSMDefinition::confirm_tx(const msmf::none&)
     {
         auto confirmationData = make_shared<receiver::ConfirmationData>();
         confirmationData->m_txId = m_txId;
@@ -58,11 +58,12 @@ namespace beam::wallet
         m_nonce = generateNonce();
         msig.m_Nonce = m_nonce;
         // 6. Make public nonce and blinding factor
-        m_publicReceiverBlindingExcess 
-            = confirmationData->m_publicReceiverBlindingExcess 
-            = Context::get().G * m_blindingExcess;
+        m_publicReceiverBlindingExcess = Context::get().G * m_blindingExcess;
+        confirmationData->m_publicReceiverBlindingExcess = m_publicReceiverBlindingExcess;
 
-        confirmationData->m_publicReceiverNonce = Context::get().G * m_nonce;
+        Point::Native publicNonce;
+        publicNonce = Context::get().G * m_nonce;
+        confirmationData->m_publicReceiverNonce = publicNonce;
         // 7. Compute Shnorr challenge e = H(M|K)
 
         msig.m_NoncePub = m_publicSenderNonce + confirmationData->m_publicReceiverNonce;
@@ -74,7 +75,7 @@ namespace beam::wallet
         m_gateway.send_tx_confirmation(confirmationData);
     }
 
-    bool Receiver::FSMDefinition::isValidSignature(const TxConfirmationCompleted& event)
+    bool Receiver::FSMDefinition::is_valid_signature(const TxConfirmationCompleted& event)
     {
         auto data = event.data;
         // 1. Verify sender's Schnor signature
@@ -91,9 +92,9 @@ namespace beam::wallet
         return (p == p2);
     }
 
-    bool Receiver::FSMDefinition::isInvalidSignature(const TxConfirmationCompleted& event)
+    bool Receiver::FSMDefinition::is_invalid_signature(const TxConfirmationCompleted& event)
     {
-        return !isValidSignature(event);
+        return !is_valid_signature(event);
     }
 
     void Receiver::FSMDefinition::register_tx(const TxConfirmationCompleted& event)
@@ -112,32 +113,32 @@ namespace beam::wallet
         m_kernel->m_Signature.m_k = finialSignature;
 
         // 6. Create final transaction and send it to mempool
-        Amount fee = 0U;
-        
-        // TODO: uncomment assert
-        assert(m_transaction->IsValid(fee, 0U));
+     
+        //beam::TxBase::Context ctx;
+        //assert(m_transaction->IsValid(ctx));
 
         auto data = shared_ptr<receiver::RegisterTxData>(new receiver::RegisterTxData{ m_txId, move(m_transaction) });
         m_gateway.register_tx(data);
     }
 
-    void Receiver::FSMDefinition::rollbackTx(const TxFailed& event)
+    void Receiver::FSMDefinition::rollback_tx(const TxFailed& event)
     {
-        cout << "Receiver::rollbackTx\n";
+        cout << "Receiver::rollback_tx\n";
     }
 
-    void Receiver::FSMDefinition::cancelTx(const TxConfirmationCompleted& )
+    void Receiver::FSMDefinition::cancel_tx(const TxConfirmationCompleted& )
     {
-        cout << "Receiver::cancelTx\n";
+        cout << "Receiver::cancel_tx\n";
     }
 
-    void Receiver::FSMDefinition::confirmOutput(const TxRegistrationCompleted& )
+    void Receiver::FSMDefinition::confirm_output(const TxRegistrationCompleted& )
     {
         m_gateway.send_tx_registered(make_unique<Uuid>(m_txId));
+        m_gateway.send_output_confirmation();
     }
 
-    void Receiver::FSMDefinition::completeTx(const TxOutputConfirmCompleted& )
+    void Receiver::FSMDefinition::complete_tx(const TxOutputConfirmCompleted& )
     {
-        cout << "Receiver::completeTx\n";
+        cout << "Receiver::complete_tx\n";
     }
 }

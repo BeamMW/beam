@@ -11,13 +11,17 @@ namespace beam {
     WalletNetworkIO::WalletNetworkIO(io::Address address)
         : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, *this, 200 }
         , m_address{address}
-        , m_reactor{ io::Reactor::create(io::Config()) }
+        , m_reactor{ io::Reactor::create() }
         , m_bridge{*this, m_reactor }
         , m_wallet{nullptr}
         , m_connection_tag{0}
     {
-      // m_protocol.add_message_handler<wallet::sender::InvitationData, &WalletNetworkIO::on_sender_inviatation>(senderInvitationCode, 1, 2000);
-       // m_protocol.add_message_handler<Response, &WalletNetworkIO::on_response>(responseCode, 1, 200);
+        m_protocol.add_message_handler<wallet::sender::InvitationData,     &WalletNetworkIO::on_sender_inviatation>(senderInvitationCode, 1, 2000);
+        m_protocol.add_message_handler<wallet::sender::ConfirmationData,   &WalletNetworkIO::on_sender_confirmation>(senderConfirmationCode, 1, 2000);
+        m_protocol.add_message_handler<wallet::receiver::ConfirmationData, &WalletNetworkIO::on_receiver_confirmation>(receiverConfirmationCode, 1, 2000);
+        m_protocol.add_message_handler<None,                               &WalletNetworkIO::on_output_confirmation>(txOutputConfirmedCode, 1, 2000);
+        m_protocol.add_message_handler<Uuid,                               &WalletNetworkIO::on_registration>(txRegisteredCode, 1, 2000);
+        m_protocol.add_message_handler<Uuid,                               &WalletNetworkIO::on_failed>(txFailedCode, 1, 2000);
     }
 
     void WalletNetworkIO::start()
@@ -68,9 +72,9 @@ namespace beam {
         send(to, senderConfirmationCode, *data);
     }
 
-    void WalletNetworkIO::send_output_confirmation(PeerId to, None&&)
+    void WalletNetworkIO::send_output_confirmation(PeerId to, None&& data)
     {
-
+        send(to, txConfirmOutputCode, data);
     }
 
     void WalletNetworkIO::send_tx_confirmation(PeerId to, wallet::receiver::ConfirmationData::Ptr&& data)
@@ -80,33 +84,62 @@ namespace beam {
 
     void WalletNetworkIO::register_tx(PeerId to, wallet::receiver::RegisterTxData::Ptr&& data)
     {
-       // send(to, receiverConfirmationCode, *data);
-        stop();
+        send(to, txRegisterCode, *data);
     }
 
     void WalletNetworkIO::send_tx_registered(PeerId to, UuidPtr&& txId)
     {
-        send(to, receiverTxRegisteredCode, *txId);
+        send(to, txRegisteredCode, *txId);
     }
 
     bool WalletNetworkIO::on_sender_inviatation(uint64_t connectionId, wallet::sender::InvitationData&& data)
     {
-        // this assertion is for this test only
-        //assert(connectionId = address.packed);
-        //if (!req.is_valid()) return false; // shut down stream
-
-        //                                   // TODO const Object& --> Object&&, they are not needed any more on protocol side
-      //  m_wallet->handle_tx_invitation(connectionId, wallet::sender::InvitationData::Ptr(move(data)));
+        assert(m_wallet != nullptr);
+        m_wallet->handle_tx_invitation(connectionId, make_shared<wallet::sender::InvitationData>(move(data)));
         return true;
     }
 
+    bool WalletNetworkIO::on_sender_confirmation(uint64_t connectionId, wallet::sender::ConfirmationData&& data)
+    {
+        assert(m_wallet != nullptr);
+        m_wallet->handle_tx_confirmation(connectionId, make_shared<wallet::sender::ConfirmationData>(move(data)));
+        return true;
+    }
+
+    bool WalletNetworkIO::on_receiver_confirmation(uint64_t connectionId, wallet::receiver::ConfirmationData&& data)
+    {
+        assert(m_wallet != nullptr);
+        m_wallet->handle_tx_confirmation(connectionId, make_shared<wallet::receiver::ConfirmationData>(move(data)));
+        return true;
+    }
+
+    bool WalletNetworkIO::on_output_confirmation(uint64_t connectionId, None&& data)
+    {
+        assert(m_wallet != nullptr);
+        m_wallet->handle_output_confirmation(connectionId, move(data));
+        return true;
+    }
+
+    bool WalletNetworkIO::on_registration(uint64_t connectionId, Uuid&& uuid)
+    {
+        assert(m_wallet != nullptr);
+        m_wallet->handle_tx_registration(connectionId, make_shared<Uuid>(move(uuid)));
+        return true;
+    }
+
+    bool WalletNetworkIO::on_failed(uint64_t connectionId, Uuid&& uuid)
+    {
+        assert(m_wallet != nullptr);
+        m_wallet->handle_tx_failed(connectionId, make_shared<Uuid>(move(uuid)));
+        return true;
+    }
 
     void WalletNetworkIO::thread_func()
     {
         LOG_INFO() << __PRETTY_FUNCTION__ << " starting";
         m_reactor->run();
         LOG_DEBUG() << __PRETTY_FUNCTION__ << " exiting";
-    //    bridge.stop_rx();
+        m_bridge.stop_rx();
     }
 
     void WalletNetworkIO::on_stream_accepted(io::TcpStream::Ptr&& newStream, int errorCode)

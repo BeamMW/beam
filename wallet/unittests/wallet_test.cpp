@@ -205,6 +205,11 @@ namespace
             cout << "sent change output confirmation message\n";
         }
 
+        void on_tx_completed(const Uuid& txId) override
+        {
+            cout << __FUNCTION__ <<"\n";
+        }
+
         void send_tx_confirmation(wallet::receiver::ConfirmationData::Ptr) override
         {
             cout << "sent recever's tx confirmation message\n";
@@ -218,16 +223,6 @@ namespace
         void send_tx_registered(UuidPtr&&) override
         {
             cout << "sent tx registration completed \n";
-        }
-
-        void remove_sender(const Uuid&)
-        {
-
-        }
-
-        void remove_receiver(const Uuid&)
-        {
-
         }
     };
 
@@ -452,7 +447,7 @@ void TestWalletNegotiation()
 {
     cout << "\nTesting wallets negotiation...\n";
 
-    PeerId receiverLocator;
+    PeerId receiver_id = 4;
     IOLoop mainLoop;
     TestNetwork network{ mainLoop };
     Wallet sender(createKeyChain<KeychainS>(), network);
@@ -461,7 +456,10 @@ void TestWalletNegotiation()
     network.registerPeer(&sender);
     network.registerPeer(&receiver);
 
-    sender.send_money(receiverLocator, 6);
+    sender.set_node_id(5);
+    receiver.set_node_id(9);
+
+    sender.send_money(receiver_id, 6);
     mainLoop.run();
 }
 
@@ -492,35 +490,166 @@ void TestFSM()
     WALLET_CHECK(r.processEvent(wallet::Receiver::TxConfirmationCompleted()));
 }
 
-struct AsyncContext
-{};
+class TestNode : public IMsgHandler
+{
+public:
+    TestNode(io::Address address)
+        : m_protocol{0, 0, 1, *this, 200}
+        , m_address{ address }
+        , m_reactor{io::Reactor::create()}
+        , m_server{io::TcpServer::create(m_reactor, m_address, BIND_THIS_MEMFN(on_stream_accepted))}
+        , m_tag{ 0 }
+
+    {
+        m_protocol.add_message_handler<wallet::receiver::RegisterTxData, &TestNode::on_register_tx>(txRegisterCode, 1, 2000);
+        m_protocol.add_message_handler<None, &TestNode::on_confirm_output>(txConfirmOutputCode, 1, 2000);
+    }
+
+    void start()
+    {
+        m_thread.start(BIND_THIS_MEMFN(thread_func));
+    }
+
+    void stop()
+    {
+        m_reactor->stop();
+        wait();
+    }
+
+    void wait()
+    {
+        if (this_thread::get_id() != m_thread_id) {
+            m_thread.join();
+        }
+    }
+
+private:
+    void thread_func()
+    {
+        m_thread_id = this_thread::get_id();
+        m_reactor->run();
+    }
+
+    // IMsgHandler
+    void on_protocol_error(uint64_t fromStream, ProtocolError error) override
+    {
+        assert(false && "NODE: on_protocol_error");
+    }
+
+    // protocol handler
+    bool on_register_tx(uint64_t connectionId, wallet::receiver::RegisterTxData&& data)
+    {
+        send(connectionId, txRegisteredCode, data.m_txId);
+        return true;
+    }
+
+    bool on_confirm_output(uint64_t connectionId, None&& data)
+    {
+        send(connectionId, txOutputConfirmedCode, None());
+        return true;
+    }
+
+    template <typename T>
+    void send(PeerId to, MsgType type, T&& data)
+    {
+        auto it = m_connections.find(to);
+        if (it != m_connections.end()) {
+            SerializedMsg msgToSend;
+            m_protocol.serialize(msgToSend, type, data);
+            it->second->write_msg(msgToSend); 
+        }
+        else {
+            LOG_ERROR() << "No connection";
+            // add some handling
+        }
+    }
+
+    void on_connection_error(uint64_t fromStream, int errorCode) override
+    {
+        assert(false && "NODE: on_connection_error");
+    }
+
+    void on_stream_accepted(io::TcpStream::Ptr&& newStream, int errorCode)
+    {
+        if (errorCode == 0) {
+            LOG_DEBUG() << "Stream accepted";
+            auto tag = ++m_tag;// id
+            m_connections.emplace(tag, make_unique<Connection>(
+                    m_protocol,
+                    tag,
+                    100,
+                    std::move(newStream)));
+        }
+        else {
+       //     on_connection_error(m_address.packed, errorCode);
+        }
+    }
+
+    Protocol<TestNode> m_protocol;
+    io::Address m_address;
+    io::Reactor::Ptr m_reactor;
+    io::TcpServer::Ptr m_server;
+
+    std::map<uint64_t, std::unique_ptr<Connection>> m_connections;
+    Thread m_thread;
+    thread::id m_thread_id;
+    uint64_t m_tag;
+};
 
 void TestP2PWalletNegotiation()
 {
     cout << "\nTesting p2p wallets negotiation...\n";
 
-    io::Address receiver_address{ io::Address::localhost().port(32124) };
-    io::Reactor::Ptr main_reactor{ io::Reactor::create(io::Config()) };
+    auto node_address = io::Address::localhost().port(32125);
+    auto receiver_address = io::Address::localhost().port(32124);
+    auto sender_address = io::Address::localhost().port(32123);
 
-    WalletNetworkIO senderIO{ io::Address::localhost().port(32123) };
-    WalletNetworkIO receiverIO{ receiver_address };
+    TestNode node{ node_address };
+    WalletNetworkIO sender_io{ sender_address};
+    WalletNetworkIO receiver_io{ receiver_address };
+    
+    io::Reactor::Ptr main_reactor{ io::Reactor::create() };
 
-    Wallet sender(createKeyChain<TestKeyChain>(), senderIO.get_network_proxy());
-    Wallet receiver(createKeyChain<TestKeyChain2>(), receiverIO.get_network_proxy());
+    int completion_count = 2;
+
+    auto action = [&] (const Uuid&) { // called in main thread
+        if (!(--completion_count)) {
+            node.stop();
+            sender_io.stop();
+            receiver_io.stop();
+            main_reactor->stop();
+        }
+    };
+
+    Wallet sender(createKeyChain<TestKeyChain>(), sender_io.get_network_proxy(), action );
+    Wallet receiver(createKeyChain<TestKeyChain2>(), receiver_io.get_network_proxy(), action);
 
     NetworkToWalletBridge sender_bridge{ sender, main_reactor };
     NetworkToWalletBridge receiver_bridge{ receiver, main_reactor };
 
-    senderIO.set_wallet_proxy(&sender_bridge);
-    receiverIO.set_wallet_proxy(&receiver_bridge);
+    sender_io.set_wallet_proxy(&sender_bridge);
+    receiver_io.set_wallet_proxy(&receiver_bridge);
 
-    senderIO.connect(receiver_address, [&sender](uint64_t tag, int status) {sender.send_money(tag, 6); });
+    sender_io.connect(node_address, [&sender](uint64_t tag, int status) {
+        sender.set_node_id(tag);
+    });
 
-    senderIO.start();
-    receiverIO.start();
+    receiver_io.connect(node_address, [&receiver](uint64_t tag, int status) {
+        receiver.set_node_id(tag);
+    });
+
+    sender_io.connect(receiver_address, [&sender](uint64_t tag, int status) {
+        sender.send_money(tag, 6);
+    });
+
+    sender_io.start();
+    receiver_io.start();
+    node.start();
     main_reactor->run();
-    senderIO.wait();
-    receiverIO.wait();
+
+    node.wait();
+    sender_io.wait();
+    receiver_io.wait();
 }
 
 int main()

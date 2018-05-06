@@ -54,32 +54,12 @@ namespace beam
 
     }
 
-    // temporary impl of WalletToNetwork interface
-    struct WalletToNetworkDummyImpl : public Wallet::ToNode
-    {
-        virtual void sendTransaction(const Transaction& tx)
-        {
-            // serealize tx and post and to the Node TX pool
-            Serializer ser;
-            ser & tx;
-
-            auto buffer = ser.buffer();
-
-            // and send buffer to other side
-        }
-    };
-
-    Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO& network)
+    Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, WalletAction&& action)
         : m_keyChain{ keyChain }
         , m_network{ network }
+        , m_node_id{ 0 }
+        , m_tx_completed_action{move(action)}
     {
-    }
-
-    void Wallet::sendDummyTransaction()
-    {
-        // create dummy transaction here
-        Transaction tx;
-        m_net->sendTransaction(tx);
     }
 
     void Wallet::send_money(PeerId to, Amount amount)
@@ -94,13 +74,18 @@ namespace beam
         p.first->second->start();
     }
 
+    void Wallet::set_node_id(PeerId node_id)
+    {
+        m_node_id = node_id;
+    }
+
     void Wallet::send_tx_invitation(sender::InvitationData::Ptr data)
     {
         if (auto it = m_peers.find(data->m_txId); it != m_peers.end()) {
             m_network.send_tx_invitation(it->second, move(data));
         }
         else {
-            // log
+            assert(false && "no peers");
         }
         
     }
@@ -111,23 +96,44 @@ namespace beam
             m_network.send_tx_confirmation(it->second, move(data));
         }
         else {
-            // log
+            assert(false && "no peers");
+        }
+    }
+
+    void Wallet::on_tx_completed(const Uuid& txId)
+    {
+        remove_sender(txId);
+        remove_receiver(txId);
+        if (m_tx_completed_action) {
+            m_tx_completed_action(txId);
         }
     }
 
     void Wallet::send_output_confirmation()
     {
-        m_network.send_output_confirmation(PeerId(), None{});
+        if (m_node_id > 0) {
+            m_network.send_output_confirmation(m_node_id, None{});
+        }
+        else {
+            assert(false && "there is no node peer");
+        }
     }
 
     void Wallet::remove_sender(const Uuid& txId)
     {
         auto it = m_senders.find(txId);
-        assert(it != m_senders.end());
-        if (it != m_senders.end())
-        {
+        if (it != m_senders.end()) {
             m_removedSenders.push_back(move(it->second));
             m_senders.erase(txId);
+        }
+    }
+
+    void Wallet::remove_receiver(const Uuid& txId)
+    {
+        auto it = m_receivers.find(txId);
+        if (it != m_receivers.end()) {
+            m_removedReceivers.push_back(move(it->second));
+            m_receivers.erase(it);
         }
     }
 
@@ -136,12 +142,18 @@ namespace beam
         if (auto it = m_peers.find(data->m_txId); it != m_peers.end()) {
             m_network.send_tx_confirmation(it->second, move(data));
         }
+        else {
+            assert(false && "no peers");
+        }
     }
 
     void Wallet::register_tx(receiver::RegisterTxData::Ptr data)
     {
-        if (auto it = m_peers.find(data->m_txId); it != m_peers.end()) {
-            m_network.register_tx(it->second, move(data));
+        if (m_node_id > 0) {
+            m_network.register_tx(m_node_id, move(data));
+        }
+        else {
+            assert(false && "there is no node peer");
         }
     }
 
@@ -150,30 +162,21 @@ namespace beam
         if (auto it = m_peers.find(*txId); it != m_peers.end()) {
             m_network.send_tx_registered(it->second, move(txId));
         }
-    }
-
-    void Wallet::remove_receiver(const Uuid& txId)
-    {
-        auto it = m_receivers.find(txId);
-        assert(it != m_receivers.end());
-        if (it != m_receivers.end())
-        {
-            m_removedReceivers.push_back(move(it->second));
-            m_receivers.erase(it);
+        else {
+            assert(false && "no peers");
         }
     }
 
     void Wallet::handle_tx_invitation(PeerId from, sender::InvitationData::Ptr&& data)
     {
         auto it = m_receivers.find(data->m_txId);
-        if (it == m_receivers.end())
-        {
+        if (it == m_receivers.end())  {
             auto txId = data->m_txId;
+            m_peers.emplace(txId, from);
             auto p = m_receivers.emplace(txId, make_unique<Receiver>(*this, m_keyChain, data));
             p.first->second->start();
         }
-        else
-        {
+        else {
             // TODO: log unexpected TxInitation
         }
     }
@@ -181,12 +184,10 @@ namespace beam
     void Wallet::handle_tx_confirmation(PeerId from, sender::ConfirmationData::Ptr&& data)
     {
         auto it = m_receivers.find(data->m_txId);
-        if (it != m_receivers.end())
-        {
+        if (it != m_receivers.end()) {
             it->second->processEvent(Receiver::TxConfirmationCompleted{data});
         }
-        else
-        {
+        else  {
             // TODO: log unexpected TxConfirmation
         }
     }
@@ -194,13 +195,11 @@ namespace beam
     void Wallet::handle_output_confirmation(PeerId from, None&&)
     {
         // TODO: this code is for test only, it should be rewrited
-        if (!m_receivers.empty())
-        {
+        if (!m_receivers.empty()) {
             m_receivers.begin()->second->processEvent(Receiver::TxOutputConfirmCompleted());
             return;
         }
-        if (!m_senders.empty())
-        {
+        if (!m_senders.empty()) {
             m_senders.begin()->second->processEvent(Sender::TxOutputConfirmCompleted());
             return;
         }
@@ -209,25 +208,21 @@ namespace beam
     void Wallet::handle_tx_confirmation(PeerId from, receiver::ConfirmationData::Ptr&& data)
     {
         auto it = m_senders.find(data->m_txId);
-        if (it != m_senders.end())
-        {
+        if (it != m_senders.end()) {
             it->second->processEvent(Sender::TxInitCompleted{data});
         }
-        else
-        {
+        else {
             // TODO: log unexpected TxConfirmation
         }
     }
 
     void Wallet::handle_tx_registration(PeerId from, UuidPtr&& txId)
     {
-        if (auto it = m_receivers.find(*txId); it != m_receivers.end())
-        {
+        if (auto it = m_receivers.find(*txId); it != m_receivers.end()) {
             it->second->processEvent(Receiver::TxRegistrationCompleted{ *txId });
             return;
         }
-        if (auto it = m_senders.find(*txId); it != m_senders.end())
-        {
+        if (auto it = m_senders.find(*txId); it != m_senders.end()) {
             it->second->processEvent(Sender::TxConfirmationCompleted());
             return;
         }
@@ -235,13 +230,11 @@ namespace beam
 
     void Wallet::handle_tx_failed(PeerId from, UuidPtr&& txId)
     {
-        if (auto it = m_senders.find(*txId); it != m_senders.end())
-        {
+        if (auto it = m_senders.find(*txId); it != m_senders.end()) {
             it->second->processEvent(Sender::TxFailed());
             return;
         }
-        if (auto it = m_receivers.find(*txId); it != m_receivers.end())
-        {
+        if (auto it = m_receivers.find(*txId); it != m_receivers.end()) {
             it->second->processEvent(Receiver::TxFailed());
             return;
         }

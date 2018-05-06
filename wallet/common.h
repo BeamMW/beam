@@ -34,6 +34,11 @@ namespace beam
             }
         };
 
+        struct IWalletGateway {
+            virtual void on_tx_completed(const Uuid& txId) = 0;
+            virtual void send_output_confirmation() = 0;
+        };
+
         namespace sender
         {
             // interface to communicate with receiver
@@ -62,12 +67,10 @@ namespace beam
                 SERIALIZE(m_txId, m_senderSignature);
             };
 
-            struct IGateway
+            struct IGateway : virtual IWalletGateway
             {
                 virtual void send_tx_invitation(InvitationData::Ptr) = 0;
                 virtual void send_tx_confirmation(ConfirmationData::Ptr) = 0;
-                virtual void send_output_confirmation() = 0;
-                virtual void remove_sender(const Uuid&) = 0;
             };
         }
 
@@ -96,12 +99,11 @@ namespace beam
                 SERIALIZE(m_txId, m_transaction);
             };
 
-            struct IGateway
+            struct IGateway : virtual IWalletGateway
             {
                 virtual void send_tx_confirmation(ConfirmationData::Ptr) = 0;
                 virtual void register_tx(RegisterTxData::Ptr) = 0;
                 virtual void send_tx_registered(UuidPtr&&) = 0;
-                virtual void remove_receiver(const Uuid&) = 0;
             };
         }
     }

@@ -15,10 +15,14 @@ namespace beam
 {
     enum WalletNetworkMessageCodes : uint8_t {
         senderInvitationCode     = 3,
-        senderConfirmationCode   = 4,
-        receiverConfirmationCode = 5,
-        receiverRegisterCode     = 6,
-        receiverTxRegisteredCode = 7
+        senderConfirmationCode   ,
+        receiverConfirmationCode ,
+
+        txRegisterCode           = 100,
+        txRegisteredCode         ,
+        txConfirmOutputCode      ,
+        txOutputConfirmedCode    ,
+        txFailedCode             
     };
 
     struct WalletToNetworkBridge : public Bridge<INetworkIO> {
@@ -36,7 +40,7 @@ namespace beam
         BRIDGE_INIT(NetworkToWalletBridge);
 
         BRIDGE_FORWARD_IMPL(handle_tx_invitation, wallet::sender::InvitationData::Ptr);
-        BRIDGE_FORWARD_IMPL(handle_tx_confirmation,wallet::sender::ConfirmationData::Ptr);
+        BRIDGE_FORWARD_IMPL(handle_tx_confirmation, wallet::sender::ConfirmationData::Ptr);
         BRIDGE_FORWARD_IMPL(handle_output_confirmation, None);
         BRIDGE_FORWARD_IMPL(handle_tx_confirmation, wallet::receiver::ConfirmationData::Ptr);
         BRIDGE_FORWARD_IMPL(handle_tx_registration, UuidPtr);
@@ -70,6 +74,11 @@ namespace beam
 
         // handlers for the protocol messages
         bool on_sender_inviatation(uint64_t connectionId, wallet::sender::InvitationData&& data);
+        bool on_sender_confirmation(uint64_t connectionId, wallet::sender::ConfirmationData&& data);
+        bool on_receiver_confirmation(uint64_t connectionId, wallet::receiver::ConfirmationData&& data);
+        bool on_output_confirmation(uint64_t connectionId, None&& data);
+        bool on_registration(uint64_t connectionId, Uuid&&);
+        bool on_failed(uint64_t connectionId, Uuid&&);
 
         void thread_func();
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, int errorCode);

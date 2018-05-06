@@ -8,7 +8,7 @@
 namespace beam
 {
     using PeerId = uint64_t;
-    struct None {};
+    using None = int32_t; // TODO: change for real data
 
     struct INetworkIO {
         virtual ~INetworkIO() {}
@@ -30,40 +30,29 @@ namespace beam
         virtual void handle_tx_failed(PeerId from, UuidPtr&& txId) = 0;
     };
 
-    struct Wallet : public IWallet
-                  , public wallet::receiver::IGateway
-                  , public wallet::sender::IGateway
+    class Wallet : public IWallet
+                 , public wallet::receiver::IGateway
+                 , public wallet::sender::IGateway
     {
-        struct ToNode
-        {
-            using Ptr = std::unique_ptr<ToNode>;
+    public:
+        using WalletAction = std::function<void(const Uuid& tx_id)>;
 
-            virtual void sendTransaction(const Transaction& tx) = 0;
-        };
-
-        struct Config
-        {
-        };
-
-        Wallet(IKeyChain::Ptr keyChain, INetworkIO& network);
+        Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, WalletAction&& action = WalletAction());
         virtual ~Wallet() {};
 
-        using Result = bool;
-
         void send_money(PeerId to, ECC::Amount amount);
-
-        // TODO: remove this, just for test
-        void sendDummyTransaction();
+        void set_node_id(PeerId node_id);
 
     private:
         void send_tx_invitation(wallet::sender::InvitationData::Ptr) override;
         void send_tx_confirmation(wallet::sender::ConfirmationData::Ptr) override;
+        void on_tx_completed(const Uuid& txId) override;
         void send_output_confirmation() override;
-        void remove_sender(const Uuid& txId) override;
+        void remove_sender(const Uuid& txId);
+        void remove_receiver(const Uuid& txId);
         void send_tx_confirmation(wallet::receiver::ConfirmationData::Ptr) override;
         void register_tx(wallet::receiver::RegisterTxData::Ptr) override;
         void send_tx_registered(UuidPtr&& txId) override;
-        void remove_receiver(const Uuid& txId) override;
         void handle_tx_invitation(PeerId from, wallet::sender::InvitationData::Ptr&&) override;
         void handle_tx_confirmation(PeerId from, wallet::sender::ConfirmationData::Ptr&&) override;
         void handle_output_confirmation(PeerId from, None&&) override;
@@ -71,11 +60,9 @@ namespace beam
         void handle_tx_registration(PeerId from, UuidPtr&& txId) override;
         void handle_tx_failed(PeerId from, UuidPtr&& txId) override;
 
+
     private:
-        ToNode::Ptr m_net;
-
         IKeyChain::Ptr m_keyChain;
-
         INetworkIO& m_network;
         
         std::map<Uuid, PeerId> m_peers;
@@ -83,5 +70,7 @@ namespace beam
         std::map<Uuid, wallet::Receiver::Ptr> m_receivers;
         std::vector<wallet::Sender::Ptr>      m_removedSenders;
         std::vector<wallet::Receiver::Ptr>    m_removedReceivers;
+        uint64_t m_node_id;
+        WalletAction m_tx_completed_action;
     };
 }

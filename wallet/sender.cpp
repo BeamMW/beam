@@ -86,7 +86,7 @@ namespace beam::wallet
         m_gateway.send_tx_invitation(invitationData);
     }
 
-    bool Sender::FSMDefinition::isValidSignature(const TxInitCompleted& event)
+    bool Sender::FSMDefinition::is_valid_signature(const TxInitCompleted& event)
     {
         auto data = event.data;
         // 4. Compute Sender Schnorr signature
@@ -119,12 +119,12 @@ namespace beam::wallet
         return (p == p2);
     }
 
-    bool Sender::FSMDefinition::isInvalidSignature(const TxInitCompleted& event)
+    bool Sender::FSMDefinition::is_invalid_signature(const TxInitCompleted& event)
     {
-        return !isValidSignature(event);
+        return !is_valid_signature(event);
     }
 
-    void Sender::FSMDefinition::confirmTx(const TxInitCompleted& event)
+    void Sender::FSMDefinition::confirm_tx(const TxInitCompleted& event)
     {
         auto data = event.data;
         // 4. Compute Sender Schnorr signature
@@ -141,23 +141,23 @@ namespace beam::wallet
         m_gateway.send_tx_confirmation(confirmationData);
     }
 
-    void Sender::FSMDefinition::rollbackTx(const TxFailed& )
+    void Sender::FSMDefinition::rollback_tx(const TxFailed& )
     {
     }
 
-    void Sender::FSMDefinition::cancelTx(const TxInitCompleted& )
+    void Sender::FSMDefinition::cancel_tx(const TxInitCompleted& )
     {
         
     }
 
-    void Sender::FSMDefinition::confirmChangeOutput(const TxConfirmationCompleted&)
+    void Sender::FSMDefinition::confirm_change_output(const TxConfirmationCompleted&)
     {
         m_gateway.send_output_confirmation();
     }
 
-    void Sender::FSMDefinition::completeTx(const TxOutputConfirmCompleted&)
+    void Sender::FSMDefinition::complete_tx(const TxOutputConfirmCompleted&)
     {
-        cout << "Sender::completeTx\n";
+        cout << "Sender::complete_tx\n";
         for (auto& c : m_coins)
         {
             c.m_status = Coin::Spent;
