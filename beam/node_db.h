@@ -63,14 +63,10 @@ public:
 			Activate,
 			MmrGet,
 			MmrSet,
-			UtxoAdd,
-			UtxoDel,
-			UtxoModify,
-			UtxoEnum,
-			KernelAdd,
-			KernelDel,
-			KernelModify,
-			KernelEnum,
+			SpendableAdd,
+			SpendableDel,
+			SpendableModify,
+			SpendableEnum,
 			StateGetBlock,
 			StateSetBlock,
 			StateDelBlock,
@@ -211,35 +207,19 @@ public:
 	void MoveFwd(const StateID&);
 
 	// Utxos & kernels
-	struct WalkerUtxo {
+	struct WalkerSpendable {
 		Recordset m_Rs;
 		Blob m_Key;
 		uint32_t m_nUnspentCount;
 
-		WalkerUtxo(NodeDB& db) :m_Rs(db) {}
+		WalkerSpendable(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
-	struct WalkerKernel {
-		Recordset m_Rs;
-		Blob m_Key;
+	void EnumUnpsent(WalkerSpendable&);
 
-		WalkerKernel(NodeDB& db) :m_Rs(db) {}
-		bool MoveNext();
-	};
-
-
-	void EnumLiveUtxos(WalkerUtxo&);
-	void EnumLiveKernels(WalkerKernel&);
-
-	void AddUtxo(const Blob& key, const Blob& sig, uint32_t nTotal, uint32_t nUnspentCount);
-	void AddKernel(const Blob& key, const Blob& val, bool bUnspent);
-
-	void DeleteUtxo(const Blob& key);
-	void DeleteKernel(const Blob& key);
-
-	void ModifyUtxo(const Blob& key, int32_t nTotalDelta, int32_t nUnspentDelta);
-	void ModifyKernel(const Blob& key, int32_t nUnspentDelta);
+	void AddSpendable(const Blob& key, const Blob& body, uint32_t nRefs, uint32_t nUnspentCount);
+	void ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta, bool bMaybeDelete); // will delete iff refs=0
 
 	void assert_valid(); // diagnostic, for tests only
 

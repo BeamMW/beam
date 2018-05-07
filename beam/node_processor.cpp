@@ -17,41 +17,56 @@ void NodeProcessor::Initialize(const char* szPath, Height horizon)
 
 	// Load all th 'live' data
 	{
-		NodeDB::WalkerUtxo wutxo(m_DB);
-		for (m_DB.EnumLiveUtxos(wutxo); wutxo.MoveNext(); )
+		NodeDB::WalkerSpendable wsp(m_DB);
+		for (m_DB.EnumUnpsent(wsp); wsp.MoveNext(); )
 		{
-			assert(wutxo.m_nUnspentCount);
-
-			if (UtxoTree::Key::s_Bytes != wutxo.m_Key.n)
+			assert(wsp.m_nUnspentCount);
+			if (!wsp.m_Key.n)
 				OnCorrupted();
 
-			static_assert(sizeof(UtxoTree::Key) == UtxoTree::Key::s_Bytes, "");
-			const UtxoTree::Key& key = *(UtxoTree::Key*) wutxo.m_Key.p;
+			uint8_t nType = *(uint8_t*) wsp.m_Key.p;
+			((uint8_t*&) wsp.m_Key.p)++;
+			wsp.m_Key.n--;
 
-			UtxoTree::Cursor cu;
-			bool bCreate = true;
+			switch (nType)
+			{
+			case DbType::Utxo:
+				{
+					if (UtxoTree::Key::s_Bytes != wsp.m_Key.n)
+						OnCorrupted();
 
-			m_Utxos.Find(cu, key, bCreate)->m_Value.m_Count = wutxo.m_nUnspentCount;
-			assert(bCreate);
+					static_assert(sizeof(UtxoTree::Key) == UtxoTree::Key::s_Bytes, "");
+					const UtxoTree::Key& key = *(UtxoTree::Key*) wsp.m_Key.p;
+
+					UtxoTree::Cursor cu;
+					bool bCreate = true;
+
+					m_Utxos.Find(cu, key, bCreate)->m_Value.m_Count = wsp.m_nUnspentCount;
+					assert(bCreate);
+				}
+				break;
+
+			case DbType::Kernel:
+				{
+					if (sizeof(Merkle::Hash) != wsp.m_Key.n)
+						OnCorrupted();
+
+					const Merkle::Hash& key = *(Merkle::Hash*) wsp.m_Key.p;
+
+					RadixHashOnlyTree::Cursor cu;
+					bool bCreate = true;
+
+					m_Kernels.Find(cu, key, bCreate);
+					assert(bCreate);
+				}
+				break;
+
+			default:
+				OnCorrupted();
+			}
 		}
 	}
 
-	{
-		NodeDB::WalkerKernel wkrn(m_DB);
-		for (m_DB.EnumLiveKernels(wkrn); wkrn.MoveNext(); )
-		{
-			if (sizeof(Merkle::Hash) != wkrn.m_Key.n)
-				OnCorrupted();
-
-			const Merkle::Hash& key = *(Merkle::Hash*) wkrn.m_Key.p;
-
-			RadixHashOnlyTree::Cursor cu;
-			bool bCreate = true;
-
-			m_Kernels.Find(cu, key, bCreate);
-			assert(bCreate);
-		}
-	}
 
 	NodeDB::Transaction t(m_DB);
 	TryGoUp();
@@ -327,6 +342,19 @@ bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, Rol
 	return bOk;
 }
 
+template <typename T, uint8_t nType>
+struct SpendableKey
+{
+	uint8_t m_Type;
+	T m_Key;
+
+	SpendableKey()
+		:m_Type(nType)
+	{
+		static_assert(sizeof(*this) == sizeof(m_Type) + sizeof(m_Key), "");
+	}
+};
+
 bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd, Height h, RollbackData& rbData)
 {
 	UtxoTree::Key::Data d;
@@ -340,12 +368,12 @@ bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd, Height h, Roll
 		d.m_Maturity = x.m_Maturity;
 	}
 
-	UtxoTree::Key key;
-	key = d;
+	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
+	skey.m_Key = d;
 
 	UtxoTree::Cursor cu;
 	bool bCreate = !bFwd;
-	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
+	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, skey.m_Key, bCreate);
 
 	if (!p && bFwd)
 	{
@@ -373,7 +401,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd, Height h, Roll
 			return false; // not mature enough!
 
 		p = t.m_pLeaf;
-		key = t.m_pLeaf->m_Key;
+		skey.m_Key = t.m_pLeaf->m_Key;
 
 	}
 
@@ -397,7 +425,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd, Height h, Roll
 			p->m_Value.m_Count++;
 	}
 
-	m_DB.ModifyUtxo(NodeDB::Blob(&key, sizeof(key)), 0, bFwd ? -1 : 1);
+	m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), 0, bFwd ? -1 : 1, false);
 	return true;
 }
 
@@ -408,13 +436,13 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 	d.m_Maturity = h;
 	d.m_Maturity += v.m_Coinbase ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
 
-	UtxoTree::Key key;
-	key = d;
-	NodeDB::Blob blob(&key, sizeof(key));
+	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
+	skey.m_Key = d;
+	NodeDB::Blob blob(&skey, sizeof(skey));
 
 	UtxoTree::Cursor cu;
 	bool bCreate = true;
-	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
+	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, skey.m_Key, bCreate);
 
 	cu.Invalidate();
 
@@ -432,25 +460,22 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 
 			SerializeBuffer sb = ser.buffer();
 
-			m_DB.AddUtxo(blob, NodeDB::Blob(sb.first, (uint32_t) sb.second), 1, 1);
+			m_DB.AddSpendable(blob, NodeDB::Blob(sb.first, (uint32_t) sb.second), 1, 1);
 		}
 		else
 		{
 			p->m_Value.m_Count++;
-			m_DB.ModifyUtxo(blob, 0, 1);
+			m_DB.ModifySpendable(blob, 1, 1, false);
 		}
 	} else
 	{
-		if (1 == p->m_Value.m_Count)
-		{
+		bool bDel = (1 == p->m_Value.m_Count);
+		if (bDel)
 			m_Utxos.Delete(cu);
-			m_DB.DeleteUtxo(blob);
-		}
 		else
-		{
 			p->m_Value.m_Count--;
-			m_DB.ModifyUtxo(blob, 0, -1);
-		}
+
+		m_DB.ModifySpendable(blob, -1, -1, bDel);
 	}
 
 	return true;
@@ -460,39 +485,40 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 {
 	bool bAdd = (bFwd != bIsInput);
 
-	Merkle::Hash hv;
-	v.get_Hash(hv);
-	ECC::Hash::Processor() << hv << v.m_Excess << v.m_Multiplier >> hv; // add the public excess, it's not included by default
+	SpendableKey<Merkle::Hash, DbType::Kernel> skey;
+	NodeDB::Blob blob(&skey, sizeof(skey));
+
+	v.get_Hash(skey.m_Key);
+	ECC::Hash::Processor() << skey.m_Key << v.m_Excess << v.m_Multiplier >> skey.m_Key; // add the public excess, it's not included by default
 
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = bAdd;
-	RadixHashOnlyTree::MyLeaf* p = m_Kernels.Find(cu, hv, bCreate);
+	RadixHashOnlyTree::MyLeaf* p = m_Kernels.Find(cu, skey.m_Key, bCreate);
 
 	if (bAdd)
 	{
 		if (!bCreate)
 			return false; // attempt to use the same exactly kernel twice. This should be banned!
-
-		Serializer ser;
-		ser & v;
-		SerializeBuffer sb = ser.buffer();
-
-		if (bIsInput)
-			m_DB.ModifyKernel(NodeDB::Blob(hv.m_pData, sizeof(hv.m_pData)), 1);
-		else
-			m_DB.AddKernel(NodeDB::Blob(hv.m_pData, sizeof(hv.m_pData)), NodeDB::Blob(sb.first, (uint32_t) sb.second), true);
 	} else
 	{
 		if (!p)
 			return false; // no such a kernel
 
 		m_Kernels.Delete(cu);
-
-		if (bIsInput)
-			m_DB.ModifyKernel(NodeDB::Blob(hv.m_pData, sizeof(hv.m_pData)), -1);
-		else
-			m_DB.DeleteKernel(NodeDB::Blob(hv.m_pData, sizeof(hv.m_pData)));
 	}
+
+	if (bIsInput)
+		m_DB.ModifySpendable(blob, 0, bFwd ? -1 : 1, false);
+	else
+		if (bFwd)
+		{
+			Serializer ser;
+			ser & v;
+			SerializeBuffer sb = ser.buffer();
+
+			m_DB.AddSpendable(blob, NodeDB::Blob(sb.first, (uint32_t)sb.second), 1, 1);
+		} else
+			m_DB.ModifySpendable(blob, -1, -1, true);
 
 	return true;
 }

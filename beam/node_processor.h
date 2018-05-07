@@ -12,6 +12,11 @@ class NodeProcessor
 	UtxoTree m_Utxos;
 	RadixHashOnlyTree m_Kernels;
 
+	struct DbType {
+		static const uint8_t Utxo	= 0;
+		static const uint8_t Kernel	= 1;
+	};
+
 	void TryGoUp();
 
 	bool GoForward(const NodeDB::StateID&);
