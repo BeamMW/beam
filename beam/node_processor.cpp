@@ -170,6 +170,41 @@ void NodeProcessor::PruneOld(Height h)
 				break;
 		} while (rowid);
 	}
+
+	for (Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight); hFossil < h; )
+	{
+		uint64_t rowid;
+
+		{
+			NodeDB::WalkerState ws(m_DB);
+			m_DB.EnumStatesAt(ws, hFossil);
+			if (!ws.MoveNext())
+				OnCorrupted();
+
+			rowid = ws.m_Sid.m_Row;
+
+			if (ws.MoveNext())
+			{
+				if (!hFossil)
+					break; // several genesis blocks. Currently not blocked.
+
+				OnCorrupted();
+			}
+		}
+
+		assert(m_DB.GetStateFlags(rowid) & NodeDB::StateFlags::Active);
+
+		if (1 != m_DB.GetStateNextCount(rowid))
+			break;
+
+		DereferenceFossilBlock(rowid);
+
+		m_DB.SetStateBlock(rowid, NodeDB::Blob(NULL, 0), PeerID());
+		m_DB.SetStateRollback(rowid, NodeDB::Blob(NULL, 0));
+
+		++hFossil;
+		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
+	}
 }
 
 void NodeProcessor::get_CurrentLive(Merkle::Hash& hv)
@@ -483,17 +518,16 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 		else
 		{
 			p->m_Value.m_Count++;
-			m_DB.ModifySpendable(blob, 0, 1);
+			m_DB.ModifySpendable(blob, 1, 1);
 		}
 	} else
 	{
-		bool bDel = (1 == p->m_Value.m_Count);
-		if (bDel)
+		if (1 == p->m_Value.m_Count)
 			m_Utxos.Delete(cu);
 		else
 			p->m_Value.m_Count--;
 
-		m_DB.ModifySpendable(blob, bDel ? -1 : 0, -1);
+		m_DB.ModifySpendable(blob, -1, -1);
 	}
 
 	return true;
@@ -504,10 +538,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 	bool bAdd = (bFwd != bIsInput);
 
 	SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-	NodeDB::Blob blob(&skey, sizeof(skey));
-
-	v.get_Hash(skey.m_Key);
-	ECC::Hash::Processor() << skey.m_Key << v.m_Excess << v.m_Multiplier >> skey.m_Key; // add the public excess, it's not included by default
+	get_KrnKey(skey.m_Key, v);
 
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = bAdd;
@@ -525,6 +556,8 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 		m_Kernels.Delete(cu);
 	}
 
+	NodeDB::Blob blob(&skey, sizeof(skey));
+
 	if (bIsInput)
 		m_DB.ModifySpendable(blob, 0, bFwd ? -1 : 1);
 	else
@@ -539,6 +572,52 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 			m_DB.ModifySpendable(blob, -1, -1);
 
 	return true;
+}
+
+void NodeProcessor::DereferenceFossilBlock(uint64_t rowid)
+{
+	ByteBuffer bbBlock;
+	RollbackData rbData;
+	PeerID peer;
+
+	m_DB.GetStateBlock(rowid, bbBlock, rbData.m_Buf, peer);
+
+	Block::Body block;
+
+	Deserializer der;
+	der.reset(&bbBlock.at(0), bbBlock.size());
+	der & block;
+
+	rbData.m_pUtxo = rbData.get_BufAs();
+
+	for (size_t n = 0; n < block.m_vInputs.size(); n++)
+	{
+		const Input& v = *block.m_vInputs[n];
+
+		UtxoTree::Key::Data d;
+		d.m_Commitment = v.m_Commitment;
+		d.m_Maturity = rbData.m_pUtxo[n].m_Maturity;
+
+
+		SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
+		skey.m_Key = d;
+
+		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), -1, 0);
+	}
+
+	for (size_t n = 0; n < block.m_vKernelsInput.size(); n++)
+	{
+		SpendableKey<Merkle::Hash, DbType::Kernel> skey;
+		get_KrnKey(skey.m_Key, *block.m_vKernelsInput[n]);
+
+		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), -1, 0);
+	}
+}
+
+void NodeProcessor::get_KrnKey(Merkle::Hash& hv, const TxKernel& v)
+{
+	v.get_Hash(hv);
+	ECC::Hash::Processor() << hv << v.m_Excess << v.m_Multiplier >> hv; // add the public excess, it's not included by default
 }
 
 bool NodeProcessor::GoForward(const NodeDB::StateID& sid)
@@ -594,8 +673,8 @@ bool NodeProcessor::OnState(const Block::SystemState::Full& s, const NodeDB::Blo
 	if (m_DB.StateFindSafe(id))
 		return true;
 
-	NodeDB::StateID sid;
-	if (m_DB.get_Cursor(sid) && (sid.m_Height > m_Horizon) && (sid.m_Height - m_Horizon > s.m_Height))
+	uint64_t hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight);
+	if (hFossil && (s.m_Height <= hFossil))
 		return false;
 
 	NodeDB::Transaction t(m_DB);

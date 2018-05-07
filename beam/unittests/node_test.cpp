@@ -421,7 +421,7 @@ namespace beam
 		DeleteFile(g_sz);
 
 		MyNodeProcessor np;
-		np.Initialize(g_sz, 240);
+		np.Initialize(g_sz, 35);
 
 		for (Height h = 0; h < 200; h++)
 		{

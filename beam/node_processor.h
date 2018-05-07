@@ -22,6 +22,7 @@ class NodeProcessor
 	bool GoForward(const NodeDB::StateID&);
 	void Rollback(const NodeDB::StateID&);
 	void PruneOld(Height);
+	void DereferenceFossilBlock(uint64_t);
 
 	struct RollbackData;
 
@@ -36,6 +37,8 @@ class NodeProcessor
 
 	void OnCorrupted();
 	void get_CurrentLive(Merkle::Hash&);
+
+	static void get_KrnKey(Merkle::Hash&, const TxKernel&);
 
 	std::list<Transaction::Ptr> m_lstCurrentlyMining;
 	struct BlockBulder;

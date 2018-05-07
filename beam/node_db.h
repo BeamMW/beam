@@ -13,9 +13,7 @@ public:
 	struct StateFlags {
 		static const uint32_t Functional	= 0x1;	// has valid PoW and block body
 		static const uint32_t Reachable		= 0x2;	// has only functional nodes up to the genesis state
-		static const uint32_t Active		= 0x4;	// part of the current blockchain.
-		static const uint32_t OverHorizon	= 0x8;	// block body is deleted, rollback is no more possible.
-		static const uint32_t BlockPassed	= 0x10;	// block verification may be simplified (already verified)
+		static const uint32_t Active		= 0x4;	// part of the current blockchain (not really necessary).
 	};
 
 	struct ParamID {
@@ -24,7 +22,7 @@ public:
 			CursorRow,
 			CursorHeight,
 			StateExtra,
-			HeightCompressed,
+			FossilHeight,
 		};
 	};
 
