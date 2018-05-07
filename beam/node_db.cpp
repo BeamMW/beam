@@ -205,19 +205,19 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint32_t DB_VER = 8;
+	const uint64_t nVersion = 1;
 
 	if (bCreate)
 	{
 		Transaction t(*this);
 		Create();
-		ParamIntSet(ParamID::DbVer, DB_VER);
+		ParamSet(ParamID::DbVer, &nVersion, NULL);
 		t.Commit();
 	}
 	else
 	{
 		// test the DB version
-		if (DB_VER != ParamIntGetDef(ParamID::DbVer))
+		if (nVersion != ParamIntGetDef(ParamID::DbVer))
 			throw std::runtime_error("wrong version");
 	}
 }
@@ -341,40 +341,50 @@ void NodeDB::TestChanged1Row()
 		throw std::runtime_error("oops1");
 }
 
-void NodeDB::ParamIntSet(uint32_t ID, uint64_t val)
+void NodeDB::ParamSet(uint32_t ID, const uint64_t* p0, const Blob* p1)
 {
-	Recordset rs(*this, Query::ParamIntUpd, "UPDATE " TblParams " SET " TblParams_Int "=? WHERE " TblParams_ID "=?");
-	rs.put(0, val);
-	rs.put(1, ID);
+	Recordset rs(*this, Query::ParamUpd, "UPDATE " TblParams " SET " TblParams_Int "=?," TblParams_Blob "=? WHERE " TblParams_ID "=?");
+	if (p0)
+		rs.put(0, *p0);
+	if (p1)
+		rs.put(1, *p1);
+	rs.put(2, ID);
 	rs.Step();
 
 	if (!get_RowsChanged())
 	{
-		rs.Reset(Query::ParamIntIns, "INSERT INTO " TblParams " (" TblParams_ID ", " TblParams_Int ") VALUES(?,?)");
+		rs.Reset(Query::ParamIns, "INSERT INTO " TblParams " (" TblParams_ID "," TblParams_Int "," TblParams_Blob ") VALUES(?,?,?)");
 
 		rs.put(0, ID);
-		rs.put(1, val);
+		if (p0)
+			rs.put(1, *p0);
+		if (p1)
+			rs.put(1, *p1);
 		rs.Step();
 
 		TestChanged1Row();
 	}
 }
 
-bool NodeDB::ParamIntGet(uint32_t ID, uint64_t& val)
+bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, ByteBuffer* p1)
 {
-	Recordset rs(*this, Query::ParamIntGet, "SELECT " TblParams_Int " FROM " TblParams " WHERE " TblParams_ID "=?");
+	Recordset rs(*this, Query::ParamGet, "SELECT " TblParams_Int "," TblParams_Blob " FROM " TblParams " WHERE " TblParams_ID "=?");
 	rs.put(0, ID);
 
 	if (!rs.Step())
 		return false;
 
-	rs.get(0, val);
+	if (p0)
+		rs.get(0, *p0);
+	if (p1)
+		rs.get(0, *p1);
+
 	return true;
 }
 
 uint64_t NodeDB::ParamIntGetDef(int ID, uint64_t def /* = 0 */)
 {
-	ParamIntGet(ID, def);
+	ParamGet(ID, &def, NULL);
 	return def;
 }
 
@@ -1097,8 +1107,8 @@ bool NodeDB::get_Cursor(StateID& sid)
 
 void NodeDB::put_Cursor(const StateID& sid)
 {
-	ParamIntSet(ParamID::CursorRow, sid.m_Row);
-	ParamIntSet(ParamID::CursorHeight, sid.m_Height);
+	ParamSet(ParamID::CursorRow, &sid.m_Row, NULL);
+	ParamSet(ParamID::CursorHeight, &sid.m_Height, NULL);
 }
 
 void NodeDB::MoveBack(StateID& sid)

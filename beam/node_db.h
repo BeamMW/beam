@@ -34,9 +34,9 @@ public:
 			Commit,
 			Rollback,
 			Scheme,
-			ParamIntGet,
-			ParamIntIns,
-			ParamIntUpd,
+			ParamGet,
+			ParamIns,
+			ParamUpd,
 			StateIns,
 			StateDel,
 			StateGet,
@@ -152,8 +152,9 @@ public:
 	};
 
 	// Hi-level functions
-	void ParamIntSet(uint32_t ID, uint64_t val);
-	bool ParamIntGet(uint32_t ID, uint64_t& val);
+
+	void ParamSet(uint32_t ID, const uint64_t*, const Blob*);
+	bool ParamGet(uint32_t ID, uint64_t*, ByteBuffer*);
 
 	uint64_t ParamIntGetDef(int ID, uint64_t def = 0);
 
