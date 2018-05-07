@@ -157,9 +157,12 @@ namespace beam
 		//
 		// Validation formula
 		//
-		// Sum(Inputs) - Sum(Outputs) = Sum(TxKernels.Excess) + m_Offset*G [ + Sum(Fee)*H ]
+		// Sum(Input UTXOs) + Sum(Input Kernels.Excess) = Sum(Output UTXOs) + Sum(Output Kernels.Excess) + m_Offset*G [ + Sum(Fee)*H ]
+		//
+		// For transaction validation fees are considered as implicit outputs (i.e. Sum(Fee)*H should be added for the right equation side)
 		//
 		// For a block validation Fees are not accounted for, since they are consumed by new outputs injected by the miner.
+		// However Each block contains extra outputs (coinbase) for block closure, which should be subtracted from the outputs for sum validation.
 		//
 		// Define: Sigma = Sum(Outputs) - Sum(Inputs) + Sum(TxKernels.Excess) + m_Offset*G
 		// Sigma is either zero or -Sum(Fee)*H, depending on what we validate
