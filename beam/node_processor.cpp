@@ -443,7 +443,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd, Height h, Roll
 			p->m_Value.m_Count++;
 	}
 
-	m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), 0, bFwd ? -1 : 1, false);
+	m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), 0, bFwd ? -1 : 1);
 	return true;
 }
 
@@ -483,7 +483,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 		else
 		{
 			p->m_Value.m_Count++;
-			m_DB.ModifySpendable(blob, 1, 1, false);
+			m_DB.ModifySpendable(blob, 0, 1);
 		}
 	} else
 	{
@@ -493,7 +493,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 		else
 			p->m_Value.m_Count--;
 
-		m_DB.ModifySpendable(blob, -1, -1, bDel);
+		m_DB.ModifySpendable(blob, bDel ? -1 : 0, -1);
 	}
 
 	return true;
@@ -526,7 +526,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 	}
 
 	if (bIsInput)
-		m_DB.ModifySpendable(blob, 0, bFwd ? -1 : 1, false);
+		m_DB.ModifySpendable(blob, 0, bFwd ? -1 : 1);
 	else
 		if (bFwd)
 		{
@@ -536,7 +536,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 
 			m_DB.AddSpendable(blob, NodeDB::Blob(sb.first, (uint32_t)sb.second), 1, 1);
 		} else
-			m_DB.ModifySpendable(blob, -1, -1, true);
+			m_DB.ModifySpendable(blob, -1, -1);
 
 	return true;
 }

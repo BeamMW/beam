@@ -1261,17 +1261,22 @@ bool NodeDB::WalkerSpendable::MoveNext()
 
 void NodeDB::AddSpendable(const Blob& key, const Blob& body, uint32_t nRefs, uint32_t nUnspentCount)
 {
-	assert(nRefs);
+	assert(nRefs > 0);
 
-	Recordset rs(*this, Query::SpendableAdd, "INSERT INTO " TblSpendable "(" TblSpendable_Key "," TblSpendable_Body "," TblSpendable_Refs "," TblSpendable_Unspent ") VALUES(?,?,?,?)");
-	rs.put(0, key);
-	rs.put(1, body);
-	rs.put(2, nRefs);
-	rs.put(3, nUnspentCount);
-	rs.Step();
+	ModifySpendableSafe(key, nRefs, nUnspentCount);
+
+	if (!get_RowsChanged())
+	{
+		Recordset rs(*this, Query::SpendableAdd, "INSERT INTO " TblSpendable "(" TblSpendable_Key "," TblSpendable_Body "," TblSpendable_Refs "," TblSpendable_Unspent ") VALUES(?,?,?,?)");
+		rs.put(0, key);
+		rs.put(1, body);
+		rs.put(2, nRefs);
+		rs.put(3, nUnspentCount);
+		rs.Step();
+	}
 }
 
-void NodeDB::ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta, bool bMaybeDelete)
+void NodeDB::ModifySpendableSafe(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta)
 {
 	assert(nRefsDelta || nUnspentDelta);
 
@@ -1280,11 +1285,16 @@ void NodeDB::ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspe
 	rs.put(1, (uint32_t)nUnspentDelta);
 	rs.put(2, key);
 	rs.Step();
+}
+
+void NodeDB::ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta)
+{
+	ModifySpendableSafe(key, nRefsDelta, nUnspentDelta);
 	TestChanged1Row();
 
-	if (bMaybeDelete)
+	if (nRefsDelta < 0)
 	{
-		rs.Reset(Query::SpendableDel, "DELETE FROM " TblSpendable " WHERE " TblSpendable_Key "=? AND " TblSpendable_Refs "=0");
+		Recordset rs(*this, Query::SpendableDel, "DELETE FROM " TblSpendable " WHERE " TblSpendable_Key "=? AND " TblSpendable_Refs "=0");
 		rs.put(0, key);
 		rs.Step();
 	}

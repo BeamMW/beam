@@ -222,7 +222,7 @@ public:
 	void EnumUnpsent(WalkerSpendable&);
 
 	void AddSpendable(const Blob& key, const Blob& body, uint32_t nRefs, uint32_t nUnspentCount);
-	void ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta, bool bMaybeDelete); // will delete iff refs=0
+	void ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta); // will delete iff refs=0
 
 	void assert_valid(); // diagnostic, for tests only
 
@@ -251,6 +251,7 @@ private:
 	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
 	void BuildMmr(uint64_t rowid, uint64_t rowPrev, Height);
 	void put_Cursor(const StateID& sid); // jump
+	void ModifySpendableSafe(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta);
 
 	void TestChanged1Row();
 

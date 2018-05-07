@@ -283,15 +283,15 @@ namespace beam
 		NodeDB::WalkerSpendable wsp(db);
 		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
-		db.ModifySpendable(b0, 0, -3, true);
+		db.ModifySpendable(b0, 0, -3);
 		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
 
-		db.ModifySpendable(b0, 0, 2, true);
+		db.ModifySpendable(b0, 0, 2);
 		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
 
-		db.ModifySpendable(b0, -5, -4, true);
+		db.ModifySpendable(b0, -5, -4);
 		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
 	}
