@@ -23,6 +23,8 @@ public:
 			DbVer,
 			CursorRow,
 			CursorHeight,
+			StateExtra,
+			HeightCompressed,
 		};
 	};
 
@@ -154,7 +156,7 @@ public:
 	// Hi-level functions
 
 	void ParamSet(uint32_t ID, const uint64_t*, const Blob*);
-	bool ParamGet(uint32_t ID, uint64_t*, ByteBuffer*);
+	bool ParamGet(uint32_t ID, uint64_t*, Blob*);
 
 	uint64_t ParamIntGetDef(int ID, uint64_t def = 0);
 

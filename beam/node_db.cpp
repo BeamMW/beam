@@ -359,14 +359,14 @@ void NodeDB::ParamSet(uint32_t ID, const uint64_t* p0, const Blob* p1)
 		if (p0)
 			rs.put(1, *p0);
 		if (p1)
-			rs.put(1, *p1);
+			rs.put(2, *p1);
 		rs.Step();
 
 		TestChanged1Row();
 	}
 }
 
-bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, ByteBuffer* p1)
+bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1)
 {
 	Recordset rs(*this, Query::ParamGet, "SELECT " TblParams_Int "," TblParams_Blob " FROM " TblParams " WHERE " TblParams_ID "=?");
 	rs.put(0, ID);
@@ -377,7 +377,10 @@ bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, ByteBuffer* p1)
 	if (p0)
 		rs.get(0, *p0);
 	if (p1)
-		rs.get(0, *p1);
+	{
+		const void* pPtr = rs.get_BlobStrict(1, p1->n);
+		memcpy((void*) p1->p, pPtr, p1->n);
+	}
 
 	return true;
 }

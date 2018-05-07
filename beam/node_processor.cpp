@@ -269,6 +269,24 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool b
 			HandleValidatedTx(block, sid.m_Height, false, rbData);
 	}
 
+	if (bOk)
+	{
+		ECC::Scalar kOffset;
+		NodeDB::Blob blob(kOffset.m_Value.m_pData, sizeof(kOffset.m_Value.m_pData));
+
+		if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
+			kOffset.m_Value = ECC::Zero;
+
+		ECC::Scalar::Native k(kOffset), k2(block.m_Offset);
+		if (!bFwd)
+			k2 = -k2;
+
+		k += k2;
+		kOffset = k;
+
+		m_DB.ParamSet(NodeDB::ParamID::StateExtra, NULL, &blob);
+	}
+
 	return bOk;
 }
 
