@@ -54,12 +54,14 @@ public:
 			StateSetFlags,
 			StateGetFlags0,
 			StateGetFlags1,
+			StateGetNextCount,
 			TipAdd,
 			TipDel,
 			TipReachableAdd,
 			TipReachableDel,
 			EnumTips,
 			EnumFunctionalTips,
+			EnumAtHeight,
 			StateGetPrev,
 			Unactivate,
 			Activate,
@@ -172,6 +174,7 @@ public:
 
 	bool DeleteState(uint64_t rowid, uint64_t& rowPrev); // State must exist. Returns false if there are ancestors.
 
+	uint32_t GetStateNextCount(uint64_t rowid);
 	uint32_t GetStateFlags(uint64_t rowid);
 	void SetFlags(uint64_t rowid, uint32_t);
 
@@ -201,6 +204,7 @@ public:
 
 	void EnumTips(WalkerState&); // lowest to highest
 	void EnumFunctionalTips(WalkerState&); // highest to lowest
+	void EnumStatesAt(WalkerState&, Height);
 	bool get_Prev(StateID&);
 	bool get_Prev(uint64_t&);
 
