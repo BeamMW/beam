@@ -126,7 +126,7 @@ namespace beam
 
 		bool IsValid(Amount& fee, ECC::Point::Native& exc) const;
 
-		void get_Hash(Merkle::Hash&) const; // Hash doesn't include signatures
+		void get_Hash(Merkle::Hash&) const; // Hash doesn't include signatures (for nested kernels it includes everything)
 		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
 
 		void get_HashForContract(ECC::Hash::Value&, const ECC::Hash::Value& msg) const;

@@ -139,7 +139,13 @@ namespace beam
 
 			if (!v.Traverse(hv, pFee, pExcess))
 				return false;
-			hp << hv;
+
+			// The hash of this kernel should account for the signature and the excess of the internal kernels.
+			hp	<< v.m_Excess
+				<< v.m_Multiplier
+				<< v.m_Signature.m_e
+				<< v.m_Signature.m_k
+				<< hv;
 		}
 
 		hp >> hv;
