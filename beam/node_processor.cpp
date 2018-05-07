@@ -264,7 +264,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool b
 			bOk = false;
 
 		if (bOk)
-			m_DB.SetStateRollback(sid.m_Row, NodeDB::Blob(&rbData.m_Buf.at(0), rbData.m_Buf.size()));
+			m_DB.SetStateRollback(sid.m_Row, rbData.m_Buf);
 		else
 			HandleValidatedTx(block, sid.m_Height, false, rbData);
 	}
@@ -534,7 +534,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 			ser & v;
 			SerializeBuffer sb = ser.buffer();
 
-			m_DB.AddSpendable(blob, NodeDB::Blob(sb.first, (uint32_t)sb.second), 1, 1);
+			m_DB.AddSpendable(blob, NodeDB::Blob(sb.first, (uint32_t) sb.second), 1, 1);
 		} else
 			m_DB.ModifySpendable(blob, -1, -1);
 
@@ -775,7 +775,7 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 
 	Block::SystemState::ID id;
 	s.get_ID(id);
-	OnBlock(id, NodeDB::Blob(&block.at(0), (uint32_t) block.size()), PeerID());
+	OnBlock(id, block, PeerID());
 
 	OnMined(h, kFee, fee, kCoinbase, nCoinbase);
 }

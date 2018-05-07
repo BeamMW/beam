@@ -97,6 +97,11 @@ public:
 
 		Blob() {}
 		Blob(const void* p_, uint32_t n_) :p(p_) ,n(n_) {}
+		Blob(const ByteBuffer& bb)
+		{
+			if ((n = (uint32_t) bb.size()))
+				p = &bb.at(0);
+		}
 	};
 
 	class Recordset
@@ -183,7 +188,6 @@ public:
 	struct StateID {
 		uint64_t m_Row;
 		Height m_Height;
-		//Merkle::Hash m_Hash; //?
 	};
 
 
