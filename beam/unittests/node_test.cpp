@@ -47,14 +47,12 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 	fflush(stdout);
 }
 
-void DeleteFile(const char* szPath)
+#ifndef WIN32
+void DeleteFileA(const char* szPath)
 {
-#ifdef WIN32
-	DeleteFileA(szPath);
-#else // WIN32
 	unlink(szPath);
-#endif // WIN32
 }
+#endif // WIN32
 
 #define verify_test(x) \
 	do { \
@@ -305,14 +303,14 @@ namespace beam
 	void TestNodeDB()
 	{
 
-		DeleteFile(g_sz);
+		DeleteFileA(g_sz);
 		TestNodeDB(g_sz); // will create
 
 		{
 			NodeDB db;
 			db.Open(g_sz); // test to open already-existing DB
 		}
-		DeleteFile(g_sz);
+		DeleteFileA(g_sz);
 	}
 
 	class MyNodeProcessor
@@ -418,7 +416,7 @@ namespace beam
 
 	void TestNodeProcessor()
 	{
-		DeleteFile(g_sz);
+		DeleteFileA(g_sz);
 
 		MyNodeProcessor np;
 		np.Initialize(g_sz, 35);
