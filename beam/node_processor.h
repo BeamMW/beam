@@ -43,6 +43,8 @@ class NodeProcessor
 	std::list<Transaction::Ptr> m_lstCurrentlyMining;
 	struct BlockBulder;
 
+	bool IsRelevantHeight(Height);
+
 public:
 
 	typedef NodeDB::PeerID PeerID;

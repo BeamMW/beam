@@ -67,7 +67,6 @@ void NodeProcessor::Initialize(const char* szPath, Height horizon)
 		}
 	}
 
-
 	NodeDB::Transaction t(m_DB);
 	TryGoUp();
 	t.Commit();
@@ -141,6 +140,8 @@ void NodeProcessor::TryGoUp()
 		NodeDB::StateID sidPos;
 		m_DB.get_Cursor(sidPos);
 		PruneOld(sidPos.m_Height);
+
+		OnNewState();
 	}
 }
 
@@ -666,16 +667,21 @@ bool NodeProcessor::get_CurrentState(Block::SystemState::ID& id)
 	return true;
 }
 
+bool NodeProcessor::IsRelevantHeight(Height h)
+{
+	uint64_t hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight);
+	return !hFossil || (h > hFossil);
+}
+
 bool NodeProcessor::OnState(const Block::SystemState::Full& s, const NodeDB::Blob& /*pow*/, const PeerID& peer)
 {
+	if (!IsRelevantHeight(s.m_Height))
+		return false;
+
 	Block::SystemState::ID id;
 	s.get_ID(id);
 	if (m_DB.StateFindSafe(id))
 		return true;
-
-	uint64_t hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight);
-	if (hFossil && (s.m_Height <= hFossil))
-		return false;
 
 	NodeDB::Transaction t(m_DB);
 	m_DB.InsertState(s);
@@ -694,8 +700,7 @@ bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob
 	if (!rowid)
 		return false;
 
-	uint32_t nFlags = m_DB.GetStateFlags(rowid);
-	if (NodeDB::StateFlags::Functional & nFlags)
+	if (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(rowid))
 		return true;
 
 	NodeDB::Transaction t(m_DB);
