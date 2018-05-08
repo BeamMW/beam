@@ -7,6 +7,7 @@ set(P2P_SRC
     fragment_writer.cpp
     msg_serializer.cpp
     connection.cpp
+    roulette.cpp
 )
 
 add_library(p2p STATIC ${P2P_SRC})

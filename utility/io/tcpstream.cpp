@@ -7,9 +7,7 @@
 
 namespace beam { namespace io {
 
-TcpStream::~TcpStream() {
-    LOG_VERBOSE() << ".";
-}
+TcpStream::~TcpStream() {}
 
 void TcpStream::alloc_read_buffer() {
     if (!_readBuffer.base) {
@@ -141,7 +139,8 @@ bool TcpStream::is_connected() const {
 }
 
 void TcpStream::on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
-    LOG_VERBOSE() << "handle=" << handle << " nread=" << nread << " buf=" << buf;
+    LOG_VERBOSE() << TRACE(handle) << TRACE(nread);
+    
     TcpStream* self = reinterpret_cast<TcpStream*>(handle->data);
     
     // self becomes null after async close
@@ -154,7 +153,6 @@ void TcpStream::on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf)
             self->_callback((ErrorCode)nread, 0, 0);
         }
     }
-    LOG_VERBOSE() << "~";
 }
 
 }} //namespaces

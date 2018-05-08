@@ -52,6 +52,8 @@ struct LogMessageStub {
     #define LOG_VERBOSE() LogMessageStub()
 #endif
 
+#define TRACE(var) " " #var "=" << var
+
 namespace beam {
 
 // Logger options

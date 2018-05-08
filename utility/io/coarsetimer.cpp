@@ -41,7 +41,7 @@ Result CoarseTimer::set_timer(unsigned intervalMsec, ID id) {
     _queue.insert({ clock, id });
     _validIds.insert({ id, clock });
     if (!_insideCallback && _timerSetTo > clock) {
-        LOG_VERBOSE() << "restart=" << intervalMsec;
+        LOG_VERBOSE() << TRACE(intervalMsec);
         _timerSetTo = clock;
         return _timer->restart(intervalMsec, false);
     }
@@ -66,7 +66,7 @@ void CoarseTimer::cancel_all() {
 static constexpr unsigned TIMER_ACCURACY = 10;
 
 void CoarseTimer::on_timer() {
-    LOG_VERBOSE() << "queue size " << _queue.size();
+    LOG_VERBOSE() << TRACE(_queue.size());
     
     if (_queue.empty()) return;
     Clock now = mono_clock();
@@ -80,12 +80,12 @@ void CoarseTimer::on_timer() {
         
         clock = it->first;
         
-        LOG_VERBOSE() << "now=" << now << " clock=" << clock << " _timerSetTo=" << _timerSetTo;
+        LOG_VERBOSE() << TRACE(now) << TRACE(clock) << TRACE(_timerSetTo);
         
         if (clock > now + TIMER_ACCURACY) break;
         ID id = it->second;
         
-        LOG_VERBOSE() << "id=" << id;
+        LOG_VERBOSE() << TRACE(id);
         
         // this helps calling set_timer(), cancel(), cancel_all() from inside callbacks
         _queue.erase(it); 
@@ -107,7 +107,7 @@ void CoarseTimer::on_timer() {
         now = mono_clock();
         unsigned intervalMsec = 0;
         if (clock > now) intervalMsec = unsigned(clock - now);
-        LOG_VERBOSE() << "restart=" << intervalMsec;
+        LOG_VERBOSE() << TRACE(intervalMsec);
         Result res =_timer->restart(intervalMsec, false);
         if (!res) {
             LOG_ERROR() << "cannot restart timer, code=" << res.error(); 

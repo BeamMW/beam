@@ -306,7 +306,7 @@ void Reactor::connect_callback(Reactor::ConnectContext* ctx, ErrorCode errorCode
 }
 
 void Reactor::connect_timeout_callback(uint64_t tag) {
-    LOG_VERBOSE() << "tag=" << tag;
+    LOG_VERBOSE() << TRACE(tag);
     auto it = _connectRequests.find(tag);
     if (it != _connectRequests.end()) {
         ConnectCallback cb = it->second.callback;
@@ -316,7 +316,7 @@ void Reactor::connect_timeout_callback(uint64_t tag) {
 }
 
 void Reactor::cancel_tcp_connect(uint64_t tag) {
-    LOG_VERBOSE() << "tag=" << tag;
+    LOG_VERBOSE() << TRACE(tag);
     auto it = _connectRequests.find(tag);
     if (it != _connectRequests.end()) {
         cancel_tcp_connect_impl(it);
@@ -333,7 +333,7 @@ void Reactor::cancel_tcp_connect_impl(std::unordered_map<uint64_t, ConnectContex
 }
 
 void Reactor::async_close(uv_handle_t*& handle) {
-    LOG_VERBOSE() << "handle=" << handle;
+    LOG_VERBOSE() << TRACE(handle);
 
     if (!handle) return;
     handle->data = 0;
