@@ -157,7 +157,7 @@ namespace beam::wallet
         {
             c.m_status = Coin::Spent;
         }
-        if (m_changeOutput != boost::none)
+        if (m_changeOutput)
         {
             m_changeOutput->m_status = Coin::Unspent;
             m_coins.push_back(*m_changeOutput);
