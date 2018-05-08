@@ -806,13 +806,26 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	m_lstCurrentlyMining.clear();
 
 	ECC::Scalar::Native kFee, kCoinbase;
+	get_Key(kFee, h, false);
 
 	if (fee)
 	{
-		get_Key(kFee, h, false);
 		ctxBlock.AddOutput(kFee, fee, false);
-
 		verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
+	} else
+	{
+		TxKernel::Ptr pKrn(new TxKernel);
+		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kFee);
+
+		ECC::Hash::Value hv;
+		pKrn->get_Hash(hv);
+		pKrn->m_Signature.Sign(hv, kFee);
+		ctxBlock.m_Block.m_vKernelsOutput.push_back(std::move(pKrn));
+
+		verify(HandleBlockElement(*ctxBlock.m_Block.m_vKernelsOutput.back(), true, false));
+
+		kFee = -kFee;
+		ctxBlock.m_Offset += kFee;
 	}
 
 	get_Key(kCoinbase, h, true);
