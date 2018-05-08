@@ -1,7 +1,6 @@
 #include "wallet/wallet_network.h"
 #include "wallet/wallet.h"
 
-#include "coin.h"
 #include "test_helpers.h"
 
 #include <assert.h>
@@ -10,6 +9,8 @@
 #include <mutex>
 #include <atomic>
 #include <condition_variable>
+
+#include "sqlite_keychain.hpp"
 
 using namespace beam;
 using namespace std;
@@ -44,11 +45,16 @@ namespace
     {
     public:
         
-        ECC::Scalar getNextKey()
-        {
-            return CoinData::keygen.next().get();
-        }
-        
+		uint64_t getNextID()
+		{
+			return 1;
+		}
+
+		ECC::Scalar calcKey(uint64_t id)
+		{
+			return ECC::Scalar();
+		}
+
         std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock)
         {
             std::vector<beam::Coin> res;
@@ -90,9 +96,9 @@ namespace
     public:
         TestKeyChain()
         {
-            m_coins.emplace_back(ECC::Scalar::Native(200U), 5);
-            m_coins.emplace_back(ECC::Scalar::Native(201U), 2);
-            m_coins.emplace_back(ECC::Scalar::Native(202U), 3);
+            m_coins.emplace_back(1, 5);
+            m_coins.emplace_back(2, 2);
+            m_coins.emplace_back(3, 3);
         }
     };
 
@@ -101,85 +107,20 @@ namespace
     public:
         TestKeyChain2()
         {
-            m_coins.emplace_back(ECC::Scalar::Native(300U), 1);
-            m_coins.emplace_back(ECC::Scalar::Native(301U), 3);
+            m_coins.emplace_back(1, 1);
+            m_coins.emplace_back(2, 3);
         }
     };
 
-    static const char* WalletName = "wallet.dat";
-    static const char* TestPassword = "test password";
-    class TestKeyChainIntegration : public IKeyChain
-    {
-    public:
-
-        TestKeyChainIntegration()
-        {
-            std::ofstream os;
-            os.open(WalletName, std::ofstream::binary);
-
-            addCoin(os, 4);
-            addCoin(os, 3);
-            addCoin(os, 2);
-
-            os.close();
-        }
-
-        ECC::Scalar getNextKey()
-        {
-            return CoinData::keygen.next().get();
-        }
-
-        std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock)
-        {
-            std::vector<beam::Coin> res;
-
-            std::ifstream is;
-            is.open(WalletName, std::ofstream::binary);
-
-            size_t offset = 0;
-
-            while(true)
-            {
-                std::unique_ptr<CoinData> coin(CoinData::recover(is, offset, TestPassword));
-
-                if (coin)
-                {
-                    coin->m_status = Coin::Locked;
-                    res.push_back(*coin);
-                }
-                else break;
-
-                offset += SIZE_COIN_DATA;
-            }
-
-            is.close();
-
-            return res;
-        }
-
-        void store(const beam::Coin& coin)
-        {
-
-        }
-
-        void update(const std::vector<beam::Coin>& coins)
-        {
-
-        }
-
-        void remove(const std::vector<beam::Coin>& coins)
-        {
-
-        }
-        
-    private:
-
-        void addCoin(std::ofstream& os, const ECC::Amount& amount)
-        {
-            CoinData coin(amount);
-            coin.write(os, TestPassword);
-        }
-    };
+	struct SqliteKeychainInt : SqliteKeychain
+	{
+		SqliteKeychainInt()
+		{
+			store(beam::Coin(getNextID(), 5));
+			store(beam::Coin(getNextID(), 2));
+			store(beam::Coin(getNextID(), 3));
+		}
+	};
 
     template<typename KeychainImpl>
     IKeyChain::Ptr createKeyChain()
@@ -656,7 +597,7 @@ int main()
 {
     TestP2PWalletNegotiation();
     TestWalletNegotiation<TestKeyChain, TestKeyChain2>();
-    TestWalletNegotiation<TestKeyChainIntegration, TestKeyChain2>();
+    TestWalletNegotiation<SqliteKeychainInt, TestKeyChain2>();
     TestRollback();
     TestFSM();
 

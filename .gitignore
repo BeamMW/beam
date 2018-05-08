@@ -85,3 +85,5 @@ wallet/unittests/keychain_test
 wallet/unittests/wallet.dat
 core/unittest/storage_test
 core/unittest/ecc_test
+.vs/
+CMakeSettings.json

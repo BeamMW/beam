@@ -5,6 +5,12 @@
 #include <algorithm>
 #include <random>
 
+// Valdo's point generator of elliptic curve
+namespace ECC {
+	Context g_Ctx;
+	const Context& Context::get() { return g_Ctx; }
+}
+
 namespace beam
 {
     using namespace wallet;
@@ -34,12 +40,13 @@ namespace beam
     }
 
     Coin::Coin()
+		: m_status(Unspent)
     {
 
     }
 
-    Coin::Coin(const Scalar& key, const Amount& amount, Status status, const Height& height, bool isCoinbase)
-        : m_key{key}
+    Coin::Coin(uint64_t id, const Amount& amount, Status status, const Height& height, bool isCoinbase)
+        : m_id{id}
         , m_amount{amount}
         , m_status{status}
         , m_height{height}
@@ -47,12 +54,6 @@ namespace beam
     {
 
     } 
-    
-    Coin::Coin(const ECC::Scalar& key, const ECC::Amount& amount)
-        : Coin(key, amount, Coin::Unspent, 0, false)
-    {
-
-    }
 
     Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, WalletAction&& action)
         : m_keyChain{ keyChain }
