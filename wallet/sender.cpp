@@ -26,12 +26,9 @@ namespace beam::wallet
             {
                 assert(coin.m_status == Coin::Locked);
                 Input::Ptr input = make_unique<Input>();
-                input->m_Height = coin.m_height;
-                input->m_Coinbase = coin.m_isCoinbase;
 
                 Scalar::Native key{ coin.m_key };
-                Point::Native pt = Commitment(key, coin.m_amount);
-                input->m_Commitment = pt;
+                input->m_Commitment = Commitment(key, coin.m_amount);
 
                 invitationData->m_inputs.push_back(move(input));
                 m_blindingExcess += key;
@@ -52,9 +49,7 @@ namespace beam::wallet
             output->m_Coinbase = false;
 
             Scalar::Native blindingFactor = m_keychain->getNextKey();
-
-            Point::Native pt = Commitment(blindingFactor, change);
-            output->m_Commitment = pt;
+            output->m_Commitment = Commitment(blindingFactor, change);
 
             output->m_pPublic.reset(new RangeProof::Public);
             output->m_pPublic->m_Value = change;

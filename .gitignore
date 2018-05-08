@@ -41,6 +41,7 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 
+.vs
 .vscode/*
 miner/pow/unittests/equihash_test
 libsodium-1.0.16

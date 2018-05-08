@@ -13,7 +13,7 @@ public:
     ~Connection();
 
     /// Writes fragments to stream
-    expected<void, io::ErrorCode> write_msg(const std::vector<io::SharedBuffer>& fragments);
+    io::Result write_msg(const std::vector<io::SharedBuffer>& fragments);
 
 private:
     /// stream message handler

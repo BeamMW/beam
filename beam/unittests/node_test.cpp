@@ -115,7 +115,7 @@ namespace beam
 			if (hFork0 == h)
 				cmmrFork = cmmr;
 
-			cmmr.get_Hash(s.m_States);
+			cmmr.get_Hash(s.m_History);
 		}
 
 		uint64_t pRows[hMax];
@@ -142,12 +142,15 @@ namespace beam
 
 		db.SetStateBlock(pRows[0], bBody, peerID);
 
-		ByteBuffer bbBody;
+		ByteBuffer bbBody, bbRollback;
 		ZeroObject(peerID);
-		db.GetStateBlock(pRows[0], bbBody, peerID);
+		db.GetStateBlock(pRows[0], bbBody, bbRollback, peerID);
+		db.SetStateRollback(pRows[0], bBody);
+		db.GetStateBlock(pRows[0], bbBody, bbRollback, peerID);
+
 		db.DelStateBlock(pRows[0]);
 		ZeroObject(peerID);
-		db.GetStateBlock(pRows[0], bbBody, peerID);
+		db.GetStateBlock(pRows[0], bbBody, bbRollback, peerID);
 
 		tr.Commit();
 		tr.Start(db);
@@ -157,7 +160,7 @@ namespace beam
 
 		// a subbranch
 		Block::SystemState::Full s = vStates[hFork0];
-		s.m_Kernels.Inc(); // alter
+		s.m_LiveObjects.Inc(); // alter
 
 		uint64_t r0 = db.InsertState(s);
 
@@ -171,7 +174,7 @@ namespace beam
 
 		s.get_Hash(s.m_Prev);
 		cmmrFork.Append(s.m_Prev);
-		cmmrFork.get_Hash(s.m_States);
+		cmmrFork.get_Hash(s.m_History);
 		s.m_Height++;
 
 		uint64_t rowLast1 = db.InsertState(s);
@@ -202,10 +205,10 @@ namespace beam
 			{
 				Merkle::Hash hv;
 				db.get_PredictedStatesHash(hv, sid2);
-				verify_test(hv == vStates[(size_t) sid2.m_Height + 1].m_States);
+				verify_test(hv == vStates[(size_t) sid2.m_Height + 1].m_History);
 			}
 
-			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height].m_States;
+			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height].m_History;
 
 			for (uint32_t h = 0; h <= sid2.m_Height; h++)
 			{
@@ -275,38 +278,21 @@ namespace beam
 		// utxos and kernels
 		NodeDB::Blob b0(vStates[0].m_Prev.m_pData, sizeof(vStates[0].m_Prev.m_pData));
 
-		db.AddUtxo(b0, NodeDB::Blob("hello, world!", 13), 5, 3);
+		db.AddSpendable(b0, NodeDB::Blob("hello, world!", 13), 5, 3);
 
-		NodeDB::WalkerUtxo wutxo(db);
-		for (db.EnumLiveUtxos(wutxo); wutxo.MoveNext(); )
+		NodeDB::WalkerSpendable wsp(db);
+		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
-		db.ModifyUtxo(b0, 0, -3);
-		for (db.EnumLiveUtxos(wutxo); wutxo.MoveNext(); )
-			;
-
-		db.ModifyUtxo(b0, 0, 2);
-		for (db.EnumLiveUtxos(wutxo); wutxo.MoveNext(); )
+		db.ModifySpendable(b0, 0, -3);
+		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
 
-		db.DeleteUtxo(b0);
-		for (db.EnumLiveUtxos(wutxo); wutxo.MoveNext(); )
+		db.ModifySpendable(b0, 0, 2);
+		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
 
-		db.AddKernel(b0, NodeDB::Blob("hello, world!", 13), 1);
-
-		NodeDB::WalkerKernel wkrn(db);
-		for (db.EnumLiveKernels(wkrn); wkrn.MoveNext(); )
-			;
-		db.ModifyKernel(b0, -1);
-		for (db.EnumLiveKernels(wkrn); wkrn.MoveNext(); )
-			;
-
-		db.ModifyKernel(b0, 1);
-		for (db.EnumLiveKernels(wkrn); wkrn.MoveNext(); )
-			;
-
-		db.DeleteKernel(b0);
-		for (db.EnumLiveKernels(wkrn); wkrn.MoveNext(); )
+		db.ModifySpendable(b0, -5, -4);
+		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
 	}
 
@@ -379,12 +365,10 @@ namespace beam
 			return; //?!
 
 		TxKernel::Ptr pKrn(new TxKernel);
-		pKrn->m_HeightMin = 0;
-		pKrn->m_HeightMax = Height(-1);
 		pKrn->m_Fee = 1090000;
 
 		Input::Ptr pInp(new Input);
-		pInp->m_Commitment = ECC::Point::Native(ECC::Commitment(utxo.m_Key, utxo.m_Value));
+		pInp->m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
 		tx.m_vInputs.push_back(std::move(pInp));
 
 		ECC::Scalar::Native kOffset = utxo.m_Key;
@@ -406,7 +390,7 @@ namespace beam
 			pOut->m_pPublic.reset(new ECC::RangeProof::Public);
 			pOut->m_pPublic->m_Value = utxoOut.m_Value;
 			pOut->m_pPublic->Create(k);
-			pOut->m_Commitment = ECC::Point::Native(ECC::Commitment(k, utxoOut.m_Value));
+			pOut->m_Commitment = ECC::Commitment(k, utxoOut.m_Value);
 			tx.m_vOutputs.push_back(std::move(pOut));
 
 			k = -k;
@@ -419,7 +403,7 @@ namespace beam
 		ECC::Hash::Value hv;
 		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, k);
-		tx.m_vKernels.push_back(std::move(pKrn));
+		tx.m_vKernelsOutput.push_back(std::move(pKrn));
 
 
 		k = -k;
@@ -437,7 +421,7 @@ namespace beam
 		DeleteFile(g_sz);
 
 		MyNodeProcessor np;
-		np.Initialize(g_sz, 240);
+		np.Initialize(g_sz, 35);
 
 		for (Height h = 0; h < 200; h++)
 		{
@@ -480,7 +464,7 @@ namespace beam
 
 int main()
 {
-//	beam::TestNodeDB();
+	beam::TestNodeDB();
 	beam::TestNodeProcessor();
 
     //beam::Node node;

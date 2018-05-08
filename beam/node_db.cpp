@@ -16,9 +16,8 @@ namespace beam {
 #define TblStates_HashPrev		"HashPrev"
 #define TblStates_Difficulty	"Difficulty"
 #define TblStates_Timestamp		"Timestamp"
-#define TblStates_HashUtxos		"HashUtxos"
-#define TblStates_HashKernels	"HashKernels"
-#define TblStates_HashStates	"HashStates"
+#define TblStates_LiveObjects	"LiveObjects"
+#define TblStates_History		"History"
 #define TblStates_Flags			"Flags"
 #define TblStates_RowPrev		"RowPrev"
 #define TblStates_CountNext		"CountNext"
@@ -26,6 +25,7 @@ namespace beam {
 #define TblStates_PoW			"PoW"
 #define TblStates_Mmr			"Mmr"
 #define TblStates_Body			"Body"
+#define TblStates_Rollback		"Rollback"
 #define TblStates_Peer			"Peer"
 
 #define TblTips					"Tips"
@@ -33,16 +33,11 @@ namespace beam {
 #define TblTips_Height			"Height"
 #define TblTips_State			"State"
 
-#define TblUtxo					"Utxo"
-#define TblUtxo_Key				"Key"
-#define TblUtxo_Total			"Total"
-#define TblUtxo_Unspent			"Unspent"
-#define TblUtxo_Signature		"Signature"
-
-#define TblKernel				"Kernel"
-#define TblKernel_Key			"Key"
-#define TblKernel_Value			"Value"
-#define TblKernel_Unspent		"Unspent"
+#define TblSpendable			"Spendable"
+#define TblSpendable_Key		"Key"
+#define TblSpendable_Body		"Body"
+#define TblSpendable_Refs		"Refs"
+#define TblSpendable_Unspent	"Unspent"
 
 NodeDB::NodeDB()
 	:m_pDb(NULL)
@@ -210,19 +205,19 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint32_t DB_VER = 8;
+	const uint64_t nVersion = 1;
 
 	if (bCreate)
 	{
 		Transaction t(*this);
 		Create();
-		ParamIntSet(ParamID::DbVer, DB_VER);
+		ParamSet(ParamID::DbVer, &nVersion, NULL);
 		t.Commit();
 	}
 	else
 	{
 		// test the DB version
-		if (DB_VER != ParamIntGetDef(ParamID::DbVer))
+		if (nVersion != ParamIntGetDef(ParamID::DbVer))
 			throw std::runtime_error("wrong version");
 	}
 }
@@ -243,9 +238,8 @@ void NodeDB::Create()
 		"[" TblStates_HashPrev		"] BLOB NOT NULL,"
 		"[" TblStates_Difficulty	"] INTEGER NOT NULL,"
 		"[" TblStates_Timestamp		"] INTEGER NOT NULL,"
-		"[" TblStates_HashUtxos		"] BLOB NOT NULL,"
-		"[" TblStates_HashKernels	"] BLOB NOT NULL,"
-		"[" TblStates_HashStates	"] BLOB NOT NULL,"
+		"[" TblStates_LiveObjects	"] BLOB NOT NULL,"
+		"[" TblStates_History		"] BLOB NOT NULL,"
 		"[" TblStates_Flags			"] INTEGER NOT NULL,"
 		"[" TblStates_RowPrev		"] INTEGER,"
 		"[" TblStates_CountNext		"] INTEGER NOT NULL,"
@@ -254,6 +248,7 @@ void NodeDB::Create()
 		//"[" TblStates_BlindOffset	"] BLOB,"
 		"[" TblStates_Mmr			"] BLOB,"
 		"[" TblStates_Body			"] BLOB,"
+		"[" TblStates_Rollback		"] BLOB,"
 		"[" TblStates_Peer			"] BLOB,"
 		"PRIMARY KEY (" TblStates_Height "," TblStates_Hash "),"
 		"FOREIGN KEY (" TblStates_RowPrev ") REFERENCES " TblStates "(OID))");
@@ -270,18 +265,12 @@ void NodeDB::Create()
 		"PRIMARY KEY (" TblTips_Height "," TblTips_State "),"
 		"FOREIGN KEY (" TblTips_State ") REFERENCES " TblStates "(OID))");
 
-	ExecQuick("CREATE TABLE [" TblUtxo "] ("
-		"[" TblUtxo_Key			"] BLOB NOT NULL,"
-		"[" TblUtxo_Total		"] INTEGER NOT NULL,"
-		"[" TblUtxo_Unspent		"] INTEGER NOT NULL,"
-		"[" TblUtxo_Signature	"] BLOB NOT NULL,"
-		"PRIMARY KEY (" TblUtxo_Key "))");
-
-	ExecQuick("CREATE TABLE [" TblKernel "] ("
-		"[" TblKernel_Key		"] BLOB NOT NULL,"
-		"[" TblKernel_Unspent	"] INTEGER NOT NULL,"
-		"[" TblKernel_Value		"] BLOB NOT NULL,"
-		"PRIMARY KEY (" TblKernel_Key "))");
+	ExecQuick("CREATE TABLE [" TblSpendable "] ("
+		"[" TblSpendable_Key		"] BLOB NOT NULL,"
+		"[" TblSpendable_Body		"] BLOB NOT NULL,"
+		"[" TblSpendable_Refs		"] INTEGER NOT NULL,"
+		"[" TblSpendable_Unspent	"] INTEGER NOT NULL,"
+		"PRIMARY KEY (" TblSpendable_Key "))");
 }
 
 void NodeDB::ExecQuick(const char* szSql)
@@ -352,40 +341,53 @@ void NodeDB::TestChanged1Row()
 		throw std::runtime_error("oops1");
 }
 
-void NodeDB::ParamIntSet(uint32_t ID, uint64_t val)
+void NodeDB::ParamSet(uint32_t ID, const uint64_t* p0, const Blob* p1)
 {
-	Recordset rs(*this, Query::ParamIntUpd, "UPDATE " TblParams " SET " TblParams_Int "=? WHERE " TblParams_ID "=?");
-	rs.put(0, val);
-	rs.put(1, ID);
+	Recordset rs(*this, Query::ParamUpd, "UPDATE " TblParams " SET " TblParams_Int "=?," TblParams_Blob "=? WHERE " TblParams_ID "=?");
+	if (p0)
+		rs.put(0, *p0);
+	if (p1)
+		rs.put(1, *p1);
+	rs.put(2, ID);
 	rs.Step();
 
 	if (!get_RowsChanged())
 	{
-		rs.Reset(Query::ParamIntIns, "INSERT INTO " TblParams " (" TblParams_ID ", " TblParams_Int ") VALUES(?,?)");
+		rs.Reset(Query::ParamIns, "INSERT INTO " TblParams " (" TblParams_ID "," TblParams_Int "," TblParams_Blob ") VALUES(?,?,?)");
 
 		rs.put(0, ID);
-		rs.put(1, val);
+		if (p0)
+			rs.put(1, *p0);
+		if (p1)
+			rs.put(2, *p1);
 		rs.Step();
 
 		TestChanged1Row();
 	}
 }
 
-bool NodeDB::ParamIntGet(uint32_t ID, uint64_t& val)
+bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1)
 {
-	Recordset rs(*this, Query::ParamIntGet, "SELECT " TblParams_Int " FROM " TblParams " WHERE " TblParams_ID "=?");
+	Recordset rs(*this, Query::ParamGet, "SELECT " TblParams_Int "," TblParams_Blob " FROM " TblParams " WHERE " TblParams_ID "=?");
 	rs.put(0, ID);
 
 	if (!rs.Step())
 		return false;
 
-	rs.get(0, val);
+	if (p0)
+		rs.get(0, *p0);
+	if (p1)
+	{
+		const void* pPtr = rs.get_BlobStrict(1, p1->n);
+		memcpy((void*) p1->p, pPtr, p1->n);
+	}
+
 	return true;
 }
 
 uint64_t NodeDB::ParamIntGetDef(int ID, uint64_t def /* = 0 */)
 {
-	ParamIntGet(ID, def);
+	ParamGet(ID, &def, NULL);
 	return def;
 }
 
@@ -433,9 +435,8 @@ void NodeDB::Transaction::Rollback()
 	macro(HashPrev,		m_Prev) sep \
 	macro(Difficulty,	m_Difficulty) sep \
 	macro(Timestamp,	m_TimeStamp) sep \
-	macro(HashUtxos,	m_Utxos) sep \
-	macro(HashKernels,	m_Kernels) sep \
-	macro(HashStates,	m_States)
+	macro(LiveObjects,	m_LiveObjects) sep \
+	macro(History,		m_History)
 
 #define THE_MACRO_NOP0
 #define THE_MACRO_COMMA_S ","
@@ -866,9 +867,9 @@ void NodeDB::SetStateBlock(uint64_t rowid, const Blob& body, const PeerID& peer)
 	TestChanged1Row();
 }
 
-void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, PeerID& peer)
+void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rollback, PeerID& peer)
 {
-	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_Body "," TblStates_Peer " FROM " TblStates " WHERE rowid=?");
+	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_Body "," TblStates_Rollback "," TblStates_Peer " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 	if (!rs.Step())
 		throw "oops3";
@@ -876,8 +877,20 @@ void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, PeerID& peer)
 	if (!rs.IsNull(0))
 	{
 		rs.get(0, body);
-		rs.get_As(1, peer);
+		if (!rs.IsNull(1))
+			rs.get(1, rollback);
+		rs.get_As(2, peer);
 	}
+}
+
+void NodeDB::SetStateRollback(uint64_t rowid, const Blob& rollback)
+{
+	Recordset rs(*this, Query::StateSetRollback, "UPDATE " TblStates " SET " TblStates_Rollback "=? WHERE rowid=?");
+	rs.put(0, rollback);
+	rs.put(1, rowid);
+
+	rs.Step();
+	TestChanged1Row();
 }
 
 void NodeDB::DelStateBlock(uint64_t rowid)
@@ -908,6 +921,19 @@ uint32_t NodeDB::GetStateFlags(uint64_t rowid)
 	uint32_t nFlags;
 	rs.get(0, nFlags);
 	return nFlags;
+}
+
+uint32_t NodeDB::GetStateNextCount(uint64_t rowid)
+{
+	Recordset rs(*this, Query::StateGetNextCount, "SELECT " TblStates_CountNext " FROM " TblStates " WHERE rowid=?");
+	rs.put(0, rowid);
+
+	if (!rs.Step())
+		throw "oops5";
+
+	uint32_t nCount;
+	rs.get(0, nCount);
+	return nCount;
 }
 
 void NodeDB::assert_valid()
@@ -1054,6 +1080,12 @@ void NodeDB::EnumFunctionalTips(WalkerState& x)
 	x.m_Rs.Reset(Query::EnumFunctionalTips, "SELECT " TblTips_Height "," TblTips_State " FROM " TblTipsReachable " ORDER BY "  TblTips_Height " DESC," TblTips_State " DESC");
 }
 
+void NodeDB::EnumStatesAt(WalkerState& x, Height h)
+{
+	x.m_Rs.Reset(Query::EnumAtHeight, "SELECT " TblStates_Height ",rowid FROM " TblStates " WHERE " TblStates_Height "=? ORDER BY " TblStates_Hash);
+	x.m_Rs.put(0, h);
+}
+
 bool NodeDB::WalkerState::MoveNext()
 {
 	if (!m_Rs.Step())
@@ -1097,8 +1129,8 @@ bool NodeDB::get_Cursor(StateID& sid)
 
 void NodeDB::put_Cursor(const StateID& sid)
 {
-	ParamIntSet(ParamID::CursorRow, sid.m_Row);
-	ParamIntSet(ParamID::CursorHeight, sid.m_Height);
+	ParamSet(ParamID::CursorRow, &sid.m_Row, NULL);
+	ParamSet(ParamID::CursorHeight, &sid.m_Height, NULL);
 }
 
 void NodeDB::MoveBack(StateID& sid)
@@ -1232,12 +1264,12 @@ void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
     dmmr.get_PredictedHash(hv, hv);
 }
 
-void NodeDB::EnumLiveUtxos(WalkerUtxo& x)
+void NodeDB::EnumUnpsent(WalkerSpendable& x)
 {
-	x.m_Rs.Reset(Query::UtxoEnum, "SELECT " TblUtxo_Key "," TblUtxo_Unspent " FROM " TblUtxo " WHERE " TblUtxo_Unspent "!=0");
+	x.m_Rs.Reset(Query::SpendableEnum, "SELECT " TblSpendable_Key "," TblSpendable_Unspent " FROM " TblSpendable " WHERE " TblSpendable_Unspent "!=0");
 }
 
-bool NodeDB::WalkerUtxo::MoveNext()
+bool NodeDB::WalkerSpendable::MoveNext()
 {
 	if (!m_Rs.Step())
 		return false;
@@ -1246,71 +1278,45 @@ bool NodeDB::WalkerUtxo::MoveNext()
 	return true;
 }
 
-void NodeDB::EnumLiveKernels(WalkerKernel& x)
+void NodeDB::AddSpendable(const Blob& key, const Blob& body, uint32_t nRefs, uint32_t nUnspentCount)
 {
-	x.m_Rs.Reset(Query::KernelEnum, "SELECT " TblKernel_Key " FROM " TblKernel " WHERE " TblKernel_Unspent "!=0");
+	assert(nRefs > 0);
+
+	ModifySpendableSafe(key, nRefs, nUnspentCount);
+
+	if (!get_RowsChanged())
+	{
+		Recordset rs(*this, Query::SpendableAdd, "INSERT INTO " TblSpendable "(" TblSpendable_Key "," TblSpendable_Body "," TblSpendable_Refs "," TblSpendable_Unspent ") VALUES(?,?,?,?)");
+		rs.put(0, key);
+		rs.put(1, body);
+		rs.put(2, nRefs);
+		rs.put(3, nUnspentCount);
+		rs.Step();
+	}
 }
 
-bool NodeDB::WalkerKernel::MoveNext()
+void NodeDB::ModifySpendableSafe(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta)
 {
-	if (!m_Rs.Step())
-		return false;
-	m_Rs.get(0, m_Key);
-	return true;
-}
+	assert(nRefsDelta || nUnspentDelta);
 
-void NodeDB::AddUtxo(const Blob& key, const Blob& sig, uint32_t nTotal, uint32_t nUnspentCount)
-{
-	Recordset rs(*this, Query::UtxoAdd, "INSERT INTO " TblUtxo "(" TblUtxo_Key "," TblUtxo_Signature "," TblUtxo_Total "," TblUtxo_Unspent ") VALUES(?,?,?,?)");
-	rs.put(0, key);
-	rs.put(1, sig);
-	rs.put(2, nTotal);
-	rs.put(3, nUnspentCount);
-	rs.Step();
-}
-
-void NodeDB::AddKernel(const Blob& key, const Blob& val, bool bUnspent)
-{
-	Recordset rs(*this, Query::KernelAdd, "INSERT INTO " TblKernel "(" TblKernel_Key "," TblKernel_Value "," TblKernel_Unspent ") VALUES(?,?,?)");
-	rs.put(0, key);
-	rs.put(1, val);
-	rs.put(2, bUnspent ? 1U : 0U);
-	rs.Step();
-}
-
-void NodeDB::DeleteUtxo(const Blob& key)
-{
-	Recordset rs(*this, Query::UtxoDel, "DELETE FROM " TblUtxo " WHERE " TblUtxo_Key "=?");
-	rs.put(0, key);
-	rs.Step();
-	TestChanged1Row();
-}
-
-void NodeDB::DeleteKernel(const Blob& key)
-{
-	Recordset rs(*this, Query::KernelDel, "DELETE FROM " TblKernel " WHERE " TblKernel_Key "=?");
-	rs.put(0, key);
-	rs.Step();
-	TestChanged1Row();
-}
-
-void NodeDB::ModifyUtxo(const Blob& key, int32_t nTotalDelta, int32_t nUnspentDelta)
-{
-	Recordset rs(*this, Query::UtxoModify, "UPDATE " TblUtxo " SET " TblUtxo_Total "=" TblUtxo_Total "+?,"  TblUtxo_Unspent "=" TblUtxo_Unspent "+? WHERE " TblUtxo_Key "=?");
-	rs.put(0, (uint32_t) nTotalDelta);
-	rs.put(1, (uint32_t) nUnspentDelta);
+	Recordset rs(*this, Query::SpendableModify, "UPDATE " TblSpendable " SET " TblSpendable_Refs "=" TblSpendable_Refs "+?,"  TblSpendable_Unspent "=" TblSpendable_Unspent "+? WHERE " TblSpendable_Key "=?");
+	rs.put(0, (uint32_t)nRefsDelta);
+	rs.put(1, (uint32_t)nUnspentDelta);
 	rs.put(2, key);
 	rs.Step();
-	TestChanged1Row();
 }
 
-void NodeDB::ModifyKernel(const Blob& key, int32_t nUnspentDelta)
+void NodeDB::ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta)
 {
-	Recordset rs(*this, Query::KernelModify, "UPDATE " TblKernel " SET " TblKernel_Unspent "=" TblKernel_Unspent "+? WHERE " TblKernel_Key "=?");
-	rs.put(0, (uint32_t) nUnspentDelta);
-	rs.put(1, key);
-	rs.Step();
+	ModifySpendableSafe(key, nRefsDelta, nUnspentDelta);
 	TestChanged1Row();
+
+	if (nRefsDelta < 0)
+	{
+		Recordset rs(*this, Query::SpendableDel, "DELETE FROM " TblSpendable " WHERE " TblSpendable_Key "=? AND " TblSpendable_Refs "=0");
+		rs.put(0, key);
+		rs.Step();
+	}
 }
 
 } // namespace beam

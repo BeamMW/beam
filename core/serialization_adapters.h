@@ -203,10 +203,8 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Input& input)
         {
-            ar
-                & input.m_Commitment
-                & input.m_Coinbase
-                & input.m_Height;
+			ar
+				& input.m_Commitment;
 
             return ar;
         }
@@ -214,10 +212,8 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, beam::Input& input)
         {
-            ar
-                & input.m_Commitment
-                & input.m_Coinbase
-                & input.m_Height;
+			ar
+				& input.m_Commitment;
 
             return ar;
         }
@@ -279,6 +275,7 @@ namespace detail
             ar
                 & val.m_Excess
                 & val.m_Signature
+				& val.m_Multiplier
                 & val.m_Fee
                 & val.m_HeightMin
                 & val.m_HeightMax
@@ -295,6 +292,7 @@ namespace detail
             ar
                 & val.m_Excess
                 & val.m_Signature
+				& val.m_Multiplier
                 & val.m_Fee
                 & val.m_HeightMin
                 & val.m_HeightMax
@@ -312,8 +310,9 @@ namespace detail
             ar
                 & tx.m_vInputs
                 & tx.m_vOutputs
-                & tx.m_vKernels
-                & tx.m_Offset;
+                & tx.m_vKernelsInput
+				& tx.m_vKernelsOutput
+				& tx.m_Offset;
 
             return ar;
         }
@@ -324,8 +323,9 @@ namespace detail
             ar
                 & tx.m_vInputs
                 & tx.m_vOutputs
-                & tx.m_vKernels
-                & tx.m_Offset;
+				& tx.m_vKernelsInput
+				& tx.m_vKernelsOutput
+				& tx.m_Offset;
 
             return ar;
         }

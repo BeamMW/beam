@@ -407,24 +407,24 @@ struct TransactionMaker
 		// 1st pass. Public excesses and Nonces are summed.
 		Scalar::Native offset(m_Trans.m_Offset);
 
-		Point::Native kG(Zero), xG(Zero);
+		Point::Native xG(Zero), kG(Zero);
 
 		for (int i = 0; i < _countof(m_pPeers); i++)
 		{
 			Peer& p = m_pPeers[i];
-			p.FinalizeExcess(kG, offset);
+			p.FinalizeExcess(xG, offset);
 
 			Signature::MultiSig msig;
 			msig.GenerateNonce(msg, p.m_k);
 
-			xG += Context::get().G * msig.m_Nonce;
+			kG += Context::get().G * msig.m_Nonce;
 		}
 
 		m_Trans.m_Offset = offset;
-		krn.m_Excess = kG;
+		krn.m_Excess = xG;
 
-		// 2nd pass. Signing. Total excess is the signature public key
-		offset = Zero;
+		// 2nd pass. Signing. Total excess is the signature public key.
+		Scalar::Native kSig = Zero;
 
 		for (int i = 0; i < _countof(m_pPeers); i++)
 		{
@@ -432,17 +432,17 @@ struct TransactionMaker
 
 			Signature::MultiSig msig;
 			msig.GenerateNonce(msg, p.m_k);
-			msig.m_NoncePub = xG;
+			msig.m_NoncePub = kG;
 
 			Scalar::Native k;
 			krn.m_Signature.CoSign(k, msg, p.m_k, msig);
 
-			offset += k;
+			kSig += k;
 
 			p.m_k = Zero; // signed, prepare for next tx
 		}
 
-		krn.m_Signature.m_k = offset;
+		krn.m_Signature.m_k = kSig;
 
 	}
 
@@ -450,8 +450,6 @@ struct TransactionMaker
 	{
 		std::unique_ptr<beam::TxKernel> pKrn(new beam::TxKernel);
 		pKrn->m_Fee = fee;
-		pKrn->m_HeightMin = 0;
-		pKrn->m_HeightMax = -1;
 
 		pKrn->m_vNested.swap(lstNested);
 
@@ -505,13 +503,65 @@ void TestTransaction()
 
 	tm.AddOutput(0, 738);
 	tm.AddInput(1, 740);
-	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested);
+	tm.CreateTxKernel(tm.m_Trans.m_vKernelsOutput, fee2, lstNested);
 
 	tm.m_Trans.Sort();
 
 	beam::TxBase::Context ctx;
 	verify_test(tm.m_Trans.IsValid(ctx));
 	verify_test(ctx.m_Fee == fee1 + fee2);
+}
+
+void TestTransactionKernelConsuming()
+{
+	beam::Transaction t;
+
+	Scalar::Native kOffs = Zero;
+
+	for (int i = 0; i < 20; i++)
+	{
+		Scalar::Native kExc;
+		SetRandom(kExc);
+
+		Hash::Value hv;
+		Point::Native p = Context::get().G * kExc;
+
+		Amount mul0 = i, mul1 = (i + 10) * (i + 2);
+
+		// input kernel
+		Scalar::Native sk0 = kExc * (mul0 + 1);
+
+		beam::TxKernel::Ptr pKrn(new beam::TxKernel);
+		pKrn->get_Hash(hv);
+		pKrn->m_Signature.Sign(hv, sk0);
+		pKrn->m_Excess = p;
+		pKrn->m_Multiplier = mul0;
+
+		t.m_vKernelsInput.push_back(std::move(pKrn));
+
+		kOffs += sk0;
+
+		// output kernel
+		Scalar::Native sk1 = kExc * (mul1 + 1);
+
+		pKrn.reset(new beam::TxKernel);
+		pKrn->get_Hash(hv);
+		pKrn->m_Signature.Sign(hv, sk1);
+		pKrn->m_Excess = p;
+		pKrn->m_Multiplier = mul1;
+
+		t.m_vKernelsOutput.push_back(std::move(pKrn));
+
+		sk1 = -sk1;
+		kOffs += sk1;
+	}
+
+	t.m_Offset = kOffs;
+	t.Sort();
+
+	beam::TxBase::Context ctx;
+	verify_test(t.IsValid(ctx));
+	verify_test(ctx.m_Fee == 0);
 }
 
 void TestAll()
@@ -523,6 +573,7 @@ void TestAll()
 	TestCommitments();
 	TestRangeProof();
 	TestTransaction();
+	TestTransactionKernelConsuming();
 }
 
 

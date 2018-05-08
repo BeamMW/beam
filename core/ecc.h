@@ -118,6 +118,8 @@ namespace ECC
 	static const uint32_t nBits = 256;
 	typedef uintBig_t<nBits> uintBig;
 
+	class Commitment;
+
 	struct Scalar
 	{
 		static const uintBig s_Order;
@@ -148,6 +150,8 @@ namespace ECC
 
 		class Native;
 		Point& operator = (const Native&);
+		Point& operator = (const Point&);
+		Point& operator = (const Commitment&);
 	};
 
 	struct Hash
