@@ -44,6 +44,8 @@ class NodeProcessor
 	struct BlockBulder;
 
 	bool IsRelevantHeight(Height);
+	void FindCongestionPoints();
+	void FindCongestionPointsAbove(Block::SystemState::ID&);
 
 public:
 
@@ -66,6 +68,9 @@ public:
 	bool FeedTransaction(Transaction::Ptr&&); // returns false if the transaction isn't valid in its context
 	void SimulateMinedBlock(Block::SystemState::Full&, ByteBuffer& block, ByteBuffer& pow);
 
+	void RealizePeerTip(const Block::SystemState::ID&, const PeerID&);
+
+protected:
 	virtual void get_Key(ECC::Scalar::Native&, Height h, bool bCoinbase) = 0;
 	virtual void OnMined(Height, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase) {}
 };

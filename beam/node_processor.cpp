@@ -70,6 +70,92 @@ void NodeProcessor::Initialize(const char* szPath, Height horizon)
 	NodeDB::Transaction t(m_DB);
 	TryGoUp();
 	t.Commit();
+
+	FindCongestionPoints();
+}
+
+void NodeProcessor::FindCongestionPoints()
+{
+	// request all potentially missing data
+	NodeDB::WalkerState ws(m_DB);
+	for (m_DB.EnumTips(ws); ws.MoveNext(); )
+	{
+		NodeDB::StateID& sid = ws.m_Sid; // alias
+		if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row))
+			continue;
+
+		bool bNeedBlock = true;
+
+		while (sid.m_Height)
+		{
+			NodeDB::StateID sidThis = sid;
+			if (!m_DB.get_Prev(sid))
+			{
+				bNeedBlock = false; // state missing. Request it.
+				break;
+			}
+
+			if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row))
+			{
+				sid = sidThis;
+				break;
+			}
+		}
+
+		Block::SystemState::Full s;
+		m_DB.get_State(sid.m_Row, s);
+
+		Block::SystemState::ID id;
+
+		if (bNeedBlock)
+		{
+			s.get_ID(id);
+			RequestBody(id);
+		} else
+		{
+			id.m_Height = sid.m_Height - 1;
+			id.m_Hash = s.m_Prev;
+
+			RequestState(id);
+		}
+	}
+}
+
+void NodeProcessor::FindCongestionPointsAbove(Block::SystemState::ID& id)
+{
+	while (true)
+	{
+		NodeDB::WalkerState ws(m_DB);
+		m_DB.EnumStatesAt(ws, id.m_Height + 1);
+		if (!ws.MoveNext())
+			break;
+
+		NodeDB::StateID sid = ws.m_Sid;
+		Block::SystemState::Full s;
+		Block::SystemState::ID id2;
+
+		while (ws.MoveNext())
+		{
+			m_DB.get_State(ws.m_Sid.m_Row, s);
+			if (s.m_Prev != id.m_Hash)
+				continue;
+			s.get_ID(id2);
+			FindCongestionPointsAbove(id2);
+		}
+
+		m_DB.get_State(sid.m_Row, s);
+		if (s.m_Prev != id.m_Hash)
+			break;
+		s.get_ID(id2);
+
+		if (!NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row))
+		{
+			RequestBody(id2);
+			break;
+		}
+
+		id = id2;
+	}
 }
 
 void NodeProcessor::TryGoUp()
@@ -634,6 +720,15 @@ bool NodeProcessor::GoForward(const NodeDB::StateID& sid)
 	m_DB.SetStateNotFunctional(sid.m_Row);
 
 	OnPeerInsane(peer);
+
+	Block::SystemState::Full s;
+	m_DB.get_State(sid.m_Row, s);
+
+	Block::SystemState::ID id;
+	s.get_ID(id);
+
+	RequestBody(id);
+
 	return false;
 }
 
@@ -684,12 +779,26 @@ bool NodeProcessor::OnState(const Block::SystemState::Full& s, const NodeDB::Blo
 		return true;
 
 	NodeDB::Transaction t(m_DB);
-	m_DB.InsertState(s);
-
+	uint64_t rowid = m_DB.InsertState(s);
 	t.Commit();
 
-	// request bodies?
+	if (s.m_Height)
+	{
+		uint64_t rowPrev = rowid;
+		if (!m_DB.get_Prev(rowPrev))
+		{
+			id.m_Height = s.m_Height - 1;
+			id.m_Hash = s.m_Prev;
+			RequestState(id);
+			return true;
 
+		}
+
+		if (!(m_DB.GetStateFlags(rowPrev) & NodeDB::StateFlags::Reachable))
+			return true;
+	}
+
+	RequestBody(id);
 
 	return true;
 }
@@ -708,9 +817,16 @@ bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob
 	m_DB.SetStateBlock(rowid, block, peer);
 	m_DB.SetStateFunctional(rowid);
 
-	TryGoUp();
+	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
+		TryGoUp();
 
 	t.Commit();
+
+	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
+	{
+		Block::SystemState::ID id2 = id;
+		FindCongestionPointsAbove(id2);
+	}
 
 	return true;
 }
@@ -875,6 +991,17 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	OnBlock(id, block, PeerID());
 
 	OnMined(h, kFee, fee, kCoinbase, nCoinbase);
+}
+
+void NodeProcessor::RealizePeerTip(const Block::SystemState::ID& id, const PeerID& peer)
+{
+	if (!IsRelevantHeight(id.m_Height))
+		return;
+
+	if (m_DB.StateFindSafe(id))
+		return;
+
+	RequestState(id);
 }
 
 } // namespace beam
