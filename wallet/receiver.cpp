@@ -113,9 +113,9 @@ namespace beam::wallet
         m_kernel->m_Signature.m_k = finialSignature;
 
         // 6. Create final transaction and send it to mempool
-     
-        //beam::TxBase::Context ctx;
-        //assert(m_transaction->IsValid(ctx));
+        m_transaction->Sort();
+        beam::TxBase::Context ctx;
+        assert(m_transaction->IsValid(ctx));
 
         auto data = shared_ptr<receiver::RegisterTxData>(new receiver::RegisterTxData{ m_txId, move(m_transaction) });
         m_gateway.register_tx(data);
