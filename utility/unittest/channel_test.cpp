@@ -7,7 +7,6 @@ using namespace std;
 using namespace beam;
 
 static const string testStr("some moveble data");
-static const io::Config config;
 
 struct Message {
     int n=0;
@@ -19,7 +18,7 @@ struct SomeAsyncObject {
     std::future<void> f;
 
     SomeAsyncObject() :
-        reactor(io::Reactor::create(config))
+        reactor(io::Reactor::create())
     {}
 
     void run() {

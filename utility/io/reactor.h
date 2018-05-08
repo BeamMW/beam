@@ -1,16 +1,16 @@
 #pragma once
-#include "libuv.h"
+#include "errorhandling.h"
 #include "mempool.h"
-#include "config.h"
 #include "address.h"
-//#include "utility/expected.h"
 #include <memory>
 #include <functional>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace beam { namespace io {
 
 class TcpStream;
+class CoarseTimer;
 
 class Reactor : public std::enable_shared_from_this<Reactor> {
 public:
@@ -19,11 +19,8 @@ public:
 
     using Ptr = std::shared_ptr<Reactor>;
     
-    /// Creates a new reactor.
-    /// NOTE: throws on errors
-    static Ptr create(const Config& config);
-
-    //TODO static expected<Ptr, int> create(const Config& config);
+    /// Creates a new reactor. Throws on errors
+    static Ptr create();
 
     /// Performs shutdown and cleanup.
     ~Reactor();
@@ -35,21 +32,20 @@ public:
     /// NOTE: Called from another thread.
     void stop();
 
-    /// Used to avoid throwing in many situations (from callbacks etc)
-    int get_last_error() const { return _lastError; }
+    using ConnectCallback = std::function<void(uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode errorCode)>;
 
-    const Config& config() const { return _config; }
-
-    using ConnectCallback = std::function<void(uint64_t tag, std::unique_ptr<TcpStream>&& newStream, int status)>;
-
-    // TODO expected
-    bool tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback);
+    Result tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec=-1);
 
     void cancel_tcp_connect(uint64_t tag);
 
 private:
-    Reactor(const Config& config);
+    /// Ctor. private and called by create()
+    Reactor();
+    
+    // called by create()returns error code
+    ErrorCode initialize();
 
+    /// Pollable objects' base
     struct Object {
         Object() = default;
         Object(const Object&) = delete;
@@ -84,22 +80,26 @@ private:
     struct ConnectContext {
         uint64_t tag;
         ConnectCallback callback;
-        uv_connect_t request;
+        uv_connect_t* request;
     };
 
-    void connect_callback(ConnectContext* ctx, int status);
+    void connect_callback(ConnectContext* ctx, ErrorCode errorCode);
+    
+    void connect_timeout_callback(uint64_t tag);
+    
+    void cancel_tcp_connect_impl(std::unordered_map<uint64_t, ConnectContext>::iterator& it);
 
-    bool init_asyncevent(Object* o, uv_async_cb cb);
+    ErrorCode init_asyncevent(Object* o, uv_async_cb cb);
 
-    bool init_timer(Object* o);
-    bool start_timer(Object* o, unsigned intervalMsec, bool isPeriodic, uv_timer_cb cb);
+    ErrorCode init_timer(Object* o);
+    ErrorCode start_timer(Object* o, unsigned intervalMsec, bool isPeriodic, uv_timer_cb cb);
     void cancel_timer(Object* o);
 
-    bool init_tcpserver(Object* o, Address bindAddress, uv_connection_cb cb);
-    bool init_tcpstream(Object* o);
-    int accept_tcpstream(Object* acceptor, Object* newConnection);
+    ErrorCode init_tcpserver(Object* o, Address bindAddress, uv_connection_cb cb);
+    ErrorCode init_tcpstream(Object* o);
+    ErrorCode accept_tcpstream(Object* acceptor, Object* newConnection);
 
-    bool init_object(int status, Object* o, uv_handle_t* h);
+    ErrorCode init_object(ErrorCode errorCode, Object* o, uv_handle_t* h);
     void async_close(uv_handle_t*& handle);
 
     union Handles {
@@ -108,13 +108,14 @@ private:
         uv_tcp_t tcp;
     };
 
-    Config _config;
     uv_loop_t _loop;
     uv_async_t _stopEvent;
     MemPool<uv_handle_t, sizeof(Handles)> _handlePool;
+    MemPool<uv_connect_t, sizeof(uv_connect_t)> _connectRequestsPool;
     std::unordered_map<uint64_t, ConnectContext> _connectRequests;
-    int _lastError=0;
-
+    std::unordered_set<uv_connect_t*> _cancelledConnectRequests;
+    std::unique_ptr<CoarseTimer> _connectTimer;
+    
     friend class AsyncEvent;
     friend class Timer;
     friend class TcpServer;

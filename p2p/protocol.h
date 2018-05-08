@@ -36,7 +36,7 @@ public:
     /// Called on protocol dispatch table setup
     template <
         typename MsgObject,
-        bool(MsgHandler::*MessageFn)(uint64_t, const MsgObject&)
+        bool(MsgHandler::*MessageFn)(uint64_t, MsgObject&&)
     >
     void add_message_handler(MsgType type, uint32_t minMsgSize, uint32_t maxMsgSize) {
         add_custom_message_handler(
@@ -48,7 +48,7 @@ public:
                     handler.on_protocol_error(fromStream, message_corrupted);
                     return false;
                 }
-                return (static_cast<MsgHandler&>(handler).*MessageFn)(fromStream, m);
+                return (static_cast<MsgHandler&>(handler).*MessageFn)(fromStream, std::move(m));
             }
         );
     }

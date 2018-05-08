@@ -8,13 +8,16 @@ public:
     using Ptr = std::shared_ptr<Timer>;
     using Callback = std::function<void()>;
 
-    // Doesn't throw, returns empty ptr on error, see Reactor::get_last_error()
+    /// Creates a new timer object, throws on errors
     static Ptr create(const Reactor::Ptr& reactor);
 
-    // On errors, see Reactor::get_last_error()
-    bool start(unsigned intervalMsec, bool isPeriodic, Callback&& callback);
+    /// Starts the timer
+    Result start(unsigned intervalMsec, bool isPeriodic, Callback&& callback);
+    
+    /// Restarts the timer if callbackis already set
+    Result restart(unsigned intervalMsec, bool isPeriodic);
 
-    // does nothing if inactive
+    /// Cancels the timer. May be called from anywhere in timer's thread
     void cancel();
 
 private:

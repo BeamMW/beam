@@ -72,10 +72,18 @@ public:
         return get<std::string>(key);
     }
 
-    int get_int(const std::string& key) const {
-        return int(get<Int>(key, -1));
+    int get_int(
+        const std::string& key,
+        int defValue=0,
+        int minValue=std::numeric_limits<int>::min(),
+        int maxValue=std::numeric_limits<int>::max()
+    ) const {
+        int val = int(get<Int>(key, defValue));
+        if (val <= minValue) return minValue;
+        if (val >= maxValue) return maxValue;
+        return val;
     }
-
+    
     Int get_i64(const std::string& key) const {
         return get<Int>(key, -1);
     }

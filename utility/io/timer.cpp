@@ -6,37 +6,41 @@ namespace beam { namespace io {
 Timer::Ptr Timer::create(const Reactor::Ptr& reactor) {
     assert(reactor);
     Ptr timer(new Timer());
-    if (reactor->init_timer(timer.get())) {
-        return timer;
-    }
-    return Ptr();
+    ErrorCode errorCode = reactor->init_timer(timer.get());
+    IO_EXCEPTION_IF(errorCode);
+    return timer;
 }
 
-bool Timer::start(unsigned intervalMsec, bool isPeriodic, Callback&& callback) {
+Result Timer::start(unsigned intervalMsec, bool isPeriodic, Callback&& callback) {
     assert(callback);
-    cancel();
-
-    bool ok = _reactor->start_timer(
-        this,
-        intervalMsec,
-        isPeriodic,
-        [](uv_timer_t* handle) {
-            assert(handle);
-            assert(handle->data);
-            reinterpret_cast<Timer*>(handle->data)->_callback();
-        }
-    );
-
-    if (ok) {
-        _callback = std::move(callback);
+    _callback = std::move(callback);
+    if (intervalMsec == unsigned(-1)) {
+        // just set callback
+        return Ok();
     }
+    return restart(intervalMsec, isPeriodic);
+}
 
-    return ok;
+Result Timer::restart(unsigned intervalMsec, bool isPeriodic) {
+    assert(_callback);
+
+    return make_result(
+        _reactor->start_timer(
+            this,
+            intervalMsec,
+            isPeriodic,
+            [](uv_timer_t* handle) {
+                assert(handle);
+                Timer* t = reinterpret_cast<Timer*>(handle->data);
+                if (t) t->_callback();
+            }
+        )
+    );
 }
 
 void Timer::cancel() {
     _reactor->cancel_timer(this);
-    _callback = Callback();
+    _callback = []{};
 }
 
 }} //namespaces

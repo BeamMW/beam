@@ -48,7 +48,7 @@ void test_config() {
     assert(config().has_key("schnaps.ooo"));
     auto s = config().get_string("schnaps.keks");
     assert(s == "sex");
-    auto i = config().get_int("schnaps.zzz");
+    auto i = config().get_int("schnaps.zzz", 0);
     assert(i == -404040);
     auto v = config().get_int_list("ports");
     assert(v.size() == 8 && v[4] == 6);
