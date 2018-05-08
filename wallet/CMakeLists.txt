@@ -15,6 +15,7 @@ if (Boost_FOUND)
     target_link_libraries(wallet Boost::filesystem)
 else()
     target_link_libraries(wallet boost_filesystem)
+    target_link_libraries(wallet boost_system)
 endif()
 
 add_dependencies(wallet core sqlite)
