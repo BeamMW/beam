@@ -225,6 +225,18 @@ namespace ECC {
 		return *this;
 	}
 
+	Point& Point::operator = (const Point& v)
+	{
+		m_X = v.m_X;
+		m_Y = v.m_Y;
+		return *this;
+	}
+
+	Point& Point::operator = (const Commitment& v)
+	{
+		return operator = (Native(v));
+	}
+
 	bool Point::Native::ImportInternal(const Point& v)
 	{
 		NoLeak<secp256k1_fe> nx;
@@ -309,72 +321,53 @@ namespace ECC {
 		return *this;
 	}
 
-	Point::Native& Point::Native::operator += (Mul v)
+	Point::Native& Point::Native::operator = (Mul v)
 	{
-		// Naive (basic) summation algorithm:
-		//
-		//	for each bit in scalar
-		//	{
-		//		if (bit==1)
-		//			res += p;
-		//		p *= 2
-		//	}
-		//
-		// We use an improved algorithm, which accounts for ranges of consecutive bits.
-		// Instead if adding p for every bit we just add it for the post-last bit, and subtract for the first bit.
-		// 
-		// For example the following calculation: res = 15 * p
-		// 
-		// Naive algorithm:
-		//		res = p + 2p + 4p + 8p;
-		// Improved algorithm:
-		//		res = 16p - p;
+		const int nBits = 4;
+		const int nValuesPerLayer = (1 << nBits) - 1; // skip zero
 
-		Point::Native p[2];
-		int carry = 0, count = 0;
-		p[carry] = v.x;
+		Point::Native pPt[nValuesPerLayer];
+		pPt[0] = v.x;
+		int nPrepared = 1;
 
 		const secp256k1_scalar& k = v.y.get(); // alias
-		const int nBits = sizeof(Scalar::Native::uint) << 3;
 
-		for (int iWord = 0; iWord < _countof(k.d); iWord++)
+		const int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
+		static_assert(!(nBitsPerWord % nBits), "");
+		const int nLayersPerWord = nBitsPerWord / nBits;
+
+		*this = Zero;
+
+		for (int iWord = _countof(k.d); iWord--; )
 		{
 			const Scalar::Native::uint n = k.d[iWord];
 
-			for (int iBit = 0; iBit < nBits; iBit++)
+			for (int iLayer = nLayersPerWord; iLayer--; )
 			{
-				int carry1 = (1 & (n >> iBit));
-				if (carry == carry1)
-					count++;
-				else
+				if (!(*this == Zero))
+					for (int i = 0; i < nBits; i++)
+						*this = *this * Two;
+
+				int nVal = (n >> (iLayer * nBits)) & nValuesPerLayer;
+				if (nVal--)
 				{
-					OnCarryChange(p, carry, count);
-					count = 0;
+					for (; nPrepared <= nVal; nPrepared++)
+						if (nPrepared & (nPrepared + 1))
+							pPt[nPrepared] = pPt[nPrepared - 1] + pPt[0];
+						else
+							pPt[nPrepared] = pPt[nPrepared >> 1] * Two;
+
+					*this += pPt[nVal];
 				}
-
-				p[carry1] = p[carry] * Two;
-				carry = carry1;
-
 			}
 		}
-
-		OnCarryChange(p, carry, count);
 
 		return *this;
 	}
 
-	void Point::Native::OnCarryChange(Point::Native* p, int carry, int count)
+	Point::Native& Point::Native::operator += (Mul v)
 	{
-		if (carry)
-		{
-			if (count)
-			{
-				*this += p[1];
-				p[0] = -p[0];
-			}
-
-			*this += p[0];
-		}
+		return operator += (Native(v));
 	}
 
 	/////////////////////

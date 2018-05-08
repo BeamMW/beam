@@ -27,23 +27,23 @@ public:
 
     // Sets callback and enables reading from the stream if callback is not empty
     // returns false if stream disconnected
-    expected<void, ErrorCode> enable_read(const Callback& callback);
+    Result enable_read(const Callback& callback);
 
     void disable_read();
 
     /// Writes raw data, returns status code
-    expected<void, ErrorCode> write(const void* data, size_t size) {
+    Result write(const void* data, size_t size) {
         return write(SharedBuffer(data, size));
     }
 
     /// Writes raw data, returns status code
-    expected<void, ErrorCode> write(const SharedBuffer& buf);
+    Result write(const SharedBuffer& buf);
 
     /// Writes raw data, returns status code
-    expected<void, ErrorCode> write(const std::vector<SharedBuffer>& fragments);
+    Result write(const std::vector<SharedBuffer>& fragments);
 
     /// Writes raw data, returns status code
-    expected<void, ErrorCode> write(const BufferChain& buf);
+    Result write(const BufferChain& buf);
 
     bool is_connected() const;
 
@@ -67,7 +67,7 @@ private:
     void free_read_buffer();
 
     // sends async write request
-    expected<void, ErrorCode> send_write_request();
+    Result send_write_request();
 
     // callback from write request
     void on_data_written(ErrorCode errorCode);

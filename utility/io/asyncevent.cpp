@@ -1,5 +1,4 @@
 #include "asyncevent.h"
-#include "exception.h"
 #include <assert.h>
 
 namespace beam { namespace io {
@@ -20,7 +19,7 @@ AsyncEvent::Ptr AsyncEvent::create(const Reactor::Ptr& reactor, AsyncEvent::Call
             if (ae) ae->_callback();
         }
     );
-    if (errorCode) IO_EXCEPTION(errorCode);
+    IO_EXCEPTION_IF(errorCode);
     return event;
 }
 
@@ -33,7 +32,7 @@ AsyncEvent::~AsyncEvent() {
     //_valid = false;
 }
 
-expected<void, ErrorCode> AsyncEvent::trigger() {
+Result AsyncEvent::trigger() {
     ErrorCode errorCode = (ErrorCode)uv_async_send((uv_async_t*)_handle);
     return make_result(errorCode);
 }

@@ -67,7 +67,6 @@ namespace ECC
 		typedef Op::Binary<Op::Mul, Native, Scalar::Native>	Mul;
 
 		bool ImportInternal(const Point&);
-		void OnCarryChange(Point::Native*, int carry, int count);
 	public:
 		secp256k1_gej& get_Raw() { return *this; } // use with care
 
@@ -88,7 +87,11 @@ namespace ECC
 		Native& operator = (Double);
 		Native& operator = (const Point&);
 		Native& operator += (const Native& v) { return *this = *this + v; }
-		Native& operator += (Mul); // naive (non-secure) implementation, suitable for casual use (such as signature verification), otherwise should use generators
+
+		// non-secure implementation, suitable for casual use (such as signature verification), otherwise should use generators.
+		// Optimized for small scalars
+		Native& operator = (Mul);
+		Native& operator += (Mul);
 
 		template <class Setter> Native& operator = (const Setter& v) { v.Assign(*this, true); return *this; }
 		template <class Setter> Native& operator += (const Setter& v) { v.Assign(*this, false); return *this; }

@@ -29,7 +29,7 @@ namespace beam::wallet
         kernel->m_HeightMin = 0;
         kernel->m_HeightMax = static_cast<Height>(-1);
         m_kernel = kernel.get();
-        m_transaction->m_vKernels.push_back(move(kernel));
+        m_transaction->m_vKernelsOutput.push_back(move(kernel));
 
         // 1. Check fee
         // 2. Create receiver_output
@@ -39,10 +39,7 @@ namespace beam::wallet
         output->m_Coinbase = false;
 
         Scalar::Native blindingFactor = m_keychain->calcKey(m_keychain->getNextID());
-
-        Point::Native pt;
-        pt = Commitment(blindingFactor, amount);
-        output->m_Commitment = pt;
+        output->m_Commitment = Commitment(blindingFactor, amount);
 
         output->m_pPublic.reset(new RangeProof::Public);
         output->m_pPublic->m_Value = amount;
@@ -113,9 +110,9 @@ namespace beam::wallet
         m_kernel->m_Signature.m_k = finialSignature;
 
         // 6. Create final transaction and send it to mempool
-     
-        //beam::TxBase::Context ctx;
-        //assert(m_transaction->IsValid(ctx));
+        m_transaction->Sort();
+        beam::TxBase::Context ctx;
+        assert(m_transaction->IsValid(ctx));
 
         auto data = shared_ptr<receiver::RegisterTxData>(new receiver::RegisterTxData{ m_txId, move(m_transaction) });
         m_gateway.register_tx(data);

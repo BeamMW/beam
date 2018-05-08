@@ -12,10 +12,10 @@ public:
     static Ptr create(const Reactor::Ptr& reactor);
 
     /// Starts the timer
-    expected<void, ErrorCode> start(unsigned intervalMsec, bool isPeriodic, Callback&& callback);
+    Result start(unsigned intervalMsec, bool isPeriodic, Callback&& callback);
     
     /// Restarts the timer if callbackis already set
-    expected<void, ErrorCode> restart(unsigned intervalMsec, bool isPeriodic);
+    Result restart(unsigned intervalMsec, bool isPeriodic);
 
     /// Cancels the timer. May be called from anywhere in timer's thread
     void cancel();

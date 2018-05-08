@@ -12,22 +12,33 @@ class NodeProcessor
 	UtxoTree m_Utxos;
 	RadixHashOnlyTree m_Kernels;
 
+	struct DbType {
+		static const uint8_t Utxo	= 0;
+		static const uint8_t Kernel	= 1;
+	};
+
 	void TryGoUp();
 
 	bool GoForward(const NodeDB::StateID&);
 	void Rollback(const NodeDB::StateID&);
 	void PruneOld(Height);
+	void DereferenceFossilBlock(uint64_t);
+
+	struct RollbackData;
 
 	bool HandleBlock(const NodeDB::StateID&, NodeDB::PeerID&, bool bFwd);
-	bool HandleValidatedTx(const TxBase&, Height, bool bFwd, bool bAutoAdjustInp);
+	bool HandleValidatedTx(const TxBase&, Height, bool bFwd, RollbackData&);
 
-	bool HandleBlockElement(Input&, bool bFwd, bool bAutoAdjustInp);
+	bool HandleBlockElement(const Input&, bool bFwd, Height, RollbackData&);
 	bool HandleBlockElement(const Output&, Height, bool bFwd);
-	bool HandleBlockElement(const TxKernel&, bool bFwd);
+	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
 
 	Height m_Horizon;
 
 	void OnCorrupted();
+	void get_CurrentLive(Merkle::Hash&);
+
+	static void get_KrnKey(Merkle::Hash&, const TxKernel&);
 
 	std::list<Transaction::Ptr> m_lstCurrentlyMining;
 	struct BlockBulder;

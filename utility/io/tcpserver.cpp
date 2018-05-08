@@ -1,5 +1,4 @@
 #include "tcpserver.h"
-#include "exception.h"
 #include <assert.h>
 
 namespace beam { namespace io {

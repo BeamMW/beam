@@ -28,7 +28,7 @@ void TestKeychain()
 		{
 			assert(localCoins[i].m_id == coins[i].m_id);
 			assert(localCoins[i].m_amount == coins[i].m_amount);
-			assert(localCoins[i].m_status == coins[i].m_status);
+			assert(coins[i].m_status == beam::Coin::Locked);
 		}
 	}
 
