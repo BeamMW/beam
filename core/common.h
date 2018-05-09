@@ -199,6 +199,9 @@ namespace beam
 			struct ID {
 				Merkle::Hash	m_Hash; // explained later
 				Height			m_Height;
+
+				int cmp(const ID&) const;
+				COMPARISON_VIA_CMP(ID)
 			};
 
 			struct Full {

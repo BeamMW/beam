@@ -426,6 +426,13 @@ namespace beam
 	const Height Block::s_MaturityCoinbase	= 60; // 1 hour
 	const Height Block::s_MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
 
+	int Block::SystemState::ID::cmp(const ID& v) const
+	{
+		CMP_MEMBER(m_Height)
+		CMP_MEMBER(m_Hash)
+		return 0;
+	}
+
 	void Block::SystemState::Full::get_Hash(Merkle::Hash& out) const
 	{
 		// Our formula:
