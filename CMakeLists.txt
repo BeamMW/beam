@@ -10,11 +10,6 @@ function(add_test_snippet EXE_NAME LIB_NAME)
     add_test(NAME ${EXE_NAME} COMMAND $<TARGET_FILE:${EXE_NAME}>)
 endfunction()
 
-#################################################################
-set(CMAKE_C_COMPILER "/usr/bin/gcc-7")
-set(CMAKE_CXX_COMPILER "/usr/bin/g++-7")
-#################################################################
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wall -pthread")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

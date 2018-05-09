@@ -84,6 +84,8 @@ utility/unittest/tcpclient_test
 utility/unittest/tcpserver_test
 wallet/unittests/keychain_test
 wallet/unittests/wallet.dat
+wallet/unittests/wallet_network_test
+wallet/unittests/private_key_test
 core/unittest/storage_test
 core/unittest/ecc_test
 .vs/
