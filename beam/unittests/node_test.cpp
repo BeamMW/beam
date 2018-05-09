@@ -319,7 +319,7 @@ namespace beam
 		DeleteFileA(g_sz);
 	}
 
-	class MyNodeProcessor
+	class MyNodeProcessor1
 		:public NodeProcessor
 	{
 	public:
@@ -363,7 +363,7 @@ namespace beam
 		}
 	};
 
-	void SpendUtxo(Transaction& tx, const MyNodeProcessor::MyUtxo& utxo, MyNodeProcessor::MyUtxo& utxoOut)
+	void SpendUtxo(Transaction& tx, const MyNodeProcessor1::MyUtxo& utxo, MyNodeProcessor1::MyUtxo& utxoOut)
 	{
 		if (!utxo.m_Value)
 			return; //?!
@@ -419,21 +419,29 @@ namespace beam
 		verify_test(tx.IsValid(ctx));
 	}
 
+	struct BlockPlus
+	{
+		typedef std::unique_ptr<BlockPlus> Ptr;
 
-	void TestNodeProcessor()
+		Block::SystemState::Full m_Hdr;
+		ByteBuffer m_PoW;
+		ByteBuffer m_Body;
+	};
+
+	void TestNodeProcessor1(std::vector<BlockPlus::Ptr>& blockChain)
 	{
 		DeleteFileA(g_sz);
 
-		MyNodeProcessor np;
+		MyNodeProcessor1 np;
 		np.Initialize(g_sz, 35);
 
-		for (Height h = 0; h < 200; h++)
+		for (Height h = 0; h < 96; h++)
 		{
-			std::list<MyNodeProcessor::MyUtxo> lstNewOutputs;
+			std::list<MyNodeProcessor1::MyUtxo> lstNewOutputs;
 
 			while (true)
 			{
-				MyNodeProcessor::UtxoQueue::iterator it = np.m_MyUtxos.begin();
+				MyNodeProcessor1::UtxoQueue::iterator it = np.m_MyUtxos.begin();
 				if (np.m_MyUtxos.end() == it)
 					break;
 
@@ -442,7 +450,7 @@ namespace beam
 
 				// Spend it in a transaction
 				Transaction::Ptr pTx(new Transaction);
-				MyNodeProcessor::MyUtxo utxoOut;
+				MyNodeProcessor1::MyUtxo utxoOut;
 				SpendUtxo(*pTx, it->second, utxoOut);
 
 				np.m_MyUtxos.erase(it);
@@ -456,10 +464,102 @@ namespace beam
 			for (; !lstNewOutputs.empty(); lstNewOutputs.pop_front())
 				np.m_MyUtxos.insert(std::make_pair(h + 3, lstNewOutputs.front()));
 
-			Block::SystemState::Full s;
-			ByteBuffer bbBlock, bbPoW;
+			BlockPlus::Ptr pBlock(new BlockPlus);
 
-			np.SimulateMinedBlock(s, bbBlock, bbPoW);
+			np.SimulateMinedBlock(pBlock->m_Hdr, pBlock->m_Body, pBlock->m_PoW);
+			blockChain.push_back(std::move(pBlock));
+		}
+
+	}
+
+
+	class MyNodeProcessor2
+		:public NodeProcessor
+	{
+	public:
+
+
+		// NodeProcessor
+		virtual void get_Key(ECC::Scalar::Native& k, Height h, bool bCoinbase) override { }
+		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) {}
+		virtual void OnPeerInsane(const PeerID&) {}
+		virtual void OnNewState() {}
+
+	};
+
+
+	void TestNodeProcessor2(std::vector<BlockPlus::Ptr>& blockChain)
+	{
+		DeleteFileA(g_sz);
+
+		const Height horz = 12;
+		size_t nMid = blockChain.size() / 2;
+
+		{
+			MyNodeProcessor2 np;
+			np.Initialize(g_sz, horz);
+
+			NodeProcessor::PeerID peer;
+			ZeroObject(peer);
+
+			for (size_t i = 0; i < blockChain.size(); i += 2)
+				np.OnState(blockChain[i]->m_Hdr, blockChain[i]->m_PoW, peer);
+		}
+
+		{
+			MyNodeProcessor2 np;
+			np.Initialize(g_sz, horz);
+
+			NodeProcessor::PeerID peer;
+			ZeroObject(peer);
+
+			for (size_t i = 0; i < nMid; i += 2)
+			{
+				Block::SystemState::ID id;
+				blockChain[i]->m_Hdr.get_ID(id);
+				np.OnBlock(id, blockChain[i]->m_Body, peer);
+			}
+		}
+
+		{
+			MyNodeProcessor2 np;
+			np.Initialize(g_sz, horz);
+
+			NodeProcessor::PeerID peer;
+			ZeroObject(peer);
+
+			for (size_t i = 1; i < blockChain.size(); i += 2)
+				np.OnState(blockChain[i]->m_Hdr, blockChain[i]->m_PoW, peer);
+		}
+
+		{
+			MyNodeProcessor2 np;
+			np.Initialize(g_sz, horz);
+
+			NodeProcessor::PeerID peer;
+			ZeroObject(peer);
+
+			for (size_t i = 0; i < nMid; i++)
+			{
+				Block::SystemState::ID id;
+				blockChain[i]->m_Hdr.get_ID(id);
+				np.OnBlock(id, blockChain[i]->m_Body, peer);
+			}
+		}
+
+		{
+			MyNodeProcessor2 np;
+			np.Initialize(g_sz, horz);
+
+			NodeProcessor::PeerID peer;
+			ZeroObject(peer);
+
+			for (size_t i = nMid; i < blockChain.size(); i++)
+			{
+				Block::SystemState::ID id;
+				blockChain[i]->m_Hdr.get_ID(id);
+				np.OnBlock(id, blockChain[i]->m_Body, peer);
+			}
 		}
 
 	}
@@ -469,7 +569,10 @@ namespace beam
 int main()
 {
 	beam::TestNodeDB();
-	beam::TestNodeProcessor();
+
+	std::vector<beam::BlockPlus::Ptr> blockChain;
+	beam::TestNodeProcessor1(blockChain);
+	beam::TestNodeProcessor2(blockChain);
 
     //beam::Node node;
     

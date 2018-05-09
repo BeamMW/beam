@@ -132,7 +132,7 @@ void NodeProcessor::FindCongestionPointsAbove(NodeDB::StateID sid)
 {
 	while (true)
 	{
-		if (!NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row))
+		if (!(NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row)))
 		{
 			RequestDataInternal(sid.m_Row, true);
 			break;
