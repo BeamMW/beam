@@ -135,20 +135,26 @@ namespace beam
 		}
 
 		NodeDB::Blob bBody("body", 4);
-		Merkle::Hash peerID;
-		memset(peerID.m_pData, 0x66, sizeof(peerID.m_pData));
+		Merkle::Hash peer, peer2;
+		memset(peer.m_pData, 0x66, sizeof(peer.m_pData));
 
-		db.SetStateBlock(pRows[0], bBody, peerID);
+		db.SetStateBlock(pRows[0], bBody);
+		verify_test(!db.get_Peer(pRows[0], peer2));
+
+		db.set_Peer(pRows[0], &peer);
+		verify_test(db.get_Peer(pRows[0], peer2));
+		verify_test(peer == peer2);
+
+		db.set_Peer(pRows[0], NULL);
+		verify_test(!db.get_Peer(pRows[0], peer2));
 
 		ByteBuffer bbBody, bbRollback;
-		ZeroObject(peerID);
-		db.GetStateBlock(pRows[0], bbBody, bbRollback, peerID);
+		db.GetStateBlock(pRows[0], bbBody, bbRollback);
 		db.SetStateRollback(pRows[0], bBody);
-		db.GetStateBlock(pRows[0], bbBody, bbRollback, peerID);
+		db.GetStateBlock(pRows[0], bbBody, bbRollback);
 
 		db.DelStateBlock(pRows[0]);
-		ZeroObject(peerID);
-		db.GetStateBlock(pRows[0], bbBody, bbRollback, peerID);
+		db.GetStateBlock(pRows[0], bbBody, bbRollback);
 
 		tr.Commit();
 		tr.Start(db);

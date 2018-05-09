@@ -53,6 +53,8 @@ public:
 			StateGetFlags0,
 			StateGetFlags1,
 			StateGetNextCount,
+			StateSetPeer,
+			StateGetPeer,
 			TipAdd,
 			TipDel,
 			TipReachableAdd,
@@ -181,8 +183,11 @@ public:
 
 	typedef Merkle::Hash PeerID;
 
-	void SetStateBlock(uint64_t rowid, const Blob& body, const PeerID& peer);
-	void GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rollback, PeerID& peer);
+	void set_Peer(uint64_t rowid, const PeerID*);
+	bool get_Peer(uint64_t rowid, PeerID&);
+
+	void SetStateBlock(uint64_t rowid, const Blob& body);
+	void GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rollback);
 	void SetStateRollback(uint64_t rowid, const Blob& rollback);
 	void DelStateBlock(uint64_t rowid);
 

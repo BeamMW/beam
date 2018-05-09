@@ -286,8 +286,8 @@ void NodeProcessor::PruneOld(Height h)
 
 		DereferenceFossilBlock(rowid);
 
-		m_DB.SetStateBlock(rowid, NodeDB::Blob(NULL, 0), PeerID());
-		m_DB.SetStateRollback(rowid, NodeDB::Blob(NULL, 0));
+		m_DB.DelStateBlock(rowid);
+		m_DB.set_Peer(rowid, NULL);
 
 		++hFossil;
 		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
@@ -323,11 +323,11 @@ struct NodeProcessor::RollbackData
 	size_t get_Utxos() const { return m_pUtxo - get_BufAs(); }
 };
 
-bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool bFwd)
+bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 {
 	ByteBuffer bb;
 	RollbackData rbData;
-	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf, peer);
+	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf);
 
 	Block::Body block;
 	try {
@@ -665,9 +665,8 @@ void NodeProcessor::DereferenceFossilBlock(uint64_t rowid)
 {
 	ByteBuffer bbBlock;
 	RollbackData rbData;
-	PeerID peer;
 
-	m_DB.GetStateBlock(rowid, bbBlock, rbData.m_Buf, peer);
+	m_DB.GetStateBlock(rowid, bbBlock, rbData.m_Buf);
 
 	Block::Body block;
 
@@ -709,8 +708,7 @@ void NodeProcessor::get_KrnKey(Merkle::Hash& hv, const TxKernel& v)
 
 bool NodeProcessor::GoForward(const NodeDB::StateID& sid)
 {
-	PeerID peer;
-	if (HandleBlock(sid, peer, true))
+	if (HandleBlock(sid, true))
 	{
 		m_DB.MoveFwd(sid);
 		return true;
@@ -719,7 +717,9 @@ bool NodeProcessor::GoForward(const NodeDB::StateID& sid)
 	m_DB.DelStateBlock(sid.m_Row);
 	m_DB.SetStateNotFunctional(sid.m_Row);
 
-	OnPeerInsane(peer);
+	PeerID peer;
+	if (m_DB.get_Peer(sid.m_Row, peer))
+		OnPeerInsane(peer);
 
 	Block::SystemState::Full s;
 	m_DB.get_State(sid.m_Row, s);
@@ -734,8 +734,7 @@ bool NodeProcessor::GoForward(const NodeDB::StateID& sid)
 
 void NodeProcessor::Rollback(const NodeDB::StateID& sid)
 {
-	PeerID peer;
-	if (!HandleBlock(sid, peer, false))
+	if (!HandleBlock(sid, false))
 		OnCorrupted();
 
 	NodeDB::StateID sid2(sid);
@@ -780,6 +779,7 @@ bool NodeProcessor::OnState(const Block::SystemState::Full& s, const NodeDB::Blo
 
 	NodeDB::Transaction t(m_DB);
 	uint64_t rowid = m_DB.InsertState(s);
+	m_DB.set_Peer(rowid, &peer);
 	t.Commit();
 
 	if (s.m_Height)
@@ -814,8 +814,9 @@ bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob
 
 	NodeDB::Transaction t(m_DB);
 
-	m_DB.SetStateBlock(rowid, block, peer);
+	m_DB.SetStateBlock(rowid, block);
 	m_DB.SetStateFunctional(rowid);
+	m_DB.set_Peer(rowid, &peer);
 
 	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
 		TryGoUp();
@@ -943,7 +944,7 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 		pKrn->m_Signature.Sign(hv, kFee);
 		ctxBlock.m_Block.m_vKernelsOutput.push_back(std::move(pKrn));
 
-		verify(HandleBlockElement(*ctxBlock.m_Block.m_vKernelsOutput.back(), true, false));
+		verify(HandleBlockElement(*ctxBlock.m_Block.m_vKernelsOutput.back(), true, false)); // Will fail if kernel key duplicated!
 
 		kFee = -kFee;
 		ctxBlock.m_Offset += kFee;

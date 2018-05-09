@@ -26,7 +26,7 @@ class NodeProcessor
 
 	struct RollbackData;
 
-	bool HandleBlock(const NodeDB::StateID&, NodeDB::PeerID&, bool bFwd);
+	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
 	bool HandleValidatedTx(const TxBase&, Height, bool bFwd, RollbackData&);
 
 	bool HandleBlockElement(const Input&, bool bFwd, Height, RollbackData&);
