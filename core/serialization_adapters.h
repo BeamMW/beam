@@ -186,11 +186,22 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Output& output)
         {
-            ar
-                & output.m_Commitment
-                & output.m_Coinbase
-                & output.m_pConfidential
-                & output.m_pPublic;
+			uint8_t nFlags =
+				(output.m_Commitment.m_Y ? 1 : 0) |
+				(output.m_Coinbase ? 2 : 0) |
+				(output.m_pConfidential ? 4 : 0) |
+				(output.m_pPublic ? 8 : 0);
+			
+			ar
+				& nFlags
+				& output.m_Commitment.m_X;
+
+			if (output.m_pConfidential)
+				ar & output.m_pConfidential;
+
+			if (output.m_pPublic)
+				ar & output.m_pPublic;
+
 
             return ar;
         }
@@ -198,11 +209,19 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, beam::Output& output)
         {
-            ar
-                & output.m_Commitment
-                & output.m_Coinbase
-                & output.m_pConfidential
-                & output.m_pPublic;
+			uint8_t nFlags;
+			ar
+				& nFlags
+				& output.m_Commitment.m_X;
+
+			output.m_Commitment.m_Y = 0 != (1 & nFlags);
+			output.m_Coinbase = 0 != (2 & nFlags);
+
+			if (4 & nFlags)
+				ar & output.m_pConfidential;
+
+			if (8 & nFlags)
+				ar & output.m_pPublic;
 
             return ar;
         }
@@ -236,16 +255,31 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::TxKernel& val)
         {
-            ar
-                & val.m_Excess
-                & val.m_Signature
-				& val.m_Multiplier
-                & val.m_Fee
-                & val.m_HeightMin
-                & val.m_HeightMax
-                & val.m_pContract
-                & val.m_vNested
-            ;
+			uint8_t nFlags =
+				(val.m_Multiplier ? 1 : 0) |
+				(val.m_Fee ? 2 : 0) |
+				(val.m_HeightMin ? 4 : 0) |
+				((val.m_HeightMax != beam::Height(-1)) ? 8 : 0) |
+				(val.m_pContract ? 0x10 : 0) |
+				(val.m_vNested.empty() ? 0 : 0x20);
+
+			ar
+				& nFlags
+				& val.m_Excess
+				& val.m_Signature;
+
+			if (1 & nFlags)
+				ar & val.m_Multiplier;
+			if (2 & nFlags)
+				ar & val.m_Fee;
+			if (4 & nFlags)
+				ar & val.m_HeightMin;
+			if (8 & nFlags)
+				ar & val.m_HeightMax;
+			if (0x10 & nFlags)
+				ar & val.m_pContract;
+			if (0x20 & nFlags)
+				ar & val.m_vNested;
 
             return ar;
         }
@@ -253,16 +287,37 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, beam::TxKernel& val)
         {
-            ar
-                & val.m_Excess
-                & val.m_Signature
-				& val.m_Multiplier
-                & val.m_Fee
-                & val.m_HeightMin
-                & val.m_HeightMax
-                & val.m_pContract
-                & val.m_vNested
-            ;
+			uint8_t nFlags;
+			ar
+				& nFlags
+				& val.m_Excess
+				& val.m_Signature;
+
+			if (1 & nFlags)
+				ar & val.m_Multiplier;
+			else
+				val.m_Multiplier = 0;
+
+			if (2 & nFlags)
+				ar & val.m_Fee;
+			else
+				val.m_Fee = 0;
+
+			if (4 & nFlags)
+				ar & val.m_HeightMin;
+			else
+				val.m_HeightMin = 0;
+
+			if (8 & nFlags)
+				ar & val.m_HeightMax;
+			else
+				val.m_HeightMax = beam::Height(-1);
+
+			if (0x10 & nFlags)
+				ar & val.m_pContract;
+
+			if (0x20 & nFlags)
+				ar & val.m_vNested;
 
             return ar;
         }
