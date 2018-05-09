@@ -1,31 +1,68 @@
 #pragma once
 
-#include "core/common.h"
-#include "chain/chain.h"
-#include "pool/txpool.h"
+#include "node_processor.h"
+#include "../utility/io/timer.h"
 
 namespace beam
 {
-    struct NetworkToWallet
-    {
-        virtual void onNewTransaction(const Transaction& tx) = 0;
-    };
+struct Node
+{
+	static const uint16_t s_PortDefault = 31744; // whatever
 
-    struct Node : public NetworkToWallet
-    {
+	struct AddrPort {
+		uint32_t m_Addr = INADDR_ANY; // ipv4
+		uint16_t m_Port = s_PortDefault;
+	};
 
-        struct Config
-        {
-            int port;
-        };
+	struct Config
+	{
+		AddrPort m_Listen;
+		std::vector<AddrPort> m_Connect;
 
-        void listen(const Config& config);
+		std::string m_sPathLocal;
+		Height m_Horizon = 1440;
 
-        virtual void onNewTransaction(const Transaction& tx);
+		struct Timeout {
+			uint32_t m_Reconnect_ms = 1000;
+			uint32_t m_Insane_ms = 1000 * 3600; // 1 hour
+		} m_Timeout;
 
-    private:
-        Chain chain;
-        TxPool pool;
-    };
+	} m_Cfg; // must not be changed after initialization
 
-}
+	void Initialize();
+
+private:
+
+	io::Reactor::Ptr m_pReactor;
+
+	struct Processor
+		:public NodeProcessor
+	{
+		// NodeProcessor
+		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override;
+		virtual void OnPeerInsane(const PeerID&) override;
+		virtual void OnNewState() override;
+		virtual void get_Key(ECC::Scalar::Native&, Height h, bool bCoinbase) override;
+		virtual void OnMined(Height, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase) override;
+
+	} m_Processor;
+
+	struct Peer
+	{
+		typedef std::unique_ptr<Peer> Ptr;
+
+		int m_iPeer; // negative if accepted connection
+
+		io::Timer::Ptr m_pTimer;
+	};
+
+	typedef std::list<Peer::Ptr> PeerList;
+	PeerList m_lstPeers;
+
+	PeerList::iterator AllocPeer();
+
+	void OnTimer(PeerList::iterator);
+	void SetTimer(PeerList::iterator, uint32_t timeout_ms);
+};
+
+} // namespace beam
