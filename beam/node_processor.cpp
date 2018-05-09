@@ -84,14 +84,14 @@ void NodeProcessor::FindCongestionPoints()
 		if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row))
 			continue;
 
-		bool bNeedBlock = true;
+		bool bBlock = true;
 
 		while (sid.m_Height)
 		{
 			NodeDB::StateID sidThis = sid;
 			if (!m_DB.get_Prev(sid))
 			{
-				bNeedBlock = false; // state missing. Request it.
+				bBlock = false;
 				break;
 			}
 
@@ -102,59 +102,66 @@ void NodeProcessor::FindCongestionPoints()
 			}
 		}
 
-		Block::SystemState::Full s;
-		m_DB.get_State(sid.m_Row, s);
-
-		Block::SystemState::ID id;
-
-		if (bNeedBlock)
-		{
-			s.get_ID(id);
-			RequestBody(id);
-		} else
-		{
-			id.m_Height = sid.m_Height - 1;
-			id.m_Hash = s.m_Prev;
-
-			RequestState(id);
-		}
+		RequestDataInternal(sid.m_Row, bBlock);
 	}
 }
 
-void NodeProcessor::FindCongestionPointsAbove(Block::SystemState::ID& id)
+void NodeProcessor::RequestDataInternal(uint64_t rowid, bool bBlock)
+{
+	Block::SystemState::Full s;
+	m_DB.get_State(rowid, s);
+
+	Block::SystemState::ID id;
+
+	if (bBlock)
+		s.get_ID(id);
+	else
+	{
+		id.m_Height = s.m_Height - 1;
+		id.m_Hash = s.m_Prev;
+	}
+
+	PeerID peer;
+	bool bPeer = m_DB.get_Peer(rowid, peer);
+
+	RequestData(id, bBlock, bPeer ? &peer : NULL);
+
+}
+
+void NodeProcessor::FindCongestionPointsAbove(NodeDB::StateID sid)
 {
 	while (true)
 	{
-		NodeDB::WalkerState ws(m_DB);
-		m_DB.EnumStatesAt(ws, id.m_Height + 1);
-		if (!ws.MoveNext())
-			break;
-
-		NodeDB::StateID sid = ws.m_Sid;
-		Block::SystemState::Full s;
-		Block::SystemState::ID id2;
-
-		while (ws.MoveNext())
-		{
-			m_DB.get_State(ws.m_Sid.m_Row, s);
-			if (s.m_Prev != id.m_Hash)
-				continue;
-			s.get_ID(id2);
-			FindCongestionPointsAbove(id2);
-		}
-
-		m_DB.get_State(sid.m_Row, s);
-		if (s.m_Prev != id.m_Hash)
-			break;
-		s.get_ID(id2);
-
 		if (!NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row))
 		{
-			RequestBody(id2);
+			RequestDataInternal(sid.m_Row, true);
 			break;
 		}
 
-		id = id2;
+		std::vector<uint64_t> vRec;
+		uint64_t rowid;
+
+		{
+			NodeDB::WalkerState ws(m_DB);
+			m_DB.EnumAncestors(ws, sid);
+			if (!ws.MoveNext())
+				break;
+
+			rowid = ws.m_Sid.m_Row;
+
+			while (ws.MoveNext())
+				vRec.push_back(ws.m_Sid.m_Row);
+		}
+
+		sid.m_Height++;
+
+		for (size_t i = 0; i < vRec.size(); i++)
+		{
+			sid.m_Row = vRec[i];
+			FindCongestionPointsAbove(sid);
+		}
+
+		sid.m_Row = rowid;
 	}
 }
 
@@ -719,15 +726,12 @@ bool NodeProcessor::GoForward(const NodeDB::StateID& sid)
 
 	PeerID peer;
 	if (m_DB.get_Peer(sid.m_Row, peer))
+	{
+		m_DB.set_Peer(sid.m_Row, NULL);
 		OnPeerInsane(peer);
+	}
 
-	Block::SystemState::Full s;
-	m_DB.get_State(sid.m_Row, s);
-
-	Block::SystemState::ID id;
-	s.get_ID(id);
-
-	RequestBody(id);
+	RequestDataInternal(sid.m_Row, true);
 
 	return false;
 }
@@ -787,9 +791,7 @@ bool NodeProcessor::OnState(const Block::SystemState::Full& s, const NodeDB::Blo
 		uint64_t rowPrev = rowid;
 		if (!m_DB.get_Prev(rowPrev))
 		{
-			id.m_Height = s.m_Height - 1;
-			id.m_Hash = s.m_Prev;
-			RequestState(id);
+			RequestDataInternal(rowid, false);
 			return true;
 
 		}
@@ -798,7 +800,7 @@ bool NodeProcessor::OnState(const Block::SystemState::Full& s, const NodeDB::Blo
 			return true;
 	}
 
-	RequestBody(id);
+	RequestDataInternal(rowid, true);
 
 	return true;
 }
@@ -825,8 +827,10 @@ bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob
 
 	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
 	{
-		Block::SystemState::ID id2 = id;
-		FindCongestionPointsAbove(id2);
+		NodeDB::StateID sid;
+		sid.m_Row = rowid;
+		sid.m_Height = id.m_Height;
+		FindCongestionPointsAbove(sid);
 	}
 
 	return true;
@@ -1002,7 +1006,7 @@ void NodeProcessor::RealizePeerTip(const Block::SystemState::ID& id, const PeerI
 	if (m_DB.StateFindSafe(id))
 		return;
 
-	RequestState(id);
+	RequestData(id, false, &peer);
 }
 
 } // namespace beam

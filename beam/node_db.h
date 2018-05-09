@@ -62,6 +62,7 @@ public:
 			EnumTips,
 			EnumFunctionalTips,
 			EnumAtHeight,
+			EnumAncestors,
 			StateGetPrev,
 			Unactivate,
 			Activate,
@@ -208,6 +209,7 @@ public:
 	void EnumTips(WalkerState&); // lowest to highest
 	void EnumFunctionalTips(WalkerState&); // highest to lowest
 	void EnumStatesAt(WalkerState&, Height);
+	void EnumAncestors(WalkerState&, const StateID&);
 	bool get_Prev(StateID&);
 	bool get_Prev(uint64_t&);
 

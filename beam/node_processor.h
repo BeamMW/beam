@@ -45,7 +45,9 @@ class NodeProcessor
 
 	bool IsRelevantHeight(Height);
 	void FindCongestionPoints();
-	void FindCongestionPointsAbove(Block::SystemState::ID&);
+	void FindCongestionPointsAbove(NodeDB::StateID);
+
+	void RequestDataInternal(uint64_t rowid, bool bBlock);
 
 public:
 
@@ -59,8 +61,7 @@ public:
 	bool OnState(const Block::SystemState::Full&, const NodeDB::Blob& pow, const PeerID&);
 	bool OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&); // returns false if irrelevant (no known corresponding state)
 
-	virtual void RequestState(const Block::SystemState::ID&) {} // header + PoW
-	virtual void RequestBody(const Block::SystemState::ID&) {}
+	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) {}
 	virtual void OnPeerInsane(const PeerID&) {}
 	virtual void OnNewState() {}
 
