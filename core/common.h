@@ -11,7 +11,7 @@
 
 #ifdef WIN32
 #	define NOMINMAX
-#	include <windows.h>
+#	include <winsock2.h>
 #endif // WIN32
 
 #ifndef verify
