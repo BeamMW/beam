@@ -366,20 +366,68 @@ namespace detail
         }
 
 		template<typename Archive>
-        static Archive& save(Archive& ar, const beam::Block::Body& bb)
+        static Archive& save(Archive& ar, const beam::Block::SystemState::ID& v)
         {
-            ar & (const beam::TxBase&) bb;
+            ar
+				& v.m_Height
+				& v.m_Hash;
 
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::Block::Body& bb)
+        static Archive& load(Archive& ar, beam::Block::SystemState::ID& v)
         {
-            ar & (beam::TxBase&) bb;
+			ar
+				& v.m_Height
+				& v.m_Hash;
 
             return ar;
         }
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Block::SystemState::Full& v)
+		{
+			ar
+				& v.m_Height
+				& v.m_Prev
+				& v.m_History
+				& v.m_LiveObjects
+				& v.m_Difficulty
+				& v.m_TimeStamp;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Block::SystemState::Full& v)
+		{
+			ar
+				& v.m_Height
+				& v.m_Prev
+				& v.m_History
+				& v.m_LiveObjects
+				& v.m_Difficulty
+				& v.m_TimeStamp;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Block::Body& bb)
+		{
+			ar & (const beam::TxBase&) bb;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Block::Body& bb)
+		{
+			ar & (beam::TxBase&) bb;
+
+			return ar;
+		}
 	};
 }
 }
