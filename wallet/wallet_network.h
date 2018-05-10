@@ -45,13 +45,16 @@ namespace beam
         BRIDGE_FORWARD_IMPL(handle_tx_confirmation, wallet::receiver::ConfirmationData::Ptr);
         BRIDGE_FORWARD_IMPL(handle_tx_registration, UuidPtr);
         BRIDGE_FORWARD_IMPL(handle_tx_failed, UuidPtr);
+
+        BRIDGE_FORWARD_IMPL(send_money, Amount);
+        BRIDGE_FORWARD_IMPL(set_node_id, None);
     };
 
     class WalletNetworkIO : public IMsgHandler
                           , public INetworkIO
     {
     public:
-        using ConnectCallback = std::function<void(uint64_t tag, int status)>;
+        using ConnectCallback = std::function<void(uint64_t tag)>;
         WalletNetworkIO(io::Address address);
         void start();
         void stop();
@@ -83,6 +86,7 @@ namespace beam
         void thread_func();
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, int errorCode);
         void on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, int status);
+        bool register_connection(uint64_t tag, io::TcpStream::Ptr&& newStream);
 
         uint64_t get_connection_tag();
         
@@ -112,6 +116,7 @@ namespace beam
         WalletToNetworkBridge m_bridge;
         IWallet* m_wallet;
         Thread m_thread;
+        std::mutex m_conn_mutex;
         std::map<uint64_t, std::unique_ptr<Connection>> m_connections;
         std::map<uint64_t, ConnectCallback> m_connections_callbacks;
         uint64_t m_connection_tag;

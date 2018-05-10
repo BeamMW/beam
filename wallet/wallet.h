@@ -3,6 +3,7 @@
 #include "wallet/keychain.h"
 #include "wallet/receiver.h"
 #include "wallet/sender.h"
+#include <thread>
 #include <mutex>
 
 namespace beam
@@ -28,6 +29,9 @@ namespace beam
         virtual void handle_tx_confirmation(PeerId from, wallet::receiver::ConfirmationData::Ptr&&) = 0;
         virtual void handle_tx_registration(PeerId from, UuidPtr&& txId) = 0;
         virtual void handle_tx_failed(PeerId from, UuidPtr&& txId) = 0;
+        // we need these two to pass callback from network thread to main
+        virtual void send_money(PeerId to, Amount&& amount) = 0;
+        virtual void set_node_id(PeerId to, None&& = None()) = 0;
     };
 
     class Wallet : public IWallet
@@ -40,8 +44,8 @@ namespace beam
         Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, WalletAction&& action = WalletAction());
         virtual ~Wallet() {};
 
-        void send_money(PeerId to, ECC::Amount amount);
-        void set_node_id(PeerId node_id);
+        void send_money(PeerId to, ECC::Amount&& amount) override;
+        void set_node_id(PeerId node_id, None&& = None()) override;
 
     private:
         void send_tx_invitation(wallet::sender::InvitationData::Ptr) override;
@@ -72,5 +76,9 @@ namespace beam
         std::vector<wallet::Receiver::Ptr>    m_removedReceivers;
         uint64_t m_node_id;
         WalletAction m_tx_completed_action;
+#ifndef NDEBUG
+        std::thread::id m_tid;
+        void check_thread() { assert(m_tid == std::this_thread::get_id()); }
+#endif
     };
 }

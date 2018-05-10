@@ -45,15 +45,15 @@ namespace
     {
     public:
         
-		uint64_t getNextID()
-		{
-			return 1;
-		}
+        uint64_t getNextID()
+        {
+            return 1;
+        }
 
-		ECC::Scalar calcKey(uint64_t id)
-		{
-			return ECC::Scalar();
-		}
+        ECC::Scalar calcKey(uint64_t id)
+        {
+            return ECC::Scalar();
+        }
 
         std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock)
         {
@@ -112,15 +112,15 @@ namespace
         }
     };
 
-	struct SqliteKeychainInt : SqliteKeychain
-	{
-		SqliteKeychainInt()
-		{
-			store(beam::Coin(getNextID(), 5));
-			store(beam::Coin(getNextID(), 2));
-			store(beam::Coin(getNextID(), 3));
-		}
-	};
+    struct SqliteKeychainInt : SqliteKeychain
+    {
+        SqliteKeychainInt()
+        {
+            store(beam::Coin(getNextID(), 5));
+            store(beam::Coin(getNextID(), 2));
+            store(beam::Coin(getNextID(), 3));
+        }
+    };
 
     template<typename KeychainImpl>
     IKeyChain::Ptr createKeyChain()
@@ -571,16 +571,16 @@ void TestP2PWalletNegotiation()
     sender_io.set_wallet_proxy(&sender_bridge);
     receiver_io.set_wallet_proxy(&receiver_bridge);
 
-    sender_io.connect(node_address, [&sender](uint64_t tag, int status) {
-        sender.set_node_id(tag);
+    sender_io.connect(node_address, [&sender_bridge](uint64_t tag) {
+        sender_bridge.set_node_id(tag, None());
     });
 
-    receiver_io.connect(node_address, [&receiver](uint64_t tag, int status) {
-        receiver.set_node_id(tag);
+    receiver_io.connect(node_address, [&receiver_bridge](uint64_t tag) {
+        receiver_bridge.set_node_id(tag, None());
     });
 
-    sender_io.connect(receiver_address, [&sender](uint64_t tag, int status) {
-        sender.send_money(tag, 6);
+    sender_io.connect(receiver_address, [&sender_bridge](uint64_t tag) {
+        sender_bridge.send_money(tag, 6);
     });
 
     sender_io.start();
