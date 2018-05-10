@@ -13,15 +13,32 @@ struct SqliteKeychain : beam::IKeyChain
 		: _db(nullptr)
 	{
 		static const char* Name = "wallet.dat";
+		static const char* Pass = "pass";
 
-		if (boost::filesystem::exists(Name))
-			boost::filesystem::remove(Name);
+		// create DB with password
+		{
+			if (boost::filesystem::exists(Name))
+				boost::filesystem::remove(Name);
 
-		int ret = sqlite3_open_v2(Name, &_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
-		assert(ret == SQLITE_OK);
+			int ret = sqlite3_open_v2(Name, &_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
+			assert(ret == SQLITE_OK);
 
-		ret = sqlite3_exec(_db, "CREATE TABLE IF NOT EXISTS storage (id integer PRIMARY KEY AUTOINCREMENT, amount integer, status integer);", NULL, NULL, NULL);
-		assert(ret == SQLITE_OK);
+			ret = sqlite3_key(_db, Pass, strlen(Pass));
+			assert(ret == SQLITE_OK);
+
+			ret = sqlite3_exec(_db, "CREATE TABLE storage (id integer PRIMARY KEY AUTOINCREMENT, amount integer, status integer);", NULL, NULL, NULL); // IF NOT EXISTS
+			assert(ret == SQLITE_OK);
+
+			sqlite3_close_v2(_db);
+		}
+
+		{
+			int ret = sqlite3_open_v2(Name, &_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
+			assert(ret == SQLITE_OK);
+
+			ret = sqlite3_key(_db, Pass, strlen(Pass));
+			assert(ret == SQLITE_OK);
+		}
 
 		//ret = sqlite3_exec(_db, "INSERT INTO sqlite_sequence (name,seq) VALUES('storage', 18);" , NULL, NULL, NULL);
 		//assert(ret == SQLITE_OK);

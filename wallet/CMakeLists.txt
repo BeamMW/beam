@@ -19,7 +19,8 @@ else()
     target_link_libraries(wallet boost_system)
 endif()
 
-add_dependencies(wallet core sqlite)
-target_link_libraries(wallet core sqlite)
+add_dependencies(wallet core)
+target_link_libraries(wallet ${CMAKE_SOURCE_DIR}/wallet/libsqlcipher.so)
+target_link_libraries(wallet core ssl crypto)
 
 add_subdirectory(unittests)
