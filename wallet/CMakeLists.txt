@@ -1,3 +1,5 @@
+add_definitions( -DSQLITE_HAS_CODEC )
+
 set(WALLET_SRC
     wallet.h
     wallet.cpp
@@ -8,8 +10,8 @@ set(WALLET_SRC
 )
 
 add_library(wallet STATIC ${WALLET_SRC})
-add_dependencies(wallet core p2p)
-target_link_libraries(wallet core p2p)
+add_dependencies(wallet core p2p sqlite)
+target_link_libraries(wallet core p2p sqlite)
 
 if (Boost_FOUND)
 	find_package(Boost COMPONENTS filesystem)
@@ -18,9 +20,5 @@ else()
     target_link_libraries(wallet boost_filesystem)
     target_link_libraries(wallet boost_system)
 endif()
-
-add_dependencies(wallet core)
-target_link_libraries(wallet ${CMAKE_SOURCE_DIR}/wallet/libsqlcipher.so)
-target_link_libraries(wallet core ssl crypto)
 
 add_subdirectory(unittests)
