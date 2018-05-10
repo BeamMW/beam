@@ -5,6 +5,12 @@
 namespace beam {
 
 static thread_local AsyncContext* tls_ctx = 0;
+
+namespace async {
+
+AsyncContext* ctx() { return tls_ctx; }
+    
+} //namespace
     
 AsyncContext::AsyncContext(unsigned coarseTimerResolutionMsec) :
     _reactor(io::Reactor::create()),
