@@ -15,12 +15,30 @@ void Node::Processor::RequestData(const Block::SystemState::ID&, bool bBlock, co
 {
 }
 
-void Node::Processor::OnPeerInsane(const PeerID&)
+void Node::Processor::OnPeerInsane(const PeerID& peerID)
 {
+	Peer* pPeer = get_ParentObj().FindPeer(peerID);
+	if (pPeer && (State::Snoozed != pPeer->m_eState))
+		pPeer->OnClosed(-1);
 }
 
 void Node::Processor::OnNewState()
 {
+	proto::NewTip msg;
+	if (!get_CurrentState(msg.m_ID))
+		return;
+
+	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
+	{
+		PeerList::iterator itThis = it;
+		it++;
+
+		try {
+			(*itThis)->Send(msg);
+		} catch (...) {
+			(*itThis)->OnPostError();
+		}
+	}
 }
 
 void Node::Processor::get_Key(ECC::Scalar::Native&, Height h, bool bCoinbase)
@@ -102,6 +120,9 @@ void Node::Peer::OnConnected()
 
 	m_eState = State::Connected;
 
+	proto::NewTip msg;
+	if (m_pThis->m_Processor.get_CurrentState(msg.m_ID))
+		Send(msg);
 }
 
 void Node::Peer::OnClosed(int errorCode)
@@ -128,6 +149,12 @@ void Node::Peer::OnPostError()
 			SetTimer(m_pThis->m_Cfg.m_Timeout.m_Reconnect_ms);
 		}
 	}
+}
+
+void Node::Peer::OnMsg(proto::Ping&&)
+{
+	proto::Pong msg;
+	Send(msg);
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)

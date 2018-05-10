@@ -50,6 +50,8 @@ namespace proto {
 	macro(Block::SystemState::ID, ID) \
 	macro(std::vector<PerUtxoProof>, Proofs)
 
+#define BeamNodeMsg_Ping(macro)
+#define BeamNodeMsg_Pong(macro)
 
 
 #define BeamNodeMsgsAll(macro) \
@@ -64,7 +66,9 @@ namespace proto {
 	macro(9, GetProofKernel) \
 	macro(10, GetProofUtxo) \
 	macro(11, Proof) /* for states and kernels */ \
-	macro(12, ProofUtxo)
+	macro(12, ProofUtxo) \
+	macro(21, Ping) \
+	macro(22, Pong)
 
 
 	struct PerUtxoProof

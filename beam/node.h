@@ -76,6 +76,8 @@ private:
 		// proto::NodeConnection
 		virtual void OnConnected() override;
 		virtual void OnClosed(int errorCode) override;
+		// messages
+		virtual void OnMsg(proto::Ping&&) override;
 	};
 
 	PeerList m_lstPeers;
