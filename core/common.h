@@ -22,6 +22,9 @@
 #	endif //  NDEBUG
 #endif // verify
 
+#define IMPLEMENT_GET_PARENT_OBJ(parent_class, this_var) \
+	parent_class& get_ParentObj() { return * (parent_class*) (((uint8_t*) this) + 1 - (uint8_t*) (&((parent_class*) 1)->this_var)); }
+
 #include "ecc.h"
 
 #include <iostream>

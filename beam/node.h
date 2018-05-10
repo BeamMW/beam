@@ -40,6 +40,7 @@ private:
 		virtual void get_Key(ECC::Scalar::Native&, Height h, bool bCoinbase) override;
 		virtual void OnMined(Height, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase) override;
 
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
 
 	struct Peer
