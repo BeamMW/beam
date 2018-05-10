@@ -55,7 +55,7 @@ namespace beam {
     void WalletNetworkIO::connect(io::Address address, ConnectCallback&& callback)
     {
         assert(m_wallet != nullptr);
-        lock_guard{ m_conn_mutex };
+        lock_guard lock{ m_conn_mutex };
         auto tag = get_connection_tag();
         m_connections_callbacks.emplace(tag, callback);
         m_reactor->tcp_connect(address, tag, BIND_THIS_MEMFN(on_client_connected));
@@ -145,7 +145,7 @@ namespace beam {
     {
         if (errorCode == 0) {
             LOG_DEBUG() << "Stream accepted";
-            lock_guard{ m_conn_mutex };
+            lock_guard lock{ m_conn_mutex };
             auto tag = get_connection_tag();
             m_connections.emplace(tag,
                 make_unique<Connection>(
@@ -164,7 +164,7 @@ namespace beam {
         if (register_connection(tag, move(newStream))) {
             ConnectCallback callback;
             {
-                lock_guard{ m_conn_mutex };
+                lock_guard lock{m_conn_mutex};
                 assert(m_connections_callbacks.count(tag) == 1);
                 callback = m_connections_callbacks[tag];
                 m_connections_callbacks.erase(tag);
@@ -178,7 +178,7 @@ namespace beam {
 
     bool WalletNetworkIO::register_connection(uint64_t tag, io::TcpStream::Ptr&& newStream)
     {
-        lock_guard{ m_conn_mutex };
+        lock_guard lock{ m_conn_mutex };
         auto it = m_connections.find(tag);
         if (it == m_connections.end() && newStream) {
             m_connections.emplace(tag, make_unique<Connection>(
