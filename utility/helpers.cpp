@@ -64,7 +64,7 @@ uint64_t get_thread_id() {
 #elif defined _WIN32
     return GetCurrentThreadId();
 #else
-    return pthread_getthreadid_np();
+    return pthread_mach_thread_np(pthread_self());
 #endif
 }
 
