@@ -69,7 +69,7 @@ void tcpclient_test() {
         reactor->cancel_tcp_connect(tag_cancelled);
         
         Timer::Ptr timer = Timer::create(reactor);
-        int x = 5;
+        int x = 15;
         timer->start(200, true, [&x]{ 
             if (--x == 0 || callbackCount == 0) {
                 reactor->stop(); 

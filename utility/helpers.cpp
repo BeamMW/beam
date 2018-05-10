@@ -3,6 +3,17 @@
 #include <stdio.h>
 #include <time.h>
 
+#if defined __linux__
+    #include <unistd.h>
+    #include <sys/types.h>
+    #include <sys/syscall.h>
+#elif defined _WIN32
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+#else
+    #include <pthread.h>
+#endif
+
 namespace beam {
 
 uint64_t local_timestamp_msec() {
@@ -47,5 +58,14 @@ std::string to_hex(const void* bytes, size_t size) {
     return std::string(to_hex(buf, bytes, size));
 }
 
-} //namespace
+uint64_t get_thread_id() {
+#if defined __linux__
+    return syscall(__NR_gettid);
+#elif defined _WIN32
+    return GetCurrentThreadId();
+#else
+    return pthread_getthreadid_np();
+#endif
+}
 
+} //namespace
