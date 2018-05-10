@@ -23,7 +23,7 @@ public:
     static Ptr create();
 
     /// Performs shutdown and cleanup.
-    ~Reactor();
+    virtual ~Reactor();
 
     /// Runs the reactor. This function blocks.
     void run();
@@ -80,7 +80,16 @@ private:
         }
 
         void async_close() {
-            if (_reactor && _handle) _reactor->async_close(_handle);
+            if (_handle) {
+                if (_reactor) {
+                    _reactor->async_close(_handle);
+                    _reactor.reset();
+                }
+                else if (_handle->loop->data) {
+                    // object owned by Reactor itself
+                    reinterpret_cast<Reactor*>(_handle->loop->data)->async_close(_handle);
+                }
+            }
         }
 
         Reactor::Ptr _reactor;
@@ -108,9 +117,12 @@ private:
     ErrorCode init_tcpserver(Object* o, Address bindAddress, uv_connection_cb cb);
     ErrorCode init_tcpstream(Object* o);
     ErrorCode accept_tcpstream(Object* acceptor, Object* newConnection);
-
+    
     ErrorCode init_object(ErrorCode errorCode, Object* o, uv_handle_t* h);
     void async_close(uv_handle_t*& handle);
+    
+    uv_write_t* alloc_write_request();
+    void release_write_request(uv_write_t*& req);
 
     union Handles {
         uv_timer_t timer;
@@ -122,9 +134,11 @@ private:
     uv_async_t _stopEvent;
     MemPool<uv_handle_t, sizeof(Handles)> _handlePool;
     MemPool<uv_connect_t, sizeof(uv_connect_t)> _connectRequestsPool;
+    MemPool<uv_write_t, sizeof(uv_write_t)> _writeRequestsPool;
     std::unordered_map<uint64_t, ConnectContext> _connectRequests;
     std::unordered_set<uv_connect_t*> _cancelledConnectRequests;
     std::unique_ptr<CoarseTimer> _connectTimer;
+    bool _creatingInternalObjects=false;
     
     friend class AsyncEvent;
     friend class Timer;

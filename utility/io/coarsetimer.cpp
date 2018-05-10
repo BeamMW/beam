@@ -26,6 +26,10 @@ CoarseTimer::CoarseTimer(unsigned resolutionMsec, const Callback& cb, Timer::Ptr
     if (!result) IO_EXCEPTION(result.error());
 }
 
+CoarseTimer::~CoarseTimer() {
+    LOG_VERBOSE() << ".";
+}
+
 static inline uint64_t mono_clock() {
     return uv_hrtime() / 1000000; //nsec->msec, monotonic clock
 }

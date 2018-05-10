@@ -7,6 +7,9 @@
 #include "../../utility/serialize.h"
 #include "../../core/serialization_adapters.h"
 
+#define LOG_VERBOSE_ENABLED 0
+#include "utility/logger.h"
+
 namespace ECC {
 
 	Context g_Ctx;
@@ -565,105 +568,25 @@ namespace beam
 
 	}
 
-	void TestNode1()
-	{
-		io::Reactor::Ptr pReactor(io::Reactor::create());
-		io::Reactor::Scope scope(*pReactor);
-
-		Node node;
-		node.m_Cfg.m_sPathLocal = g_sz;
-		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
-		node.m_Cfg.m_Listen.ip(INADDR_ANY);
-
-		node.Initialize();
-
-		struct MyClient
-			:public proto::NodeConnection
-		{
-			bool m_bConnected;
-
-			MyClient() {
-				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
-				m_bConnected = false;
-			}
-
-			virtual void OnConnected() override {
-
-				m_bConnected = true;
-
-				try {
-					proto::IsHasBody msg;
-					msg.m_ID.m_Height = 0;
-					ZeroObject(msg.m_ID.m_Hash);
-
-					Send(msg);
-
-					SetTimer(1200); // for reconnection
-
-				} catch (...) {
-					OnFail();
-				}
-			}
-
-			virtual void OnClosed(int errorCode) override {
-				OnFail();
-			}
-
-			void OnFail() {
-				Reset();
-				SetTimer(2000);
-				m_bConnected = false;
-			}
-
-			io::Timer::Ptr m_pTimer;
-			void OnTimer() {
-
-				if (!m_bConnected)
-				{
-					Reset();
-
-					try {
-
-						io::Address addr;
-						addr.resolve("127.0.0.1");
-						addr.port(Node::s_PortDefault);
-
-						Connect(addr);
-
-					}
-					catch (...) {
-						OnFail();
-					}
-				}
-				else
-					OnFail();
-			}
-
-			void SetTimer(uint32_t timeout_ms) {
-				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
-			}
-			void KillTimer() {
-				m_pTimer->cancel();
-			}
-		};
-
-		MyClient cl;
-
-		cl.SetTimer(1500);
-
-		pReactor->run();
-	}
-
 }
 
 int main()
 {
+    beam::LoggerConfig lc;
+    int logLevel = LOG_LEVEL_DEBUG;
+#if LOG_VERBOSE_ENABLED
+    logLevel = LOG_LEVEL_VERBOSE;
+#endif
+    lc.consoleLevel = logLevel;
+    lc.flushLevel = logLevel;
+    auto logger = beam::Logger::create(lc);
+    
 	beam::TestNodeDB();
 
 	std::vector<beam::BlockPlus::Ptr> blockChain;
 	beam::TestNodeProcessor1(blockChain);
 	beam::TestNodeProcessor2(blockChain);
-
+	
     //beam::Node node;
     
     return 0;
