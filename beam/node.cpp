@@ -102,11 +102,6 @@ void Node::Peer::OnConnected()
 
 	m_eState = State::Connected;
 
-	try {
-	}
-	catch (...) {
-		OnPostError();
-	}
 }
 
 void Node::Peer::OnClosed(int errorCode)

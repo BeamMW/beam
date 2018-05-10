@@ -591,18 +591,13 @@ namespace beam
 
 				m_bConnected = true;
 
-				try {
-					proto::IsHasBody msg;
-					msg.m_ID.m_Height = 0;
-					ZeroObject(msg.m_ID.m_Hash);
+				proto::IsHasBody msg;
+				msg.m_ID.m_Height = 0;
+				ZeroObject(msg.m_ID.m_Hash);
 
-					Send(msg);
+				Send(msg);
 
-					SetTimer(1200); // for reconnection
-
-				} catch (...) {
-					OnFail();
-				}
+				SetTimer(1200); // for reconnection
 			}
 
 			virtual void OnClosed(int errorCode) override {
