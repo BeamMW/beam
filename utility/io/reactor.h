@@ -38,6 +38,16 @@ public:
 
     void cancel_tcp_connect(uint64_t tag);
 
+	class Scope
+	{
+		Reactor* m_pPrev;
+	public:
+		Scope(Reactor&);
+		~Scope();
+	};
+
+	static Reactor& get_Current();
+
 private:
     /// Ctor. private and called by create()
     Reactor();

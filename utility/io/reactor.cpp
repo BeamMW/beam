@@ -353,4 +353,23 @@ void Reactor::async_close(uv_handle_t*& handle) {
     handle = 0;
 }
 
+static thread_local Reactor* s_pReactor = NULL;
+
+Reactor::Scope::Scope(Reactor& r)
+{
+	m_pPrev = s_pReactor;
+	s_pReactor = &r;
+}
+
+Reactor::Scope::~Scope()
+{
+	s_pReactor = m_pPrev;
+}
+
+Reactor& Reactor::get_Current()
+{
+	assert(s_pReactor); // core meltdown?
+	return *s_pReactor;
+}
+
 }} //namespaces
