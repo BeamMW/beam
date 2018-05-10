@@ -31,41 +31,120 @@ void Node::Processor::OnMined(Height, const ECC::Scalar::Native& kFee, Amount nF
 {
 }
 
-Node::PeerList::iterator Node::AllocPeer()
+Node::Peer* Node::AllocPeer()
 {
 	Peer::Ptr pPeer(new Peer);
+	Peer* pVal = pPeer.get();
 
+	pPeer->m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
 	m_lstPeers.push_back(std::move(pPeer));
-	return --m_lstPeers.end();
+
+	pVal->m_eState = State::Idle;
+	pVal->m_pThis = this;
+	pVal->m_itThis = --m_lstPeers.end();
+
+	return pVal;
 }
 
 void Node::Initialize()
 {
-	m_pReactor = io::Reactor::create();
+	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Horizon);
+
+	if (m_Cfg.m_Listen.port())
+		m_Server.Listen(m_Cfg.m_Listen);
 
 	for (size_t i = 0; i < m_Cfg.m_Connect.size(); i++)
 	{
-		PeerList::iterator it = AllocPeer();
-		Peer& p = *(*it);
-		p.m_iPeer = i;
-		p.m_pTimer = io::Timer::create(m_pReactor);
+		Peer* p = AllocPeer();
+		p->m_iPeer = i;
 
-		// initiate connect
+		p->OnTimer(); // initiate connect
 	}
-
-	// start listen
 }
 
-void Node::SetTimer(PeerList::iterator it, uint32_t timeout_ms)
+void Node::Peer::SetTimer(uint32_t timeout_ms)
 {
-	Peer& p = *(*it);
-	assert(p.m_pTimer);
-	p.m_pTimer->start(timeout_ms, false, [this, it]() { return (this->OnTimer)(it); });
+	assert(m_pTimer);
+	m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
 }
 
-void Node::OnTimer(PeerList::iterator it)
+void Node::Peer::KillTimer()
 {
-	Peer& p = *(*it);
+	assert(m_pTimer);
+	m_pTimer->cancel();
+}
+
+void Node::Peer::OnTimer()
+{
+	switch (m_eState)
+	{
+	case State::Idle:
+	case State::Snoozed:
+
+		assert(m_iPeer >= 0);
+
+		try {
+			Connect(m_pThis->m_Cfg.m_Connect[m_iPeer]);
+		} catch (...) {
+			OnPostError();
+		}
+
+		break;
+	}
+}
+
+void Node::Peer::OnConnected()
+{
+	if (State::Connecting == m_eState)
+		KillTimer();
+	else
+		assert(State::Idle == m_eState);
+
+	m_eState = State::Connected;
+
+	try {
+	}
+	catch (...) {
+		OnPostError();
+	}
+}
+
+void Node::Peer::OnClosed(int errorCode)
+{
+	assert(State::Connected == m_eState);
+	if (-1 == errorCode) // protocol error
+		m_eState = State::Snoozed;
+	OnPostError();
+}
+
+void Node::Peer::OnPostError()
+{
+	if (m_iPeer < 0)
+		m_pThis->m_lstPeers.erase(m_itThis); // will delete this
+	else
+	{
+		Reset(); // connection layer
+
+		if (State::Snoozed == m_eState)
+			SetTimer(m_pThis->m_Cfg.m_Timeout.m_Insane_ms);
+		else
+		{
+			m_eState = State::Idle;
+			SetTimer(m_pThis->m_Cfg.m_Timeout.m_Reconnect_ms);
+		}
+	}
+}
+
+void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
+{
+	if (newStream)
+	{
+		Peer* p = get_ParentObj().AllocPeer();
+		p->m_iPeer = -1;
+
+		p->Accept(std::move(newStream));
+		p->OnConnected();
+	}
 }
 
 } // namespace beam

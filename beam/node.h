@@ -2,6 +2,7 @@
 
 #include "node_processor.h"
 #include "../utility/io/timer.h"
+#include "../core/proto.h"
 
 namespace beam
 {
@@ -28,8 +29,6 @@ struct Node
 
 private:
 
-	io::Reactor::Ptr m_pReactor;
-
 	struct Processor
 		:public NodeProcessor
 	{
@@ -43,22 +42,54 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
 
+	struct Peer;
+	typedef std::list<std::unique_ptr<Peer> > PeerList;
+
+	struct State {
+		enum Enum {
+			Idle,
+			Connecting,
+			Connected,
+			Snoozed,
+		};
+	};
+
 	struct Peer
+		:public proto::NodeConnection
 	{
 		typedef std::unique_ptr<Peer> Ptr;
 
+		Node* m_pThis;
+		PeerList::iterator m_itThis; // iterator to self. Of course better to use intrusive list.
+
 		int m_iPeer; // negative if accepted connection
 
+		State::Enum m_eState;
+
 		io::Timer::Ptr m_pTimer;
+		void OnTimer();
+		void SetTimer(uint32_t timeout_ms);
+		void KillTimer();
+
+		void OnPostError();
+
+		// proto::NodeConnection
+		virtual void OnConnected() override;
+		virtual void OnClosed(int errorCode) override;
 	};
 
-	typedef std::list<Peer::Ptr> PeerList;
 	PeerList m_lstPeers;
 
-	PeerList::iterator AllocPeer();
+	Peer* AllocPeer();
 
-	void OnTimer(PeerList::iterator);
-	void SetTimer(PeerList::iterator, uint32_t timeout_ms);
+	struct Server
+		:public proto::NodeConnection::Server
+	{
+		// NodeConnection::Server
+		virtual void OnAccepted(io::TcpStream::Ptr&&, int errorCode) override;
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Server)
+	} m_Server;
 };
 
 } // namespace beam
