@@ -595,7 +595,7 @@ void TestP2PWalletNegotiation()
 
 int main()
 {
-    TestP2PWalletNegotiation();
+   // TestP2PWalletNegotiation();
     TestWalletNegotiation<TestKeyChain, TestKeyChain2>();
     TestWalletNegotiation<SqliteKeychainInt, TestKeyChain2>();
     TestRollback();
