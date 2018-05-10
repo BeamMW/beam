@@ -297,7 +297,7 @@ struct App {
 
     void wait() {
         appLogic.wait();
-        networkLogic.stop();
+        networkLogic.stop_and_wait();
     }
 };
 
