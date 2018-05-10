@@ -98,7 +98,7 @@ void NodeConnection::Accept(io::TcpStream::Ptr&& newStream)
 }
 
 #define THE_MACRO(code, msg) \
-void NodeConnection::Send(msg&& v) \
+void NodeConnection::Send(const msg& v) \
 { \
 	m_SerializeCache.clear(); \
 	m_Protocol.serialize(m_SerializeCache, uint8_t(code), v); \

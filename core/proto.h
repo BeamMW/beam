@@ -137,7 +137,7 @@ namespace proto {
 		virtual void OnClosed(int errorCode) {}
 
 #define THE_MACRO(code, msg) \
-		void Send(msg&& v); \
+		void Send(const msg& v); \
 		virtual void OnMsg(msg&& v) {}
 		BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
