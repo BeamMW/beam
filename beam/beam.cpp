@@ -42,10 +42,11 @@ int main(int argc, char* argv[])
         {
 			beam::Node node;
 
-            node.m_Cfg.m_Listen.m_Port = vm["port"].as<int>();
+            node.m_Cfg.m_Listen.port(vm["port"].as<int>());
+			node.m_Cfg.m_Listen.ip(INADDR_ANY);
 			node.m_Cfg.m_sPathLocal = vm["storage"].as<std::string>();
 
-            std::cout << "starting a node on " << node.m_Cfg.m_Listen.m_Port << " port..." << std::endl;
+            std::cout << "starting a node on " << node.m_Cfg.m_Listen.port() << " port..." << std::endl;
 
 			node.Initialize();
        } 

@@ -9,15 +9,10 @@ struct Node
 {
 	static const uint16_t s_PortDefault = 31744; // whatever
 
-	struct AddrPort {
-		uint32_t m_Addr = INADDR_ANY; // ipv4
-		uint16_t m_Port = s_PortDefault;
-	};
-
 	struct Config
 	{
-		AddrPort m_Listen;
-		std::vector<AddrPort> m_Connect;
+		io::Address m_Listen;
+		std::vector<io::Address> m_Connect;
 
 		std::string m_sPathLocal;
 		Height m_Horizon = 1440;
