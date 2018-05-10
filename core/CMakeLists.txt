@@ -7,6 +7,7 @@ set(CORE_SRC
     block_crypt.cpp
     navigator.cpp
     storage.cpp
+    proto.cpp
 # ~etc
 )
 

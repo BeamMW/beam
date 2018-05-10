@@ -2,82 +2,153 @@
 
 #include "common.h"
 #include "async.h"
+#include "../utility/bridge.h"
+#include "../p2p/protocol.h"
+#include "../p2p/connection.h"
+#include "../utility/io/tcpserver.h"
 
 namespace beam {
 namespace proto {
 
-	struct NewTip { // also the first message sent by the Node
-		static const uint8_t s_Code = 1;
-		Block::SystemState::ID m_ID;
-	};
+#define BeamNodeMsg_NewTip(macro) \
+	macro(Block::SystemState::ID, ID)
 
-	struct GetHdr {
-		static const uint8_t s_Code = 2;
-		Block::SystemState::ID m_ID;
-	};
+#define BeamNodeMsg_GetHdr(macro) \
+	macro(Block::SystemState::ID, ID)
 
-	struct Hdr {
-		static const uint8_t s_Code = 3;
-		Block::SystemState::Full m_Descr;
-		// PoW!
-	};
+#define BeamNodeMsg_Hdr(macro) \
+	macro(Block::SystemState::Full, Description)
 
-	struct IsHasBody { // may be sent to multiple peers, before actually downloading the body from one peer
-		static const uint8_t s_Code = 4;
-		Block::SystemState::ID m_ID;
-	};
+#define BeamNodeMsg_IsHasBody(macro) \
+	macro(Block::SystemState::ID, ID)
 
-	struct Boolean {
-		static const uint8_t s_Code = 5;
-		bool m_Value;
-	};
+#define BeamNodeMsg_Boolean(macro) \
+	macro(bool, Value)
 
-	struct GetBody {
-		static const uint8_t s_Code = 6;
-		Block::SystemState::ID m_ID;
-	};
+#define BeamNodeMsg_GetBody(macro) \
+	macro(Block::SystemState::ID, ID)
 
-	struct Body {
-		static const uint8_t s_Code = 7;
-		ByteBuffer m_Buf;
-	};
+#define BeamNodeMsg_Body(macro) \
+	macro(ByteBuffer, Buffer)
 
-	struct GetProofState {
-		static const uint8_t s_Code = 8;
-		Height m_Height;
-	};
+#define BeamNodeMsg_GetProofState(macro) \
+	macro(Block::SystemState::ID, ID)
 
-	struct GetProofKernel {
-		static const uint8_t s_Code = 9;
-		Merkle::Hash m_KrnHash;
-	};
+#define BeamNodeMsg_GetProofKernel(macro) \
+	macro(Merkle::Hash, KernelHash)
 
-	struct GetProofUtxo {
-		static const uint8_t s_Code = 10;
-		Input m_Utxo;
-		Height m_MaturityMin; // set to non-zero in case the result is too big, and should be retrieved within multiple queries
-	};
+#define BeamNodeMsg_GetProofUtxo(macro) \
+	macro(Input, Utxo) \
+	macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
 
-	struct Proof { // for states and kernels
-		static const uint8_t s_Code = 11;
-		Block::SystemState::ID m_ID;
-		Merkle::Proof m_Proof;
-	};
+	 
+#define BeamNodeMsg_Proof(macro) \
+	macro(Block::SystemState::ID, ID) \
+	macro(Merkle::Proof, Proof)
 
-	struct ProofUtxo
+#define BeamNodeMsg_ProofUtxo(macro) \
+	macro(Block::SystemState::ID, ID) \
+	macro(std::vector<PerUtxoProof>, Proofs)
+
+
+
+#define BeamNodeMsgsAll(macro) \
+	macro(1, NewTip) /* Also the first message sent by the node */ \
+	macro(2, GetHdr) \
+	macro(3, Hdr) \
+	macro(4, IsHasBody) /* may be sent to multiple peers, before actually downloading the body from one peer */ \
+	macro(5, Boolean) \
+	macro(6, GetBody) \
+	macro(7, Body) \
+	macro(8, GetProofState) \
+	macro(9, GetProofKernel) \
+	macro(10, GetProofUtxo) \
+	macro(11, Proof) /* for states and kernels */ \
+	macro(12, ProofUtxo)
+
+
+	struct PerUtxoProof
 	{
-		static const uint8_t s_Code = 12;
+		Height m_Maturity;
+		Input::Count m_Count;
+		Merkle::Proof m_Proof;
 
-		Block::SystemState::ID m_ID;
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_Maturity
+				& m_Count
+				& m_Proof;
+		}
 
-		struct Entry {
-			Height m_Maturity;
-			Input::Count m_Count;
-			Merkle::Proof m_Proof;
+		static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
+	};
+
+
+#define THE_MACRO3(type, name) & m_##name
+#define THE_MACRO2(type, name) type m_##name;
+#define THE_MACRO1(code, msg) \
+	struct msg \
+	{ \
+		BeamNodeMsg_##msg(THE_MACRO2) \
+ 		template <typename Archive> void serialize(Archive& ar) { ar BeamNodeMsg_##msg(THE_MACRO3); } \
+	};
+
+	BeamNodeMsgsAll(THE_MACRO1)
+#undef THE_MACRO1
+#undef THE_MACRO2
+#undef THE_MACRO3
+
+
+
+	class NodeConnection
+		:public IMsgHandler
+	{
+		Protocol<NodeConnection> m_Protocol;
+		std::unique_ptr<Connection> m_Connection;
+		bool m_ConnectPending;
+
+		io::TcpServer::Ptr server;
+		SerializedMsg m_SerializeCache;
+
+		static void TestIoResult(const io::Result& res);
+
+		static void OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, int status);
+		void OnConnectInternal2(io::TcpStream::Ptr&& newStream, int status);
+
+		virtual void on_protocol_error(uint64_t, ProtocolError error) override;
+		virtual void on_connection_error(uint64_t, int errorCode) override;
+
+#define THE_MACRO(code, msg) bool OnMsgInternal(uint64_t, msg&& v);
+		BeamNodeMsgsAll(THE_MACRO)
+#undef THE_MACRO
+
+	public:
+
+		NodeConnection();
+		virtual ~NodeConnection();
+		void Reset();
+
+		void Connect(const io::Address& addr);
+		void Accept(io::TcpStream::Ptr&& newStream);
+
+		virtual void OnConnected() {}
+		virtual void OnClosed(int errorCode) {}
+
+#define THE_MACRO(code, msg) \
+		void Send(msg&& v); \
+		virtual void OnMsg(msg&& v) {}
+		BeamNodeMsgsAll(THE_MACRO)
+#undef THE_MACRO
+
+		struct Server
+		{
+			io::TcpServer::Ptr m_pServer; // just delete it to stop listening
+			void Listen(const io::Address& addr);
+
+			virtual void OnAccepted(io::TcpStream::Ptr&&, int errorCode) = 0;
 		};
-
-		std::vector<Entry> m_Entries;
-		static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - ther result it probably trunacted
 	};
 
 
