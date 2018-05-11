@@ -577,6 +577,7 @@ private:
             m_connections.emplace(tag, make_unique<Connection>(
                     m_protocol,
                     tag,
+                    Connection::inbound,
                     100,
                     std::move(newStream)));
         }

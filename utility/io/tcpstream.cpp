@@ -144,6 +144,22 @@ bool TcpStream::is_connected() const {
     return _handle != 0;
 }
 
+Address TcpStream::address() const {
+    if (!is_connected()) return Address();
+    sockaddr_in sa;
+    int size = sizeof(sockaddr_in);
+    uv_tcp_getsockname((const uv_tcp_t*)_handle, (sockaddr*)&sa, &size);
+    return Address(sa);
+}
+
+Address TcpStream::peer_address() const {
+    if (!is_connected()) return Address();
+    sockaddr_in sa;
+    int size = sizeof(sockaddr_in);
+    uv_tcp_getpeername((const uv_tcp_t*)_handle, (sockaddr*)&sa, &size);
+    return Address(sa);
+}
+
 void TcpStream::on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
     LOG_VERBOSE() << TRACE(handle) << TRACE(nread);
     

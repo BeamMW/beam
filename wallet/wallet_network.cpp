@@ -151,6 +151,7 @@ namespace beam {
                 make_unique<Connection>(
                     m_protocol,
                     tag,
+                    Connection::inbound,
                     100,
                     std::move(newStream)));
         }
@@ -168,6 +169,7 @@ namespace beam {
             m_connections.emplace(tag, make_unique<Connection>(
                 m_protocol,
                 tag,
+                Connection::outbound,
                 100,
                 std::move(newStream)
                 ));

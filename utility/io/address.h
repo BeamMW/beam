@@ -37,6 +37,10 @@ struct Address {
     Address(uint32_t a, uint16_t p) {
         packed = ((uint64_t)a << 16) + p;
     }
+    
+    Address(const sockaddr_in& sa) {
+        packed = ((uint64_t)ntohl(sa.sin_addr.s_addr) << 16) + ntohs(sa.sin_port);
+    }
 
     uint32_t ip() const {
         return (uint32_t)(packed >> 16);

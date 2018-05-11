@@ -53,6 +53,10 @@ public:
         return _state;
     }
 
+    /// Returns socket address (non-null if connected)
+    Address address() const;
+    
+    /// Returns peer address (non-null if connected)
     Address peer_address() const;
 
 private:

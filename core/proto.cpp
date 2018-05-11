@@ -92,6 +92,7 @@ void NodeConnection::Accept(io::TcpStream::Ptr&& newStream)
 	m_Connection = std::make_unique<Connection>(
 		m_Protocol,
 		uint64_t(this),
+        Connection::inbound,
 		100,
 		std::move(newStream)
 		);

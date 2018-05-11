@@ -116,6 +116,7 @@ struct Server {
                 connection = make_unique<Connection>(
                     protocol,
                     12345,
+                    Connection::inbound,
                     100,
                     move(newStream)
                 );
@@ -205,6 +206,7 @@ struct Client {
             connection = make_unique<Connection>(
                 protocol,
                 streamId,
+                Connection::outbound,
                 100,
                 move(newStream)
             );

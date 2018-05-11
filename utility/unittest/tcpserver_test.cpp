@@ -1,8 +1,9 @@
 #include "utility/io/tcpserver.h"
 #include "utility/io/timer.h"
-#include "utility/logger.h"
-#include <iostream>
 #include <assert.h>
+
+#define LOG_VERBOSE_ENABLED 0
+#include "utility/logger.h"
 
 using namespace beam;
 using namespace beam::io;
@@ -24,10 +25,10 @@ void tcpserver_test() {
             Address(0, 33333),
             [](TcpStream::Ptr&& newStream, int errorCode) {
                 if (errorCode == 0) {
-                    cout << "Stream accepted" << endl;
+                    LOG_DEBUG() << "Stream accepted, socket=" << newStream->address().str() << " peer=" << newStream->peer_address().str();
                     assert(newStream);
                 } else {
-                    cout << "Error code " << errorCode << endl;
+                    LOG_ERROR() << "Error code=" << errorCode;
                 }
                 reactor->stop();
             }
@@ -40,19 +41,23 @@ void tcpserver_test() {
             on_timer
         );
 
-        cout << "starting reactor..." << endl;
+        LOG_DEBUG() << "starting reactor...";
         reactor->run();
-        cout << "reactor stopped" << endl;
+        LOG_DEBUG() << "reactor stopped";
     }
     catch (const std::exception& e) {
-        cout << e.what();
+        LOG_ERROR() << e.what();
     }
 }
 
 int main() {
     LoggerConfig lc;
-    lc.consoleLevel = LOG_LEVEL_VERBOSE;
-    lc.flushLevel = LOG_LEVEL_VERBOSE;
+    int logLevel = LOG_LEVEL_DEBUG;
+#if LOG_VERBOSE_ENABLED
+    logLevel = LOG_LEVEL_VERBOSE;
+#endif
+    lc.consoleLevel = logLevel;
+    lc.flushLevel = logLevel;
     auto logger = Logger::create(lc);
     tcpserver_test();
 }
