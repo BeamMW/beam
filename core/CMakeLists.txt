@@ -7,10 +7,15 @@ set(CORE_SRC
     block_crypt.cpp
     navigator.cpp
     storage.cpp
+    proto.cpp
 # ~etc
 )
 
 add_library(core STATIC ${CORE_SRC})
+
+add_dependencies(core p2p)
+target_link_libraries(core p2p)
+
 target_include_directories(core PUBLIC ../secp256k1-zkp/src)
 
 include_directories(${PROJECT_SOURCE_DIR}/core)

@@ -40,14 +40,16 @@ int main(int argc, char* argv[])
 
         if (vm.count("node")) 
         {
-            beam::Node::Config config;
-            config.port = vm["port"].as<int>();
+			beam::Node node;
 
-            std::cout << "starting a node on " << config.port << " port..." << std::endl;
+            node.m_Cfg.m_Listen.port(vm["port"].as<int>());
+			node.m_Cfg.m_Listen.ip(INADDR_ANY);
+			node.m_Cfg.m_sPathLocal = vm["storage"].as<std::string>();
 
-            beam::Node node;
-            node.listen(config);
-        } 
+            std::cout << "starting a node on " << node.m_Cfg.m_Listen.port() << " port..." << std::endl;
+
+			node.Initialize();
+       } 
         else if (vm.count("wallet")) 
         {
             std::cout << "starting a wallet..." << std::endl;

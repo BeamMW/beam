@@ -35,9 +35,6 @@ namespace beam::wallet
 
         auto coins = m_keychain->getCoins(m_amount); // need to lock 
         invitationData->m_amount = m_amount;
-        m_kernel.m_Fee = 0;
-        m_kernel.m_HeightMin = 0;
-        m_kernel.m_HeightMax = static_cast<Height>(-1);
         m_kernel.get_Hash(invitationData->m_message);
         
         // 2. Set lock_height for output (current chain height)
@@ -49,9 +46,7 @@ namespace beam::wallet
                 Input::Ptr input = std::make_unique<Input>();
 
                 ECC::Scalar::Native key(coin.m_key);
-                ECC::Point::Native pt = ECC::Commitment(key, coin.m_amount);
-
-                input->m_Commitment = pt;
+                input->m_Commitment = ECC::Commitment(key, coin.m_amount);
 
                 invitationData->m_inputs.push_back(std::move(input));
                 
@@ -73,8 +68,7 @@ namespace beam::wallet
 
             ECC::Scalar::Native blindingFactor;
             SetRandom(blindingFactor);
-            ECC::Point::Native pt = ECC::Commitment(blindingFactor, change);
-            output->m_Commitment = pt;
+            output->m_Commitment = ECC::Commitment(blindingFactor, change);
 
             output->m_pPublic.reset(new ECC::RangeProof::Public);
             output->m_pPublic->m_Value = change;

@@ -11,7 +11,7 @@
 
 #ifdef WIN32
 #	define NOMINMAX
-#	include <windows.h>
+#	include <winsock2.h>
 #endif // WIN32
 
 #ifndef verify
@@ -21,6 +21,9 @@
 #		define verify(x) assert(x)
 #	endif //  NDEBUG
 #endif // verify
+
+#define IMPLEMENT_GET_PARENT_OBJ(parent_class, this_var) \
+	parent_class& get_ParentObj() { return * (parent_class*) (((uint8_t*) this) + 1 - (uint8_t*) (&((parent_class*) 1)->this_var)); }
 
 #include "ecc.h"
 
@@ -47,44 +50,18 @@ namespace beam
 		void Interpret(Hash&, const Hash& hNew, bool bNewOnRight);
 	}
 
-	struct UtxoID
-	{
-		// canonical description
-		ECC::Point	m_Commitment;
-		Height		m_Height;
-		bool		m_Coinbase;
-		bool		m_Confidential;
-
-		int cmp(const UtxoID&) const;
-		COMPARISON_VIA_CMP(UtxoID)
-	};
-
 	struct Input
-		:public UtxoID
 	{
 		typedef std::unique_ptr<Input> Ptr;
+		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system
 
-		Input()
-		{
-			m_Coinbase = false;
-			m_Confidential = false;
-			m_Height = 0;
-		}
-
-		// In case there are multiple UTXOs with the same commitment value (which we permit) the height should be used to distinguish between them
-		//
-		// Transactions:
-		//		In case there's no UTXO with the specified height - the node is allowed to increase it to match the existing UTXO.
-		//		So that if m_Height is the minimum height to spend. Set to 0 (by default?) to spend the most mature.
-		//		Same rule applies for 'Confidential 'flag.
-		//
-		// In the block
-		//		The m_Height and m_Confidential must exactly match the existing UTXO, no auto-adjustments.
-
+		ECC::Point	m_Commitment; // If there are multiple UTXOs matching this commitment (which is supported) the Node always selects the most mature one.
+	
+		int cmp(const Input&) const;
 		COMPARISON_VIA_CMP(Input)
 
-		void get_Hash(Merkle::Hash&) const;
-		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
+		void get_Hash(Merkle::Hash&, Count) const;
+		bool IsValidProof(Count, const Merkle::Proof&, const Merkle::Hash& root) const;
 	};
 
 	inline bool operator < (const Input::Ptr& a, const Input::Ptr& b) { return *a < *b; }
@@ -108,7 +85,6 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		bool IsValid() const;
-		void get_ID(UtxoID&, Height) const;
 
 		int cmp(const Output&) const;
 		COMPARISON_VIA_CMP(Output)
@@ -123,9 +99,18 @@ namespace beam
 		// Mandatory
 		ECC::Point		m_Excess;
 		ECC::Signature	m_Signature;	// For the whole tx body, including nested kernels, excluding contract signature
+		uint64_t		m_Multiplier;
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
 		Height			m_HeightMin;
 		Height			m_HeightMax;
+
+		TxKernel()
+			:m_Multiplier(0) // 0-based, 
+			,m_Fee(0)
+			, m_HeightMin(0)
+			, m_HeightMax(Height(-1))
+		{
+		}
 
 		// Optional
 		struct Contract
@@ -144,7 +129,7 @@ namespace beam
 
 		bool IsValid(Amount& fee, ECC::Point::Native& exc) const;
 
-		void get_Hash(Merkle::Hash&) const; // Hash doesn't include signatures
+		void get_Hash(Merkle::Hash&) const; // Hash doesn't include signatures (for nested kernels it includes everything)
 		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
 
 		void get_HashForContract(ECC::Hash::Value&, const ECC::Hash::Value& msg) const;
@@ -162,11 +147,12 @@ namespace beam
 	{
 		std::vector<Input::Ptr> m_vInputs;
 		std::vector<Output::Ptr> m_vOutputs;
-		std::vector<TxKernel::Ptr> m_vKernels;
+		std::vector<TxKernel::Ptr> m_vKernelsInput;
+		std::vector<TxKernel::Ptr> m_vKernelsOutput;
 		ECC::Scalar m_Offset;
 
 		void Sort(); // w.r.t. the standard
-		size_t DeleteIntermediateOutputs(Height); // assumed to be already sorted. Retruns the num deleted
+		size_t DeleteIntermediateOutputs(); // assumed to be already sorted. Retruns the num deleted
 
 		// tests the validity of all the components, overall arithmetics, and the lexicographical order of the components.
 		// Determines the min/max block height that the transaction can fit, wrt component heights and maturity policies
@@ -174,9 +160,12 @@ namespace beam
 		//
 		// Validation formula
 		//
-		// Sum(Inputs) - Sum(Outputs) = Sum(TxKernels.Excess) + m_Offset*G [ + Sum(Fee)*H ]
+		// Sum(Input UTXOs) + Sum(Input Kernels.Excess) = Sum(Output UTXOs) + Sum(Output Kernels.Excess) + m_Offset*G [ + Sum(Fee)*H ]
+		//
+		// For transaction validation fees are considered as implicit outputs (i.e. Sum(Fee)*H should be added for the right equation side)
 		//
 		// For a block validation Fees are not accounted for, since they are consumed by new outputs injected by the miner.
+		// However Each block contains extra outputs (coinbase) for block closure, which should be subtracted from the outputs for sum validation.
 		//
 		// Define: Sigma = Sum(Outputs) - Sum(Inputs) + Sum(TxKernels.Excess) + m_Offset*G
 		// Sigma is either zero or -Sum(Fee)*H, depending on what we validate
@@ -213,14 +202,16 @@ namespace beam
 			struct ID {
 				Merkle::Hash	m_Hash; // explained later
 				Height			m_Height;
+
+				int cmp(const ID&) const;
+				COMPARISON_VIA_CMP(ID)
 			};
 
 			struct Full {
 				Height			m_Height;
 				Merkle::Hash	m_Prev;			// explicit referebce to prev
-				Merkle::Hash	m_States;		// all previous states
-				Merkle::Hash	m_Utxos;		// current UTXOs
-				Merkle::Hash	m_Kernels;		// kernels
+				Merkle::Hash	m_History;		// Objects that are only added and never deleted. Currently: previous states.
+				Merkle::Hash	m_LiveObjects;	// Objects that can be both added and deleted. Currently: UTXOs and kernels
 				Difficulty		m_Difficulty;
 				Timestamp		m_TimeStamp;
 

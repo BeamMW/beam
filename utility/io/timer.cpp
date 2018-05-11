@@ -1,6 +1,9 @@
 #include "timer.h"
 #include <assert.h>
 
+#define LOG_VERBOSE_ENABLED 1
+#include "utility/logger.h"
+
 namespace beam { namespace io {
 
 Timer::Ptr Timer::create(const Reactor::Ptr& reactor) {
@@ -9,6 +12,10 @@ Timer::Ptr Timer::create(const Reactor::Ptr& reactor) {
     ErrorCode errorCode = reactor->init_timer(timer.get());
     IO_EXCEPTION_IF(errorCode);
     return timer;
+}
+
+Timer::~Timer() {
+    LOG_VERBOSE() << ".";
 }
 
 Result Timer::start(unsigned intervalMsec, bool isPeriodic, Callback&& callback) {

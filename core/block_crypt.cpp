@@ -61,29 +61,23 @@ namespace beam
 	/////////////
 	// Input
 
-	int UtxoID::cmp(const UtxoID& v) const
+	int Input::cmp(const Input& v) const
 	{
-		CMP_MEMBER_EX(m_Commitment)
-		CMP_MEMBER(m_Height)
-		CMP_MEMBER(m_Coinbase)
-		CMP_MEMBER(m_Confidential)
-		return 0;
+		return m_Commitment.cmp(v.m_Commitment);
 	}
 
-	void Input::get_Hash(Merkle::Hash& out) const
+	void Input::get_Hash(Merkle::Hash& out, Count n) const
 	{
 		ECC::Hash::Processor()
 			<< m_Commitment
-			<< m_Height
-			<< m_Coinbase
-			<< m_Confidential
+			<< n
 			>> out;
 	}
 
-	bool Input::IsValidProof(const Merkle::Proof& proof, const Merkle::Hash& root) const
+	bool Input::IsValidProof(Count n, const Merkle::Proof& proof, const Merkle::Hash& root) const
 	{
 		Merkle::Hash hv;
-		get_Hash(hv);
+		get_Hash(hv, n);
 		Merkle::Interpret(hv, proof);
 		return hv == root;
 	}
@@ -119,14 +113,6 @@ namespace beam
 		return 0;
 	}
 
-	void Output::get_ID(UtxoID& id, Height h) const
-	{
-		id.m_Commitment = m_Commitment;
-		id.m_Height = h;
-		id.m_Coinbase = m_Coinbase;
-		id.m_Confidential = m_pConfidential.get() != NULL;
-	}
-
 	/////////////
 	// TxKernel
 	bool TxKernel::Traverse(ECC::Hash::Value& hv, Amount* pFee, ECC::Point::Native* pExcess) const
@@ -153,7 +139,13 @@ namespace beam
 
 			if (!v.Traverse(hv, pFee, pExcess))
 				return false;
-			hp << hv;
+
+			// The hash of this kernel should account for the signature and the excess of the internal kernels.
+			hp	<< v.m_Excess
+				<< v.m_Multiplier
+				<< v.m_Signature.m_e
+				<< v.m_Signature.m_k
+				<< hv;
 		}
 
 		hp >> hv;
@@ -161,6 +153,8 @@ namespace beam
 		if (pExcess)
 		{
 			ECC::Point::Native pt(m_Excess);
+			if (m_Multiplier)
+				pt += pt * m_Multiplier;
 
 			if (!m_Signature.IsValid(hv, pt))
 				return false;
@@ -259,6 +253,8 @@ namespace beam
 	{
 		sigma = ECC::Zero;
 
+		// Inputs
+
 		const Input* p0Inp = NULL;
 		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
 		{
@@ -268,14 +264,50 @@ namespace beam
 				return false;
 			p0Inp = &v;
 
-			Height h = v.m_Coinbase ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
-			h = std::min(v.m_Height + h, Height(-1)); // overflow protection
-			ctx.m_hMin = std::max(ctx.m_hMin, h);
-
 			sigma += ECC::Point::Native(v.m_Commitment);
 		}
 
+		auto itKrnOut = m_vKernelsOutput.begin();
+		const TxKernel* p0Krn = NULL;
+
+		for (auto it = m_vKernelsInput.begin(); m_vKernelsInput.end() != it; it++)
+		{
+			const TxKernel& v = *(*it);
+
+			// locate the corresponding output kernel. Use the fact that kernels are sorted by excess, and then by multiplier
+			while (true)
+			{
+				if (m_vKernelsOutput.end() == itKrnOut)
+					return false;
+
+				const TxKernel& vOut = *(*itKrnOut);
+				itKrnOut++;
+
+				if (vOut.m_Excess > v.m_Excess)
+					return false;
+
+				if (vOut.m_Excess == v.m_Excess)
+				{
+					if (vOut.m_Multiplier <= v.m_Multiplier)
+						return false;
+					break; // ok
+				}
+			}
+
+			if (!v.IsValid(ctx.m_Fee, sigma))
+				return false;
+
+			if (p0Krn && (*p0Krn > v))
+				return false;
+			p0Krn = &v;
+
+			ctx.m_hMin = std::max(ctx.m_hMin, v.m_HeightMin);
+			ctx.m_hMax = std::min(ctx.m_hMax, v.m_HeightMax);
+		}
+
 		sigma = -sigma;
+
+		// Outputs
 
 		const Output* p0Out = NULL;
 		for (auto it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
@@ -297,8 +329,8 @@ namespace beam
 			}
 		}
 
-		const TxKernel* p0Krn = NULL;
-		for (auto it = m_vKernels.begin(); m_vKernels.end() != it; it++)
+		p0Krn = NULL;
+		for (auto it = m_vKernelsOutput.begin(); m_vKernelsOutput.end() != it; it++)
 		{
 			const TxKernel& v = *(*it);
 			if (!v.IsValid(ctx.m_Fee, sigma))
@@ -321,7 +353,8 @@ namespace beam
 	{
 		std::sort(m_vInputs.begin(), m_vInputs.end());
 		std::sort(m_vOutputs.begin(), m_vOutputs.end());
-		std::sort(m_vKernels.begin(), m_vKernels.end());
+		std::sort(m_vKernelsInput.begin(), m_vKernelsInput.end());
+		std::sort(m_vKernelsOutput.begin(), m_vKernelsOutput.end());
 	}
 
 	template <class T>
@@ -336,7 +369,7 @@ namespace beam
 				v.push_back(std::move(vSrc[i]));
 	}
 
-	size_t TxBase::DeleteIntermediateOutputs(Height h)
+	size_t TxBase::DeleteIntermediateOutputs()
 	{
 		size_t nDel = 0;
 
@@ -348,10 +381,8 @@ namespace beam
 			for (; i1 < m_vOutputs.size(); i1++)
 			{
 				Output::Ptr& pOut = m_vOutputs[i1];
-				UtxoID id;
-				pOut->get_ID(id, h);
 
-				int n = pInp->cmp(id);
+				int n = pInp->m_Commitment.cmp(pOut->m_Commitment);
 				if (n <= 0)
 				{
 					if (!n)
@@ -395,6 +426,13 @@ namespace beam
 	const Height Block::s_MaturityCoinbase	= 60; // 1 hour
 	const Height Block::s_MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
 
+	int Block::SystemState::ID::cmp(const ID& v) const
+	{
+		CMP_MEMBER(m_Height)
+		CMP_MEMBER(m_Hash)
+		return 0;
+	}
+
 	void Block::SystemState::Full::get_Hash(Merkle::Hash& out) const
 	{
 		// Our formula:
@@ -412,14 +450,12 @@ namespace beam
 		//				m_Prev
 		//				m_States
 		//			]
-		//			[
-		//				m_Utxos
-		//				m_Kernels
+		//			m_LiveObjects
 		//			]
 		//		]
 		//	]
 
-		Merkle::Hash h0, h1, h2;
+		Merkle::Hash h0, h1;
 
 		ECC::Hash::Processor() << m_Difficulty >> h1;
 		ECC::Hash::Processor() << m_TimeStamp >> h0;
@@ -428,9 +464,8 @@ namespace beam
 		ECC::Hash::Processor() << m_Height >> h0;
 		Merkle::Interpret(h0, h1, true); // [ m_Height, [ m_Difficulty, m_TimeStamp] ]
 
-		Merkle::Interpret(h1, m_Prev, m_States);
-		Merkle::Interpret(h2, m_Utxos, m_Kernels);
-		Merkle::Interpret(h1, h2, true); // [ [m_Prev, m_States], [m_States, m_Utxos] ]
+		Merkle::Interpret(h1, m_Prev, m_History);
+		Merkle::Interpret(h1, m_LiveObjects, true); // [ [m_Prev, m_States], m_LiveObjects ]
 
 		Merkle::Interpret(out, h0, h1);
 	}

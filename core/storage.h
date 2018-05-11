@@ -160,21 +160,22 @@ public:
 
 	// This tree is different from RadixHashOnlyTree in 2 ways:
 	//	1. Each key comes with a count (i.e. duplicates are allowed)
-	//	2. We support "group search", i.e. all elements with s specified subkey. Given the UTXO commitment we can find all the counts and originating blocks.
+	//	2. We support "group search", i.e. all elements with a specified subkey. Given the UTXO commitment we can find all the counts and parameters.
 
 	struct Key
 	{
 		static const uint32_t s_BitsCommitment = sizeof(ECC::uintBig) * 8 + 1; // curve point
 
-		static const uint32_t s_Bits =
-			s_BitsCommitment +
-			2 + // coinbase flag, confidential flag
-			sizeof(Height) * 8; // block height
+		struct Data {
+			ECC::Point m_Commitment;
+			Height m_Maturity;
+			Data& operator = (const Key&);
+		};
 
+		static const uint32_t s_Bits = s_BitsCommitment + sizeof(Height) * 8; // maturity
 		static const uint32_t s_Bytes = (s_Bits + 7) >> 3;
 
-		Key& operator = (const UtxoID&);
-		void ToID(UtxoID&) const;
+		Key& operator = (const Data&);
 
 		int cmp(const Key&) const;
 
@@ -183,7 +184,7 @@ public:
 
 	struct Value
 	{
-		uint32_t m_Count;
+		Input::Count m_Count;
 		void get_Hash(Merkle::Hash&, const Key&) const;
 	};
 
@@ -312,66 +313,5 @@ namespace Merkle
 		void get_PredictedHash(Hash&, const Hash& hvAppend) const;
 	};
 }
-
-class StorageManager
-{
-public:
-
-	// All save methods are guaranteed to be atmoic!
-
-	// Blockchain state entry lifecycle.
-	//
-	//	1. State reported. Only the basic info received (height, hash, difficulty, etc.). 
-	//		If the state is already known - ignore
-	//		If the difficulty is past the defined horizon and it has no known following state before the horizon - ignore (drop), but it may be re-requested later.
-	//		If state is orphan, i.e. its predecessor is unknown - it's requested, and nothing performed further.
-	//		If state is NOT orphan - PoW is requested.
-	//	2. PoW received.
-	//		If PoW was already received - ignore
-	//		If PoW is invalid - the PoW is dropped, peer should be tagged as inadequate, and PoW should be re-requested from other peers (logic with suspending peers, timers).
-	//		If PoW is valid - appropriate block is requested.
-	//	3. Block received.
-	//		If block was already received - ignore
-	//		Otherwise sanity is checked: validation of signatures, zero-sum, sort order, compliance to rules w.r.t. emission, treasury. *Existence of source UTXOs is not verified yet*!
-	//		If block is invalid - it's dropped, peer should be tagged as inadequate, and block should be re-requested from other peers (logic with suspending peers, timers).
-	//		If valid (regardless to the source system state) it's decomposed and saved by components, with additional auxilliary data
-	//			Input and Output UTXOs are saved.
-	//			TxKernels are saved with search index, and MMR hash structure is built.
-	//			Global block parameters are saved (non-encoded blinding offset, and etc.)
-	//			MMR structure for the whole blockchain is extended (will grow logarithmically with the height)
-	//		The state is tagged as *functional*
-	//		If the previous state is not currently present or *reachable* (not all predecessors are *functional*) - no further actions. 
-	//		Otherwise this state and all the consequent *functional* states are marked as *reachable*, and the difficulty of reachable *tip* is calculated
-	//		If this difficulty is more than the current active difficulty - initiate the TRANSITION to the new tip.
-	//	4. Transition.
-	//		Transition means going from source state to the destination state, using the UTXOs specified in the block.
-	//		Transition can go in both directions (i.e. it's fully reversable).
-	//		Valid transition should consume only the existing UTXOs, allowed by the policy (maturity and etc.).
-	//		Plus the final system state must match the specified in the state description.
-	//		If transition is valid
-	//			new system state is appreciated.
-	//			The state *active* flag should be set or cleared (depending on the transition direction). All the states included in the current blockchain should have *active* flag.
-	//		Otherwise
-	//			transition is aborted. Bogus block should be deleted, peer marked as inadequate.
-	//			block should be re-requested.
-	//		*Note*: Going back should always be possible. Otherwise means the whole system state is corrupted!
-	//	5. Going beyond the horizon
-	//		Inactive tips beyond the horizon are pruned (deleted completely)
-	//		If the state is included in the current blockchain, but far enough (twice the horizon?) - it's compressed
-	//	6. Compression
-	//		During the compression in/out UTXO data is deleted. Only range proofs are left.
-	//		Whenever an active block goes beyond the horizon - it should erase the consumed range proofs from the appropriate compressed blocks.
-	//		Kernels and MMR hashes must remain.
-	//
-	// --------------------------------
-	//
-	//	Apart from the described blockchain entries there is also a current system state. Call it *Cursor*. It includes the following:
-	//		UTXOs that are currently available, each with the description of its originating block
-	//		Current Height, Hash, Difficulty.
-	//
-
-
-
-};
 
 } // namespace beam

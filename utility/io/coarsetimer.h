@@ -24,6 +24,8 @@ public:
     
     /// Cancels all callbacks
     void cancel_all();
+    
+    ~CoarseTimer();
                 
 private:
     CoarseTimer(unsigned resolutionMsec, const Callback& cb, Timer::Ptr&& timer);

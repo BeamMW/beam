@@ -13,9 +13,7 @@ public:
 	struct StateFlags {
 		static const uint32_t Functional	= 0x1;	// has valid PoW and block body
 		static const uint32_t Reachable		= 0x2;	// has only functional nodes up to the genesis state
-		static const uint32_t Active		= 0x4;	// part of the current blockchain.
-		static const uint32_t OverHorizon	= 0x8;	// block body is deleted, rollback is no more possible.
-		static const uint32_t BlockPassed	= 0x10;	// block verification may be simplified (already verified)
+		static const uint32_t Active		= 0x4;	// part of the current blockchain (not really necessary).
 	};
 
 	struct ParamID {
@@ -23,6 +21,8 @@ public:
 			DbVer,
 			CursorRow,
 			CursorHeight,
+			StateExtra,
+			FossilHeight,
 		};
 	};
 
@@ -34,9 +34,9 @@ public:
 			Commit,
 			Rollback,
 			Scheme,
-			ParamIntGet,
-			ParamIntIns,
-			ParamIntUpd,
+			ParamGet,
+			ParamIns,
+			ParamUpd,
 			StateIns,
 			StateDel,
 			StateGet,
@@ -52,28 +52,30 @@ public:
 			StateSetFlags,
 			StateGetFlags0,
 			StateGetFlags1,
+			StateGetNextCount,
+			StateSetPeer,
+			StateGetPeer,
 			TipAdd,
 			TipDel,
 			TipReachableAdd,
 			TipReachableDel,
 			EnumTips,
 			EnumFunctionalTips,
+			EnumAtHeight,
+			EnumAncestors,
 			StateGetPrev,
 			Unactivate,
 			Activate,
 			MmrGet,
 			MmrSet,
-			UtxoAdd,
-			UtxoDel,
-			UtxoModify,
-			UtxoEnum,
-			KernelAdd,
-			KernelDel,
-			KernelModify,
-			KernelEnum,
+			SpendableAdd,
+			SpendableDel,
+			SpendableModify,
+			SpendableEnum,
 			StateGetBlock,
 			StateSetBlock,
 			StateDelBlock,
+			StateSetRollback,
 
 			Dbg0,
 			Dbg1,
@@ -98,6 +100,11 @@ public:
 
 		Blob() {}
 		Blob(const void* p_, uint32_t n_) :p(p_) ,n(n_) {}
+		Blob(const ByteBuffer& bb)
+		{
+			if ((n = (uint32_t) bb.size()))
+				p = &bb.at(0);
+		}
 	};
 
 	class Recordset
@@ -155,8 +162,9 @@ public:
 	};
 
 	// Hi-level functions
-	void ParamIntSet(uint32_t ID, uint64_t val);
-	bool ParamIntGet(uint32_t ID, uint64_t& val);
+
+	void ParamSet(uint32_t ID, const uint64_t*, const Blob*);
+	bool ParamGet(uint32_t ID, uint64_t*, Blob*);
 
 	uint64_t ParamIntGetDef(int ID, uint64_t def = 0);
 
@@ -167,6 +175,7 @@ public:
 
 	bool DeleteState(uint64_t rowid, uint64_t& rowPrev); // State must exist. Returns false if there are ancestors.
 
+	uint32_t GetStateNextCount(uint64_t rowid);
 	uint32_t GetStateFlags(uint64_t rowid);
 	void SetFlags(uint64_t rowid, uint32_t);
 
@@ -175,14 +184,17 @@ public:
 
 	typedef Merkle::Hash PeerID;
 
-	void SetStateBlock(uint64_t rowid, const Blob& body, const PeerID& peer);
-	void GetStateBlock(uint64_t rowid, ByteBuffer& body, PeerID& peer);
+	void set_Peer(uint64_t rowid, const PeerID*);
+	bool get_Peer(uint64_t rowid, PeerID&);
+
+	void SetStateBlock(uint64_t rowid, const Blob& body);
+	void GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rollback);
+	void SetStateRollback(uint64_t rowid, const Blob& rollback);
 	void DelStateBlock(uint64_t rowid);
 
 	struct StateID {
 		uint64_t m_Row;
 		Height m_Height;
-		//Merkle::Hash m_Hash; //?
 	};
 
 
@@ -196,6 +208,8 @@ public:
 
 	void EnumTips(WalkerState&); // lowest to highest
 	void EnumFunctionalTips(WalkerState&); // highest to lowest
+	void EnumStatesAt(WalkerState&, Height);
+	void EnumAncestors(WalkerState&, const StateID&);
 	bool get_Prev(StateID&);
 	bool get_Prev(uint64_t&);
 
@@ -209,35 +223,19 @@ public:
 	void MoveFwd(const StateID&);
 
 	// Utxos & kernels
-	struct WalkerUtxo {
+	struct WalkerSpendable {
 		Recordset m_Rs;
 		Blob m_Key;
 		uint32_t m_nUnspentCount;
 
-		WalkerUtxo(NodeDB& db) :m_Rs(db) {}
+		WalkerSpendable(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
-	struct WalkerKernel {
-		Recordset m_Rs;
-		Blob m_Key;
+	void EnumUnpsent(WalkerSpendable&);
 
-		WalkerKernel(NodeDB& db) :m_Rs(db) {}
-		bool MoveNext();
-	};
-
-
-	void EnumLiveUtxos(WalkerUtxo&);
-	void EnumLiveKernels(WalkerKernel&);
-
-	void AddUtxo(const Blob& key, const Blob& sig, uint32_t nTotal, uint32_t nUnspentCount);
-	void AddKernel(const Blob& key, const Blob& val, bool bUnspent);
-
-	void DeleteUtxo(const Blob& key);
-	void DeleteKernel(const Blob& key);
-
-	void ModifyUtxo(const Blob& key, int32_t nTotalDelta, int32_t nUnspentDelta);
-	void ModifyKernel(const Blob& key, int32_t nUnspentDelta);
+	void AddSpendable(const Blob& key, const Blob& body, uint32_t nRefs, uint32_t nUnspentCount);
+	void ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta); // will delete iff refs=0
 
 	void assert_valid(); // diagnostic, for tests only
 
@@ -266,6 +264,7 @@ private:
 	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
 	void BuildMmr(uint64_t rowid, uint64_t rowPrev, Height);
 	void put_Cursor(const StateID& sid); // jump
+	void ModifySpendableSafe(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta);
 
 	void TestChanged1Row();
 

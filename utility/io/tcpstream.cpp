@@ -7,7 +7,10 @@
 
 namespace beam { namespace io {
 
-TcpStream::~TcpStream() {}
+TcpStream::~TcpStream() {
+    disable_read();
+    LOG_VERBOSE() << ".";
+}
 
 void TcpStream::alloc_read_buffer() {
     if (!_readBuffer.base) {
@@ -92,21 +95,24 @@ Result TcpStream::write(const std::vector<SharedBuffer>& fragments) {
 
 Result TcpStream::send_write_request() {
     static uv_write_cb write_cb = [](uv_write_t* req, int errorCode) {
-        if (errorCode == UV_ECANCELED) {
-            // object may be no longer alive
-            return;
+        if (errorCode != UV_ECANCELED) {
+            // object may be no longer alive if UV_CANCELED
+            
+            assert(req->handle);
+            
+            TcpStream* self = reinterpret_cast<TcpStream*>(req->handle->data);
+            if (self) {
+                self->on_data_written(ErrorCode(errorCode));
+            }
         }
-        TcpStream* self = reinterpret_cast<TcpStream*>(req->handle->data);
-        if (!self) {
-            //stream was closed
-            return;
-        }
-        assert(&(self->_writeRequest) == req);
-        self->on_data_written(ErrorCode(errorCode));
+        assert(req->data);
+        Reactor* reactor = reinterpret_cast<Reactor*>(req->data);
+        reactor->release_write_request(req);
     };
 
     if (!_writeRequestSent) {
-        ErrorCode errorCode = (ErrorCode)uv_write(&_writeRequest, (uv_stream_t*)_handle,
+        uv_write_t* req = _reactor->alloc_write_request();
+        ErrorCode errorCode = (ErrorCode)uv_write(req, (uv_stream_t*)_handle,
             (uv_buf_t*)_writeBuffer.fragments(), _writeBuffer.num_fragments(), write_cb
         );
 
@@ -128,7 +134,7 @@ void TcpStream::on_data_written(ErrorCode errorCode) {
         _state.sent += sent;
         _state.unsent = _writeBuffer.size();
         _writeRequestSent = false;
-        if (_state.unsent) {
+        if (_state.unsent != 0) {
             send_write_request();
         }
     }

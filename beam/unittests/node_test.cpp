@@ -1,10 +1,14 @@
 //#include "../node.h"
 
+#include "../node.h"
 #include "../node_db.h"
 #include "../node_processor.h"
 #include "../../core/ecc_native.h"
 #include "../../utility/serialize.h"
 #include "../../core/serialization_adapters.h"
+
+#define LOG_VERBOSE_ENABLED 0
+#include "utility/logger.h"
 
 namespace ECC {
 
@@ -47,14 +51,12 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 	fflush(stdout);
 }
 
-void DeleteFile(const char* szPath)
+#ifndef WIN32
+void DeleteFileA(const char* szPath)
 {
-#ifdef WIN32
-	DeleteFileA(szPath);
-#else // WIN32
 	unlink(szPath);
-#endif // WIN32
 }
+#endif // WIN32
 
 #define verify_test(x) \
 	do { \
@@ -115,7 +117,7 @@ namespace beam
 			if (hFork0 == h)
 				cmmrFork = cmmr;
 
-			cmmr.get_Hash(s.m_States);
+			cmmr.get_Hash(s.m_History);
 		}
 
 		uint64_t pRows[hMax];
@@ -137,17 +139,26 @@ namespace beam
 		}
 
 		NodeDB::Blob bBody("body", 4);
-		Merkle::Hash peerID;
-		memset(peerID.m_pData, 0x66, sizeof(peerID.m_pData));
+		Merkle::Hash peer, peer2;
+		memset(peer.m_pData, 0x66, sizeof(peer.m_pData));
 
-		db.SetStateBlock(pRows[0], bBody, peerID);
+		db.SetStateBlock(pRows[0], bBody);
+		verify_test(!db.get_Peer(pRows[0], peer2));
 
-		ByteBuffer bbBody;
-		ZeroObject(peerID);
-		db.GetStateBlock(pRows[0], bbBody, peerID);
+		db.set_Peer(pRows[0], &peer);
+		verify_test(db.get_Peer(pRows[0], peer2));
+		verify_test(peer == peer2);
+
+		db.set_Peer(pRows[0], NULL);
+		verify_test(!db.get_Peer(pRows[0], peer2));
+
+		ByteBuffer bbBody, bbRollback;
+		db.GetStateBlock(pRows[0], bbBody, bbRollback);
+		db.SetStateRollback(pRows[0], bBody);
+		db.GetStateBlock(pRows[0], bbBody, bbRollback);
+
 		db.DelStateBlock(pRows[0]);
-		ZeroObject(peerID);
-		db.GetStateBlock(pRows[0], bbBody, peerID);
+		db.GetStateBlock(pRows[0], bbBody, bbRollback);
 
 		tr.Commit();
 		tr.Start(db);
@@ -157,7 +168,7 @@ namespace beam
 
 		// a subbranch
 		Block::SystemState::Full s = vStates[hFork0];
-		s.m_Kernels.Inc(); // alter
+		s.m_LiveObjects.Inc(); // alter
 
 		uint64_t r0 = db.InsertState(s);
 
@@ -171,7 +182,7 @@ namespace beam
 
 		s.get_Hash(s.m_Prev);
 		cmmrFork.Append(s.m_Prev);
-		cmmrFork.get_Hash(s.m_States);
+		cmmrFork.get_Hash(s.m_History);
 		s.m_Height++;
 
 		uint64_t rowLast1 = db.InsertState(s);
@@ -202,10 +213,10 @@ namespace beam
 			{
 				Merkle::Hash hv;
 				db.get_PredictedStatesHash(hv, sid2);
-				verify_test(hv == vStates[(size_t) sid2.m_Height + 1].m_States);
+				verify_test(hv == vStates[(size_t) sid2.m_Height + 1].m_History);
 			}
 
-			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height].m_States;
+			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height].m_History;
 
 			for (uint32_t h = 0; h <= sid2.m_Height; h++)
 			{
@@ -275,38 +286,21 @@ namespace beam
 		// utxos and kernels
 		NodeDB::Blob b0(vStates[0].m_Prev.m_pData, sizeof(vStates[0].m_Prev.m_pData));
 
-		db.AddUtxo(b0, NodeDB::Blob("hello, world!", 13), 5, 3);
+		db.AddSpendable(b0, NodeDB::Blob("hello, world!", 13), 5, 3);
 
-		NodeDB::WalkerUtxo wutxo(db);
-		for (db.EnumLiveUtxos(wutxo); wutxo.MoveNext(); )
+		NodeDB::WalkerSpendable wsp(db);
+		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
-		db.ModifyUtxo(b0, 0, -3);
-		for (db.EnumLiveUtxos(wutxo); wutxo.MoveNext(); )
-			;
-
-		db.ModifyUtxo(b0, 0, 2);
-		for (db.EnumLiveUtxos(wutxo); wutxo.MoveNext(); )
+		db.ModifySpendable(b0, 0, -3);
+		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
 
-		db.DeleteUtxo(b0);
-		for (db.EnumLiveUtxos(wutxo); wutxo.MoveNext(); )
+		db.ModifySpendable(b0, 0, 2);
+		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
 
-		db.AddKernel(b0, NodeDB::Blob("hello, world!", 13), 1);
-
-		NodeDB::WalkerKernel wkrn(db);
-		for (db.EnumLiveKernels(wkrn); wkrn.MoveNext(); )
-			;
-		db.ModifyKernel(b0, -1);
-		for (db.EnumLiveKernels(wkrn); wkrn.MoveNext(); )
-			;
-
-		db.ModifyKernel(b0, 1);
-		for (db.EnumLiveKernels(wkrn); wkrn.MoveNext(); )
-			;
-
-		db.DeleteKernel(b0);
-		for (db.EnumLiveKernels(wkrn); wkrn.MoveNext(); )
+		db.ModifySpendable(b0, -5, -4);
+		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
 	}
 
@@ -319,17 +313,17 @@ namespace beam
 	void TestNodeDB()
 	{
 
-		DeleteFile(g_sz);
+		DeleteFileA(g_sz);
 		TestNodeDB(g_sz); // will create
 
 		{
 			NodeDB db;
 			db.Open(g_sz); // test to open already-existing DB
 		}
-		DeleteFile(g_sz);
+		DeleteFileA(g_sz);
 	}
 
-	class MyNodeProcessor
+	class MyNodeProcessor1
 		:public NodeProcessor
 	{
 	public:
@@ -373,18 +367,16 @@ namespace beam
 		}
 	};
 
-	void SpendUtxo(Transaction& tx, const MyNodeProcessor::MyUtxo& utxo, MyNodeProcessor::MyUtxo& utxoOut)
+	void SpendUtxo(Transaction& tx, const MyNodeProcessor1::MyUtxo& utxo, MyNodeProcessor1::MyUtxo& utxoOut)
 	{
 		if (!utxo.m_Value)
 			return; //?!
 
 		TxKernel::Ptr pKrn(new TxKernel);
-		pKrn->m_HeightMin = 0;
-		pKrn->m_HeightMax = Height(-1);
 		pKrn->m_Fee = 1090000;
 
 		Input::Ptr pInp(new Input);
-		pInp->m_Commitment = ECC::Point::Native(ECC::Commitment(utxo.m_Key, utxo.m_Value));
+		pInp->m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
 		tx.m_vInputs.push_back(std::move(pInp));
 
 		ECC::Scalar::Native kOffset = utxo.m_Key;
@@ -406,7 +398,7 @@ namespace beam
 			pOut->m_pPublic.reset(new ECC::RangeProof::Public);
 			pOut->m_pPublic->m_Value = utxoOut.m_Value;
 			pOut->m_pPublic->Create(k);
-			pOut->m_Commitment = ECC::Point::Native(ECC::Commitment(k, utxoOut.m_Value));
+			pOut->m_Commitment = ECC::Commitment(k, utxoOut.m_Value);
 			tx.m_vOutputs.push_back(std::move(pOut));
 
 			k = -k;
@@ -419,7 +411,7 @@ namespace beam
 		ECC::Hash::Value hv;
 		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, k);
-		tx.m_vKernels.push_back(std::move(pKrn));
+		tx.m_vKernelsOutput.push_back(std::move(pKrn));
 
 
 		k = -k;
@@ -431,21 +423,29 @@ namespace beam
 		verify_test(tx.IsValid(ctx));
 	}
 
-
-	void TestNodeProcessor()
+	struct BlockPlus
 	{
-		DeleteFile(g_sz);
+		typedef std::unique_ptr<BlockPlus> Ptr;
 
-		MyNodeProcessor np;
-		np.Initialize(g_sz, 240);
+		Block::SystemState::Full m_Hdr;
+		ByteBuffer m_PoW;
+		ByteBuffer m_Body;
+	};
 
-		for (Height h = 0; h < 200; h++)
+	void TestNodeProcessor1(std::vector<BlockPlus::Ptr>& blockChain)
+	{
+		DeleteFileA(g_sz);
+
+		MyNodeProcessor1 np;
+		np.Initialize(g_sz, 35);
+
+		for (Height h = 0; h < 96; h++)
 		{
-			std::list<MyNodeProcessor::MyUtxo> lstNewOutputs;
+			std::list<MyNodeProcessor1::MyUtxo> lstNewOutputs;
 
 			while (true)
 			{
-				MyNodeProcessor::UtxoQueue::iterator it = np.m_MyUtxos.begin();
+				MyNodeProcessor1::UtxoQueue::iterator it = np.m_MyUtxos.begin();
 				if (np.m_MyUtxos.end() == it)
 					break;
 
@@ -454,7 +454,7 @@ namespace beam
 
 				// Spend it in a transaction
 				Transaction::Ptr pTx(new Transaction);
-				MyNodeProcessor::MyUtxo utxoOut;
+				MyNodeProcessor1::MyUtxo utxoOut;
 				SpendUtxo(*pTx, it->second, utxoOut);
 
 				np.m_MyUtxos.erase(it);
@@ -468,10 +468,102 @@ namespace beam
 			for (; !lstNewOutputs.empty(); lstNewOutputs.pop_front())
 				np.m_MyUtxos.insert(std::make_pair(h + 3, lstNewOutputs.front()));
 
-			Block::SystemState::Full s;
-			ByteBuffer bbBlock, bbPoW;
+			BlockPlus::Ptr pBlock(new BlockPlus);
 
-			np.SimulateMinedBlock(s, bbBlock, bbPoW);
+			np.SimulateMinedBlock(pBlock->m_Hdr, pBlock->m_Body, pBlock->m_PoW);
+			blockChain.push_back(std::move(pBlock));
+		}
+
+	}
+
+
+	class MyNodeProcessor2
+		:public NodeProcessor
+	{
+	public:
+
+
+		// NodeProcessor
+		virtual void get_Key(ECC::Scalar::Native& k, Height h, bool bCoinbase) override { }
+		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) {}
+		virtual void OnPeerInsane(const PeerID&) {}
+		virtual void OnNewState() {}
+
+	};
+
+
+	void TestNodeProcessor2(std::vector<BlockPlus::Ptr>& blockChain)
+	{
+		DeleteFileA(g_sz);
+
+		const Height horz = 12;
+		size_t nMid = blockChain.size() / 2;
+
+		{
+			MyNodeProcessor2 np;
+			np.Initialize(g_sz, horz);
+
+			NodeProcessor::PeerID peer;
+			ZeroObject(peer);
+
+			for (size_t i = 0; i < blockChain.size(); i += 2)
+				np.OnState(blockChain[i]->m_Hdr, blockChain[i]->m_PoW, peer);
+		}
+
+		{
+			MyNodeProcessor2 np;
+			np.Initialize(g_sz, horz);
+
+			NodeProcessor::PeerID peer;
+			ZeroObject(peer);
+
+			for (size_t i = 0; i < nMid; i += 2)
+			{
+				Block::SystemState::ID id;
+				blockChain[i]->m_Hdr.get_ID(id);
+				np.OnBlock(id, blockChain[i]->m_Body, peer);
+			}
+		}
+
+		{
+			MyNodeProcessor2 np;
+			np.Initialize(g_sz, horz);
+
+			NodeProcessor::PeerID peer;
+			ZeroObject(peer);
+
+			for (size_t i = 1; i < blockChain.size(); i += 2)
+				np.OnState(blockChain[i]->m_Hdr, blockChain[i]->m_PoW, peer);
+		}
+
+		{
+			MyNodeProcessor2 np;
+			np.Initialize(g_sz, horz);
+
+			NodeProcessor::PeerID peer;
+			ZeroObject(peer);
+
+			for (size_t i = 0; i < nMid; i++)
+			{
+				Block::SystemState::ID id;
+				blockChain[i]->m_Hdr.get_ID(id);
+				np.OnBlock(id, blockChain[i]->m_Body, peer);
+			}
+		}
+
+		{
+			MyNodeProcessor2 np;
+			np.Initialize(g_sz, horz);
+
+			NodeProcessor::PeerID peer;
+			ZeroObject(peer);
+
+			for (size_t i = nMid; i < blockChain.size(); i++)
+			{
+				Block::SystemState::ID id;
+				blockChain[i]->m_Hdr.get_ID(id);
+				np.OnBlock(id, blockChain[i]->m_Body, peer);
+			}
 		}
 
 	}
@@ -480,9 +572,21 @@ namespace beam
 
 int main()
 {
-//	beam::TestNodeDB();
-	beam::TestNodeProcessor();
+    beam::LoggerConfig lc;
+    int logLevel = LOG_LEVEL_DEBUG;
+#if LOG_VERBOSE_ENABLED
+    logLevel = LOG_LEVEL_VERBOSE;
+#endif
+    lc.consoleLevel = logLevel;
+    lc.flushLevel = logLevel;
+    auto logger = beam::Logger::create(lc);
+    
+	beam::TestNodeDB();
 
+	std::vector<beam::BlockPlus::Ptr> blockChain;
+	beam::TestNodeProcessor1(blockChain);
+	beam::TestNodeProcessor2(blockChain);
+	
     //beam::Node node;
     
     return 0;
