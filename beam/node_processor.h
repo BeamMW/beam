@@ -54,6 +54,7 @@ public:
 	typedef NodeDB::PeerID PeerID;
 
 	void Initialize(const char* szPath, Height horizon);
+	Height get_Horizon() const { return m_Horizon; }
 
 	bool get_CurrentState(Block::SystemState::ID&); // returns false if no valid states so far
 	bool get_CurrentState(Block::SystemState::Full&);

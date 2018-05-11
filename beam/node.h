@@ -83,6 +83,15 @@ private:
 	PeerList m_lstPeers;
 
 	Peer* AllocPeer();
+	Peer* FindPeer(const Processor::PeerID&);
+
+	struct PendingRequestEntry {
+		io::Timer::Ptr m_pTimer;
+		bool m_bBody;
+	};
+
+	typedef std::map<Block::SystemState::ID, PendingRequestEntry> RequestMap;
+	RequestMap m_mapRequests;
 
 	struct Server
 		:public proto::NodeConnection::Server

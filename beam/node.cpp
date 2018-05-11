@@ -11,8 +11,16 @@
 
 namespace beam {
 
-void Node::Processor::RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer)
+void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const PeerID* pPreferredPeer)
 {
+	RequestMap::iterator it = get_ParentObj().m_mapRequests.find(id);
+	if (get_ParentObj().m_mapRequests.end() != it)
+		return;
+
+	PendingRequestEntry& x = get_ParentObj().m_mapRequests[id];
+	x.m_bBody = bBlock;
+
+
 }
 
 void Node::Processor::OnPeerInsane(const PeerID& peerID)
@@ -39,6 +47,25 @@ void Node::Processor::OnNewState()
 			(*itThis)->OnPostError();
 		}
 	}
+
+	// drop no-more-relevant requests
+	Height h = get_Horizon();
+	if (msg.m_ID.m_Height > h)
+	{
+		h = msg.m_ID.m_Height - h;
+
+		while (true)
+		{
+			RequestMap::iterator it = get_ParentObj().m_mapRequests.begin();
+			if (get_ParentObj().m_mapRequests.end() == it)
+				break;
+
+			if (it->first.m_Height >= h)
+				break;
+
+			get_ParentObj().m_mapRequests.erase(it);
+		}
+	}
 }
 
 void Node::Processor::get_Key(ECC::Scalar::Native&, Height h, bool bCoinbase)
@@ -62,6 +89,19 @@ Node::Peer* Node::AllocPeer()
 	pVal->m_itThis = --m_lstPeers.end();
 
 	return pVal;
+}
+
+Node::Peer* Node::FindPeer(const Processor::PeerID& peerID)
+{
+	// current interpretation (naive): just assume that peerID is the index
+	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+	{
+		Processor::PeerID id2;
+		id2 = (uint32_t) (*it)->m_iPeer;
+		if (peerID == id2)
+			return it->get();
+	}
+	return NULL;
 }
 
 void Node::Initialize()
