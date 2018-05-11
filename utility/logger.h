@@ -54,6 +54,10 @@ struct LogMessageStub {
 
 #define TRACE(var) " " #var "=" << var
 
+#ifdef WIN32
+#define __PRETTY_FUNCTION__ __FUNCSIG__
+#endif // WIN32
+
 namespace beam {
 
 // Logger options

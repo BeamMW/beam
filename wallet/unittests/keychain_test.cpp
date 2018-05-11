@@ -37,19 +37,22 @@ void test_CoinData(const char* filename) {
     std::cout << "CoinData #2: id = " << pu2->id << "; info = " << pu2->info << "\n";
     std::cout << "CoinData #3: id = " << pu3->id << "; info = " << pu3->info << "\n\n";
 
-    // TODO: uncomment this, temporary disabled because of segfault
-    // std::unique_ptr<CoinData> pu4(CoinData::recover(is, 3*SIZE_COIN_DATA, "other secret key #1"));
-    // std::unique_ptr<CoinData> pu5(CoinData::recover(is, 4*SIZE_COIN_DATA, "other secret key #2"));
-    // std::unique_ptr<CoinData> pu6(CoinData::recover(is, 5*SIZE_COIN_DATA, skey.get()));
+    CoinData* pu4(CoinData::recover(is, 3*SIZE_COIN_DATA, "other secret key #1"));
+    CoinData* pu5(CoinData::recover(is, 4*SIZE_COIN_DATA, "other secret key #2"));
+    std::unique_ptr<CoinData> pu6(CoinData::recover(is, 5*SIZE_COIN_DATA, skey.get()));
 
-    // std::cout << "After recover by key from file " << filename << "\n";
-    // std::cout << "CoinData #1 with INCORRECT key: id = " << pu4->id << "; info = " << pu4->info << "\n";
-    // std::cout << "CoinData #2 with INCORRECT key: id = " << pu5->id << "; info = " << pu5->info << "\n";
-    // std::cout << "CoinData #3 with CORRECT   key: id = " << pu6->id << "; info = " << pu6->info << "\n\n";
+    std::cout << "After recover by key from file " << filename << "\n";
+    std::cout << "CoinData #1 with INCORRECT key: id = " << pu4->id << "; info = " << pu4->info << "\n";
+    std::cout << "CoinData #2 with INCORRECT key: id = " << pu5->id << "; info = " << pu5->info << "\n";
+    std::cout << "CoinData #3 with CORRECT   key: id = " << pu6->id << "; info = " << pu6->info << "\n\n";
 
     is.close();
 
     std::cout << "Test #1 is done.\n\n";
+
+    // delete coin data with invalid key
+    delete[] reinterpret_cast<char*>(pu5);
+    delete[] reinterpret_cast<char*>(pu4);
 }
 
 void test_keygenerator(const char* filename, const char* encode_key, const char* decode_key) {

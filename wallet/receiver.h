@@ -25,8 +25,8 @@ namespace beam::wallet
         };
         struct TxOutputConfirmCompleted {};
         
-        Receiver(receiver::IGateway& gateway, sender::InvitationData::Ptr initData)
-            : m_fsm{boost::ref(gateway), initData}
+        Receiver(receiver::IGateway& gateway, beam::IKeyChain::Ptr keychain, sender::InvitationData::Ptr initData)
+            : m_fsm{boost::ref(gateway), keychain, initData}
         {
         }  
     private:
@@ -45,7 +45,7 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm& fsm)
                 {
                     std::cout << "[Receiver] Terminate state\n";
-                    fsm.m_gateway.removeReceiver(fsm.m_txId);
+                    fsm.m_gateway.on_tx_completed(fsm.m_txId);
                 }
             };
             struct TxConfirming : public msmf::state<> {
@@ -70,48 +70,37 @@ namespace beam::wallet
                 }
             };
 
-            FSMDefinition(receiver::IGateway &gateway, sender::InvitationData::Ptr initData)
-                : m_gateway{gateway}
-                , m_txId{initData->m_txId}
-                , m_amount{initData->m_amount}
-                , m_message{initData->m_message}
-                , m_publicSenderBlindingExcess{initData->m_publicSenderBlindingExcess}
-                , m_publicSenderNonce{initData->m_publicSenderNonce}
-                , m_transaction{std::make_shared<Transaction>()}
-            {
-                m_transaction->m_vInputs = std::move(initData->m_inputs);
-                m_transaction->m_vOutputs = std::move(initData->m_outputs);
-            }
+            FSMDefinition(receiver::IGateway &gateway, beam::IKeyChain::Ptr keychain, sender::InvitationData::Ptr initData);
 
             // transition actions
-            void confirmTx(const msmf::none&);
+            void confirm_tx(const msmf::none&);
 
-            bool isValidSignature(const TxConfirmationCompleted& event);
+            bool is_valid_signature(const TxConfirmationCompleted& event);
 
-            bool isInvalidSignature(const TxConfirmationCompleted& event);
+            bool is_invalid_signature(const TxConfirmationCompleted& event);
 
-            void registerTx(const TxConfirmationCompleted& event);
+            void register_tx(const TxConfirmationCompleted& event);
 
-            void rollbackTx(const TxFailed& event);
+            void rollback_tx(const TxFailed& event);
 
-            void cancelTx(const TxConfirmationCompleted& event);
+            void cancel_tx(const TxConfirmationCompleted& event);
 
-            void confirmOutput(const TxRegistrationCompleted& event);
+            void confirm_output(const TxRegistrationCompleted& event);
 
-            void completeTx(const TxOutputConfirmCompleted& event);
+            void complete_tx(const TxOutputConfirmCompleted& event);
 
             using initial_state = Init;
             using d = FSMDefinition;
             struct transition_table : mpl::vector<
-                //   Start                 Event                     Next                   Action              Guard
-                a_row< Init              , msmf::none              , TxConfirming         , &d::confirmTx                             >,
-                a_row< TxConfirming      , TxFailed                , Terminate            , &d::rollbackTx                            >,
-                row  < TxConfirming      , TxConfirmationCompleted , TxRegistering        , &d::registerTx    , &d::isValidSignature  >,
-                row  < TxConfirming      , TxConfirmationCompleted , Terminate            , &d::cancelTx      , &d::isInvalidSignature>,
-                a_row< TxRegistering     , TxRegistrationCompleted , TxOutputConfirming   , &d::confirmOutput                         >,
-                a_row< TxRegistering     , TxFailed                , Terminate            , &d::rollbackTx                            >,
-                a_row< TxOutputConfirming, TxOutputConfirmCompleted, Terminate            , &d::completeTx                            >,
-                a_row< TxOutputConfirming, TxFailed                , Terminate            , &d::rollbackTx                            >
+                //   Start                 Event                     Next                   Action               Guard
+                a_row< Init              , msmf::none              , TxConfirming         , &d::confirm_tx                               >,
+                a_row< TxConfirming      , TxFailed                , Terminate            , &d::rollback_tx                              >,
+                row  < TxConfirming      , TxConfirmationCompleted , TxRegistering        , &d::register_tx    , &d::is_valid_signature  >,
+                row  < TxConfirming      , TxConfirmationCompleted , Terminate            , &d::cancel_tx      , &d::is_invalid_signature>,
+                a_row< TxRegistering     , TxRegistrationCompleted , TxOutputConfirming   , &d::confirm_output                           >,
+                a_row< TxRegistering     , TxFailed                , Terminate            , &d::rollback_tx                              >,
+                a_row< TxOutputConfirming, TxOutputConfirmCompleted, Terminate            , &d::complete_tx                              >,
+                a_row< TxOutputConfirming, TxFailed                , Terminate            , &d::rollback_tx                              >
             > {};
 
             template <class FSM, class Event>
@@ -122,6 +111,7 @@ namespace beam::wallet
             }
 
             receiver::IGateway& m_gateway;
+            beam::IKeyChain::Ptr m_keychain;
 
             Uuid m_txId;
 
