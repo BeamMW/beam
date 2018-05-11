@@ -16,4 +16,4 @@ else()
 endif()
 
 add_library(sqlite STATIC ${SQLITE_SRC})
-target_link_libraries(sqlite dl libcrypto.a)
+target_link_libraries(sqlite OpenSSL::Crypto)
