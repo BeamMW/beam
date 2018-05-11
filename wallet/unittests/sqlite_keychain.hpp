@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wallet/keychain.h"
+#include "wallet/private_key.h"
 #include "sqlite/sqlite3.h"
 
 #include <boost/filesystem.hpp>
@@ -14,6 +15,8 @@ struct SqliteKeychain : beam::IKeyChain
 	{
 		static const char* Name = "wallet.dat";
 		static const char* Pass = "pass";
+
+		nonce = new Nonce(Pass);
 
 		// create DB with password
 		{
@@ -70,8 +73,8 @@ struct SqliteKeychain : beam::IKeyChain
 
 	virtual ECC::Scalar calcKey(uint64_t id)
 	{
-		// TODO: calculate key by id
-		return ECC::Scalar();
+		// calculate key by id
+        return get_next_key(id, *nonce);
 	}
 
 	virtual std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock = true)
@@ -158,4 +161,5 @@ struct SqliteKeychain : beam::IKeyChain
 
 private:
 	sqlite3 * _db;
+	Nonce* nonce;
 };

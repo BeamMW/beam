@@ -31,6 +31,8 @@ bool operator==(const Scalar& left, const Scalar& rigth);
 //       id    - UTXO identificator
 struct Nonce {
 
+    Nonce() = default;
+
     Nonce(const char* keyphrase) : counter(0) {
 
         // ECC::Scalar::Native init state = convert2scalar(sha256(any user's key phrase))
