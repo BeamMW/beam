@@ -42,10 +42,6 @@ class NodeProcessor
 	struct BlockBulder;
 
 	bool IsRelevantHeight(Height);
-	void FindCongestionPoints();
-	void FindCongestionPointsAbove(NodeDB::StateID);
-
-	void RequestDataInternal(uint64_t rowid, bool bBlock);
 
 public:
 
@@ -66,8 +62,11 @@ public:
 	bool get_CurrentState(Block::SystemState::ID&); // returns false if no valid states so far
 	bool get_CurrentState(Block::SystemState::Full&);
 
+	//  both functions return true if dirty (i.e. data is relevant, and added)
 	bool OnState(const Block::SystemState::Full&, const NodeDB::Blob& pow, const PeerID&);
-	bool OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&); // returns false if irrelevant (no known corresponding state)
+	bool OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&);
+
+	void EnumCongestions();
 
 	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) {}
 	virtual void OnPeerInsane(const PeerID&) {}
@@ -77,7 +76,7 @@ public:
 	bool FeedTransaction(Transaction::Ptr&&); // returns false if the transaction isn't valid in its context
 	void SimulateMinedBlock(Block::SystemState::Full&, ByteBuffer& block, ByteBuffer& pow);
 
-	void RealizePeerTip(const Block::SystemState::ID&, const PeerID&);
+	bool IsStateNeeded(const Block::SystemState::ID&);
 
 protected:
 	virtual void get_Key(ECC::Scalar::Native&, Height h, bool bCoinbase) = 0;

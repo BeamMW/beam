@@ -75,12 +75,14 @@ void NodeProcessor::Initialize(const char* szPath)
 	NodeDB::Transaction t(m_DB);
 	TryGoUp();
 	t.Commit();
-
-	FindCongestionPoints();
 }
 
-void NodeProcessor::FindCongestionPoints()
+void NodeProcessor::EnumCongestions()
 {
+	NodeDB::StateID sidPos;
+	if (!m_DB.get_Cursor(sidPos))
+		sidPos.m_Height = 0;
+
 	// request all potentially missing data
 	NodeDB::WalkerState ws(m_DB);
 	for (m_DB.EnumTips(ws); ws.MoveNext(); )
@@ -88,6 +90,9 @@ void NodeProcessor::FindCongestionPoints()
 		NodeDB::StateID& sid = ws.m_Sid; // alias
 		if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row))
 			continue;
+
+		if (sid.m_Height < sidPos.m_Height)
+			continue; // not interested in tips behind the current cursor
 
 		bool bBlock = true;
 
@@ -107,66 +112,23 @@ void NodeProcessor::FindCongestionPoints()
 			}
 		}
 
-		RequestDataInternal(sid.m_Row, bBlock);
-	}
-}
+		Block::SystemState::Full s;
+		m_DB.get_State(sid.m_Row, s);
 
-void NodeProcessor::RequestDataInternal(uint64_t rowid, bool bBlock)
-{
-	Block::SystemState::Full s;
-	m_DB.get_State(rowid, s);
+		Block::SystemState::ID id;
 
-	Block::SystemState::ID id;
-
-	if (bBlock)
-		s.get_ID(id);
-	else
-	{
-		id.m_Height = s.m_Height - 1;
-		id.m_Hash = s.m_Prev;
-	}
-
-	PeerID peer;
-	bool bPeer = m_DB.get_Peer(rowid, peer);
-
-	RequestData(id, bBlock, bPeer ? &peer : NULL);
-
-}
-
-void NodeProcessor::FindCongestionPointsAbove(NodeDB::StateID sid)
-{
-	while (true)
-	{
-		if (!(NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row)))
+		if (bBlock)
+			s.get_ID(id);
+		else
 		{
-			RequestDataInternal(sid.m_Row, true);
-			break;
+			id.m_Height = s.m_Height - 1;
+			id.m_Hash = s.m_Prev;
 		}
 
-		std::vector<uint64_t> vRec;
-		uint64_t rowid;
+		PeerID peer;
+		bool bPeer = m_DB.get_Peer(sid.m_Row, peer);
 
-		{
-			NodeDB::WalkerState ws(m_DB);
-			m_DB.EnumAncestors(ws, sid);
-			if (!ws.MoveNext())
-				break;
-
-			rowid = ws.m_Sid.m_Row;
-
-			while (ws.MoveNext())
-				vRec.push_back(ws.m_Sid.m_Row);
-		}
-
-		sid.m_Height++;
-
-		for (size_t i = 0; i < vRec.size(); i++)
-		{
-			sid.m_Row = vRec[i];
-			FindCongestionPointsAbove(sid);
-		}
-
-		sid.m_Row = rowid;
+		RequestData(id, bBlock, bPeer ? &peer : NULL);
 	}
 }
 
@@ -744,8 +706,6 @@ bool NodeProcessor::GoForward(const NodeDB::StateID& sid)
 		OnPeerInsane(peer);
 	}
 
-	RequestDataInternal(sid.m_Row, true);
-
 	return false;
 }
 
@@ -792,28 +752,12 @@ bool NodeProcessor::OnState(const Block::SystemState::Full& s, const NodeDB::Blo
 	Block::SystemState::ID id;
 	s.get_ID(id);
 	if (m_DB.StateFindSafe(id))
-		return true;
+		return false;
 
 	NodeDB::Transaction t(m_DB);
 	uint64_t rowid = m_DB.InsertState(s);
 	m_DB.set_Peer(rowid, &peer);
 	t.Commit();
-
-	if (s.m_Height)
-	{
-		uint64_t rowPrev = rowid;
-		if (!m_DB.get_Prev(rowPrev))
-		{
-			RequestDataInternal(rowid, false);
-			return true;
-
-		}
-
-		if (!(m_DB.GetStateFlags(rowPrev) & NodeDB::StateFlags::Reachable))
-			return true;
-	}
-
-	RequestDataInternal(rowid, true);
 
 	return true;
 }
@@ -825,7 +769,7 @@ bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob
 		return false;
 
 	if (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(rowid))
-		return true;
+		return false;
 
 	NodeDB::Transaction t(m_DB);
 
@@ -837,14 +781,6 @@ bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob
 		TryGoUp();
 
 	t.Commit();
-
-	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
-	{
-		NodeDB::StateID sid;
-		sid.m_Row = rowid;
-		sid.m_Height = id.m_Height;
-		FindCongestionPointsAbove(sid);
-	}
 
 	return true;
 }
@@ -1011,15 +947,9 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	OnMined(h, kFee, fee, kCoinbase, nCoinbase);
 }
 
-void NodeProcessor::RealizePeerTip(const Block::SystemState::ID& id, const PeerID& peer)
+bool NodeProcessor::IsStateNeeded(const Block::SystemState::ID& id)
 {
-	if (!IsRelevantHeight(id.m_Height))
-		return;
-
-	if (m_DB.StateFindSafe(id))
-		return;
-
-	RequestData(id, false, &peer);
+	return IsRelevantHeight(id.m_Height) && !m_DB.StateFindSafe(id);
 }
 
 } // namespace beam

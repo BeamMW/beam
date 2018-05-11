@@ -63,7 +63,7 @@ private:
 		PeerList::iterator m_itThis; // iterator to self. Of course better to use intrusive list.
 
 		int m_iPeer; // negative if accepted connection
-
+		Height m_TipHeight;
 		State::Enum m_eState;
 
 		io::Timer::Ptr m_pTimer;
@@ -85,13 +85,18 @@ private:
 	Peer* AllocPeer();
 	Peer* FindPeer(const Processor::PeerID&);
 
-	struct PendingRequestEntry {
-		io::Timer::Ptr m_pTimer;
-		bool m_bBody;
-	};
+	struct CongestionData
+	{
+		typedef std::pair<Block::SystemState::ID, bool> Key;
+		typedef std::map<Key, size_t> Map;
 
-	typedef std::map<Block::SystemState::ID, PendingRequestEntry> RequestMap;
-	RequestMap m_mapRequests;
+		static const size_t s_Old = 1 << ((sizeof(size_t) << 3) - 1);
+
+		Map m_Data;
+
+	} m_CongestionData;
+
+	void RefreshCongestions();
 
 	struct Server
 		:public proto::NodeConnection::Server

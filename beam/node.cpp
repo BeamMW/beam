@@ -11,16 +11,60 @@
 
 namespace beam {
 
+void Node::RefreshCongestions()
+{
+	for (CongestionData::Map::iterator it = m_CongestionData.m_Data.begin(); m_CongestionData.m_Data.end() != it; it++)
+		it->second |= CongestionData::s_Old;
+
+	m_Processor.EnumCongestions();
+
+	for (CongestionData::Map::iterator it = m_CongestionData.m_Data.begin(); m_CongestionData.m_Data.end() != it; )
+	{
+		CongestionData::Map::iterator itThis = it++;
+
+		if (CongestionData::s_Old & itThis->second)
+			m_CongestionData.m_Data.erase(itThis); // no more relevant
+	}
+}
+
 void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const PeerID* pPreferredPeer)
 {
-	RequestMap::iterator it = get_ParentObj().m_mapRequests.find(id);
-	if (get_ParentObj().m_mapRequests.end() != it)
-		return;
+	CongestionData::Key key;
+	key.first = id;
+	key.second = bBlock;
 
-	PendingRequestEntry& x = get_ParentObj().m_mapRequests[id];
-	x.m_bBody = bBlock;
+	CongestionData::Map& trg = get_ParentObj().m_CongestionData.m_Data; // alias
 
+	CongestionData::Map::iterator it = trg.find(key);
+	if (trg.end() == it)
+	{
+		// request it
+		size_t& n = trg[key];
+		n = 0;
+/*
+		Peer* pPeer = NULL;
 
+		if (pPreferredPeer)
+		{
+			Peer* pPeer = get_ParentObj().FindPeer(*pPreferredPeer);
+			if (pPeer && (State::Connected != pPeer->m_eState))
+				pPeer = NULL;
+		}
+
+		if (!pPeer)
+		{
+			for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); ; it++)
+			{
+				if (get_ParentObj().m_lstPeers.end() == it)
+					return;
+
+				pPeer = it->get();
+			}
+		}
+*/
+	}
+	else
+		it->second &= ~CongestionData::s_Old;
 }
 
 void Node::Processor::OnPeerInsane(const PeerID& peerID)
@@ -40,32 +84,17 @@ void Node::Processor::OnNewState()
 	{
 		PeerList::iterator itThis = it;
 		it++;
+		Peer& peer = *(*itThis);
 
 		try {
-			(*itThis)->Send(msg);
+			if (peer.m_TipHeight <= msg.m_ID.m_Height)
+				peer.Send(msg);
 		} catch (...) {
-			(*itThis)->OnPostError();
+			peer.OnPostError();
 		}
 	}
 
-	// drop no-more-relevant requests
-	Height h = m_Horizon.m_Branching;
-	if (msg.m_ID.m_Height > h)
-	{
-		h = msg.m_ID.m_Height - h;
-
-		while (true)
-		{
-			RequestMap::iterator it = get_ParentObj().m_mapRequests.begin();
-			if (get_ParentObj().m_mapRequests.end() == it)
-				break;
-
-			if (it->first.m_Height >= h)
-				break;
-
-			get_ParentObj().m_mapRequests.erase(it);
-		}
-	}
+	get_ParentObj().RefreshCongestions();
 }
 
 void Node::Processor::get_Key(ECC::Scalar::Native&, Height h, bool bCoinbase)
@@ -108,6 +137,8 @@ void Node::Initialize()
 {
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
+
+	RefreshCongestions();
 
 	if (m_Cfg.m_Listen.port())
 		m_Server.Listen(m_Cfg.m_Listen);
@@ -160,6 +191,7 @@ void Node::Peer::OnConnected()
 		assert(State::Idle == m_eState);
 
 	m_eState = State::Connected;
+	m_TipHeight = 0;
 
 	proto::NewTip msg;
 	if (m_pThis->m_Processor.get_CurrentState(msg.m_ID))
