@@ -48,8 +48,9 @@ namespace beam
     {
         static Ptr init(const std::string& password);
         static Ptr open(const std::string& password);
+        static const char* getName();
 
-        Keychain();
+        Keychain(const std::string& pass);
         ~Keychain();
 
         uint64_t getNextID() override;
@@ -60,7 +61,8 @@ namespace beam
         void remove(const std::vector<beam::Coin>& coins) override;
 
     private:
+
         sqlite3* _db;
-        Nonce* _nonce;
+        std::shared_ptr<Nonce> _nonce;
     };
 }

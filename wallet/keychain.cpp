@@ -7,15 +7,18 @@
 
 namespace beam
 {
-    static const char* WalletName = "wallet.dat";
+	const char* Keychain::getName()
+	{
+		return "wallet.dat";
+	}
 
     IKeyChain::Ptr Keychain::init(const std::string& password)
     {
-        if (!boost::filesystem::exists(WalletName))
+        if (!boost::filesystem::exists(getName()))
         {
-            std::shared_ptr<Keychain> keychain = std::make_shared<Keychain>();
+            std::shared_ptr<Keychain> keychain = std::make_shared<Keychain>(password);
 
-			int ret = sqlite3_open_v2(WalletName, &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
+			int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
 			assert(ret == SQLITE_OK);
 
 			ret = sqlite3_key(keychain->_db, password.c_str(), password.size());
@@ -27,18 +30,18 @@ namespace beam
             return std::static_pointer_cast<IKeyChain>(keychain);
         }
 
-        std::cout << WalletName << " already exists." << std::endl;
+        std::cout << getName() << " already exists." << std::endl;
 
         return Ptr();
     }
 
     IKeyChain::Ptr Keychain::open(const std::string& password)
     {
-        if (boost::filesystem::exists(WalletName))
+        if (boost::filesystem::exists(getName()))
         {
-            std::shared_ptr<Keychain> keychain = std::make_shared<Keychain>();
+            std::shared_ptr<Keychain> keychain = std::make_shared<Keychain>(password);
 
-			int ret = sqlite3_open_v2(WalletName, &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
+			int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
 			assert(ret == SQLITE_OK);
 
 			ret = sqlite3_key(keychain->_db, password.c_str(), password.size());
@@ -47,22 +50,23 @@ namespace beam
             ret = sqlite3_exec(keychain->_db, "SELECT name FROM sqlite_master WHERE type='table' AND name='storage';", NULL, NULL, NULL);
             if(ret != SQLITE_OK)
             {
-                std::cout << "wrong password :(" << std::endl;
+                std::cout << "Invalid DB or wrong password :(" << std::endl;
                 return Ptr();
             }
 
             return std::static_pointer_cast<IKeyChain>(keychain);
         }
 
-        std::cout << WalletName << " not found, please init the wallet before." << std::endl;
+        std::cout << getName() << " not found, please init the wallet before." << std::endl;
 
         return Ptr();
     }
 
-    Keychain::Keychain()
+    Keychain::Keychain(const std::string& pass)
         : _db(nullptr)
+		, _nonce(std::make_shared<Nonce>(pass.c_str()))
     {
-
+		
     }
 
     Keychain::~Keychain()
