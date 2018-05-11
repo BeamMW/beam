@@ -17,3 +17,7 @@ endif()
 
 add_library(sqlite STATIC ${SQLITE_SRC})
 target_link_libraries(sqlite OpenSSL::Crypto)
+
+if(UNIX)
+    target_link_libraries(sqlite dl pthread)
+endif()
