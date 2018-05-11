@@ -59,17 +59,17 @@ int main(int argc, char* argv[])
                 LOG_INFO() << "starting a wallet..."; 
                 std::string pass(vm["pass"].as<std::string>());
                 if (pass.size()) {
-                auto keychain = vm.count("init") 
-                    ? beam::Keychain::init(pass) 
-                    : beam::Keychain::open(pass);
+                    auto keychain = vm.count("init") 
+                        ? beam::Keychain::init(pass) 
+                        : beam::Keychain::open(pass);
 
-                if(keychain) {
-                    std::cout << "wallet sucessfully created/opened..." << std::endl;
+                    if(keychain) {
+                        std::cout << "wallet sucessfully created/opened..." << std::endl;
+                    }
+                    else {
+                        std::cout << "something went wrong, wallet not opened..." << std::endl;
+                    }
                 }
-                else {
-                    std::cout << "something went wrong, wallet not opened..." << std::endl;
-                }
-            }
                 else {
                     std::cout << "Please, provide password for the wallet." << std::endl;
                 }
