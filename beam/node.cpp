@@ -49,7 +49,7 @@ void Node::Processor::OnNewState()
 	}
 
 	// drop no-more-relevant requests
-	Height h = get_Horizon();
+	Height h = m_Horizon.m_Branching;
 	if (msg.m_ID.m_Height > h)
 	{
 		h = msg.m_ID.m_Height - h;
@@ -106,7 +106,8 @@ Node::Peer* Node::FindPeer(const Processor::PeerID& peerID)
 
 void Node::Initialize()
 {
-	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Horizon);
+	m_Processor.m_Horizon = m_Cfg.m_Horizon;
+	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
 
 	if (m_Cfg.m_Listen.port())
 		m_Server.Listen(m_Cfg.m_Listen);

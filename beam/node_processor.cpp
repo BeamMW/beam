@@ -10,10 +10,15 @@ void NodeProcessor::OnCorrupted()
 	throw std::runtime_error("node data corrupted");
 }
 
-void NodeProcessor::Initialize(const char* szPath, Height horizon)
+NodeProcessor::Horizon::Horizon()
+	:m_Branching(-1)
+	,m_Schwarzschild(-1)
+{
+}
+
+void NodeProcessor::Initialize(const char* szPath)
 {
 	m_DB.Open(szPath);
-	m_Horizon = horizon;
 
 	// Load all th 'live' data
 	{
@@ -240,9 +245,9 @@ void NodeProcessor::TryGoUp()
 
 void NodeProcessor::PruneOld(Height h)
 {
-	if (h <= m_Horizon)
+	if (h <= m_Horizon.m_Branching)
 		return;
-	h -= m_Horizon;
+	h -= m_Horizon.m_Branching;
 
 	while (true)
 	{
@@ -264,6 +269,14 @@ void NodeProcessor::PruneOld(Height h)
 				break;
 		} while (rowid);
 	}
+
+	if (m_Horizon.m_Schwarzschild <= m_Horizon.m_Branching)
+		return;
+
+	Height hExtra = m_Horizon.m_Schwarzschild - m_Horizon.m_Branching;
+	if (h <= hExtra)
+		return;
+	h -= hExtra;
 
 	for (Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight); hFossil < h; )
 	{

@@ -33,8 +33,6 @@ class NodeProcessor
 	bool HandleBlockElement(const Output&, Height, bool bFwd);
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
 
-	Height m_Horizon;
-
 	void OnCorrupted();
 	void get_CurrentLive(Merkle::Hash&);
 
@@ -53,8 +51,17 @@ public:
 
 	typedef NodeDB::PeerID PeerID;
 
-	void Initialize(const char* szPath, Height horizon);
-	Height get_Horizon() const { return m_Horizon; }
+	void Initialize(const char* szPath);
+
+	struct Horizon {
+
+		Height m_Branching; // branches behind this are pruned
+		Height m_Schwarzschild; // original blocks begind this are erased
+
+		Horizon(); // by default both are disabled.
+
+	} m_Horizon;
+
 
 	bool get_CurrentState(Block::SystemState::ID&); // returns false if no valid states so far
 	bool get_CurrentState(Block::SystemState::Full&);

@@ -16,7 +16,7 @@ struct Node
 		std::vector<io::Address> m_Connect;
 
 		std::string m_sPathLocal;
-		Height m_Horizon = 1440;
+		NodeProcessor::Horizon m_Horizon;
 
 		struct Timeout {
 			uint32_t m_Reconnect_ms = 1000;

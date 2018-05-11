@@ -434,7 +434,9 @@ namespace beam
 		DeleteFileA(g_sz);
 
 		MyNodeProcessor1 np;
-		np.Initialize(g_sz, 35);
+		np.m_Horizon.m_Branching = 35;
+		np.m_Horizon.m_Schwarzschild = 40;
+		np.Initialize(g_sz);
 
 		for (Height h = 0; h < 96; h++)
 		{
@@ -493,12 +495,16 @@ namespace beam
 	{
 		DeleteFileA(g_sz);
 
-		const Height horz = 12;
+		NodeProcessor::Horizon horz;
+		horz.m_Branching = 12;
+		horz.m_Schwarzschild = 12;
+
 		size_t nMid = blockChain.size() / 2;
 
 		{
 			MyNodeProcessor2 np;
-			np.Initialize(g_sz, horz);
+			np.m_Horizon = horz;
+			np.Initialize(g_sz);
 
 			NodeProcessor::PeerID peer;
 			ZeroObject(peer);
@@ -509,7 +515,8 @@ namespace beam
 
 		{
 			MyNodeProcessor2 np;
-			np.Initialize(g_sz, horz);
+			np.m_Horizon = horz;
+			np.Initialize(g_sz);
 
 			NodeProcessor::PeerID peer;
 			ZeroObject(peer);
@@ -524,7 +531,8 @@ namespace beam
 
 		{
 			MyNodeProcessor2 np;
-			np.Initialize(g_sz, horz);
+			np.m_Horizon = horz;
+			np.Initialize(g_sz);
 
 			NodeProcessor::PeerID peer;
 			ZeroObject(peer);
@@ -535,7 +543,8 @@ namespace beam
 
 		{
 			MyNodeProcessor2 np;
-			np.Initialize(g_sz, horz);
+			np.m_Horizon = horz;
+			np.Initialize(g_sz);
 
 			NodeProcessor::PeerID peer;
 			ZeroObject(peer);
@@ -550,7 +559,8 @@ namespace beam
 
 		{
 			MyNodeProcessor2 np;
-			np.Initialize(g_sz, horz);
+			np.m_Horizon = horz;
+			np.Initialize(g_sz);
 
 			NodeProcessor::PeerID peer;
 			ZeroObject(peer);
