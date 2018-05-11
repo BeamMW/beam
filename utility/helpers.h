@@ -43,6 +43,8 @@ struct Thread {
         _thread = std::make_unique<std::thread>(func, std::forward<Args>(args)...);
     }
 
+    operator bool() const { return _thread.get() != 0; }
+    
     void join() {
         if (_thread) {
             _thread->join();
@@ -60,6 +62,9 @@ struct Thread {
 private:
     std::unique_ptr<std::thread> _thread;
 };
+
+/// returns current thread id depending on platform
+uint64_t get_thread_id();
 
 } //namespace
 

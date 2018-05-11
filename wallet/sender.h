@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <boost/msm/front/functor_row.hpp>
+#include <boost/optional.hpp>
 
 namespace beam::wallet
 {
@@ -22,14 +23,10 @@ namespace beam::wallet
         struct TxConfirmationCompleted {};
         struct TxOutputConfirmCompleted {};
 
-        Sender(sender::IGateway& gateway, const Uuid& txId, beam::IKeyChain::Ptr keychain, const ECC::Amount& amount)
-            : m_fsm{boost::ref(gateway)
-            , boost::ref(txId)
-            , keychain
-            , boost::ref(amount)}
+        Sender(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, const ECC::Amount& amount, const Height& currentHeight)
+            : m_fsm{boost::ref(gateway), keychain, boost::ref(txId), boost::ref(amount), boost::ref(currentHeight)}
         {
-            
-        }    
+        }
     private:
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
@@ -44,7 +41,7 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm& fsm)
                 {
                     std::cout << "[Sender] Terminate state\n";
-                    fsm.m_gateway.removeSender(fsm.m_txId);
+                    fsm.m_gateway.on_tx_completed(fsm.m_txId);
                 } 
             };
             struct TxInitiating : public msmf::state<> {
@@ -60,42 +57,43 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm&)
                 { std::cout << "[Sender] TxOutputConfirming state\n"; } };
 
-            FSMDefinition(sender::IGateway& gateway, const Uuid& txId, beam::IKeyChain::Ptr keychain, const ECC::Amount& amount)
+            FSMDefinition(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, ECC::Amount amount, Height currentHeight)
                 : m_gateway{ gateway }
-                , m_keychain(keychain)
-                , m_txId{txId}
-                , m_amount(amount)
+                , m_keychain{ keychain }
+                , m_txId{ txId }
+                , m_amount{ amount }
+                , m_height{ currentHeight }
             {}
 
             // transition actions
             void initTx(const msmf::none&);
 
-            bool isValidSignature(const TxInitCompleted& );
+            bool is_valid_signature(const TxInitCompleted& );
 
-            bool isInvalidSignature(const TxInitCompleted& );
+            bool is_invalid_signature(const TxInitCompleted& );
 
-            void confirmTx(const TxInitCompleted& );
+            void confirm_tx(const TxInitCompleted& );
 
-            void rollbackTx(const TxFailed& );
+            void rollback_tx(const TxFailed& );
 
-            void cancelTx(const TxInitCompleted& );
+            void cancel_tx(const TxInitCompleted& );
 
-            void confirmChangeOutput(const TxConfirmationCompleted&);
+            void confirm_change_output(const TxConfirmationCompleted&);
 
-            void completeTx(const TxOutputConfirmCompleted&);
+            void complete_tx(const TxOutputConfirmCompleted&);
 
             using initial_state = Init;
             using d = FSMDefinition;
             struct transition_table : mpl::vector<
-                //   Start                 Event                     Next                  Action                    Guard
-                a_row< Init              , msmf::none              , TxInitiating        , &d::initTx                                      >,
-                a_row< TxInitiating      , TxFailed                , Terminate           , &d::rollbackTx                                  >,
-                row  < TxInitiating      , TxInitCompleted         , TxConfirming        , &d::confirmTx           , &d::isValidSignature  >,
-                row  < TxInitiating      , TxInitCompleted         , Terminate           , &d::cancelTx            , &d::isInvalidSignature>,
-                a_row< TxConfirming      , TxConfirmationCompleted , TxOutputConfirming  , &d::confirmChangeOutput                         >,
-                a_row< TxConfirming      , TxFailed                , Terminate           , &d::rollbackTx                                  >,
-                a_row< TxOutputConfirming, TxOutputConfirmCompleted, Terminate           , &d::completeTx                                  >,
-                a_row< TxOutputConfirming, TxFailed                , Terminate           , &d::rollbackTx                                  >
+                //   Start                 Event                     Next                  Action                     Guard
+                a_row< Init              , msmf::none              , TxInitiating        , &d::initTx                                         >,
+                a_row< TxInitiating      , TxFailed                , Terminate           , &d::rollback_tx                                    >,
+                row  < TxInitiating      , TxInitCompleted         , TxConfirming        , &d::confirm_tx           , &d::is_valid_signature  >,
+                row  < TxInitiating      , TxInitCompleted         , Terminate           , &d::cancel_tx            , &d::is_invalid_signature>,
+                a_row< TxConfirming      , TxConfirmationCompleted , TxOutputConfirming  , &d::confirm_change_output                          >,
+                a_row< TxConfirming      , TxFailed                , Terminate           , &d::rollback_tx                                    >,
+                a_row< TxOutputConfirming, TxOutputConfirmCompleted, Terminate           , &d::complete_tx                                    >,
+                a_row< TxOutputConfirming, TxFailed                , Terminate           , &d::rollback_tx                                    >
             > {};
 
             template <class FSM, class Event>
@@ -110,12 +108,16 @@ namespace beam::wallet
 
             Uuid m_txId;
             ECC::Amount m_amount;
+            Height m_height;
             ECC::Scalar::Native m_blindingExcess;
             ECC::Scalar::Native m_nonce;
             ECC::Scalar::Native m_senderSignature;
             ECC::Point::Native m_publicBlindingExcess;
             ECC::Point::Native m_publicNonce;
             TxKernel m_kernel;
+
+            std::vector<Coin> m_coins;
+            boost::optional<Coin> m_changeOutput;
         };
         
     protected:

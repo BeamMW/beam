@@ -81,7 +81,6 @@ private:
     BufferChain _writeBuffer;
     Callback _callback;
     State _state;
-    uv_write_t _writeRequest;
     bool _writeRequestSent=false;
 };
 

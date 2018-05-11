@@ -5,7 +5,7 @@ namespace beam { namespace io {
 
 class Timer : protected Reactor::Object {
 public:
-    using Ptr = std::shared_ptr<Timer>;
+    using Ptr = std::unique_ptr<Timer>;
     using Callback = std::function<void()>;
 
     /// Creates a new timer object, throws on errors
@@ -19,6 +19,8 @@ public:
 
     /// Cancels the timer. May be called from anywhere in timer's thread
     void cancel();
+    
+    ~Timer();
 
 private:
     Timer() = default;

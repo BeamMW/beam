@@ -55,8 +55,7 @@ struct CoinData : beam::Coin {
 
     virtual ~CoinData() {}
 
-    private:
-        static KeyGenerator keygen;
+    static KeyGenerator keygen;
 };
 
 constexpr size_t SIZE_COIN_DATA = sizeof(CoinData);
