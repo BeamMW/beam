@@ -14,7 +14,7 @@ Timer::Ptr timer;
 
 void on_timer() {
     timer->cancel();
-    reactor->tcp_connect(Address(Address::LOCALHOST).port(33333), 1, [](uint64_t, shared_ptr<TcpStream>&&, int){});
+    reactor->tcp_connect(Address(Address::LOCALHOST).port(33333), 1, [](uint64_t, shared_ptr<TcpStream>&&, int){}, 1000, Address(0x7F121314, 0));
 }
 
 void tcpserver_test() {
