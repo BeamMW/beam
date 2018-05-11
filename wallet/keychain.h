@@ -3,6 +3,9 @@
 #include "core/common.h"
 #include "core/ecc_native.h"
 
+struct sqlite3;
+struct Nonce;
+
 namespace beam
 {
     struct Coin
@@ -39,5 +42,25 @@ namespace beam
         virtual void store(const beam::Coin& coin) = 0;
         virtual void update(const std::vector<beam::Coin>& coins) = 0;
         virtual void remove(const std::vector<beam::Coin>& coins) = 0;
+    };
+
+    struct Keychain : IKeyChain
+    {
+        static Ptr init(const std::string& password);
+        static Ptr open(const std::string& password);
+
+        Keychain();
+        ~Keychain();
+
+        uint64_t getNextID() override;
+		ECC::Scalar calcKey(uint64_t id) override;
+        std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock = true) override;
+        void store(const beam::Coin& coin) override;
+        void update(const std::vector<beam::Coin>& coins) override;
+        void remove(const std::vector<beam::Coin>& coins) override;
+
+    private:
+        sqlite3* _db;
+        Nonce* _nonce;
     };
 }

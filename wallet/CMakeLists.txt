@@ -7,6 +7,7 @@ set(WALLET_SRC
     receiver.cpp
     wallet_network.cpp
     private_key.cpp
+    keychain.cpp
 )
 
 add_library(wallet STATIC ${WALLET_SRC})

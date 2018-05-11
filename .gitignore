@@ -96,3 +96,4 @@ CMakeSettings.json
 /p2p/unittest/twopeers_test
 /utility/unittest/bridge_test
 /utility/unittest/config_test
+beam/wallet.dat
