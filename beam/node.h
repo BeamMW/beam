@@ -3,6 +3,7 @@
 #include "node_processor.h"
 #include "../utility/io/timer.h"
 #include "../core/proto.h"
+#include <boost/intrusive/list.hpp>
 
 namespace beam
 {
@@ -42,9 +43,6 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
 
-	struct Peer;
-	typedef std::list<std::unique_ptr<Peer> > PeerList;
-
 	struct State {
 		enum Enum {
 			Idle,
@@ -56,11 +54,11 @@ private:
 
 	struct Peer
 		:public proto::NodeConnection
+		,public boost::intrusive::list_base_hook<>
 	{
 		typedef std::unique_ptr<Peer> Ptr;
 
 		Node* m_pThis;
-		PeerList::iterator m_itThis; // iterator to self. Of course better to use intrusive list.
 
 		int m_iPeer; // negative if accepted connection
 		Height m_TipHeight;
@@ -80,6 +78,7 @@ private:
 		virtual void OnMsg(proto::Ping&&) override;
 	};
 
+	typedef boost::intrusive::list<Peer> PeerList;
 	PeerList m_lstPeers;
 
 	Peer* AllocPeer();

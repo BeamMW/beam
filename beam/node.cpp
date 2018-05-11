@@ -84,7 +84,7 @@ void Node::Processor::OnNewState()
 	{
 		PeerList::iterator itThis = it;
 		it++;
-		Peer& peer = *(*itThis);
+		Peer& peer = *itThis;
 
 		try {
 			if (peer.m_TipHeight <= msg.m_ID.m_Height)
@@ -107,17 +107,15 @@ void Node::Processor::OnMined(Height, const ECC::Scalar::Native& kFee, Amount nF
 
 Node::Peer* Node::AllocPeer()
 {
-	Peer::Ptr pPeer(new Peer);
-	Peer* pVal = pPeer.get();
+	Peer* pPeer = new Peer;
+	m_lstPeers.push_back(*pPeer);
 
 	pPeer->m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
-	m_lstPeers.push_back(std::move(pPeer));
 
-	pVal->m_eState = State::Idle;
-	pVal->m_pThis = this;
-	pVal->m_itThis = --m_lstPeers.end();
+	pPeer->m_eState = State::Idle;
+	pPeer->m_pThis = this;
 
-	return pVal;
+	return pPeer;
 }
 
 Node::Peer* Node::FindPeer(const Processor::PeerID& peerID)
@@ -126,9 +124,9 @@ Node::Peer* Node::FindPeer(const Processor::PeerID& peerID)
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
 	{
 		Processor::PeerID id2;
-		id2 = (uint32_t) (*it)->m_iPeer;
+		id2 = (uint32_t) it->m_iPeer;
 		if (peerID == id2)
-			return it->get();
+			return &*it;
 	}
 	return NULL;
 }
@@ -209,7 +207,10 @@ void Node::Peer::OnClosed(int errorCode)
 void Node::Peer::OnPostError()
 {
 	if (m_iPeer < 0)
-		m_pThis->m_lstPeers.erase(m_itThis); // will delete this
+	{
+		m_pThis->m_lstPeers.erase(PeerList::s_iterator_to(*this));
+		delete this;
+	}
 	else
 	{
 		Reset(); // connection layer
