@@ -90,3 +90,9 @@ core/unittest/storage_test
 core/unittest/ecc_test
 .vs/
 CMakeSettings.json
+/utility/unittest/config_test
+/p2p/unittest/dialog_test
+/p2p/unittest/msg_serializer_test
+/p2p/unittest/twopeers_test
+/utility/unittest/bridge_test
+/utility/unittest/config_test
