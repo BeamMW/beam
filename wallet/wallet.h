@@ -64,7 +64,6 @@ namespace beam
         void handle_tx_registration(PeerId from, UuidPtr&& txId) override;
         void handle_tx_failed(PeerId from, UuidPtr&& txId) override;
 
-
     private:
         IKeyChain::Ptr m_keyChain;
         INetworkIO& m_network;

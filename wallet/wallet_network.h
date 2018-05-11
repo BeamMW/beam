@@ -55,8 +55,9 @@ namespace beam
     {
     public:
         using ConnectCallback = std::function<void(uint64_t tag)>;
-        WalletNetworkIO(io::Address address);
-        void start();
+        WalletNetworkIO(io::Address address, bool is_server, io::Reactor::Ptr reactor = io::Reactor::Ptr(), uint64_t start_tag = 0);
+        
+        void start(bool separate_thread = false);
         void stop();
         void wait();
         INetworkIO& get_network_proxy();

@@ -8,14 +8,14 @@
 using namespace std;
 
 namespace beam {
-    WalletNetworkIO::WalletNetworkIO(io::Address address)
+    WalletNetworkIO::WalletNetworkIO(io::Address address, bool is_server, io::Reactor::Ptr reactor, uint64_t start_tag)
         : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, *this, 200 }
         , m_address{address}
-        , m_reactor{ io::Reactor::create() }
-        , m_server{ io::TcpServer::create(m_reactor, m_address, BIND_THIS_MEMFN(on_stream_accepted))}
+        , m_reactor{ !reactor ? io::Reactor::create() : reactor }
+        , m_server{ is_server ? io::TcpServer::create(m_reactor, m_address, BIND_THIS_MEMFN(on_stream_accepted)) : io::TcpServer::Ptr() }
         , m_bridge{*this, m_reactor }
         , m_wallet{nullptr}
-        , m_connection_tag{0}
+        , m_connection_tag{ start_tag }
     {
         m_protocol.add_message_handler<wallet::sender::InvitationData,     &WalletNetworkIO::on_sender_inviatation>(senderInvitationCode, 1, 2000);
         m_protocol.add_message_handler<wallet::sender::ConfirmationData,   &WalletNetworkIO::on_sender_confirmation>(senderConfirmationCode, 1, 2000);
@@ -25,9 +25,13 @@ namespace beam {
         m_protocol.add_message_handler<Uuid,                               &WalletNetworkIO::on_failed>(txFailedCode, 1, 2000);
     }
 
-    void WalletNetworkIO::start()
+    void WalletNetworkIO::start(bool separate_thread)
     {
-        m_thread.start(BIND_THIS_MEMFN(thread_func));
+        if (separate_thread) {
+            m_thread.start(BIND_THIS_MEMFN(thread_func));
+        } else {
+            m_reactor->run();
+        }
     }
 
     void WalletNetworkIO::stop()

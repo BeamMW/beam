@@ -434,13 +434,12 @@ void TestFSM()
 class TestNode : public IMsgHandler
 {
 public:
-    TestNode(io::Address address)
+    TestNode(io::Address address, io::Reactor::Ptr reactor = io::Reactor::Ptr())
         : m_protocol{0, 0, 1, *this, 200}
         , m_address{ address }
-        , m_reactor{io::Reactor::create()}
+        , m_reactor{ reactor ? reactor : io::Reactor::create()}
         , m_server{io::TcpServer::create(m_reactor, m_address, BIND_THIS_MEMFN(on_stream_accepted))}
         , m_tag{ 0 }
-
     {
         m_protocol.add_message_handler<wallet::receiver::RegisterTxData, &TestNode::on_register_tx>(txRegisterCode, 1, 2000);
         m_protocol.add_message_handler<None, &TestNode::on_confirm_output>(txConfirmOutputCode, 1, 2000);
@@ -537,27 +536,24 @@ private:
     uint64_t m_tag;
 };
 
-void TestP2PWalletNegotiation()
+void TestP2PWalletNegotiationST()
 {
-    cout << "\nTesting p2p wallets negotiation...\n";
+    cout << "\nTesting p2p wallets negotiation single thread...\n";
 
     auto node_address = io::Address::localhost().port(32125);
     auto receiver_address = io::Address::localhost().port(32124);
     auto sender_address = io::Address::localhost().port(32123);
 
-    TestNode node{ node_address };
-    WalletNetworkIO sender_io{ sender_address};
-    WalletNetworkIO receiver_io{ receiver_address };
-    
     io::Reactor::Ptr main_reactor{ io::Reactor::create() };
 
+    TestNode node{ node_address, main_reactor };
+    WalletNetworkIO sender_io{ sender_address, false, main_reactor };
+    WalletNetworkIO receiver_io{ receiver_address, true, main_reactor, 1000 };
+ 
     int completion_count = 2;
 
     auto action = [&] (const Uuid&) { // called in main thread
         if (!(--completion_count)) {
-            node.stop();
-            sender_io.stop();
-            receiver_io.stop();
             main_reactor->stop();
         }
     };
@@ -583,8 +579,58 @@ void TestP2PWalletNegotiation()
         sender_bridge.send_money(tag, 6);
     });
 
-    sender_io.start();
-    receiver_io.start();
+    main_reactor->run();
+}
+
+void TestP2PWalletNegotiationMT()
+{
+    cout << "\nTesting p2p wallets negotiation multithreaded...\n";
+
+    auto node_address = io::Address::localhost().port(32125);
+    auto receiver_address = io::Address::localhost().port(32124);
+    auto sender_address = io::Address::localhost().port(32123);
+
+    io::Reactor::Ptr main_reactor{ io::Reactor::create() };
+
+    TestNode node{ node_address };
+    WalletNetworkIO sender_io{ sender_address, false };
+    WalletNetworkIO receiver_io{ receiver_address, true };
+
+
+    int completion_count = 2;
+
+    auto action = [&](const Uuid&) { // called in main thread
+        if (!(--completion_count)) {
+            node.stop();
+            sender_io.stop();
+            receiver_io.stop();
+            main_reactor->stop();
+        }
+    };
+
+    Wallet sender(createKeyChain<TestKeyChain>(), sender_io.get_network_proxy(), action);
+    Wallet receiver(createKeyChain<TestKeyChain2>(), receiver_io.get_network_proxy(), action);
+
+    NetworkToWalletBridge sender_bridge{ sender, main_reactor };
+    NetworkToWalletBridge receiver_bridge{ receiver, main_reactor };
+
+    sender_io.set_wallet_proxy(&sender_bridge);
+    receiver_io.set_wallet_proxy(&receiver_bridge);
+
+    sender_io.connect(node_address, [&sender_bridge](uint64_t tag) {
+        sender_bridge.set_node_id(tag, None());
+    });
+
+    receiver_io.connect(node_address, [&receiver_bridge](uint64_t tag) {
+        receiver_bridge.set_node_id(tag, None());
+    });
+
+    sender_io.connect(receiver_address, [&sender_bridge](uint64_t tag) {
+        sender_bridge.send_money(tag, 6);
+    });
+
+    sender_io.start(true);
+    receiver_io.start(true);
     node.start();
     main_reactor->run();
 
@@ -595,7 +641,8 @@ void TestP2PWalletNegotiation()
 
 int main()
 {
-   // TestP2PWalletNegotiation();
+    TestP2PWalletNegotiationST();
+    TestP2PWalletNegotiationMT();
     TestWalletNegotiation<TestKeyChain, TestKeyChain2>();
     TestWalletNegotiation<SqliteKeychainInt, TestKeyChain2>();
     TestRollback();
