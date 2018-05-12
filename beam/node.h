@@ -4,6 +4,7 @@
 #include "../utility/io/timer.h"
 #include "../core/proto.h"
 #include <boost/intrusive/list.hpp>
+#include <boost/intrusive/set.hpp>
 
 namespace beam
 {
@@ -26,6 +27,7 @@ struct Node
 
 	} m_Cfg; // must not be changed after initialization
 
+	~Node();
 	void Initialize();
 
 private:
@@ -52,6 +54,30 @@ private:
 		};
 	};
 
+	struct Peer;
+
+	struct Task
+		:public boost::intrusive::set_base_hook<>
+		,public boost::intrusive::list_base_hook<>
+	{
+		typedef std::pair<Block::SystemState::ID, bool> Key;
+		Key m_Key;
+
+		bool m_bRelevant;
+		Peer* m_pOwner;
+
+		bool operator > (const Task& t) const { return (m_Key > t.m_Key); }
+	};
+
+	typedef boost::intrusive::list<Task> TaskList;
+	typedef boost::intrusive::set<Task, boost::intrusive::compare<std::greater<Task> > > TaskSet;
+
+	TaskList m_lstTasksUnassigned;
+	TaskSet m_setTasks;
+
+	void TryAssignTask(Task&, const NodeDB::PeerID*);
+	void DeleteUnassignedTask(Task&);
+
 	struct Peer
 		:public proto::NodeConnection
 		,public boost::intrusive::list_base_hook<>
@@ -61,8 +87,12 @@ private:
 		Node* m_pThis;
 
 		int m_iPeer; // negative if accepted connection
-		Height m_TipHeight;
 		State::Enum m_eState;
+
+		Height m_TipHeight;
+
+		TaskList m_lstTasks;
+		void ReleaseTasks();
 
 		io::Timer::Ptr m_pTimer;
 		void OnTimer();
@@ -82,18 +112,8 @@ private:
 	PeerList m_lstPeers;
 
 	Peer* AllocPeer();
+	void DeletePeer(Peer*);
 	Peer* FindPeer(const Processor::PeerID&);
-
-	struct CongestionData
-	{
-		typedef std::pair<Block::SystemState::ID, bool> Key;
-		typedef std::map<Key, size_t> Map;
-
-		static const size_t s_Old = 1 << ((sizeof(size_t) << 3) - 1);
-
-		Map m_Data;
-
-	} m_CongestionData;
 
 	void RefreshCongestions();
 

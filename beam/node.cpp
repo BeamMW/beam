@@ -13,58 +13,52 @@ namespace beam {
 
 void Node::RefreshCongestions()
 {
-	for (CongestionData::Map::iterator it = m_CongestionData.m_Data.begin(); m_CongestionData.m_Data.end() != it; it++)
-		it->second |= CongestionData::s_Old;
+	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
+		it->m_bRelevant = false;
 
 	m_Processor.EnumCongestions();
 
-	for (CongestionData::Map::iterator it = m_CongestionData.m_Data.begin(); m_CongestionData.m_Data.end() != it; )
+	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; )
 	{
-		CongestionData::Map::iterator itThis = it++;
-
-		if (CongestionData::s_Old & itThis->second)
-			m_CongestionData.m_Data.erase(itThis); // no more relevant
+		TaskSet::iterator itThis = it++;
+		if (!itThis->m_bRelevant && !itThis->m_pOwner)
+			DeleteUnassignedTask(*it);
 	}
+}
+
+void Node::DeleteUnassignedTask(Task& t)
+{
+	assert(!t.m_pOwner);
+	m_lstTasksUnassigned.erase(TaskList::s_iterator_to(t));
+	m_setTasks.erase(TaskSet::s_iterator_to(t));
+	delete &t;
+}
+
+void Node::TryAssignTask(Task& t, const NodeDB::PeerID* pPeerID)
+{
 }
 
 void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const PeerID* pPreferredPeer)
 {
-	CongestionData::Key key;
-	key.first = id;
-	key.second = bBlock;
+	Task tKey;
+	tKey.m_Key.first = id;
+	tKey.m_Key.second = bBlock;
 
-	CongestionData::Map& trg = get_ParentObj().m_CongestionData.m_Data; // alias
-
-	CongestionData::Map::iterator it = trg.find(key);
-	if (trg.end() == it)
+	TaskSet::iterator it = get_ParentObj().m_setTasks.find(tKey);
+	if (get_ParentObj().m_setTasks.end() == it)
 	{
-		// request it
-		size_t& n = trg[key];
-		n = 0;
-/*
-		Peer* pPeer = NULL;
+		Task* pTask = new Task;
+		pTask->m_Key = tKey.m_Key;
+		pTask->m_bRelevant = true;
+		pTask->m_pOwner = NULL;
 
-		if (pPreferredPeer)
-		{
-			Peer* pPeer = get_ParentObj().FindPeer(*pPreferredPeer);
-			if (pPeer && (State::Connected != pPeer->m_eState))
-				pPeer = NULL;
-		}
+		get_ParentObj().m_setTasks.insert(*pTask);
+		get_ParentObj().m_lstTasksUnassigned.push_back(*pTask);
 
-		if (!pPeer)
-		{
-			for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); ; it++)
-			{
-				if (get_ParentObj().m_lstPeers.end() == it)
-					return;
+		get_ParentObj().TryAssignTask(*pTask, pPreferredPeer);
 
-				pPeer = it->get();
-			}
-		}
-*/
-	}
-	else
-		it->second &= ~CongestionData::s_Old;
+	} else
+		it->m_bRelevant = true;
 }
 
 void Node::Processor::OnPeerInsane(const PeerID& peerID)
@@ -118,6 +112,12 @@ Node::Peer* Node::AllocPeer()
 	return pPeer;
 }
 
+void Node::DeletePeer(Peer* p)
+{
+	m_lstPeers.erase(PeerList::s_iterator_to(*p));
+	delete p;
+}
+
 Node::Peer* Node::FindPeer(const Processor::PeerID& peerID)
 {
 	// current interpretation (naive): just assume that peerID is the index
@@ -148,6 +148,21 @@ void Node::Initialize()
 
 		p->OnTimer(); // initiate connect
 	}
+}
+
+Node::~Node()
+{
+	while (!m_lstPeers.empty())
+	{
+		Peer& p = m_lstPeers.front();
+		p.ReleaseTasks();
+		DeletePeer(&p);
+	}
+
+	while (!m_lstTasksUnassigned.empty())
+		DeleteUnassignedTask(m_lstTasksUnassigned.front());
+
+	assert(m_setTasks.empty());
 }
 
 void Node::Peer::SetTimer(uint32_t timeout_ms)
@@ -204,13 +219,31 @@ void Node::Peer::OnClosed(int errorCode)
 	OnPostError();
 }
 
+void Node::Peer::ReleaseTasks()
+{
+	while (!m_lstTasks.empty())
+	{
+		Task& t = m_lstTasks.front();
+		m_lstTasks.pop_front();
+
+		assert(this == t.m_pOwner);
+		t.m_pOwner = NULL;
+
+		m_pThis->m_lstTasksUnassigned.push_back(t);
+
+		if (t.m_bRelevant)
+			m_pThis->TryAssignTask(t, NULL);
+		else
+			m_pThis->DeleteUnassignedTask(t);
+	}
+}
+
 void Node::Peer::OnPostError()
 {
+	ReleaseTasks();
+
 	if (m_iPeer < 0)
-	{
-		m_pThis->m_lstPeers.erase(PeerList::s_iterator_to(*this));
-		delete this;
-	}
+		m_pThis->DeletePeer(this);
 	else
 	{
 		Reset(); // connection layer
