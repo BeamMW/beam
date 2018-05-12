@@ -79,6 +79,7 @@ private:
 
 	void TryAssignTask(Task&, const NodeDB::PeerID*);
 	bool ShouldAssignTask(Task&, Peer&);
+	void AssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
 
 	struct Peer
@@ -97,7 +98,9 @@ private:
 		Height m_TipHeight;
 
 		TaskList m_lstTasks;
+		void TakeTasks();
 		void ReleaseTasks();
+		void SetTimerWrtFirstTask();
 
 		io::Timer::Ptr m_pTimer;
 		void OnTimer();
@@ -111,6 +114,7 @@ private:
 		virtual void OnClosed(int errorCode) override;
 		// messages
 		virtual void OnMsg(proto::Ping&&) override;
+		virtual void OnMsg(proto::NewTip&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;

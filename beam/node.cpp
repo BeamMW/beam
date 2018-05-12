@@ -65,28 +65,45 @@ void Node::TryAssignTask(Task& t, const NodeDB::PeerID* pPeerID)
 			break;
 
 		try {
-
-			if (t.m_Key.second)
-			{
-				proto::GetBody msg;
-				msg.m_ID = t.m_Key.first;
-				pBestMatch->Send(msg);
-				pBestMatch->SetTimer(m_Cfg.m_Timeout.m_GetBlock_ms);
-			}
-			else
-			{
-				proto::GetHdr msg;
-				msg.m_ID = t.m_Key.first;
-				pBestMatch->Send(msg);
-				pBestMatch->SetTimer(m_Cfg.m_Timeout.m_GetState_ms);
-			}
-
+			AssignTask(t, *pBestMatch);
 			return; // done
 
 		} catch (...) {
 			pBestMatch->OnPostError();
 		}
 	}
+}
+
+void Node::AssignTask(Task& t, Peer& p)
+{
+	if (t.m_Key.second)
+	{
+		proto::GetBody msg;
+		msg.m_ID = t.m_Key.first;
+		p.Send(msg);
+	}
+	else
+	{
+		proto::GetHdr msg;
+		msg.m_ID = t.m_Key.first;
+		p.Send(msg);
+	}
+
+	bool bEmpty = p.m_lstTasks.empty();
+
+	m_lstTasksUnassigned.erase(TaskList::s_iterator_to(t));
+	p.m_lstTasks.push_back(t);
+
+	if (bEmpty)
+		p.SetTimerWrtFirstTask();
+}
+
+void Node::Peer::SetTimerWrtFirstTask()
+{
+	if (m_lstTasks.empty())
+		KillTimer();
+	else
+		SetTimer(m_lstTasks.front().m_Key.second ? m_pThis->m_Cfg.m_Timeout.m_GetBlock_ms : m_pThis->m_Cfg.m_Timeout.m_GetState_ms);
 }
 
 bool Node::ShouldAssignTask(Task& t, Peer& p)
@@ -339,10 +356,35 @@ void Node::Peer::OnPostError()
 	}
 }
 
+void Node::Peer::TakeTasks()
+{
+	for (TaskList::iterator it = m_pThis->m_lstTasksUnassigned.begin(); m_pThis->m_lstTasksUnassigned.end() != it; )
+	{
+		Task& t = *it;
+		it++;
+
+		if (m_pThis->ShouldAssignTask(t, *this))
+			m_pThis->AssignTask(t, *this);
+	}
+}
+
 void Node::Peer::OnMsg(proto::Ping&&)
 {
 	proto::Pong msg;
 	Send(msg);
+}
+
+void Node::Peer::OnMsg(proto::NewTip&& msg)
+{
+	if (msg.m_ID.m_Height < m_TipHeight)
+	{
+		OnClosed(-1); // insane!
+		return;
+	}
+
+	m_TipHeight = msg.m_ID.m_Height;
+
+	TakeTasks();
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
