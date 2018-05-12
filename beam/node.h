@@ -21,8 +21,10 @@ struct Node
 		NodeProcessor::Horizon m_Horizon;
 
 		struct Timeout {
-			uint32_t m_Reconnect_ms = 1000;
-			uint32_t m_Insane_ms = 1000 * 3600; // 1 hour
+			uint32_t m_Reconnect_ms	= 1000;
+			uint32_t m_Insane_ms	= 1000 * 3600; // 1 hour
+			uint32_t m_GetState_ms	= 1000 * 5;
+			uint32_t m_GetBlock_ms	= 1000 * 30;
 		} m_Timeout;
 
 	} m_Cfg; // must not be changed after initialization
@@ -76,6 +78,7 @@ private:
 	TaskSet m_setTasks;
 
 	void TryAssignTask(Task&, const NodeDB::PeerID*);
+	bool ShouldAssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
 
 	struct Peer
@@ -87,6 +90,8 @@ private:
 		Node* m_pThis;
 
 		int m_iPeer; // negative if accepted connection
+		void get_ID(NodeProcessor::PeerID&);
+
 		State::Enum m_eState;
 
 		Height m_TipHeight;

@@ -36,6 +36,73 @@ void Node::DeleteUnassignedTask(Task& t)
 
 void Node::TryAssignTask(Task& t, const NodeDB::PeerID* pPeerID)
 {
+	while (true)
+	{
+		Peer* pBestMatch = NULL;
+
+		for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+		{
+			Peer& p = *it;
+			if (pBestMatch)
+			{
+				assert(pPeerID);
+
+				NodeDB::PeerID id;
+				p.get_ID(id);
+				if (id != *pPeerID)
+					continue;
+			}
+
+			if (ShouldAssignTask(t, p))
+			{
+				pBestMatch = &p;
+				if (!pPeerID)
+					break;
+			}
+		}
+
+		if (!pBestMatch)
+			break;
+
+		try {
+
+			if (t.m_Key.second)
+			{
+				proto::GetBody msg;
+				msg.m_ID = t.m_Key.first;
+				pBestMatch->Send(msg);
+				pBestMatch->SetTimer(m_Cfg.m_Timeout.m_GetBlock_ms);
+			}
+			else
+			{
+				proto::GetHdr msg;
+				msg.m_ID = t.m_Key.first;
+				pBestMatch->Send(msg);
+				pBestMatch->SetTimer(m_Cfg.m_Timeout.m_GetState_ms);
+			}
+
+			return; // done
+
+		} catch (...) {
+			pBestMatch->OnPostError();
+		}
+	}
+}
+
+bool Node::ShouldAssignTask(Task& t, Peer& p)
+{
+	if (State::Connected != p.m_eState)
+		return false;
+
+	if (p.m_TipHeight < t.m_Key.first.m_Height)
+		return false;
+
+	// check if the peer currently transfers a block
+	for (TaskList::iterator it = p.m_lstTasks.begin(); p.m_lstTasks.end() != it; it++)
+		if (it->m_Key.second)
+			return false;
+
+	return true;
 }
 
 void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const PeerID* pPreferredPeer)
@@ -152,6 +219,9 @@ void Node::Initialize()
 
 Node::~Node()
 {
+	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+		it->m_eState = State::Snoozed; // prevent re-assigning of tasks in the next loop
+
 	while (!m_lstPeers.empty())
 	{
 		Peer& p = m_lstPeers.front();
@@ -193,6 +263,12 @@ void Node::Peer::OnTimer()
 		}
 
 		break;
+
+	case State::Connected:
+
+		assert(!m_lstTasks.empty()); // task (request) wasn't handled in time
+		OnPostError();
+		break;
 	}
 }
 
@@ -217,6 +293,11 @@ void Node::Peer::OnClosed(int errorCode)
 	if (-1 == errorCode) // protocol error
 		m_eState = State::Snoozed;
 	OnPostError();
+}
+
+void Node::Peer::get_ID(NodeProcessor::PeerID& id)
+{
+	id = (size_t) m_iPeer;
 }
 
 void Node::Peer::ReleaseTasks()
