@@ -100,6 +100,7 @@ private:
 		TaskList m_lstTasks;
 		void TakeTasks();
 		void ReleaseTasks();
+		void ReleaseTask(Task&);
 		void SetTimerWrtFirstTask();
 
 		io::Timer::Ptr m_pTimer;
@@ -115,6 +116,7 @@ private:
 		// messages
 		virtual void OnMsg(proto::Ping&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;
+		virtual void OnMsg(proto::DataMissing&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;

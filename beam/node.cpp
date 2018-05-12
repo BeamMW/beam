@@ -320,20 +320,21 @@ void Node::Peer::get_ID(NodeProcessor::PeerID& id)
 void Node::Peer::ReleaseTasks()
 {
 	while (!m_lstTasks.empty())
-	{
-		Task& t = m_lstTasks.front();
-		m_lstTasks.pop_front();
+		ReleaseTask(m_lstTasks.front());
+}
 
-		assert(this == t.m_pOwner);
-		t.m_pOwner = NULL;
+void Node::Peer::ReleaseTask(Task& t)
+{
+	assert(this == t.m_pOwner);
+	t.m_pOwner = NULL;
 
-		m_pThis->m_lstTasksUnassigned.push_back(t);
+	m_lstTasks.erase(TaskList::s_iterator_to(t));
+	m_pThis->m_lstTasksUnassigned.push_back(t);
 
-		if (t.m_bRelevant)
-			m_pThis->TryAssignTask(t, NULL);
-		else
-			m_pThis->DeleteUnassignedTask(t);
-	}
+	if (t.m_bRelevant)
+		m_pThis->TryAssignTask(t, NULL);
+	else
+		m_pThis->DeleteUnassignedTask(t);
 }
 
 void Node::Peer::OnPostError()
@@ -385,6 +386,17 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 	m_TipHeight = msg.m_ID.m_Height;
 
 	TakeTasks();
+}
+
+void Node::Peer::OnMsg(proto::DataMissing&&)
+{
+	if (m_lstTasks.empty())
+	{
+		OnClosed(-1); // insane!
+		return;
+	}
+
+	ReleaseTask(m_lstTasks.front()); // TODO: mark this task as "undoable" by this peer, it should not take it unless its tip is changed.
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)

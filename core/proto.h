@@ -19,8 +19,7 @@ namespace proto {
 #define BeamNodeMsg_Hdr(macro) \
 	macro(Block::SystemState::Full, Description)
 
-#define BeamNodeMsg_IsHasBody(macro) \
-	macro(Block::SystemState::ID, ID)
+#define BeamNodeMsg_DataMissing(macro)
 
 #define BeamNodeMsg_Boolean(macro) \
 	macro(bool, Value)
@@ -58,7 +57,7 @@ namespace proto {
 	macro(1, NewTip) /* Also the first message sent by the node */ \
 	macro(2, GetHdr) \
 	macro(3, Hdr) \
-	macro(4, IsHasBody) /* may be sent to multiple peers, before actually downloading the body from one peer */ \
+	macro(4, DataMissing) \
 	macro(5, Boolean) \
 	macro(6, GetBody) \
 	macro(7, Body) \

@@ -72,7 +72,7 @@ namespace beam
 				m_bConnected = true;
 
 				try {
-					proto::IsHasBody msg;
+					proto::GetHdr msg;
 					msg.m_ID.m_Height = 0;
 					ZeroObject(msg.m_ID.m_Hash);
 
