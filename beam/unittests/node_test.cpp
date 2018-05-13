@@ -389,7 +389,7 @@ namespace beam
 		}
 	};
 
-	void SpendUtxo(Transaction& tx, const MyNodeProcessor1::MyUtxo& utxo, MyNodeProcessor1::MyUtxo& utxoOut)
+	void SpendUtxo(Transaction& tx, const MyNodeProcessor1::MyUtxo& utxo, MyNodeProcessor1::MyUtxo& utxoOut, Height hIncubation)
 	{
 		if (!utxo.m_Value)
 			return; //?!
@@ -418,6 +418,7 @@ namespace beam
 
 			Output::Ptr pOut(new Output);
 			pOut->Create(k, utxoOut.m_Value, true);
+			pOut->m_Incubation = hIncubation;
 			tx.m_vOutputs.push_back(std::move(pOut));
 
 			k = -k;
@@ -458,6 +459,8 @@ namespace beam
 		np.m_Horizon.m_Schwarzschild = 40;
 		np.Initialize(g_sz);
 
+		const Height hIncubation = 3; // artificial incubation period for outputs.
+
 		for (Height h = 0; h < 96; h++)
 		{
 			std::list<MyNodeProcessor1::MyUtxo> lstNewOutputs;
@@ -474,7 +477,7 @@ namespace beam
 				// Spend it in a transaction
 				Transaction::Ptr pTx(new Transaction);
 				MyNodeProcessor1::MyUtxo utxoOut;
-				SpendUtxo(*pTx, it->second, utxoOut);
+				SpendUtxo(*pTx, it->second, utxoOut, hIncubation);
 
 				np.m_MyUtxos.erase(it);
 
@@ -485,7 +488,7 @@ namespace beam
 			}
 
 			for (; !lstNewOutputs.empty(); lstNewOutputs.pop_front())
-				np.m_MyUtxos.insert(std::make_pair(h + 3, lstNewOutputs.front()));
+				np.m_MyUtxos.insert(std::make_pair(h + hIncubation, lstNewOutputs.front()));
 
 			BlockPlus::Ptr pBlock(new BlockPlus);
 

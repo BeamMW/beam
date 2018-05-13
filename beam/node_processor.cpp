@@ -558,6 +558,10 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 	d.m_Maturity = h;
 	d.m_Maturity += v.m_Coinbase ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
 
+	// add explicit incubation offset, beware of overflow attack (to cheat on maturity settings)
+	Height hSum = d.m_Maturity + v.m_Incubation;
+	d.m_Maturity = (d.m_Maturity <= hSum) ? hSum : Height(-1);
+
 	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
 	skey.m_Key = d;
 	NodeDB::Blob blob(&skey, sizeof(skey));

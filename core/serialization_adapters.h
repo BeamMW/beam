@@ -226,8 +226,9 @@ namespace detail
 				(output.m_Commitment.m_Y ? 1 : 0) |
 				(output.m_Coinbase ? 2 : 0) |
 				(output.m_pConfidential ? 4 : 0) |
-				(output.m_pPublic ? 8 : 0);
-			
+				(output.m_pPublic ? 8 : 0) |
+				(output.m_Incubation ? 0x10 : 0);
+
 			ar
 				& nFlags
 				& output.m_Commitment.m_X;
@@ -238,6 +239,8 @@ namespace detail
 			if (output.m_pPublic)
 				ar & output.m_pPublic;
 
+			if (output.m_Incubation)
+				ar & output.m_Incubation;
 
             return ar;
         }
@@ -258,6 +261,9 @@ namespace detail
 
 			if (8 & nFlags)
 				ar & output.m_pPublic;
+
+			if (0x10 & nFlags)
+				ar & output.m_Incubation;
 
             return ar;
         }
