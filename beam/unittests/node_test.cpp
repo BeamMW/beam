@@ -483,9 +483,9 @@ namespace beam
 
 		// NodeProcessor
 		virtual void get_Key(ECC::Scalar::Native& k, Height h, bool bCoinbase) override { }
-		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) {}
-		virtual void OnPeerInsane(const PeerID&) {}
-		virtual void OnNewState() {}
+		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override {}
+		virtual void OnPeerInsane(const PeerID&) override {}
+		virtual void OnNewState() override {}
 
 	};
 
@@ -666,6 +666,7 @@ namespace beam
 		MyClient cl;
 		cl.m_iNode = 0;
 		cl.m_HeightMax = 0;
+		cl.m_WaitingCycles = 0;
 		cl.m_ppNode[0] = &node;
 		cl.m_ppNode[1] = &node2;
 
@@ -703,5 +704,5 @@ int main()
 	DeleteFileA(beam::g_sz);
 	DeleteFileA(beam::g_sz2);
 
-    return 0;
+	return g_TestsFailed ? -1 : 0;
 }
