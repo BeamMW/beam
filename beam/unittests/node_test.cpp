@@ -61,6 +61,8 @@ void DeleteFileA(const char* szPath)
 			TestFailed(#x, __LINE__); \
 	} while (false)
 
+#define fail_test(msg) TestFailed(msg, __LINE__)
+
 namespace beam
 {
 
@@ -303,21 +305,20 @@ namespace beam
 
 #ifdef WIN32
 		const char* g_sz = "mytest.db";
+		const char* g_sz2 = "mytest2.db";
 #else // WIN32
 		const char* g_sz = "/tmp/mytest.db";
+		const char* g_sz2 = "/tmp/mytest2.db";
 #endif // WIN32
 
 	void TestNodeDB()
 	{
-
-		DeleteFileA(g_sz);
 		TestNodeDB(g_sz); // will create
 
 		{
 			NodeDB db;
 			db.Open(g_sz); // test to open already-existing DB
 		}
-		DeleteFileA(g_sz);
 	}
 
 	class MyNodeProcessor1
@@ -431,8 +432,6 @@ namespace beam
 
 	void TestNodeProcessor1(std::vector<BlockPlus::Ptr>& blockChain)
 	{
-		DeleteFileA(g_sz);
-
 		MyNodeProcessor1 np;
 		np.m_Horizon.m_Branching = 35;
 		np.m_Horizon.m_Schwarzschild = 40;
@@ -493,8 +492,6 @@ namespace beam
 
 	void TestNodeProcessor2(std::vector<BlockPlus::Ptr>& blockChain)
 	{
-		DeleteFileA(g_sz);
-
 		NodeProcessor::Horizon horz;
 		horz.m_Branching = 12;
 		horz.m_Schwarzschild = 12;
@@ -575,73 +572,87 @@ namespace beam
 
 	}
 
-	void TestNode1()
+	void TestNodeConversation()
 	{
+		// Testing configuration: Node0 <-> Node1 <-> Client.
+
 		io::Reactor::Ptr pReactor(io::Reactor::create());
 		io::Reactor::Scope scope(*pReactor);
 
-		Node node;
+		Node node, node2;
 		node.m_Cfg.m_sPathLocal = g_sz;
 		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
 
+		node.m_Cfg.m_Timeout.m_GetBlock_ms = 1000 * 60;
+		node.m_Cfg.m_Timeout.m_GetState_ms = 1000 * 60;
+
+		node2.m_Cfg.m_sPathLocal = g_sz2;
+		node2.m_Cfg.m_Listen.port(Node::s_PortDefault + 1);
+		node2.m_Cfg.m_Listen.ip(INADDR_ANY);
+		node2.m_Cfg.m_Connect.resize(1);
+		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
+		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
+		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
+
 		node.Initialize();
+		node2.Initialize();
 
 		struct MyClient
 			:public proto::NodeConnection
 		{
-			bool m_bConnected;
+			Node* m_ppNode[2];
+			unsigned int m_iNode;
+			unsigned int m_WaitingCycles;
+
+			Height m_HeightMax;
+			const Height m_HeightTrg = 70;
 
 			MyClient() {
 				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
-				m_bConnected = false;
 			}
 
 			virtual void OnConnected() override {
-
-				m_bConnected = true;
-
-				proto::GetHdr msg;
-				msg.m_ID.m_Height = 0;
-				ZeroObject(msg.m_ID.m_Hash);
-
-				Send(msg);
-
-				SetTimer(1200); // for reconnection
+				OnTimer();
 			}
 
 			virtual void OnClosed(int errorCode) override {
-				OnFail();
-			}
-
-			void OnFail() {
-				Reset();
-				SetTimer(2000);
-				m_bConnected = false;
+				fail_test("OnClosed");
 			}
 
 			io::Timer::Ptr m_pTimer;
+
 			void OnTimer() {
 
-				if (!m_bConnected)
+
+				if (m_HeightMax < m_HeightTrg)
 				{
-					Reset();
+					Block::SystemState::Full s;
+					ByteBuffer body, pow;
+					m_ppNode[m_iNode]->get_Processor().SimulateMinedBlock(s, body, pow);
 
-					try {
+					m_HeightMax = std::max(m_HeightMax, s.m_Height);
 
-						io::Address addr;
-						addr.resolve("127.0.0.1");
-						addr.port(Node::s_PortDefault);
+					printf("Mined block Height = %u, node = %u \n", (unsigned int) s.m_Height, (unsigned int)m_iNode);
 
-						Connect(addr);
-
-					}
-					catch (...) {
-						OnFail();
-					}
+					++m_iNode %= _countof(m_ppNode);
 				}
 				else
-					OnFail();
+					if (m_WaitingCycles++ > 30)
+					{
+						fail_test("Blockchain height didn't reach target");
+						io::Reactor::get_Current().stop();
+					}
+
+				SetTimer(100);
+			}
+
+			virtual void OnMsg(proto::NewTip&& msg) override
+			{
+				printf("Tip Height=%u\n", msg.m_ID.m_Height);
+				verify_test(msg.m_ID.m_Height <= m_HeightMax);
+				if (msg.m_ID.m_Height == m_HeightTrg)
+					io::Reactor::get_Current().stop();
 			}
 
 			void SetTimer(uint32_t timeout_ms) {
@@ -653,8 +664,17 @@ namespace beam
 		};
 
 		MyClient cl;
+		cl.m_iNode = 0;
+		cl.m_HeightMax = 0;
+		cl.m_ppNode[0] = &node;
+		cl.m_ppNode[1] = &node2;
 
-		cl.SetTimer(1500);
+		io::Address addr;
+		addr.resolve("127.0.0.1");
+		addr.port(Node::s_PortDefault + 1);
+
+		cl.Connect(addr);
+
 
 		pReactor->run();
 	}
@@ -663,13 +683,25 @@ namespace beam
 
 int main()
 {
+	DeleteFileA(beam::g_sz);
+	DeleteFileA(beam::g_sz2);
+
 	beam::TestNodeDB();
+	DeleteFileA(beam::g_sz);
 
-	std::vector<beam::BlockPlus::Ptr> blockChain;
-	beam::TestNodeProcessor1(blockChain);
-	beam::TestNodeProcessor2(blockChain);
+	{
+		std::vector<beam::BlockPlus::Ptr> blockChain;
+		beam::TestNodeProcessor1(blockChain);
+		DeleteFileA(beam::g_sz);
 
-    //beam::Node node;
-    
+		beam::TestNodeProcessor2(blockChain);
+		DeleteFileA(beam::g_sz);
+	}
+
+	beam::TestNodeConversation();
+
+	DeleteFileA(beam::g_sz);
+	DeleteFileA(beam::g_sz2);
+
     return 0;
 }

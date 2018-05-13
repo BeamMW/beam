@@ -1,6 +1,7 @@
 #include "node.h"
 #include "../core/serialization_adapters.h"
 #include "../core/proto.h"
+#include "../core/ecc_native.h"
 
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"
@@ -178,8 +179,13 @@ void Node::Processor::OnNewState()
 	get_ParentObj().RefreshCongestions();
 }
 
-void Node::Processor::get_Key(ECC::Scalar::Native&, Height h, bool bCoinbase)
+void Node::Processor::get_Key(ECC::Scalar::Native& k, Height h, bool bCoinbase)
 {
+	// TODO
+
+	ECC::Scalar s;
+	ECC::Hash::Processor() << h << bCoinbase >> s.m_Value;
+	k = s;
 }
 
 void Node::Processor::OnMined(Height, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase)

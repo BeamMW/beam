@@ -32,6 +32,8 @@ struct Node
 	~Node();
 	void Initialize();
 
+	NodeProcessor& get_Processor() { return m_Processor; } // for tests only!
+
 private:
 
 	struct Processor
