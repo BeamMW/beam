@@ -109,6 +109,10 @@ private:
 		void KillTimer();
 
 		void OnPostError();
+		static void ThrowUnexpected();
+
+		Task& get_FirstTask();
+		void OnFirstTaskDone();
 
 		// proto::NodeConnection
 		virtual void OnConnected() override;
@@ -117,6 +121,8 @@ private:
 		virtual void OnMsg(proto::Ping&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;
 		virtual void OnMsg(proto::DataMissing&&) override;
+		virtual void OnMsg(proto::Hdr&&) override;
+		virtual void OnMsg(proto::Body&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;

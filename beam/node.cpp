@@ -386,17 +386,82 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 	m_TipHeight = msg.m_ID.m_Height;
 
 	TakeTasks();
+
+	if (m_pThis->m_Processor.IsStateNeeded(msg.m_ID))
+	{
+		NodeProcessor::PeerID id;
+		get_ID(id);
+		m_pThis->m_Processor.RequestData(msg.m_ID, false, &id);
+	}
+}
+
+void Node::Peer::ThrowUnexpected()
+{
+	throw std::runtime_error("unexpected");
+}
+
+Node::Task& Node::Peer::get_FirstTask()
+{
+	if (m_lstTasks.empty())
+		ThrowUnexpected();
+	return m_lstTasks.front();
+}
+
+void Node::Peer::OnFirstTaskDone()
+{
+	ReleaseTask(get_FirstTask());
+	SetTimerWrtFirstTask();
 }
 
 void Node::Peer::OnMsg(proto::DataMissing&&)
 {
-	if (m_lstTasks.empty())
-	{
-		OnClosed(-1); // insane!
-		return;
-	}
+	Task& t = get_FirstTask();
+	// TODO: mark this task as "undoable" by this peer, it should not take it unless its tip is changed.
 
-	ReleaseTask(m_lstTasks.front()); // TODO: mark this task as "undoable" by this peer, it should not take it unless its tip is changed.
+	OnFirstTaskDone();
+}
+
+void Node::Peer::OnMsg(proto::Hdr&& msg)
+{
+	Task& t = get_FirstTask();
+
+	if (t.m_Key.second)
+		ThrowUnexpected();
+
+	Block::SystemState::ID id;
+	msg.m_Description.get_ID(id);
+	if (id != t.m_Key.first)
+		ThrowUnexpected();
+
+	t.m_bRelevant = false;
+	OnFirstTaskDone();
+
+	NodeDB::Blob pow(NULL, 0); // TODO
+	NodeDB::PeerID pid;
+	get_ID(pid);
+
+	if (m_pThis->m_Processor.OnState(msg.m_Description, pow, pid))
+		m_pThis->RefreshCongestions(); // NOTE! Can call OnPeerInsane()
+}
+
+void Node::Peer::OnMsg(proto::Body&& msg)
+{
+	Task& t = get_FirstTask();
+
+	if (!t.m_Key.second)
+		ThrowUnexpected();
+
+	Block::SystemState::ID id = t.m_Key.first;
+
+	t.m_bRelevant = false;
+	OnFirstTaskDone();
+
+	NodeDB::Blob pow(NULL, 0); // TODO
+	NodeDB::PeerID pid;
+	get_ID(pid);
+
+	if (m_pThis->m_Processor.OnBlock(id, msg.m_Buffer, pid))
+		m_pThis->RefreshCongestions(); // NOTE! Can call OnPeerInsane()
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
