@@ -362,10 +362,13 @@ namespace beam
 		typedef std::multimap<Height, MyUtxo> UtxoQueue;
 		UtxoQueue m_MyUtxos;
 
-		void AddMyUtxo(const ECC::Scalar::Native& key, Amount n, Height h, bool bCoinbase)
+		void AddMyUtxo(Amount n, Height h, KeyType::Enum eType)
 		{
 			if (!n)
 				return;
+
+			ECC::Scalar::Native key;
+			DeriveKey(key, m_Kdf, h, eType);
 
 			MyUtxo utxo;
 			utxo.m_Key = key;
@@ -373,16 +376,16 @@ namespace beam
 			//utxo.m_Height = h;
 			//utxo.m_Coinbase = bCoinbase;
 
-			h += bCoinbase ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
+			h += (KeyType::Coinbase == eType) ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
 
 			m_MyUtxos.insert(std::make_pair(h, utxo));
 		}
 
 		// NodeProcessor
-		virtual void OnMined(Height h, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase) override
+		virtual void OnMined(Height h, Amount nFee) override
 		{
-			AddMyUtxo(kFee, nFee, h, false);
-			AddMyUtxo(kCoinbase, nCoinbase, h, true);
+			AddMyUtxo(nFee, h, KeyType::Comission);
+			AddMyUtxo(Block::s_CoinbaseEmission, h, KeyType::Coinbase);
 		}
 	};
 

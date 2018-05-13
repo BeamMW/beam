@@ -179,7 +179,7 @@ void Node::Processor::OnNewState()
 	get_ParentObj().RefreshCongestions();
 }
 
-void Node::Processor::OnMined(Height, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase)
+void Node::Processor::OnMined(Height, Amount nFee)
 {
 }
 

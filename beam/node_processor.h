@@ -92,7 +92,7 @@ public:
 	static void DeriveKey(ECC::Scalar::Native&, const ECC::Kdf&, Height, KeyType::Enum, uint32_t nIdx = 0);
 
 protected:
-	virtual void OnMined(Height, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase) {}
+	virtual void OnMined(Height, Amount nFee) {}
 };
 
 

@@ -43,7 +43,7 @@ private:
 		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override;
 		virtual void OnPeerInsane(const PeerID&) override;
 		virtual void OnNewState() override;
-		virtual void OnMined(Height, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase) override;
+		virtual void OnMined(Height, Amount nFee) override;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;

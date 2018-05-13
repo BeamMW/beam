@@ -882,32 +882,33 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	}
 	m_lstCurrentlyMining.clear();
 
-	ECC::Scalar::Native kFee, kCoinbase;
-
 	if (fee)
 	{
+		ECC::Scalar::Native kFee;
 		DeriveKey(kFee, m_Kdf, h, KeyType::Comission);
 
 		ctxBlock.AddOutput(kFee, fee, false);
 		verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
 	} else
 	{
-		DeriveKey(kFee, m_Kdf, h, KeyType::Kernel);
+		ECC::Scalar::Native kKernel;
+		DeriveKey(kKernel, m_Kdf, h, KeyType::Kernel);
 
 		TxKernel::Ptr pKrn(new TxKernel);
-		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kFee);
+		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kKernel);
 
 		ECC::Hash::Value hv;
 		pKrn->get_Hash(hv);
-		pKrn->m_Signature.Sign(hv, kFee);
+		pKrn->m_Signature.Sign(hv, kKernel);
 		ctxBlock.m_Block.m_vKernelsOutput.push_back(std::move(pKrn));
 
 		verify(HandleBlockElement(*ctxBlock.m_Block.m_vKernelsOutput.back(), true, false)); // Will fail if kernel key duplicated!
 
-		kFee = -kFee;
-		ctxBlock.m_Offset += kFee;
+		kKernel = -kKernel;
+		ctxBlock.m_Offset += kKernel;
 	}
 
+	ECC::Scalar::Native kCoinbase;
 	DeriveKey(kCoinbase, m_Kdf, h, KeyType::Coinbase);
 
 	const Amount nCoinbase = Block::s_CoinbaseEmission;
@@ -950,7 +951,7 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	s.get_ID(id);
 	OnBlock(id, block, PeerID());
 
-	OnMined(h, kFee, fee, kCoinbase, nCoinbase);
+	OnMined(h, fee);
 }
 
 bool NodeProcessor::IsStateNeeded(const Block::SystemState::ID& id)
