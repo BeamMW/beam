@@ -231,6 +231,7 @@ namespace beam
 	int TxKernel::cmp(const TxKernel& v) const
 	{
 		CMP_MEMBER_EX(m_Excess)
+		CMP_MEMBER(m_Multiplier)
 		CMP_MEMBER_EX(m_Signature)
 		CMP_MEMBER(m_Fee)
 		CMP_MEMBER(m_HeightMin)
@@ -268,6 +269,7 @@ namespace beam
 	bool TxBase::ValidateAndSummarize(Context& ctx, ECC::Point::Native& sigma) const
 	{
 		sigma = ECC::Zero;
+		Amount feeInp = 0; // dummy var
 
 		// Inputs
 
@@ -310,7 +312,7 @@ namespace beam
 				}
 			}
 
-			if (!v.IsValid(ctx.m_Fee, sigma))
+			if (!v.IsValid(feeInp, sigma))
 				return false;
 
 			if (p0Krn && (*p0Krn > v))
