@@ -823,11 +823,8 @@ struct NodeProcessor::BlockBulder
 	void AddOutput(const ECC::Scalar::Native& k, Amount val, bool bCoinbase)
 	{
 		Output::Ptr pOutp(new Output);
-		pOutp->m_Commitment = ECC::Commitment(k, val);
+		pOutp->Create(k, val, true);
 		pOutp->m_Coinbase = bCoinbase;
-		pOutp->m_pPublic.reset(new ECC::RangeProof::Public);
-		pOutp->m_pPublic->m_Value = val;
-		pOutp->m_pPublic->Create(k);
 		m_Block.m_vOutputs.push_back(std::move(pOutp));
 
 		ECC::Scalar::Native km = -k;

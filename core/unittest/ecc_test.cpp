@@ -383,11 +383,8 @@ struct TransactionMaker
 			std::unique_ptr<beam::Output> pOut(new beam::Output);
 
 			Scalar::Native k;
-			EncodeAmount(pOut->m_Commitment, k, val);
-
-			pOut->m_pPublic.reset(new RangeProof::Public);
-			pOut->m_pPublic->m_Value = val;
-			pOut->m_pPublic->Create(k);
+			SetRandom(k);
+			pOut->Create(k, val, true);
 
 			t.m_vOutputs.push_back(std::move(pOut));
 

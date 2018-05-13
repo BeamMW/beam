@@ -84,6 +84,8 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
+		void Create(const ECC::Scalar::Native&, Amount, bool bPublic = false);
+
 		bool IsValid() const;
 
 		int cmp(const Output&) const;

@@ -393,10 +393,7 @@ namespace beam
 			utxoOut.m_Key = k;
 
 			Output::Ptr pOut(new Output);
-			pOut->m_pPublic.reset(new ECC::RangeProof::Public);
-			pOut->m_pPublic->m_Value = utxoOut.m_Value;
-			pOut->m_pPublic->Create(k);
-			pOut->m_Commitment = ECC::Commitment(k, utxoOut.m_Value);
+			pOut->Create(k, utxoOut.m_Value, true);
 			tx.m_vOutputs.push_back(std::move(pOut));
 
 			k = -k;

@@ -49,11 +49,7 @@ namespace beam::wallet
             output->m_Coinbase = false;
 
             Scalar::Native blindingFactor = m_keychain->getNextKey();
-            output->m_Commitment = Commitment(blindingFactor, change);
-
-            output->m_pPublic.reset(new RangeProof::Public);
-            output->m_pPublic->m_Value = change;
-            output->m_pPublic->Create(blindingFactor);
+			output->Create(blindingFactor, change, true);
             
             m_changeOutput = Coin(blindingFactor, change, Coin::Unconfirmed, m_height, false);
             m_keychain->store(*m_changeOutput);

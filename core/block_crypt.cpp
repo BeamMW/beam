@@ -113,6 +113,22 @@ namespace beam
 		return 0;
 	}
 
+	void Output::Create(const ECC::Scalar::Native& k, Amount v, bool bPublic /* = false */)
+	{
+		m_Commitment = ECC::Commitment(k, v);
+
+		if (bPublic)
+		{
+			m_pPublic.reset(new ECC::RangeProof::Public);
+			m_pPublic->m_Value = v;
+			m_pPublic->Create(k);
+		} else
+		{
+			m_pConfidential.reset(new ECC::RangeProof::Confidential);
+			m_pConfidential->Create(k, v);
+		}
+	}
+
 	/////////////
 	// TxKernel
 	bool TxKernel::Traverse(ECC::Hash::Value& hv, Amount* pFee, ECC::Point::Native* pExcess) const

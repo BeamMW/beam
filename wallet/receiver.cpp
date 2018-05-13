@@ -39,11 +39,7 @@ namespace beam::wallet
         output->m_Coinbase = false;
 
         Scalar::Native blindingFactor = m_keychain->getNextKey();
-        output->m_Commitment = Commitment(blindingFactor, amount);
-
-        output->m_pPublic.reset(new RangeProof::Public);
-        output->m_pPublic->m_Value = amount;
-        output->m_pPublic->Create(blindingFactor);
+		output->Create(blindingFactor, amount, true);
 
         m_blindingExcess = -blindingFactor; // TODO: we have to remove this negation and change signs in verification formula
 
