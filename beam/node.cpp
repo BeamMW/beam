@@ -19,11 +19,11 @@ void Node::RefreshCongestions()
 
 	m_Processor.EnumCongestions();
 
-	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; )
+	for (TaskList::iterator it = m_lstTasksUnassigned.begin(); m_lstTasksUnassigned.end() != it; )
 	{
-		TaskSet::iterator itThis = it++;
-		if (!itThis->m_bRelevant && !itThis->m_pOwner)
-			DeleteUnassignedTask(*it);
+		TaskList::iterator itThis = it++;
+		if (!itThis->m_bRelevant)
+			DeleteUnassignedTask(*itThis);
 	}
 }
 
