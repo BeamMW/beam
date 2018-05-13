@@ -66,6 +66,8 @@ public:
 	bool OnState(const Block::SystemState::Full&, const NodeDB::Blob& pow, const PeerID&);
 	bool OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&);
 
+	NodeDB& get_DB() { return m_DB; } // use only for data retrieval for peers
+
 	void EnumCongestions();
 
 	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) {}

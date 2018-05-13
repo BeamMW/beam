@@ -427,6 +427,24 @@ void Node::Peer::OnMsg(proto::DataMissing&&)
 	OnFirstTaskDone();
 }
 
+void Node::Peer::OnMsg(proto::GetHdr&& msg)
+{
+	uint64_t rowid = m_pThis->m_Processor.get_DB().StateFindSafe(msg.m_ID);
+	if (rowid)
+	{
+		proto::Hdr msgHdr;
+		m_pThis->m_Processor.get_DB().get_State(rowid, msgHdr.m_Description);
+		// TODO: pow
+
+		Send(msgHdr);
+
+	} else
+	{
+		proto::DataMissing msgMiss;
+		Send(msgMiss);
+	}
+}
+
 void Node::Peer::OnMsg(proto::Hdr&& msg)
 {
 	Task& t = get_FirstTask();
@@ -448,6 +466,27 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 
 	if (m_pThis->m_Processor.OnState(msg.m_Description, pow, pid))
 		m_pThis->RefreshCongestions(); // NOTE! Can call OnPeerInsane()
+}
+
+void Node::Peer::OnMsg(proto::GetBody&& msg)
+{
+	uint64_t rowid = m_pThis->m_Processor.get_DB().StateFindSafe(msg.m_ID);
+	if (rowid)
+	{
+		proto::Body msgBody;
+		ByteBuffer bbRollback;
+		m_pThis->m_Processor.get_DB().GetStateBlock(rowid, msgBody.m_Buffer, bbRollback);
+
+		if (!msgBody.m_Buffer.empty())
+		{
+			Send(msgBody);
+			return;
+		}
+
+	}
+
+	proto::DataMissing msgMiss;
+	Send(msgMiss);
 }
 
 void Node::Peer::OnMsg(proto::Body&& msg)
