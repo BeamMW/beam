@@ -91,6 +91,9 @@ void Node::AssignTask(Task& t, Peer& p)
 
 	bool bEmpty = p.m_lstTasks.empty();
 
+	assert(!t.m_pOwner);
+	t.m_pOwner = &p;
+
 	m_lstTasksUnassigned.erase(TaskList::s_iterator_to(t));
 	p.m_lstTasks.push_back(t);
 
@@ -339,6 +342,9 @@ void Node::Peer::ReleaseTask(Task& t)
 
 void Node::Peer::OnPostError()
 {
+	if (State::Snoozed != m_eState)
+		m_eState = State::Idle; // prevent reassigning the tasks
+
 	ReleaseTasks();
 
 	if (m_iPeer < 0)
