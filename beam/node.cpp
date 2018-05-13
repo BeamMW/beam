@@ -169,7 +169,7 @@ void Node::Processor::OnNewState()
 		Peer& peer = *itThis;
 
 		try {
-			if (peer.m_TipHeight <= msg.m_ID.m_Height)
+			if ((State::Connected == peer.m_eState) && (peer.m_TipHeight <= msg.m_ID.m_Height))
 				peer.Send(msg);
 		} catch (...) {
 			peer.OnPostError();
