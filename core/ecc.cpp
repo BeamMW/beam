@@ -594,6 +594,7 @@ namespace ECC {
 
 	/////////////////////
 	// Nonce and key generation
+	template <>
 	void uintBig::GenerateNonce(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
 	{
 		for (uint32_t i = 0; ; i++)
