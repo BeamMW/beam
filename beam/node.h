@@ -116,6 +116,8 @@ private:
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
 
+		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
+
 		// proto::NodeConnection
 		virtual void OnConnected() override;
 		virtual void OnClosed(int errorCode) override;

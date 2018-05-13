@@ -123,7 +123,7 @@ bool Node::ShouldAssignTask(Task& t, Peer& p)
 		if (it->m_Key.second)
 			return false;
 
-	return true;
+	return p.m_setRejected.end() == p.m_setRejected.find(t.m_Key);
 }
 
 void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const PeerID* pPreferredPeer)
@@ -358,6 +358,7 @@ void Node::Peer::OnPostError()
 	else
 	{
 		Reset(); // connection layer
+		m_setRejected.clear();
 
 		if (State::Snoozed == m_eState)
 			SetTimer(m_pThis->m_Cfg.m_Timeout.m_Insane_ms);
@@ -396,6 +397,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 	}
 
 	m_TipHeight = msg.m_ID.m_Height;
+	m_setRejected.clear();
 
 	TakeTasks();
 
@@ -428,7 +430,7 @@ void Node::Peer::OnFirstTaskDone()
 void Node::Peer::OnMsg(proto::DataMissing&&)
 {
 	Task& t = get_FirstTask();
-	// TODO: mark this task as "undoable" by this peer, it should not take it unless its tip is changed.
+	m_setRejected.insert(t.m_Key);
 
 	OnFirstTaskDone();
 }
