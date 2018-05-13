@@ -593,6 +593,43 @@ namespace ECC {
 	}
 
 	/////////////////////
+	// Nonce and key generation
+	void uintBig::GenerateNonce(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
+	{
+		for (uint32_t i = 0; ; i++)
+		{
+			if (!nonce_function_rfc6979(m_pData, msg.m_pData, sk.m_pData, NULL, pMsg2 ? (void*) pMsg2->m_pData : NULL, i))
+				continue;
+
+			if (!nAttempt--)
+				break;
+		}
+	}
+
+	void Scalar::Native::GenerateNonce(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
+	{
+		NoLeak<Scalar> s;
+
+		for (uint32_t i = 0; ; i++)
+		{
+			s.V.m_Value.GenerateNonce(sk, msg, pMsg2, i);
+			if (Import(s.V))
+				continue;
+
+			if (!nAttempt--)
+				break;
+		}
+	}
+
+	void Kdf::DeriveKey(Scalar::Native& out, uint64_t nKeyIndex, uint32_t nFlags, uint32_t nExtra) const
+	{
+		// the msg hash is not secret
+		Hash::Value hv;
+		Hash::Processor() << nKeyIndex << nFlags << nExtra >> hv;
+		out.GenerateNonce(m_Secret.V, hv, NULL);
+	}
+
+	/////////////////////
 	// Oracle
 	void Oracle::Reset()
 	{
@@ -617,12 +654,10 @@ namespace ECC {
 
 	void Signature::MultiSig::GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk)
 	{
-		NoLeak<Scalar> s0, sk_;
+		NoLeak<Scalar> sk_;
 		sk_.V = sk;
 
-		for (uint32_t nAttempt = 0; ; nAttempt++)
-			if (secp256k1_nonce_function_default(s0.V.m_Value.m_pData, msg.m_pData, sk_.V.m_Value.m_pData, NULL, NULL, nAttempt) && !m_Nonce.Import(s0.V))
-				break;
+		m_Nonce.GenerateNonce(sk_.V.m_Value, msg, NULL);
 	}
 
 	void Signature::CoSign(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk, const MultiSig& msig)

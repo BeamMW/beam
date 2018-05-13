@@ -179,15 +179,6 @@ void Node::Processor::OnNewState()
 	get_ParentObj().RefreshCongestions();
 }
 
-void Node::Processor::get_Key(ECC::Scalar::Native& k, Height h, bool bCoinbase)
-{
-	// TODO
-
-	ECC::Scalar s;
-	ECC::Hash::Processor() << h << bCoinbase >> s.m_Value;
-	k = s;
-}
-
 void Node::Processor::OnMined(Height, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase)
 {
 }

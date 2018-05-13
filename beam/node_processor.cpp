@@ -785,6 +785,11 @@ bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob
 	return true;
 }
 
+void NodeProcessor::DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType::Enum eType, uint32_t nIdx /* = 0 */)
+{
+	kdf.DeriveKey(out, h, eType, nIdx);
+}
+
 bool NodeProcessor::FeedTransaction(Transaction::Ptr&& p)
 {
 	assert(p);
@@ -878,14 +883,17 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	m_lstCurrentlyMining.clear();
 
 	ECC::Scalar::Native kFee, kCoinbase;
-	get_Key(kFee, h, false);
 
 	if (fee)
 	{
+		DeriveKey(kFee, m_Kdf, h, KeyType::Comission);
+
 		ctxBlock.AddOutput(kFee, fee, false);
 		verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
 	} else
 	{
+		DeriveKey(kFee, m_Kdf, h, KeyType::Kernel);
+
 		TxKernel::Ptr pKrn(new TxKernel);
 		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kFee);
 
@@ -900,7 +908,8 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 		ctxBlock.m_Offset += kFee;
 	}
 
-	get_Key(kCoinbase, h, true);
+	DeriveKey(kCoinbase, m_Kdf, h, KeyType::Coinbase);
+
 	const Amount nCoinbase = Block::s_CoinbaseEmission;
 	ctxBlock.AddOutput(kCoinbase, nCoinbase, true);
 

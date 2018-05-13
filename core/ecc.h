@@ -111,6 +111,8 @@ namespace ECC
 
 		}
 
+		void GenerateNonce(const uintBig_t& sk, const uintBig_t& msg, const uintBig_t* pMsg2, uint32_t nAttempt = 0); // implemented only for nBits_ = 256 bits
+
 		int cmp(const uintBig_t& x) const { return memcmp(m_pData, x.m_pData, sizeof(m_pData)); }
 		COMPARISON_VIA_CMP(uintBig_t)
 	};
@@ -183,6 +185,12 @@ namespace ECC
 
 	private:
 		static void get_Challenge(Scalar::Native&, const Point::Native&, const Hash::Value& msg);
+	};
+
+	struct Kdf
+	{
+		NoLeak<uintBig> m_Secret;
+		void DeriveKey(Scalar::Native&, uint64_t nKeyIndex, uint32_t nFlags, uint32_t nExtra = 0) const;
 	};
 
 	namespace RangeProof

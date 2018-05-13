@@ -347,6 +347,11 @@ namespace beam
 	{
 	public:
 
+		MyNodeProcessor1()
+		{
+			ECC::SetRandom(m_Kdf.m_Secret.V);
+		}
+
 		struct MyUtxo {
 			ECC::Scalar m_Key;
 			Amount m_Value;
@@ -374,11 +379,6 @@ namespace beam
 		}
 
 		// NodeProcessor
-		virtual void get_Key(ECC::Scalar::Native& k, Height h, bool bCoinbase) override
-		{
-			ECC::SetRandom(k);
-		}
-
 		virtual void OnMined(Height h, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase) override
 		{
 			AddMyUtxo(kFee, nFee, h, false);
@@ -500,7 +500,6 @@ namespace beam
 
 
 		// NodeProcessor
-		virtual void get_Key(ECC::Scalar::Native& k, Height h, bool bCoinbase) override { }
 		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override {}
 		virtual void OnPeerInsane(const PeerID&) override {}
 		virtual void OnNewState() override {}
@@ -612,6 +611,9 @@ namespace beam
 		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
 		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
+
+		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
+		ECC::SetRandom(node2.get_Processor().m_Kdf.m_Secret.V);
 
 		node.Initialize();
 		node2.Initialize();

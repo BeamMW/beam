@@ -80,8 +80,18 @@ public:
 
 	bool IsStateNeeded(const Block::SystemState::ID&);
 
+	struct KeyType {
+		enum Enum {
+			Comission,
+			Coinbase,
+			Kernel
+		};
+	};
+
+	ECC::Kdf m_Kdf;
+	static void DeriveKey(ECC::Scalar::Native&, const ECC::Kdf&, Height, KeyType::Enum, uint32_t nIdx = 0);
+
 protected:
-	virtual void get_Key(ECC::Scalar::Native&, Height h, bool bCoinbase) = 0;
 	virtual void OnMined(Height, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase) {}
 };
 

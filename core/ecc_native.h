@@ -56,6 +56,8 @@ namespace ECC
 
 		bool Import(const Scalar&); // on overflow auto-normalizes and returns true
 		void Export(Scalar&) const;
+
+		void GenerateNonce(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt = 0);
 	};
 
 	class Point::Native
