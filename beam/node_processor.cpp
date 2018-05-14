@@ -788,34 +788,117 @@ void NodeProcessor::DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Hei
 	kdf.DeriveKey(out, h, eType, nIdx);
 }
 
-bool NodeProcessor::FeedTransaction(Transaction::Ptr&& p)
+bool NodeProcessor::IsStateNeeded(const Block::SystemState::ID& id)
 {
-	assert(p);
-/*
-	NodeDB::StateID sid;
-	m_DB.get_Cursor(sid);
+	return IsRelevantHeight(id.m_Height) && !m_DB.StateFindSafe(id);
+}
 
-	Transaction::Context ctx;
-	ctx.m_hMin = ctx.m_hMax = sid.m_Row ? (sid.m_Height+1) : 0; // consider only this block, deny future/past transactions
+/////////////////////////////
+// TxPool
+struct SerializerSizeCounter
+{
+	struct Counter
+	{
+		size_t m_Value;
 
-	if (!p->IsValid(ctx))
+		size_t write(const void *ptr, const size_t size)
+		{
+			m_Value += size;
+			return size;
+		}
+
+	} m_Counter;
+
+	yas::binary_oarchive<Counter, SERIALIZE_OPTIONS> _oa;
+
+
+	SerializerSizeCounter() : _oa(m_Counter)
+	{
+		m_Counter.m_Value = 0;
+	}
+
+	template <typename T> SerializerSizeCounter& operator & (const T& object)
+	{
+		_oa & object;
+		return *this;
+	}
+};
+
+bool NodeProcessor::TxPool::AddTx(Transaction::Ptr&& pValue, Height h)
+{
+	assert(pValue);
+
+	TxBase::Context ctx;
+	if (!pValue->IsValid(ctx))
 		return false;
 
-	if (m_lstCurrentlyMining.empty())
-		m_CurrentFees = ctx.m_Fee;
-	else
-		m_CurrentFees += ctx.m_Fee;
-*/
-	m_lstCurrentlyMining.push_back(std::move(p));
+	if ((h < ctx.m_hMin) || (h > ctx.m_hMax))
+		return false;
+
+	SerializerSizeCounter ssc;
+	ssc & pValue;
+
+	Element* p = new Element;
+	p->m_Threshold.m_Value	= ctx.m_hMax;
+	p->m_Profit.m_Fee	= ctx.m_Fee;
+	p->m_Profit.m_nSize	= ssc.m_Counter.m_Value;
+
+	m_setThreshold.insert(p->m_Threshold);
+	m_setProfit.insert(p->m_Profit);
+
+	p->m_pValue = std::move(pValue);
 	return true;
 }
 
-template <typename T>
-void AppendMoveArray(std::vector<T>& trg, std::vector<T>& src)
+void NodeProcessor::TxPool::Delete(Element& x)
 {
-	trg.reserve(trg.size() + src.size());
+	m_setThreshold.erase(ThresholdSet::s_iterator_to(x.m_Threshold));
+	m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
+	delete &x;
+}
+
+void NodeProcessor::TxPool::DeleteOutOfBound(Height h)
+{
+	while (!m_setThreshold.empty())
+	{
+		Element::Threshold& t = *m_setThreshold.begin();
+		if (t.m_Value >= h)
+			break;
+
+		Delete(t.get_ParentObj());
+	}
+}
+
+void NodeProcessor::TxPool::Clear()
+{
+	while (!m_setThreshold.empty())
+		Delete(m_setThreshold.begin()->get_ParentObj());
+}
+
+bool NodeProcessor::TxPool::Element::Profit::operator > (const Profit& t) const
+{
+	// TODO: handle overflow. To be precise need to use big-int (128-bit) arithmetics
+	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
+}
+
+/////////////////////////////
+// Block generation
+template <typename T>
+void AppendCloneArray(Serializer& ser, std::vector<T>& trg, const std::vector<T>& src)
+{
+	size_t i0 = trg.size();
+	trg.resize(i0 + src.size());
+
 	for (size_t i = 0; i < src.size(); i++)
-		trg.push_back(std::move(src[i]));
+	{
+		ser.reset();
+		ser & src[i];
+		SerializeBuffer sb = ser.buffer();
+
+		Deserializer der;
+		der.reset(sb.first, sb.second);
+		der & trg[i0 + i];
+	}
 }
 
 struct NodeProcessor::BlockBulder
@@ -835,27 +918,38 @@ struct NodeProcessor::BlockBulder
 	}
 };
 
-void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& block, ByteBuffer& pow)
+bool NodeProcessor::GenerateNewBlock(TxPool& txp, const ECC::Kdf& kdf, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
 {
 	NodeDB::Transaction t(m_DB);
 
-	// build the new block on top of the currently reachable blockchain
 	NodeDB::StateID sid;
 	m_DB.get_Cursor(sid);
 
 	Height h = sid.m_Row ? (sid.m_Height + 1) : 0;
-	Amount fee = 0;
+	fees = 0;
 
-	BlockBulder ctxBlock;
-	ctxBlock.m_Offset = ECC::Zero;
+	size_t nBlockSize = 0;
+
+	// due to (potential) inaccuracy in the block size estimation, our rough estimate - take no more than 95% of allowed block size, minus potential UTXOs to consume fees and coinbase.
+	const size_t nRoughExtra = sizeof(ECC::Point) * 2 + sizeof(ECC::RangeProof::Confidential) + sizeof(ECC::RangeProof::Public) + 300;
+	const size_t nSizeThreshold = Block::s_MaxBodySize * 95 / 100 - nRoughExtra;
 
 	ByteBuffer bbRbData;
 	RollbackData rbData;
 	rbData.m_pUtxo = NULL;
 
-	for (auto it = m_lstCurrentlyMining.begin(); m_lstCurrentlyMining.end() != it; it++)
+	BlockBulder ctxBlock;
+	ctxBlock.m_Offset = ECC::Zero;
+
+	Serializer ser;
+
+	for (TxPool::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
 	{
-		Transaction& tx = *(*it);
+		TxPool::Element& x = (it++)->get_ParentObj();
+		if (nBlockSize + x.m_Profit.m_nSize > nSizeThreshold)
+			break;
+
+		Transaction& tx = *x.m_pValue;
 
 		if (!tx.m_vInputs.empty())
 		{
@@ -864,33 +958,36 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 			rbData.m_pUtxo = rbData.get_BufAs() + nInputs;
 		}
 
-		Transaction::Context ctx;
-		ctx.m_hMin = ctx.m_hMax = h;
-		if (tx.IsValid(ctx) && HandleValidatedTx(tx, h, true, rbData))
+		if (HandleValidatedTx(tx, h, true, rbData))
 		{
-			fee += ctx.m_Fee;
+			// Clone the transaction before copying it to the block. We're forced to do this because they're not shared.
+			// TODO: Fix this!
 
-			AppendMoveArray(ctxBlock.m_Block.m_vInputs, tx.m_vInputs);
-			AppendMoveArray(ctxBlock.m_Block.m_vOutputs, tx.m_vOutputs);
-			AppendMoveArray(ctxBlock.m_Block.m_vKernelsInput, tx.m_vKernelsInput);
-			AppendMoveArray(ctxBlock.m_Block.m_vKernelsOutput, tx.m_vKernelsOutput);
+			AppendCloneArray(ser, ctxBlock.m_Block.m_vInputs, tx.m_vInputs);
+			AppendCloneArray(ser, ctxBlock.m_Block.m_vOutputs, tx.m_vOutputs);
+			AppendCloneArray(ser, ctxBlock.m_Block.m_vKernelsInput, tx.m_vKernelsInput);
+			AppendCloneArray(ser, ctxBlock.m_Block.m_vKernelsOutput, tx.m_vKernelsOutput);
 
+			fees += x.m_Profit.m_Fee;
 			ctxBlock.m_Offset += ECC::Scalar::Native(tx.m_Offset);
-		}
-	}
-	m_lstCurrentlyMining.clear();
+			nBlockSize += x.m_Profit.m_nSize;
 
-	if (fee)
+		} else
+			txp.Delete(x); // isn't available in this context
+	}
+
+	if (fees)
 	{
 		ECC::Scalar::Native kFee;
-		DeriveKey(kFee, m_Kdf, h, KeyType::Comission);
+		DeriveKey(kFee, kdf, h, KeyType::Comission);
 
-		ctxBlock.AddOutput(kFee, fee, false);
+		ctxBlock.AddOutput(kFee, fees, false);
 		verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
-	} else
+	}
+	else
 	{
 		ECC::Scalar::Native kKernel;
-		DeriveKey(kKernel, m_Kdf, h, KeyType::Kernel);
+		DeriveKey(kKernel, kdf, h, KeyType::Kernel);
 
 		TxKernel::Ptr pKrn(new TxKernel);
 		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kKernel);
@@ -907,10 +1004,9 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	}
 
 	ECC::Scalar::Native kCoinbase;
-	DeriveKey(kCoinbase, m_Kdf, h, KeyType::Coinbase);
+	DeriveKey(kCoinbase, kdf, h, KeyType::Coinbase);
 
-	const Amount nCoinbase = Block::s_CoinbaseEmission;
-	ctxBlock.AddOutput(kCoinbase, nCoinbase, true);
+	ctxBlock.AddOutput(kCoinbase, Block::s_CoinbaseEmission, true);
 
 	verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
 
@@ -933,28 +1029,17 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	// For test: undo the changes, and then redo, using the newly-created block
 	verify(HandleValidatedTx(ctxBlock.m_Block, h, false, rbData));
 
-	t.Commit();
+	t.Rollback(); // commit/rollback - doesn't matter, by now the system state should be fully restored to its original state. 
 
 	ctxBlock.m_Block.Sort();
 	ctxBlock.m_Block.DeleteIntermediateOutputs();
 	ctxBlock.m_Block.m_Offset = ctxBlock.m_Offset;
 
-	Serializer ser;
+	ser.reset();
 	ser & ctxBlock.m_Block;
-	ser.swap_buf(block);
+	ser.swap_buf(bbBlock);
 
-	OnState(s, NodeDB::Blob(NULL, 0), PeerID());
-
-	Block::SystemState::ID id;
-	s.get_ID(id);
-	OnBlock(id, block, PeerID());
-
-	OnMined(h, fee);
-}
-
-bool NodeProcessor::IsStateNeeded(const Block::SystemState::ID& id)
-{
-	return IsRelevantHeight(id.m_Height) && !m_DB.StateFindSafe(id);
+	return bbBlock.size() <= Block::s_MaxBodySize;
 }
 
 } // namespace beam

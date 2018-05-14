@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/intrusive/set.hpp>
 #include "../core/common.h"
 #include "../core/storage.h"
 #include "node_db.h"
@@ -36,7 +37,6 @@ class NodeProcessor
 	void OnCorrupted();
 	void get_CurrentLive(Merkle::Hash&);
 
-	std::list<Transaction::Ptr> m_lstCurrentlyMining;
 	struct BlockBulder;
 
 	bool IsRelevantHeight(Height);
@@ -72,10 +72,6 @@ public:
 	virtual void OnPeerInsane(const PeerID&) {}
 	virtual void OnNewState() {}
 
-	// Mining simulation
-	bool FeedTransaction(Transaction::Ptr&&); // returns false if the transaction isn't valid in its context
-	void SimulateMinedBlock(Block::SystemState::Full&, ByteBuffer& block, ByteBuffer& pow);
-
 	bool IsStateNeeded(const Block::SystemState::ID&);
 
 	struct KeyType {
@@ -89,8 +85,51 @@ public:
 	ECC::Kdf m_Kdf;
 	static void DeriveKey(ECC::Scalar::Native&, const ECC::Kdf&, Height, KeyType::Enum, uint32_t nIdx = 0);
 
-protected:
-	virtual void OnMined(Height, Amount nFee) {}
+	struct TxPool
+	{
+		struct Element
+		{
+			struct Profit
+				:public boost::intrusive::set_base_hook<>
+			{
+				Amount m_Fee;
+				size_t m_nSize;
+
+				bool operator > (const Profit& t) const;
+
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Profit)
+			} m_Profit;
+
+			struct Threshold
+				:public boost::intrusive::set_base_hook<>
+			{
+				Height m_Value;
+
+				bool operator > (const Threshold& t) const { return m_Value > t.m_Value; }
+
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Threshold)
+			} m_Threshold;
+
+			Transaction::Ptr m_pValue;
+		};
+
+		typedef boost::intrusive::multiset<Element::Profit, boost::intrusive::compare<std::greater<Element::Profit> > > ProfitSet;
+		typedef boost::intrusive::multiset<Element::Threshold, boost::intrusive::compare<std::greater<Element::Threshold> > > ThresholdSet;
+
+		ProfitSet m_setProfit;
+		ThresholdSet m_setThreshold;
+
+		bool AddTx(Transaction::Ptr&&, Height); // return false if transaction doesn't pass context-free validation
+		void Delete(Element&);
+		void Clear();
+
+		void DeleteOutOfBound(Height);
+
+		~TxPool() { Clear(); }
+
+	};
+
+	bool GenerateNewBlock(TxPool&, const ECC::Kdf&, Block::SystemState::Full&, ByteBuffer& block, Amount& fees);
 };
 
 

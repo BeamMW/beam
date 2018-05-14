@@ -347,6 +347,8 @@ namespace beam
 	{
 	public:
 
+		TxPool m_TxPool;
+
 		MyNodeProcessor1()
 		{
 			ECC::SetRandom(m_Kdf.m_Secret.V);
@@ -379,13 +381,6 @@ namespace beam
 			h += (KeyType::Coinbase == eType) ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
 
 			m_MyUtxos.insert(std::make_pair(h, utxo));
-		}
-
-		// NodeProcessor
-		virtual void OnMined(Height h, Amount nFee) override
-		{
-			AddMyUtxo(nFee, h, KeyType::Comission);
-			AddMyUtxo(Block::s_CoinbaseEmission, h, KeyType::Coinbase);
 		}
 	};
 
@@ -484,7 +479,7 @@ namespace beam
 				if (utxoOut.m_Value)
 					lstNewOutputs.push_back(utxoOut);
 
-				np.FeedTransaction(std::move(pTx));
+				np.m_TxPool.AddTx(std::move(pTx), h);
 			}
 
 			for (; !lstNewOutputs.empty(); lstNewOutputs.pop_front())
@@ -492,7 +487,19 @@ namespace beam
 
 			BlockPlus::Ptr pBlock(new BlockPlus);
 
-			np.SimulateMinedBlock(pBlock->m_Hdr, pBlock->m_Body, pBlock->m_PoW);
+			Amount fees = 0;
+			verify_test(np.GenerateNewBlock(np.m_TxPool, np.m_Kdf, pBlock->m_Hdr, pBlock->m_Body, fees));
+
+			np.OnState(pBlock->m_Hdr, pBlock->m_PoW, NodeDB::PeerID());
+
+			Block::SystemState::ID id;
+			pBlock->m_Hdr.get_ID(id);
+
+			np.OnBlock(id, pBlock->m_Body, NodeDB::PeerID());
+
+			np.AddMyUtxo(fees, h, NodeProcessor::KeyType::Comission);
+			np.AddMyUtxo(Block::s_CoinbaseEmission, h, NodeProcessor::KeyType::Coinbase);
+
 			blockChain.push_back(std::move(pBlock));
 		}
 
@@ -655,7 +662,19 @@ namespace beam
 				{
 					Block::SystemState::Full s;
 					ByteBuffer body, pow;
-					m_ppNode[m_iNode]->get_Processor().SimulateMinedBlock(s, body, pow);
+
+					NodeProcessor::TxPool txPool; // empty, no transactions
+
+					Node& n = *m_ppNode[m_iNode];
+					Amount fees = 0;
+					n.get_Processor().GenerateNewBlock(txPool, n.get_Processor().m_Kdf, s, body, fees);
+
+					n.get_Processor().OnState(s, NodeDB::Blob(NULL, 0), NodeDB::PeerID());
+
+					Block::SystemState::ID id;
+					s.get_ID(id);
+
+					n.get_Processor().OnBlock(id, body, NodeDB::PeerID());
 
 					m_HeightMax = std::max(m_HeightMax, s.m_Height);
 

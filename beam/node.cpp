@@ -179,10 +179,6 @@ void Node::Processor::OnNewState()
 	get_ParentObj().RefreshCongestions();
 }
 
-void Node::Processor::OnMined(Height, Amount nFee)
-{
-}
-
 Node::Peer* Node::AllocPeer()
 {
 	Peer* pPeer = new Peer;
