@@ -228,18 +228,18 @@ ErrorCode Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     return errorCode;
 }
 
-uv_write_t* Reactor::alloc_write_request() {
-    uv_write_t* req = _writeRequestsPool.alloc();
-    req->data = this;
-    return req;
+Reactor::WriteRequest* Reactor::alloc_write_request() {
+    WriteRequest* wr = _writeRequestsPool.alloc();
+    wr->req.data = this;
+    return wr;
 }
 
-void Reactor::release_write_request(uv_write_t*& req) {
-    _writeRequestsPool.release(req);
-    req = 0;
+void Reactor::release_write_request(Reactor::WriteRequest*& wr) {
+    _writeRequestsPool.release(wr);
+    wr = 0;
 }
 
-Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec, Address from) {
+Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec, Address bindTo) {
     assert(callback);
     assert(address);
     assert(_connectRequests.count(tag) == 0);
@@ -255,15 +255,15 @@ Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback
         return make_unexpected(errorCode);
     }
 
-    if (from) {
+    if (bindTo) {
         sockaddr_in bindAddr;
-        from.fill_sockaddr_in(bindAddr);
+        bindTo.fill_sockaddr_in(bindAddr);
+
         errorCode = (ErrorCode)uv_tcp_bind((uv_tcp_t*)h, (const sockaddr*)&bindAddr, 0);
         if (errorCode != 0) {
             return make_unexpected(errorCode);
         }
     }
-
     h->data = this;
 
     ConnectContext& ctx = _connectRequests[tag];

@@ -8,9 +8,7 @@ template <class Data> class SharedData {
     Data _data;
 
 public:
-    SharedData(const SharedData&)=delete;
-    SharedData& operator=(const SharedData&)=delete;
-
+    
     class Reader {
     public:
         Reader(const Reader&)=delete;
@@ -82,8 +80,23 @@ public:
     };
 
     SharedData() {}
+    
+    SharedData(SharedData&& d) :
+        _rwLock(std::move(d._rwLock)),
+        _data(std::move(d._data))
+    {}
+    
+    SharedData& operator=(SharedData&& d) {
+        _rwLock = std::move(d._rwLock);
+        _data = std::move(d._data);
+        return *this;
+    }
 
-    template<typename ...Args> SharedData(Args&& ... args) : _data(std::move(args...)) {}
+    SharedData(const Data& d) : _data(d) {}
+    
+    SharedData(Data&& d) : _data(std::move(d)) {}
+    
+    template<typename ...Args> SharedData(Args&& ... args) : _data(std::forward<Args...>(args...)) {}
 
     Reader read() const {
         _rwLock.lock_shared();

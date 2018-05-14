@@ -34,7 +34,7 @@ public:
 
     using ConnectCallback = std::function<void(uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode errorCode)>;
 
-    Result tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec=-1, Address from=Address());
+    Result tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec=-1, Address bindTo=Address());
 
     void cancel_tcp_connect(uint64_t tag);
 
@@ -121,8 +121,13 @@ private:
     ErrorCode init_object(ErrorCode errorCode, Object* o, uv_handle_t* h);
     void async_close(uv_handle_t*& handle);
 
-    uv_write_t* alloc_write_request();
-    void release_write_request(uv_write_t*& req);
+    struct WriteRequest {
+        uv_write_t req;
+        size_t n;
+    };
+
+    WriteRequest* alloc_write_request();
+    void release_write_request(WriteRequest*& req);
 
     union Handles {
         uv_timer_t timer;
@@ -134,7 +139,7 @@ private:
     uv_async_t _stopEvent;
     MemPool<uv_handle_t, sizeof(Handles)> _handlePool;
     MemPool<uv_connect_t, sizeof(uv_connect_t)> _connectRequestsPool;
-    MemPool<uv_write_t, sizeof(uv_write_t)> _writeRequestsPool;
+    MemPool<WriteRequest, sizeof(WriteRequest)> _writeRequestsPool;
     std::unordered_map<uint64_t, ConnectContext> _connectRequests;
     std::unordered_set<uv_connect_t*> _cancelledConnectRequests;
     std::unique_ptr<CoarseTimer> _connectTimer;

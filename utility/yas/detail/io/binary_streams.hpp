@@ -285,6 +285,7 @@ struct binary_istream {
     template<typename T>
     void read(T &v, __YAS_ENABLE_IF_IS_ANY_OF(T, std::int16_t, std::int32_t, std::int64_t)) {
         __YAS_CONSTEXPR_IF ( F & yas::compacted ) {
+            v = 0;
             std::uint8_t ns = __YAS_SCAST(std::uint8_t, is.getch());
             const bool neg = __YAS_SCAST(bool, (ns >> 7) & 1u);
             const bool onebyte = __YAS_SCAST(bool, (ns >> 6) & 1u);
@@ -306,6 +307,7 @@ struct binary_istream {
     template<typename T>
     void read(T &v, __YAS_ENABLE_IF_IS_ANY_OF(T, std::uint16_t, std::uint32_t, std::uint64_t, unsigned long)) {
         __YAS_CONSTEXPR_IF ( F & yas::compacted ) {
+            v = 0;
             std::uint8_t ns = __YAS_SCAST(std::uint8_t, is.getch());
             const bool onebyte = __YAS_SCAST(bool, (ns >> 7) & 1u);
             ns &= ~(1u << 7);

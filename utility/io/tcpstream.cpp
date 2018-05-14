@@ -95,46 +95,52 @@ Result TcpStream::write(const std::vector<SharedBuffer>& fragments) {
 
 Result TcpStream::send_write_request() {
     static uv_write_cb write_cb = [](uv_write_t* req, int errorCode) {
+        Reactor::WriteRequest* wr = reinterpret_cast<Reactor::WriteRequest*>(req);
         if (errorCode != UV_ECANCELED) {
             // object may be no longer alive if UV_CANCELED
-            
-            assert(req->handle);
-            
-            TcpStream* self = reinterpret_cast<TcpStream*>(req->handle->data);
+
+            assert(wr->req.handle);
+
+            TcpStream* self = reinterpret_cast<TcpStream*>(wr->req.handle->data);
             if (self) {
-                self->on_data_written(ErrorCode(errorCode));
+                self->on_data_written(ErrorCode(errorCode), wr->n);
             }
         }
         assert(req->data);
         Reactor* reactor = reinterpret_cast<Reactor*>(req->data);
-        reactor->release_write_request(req);
+        reactor->release_write_request(wr);
     };
 
     if (!_writeRequestSent) {
-        uv_write_t* req = _reactor->alloc_write_request();
-        ErrorCode errorCode = (ErrorCode)uv_write(req, (uv_stream_t*)_handle,
+        Reactor::WriteRequest* wr = _reactor->alloc_write_request();
+        wr->n = _writeBuffer.size();
+        ErrorCode errorCode = (ErrorCode)uv_write((uv_write_t*)wr, (uv_stream_t*)_handle,
             (uv_buf_t*)_writeBuffer.fragments(), _writeBuffer.num_fragments(), write_cb
         );
+
+        _state.unsent += wr->n;
 
         if (errorCode != 0) {
             return make_unexpected(errorCode);
         }
         _writeRequestSent = true;
     }
-    
+
     return Ok();
 }
 
-void TcpStream::on_data_written(ErrorCode errorCode) {
+void TcpStream::on_data_written(ErrorCode errorCode, size_t n) {
+    LOG_VERBOSE() << TRACE(_handle) << TRACE(errorCode) << TRACE(n) << TRACE(_state.unsent) << TRACE(_state.sent) << TRACE(_state.received);
+
     if (errorCode != 0) {
         if (_callback) _callback(errorCode, 0, 0);
     } else {
-        size_t sent = _state.unsent;
-        _writeBuffer.advance(sent);
-        _state.sent += sent;
-        _state.unsent = _writeBuffer.size();
+        _writeBuffer.advance(n);
+        _state.sent += n;
+        assert(_state.unsent >= n);
+        _state.unsent -= n;
         _writeRequestSent = false;
-        if (_state.unsent != 0) {
+        if (!_writeBuffer.empty()) {
             send_write_request();
         }
     }
@@ -162,11 +168,11 @@ Address TcpStream::peer_address() const {
 
 void TcpStream::on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
     LOG_VERBOSE() << TRACE(handle) << TRACE(nread);
-    
+
     TcpStream* self = reinterpret_cast<TcpStream*>(handle->data);
-    
+
     // self becomes null after async close
-    
+
     if (self && self->_callback) {
         if (nread > 0) {
             self->_state.received += nread;

@@ -55,7 +55,7 @@ public:
 
     /// Returns socket address (non-null if connected)
     Address address() const;
-    
+
     /// Returns peer address (non-null if connected)
     Address peer_address() const;
 
@@ -66,7 +66,7 @@ private:
     friend class Reactor;
 
     TcpStream() = default;
-    
+
     void alloc_read_buffer();
     void free_read_buffer();
 
@@ -74,7 +74,7 @@ private:
     Result send_write_request();
 
     // callback from write request
-    void on_data_written(ErrorCode errorCode);
+    void on_data_written(ErrorCode errorCode, size_t n);
 
     // stream accepted from server
     ErrorCode accepted(uv_handle_t* acceptor);

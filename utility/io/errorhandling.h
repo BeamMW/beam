@@ -10,6 +10,7 @@ namespace beam { namespace io {
 enum ErrorCode {
     EC_OK = 0,
     EC_WRITE_BUFFER_OVERFLOW = UV_ERRNO_MAX - 1,
+    EC_FILE_CORRUPTED = UV_ERRNO_MAX - 2,
 #define XX(code, _) EC_ ## code = UV_ ## code,
     UV_ERRNO_MAP(XX)
 #undef XX

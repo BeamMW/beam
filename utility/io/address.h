@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <functional>
 #include <stdint.h>
 #include <string.h>
 #ifdef WIN32
@@ -74,4 +75,12 @@ struct Address {
 };
 
 }} //namespaces
+
+namespace std {
+    template<> struct hash<beam::io::Address> {
+        size_t operator()(beam::io::Address a) const {
+            return std::hash<uint64_t>()(a.packed);
+        }
+    };
+}
 
