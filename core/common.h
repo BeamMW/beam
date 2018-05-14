@@ -268,6 +268,8 @@ namespace beam
 		static const Height s_MaturityCoinbase;
 		static const Height s_MaturityStd;
 
+		static const size_t s_MaxBodySize;
+
 		struct Body
 			:public TxBase
 		{
