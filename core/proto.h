@@ -112,7 +112,6 @@ namespace proto {
 		std::unique_ptr<Connection> m_Connection;
 		bool m_ConnectPending;
 
-		io::TcpServer::Ptr server;
 		SerializedMsg m_SerializeCache;
 
 		static void TestIoResult(const io::Result& res);
