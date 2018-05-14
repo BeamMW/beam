@@ -1,3 +1,4 @@
+#include "wallet/wallet_network.h"
 #include "core/common.h"
 
 #include "node.h"
