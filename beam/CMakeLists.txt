@@ -5,8 +5,8 @@ set(NODE_SRC
 )
 
 add_library(node STATIC ${NODE_SRC})
-add_dependencies(node chain pool sqlite core)
-target_link_libraries(node chain pool sqlite core)
+add_dependencies(node chain pool sqlite core p2p)
+target_link_libraries(node chain pool sqlite core p2p)
 
 add_executable(beam beam.cpp)
 

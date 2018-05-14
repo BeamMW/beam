@@ -16,6 +16,7 @@ set(IO_SRC
     io/tcpstream.cpp
     io/errorhandling.cpp
     io/coarsetimer.cpp
+    asynccontext.cpp
 # ~etc
 )
 

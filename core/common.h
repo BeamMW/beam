@@ -11,7 +11,7 @@
 
 #ifdef WIN32
 #	define NOMINMAX
-#	include <windows.h>
+#	include <winsock2.h>
 #endif // WIN32
 
 #ifndef verify
@@ -21,6 +21,9 @@
 #		define verify(x) assert(x)
 #	endif //  NDEBUG
 #endif // verify
+
+#define IMPLEMENT_GET_PARENT_OBJ(parent_class, this_var) \
+	parent_class& get_ParentObj() { return * (parent_class*) (((uint8_t*) this) + 1 - (uint8_t*) (&((parent_class*) 1)->this_var)); }
 
 #include "ecc.h"
 
@@ -199,6 +202,9 @@ namespace beam
 			struct ID {
 				Merkle::Hash	m_Hash; // explained later
 				Height			m_Height;
+
+				int cmp(const ID&) const;
+				COMPARISON_VIA_CMP(ID)
 			};
 
 			struct Full {

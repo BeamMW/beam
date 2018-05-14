@@ -10,10 +10,15 @@ void NodeProcessor::OnCorrupted()
 	throw std::runtime_error("node data corrupted");
 }
 
-void NodeProcessor::Initialize(const char* szPath, Height horizon)
+NodeProcessor::Horizon::Horizon()
+	:m_Branching(-1)
+	,m_Schwarzschild(-1)
+{
+}
+
+void NodeProcessor::Initialize(const char* szPath)
 {
 	m_DB.Open(szPath);
-	m_Horizon = horizon;
 
 	// Load all th 'live' data
 	{
@@ -67,10 +72,64 @@ void NodeProcessor::Initialize(const char* szPath, Height horizon)
 		}
 	}
 
-
 	NodeDB::Transaction t(m_DB);
 	TryGoUp();
 	t.Commit();
+}
+
+void NodeProcessor::EnumCongestions()
+{
+	NodeDB::StateID sidPos;
+	if (!m_DB.get_Cursor(sidPos))
+		sidPos.m_Height = 0;
+
+	// request all potentially missing data
+	NodeDB::WalkerState ws(m_DB);
+	for (m_DB.EnumTips(ws); ws.MoveNext(); )
+	{
+		NodeDB::StateID& sid = ws.m_Sid; // alias
+		if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row))
+			continue;
+
+		if (sid.m_Height < sidPos.m_Height)
+			continue; // not interested in tips behind the current cursor
+
+		bool bBlock = true;
+
+		while (sid.m_Height)
+		{
+			NodeDB::StateID sidThis = sid;
+			if (!m_DB.get_Prev(sid))
+			{
+				bBlock = false;
+				break;
+			}
+
+			if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row))
+			{
+				sid = sidThis;
+				break;
+			}
+		}
+
+		Block::SystemState::Full s;
+		m_DB.get_State(sid.m_Row, s);
+
+		Block::SystemState::ID id;
+
+		if (bBlock)
+			s.get_ID(id);
+		else
+		{
+			id.m_Height = s.m_Height - 1;
+			id.m_Hash = s.m_Prev;
+		}
+
+		PeerID peer;
+		bool bPeer = m_DB.get_Peer(sid.m_Row, peer);
+
+		RequestData(id, bBlock, bPeer ? &peer : NULL);
+	}
 }
 
 void NodeProcessor::TryGoUp()
@@ -141,14 +200,16 @@ void NodeProcessor::TryGoUp()
 		NodeDB::StateID sidPos;
 		m_DB.get_Cursor(sidPos);
 		PruneOld(sidPos.m_Height);
+
+		OnNewState();
 	}
 }
 
 void NodeProcessor::PruneOld(Height h)
 {
-	if (h <= m_Horizon)
+	if (h <= m_Horizon.m_Branching)
 		return;
-	h -= m_Horizon;
+	h -= m_Horizon.m_Branching;
 
 	while (true)
 	{
@@ -170,6 +231,14 @@ void NodeProcessor::PruneOld(Height h)
 				break;
 		} while (rowid);
 	}
+
+	if (m_Horizon.m_Schwarzschild <= m_Horizon.m_Branching)
+		return;
+
+	Height hExtra = m_Horizon.m_Schwarzschild - m_Horizon.m_Branching;
+	if (h <= hExtra)
+		return;
+	h -= hExtra;
 
 	for (Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight); hFossil < h; )
 	{
@@ -199,8 +268,8 @@ void NodeProcessor::PruneOld(Height h)
 
 		DereferenceFossilBlock(rowid);
 
-		m_DB.SetStateBlock(rowid, NodeDB::Blob(NULL, 0), PeerID());
-		m_DB.SetStateRollback(rowid, NodeDB::Blob(NULL, 0));
+		m_DB.DelStateBlock(rowid);
+		m_DB.set_Peer(rowid, NULL);
 
 		++hFossil;
 		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
@@ -236,11 +305,11 @@ struct NodeProcessor::RollbackData
 	size_t get_Utxos() const { return m_pUtxo - get_BufAs(); }
 };
 
-bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, PeerID& peer, bool bFwd)
+bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 {
 	ByteBuffer bb;
 	RollbackData rbData;
-	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf, peer);
+	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf);
 
 	Block::Body block;
 	try {
@@ -578,9 +647,8 @@ void NodeProcessor::DereferenceFossilBlock(uint64_t rowid)
 {
 	ByteBuffer bbBlock;
 	RollbackData rbData;
-	PeerID peer;
 
-	m_DB.GetStateBlock(rowid, bbBlock, rbData.m_Buf, peer);
+	m_DB.GetStateBlock(rowid, bbBlock, rbData.m_Buf);
 
 	Block::Body block;
 
@@ -622,8 +690,7 @@ void NodeProcessor::get_KrnKey(Merkle::Hash& hv, const TxKernel& v)
 
 bool NodeProcessor::GoForward(const NodeDB::StateID& sid)
 {
-	PeerID peer;
-	if (HandleBlock(sid, peer, true))
+	if (HandleBlock(sid, true))
 	{
 		m_DB.MoveFwd(sid);
 		return true;
@@ -632,14 +699,19 @@ bool NodeProcessor::GoForward(const NodeDB::StateID& sid)
 	m_DB.DelStateBlock(sid.m_Row);
 	m_DB.SetStateNotFunctional(sid.m_Row);
 
-	OnPeerInsane(peer);
+	PeerID peer;
+	if (m_DB.get_Peer(sid.m_Row, peer))
+	{
+		m_DB.set_Peer(sid.m_Row, NULL);
+		OnPeerInsane(peer);
+	}
+
 	return false;
 }
 
 void NodeProcessor::Rollback(const NodeDB::StateID& sid)
 {
-	PeerID peer;
-	if (!HandleBlock(sid, peer, false))
+	if (!HandleBlock(sid, false))
 		OnCorrupted();
 
 	NodeDB::StateID sid2(sid);
@@ -666,24 +738,26 @@ bool NodeProcessor::get_CurrentState(Block::SystemState::ID& id)
 	return true;
 }
 
+bool NodeProcessor::IsRelevantHeight(Height h)
+{
+	uint64_t hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight);
+	return !hFossil || (h > hFossil);
+}
+
 bool NodeProcessor::OnState(const Block::SystemState::Full& s, const NodeDB::Blob& /*pow*/, const PeerID& peer)
 {
+	if (!IsRelevantHeight(s.m_Height))
+		return false;
+
 	Block::SystemState::ID id;
 	s.get_ID(id);
 	if (m_DB.StateFindSafe(id))
-		return true;
-
-	uint64_t hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight);
-	if (hFossil && (s.m_Height <= hFossil))
 		return false;
 
 	NodeDB::Transaction t(m_DB);
-	m_DB.InsertState(s);
-
+	uint64_t rowid = m_DB.InsertState(s);
+	m_DB.set_Peer(rowid, &peer);
 	t.Commit();
-
-	// request bodies?
-
 
 	return true;
 }
@@ -694,16 +768,17 @@ bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob
 	if (!rowid)
 		return false;
 
-	uint32_t nFlags = m_DB.GetStateFlags(rowid);
-	if (NodeDB::StateFlags::Functional & nFlags)
-		return true;
+	if (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(rowid))
+		return false;
 
 	NodeDB::Transaction t(m_DB);
 
-	m_DB.SetStateBlock(rowid, block, peer);
+	m_DB.SetStateBlock(rowid, block);
 	m_DB.SetStateFunctional(rowid);
+	m_DB.set_Peer(rowid, &peer);
 
-	TryGoUp();
+	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
+		TryGoUp();
 
 	t.Commit();
 
@@ -822,7 +897,7 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 		pKrn->m_Signature.Sign(hv, kFee);
 		ctxBlock.m_Block.m_vKernelsOutput.push_back(std::move(pKrn));
 
-		verify(HandleBlockElement(*ctxBlock.m_Block.m_vKernelsOutput.back(), true, false));
+		verify(HandleBlockElement(*ctxBlock.m_Block.m_vKernelsOutput.back(), true, false)); // Will fail if kernel key duplicated!
 
 		kFee = -kFee;
 		ctxBlock.m_Offset += kFee;
@@ -870,6 +945,11 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	OnBlock(id, block, PeerID());
 
 	OnMined(h, kFee, fee, kCoinbase, nCoinbase);
+}
+
+bool NodeProcessor::IsStateNeeded(const Block::SystemState::ID& id)
+{
+	return IsRelevantHeight(id.m_Height) && !m_DB.StateFindSafe(id);
 }
 
 } // namespace beam

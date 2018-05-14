@@ -2,111 +2,158 @@
 
 #include "common.h"
 #include "async.h"
-
-//////////////////////////
-// Protocol
-//
-//	get_Tip: Getting the tip, state of the active branch
-//		<- State
-//
-//	get_PoW: Getting a range of consecutive system states.
-//		-> StateTop, CountBack
-//		<- vector<State>
-//
-//	get_PoW: Getting PoW for a specific state transition
-//		-> State
-//		<- ptr<PoW>, NULL if state not found (invalid or deleted as dead)
-//
-//	get_ProofState: Getting a proof that a specific state is included in the blockchain
-//		-> State (not necessarily tip), StateParent
-//		<- Proof, empty if invalid
-//
-//	get_ProofUtxo: Getting proof of the unspent UTXO w.r.t. current tip (not supporting w.r.t. atbitrary state!)
-//		-> ECC::Point
-//		<- vector<BlockHeight, CoinBaseFlag, Count, Proof>
-//
-//	get_ProofKernel: Getting a proof for a specific TxKernel. The State must be specified (not supporting auto-search). For simplicity node should support search in a limited range
-//		-> State, CountSearchBack
-//		<- State, Proof, empty if not found
-//
-
-#define Beam_ProtoMsgs_ToNode(macro) \
-	macro(get_Tip) \
-	macro(get_StateRange) \
-	macro(get_PoW) \
-	macro(get_ProofState) \
-	macro(get_ProofUtxo) \
-	macro(get_ProofKernel) \
-	macro(HandleTransaction)
-
-
-#define Beam_ProtoMsgs_FromNode(macro) \
-	macro(ret_Tip) \
-	macro(ret_StateRange) \
-	macro(ret_PoW) \
-	macro(ret_ProofState) \
-	macro(ret_ProofUtxo) \
-	macro(ret_ProofKernel) \
-	macro(HandleTransactionRes)
-
-#define Beam_ProtoMsg_get_Tip(macro)
-
-#define Beam_ProtoMsg_ret_Tip(macro) \
-	macro(beam::Block::SystemState::Full, State)
-
-#define Beam_ProtoMsg_get_StateRange(macro) \
-	macro(beam::Block::SystemState::ID, StateTop) \
-	macro(beam::Height, CountBack)
-
-#define Beam_ProtoMsg_ret_StateRange(macro) \
-	macro(std::vector<beam::Block::SystemState::Full>, States)
-
-#define Beam_ProtoMsg_get_PoW(macro) \
-	macro(beam::Block::SystemState::ID, State)
-
-#define Beam_ProtoMsg_ret_PoW(macro) \
-	macro(std::unique_ptr<beam::Block::PoW>, PoW)
-
-#define Beam_ProtoMsg_get_ProofState(macro) \
-	macro(beam::Block::SystemState::ID, State) \
-	macro(beam::Block::SystemState::ID, Parent)
-
-#define Beam_ProtoMsg_ret_ProofState(macro) \
-	macro(beam::Merkle::Proof, Proof)
-
-#define Beam_ProtoMsg_get_ProofUtxo(macro) \
-	macro(ECC::Point, Utxo) \
-
-#define Beam_ProtoMsg_ret_ProofUtxo(macro) \
-	macro(beam::Block::SystemState::ID, Tip) \
-	macro(std::vector<beam::proto::UtxoProof>, Proofs)
-
-#define Beam_ProtoMsg_get_ProofKernel(macro) \
-	macro(beam::Block::SystemState::ID, State) \
-	macro(beam::TxKernel, Kernel)
-
-#define Beam_ProtoMsg_ret_ProofKernel(macro) \
-	macro(beam::Merkle::Proof, Proof)
-
-#define Beam_ProtoMsg_ret_HandleTransaction(macro) \
-	macro(beam::Transaction, Transaction)
-
-#define HandleTransactionRes(macro) \
-	macro(bool, IsValid)
+#include "../utility/bridge.h"
+#include "../p2p/protocol.h"
+#include "../p2p/connection.h"
+#include "../utility/io/tcpserver.h"
 
 namespace beam {
 namespace proto {
 
-	struct UtxoDescription {
-		uint64_t	m_Height;
-		uint32_t	m_Count;
-		bool		n_Coinbase;
+#define BeamNodeMsg_NewTip(macro) \
+	macro(Block::SystemState::ID, ID)
+
+#define BeamNodeMsg_GetHdr(macro) \
+	macro(Block::SystemState::ID, ID)
+
+#define BeamNodeMsg_Hdr(macro) \
+	macro(Block::SystemState::Full, Description)
+
+#define BeamNodeMsg_DataMissing(macro)
+
+#define BeamNodeMsg_Boolean(macro) \
+	macro(bool, Value)
+
+#define BeamNodeMsg_GetBody(macro) \
+	macro(Block::SystemState::ID, ID)
+
+#define BeamNodeMsg_Body(macro) \
+	macro(ByteBuffer, Buffer)
+
+#define BeamNodeMsg_GetProofState(macro) \
+	macro(Block::SystemState::ID, ID)
+
+#define BeamNodeMsg_GetProofKernel(macro) \
+	macro(Merkle::Hash, KernelHash)
+
+#define BeamNodeMsg_GetProofUtxo(macro) \
+	macro(Input, Utxo) \
+	macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
+
+	 
+#define BeamNodeMsg_Proof(macro) \
+	macro(Block::SystemState::ID, ID) \
+	macro(Merkle::Proof, Proof)
+
+#define BeamNodeMsg_ProofUtxo(macro) \
+	macro(Block::SystemState::ID, ID) \
+	macro(std::vector<PerUtxoProof>, Proofs)
+
+#define BeamNodeMsg_Ping(macro)
+#define BeamNodeMsg_Pong(macro)
+
+
+#define BeamNodeMsgsAll(macro) \
+	macro(1, NewTip) /* Also the first message sent by the node */ \
+	macro(2, GetHdr) \
+	macro(3, Hdr) \
+	macro(4, DataMissing) \
+	macro(5, Boolean) \
+	macro(6, GetBody) \
+	macro(7, Body) \
+	macro(8, GetProofState) \
+	macro(9, GetProofKernel) \
+	macro(10, GetProofUtxo) \
+	macro(11, Proof) /* for states and kernels */ \
+	macro(12, ProofUtxo) \
+	macro(21, Ping) \
+	macro(22, Pong)
+
+
+	struct PerUtxoProof
+	{
+		Height m_Maturity;
+		Input::Count m_Count;
+		Merkle::Proof m_Proof;
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_Maturity
+				& m_Count
+				& m_Proof;
+		}
+
+		static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
 	};
 
-	struct UtxoProof {
-		UtxoDescription	m_Description;
-		Merkle::Proof	m_Proof;
+
+#define THE_MACRO3(type, name) & m_##name
+#define THE_MACRO2(type, name) type m_##name;
+#define THE_MACRO1(code, msg) \
+	struct msg \
+	{ \
+		BeamNodeMsg_##msg(THE_MACRO2) \
+ 		template <typename Archive> void serialize(Archive& ar) { ar BeamNodeMsg_##msg(THE_MACRO3); } \
 	};
+
+	BeamNodeMsgsAll(THE_MACRO1)
+#undef THE_MACRO1
+#undef THE_MACRO2
+#undef THE_MACRO3
+
+
+
+	class NodeConnection
+		:public IMsgHandler
+	{
+		Protocol<NodeConnection> m_Protocol;
+		std::unique_ptr<Connection> m_Connection;
+		bool m_ConnectPending;
+
+		io::TcpServer::Ptr server;
+		SerializedMsg m_SerializeCache;
+
+		static void TestIoResult(const io::Result& res);
+
+		static void OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, int status);
+		void OnConnectInternal2(io::TcpStream::Ptr&& newStream, int status);
+
+		virtual void on_protocol_error(uint64_t, ProtocolError error) override;
+		virtual void on_connection_error(uint64_t, int errorCode) override;
+
+#define THE_MACRO(code, msg) bool OnMsgInternal(uint64_t, msg&& v);
+		BeamNodeMsgsAll(THE_MACRO)
+#undef THE_MACRO
+
+	public:
+
+		NodeConnection();
+		virtual ~NodeConnection();
+		void Reset();
+
+		void Connect(const io::Address& addr);
+		void Accept(io::TcpStream::Ptr&& newStream);
+
+		virtual void OnConnected() {}
+		virtual void OnClosed(int errorCode) {}
+
+#define THE_MACRO(code, msg) \
+		void Send(const msg& v); \
+		virtual void OnMsg(msg&& v) {}
+		BeamNodeMsgsAll(THE_MACRO)
+#undef THE_MACRO
+
+		struct Server
+		{
+			io::TcpServer::Ptr m_pServer; // just delete it to stop listening
+			void Listen(const io::Address& addr);
+
+			virtual void OnAccepted(io::TcpStream::Ptr&&, int errorCode) = 0;
+		};
+	};
+
 
 } // namespace proto
 } // namespace beam

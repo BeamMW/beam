@@ -4,7 +4,7 @@
 #include "utility/logger.h"
 #include "utility/bridge.h"
 #include "utility/io/tcpserver.h"
-#include "utility/io/timer.h"
+#include "utility/asynccontext.h"
 
 using namespace beam;
 using namespace std;
@@ -73,14 +73,12 @@ enum NetworkMessageCodes : uint8_t {
 };
 
 // Network logic and protocol message handler - can be also unified with NetworkToLogicBridge
-struct NetworkSide : public IMsgHandler, public ILogicToNetwork {
+struct NetworkSide : public IMsgHandler, public ILogicToNetwork, public AsyncContext {
     Protocol<NetworkSide> protocol;
     INetworkToLogic& proxy;
     io::Address address;
     bool thisIsServer;
-    io::Reactor::Ptr reactor;
     LogicToNetworkBridge bridge;
-    Thread t;
     std::unique_ptr<Connection> connection;
 
     // just for example, more complex logic can be implied
@@ -94,8 +92,7 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork {
         proxy(_proxy),
         address(_address),
         thisIsServer(_thisIsServer),
-        reactor(io::Reactor::create()),
-        bridge(*this, reactor)
+        bridge(*this, _reactor)
     {
         // TODO can be wrapped into macros
         protocol.add_message_handler<Request, &NetworkSide::on_request>(requestCode, 1, 2000000);
@@ -111,28 +108,21 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork {
         // Only event handling matters
         if (thisIsServer) {
             // TODO error handling here
-            server = io::TcpServer::create(reactor, address, BIND_THIS_MEMFN(on_stream_accepted));
+            server = io::TcpServer::create(_reactor, address, BIND_THIS_MEMFN(on_stream_accepted));
         } else {
-            reactor->tcp_connect(
+            _reactor->tcp_connect(
                 address,
                 address.packed,
                 BIND_THIS_MEMFN(on_client_connected)
             );
         }
 
-        t.start(BIND_THIS_MEMFN(thread_func));
+        run_async([]{}, [this]{ bridge.stop_rx(); });
     }
 
-    void thread_func() {
-        LOG_INFO() << __PRETTY_FUNCTION__ << " starting";
-        reactor->run();
-        LOG_DEBUG() << __PRETTY_FUNCTION__ << " exiting";
-        bridge.stop_rx();
-    }
-
-    void stop() {
-        reactor->stop();
-        t.join();
+    void stop_and_wait() {
+        stop();
+        wait();
     }
 
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, int errorCode) {
@@ -224,48 +214,19 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork {
 };
 
 // App-side async thread context
-struct AppSideAsyncContext {
-    io::Reactor::Ptr reactor;
+struct AppSideAsyncContext : public AsyncContext {
     NetworkToLogicBridge bridge;
-    Thread t;
-
+    
     AppSideAsyncContext(INetworkToLogic& logicCallbacks) :
-        reactor(io::Reactor::create()),
-        bridge(logicCallbacks, reactor)
+        bridge(logicCallbacks, _reactor)
     {}
-
-    ~AppSideAsyncContext() {
-        t.join();
-    }
 
     INetworkToLogic& get_proxy() {
         return bridge;
     }
 
-    // periodic timer for this example, can also setup a one-shot timer
-    io::Timer::Ptr set_timer(unsigned periodMsec, io::Timer::Callback&& onTimer) {
-        io::Timer::Ptr timer(io::Timer::create(reactor));
-        timer->start(periodMsec, true, std::move(onTimer));
-        return timer;
-    }
-
     void run() {
-        t.start(BIND_THIS_MEMFN(thread_func));
-    }
-
-    void thread_func() {
-        LOG_INFO() << " starting";
-        reactor->run();
-        LOG_DEBUG() << " exiting";
-        bridge.stop_rx();
-    }
-
-    void stop() {
-        reactor->stop();
-    }
-
-    void wait() {
-        t.join();
+        run_async([]{}, [this]{ bridge.stop_rx(); });
     }
 };
 
@@ -336,7 +297,7 @@ struct App {
 
     void wait() {
         appLogic.wait();
-        networkLogic.stop();
+        networkLogic.stop_and_wait();
     }
 };
 

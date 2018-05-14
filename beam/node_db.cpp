@@ -853,23 +853,45 @@ void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, bool b
 	}
 }
 
-void NodeDB::SetStateBlock(uint64_t rowid, const Blob& body, const PeerID& peer)
+void NodeDB::set_Peer(uint64_t rowid, const PeerID* pPeer)
 {
-	Recordset rs(*this, Query::StateSetBlock, "UPDATE " TblStates " SET " TblStates_Body "=?," TblStates_Peer "=? WHERE rowid=?");
+	Recordset rs(*this, Query::StateSetPeer, "UPDATE " TblStates " SET " TblStates_Peer "=? WHERE rowid=?");
+	if (pPeer)
+		rs.put_As(0, *pPeer);
+	rs.put(1, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+bool NodeDB::get_Peer(uint64_t rowid, PeerID& peer)
+{
+	Recordset rs(*this, Query::StateGetPeer, "SELECT " TblStates_Peer " FROM " TblStates " WHERE rowid=?");
+	rs.put(0, rowid);
+	if (!rs.Step())
+		throw "oops5";
+
+	if (rs.IsNull(0))
+		return false;
+
+	rs.get_As(0, peer);
+
+	return true;
+}
+
+void NodeDB::SetStateBlock(uint64_t rowid, const Blob& body)
+{
+	Recordset rs(*this, Query::StateSetBlock, "UPDATE " TblStates " SET " TblStates_Body "=? WHERE rowid=?");
 	if (body.n)
-	{
 		rs.put(0, body);
-		rs.put_As(1, peer);
-	}
-	rs.put(2, rowid);
+	rs.put(1, rowid);
 
 	rs.Step();
 	TestChanged1Row();
 }
 
-void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rollback, PeerID& peer)
+void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rollback)
 {
-	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_Body "," TblStates_Rollback "," TblStates_Peer " FROM " TblStates " WHERE rowid=?");
+	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_Body "," TblStates_Rollback " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 	if (!rs.Step())
 		throw "oops3";
@@ -879,7 +901,6 @@ void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rollbac
 		rs.get(0, body);
 		if (!rs.IsNull(1))
 			rs.get(1, rollback);
-		rs.get_As(2, peer);
 	}
 }
 
@@ -896,8 +917,8 @@ void NodeDB::SetStateRollback(uint64_t rowid, const Blob& rollback)
 void NodeDB::DelStateBlock(uint64_t rowid)
 {
 	Blob bEmpty(NULL, 0);
-	PeerID dummy;
-	SetStateBlock(rowid, bEmpty, dummy);
+	SetStateBlock(rowid, bEmpty);
+	SetStateRollback(rowid, bEmpty);
 }
 
 void NodeDB::SetFlags(uint64_t rowid, uint32_t n)
@@ -1084,6 +1105,13 @@ void NodeDB::EnumStatesAt(WalkerState& x, Height h)
 {
 	x.m_Rs.Reset(Query::EnumAtHeight, "SELECT " TblStates_Height ",rowid FROM " TblStates " WHERE " TblStates_Height "=? ORDER BY " TblStates_Hash);
 	x.m_Rs.put(0, h);
+}
+
+void NodeDB::EnumAncestors(WalkerState& x, const StateID& sid)
+{
+	x.m_Rs.Reset(Query::EnumAncestors, "SELECT " TblStates_Height ",rowid FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_RowPrev "=? ORDER BY " TblStates_Hash);
+	x.m_Rs.put(0, sid.m_Height + 1);
+	x.m_Rs.put(1, sid.m_Row);
 }
 
 bool NodeDB::WalkerState::MoveNext()

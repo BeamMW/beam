@@ -50,20 +50,18 @@ int main(int argc, char* argv[])
 
         auto port = vm["port"].as<uint16_t>();
 
-        if (vm.count("node")) 
-        {
-            Node::Config config;
-            config.port = port;
-
-            LOG_INFO() << "starting a node on " << config.port << " port...";
-
-            Node node;
-            node.listen(config);
-        } 
-        else if (vm.count("mode")) {
+        if (vm.count("mode")) {
             auto mode = vm["mode"].as<string>();
             if (mode == "node") {
+                beam::Node node;
 
+                node.m_Cfg.m_Listen.port(vm["port"].as<int>());
+                node.m_Cfg.m_Listen.ip(INADDR_ANY);
+                node.m_Cfg.m_sPathLocal = vm["storage"].as<std::string>();
+
+                LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port..." << std::endl;
+
+                node.Initialize();
             }
             else if (mode == "wallet" && vm.count("command")) {
                 LOG_INFO() << "starting a wallet..."; 

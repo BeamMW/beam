@@ -12,7 +12,8 @@
 namespace beam { namespace io {
 
 Reactor::Ptr Reactor::create() {
-    Reactor::Ptr ptr(new Reactor());
+    struct make_shared_enabler : public Reactor {};
+    Reactor::Ptr ptr = std::make_shared<make_shared_enabler>();
     ErrorCode errorCode = ptr->initialize();
     IO_EXCEPTION_IF(errorCode);
     return ptr;
@@ -20,13 +21,16 @@ Reactor::Ptr Reactor::create() {
 
 Reactor::Reactor() :
     _handlePool(config().get_int("io.handle_pool_size", 256, 0, 65536)),
-    _connectRequestsPool(config().get_int("io.connect_pool_size", 16, 0, 512))
+    _connectRequestsPool(config().get_int("io.connect_pool_size", 16, 0, 512)),
+    _writeRequestsPool(config().get_int("io.write_pool_size", 256, 0, 65536))
 {
     memset(&_loop,0,sizeof(uv_loop_t));
     memset(&_stopEvent, 0, sizeof(uv_async_t));
 }
 
 ErrorCode Reactor::initialize() {
+    _creatingInternalObjects=true;
+    
     ErrorCode errorCode = (ErrorCode)uv_loop_init(&_loop);
     if (errorCode != 0) {
         LOG_ERROR() << "cannot initialize uv loop, error=" << errorCode;
@@ -49,12 +53,17 @@ ErrorCode Reactor::initialize() {
         BIND_THIS_MEMFN(connect_timeout_callback)
     );
     
+    _creatingInternalObjects=false;
     return EC_OK;
 }
 
 Reactor::~Reactor() {
+    LOG_VERBOSE() << ".";
+    
     if (_stopEvent.data)
         uv_close((uv_handle_t*)&_stopEvent, 0);
+    
+    _connectTimer.reset();
 
     if (!_connectRequests.empty()) {
         for (auto& c : _connectRequests) {
@@ -113,7 +122,9 @@ ErrorCode Reactor::init_object(ErrorCode errorCode, Reactor::Object* o, uv_handl
         return errorCode;
     }
     h->data = o;
-    o->_reactor = shared_from_this();
+    if (!_creatingInternalObjects) {
+        o->_reactor = shared_from_this();
+    }
     o->_handle = h;
     return EC_OK;
 }
@@ -217,6 +228,17 @@ ErrorCode Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     return errorCode;
 }
 
+uv_write_t* Reactor::alloc_write_request() {
+    uv_write_t* req = _writeRequestsPool.alloc();
+    req->data = this;
+    return req;
+}
+
+void Reactor::release_write_request(uv_write_t*& req) {
+    _writeRequestsPool.release(req);
+    req = 0;
+}
+
 Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec) {
     assert(callback);
     assert(address);
@@ -306,7 +328,7 @@ void Reactor::connect_callback(Reactor::ConnectContext* ctx, ErrorCode errorCode
 }
 
 void Reactor::connect_timeout_callback(uint64_t tag) {
-    LOG_VERBOSE() << "tag=" << tag;
+    LOG_VERBOSE() << TRACE(tag);
     auto it = _connectRequests.find(tag);
     if (it != _connectRequests.end()) {
         ConnectCallback cb = it->second.callback;
@@ -316,7 +338,7 @@ void Reactor::connect_timeout_callback(uint64_t tag) {
 }
 
 void Reactor::cancel_tcp_connect(uint64_t tag) {
-    LOG_VERBOSE() << "tag=" << tag;
+    LOG_VERBOSE() << TRACE(tag);
     auto it = _connectRequests.find(tag);
     if (it != _connectRequests.end()) {
         cancel_tcp_connect_impl(it);
@@ -333,7 +355,7 @@ void Reactor::cancel_tcp_connect_impl(std::unordered_map<uint64_t, ConnectContex
 }
 
 void Reactor::async_close(uv_handle_t*& handle) {
-    LOG_VERBOSE() << "handle=" << handle;
+    LOG_VERBOSE() << TRACE(handle);
 
     if (!handle) return;
     handle->data = 0;
@@ -351,6 +373,25 @@ void Reactor::async_close(uv_handle_t*& handle) {
     }
 
     handle = 0;
+}
+
+static thread_local Reactor* s_pReactor = NULL;
+
+Reactor::Scope::Scope(Reactor& r)
+{
+	m_pPrev = s_pReactor;
+	s_pReactor = &r;
+}
+
+Reactor::Scope::~Scope()
+{
+	s_pReactor = m_pPrev;
+}
+
+Reactor& Reactor::get_Current()
+{
+	assert(s_pReactor); // core meltdown?
+	return *s_pReactor;
 }
 
 }} //namespaces

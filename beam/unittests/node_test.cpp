@@ -1,5 +1,6 @@
 //#include "../node.h"
 
+#include "../node.h"
 #include "../node_db.h"
 #include "../node_processor.h"
 #include "../../core/ecc_native.h"
@@ -59,6 +60,8 @@ void DeleteFileA(const char* szPath)
 		if (!(x)) \
 			TestFailed(#x, __LINE__); \
 	} while (false)
+
+#define fail_test(msg) TestFailed(msg, __LINE__)
 
 namespace beam
 {
@@ -135,20 +138,26 @@ namespace beam
 		}
 
 		NodeDB::Blob bBody("body", 4);
-		Merkle::Hash peerID;
-		memset(peerID.m_pData, 0x66, sizeof(peerID.m_pData));
+		Merkle::Hash peer, peer2;
+		memset(peer.m_pData, 0x66, sizeof(peer.m_pData));
 
-		db.SetStateBlock(pRows[0], bBody, peerID);
+		db.SetStateBlock(pRows[0], bBody);
+		verify_test(!db.get_Peer(pRows[0], peer2));
+
+		db.set_Peer(pRows[0], &peer);
+		verify_test(db.get_Peer(pRows[0], peer2));
+		verify_test(peer == peer2);
+
+		db.set_Peer(pRows[0], NULL);
+		verify_test(!db.get_Peer(pRows[0], peer2));
 
 		ByteBuffer bbBody, bbRollback;
-		ZeroObject(peerID);
-		db.GetStateBlock(pRows[0], bbBody, bbRollback, peerID);
+		db.GetStateBlock(pRows[0], bbBody, bbRollback);
 		db.SetStateRollback(pRows[0], bBody);
-		db.GetStateBlock(pRows[0], bbBody, bbRollback, peerID);
+		db.GetStateBlock(pRows[0], bbBody, bbRollback);
 
 		db.DelStateBlock(pRows[0]);
-		ZeroObject(peerID);
-		db.GetStateBlock(pRows[0], bbBody, bbRollback, peerID);
+		db.GetStateBlock(pRows[0], bbBody, bbRollback);
 
 		tr.Commit();
 		tr.Start(db);
@@ -296,24 +305,23 @@ namespace beam
 
 #ifdef WIN32
 		const char* g_sz = "mytest.db";
+		const char* g_sz2 = "mytest2.db";
 #else // WIN32
 		const char* g_sz = "/tmp/mytest.db";
+		const char* g_sz2 = "/tmp/mytest2.db";
 #endif // WIN32
 
 	void TestNodeDB()
 	{
-
-		DeleteFileA(g_sz);
 		TestNodeDB(g_sz); // will create
 
 		{
 			NodeDB db;
 			db.Open(g_sz); // test to open already-existing DB
 		}
-		DeleteFileA(g_sz);
 	}
 
-	class MyNodeProcessor
+	class MyNodeProcessor1
 		:public NodeProcessor
 	{
 	public:
@@ -357,7 +365,7 @@ namespace beam
 		}
 	};
 
-	void SpendUtxo(Transaction& tx, const MyNodeProcessor::MyUtxo& utxo, MyNodeProcessor::MyUtxo& utxoOut)
+	void SpendUtxo(Transaction& tx, const MyNodeProcessor1::MyUtxo& utxo, MyNodeProcessor1::MyUtxo& utxoOut)
 	{
 		if (!utxo.m_Value)
 			return; //?!
@@ -413,21 +421,29 @@ namespace beam
 		verify_test(tx.IsValid(ctx));
 	}
 
-
-	void TestNodeProcessor()
+	struct BlockPlus
 	{
-		DeleteFileA(g_sz);
+		typedef std::unique_ptr<BlockPlus> Ptr;
 
-		MyNodeProcessor np;
-		np.Initialize(g_sz, 35);
+		Block::SystemState::Full m_Hdr;
+		ByteBuffer m_PoW;
+		ByteBuffer m_Body;
+	};
 
-		for (Height h = 0; h < 200; h++)
+	void TestNodeProcessor1(std::vector<BlockPlus::Ptr>& blockChain)
+	{
+		MyNodeProcessor1 np;
+		np.m_Horizon.m_Branching = 35;
+		np.m_Horizon.m_Schwarzschild = 40;
+		np.Initialize(g_sz);
+
+		for (Height h = 0; h < 96; h++)
 		{
-			std::list<MyNodeProcessor::MyUtxo> lstNewOutputs;
+			std::list<MyNodeProcessor1::MyUtxo> lstNewOutputs;
 
 			while (true)
 			{
-				MyNodeProcessor::UtxoQueue::iterator it = np.m_MyUtxos.begin();
+				MyNodeProcessor1::UtxoQueue::iterator it = np.m_MyUtxos.begin();
 				if (np.m_MyUtxos.end() == it)
 					break;
 
@@ -436,7 +452,7 @@ namespace beam
 
 				// Spend it in a transaction
 				Transaction::Ptr pTx(new Transaction);
-				MyNodeProcessor::MyUtxo utxoOut;
+				MyNodeProcessor1::MyUtxo utxoOut;
 				SpendUtxo(*pTx, it->second, utxoOut);
 
 				np.m_MyUtxos.erase(it);
@@ -450,22 +466,243 @@ namespace beam
 			for (; !lstNewOutputs.empty(); lstNewOutputs.pop_front())
 				np.m_MyUtxos.insert(std::make_pair(h + 3, lstNewOutputs.front()));
 
-			Block::SystemState::Full s;
-			ByteBuffer bbBlock, bbPoW;
+			BlockPlus::Ptr pBlock(new BlockPlus);
 
-			np.SimulateMinedBlock(s, bbBlock, bbPoW);
+			np.SimulateMinedBlock(pBlock->m_Hdr, pBlock->m_Body, pBlock->m_PoW);
+			blockChain.push_back(std::move(pBlock));
 		}
 
+	}
+
+
+	class MyNodeProcessor2
+		:public NodeProcessor
+	{
+	public:
+
+
+		// NodeProcessor
+		virtual void get_Key(ECC::Scalar::Native& k, Height h, bool bCoinbase) override { }
+		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override {}
+		virtual void OnPeerInsane(const PeerID&) override {}
+		virtual void OnNewState() override {}
+
+	};
+
+
+	void TestNodeProcessor2(std::vector<BlockPlus::Ptr>& blockChain)
+	{
+		NodeProcessor::Horizon horz;
+		horz.m_Branching = 12;
+		horz.m_Schwarzschild = 12;
+
+		size_t nMid = blockChain.size() / 2;
+
+		{
+			MyNodeProcessor2 np;
+			np.m_Horizon = horz;
+			np.Initialize(g_sz);
+
+			NodeProcessor::PeerID peer;
+			ZeroObject(peer);
+
+			for (size_t i = 0; i < blockChain.size(); i += 2)
+				np.OnState(blockChain[i]->m_Hdr, blockChain[i]->m_PoW, peer);
+		}
+
+		{
+			MyNodeProcessor2 np;
+			np.m_Horizon = horz;
+			np.Initialize(g_sz);
+
+			NodeProcessor::PeerID peer;
+			ZeroObject(peer);
+
+			for (size_t i = 0; i < nMid; i += 2)
+			{
+				Block::SystemState::ID id;
+				blockChain[i]->m_Hdr.get_ID(id);
+				np.OnBlock(id, blockChain[i]->m_Body, peer);
+			}
+		}
+
+		{
+			MyNodeProcessor2 np;
+			np.m_Horizon = horz;
+			np.Initialize(g_sz);
+
+			NodeProcessor::PeerID peer;
+			ZeroObject(peer);
+
+			for (size_t i = 1; i < blockChain.size(); i += 2)
+				np.OnState(blockChain[i]->m_Hdr, blockChain[i]->m_PoW, peer);
+		}
+
+		{
+			MyNodeProcessor2 np;
+			np.m_Horizon = horz;
+			np.Initialize(g_sz);
+
+			NodeProcessor::PeerID peer;
+			ZeroObject(peer);
+
+			for (size_t i = 0; i < nMid; i++)
+			{
+				Block::SystemState::ID id;
+				blockChain[i]->m_Hdr.get_ID(id);
+				np.OnBlock(id, blockChain[i]->m_Body, peer);
+			}
+		}
+
+		{
+			MyNodeProcessor2 np;
+			np.m_Horizon = horz;
+			np.Initialize(g_sz);
+
+			NodeProcessor::PeerID peer;
+			ZeroObject(peer);
+
+			for (size_t i = nMid; i < blockChain.size(); i++)
+			{
+				Block::SystemState::ID id;
+				blockChain[i]->m_Hdr.get_ID(id);
+				np.OnBlock(id, blockChain[i]->m_Body, peer);
+			}
+		}
+
+	}
+
+	void TestNodeConversation()
+	{
+		// Testing configuration: Node0 <-> Node1 <-> Client.
+
+		io::Reactor::Ptr pReactor(io::Reactor::create());
+		io::Reactor::Scope scope(*pReactor);
+
+		Node node, node2;
+		node.m_Cfg.m_sPathLocal = g_sz;
+		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
+		node.m_Cfg.m_Listen.ip(INADDR_ANY);
+
+		node.m_Cfg.m_Timeout.m_GetBlock_ms = 1000 * 60;
+		node.m_Cfg.m_Timeout.m_GetState_ms = 1000 * 60;
+
+		node2.m_Cfg.m_sPathLocal = g_sz2;
+		node2.m_Cfg.m_Listen.port(Node::s_PortDefault + 1);
+		node2.m_Cfg.m_Listen.ip(INADDR_ANY);
+		node2.m_Cfg.m_Connect.resize(1);
+		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
+		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
+		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
+
+		node.Initialize();
+		node2.Initialize();
+
+		struct MyClient
+			:public proto::NodeConnection
+		{
+			Node* m_ppNode[2];
+			unsigned int m_iNode;
+			unsigned int m_WaitingCycles;
+
+			Height m_HeightMax;
+			const Height m_HeightTrg = 70;
+
+			MyClient() {
+				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+			}
+
+			virtual void OnConnected() override {
+				OnTimer();
+			}
+
+			virtual void OnClosed(int errorCode) override {
+				fail_test("OnClosed");
+			}
+
+			io::Timer::Ptr m_pTimer;
+
+			void OnTimer() {
+
+
+				if (m_HeightMax < m_HeightTrg)
+				{
+					Block::SystemState::Full s;
+					ByteBuffer body, pow;
+					m_ppNode[m_iNode]->get_Processor().SimulateMinedBlock(s, body, pow);
+
+					m_HeightMax = std::max(m_HeightMax, s.m_Height);
+
+					printf("Mined block Height = %u, node = %u \n", (unsigned int) s.m_Height, (unsigned int)m_iNode);
+
+					++m_iNode %= _countof(m_ppNode);
+				}
+				else
+					if (m_WaitingCycles++ > 30)
+					{
+						fail_test("Blockchain height didn't reach target");
+						io::Reactor::get_Current().stop();
+					}
+
+				SetTimer(100);
+			}
+
+			virtual void OnMsg(proto::NewTip&& msg) override
+			{
+				printf("Tip Height=%u\n", msg.m_ID.m_Height);
+				verify_test(msg.m_ID.m_Height <= m_HeightMax);
+				if (msg.m_ID.m_Height == m_HeightTrg)
+					io::Reactor::get_Current().stop();
+			}
+
+			void SetTimer(uint32_t timeout_ms) {
+				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
+			}
+			void KillTimer() {
+				m_pTimer->cancel();
+			}
+		};
+
+		MyClient cl;
+		cl.m_iNode = 0;
+		cl.m_HeightMax = 0;
+		cl.m_WaitingCycles = 0;
+		cl.m_ppNode[0] = &node;
+		cl.m_ppNode[1] = &node2;
+
+		io::Address addr;
+		addr.resolve("127.0.0.1");
+		addr.port(Node::s_PortDefault + 1);
+
+		cl.Connect(addr);
+
+
+		pReactor->run();
 	}
 
 }
 
 int main()
 {
-	beam::TestNodeDB();
-	beam::TestNodeProcessor();
+	DeleteFileA(beam::g_sz);
+	DeleteFileA(beam::g_sz2);
 
-    //beam::Node node;
-    
-    return 0;
+	beam::TestNodeDB();
+	DeleteFileA(beam::g_sz);
+
+	{
+		std::vector<beam::BlockPlus::Ptr> blockChain;
+		beam::TestNodeProcessor1(blockChain);
+		DeleteFileA(beam::g_sz);
+
+		beam::TestNodeProcessor2(blockChain);
+		DeleteFileA(beam::g_sz);
+	}
+
+	beam::TestNodeConversation();
+
+	DeleteFileA(beam::g_sz);
+	DeleteFileA(beam::g_sz2);
+
+	return g_TestsFailed ? -1 : 0;
 }
