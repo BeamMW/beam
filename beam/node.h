@@ -72,7 +72,7 @@ private:
 	};
 
 	typedef boost::intrusive::list<Task> TaskList;
-	typedef boost::intrusive::set<Task> TaskSet;
+	typedef boost::intrusive::multiset<Task> TaskSet;
 
 	TaskList m_lstTasksUnassigned;
 	TaskSet m_setTasks;
