@@ -875,7 +875,7 @@ void NodeProcessor::TxPool::Clear()
 		Delete(m_setThreshold.begin()->get_ParentObj());
 }
 
-bool NodeProcessor::TxPool::Element::Profit::operator > (const Profit& t) const
+bool NodeProcessor::TxPool::Element::Profit::operator < (const Profit& t) const
 {
 	// TODO: handle overflow. To be precise need to use big-int (128-bit) arithmetics
 	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;

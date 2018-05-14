@@ -95,7 +95,7 @@ public:
 				Amount m_Fee;
 				size_t m_nSize;
 
-				bool operator > (const Profit& t) const;
+				bool operator < (const Profit& t) const;
 
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Profit)
 			} m_Profit;
@@ -105,7 +105,7 @@ public:
 			{
 				Height m_Value;
 
-				bool operator > (const Threshold& t) const { return m_Value > t.m_Value; }
+				bool operator < (const Threshold& t) const { return m_Value < t.m_Value; }
 
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Threshold)
 			} m_Threshold;
@@ -113,8 +113,8 @@ public:
 			Transaction::Ptr m_pValue;
 		};
 
-		typedef boost::intrusive::multiset<Element::Profit, boost::intrusive::compare<std::greater<Element::Profit> > > ProfitSet;
-		typedef boost::intrusive::multiset<Element::Threshold, boost::intrusive::compare<std::greater<Element::Threshold> > > ThresholdSet;
+		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
+		typedef boost::intrusive::multiset<Element::Threshold> ThresholdSet;
 
 		ProfitSet m_setProfit;
 		ThresholdSet m_setThreshold;

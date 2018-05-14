@@ -68,11 +68,11 @@ private:
 		bool m_bRelevant;
 		Peer* m_pOwner;
 
-		bool operator > (const Task& t) const { return (m_Key > t.m_Key); }
+		bool operator < (const Task& t) const { return (m_Key < t.m_Key); }
 	};
 
 	typedef boost::intrusive::list<Task> TaskList;
-	typedef boost::intrusive::set<Task, boost::intrusive::compare<std::greater<Task> > > TaskSet;
+	typedef boost::intrusive::set<Task> TaskSet;
 
 	TaskList m_lstTasksUnassigned;
 	TaskSet m_setTasks;
