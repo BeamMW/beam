@@ -14,12 +14,18 @@ Timer::Ptr timer;
 
 bool wasAccepted=false;
 
-uint32_t serverIp=0x7F222222;
+#ifdef __linux__
+    uint32_t serverIp=0x7F222222;
+    uint32_t clientIp=0x7F121314;
+#else
+    uint32_t serverIp=0x7F000001;
+    uint32_t clientIp=0x7F000001;
+#endif
 uint16_t serverPort=33333;
 
 void on_timer() {
     timer->cancel();
-    reactor->tcp_connect(Address(serverIp, serverPort), 1, [](uint64_t, shared_ptr<TcpStream>&&, int){}, 1000, Address(0x7F121314, 0));
+    reactor->tcp_connect(Address(serverIp, serverPort), 1, [](uint64_t, shared_ptr<TcpStream>&&, int){}, 1000, Address(clientIp, 0));
 }
 
 void tcpserver_test() {
