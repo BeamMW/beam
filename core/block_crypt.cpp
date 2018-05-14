@@ -201,7 +201,7 @@ namespace beam
 			>> out;
 	}
 
-	void TxKernel::get_Hash(Merkle::Hash& out) const
+	void TxKernel::get_HashForSigning(Merkle::Hash& out) const
 	{
 		Traverse(out, NULL, NULL);
 	}
@@ -212,10 +212,22 @@ namespace beam
 		return Traverse(hv, &fee, &exc);
 	}
 
+	void TxKernel::get_HashTotal(Merkle::Hash& hv) const
+	{
+		get_HashForSigning(hv);
+		ECC::Hash::Processor()
+			<< hv
+			<< m_Excess
+			<< m_Multiplier
+			<< m_Signature.m_e
+			<< m_Signature.m_k
+			>> hv;
+	}
+
 	bool TxKernel::IsValidProof(const Merkle::Proof& proof, const Merkle::Hash& root) const
 	{
 		Merkle::Hash hv;
-		get_Hash(hv);
+		get_HashTotal(hv);
 		Merkle::Interpret(hv, proof);
 		return hv == root;
 	}

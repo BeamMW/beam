@@ -611,7 +611,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 	bool bAdd = (bFwd != bIsInput);
 
 	SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-	get_KrnKey(skey.m_Key, v);
+	v.get_HashTotal(skey.m_Key);
 
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = bAdd;
@@ -680,16 +680,10 @@ void NodeProcessor::DereferenceFossilBlock(uint64_t rowid)
 	for (size_t n = 0; n < block.m_vKernelsInput.size(); n++)
 	{
 		SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-		get_KrnKey(skey.m_Key, *block.m_vKernelsInput[n]);
+		block.m_vKernelsInput[n]->get_HashTotal(skey.m_Key);
 
 		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), -1, 0);
 	}
-}
-
-void NodeProcessor::get_KrnKey(Merkle::Hash& hv, const TxKernel& v)
-{
-	v.get_Hash(hv);
-	ECC::Hash::Processor() << hv << v.m_Excess << v.m_Multiplier >> hv; // add the public excess, it's not included by default
 }
 
 bool NodeProcessor::GoForward(const NodeDB::StateID& sid)
@@ -902,7 +896,7 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kKernel);
 
 		ECC::Hash::Value hv;
-		pKrn->get_Hash(hv);
+		pKrn->get_HashForSigning(hv);
 		pKrn->m_Signature.Sign(hv, kKernel);
 		ctxBlock.m_Block.m_vKernelsOutput.push_back(std::move(pKrn));
 

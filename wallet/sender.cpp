@@ -16,7 +16,7 @@ namespace beam::wallet
         m_kernel.m_Fee = 0;
         m_kernel.m_HeightMin = 0;
         m_kernel.m_HeightMax = static_cast<Height>(-1);
-        m_kernel.get_Hash(invitationData->m_message);
+        m_kernel.get_HashForSigning(invitationData->m_message);
         
         // 2. Set lock_height for output (current chain height)
         // 3. Select inputs using desired selection strategy
@@ -86,7 +86,7 @@ namespace beam::wallet
         msig.m_Nonce = m_nonce;
         msig.m_NoncePub = m_publicNonce + data->m_publicReceiverNonce;
         Hash::Value message;
-        m_kernel.get_Hash(message);
+        m_kernel.get_HashForSigning(message);
         m_kernel.m_Signature.CoSign(m_senderSignature, message, m_blindingExcess, msig);
         
 
@@ -125,7 +125,7 @@ namespace beam::wallet
         msig.m_Nonce = m_nonce;
         msig.m_NoncePub = m_publicNonce + data->m_publicReceiverNonce;
         Hash::Value message;
-        m_kernel.get_Hash(message);
+        m_kernel.get_HashForSigning(message);
         Scalar::Native senderSignature;
         m_kernel.m_Signature.CoSign(senderSignature, message, m_blindingExcess, msig);
         confirmationData->m_senderSignature = senderSignature;

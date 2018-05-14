@@ -429,7 +429,7 @@ namespace beam
 		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * k);
 
 		ECC::Hash::Value hv;
-		pKrn->get_Hash(hv);
+		pKrn->get_HashForSigning(hv);
 		pKrn->m_Signature.Sign(hv, k);
 		tx.m_vKernelsOutput.push_back(std::move(pKrn));
 

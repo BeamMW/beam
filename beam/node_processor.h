@@ -36,8 +36,6 @@ class NodeProcessor
 	void OnCorrupted();
 	void get_CurrentLive(Merkle::Hash&);
 
-	static void get_KrnKey(Merkle::Hash&, const TxKernel&);
-
 	std::list<Transaction::Ptr> m_lstCurrentlyMining;
 	struct BlockBulder;
 
