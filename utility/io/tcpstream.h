@@ -20,7 +20,6 @@ public:
     struct State {
         uint64_t received=0;
         uint64_t sent=0;
-        size_t unsent=0; // == _writeBuffer.size()
     };
 
     ~TcpStream();
@@ -70,7 +69,7 @@ private:
     Result send_write_request();
 
     // callback from write request
-    void on_data_written(ErrorCode errorCode);
+    void on_data_written(ErrorCode errorCode, size_t nSize);
 
     // stream accepted from server
     ErrorCode accepted(uv_handle_t* acceptor);

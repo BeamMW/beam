@@ -73,7 +73,6 @@ Result TcpStream::write(const SharedBuffer& buf) {
     if (!buf.empty()) {
         if (!is_connected()) return make_unexpected(EC_ENOTCONN);
         _writeBuffer.append(buf);
-        _state.unsent = _writeBuffer.size();
         return send_write_request();
     }
     return Ok();
@@ -87,7 +86,6 @@ Result TcpStream::write(const std::vector<SharedBuffer>& fragments) {
         for (const auto& f : fragments) {
             _writeBuffer.append(f);
         }
-        _state.unsent = _writeBuffer.size();
         return send_write_request();
     }
     return Ok();
@@ -102,7 +100,11 @@ Result TcpStream::send_write_request() {
             
             TcpStream* self = reinterpret_cast<TcpStream*>(req->handle->data);
             if (self) {
-                self->on_data_written(ErrorCode(errorCode));
+
+				size_t nSize;
+				memcpy(&nSize, req->reserved, sizeof(nSize));
+
+				self->on_data_written(ErrorCode(errorCode), nSize);
             }
         }
         assert(req->data);
@@ -112,6 +114,11 @@ Result TcpStream::send_write_request() {
 
     if (!_writeRequestSent) {
         uv_write_t* req = _reactor->alloc_write_request();
+
+		size_t nSize = _writeBuffer.size();
+		static_assert(sizeof(nSize) <= sizeof(req->reserved), "");
+		memcpy(req->reserved, &nSize, sizeof(nSize));
+
         ErrorCode errorCode = (ErrorCode)uv_write(req, (uv_stream_t*)_handle,
             (uv_buf_t*)_writeBuffer.fragments(), _writeBuffer.num_fragments(), write_cb
         );
@@ -125,16 +132,14 @@ Result TcpStream::send_write_request() {
     return Ok();
 }
 
-void TcpStream::on_data_written(ErrorCode errorCode) {
+void TcpStream::on_data_written(ErrorCode errorCode, size_t nSize) {
     if (errorCode != 0) {
         if (_callback) _callback(errorCode, 0, 0);
     } else {
-        size_t sent = _state.unsent;
-        _writeBuffer.advance(sent);
-        _state.sent += sent;
-        _state.unsent = _writeBuffer.size();
+        _writeBuffer.advance(nSize);
+        _state.sent += nSize;
         _writeRequestSent = false;
-        if (_state.unsent != 0) {
+        if (!_writeBuffer.empty()) {
             send_write_request();
         }
     }
