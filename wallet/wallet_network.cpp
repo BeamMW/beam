@@ -204,6 +204,7 @@ namespace beam {
     void WalletNetworkIO::on_connection_error(uint64_t fromStream, int errorCode)
     {
         LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << errorCode << ")";
+        stop();
     }
 
     uint64_t WalletNetworkIO::get_connection_tag()

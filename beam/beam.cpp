@@ -8,7 +8,6 @@
 #include "core/ecc_native.h"
 #include "utility/logger.h"
 
-#include <iostream>
 #include <boost/program_options.hpp>
 
 namespace po = boost::program_options;
@@ -17,6 +16,15 @@ using namespace beam;
 
 int main(int argc, char* argv[])
 {
+    LoggerConfig lc;
+    int logLevel = LOG_LEVEL_DEBUG;
+#if LOG_VERBOSE_ENABLED
+    logLevel = LOG_LEVEL_VERBOSE;
+#endif
+    lc.consoleLevel = logLevel;
+    lc.flushLevel = logLevel;
+    auto logger = Logger::create(lc);
+
     po::options_description general_options("General options");
     general_options.add_options()
         ("help,h", "list of all options")
@@ -59,7 +67,7 @@ int main(int argc, char* argv[])
                 node.m_Cfg.m_Listen.ip(INADDR_ANY);
                 node.m_Cfg.m_sPathLocal = vm["storage"].as<std::string>();
 
-                LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port..." << std::endl;
+                LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
                 node.Initialize();
             }
@@ -68,7 +76,7 @@ int main(int argc, char* argv[])
                 auto command = vm["command"].as<string>();
                 std::string pass(vm["pass"].as<std::string>());
                 if (!pass.size()) {
-                    std::cout << "Please, provide password for the wallet.\n";
+                    LOG_ERROR() << "Please, provide password for the wallet.";
                     return -1;
                 }
                 auto keychain = command == "init"
@@ -76,16 +84,16 @@ int main(int argc, char* argv[])
                     : Keychain::open(pass);
 
                 if (!keychain) {
-                    std::cout << "something went wrong, wallet not opened...\n";
+                    LOG_ERROR() << "something went wrong, wallet not opened...";
                     return -1;
                 }
 
                 if (command != "send" && command != "listen") {
-                    cout << "unknown command: \'" << command << "\'\n";
+                    LOG_ERROR() << "unknown command: \'" << command << "\'";
                     return -1;
                 }
 
-                std::cout << "wallet sucessfully created/opened...\n";
+                LOG_INFO() << "wallet sucessfully created/opened...";
 
                 bool is_server = command == "listen";
 
@@ -97,7 +105,7 @@ int main(int argc, char* argv[])
                 io::Address node_addr;
                 node_addr.resolve(vm["node_addr"].as<string>().c_str());
 
-                LOG_INFO() << "connecting t node " << node_addr;
+                LOG_INFO() << "connecting to node " << node_addr.str();
                 // connect to node
                 network_io.connect(node_addr, [&wallet](uint64_t tag)
                 {
@@ -110,7 +118,7 @@ int main(int argc, char* argv[])
                     io::Address receiver_addr;
                     receiver_addr.resolve(vm["receiver_addr"].as<string>().c_str());
                     
-                    LOG_INFO() << "connecting to receiver " << receiver_addr;
+                    LOG_INFO() << "connecting to receiver " << receiver_addr.str();
                     // connect to receiver
                     network_io.connect(node_addr, [&wallet, amount](uint64_t tag) mutable
                     {
@@ -128,7 +136,7 @@ int main(int argc, char* argv[])
     }
     catch(const po::error& e)
     {
-        cout << e.what() << std::endl;
+        LOG_ERROR() << e.what();
     }
 
     return 0;
