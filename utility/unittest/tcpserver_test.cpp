@@ -12,9 +12,14 @@ using namespace std;
 Reactor::Ptr reactor;
 Timer::Ptr timer;
 
+bool wasAccepted=false;
+
+uint32_t serverIp=0x7F222222;
+uint16_t serverPort=33333;
+
 void on_timer() {
     timer->cancel();
-    reactor->tcp_connect(Address(Address::LOCALHOST).port(33333), 1, [](uint64_t, shared_ptr<TcpStream>&&, int){});
+    reactor->tcp_connect(Address(serverIp, serverPort), 1, [](uint64_t, shared_ptr<TcpStream>&&, int){}, 1000, Address(0x7F121314, 0));
 }
 
 void tcpserver_test() {
@@ -22,11 +27,12 @@ void tcpserver_test() {
         reactor = Reactor::create();
         TcpServer::Ptr server = TcpServer::create(
             reactor,
-            Address(0, 33333),
+            Address(serverIp, serverPort),
             [](TcpStream::Ptr&& newStream, int errorCode) {
                 if (errorCode == 0) {
                     LOG_DEBUG() << "Stream accepted, socket=" << newStream->address().str() << " peer=" << newStream->peer_address().str();
                     assert(newStream);
+                    wasAccepted = true;
                 } else {
                     LOG_ERROR() << "Error code=" << errorCode;
                 }
@@ -60,6 +66,7 @@ int main() {
     lc.flushLevel = logLevel;
     auto logger = Logger::create(lc);
     tcpserver_test();
+    return wasAccepted ? 0 : 1;
 }
 
 

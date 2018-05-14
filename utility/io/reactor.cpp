@@ -239,7 +239,7 @@ void Reactor::release_write_request(uv_write_t*& req) {
     req = 0;
 }
 
-Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec) {
+Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec, Address bindTo) {
     assert(callback);
     assert(address);
     assert(_connectRequests.count(tag) == 0);
@@ -253,6 +253,15 @@ Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback
     if (errorCode != 0) {
         _handlePool.release(h);
         return make_unexpected(errorCode);
+    }
+    
+    if (bindTo) {
+        sockaddr_in bindAddr;
+        bindTo.fill_sockaddr_in(bindAddr);
+        errorCode = (ErrorCode)uv_tcp_bind((uv_tcp_t*)h, (const sockaddr*)&bindAddr, 0);
+        if (errorCode != 0) {
+            return make_unexpected(errorCode);
+        }
     }
     
     h->data = this;
