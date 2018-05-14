@@ -55,7 +55,7 @@ namespace beam
 
     } 
 
-    Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, WalletAction&& action)
+    Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action)
         : m_keyChain{ keyChain }
         , m_network{ network }
         , m_node_id{ 0 }

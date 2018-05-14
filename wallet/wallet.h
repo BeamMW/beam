@@ -39,9 +39,9 @@ namespace beam
                  , public wallet::sender::IGateway
     {
     public:
-        using WalletAction = std::function<void(const Uuid& tx_id)>;
+        using TxCompletedAction = std::function<void(const Uuid& tx_id)>;
 
-        Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, WalletAction&& action = WalletAction());
+        Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet() {};
 
         void send_money(PeerId to, ECC::Amount&& amount) override;
@@ -74,7 +74,7 @@ namespace beam
         std::vector<wallet::Sender::Ptr>      m_removedSenders;
         std::vector<wallet::Receiver::Ptr>    m_removedReceivers;
         uint64_t m_node_id;
-        WalletAction m_tx_completed_action;
+        TxCompletedAction m_tx_completed_action;
 #ifndef NDEBUG
         std::thread::id m_tid;
         void check_thread() { assert(m_tid == std::this_thread::get_id()); }
