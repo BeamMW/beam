@@ -17,8 +17,8 @@ beam::Block::PoWPtr getSolution(const beam::ByteBuffer& input, const beam::Block
     beam::Block::PoWPtr proof = std::make_unique<beam::Block::PoW>();
     proof->m_Nonce = initialNonce;
 
-    std::function<bool(beam::ByteBuffer)> validBlock =
-        [&proof](beam::ByteBuffer solution) {
+    std::function<bool(const beam::ByteBuffer&)> validBlock =
+        [&proof](const beam::ByteBuffer& solution) {
             std::copy(solution.begin(), solution.end(), proof->m_Indices.begin());
             return true;
         };
