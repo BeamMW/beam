@@ -226,22 +226,6 @@ namespace beam
 			};
 		};
 
-
-		struct Header
-		{
-			SystemState::Full	m_StateNew; // after the block changes are applied
-			SystemState::Full	m_StatePrev;
-
-			// Normally the difference between m_StatePrev and m_StateNew corresponds to 1 original block, Height is increased by 1
-			// But if/when history is compressed, blocks can encode compressed diff of several original blocks
-
-		    template<typename Buffer>
-			void serializeTo(Buffer& b)
-			{
-
-			}
-		} header;
-
 		struct PoW
 		{
 			// equihash parameters
@@ -288,6 +272,4 @@ namespace beam
 			bool IsValid(Height h0, Height h1) const;
 		};
 	};
-
-	typedef std::unique_ptr<Block> BlockPtr;
 }
