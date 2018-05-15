@@ -449,18 +449,17 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	if (id != t.m_Key.first)
 		ThrowUnexpected();
 
-	//// uncomment this when blocks with valid PoW are generated
-	//if (!msg.m_Description.IsValidPoW())
-	//	ThrowUnexpected();
+	// uncomment this when blocks with valid PoW are generated
+	if (!m_pThis->m_Cfg.m_bDontVerifyPoW && !msg.m_Description.IsValidPoW())
+		ThrowUnexpected();
 
 	t.m_bRelevant = false;
 	OnFirstTaskDone();
 
-	NodeDB::Blob pow(NULL, 0); // TODO
 	NodeDB::PeerID pid;
 	get_ID(pid);
 
-	if (m_pThis->m_Processor.OnState(msg.m_Description, pow, pid))
+	if (m_pThis->m_Processor.OnState(msg.m_Description, pid))
 		m_pThis->RefreshCongestions(); // NOTE! Can call OnPeerInsane()
 }
 

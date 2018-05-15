@@ -27,6 +27,8 @@ struct Node
 			uint32_t m_GetBlock_ms	= 1000 * 30;
 		} m_Timeout;
 
+		bool m_bDontVerifyPoW = false; // for testing only!
+
 	} m_Cfg; // must not be changed after initialization
 
 	~Node();

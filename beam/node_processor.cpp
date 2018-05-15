@@ -742,7 +742,7 @@ bool NodeProcessor::IsRelevantHeight(Height h)
 	return !hFossil || (h > hFossil);
 }
 
-bool NodeProcessor::OnState(const Block::SystemState::Full& s, const NodeDB::Blob& /*pow*/, const PeerID& peer)
+bool NodeProcessor::OnState(const Block::SystemState::Full& s, const PeerID& peer)
 {
 	if (!IsRelevantHeight(s.m_Height))
 		return false;
