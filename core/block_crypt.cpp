@@ -511,14 +511,14 @@ namespace beam
 	{
 		Merkle::Hash hv;
 		get_Hash(hv);
-		return m_PoW.IsValid(hv.m_pData, sizeof(hv.m_pData));
+		return m_PoW.IsValid(hv.m_pData, sizeof(hv.m_pData), m_Difficulty);
 	}
 
 	bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
 	{
 		Merkle::Hash hv;
 		get_Hash(hv);
-		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
+		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), m_Difficulty, fnCancel);
 	}
 
 	bool Block::Body::IsValid(Height h0, Height h1) const

@@ -223,12 +223,12 @@ namespace beam
 			typedef ECC::uintBig_t<112> NonceType;
 			NonceType m_Nonce; // 14 bytes. The overall solution size is 64 bytes.
 
-			bool IsValid(const void* pInput, uint32_t nSizeInput) const;
+			bool IsValid(const void* pInput, uint32_t nSizeInput, Difficulty) const;
 
 			using Cancel = std::function<bool(bool bRetrying)>;
 			// Nonce must be initialized. During the solution it's incremented each time by 1.
 			// returns false only if cancelled
-			bool Solve(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
+			bool Solve(const void* pInput, uint32_t nSizeInput, Difficulty, const Cancel& = [](bool) { return false; });
 
 		private:
 			struct Helper;
