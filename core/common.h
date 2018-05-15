@@ -245,19 +245,21 @@ namespace beam
 		struct PoW
 		{
 			// equihash parameters
-			static const uint32_t N = 200;
-			static const uint32_t K = 9;
+			static const uint32_t N = 120;
+			static const uint32_t K = 4;
 
-			static const uint32_t nNumIndices		= 1 << K; // 512
-			static const uint32_t nBitsPerIndex		= N / (K + 1) + 1; // 20. actually tha last index may be wider (equal to max bound), but since indexes are sorted it can be encoded as 0.
+			static const uint32_t nNumIndices		= 1 << K; // 16
+			static const uint32_t nBitsPerIndex		= N / (K + 1) + 1; // 25
 
-			static const uint32_t nSolutionBits		= nNumIndices * nBitsPerIndex;
+			static const uint32_t nSolutionBits		= nNumIndices * nBitsPerIndex; // 400 bits
 
 			static_assert(!(nSolutionBits & 7), "PoW solution should be byte-aligned");
-			static const uint32_t nSolutionBytes	= nSolutionBits >> 3; // !TODO: 1280 bytes, 1344 for now due to current implementation
+			static const uint32_t nSolutionBytes	= nSolutionBits >> 3; // 50 bytes
 
-			uint256_t							m_Nonce; // does it always have to be 256-bit long?
 			std::array<uint8_t, nSolutionBytes>	m_Indices;
+
+			typedef ECC::uintBig_t<112> NonceType;
+			NonceType m_Nonce; // 14 bytes. The overall solution size is 64 bytes.
 
 			bool IsValid(const SystemState::Full& prev, const SystemState::Full& next) const;
 		};

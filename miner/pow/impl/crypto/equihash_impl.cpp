@@ -811,3 +811,17 @@ template bool Equihash<48,5>::OptimisedSolve(const eh_HashState& base_state,
                                              const std::function<bool(EhSolverCancelCheck)> cancelled);
 #endif
 template bool Equihash<48,5>::IsValidSolution(const eh_HashState& base_state, std::vector<unsigned char> soln);
+
+// Explicit instantiations with beam parameters
+const int N_Beam = 120;
+const int K_Beam = 4;
+template int Equihash<N_Beam, K_Beam>::InitialiseState(eh_HashState& base_state);
+#ifdef ENABLE_MINING
+template bool Equihash<N_Beam, K_Beam>::BasicSolve(const eh_HashState& base_state,
+                                         const std::function<bool(std::vector<unsigned char>)> validBlock,
+                                         const std::function<bool(EhSolverCancelCheck)> cancelled);
+template bool Equihash<N_Beam, K_Beam>::OptimisedSolve(const eh_HashState& base_state,
+                                             const std::function<bool(std::vector<unsigned char>)> validBlock,
+                                             const std::function<bool(EhSolverCancelCheck)> cancelled);
+#endif
+template bool Equihash<N_Beam, K_Beam>::IsValidSolution(const eh_HashState& base_state, std::vector<unsigned char> soln);
