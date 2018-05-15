@@ -95,6 +95,8 @@ Result TcpStream::write(const std::vector<SharedBuffer>& fragments) {
 
 Result TcpStream::send_write_request() {
     static uv_write_cb write_cb = [](uv_write_t* req, int errorCode) {
+        LOG_VERBOSE() << TRACE(errorCode);
+
         Reactor::WriteRequest* wr = reinterpret_cast<Reactor::WriteRequest*>(req);
         if (errorCode != UV_ECANCELED) {
             // object may be no longer alive if UV_CANCELED
