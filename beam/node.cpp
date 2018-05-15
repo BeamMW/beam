@@ -429,10 +429,7 @@ void Node::Peer::OnMsg(proto::GetHdr&& msg)
 	{
 		proto::Hdr msgHdr;
 		m_pThis->m_Processor.get_DB().get_State(rowid, msgHdr.m_Description);
-		// TODO: pow
-
 		Send(msgHdr);
-
 	} else
 	{
 		proto::DataMissing msgMiss;
@@ -451,6 +448,10 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	msg.m_Description.get_ID(id);
 	if (id != t.m_Key.first)
 		ThrowUnexpected();
+
+	//// uncomment this when blocks with valid PoW are generated
+	//if (!msg.m_Description.IsValidPoW())
+	//	ThrowUnexpected();
 
 	t.m_bRelevant = false;
 	OnFirstTaskDone();

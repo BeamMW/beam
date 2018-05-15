@@ -105,15 +105,15 @@ namespace detail
         }
 
         /// ECC::uintBig serialization
-        template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::uintBig& val)
+        template<typename Archive, uint32_t nBits_>
+        static Archive& save(Archive& ar, const ECC::uintBig_t<nBits_>& val)
         {
             ar & val.m_pData;
             return ar;
         }
 
-        template<typename Archive>
-        static Archive& load(Archive& ar, ECC::uintBig& val)
+        template<typename Archive, uint32_t nBits_>
+        static Archive& load(Archive& ar, ECC::uintBig_t<nBits_>& val)
         {
             ar & val.m_pData;
             return ar;
@@ -408,6 +408,26 @@ namespace detail
         }
 
 		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Block::PoW& pow)
+		{
+			ar
+				& pow.m_Indices
+				& pow.m_Nonce;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Block::PoW& pow)
+		{
+			ar
+				& pow.m_Indices
+				& pow.m_Nonce;
+
+			return ar;
+		}
+
+		template<typename Archive>
         static Archive& save(Archive& ar, const beam::Block::SystemState::ID& v)
         {
             ar
@@ -436,7 +456,8 @@ namespace detail
 				& v.m_History
 				& v.m_LiveObjects
 				& v.m_Difficulty
-				& v.m_TimeStamp;
+				& v.m_TimeStamp
+				& v.m_PoW;
 
 			return ar;
 		}
@@ -450,7 +471,8 @@ namespace detail
 				& v.m_History
 				& v.m_LiveObjects
 				& v.m_Difficulty
-				& v.m_TimeStamp;
+				& v.m_TimeStamp
+				& v.m_PoW;
 
 			return ar;
 		}

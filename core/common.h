@@ -251,9 +251,13 @@ namespace beam
 				Merkle::Hash	m_LiveObjects;	// Objects that can be both added and deleted. Currently: UTXOs and kernels
 				Difficulty		m_Difficulty;
 				Timestamp		m_TimeStamp;
+				PoW				m_PoW;
 
 				void get_Hash(Merkle::Hash&) const; // Calculated from all the above
 				void get_ID(ID&) const;
+
+				bool IsValidPoW() const;
+				bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
 			};
 		};
 

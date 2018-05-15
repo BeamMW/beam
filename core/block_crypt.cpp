@@ -507,6 +507,20 @@ namespace beam
 		get_Hash(out.m_Hash);
 	}
 
+	bool Block::SystemState::Full::IsValidPoW() const
+	{
+		Merkle::Hash hv;
+		get_Hash(hv);
+		return m_PoW.IsValid(hv.m_pData, sizeof(hv.m_pData));
+	}
+
+	bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
+	{
+		Merkle::Hash hv;
+		get_Hash(hv);
+		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
+	}
+
 	bool Block::Body::IsValid(Height h0, Height h1) const
 	{
 		assert(h0 <= h1);

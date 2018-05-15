@@ -447,6 +447,7 @@ void NodeDB::Transaction::Rollback()
 	macro(HashPrev,		m_Prev) sep \
 	macro(Difficulty,	m_Difficulty) sep \
 	macro(Timestamp,	m_TimeStamp) sep \
+	macro(PoW,			m_PoW) sep \
 	macro(LiveObjects,	m_LiveObjects) sep \
 	macro(History,		m_History)
 
