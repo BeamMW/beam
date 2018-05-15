@@ -7,7 +7,7 @@
 #	define _countof(_Array) (sizeof(_Array) / sizeof(_Array[0]))
 #endif // _countof
 
-void memset0(void* p, size_t n);
+inline void memset0(void* p, size_t n) { memset(p, 0, n); }
 bool memis0(const void* p, size_t n);
 
 template <typename T>

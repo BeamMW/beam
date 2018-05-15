@@ -9,11 +9,6 @@
 #pragma warning (pop)
 
 // misc
-void memset0(void* p, size_t n)
-{
-	memset(p, 0, n);
-}
-
 bool memis0(const void* p, size_t n)
 {
 	for (size_t i = 0; i < n; i++)
