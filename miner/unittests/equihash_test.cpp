@@ -1,15 +1,15 @@
-#include "miner/pow/equihash.h"
+#include "core/common.h"
 #include <iostream>
 
 int main()
 {
-    beam::ByteBuffer input{1, 2, 3, 4, 56};
+    uint8_t pInput[] = {1, 2, 3, 4, 56};
 
-    beam::Block::PoW::NonceType nonce{1, 2, 4};
-    auto proof = equi::getSolution(input, nonce);
-    std::cout << proof->m_Indices.size() << std::endl;
+	beam::Block::PoW pow;
+	pow.m_Nonce = 0x010204U;
+	pow.Solve(pInput, sizeof(pInput));
 
-    if (equi::isValidProof(input, *proof))
+    if (pow.IsValid(pInput, sizeof(pInput)))
     {
         std::cout << "Solution is correct\n";
         return 0;

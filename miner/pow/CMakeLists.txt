@@ -10,7 +10,6 @@ include_directories(impl)
 
 set(POW_SRC
     equihash.cpp
-    equihash.h
     impl/crypto/equihash_impl.cpp
     impl/arith_uint256.cpp
     impl/uint256.cpp

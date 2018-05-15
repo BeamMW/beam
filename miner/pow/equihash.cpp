@@ -1,70 +1,67 @@
-#include "equihash.h"
-
+#include "core/common.h"
 #include "impl/crypto/equihash.h"
 #include "impl/uint256.h"
 #include "impl/arith_uint256.h"
 #include <utility>
 
-namespace equi
+namespace beam
 {
 
-const int N = beam::Block::PoW::N;
-const int K = beam::Block::PoW::K;
-
-
-beam::Block::PoWPtr getSolution(const beam::ByteBuffer& input, const beam::Block::PoW::NonceType& initialNonce, const Cancel& cancel)
+struct Block::PoW::Helper
 {
-    beam::Block::PoWPtr proof = std::make_unique<beam::Block::PoW>();
-    proof->m_Nonce = initialNonce;
+	blake2b_state m_Blake;
+	Equihash<Block::PoW::N, Block::PoW::K> m_Eh;
 
-    std::function<bool(const beam::ByteBuffer&)> validBlock =
-        [&proof](const beam::ByteBuffer& solution) {
-            std::copy(solution.begin(), solution.end(), proof->m_Indices.begin());
+	void Reset(const void* pInput, uint32_t nSizeInput, const NonceType& nonce)
+	{
+		m_Eh.InitialiseState(m_Blake);
+
+		// H(I||...
+		blake2b_update(&m_Blake, (uint8_t*) pInput, nSizeInput);
+		blake2b_update(&m_Blake, nonce.m_pData, sizeof(nonce.m_pData));
+	}
+};
+
+bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, const Cancel& fnCancel)
+{
+    std::function<bool(const beam::ByteBuffer&)> fnValid =
+        [this](const beam::ByteBuffer& solution) {
+			assert(solution.size() == m_Indices.size());
+            std::copy(solution.begin(), solution.end(), m_Indices.begin());
             return true;
         };
 
-    std::function<bool(EhSolverCancelCheck)> cancelled = [&cancel](EhSolverCancelCheck pos) {
-        return cancel();
+
+    std::function<bool(EhSolverCancelCheck)> fnCancelInternal = [fnCancel](EhSolverCancelCheck pos) {
+        return fnCancel(false);
     };
 
-	Equihash<N, K> eh;
+	Helper hlp;
 
     while (true)
     {
-        blake2b_state state;
-        eh.InitialiseState(state);
+		hlp.Reset(pInput, nSizeInput, m_Nonce);
 
-        // H(I||...
-        blake2b_update(&state, &input[0], input.size());
-
-        // H(I||V||...
-        blake2b_state currState;
-        currState = state;
-        blake2b_update(&currState, &proof->m_Nonce.m_pData[0], proof->m_Nonce.size());
-
-        bool found = eh.OptimisedSolve(currState, validBlock, cancelled);
-        if (found)
-        {
+        if (hlp.m_Eh.OptimisedSolve(hlp.m_Blake, fnValid, fnCancelInternal))
             break;
-        }
 
-        proof->m_Nonce.Inc();
+		if (fnCancel(true))
+			return false; // retry not allowed
+
+        m_Nonce.Inc();
     }
 
-    return proof;
+    return true;
 }
 
-bool isValidProof(const beam::ByteBuffer& input, const beam::Block::PoW& proof)
+bool Block::PoW::IsValid(const void* pInput, uint32_t nSizeInput) const
 {
-    blake2b_state state;
-	Equihash<N, K> eh;
-	eh.InitialiseState(state);
+	Helper hlp;
+	hlp.Reset(pInput, nSizeInput, m_Nonce);
 
-    // H(I||V||...
-    blake2b_update(&state, &input[0], input.size());
-    blake2b_update(&state, &proof.m_Nonce.m_pData[0], proof.m_Nonce.size());
+	std::vector<uint8_t> v(m_Indices.begin(), m_Indices.end());
+    return hlp.m_Eh.IsValidSolution(hlp.m_Blake, v);
+}
 
-    return eh.IsValidSolution(state, beam::ByteBuffer(proof.m_Indices.begin(), proof.m_Indices.end()));
-}
-}
+} // namespace beam
 

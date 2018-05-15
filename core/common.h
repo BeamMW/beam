@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <assert.h>
+#include <functional>
 
 #ifdef WIN32
 #	define NOMINMAX
@@ -203,6 +204,36 @@ namespace beam
 		// Different parts of the block are split into different structs, so that they can be manipulated (transferred, processed, saved and etc.) independently
 		// For instance, there is no need to keep PoW (at least in SPV client) once it has been validated.
 
+		struct PoW
+		{
+			// equihash parameters
+			static const uint32_t N = 120;
+			static const uint32_t K = 4;
+
+			static const uint32_t nNumIndices		= 1 << K; // 16
+			static const uint32_t nBitsPerIndex		= N / (K + 1) + 1; // 25
+
+			static const uint32_t nSolutionBits		= nNumIndices * nBitsPerIndex; // 400 bits
+
+			static_assert(!(nSolutionBits & 7), "PoW solution should be byte-aligned");
+			static const uint32_t nSolutionBytes	= nSolutionBits >> 3; // 50 bytes
+
+			std::array<uint8_t, nSolutionBytes>	m_Indices;
+
+			typedef ECC::uintBig_t<112> NonceType;
+			NonceType m_Nonce; // 14 bytes. The overall solution size is 64 bytes.
+
+			bool IsValid(const void* pInput, uint32_t nSizeInput) const;
+
+			using Cancel = std::function<bool(bool bRetrying)>;
+			// Nonce must be initialized. During the solution it's incremented each time by 1.
+			// returns false only if cancelled
+			bool Solve(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
+
+		private:
+			struct Helper;
+		};
+
 		struct SystemState
 		{
 			struct ID {
@@ -225,30 +256,6 @@ namespace beam
 				void get_ID(ID&) const;
 			};
 		};
-
-		struct PoW
-		{
-			// equihash parameters
-			static const uint32_t N = 120;
-			static const uint32_t K = 4;
-
-			static const uint32_t nNumIndices		= 1 << K; // 16
-			static const uint32_t nBitsPerIndex		= N / (K + 1) + 1; // 25
-
-			static const uint32_t nSolutionBits		= nNumIndices * nBitsPerIndex; // 400 bits
-
-			static_assert(!(nSolutionBits & 7), "PoW solution should be byte-aligned");
-			static const uint32_t nSolutionBytes	= nSolutionBits >> 3; // 50 bytes
-
-			std::array<uint8_t, nSolutionBytes>	m_Indices;
-
-			typedef ECC::uintBig_t<112> NonceType;
-			NonceType m_Nonce; // 14 bytes. The overall solution size is 64 bytes.
-
-			bool IsValid(const SystemState::Full& prev, const SystemState::Full& next) const;
-		};
-		typedef std::unique_ptr<PoW> PoWPtr;
-		PoWPtr m_ProofOfWork;
 
 		static const Amount s_CoinbaseEmission; // the maximum allowed coinbase in a single block
 		static const Height s_MaturityCoinbase;
