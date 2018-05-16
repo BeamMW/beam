@@ -1034,6 +1034,9 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	// Finalize block construction.
 	if (h)
 	{
+		NodeDB::StateID sid;
+		m_DB.get_Cursor(sid);
+
 		m_DB.get_State(sid.m_Row, s);
 		s.get_Hash(s.m_Prev);
 		m_DB.get_PredictedStatesHash(s.m_History, sid);
