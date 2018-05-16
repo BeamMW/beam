@@ -164,6 +164,10 @@ void Node::Processor::OnNewState()
 
 	get_ParentObj().m_TxPool.DeleteOutOfBound(msg.m_ID.m_Height + 1);
 
+	get_ParentObj().m_Miner.HardAbortSafe();
+	
+	get_ParentObj().m_Miner.SetTimer(0, true); // don't start mined block construction, because we're called in the context of NodeProcessor, which holds the DB transaction.
+
 	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
 	{
 		PeerList::iterator itThis = it;
@@ -243,13 +247,14 @@ void Node::Initialize()
 			pt.m_pEvtRefresh = io::AsyncEvent::create(pt.m_pReactor, [this, i]() { m_Miner.OnRefresh(i); });
 			pt.m_Thread = std::thread(&io::Reactor::run, pt.m_pReactor);
 		}
+
+		m_Miner.Restart();
 	}
 }
 
 Node::~Node()
 {
-	if (m_Miner.m_pTask)
-		*m_Miner.m_pTask->m_pStop = true;
+	m_Miner.HardAbortSafe();
 
 	for (size_t i = 0; i < m_Miner.m_vThreads.size(); i++)
 	{
@@ -280,7 +285,7 @@ Node::~Node()
 void Node::Peer::SetTimer(uint32_t timeout_ms)
 {
 	assert(m_pTimer);
-	m_pTimer->start(timeout_ms, false, [this]() { return OnTimer(); });
+	m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
 }
 
 void Node::Peer::KillTimer()
@@ -551,8 +556,8 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 		if (msgOut.m_Value)
 		{
 			m_pThis->m_TxPool.ShrinkUpTo(m_pThis->m_Cfg.m_MaxPoolTransactions);
+			m_pThis->m_Miner.SetTimer(m_pThis->m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
 
-			// lazy-invalidate the new block generation
 			// spread to other nodes?
 		}
 	}
@@ -577,18 +582,16 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 	while (true)
 	{
 		Task::Ptr pTask;
+		Block::SystemState::Full s;
+
 		{
 			std::scoped_lock<std::mutex> scope(m_Mutex);
-
-			pTask = m_pTask;
-			if (!pTask)
+			if (!m_pTask || *m_pTask->m_pStop)
 				break;
 
-			if (*pTask->m_pStop)
-				break; // Mined. The owner thread didn't handle it yet.
+			pTask = m_pTask;
+			s = pTask->m_Hdr; // local copy
 		}
-
-		Block::SystemState::Full s = pTask->m_Hdr; // local copy
 
 		ECC::Hash::Value hv; // pick pseudo-random initial nonce for mining.
 		ECC::Hash::Processor() << get_ParentObj().m_Cfg.m_MinerID << iIdx << s.m_Height >> hv;
@@ -605,7 +608,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 			{
 				std::scoped_lock<std::mutex> scope(m_Mutex);
 				if (pTask != m_pTask)
-					return true;
+					return true; // soft restart triggered
 			}
 
 			return false;
@@ -621,15 +624,90 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 
 		pTask->m_Hdr = s; // save the result
 		*pTask->m_pStop = true;
-		m_pTask = pTask;
+		m_pTask = pTask; // In case there was a soft restart we restore the one that we mined.
 
 		m_pEvtMined->trigger();
 		break;
 	}
 }
 
+void Node::Miner::HardAbortSafe()
+{
+	std::scoped_lock<std::mutex> scope(m_Mutex);
+
+	if (m_pTask)
+	{
+		*m_pTask->m_pStop = true;
+		m_pTask = NULL;
+	}
+}
+
+void Node::Miner::SetTimer(uint32_t timeout_ms, bool bHard)
+{
+	if (!m_pTimer)
+		m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+	else
+		if (m_bTimerPending && !bHard)
+			return;
+
+	m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
+	m_bTimerPending = true;
+}
+
+void Node::Miner::OnTimer()
+{
+	m_bTimerPending = false;
+	Restart();
+}
+
+void Node::Miner::Restart()
+{
+	if (m_vThreads.empty())
+		return; //  n/a
+
+	Task::Ptr pTask(std::make_shared<Task>());
+	if (!get_ParentObj().m_Processor.GenerateNewBlock(get_ParentObj().m_TxPool, pTask->m_Hdr, pTask->m_Body, pTask->m_Fees))
+		return;
+
+	// let's mine it.
+	std::scoped_lock<std::mutex> scope(m_Mutex);
+
+	if (m_pTask)
+		pTask->m_pStop = m_pTask->m_pStop; // use the same soft-restart indicator
+	else
+	{
+		pTask->m_pStop.reset(new volatile bool);
+		*pTask->m_pStop = false;
+	}
+
+	m_pTask = pTask;
+
+	for (size_t i = 0; i < m_vThreads.size(); i++)
+		m_vThreads[i].m_pEvtRefresh->trigger();
+}
+
 void Node::Miner::OnMined()
 {
+	std::scoped_lock<std::mutex> scope(m_Mutex);
+	if (!m_pTask)
+		return; //?!
+
+	// voila!
+	Task::Ptr pTask;
+	pTask.swap(m_pTask);
+	assert(*pTask->m_pStop);
+
+	bool b = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, NodeDB::PeerID());
+	assert(b); // otherwise'd mean someone else mined the same exactly block
+
+	Block::SystemState::ID id;
+	pTask->m_Hdr.get_ID(id);
+
+	NodeDB::StateID sid;
+	verify(sid.m_Row = get_ParentObj().m_Processor.get_DB().StateFindSafe(id));
+	sid.m_Height = id.m_Height;
+
+	get_ParentObj().m_Processor.get_DB().SetMined(sid, pTask->m_Fees); // ding!
 }
 
 } // namespace beam

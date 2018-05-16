@@ -25,6 +25,7 @@ struct Node
 			uint32_t m_Insane_ms	= 1000 * 3600; // 1 hour
 			uint32_t m_GetState_ms	= 1000 * 5;
 			uint32_t m_GetBlock_ms	= 1000 * 30;
+			uint32_t m_MiningSoftRestart_ms = 100;
 		} m_Timeout;
 
 		bool m_bDontVerifyPoW = false; // for testing only!
@@ -173,17 +174,28 @@ private:
 		{
 			typedef std::shared_ptr<Task> Ptr;
 
-			Block::SystemState::Full m_Hdr; // mutable.
+			// Task is mutable. But modifications are allowed only when holding the mutex.
+
+			Block::SystemState::Full m_Hdr;
 			ByteBuffer m_Body;
+			Amount m_Fees;
+
 			std::shared_ptr<volatile bool> m_pStop;
 		};
 
 		void OnRefresh(uint32_t iIdx);
 		void OnMined();
 
+		void HardAbortSafe();
+		void Restart();
+
 		std::mutex m_Mutex;
 		Task::Ptr m_pTask; // currently being-mined
 
+		io::Timer::Ptr m_pTimer;
+		bool m_bTimerPending;
+		void OnTimer();
+		void SetTimer(uint32_t timeout_ms, bool bHard);
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Miner)
 	} m_Miner;
