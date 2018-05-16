@@ -45,7 +45,7 @@ namespace beam::wallet
         output->m_pPublic->m_Value = amount;
         output->m_pPublic->Create(blindingFactor);
 
-        m_blindingExcess = -blindingFactor; // TODO: we have to remove this negation and change signs in verification formula
+        m_blindingExcess = -blindingFactor;
 
         m_transaction->m_vOutputs.push_back(move(output));
  
@@ -114,8 +114,7 @@ namespace beam::wallet
         beam::TxBase::Context ctx;
         assert(m_transaction->IsValid(ctx));
 
-        auto data = shared_ptr<receiver::RegisterTxData>(new receiver::RegisterTxData{ m_txId, move(m_transaction) });
-        m_gateway.register_tx(data);
+        m_gateway.register_tx(m_txId, m_transaction);
     }
 
     void Receiver::FSMDefinition::rollback_tx(const TxFailed& event)

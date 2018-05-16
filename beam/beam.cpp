@@ -30,7 +30,8 @@ int main(int argc, char* argv[])
         ("help,h", "list of all options")
         ("port,p", po::value<uint16_t>()->default_value(10000), "port to start the server/wallet on")
         ("mode", po::value<string>(), "mode to execute[node|wallet]")
-        ("command", po::value<string>(), "command to execute [send|listen]")    ;
+        ("command", po::value<string>(), "command to execute [send|listen]")
+        ("storage", po::value<string>()->default_value("node.db"), "path to storage");
 
     po::options_description wallet_options("Wallet options");
     wallet_options.add_options()
@@ -61,15 +62,18 @@ int main(int argc, char* argv[])
         if (vm.count("mode")) {
             auto mode = vm["mode"].as<string>();
             if (mode == "node") {
+                io::Reactor::Ptr pReactor(io::Reactor::create());
+                io::Reactor::Scope scope(*pReactor);
                 beam::Node node;
 
-                node.m_Cfg.m_Listen.port(vm["port"].as<int>());
+                node.m_Cfg.m_Listen.port(port);
                 node.m_Cfg.m_Listen.ip(INADDR_ANY);
                 node.m_Cfg.m_sPathLocal = vm["storage"].as<std::string>();
 
                 LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
                 node.Initialize();
+                pReactor->run();
             }
             else if (mode == "wallet" && vm.count("command")) {
                 LOG_INFO() << "starting a wallet..."; 
@@ -95,38 +99,25 @@ int main(int argc, char* argv[])
 
                 LOG_INFO() << "wallet sucessfully created/opened...";
 
-                bool is_server = command == "listen";
-
-                WalletNetworkIO network_io{ io::Address::localhost().port(port), is_server };
-                Wallet wallet{ keychain, network_io, is_server ? Wallet::TxCompletedAction() : [&network_io] (auto a) { network_io.stop(); } };
-                network_io.set_wallet_proxy(&wallet);
-
                 // resolve address after network io
                 io::Address node_addr;
                 node_addr.resolve(vm["node_addr"].as<string>().c_str());
 
-                LOG_INFO() << "connecting to node " << node_addr.str();
-                // connect to node
-                network_io.connect(node_addr, [&wallet](uint64_t tag)
-                {
-                    LOG_INFO() << "connected to node";
-                    wallet.set_node_id(tag);
-                });
+                bool is_server = command == "listen";
+                WalletNetworkIO wallet_io{ io::Address::localhost().port(port)
+                                         , node_addr
+                                         , is_server
+                                         , keychain };
 
                 if (command == "send") {
                     auto amount = vm["amount"].as<ECC::Amount>();
                     io::Address receiver_addr;
                     receiver_addr.resolve(vm["receiver_addr"].as<string>().c_str());
                     
-                    LOG_INFO() << "connecting to receiver " << receiver_addr.str();
-                    // connect to receiver
-                    network_io.connect(node_addr, [&wallet, amount](uint64_t tag) mutable
-                    {
-                        LOG_INFO() << "connected to receiver. Sending " << amount;
-                        wallet.send_money(tag, move(amount));
-                    });
+                    LOG_INFO() << "sending money " << receiver_addr.str();
+                    wallet_io.send_money(receiver_addr, move(amount));
                 }
-                network_io.start();
+                wallet_io.start();
             }
         }
         else

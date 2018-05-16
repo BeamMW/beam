@@ -33,40 +33,44 @@ namespace beam::wallet
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
             // states
-            struct Init : public msmf::state<> {
+            struct Init : public msmf::state<>
+            {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    std::cout << "[Receiver] Init state\n";
+                    LOG_DEBUG() << "[Receiver] Init state";
                 }
             };
             struct Terminate : public msmf::terminate_state<> {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm& fsm)
                 {
-                    std::cout << "[Receiver] Terminate state\n";
+                    LOG_DEBUG() << "[Receiver] Terminate state";
                     fsm.m_gateway.on_tx_completed(fsm.m_txId);
                 }
             };
-            struct TxConfirming : public msmf::state<> {
+            struct TxConfirming : public msmf::state<>
+            {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    std::cout << "[Receiver] TxConfirming state\n";
+                    LOG_DEBUG() << "[Receiver] TxConfirming state";
                 }
             };
-            struct TxRegistering : public msmf::state<> {
+            struct TxRegistering : public msmf::state<>
+            {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    std::cout << "[Receiver] TxRegistering state\n";
+                    LOG_DEBUG() << "[Receiver] TxRegistering state";
                 }
             };
-            struct TxOutputConfirming : public msmf::state<> {
+            struct TxOutputConfirming : public msmf::state<>
+            {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    std::cout << "[Receiver] TxOutputConfirming state\n";
+                    LOG_DEBUG() << "[Receiver] TxOutputConfirming state";
                 }
             };
 
@@ -94,6 +98,7 @@ namespace beam::wallet
             struct transition_table : mpl::vector<
                 //   Start                 Event                     Next                   Action               Guard
                 a_row< Init              , msmf::none              , TxConfirming         , &d::confirm_tx                               >,
+                a_row< Init              , TxFailed                , Terminate            , &d::rollback_tx                              >,
                 a_row< TxConfirming      , TxFailed                , Terminate            , &d::rollback_tx                              >,
                 row  < TxConfirming      , TxConfirmationCompleted , TxRegistering        , &d::register_tx    , &d::is_valid_signature  >,
                 row  < TxConfirming      , TxConfirmationCompleted , Terminate            , &d::cancel_tx      , &d::is_invalid_signature>,
@@ -106,8 +111,15 @@ namespace beam::wallet
             template <class FSM, class Event>
             void no_transition(Event const& e, FSM&, int state)
             {
-                std::cout << "Receiver: no transition from state " << state
-                    << " on event " << typeid(e).name() << std::endl;
+                LOG_DEBUG() << "[Receiver]: no transition from state " << state
+                            << " on event " << typeid(e).name();
+            }
+
+            template <class FSM, class Event>
+            void exception_caught(Event const&, FSM& fsm, std::exception& ex)
+            {
+                LOG_ERROR() << ex.what();
+                fsm.process_event(TxFailed());
             }
 
             receiver::IGateway& m_gateway;
@@ -128,7 +140,7 @@ namespace beam::wallet
             ECC::Scalar::Native m_nonce;
             ECC::Scalar::Native m_schnorrChallenge;
 
-            TransactionPtr m_transaction;
+            Transaction::Ptr m_transaction;
             TxKernel* m_kernel;
         };
 

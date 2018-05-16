@@ -9,6 +9,9 @@
 namespace beam
 {
     using Uuid = std::array<uint8_t, 16>;
+
+    std::ostream& operator<<(std::ostream& os, const Uuid& uuid);
+
     using UuidPtr = std::shared_ptr<Uuid>;
     using TransactionPtr = std::shared_ptr<Transaction>;
     ECC::Scalar::Native generateNonce();
@@ -89,20 +92,10 @@ namespace beam
                 SERIALIZE(m_txId, m_publicReceiverBlindingExcess, m_publicReceiverNonce, m_receiverSignature);
             };
 
-            struct RegisterTxData
-            {
-                using Ptr = std::shared_ptr<RegisterTxData>;
-
-                Uuid m_txId;
-                TransactionPtr m_transaction;
-
-                SERIALIZE(m_txId, m_transaction);
-            };
-
             struct IGateway : virtual IWalletGateway
             {
                 virtual void send_tx_confirmation(ConfirmationData::Ptr) = 0;
-                virtual void register_tx(RegisterTxData::Ptr) = 0;
+                virtual void register_tx(const Uuid&, Transaction::Ptr) = 0;
                 virtual void send_tx_registered(UuidPtr&&) = 0;
             };
         }

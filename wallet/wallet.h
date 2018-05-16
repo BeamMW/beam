@@ -5,6 +5,7 @@
 #include "wallet/sender.h"
 #include <thread>
 #include <mutex>
+#include <queue>
 
 namespace beam
 {
@@ -17,7 +18,7 @@ namespace beam
         virtual void send_tx_confirmation(PeerId to, wallet::sender::ConfirmationData::Ptr&&) = 0;
         virtual void send_output_confirmation(PeerId to, None&&) = 0;
         virtual void send_tx_confirmation(PeerId to, wallet::receiver::ConfirmationData::Ptr&&) = 0;
-        virtual void register_tx(PeerId to, wallet::receiver::RegisterTxData::Ptr&&) = 0;
+        virtual void register_tx(Transaction::Ptr&&) = 0;
         virtual void send_tx_registered(PeerId to, UuidPtr&& txId) = 0 ;
     };
 
@@ -27,11 +28,8 @@ namespace beam
         virtual void handle_tx_confirmation(PeerId from, wallet::sender::ConfirmationData::Ptr&&) = 0;
         virtual void handle_output_confirmation(PeerId from, None&&) = 0;
         virtual void handle_tx_confirmation(PeerId from, wallet::receiver::ConfirmationData::Ptr&&) = 0;
-        virtual void handle_tx_registration(PeerId from, UuidPtr&& txId) = 0;
+        virtual void handle_tx_registration(bool&& res) = 0;
         virtual void handle_tx_failed(PeerId from, UuidPtr&& txId) = 0;
-        // we need these two to pass callback from network thread to main
-        virtual void send_money(PeerId to, Amount&& amount) = 0;
-        virtual void set_node_id(PeerId to, None&& = None()) = 0;
     };
 
     class Wallet : public IWallet
@@ -44,10 +42,8 @@ namespace beam
         Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet() {};
 
-        void send_money(PeerId to, ECC::Amount&& amount) override;
-        void set_node_id(PeerId node_id, None&& = None()) override;
+        void send_money(PeerId to, ECC::Amount&& amount);
 
-    private:
         void send_tx_invitation(wallet::sender::InvitationData::Ptr) override;
         void send_tx_confirmation(wallet::sender::ConfirmationData::Ptr) override;
         void on_tx_completed(const Uuid& txId) override;
@@ -55,19 +51,18 @@ namespace beam
         void remove_sender(const Uuid& txId);
         void remove_receiver(const Uuid& txId);
         void send_tx_confirmation(wallet::receiver::ConfirmationData::Ptr) override;
-        void register_tx(wallet::receiver::RegisterTxData::Ptr) override;
+        void register_tx(const Uuid&, Transaction::Ptr) override;
         void send_tx_registered(UuidPtr&& txId) override;
         void handle_tx_invitation(PeerId from, wallet::sender::InvitationData::Ptr&&) override;
         void handle_tx_confirmation(PeerId from, wallet::sender::ConfirmationData::Ptr&&) override;
         void handle_output_confirmation(PeerId from, None&&) override;
         void handle_tx_confirmation(PeerId from, wallet::receiver::ConfirmationData::Ptr&&) override;
-        void handle_tx_registration(PeerId from, UuidPtr&& txId) override;
+        void handle_tx_registration(bool&& res) override;
         void handle_tx_failed(PeerId from, UuidPtr&& txId) override;
 
     private:
         IKeyChain::Ptr m_keyChain;
         INetworkIO& m_network;
-        
         std::map<Uuid, PeerId> m_peers;
         std::map<Uuid, wallet::Sender::Ptr>   m_senders;
         std::map<Uuid, wallet::Receiver::Ptr> m_receivers;
@@ -75,6 +70,7 @@ namespace beam
         std::vector<wallet::Receiver::Ptr>    m_removedReceivers;
         uint64_t m_node_id;
         TxCompletedAction m_tx_completed_action;
+        std::queue<Uuid> m_registration_queue;
 #ifndef NDEBUG
         std::thread::id m_tid;
         void check_thread() { assert(m_tid == std::this_thread::get_id()); }

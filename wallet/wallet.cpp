@@ -2,6 +2,8 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include "core/ecc_native.h"
+#include "utility/logger.h"
+#include "utility/helpers.h"
 #include <algorithm>
 #include <random>
 
@@ -16,6 +18,12 @@ namespace beam
     using namespace wallet;
     using namespace std;
     using namespace ECC;
+
+    std::ostream& operator<<(std::ostream& os, const Uuid& uuid)
+    {
+        os << "[" << to_hex(uuid.data(), uuid.size()) << "]";
+        return os;
+    }
 
     Scalar::Native generateNonce()
     {
@@ -79,12 +87,6 @@ namespace beam
         p.first->second->start();
     }
 
-    void Wallet::set_node_id(PeerId node_id, None&&)
-    {
-        check_thread();
-        m_node_id = node_id;
-    }
-
     void Wallet::send_tx_invitation(sender::InvitationData::Ptr data)
     {
         check_thread();
@@ -121,12 +123,7 @@ namespace beam
     void Wallet::send_output_confirmation()
     {
         check_thread();
-        if (m_node_id > 0) {
-            m_network.send_output_confirmation(m_node_id, None{});
-        }
-        else {
-            assert(false && "there is no node peer");
-        }
+        m_network.send_output_confirmation(m_node_id, None{});
     }
 
     void Wallet::remove_sender(const Uuid& txId)
@@ -160,15 +157,11 @@ namespace beam
         }
     }
 
-    void Wallet::register_tx(receiver::RegisterTxData::Ptr data)
+    void Wallet::register_tx(const Uuid& txId, Transaction::Ptr data)
     {
         check_thread();
-        if (m_node_id > 0) {
-            m_network.register_tx(m_node_id, move(data));
-        }
-        else {
-            assert(false && "there is no node peer");
-        }
+        m_registration_queue.push(txId);
+        m_network.register_tx(move(data));
     }
 
     void Wallet::send_tx_registered(UuidPtr&& txId)
@@ -186,14 +179,17 @@ namespace beam
     {
         check_thread();
         auto it = m_receivers.find(data->m_txId);
-        if (it == m_receivers.end())  {
+        if (it == m_receivers.end())
+        {
+            LOG_DEBUG() << "[Sender] Got tx invitation " << data->m_txId;
             auto txId = data->m_txId;
             m_peers.emplace(txId, from);
             auto p = m_receivers.emplace(txId, make_unique<Receiver>(*this, m_keyChain, data));
             p.first->second->start();
         }
-        else {
-            // TODO: log unexpected TxInitation
+        else
+        {
+            LOG_DEBUG() << "[Sender] Unexpected tx invitation " << data->m_txId;
         }
     }
     
@@ -201,11 +197,13 @@ namespace beam
     {
         check_thread();
         auto it = m_receivers.find(data->m_txId);
-        if (it != m_receivers.end()) {
+        if (it != m_receivers.end())
+        {
             it->second->processEvent(Receiver::TxConfirmationCompleted{data});
         }
-        else  {
-            // TODO: log unexpected TxConfirmation
+        else
+        {
+            LOG_DEBUG() << "Unexpected sender tx confirmation "<< data->m_txId;
         }
     }
 
@@ -227,24 +225,56 @@ namespace beam
     {
         check_thread();
         auto it = m_senders.find(data->m_txId);
-        if (it != m_senders.end()) {
+        if (it != m_senders.end())
+        {
+            LOG_DEBUG() << "[Receiver] Got tx confirmation " << data->m_txId;
             it->second->processEvent(Sender::TxInitCompleted{data});
         }
-        else {
-            // TODO: log unexpected TxConfirmation
+        else
+        {
+            LOG_DEBUG() << "[Receiver] Unexpected tx confirmation " << data->m_txId;
         }
     }
 
-    void Wallet::handle_tx_registration(PeerId from, UuidPtr&& txId)
+    void Wallet::handle_tx_registration(bool&& res)
     {
         check_thread();
-        if (auto it = m_receivers.find(*txId); it != m_receivers.end()) {
-            it->second->processEvent(Receiver::TxRegistrationCompleted{ *txId });
+        if (m_registration_queue.empty())
+        {
+            LOG_DEBUG() << "Received unexpected tx registration confirmation";
+            assert(m_receivers.empty() && m_senders.empty());
             return;
         }
-        if (auto it = m_senders.find(*txId); it != m_senders.end()) {
-            it->second->processEvent(Sender::TxConfirmationCompleted());
-            return;
+        auto txId = m_registration_queue.front();
+        m_registration_queue.pop();
+
+        LOG_DEBUG() << "tx " << txId << (res ? "registered" : "failed to register");
+        
+        if (res)
+        {
+            if (auto it = m_receivers.find(txId); it != m_receivers.end())
+            {
+                it->second->processEvent(Receiver::TxRegistrationCompleted{ txId });
+                return;
+            }
+            if (auto it = m_senders.find(txId); it != m_senders.end())
+            {
+                it->second->processEvent(Sender::TxConfirmationCompleted());
+                return;
+            }
+        }
+        else
+        {
+            if (auto it = m_senders.find(txId); it != m_senders.end())
+            {
+                it->second->processEvent(Sender::TxFailed());
+                return;
+            }
+            if (auto it = m_receivers.find(txId); it != m_receivers.end())
+            {
+                it->second->processEvent(Receiver::TxFailed());
+                return;
+            }
         }
     }
 

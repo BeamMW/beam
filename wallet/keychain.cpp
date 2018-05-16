@@ -138,6 +138,11 @@ namespace beam
 
 		sqlite3_finalize(stmt);
 
+        if (sum < amount)
+        {
+            coins.clear();
+        }
+
 		return coins;
     }
 

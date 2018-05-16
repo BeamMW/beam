@@ -156,7 +156,7 @@ namespace
             cout << "sent recever's tx confirmation message\n";
         }
 
-        void register_tx(wallet::receiver::RegisterTxData::Ptr) override
+        void register_tx(const Uuid&, Transaction::Ptr) override
         {
             cout << "sent tx registration request\n";
         }
@@ -302,10 +302,10 @@ namespace
             enqueueNetworkTask([this, to, data] () mutable {m_peers[0]->handle_tx_confirmation(to, move(data)); });
         }
 
-        void register_tx(PeerId to, wallet::receiver::RegisterTxData::Ptr&& data) override
+        void register_tx(Transaction::Ptr&& data) override
         {
             cout << "[Receiver] register_tx\n";
-            enqueueNetworkTask([this, to, data] {m_peers[1]->handle_tx_registration(to, make_unique<Uuid>(data->m_txId)); });
+            enqueueNetworkTask([this, data] {m_peers[1]->handle_tx_registration(true); });
          
         }
 
@@ -313,7 +313,7 @@ namespace
         {
             cout << "[Receiver] send_tx_registered\n";
 
-            enqueueNetworkTask([this, to, txId] () mutable {m_peers[0]->handle_tx_registration(to, move(txId)); });
+            enqueueNetworkTask([this, to, txId] () mutable {m_peers[0]->handle_tx_registration(true); });
             shutdown();
         }
     };
@@ -374,7 +374,7 @@ namespace
             };
         }
 
-        void register_tx(PeerId to, wallet::receiver::RegisterTxData::Ptr&&) override
+        void register_tx(Transaction::Ptr&&) override
         {
             cout << "[Receiver] register_tx\n";
             //enqueueTask([this] {m_peers[1]->handle_tx_registration(Transaction()); });
@@ -396,9 +396,6 @@ void TestWalletNegotiation()
 
     network.registerPeer(&sender);
     network.registerPeer(&receiver);
-
-    sender.set_node_id(5);
-    receiver.set_node_id(9);
 
     sender.send_money(receiver_id, 6);
     mainLoop.run();
@@ -435,13 +432,13 @@ class TestNode : public IMsgHandler
 {
 public:
     TestNode(io::Address address, io::Reactor::Ptr reactor = io::Reactor::Ptr())
-        : m_protocol{0, 0, 1, *this, 200}
+        : m_protocol{ 0xAA, 0xBB, 0xCC, *this, 200}
         , m_address{ address }
         , m_reactor{ reactor ? reactor : io::Reactor::create()}
         , m_server{io::TcpServer::create(m_reactor, m_address, BIND_THIS_MEMFN(on_stream_accepted))}
         , m_tag{ 0 }
     {
-        m_protocol.add_message_handler<wallet::receiver::RegisterTxData, &TestNode::on_register_tx>(txRegisterCode, 1, 2000);
+        m_protocol.add_message_handler<Transaction::Ptr, &TestNode::on_register_tx>(txRegisterCode, 1, 2000);
         m_protocol.add_message_handler<None, &TestNode::on_confirm_output>(txConfirmOutputCode, 1, 2000);
     }
 
@@ -477,9 +474,9 @@ private:
     }
 
     // protocol handler
-    bool on_register_tx(uint64_t connectionId, wallet::receiver::RegisterTxData&& data)
+    bool on_register_tx(uint64_t connectionId, Transaction::Ptr&& data)
     {
-        send(connectionId, txRegisteredCode, data.m_txId);
+        send(connectionId, txRegisteredCode, proto::Boolean{true});
         return true;
     }
 
@@ -545,104 +542,26 @@ void TestP2PWalletNegotiationST()
     auto sender_address = io::Address::localhost().port(32123);
 
     io::Reactor::Ptr main_reactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*main_reactor);
 
     TestNode node{ node_address, main_reactor };
-    WalletNetworkIO sender_io{ sender_address, false, main_reactor };
-    WalletNetworkIO receiver_io{ receiver_address, true, main_reactor, 1000 };
- 
-    int completion_count = 2;
+    WalletNetworkIO sender_io{ sender_address, node_address, false, createKeyChain<TestKeyChain>(), main_reactor };
+    WalletNetworkIO receiver_io{ receiver_address, node_address, true, createKeyChain<TestKeyChain2>(), main_reactor, 1000 };
 
-    auto action = [&] (const Uuid&) { // called in main thread
-        if (!(--completion_count)) {
-            main_reactor->stop();
-        }
-    };
-
-    Wallet sender(createKeyChain<TestKeyChain>(), sender_io.get_network_proxy(), action );
-    Wallet receiver(createKeyChain<TestKeyChain2>(), receiver_io.get_network_proxy(), action);
-
-    NetworkToWalletBridge sender_bridge{ sender, main_reactor };
-    NetworkToWalletBridge receiver_bridge{ receiver, main_reactor };
-
-    sender_io.set_wallet_proxy(&sender_bridge);
-    receiver_io.set_wallet_proxy(&receiver_bridge);
-
-    sender_io.connect(node_address, [&sender_bridge](uint64_t tag) {
-        sender_bridge.set_node_id(tag, None());
-    });
-
-    receiver_io.connect(node_address, [&receiver_bridge](uint64_t tag) {
-        receiver_bridge.set_node_id(tag, None());
-    });
-
-    sender_io.connect(receiver_address, [&sender_bridge](uint64_t tag) {
-        sender_bridge.send_money(tag, 6);
-    });
+    sender_io.send_money(receiver_address, 6);
 
     main_reactor->run();
-}
-
-void TestP2PWalletNegotiationMT()
-{
-    cout << "\nTesting p2p wallets negotiation multithreaded...\n";
-
-    auto node_address = io::Address::localhost().port(32125);
-    auto receiver_address = io::Address::localhost().port(32124);
-    auto sender_address = io::Address::localhost().port(32123);
-
-    io::Reactor::Ptr main_reactor{ io::Reactor::create() };
-
-    TestNode node{ node_address };
-    WalletNetworkIO sender_io{ sender_address, false };
-    WalletNetworkIO receiver_io{ receiver_address, true };
-
-
-    int completion_count = 2;
-
-    auto action = [&](const Uuid&) { // called in main thread
-        if (!(--completion_count)) {
-            node.stop();
-            sender_io.stop();
-            receiver_io.stop();
-            main_reactor->stop();
-        }
-    };
-
-    Wallet sender(createKeyChain<TestKeyChain>(), sender_io.get_network_proxy(), action);
-    Wallet receiver(createKeyChain<TestKeyChain2>(), receiver_io.get_network_proxy(), action);
-
-    NetworkToWalletBridge sender_bridge{ sender, main_reactor };
-    NetworkToWalletBridge receiver_bridge{ receiver, main_reactor };
-
-    sender_io.set_wallet_proxy(&sender_bridge);
-    receiver_io.set_wallet_proxy(&receiver_bridge);
-
-    sender_io.connect(node_address, [&sender_bridge](uint64_t tag) {
-        sender_bridge.set_node_id(tag, None());
-    });
-
-    receiver_io.connect(node_address, [&receiver_bridge](uint64_t tag) {
-        receiver_bridge.set_node_id(tag, None());
-    });
-
-    sender_io.connect(receiver_address, [&sender_bridge](uint64_t tag) {
-        sender_bridge.send_money(tag, 6);
-    });
-
-    sender_io.start(true);
-    receiver_io.start(true);
-    node.start();
-    main_reactor->run();
-
-    node.wait();
-    sender_io.wait();
-    receiver_io.wait();
 }
 
 int main()
 {
+    LoggerConfig lc;
+    int logLevel = LOG_LEVEL_DEBUG;
+    lc.consoleLevel = logLevel;
+    lc.flushLevel = logLevel;
+    auto logger = Logger::create(lc);
+
     TestP2PWalletNegotiationST();
-    TestP2PWalletNegotiationMT();
     TestWalletNegotiation<TestKeyChain, TestKeyChain2>();
     TestWalletNegotiation<SqliteKeychainInt, TestKeyChain2>();
     TestRollback();

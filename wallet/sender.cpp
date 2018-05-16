@@ -5,13 +5,18 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
-    void Sender::FSMDefinition::initTx(const msmf::none&)
+    void Sender::FSMDefinition::init_tx(const msmf::none&)
     {
         // 1. Create transaction Uuid
         auto invitationData = make_shared<sender::InvitationData>();
         invitationData->m_txId = m_txId;
 
         m_coins = m_keychain->getCoins(m_amount); // need to lock 
+        if (m_coins.empty())
+        {
+            LOG_INFO() << "There is no money to pay " << m_amount;
+            throw runtime_error("no money");
+        }
         invitationData->m_amount = m_amount;
         m_kernel.m_Fee = 0;
         m_kernel.m_HeightMin = 0; 

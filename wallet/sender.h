@@ -7,6 +7,7 @@
 #include <iostream>
 #include <boost/msm/front/functor_row.hpp>
 #include <boost/optional.hpp>
+#include "utility/logger.h"
 
 namespace beam::wallet
 {
@@ -31,31 +32,47 @@ namespace beam::wallet
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
             // states
-            struct Init : public msmf::state<> {
+            struct Init : public msmf::state<>
+            {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { std::cout << "[Sender] Init state\n"; } };
+                {
+                    LOG_DEBUG() << "[Sender] Init state";
+                } 
+            };
             struct Terminate : public msmf::terminate_state<>
             {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm& fsm)
                 {
-                    std::cout << "[Sender] Terminate state\n";
+                    LOG_DEBUG() << "[Sender] Terminate state";
                     fsm.m_gateway.on_tx_completed(fsm.m_txId);
                 } 
             };
-            struct TxInitiating : public msmf::state<> {
+            struct TxInitiating : public msmf::state<>
+            {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { std::cout << "[Sender] TxInitiating state\n"; } };
-            struct TxConfirming : public msmf::state<> {
+                {
+                    LOG_DEBUG() << "[Sender] TxInitiating state"; 
+                } 
+            };
+            struct TxConfirming : public msmf::state<>
+            {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { std::cout << "[Sender] TxConfirming state\n"; } };
-            struct TxOutputConfirming : public msmf::state<> {
+                {
+                    LOG_DEBUG() << "[Sender] TxConfirming state"; 
+                } 
+            };
+            struct TxOutputConfirming : public msmf::state<>
+            {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { std::cout << "[Sender] TxOutputConfirming state\n"; } };
+                { 
+                    LOG_DEBUG() << "[Sender] TxOutputConfirming state"; 
+                }
+            };
 
             FSMDefinition(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, ECC::Amount amount, Height currentHeight)
                 : m_gateway{ gateway }
@@ -66,7 +83,7 @@ namespace beam::wallet
             {}
 
             // transition actions
-            void initTx(const msmf::none&);
+            void init_tx(const msmf::none&);
 
             bool is_valid_signature(const TxInitCompleted& );
 
@@ -86,7 +103,8 @@ namespace beam::wallet
             using d = FSMDefinition;
             struct transition_table : mpl::vector<
                 //   Start                 Event                     Next                  Action                     Guard
-                a_row< Init              , msmf::none              , TxInitiating        , &d::initTx                                         >,
+                a_row< Init              , msmf::none              , TxInitiating        , &d::init_tx                                        >,
+                a_row< Init              , TxFailed                , Terminate           , &d::rollback_tx                                    >,
                 a_row< TxInitiating      , TxFailed                , Terminate           , &d::rollback_tx                                    >,
                 row  < TxInitiating      , TxInitCompleted         , TxConfirming        , &d::confirm_tx           , &d::is_valid_signature  >,
                 row  < TxInitiating      , TxInitCompleted         , Terminate           , &d::cancel_tx            , &d::is_invalid_signature>,
@@ -99,8 +117,15 @@ namespace beam::wallet
             template <class FSM, class Event>
             void no_transition(Event const& e, FSM&, int state)
             {
-                std::cout << "[Sender] no transition from state " << state
-                    << " on event " << typeid(e).name() << std::endl;
+                LOG_DEBUG() << "[Sender] no transition from state " << state
+                            << " on event " << typeid(e).name();
+            }
+
+            template <class FSM, class Event>
+            void exception_caught(Event const&, FSM& fsm, std::exception& ex)
+            {
+                LOG_ERROR() << ex.what();
+                fsm.process_event(TxFailed());
             }
 
             sender::IGateway& m_gateway;
