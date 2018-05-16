@@ -20,8 +20,6 @@ using PointValue  = ECC::Point::Native;
 using PointGen    = ECC::Context;
 using KeyPhrase   = const char*; // it's created by user
 
-bool operator==(const Scalar& left, const Scalar& rigth);
-
 const ScalarValue ONE = 1U;
 
 // Random generator is used to initiate starting state of Nonce

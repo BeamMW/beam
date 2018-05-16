@@ -6,10 +6,6 @@ namespace ECC {
   const Context& Context::get() { return g_Ctx; }
 }
 
-bool operator==(const Scalar& left, const Scalar& right) {
-    return ScalarValue(left) == ScalarValue(right);
-}
-
 // Random generator implementation
 unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 std::default_random_engine generator(seed);
