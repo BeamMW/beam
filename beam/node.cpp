@@ -688,14 +688,14 @@ void Node::Miner::Restart()
 
 void Node::Miner::OnMined()
 {
-	std::scoped_lock<std::mutex> scope(m_Mutex);
-	if (!m_pTask)
-		return; //?!
-
-	// voila!
 	Task::Ptr pTask;
-	pTask.swap(m_pTask);
-	assert(*pTask->m_pStop);
+
+	{
+		std::scoped_lock<std::mutex> scope(m_Mutex);
+		if (!(m_pTask && *m_pTask->m_pStop))
+			return; //?!
+		pTask.swap(m_pTask);
+	}
 
 	bool b = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, NodeDB::PeerID());
 	assert(b); // otherwise'd mean someone else mined the same exactly block
@@ -708,6 +708,9 @@ void Node::Miner::OnMined()
 	sid.m_Height = id.m_Height;
 
 	get_ParentObj().m_Processor.get_DB().SetMined(sid, pTask->m_Fees); // ding!
+
+	b = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, NodeDB::PeerID()); // will likely trigger OnNewState(), and spread this block to the network
+	assert(b);
 }
 
 } // namespace beam
