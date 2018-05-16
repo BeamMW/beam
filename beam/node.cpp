@@ -506,7 +506,7 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 
 void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 {
-	Send(proto::Boolean{ m_pThis->m_Processor.FeedTransaction(move(msg.m_Transaction)) });
+	Send(proto::Boolean{ true });
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
