@@ -137,6 +137,7 @@ private:
 		virtual void OnMsg(proto::GetBody&&) override;
 		virtual void OnMsg(proto::Body&&) override;
 		virtual void OnMsg(proto::NewTransaction&&) override;
+		virtual void OnMsg(proto::GetMined&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;

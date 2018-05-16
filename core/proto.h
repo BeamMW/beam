@@ -49,6 +49,12 @@ namespace proto {
 	macro(Block::SystemState::ID, ID) \
 	macro(std::vector<PerUtxoProof>, Proofs)
 
+#define BeamNodeMsg_GetMined(macro) \
+	macro(Height, HeightMin)
+
+#define BeamNodeMsg_Mined(macro) \
+	macro(std::vector<PerMined>, Entries)
+
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)
 
@@ -69,6 +75,8 @@ namespace proto {
 	macro(10, GetProofUtxo) \
 	macro(11, Proof) /* for states and kernels */ \
 	macro(12, ProofUtxo) \
+	macro(15, GetMined) \
+	macro(16, Mined) \
 	macro(21, Ping) \
 	macro(22, Pong) \
 	macro(23, NewTransaction)
@@ -90,6 +98,24 @@ namespace proto {
 		}
 
 		static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
+	};
+
+	struct PerMined
+	{
+		Block::SystemState::ID m_ID;
+		Amount m_Fees;
+		bool m_Active;
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_ID
+				& m_Fees
+				& m_Active;
+		}
+
+		static const uint32_t s_EntriesMax = 200; // if this is the size of the vector - the result is probably trunacted
 	};
 
 

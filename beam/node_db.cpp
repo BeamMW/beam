@@ -1392,9 +1392,12 @@ bool NodeDB::DeleteMinedSafe(const StateID& sid)
 	return get_RowsChanged() > 0;
 }
 
-void NodeDB::EnumMined(WalkerMined& x)
+void NodeDB::EnumMined(WalkerMined& x, Height hMin)
 {
-	x.m_Rs.Reset(Query::MinedSel, "SELECT " TblMined_Height "," TblMined_State "," TblMined_Comission " FROM " TblMined " ORDER BY "  TblMined_Height " DESC," TblMined_State " DESC");
+	x.m_Rs.Reset(Query::MinedSel, "SELECT " TblMined_Height "," TblMined_State "," TblMined_Comission " FROM " TblMined
+		" WHERE " TblMined_Height ">=?"
+		" ORDER BY "  TblMined_Height " ASC," TblMined_State " ASC");
+	x.m_Rs.put(0, hMin);
 }
 
 bool NodeDB::WalkerMined::MoveNext()

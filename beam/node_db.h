@@ -257,7 +257,7 @@ public:
 		bool MoveNext();
 	};
 
-	void EnumMined(WalkerMined&); // from high to low
+	void EnumMined(WalkerMined&, Height hMin); // from low to high
 
 private:
 

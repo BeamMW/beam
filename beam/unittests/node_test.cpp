@@ -195,7 +195,7 @@ namespace beam
 
 		{
 			NodeDB::WalkerMined wlkMined(db);
-			db.EnumMined(wlkMined);
+			db.EnumMined(wlkMined, 0);
 			verify_test(wlkMined.MoveNext());
 			verify_test(wlkMined.m_Sid.m_Height == sid.m_Height && wlkMined.m_Sid.m_Row == sid.m_Row);
 			verify_test(wlkMined.m_Amount == 250000);
@@ -205,7 +205,7 @@ namespace beam
 		db.DeleteMinedSafe(sid);
 		{
 			NodeDB::WalkerMined wlkMined(db);
-			db.EnumMined(wlkMined);
+			db.EnumMined(wlkMined, 0);
 			verify_test(!wlkMined.MoveNext());
 		}
 
