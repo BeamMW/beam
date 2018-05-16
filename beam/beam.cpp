@@ -31,14 +31,14 @@ int main(int argc, char* argv[])
     auto logger = Logger::create(lc);
 
     po::options_description general_options("General options");
-	general_options.add_options()
-		("help,h", "list of all options")
-		("mode", po::value<string>()->required(), "mode to execute [node|wallet]")
-		("port,p", po::value<uint16_t>()->default_value(10000), "port to start the server on");
+    general_options.add_options()
+        ("help,h", "list of all options")
+        ("mode", po::value<string>()->required(), "mode to execute [node|wallet]")
+        ("port,p", po::value<uint16_t>()->default_value(10000), "port to start the server on");
 
     po::options_description node_options("Node options");
     node_options.add_options()
-        ("storage", po::value<string>(), "node storage path");
+        ("storage", po::value<string>()->default_value("node.db"), "node storage path");
 
     po::options_description wallet_options("Wallet options");
     wallet_options.add_options()
@@ -77,11 +77,11 @@ int main(int argc, char* argv[])
 
         if (vm.count("mode"))
         {
+            io::Reactor::Ptr reactor(io::Reactor::create());
+            io::Reactor::Scope scope(*reactor);
             auto mode = vm["mode"].as<string>();
             if (mode == "node")
             {
-                io::Reactor::Ptr pReactor(io::Reactor::create());
-                io::Reactor::Scope scope(*pReactor);
                 beam::Node node;
 
                 node.m_Cfg.m_Listen.port(port);
@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
                 LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
                 node.Initialize();
-                pReactor->run();
+                reactor->run();
             }
             else if (mode == "wallet")
             {
@@ -169,7 +169,8 @@ int main(int argc, char* argv[])
                     WalletNetworkIO wallet_io{ io::Address::localhost().port(port)
                                              , node_addr
                                              , is_server
-                                             , keychain };
+                                             , keychain
+                                             , reactor};
 
                     if (command == "send")
                     {

@@ -21,14 +21,13 @@ namespace beam
 
         txRegisterCode           = 23,
         txRegisteredCode         = 5,
-        txConfirmOutputCode      ,
+        txConfirmOutputCode      = 10,
         txOutputConfirmedCode    ,
         txFailedCode             
     };
 
     class WalletNetworkIO : public IMsgHandler
                           , public INetworkIO
-                          , public proto::NodeConnection
     {
     public:
 
@@ -56,11 +55,6 @@ namespace beam
         // IMsgHandler
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;
         void on_connection_error(uint64_t fromStream, int errorCode) override;
-
-        // NodeConnection
-        void OnConnected() override;
-        void OnClosed(int errorCode) override;
-        void OnMsg(proto::Boolean&& msg) override;
 
         // handlers for the protocol messages
         bool on_sender_inviatation(uint64_t connectionId, wallet::sender::InvitationData&& data);
@@ -91,6 +85,22 @@ namespace beam
             }
         }
 
+        class WalletNodeConnection : public proto::NodeConnection
+        {
+        public:
+            using NodeConnectCallback = std::function<void()>;
+            WalletNodeConnection(IWallet& wallet);
+            void connect(const io::Address& address, NodeConnectCallback&& cb);
+        private:
+            // NodeConnection
+            void OnConnected() override;
+            void OnClosed(int errorCode) override;
+            void OnMsg(proto::Boolean&& msg) override;
+        private:
+            IWallet & m_wallet;
+            std::vector<NodeConnectCallback> m_connections_callbacks;
+        };
+    
     private:
         Protocol<WalletNetworkIO> m_protocol;
         io::Address m_address;
@@ -100,8 +110,8 @@ namespace beam
         Wallet m_wallet;
         std::map<uint64_t, std::unique_ptr<Connection>> m_connections;
         std::map<uint64_t, ConnectCallback> m_connections_callbacks;
-        std::vector<ConnectCallback> m_node_connections_callbacks;
         bool m_is_node_connected;
         uint64_t m_connection_tag;
+        WalletNodeConnection m_node_connection;
     };
 }

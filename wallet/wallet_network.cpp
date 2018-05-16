@@ -23,6 +23,7 @@ namespace beam {
         , m_wallet{keychain, *this, is_server ? Wallet::TxCompletedAction() : [this](auto a) { this->stop(); } }
         , m_is_node_connected{false}
         , m_connection_tag{ start_tag }
+        , m_node_connection{m_wallet}
     {
         m_protocol.add_message_handler<wallet::sender::InvitationData,     &WalletNetworkIO::on_sender_inviatation>(senderInvitationCode, 1, 2000);
         m_protocol.add_message_handler<wallet::sender::ConfirmationData,   &WalletNetworkIO::on_sender_confirmation>(senderConfirmationCode, 1, 2000);
@@ -77,12 +78,14 @@ namespace beam {
     {
         if (!m_is_node_connected)
         {
-            m_node_connections_callbacks.emplace_back([this, data](uint64_t) {Send(proto::NewTransaction{ data }); });
-            Connect(m_node_address);
+            m_node_connection.connect(m_node_address, [this, data=move(data)]()
+            {
+                m_node_connection.Send(proto::NewTransaction{ data });
+            });
         }
         else
         {
-            Send(proto::NewTransaction{ data });
+            m_node_connection.Send(proto::NewTransaction{ data });
         }
     }
 
@@ -181,27 +184,41 @@ namespace beam {
         stop();
     }
 
-    void WalletNetworkIO::OnConnected() // connected to node
-    {
-        if (!m_node_connections_callbacks.empty()) {
-            for (auto cb : m_node_connections_callbacks) {
-                cb(get_connection_tag());
-            }
-        }
-    }
-
-    void WalletNetworkIO::OnClosed(int errorCode)
-    {
-        m_node_connections_callbacks.clear();
-    }
-
-    void WalletNetworkIO::OnMsg(proto::Boolean&& msg)
-    {
-        m_wallet.handle_tx_registration(move(msg.m_Value));
-    }
-
     uint64_t WalletNetworkIO::get_connection_tag()
     {
         return ++m_connection_tag;
     }
+
+    WalletNetworkIO::WalletNodeConnection::WalletNodeConnection(IWallet& wallet)
+        : m_wallet {wallet}
+    {
+    }
+
+    void WalletNetworkIO::WalletNodeConnection::connect(const io::Address& address, NodeConnectCallback&& cb)
+    {
+        m_connections_callbacks.emplace_back(move(cb));
+        Connect(address);
+    }
+
+    void WalletNetworkIO::WalletNodeConnection::OnConnected()
+    {
+        if (!m_connections_callbacks.empty())
+        {
+            for (auto& cb : m_connections_callbacks)
+            {
+                cb();
+            }
+        }
+    }
+
+    void WalletNetworkIO::WalletNodeConnection::OnClosed(int errorCode)
+    {
+        m_connections_callbacks.clear();
+    }
+
+    void WalletNetworkIO::WalletNodeConnection::OnMsg(proto::Boolean&& msg)
+    {
+        m_wallet.handle_tx_registration(move(msg.m_Value));
+    }
+
 }
