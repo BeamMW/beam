@@ -31,7 +31,7 @@ namespace proto {
 	macro(ByteBuffer, Buffer)
 
 #define BeamNodeMsg_GetProofState(macro) \
-	macro(Block::SystemState::ID, ID)
+	macro(Height, Height)
 
 #define BeamNodeMsg_GetProofKernel(macro) \
 	macro(Merkle::Hash, KernelHash)

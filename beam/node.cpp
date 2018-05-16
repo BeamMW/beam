@@ -591,6 +591,27 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 	Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::GetProofState&& msg)
+{
+	proto::Proof msgOut;
+
+	if (m_pThis->m_Processor.get_CurrentState(msgOut.m_ID))
+	{
+		if (msg.m_Height < msgOut.m_ID.m_Height)
+		{
+			NodeDB::StateID sid;
+			verify(m_pThis->m_Processor.get_DB().get_Cursor(sid));
+
+			m_pThis->m_Processor.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height + 1);
+		}
+
+	}
+	else
+		ZeroObject(msgOut.m_ID);
+
+	Send(msgOut);
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
