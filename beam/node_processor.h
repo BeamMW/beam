@@ -64,7 +64,10 @@ public:
 	bool OnState(const Block::SystemState::Full&, const PeerID&);
 	bool OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&);
 
-	NodeDB& get_DB() { return m_DB; } // use only for data retrieval for peers
+	// use only for data retrieval for peers
+	NodeDB& get_DB() { return m_DB; }
+	UtxoTree& get_Utxos() { return m_Utxos; }
+	RadixHashOnlyTree& get_Kernels() { return m_Kernels; }
 
 	void EnumCongestions();
 

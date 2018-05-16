@@ -612,6 +612,72 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 	Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
+{
+	proto::Proof msgOut;
+
+	if (m_pThis->m_Processor.get_CurrentState(msgOut.m_ID))
+	{
+		RadixHashOnlyTree& t = m_pThis->m_Processor.get_Kernels();
+
+		RadixHashOnlyTree::Cursor cu;
+		bool bCreate = false;
+		if (t.Find(cu, msg.m_KernelHash, bCreate))
+			t.get_Proof(msgOut.m_Proof, cu);
+	}
+}
+
+void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
+{
+	struct Traveler :public UtxoTree::ITraveler
+	{
+		proto::ProofUtxo m_Msg;
+		UtxoTree* m_pTree;
+
+		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
+
+			const UtxoTree::MyLeaf& v = (UtxoTree::MyLeaf&) x;
+			UtxoTree::Key::Data d;
+			d = v.m_Key;
+
+			m_Msg.m_Proofs.resize(m_Msg.m_Proofs.size() + 1);
+			proto::PerUtxoProof& ret = m_Msg.m_Proofs.back();
+
+			ret.m_Count = v.m_Value.m_Count;
+			ret.m_Maturity = d.m_Maturity;
+			m_pTree->get_Proof(ret.m_Proof, *m_pCu);
+
+			return m_Msg.m_Proofs.size() < proto::PerUtxoProof::s_EntriesMax;
+		}
+	} t;
+
+
+	if (m_pThis->m_Processor.get_CurrentState(t.m_Msg.m_ID))
+	{
+		t.m_pTree = &m_pThis->m_Processor.get_Utxos();
+
+		UtxoTree::Cursor cu;
+		t.m_pCu = &cu;
+
+		// bounds
+		UtxoTree::Key kMin, kMax;
+
+		UtxoTree::Key::Data d;
+		d.m_Commitment = msg.m_Utxo.m_Commitment;
+		d.m_Maturity = msg.m_MaturityMin;
+		kMin = d;
+		d.m_Maturity = Height(-1);
+		kMax = d;
+
+		t.m_pBound[0] = kMin.m_pArr;
+		t.m_pBound[1] = kMax.m_pArr;
+
+		t.m_pTree->Traverse(t);
+
+		Send(t.m_Msg);
+	}
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
