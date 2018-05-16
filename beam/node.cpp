@@ -162,6 +162,8 @@ void Node::Processor::OnNewState()
 	if (!get_CurrentState(msg.m_ID))
 		return;
 
+	get_ParentObj().m_TxPool.DeleteOutOfBound(msg.m_ID.m_Height + 1);
+
 	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
 	{
 		PeerList::iterator itThis = it;
@@ -506,7 +508,29 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 
 void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 {
-	Send(proto::Boolean{ true });
+	proto::Boolean msgOut;
+	msgOut.m_Value = true;
+
+	NodeProcessor::TxPool::Element::Tx key;
+	key.m_pValue = std::move(msg.m_Transaction);
+
+	NodeProcessor::TxPool::TxSet::iterator it = m_pThis->m_TxPool.m_setTxs.find(key);
+	if (m_pThis->m_TxPool.m_setTxs.end() == it)
+	{
+		// new transaction
+		Height h = m_pThis->m_Processor.get_NextHeight();
+		msgOut.m_Value = m_pThis->m_TxPool.AddTx(std::move(key.m_pValue), h);
+
+		if (msgOut.m_Value)
+		{
+			m_pThis->m_TxPool.ShrinkUpTo(m_pThis->m_Cfg.m_MaxPoolTransactions);
+
+			// lazy-invalidate the new block generation
+			// spread to other nodes?
+		}
+	}
+
+	Send(msgOut);
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)

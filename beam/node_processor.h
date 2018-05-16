@@ -89,6 +89,15 @@ public:
 	{
 		struct Element
 		{
+			struct Tx
+				:public boost::intrusive::set_base_hook<>
+			{
+				Transaction::Ptr m_pValue;
+
+				bool operator < (const Tx& t) const;
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Tx)
+			} m_Tx;
+
 			struct Profit
 				:public boost::intrusive::set_base_hook<>
 			{
@@ -109,13 +118,13 @@ public:
 
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Threshold)
 			} m_Threshold;
-
-			Transaction::Ptr m_pValue;
 		};
 
+		typedef boost::intrusive::multiset<Element::Tx> TxSet;
 		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
 		typedef boost::intrusive::multiset<Element::Threshold> ThresholdSet;
 
+		TxSet m_setTxs;
 		ProfitSet m_setProfit;
 		ThresholdSet m_setThreshold;
 
@@ -124,11 +133,13 @@ public:
 		void Clear();
 
 		void DeleteOutOfBound(Height);
+		void ShrinkUpTo(uint32_t nCount);
 
 		~TxPool() { Clear(); }
 
 	};
 
+	Height get_NextHeight();
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer& block, Amount& fees);
 };
 

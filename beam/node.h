@@ -28,6 +28,8 @@ struct Node
 		} m_Timeout;
 
 		bool m_bDontVerifyPoW = false; // for testing only!
+		uint32_t m_MaxPoolTransactions = 100 * 1000;
+
 
 	} m_Cfg; // must not be changed after initialization
 
@@ -48,6 +50,8 @@ private:
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
+
+	NodeProcessor::TxPool m_TxPool;
 
 	struct State {
 		enum Enum {
