@@ -35,6 +35,24 @@ namespace beam
         return Ptr();
     }
 
+	IKeyChain::Ptr Keychain::initDebug(const std::string& password)
+	{
+		IKeyChain::Ptr keychain = init(password);
+
+		if (keychain)
+		{
+			keychain->store(Coin(keychain->getNextID(), 5));
+			keychain->store(Coin(keychain->getNextID(), 10));
+			keychain->store(Coin(keychain->getNextID(), 20));
+			keychain->store(Coin(keychain->getNextID(), 50));
+			keychain->store(Coin(keychain->getNextID(), 100));
+			keychain->store(Coin(keychain->getNextID(), 200));
+			keychain->store(Coin(keychain->getNextID(), 500));
+		}
+
+		return keychain;
+	}
+
     IKeyChain::Ptr Keychain::open(const std::string& password)
     {
         if (boost::filesystem::exists(getName()))

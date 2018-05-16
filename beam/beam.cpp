@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
         ("amount,a", po::value<ECC::Amount>(), "amount to send")
         ("receiver_addr,r", po::value<string>(), "address of receiver")
         ("node_addr,n", po::value<string>(), "address of node")
-        ("command", po::value<string>(), "command to execute [send|listen|init]");
+        ("command", po::value<string>(), "command to execute [send|listen|init|init-debug]");
 
     po::options_description options{ "Allowed options" };
     options.add(general_options)
@@ -94,7 +94,7 @@ int main(int argc, char* argv[])
 				if (vm.count("command"))
 				{
 					auto command = vm["command"].as<string>();
-					if (command != "init" && command != "send" && command != "listen") {
+					if (command != "init" && command != "init-debug" && command != "send" && command != "listen") {
 						LOG_ERROR() << "unknown command: \'" << command << "\'";
 						return -1;
 					}
@@ -114,6 +114,22 @@ int main(int argc, char* argv[])
 						if (keychain)
 						{
 							LOG_INFO() << "wallet successfully created...";
+							return 0;
+						}
+						else
+						{
+							LOG_ERROR() << "something went wrong, wallet not created...";
+							return -1;
+						}
+					}
+
+					if (command == "init-debug")
+					{
+						auto keychain = Keychain::initDebug(pass);
+
+						if (keychain)
+						{
+							LOG_INFO() << "wallet with coins successfully created...";
 							return 0;
 						}
 						else
