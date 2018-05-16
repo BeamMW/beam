@@ -42,11 +42,9 @@ namespace proto {
 
 	 
 #define BeamNodeMsg_Proof(macro) \
-	macro(Block::SystemState::ID, ID) \
 	macro(Merkle::Proof, Proof)
 
 #define BeamNodeMsg_ProofUtxo(macro) \
-	macro(Block::SystemState::ID, ID) \
 	macro(std::vector<PerUtxoProof>, Proofs)
 
 #define BeamNodeMsg_GetMined(macro) \

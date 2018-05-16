@@ -595,19 +595,12 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 {
 	proto::Proof msgOut;
 
-	if (m_pThis->m_Processor.get_CurrentState(msgOut.m_ID))
+	NodeDB::StateID sid;
+	if (m_pThis->m_Processor.get_DB().get_Cursor(sid))
 	{
-		if (msg.m_Height < msgOut.m_ID.m_Height)
-		{
-			NodeDB::StateID sid;
-			verify(m_pThis->m_Processor.get_DB().get_Cursor(sid));
-
+		if (msg.m_Height < sid.m_Height)
 			m_pThis->m_Processor.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height + 1);
-		}
-
 	}
-	else
-		ZeroObject(msgOut.m_ID);
 
 	Send(msgOut);
 }
@@ -616,15 +609,12 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 {
 	proto::Proof msgOut;
 
-	if (m_pThis->m_Processor.get_CurrentState(msgOut.m_ID))
-	{
-		RadixHashOnlyTree& t = m_pThis->m_Processor.get_Kernels();
+	RadixHashOnlyTree& t = m_pThis->m_Processor.get_Kernels();
 
-		RadixHashOnlyTree::Cursor cu;
-		bool bCreate = false;
-		if (t.Find(cu, msg.m_KernelHash, bCreate))
-			t.get_Proof(msgOut.m_Proof, cu);
-	}
+	RadixHashOnlyTree::Cursor cu;
+	bool bCreate = false;
+	if (t.Find(cu, msg.m_KernelHash, bCreate))
+		t.get_Proof(msgOut.m_Proof, cu);
 }
 
 void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
@@ -651,31 +641,27 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 		}
 	} t;
 
+	t.m_pTree = &m_pThis->m_Processor.get_Utxos();
 
-	if (m_pThis->m_Processor.get_CurrentState(t.m_Msg.m_ID))
-	{
-		t.m_pTree = &m_pThis->m_Processor.get_Utxos();
+	UtxoTree::Cursor cu;
+	t.m_pCu = &cu;
 
-		UtxoTree::Cursor cu;
-		t.m_pCu = &cu;
+	// bounds
+	UtxoTree::Key kMin, kMax;
 
-		// bounds
-		UtxoTree::Key kMin, kMax;
+	UtxoTree::Key::Data d;
+	d.m_Commitment = msg.m_Utxo.m_Commitment;
+	d.m_Maturity = msg.m_MaturityMin;
+	kMin = d;
+	d.m_Maturity = Height(-1);
+	kMax = d;
 
-		UtxoTree::Key::Data d;
-		d.m_Commitment = msg.m_Utxo.m_Commitment;
-		d.m_Maturity = msg.m_MaturityMin;
-		kMin = d;
-		d.m_Maturity = Height(-1);
-		kMax = d;
+	t.m_pBound[0] = kMin.m_pArr;
+	t.m_pBound[1] = kMax.m_pArr;
 
-		t.m_pBound[0] = kMin.m_pArr;
-		t.m_pBound[1] = kMax.m_pArr;
+	t.m_pTree->Traverse(t);
 
-		t.m_pTree->Traverse(t);
-
-		Send(t.m_Msg);
-	}
+	Send(t.m_Msg);
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
