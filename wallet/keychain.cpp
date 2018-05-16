@@ -30,7 +30,7 @@ namespace beam
             return std::static_pointer_cast<IKeyChain>(keychain);
         }
 
-        std::cout << getName() << " already exists." << std::endl;
+        LOG_ERROR() << getName() << " already exists.";
 
         return Ptr();
     }
@@ -50,14 +50,14 @@ namespace beam
             ret = sqlite3_exec(keychain->_db, "SELECT name FROM sqlite_master WHERE type='table' AND name='storage';", NULL, NULL, NULL);
             if(ret != SQLITE_OK)
             {
-                std::cout << "Invalid DB or wrong password :(" << std::endl;
+				LOG_ERROR() << "Invalid DB or wrong password :(";
                 return Ptr();
             }
 
             return std::static_pointer_cast<IKeyChain>(keychain);
         }
 
-        std::cout << getName() << " not found, please init the wallet before." << std::endl;
+		LOG_ERROR() << getName() << " not found, please init the wallet before.";
 
         return Ptr();
     }
