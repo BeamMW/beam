@@ -52,6 +52,9 @@ namespace proto {
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)
 
+#define BeamNodeMsg_NewTransaction(macro) \
+	macro(Transaction::Ptr, Transaction)
+
 
 #define BeamNodeMsgsAll(macro) \
 	macro(1, NewTip) /* Also the first message sent by the node */ \
@@ -67,7 +70,8 @@ namespace proto {
 	macro(11, Proof) /* for states and kernels */ \
 	macro(12, ProofUtxo) \
 	macro(21, Ping) \
-	macro(22, Pong)
+	macro(22, Pong) \
+	macro(23, NewTransaction)
 
 
 	struct PerUtxoProof
@@ -95,7 +99,7 @@ namespace proto {
 	struct msg \
 	{ \
 		BeamNodeMsg_##msg(THE_MACRO2) \
- 		template <typename Archive> void serialize(Archive& ar) { ar BeamNodeMsg_##msg(THE_MACRO3); } \
+		template <typename Archive> void serialize(Archive& ar) { ar BeamNodeMsg_##msg(THE_MACRO3); } \
 	};
 
 	BeamNodeMsgsAll(THE_MACRO1)

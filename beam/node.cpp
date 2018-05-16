@@ -517,6 +517,11 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 		m_pThis->RefreshCongestions(); // NOTE! Can call OnPeerInsane()
 }
 
+void Node::Peer::OnMsg(proto::NewTransaction&& msg)
+{
+	Send(proto::Boolean{ m_pThis->m_Processor.FeedTransaction(move(msg.m_Transaction)) });
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
