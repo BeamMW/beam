@@ -31,18 +31,17 @@ int main(int argc, char* argv[])
     auto logger = Logger::create(lc);
 
     po::options_description general_options("General options");
-    general_options.add_options()
-        ("help,h", "list of all options")
-        ("mode", po::value<string>()->required(), "mode to execute [node|wallet]");
+	general_options.add_options()
+		("help,h", "list of all options")
+		("mode", po::value<string>()->required(), "mode to execute [node|wallet]")
+		("port,p", po::value<uint16_t>()->default_value(10000), "port to start the server on");
 
     po::options_description node_options("Node options");
     node_options.add_options()
-        ("port,p", po::value<uint16_t>()->default_value(10000), "port to start the server on")
         ("storage", po::value<string>(), "node storage path");
 
     po::options_description wallet_options("Wallet options");
     wallet_options.add_options()
-        ("port,p", po::value<uint16_t>()->default_value(10000), "port to start the wallet on")
         ("pass", po::value<string>()->default_value(""), "password for the wallet")
         ("amount,a", po::value<ECC::Amount>(), "amount to send")
         ("receiver_addr,r", po::value<string>(), "address of receiver")
