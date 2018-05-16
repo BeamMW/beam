@@ -33,11 +33,13 @@ namespace beam
 		}
 	}
 
-#define CMP_MEMBER(member) \
-		if (member < v.member) \
+#define CMP_SIMPLE(a, b) \
+		if (a < b) \
 			return -1; \
-		if (member > v.member) \
+		if (a > b) \
 			return 1;
+
+#define CMP_MEMBER(member) CMP_SIMPLE(member, v.member)
 
 #define CMP_MEMBER_EX(member) \
 		{ \
@@ -46,17 +48,19 @@ namespace beam
 				return n; \
 		}
 
-#define CMP_MEMBER_PTR(member) \
-		if (member) \
+#define CMP_PTRS(a, b) \
+		if (a) \
 		{ \
-			if (!v.member) \
+			if (!b) \
 				return 1; \
-			int n = member->cmp(*v.member); \
+			int n = a->cmp(*b); \
 			if (n) \
 				return n; \
 		} else \
-			if (v.member) \
+			if (b) \
 				return -1;
+
+#define CMP_MEMBER_PTR(member) CMP_PTRS(member, v.member)
 
 	/////////////
 	// Input
@@ -433,6 +437,36 @@ namespace beam
 		}
 
 		return nDel;
+	}
+
+	template <typename T>
+	int CmpPtrVectors(const std::vector<T>& a, const std::vector<T>& b)
+	{
+		CMP_SIMPLE(a.size(), b.size())
+
+		for (size_t i = 0; i < a.size(); i++)
+		{
+			CMP_PTRS(a[i], b[i])
+		}
+
+		return 0;
+	}
+
+	#define CMP_MEMBER_VECPTR(member) \
+		{ \
+			int n = CmpPtrVectors(member, v.member); \
+			if (n) \
+				return n; \
+		}
+
+	int TxBase::cmp(const TxBase& v) const
+	{
+		CMP_MEMBER(m_Offset)
+		CMP_MEMBER_VECPTR(m_vInputs)
+		CMP_MEMBER_VECPTR(m_vOutputs)
+		CMP_MEMBER_VECPTR(m_vKernelsInput)
+		CMP_MEMBER_VECPTR(m_vKernelsOutput)
+		return 0;
 	}
 
 	bool Transaction::IsValid(Context& ctx) const

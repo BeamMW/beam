@@ -189,6 +189,9 @@ namespace beam
 		};
 
 		bool ValidateAndSummarize(Context&, ECC::Point::Native& sigma) const;
+
+		int cmp(const TxBase&) const;
+		COMPARISON_VIA_CMP(TxBase)
 	};
 
 	struct Transaction
