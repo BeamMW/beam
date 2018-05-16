@@ -479,72 +479,69 @@ struct SpendableKey
 
 bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd, Height h, RollbackData& rbData)
 {
+	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
+
+	UtxoTree::Cursor cu;
+	UtxoTree::MyLeaf* p;
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
 
 	if (bFwd)
-		d.m_Maturity = 0; // find min
-	else
 	{
-		const RollbackData::Utxo& x = *--rbData.m_pUtxo;
-		d.m_Maturity = x.m_Maturity;
-	}
-
-	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
-	skey.m_Key = d;
-
-	UtxoTree::Cursor cu;
-	bool bCreate = !bFwd;
-	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, skey.m_Key, bCreate);
-
-	if (!p && bFwd)
-	{
-		// try to find the closest match
-		struct Traveler :public UtxoTree::ITraveler
-		{
-			UtxoTree::MyLeaf* m_pLeaf;
-			virtual bool OnLeaf(const RadixTree::Leaf& x) override
-			{
-				m_pLeaf = (UtxoTree::MyLeaf*) &x;
+		struct Traveler :public UtxoTree::ITraveler {
+			virtual bool OnLeaf(const RadixTree::Leaf& x) override {
 				return false; // stop iteration
 			}
-		};
+		} t;
 
-		Traveler t;
-		if (UtxoTree::Traverse(cu, t))
-			return false; // not found
 
-		d = t.m_pLeaf->m_Key;
+		UtxoTree::Key kMin, kMax;
 
-		if (v.m_Commitment != d.m_Commitment)
-			return false; // not found
+		d.m_Maturity = 0;
+		kMin = d;
+		d.m_Maturity = h;
+		kMax = d;
 
-		if (d.m_Maturity > h)
-			return false; // not mature enough!
+		t.m_pCu = &cu;
+		t.m_pBound[0] = kMin.m_pArr;
+		t.m_pBound[1] = kMax.m_pArr;
 
-		p = t.m_pLeaf;
-		skey.m_Key = t.m_pLeaf->m_Key;
+		if (m_Utxos.Traverse(t))
+			return false;
 
-	}
+		p = &(UtxoTree::MyLeaf&) cu.get_Leaf();
 
-	cu.Invalidate();
+		skey.m_Key = p->m_Key;
+		d = skey.m_Key;
+		assert(d.m_Commitment == v.m_Commitment);
+		assert(d.m_Maturity <= h);
 
-	if (bFwd)
-	{
 		assert(p->m_Value.m_Count); // we don't store zeroes
 
-		if (! --p->m_Value.m_Count)
+		if (!--p->m_Value.m_Count)
 			m_Utxos.Delete(cu);
+		else
+			cu.Invalidate();
 
 		rbData.m_pUtxo->m_Maturity = d.m_Maturity;
 		rbData.m_pUtxo++;
 
 	} else
 	{
+		const RollbackData::Utxo& x = *--rbData.m_pUtxo;
+		d.m_Maturity = x.m_Maturity;
+		skey.m_Key = d;
+
+		bool bCreate = true;
+		p = m_Utxos.Find(cu, skey.m_Key, bCreate);
+
 		if (bCreate)
 			p->m_Value.m_Count = 1;
 		else
+		{
 			p->m_Value.m_Count++;
+			cu.Invalidate();
+		}
 	}
 
 	m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), 0, bFwd ? -1 : 1);

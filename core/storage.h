@@ -55,14 +55,16 @@ public:
 
 		Node** const m_pp;
 
+		static uint8_t get_BitRawStat(const uint8_t* p0, uint32_t nBit);
+
 		uint8_t get_BitRaw(const uint8_t* p0) const;
 		uint8_t get_Bit(const uint8_t* p0) const;
 
 		friend class RadixTree;
 
+	public:
 		CursorBase(Node** pp) :m_pp(pp) {}
 
-	public:
 		Leaf& get_Leaf() const;
 		void Invalidate();
 
@@ -84,12 +86,24 @@ public:
 
 	void Delete(CursorBase& cu);
 
-	struct ITraveler {
-		virtual bool OnLeaf(const Leaf&) = 0;
+	struct ITraveler
+	{
+		CursorBase* m_pCu; // set it to a valid cursor instance to get the cursor of the element during traverse.
+		// Insert/Delete are not allowed. However it may be used for invalidation or etc.
+
+		// optional min/max bounds
+		const uint8_t* m_pBound[2];
+
+		ITraveler()
+			:m_pCu(NULL)
+		{
+			ZeroObject(m_pBound);
+		}
+
+		virtual bool OnLeaf(const Leaf&) = 0; // return false to stop iteration
 	};
 
 	bool Traverse(ITraveler&) const;
-	static bool Traverse(const CursorBase&, ITraveler&);
 
 	size_t Count() const; // implemented via the whole tree traversing, shouldn't use frequently.
 
@@ -98,7 +112,10 @@ private:
 
 	void DeleteNode(Node*);
 	void ReplaceTip(CursorBase& cu, Node* pNew);
-	static bool Traverse(const Node&, ITraveler&);
+	bool Traverse(const Node&, ITraveler&) const;
+
+	static int Cmp(const uint8_t* pKey, const uint8_t* pThreshold, uint32_t n0, uint32_t dn);
+	static int Cmp1(uint8_t, const uint8_t* pThreshold, uint32_t n0);
 };
 
 class RadixHashTree
@@ -178,6 +195,7 @@ public:
 		Key& operator = (const Data&);
 
 		int cmp(const Key&) const;
+		COMPARISON_VIA_CMP(Key)
 
 		uint8_t m_pArr[s_Bytes];
 	};
