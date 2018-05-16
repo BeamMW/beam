@@ -131,7 +131,7 @@ int main(int argc, char* argv[])
 
                     if (command == "init-debug")
                     {
-                        auto keychain = Keychain::initDebug(pass);
+                        auto keychain = Keychain::init(pass);
 
                         if (keychain)
                         {
