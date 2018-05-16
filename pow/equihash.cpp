@@ -76,8 +76,14 @@ bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, Difficulty d, co
     {
 		hlp.Reset(pInput, nSizeInput, m_Nonce);
 
-        if (hlp.m_Eh.OptimisedSolve(hlp.m_Blake, fnValid, fnCancelInternal))
-            break;
+		try {
+
+			if (hlp.m_Eh.OptimisedSolve(hlp.m_Blake, fnValid, fnCancelInternal))
+				break;
+
+		} catch (const EhSolverCancelledException&) {
+			return false;
+		}
 
 		if (fnCancel(true))
 			return false; // retry not allowed
