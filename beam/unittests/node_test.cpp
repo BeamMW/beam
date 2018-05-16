@@ -487,7 +487,7 @@ namespace beam
 			BlockPlus::Ptr pBlock(new BlockPlus);
 
 			Amount fees = 0;
-			verify_test(np.GenerateNewBlock(np.m_TxPool, np.m_Kdf, pBlock->m_Hdr, pBlock->m_Body, fees));
+			verify_test(np.GenerateNewBlock(np.m_TxPool, pBlock->m_Hdr, pBlock->m_Body, fees));
 
 			np.OnState(pBlock->m_Hdr, NodeDB::PeerID());
 
@@ -668,7 +668,7 @@ namespace beam
 
 					Node& n = *m_ppNode[m_iNode];
 					Amount fees = 0;
-					n.get_Processor().GenerateNewBlock(txPool, n.get_Processor().m_Kdf, s, body, fees);
+					n.get_Processor().GenerateNewBlock(txPool, s, body, fees);
 
 					n.get_Processor().OnState(s, NodeDB::PeerID());
 

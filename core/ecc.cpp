@@ -692,11 +692,11 @@ namespace ECC {
 
 	int Signature::cmp(const Signature& x) const
 	{
-		int n = m_e.m_Value.cmp(x.m_e.m_Value);
+		int n = m_e.cmp(x.m_e);
 		if (n)
 			return n;
 
-		return m_k.m_Value.cmp(x.m_k.m_Value);
+		return m_k.cmp(x.m_k);
 	}
 
 	/////////////////////

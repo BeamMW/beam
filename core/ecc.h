@@ -135,6 +135,9 @@ namespace ECC
 
 		class Native;
 		Scalar& operator = (const Native&);
+
+		int cmp(const Scalar& x) const { return m_Value.cmp(x.m_Value); }
+		COMPARISON_VIA_CMP(Scalar)
 	};
 
 	struct Point

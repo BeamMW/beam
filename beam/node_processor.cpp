@@ -918,7 +918,7 @@ struct NodeProcessor::BlockBulder
 	}
 };
 
-bool NodeProcessor::GenerateNewBlock(TxPool& txp, const ECC::Kdf& kdf, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
+bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
 {
 	NodeDB::Transaction t(m_DB);
 
@@ -979,7 +979,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, const ECC::Kdf& kdf, Block::Sy
 	if (fees)
 	{
 		ECC::Scalar::Native kFee;
-		DeriveKey(kFee, kdf, h, KeyType::Comission);
+		DeriveKey(kFee, m_Kdf, h, KeyType::Comission);
 
 		ctxBlock.AddOutput(kFee, fees, false);
 		verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
@@ -987,7 +987,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, const ECC::Kdf& kdf, Block::Sy
 	else
 	{
 		ECC::Scalar::Native kKernel;
-		DeriveKey(kKernel, kdf, h, KeyType::Kernel);
+		DeriveKey(kKernel, m_Kdf, h, KeyType::Kernel);
 
 		TxKernel::Ptr pKrn(new TxKernel);
 		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kKernel);
@@ -1004,7 +1004,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, const ECC::Kdf& kdf, Block::Sy
 	}
 
 	ECC::Scalar::Native kCoinbase;
-	DeriveKey(kCoinbase, kdf, h, KeyType::Coinbase);
+	DeriveKey(kCoinbase, m_Kdf, h, KeyType::Coinbase);
 
 	ctxBlock.AddOutput(kCoinbase, Block::s_CoinbaseEmission, true);
 

@@ -129,7 +129,7 @@ public:
 
 	};
 
-	bool GenerateNewBlock(TxPool&, const ECC::Kdf&, Block::SystemState::Full&, ByteBuffer& block, Amount& fees);
+	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer& block, Amount& fees);
 };
 
 
