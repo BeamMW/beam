@@ -230,10 +230,37 @@ void Node::Initialize()
 
 		p->OnTimer(); // initiate connect
 	}
+
+	if (m_Cfg.m_MiningThreads)
+	{
+		m_Miner.m_pEvtMined = io::AsyncEvent::create(io::Reactor::get_Current().shared_from_this(), [this]() { m_Miner.OnMined(); });
+
+		m_Miner.m_vThreads.resize(m_Cfg.m_MiningThreads);
+		for (uint32_t i = 0; i < m_Cfg.m_MiningThreads; i++)
+		{
+			Miner::PerThread& pt = m_Miner.m_vThreads[i];
+			pt.m_pReactor = io::Reactor::create();
+			pt.m_pEvtRefresh = io::AsyncEvent::create(pt.m_pReactor, [this, i]() { m_Miner.OnRefresh(i); });
+			pt.m_Thread = std::thread(&io::Reactor::run, pt.m_pReactor);
+		}
+	}
 }
 
 Node::~Node()
 {
+	if (m_Miner.m_pTask)
+		*m_Miner.m_pTask->m_pStop = true;
+
+	for (size_t i = 0; i < m_Miner.m_vThreads.size(); i++)
+	{
+		Miner::PerThread& pt = m_Miner.m_vThreads[i];
+		if (pt.m_pReactor)
+			pt.m_pReactor->stop();
+
+		pt.m_Thread.join();
+	}
+	m_Miner.m_vThreads.clear();
+
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
 		it->m_eState = State::Snoozed; // prevent re-assigning of tasks in the next loop
 
@@ -253,7 +280,7 @@ Node::~Node()
 void Node::Peer::SetTimer(uint32_t timeout_ms)
 {
 	assert(m_pTimer);
-	m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
+	m_pTimer->start(timeout_ms, false, [this]() { return OnTimer(); });
 }
 
 void Node::Peer::KillTimer()
@@ -543,6 +570,66 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 		p->Accept(std::move(newStream));
 		p->OnConnected();
 	}
+}
+
+void Node::Miner::OnRefresh(uint32_t iIdx)
+{
+	while (true)
+	{
+		Task::Ptr pTask;
+		{
+			std::scoped_lock<std::mutex> scope(m_Mutex);
+
+			pTask = m_pTask;
+			if (!pTask)
+				break;
+
+			if (*pTask->m_pStop)
+				break; // Mined. The owner thread didn't handle it yet.
+		}
+
+		Block::SystemState::Full s = pTask->m_Hdr; // local copy
+
+		ECC::Hash::Value hv; // pick pseudo-random initial nonce for mining.
+		ECC::Hash::Processor() << get_ParentObj().m_Cfg.m_MinerID << iIdx << s.m_Height >> hv;
+
+		static_assert(sizeof(s.m_PoW.m_Nonce) <= sizeof(hv));
+		memcpy(s.m_PoW.m_Nonce.m_pData, hv.m_pData, sizeof(s.m_PoW.m_Nonce.m_pData));
+	
+		Block::PoW::Cancel fnCancel = [this, pTask](bool bRetrying)
+		{
+			if (*pTask->m_pStop)
+				return true;
+
+			if (bRetrying)
+			{
+				std::scoped_lock<std::mutex> scope(m_Mutex);
+				if (pTask != m_pTask)
+					return true;
+			}
+
+			return false;
+		};
+
+		if (!s.GeneratePoW(fnCancel))
+			continue;
+
+		std::scoped_lock<std::mutex> scope(m_Mutex);
+
+		if (*pTask->m_pStop)
+			continue; // either aborted, or other thread was faster
+
+		pTask->m_Hdr = s; // save the result
+		*pTask->m_pStop = true;
+		m_pTask = pTask;
+
+		m_pEvtMined->trigger();
+		break;
+	}
+}
+
+void Node::Miner::OnMined()
+{
 }
 
 } // namespace beam

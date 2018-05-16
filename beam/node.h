@@ -29,6 +29,8 @@ struct Node
 
 		bool m_bDontVerifyPoW = false; // for testing only!
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
+		uint32_t m_MiningThreads = 0; // by default disabled
+		uint32_t m_MinerID = 0; // used as a seed for miner nonce generation
 
 
 	} m_Cfg; // must not be changed after initialization
@@ -153,6 +155,38 @@ private:
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Server)
 	} m_Server;
+
+	struct Miner
+	{
+		struct PerThread
+		{
+			io::Reactor::Ptr m_pReactor;
+			io::AsyncEvent::Ptr m_pEvtRefresh;
+			std::thread m_Thread;
+		};
+
+		std::vector<PerThread> m_vThreads;
+
+		io::AsyncEvent::Ptr m_pEvtMined;
+
+		struct Task
+		{
+			typedef std::shared_ptr<Task> Ptr;
+
+			Block::SystemState::Full m_Hdr; // mutable.
+			ByteBuffer m_Body;
+			std::shared_ptr<volatile bool> m_pStop;
+		};
+
+		void OnRefresh(uint32_t iIdx);
+		void OnMined();
+
+		std::mutex m_Mutex;
+		Task::Ptr m_pTask; // currently being-mined
+
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Miner)
+	} m_Miner;
 };
 
 } // namespace beam
