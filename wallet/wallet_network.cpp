@@ -8,13 +8,14 @@
 using namespace std;
 
 namespace beam {
-    WalletNetworkIO::WalletNetworkIO(io::Address address)
+    WalletNetworkIO::WalletNetworkIO(io::Address address, bool is_server, io::Reactor::Ptr reactor, uint64_t start_tag)
         : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, *this, 200 }
         , m_address{address}
-        , m_reactor{ io::Reactor::create() }
+        , m_reactor{ !reactor ? io::Reactor::create() : reactor }
+        , m_server{ is_server ? io::TcpServer::create(m_reactor, m_address, BIND_THIS_MEMFN(on_stream_accepted)) : io::TcpServer::Ptr() }
         , m_bridge{*this, m_reactor }
         , m_wallet{nullptr}
-        , m_connection_tag{0}
+        , m_connection_tag{ start_tag }
     {
         m_protocol.add_message_handler<wallet::sender::InvitationData,     &WalletNetworkIO::on_sender_inviatation>(senderInvitationCode, 1, 2000);
         m_protocol.add_message_handler<wallet::sender::ConfirmationData,   &WalletNetworkIO::on_sender_confirmation>(senderConfirmationCode, 1, 2000);
@@ -24,12 +25,13 @@ namespace beam {
         m_protocol.add_message_handler<Uuid,                               &WalletNetworkIO::on_failed>(txFailedCode, 1, 2000);
     }
 
-    void WalletNetworkIO::start()
+    void WalletNetworkIO::start(bool separate_thread)
     {
-        if (!m_server) {
-            m_server = io::TcpServer::create(m_reactor, m_address, BIND_THIS_MEMFN(on_stream_accepted));
+        if (separate_thread) {
+            m_thread.start(BIND_THIS_MEMFN(thread_func));
+        } else {
+            m_reactor->run();
         }
-        m_thread.start(BIND_THIS_MEMFN(thread_func));
     }
 
     void WalletNetworkIO::stop()
@@ -57,6 +59,7 @@ namespace beam {
     void WalletNetworkIO::connect(io::Address address, ConnectCallback&& callback)
     {
         assert(m_wallet != nullptr);
+        lock_guard lock{ m_conn_mutex };
         auto tag = get_connection_tag();
         m_connections_callbacks.emplace(tag, callback);
         m_reactor->tcp_connect(address, tag, BIND_THIS_MEMFN(on_client_connected));
@@ -146,12 +149,14 @@ namespace beam {
     {
         if (errorCode == 0) {
             LOG_DEBUG() << "Stream accepted";
+            lock_guard lock{ m_conn_mutex };
             auto tag = get_connection_tag();
             m_connections.emplace(tag,
                 make_unique<Connection>(
                     m_protocol,
                     tag,
-                    100,
+                    Connection::inbound,
+                    2000,
                     std::move(newStream)));
         }
         else {
@@ -161,22 +166,36 @@ namespace beam {
 
     void WalletNetworkIO::on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, int status)
     {
-        //assert(tag == m_address.packed);
-        auto it = m_connections.find(tag);
-        
-        if (it == m_connections.end() && newStream) {
-            m_connections.emplace(tag, make_unique<Connection>(
-                m_protocol,
-                tag,
-                100,
-                std::move(newStream)
-                ));
-            m_connections_callbacks[tag](tag, status);
-            m_connections_callbacks.erase(tag);
+        if (register_connection(tag, move(newStream))) {
+            ConnectCallback callback;
+            {
+                lock_guard lock{m_conn_mutex};
+                assert(m_connections_callbacks.count(tag) == 1);
+                callback = m_connections_callbacks[tag];
+                m_connections_callbacks.erase(tag);
+            }
+            callback(tag);
         }
         else {
             on_connection_error(tag, status);
         }
+    }
+
+    bool WalletNetworkIO::register_connection(uint64_t tag, io::TcpStream::Ptr&& newStream)
+    {
+        lock_guard lock{ m_conn_mutex };
+        auto it = m_connections.find(tag);
+        if (it == m_connections.end() && newStream) {
+            m_connections.emplace(tag, make_unique<Connection>(
+                m_protocol,
+                tag,
+                Connection::outbound,
+                2000,
+                std::move(newStream)
+                ));
+            return true;
+        }
+        return false;
     }
 
     void WalletNetworkIO::on_protocol_error(uint64_t fromStream, ProtocolError error)
@@ -187,6 +206,7 @@ namespace beam {
     void WalletNetworkIO::on_connection_error(uint64_t fromStream, int errorCode)
     {
         LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << errorCode << ")";
+        stop();
     }
 
     uint64_t WalletNetworkIO::get_connection_tag()

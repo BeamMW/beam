@@ -9,6 +9,8 @@ matrix:
   include:
     - os: osx
       osx_image: xcode9.3
+      before_install: brew install openssl
+      env: OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
 
     - os: linux
       addons:
@@ -20,6 +22,7 @@ matrix:
             - cmake-data
             - cmake
             - libboost-all-dev
+            - libssl-dev
       before_install:
         - eval "CC=gcc-7 && CXX=g++-7"
 

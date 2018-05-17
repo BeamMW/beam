@@ -30,13 +30,13 @@ Reactor::Reactor() :
 
 ErrorCode Reactor::initialize() {
     _creatingInternalObjects=true;
-    
+
     ErrorCode errorCode = (ErrorCode)uv_loop_init(&_loop);
     if (errorCode != 0) {
         LOG_ERROR() << "cannot initialize uv loop, error=" << errorCode;
         return errorCode;
     }
-    
+
     _loop.data = this;
 
     errorCode = (ErrorCode)uv_async_init(&_loop, &_stopEvent, [](uv_async_t* handle) { uv_stop(handle->loop); });
@@ -48,21 +48,21 @@ ErrorCode Reactor::initialize() {
     _stopEvent.data = this;
 
     _connectTimer = CoarseTimer::create(
-        shared_from_this(), 
+        shared_from_this(),
         config().get_int("io.connect_timer_resolution", 1000, 1, 60000),
         BIND_THIS_MEMFN(connect_timeout_callback)
     );
-    
+
     _creatingInternalObjects=false;
     return EC_OK;
 }
 
 Reactor::~Reactor() {
     LOG_VERBOSE() << ".";
-    
+
     if (_stopEvent.data)
         uv_close((uv_handle_t*)&_stopEvent, 0);
-    
+
     _connectTimer.reset();
 
     if (!_connectRequests.empty()) {
@@ -76,7 +76,7 @@ Reactor::~Reactor() {
         LOG_DEBUG() << "loop wasn't initialized";
         return;
     }
-    
+
     // run one cycle to release all closing handles
     uv_run(&_loop, UV_RUN_NOWAIT);
 
@@ -104,7 +104,7 @@ void Reactor::run() {
         LOG_DEBUG() << "loop wasn't initialized";
         return;
     }
-    
+
     // NOTE: blocks
     uv_run(&_loop, UV_RUN_DEFAULT);
 }
@@ -144,7 +144,7 @@ ErrorCode Reactor::init_asyncevent(Reactor::Object* o, uv_async_cb cb) {
 
 ErrorCode Reactor::init_timer(Reactor::Object* o) {
     assert(o);
-    
+
     uv_handle_t* h = _handlePool.alloc();
     ErrorCode errorCode = (ErrorCode)uv_timer_init(&_loop, (uv_timer_t*)h);
     return init_object(errorCode, o, h);
@@ -206,7 +206,7 @@ ErrorCode Reactor::init_tcpserver(Object* o, Address bindAddress, uv_connection_
 
 ErrorCode Reactor::init_tcpstream(Object* o) {
     assert(o);
-    
+
     uv_handle_t* h = _handlePool.alloc();
     ErrorCode errorCode = (ErrorCode)uv_tcp_init(&_loop, (uv_tcp_t*)h);
     return init_object(errorCode, o, h);
@@ -219,7 +219,7 @@ ErrorCode Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     if (errorCode != 0) {
         return errorCode;
     }
-    
+
     errorCode = (ErrorCode)uv_accept((uv_stream_t*)acceptor->_handle, (uv_stream_t*)newConnection->_handle);
     if (errorCode != 0) {
         newConnection->async_close();
@@ -228,18 +228,18 @@ ErrorCode Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     return errorCode;
 }
 
-uv_write_t* Reactor::alloc_write_request() {
-    uv_write_t* req = _writeRequestsPool.alloc();
-    req->data = this;
-    return req;
+Reactor::WriteRequest* Reactor::alloc_write_request() {
+    WriteRequest* wr = _writeRequestsPool.alloc();
+    wr->req.data = this;
+    return wr;
 }
 
-void Reactor::release_write_request(uv_write_t*& req) {
-    _writeRequestsPool.release(req);
-    req = 0;
+void Reactor::release_write_request(Reactor::WriteRequest*& wr) {
+    _writeRequestsPool.release(wr);
+    wr = 0;
 }
 
-Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec) {
+Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec, Address bindTo) {
     assert(callback);
     assert(address);
     assert(_connectRequests.count(tag) == 0);
@@ -254,7 +254,16 @@ Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback
         _handlePool.release(h);
         return make_unexpected(errorCode);
     }
-    
+
+    if (bindTo) {
+        sockaddr_in bindAddr;
+        bindTo.fill_sockaddr_in(bindAddr);
+
+        errorCode = (ErrorCode)uv_tcp_bind((uv_tcp_t*)h, (const sockaddr*)&bindAddr, 0);
+        if (errorCode != 0) {
+            return make_unexpected(errorCode);
+        }
+    }
     h->data = this;
 
     ConnectContext& ctx = _connectRequests[tag];
@@ -288,28 +297,28 @@ Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback
             }
         }
     );
-    
+
     if (!errorCode && timeoutMsec >= 0) {
         auto result = _connectTimer->set_timer(timeoutMsec, tag);
         if (!result) errorCode = result.error();
     }
-    
+
     if (errorCode) {
         async_close(h);
         _connectRequests.erase(tag);
         return make_unexpected(errorCode);
     }
-  
+
     return Ok();
 }
 
 void Reactor::connect_callback(Reactor::ConnectContext* ctx, ErrorCode errorCode) {
     assert(_connectRequests.count(ctx->tag)==1);
     uint64_t tag = ctx->tag;
-        
+
     ConnectCallback callback = std::move(ctx->callback);
     uv_handle_t* h = (uv_handle_t*)ctx->request->handle;
-    
+
     _connectRequestsPool.release(ctx->request);
 
     TcpStream::Ptr stream;

@@ -14,7 +14,7 @@ namespace beam::wallet
         m_coins = m_keychain->getCoins(m_amount); // need to lock 
         invitationData->m_amount = m_amount;
         m_kernel.m_Fee = 0;
-        m_kernel.m_HeightMin = 0;
+        m_kernel.m_HeightMin = 0; 
         m_kernel.m_HeightMax = static_cast<Height>(-1);
         m_kernel.get_HashForSigning(invitationData->m_message);
         
@@ -27,7 +27,7 @@ namespace beam::wallet
                 assert(coin.m_status == Coin::Locked);
                 Input::Ptr input = make_unique<Input>();
 
-                Scalar::Native key{ coin.m_key };
+                Scalar::Native key{ m_keychain->calcKey(coin.m_id) };
                 input->m_Commitment = Commitment(key, coin.m_amount);
 
                 invitationData->m_inputs.push_back(move(input));
@@ -48,7 +48,7 @@ namespace beam::wallet
             Output::Ptr output = make_unique<Output>();
             output->m_Coinbase = false;
 
-            Scalar::Native blindingFactor = m_keychain->getNextKey();
+            Scalar::Native blindingFactor = m_keychain->calcKey(m_keychain->getNextID());
 			output->Create(blindingFactor, change, true);
             
             m_changeOutput = Coin(blindingFactor, change, Coin::Unconfirmed, m_height, false);

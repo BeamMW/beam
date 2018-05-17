@@ -8,14 +8,19 @@ using namespace std;
 void address_test() {
     Address a;
     // getaddrinfo leaks memory
-    for (int i=0; i<100; ++i) a.resolve("google.com");
+    for (int i=0; i<100; ++i) a.resolve("beam-mw.com");
     Address b;
-    b.resolve("google.com:666");
+    b.resolve("beam-mw.com:666");
     cout << a.str() << " " << b.str() << endl;
     assert(a.port() == 0 && b.port() == 666 && a.ip() != 0 && b.ip() != 0);
-    b.resolve("localhost");
-    cout << b.str() << endl;
-    assert(b == Address::LOCALHOST);
+    Address c;
+    c.resolve("localhost");
+    cout << c.str() << endl;
+    assert(c == Address::LOCALHOST);
+    sockaddr_in sa;
+    b.fill_sockaddr_in(sa);
+    Address d(sa);
+    assert(d == b);
 }
 
 #ifdef WIN32

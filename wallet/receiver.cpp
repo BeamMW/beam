@@ -38,7 +38,7 @@ namespace beam::wallet
         Output::Ptr output = make_unique<Output>();
         output->m_Coinbase = false;
 
-        Scalar::Native blindingFactor = m_keychain->getNextKey();
+        Scalar::Native blindingFactor = m_keychain->calcKey(m_keychain->getNextID());
 		output->Create(blindingFactor, amount, true);
 
         m_blindingExcess = -blindingFactor; // TODO: we have to remove this negation and change signs in verification formula

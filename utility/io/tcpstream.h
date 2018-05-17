@@ -20,6 +20,7 @@ public:
     struct State {
         uint64_t received=0;
         uint64_t sent=0;
+        size_t unsent=0; // == _writeBuffer.size()
     };
 
     ~TcpStream();
@@ -52,6 +53,10 @@ public:
         return _state;
     }
 
+    /// Returns socket address (non-null if connected)
+    Address address() const;
+
+    /// Returns peer address (non-null if connected)
     Address peer_address() const;
 
 private:
@@ -61,7 +66,7 @@ private:
     friend class Reactor;
 
     TcpStream() = default;
-    
+
     void alloc_read_buffer();
     void free_read_buffer();
 
@@ -69,7 +74,7 @@ private:
     Result send_write_request();
 
     // callback from write request
-    void on_data_written(ErrorCode errorCode, size_t nSize);
+    void on_data_written(ErrorCode errorCode, size_t n);
 
     // stream accepted from server
     ErrorCode accepted(uv_handle_t* acceptor);

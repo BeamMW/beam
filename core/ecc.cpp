@@ -4,9 +4,20 @@
 #define ENABLE_MODULE_GENERATOR
 #define ENABLE_MODULE_RANGEPROOF
 
-#pragma warning (push, 0) // suppress warnings from secp256k1
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wunused-function"
+#else
+    #pragma warning (push, 0) // suppress warnings from secp256k1
+#endif
+
 #include "../secp256k1-zkp/src/secp256k1.c"
-#pragma warning (pop)
+
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+    #pragma GCC diagnostic pop
+#else
+    #pragma warning (pop)
+#endif
 
 // misc
 bool memis0(const void* p, size_t n)
