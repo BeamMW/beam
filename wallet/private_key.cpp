@@ -8,10 +8,6 @@ namespace ECC {
 }
 */
 
-bool operator==(const Scalar& left, const Scalar& right) {
-    return ScalarValue(left) == ScalarValue(right);
-}
-
 Scalar get_next_key(unsigned int id, Nonce& nonce) {
 
     ScalarValue pk_val = id;
