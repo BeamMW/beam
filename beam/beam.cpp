@@ -135,13 +135,13 @@ int main(int argc, char* argv[])
 
                         if (keychain)
                         {
-							keychain->store(Coin(keychain->getNextID(), 5));
-							keychain->store(Coin(keychain->getNextID(), 10));
-							keychain->store(Coin(keychain->getNextID(), 20));
-							keychain->store(Coin(keychain->getNextID(), 50));
-							keychain->store(Coin(keychain->getNextID(), 100));
-							keychain->store(Coin(keychain->getNextID(), 200));
-							keychain->store(Coin(keychain->getNextID(), 500));
+                            keychain->store(Coin(keychain->getNextID(), 5));
+                            keychain->store(Coin(keychain->getNextID(), 10));
+                            keychain->store(Coin(keychain->getNextID(), 20));
+                            keychain->store(Coin(keychain->getNextID(), 50));
+                            keychain->store(Coin(keychain->getNextID(), 100));
+                            keychain->store(Coin(keychain->getNextID(), 200));
+                            keychain->store(Coin(keychain->getNextID(), 500));
 
                             LOG_INFO() << "wallet with coins successfully created...";
                             return 0;
@@ -179,7 +179,7 @@ int main(int argc, char* argv[])
                         receiver_addr.resolve(vm["receiver_addr"].as<string>().c_str());
                     
                         LOG_INFO() << "sending money " << receiver_addr.str();
-                        wallet_io.send_money(receiver_addr, move(amount));
+                        wallet_io.transfer_money(receiver_addr, move(amount));
                     }
                     wallet_io.start();
                 }

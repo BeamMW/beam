@@ -78,19 +78,12 @@ namespace beam::wallet
 
             // transition actions
             void confirm_tx(const msmf::none&);
-
             bool is_valid_signature(const TxConfirmationCompleted& event);
-
             bool is_invalid_signature(const TxConfirmationCompleted& event);
-
             void register_tx(const TxConfirmationCompleted& event);
-
             void rollback_tx(const TxFailed& event);
-
             void cancel_tx(const TxConfirmationCompleted& event);
-
             void confirm_output(const TxRegistrationCompleted& event);
-
             void complete_tx(const TxOutputConfirmCompleted& event);
 
             using initial_state = Init;
@@ -131,7 +124,8 @@ namespace beam::wallet
             ECC::Hash::Value m_message;
             std::vector<Input::Ptr> m_inputs;
             std::vector<Output::Ptr> m_outputs;
-            
+            Coin m_receiver_coin;
+
             ECC::Point::Native m_publicReceiverBlindingExcess;
             ECC::Point::Native m_publicSenderBlindingExcess;
             ECC::Point::Native m_publicSenderNonce;

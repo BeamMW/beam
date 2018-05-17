@@ -11,6 +11,7 @@
 #include <condition_variable>
 
 #include "sqlite_keychain.hpp"
+#include "core/proto.h"
 
 using namespace beam;
 using namespace std;
@@ -141,9 +142,14 @@ namespace
             cout << "sent senders's tx confirmation message\n";
         }
 
-        void send_output_confirmation() override
+        void send_output_confirmation(const Coin&) override
         {
             cout << "sent change output confirmation message\n";
+        }
+
+        void send_tx_failed(const Uuid& txId) override
+        {
+
         }
 
         void on_tx_completed(const Uuid& txId) override
@@ -290,10 +296,10 @@ namespace
             enqueueNetworkTask([this, to, data] () mutable {m_peers[1]->handle_tx_confirmation(to, move(data)); });
         }
 
-        void send_output_confirmation(PeerId to, None&&) override
+        void send_output_confirmation(wallet::OutputConfirmationData&&) override
         {
             cout << "[Sender] send_output_confirmation\n";
-            enqueueNetworkTask([this, to] {m_peers[0]->handle_output_confirmation(to, None()); });
+            enqueueNetworkTask([this] {m_peers[0]->handle_output_confirmation(proto::ProofUtxo()); });
         }
 
         void send_tx_confirmation(PeerId to, wallet::receiver::ConfirmationData::Ptr&& data) override
@@ -305,15 +311,15 @@ namespace
         void register_tx(Transaction::Ptr&& data) override
         {
             cout << "[Receiver] register_tx\n";
-            enqueueNetworkTask([this, data] {m_peers[1]->handle_tx_registration(true); });
+            enqueueNetworkTask([this, data] {m_peers[1]->handle_tx_result(true); });
          
         }
 
-        void send_tx_registered(PeerId to, UuidPtr&& txId) override
+        void send_tx_result(PeerId to, bool&& res) override
         {
             cout << "[Receiver] send_tx_registered\n";
 
-            enqueueNetworkTask([this, to, txId] () mutable {m_peers[0]->handle_tx_registration(true); });
+            enqueueNetworkTask([this, to, res=move(res)] () mutable {m_peers[0]->handle_tx_result(move(res)); });
             shutdown();
         }
     };
@@ -358,7 +364,7 @@ namespace
             }
         }
 
-        void send_output_confirmation(PeerId to, None&&) override
+        void send_output_confirmation(wallet::OutputConfirmationData&& data) override
         {
            /* if (!tryToSendTxFailed(data->m_txId))
             {
@@ -377,7 +383,6 @@ namespace
         void register_tx(Transaction::Ptr&&) override
         {
             cout << "[Receiver] register_tx\n";
-            //enqueueTask([this] {m_peers[1]->handle_tx_registration(Transaction()); });
             m_networkLoop.shutdown();
         }
     };
@@ -397,7 +402,7 @@ void TestWalletNegotiation()
     network.registerPeer(&sender);
     network.registerPeer(&receiver);
 
-    sender.send_money(receiver_id, 6);
+    sender.transfer_money(receiver_id, 6);
     mainLoop.run();
 }
 
@@ -414,18 +419,18 @@ void TestFSM()
 
     wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), id , 6, 1};
     s.start();
-    WALLET_CHECK(s.processEvent(wallet::Sender::TxInitCompleted{ std::make_shared<wallet::receiver::ConfirmationData>() }));
-    WALLET_CHECK(s.processEvent(wallet::Sender::TxConfirmationCompleted()));
-    WALLET_CHECK(s.processEvent(wallet::Sender::TxOutputConfirmCompleted()));
+    WALLET_CHECK(s.process_event(wallet::Sender::TxInitCompleted{ std::make_shared<wallet::receiver::ConfirmationData>() }));
+    WALLET_CHECK(s.process_event(wallet::Sender::TxConfirmationCompleted()));
+    WALLET_CHECK(s.process_event(wallet::Sender::TxOutputConfirmCompleted()));
 
     cout << "\nreceiver\n";
     wallet::sender::InvitationData::Ptr initData = std::make_shared<wallet::sender::InvitationData>();
     initData->m_amount = 100;
     wallet::Receiver r{ gateway, createKeyChain<TestKeyChain>(), initData };
     r.start();
-    WALLET_CHECK(!r.processEvent(wallet::Receiver::TxRegistrationCompleted()));
-    WALLET_CHECK(r.processEvent(wallet::Receiver::TxFailed()));
-    WALLET_CHECK(r.processEvent(wallet::Receiver::TxConfirmationCompleted()));
+    WALLET_CHECK(!r.process_event(wallet::Receiver::TxRegistrationCompleted()));
+    WALLET_CHECK(r.process_event(wallet::Receiver::TxFailed()));
+    WALLET_CHECK(r.process_event(wallet::Receiver::TxConfirmationCompleted()));
 }
 
 class TestNode : public IMsgHandler
@@ -439,7 +444,7 @@ public:
         , m_tag{ 0 }
     {
         m_protocol.add_message_handler<Transaction::Ptr, &TestNode::on_register_tx>(txRegisterCode, 1, 2000);
-        m_protocol.add_message_handler<None, &TestNode::on_confirm_output>(txConfirmOutputCode, 1, 2000);
+        m_protocol.add_message_handler<proto::GetProofUtxo, &TestNode::on_confirm_output>(txConfirmOutputCode, 1, 2000);
     }
 
     void start()
@@ -480,9 +485,9 @@ private:
         return true;
     }
 
-    bool on_confirm_output(uint64_t connectionId, None&& data)
+    bool on_confirm_output(uint64_t connectionId, proto::GetProofUtxo&& data)
     {
-        send(connectionId, txOutputConfirmedCode, None());
+        send(connectionId, txOutputConfirmedCode, proto::ProofUtxo());
         return true;
     }
 
@@ -548,7 +553,7 @@ void TestP2PWalletNegotiationST()
     WalletNetworkIO sender_io{ sender_address, node_address, false, createKeyChain<TestKeyChain>(), main_reactor };
     WalletNetworkIO receiver_io{ receiver_address, node_address, true, createKeyChain<TestKeyChain2>(), main_reactor, 1000 };
 
-    sender_io.send_money(receiver_address, 6);
+    sender_io.transfer_money(receiver_address, 6);
 
     main_reactor->run();
 }

@@ -84,19 +84,13 @@ namespace beam::wallet
 
             // transition actions
             void init_tx(const msmf::none&);
-
             bool is_valid_signature(const TxInitCompleted& );
-
             bool is_invalid_signature(const TxInitCompleted& );
-
+            bool has_change(const TxConfirmationCompleted&);
             void confirm_tx(const TxInitCompleted& );
-
             void rollback_tx(const TxFailed& );
-
             void cancel_tx(const TxInitCompleted& );
-
             void confirm_change_output(const TxConfirmationCompleted&);
-
             void complete_tx(const TxOutputConfirmCompleted&);
 
             using initial_state = Init;
@@ -108,7 +102,8 @@ namespace beam::wallet
                 a_row< TxInitiating      , TxFailed                , Terminate           , &d::rollback_tx                                    >,
                 row  < TxInitiating      , TxInitCompleted         , TxConfirming        , &d::confirm_tx           , &d::is_valid_signature  >,
                 row  < TxInitiating      , TxInitCompleted         , Terminate           , &d::cancel_tx            , &d::is_invalid_signature>,
-                a_row< TxConfirming      , TxConfirmationCompleted , TxOutputConfirming  , &d::confirm_change_output                          >,
+                row  < TxConfirming      , TxConfirmationCompleted , TxOutputConfirming  , &d::confirm_change_output, &d::has_change          >,
+                //a_row< TxConfirming      , TxConfirmationCompleted , Terminate           , &d::complete_tx                                    >,
                 a_row< TxConfirming      , TxFailed                , Terminate           , &d::rollback_tx                                    >,
                 a_row< TxOutputConfirming, TxOutputConfirmCompleted, Terminate           , &d::complete_tx                                    >,
                 a_row< TxOutputConfirming, TxFailed                , Terminate           , &d::rollback_tx                                    >

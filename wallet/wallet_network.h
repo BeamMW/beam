@@ -18,11 +18,12 @@ namespace beam
         senderInvitationCode     = 100,
         senderConfirmationCode   ,
         receiverConfirmationCode ,
+        txResultCode             ,
 
         txRegisterCode           = 23,
         txRegisteredCode         = 5,
         txConfirmOutputCode      = 10,
-        txOutputConfirmedCode    ,
+        txOutputConfirmedCode    = 12,
         txFailedCode             
     };
 
@@ -42,15 +43,15 @@ namespace beam
         void start();
         void stop();
         
-        void send_money(io::Address receiver, Amount&& amount);
+        void transfer_money(io::Address receiver, Amount&& amount);
     private:
         // INetworkIO
         void send_tx_invitation(PeerId to, wallet::sender::InvitationData::Ptr&&) override;
         void send_tx_confirmation(PeerId to, wallet::sender::ConfirmationData::Ptr&&) override;
-        void send_output_confirmation(PeerId to, None&&) override;
+        void send_output_confirmation(wallet::OutputConfirmationData&&) override;
         void send_tx_confirmation(PeerId to, wallet::receiver::ConfirmationData::Ptr&&) override;
         void register_tx(Transaction::Ptr&&) override;
-        void send_tx_registered(PeerId to, UuidPtr&& txId) override;
+        void send_tx_result(PeerId to, bool&& res) override;
 
         // IMsgHandler
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;
@@ -60,7 +61,7 @@ namespace beam
         bool on_sender_inviatation(uint64_t connectionId, wallet::sender::InvitationData&& data);
         bool on_sender_confirmation(uint64_t connectionId, wallet::sender::ConfirmationData&& data);
         bool on_receiver_confirmation(uint64_t connectionId, wallet::receiver::ConfirmationData&& data);
-        bool on_output_confirmation(uint64_t connectionId, None&& data);
+        bool on_tx_result(uint64_t connectionId, bool&& res);
         bool on_failed(uint64_t connectionId, Uuid&&);
 
         void connect_wallet(io::Address address, ConnectCallback&& callback);
@@ -74,14 +75,33 @@ namespace beam
         void send(PeerId to, MsgType type, T&& data)
         {
             auto it = m_connections.find(to);
-            if (it != m_connections.end()) {
-                SerializedMsg msgToSend;
-                m_protocol.serialize(msgToSend, type, data);
-                it->second->write_msg(msgToSend); 
+            if (it != m_connections.end())
+            {
+                m_protocol.serialize(m_msgToSend, type, data);
+                it->second->write_msg(m_msgToSend);
+                m_msgToSend.clear();
             }
-            else {
+            else
+            {
                 LOG_ERROR() << "No connection";
                 // add some handling
+            }
+        }
+
+        template<typename T>
+        void send_to_node(T&& msg)
+        {
+            if (!m_is_node_connected)
+            {
+                m_node_connection.connect(m_node_address, [this, msg=move(msg)]()
+                {
+                    m_is_node_connected = true;
+                    m_node_connection.Send(msg);
+                });
+            }
+            else
+            {
+                m_node_connection.Send(msg);
             }
         }
 
@@ -96,6 +116,7 @@ namespace beam
             void OnConnected() override;
             void OnClosed(int errorCode) override;
             void OnMsg(proto::Boolean&& msg) override;
+            void OnMsg(proto::ProofUtxo&& msg) override;
         private:
             IWallet & m_wallet;
             std::vector<NodeConnectCallback> m_connections_callbacks;
@@ -113,5 +134,6 @@ namespace beam
         bool m_is_node_connected;
         uint64_t m_connection_tag;
         WalletNodeConnection m_node_connection;
+        SerializedMsg m_msgToSend;
     };
 }

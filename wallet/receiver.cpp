@@ -14,7 +14,9 @@ namespace beam::wallet
         , m_publicSenderBlindingExcess{ initData->m_publicSenderBlindingExcess }
         , m_publicSenderNonce{ initData->m_publicSenderNonce }
         , m_transaction{ make_shared<Transaction>() }
+        , m_receiver_coin{keychain->getNextID(), m_amount, Coin::Unconfirmed, initData->m_height}
     {
+        m_transaction->m_Offset = ECC::Zero;
         m_transaction->m_vInputs = move(initData->m_inputs);
         m_transaction->m_vOutputs = move(initData->m_outputs);
     }
@@ -38,8 +40,9 @@ namespace beam::wallet
         Output::Ptr output = make_unique<Output>();
         output->m_Coinbase = false;
 
-        Scalar::Native blindingFactor = m_keychain->calcKey(m_keychain->getNextID());
+        Scalar::Native blindingFactor = m_keychain->calcKey(m_receiver_coin.m_id);
         output->m_Commitment = Commitment(blindingFactor, amount);
+        m_keychain->store(m_receiver_coin);
 
         output->m_pPublic.reset(new RangeProof::Public);
         output->m_pPublic->m_Value = amount;
@@ -119,22 +122,22 @@ namespace beam::wallet
 
     void Receiver::FSMDefinition::rollback_tx(const TxFailed& event)
     {
-        cout << "Receiver::rollback_tx\n";
+        LOG_DEBUG() << "Receiver::rollback_tx";
     }
 
     void Receiver::FSMDefinition::cancel_tx(const TxConfirmationCompleted& )
     {
-        cout << "Receiver::cancel_tx\n";
+        LOG_DEBUG() << "Receiver::cancel_tx";
     }
 
     void Receiver::FSMDefinition::confirm_output(const TxRegistrationCompleted& )
     {
         m_gateway.send_tx_registered(make_unique<Uuid>(m_txId));
-        m_gateway.send_output_confirmation();
+        m_gateway.send_output_confirmation(m_receiver_coin);
     }
 
     void Receiver::FSMDefinition::complete_tx(const TxOutputConfirmCompleted& )
     {
-        cout << "Receiver::complete_tx\n";
+        LOG_DEBUG() << "[Receiver] complete_tx";
     }
 }
