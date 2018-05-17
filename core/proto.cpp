@@ -54,7 +54,12 @@ void NodeConnection::OnConnectInternal2(io::TcpStream::Ptr&& newStream, int stat
 	if (newStream)
 	{
 		Accept(std::move(newStream));
-		OnConnected();
+
+		try {
+			OnConnected();
+		} catch (...) {
+			OnClosed(-1);
+		}
 	}
 	else
 		OnClosed(status);
@@ -111,8 +116,13 @@ void NodeConnection::Send(const msg& v) \
 \
 bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
 { \
-	/* checkpoint */ \
-	OnMsg(std::move(v)); \
+	try { \
+		/* checkpoint */ \
+		OnMsg(std::move(v)); \
+	} catch (...) { \
+		OnClosed(-1); \
+		return false; \
+	} \
 	return true; \
 } \
 

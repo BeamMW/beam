@@ -19,8 +19,7 @@ namespace proto {
 #define BeamNodeMsg_Hdr(macro) \
 	macro(Block::SystemState::Full, Description)
 
-#define BeamNodeMsg_IsHasBody(macro) \
-	macro(Block::SystemState::ID, ID)
+#define BeamNodeMsg_DataMissing(macro)
 
 #define BeamNodeMsg_Boolean(macro) \
 	macro(bool, Value)
@@ -50,13 +49,15 @@ namespace proto {
 	macro(Block::SystemState::ID, ID) \
 	macro(std::vector<PerUtxoProof>, Proofs)
 
+#define BeamNodeMsg_Ping(macro)
+#define BeamNodeMsg_Pong(macro)
 
 
 #define BeamNodeMsgsAll(macro) \
 	macro(1, NewTip) /* Also the first message sent by the node */ \
 	macro(2, GetHdr) \
 	macro(3, Hdr) \
-	macro(4, IsHasBody) /* may be sent to multiple peers, before actually downloading the body from one peer */ \
+	macro(4, DataMissing) \
 	macro(5, Boolean) \
 	macro(6, GetBody) \
 	macro(7, Body) \
@@ -64,7 +65,9 @@ namespace proto {
 	macro(9, GetProofKernel) \
 	macro(10, GetProofUtxo) \
 	macro(11, Proof) /* for states and kernels */ \
-	macro(12, ProofUtxo)
+	macro(12, ProofUtxo) \
+	macro(21, Ping) \
+	macro(22, Pong)
 
 
 	struct PerUtxoProof

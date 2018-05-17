@@ -312,6 +312,7 @@ struct binary_istream {
             const bool onebyte = __YAS_SCAST(bool, (ns >> 7) & 1u);
             ns &= ~(1u << 7);
             if ( !onebyte ) {
+				v = 0; // zero-init, because we may read less
                 __YAS_THROW_READ_ERROR(ns != is.read(&v, std::min<std::size_t>(sizeof(v), ns)));
             } else {
                 v = __YAS_SCAST(T, ns);
