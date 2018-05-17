@@ -50,9 +50,7 @@ namespace beam::wallet
 
             Scalar::Native blindingFactor = m_keychain->calcKey(m_keychain->getNextID());
 			output->Create(blindingFactor, change, true);
-            
-            m_changeOutput = Coin(blindingFactor, change, Coin::Unconfirmed, m_height, false);
-            m_keychain->store(*m_changeOutput);
+
 
             blindingFactor = -blindingFactor;
             m_blindingExcess += blindingFactor;
