@@ -14,6 +14,8 @@ public:
         Reader(const Reader&)=delete;
         Reader& operator=(const Reader&)=delete;
 
+        Reader() : _owner(0) {}
+        
         Reader(Reader&& r) : _owner(r._owner) {
             r._owner = 0;
         }
@@ -49,6 +51,8 @@ public:
         Writer(const Writer&)=delete;
         Writer& operator=(const Writer&)=delete;
 
+        Writer() : _owner(0) {}
+        
         Writer(Writer&& r) : _owner(r._owner) {
             r._owner = 0;
         }

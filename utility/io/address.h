@@ -39,6 +39,8 @@ struct Address {
         packed = ((uint64_t)a << 16) + p;
     }
     
+    Address(uint64_t _packed) : packed(_packed) {}
+    
     Address(const sockaddr_in& sa) {
         packed = ((uint64_t)ntohl(sa.sin_addr.s_addr) << 16) + ntohs(sa.sin_port);
     }

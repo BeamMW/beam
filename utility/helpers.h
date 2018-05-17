@@ -66,5 +66,13 @@ private:
 /// returns current thread id depending on platform
 uint64_t get_thread_id();
 
+/// blocks all signals in calling thread
+void block_signals_in_this_thread();
+
+/// waits for app termination
+/// 1/ no more than nSec seconds if nSec > 0
+/// 2/ until signal arrives otherwise
+void wait_for_termination(int nSec);
+
 } //namespace
 

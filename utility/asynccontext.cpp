@@ -48,6 +48,7 @@ void AsyncContext::run_async(AsyncContext::RunCallback&& beforeRun, AsyncContext
 }
     
 void AsyncContext::thread_func(AsyncContext::RunCallback&& beforeRun, AsyncContext::RunCallback&& afterRun) {
+    block_signals_in_this_thread();
     attach_to_thread();
     LOG_DEBUG() << "starting, thread=" << get_thread_id();
     try {
