@@ -87,7 +87,7 @@ namespace beam
         {
             if (!m_is_node_connected)
             {
-                m_node_connection.connect(m_node_address, [this, msg=move(msg)]()
+                m_node_connection.connect(m_node_address, [this, msg=std::move(msg)]()
                 {
                     m_is_node_connected = true;
                     m_node_connection.Send(msg);
