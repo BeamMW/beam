@@ -166,7 +166,7 @@ int main(int argc, char* argv[])
                     io::Address node_addr;
                     node_addr.resolve(vm["node_addr"].as<string>().c_str());
                     bool is_server = command == "listen";
-                    WalletNetworkIO wallet_io{ io::Address::localhost().port(port)
+                    WalletNetworkIO wallet_io{ io::Address().ip(INADDR_ANY).port(port)
                                              , node_addr
                                              , is_server
                                              , keychain

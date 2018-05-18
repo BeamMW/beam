@@ -59,8 +59,8 @@ namespace beam
         bool on_message(uint64_t connectionId, wallet::TxRegisteredData&& data);
 
         void connect_wallet(io::Address address, ConnectCallback&& callback);
-        void on_stream_accepted(io::TcpStream::Ptr&& newStream, int errorCode);
-        void on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, int status);
+        void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
+        void on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status);
         bool register_connection(uint64_t tag, io::TcpStream::Ptr&& newStream);
 
         uint64_t get_connection_tag();

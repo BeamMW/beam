@@ -107,7 +107,7 @@ namespace beam {
         return true;
     }
 
-    void WalletNetworkIO::on_stream_accepted(io::TcpStream::Ptr&& newStream, int errorCode)
+    void WalletNetworkIO::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
     {
         if (errorCode == 0)
         {
@@ -127,7 +127,7 @@ namespace beam {
         }
     }
 
-    void WalletNetworkIO::on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, int status)
+    void WalletNetworkIO::on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status)
     {
         if (register_connection(tag, move(newStream)))
         {
