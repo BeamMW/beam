@@ -15,6 +15,7 @@ namespace beam
     using UuidPtr = std::shared_ptr<Uuid>;
     using TransactionPtr = std::shared_ptr<Transaction>;
     ECC::Scalar::Native generateNonce();
+
     namespace wallet
     {
         namespace msm = boost::msm;
@@ -37,11 +38,10 @@ namespace beam
             }
         };
 
-        struct OutputConfirmationData
+        struct TxRegisteredData
         {
-            using Ptr = std::shared_ptr<OutputConfirmationData>;
-            Input m_utxo;
-            Height m_maturity_min;
+            bool m_value;
+            SERIALIZE(m_value);
         };
 
         struct IWalletGateway

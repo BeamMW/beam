@@ -130,6 +130,11 @@ namespace beam::wallet
         return m_changeOutput.is_initialized();
     }
 
+    bool Sender::FSMDefinition::has_no_change(const TxConfirmationCompleted&)
+    {
+        return !m_changeOutput.is_initialized();
+    }
+
     void Sender::FSMDefinition::confirm_tx(const TxInitCompleted& event)
     {
         auto data = event.data;
@@ -164,9 +169,19 @@ namespace beam::wallet
         }
     }
 
+    void Sender::FSMDefinition::complete_tx(const TxConfirmationCompleted&)
+    {
+        complete_tx();
+    }
+
     void Sender::FSMDefinition::complete_tx(const TxOutputConfirmCompleted&)
     {
-        cout << "Sender::complete_tx\n";
+        complete_tx();
+    }
+
+    void Sender::FSMDefinition::complete_tx()
+    {
+        LOG_DEBUG() << "[Sender] complete tx";
         for (auto& c : m_coins)
         {
             c.m_status = Coin::Spent;

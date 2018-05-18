@@ -4,7 +4,6 @@
 #include "wallet/keychain.h"
 #include "wallet/sender.h"
 
-#include <iostream>
 #include <boost/msm/front/functor_row.hpp>
 
 namespace beam::wallet

@@ -86,7 +86,7 @@ namespace beam
     {
         send_tx_message(data->m_txId, [this, &data](auto peer_id) mutable
         {
-            m_network.send_tx_invitation(peer_id, move(data));
+            m_network.send_tx_message(peer_id, move(data));
         });
     }
 
@@ -95,7 +95,7 @@ namespace beam
         send_tx_message(data->m_txId, [this, &data](auto peer_id) mutable
         {
             m_bool_requests_queue.push(data->m_txId);
-            m_network.send_tx_confirmation(peer_id, move(data));
+            m_network.send_tx_message(peer_id, move(data));
         });
     }
 
@@ -111,8 +111,8 @@ namespace beam
 
     void Wallet::send_output_confirmation(const Coin& coin)
     {
-        m_network.send_output_confirmation(
-            OutputConfirmationData
+        m_network.send_node_message(
+            proto::GetProofUtxo
             {
                 Input {Commitment(m_keyChain->calcKey(coin.m_id), coin.m_amount)}
               , coin.m_height
@@ -123,7 +123,7 @@ namespace beam
     {
         send_tx_message(txId, [this](auto peer_id)
         {
-            m_network.send_tx_result(peer_id, false);
+            m_network.send_tx_message(peer_id, wallet::TxRegisteredData{ false });
         });
     }
 
@@ -151,7 +151,7 @@ namespace beam
     {
         send_tx_message(data->m_txId, [this, &data](auto peer_id) mutable
         {
-            m_network.send_tx_confirmation(peer_id, move(data));
+            m_network.send_tx_message(peer_id, move(data));
         });
     }
 
@@ -159,18 +159,18 @@ namespace beam
     {
         LOG_DEBUG() << "[Receiver] sending tx for registration";
         m_bool_requests_queue.push(txId);
-        m_network.register_tx(move(data));
+        m_network.send_node_message(proto::NewTransaction{ move(data) });
     }
 
     void Wallet::send_tx_registered(UuidPtr&& txId)
     {
         send_tx_message(*txId, [this](auto peer_id)
         {
-            m_network.send_tx_result(peer_id, true);
+            m_network.send_tx_message(peer_id, wallet::TxRegisteredData{ true });
         });
     }
 
-    void Wallet::handle_tx_invitation(PeerId from, sender::InvitationData::Ptr&& data)
+    void Wallet::handle_tx_message(PeerId from, sender::InvitationData::Ptr&& data)
     {
         auto it = m_receivers.find(data->m_txId);
         if (it == m_receivers.end())
@@ -187,7 +187,7 @@ namespace beam
         }
     }
     
-    void Wallet::handle_tx_confirmation(PeerId from, sender::ConfirmationData::Ptr&& data)
+    void Wallet::handle_tx_message(PeerId from, sender::ConfirmationData::Ptr&& data)
     {
         auto it = m_receivers.find(data->m_txId);
         if (it != m_receivers.end())
@@ -201,24 +201,7 @@ namespace beam
         }
     }
 
-    void Wallet::handle_output_confirmation(proto::ProofUtxo&& proof)
-    {
-        LOG_DEBUG() << "Received tx output confirmation ";
-        // TODO: this code is for test only, it should be rewrited
-        if (!m_receivers.empty())
-        {
-            m_receivers.begin()->second->process_event(Receiver::TxOutputConfirmCompleted());
-            return;
-        }
-        if (!m_senders.empty())
-        {
-            m_senders.begin()->second->process_event(Sender::TxOutputConfirmCompleted());
-            return;
-        }
-        LOG_DEBUG() << "Unexpected tx output confirmation ";
-    }
-   
-    void Wallet::handle_tx_confirmation(PeerId from, receiver::ConfirmationData::Ptr&& data)
+    void Wallet::handle_tx_message(PeerId from, receiver::ConfirmationData::Ptr&& data)
     {
         auto it = m_senders.find(data->m_txId);
         if (it != m_senders.end())
@@ -232,7 +215,17 @@ namespace beam
         }
     }
 
-    void Wallet::handle_tx_result(bool&& res)
+    void Wallet::handle_tx_message(PeerId from, wallet::TxRegisteredData&& data)
+    {
+        handle_tx_registered(data.m_value);
+    }
+
+    void Wallet::handle_node_message(proto::Boolean&& res)
+    {
+        handle_tx_registered(res.m_Value);
+    }
+
+    void Wallet::handle_tx_registered(bool res)
     {
         if (m_bool_requests_queue.empty())
         {
@@ -244,7 +237,7 @@ namespace beam
         m_bool_requests_queue.pop();
 
         LOG_DEBUG() << "tx " << txId << (res ? " has registered" : " has failed to register");
-        
+
         if (res)
         {
             if (auto it = m_receivers.find(txId); it != m_receivers.end())
@@ -273,23 +266,20 @@ namespace beam
         }
     }
 
-    void Wallet::handle_tx_result(PeerId from, bool&& res)
+    void Wallet::handle_node_message(proto::ProofUtxo&& proof)
     {
-        handle_tx_result(move(res));
-    }
-
-    void Wallet::handle_tx_failed(PeerId from, UuidPtr&& txId)
-    {
-        if (auto it = m_senders.find(*txId); it != m_senders.end())
+        LOG_DEBUG() << "Received tx output confirmation ";
+        // TODO: this code is for test only, it should be rewrited
+        if (!m_receivers.empty())
         {
-            it->second->process_event(Sender::TxFailed());
+            m_receivers.begin()->second->process_event(Receiver::TxOutputConfirmCompleted());
             return;
         }
-        if (auto it = m_receivers.find(*txId); it != m_receivers.end())
+        if (!m_senders.empty())
         {
-            it->second->process_event(Receiver::TxFailed());
+            m_senders.begin()->second->process_event(Sender::TxOutputConfirmCompleted());
             return;
         }
-        // TODO: log unexpected TxConfirmation
+        LOG_DEBUG() << "Unexpected tx output confirmation ";
     }
 }

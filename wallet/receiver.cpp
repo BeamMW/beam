@@ -122,12 +122,12 @@ namespace beam::wallet
 
     void Receiver::FSMDefinition::rollback_tx(const TxFailed& event)
     {
-        LOG_DEBUG() << "Receiver::rollback_tx";
+        LOG_DEBUG() << "[Receiver] rollback_tx";
     }
 
     void Receiver::FSMDefinition::cancel_tx(const TxConfirmationCompleted& )
     {
-        LOG_DEBUG() << "Receiver::cancel_tx";
+        LOG_DEBUG() << "[Receiver] cancel_tx";
     }
 
     void Receiver::FSMDefinition::confirm_output(const TxRegistrationCompleted& )
@@ -138,6 +138,6 @@ namespace beam::wallet
 
     void Receiver::FSMDefinition::complete_tx(const TxOutputConfirmCompleted& )
     {
-        LOG_DEBUG() << "[Receiver] complete_tx";
+        LOG_DEBUG() << "[Receiver] complete tx";
     }
 }
