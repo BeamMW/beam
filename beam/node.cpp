@@ -483,8 +483,7 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	if (id != t.m_Key.first)
 		ThrowUnexpected();
 
-	// uncomment this when blocks with valid PoW are generated
-	if (!m_pThis->m_Cfg.m_bDontVerifyPoW && !msg.m_Description.IsValidPoW())
+	if (!m_pThis->m_Cfg.m_TestMode.m_bFakePoW && !msg.m_Description.IsValidPoW())
 		ThrowUnexpected();
 
 	t.m_bRelevant = false;
@@ -713,8 +712,39 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 			return false;
 		};
 
-		if (!s.GeneratePoW(fnCancel))
-			continue;
+		if (get_ParentObj().m_Cfg.m_TestMode.m_bFakePoW)
+		{
+			uint32_t timeout_ms = get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms;
+
+			bool bSolved = false;
+
+			//std::chrono::high_resolution_clock::duration
+			for (std::chrono::system_clock::time_point tmStart = std::chrono::system_clock::now(); ; )
+			{
+				if (fnCancel(false))
+					break;
+				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+				std::chrono::system_clock::duration dt = std::chrono::system_clock::now() - tmStart;
+				uint32_t dt_ms = std::chrono::duration_cast<std::chrono::milliseconds>(dt).count();
+
+				if (dt_ms >= timeout_ms)
+				{
+					bSolved = true;
+					break;
+				}
+			}
+
+			if (!bSolved)
+				continue;
+
+			ZeroObject(s.m_PoW);
+		}
+		else
+		{
+			if (!s.GeneratePoW(fnCancel))
+				continue;
+		}
 
 		std::scoped_lock<std::mutex> scope(m_Mutex);
 

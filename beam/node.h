@@ -28,10 +28,16 @@ struct Node
 			uint32_t m_MiningSoftRestart_ms = 100;
 		} m_Timeout;
 
-		bool m_bDontVerifyPoW = false; // for testing only!
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
 		uint32_t m_MinerID = 0; // used as a seed for miner nonce generation
+
+		struct TestMode {
+			// for testing only!
+			bool m_bFakePoW = false;
+			uint32_t m_FakePowSolveTime_ms = 15 * 1000;
+
+		} m_TestMode;
 
 
 	} m_Cfg; // must not be changed after initialization

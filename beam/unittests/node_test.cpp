@@ -612,7 +612,7 @@ namespace beam
 		node.m_Cfg.m_sPathLocal = g_sz;
 		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
-		node.m_Cfg.m_bDontVerifyPoW = true;
+		node.m_Cfg.m_TestMode.m_bFakePoW = true;
 
 		node.m_Cfg.m_Timeout.m_GetBlock_ms = 1000 * 60;
 		node.m_Cfg.m_Timeout.m_GetState_ms = 1000 * 60;
@@ -624,7 +624,7 @@ namespace beam
 		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
 		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
-		node2.m_Cfg.m_bDontVerifyPoW = true;
+		node2.m_Cfg.m_TestMode.m_bFakePoW = true;
 
 		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
 		ECC::SetRandom(node2.get_Processor().m_Kdf.m_Secret.V);
