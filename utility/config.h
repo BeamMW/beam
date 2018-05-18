@@ -68,7 +68,7 @@ public:
         return value ? *value : defValue;
     }
 
-    const std::string& get_string(const std::string& key) const {
+    const std::string& get_string(const std::string& key, const std::string& defValue=std::string()) const {
         return get<std::string>(key);
     }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/intrusive/set.hpp>
 #include "../core/common.h"
 #include "../core/storage.h"
 #include "node_db.h"
@@ -36,9 +37,6 @@ class NodeProcessor
 	void OnCorrupted();
 	void get_CurrentLive(Merkle::Hash&);
 
-	static void get_KrnKey(Merkle::Hash&, const TxKernel&);
-
-	std::list<Transaction::Ptr> m_lstCurrentlyMining;
 	struct BlockBulder;
 
 	bool IsRelevantHeight(Height);
@@ -63,10 +61,13 @@ public:
 	bool get_CurrentState(Block::SystemState::Full&);
 
 	//  both functions return true if dirty (i.e. data is relevant, and added)
-	bool OnState(const Block::SystemState::Full&, const NodeDB::Blob& pow, const PeerID&);
+	bool OnState(const Block::SystemState::Full&, const PeerID&);
 	bool OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&);
 
-	NodeDB& get_DB() { return m_DB; } // use only for data retrieval for peers
+	// use only for data retrieval for peers
+	NodeDB& get_DB() { return m_DB; }
+	UtxoTree& get_Utxos() { return m_Utxos; }
+	RadixHashOnlyTree& get_Kernels() { return m_Kernels; }
 
 	void EnumCongestions();
 
@@ -74,15 +75,75 @@ public:
 	virtual void OnPeerInsane(const PeerID&) {}
 	virtual void OnNewState() {}
 
-	// Mining simulation
-	bool FeedTransaction(Transaction::Ptr&&); // returns false if the transaction isn't valid in its context
-	void SimulateMinedBlock(Block::SystemState::Full&, ByteBuffer& block, ByteBuffer& pow);
-
 	bool IsStateNeeded(const Block::SystemState::ID&);
 
-protected:
-	virtual void get_Key(ECC::Scalar::Native&, Height h, bool bCoinbase) = 0;
-	virtual void OnMined(Height, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase) {}
+	struct KeyType {
+		enum Enum {
+			Comission,
+			Coinbase,
+			Kernel
+		};
+	};
+
+	ECC::Kdf m_Kdf;
+	static void DeriveKey(ECC::Scalar::Native&, const ECC::Kdf&, Height, KeyType::Enum, uint32_t nIdx = 0);
+
+	struct TxPool
+	{
+		struct Element
+		{
+			struct Tx
+				:public boost::intrusive::set_base_hook<>
+			{
+				Transaction::Ptr m_pValue;
+
+				bool operator < (const Tx& t) const;
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Tx)
+			} m_Tx;
+
+			struct Profit
+				:public boost::intrusive::set_base_hook<>
+			{
+				Amount m_Fee;
+				size_t m_nSize;
+
+				bool operator < (const Profit& t) const;
+
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Profit)
+			} m_Profit;
+
+			struct Threshold
+				:public boost::intrusive::set_base_hook<>
+			{
+				Height m_Value;
+
+				bool operator < (const Threshold& t) const { return m_Value < t.m_Value; }
+
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Threshold)
+			} m_Threshold;
+		};
+
+		typedef boost::intrusive::multiset<Element::Tx> TxSet;
+		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
+		typedef boost::intrusive::multiset<Element::Threshold> ThresholdSet;
+
+		TxSet m_setTxs;
+		ProfitSet m_setProfit;
+		ThresholdSet m_setThreshold;
+
+		bool AddTx(Transaction::Ptr&&, Height); // return false if transaction doesn't pass context-free validation
+		void Delete(Element&);
+		void Clear();
+
+		void DeleteOutOfBound(Height);
+		void ShrinkUpTo(uint32_t nCount);
+
+		~TxPool() { Clear(); }
+
+	};
+
+	Height get_NextHeight();
+	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer& block, Amount& fees);
 };
 
 

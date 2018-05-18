@@ -383,11 +383,8 @@ struct TransactionMaker
 			std::unique_ptr<beam::Output> pOut(new beam::Output);
 
 			Scalar::Native k;
-			EncodeAmount(pOut->m_Commitment, k, val);
-
-			pOut->m_pPublic.reset(new RangeProof::Public);
-			pOut->m_pPublic->m_Value = val;
-			pOut->m_pPublic->Create(k);
+			SetRandom(k);
+			pOut->Create(k, val, true);
 
 			t.m_vOutputs.push_back(std::move(pOut));
 
@@ -402,7 +399,7 @@ struct TransactionMaker
 	void CoSignKernel(beam::TxKernel& krn)
 	{
 		Hash::Value msg;
-		krn.get_Hash(msg);
+		krn.get_HashForSigning(msg);
 
 		// 1st pass. Public excesses and Nonces are summed.
 		Scalar::Native offset(m_Trans.m_Offset);
@@ -466,7 +463,7 @@ struct TransactionMaker
 
 		// sign contract
 		Hash::Value hv;
-		pKrn->get_Hash(hv);
+		pKrn->get_HashForSigning(hv);
 		pKrn->get_HashForContract(hv, hv);
 
 		pKrn->m_pContract->m_Signature.Sign(hv, skContract);
@@ -532,7 +529,7 @@ void TestTransactionKernelConsuming()
 		Scalar::Native sk0 = kExc * (mul0 + 1);
 
 		beam::TxKernel::Ptr pKrn(new beam::TxKernel);
-		pKrn->get_Hash(hv);
+		pKrn->get_HashForSigning(hv);
 		pKrn->m_Signature.Sign(hv, sk0);
 		pKrn->m_Excess = p;
 		pKrn->m_Multiplier = mul0;
@@ -545,7 +542,7 @@ void TestTransactionKernelConsuming()
 		Scalar::Native sk1 = kExc * (mul1 + 1);
 
 		pKrn.reset(new beam::TxKernel);
-		pKrn->get_Hash(hv);
+		pKrn->get_HashForSigning(hv);
 		pKrn->m_Signature.Sign(hv, sk1);
 		pKrn->m_Excess = p;
 		pKrn->m_Multiplier = mul1;

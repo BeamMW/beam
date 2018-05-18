@@ -7,11 +7,15 @@
     #include <unistd.h>
     #include <sys/types.h>
     #include <sys/syscall.h>
+    #include <sys/signal.h>
+    #include <errno.h>
 #elif defined _WIN32
     #define WIN32_LEAN_AND_MEAN
     #include <windows.h>
 #else
+    #include <signal.h>
     #include <pthread.h>
+    #include <errno.h>
 #endif
 
 namespace beam {
@@ -69,5 +73,75 @@ uint64_t get_thread_id() {
     return tid;
 #endif
 }
+
+#ifndef _WIN32
+
+namespace {
+    
+bool g_quit = false;
+
+void signal_handler(int sig) {
+    if (sig == SIGINT || sig == SIGTERM)
+        g_quit = true;
+}
+
+void install_signal(int sig) {
+    struct sigaction sa;
+    sa.sa_handler = signal_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+    sigaction(sig, &sa, 0);
+}
+
+} //namespace
+
+void block_signals_in_this_thread() {
+    sigset_t sigmask;
+    sigfillset(&sigmask);
+    sigprocmask(SIG_BLOCK, &sigmask, 0);
+}
+
+void wait_for_termination(int nSec) {
+    g_quit = false;
+    
+    install_signal(SIGTERM);
+    install_signal(SIGINT);
+    install_signal(SIGHUP);
+    install_signal(SIGPIPE);
+    
+    struct timespec req, rem;
+    if (nSec > 0)
+        req.tv_sec = nSec;
+    else 
+        req.tv_sec = 8640000;
+    req.tv_nsec = 0;
+    rem.tv_sec = 0;
+    rem.tv_nsec = 0;
+    for (;;) {
+        int r = nanosleep(&req, &rem);
+        if (g_quit)
+            break;
+        if (nSec > 0) {
+            if (r == 0) break;
+            req = rem;
+            rem.tv_sec = 0;
+            rem.tv_nsec = 0;
+        }
+    }
+}
+
+#else //_WIN32
+
+void block_signals_in_this_thread() {
+    // TODO ????
+}
+
+void wait_for_termination(int nSec) {
+    // TODO
+    // SetConsoleCtrlHandler, CreateEvent, WaitForSingleObject ????????
+    ::Sleep(nSec);
+}
+
+#endif //_WIN32
 
 } //namespace

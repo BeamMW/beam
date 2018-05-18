@@ -65,17 +65,61 @@ void tcpclient_test() {
         if (!reactor->tcp_connect(Address::localhost().port(666), tag_refused, on_connected)) ++errorlevel;
         if (!reactor->tcp_connect(a.port(666), tag_timedout, on_connected, 100)) ++errorlevel;
         if (!reactor->tcp_connect(a, tag_cancelled, on_connected)) ++errorlevel;
-        
+
         reactor->cancel_tcp_connect(tag_cancelled);
-        
+
         Timer::Ptr timer = Timer::create(reactor);
         int x = 15;
-        timer->start(200, true, [&x]{ 
+        timer->start(200, true, [&x]{
             if (--x == 0 || callbackCount == 0) {
-                reactor->stop(); 
+                reactor->stop();
             }
         });
-        
+
+        LOG_DEBUG() << "starting reactor...";
+        reactor->run();
+        LOG_DEBUG() << "reactor stopped";
+    }
+    catch (const Exception& e) {
+        LOG_ERROR() << e.what();
+    }
+}
+
+int writecancelInProgress=1;
+
+void on_connected_writecancel(uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
+    if (newStream) {
+        assert(status == EC_OK);
+        if (tag != tag_ok) ++errorlevel;
+        theStream = move(newStream);
+        static const char* request = "GET / HTTP/1.0\r\n\r\n";
+        theStream->write(request, strlen(request));
+        theStream.reset();
+        writecancelInProgress=0;
+    } else {
+        LOG_DEBUG() << "ERROR: " << error_str(status);
+    }
+};
+
+void tcpclient_writecancel_test() {
+    try {
+        reactor = Reactor::create();
+
+        Address a;
+        // NOTE that this is blocked resolver, TODO add async resolver to Reactor
+        a.resolve("beam-mw.com");
+        a.port(80);
+
+        if (!reactor->tcp_connect(a, tag_ok, on_connected_writecancel, 10000)) ++errorlevel;
+
+        Timer::Ptr timer = Timer::create(reactor);
+        int x = 15;
+        timer->start(200, true, [&x]{
+            if (--x == 0 || !writecancelInProgress) {
+                reactor->stop();
+            }
+        });
+
         LOG_DEBUG() << "starting reactor...";
         reactor->run();
         LOG_DEBUG() << "reactor stopped";
@@ -95,7 +139,12 @@ int main() {
     lc.flushLevel = logLevel;
     auto logger = Logger::create(lc);
     tcpclient_test();
-    return errorlevel + callbackCount;
+    tcpclient_writecancel_test();
+    int retCode=errorlevel + callbackCount + writecancelInProgress;
+    if (retCode != 0) {
+        LOG_ERROR() << TRACE(errorlevel) << TRACE(callbackCount) << TRACE(writecancelInProgress);
+    }
+    return retCode;
 }
 
 

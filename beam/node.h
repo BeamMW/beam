@@ -25,7 +25,14 @@ struct Node
 			uint32_t m_Insane_ms	= 1000 * 3600; // 1 hour
 			uint32_t m_GetState_ms	= 1000 * 5;
 			uint32_t m_GetBlock_ms	= 1000 * 30;
+			uint32_t m_MiningSoftRestart_ms = 100;
 		} m_Timeout;
+
+		bool m_bDontVerifyPoW = false; // for testing only!
+		uint32_t m_MaxPoolTransactions = 100 * 1000;
+		uint32_t m_MiningThreads = 0; // by default disabled
+		uint32_t m_MinerID = 0; // used as a seed for miner nonce generation
+
 
 	} m_Cfg; // must not be changed after initialization
 
@@ -43,11 +50,11 @@ private:
 		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override;
 		virtual void OnPeerInsane(const PeerID&) override;
 		virtual void OnNewState() override;
-		virtual void get_Key(ECC::Scalar::Native&, Height h, bool bCoinbase) override;
-		virtual void OnMined(Height, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase) override;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
+
+	NodeProcessor::TxPool m_TxPool;
 
 	struct State {
 		enum Enum {
@@ -70,11 +77,11 @@ private:
 		bool m_bRelevant;
 		Peer* m_pOwner;
 
-		bool operator > (const Task& t) const { return (m_Key > t.m_Key); }
+		bool operator < (const Task& t) const { return (m_Key < t.m_Key); }
 	};
 
 	typedef boost::intrusive::list<Task> TaskList;
-	typedef boost::intrusive::set<Task, boost::intrusive::compare<std::greater<Task> > > TaskSet;
+	typedef boost::intrusive::multiset<Task> TaskSet;
 
 	TaskList m_lstTasksUnassigned;
 	TaskSet m_setTasks;
@@ -130,6 +137,10 @@ private:
 		virtual void OnMsg(proto::GetBody&&) override;
 		virtual void OnMsg(proto::Body&&) override;
 		virtual void OnMsg(proto::NewTransaction&&) override;
+		virtual void OnMsg(proto::GetMined&&) override;
+		virtual void OnMsg(proto::GetProofState&&) override;
+		virtual void OnMsg(proto::GetProofKernel&&) override;
+		virtual void OnMsg(proto::GetProofUtxo&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
@@ -149,6 +160,49 @@ private:
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Server)
 	} m_Server;
+
+	struct Miner
+	{
+		struct PerThread
+		{
+			io::Reactor::Ptr m_pReactor;
+			io::AsyncEvent::Ptr m_pEvtRefresh;
+			std::thread m_Thread;
+		};
+
+		std::vector<PerThread> m_vThreads;
+
+		io::AsyncEvent::Ptr m_pEvtMined;
+
+		struct Task
+		{
+			typedef std::shared_ptr<Task> Ptr;
+
+			// Task is mutable. But modifications are allowed only when holding the mutex.
+
+			Block::SystemState::Full m_Hdr;
+			ByteBuffer m_Body;
+			Amount m_Fees;
+
+			std::shared_ptr<volatile bool> m_pStop;
+		};
+
+		void OnRefresh(uint32_t iIdx);
+		void OnMined();
+
+		void HardAbortSafe();
+		void Restart();
+
+		std::mutex m_Mutex;
+		Task::Ptr m_pTask; // currently being-mined
+
+		io::Timer::Ptr m_pTimer;
+		bool m_bTimerPending;
+		void OnTimer();
+		void SetTimer(uint32_t timeout_ms, bool bHard);
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Miner)
+	} m_Miner;
 };
 
 } // namespace beam

@@ -132,6 +132,7 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork, public AsyncCon
                 connection = make_unique<Connection>(
                     protocol,
                     address.packed,
+                    Connection::inbound,
                     100,
                     std::move(newStream)
                 );
@@ -147,6 +148,7 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork, public AsyncCon
             connection = make_unique<Connection>(
                 protocol,
                 address.packed,
+                Connection::outbound,
                 100,
                 std::move(newStream)
             );

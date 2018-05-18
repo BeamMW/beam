@@ -128,14 +128,12 @@ namespace beam
 	};
 
 
-void DeleteFile(const char* szPath)
-{
-#ifdef WIN32
-	DeleteFileA(szPath);
-#else // WIN32
-	unlink(szPath);
+#ifndef WIN32
+	void DeleteFileA(const char* szPath)
+	{
+		unlink(szPath);
+	}
 #endif // WIN32
-}
 
 	void TestNavigator()
 	{
@@ -145,7 +143,7 @@ void DeleteFile(const char* szPath)
 		const char* sz = "/tmp/mytest.bin";
 #endif // WIN32
 
-		DeleteFile(sz);
+		DeleteFileA(sz);
 
 		BlockChainClient bcc;
 
@@ -329,6 +327,36 @@ void DeleteFile(const char* szPath)
 
 		t.get_Hash(hv2);
 		verify_test(hv2 == hv1);
+
+		// narrow traverse
+		struct Traveler
+			:public RadixTree::ITraveler
+		{
+			UtxoTree::Key m_Min, m_Max, m_Last;
+
+			virtual bool OnLeaf(const RadixTree::Leaf& x) override
+			{
+				const UtxoTree::MyLeaf& v = (UtxoTree::MyLeaf&) x;
+				verify_test(v.m_Key >= m_Min);
+				verify_test(v.m_Key <= m_Max);
+				verify_test(v.m_Key > m_Last);
+				m_Last = v.m_Key;
+				return true;
+			}
+		} t2;
+
+		ZeroObject(t2.m_Min);
+		ZeroObject(t2.m_Max);
+		t2.m_Min.m_pArr[0] = 0x33;
+		t2.m_Max.m_pArr[0] = 0x3a;
+		t2.m_Max.m_pArr[1] = 0xe2;
+		ZeroObject(t2.m_Last);
+
+		UtxoTree::Cursor cu;
+		t2.m_pCu = &cu;
+		t2.m_pBound[0] = t2.m_Min.m_pArr;
+		t2.m_pBound[1] = t2.m_Max.m_pArr;
+		t.Traverse(t2);
 	}
 
 	struct MyMmr

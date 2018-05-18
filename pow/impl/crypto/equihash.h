@@ -182,10 +182,10 @@ public:
     int InitialiseState(eh_HashState& base_state);
 #ifdef ENABLE_MINING
     bool BasicSolve(const eh_HashState& base_state,
-                    const std::function<bool(std::vector<unsigned char>)> validBlock,
+                    const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                     const std::function<bool(EhSolverCancelCheck)> cancelled);
     bool OptimisedSolve(const eh_HashState& base_state,
-                        const std::function<bool(std::vector<unsigned char>)> validBlock,
+                        const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                         const std::function<bool(EhSolverCancelCheck)> cancelled);
 #endif
     bool IsValidSolution(const eh_HashState& base_state, std::vector<unsigned char> soln);
@@ -213,7 +213,7 @@ static Equihash<48,5> Eh48_5;
 
 #ifdef ENABLE_MINING
 inline bool EhBasicSolve(unsigned int n, unsigned int k, const eh_HashState& base_state,
-                    const std::function<bool(std::vector<unsigned char>)> validBlock,
+                    const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                     const std::function<bool(EhSolverCancelCheck)> cancelled)
 {
     if (n == 96 && k == 3) {
@@ -230,14 +230,14 @@ inline bool EhBasicSolve(unsigned int n, unsigned int k, const eh_HashState& bas
 }
 
 inline bool EhBasicSolveUncancellable(unsigned int n, unsigned int k, const eh_HashState& base_state,
-                    const std::function<bool(std::vector<unsigned char>)> validBlock)
+                    const std::function<bool(const std::vector<unsigned char>&)> validBlock)
 {
     return EhBasicSolve(n, k, base_state, validBlock,
                         [](EhSolverCancelCheck pos) { return false; });
 }
 
 inline bool EhOptimisedSolve(unsigned int n, unsigned int k, const eh_HashState& base_state,
-                    const std::function<bool(std::vector<unsigned char>)> validBlock,
+                    const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                     const std::function<bool(EhSolverCancelCheck)> cancelled)
 {
     if (n == 96 && k == 3) {
@@ -254,7 +254,7 @@ inline bool EhOptimisedSolve(unsigned int n, unsigned int k, const eh_HashState&
 }
 
 inline bool EhOptimisedSolveUncancellable(unsigned int n, unsigned int k, const eh_HashState& base_state,
-                    const std::function<bool(std::vector<unsigned char>)> validBlock)
+                    const std::function<bool(const std::vector<unsigned char>&)> validBlock)
 {
     return EhOptimisedSolve(n, k, base_state, validBlock,
                             [](EhSolverCancelCheck pos) { return false; });

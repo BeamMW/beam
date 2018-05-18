@@ -18,8 +18,6 @@ using Point       = ECC::Point;
 using PointValue  = ECC::Point::Native;
 using PointGen    = ECC::Context;
 
-bool operator==(const Scalar& left, const Scalar& rigth);
-
 // Nonce is used to create private key assortiment with varying key values:
 // Here the formula is used:
 //

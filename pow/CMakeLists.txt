@@ -10,7 +10,6 @@ include_directories(impl)
 
 set(POW_SRC
     equihash.cpp
-    equihash.h
     impl/crypto/equihash_impl.cpp
     impl/arith_uint256.cpp
     impl/uint256.cpp
@@ -23,3 +22,5 @@ add_dependencies(pow crypto)
 target_link_libraries(pow crypto)
 target_include_directories(pow PRIVATE ${PROJECT_SOURCE_DIR}/utility/crypto)
 target_compile_definitions(pow PRIVATE ENABLE_MINING)
+
+add_subdirectory(unittests)

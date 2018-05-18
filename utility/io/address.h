@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <functional>
 #include <stdint.h>
 #include <string.h>
 #ifdef WIN32
@@ -37,6 +38,12 @@ struct Address {
     Address(uint32_t a, uint16_t p) {
         packed = ((uint64_t)a << 16) + p;
     }
+    
+    Address(uint64_t _packed) : packed(_packed) {}
+    
+    Address(const sockaddr_in& sa) {
+        packed = ((uint64_t)ntohl(sa.sin_addr.s_addr) << 16) + ntohs(sa.sin_port);
+    }
 
     uint32_t ip() const {
         return (uint32_t)(packed >> 16);
@@ -70,4 +77,12 @@ struct Address {
 };
 
 }} //namespaces
+
+namespace std {
+    template<> struct hash<beam::io::Address> {
+        size_t operator()(beam::io::Address a) const {
+            return std::hash<uint64_t>()(a.packed);
+        }
+    };
+}
 

@@ -41,12 +41,7 @@ namespace beam::wallet
         output->m_Coinbase = false;
 
         Scalar::Native blindingFactor = m_keychain->calcKey(m_receiver_coin.m_id);
-        output->m_Commitment = Commitment(blindingFactor, amount);
-        m_keychain->store(m_receiver_coin);
-
-        output->m_pPublic.reset(new RangeProof::Public);
-        output->m_pPublic->m_Value = amount;
-        output->m_pPublic->Create(blindingFactor);
+        output->Create(blindingFactor, amount, true);
 
         m_blindingExcess = -blindingFactor;
 

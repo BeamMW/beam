@@ -33,11 +33,13 @@ namespace beam
 		}
 	}
 
-#define CMP_MEMBER(member) \
-		if (member < v.member) \
+#define CMP_SIMPLE(a, b) \
+		if (a < b) \
 			return -1; \
-		if (member > v.member) \
+		if (a > b) \
 			return 1;
+
+#define CMP_MEMBER(member) CMP_SIMPLE(member, v.member)
 
 #define CMP_MEMBER_EX(member) \
 		{ \
@@ -46,17 +48,19 @@ namespace beam
 				return n; \
 		}
 
-#define CMP_MEMBER_PTR(member) \
-		if (member) \
+#define CMP_PTRS(a, b) \
+		if (a) \
 		{ \
-			if (!v.member) \
+			if (!b) \
 				return 1; \
-			int n = member->cmp(*v.member); \
+			int n = a->cmp(*b); \
 			if (n) \
 				return n; \
 		} else \
-			if (v.member) \
+			if (b) \
 				return -1;
+
+#define CMP_MEMBER_PTR(member) CMP_PTRS(member, v.member)
 
 	/////////////
 	// Input
@@ -111,6 +115,22 @@ namespace beam
 		CMP_MEMBER_PTR(m_pPublic)
 
 		return 0;
+	}
+
+	void Output::Create(const ECC::Scalar::Native& k, Amount v, bool bPublic /* = false */)
+	{
+		m_Commitment = ECC::Commitment(k, v);
+
+		if (bPublic)
+		{
+			m_pPublic.reset(new ECC::RangeProof::Public);
+			m_pPublic->m_Value = v;
+			m_pPublic->Create(k);
+		} else
+		{
+			m_pConfidential.reset(new ECC::RangeProof::Confidential);
+			m_pConfidential->Create(k, v);
+		}
 	}
 
 	/////////////
@@ -185,7 +205,7 @@ namespace beam
 			>> out;
 	}
 
-	void TxKernel::get_Hash(Merkle::Hash& out) const
+	void TxKernel::get_HashForSigning(Merkle::Hash& out) const
 	{
 		Traverse(out, NULL, NULL);
 	}
@@ -196,10 +216,22 @@ namespace beam
 		return Traverse(hv, &fee, &exc);
 	}
 
+	void TxKernel::get_HashTotal(Merkle::Hash& hv) const
+	{
+		get_HashForSigning(hv);
+		ECC::Hash::Processor()
+			<< hv
+			<< m_Excess
+			<< m_Multiplier
+			<< m_Signature.m_e
+			<< m_Signature.m_k
+			>> hv;
+	}
+
 	bool TxKernel::IsValidProof(const Merkle::Proof& proof, const Merkle::Hash& root) const
 	{
 		Merkle::Hash hv;
-		get_Hash(hv);
+		get_HashTotal(hv);
 		Merkle::Interpret(hv, proof);
 		return hv == root;
 	}
@@ -215,6 +247,7 @@ namespace beam
 	int TxKernel::cmp(const TxKernel& v) const
 	{
 		CMP_MEMBER_EX(m_Excess)
+		CMP_MEMBER(m_Multiplier)
 		CMP_MEMBER_EX(m_Signature)
 		CMP_MEMBER(m_Fee)
 		CMP_MEMBER(m_HeightMin)
@@ -252,6 +285,7 @@ namespace beam
 	bool TxBase::ValidateAndSummarize(Context& ctx, ECC::Point::Native& sigma) const
 	{
 		sigma = ECC::Zero;
+		Amount feeInp = 0; // dummy var
 
 		// Inputs
 
@@ -294,7 +328,7 @@ namespace beam
 				}
 			}
 
-			if (!v.IsValid(ctx.m_Fee, sigma))
+			if (!v.IsValid(feeInp, sigma))
 				return false;
 
 			if (p0Krn && (*p0Krn > v))
@@ -405,6 +439,36 @@ namespace beam
 		return nDel;
 	}
 
+	template <typename T>
+	int CmpPtrVectors(const std::vector<T>& a, const std::vector<T>& b)
+	{
+		CMP_SIMPLE(a.size(), b.size())
+
+		for (size_t i = 0; i < a.size(); i++)
+		{
+			CMP_PTRS(a[i], b[i])
+		}
+
+		return 0;
+	}
+
+	#define CMP_MEMBER_VECPTR(member) \
+		{ \
+			int n = CmpPtrVectors(member, v.member); \
+			if (n) \
+				return n; \
+		}
+
+	int TxBase::cmp(const TxBase& v) const
+	{
+		CMP_MEMBER(m_Offset)
+		CMP_MEMBER_VECPTR(m_vInputs)
+		CMP_MEMBER_VECPTR(m_vOutputs)
+		CMP_MEMBER_VECPTR(m_vKernelsInput)
+		CMP_MEMBER_VECPTR(m_vKernelsOutput)
+		return 0;
+	}
+
 	bool Transaction::IsValid(Context& ctx) const
 	{
 		ECC::Point::Native sigma(ECC::Zero);
@@ -425,6 +489,7 @@ namespace beam
 	const Amount Block::s_CoinbaseEmission = 1000000 * 15; // the maximum allowed coinbase in a single block
 	const Height Block::s_MaturityCoinbase	= 60; // 1 hour
 	const Height Block::s_MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+	const size_t Block::s_MaxBodySize		= 0x100000; // 1MB
 
 	int Block::SystemState::ID::cmp(const ID& v) const
 	{
@@ -474,6 +539,20 @@ namespace beam
 	{
 		out.m_Height = m_Height;
 		get_Hash(out.m_Hash);
+	}
+
+	bool Block::SystemState::Full::IsValidPoW() const
+	{
+		Merkle::Hash hv;
+		get_Hash(hv);
+		return m_PoW.IsValid(hv.m_pData, sizeof(hv.m_pData), m_Difficulty);
+	}
+
+	bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
+	{
+		Merkle::Hash hv;
+		get_Hash(hv);
+		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), m_Difficulty, fnCancel);
 	}
 
 	bool Block::Body::IsValid(Height h0, Height h1) const

@@ -4,6 +4,8 @@
 #define LOG_VERBOSE_ENABLED 0
 #include "utility/logger.h"
 
+int g_Ret = 0;
+
 namespace ECC {
 
 	Context g_Ctx;
@@ -39,7 +41,7 @@ namespace beam
 #else // WIN32
 		const char* g_sz = "/tmp/mytest.db";
 #endif // WIN32
-        
+
 	void TestNode1(unsigned nReconnects, unsigned timerInterval)
 	{
 		io::Reactor::Ptr pReactor(io::Reactor::create());
@@ -57,9 +59,9 @@ namespace beam
 		{
 			const unsigned mTimerInterval;
             unsigned mReconnects;
-            
+
             bool m_bConnected;
-                        
+
 			MyClient(unsigned interval, unsigned reconnects):
                 mTimerInterval(interval), mReconnects(reconnects)
 			{
@@ -101,11 +103,11 @@ namespace beam
 				if (!m_bConnected)
 				{
 					Reset();
-                    
+
                     if (mReconnects-- == 0) {
                         io::Reactor::get_Current().stop();
                     }
-                    
+
 					try {
 
 						io::Address addr;
@@ -139,6 +141,101 @@ namespace beam
         LOG_VERBOSE() << pReactor.use_count();
 	}
 
+    void TestP2pSane()
+	{
+		io::Reactor::Ptr pReactor(io::Reactor::create());
+		io::Reactor::Scope scope(*pReactor);
+
+		struct MyConnection
+			:public proto::NodeConnection
+		{
+			uint32_t m_In = 0;
+			uint32_t m_Out = 0;
+			uint32_t m_Batch = 0;
+
+			io::Timer::Ptr m_pTimer;
+
+			void OnTimer()
+			{
+				proto::GetHdr msg;
+				ZeroObject(msg.m_ID.m_Hash);
+
+				for (int i = 0; i < 15; i++)
+				{
+					msg.m_ID.m_Height = m_Out++;
+                    LOG_VERBOSE() << TRACE(msg.m_ID.m_Height);
+					Send(msg);
+				}
+
+				if (++m_Batch < 300)
+					SetTimer(10);
+				else
+					io::Reactor::get_Current().stop();
+			}
+
+			void SetTimer(uint32_t timeout_ms) {
+				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
+			}
+
+			virtual void OnConnected() override
+			{
+				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+				OnTimer();
+			}
+
+			virtual void OnClosed(int errorCode) override
+			{
+				printf("OnClosed, Error=%d\n", errorCode);
+				g_Ret = 1;
+				io::Reactor::get_Current().stop();
+			}
+
+			virtual void OnMsg(proto::GetHdr&& msg) override
+			{
+                LOG_VERBOSE() << TRACE(m_In) << TRACE(msg.m_ID.m_Height);
+				if (msg.m_ID.m_Height != m_In)
+				{
+                    printf("OnMsg gap: %u - %u\n", m_In, (uint32_t) msg.m_ID.m_Height);
+					g_Ret = 1;
+				}
+
+				m_In = (uint32_t)msg.m_ID.m_Height + 1;
+			}
+		};
+
+		struct Srv :public proto::NodeConnection::Server
+		{
+			MyConnection m_Conn2;
+
+			virtual void OnAccepted(io::TcpStream::Ptr&& pStream, int errorCode)
+			{
+				m_pServer = NULL; // no more accepts
+
+				if (!pStream)
+				{
+					printf("accept failed\n");
+					g_Ret = 1;
+					io::Reactor::get_Current().stop();
+				}
+
+				m_Conn2.Accept(std::move(pStream));
+				m_Conn2.OnConnected();
+			}
+		};
+
+		io::Address addr;
+		addr.resolve("127.0.0.1:29065");
+
+		Srv srv;
+		srv.Listen(addr);
+
+		MyConnection conn;
+		conn.Connect(addr);
+
+		pReactor->run();
+	}
+
+
 }
 
 int main()
@@ -151,8 +248,9 @@ int main()
     lc.consoleLevel = logLevel;
     lc.flushLevel = logLevel;
     auto logger = beam::Logger::create(lc);
-        
+
+    beam::TestP2pSane();
     beam::TestNode1(10, 100);
-        
-    return 0;
+
+    return g_Ret;
 }

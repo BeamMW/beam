@@ -4,16 +4,22 @@
 #define ENABLE_MODULE_GENERATOR
 #define ENABLE_MODULE_RANGEPROOF
 
-#pragma warning (push, 0) // suppress warnings from secp256k1
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wunused-function"
+#else
+    #pragma warning (push, 0) // suppress warnings from secp256k1
+#endif
+
 #include "../secp256k1-zkp/src/secp256k1.c"
-#pragma warning (pop)
+
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+    #pragma GCC diagnostic pop
+#else
+    #pragma warning (pop)
+#endif
 
 // misc
-void memset0(void* p, size_t n)
-{
-	memset(p, 0, n);
-}
-
 bool memis0(const void* p, size_t n)
 {
 	for (size_t i = 0; i < n; i++)
@@ -599,6 +605,44 @@ namespace ECC {
 	}
 
 	/////////////////////
+	// Nonce and key generation
+	template <>
+	void uintBig::GenerateNonce(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
+	{
+		for (uint32_t i = 0; ; i++)
+		{
+			if (!nonce_function_rfc6979(m_pData, msg.m_pData, sk.m_pData, NULL, pMsg2 ? (void*) pMsg2->m_pData : NULL, i))
+				continue;
+
+			if (!nAttempt--)
+				break;
+		}
+	}
+
+	void Scalar::Native::GenerateNonce(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
+	{
+		NoLeak<Scalar> s;
+
+		for (uint32_t i = 0; ; i++)
+		{
+			s.V.m_Value.GenerateNonce(sk, msg, pMsg2, i);
+			if (Import(s.V))
+				continue;
+
+			if (!nAttempt--)
+				break;
+		}
+	}
+
+	void Kdf::DeriveKey(Scalar::Native& out, uint64_t nKeyIndex, uint32_t nFlags, uint32_t nExtra) const
+	{
+		// the msg hash is not secret
+		Hash::Value hv;
+		Hash::Processor() << nKeyIndex << nFlags << nExtra >> hv;
+		out.GenerateNonce(m_Secret.V, hv, NULL);
+	}
+
+	/////////////////////
 	// Oracle
 	void Oracle::Reset()
 	{
@@ -623,12 +667,10 @@ namespace ECC {
 
 	void Signature::MultiSig::GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk)
 	{
-		NoLeak<Scalar> s0, sk_;
+		NoLeak<Scalar> sk_;
 		sk_.V = sk;
 
-		for (uint32_t nAttempt = 0; ; nAttempt++)
-			if (secp256k1_nonce_function_default(s0.V.m_Value.m_pData, msg.m_pData, sk_.V.m_Value.m_pData, NULL, NULL, nAttempt) && !m_Nonce.Import(s0.V))
-				break;
+		m_Nonce.GenerateNonce(sk_.V.m_Value, msg, NULL);
 	}
 
 	void Signature::CoSign(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk, const MultiSig& msig)
@@ -667,11 +709,11 @@ namespace ECC {
 
 	int Signature::cmp(const Signature& x) const
 	{
-		int n = m_e.m_Value.cmp(x.m_e.m_Value);
+		int n = m_e.cmp(x.m_e);
 		if (n)
 			return n;
 
-		return m_k.m_Value.cmp(x.m_k.m_Value);
+		return m_k.cmp(x.m_k);
 	}
 
 	/////////////////////

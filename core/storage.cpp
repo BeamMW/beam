@@ -50,9 +50,14 @@ void RadixTree::DeleteNode(Node* p)
 	}
 }
 
+uint8_t RadixTree::CursorBase::get_BitRawStat(const uint8_t* p0, uint32_t nBit)
+{
+	return p0[nBit >> 3] >> (7 ^ (7 & nBit));
+}
+
 uint8_t RadixTree::CursorBase::get_BitRaw(const uint8_t* p0) const
 {
-	return p0[m_nBits >> 3] >> (7 ^ (7 & m_nBits));
+	return get_BitRawStat(p0, m_nBits);
 }
 
 uint8_t RadixTree::CursorBase::get_Bit(const uint8_t* p0) const
@@ -282,27 +287,128 @@ void RadixTree::Delete(CursorBase& cu)
 	}
 }
 
-bool RadixTree::Traverse(const Node& n, ITraveler& t)
+
+bool RadixTree::Traverse(const Node& n, ITraveler& t) const
 {
+	if (t.m_pCu->m_pp)
+		t.m_pCu->m_pp[t.m_pCu->m_nPtrs++] = (Node*) &n;
+
+	uint32_t nBits = n.get_Bits();
+	if (nBits)
+	{
+		const uint8_t* pK = get_NodeKey(n);
+
+		for (int iBound = 0; iBound < _countof(t.m_pBound); iBound++)
+		{
+			const uint8_t*& pB = t.m_pBound[iBound];
+			if (!pB)
+				continue;
+
+			int n = Cmp(pK, pB, t.m_pCu->m_nBits, nBits);
+			if (!n)
+				continue;
+
+			if ((n < 0) == !iBound)
+				return true;
+
+			pB = NULL;
+		}
+
+		t.m_pCu->m_nBits += nBits;
+	}
+
 	if (Node::s_Leaf & n.m_Bits)
 		return t.OnLeaf((const Leaf&) n);
 
+	nBits = t.m_pCu->m_nBits;
+	uint32_t nPtrs = t.m_pCu->m_nPtrs;
+
+	const uint8_t* pBound[2];
+	memcpy(pBound, t.m_pBound, sizeof(t.m_pBound));
+
 	const Joint& x = (const Joint&) n;
-	for (int i = 0; i < _countof(x.m_ppC); i++)
+	for (uint8_t i = 0; i < _countof(x.m_ppC); i++)
+	{
+		bool bSkip = false;
+
+		if (i)
+		{
+			t.m_pCu->m_nBits = nBits;
+			t.m_pCu->m_nPtrs = nPtrs;
+		}
+
+		for (int iBound = 0; iBound < _countof(t.m_pBound); iBound++)
+		{
+			const uint8_t*& pB = t.m_pBound[iBound];
+			if (i)
+				pB = pBound[iBound]; // restore
+			if (!pB)
+				continue;
+
+			int n = Cmp1(i, pB, t.m_pCu->m_nBits);
+			if (!n)
+				continue;
+
+			if ((n < 0) == !iBound)
+			{
+				bSkip = true;
+				break;
+			}
+
+			pB = NULL;
+		}
+
+		if (bSkip)
+			continue;
+
+		t.m_pCu->m_nBits++;
 		if (!Traverse(*x.m_ppC[i], t))
 			return false;
+	}
 
 	return true;
 }
 
-bool RadixTree::Traverse(ITraveler& t) const
+int RadixTree::Cmp(const uint8_t* pKey, const uint8_t* pThreshold, uint32_t n0, uint32_t dn)
 {
-	return m_pRoot ? Traverse(*m_pRoot, t) : false;
+	for (dn += n0; n0 < dn; n0++)
+	{
+		uint8_t a = 1 & CursorBase::get_BitRawStat(pKey, n0);
+		uint8_t b = 1 & CursorBase::get_BitRawStat(pThreshold, n0);
+
+		if (a < b)
+			return -1;
+		if (a > b)
+			return 1;
+	}
+	return 0;
 }
 
-bool RadixTree::Traverse(const CursorBase& cu, ITraveler& t)
+int RadixTree::Cmp1(uint8_t n, const uint8_t* pThreshold, uint32_t n0)
 {
-	return cu.m_nPtrs ? Traverse(*cu.m_pp[cu.m_nPtrs - 1], t) : true;
+	uint8_t nBit = 1 & CursorBase::get_BitRawStat(pThreshold, n0);
+
+	if (n < nBit)
+		return -1;
+	if (n > nBit)
+		return 1;
+	return 0;
+}
+
+bool RadixTree::Traverse(ITraveler& t) const
+{
+	if (!m_pRoot)
+		return true;
+
+	CursorBase cuDummy(NULL);
+	if (!t.m_pCu)
+		t.m_pCu = &cuDummy;
+
+	t.m_pCu->m_nBits = 0;
+	t.m_pCu->m_nPtrs = 0;
+	t.m_pCu->m_nPosInLastNode = 0;
+
+	return Traverse(*m_pRoot, t);
 }
 
 size_t RadixTree::Count() const

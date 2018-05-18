@@ -11,7 +11,7 @@ class NodeDB
 public:
 
 	struct StateFlags {
-		static const uint32_t Functional	= 0x1;	// has valid PoW and block body
+		static const uint32_t Functional	= 0x1;	// has block body
 		static const uint32_t Reachable		= 0x2;	// has only functional nodes up to the genesis state
 		static const uint32_t Active		= 0x4;	// part of the current blockchain (not really necessary).
 	};
@@ -76,6 +76,10 @@ public:
 			StateSetBlock,
 			StateDelBlock,
 			StateSetRollback,
+			MinedIns,
+			MinedUpd,
+			MinedDel,
+			MinedSel,
 
 			Dbg0,
 			Dbg1,
@@ -144,6 +148,8 @@ public:
 
 		void put(int col, const Merkle::Hash& x) { put_As(col, x); }
 		void get(int col, Merkle::Hash& x) { get_As(col, x); }
+		void put(int col, const Block::PoW& x) { put_As(col, x); }
+		void get(int col, Block::PoW& x) { get_As(col, x); }
 	};
 
 	int get_RowsChanged() const;
@@ -238,6 +244,20 @@ public:
 	void ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta); // will delete iff refs=0
 
 	void assert_valid(); // diagnostic, for tests only
+
+	void SetMined(const StateID&, const Amount&);
+	bool DeleteMinedSafe(const StateID&);
+
+	struct WalkerMined {
+		Recordset m_Rs;
+		StateID m_Sid;
+		Amount m_Amount;
+
+		WalkerMined(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
+	};
+
+	void EnumMined(WalkerMined&, Height hMin); // from low to high
 
 private:
 

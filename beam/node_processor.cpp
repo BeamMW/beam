@@ -479,72 +479,69 @@ struct SpendableKey
 
 bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd, Height h, RollbackData& rbData)
 {
+	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
+
+	UtxoTree::Cursor cu;
+	UtxoTree::MyLeaf* p;
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
 
 	if (bFwd)
-		d.m_Maturity = 0; // find min
-	else
 	{
-		const RollbackData::Utxo& x = *--rbData.m_pUtxo;
-		d.m_Maturity = x.m_Maturity;
-	}
-
-	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
-	skey.m_Key = d;
-
-	UtxoTree::Cursor cu;
-	bool bCreate = !bFwd;
-	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, skey.m_Key, bCreate);
-
-	if (!p && bFwd)
-	{
-		// try to find the closest match
-		struct Traveler :public UtxoTree::ITraveler
-		{
-			UtxoTree::MyLeaf* m_pLeaf;
-			virtual bool OnLeaf(const RadixTree::Leaf& x) override
-			{
-				m_pLeaf = (UtxoTree::MyLeaf*) &x;
+		struct Traveler :public UtxoTree::ITraveler {
+			virtual bool OnLeaf(const RadixTree::Leaf& x) override {
 				return false; // stop iteration
 			}
-		};
+		} t;
 
-		Traveler t;
-		if (UtxoTree::Traverse(cu, t))
-			return false; // not found
 
-		d = t.m_pLeaf->m_Key;
+		UtxoTree::Key kMin, kMax;
 
-		if (v.m_Commitment != d.m_Commitment)
-			return false; // not found
+		d.m_Maturity = 0;
+		kMin = d;
+		d.m_Maturity = h;
+		kMax = d;
 
-		if (d.m_Maturity > h)
-			return false; // not mature enough!
+		t.m_pCu = &cu;
+		t.m_pBound[0] = kMin.m_pArr;
+		t.m_pBound[1] = kMax.m_pArr;
 
-		p = t.m_pLeaf;
-		skey.m_Key = t.m_pLeaf->m_Key;
+		if (m_Utxos.Traverse(t))
+			return false;
 
-	}
+		p = &(UtxoTree::MyLeaf&) cu.get_Leaf();
 
-	cu.Invalidate();
+		skey.m_Key = p->m_Key;
+		d = skey.m_Key;
+		assert(d.m_Commitment == v.m_Commitment);
+		assert(d.m_Maturity <= h);
 
-	if (bFwd)
-	{
 		assert(p->m_Value.m_Count); // we don't store zeroes
 
-		if (! --p->m_Value.m_Count)
+		if (!--p->m_Value.m_Count)
 			m_Utxos.Delete(cu);
+		else
+			cu.Invalidate();
 
 		rbData.m_pUtxo->m_Maturity = d.m_Maturity;
 		rbData.m_pUtxo++;
 
 	} else
 	{
+		const RollbackData::Utxo& x = *--rbData.m_pUtxo;
+		d.m_Maturity = x.m_Maturity;
+		skey.m_Key = d;
+
+		bool bCreate = true;
+		p = m_Utxos.Find(cu, skey.m_Key, bCreate);
+
 		if (bCreate)
 			p->m_Value.m_Count = 1;
 		else
+		{
 			p->m_Value.m_Count++;
+			cu.Invalidate();
+		}
 	}
 
 	m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), 0, bFwd ? -1 : 1);
@@ -557,6 +554,10 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 	d.m_Commitment = v.m_Commitment;
 	d.m_Maturity = h;
 	d.m_Maturity += v.m_Coinbase ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
+
+	// add explicit incubation offset, beware of overflow attack (to cheat on maturity settings)
+	Height hSum = d.m_Maturity + v.m_Incubation;
+	d.m_Maturity = (d.m_Maturity <= hSum) ? hSum : Height(-1);
 
 	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
 	skey.m_Key = d;
@@ -607,7 +608,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 	bool bAdd = (bFwd != bIsInput);
 
 	SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-	get_KrnKey(skey.m_Key, v);
+	v.get_HashTotal(skey.m_Key);
 
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = bAdd;
@@ -676,16 +677,10 @@ void NodeProcessor::DereferenceFossilBlock(uint64_t rowid)
 	for (size_t n = 0; n < block.m_vKernelsInput.size(); n++)
 	{
 		SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-		get_KrnKey(skey.m_Key, *block.m_vKernelsInput[n]);
+		block.m_vKernelsInput[n]->get_HashTotal(skey.m_Key);
 
 		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), -1, 0);
 	}
-}
-
-void NodeProcessor::get_KrnKey(Merkle::Hash& hv, const TxKernel& v)
-{
-	v.get_Hash(hv);
-	ECC::Hash::Processor() << hv << v.m_Excess << v.m_Multiplier >> hv; // add the public excess, it's not included by default
 }
 
 bool NodeProcessor::GoForward(const NodeDB::StateID& sid)
@@ -744,7 +739,7 @@ bool NodeProcessor::IsRelevantHeight(Height h)
 	return !hFossil || (h > hFossil);
 }
 
-bool NodeProcessor::OnState(const Block::SystemState::Full& s, const NodeDB::Blob& /*pow*/, const PeerID& peer)
+bool NodeProcessor::OnState(const Block::SystemState::Full& s, const PeerID& peer)
 {
 	if (!IsRelevantHeight(s.m_Height))
 		return false;
@@ -785,34 +780,138 @@ bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob
 	return true;
 }
 
-bool NodeProcessor::FeedTransaction(Transaction::Ptr&& p)
+void NodeProcessor::DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType::Enum eType, uint32_t nIdx /* = 0 */)
 {
-	assert(p);
-/*
-	NodeDB::StateID sid;
-	m_DB.get_Cursor(sid);
+	kdf.DeriveKey(out, h, eType, nIdx);
+}
 
-	Transaction::Context ctx;
-	ctx.m_hMin = ctx.m_hMax = sid.m_Row ? (sid.m_Height+1) : 0; // consider only this block, deny future/past transactions
+bool NodeProcessor::IsStateNeeded(const Block::SystemState::ID& id)
+{
+	return IsRelevantHeight(id.m_Height) && !m_DB.StateFindSafe(id);
+}
 
-	if (!p->IsValid(ctx))
+/////////////////////////////
+// TxPool
+struct SerializerSizeCounter
+{
+	struct Counter
+	{
+		size_t m_Value;
+
+		size_t write(const void *ptr, const size_t size)
+		{
+			m_Value += size;
+			return size;
+		}
+
+	} m_Counter;
+
+	yas::binary_oarchive<Counter, SERIALIZE_OPTIONS> _oa;
+
+
+	SerializerSizeCounter() : _oa(m_Counter)
+	{
+		m_Counter.m_Value = 0;
+	}
+
+	template <typename T> SerializerSizeCounter& operator & (const T& object)
+	{
+		_oa & object;
+		return *this;
+	}
+};
+
+bool NodeProcessor::TxPool::AddTx(Transaction::Ptr&& pValue, Height h)
+{
+	assert(pValue);
+
+	TxBase::Context ctx;
+	if (!pValue->IsValid(ctx))
 		return false;
 
-	if (m_lstCurrentlyMining.empty())
-		m_CurrentFees = ctx.m_Fee;
-	else
-		m_CurrentFees += ctx.m_Fee;
-*/
-	m_lstCurrentlyMining.push_back(std::move(p));
+	if ((h < ctx.m_hMin) || (h > ctx.m_hMax))
+		return false;
+
+	SerializerSizeCounter ssc;
+	ssc & pValue;
+
+	Element* p = new Element;
+	p->m_Threshold.m_Value	= ctx.m_hMax;
+	p->m_Profit.m_Fee	= ctx.m_Fee;
+	p->m_Profit.m_nSize	= ssc.m_Counter.m_Value;
+	p->m_Tx.m_pValue = std::move(pValue);
+
+	m_setThreshold.insert(p->m_Threshold);
+	m_setProfit.insert(p->m_Profit);
+	m_setTxs.insert(p->m_Tx);
+
 	return true;
 }
 
-template <typename T>
-void AppendMoveArray(std::vector<T>& trg, std::vector<T>& src)
+void NodeProcessor::TxPool::Delete(Element& x)
 {
-	trg.reserve(trg.size() + src.size());
+	m_setThreshold.erase(ThresholdSet::s_iterator_to(x.m_Threshold));
+	m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
+	m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
+	delete &x;
+}
+
+void NodeProcessor::TxPool::DeleteOutOfBound(Height h)
+{
+	while (!m_setThreshold.empty())
+	{
+		Element::Threshold& t = *m_setThreshold.begin();
+		if (t.m_Value >= h)
+			break;
+
+		Delete(t.get_ParentObj());
+	}
+}
+
+void NodeProcessor::TxPool::ShrinkUpTo(uint32_t nCount)
+{
+	while (m_setProfit.size() > nCount)
+		Delete(m_setProfit.rbegin()->get_ParentObj());
+}
+
+void NodeProcessor::TxPool::Clear()
+{
+	while (!m_setThreshold.empty())
+		Delete(m_setThreshold.begin()->get_ParentObj());
+}
+
+bool NodeProcessor::TxPool::Element::Tx::operator < (const Tx& t) const
+{
+	assert(m_pValue && t.m_pValue);
+	// TODO: Normally we can account for tx offset only, different transactions highly unlikely to have the same offset.
+	// But current wallet implementation doesn't use the offset.
+	return m_pValue->cmp(*t.m_pValue) < 0;
+}
+
+bool NodeProcessor::TxPool::Element::Profit::operator < (const Profit& t) const
+{
+	// TODO: handle overflow. To be precise need to use big-int (128-bit) arithmetics
+	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
+}
+
+/////////////////////////////
+// Block generation
+template <typename T>
+void AppendCloneArray(Serializer& ser, std::vector<T>& trg, const std::vector<T>& src)
+{
+	size_t i0 = trg.size();
+	trg.resize(i0 + src.size());
+
 	for (size_t i = 0; i < src.size(); i++)
-		trg.push_back(std::move(src[i]));
+	{
+		ser.reset();
+		ser & src[i];
+		SerializeBuffer sb = ser.buffer();
+
+		Deserializer der;
+		der.reset(sb.first, sb.second);
+		der & trg[i0 + i];
+	}
 }
 
 struct NodeProcessor::BlockBulder
@@ -823,11 +922,8 @@ struct NodeProcessor::BlockBulder
 	void AddOutput(const ECC::Scalar::Native& k, Amount val, bool bCoinbase)
 	{
 		Output::Ptr pOutp(new Output);
-		pOutp->m_Commitment = ECC::Commitment(k, val);
+		pOutp->Create(k, val, true);
 		pOutp->m_Coinbase = bCoinbase;
-		pOutp->m_pPublic.reset(new ECC::RangeProof::Public);
-		pOutp->m_pPublic->m_Value = val;
-		pOutp->m_pPublic->Create(k);
 		m_Block.m_vOutputs.push_back(std::move(pOutp));
 
 		ECC::Scalar::Native km = -k;
@@ -835,27 +931,43 @@ struct NodeProcessor::BlockBulder
 	}
 };
 
-void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& block, ByteBuffer& pow)
+Height NodeProcessor::get_NextHeight()
 {
-	NodeDB::Transaction t(m_DB);
-
-	// build the new block on top of the currently reachable blockchain
 	NodeDB::StateID sid;
 	m_DB.get_Cursor(sid);
 
-	Height h = sid.m_Row ? (sid.m_Height + 1) : 0;
-	Amount fee = 0;
+	return sid.m_Row ? (sid.m_Height + 1) : 0;
+}
 
-	BlockBulder ctxBlock;
-	ctxBlock.m_Offset = ECC::Zero;
+bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
+{
+	NodeDB::Transaction t(m_DB);
+
+	Height h = get_NextHeight();
+	fees = 0;
+
+	size_t nBlockSize = 0;
+
+	// due to (potential) inaccuracy in the block size estimation, our rough estimate - take no more than 95% of allowed block size, minus potential UTXOs to consume fees and coinbase.
+	const size_t nRoughExtra = sizeof(ECC::Point) * 2 + sizeof(ECC::RangeProof::Confidential) + sizeof(ECC::RangeProof::Public) + 300;
+	const size_t nSizeThreshold = Block::s_MaxBodySize * 95 / 100 - nRoughExtra;
 
 	ByteBuffer bbRbData;
 	RollbackData rbData;
 	rbData.m_pUtxo = NULL;
 
-	for (auto it = m_lstCurrentlyMining.begin(); m_lstCurrentlyMining.end() != it; it++)
+	BlockBulder ctxBlock;
+	ctxBlock.m_Offset = ECC::Zero;
+
+	Serializer ser;
+
+	for (TxPool::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
 	{
-		Transaction& tx = *(*it);
+		TxPool::Element& x = (it++)->get_ParentObj();
+		if (nBlockSize + x.m_Profit.m_nSize > nSizeThreshold)
+			break;
+
+		Transaction& tx = *x.m_Tx.m_pValue;
 
 		if (!tx.m_vInputs.empty())
 		{
@@ -864,54 +976,64 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 			rbData.m_pUtxo = rbData.get_BufAs() + nInputs;
 		}
 
-		Transaction::Context ctx;
-		ctx.m_hMin = ctx.m_hMax = h;
-		if (tx.IsValid(ctx) && HandleValidatedTx(tx, h, true, rbData))
+		if (HandleValidatedTx(tx, h, true, rbData))
 		{
-			fee += ctx.m_Fee;
+			// Clone the transaction before copying it to the block. We're forced to do this because they're not shared.
+			// TODO: Fix this!
 
-			AppendMoveArray(ctxBlock.m_Block.m_vInputs, tx.m_vInputs);
-			AppendMoveArray(ctxBlock.m_Block.m_vOutputs, tx.m_vOutputs);
-			AppendMoveArray(ctxBlock.m_Block.m_vKernelsInput, tx.m_vKernelsInput);
-			AppendMoveArray(ctxBlock.m_Block.m_vKernelsOutput, tx.m_vKernelsOutput);
+			AppendCloneArray(ser, ctxBlock.m_Block.m_vInputs, tx.m_vInputs);
+			AppendCloneArray(ser, ctxBlock.m_Block.m_vOutputs, tx.m_vOutputs);
+			AppendCloneArray(ser, ctxBlock.m_Block.m_vKernelsInput, tx.m_vKernelsInput);
+			AppendCloneArray(ser, ctxBlock.m_Block.m_vKernelsOutput, tx.m_vKernelsOutput);
 
+			fees += x.m_Profit.m_Fee;
 			ctxBlock.m_Offset += ECC::Scalar::Native(tx.m_Offset);
-		}
+			nBlockSize += x.m_Profit.m_nSize;
+
+		} else
+			txp.Delete(x); // isn't available in this context
 	}
-	m_lstCurrentlyMining.clear();
 
-	ECC::Scalar::Native kFee, kCoinbase;
-	get_Key(kFee, h, false);
-
-	if (fee)
+	if (fees)
 	{
-		ctxBlock.AddOutput(kFee, fee, false);
+		ECC::Scalar::Native kFee;
+		DeriveKey(kFee, m_Kdf, h, KeyType::Comission);
+
+		ctxBlock.AddOutput(kFee, fees, false);
 		verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
-	} else
+	}
+	else
 	{
+		ECC::Scalar::Native kKernel;
+		DeriveKey(kKernel, m_Kdf, h, KeyType::Kernel);
+
 		TxKernel::Ptr pKrn(new TxKernel);
-		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kFee);
+		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kKernel);
 
 		ECC::Hash::Value hv;
-		pKrn->get_Hash(hv);
-		pKrn->m_Signature.Sign(hv, kFee);
+		pKrn->get_HashForSigning(hv);
+		pKrn->m_Signature.Sign(hv, kKernel);
 		ctxBlock.m_Block.m_vKernelsOutput.push_back(std::move(pKrn));
 
 		verify(HandleBlockElement(*ctxBlock.m_Block.m_vKernelsOutput.back(), true, false)); // Will fail if kernel key duplicated!
 
-		kFee = -kFee;
-		ctxBlock.m_Offset += kFee;
+		kKernel = -kKernel;
+		ctxBlock.m_Offset += kKernel;
 	}
 
-	get_Key(kCoinbase, h, true);
-	const Amount nCoinbase = Block::s_CoinbaseEmission;
-	ctxBlock.AddOutput(kCoinbase, nCoinbase, true);
+	ECC::Scalar::Native kCoinbase;
+	DeriveKey(kCoinbase, m_Kdf, h, KeyType::Coinbase);
+
+	ctxBlock.AddOutput(kCoinbase, Block::s_CoinbaseEmission, true);
 
 	verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
 
 	// Finalize block construction.
 	if (h)
 	{
+		NodeDB::StateID sid;
+		m_DB.get_Cursor(sid);
+
 		m_DB.get_State(sid.m_Row, s);
 		s.get_Hash(s.m_Prev);
 		m_DB.get_PredictedStatesHash(s.m_History, sid);
@@ -928,28 +1050,17 @@ void NodeProcessor::SimulateMinedBlock(Block::SystemState::Full& s, ByteBuffer& 
 	// For test: undo the changes, and then redo, using the newly-created block
 	verify(HandleValidatedTx(ctxBlock.m_Block, h, false, rbData));
 
-	t.Commit();
+	t.Rollback(); // commit/rollback - doesn't matter, by now the system state should be fully restored to its original state. 
 
 	ctxBlock.m_Block.Sort();
 	ctxBlock.m_Block.DeleteIntermediateOutputs();
 	ctxBlock.m_Block.m_Offset = ctxBlock.m_Offset;
 
-	Serializer ser;
+	ser.reset();
 	ser & ctxBlock.m_Block;
-	ser.swap_buf(block);
+	ser.swap_buf(bbBlock);
 
-	OnState(s, NodeDB::Blob(NULL, 0), PeerID());
-
-	Block::SystemState::ID id;
-	s.get_ID(id);
-	OnBlock(id, block, PeerID());
-
-	OnMined(h, kFee, fee, kCoinbase, nCoinbase);
-}
-
-bool NodeProcessor::IsStateNeeded(const Block::SystemState::ID& id)
-{
-	return IsRelevantHeight(id.m_Height) && !m_DB.StateFindSafe(id);
+	return bbBlock.size() <= Block::s_MaxBodySize;
 }
 
 } // namespace beam

@@ -42,8 +42,7 @@ include_directories(${PROJECT_SOURCE_DIR}/utility) # TODO  move to ./3rdparty al
 
 add_subdirectory(utility)
 add_subdirectory(core)
-add_subdirectory(miner)
-add_subdirectory(chain)
+add_subdirectory(pow)
 add_subdirectory(pool)
 add_subdirectory(p2p)
 add_subdirectory(wallet)

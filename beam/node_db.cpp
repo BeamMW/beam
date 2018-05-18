@@ -39,6 +39,11 @@ namespace beam {
 #define TblSpendable_Refs		"Refs"
 #define TblSpendable_Unspent	"Unspent"
 
+#define TblMined				"Mined"
+#define TblMined_Height			"Height"
+#define TblMined_State			"State"
+#define TblMined_Comission		"Comission"
+
 NodeDB::NodeDB()
 	:m_pDb(NULL)
 {
@@ -265,6 +270,13 @@ void NodeDB::Create()
 		"PRIMARY KEY (" TblTips_Height "," TblTips_State "),"
 		"FOREIGN KEY (" TblTips_State ") REFERENCES " TblStates "(OID))");
 
+	ExecQuick("CREATE TABLE [" TblMined "] ("
+		"[" TblMined_Height		"] INTEGER NOT NULL,"
+		"[" TblMined_State		"] INTEGER NOT NULL,"
+		"[" TblMined_Comission	"] INTEGER NOT NULL,"
+		"PRIMARY KEY (" TblMined_Height "," TblMined_State "),"
+		"FOREIGN KEY (" TblMined_State ") REFERENCES " TblStates "(OID))");
+
 	ExecQuick("CREATE TABLE [" TblSpendable "] ("
 		"[" TblSpendable_Key		"] BLOB NOT NULL,"
 		"[" TblSpendable_Body		"] BLOB NOT NULL,"
@@ -435,6 +447,7 @@ void NodeDB::Transaction::Rollback()
 	macro(HashPrev,		m_Prev) sep \
 	macro(Difficulty,	m_Difficulty) sep \
 	macro(Timestamp,	m_TimeStamp) sep \
+	macro(PoW,			m_PoW) sep \
 	macro(LiveObjects,	m_LiveObjects) sep \
 	macro(History,		m_History)
 
@@ -607,6 +620,11 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 
 	if (StateFlags::Reachable & nFlags)
 		TipReachableDel(rowid, h);
+
+	StateID sid;
+	sid.m_Height = h;
+	sid.m_Row = rowid;
+	DeleteMinedSafe(sid);
 
 	rs.Reset(Query::StateDel, "DELETE FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
@@ -1345,6 +1363,51 @@ void NodeDB::ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspe
 		rs.put(0, key);
 		rs.Step();
 	}
+}
+
+void NodeDB::SetMined(const StateID& sid, const Amount& v)
+{
+	Recordset rs(*this, Query::MinedUpd, "UPDATE " TblMined " SET " TblMined_Comission "=? WHERE " TblMined_Height "=? AND " TblMined_State "=?");
+	rs.put(0, v);
+	rs.put(1, sid.m_Height);
+	rs.put(2, sid.m_Row);
+	rs.Step();
+
+	if (!get_RowsChanged())
+	{
+		rs.Reset(Query::MinedIns, "INSERT INTO " TblMined "(" TblMined_Height "," TblMined_State "," TblMined_Comission ") VALUES (?,?,?)");
+		rs.put(0, sid.m_Height);
+		rs.put(1, sid.m_Row);
+		rs.put(2, v);
+		rs.Step();
+	}
+}
+
+bool NodeDB::DeleteMinedSafe(const StateID& sid)
+{
+	Recordset rs(*this, Query::MinedDel, "DELETE FROM " TblMined " WHERE " TblMined_Height "=? AND " TblMined_State "=?");
+	rs.put(0, sid.m_Height);
+	rs.put(1, sid.m_Row);
+	rs.Step();
+	return get_RowsChanged() > 0;
+}
+
+void NodeDB::EnumMined(WalkerMined& x, Height hMin)
+{
+	x.m_Rs.Reset(Query::MinedSel, "SELECT " TblMined_Height "," TblMined_State "," TblMined_Comission " FROM " TblMined
+		" WHERE " TblMined_Height ">=?"
+		" ORDER BY "  TblMined_Height " ASC," TblMined_State " ASC");
+	x.m_Rs.put(0, hMin);
+}
+
+bool NodeDB::WalkerMined::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+	m_Rs.get(0, m_Sid.m_Height);
+	m_Rs.get(1, m_Sid.m_Row);
+	m_Rs.get(2, m_Amount);
+	return true;
 }
 
 } // namespace beam

@@ -105,15 +105,15 @@ namespace detail
         }
 
         /// ECC::uintBig serialization
-        template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::uintBig& val)
+        template<typename Archive, uint32_t nBits_>
+        static Archive& save(Archive& ar, const ECC::uintBig_t<nBits_>& val)
         {
             ar & val.m_pData;
             return ar;
         }
 
-        template<typename Archive>
-        static Archive& load(Archive& ar, ECC::uintBig& val)
+        template<typename Archive, uint32_t nBits_>
+        static Archive& load(Archive& ar, ECC::uintBig_t<nBits_>& val)
         {
             ar & val.m_pData;
             return ar;
@@ -226,8 +226,9 @@ namespace detail
 				(output.m_Commitment.m_Y ? 1 : 0) |
 				(output.m_Coinbase ? 2 : 0) |
 				(output.m_pConfidential ? 4 : 0) |
-				(output.m_pPublic ? 8 : 0);
-			
+				(output.m_pPublic ? 8 : 0) |
+				(output.m_Incubation ? 0x10 : 0);
+
 			ar
 				& nFlags
 				& output.m_Commitment.m_X;
@@ -238,6 +239,8 @@ namespace detail
 			if (output.m_pPublic)
 				ar & output.m_pPublic;
 
+			if (output.m_Incubation)
+				ar & output.m_Incubation;
 
             return ar;
         }
@@ -258,6 +261,9 @@ namespace detail
 
 			if (8 & nFlags)
 				ar & output.m_pPublic;
+
+			if (0x10 & nFlags)
+				ar & output.m_Incubation;
 
             return ar;
         }
@@ -402,6 +408,26 @@ namespace detail
         }
 
 		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Block::PoW& pow)
+		{
+			ar
+				& pow.m_Indices
+				& pow.m_Nonce;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Block::PoW& pow)
+		{
+			ar
+				& pow.m_Indices
+				& pow.m_Nonce;
+
+			return ar;
+		}
+
+		template<typename Archive>
         static Archive& save(Archive& ar, const beam::Block::SystemState::ID& v)
         {
             ar
@@ -430,7 +456,8 @@ namespace detail
 				& v.m_History
 				& v.m_LiveObjects
 				& v.m_Difficulty
-				& v.m_TimeStamp;
+				& v.m_TimeStamp
+				& v.m_PoW;
 
 			return ar;
 		}
@@ -444,7 +471,8 @@ namespace detail
 				& v.m_History
 				& v.m_LiveObjects
 				& v.m_Difficulty
-				& v.m_TimeStamp;
+				& v.m_TimeStamp
+				& v.m_PoW;
 
 			return ar;
 		}

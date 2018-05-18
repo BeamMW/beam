@@ -324,7 +324,7 @@ std::shared_ptr<eh_trunc> TruncatedStepRow<WIDTH>::GetTruncatedIndices(size_t le
 #ifdef ENABLE_MINING
 template<unsigned int N, unsigned int K>
 bool Equihash<N,K>::BasicSolve(const eh_HashState& base_state,
-                               const std::function<bool(std::vector<unsigned char>)> validBlock,
+                               const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                                const std::function<bool(EhSolverCancelCheck)> cancelled)
 {
     eh_index init_size { 1 << (CollisionBitLength + 1) };
@@ -495,7 +495,7 @@ void CollideBranches(std::vector<FullStepRow<WIDTH>>& X, const size_t hlen, cons
 
 template<unsigned int N, unsigned int K>
 bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
-                                   const std::function<bool(std::vector<unsigned char>)> validBlock,
+                                   const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                                    const std::function<bool(EhSolverCancelCheck)> cancelled)
 {
     eh_index init_size { 1 << (CollisionBitLength + 1) };
@@ -768,10 +768,10 @@ bool Equihash<N,K>::IsValidSolution(const eh_HashState& base_state, std::vector<
 template int Equihash<96,3>::InitialiseState(eh_HashState& base_state);
 #ifdef ENABLE_MINING
 template bool Equihash<96,3>::BasicSolve(const eh_HashState& base_state,
-                                         const std::function<bool(std::vector<unsigned char>)> validBlock,
+                                         const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                                          const std::function<bool(EhSolverCancelCheck)> cancelled);
 template bool Equihash<96,3>::OptimisedSolve(const eh_HashState& base_state,
-                                             const std::function<bool(std::vector<unsigned char>)> validBlock,
+                                             const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                                              const std::function<bool(EhSolverCancelCheck)> cancelled);
 #endif
 template bool Equihash<96,3>::IsValidSolution(const eh_HashState& base_state, std::vector<unsigned char> soln);
@@ -780,10 +780,10 @@ template bool Equihash<96,3>::IsValidSolution(const eh_HashState& base_state, st
 template int Equihash<200,9>::InitialiseState(eh_HashState& base_state);
 #ifdef ENABLE_MINING
 template bool Equihash<200,9>::BasicSolve(const eh_HashState& base_state,
-                                          const std::function<bool(std::vector<unsigned char>)> validBlock,
+                                          const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                                           const std::function<bool(EhSolverCancelCheck)> cancelled);
 template bool Equihash<200,9>::OptimisedSolve(const eh_HashState& base_state,
-                                              const std::function<bool(std::vector<unsigned char>)> validBlock,
+                                              const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                                               const std::function<bool(EhSolverCancelCheck)> cancelled);
 #endif
 template bool Equihash<200,9>::IsValidSolution(const eh_HashState& base_state, std::vector<unsigned char> soln);
@@ -792,10 +792,10 @@ template bool Equihash<200,9>::IsValidSolution(const eh_HashState& base_state, s
 template int Equihash<96,5>::InitialiseState(eh_HashState& base_state);
 #ifdef ENABLE_MINING
 template bool Equihash<96,5>::BasicSolve(const eh_HashState& base_state,
-                                         const std::function<bool(std::vector<unsigned char>)> validBlock,
+                                         const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                                          const std::function<bool(EhSolverCancelCheck)> cancelled);
 template bool Equihash<96,5>::OptimisedSolve(const eh_HashState& base_state,
-                                             const std::function<bool(std::vector<unsigned char>)> validBlock,
+                                             const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                                              const std::function<bool(EhSolverCancelCheck)> cancelled);
 #endif
 template bool Equihash<96,5>::IsValidSolution(const eh_HashState& base_state, std::vector<unsigned char> soln);
@@ -804,10 +804,24 @@ template bool Equihash<96,5>::IsValidSolution(const eh_HashState& base_state, st
 template int Equihash<48,5>::InitialiseState(eh_HashState& base_state);
 #ifdef ENABLE_MINING
 template bool Equihash<48,5>::BasicSolve(const eh_HashState& base_state,
-                                         const std::function<bool(std::vector<unsigned char>)> validBlock,
+                                         const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                                          const std::function<bool(EhSolverCancelCheck)> cancelled);
 template bool Equihash<48,5>::OptimisedSolve(const eh_HashState& base_state,
-                                             const std::function<bool(std::vector<unsigned char>)> validBlock,
+                                             const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                                              const std::function<bool(EhSolverCancelCheck)> cancelled);
 #endif
 template bool Equihash<48,5>::IsValidSolution(const eh_HashState& base_state, std::vector<unsigned char> soln);
+
+// Explicit instantiations with beam parameters
+const int N_Beam = 120;
+const int K_Beam = 4;
+template int Equihash<N_Beam, K_Beam>::InitialiseState(eh_HashState& base_state);
+#ifdef ENABLE_MINING
+template bool Equihash<N_Beam, K_Beam>::BasicSolve(const eh_HashState& base_state,
+                                         const std::function<bool(const std::vector<unsigned char>&)> validBlock,
+                                         const std::function<bool(EhSolverCancelCheck)> cancelled);
+template bool Equihash<N_Beam, K_Beam>::OptimisedSolve(const eh_HashState& base_state,
+                                             const std::function<bool(const std::vector<unsigned char>&)> validBlock,
+                                             const std::function<bool(EhSolverCancelCheck)> cancelled);
+#endif
+template bool Equihash<N_Beam, K_Beam>::IsValidSolution(const eh_HashState& base_state, std::vector<unsigned char> soln);

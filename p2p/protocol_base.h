@@ -77,8 +77,8 @@ struct IMsgHandler {
 /*
     In derived classes, add such functions
 
-    bool on_whatever_1(uint64_t fromStream, const Whatever_1&);
-    bool on_whatever_2(uint64_t fromStream, const Whatever_2&);
+    bool on_whatever_1(uint64_t fromStream, Whatever_1&&);
+    bool on_whatever_2(uint64_t fromStream, Whatever_2&&);
 */
 
 };

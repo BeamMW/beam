@@ -190,6 +190,27 @@ namespace beam
 		verify_test(CountTips(db, false, &sid) == 2);
 		verify_test(sid.m_Height == hMax-1);
 
+		db.SetMined(sid, 200000);
+		db.SetMined(sid, 250000);
+
+		{
+			NodeDB::WalkerMined wlkMined(db);
+			db.EnumMined(wlkMined, 0);
+			verify_test(wlkMined.MoveNext());
+			verify_test(wlkMined.m_Sid.m_Height == sid.m_Height && wlkMined.m_Sid.m_Row == sid.m_Row);
+			verify_test(wlkMined.m_Amount == 250000);
+			verify_test(!wlkMined.MoveNext());
+		}
+
+		db.DeleteMinedSafe(sid);
+		{
+			NodeDB::WalkerMined wlkMined(db);
+			db.EnumMined(wlkMined, 0);
+			verify_test(!wlkMined.MoveNext());
+		}
+
+		db.DeleteMinedSafe(sid);
+
 		db.SetStateFunctional(rowLast1);
 		db.assert_valid();
 
@@ -326,6 +347,13 @@ namespace beam
 	{
 	public:
 
+		TxPool m_TxPool;
+
+		MyNodeProcessor1()
+		{
+			ECC::SetRandom(m_Kdf.m_Secret.V);
+		}
+
 		struct MyUtxo {
 			ECC::Scalar m_Key;
 			Amount m_Value;
@@ -336,10 +364,13 @@ namespace beam
 		typedef std::multimap<Height, MyUtxo> UtxoQueue;
 		UtxoQueue m_MyUtxos;
 
-		void AddMyUtxo(const ECC::Scalar::Native& key, Amount n, Height h, bool bCoinbase)
+		void AddMyUtxo(Amount n, Height h, KeyType::Enum eType)
 		{
 			if (!n)
 				return;
+
+			ECC::Scalar::Native key;
+			DeriveKey(key, m_Kdf, h, eType);
 
 			MyUtxo utxo;
 			utxo.m_Key = key;
@@ -347,25 +378,13 @@ namespace beam
 			//utxo.m_Height = h;
 			//utxo.m_Coinbase = bCoinbase;
 
-			h += bCoinbase ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
+			h += (KeyType::Coinbase == eType) ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
 
 			m_MyUtxos.insert(std::make_pair(h, utxo));
 		}
-
-		// NodeProcessor
-		virtual void get_Key(ECC::Scalar::Native& k, Height h, bool bCoinbase) override
-		{
-			ECC::SetRandom(k);
-		}
-
-		virtual void OnMined(Height h, const ECC::Scalar::Native& kFee, Amount nFee, const ECC::Scalar::Native& kCoinbase, Amount nCoinbase) override
-		{
-			AddMyUtxo(kFee, nFee, h, false);
-			AddMyUtxo(kCoinbase, nCoinbase, h, true);
-		}
 	};
 
-	void SpendUtxo(Transaction& tx, const MyNodeProcessor1::MyUtxo& utxo, MyNodeProcessor1::MyUtxo& utxoOut)
+	void SpendUtxo(Transaction& tx, const MyNodeProcessor1::MyUtxo& utxo, MyNodeProcessor1::MyUtxo& utxoOut, Height hIncubation)
 	{
 		if (!utxo.m_Value)
 			return; //?!
@@ -393,10 +412,8 @@ namespace beam
 			utxoOut.m_Key = k;
 
 			Output::Ptr pOut(new Output);
-			pOut->m_pPublic.reset(new ECC::RangeProof::Public);
-			pOut->m_pPublic->m_Value = utxoOut.m_Value;
-			pOut->m_pPublic->Create(k);
-			pOut->m_Commitment = ECC::Commitment(k, utxoOut.m_Value);
+			pOut->Create(k, utxoOut.m_Value, true);
+			pOut->m_Incubation = hIncubation;
 			tx.m_vOutputs.push_back(std::move(pOut));
 
 			k = -k;
@@ -407,7 +424,7 @@ namespace beam
 		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * k);
 
 		ECC::Hash::Value hv;
-		pKrn->get_Hash(hv);
+		pKrn->get_HashForSigning(hv);
 		pKrn->m_Signature.Sign(hv, k);
 		tx.m_vKernelsOutput.push_back(std::move(pKrn));
 
@@ -426,7 +443,6 @@ namespace beam
 		typedef std::unique_ptr<BlockPlus> Ptr;
 
 		Block::SystemState::Full m_Hdr;
-		ByteBuffer m_PoW;
 		ByteBuffer m_Body;
 	};
 
@@ -436,6 +452,8 @@ namespace beam
 		np.m_Horizon.m_Branching = 35;
 		np.m_Horizon.m_Schwarzschild = 40;
 		np.Initialize(g_sz);
+
+		const Height hIncubation = 3; // artificial incubation period for outputs.
 
 		for (Height h = 0; h < 96; h++)
 		{
@@ -453,22 +471,34 @@ namespace beam
 				// Spend it in a transaction
 				Transaction::Ptr pTx(new Transaction);
 				MyNodeProcessor1::MyUtxo utxoOut;
-				SpendUtxo(*pTx, it->second, utxoOut);
+				SpendUtxo(*pTx, it->second, utxoOut, hIncubation);
 
 				np.m_MyUtxos.erase(it);
 
 				if (utxoOut.m_Value)
 					lstNewOutputs.push_back(utxoOut);
 
-				np.FeedTransaction(std::move(pTx));
+				np.m_TxPool.AddTx(std::move(pTx), h);
 			}
 
 			for (; !lstNewOutputs.empty(); lstNewOutputs.pop_front())
-				np.m_MyUtxos.insert(std::make_pair(h + 3, lstNewOutputs.front()));
+				np.m_MyUtxos.insert(std::make_pair(h + hIncubation, lstNewOutputs.front()));
 
 			BlockPlus::Ptr pBlock(new BlockPlus);
 
-			np.SimulateMinedBlock(pBlock->m_Hdr, pBlock->m_Body, pBlock->m_PoW);
+			Amount fees = 0;
+			verify_test(np.GenerateNewBlock(np.m_TxPool, pBlock->m_Hdr, pBlock->m_Body, fees));
+
+			np.OnState(pBlock->m_Hdr, NodeDB::PeerID());
+
+			Block::SystemState::ID id;
+			pBlock->m_Hdr.get_ID(id);
+
+			np.OnBlock(id, pBlock->m_Body, NodeDB::PeerID());
+
+			np.AddMyUtxo(fees, h, NodeProcessor::KeyType::Comission);
+			np.AddMyUtxo(Block::s_CoinbaseEmission, h, NodeProcessor::KeyType::Coinbase);
+
 			blockChain.push_back(std::move(pBlock));
 		}
 
@@ -482,7 +512,6 @@ namespace beam
 
 
 		// NodeProcessor
-		virtual void get_Key(ECC::Scalar::Native& k, Height h, bool bCoinbase) override { }
 		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override {}
 		virtual void OnPeerInsane(const PeerID&) override {}
 		virtual void OnNewState() override {}
@@ -507,7 +536,7 @@ namespace beam
 			ZeroObject(peer);
 
 			for (size_t i = 0; i < blockChain.size(); i += 2)
-				np.OnState(blockChain[i]->m_Hdr, blockChain[i]->m_PoW, peer);
+				np.OnState(blockChain[i]->m_Hdr, peer);
 		}
 
 		{
@@ -535,7 +564,7 @@ namespace beam
 			ZeroObject(peer);
 
 			for (size_t i = 1; i < blockChain.size(); i += 2)
-				np.OnState(blockChain[i]->m_Hdr, blockChain[i]->m_PoW, peer);
+				np.OnState(blockChain[i]->m_Hdr, peer);
 		}
 
 		{
@@ -583,6 +612,7 @@ namespace beam
 		node.m_Cfg.m_sPathLocal = g_sz;
 		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
+		node.m_Cfg.m_bDontVerifyPoW = true;
 
 		node.m_Cfg.m_Timeout.m_GetBlock_ms = 1000 * 60;
 		node.m_Cfg.m_Timeout.m_GetState_ms = 1000 * 60;
@@ -594,6 +624,10 @@ namespace beam
 		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
 		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
+		node2.m_Cfg.m_bDontVerifyPoW = true;
+
+		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
+		ECC::SetRandom(node2.get_Processor().m_Kdf.m_Secret.V);
 
 		node.Initialize();
 		node2.Initialize();
@@ -629,7 +663,19 @@ namespace beam
 				{
 					Block::SystemState::Full s;
 					ByteBuffer body, pow;
-					m_ppNode[m_iNode]->get_Processor().SimulateMinedBlock(s, body, pow);
+
+					NodeProcessor::TxPool txPool; // empty, no transactions
+
+					Node& n = *m_ppNode[m_iNode];
+					Amount fees = 0;
+					n.get_Processor().GenerateNewBlock(txPool, s, body, fees);
+
+					n.get_Processor().OnState(s, NodeDB::PeerID());
+
+					Block::SystemState::ID id;
+					s.get_ID(id);
+
+					n.get_Processor().OnBlock(id, body, NodeDB::PeerID());
 
 					m_HeightMax = std::max(m_HeightMax, s.m_Height);
 

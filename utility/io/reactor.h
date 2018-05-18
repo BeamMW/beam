@@ -18,7 +18,7 @@ public:
     Reactor& operator=(const Reactor&) = delete;
 
     using Ptr = std::shared_ptr<Reactor>;
-    
+
     /// Creates a new reactor. Throws on errors
     static Ptr create();
 
@@ -34,7 +34,7 @@ public:
 
     using ConnectCallback = std::function<void(uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode errorCode)>;
 
-    Result tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec=-1);
+    Result tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec=-1, Address bindTo=Address());
 
     void cancel_tcp_connect(uint64_t tag);
 
@@ -51,7 +51,7 @@ public:
 private:
     /// Ctor. private and called by create()
     Reactor();
-    
+
     // called by create()returns error code
     ErrorCode initialize();
 
@@ -103,9 +103,9 @@ private:
     };
 
     void connect_callback(ConnectContext* ctx, ErrorCode errorCode);
-    
+
     void connect_timeout_callback(uint64_t tag);
-    
+
     void cancel_tcp_connect_impl(std::unordered_map<uint64_t, ConnectContext>::iterator& it);
 
     ErrorCode init_asyncevent(Object* o, uv_async_cb cb);
@@ -117,12 +117,17 @@ private:
     ErrorCode init_tcpserver(Object* o, Address bindAddress, uv_connection_cb cb);
     ErrorCode init_tcpstream(Object* o);
     ErrorCode accept_tcpstream(Object* acceptor, Object* newConnection);
-    
+
     ErrorCode init_object(ErrorCode errorCode, Object* o, uv_handle_t* h);
     void async_close(uv_handle_t*& handle);
-    
-    uv_write_t* alloc_write_request();
-    void release_write_request(uv_write_t*& req);
+
+    struct WriteRequest {
+        uv_write_t req;
+        size_t n;
+    };
+
+    WriteRequest* alloc_write_request();
+    void release_write_request(WriteRequest*& req);
 
     union Handles {
         uv_timer_t timer;
@@ -134,12 +139,12 @@ private:
     uv_async_t _stopEvent;
     MemPool<uv_handle_t, sizeof(Handles)> _handlePool;
     MemPool<uv_connect_t, sizeof(uv_connect_t)> _connectRequestsPool;
-    MemPool<uv_write_t, sizeof(uv_write_t)> _writeRequestsPool;
+    MemPool<WriteRequest, sizeof(WriteRequest)> _writeRequestsPool;
     std::unordered_map<uint64_t, ConnectContext> _connectRequests;
     std::unordered_set<uv_connect_t*> _cancelledConnectRequests;
     std::unique_ptr<CoarseTimer> _connectTimer;
     bool _creatingInternalObjects=false;
-    
+
     friend class AsyncEvent;
     friend class Timer;
     friend class TcpServer;
