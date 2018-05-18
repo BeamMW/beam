@@ -70,6 +70,16 @@ namespace beam
     {
     }
 
+    Wallet::~Wallet()
+    {
+        assert(m_peers.empty());
+        assert(m_receivers.empty());
+        assert(m_senders.empty());
+        assert(m_node_requests_queue.empty());
+        assert(m_removed_senders.empty());
+        assert(m_removed_receivers.empty());
+    }
+
     void Wallet::transfer_money(PeerId to, Amount&& amount)
     {
         boost::uuids::uuid id = boost::uuids::random_generator()();
@@ -94,7 +104,6 @@ namespace beam
     {
         send_tx_message(data->m_txId, [this, &data](auto peer_id) mutable
         {
-            m_bool_requests_queue.push(data->m_txId);
             m_network.send_tx_message(peer_id, move(data));
         });
     }
@@ -109,8 +118,9 @@ namespace beam
         }
     }
 
-    void Wallet::send_output_confirmation(const Coin& coin)
+    void Wallet::send_output_confirmation(const Uuid& txId, const Coin& coin)
     {
+        m_node_requests_queue.push(txId);
         m_network.send_node_message(
             proto::GetProofUtxo
             {
@@ -132,8 +142,9 @@ namespace beam
         auto it = m_senders.find(txId);
         if (it != m_senders.end())
         {
-            m_removedSenders.push_back(move(it->second));
-            m_senders.erase(txId);
+            remove_peer(txId);
+            m_removed_senders.push_back(move(it->second));
+            m_senders.erase(it);
         }
     }
 
@@ -142,7 +153,8 @@ namespace beam
         auto it = m_receivers.find(txId);
         if (it != m_receivers.end())
         {
-            m_removedReceivers.push_back(move(it->second));
+            remove_peer(txId);
+            m_removed_receivers.push_back(move(it->second));
             m_receivers.erase(it);
         }
     }
@@ -158,7 +170,7 @@ namespace beam
     void Wallet::register_tx(const Uuid& txId, Transaction::Ptr data)
     {
         LOG_DEBUG() << "[Receiver] sending tx for registration";
-        m_bool_requests_queue.push(txId);
+        m_node_requests_queue.push(txId);
         m_network.send_node_message(proto::NewTransaction{ move(data) });
     }
 
@@ -189,6 +201,7 @@ namespace beam
     
     void Wallet::handle_tx_message(PeerId from, sender::ConfirmationData::Ptr&& data)
     {
+        Cleaner c{ m_removed_receivers };
         auto it = m_receivers.find(data->m_txId);
         if (it != m_receivers.end())
         {
@@ -203,6 +216,7 @@ namespace beam
 
     void Wallet::handle_tx_message(PeerId from, receiver::ConfirmationData::Ptr&& data)
     {
+        Cleaner c{ m_removed_senders };
         auto it = m_senders.find(data->m_txId);
         if (it != m_senders.end())
         {
@@ -217,27 +231,33 @@ namespace beam
 
     void Wallet::handle_tx_message(PeerId from, wallet::TxRegisteredData&& data)
     {
-        handle_tx_registered(data.m_value);
+        // TODO: change data structure
+        auto cit = find_if(m_peers.cbegin(), m_peers.cend(), [from](const auto& p) {return p.second == from; });
+        if (cit == m_peers.end())
+        {
+            return;
+        }
+        handle_tx_registered(cit->first, data.m_value);
     }
 
     void Wallet::handle_node_message(proto::Boolean&& res)
     {
-        handle_tx_registered(res.m_Value);
-    }
-
-    void Wallet::handle_tx_registered(bool res)
-    {
-        if (m_bool_requests_queue.empty())
+        if (m_node_requests_queue.empty())
         {
             LOG_DEBUG() << "Received unexpected tx registration confirmation";
             assert(m_receivers.empty() && m_senders.empty());
             return;
         }
-        auto txId = m_bool_requests_queue.front();
-        m_bool_requests_queue.pop();
+        auto txId = m_node_requests_queue.front();
+        m_node_requests_queue.pop();
+        handle_tx_registered(txId, res.m_Value);
+    }
 
+    void Wallet::handle_tx_registered(const Uuid& txId, bool res)
+    {
         LOG_DEBUG() << "tx " << txId << (res ? " has registered" : " has failed to register");
-
+        Cleaner cr{ m_removed_receivers };
+        Cleaner cs{ m_removed_senders };
         if (res)
         {
             if (auto it = m_receivers.find(txId); it != m_receivers.end())
@@ -269,17 +289,58 @@ namespace beam
     void Wallet::handle_node_message(proto::ProofUtxo&& proof)
     {
         LOG_DEBUG() << "Received tx output confirmation ";
-        // TODO: this code is for test only, it should be rewrited
-        if (!m_receivers.empty())
+        if (m_node_requests_queue.empty())
+        {
+            LOG_DEBUG() << "Received unexpected utxo proof";
+            assert(m_receivers.empty() && m_senders.empty());
+            return;
+        }
+        auto txId = m_node_requests_queue.front();
+        m_node_requests_queue.pop();
+        Cleaner cr{ m_removed_receivers };
+        Cleaner cs{ m_removed_senders };
+        if (auto it = m_receivers.find(txId); it != m_receivers.end())
         {
             m_receivers.begin()->second->process_event(Receiver::TxOutputConfirmCompleted());
             return;
         }
-        if (!m_senders.empty())
+        if (auto it = m_senders.find(txId); it != m_senders.end())
         {
             m_senders.begin()->second->process_event(Sender::TxOutputConfirmCompleted());
             return;
         }
         LOG_DEBUG() << "Unexpected tx output confirmation ";
+    }
+
+    void Wallet::handle_connection_error(PeerId from)
+    {
+        // TODO: change data structure
+        auto cit = find_if(m_peers.cbegin(), m_peers.cend(), [from](const auto& p) {return p.second == from; });
+        if (cit == m_peers.end())
+        {
+            return;
+        }
+        Cleaner cr{ m_removed_receivers };
+        Cleaner cs{ m_removed_senders };
+        if (auto it = m_receivers.find(cit->first); it != m_receivers.end())
+        {
+            it->second->process_event(Receiver::TxFailed());
+            return;
+        }
+        if (auto it = m_senders.find(cit->first); it != m_senders.end())
+        {
+            it->second->process_event(Sender::TxFailed());
+            return;
+        }
+    }
+
+    void Wallet::remove_peer(const Uuid& txId)
+    {
+        auto it = m_peers.find(txId);
+        if (it != m_peers.end())
+        {
+            m_network.close_connection(it->second);
+            m_peers.erase(it);
+        }
     }
 }

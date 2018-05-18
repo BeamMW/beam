@@ -48,7 +48,7 @@ namespace beam
         {
             virtual ~IWalletGateway() {}
             virtual void on_tx_completed(const Uuid& txId) = 0;
-            virtual void send_output_confirmation(const Coin& coin) = 0;
+            virtual void send_output_confirmation(const Uuid& txId, const Coin& coin) = 0;
             virtual void send_tx_failed(const Uuid& txId) = 0;
         };
 

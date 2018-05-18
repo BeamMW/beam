@@ -142,7 +142,7 @@ namespace
             cout << "sent senders's tx confirmation message\n";
         }
 
-        void send_output_confirmation(const Coin&) override
+        void send_output_confirmation(const Uuid& txId, const Coin&) override
         {
             cout << "sent change output confirmation message\n";
         }
@@ -307,7 +307,6 @@ namespace
             cout << "[Receiver] send_tx_registered\n";
 
             enqueueNetworkTask([this, to, res=move(res)] () mutable {m_peers[0]->handle_tx_message(to, move(res)); });
-            shutdown();
         }
 
         void send_node_message(proto::NewTransaction&& data) override
@@ -320,8 +319,20 @@ namespace
         void send_node_message(proto::GetProofUtxo&&) override
         {
             cout << "[Sender] send_output_confirmation\n";
-            enqueueNetworkTask([this] {m_peers[0]->handle_node_message(proto::ProofUtxo()); });
+            int id = m_proof_id;
+            --m_proof_id;
+            if (m_proof_id < 0)
+            {
+                m_proof_id = 1;
+            }
+            enqueueNetworkTask([this, id] {m_peers[id]->handle_node_message(proto::ProofUtxo()); });
         }
+
+        void close_connection(beam::PeerId) override
+        {
+        }
+
+        int m_proof_id{ 1 };
     };
 
     //struct BadTestNetwork1 : public TestNetwork
@@ -392,12 +403,22 @@ template<typename KeychainS, typename KeychainR>
 void TestWalletNegotiation()
 {
     cout << "\nTesting wallets negotiation...\n";
-
+    
     PeerId receiver_id = 4;
     IOLoop mainLoop;
     TestNetwork network{ mainLoop };
-    Wallet sender(createKeyChain<KeychainS>(), network);
-    Wallet receiver(createKeyChain<KeychainR>(), network);
+
+    int count = 0;
+    auto f = [&count, &network](const auto& id)
+    {
+        if (++count == 2)
+        {
+            network.shutdown();
+        }
+    };
+
+    Wallet sender(createKeyChain<KeychainS>(), network, f);
+    Wallet receiver(createKeyChain<KeychainR>(), network, f);
 
     network.registerPeer(&sender);
     network.registerPeer(&receiver);

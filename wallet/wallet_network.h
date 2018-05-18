@@ -34,11 +34,13 @@ namespace beam
                       , IKeyChain::Ptr keychain
                       , io::Reactor::Ptr reactor = io::Reactor::Ptr()
                       , uint64_t start_tag = 0);
+        virtual ~WalletNetworkIO();
         
         void start();
         void stop();
         
         void transfer_money(io::Address receiver, Amount&& amount);
+        
     private:
         // INetworkIO
         void send_tx_message(PeerId to, wallet::sender::InvitationData::Ptr&&) override;
@@ -47,6 +49,8 @@ namespace beam
         void send_tx_message(PeerId to, wallet::TxRegisteredData&&) override;
         void send_node_message(proto::NewTransaction&&) override;
         void send_node_message(proto::GetProofUtxo&&) override;
+
+        void close_connection(uint64_t id) override;
 
         // IMsgHandler
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;

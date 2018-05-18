@@ -161,7 +161,7 @@ namespace beam::wallet
     {
         if (m_changeOutput)
         {
-            m_gateway.send_output_confirmation(*m_changeOutput);
+            m_gateway.send_output_confirmation(m_txId, *m_changeOutput);
         }
     }
 

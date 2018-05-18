@@ -31,6 +31,12 @@ namespace beam {
         m_protocol.add_message_handler<wallet::TxRegisteredData,           &WalletNetworkIO::on_message>(receiverRegisteredCode, 1, 2000);
     }
 
+    WalletNetworkIO::~WalletNetworkIO()
+    {
+        assert(m_connections.empty());
+        assert(m_connections_callbacks.empty());
+    }
+
     void WalletNetworkIO::start()
     {
         m_reactor->run();
@@ -81,6 +87,16 @@ namespace beam {
     void WalletNetworkIO::send_node_message(proto::GetProofUtxo&& data)
     {
         send_to_node(move(data));
+    }
+
+    void WalletNetworkIO::close_connection(uint64_t id)
+    {
+        m_connections.erase(id);
+        if (auto it = m_connections_callbacks.find(id); it != m_connections_callbacks.end())
+        {
+            m_connections_callbacks.erase(it);
+            m_reactor->cancel_tcp_connect(id);
+        }
     }
 
     bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::sender::InvitationData&& data)
@@ -161,15 +177,26 @@ namespace beam {
         return false;
     }
 
-    void WalletNetworkIO::on_protocol_error(uint64_t fromStream, ProtocolError error)
+    void WalletNetworkIO::on_protocol_error(uint64_t from, ProtocolError error)
     {
-        LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << error << ")";
+        LOG_ERROR() << __FUNCTION__ << "(" << from << "," << error << ")";
+        if (m_connections.empty())
+        {
+            stop();
+            return;
+        }
+        m_wallet.handle_connection_error(from);
     }
 
-    void WalletNetworkIO::on_connection_error(uint64_t fromStream, int errorCode)
+    void WalletNetworkIO::on_connection_error(uint64_t from, int errorCode)
     {
-        LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << errorCode << ")";
-        stop();
+        LOG_ERROR() << __FUNCTION__ << "(" << from << "," << errorCode << ")";
+        if (m_connections.empty())
+        {
+            stop();
+            return;
+        }
+        m_wallet.handle_connection_error(from);
     }
 
     uint64_t WalletNetworkIO::get_connection_tag()
@@ -196,6 +223,7 @@ namespace beam {
             {
                 cb();
             }
+            m_connections_callbacks.clear();
         }
     }
 

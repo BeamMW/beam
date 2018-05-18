@@ -128,7 +128,7 @@ namespace beam::wallet
     void Receiver::FSMDefinition::confirm_output(const TxRegistrationCompleted& )
     {
         m_gateway.send_tx_registered(make_unique<Uuid>(m_txId));
-        m_gateway.send_output_confirmation(m_receiver_coin);
+        m_gateway.send_output_confirmation(m_txId, m_receiver_coin);
     }
 
     void Receiver::FSMDefinition::complete_tx(const TxOutputConfirmCompleted& )
