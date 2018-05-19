@@ -532,7 +532,6 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	t.m_bRelevant = false;
 	OnFirstTaskDone();
 
-	NodeDB::Blob pow(NULL, 0); // TODO
 	NodeDB::PeerID pid;
 	get_ID(pid);
 

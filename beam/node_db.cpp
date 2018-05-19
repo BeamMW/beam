@@ -58,14 +58,24 @@ NodeDB::~NodeDB()
 void NodeDB::TestRet(int ret)
 {
 	if (SQLITE_OK != ret)
-		ThrowError(ret);
+		ThrowSqliteError(ret);
 }
 
-void NodeDB::ThrowError(int ret)
+void NodeDB::ThrowSqliteError(int ret)
 {
 	char sz[0x1000];
 	snprintf(sz, _countof(sz), "sqlite err %d, %s", ret, sqlite3_errmsg(m_pDb));
+	ThrowError(sz);
+}
+
+void NodeDB::ThrowError(const char* sz)
+{
 	throw std::runtime_error(sz);
+}
+
+void NodeDB::ThrowInconsistent()
+{
+	ThrowError("data inconcistent");
 }
 
 void NodeDB::Close()
@@ -123,6 +133,12 @@ void NodeDB::Recordset::Reset(Query::Enum val, const char* sql)
 bool NodeDB::Recordset::Step()
 {
 	return m_DB.ExecStep(m_pStmt);
+}
+
+void NodeDB::Recordset::StepStrict()
+{
+	if (!Step())
+		ThrowError("not found");
 }
 
 bool NodeDB::Recordset::IsNull(int col)
@@ -193,7 +209,7 @@ const void* NodeDB::Recordset::get_BlobStrict(int col, uint32_t n)
 	{
 		char sz[0x80];
 		snprintf(sz, sizeof(sz), "Blob size expected=%u, actual=%u", n, x.n);
-		throw std::runtime_error(sz);
+		ThrowError(sz);
 	}
 
 	return x.p;
@@ -223,7 +239,7 @@ void NodeDB::Open(const char* szPath)
 	{
 		// test the DB version
 		if (nVersion != ParamIntGetDef(ParamID::DbVer))
-			throw std::runtime_error("wrong version");
+			ThrowError("wrong version");
 	}
 }
 
@@ -297,7 +313,7 @@ bool NodeDB::ExecStep(sqlite3_stmt* pStmt)
 	{
 
 	default:
-		ThrowError(nVal);
+		ThrowSqliteError(nVal);
 		// no break
 
 	case SQLITE_DONE:
@@ -350,7 +366,7 @@ uint64_t NodeDB::get_LastInsertRowID() const
 void NodeDB::TestChanged1Row()
 {
 	if (1 != get_RowsChanged())
-		throw std::runtime_error("oops1");
+		ThrowError("1row change failed");
 }
 
 void NodeDB::ParamSet(uint32_t ID, const uint64_t* p0, const Blob* p1)
@@ -462,8 +478,7 @@ void NodeDB::get_State(uint64_t rowid, Block::SystemState::Full& out)
 
 	rs.put(0, rowid);
 
-	if (!rs.Step())
-		throw "State not found!";
+	rs.StepStrict();
 
 	int iCol = 0;
 
@@ -567,8 +582,7 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 		" FROM " TblStates " LEFT JOIN " TblStates " prv ON " TblStates "." TblStates_RowPrev "=prv.rowid" " WHERE " TblStates ".rowid=?");
 
 	rs.put(0, rowid);
-	if (!rs.Step())
-		throw "State not found!";
+	rs.StepStrict();
 
 	if (rs.IsNull(1))
 		rowPrev = 0;
@@ -582,7 +596,7 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 
 	rs.get(4, nFlags);
 	if (StateFlags::Active & nFlags)
-		throw "attempt to delete an active state";
+		ThrowError("attempt to delete an active state");
 
 	Height h;
 	rs.get(0, h);
@@ -591,7 +605,7 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 	{
 		rs.get(3, nCountNext);
 		if (!nCountNext)
-			throw "oops!";
+			ThrowInconsistent();
 
 		nCountNext--;
 
@@ -605,7 +619,7 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 			rs.get(5, nCountPrevF);
 
 			if (!nCountPrevF)
-				throw "oops";
+				ThrowInconsistent();
 
 			nCountPrevF--;
 			SetNextCountFunctional(rowPrev, nCountPrevF);
@@ -718,8 +732,7 @@ void NodeDB::SetStateFunctional(uint64_t rowid)
 		" FROM " TblStates " LEFT JOIN " TblStates " prv ON " TblStates "." TblStates_RowPrev "=prv.rowid" " WHERE " TblStates ".rowid=?");
 
 	rs.put(0, rowid);
-	if (!rs.Step())
-		throw "not found";
+	rs.StepStrict();
 
 	uint32_t nFlags, nFlagsPrev, nCountPrevF;
 	rs.get(2, nFlags);
@@ -774,8 +787,7 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 		" FROM " TblStates " LEFT JOIN " TblStates " prv ON " TblStates "." TblStates_RowPrev "=prv.rowid" " WHERE " TblStates ".rowid=?");
 
 	rs.put(0, rowid);
-	if (!rs.Step())
-		throw "State not found!";
+	rs.StepStrict();
 
 	uint32_t nFlags, nCountPrevF;
 	rs.get(2, nFlags);
@@ -803,7 +815,7 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 			rs.get(3, nCountPrevF);
 
 			if (!nCountPrevF)
-				throw "oops";
+				ThrowInconsistent();
 
 			nCountPrevF--;
 			SetNextCountFunctional(rowPrev, nCountPrevF);
@@ -885,8 +897,7 @@ bool NodeDB::get_Peer(uint64_t rowid, PeerID& peer)
 {
 	Recordset rs(*this, Query::StateGetPeer, "SELECT " TblStates_Peer " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
-	if (!rs.Step())
-		throw "oops5";
+	rs.StepStrict();
 
 	if (rs.IsNull(0))
 		return false;
@@ -911,8 +922,7 @@ void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rollbac
 {
 	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_Body "," TblStates_Rollback " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
-	if (!rs.Step())
-		throw "oops3";
+	rs.StepStrict();
 
 	if (!rs.IsNull(0))
 	{
@@ -954,8 +964,7 @@ uint32_t NodeDB::GetStateFlags(uint64_t rowid)
 	Recordset rs(*this, Query::StateGetFlags0, "SELECT " TblStates_Flags " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 
-	if (!rs.Step())
-		throw "oops4";
+	rs.StepStrict();
 	
 	uint32_t nFlags;
 	rs.get(0, nFlags);
@@ -967,8 +976,7 @@ uint32_t NodeDB::GetStateNextCount(uint64_t rowid)
 	Recordset rs(*this, Query::StateGetNextCount, "SELECT " TblStates_CountNext " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 
-	if (!rs.Step())
-		throw "oops5";
+	rs.StepStrict();
 
 	uint32_t nCount;
 	rs.get(0, nCount);
@@ -1147,8 +1155,7 @@ bool NodeDB::get_Prev(uint64_t& rowid)
 	Recordset rs(*this, Query::StateGetPrev, "SELECT " TblStates_RowPrev " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 
-	if (!rs.Step())
-		throw "oops";
+	rs.StepStrict();
 
 	if (rs.IsNull(0))
 		return false;
@@ -1232,8 +1239,7 @@ void NodeDB::Dmmr::Goto(uint64_t rowid)
 
 	m_Rs.Reset(Query::MmrGet, "SELECT " TblStates_Mmr "," TblStates_HashPrev " FROM " TblStates " WHERE rowid=?");
 	m_Rs.put(0, rowid);
-	if (!m_Rs.Step())
-		throw "state not found";
+	m_Rs.StepStrict();
 }
 
 const void* NodeDB::Dmmr::get_NodeData(Key rowid) const
