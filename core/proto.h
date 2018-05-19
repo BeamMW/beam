@@ -52,6 +52,10 @@ namespace proto {
 #define BeamNodeMsg_Mined(macro) \
 	macro(std::vector<PerMined>, Entries)
 
+#define BeamNodeMsg_Config(macro) \
+	macro(bool, SpreadingTransactions) \
+	macro(bool, Mining)
+
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)
 
@@ -74,6 +78,7 @@ namespace proto {
 	macro(12, ProofUtxo) \
 	macro(15, GetMined) \
 	macro(16, Mined) \
+	macro(20, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
 	macro(21, Ping) \
 	macro(22, Pong) \
 	macro(23, NewTransaction)

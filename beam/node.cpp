@@ -328,6 +328,12 @@ void Node::Peer::OnConnected()
 
 	m_eState = State::Connected;
 	m_TipHeight = 0;
+	ZeroObject(m_Config);
+
+	proto::Config msgCfg;
+	msgCfg.m_SpreadingTransactions = true;
+	msgCfg.m_Mining = (m_pThis->m_Cfg.m_MiningThreads > 0);
+	Send(msgCfg);
 
 	proto::NewTip msg;
 	if (m_pThis->m_Processor.get_CurrentState(msg.m_ID))
@@ -412,10 +418,7 @@ void Node::Peer::OnMsg(proto::Ping&&)
 void Node::Peer::OnMsg(proto::NewTip&& msg)
 {
 	if (msg.m_ID.m_Height < m_TipHeight)
-	{
-		OnClosed(-1); // insane!
-		return;
-	}
+		ThrowUnexpected();
 
 	m_TipHeight = msg.m_ID.m_Height;
 	m_setRejected.clear();
@@ -557,11 +560,38 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 			m_pThis->m_TxPool.ShrinkUpTo(m_pThis->m_Cfg.m_MaxPoolTransactions);
 			m_pThis->m_Miner.SetTimer(m_pThis->m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
 
-			// spread to other nodes?
+			// Current (naive) design: send it to all other nodes
+			for (PeerList::iterator it = m_pThis->m_lstPeers.begin(); m_pThis->m_lstPeers.end() != it; )
+			{
+				Peer& peer = *it++;
+				if (this == &peer)
+					continue;
+				if (State::Connected != peer.m_eState)
+					continue;
+				if (!peer.m_Config.m_SpreadingTransactions)
+					continue;
+
+				try {
+					peer.Send(msg);
+				} catch (...) {
+					peer.OnPostError();
+				}
+			}
 		}
 	}
 
 	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::Config&& msg)
+{
+	if (!m_Config.m_SpreadingTransactions && msg.m_SpreadingTransactions)
+	{
+		// TODO: decide if/how to sent the pending transactions.
+		// maybe this isn't necessary, in this case it'll receive only new transactions.
+	}
+
+	m_Config = msg;
 }
 
 void Node::Peer::OnMsg(proto::GetMined&& msg)

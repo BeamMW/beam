@@ -111,6 +111,7 @@ private:
 		State::Enum m_eState;
 
 		Height m_TipHeight;
+		proto::Config m_Config;
 
 		TaskList m_lstTasks;
 		void TakeTasks();
@@ -135,6 +136,7 @@ private:
 		virtual void OnConnected() override;
 		virtual void OnClosed(int errorCode) override;
 		// messages
+		virtual void OnMsg(proto::Config&&) override;
 		virtual void OnMsg(proto::Ping&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;
 		virtual void OnMsg(proto::DataMissing&&) override;
