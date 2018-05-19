@@ -60,9 +60,6 @@ namespace beam
 	
 		int cmp(const Input&) const;
 		COMPARISON_VIA_CMP(Input)
-
-		void get_Hash(Merkle::Hash&, Count) const;
-		bool IsValidProof(Count, const Merkle::Proof&, const Merkle::Hash& root) const;
 	};
 
 	inline bool operator < (const Input::Ptr& a, const Input::Ptr& b) { return *a < *b; }

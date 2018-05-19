@@ -70,22 +70,6 @@ namespace beam
 		return m_Commitment.cmp(v.m_Commitment);
 	}
 
-	void Input::get_Hash(Merkle::Hash& out, Count n) const
-	{
-		ECC::Hash::Processor()
-			<< m_Commitment
-			<< n
-			>> out;
-	}
-
-	bool Input::IsValidProof(Count n, const Merkle::Proof& proof, const Merkle::Hash& root) const
-	{
-		Merkle::Hash hv;
-		get_Hash(hv, n);
-		Merkle::Interpret(hv, proof);
-		return hv == root;
-	}
-
 	/////////////
 	// Output
 	bool Output::IsValid() const
