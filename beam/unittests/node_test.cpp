@@ -726,6 +726,174 @@ namespace beam
 		pReactor->run();
 	}
 
+
+
+	void TestNodeClientProto()
+	{
+		// Testing configuration: Node <-> Client. Node is a miner
+
+		io::Reactor::Ptr pReactor(io::Reactor::create());
+		io::Reactor::Scope scope(*pReactor);
+
+		Node node;
+		node.m_Cfg.m_sPathLocal = g_sz;
+		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
+		node.m_Cfg.m_Listen.ip(INADDR_ANY);
+		node.m_Cfg.m_TestMode.m_bFakePoW = true;
+		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
+		node.m_Cfg.m_MiningThreads = 1;
+
+		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
+
+		node.Initialize();
+
+		struct MyClient
+			:public proto::NodeConnection
+		{
+			const Height m_HeightTrg = 25;
+
+			ECC::Kdf m_Kdf;
+
+			std::vector<Block::SystemState::Full> m_vStates;
+			std::vector<Input> m_vUtxos;
+
+			uint32_t m_iProof;
+
+			MyClient() {
+				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+			}
+
+			virtual void OnConnected() override {
+				SetTimer(60*1000);
+			}
+
+			virtual void OnClosed(int errorCode) override {
+				fail_test("OnClosed");
+				io::Reactor::get_Current().stop();
+			}
+
+			io::Timer::Ptr m_pTimer;
+
+			void OnTimer() {
+
+				fail_test("Blockchain height didn't reach target");
+				io::Reactor::get_Current().stop();
+
+				SetTimer(100);
+			}
+
+			virtual void OnMsg(proto::NewTip&& msg) override
+			{
+				printf("Tip Height=%u\n", msg.m_ID.m_Height);
+				verify_test(m_vStates.size() == msg.m_ID.m_Height);
+
+				if (msg.m_ID.m_Height >= m_HeightTrg)
+					io::Reactor::get_Current().stop();
+				else
+				{
+					proto::GetHdr msgOut;
+					msgOut.m_ID = msg.m_ID;
+					Send(msgOut);
+				}
+			}
+
+			virtual void OnMsg(proto::Hdr&& msg) override
+			{
+				verify_test(m_vStates.size() == msg.m_Description.m_Height);
+				m_vStates.push_back(msg.m_Description);
+
+				ECC::Scalar::Native k;
+				NodeProcessor::DeriveKey(k, m_Kdf, msg.m_Description.m_Height, NodeProcessor::KeyType::Coinbase);
+				Input utxo;
+				utxo.m_Commitment = ECC::Commitment(k, Block::s_CoinbaseEmission);
+				m_vUtxos.push_back(utxo);
+
+				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
+				{
+					proto::GetProofState msgOut;
+					msgOut.m_Height = i;
+					Send(msgOut);
+				}
+
+				for (size_t i = 0; i < m_vStates.size(); i++)
+				{
+					proto::GetProofUtxo msgOut;
+					msgOut.m_MaturityMin = 0;
+					msgOut.m_Utxo = m_vUtxos[i];
+					Send(msgOut);
+				}
+
+				m_iProof = 0;
+			}
+
+			virtual void OnMsg(proto::Proof&& msg) override
+			{
+				uint32_t i = m_iProof++;
+				if (i + 1 < m_vStates.size())
+				{
+					Merkle::Hash hv;
+					m_vStates[i].get_Hash(hv);
+					Merkle::Interpret(hv, msg.m_Proof);
+
+					verify_test(hv == m_vStates.back().m_History);
+				}
+				else
+					fail_test("unexpected proof");
+			}
+
+			virtual void OnMsg(proto::ProofUtxo&& msg) override
+			{
+				uint32_t i = m_iProof++ - (m_vStates.size() - 1);
+
+				if (i < m_vUtxos.size())
+				{
+					verify_test(!msg.m_Proofs.empty());
+
+					UtxoTree::Key::Data d;
+					d.m_Commitment = m_vUtxos[i].m_Commitment;
+
+					for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
+					{
+						UtxoTree::Key key;
+						d.m_Maturity = msg.m_Proofs[j].m_Maturity;
+						key = d;
+
+						UtxoTree::Value val;
+						val.m_Count = msg.m_Proofs[j].m_Count;
+
+						Merkle::Hash hv;
+						val.get_Hash(hv, key);
+						Merkle::Interpret(hv, msg.m_Proofs[j].m_Proof);
+
+						verify_test(hv == m_vStates.back().m_LiveObjects);
+					}
+				}
+				else
+					fail_test("unexpected proof");
+			}
+
+			void SetTimer(uint32_t timeout_ms) {
+				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
+			}
+			void KillTimer() {
+				m_pTimer->cancel();
+			}
+		};
+
+		MyClient cl;
+		cl.m_Kdf = node.get_Processor().m_Kdf; // same key gen
+
+		io::Address addr;
+		addr.resolve("127.0.0.1");
+		addr.port(Node::s_PortDefault);
+
+		cl.Connect(addr);
+
+
+		pReactor->run();
+	}
+
+
 }
 
 int main()
@@ -746,9 +914,11 @@ int main()
 	}
 
 	beam::TestNodeConversation();
-
 	DeleteFileA(beam::g_sz);
 	DeleteFileA(beam::g_sz2);
+
+	beam::TestNodeClientProto();
+	DeleteFileA(beam::g_sz);
 
 	return g_TestsFailed ? -1 : 0;
 }

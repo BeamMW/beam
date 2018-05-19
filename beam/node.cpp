@@ -613,7 +613,14 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = false;
 	if (t.Find(cu, msg.m_KernelHash, bCreate))
+	{
 		t.get_Proof(msgOut.m_Proof, cu);
+
+		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+		msgOut.m_Proof.back().first = false;
+
+		m_pThis->m_Processor.get_Utxos().get_Hash(msgOut.m_Proof.back().second);
+	}
 }
 
 void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
@@ -622,6 +629,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	{
 		proto::ProofUtxo m_Msg;
 		UtxoTree* m_pTree;
+		Merkle::Hash m_hvKernels;
 
 		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
 
@@ -636,11 +644,16 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 			ret.m_Maturity = d.m_Maturity;
 			m_pTree->get_Proof(ret.m_Proof, *m_pCu);
 
+			ret.m_Proof.resize(ret.m_Proof.size() + 1);
+			ret.m_Proof.back().first = true;
+			ret.m_Proof.back().second = m_hvKernels;
+
 			return m_Msg.m_Proofs.size() < proto::PerUtxoProof::s_EntriesMax;
 		}
 	} t;
 
 	t.m_pTree = &m_pThis->m_Processor.get_Utxos();
+	m_pThis->m_Processor.get_Kernels().get_Hash(t.m_hvKernels);
 
 	UtxoTree::Cursor cu;
 	t.m_pCu = &cu;
