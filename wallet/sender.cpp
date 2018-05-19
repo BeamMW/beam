@@ -5,13 +5,18 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
-    void Sender::FSMDefinition::initTx(const msmf::none&)
+    void Sender::FSMDefinition::init_tx(const msmf::none&)
     {
         // 1. Create transaction Uuid
         auto invitationData = make_shared<sender::InvitationData>();
         invitationData->m_txId = m_txId;
 
         m_coins = m_keychain->getCoins(m_amount); // need to lock 
+        if (m_coins.empty())
+        {
+            LOG_INFO() << "There is no money to pay " << m_amount;
+            throw runtime_error("no money");
+        }
         invitationData->m_amount = m_amount;
         m_kernel.m_Fee = 0;
         m_kernel.m_HeightMin = 0; 
@@ -44,18 +49,21 @@ namespace beam::wallet
             }
 
             change -= m_amount;
+            if (change > 0)
+            {
+                m_changeOutput = beam::Coin(m_keychain->getNextID(), change);
+                Output::Ptr output = make_unique<Output>();
+                output->m_Coinbase = false;
+                Scalar::Native blindingFactor = m_keychain->calcKey(m_changeOutput->m_id);
+                output->Create(blindingFactor, change, true);
 
-            Output::Ptr output = make_unique<Output>();
-            output->m_Coinbase = false;
+                m_keychain->store(*m_changeOutput);
 
-            Scalar::Native blindingFactor = m_keychain->calcKey(m_keychain->getNextID());
-			output->Create(blindingFactor, change, true);
+                blindingFactor = -blindingFactor;
+                m_blindingExcess += blindingFactor;
 
-
-            blindingFactor = -blindingFactor;
-            m_blindingExcess += blindingFactor;
-
-            invitationData->m_outputs.push_back(move(output));
+                invitationData->m_outputs.push_back(move(output));
+            }
         }
         // 6. calculate tx_weight
         // 7. calculate fee
@@ -71,7 +79,7 @@ namespace beam::wallet
             
         m_publicNonce = Context::get().G * m_nonce;
         invitationData->m_publicSenderNonce = m_publicNonce;
-        // an attempt to implement "stingy" transaction
+
         m_gateway.send_tx_invitation(invitationData);
     }
 
@@ -113,6 +121,16 @@ namespace beam::wallet
         return !is_valid_signature(event);
     }
 
+    bool Sender::FSMDefinition::has_change(const TxConfirmationCompleted&)
+    {
+        return m_changeOutput.is_initialized();
+    }
+
+    bool Sender::FSMDefinition::has_no_change(const TxConfirmationCompleted&)
+    {
+        return !m_changeOutput.is_initialized();
+    }
+
     void Sender::FSMDefinition::confirm_tx(const TxInitCompleted& event)
     {
         auto data = event.data;
@@ -141,12 +159,25 @@ namespace beam::wallet
 
     void Sender::FSMDefinition::confirm_change_output(const TxConfirmationCompleted&)
     {
-        m_gateway.send_output_confirmation();
+        if (m_changeOutput)
+        {
+            m_gateway.send_output_confirmation(*m_changeOutput);
+        }
+    }
+
+    void Sender::FSMDefinition::complete_tx(const TxConfirmationCompleted&)
+    {
+        complete_tx();
     }
 
     void Sender::FSMDefinition::complete_tx(const TxOutputConfirmCompleted&)
     {
-        cout << "Sender::complete_tx\n";
+        complete_tx();
+    }
+
+    void Sender::FSMDefinition::complete_tx()
+    {
+        LOG_DEBUG() << "[Sender] complete tx";
         for (auto& c : m_coins)
         {
             c.m_status = Coin::Spent;

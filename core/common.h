@@ -194,7 +194,7 @@ namespace beam
 	struct Transaction
 		:public TxBase
 	{
-		typedef std::unique_ptr<Transaction> Ptr;
+		typedef std::shared_ptr<Transaction> Ptr;
 		// Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
 		bool IsValid(Context&) const;
 	};

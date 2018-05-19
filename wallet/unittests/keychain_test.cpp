@@ -39,7 +39,7 @@ void TestKeychain()
 
 		keychain.update(coins);
 
-		assert(keychain.getCoins(7).size() == 1);
+		assert(keychain.getCoins(5).size() == 0);
 	}
 }
 

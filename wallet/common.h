@@ -9,9 +9,13 @@
 namespace beam
 {
     using Uuid = std::array<uint8_t, 16>;
+
+    std::ostream& operator<<(std::ostream& os, const Uuid& uuid);
+    struct Coin;
     using UuidPtr = std::shared_ptr<Uuid>;
     using TransactionPtr = std::shared_ptr<Transaction>;
     ECC::Scalar::Native generateNonce();
+
     namespace wallet
     {
         namespace msm = boost::msm;
@@ -28,15 +32,24 @@ namespace beam
             }
 
             template<typename Event>
-            bool processEvent(const Event& event)
+            bool process_event(const Event& event)
             {
                 return static_cast<Derived*>(this)->m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
             }
         };
 
-        struct IWalletGateway {
+        struct TxRegisteredData
+        {
+            bool m_value;
+            SERIALIZE(m_value);
+        };
+
+        struct IWalletGateway
+        {
+            virtual ~IWalletGateway() {}
             virtual void on_tx_completed(const Uuid& txId) = 0;
-            virtual void send_output_confirmation() = 0;
+            virtual void send_output_confirmation(const Coin& coin) = 0;
+            virtual void send_tx_failed(const Uuid& txId) = 0;
         };
 
         namespace sender
@@ -47,14 +60,21 @@ namespace beam
                 using Ptr = std::shared_ptr<InvitationData>;
 
                 Uuid m_txId;
-                ECC::Amount m_amount; ///??
+                ECC::Amount m_amount;
+                Height m_height;
                 ECC::Hash::Value m_message;
                 ECC::Point m_publicSenderBlindingExcess;
                 ECC::Point m_publicSenderNonce;
                 std::vector<Input::Ptr> m_inputs;
                 std::vector<Output::Ptr> m_outputs;
 
-                SERIALIZE(m_txId, m_amount, m_message, m_publicSenderBlindingExcess, m_publicSenderNonce, m_inputs, m_outputs);
+                SERIALIZE(m_txId
+                        , m_amount
+                        , m_message
+                        , m_publicSenderBlindingExcess
+                        , m_publicSenderNonce
+                        , m_inputs
+                        , m_outputs);
             };
 
             struct ConfirmationData
@@ -89,20 +109,10 @@ namespace beam
                 SERIALIZE(m_txId, m_publicReceiverBlindingExcess, m_publicReceiverNonce, m_receiverSignature);
             };
 
-            struct RegisterTxData
-            {
-                using Ptr = std::shared_ptr<RegisterTxData>;
-
-                Uuid m_txId;
-                TransactionPtr m_transaction;
-
-                SERIALIZE(m_txId, m_transaction);
-            };
-
             struct IGateway : virtual IWalletGateway
             {
                 virtual void send_tx_confirmation(ConfirmationData::Ptr) = 0;
-                virtual void register_tx(RegisterTxData::Ptr) = 0;
+                virtual void register_tx(const Uuid&, Transaction::Ptr) = 0;
                 virtual void send_tx_registered(UuidPtr&&) = 0;
             };
         }

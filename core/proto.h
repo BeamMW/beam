@@ -1,7 +1,6 @@
 #pragma once
 
 #include "common.h"
-#include "async.h"
 #include "../utility/bridge.h"
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"

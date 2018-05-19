@@ -58,6 +58,12 @@ namespace ECC {
 		return *this;
 	}
 
+	Scalar& Scalar::operator = (const Zero_&)
+	{
+		m_Value = Zero;
+		return *this;
+	}
+
 	Scalar::Native& Scalar::Native::operator = (Zero_)
 	{
 		secp256k1_scalar_clear(this);

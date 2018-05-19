@@ -135,6 +135,7 @@ namespace ECC
 
 		class Native;
 		Scalar& operator = (const Native&);
+		Scalar& operator = (const Zero_&);
 
 		int cmp(const Scalar& x) const { return m_Value.cmp(x.m_Value); }
 		COMPARISON_VIA_CMP(Scalar)

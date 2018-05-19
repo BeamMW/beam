@@ -14,7 +14,9 @@ namespace beam::wallet
         , m_publicSenderBlindingExcess{ initData->m_publicSenderBlindingExcess }
         , m_publicSenderNonce{ initData->m_publicSenderNonce }
         , m_transaction{ make_shared<Transaction>() }
+        , m_receiver_coin{keychain->getNextID(), m_amount, Coin::Unconfirmed, initData->m_height}
     {
+        m_transaction->m_Offset = ECC::Zero;
         m_transaction->m_vInputs = move(initData->m_inputs);
         m_transaction->m_vOutputs = move(initData->m_outputs);
     }
@@ -38,10 +40,10 @@ namespace beam::wallet
         Output::Ptr output = make_unique<Output>();
         output->m_Coinbase = false;
 
-        Scalar::Native blindingFactor = m_keychain->calcKey(m_keychain->getNextID());
-		output->Create(blindingFactor, amount, true);
+        Scalar::Native blindingFactor = m_keychain->calcKey(m_receiver_coin.m_id);
+        output->Create(blindingFactor, amount, true);
 
-        m_blindingExcess = -blindingFactor; // TODO: we have to remove this negation and change signs in verification formula
+        m_blindingExcess = -blindingFactor;
 
         m_transaction->m_vOutputs.push_back(move(output));
  
@@ -110,28 +112,27 @@ namespace beam::wallet
         beam::TxBase::Context ctx;
         assert(m_transaction->IsValid(ctx));
 
-        auto data = shared_ptr<receiver::RegisterTxData>(new receiver::RegisterTxData{ m_txId, move(m_transaction) });
-        m_gateway.register_tx(data);
+        m_gateway.register_tx(m_txId, m_transaction);
     }
 
     void Receiver::FSMDefinition::rollback_tx(const TxFailed& event)
     {
-        cout << "Receiver::rollback_tx\n";
+        LOG_DEBUG() << "[Receiver] rollback_tx";
     }
 
     void Receiver::FSMDefinition::cancel_tx(const TxConfirmationCompleted& )
     {
-        cout << "Receiver::cancel_tx\n";
+        LOG_DEBUG() << "[Receiver] cancel_tx";
     }
 
     void Receiver::FSMDefinition::confirm_output(const TxRegistrationCompleted& )
     {
         m_gateway.send_tx_registered(make_unique<Uuid>(m_txId));
-        m_gateway.send_output_confirmation();
+        m_gateway.send_output_confirmation(m_receiver_coin);
     }
 
     void Receiver::FSMDefinition::complete_tx(const TxOutputConfirmCompleted& )
     {
-        cout << "Receiver::complete_tx\n";
+        LOG_DEBUG() << "[Receiver] complete tx";
     }
 }
