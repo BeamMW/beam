@@ -255,6 +255,7 @@ namespace beam
 				void get_Hash(Merkle::Hash&) const; // Calculated from all the above
 				void get_ID(ID&) const;
 
+				bool IsSane() const;
 				bool IsValidPoW() const;
 				bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
 			};
@@ -263,6 +264,7 @@ namespace beam
 		static const Amount s_CoinbaseEmission; // the maximum allowed coinbase in a single block
 		static const Height s_MaturityCoinbase;
 		static const Height s_MaturityStd;
+		static const Height s_HeightGenesis; // height of the 1st block, defines the convention. Currently =1
 
 		static const size_t s_MaxBodySize;
 

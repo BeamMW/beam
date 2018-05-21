@@ -481,6 +481,9 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	if (t.m_Key.second)
 		ThrowUnexpected();
 
+	if (!msg.m_Description.IsSane())
+		ThrowUnexpected();
+
 	Block::SystemState::ID id;
 	msg.m_Description.get_ID(id);
 	if (id != t.m_Key.first)
@@ -621,13 +624,16 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 
 void Node::Peer::OnMsg(proto::GetProofState&& msg)
 {
+	if (msg.m_Height < Block::s_HeightGenesis)
+		ThrowUnexpected();
+
 	proto::Proof msgOut;
 
 	NodeDB::StateID sid;
 	if (m_pThis->m_Processor.get_DB().get_Cursor(sid))
 	{
 		if (msg.m_Height < sid.m_Height)
-			m_pThis->m_Processor.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height + 1);
+			m_pThis->m_Processor.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height);
 	}
 
 	Send(msgOut);

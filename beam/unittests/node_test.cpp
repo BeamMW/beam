@@ -106,12 +106,13 @@ namespace beam
 		for (uint32_t h = 0; h < hMax; h++)
 		{
 			Block::SystemState::Full& s = vStates[h];
-			s.m_Height = h;
+			s.m_Height = h + Block::s_HeightGenesis;
 
 			if (h)
-				vStates[h-1].get_Hash(s.m_Prev);
-
-			cmmr.Append(s.m_Prev);
+			{
+				vStates[h - 1].get_Hash(s.m_Prev);
+				cmmr.Append(s.m_Prev);
+			}
 
 			if (hFork0 == h)
 				cmmrFork = cmmr;
@@ -188,7 +189,7 @@ namespace beam
 
 		NodeDB::StateID sid;
 		verify_test(CountTips(db, false, &sid) == 2);
-		verify_test(sid.m_Height == hMax-1);
+		verify_test(sid.m_Height == hMax-1 + Block::s_HeightGenesis);
 
 		db.SetMined(sid, 200000);
 		db.SetMined(sid, 250000);
@@ -217,7 +218,7 @@ namespace beam
 		db.SetStateFunctional(pRows[0]); // this should trigger big update
 		db.assert_valid();
 		verify_test(CountTips(db, true, &sid) == 2);
-		verify_test(sid.m_Height == hFork0 + 1);
+		verify_test(sid.m_Height == hFork0 + 1 + Block::s_HeightGenesis);
 
 		tr.Commit();
 		tr.Start(db);
@@ -225,25 +226,26 @@ namespace beam
 		// test proofs
 		NodeDB::StateID sid2;
 		verify_test(CountTips(db, false, &sid2) == 2);
-		verify_test(sid2.m_Height == hMax-1);
+		verify_test(sid2.m_Height == hMax-1 + Block::s_HeightGenesis);
 
 		do
 		{
-			if (sid2.m_Height + 1 < hMax)
+			if (sid2.m_Height + 1 < hMax + Block::s_HeightGenesis)
 			{
 				Merkle::Hash hv;
 				db.get_PredictedStatesHash(hv, sid2);
-				verify_test(hv == vStates[(size_t) sid2.m_Height + 1].m_History);
+				verify_test(hv == vStates[(size_t) sid2.m_Height + 1 - Block::s_HeightGenesis].m_History);
 			}
 
-			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height].m_History;
+			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height - Block::s_HeightGenesis].m_History;
 
-			for (uint32_t h = 0; h <= sid2.m_Height; h++)
+			for (uint32_t h = Block::s_HeightGenesis; h < sid2.m_Height; h++)
 			{
 				Merkle::Proof proof;
 				db.get_Proof(proof, sid2, h);
 
-				Merkle::Hash hv = vStates[h].m_Prev;
+				Merkle::Hash hv;
+				vStates[h - Block::s_HeightGenesis].get_Hash(hv);
 				Merkle::Interpret(hv, proof);
 
 				verify_test(hvRoot == hv);
@@ -253,7 +255,7 @@ namespace beam
 
 		while (db.get_Prev(sid))
 			;
-		verify_test(sid.m_Height == 0);
+		verify_test(sid.m_Height == Block::s_HeightGenesis);
 
 		db.SetStateNotFunctional(pRows[0]);
 		db.assert_valid();
@@ -263,9 +265,9 @@ namespace beam
 		db.assert_valid();
 		verify_test(CountTips(db, true) == 2);
 
-		for (sid.m_Height = 0; sid.m_Height < hMax; sid.m_Height++)
+		for (sid.m_Height = Block::s_HeightGenesis; sid.m_Height <= hMax; sid.m_Height++)
 		{
-			sid.m_Row = pRows[sid.m_Height];
+			sid.m_Row = pRows[sid.m_Height - Block::s_HeightGenesis];
 			db.MoveFwd(sid);
 		}
 
@@ -455,7 +457,7 @@ namespace beam
 
 		const Height hIncubation = 3; // artificial incubation period for outputs.
 
-		for (Height h = 0; h < 96; h++)
+		for (Height h = Block::s_HeightGenesis; h < 96 + Block::s_HeightGenesis; h++)
 		{
 			std::list<MyNodeProcessor1::MyUtxo> lstNewOutputs;
 
@@ -785,7 +787,7 @@ namespace beam
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
 				printf("Tip Height=%u\n", msg.m_ID.m_Height);
-				verify_test(m_vStates.size() == msg.m_ID.m_Height);
+				verify_test(m_vStates.size() + 1 == msg.m_ID.m_Height);
 
 				if (msg.m_ID.m_Height >= m_HeightTrg)
 					io::Reactor::get_Current().stop();
@@ -799,7 +801,7 @@ namespace beam
 
 			virtual void OnMsg(proto::Hdr&& msg) override
 			{
-				verify_test(m_vStates.size() == msg.m_Description.m_Height);
+				verify_test(m_vStates.size() + 1 == msg.m_Description.m_Height);
 				m_vStates.push_back(msg.m_Description);
 
 				ECC::Scalar::Native k;
@@ -811,7 +813,7 @@ namespace beam
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
 					proto::GetProofState msgOut;
-					msgOut.m_Height = i;
+					msgOut.m_Height = i + Block::s_HeightGenesis;
 					Send(msgOut);
 				}
 

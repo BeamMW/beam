@@ -202,6 +202,7 @@ public:
 	struct StateID {
 		uint64_t m_Row;
 		Height m_Height;
+		void SetNull();
 	};
 
 
