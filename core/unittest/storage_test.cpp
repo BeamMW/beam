@@ -76,7 +76,6 @@ namespace beam
 			ZeroObject(ti);
 
 			ti.m_Tag.m_pData[0] = n;
-			ti.m_Difficulty = 1;
 			ti.m_Height = 1;
 
 			CreateTag(ti);

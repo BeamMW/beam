@@ -14,7 +14,6 @@ namespace beam {
 #define TblStates_Height		"Height"
 #define TblStates_Hash			"Hash"
 #define TblStates_HashPrev		"HashPrev"
-#define TblStates_Difficulty	"Difficulty"
 #define TblStates_Timestamp		"Timestamp"
 #define TblStates_LiveObjects	"LiveObjects"
 #define TblStates_History		"History"
@@ -257,7 +256,6 @@ void NodeDB::Create()
 		"[" TblStates_Height		"] INTEGER NOT NULL,"
 		"[" TblStates_Hash			"] BLOB NOT NULL,"
 		"[" TblStates_HashPrev		"] BLOB NOT NULL,"
-		"[" TblStates_Difficulty	"] INTEGER NOT NULL,"
 		"[" TblStates_Timestamp		"] INTEGER NOT NULL,"
 		"[" TblStates_LiveObjects	"] BLOB NOT NULL,"
 		"[" TblStates_History		"] BLOB NOT NULL,"
@@ -461,7 +459,6 @@ void NodeDB::Transaction::Rollback()
 #define StateCvt_Fields(macro, sep) \
 	macro(Height,		m_Height) sep \
 	macro(HashPrev,		m_Prev) sep \
-	macro(Difficulty,	m_Difficulty) sep \
 	macro(Timestamp,	m_TimeStamp) sep \
 	macro(PoW,			m_PoW) sep \
 	macro(LiveObjects,	m_LiveObjects) sep \

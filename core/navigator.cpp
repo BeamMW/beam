@@ -563,12 +563,10 @@ namespace beam
 	{
 		if (bFwd)
 		{
-			m_Difficulty += ti.m_Difficulty;
 			m_Height += ti.m_Height;
 		} else
 		{
-			m_Difficulty += ti.m_Difficulty;
-			m_Height += ti.m_Height;
+			m_Height += ti.m_Height; //?
 		}
 
 		for (int i = 0; i < _countof(m_Tag.m_pData); i++)

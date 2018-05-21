@@ -33,7 +33,6 @@ namespace beam
 {
 	// sorry for replacing 'using' by 'typedefs', some compilers don't support it
 	typedef uint64_t Timestamp;
-	typedef uint64_t Difficulty;
 	typedef uint64_t Height;
 	typedef ECC::uintBig_t<256> uint256_t;
 	typedef std::vector<uint8_t> ByteBuffer;
@@ -220,15 +219,16 @@ namespace beam
 
 			std::array<uint8_t, nSolutionBytes>	m_Indices;
 
-			typedef ECC::uintBig_t<112> NonceType;
-			NonceType m_Nonce; // 14 bytes. The overall solution size is 64 bytes.
+			typedef ECC::uintBig_t<104> NonceType;
+			NonceType m_Nonce; // 13 bytes. The overall solution size is 64 bytes.
+			uint8_t m_Difficulty;
 
-			bool IsValid(const void* pInput, uint32_t nSizeInput, Difficulty) const;
+			bool IsValid(const void* pInput, uint32_t nSizeInput) const;
 
 			using Cancel = std::function<bool(bool bRetrying)>;
-			// Nonce must be initialized. During the solution it's incremented each time by 1.
+			// Difficulty and Nonce must be initialized. During the solution it's incremented each time by 1.
 			// returns false only if cancelled
-			bool Solve(const void* pInput, uint32_t nSizeInput, Difficulty, const Cancel& = [](bool) { return false; });
+			bool Solve(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
 
 		private:
 			struct Helper;
@@ -249,7 +249,6 @@ namespace beam
 				Merkle::Hash	m_Prev;			// explicit referebce to prev
 				Merkle::Hash	m_History;		// Objects that are only added and never deleted. Currently: previous states.
 				Merkle::Hash	m_LiveObjects;	// Objects that can be both added and deleted. Currently: UTXOs and kernels
-				Difficulty		m_Difficulty;
 				Timestamp		m_TimeStamp;
 				PoW				m_PoW;
 

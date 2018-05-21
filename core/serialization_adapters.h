@@ -412,6 +412,7 @@ namespace detail
 		{
 			ar
 				& pow.m_Indices
+				& pow.m_Difficulty
 				& pow.m_Nonce;
 
 			return ar;
@@ -422,6 +423,7 @@ namespace detail
 		{
 			ar
 				& pow.m_Indices
+				& pow.m_Difficulty
 				& pow.m_Nonce;
 
 			return ar;
@@ -455,7 +457,6 @@ namespace detail
 				& v.m_Prev
 				& v.m_History
 				& v.m_LiveObjects
-				& v.m_Difficulty
 				& v.m_TimeStamp
 				& v.m_PoW;
 
@@ -470,7 +471,6 @@ namespace detail
 				& v.m_Prev
 				& v.m_History
 				& v.m_LiveObjects
-				& v.m_Difficulty
 				& v.m_TimeStamp
 				& v.m_PoW;
 

@@ -489,10 +489,7 @@ namespace beam
 		//	[
 		//		[
 		//			m_Height
-		//			[
-		//				m_Difficulty
-		//				m_TimeStamp
-		//			]
+		//			m_TimeStamp
 		//		]
 		//		[
 		//			[
@@ -506,12 +503,9 @@ namespace beam
 
 		Merkle::Hash h0, h1;
 
-		ECC::Hash::Processor() << m_Difficulty >> h1;
-		ECC::Hash::Processor() << m_TimeStamp >> h0;
-		Merkle::Interpret(h1, h0, true); // [ m_Difficulty, m_TimeStamp]
-
 		ECC::Hash::Processor() << m_Height >> h0;
-		Merkle::Interpret(h0, h1, true); // [ m_Height, [ m_Difficulty, m_TimeStamp] ]
+		ECC::Hash::Processor() << m_TimeStamp >> h1;
+		Merkle::Interpret(h0, h1, true); // [ m_Height, m_TimeStamp ]
 
 		Merkle::Interpret(h1, m_Prev, m_History);
 		Merkle::Interpret(h1, m_LiveObjects, true); // [ [m_Prev, m_States], m_LiveObjects ]
@@ -529,14 +523,14 @@ namespace beam
 	{
 		Merkle::Hash hv;
 		get_Hash(hv);
-		return m_PoW.IsValid(hv.m_pData, sizeof(hv.m_pData), m_Difficulty);
+		return m_PoW.IsValid(hv.m_pData, sizeof(hv.m_pData));
 	}
 
 	bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
 	{
 		Merkle::Hash hv;
 		get_Hash(hv);
-		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), m_Difficulty, fnCancel);
+		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
 	}
 
 	bool Block::Body::IsValid(Height h0, Height h1) const
