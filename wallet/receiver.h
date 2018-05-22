@@ -4,8 +4,6 @@
 #include "wallet/keychain.h"
 #include "wallet/sender.h"
 
-#include <boost/msm/front/functor_row.hpp>
-
 namespace beam::wallet
 {
     class Receiver : public FSMHelper<Receiver>

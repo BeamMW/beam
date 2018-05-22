@@ -2,8 +2,20 @@
 
 #include "core/common.h"
 #include "core/ecc_native.h"
+
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4127 )
+#endif
+
 #include <boost/msm/back/state_machine.hpp>
 #include <boost/msm/front/state_machine_def.hpp>
+#include <boost/msm/front/functor_row.hpp>
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 #include "core/serialization_adapters.h"
 
 namespace beam

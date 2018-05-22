@@ -1,9 +1,19 @@
 #pragma once
 #include "serialize_fwd.h"
 #include "serialize_streams.h"
+
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4127 4458)
+#endif
+
 #include "yas/binary_iarchive.hpp"
 #include "yas/binary_oarchive.hpp"
 #include "yas/std_types.hpp"
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 namespace beam {
 

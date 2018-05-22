@@ -20,11 +20,11 @@ set(IO_SRC
 # ~etc
 )
 
-IF (WIN32)
+if (MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX")
-ELSE()
+else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
-ENDIF()
+endif()
 
 add_library(utility STATIC ${UTILITY_SRC} ${IO_SRC})
 add_library(crypto STATIC crypto/blake/blake2b.cpp)
