@@ -793,6 +793,224 @@ namespace ECC {
 
 	} // namespace RangeProof
 
+
+	/////////////////////
+	// InnerProduct
+	InnerProduct::InnerProduct()
+	{
+		Hash::Processor hp; // naive point generation
+		for (uint32_t i = 0; i < nDim; i++)
+		{
+			hp << i;
+
+			for (uint32_t j = 0; j < _countof(m_pGen); j++)
+			{
+				hp << j;
+				CreatePt(m_pGen[j][i], hp);
+			}
+		}
+
+		hp << 2U;
+		CreatePt(m_GenDot, hp);
+	}
+
+	void InnerProduct::CreatePt(Point::Native& res, Hash::Processor& hp)
+	{
+		ECC::Point pt;
+		pt.m_Y = false;
+
+		while (true)
+		{
+			hp >> pt.m_X;
+			if (res.Import(pt) && !(res == Zero))
+				break;
+		}
+	}
+
+	void InnerProduct::get_Challenge(Scalar::Native* pX, Oracle& oracle)
+	{
+		do
+			oracle >> pX[0];
+		while (pX[0] == Zero);
+
+		pX[1].SetInv(pX[0]);
+	}
+
+	void InnerProduct::PerformCycle(State& dst, const State& src, uint32_t n, const Scalar::Native* pX, Point* pLR_) const
+	{
+		assert((n > 1) && !(n & (n - 1)));
+		n >>= 1;
+
+		bool bGenOnly = !pLR_;
+
+		Point::Native pLR[2];
+
+		if (!bGenOnly)
+		{
+			Scalar::Native crossTrm;
+			for (int j = 0; j < 2; j++)
+			{
+				crossTrm = Zero;
+
+				for (uint32_t i = 0; i < n; i++)
+					crossTrm += src.m_pVal[j][i] * src.m_pVal[!j][n + i];
+
+				pLR[j] = m_GenDot * crossTrm;
+			}
+		}
+
+		for (int j = 0; j < 2; j++)
+		{
+			for (uint32_t i = 0; i < n; i++)
+			{
+				// arithmetic sequence supports inplace modification, i.e. src and dst may be the same.
+				const Point::Native& g0 = src.m_pGen[j][i];
+				const Point::Native& g1 = src.m_pGen[j][n + i];
+
+				if (!bGenOnly)
+				{
+					const Scalar::Native& v0 = src.m_pVal[j][i];
+					const Scalar::Native& v1 = src.m_pVal[j][n + i];
+
+					pLR[j] += g1 * v0;
+					pLR[!j] += g0 * v1;
+
+					dst.m_pVal[j][i] = v0 * pX[j];
+					dst.m_pVal[j][i] += v1 * pX[!j];
+				}
+
+				dst.m_pGen[j][i] = g0 * pX[!j];
+				dst.m_pGen[j][i] += g1 * pX[j];
+			}
+		}
+
+		if (!bGenOnly)
+			for (int j = 0; j < 2; j++)
+				pLR_[j] = pLR[j];
+	}
+
+	void InnerProduct::CalcCommitment(Point::Native& res, const State& s, uint32_t n) const
+	{
+		res = Zero;
+		Scalar::Native dot(Zero);
+
+		for (uint32_t i = 0; i < n; i++)
+		{
+			dot += s.m_pVal[0][i] * s.m_pVal[1][i];
+			for (int j = 0; j < 2; j++)
+				res += s.m_pGen[j][i] * s.m_pVal[j][i];
+		}
+
+		res += m_GenDot * dot;
+	}
+
+	void InnerProduct::Create(Signature& sig, const Scalar::Native* pA, const Scalar::Native* pB) const
+	{
+		// bufs
+		const uint32_t nBufDim = nDim >> 1;
+		Point::Native pBufGen[2][nBufDim];
+		Scalar::Native pBufVal[2][nBufDim];
+
+		State s0, s1;
+		s0.m_pVal[0] = (Scalar::Native*) pA;
+		s0.m_pVal[1] = (Scalar::Native*) pB;
+
+		for (int i = 0; i < 2; i++)
+		{
+			s0.m_pGen[i] = (Point::Native*) m_pGen[i];
+			s1.m_pGen[i] = pBufGen[i];
+			s1.m_pVal[i] = pBufVal[i];
+		}
+
+		Point::Native comm;
+		CalcCommitment(comm, s0, nDim);
+		sig.m_Commitment = comm;
+
+		Oracle oracle;
+		oracle << sig.m_Commitment;
+
+		Scalar::Native pX[2];
+
+		uint32_t n = nDim;
+		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
+		{
+			get_Challenge(pX, oracle);
+
+			Point* pLR = sig.m_pLR[iCycle];
+			PerformCycle(s1, s0, n, pX, pLR);
+
+			oracle << pLR[0] << pLR[1];
+
+			if (!iCycle)
+				s0 = s1;
+		}
+
+		assert(1 == n);
+
+		for (int i = 0; i < 2; i++)
+			sig.m_pCondensed[i] = s0.m_pVal[i][0];
+	}
+
+	bool InnerProduct::IsValid(const Signature& sig) const
+	{
+		// bufs
+		const uint32_t nBufDim = nDim >> 1;
+		Point::Native pBufGen[2][nBufDim];
+
+		State s0, s1;
+
+		for (int i = 0; i < 2; i++)
+		{
+			s0.m_pGen[i] = (Point::Native*) m_pGen[i];
+			s1.m_pGen[i] = pBufGen[i];
+		}
+
+		Oracle oracle;
+		oracle << sig.m_Commitment;
+
+		Scalar::Native pX[2];
+		Point::Native comm = sig.m_Commitment;
+		Point::Native ptTmp;
+
+		uint32_t n = nDim;
+		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
+		{
+			get_Challenge(pX, oracle);
+
+			PerformCycle(s1, s0, n, pX, NULL);
+
+			const Point* pLR = sig.m_pLR[iCycle];
+			for (int i = 0; i < 2; i++)
+			{
+				pX[i] *= pX[i];
+
+				ptTmp = pLR[i];
+				comm += ptTmp * pX[i];
+			}
+
+			oracle << pLR[0] << pLR[1];
+
+			if (!iCycle)
+				s0 = s1;
+		}
+
+		assert(1 == n);
+
+		// finally verify commitment
+		for (int i = 0; i < 2; i++)
+		{
+			pX[i] = sig.m_pCondensed[i];
+			s0.m_pVal[i] = pX + i;
+		}
+		CalcCommitment(ptTmp, s0, 1);
+
+		ptTmp = -ptTmp;
+		comm += ptTmp;
+
+		return comm == Zero;
+	}
+
+
 } // namespace ECC
 
 // Needed for test

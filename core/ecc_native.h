@@ -280,4 +280,44 @@ namespace ECC
 
 		void operator >> (Scalar::Native&);
 	};
+
+	// compact inner product encoding. Used in bulletproofs.
+	struct InnerProduct
+	{
+		static const uint32_t nDim = sizeof(Amount) << 3; // 64
+		static const uint32_t nCycles = 6;
+		static_assert(1 << nCycles == nDim, "");
+
+		struct Signature
+		{
+			ECC::Point m_Commitment;		// orifinal commitment consists of both vectors and the asserted dot product
+			ECC::Point m_pLR[nCycles][2];	// pairs of L,R values, per reduction  iteration
+			// condensed opening
+			ECC::Scalar m_pCondensed[2];	// remaining 1-dimension vectors
+		};
+
+		InnerProduct();
+
+		void Create(Signature&, const Scalar::Native* pA, const Scalar::Native* pB) const;
+		bool IsValid(const Signature&) const;
+
+
+	private:
+
+		Point::Native m_pGen[2][nDim];
+		Point::Native m_GenDot;
+
+		struct State {
+			Point::Native* m_pGen[2];
+			Scalar::Native* m_pVal[2];
+		};
+
+		static void get_Challenge(Scalar::Native* pX, Oracle&);
+
+		static void CreatePt(Point::Native&, Hash::Processor&);
+
+		void CalcCommitment(Point::Native&, const State&, uint32_t n) const;
+		void PerformCycle(State& dst, const State& src, uint32_t n, const Scalar::Native* pX, Point* pLR) const;
+	};
+
 }

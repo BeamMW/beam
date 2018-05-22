@@ -46,6 +46,8 @@ void SetRandom(Scalar::Native& x)
 Context g_Ctx;
 const Context& Context::get() { return g_Ctx; }
 
+InnerProduct g_CtxInnerProduct;
+
 void TestHash()
 {
 	Hash::Processor hp;
@@ -328,6 +330,20 @@ void TestRangeProof()
 	comm = Commitment(sk, rp.m_Value);
 
 	verify_test(!rp.IsValid(Point(comm)));
+
+	Scalar::Native pA[InnerProduct::nDim];
+	Scalar::Native pB[InnerProduct::nDim];
+
+	for (int i = 0; i < _countof(pA); i++)
+	{
+		SetRandom(pA[i]);
+		SetRandom(pB[i]);
+	}
+
+	InnerProduct::Signature sig;
+	g_CtxInnerProduct.Create(sig, pA, pB);
+
+	verify_test(g_CtxInnerProduct.IsValid(sig));
 }
 
 struct TransactionMaker
@@ -860,6 +876,39 @@ void RunBenchmark()
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
 				sig.IsValid(hv, p1);
+
+		} while (bm.ShouldContinue());
+	}
+
+	Scalar::Native pA[InnerProduct::nDim];
+	Scalar::Native pB[InnerProduct::nDim];
+
+	for (int i = 0; i < _countof(pA); i++)
+	{
+		SetRandom(pA[i]);
+		SetRandom(pB[i]);
+	}
+
+	InnerProduct::Signature sig2;
+
+	{
+		BenchmarkMeter bm("InnerProduct.Sign");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				g_CtxInnerProduct.Create(sig2, pA, pB);
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		BenchmarkMeter bm("InnerProduct.Verify");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				g_CtxInnerProduct.IsValid(sig2);
 
 		} while (bm.ShouldContinue());
 	}
