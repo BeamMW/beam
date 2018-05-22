@@ -314,10 +314,16 @@ namespace ECC
 
 		static void get_Challenge(Scalar::Native* pX, Oracle&);
 
+		struct ChallengeSet {
+			Scalar::Native m_Val[nCycles][2];
+		};
+
+		void Aggregate(Point::Native& res, const ChallengeSet&, const Scalar::Native&, int j, uint32_t iPos, uint32_t iCycle) const;
+
 		static void CreatePt(Point::Native&, Hash::Processor&);
 
 		void CalcCommitment(Point::Native&, const State&, uint32_t n) const;
-		void PerformCycle(State& dst, const State& src, uint32_t n, const Scalar::Native* pX, Point* pLR) const;
+		void PerformCycle(State& dst, const State& src, uint32_t iCycle, const ChallengeSet&, Point* pLR) const;
 	};
 
 }

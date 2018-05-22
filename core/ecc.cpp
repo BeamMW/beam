@@ -836,27 +836,22 @@ namespace ECC {
 		pX[1].SetInv(pX[0]);
 	}
 
-	void InnerProduct::PerformCycle(State& dst, const State& src, uint32_t n, const Scalar::Native* pX, Point* pLR_) const
+	void InnerProduct::PerformCycle(State& dst, const State& src, uint32_t iCycle, const ChallengeSet& cs, Point* pLR_) const
 	{
-		assert((n > 1) && !(n & (n - 1)));
-		n >>= 1;
-
-		bool bGenOnly = !pLR_;
+		uint32_t n = nDim >> (iCycle + 1);
+		assert(n);
 
 		Point::Native pLR[2];
 
-		if (!bGenOnly)
+		Scalar::Native crossTrm;
+		for (int j = 0; j < 2; j++)
 		{
-			Scalar::Native crossTrm;
-			for (int j = 0; j < 2; j++)
-			{
-				crossTrm = Zero;
+			crossTrm = Zero;
 
-				for (uint32_t i = 0; i < n; i++)
-					crossTrm += src.m_pVal[j][i] * src.m_pVal[!j][n + i];
+			for (uint32_t i = 0; i < n; i++)
+				crossTrm += src.m_pVal[j][i] * src.m_pVal[!j][n + i];
 
-				pLR[j] = m_GenDot * crossTrm;
-			}
+			pLR[j] = m_GenDot * crossTrm;
 		}
 
 		for (int j = 0; j < 2; j++)
@@ -867,26 +862,46 @@ namespace ECC {
 				const Point::Native& g0 = src.m_pGen[j][i];
 				const Point::Native& g1 = src.m_pGen[j][n + i];
 
-				if (!bGenOnly)
-				{
-					const Scalar::Native& v0 = src.m_pVal[j][i];
-					const Scalar::Native& v1 = src.m_pVal[j][n + i];
+				const Scalar::Native& v0 = src.m_pVal[j][i];
+				const Scalar::Native& v1 = src.m_pVal[j][n + i];
 
-					pLR[j] += g1 * v0;
-					pLR[!j] += g0 * v1;
+				pLR[j] += g1 * v0;
+				pLR[!j] += g0 * v1;
 
-					dst.m_pVal[j][i] = v0 * pX[j];
-					dst.m_pVal[j][i] += v1 * pX[!j];
-				}
+				dst.m_pVal[j][i] = v0 * cs.m_Val[iCycle][j];
+				dst.m_pVal[j][i] += v1 * cs.m_Val[iCycle][!j];
 
-				dst.m_pGen[j][i] = g0 * pX[!j];
-				dst.m_pGen[j][i] += g1 * pX[j];
+				dst.m_pGen[j][i] = g0 * cs.m_Val[iCycle][!j];
+				dst.m_pGen[j][i] += g1 * cs.m_Val[iCycle][j];
 			}
 		}
 
-		if (!bGenOnly)
-			for (int j = 0; j < 2; j++)
-				pLR_[j] = pLR[j];
+		for (int j = 0; j < 2; j++)
+			pLR_[j] = pLR[j];
+	}
+
+	void InnerProduct::Aggregate(Point::Native& res, const ChallengeSet& cs, const Scalar::Native& k, int j, uint32_t iPos, uint32_t iCycle) const
+	{
+		if (iCycle)
+		{
+			assert(iCycle <= nCycles);
+			Scalar::Native k0 = k;
+			k0 *= cs.m_Val[iCycle - 1][!j];
+
+			Aggregate(res, cs, k0, j, iPos, iCycle - 1);
+
+			k0 = k;
+			k0 *= cs.m_Val[iCycle - 1][j];
+
+			uint32_t nStep = nDim >> iCycle;
+
+			Aggregate(res, cs, k0, j, iPos + nStep, iCycle - 1);
+
+		} else
+		{
+			assert(iPos < nDim);
+			res += m_pGen[j][iPos] * k;
+		}
 	}
 
 	void InnerProduct::CalcCommitment(Point::Native& res, const State& s, uint32_t n) const
@@ -929,15 +944,15 @@ namespace ECC {
 		Oracle oracle;
 		oracle << sig.m_Commitment;
 
-		Scalar::Native pX[2];
+		ChallengeSet cs;
 
 		uint32_t n = nDim;
 		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
 		{
-			get_Challenge(pX, oracle);
+			get_Challenge(cs.m_Val[iCycle], oracle);
 
 			Point* pLR = sig.m_pLR[iCycle];
-			PerformCycle(s1, s0, n, pX, pLR);
+			PerformCycle(s1, s0, iCycle, cs, pLR);
 
 			oracle << pLR[0] << pLR[1];
 
@@ -953,59 +968,50 @@ namespace ECC {
 
 	bool InnerProduct::IsValid(const Signature& sig) const
 	{
-		// bufs
-		const uint32_t nBufDim = nDim >> 1;
-		Point::Native pBufGen[2][nBufDim];
-
-		State s0, s1;
-
-		for (int i = 0; i < 2; i++)
-		{
-			s0.m_pGen[i] = (Point::Native*) m_pGen[i];
-			s1.m_pGen[i] = pBufGen[i];
-		}
-
 		Oracle oracle;
 		oracle << sig.m_Commitment;
 
-		Scalar::Native pX[2];
+		ChallengeSet cs;
 		Point::Native comm = sig.m_Commitment;
 		Point::Native ptTmp;
+		Scalar::Native valTmp;
 
 		uint32_t n = nDim;
 		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
 		{
-			get_Challenge(pX, oracle);
-
-			PerformCycle(s1, s0, n, pX, NULL);
+			get_Challenge(cs.m_Val[iCycle], oracle);
 
 			const Point* pLR = sig.m_pLR[iCycle];
 			for (int i = 0; i < 2; i++)
 			{
-				pX[i] *= pX[i];
+				valTmp = cs.m_Val[iCycle][i];
+				valTmp *= valTmp;
 
 				ptTmp = pLR[i];
-				comm += ptTmp * pX[i];
+				comm += ptTmp * valTmp;
 			}
 
 			oracle << pLR[0] << pLR[1];
-
-			if (!iCycle)
-				s0 = s1;
 		}
 
 		assert(1 == n);
 
 		// finally verify commitment
-		for (int i = 0; i < 2; i++)
-		{
-			pX[i] = sig.m_pCondensed[i];
-			s0.m_pVal[i] = pX + i;
-		}
-		CalcCommitment(ptTmp, s0, 1);
+		comm = -comm;
 
-		ptTmp = -ptTmp;
-		comm += ptTmp;
+		for (int j = 0; j < 2; j++)
+		{
+			// calculate the transformed generator
+			valTmp = sig.m_pCondensed[j];
+			ptTmp = Zero;
+
+			Aggregate(ptTmp, cs, valTmp, j, 0, nCycles);
+			comm += ptTmp;
+		}
+
+		valTmp = sig.m_pCondensed[0];
+		valTmp *= sig.m_pCondensed[1];
+		comm += m_GenDot * valTmp;
 
 		return comm == Zero;
 	}
