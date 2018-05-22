@@ -48,7 +48,8 @@ namespace beam
         void send_tx_message(PeerId to, wallet::receiver::ConfirmationData::Ptr&&) override;
         void send_tx_message(PeerId to, wallet::TxRegisteredData&&) override;
         void send_node_message(proto::NewTransaction&&) override;
-        void send_node_message(proto::GetProofUtxo&&) override;
+		void send_node_message(proto::GetProofUtxo&&) override;
+        void send_node_message(proto::GetHdr&&) override;
 
         void close_connection(uint64_t id) override;
 
@@ -115,6 +116,7 @@ namespace beam
             void OnClosed(int errorCode) override;
             void OnMsg(proto::Boolean&& msg) override;
             void OnMsg(proto::ProofUtxo&& msg) override;
+			void OnMsg(proto::NewTip&& msg) override;
         private:
             IWallet & m_wallet;
             std::vector<NodeConnectCallback> m_connections_callbacks;

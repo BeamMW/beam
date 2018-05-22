@@ -207,7 +207,8 @@ namespace beam
 		ECC::Amount sum = 0;
 
 		{
-			sqlite::Statement stm(_db, "SELECT * FROM storage WHERE status=1 ORDER BY amount ASC;");
+			sqlite::Statement stm(_db, "SELECT * FROM storage WHERE status=?1 ORDER BY amount ASC;");
+			stm.bind(1, Coin::Unspent);
 
 			while (true)
 			{
@@ -310,4 +311,22 @@ namespace beam
 			trans.commit();
 		}
     }
+
+	void Keychain::visit(std::function<bool(const beam::Coin& coin)> func)
+	{
+		sqlite::Statement stm(_db, "SELECT * FROM storage;");
+
+		while (stm.step())
+		{
+			Coin coin;
+
+			// TODO: move it to a separate method (sqlite::Statement -> Coin)
+			stm.get(0, coin.m_id);
+			stm.get(1, coin.m_amount);
+			stm.get(2, coin.m_status);
+
+			if (!func(coin))
+				break;
+		}
+	}
 }

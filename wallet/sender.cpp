@@ -157,31 +157,23 @@ namespace beam::wallet
         
     }
 
-    void Sender::FSMDefinition::confirm_change_output(const TxConfirmationCompleted&)
-    {
-        if (m_changeOutput)
-        {
-            m_gateway.send_output_confirmation(m_txId, *m_changeOutput);
-        }
-    }
 
     void Sender::FSMDefinition::complete_tx(const TxConfirmationCompleted&)
     {
         complete_tx();
     }
 
-    void Sender::FSMDefinition::complete_tx(const TxOutputConfirmCompleted&)
-    {
-        complete_tx();
-    }
 
     void Sender::FSMDefinition::complete_tx()
     {
         LOG_DEBUG() << "[Sender] complete tx";
+
+		// TODO: we have to get proof for these coins before!!!
         for (auto& c : m_coins)
         {
             c.m_status = Coin::Spent;
         }
+
         if (m_changeOutput)
         {
             m_changeOutput->m_status = Coin::Unspent;

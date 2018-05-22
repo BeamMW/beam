@@ -89,6 +89,11 @@ namespace beam {
         send_to_node(move(data));
     }
 
+	void WalletNetworkIO::send_node_message(proto::GetHdr&& data)
+	{
+		send_to_node(move(data));
+	}
+
     void WalletNetworkIO::close_connection(uint64_t id)
     {
         m_connections.erase(id);
@@ -241,5 +246,10 @@ namespace beam {
     {
         m_wallet.handle_node_message(move(msg));
     }
+
+	void WalletNetworkIO::WalletNodeConnection::OnMsg(proto::NewTip&& msg)
+	{
+		m_wallet.handle_node_message(move(msg));
+	}
 
 }
