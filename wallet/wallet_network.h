@@ -82,7 +82,6 @@ namespace beam
             else
             {
                 LOG_ERROR() << "No connection";
-                // add some handling
             }
         }
 

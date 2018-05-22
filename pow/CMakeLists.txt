@@ -1,11 +1,5 @@
 set (CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR};${CMAKE_MODULE_PATH}")
 
-IF (WIN32)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX")
-ELSE()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
-ENDIF()
-
 include_directories(impl)
 
 set(POW_SRC

@@ -30,12 +30,12 @@ namespace
             return 1;
         }
 
-        ECC::Scalar calcKey(uint64_t id)
+        ECC::Scalar calcKey(uint64_t /*id*/)
         {
             return ECC::Scalar();
         }
 
-        std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock)
+        std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool /*lock*/)
         {
             std::vector<beam::Coin> res;
             ECC::Amount t = 0;
@@ -52,17 +52,17 @@ namespace
             return res;
         }
 
-        void store(const beam::Coin& coin)
+        void store(const beam::Coin& /*coin*/)
         {
 
         }
 
-        void update(const std::vector<beam::Coin>& coins)
+        void update(const std::vector<beam::Coin>& /*coins*/)
         {
 
         }
 
-        void remove(const std::vector<beam::Coin>& coins)
+        void remove(const std::vector<beam::Coin>& /*coins*/)
         {
 
         }
@@ -121,17 +121,17 @@ namespace
             cout << "sent senders's tx confirmation message\n";
         }
 
-        void send_output_confirmation(const Uuid& txId, const Coin&) override
+        void send_output_confirmation(const Uuid& /*txId*/, const Coin&) override
         {
             cout << "sent change output confirmation message\n";
         }
 
-        void send_tx_failed(const Uuid& txId) override
+        void send_tx_failed(const Uuid& /*txId*/) override
         {
 
         }
 
-        void on_tx_completed(const Uuid& txId) override
+        void on_tx_completed(const Uuid& /*txId*/) override
         {
             cout << __FUNCTION__ <<"\n";
         }
@@ -388,7 +388,7 @@ void TestWalletNegotiation()
     TestNetwork network{ mainLoop };
 
     int count = 0;
-    auto f = [&count, &network](const auto& id)
+    auto f = [&count, &network](const auto& /*id*/)
     {
         if (++count == 2)
         {
@@ -481,19 +481,19 @@ private:
     }
 
     // IMsgHandler
-    void on_protocol_error(uint64_t fromStream, ProtocolError error) override
+    void on_protocol_error(uint64_t /*fromStream*/, ProtocolError /*error*/) override
     {
         assert(false && "NODE: on_protocol_error");
     }
 
     // protocol handler
-    bool on_message(uint64_t connectionId, proto::NewTransaction&& data)
+    bool on_message(uint64_t connectionId, proto::NewTransaction&& /*data*/)
     {
         send(connectionId, BooleanCode, proto::Boolean{true});
         return true;
     }
 
-    bool on_message(uint64_t connectionId, proto::GetProofUtxo&& data)
+    bool on_message(uint64_t connectionId, proto::GetProofUtxo&& /*data*/)
     {
         send(connectionId, ProofUtxoCode, proto::ProofUtxo());
         return true;
@@ -516,7 +516,7 @@ private:
         }
     }
 
-    void on_connection_error(uint64_t fromStream, int errorCode) override
+    void on_connection_error(uint64_t /*fromStream*/, int /*errorCode*/) override
     {
         assert(false && "NODE: on_connection_error");
     }

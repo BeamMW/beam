@@ -214,7 +214,7 @@ namespace beam
         }
     }
     
-    void Wallet::handle_tx_message(PeerId from, sender::ConfirmationData::Ptr&& data)
+    void Wallet::handle_tx_message(PeerId /*from*/, sender::ConfirmationData::Ptr&& data)
     {
         Cleaner c{ m_removed_receivers };
         auto it = m_receivers.find(data->m_txId);
@@ -229,7 +229,7 @@ namespace beam
         }
     }
 
-    void Wallet::handle_tx_message(PeerId from, receiver::ConfirmationData::Ptr&& data)
+    void Wallet::handle_tx_message(PeerId /*from*/, receiver::ConfirmationData::Ptr&& data)
     {
         Cleaner c{ m_removed_senders };
         auto it = m_senders.find(data->m_txId);

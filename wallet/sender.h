@@ -3,7 +3,6 @@
 #include "wallet/common.h"
 #include "wallet/keychain.h"
 
-#include <boost/msm/front/functor_row.hpp>
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
