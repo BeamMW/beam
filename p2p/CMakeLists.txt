@@ -10,6 +10,8 @@ set(P2P_SRC
     roulette.cpp
     peers.cpp
     peer_storage.cpp
+    p2p.cpp
+    servers.cpp
 )
 
 add_library(p2p STATIC ${P2P_SRC})
