@@ -170,10 +170,6 @@ namespace beam::wallet
         complete_tx();
     }
 
-    void Sender::FSMDefinition::complete_tx(const TxOutputConfirmCompleted&)
-    {
-        complete_tx();
-    }
 
     void Sender::FSMDefinition::complete_tx()
     {

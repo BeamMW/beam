@@ -38,6 +38,7 @@ namespace beam
         // node to wallet responses
         virtual void handle_node_message(proto::Boolean&&) = 0;
         virtual void handle_node_message(proto::ProofUtxo&&) = 0;
+		virtual void handle_node_message(proto::NewTip&&) = 0;
         // connection control
         virtual void handle_connection_error(PeerId) = 0;
     };
@@ -73,6 +74,7 @@ namespace beam
         void handle_tx_message(PeerId from, wallet::TxRegisteredData&&) override;
         void handle_node_message(proto::Boolean&& res) override;
         void handle_node_message(proto::ProofUtxo&& proof) override;
+		void handle_node_message(proto::NewTip&& msg) override;
         void handle_connection_error(PeerId from) override;
 
         void handle_tx_registered(const Uuid& txId, bool res);
