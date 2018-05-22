@@ -15,33 +15,12 @@
 
 using namespace beam;
 using namespace std;
+using namespace ECC;
 
 WALLET_TEST_INIT
 
 namespace
 {
-    void generateRandom(void* p, uint32_t n)
-    {
-        for (uint32_t i = 0; i < n; i++)
-            ((uint8_t*)p)[i] = (uint8_t)rand();
-    }
-
-    void setRandom(ECC::uintBig& x)
-    {
-        generateRandom(x.m_pData, sizeof(x.m_pData));
-    }
-
-    void setRandom(ECC::Scalar::Native& x)
-    {
-        ECC::Scalar s;
-        while (true)
-        {
-            setRandom(s.m_Value);
-            if (!x.Import(s))
-                break;
-        }
-    }
-
     class BaseTestKeyChain : public IKeyChain
     {
     public:
@@ -592,6 +571,20 @@ void TestP2PWalletNegotiationST()
     main_reactor->run();
 }
 
+void TestSplitKey()
+{
+    auto nonce = beam::generateNonce();
+    auto res1 = beam::split_key(nonce, 123456789);
+    auto res2 = beam::split_key(nonce, 123456789);
+    auto res3 = beam::split_key(nonce, 123456789);
+    WALLET_CHECK(res1.first == res2.first && res2.first == res3.first);
+    WALLET_CHECK(res1.second == res2.second && res2.second == res3.second);
+    Scalar::Native s2 = res1.second;
+    s2 = -s2;
+    Scalar::Native s1 = res1.first+s2;
+    WALLET_CHECK(s1 == nonce);
+}
+
 int main()
 {
     LoggerConfig lc;
@@ -599,6 +592,8 @@ int main()
     lc.consoleLevel = logLevel;
     lc.flushLevel = logLevel;
     auto logger = Logger::create(lc);
+
+    TestSplitKey();
 
     TestP2PWalletNegotiationST();
     TestWalletNegotiation<TestKeyChain, TestKeyChain2>();

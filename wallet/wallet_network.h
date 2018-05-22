@@ -70,7 +70,7 @@ namespace beam
         uint64_t get_connection_tag();
         
         template <typename T>
-        void send(PeerId to, MsgType type, T&& data)
+        void send(PeerId to, MsgType type, const T& data)
         {
             auto it = m_connections.find(to);
             if (it != m_connections.end())

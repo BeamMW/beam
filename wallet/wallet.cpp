@@ -47,6 +47,21 @@ namespace beam
         return n;
     }
 
+    pair<Scalar::Native, Scalar::Native> split_key(const Scalar::Native& key, uint64_t index)
+    {
+        pair<Scalar::Native, Scalar::Native> res;
+        Hash::Value hv;
+        Hash::Processor() << index >> hv;
+        NoLeak<Scalar> s;
+        s.V = key;
+        res.second.GenerateNonce(s.V.m_Value, hv, nullptr);
+        res.second = -res.second;
+        res.first = key;
+        res.first += res.second;
+
+        return res;
+    }
+
     Coin::Coin()
 		: m_status(Unspent)
     {

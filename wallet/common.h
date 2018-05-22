@@ -15,6 +15,7 @@ namespace beam
     using UuidPtr = std::shared_ptr<Uuid>;
     using TransactionPtr = std::shared_ptr<Transaction>;
     ECC::Scalar::Native generateNonce();
+    std::pair<ECC::Scalar::Native, ECC::Scalar::Native> split_key(const ECC::Scalar::Native& key, uint64_t index);
 
     namespace wallet
     {
