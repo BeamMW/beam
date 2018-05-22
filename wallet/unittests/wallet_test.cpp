@@ -292,6 +292,11 @@ namespace
             enqueueNetworkTask([this, id] {m_peers[id]->handle_node_message(proto::ProofUtxo()); });
         }
 
+		void send_node_message(proto::GetHdr&&) override
+		{
+			cout << "[Sender] request chain header\n";
+		}
+
         void close_connection(beam::PeerId) override
         {
         }
