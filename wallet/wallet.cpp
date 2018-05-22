@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <random>
 
+#include "core/storage.h"
+
 // Valdo's point generator of elliptic curve
 namespace ECC {
 	Context g_Ctx;
@@ -293,11 +295,57 @@ namespace beam
 
     void Wallet::handle_node_message(proto::ProofUtxo&& proof)
     {
-		// TODO: change coin status for the confirmed utxo
+		// TODO: handle the maturity of the several proofs (> 1)
+		boost::optional<Coin> found;
+
+		m_keyChain->visit([&](const Coin& coin)
+		{
+			if (coin.m_status == Coin::Unconfirmed || coin.m_status == Coin::Locked)
+			{
+				Input input{ Commitment(m_keyChain->calcKey(coin.m_id), coin.m_amount) };
+				
+				for (const auto& proof : proof.m_Proofs)
+				{
+					if (input.IsValidProof(proof.m_Count, proof.m_Proof, m_lastRoot))
+					{
+						found = coin;
+
+						switch (found->m_status)
+						{
+						case Coin::Unconfirmed: found->m_status = Coin::Unspent; break;
+						case Coin::Locked: found->m_status = Coin::Spent; break;
+						}
+
+						return false;
+					}
+				}
+			}
+
+			return true;
+		});
+
+		if (found)
+		{
+			m_keyChain->store(*found);
+		}
+		else
+		{
+			// invalid proof!!!
+		}
     }
 
 	void Wallet::handle_node_message(proto::NewTip&& msg)
 	{
+		// TODO: check if we're already waiting for the ProofUtxo,
+		// don't send request if yes
+		m_network.send_node_message(proto::GetHdr{ msg.m_ID });
+	}
+
+	void Wallet::handle_node_message(proto::Hdr&& msg)
+	{
+		m_lastRoot = msg.m_Description.m_LiveObjects;
+
+		// TODO: do one kernel proof instead many per coin proofs
 		m_keyChain->visit([&](const Coin& coin)
 		{
 			if (coin.m_status == Coin::Unconfirmed)

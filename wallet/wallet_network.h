@@ -48,7 +48,8 @@ namespace beam
         void send_tx_message(PeerId to, wallet::receiver::ConfirmationData::Ptr&&) override;
         void send_tx_message(PeerId to, wallet::TxRegisteredData&&) override;
         void send_node_message(proto::NewTransaction&&) override;
-        void send_node_message(proto::GetProofUtxo&&) override;
+		void send_node_message(proto::GetProofUtxo&&) override;
+        void send_node_message(proto::GetHdr&&) override;
 
         void close_connection(uint64_t id) override;
 

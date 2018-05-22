@@ -23,6 +23,7 @@ namespace beam
         // wallet to node requests
         virtual void send_node_message(proto::NewTransaction&&) = 0;
         virtual void send_node_message(proto::GetProofUtxo&&) = 0;
+		virtual void send_node_message(proto::GetHdr&&) = 0;
         // connection control
         virtual void close_connection(PeerId id) = 0;
     };
@@ -39,6 +40,7 @@ namespace beam
         virtual void handle_node_message(proto::Boolean&&) = 0;
         virtual void handle_node_message(proto::ProofUtxo&&) = 0;
 		virtual void handle_node_message(proto::NewTip&&) = 0;
+		virtual void handle_node_message(proto::Hdr&&) = 0;
         // connection control
         virtual void handle_connection_error(PeerId) = 0;
     };
@@ -74,6 +76,7 @@ namespace beam
         void handle_node_message(proto::Boolean&& res) override;
         void handle_node_message(proto::ProofUtxo&& proof) override;
 		void handle_node_message(proto::NewTip&& msg) override;
+		void handle_node_message(proto::Hdr&& msg) override;
         void handle_connection_error(PeerId from) override;
 
         void handle_tx_registered(const Uuid& txId, bool res);
@@ -118,5 +121,6 @@ namespace beam
         std::vector<wallet::Receiver::Ptr>    m_removed_receivers;
         TxCompletedAction m_tx_completed_action;
         std::queue<Uuid> m_node_requests_queue;
+		Merkle::Hash m_lastRoot;
     };
 }
