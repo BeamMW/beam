@@ -88,7 +88,6 @@ namespace beam::wallet
             void confirm_tx(const TxInitCompleted& );
             void rollback_tx(const TxFailed& );
             void cancel_tx(const TxInitCompleted& );
-            void confirm_change_output(const TxConfirmationCompleted&);
             void complete_tx(const TxConfirmationCompleted&);
             void complete_tx();
 

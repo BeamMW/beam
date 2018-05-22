@@ -58,7 +58,6 @@ namespace beam
         void send_tx_invitation(wallet::sender::InvitationData::Ptr) override;
         void send_tx_confirmation(wallet::sender::ConfirmationData::Ptr) override;
         void on_tx_completed(const Uuid& txId) override;
-        void send_output_confirmation(const Uuid& txId, const Coin& coin) override;
         void send_tx_failed(const Uuid& txId) override;
 
         void remove_sender(const Uuid& txId);

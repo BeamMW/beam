@@ -128,10 +128,11 @@ namespace beam::wallet
         LOG_DEBUG() << "[Receiver] cancel_tx";
     }
 
-
     void Receiver::FSMDefinition::complete_tx(const TxRegistrationCompleted& )
     {
         LOG_DEBUG() << "[Receiver] complete tx";
+
+		m_gateway.send_tx_registered(make_unique<Uuid>(m_txId));
 
 		// TODO: add unconfirmed coins (m_receiver_coin)
     }

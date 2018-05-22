@@ -52,20 +52,10 @@ namespace
             return res;
         }
 
-        void store(const beam::Coin& coin)
-        {
-
-        }
-
-        void update(const std::vector<beam::Coin>& coins)
-        {
-
-        }
-
-        void remove(const std::vector<beam::Coin>& coins)
-        {
-
-        }
+        void store(const beam::Coin& coin) override {}
+        void update(const std::vector<beam::Coin>& coins) override {}
+        void remove(const std::vector<beam::Coin>& coins) override {}
+		void visit(std::function<bool(const beam::Coin& coin)> func) override {}
 
     protected:
         std::vector<beam::Coin> m_coins;
@@ -119,11 +109,6 @@ namespace
         void send_tx_confirmation(wallet::sender::ConfirmationData::Ptr) override
         {
             cout << "sent senders's tx confirmation message\n";
-        }
-
-        void send_output_confirmation(const Uuid& txId, const Coin&) override
-        {
-            cout << "sent change output confirmation message\n";
         }
 
         void send_tx_failed(const Uuid& txId) override
@@ -421,7 +406,6 @@ void TestFSM()
     s.start();
     WALLET_CHECK(s.process_event(wallet::Sender::TxInitCompleted{ std::make_shared<wallet::receiver::ConfirmationData>() }));
     WALLET_CHECK(s.process_event(wallet::Sender::TxConfirmationCompleted()));
-    WALLET_CHECK(s.process_event(wallet::Sender::TxOutputConfirmCompleted()));
 
     cout << "\nreceiver\n";
     wallet::sender::InvitationData::Ptr initData = std::make_shared<wallet::sender::InvitationData>();

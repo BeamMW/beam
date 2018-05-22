@@ -133,16 +133,6 @@ namespace beam
         }
     }
 
-    void Wallet::send_output_confirmation(const Uuid& txId, const Coin& coin)
-    {
-        m_node_requests_queue.push(txId);
-        m_network.send_node_message(
-            proto::GetProofUtxo
-            {
-                Input {Commitment(m_keyChain->calcKey(coin.m_id), coin.m_amount)}
-              , coin.m_height
-            });
-    }
 
     void Wallet::send_tx_failed(const Uuid& txId)
     {
@@ -303,35 +293,25 @@ namespace beam
 
     void Wallet::handle_node_message(proto::ProofUtxo&& proof)
     {
-		// TODO: change coins status for confirmed utxos
-
-        //LOG_DEBUG() << "Received tx output confirmation ";
-        //if (m_node_requests_queue.empty())
-        //{
-        //    LOG_DEBUG() << "Received unexpected utxo proof";
-        //    assert(m_receivers.empty() && m_senders.empty());
-        //    return;
-        //}
-        //auto txId = m_node_requests_queue.front();
-        //m_node_requests_queue.pop();
-        //Cleaner cr{ m_removed_receivers };
-        //Cleaner cs{ m_removed_senders };
-        //if (auto it = m_receivers.find(txId); it != m_receivers.end())
-        //{
-        //    m_receivers.begin()->second->process_event(Receiver::TxOutputConfirmCompleted());
-        //    return;
-        //}
-        //if (auto it = m_senders.find(txId); it != m_senders.end())
-        //{
-        //    m_senders.begin()->second->process_event(Sender::TxOutputConfirmCompleted());
-        //    return;
-        //}
-        //LOG_DEBUG() << "Unexpected tx output confirmation ";
+		// TODO: change coin status for the confirmed utxo
     }
 
 	void Wallet::handle_node_message(proto::NewTip&& msg)
 	{
-		// TODO: send Proof Utxo request to the node for the all Unconfirmed coins
+		m_keyChain->visit([&](const Coin& coin)
+		{
+			if (coin.m_status == Coin::Unconfirmed)
+			{
+				m_network.send_node_message(
+					proto::GetProofUtxo
+					{
+						Input{ Commitment(m_keyChain->calcKey(coin.m_id), coin.m_amount) }
+						, coin.m_height
+					});
+			}
+
+			return true;
+		});
 	}
 
     void Wallet::handle_connection_error(PeerId from)
