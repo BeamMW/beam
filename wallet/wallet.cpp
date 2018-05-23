@@ -348,7 +348,7 @@ namespace beam
 		// TODO: do one kernel proof instead many per coin proofs
 		m_keyChain->visit([&](const Coin& coin)
 		{
-			if (coin.m_status == Coin::Unconfirmed)
+			if (coin.m_status == Coin::Unconfirmed || coin.m_status == Coin::Locked)
 			{
 				m_network.send_node_message(
 					proto::GetProofUtxo

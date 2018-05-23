@@ -5,6 +5,23 @@
 
 #include <boost/filesystem.hpp>
 
+#define ENUM_FIELDS(each, sep) \
+	each(1, id,			sep, INTEGER PRIMARY KEY AUTOINCREMENT) \
+	each(2, amount,		sep, INTEGER) \
+	each(3, status,		sep, INTEGER) \
+	each(4, height,		sep, INTEGER) \
+	each(5, isCoinbase,	   , INTEGER) // last item without separator
+
+#define LIST(num, name, sep, type) #name sep
+#define LIST_WITH_TYPES(num, name, sep, type) #name " " #type sep
+
+#define STM_BIND_LIST(num, name, sep, type) stm.bind(num, coin.m_ ## name);
+#define STM_GET_LIST(num, name, sep, type) stm.get(num-1, coin.m_ ## name);
+
+#define BIND_LIST(num, name, sep, type) "?" #num sep
+#define SET_LIST(num, name, sep, type) #name "=?" #num sep
+
+#define STORAGE_FIELDS ENUM_FIELDS(LIST, ", ")
 
 namespace beam
 {
@@ -54,6 +71,11 @@ namespace beam
 			void get(int col, beam::Coin::Status& status)
 			{
 				status = static_cast<beam::Coin::Status>(sqlite3_column_int(_stm, col));
+			}
+
+			void get(int col, bool& val)
+			{
+				val = sqlite3_column_int(_stm, col) == 0 ? false : true;
 			}
 
 			~Statement()
@@ -112,14 +134,14 @@ namespace beam
 
     const char* Keychain::getName()
     {
-        return "wallet.dat";
+        return "wallet.dat";//.db
     }
 
     IKeyChain::Ptr Keychain::init(const std::string& password)
     {
         if (!boost::filesystem::exists(getName()))
         {
-            std::shared_ptr<Keychain> keychain = std::make_shared<Keychain>(password);
+			auto keychain = std::make_shared<Keychain>(password);
 
             int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
             assert(ret == SQLITE_OK);
@@ -127,7 +149,7 @@ namespace beam
             ret = sqlite3_key(keychain->_db, password.c_str(), password.size());
             assert(ret == SQLITE_OK);
 
-            ret = sqlite3_exec(keychain->_db, "CREATE TABLE storage (id INTEGER PRIMARY KEY AUTOINCREMENT, amount INTEGER, status INTEGER);", NULL, NULL, NULL);
+            ret = sqlite3_exec(keychain->_db, "CREATE TABLE storage (" ENUM_FIELDS(LIST_WITH_TYPES, ", ") ");", NULL, NULL, NULL);
             assert(ret == SQLITE_OK);
 
             return std::static_pointer_cast<IKeyChain>(keychain);
@@ -142,7 +164,7 @@ namespace beam
     {
         if (boost::filesystem::exists(getName()))
         {
-            std::shared_ptr<Keychain> keychain = std::make_shared<Keychain>(password);
+            auto keychain = std::make_shared<Keychain>(password);
 
             int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
             assert(ret == SQLITE_OK);
@@ -156,6 +178,13 @@ namespace beam
                 LOG_ERROR() << "Invalid DB or wrong password :(";
                 return Ptr();
             }
+
+			ret = sqlite3_exec(keychain->_db, "SELECT " STORAGE_FIELDS " FROM storage;", NULL, NULL, NULL);
+			if (ret != SQLITE_OK)
+			{
+				LOG_ERROR() << "Invalid DB format :(";
+				return Ptr();
+			}
 
             return std::static_pointer_cast<IKeyChain>(keychain);
         }
@@ -207,7 +236,7 @@ namespace beam
 		ECC::Amount sum = 0;
 
 		{
-			sqlite::Statement stm(_db, "SELECT * FROM storage WHERE status=?1 ORDER BY amount ASC;");
+			sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM storage WHERE status=?1 ORDER BY amount ASC;");
 			stm.bind(1, Coin::Unspent);
 
 			while (true)
@@ -217,9 +246,8 @@ namespace beam
 				if (stm.step())
 				{
 					beam::Coin coin;
-					stm.get(0, coin.m_id);
-					stm.get(1, coin.m_amount);
-					stm.get(2, coin.m_status);
+
+					ENUM_FIELDS(STM_GET_LIST);
 
 					if (coin.m_status == beam::Coin::Unspent)
 					{
@@ -262,9 +290,10 @@ namespace beam
 		sqlite::Transaction trans(_db);
 		
 		{
-			sqlite::Statement stm(_db, "INSERT INTO storage (amount, status) VALUES(?1, ?2);");
-			stm.bind(1, coin.m_amount);
-			stm.bind(2, coin.m_status);
+			sqlite::Statement stm(_db, "INSERT INTO storage (" STORAGE_FIELDS ") VALUES(" ENUM_FIELDS(BIND_LIST, ", ") ");");
+
+			ENUM_FIELDS(STM_BIND_LIST);
+
 			stm.step();
 		}
 
@@ -279,11 +308,9 @@ namespace beam
 
 			std::for_each(coins.begin(), coins.end(), [&](const beam::Coin& coin)
 			{
-				sqlite::Statement stm(_db, "UPDATE storage SET amount=?2, status=?3 WHERE id=?1;");
+				sqlite::Statement stm(_db, "UPDATE storage SET " ENUM_FIELDS(SET_LIST, ", ") " WHERE id=?1;");
 
-				stm.bind(1, coin.m_id);
-				stm.bind(2, coin.m_amount);
-				stm.bind(3, coin.m_status);
+				ENUM_FIELDS(STM_BIND_LIST);
 
 				stm.step();
 			});
@@ -314,16 +341,13 @@ namespace beam
 
 	void Keychain::visit(std::function<bool(const beam::Coin& coin)> func)
 	{
-		sqlite::Statement stm(_db, "SELECT * FROM storage;");
+		sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM storage;");
 
 		while (stm.step())
 		{
 			Coin coin;
 
-			// TODO: move it to a separate method (sqlite::Statement -> Coin)
-			stm.get(0, coin.m_id);
-			stm.get(1, coin.m_amount);
-			stm.get(2, coin.m_status);
+			ENUM_FIELDS(STM_GET_LIST);
 
 			if (!func(coin))
 				break;
