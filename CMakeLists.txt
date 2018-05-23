@@ -31,7 +31,7 @@ if (WIN32)
     if (Boost_FOUND)
         add_definitions( -DBOOST_ALL_DYN_LINK )
         include_directories(${Boost_INCLUDE_DIRS})
-        
+
     endif()
 endif()
 
@@ -41,10 +41,13 @@ add_definitions(-DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 include_directories(${PROJECT_SOURCE_DIR}/utility) # TODO  move to ./3rdparty all that stuff that requires to add this line
 
 add_subdirectory(utility)
-add_subdirectory(core)
+
+# TODO roll comments back after features merging
+
+#add_subdirectory(core)
 add_subdirectory(pow)
-add_subdirectory(pool)
+#add_subdirectory(pool)
 add_subdirectory(p2p)
-add_subdirectory(wallet)
-add_subdirectory(sqlite)
-add_subdirectory(beam)
+#add_subdirectory(wallet)
+#add_subdirectory(sqlite)
+#add_subdirectory(beam)
