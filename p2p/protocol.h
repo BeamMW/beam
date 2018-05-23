@@ -30,6 +30,9 @@ public:
             throw std::runtime_error("protocol: message type out of range");
         }
         DispatchTableItem& i = _dispatchTable[type];
+        if (i.callback) {
+            throw std::runtime_error("protocol: message handler already set");
+        }
         i.callback = callback;
         i.msgHandler = msgHandler;
         i.minSize = minMsgSize;

@@ -17,10 +17,10 @@ public:
     static constexpr ID INVALID_ID=0;
 
     /// Creates a roulette with limited max weight
-    explicit Roulette(size_t maxItemWeight);
+    explicit Roulette(uint32_t maxItemWeight);
 
     /// Pushes an element into buckets
-    void push(ID id, size_t weight);
+    void push(ID id, uint32_t weight);
 
     /// Pulls one random element
     ID pull();
@@ -28,19 +28,19 @@ public:
 private:
     struct Bucket {
         std::vector<ID> items;
-        size_t weightBoundary=0;
+        uint32_t weightBoundary=0;
     };
     using Buckets = std::vector<Bucket>;
 
     // returns random number in range [a,b]
-    size_t rnd(size_t a, size_t b);
+    uint32_t rnd(uint32_t a, uint32_t b);
 
     // returns index of nonempty bucket with weight range which contains x
-    size_t find_bucket(size_t x, size_t i, size_t j);
+    uint32_t find_bucket(uint32_t x, uint32_t i, uint32_t j);
 
-    const size_t _maxItemWeight;
-    size_t _totalWeight=0;
-    size_t _totalItems=0;
+    const uint32_t _maxItemWeight;
+    uint32_t _totalWeight=0;
+    uint32_t _totalItems=0;
     Buckets _buckets;
     std::mt19937 _rdGen;
 };

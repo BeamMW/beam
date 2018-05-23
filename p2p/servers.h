@@ -4,21 +4,14 @@
 
 namespace beam {
 
-/// Connect probability weight and ban status for server peer
-struct KnownServerMetrics {
-    size_t weight=0;
-    bool isBanned=false;
-
-    SERIALIZE(weight, isBanned)
-};
-
 /// Known servers container and protocol message
-using KnownServers = std::unordered_map<Peer, KnownServerMetrics>;
+/// Address -> weight
+using KnownServers = std::unordered_map<io::Address, uint32_t>;
 
 /// Set of serversto connect to
 class Servers {
 public:
-    explicit Servers(size_t maxWeight);
+    explicit Servers(uint32_t maxWeight);
 
     /// Returns known servers to be sent to network
     const KnownServers& get_known_servers() const;
@@ -27,20 +20,17 @@ public:
     void update(const KnownServers& received, bool isInitialLoad);
 
     /// Chooses random (weighted) peer address to connect to
-    Peer get_connect_candidate();
+    io::Address get_connect_candidate();
 
     /// Updated peer metrics as connect candidate
-    /// (before possible reconnect or while banning/unbanning)
-    void update_connect_candidate(Peer p, double weightCoefficient, bool banned);
-
-    /// Marks peer as banned
-    void set_banned(Peer p, bool isBanned);
+    /// (before possible reconnect)
+    void update_connect_candidate(io::Address p, double weightCoefficient);
 
 private:
-    void update(Peer p, const KnownServerMetrics& m, bool isInitialLoad);
+    void update(io::Address p, uint32_t w, bool isInitialLoad);
 
     KnownServers _allServers;
-    std::unordered_set<Peer> _connectCandidates;
+    std::unordered_set<io::Address> _connectCandidates;
     Roulette _connectRoulette;
 };
 

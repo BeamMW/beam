@@ -67,7 +67,7 @@ Reactor::~Reactor() {
 
     if (!_connectRequests.empty()) {
         for (auto& c : _connectRequests) {
-            uv_handle_t* h = (uv_handle_t*)c.first;
+            uv_handle_t* h = (uv_handle_t*)(c.second.request->handle);
             async_close(h);
         }
     }
@@ -288,7 +288,6 @@ Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback
             Reactor* reactor = reinterpret_cast<Reactor*>(request->handle->loop->data);
             if (errorCode == UV_ECANCELED) {
                 LOG_VERBOSE() << "callback on cancelled connect request=" << request;
-                assert(reactor->_cancelledConnectRequests.count(request)==1);
                 reactor->_cancelledConnectRequests.erase(request);
                 reactor->_connectRequestsPool.release(request);
             } else {
