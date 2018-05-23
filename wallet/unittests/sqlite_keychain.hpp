@@ -61,6 +61,16 @@ struct SqliteKeychain : beam::IKeyChain
 		_keychain->visit(func);
 	}
 
+	void setLastStateHash(const ECC::Hash::Value& hash) override
+	{
+		_keychain->setLastStateHash(hash);
+	}
+
+	void getLastStateHash(ECC::Hash::Value& hash) const override
+	{
+		_keychain->getLastStateHash(hash);
+	}
+
 private:
 	beam::IKeyChain::Ptr _keychain;
 };

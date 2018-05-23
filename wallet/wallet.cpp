@@ -298,31 +298,29 @@ namespace beam
 		// TODO: handle the maturity of the several proofs (> 1)
 		boost::optional<Coin> found;
 
-		m_keyChain->visit([&](const Coin& coin)
+		Merkle::Hash lastState;
+		m_keyChain->getLastStateHash(lastState);
+
+		for (const auto& proof : proof.m_Proofs)
 		{
-			if (coin.m_status == Coin::Unconfirmed || coin.m_status == Coin::Locked)
+			m_keyChain->visit([&](const Coin& coin)
 			{
-				Input input{ Commitment(m_keyChain->calcKey(coin.m_id), coin.m_amount) };
-				
-				for (const auto& proof : proof.m_Proofs)
+				if (coin.m_status == Coin::Unconfirmed)
 				{
-					if (input.IsValidProof(proof.m_Count, proof.m_Proof, m_lastRoot))
+					Input input{ Commitment(m_keyChain->calcKey(coin.m_id), coin.m_amount) };
+				
+					if (input.IsValidProof(proof.m_Count, proof.m_Proof, lastState))
 					{
 						found = coin;
-
-						switch (found->m_status)
-						{
-						case Coin::Unconfirmed: found->m_status = Coin::Unspent; break;
-						case Coin::Locked: found->m_status = Coin::Spent; break;
-						}
+						found->m_status = Coin::Unspent;
 
 						return false;
 					}
 				}
-			}
 
-			return true;
-		});
+				return true;
+			});
+		}
 
 		if (found)
 		{
@@ -343,12 +341,12 @@ namespace beam
 
 	void Wallet::handle_node_message(proto::Hdr&& msg)
 	{
-		m_lastRoot = msg.m_Description.m_LiveObjects;
+		m_keyChain->setLastStateHash(msg.m_Description.m_LiveObjects);
 
 		// TODO: do one kernel proof instead many per coin proofs
 		m_keyChain->visit([&](const Coin& coin)
 		{
-			if (coin.m_status == Coin::Unconfirmed || coin.m_status == Coin::Locked)
+			if (coin.m_status == Coin::Unconfirmed)
 			{
 				m_network.send_node_message(
 					proto::GetProofUtxo

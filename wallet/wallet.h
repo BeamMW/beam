@@ -121,6 +121,5 @@ namespace beam
         std::vector<wallet::Receiver::Ptr>    m_removed_receivers;
         TxCompletedAction m_tx_completed_action;
         std::queue<Uuid> m_node_requests_queue;
-		Merkle::Hash m_lastRoot;
     };
 }

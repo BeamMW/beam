@@ -41,6 +41,17 @@ void TestKeychain()
 
 		assert(keychain.getCoins(5).size() == 0);
 	}
+
+	{
+		ECC::Hash::Value a;
+		ECC::Hash::Processor() << static_cast<uint32_t>(rand()) >> a;
+		keychain.setLastStateHash(a);
+
+		ECC::Hash::Value b;
+		keychain.getLastStateHash(b);
+
+		assert(a == b);
+	}
 }
 
 int main() {

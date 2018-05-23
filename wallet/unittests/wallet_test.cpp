@@ -56,6 +56,8 @@ namespace
         void update(const std::vector<beam::Coin>& coins) override {}
         void remove(const std::vector<beam::Coin>& coins) override {}
 		void visit(std::function<bool(const beam::Coin& coin)> func) override {}
+		void setLastStateHash(const ECC::Hash::Value& hash) override {};
+		void getLastStateHash(ECC::Hash::Value& hash) const override {};
 
     protected:
         std::vector<beam::Coin> m_coins;

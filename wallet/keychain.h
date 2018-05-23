@@ -44,6 +44,9 @@ namespace beam
         virtual void remove(const std::vector<beam::Coin>& coins) = 0;
 
 		virtual void visit(std::function<bool(const beam::Coin& coin)> func) = 0;
+
+		virtual void setLastStateHash(const ECC::Hash::Value& hash) = 0;
+		virtual void getLastStateHash(ECC::Hash::Value& hash) const = 0;
     };
 
     struct Keychain : IKeyChain
@@ -62,6 +65,9 @@ namespace beam
         void update(const std::vector<beam::Coin>& coins) override;
         void remove(const std::vector<beam::Coin>& coins) override;
 		void visit(std::function<bool(const beam::Coin& coin)> func) override;
+
+		void setLastStateHash(const ECC::Hash::Value& hash) override;
+		void getLastStateHash(ECC::Hash::Value& hash) const override;
 
     private:
 
