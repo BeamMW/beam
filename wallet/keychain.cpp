@@ -22,6 +22,7 @@
 #define SET_LIST(num, name, sep, type) #name "=?" #num sep
 
 #define STORAGE_FIELDS ENUM_FIELDS(LIST, ", ")
+#define STORAGE_NAME "storage"
 
 namespace beam
 {
@@ -134,7 +135,7 @@ namespace beam
 
     const char* Keychain::getName()
     {
-        return "wallet.dat";//.db
+        return "wallet.db";
     }
 
     IKeyChain::Ptr Keychain::init(const std::string& password)
@@ -149,7 +150,7 @@ namespace beam
             ret = sqlite3_key(keychain->_db, password.c_str(), password.size());
             assert(ret == SQLITE_OK);
 
-            ret = sqlite3_exec(keychain->_db, "CREATE TABLE storage (" ENUM_FIELDS(LIST_WITH_TYPES, ", ") ");", NULL, NULL, NULL);
+            ret = sqlite3_exec(keychain->_db, "CREATE TABLE " STORAGE_NAME " (" ENUM_FIELDS(LIST_WITH_TYPES, ", ") ");", NULL, NULL, NULL);
             assert(ret == SQLITE_OK);
 
             return std::static_pointer_cast<IKeyChain>(keychain);
@@ -166,24 +167,34 @@ namespace beam
         {
             auto keychain = std::make_shared<Keychain>(password);
 
-            int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
-            assert(ret == SQLITE_OK);
-
-            ret = sqlite3_key(keychain->_db, password.c_str(), password.size());
-            assert(ret == SQLITE_OK);
-
-            ret = sqlite3_exec(keychain->_db, "SELECT name FROM sqlite_master WHERE type='table' AND name='storage';", NULL, NULL, NULL);
-            if(ret != SQLITE_OK)
-            {
-                LOG_ERROR() << "Invalid DB or wrong password :(";
-                return Ptr();
-            }
-
-			ret = sqlite3_exec(keychain->_db, "SELECT " STORAGE_FIELDS " FROM storage;", NULL, NULL, NULL);
-			if (ret != SQLITE_OK)
 			{
-				LOG_ERROR() << "Invalid DB format :(";
-				return Ptr();
+				int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
+				assert(ret == SQLITE_OK);
+			}
+
+			{
+				int ret = sqlite3_key(keychain->_db, password.c_str(), password.size());
+				assert(ret == SQLITE_OK);
+			}
+
+			{
+				const char* req = "SELECT name FROM sqlite_master WHERE type='table' AND name='" STORAGE_NAME "';";
+				int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+				if(ret != SQLITE_OK)
+				{
+					LOG_ERROR() << "Invalid DB or wrong password :(";
+					return Ptr();
+				}
+			}
+
+			{
+				const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME ";";
+				int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+				if (ret != SQLITE_OK)
+				{
+					LOG_ERROR() << "Invalid DB format :(";
+					return Ptr();
+				}
 			}
 
             return std::static_pointer_cast<IKeyChain>(keychain);
@@ -215,7 +226,8 @@ namespace beam
         int lastId = 0;
 
 		{
-			sqlite::Statement stm(_db, "SELECT seq FROM sqlite_sequence WHERE name = 'storage';");
+			const char* req = "SELECT seq FROM sqlite_sequence WHERE name = '" STORAGE_NAME "';";
+			sqlite::Statement stm(_db, req);
 
 			if (stm.step())
 				stm.get(0, lastId);
@@ -236,7 +248,8 @@ namespace beam
 		ECC::Amount sum = 0;
 
 		{
-			sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM storage WHERE status=?1 ORDER BY amount ASC;");
+			const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 ORDER BY amount ASC;";
+			sqlite::Statement stm(_db, req);
 			stm.bind(1, Coin::Unspent);
 
 			while (true)
@@ -269,15 +282,16 @@ namespace beam
 		{
 			sqlite::Transaction trans(_db);
 
-			std::for_each(coins.begin(), coins.end(), [&](const beam::Coin& coin)
+			for (auto &const coin : coins)
 			{
-				sqlite::Statement stm(_db, "UPDATE storage SET status=?2 WHERE id=?1;");
+				const char* req = "UPDATE " STORAGE_NAME " SET status=?2 WHERE id=?1;";
+				sqlite::Statement stm(_db, req);
 
 				stm.bind(1, coin.m_id);
 				stm.bind(2, coin.m_status);
 
 				stm.step();
-			});
+			}
 
 			trans.commit();
 		}
@@ -290,7 +304,8 @@ namespace beam
 		sqlite::Transaction trans(_db);
 		
 		{
-			sqlite::Statement stm(_db, "INSERT INTO storage (" STORAGE_FIELDS ") VALUES(" ENUM_FIELDS(BIND_LIST, ", ") ");");
+			const char* req = "INSERT INTO " STORAGE_NAME " (" STORAGE_FIELDS ") VALUES(" ENUM_FIELDS(BIND_LIST, ", ") ");";
+			sqlite::Statement stm(_db, req);
 
 			ENUM_FIELDS(STM_BIND_LIST);
 
@@ -306,14 +321,15 @@ namespace beam
 		{
 			sqlite::Transaction trans(_db);
 
-			std::for_each(coins.begin(), coins.end(), [&](const beam::Coin& coin)
+			for(auto &const coin : coins)
 			{
-				sqlite::Statement stm(_db, "UPDATE storage SET " ENUM_FIELDS(SET_LIST, ", ") " WHERE id=?1;");
+				const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_FIELDS(SET_LIST, ", ") " WHERE id=?1;";
+				sqlite::Statement stm(_db, req);
 
 				ENUM_FIELDS(STM_BIND_LIST);
 
 				stm.step();
-			});
+			}
 
 			trans.commit();
 		}
@@ -325,15 +341,17 @@ namespace beam
 		{
 			sqlite::Transaction trans(_db);
 
-			std::for_each(coins.begin(), coins.end(), [&](const beam::Coin& coin)
+			for (auto &const coin : coins)
 			{
-				sqlite::Statement stm(_db, "UPDATE storage SET status=?2 WHERE id=?1;");
+				const char* req = "UPDATE " STORAGE_NAME " SET status=?2 WHERE id=?1 AND status=?3;";
+				sqlite::Statement stm(_db, req);
 
 				stm.bind(1, coin.m_id);
 				stm.bind(2, Coin::Spent);
+				stm.bind(3, Coin::Locked);
 
 				stm.step();
-			});
+			}
 
 			trans.commit();
 		}
@@ -341,7 +359,8 @@ namespace beam
 
 	void Keychain::visit(std::function<bool(const beam::Coin& coin)> func)
 	{
-		sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM storage;");
+		const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME ";";
+		sqlite::Statement stm(_db, req);
 
 		while (stm.step())
 		{
