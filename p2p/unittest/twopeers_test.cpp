@@ -35,7 +35,7 @@ struct Response {
 
 // Message handler for both sides in this test
 // It resides on network side and handles local logic
-struct MessageHandler : IMsgHandler {
+struct MessageHandler : IErrorHandler {
 
     void on_protocol_error(uint64_t fromStream, ProtocolError error) override {
         cout << __FUNCTION__ << "(" << fromStream << "," << error << ")" << endl;
@@ -63,14 +63,14 @@ struct MessageHandler : IMsgHandler {
 
 struct Server {
     MessageHandler handler;
-    Protocol<MessageHandler> protocol;
+    Protocol protocol;
     unique_ptr<Connection> connection;
     Thread t;
 
     Server() :
-        protocol(0xAA, 0xBB, 0xCC, handler, 200)
+        protocol(0xAA, 0xBB, 0xCC, 256, handler, 200)
     {
-        protocol.add_message_handler<SomeObject, &MessageHandler::on_some_object>(msgTypeForSomeObject, 8, 10000000);
+        protocol.add_message_handler<MessageHandler, SomeObject, &MessageHandler::on_some_object>(msgTypeForSomeObject, &handler,8, 10000000);
     }
 
     void start() {
@@ -130,7 +130,7 @@ struct Server {
 
 struct Client {
     MessageHandler handler;
-    Protocol<MessageHandler> protocol;
+    Protocol protocol;
     unique_ptr<Connection> connection;
 
     vector<SharedBuffer> serializedMsg;
@@ -144,9 +144,9 @@ struct Client {
     Thread t;
 
     Client() :
-        protocol(0xAA, 0xBB, 0xCC, handler,200)
+        protocol(0xAA, 0xBB, 0xCC, 256, handler,200)
     {
-        protocol.add_message_handler<SomeObject, &MessageHandler::on_some_object>(msgTypeForSomeObject, 8, 10000000);
+        protocol.add_message_handler<MessageHandler, SomeObject, &MessageHandler::on_some_object>(msgTypeForSomeObject, &handler, 8, 10000000);
     }
 
     void start() {

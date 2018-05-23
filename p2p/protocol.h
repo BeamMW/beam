@@ -1,54 +1,78 @@
 #pragma once
 #include "protocol_base.h"
 #include "msg_serializer.h"
+#include <stdexcept>
 
 namespace beam {
 
 /// Network<=>App logic message-oriented protocol
-template <typename MsgHandler> class Protocol : public ProtocolBase {
+class Protocol : public ProtocolBase {
 public:
     Protocol(
         /// 3 bytes for magic # and/or protocol version
         uint8_t protocol_version_0,
         uint8_t protocol_version_1,
         uint8_t protocol_version_2,
-        MsgHandler& handler,
+        size_t maxMessageTypes,
+        IErrorHandler& errorHandler,
         size_t serializedFragmentsSize
     ) :
-        ProtocolBase(protocol_version_0, protocol_version_1, protocol_version_2, handler),
+        ProtocolBase(protocol_version_0, protocol_version_1, protocol_version_2, maxMessageTypes, errorHandler),
         _ser(serializedFragmentsSize, get_default_header())
     {
-        // must static cast - i.e. IMsgHandler must be the 1st base of handler impl
-        assert(&handler == static_cast<IMsgHandler*>(&handler));
-
-        // avoid ing code bloat for those included protocol_base.h
+        // avoiding code bloat for those included protocol_base.h
         _deserializer = &_des;
     }
 
     /// Called on protocol dispatch table setup, custom callback
-    void add_custom_message_handler(MsgType type, uint32_t minMsgSize, uint32_t maxMsgSize, OnRawMessage callback) {
+    void add_custom_message_handler(MsgType type, void* msgHandler, uint32_t minMsgSize, uint32_t maxMsgSize, OnRawMessage callback) {
+        if (type >= _maxMessageTypes) {
+            throw std::runtime_error("protocol: message type out of range");
+        }
         DispatchTableItem& i = _dispatchTable[type];
+        i.callback = callback;
+        i.msgHandler = msgHandler;
         i.minSize = minMsgSize;
         i.maxSize = maxMsgSize;
-        i.callback = callback;
     }
 
     /// Called on protocol dispatch table setup
     template <
+        typename MsgHandler,
         typename MsgObject,
         bool(MsgHandler::*MessageFn)(uint64_t, MsgObject&&)
     >
-    void add_message_handler(MsgType type, uint32_t minMsgSize, uint32_t maxMsgSize) {
+    void add_message_handler(MsgType type, MsgHandler* msgHandler, uint32_t minMsgSize, uint32_t maxMsgSize) {
         add_custom_message_handler(
-            type, minMsgSize, maxMsgSize,
-            [](IMsgHandler& handler, Deserializer& des, uint64_t fromStream, const void* data, size_t size) -> bool {
+            type, msgHandler, minMsgSize, maxMsgSize,
+            [](void* msgHandler, IErrorHandler& errorHandler, Deserializer& des, uint64_t fromStream, const void* data, size_t size) -> bool {
                 MsgObject m;
                 des.reset(data, size);
                 if (!des.deserialize(m) || des.bytes_left() > 0) {
-                    handler.on_protocol_error(fromStream, message_corrupted);
+                    errorHandler.on_protocol_error(fromStream, message_corrupted);
                     return false;
                 }
-                return (static_cast<MsgHandler&>(handler).*MessageFn)(fromStream, std::move(m));
+                return (static_cast<MsgHandler*>(msgHandler)->*MessageFn)(fromStream, std::move(m));
+            }
+        );
+    }
+
+    /// Called on protocol dispatch table setup, free function as message handler
+    template <
+        typename MsgObject,
+        bool(*MessageFn)(uint64_t, MsgObject&&)
+    >
+    void add_message_handler(MsgType type, uint32_t minMsgSize, uint32_t maxMsgSize) {
+        add_custom_message_handler(
+            type, 0, minMsgSize, maxMsgSize,
+            [](void* msgHandler, IErrorHandler& errorHandler, Deserializer& des, uint64_t fromStream, const void* data, size_t size) -> bool {
+                MsgObject m;
+                des.reset(data, size);
+                if (!des.deserialize(m) || des.bytes_left() > 0) {
+                    errorHandler.on_protocol_error(fromStream, message_corrupted);
+                    return false;
+                }
+                return MessageFn(fromStream, std::move(m));
             }
         );
     }

@@ -3,7 +3,7 @@
 namespace beam {
 
 P2P::P2P(io::Address bindTo, uint16_t listenTo) :
-    _protocol(0xAA, 0xBB, 0xCC, *this, 0x2000),
+    _protocol(0xAA, 0xBB, 0xCC, 22, *this, 0x2000),
     _ip(bindTo),
     _port(listenTo)
 {
@@ -14,11 +14,11 @@ P2P::P2P(io::Address bindTo, uint16_t listenTo) :
 P2P::~P2P() {
     stop();
     wait();
-    
+
 }
 
 void P2P::add_server(io::Address a) {
-    
+
 }
 
 void P2P::start() {
@@ -28,9 +28,9 @@ void P2P::start() {
     connect_to_servers();
     run_async();
 }
-    
+
 void P2P::connect_to_servers() {
-    
+
 }
-    
+
 } //namespace

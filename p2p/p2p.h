@@ -7,7 +7,7 @@
 
 namespace beam {
 
-class P2P : public IMsgHandler, protected AsyncContext {
+class P2P : public IErrorHandler, protected AsyncContext {
 public:
     P2P(io::Address bindTo, uint16_t listenTo);
     ~P2P();
@@ -38,7 +38,7 @@ private:
 
     void connect_to_servers();
 
-    Protocol<P2P> _protocol;
+    Protocol _protocol;
     io::Address _ip;
     uint16_t _port; // !=0 if this is server
     io::TcpServer::Ptr _server;
