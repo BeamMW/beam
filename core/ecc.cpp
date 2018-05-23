@@ -851,6 +851,8 @@ namespace ECC {
 			for (uint32_t i = 0; i < n; i++)
 				crossTrm += src.m_pVal[j][i] * src.m_pVal[!j][n + i];
 
+			crossTrm *= cs.m_DotMultiplier;
+
 			pLR[j] = m_GenDot * crossTrm;
 		}
 
@@ -904,19 +906,20 @@ namespace ECC {
 		}
 	}
 
-	void InnerProduct::CalcCommitment(Point::Native& res, const State& s, uint32_t n) const
+	void InnerProduct::get_Dot(Scalar::Native& res, const Scalar::Native* pA, const Scalar::Native* pB)
 	{
-		res = Zero;
-		Scalar::Native dot(Zero);
+		static_assert(nDim, "");
+		res = pA[0];
+		res *= pB[0];
 
-		for (uint32_t i = 0; i < n; i++)
+		Scalar::Native tmp;
+
+		for (uint32_t i = 1; i < nDim; i++)
 		{
-			dot += s.m_pVal[0][i] * s.m_pVal[1][i];
-			for (int j = 0; j < 2; j++)
-				res += s.m_pGen[j][i] * s.m_pVal[j][i];
+			tmp = pA[i];
+			tmp *= pB[i];
+			res += tmp;
 		}
-
-		res += m_GenDot * dot;
 	}
 
 	void InnerProduct::Create(Signature& sig, const Scalar::Native* pA, const Scalar::Native* pB) const
@@ -937,14 +940,19 @@ namespace ECC {
 			s1.m_pVal[i] = pBufVal[i];
 		}
 
-		Point::Native comm;
-		CalcCommitment(comm, s0, nDim);
-		sig.m_Commitment = comm;
+		Point::Native comm(Zero);
+
+		for (int j = 0; j < 2; j++)
+			for (uint32_t i = 0; i < nDim; i++)
+				comm += m_pGen[j][i] * s0.m_pVal[j][i];
+
+		sig.m_AB = comm;
 
 		Oracle oracle;
-		oracle << sig.m_Commitment;
+		oracle << sig.m_AB;
 
 		ChallengeSet cs;
+		oracle >> cs.m_DotMultiplier;
 
 		uint32_t n = nDim;
 		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
@@ -966,13 +974,15 @@ namespace ECC {
 			sig.m_pCondensed[i] = s0.m_pVal[i][0];
 	}
 
-	bool InnerProduct::IsValid(const Signature& sig) const
+	bool InnerProduct::IsValid(const Signature& sig, const Scalar::Native& dot) const
 	{
 		Oracle oracle;
-		oracle << sig.m_Commitment;
+		oracle << sig.m_AB;
 
 		ChallengeSet cs;
-		Point::Native comm = sig.m_Commitment;
+		oracle >> cs.m_DotMultiplier;
+
+		Point::Native comm = sig.m_AB;
 		Point::Native ptTmp;
 		Scalar::Native valTmp;
 
@@ -1009,8 +1019,13 @@ namespace ECC {
 			comm += ptTmp;
 		}
 
+		// add the new (mutated) dot product, substract the original (claimed)
 		valTmp = sig.m_pCondensed[0];
 		valTmp *= sig.m_pCondensed[1];
+		valTmp += -dot;
+
+		valTmp *= cs.m_DotMultiplier;
+
 		comm += m_GenDot * valTmp;
 
 		return comm == Zero;

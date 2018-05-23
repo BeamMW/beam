@@ -343,7 +343,10 @@ void TestRangeProof()
 	InnerProduct::Signature sig;
 	g_CtxInnerProduct.Create(sig, pA, pB);
 
-	verify_test(g_CtxInnerProduct.IsValid(sig));
+	Scalar::Native dot;
+	InnerProduct::get_Dot(dot, pA, pB);
+
+	verify_test(g_CtxInnerProduct.IsValid(sig, dot));
 }
 
 struct TransactionMaker
@@ -891,6 +894,9 @@ void RunBenchmark()
 
 	InnerProduct::Signature sig2;
 
+	Scalar::Native dot;
+	InnerProduct::get_Dot(dot, pA, pB);
+
 	{
 		BenchmarkMeter bm("InnerProduct.Sign");
 		bm.N = 10;
@@ -908,7 +914,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				g_CtxInnerProduct.IsValid(sig2);
+				g_CtxInnerProduct.IsValid(sig2, dot);
 
 		} while (bm.ShouldContinue());
 	}

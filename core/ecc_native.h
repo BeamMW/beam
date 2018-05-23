@@ -290,16 +290,17 @@ namespace ECC
 
 		struct Signature
 		{
-			ECC::Point m_Commitment;		// orifinal commitment consists of both vectors and the asserted dot product
+			ECC::Point m_AB;				// orifinal commitment of both vectors
 			ECC::Point m_pLR[nCycles][2];	// pairs of L,R values, per reduction  iteration
-			// condensed opening
 			ECC::Scalar m_pCondensed[2];	// remaining 1-dimension vectors
 		};
 
 		InnerProduct();
 
+		static void get_Dot(Scalar::Native& res, const Scalar::Native* pA, const Scalar::Native* pB);
+
 		void Create(Signature&, const Scalar::Native* pA, const Scalar::Native* pB) const;
-		bool IsValid(const Signature&) const;
+		bool IsValid(const Signature&, const Scalar::Native& dot) const;
 
 
 	private:
@@ -315,6 +316,7 @@ namespace ECC
 		static void get_Challenge(Scalar::Native* pX, Oracle&);
 
 		struct ChallengeSet {
+			Scalar::Native m_DotMultiplier;
 			Scalar::Native m_Val[nCycles][2];
 		};
 
@@ -322,7 +324,6 @@ namespace ECC
 
 		static void CreatePt(Point::Native&, Hash::Processor&);
 
-		void CalcCommitment(Point::Native&, const State&, uint32_t n) const;
 		void PerformCycle(State& dst, const State& src, uint32_t iCycle, const ChallengeSet&, Point* pLR) const;
 	};
 
