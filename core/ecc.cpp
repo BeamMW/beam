@@ -199,6 +199,13 @@ namespace ECC {
 		Write(v.m_Value);
 	}
 
+	void Hash::Processor::Write(const Scalar::Native& v)
+	{
+		NoLeak<Scalar> s;
+		s.V = v;
+		Write(s.V);
+	}
+
 	void Hash::Processor::Write(const Point& v)
 	{
 		Write(v.m_X);

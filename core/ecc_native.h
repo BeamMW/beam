@@ -221,6 +221,7 @@ namespace ECC
 		void Write(uint8_t);
 		void Write(const uintBig&);
 		void Write(const Scalar&);
+		void Write(const Scalar::Native&);
 		void Write(const Point&);
 		void Write(const Point::Native&);
 

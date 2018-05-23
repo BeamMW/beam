@@ -129,7 +129,7 @@ namespace ECC
 		uintBig m_Value; // valid range is [0 .. s_Order)
 
 		Scalar() {}
-		template <typename T> Scalar(const T& t) { *this = t; }
+		template <typename T> explicit Scalar(const T& t) { *this = t; }
 
 		bool IsValid() const;
 
