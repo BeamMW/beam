@@ -340,13 +340,18 @@ void TestRangeProof()
 		SetRandom(pB[i]);
 	}
 
+	Scalar::Native pwrMul;
+	SetRandom(pwrMul);
+	InnerProduct::Modifier mod;
+	mod.m_pMultiplier[1] = &pwrMul;
+
 	InnerProduct::Signature sig;
-	g_CtxInnerProduct.Create(sig, pA, pB);
+	g_CtxInnerProduct.Create(sig, pA, pB, mod);
 
 	Scalar::Native dot;
 	InnerProduct::get_Dot(dot, pA, pB);
 
-	verify_test(g_CtxInnerProduct.IsValid(sig, dot));
+	verify_test(g_CtxInnerProduct.IsValid(sig, dot, mod));
 }
 
 struct TransactionMaker

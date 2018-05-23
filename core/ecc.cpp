@@ -843,7 +843,26 @@ namespace ECC {
 		pX[1].SetInv(pX[0]);
 	}
 
-	void InnerProduct::PerformCycle(State& dst, const State& src, uint32_t iCycle, const ChallengeSet& cs, Point* pLR_) const
+	void InnerProduct::Mac(Point::Native& res, bool bSet, const Point::Native& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc)
+	{
+		if (pPwrMul)
+		{
+			Scalar::Native k2(k);
+			k2 *= pwr;
+
+			if (bPwrInc)
+				pwr *= *pPwrMul;
+
+			Mac(res, bSet, g, k2, NULL, pwr, bPwrInc);
+		}
+		else
+			if (bSet)
+				res = g * k;
+			else
+				res += g * k;
+	}
+
+	void InnerProduct::PerformCycle(State& dst, const State& src, uint32_t iCycle, const ChallengeSet& cs, Point* pLR_, const Modifier& mod) const
 	{
 		uint32_t n = nDim >> (iCycle + 1);
 		assert(n);
@@ -863,8 +882,19 @@ namespace ECC {
 			pLR[j] = m_GenDot * crossTrm;
 		}
 
+		Scalar::Native pwr0, pwr1;
+
 		for (int j = 0; j < 2; j++)
 		{
+			if (mod.m_pMultiplier[j])
+			{
+				pwr0 = 1U;
+				pwr1 = *mod.m_pMultiplier[j];
+
+				for (uint32_t i = 1; i < n; i++)
+					pwr1 *= *mod.m_pMultiplier[j];
+			}
+
 			for (uint32_t i = 0; i < n; i++)
 			{
 				// arithmetic sequence supports inplace modification, i.e. src and dst may be the same.
@@ -874,14 +904,14 @@ namespace ECC {
 				const Scalar::Native& v0 = src.m_pVal[j][i];
 				const Scalar::Native& v1 = src.m_pVal[j][n + i];
 
-				pLR[j] += g1 * v0;
-				pLR[!j] += g0 * v1;
+				Mac(pLR[j], false, g1, v0, mod.m_pMultiplier[j], pwr1, false);
+				Mac(pLR[!j], false, g0, v1, mod.m_pMultiplier[j], pwr0, false);
 
 				dst.m_pVal[j][i] = v0 * cs.m_Val[iCycle][j];
 				dst.m_pVal[j][i] += v1 * cs.m_Val[iCycle][!j];
 
-				dst.m_pGen[j][i] = g0 * cs.m_Val[iCycle][!j];
-				dst.m_pGen[j][i] += g1 * cs.m_Val[iCycle][j];
+				Mac(dst.m_pGen[j][i], true, g0, cs.m_Val[iCycle][!j], mod.m_pMultiplier[j], pwr0, true);
+				Mac(dst.m_pGen[j][i], false, g1, cs.m_Val[iCycle][j], mod.m_pMultiplier[j], pwr1, true);
 			}
 		}
 
@@ -889,27 +919,27 @@ namespace ECC {
 			pLR_[j] = pLR[j];
 	}
 
-	void InnerProduct::Aggregate(Point::Native& res, const ChallengeSet& cs, const Scalar::Native& k, int j, uint32_t iPos, uint32_t iCycle) const
+	void InnerProduct::Aggregate(Point::Native& res, const ChallengeSet& cs, const Scalar::Native& k, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul) const
 	{
 		if (iCycle)
 		{
 			assert(iCycle <= nCycles);
 			Scalar::Native k0 = k;
-			k0 *= cs.m_Val[iCycle - 1][!j];
+			k0 *= cs.m_Val[nCycles - iCycle][!j];
 
-			Aggregate(res, cs, k0, j, iPos, iCycle - 1);
+			Aggregate(res, cs, k0, j, iPos, iCycle - 1, pwr, pPwrMul);
 
 			k0 = k;
-			k0 *= cs.m_Val[iCycle - 1][j];
+			k0 *= cs.m_Val[nCycles - iCycle][j];
 
-			uint32_t nStep = nDim >> iCycle;
+			uint32_t nStep = 1 << (iCycle - 1);
 
-			Aggregate(res, cs, k0, j, iPos + nStep, iCycle - 1);
+			Aggregate(res, cs, k0, j, iPos + nStep, iCycle - 1, pwr, pPwrMul);
 
 		} else
 		{
 			assert(iPos < nDim);
-			res += m_pGen[j][iPos] * k;
+			Mac(res, false, m_pGen[j][iPos], k, pPwrMul, pwr, true);
 		}
 	}
 
@@ -929,7 +959,7 @@ namespace ECC {
 		}
 	}
 
-	void InnerProduct::Create(Signature& sig, const Scalar::Native* pA, const Scalar::Native* pB) const
+	void InnerProduct::Create(Signature& sig, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod) const
 	{
 		// bufs
 		const uint32_t nBufDim = nDim >> 1;
@@ -949,9 +979,13 @@ namespace ECC {
 
 		Point::Native comm(Zero);
 
+
 		for (int j = 0; j < 2; j++)
+		{
+			Scalar::Native pwr0(1U);
 			for (uint32_t i = 0; i < nDim; i++)
-				comm += m_pGen[j][i] * s0.m_pVal[j][i];
+				Mac(comm, false, m_pGen[j][i], s0.m_pVal[j][i], mod.m_pMultiplier[j], pwr0, true);
+		}
 
 		sig.m_AB = comm;
 
@@ -961,18 +995,23 @@ namespace ECC {
 		ChallengeSet cs;
 		oracle >> cs.m_DotMultiplier;
 
+		Modifier mod2 = mod;
+
 		uint32_t n = nDim;
 		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
 		{
 			get_Challenge(cs.m_Val[iCycle], oracle);
 
 			Point* pLR = sig.m_pLR[iCycle];
-			PerformCycle(s1, s0, iCycle, cs, pLR);
+			PerformCycle(s1, s0, iCycle, cs, pLR, mod2);
 
 			oracle << pLR[0] << pLR[1];
 
 			if (!iCycle)
+			{
 				s0 = s1;
+				ZeroObject(mod2);
+			}
 		}
 
 		assert(1 == n);
@@ -981,7 +1020,7 @@ namespace ECC {
 			sig.m_pCondensed[i] = s0.m_pVal[i][0];
 	}
 
-	bool InnerProduct::IsValid(const Signature& sig, const Scalar::Native& dot) const
+	bool InnerProduct::IsValid(const Signature& sig, const Scalar::Native& dot, const Modifier& mod) const
 	{
 		Oracle oracle;
 		oracle << sig.m_AB;
@@ -1022,7 +1061,9 @@ namespace ECC {
 			valTmp = sig.m_pCondensed[j];
 			ptTmp = Zero;
 
-			Aggregate(ptTmp, cs, valTmp, j, 0, nCycles);
+			Scalar::Native pwr(1U);
+
+			Aggregate(ptTmp, cs, valTmp, j, 0, nCycles, pwr, mod.m_pMultiplier[j]);
 			comm += ptTmp;
 		}
 

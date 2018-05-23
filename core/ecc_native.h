@@ -300,8 +300,13 @@ namespace ECC
 
 		static void get_Dot(Scalar::Native& res, const Scalar::Native* pA, const Scalar::Native* pB);
 
-		void Create(Signature&, const Scalar::Native* pA, const Scalar::Native* pB) const;
-		bool IsValid(const Signature&, const Scalar::Native& dot) const;
+		struct Modifier {
+			const Scalar::Native* m_pMultiplier[2];
+			Modifier() { ZeroObject(m_pMultiplier); }
+		};
+
+		void Create(Signature&, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier()) const;
+		bool IsValid(const Signature&, const Scalar::Native& dot, const Modifier& = Modifier()) const;
 
 
 	private:
@@ -315,17 +320,18 @@ namespace ECC
 		};
 
 		static void get_Challenge(Scalar::Native* pX, Oracle&);
+		static void Mac(Point::Native&, bool bSet, const Point::Native& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc);
 
 		struct ChallengeSet {
 			Scalar::Native m_DotMultiplier;
 			Scalar::Native m_Val[nCycles][2];
 		};
 
-		void Aggregate(Point::Native& res, const ChallengeSet&, const Scalar::Native&, int j, uint32_t iPos, uint32_t iCycle) const;
+		void Aggregate(Point::Native& res, const ChallengeSet&, const Scalar::Native&, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul) const;
 
 		static void CreatePt(Point::Native&, Hash::Processor&);
 
-		void PerformCycle(State& dst, const State& src, uint32_t iCycle, const ChallengeSet&, Point* pLR) const;
+		void PerformCycle(State& dst, const State& src, uint32_t iCycle, const ChallengeSet&, Point* pLR, const Modifier&) const;
 	};
 
 }
