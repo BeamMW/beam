@@ -349,6 +349,13 @@ void TestRangeProof()
 	InnerProduct::get_Dot(dot, pA, pB);
 
 	verify_test(sig.IsValid(dot, mod));
+
+	RangeProof::Confidential bp;
+	Amount v = 23110;
+	comm = Commitment(sk, v);
+
+	bp.Create(sk, v);
+	verify_test(bp.IsValid(comm));
 }
 
 struct TransactionMaker
@@ -920,6 +927,34 @@ void RunBenchmark()
 
 		} while (bm.ShouldContinue());
 	}
+
+	Amount v = 23110;
+	RangeProof::Confidential bp;
+
+	{
+		BenchmarkMeter bm("BulletProof.Sign");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				bp.Create(k1, v);
+
+		} while (bm.ShouldContinue());
+	}
+
+	Point comm = Commitment(k1, v);
+
+	{
+		BenchmarkMeter bm("BulletProof.Verify");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				bp.IsValid(comm);
+
+		} while (bm.ShouldContinue());
+	}
+
 
 	secp256k1_context* pCtx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 

@@ -239,7 +239,19 @@ namespace ECC
 
 		struct Confidential
 		{
-			uint8_t m_pOpaque[700]; // TODO
+			// Bulletproof scheme
+
+			ECC::Point m_A;
+			ECC::Point m_S;
+			// <- y,z
+			ECC::Point m_T1;
+			ECC::Point m_T2;
+			// <- x
+			ECC::Scalar m_TauX;
+			ECC::Scalar m_Mu;
+			ECC::Scalar m_tDot;
+
+			InnerProduct m_P_Tag; // contains commitment P - m_Mu*G
 
 			void Create(const Scalar::Native& sk, Amount);
 			bool IsValid(const Point&) const;

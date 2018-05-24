@@ -257,6 +257,7 @@ namespace ECC
 		static const Context& get();
 
 		Generator::Obscured						G;
+		Generator::Obscured						H_Big;
 		Generator::Simple<sizeof(Amount) << 3>	H;
 
 		struct IppCalculator

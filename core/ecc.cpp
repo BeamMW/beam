@@ -615,6 +615,7 @@ namespace ECC {
 
 		ctx.G.Initialize("G-gen");
 		ctx.H.Initialize("H-gen");
+		ctx.H_Big.Initialize("H-gen");
 
 		// inner-product generators. naive generation
 		Point pt;
@@ -777,23 +778,6 @@ namespace ECC {
 
 			ptAmount = -ptAmount;
 			out += ptAmount;
-		}
-
-
-		// Confidential - mock only
-		bool Confidential::IsValid(const Point&) const
-		{
-			return memis0(m_pOpaque, sizeof(m_pOpaque));
-		}
-
-		void Confidential::Create(const Scalar::Native& sk, Amount val)
-		{
-			ZeroObject(m_pOpaque);
-		}
-
-		int Confidential::cmp(const Confidential& x) const
-		{
-			return memcmp(m_pOpaque, x.m_pOpaque, sizeof(m_pOpaque));
 		}
 
 		// Public
@@ -1113,6 +1097,293 @@ namespace ECC {
 		return comm == Zero;
 	}
 
+
+	/////////////////////
+	// Bulletproof
+	void RangeProof::Confidential::Create(const Scalar::Native& sk, Amount v)
+	{
+		Oracle nonceGen, oracle;
+		nonceGen << sk << v; // init
+
+		// A = G*alpha + vec(aL)*vec(G) + vec(aR)*vec(H)
+		Scalar::Native alpha;
+		nonceGen >> alpha;
+
+		Point::Native comm = Context::get().G * alpha;
+		Point::Native ptVal(Zero);
+
+		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+		{
+			if (1 & (v >> i))
+				comm += Context::get().m_Ipp.m_pGen[0][i]; // aL
+			else
+				ptVal += Context::get().m_Ipp.m_pGen[1][i]; // minus aR
+		}
+		ptVal = -ptVal;
+		comm += ptVal;
+
+		m_A = comm;
+		oracle << m_A; // exposed
+
+		// S = G*ro + vec(sL)*vec(G) + vec(sR)*vec(H)
+		Scalar::Native ro;
+		nonceGen >> ro;
+		comm = Context::get().G * ro;
+
+		Scalar::Native pS[2][InnerProduct::nDim];
+
+		for (int j = 0; j < 2; j++)
+			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+			{
+				nonceGen >> pS[j][i];
+				comm += Context::get().m_Ipp.m_pGen[j][i] * pS[j][i];
+			}
+
+		m_S = comm;
+		oracle << m_S; // exposed
+
+		// get challenges
+
+		Scalar::Native x, y, z;
+		oracle >> y;
+		oracle >> z;
+
+		// calculate t1, t2 - parts of vec(L)*vec(R) which depend on (future) x and x^2.
+		Scalar::Native t0(Zero), t1(Zero), t2(Zero);
+
+		Scalar::Native l0, lx, r0, rx, one(1U), two(2U), zz, yPwr, zz_twoPwr;
+
+		zz = z;
+		zz *= z;
+		yPwr = one;
+		zz_twoPwr = zz;
+
+		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+		{
+			uint32_t bit = 1 & (v >> i);
+
+			l0 = -z;
+			if (bit)
+				l0 += one;
+
+			lx = pS[0][i];
+
+			r0 = z;
+			if (!bit)
+				r0 += -one;
+
+			r0 *= yPwr;
+			r0 += zz_twoPwr;
+
+			rx = yPwr;
+			rx *= pS[1][i];
+
+			zz_twoPwr *= two;
+			yPwr *= y;
+
+			t0 += l0 * r0;
+			t1 += l0 * rx;
+			t1 += lx * r0;
+			t2 += lx * rx;
+		}
+
+		Scalar::Native tau1, tau2;
+		nonceGen >> tau1;
+		nonceGen >> tau2;
+
+		comm = Context::get().G * tau1;
+		comm += Context::get().H_Big * t1;
+
+		m_T1 = comm;
+		oracle << m_T1; // exposed
+
+		comm = Context::get().G * tau2;
+		comm += Context::get().H_Big * t2;
+
+		m_T2 = comm;
+		oracle << m_T2; // exposed
+
+		// get challenge 
+		oracle >> x;
+
+		// m_TauX = tau2*x^2 + tau1*x + sk*z^2
+		l0 = tau2;
+		l0 *= x;
+		l0 *= x;
+
+		r0 = tau1;
+		r0 *= x;
+		l0 += r0;
+
+		r0 = zz;
+		r0 *= sk; // UTXO blinding factor
+		l0 += r0;
+
+		m_TauX = l0;
+
+		// m_Mu = alpha + ro*x
+		l0 = ro;
+		l0 *= x;
+		l0 += alpha;
+		m_Mu = l0;
+
+		// m_tDot
+		l0 = t0;
+
+		r0 = t1;
+		r0 *= x;
+		l0 += r0;
+
+		r0 = t2;
+		r0 *= x;
+		r0 *= x;
+		l0 += r0;
+
+		m_tDot = l0;
+
+		// construct vectors l,r, use buffers pS
+		// P - m_Mu*G
+		yPwr = one;
+		zz_twoPwr = zz;
+
+		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+		{
+			uint32_t bit = 1 & (v >> i);
+
+			pS[0][i] *= x;
+
+			pS[0][i] += -z;
+			if (bit)
+				pS[0][i] += one;
+
+			pS[1][i] *= x;
+			pS[1][i] *= yPwr;
+
+			r0 = z;
+			if (!bit)
+				r0 += -one;
+
+			r0 *= yPwr;
+			r0 += zz_twoPwr;
+
+			pS[1][i] += r0;
+
+			zz_twoPwr *= two;
+			yPwr *= y;
+		}
+
+		yPwr.SetInv(y);
+
+		InnerProduct::Modifier mod;
+		mod.m_pMultiplier[1] = &yPwr;
+
+		m_P_Tag.Create(pS[0], pS[1], mod); // TODO: 2nd generator vector must be multiplied by y^-n
+	}
+
+	bool RangeProof::Confidential::IsValid(const Point& commitment) const
+	{
+		Oracle oracle;
+		Scalar::Native x, y, z, xx, zz, tDot;
+
+		oracle << m_A << m_S;
+		oracle >> y;
+		oracle >> z;
+		oracle << m_T1 << m_T2;
+		oracle >> x;
+
+		// calculate delta(y,z) = (z - z^2) * sumY - z^3 * sum2
+		Scalar::Native delta, sum2, sumY;
+
+
+		sum2 = 1U;
+		sumY = Zero;
+		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+		{
+			sumY += sum2;
+			sum2 *= y;
+		}
+
+		sum2 = Amount(-1);
+
+		zz = z * z;
+
+		delta = z;
+		delta += -zz;
+		delta *= sumY;
+
+		sum2 *= zz;
+		sum2 *= z;
+		delta += -sum2;
+
+		// H_Big * m_tDot + G * m_TauX =?= commitment * z^2 + H_Big * delta(y,z) + m_T1*x + m_T2*x^2
+		// H_Big * (m_tDot - delta(y,z)) + G * m_TauX =?= commitment * z^2 + m_T1*x + m_T2*x^2
+
+		Point::Native ptVal;
+
+		xx = x * x;
+
+		ptVal = Point::Native(commitment) * zz;
+		ptVal += Point::Native(m_T1) * x;
+		ptVal += Point::Native(m_T2) * xx;
+
+		ptVal = -ptVal;
+
+		ptVal += Context::get().G * m_TauX;
+
+		tDot = m_tDot;
+		sumY = tDot;
+		sumY += -delta;
+		ptVal += Context::get().H_Big * sumY;
+
+		if (!(ptVal == Zero))
+			return false;
+
+		// (P - m_Mu*G) + m_Mu*G =?= m_A + m_S*x - vec(G)*vec(z) + vec(H)*( vec(z) + vec(z^2*2^n*y^-n) )
+		ptVal = m_P_Tag.m_AB;
+		ptVal += Context::get().G * m_Mu;
+
+		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+			ptVal += Context::get().m_Ipp.m_pGen[0][i] * z;
+
+		ptVal = -ptVal;
+
+		ptVal += Point::Native(m_A);
+		ptVal += Point::Native(m_S) * x;
+
+		Scalar::Native yInv, pwr, mul;
+		yInv.SetInv(y);
+
+		mul = 2U;
+		mul *= yInv;
+		pwr = zz;
+
+		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+		{
+			sum2 = pwr;
+			sum2 += z;
+
+			ptVal += Context::get().m_Ipp.m_pGen[1][i] * sum2;
+
+			pwr *= mul;
+		}
+
+		if (!(ptVal == Zero))
+			return false;
+
+		// finally check the inner product
+		InnerProduct::Modifier mod;
+		mod.m_pMultiplier[1] = &yInv;
+		if (!m_P_Tag.IsValid(tDot, mod))
+			return false;
+
+		return true;
+	}
+
+	int RangeProof::Confidential::cmp(const Confidential& x) const
+	{
+		// don't care
+		return memcmp(this, &x, sizeof(*this));
+	}
 
 } // namespace ECC
 

@@ -182,17 +182,35 @@ namespace detail
 
         /// ECC::RangeProof::Confidential serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& cond)
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& v)
         {
-            ar & cond.m_pOpaque;
+			ar
+				& v.m_A
+				& v.m_S
+				& v.m_T1
+				& v.m_T2
+				& v.m_TauX
+				& v.m_Mu
+				& v.m_tDot
+				& v.m_P_Tag;
+
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::RangeProof::Confidential& cond)
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential& v)
         {
-            ar & cond.m_pOpaque;
-            return ar;
+			ar
+				& v.m_A
+				& v.m_S
+				& v.m_T1
+				& v.m_T2
+				& v.m_TauX
+				& v.m_Mu
+				& v.m_tDot
+				& v.m_P_Tag;
+
+			return ar;
         }
 
         /// ECC::RangeProof::Public serialization
