@@ -365,7 +365,7 @@ namespace beam
 		typedef std::multimap<Height, MyUtxo> UtxoQueue;
 		UtxoQueue m_MyUtxos;
 
-		void AddMyUtxo(Amount n, Height h, KeyType::Enum eType)
+		void AddMyUtxo(Amount n, Height h, KeyType eType)
 		{
 			if (!n)
 				return;
@@ -497,8 +497,8 @@ namespace beam
 
 			np.OnBlock(id, pBlock->m_Body, NodeDB::PeerID());
 
-			np.AddMyUtxo(fees, h, NodeProcessor::KeyType::Comission);
-			np.AddMyUtxo(Block::s_CoinbaseEmission, h, NodeProcessor::KeyType::Coinbase);
+			np.AddMyUtxo(fees, h, KeyType::Comission);
+			np.AddMyUtxo(Block::s_CoinbaseEmission, h, KeyType::Coinbase);
 
 			blockChain.push_back(std::move(pBlock));
 		}

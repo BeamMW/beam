@@ -31,6 +31,12 @@ namespace beam {
         m_protocol.add_message_handler<wallet::TxRegisteredData,           &WalletNetworkIO::on_message>(receiverRegisteredCode, 1, 2000);
     }
 
+    WalletNetworkIO::~WalletNetworkIO()
+    {
+        assert(m_connections.empty());
+        assert(m_connections_callbacks.empty());
+    }
+
     void WalletNetworkIO::start()
     {
         m_reactor->run();
@@ -83,6 +89,21 @@ namespace beam {
         send_to_node(move(data));
     }
 
+	void WalletNetworkIO::send_node_message(proto::GetHdr&& data)
+	{
+		send_to_node(move(data));
+	}
+
+    void WalletNetworkIO::close_connection(uint64_t id)
+    {
+        m_connections.erase(id);
+        if (auto it = m_connections_callbacks.find(id); it != m_connections_callbacks.end())
+        {
+            m_connections_callbacks.erase(it);
+            m_reactor->cancel_tcp_connect(id);
+        }
+    }
+
     bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::sender::InvitationData&& data)
     {
         m_wallet.handle_tx_message(connectionId, make_shared<wallet::sender::InvitationData>(move(data)));
@@ -107,7 +128,7 @@ namespace beam {
         return true;
     }
 
-    void WalletNetworkIO::on_stream_accepted(io::TcpStream::Ptr&& newStream, int errorCode)
+    void WalletNetworkIO::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
     {
         if (errorCode == 0)
         {
@@ -127,7 +148,7 @@ namespace beam {
         }
     }
 
-    void WalletNetworkIO::on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, int status)
+    void WalletNetworkIO::on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status)
     {
         if (register_connection(tag, move(newStream)))
         {
@@ -161,15 +182,26 @@ namespace beam {
         return false;
     }
 
-    void WalletNetworkIO::on_protocol_error(uint64_t fromStream, ProtocolError error)
+    void WalletNetworkIO::on_protocol_error(uint64_t from, ProtocolError error)
     {
-        LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << error << ")";
+        LOG_ERROR() << __FUNCTION__ << "(" << from << "," << error << ")";
+        if (m_connections.empty())
+        {
+            stop();
+            return;
+        }
+        m_wallet.handle_connection_error(from);
     }
 
-    void WalletNetworkIO::on_connection_error(uint64_t fromStream, int errorCode)
+    void WalletNetworkIO::on_connection_error(uint64_t from, int errorCode)
     {
-        LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << errorCode << ")";
-        stop();
+        LOG_ERROR() << __FUNCTION__ << "(" << from << "," << errorCode << ")";
+        if (m_connections.empty())
+        {
+            stop();
+            return;
+        }
+        m_wallet.handle_connection_error(from);
     }
 
     uint64_t WalletNetworkIO::get_connection_tag()
@@ -196,6 +228,7 @@ namespace beam {
             {
                 cb();
             }
+            m_connections_callbacks.clear();
         }
     }
 
@@ -214,4 +247,13 @@ namespace beam {
         m_wallet.handle_node_message(move(msg));
     }
 
+	void WalletNetworkIO::WalletNodeConnection::OnMsg(proto::NewTip&& msg)
+	{
+		m_wallet.handle_node_message(move(msg));
+	}
+
+    void WalletNetworkIO::WalletNodeConnection::OnMsg(proto::Mined&& msg)
+    {
+        m_wallet.handle_node_message(move(msg));
+    }
 }

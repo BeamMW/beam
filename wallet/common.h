@@ -2,8 +2,20 @@
 
 #include "core/common.h"
 #include "core/ecc_native.h"
+
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4127 )
+#endif
+
 #include <boost/msm/back/state_machine.hpp>
 #include <boost/msm/front/state_machine_def.hpp>
+#include <boost/msm/front/functor_row.hpp>
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 #include "core/serialization_adapters.h"
 
 namespace beam
@@ -15,6 +27,7 @@ namespace beam
     using UuidPtr = std::shared_ptr<Uuid>;
     using TransactionPtr = std::shared_ptr<Transaction>;
     ECC::Scalar::Native generateNonce();
+    std::pair<ECC::Scalar::Native, ECC::Scalar::Native> split_key(const ECC::Scalar::Native& key, uint64_t index);
 
     namespace wallet
     {
@@ -48,7 +61,6 @@ namespace beam
         {
             virtual ~IWalletGateway() {}
             virtual void on_tx_completed(const Uuid& txId) = 0;
-            virtual void send_output_confirmation(const Coin& coin) = 0;
             virtual void send_tx_failed(const Uuid& txId) = 0;
         };
 

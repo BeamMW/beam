@@ -284,4 +284,13 @@ namespace beam
 			bool IsValid(Height h0, Height h1) const;
 		};
 	};
+
+	enum struct KeyType
+	{
+		Comission,
+		Coinbase,
+		Kernel,
+		Regular
+	};
+	void DeriveKey(ECC::Scalar::Native&, const ECC::Kdf&, Height, KeyType, uint32_t nIdx = 0);
 }

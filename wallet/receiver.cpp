@@ -40,10 +40,13 @@ namespace beam::wallet
         Output::Ptr output = make_unique<Output>();
         output->m_Coinbase = false;
 
-        Scalar::Native blindingFactor = m_keychain->calcKey(m_receiver_coin.m_id);
+        Scalar::Native blindingFactor = m_keychain->calcKey(m_receiver_coin);
         output->Create(blindingFactor, amount, true);
+        auto [privateExcess, offset] = split_key(blindingFactor, m_receiver_coin.m_id);
 
-        m_blindingExcess = -blindingFactor;
+        m_blindingExcess = -privateExcess;
+        assert(m_transaction->m_Offset == Zero);
+        m_transaction->m_Offset = offset;
 
         m_transaction->m_vOutputs.push_back(move(output));
  
@@ -125,14 +128,12 @@ namespace beam::wallet
         LOG_DEBUG() << "[Receiver] cancel_tx";
     }
 
-    void Receiver::FSMDefinition::confirm_output(const TxRegistrationCompleted& )
-    {
-        m_gateway.send_tx_registered(make_unique<Uuid>(m_txId));
-        m_gateway.send_output_confirmation(m_receiver_coin);
-    }
-
-    void Receiver::FSMDefinition::complete_tx(const TxOutputConfirmCompleted& )
+    void Receiver::FSMDefinition::complete_tx(const TxRegistrationCompleted& )
     {
         LOG_DEBUG() << "[Receiver] complete tx";
+
+		m_gateway.send_tx_registered(make_unique<Uuid>(m_txId));
+
+		// TODO: add unconfirmed coins (m_receiver_coin)
     }
 }

@@ -19,13 +19,13 @@ namespace beam
         };
 
         Coin();
-        Coin(uint64_t id, const ECC::Amount& amount, Status status = Coin::Unspent, const Height& height = 0, bool isCoinbase = false);
+        Coin(uint64_t id, const ECC::Amount& amount, Status status = Coin::Unspent, const Height& height = 0, KeyType keyType = KeyType::Kernel);
 
         uint64_t m_id;
         ECC::Amount m_amount;
         Status m_status;
         Height m_height;
-        bool m_isCoinbase;
+        KeyType m_key_type;
     };
 
     struct IKeyChain
@@ -35,13 +35,17 @@ namespace beam
 
         virtual uint64_t getNextID() = 0;
 
-        // TODO: change it to native
-        virtual ECC::Scalar calcKey(uint64_t id) = 0;
+        virtual ECC::Scalar::Native calcKey(const beam::Coin& coin) const = 0;
 
         virtual std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock = true) = 0;
         virtual void store(const beam::Coin& coin) = 0;
         virtual void update(const std::vector<beam::Coin>& coins) = 0;
         virtual void remove(const std::vector<beam::Coin>& coins) = 0;
+
+		virtual void visit(std::function<bool(const beam::Coin& coin)> func) = 0;
+
+		virtual void setLastStateHash(const ECC::Hash::Value& hash) = 0;
+		virtual void getLastStateHash(ECC::Hash::Value& hash) const = 0;
     };
 
     struct Keychain : IKeyChain
@@ -54,15 +58,20 @@ namespace beam
         ~Keychain();
 
         uint64_t getNextID() override;
-        ECC::Scalar calcKey(uint64_t id) override;
+        ECC::Scalar::Native calcKey(const beam::Coin& coin) const override;
         std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock = true) override;
         void store(const beam::Coin& coin) override;
         void update(const std::vector<beam::Coin>& coins) override;
         void remove(const std::vector<beam::Coin>& coins) override;
+		void visit(std::function<bool(const beam::Coin& coin)> func) override;
+
+		void setLastStateHash(const ECC::Hash::Value& hash) override;
+		void getLastStateHash(ECC::Hash::Value& hash) const override;
 
     private:
 
         sqlite3* _db;
         std::shared_ptr<Nonce> _nonce;
+        ECC::Kdf m_kdf;
     };
 }

@@ -566,4 +566,9 @@ namespace beam
 		return (ctx.m_Coinbase <= nCoinbaseMax);
 	}
 
+    void DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType eType, uint32_t nIdx /* = 0 */)
+    {
+        kdf.DeriveKey(out, h, static_cast<uint32_t>(eType), nIdx);
+    }
+
 } // namespace beam

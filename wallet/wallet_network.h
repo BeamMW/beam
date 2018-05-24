@@ -34,11 +34,13 @@ namespace beam
                       , IKeyChain::Ptr keychain
                       , io::Reactor::Ptr reactor = io::Reactor::Ptr()
                       , uint64_t start_tag = 0);
+        virtual ~WalletNetworkIO();
         
         void start();
         void stop();
         
         void transfer_money(io::Address receiver, Amount&& amount);
+        
     private:
         // INetworkIO
         void send_tx_message(PeerId to, wallet::sender::InvitationData::Ptr&&) override;
@@ -46,7 +48,10 @@ namespace beam
         void send_tx_message(PeerId to, wallet::receiver::ConfirmationData::Ptr&&) override;
         void send_tx_message(PeerId to, wallet::TxRegisteredData&&) override;
         void send_node_message(proto::NewTransaction&&) override;
-        void send_node_message(proto::GetProofUtxo&&) override;
+		void send_node_message(proto::GetProofUtxo&&) override;
+        void send_node_message(proto::GetHdr&&) override;
+
+        void close_connection(uint64_t id) override;
 
         // IMsgHandler
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;
@@ -59,14 +64,14 @@ namespace beam
         bool on_message(uint64_t connectionId, wallet::TxRegisteredData&& data);
 
         void connect_wallet(io::Address address, ConnectCallback&& callback);
-        void on_stream_accepted(io::TcpStream::Ptr&& newStream, int errorCode);
-        void on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, int status);
+        void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
+        void on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status);
         bool register_connection(uint64_t tag, io::TcpStream::Ptr&& newStream);
 
         uint64_t get_connection_tag();
         
         template <typename T>
-        void send(PeerId to, MsgType type, T&& data)
+        void send(PeerId to, MsgType type, const T& data)
         {
             auto it = m_connections.find(to);
             if (it != m_connections.end())
@@ -78,7 +83,6 @@ namespace beam
             else
             {
                 LOG_ERROR() << "No connection";
-                // add some handling
             }
         }
 
@@ -111,6 +115,8 @@ namespace beam
             void OnClosed(int errorCode) override;
             void OnMsg(proto::Boolean&& msg) override;
             void OnMsg(proto::ProofUtxo&& msg) override;
+			void OnMsg(proto::NewTip&& msg) override;
+            void OnMsg(proto::Mined&& msg) override;
         private:
             IWallet & m_wallet;
             std::vector<NodeConnectCallback> m_connections_callbacks;

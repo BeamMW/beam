@@ -106,7 +106,7 @@ namespace proto {
 	{
 		Block::SystemState::ID m_ID;
 		Amount m_Fees;
-		bool m_Active;
+		bool m_Active; // TODO: need a comment
 
 		template <typename Archive>
 		void serialize(Archive& ar)
