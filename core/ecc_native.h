@@ -167,6 +167,20 @@ namespace ECC
 				}
 			};
 
+			template <>
+			struct Mul<Scalar::Native>
+			{
+				const Simple& me;
+				const Scalar::Native& k;
+				Mul(const Simple& me_, const Scalar::Native& k_) :me(me_), k(k_) {}
+
+				void Assign(Point::Native& res, bool bSet) const
+				{
+					static_assert(nBits == nBits_, "");
+					Generator::SetMul(res, bSet, me.m_pPts, k.get().d, _countof(k.get().d));
+				}
+			};
+
 		public:
 			Simple(const char* szSeed)
 			{
