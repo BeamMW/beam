@@ -617,29 +617,39 @@ namespace ECC {
 		ctx.H.Initialize("H-gen");
 		ctx.H_Big.Initialize("H-gen");
 
-		// inner-product generators. naive generation
-		Point pt;
-		pt.m_Y = false;
+		Scalar::Native one, minus_one;
+		one = 1U;
+		minus_one = -one;
 
-		Hash::Processor hp; 
+		Point::Native pt, ptAux2(Zero);
+
+#define STR_GEN_PREFIX "ip-"
+		char szStr[0x20] = STR_GEN_PREFIX;
+		szStr[_countof(STR_GEN_PREFIX) + 2] = 0;
+
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
-			hp << i;
+			szStr[_countof(STR_GEN_PREFIX) - 1]	= '0' + (i / 10);
+			szStr[_countof(STR_GEN_PREFIX)]		= '0' + (i % 10);
 
 			for (uint32_t j = 0; j < 2; j++)
 			{
-				hp << j;
-				do
-					hp >> pt.m_X;
-				while (!ctx.m_Ipp.m_pGen[j][i].Import(pt));
+				szStr[_countof(STR_GEN_PREFIX) + 1] = '0' + j;
+				ctx.m_Ipp.m_pGen[j][i].Initialize(szStr);
 			}
+
+			pt = ctx.m_Ipp.m_pGen[1][i] * minus_one;
+			Generator::FromPt(ctx.m_Ipp.m_pAux1[0][i], pt);
+
+			pt = ctx.m_Ipp.m_pGen[0][i] * one;
+			Generator::FromPt(ctx.m_Ipp.m_pAux1[1][i], pt);
+
+			ptAux2 += pt;
 		}
 
-		hp << 2U;
-		do
-			hp >> pt.m_X;
-		while (!ctx.m_Ipp.m_GenDot.Import(pt));
+		Generator::FromPt(ctx.m_Ipp.m_Aux2, ptAux2);
 
+		ctx.m_Ipp.m_GenDot.Initialize("ip-dot");
 
 #ifndef NDEBUG
 		g_bContextInitialized = true;
@@ -831,24 +841,24 @@ namespace ECC {
 	// InnerProduct
 	struct InnerProduct::Calculator
 	{
-		struct State {
-			Point::Native* m_pGen[2];
-			Scalar::Native* m_pVal[2];
-		};
-
-		static void get_Challenge(Scalar::Native* pX, Oracle&);
-		static void Mac(Point::Native&, bool bSet, const Point::Native& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc);
-
 		struct ChallengeSet {
 			Scalar::Native m_DotMultiplier;
 			Scalar::Native m_Val[nCycles][2];
 		};
 
+		struct State {
+			Point::Native* m_pGen[2];
+			Scalar::Native* m_pVal[2];
+
+			void CalcCrossTerm(uint32_t n, const ChallengeSet&, Point::Native* pLR) const;
+			void PerformCycle0(const State& src, const ChallengeSet&, Point::Native* pLR, const Modifier&);
+			void PerformCycle(uint32_t iCycle, const ChallengeSet&, Point::Native* pLR);
+		};
+
+		static void get_Challenge(Scalar::Native* pX, Oracle&);
+		static void Mac(Point::Native&, const Generator::Obscured& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc);
+
 		static void Aggregate(Point::Native& res, const ChallengeSet&, const Scalar::Native&, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul);
-
-		static void CreatePt(Point::Native&, Hash::Processor&);
-
-		static void PerformCycle(State& dst, const State& src, uint32_t iCycle, const ChallengeSet&, Point* pLR, const Modifier&);
 	};
 
 
@@ -861,7 +871,7 @@ namespace ECC {
 		pX[1].SetInv(pX[0]);
 	}
 
-	void InnerProduct::Calculator::Mac(Point::Native& res, bool bSet, const Point::Native& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc)
+	void InnerProduct::Calculator::Mac(Point::Native& res, const Generator::Obscured& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc)
 	{
 		if (pPwrMul)
 		{
@@ -871,34 +881,34 @@ namespace ECC {
 			if (bPwrInc)
 				pwr *= *pPwrMul;
 
-			Mac(res, bSet, g, k2, NULL, pwr, bPwrInc);
+			Mac(res, g, k2, NULL, pwr, bPwrInc);
 		}
 		else
-			if (bSet)
-				res = g * k;
-			else
-				res += g * k;
+			res += g * k;
 	}
 
-	void InnerProduct::Calculator::PerformCycle(State& dst, const State& src, uint32_t iCycle, const ChallengeSet& cs, Point* pLR_, const Modifier& mod)
+	void InnerProduct::Calculator::State::CalcCrossTerm(uint32_t n, const ChallengeSet& cs, Point::Native* pLR) const
 	{
-		uint32_t n = nDim >> (iCycle + 1);
-		assert(n);
-
-		Point::Native pLR[2];
-
 		Scalar::Native crossTrm;
 		for (int j = 0; j < 2; j++)
 		{
 			crossTrm = Zero;
 
 			for (uint32_t i = 0; i < n; i++)
-				crossTrm += src.m_pVal[j][i] * src.m_pVal[!j][n + i];
+				crossTrm += m_pVal[j][i] * m_pVal[!j][n + i];
 
 			crossTrm *= cs.m_DotMultiplier;
 
 			pLR[j] = Context::get().m_Ipp.m_GenDot * crossTrm;
 		}
+	}
+
+	void InnerProduct::Calculator::State::PerformCycle0(const State& src, const ChallengeSet& cs, Point::Native* pLR, const Modifier& mod)
+	{
+		const uint32_t n = nDim >> 1;
+		static_assert(n, "");
+
+		src.CalcCrossTerm(n, cs, pLR);
 
 		Scalar::Native pwr0, pwr1;
 
@@ -915,26 +925,53 @@ namespace ECC {
 
 			for (uint32_t i = 0; i < n; i++)
 			{
-				// arithmetic sequence supports inplace modification, i.e. src and dst may be the same.
-				const Point::Native& g0 = src.m_pGen[j][i];
-				const Point::Native& g1 = src.m_pGen[j][n + i];
+				const Generator::Obscured& g0 = Context::get().m_Ipp.m_pGen[j][i];
+				const Generator::Obscured& g1 = Context::get().m_Ipp.m_pGen[j][n + i];
 
 				const Scalar::Native& v0 = src.m_pVal[j][i];
 				const Scalar::Native& v1 = src.m_pVal[j][n + i];
 
-				Mac(pLR[j], false, g1, v0, mod.m_pMultiplier[j], pwr1, false);
-				Mac(pLR[!j], false, g0, v1, mod.m_pMultiplier[j], pwr0, false);
+				Mac(pLR[j], g1, v0, mod.m_pMultiplier[j], pwr1, false);
+				Mac(pLR[!j], g0, v1, mod.m_pMultiplier[j], pwr0, false);
 
-				dst.m_pVal[j][i] = v0 * cs.m_Val[iCycle][j];
-				dst.m_pVal[j][i] += v1 * cs.m_Val[iCycle][!j];
+				m_pVal[j][i] = v0 * cs.m_Val[0][j];
+				m_pVal[j][i] += v1 * cs.m_Val[0][!j];
 
-				Mac(dst.m_pGen[j][i], true, g0, cs.m_Val[iCycle][!j], mod.m_pMultiplier[j], pwr0, true);
-				Mac(dst.m_pGen[j][i], false, g1, cs.m_Val[iCycle][j], mod.m_pMultiplier[j], pwr1, true);
+				m_pGen[j][i] = Zero;
+				Mac(m_pGen[j][i], g0, cs.m_Val[0][!j], mod.m_pMultiplier[j], pwr0, true);
+				Mac(m_pGen[j][i], g1, cs.m_Val[0][j], mod.m_pMultiplier[j], pwr1, true);
 			}
 		}
+	}
+
+	void InnerProduct::Calculator::State::PerformCycle(uint32_t iCycle, const ChallengeSet& cs, Point::Native* pLR)
+	{
+		uint32_t n = nDim >> (iCycle + 1);
+		assert(n);
+
+		CalcCrossTerm(n, cs, pLR);
 
 		for (int j = 0; j < 2; j++)
-			pLR_[j] = pLR[j];
+		{
+			for (uint32_t i = 0; i < n; i++)
+			{
+				// inplace modification
+				Point::Native& g0 = m_pGen[j][i];
+				Point::Native& g1 = m_pGen[j][n + i];
+
+				Scalar::Native& v0 = m_pVal[j][i];
+				Scalar::Native& v1 = m_pVal[j][n + i];
+
+				pLR[j] += g1 * v0;
+				pLR[!j] += g0 * v1;
+
+				v0 *= cs.m_Val[iCycle][j];
+				v0 += v1 * cs.m_Val[iCycle][!j];
+
+				g0 = g0 * cs.m_Val[iCycle][!j];
+				g0 += g1 * cs.m_Val[iCycle][j];
+			}
+		}
 	}
 
 	void InnerProduct::Calculator::Aggregate(Point::Native& res, const ChallengeSet& cs, const Scalar::Native& k, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul)
@@ -957,7 +994,7 @@ namespace ECC {
 		} else
 		{
 			assert(iPos < nDim);
-			Mac(res, false, Context::get().m_Ipp.m_pGen[j][iPos], k, pPwrMul, pwr, true);
+			Mac(res, Context::get().m_Ipp.m_pGen[j][iPos], k, pPwrMul, pwr, true);
 		}
 	}
 
@@ -990,7 +1027,6 @@ namespace ECC {
 
 		for (int i = 0; i < 2; i++)
 		{
-			s0.m_pGen[i] = (Point::Native*) Context::get().m_Ipp.m_pGen[i];
 			s1.m_pGen[i] = pBufGen[i];
 			s1.m_pVal[i] = pBufVal[i];
 		}
@@ -1002,7 +1038,7 @@ namespace ECC {
 		{
 			Scalar::Native pwr0(1U);
 			for (uint32_t i = 0; i < nDim; i++)
-				Calculator::Mac(comm, false, Context::get().m_Ipp.m_pGen[j][i], s0.m_pVal[j][i], mod.m_pMultiplier[j], pwr0, true);
+				Calculator::Mac(comm, Context::get().m_Ipp.m_pGen[j][i], s0.m_pVal[j][i], mod.m_pMultiplier[j], pwr0, true);
 		}
 
 		m_AB = comm;
@@ -1013,29 +1049,29 @@ namespace ECC {
 		Calculator::ChallengeSet cs;
 		oracle >> cs.m_DotMultiplier;
 
-		Modifier mod2 = mod;
+		Point::Native pLR[2];
 
 		uint32_t n = nDim;
 		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
 		{
 			Calculator::get_Challenge(cs.m_Val[iCycle], oracle);
 
-			Point* pLR = m_pLR[iCycle];
-			Calculator::PerformCycle(s1, s0, iCycle, cs, pLR, mod2);
+			if (iCycle)
+				s1.PerformCycle(iCycle, cs, pLR);
+			else
+				s1.PerformCycle0(s0, cs, pLR, mod);
 
-			oracle << pLR[0] << pLR[1];
-
-			if (!iCycle)
+			for (int j = 0; j < 2; j++)
 			{
-				s0 = s1;
-				ZeroObject(mod2);
+				m_pLR[iCycle][j] = pLR[j];
+				oracle << m_pLR[iCycle][j];
 			}
 		}
 
 		assert(1 == n);
 
 		for (int i = 0; i < 2; i++)
-			m_pCondensed[i] = s0.m_pVal[i][0];
+			m_pCondensed[i] = s1.m_pVal[i][0];
 	}
 
 	bool InnerProduct::IsValid(const Scalar::Native& dot, const Modifier& mod) const
@@ -1112,12 +1148,12 @@ namespace ECC {
 		Point::Native comm = Context::get().G * alpha;
 		Point::Native ptVal(Zero);
 
+		NoLeak<secp256k1_ge> ge;
+
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
-			if (1 & (v >> i))
-				comm += Context::get().m_Ipp.m_pGen[0][i]; // aL
-			else
-				ptVal += Context::get().m_Ipp.m_pGen[1][i]; // minus aR
+			uint32_t iBit = 1 & (v >> i);
+			Generator::ToPt(comm, ge.V, Context::get().m_Ipp.m_pAux1[iBit][i], false);
 		}
 		ptVal = -ptVal;
 		comm += ptVal;
@@ -1277,7 +1313,7 @@ namespace ECC {
 		InnerProduct::Modifier mod;
 		mod.m_pMultiplier[1] = &yPwr;
 
-		m_P_Tag.Create(pS[0], pS[1], mod); // TODO: 2nd generator vector must be multiplied by y^-n
+		m_P_Tag.Create(pS[0], pS[1], mod);
 	}
 
 	bool RangeProof::Confidential::IsValid(const Point& commitment) const
@@ -1342,8 +1378,10 @@ namespace ECC {
 		ptVal = m_P_Tag.m_AB;
 		ptVal += Context::get().G * m_Mu;
 
-		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
-			ptVal += Context::get().m_Ipp.m_pGen[0][i] * z;
+		secp256k1_ge ge;
+		Point::Native ptSum0;
+		Generator::ToPt(ptSum0, ge, Context::get().m_Ipp.m_Aux2, true);
+		ptVal += ptSum0 * z;
 
 		ptVal = -ptVal;
 

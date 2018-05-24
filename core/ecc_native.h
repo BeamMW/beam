@@ -263,8 +263,12 @@ namespace ECC
 		struct IppCalculator
 		{
 			// generators used for inner product proof
-			Point::Native m_pGen[2][InnerProduct::nDim];
-			Point::Native m_GenDot;
+			Generator::Obscured m_pGen[2][InnerProduct::nDim];
+			Generator::Obscured m_GenDot; // seems that it's not necessary, can use G instead
+
+			secp256k1_ge_storage m_pAux1[2][InnerProduct::nDim];
+			secp256k1_ge_storage m_Aux2; // better to use generator, but nevermind
+
 		} m_Ipp;
 
 	private:
