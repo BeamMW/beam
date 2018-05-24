@@ -50,6 +50,7 @@ namespace beam
         void send_node_message(proto::NewTransaction&&) override;
 		void send_node_message(proto::GetProofUtxo&&) override;
         void send_node_message(proto::GetHdr&&) override;
+        void send_node_message(proto::GetMined&&) override;
 
         void close_connection(uint64_t id) override;
 

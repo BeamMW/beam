@@ -101,7 +101,7 @@ namespace proto {
 	{
 		Block::SystemState::ID m_ID;
 		Amount m_Fees;
-		bool m_Active; // TODO: need a comment
+		bool m_Active; // mined on active(longest) branch
 
 		template <typename Archive>
 		void serialize(Archive& ar)

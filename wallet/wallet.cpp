@@ -375,6 +375,7 @@ namespace beam
 
 			return true;
 		});
+        m_network.send_node_message(proto::GetMined{ msg.m_Description.m_Height });
 	}
 
     void Wallet::handle_node_message(proto::Mined&& msg)
@@ -382,7 +383,7 @@ namespace beam
         vector<Coin> mined;
         for (auto& mined_coin : msg.m_Entries)
         {
-            if (mined_coin.m_Active)
+            if (mined_coin.m_Active) // we store coins from active branch
             {
                 // coinbase 
                 mined.emplace_back(m_keyChain->getNextID(), Block::s_CoinbaseEmission, Coin::Unspent, mined_coin.m_ID.m_Height, KeyType::Coinbase);

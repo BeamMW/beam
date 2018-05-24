@@ -24,6 +24,7 @@ namespace beam
         virtual void send_node_message(proto::NewTransaction&&) = 0;
         virtual void send_node_message(proto::GetProofUtxo&&) = 0;
 		virtual void send_node_message(proto::GetHdr&&) = 0;
+        virtual void send_node_message(proto::GetMined&&) = 0;
         // connection control
         virtual void close_connection(PeerId id) = 0;
     };

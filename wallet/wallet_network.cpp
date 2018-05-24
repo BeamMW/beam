@@ -94,6 +94,11 @@ namespace beam {
 		send_to_node(move(data));
 	}
 
+    void WalletNetworkIO::send_node_message(proto::GetMined&& data)
+    {
+        send_to_node(move(data));
+    }
+
     void WalletNetworkIO::close_connection(uint64_t id)
     {
         m_connections.erase(id);
