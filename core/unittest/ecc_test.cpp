@@ -412,7 +412,7 @@ struct TransactionMaker
 
 			Scalar::Native k;
 			SetRandom(k);
-			pOut->Create(k, val, true);
+			pOut->Create(k, val);
 
 			t.m_vOutputs.push_back(std::move(pOut));
 

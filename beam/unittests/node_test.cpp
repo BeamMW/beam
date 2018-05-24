@@ -413,7 +413,7 @@ namespace beam
 			utxoOut.m_Key = k;
 
 			Output::Ptr pOut(new Output);
-			pOut->Create(k, utxoOut.m_Value, true);
+			pOut->Create(k, utxoOut.m_Value, true); // confidential transactions will be too slow for test in debug mode.
 			pOut->m_Incubation = hIncubation;
 			tx.m_vOutputs.push_back(std::move(pOut));
 
