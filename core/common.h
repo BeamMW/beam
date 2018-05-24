@@ -57,6 +57,26 @@ namespace beam
 
 		ECC::Point	m_Commitment; // If there are multiple UTXOs matching this commitment (which is supported) the Node always selects the most mature one.
 	
+		struct Proof
+		{
+			Height m_Maturity;
+			Input::Count m_Count;
+			Merkle::Proof m_Proof;
+
+			bool IsValid(const Input&, const Merkle::Hash& root) const;
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar
+					& m_Maturity
+					& m_Count
+					& m_Proof;
+			}
+
+			static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
+		};
+
 		int cmp(const Input&) const;
 		COMPARISON_VIA_CMP(Input)
 	};

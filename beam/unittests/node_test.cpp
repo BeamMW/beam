@@ -854,20 +854,7 @@ namespace beam
 					d.m_Commitment = m_vUtxos[i].m_Commitment;
 
 					for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
-					{
-						UtxoTree::Key key;
-						d.m_Maturity = msg.m_Proofs[j].m_Maturity;
-						key = d;
-
-						UtxoTree::Value val;
-						val.m_Count = msg.m_Proofs[j].m_Count;
-
-						Merkle::Hash hv;
-						val.get_Hash(hv, key);
-						Merkle::Interpret(hv, msg.m_Proofs[j].m_Proof);
-
-						verify_test(hv == m_vStates.back().m_LiveObjects);
-					}
+						msg.m_Proofs[j].IsValid(m_vUtxos[i], m_vStates.back().m_LiveObjects);
 				}
 				else
 					fail_test("unexpected proof");

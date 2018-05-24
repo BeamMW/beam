@@ -44,7 +44,7 @@ namespace proto {
 	macro(Merkle::Proof, Proof)
 
 #define BeamNodeMsg_ProofUtxo(macro) \
-	macro(std::vector<PerUtxoProof>, Proofs)
+	macro(std::vector<Input::Proof>, Proofs)
 
 #define BeamNodeMsg_GetMined(macro) \
 	macro(Height, HeightMin)
@@ -83,24 +83,6 @@ namespace proto {
 	macro(22, Pong) \
 	macro(23, NewTransaction)
 
-
-	struct PerUtxoProof
-	{
-		Height m_Maturity;
-		Input::Count m_Count;
-		Merkle::Proof m_Proof;
-
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_Maturity
-				& m_Count
-				& m_Proof;
-		}
-
-		static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
-	};
 
 	struct PerMined
 	{

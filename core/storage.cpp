@@ -502,6 +502,25 @@ void UtxoTree::Value::get_Hash(Merkle::Hash& hv, const Key& key) const
 	hp >> hv;
 }
 
+bool Input::Proof::IsValid(const Input& inp, const Merkle::Hash& root) const
+{
+	UtxoTree::Key::Data d;
+	d.m_Commitment = inp.m_Commitment;
+	d.m_Maturity = m_Maturity;
+
+	UtxoTree::Key key;
+	key = d;
+
+	Merkle::Hash hv;
+
+	UtxoTree::Value val;
+	val.m_Count = m_Count;
+	val.get_Hash(hv, key);
+
+	Merkle::Interpret(hv, m_Proof);
+	return hv == root;
+}
+
 const Merkle::Hash& UtxoTree::get_LeafHash(Node& n, Merkle::Hash& hv)
 {
 	MyLeaf& x = (MyLeaf&) n;

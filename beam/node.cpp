@@ -673,7 +673,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 			d = v.m_Key;
 
 			m_Msg.m_Proofs.resize(m_Msg.m_Proofs.size() + 1);
-			proto::PerUtxoProof& ret = m_Msg.m_Proofs.back();
+			Input::Proof& ret = m_Msg.m_Proofs.back();
 
 			ret.m_Count = v.m_Value.m_Count;
 			ret.m_Maturity = d.m_Maturity;
@@ -683,7 +683,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 			ret.m_Proof.back().first = true;
 			ret.m_Proof.back().second = m_hvKernels;
 
-			return m_Msg.m_Proofs.size() < proto::PerUtxoProof::s_EntriesMax;
+			return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
 		}
 	} t;
 

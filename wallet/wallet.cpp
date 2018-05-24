@@ -309,7 +309,7 @@ namespace beam
 
     void Wallet::handle_node_message(proto::ProofUtxo&& proof)
     {
-		// TODO: handle the maturity of the several proofs (> 1)
+		// TODO: handle the moaturity of the several proofs (> 1)
 		boost::optional<Coin> found;
 
 		Merkle::Hash lastState;
@@ -322,8 +322,8 @@ namespace beam
 				if (coin.m_status == Coin::Unconfirmed)
 				{
 					Input input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
-				
-					if (input.IsValidProof(proof.m_Count, proof.m_Proof, lastState))
+
+					if (proof.IsValid(input, lastState))
 					{
 						found = coin;
 						found->m_status = Coin::Unspent;
