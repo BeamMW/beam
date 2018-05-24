@@ -21,6 +21,8 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 
 namespace ECC {
 
+Initializer g_Initializer;
+
 void GenerateRandom(void* p, uint32_t n)
 {
 	for (uint32_t i = 0; i < n; i++)
@@ -43,8 +45,6 @@ void SetRandom(Scalar::Native& x)
 	}
 }
 
-Context g_Ctx;
-const Context& Context::get() { return g_Ctx; }
 
 InnerProduct g_CtxInnerProduct;
 

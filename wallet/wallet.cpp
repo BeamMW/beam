@@ -7,10 +7,8 @@
 #include <algorithm>
 #include <random>
 
-// Valdo's point generator of elliptic curve
 namespace ECC {
-	Context g_Ctx;
-	const Context& Context::get() { return g_Ctx; }
+	Initializer g_Initializer;
 }
 
 namespace beam

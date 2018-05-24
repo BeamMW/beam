@@ -538,7 +538,7 @@ namespace ECC {
 			}
 		}
 
-		Obscured::Obscured(const char* szSeed)
+		void Obscured::Initialize(const char* szSeed)
 		{
 			for (uint32_t nCounter = 0; ; nCounter++)
 			{
@@ -597,10 +597,28 @@ namespace ECC {
 
 	/////////////////////
 	// Context
-	Context::Context()
-		:G("G-gen")
-		,H("H-gen")
+	uint64_t g_pContextBuf[(sizeof(Context) + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
+
+#ifndef NDEBUG
+	bool g_bContextInitialized = false;
+#endif // NDEBUG
+
+	const Context& Context::get()
 	{
+		assert(g_bContextInitialized);
+		return *(Context*) g_pContextBuf;
+	}
+
+	void InitializeContext()
+	{
+		Context& ctx = *(Context*) g_pContextBuf;
+
+		ctx.G.Initialize("G-gen");
+		ctx.H.Initialize("H-gen");
+
+#ifndef NDEBUG
+		g_bContextInitialized = true;
+#endif // NDEBUG
 	}
 
 	/////////////////////

@@ -182,7 +182,7 @@ namespace ECC
 			};
 
 		public:
-			Simple(const char* szSeed)
+			void Initialize(const char* szSeed)
 			{
 				GeneratePts(szSeed, Base<nBits_>::m_pPts, Base<nBits_>::nLevels);
 			}
@@ -210,7 +210,7 @@ namespace ECC
 			void AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native&) const;
 
 		public:
-			Obscured(const char* szSeed);
+			void Initialize(const char* szSeed);
 
 			template <typename TScalar>
 			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
@@ -268,11 +268,13 @@ namespace ECC
 
 	struct Context
 	{
-		Context();
 		static const Context& get();
 
-		const Generator::Obscured						G;
-		const Generator::Simple<sizeof(Amount) << 3>	H;
+		Generator::Obscured						G;
+		Generator::Simple<sizeof(Amount) << 3>	H;
+
+	private:
+		Context() {}
 	};
 
 	class Commitment

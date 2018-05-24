@@ -1,9 +1,7 @@
 #include "private_key.h"
 
-// Valdo's point generator of elliptic curve
 namespace ECC {
-  Context g_Ctx;
-  const Context& Context::get() { return g_Ctx; }
+  Initializer g_Initializer;
 }
 
 // Random generator implementation

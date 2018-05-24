@@ -26,6 +26,15 @@ inline void ZeroObject(T& x)
 
 namespace ECC
 {
+	void InitializeContext(); // builds various generators. Necessary for commitments and signatures.
+	// Not necessary for hashes, scalar and 'casual' point arithmetics
+
+	struct Initializer {
+		Initializer() {
+			InitializeContext();
+		}
+	};
+
 	// Syntactic sugar!
 	enum Zero_ { Zero };
 	enum Two_ { Two };
