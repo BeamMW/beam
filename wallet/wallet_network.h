@@ -120,10 +120,12 @@ namespace beam
             void OnMsg(proto::Boolean&& msg) override;
             void OnMsg(proto::ProofUtxo&& msg) override;
 			void OnMsg(proto::NewTip&& msg) override;
+            void OnMsg(proto::Hdr&& msg) override;
             void OnMsg(proto::Mined&& msg) override;
         private:
             IWallet & m_wallet;
             std::vector<NodeConnectCallback> m_connections_callbacks;
+            bool m_connecting;
         };
     
     private:

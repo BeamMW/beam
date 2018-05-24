@@ -53,6 +53,7 @@ namespace
         }
 
         void store(const beam::Coin& coin) override {}
+        void store(const std::vector<beam::Coin>& coins) {}
         void update(const std::vector<beam::Coin>& coins) override {}
         void remove(const std::vector<beam::Coin>& coins) override {}
         void visit(std::function<bool(const beam::Coin& coin)> func) override {}

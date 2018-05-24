@@ -399,7 +399,7 @@ namespace beam
                 // TODO: should we pass ID to Coin ctor?
             }
         }
-        m_keyChain->update(mined);
+        m_keyChain->store(mined);
     }
 
     void Wallet::handle_connection_error(PeerId from)

@@ -46,6 +46,11 @@ struct SqliteKeychain : beam::IKeyChain
 		return _keychain->store(coin);
 	}
 
+    void store(const std::vector<beam::Coin>& coins)
+    {
+        return _keychain->store(coins);
+    }
+
 	void update(const std::vector<beam::Coin>& coins) override
 	{
 		_keychain->update(coins);

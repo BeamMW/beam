@@ -29,6 +29,8 @@ namespace beam {
         m_protocol.add_message_handler<wallet::sender::ConfirmationData,   &WalletNetworkIO::on_message>(senderConfirmationCode, 1, 2000);
         m_protocol.add_message_handler<wallet::receiver::ConfirmationData, &WalletNetworkIO::on_message>(receiverConfirmationCode, 1, 2000);
         m_protocol.add_message_handler<wallet::TxRegisteredData,           &WalletNetworkIO::on_message>(receiverRegisteredCode, 1, 2000);
+        
+        m_node_connection.connect(m_node_address, [this]() { m_is_node_connected = true; });
     }
 
     WalletNetworkIO::~WalletNetworkIO()
@@ -221,17 +223,22 @@ namespace beam {
 
     WalletNetworkIO::WalletNodeConnection::WalletNodeConnection(IWallet& wallet)
         : m_wallet {wallet}
+        , m_connecting{false}
     {
     }
 
     void WalletNetworkIO::WalletNodeConnection::connect(const io::Address& address, NodeConnectCallback&& cb)
     {
         m_connections_callbacks.emplace_back(move(cb));
-        Connect(address);
+        if (!m_connecting)
+        {
+            Connect(address);
+        }
     }
 
     void WalletNetworkIO::WalletNodeConnection::OnConnected()
     {
+        m_connecting = false;
         if (!m_connections_callbacks.empty())
         {
             for (auto& cb : m_connections_callbacks)
@@ -261,6 +268,11 @@ namespace beam {
 	{
 		m_wallet.handle_node_message(move(msg));
 	}
+
+    void WalletNetworkIO::WalletNodeConnection::OnMsg(proto::Hdr&& msg)
+    {
+        m_wallet.handle_node_message(move(msg));
+    }
 
     void WalletNetworkIO::WalletNodeConnection::OnMsg(proto::Mined&& msg)
     {

@@ -39,6 +39,7 @@ namespace beam
 
         virtual std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock = true) = 0;
         virtual void store(const beam::Coin& coin) = 0;
+        virtual void store(const std::vector<beam::Coin>& coins) = 0;
         virtual void update(const std::vector<beam::Coin>& coins) = 0;
         virtual void remove(const std::vector<beam::Coin>& coins) = 0;
 
@@ -73,6 +74,7 @@ namespace beam
         ECC::Scalar::Native calcKey(const beam::Coin& coin) const override;
         std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock = true) override;
         void store(const beam::Coin& coin) override;
+        void store(const std::vector<beam::Coin>& coins) override;
         void update(const std::vector<beam::Coin>& coins) override;
         void remove(const std::vector<beam::Coin>& coins) override;
 		void visit(std::function<bool(const beam::Coin& coin)> func) override;

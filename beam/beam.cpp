@@ -34,11 +34,15 @@ int main(int argc, char* argv[])
     general_options.add_options()
         ("help,h", "list of all options")
         ("mode", po::value<string>()->required(), "mode to execute [node|wallet]")
-        ("port,p", po::value<uint16_t>()->default_value(10000), "port to start the server on");
+        ("port,p", po::value<uint16_t>()->default_value(10000), "port to start the server on")
+        ("debug,d", po::value<bool>()->default_value(false), "launch in debug mode");
 
     po::options_description node_options("Node options");
     node_options.add_options()
-        ("storage", po::value<string>()->default_value("node.db"), "node storage path");
+        ("storage", po::value<string>()->default_value("node.db"), "node storage path")
+        ("mining_threads", po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
+        ("miner_id", po::value<uint32_t>()->default_value(0), "seed for miner nonce generation")
+        ;
 
     po::options_description wallet_options("Wallet options");
     wallet_options.add_options()
@@ -74,6 +78,7 @@ int main(int argc, char* argv[])
         po::notify(vm);
 
         auto port = vm["port"].as<uint16_t>();
+        auto debug = vm["debug"].as<bool>();
 
         if (vm.count("mode"))
         {
@@ -87,6 +92,9 @@ int main(int argc, char* argv[])
                 node.m_Cfg.m_Listen.port(port);
                 node.m_Cfg.m_Listen.ip(INADDR_ANY);
                 node.m_Cfg.m_sPathLocal = vm["storage"].as<std::string>();
+                node.m_Cfg.m_bDontVerifyPoW = debug;
+                node.m_Cfg.m_MiningThreads = vm["mining_threads"].as<uint32_t>();
+                node.m_Cfg.m_MinerID = vm["miner_id"].as<uint32_t>();
 
                 LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
@@ -98,7 +106,7 @@ int main(int argc, char* argv[])
                 if (vm.count("command"))
                 {
                     auto command = vm["command"].as<string>();
-                    if (command != "init" && command != "init-debug" && command != "send" && command != "listen")
+                    if (command != "init" && command != "send" && command != "listen")
                     {
                         LOG_ERROR() << "unknown command: \'" << command << "\'";
                         return -1;
@@ -116,34 +124,21 @@ int main(int argc, char* argv[])
                     if (command == "init")
                     {
                         auto keychain = Keychain::init(pass);
-
                         if (keychain)
                         {
                             LOG_INFO() << "wallet successfully created...";
-                            return 0;
-                        }
-                        else
-                        {
-                            LOG_ERROR() << "something went wrong, wallet not created...";
-                            return -1;
-                        }
-                    }
+                            if (debug)
+                            {
+                                keychain->store(Coin(keychain->getNextID(), 5));
+                                keychain->store(Coin(keychain->getNextID(), 10));
+                                keychain->store(Coin(keychain->getNextID(), 20));
+                                keychain->store(Coin(keychain->getNextID(), 50));
+                                keychain->store(Coin(keychain->getNextID(), 100));
+                                keychain->store(Coin(keychain->getNextID(), 200));
+                                keychain->store(Coin(keychain->getNextID(), 500));
 
-                    if (command == "init-debug")
-                    {
-                        auto keychain = Keychain::init(pass);
-
-                        if (keychain)
-                        {
-                            keychain->store(Coin(keychain->getNextID(), 5));
-                            keychain->store(Coin(keychain->getNextID(), 10));
-                            keychain->store(Coin(keychain->getNextID(), 20));
-                            keychain->store(Coin(keychain->getNextID(), 50));
-                            keychain->store(Coin(keychain->getNextID(), 100));
-                            keychain->store(Coin(keychain->getNextID(), 200));
-                            keychain->store(Coin(keychain->getNextID(), 500));
-
-                            LOG_INFO() << "wallet with coins successfully created...";
+                                LOG_INFO() << "wallet with coins successfully created...";
+                            }
                             return 0;
                         }
                         else
