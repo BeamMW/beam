@@ -804,7 +804,7 @@ namespace beam
 				m_vStates.push_back(msg.m_Description);
 
 				ECC::Scalar::Native k;
-				NodeProcessor::DeriveKey(k, m_Kdf, msg.m_Description.m_Height, NodeProcessor::KeyType::Coinbase);
+				DeriveKey(k, m_Kdf, msg.m_Description.m_Height, KeyType::Coinbase);
 				Input utxo;
 				utxo.m_Commitment = ECC::Commitment(k, Block::s_CoinbaseEmission);
 				m_vUtxos.push_back(utxo);

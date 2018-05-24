@@ -45,7 +45,7 @@ namespace beam::wallet
         auto [privateExcess, offset] = split_key(blindingFactor, m_receiver_coin.m_id);
 
         m_blindingExcess = -privateExcess;
-        assert(m_transaction->m_Offset == Zero);
+        assert(m_transaction->m_Offset.m_Value == Zero);
         m_transaction->m_Offset = offset;
 
         m_transaction->m_vOutputs.push_back(move(output));
