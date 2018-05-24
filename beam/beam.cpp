@@ -172,15 +172,19 @@ int main(int argc, char* argv[])
                                              , keychain
                                              , reactor};
 
-                    if (command == "send")
-                    {
-                        auto amount = vm["amount"].as<ECC::Amount>();
-                        io::Address receiver_addr;
-                        receiver_addr.resolve(vm["receiver_addr"].as<string>().c_str());
+					wallet_io.sync_with_node([&]() 
+					{
+						if (command == "send")
+						{
+							auto amount = vm["amount"].as<ECC::Amount>();
+							io::Address receiver_addr;
+							receiver_addr.resolve(vm["receiver_addr"].as<string>().c_str());
                     
-                        LOG_INFO() << "sending money " << receiver_addr.str();
-                        wallet_io.transfer_money(receiver_addr, move(amount));
-                    }
+							LOG_INFO() << "sending money " << receiver_addr.str();
+							wallet_io.transfer_money(receiver_addr, move(amount));
+						}
+					});
+
                     wallet_io.start();
                 }
                 else

@@ -312,71 +312,76 @@ namespace beam
 
     void Wallet::handle_node_message(proto::ProofUtxo&& proof)
     {
-		// TODO: handle the maturity of the several proofs (> 1)
-		boost::optional<Coin> found;
+        // TODO: handle the maturity of the several proofs (> 1)
+        boost::optional<Coin> found;
 
-		Merkle::Hash lastState;
-		m_keyChain->getLastStateHash(lastState);
+        for (const auto& proof : proof.m_Proofs)
+        {
+            m_keyChain->visit([&](const Coin& coin)
+            {
+                if (coin.m_status == Coin::Unconfirmed)
+                {
+                    Input input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
+                
+                    if (input.IsValidProof(proof.m_Count, proof.m_Proof, m_LiveObjects))
+                    {
+                        found = coin;
+                        found->m_status = Coin::Unspent;
 
-		for (const auto& proof : proof.m_Proofs)
-		{
-			m_keyChain->visit([&](const Coin& coin)
-			{
-				if (coin.m_status == Coin::Unconfirmed)
-				{
-					Input input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
-				
-					if (input.IsValidProof(proof.m_Count, proof.m_Proof, lastState))
-					{
-						found = coin;
-						found->m_status = Coin::Unspent;
+                        return false;
+                    }
+                }
 
-						return false;
-					}
-				}
+                return true;
+            });
+        }
 
-				return true;
-			});
-		}
-
-		if (found)
-		{
-			m_keyChain->store(*found);
-		}
-		else
-		{
-			// invalid proof!!!
-		}
+        if (found)
+        {
+            m_keyChain->store(*found);
+        }
+        else
+        {
+            // invalid proof!!!
+        }
     }
 
-	void Wallet::handle_node_message(proto::NewTip&& msg)
-	{
-		// TODO: check if we're already waiting for the ProofUtxo,
-		// don't send request if yes
-		m_network.send_node_message(proto::GetHdr{ msg.m_ID });
-	}
+    void Wallet::handle_node_message(proto::NewTip&& msg)
+    {
+        // TODO: check if we're already waiting for the ProofUtxo,
+        // don't send request if yes
 
-	void Wallet::handle_node_message(proto::Hdr&& msg)
-	{
-		m_keyChain->setLastStateHash(msg.m_Description.m_LiveObjects);
+        beam::Block::SystemState::ID id;
+        m_keyChain->getVar("SystemStateID", id);
 
-		// TODO: do one kernel proof instead many per coin proofs
-		m_keyChain->visit([&](const Coin& coin)
-		{
-			if (coin.m_status == Coin::Unconfirmed)
-			{
-				m_network.send_node_message(
-					proto::GetProofUtxo
-					{
-						Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) }
-						, coin.m_height
-					});
-			}
+        if (msg.m_ID > id)
+        {
+            m_keyChain->setVar("SystemStateID", msg.m_ID);
+            m_network.send_node_message(proto::GetHdr{ msg.m_ID });
+        }
+    }
 
-			return true;
-		});
+    void Wallet::handle_node_message(proto::Hdr&& msg)
+    {
+        m_LiveObjects = msg.m_Description.m_LiveObjects;
+
+        // TODO: do one kernel proof instead many per coin proofs
+        m_keyChain->visit([&](const Coin& coin)
+        {
+            if (coin.m_status == Coin::Unconfirmed)
+            {
+                m_network.send_node_message(
+                    proto::GetProofUtxo
+                    {
+                        Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) }
+                        , coin.m_height
+                    });
+            }
+
+            return true;
+        });
         m_network.send_node_message(proto::GetMined{ msg.m_Description.m_Height });
-	}
+    }
 
     void Wallet::handle_node_message(proto::Mined&& msg)
     {

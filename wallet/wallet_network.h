@@ -28,6 +28,8 @@ namespace beam
     public:
 
         using ConnectCallback = std::function<void(uint64_t tag)>;
+		using NodeSyncCallback = std::function<void()>;
+
         WalletNetworkIO(io::Address address
                       , io::Address node_address
                       , bool is_server
@@ -40,6 +42,7 @@ namespace beam
         void stop();
         
         void transfer_money(io::Address receiver, Amount&& amount);
+		void sync_with_node(NodeSyncCallback&& callback);
         
     private:
         // INetworkIO

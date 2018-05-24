@@ -61,14 +61,14 @@ struct SqliteKeychain : beam::IKeyChain
 		_keychain->visit(func);
 	}
 
-	void setLastStateHash(const ECC::Hash::Value& hash) override
+	void setVarRaw(const char* name, const void* data, int size) override
 	{
-		_keychain->setLastStateHash(hash);
+		_keychain->setVarRaw(name, data, size);
 	}
 
-	void getLastStateHash(ECC::Hash::Value& hash) const override
+	int getVarRaw(const char* name, void* data) const override
 	{
-		_keychain->getLastStateHash(hash);
+		return _keychain->getVarRaw(name, data);
 	}
 
 private:

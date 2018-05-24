@@ -43,12 +43,16 @@ void TestKeychain()
 	}
 
 	{
-		ECC::Hash::Value a;
-		ECC::Hash::Processor() << static_cast<uint32_t>(rand()) >> a;
-		keychain.setLastStateHash(a);
+		beam::Block::SystemState::ID a;
+		ECC::Hash::Processor() << static_cast<uint32_t>(rand()) >> a.m_Hash;
+		a.m_Height = rand();
 
-		ECC::Hash::Value b;
-		keychain.getLastStateHash(b);
+		const char* name = "SystemStateID";
+		keychain.setVar(name, "dummy");
+		keychain.setVar(name, a);
+
+		beam::Block::SystemState::ID b;
+		assert(keychain.getVar(name, b));
 
 		assert(a == b);
 	}

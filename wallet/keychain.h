@@ -44,9 +44,21 @@ namespace beam
 
 		virtual void visit(std::function<bool(const beam::Coin& coin)> func) = 0;
 
-		virtual void setLastStateHash(const ECC::Hash::Value& hash) = 0;
-		virtual void getLastStateHash(ECC::Hash::Value& hash) const = 0;
-    };
+		virtual void setVarRaw(const char* name, const void* data, int size) = 0;
+		virtual int getVarRaw(const char* name, void* data) const = 0;
+
+		template <typename Var>
+		void setVar(const char* name, const Var& var)
+		{
+			setVarRaw(name, &var, sizeof(var));
+		}
+
+		template <typename Var>
+		bool getVar(const char* name, Var& var)
+		{
+			return getVarRaw(name, &var) == sizeof(var);
+		}
+	};
 
     struct Keychain : IKeyChain
     {
@@ -65,8 +77,8 @@ namespace beam
         void remove(const std::vector<beam::Coin>& coins) override;
 		void visit(std::function<bool(const beam::Coin& coin)> func) override;
 
-		void setLastStateHash(const ECC::Hash::Value& hash) override;
-		void getLastStateHash(ECC::Hash::Value& hash) const override;
+		void setVarRaw(const char* name, const void* data, int size) override;
+		int getVarRaw(const char* name, void* data) const override;
 
     private:
 

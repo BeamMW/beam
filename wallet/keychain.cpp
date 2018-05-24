@@ -28,9 +28,8 @@
 #define VARIABLES_NAME "variables"
 
 #define ENUM_VARIABLES_FIELDS(each, sep) \
-    each(1, id,         sep, INTEGER NOT NULL) \
-    each(2, stateHash,  sep, BLOB) \
-    each(3, height,        , INTEGER) // last item without separator
+    each(1, name, sep, TEXT UNIQUE) \
+    each(2, value,   , BLOB)
 
 #define VARIABLES_FIELDS ENUM_VARIABLES_FIELDS(LIST, ", ")
 
@@ -73,6 +72,12 @@ namespace beam
                 assert(ret == SQLITE_OK);
             }
 
+			void bind(int col, const char* val)
+			{
+				int ret = sqlite3_bind_text(_stm, col, val, -1, NULL);
+				assert(ret == SQLITE_OK);
+			}
+
             bool step()
             {
                 int ret = sqlite3_step(_stm);
@@ -104,7 +109,9 @@ namespace beam
             void get(int col, void* blob, int& size)
             {
                 size = sqlite3_column_bytes(_stm, col);
-                std::memcpy(blob, sqlite3_column_blob(_stm, col), size);
+                const void* data = sqlite3_column_blob(_stm, col);
+
+                if(data) std::memcpy(blob, data, size);
             }
         
             void get(int col, beam::KeyType& type)
@@ -194,21 +201,9 @@ namespace beam
             }
 
             {
-                const char* req = "CREATE TABLE " VARIABLES_NAME " (" VARIABLES_FIELDS ");";
+                const char* req = "CREATE TABLE " VARIABLES_NAME " (" ENUM_VARIABLES_FIELDS(LIST_WITH_TYPES, ", ") ");";
                 int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
                 assert(ret == SQLITE_OK);
-
-                {
-                    sqlite::Transaction trans(keychain->_db);
-
-                    {
-                        const char* req = "INSERT INTO " VARIABLES_NAME " (id) VALUES(0);";
-                        sqlite::Statement stm(keychain->_db, req);
-                        stm.step();
-                    }
-
-                    trans.commit();
-                }
             }
 
             return std::static_pointer_cast<IKeyChain>(keychain);
@@ -444,15 +439,17 @@ namespace beam
         }
     }
 
-    void Keychain::setLastStateHash(const ECC::Hash::Value& hash)
+    void Keychain::setVarRaw(const char* name, const void* data, int size)
     {
         sqlite::Transaction trans(_db);
 
         {
-            const char* req = "UPDATE " VARIABLES_NAME " SET stateHash=?1 WHERE id=0;";
-            sqlite::Statement stm(_db, req);
+			const char* req = "INSERT or REPLACE INTO " VARIABLES_NAME " (" VARIABLES_FIELDS ") VALUES(?1, ?2);";
 
-            stm.bind(1, hash.m_pData, hash.size());
+            sqlite::Statement stm(_db, req);
+			
+            stm.bind(1, name);
+            stm.bind(2, data, size);
 
             stm.step();
         }
@@ -460,14 +457,17 @@ namespace beam
         trans.commit();
     }
 
-    void Keychain::getLastStateHash(ECC::Hash::Value& hash) const
+    int Keychain::getVarRaw(const char* name, void* data) const
     {
-        const char* req = "SELECT stateHash FROM " VARIABLES_NAME " WHERE id=0;";
+        const char* req = "SELECT value FROM " VARIABLES_NAME " WHERE name=?1;";
+
         sqlite::Statement stm(_db, req);
+		stm.bind(1, name);
         stm.step();
 
         int size = 0;
-        stm.get(0, hash.m_pData, size);
-        assert(size == hash.size());
+        stm.get(0, data, size);
+
+        return size;
     }
 }

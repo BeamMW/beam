@@ -47,6 +47,11 @@ namespace beam {
         m_reactor->stop();
     }
 
+	void WalletNetworkIO::sync_with_node(NodeSyncCallback&& callback)
+	{
+		callback();
+	}
+
     void WalletNetworkIO::transfer_money(io::Address receiver, Amount&& amount)
     {
         connect_wallet(receiver, [this, amount = move(amount)](uint64_t tag) mutable {m_wallet.transfer_money(tag, move(amount)); });
