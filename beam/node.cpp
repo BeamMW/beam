@@ -158,9 +158,12 @@ void Node::Processor::OnPeerInsane(const PeerID& peerID)
 
 void Node::Processor::OnNewState()
 {
-	proto::NewTip msg;
-	if (!get_CurrentState(msg.m_ID))
+	proto::Hdr msgHdr;
+	if (!get_CurrentState(msgHdr.m_Description))
 		return;
+
+	proto::NewTip msg;
+	msgHdr.m_Description.get_ID(msg.m_ID);
 
 	get_ParentObj().m_TxPool.DeleteOutOfBound(msg.m_ID.m_Height + 1);
 
@@ -176,7 +179,12 @@ void Node::Processor::OnNewState()
 
 		try {
 			if ((State::Connected == peer.m_eState) && (peer.m_TipHeight <= msg.m_ID.m_Height))
+			{
 				peer.Send(msg);
+
+				if (peer.m_Config.m_AutoSendHdr)
+					peer.Send(msgHdr);
+			}
 		} catch (...) {
 			peer.OnPostError();
 		}
@@ -333,6 +341,7 @@ void Node::Peer::OnConnected()
 	proto::Config msgCfg;
 	msgCfg.m_SpreadingTransactions = true;
 	msgCfg.m_Mining = (m_pThis->m_Cfg.m_MiningThreads > 0);
+	msgCfg.m_AutoSendHdr = false;
 	Send(msgCfg);
 
 	proto::NewTip msg;
@@ -591,6 +600,13 @@ void Node::Peer::OnMsg(proto::Config&& msg)
 	{
 		// TODO: decide if/how to sent the pending transactions.
 		// maybe this isn't necessary, in this case it'll receive only new transactions.
+	}
+
+	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr)
+	{
+		proto::Hdr msgHdr;
+		if (m_pThis->m_Processor.get_CurrentState(msgHdr.m_Description))
+			Send(msgHdr);
 	}
 
 	m_Config = msg;

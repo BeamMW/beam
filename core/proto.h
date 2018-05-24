@@ -54,7 +54,8 @@ namespace proto {
 
 #define BeamNodeMsg_Config(macro) \
 	macro(bool, SpreadingTransactions) \
-	macro(bool, Mining)
+	macro(bool, Mining) \
+	macro(bool, AutoSendHdr) /* prefer the header in addition to the NewTip message */
 
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)

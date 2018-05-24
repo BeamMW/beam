@@ -222,6 +222,12 @@ namespace beam {
 
     void WalletNetworkIO::WalletNodeConnection::OnConnected()
     {
+		proto::Config msgCfg;
+		ZeroObject(msgCfg);
+
+		msgCfg.m_AutoSendHdr = true;
+		Send(msgCfg);
+
         if (!m_connections_callbacks.empty())
         {
             for (auto& cb : m_connections_callbacks)

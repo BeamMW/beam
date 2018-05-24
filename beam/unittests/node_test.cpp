@@ -766,6 +766,11 @@ namespace beam
 
 			virtual void OnConnected() override {
 				SetTimer(60*1000);
+
+				proto::Config msgCfg;
+				ZeroObject(msgCfg);
+				msgCfg.m_AutoSendHdr = true;
+				Send(msgCfg);
 			}
 
 			virtual void OnClosed(int errorCode) override {
@@ -790,12 +795,6 @@ namespace beam
 
 				if (msg.m_ID.m_Height >= m_HeightTrg)
 					io::Reactor::get_Current().stop();
-				else
-				{
-					proto::GetHdr msgOut;
-					msgOut.m_ID = msg.m_ID;
-					Send(msgOut);
-				}
 			}
 
 			virtual void OnMsg(proto::Hdr&& msg) override
