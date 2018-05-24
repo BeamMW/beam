@@ -472,13 +472,22 @@ namespace ECC {
 			return true;
 		}
 
-		void data_cmov(uint32_t* pDst, const uint32_t* pSrc, int nWords, int flag)
+		template <typename T>
+		void data_cmov_as(T* pDst, const T* pSrc, int nWords, int flag)
 		{
-			const uint32_t mask0 = flag + ~((uint32_t)0);
-			const uint32_t mask1 = ~mask0;
+			const T mask0 = flag + ~((T)0);
+			const T mask1 = ~mask0;
 
 			for (int n = 0; n < nWords; n++)
 				pDst[n] = (pDst[n] & mask0) | (pSrc[n] & mask1);
+		}
+
+		template <typename T>
+		void object_cmov(T& dst, const T& src, int flag)
+		{
+			typedef uint32_t TOrd;
+			static_assert(sizeof(T) % sizeof(TOrd) == 0, "");
+			data_cmov_as<TOrd>((TOrd*) &dst, (TOrd*) &src, sizeof(T) / sizeof(TOrd), flag);
 		}
 
 		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, const Scalar::Native::uint* p, int nWords)
@@ -512,7 +521,7 @@ namespace ECC {
 					*/
 
 					for (uint32_t i = 0; i < nPointsPerLevel; i++)
-						data_cmov((uint32_t*) &ge_s.V, (uint32_t*) (pPts + i), sizeof(ge_s.V) / sizeof(uint32_t), i == nSel);
+						object_cmov(ge_s.V, pPts[i], i == nSel);
 
 					ToPt(res, ge.V, ge_s.V, bSet);
 					bSet = false;
