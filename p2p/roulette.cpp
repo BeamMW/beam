@@ -33,28 +33,29 @@ Roulette::ID Roulette::pull() {
     if (_totalWeight == 0) return id;
 
     // choose random bucket according weighted distribution
-    size_t x = rnd(0, _totalWeight-1);
-    size_t i = find_bucket(x, 1, _maxItemWeight);
-    Bucket& bucket = _buckets[i];
+    uint32_t x = rnd(0, _totalWeight-1);
+    uint32_t bucketIdx = find_bucket(x, 1, _maxItemWeight);
+    Bucket& bucket = _buckets[bucketIdx];
 
     assert(!bucket.items.empty());
 
     // choose random item within the bucket
-    size_t index = (x - bucket.weightBoundary) / i;
-    assert(index < bucket.items.size());
+    uint32_t itemIdx = (x - bucket.weightBoundary) / bucketIdx;
+    assert(itemIdx < bucket.items.size());
 
-    id = bucket.items[i];
+    id = bucket.items[itemIdx];
 
     size_t s = bucket.items.size();
-    if (i < s-1) {
-        bucket.items[i] = bucket.items[s-1];
+    if (itemIdx < s-1) {
+        bucket.items[itemIdx] = bucket.items[s-1];
     }
     bucket.items.resize(s-1);
 
     // update total weight and partial weights
-    _totalWeight -= i;
-    for (; i<=_maxItemWeight; ++i) {
-        _buckets[i].weightBoundary -= i;
+    uint32_t weight = bucketIdx;
+    _totalWeight -= weight;
+    for (; bucketIdx<=_maxItemWeight; ++bucketIdx) {
+        _buckets[bucketIdx].weightBoundary -= weight;
     }
 
     _totalItems--;

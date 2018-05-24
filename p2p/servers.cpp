@@ -38,7 +38,7 @@ io::Address Servers::get_connect_candidate() {
 
     if (!_connectCandidates.empty()) {
         for (auto p : _connectCandidates) {
-            _connectRoulette.push(p, _allServers[p]);
+            _connectRoulette.push(p.packed, _allServers[p]);
         }
         _connectCandidates.clear();
     }

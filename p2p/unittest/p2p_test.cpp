@@ -62,7 +62,7 @@ int main() {
     auto logger = Logger::create(lc);
 
     try {
-        return p2ptest(DEF_NUM_NODES, 20);
+        return p2ptest(DEF_NUM_NODES, 6);
     } catch (const std::exception& e) {
         LOG_ERROR() << "Exception: " << e.what();
     } catch (...) {

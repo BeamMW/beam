@@ -37,6 +37,7 @@ void P2P::connect_to_servers() {
     while ((a = _knownServers.get_connect_candidate())) {
         // TODO check if banned by IP
 
+        LOG_INFO() << "Connecting to " << a.str();
         auto result = _reactor->tcp_connect(a, a.packed, BIND_THIS_MEMFN(on_stream_connected), -1, io::Address(_ip, 0));
         if (!result) {
             LOG_ERROR() << "Cannot connect to " << a.str() << " error=" << io::error_str(result.error());
