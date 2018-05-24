@@ -157,6 +157,29 @@ namespace detail
             return ar;
         }
 
+		/// ECC::InnerProduct
+		template<typename Archive>
+		static Archive& save(Archive& ar, const ECC::InnerProduct& v)
+		{
+			ar
+				& v.m_AB
+				& v.m_pLR
+				& v.m_pCondensed;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, ECC::InnerProduct& v)
+		{
+			ar
+				& v.m_AB
+				& v.m_pLR
+				& v.m_pCondensed;
+
+			return ar;
+		}
+
         /// ECC::RangeProof::Confidential serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& cond)
