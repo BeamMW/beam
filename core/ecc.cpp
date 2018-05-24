@@ -616,6 +616,30 @@ namespace ECC {
 		ctx.G.Initialize("G-gen");
 		ctx.H.Initialize("H-gen");
 
+		// inner-product generators. naive generation
+		Point pt;
+		pt.m_Y = false;
+
+		Hash::Processor hp; 
+		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+		{
+			hp << i;
+
+			for (uint32_t j = 0; j < 2; j++)
+			{
+				hp << j;
+				do
+					hp >> pt.m_X;
+				while (!ctx.m_Ipp.m_pGen[j][i].Import(pt));
+			}
+		}
+
+		hp << 2U;
+		do
+			hp >> pt.m_X;
+		while (!ctx.m_Ipp.m_GenDot.Import(pt));
+
+
 #ifndef NDEBUG
 		g_bContextInitialized = true;
 #endif // NDEBUG
@@ -821,38 +845,30 @@ namespace ECC {
 
 	/////////////////////
 	// InnerProduct
-	InnerProduct::InnerProduct()
+	struct InnerProduct::Calculator
 	{
-		Hash::Processor hp; // naive point generation
-		for (uint32_t i = 0; i < nDim; i++)
-		{
-			hp << i;
+		struct State {
+			Point::Native* m_pGen[2];
+			Scalar::Native* m_pVal[2];
+		};
 
-			for (uint32_t j = 0; j < _countof(m_pGen); j++)
-			{
-				hp << j;
-				CreatePt(m_pGen[j][i], hp);
-			}
-		}
+		static void get_Challenge(Scalar::Native* pX, Oracle&);
+		static void Mac(Point::Native&, bool bSet, const Point::Native& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc);
 
-		hp << 2U;
-		CreatePt(m_GenDot, hp);
-	}
+		struct ChallengeSet {
+			Scalar::Native m_DotMultiplier;
+			Scalar::Native m_Val[nCycles][2];
+		};
 
-	void InnerProduct::CreatePt(Point::Native& res, Hash::Processor& hp)
-	{
-		ECC::Point pt;
-		pt.m_Y = false;
+		static void Aggregate(Point::Native& res, const ChallengeSet&, const Scalar::Native&, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul);
 
-		while (true)
-		{
-			hp >> pt.m_X;
-			if (res.Import(pt) && !(res == Zero))
-				break;
-		}
-	}
+		static void CreatePt(Point::Native&, Hash::Processor&);
 
-	void InnerProduct::get_Challenge(Scalar::Native* pX, Oracle& oracle)
+		static void PerformCycle(State& dst, const State& src, uint32_t iCycle, const ChallengeSet&, Point* pLR, const Modifier&);
+	};
+
+
+	void InnerProduct::Calculator::get_Challenge(Scalar::Native* pX, Oracle& oracle)
 	{
 		do
 			oracle >> pX[0];
@@ -861,7 +877,7 @@ namespace ECC {
 		pX[1].SetInv(pX[0]);
 	}
 
-	void InnerProduct::Mac(Point::Native& res, bool bSet, const Point::Native& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc)
+	void InnerProduct::Calculator::Mac(Point::Native& res, bool bSet, const Point::Native& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc)
 	{
 		if (pPwrMul)
 		{
@@ -880,7 +896,7 @@ namespace ECC {
 				res += g * k;
 	}
 
-	void InnerProduct::PerformCycle(State& dst, const State& src, uint32_t iCycle, const ChallengeSet& cs, Point* pLR_, const Modifier& mod) const
+	void InnerProduct::Calculator::PerformCycle(State& dst, const State& src, uint32_t iCycle, const ChallengeSet& cs, Point* pLR_, const Modifier& mod)
 	{
 		uint32_t n = nDim >> (iCycle + 1);
 		assert(n);
@@ -897,7 +913,7 @@ namespace ECC {
 
 			crossTrm *= cs.m_DotMultiplier;
 
-			pLR[j] = m_GenDot * crossTrm;
+			pLR[j] = Context::get().m_Ipp.m_GenDot * crossTrm;
 		}
 
 		Scalar::Native pwr0, pwr1;
@@ -937,7 +953,7 @@ namespace ECC {
 			pLR_[j] = pLR[j];
 	}
 
-	void InnerProduct::Aggregate(Point::Native& res, const ChallengeSet& cs, const Scalar::Native& k, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul) const
+	void InnerProduct::Calculator::Aggregate(Point::Native& res, const ChallengeSet& cs, const Scalar::Native& k, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul)
 	{
 		if (iCycle)
 		{
@@ -957,7 +973,7 @@ namespace ECC {
 		} else
 		{
 			assert(iPos < nDim);
-			Mac(res, false, m_pGen[j][iPos], k, pPwrMul, pwr, true);
+			Mac(res, false, Context::get().m_Ipp.m_pGen[j][iPos], k, pPwrMul, pwr, true);
 		}
 	}
 
@@ -977,20 +993,20 @@ namespace ECC {
 		}
 	}
 
-	void InnerProduct::Create(Signature& sig, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod) const
+	void InnerProduct::Create(const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
 	{
 		// bufs
 		const uint32_t nBufDim = nDim >> 1;
 		Point::Native pBufGen[2][nBufDim];
 		Scalar::Native pBufVal[2][nBufDim];
 
-		State s0, s1;
+		Calculator::State s0, s1;
 		s0.m_pVal[0] = (Scalar::Native*) pA;
 		s0.m_pVal[1] = (Scalar::Native*) pB;
 
 		for (int i = 0; i < 2; i++)
 		{
-			s0.m_pGen[i] = (Point::Native*) m_pGen[i];
+			s0.m_pGen[i] = (Point::Native*) Context::get().m_Ipp.m_pGen[i];
 			s1.m_pGen[i] = pBufGen[i];
 			s1.m_pVal[i] = pBufVal[i];
 		}
@@ -1002,15 +1018,15 @@ namespace ECC {
 		{
 			Scalar::Native pwr0(1U);
 			for (uint32_t i = 0; i < nDim; i++)
-				Mac(comm, false, m_pGen[j][i], s0.m_pVal[j][i], mod.m_pMultiplier[j], pwr0, true);
+				Calculator::Mac(comm, false, Context::get().m_Ipp.m_pGen[j][i], s0.m_pVal[j][i], mod.m_pMultiplier[j], pwr0, true);
 		}
 
-		sig.m_AB = comm;
+		m_AB = comm;
 
 		Oracle oracle;
-		oracle << sig.m_AB;
+		oracle << m_AB;
 
-		ChallengeSet cs;
+		Calculator::ChallengeSet cs;
 		oracle >> cs.m_DotMultiplier;
 
 		Modifier mod2 = mod;
@@ -1018,10 +1034,10 @@ namespace ECC {
 		uint32_t n = nDim;
 		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
 		{
-			get_Challenge(cs.m_Val[iCycle], oracle);
+			Calculator::get_Challenge(cs.m_Val[iCycle], oracle);
 
-			Point* pLR = sig.m_pLR[iCycle];
-			PerformCycle(s1, s0, iCycle, cs, pLR, mod2);
+			Point* pLR = m_pLR[iCycle];
+			Calculator::PerformCycle(s1, s0, iCycle, cs, pLR, mod2);
 
 			oracle << pLR[0] << pLR[1];
 
@@ -1035,27 +1051,27 @@ namespace ECC {
 		assert(1 == n);
 
 		for (int i = 0; i < 2; i++)
-			sig.m_pCondensed[i] = s0.m_pVal[i][0];
+			m_pCondensed[i] = s0.m_pVal[i][0];
 	}
 
-	bool InnerProduct::IsValid(const Signature& sig, const Scalar::Native& dot, const Modifier& mod) const
+	bool InnerProduct::IsValid(const Scalar::Native& dot, const Modifier& mod) const
 	{
 		Oracle oracle;
-		oracle << sig.m_AB;
+		oracle << m_AB;
 
-		ChallengeSet cs;
+		Calculator::ChallengeSet cs;
 		oracle >> cs.m_DotMultiplier;
 
-		Point::Native comm = sig.m_AB;
+		Point::Native comm = m_AB;
 		Point::Native ptTmp;
 		Scalar::Native valTmp;
 
 		uint32_t n = nDim;
 		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
 		{
-			get_Challenge(cs.m_Val[iCycle], oracle);
+			Calculator::get_Challenge(cs.m_Val[iCycle], oracle);
 
-			const Point* pLR = sig.m_pLR[iCycle];
+			const Point* pLR = m_pLR[iCycle];
 			for (int i = 0; i < 2; i++)
 			{
 				valTmp = cs.m_Val[iCycle][i];
@@ -1076,23 +1092,23 @@ namespace ECC {
 		for (int j = 0; j < 2; j++)
 		{
 			// calculate the transformed generator
-			valTmp = sig.m_pCondensed[j];
+			valTmp = m_pCondensed[j];
 			ptTmp = Zero;
 
 			Scalar::Native pwr(1U);
 
-			Aggregate(ptTmp, cs, valTmp, j, 0, nCycles, pwr, mod.m_pMultiplier[j]);
+			Calculator::Aggregate(ptTmp, cs, valTmp, j, 0, nCycles, pwr, mod.m_pMultiplier[j]);
 			comm += ptTmp;
 		}
 
 		// add the new (mutated) dot product, substract the original (claimed)
-		valTmp = sig.m_pCondensed[0];
-		valTmp *= sig.m_pCondensed[1];
+		valTmp = m_pCondensed[0];
+		valTmp *= m_pCondensed[1];
 		valTmp += -dot;
 
 		valTmp *= cs.m_DotMultiplier;
 
-		comm += m_GenDot * valTmp;
+		comm += Context::get().m_Ipp.m_GenDot * valTmp;
 
 		return comm == Zero;
 	}

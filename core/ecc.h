@@ -206,6 +206,33 @@ namespace ECC
 		void DeriveKey(Scalar::Native&, uint64_t nKeyIndex, uint32_t nFlags, uint32_t nExtra = 0) const;
 	};
 
+	struct InnerProduct
+	{
+		// Compact proof that the inner product of 2 vectors is a specified scalar.
+		// Part of the bulletproof scheme
+		static const uint32_t nDim = sizeof(Amount) << 3; // 64
+		static const uint32_t nCycles = 6;
+		static_assert(1 << nCycles == nDim, "");
+
+		ECC::Point m_AB;				// orifinal commitment of both vectors
+		ECC::Point m_pLR[nCycles][2];	// pairs of L,R values, per reduction  iteration
+		ECC::Scalar m_pCondensed[2];	// remaining 1-dimension vectors
+
+		static void get_Dot(Scalar::Native& res, const Scalar::Native* pA, const Scalar::Native* pB);
+
+		// optional modifier for the used generators. Needed for the bulletproof.
+		struct Modifier {
+			const Scalar::Native* m_pMultiplier[2];
+			Modifier() { ZeroObject(m_pMultiplier); }
+		};
+
+		void Create(const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
+		bool IsValid(const Scalar::Native& dot, const Modifier& = Modifier()) const;
+
+	private:
+		struct Calculator;
+	};
+
 	namespace RangeProof
 	{
 		static const Amount s_MinimumValue = 1;

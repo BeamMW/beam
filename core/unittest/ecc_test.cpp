@@ -45,9 +45,6 @@ void SetRandom(Scalar::Native& x)
 	}
 }
 
-
-InnerProduct g_CtxInnerProduct;
-
 void TestHash()
 {
 	Hash::Processor hp;
@@ -345,13 +342,13 @@ void TestRangeProof()
 	InnerProduct::Modifier mod;
 	mod.m_pMultiplier[1] = &pwrMul;
 
-	InnerProduct::Signature sig;
-	g_CtxInnerProduct.Create(sig, pA, pB, mod);
+	InnerProduct sig;
+	sig.Create(pA, pB, mod);
 
 	Scalar::Native dot;
 	InnerProduct::get_Dot(dot, pA, pB);
 
-	verify_test(g_CtxInnerProduct.IsValid(sig, dot, mod));
+	verify_test(sig.IsValid(dot, mod));
 }
 
 struct TransactionMaker
@@ -897,7 +894,7 @@ void RunBenchmark()
 		SetRandom(pB[i]);
 	}
 
-	InnerProduct::Signature sig2;
+	InnerProduct sig2;
 
 	Scalar::Native dot;
 	InnerProduct::get_Dot(dot, pA, pB);
@@ -908,7 +905,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				g_CtxInnerProduct.Create(sig2, pA, pB);
+				sig2.Create(pA, pB);
 
 		} while (bm.ShouldContinue());
 	}
@@ -919,7 +916,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				g_CtxInnerProduct.IsValid(sig2, dot);
+				sig2.IsValid(dot);
 
 		} while (bm.ShouldContinue());
 	}

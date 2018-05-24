@@ -259,6 +259,13 @@ namespace ECC
 		Generator::Obscured						G;
 		Generator::Simple<sizeof(Amount) << 3>	H;
 
+		struct IppCalculator
+		{
+			// generators used for inner product proof
+			Point::Native m_pGen[2][InnerProduct::nDim];
+			Point::Native m_GenDot;
+		} m_Ipp;
+
 	private:
 		Context() {}
 	};
@@ -283,57 +290,4 @@ namespace ECC
 
 		void operator >> (Scalar::Native&);
 	};
-
-	// compact inner product encoding. Used in bulletproofs.
-	struct InnerProduct
-	{
-		static const uint32_t nDim = sizeof(Amount) << 3; // 64
-		static const uint32_t nCycles = 6;
-		static_assert(1 << nCycles == nDim, "");
-
-		struct Signature
-		{
-			ECC::Point m_AB;				// orifinal commitment of both vectors
-			ECC::Point m_pLR[nCycles][2];	// pairs of L,R values, per reduction  iteration
-			ECC::Scalar m_pCondensed[2];	// remaining 1-dimension vectors
-		};
-
-		InnerProduct();
-
-		static void get_Dot(Scalar::Native& res, const Scalar::Native* pA, const Scalar::Native* pB);
-
-		struct Modifier {
-			const Scalar::Native* m_pMultiplier[2];
-			Modifier() { ZeroObject(m_pMultiplier); }
-		};
-
-		void Create(Signature&, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier()) const;
-		bool IsValid(const Signature&, const Scalar::Native& dot, const Modifier& = Modifier()) const;
-
-
-	private:
-
-		Point::Native m_pGen[2][nDim];
-		Point::Native m_GenDot;
-
-		struct State {
-			Point::Native* m_pGen[2];
-			Scalar::Native* m_pVal[2];
-		};
-
-		static void get_Challenge(Scalar::Native* pX, Oracle&);
-		static void Mac(Point::Native&, bool bSet, const Point::Native& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc);
-
-		struct ChallengeSet {
-			Scalar::Native m_DotMultiplier;
-			Scalar::Native m_Val[nCycles][2];
-		};
-
-		void Aggregate(Point::Native& res, const ChallengeSet&, const Scalar::Native&, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul) const;
-
-		static void CreatePt(Point::Native&, Hash::Processor&);
-
-		void PerformCycle(State& dst, const State& src, uint32_t iCycle, const ChallengeSet&, Point* pLR, const Modifier&) const;
-	};
-
 }
