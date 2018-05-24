@@ -352,9 +352,9 @@ namespace beam
         // don't send request if yes
 
         beam::Block::SystemState::ID id;
-        m_keyChain->getVar("SystemStateID", id);
+        bool hasId = m_keyChain->getVar("SystemStateID", id);
 
-        if (msg.m_ID > id)
+        if (!hasId || msg.m_ID > id)
         {
             m_keyChain->setVar("SystemStateID", msg.m_ID);
             m_network.send_node_message(proto::GetHdr{ msg.m_ID });
