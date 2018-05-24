@@ -222,7 +222,7 @@ namespace beam
     
     void Wallet::handle_tx_message(PeerId /*from*/, sender::ConfirmationData::Ptr&& data)
     {
-        Cleaner c{ m_removed_receivers };
+        Cleaner<std::vector<wallet::Receiver::Ptr> > c{ m_removed_receivers };
         auto it = m_receivers.find(data->m_txId);
         if (it != m_receivers.end())
         {
@@ -237,7 +237,7 @@ namespace beam
 
     void Wallet::handle_tx_message(PeerId /*from*/, receiver::ConfirmationData::Ptr&& data)
     {
-        Cleaner c{ m_removed_senders };
+        Cleaner<std::vector<wallet::Sender::Ptr> > c{ m_removed_senders };
         auto it = m_senders.find(data->m_txId);
         if (it != m_senders.end())
         {
@@ -277,8 +277,8 @@ namespace beam
     void Wallet::handle_tx_registered(const Uuid& txId, bool res)
     {
         LOG_DEBUG() << "tx " << txId << (res ? " has registered" : " has failed to register");
-        Cleaner cr{ m_removed_receivers };
-        Cleaner cs{ m_removed_senders };
+        Cleaner<std::vector<wallet::Receiver::Ptr> > cr{ m_removed_receivers };
+        Cleaner<std::vector<wallet::Sender::Ptr> > cs{ m_removed_senders };
         if (res)
         {
             if (auto it = m_receivers.find(txId); it != m_receivers.end())
@@ -401,8 +401,8 @@ namespace beam
         {
             return;
         }
-        Cleaner cr{ m_removed_receivers };
-        Cleaner cs{ m_removed_senders };
+        Cleaner<std::vector<wallet::Receiver::Ptr> > cr{ m_removed_receivers };
+        Cleaner<std::vector<wallet::Sender::Ptr> > cs{ m_removed_senders };
         if (auto it = m_receivers.find(cit->first); it != m_receivers.end())
         {
             it->second->process_event(Receiver::TxFailed());
