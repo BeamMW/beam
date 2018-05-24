@@ -780,11 +780,6 @@ bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob
 	return true;
 }
 
-void NodeProcessor::DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType::Enum eType, uint32_t nIdx /* = 0 */)
-{
-	kdf.DeriveKey(out, h, eType, nIdx);
-}
-
 bool NodeProcessor::IsStateNeeded(const Block::SystemState::ID& id)
 {
 	return IsRelevantHeight(id.m_Height) && !m_DB.StateFindSafe(id);

@@ -15,6 +15,23 @@ namespace ECC {
 	const Context& Context::get() { return g_Ctx; }
 }
 
+namespace
+{
+    template<typename T>
+    struct Cleaner
+    {
+        Cleaner(T& t) : m_v{ t } {}
+        ~Cleaner()
+        {
+            if (!m_v.empty())
+            {
+                m_v.clear();
+            }
+        }
+        T& m_v;
+    };
+}
+
 namespace beam
 {
     using namespace wallet;
@@ -70,12 +87,12 @@ namespace beam
 
     }
 
-    Coin::Coin(uint64_t id, const Amount& amount, Status status, const Height& height, bool isCoinbase)
+    Coin::Coin(uint64_t id, const Amount& amount, Status status, const Height& height, KeyType keyType)
         : m_id{id}
         , m_amount{amount}
         , m_status{status}
         , m_height{height}
-        , m_isCoinbase{isCoinbase}
+        , m_key_type{ keyType }
     {
 
     } 
@@ -307,7 +324,7 @@ namespace beam
 			{
 				if (coin.m_status == Coin::Unconfirmed)
 				{
-					Input input{ Commitment(m_keyChain->calcKey(coin.m_id), coin.m_amount) };
+					Input input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
 				
 					if (input.IsValidProof(proof.m_Count, proof.m_Proof, lastState))
 					{
@@ -351,7 +368,7 @@ namespace beam
 				m_network.send_node_message(
 					proto::GetProofUtxo
 					{
-						Input{ Commitment(m_keyChain->calcKey(coin.m_id), coin.m_amount) }
+						Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) }
 						, coin.m_height
 					});
 			}
@@ -360,9 +377,28 @@ namespace beam
 		});
 	}
 
+    void Wallet::handle_node_message(proto::Mined&& msg)
+    {
+        vector<Coin> mined;
+        for (auto& mined_coin : msg.m_Entries)
+        {
+            if (mined_coin.m_Active)
+            {
+                // coinbase 
+                mined.emplace_back(m_keyChain->getNextID(), Block::s_CoinbaseEmission, Coin::Unspent, mined_coin.m_ID.m_Height, KeyType::Coinbase);
+                if (mined_coin.m_Fees > 0)
+                {
+                    mined.emplace_back(m_keyChain->getNextID(), Block::s_CoinbaseEmission, Coin::Unspent, mined_coin.m_ID.m_Height, KeyType::Comission);
+                }
+                // TODO: should we pass ID to Coin ctor?
+            }
+        }
+        m_keyChain->update(mined);
+    }
+
     void Wallet::handle_connection_error(PeerId from)
     {
-        // TODO: change data structure
+        // TODO: change data structure, we need multi index here
         auto cit = find_if(m_peers.cbegin(), m_peers.cend(), [from](const auto& p) {return p.second == from; });
         if (cit == m_peers.end())
         {

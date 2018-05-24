@@ -252,4 +252,8 @@ namespace beam {
 		m_wallet.handle_node_message(move(msg));
 	}
 
+    void WalletNetworkIO::WalletNodeConnection::OnMsg(proto::Mined&& msg)
+    {
+        m_wallet.handle_node_message(move(msg));
+    }
 }

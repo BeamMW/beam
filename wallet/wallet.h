@@ -41,6 +41,7 @@ namespace beam
         virtual void handle_node_message(proto::ProofUtxo&&) = 0;
 		virtual void handle_node_message(proto::NewTip&&) = 0;
 		virtual void handle_node_message(proto::Hdr&&) = 0;
+        virtual void handle_node_message(proto::Mined&& msg) = 0;
         // connection control
         virtual void handle_connection_error(PeerId) = 0;
     };
@@ -77,6 +78,7 @@ namespace beam
         void handle_node_message(proto::ProofUtxo&& proof) override;
 		void handle_node_message(proto::NewTip&& msg) override;
 		void handle_node_message(proto::Hdr&& msg) override;
+        void handle_node_message(proto::Mined&& msg) override;
         void handle_connection_error(PeerId from) override;
 
         void handle_tx_registered(const Uuid& txId, bool res);
@@ -96,21 +98,6 @@ namespace beam
         }
 
         void remove_peer(const Uuid& txId);
-
-        template<typename T>
-        struct Cleaner
-        {
-            Cleaner(T& t) : m_v{ t } {}
-            ~Cleaner() 
-            {
-                if (!m_v.empty())
-                {
-                    m_v.clear();
-                }
-            }
-            T& m_v;
-        };
-
     private:
         IKeyChain::Ptr m_keyChain;
         INetworkIO& m_network;

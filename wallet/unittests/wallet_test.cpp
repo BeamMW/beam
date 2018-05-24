@@ -30,9 +30,9 @@ namespace
             return 1;
         }
 
-        ECC::Scalar calcKey(uint64_t /*id*/)
+        ECC::Scalar::Native calcKey(const Coin&) const
         {
-            return ECC::Scalar();
+            return ECC::Scalar::Native();
         }
 
         std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool /*lock*/)

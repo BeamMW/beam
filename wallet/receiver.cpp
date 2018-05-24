@@ -40,7 +40,7 @@ namespace beam::wallet
         Output::Ptr output = make_unique<Output>();
         output->m_Coinbase = false;
 
-        Scalar::Native blindingFactor = m_keychain->calcKey(m_receiver_coin.m_id);
+        Scalar::Native blindingFactor = m_keychain->calcKey(m_receiver_coin);
         output->Create(blindingFactor, amount, true);
         auto [privateExcess, offset] = split_key(blindingFactor, m_receiver_coin.m_id);
 

@@ -8,11 +8,11 @@
 #define NOSEP
 
 #define ENUM_STORAGE_FIELDS(each, sep) \
-    each(1, id,         sep, INTEGER PRIMARY KEY AUTOINCREMENT) \
-    each(2, amount,     sep, INTEGER) \
-    each(3, status,     sep, INTEGER) \
-    each(4, height,     sep, INTEGER) \
-    each(5, isCoinbase,    , INTEGER) // last item without separator
+    each(1, id,			sep, INTEGER PRIMARY KEY AUTOINCREMENT) \
+    each(2, amount,		sep, INTEGER) \
+    each(3, status,		sep, INTEGER) \
+    each(4, height,		sep, INTEGER) \
+    each(5, key_type,	   , INTEGER) // last item without separator
 
 #define LIST(num, name, sep, type) #name sep
 #define LIST_WITH_TYPES(num, name, sep, type) #name " " #type sep
@@ -52,6 +52,12 @@ namespace beam
             void bind(int col, int val)
             {
                 int ret = sqlite3_bind_int(_stm, col, val);
+                assert(ret == SQLITE_OK);
+            }
+
+            void bind(int col, KeyType val)
+            {
+                int ret = sqlite3_bind_int(_stm, col, static_cast<int>(val));
                 assert(ret == SQLITE_OK);
             }
 
@@ -99,6 +105,11 @@ namespace beam
             {
                 size = sqlite3_column_bytes(_stm, col);
                 std::memcpy(blob, sqlite3_column_blob(_stm, col), size);
+            }
+        
+            void get(int col, beam::KeyType& type)
+            {
+                type = static_cast<beam::KeyType>(sqlite3_column_int(_stm, col));
             }
 
             ~Statement()
@@ -266,7 +277,7 @@ namespace beam
         : _db(nullptr)
         , _nonce(std::make_shared<Nonce>(pass.c_str()))
     {
-        
+        // TODO: need to init secret m_kdf.m_Secret.V = _nonce->get();
     }
 
     Keychain::~Keychain()
@@ -293,9 +304,12 @@ namespace beam
         return ++lastId;
     }
 
-    ECC::Scalar Keychain::calcKey(uint64_t id)
+    ECC::Scalar::Native Keychain::calcKey(const beam::Coin& coin) const
     {
-        return get_next_key(id, *_nonce);
+        ECC::Scalar::Native key;
+        // For coinbase and free commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
+        DeriveKey(key, m_kdf, coin.m_height, coin.m_key_type, (coin.m_key_type == KeyType::Regular) ? coin.m_id : 0);
+        return key;
     }
 
     std::vector<beam::Coin> Keychain::getCoins(const ECC::Amount& amount, bool lock)

@@ -32,7 +32,7 @@ namespace beam::wallet
                 assert(coin.m_status == Coin::Locked);
                 Input::Ptr input = make_unique<Input>();
 
-                Scalar::Native key{ m_keychain->calcKey(coin.m_id) };
+                Scalar::Native key{ m_keychain->calcKey(coin) };
                 input->m_Commitment = Commitment(key, coin.m_amount);
 
                 invitationData->m_inputs.push_back(move(input));
@@ -54,7 +54,7 @@ namespace beam::wallet
                 m_changeOutput = beam::Coin(m_keychain->getNextID(), change);
                 Output::Ptr output = make_unique<Output>();
                 output->m_Coinbase = false;
-                Scalar::Native blindingFactor = m_keychain->calcKey(m_changeOutput->m_id);
+                Scalar::Native blindingFactor = m_keychain->calcKey(*m_changeOutput);
                 output->Create(blindingFactor, change, true);
 
                 m_keychain->store(*m_changeOutput);
