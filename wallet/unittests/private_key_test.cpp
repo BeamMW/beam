@@ -19,6 +19,7 @@ void test1() {
 
 int main() {
 
+	ECC::InitializeContext();
     test1();
 
     return 0;
