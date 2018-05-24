@@ -40,6 +40,19 @@ namespace ECC {
 		g_pfnEraseFunc(p, n);
 	}
 
+	thread_local Mode::Enum g_Mode = Mode::Secure; // default
+
+	Mode::Scope::Scope(Mode::Enum val)
+		:m_PrevMode(g_Mode)
+	{
+		g_Mode = val;
+	}
+
+	Mode::Scope::~Scope()
+	{
+		g_Mode = m_PrevMode;
+	}
+
 	/////////////////////
 	// Scalar
 	const uintBig Scalar::s_Order = { // fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
@@ -537,10 +550,17 @@ namespace ECC {
 					*    (http://www.tau.ac.il/~tromer/papers/cache.pdf)
 					*/
 
-					for (uint32_t i = 0; i < nPointsPerLevel; i++)
-						object_cmov(ge_s.V, pPts[i], i == nSel);
+					const CompactPoint* pSel;
+					if (Mode::Secure == g_Mode)
+					{
+						pSel = &ge_s.V;
+						for (uint32_t i = 0; i < nPointsPerLevel; i++)
+							object_cmov(ge_s.V, pPts[i], i == nSel);
+					}
+					else
+						pSel = pPts + nSel;
 
-					ToPt(res, ge.V, ge_s.V, bSet);
+					ToPt(res, ge.V, *pSel, bSet);
 					bSet = false;
 				}
 			}
@@ -605,12 +625,17 @@ namespace ECC {
 
 		void Obscured::AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native& k) const
 		{
-			secp256k1_ge ge;
-			ToPt(res, ge, m_AddPt, bSet);
+			if (Mode::Secure == g_Mode)
+			{
+				secp256k1_ge ge;
+				ToPt(res, ge, m_AddPt, bSet);
 
-			kTmp = k + m_AddScalar;
+				kTmp = k + m_AddScalar;
 
-			Generator::SetMul(res, false, m_pPts, kTmp);
+				Generator::SetMul(res, false, m_pPts, kTmp);
+			}
+			else
+				Generator::SetMul(res, bSet, m_pPts, k);
 		}
 
 		template <>
@@ -791,6 +816,8 @@ namespace ECC {
 
 	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
 	{
+		Mode::Scope scope(Mode::Fast);
+
 		Scalar::Native k(m_k), e(m_e);
 
 		Point::Native pt = Context::get().G * k;
@@ -833,6 +860,8 @@ namespace ECC {
 
 		bool Public::IsValid(const Point& comm) const
 		{
+			Mode::Scope scope(Mode::Fast);
+
 			if (m_Value < s_MinimumValue)
 				return false;
 
@@ -1111,6 +1140,8 @@ namespace ECC {
 
 	bool InnerProduct::IsValid(const Scalar::Native& dot, const Modifier& mod) const
 	{
+		Mode::Scope scope(Mode::Fast);
+
 		Oracle oracle;
 		oracle << m_AB;
 
@@ -1353,6 +1384,8 @@ namespace ECC {
 
 	bool RangeProof::Confidential::IsValid(const Point& commitment) const
 	{
+		Mode::Scope scope(Mode::Fast);
+
 		Oracle oracle;
 		Scalar::Native x, y, z, xx, zz, tDot;
 

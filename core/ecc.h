@@ -29,6 +29,20 @@ namespace ECC
 	void InitializeContext(); // builds various generators. Necessary for commitments and signatures.
 	// Not necessary for hashes, scalar and 'casual' point arithmetics
 
+	struct Mode {
+		enum Enum {
+			Secure, // maximum security. Constant-time guarantee whenever possible, protection from side-channel attacks
+			Fast
+		};
+
+		class Scope {
+			const Enum m_PrevMode;
+		public:
+			Scope(Enum e);
+			~Scope();
+		};
+	};
+
 	struct Initializer {
 		Initializer() {
 			InitializeContext();
