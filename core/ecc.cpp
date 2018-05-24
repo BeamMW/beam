@@ -393,21 +393,38 @@ namespace ECC {
 	// Generator
 	namespace Generator
 	{
-		void FromPt(secp256k1_ge_storage& out, Point::Native& p)
+		void FromPt(CompactPoint& out, Point::Native& p)
 		{
+#ifdef ECC_COMPACT_GEN
 			secp256k1_ge ge; // used only for non-secret
 			secp256k1_ge_set_gej(&ge, &p.get_Raw());
 			secp256k1_ge_to_storage(&out, &ge);
+#else // ECC_COMPACT_GEN
+			out = p.get_Raw();
+#endif // ECC_COMPACT_GEN
 		}
 
-		void ToPt(Point::Native& p, secp256k1_ge& ge, const secp256k1_ge_storage& ge_s, bool bSet)
+		void ToPt(Point::Native& p, secp256k1_ge& ge, const CompactPoint& ge_s, bool bSet)
 		{
+#ifdef ECC_COMPACT_GEN
+
 			secp256k1_ge_from_storage(&ge, &ge_s);
 
 			if (bSet)
 				secp256k1_gej_set_ge(&p.get_Raw(), &ge);
 			else
 				secp256k1_gej_add_ge(&p.get_Raw(), &p.get_Raw(), &ge);
+
+#else // ECC_COMPACT_GEN
+
+			static_assert(sizeof(p) == sizeof(ge_s));
+
+			if (bSet)
+				p = (const Point::Native&) ge_s;
+			else
+				p += (const Point::Native&) ge_s;
+
+#endif // ECC_COMPACT_GEN
 		}
 
 		bool CreatePointNnz(Point::Native& out, const uintBig& x)
@@ -426,7 +443,7 @@ namespace ECC {
 			return CreatePointNnz(out, hv);
 		}
 
-		bool CreatePts(secp256k1_ge_storage* pPts, Point::Native& gpos, uint32_t nLevels, Hash::Processor& hp)
+		bool CreatePts(CompactPoint* pPts, Point::Native& gpos, uint32_t nLevels, Hash::Processor& hp)
 		{
 			Point::Native nums, npos, pt;
 
@@ -490,13 +507,13 @@ namespace ECC {
 			data_cmov_as<TOrd>((TOrd*) &dst, (TOrd*) &src, sizeof(T) / sizeof(TOrd), flag);
 		}
 
-		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, const Scalar::Native::uint* p, int nWords)
+		void SetMul(Point::Native& res, bool bSet, const CompactPoint* pPts, const Scalar::Native::uint* p, int nWords)
 		{
 			static_assert(8 % nBitsPerLevel == 0, "");
 			const int nLevelsPerWord = (sizeof(Scalar::Native::uint) << 3) / nBitsPerLevel;
 			static_assert(!(nLevelsPerWord & (nLevelsPerWord - 1)), "should be power-of-2");
 
-			NoLeak<secp256k1_ge_storage> ge_s;
+			NoLeak<CompactPoint> ge_s;
 			NoLeak<secp256k1_ge> ge;
 
 			// iterating in lsb to msb order
@@ -529,7 +546,7 @@ namespace ECC {
 			}
 		}
 
-		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, const Scalar::Native& k)
+		void SetMul(Point::Native& res, bool bSet, const CompactPoint* pPts, const Scalar::Native& k)
 		{
 			SetMul(res, bSet, pPts, k.get().d, _countof(k.get().d));
 		}
@@ -540,7 +557,7 @@ namespace ECC {
 			hp << szSeed << n;
 		}
 
-		void GeneratePts(const char* szSeed, secp256k1_ge_storage* pPts, uint32_t nLevels)
+		void GeneratePts(const char* szSeed, CompactPoint* pPts, uint32_t nLevels)
 		{
 			for (uint32_t nCounter = 0; ; nCounter++)
 			{
