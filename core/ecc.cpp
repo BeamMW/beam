@@ -870,12 +870,7 @@ namespace ECC {
 		}
 
 		// Public
-		void Public::get_Msg(Hash::Value& hv) const
-		{
-			Hash::Processor() << m_Value >> hv;
-		}
-
-		bool Public::IsValid(const Point& comm) const
+		bool Public::IsValid(const Point& comm, Oracle& oracle) const
 		{
 			Mode::Scope scope(Mode::Fast);
 
@@ -886,16 +881,16 @@ namespace ECC {
 			get_PtMinusVal(pk, comm, m_Value);
 
 			Hash::Value hv;
-			get_Msg(hv);
+			oracle << m_Value >> hv;
 
 			return m_Signature.IsValid(hv, pk);
 		}
 
-		void Public::Create(const Scalar::Native& sk)
+		void Public::Create(const Scalar::Native& sk, Oracle& oracle)
 		{
 			assert(m_Value >= s_MinimumValue);
 			Hash::Value hv;
-			get_Msg(hv);
+			oracle << m_Value >> hv;
 
 			m_Signature.Sign(hv, sk);
 		}
@@ -1221,9 +1216,9 @@ namespace ECC {
 
 	/////////////////////
 	// Bulletproof
-	void RangeProof::Confidential::Create(const Scalar::Native& sk, Amount v)
+	void RangeProof::Confidential::Create(const Scalar::Native& sk, Amount v, Oracle& oracle)
 	{
-		Oracle nonceGen, oracle;
+		Oracle nonceGen;
 		nonceGen << sk << v; // init
 
 		// A = G*alpha + vec(aL)*vec(G) + vec(aR)*vec(H)
@@ -1409,11 +1404,10 @@ namespace ECC {
 		m_P_Tag.Create(pS[0], pS[1], mod);
 	}
 
-	bool RangeProof::Confidential::IsValid(const Point& commitment) const
+	bool RangeProof::Confidential::IsValid(const Point& commitment, Oracle& oracle) const
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		Oracle oracle;
 		Scalar::Native x, y, z, xx, zz, tDot;
 
 		oracle << m_A << m_S;

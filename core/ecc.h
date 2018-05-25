@@ -144,6 +144,7 @@ namespace ECC
 	typedef uintBig_t<nBits> uintBig;
 
 	class Commitment;
+	class Oracle;
 
 	struct Scalar
 	{
@@ -274,8 +275,8 @@ namespace ECC
 
 			InnerProduct m_P_Tag; // contains commitment P - m_Mu*G
 
-			void Create(const Scalar::Native& sk, Amount);
-			bool IsValid(const Point&) const;
+			void Create(const Scalar::Native& sk, Amount, Oracle&);
+			bool IsValid(const Point&, Oracle&) const;
 
 			int cmp(const Confidential&) const;
 			COMPARISON_VIA_CMP(Confidential)
@@ -286,14 +287,11 @@ namespace ECC
 			Signature m_Signature;
 			Amount m_Value;
 
-			void Create(const Scalar::Native& sk); // amount should have been set
-			bool IsValid(const Point&) const;
+			void Create(const Scalar::Native& sk, Oracle&); // amount should have been set
+			bool IsValid(const Point&, Oracle&) const;
 
 			int cmp(const Public&) const;
 			COMPARISON_VIA_CMP(Public)
-
-		private:
-			void get_Msg(Hash::Value&) const;
 		};
 	}
 }

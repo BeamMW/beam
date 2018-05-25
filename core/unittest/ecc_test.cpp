@@ -312,15 +312,24 @@ void TestRangeProof()
 
 	RangeProof::Public rp;
 	rp.m_Value = 345000;
-	rp.Create(sk);
+	{
+		Oracle oracle;
+		rp.Create(sk, oracle);
+	}
 
 	Point::Native comm = Commitment(sk, rp.m_Value);
 
-	verify_test(rp.IsValid(Point(comm)));
+	{
+		Oracle oracle;
+		verify_test(rp.IsValid(Point(comm), oracle));
+	}
 
 	// tamper value
 	rp.m_Value++;
-	verify_test(!rp.IsValid(Point(comm)));
+	{
+		Oracle oracle;
+		verify_test(!rp.IsValid(Point(comm), oracle));
+	}
 	rp.m_Value--;
 
 	// try with invalid key
@@ -328,7 +337,10 @@ void TestRangeProof()
 
 	comm = Commitment(sk, rp.m_Value);
 
-	verify_test(!rp.IsValid(Point(comm)));
+	{
+		Oracle oracle;
+		verify_test(!rp.IsValid(Point(comm), oracle));
+	}
 
 	Scalar::Native pA[InnerProduct::nDim];
 	Scalar::Native pB[InnerProduct::nDim];
@@ -356,8 +368,14 @@ void TestRangeProof()
 	Amount v = 23110;
 	comm = Commitment(sk, v);
 
-	bp.Create(sk, v);
-	verify_test(bp.IsValid(comm));
+	{
+		Oracle oracle;
+		bp.Create(sk, v, oracle);
+	}
+	{
+		Oracle oracle;
+		verify_test(bp.IsValid(comm, oracle));
+	}
 }
 
 struct TransactionMaker
@@ -942,7 +960,10 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				bp.Create(k1, v);
+			{
+				Oracle oracle;
+				bp.Create(k1, v, oracle);
+			}
 
 		} while (bm.ShouldContinue());
 	}
@@ -955,7 +976,10 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				bp.IsValid(comm);
+			{
+				Oracle oracle;
+				bp.IsValid(comm, oracle);
+			}
 
 		} while (bm.ShouldContinue());
 	}

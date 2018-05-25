@@ -74,6 +74,9 @@ namespace beam
 	// Output
 	bool Output::IsValid() const
 	{
+		ECC::Oracle oracle;
+		oracle << m_Incubation;
+
 		if (m_pConfidential)
 		{
 			if (m_Coinbase)
@@ -82,13 +85,13 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			return m_pConfidential->IsValid(m_Commitment);
+			return m_pConfidential->IsValid(m_Commitment, oracle);
 		}
 
 		if (!m_pPublic)
 			return false;
 
-		return m_pPublic->IsValid(m_Commitment);
+		return m_pPublic->IsValid(m_Commitment, oracle);
 	}
 
 	int Output::cmp(const Output& v) const
@@ -105,15 +108,18 @@ namespace beam
 	{
 		m_Commitment = ECC::Commitment(k, v);
 
+		ECC::Oracle oracle;
+		oracle << m_Incubation;
+
 		if (bPublic)
 		{
 			m_pPublic.reset(new ECC::RangeProof::Public);
 			m_pPublic->m_Value = v;
-			m_pPublic->Create(k);
+			m_pPublic->Create(k, oracle);
 		} else
 		{
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
-			m_pConfidential->Create(k, v);
+			m_pConfidential->Create(k, v, oracle);
 		}
 	}
 
