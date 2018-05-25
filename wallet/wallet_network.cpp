@@ -222,11 +222,13 @@ namespace beam {
 
     void WalletNetworkIO::WalletNodeConnection::OnConnected()
     {
-		proto::Config msgCfg;
-		ZeroObject(msgCfg);
+		// Uncomment this to enable auto-receiving headers
 
-		msgCfg.m_AutoSendHdr = true;
-		Send(msgCfg);
+		//proto::Config msgCfg;
+		//ZeroObject(msgCfg);
+
+		//msgCfg.m_AutoSendHdr = true;
+		//Send(msgCfg);
 
         if (!m_connections_callbacks.empty())
         {
