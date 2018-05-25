@@ -128,13 +128,13 @@ int main(int argc, char* argv[])
                             LOG_INFO() << "wallet successfully created...";
                             if (debug)
                             {
-                                keychain->store(Coin(keychain->getNextID(), 5));
-                                keychain->store(Coin(keychain->getNextID(), 10));
-                                keychain->store(Coin(keychain->getNextID(), 20));
-                                keychain->store(Coin(keychain->getNextID(), 50));
-                                keychain->store(Coin(keychain->getNextID(), 100));
-                                keychain->store(Coin(keychain->getNextID(), 200));
-                                keychain->store(Coin(keychain->getNextID(), 500));
+                                keychain->store(Coin(5));
+                                keychain->store(Coin(10));
+                                keychain->store(Coin(20));
+                                keychain->store(Coin(50));
+                                keychain->store(Coin(100));
+                                keychain->store(Coin(200));
+                                keychain->store(Coin(500));
 
                                 LOG_INFO() << "wallet with coins successfully created...";
                             }

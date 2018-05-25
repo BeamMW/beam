@@ -26,10 +26,6 @@ struct SqliteKeychain : beam::IKeyChain
 		assert(_keychain != nullptr);
 	}
 
-    uint64_t getNextID() override
-	{
-		return _keychain->getNextID();
-	}
 
 	ECC::Scalar::Native calcKey(const beam::Coin& coin) const override
 	{
@@ -41,12 +37,12 @@ struct SqliteKeychain : beam::IKeyChain
 		return _keychain->getCoins(amount, lock);
 	}
 
-	void store(const beam::Coin& coin)
+	void store(beam::Coin& coin)
 	{
 		return _keychain->store(coin);
 	}
 
-    void store(const std::vector<beam::Coin>& coins)
+    void store(std::vector<beam::Coin>& coins)
     {
         return _keychain->store(coins);
     }

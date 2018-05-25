@@ -284,20 +284,24 @@ namespace beam
         }
     }
 
-    uint64_t Keychain::getNextID()
-    {
-        int lastId = 0;
 
-        {
-            const char* req = "SELECT seq FROM sqlite_sequence WHERE name = '" STORAGE_NAME "';";
-            sqlite::Statement stm(_db, req);
 
-            if (stm.step())
-                stm.get(0, lastId);
-        }
 
-        return ++lastId;
-    }
+
+	uint64_t getLastID(sqlite3* db)
+	{
+	    int lastId = 0;
+
+	    {
+	        const char* req = "SELECT seq FROM sqlite_sequence WHERE name = '" STORAGE_NAME "';";
+	        sqlite::Statement stm(db, req);
+
+	        if (stm.step())
+	            stm.get(0, lastId);
+	    }
+
+	    return lastId;
+	}
 
     ECC::Scalar::Native Keychain::calcKey(const beam::Coin& coin) const
     {
@@ -365,35 +369,45 @@ namespace beam
         return coins;
     }
 
-    void Keychain::store(const beam::Coin& coin)
+    void Keychain::store(beam::Coin& coin)
     {
         sqlite::Transaction trans(_db);
         
         {
-            const char* req = "INSERT INTO " STORAGE_NAME " (" STORAGE_FIELDS ") VALUES(" ENUM_STORAGE_FIELDS(BIND_LIST, ", ") ");";
+            const char* req = "INSERT INTO " STORAGE_NAME " (amount, status, height, key_type) VALUES(?1, ?2, ?3, ?4);";
             sqlite::Statement stm(_db, req);
 
-            ENUM_STORAGE_FIELDS(STM_BIND_LIST, "");
+			stm.bind(1, coin.m_amount);
+			stm.bind(2, coin.m_status);
+			stm.bind(3, coin.m_height);
+			stm.bind(4, coin.m_key_type);
 
             stm.step();
         }
 
         trans.commit();
+
+		coin.m_id = getLastID(_db);
     }
 
-    void Keychain::store(const std::vector<beam::Coin>& coins)
+    void Keychain::store(std::vector<beam::Coin>& coins)
     {
         if (coins.empty()) return;
         
         sqlite::Transaction trans(_db);
-        for (const auto& coin : coins)
+        for (auto& coin : coins)
         {
-            const char* req = "INSERT INTO " STORAGE_NAME " (" STORAGE_FIELDS ") VALUES(" ENUM_STORAGE_FIELDS(BIND_LIST, ", ") ");";
-            sqlite::Statement stm(_db, req);
+			const char* req = "INSERT INTO " STORAGE_NAME " (amount, status, height, key_type) VALUES(?1, ?2, ?3, ?4);";
+			sqlite::Statement stm(_db, req);
 
-            ENUM_STORAGE_FIELDS(STM_BIND_LIST, "");
+			stm.bind(1, coin.m_amount);
+			stm.bind(2, coin.m_status);
+			stm.bind(3, coin.m_height);
+			stm.bind(4, coin.m_key_type);
 
             stm.step();
+
+			coin.m_id = getLastID(_db);
         }
 
         trans.commit();

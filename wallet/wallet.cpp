@@ -84,8 +84,8 @@ namespace beam
 
     }
 
-    Coin::Coin(uint64_t id, const Amount& amount, Status status, const Height& height, KeyType keyType)
-        : m_id{id}
+    Coin::Coin(const Amount& amount, Status status, const Height& height, KeyType keyType)
+        : m_id{0}
         , m_amount{amount}
         , m_status{status}
         , m_height{height}
@@ -348,12 +348,14 @@ namespace beam
         // TODO: check if we're already waiting for the ProofUtxo,
         // don't send request if yes
 
+		static const char* SystemStateIDName = "SystemStateID";
+
         beam::Block::SystemState::ID id;
-        bool hasId = m_keyChain->getVar("SystemStateID", id);
+        bool hasId = m_keyChain->getVar(SystemStateIDName, id);
 
         if (!hasId || msg.m_ID > id)
         {
-            m_keyChain->setVar("SystemStateID", msg.m_ID);
+            m_keyChain->setVar(SystemStateIDName, msg.m_ID);
             m_network.send_node_message(proto::GetHdr{ msg.m_ID });
         }
     }
@@ -388,10 +390,10 @@ namespace beam
             if (mined_coin.m_Active) // we store coins from active branch
             {
                 // coinbase 
-                mined.emplace_back(m_keyChain->getNextID(), Block::s_CoinbaseEmission, Coin::Unspent, mined_coin.m_ID.m_Height, KeyType::Coinbase);
+                mined.emplace_back(Block::s_CoinbaseEmission, Coin::Unspent, mined_coin.m_ID.m_Height, KeyType::Coinbase);
                 if (mined_coin.m_Fees > 0)
                 {
-                    mined.emplace_back(m_keyChain->getNextID(), Block::s_CoinbaseEmission, Coin::Unspent, mined_coin.m_ID.m_Height, KeyType::Comission);
+                    mined.emplace_back(Block::s_CoinbaseEmission, Coin::Unspent, mined_coin.m_ID.m_Height, KeyType::Comission);
                 }
                 // TODO: should we pass ID to Coin ctor?
             }

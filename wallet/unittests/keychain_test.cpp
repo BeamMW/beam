@@ -5,15 +5,16 @@ void TestKeychain()
 {
 	SqliteKeychain keychain;
 
-	assert(keychain.getNextID() == 1);
 
-	beam::Coin coin1(keychain.getNextID(), 5);
+	beam::Coin coin1(5);
 	keychain.store(coin1);
 
-	beam::Coin coin2(keychain.getNextID(), 2);
+	assert(coin1.m_id == 1);
+
+	beam::Coin coin2(2);
 	keychain.store(coin2);
 
-	assert(keychain.getNextID() == 3);
+	assert(coin2.m_id == 2);
 
 	auto coins = keychain.getCoins(7);
 

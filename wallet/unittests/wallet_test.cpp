@@ -25,10 +25,6 @@ namespace
     {
     public:
 
-        uint64_t getNextID()
-        {
-            return 1;
-        }
 
         ECC::Scalar::Native calcKey(const Coin&) const
         {
@@ -52,8 +48,8 @@ namespace
             return res;
         }
 
-        void store(const beam::Coin& coin) override {}
-        void store(const std::vector<beam::Coin>& coins) {}
+        void store(beam::Coin& coin) override {}
+        void store(std::vector<beam::Coin>& coins) {}
         void update(const std::vector<beam::Coin>& coins) override {}
         void remove(const std::vector<beam::Coin>& coins) override {}
         void visit(std::function<bool(const beam::Coin& coin)> func) override {}
@@ -69,9 +65,9 @@ namespace
     public:
         TestKeyChain()
         {
-            m_coins.emplace_back(1, 5);
-            m_coins.emplace_back(2, 2);
-            m_coins.emplace_back(3, 3);
+            m_coins.emplace_back(5);
+            m_coins.emplace_back(2);
+            m_coins.emplace_back(3);
         }
     };
 
@@ -80,8 +76,8 @@ namespace
     public:
         TestKeyChain2()
         {
-            m_coins.emplace_back(1, 1);
-            m_coins.emplace_back(2, 3);
+            m_coins.emplace_back(1);
+            m_coins.emplace_back(3);
         }
     };
 
@@ -89,9 +85,9 @@ namespace
     {
         SqliteKeychainInt()
         {
-            store(beam::Coin(getNextID(), 5));
-            store(beam::Coin(getNextID(), 2));
-            store(beam::Coin(getNextID(), 3));
+            store(beam::Coin(5));
+            store(beam::Coin(2));
+            store(beam::Coin(3));
         }
     };
 
