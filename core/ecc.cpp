@@ -355,6 +355,8 @@ namespace ECC {
 
 	Point::Native& Point::Native::operator = (Mul v)
 	{
+		assert(Mode::Fast == g_Mode);
+
 		const int nBits = 4;
 		const int nValuesPerLayer = (1 << nBits) - 1; // skip zero
 
@@ -1080,6 +1082,8 @@ namespace ECC {
 
 	void InnerProduct::Create(const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
 	{
+		Mode::Scope scope(Mode::Fast);
+
 		// bufs
 		const uint32_t nBufDim = nDim >> 1;
 		Point::Native pBufGen[2][nBufDim];
@@ -1212,17 +1216,25 @@ namespace ECC {
 		nonceGen >> alpha;
 
 		Point::Native comm = Context::get().G * alpha;
-		Point::Native ptVal(Zero);
 
-		NoLeak<secp256k1_ge> ge;
-
-		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
-			uint32_t iBit = 1 & (v >> i);
-			Generator::ToPt(comm, ge.V, Context::get().m_Ipp.m_pAux1[iBit][i], false);
+			Point::Native ptVal(Zero);
+
+			NoLeak<secp256k1_ge> ge;
+			NoLeak<CompactPoint> ge_s;
+
+			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+			{
+				uint32_t iBit = 1 & (v >> i);
+
+				for (uint32_t j = 0; j < 2; j++)
+					Generator::object_cmov(ge_s.V, Context::get().m_Ipp.m_pAux1[iBit][i], j == iBit); // protection against side-channel attacks
+
+				Generator::ToPt(comm, ge.V, ge_s.V, false);
+			}
+			ptVal = -ptVal;
+			comm += ptVal;
 		}
-		ptVal = -ptVal;
-		comm += ptVal;
 
 		m_A = comm;
 		oracle << m_A; // exposed

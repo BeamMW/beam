@@ -224,6 +224,10 @@ namespace ECC
 	{
 		// Compact proof that the inner product of 2 vectors is a specified scalar.
 		// Part of the bulletproof scheme
+		//
+		// Current implementation is 'fast' (i.e. not 'secure'), since the scheme isn't zero-knowledge wrt input vectors.
+		// In bulletproof source vectors are blinded.
+
 		static const uint32_t nDim = sizeof(Amount) << 3; // 64
 		static const uint32_t nCycles = 6;
 		static_assert(1 << nCycles == nDim, "");

@@ -103,6 +103,8 @@ void TestScalars()
 
 void TestPoints()
 {
+	Mode::Scope scope(Mode::Fast); // suppress assertion in point multiplication
+
 	// generate, import, export
 	Point::Native p0, p1;
 	Point p_, p2_;
@@ -768,6 +770,7 @@ void RunBenchmark()
 	}
 
 	{
+		Mode::Scope scope(Mode::Fast);
 		k1 = Zero;
 
 		BenchmarkMeter bm("point.Multiply.Min");
@@ -780,6 +783,8 @@ void RunBenchmark()
 	}
 
 	{
+		Mode::Scope scope(Mode::Fast);
+
 		BenchmarkMeter bm("point.Multiply.Avg");
 		do
 		{

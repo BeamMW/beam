@@ -158,7 +158,10 @@ namespace beam
 		{
 			ECC::Point::Native pt(m_Excess);
 			if (m_Multiplier)
+			{
+				ECC::Mode::Scope scope(ECC::Mode::Fast);
 				pt += pt * m_Multiplier;
+			}
 
 			if (!m_Signature.IsValid(hv, pt))
 				return false;
