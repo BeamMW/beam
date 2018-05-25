@@ -6,13 +6,10 @@
 #include "utility/helpers.h"
 #include <algorithm>
 #include <random>
-
 #include "core/storage.h"
 
-// Valdo's point generator of elliptic curve
 namespace ECC {
-	Context g_Ctx;
-	const Context& Context::get() { return g_Ctx; }
+	Initializer g_Initializer;
 }
 
 namespace
@@ -225,7 +222,7 @@ namespace beam
     
     void Wallet::handle_tx_message(PeerId /*from*/, sender::ConfirmationData::Ptr&& data)
     {
-        Cleaner c{ m_removed_receivers };
+        Cleaner<std::vector<wallet::Receiver::Ptr> > c{ m_removed_receivers };
         auto it = m_receivers.find(data->m_txId);
         if (it != m_receivers.end())
         {
@@ -240,7 +237,7 @@ namespace beam
 
     void Wallet::handle_tx_message(PeerId /*from*/, receiver::ConfirmationData::Ptr&& data)
     {
-        Cleaner c{ m_removed_senders };
+        Cleaner<std::vector<wallet::Sender::Ptr> > c{ m_removed_senders };
         auto it = m_senders.find(data->m_txId);
         if (it != m_senders.end())
         {
@@ -280,8 +277,8 @@ namespace beam
     void Wallet::handle_tx_registered(const Uuid& txId, bool res)
     {
         LOG_DEBUG() << "tx " << txId << (res ? " has registered" : " has failed to register");
-        Cleaner cr{ m_removed_receivers };
-        Cleaner cs{ m_removed_senders };
+        Cleaner<std::vector<wallet::Receiver::Ptr> > cr{ m_removed_receivers };
+        Cleaner<std::vector<wallet::Sender::Ptr> > cs{ m_removed_senders };
         if (res)
         {
             if (auto it = m_receivers.find(txId); it != m_receivers.end())
@@ -323,7 +320,7 @@ namespace beam
                 {
                     Input input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
                 
-                    if (input.IsValidProof(proof.m_Count, proof.m_Proof, m_LiveObjects))
+                    if (proof.IsValid(input, m_LiveObjects))
                     {
                         found = coin;
                         found->m_status = Coin::Unspent;
@@ -410,8 +407,8 @@ namespace beam
         {
             return;
         }
-        Cleaner cr{ m_removed_receivers };
-        Cleaner cs{ m_removed_senders };
+        Cleaner<std::vector<wallet::Receiver::Ptr> > cr{ m_removed_receivers };
+        Cleaner<std::vector<wallet::Sender::Ptr> > cs{ m_removed_senders };
         if (auto it = m_receivers.find(cit->first); it != m_receivers.end())
         {
             it->second->process_event(Receiver::TxFailed());

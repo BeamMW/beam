@@ -55,7 +55,7 @@ namespace beam::wallet
                 Output::Ptr output = make_unique<Output>();
                 output->m_Coinbase = false;
                 Scalar::Native blindingFactor = m_keychain->calcKey(*m_changeOutput);
-                output->Create(blindingFactor, change, true);
+                output->Create(blindingFactor, change);
 
                 m_keychain->store(*m_changeOutput);
 

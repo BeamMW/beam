@@ -8,8 +8,7 @@ int g_Ret = 0;
 
 namespace ECC {
 
-	Context g_Ctx;
-	const Context& Context::get() { return g_Ctx; }
+	Initializer g_Initializer;
 
 	void GenerateRandom(void* p, uint32_t n)
 	{

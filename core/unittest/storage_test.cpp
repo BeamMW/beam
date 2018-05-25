@@ -3,14 +3,6 @@
 #include "../navigator.h"
 #include "../../utility/serialize.h"
 
-#include "../ecc_native.h"
-
-namespace ECC {
-	// not really used, it's just the stupid linker
-	Context g_Ctx;
-	const Context& Context::get() { return g_Ctx; }
-}
-
 #ifndef WIN32
 #	include <unistd.h>
 #endif // WIN32
@@ -76,7 +68,6 @@ namespace beam
 			ZeroObject(ti);
 
 			ti.m_Tag.m_pData[0] = n;
-			ti.m_Difficulty = 1;
 			ti.m_Height = 1;
 
 			CreateTag(ti);

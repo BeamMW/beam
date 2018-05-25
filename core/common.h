@@ -33,7 +33,6 @@ namespace beam
 {
 	// sorry for replacing 'using' by 'typedefs', some compilers don't support it
 	typedef uint64_t Timestamp;
-	typedef uint64_t Difficulty;
 	typedef uint64_t Height;
 	typedef ECC::uintBig_t<256> uint256_t;
 	typedef std::vector<uint8_t> ByteBuffer;
@@ -58,11 +57,28 @@ namespace beam
 
 		ECC::Point	m_Commitment; // If there are multiple UTXOs matching this commitment (which is supported) the Node always selects the most mature one.
 	
+		struct Proof
+		{
+			Height m_Maturity;
+			Input::Count m_Count;
+			Merkle::Proof m_Proof;
+
+			bool IsValid(const Input&, const Merkle::Hash& root) const;
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar
+					& m_Maturity
+					& m_Count
+					& m_Proof;
+			}
+
+			static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
+		};
+
 		int cmp(const Input&) const;
 		COMPARISON_VIA_CMP(Input)
-
-		void get_Hash(Merkle::Hash&, Count) const;
-		bool IsValidProof(Count, const Merkle::Proof&, const Merkle::Hash& root) const;
 	};
 
 	inline bool operator < (const Input::Ptr& a, const Input::Ptr& b) { return *a < *b; }
@@ -223,15 +239,16 @@ namespace beam
 
 			std::array<uint8_t, nSolutionBytes>	m_Indices;
 
-			typedef ECC::uintBig_t<112> NonceType;
-			NonceType m_Nonce; // 14 bytes. The overall solution size is 64 bytes.
+			typedef ECC::uintBig_t<104> NonceType;
+			NonceType m_Nonce; // 13 bytes. The overall solution size is 64 bytes.
+			uint8_t m_Difficulty;
 
-			bool IsValid(const void* pInput, uint32_t nSizeInput, Difficulty) const;
+			bool IsValid(const void* pInput, uint32_t nSizeInput) const;
 
 			using Cancel = std::function<bool(bool bRetrying)>;
-			// Nonce must be initialized. During the solution it's incremented each time by 1.
+			// Difficulty and Nonce must be initialized. During the solution it's incremented each time by 1.
 			// returns false only if cancelled
-			bool Solve(const void* pInput, uint32_t nSizeInput, Difficulty, const Cancel& = [](bool) { return false; });
+			bool Solve(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
 
 		private:
 			struct Helper;
@@ -252,13 +269,13 @@ namespace beam
 				Merkle::Hash	m_Prev;			// explicit referebce to prev
 				Merkle::Hash	m_History;		// Objects that are only added and never deleted. Currently: previous states.
 				Merkle::Hash	m_LiveObjects;	// Objects that can be both added and deleted. Currently: UTXOs and kernels
-				Difficulty		m_Difficulty;
 				Timestamp		m_TimeStamp;
 				PoW				m_PoW;
 
 				void get_Hash(Merkle::Hash&) const; // Calculated from all the above
 				void get_ID(ID&) const;
 
+				bool IsSane() const;
 				bool IsValidPoW() const;
 				bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
 			};
@@ -267,6 +284,7 @@ namespace beam
 		static const Amount s_CoinbaseEmission; // the maximum allowed coinbase in a single block
 		static const Height s_MaturityCoinbase;
 		static const Height s_MaturityStd;
+		static const Height s_HeightGenesis; // height of the 1st block, defines the convention. Currently =1
 
 		static const size_t s_MaxBodySize;
 

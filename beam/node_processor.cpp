@@ -80,8 +80,7 @@ void NodeProcessor::Initialize(const char* szPath)
 void NodeProcessor::EnumCongestions()
 {
 	NodeDB::StateID sidPos;
-	if (!m_DB.get_Cursor(sidPos))
-		sidPos.m_Height = 0;
+	m_DB.get_Cursor(sidPos);
 
 	// request all potentially missing data
 	NodeDB::WalkerState ws(m_DB);
@@ -96,7 +95,7 @@ void NodeProcessor::EnumCongestions()
 
 		bool bBlock = true;
 
-		while (sid.m_Height)
+		while (sid.m_Height > Block::s_HeightGenesis)
 		{
 			NodeDB::StateID sidThis = sid;
 			if (!m_DB.get_Prev(sid))
@@ -154,6 +153,8 @@ void NodeProcessor::TryGoUp()
 		}
 
 		assert(sidTrg.m_Height >= sidPos.m_Height);
+		if (sidTrg.m_Height == sidPos.m_Height)
+			break; // already at maximum height (though maybe at different tip)
 
 		// Calculate the path
 		std::vector<uint64_t> vPath;
@@ -162,25 +163,24 @@ void NodeProcessor::TryGoUp()
 			assert(sidTrg.m_Row);
 			vPath.push_back(sidTrg.m_Row);
 
-			if (sidPos.m_Row && (sidPos.m_Height == sidTrg.m_Height))
+			if (sidPos.m_Height == sidTrg.m_Height)
 			{
 				Rollback(sidPos);
 				bDirty = true;
 
 				if (!m_DB.get_Prev(sidPos))
-					ZeroObject(sidPos);
+					sidPos.SetNull();
 			}
 
 			if (!m_DB.get_Prev(sidTrg))
-				ZeroObject(sidTrg);
+				sidTrg.SetNull();
 		}
 
 		bool bPathOk = true;
 
 		for (size_t i = vPath.size(); i--; )
 		{
-			if (sidPos.m_Row)
-				sidPos.m_Height++;
+			sidPos.m_Height++;
 			sidPos.m_Row = vPath[i];
 
 			bDirty = true;
@@ -246,7 +246,7 @@ void NodeProcessor::PruneOld(Height h)
 
 		{
 			NodeDB::WalkerState ws(m_DB);
-			m_DB.EnumStatesAt(ws, hFossil);
+			m_DB.EnumStatesAt(ws, hFossil + Block::s_HeightGenesis);
 			if (!ws.MoveNext())
 				OnCorrupted();
 
@@ -333,14 +333,19 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		if (rbData.m_Buf.size() != n)
 		{
 			bFirstTime = true;
-
 			m_DB.get_State(sid.m_Row, s);
 
-			Merkle::Proof proof;
-			m_DB.get_Proof(proof, sid, sid.m_Height);
+			Merkle::Hash hvHist;
+			if (sid.m_Height > Block::s_HeightGenesis)
+			{
+				NodeDB::StateID sidPrev = sid;
+				verify(m_DB.get_Prev(sidPrev));
+				m_DB.get_PredictedStatesHash(hvHist, sidPrev);
+			}
+			else
+				ZeroObject(hvHist);
 
-			Merkle::Interpret(s.m_Prev, proof);
-			if (s.m_History != s.m_Prev)
+			if (s.m_History != hvHist)
 				return false; // The state (even the header) is formed incorrectly!
 
 			if (!block.IsValid(sid.m_Height, sid.m_Height))
@@ -736,11 +741,13 @@ bool NodeProcessor::get_CurrentState(Block::SystemState::ID& id)
 bool NodeProcessor::IsRelevantHeight(Height h)
 {
 	uint64_t hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight);
-	return !hFossil || (h > hFossil);
+	return h >= hFossil + Block::s_HeightGenesis;
 }
 
 bool NodeProcessor::OnState(const Block::SystemState::Full& s, const PeerID& peer)
 {
+	assert(s.IsSane());
+
 	if (!IsRelevantHeight(s.m_Height))
 		return false;
 
@@ -931,7 +938,7 @@ Height NodeProcessor::get_NextHeight()
 	NodeDB::StateID sid;
 	m_DB.get_Cursor(sid);
 
-	return sid.m_Row ? (sid.m_Height + 1) : 0;
+	return sid.m_Height + 1;
 }
 
 bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
@@ -1024,7 +1031,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
 
 	// Finalize block construction.
-	if (h)
+	if (h > Block::s_HeightGenesis)
 	{
 		NodeDB::StateID sid;
 		m_DB.get_Cursor(sid);

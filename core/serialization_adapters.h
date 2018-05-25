@@ -157,19 +157,60 @@ namespace detail
             return ar;
         }
 
+		/// ECC::InnerProduct
+		template<typename Archive>
+		static Archive& save(Archive& ar, const ECC::InnerProduct& v)
+		{
+			ar
+				& v.m_AB
+				& v.m_pLR
+				& v.m_pCondensed;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, ECC::InnerProduct& v)
+		{
+			ar
+				& v.m_AB
+				& v.m_pLR
+				& v.m_pCondensed;
+
+			return ar;
+		}
+
         /// ECC::RangeProof::Confidential serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& cond)
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& v)
         {
-            ar & cond.m_pOpaque;
+			ar
+				& v.m_A
+				& v.m_S
+				& v.m_T1
+				& v.m_T2
+				& v.m_TauX
+				& v.m_Mu
+				& v.m_tDot
+				& v.m_P_Tag;
+
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::RangeProof::Confidential& cond)
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential& v)
         {
-            ar & cond.m_pOpaque;
-            return ar;
+			ar
+				& v.m_A
+				& v.m_S
+				& v.m_T1
+				& v.m_T2
+				& v.m_TauX
+				& v.m_Mu
+				& v.m_tDot
+				& v.m_P_Tag;
+
+			return ar;
         }
 
         /// ECC::RangeProof::Public serialization
@@ -412,6 +453,7 @@ namespace detail
 		{
 			ar
 				& pow.m_Indices
+				& pow.m_Difficulty
 				& pow.m_Nonce;
 
 			return ar;
@@ -422,6 +464,7 @@ namespace detail
 		{
 			ar
 				& pow.m_Indices
+				& pow.m_Difficulty
 				& pow.m_Nonce;
 
 			return ar;
@@ -455,7 +498,6 @@ namespace detail
 				& v.m_Prev
 				& v.m_History
 				& v.m_LiveObjects
-				& v.m_Difficulty
 				& v.m_TimeStamp
 				& v.m_PoW;
 
@@ -470,7 +512,6 @@ namespace detail
 				& v.m_Prev
 				& v.m_History
 				& v.m_LiveObjects
-				& v.m_Difficulty
 				& v.m_TimeStamp
 				& v.m_PoW;
 

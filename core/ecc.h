@@ -26,6 +26,29 @@ inline void ZeroObject(T& x)
 
 namespace ECC
 {
+	void InitializeContext(); // builds various generators. Necessary for commitments and signatures.
+	// Not necessary for hashes, scalar and 'casual' point arithmetics
+
+	struct Mode {
+		enum Enum {
+			Secure, // maximum security. Constant-time guarantee whenever possible, protection from side-channel attacks
+			Fast
+		};
+
+		class Scope {
+			const Enum m_PrevMode;
+		public:
+			Scope(Enum e);
+			~Scope();
+		};
+	};
+
+	struct Initializer {
+		Initializer() {
+			InitializeContext();
+		}
+	};
+
 	// Syntactic sugar!
 	enum Zero_ { Zero };
 	enum Two_ { Two };
@@ -129,7 +152,7 @@ namespace ECC
 		uintBig m_Value; // valid range is [0 .. s_Order)
 
 		Scalar() {}
-		template <typename T> Scalar(const T& t) { *this = t; }
+		template <typename T> explicit Scalar(const T& t) { *this = t; }
 
 		bool IsValid() const;
 
@@ -197,13 +220,52 @@ namespace ECC
 		void DeriveKey(Scalar::Native&, uint64_t nKeyIndex, uint32_t nFlags, uint32_t nExtra = 0) const;
 	};
 
+	struct InnerProduct
+	{
+		// Compact proof that the inner product of 2 vectors is a specified scalar.
+		// Part of the bulletproof scheme
+		static const uint32_t nDim = sizeof(Amount) << 3; // 64
+		static const uint32_t nCycles = 6;
+		static_assert(1 << nCycles == nDim, "");
+
+		ECC::Point m_AB;				// orifinal commitment of both vectors
+		ECC::Point m_pLR[nCycles][2];	// pairs of L,R values, per reduction  iteration
+		ECC::Scalar m_pCondensed[2];	// remaining 1-dimension vectors
+
+		static void get_Dot(Scalar::Native& res, const Scalar::Native* pA, const Scalar::Native* pB);
+
+		// optional modifier for the used generators. Needed for the bulletproof.
+		struct Modifier {
+			const Scalar::Native* m_pMultiplier[2];
+			Modifier() { ZeroObject(m_pMultiplier); }
+		};
+
+		void Create(const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
+		bool IsValid(const Scalar::Native& dot, const Modifier& = Modifier()) const;
+
+	private:
+		struct Calculator;
+	};
+
 	namespace RangeProof
 	{
 		static const Amount s_MinimumValue = 1;
 
 		struct Confidential
 		{
-			uint8_t m_pOpaque[700]; // TODO
+			// Bulletproof scheme
+
+			ECC::Point m_A;
+			ECC::Point m_S;
+			// <- y,z
+			ECC::Point m_T1;
+			ECC::Point m_T2;
+			// <- x
+			ECC::Scalar m_TauX;
+			ECC::Scalar m_Mu;
+			ECC::Scalar m_tDot;
+
+			InnerProduct m_P_Tag; // contains commitment P - m_Mu*G
 
 			void Create(const Scalar::Native& sk, Amount);
 			bool IsValid(const Point&) const;

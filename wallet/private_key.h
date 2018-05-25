@@ -16,7 +16,6 @@ using ScalarValue = ECC::Scalar::Native;
 using Scalar      = ECC::Scalar;
 using Point       = ECC::Point;
 using PointValue  = ECC::Point::Native;
-using PointGen    = ECC::Context;
 
 // Nonce is used to create private key assortiment with varying key values:
 // Here the formula is used:
@@ -47,8 +46,7 @@ struct Nonce {
         scalar.m_Value = hash_value;
 
         // 2. Multiply scalar and point-generator G
-        PointGen gen;
-        PointValue pG = gen.get().G * scalar; ;
+        PointValue pG = ECC::Context::get().G * scalar;
         Point point = pG;
 
         // 3. Initialize state by coordinate X of point above

@@ -28,10 +28,16 @@ struct Node
 			uint32_t m_MiningSoftRestart_ms = 100;
 		} m_Timeout;
 
-		bool m_bDontVerifyPoW = false; // for testing only!
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
 		uint32_t m_MinerID = 0; // used as a seed for miner nonce generation
+
+		struct TestMode {
+			// for testing only!
+			bool m_bFakePoW = false;
+			uint32_t m_FakePowSolveTime_ms = 15 * 1000;
+
+		} m_TestMode;
 
 
 	} m_Cfg; // must not be changed after initialization
@@ -105,6 +111,7 @@ private:
 		State::Enum m_eState;
 
 		Height m_TipHeight;
+		proto::Config m_Config;
 
 		TaskList m_lstTasks;
 		void TakeTasks();
@@ -129,6 +136,7 @@ private:
 		virtual void OnConnected() override;
 		virtual void OnClosed(int errorCode) override;
 		// messages
+		virtual void OnMsg(proto::Config&&) override;
 		virtual void OnMsg(proto::Ping&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;
 		virtual void OnMsg(proto::DataMissing&&) override;

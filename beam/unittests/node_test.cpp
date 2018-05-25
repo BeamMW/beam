@@ -9,8 +9,7 @@
 
 namespace ECC {
 
-	Context g_Ctx;
-	const Context& Context::get() { return g_Ctx; }
+	Initializer g_Initializer;
 
 	void GenerateRandom(void* p, uint32_t n)
 	{
@@ -106,12 +105,13 @@ namespace beam
 		for (uint32_t h = 0; h < hMax; h++)
 		{
 			Block::SystemState::Full& s = vStates[h];
-			s.m_Height = h;
+			s.m_Height = h + Block::s_HeightGenesis;
 
 			if (h)
-				vStates[h-1].get_Hash(s.m_Prev);
-
-			cmmr.Append(s.m_Prev);
+			{
+				vStates[h - 1].get_Hash(s.m_Prev);
+				cmmr.Append(s.m_Prev);
+			}
 
 			if (hFork0 == h)
 				cmmrFork = cmmr;
@@ -188,7 +188,7 @@ namespace beam
 
 		NodeDB::StateID sid;
 		verify_test(CountTips(db, false, &sid) == 2);
-		verify_test(sid.m_Height == hMax-1);
+		verify_test(sid.m_Height == hMax-1 + Block::s_HeightGenesis);
 
 		db.SetMined(sid, 200000);
 		db.SetMined(sid, 250000);
@@ -217,7 +217,7 @@ namespace beam
 		db.SetStateFunctional(pRows[0]); // this should trigger big update
 		db.assert_valid();
 		verify_test(CountTips(db, true, &sid) == 2);
-		verify_test(sid.m_Height == hFork0 + 1);
+		verify_test(sid.m_Height == hFork0 + 1 + Block::s_HeightGenesis);
 
 		tr.Commit();
 		tr.Start(db);
@@ -225,25 +225,26 @@ namespace beam
 		// test proofs
 		NodeDB::StateID sid2;
 		verify_test(CountTips(db, false, &sid2) == 2);
-		verify_test(sid2.m_Height == hMax-1);
+		verify_test(sid2.m_Height == hMax-1 + Block::s_HeightGenesis);
 
 		do
 		{
-			if (sid2.m_Height + 1 < hMax)
+			if (sid2.m_Height + 1 < hMax + Block::s_HeightGenesis)
 			{
 				Merkle::Hash hv;
 				db.get_PredictedStatesHash(hv, sid2);
-				verify_test(hv == vStates[(size_t) sid2.m_Height + 1].m_History);
+				verify_test(hv == vStates[(size_t) sid2.m_Height + 1 - Block::s_HeightGenesis].m_History);
 			}
 
-			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height].m_History;
+			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height - Block::s_HeightGenesis].m_History;
 
-			for (uint32_t h = 0; h <= sid2.m_Height; h++)
+			for (uint32_t h = Block::s_HeightGenesis; h < sid2.m_Height; h++)
 			{
 				Merkle::Proof proof;
 				db.get_Proof(proof, sid2, h);
 
-				Merkle::Hash hv = vStates[h].m_Prev;
+				Merkle::Hash hv;
+				vStates[h - Block::s_HeightGenesis].get_Hash(hv);
 				Merkle::Interpret(hv, proof);
 
 				verify_test(hvRoot == hv);
@@ -253,7 +254,7 @@ namespace beam
 
 		while (db.get_Prev(sid))
 			;
-		verify_test(sid.m_Height == 0);
+		verify_test(sid.m_Height == Block::s_HeightGenesis);
 
 		db.SetStateNotFunctional(pRows[0]);
 		db.assert_valid();
@@ -263,9 +264,9 @@ namespace beam
 		db.assert_valid();
 		verify_test(CountTips(db, true) == 2);
 
-		for (sid.m_Height = 0; sid.m_Height < hMax; sid.m_Height++)
+		for (sid.m_Height = Block::s_HeightGenesis; sid.m_Height <= hMax; sid.m_Height++)
 		{
-			sid.m_Row = pRows[sid.m_Height];
+			sid.m_Row = pRows[sid.m_Height - Block::s_HeightGenesis];
 			db.MoveFwd(sid);
 		}
 
@@ -412,7 +413,7 @@ namespace beam
 			utxoOut.m_Key = k;
 
 			Output::Ptr pOut(new Output);
-			pOut->Create(k, utxoOut.m_Value, true);
+			pOut->Create(k, utxoOut.m_Value, true); // confidential transactions will be too slow for test in debug mode.
 			pOut->m_Incubation = hIncubation;
 			tx.m_vOutputs.push_back(std::move(pOut));
 
@@ -455,7 +456,7 @@ namespace beam
 
 		const Height hIncubation = 3; // artificial incubation period for outputs.
 
-		for (Height h = 0; h < 96; h++)
+		for (Height h = Block::s_HeightGenesis; h < 96 + Block::s_HeightGenesis; h++)
 		{
 			std::list<MyNodeProcessor1::MyUtxo> lstNewOutputs;
 
@@ -612,7 +613,7 @@ namespace beam
 		node.m_Cfg.m_sPathLocal = g_sz;
 		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
-		node.m_Cfg.m_bDontVerifyPoW = true;
+		node.m_Cfg.m_TestMode.m_bFakePoW = true;
 
 		node.m_Cfg.m_Timeout.m_GetBlock_ms = 1000 * 60;
 		node.m_Cfg.m_Timeout.m_GetState_ms = 1000 * 60;
@@ -624,7 +625,7 @@ namespace beam
 		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
 		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
-		node2.m_Cfg.m_bDontVerifyPoW = true;
+		node2.m_Cfg.m_TestMode.m_bFakePoW = true;
 
 		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
 		ECC::SetRandom(node2.get_Processor().m_Kdf.m_Secret.V);
@@ -726,6 +727,160 @@ namespace beam
 		pReactor->run();
 	}
 
+
+
+	void TestNodeClientProto()
+	{
+		// Testing configuration: Node <-> Client. Node is a miner
+
+		io::Reactor::Ptr pReactor(io::Reactor::create());
+		io::Reactor::Scope scope(*pReactor);
+
+		Node node;
+		node.m_Cfg.m_sPathLocal = g_sz;
+		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
+		node.m_Cfg.m_Listen.ip(INADDR_ANY);
+		node.m_Cfg.m_TestMode.m_bFakePoW = true;
+		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
+		node.m_Cfg.m_MiningThreads = 1;
+
+		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
+
+		node.Initialize();
+
+		struct MyClient
+			:public proto::NodeConnection
+		{
+			const Height m_HeightTrg = 25;
+
+			ECC::Kdf m_Kdf;
+
+			std::vector<Block::SystemState::Full> m_vStates;
+			std::vector<Input> m_vUtxos;
+
+			uint32_t m_iProof;
+
+			MyClient() {
+				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+			}
+
+			virtual void OnConnected() override {
+				SetTimer(60*1000);
+
+				proto::Config msgCfg;
+				ZeroObject(msgCfg);
+				msgCfg.m_AutoSendHdr = true;
+				Send(msgCfg);
+			}
+
+			virtual void OnClosed(int errorCode) override {
+				fail_test("OnClosed");
+				io::Reactor::get_Current().stop();
+			}
+
+			io::Timer::Ptr m_pTimer;
+
+			void OnTimer() {
+
+				fail_test("Blockchain height didn't reach target");
+				io::Reactor::get_Current().stop();
+
+				SetTimer(100);
+			}
+
+			virtual void OnMsg(proto::NewTip&& msg) override
+			{
+				printf("Tip Height=%u\n", msg.m_ID.m_Height);
+				verify_test(m_vStates.size() + 1 == msg.m_ID.m_Height);
+
+				if (msg.m_ID.m_Height >= m_HeightTrg)
+					io::Reactor::get_Current().stop();
+			}
+
+			virtual void OnMsg(proto::Hdr&& msg) override
+			{
+				verify_test(m_vStates.size() + 1 == msg.m_Description.m_Height);
+				m_vStates.push_back(msg.m_Description);
+
+				ECC::Scalar::Native k;
+				DeriveKey(k, m_Kdf, msg.m_Description.m_Height, KeyType::Coinbase);
+				Input utxo;
+				utxo.m_Commitment = ECC::Commitment(k, Block::s_CoinbaseEmission);
+				m_vUtxos.push_back(utxo);
+
+				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
+				{
+					proto::GetProofState msgOut;
+					msgOut.m_Height = i + Block::s_HeightGenesis;
+					Send(msgOut);
+				}
+
+				for (size_t i = 0; i < m_vStates.size(); i++)
+				{
+					proto::GetProofUtxo msgOut;
+					msgOut.m_MaturityMin = 0;
+					msgOut.m_Utxo = m_vUtxos[i];
+					Send(msgOut);
+				}
+
+				m_iProof = 0;
+			}
+
+			virtual void OnMsg(proto::Proof&& msg) override
+			{
+				uint32_t i = m_iProof++;
+				if (i + 1 < m_vStates.size())
+				{
+					Merkle::Hash hv;
+					m_vStates[i].get_Hash(hv);
+					Merkle::Interpret(hv, msg.m_Proof);
+
+					verify_test(hv == m_vStates.back().m_History);
+				}
+				else
+					fail_test("unexpected proof");
+			}
+
+			virtual void OnMsg(proto::ProofUtxo&& msg) override
+			{
+				uint32_t i = m_iProof++ - (m_vStates.size() - 1);
+
+				if (i < m_vUtxos.size())
+				{
+					verify_test(!msg.m_Proofs.empty());
+
+					UtxoTree::Key::Data d;
+					d.m_Commitment = m_vUtxos[i].m_Commitment;
+
+					for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
+						msg.m_Proofs[j].IsValid(m_vUtxos[i], m_vStates.back().m_LiveObjects);
+				}
+				else
+					fail_test("unexpected proof");
+			}
+
+			void SetTimer(uint32_t timeout_ms) {
+				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
+			}
+			void KillTimer() {
+				m_pTimer->cancel();
+			}
+		};
+
+		MyClient cl;
+		cl.m_Kdf = node.get_Processor().m_Kdf; // same key gen
+
+		io::Address addr;
+		addr.resolve("127.0.0.1");
+		addr.port(Node::s_PortDefault);
+
+		cl.Connect(addr);
+
+
+		pReactor->run();
+	}
+
+
 }
 
 int main()
@@ -746,9 +901,11 @@ int main()
 	}
 
 	beam::TestNodeConversation();
-
 	DeleteFileA(beam::g_sz);
 	DeleteFileA(beam::g_sz2);
+
+	beam::TestNodeClientProto();
+	DeleteFileA(beam::g_sz);
 
 	return g_TestsFailed ? -1 : 0;
 }

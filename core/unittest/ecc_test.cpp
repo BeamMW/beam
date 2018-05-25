@@ -21,6 +21,8 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 
 namespace ECC {
 
+Initializer g_Initializer;
+
 void GenerateRandom(void* p, uint32_t n)
 {
 	for (uint32_t i = 0; i < n; i++)
@@ -42,9 +44,6 @@ void SetRandom(Scalar::Native& x)
 			break;
 	}
 }
-
-Context g_Ctx;
-const Context& Context::get() { return g_Ctx; }
 
 void TestHash()
 {
@@ -328,6 +327,35 @@ void TestRangeProof()
 	comm = Commitment(sk, rp.m_Value);
 
 	verify_test(!rp.IsValid(Point(comm)));
+
+	Scalar::Native pA[InnerProduct::nDim];
+	Scalar::Native pB[InnerProduct::nDim];
+
+	for (int i = 0; i < _countof(pA); i++)
+	{
+		SetRandom(pA[i]);
+		SetRandom(pB[i]);
+	}
+
+	Scalar::Native pwrMul;
+	SetRandom(pwrMul);
+	InnerProduct::Modifier mod;
+	mod.m_pMultiplier[1] = &pwrMul;
+
+	InnerProduct sig;
+	sig.Create(pA, pB, mod);
+
+	Scalar::Native dot;
+	InnerProduct::get_Dot(dot, pA, pB);
+
+	verify_test(sig.IsValid(dot, mod));
+
+	RangeProof::Confidential bp;
+	Amount v = 23110;
+	comm = Commitment(sk, v);
+
+	bp.Create(sk, v);
+	verify_test(bp.IsValid(comm));
 }
 
 struct TransactionMaker
@@ -384,7 +412,7 @@ struct TransactionMaker
 
 			Scalar::Native k;
 			SetRandom(k);
-			pOut->Create(k, val, true);
+			pOut->Create(k, val);
 
 			t.m_vOutputs.push_back(std::move(pOut));
 
@@ -863,6 +891,70 @@ void RunBenchmark()
 
 		} while (bm.ShouldContinue());
 	}
+
+	Scalar::Native pA[InnerProduct::nDim];
+	Scalar::Native pB[InnerProduct::nDim];
+
+	for (int i = 0; i < _countof(pA); i++)
+	{
+		SetRandom(pA[i]);
+		SetRandom(pB[i]);
+	}
+
+	InnerProduct sig2;
+
+	Scalar::Native dot;
+	InnerProduct::get_Dot(dot, pA, pB);
+
+	{
+		BenchmarkMeter bm("InnerProduct.Sign");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				sig2.Create(pA, pB);
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		BenchmarkMeter bm("InnerProduct.Verify");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				sig2.IsValid(dot);
+
+		} while (bm.ShouldContinue());
+	}
+
+	Amount v = 23110;
+	RangeProof::Confidential bp;
+
+	{
+		BenchmarkMeter bm("BulletProof.Sign");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				bp.Create(k1, v);
+
+		} while (bm.ShouldContinue());
+	}
+
+	Point comm = Commitment(k1, v);
+
+	{
+		BenchmarkMeter bm("BulletProof.Verify");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				bp.IsValid(comm);
+
+		} while (bm.ShouldContinue());
+	}
+
 
 	secp256k1_context* pCtx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 

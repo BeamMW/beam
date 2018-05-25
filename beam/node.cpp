@@ -157,9 +157,12 @@ void Node::Processor::OnPeerInsane(const PeerID& peerID)
 
 void Node::Processor::OnNewState()
 {
-	proto::NewTip msg;
-	if (!get_CurrentState(msg.m_ID))
+	proto::Hdr msgHdr;
+	if (!get_CurrentState(msgHdr.m_Description))
 		return;
+
+	proto::NewTip msg;
+	msgHdr.m_Description.get_ID(msg.m_ID);
 
 	get_ParentObj().m_TxPool.DeleteOutOfBound(msg.m_ID.m_Height + 1);
 
@@ -175,7 +178,12 @@ void Node::Processor::OnNewState()
 
 		try {
 			if ((State::Connected == peer.m_eState) && (peer.m_TipHeight <= msg.m_ID.m_Height))
+			{
 				peer.Send(msg);
+
+				if (peer.m_Config.m_AutoSendHdr)
+					peer.Send(msgHdr);
+			}
 		} catch (...) {
 			peer.OnPostError();
 		}
@@ -327,6 +335,13 @@ void Node::Peer::OnConnected()
 
 	m_eState = State::Connected;
 	m_TipHeight = 0;
+	ZeroObject(m_Config);
+
+	proto::Config msgCfg;
+	msgCfg.m_SpreadingTransactions = true;
+	msgCfg.m_Mining = (m_pThis->m_Cfg.m_MiningThreads > 0);
+	msgCfg.m_AutoSendHdr = false;
+	Send(msgCfg);
 
 	proto::NewTip msg;
 	if (m_pThis->m_Processor.get_CurrentState(msg.m_ID))
@@ -411,10 +426,7 @@ void Node::Peer::OnMsg(proto::Ping&&)
 void Node::Peer::OnMsg(proto::NewTip&& msg)
 {
 	if (msg.m_ID.m_Height < m_TipHeight)
-	{
-		OnClosed(-1); // insane!
-		return;
-	}
+		ThrowUnexpected();
 
 	m_TipHeight = msg.m_ID.m_Height;
 	m_setRejected.clear();
@@ -477,13 +489,15 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	if (t.m_Key.second)
 		ThrowUnexpected();
 
+	if (!msg.m_Description.IsSane())
+		ThrowUnexpected();
+
 	Block::SystemState::ID id;
 	msg.m_Description.get_ID(id);
 	if (id != t.m_Key.first)
 		ThrowUnexpected();
 
-	// uncomment this when blocks with valid PoW are generated
-	if (!m_pThis->m_Cfg.m_bDontVerifyPoW && !msg.m_Description.IsValidPoW())
+	if (!m_pThis->m_Cfg.m_TestMode.m_bFakePoW && !msg.m_Description.IsValidPoW())
 		ThrowUnexpected();
 
 	t.m_bRelevant = false;
@@ -529,7 +543,6 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	t.m_bRelevant = false;
 	OnFirstTaskDone();
 
-	NodeDB::Blob pow(NULL, 0); // TODO
 	NodeDB::PeerID pid;
 	get_ID(pid);
 
@@ -557,11 +570,45 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 			m_pThis->m_TxPool.ShrinkUpTo(m_pThis->m_Cfg.m_MaxPoolTransactions);
 			m_pThis->m_Miner.SetTimer(m_pThis->m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
 
-			// spread to other nodes?
+			// Current (naive) design: send it to all other nodes
+			for (PeerList::iterator it = m_pThis->m_lstPeers.begin(); m_pThis->m_lstPeers.end() != it; )
+			{
+				Peer& peer = *it++;
+				if (this == &peer)
+					continue;
+				if (State::Connected != peer.m_eState)
+					continue;
+				if (!peer.m_Config.m_SpreadingTransactions)
+					continue;
+
+				try {
+					peer.Send(msg);
+				} catch (...) {
+					peer.OnPostError();
+				}
+			}
 		}
 	}
 
 	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::Config&& msg)
+{
+	if (!m_Config.m_SpreadingTransactions && msg.m_SpreadingTransactions)
+	{
+		// TODO: decide if/how to sent the pending transactions.
+		// maybe this isn't necessary, in this case it'll receive only new transactions.
+	}
+
+	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr)
+	{
+		proto::Hdr msgHdr;
+		if (m_pThis->m_Processor.get_CurrentState(msgHdr.m_Description))
+			Send(msgHdr);
+	}
+
+	m_Config = msg;
 }
 
 void Node::Peer::OnMsg(proto::GetMined&& msg)
@@ -592,13 +639,16 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 
 void Node::Peer::OnMsg(proto::GetProofState&& msg)
 {
+	if (msg.m_Height < Block::s_HeightGenesis)
+		ThrowUnexpected();
+
 	proto::Proof msgOut;
 
 	NodeDB::StateID sid;
 	if (m_pThis->m_Processor.get_DB().get_Cursor(sid))
 	{
 		if (msg.m_Height < sid.m_Height)
-			m_pThis->m_Processor.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height + 1);
+			m_pThis->m_Processor.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height);
 	}
 
 	Send(msgOut);
@@ -613,7 +663,14 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = false;
 	if (t.Find(cu, msg.m_KernelHash, bCreate))
+	{
 		t.get_Proof(msgOut.m_Proof, cu);
+
+		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+		msgOut.m_Proof.back().first = false;
+
+		m_pThis->m_Processor.get_Utxos().get_Hash(msgOut.m_Proof.back().second);
+	}
 }
 
 void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
@@ -622,6 +679,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	{
 		proto::ProofUtxo m_Msg;
 		UtxoTree* m_pTree;
+		Merkle::Hash m_hvKernels;
 
 		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
 
@@ -630,17 +688,22 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 			d = v.m_Key;
 
 			m_Msg.m_Proofs.resize(m_Msg.m_Proofs.size() + 1);
-			proto::PerUtxoProof& ret = m_Msg.m_Proofs.back();
+			Input::Proof& ret = m_Msg.m_Proofs.back();
 
 			ret.m_Count = v.m_Value.m_Count;
 			ret.m_Maturity = d.m_Maturity;
 			m_pTree->get_Proof(ret.m_Proof, *m_pCu);
 
-			return m_Msg.m_Proofs.size() < proto::PerUtxoProof::s_EntriesMax;
+			ret.m_Proof.resize(ret.m_Proof.size() + 1);
+			ret.m_Proof.back().first = true;
+			ret.m_Proof.back().second = m_hvKernels;
+
+			return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
 		}
 	} t;
 
 	t.m_pTree = &m_pThis->m_Processor.get_Utxos();
+	m_pThis->m_Processor.get_Kernels().get_Hash(t.m_hvKernels);
 
 	UtxoTree::Cursor cu;
 	t.m_pCu = &cu;
@@ -713,8 +776,39 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 			return false;
 		};
 
-		if (!s.GeneratePoW(fnCancel))
-			continue;
+		if (get_ParentObj().m_Cfg.m_TestMode.m_bFakePoW)
+		{
+			uint32_t timeout_ms = get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms;
+
+			bool bSolved = false;
+
+			//std::chrono::high_resolution_clock::duration
+			for (std::chrono::system_clock::time_point tmStart = std::chrono::system_clock::now(); ; )
+			{
+				if (fnCancel(false))
+					break;
+				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+				std::chrono::system_clock::duration dt = std::chrono::system_clock::now() - tmStart;
+				uint32_t dt_ms = std::chrono::duration_cast<std::chrono::milliseconds>(dt).count();
+
+				if (dt_ms >= timeout_ms)
+				{
+					bSolved = true;
+					break;
+				}
+			}
+
+			if (!bSolved)
+				continue;
+
+			ZeroObject(s.m_PoW);
+		}
+		else
+		{
+			if (!s.GeneratePoW(fnCancel))
+				continue;
+		}
 
 		std::scoped_lock<std::mutex> scope(m_Mutex);
 

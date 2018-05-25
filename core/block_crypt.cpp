@@ -70,22 +70,6 @@ namespace beam
 		return m_Commitment.cmp(v.m_Commitment);
 	}
 
-	void Input::get_Hash(Merkle::Hash& out, Count n) const
-	{
-		ECC::Hash::Processor()
-			<< m_Commitment
-			<< n
-			>> out;
-	}
-
-	bool Input::IsValidProof(Count n, const Merkle::Proof& proof, const Merkle::Hash& root) const
-	{
-		Merkle::Hash hv;
-		get_Hash(hv, n);
-		Merkle::Interpret(hv, proof);
-		return hv == root;
-	}
-
 	/////////////
 	// Output
 	bool Output::IsValid() const
@@ -489,6 +473,7 @@ namespace beam
 	const Amount Block::s_CoinbaseEmission = 1000000 * 15; // the maximum allowed coinbase in a single block
 	const Height Block::s_MaturityCoinbase	= 60; // 1 hour
 	const Height Block::s_MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+	const Height Block::s_HeightGenesis		= 1;
 	const size_t Block::s_MaxBodySize		= 0x100000; // 1MB
 
 	int Block::SystemState::ID::cmp(const ID& v) const
@@ -505,10 +490,7 @@ namespace beam
 		//	[
 		//		[
 		//			m_Height
-		//			[
-		//				m_Difficulty
-		//				m_TimeStamp
-		//			]
+		//			m_TimeStamp
 		//		]
 		//		[
 		//			[
@@ -522,17 +504,24 @@ namespace beam
 
 		Merkle::Hash h0, h1;
 
-		ECC::Hash::Processor() << m_Difficulty >> h1;
-		ECC::Hash::Processor() << m_TimeStamp >> h0;
-		Merkle::Interpret(h1, h0, true); // [ m_Difficulty, m_TimeStamp]
-
 		ECC::Hash::Processor() << m_Height >> h0;
-		Merkle::Interpret(h0, h1, true); // [ m_Height, [ m_Difficulty, m_TimeStamp] ]
+		ECC::Hash::Processor() << m_TimeStamp >> h1;
+		Merkle::Interpret(h0, h1, true); // [ m_Height, m_TimeStamp ]
 
 		Merkle::Interpret(h1, m_Prev, m_History);
 		Merkle::Interpret(h1, m_LiveObjects, true); // [ [m_Prev, m_States], m_LiveObjects ]
 
 		Merkle::Interpret(out, h0, h1);
+	}
+
+	bool Block::SystemState::Full::IsSane() const
+	{
+		if (m_Height < Block::s_HeightGenesis)
+			return false;
+		if ((m_Height == Block::s_HeightGenesis) && !(m_Prev == ECC::Zero))
+			return false;
+
+		return true;
 	}
 
 	void Block::SystemState::Full::get_ID(ID& out) const
@@ -545,14 +534,14 @@ namespace beam
 	{
 		Merkle::Hash hv;
 		get_Hash(hv);
-		return m_PoW.IsValid(hv.m_pData, sizeof(hv.m_pData), m_Difficulty);
+		return m_PoW.IsValid(hv.m_pData, sizeof(hv.m_pData));
 	}
 
 	bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
 	{
 		Merkle::Hash hv;
 		get_Hash(hv);
-		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), m_Difficulty, fnCancel);
+		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
 	}
 
 	bool Block::Body::IsValid(Height h0, Height h1) const

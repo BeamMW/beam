@@ -1,13 +1,5 @@
 #include "private_key.h"
 
-// Valdo's point generator of elliptic curve
-/*
-namespace ECC {
-  Context g_Ctx;
-  const Context& Context::get() { return g_Ctx; }
-}
-*/
-
 Scalar get_next_key(unsigned int id, Nonce& nonce) {
 
     ScalarValue pk_val = id;

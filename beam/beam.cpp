@@ -92,7 +92,6 @@ int main(int argc, char* argv[])
                 node.m_Cfg.m_Listen.port(port);
                 node.m_Cfg.m_Listen.ip(INADDR_ANY);
                 node.m_Cfg.m_sPathLocal = vm["storage"].as<std::string>();
-                node.m_Cfg.m_bDontVerifyPoW = debug;
                 node.m_Cfg.m_MiningThreads = vm["mining_threads"].as<uint32_t>();
                 node.m_Cfg.m_MinerID = vm["miner_id"].as<uint32_t>();
 

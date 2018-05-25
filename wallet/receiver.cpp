@@ -41,11 +41,11 @@ namespace beam::wallet
         output->m_Coinbase = false;
 
         Scalar::Native blindingFactor = m_keychain->calcKey(m_receiver_coin);
-        output->Create(blindingFactor, amount, true);
+        output->Create(blindingFactor, amount);
         auto [privateExcess, offset] = split_key(blindingFactor, m_receiver_coin.m_id);
 
         m_blindingExcess = -privateExcess;
-        assert(m_transaction->m_Offset == Zero);
+        assert(m_transaction->m_Offset.m_Value == Zero);
         m_transaction->m_Offset = offset;
 
         m_transaction->m_vOutputs.push_back(move(output));

@@ -21,7 +21,7 @@ struct Block::PoW::Helper
 		blake2b_update(&m_Blake, nonce.m_pData, sizeof(nonce.m_pData));
 	}
 
-	bool TestDifficulty(const uint8_t* pSol, uint32_t nSol, Difficulty d) const
+	bool TestDifficulty(const uint8_t* pSol, uint32_t nSol, uint8_t d) const
 	{
 		if (d <= 0) // actually it's unsigned
 			return true;
@@ -54,13 +54,13 @@ struct Block::PoW::Helper
 	}
 };
 
-bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, Difficulty d, const Cancel& fnCancel)
+bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, const Cancel& fnCancel)
 {
 	Helper hlp;
 
-	std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp, d](const beam::ByteBuffer& solution)
+	std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp](const beam::ByteBuffer& solution)
 		{
-			if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), d))
+			if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
 				return false;
 			assert(solution.size() == m_Indices.size());
             std::copy(solution.begin(), solution.end(), m_Indices.begin());
@@ -94,7 +94,7 @@ bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, Difficulty d, co
     return true;
 }
 
-bool Block::PoW::IsValid(const void* pInput, uint32_t nSizeInput, Difficulty d) const
+bool Block::PoW::IsValid(const void* pInput, uint32_t nSizeInput) const
 {
 	Helper hlp;
 	hlp.Reset(pInput, nSizeInput, m_Nonce);
@@ -102,7 +102,7 @@ bool Block::PoW::IsValid(const void* pInput, uint32_t nSizeInput, Difficulty d) 
 	std::vector<uint8_t> v(m_Indices.begin(), m_Indices.end());
     return
 		hlp.m_Eh.IsValidSolution(hlp.m_Blake, v) &&
-		hlp.TestDifficulty(&m_Indices.front(), m_Indices.size(), d);
+		hlp.TestDifficulty(&m_Indices.front(), m_Indices.size(), m_Difficulty);
 }
 
 } // namespace beam
