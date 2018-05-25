@@ -640,7 +640,7 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 
 void Node::Peer::OnMsg(proto::GetProofState&& msg)
 {
-	if (msg.m_Height < Block::s_HeightGenesis)
+	if (msg.m_Height < Block::Rules::HeightGenesis)
 		ThrowUnexpected();
 
 	proto::Proof msgOut;

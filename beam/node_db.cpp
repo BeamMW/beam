@@ -486,7 +486,7 @@ void NodeDB::get_State(uint64_t rowid, Block::SystemState::Full& out)
 
 uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 {
-	assert(s.m_Height >= Block::s_HeightGenesis);
+	assert(s.m_Height >= Block::Rules::HeightGenesis);
 
 	// Is there a prev? Is it a tip currently?
 	Recordset rs(*this, Query::StateFind2, "SELECT rowid," TblStates_CountNext " FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_Hash "=?");
@@ -742,11 +742,11 @@ void NodeDB::SetStateFunctional(uint64_t rowid)
 
 	Height h;
 	rs.get(0, h);
-	assert(h >= Block::s_HeightGenesis);
+	assert(h >= Block::Rules::HeightGenesis);
 
 	uint64_t rowPrev = 0;
 
-	if (h > Block::s_HeightGenesis)
+	if (h > Block::Rules::HeightGenesis)
 	{
 		if (!rs.IsNull(1))
 		{
@@ -798,7 +798,7 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 
 	Height h;
 	rs.get(0, h);
-	assert(h >= Block::s_HeightGenesis);
+	assert(h >= Block::Rules::HeightGenesis);
 
 	uint64_t rowPrev = 0;
 
@@ -806,7 +806,7 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 	if (bReachable)
 		nFlags &= ~StateFlags::Reachable;
 
-	if (h > Block::s_HeightGenesis)
+	if (h > Block::Rules::HeightGenesis)
 	{
 		if (rs.IsNull(1))
 			assert(!bReachable); // orphan
@@ -1032,7 +1032,7 @@ void NodeDB::assert_valid()
 		} else
 		{
 			if (StateFlags::Reachable & nFlags)
-				assert(Block::s_HeightGenesis == h);
+				assert(Block::Rules::HeightGenesis == h);
 		}
 
 		assert(nNext >= nNextF);
@@ -1178,12 +1178,12 @@ bool NodeDB::get_Cursor(StateID& sid)
 {
 	if (!(sid.m_Row = ParamIntGetDef(ParamID::CursorRow)))
 	{
-		sid.m_Height = Block::s_HeightGenesis - 1;
+		sid.m_Height = Block::Rules::HeightGenesis - 1;
 		return false;
 	}
 
 	sid.m_Height = ParamIntGetDef(ParamID::CursorHeight);
-	assert(sid.m_Height >= Block::s_HeightGenesis);
+	assert(sid.m_Height >= Block::Rules::HeightGenesis);
 	return true;
 }
 
@@ -1196,7 +1196,7 @@ void NodeDB::put_Cursor(const StateID& sid)
 void NodeDB::StateID::SetNull()
 {
 	m_Row = 0;
-	m_Height = Block::s_HeightGenesis - 1;
+	m_Height = Block::Rules::HeightGenesis - 1;
 }
 
 void NodeDB::MoveBack(StateID& sid)
@@ -1274,13 +1274,13 @@ void NodeDB::Dmmr::get_NodeHash(Merkle::Hash& hv, Key rowid) const
 
 void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
 {
-	if (Block::s_HeightGenesis == h)
+	if (Block::Rules::HeightGenesis == h)
 	{
 		assert(!rowPrev);
 		return;
 	}
 
-	assert((h > Block::s_HeightGenesis) && rowPrev && (rowid != rowPrev));
+	assert((h > Block::Rules::HeightGenesis) && rowPrev && (rowid != rowPrev));
 
 	Dmmr dmmr(*this);
 	dmmr.Goto(rowid);
@@ -1288,7 +1288,7 @@ void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
 	if (!dmmr.m_Rs.IsNull(0))
 		return;
 
-	dmmr.m_Count = h - (Block::s_HeightGenesis + 1);
+	dmmr.m_Count = h - (Block::Rules::HeightGenesis + 1);
 	dmmr.m_kLast = rowPrev;
 
 	Merkle::Hash hv;
@@ -1312,13 +1312,13 @@ void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
 
 void NodeDB::get_Proof(Merkle::Proof& proof, const StateID& sid, Height hPrev)
 {
-	assert((hPrev >= Block::s_HeightGenesis) && (hPrev < sid.m_Height));
+	assert((hPrev >= Block::Rules::HeightGenesis) && (hPrev < sid.m_Height));
 
     Dmmr dmmr(*this);
-    dmmr.m_Count = sid.m_Height - Block::s_HeightGenesis;
+    dmmr.m_Count = sid.m_Height - Block::Rules::HeightGenesis;
     dmmr.m_kLast = sid.m_Row;
 
-    dmmr.get_Proof(proof, hPrev - Block::s_HeightGenesis);
+    dmmr.get_Proof(proof, hPrev - Block::Rules::HeightGenesis);
 }
 
 void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
@@ -1328,7 +1328,7 @@ void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
 	s.get_Hash(hv);
 
     Dmmr dmmr(*this);
-    dmmr.m_Count = sid.m_Height - Block::s_HeightGenesis;
+    dmmr.m_Count = sid.m_Height - Block::Rules::HeightGenesis;
     dmmr.m_kLast = sid.m_Row;
 
     dmmr.get_PredictedHash(hv, hv);

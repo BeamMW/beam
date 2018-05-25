@@ -382,10 +382,10 @@ namespace beam
             if (mined_coin.m_Active)
             {
                 // coinbase 
-                mined.emplace_back(m_keyChain->getNextID(), Block::s_CoinbaseEmission, Coin::Unspent, mined_coin.m_ID.m_Height, KeyType::Coinbase);
+                mined.emplace_back(m_keyChain->getNextID(), Block::Rules::CoinbaseEmission, Coin::Unspent, mined_coin.m_ID.m_Height, KeyType::Coinbase);
                 if (mined_coin.m_Fees > 0)
                 {
-                    mined.emplace_back(m_keyChain->getNextID(), Block::s_CoinbaseEmission, Coin::Unspent, mined_coin.m_ID.m_Height, KeyType::Comission);
+                    mined.emplace_back(m_keyChain->getNextID(), Block::Rules::CoinbaseEmission, Coin::Unspent, mined_coin.m_ID.m_Height, KeyType::Comission);
                 }
                 // TODO: should we pass ID to Coin ctor?
             }

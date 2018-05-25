@@ -281,12 +281,16 @@ namespace beam
 			};
 		};
 
-		static const Amount s_CoinbaseEmission; // the maximum allowed coinbase in a single block
-		static const Height s_MaturityCoinbase;
-		static const Height s_MaturityStd;
-		static const Height s_HeightGenesis; // height of the 1st block, defines the convention. Currently =1
+		struct Rules
+		{
+			static const Amount CoinbaseEmission; // the maximum allowed coinbase in a single block
+			static const Height MaturityCoinbase;
+			static const Height MaturityStd;
+			static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
 
-		static const size_t s_MaxBodySize;
+			static const size_t Rules::MaxBodySize;
+		};
+
 
 		struct Body
 			:public TxBase

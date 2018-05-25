@@ -479,11 +479,11 @@ namespace beam
 
 	/////////////
 	// Block
-	const Amount Block::s_CoinbaseEmission = 1000000 * 15; // the maximum allowed coinbase in a single block
-	const Height Block::s_MaturityCoinbase	= 60; // 1 hour
-	const Height Block::s_MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
-	const Height Block::s_HeightGenesis		= 1;
-	const size_t Block::s_MaxBodySize		= 0x100000; // 1MB
+	const Amount Block::Rules::CoinbaseEmission = 1000000 * 15; // the maximum allowed coinbase in a single block
+	const Height Block::Rules::MaturityCoinbase	= 60; // 1 hour
+	const Height Block::Rules::MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+	const Height Block::Rules::HeightGenesis	= 1;
+	const size_t Block::Rules::MaxBodySize		= 0x100000; // 1MB
 
 	int Block::SystemState::ID::cmp(const ID& v) const
 	{
@@ -525,9 +525,9 @@ namespace beam
 
 	bool Block::SystemState::Full::IsSane() const
 	{
-		if (m_Height < Block::s_HeightGenesis)
+		if (m_Height < Block::Rules::HeightGenesis)
 			return false;
-		if ((m_Height == Block::s_HeightGenesis) && !(m_Prev == ECC::Zero))
+		if ((m_Height == Block::Rules::HeightGenesis) && !(m_Prev == ECC::Zero))
 			return false;
 
 		return true;
@@ -571,7 +571,7 @@ namespace beam
 		if (!(sigma == ECC::Zero)) // No need to add fees explicitly, they must have already been consumed
 			return false;
 
-		Amount nCoinbaseMax = s_CoinbaseEmission * (h1 - h0 + 1); // TODO: overflow!
+		Amount nCoinbaseMax = Rules::CoinbaseEmission * (h1 - h0 + 1); // TODO: overflow!
 		return (ctx.m_Coinbase <= nCoinbaseMax);
 	}
 

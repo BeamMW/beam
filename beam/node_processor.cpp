@@ -95,7 +95,7 @@ void NodeProcessor::EnumCongestions()
 
 		bool bBlock = true;
 
-		while (sid.m_Height > Block::s_HeightGenesis)
+		while (sid.m_Height > Block::Rules::HeightGenesis)
 		{
 			NodeDB::StateID sidThis = sid;
 			if (!m_DB.get_Prev(sid))
@@ -246,7 +246,7 @@ void NodeProcessor::PruneOld(Height h)
 
 		{
 			NodeDB::WalkerState ws(m_DB);
-			m_DB.EnumStatesAt(ws, hFossil + Block::s_HeightGenesis);
+			m_DB.EnumStatesAt(ws, hFossil + Block::Rules::HeightGenesis);
 			if (!ws.MoveNext())
 				OnCorrupted();
 
@@ -336,7 +336,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 			m_DB.get_State(sid.m_Row, s);
 
 			Merkle::Hash hvHist;
-			if (sid.m_Height > Block::s_HeightGenesis)
+			if (sid.m_Height > Block::Rules::HeightGenesis)
 			{
 				NodeDB::StateID sidPrev = sid;
 				verify(m_DB.get_Prev(sidPrev));
@@ -558,7 +558,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
 	d.m_Maturity = h;
-	d.m_Maturity += v.m_Coinbase ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
+	d.m_Maturity += v.m_Coinbase ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd;
 
 	// add explicit incubation offset, beware of overflow attack (to cheat on maturity settings)
 	Height hSum = d.m_Maturity + v.m_Incubation;
@@ -741,7 +741,7 @@ bool NodeProcessor::get_CurrentState(Block::SystemState::ID& id)
 bool NodeProcessor::IsRelevantHeight(Height h)
 {
 	uint64_t hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight);
-	return h >= hFossil + Block::s_HeightGenesis;
+	return h >= hFossil + Block::Rules::HeightGenesis;
 }
 
 bool NodeProcessor::OnState(const Block::SystemState::Full& s, const PeerID& peer)
@@ -952,7 +952,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 	// due to (potential) inaccuracy in the block size estimation, our rough estimate - take no more than 95% of allowed block size, minus potential UTXOs to consume fees and coinbase.
 	const size_t nRoughExtra = sizeof(ECC::Point) * 2 + sizeof(ECC::RangeProof::Confidential) + sizeof(ECC::RangeProof::Public) + 300;
-	const size_t nSizeThreshold = Block::s_MaxBodySize * 95 / 100 - nRoughExtra;
+	const size_t nSizeThreshold = Block::Rules::MaxBodySize * 95 / 100 - nRoughExtra;
 
 	ByteBuffer bbRbData;
 	RollbackData rbData;
@@ -1026,12 +1026,12 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	ECC::Scalar::Native kCoinbase;
 	DeriveKey(kCoinbase, m_Kdf, h, KeyType::Coinbase);
 
-	ctxBlock.AddOutput(kCoinbase, Block::s_CoinbaseEmission, true);
+	ctxBlock.AddOutput(kCoinbase, Block::Rules::CoinbaseEmission, true);
 
 	verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
 
 	// Finalize block construction.
-	if (h > Block::s_HeightGenesis)
+	if (h > Block::Rules::HeightGenesis)
 	{
 		NodeDB::StateID sid;
 		m_DB.get_Cursor(sid);
@@ -1062,7 +1062,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	ser & ctxBlock.m_Block;
 	ser.swap_buf(bbBlock);
 
-	return bbBlock.size() <= Block::s_MaxBodySize;
+	return bbBlock.size() <= Block::Rules::MaxBodySize;
 }
 
 } // namespace beam
