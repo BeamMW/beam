@@ -816,19 +816,34 @@ namespace ECC {
 		m_k = k;
 	}
 
-	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
+	void Signature::get_PublicNonce(Point::Native& pubNonce, const Point::Native& pk) const
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		Scalar::Native k(m_k), e(m_e);
+		pubNonce = Context::get().G * m_k;
+		pubNonce += pk * m_e;
+	}
 
-		Point::Native pt = Context::get().G * k;
+	bool Signature::IsValidPartial(const Point::Native& pubNonce, const Point::Native& pk) const
+	{
+		Point::Native pubN;
+		get_PublicNonce(pubN, pk);
 
-		pt += pk * e;
+		pubN = -pubN;
+		pubN += pubNonce;
+		return pubN == Zero;
+	}
 
-		get_Challenge(k, pt, msg);
+	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
+	{
+		Point::Native pubNonce;
+		get_PublicNonce(pubNonce, pk);
 
-		return e == k;
+		Scalar::Native e2;
+
+		get_Challenge(e2, pubNonce, msg);
+
+		return m_e == Scalar(e2);
 	}
 
 	int Signature::cmp(const Signature& x) const

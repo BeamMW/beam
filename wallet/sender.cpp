@@ -95,25 +95,11 @@ namespace beam::wallet
         m_kernel.get_HashForSigning(message);
         m_kernel.m_Signature.CoSign(m_senderSignature, message, m_blindingExcess, msig);
         
-
-        // 2. Compute Schnorr challenge e
-        Point::Native k;
-        k = m_publicNonce + data->m_publicReceiverNonce;
-        Scalar::Native e = m_kernel.m_Signature.m_e;
- 
         // 3. Verify recepients Schnorr signature 
-        Point::Native s, s2;
-        Scalar::Native ne;
-        Point::Native publicReceiverBlindingExcess;
-        publicReceiverBlindingExcess = data->m_publicReceiverBlindingExcess;
-        ne = -e;
-        s = data->m_publicReceiverNonce;
-        s += publicReceiverBlindingExcess * ne;
-
-        s2 = Context::get().G * data->m_receiverSignature;
-        Point p(s), p2(s2);
-
-        return (p == p2);
+		Signature sigPeer;
+		sigPeer.m_e = m_kernel.m_Signature.m_e;
+		sigPeer.m_k = data->m_receiverSignature;
+		return sigPeer.IsValidPartial(data->m_publicReceiverNonce, data->m_publicReceiverBlindingExcess);
     }
 
     bool Sender::FSMDefinition::is_invalid_signature(const TxInitCompleted& event)

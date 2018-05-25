@@ -210,6 +210,9 @@ namespace ECC
 		int cmp(const Signature&) const;
 		COMPARISON_VIA_CMP(Signature)
 
+		void get_PublicNonce(Point::Native& pubNonce, const Point::Native& pk) const; // useful for verifications during multi-sig
+		bool IsValidPartial(const Point::Native& pubNonce, const Point::Native& pk) const;
+
 	private:
 		static void get_Challenge(Scalar::Native&, const Point::Native&, const Hash::Value& msg);
 	};
