@@ -284,10 +284,6 @@ namespace beam
         }
     }
 
-
-
-
-
 	uint64_t getLastID(sqlite3* db)
 	{
 	    int lastId = 0;

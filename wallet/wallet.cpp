@@ -27,6 +27,7 @@ namespace
         }
         T& m_v;
     };
+    static const char* SystemStateIDName = "SystemStateID";
 }
 
 namespace beam
@@ -348,14 +349,13 @@ namespace beam
         // TODO: check if we're already waiting for the ProofUtxo,
         // don't send request if yes
 
-		static const char* SystemStateIDName = "SystemStateID";
-
-        beam::Block::SystemState::ID id;
+        Block::SystemState::ID id = {0};
         bool hasId = m_keyChain->getVar(SystemStateIDName, id);
 
         if (!hasId || msg.m_ID > id)
         {
             m_keyChain->setVar(SystemStateIDName, msg.m_ID);
+            m_network.send_node_message(proto::GetMined{ id.m_Height });
             m_network.send_node_message(proto::GetHdr{ msg.m_ID });
         }
     }
@@ -379,7 +379,9 @@ namespace beam
 
             return true;
         });
-        m_network.send_node_message(proto::GetMined{ msg.m_Description.m_Height });
+        Block::SystemState::ID newID;
+        msg.m_Description.get_ID(newID);
+        m_keyChain->setVar(SystemStateIDName, newID);
     }
 
     void Wallet::handle_node_message(proto::Mined&& msg)

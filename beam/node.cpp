@@ -882,7 +882,7 @@ void Node::Miner::Restart()
 void Node::Miner::OnMined()
 {
 	Task::Ptr pTask;
-    LOG_DEBUG() << "New block mined";
+    LOG_INFO() << "New block mined";
 	{
 		std::scoped_lock<std::mutex> scope(m_Mutex);
 		if (!(m_pTask && *m_pTask->m_pStop))
