@@ -335,6 +335,12 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 			bFirstTime = true;
 			m_DB.get_State(sid.m_Row, s);
 
+			if (get_NextDifficulty() != s.m_PoW.m_Difficulty)
+				return false;
+
+			if (s.m_TimeStamp <= get_MovingMedian())
+				return false;
+
 			Merkle::Hash hvHist;
 			if (sid.m_Height > Block::Rules::HeightGenesis)
 			{
@@ -941,6 +947,66 @@ Height NodeProcessor::get_NextHeight()
 	return sid.m_Height + 1;
 }
 
+uint8_t NodeProcessor::get_NextDifficulty()
+{
+	NodeDB::StateID sid;
+	if (!m_DB.get_Cursor(sid))
+		return 0; // 1st block difficulty 0
+
+	Block::SystemState::Full s;
+	m_DB.get_State(sid.m_Row, s);
+
+	Height dh = s.m_Height - Block::Rules::HeightGenesis;
+
+	if (!dh || (dh % Block::Rules::DifficultyReviewCycle))
+		return s.m_PoW.m_Difficulty; // no change
+
+	// review the difficulty
+	NodeDB::WalkerState ws(m_DB);
+	m_DB.EnumStatesAt(ws, s.m_Height - Block::Rules::DifficultyReviewCycle);
+	while (true)
+	{
+		if (!ws.MoveNext())
+			OnCorrupted();
+
+		if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
+			break;
+	}
+
+	Block::SystemState::Full s2;
+	m_DB.get_State(ws.m_Sid.m_Row, s2);
+
+	Block::Rules::AdjustDifficulty(s.m_PoW.m_Difficulty, s2.m_TimeStamp, s.m_TimeStamp);
+	return s.m_PoW.m_Difficulty;
+}
+
+Timestamp NodeProcessor::get_MovingMedian()
+{
+	NodeDB::StateID sid;
+	if (!m_DB.get_Cursor(sid))
+		return 0;
+
+	Timestamp pArr[Block::Rules::WindowForMedian];
+	uint32_t n = 0;
+
+	while (true)
+	{
+		Block::SystemState::Full s;
+		m_DB.get_State(sid.m_Row, s);
+		pArr[n] = s.m_TimeStamp;
+
+		if (Block::Rules::WindowForMedian == ++n)
+			break;
+
+		if (!m_DB.get_Prev(sid))
+			break;
+	}
+
+	std::sort(pArr, pArr + n); // there's a better algorithm to find a median (or whatever order), however our array isn't too big, so it's ok.
+
+	return pArr[n >> 1];
+}
+
 bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
 {
 	NodeDB::Transaction t(m_DB);
@@ -1049,7 +1115,15 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	s.m_Height = h;
 	get_CurrentLive(s.m_LiveObjects);
 
-	// For test: undo the changes, and then redo, using the newly-created block
+	s.m_PoW.m_Difficulty = get_NextDifficulty();
+	s.m_TimeStamp = time(NULL); // TODO: 64-bit time
+
+	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
+	Timestamp tm = get_MovingMedian() + 1;
+	s.m_TimeStamp = std::max(s.m_TimeStamp, tm);
+
+
+	// using the newly-created block
 	verify(HandleValidatedTx(ctxBlock.m_Block, h, false, rbData));
 
 	t.Rollback(); // commit/rollback - doesn't matter, by now the system state should be fully restored to its original state. 

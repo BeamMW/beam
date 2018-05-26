@@ -580,4 +580,53 @@ namespace beam
         kdf.DeriveKey(out, h, static_cast<uint32_t>(eType), nIdx);
     }
 
+	void Block::Rules::AdjustDifficulty(uint8_t& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s)
+	{
+		static_assert(DesiredRate_s * DifficultyReviewCycle < uint32_t(-1), "overflow?");
+		const uint32_t dtTrg_s = DesiredRate_s * DifficultyReviewCycle;
+
+		uint32_t dt_s; // evaluate carefully, avoid possible overflow
+		if (tCycleEnd_s <= tCycleBegin_s)
+			dt_s = 0;
+		else
+		{
+			tCycleEnd_s -= tCycleBegin_s;
+			dt_s = (tCycleEnd_s < uint32_t(-1)) ? uint32_t(tCycleEnd_s) : uint32_t(-1);
+		}
+
+		// Formula:
+		//		While dt_s is smaller than dtTrg_s / sqrt(2) - raise the difficulty.
+		//		While dt_s is bigger than dtTrg_s * sqrt(2) - lower the difficulty.
+		//		There's a limit for adjustment
+		//
+		// Instead of calculating sqrt(2) we'll square both parameters, and the factor now is 2.
+
+		uint64_t src = uint64_t(dt_s) * uint64_t(dt_s);
+		const uint64_t trg = uint64_t(dtTrg_s) * uint64_t(dtTrg_s);
+
+		for (uint32_t i = 0; i < MaxDifficultyChange; i++)
+		{
+			if (src >= (trg >> 1))
+				break;
+
+			if (d == uint8_t(-1))
+				return;
+
+			d++;
+			src <<= 2;
+		}
+
+		for (uint32_t i = 0; i < MaxDifficultyChange; i++)
+		{
+			if (src <= (trg << 1))
+				break;
+
+			if (d == 0)
+				return;
+
+			d--;
+			src >>= 2;
+		}
+	}
+
 } // namespace beam

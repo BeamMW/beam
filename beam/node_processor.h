@@ -40,6 +40,8 @@ class NodeProcessor
 	struct BlockBulder;
 
 	bool IsRelevantHeight(Height);
+	uint8_t get_NextDifficulty();
+	Timestamp get_MovingMedian();
 
 public:
 

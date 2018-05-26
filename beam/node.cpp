@@ -493,6 +493,15 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	if (!msg.m_Description.IsSane())
 		ThrowUnexpected();
 
+	Timestamp ts = time(NULL);
+	if (msg.m_Description.m_TimeStamp > ts)
+	{
+		ts = msg.m_Description.m_TimeStamp - ts; // dt
+		if (ts > Block::Rules::TimestampAheadThreshold_s)
+			ThrowUnexpected();
+	}
+
+
 	Block::SystemState::ID id;
 	msg.m_Description.get_ID(id);
 	if (id != t.m_Key.first)
