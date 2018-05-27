@@ -129,6 +129,7 @@ private:
 
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
+		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 
 		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
 

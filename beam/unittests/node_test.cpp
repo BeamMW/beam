@@ -490,7 +490,7 @@ namespace beam
 			Amount fees = 0;
 			verify_test(np.GenerateNewBlock(np.m_TxPool, pBlock->m_Hdr, pBlock->m_Body, fees));
 
-			np.OnState(pBlock->m_Hdr, NodeDB::PeerID());
+			np.OnState(pBlock->m_Hdr, true, NodeDB::PeerID());
 
 			Block::SystemState::ID id;
 			pBlock->m_Hdr.get_ID(id);
@@ -537,7 +537,7 @@ namespace beam
 			ZeroObject(peer);
 
 			for (size_t i = 0; i < blockChain.size(); i += 2)
-				np.OnState(blockChain[i]->m_Hdr, peer);
+				np.OnState(blockChain[i]->m_Hdr, true, peer);
 		}
 
 		{
@@ -565,7 +565,7 @@ namespace beam
 			ZeroObject(peer);
 
 			for (size_t i = 1; i < blockChain.size(); i += 2)
-				np.OnState(blockChain[i]->m_Hdr, peer);
+				np.OnState(blockChain[i]->m_Hdr, true, peer);
 		}
 
 		{
@@ -671,7 +671,7 @@ namespace beam
 					Amount fees = 0;
 					n.get_Processor().GenerateNewBlock(txPool, s, body, fees);
 
-					n.get_Processor().OnState(s, NodeDB::PeerID());
+					n.get_Processor().OnState(s, true, NodeDB::PeerID());
 
 					Block::SystemState::ID id;
 					s.get_ID(id);

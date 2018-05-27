@@ -62,9 +62,17 @@ public:
 	bool get_CurrentState(Block::SystemState::ID&); // returns false if no valid states so far
 	bool get_CurrentState(Block::SystemState::Full&);
 
+	struct DataStatus {
+		enum Enum {
+			Accepted,
+			Rejected, // duplicated or irrelevant
+			Invalid
+		};
+	};
+
 	//  both functions return true if dirty (i.e. data is relevant, and added)
-	bool OnState(const Block::SystemState::Full&, const PeerID&);
-	bool OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&);
+	DataStatus::Enum OnState(const Block::SystemState::Full&, bool bIgnorePoW, const PeerID&);
+	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&);
 
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }

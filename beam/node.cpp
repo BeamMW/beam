@@ -490,34 +490,16 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	if (t.m_Key.second)
 		ThrowUnexpected();
 
-	if (!msg.m_Description.IsSane())
-		ThrowUnexpected();
-
-	Timestamp ts = time(NULL);
-	if (msg.m_Description.m_TimeStamp > ts)
-	{
-		ts = msg.m_Description.m_TimeStamp - ts; // dt
-		if (ts > Block::Rules::TimestampAheadThreshold_s)
-			ThrowUnexpected();
-	}
-
-
 	Block::SystemState::ID id;
 	msg.m_Description.get_ID(id);
 	if (id != t.m_Key.first)
 		ThrowUnexpected();
 
-	if (!m_pThis->m_Cfg.m_TestMode.m_bFakePoW && !msg.m_Description.IsValidPoW())
-		ThrowUnexpected();
-
-	t.m_bRelevant = false;
-	OnFirstTaskDone();
-
 	NodeDB::PeerID pid;
 	get_ID(pid);
 
-	if (m_pThis->m_Processor.OnState(msg.m_Description, pid))
-		m_pThis->RefreshCongestions(); // NOTE! Can call OnPeerInsane()
+	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnState(msg.m_Description, m_pThis->m_Cfg.m_TestMode.m_bFakePoW, pid);
+	OnFirstTaskDone(eStatus);
 }
 
 void Node::Peer::OnMsg(proto::GetBody&& msg)
@@ -548,15 +530,24 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	if (!t.m_Key.second)
 		ThrowUnexpected();
 
-	Block::SystemState::ID id = t.m_Key.first;
-
-	t.m_bRelevant = false;
-	OnFirstTaskDone();
-
 	NodeDB::PeerID pid;
 	get_ID(pid);
 
-	if (m_pThis->m_Processor.OnBlock(id, msg.m_Buffer, pid))
+	const Block::SystemState::ID& id = t.m_Key.first;
+
+	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnBlock(id, msg.m_Buffer, pid);
+	OnFirstTaskDone(eStatus);
+}
+
+void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
+{
+	if (NodeProcessor::DataStatus::Invalid == eStatus)
+		ThrowUnexpected();
+
+	get_FirstTask().m_bRelevant = false;
+	OnFirstTaskDone();
+
+	if (NodeProcessor::DataStatus::Accepted == eStatus)
 		m_pThis->RefreshCongestions(); // NOTE! Can call OnPeerInsane()
 }
 
@@ -899,8 +890,8 @@ void Node::Miner::OnMined()
 		pTask.swap(m_pTask);
 	}
 
-	bool b = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, NodeDB::PeerID());
-	assert(b); // otherwise'd mean someone else mined the same exactly block
+	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, true, NodeDB::PeerID());
+	assert(NodeProcessor::DataStatus::Accepted == eStatus); // Otherwise either the block is invalid (some bug?). Or someone else mined exactly the same block!
 
 	Block::SystemState::ID id;
 	pTask->m_Hdr.get_ID(id);
@@ -911,8 +902,8 @@ void Node::Miner::OnMined()
 
 	get_ParentObj().m_Processor.get_DB().SetMined(sid, pTask->m_Fees); // ding!
 
-	b = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, NodeDB::PeerID()); // will likely trigger OnNewState(), and spread this block to the network
-	assert(b);
+	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, NodeDB::PeerID()); // will likely trigger OnNewState(), and spread this block to the network
+	assert(NodeProcessor::DataStatus::Accepted == eStatus);
 }
 
 } // namespace beam

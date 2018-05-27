@@ -750,34 +750,49 @@ bool NodeProcessor::IsRelevantHeight(Height h)
 	return h >= hFossil + Block::Rules::HeightGenesis;
 }
 
-bool NodeProcessor::OnState(const Block::SystemState::Full& s, const PeerID& peer)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState::Full& s, bool bIgnorePoW, const PeerID& peer)
 {
-	assert(s.IsSane());
+	if (!s.IsSane())
+		return DataStatus::Invalid;
+
+	if (!bIgnorePoW && !s.IsValidPoW())
+		return DataStatus::Invalid;
+
+	Timestamp ts = time(NULL);
+	if (s.m_TimeStamp > ts)
+	{
+		ts = s.m_TimeStamp - ts; // dt
+		if (ts > Block::Rules::TimestampAheadThreshold_s)
+			return DataStatus::Invalid;
+	}
 
 	if (!IsRelevantHeight(s.m_Height))
-		return false;
+		return DataStatus::Rejected;
 
 	Block::SystemState::ID id;
 	s.get_ID(id);
 	if (m_DB.StateFindSafe(id))
-		return false;
+		return DataStatus::Rejected;
 
 	NodeDB::Transaction t(m_DB);
 	uint64_t rowid = m_DB.InsertState(s);
 	m_DB.set_Peer(rowid, &peer);
 	t.Commit();
 
-	return true;
+	return DataStatus::Accepted;
 }
 
-bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob& block, const PeerID& peer)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob& block, const PeerID& peer)
 {
+	if (block.n > Block::Rules::MaxBodySize)
+		return DataStatus::Invalid;
+
 	uint64_t rowid = m_DB.StateFindSafe(id);
 	if (!rowid)
-		return false;
+		return DataStatus::Rejected;
 
 	if (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(rowid))
-		return false;
+		return DataStatus::Rejected;
 
 	NodeDB::Transaction t(m_DB);
 
@@ -790,7 +805,7 @@ bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob
 
 	t.Commit();
 
-	return true;
+	return DataStatus::Accepted;
 }
 
 bool NodeProcessor::IsStateNeeded(const Block::SystemState::ID& id)
