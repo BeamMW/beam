@@ -29,6 +29,7 @@ public:
     // returns false if stream disconnected
     Result enable_read(const Callback& callback);
 
+    /// Disables listening to data and events
     void disable_read();
 
     /// Writes raw data, returns status code
@@ -44,6 +45,9 @@ public:
 
     /// Writes raw data, returns status code
     Result write(const BufferChain& buf);
+
+    /// Shutdowns write side, waits for pending write requests to complete, but on reactor's side
+    void shutdown();
 
     bool is_connected() const;
 

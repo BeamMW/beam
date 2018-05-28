@@ -21,6 +21,9 @@ public:
     /// Writes single msg to stream
     io::Result write_msg(const io::SharedBuffer& msg);
 
+    /// Shutdowns write side, waits for pending write requests to complete, but on reactor's side
+    void shutdown();
+
     /// Returns socket address (non-null if connected)
     io::Address address() const;
 

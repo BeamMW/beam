@@ -25,6 +25,10 @@ io::Result Connection::write_msg(const io::SharedBuffer& msg) {
     return _stream->write(msg);
 }
 
+void Connection::shutdown() {
+    _stream->shutdown();
+}
+
 void Connection::on_recv(io::ErrorCode what, const void* data, size_t size) {
     if (what == 0) {
         assert(data && size);
