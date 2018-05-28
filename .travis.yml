@@ -30,8 +30,12 @@ matrix:
         api_key: $GITHUB_OAUTH_TOKEN
         file: Makefile
         skip_cleanup: true
-        # on:
+        on:
           # tags: true
+          repo: beam-mw/beam
+          branches:
+            only:
+              - deploy_test
 
 # notifications:
 #   email:
