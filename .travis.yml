@@ -31,7 +31,7 @@ matrix:
         file: Makefile
         skip_cleanup: true
         on:
-          # tags: true
+          tags: false
           repo: beam-mw/beam
           branches:
             only:
