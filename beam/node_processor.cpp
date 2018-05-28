@@ -302,7 +302,10 @@ struct NodeProcessor::RollbackData
 		return (Utxo*) &m_Buf.at(0);
 	}
 
-	size_t get_Utxos() const { return m_pUtxo - get_BufAs(); }
+	size_t get_Utxos() const
+	{
+		return m_Buf.empty() ? 0 : (m_pUtxo - get_BufAs());
+	}
 };
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
@@ -1015,8 +1018,6 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	const size_t nRoughExtra = sizeof(ECC::Point) * 2 + sizeof(ECC::RangeProof::Confidential) + sizeof(ECC::RangeProof::Public) + 300;
 	const size_t nSizeThreshold = Block::Rules::MaxBodySize * 95 / 100 - nRoughExtra;
 
-	rbData.m_pUtxo = NULL;
-
 	ECC::Scalar::Native offset(ECC::Zero);
 
 	Serializer ser;
@@ -1031,7 +1032,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 		if (!tx.m_vInputs.empty())
 		{
-			size_t nInputs = rbData.m_pUtxo ? rbData.get_Utxos() : 0;
+			size_t nInputs = rbData.get_Utxos();
 			rbData.m_Buf.resize(rbData.m_Buf.size() + sizeof(RollbackData::Utxo) * tx.m_vInputs.size());
 			rbData.m_pUtxo = rbData.get_BufAs() + nInputs;
 		}
@@ -1053,9 +1054,9 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		}
 		else
 		{
-			txp.Delete(x); // isn't available in this context
-
 			rbData.m_Buf.resize(rbData.m_Buf.size() - sizeof(RollbackData::Utxo) * tx.m_vInputs.size());
+
+			txp.Delete(x); // isn't available in this context
 		}
 	}
 
