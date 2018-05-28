@@ -937,23 +937,6 @@ void AppendCloneArray(Serializer& ser, std::vector<T>& trg, const std::vector<T>
 	}
 }
 
-struct NodeProcessor::BlockBulder
-{
-	Block::Body m_Block;
-	ECC::Scalar::Native m_Offset;
-
-	void AddOutput(const ECC::Scalar::Native& k, Amount val, bool bCoinbase)
-	{
-		Output::Ptr pOutp(new Output);
-		pOutp->Create(k, val, true);
-		pOutp->m_Coinbase = bCoinbase;
-		m_Block.m_vOutputs.push_back(std::move(pOutp));
-
-		ECC::Scalar::Native km = -k;
-		m_Offset += km;
-	}
-};
-
 Height NodeProcessor::get_NextHeight()
 {
 	NodeDB::StateID sid;
@@ -1022,11 +1005,8 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return pArr[n >> 1];
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
+bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
 {
-	NodeDB::Transaction t(m_DB);
-
-	Height h = get_NextHeight();
 	fees = 0;
 
 	size_t nBlockSize = 0;
@@ -1035,12 +1015,9 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	const size_t nRoughExtra = sizeof(ECC::Point) * 2 + sizeof(ECC::RangeProof::Confidential) + sizeof(ECC::RangeProof::Public) + 300;
 	const size_t nSizeThreshold = Block::Rules::MaxBodySize * 95 / 100 - nRoughExtra;
 
-	ByteBuffer bbRbData;
-	RollbackData rbData;
 	rbData.m_pUtxo = NULL;
 
-	BlockBulder ctxBlock;
-	ctxBlock.m_Offset = ECC::Zero;
+	ECC::Scalar::Native offset(ECC::Zero);
 
 	Serializer ser;
 
@@ -1064,17 +1041,22 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 			// Clone the transaction before copying it to the block. We're forced to do this because they're not shared.
 			// TODO: Fix this!
 
-			AppendCloneArray(ser, ctxBlock.m_Block.m_vInputs, tx.m_vInputs);
-			AppendCloneArray(ser, ctxBlock.m_Block.m_vOutputs, tx.m_vOutputs);
-			AppendCloneArray(ser, ctxBlock.m_Block.m_vKernelsInput, tx.m_vKernelsInput);
-			AppendCloneArray(ser, ctxBlock.m_Block.m_vKernelsOutput, tx.m_vKernelsOutput);
+			AppendCloneArray(ser, res.m_vInputs, tx.m_vInputs);
+			AppendCloneArray(ser, res.m_vOutputs, tx.m_vOutputs);
+			AppendCloneArray(ser, res.m_vKernelsInput, tx.m_vKernelsInput);
+			AppendCloneArray(ser, res.m_vKernelsOutput, tx.m_vKernelsOutput);
 
 			fees += x.m_Profit.m_Fee;
-			ctxBlock.m_Offset += ECC::Scalar::Native(tx.m_Offset);
+			offset += ECC::Scalar::Native(tx.m_Offset);
 			nBlockSize += x.m_Profit.m_nSize;
 
-		} else
+		}
+		else
+		{
 			txp.Delete(x); // isn't available in this context
+
+			rbData.m_Buf.resize(rbData.m_Buf.size() - sizeof(RollbackData::Utxo) * tx.m_vInputs.size());
+		}
 	}
 
 	if (fees)
@@ -1082,8 +1064,16 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		ECC::Scalar::Native kFee;
 		DeriveKey(kFee, m_Kdf, h, KeyType::Comission);
 
-		ctxBlock.AddOutput(kFee, fees, false);
-		verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
+		Output::Ptr pOutp(new Output);
+		pOutp->Create(kFee, fees);
+
+		if (!HandleBlockElement(*pOutp, h, true))
+			return false; // though should not happen!
+
+		res.m_vOutputs.push_back(std::move(pOutp));
+
+		kFee = -kFee;
+		offset += kFee;
 	}
 	else
 	{
@@ -1096,20 +1086,30 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		ECC::Hash::Value hv;
 		pKrn->get_HashForSigning(hv);
 		pKrn->m_Signature.Sign(hv, kKernel);
-		ctxBlock.m_Block.m_vKernelsOutput.push_back(std::move(pKrn));
 
-		verify(HandleBlockElement(*ctxBlock.m_Block.m_vKernelsOutput.back(), true, false)); // Will fail if kernel key duplicated!
+		if (!HandleBlockElement(*pKrn, true, false))
+			return false; // Will fail if kernel key duplicated!
+
+		res.m_vKernelsOutput.push_back(std::move(pKrn));
 
 		kKernel = -kKernel;
-		ctxBlock.m_Offset += kKernel;
+		offset += kKernel;
 	}
 
 	ECC::Scalar::Native kCoinbase;
 	DeriveKey(kCoinbase, m_Kdf, h, KeyType::Coinbase);
 
-	ctxBlock.AddOutput(kCoinbase, Block::Rules::CoinbaseEmission, true);
+	Output::Ptr pOutp(new Output);
+	pOutp->m_Coinbase = true;
+	pOutp->Create(kCoinbase, Block::Rules::CoinbaseEmission, true);
 
-	verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
+	if (!HandleBlockElement(*pOutp, h, true))
+		return false;
+
+	res.m_vOutputs.push_back(std::move(pOutp));
+
+	kCoinbase = -kCoinbase;
+	offset += kCoinbase;
 
 	// Finalize block construction.
 	if (h > Block::Rules::HeightGenesis)
@@ -1137,21 +1137,38 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	Timestamp tm = get_MovingMedian() + 1;
 	s.m_TimeStamp = std::max(s.m_TimeStamp, tm);
 
+	res.m_Offset = offset;
 
-	// using the newly-created block
-	verify(HandleValidatedTx(ctxBlock.m_Block, h, false, rbData));
+	return true;
+}
+
+bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
+{
+	NodeDB::Transaction t(m_DB);
+
+	Height h = get_NextHeight();
+	RollbackData rbData;
+
+	Block::Body res;
+	bool bRes = GenerateNewBlock(txp, s, res, fees, h, rbData);
+
+	if (!HandleValidatedTx(res, h, false, rbData)) // undo changes
+		OnCorrupted();
+
+	res.Sort(); // can sort only after the changes are undone.
+	res.DeleteIntermediateOutputs();
 
 	t.Rollback(); // commit/rollback - doesn't matter, by now the system state should be fully restored to its original state. 
 
-	ctxBlock.m_Block.Sort();
-	ctxBlock.m_Block.DeleteIntermediateOutputs();
-	ctxBlock.m_Block.m_Offset = ctxBlock.m_Offset;
+	Serializer ser;
 
 	ser.reset();
-	ser & ctxBlock.m_Block;
+	ser & res;
 	ser.swap_buf(bbBlock);
 
 	return bbBlock.size() <= Block::Rules::MaxBodySize;
 }
+
+
 
 } // namespace beam

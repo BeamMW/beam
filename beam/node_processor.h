@@ -37,8 +37,6 @@ class NodeProcessor
 	void OnCorrupted();
 	void get_CurrentLive(Merkle::Hash&);
 
-	struct BlockBulder;
-
 	bool IsRelevantHeight(Height);
 	uint8_t get_NextDifficulty();
 	Timestamp get_MovingMedian();
@@ -145,6 +143,9 @@ public:
 
 	Height get_NextHeight();
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer& block, Amount& fees);
+
+private:
+	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, Block::Body& block, Amount& fees, Height, RollbackData&);
 };
 
 
