@@ -1,4 +1,5 @@
 #include "address.h"
+#include <iostream>
 #include <stdlib.h>
 #ifdef WIN32
     #include <Ws2tcpip.h>
@@ -72,6 +73,16 @@ std::string Address::str() const {
             a >> 24, (a >> 16) & 0xFF,(a >> 8) & 0xFF, a & 0xFF);
     }
     return std::string(buf);
+}
+
+std::ostream& operator<<(std::ostream& os, const Address& a) {
+    uint32_t ip = a.ip();
+    os << (ip >> 24) << '.' << ((ip >> 16) & 0xFF) << '.' << ((ip >> 8) & 0xFF) << '.' << (ip & 0xFF);
+    uint16_t p = a.port();
+    if (p) {
+        os << ':' << p;
+    }
+    return os;
 }
 
 }} //namespaces

@@ -8,10 +8,10 @@ set(P2P_SRC
     msg_serializer.cpp
     connection.cpp
     roulette.cpp
-    peers.cpp
     peer_storage.cpp
     p2p.cpp
     servers.cpp
+    handshake.cpp
 )
 
 add_library(p2p STATIC ${P2P_SRC})

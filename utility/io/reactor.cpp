@@ -241,10 +241,10 @@ void Reactor::release_write_request(Reactor::WriteRequest*& wr) {
 
 Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec, Address bindTo) {
     assert(callback);
-    assert(address);
+    assert(!address.empty());
     assert(_connectRequests.count(tag) == 0);
 
-    if (!callback || !address || _connectRequests.count(tag) > 0) {
+    if (!callback || address.empty() || _connectRequests.count(tag) > 0) {
         return make_unexpected(EC_EINVAL);
     }
 
@@ -255,7 +255,7 @@ Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback
         return make_unexpected(errorCode);
     }
 
-    if (bindTo) {
+    if (!bindTo.empty()) {
         sockaddr_in bindAddr;
         bindTo.fill_sockaddr_in(bindAddr);
 

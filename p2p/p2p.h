@@ -31,7 +31,7 @@ private:
 
     Servers _knownServers;
     Protocol _protocol;
-    io::Address _ip;
+    io::Address _bindToIp;
     uint16_t _port; // !=0 if this is server
     io::TcpServer::Ptr _thisServer;
     SerializedMsg _msgToSend;

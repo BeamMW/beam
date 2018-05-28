@@ -16,7 +16,10 @@ public:
     ~Connection();
 
     /// Writes fragments to stream
-    io::Result write_msg(const std::vector<io::SharedBuffer>& fragments);
+    io::Result write_msg(const SerializedMsg& fragments);
+
+    /// Writes single msg to stream
+    io::Result write_msg(const io::SharedBuffer& msg);
 
     /// Returns socket address (non-null if connected)
     io::Address address() const;

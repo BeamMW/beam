@@ -1,9 +1,11 @@
 #pragma once
-#include <stdint.h>
-#include <stddef.h>
+#include "utility/io/buffer.h"
 #include <string.h>
+#include <vector>
 
 namespace beam {
+
+using io::SerializedMsg;
 
 /// Protocol can handle max 256 message types
 using MsgType = uint8_t;

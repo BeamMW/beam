@@ -33,23 +33,23 @@ void Servers::update(io::Address p, uint32_t w, bool isInitialLoad) {
 
 io::Address Servers::get_connect_candidate() {
     if (_allServers.empty()) {
-        return 0;
+        return io::Address();
     }
 
     if (!_connectCandidates.empty()) {
         for (auto p : _connectCandidates) {
-            _connectRoulette.push(p.packed, _allServers[p]);
+            _connectRoulette.push(p.u64(), _allServers[p]);
         }
         _connectCandidates.clear();
     }
 
-    return _connectRoulette.pull();
+    return io::Address::from_u64(_connectRoulette.pull());
 }
 
 void Servers::update_connect_candidate(io::Address p, double weightCoefficient) {
     auto it = _allServers.find(p);
     if (it == _allServers.end()) {
-        LOG_WARNING() << "Unknown server " << io::Address(p) << ", ignoring...";
+        LOG_WARNING() << "Unknown server " << p.str() << ", ignoring...";
         return;
     }
     _connectCandidates.insert(p);

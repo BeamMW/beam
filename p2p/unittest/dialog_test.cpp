@@ -112,7 +112,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
         } else {
             _reactor->tcp_connect(
                 address,
-                address.packed,
+                address.u64(),
                 BIND_THIS_MEMFN(on_client_connected)
             );
         }
@@ -131,23 +131,23 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
             if (!connection) {
                 connection = make_unique<Connection>(
                     protocol,
-                    address.packed,
+                    address.u64(),
                     Connection::inbound,
                     100,
                     std::move(newStream)
                 );
             }
         } else {
-            on_connection_error(address.packed, errorCode);
+            on_connection_error(address.u64(), errorCode);
         }
     }
 
     void on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, int status) {
-        assert(tag == address.packed);
+        assert(tag == address.u64());
         if (newStream && !connection) {
             connection = make_unique<Connection>(
                 protocol,
-                address.packed,
+                address.u64(),
                 Connection::outbound,
                 100,
                 std::move(newStream)
@@ -198,7 +198,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
 
     bool on_request(uint64_t connectionId, Request&& req) {
         // this assertion is for this test only
-        assert(connectionId = address.packed);
+        assert(connectionId = address.u64());
         if (!req.is_valid()) return false; // shut down stream
 
         proxy.handle_request(someId, std::move(req));
@@ -207,7 +207,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
 
     bool on_response(uint64_t connectionId, Response&& res) {
         // this assertion is for this test only
-        assert(connectionId = address.packed);
+        assert(connectionId = address.u64());
         if (!res.is_valid()) return false; // shut down stream
         proxy.handle_response(someId, std::move(res));
         return true;

@@ -7,6 +7,7 @@ set(UTILITY_SRC
 )
 
 set(IO_SRC
+    io/buffer.cpp
     io/bufferchain.cpp
     io/reactor.cpp
     io/asyncevent.cpp

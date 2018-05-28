@@ -5,9 +5,6 @@
 
 namespace beam {
 
-/// May have fragments...
-using SerializedMsg = std::vector<io::SharedBuffer>;
-
 /// Accumulates messages being serialized into shared fragments of memory,
 /// takes care of proper message header
 class MsgSerializeOstream {
