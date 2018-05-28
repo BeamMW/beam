@@ -2,9 +2,9 @@ language: cpp
 
 script:
   - cmake -DCMAKE_BUILD_TYPE=Debug .
-  - make
+  # - make
   # - ctest --verbose
-  
+
 matrix:
   include:
     # - os: osx
@@ -28,10 +28,10 @@ matrix:
       deploy:
         provider: releases
         api_key: $GITHUB_OAUTH_TOKEN
-        file: beam/beam
+        file: Makefile
         skip_cleanup: true
-        on:
-          tags: true
+        # on:
+          # tags: true
 
 # notifications:
 #   email:
