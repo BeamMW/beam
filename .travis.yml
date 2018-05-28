@@ -29,7 +29,8 @@ jobs:
   include:
     - stage: building...
       script: 
-        - ctest --verbose
+        - cmake -DCMAKE_BUILD_TYPE=Debug .
+        - make
 
     # - stage: testing...
     #   script: 
