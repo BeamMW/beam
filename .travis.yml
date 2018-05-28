@@ -1,32 +1,16 @@
 language: cpp
 
-jobs:
-  include:
-    - stage: building...
-      script: 
-        - cmake -DCMAKE_BUILD_TYPE=Debug .
-        - make
-
-    # - stage: testing...
-    #   script: 
-    #     - ctest --verbose
-
-    - stage: deploying...
-      script: skip
-      deploy:
-        provider: releases
-        api_key: $GITHUB_OAUTH_TOKEN
-        file: beam/beam
-        skip_cleanup: true
-        on:
-          tags: true
-          
+script:
+  - cmake -DCMAKE_BUILD_TYPE=Debug .
+  - make
+  # - ctest --verbose
+  
 matrix:
   include:
-    - os: osx
-      osx_image: xcode9.3
-      before_install: brew install openssl
-      env: OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
+    # - os: osx
+    #   osx_image: xcode9.3
+    #   before_install: brew install openssl
+    #   env: OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
 
     - os: linux
       addons:
@@ -41,7 +25,14 @@ matrix:
             - libssl-dev
       before_install:
         - eval "CC=gcc-7 && CXX=g++-7"
+      deploy:
+        provider: releases
+        api_key: $GITHUB_OAUTH_TOKEN
+        file: beam/beam
+        skip_cleanup: true
+        on:
+          tags: true
 
-notifications:
-  email:
-    - big.romanov@gmail.com
+# notifications:
+#   email:
+#     - big.romanov@gmail.com
