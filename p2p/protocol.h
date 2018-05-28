@@ -68,7 +68,7 @@ public:
     void add_message_handler(MsgType type, uint32_t minMsgSize, uint32_t maxMsgSize) {
         add_custom_message_handler(
             type, 0, minMsgSize, maxMsgSize,
-            [](void* msgHandler, IErrorHandler& errorHandler, Deserializer& des, uint64_t fromStream, const void* data, size_t size) -> bool {
+            [](void*, IErrorHandler& errorHandler, Deserializer& des, uint64_t fromStream, const void* data, size_t size) -> bool {
                 MsgObject m;
                 des.reset(data, size);
                 if (!des.deserialize(m) || des.bytes_left() > 0) {
