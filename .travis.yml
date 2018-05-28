@@ -1,10 +1,5 @@
 language: cpp
 
-script:
-  - cmake -DCMAKE_BUILD_TYPE=Debug .
-  - make
-  - ctest --verbose
-
 matrix:
   include:
     - os: osx
@@ -29,3 +24,23 @@ matrix:
 notifications:
   email:
     - big.romanov@gmail.com
+
+jobs:
+  include:
+    - stage: building...
+      script: 
+        - ctest --verbose
+
+    # - stage: testing...
+    #   script: 
+    #     - ctest --verbose
+
+    - stage: deploying...
+      script: skip
+      deploy:
+        provider: releases
+        api_key: $GITHUB_OAUTH_TOKEN
+        file: beam/beam
+        skip_cleanup: true
+        on:
+          tags: true
