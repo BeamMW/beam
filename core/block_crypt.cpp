@@ -1,7 +1,6 @@
 #include <utility> // std::swap
 #include <algorithm>
-#include "common.h"
-#include "ecc_native.h"
+#include "block_crypt.h"
 
 namespace beam
 {
@@ -270,15 +269,73 @@ namespace beam
 	// Transaction
 	void TxBase::Context::Reset()
 	{
+		m_Sigma = ECC::Zero;
+
 		m_Fee = m_Coinbase = 0;
 		m_hMin = 0;
 		m_hMax = -1;
+		m_bRangeMode = false;
+		m_nVerifiers = 1;
+		m_iVerifier = 0;
 	}
 
-	bool TxBase::ValidateAndSummarize(Context& ctx, ECC::Point::Native& sigma) const
+	bool TxBase::Context::ShouldVerify(uint32_t& iV) const
 	{
-		sigma = ECC::Zero;
+		if (iV)
+		{
+			iV--;
+			return false;
+		}
+
+		iV = m_nVerifiers - 1;
+		return true;
+	}
+
+	bool TxBase::Context::IsValidHeight() const
+	{
+		return m_hMin <= m_hMax;
+	}
+
+	bool TxBase::Context::HandleElementHeight(Height h0, Height h1)
+	{
+		h0 = std::max(h0, m_hMin);
+		h1 = std::min(h1, m_hMax);
+
+		if (h0 > h1)
+			return false;
+
+		if (!m_bRangeMode)
+		{
+			// shrink permitted range
+			m_hMin = h0;
+			m_hMax = h1;
+		}
+
+		return true;
+	}
+
+	bool TxBase::Context::Merge(const Context& x)
+	{
+		assert(m_bRangeMode == x.m_bRangeMode);
+
+		if (!HandleElementHeight(x.m_hMin, x.m_hMax))
+			return false;
+
+		m_Sigma += x.m_Sigma;
+		m_Fee += x.m_Fee;
+		m_Coinbase += x.m_Coinbase;
+	}
+
+	bool TxBase::ValidateAndSummarize(Context& ctx) const
+	{
+		if (!ctx.IsValidHeight())
+			return false;
+
+		ctx.m_Sigma = -ctx.m_Sigma;
 		Amount feeInp = 0; // dummy var
+
+		assert(ctx.m_nVerifiers);
+		uint32_t iV = ctx.m_iVerifier;
 
 		// Inputs
 
@@ -291,7 +348,10 @@ namespace beam
 				return false;
 			p0Inp = &v;
 
-			sigma += ECC::Point::Native(v.m_Commitment);
+			if (!ctx.ShouldVerify(iV))
+				continue;
+
+			ctx.m_Sigma += ECC::Point::Native(v.m_Commitment);
 		}
 
 		auto itKrnOut = m_vKernelsOutput.begin();
@@ -321,18 +381,18 @@ namespace beam
 				}
 			}
 
-			if (!v.IsValid(feeInp, sigma))
-				return false;
-
 			if (p0Krn && (*p0Krn > v))
 				return false;
 			p0Krn = &v;
 
-			ctx.m_hMin = std::max(ctx.m_hMin, v.m_HeightMin);
-			ctx.m_hMax = std::min(ctx.m_hMax, v.m_HeightMax);
+			if (!ctx.ShouldVerify(iV))
+				return false;
+
+			if (!v.IsValid(feeInp, ctx.m_Sigma))
+				return false;
 		}
 
-		sigma = -sigma;
+		ctx.m_Sigma = -ctx.m_Sigma;
 
 		// Outputs
 
@@ -340,14 +400,18 @@ namespace beam
 		for (auto it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
 		{
 			const Output& v = *(*it);
-			if (!v.IsValid())
-				return false;
 
 			if (p0Out && (*p0Out > v))
 				return false;
 			p0Out = &v;
 
-			sigma += ECC::Point::Native(v.m_Commitment);
+			if (!ctx.ShouldVerify(iV))
+				continue;
+
+			if (!v.IsValid())
+				return false;
+
+			ctx.m_Sigma += ECC::Point::Native(v.m_Commitment);
 
 			if (v.m_Coinbase)
 			{
@@ -360,20 +424,26 @@ namespace beam
 		for (auto it = m_vKernelsOutput.begin(); m_vKernelsOutput.end() != it; it++)
 		{
 			const TxKernel& v = *(*it);
-			if (!v.IsValid(ctx.m_Fee, sigma))
-				return false;
 
 			if (p0Krn && (*p0Krn > v))
 				return false;
 			p0Krn = &v;
 
-			ctx.m_hMin = std::max(ctx.m_hMin, v.m_HeightMin);
-			ctx.m_hMax = std::min(ctx.m_hMax, v.m_HeightMax);
+			if (!ctx.ShouldVerify(iV))
+				continue;
+
+			if (!v.IsValid(ctx.m_Fee, ctx.m_Sigma))
+				return false;
+
+			if (!ctx.HandleElementHeight(v.m_HeightMin, v.m_HeightMax))
+				return false;
 		}
 
-		sigma += ECC::Context::get().G * m_Offset;
+		if (ctx.ShouldVerify(iV))
+			ctx.m_Sigma += ECC::Context::get().G * m_Offset;
 
-		return ctx.m_hMin <= ctx.m_hMax;
+		assert(ctx.IsValidHeight());
+		return true;
 	}
 
 	void TxBase::Sort()
@@ -462,19 +532,21 @@ namespace beam
 		return 0;
 	}
 
-	bool Transaction::IsValid(Context& ctx) const
+	bool TxBase::Context::IsValidTransaction()
 	{
-		ECC::Point::Native sigma(ECC::Zero);
-
-		if (!ValidateAndSummarize(ctx, sigma))
-			return false;
-
-		if (ctx.m_Coinbase)
+		if (m_Coinbase)
 			return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 
-		sigma += ECC::Context::get().H * ctx.m_Fee;
+		m_Sigma += ECC::Context::get().H * m_Fee;
 
-		return sigma == ECC::Zero;
+		return m_Sigma == ECC::Zero;
+	}
+
+	bool Transaction::IsValid(Context& ctx) const
+	{
+		return
+			ValidateAndSummarize(ctx) &&
+			ctx.IsValidTransaction();
 	}
 
 	/////////////
@@ -553,26 +625,36 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
 	}
 
+	bool TxBase::Context::IsValidBlock()
+	{
+		Height nBlocksInRange = m_hMax - m_hMin + 1;
+		Amount nEmission = Block::Rules::CoinbaseEmission * nBlocksInRange; // TODO: overflow!
+
+		m_Sigma = -m_Sigma;
+		m_Sigma += ECC::Context::get().H * nEmission;
+
+		if (!(m_Sigma == ECC::Zero)) // No need to add fees explicitly, they must have already been consumed
+			return false;
+
+		// ensure there's a minimal unspent coinbase UTXOs
+		Height nUnmatureBlocks = std::min(Block::Rules::MaturityCoinbase, nBlocksInRange);
+		Amount nEmissionUnmature = Block::Rules::CoinbaseEmission * nUnmatureBlocks; // TODO: overflow!
+
+		return (m_Coinbase >= nEmissionUnmature);
+	}
+
 	bool Block::Body::IsValid(Height h0, Height h1) const
 	{
-		assert(h0 <= h1);
+		assert((h0 >= Block::Rules::HeightGenesis) && (h0 <= h1));
 
 		Context ctx;
 		ctx.m_hMin = h0;
 		ctx.m_hMax = h1;
+		ctx.m_bRangeMode = true;
 
-		ECC::Point::Native sigma;
-		if (!ValidateAndSummarize(ctx, sigma))
-			return false;
-
-		sigma = -sigma;
-		sigma += ECC::Context::get().H * ctx.m_Coinbase;
-
-		if (!(sigma == ECC::Zero)) // No need to add fees explicitly, they must have already been consumed
-			return false;
-
-		Amount nCoinbaseMax = Rules::CoinbaseEmission * (h1 - h0 + 1); // TODO: overflow!
-		return (ctx.m_Coinbase <= nCoinbaseMax);
+		return
+			ValidateAndSummarize(ctx) &&
+			ctx.IsValidBlock();
 	}
 
     void DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType eType, uint32_t nIdx /* = 0 */)

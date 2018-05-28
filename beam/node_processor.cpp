@@ -1,6 +1,6 @@
 #include "node_processor.h"
 #include "../utility/serialize.h"
-#include "../core/ecc_native.h"
+#include "../core/block_crypt.h"
 #include "../core/serialization_adapters.h"
 
 namespace beam {

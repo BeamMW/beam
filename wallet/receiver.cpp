@@ -1,4 +1,5 @@
 #include "receiver.h"
+#include "../core/block_crypt.h"
 
 namespace beam::wallet
 {

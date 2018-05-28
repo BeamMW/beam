@@ -3,7 +3,7 @@
 #include "../node.h"
 #include "../node_db.h"
 #include "../node_processor.h"
-#include "../../core/ecc_native.h"
+#include "../../core/block_crypt.h"
 #include "../../utility/serialize.h"
 #include "../../core/serialization_adapters.h"
 

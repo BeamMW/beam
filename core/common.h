@@ -193,18 +193,8 @@ namespace beam
 		// Define: Sigma = Sum(Outputs) - Sum(Inputs) + Sum(TxKernels.Excess) + m_Offset*G
 		// Sigma is either zero or -Sum(Fee)*H, depending on what we validate
 
-		struct Context
-		{
-			Amount m_Fee; // TODO: may overflow!
-			Amount m_Coinbase; // TODO: may overflow!
-			Height m_hMin;
-			Height m_hMax;
-
-			Context() { Reset(); }
-			void Reset();
-		};
-
-		bool ValidateAndSummarize(Context&, ECC::Point::Native& sigma) const;
+		struct Context;
+		bool ValidateAndSummarize(Context&) const;
 
 		int cmp(const TxBase&) const;
 		COMPARISON_VIA_CMP(TxBase)
