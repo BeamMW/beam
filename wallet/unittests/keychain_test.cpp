@@ -59,7 +59,9 @@ void TestKeychain()
 	}
 }
 
-int main() {
+int main() 
+{
 
+	ECC::InitializeContext();
 	TestKeychain();
 }
