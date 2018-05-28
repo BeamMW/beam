@@ -79,22 +79,6 @@ namespace beam
         return res;
     }
 
-    Coin::Coin()
-		: m_status(Unspent)
-    {
-
-    }
-
-    Coin::Coin(const Amount& amount, Status status, const Height& height, KeyType keyType)
-        : m_id{0}
-        , m_amount{amount}
-        , m_status{status}
-        , m_height{height}
-        , m_key_type{ keyType }
-    {
-
-    } 
-
     Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action)
         : m_keyChain{ keyChain }
         , m_network{ network }

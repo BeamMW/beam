@@ -128,14 +128,12 @@ int main(int argc, char* argv[])
                             LOG_INFO() << "wallet successfully created...";
                             if (debug)
                             {
-                                keychain->store(Coin(5));
-                                keychain->store(Coin(10));
-                                keychain->store(Coin(20));
-                                keychain->store(Coin(50));
-                                keychain->store(Coin(100));
-                                keychain->store(Coin(200));
-                                keychain->store(Coin(500));
-
+                                for(auto amount : {5, 10, 20, 50, 100, 200, 500})
+                                {
+                                    Coin coin(amount);
+                                    keychain->store(coin);
+                                }
+                                
                                 LOG_INFO() << "wallet with coins successfully created...";
                             }
                             return 0;
