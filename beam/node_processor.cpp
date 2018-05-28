@@ -314,12 +314,12 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	RollbackData rbData;
 	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf);
 
-	Block::Body block;
+	std::shared_ptr<Block::Body> pBlock(std::make_shared<Block::Body>());
 	try {
 
 		Deserializer der;
 		der.reset(bb.empty() ? NULL : &bb.at(0), bb.size());
-		der & block;
+		der & *pBlock;
 	}
 	catch (const std::exception&) {
 		return false;
@@ -332,7 +332,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	if (bFwd)
 	{
-		size_t n = std::max(size_t(1), block.m_vInputs.size() * sizeof(RollbackData::Utxo));
+		size_t n = std::max(size_t(1), pBlock->m_vInputs.size() * sizeof(RollbackData::Utxo));
 		if (rbData.m_Buf.size() != n)
 		{
 			bFirstTime = true;
@@ -357,7 +357,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 			if (s.m_History != hvHist)
 				return false; // The state (even the header) is formed incorrectly!
 
-			if (!block.IsValid(sid.m_Height, sid.m_Height))
+			if (!VerifyBlock(pBlock, sid.m_Height, sid.m_Height))
 				return false;
 
 			rbData.m_Buf.resize(n);
@@ -368,9 +368,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	rbData.m_pUtxo = rbData.get_BufAs();
 	if (!bFwd)
-		rbData.m_pUtxo += block.m_vInputs.size();
+		rbData.m_pUtxo += pBlock->m_vInputs.size();
 
-	bool bOk = HandleValidatedTx(block, sid.m_Height, bFwd, rbData);
+	bool bOk = HandleValidatedTx(*pBlock, sid.m_Height, bFwd, rbData);
 
 	if (bFirstTime && bOk)
 	{
@@ -384,7 +384,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		if (bOk)
 			m_DB.SetStateRollback(sid.m_Row, rbData.m_Buf);
 		else
-			HandleValidatedTx(block, sid.m_Height, false, rbData);
+			HandleValidatedTx(*pBlock, sid.m_Height, false, rbData);
 	}
 
 	if (bOk)
@@ -395,7 +395,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
 			kOffset.m_Value = ECC::Zero;
 
-		ECC::Scalar::Native k(kOffset), k2(block.m_Offset);
+		ECC::Scalar::Native k(kOffset), k2(pBlock->m_Offset);
 		if (!bFwd)
 			k2 = -k2;
 
@@ -1170,6 +1170,10 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	return bbBlock.size() <= Block::Rules::MaxBodySize;
 }
 
+bool NodeProcessor::VerifyBlock(const std::shared_ptr<Block::Body>& pBlock, Height h0, Height h1)
+{
+	return pBlock->IsValid(h0, h1);
+}
 
 
 } // namespace beam
