@@ -85,9 +85,11 @@ namespace
     {
         SqliteKeychainInt()
         {
-            store(beam::Coin(5));
-            store(beam::Coin(2));
-            store(beam::Coin(3));
+            for (auto amount : {5, 2, 1})
+            {
+                Coin coin(amount);
+                store(coin);
+            }
         }
     };
 

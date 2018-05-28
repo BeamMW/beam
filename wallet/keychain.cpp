@@ -173,6 +173,22 @@ namespace beam
         };
     }
 
+    Coin::Coin()
+		: m_status(Unspent)
+    {
+
+    }
+
+    Coin::Coin(const Amount& amount, Status status, const Height& height, KeyType keyType)
+        : m_id{0}
+        , m_amount{amount}
+        , m_status{status}
+        , m_height{height}
+        , m_key_type{ keyType }
+    {
+
+    }
+    
     const char* Keychain::getName()
     {
         return "wallet.db";
