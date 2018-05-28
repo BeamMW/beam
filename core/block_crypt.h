@@ -20,7 +20,10 @@ namespace beam
 		// for multi-tasking, parallel verification
 		uint32_t m_nVerifiers;
 		uint32_t m_iVerifier;
+		volatile bool* m_pAbort;
+
 		bool ShouldVerify(uint32_t& iV) const;
+		bool ShouldAbort() const;
 
 		Context() { Reset(); }
 		void Reset();

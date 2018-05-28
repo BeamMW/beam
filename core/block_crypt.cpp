@@ -277,6 +277,7 @@ namespace beam
 		m_bRangeMode = false;
 		m_nVerifiers = 1;
 		m_iVerifier = 0;
+		m_pAbort = NULL;
 	}
 
 	bool TxBase::Context::ShouldVerify(uint32_t& iV) const
@@ -289,6 +290,11 @@ namespace beam
 
 		iV = m_nVerifiers - 1;
 		return true;
+	}
+
+	bool TxBase::Context::ShouldAbort() const
+	{
+		return m_pAbort && *m_pAbort;
 	}
 
 	bool TxBase::Context::IsValidHeight() const
@@ -324,6 +330,7 @@ namespace beam
 		m_Sigma += x.m_Sigma;
 		m_Fee += x.m_Fee;
 		m_Coinbase += x.m_Coinbase;
+		return true;
 	}
 
 	bool TxBase::ValidateAndSummarize(Context& ctx) const
@@ -342,6 +349,9 @@ namespace beam
 		const Input* p0Inp = NULL;
 		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
 		{
+			if (ctx.ShouldAbort())
+				return false;
+
 			const Input& v = *(*it);
 
 			if (p0Inp && (*p0Inp > v))
@@ -359,6 +369,9 @@ namespace beam
 
 		for (auto it = m_vKernelsInput.begin(); m_vKernelsInput.end() != it; it++)
 		{
+			if (ctx.ShouldAbort())
+				return false;
+
 			const TxKernel& v = *(*it);
 
 			// locate the corresponding output kernel. Use the fact that kernels are sorted by excess, and then by multiplier
@@ -399,6 +412,9 @@ namespace beam
 		const Output* p0Out = NULL;
 		for (auto it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
 		{
+			if (ctx.ShouldAbort())
+				return false;
+
 			const Output& v = *(*it);
 
 			if (p0Out && (*p0Out > v))
@@ -423,6 +439,9 @@ namespace beam
 		p0Krn = NULL;
 		for (auto it = m_vKernelsOutput.begin(); m_vKernelsOutput.end() != it; it++)
 		{
+			if (ctx.ShouldAbort())
+				return false;
+
 			const TxKernel& v = *(*it);
 
 			if (p0Krn && (*p0Krn > v))
