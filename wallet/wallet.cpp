@@ -370,21 +370,36 @@ namespace beam
 
     void Wallet::handle_node_message(proto::Mined&& msg)
     {
-        vector<Coin> mined;
-        for (auto& mined_coin : msg.m_Entries)
+        auto comparer = [](const Coin& left, const Coin& right)->bool
         {
-            if (mined_coin.m_Active) // we store coins from active branch
+            return left.m_height < right.m_height;
+        };
+        set<Coin, decltype(comparer)> mined { comparer };
+
+        for (auto& minedCoin : msg.m_Entries)
+        {
+            if (minedCoin.m_Active) // we store coins from active branch
             {
                 // coinbase 
-                mined.emplace_back(Block::s_CoinbaseEmission, Coin::Unspent, mined_coin.m_ID.m_Height, KeyType::Coinbase);
-                if (mined_coin.m_Fees > 0)
+                mined.emplace(Block::s_CoinbaseEmission, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Coinbase);
+                if (minedCoin.m_Fees > 0)
                 {
-                    mined.emplace_back(Block::s_CoinbaseEmission, Coin::Unspent, mined_coin.m_ID.m_Height, KeyType::Comission);
+                    mined.emplace(minedCoin.m_Fees, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Comission);
                 }
-                // TODO: should we pass ID to Coin ctor?
             }
         }
-        m_keyChain->store(mined);
+        /*if (!mined.empty())
+        {
+            Block::SystemState::ID id = { 0 };
+            m_keyChain->getVar(SystemStateIDName, id);
+
+            m_keyChain->visitMinedCoins(id.m_Height, [&mined](const Coin& coin)-> bool
+            {
+                m
+            });
+
+        }
+        m_keyChain->store(mined);*/
     }
 
     void Wallet::handle_connection_error(PeerId from)

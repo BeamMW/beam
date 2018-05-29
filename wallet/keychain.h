@@ -22,10 +22,11 @@ namespace beam
         Coin(const ECC::Amount& amount, Status status = Coin::Unspent, const Height& height = 0, KeyType keyType = KeyType::Kernel);
 
         uint64_t m_id;
-        ECC::Amount m_amount;
-        Status m_status;
         Height m_height;
         KeyType m_key_type;
+        ECC::Amount m_amount;
+
+        Status m_status;
     };
 
     struct IKeyChain
@@ -41,8 +42,10 @@ namespace beam
         virtual void store(std::vector<beam::Coin>& coins) = 0;
         virtual void update(const std::vector<beam::Coin>& coins) = 0;
         virtual void remove(const std::vector<beam::Coin>& coins) = 0;
+        virtual void remove(const beam::Coin& coin) = 0;
 
 		virtual void visit(std::function<bool(const beam::Coin& coin)> func) = 0;
+        virtual void visitMinedCoins(Height minHeight, std::function<bool(const beam::Coin& coin)> func) = 0;
 
 		virtual void setVarRaw(const char* name, const void* data, int size) = 0;
 		virtual int getVarRaw(const char* name, void* data) const = 0;
@@ -75,7 +78,9 @@ namespace beam
         void store(std::vector<beam::Coin>& coins) override;
         void update(const std::vector<beam::Coin>& coins) override;
         void remove(const std::vector<beam::Coin>& coins) override;
+        void remove(const beam::Coin& coin) override;
 		void visit(std::function<bool(const beam::Coin& coin)> func) override;
+        void visitMinedCoins(Height minHeight, std::function<bool(const beam::Coin& coin)> func) override;
 
 		void setVarRaw(const char* name, const void* data, int size) override;
 		int getVarRaw(const char* name, void* data) const override;

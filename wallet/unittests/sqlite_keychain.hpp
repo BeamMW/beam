@@ -57,10 +57,20 @@ struct SqliteKeychain : beam::IKeyChain
 		_keychain->remove(coins);
 	}
 
+    void remove(const beam::Coin& coin) override
+    {
+        _keychain->remove(coin);
+    }
+
 	void visit(std::function<bool(const beam::Coin& coin)> func) override
 	{
 		_keychain->visit(func);
 	}
+
+    void visitMinedCoins(beam::Height minHeight, std::function<bool(const beam::Coin& coin)> func) override
+    {
+        _keychain->visitMinedCoins(minHeight, func);
+    }
 
 	void setVarRaw(const char* name, const void* data, int size) override
 	{

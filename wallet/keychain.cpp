@@ -462,12 +462,10 @@ namespace beam
 
             for (const auto& coin : coins)
             {
-                const char* req = "UPDATE " STORAGE_NAME " SET status=?2 WHERE id=?1 AND status=?3;";
+                const char* req = "DELETE FROM " STORAGE_NAME " WHERE id=?1;";
                 sqlite::Statement stm(_db, req);
 
                 stm.bind(1, coin.m_id);
-                stm.bind(2, Coin::Spent);
-                stm.bind(3, Coin::Locked);
 
                 stm.step();
             }
@@ -476,10 +474,43 @@ namespace beam
         }
     }
 
+    void Keychain::remove(const beam::Coin& coin)
+    {
+        sqlite::Transaction trans(_db);
+
+        const char* req = "DELETE FROM " STORAGE_NAME " WHERE id=?1;";
+        sqlite::Statement stm(_db, req);
+
+        stm.bind(1, coin.m_id);
+
+        stm.step();
+        trans.commit();
+    }
+
     void Keychain::visit(std::function<bool(const beam::Coin& coin)> func)
     {
         const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME ";";
         sqlite::Statement stm(_db, req);
+
+        while (stm.step())
+        {
+            Coin coin;
+
+            ENUM_STORAGE_FIELDS(STM_GET_LIST, NOSEP);
+
+            if (!func(coin))
+                break;
+        }
+    }
+
+    void Keychain::visitMinedCoins(Height minHeight, std::function<bool(const beam::Coin& coin)> func)
+    {
+        const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE height=?1 AND (key_type=?2 OR key_type=?3);";
+        sqlite::Statement stm(_db, req);
+        
+        stm.bind(1, minHeight);
+        stm.bind(2, KeyType::Coinbase);
+        stm.bind(3, KeyType::Comission);
 
         while (stm.step())
         {
