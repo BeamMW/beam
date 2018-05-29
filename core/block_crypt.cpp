@@ -1,7 +1,6 @@
 #include <utility> // std::swap
 #include <algorithm>
-#include "common.h"
-#include "ecc_native.h"
+#include "block_crypt.h"
 
 namespace beam
 {
@@ -74,6 +73,9 @@ namespace beam
 	// Output
 	bool Output::IsValid() const
 	{
+		ECC::Oracle oracle;
+		oracle << m_Incubation;
+
 		if (m_pConfidential)
 		{
 			if (m_Coinbase)
@@ -82,13 +84,13 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			return m_pConfidential->IsValid(m_Commitment);
+			return m_pConfidential->IsValid(m_Commitment, oracle);
 		}
 
 		if (!m_pPublic)
 			return false;
 
-		return m_pPublic->IsValid(m_Commitment);
+		return m_pPublic->IsValid(m_Commitment, oracle);
 	}
 
 	int Output::cmp(const Output& v) const
@@ -105,21 +107,24 @@ namespace beam
 	{
 		m_Commitment = ECC::Commitment(k, v);
 
+		ECC::Oracle oracle;
+		oracle << m_Incubation;
+
 		if (bPublic)
 		{
 			m_pPublic.reset(new ECC::RangeProof::Public);
 			m_pPublic->m_Value = v;
-			m_pPublic->Create(k);
+			m_pPublic->Create(k, oracle);
 		} else
 		{
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
-			m_pConfidential->Create(k, v);
+			m_pConfidential->Create(k, v, oracle);
 		}
 	}
 
 	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, Amount* pFee, ECC::Point::Native* pExcess) const
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess) const
 	{
 		ECC::Hash::Processor hp;
 		hp	<< m_Fee
@@ -158,7 +163,10 @@ namespace beam
 		{
 			ECC::Point::Native pt(m_Excess);
 			if (m_Multiplier)
+			{
+				ECC::Mode::Scope scope(ECC::Mode::Fast);
 				pt += pt * m_Multiplier;
+			}
 
 			if (!m_Signature.IsValid(hv, pt))
 				return false;
@@ -194,7 +202,7 @@ namespace beam
 		Traverse(out, NULL, NULL);
 	}
 
-	bool TxKernel::IsValid(Amount& fee, ECC::Point::Native& exc) const
+	bool TxKernel::IsValid(AmountBig& fee, ECC::Point::Native& exc) const
 	{
 		ECC::Hash::Value hv;
 		return Traverse(hv, &fee, &exc);
@@ -261,28 +269,100 @@ namespace beam
 	// Transaction
 	void TxBase::Context::Reset()
 	{
-		m_Fee = m_Coinbase = 0;
+		m_Sigma = ECC::Zero;
+
+		ZeroObject(m_Fee);
+		ZeroObject(m_Coinbase);
 		m_hMin = 0;
 		m_hMax = -1;
+		m_bRangeMode = false;
+		m_nVerifiers = 1;
+		m_iVerifier = 0;
+		m_pAbort = NULL;
 	}
 
-	bool TxBase::ValidateAndSummarize(Context& ctx, ECC::Point::Native& sigma) const
+	bool TxBase::Context::ShouldVerify(uint32_t& iV) const
 	{
-		sigma = ECC::Zero;
-		Amount feeInp = 0; // dummy var
+		if (iV)
+		{
+			iV--;
+			return false;
+		}
+
+		iV = m_nVerifiers - 1;
+		return true;
+	}
+
+	bool TxBase::Context::ShouldAbort() const
+	{
+		return m_pAbort && *m_pAbort;
+	}
+
+	bool TxBase::Context::IsValidHeight() const
+	{
+		return m_hMin <= m_hMax;
+	}
+
+	bool TxBase::Context::HandleElementHeight(Height h0, Height h1)
+	{
+		h0 = std::max(h0, m_hMin);
+		h1 = std::min(h1, m_hMax);
+
+		if (h0 > h1)
+			return false;
+
+		if (!m_bRangeMode)
+		{
+			// shrink permitted range
+			m_hMin = h0;
+			m_hMax = h1;
+		}
+
+		return true;
+	}
+
+	bool TxBase::Context::Merge(const Context& x)
+	{
+		assert(m_bRangeMode == x.m_bRangeMode);
+
+		if (!HandleElementHeight(x.m_hMin, x.m_hMax))
+			return false;
+
+		m_Sigma += x.m_Sigma;
+		m_Fee += x.m_Fee;
+		m_Coinbase += x.m_Coinbase;
+		return true;
+	}
+
+	bool TxBase::ValidateAndSummarize(Context& ctx) const
+	{
+		if (!ctx.IsValidHeight())
+			return false;
+
+		ctx.m_Sigma = -ctx.m_Sigma;
+		AmountBig feeInp; // dummy var
+
+		assert(ctx.m_nVerifiers);
+		uint32_t iV = ctx.m_iVerifier;
 
 		// Inputs
 
 		const Input* p0Inp = NULL;
 		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
 		{
+			if (ctx.ShouldAbort())
+				return false;
+
 			const Input& v = *(*it);
 
 			if (p0Inp && (*p0Inp > v))
 				return false;
 			p0Inp = &v;
 
-			sigma += ECC::Point::Native(v.m_Commitment);
+			if (!ctx.ShouldVerify(iV))
+				continue;
+
+			ctx.m_Sigma += ECC::Point::Native(v.m_Commitment);
 		}
 
 		auto itKrnOut = m_vKernelsOutput.begin();
@@ -290,6 +370,9 @@ namespace beam
 
 		for (auto it = m_vKernelsInput.begin(); m_vKernelsInput.end() != it; it++)
 		{
+			if (ctx.ShouldAbort())
+				return false;
+
 			const TxKernel& v = *(*it);
 
 			// locate the corresponding output kernel. Use the fact that kernels are sorted by excess, and then by multiplier
@@ -312,33 +395,40 @@ namespace beam
 				}
 			}
 
-			if (!v.IsValid(feeInp, sigma))
-				return false;
-
 			if (p0Krn && (*p0Krn > v))
 				return false;
 			p0Krn = &v;
 
-			ctx.m_hMin = std::max(ctx.m_hMin, v.m_HeightMin);
-			ctx.m_hMax = std::min(ctx.m_hMax, v.m_HeightMax);
+			if (!ctx.ShouldVerify(iV))
+				return false;
+
+			if (!v.IsValid(feeInp, ctx.m_Sigma))
+				return false;
 		}
 
-		sigma = -sigma;
+		ctx.m_Sigma = -ctx.m_Sigma;
 
 		// Outputs
 
 		const Output* p0Out = NULL;
 		for (auto it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
 		{
-			const Output& v = *(*it);
-			if (!v.IsValid())
+			if (ctx.ShouldAbort())
 				return false;
+
+			const Output& v = *(*it);
 
 			if (p0Out && (*p0Out > v))
 				return false;
 			p0Out = &v;
 
-			sigma += ECC::Point::Native(v.m_Commitment);
+			if (!ctx.ShouldVerify(iV))
+				continue;
+
+			if (!v.IsValid())
+				return false;
+
+			ctx.m_Sigma += ECC::Point::Native(v.m_Commitment);
 
 			if (v.m_Coinbase)
 			{
@@ -350,21 +440,30 @@ namespace beam
 		p0Krn = NULL;
 		for (auto it = m_vKernelsOutput.begin(); m_vKernelsOutput.end() != it; it++)
 		{
-			const TxKernel& v = *(*it);
-			if (!v.IsValid(ctx.m_Fee, sigma))
+			if (ctx.ShouldAbort())
 				return false;
+
+			const TxKernel& v = *(*it);
 
 			if (p0Krn && (*p0Krn > v))
 				return false;
 			p0Krn = &v;
 
-			ctx.m_hMin = std::max(ctx.m_hMin, v.m_HeightMin);
-			ctx.m_hMax = std::min(ctx.m_hMax, v.m_HeightMax);
+			if (!ctx.ShouldVerify(iV))
+				continue;
+
+			if (!v.IsValid(ctx.m_Fee, ctx.m_Sigma))
+				return false;
+
+			if (!ctx.HandleElementHeight(v.m_HeightMin, v.m_HeightMax))
+				return false;
 		}
 
-		sigma += ECC::Context::get().G * m_Offset;
+		if (ctx.ShouldVerify(iV))
+			ctx.m_Sigma += ECC::Context::get().G * m_Offset;
 
-		return ctx.m_hMin <= ctx.m_hMax;
+		assert(ctx.IsValidHeight());
+		return true;
 	}
 
 	void TxBase::Sort()
@@ -453,28 +552,58 @@ namespace beam
 		return 0;
 	}
 
-	bool Transaction::IsValid(Context& ctx) const
+	bool TxBase::Context::IsValidTransaction()
 	{
-		ECC::Point::Native sigma(ECC::Zero);
-
-		if (!ValidateAndSummarize(ctx, sigma))
-			return false;
-
-		if (ctx.m_Coinbase)
+		if (m_Coinbase.Lo || m_Coinbase.Hi)
 			return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 
-		sigma += ECC::Context::get().H * ctx.m_Fee;
+		if (m_Fee.Hi)
+		{
+			ECC::Scalar s;
+			m_Fee.Export(s.m_Value);
+			m_Sigma += ECC::Context::get().H_Big * s;
+		} else
+			m_Sigma += ECC::Context::get().H * m_Fee.Lo;
 
-		return sigma == ECC::Zero;
+		return m_Sigma == ECC::Zero;
+	}
+
+	bool Transaction::IsValid(Context& ctx) const
+	{
+		return
+			ValidateAndSummarize(ctx) &&
+			ctx.IsValidTransaction();
+	}
+
+	/////////////
+	// AmoutBig
+	void AmountBig::operator += (Amount x)
+	{
+		Lo += x;
+		if (Lo < x)
+			Hi++;
+	}
+
+	void AmountBig::operator += (const AmountBig& x)
+	{
+		operator += (x.Lo);
+		Hi += x.Hi;
+	}
+
+	void AmountBig::Export(ECC::uintBig& x) const
+	{
+		x = ECC::Zero;
+		x.AssignRange<Amount, 0>(Lo);
+		x.AssignRange<Amount, (sizeof(Lo) << 3) >(Hi);
 	}
 
 	/////////////
 	// Block
-	const Amount Block::s_CoinbaseEmission = 1000000 * 15; // the maximum allowed coinbase in a single block
-	const Height Block::s_MaturityCoinbase	= 60; // 1 hour
-	const Height Block::s_MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
-	const Height Block::s_HeightGenesis		= 1;
-	const size_t Block::s_MaxBodySize		= 0x100000; // 1MB
+	const Amount Block::Rules::CoinbaseEmission = 1000000 * 15; // the maximum allowed coinbase in a single block
+	const Height Block::Rules::MaturityCoinbase	= 60; // 1 hour
+	const Height Block::Rules::MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+	const Height Block::Rules::HeightGenesis	= 1;
+	const size_t Block::Rules::MaxBodySize		= 0x100000; // 1MB
 
 	int Block::SystemState::ID::cmp(const ID& v) const
 	{
@@ -516,9 +645,9 @@ namespace beam
 
 	bool Block::SystemState::Full::IsSane() const
 	{
-		if (m_Height < Block::s_HeightGenesis)
+		if (m_Height < Block::Rules::HeightGenesis)
 			return false;
-		if ((m_Height == Block::s_HeightGenesis) && !(m_Prev == ECC::Zero))
+		if ((m_Height == Block::Rules::HeightGenesis) && !(m_Prev == ECC::Zero))
 			return false;
 
 		return true;
@@ -544,31 +673,99 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
 	}
 
+	bool TxBase::Context::IsValidBlock()
+	{
+		ECC::uintBig mul;
+		mul = Block::Rules::CoinbaseEmission;
+
+		Height nBlocksInRange = m_hMax - m_hMin + 1;
+
+		ECC::Scalar scEmission;
+		scEmission.m_Value = nBlocksInRange;
+		scEmission.m_Value = scEmission.m_Value * mul;
+
+		m_Sigma = -m_Sigma;
+		m_Sigma += ECC::Context::get().H_Big * scEmission;
+
+		if (!(m_Sigma == ECC::Zero)) // No need to add fees explicitly, they must have already been consumed
+			return false;
+
+		// ensure there's a minimal unspent coinbase UTXOs
+		Height nUnmatureBlocks = std::min(Block::Rules::MaturityCoinbase, nBlocksInRange);
+
+		scEmission.m_Value = nUnmatureBlocks;
+		scEmission.m_Value = scEmission.m_Value * mul;
+
+		m_Coinbase.Export(mul);
+		return (mul >= scEmission.m_Value);
+	}
+
 	bool Block::Body::IsValid(Height h0, Height h1) const
 	{
-		assert(h0 <= h1);
+		assert((h0 >= Block::Rules::HeightGenesis) && (h0 <= h1));
 
 		Context ctx;
 		ctx.m_hMin = h0;
 		ctx.m_hMax = h1;
+		ctx.m_bRangeMode = true;
 
-		ECC::Point::Native sigma;
-		if (!ValidateAndSummarize(ctx, sigma))
-			return false;
-
-		sigma = -sigma;
-		sigma += ECC::Context::get().H * ctx.m_Coinbase;
-
-		if (!(sigma == ECC::Zero)) // No need to add fees explicitly, they must have already been consumed
-			return false;
-
-		Amount nCoinbaseMax = s_CoinbaseEmission * (h1 - h0 + 1); // TODO: overflow!
-		return (ctx.m_Coinbase <= nCoinbaseMax);
+		return
+			ValidateAndSummarize(ctx) &&
+			ctx.IsValidBlock();
 	}
 
     void DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType eType, uint32_t nIdx /* = 0 */)
     {
         kdf.DeriveKey(out, h, static_cast<uint32_t>(eType), nIdx);
     }
+
+	void Block::Rules::AdjustDifficulty(uint8_t& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s)
+	{
+		static_assert(DesiredRate_s * DifficultyReviewCycle < uint32_t(-1), "overflow?");
+		const uint32_t dtTrg_s = DesiredRate_s * DifficultyReviewCycle;
+
+		uint32_t dt_s; // evaluate carefully, avoid possible overflow
+		if (tCycleEnd_s <= tCycleBegin_s)
+			dt_s = 0;
+		else
+		{
+			tCycleEnd_s -= tCycleBegin_s;
+			dt_s = (tCycleEnd_s < uint32_t(-1)) ? uint32_t(tCycleEnd_s) : uint32_t(-1);
+		}
+
+		// Formula:
+		//		While dt_s is smaller than dtTrg_s / sqrt(2) - raise the difficulty.
+		//		While dt_s is bigger than dtTrg_s * sqrt(2) - lower the difficulty.
+		//		There's a limit for adjustment
+		//
+		// Instead of calculating sqrt(2) we'll square both parameters, and the factor now is 2.
+
+		uint64_t src = uint64_t(dt_s) * uint64_t(dt_s);
+		const uint64_t trg = uint64_t(dtTrg_s) * uint64_t(dtTrg_s);
+
+		for (uint32_t i = 0; i < MaxDifficultyChange; i++)
+		{
+			if (src >= (trg >> 1))
+				break;
+
+			if (d == uint8_t(-1))
+				return;
+
+			d++;
+			src <<= 2;
+		}
+
+		for (uint32_t i = 0; i < MaxDifficultyChange; i++)
+		{
+			if (src <= (trg << 1))
+				break;
+
+			if (d == 0)
+				return;
+
+			d--;
+			src >>= 2;
+		}
+	}
 
 } // namespace beam

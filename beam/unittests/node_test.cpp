@@ -3,7 +3,7 @@
 #include "../node.h"
 #include "../node_db.h"
 #include "../node_processor.h"
-#include "../../core/ecc_native.h"
+#include "../../core/block_crypt.h"
 #include "../../utility/serialize.h"
 #include "../../core/serialization_adapters.h"
 
@@ -105,7 +105,7 @@ namespace beam
 		for (uint32_t h = 0; h < hMax; h++)
 		{
 			Block::SystemState::Full& s = vStates[h];
-			s.m_Height = h + Block::s_HeightGenesis;
+			s.m_Height = h + Block::Rules::HeightGenesis;
 
 			if (h)
 			{
@@ -188,7 +188,7 @@ namespace beam
 
 		NodeDB::StateID sid;
 		verify_test(CountTips(db, false, &sid) == 2);
-		verify_test(sid.m_Height == hMax-1 + Block::s_HeightGenesis);
+		verify_test(sid.m_Height == hMax-1 + Block::Rules::HeightGenesis);
 
 		db.SetMined(sid, 200000);
 		db.SetMined(sid, 250000);
@@ -217,7 +217,7 @@ namespace beam
 		db.SetStateFunctional(pRows[0]); // this should trigger big update
 		db.assert_valid();
 		verify_test(CountTips(db, true, &sid) == 2);
-		verify_test(sid.m_Height == hFork0 + 1 + Block::s_HeightGenesis);
+		verify_test(sid.m_Height == hFork0 + 1 + Block::Rules::HeightGenesis);
 
 		tr.Commit();
 		tr.Start(db);
@@ -225,26 +225,26 @@ namespace beam
 		// test proofs
 		NodeDB::StateID sid2;
 		verify_test(CountTips(db, false, &sid2) == 2);
-		verify_test(sid2.m_Height == hMax-1 + Block::s_HeightGenesis);
+		verify_test(sid2.m_Height == hMax-1 + Block::Rules::HeightGenesis);
 
 		do
 		{
-			if (sid2.m_Height + 1 < hMax + Block::s_HeightGenesis)
+			if (sid2.m_Height + 1 < hMax + Block::Rules::HeightGenesis)
 			{
 				Merkle::Hash hv;
 				db.get_PredictedStatesHash(hv, sid2);
-				verify_test(hv == vStates[(size_t) sid2.m_Height + 1 - Block::s_HeightGenesis].m_History);
+				verify_test(hv == vStates[(size_t) sid2.m_Height + 1 - Block::Rules::HeightGenesis].m_History);
 			}
 
-			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height - Block::s_HeightGenesis].m_History;
+			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height - Block::Rules::HeightGenesis].m_History;
 
-			for (uint32_t h = Block::s_HeightGenesis; h < sid2.m_Height; h++)
+			for (uint32_t h = Block::Rules::HeightGenesis; h < sid2.m_Height; h++)
 			{
 				Merkle::Proof proof;
 				db.get_Proof(proof, sid2, h);
 
 				Merkle::Hash hv;
-				vStates[h - Block::s_HeightGenesis].get_Hash(hv);
+				vStates[h - Block::Rules::HeightGenesis].get_Hash(hv);
 				Merkle::Interpret(hv, proof);
 
 				verify_test(hvRoot == hv);
@@ -254,7 +254,7 @@ namespace beam
 
 		while (db.get_Prev(sid))
 			;
-		verify_test(sid.m_Height == Block::s_HeightGenesis);
+		verify_test(sid.m_Height == Block::Rules::HeightGenesis);
 
 		db.SetStateNotFunctional(pRows[0]);
 		db.assert_valid();
@@ -264,9 +264,9 @@ namespace beam
 		db.assert_valid();
 		verify_test(CountTips(db, true) == 2);
 
-		for (sid.m_Height = Block::s_HeightGenesis; sid.m_Height <= hMax; sid.m_Height++)
+		for (sid.m_Height = Block::Rules::HeightGenesis; sid.m_Height <= hMax; sid.m_Height++)
 		{
-			sid.m_Row = pRows[sid.m_Height - Block::s_HeightGenesis];
+			sid.m_Row = pRows[sid.m_Height - Block::Rules::HeightGenesis];
 			db.MoveFwd(sid);
 		}
 
@@ -379,7 +379,7 @@ namespace beam
 			//utxo.m_Height = h;
 			//utxo.m_Coinbase = bCoinbase;
 
-			h += (KeyType::Coinbase == eType) ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
+			h += (KeyType::Coinbase == eType) ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd;
 
 			m_MyUtxos.insert(std::make_pair(h, utxo));
 		}
@@ -413,8 +413,8 @@ namespace beam
 			utxoOut.m_Key = k;
 
 			Output::Ptr pOut(new Output);
-			pOut->Create(k, utxoOut.m_Value, true); // confidential transactions will be too slow for test in debug mode.
 			pOut->m_Incubation = hIncubation;
+			pOut->Create(k, utxoOut.m_Value, true); // confidential transactions will be too slow for test in debug mode.
 			tx.m_vOutputs.push_back(std::move(pOut));
 
 			k = -k;
@@ -456,7 +456,7 @@ namespace beam
 
 		const Height hIncubation = 3; // artificial incubation period for outputs.
 
-		for (Height h = Block::s_HeightGenesis; h < 96 + Block::s_HeightGenesis; h++)
+		for (Height h = Block::Rules::HeightGenesis; h < 96 + Block::Rules::HeightGenesis; h++)
 		{
 			std::list<MyNodeProcessor1::MyUtxo> lstNewOutputs;
 
@@ -490,7 +490,7 @@ namespace beam
 			Amount fees = 0;
 			verify_test(np.GenerateNewBlock(np.m_TxPool, pBlock->m_Hdr, pBlock->m_Body, fees));
 
-			np.OnState(pBlock->m_Hdr, NodeDB::PeerID());
+			np.OnState(pBlock->m_Hdr, true, NodeDB::PeerID());
 
 			Block::SystemState::ID id;
 			pBlock->m_Hdr.get_ID(id);
@@ -498,7 +498,7 @@ namespace beam
 			np.OnBlock(id, pBlock->m_Body, NodeDB::PeerID());
 
 			np.AddMyUtxo(fees, h, KeyType::Comission);
-			np.AddMyUtxo(Block::s_CoinbaseEmission, h, KeyType::Coinbase);
+			np.AddMyUtxo(Block::Rules::CoinbaseEmission, h, KeyType::Coinbase);
 
 			blockChain.push_back(std::move(pBlock));
 		}
@@ -537,7 +537,7 @@ namespace beam
 			ZeroObject(peer);
 
 			for (size_t i = 0; i < blockChain.size(); i += 2)
-				np.OnState(blockChain[i]->m_Hdr, peer);
+				np.OnState(blockChain[i]->m_Hdr, true, peer);
 		}
 
 		{
@@ -565,7 +565,7 @@ namespace beam
 			ZeroObject(peer);
 
 			for (size_t i = 1; i < blockChain.size(); i += 2)
-				np.OnState(blockChain[i]->m_Hdr, peer);
+				np.OnState(blockChain[i]->m_Hdr, true, peer);
 		}
 
 		{
@@ -671,7 +671,7 @@ namespace beam
 					Amount fees = 0;
 					n.get_Processor().GenerateNewBlock(txPool, s, body, fees);
 
-					n.get_Processor().OnState(s, NodeDB::PeerID());
+					n.get_Processor().OnState(s, true, NodeDB::PeerID());
 
 					Block::SystemState::ID id;
 					s.get_ID(id);
@@ -805,13 +805,13 @@ namespace beam
 				ECC::Scalar::Native k;
 				DeriveKey(k, m_Kdf, msg.m_Description.m_Height, KeyType::Coinbase);
 				Input utxo;
-				utxo.m_Commitment = ECC::Commitment(k, Block::s_CoinbaseEmission);
+				utxo.m_Commitment = ECC::Commitment(k, Block::Rules::CoinbaseEmission);
 				m_vUtxos.push_back(utxo);
 
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
 					proto::GetProofState msgOut;
-					msgOut.m_Height = i + Block::s_HeightGenesis;
+					msgOut.m_Height = i + Block::Rules::HeightGenesis;
 					Send(msgOut);
 				}
 

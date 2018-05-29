@@ -314,5 +314,6 @@ namespace ECC
 		Oracle& operator << (const T& t) { m_hp << t; return *this; }
 
 		void operator >> (Scalar::Native&);
+		void operator >> (Hash::Value& hv) { m_hp >> hv; }
 	};
 }

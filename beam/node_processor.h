@@ -37,9 +37,9 @@ class NodeProcessor
 	void OnCorrupted();
 	void get_CurrentLive(Merkle::Hash&);
 
-	struct BlockBulder;
-
 	bool IsRelevantHeight(Height);
+	uint8_t get_NextDifficulty();
+	Timestamp get_MovingMedian();
 
 public:
 
@@ -60,9 +60,17 @@ public:
 	bool get_CurrentState(Block::SystemState::ID&); // returns false if no valid states so far
 	bool get_CurrentState(Block::SystemState::Full&);
 
+	struct DataStatus {
+		enum Enum {
+			Accepted,
+			Rejected, // duplicated or irrelevant
+			Invalid
+		};
+	};
+
 	//  both functions return true if dirty (i.e. data is relevant, and added)
-	bool OnState(const Block::SystemState::Full&, const PeerID&);
-	bool OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&);
+	DataStatus::Enum OnState(const Block::SystemState::Full&, bool bIgnorePoW, const PeerID&);
+	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&);
 
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
@@ -74,6 +82,7 @@ public:
 	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) {}
 	virtual void OnPeerInsane(const PeerID&) {}
 	virtual void OnNewState() {}
+	virtual bool VerifyBlock(const std::shared_ptr<Block::Body>&, Height h0, Height h1);
 
 	bool IsStateNeeded(const Block::SystemState::ID&);
 
@@ -135,6 +144,9 @@ public:
 
 	Height get_NextHeight();
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer& block, Amount& fees);
+
+private:
+	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, Block::Body& block, Amount& fees, Height, RollbackData&);
 };
 
 

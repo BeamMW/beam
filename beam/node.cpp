@@ -192,6 +192,74 @@ void Node::Processor::OnNewState()
 	get_ParentObj().RefreshCongestions();
 }
 
+bool Node::Processor::VerifyBlock(const std::shared_ptr<Block::Body>& pBlock, Height h0, Height h1)
+{
+	uint32_t nThreads = get_ParentObj().m_Cfg.m_VerificationThreads;
+	if (!nThreads)
+		return NodeProcessor::VerifyBlock(pBlock, h0, h1);
+
+	VerifierContext::Ptr pContext(std::make_shared<VerifierContext>());
+
+	pContext->m_pTx = pBlock;
+	pContext->m_bAbort = false;
+	pContext->m_Remaining = nThreads;
+	pContext->m_Context.m_bRangeMode = true;
+	pContext->m_Context.m_hMin = h0;
+	pContext->m_Context.m_hMax = h1;
+	pContext->m_Context.m_nVerifiers = nThreads;
+
+	std::vector<std::thread> vThreads;
+	vThreads.resize(nThreads);
+
+	std::unique_lock<std::mutex> scope(pContext->m_Mutex);
+
+	for (uint32_t i = 0; i < nThreads; i++)
+	{
+		std::thread& t = vThreads[i];
+		t = std::thread(&VerifierContext::Proceed, pContext, i);
+	}
+
+	while (true)
+	{
+		pContext->m_Cond.wait(scope);
+
+		if (!pContext->m_Remaining || pContext->m_bAbort)
+			break;
+	}
+
+	for (uint32_t i = 0; i < nThreads; i++)
+		vThreads[i].join();
+
+	return !pContext->m_bAbort && pContext->m_Context.IsValidBlock();
+}
+
+void Node::Processor::VerifierContext::Proceed(const std::shared_ptr<VerifierContext> pContext, uint32_t iVerifier)
+{
+	TxBase::Context ctx;
+	ctx.m_bRangeMode = true;
+	ctx.m_hMin = pContext->m_Context.m_hMin;
+	ctx.m_hMax = pContext->m_Context.m_hMax;
+	ctx.m_nVerifiers = pContext->m_Context.m_nVerifiers;
+	ctx.m_iVerifier = iVerifier;
+	ctx.m_pAbort = &pContext->m_bAbort;
+
+	bool bValid = pContext->m_pTx->ValidateAndSummarize(ctx);
+
+	{
+		std::unique_lock<std::mutex> scope(pContext->m_Mutex);
+
+		verify(pContext->m_Remaining--);
+
+		if (bValid && !pContext->m_bAbort)
+			bValid = pContext->m_Context.Merge(ctx);
+
+		if (!bValid)
+			pContext->m_bAbort = true;
+	}
+
+	pContext->m_Cond.notify_one();
+}
+
 Node::Peer* Node::AllocPeer()
 {
 	Peer* pPeer = new Peer;
@@ -260,17 +328,17 @@ void Node::Initialize()
 }
 
 Node::~Node()
-{
+	{
 	m_Miner.HardAbortSafe();
 
 	for (size_t i = 0; i < m_Miner.m_vThreads.size(); i++)
-	{
+		{
 		Miner::PerThread& pt = m_Miner.m_vThreads[i];
 		if (pt.m_pReactor)
 			pt.m_pReactor->stop();
 
 		pt.m_Thread.join();
-	}
+}
 	m_Miner.m_vThreads.clear();
 
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
@@ -489,25 +557,16 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	if (t.m_Key.second)
 		ThrowUnexpected();
 
-	if (!msg.m_Description.IsSane())
-		ThrowUnexpected();
-
 	Block::SystemState::ID id;
 	msg.m_Description.get_ID(id);
 	if (id != t.m_Key.first)
 		ThrowUnexpected();
 
-	if (!m_pThis->m_Cfg.m_TestMode.m_bFakePoW && !msg.m_Description.IsValidPoW())
-		ThrowUnexpected();
-
-	t.m_bRelevant = false;
-	OnFirstTaskDone();
-
 	NodeDB::PeerID pid;
 	get_ID(pid);
 
-	if (m_pThis->m_Processor.OnState(msg.m_Description, pid))
-		m_pThis->RefreshCongestions(); // NOTE! Can call OnPeerInsane()
+	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnState(msg.m_Description, m_pThis->m_Cfg.m_TestMode.m_bFakePoW, pid);
+	OnFirstTaskDone(eStatus);
 }
 
 void Node::Peer::OnMsg(proto::GetBody&& msg)
@@ -538,15 +597,24 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	if (!t.m_Key.second)
 		ThrowUnexpected();
 
-	Block::SystemState::ID id = t.m_Key.first;
-
-	t.m_bRelevant = false;
-	OnFirstTaskDone();
-
 	NodeDB::PeerID pid;
 	get_ID(pid);
 
-	if (m_pThis->m_Processor.OnBlock(id, msg.m_Buffer, pid))
+	const Block::SystemState::ID& id = t.m_Key.first;
+
+	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnBlock(id, msg.m_Buffer, pid);
+	OnFirstTaskDone(eStatus);
+}
+
+void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
+{
+	if (NodeProcessor::DataStatus::Invalid == eStatus)
+		ThrowUnexpected();
+
+	get_FirstTask().m_bRelevant = false;
+	OnFirstTaskDone();
+
+	if (NodeProcessor::DataStatus::Accepted == eStatus)
 		m_pThis->RefreshCongestions(); // NOTE! Can call OnPeerInsane()
 }
 
@@ -639,7 +707,7 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 
 void Node::Peer::OnMsg(proto::GetProofState&& msg)
 {
-	if (msg.m_Height < Block::s_HeightGenesis)
+	if (msg.m_Height < Block::Rules::HeightGenesis)
 		ThrowUnexpected();
 
 	proto::Proof msgOut;
@@ -890,8 +958,8 @@ void Node::Miner::OnMined()
 		pTask.swap(m_pTask);
 	}
 
-	bool b = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, NodeDB::PeerID());
-	assert(b); // otherwise'd mean someone else mined the same exactly block
+	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, true, NodeDB::PeerID());
+	assert(NodeProcessor::DataStatus::Accepted == eStatus); // Otherwise either the block is invalid (some bug?). Or someone else mined exactly the same block!
 
 	Block::SystemState::ID id;
 	pTask->m_Hdr.get_ID(id);
@@ -902,8 +970,8 @@ void Node::Miner::OnMined()
 
 	get_ParentObj().m_Processor.get_DB().SetMined(sid, pTask->m_Fees); // ding!
 
-	b = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, NodeDB::PeerID()); // will likely trigger OnNewState(), and spread this block to the network
-	assert(b);
+	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, NodeDB::PeerID()); // will likely trigger OnNewState(), and spread this block to the network
+	assert(NodeProcessor::DataStatus::Accepted == eStatus);
 }
 
 } // namespace beam

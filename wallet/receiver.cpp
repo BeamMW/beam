@@ -1,4 +1,5 @@
 #include "receiver.h"
+#include "../core/block_crypt.h"
 
 namespace beam::wallet
 {
@@ -77,17 +78,11 @@ namespace beam::wallet
     {
         auto data = event.data;
         // 1. Verify sender's Schnor signature
-        Scalar::Native ne = m_kernel->m_Signature.m_e;
-        ne = -ne;
-        Point::Native s, s2;
 
-        s = m_publicSenderNonce;
-        s += m_publicSenderBlindingExcess * ne;
-
-        s2 = Context::get().G * data->m_senderSignature;
-        Point p(s), p2(s2);
-
-        return (p == p2);
+		Signature sigPeer;
+		sigPeer.m_e = m_kernel->m_Signature.m_e;
+		sigPeer.m_k = data->m_senderSignature;
+		return sigPeer.IsValidPartial(m_publicSenderNonce, m_publicSenderBlindingExcess);
     }
 
     bool Receiver::FSMDefinition::is_invalid_signature(const TxConfirmationCompleted& event)

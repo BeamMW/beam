@@ -377,7 +377,7 @@ namespace beam
             if (minedCoin.m_Active) // we store coins from active branch
             {
                 // coinbase 
-                mined.emplace_back(Block::s_CoinbaseEmission, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Coinbase);
+                mined.emplace_back(Block::Rules::CoinbaseEmission, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Coinbase);
                 if (minedCoin.m_Fees > 0)
                 {
                     mined.emplace_back(minedCoin.m_Fees, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Comission);

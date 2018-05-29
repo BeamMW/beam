@@ -355,6 +355,8 @@ namespace ECC {
 
 	Point::Native& Point::Native::operator = (Mul v)
 	{
+		assert(Mode::Fast == g_Mode);
+
 		const int nBits = 4;
 		const int nValuesPerLayer = (1 << nBits) - 1; // skip zero
 
@@ -814,19 +816,34 @@ namespace ECC {
 		m_k = k;
 	}
 
-	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
+	void Signature::get_PublicNonce(Point::Native& pubNonce, const Point::Native& pk) const
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		Scalar::Native k(m_k), e(m_e);
+		pubNonce = Context::get().G * m_k;
+		pubNonce += pk * m_e;
+	}
 
-		Point::Native pt = Context::get().G * k;
+	bool Signature::IsValidPartial(const Point::Native& pubNonce, const Point::Native& pk) const
+	{
+		Point::Native pubN;
+		get_PublicNonce(pubN, pk);
 
-		pt += pk * e;
+		pubN = -pubN;
+		pubN += pubNonce;
+		return pubN == Zero;
+	}
 
-		get_Challenge(k, pt, msg);
+	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
+	{
+		Point::Native pubNonce;
+		get_PublicNonce(pubNonce, pk);
 
-		return e == k;
+		Scalar::Native e2;
+
+		get_Challenge(e2, pubNonce, msg);
+
+		return m_e == Scalar(e2);
 	}
 
 	int Signature::cmp(const Signature& x) const
@@ -853,12 +870,7 @@ namespace ECC {
 		}
 
 		// Public
-		void Public::get_Msg(Hash::Value& hv) const
-		{
-			Hash::Processor() << m_Value >> hv;
-		}
-
-		bool Public::IsValid(const Point& comm) const
+		bool Public::IsValid(const Point& comm, Oracle& oracle) const
 		{
 			Mode::Scope scope(Mode::Fast);
 
@@ -869,16 +881,16 @@ namespace ECC {
 			get_PtMinusVal(pk, comm, m_Value);
 
 			Hash::Value hv;
-			get_Msg(hv);
+			oracle << m_Value >> hv;
 
 			return m_Signature.IsValid(hv, pk);
 		}
 
-		void Public::Create(const Scalar::Native& sk)
+		void Public::Create(const Scalar::Native& sk, Oracle& oracle)
 		{
 			assert(m_Value >= s_MinimumValue);
 			Hash::Value hv;
-			get_Msg(hv);
+			oracle << m_Value >> hv;
 
 			m_Signature.Sign(hv, sk);
 		}
@@ -1080,6 +1092,8 @@ namespace ECC {
 
 	void InnerProduct::Create(const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
 	{
+		Mode::Scope scope(Mode::Fast);
+
 		// bufs
 		const uint32_t nBufDim = nDim >> 1;
 		Point::Native pBufGen[2][nBufDim];
@@ -1202,9 +1216,9 @@ namespace ECC {
 
 	/////////////////////
 	// Bulletproof
-	void RangeProof::Confidential::Create(const Scalar::Native& sk, Amount v)
+	void RangeProof::Confidential::Create(const Scalar::Native& sk, Amount v, Oracle& oracle)
 	{
-		Oracle nonceGen, oracle;
+		Oracle nonceGen;
 		nonceGen << sk << v; // init
 
 		// A = G*alpha + vec(aL)*vec(G) + vec(aR)*vec(H)
@@ -1212,17 +1226,25 @@ namespace ECC {
 		nonceGen >> alpha;
 
 		Point::Native comm = Context::get().G * alpha;
-		Point::Native ptVal(Zero);
 
-		NoLeak<secp256k1_ge> ge;
-
-		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
-			uint32_t iBit = 1 & (v >> i);
-			Generator::ToPt(comm, ge.V, Context::get().m_Ipp.m_pAux1[iBit][i], false);
+			Point::Native ptVal(Zero);
+
+			NoLeak<secp256k1_ge> ge;
+			NoLeak<CompactPoint> ge_s;
+
+			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+			{
+				uint32_t iBit = 1 & (v >> i);
+
+				for (uint32_t j = 0; j < 2; j++)
+					Generator::object_cmov(ge_s.V, Context::get().m_Ipp.m_pAux1[iBit][i], j == iBit); // protection against side-channel attacks
+
+				Generator::ToPt(comm, ge.V, ge_s.V, false);
+			}
+			ptVal = -ptVal;
+			comm += ptVal;
 		}
-		ptVal = -ptVal;
-		comm += ptVal;
 
 		m_A = comm;
 		oracle << m_A; // exposed
@@ -1382,11 +1404,10 @@ namespace ECC {
 		m_P_Tag.Create(pS[0], pS[1], mod);
 	}
 
-	bool RangeProof::Confidential::IsValid(const Point& commitment) const
+	bool RangeProof::Confidential::IsValid(const Point& commitment, Oracle& oracle) const
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		Oracle oracle;
 		Scalar::Native x, y, z, xx, zz, tDot;
 
 		oracle << m_A << m_S;

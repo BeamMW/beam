@@ -38,6 +38,17 @@ namespace beam
 	typedef std::vector<uint8_t> ByteBuffer;
 	typedef ECC::Amount Amount;
 
+	struct AmountBig
+	{
+		Amount Lo;
+		Amount Hi;
+
+		void operator += (const Amount);
+		void operator += (const AmountBig&);
+
+		void Export(ECC::uintBig&) const;
+	};
+
 	namespace Merkle
 	{
 		typedef ECC::Hash::Value Hash;
@@ -148,7 +159,7 @@ namespace beam
 
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
-		bool IsValid(Amount& fee, ECC::Point::Native& exc) const;
+		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
 
 		void get_HashForSigning(Merkle::Hash&) const; // Includes the contents, but not the excess and the signature
 
@@ -161,7 +172,7 @@ namespace beam
 		COMPARISON_VIA_CMP(TxKernel)
 
 	private:
-		bool Traverse(ECC::Hash::Value&, Amount*, ECC::Point::Native*) const;
+		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
@@ -193,18 +204,8 @@ namespace beam
 		// Define: Sigma = Sum(Outputs) - Sum(Inputs) + Sum(TxKernels.Excess) + m_Offset*G
 		// Sigma is either zero or -Sum(Fee)*H, depending on what we validate
 
-		struct Context
-		{
-			Amount m_Fee; // TODO: may overflow!
-			Amount m_Coinbase; // TODO: may overflow!
-			Height m_hMin;
-			Height m_hMax;
-
-			Context() { Reset(); }
-			void Reset();
-		};
-
-		bool ValidateAndSummarize(Context&, ECC::Point::Native& sigma) const;
+		struct Context;
+		bool ValidateAndSummarize(Context&) const;
 
 		int cmp(const TxBase&) const;
 		COMPARISON_VIA_CMP(TxBase)
@@ -281,12 +282,26 @@ namespace beam
 			};
 		};
 
-		static const Amount s_CoinbaseEmission; // the maximum allowed coinbase in a single block
-		static const Height s_MaturityCoinbase;
-		static const Height s_MaturityStd;
-		static const Height s_HeightGenesis; // height of the 1st block, defines the convention. Currently =1
+		struct Rules
+		{
+			static const Amount CoinbaseEmission; // the maximum allowed coinbase in a single block
+			static const Height MaturityCoinbase;
+			static const Height MaturityStd;
 
-		static const size_t s_MaxBodySize;
+			static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
+
+			static const size_t MaxBodySize;
+
+			// timestamp & difficulty. Basically very close to those from bitcoin, except the desired rate is 1 minute (instead of 10 minutes)
+			static const uint32_t DesiredRate_s = 60; // 1 minute
+			static const uint32_t DifficultyReviewCycle = 24 * 60 * 7; // 10,080 blocks, 1 week roughly
+			static const uint32_t MaxDifficultyChange = 3; // i.e. x8 roughly. (There's no equivalent to this in bitcoin).
+			static const uint32_t TimestampAheadThreshold_s = 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
+			static const uint32_t WindowForMedian = 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
+
+			static void AdjustDifficulty(uint8_t&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s);
+		};
+
 
 		struct Body
 			:public TxBase
