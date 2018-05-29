@@ -373,7 +373,8 @@ enum NodeNetworkMessageCodes : uint8_t
     NewTransactionCode = 23,
     BooleanCode = 5,
     GetUtxoProofCode = 10,
-    ProofUtxoCode = 12
+    ProofUtxoCode = 12,
+	ConfigCode = 20
 };
 
 class TestNode : public IMsgHandler
@@ -388,6 +389,7 @@ public:
     {
         m_protocol.add_message_handler<proto::NewTransaction, &TestNode::on_message>(NewTransactionCode, 1, 2000);
         m_protocol.add_message_handler<proto::GetProofUtxo,   &TestNode::on_message>(GetUtxoProofCode, 1, 2000);
+		m_protocol.add_message_handler<proto::Config,         &TestNode::on_message>(ConfigCode, 1, 2000);
     }
 
     void start()
@@ -433,6 +435,11 @@ private:
         send(connectionId, ProofUtxoCode, proto::ProofUtxo());
         return true;
     }
+
+	bool on_message(uint64_t connectionId, proto::Config&& /*data*/)
+	{
+		return true;
+	}
 
     template <typename T>
     void send(PeerId to, MsgType type, T&& data)

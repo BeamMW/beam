@@ -389,18 +389,15 @@ namespace beam
             Block::SystemState::ID id = { 0 };
             m_keyChain->getVar(SystemStateIDName, id);
 
-            m_keyChain->visitMinedCoins(id.m_Height, [&mined](const Coin& coin)
+            m_keyChain->visit([&mined](const Coin& coinA)
             {
-				auto it = std::find_if(mined.begin(), mined.end(), [coin](const Coin& item)
+				auto it = std::find_if(mined.begin(), mined.end(), [&coinA](const Coin& coinB)
 				{
-					return coin.m_height == item.m_height && coin.m_key_type == item.m_key_type;
+					return coinA.m_height == coinB.m_height && coinA.m_key_type == coinB.m_key_type;
 				});
 
 				if (it != mined.end())
-				{
 					mined.erase(it);
-					return false;
-				}
 
 				return true;
             });
