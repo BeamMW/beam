@@ -53,6 +53,30 @@ namespace ECC {
 		g_Mode = m_PrevMode;
 	}
 
+	char ChFromHex(uint8_t v)
+	{
+		return v + ((v < 10) ? '0' : ('a' - 10));
+	}
+
+	std::ostream& operator << (std::ostream& s, const uintBig& x)
+	{
+		const int nDigits = 8; // truncated
+		static_assert(nDigits <= _countof(x.m_pData));
+
+		char sz[nDigits * 2 + 1];
+
+		for (int i = 0; i < nDigits; i++)
+		{
+			sz[i * 2] = ChFromHex(x.m_pData[i] >> 4);
+			sz[i * 2 + 1] = ChFromHex(x.m_pData[i] & 0xf);
+		}
+
+		sz[_countof(sz) - 1] = 0;
+		s << sz;
+
+		return s;
+	}
+
 	/////////////////////
 	// Scalar
 	const uintBig Scalar::s_Order = { // fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141

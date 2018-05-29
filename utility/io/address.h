@@ -76,6 +76,8 @@ struct Address {
     std::string str() const;
 };
 
+std::ostream& operator << (std::ostream& s, const Address& v);
+
 }} //namespaces
 
 namespace std {

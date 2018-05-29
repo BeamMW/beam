@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <string.h> // memcmp
+#include <ostream>
 
 #ifndef _countof
 #	define _countof(_Array) (sizeof(_Array) / sizeof(_Array[0]))
@@ -187,6 +188,9 @@ namespace ECC
 
 	static const uint32_t nBits = 256;
 	typedef uintBig_t<nBits> uintBig;
+
+	std::ostream& operator << (std::ostream&, const uintBig&);
+
 
 	class Commitment;
 	class Oracle;

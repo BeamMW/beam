@@ -74,5 +74,16 @@ std::string Address::str() const {
     return std::string(buf);
 }
 
-}} //namespaces
+std::ostream& operator << (std::ostream& s, const Address& v)
+{
+	uint32_t ipAddr = v.ip();
 
+#define ADDR_FMT_STR "%u.%u.%u.%u:%u"
+	char sz[_countof(ADDR_FMT_STR) + (3 - 2) * 4 + (5 - 2)];
+	sprintf(sz, ADDR_FMT_STR, uint8_t(ipAddr >> 24), uint8_t(ipAddr >> 16), uint8_t(ipAddr >> 8), uint8_t(ipAddr), v.port());
+
+	s << sz;
+	return s;
+}
+
+}} //namespaces

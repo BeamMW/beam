@@ -328,4 +328,7 @@ namespace beam
 		Regular
 	};
 	void DeriveKey(ECC::Scalar::Native&, const ECC::Kdf&, Height, KeyType, uint32_t nIdx = 0);
-}
+
+	std::ostream& operator << (std::ostream&, const Block::SystemState::ID&);
+
+} // namespace beam
