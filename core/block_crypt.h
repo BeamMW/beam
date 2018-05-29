@@ -8,8 +8,8 @@ namespace beam
 	{
 		ECC::Point::Native m_Sigma; // outputs - inputs
 
-		Amount m_Fee; // TODO: may overflow!
-		Amount m_Coinbase; // TODO: may overflow!
+		AmountBig m_Fee;
+		AmountBig m_Coinbase;
 		Height m_hMin;
 		Height m_hMax;
 

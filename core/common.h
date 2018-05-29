@@ -38,6 +38,17 @@ namespace beam
 	typedef std::vector<uint8_t> ByteBuffer;
 	typedef ECC::Amount Amount;
 
+	struct AmountBig
+	{
+		Amount Lo;
+		Amount Hi;
+
+		void operator += (const Amount);
+		void operator += (const AmountBig&);
+
+		void Export(ECC::uintBig&) const;
+	};
+
 	namespace Merkle
 	{
 		typedef ECC::Hash::Value Hash;
@@ -148,7 +159,7 @@ namespace beam
 
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
-		bool IsValid(Amount& fee, ECC::Point::Native& exc) const;
+		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
 
 		void get_HashForSigning(Merkle::Hash&) const; // Includes the contents, but not the excess and the signature
 
@@ -161,7 +172,7 @@ namespace beam
 		COMPARISON_VIA_CMP(TxKernel)
 
 	private:
-		bool Traverse(ECC::Hash::Value&, Amount*, ECC::Point::Native*) const;
+		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }

@@ -586,7 +586,7 @@ void TestTransaction()
 
 	beam::TxBase::Context ctx;
 	verify_test(tm.m_Trans.IsValid(ctx));
-	verify_test(ctx.m_Fee == fee1 + fee2);
+	verify_test(!ctx.m_Fee.Hi && (ctx.m_Fee.Lo == fee1 + fee2));
 }
 
 void TestTransactionKernelConsuming()
@@ -638,7 +638,7 @@ void TestTransactionKernelConsuming()
 
 	beam::TxBase::Context ctx;
 	verify_test(t.IsValid(ctx));
-	verify_test(ctx.m_Fee == 0);
+	verify_test(ctx.m_Fee.Lo == 0);
 }
 
 void TestAll()

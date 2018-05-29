@@ -124,7 +124,7 @@ namespace beam
 
 	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, Amount* pFee, ECC::Point::Native* pExcess) const
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess) const
 	{
 		ECC::Hash::Processor hp;
 		hp	<< m_Fee
@@ -202,7 +202,7 @@ namespace beam
 		Traverse(out, NULL, NULL);
 	}
 
-	bool TxKernel::IsValid(Amount& fee, ECC::Point::Native& exc) const
+	bool TxKernel::IsValid(AmountBig& fee, ECC::Point::Native& exc) const
 	{
 		ECC::Hash::Value hv;
 		return Traverse(hv, &fee, &exc);
@@ -271,7 +271,8 @@ namespace beam
 	{
 		m_Sigma = ECC::Zero;
 
-		m_Fee = m_Coinbase = 0;
+		ZeroObject(m_Fee);
+		ZeroObject(m_Coinbase);
 		m_hMin = 0;
 		m_hMax = -1;
 		m_bRangeMode = false;
@@ -339,7 +340,7 @@ namespace beam
 			return false;
 
 		ctx.m_Sigma = -ctx.m_Sigma;
-		Amount feeInp = 0; // dummy var
+		AmountBig feeInp; // dummy var
 
 		assert(ctx.m_nVerifiers);
 		uint32_t iV = ctx.m_iVerifier;
@@ -553,10 +554,16 @@ namespace beam
 
 	bool TxBase::Context::IsValidTransaction()
 	{
-		if (m_Coinbase)
+		if (m_Coinbase.Lo || m_Coinbase.Hi)
 			return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 
-		m_Sigma += ECC::Context::get().H * m_Fee;
+		if (m_Fee.Hi)
+		{
+			ECC::Scalar s;
+			m_Fee.Export(s.m_Value);
+			m_Sigma += ECC::Context::get().H_Big * s;
+		} else
+			m_Sigma += ECC::Context::get().H * m_Fee.Lo;
 
 		return m_Sigma == ECC::Zero;
 	}
@@ -566,6 +573,28 @@ namespace beam
 		return
 			ValidateAndSummarize(ctx) &&
 			ctx.IsValidTransaction();
+	}
+
+	/////////////
+	// AmoutBig
+	void AmountBig::operator += (Amount x)
+	{
+		Lo += x;
+		if (Lo < x)
+			Hi++;
+	}
+
+	void AmountBig::operator += (const AmountBig& x)
+	{
+		operator += (x.Lo);
+		Hi += x.Hi;
+	}
+
+	void AmountBig::Export(ECC::uintBig& x) const
+	{
+		x = ECC::Zero;
+		x.AssignRange<Amount, 0>(Lo);
+		x.AssignRange<Amount, (sizeof(Lo) << 3) >(Hi);
 	}
 
 	/////////////
@@ -646,20 +675,29 @@ namespace beam
 
 	bool TxBase::Context::IsValidBlock()
 	{
+		ECC::uintBig mul;
+		mul = Block::Rules::CoinbaseEmission;
+
 		Height nBlocksInRange = m_hMax - m_hMin + 1;
-		Amount nEmission = Block::Rules::CoinbaseEmission * nBlocksInRange; // TODO: overflow!
+
+		ECC::Scalar scEmission;
+		scEmission.m_Value = nBlocksInRange;
+		scEmission.m_Value = scEmission.m_Value * mul;
 
 		m_Sigma = -m_Sigma;
-		m_Sigma += ECC::Context::get().H * nEmission;
+		m_Sigma += ECC::Context::get().H_Big * scEmission;
 
 		if (!(m_Sigma == ECC::Zero)) // No need to add fees explicitly, they must have already been consumed
 			return false;
 
 		// ensure there's a minimal unspent coinbase UTXOs
 		Height nUnmatureBlocks = std::min(Block::Rules::MaturityCoinbase, nBlocksInRange);
-		Amount nEmissionUnmature = Block::Rules::CoinbaseEmission * nUnmatureBlocks; // TODO: overflow!
 
-		return (m_Coinbase >= nEmissionUnmature);
+		scEmission.m_Value = nUnmatureBlocks;
+		scEmission.m_Value = scEmission.m_Value * mul;
+
+		m_Coinbase.Export(mul);
+		return (mul >= scEmission.m_Value);
 	}
 
 	bool Block::Body::IsValid(Height h0, Height h1) const

@@ -863,7 +863,7 @@ bool NodeProcessor::TxPool::AddTx(Transaction::Ptr&& pValue, Height h)
 
 	Element* p = new Element;
 	p->m_Threshold.m_Value	= ctx.m_hMax;
-	p->m_Profit.m_Fee	= ctx.m_Fee;
+	p->m_Profit.m_Fee	= ctx.m_Fee.Hi ? Amount(-1) : ctx.m_Fee.Lo; // ignore huge fees (which are  highly unlikely), saturate.
 	p->m_Profit.m_nSize	= ssc.m_Counter.m_Value;
 	p->m_Tx.m_pValue = std::move(pValue);
 

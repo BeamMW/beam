@@ -114,16 +114,22 @@ namespace ECC
 		// from ordinal types (unsigned)
 		template <typename T>
 		uintBig_t& operator = (T x)
-	{
-			static_assert(sizeof(m_pData) >= sizeof(x), "too small");
-			static_assert(T(-1) > 0, "must be unsigned");
-
+		{
 			memset0(m_pData, sizeof(m_pData) - sizeof(x));
-
-			for (int i = 0; i < sizeof(x); i++, x >>= 8)
-				m_pData[_countof(m_pData) - 1 - i] = (uint8_t) x;
+			AssignRange<T, 0>(x);
 
 			return *this;
+		}
+
+		template <typename T, uint32_t nOffset>
+		void AssignRange(T x)
+		{
+			static_assert(!(nOffset & 7), "offset must be on byte boundary");
+			static_assert(sizeof(m_pData) >= sizeof(x) + (nOffset >> 3), "too small");
+			static_assert(T(-1) > 0, "must be unsigned");
+
+			for (int i = 0; i < sizeof(x); i++, x >>= 8)
+				m_pData[_countof(m_pData) - 1 - (nOffset >> 3) - i] = (uint8_t) x;
 		}
 
 		void Inc()
