@@ -1,14 +1,29 @@
 #pragma once
 #include "peer_info.h"
 #include <map>
-#include <unordered_map>
+#include <set>
+#include <unordered_set>
 
 namespace beam {
 
-class BannedPeers {
+/// Manages allow, ban, and reconnect policies
+class IpAccessControl {
 public:
-    using Callback = std::function<void(Peer p, bool isBanned)>;
+    using AllowCallback = std::function<void(io::Address a)>;
 
+    /// Ctor. If allowed list is not empty then allow policy comes into effect
+    IpAccessControl(AllowCallback unbanCallback, AllowCallback reconnectCallback, std::unordered_set<uint32_t> allowedIps = std::unordered_set<uint32_t>());
+
+    /// Returns if ip allowed at the moment
+    bool is_ip_allowed(uint32_t ip);
+
+    void schedule_reconnect(io::Address a, Timestamp waitUntil);
+
+    void ban(io::Address a, Timestamp waitUntil);
+
+    void unban(io::Address a);
+
+/*
     BannedPeers(const Callback& callback) : _callback(callback) {
         assert(_callback);
     }
@@ -56,14 +71,35 @@ public:
             _callback(p, false);
         }
     }
-
+*/
 private:
-    using TimeToPeer = std::multimap<Timestamp, Peer>;
-    using PeerToTime = std::unordered_map<Peer, TimeToPeer::iterator>;
+    using IpSet = std::unordered_set<uint32_t>;
 
-    Callback _callback;
-    TimeToPeer _schedule;
-    PeerToTime _peers;
+    AllowCallback _unbanCallback;
+    AllowCallback _reconnectCallback;
+    bool _allowPolicy;
+    IpSet _allowed;
+
+    struct Info {
+        struct Key {
+            Timestamp waitUntil=0;
+            uint32_t ip=0;
+
+            bool operator<(const Key& k) const {
+                return waitUntil < k.waitUntil;
+            }
+        };
+
+        Key key;
+        uint16_t port=0;
+        bool isBanned=false;
+    };
+
+    using Schedule = std::set<Info::Key>;
+    using IpToPeer = std::unordered_map<uint32_t, Info>;
+
+    Schedule _schedule;
+    IpToPeer _denied;
 };
 
 } //namespace

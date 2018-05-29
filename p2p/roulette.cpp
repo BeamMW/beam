@@ -1,16 +1,15 @@
 #include "roulette.h"
+#include "rnd_gen.h"
 #include <assert.h>
 
 namespace beam {
 
-Roulette::Roulette(uint32_t maxItemWeight) :
+Roulette::Roulette(RandomGen& rdGen, uint32_t maxItemWeight) :
+    _rdGen(rdGen),
     _maxItemWeight(maxItemWeight)
 {
     assert(_maxItemWeight > 0);
-
     _buckets.resize(_maxItemWeight + 1);
-    std::random_device _rd;
-    _rdGen.seed(_rd());
 }
 
 void Roulette::push(Roulette::ID id, uint32_t weight) {
@@ -33,7 +32,7 @@ Roulette::ID Roulette::pull() {
     if (_totalWeight == 0) return id;
 
     // choose random bucket according weighted distribution
-    uint32_t x = rnd(0, _totalWeight-1);
+    uint32_t x = _rdGen.rnd<uint32_t>(0, _totalWeight-1);
     uint32_t bucketIdx = find_bucket(x, 1, _maxItemWeight);
     Bucket& bucket = _buckets[bucketIdx];
 
@@ -61,13 +60,6 @@ Roulette::ID Roulette::pull() {
     _totalItems--;
 
     return id;
-}
-
-// returns random number in range [a,b]
-uint32_t Roulette::rnd(uint32_t a, uint32_t b) {
-    if (a == b) return a;
-    std::uniform_int_distribution<uint32_t> dis(a, b);
-    return dis(_rdGen);
 }
 
 // returns index of nonempty bucket with weight range which contains x

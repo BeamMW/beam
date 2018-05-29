@@ -12,6 +12,8 @@ set(P2P_SRC
     p2p.cpp
     servers.cpp
     handshake.cpp
+    ip_access_control.cpp
+    rnd_gen.cpp
 )
 
 add_library(p2p STATIC ${P2P_SRC})

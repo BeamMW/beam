@@ -3,8 +3,9 @@
 namespace beam {
 
 P2P::P2P(io::Address bindTo, uint16_t listenTo) :
-    _knownServers(15), // max weight TODO from config
+    _knownServers(_rdGen, 15), // max weight TODO from config
     _protocol(0xAA, 0xBB, 0xCC, 22, *this, 0x2000),
+    _handshakingPeers(_protocol, BIND_THIS_MEMFN(on_peer_handshaked), listenTo, _rdGen.rnd<uint64_t>()),
     _bindToIp(bindTo),
     _port(listenTo)
 {
@@ -89,6 +90,10 @@ void P2P::on_protocol_error(Peer from, ProtocolError error) {
 
 void P2P::on_connection_error(Peer from, int errorCode) {
     LOG_INFO() << "Connection error from " << io::Address::from_u64(from).str() << " error=" << io::error_str(io::ErrorCode(errorCode));
+}
+
+void P2P::on_peer_handshaked(ConnectionPtr&& conn, uint16_t listensTo) {
+
 }
 
 } //namespace

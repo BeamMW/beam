@@ -3,8 +3,8 @@
 
 namespace beam {
 
-Servers::Servers(uint32_t maxWeight) :
-    _connectRoulette(maxWeight)
+Servers::Servers(RandomGen& rdGen, uint32_t maxWeight) :
+    _connectRoulette(rdGen, maxWeight)
 {}
 
 const KnownServers& Servers::get_known_servers() const {

@@ -11,7 +11,7 @@ using KnownServers = std::unordered_map<io::Address, uint32_t>;
 /// Set of serversto connect to
 class Servers {
 public:
-    explicit Servers(uint32_t maxWeight);
+    Servers(RandomGen& rdGen, uint32_t maxWeight);
 
     /// Returns known servers to be sent to network
     const KnownServers& get_known_servers() const;
