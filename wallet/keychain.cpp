@@ -503,26 +503,6 @@ namespace beam
         }
     }
 
-    void Keychain::visitMinedCoins(Height minHeight, std::function<bool(const beam::Coin& coin)> func)
-    {
-        const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE height=?1 AND (key_type=?2 OR key_type=?3);";
-        sqlite::Statement stm(_db, req);
-        
-        stm.bind(1, minHeight);
-        stm.bind(2, KeyType::Coinbase);
-        stm.bind(3, KeyType::Comission);
-
-        while (stm.step())
-        {
-            Coin coin;
-
-            ENUM_STORAGE_FIELDS(STM_GET_LIST, NOSEP);
-
-            if (!func(coin))
-                break;
-        }
-    }
-
     void Keychain::setVarRaw(const char* name, const void* data, int size)
     {
         sqlite::Transaction trans(_db);

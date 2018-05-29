@@ -67,11 +67,6 @@ struct SqliteKeychain : beam::IKeyChain
 		_keychain->visit(func);
 	}
 
-    void visitMinedCoins(beam::Height minHeight, std::function<bool(const beam::Coin& coin)> func) override
-    {
-        _keychain->visitMinedCoins(minHeight, func);
-    }
-
 	void setVarRaw(const char* name, const void* data, int size) override
 	{
 		_keychain->setVarRaw(name, data, size);
