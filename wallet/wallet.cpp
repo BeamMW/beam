@@ -370,36 +370,44 @@ namespace beam
 
     void Wallet::handle_node_message(proto::Mined&& msg)
     {
-        auto comparer = [](const Coin& left, const Coin& right)->bool
-        {
-            return left.m_height < right.m_height;
-        };
-        set<Coin, decltype(comparer)> mined { comparer };
+        vector<Coin> mined;
 
         for (auto& minedCoin : msg.m_Entries)
         {
             if (minedCoin.m_Active) // we store coins from active branch
             {
                 // coinbase 
-                mined.emplace(Block::s_CoinbaseEmission, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Coinbase);
+                mined.emplace_back(Block::s_CoinbaseEmission, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Coinbase);
                 if (minedCoin.m_Fees > 0)
                 {
-                    mined.emplace(minedCoin.m_Fees, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Comission);
+                    mined.emplace_back(minedCoin.m_Fees, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Comission);
                 }
             }
         }
-        /*if (!mined.empty())
+        if (!mined.empty())
         {
             Block::SystemState::ID id = { 0 };
             m_keyChain->getVar(SystemStateIDName, id);
 
-            m_keyChain->visitMinedCoins(id.m_Height, [&mined](const Coin& coin)-> bool
+            m_keyChain->visitMinedCoins(id.m_Height, [&mined](const Coin& coin)
             {
-                m
+				auto it = std::find_if(mined.begin(), mined.end(), [coin](const Coin& item)
+				{
+					return coin.m_height == item.m_height && coin.m_key_type == item.m_key_type;
+				});
+
+				if (it != mined.end())
+				{
+					mined.erase(it);
+					return false;
+				}
+
+				return true;
             });
 
         }
-        m_keyChain->store(mined);*/
+
+        m_keyChain->store(mined);
     }
 
     void Wallet::handle_connection_error(PeerId from)
