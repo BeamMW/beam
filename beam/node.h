@@ -6,6 +6,7 @@
 #include "../core/block_crypt.h"
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/set.hpp>
+#include <condition_variable>
 
 namespace beam
 {
