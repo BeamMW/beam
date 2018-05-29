@@ -45,6 +45,38 @@ void SetRandom(Scalar::Native& x)
 	}
 }
 
+void TestUintBig()
+{
+	for (int i = 0; i < 100; i++)
+	{
+		uint32_t a, b;
+		GenerateRandom(&a, sizeof(a));
+		GenerateRandom(&b, sizeof(b));
+
+		uint64_t ab = a;
+		ab *= b;
+
+		uintBig v0, v1;
+		v0 = a;
+		v1 = b;
+		v0 = v0 * v1;
+		v1 = ab;
+
+		verify_test(v0 == v1);
+
+		ab = a;
+		ab += b;
+
+		v0 = a;
+		v1 = b;
+
+		v0 += v1;
+		v1 = ab;
+
+		verify_test(v0 == v1);
+	}
+}
+
 void TestHash()
 {
 	Hash::Processor hp;
@@ -611,6 +643,7 @@ void TestTransactionKernelConsuming()
 
 void TestAll()
 {
+	TestUintBig();
 	TestHash();
 	TestScalars();
 	TestPoints();

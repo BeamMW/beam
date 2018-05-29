@@ -128,13 +128,52 @@ namespace ECC
 
 		void Inc()
 		{
-			for (int i = 0; i < _countof(m_pData); i++)
-				if (++m_pData[_countof(m_pData) - 1 - i])
+			for (int i = _countof(m_pData); i--; )
+				if (++m_pData[i])
 					break;
 
 		}
 
 		void GenerateNonce(const uintBig_t& sk, const uintBig_t& msg, const uintBig_t* pMsg2, uint32_t nAttempt = 0); // implemented only for nBits_ = 256 bits
+
+		// Simple arithmetics. For casual use only (not performance-critical)
+		void operator += (const uintBig_t& x)
+		{
+			uint16_t carry = 0;
+			for (int i = _countof(m_pData); i--; )
+			{
+				carry += m_pData[i];
+				carry += x.m_pData[i];
+				
+				m_pData[i] = (uint8_t) carry;
+				carry >>= 8;
+			}
+		}
+
+		uintBig_t operator * (const uintBig_t& x) const
+		{
+			uintBig_t res;
+			res = Zero;
+
+			for (int j = 0; j < _countof(x.m_pData); j++)
+			{
+				uint8_t y = x.m_pData[_countof(x.m_pData) - 1 - j];
+
+				uint16_t carry = 0;
+				for (int i = _countof(m_pData); i-- > j; )
+				{
+					uint16_t val = m_pData[i];
+					val *= y;
+					carry += val;
+					carry += res.m_pData[i - j];
+
+					res.m_pData[i - j] = (uint8_t) carry;
+					carry >>= 8;
+				}
+			}
+
+			return res;
+		}
 
 		int cmp(const uintBig_t& x) const { return memcmp(m_pData, x.m_pData, sizeof(m_pData)); }
 		COMPARISON_VIA_CMP(uintBig_t)
