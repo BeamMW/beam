@@ -150,11 +150,28 @@ namespace beam::wallet
 
     void Sender::FSMDefinition::rollback_tx(const TxFailed& )
     {
+        for (auto& c : m_coins)
+        {
+            c.m_status = Coin::Unspent;
+        }
+        m_keychain->update(m_coins);
+        if (m_changeOutput)
+        {
+            m_keychain->remove(vector<Coin> { *m_changeOutput });
+        }
     }
 
     void Sender::FSMDefinition::cancel_tx(const TxInitCompleted& )
     {
-        
+        for (auto& c : m_coins)
+        {
+            c.m_status = Coin::Unspent;
+        }
+        m_keychain->update(m_coins);
+        if (m_changeOutput)
+        {
+            m_keychain->remove(vector<Coin> { *m_changeOutput });
+        }
     }
 
 

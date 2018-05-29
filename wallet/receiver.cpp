@@ -39,7 +39,7 @@ namespace beam::wallet
         Amount amount = m_amount;
         Output::Ptr output = make_unique<Output>();
         output->m_Coinbase = false;
-
+        m_keychain->store(m_receiver_coin);
         Scalar::Native blindingFactor = m_keychain->calcKey(m_receiver_coin);
         output->Create(blindingFactor, amount);
         auto [privateExcess, offset] = split_key(blindingFactor, m_receiver_coin.m_id);
@@ -121,11 +121,13 @@ namespace beam::wallet
     void Receiver::FSMDefinition::rollback_tx(const TxFailed& event)
     {
         LOG_DEBUG() << "[Receiver] rollback_tx";
+        m_keychain->remove(vector<Coin> { m_receiver_coin });
     }
 
     void Receiver::FSMDefinition::cancel_tx(const TxConfirmationCompleted& )
     {
         LOG_DEBUG() << "[Receiver] cancel_tx";
+        m_keychain->remove(vector<Coin> { m_receiver_coin });
     }
 
     void Receiver::FSMDefinition::complete_tx(const TxRegistrationCompleted& )
@@ -133,7 +135,5 @@ namespace beam::wallet
         LOG_DEBUG() << "[Receiver] complete tx";
 
 		m_gateway.send_tx_registered(make_unique<Uuid>(m_txId));
-
-		// TODO: add unconfirmed coins (m_receiver_coin)
     }
 }

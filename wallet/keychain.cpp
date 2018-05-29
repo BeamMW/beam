@@ -7,6 +7,15 @@
 
 #define NOSEP
 
+// Coin ID fields
+// id          - coin counter
+// height      - block height where we got the coin
+// key_type    - key type
+//
+// amount      - amount
+// count       - number of coins with same commitment
+// status      - spent/unspent/unconfirmed/locked
+// lock_height - height where we can spend the coin
 #define ENUM_STORAGE_FIELDS(each, sep) \
     each(1, id,			sep, INTEGER PRIMARY KEY AUTOINCREMENT) \
     each(2, amount,		sep, INTEGER) \
