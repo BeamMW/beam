@@ -74,6 +74,10 @@ std::string Address::str() const {
     return std::string(buf);
 }
 
+#ifndef _countof
+#	define _countof(_Array) (sizeof(_Array) / sizeof(_Array[0]))
+#endif // _countof
+
 std::ostream& operator << (std::ostream& s, const Address& v)
 {
 	uint32_t ipAddr = v.ip();
