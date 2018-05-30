@@ -86,7 +86,7 @@ std::ostream& operator << (std::ostream& s, const Address& v)
 	char sz[_countof(ADDR_FMT_STR) + (3 - 2) * 4 + (5 - 2)];
 	sprintf(sz, ADDR_FMT_STR, uint8_t(ipAddr >> 24), uint8_t(ipAddr >> 16), uint8_t(ipAddr >> 8), uint8_t(ipAddr), v.port());
 
-	s << sz;
+	s << (const char*) sz;
 	return s;
 }
 
