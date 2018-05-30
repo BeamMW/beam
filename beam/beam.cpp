@@ -13,6 +13,7 @@
 namespace po = boost::program_options;
 using namespace std;
 using namespace beam;
+using namespace ECC;
 
 namespace cli
 {
@@ -40,6 +41,7 @@ namespace cli
     const char* INIT = "init";
     const char* SEND = "send";
     const char* INFO = "info";
+    const char* WALLET_SEED = "wallet_seed";
 }
 namespace beam
 {
@@ -101,7 +103,8 @@ int main(int argc, char* argv[])
         (cli::HELP_FULL, "list of all options")
         (cli::MODE, po::value<string>()->required(), "mode to execute [node|wallet]")
         (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
-        (cli::DEBUG_FULL, "launch in debug mode");
+        (cli::DEBUG_FULL, "launch in debug mode")
+        (cli::WALLET_SEED, po::value<string>(), "secret key generation seed");
 
     po::options_description node_options("Node options");
     node_options.add_options()
@@ -145,11 +148,22 @@ int main(int argc, char* argv[])
 
         auto port = vm[cli::PORT].as<uint16_t>();
         auto debug = vm.count(cli::DEBUG) > 0;
+        auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;
 
         if (vm.count(cli::MODE))
         {
             io::Reactor::Ptr reactor(io::Reactor::create());
             io::Reactor::Scope scope(*reactor);
+            NoLeak<uintBig> walletSeed;
+            walletSeed.V = Zero;
+            if (hasWalletSeed)
+            {
+                auto seed = vm[cli::WALLET_SEED].as<string>();
+                Hash::Value hv;
+                Hash::Processor() << seed.c_str() >> hv;
+                walletSeed.V = hv;
+            }
+
             auto mode = vm[cli::MODE].as<string>();
             if (mode == cli::NODE)
             {
@@ -161,6 +175,12 @@ int main(int argc, char* argv[])
                 node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
                 node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
                 node.m_Cfg.m_TestMode.m_bFakePoW = debug;
+                if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
+                {
+                    LOG_ERROR() << " wallet seed is not provider. You have to pass wallet seed for minig node.";
+                    return -1;
+                }
+                node.m_Cfg.m_WalletKey = walletSeed;
 
                 LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
@@ -189,10 +209,15 @@ int main(int argc, char* argv[])
                         LOG_ERROR() << "Please, provide password for the wallet.";
                         return -1;
                     }
-
+ 
                     if (command == cli::INIT)
                     {
-                        auto keychain = Keychain::init(pass);
+                        if (!hasWalletSeed)
+                        {
+                            LOG_ERROR() << "Please, provide seed phrase for the wallet.";
+                            return -1;
+                        }
+                        auto keychain = Keychain::init(pass, walletSeed);
                         if (keychain)
                         {
                             LOG_INFO() << "wallet successfully created...";
