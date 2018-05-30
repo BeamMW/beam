@@ -214,6 +214,8 @@ namespace ECC
 		COMPARISON_VIA_CMP(Scalar)
 	};
 
+	std::ostream& operator << (std::ostream&, const Scalar&);
+
 	struct Point
 	{
 		static const uintBig s_FieldOrder; // The field order, it's different from the group order (a little bigger).
@@ -232,6 +234,8 @@ namespace ECC
 		Point& operator = (const Point&);
 		Point& operator = (const Commitment&);
 	};
+
+	std::ostream& operator << (std::ostream&, const Point&);
 
 	struct Hash
 	{

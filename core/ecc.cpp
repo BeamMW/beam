@@ -77,6 +77,16 @@ namespace ECC {
 		return s;
 	}
 
+	std::ostream& operator << (std::ostream& s, const Scalar& x)
+	{
+		return operator << (s, x.m_Value);
+	}
+
+	std::ostream& operator << (std::ostream& s, const Point& x)
+	{
+		return operator << (s, x.m_X);
+	}
+
 	/////////////////////
 	// Scalar
 	const uintBig Scalar::s_Order = { // fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
