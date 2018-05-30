@@ -97,8 +97,8 @@ namespace beam
 
     void Wallet::transfer_money(PeerId to, Amount&& amount)
     {
-        Cleaner c{ m_removed_senders };
-        boost::uuids::uuid id = boost::uuids::random_generator()();
+        Cleaner<std::vector<wallet::Sender::Ptr> > c{ m_removed_senders };
+		boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId;
         copy(id.begin(), id.end(), txId.begin());
         m_peers.emplace(txId, to);
