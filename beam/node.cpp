@@ -824,7 +824,12 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 		}
 
 		ECC::Hash::Value hv; // pick pseudo-random initial nonce for mining.
-		ECC::Hash::Processor() << get_ParentObj().m_Cfg.m_MinerID << iIdx << s.m_Height >> hv;
+		ECC::Hash::Processor()
+			<< get_ParentObj().m_Cfg.m_MinerID
+			<< get_ParentObj().m_Processor.m_Kdf.m_Secret.V
+			<< iIdx
+			<< s.m_Height
+			>> hv;
 
 		static_assert(sizeof(s.m_PoW.m_Nonce) <= sizeof(hv));
 		memcpy(s.m_PoW.m_Nonce.m_pData, hv.m_pData, sizeof(s.m_PoW.m_Nonce.m_pData));
