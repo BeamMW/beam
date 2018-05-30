@@ -28,8 +28,10 @@ namespace cli
     const char* DEBUG_FULL = "debug,d";
     const char* STORAGE = "storage";
     const char* MINING_THREADS = "mining_threads";
-    const char* MINER_ID = "miner_id";
-    const char* PASS = "pass";
+	const char* VERIFICATION_THREADS = "verification_threads";
+	const char* MINER_ID = "miner_id";
+	const char* NODE_PEER = "peer";
+	const char* PASS = "pass";
     const char* AMOUNT = "amount";
     const char* AMOUNT_FULL = "amount,a";
     const char* RECEIVER_ADDR = "receiver_addr";
@@ -112,8 +114,10 @@ int main(int argc, char* argv[])
     node_options.add_options()
         (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
         (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
-        (cli::MINER_ID, po::value<uint32_t>()->default_value(0), "seed for miner nonce generation")
-        ;
+		(cli::VERIFICATION_THREADS, po::value<uint32_t>()->default_value(0), "number of threads for cryptographic verifications (0 = single thread)")
+		(cli::MINER_ID, po::value<uint32_t>()->default_value(0), "seed for miner nonce generation")
+		(cli::NODE_PEER, po::value<std::vector<std::string> >(), "nodes to connect to")
+		;
 
     po::options_description wallet_options("Wallet options");
     wallet_options.add_options()
@@ -186,13 +190,37 @@ int main(int argc, char* argv[])
                 node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<std::string>();
                 node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
                 node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
-                node.m_Cfg.m_TestMode.m_bFakePoW = debug;
+				node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<uint32_t>();
+				node.m_Cfg.m_TestMode.m_bFakePoW = debug;
                 if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
                 {
                     LOG_ERROR() << " wallet seed is not provider. You have to pass wallet seed for minig node.";
                     return -1;
                 }
                 node.m_Cfg.m_WalletKey = walletSeed;
+
+				std::vector<std::string> vPeers = vm[cli::NODE_PEER].as<std::vector<std::string> >();
+				node.m_Cfg.m_Connect.resize(vPeers.size());
+
+				for (size_t i = 0; i < vPeers.size(); i++)
+				{
+					io::Address& addr = node.m_Cfg.m_Connect[i];
+					if (!addr.resolve(vPeers[i].c_str()))
+					{
+						LOG_ERROR() << "unable to resolve: " << vPeers[i];
+						return -1;
+					}
+
+					if (!addr.port())
+					{
+						if (!port)
+						{
+							LOG_ERROR() << "Port must be specified";
+							return -1;
+						}
+						addr.port(port);
+					}
+				}
 
                 LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
