@@ -879,7 +879,7 @@ namespace beam
 			}
 
 			void SetTimer(uint32_t timeout_ms) {
-				//m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
+				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
 			}
 			void KillTimer() {
 				m_pTimer->cancel();
