@@ -55,6 +55,8 @@ namespace
         void visit(std::function<bool(const beam::Coin& coin)> func) override {}
 		void setVarRaw(const char* name, const void* data, int size) override {}
 		int getVarRaw(const char* name, void* data) const override { return 0; }
+		void setSystemStateID(const Block::SystemState::ID& stateID) override {};
+		bool getSystemStateID(Block::SystemState::ID& stateID) const override { return false; };
 
     protected:
         std::vector<beam::Coin> m_coins;

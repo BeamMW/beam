@@ -77,6 +77,16 @@ struct SqliteKeychain : beam::IKeyChain
 		return _keychain->getVarRaw(name, data);
 	}
 
+	void setSystemStateID(const beam::Block::SystemState::ID& stateID)
+	{
+		_keychain->setSystemStateID(stateID);
+	}
+
+	bool getSystemStateID(beam::Block::SystemState::ID& stateID) const
+	{
+		return _keychain->getSystemStateID(stateID);
+	}
+
 private:
 	beam::IKeyChain::Ptr _keychain;
 };

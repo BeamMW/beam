@@ -343,6 +343,9 @@ namespace beam
             sqlite::Statement stm(_db, req);
             stm.bind(1, Coin::Unspent);
 
+			Block::SystemState::ID stateID = { 0 };
+			getSystemStateID(stateID);
+
             while (true)
             {
                 if (sum >= amount) break;
@@ -355,10 +358,20 @@ namespace beam
 
                     if (coin.m_status == beam::Coin::Unspent)
                     {
-                        coin.m_status = beam::Coin::Locked;
+						Height lockHeight = coin.m_height + (coin.m_key_type == KeyType::Coinbase 
+							? Block::Rules::MaturityCoinbase 
+							: Block::Rules::MaturityStd);
 
-                        coins.push_back(coin);
-                        sum += coin.m_amount;
+						if (lockHeight >= stateID.m_Height)
+						{
+							if (lock)
+							{
+								coin.m_status = beam::Coin::Locked;
+							}
+
+							coins.push_back(coin);
+							sum += coin.m_amount;
+						}
                     }
                 }
                 else break;
@@ -369,7 +382,7 @@ namespace beam
         {
             coins.clear();
         }
-        else
+        else if(lock)
         {
             sqlite::Transaction trans(_db);
 
@@ -534,4 +547,16 @@ namespace beam
 
         return size;
     }
+
+	const char* SystemStateIDName = "SystemStateID";
+
+	void Keychain::setSystemStateID(const Block::SystemState::ID& stateID)
+	{
+		setVar(SystemStateIDName, stateID);
+	}
+
+	bool Keychain::getSystemStateID(Block::SystemState::ID& stateID) const
+	{
+		return getVar(SystemStateIDName, stateID);
+	}
 }

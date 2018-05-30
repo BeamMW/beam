@@ -27,7 +27,6 @@ namespace
         }
         T& m_v;
     };
-    static const char* SystemStateIDName = "SystemStateID";
 }
 
 namespace beam
@@ -101,7 +100,7 @@ namespace beam
         boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId;
         Block::SystemState::ID stateID = {0};
-		m_keyChain->getVar(SystemStateIDName, stateID);
+		m_keyChain->getSystemStateID(stateID);
         Height height = stateID.m_Height;
         copy(id.begin(), id.end(), txId.begin());
         m_peers.emplace(txId, to);
@@ -197,7 +196,7 @@ namespace beam
         {
             LOG_DEBUG() << "[Receiver] Received tx invitation " << data->m_txId;
             Block::SystemState::ID stateID = {0};
-			m_keyChain->getVar(SystemStateIDName, stateID);
+			m_keyChain->getSystemStateID(stateID);
 			if (stateID.m_Height != data->m_height)
 			{
 				assert(false && "different states");
@@ -342,11 +341,11 @@ namespace beam
         // don't send request if yes
 
         Block::SystemState::ID id = {0};
-        bool hasId = m_keyChain->getVar(SystemStateIDName, id);
+        bool hasId = m_keyChain->getSystemStateID(id);
 
         if (!hasId || msg.m_ID > id)
         {
-            m_keyChain->setVar(SystemStateIDName, msg.m_ID);
+            m_keyChain->setSystemStateID(msg.m_ID);
             m_network.send_node_message(proto::GetMined{ id.m_Height });
             m_network.send_node_message(proto::GetHdr{ msg.m_ID });
         }
@@ -373,14 +372,14 @@ namespace beam
         });
         Block::SystemState::ID newID = {0};
         msg.m_Description.get_ID(newID);
-        m_keyChain->setVar(SystemStateIDName, newID);
+        m_keyChain->setSystemStateID(newID);
     }
 
     void Wallet::handle_node_message(proto::Mined&& msg)
     {
         vector<Coin> mined;
         Block::SystemState::ID id = { 0 };
-        m_keyChain->getVar(SystemStateIDName, id);
+        m_keyChain->getSystemStateID(id);
 
         for (auto& minedCoin : msg.m_Entries)
         {

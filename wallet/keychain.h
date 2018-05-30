@@ -56,10 +56,13 @@ namespace beam
 		}
 
 		template <typename Var>
-		bool getVar(const char* name, Var& var)
+		bool getVar(const char* name, Var& var) const
 		{
 			return getVarRaw(name, &var) == sizeof(var);
 		}
+
+		virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
+		virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
 	};
 
     struct Keychain : IKeyChain
@@ -83,6 +86,8 @@ namespace beam
 		void setVarRaw(const char* name, const void* data, int size) override;
 		int getVarRaw(const char* name, void* data) const override;
 
+		void setSystemStateID(const Block::SystemState::ID& stateID) override;
+		bool getSystemStateID(Block::SystemState::ID& stateID) const override;
     private:
 
         sqlite3* _db;
