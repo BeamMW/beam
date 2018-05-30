@@ -980,7 +980,15 @@ void Node::Miner::Restart()
 
 	Task::Ptr pTask(std::make_shared<Task>());
 	if (!get_ParentObj().m_Processor.GenerateNewBlock(get_ParentObj().m_TxPool, pTask->m_Hdr, pTask->m_Body, pTask->m_Fees))
+	{
+		LOG_WARNING() << "Block generation failed, can't mine!";
 		return;
+	}
+
+	Block::SystemState::ID id;
+	pTask->m_Hdr.get_ID(id);
+
+	LOG_INFO() << "Block generated: " << id << ", Fee=" << pTask->m_Fees << ", Difficulty=" << uint32_t(pTask->m_Hdr.m_PoW.m_Difficulty) << ", Size=" << pTask->m_Body.size();
 
 	// let's mine it.
 	std::scoped_lock<std::mutex> scope(m_Mutex);
@@ -1002,7 +1010,6 @@ void Node::Miner::Restart()
 void Node::Miner::OnMined()
 {
 	Task::Ptr pTask;
-    LOG_INFO() << "New block mined";
 	{
 		std::scoped_lock<std::mutex> scope(m_Mutex);
 		if (!(m_pTask && *m_pTask->m_pStop))
@@ -1010,11 +1017,13 @@ void Node::Miner::OnMined()
 		pTask.swap(m_pTask);
 	}
 
-	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, true, NodeDB::PeerID());
-	assert(NodeProcessor::DataStatus::Accepted == eStatus); // Otherwise either the block is invalid (some bug?). Or someone else mined exactly the same block!
-
 	Block::SystemState::ID id;
 	pTask->m_Hdr.get_ID(id);
+
+	LOG_INFO() << "New block mined: " << id;
+
+	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, true, NodeDB::PeerID());
+	assert(NodeProcessor::DataStatus::Accepted == eStatus); // Otherwise either the block is invalid (some bug?). Or someone else mined exactly the same block!
 
 	NodeDB::StateID sid;
 	verify(sid.m_Row = get_ParentObj().m_Processor.get_DB().StateFindSafe(id));

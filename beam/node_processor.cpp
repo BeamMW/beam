@@ -2,6 +2,8 @@
 #include "../utility/serialize.h"
 #include "../core/block_crypt.h"
 #include "../core/serialization_adapters.h"
+#include "../utility/logger.h"
+#include "../utility/logger_checkpoints.h"
 
 namespace beam {
 
@@ -314,6 +316,12 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	RollbackData rbData;
 	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf);
 
+	Block::SystemState::Full s;
+	m_DB.get_State(sid.m_Row, s); // need it for logging anyway
+
+	Block::SystemState::ID id;
+	s.get_ID(id);
+
 	std::shared_ptr<Block::Body> pBlock(std::make_shared<Block::Body>());
 	try {
 
@@ -322,13 +330,13 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		der & *pBlock;
 	}
 	catch (const std::exception&) {
+		LOG_WARNING() << id << " Block deserialization failed";
 		return false;
 	}
 
 	bb.clear();
 
 	bool bFirstTime = false;
-	Block::SystemState::Full s;
 
 	if (bFwd)
 	{
@@ -336,13 +344,19 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		if (rbData.m_Buf.size() != n)
 		{
 			bFirstTime = true;
-			m_DB.get_State(sid.m_Row, s);
 
-			if (get_NextDifficulty() != s.m_PoW.m_Difficulty)
+			uint8_t nDifficulty = get_NextDifficulty();
+			if (nDifficulty != s.m_PoW.m_Difficulty)
+			{
+				LOG_WARNING() << id << " Difficulty expected=" << uint32_t(nDifficulty) << ", actual=" << uint32_t(s.m_PoW.m_Difficulty);
 				return false;
+			}
 
 			if (s.m_TimeStamp <= get_MovingMedian())
+			{
+				LOG_WARNING() << id << " Timestamp inconsistent wrt median";
 				return false;
+			}
 
 			Merkle::Hash hvHist;
 			if (sid.m_Height > Block::Rules::HeightGenesis)
@@ -355,10 +369,16 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				ZeroObject(hvHist);
 
 			if (s.m_History != hvHist)
+			{
+				LOG_WARNING() << id << " Header History mismatch";
 				return false; // The state (even the header) is formed incorrectly!
+			}
 
 			if (!VerifyBlock(pBlock, sid.m_Height, sid.m_Height))
+			{
+				LOG_WARNING() << id << " context-free verification failed";
 				return false;
+			}
 
 			rbData.m_Buf.resize(n);
 		}
@@ -371,6 +391,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		rbData.m_pUtxo += pBlock->m_vInputs.size();
 
 	bool bOk = HandleValidatedTx(*pBlock, sid.m_Height, bFwd, rbData);
+	if (!bOk)
+		LOG_WARNING() << id << " invalid in its context";
 
 	if (bFirstTime && bOk)
 	{
@@ -379,7 +401,10 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		get_CurrentLive(hv);
 
 		if (s.m_LiveObjects != hv)
+		{
+			LOG_WARNING() << id << " Header LiveObjects mismatch";
 			bOk = false;
+		}
 
 		if (bOk)
 			m_DB.SetStateRollback(sid.m_Row, rbData.m_Buf);
@@ -403,6 +428,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		kOffset = k;
 
 		m_DB.ParamSet(NodeDB::ParamID::StateExtra, NULL, &blob);
+
+		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
 
 	return bOk;
@@ -755,25 +782,35 @@ bool NodeProcessor::IsRelevantHeight(Height h)
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState::Full& s, bool bIgnorePoW, const PeerID& peer)
 {
+	Block::SystemState::ID id;
+	s.get_ID(id);
+
 	if (!s.IsSane())
+	{
+		LOG_WARNING() << id << " header insane!";
 		return DataStatus::Invalid;
+	}
 
 	if (!bIgnorePoW && !s.IsValidPoW())
+	{
+		LOG_WARNING() << id << " PoW invalid";
 		return DataStatus::Invalid;
+	}
 
 	Timestamp ts = time(NULL);
 	if (s.m_TimeStamp > ts)
 	{
 		ts = s.m_TimeStamp - ts; // dt
 		if (ts > Block::Rules::TimestampAheadThreshold_s)
+		{
+			LOG_WARNING() << id << " Timestamp ahead by " << ts;
 			return DataStatus::Invalid;
+		}
 	}
 
 	if (!IsRelevantHeight(s.m_Height))
 		return DataStatus::Rejected;
 
-	Block::SystemState::ID id;
-	s.get_ID(id);
 	if (m_DB.StateFindSafe(id))
 		return DataStatus::Rejected;
 
@@ -782,26 +819,39 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 	m_DB.set_Peer(rowid, &peer);
 	t.Commit();
 
+	LOG_INFO() << id << " Header accepted";
+
 	return DataStatus::Accepted;
 }
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob& block, const PeerID& peer)
 {
 	if (block.n > Block::Rules::MaxBodySize)
+	{
+		LOG_WARNING() << id << " Block too large: " << block.n;
 		return DataStatus::Invalid;
+	}
 
 	uint64_t rowid = m_DB.StateFindSafe(id);
 	if (!rowid)
+	{
+		LOG_WARNING() << id << " Block unexpected";
 		return DataStatus::Rejected;
+	}
 
 	if (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(rowid))
+	{
+		LOG_WARNING() << id << " Block already received";
 		return DataStatus::Rejected;
+	}
 
 	NodeDB::Transaction t(m_DB);
 
 	m_DB.SetStateBlock(rowid, block);
 	m_DB.SetStateFunctional(rowid);
 	m_DB.set_Peer(rowid, &peer);
+
+	LOG_INFO() << id << " Block accepted";
 
 	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
 		TryGoUp();
