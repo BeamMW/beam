@@ -522,6 +522,8 @@ namespace detail
 		static Archive& save(Archive& ar, const beam::Block::Body& bb)
 		{
 			ar & (const beam::TxBase&) bb;
+			ar & bb.m_Subsidy.Lo;
+			ar & bb.m_Subsidy.Hi;
 
 			return ar;
 		}
@@ -530,6 +532,8 @@ namespace detail
 		static Archive& load(Archive& ar, beam::Block::Body& bb)
 		{
 			ar & (beam::TxBase&) bb;
+			ar & bb.m_Subsidy.Lo;
+			ar & bb.m_Subsidy.Hi;
 
 			return ar;
 		}

@@ -226,7 +226,11 @@ int main(int argc, char* argv[])
                 }
                 node.m_Cfg.m_WalletKey = walletSeed;
 
-				std::vector<std::string> vPeers = vm[cli::NODE_PEER].as<std::vector<std::string> >();
+				std::vector<std::string> vPeers;
+
+				if (vm.count(cli::NODE_PEER))
+					vPeers = vm[cli::NODE_PEER].as<std::vector<std::string> >();
+
 				node.m_Cfg.m_Connect.resize(vPeers.size());
 
 				for (size_t i = 0; i < vPeers.size(); i++)
@@ -401,7 +405,7 @@ int main(int argc, char* argv[])
 						// Leave this until mining
 
 						SerializerFile ser;
-						ser.m_File.open(sPath, std::ofstream::out | std::ofstream::trunc);
+						ser.m_File.open(sPath, std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
 						ser & block;
 
 					}
