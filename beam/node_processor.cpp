@@ -1206,6 +1206,61 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	return true;
 }
 
+bool NodeProcessor::GenerateGenesisBlock(Block::Body& treasury, Block::SystemState::Full& s, ByteBuffer& bbBlock)
+{
+	if (!treasury.m_vInputs.empty() || !treasury.m_vKernelsInput.empty())
+		return false; // inputs are not allowed
+
+	// add coinbase
+	ECC::Scalar::Native k, offset = treasury.m_Offset;
+	DeriveKey(k, m_Kdf, Block::Rules::HeightGenesis, KeyType::Coinbase);
+
+	Output::Ptr pOutp(new Output);
+	pOutp->m_Coinbase = true;
+	pOutp->Create(k, Block::Rules::CoinbaseEmission, true);
+
+	treasury.m_vOutputs.push_back(std::move(pOutp));
+
+	treasury.Sort();
+	treasury.DeleteIntermediateOutputs();
+
+	k = -k;
+	offset += k;
+	treasury.m_Offset = offset;
+
+	if (!VerifyBlock(treasury, Block::Rules::HeightGenesis, Block::Rules::HeightGenesis))
+		return false;
+
+	{
+		NodeDB::Transaction t(m_DB);
+
+		NodeProcessor::RollbackData rbData; // useless since no inputs
+		if (!HandleValidatedTx(treasury, Block::Rules::HeightGenesis, true, rbData))
+			return false;
+
+		get_CurrentLive(s.m_LiveObjects);
+
+		if (!HandleValidatedTx(treasury, Block::Rules::HeightGenesis, false, rbData))
+			OnCorrupted();
+	}
+
+	ZeroObject(s.m_Prev);
+	ZeroObject(s.m_History);
+
+	s.m_Height = Block::Rules::HeightGenesis;
+
+	s.m_PoW.m_Difficulty = get_NextDifficulty();
+	s.m_TimeStamp = time(NULL); // TODO: 64-bit time
+
+	Serializer ser;
+
+	ser.reset();
+	ser & treasury;
+	ser.swap_buf(bbBlock);
+
+	return bbBlock.size() <= Block::Rules::MaxBodySize;
+}
+
 bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
 {
 	NodeDB::Transaction t(m_DB);

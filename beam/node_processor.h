@@ -145,6 +145,8 @@ public:
 	Height get_NextHeight();
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer& block, Amount& fees);
 
+	bool GenerateGenesisBlock(Block::Body& treasury, Block::SystemState::Full&, ByteBuffer& block);
+
 private:
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, Block::Body& block, Amount& fees, Height, RollbackData&);
 };
