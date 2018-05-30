@@ -557,13 +557,7 @@ namespace beam
 		if (m_Coinbase.Lo || m_Coinbase.Hi)
 			return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 
-		if (m_Fee.Hi)
-		{
-			ECC::Scalar s;
-			m_Fee.Export(s.m_Value);
-			m_Sigma += ECC::Context::get().H_Big * s;
-		} else
-			m_Sigma += ECC::Context::get().H * m_Fee.Lo;
+		m_Fee.AddTo(m_Sigma);
 
 		return m_Sigma == ECC::Zero;
 	}
@@ -595,6 +589,19 @@ namespace beam
 		x = ECC::Zero;
 		x.AssignRange<Amount, 0>(Lo);
 		x.AssignRange<Amount, (sizeof(Lo) << 3) >(Hi);
+	}
+
+	void AmountBig::AddTo(ECC::Point::Native& res) const
+	{
+		if (Hi)
+		{
+			ECC::Scalar s;
+			Export(s.m_Value);
+			res += ECC::Context::get().H_Big * s;
+		}
+		else
+			if (Lo)
+				res += ECC::Context::get().H * Lo;
 	}
 
 	/////////////
@@ -674,8 +681,11 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
 	}
 
-	bool TxBase::Context::IsValidBlock()
+	bool TxBase::Context::IsValidBlock(const Block::Body& body)
 	{
+		if ((m_hMin > Block::Rules::HeightGenesis) && (body.m_Subsidy.Lo || body.m_Subsidy.Hi))
+			return false; // subsidy is allowed on the genesis block only
+
 		ECC::uintBig mul;
 		mul = Block::Rules::CoinbaseEmission;
 
@@ -687,6 +697,8 @@ namespace beam
 
 		m_Sigma = -m_Sigma;
 		m_Sigma += ECC::Context::get().H_Big * scEmission;
+
+		body.m_Subsidy.AddTo(m_Sigma);
 
 		if (!(m_Sigma == ECC::Zero)) // No need to add fees explicitly, they must have already been consumed
 			return false;
@@ -701,6 +713,11 @@ namespace beam
 		return (mul >= scEmission.m_Value);
 	}
 
+	Block::Body::Body()
+	{
+		ZeroObject(m_Subsidy);
+	}
+
 	bool Block::Body::IsValid(Height h0, Height h1) const
 	{
 		assert((h0 >= Block::Rules::HeightGenesis) && (h0 <= h1));
@@ -712,7 +729,7 @@ namespace beam
 
 		return
 			ValidateAndSummarize(ctx) &&
-			ctx.IsValidBlock();
+			ctx.IsValidBlock(*this);
 	}
 
     void DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType eType, uint32_t nIdx /* = 0 */)
