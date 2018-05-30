@@ -82,6 +82,7 @@ namespace beam
 
                 SERIALIZE(m_txId
                         , m_amount
+                        , m_height
                         , m_message
                         , m_publicSenderBlindingExcess
                         , m_publicSenderNonce

@@ -20,6 +20,7 @@ struct Node
 		std::vector<io::Address> m_Connect;
 
 		std::string m_sPathLocal;
+        ECC::NoLeak<ECC::uintBig> m_WalletKey;
 		NodeProcessor::Horizon m_Horizon;
 
 		struct Timeout {

@@ -17,7 +17,9 @@ struct SqliteKeychain : beam::IKeyChain
 
 		// init wallet with password
 		{
-			auto keychain = beam::Keychain::init(Pass);
+            ECC::NoLeak<ECC::uintBig> seed;
+            seed.V = ECC::Zero;
+			auto keychain = beam::Keychain::init(Pass, seed);
 			assert(keychain != nullptr);
 		}
 
@@ -67,11 +69,6 @@ struct SqliteKeychain : beam::IKeyChain
 		_keychain->visit(func);
 	}
 
-    void visitMinedCoins(beam::Height minHeight, std::function<bool(const beam::Coin& coin)> func) override
-    {
-        _keychain->visitMinedCoins(minHeight, func);
-    }
-
 	void setVarRaw(const char* name, const void* data, int size) override
 	{
 		_keychain->setVarRaw(name, data, size);
@@ -81,6 +78,21 @@ struct SqliteKeychain : beam::IKeyChain
 	{
 		return _keychain->getVarRaw(name, data);
 	}
+
+	void setSystemStateID(const beam::Block::SystemState::ID& stateID)
+	{
+		_keychain->setSystemStateID(stateID);
+	}
+
+	bool getSystemStateID(beam::Block::SystemState::ID& stateID) const
+	{
+		return _keychain->getSystemStateID(stateID);
+	}
+
+    beam::Height getCurrentHeight() const override
+    {
+        return _keychain->getCurrentHeight();
+    }
 
 private:
 	beam::IKeyChain::Ptr _keychain;

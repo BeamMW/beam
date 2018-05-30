@@ -53,9 +53,15 @@ namespace
         void remove(const std::vector<beam::Coin>& ) override {}
         void remove(const beam::Coin& ) override {}
         void visit(std::function<bool(const beam::Coin& coin)> func) override {}
-        void visitMinedCoins(Height minHeight, std::function<bool(const beam::Coin& coin)> func) override {}
 		void setVarRaw(const char* name, const void* data, int size) override {}
 		int getVarRaw(const char* name, void* data) const override { return 0; }
+		void setSystemStateID(const Block::SystemState::ID& stateID) override {};
+		bool getSystemStateID(Block::SystemState::ID& stateID) const override { return false; };
+
+        Height getCurrentHeight() const override
+        {
+            return 134;
+        }
 
     protected:
         std::vector<beam::Coin> m_coins;
@@ -86,6 +92,9 @@ namespace
     {
         SqliteKeychainInt()
         {
+            Block::SystemState::ID id = { 0 };
+            id.m_Height = 134;
+            setVar("SystemStateID", id);
             for (auto amount : {5, 2, 1})
             {
                 Coin coin(amount);
@@ -210,7 +219,8 @@ namespace
     {
         using Task = function<void()>;
         TestNetworkBase(IOLoop& mainLoop)
-            : m_mainLoop(mainLoop)
+            : m_peerCount{0}
+            , m_mainLoop(mainLoop)
             , m_thread{ [this] { m_networkLoop.run(); } }
         {
 
@@ -239,6 +249,8 @@ namespace
             });
         }
 
+        int m_peerCount;
+
         vector<IWallet*> m_peers;
         IOLoop m_networkLoop;
         IOLoop& m_mainLoop;
@@ -253,6 +265,10 @@ namespace
         void send_tx_message(PeerId to, wallet::sender::InvitationData::Ptr&& data) override
         {
             cout << "[Sender] send_tx_invitation\n";
+            ++m_peerCount;
+            assert(data->m_height == 134);
+            WALLET_CHECK(data->m_height == 134);
+            WALLET_CHECK(data->m_amount == 6);
             enqueueNetworkTask([this, to, data]() mutable {m_peers[1]->handle_tx_message(to, move(data)); });
         }
 
@@ -265,6 +281,7 @@ namespace
         void send_tx_message(PeerId to, wallet::receiver::ConfirmationData::Ptr&& data) override
         {
             cout << "[Receiver] send_tx_confirmation\n";
+            ++m_peerCount;
             enqueueNetworkTask([this, to, data]() mutable {m_peers[0]->handle_tx_message(to, move(data)); });
         }
 
@@ -326,7 +343,7 @@ void TestWalletNegotiation()
     int count = 0;
     auto f = [&count, &network](const auto& /*id*/)
     {
-        if (++count == 2)
+        if (++count >= network.m_peerCount)
         {
             network.shutdown();
         }
@@ -353,7 +370,7 @@ void TestFSM()
     TestGateway gateway;
     Uuid id;
 
-    wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), id , 6, 1};
+    wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), id , 6};
     s.start();
     WALLET_CHECK(s.process_event(wallet::Sender::TxInitCompleted{ std::make_shared<wallet::receiver::ConfirmationData>() }));
     WALLET_CHECK(s.process_event(wallet::Sender::TxConfirmationCompleted()));

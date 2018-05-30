@@ -27,7 +27,6 @@ namespace
         }
         T& m_v;
     };
-    static const char* SystemStateIDName = "SystemStateID";
 }
 
 namespace beam
@@ -98,12 +97,12 @@ namespace beam
 
     void Wallet::transfer_money(PeerId to, Amount&& amount)
     {
+        Cleaner c{ m_removed_senders };
         boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId;
-        Height height = 0;
         copy(id.begin(), id.end(), txId.begin());
         m_peers.emplace(txId, to);
-        auto s = make_unique<Sender>(*this, m_keyChain, txId, amount, height);
+        auto s = make_unique<Sender>(*this, m_keyChain, txId, amount);
         auto p = m_senders.emplace(txId, move(s));
         p.first->second->start();
     }
@@ -194,6 +193,14 @@ namespace beam
         if (it == m_receivers.end())
         {
             LOG_DEBUG() << "[Receiver] Received tx invitation " << data->m_txId;
+
+            auto currentHeight = m_keyChain->getCurrentHeight();
+            if (currentHeight != data->m_height)
+            {
+                LOG_DEBUG() << "[Receiver] invalid sender's height";
+                m_network.close_connection(from);
+                return;
+            }
             auto txId = data->m_txId;
             m_peers.emplace(txId, from);
             auto p = m_receivers.emplace(txId, make_unique<Receiver>(*this, m_keyChain, data));
@@ -205,7 +212,7 @@ namespace beam
         }
     }
     
-    void Wallet::handle_tx_message(PeerId /*from*/, sender::ConfirmationData::Ptr&& data)
+    void Wallet::handle_tx_message(PeerId from, sender::ConfirmationData::Ptr&& data)
     {
         Cleaner<std::vector<wallet::Receiver::Ptr> > c{ m_removed_receivers };
         auto it = m_receivers.find(data->m_txId);
@@ -217,6 +224,7 @@ namespace beam
         else
         {
             LOG_DEBUG() << "[Receiver] Unexpected sender tx confirmation "<< data->m_txId;
+            m_network.close_connection(from);
         }
     }
 
@@ -334,13 +342,12 @@ namespace beam
         // don't send request if yes
 
         Block::SystemState::ID id = {0};
-        bool hasId = m_keyChain->getVar(SystemStateIDName, id);
+        bool hasId = m_keyChain->getSystemStateID(id);
 
         if (!hasId || msg.m_ID > id)
         {
-            m_keyChain->setVar(SystemStateIDName, msg.m_ID);
+            m_keyChain->setSystemStateID(msg.m_ID);
             m_network.send_node_message(proto::GetMined{ id.m_Height });
-            m_network.send_node_message(proto::GetHdr{ msg.m_ID });
         }
     }
 
@@ -363,18 +370,18 @@ namespace beam
 
             return true;
         });
-        Block::SystemState::ID newID;
+        Block::SystemState::ID newID = {0};
         msg.m_Description.get_ID(newID);
-        m_keyChain->setVar(SystemStateIDName, newID);
+        m_keyChain->setSystemStateID(newID);
     }
 
     void Wallet::handle_node_message(proto::Mined&& msg)
     {
         vector<Coin> mined;
-
+        auto currentHeight = m_keyChain->getCurrentHeight();
         for (auto& minedCoin : msg.m_Entries)
         {
-            if (minedCoin.m_Active) // we store coins from active branch
+            if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
                 // coinbase 
                 mined.emplace_back(Block::Rules::CoinbaseEmission, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Coinbase);
@@ -384,27 +391,11 @@ namespace beam
                 }
             }
         }
-        if (!mined.empty())
-        {
-            Block::SystemState::ID id = { 0 };
-            m_keyChain->getVar(SystemStateIDName, id);
 
-            m_keyChain->visit([&mined](const Coin& coinA)
-            {
-				auto it = std::find_if(mined.begin(), mined.end(), [&coinA](const Coin& coinB)
-				{
-					return coinA.m_height == coinB.m_height && coinA.m_key_type == coinB.m_key_type;
-				});
-
-				if (it != mined.end())
-					mined.erase(it);
-
-				return true;
-            });
-
-        }
-
-        m_keyChain->store(mined);
+		if (!mined.empty())
+		{
+			m_keyChain->store(mined);
+		}
     }
 
     void Wallet::handle_connection_error(PeerId from)

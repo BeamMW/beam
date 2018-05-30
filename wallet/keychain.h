@@ -45,10 +45,10 @@ namespace beam
         virtual void remove(const beam::Coin& coin) = 0;
 
 		virtual void visit(std::function<bool(const beam::Coin& coin)> func) = 0;
-        virtual void visitMinedCoins(Height minHeight, std::function<bool(const beam::Coin& coin)> func) = 0;
 
 		virtual void setVarRaw(const char* name, const void* data, int size) = 0;
 		virtual int getVarRaw(const char* name, void* data) const = 0;
+        virtual Height getCurrentHeight() const = 0;
 
 		template <typename Var>
 		void setVar(const char* name, const Var& var)
@@ -57,19 +57,21 @@ namespace beam
 		}
 
 		template <typename Var>
-		bool getVar(const char* name, Var& var)
+		bool getVar(const char* name, Var& var) const
 		{
 			return getVarRaw(name, &var) == sizeof(var);
 		}
+		virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
+		virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
 	};
 
     struct Keychain : IKeyChain
     {
-        static Ptr init(const std::string& password);
+        static Ptr init(const std::string& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
         static Ptr open(const std::string& password);
         static const char* getName();
 
-        Keychain(const std::string& pass);
+        Keychain(const std::string& pass, const ECC::NoLeak<ECC::uintBig>& secretKey );
         ~Keychain();
 
         ECC::Scalar::Native calcKey(const beam::Coin& coin) const override;
@@ -80,11 +82,13 @@ namespace beam
         void remove(const std::vector<beam::Coin>& coins) override;
         void remove(const beam::Coin& coin) override;
 		void visit(std::function<bool(const beam::Coin& coin)> func) override;
-        void visitMinedCoins(Height minHeight, std::function<bool(const beam::Coin& coin)> func) override;
 
 		void setVarRaw(const char* name, const void* data, int size) override;
 		int getVarRaw(const char* name, void* data) const override;
+        Height getCurrentHeight() const override;
 
+		void setSystemStateID(const Block::SystemState::ID& stateID) override;
+		bool getSystemStateID(Block::SystemState::ID& stateID) const override;
     private:
 
         sqlite3* _db;

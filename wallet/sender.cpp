@@ -10,6 +10,7 @@ namespace beam::wallet
         // 1. Create transaction Uuid
         auto invitationData = make_shared<sender::InvitationData>();
         invitationData->m_txId = m_txId;
+		invitationData->m_height = m_keychain->getCurrentHeight();
 
         m_coins = m_keychain->getCoins(m_amount); // need to lock 
         if (m_coins.empty())
@@ -51,7 +52,7 @@ namespace beam::wallet
             change -= m_amount;
             if (change > 0)
             {
-                m_changeOutput = beam::Coin(change);
+                m_changeOutput = beam::Coin(change, Coin::Unconfirmed);
                 Output::Ptr output = make_unique<Output>();
                 output->m_Coinbase = false;
                 Scalar::Native blindingFactor = m_keychain->calcKey(*m_changeOutput);
@@ -136,30 +137,27 @@ namespace beam::wallet
 
     void Sender::FSMDefinition::rollback_tx(const TxFailed& )
     {
-        for (auto& c : m_coins)
-        {
-            c.m_status = Coin::Unspent;
-        }
-        m_keychain->update(m_coins);
-        if (m_changeOutput)
-        {
-            m_keychain->remove(vector<Coin> { *m_changeOutput });
-        }
+		rollback_tx();
     }
 
     void Sender::FSMDefinition::cancel_tx(const TxInitCompleted& )
     {
-        for (auto& c : m_coins)
-        {
-            c.m_status = Coin::Unspent;
-        }
-        m_keychain->update(m_coins);
-        if (m_changeOutput)
-        {
-            m_keychain->remove(vector<Coin> { *m_changeOutput });
-        }
+		rollback_tx();
     }
 
+
+	void Sender::FSMDefinition::rollback_tx()
+	{
+		for (auto& c : m_coins)
+		{
+			c.m_status = Coin::Unspent;
+		}
+		m_keychain->update(m_coins);
+		if (m_changeOutput)
+		{
+			m_keychain->remove(vector<Coin> { *m_changeOutput });
+		}
+	}
 
     void Sender::FSMDefinition::complete_tx(const TxConfirmationCompleted&)
     {
@@ -170,18 +168,5 @@ namespace beam::wallet
     void Sender::FSMDefinition::complete_tx()
     {
         LOG_DEBUG() << "[Sender] complete tx";
-
-		// TODO: we have to get proof for these coins before!!!
-        for (auto& c : m_coins)
-        {
-            c.m_status = Coin::Spent;
-        }
-
-        if (m_changeOutput)
-        {
-            m_changeOutput->m_status = Coin::Unspent;
-            m_coins.push_back(*m_changeOutput);
-        }
-        m_keychain->update(m_coins);
     }
 }

@@ -144,7 +144,7 @@ namespace beam {
     {
         if (errorCode == 0)
         {
-            LOG_DEBUG() << "Stream accepted";
+            LOG_DEBUG() << "Wallet connected: " << newStream->address();
             auto tag = get_connection_tag();
             m_connections.emplace(tag,
                 make_unique<Connection>(

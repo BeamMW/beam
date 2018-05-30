@@ -42,6 +42,11 @@
 
 #define VARIABLES_FIELDS ENUM_VARIABLES_FIELDS(LIST, ", ")
 
+namespace
+{
+    const char* WalletSeed = "WalletSeed";
+}
+
 namespace beam
 {
     namespace sqlite
@@ -203,11 +208,11 @@ namespace beam
         return "wallet.db";
     }
 
-    IKeyChain::Ptr Keychain::init(const std::string& password)
+    IKeyChain::Ptr Keychain::init(const std::string& password, const ECC::NoLeak<ECC::uintBig>& secretKey)
     {
         if (!boost::filesystem::exists(getName()))
         {
-            auto keychain = std::make_shared<Keychain>(password);
+            auto keychain = std::make_shared<Keychain>(password, secretKey);
 
             {
                 int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
@@ -230,6 +235,9 @@ namespace beam
                 int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
                 assert(ret == SQLITE_OK);
             }
+            {
+                keychain->setVar(WalletSeed, secretKey.V);
+            }
 
             return std::static_pointer_cast<IKeyChain>(keychain);
         }
@@ -243,7 +251,9 @@ namespace beam
     {
         if (boost::filesystem::exists(getName()))
         {
-            auto keychain = std::make_shared<Keychain>(password);
+            ECC::NoLeak<ECC::uintBig> seed;
+            seed.V = ECC::Zero;
+            auto keychain = std::make_shared<Keychain>(password, seed);
 
             {
                 int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
@@ -284,6 +294,15 @@ namespace beam
                     return Ptr();
                 }
             }
+            
+            if (keychain->getVar(WalletSeed, seed))
+            {
+                keychain->m_kdf.m_Secret = seed;
+            }
+            else
+            {
+                assert(false && "there is no seed for keychain");
+            }
 
             return std::static_pointer_cast<IKeyChain>(keychain);
         }
@@ -293,11 +312,11 @@ namespace beam
         return Ptr();
     }
 
-    Keychain::Keychain(const std::string& pass)
+    Keychain::Keychain(const std::string& pass, const ECC::NoLeak<ECC::uintBig>& secretKey)
         : _db(nullptr)
         , _nonce(std::make_shared<Nonce>(pass.c_str()))
     {
-        // TODO: need to init secret m_kdf.m_Secret.V = _nonce->get();
+        m_kdf.m_Secret = secretKey;
     }
 
     Keychain::~Keychain()
@@ -343,6 +362,9 @@ namespace beam
             sqlite::Statement stm(_db, req);
             stm.bind(1, Coin::Unspent);
 
+			Block::SystemState::ID stateID = { 0 };
+			getSystemStateID(stateID);
+
             while (true)
             {
                 if (sum >= amount) break;
@@ -355,10 +377,20 @@ namespace beam
 
                     if (coin.m_status == beam::Coin::Unspent)
                     {
-                        coin.m_status = beam::Coin::Locked;
+						Height lockHeight = coin.m_height + (coin.m_key_type == KeyType::Coinbase 
+							? Block::Rules::MaturityCoinbase 
+							: Block::Rules::MaturityStd);
 
-                        coins.push_back(coin);
-                        sum += coin.m_amount;
+						if (lockHeight >= stateID.m_Height)
+						{
+							if (lock)
+							{
+								coin.m_status = beam::Coin::Locked;
+							}
+
+							coins.push_back(coin);
+							sum += coin.m_amount;
+						}
                     }
                 }
                 else break;
@@ -369,7 +401,7 @@ namespace beam
         {
             coins.clear();
         }
-        else
+        else if(lock)
         {
             sqlite::Transaction trans(_db);
 
@@ -503,26 +535,6 @@ namespace beam
         }
     }
 
-    void Keychain::visitMinedCoins(Height minHeight, std::function<bool(const beam::Coin& coin)> func)
-    {
-        const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE height=?1 AND (key_type=?2 OR key_type=?3);";
-        sqlite::Statement stm(_db, req);
-        
-        stm.bind(1, minHeight);
-        stm.bind(2, KeyType::Coinbase);
-        stm.bind(3, KeyType::Comission);
-
-        while (stm.step())
-        {
-            Coin coin;
-
-            ENUM_STORAGE_FIELDS(STM_GET_LIST, NOSEP);
-
-            if (!func(coin))
-                break;
-        }
-    }
-
     void Keychain::setVarRaw(const char* name, const void* data, int size)
     {
         sqlite::Transaction trans(_db);
@@ -554,4 +566,27 @@ namespace beam
 
         return size;
     }
+
+	const char* SystemStateIDName = "SystemStateID";
+
+	void Keychain::setSystemStateID(const Block::SystemState::ID& stateID)
+	{
+		setVar(SystemStateIDName, stateID);
+	}
+
+	bool Keychain::getSystemStateID(Block::SystemState::ID& stateID) const
+	{
+		return getVar(SystemStateIDName, stateID);
+	}
+
+    Height Keychain::getCurrentHeight() const
+    {
+        Block::SystemState::ID id = { 0 };
+        if (getSystemStateID(id))
+        {
+            return id.m_Height;
+        }
+        return 0;
+    }
+
 }

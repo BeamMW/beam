@@ -302,6 +302,7 @@ void Node::Initialize()
 {
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
+    m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
 
 	Block::SystemState::ID id;
 	if (!m_Processor.get_CurrentState(id))
@@ -853,7 +854,7 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
 	{
-        LOG_DEBUG() << "New stream accepted";
+        LOG_DEBUG() << "New peer connected: " << newStream->address();
 		Peer* p = get_ParentObj().AllocPeer();
 		p->m_iPeer = -1;
 
