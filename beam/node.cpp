@@ -236,7 +236,7 @@ bool Node::Processor::VerifyBlock(const std::shared_ptr<Block::Body>& pBlock, He
 	for (uint32_t i = 0; i < nThreads; i++)
 		vThreads[i].join();
 
-	return !pContext->m_bAbort && pContext->m_Context.IsValidBlock();
+	return !pContext->m_bAbort && pContext->m_Context.IsValidBlock(*pBlock);
 }
 
 void Node::Processor::VerifierContext::Proceed(const std::shared_ptr<VerifierContext> pContext, uint32_t iVerifier)
