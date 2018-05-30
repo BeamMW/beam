@@ -53,6 +53,8 @@ struct Node
 
 	NodeProcessor& get_Processor() { return m_Processor; } // for tests only!
 
+	bool GenerateGenesisBlock(Block::Body& treasury); // returns true if block is ok and mining started
+
 private:
 
 	struct Processor
@@ -222,6 +224,7 @@ private:
 
 		void HardAbortSafe();
 		void Restart();
+		void Restart(Task::Ptr&&);
 
 		std::mutex m_Mutex;
 		Task::Ptr m_pTask; // currently being-mined

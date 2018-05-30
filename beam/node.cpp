@@ -337,6 +337,22 @@ void Node::Initialize()
 	}
 }
 
+bool Node::GenerateGenesisBlock(Block::Body& treasury)
+{
+	if (m_Miner.m_vThreads.empty())
+		return false; //  n/a
+
+	Miner::Task::Ptr pTask(std::make_shared<Miner::Task>());
+	ByteBuffer body;
+	if (!m_Processor.GenerateGenesisBlock(treasury, pTask->m_Hdr, pTask->m_Body))
+		return false;
+
+	pTask->m_Fees = 0;
+
+	m_Miner.Restart(std::move(pTask));
+	return true;
+}
+
 Node::~Node()
 	{
 	m_Miner.HardAbortSafe();
@@ -999,6 +1015,11 @@ void Node::Miner::Restart()
 
 	LOG_INFO() << "Block generated: " << id << ", Fee=" << pTask->m_Fees << ", Difficulty=" << uint32_t(pTask->m_Hdr.m_PoW.m_Difficulty) << ", Size=" << pTask->m_Body.size();
 
+	Restart(std::move(pTask));
+}
+
+void Node::Miner::Restart(Task::Ptr&& pTask)
+{
 	// let's mine it.
 	std::scoped_lock<std::mutex> scope(m_Mutex);
 
