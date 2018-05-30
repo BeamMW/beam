@@ -136,6 +136,8 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 	TaskSet::iterator it = get_ParentObj().m_setTasks.find(tKey);
 	if (get_ParentObj().m_setTasks.end() == it)
 	{
+		LOG_INFO() << "Requesting " << (bBlock ? "block" : "header") << " " << id;
+
 		Task* pTask = new Task;
 		pTask->m_Key = tKey.m_Key;
 		pTask->m_bRelevant = true;
@@ -300,6 +302,12 @@ void Node::Initialize()
 {
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
+
+	Block::SystemState::ID id;
+	if (!m_Processor.get_CurrentState(id))
+		ZeroObject(id);
+
+	LOG_INFO() << "Initial Tip: " << id;
 
 	RefreshCongestions();
 
