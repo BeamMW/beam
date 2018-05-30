@@ -322,12 +322,12 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	Block::SystemState::ID id;
 	s.get_ID(id);
 
-	std::shared_ptr<Block::Body> pBlock(std::make_shared<Block::Body>());
+	Block::Body block;
 	try {
 
 		Deserializer der;
 		der.reset(bb.empty() ? NULL : &bb.at(0), bb.size());
-		der & *pBlock;
+		der & block;
 	}
 	catch (const std::exception&) {
 		LOG_WARNING() << id << " Block deserialization failed";
@@ -340,7 +340,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	if (bFwd)
 	{
-		size_t n = std::max(size_t(1), pBlock->m_vInputs.size() * sizeof(RollbackData::Utxo));
+		size_t n = std::max(size_t(1), block.m_vInputs.size() * sizeof(RollbackData::Utxo));
 		if (rbData.m_Buf.size() != n)
 		{
 			bFirstTime = true;
@@ -374,7 +374,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				return false; // The state (even the header) is formed incorrectly!
 			}
 
-			if (!VerifyBlock(pBlock, sid.m_Height, sid.m_Height))
+			if (!VerifyBlock(block, sid.m_Height, sid.m_Height))
 			{
 				LOG_WARNING() << id << " context-free verification failed";
 				return false;
@@ -388,9 +388,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	rbData.m_pUtxo = rbData.get_BufAs();
 	if (!bFwd)
-		rbData.m_pUtxo += pBlock->m_vInputs.size();
+		rbData.m_pUtxo += block.m_vInputs.size();
 
-	bool bOk = HandleValidatedTx(*pBlock, sid.m_Height, bFwd, rbData);
+	bool bOk = HandleValidatedTx(block, sid.m_Height, bFwd, rbData);
 	if (!bOk)
 		LOG_WARNING() << id << " invalid in its context";
 
@@ -409,7 +409,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		if (bOk)
 			m_DB.SetStateRollback(sid.m_Row, rbData.m_Buf);
 		else
-			HandleValidatedTx(*pBlock, sid.m_Height, false, rbData);
+			HandleValidatedTx(block, sid.m_Height, false, rbData);
 	}
 
 	if (bOk)
@@ -420,7 +420,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
 			kOffset.m_Value = ECC::Zero;
 
-		ECC::Scalar::Native k(kOffset), k2(pBlock->m_Offset);
+		ECC::Scalar::Native k(kOffset), k2(block.m_Offset);
 		if (!bFwd)
 			k2 = -k2;
 
@@ -1233,9 +1233,9 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	return bbBlock.size() <= Block::Rules::MaxBodySize;
 }
 
-bool NodeProcessor::VerifyBlock(const std::shared_ptr<Block::Body>& pBlock, Height h0, Height h1)
+bool NodeProcessor::VerifyBlock(const Block::Body& block, Height h0, Height h1)
 {
-	return pBlock->IsValid(h0, h1);
+	return block.IsValid(h0, h1);
 }
 
 

@@ -82,7 +82,7 @@ public:
 	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) {}
 	virtual void OnPeerInsane(const PeerID&) {}
 	virtual void OnNewState() {}
-	virtual bool VerifyBlock(const std::shared_ptr<Block::Body>&, Height h0, Height h1);
+	virtual bool VerifyBlock(const Block::Body&, Height h0, Height h1);
 
 	bool IsStateNeeded(const Block::SystemState::ID&);
 
