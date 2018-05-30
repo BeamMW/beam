@@ -39,6 +39,7 @@ struct Node
 		struct TestMode {
 			// for testing only!
 			bool m_bFakePoW = false;
+			bool m_bMineGenesisBlock = false;
 			uint32_t m_FakePowSolveTime_ms = 15 * 1000;
 
 		} m_TestMode;

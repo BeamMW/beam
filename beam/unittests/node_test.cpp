@@ -740,6 +740,7 @@ namespace beam
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
 		node.m_Cfg.m_TestMode.m_bFakePoW = true;
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
+		node.m_Cfg.m_TestMode.m_bMineGenesisBlock = true;
 		node.m_Cfg.m_MiningThreads = 1;
 
 		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);

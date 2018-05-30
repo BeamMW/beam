@@ -978,6 +978,10 @@ void Node::Miner::Restart()
 	if (m_vThreads.empty())
 		return; //  n/a
 
+	Block::SystemState::ID id;
+	if (!get_ParentObj().m_Processor.get_CurrentState(id) && !get_ParentObj().m_Cfg.m_TestMode.m_bMineGenesisBlock)
+		return;
+
 	Task::Ptr pTask(std::make_shared<Task>());
 	if (!get_ParentObj().m_Processor.GenerateNewBlock(get_ParentObj().m_TxPool, pTask->m_Hdr, pTask->m_Body, pTask->m_Fees))
 	{
@@ -985,7 +989,6 @@ void Node::Miner::Restart()
 		return;
 	}
 
-	Block::SystemState::ID id;
 	pTask->m_Hdr.get_ID(id);
 
 	LOG_INFO() << "Block generated: " << id << ", Fee=" << pTask->m_Fees << ", Difficulty=" << uint32_t(pTask->m_Hdr.m_PoW.m_Difficulty) << ", Size=" << pTask->m_Body.size();
