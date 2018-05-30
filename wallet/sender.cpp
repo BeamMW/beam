@@ -10,7 +10,7 @@ namespace beam::wallet
         // 1. Create transaction Uuid
         auto invitationData = make_shared<sender::InvitationData>();
         invitationData->m_txId = m_txId;
-		invitationData->m_height = m_height;
+		invitationData->m_height = m_keychain->getCurrentHeight();
 
         m_coins = m_keychain->getCoins(m_amount); // need to lock 
         if (m_coins.empty())

@@ -48,6 +48,7 @@ namespace beam
 
 		virtual void setVarRaw(const char* name, const void* data, int size) = 0;
 		virtual int getVarRaw(const char* name, void* data) const = 0;
+        virtual Height getCurrentHeight() const = 0;
 
 		template <typename Var>
 		void setVar(const char* name, const Var& var)
@@ -60,7 +61,6 @@ namespace beam
 		{
 			return getVarRaw(name, &var) == sizeof(var);
 		}
-
 		virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
 		virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
 	};
@@ -85,6 +85,7 @@ namespace beam
 
 		void setVarRaw(const char* name, const void* data, int size) override;
 		int getVarRaw(const char* name, void* data) const override;
+        Height getCurrentHeight() const override;
 
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override;

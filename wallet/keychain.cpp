@@ -559,4 +559,15 @@ namespace beam
 	{
 		return getVar(SystemStateIDName, stateID);
 	}
+
+    Height Keychain::getCurrentHeight() const
+    {
+        Block::SystemState::ID id = { 0 };
+        if (getSystemStateID(id))
+        {
+            return id.m_Height;
+        }
+        return 0;
+    }
+
 }

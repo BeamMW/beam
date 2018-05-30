@@ -26,7 +26,7 @@ namespace beam::wallet
     {
         auto confirmationData = make_shared<receiver::ConfirmationData>();
         confirmationData->m_txId = m_txId;
-
+        
         TxKernel::Ptr kernel = make_unique<TxKernel>();
         kernel->m_Fee = 0;
         kernel->m_HeightMin = 0;

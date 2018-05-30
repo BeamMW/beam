@@ -87,6 +87,11 @@ struct SqliteKeychain : beam::IKeyChain
 		return _keychain->getSystemStateID(stateID);
 	}
 
+    beam::Height getCurrentHeight() const override
+    {
+        return _keychain->getCurrentHeight();
+    }
+
 private:
 	beam::IKeyChain::Ptr _keychain;
 };

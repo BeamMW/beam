@@ -20,8 +20,8 @@ namespace beam::wallet
         };
         struct TxConfirmationCompleted {};
 
-        Sender(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, const ECC::Amount& amount, const Height& currentHeight)
-            : m_fsm{boost::ref(gateway), keychain, boost::ref(txId), boost::ref(amount), boost::ref(currentHeight)}
+        Sender(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, const ECC::Amount& amount)
+            : m_fsm{boost::ref(gateway), keychain, boost::ref(txId), boost::ref(amount)}
         {
             
         }
@@ -71,12 +71,11 @@ namespace beam::wallet
                 }
             };
 
-            FSMDefinition(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, ECC::Amount amount, const Height& currentHeight)
+            FSMDefinition(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, ECC::Amount amount)
                 : m_gateway{ gateway }
                 , m_keychain{ keychain }
                 , m_txId{ txId }
                 , m_amount{ amount }
-                , m_height{ currentHeight }
             {}
 
             // transition actions
@@ -124,7 +123,6 @@ namespace beam::wallet
 
             Uuid m_txId;
             ECC::Amount m_amount;
-            Height m_height;
             ECC::Scalar::Native m_blindingExcess;
             ECC::Scalar::Native m_nonce;
             ECC::Scalar::Native m_senderSignature;

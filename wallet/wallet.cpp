@@ -97,14 +97,12 @@ namespace beam
 
     void Wallet::transfer_money(PeerId to, Amount&& amount)
     {
+        Cleaner c{ m_removed_senders };
         boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId;
-        Block::SystemState::ID stateID = {0};
-		m_keyChain->getSystemStateID(stateID);
-        Height height = stateID.m_Height;
         copy(id.begin(), id.end(), txId.begin());
         m_peers.emplace(txId, to);
-        auto s = make_unique<Sender>(*this, m_keyChain, txId, amount, height);
+        auto s = make_unique<Sender>(*this, m_keyChain, txId, amount);
         auto p = m_senders.emplace(txId, move(s));
         p.first->second->start();
     }
@@ -195,12 +193,14 @@ namespace beam
         if (it == m_receivers.end())
         {
             LOG_DEBUG() << "[Receiver] Received tx invitation " << data->m_txId;
-            Block::SystemState::ID stateID = {0};
-			m_keyChain->getSystemStateID(stateID);
-			if (stateID.m_Height != data->m_height)
-			{
-				assert(false && "different states");
-			}
+
+            auto currentHeight = m_keyChain->getCurrentHeight();
+            if (currentHeight != data->m_height)
+            {
+                LOG_DEBUG() << "[Receiver] invalid sender's height";
+                m_network.close_connection(from);
+                return;
+            }
             auto txId = data->m_txId;
             m_peers.emplace(txId, from);
             auto p = m_receivers.emplace(txId, make_unique<Receiver>(*this, m_keyChain, data));
@@ -212,7 +212,7 @@ namespace beam
         }
     }
     
-    void Wallet::handle_tx_message(PeerId /*from*/, sender::ConfirmationData::Ptr&& data)
+    void Wallet::handle_tx_message(PeerId from, sender::ConfirmationData::Ptr&& data)
     {
         Cleaner<std::vector<wallet::Receiver::Ptr> > c{ m_removed_receivers };
         auto it = m_receivers.find(data->m_txId);
@@ -224,6 +224,7 @@ namespace beam
         else
         {
             LOG_DEBUG() << "[Receiver] Unexpected sender tx confirmation "<< data->m_txId;
+            m_network.close_connection(from);
         }
     }
 
@@ -347,7 +348,6 @@ namespace beam
         {
             m_keyChain->setSystemStateID(msg.m_ID);
             m_network.send_node_message(proto::GetMined{ id.m_Height });
-            m_network.send_node_message(proto::GetHdr{ msg.m_ID });
         }
     }
 
@@ -378,12 +378,10 @@ namespace beam
     void Wallet::handle_node_message(proto::Mined&& msg)
     {
         vector<Coin> mined;
-        Block::SystemState::ID id = { 0 };
-        m_keyChain->getSystemStateID(id);
-
+        auto currentHeight = m_keyChain->getCurrentHeight();
         for (auto& minedCoin : msg.m_Entries)
         {
-            if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= id.m_Height) // we store coins from active branch
+            if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
                 // coinbase 
                 mined.emplace_back(Block::Rules::CoinbaseEmission, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Coinbase);
