@@ -198,72 +198,69 @@ void Node::Processor::OnNewState()
 	get_ParentObj().RefreshCongestions();
 }
 
-bool Node::Processor::VerifyBlock(const std::shared_ptr<Block::Body>& pBlock, Height h0, Height h1)
+bool Node::Processor::VerifyBlock(const Block::Body& block, Height h0, Height h1)
 {
 	uint32_t nThreads = get_ParentObj().m_Cfg.m_VerificationThreads;
 	if (!nThreads)
-		return NodeProcessor::VerifyBlock(pBlock, h0, h1);
+		return NodeProcessor::VerifyBlock(block, h0, h1);
 
-	VerifierContext::Ptr pContext(std::make_shared<VerifierContext>());
+	VerifierContext vctx;
 
-	pContext->m_pTx = pBlock;
-	pContext->m_bAbort = false;
-	pContext->m_Remaining = nThreads;
-	pContext->m_Context.m_bRangeMode = true;
-	pContext->m_Context.m_hMin = h0;
-	pContext->m_Context.m_hMax = h1;
-	pContext->m_Context.m_nVerifiers = nThreads;
+	vctx.m_pTx = &block;
+	vctx.m_bAbort = false;
+	vctx.m_Remaining = nThreads;
+	vctx.m_Context.m_bRangeMode = true;
+	vctx.m_Context.m_hMin = h0;
+	vctx.m_Context.m_hMax = h1;
+	vctx.m_Context.m_nVerifiers = nThreads;
 
 	std::vector<std::thread> vThreads;
 	vThreads.resize(nThreads);
 
-	std::unique_lock<std::mutex> scope(pContext->m_Mutex);
+	std::unique_lock<std::mutex> scope(vctx.m_Mutex);
 
 	for (uint32_t i = 0; i < nThreads; i++)
 	{
 		std::thread& t = vThreads[i];
-		t = std::thread(&VerifierContext::Proceed, pContext, i);
+		t = std::thread(&VerifierContext::Proceed, &vctx, i);
 	}
 
-	while (true)
-	{
-		pContext->m_Cond.wait(scope);
-
-		if (!pContext->m_Remaining || pContext->m_bAbort)
-			break;
-	}
+	while (vctx.m_Remaining)
+		vctx.m_Cond.wait(scope);
 
 	for (uint32_t i = 0; i < nThreads; i++)
 		vThreads[i].join();
 
-	return !pContext->m_bAbort && pContext->m_Context.IsValidBlock(*pBlock);
+	return !vctx.m_bAbort && vctx.m_Context.IsValidBlock(block);
 }
 
-void Node::Processor::VerifierContext::Proceed(const std::shared_ptr<VerifierContext> pContext, uint32_t iVerifier)
+void Node::Processor::VerifierContext::Proceed(VerifierContext* pVctx, uint32_t iVerifier)
 {
+	VerifierContext& vctx = *pVctx;
+
 	TxBase::Context ctx;
 	ctx.m_bRangeMode = true;
-	ctx.m_hMin = pContext->m_Context.m_hMin;
-	ctx.m_hMax = pContext->m_Context.m_hMax;
-	ctx.m_nVerifiers = pContext->m_Context.m_nVerifiers;
+	ctx.m_hMin = vctx.m_Context.m_hMin;
+	ctx.m_hMax = vctx.m_Context.m_hMax;
+	ctx.m_nVerifiers = vctx.m_Context.m_nVerifiers;
 	ctx.m_iVerifier = iVerifier;
-	ctx.m_pAbort = &pContext->m_bAbort;
+	ctx.m_pAbort = &vctx.m_bAbort;
 
-	bool bValid = pContext->m_pTx->ValidateAndSummarize(ctx);
+	bool bValid = vctx.m_pTx->ValidateAndSummarize(ctx);
 
 	{
-		std::unique_lock<std::mutex> scope(pContext->m_Mutex);
+		std::unique_lock<std::mutex> scope(vctx.m_Mutex);
 
-		verify(pContext->m_Remaining--);
+		verify(vctx.m_Remaining--);
 
-		if (bValid && !pContext->m_bAbort)
-			bValid = pContext->m_Context.Merge(ctx);
+		if (bValid && !vctx.m_bAbort)
+			bValid = vctx.m_Context.Merge(ctx);
 
 		if (!bValid)
-			pContext->m_bAbort = true;
+			vctx.m_bAbort = true;
 	}
 
-	pContext->m_Cond.notify_one();
+	vctx.m_Cond.notify_one();
 }
 
 Node::Peer* Node::AllocPeer()

@@ -62,13 +62,11 @@ private:
 		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override;
 		virtual void OnPeerInsane(const PeerID&) override;
 		virtual void OnNewState() override;
-		virtual bool VerifyBlock(const std::shared_ptr<Block::Body>&, Height h0, Height h1) override;
+		virtual bool VerifyBlock(const Block::Body&, Height h0, Height h1) override;
 
 		struct VerifierContext
 		{
-			typedef std::shared_ptr<VerifierContext> Ptr;
-
-			std::shared_ptr<TxBase> m_pTx;
+			const TxBase* m_pTx;
 			TxBase::Context m_Context;
 
 			volatile bool m_bAbort;
@@ -77,7 +75,7 @@ private:
 			std::mutex m_Mutex;
 			std::condition_variable m_Cond;
 
-			static void Proceed(Ptr, uint32_t iVerifier);
+			static void Proceed(VerifierContext*, uint32_t iVerifier);
 		};
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
