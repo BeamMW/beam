@@ -8,7 +8,9 @@
 #include "core/ecc_native.h"
 #include "utility/logger.h"
 #include <iomanip>
+
 #include <boost/program_options.hpp>
+#include <fstream>
 
 namespace po = boost::program_options;
 using namespace std;
@@ -116,7 +118,7 @@ int main(int argc, char* argv[])
         (cli::AMOUNT_FULL, po::value<ECC::Amount>(), "amount to send")
         (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
         (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
-        (cli::COMMAND, po::value<string>(), "command to execute [send|listen|init|info");
+        (cli::COMMAND, po::value<string>(), "command to execute [send|listen|init|info]");
 
     po::options_description options{ "Allowed options" };
     options.add(general_options)
@@ -129,6 +131,16 @@ int main(int argc, char* argv[])
     try
     {
         po::variables_map vm;
+
+		{
+			std::ifstream cfg("beam.cfg");
+
+			if (cfg)
+			{
+				po::store(po::parse_config_file(cfg, options), vm);
+			}
+		}
+
         po::store(po::command_line_parser(argc, argv)
             .options(options)
             .positional(pos)
