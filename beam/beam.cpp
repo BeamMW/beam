@@ -12,6 +12,7 @@
 
 #include <boost/program_options.hpp>
 #include <fstream>
+#include <iterator>
 
 namespace po = boost::program_options;
 using namespace std;
@@ -44,7 +45,7 @@ namespace cli
     const char* WALLET = "wallet";
     const char* LISTEN = "listen";
 	const char* TREASURY = "treasury";
-	const char* TREASURY_BLOCK = "block_path";
+	const char* TREASURY_BLOCK = "treasury_path";
     const char* INIT = "init";
     const char* SEND = "send";
     const char* INFO = "info";
@@ -143,6 +144,7 @@ int main(int argc, char* argv[])
 		(cli::VERIFICATION_THREADS, po::value<uint32_t>()->default_value(0), "number of threads for cryptographic verifications (0 = single thread)")
 		(cli::MINER_ID, po::value<uint32_t>()->default_value(0), "seed for miner nonce generation")
 		(cli::NODE_PEER, po::value<std::vector<std::string> >(), "nodes to connect to")
+		//(cli::TREASURY_BLOCK, po::value<string>(), "Treasury block to generate genesis block from")
 		;
 
     po::options_description wallet_options("Wallet options");
@@ -256,6 +258,31 @@ int main(int argc, char* argv[])
                 LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
                 node.Initialize();
+
+				std::string sPath = vm[cli::TREASURY_BLOCK].as<string>();
+				if (!sPath.empty())
+				{
+					Block::Body block;
+
+					{
+						std::ifstream f(sPath, std::ifstream::binary);
+						if (f.fail())
+						{
+							LOG_ERROR() << "can't open treasury file";
+							return -1;
+						}
+
+						std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+
+						Deserializer der;
+						der.reset(&vContents.at(0), vContents.size());
+
+						der & block;
+					}
+
+					node.GenerateGenesisBlock(block);
+				}
+
                 reactor->run();
             }
             else if (mode == cli::WALLET)
@@ -336,15 +363,21 @@ int main(int argc, char* argv[])
 						Block::Body block;
 						ECC::Scalar::Native offset(ECC::Zero);
 
-						//{
-						//	DeserializerFile der;
-						//	der.m_File.open(sPath);
-						//	if (!der.m_File.fail())
-						//	{
-						//		der & block;
-						//		offset = block.m_Offset;
-						//	}
-						//}
+						{
+							std::ifstream f(sPath, std::ifstream::binary);
+							if (!f.fail())
+							{
+								std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+								if (!vContents.empty())
+								{
+									Deserializer der;
+									der.reset(&vContents.at(0), vContents.size());
+
+									der & block;
+									offset = block.m_Offset;
+								}
+							}
+						}
 
 						std::vector<Coin> coins;
 						coins.resize(nCount);
