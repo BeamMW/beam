@@ -343,23 +343,13 @@ namespace beam
 		}
 	}
 
-	class MyNodeProcessor1
-		:public NodeProcessor
+	struct MiniWallet
 	{
-	public:
-
-		TxPool m_TxPool;
-
-		MyNodeProcessor1()
-		{
-			ECC::SetRandom(m_Kdf.m_Secret.V);
-		}
+		ECC::Kdf m_Kdf;
 
 		struct MyUtxo {
 			ECC::Scalar m_Key;
 			Amount m_Value;
-			//Height m_Height;
-			//bool m_Coinbase;
 		};
 
 		typedef std::multimap<Height, MyUtxo> UtxoQueue;
@@ -376,37 +366,42 @@ namespace beam
 			MyUtxo utxo;
 			utxo.m_Key = key;
 			utxo.m_Value = n;
-			//utxo.m_Height = h;
-			//utxo.m_Coinbase = bCoinbase;
 
 			h += (KeyType::Coinbase == eType) ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd;
 
 			m_MyUtxos.insert(std::make_pair(h, utxo));
 		}
-	};
 
-	void SpendUtxo(Transaction& tx, const MyNodeProcessor1::MyUtxo& utxo, MyNodeProcessor1::MyUtxo& utxoOut, Height hIncubation)
+
+		bool MakeTx(Transaction::Ptr& pTx, Height h, Height hIncubation)
 	{
-		if (!utxo.m_Value)
-			return; //?!
+			UtxoQueue::iterator it = m_MyUtxos.begin();
+			if (m_MyUtxos.end() == it)
+				return false;
+
+			if (it->first > h)
+				return false; // not spendable yet
+
+			pTx = std::make_shared<Transaction>();
+
+			const MyUtxo& utxo = it->second;
+			assert(utxo.m_Value);
 
 		TxKernel::Ptr pKrn(new TxKernel);
 		pKrn->m_Fee = 1090000;
 
 		Input::Ptr pInp(new Input);
 		pInp->m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
-		tx.m_vInputs.push_back(std::move(pInp));
+			pTx->m_vInputs.push_back(std::move(pInp));
 
 		ECC::Scalar::Native kOffset = utxo.m_Key;
 		ECC::Scalar::Native k;
 
 		if (pKrn->m_Fee >= utxo.m_Value)
-		{
 			pKrn->m_Fee = utxo.m_Value;
-			utxoOut.m_Value = 0;
-		}
 		else
 		{
+				MyUtxo utxoOut;
 			utxoOut.m_Value = utxo.m_Value - pKrn->m_Fee;
 
 			ECC::SetRandom(k);
@@ -415,11 +410,15 @@ namespace beam
 			Output::Ptr pOut(new Output);
 			pOut->m_Incubation = hIncubation;
 			pOut->Create(k, utxoOut.m_Value, true); // confidential transactions will be too slow for test in debug mode.
-			tx.m_vOutputs.push_back(std::move(pOut));
+				pTx->m_vOutputs.push_back(std::move(pOut));
 
 			k = -k;
 			kOffset += k;
+
+				m_MyUtxos.insert(std::make_pair(h + hIncubation, utxoOut));
 		}
+
+			m_MyUtxos.erase(it);
 
 		ECC::SetRandom(k);
 		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * k);
@@ -427,17 +426,33 @@ namespace beam
 		ECC::Hash::Value hv;
 		pKrn->get_HashForSigning(hv);
 		pKrn->m_Signature.Sign(hv, k);
-		tx.m_vKernelsOutput.push_back(std::move(pKrn));
+			pTx->m_vKernelsOutput.push_back(std::move(pKrn));
 
 
 		k = -k;
 		kOffset += k;
-		tx.m_Offset = kOffset;
+			pTx->m_Offset = kOffset;
 
-		tx.Sort();
+			pTx->Sort();
 		Transaction::Context ctx;
-		verify_test(tx.IsValid(ctx));
+			verify_test(pTx->IsValid(ctx));
+		}
+	};
+
+	class MyNodeProcessor1
+		:public NodeProcessor
+	{
+	public:
+
+		TxPool m_TxPool;
+		MiniWallet m_Wallet;
+
+		MyNodeProcessor1()
+		{
+			ECC::SetRandom(m_Kdf.m_Secret.V);
+			m_Wallet.m_Kdf = m_Kdf;
 	}
+	};
 
 	struct BlockPlus
 	{
@@ -458,32 +473,15 @@ namespace beam
 
 		for (Height h = Block::Rules::HeightGenesis; h < 96 + Block::Rules::HeightGenesis; h++)
 		{
-			std::list<MyNodeProcessor1::MyUtxo> lstNewOutputs;
-
 			while (true)
 			{
-				MyNodeProcessor1::UtxoQueue::iterator it = np.m_MyUtxos.begin();
-				if (np.m_MyUtxos.end() == it)
-					break;
-
-				if (it->first > h)
-					break; // not spendable yet
-
 				// Spend it in a transaction
-				Transaction::Ptr pTx(new Transaction);
-				MyNodeProcessor1::MyUtxo utxoOut;
-				SpendUtxo(*pTx, it->second, utxoOut, hIncubation);
-
-				np.m_MyUtxos.erase(it);
-
-				if (utxoOut.m_Value)
-					lstNewOutputs.push_back(utxoOut);
+				Transaction::Ptr pTx;
+				if (!np.m_Wallet.MakeTx(pTx, h, hIncubation))
+					break;
 
 				np.m_TxPool.AddTx(std::move(pTx), h);
 			}
-
-			for (; !lstNewOutputs.empty(); lstNewOutputs.pop_front())
-				np.m_MyUtxos.insert(std::make_pair(h + hIncubation, lstNewOutputs.front()));
 
 			BlockPlus::Ptr pBlock(new BlockPlus);
 
@@ -497,8 +495,8 @@ namespace beam
 
 			np.OnBlock(id, pBlock->m_Body, NodeDB::PeerID());
 
-			np.AddMyUtxo(fees, h, KeyType::Comission);
-			np.AddMyUtxo(Block::Rules::CoinbaseEmission, h, KeyType::Coinbase);
+			np.m_Wallet.AddMyUtxo(fees, h, KeyType::Comission);
+			np.m_Wallet.AddMyUtxo(Block::Rules::CoinbaseEmission, h, KeyType::Coinbase);
 
 			blockChain.push_back(std::move(pBlock));
 		}
@@ -751,12 +749,14 @@ namespace beam
 		struct MyClient
 			:public proto::NodeConnection
 		{
-			const Height m_HeightTrg = 25;
+			const Height m_HeightTrg = 75;
 
-			ECC::Kdf m_Kdf;
+			MiniWallet m_Wallet;
 
 			std::vector<Block::SystemState::Full> m_vStates;
-			std::vector<Input> m_vUtxos;
+
+			std::set<ECC::Point> m_UtxosConfirmed;
+			std::list<ECC::Point> m_queProofsExpected;
 
 			uint32_t m_iProof;
 
@@ -802,11 +802,8 @@ namespace beam
 				verify_test(m_vStates.size() + 1 == msg.m_Description.m_Height);
 				m_vStates.push_back(msg.m_Description);
 
-				ECC::Scalar::Native k;
-				DeriveKey(k, m_Kdf, msg.m_Description.m_Height, KeyType::Coinbase);
-				Input utxo;
-				utxo.m_Commitment = ECC::Commitment(k, Block::Rules::CoinbaseEmission);
-				m_vUtxos.push_back(utxo);
+				// assume we've mined this
+				m_Wallet.AddMyUtxo(Block::Rules::CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
 
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
@@ -815,15 +812,29 @@ namespace beam
 					Send(msgOut);
 				}
 
-				for (size_t i = 0; i < m_vStates.size(); i++)
+				for (auto it = m_Wallet.m_MyUtxos.begin(); m_Wallet.m_MyUtxos.end() != it; it++)
 				{
+					const MiniWallet::MyUtxo& utxo = it->second;
+
 					proto::GetProofUtxo msgOut;
 					msgOut.m_MaturityMin = 0;
-					msgOut.m_Utxo = m_vUtxos[i];
+					msgOut.m_Utxo.m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
 					Send(msgOut);
+
+					m_queProofsExpected.push_back(msgOut.m_Utxo.m_Commitment);
 				}
 
 				m_iProof = 0;
+
+				proto::NewTransaction msgTx;
+				while (true)
+				{
+					if (!m_Wallet.MakeTx(msgTx.m_Transaction, msg.m_Description.m_Height, 2))
+						break;
+
+					assert(msgTx.m_Transaction);
+					Send(msgTx);
+				}
 			}
 
 			virtual void OnMsg(proto::Proof&& msg) override
@@ -843,24 +854,32 @@ namespace beam
 
 			virtual void OnMsg(proto::ProofUtxo&& msg) override
 			{
-				uint32_t i = m_iProof++ - (m_vStates.size() - 1);
-
-				if (i < m_vUtxos.size())
+				if (!m_queProofsExpected.empty())
 				{
-					verify_test(!msg.m_Proofs.empty());
+					Input inp;
+					inp.m_Commitment = m_queProofsExpected.front();
 
-					UtxoTree::Key::Data d;
-					d.m_Commitment = m_vUtxos[i].m_Commitment;
+					auto it = m_UtxosConfirmed.find(inp.m_Commitment);
 
+					if (msg.m_Proofs.empty())
+						verify_test(m_UtxosConfirmed.end() == it);
+					else
+					{
 					for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
-						msg.m_Proofs[j].IsValid(m_vUtxos[i], m_vStates.back().m_LiveObjects);
+							verify_test(msg.m_Proofs[j].IsValid(inp, m_vStates.back().m_LiveObjects));
+
+						if (m_UtxosConfirmed.end() == it)
+							m_UtxosConfirmed.insert(inp.m_Commitment);
+					}
+
+					m_queProofsExpected.pop_front();
 				}
 				else
 					fail_test("unexpected proof");
 			}
 
 			void SetTimer(uint32_t timeout_ms) {
-				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
+				//m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
 			}
 			void KillTimer() {
 				m_pTimer->cancel();
@@ -868,7 +887,7 @@ namespace beam
 		};
 
 		MyClient cl;
-		cl.m_Kdf = node.get_Processor().m_Kdf; // same key gen
+		cl.m_Wallet.m_Kdf = node.get_Processor().m_Kdf; // same key gen
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");
