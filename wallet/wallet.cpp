@@ -27,6 +27,7 @@ namespace
         }
         T& m_v;
     };
+    static const char* SystemStateIDName = "SystemStateID";
 }
 
 namespace beam
@@ -77,22 +78,6 @@ namespace beam
 
         return res;
     }
-
-    Coin::Coin()
-		: m_status(Unspent)
-    {
-
-    }
-
-    Coin::Coin(uint64_t id, const Amount& amount, Status status, const Height& height, KeyType keyType)
-        : m_id{id}
-        , m_amount{amount}
-        , m_status{status}
-        , m_height{height}
-        , m_key_type{ keyType }
-    {
-
-    } 
 
     Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action)
         : m_keyChain{ keyChain }
@@ -309,88 +294,117 @@ namespace beam
 
     void Wallet::handle_node_message(proto::ProofUtxo&& proof)
     {
-		// TODO: handle the moaturity of the several proofs (> 1)
-		boost::optional<Coin> found;
+        // TODO: handle the maturity of the several proofs (> 1)
+        boost::optional<Coin> found;
 
-		Merkle::Hash lastState;
-		m_keyChain->getLastStateHash(lastState);
+        for (const auto& proof : proof.m_Proofs)
+        {
+            m_keyChain->visit([&](const Coin& coin)
+            {
+                if (coin.m_status == Coin::Unconfirmed)
+                {
+                    Input input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
+                
+                    if (proof.IsValid(input, m_LiveObjects))
+                    {
+                        found = coin;
+                        found->m_status = Coin::Unspent;
 
-		for (const auto& proof : proof.m_Proofs)
-		{
-			m_keyChain->visit([&](const Coin& coin)
-			{
-				if (coin.m_status == Coin::Unconfirmed)
-				{
-					Input input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
+                        return false;
+                    }
+                }
 
-					if (proof.IsValid(input, lastState))
-					{
-						found = coin;
-						found->m_status = Coin::Unspent;
+                return true;
+            });
+        }
 
-						return false;
-					}
-				}
-
-				return true;
-			});
-		}
-
-		if (found)
-		{
-			m_keyChain->store(*found);
-		}
-		else
-		{
-			// invalid proof!!!
-		}
+        if (found)
+        {
+            m_keyChain->store(*found);
+        }
+        else
+        {
+            // invalid proof!!!
+        }
     }
 
-	void Wallet::handle_node_message(proto::NewTip&& msg)
-	{
-		// TODO: check if we're already waiting for the ProofUtxo,
-		// don't send request if yes
-		m_network.send_node_message(proto::GetHdr{ msg.m_ID });
-	}
+    void Wallet::handle_node_message(proto::NewTip&& msg)
+    {
+        // TODO: check if we're already waiting for the ProofUtxo,
+        // don't send request if yes
 
-	void Wallet::handle_node_message(proto::Hdr&& msg)
-	{
-		m_keyChain->setLastStateHash(msg.m_Description.m_LiveObjects);
+        Block::SystemState::ID id = {0};
+        bool hasId = m_keyChain->getVar(SystemStateIDName, id);
 
-		// TODO: do one kernel proof instead many per coin proofs
-		m_keyChain->visit([&](const Coin& coin)
-		{
-			if (coin.m_status == Coin::Unconfirmed)
-			{
-				m_network.send_node_message(
-					proto::GetProofUtxo
-					{
-						Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) }
-						, coin.m_height
-					});
-			}
+        if (!hasId || msg.m_ID > id)
+        {
+            m_keyChain->setVar(SystemStateIDName, msg.m_ID);
+            m_network.send_node_message(proto::GetMined{ id.m_Height });
+            m_network.send_node_message(proto::GetHdr{ msg.m_ID });
+        }
+    }
 
-			return true;
-		});
-	}
+    void Wallet::handle_node_message(proto::Hdr&& msg)
+    {
+        m_LiveObjects = msg.m_Description.m_LiveObjects;
+
+        // TODO: do one kernel proof instead many per coin proofs
+        m_keyChain->visit([&](const Coin& coin)
+        {
+            if (coin.m_status == Coin::Unconfirmed)
+            {
+                m_network.send_node_message(
+                    proto::GetProofUtxo
+                    {
+                        Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) }
+                        , coin.m_height
+                    });
+            }
+
+            return true;
+        });
+        Block::SystemState::ID newID;
+        msg.m_Description.get_ID(newID);
+        m_keyChain->setVar(SystemStateIDName, newID);
+    }
 
     void Wallet::handle_node_message(proto::Mined&& msg)
     {
         vector<Coin> mined;
-        for (auto& mined_coin : msg.m_Entries)
+
+        for (auto& minedCoin : msg.m_Entries)
         {
-            if (mined_coin.m_Active)
+            if (minedCoin.m_Active) // we store coins from active branch
             {
                 // coinbase 
-                mined.emplace_back(m_keyChain->getNextID(), Block::Rules::CoinbaseEmission, Coin::Unspent, mined_coin.m_ID.m_Height, KeyType::Coinbase);
-                if (mined_coin.m_Fees > 0)
+                mined.emplace_back(Block::Rules::CoinbaseEmission, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Coinbase);
+                if (minedCoin.m_Fees > 0)
                 {
-                    mined.emplace_back(m_keyChain->getNextID(), Block::Rules::CoinbaseEmission, Coin::Unspent, mined_coin.m_ID.m_Height, KeyType::Comission);
+                    mined.emplace_back(minedCoin.m_Fees, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Comission);
                 }
-                // TODO: should we pass ID to Coin ctor?
             }
         }
-        m_keyChain->update(mined);
+        if (!mined.empty())
+        {
+            Block::SystemState::ID id = { 0 };
+            m_keyChain->getVar(SystemStateIDName, id);
+
+            m_keyChain->visit([&mined](const Coin& coinA)
+            {
+				auto it = std::find_if(mined.begin(), mined.end(), [&coinA](const Coin& coinB)
+				{
+					return coinA.m_height == coinB.m_height && coinA.m_key_type == coinB.m_key_type;
+				});
+
+				if (it != mined.end())
+					mined.erase(it);
+
+				return true;
+            });
+
+        }
+
+        m_keyChain->store(mined);
     }
 
     void Wallet::handle_connection_error(PeerId from)

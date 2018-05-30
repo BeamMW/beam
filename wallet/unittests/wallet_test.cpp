@@ -24,11 +24,6 @@ namespace
     class BaseTestKeyChain : public IKeyChain
     {
     public:
-      
-        uint64_t getNextID()
-        {
-            return 1;
-        }
 
         ECC::Scalar::Native calcKey(const Coin&) const
         {
@@ -52,12 +47,15 @@ namespace
             return res;
         }
 
-        void store(const beam::Coin& coin) override {}
-        void update(const std::vector<beam::Coin>& coins) override {}
-        void remove(const std::vector<beam::Coin>& coins) override {}
-		void visit(std::function<bool(const beam::Coin& coin)> func) override {}
-		void setLastStateHash(const ECC::Hash::Value& hash) override {};
-		void getLastStateHash(ECC::Hash::Value& hash) const override {};
+        void store(beam::Coin& ) override {}
+        void store(std::vector<beam::Coin>& ) {}
+        void update(const std::vector<beam::Coin>& ) override {}
+        void remove(const std::vector<beam::Coin>& ) override {}
+        void remove(const beam::Coin& ) override {}
+        void visit(std::function<bool(const beam::Coin& coin)> func) override {}
+        void visitMinedCoins(Height minHeight, std::function<bool(const beam::Coin& coin)> func) override {}
+		void setVarRaw(const char* name, const void* data, int size) override {}
+		int getVarRaw(const char* name, void* data) const override { return 0; }
 
     protected:
         std::vector<beam::Coin> m_coins;
@@ -68,9 +66,9 @@ namespace
     public:
         TestKeyChain()
         {
-            m_coins.emplace_back(1, 5);
-            m_coins.emplace_back(2, 2);
-            m_coins.emplace_back(3, 3);
+            m_coins.emplace_back(5);
+            m_coins.emplace_back(2);
+            m_coins.emplace_back(3);
         }
     };
 
@@ -79,8 +77,8 @@ namespace
     public:
         TestKeyChain2()
         {
-            m_coins.emplace_back(1, 1);
-            m_coins.emplace_back(2, 3);
+            m_coins.emplace_back(1);
+            m_coins.emplace_back(3);
         }
     };
 
@@ -88,9 +86,11 @@ namespace
     {
         SqliteKeychainInt()
         {
-            store(beam::Coin(getNextID(), 5));
-            store(beam::Coin(getNextID(), 2));
-            store(beam::Coin(getNextID(), 3));
+            for (auto amount : {5, 2, 1})
+            {
+                Coin coin(amount);
+                store(coin);
+            }
         }
     };
 
@@ -101,7 +101,7 @@ namespace
     }
 
     struct TestGateway : wallet::sender::IGateway
-                       , wallet::receiver::IGateway
+        , wallet::receiver::IGateway
     {
         void send_tx_invitation(wallet::sender::InvitationData::Ptr) override
         {
@@ -120,7 +120,7 @@ namespace
 
         void on_tx_completed(const Uuid& /*txId*/) override
         {
-            cout << __FUNCTION__ <<"\n";
+            cout << __FUNCTION__ << "\n";
         }
 
         void send_tx_confirmation(wallet::receiver::ConfirmationData::Ptr) override
@@ -233,7 +233,7 @@ namespace
 
         void enqueueNetworkTask(Task&& task)
         {
-            m_networkLoop.enqueueTask([this, t = std::move(task)] ()
+            m_networkLoop.enqueueTask([this, t = std::move(task)]()
             {
                 m_mainLoop.enqueueTask([t = std::move(t)](){t(); });
             });
@@ -247,39 +247,46 @@ namespace
 
     struct TestNetwork : public TestNetworkBase
     {
-        TestNetwork(IOLoop& mainLoop) : TestNetworkBase{mainLoop}
+        TestNetwork(IOLoop& mainLoop) : TestNetworkBase{ mainLoop }
         {}
 
         void send_tx_message(PeerId to, wallet::sender::InvitationData::Ptr&& data) override
         {
             cout << "[Sender] send_tx_invitation\n";
-            enqueueNetworkTask([this, to, data] () mutable {m_peers[1]->handle_tx_message(to, move(data)); });
+            enqueueNetworkTask([this, to, data]() mutable {m_peers[1]->handle_tx_message(to, move(data)); });
         }
 
         void send_tx_message(PeerId to, wallet::sender::ConfirmationData::Ptr&& data) override
         {
             cout << "[Sender] send_tx_confirmation\n";
-            enqueueNetworkTask([this, to, data] () mutable {m_peers[1]->handle_tx_message(to, move(data)); });
+            enqueueNetworkTask([this, to, data]() mutable {m_peers[1]->handle_tx_message(to, move(data)); });
         }
 
         void send_tx_message(PeerId to, wallet::receiver::ConfirmationData::Ptr&& data) override
         {
             cout << "[Receiver] send_tx_confirmation\n";
-            enqueueNetworkTask([this, to, data] () mutable {m_peers[0]->handle_tx_message(to, move(data)); });
+            enqueueNetworkTask([this, to, data]() mutable {m_peers[0]->handle_tx_message(to, move(data)); });
         }
-        
+
         void send_tx_message(PeerId to, wallet::TxRegisteredData&& res) override
         {
             cout << "[Receiver] send_tx_registered\n";
 
-            enqueueNetworkTask([this, to, res=move(res)] () mutable {m_peers[0]->handle_tx_message(to, move(res)); });
+            enqueueNetworkTask([this, to, res = move(res)]() mutable {m_peers[0]->handle_tx_message(to, move(res)); });
         }
 
         void send_node_message(proto::NewTransaction&& data) override
         {
             cout << "[Receiver] register_tx\n";
             enqueueNetworkTask([this, data] {m_peers[1]->handle_node_message(proto::Boolean{ true }); });
-         
+
+        }
+
+        void send_node_message(proto::GetMined&& data) override
+        {
+            cout << "[Receiver] register_tx\n";
+            enqueueNetworkTask([this, data] {m_peers[1]->handle_node_message(proto::Mined{ }); });
+
         }
 
         void send_node_message(proto::GetProofUtxo&&) override
@@ -294,10 +301,10 @@ namespace
             enqueueNetworkTask([this, id] {m_peers[id]->handle_node_message(proto::ProofUtxo()); });
         }
 
-		void send_node_message(proto::GetHdr&&) override
-		{
-			cout << "[Sender] request chain header\n";
-		}
+        void send_node_message(proto::GetHdr&&) override
+        {
+            cout << "[Sender] request chain header\n";
+        }
 
         void close_connection(beam::PeerId) override
         {
@@ -305,69 +312,6 @@ namespace
 
         int m_proof_id{ 1 };
     };
-
-    //struct BadTestNetwork1 : public TestNetwork
-    //{
-    //    BadTestNetwork1(IOLoop& mainLoop) : TestNetwork{ mainLoop }
-    //    {}
-
-    //    bool isFailed()
-    //    {
-    //        return (std::rand() % 2) == 0;
-    //    }
-
-    //    bool tryToSendTxFailed(const Uuid& txId, PeerId peerId)
-    //    {
-    //        if (isFailed())
-    //        {
-    //            enqueueNetworkTask([this, txId, peerId]
-    //            {
-    //                cout << "[Sender/Receiver] sendTxFailed\n";
-    //                m_peers[peerId]->handle_tx_message(PeerId(), make_unique<Uuid>(txId));
-    //            });
-    //            return true;
-    //        }
-    //        return false;
-    //    }
-
-    //    void send_tx_message(PeerId to, wallet::sender::InvitationData::Ptr&& data) override
-    //    {
-    //        if (!tryToSendTxFailed(data->m_txId, 0))
-    //        {
-    //            TestNetwork::send_tx_message(to, move(data));
-    //        }
-    //    }
-
-    //    void send_tx_message(PeerId to, wallet::sender::ConfirmationData::Ptr&& data) override
-    //    {
-    //        if (!tryToSendTxFailed(data->m_txId, 0))
-    //        {
-    //            TestNetwork::send_tx_message(to, move(data));
-    //        }
-    //    }
-
-    //    void send_node_message(proto::GetProofUtxo&&) override
-    //    {
-    //       /* if (!tryToSendTxFailed(data->m_txId))
-    //        {
-    //            TestNetwork::send_tx_invitation(peer, data);
-    //        }*/
-    //    }
-
-    //    void send_tx_message(PeerId to, wallet::receiver::ConfirmationData::Ptr&& data) override
-    //    {
-    //        if (!tryToSendTxFailed(data->m_txId, 1))
-    //        {
-    //            TestNetwork::send_tx_message(to, move(data));
-    //        };
-    //    }
-
-    //    void send_node_message(proto::NewTransaction&&) override
-    //    {
-    //        cout << "[Receiver] register_tx\n";
-    //        m_networkLoop.shutdown();
-    //    }
-    //};
 }
 
 template<typename KeychainS, typename KeychainR>
@@ -429,7 +373,8 @@ enum NodeNetworkMessageCodes : uint8_t
     NewTransactionCode = 23,
     BooleanCode = 5,
     GetUtxoProofCode = 10,
-    ProofUtxoCode = 12
+    ProofUtxoCode = 12,
+	ConfigCode = 20
 };
 
 class TestNode : public IMsgHandler
@@ -444,6 +389,7 @@ public:
     {
         m_protocol.add_message_handler<proto::NewTransaction, &TestNode::on_message>(NewTransactionCode, 1, 2000);
         m_protocol.add_message_handler<proto::GetProofUtxo,   &TestNode::on_message>(GetUtxoProofCode, 1, 2000);
+		m_protocol.add_message_handler<proto::Config,         &TestNode::on_message>(ConfigCode, 1, 2000);
     }
 
     void start()
@@ -489,6 +435,11 @@ private:
         send(connectionId, ProofUtxoCode, proto::ProofUtxo());
         return true;
     }
+
+	bool on_message(uint64_t connectionId, proto::Config&& /*data*/)
+	{
+		return true;
+	}
 
     template <typename T>
     void send(PeerId to, MsgType type, T&& data)

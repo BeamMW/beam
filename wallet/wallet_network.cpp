@@ -29,6 +29,8 @@ namespace beam {
         m_protocol.add_message_handler<wallet::sender::ConfirmationData,   &WalletNetworkIO::on_message>(senderConfirmationCode, 1, 2000);
         m_protocol.add_message_handler<wallet::receiver::ConfirmationData, &WalletNetworkIO::on_message>(receiverConfirmationCode, 1, 2000);
         m_protocol.add_message_handler<wallet::TxRegisteredData,           &WalletNetworkIO::on_message>(receiverRegisteredCode, 1, 2000);
+        
+        m_node_connection.connect(m_node_address, [this]() { m_is_node_connected = true; });
     }
 
     WalletNetworkIO::~WalletNetworkIO()
@@ -46,6 +48,11 @@ namespace beam {
     {
         m_reactor->stop();
     }
+
+	void WalletNetworkIO::sync_with_node(NodeSyncCallback&& callback)
+	{
+		callback();
+	}
 
     void WalletNetworkIO::transfer_money(io::Address receiver, Amount&& amount)
     {
@@ -93,6 +100,11 @@ namespace beam {
 	{
 		send_to_node(move(data));
 	}
+
+    void WalletNetworkIO::send_node_message(proto::GetMined&& data)
+    {
+        send_to_node(move(data));
+    }
 
     void WalletNetworkIO::close_connection(uint64_t id)
     {
@@ -211,24 +223,25 @@ namespace beam {
 
     WalletNetworkIO::WalletNodeConnection::WalletNodeConnection(IWallet& wallet)
         : m_wallet {wallet}
+        , m_connecting{false}
     {
     }
 
     void WalletNetworkIO::WalletNodeConnection::connect(const io::Address& address, NodeConnectCallback&& cb)
     {
         m_connections_callbacks.emplace_back(move(cb));
-        Connect(address);
+        if (!m_connecting)
+        {
+            Connect(address);
+        }
     }
 
     void WalletNetworkIO::WalletNodeConnection::OnConnected()
     {
-		// Uncomment this to enable auto-receiving headers
-
-		//proto::Config msgCfg;
-		//ZeroObject(msgCfg);
-
-		//msgCfg.m_AutoSendHdr = true;
-		//Send(msgCfg);
+        m_connecting = false;
+        proto::Config msgCfg = {0};
+		msgCfg.m_AutoSendHdr = true;
+		Send(msgCfg);
 
         if (!m_connections_callbacks.empty())
         {
@@ -259,6 +272,11 @@ namespace beam {
 	{
 		m_wallet.handle_node_message(move(msg));
 	}
+
+    void WalletNetworkIO::WalletNodeConnection::OnMsg(proto::Hdr&& msg)
+    {
+        m_wallet.handle_node_message(move(msg));
+    }
 
     void WalletNetworkIO::WalletNodeConnection::OnMsg(proto::Mined&& msg)
     {

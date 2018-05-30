@@ -7,6 +7,15 @@
 
 #define NOSEP
 
+// Coin ID fields
+// id          - coin counter
+// height      - block height where we got the coin
+// key_type    - key type
+//
+// amount      - amount
+// count       - number of coins with same commitment
+// status      - spent/unspent/unconfirmed/locked
+// lock_height - height where we can spend the coin
 #define ENUM_STORAGE_FIELDS(each, sep) \
     each(1, id,			sep, INTEGER PRIMARY KEY AUTOINCREMENT) \
     each(2, amount,		sep, INTEGER) \
@@ -28,9 +37,8 @@
 #define VARIABLES_NAME "variables"
 
 #define ENUM_VARIABLES_FIELDS(each, sep) \
-    each(1, id,         sep, INTEGER NOT NULL) \
-    each(2, stateHash,  sep, BLOB) \
-    each(3, height,        , INTEGER) // last item without separator
+    each(1, name, sep, TEXT UNIQUE) \
+    each(2, value,   , BLOB)
 
 #define VARIABLES_FIELDS ENUM_VARIABLES_FIELDS(LIST, ", ")
 
@@ -73,6 +81,12 @@ namespace beam
                 assert(ret == SQLITE_OK);
             }
 
+			void bind(int col, const char* val)
+			{
+				int ret = sqlite3_bind_text(_stm, col, val, -1, NULL);
+				assert(ret == SQLITE_OK);
+			}
+
             bool step()
             {
                 int ret = sqlite3_step(_stm);
@@ -104,7 +118,9 @@ namespace beam
             void get(int col, void* blob, int& size)
             {
                 size = sqlite3_column_bytes(_stm, col);
-                std::memcpy(blob, sqlite3_column_blob(_stm, col), size);
+                const void* data = sqlite3_column_blob(_stm, col);
+
+                if(data) std::memcpy(blob, data, size);
             }
         
             void get(int col, beam::KeyType& type)
@@ -166,6 +182,22 @@ namespace beam
         };
     }
 
+    Coin::Coin()
+		: m_status(Unspent)
+    {
+
+    }
+
+    Coin::Coin(const Amount& amount, Status status, const Height& height, KeyType keyType)
+        : m_id{0}
+        , m_amount{amount}
+        , m_status{status}
+        , m_height{height}
+        , m_key_type{ keyType }
+    {
+
+    }
+    
     const char* Keychain::getName()
     {
         return "wallet.db";
@@ -194,21 +226,9 @@ namespace beam
             }
 
             {
-                const char* req = "CREATE TABLE " VARIABLES_NAME " (" VARIABLES_FIELDS ");";
+                const char* req = "CREATE TABLE " VARIABLES_NAME " (" ENUM_VARIABLES_FIELDS(LIST_WITH_TYPES, ", ") ");";
                 int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
                 assert(ret == SQLITE_OK);
-
-                {
-                    sqlite::Transaction trans(keychain->_db);
-
-                    {
-                        const char* req = "INSERT INTO " VARIABLES_NAME " (id) VALUES(0);";
-                        sqlite::Statement stm(keychain->_db, req);
-                        stm.step();
-                    }
-
-                    trans.commit();
-                }
             }
 
             return std::static_pointer_cast<IKeyChain>(keychain);
@@ -289,20 +309,20 @@ namespace beam
         }
     }
 
-    uint64_t Keychain::getNextID()
-    {
-        int lastId = 0;
+	uint64_t getLastID(sqlite3* db)
+	{
+	    int lastId = 0;
 
-        {
-            const char* req = "SELECT seq FROM sqlite_sequence WHERE name = '" STORAGE_NAME "';";
-            sqlite::Statement stm(_db, req);
+	    {
+	        const char* req = "SELECT seq FROM sqlite_sequence WHERE name = '" STORAGE_NAME "';";
+	        sqlite::Statement stm(db, req);
 
-            if (stm.step())
-                stm.get(0, lastId);
-        }
+	        if (stm.step())
+	            stm.get(0, lastId);
+	    }
 
-        return ++lastId;
-    }
+	    return lastId;
+	}
 
     ECC::Scalar::Native Keychain::calcKey(const beam::Coin& coin) const
     {
@@ -370,17 +390,45 @@ namespace beam
         return coins;
     }
 
-    void Keychain::store(const beam::Coin& coin)
+    void Keychain::store(beam::Coin& coin)
     {
         sqlite::Transaction trans(_db);
         
         {
-            const char* req = "INSERT INTO " STORAGE_NAME " (" STORAGE_FIELDS ") VALUES(" ENUM_STORAGE_FIELDS(BIND_LIST, ", ") ");";
+            const char* req = "INSERT INTO " STORAGE_NAME " (amount, status, height, key_type) VALUES(?1, ?2, ?3, ?4);";
             sqlite::Statement stm(_db, req);
 
-            ENUM_STORAGE_FIELDS(STM_BIND_LIST, "");
+			stm.bind(1, coin.m_amount);
+			stm.bind(2, coin.m_status);
+			stm.bind(3, coin.m_height);
+			stm.bind(4, coin.m_key_type);
 
             stm.step();
+        }
+
+        trans.commit();
+
+		coin.m_id = getLastID(_db);
+    }
+
+    void Keychain::store(std::vector<beam::Coin>& coins)
+    {
+        if (coins.empty()) return;
+        
+        sqlite::Transaction trans(_db);
+        for (auto& coin : coins)
+        {
+			const char* req = "INSERT INTO " STORAGE_NAME " (amount, status, height, key_type) VALUES(?1, ?2, ?3, ?4);";
+			sqlite::Statement stm(_db, req);
+
+			stm.bind(1, coin.m_amount);
+			stm.bind(2, coin.m_status);
+			stm.bind(3, coin.m_height);
+			stm.bind(4, coin.m_key_type);
+
+            stm.step();
+
+			coin.m_id = getLastID(_db);
         }
 
         trans.commit();
@@ -414,18 +462,29 @@ namespace beam
 
             for (const auto& coin : coins)
             {
-                const char* req = "UPDATE " STORAGE_NAME " SET status=?2 WHERE id=?1 AND status=?3;";
+                const char* req = "DELETE FROM " STORAGE_NAME " WHERE id=?1;";
                 sqlite::Statement stm(_db, req);
 
                 stm.bind(1, coin.m_id);
-                stm.bind(2, Coin::Spent);
-                stm.bind(3, Coin::Locked);
 
                 stm.step();
             }
 
             trans.commit();
         }
+    }
+
+    void Keychain::remove(const beam::Coin& coin)
+    {
+        sqlite::Transaction trans(_db);
+
+        const char* req = "DELETE FROM " STORAGE_NAME " WHERE id=?1;";
+        sqlite::Statement stm(_db, req);
+
+        stm.bind(1, coin.m_id);
+
+        stm.step();
+        trans.commit();
     }
 
     void Keychain::visit(std::function<bool(const beam::Coin& coin)> func)
@@ -444,15 +503,37 @@ namespace beam
         }
     }
 
-    void Keychain::setLastStateHash(const ECC::Hash::Value& hash)
+    void Keychain::visitMinedCoins(Height minHeight, std::function<bool(const beam::Coin& coin)> func)
+    {
+        const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE height=?1 AND (key_type=?2 OR key_type=?3);";
+        sqlite::Statement stm(_db, req);
+        
+        stm.bind(1, minHeight);
+        stm.bind(2, KeyType::Coinbase);
+        stm.bind(3, KeyType::Comission);
+
+        while (stm.step())
+        {
+            Coin coin;
+
+            ENUM_STORAGE_FIELDS(STM_GET_LIST, NOSEP);
+
+            if (!func(coin))
+                break;
+        }
+    }
+
+    void Keychain::setVarRaw(const char* name, const void* data, int size)
     {
         sqlite::Transaction trans(_db);
 
         {
-            const char* req = "UPDATE " VARIABLES_NAME " SET stateHash=?1 WHERE id=0;";
-            sqlite::Statement stm(_db, req);
+			const char* req = "INSERT or REPLACE INTO " VARIABLES_NAME " (" VARIABLES_FIELDS ") VALUES(?1, ?2);";
 
-            stm.bind(1, hash.m_pData, hash.size());
+            sqlite::Statement stm(_db, req);
+			
+            stm.bind(1, name);
+            stm.bind(2, data, size);
 
             stm.step();
         }
@@ -460,14 +541,17 @@ namespace beam
         trans.commit();
     }
 
-    void Keychain::getLastStateHash(ECC::Hash::Value& hash) const
+    int Keychain::getVarRaw(const char* name, void* data) const
     {
-        const char* req = "SELECT stateHash FROM " VARIABLES_NAME " WHERE id=0;";
+        const char* req = "SELECT value FROM " VARIABLES_NAME " WHERE name=?1;";
+
         sqlite::Statement stm(_db, req);
+		stm.bind(1, name);
         stm.step();
 
         int size = 0;
-        stm.get(0, hash.m_pData, size);
-        assert(size == hash.size());
+        stm.get(0, data, size);
+
+        return size;
     }
 }

@@ -7,16 +7,82 @@
 #include "wallet/wallet_network.h"
 #include "core/ecc_native.h"
 #include "utility/logger.h"
-
+#include <iomanip>
 #include <boost/program_options.hpp>
 
 namespace po = boost::program_options;
 using namespace std;
 using namespace beam;
 
-static void printHelp(const po::options_description& options)
+namespace cli
 {
-    cout << options << std::endl;
+    const char* HELP = "help";
+    const char* HELP_FULL = "help,h";
+    const char* MODE = "mode";
+    const char* PORT = "port";
+    const char* PORT_FULL = "port,p";
+    const char* DEBUG = "debug";
+    const char* DEBUG_FULL = "debug,d";
+    const char* STORAGE = "storage";
+    const char* MINING_THREADS = "mining_threads";
+    const char* MINER_ID = "miner_id";
+    const char* PASS = "pass";
+    const char* AMOUNT = "amount";
+    const char* AMOUNT_FULL = "amount,a";
+    const char* RECEIVER_ADDR = "receiver_addr";
+    const char* RECEIVER_ADDR_FULL = "receiver_addr,r";
+    const char* NODE_ADDR = "node_addr";
+    const char* NODE_ADDR_FULL = "node_addr,n";
+    const char* COMMAND = "command";
+    const char* NODE = "node";
+    const char* WALLET = "wallet";
+    const char* LISTEN = "listen";
+    const char* INIT = "init";
+    const char* SEND = "send";
+    const char* INFO = "info";
+}
+namespace beam
+{
+    std::ostream& operator<<(std::ostream& os, Coin::Status s)
+    {
+        os << "[";
+        switch (s)
+        {
+        case Coin::Locked: os << "Locked"; break;
+        case Coin::Spent: os << "Spent"; break;
+        case Coin::Unconfirmed: os << "Unconfirmed"; break;
+        case Coin::Unspent: os << "Unspent"; break;
+        default:
+            assert(false && "Unknown coin status");
+        }
+        os << "]";
+        return os;
+    }
+
+    std::ostream& operator<<(std::ostream& os, KeyType keyType)
+    {
+        os << "[";
+        switch (keyType)
+        {
+        case KeyType::Coinbase: os << "Coinbase"; break;
+        case KeyType::Comission: os << "Commission"; break;
+        case KeyType::Kernel: os << "Kernel"; break;
+        case KeyType::Regular: os << "Regualar"; break;
+        default:
+            assert(false && "Unknown key type");
+        }
+        os << "]";
+        return os;
+    }
+}
+namespace
+{
+    void printHelp(const po::options_description& options)
+    {
+        cout << options << std::endl;
+    }
+
+
 }
 
 int main(int argc, char* argv[])
@@ -32,21 +98,25 @@ int main(int argc, char* argv[])
 
     po::options_description general_options("General options");
     general_options.add_options()
-        ("help,h", "list of all options")
-        ("mode", po::value<string>()->required(), "mode to execute [node|wallet]")
-        ("port,p", po::value<uint16_t>()->default_value(10000), "port to start the server on");
+        (cli::HELP_FULL, "list of all options")
+        (cli::MODE, po::value<string>()->required(), "mode to execute [node|wallet]")
+        (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
+        (cli::DEBUG_FULL, "launch in debug mode");
 
     po::options_description node_options("Node options");
     node_options.add_options()
-        ("storage", po::value<string>()->default_value("node.db"), "node storage path");
+        (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
+        (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
+        (cli::MINER_ID, po::value<uint32_t>()->default_value(0), "seed for miner nonce generation")
+        ;
 
     po::options_description wallet_options("Wallet options");
     wallet_options.add_options()
-        ("pass", po::value<string>()->default_value(""), "password for the wallet")
-        ("amount,a", po::value<ECC::Amount>(), "amount to send")
-        ("receiver_addr,r", po::value<string>(), "address of receiver")
-        ("node_addr,n", po::value<string>(), "address of node")
-        ("command", po::value<string>(), "command to execute [send|listen|init|init-debug]");
+        (cli::PASS, po::value<string>()->default_value(""), "password for the wallet")
+        (cli::AMOUNT_FULL, po::value<ECC::Amount>(), "amount to send")
+        (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
+        (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
+        (cli::COMMAND, po::value<string>(), "command to execute [send|listen|init|info");
 
     po::options_description options{ "Allowed options" };
     options.add(general_options)
@@ -54,7 +124,7 @@ int main(int argc, char* argv[])
            .add(wallet_options);
 
     po::positional_options_description pos;
-    pos.add("mode", 1);
+    pos.add(cli::MODE, 1);
 
     try
     {
@@ -64,7 +134,7 @@ int main(int argc, char* argv[])
             .positional(pos)
             .run(), vm);
 
-        if (vm.count("help"))
+        if (vm.count(cli::HELP))
         {
             printHelp(options);
 
@@ -73,32 +143,39 @@ int main(int argc, char* argv[])
 
         po::notify(vm);
 
-        auto port = vm["port"].as<uint16_t>();
+        auto port = vm[cli::PORT].as<uint16_t>();
+        auto debug = vm.count(cli::DEBUG) > 0;
 
-        if (vm.count("mode"))
+        if (vm.count(cli::MODE))
         {
             io::Reactor::Ptr reactor(io::Reactor::create());
             io::Reactor::Scope scope(*reactor);
-            auto mode = vm["mode"].as<string>();
-            if (mode == "node")
+            auto mode = vm[cli::MODE].as<string>();
+            if (mode == cli::NODE)
             {
                 beam::Node node;
 
                 node.m_Cfg.m_Listen.port(port);
                 node.m_Cfg.m_Listen.ip(INADDR_ANY);
-                node.m_Cfg.m_sPathLocal = vm["storage"].as<std::string>();
+                node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<std::string>();
+                node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
+                node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
+                node.m_Cfg.m_TestMode.m_bFakePoW = debug;
 
                 LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
                 node.Initialize();
                 reactor->run();
             }
-            else if (mode == "wallet")
+            else if (mode == cli::WALLET)
             {
-                if (vm.count("command"))
+                if (vm.count(cli::COMMAND))
                 {
-                    auto command = vm["command"].as<string>();
-                    if (command != "init" && command != "init-debug" && command != "send" && command != "listen")
+                    auto command = vm[cli::COMMAND].as<string>();
+                    if (command != cli::INIT 
+                     && command != cli::SEND
+                     && command != cli::LISTEN
+                     && command != cli::INFO)
                     {
                         LOG_ERROR() << "unknown command: \'" << command << "\'";
                         return -1;
@@ -106,44 +183,29 @@ int main(int argc, char* argv[])
 
                     LOG_INFO() << "starting a wallet...";
 
-                    std::string pass(vm["pass"].as<std::string>());
+                    std::string pass(vm[cli::PASS].as<std::string>());
                     if (!pass.size())
                     {
                         LOG_ERROR() << "Please, provide password for the wallet.";
                         return -1;
                     }
 
-                    if (command == "init")
+                    if (command == cli::INIT)
                     {
                         auto keychain = Keychain::init(pass);
-
                         if (keychain)
                         {
                             LOG_INFO() << "wallet successfully created...";
-                            return 0;
-                        }
-                        else
-                        {
-                            LOG_ERROR() << "something went wrong, wallet not created...";
-                            return -1;
-                        }
-                    }
-
-                    if (command == "init-debug")
-                    {
-                        auto keychain = Keychain::init(pass);
-
-                        if (keychain)
-                        {
-                            keychain->store(Coin(keychain->getNextID(), 5));
-                            keychain->store(Coin(keychain->getNextID(), 10));
-                            keychain->store(Coin(keychain->getNextID(), 20));
-                            keychain->store(Coin(keychain->getNextID(), 50));
-                            keychain->store(Coin(keychain->getNextID(), 100));
-                            keychain->store(Coin(keychain->getNextID(), 200));
-                            keychain->store(Coin(keychain->getNextID(), 500));
-
-                            LOG_INFO() << "wallet with coins successfully created...";
+                            if (debug)
+                            {
+                                for(auto amount : {5, 10, 20, 50, 100, 200, 500})
+                                {
+                                    Coin coin(amount);
+                                    keychain->store(coin);
+                                }
+                                
+                                LOG_INFO() << "wallet with coins successfully created...";
+                            }
                             return 0;
                         }
                         else
@@ -162,25 +224,45 @@ int main(int argc, char* argv[])
 
                     LOG_INFO() << "wallet sucessfully opened...";
 
+                    if (command == cli::INFO)
+                    {
+                        cout << "____Wallet summary____\n\n";
+                        cout << "| id\t| amount\t| height\t| status\t| key type\t|\n";
+                        keychain->visit([](const Coin& c)->bool
+                        {
+                            cout << setw(8) << c.m_id
+                                 << setw(16) << c.m_amount 
+                                 << setw(16) << c.m_height 
+                                 << "  " << c.m_status << '\t'
+                                 << "  " << c.m_key_type << '\n';
+                            return true;
+                        });
+                        return 0;
+                    }
+ 
                     // resolve address after network io
                     io::Address node_addr;
-                    node_addr.resolve(vm["node_addr"].as<string>().c_str());
-                    bool is_server = command == "listen";
+                    node_addr.resolve(vm[cli::NODE_ADDR].as<string>().c_str());
+                    bool is_server = command == cli::LISTEN;
                     WalletNetworkIO wallet_io{ io::Address().ip(INADDR_ANY).port(port)
                                              , node_addr
                                              , is_server
                                              , keychain
                                              , reactor};
 
-                    if (command == "send")
-                    {
-                        auto amount = vm["amount"].as<ECC::Amount>();
-                        io::Address receiver_addr;
-                        receiver_addr.resolve(vm["receiver_addr"].as<string>().c_str());
+					wallet_io.sync_with_node([&]() 
+					{
+						if (command == cli::SEND)
+						{
+							auto amount = vm[cli::AMOUNT].as<ECC::Amount>();
+							io::Address receiver_addr;
+							receiver_addr.resolve(vm[cli::RECEIVER_ADDR].as<string>().c_str());
                     
-                        LOG_INFO() << "sending money " << receiver_addr.str();
-                        wallet_io.transfer_money(receiver_addr, move(amount));
-                    }
+							LOG_INFO() << "sending money " << receiver_addr.str();
+							wallet_io.transfer_money(receiver_addr, move(amount));
+						}
+					});
+
                     wallet_io.start();
                 }
                 else

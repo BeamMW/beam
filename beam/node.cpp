@@ -5,9 +5,8 @@
 
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"
-#define LOG_DEBUG_ENABLED 0
+
 #include "../utility/logger.h"
-#include "../utility/bridge.h"
 #include "../utility/io/tcpserver.h"
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
@@ -846,6 +845,7 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
 	{
+        LOG_DEBUG() << "New stream accepted";
 		Peer* p = get_ParentObj().AllocPeer();
 		p->m_iPeer = -1;
 
@@ -1002,7 +1002,7 @@ void Node::Miner::Restart()
 void Node::Miner::OnMined()
 {
 	Task::Ptr pTask;
-
+    LOG_INFO() << "New block mined";
 	{
 		std::scoped_lock<std::mutex> scope(m_Mutex);
 		if (!(m_pTask && *m_pTask->m_pStop))

@@ -26,10 +26,6 @@ struct SqliteKeychain : beam::IKeyChain
 		assert(_keychain != nullptr);
 	}
 
-    uint64_t getNextID() override
-	{
-		return _keychain->getNextID();
-	}
 
 	ECC::Scalar::Native calcKey(const beam::Coin& coin) const override
 	{
@@ -41,10 +37,15 @@ struct SqliteKeychain : beam::IKeyChain
 		return _keychain->getCoins(amount, lock);
 	}
 
-	void store(const beam::Coin& coin)
+	void store(beam::Coin& coin)
 	{
 		return _keychain->store(coin);
 	}
+
+    void store(std::vector<beam::Coin>& coins)
+    {
+        return _keychain->store(coins);
+    }
 
 	void update(const std::vector<beam::Coin>& coins) override
 	{
@@ -56,19 +57,29 @@ struct SqliteKeychain : beam::IKeyChain
 		_keychain->remove(coins);
 	}
 
+    void remove(const beam::Coin& coin) override
+    {
+        _keychain->remove(coin);
+    }
+
 	void visit(std::function<bool(const beam::Coin& coin)> func) override
 	{
 		_keychain->visit(func);
 	}
 
-	void setLastStateHash(const ECC::Hash::Value& hash) override
+    void visitMinedCoins(beam::Height minHeight, std::function<bool(const beam::Coin& coin)> func) override
+    {
+        _keychain->visitMinedCoins(minHeight, func);
+    }
+
+	void setVarRaw(const char* name, const void* data, int size) override
 	{
-		_keychain->setLastStateHash(hash);
+		_keychain->setVarRaw(name, data, size);
 	}
 
-	void getLastStateHash(ECC::Hash::Value& hash) const override
+	int getVarRaw(const char* name, void* data) const override
 	{
-		_keychain->getLastStateHash(hash);
+		return _keychain->getVarRaw(name, data);
 	}
 
 private:

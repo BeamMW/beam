@@ -28,6 +28,8 @@ namespace beam
     public:
 
         using ConnectCallback = std::function<void(uint64_t tag)>;
+		using NodeSyncCallback = std::function<void()>;
+
         WalletNetworkIO(io::Address address
                       , io::Address node_address
                       , bool is_server
@@ -40,6 +42,7 @@ namespace beam
         void stop();
         
         void transfer_money(io::Address receiver, Amount&& amount);
+		void sync_with_node(NodeSyncCallback&& callback);
         
     private:
         // INetworkIO
@@ -50,6 +53,7 @@ namespace beam
         void send_node_message(proto::NewTransaction&&) override;
 		void send_node_message(proto::GetProofUtxo&&) override;
         void send_node_message(proto::GetHdr&&) override;
+        void send_node_message(proto::GetMined&&) override;
 
         void close_connection(uint64_t id) override;
 
@@ -116,10 +120,12 @@ namespace beam
             void OnMsg(proto::Boolean&& msg) override;
             void OnMsg(proto::ProofUtxo&& msg) override;
 			void OnMsg(proto::NewTip&& msg) override;
+            void OnMsg(proto::Hdr&& msg) override;
             void OnMsg(proto::Mined&& msg) override;
         private:
             IWallet & m_wallet;
             std::vector<NodeConnectCallback> m_connections_callbacks;
+            bool m_connecting;
         };
     
     private:

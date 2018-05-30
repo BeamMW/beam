@@ -24,6 +24,7 @@ namespace beam
         virtual void send_node_message(proto::NewTransaction&&) = 0;
         virtual void send_node_message(proto::GetProofUtxo&&) = 0;
 		virtual void send_node_message(proto::GetHdr&&) = 0;
+        virtual void send_node_message(proto::GetMined&&) = 0;
         // connection control
         virtual void close_connection(PeerId id) = 0;
     };
@@ -108,5 +109,6 @@ namespace beam
         std::vector<wallet::Receiver::Ptr>    m_removed_receivers;
         TxCompletedAction m_tx_completed_action;
         std::queue<Uuid> m_node_requests_queue;
+		Merkle::Hash m_LiveObjects;
     };
 }
