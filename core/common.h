@@ -284,6 +284,7 @@ namespace beam
 
 		struct Rules
 		{
+			static const Amount Coin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
 			static const Amount CoinbaseEmission; // the maximum allowed coinbase in a single block
 			static const Height MaturityCoinbase;
 			static const Height MaturityStd;

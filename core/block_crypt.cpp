@@ -599,7 +599,8 @@ namespace beam
 
 	/////////////
 	// Block
-	const Amount Block::Rules::CoinbaseEmission = 1000000 * 15; // the maximum allowed coinbase in a single block
+	const Amount Block::Rules::Coin				= 1000000;
+	const Amount Block::Rules::CoinbaseEmission = Coin * 40; // the maximum allowed coinbase in a single block
 	const Height Block::Rules::MaturityCoinbase	= 60; // 1 hour
 	const Height Block::Rules::MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
 	const Height Block::Rules::HeightGenesis	= 1;
