@@ -6,6 +6,7 @@
 #include "wallet/keychain.h"
 #include "wallet/wallet_network.h"
 #include "core/ecc_native.h"
+#include "core/serialization_adapters.h"
 #include "utility/logger.h"
 #include <iomanip>
 
@@ -42,6 +43,8 @@ namespace cli
     const char* NODE = "node";
     const char* WALLET = "wallet";
     const char* LISTEN = "listen";
+	const char* TREASURY = "treasury";
+	const char* TREASURY_BLOCK = "block_path";
     const char* INIT = "init";
     const char* SEND = "send";
     const char* INFO = "info";
@@ -91,6 +94,29 @@ namespace
 
 }
 
+struct SerializerFile {
+
+	SerializerFile() : _oa(m_File) {}
+
+	template <typename T> SerializerFile& operator&(const T& object) {
+		_oa & object;
+		return *this;
+	}
+
+	struct Stream :public std::ofstream
+	{
+		size_t write(const void* p, size_t n)
+		{
+			std::ofstream::write((char*)p, n);
+			return fail() ? 0 : n;
+		}
+	} m_File;
+
+private:
+	yas::binary_oarchive<Stream, SERIALIZE_OPTIONS> _oa;
+};
+
+
 int main(int argc, char* argv[])
 {
     LoggerConfig lc;
@@ -125,7 +151,8 @@ int main(int argc, char* argv[])
         (cli::AMOUNT_FULL, po::value<ECC::Amount>(), "amount to send")
         (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
         (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
-        (cli::COMMAND, po::value<string>(), "command to execute [send|listen|init|info]");
+		(cli::TREASURY_BLOCK, po::value<string>(), "Block to create/append treasury to")
+		(cli::COMMAND, po::value<string>(), "command to execute [send|listen|init|info|treasury]");
 
     po::options_description options{ "Allowed options" };
     options.add(general_options)
@@ -194,7 +221,7 @@ int main(int argc, char* argv[])
 				node.m_Cfg.m_TestMode.m_bFakePoW = debug;
                 if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
                 {
-                    LOG_ERROR() << " wallet seed is not provider. You have to pass wallet seed for minig node.";
+                    LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
                     return -1;
                 }
                 node.m_Cfg.m_WalletKey = walletSeed;
@@ -235,6 +262,7 @@ int main(int argc, char* argv[])
                     if (command != cli::INIT 
                      && command != cli::SEND
                      && command != cli::LISTEN
+                     && command != cli::TREASURY
                      && command != cli::INFO)
                     {
                         LOG_ERROR() << "unknown command: \'" << command << "\'";
@@ -288,6 +316,95 @@ int main(int argc, char* argv[])
                     }
 
                     LOG_INFO() << "wallet sucessfully opened...";
+
+					if (command == cli::TREASURY)
+					{
+						std::string sPath = vm[cli::TREASURY_BLOCK].as<std::string>();
+						if (sPath.empty())
+						{
+							LOG_ERROR() << "Treasury block path not specified";
+							return -1;
+						}
+
+						uint32_t nHeightStep = 60 * 24 / 12; // 2 hours, 12 per day
+						uint32_t nCount = 12 * 30; // 360 total
+
+						Block::Body block;
+						ECC::Scalar::Native offset(ECC::Zero);
+
+						//{
+						//	DeserializerFile der;
+						//	der.m_File.open(sPath);
+						//	if (!der.m_File.fail())
+						//	{
+						//		der & block;
+						//		offset = block.m_Offset;
+						//	}
+						//}
+
+						std::vector<Coin> coins;
+						coins.resize(nCount);
+
+						for (uint32_t i = 0; i < nCount; i++)
+						{
+							Coin& coin = coins[i];
+							coin.m_key_type = KeyType::Regular;
+							coin.m_amount = Block::Rules::Coin * 10;
+							coin.m_status = Coin::Unconfirmed;
+							coin.m_height = nHeightStep * i + Block::Rules::HeightGenesis;
+						}
+
+						keychain->store(coins);
+
+						for (uint32_t i = 0; i < nCount; i++)
+						{
+							Coin& coin = coins[i];
+
+							Output::Ptr pOutp(new Output);
+							pOutp->m_Incubation = nHeightStep * i + 1;
+
+							ECC::Scalar::Native k = keychain->calcKey(coin);
+
+							pOutp->Create(k, coin.m_amount);
+
+							block.m_vOutputs.push_back(std::move(pOutp));
+							offset += k;
+							block.m_Subsidy += coin.m_amount;
+						}
+
+						// at least 1 kernel
+						{
+							Coin dummy; // not a coin actually
+							dummy.m_key_type = KeyType::Kernel;
+							dummy.m_status = Coin::Unconfirmed;
+
+							ECC::Scalar::Native k = keychain->calcKey(dummy);
+
+							TxKernel::Ptr pKrn(new TxKernel);
+							pKrn->m_Excess = ECC::Point::Native(Context::get().G * k);
+
+							Merkle::Hash hv;
+							pKrn->get_HashForSigning(hv);
+							pKrn->m_Signature.Sign(hv, k);
+
+							block.m_vKernelsOutput.push_back(std::move(pKrn));
+							offset += k;
+						}
+
+						offset = -offset;
+						block.m_Offset = offset;
+
+						block.Sort();
+						block.DeleteIntermediateOutputs();
+
+						// Not a valid block yet, because it lacks the coinbase.
+						// Leave this until mining
+
+						SerializerFile ser;
+						ser.m_File.open(sPath, std::ofstream::out | std::ofstream::trunc);
+						ser & block;
+
+					}
 
                     if (command == cli::INFO)
                     {
