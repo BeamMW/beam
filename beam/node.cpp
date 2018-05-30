@@ -9,6 +9,8 @@
 #include "../utility/logger.h"
 #include "../utility/bridge.h"
 #include "../utility/io/tcpserver.h"
+#include "../utility/logger.h"
+#include "../utility/logger_checkpoints.h"
 
 namespace beam {
 
@@ -164,6 +166,8 @@ void Node::Processor::OnNewState()
 
 	proto::NewTip msg;
 	msgHdr.m_Description.get_ID(msg.m_ID);
+
+	LOG_INFO() << "My Tip: " << msg.m_ID;
 
 	get_ParentObj().m_TxPool.DeleteOutOfBound(msg.m_ID.m_Height + 1);
 
@@ -397,6 +401,8 @@ void Node::Peer::OnTimer()
 
 void Node::Peer::OnConnected()
 {
+	LOG_INFO() << "+Peer " << get_Connection()->peer_address();
+
 	if (State::Connecting == m_eState)
 		KillTimer();
 	else
@@ -452,6 +458,10 @@ void Node::Peer::ReleaseTask(Task& t)
 
 void Node::Peer::OnPostError()
 {
+	const Connection* pConn = get_Connection();
+	if (pConn)
+		LOG_INFO() << "-Peer " << pConn->peer_address();
+
 	if (State::Snoozed != m_eState)
 		m_eState = State::Idle; // prevent reassigning the tasks
 
@@ -499,6 +509,8 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
 	m_TipHeight = msg.m_ID.m_Height;
 	m_setRejected.clear();
+
+	LOG_INFO() << "Peer " << get_Connection()->peer_address() << " Tip: " << msg.m_ID;
 
 	TakeTasks();
 
@@ -621,6 +633,8 @@ void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
 
 void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 {
+	// TODO: Verify all the Ptrs for being non-NULL (or better do this within serialization)
+
 	proto::Boolean msgOut;
 	msgOut.m_Value = true;
 
@@ -631,8 +645,41 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 	if (m_pThis->m_TxPool.m_setTxs.end() == it)
 	{
 		// new transaction
+
+		std::ostringstream os;
+		{
+			// Log it
+			const TxBase& tx = *key.m_pValue;
+
+			os << "Tx from " << get_Connection()->peer_address();
+
+			for (size_t i = 0; i < tx.m_vInputs.size(); i++)
+				os << "\n\tI: " << tx.m_vInputs[i]->m_Commitment;
+
+			for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
+			{
+				const Output& outp = *tx.m_vOutputs[i];
+				os << "\n\tO: " << outp.m_Commitment;
+
+				if (outp.m_Incubation)
+					os << ", Incubation +" << outp.m_Incubation;
+
+				if (outp.m_pPublic)
+					os << ", Sum=" << outp.m_pPublic->m_Value;
+
+				if (outp.m_pConfidential)
+					os << ", Confidential";
+			}
+
+			for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
+				os << "\n\tK: Fee=" << tx.m_vKernelsOutput[i]->m_Fee;
+		}
+
 		Height h = m_pThis->m_Processor.get_NextHeight();
 		msgOut.m_Value = m_pThis->m_TxPool.AddTx(std::move(key.m_pValue), h);
+
+		os << "\n\tValid: " << msgOut.m_Value;
+		LOG_INFO() << os.str();
 
 		if (msgOut.m_Value)
 		{

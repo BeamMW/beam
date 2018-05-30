@@ -150,6 +150,8 @@ namespace proto {
 		void Connect(const io::Address& addr);
 		void Accept(io::TcpStream::Ptr&& newStream);
 
+		const Connection* get_Connection() { return m_Connection.get(); }
+
 		virtual void OnConnected() {}
 		virtual void OnClosed(int errorCode) {}
 
