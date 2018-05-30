@@ -100,7 +100,9 @@ namespace beam
     {
         boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId;
-        Height height = 0;
+        Block::SystemState::ID stateID = {0};
+		m_keyChain->getVar(SystemStateIDName, stateID);
+        Height height = stateID.m_Height;
         copy(id.begin(), id.end(), txId.begin());
         m_peers.emplace(txId, to);
         auto s = make_unique<Sender>(*this, m_keyChain, txId, amount, height);
@@ -194,6 +196,12 @@ namespace beam
         if (it == m_receivers.end())
         {
             LOG_DEBUG() << "[Receiver] Received tx invitation " << data->m_txId;
+            Block::SystemState::ID stateID = {0};
+			m_keyChain->getVar(SystemStateIDName, stateID);
+			if (stateID.m_Height != data->m_height)
+			{
+				assert(false && "different states");
+			}
             auto txId = data->m_txId;
             m_peers.emplace(txId, from);
             auto p = m_receivers.emplace(txId, make_unique<Receiver>(*this, m_keyChain, data));
@@ -363,7 +371,7 @@ namespace beam
 
             return true;
         });
-        Block::SystemState::ID newID;
+        Block::SystemState::ID newID = {0};
         msg.m_Description.get_ID(newID);
         m_keyChain->setVar(SystemStateIDName, newID);
     }
