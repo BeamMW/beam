@@ -47,7 +47,7 @@ int p2ptest(int numNodes, int runTime) {
 
 } //namespace
 
-static const int DEF_NUM_NODES = 113;
+static const int DEF_NUM_NODES = 47;
 
 int main() {
     using namespace beam;

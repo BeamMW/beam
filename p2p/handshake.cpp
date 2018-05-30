@@ -106,8 +106,8 @@ bool HandshakingPeers::on_handshake_error_response(uint64_t connId, HandshakeErr
         LOG_WARNING() << "Outbound connections are missing " << io::Address::from_u64(connId);
         return false;
     }
-    _outbound.erase(it);
     LOG_WARNING() << "Unsuccessful handshake response from " << it->second->peer_address() << " reason=" << hs.str();
+    _outbound.erase(it);
     return false;
 }
 

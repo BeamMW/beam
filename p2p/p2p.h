@@ -2,7 +2,7 @@
 #include "rnd_gen.h"
 #include "servers.h"
 #include "handshake.h"
-#include "banned_peers.h"
+#include "ip_access_control.h"
 #include "protocol.h"
 #include "utility/asynccontext.h"
 #include "utility/io/tcpserver.h"
@@ -29,7 +29,6 @@ private:
 
     void on_stream_connected(Peer peer, io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
 
-
     void connect_to_servers();
 
     void on_peer_handshaked(ConnectionPtr&& conn, uint16_t listensTo);
@@ -38,6 +37,7 @@ private:
     Servers _knownServers;
     Protocol _protocol;
     HandshakingPeers _handshakingPeers;
+    //IpAccessControl _ipAccess;
     io::Address _bindToIp;
     uint16_t _port; // !=0 if this is server
     io::TcpServer::Ptr _thisServer;

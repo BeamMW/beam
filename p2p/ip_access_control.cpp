@@ -1,6 +1,7 @@
 #include "ip_access_control.h"
 #include "utility/helpers.h"
 #include "utility/logger.h"
+#include <time.h>
 
 namespace beam {
 
@@ -117,6 +118,35 @@ void IpAccessControl::unban(io::Address a) {
 
     _schedule.erase(it->second.key);
     _denied.erase(it);
+}
+
+void IpAccessControl::on_timer() {
+    if (_schedule.empty()) {
+        return;
+    }
+    Timestamp now = time(0);
+    while (dequeue_schedule(now)) {}
+}
+
+bool IpAccessControl::dequeue_schedule(Timestamp now) {
+    auto i = _schedule.begin();
+    if (i == _schedule.end() || i->waitUntil > now) {
+        return false;
+    }
+    uint32_t ip = i->ip;
+    _schedule.erase(i);
+    auto j = _denied.find(ip);
+    if (j != _denied.end()) {
+        Info& info = j->second;
+        io::Address a(ip, info.port);
+        if (info.isBanned) {
+            _unbanCallback(a);
+        } else {
+            _reconnectCallback(a);
+        }
+        _denied.erase(j);
+    }
+    return true;
 }
 
 } //namespace

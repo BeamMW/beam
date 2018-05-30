@@ -4,7 +4,7 @@ namespace beam {
 
 P2P::P2P(io::Address bindTo, uint16_t listenTo) :
     _knownServers(_rdGen, 15), // max weight TODO from config
-    _protocol(0xAA, 0xBB, 0xCC, 22, *this, 0x2000),
+    _protocol(0xAA, 0xBB, 0xCC, 100, *this, 0x2000),
     _handshakingPeers(_protocol, BIND_THIS_MEMFN(on_peer_handshaked), listenTo, _rdGen.rnd<uint64_t>()),
     _bindToIp(bindTo),
     _port(listenTo)
@@ -42,6 +42,7 @@ void P2P::connect_to_servers() {
             break;
 
         // TODO check if banned by IP
+        // _ipAccess.is_ip_allowed(a.ip());
 
         LOG_INFO() << "Connecting to " << a << TRACE(_bindToIp);
         auto result = _reactor->tcp_connect(a, a.u64(), BIND_THIS_MEMFN(on_stream_connected), -1, _bindToIp);
@@ -59,14 +60,27 @@ void P2P::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode error
     }
 
     // TODO is ip banned ? if yes, close
+    // _ipAccess.is_ip_allowed(a.ip());
 
     LOG_DEBUG() << "Stream accepted, socket=" << newStream->address() << " peer=" << newStream->peer_address();
     assert(newStream);
 
+    // port is ignored for inbound connections ids
+    uint64_t id = newStream->peer_address().port(0).u64();
+
     // wait for handshake request
+    _handshakingPeers.connected(
+        id,
+        std::make_unique<Connection>(
+            _protocol,
+            id,
+            Connection::inbound,
+            10000, //TODO config
+            std::move(newStream)
+        )
+    );
 
-    // TODO nonce is stream ID
-
+    // TODO nonce is stream ID ????
 }
 
 void P2P::on_stream_connected(Peer peer, io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode) {
@@ -78,10 +92,19 @@ void P2P::on_stream_connected(Peer peer, io::TcpStream::Ptr&& newStream, io::Err
     LOG_INFO() << "Connected to " << newStream->peer_address() << " socket=" << newStream->address();
 
     // double check if IP banned
+    // _ipAccess.is_ip_allowed(a.ip());
 
-    // send handshake
-
-    // wait for handshake response
+    // send handshake and wait for handshake response
+    _handshakingPeers.connected(
+        peer,
+        std::make_unique<Connection>(
+            _protocol,
+            peer,
+            Connection::outbound,
+            10000, //TODO config
+            std::move(newStream)
+        )
+    );
 }
 
 void P2P::on_protocol_error(Peer from, ProtocolError error) {
@@ -93,7 +116,10 @@ void P2P::on_connection_error(Peer from, int errorCode) {
 }
 
 void P2P::on_peer_handshaked(ConnectionPtr&& conn, uint16_t listensTo) {
-
+    LOG_INFO() << "Peer handshaked, " << conn->peer_address();
+    if (listensTo) {
+        //_knownServers.add();
+    }
 }
 
 } //namespace
