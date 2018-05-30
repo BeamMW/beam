@@ -371,10 +371,12 @@ namespace beam
     void Wallet::handle_node_message(proto::Mined&& msg)
     {
         vector<Coin> mined;
+        Block::SystemState::ID id = { 0 };
+        m_keyChain->getVar(SystemStateIDName, id);
 
         for (auto& minedCoin : msg.m_Entries)
         {
-            if (minedCoin.m_Active) // we store coins from active branch
+            if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= id.m_Height) // we store coins from active branch
             {
                 // coinbase 
                 mined.emplace_back(Block::Rules::CoinbaseEmission, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Coinbase);
@@ -384,27 +386,11 @@ namespace beam
                 }
             }
         }
-        if (!mined.empty())
-        {
-            Block::SystemState::ID id = { 0 };
-            m_keyChain->getVar(SystemStateIDName, id);
 
-            m_keyChain->visit([&mined](const Coin& coinA)
-            {
-				auto it = std::find_if(mined.begin(), mined.end(), [&coinA](const Coin& coinB)
-				{
-					return coinA.m_height == coinB.m_height && coinA.m_key_type == coinB.m_key_type;
-				});
-
-				if (it != mined.end())
-					mined.erase(it);
-
-				return true;
-            });
-
-        }
-
-        m_keyChain->store(mined);
+		if (!mined.empty())
+		{
+			m_keyChain->store(mined);
+		}
     }
 
     void Wallet::handle_connection_error(PeerId from)

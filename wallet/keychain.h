@@ -45,7 +45,6 @@ namespace beam
         virtual void remove(const beam::Coin& coin) = 0;
 
 		virtual void visit(std::function<bool(const beam::Coin& coin)> func) = 0;
-        virtual void visitMinedCoins(Height minHeight, std::function<bool(const beam::Coin& coin)> func) = 0;
 
 		virtual void setVarRaw(const char* name, const void* data, int size) = 0;
 		virtual int getVarRaw(const char* name, void* data) const = 0;
@@ -80,7 +79,6 @@ namespace beam
         void remove(const std::vector<beam::Coin>& coins) override;
         void remove(const beam::Coin& coin) override;
 		void visit(std::function<bool(const beam::Coin& coin)> func) override;
-        void visitMinedCoins(Height minHeight, std::function<bool(const beam::Coin& coin)> func) override;
 
 		void setVarRaw(const char* name, const void* data, int size) override;
 		int getVarRaw(const char* name, void* data) const override;
