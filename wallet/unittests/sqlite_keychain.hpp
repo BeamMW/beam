@@ -17,7 +17,9 @@ struct SqliteKeychain : beam::IKeyChain
 
 		// init wallet with password
 		{
-			auto keychain = beam::Keychain::init(Pass);
+            ECC::NoLeak<ECC::uintBig> seed;
+            seed.V = ECC::Zero;
+			auto keychain = beam::Keychain::init(Pass, seed);
 			assert(keychain != nullptr);
 		}
 

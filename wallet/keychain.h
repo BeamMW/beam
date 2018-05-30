@@ -67,11 +67,11 @@ namespace beam
 
     struct Keychain : IKeyChain
     {
-        static Ptr init(const std::string& password);
+        static Ptr init(const std::string& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
         static Ptr open(const std::string& password);
         static const char* getName();
 
-        Keychain(const std::string& pass);
+        Keychain(const std::string& pass, const ECC::NoLeak<ECC::uintBig>& secretKey );
         ~Keychain();
 
         ECC::Scalar::Native calcKey(const beam::Coin& coin) const override;

@@ -42,6 +42,11 @@
 
 #define VARIABLES_FIELDS ENUM_VARIABLES_FIELDS(LIST, ", ")
 
+namespace
+{
+    const char* WalletSeed = "WalletSeed";
+}
+
 namespace beam
 {
     namespace sqlite
@@ -203,11 +208,11 @@ namespace beam
         return "wallet.db";
     }
 
-    IKeyChain::Ptr Keychain::init(const std::string& password)
+    IKeyChain::Ptr Keychain::init(const std::string& password, const ECC::NoLeak<ECC::uintBig>& secretKey)
     {
         if (!boost::filesystem::exists(getName()))
         {
-            auto keychain = std::make_shared<Keychain>(password);
+            auto keychain = std::make_shared<Keychain>(password, secretKey);
 
             {
                 int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
@@ -230,6 +235,9 @@ namespace beam
                 int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
                 assert(ret == SQLITE_OK);
             }
+            {
+                keychain->setVar(WalletSeed, secretKey.V);
+            }
 
             return std::static_pointer_cast<IKeyChain>(keychain);
         }
@@ -243,7 +251,9 @@ namespace beam
     {
         if (boost::filesystem::exists(getName()))
         {
-            auto keychain = std::make_shared<Keychain>(password);
+            ECC::NoLeak<ECC::uintBig> seed;
+            seed.V = ECC::Zero;
+            auto keychain = std::make_shared<Keychain>(password, seed);
 
             {
                 int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
@@ -284,6 +294,15 @@ namespace beam
                     return Ptr();
                 }
             }
+            
+            if (keychain->getVar(WalletSeed, seed))
+            {
+                keychain->m_kdf.m_Secret = seed;
+            }
+            else
+            {
+                assert(false && "there is no seed for keychain");
+            }
 
             return std::static_pointer_cast<IKeyChain>(keychain);
         }
@@ -293,11 +312,11 @@ namespace beam
         return Ptr();
     }
 
-    Keychain::Keychain(const std::string& pass)
+    Keychain::Keychain(const std::string& pass, const ECC::NoLeak<ECC::uintBig>& secretKey)
         : _db(nullptr)
         , _nonce(std::make_shared<Nonce>(pass.c_str()))
     {
-        // TODO: need to init secret m_kdf.m_Secret.V = _nonce->get();
+        m_kdf.m_Secret = secretKey;
     }
 
     Keychain::~Keychain()
