@@ -117,6 +117,153 @@ private:
 	yas::binary_oarchive<Stream, SERIALIZE_OPTIONS> _oa;
 };
 
+struct TreasuryBlockGenerator
+{
+	std::string m_sPath;
+	IKeyChain* m_pKeyChain;
+
+	Block::Body m_Block;
+	ECC::Scalar::Native m_Offset;
+
+	std::vector<Coin> m_Coins;
+	std::vector<std::pair<Height, ECC::Scalar::Native> > m_vIncubationAndKeys;
+
+	std::mutex m_Mutex;
+	std::vector<std::thread> m_vThreads;
+
+	int Generate(uint32_t nCount, Height dh);
+private:
+	void Proceed(uint32_t i);
+};
+
+int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
+{
+	if (m_sPath.empty())
+	{
+		LOG_ERROR() << "Treasury block path not specified";
+		return -1;
+	}
+
+	m_Block.ZeroInit();
+
+	{
+		std::ifstream f(m_sPath, std::ifstream::binary);
+		if (!f.fail())
+		{
+			std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+			if (!vContents.empty())
+			{
+				Deserializer der;
+				der.reset(&vContents.at(0), vContents.size());
+				der & m_Block;
+
+				LOG_INFO() << "Treasury block is non-empty, appending.";
+			}
+		}
+	}
+
+	m_Offset = m_Block.m_Offset;
+	m_Offset = -m_Offset;
+
+	LOG_INFO() << "Generating coins...";
+
+	m_Coins.resize(nCount);
+	m_vIncubationAndKeys.resize(nCount);
+
+	Height h = 0;
+
+	for (uint32_t i = 0; i < nCount; i++, h += dh)
+	{
+		Coin& coin = m_Coins[i];
+		coin.m_key_type = KeyType::Regular;
+		coin.m_amount = Block::Rules::Coin * 10;
+		coin.m_status = Coin::Unconfirmed;
+		coin.m_height = h + Block::Rules::HeightGenesis;
+
+		m_vIncubationAndKeys[i].first = h;
+		m_vIncubationAndKeys[i].second = m_pKeyChain->calcKey(coin);
+	}
+
+	m_pKeyChain->store(m_Coins);
+
+	m_vThreads.resize(std::thread::hardware_concurrency());
+	assert(!m_vThreads.empty());
+
+	for (uint32_t i = 0; i < m_vThreads.size(); i++)
+		m_vThreads[i] = std::thread(&TreasuryBlockGenerator::Proceed, this, i);
+
+	for (uint32_t i = 0; i < m_vThreads.size(); i++)
+		m_vThreads[i].join();
+
+	// at least 1 kernel
+	{
+		Coin dummy; // not a coin actually
+		dummy.m_key_type = KeyType::Kernel;
+		dummy.m_status = Coin::Unconfirmed;
+
+		ECC::Scalar::Native k = m_pKeyChain->calcKey(dummy);
+
+		TxKernel::Ptr pKrn(new TxKernel);
+		pKrn->m_Excess = ECC::Point::Native(Context::get().G * k);
+
+		Merkle::Hash hv;
+		pKrn->get_HashForSigning(hv);
+		pKrn->m_Signature.Sign(hv, k);
+
+		m_Block.m_vKernelsOutput.push_back(std::move(pKrn));
+		m_Offset += k;
+	}
+
+	m_Offset = -m_Offset;
+	m_Block.m_Offset = m_Offset;
+
+	m_Block.Sort();
+	m_Block.DeleteIntermediateOutputs();
+
+	SerializerFile ser;
+	ser.m_File.open(m_sPath, std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+	ser & m_Block;
+	ser.m_File.flush();
+
+	bool bbb = m_Block.IsValid(1, 1);
+
+	LOG_INFO() << "Done";
+
+	return 0;
+}
+
+void TreasuryBlockGenerator::Proceed(uint32_t i)
+{
+	ECC::Scalar::Native offset(ECC::Zero);
+
+	Block::Body subBlock;
+	ZeroObject(subBlock.m_Subsidy);
+
+	for ( ; i < m_Coins.size(); i += m_vThreads.size())
+	{
+		const Coin& coin = m_Coins[i];
+
+		Output::Ptr pOutp(new Output);
+		pOutp->m_Incubation = m_vIncubationAndKeys[i].first;
+
+		const ECC::Scalar::Native& k = m_vIncubationAndKeys[i].second;
+
+		pOutp->Create(k, coin.m_amount);
+
+		subBlock.m_vOutputs.push_back(std::move(pOutp));
+		offset += k;
+		subBlock.m_Subsidy += coin.m_amount;
+	}
+
+	std::unique_lock<std::mutex> scope(m_Mutex);
+
+	m_Offset += offset;
+	m_Block.m_Subsidy += subBlock.m_Subsidy;
+	m_Block.m_vOutputs.reserve(m_Block.m_vOutputs.size() + subBlock.m_vOutputs.size());
+
+	for (i = 0; i < subBlock.m_vOutputs.size(); i++)
+		m_Block.m_vOutputs.push_back(std::move(subBlock.m_vOutputs[i]));
+}
 
 int main(int argc, char* argv[])
 {
@@ -347,97 +494,15 @@ int main(int argc, char* argv[])
 
 					if (command == cli::TREASURY)
 					{
-						std::string sPath = vm[cli::TREASURY_BLOCK].as<std::string>();
-						if (sPath.empty())
-						{
-							LOG_ERROR() << "Treasury block path not specified";
-							return -1;
-						}
+						TreasuryBlockGenerator tbg;
+						tbg.m_sPath = vm[cli::TREASURY_BLOCK].as<std::string>();
+						tbg.m_pKeyChain = keychain.get();
 
-						uint32_t nHeightStep = 60 * 24 / 12; // 2 hours, 12 per day
-						uint32_t nCount = 12 * 30; // 360 total
+						// TODO: command-line parameter
+						Height dh = 60 * 2; // 2 hours, 12 per day
+						uint32_t nCount = 12 * 30; // 360 total. 1 month roughly
 
-						Block::Body block;
-						ECC::Scalar::Native offset(ECC::Zero);
-
-						{
-							std::ifstream f(sPath, std::ifstream::binary);
-							if (!f.fail())
-							{
-								std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-								if (!vContents.empty())
-								{
-									Deserializer der;
-									der.reset(&vContents.at(0), vContents.size());
-
-									der & block;
-									offset = block.m_Offset;
-								}
-							}
-						}
-
-						std::vector<Coin> coins;
-						coins.resize(nCount);
-
-						for (uint32_t i = 0; i < nCount; i++)
-						{
-							Coin& coin = coins[i];
-							coin.m_key_type = KeyType::Regular;
-							coin.m_amount = Block::Rules::Coin * 10;
-							coin.m_status = Coin::Unconfirmed;
-							coin.m_height = nHeightStep * i + Block::Rules::HeightGenesis;
-						}
-
-						keychain->store(coins);
-
-						for (uint32_t i = 0; i < nCount; i++)
-						{
-							Coin& coin = coins[i];
-
-							Output::Ptr pOutp(new Output);
-							pOutp->m_Incubation = nHeightStep * i + 1;
-
-							ECC::Scalar::Native k = keychain->calcKey(coin);
-
-							pOutp->Create(k, coin.m_amount);
-
-							block.m_vOutputs.push_back(std::move(pOutp));
-							offset += k;
-							block.m_Subsidy += coin.m_amount;
-						}
-
-						// at least 1 kernel
-						{
-							Coin dummy; // not a coin actually
-							dummy.m_key_type = KeyType::Kernel;
-							dummy.m_status = Coin::Unconfirmed;
-
-							ECC::Scalar::Native k = keychain->calcKey(dummy);
-
-							TxKernel::Ptr pKrn(new TxKernel);
-							pKrn->m_Excess = ECC::Point::Native(Context::get().G * k);
-
-							Merkle::Hash hv;
-							pKrn->get_HashForSigning(hv);
-							pKrn->m_Signature.Sign(hv, k);
-
-							block.m_vKernelsOutput.push_back(std::move(pKrn));
-							offset += k;
-						}
-
-						offset = -offset;
-						block.m_Offset = offset;
-
-						block.Sort();
-						block.DeleteIntermediateOutputs();
-
-						// Not a valid block yet, because it lacks the coinbase.
-						// Leave this until mining
-
-						SerializerFile ser;
-						ser.m_File.open(sPath, std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
-						ser & block;
-
+						return tbg.Generate(nCount, dh);
 					}
 
                     if (command == cli::INFO)
