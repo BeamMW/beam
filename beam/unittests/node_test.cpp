@@ -347,18 +347,32 @@ namespace beam
 	{
 		ECC::Kdf m_Kdf;
 
-		struct MyUtxo {
+		struct MyUtxo
+		{
 			ECC::Scalar m_Key;
 			Amount m_Value;
+
+			void ToOutput(TxBase& tx, ECC::Scalar::Native& offset, Height hIncubation) const
+			{
+				ECC::Scalar::Native k = m_Key;
+
+				Output::Ptr pOut(new Output);
+				pOut->m_Incubation = hIncubation;
+				pOut->Create(k, m_Value, true); // confidential transactions will be too slow for test in debug mode.
+				tx.m_vOutputs.push_back(std::move(pOut));
+
+				k = -k;
+				offset += k;
+			}
 		};
 
 		typedef std::multimap<Height, MyUtxo> UtxoQueue;
 		UtxoQueue m_MyUtxos;
 
-		void AddMyUtxo(Amount n, Height h, KeyType eType)
+		const MyUtxo* AddMyUtxo(Amount n, Height h, KeyType eType)
 		{
 			if (!n)
-				return;
+				return NULL;
 
 			ECC::Scalar::Native key;
 			DeriveKey(key, m_Kdf, h, eType);
@@ -369,12 +383,11 @@ namespace beam
 
 			h += (KeyType::Coinbase == eType) ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd;
 
-			m_MyUtxos.insert(std::make_pair(h, utxo));
+			return &m_MyUtxos.insert(std::make_pair(h, utxo))->second;
 		}
 
-
 		bool MakeTx(Transaction::Ptr& pTx, Height h, Height hIncubation)
-	{
+		{
 			UtxoQueue::iterator it = m_MyUtxos.begin();
 			if (m_MyUtxos.end() == it)
 				return false;
@@ -401,32 +414,26 @@ namespace beam
 				pKrn->m_Fee = utxo.m_Value;
 			else
 			{
-					MyUtxo utxoOut;
+				MyUtxo utxoOut;
 				utxoOut.m_Value = utxo.m_Value - pKrn->m_Fee;
 
-				ECC::SetRandom(k);
+				DeriveKey(k, m_Kdf, h, KeyType::Regular);
 				utxoOut.m_Key = k;
 
-				Output::Ptr pOut(new Output);
-				pOut->m_Incubation = hIncubation;
-				pOut->Create(k, utxoOut.m_Value, true); // confidential transactions will be too slow for test in debug mode.
-					pTx->m_vOutputs.push_back(std::move(pOut));
+				utxoOut.ToOutput(*pTx, kOffset, hIncubation);
 
-				k = -k;
-				kOffset += k;
-
-					m_MyUtxos.insert(std::make_pair(h + hIncubation, utxoOut));
+				m_MyUtxos.insert(std::make_pair(h + hIncubation, utxoOut));
 			}
 
 			m_MyUtxos.erase(it);
 
-			ECC::SetRandom(k);
+			DeriveKey(k, m_Kdf, h, KeyType::Kernel);
 			pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * k);
 
 			ECC::Hash::Value hv;
 			pKrn->get_HashForSigning(hv);
 			pKrn->m_Signature.Sign(hv, k);
-				pTx->m_vKernelsOutput.push_back(std::move(pKrn));
+			pTx->m_vKernelsOutput.push_back(std::move(pKrn));
 
 
 			k = -k;
@@ -740,7 +747,6 @@ namespace beam
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
 		node.m_Cfg.m_TestMode.m_bFakePoW = true;
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
-		node.m_Cfg.m_TestMode.m_bMineGenesisBlock = true;
 		node.m_Cfg.m_MiningThreads = 1;
 
 		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
@@ -893,6 +899,22 @@ namespace beam
 		io::Address addr;
 		addr.resolve("127.0.0.1");
 		addr.port(Node::s_PortDefault);
+
+		Block::Body treasury;
+		treasury.ZeroInit();
+		ECC::Scalar::Native offset(ECC::Zero);
+
+		for (int i = 0; i < 10; i++)
+		{
+			const Amount val = Block::Rules::Coin * 10;
+			const MiniWallet::MyUtxo& utxo = *cl.m_Wallet.AddMyUtxo(val, i, KeyType::Regular);
+			utxo.ToOutput(treasury, offset, i);
+			treasury.m_Subsidy += val;
+		}
+
+		treasury.m_Offset = offset;
+		treasury.Sort();
+		node.GenerateGenesisBlock(treasury);
 
 		cl.Connect(addr);
 
