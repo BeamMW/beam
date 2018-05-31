@@ -2,20 +2,20 @@
 
 mkdir $HOME/beam-builds
 
-tar -czf $HOME/beam.tar.gz ./README.md
+tar -czvf $HOME/beam.tar.gz ./README.md
 
 cd $HOME
 
 git config --global user.email "vadim@beam-mw.com"
 git config --global user.name "Vadim Grigoruk"
-git clone --quiet https://beam-mw:${TRAVIS_SECURE_TOKEN_NAME}@github.com/beam-mw/beam-builds beam-builds > /dev/null 2>&1
+git clone https://beam-mw:${TRAVIS_SECURE_TOKEN_NAME}@github.com/beam-mw/beam-builds
 cd beam-builds
 
-cp $HOME/beam.tar.gz beam.tar.gz
+cp $HOME/beam.tar.gz ./beam.tar.gz
 
-git add beam.tar.gz
+git add ./beam.tar.gz
 git commit -m "Travis build $TRAVIS_BUILD_NUMBER"
-git push https://${TRAVIS_SECURE_TOKEN_NAME}@github.com/beam-mw/beam-builds master > /dev/null 2>&1
+git push https://${TRAVIS_SECURE_TOKEN_NAME}@github.com/beam-mw/beam-builds master
 
 echo "Done\n"
 
