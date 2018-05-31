@@ -2,7 +2,7 @@ language: cpp
 
 script:
   - cmake -DCMAKE_BUILD_TYPE=Debug .
-  - make
+  # - make
   # - ctest --verbose
 
 matrix:
@@ -13,20 +13,20 @@ matrix:
     #   env: OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
 
     - os: linux
-      addons:
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-          packages:
-            - g++-7
-            - cmake-data
-            - cmake
-            - libboost-all-dev
-            - libssl-dev
-      before_install:
-        - eval "CC=gcc-7 && CXX=g++-7"
+      # addons:
+        # apt:
+          # sources:
+            # - ubuntu-toolchain-r-test
+      #     packages:
+      #       - g++-7
+            # - cmake-data
+            # - cmake
+      #       - libboost-all-dev
+      #       - libssl-dev
+      # before_install:
+      #   - eval "CC=gcc-7 && CXX=g++-7"
       after_success:
-        - deploy.sh
+        - ./deploy.sh
 
 env:
   global:

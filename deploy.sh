@@ -30,7 +30,7 @@ commit_build()
 
     # compress the build
 
-    tar -czf $OS_FOLDER/$APP.tar.gz --directory=$APP $APP
+    tar -czf $OS_FOLDER/$APP.tar.gz --directory=$APP beam.cpp
 
     git add $OS_FOLDER/$APP.tar.gz
     git commit --message "Travis build: $DATE_FOLDER on $OSTYPE"
