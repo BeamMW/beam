@@ -307,6 +307,12 @@ void Node::Initialize()
 
 	LOG_INFO() << "Initial Tip: " << id;
 
+	if (m_Cfg.m_VerificationThreads < 0)
+	{
+		uint32_t numCores = std::thread::hardware_concurrency();
+		m_Cfg.m_VerificationThreads = (numCores > m_Cfg.m_MiningThreads + 1) ? (numCores - m_Cfg.m_MiningThreads) : 0;
+	}
+
 	RefreshCongestions();
 
 	if (m_Cfg.m_Listen.port())

@@ -285,7 +285,7 @@ int main(int argc, char* argv[])
     node_options.add_options()
         (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
         (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
-		(cli::VERIFICATION_THREADS, po::value<uint32_t>()->default_value(0), "number of threads for cryptographic verifications (0 = single thread)")
+		(cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
 		(cli::MINER_ID, po::value<uint32_t>()->default_value(0), "seed for miner nonce generation")
 		(cli::NODE_PEER, po::value<std::vector<std::string> >(), "nodes to connect to")
 		//(cli::TREASURY_BLOCK, po::value<string>(), "Treasury block to generate genesis block from")
@@ -363,7 +363,7 @@ int main(int argc, char* argv[])
                 node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<std::string>();
                 node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
                 node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
-				node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<uint32_t>();
+				node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
 				node.m_Cfg.m_TestMode.m_bFakePoW = debug;
                 if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
                 {
