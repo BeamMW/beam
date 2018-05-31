@@ -87,9 +87,9 @@ namespace
     {
         cout << options << std::endl;
     }
-
-
 }
+
+#define LOG_VERBOSE_ENABLED 0
 
 int main(int argc, char* argv[])
 {
@@ -116,7 +116,7 @@ int main(int argc, char* argv[])
         (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
 		(cli::VERIFICATION_THREADS, po::value<uint32_t>()->default_value(0), "number of threads for cryptographic verifications (0 = single thread)")
 		(cli::MINER_ID, po::value<uint32_t>()->default_value(0), "seed for miner nonce generation")
-		(cli::NODE_PEER, po::value<std::vector<std::string> >(), "nodes to connect to")
+		(cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
 		;
 
     po::options_description wallet_options("Wallet options");
@@ -199,29 +199,33 @@ int main(int argc, char* argv[])
                 }
                 node.m_Cfg.m_WalletKey = walletSeed;
 
-				std::vector<std::string> vPeers = vm[cli::NODE_PEER].as<std::vector<std::string> >();
-				node.m_Cfg.m_Connect.resize(vPeers.size());
+                if (vm.count(cli::NODE_PEER) > 0)
+                {
+                    std::vector<std::string> vPeers = vm[cli::NODE_PEER].as<std::vector<std::string> >();
+                    node.m_Cfg.m_Connect.resize(vPeers.size());
 
-				for (size_t i = 0; i < vPeers.size(); i++)
-				{
-					io::Address& addr = node.m_Cfg.m_Connect[i];
-					if (!addr.resolve(vPeers[i].c_str()))
-					{
-						LOG_ERROR() << "unable to resolve: " << vPeers[i];
-						return -1;
-					}
+                    for (size_t i = 0; i < vPeers.size(); i++)
+                    {
+                        io::Address& addr = node.m_Cfg.m_Connect[i];
+                        if (!addr.resolve(vPeers[i].c_str()))
+                        {
+                            LOG_ERROR() << "unable to resolve: " << vPeers[i];
+                            return -1;
+                        }
 
-					if (!addr.port())
-					{
-						if (!port)
-						{
-							LOG_ERROR() << "Port must be specified";
-							return -1;
-						}
-						addr.port(port);
-					}
-				}
+                        if (!addr.port())
+                        {
+                            if (!port)
+                            {
+                                LOG_ERROR() << "Port must be specified";
+                                return -1;
+                            }
+                            addr.port(port);
+                        }
+                    }
 
+                }
+				
                 LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
                 node.Initialize();
@@ -304,10 +308,21 @@ int main(int argc, char* argv[])
                         });
                         return 0;
                     }
+                    
+                    if (vm.count(cli::NODE_ADDR) == 0)
+                    {
+                        LOG_ERROR() << "node address should be specified";
+                        return -1;
+                    }
  
                     // resolve address after network io
+                    string nodeURI = vm[cli::NODE_ADDR].as<string>();
                     io::Address node_addr;
-                    node_addr.resolve(vm[cli::NODE_ADDR].as<string>().c_str());
+                    if (!node_addr.resolve(nodeURI.c_str()))
+                    {
+                        LOG_ERROR() << "unable to resolve node address: " << nodeURI;
+                        return -1;
+                    }
                     bool is_server = command == cli::LISTEN;
                     WalletNetworkIO wallet_io{ io::Address().ip(INADDR_ANY).port(port)
                                              , node_addr
@@ -315,18 +330,30 @@ int main(int argc, char* argv[])
                                              , keychain
                                              , reactor};
 
-					wallet_io.sync_with_node([&]() 
-					{
-						if (command == cli::SEND)
-						{
-							auto amount = vm[cli::AMOUNT].as<ECC::Amount>();
-							io::Address receiver_addr;
-							receiver_addr.resolve(vm[cli::RECEIVER_ADDR].as<string>().c_str());
-                    
-							LOG_INFO() << "sending money " << receiver_addr.str();
-							wallet_io.transfer_money(receiver_addr, move(amount));
-						}
-					});
+                    io::Address receiverAddr;
+                    if (command == cli::SEND)
+                    {
+                        if (vm.count(cli::RECEIVER_ADDR) == 0)
+                        {
+                            LOG_ERROR() << "receiver's address is missing";
+                            return -1;
+                        }
+                        if (vm.count(cli::AMOUNT) == 0)
+                        {
+                            LOG_ERROR() << "amount is missing";
+                            return -1;
+                        }
+                        string receiverURI = vm[cli::RECEIVER_ADDR].as<string>();
+                        if (!receiverAddr.resolve(receiverURI.c_str()))
+                        {
+                            LOG_ERROR() << "unable to resolve receiver address: " << receiverURI;
+                            return -1;
+                        }
+                        auto amount = vm[cli::AMOUNT].as<ECC::Amount>();
+
+                        LOG_INFO() << "sending money " << receiverAddr.str();
+                        wallet_io.transfer_money(receiverAddr, move(amount));
+                    }
 
                     wallet_io.start();
                 }

@@ -8,7 +8,7 @@
 #include "utility/logger.h"
 #include "utility/io/tcpserver.h"
 #include "core/proto.h"
-//#include "utility/io/timer.h"
+#include "utility/io/timer.h"
 
 #include "wallet.h"
 
@@ -28,13 +28,13 @@ namespace beam
     public:
 
         using ConnectCallback = std::function<void(uint64_t tag)>;
-		using NodeSyncCallback = std::function<void()>;
 
         WalletNetworkIO(io::Address address
                       , io::Address node_address
                       , bool is_server
                       , IKeyChain::Ptr keychain
                       , io::Reactor::Ptr reactor = io::Reactor::Ptr()
+                      , unsigned reconnectMsec = 1000
                       , uint64_t start_tag = 0);
         virtual ~WalletNetworkIO();
         
@@ -42,7 +42,6 @@ namespace beam
         void stop();
         
         void transfer_money(io::Address receiver, Amount&& amount);
-		void sync_with_node(NodeSyncCallback&& callback);
         
     private:
         // INetworkIO
@@ -71,7 +70,10 @@ namespace beam
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
         void on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status);
         bool register_connection(uint64_t tag, io::TcpStream::Ptr&& newStream);
-
+        
+        void connect_node();
+        void on_node_connected();
+        
         uint64_t get_connection_tag();
         
         template <typename T>
@@ -95,7 +97,7 @@ namespace beam
         {
             if (!m_is_node_connected)
             {
-                m_node_connection.connect(m_node_address, [this, msg=std::move(msg)]()
+                m_node_connection.connect([this, msg=std::move(msg)]()
                 {
                     m_is_node_connected = true;
                     m_node_connection.Send(msg);
@@ -111,8 +113,8 @@ namespace beam
         {
         public:
             using NodeConnectCallback = std::function<void()>;
-            WalletNodeConnection(IWallet& wallet);
-            void connect(const io::Address& address, NodeConnectCallback&& cb);
+            WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec);
+            void connect(NodeConnectCallback&& cb);
         private:
             // NodeConnection
             void OnConnected() override;
@@ -123,15 +125,17 @@ namespace beam
             void OnMsg(proto::Hdr&& msg) override;
             void OnMsg(proto::Mined&& msg) override;
         private:
+            io::Address m_address;
             IWallet & m_wallet;
-            std::vector<NodeConnectCallback> m_connections_callbacks;
+            std::vector<NodeConnectCallback> m_callbacks;
             bool m_connecting;
+            io::Timer::Ptr m_timer;
+            unsigned m_reconnectMsec;
         };
     
     private:
         Protocol<WalletNetworkIO> m_protocol;
         io::Address m_address;
-        io::Address m_node_address;
         io::Reactor::Ptr m_reactor;
         io::TcpServer::Ptr m_server;
         Wallet m_wallet;
@@ -139,6 +143,7 @@ namespace beam
         std::map<uint64_t, ConnectCallback> m_connections_callbacks;
         bool m_is_node_connected;
         uint64_t m_connection_tag;
+        io::Reactor::Scope m_reactor_scope;
         WalletNodeConnection m_node_connection;
         SerializedMsg m_msgToSend;
     };
