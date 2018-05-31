@@ -387,54 +387,54 @@ namespace beam
 			const MyUtxo& utxo = it->second;
 			assert(utxo.m_Value);
 
-		TxKernel::Ptr pKrn(new TxKernel);
-		pKrn->m_Fee = 1090000;
+			TxKernel::Ptr pKrn(new TxKernel);
+			pKrn->m_Fee = 1090000;
 
-		Input::Ptr pInp(new Input);
-		pInp->m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
-			pTx->m_vInputs.push_back(std::move(pInp));
+			Input::Ptr pInp(new Input);
+			pInp->m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
+				pTx->m_vInputs.push_back(std::move(pInp));
 
-		ECC::Scalar::Native kOffset = utxo.m_Key;
-		ECC::Scalar::Native k;
+			ECC::Scalar::Native kOffset = utxo.m_Key;
+			ECC::Scalar::Native k;
 
-		if (pKrn->m_Fee >= utxo.m_Value)
-			pKrn->m_Fee = utxo.m_Value;
-		else
-		{
-				MyUtxo utxoOut;
-			utxoOut.m_Value = utxo.m_Value - pKrn->m_Fee;
+			if (pKrn->m_Fee >= utxo.m_Value)
+				pKrn->m_Fee = utxo.m_Value;
+			else
+			{
+					MyUtxo utxoOut;
+				utxoOut.m_Value = utxo.m_Value - pKrn->m_Fee;
 
-			ECC::SetRandom(k);
-			utxoOut.m_Key = k;
+				ECC::SetRandom(k);
+				utxoOut.m_Key = k;
 
-			Output::Ptr pOut(new Output);
-			pOut->m_Incubation = hIncubation;
-			pOut->Create(k, utxoOut.m_Value, true); // confidential transactions will be too slow for test in debug mode.
-				pTx->m_vOutputs.push_back(std::move(pOut));
+				Output::Ptr pOut(new Output);
+				pOut->m_Incubation = hIncubation;
+				pOut->Create(k, utxoOut.m_Value, true); // confidential transactions will be too slow for test in debug mode.
+					pTx->m_vOutputs.push_back(std::move(pOut));
 
-			k = -k;
-			kOffset += k;
+				k = -k;
+				kOffset += k;
 
-				m_MyUtxos.insert(std::make_pair(h + hIncubation, utxoOut));
-		}
+					m_MyUtxos.insert(std::make_pair(h + hIncubation, utxoOut));
+			}
 
 			m_MyUtxos.erase(it);
 
-		ECC::SetRandom(k);
-		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * k);
+			ECC::SetRandom(k);
+			pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * k);
 
-		ECC::Hash::Value hv;
-		pKrn->get_HashForSigning(hv);
-		pKrn->m_Signature.Sign(hv, k);
-			pTx->m_vKernelsOutput.push_back(std::move(pKrn));
+			ECC::Hash::Value hv;
+			pKrn->get_HashForSigning(hv);
+			pKrn->m_Signature.Sign(hv, k);
+				pTx->m_vKernelsOutput.push_back(std::move(pKrn));
 
 
-		k = -k;
-		kOffset += k;
+			k = -k;
+			kOffset += k;
 			pTx->m_Offset = kOffset;
 
 			pTx->Sort();
-		Transaction::Context ctx;
+			Transaction::Context ctx;
 			verify_test(pTx->IsValid(ctx));
 		}
 	};
