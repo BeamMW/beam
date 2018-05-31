@@ -24,9 +24,9 @@ commit_build()
     fi
 
     # checkout to 'nightly-builds' branch and add 
-    git branch -D nightly-builds
     git fetch
     git checkout nightly-builds
+    git pull
 
     mkdir -p $OS_FOLDER
     # compress the build
