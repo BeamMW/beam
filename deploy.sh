@@ -2,9 +2,11 @@
 
 cd $HOME
 
+REPO=https://${GITHUB_API_KEY}@github.com/beam-mw/beam-builds
+
 git config --global user.email "vadim@beam-mw.com"
 git config --global user.name "Vadim Grigoruk"
-git clone https://${GITHUB_API_KEY}@github.com/beam-mw/beam-builds
+git clone $REPO
 cd beam-builds
 
 # create folders for the build
@@ -23,10 +25,10 @@ fi
 
 mkdir -p $OS_FOLDER
 
-tar -czvf $OS_FOLDER/$APP.tar.gz --directory=$HOME/build/beam-mw/beam README.md
+tar -czvf $OS_FOLDER/$APP.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam
 
 git add $OS_FOLDER/$APP.tar.gz
 git commit -m "Travis build $TRAVIS_BUILD_NUMBER on $OSTYPE"
-git push https://${GITHUB_API_KEY}@github.com/beam-mw/beam-builds master
+git push $REPO master
 
 echo "Done"
