@@ -8,7 +8,7 @@ cd $HOME
 
 git config --global user.email "vadim@beam-mw.com"
 git config --global user.name "Vadim Grigoruk"
-git clone https://beam-mw:${TRAVIS_SECURE_TOKEN_NAME}@github.com/beam-mw/beam-builds
+git clone https://${TRAVIS_SECURE_TOKEN_NAME}@github.com/beam-mw/beam-builds
 cd beam-builds
 
 cp $HOME/beam.tar.gz ./beam.tar.gz
