@@ -448,6 +448,12 @@ int main(int argc, char* argv[])
                         return -1;
                     }
 
+                    if (!Keychain::isInitialized())
+                    {
+                        LOG_ERROR() << "Please initialize your wallet first... \nExample: beam wallet --command=init --pass=<password to access wallet> --wallet_seed=<seed to generate secret keys>";
+                        return -1;
+                    }
+
                     LOG_INFO() << "starting a wallet...";
 
                     std::string pass(vm[cli::PASS].as<std::string>());
