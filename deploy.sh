@@ -1,5 +1,7 @@
 #!/bin/bash
 
+pwd
+
 mkdir $HOME/beam-builds
 
 tar -czvf $HOME/beam.tar.gz ./README.md
