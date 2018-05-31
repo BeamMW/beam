@@ -44,12 +44,10 @@ include_directories(${PROJECT_SOURCE_DIR}/utility) # TODO  move to ./3rdparty al
 
 add_subdirectory(utility)
 
-# TODO roll comments back after features merging
-
-#add_subdirectory(core)
+add_subdirectory(core)
 add_subdirectory(pow)
-#add_subdirectory(pool)
+add_subdirectory(pool)
 add_subdirectory(p2p)
-#add_subdirectory(wallet)
-#add_subdirectory(sqlite)
-#add_subdirectory(beam)
+add_subdirectory(wallet)
+add_subdirectory(sqlite)
+add_subdirectory(beam)

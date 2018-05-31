@@ -121,9 +121,9 @@ namespace proto {
 
 
 	class NodeConnection
-		:public IMsgHandler
+		:public IErrorHandler
 	{
-		Protocol<NodeConnection> m_Protocol;
+		Protocol m_Protocol;
 		std::unique_ptr<Connection> m_Connection;
 		bool m_ConnectPending;
 
