@@ -3,7 +3,7 @@ language: cpp
 script:
   - cmake -DCMAKE_BUILD_TYPE=Debug .
   - make
-  # - ctest --verbose
+  - ctest --verbose
 
 matrix:
   include:
