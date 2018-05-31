@@ -6,7 +6,7 @@ namespace beam { namespace io {
 TcpServer::Ptr TcpServer::create(const Reactor::Ptr& reactor, Address bindAddress, Callback&& callback) {
     assert(reactor);
     assert(callback);
-    
+
     if (!reactor || !callback)
         IO_EXCEPTION(EC_EINVAL);
 

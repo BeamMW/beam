@@ -239,14 +239,11 @@ namespace beam
 
 int main()
 {
-    beam::LoggerConfig lc;
     int logLevel = LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
-    lc.consoleLevel = logLevel;
-    lc.flushLevel = logLevel;
-    auto logger = beam::Logger::create(lc);
+    auto logger = beam::Logger::create(logLevel, logLevel);
 
     beam::TestP2pSane();
     beam::TestNode1(10, 100);

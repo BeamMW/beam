@@ -80,7 +80,7 @@ public:
         _oa & object;
         return buffer();
     }
-    
+
     void swap_buf(std::vector<uint8_t>& v) { _os.m_vec.swap(v); }
 
 private:

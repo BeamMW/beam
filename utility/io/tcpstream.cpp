@@ -93,6 +93,15 @@ Result TcpStream::write(const std::vector<SharedBuffer>& fragments) {
     return Ok();
 }
 
+void TcpStream::shutdown() {
+    if (is_connected()) {
+        disable_read();
+        _reactor->shutdown_tcpstream(this);
+        assert(!_callback);
+        assert(!is_connected());
+    }
+}
+
 Result TcpStream::send_write_request() {
     static uv_write_cb write_cb = [](uv_write_t* req, int errorCode) {
         LOG_VERBOSE() << TRACE(errorCode);

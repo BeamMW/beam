@@ -18,7 +18,7 @@ void flush_last_checkpoint(LogMessage* to) {
 }
 
 Checkpoint::Checkpoint(detail::CheckpointItem* items, size_t maxItems, const char* file, int line, const char* function) :
-    _from(file, line, function), _items(items), _ptr(items), _maxItems(maxItems)
+    _header(LOG_LEVEL_ERROR, file, line, function), _items(items), _ptr(items), _maxItems(maxItems)
 {
     assert(maxItems > 0);
     if (currentCheckpoint == 0) {
@@ -36,7 +36,7 @@ Checkpoint::Checkpoint(detail::CheckpointItem* items, size_t maxItems, const cha
 
 void Checkpoint::flush_to(LogMessage* to) {
     assert(to);
-    *to << "\n\t";
+    *to << "\n";
     auto* p = _items;
     while (p < _ptr) {
         p->fn(*to, &p->data);
@@ -60,7 +60,7 @@ void Checkpoint::flush(LogMessage* to) {
 }
 
 void Checkpoint::flush_from_here() {
-    LogMessage m = LogMessage::create(LOG_LEVEL_ERROR, _from);
+    LogMessage m(_header);
     flush_to(&m);
 }
 

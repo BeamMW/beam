@@ -69,7 +69,7 @@ void coarsetimer_test() {
         50, //msec
         on_coarse_timer
     );
-        
+
     for (uint64_t i=1; i<111; ++i) {
         ctimer->set_timer(200 + i*3, i);
     }
@@ -84,14 +84,11 @@ void coarsetimer_test() {
 }
 
 int main() {
-    LoggerConfig lc;
     int logLevel = LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
-    lc.consoleLevel = logLevel;
-    lc.flushLevel = logLevel;
-    auto logger = Logger::create(lc);
+    auto logger = Logger::create(logLevel, logLevel);
     timer_test();
     coarsetimer_test();
 }

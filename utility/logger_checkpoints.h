@@ -56,7 +56,7 @@ template <size_t MAX_ITEMS> struct CheckpointData {
 };
 
 class Checkpoint {
-    From _from;
+    LogMessageHeader _header;
     detail::CheckpointItem* _items;
     detail::CheckpointItem* _ptr;
     size_t _maxItems;

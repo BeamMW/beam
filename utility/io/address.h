@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <iosfwd>
 #include <functional>
 #include <stdint.h>
 #include <string.h>
@@ -19,34 +20,50 @@ struct Address {
         return Address(LOCALHOST);
     }
 
-    uint64_t packed=0;
+    static Address from_u64(uint64_t x) {
+        return Address(x);
+    }
+
+    Address() : packed(0) {}
+
+    Address(const Address& a) : packed(a.packed) {}
+
+    Address(const Address& a, uint16_t newPort)
+        : packed(a.packed)
+    {
+        port(newPort);
+    }
+
+    Address(uint32_t a, uint16_t p) {
+        packed = ((uint64_t)a << 16) + p;
+    }
+
+    Address(const sockaddr_in& sa) {
+        packed = ((uint64_t)ntohl(sa.sin_addr.s_addr) << 16) + ntohs(sa.sin_port);
+    }
 
     bool operator==(const Address& a) const {
         return packed == a.packed;
+    }
+
+    bool operator!=(const Address& a) const {
+        return packed != a.packed;
     }
 
     bool operator<(const Address& a) const {
         return packed < a.packed;
     }
 
-    operator bool() const {
-        return packed != 0;
-    }
-
-    Address() {}
-
-    Address(uint32_t a, uint16_t p) {
-        packed = ((uint64_t)a << 16) + p;
-    }
-    
-    Address(uint64_t _packed) : packed(_packed) {}
-    
-    Address(const sockaddr_in& sa) {
-        packed = ((uint64_t)ntohl(sa.sin_addr.s_addr) << 16) + ntohs(sa.sin_port);
+    bool empty() const {
+        return packed == 0;
     }
 
     uint32_t ip() const {
         return (uint32_t)(packed >> 16);
+    }
+
+    uint64_t u64() const {
+        return packed;
     }
 
     Address& ip(uint32_t a) {
@@ -74,16 +91,21 @@ struct Address {
     bool resolve(const char* str);
 
     std::string str() const;
+
+private:
+    Address (uint64_t x) : packed(x) {}
+
+    uint64_t packed;
 };
 
-std::ostream& operator << (std::ostream& s, const Address& v);
+std::ostream& operator<<(std::ostream& os, const Address& a);
 
 }} //namespaces
 
 namespace std {
     template<> struct hash<beam::io::Address> {
-        size_t operator()(beam::io::Address a) const {
-            return std::hash<uint64_t>()(a.packed);
+        size_t operator()(const beam::io::Address& a) const {
+            return std::hash<uint64_t>()(a.u64());
         }
     };
 }

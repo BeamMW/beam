@@ -335,7 +335,7 @@ template<typename KeychainS, typename KeychainR>
 void TestWalletNegotiation()
 {
     cout << "\nTesting wallets negotiation...\n";
-    
+
     PeerId receiver_id = 4;
     IOLoop mainLoop;
     TestNetwork network{ mainLoop };
@@ -466,9 +466,9 @@ private:
         {
             SerializedMsg msgToSend;
             m_protocol.serialize(msgToSend, type, data);
-            it->second->write_msg(msgToSend); 
+            it->second->write_msg(msgToSend);
         }
-        else 
+        else
         {
             LOG_ERROR() << "No connection";
             // add some handling
@@ -546,11 +546,11 @@ void TestSplitKey()
 
 int main()
 {
-    LoggerConfig lc;
     int logLevel = LOG_LEVEL_DEBUG;
-    lc.consoleLevel = logLevel;
-    lc.flushLevel = logLevel;
-    auto logger = Logger::create(lc);
+#if LOG_VERBOSE_ENABLED
+    logLevel = LOG_LEVEL_VERBOSE;
+#endif
+    auto logger = beam::Logger::create(logLevel, logLevel);
 
     TestSplitKey();
 

@@ -22,7 +22,8 @@ Reactor::Ptr Reactor::create() {
 Reactor::Reactor() :
     _handlePool(config().get_int("io.handle_pool_size", 256, 0, 65536)),
     _connectRequestsPool(config().get_int("io.connect_pool_size", 16, 0, 512)),
-    _writeRequestsPool(config().get_int("io.write_pool_size", 256, 0, 65536))
+    _writeRequestsPool(config().get_int("io.write_pool_size", 256, 0, 65536)),
+    _shutdownRequestsPool(config().get_int("io.shutdown_pool_size", 16, 0, 512))
 {
     memset(&_loop,0,sizeof(uv_loop_t));
     memset(&_stopEvent, 0, sizeof(uv_async_t));
@@ -60,21 +61,24 @@ ErrorCode Reactor::initialize() {
 Reactor::~Reactor() {
     LOG_VERBOSE() << ".";
 
+    if (!_loop.data) {
+        LOG_DEBUG() << "loop wasn't initialized";
+        return;
+    }
+
     if (_stopEvent.data)
         uv_close((uv_handle_t*)&_stopEvent, 0);
 
     _connectTimer.reset();
 
-    if (!_connectRequests.empty()) {
-        for (auto& c : _connectRequests) {
-            uv_handle_t* h = (uv_handle_t*)c.first;
-            async_close(h);
-        }
+    for (auto& cr : _connectRequests) {
+        uv_handle_t* h = (uv_handle_t*)(cr.second.request->handle);
+        async_close(h);
     }
 
-    if (!_loop.data) {
-        LOG_DEBUG() << "loop wasn't initialized";
-        return;
+    for (uv_shutdown_t* sr : _shutdownRequests) {
+        uv_handle_t* h = (uv_handle_t*)(sr->handle);
+        async_close(h);
     }
 
     // run one cycle to release all closing handles
@@ -228,6 +232,35 @@ ErrorCode Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     return errorCode;
 }
 
+void Reactor::shutdown_tcpstream(Object* o) {
+    assert(o);
+    uv_handle_t* h = o->_handle;
+    if (!h) {
+        // already closed
+        return;
+    }
+    assert(o->_reactor.get() == this);
+    uv_shutdown_t* req = _shutdownRequestsPool.alloc();
+    req->data = this;
+    uv_shutdown(
+        req,
+        (uv_stream_t*)h,
+        [](uv_shutdown_t* req, int status) {
+            if (status != 0 && status != UV_ECANCELED) {
+                LOG_DEBUG() << "stream shutdown failed, code=" << error_str((ErrorCode)status);
+            }
+            Reactor* self = reinterpret_cast<Reactor*>(req->data);
+            if (self) {
+                self->async_close((uv_handle_t*&)req->handle);
+                self->_shutdownRequests.erase(req);
+                self->_shutdownRequestsPool.release(req);
+            }
+        }
+    );
+    o->_handle = 0;
+    o->_reactor.reset();
+}
+
 Reactor::WriteRequest* Reactor::alloc_write_request() {
     WriteRequest* wr = _writeRequestsPool.alloc();
     wr->req.data = this;
@@ -241,10 +274,10 @@ void Reactor::release_write_request(Reactor::WriteRequest*& wr) {
 
 Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec, Address bindTo) {
     assert(callback);
-    assert(address);
+    assert(!address.empty());
     assert(_connectRequests.count(tag) == 0);
 
-    if (!callback || !address || _connectRequests.count(tag) > 0) {
+    if (!callback || address.empty() || _connectRequests.count(tag) > 0) {
         return make_unexpected(EC_EINVAL);
     }
 
@@ -255,7 +288,7 @@ Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback
         return make_unexpected(errorCode);
     }
 
-    if (bindTo) {
+    if (!bindTo.empty()) {
         sockaddr_in bindAddr;
         bindTo.fill_sockaddr_in(bindAddr);
 
@@ -288,7 +321,6 @@ Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback
             Reactor* reactor = reinterpret_cast<Reactor*>(request->handle->loop->data);
             if (errorCode == UV_ECANCELED) {
                 LOG_VERBOSE() << "callback on cancelled connect request=" << request;
-                assert(reactor->_cancelledConnectRequests.count(request)==1);
                 reactor->_cancelledConnectRequests.erase(request);
                 reactor->_connectRequestsPool.release(request);
             } else {
