@@ -1,3 +1,6 @@
+language: cpp
+
+script: echo "deploying..."
 
 env:
   global:
