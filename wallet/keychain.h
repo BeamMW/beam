@@ -67,6 +67,7 @@ namespace beam
 
     struct Keychain : IKeyChain
     {
+        static bool isInitialized();
         static Ptr init(const std::string& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
         static Ptr open(const std::string& password);
         static const char* getName();

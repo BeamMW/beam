@@ -29,3 +29,6 @@ matrix:
 notifications:
   email:
     - big.romanov@gmail.com
+
+after_success: 
+  - ./deploy.sh

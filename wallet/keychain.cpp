@@ -208,6 +208,11 @@ namespace beam
         return "wallet.db";
     }
 
+    bool Keychain::isInitialized()
+    {
+        return boost::filesystem::exists(getName());
+    }
+
     IKeyChain::Ptr Keychain::init(const std::string& password, const ECC::NoLeak<ECC::uintBig>& secretKey)
     {
         if (!boost::filesystem::exists(getName()))

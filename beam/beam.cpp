@@ -91,8 +91,6 @@ namespace
     {
         cout << options << std::endl;
     }
-
-
 }
 
 struct SerializerFile {
@@ -265,6 +263,9 @@ void TreasuryBlockGenerator::Proceed(uint32_t i)
 		m_Block.m_vOutputs.push_back(std::move(subBlock.m_vOutputs[i]));
 }
 
+#define LOG_VERBOSE_ENABLED 0
+
+
 int main(int argc, char* argv[])
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -287,7 +288,7 @@ int main(int argc, char* argv[])
         (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
 		(cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
 		(cli::MINER_ID, po::value<uint32_t>()->default_value(0), "seed for miner nonce generation")
-		(cli::NODE_PEER, po::value<std::vector<std::string> >(), "nodes to connect to")
+		(cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
 		//(cli::TREASURY_BLOCK, po::value<string>(), "Treasury block to generate genesis block from")
 		;
 
@@ -398,34 +399,37 @@ int main(int argc, char* argv[])
 						addr.port(port);
 					}
 				}
-
+				
                 LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
                 node.Initialize();
 
-				std::string sPath = vm[cli::TREASURY_BLOCK].as<string>();
-				if (!sPath.empty())
-				{
-					Block::Body block;
+                if (vm.count(cli::TREASURY_BLOCK))
+                {
+                    string sPath = vm[cli::TREASURY_BLOCK].as<string>();
+                    if (!sPath.empty())
+                    {
+                        Block::Body block;
 
-					{
-						std::ifstream f(sPath, std::ifstream::binary);
-						if (f.fail())
-						{
-							LOG_ERROR() << "can't open treasury file";
-							return -1;
-						}
+                        {
+                            std::ifstream f(sPath, std::ifstream::binary);
+                            if (f.fail())
+                            {
+                                LOG_ERROR() << "can't open treasury file";
+                                return -1;
+                            }
 
-						std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+                            std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
 
-						Deserializer der;
-						der.reset(&vContents.at(0), vContents.size());
+                            Deserializer der;
+                            der.reset(&vContents.at(0), vContents.size());
 
-						der & block;
-					}
+                            der & block;
+                        }
 
-					node.GenerateGenesisBlock(block);
-				}
+                        node.GenerateGenesisBlock(block);
+                    }
+                }
 
                 reactor->run();
             }
@@ -441,6 +445,12 @@ int main(int argc, char* argv[])
                      && command != cli::INFO)
                     {
                         LOG_ERROR() << "unknown command: \'" << command << "\'";
+                        return -1;
+                    }
+
+                    if (!Keychain::isInitialized())
+                    {
+                        LOG_ERROR() << "Please initialize your wallet first... \nExample: beam wallet --command=init --pass=<password to access wallet> --wallet_seed=<seed to generate secret keys>";
                         return -1;
                     }
 
@@ -520,10 +530,21 @@ int main(int argc, char* argv[])
                         });
                         return 0;
                     }
-
+                    
+                    if (vm.count(cli::NODE_ADDR) == 0)
+                    {
+                        LOG_ERROR() << "node address should be specified";
+                        return -1;
+                    }
+ 
                     // resolve address after network io
+                    string nodeURI = vm[cli::NODE_ADDR].as<string>();
                     io::Address node_addr;
-                    node_addr.resolve(vm[cli::NODE_ADDR].as<string>().c_str());
+                    if (!node_addr.resolve(nodeURI.c_str()))
+                    {
+                        LOG_ERROR() << "unable to resolve node address: " << nodeURI;
+                        return -1;
+                    }
                     bool is_server = command == cli::LISTEN;
                     WalletNetworkIO wallet_io{ io::Address().ip(INADDR_ANY).port(port)
                                              , node_addr
@@ -531,18 +552,30 @@ int main(int argc, char* argv[])
                                              , keychain
                                              , reactor};
 
-					wallet_io.sync_with_node([&]()
-					{
-						if (command == cli::SEND)
-						{
-							auto amount = vm[cli::AMOUNT].as<ECC::Amount>();
-							io::Address receiver_addr;
-							receiver_addr.resolve(vm[cli::RECEIVER_ADDR].as<string>().c_str());
+                    io::Address receiverAddr;
+                    if (command == cli::SEND)
+                    {
+                        if (vm.count(cli::RECEIVER_ADDR) == 0)
+                        {
+                            LOG_ERROR() << "receiver's address is missing";
+                            return -1;
+                        }
+                        if (vm.count(cli::AMOUNT) == 0)
+                        {
+                            LOG_ERROR() << "amount is missing";
+                            return -1;
+                        }
+                        string receiverURI = vm[cli::RECEIVER_ADDR].as<string>();
+                        if (!receiverAddr.resolve(receiverURI.c_str()))
+                        {
+                            LOG_ERROR() << "unable to resolve receiver address: " << receiverURI;
+                            return -1;
+                        }
+                        auto amount = vm[cli::AMOUNT].as<ECC::Amount>();
 
-							LOG_INFO() << "sending money " << receiver_addr.str();
-							wallet_io.transfer_money(receiver_addr, move(amount));
-						}
-					});
+                        LOG_INFO() << "sending money " << receiverAddr.str();
+                        wallet_io.transfer_money(receiverAddr, move(amount));
+                    }
 
                     wallet_io.start();
                 }
