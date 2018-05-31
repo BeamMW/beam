@@ -2,7 +2,7 @@ language: cpp
 
 script:
   - cmake -DCMAKE_BUILD_TYPE=Debug .
-  # - make
+  - make
   # - ctest --verbose
 
 matrix:
@@ -25,23 +25,22 @@ matrix:
             - libssl-dev
       before_install:
         - eval "CC=gcc-7 && CXX=g++-7"
+      after_success:
+        - deploy.sh
 
-# before_deploy:
-#   # Set up git user name and tag this commit
-#   - git config --local user.name "Vadim Grigoruk"
-#   - git config --local user.email "vadim@beam-mw.com"
-#   - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
-
-deploy:
-  provider: releases
-  api_key:
+env:
+  global:
     secure: LX6nVvNXIqK91ldaDfDLVhK3MMFtEaFREx8cl8TKHpWjtdWWuGzk1TreOYqcPW7cSO+W3ynBZshNXsAcAJuqV3FjI7+ywlv130rtoW3a2pOfhe8WJTwcMoOKAf7xXnuX3LsrDbMgadV6YJnCPrfELLIyDV6cc7Nyw8saBwAgQ3dC4FaYLOWJGssZZmEcXFa0d6xcpJGAY4dAbjecrukV0NEsKXA5BfiDvQCQpQ6AAU44Atx3HP4dhY+TgzI6VDZCL4GgFaTLZ1lSGQZ3JSHanVXKeYH41dhPFSYNGBmiMP2dYGkULfJhUupRF9rwJb3Enq56DbBcvinwKDEhq7N27xFrVV2Frwhx9F6YLBRZ8j6gUdDGpTHFj050oCY0DTjifZRfkgZOhyGC9PAnTNlJR25eJMDJcRmrBnHHBeA0RM4vZQ7WGeRBDtHeGcalbNvaF42vcyhtaoayb0h1INkrWEOFff657h2S+7EIq2Wtpjv4wirVmzIg31rXenIaTQVbI69h5sRJxTMFi56DAxhEg9l9U1SWfPlNf1l2ucfjPqn64KV9LrMsj9pR1EHH89TfZAkTb5KgeTW1Be+gDOnUPQ/KnV4qvEuUicZU4sgdTzAUFnajHf651wRfOiR8ZyOXP5DWgKmhVOgLccJlLRsvY/od9hIRwZdUhuypKmFxUUE=
-  file: Makefile
-  skip_cleanup: true
-  on:
-    # tags: true
-    repo: beam-mw/beam
-    branch: deploy_test
+
+# deploy:
+#   provider: releases
+#   api_key:
+#   file: Makefile
+#   skip_cleanup: true
+#   on:
+#     # tags: true
+#     repo: beam-mw/beam
+#     branch: deploy_test
 
 # notifications:
 #   email:
