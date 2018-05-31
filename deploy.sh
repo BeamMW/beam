@@ -23,16 +23,18 @@ commit_build()
         exit 1
     fi
 
-    mkdir -p $OS_FOLDER
-
     # checkout to 'nightly-builds' branch and add 
+    git branch -D nightly-builds
+    git fetch
     git checkout nightly-builds
 
+    mkdir -p $OS_FOLDER
     # compress the build
 
-    tar -czf $OS_FOLDER/$APP.tar.gz --directory=$APP README.md
+    tar -czf $OS_FOLDER/$APP.tar.gz ./README.md 
+    #--directory=$APP beam.cpp
 
-    git add $OS_FOLDER/$APP.tar.gz
+    git add -f $OS_FOLDER/$APP.tar.gz
     git commit --message "Travis build: $DATE_FOLDER on $OSTYPE"
     git push
 }
