@@ -339,18 +339,7 @@ void Node::Initialize()
 
 bool Node::GenerateGenesisBlock(Block::Body& treasury)
 {
-	if (m_Miner.m_vThreads.empty())
-		return false; //  n/a
-
-	Miner::Task::Ptr pTask(std::make_shared<Miner::Task>());
-	ByteBuffer body;
-	if (!m_Processor.GenerateGenesisBlock(treasury, pTask->m_Hdr, pTask->m_Body))
-		return false;
-
-	pTask->m_Fees = 0;
-
-	m_Miner.Restart(std::move(pTask));
-	return true;
+	return m_Miner.Restart(&treasury);
 }
 
 Node::~Node()
@@ -995,31 +984,35 @@ void Node::Miner::OnTimer()
 	Restart();
 }
 
-void Node::Miner::Restart()
+bool Node::Miner::Restart(Block::Body* pTreasury /* = NULL */)
 {
 	if (m_vThreads.empty())
-		return; //  n/a
+		return false; //  n/a
 
 	Block::SystemState::ID id;
-	if (!get_ParentObj().m_Processor.get_CurrentState(id) && !get_ParentObj().m_Cfg.m_TestMode.m_bMineGenesisBlock)
-		return;
+	if (!get_ParentObj().m_Processor.get_CurrentState(id))
+	{
+		bool bMineGenesis = pTreasury || get_ParentObj().m_Cfg.m_TestMode.m_bMineGenesisBlock;
+		if (!bMineGenesis)
+			return false;
+	}
 
 	Task::Ptr pTask(std::make_shared<Task>());
-	if (!get_ParentObj().m_Processor.GenerateNewBlock(get_ParentObj().m_TxPool, pTask->m_Hdr, pTask->m_Body, pTask->m_Fees))
+
+	bool bRes = pTreasury ?
+		get_ParentObj().m_Processor.GenerateNewBlock(get_ParentObj().m_TxPool, pTask->m_Hdr, pTask->m_Body, pTask->m_Fees, *pTreasury) :
+		get_ParentObj().m_Processor.GenerateNewBlock(get_ParentObj().m_TxPool, pTask->m_Hdr, pTask->m_Body, pTask->m_Fees);
+
+	if (!bRes)
 	{
 		LOG_WARNING() << "Block generation failed, can't mine!";
-		return;
+		return false;
 	}
 
 	pTask->m_Hdr.get_ID(id);
 
 	LOG_INFO() << "Block generated: " << id << ", Fee=" << pTask->m_Fees << ", Difficulty=" << uint32_t(pTask->m_Hdr.m_PoW.m_Difficulty) << ", Size=" << pTask->m_Body.size();
 
-	Restart(std::move(pTask));
-}
-
-void Node::Miner::Restart(Task::Ptr&& pTask)
-{
 	// let's mine it.
 	std::scoped_lock<std::mutex> scope(m_Mutex);
 
@@ -1035,6 +1028,8 @@ void Node::Miner::Restart(Task::Ptr&& pTask)
 
 	for (size_t i = 0; i < m_vThreads.size(); i++)
 		m_vThreads[i].m_pEvtRefresh->trigger();
+
+	return true;
 }
 
 void Node::Miner::OnMined()
