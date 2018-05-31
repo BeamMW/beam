@@ -308,6 +308,21 @@ struct NodeProcessor::RollbackData
 	{
 		return m_Buf.empty() ? 0 : (m_pUtxo - get_BufAs());
 	}
+
+	void Prepare(const TxBase& tx)
+	{
+		if (!tx.m_vInputs.empty())
+		{
+			size_t nInputs = get_Utxos();
+			m_Buf.resize(m_Buf.size() + sizeof(Utxo) * tx.m_vInputs.size());
+			m_pUtxo = get_BufAs() + nInputs;
+		}
+	}
+
+	void Unprepare(const TxBase& tx)
+	{
+		m_Buf.resize(m_Buf.size() - sizeof(Utxo) * tx.m_vInputs.size());
+	}
 };
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
@@ -1092,13 +1107,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 			break;
 
 		Transaction& tx = *x.m_Tx.m_pValue;
-
-		if (!tx.m_vInputs.empty())
-		{
-			size_t nInputs = rbData.get_Utxos();
-			rbData.m_Buf.resize(rbData.m_Buf.size() + sizeof(RollbackData::Utxo) * tx.m_vInputs.size());
-			rbData.m_pUtxo = rbData.get_BufAs() + nInputs;
-		}
+		rbData.Prepare(tx);
 
 		if (HandleValidatedTx(tx, h, true, rbData))
 		{
@@ -1117,8 +1126,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		}
 		else
 		{
-			rbData.m_Buf.resize(rbData.m_Buf.size() - sizeof(RollbackData::Utxo) * tx.m_vInputs.size());
-
+			rbData.Unprepare(tx);
 			txp.Delete(x); // isn't available in this context
 		}
 	}
@@ -1207,80 +1215,45 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	return true;
 }
 
-bool NodeProcessor::GenerateGenesisBlock(Block::Body& treasury, Block::SystemState::Full& s, ByteBuffer& bbBlock)
+bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
 {
-	if (!treasury.m_vInputs.empty() || !treasury.m_vKernelsInput.empty())
-		return false; // inputs are not allowed
+	Block::Body block;
+	block.ZeroInit();
+	return GenerateNewBlock(txp, s, bbBlock, fees, block, true);
+}
 
-	// add coinbase
-	ECC::Scalar::Native k, offset = treasury.m_Offset;
-	DeriveKey(k, m_Kdf, Block::Rules::HeightGenesis, KeyType::Coinbase);
+bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res)
+{
+	return GenerateNewBlock(txp, s, bbBlock, fees, res, false);
+}
 
-	Output::Ptr pOutp(new Output);
-	pOutp->m_Coinbase = true;
-	pOutp->Create(k, Block::Rules::CoinbaseEmission, true);
+bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res, bool bInitiallyEmpty)
+{
+	Height h = get_NextHeight();
 
-	treasury.m_vOutputs.push_back(std::move(pOutp));
-
-	treasury.Sort();
-	treasury.DeleteIntermediateOutputs();
-
-	k = -k;
-	offset += k;
-	treasury.m_Offset = offset;
-	treasury.m_Subsidy += Block::Rules::CoinbaseEmission;
-
-	if (!VerifyBlock(treasury, Block::Rules::HeightGenesis, Block::Rules::HeightGenesis))
+	if (!bInitiallyEmpty && !VerifyBlock(res, h, h))
 		return false;
 
 	{
 		NodeDB::Transaction t(m_DB);
 
-		NodeProcessor::RollbackData rbData; // useless since no inputs
-		if (!HandleValidatedTx(treasury, Block::Rules::HeightGenesis, true, rbData))
-			return false;
+		RollbackData rbData;
 
-		get_CurrentLive(s.m_LiveObjects);
+		if (!bInitiallyEmpty)
+		{
+			rbData.Prepare(res);
+			if (!HandleValidatedTx(res, h, true, rbData))
+				return false;
+		}
 
-		if (!HandleValidatedTx(treasury, Block::Rules::HeightGenesis, false, rbData))
+		bool bRes = GenerateNewBlock(txp, s, res, fees, h, rbData);
+
+		if (!HandleValidatedTx(res, h, false, rbData)) // undo changes
 			OnCorrupted();
+
+		res.Sort(); // can sort only after the changes are undone.
+		res.DeleteIntermediateOutputs();
 	}
-
-	ZeroObject(s.m_Prev);
-	ZeroObject(s.m_History);
-
-	s.m_Height = Block::Rules::HeightGenesis;
-
-	s.m_PoW.m_Difficulty = get_NextDifficulty();
-	s.m_TimeStamp = time(NULL); // TODO: 64-bit time
-
-	Serializer ser;
-
-	ser.reset();
-	ser & treasury;
-	ser.swap_buf(bbBlock);
-
-	return bbBlock.size() <= Block::Rules::MaxBodySize;
-}
-
-bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
-{
-	NodeDB::Transaction t(m_DB);
-
-	Height h = get_NextHeight();
-	RollbackData rbData;
-
-	Block::Body res;
-	res.ZeroInit();
-	bool bRes = GenerateNewBlock(txp, s, res, fees, h, rbData);
-
-	if (!HandleValidatedTx(res, h, false, rbData)) // undo changes
-		OnCorrupted();
-
-	res.Sort(); // can sort only after the changes are undone.
-	res.DeleteIntermediateOutputs();
-
-	t.Rollback(); // commit/rollback - doesn't matter, by now the system state should be fully restored to its original state. 
 
 	Serializer ser;
 

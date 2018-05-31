@@ -223,8 +223,7 @@ private:
 		void OnMined();
 
 		void HardAbortSafe();
-		void Restart();
-		void Restart(Task::Ptr&&);
+		bool Restart(Block::Body* pTreasury = NULL);
 
 		std::mutex m_Mutex;
 		Task::Ptr m_pTask; // currently being-mined

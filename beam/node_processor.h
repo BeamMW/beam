@@ -143,12 +143,12 @@ public:
 	};
 
 	Height get_NextHeight();
-	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer& block, Amount& fees);
-
-	bool GenerateGenesisBlock(Block::Body& treasury, Block::SystemState::Full&, ByteBuffer& block);
+	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body& blockInOut);
+	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees);
 
 private:
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, Block::Body& block, Amount& fees, Height, RollbackData&);
+	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body&, bool bInitiallyEmpty);
 };
 
 
