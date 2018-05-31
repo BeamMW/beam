@@ -23,7 +23,7 @@ fi
 
 mkdir -p $OS_FOLDER
 
-tar -czf $OS_FOLDER/$APP.tar.gz $HOME/build/beam-mw/beam/README.md
+tar -czvf $OS_FOLDER/$APP.tar.gz --directory=$HOME/build/beam-mw/beam README.md
 
 git add $OS_FOLDER/$APP.tar.gz
 git commit -m "Travis build $TRAVIS_BUILD_NUMBER on $OSTYPE"

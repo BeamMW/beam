@@ -2,5 +2,11 @@ language: cpp
 
 script: echo "deploying..."
 
+matrix:
+  include:
+    - os: osx
+      osx_image: xcode9.3
+    - os: linux
+
 after_success: 
   - ./deploy.sh 
