@@ -683,39 +683,57 @@ namespace beam
 
 	bool TxBase::Context::IsValidBlock(const Block::Body& body)
 	{
-		if ((m_hMin > Block::Rules::HeightGenesis) && (body.m_Subsidy.Lo || body.m_Subsidy.Hi))
-			return false; // subsidy is allowed on the genesis block only
-
-		ECC::uintBig mul;
-		mul = Block::Rules::CoinbaseEmission;
-
-		Height nBlocksInRange = m_hMax - m_hMin + 1;
-
-		ECC::Scalar scEmission;
-		scEmission.m_Value = nBlocksInRange;
-		scEmission.m_Value = scEmission.m_Value * mul;
-
 		m_Sigma = -m_Sigma;
-		m_Sigma += ECC::Context::get().H_Big * scEmission;
-
 		body.m_Subsidy.AddTo(m_Sigma);
 
-		if (!(m_Sigma == ECC::Zero)) // No need to add fees explicitly, they must have already been consumed
+		if (!(m_Sigma == ECC::Zero))
+			return false;
+
+		if (m_hMin == Block::Rules::HeightGenesis)
+			return true; // genesis block may have arbitrary subsidy and/or coinbase outputs, there're no restrictions
+
+		// For non-genesis blocks we have the following restrictions:
+		// Subsidy is bounded by num of blocks multiplied by coinbase emission
+		// There must at least some unspent coinbase UTXOs wrt maturity settings
+
+		// check the subsidy is within allowed range
+		Height nBlocksInRange = m_hMax - m_hMin + 1;
+
+		ECC::uintBig ubSubsidy, ubCoinbase, mul;
+		body.m_Subsidy.Export(ubSubsidy);
+
+		mul = Block::Rules::CoinbaseEmission;
+		ubCoinbase = nBlocksInRange;
+		ubCoinbase = ubCoinbase * mul;
+
+		if (ubSubsidy > ubCoinbase)
 			return false;
 
 		// ensure there's a minimal unspent coinbase UTXOs
-		Height nUnmatureBlocks = std::min(Block::Rules::MaturityCoinbase, nBlocksInRange);
+		if (nBlocksInRange > Block::Rules::MaturityCoinbase)
+		{
+			// some UTXOs may be spent already. Calculate the minimum remaining
+			nBlocksInRange -= Block::Rules::MaturityCoinbase;
+			ubCoinbase = nBlocksInRange;
+			ubCoinbase = ubCoinbase * mul;
 
-		scEmission.m_Value = nUnmatureBlocks;
-		scEmission.m_Value = scEmission.m_Value * mul;
+			if (ubSubsidy > ubCoinbase)
+			{
+				ubCoinbase.Negate();
+				ubSubsidy += ubCoinbase;
 
-		m_Coinbase.Export(mul);
-		return (mul >= scEmission.m_Value);
+			} else
+				ubSubsidy = ECC::Zero;
+		}
+
+		m_Coinbase.Export(ubCoinbase);
+		return (ubCoinbase >= ubSubsidy);
 	}
 
-	Block::Body::Body()
+	void Block::Body::ZeroInit()
 	{
 		ZeroObject(m_Subsidy);
+		ZeroObject(m_Offset);
 	}
 
 	bool Block::Body::IsValid(Height h0, Height h1) const

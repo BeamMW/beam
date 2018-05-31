@@ -1081,7 +1081,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	const size_t nRoughExtra = sizeof(ECC::Point) * 2 + sizeof(ECC::RangeProof::Confidential) + sizeof(ECC::RangeProof::Public) + 300;
 	const size_t nSizeThreshold = Block::Rules::MaxBodySize * 95 / 100 - nRoughExtra;
 
-	ECC::Scalar::Native offset(ECC::Zero);
+	ECC::Scalar::Native offset = res.m_Offset;
 
 	Serializer ser;
 
@@ -1174,6 +1174,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 	kCoinbase = -kCoinbase;
 	offset += kCoinbase;
+	res.m_Subsidy += Block::Rules::CoinbaseEmission;
 
 	// Finalize block construction.
 	if (h > Block::Rules::HeightGenesis)
@@ -1227,6 +1228,7 @@ bool NodeProcessor::GenerateGenesisBlock(Block::Body& treasury, Block::SystemSta
 	k = -k;
 	offset += k;
 	treasury.m_Offset = offset;
+	treasury.m_Subsidy += Block::Rules::CoinbaseEmission;
 
 	if (!VerifyBlock(treasury, Block::Rules::HeightGenesis, Block::Rules::HeightGenesis))
 		return false;
@@ -1269,6 +1271,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	RollbackData rbData;
 
 	Block::Body res;
+	res.ZeroInit();
 	bool bRes = GenerateNewBlock(txp, s, res, fees, h, rbData);
 
 	if (!HandleValidatedTx(res, h, false, rbData)) // undo changes
