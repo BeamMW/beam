@@ -1001,7 +1001,9 @@ bool Node::Miner::Restart(Block::Body* pTreasury /* = NULL */)
 		bool bMineGenesis = pTreasury || get_ParentObj().m_Cfg.m_TestMode.m_bMineGenesisBlock;
 		if (!bMineGenesis)
 			return false;
-	}
+	} else
+		if (pTreasury)
+			LOG_WARNING() << "Treasury ignored, already past genesis block";
 
 	Task::Ptr pTask(std::make_shared<Task>());
 
