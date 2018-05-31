@@ -182,6 +182,13 @@ namespace ECC
 			return res;
 		}
 
+		void Negate()
+		{
+			for (int i = _countof(m_pData); i--; )
+				m_pData[i] ^= 0xff;
+			Inc();
+		}
+
 		int cmp(const uintBig_t& x) const { return memcmp(m_pData, x.m_pData, sizeof(m_pData)); }
 		COMPARISON_VIA_CMP(uintBig_t)
 	};

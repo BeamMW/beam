@@ -557,13 +557,7 @@ namespace beam
 		if (m_Coinbase.Lo || m_Coinbase.Hi)
 			return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 
-		if (m_Fee.Hi)
-		{
-			ECC::Scalar s;
-			m_Fee.Export(s.m_Value);
-			m_Sigma += ECC::Context::get().H_Big * s;
-		} else
-			m_Sigma += ECC::Context::get().H * m_Fee.Lo;
+		m_Fee.AddTo(m_Sigma);
 
 		return m_Sigma == ECC::Zero;
 	}
@@ -595,6 +589,19 @@ namespace beam
 		x = ECC::Zero;
 		x.AssignRange<Amount, 0>(Lo);
 		x.AssignRange<Amount, (sizeof(Lo) << 3) >(Hi);
+	}
+
+	void AmountBig::AddTo(ECC::Point::Native& res) const
+	{
+		if (Hi)
+		{
+			ECC::Scalar s;
+			Export(s.m_Value);
+			res += ECC::Context::get().H_Big * s;
+		}
+		else
+			if (Lo)
+				res += ECC::Context::get().H * Lo;
 	}
 
 	/////////////
@@ -674,31 +681,59 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
 	}
 
-	bool TxBase::Context::IsValidBlock()
+	bool TxBase::Context::IsValidBlock(const Block::Body& body)
 	{
-		ECC::uintBig mul;
-		mul = Block::Rules::CoinbaseEmission;
+		m_Sigma = -m_Sigma;
+		body.m_Subsidy.AddTo(m_Sigma);
 
+		if (!(m_Sigma == ECC::Zero))
+			return false;
+
+		if (m_hMin == Block::Rules::HeightGenesis)
+			return true; // genesis block may have arbitrary subsidy and/or coinbase outputs, there're no restrictions
+
+		// For non-genesis blocks we have the following restrictions:
+		// Subsidy is bounded by num of blocks multiplied by coinbase emission
+		// There must at least some unspent coinbase UTXOs wrt maturity settings
+
+		// check the subsidy is within allowed range
 		Height nBlocksInRange = m_hMax - m_hMin + 1;
 
-		ECC::Scalar scEmission;
-		scEmission.m_Value = nBlocksInRange;
-		scEmission.m_Value = scEmission.m_Value * mul;
+		ECC::uintBig ubSubsidy, ubCoinbase, mul;
+		body.m_Subsidy.Export(ubSubsidy);
 
-		m_Sigma = -m_Sigma;
-		m_Sigma += ECC::Context::get().H_Big * scEmission;
+		mul = Block::Rules::CoinbaseEmission;
+		ubCoinbase = nBlocksInRange;
+		ubCoinbase = ubCoinbase * mul;
 
-		if (!(m_Sigma == ECC::Zero)) // No need to add fees explicitly, they must have already been consumed
+		if (ubSubsidy > ubCoinbase)
 			return false;
 
 		// ensure there's a minimal unspent coinbase UTXOs
-		Height nUnmatureBlocks = std::min(Block::Rules::MaturityCoinbase, nBlocksInRange);
+		if (nBlocksInRange > Block::Rules::MaturityCoinbase)
+		{
+			// some UTXOs may be spent already. Calculate the minimum remaining
+			nBlocksInRange -= Block::Rules::MaturityCoinbase;
+			ubCoinbase = nBlocksInRange;
+			ubCoinbase = ubCoinbase * mul;
 
-		scEmission.m_Value = nUnmatureBlocks;
-		scEmission.m_Value = scEmission.m_Value * mul;
+			if (ubSubsidy > ubCoinbase)
+			{
+				ubCoinbase.Negate();
+				ubSubsidy += ubCoinbase;
 
-		m_Coinbase.Export(mul);
-		return (mul >= scEmission.m_Value);
+			} else
+				ubSubsidy = ECC::Zero;
+		}
+
+		m_Coinbase.Export(ubCoinbase);
+		return (ubCoinbase >= ubSubsidy);
+	}
+
+	void Block::Body::ZeroInit()
+	{
+		ZeroObject(m_Subsidy);
+		ZeroObject(m_Offset);
 	}
 
 	bool Block::Body::IsValid(Height h0, Height h1) const
@@ -712,7 +747,7 @@ namespace beam
 
 		return
 			ValidateAndSummarize(ctx) &&
-			ctx.IsValidBlock();
+			ctx.IsValidBlock(*this);
 	}
 
     void DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType eType, uint32_t nIdx /* = 0 */)

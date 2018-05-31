@@ -308,6 +308,21 @@ struct NodeProcessor::RollbackData
 	{
 		return m_Buf.empty() ? 0 : (m_pUtxo - get_BufAs());
 	}
+
+	void Prepare(const TxBase& tx)
+	{
+		if (!tx.m_vInputs.empty())
+		{
+			size_t nInputs = get_Utxos();
+			m_Buf.resize(m_Buf.size() + sizeof(Utxo) * tx.m_vInputs.size());
+			m_pUtxo = get_BufAs() + nInputs;
+		}
+	}
+
+	void Unprepare(const TxBase& tx)
+	{
+		m_Buf.resize(m_Buf.size() - sizeof(Utxo) * tx.m_vInputs.size());
+	}
 };
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
@@ -322,12 +337,12 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	Block::SystemState::ID id;
 	s.get_ID(id);
 
-	std::shared_ptr<Block::Body> pBlock(std::make_shared<Block::Body>());
+	Block::Body block;
 	try {
 
 		Deserializer der;
 		der.reset(bb.empty() ? NULL : &bb.at(0), bb.size());
-		der & *pBlock;
+		der & block;
 	}
 	catch (const std::exception&) {
 		LOG_WARNING() << id << " Block deserialization failed";
@@ -340,7 +355,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	if (bFwd)
 	{
-		size_t n = std::max(size_t(1), pBlock->m_vInputs.size() * sizeof(RollbackData::Utxo));
+		size_t n = std::max(size_t(1), block.m_vInputs.size() * sizeof(RollbackData::Utxo));
 		if (rbData.m_Buf.size() != n)
 		{
 			bFirstTime = true;
@@ -374,7 +389,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				return false; // The state (even the header) is formed incorrectly!
 			}
 
-			if (!VerifyBlock(pBlock, sid.m_Height, sid.m_Height))
+			if (!VerifyBlock(block, sid.m_Height, sid.m_Height))
 			{
 				LOG_WARNING() << id << " context-free verification failed";
 				return false;
@@ -388,9 +403,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	rbData.m_pUtxo = rbData.get_BufAs();
 	if (!bFwd)
-		rbData.m_pUtxo += pBlock->m_vInputs.size();
+		rbData.m_pUtxo += block.m_vInputs.size();
 
-	bool bOk = HandleValidatedTx(*pBlock, sid.m_Height, bFwd, rbData);
+	bool bOk = HandleValidatedTx(block, sid.m_Height, bFwd, rbData);
 	if (!bOk)
 		LOG_WARNING() << id << " invalid in its context";
 
@@ -409,7 +424,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		if (bOk)
 			m_DB.SetStateRollback(sid.m_Row, rbData.m_Buf);
 		else
-			HandleValidatedTx(*pBlock, sid.m_Height, false, rbData);
+			HandleValidatedTx(block, sid.m_Height, false, rbData);
 	}
 
 	if (bOk)
@@ -420,7 +435,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
 			kOffset.m_Value = ECC::Zero;
 
-		ECC::Scalar::Native k(kOffset), k2(pBlock->m_Offset);
+		ECC::Scalar::Native k(kOffset), k2(block.m_Offset);
 		if (!bFwd)
 			k2 = -k2;
 
@@ -1081,7 +1096,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	const size_t nRoughExtra = sizeof(ECC::Point) * 2 + sizeof(ECC::RangeProof::Confidential) + sizeof(ECC::RangeProof::Public) + 300;
 	const size_t nSizeThreshold = Block::Rules::MaxBodySize * 95 / 100 - nRoughExtra;
 
-	ECC::Scalar::Native offset(ECC::Zero);
+	ECC::Scalar::Native offset = res.m_Offset;
 
 	Serializer ser;
 
@@ -1092,13 +1107,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 			break;
 
 		Transaction& tx = *x.m_Tx.m_pValue;
-
-		if (!tx.m_vInputs.empty())
-		{
-			size_t nInputs = rbData.get_Utxos();
-			rbData.m_Buf.resize(rbData.m_Buf.size() + sizeof(RollbackData::Utxo) * tx.m_vInputs.size());
-			rbData.m_pUtxo = rbData.get_BufAs() + nInputs;
-		}
+		rbData.Prepare(tx);
 
 		if (HandleValidatedTx(tx, h, true, rbData))
 		{
@@ -1117,8 +1126,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		}
 		else
 		{
-			rbData.m_Buf.resize(rbData.m_Buf.size() - sizeof(RollbackData::Utxo) * tx.m_vInputs.size());
-
+			rbData.Unprepare(tx);
 			txp.Delete(x); // isn't available in this context
 		}
 	}
@@ -1174,6 +1182,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 	kCoinbase = -kCoinbase;
 	offset += kCoinbase;
+	res.m_Subsidy += Block::Rules::CoinbaseEmission;
 
 	// Finalize block construction.
 	if (h > Block::Rules::HeightGenesis)
@@ -1208,21 +1217,43 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
 {
-	NodeDB::Transaction t(m_DB);
+	Block::Body block;
+	block.ZeroInit();
+	return GenerateNewBlock(txp, s, bbBlock, fees, block, true);
+}
 
+bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res)
+{
+	return GenerateNewBlock(txp, s, bbBlock, fees, res, false);
+}
+
+bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res, bool bInitiallyEmpty)
+{
 	Height h = get_NextHeight();
-	RollbackData rbData;
 
-	Block::Body res;
-	bool bRes = GenerateNewBlock(txp, s, res, fees, h, rbData);
+	if (!bInitiallyEmpty && !VerifyBlock(res, h, h))
+		return false;
 
-	if (!HandleValidatedTx(res, h, false, rbData)) // undo changes
-		OnCorrupted();
+	{
+		NodeDB::Transaction t(m_DB);
 
-	res.Sort(); // can sort only after the changes are undone.
-	res.DeleteIntermediateOutputs();
+		RollbackData rbData;
 
-	t.Rollback(); // commit/rollback - doesn't matter, by now the system state should be fully restored to its original state. 
+		if (!bInitiallyEmpty)
+		{
+			rbData.Prepare(res);
+			if (!HandleValidatedTx(res, h, true, rbData))
+				return false;
+		}
+
+		bool bRes = GenerateNewBlock(txp, s, res, fees, h, rbData);
+
+		if (!HandleValidatedTx(res, h, false, rbData)) // undo changes
+			OnCorrupted();
+
+		res.Sort(); // can sort only after the changes are undone.
+		res.DeleteIntermediateOutputs();
+	}
 
 	Serializer ser;
 
@@ -1233,9 +1264,9 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	return bbBlock.size() <= Block::Rules::MaxBodySize;
 }
 
-bool NodeProcessor::VerifyBlock(const std::shared_ptr<Block::Body>& pBlock, Height h0, Height h1)
+bool NodeProcessor::VerifyBlock(const Block::Body& block, Height h0, Height h1)
 {
-	return pBlock->IsValid(h0, h1);
+	return block.IsValid(h0, h1);
 }
 
 

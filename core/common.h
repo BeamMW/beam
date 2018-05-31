@@ -47,6 +47,7 @@ namespace beam
 		void operator += (const AmountBig&);
 
 		void Export(ECC::uintBig&) const;
+		void AddTo(ECC::Point::Native&) const;
 	};
 
 	namespace Merkle
@@ -104,7 +105,7 @@ namespace beam
 
 		Output()
 			:m_Coinbase(false)
-			, m_Incubation(0)
+			,m_Incubation(0)
 		{
 		}
 
@@ -139,8 +140,8 @@ namespace beam
 		TxKernel()
 			:m_Multiplier(0) // 0-based, 
 			,m_Fee(0)
-			, m_HeightMin(0)
-			, m_HeightMax(Height(-1))
+			,m_HeightMin(0)
+			,m_HeightMax(Height(-1))
 		{
 		}
 
@@ -307,7 +308,11 @@ namespace beam
 		struct Body
 			:public TxBase
 		{
-			// TODO: additional parameters, such as block explicit subsidy, sidechains and etc.
+			AmountBig m_Subsidy; // the overall amount created by the block
+			// For standard blocks this should be equal to the coinbase emission.
+			// Genesis block may have higher emission (aka premined)
+
+			void ZeroInit();
 
 			// Test the following:
 			//		Validity of all the components, and overall arithmetics, whereas explicit fees are already collected by extra UTXO(s) put by the miner
@@ -316,7 +321,6 @@ namespace beam
 			// Not tested by this function (but should be tested by nodes!)
 			//		Existence of all the input UTXOs
 			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
-			//		Existence of the treasury output UTXO, if needed by the policy.
 			bool IsValid(Height h0, Height h1) const;
 		};
 	};

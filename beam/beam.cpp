@@ -6,11 +6,13 @@
 #include "wallet/keychain.h"
 #include "wallet/wallet_network.h"
 #include "core/ecc_native.h"
+#include "core/serialization_adapters.h"
 #include "utility/logger.h"
 #include <iomanip>
 
 #include <boost/program_options.hpp>
 #include <fstream>
+#include <iterator>
 
 namespace po = boost::program_options;
 using namespace std;
@@ -42,6 +44,8 @@ namespace cli
     const char* NODE = "node";
     const char* WALLET = "wallet";
     const char* LISTEN = "listen";
+	const char* TREASURY = "treasury";
+	const char* TREASURY_BLOCK = "treasury_path";
     const char* INIT = "init";
     const char* SEND = "send";
     const char* INFO = "info";
@@ -91,6 +95,176 @@ namespace
 
 }
 
+struct SerializerFile {
+
+	SerializerFile() : _oa(m_File) {}
+
+	template <typename T> SerializerFile& operator&(const T& object) {
+		_oa & object;
+		return *this;
+	}
+
+	struct Stream :public std::ofstream
+	{
+		size_t write(const void* p, size_t n)
+		{
+			std::ofstream::write((char*)p, n);
+			return fail() ? 0 : n;
+		}
+	} m_File;
+
+private:
+	yas::binary_oarchive<Stream, SERIALIZE_OPTIONS> _oa;
+};
+
+struct TreasuryBlockGenerator
+{
+	std::string m_sPath;
+	IKeyChain* m_pKeyChain;
+
+	Block::Body m_Block;
+	ECC::Scalar::Native m_Offset;
+
+	std::vector<Coin> m_Coins;
+	std::vector<std::pair<Height, ECC::Scalar::Native> > m_vIncubationAndKeys;
+
+	std::mutex m_Mutex;
+	std::vector<std::thread> m_vThreads;
+
+	int Generate(uint32_t nCount, Height dh);
+private:
+	void Proceed(uint32_t i);
+};
+
+int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
+{
+	if (m_sPath.empty())
+	{
+		LOG_ERROR() << "Treasury block path not specified";
+		return -1;
+	}
+
+	m_Block.ZeroInit();
+
+	{
+		std::ifstream f(m_sPath, std::ifstream::binary);
+		if (!f.fail())
+		{
+			std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+			if (!vContents.empty())
+			{
+				Deserializer der;
+				der.reset(&vContents.at(0), vContents.size());
+				der & m_Block;
+
+				LOG_INFO() << "Treasury block is non-empty, appending.";
+			}
+		}
+	}
+
+	m_Offset = m_Block.m_Offset;
+	m_Offset = -m_Offset;
+
+	LOG_INFO() << "Generating coins...";
+
+	m_Coins.resize(nCount);
+	m_vIncubationAndKeys.resize(nCount);
+
+	Height h = 0;
+
+	for (uint32_t i = 0; i < nCount; i++, h += dh)
+	{
+		Coin& coin = m_Coins[i];
+		coin.m_key_type = KeyType::Regular;
+		coin.m_amount = Block::Rules::Coin * 10;
+		coin.m_status = Coin::Unconfirmed;
+		coin.m_height = h + Block::Rules::HeightGenesis;
+
+		m_vIncubationAndKeys[i].first = h;
+		m_vIncubationAndKeys[i].second = m_pKeyChain->calcKey(coin);
+	}
+
+	m_pKeyChain->store(m_Coins);
+
+	m_vThreads.resize(std::thread::hardware_concurrency());
+	assert(!m_vThreads.empty());
+
+	for (uint32_t i = 0; i < m_vThreads.size(); i++)
+		m_vThreads[i] = std::thread(&TreasuryBlockGenerator::Proceed, this, i);
+
+	for (uint32_t i = 0; i < m_vThreads.size(); i++)
+		m_vThreads[i].join();
+
+	// at least 1 kernel
+	{
+		Coin dummy; // not a coin actually
+		dummy.m_key_type = KeyType::Kernel;
+		dummy.m_status = Coin::Unconfirmed;
+
+		ECC::Scalar::Native k = m_pKeyChain->calcKey(dummy);
+
+		TxKernel::Ptr pKrn(new TxKernel);
+		pKrn->m_Excess = ECC::Point::Native(Context::get().G * k);
+
+		Merkle::Hash hv;
+		pKrn->get_HashForSigning(hv);
+		pKrn->m_Signature.Sign(hv, k);
+
+		m_Block.m_vKernelsOutput.push_back(std::move(pKrn));
+		m_Offset += k;
+	}
+
+	m_Offset = -m_Offset;
+	m_Block.m_Offset = m_Offset;
+
+	m_Block.Sort();
+	m_Block.DeleteIntermediateOutputs();
+
+	SerializerFile ser;
+	ser.m_File.open(m_sPath, std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+	ser & m_Block;
+	ser.m_File.flush();
+
+	bool bbb = m_Block.IsValid(1, 1);
+
+	LOG_INFO() << "Done";
+
+	return 0;
+}
+
+void TreasuryBlockGenerator::Proceed(uint32_t i)
+{
+	ECC::Scalar::Native offset(ECC::Zero);
+
+	Block::Body subBlock;
+	ZeroObject(subBlock.m_Subsidy);
+
+	for ( ; i < m_Coins.size(); i += m_vThreads.size())
+	{
+		const Coin& coin = m_Coins[i];
+
+		Output::Ptr pOutp(new Output);
+		pOutp->m_Incubation = m_vIncubationAndKeys[i].first;
+
+		const ECC::Scalar::Native& k = m_vIncubationAndKeys[i].second;
+
+		pOutp->Create(k, coin.m_amount);
+
+		subBlock.m_vOutputs.push_back(std::move(pOutp));
+		offset += k;
+		subBlock.m_Subsidy += coin.m_amount;
+	}
+
+	std::unique_lock<std::mutex> scope(m_Mutex);
+
+	m_Offset += offset;
+	m_Block.m_Subsidy += subBlock.m_Subsidy;
+	m_Block.m_vOutputs.reserve(m_Block.m_vOutputs.size() + subBlock.m_vOutputs.size());
+
+	for (i = 0; i < subBlock.m_vOutputs.size(); i++)
+		m_Block.m_vOutputs.push_back(std::move(subBlock.m_vOutputs[i]));
+}
+
 int main(int argc, char* argv[])
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -114,6 +288,7 @@ int main(int argc, char* argv[])
 		(cli::VERIFICATION_THREADS, po::value<uint32_t>()->default_value(0), "number of threads for cryptographic verifications (0 = single thread)")
 		(cli::MINER_ID, po::value<uint32_t>()->default_value(0), "seed for miner nonce generation")
 		(cli::NODE_PEER, po::value<std::vector<std::string> >(), "nodes to connect to")
+		//(cli::TREASURY_BLOCK, po::value<string>(), "Treasury block to generate genesis block from")
 		;
 
     po::options_description wallet_options("Wallet options");
@@ -122,7 +297,8 @@ int main(int argc, char* argv[])
         (cli::AMOUNT_FULL, po::value<ECC::Amount>(), "amount to send")
         (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
         (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
-        (cli::COMMAND, po::value<string>(), "command to execute [send|listen|init|info]");
+		(cli::TREASURY_BLOCK, po::value<string>(), "Block to create/append treasury to")
+		(cli::COMMAND, po::value<string>(), "command to execute [send|listen|init|info|treasury]");
 
     po::options_description options{ "Allowed options" };
     options.add(general_options)
@@ -191,12 +367,16 @@ int main(int argc, char* argv[])
 				node.m_Cfg.m_TestMode.m_bFakePoW = debug;
                 if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
                 {
-                    LOG_ERROR() << " wallet seed is not provider. You have to pass wallet seed for minig node.";
+                    LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
                     return -1;
                 }
                 node.m_Cfg.m_WalletKey = walletSeed;
 
-				std::vector<std::string> vPeers = vm[cli::NODE_PEER].as<std::vector<std::string> >();
+				std::vector<std::string> vPeers;
+
+				if (vm.count(cli::NODE_PEER))
+					vPeers = vm[cli::NODE_PEER].as<std::vector<std::string> >();
+
 				node.m_Cfg.m_Connect.resize(vPeers.size());
 
 				for (size_t i = 0; i < vPeers.size(); i++)
@@ -222,6 +402,31 @@ int main(int argc, char* argv[])
                 LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
                 node.Initialize();
+
+				std::string sPath = vm[cli::TREASURY_BLOCK].as<string>();
+				if (!sPath.empty())
+				{
+					Block::Body block;
+
+					{
+						std::ifstream f(sPath, std::ifstream::binary);
+						if (f.fail())
+						{
+							LOG_ERROR() << "can't open treasury file";
+							return -1;
+						}
+
+						std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+
+						Deserializer der;
+						der.reset(&vContents.at(0), vContents.size());
+
+						der & block;
+					}
+
+					node.GenerateGenesisBlock(block);
+				}
+
                 reactor->run();
             }
             else if (mode == cli::WALLET)
@@ -232,6 +437,7 @@ int main(int argc, char* argv[])
                     if (command != cli::INIT
                      && command != cli::SEND
                      && command != cli::LISTEN
+                     && command != cli::TREASURY
                      && command != cli::INFO)
                     {
                         LOG_ERROR() << "unknown command: \'" << command << "\'";
@@ -285,6 +491,19 @@ int main(int argc, char* argv[])
                     }
 
                     LOG_INFO() << "wallet sucessfully opened...";
+
+					if (command == cli::TREASURY)
+					{
+						TreasuryBlockGenerator tbg;
+						tbg.m_sPath = vm[cli::TREASURY_BLOCK].as<std::string>();
+						tbg.m_pKeyChain = keychain.get();
+
+						// TODO: command-line parameter
+						Height dh = 60 * 2; // 2 hours, 12 per day
+						uint32_t nCount = 12 * 30; // 360 total. 1 month roughly
+
+						return tbg.Generate(nCount, dh);
+					}
 
                     if (command == cli::INFO)
                     {
