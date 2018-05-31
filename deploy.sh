@@ -1,11 +1,5 @@
 #!/bin/bash
 
-pwd
-
-mkdir $HOME/beam-builds
-
-tar -czvf $HOME/beam.tar.gz ./README.md
-
 cd $HOME
 
 git config --global user.email "vadim@beam-mw.com"
@@ -13,19 +7,13 @@ git config --global user.name "Vadim Grigoruk"
 git clone https://${GITHUB_API_KEY}@github.com/beam-mw/beam-builds
 cd beam-builds
 
-cp $HOME/beam.tar.gz ./beam.tar.gz
+tar -czf beam.tar.gz $HOME/travis/build/beam-mw/beam/README.md
 
-git add ./beam.tar.gz
+git add beam.tar.gz
 git commit -m "Travis build $TRAVIS_BUILD_NUMBER"
 git push https://${GITHUB_API_KEY}@github.com/beam-mw/beam-builds master
 
-echo "Done\n"
-
-# setup_git()
-# {
-#     git config --global user.email "vadim@beam-mw.com"
-#     git config --global user.name "Vadim Grigoruk"
-# }
+echo "Done"
 
 # commit_build()
 # {
