@@ -308,9 +308,11 @@ namespace beam
 		struct Body
 			:public TxBase
 		{
-			AmountBig m_Subsidy;
+			AmountBig m_Subsidy; // the overall amount created by the block
+			// For standard blocks this should be equal to the coinbase emission.
+			// Genesis block may have higher emission (aka premined)
 
-			Body();
+			void ZeroInit();
 
 			// Test the following:
 			//		Validity of all the components, and overall arithmetics, whereas explicit fees are already collected by extra UTXO(s) put by the miner
@@ -319,7 +321,6 @@ namespace beam
 			// Not tested by this function (but should be tested by nodes!)
 			//		Existence of all the input UTXOs
 			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
-			//		Existence of the treasury output UTXO, if needed by the policy.
 			bool IsValid(Height h0, Height h1) const;
 		};
 	};
