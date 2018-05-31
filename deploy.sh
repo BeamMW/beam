@@ -7,46 +7,26 @@ git config --global user.name "Vadim Grigoruk"
 git clone https://${GITHUB_API_KEY}@github.com/beam-mw/beam-builds
 cd beam-builds
 
-tar -czf beam.tar.gz $HOME/travis/build/beam-mw/beam/README.md
+# create folders for the build
+APP=beam
+DATE_FOLDER=nightly/$(date +%Y.%m.%d)
+RELEASE_FOLDER=$DATE_FOLDER/release
 
-git add beam.tar.gz
-git commit -m "Travis build $TRAVIS_BUILD_NUMBER"
+if [[ "$OSTYPE" == "linux"* ]]; then
+    OS_FOLDER=$RELEASE_FOLDER/linux
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    OS_FOLDER=$RELEASE_FOLDER/mac
+else
+    echo "Error, OS:$OSTYPE not supported"
+    exit 1
+fi
+
+mkdir -p $OS_FOLDER
+
+tar -czf $OS_FOLDER/$APP.tar.gz $HOME/travis/build/beam-mw/beam/README.md
+
+git add $OS_FOLDER/$APP.tar.gz
+git commit -m "Travis build $TRAVIS_BUILD_NUMBER on $OSTYPE"
 git push https://${GITHUB_API_KEY}@github.com/beam-mw/beam-builds master
 
 echo "Done"
-
-# commit_build()
-# {
-#     # create folders for the build
-
-#     APP=beam
-#     DATE_FOLDER=nightly/$(date +%Y.%m.%d)
-#     RELEASE_FOLDER=$DATE_FOLDER/release
-
-#     if [[ "$OSTYPE" == "linux"* ]]; then
-#         OS_FOLDER=$RELEASE_FOLDER/linux
-#     elif [[ "$OSTYPE" == "darwin"* ]]; then
-#         OS_FOLDER=$RELEASE_FOLDER/mac
-#     else
-#         echo "Error, OS:$OSTYPE not supported"
-#         exit 1
-#     fi
-
-#     # checkout to 'nightly-builds' branch and add 
-#     git fetch
-#     git checkout nightly-builds
-#     git pull
-
-#     mkdir -p $OS_FOLDER
-#     # compress the build
-
-#     tar -czf $OS_FOLDER/$APP.tar.gz ./README.md 
-#     #--directory=$APP beam.cpp
-
-#     git add -f $OS_FOLDER/$APP.tar.gz
-#     git commit --message "Travis build: $DATE_FOLDER on $OSTYPE"
-#     git push
-# }
-
-# setup_git
-# commit_build
