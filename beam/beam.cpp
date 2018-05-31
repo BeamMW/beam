@@ -297,7 +297,7 @@ int main(int argc, char* argv[])
         (cli::AMOUNT_FULL, po::value<ECC::Amount>(), "amount to send")
         (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
         (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
-		(cli::TREASURY_BLOCK, po::value<string>(), "Block to create/append treasury to")
+		(cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
 		(cli::COMMAND, po::value<string>(), "command to execute [send|listen|init|info|treasury]");
 
     po::options_description options{ "Allowed options" };
