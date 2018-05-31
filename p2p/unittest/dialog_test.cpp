@@ -73,8 +73,8 @@ enum NetworkMessageCodes : uint8_t {
 };
 
 // Network logic and protocol message handler - can be also unified with NetworkToLogicBridge
-struct NetworkSide : public IMsgHandler, public ILogicToNetwork, public AsyncContext {
-    Protocol<NetworkSide> protocol;
+struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncContext {
+    Protocol protocol;
     INetworkToLogic& proxy;
     io::Address address;
     bool thisIsServer;
@@ -88,15 +88,15 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork, public AsyncCon
     SerializedMsg msgToSend;
 
     NetworkSide(INetworkToLogic& _proxy, io::Address _address, bool _thisIsServer) :
-        protocol(0xAA, 0xBB, 0xCC, *this, 2000),
+        protocol(0xAA, 0xBB, 0xCC, 10, *this, 2000),
         proxy(_proxy),
         address(_address),
         thisIsServer(_thisIsServer),
         bridge(*this, _reactor)
     {
         // TODO can be wrapped into macros
-        protocol.add_message_handler<Request, &NetworkSide::on_request>(requestCode, 1, 2000000);
-        protocol.add_message_handler<Response, &NetworkSide::on_response>(responseCode, 1, 200);
+        protocol.add_message_handler<NetworkSide, Request, &NetworkSide::on_request>(requestCode, this, 1, 2000000);
+        protocol.add_message_handler<NetworkSide, Response, &NetworkSide::on_response>(responseCode, this, 1, 200);
     }
 
     ILogicToNetwork& get_proxy() {
@@ -304,7 +304,11 @@ struct App {
 };
 
 int main() {
-    auto logger = Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+    int logLevel = LOG_LEVEL_DEBUG;
+#if LOG_VERBOSE_ENABLED
+    logLevel = LOG_LEVEL_VERBOSE;
+#endif
+    auto logger = Logger::create(logLevel, logLevel);
     try {
         constexpr uint16_t port = 32123;
 

@@ -394,19 +394,19 @@ enum NodeNetworkMessageCodes : uint8_t
 	ConfigCode = 20
 };
 
-class TestNode : public IMsgHandler
+class TestNode : public IErrorHandler
 {
 public:
     TestNode(io::Address address, io::Reactor::Ptr reactor = io::Reactor::Ptr())
-        : m_protocol{ 0xAA, 0xBB, 0xCC, *this, 200}
+        : m_protocol{ 0xAA, 0xBB, 0xCC, 150, *this, 2000}
         , m_address{ address }
         , m_reactor{ reactor ? reactor : io::Reactor::create()}
         , m_server{io::TcpServer::create(m_reactor, m_address, BIND_THIS_MEMFN(on_stream_accepted))}
         , m_tag{ 0 }
     {
-        m_protocol.add_message_handler<proto::NewTransaction, &TestNode::on_message>(NewTransactionCode, 1, 2000);
-        m_protocol.add_message_handler<proto::GetProofUtxo,   &TestNode::on_message>(GetUtxoProofCode, 1, 2000);
-		m_protocol.add_message_handler<proto::Config,         &TestNode::on_message>(ConfigCode, 1, 2000);
+        m_protocol.add_message_handler<TestNode, proto::NewTransaction, &TestNode::on_message>(NewTransactionCode, this, 1, 2000);
+        m_protocol.add_message_handler<TestNode, proto::GetProofUtxo,   &TestNode::on_message>(GetUtxoProofCode, this, 1, 2000);
+		m_protocol.add_message_handler<TestNode, proto::Config,         &TestNode::on_message>(ConfigCode, this, 1, 2000);
     }
 
     void start()
@@ -499,7 +499,7 @@ private:
         }
     }
 
-    Protocol<TestNode> m_protocol;
+    Protocol m_protocol;
     io::Address m_address;
     io::Reactor::Ptr m_reactor;
     io::TcpServer::Ptr m_server;

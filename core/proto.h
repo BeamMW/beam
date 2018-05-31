@@ -39,7 +39,7 @@ namespace proto {
 	macro(Input, Utxo) \
 	macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
 
-	 
+
 #define BeamNodeMsg_Proof(macro) \
 	macro(Merkle::Proof, Proof)
 
@@ -121,9 +121,9 @@ namespace proto {
 
 
 	class NodeConnection
-		:public IMsgHandler
+		:public IErrorHandler
 	{
-		Protocol<NodeConnection> m_Protocol;
+		Protocol m_Protocol;
 		std::unique_ptr<Connection> m_Connection;
 		bool m_ConnectPending;
 

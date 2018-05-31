@@ -8,10 +8,10 @@ namespace proto {
 /////////////////////////
 // NodeConnection
 NodeConnection::NodeConnection()
-	:m_Protocol(0xAA, 0xBB, 0xCC, *this, 2000)
+	:m_Protocol(0xAA, 0xBB, 0xCC, 100, *this, 20000)
 	, m_ConnectPending(false)
 {
-#define THE_MACRO(code, msg) m_Protocol.add_message_handler<msg, &NodeConnection::OnMsgInternal>(uint8_t(code), 1, 2000000);
+#define THE_MACRO(code, msg) m_Protocol.add_message_handler<NodeConnection, msg, &NodeConnection::OnMsgInternal>(uint8_t(code), this, 1, 2000000);
 	BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 }

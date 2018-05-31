@@ -51,7 +51,7 @@ struct SomeObject {
     SERIALIZE(i,x,ooo);
 };
 
-struct MsgHandler : IMsgHandler {
+struct MsgHandler : IErrorHandler {
     void on_protocol_error(uint64_t fromStream, ProtocolError error) override {
         cout << __FUNCTION__ << "(" << fromStream << "," << error << ")" << endl;
     }
@@ -80,8 +80,8 @@ void msg_serializer_test_1() {
     MsgType type = 99;
 
     MsgHandler handler;
-    Protocol<MsgHandler> protocol(0xBE, 0xA6, 0x66, handler, 50);
-    protocol.add_message_handler<IntList, &MsgHandler::on_ints>(type, 8, 1<<24);
+    Protocol protocol(0xBE, 0xA6, 0x66, 256, handler, 50);
+    protocol.add_message_handler<MsgHandler, IntList, &MsgHandler::on_ints>(type, &handler, 8, 1<<24);
 
     MsgSerializer ser(50, protocol.get_default_header());
 
@@ -142,9 +142,9 @@ void msg_serializer_test_2() {
     MsgType type = 222;
 
     MsgHandler handler;
-    Protocol<MsgHandler> protocol(0xAA, 0xBB, 0xCC, handler, 50);
+    Protocol protocol(0xAA, 0xBB, 0xCC, 256, handler, 50);
 
-    protocol.add_message_handler<SomeObject, &MsgHandler::on_some_object>(type, 8, 1<<24);
+    protocol.add_message_handler<MsgHandler, SomeObject, &MsgHandler::on_some_object>(type, &handler, 8, 1<<24);
 
     SomeObject msg;
     msg.i = 3;

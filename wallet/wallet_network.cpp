@@ -15,7 +15,7 @@ namespace beam {
                                    , IKeyChain::Ptr keychain
                                    , io::Reactor::Ptr reactor
                                    , uint64_t start_tag)
-        : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, *this, 200 }
+        : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, 150, *this, 20000 }
         , m_address{address}
         , m_node_address{ node_address }
         , m_reactor{ !reactor ? io::Reactor::create() : reactor }
@@ -25,10 +25,10 @@ namespace beam {
         , m_connection_tag{ start_tag }
         , m_node_connection{m_wallet}
     {
-        m_protocol.add_message_handler<wallet::sender::InvitationData,     &WalletNetworkIO::on_message>(senderInvitationCode, 1, 2000);
-        m_protocol.add_message_handler<wallet::sender::ConfirmationData,   &WalletNetworkIO::on_message>(senderConfirmationCode, 1, 2000);
-        m_protocol.add_message_handler<wallet::receiver::ConfirmationData, &WalletNetworkIO::on_message>(receiverConfirmationCode, 1, 2000);
-        m_protocol.add_message_handler<wallet::TxRegisteredData,           &WalletNetworkIO::on_message>(receiverRegisteredCode, 1, 2000);
+        m_protocol.add_message_handler<WalletNetworkIO, wallet::sender::InvitationData,     &WalletNetworkIO::on_message>(senderInvitationCode, this, 1, 20000);
+        m_protocol.add_message_handler<WalletNetworkIO, wallet::sender::ConfirmationData,   &WalletNetworkIO::on_message>(senderConfirmationCode, this, 1, 20000);
+        m_protocol.add_message_handler<WalletNetworkIO, wallet::receiver::ConfirmationData, &WalletNetworkIO::on_message>(receiverConfirmationCode, this, 1, 20000);
+        m_protocol.add_message_handler<WalletNetworkIO, wallet::TxRegisteredData,           &WalletNetworkIO::on_message>(receiverRegisteredCode, this, 1, 20000);
 
         m_node_connection.connect(m_node_address, [this]() { m_is_node_connected = true; });
     }
