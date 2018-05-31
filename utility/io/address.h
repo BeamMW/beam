@@ -104,7 +104,10 @@ std::ostream& operator<<(std::ostream& os, const Address& a);
 
 namespace std {
     template<> struct hash<beam::io::Address> {
-        size_t operator()(const beam::io::Address& a) const {
+        typedef beam::io::Address argument_type;
+        typedef std::size_t result_type;
+
+        result_type operator()(const argument_type& a) const noexcept {
             return std::hash<uint64_t>()(a.u64());
         }
     };

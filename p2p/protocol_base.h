@@ -1,9 +1,11 @@
 #pragma once
-#include <stdint.h>
-#include <stddef.h>
+#include "utility/io/buffer.h"
 #include <string.h>
+#include <vector>
 
 namespace beam {
+
+using io::SerializedMsg;
 
 /// Protocol can handle max 256 message types
 using MsgType = uint8_t;
@@ -67,20 +69,15 @@ enum ProtocolError {
     message_corrupted = -4
 };
 
-/// Message handlers base
-struct IMsgHandler {
-    virtual ~IMsgHandler() {}
+/// Protocol errors handler base
+struct IErrorHandler {
+    virtual ~IErrorHandler() {}
 
+    /// Handles protocol errors
     virtual void on_protocol_error(uint64_t fromStream, ProtocolError error) = 0;
+
+    /// Handles network connection errors
     virtual void on_connection_error(uint64_t fromStream, int errorCode) = 0;
-
-/*
-    In derived classes, add such functions
-
-    bool on_whatever_1(uint64_t fromStream, Whatever_1&&);
-    bool on_whatever_2(uint64_t fromStream, Whatever_2&&);
-*/
-
 };
 
 class Deserializer;
@@ -93,13 +90,19 @@ public:
         uint8_t protocol_version_0,
         uint8_t protocol_version_1,
         uint8_t protocol_version_2,
-        IMsgHandler& handler
+        size_t maxMessageTypes,
+        IErrorHandler& errorHandler
     ) :
         V0(protocol_version_0), V1(protocol_version_1), V2(protocol_version_2),
-        _handler(handler)
-    {}
+        _errorHandler(errorHandler),
+        _maxMessageTypes(maxMessageTypes)
+    {
+        _dispatchTable = new DispatchTableItem[_maxMessageTypes];
+    }
 
-    typedef bool(*OnRawMessage)(IMsgHandler& handler, Deserializer& des, uint64_t fromStream, const void* data, size_t size);
+    virtual ~ProtocolBase() {
+        delete[] _dispatchTable;
+    }
 
     /// Returns header with unknow size for serializer
     MsgHeader get_default_header() {
@@ -109,8 +112,11 @@ public:
     /// Called by MsgReader on receiving message header
     bool approve_msg_header(uint64_t fromStream, const MsgHeader& header) {
         ProtocolError error = no_error;
+
         if (header.V0 != V0 || header.V1 != V1 || header.V2 != V2) {
             error = protocol_version_error;
+        } else if (header.type >= _maxMessageTypes) {
+            error = msg_type_error;
         } else {
             const DispatchTableItem& i = _dispatchTable[header.type];
             if (!i.callback)
@@ -118,27 +124,37 @@ public:
             else if (i.minSize > header.size || i.maxSize < header.size)
                 error = msg_size_error;
         }
+
         if (error == no_error) {
             return true;
         }
-        _handler.on_protocol_error(fromStream, error);
+
+        _errorHandler.on_protocol_error(fromStream, error);
         return false;
     }
 
     /// Called by Connection on network errors
     void on_connection_error(uint64_t fromStream, int errorCode) {
-        _handler.on_connection_error(fromStream, errorCode);
+        _errorHandler.on_connection_error(fromStream, errorCode);
     }
+
+    typedef bool(*OnRawMessage)(
+        void* msgHandler,
+        IErrorHandler& errorHandler,
+        Deserializer& des,
+        uint64_t fromStream,
+        const void* data,
+        size_t size
+    );
 
     /// Called by MsgReader on new message. Returning false means no more reading
     bool on_new_message(uint64_t fromStream, MsgType type, const void* data, size_t size) {
         OnRawMessage callback = _dispatchTable[type].callback;
         if (!callback) {
-            _handler.on_protocol_error(fromStream, msg_type_error);
+            _errorHandler.on_protocol_error(fromStream, msg_type_error);
             return false;
         }
-        // TODO assert(_dispatchTable[type].minSize <= size || _dispatchTable[type].maxSize >= size);
-        return callback(_handler, *_deserializer, fromStream, data, size);
+        return callback(_dispatchTable[type].msgHandler, _errorHandler, *_deserializer, fromStream, data, size);
     }
 
 private:
@@ -146,20 +162,30 @@ private:
     uint8_t V0, V1, V2;
 
 protected:
-    /// Message handler base
-    IMsgHandler& _handler;
+    /// Protocol error handler
+    IErrorHandler& _errorHandler;
 
     /// Deserializer for deriving classes, avoiding code bloat
     Deserializer* _deserializer=0;
 
     struct DispatchTableItem {
-        uint32_t minSize=0;
-        uint32_t maxSize=0;
+        /// Callback that dispatches msg
         OnRawMessage callback=0;
+
+        /// Message handler object (if handler is member fn)
+        void* msgHandler=0;
+
+        /// Min deserialized message size
+        uint32_t minSize=0;
+
+        /// Max deserialized message size (against attacks)
+        uint32_t maxSize=0;
     };
 
+    size_t _maxMessageTypes;
+
     /// Raw messages dispatch table for this protocol
-    DispatchTableItem _dispatchTable[256];
+    DispatchTableItem* _dispatchTable;
 };
 
 } //namespace

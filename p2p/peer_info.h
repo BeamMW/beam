@@ -20,7 +20,7 @@ using Timestamp = uint32_t;
 using Height = uint64_t;
 
 /// Pingpong message, reflects peer's state
-struct PingPong {
+struct PeerState {
     Height height=0;
     uint32_t knownServers=0;
     uint32_t connectedPeers=0;
@@ -36,7 +36,7 @@ struct PeerInfo {
     // connected state
     uint32_t connectAttempt=0; // >0 for outbound connections
     uint64_t nonce=0; // !=0 if connected
-    PingPong state;
+    PeerState state;
 
     // persistent state
     Timestamp updatedAt=0;
@@ -48,25 +48,6 @@ struct PeerInfo {
 
     // weight == relative connect probability
     uint32_t weight;
-};
-
-/// Handshake request/response
-struct Handshake {
-    enum What { handshake, handshake_ok, protocol_mismatch, nonce_exists };
-
-    int what=handshake;
-    uint16_t listensTo=0; // if !=0 then this node is a server listening to this port
-    uint64_t nonce=0;
-    PingPong state;
-
-    SERIALIZE(what, nonce, state);
-};
-
-/// Known servers response
-struct KnownServers {
-    std::unordered_set<Peer> servers;
-
-    SERIALIZE(servers);
 };
 
 } //namespace

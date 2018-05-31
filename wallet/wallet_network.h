@@ -22,7 +22,7 @@ namespace beam
         receiverRegisteredCode   ,
     };
 
-    class WalletNetworkIO : public IMsgHandler
+    class WalletNetworkIO : public IErrorHandler
                           , public INetworkIO
     {
     public:
@@ -37,13 +37,13 @@ namespace beam
                       , io::Reactor::Ptr reactor = io::Reactor::Ptr()
                       , uint64_t start_tag = 0);
         virtual ~WalletNetworkIO();
-        
+
         void start();
         void stop();
-        
+
         void transfer_money(io::Address receiver, Amount&& amount);
 		void sync_with_node(NodeSyncCallback&& callback);
-        
+
     private:
         // INetworkIO
         void send_tx_message(PeerId to, wallet::sender::InvitationData::Ptr&&) override;
@@ -73,7 +73,7 @@ namespace beam
         bool register_connection(uint64_t tag, io::TcpStream::Ptr&& newStream);
 
         uint64_t get_connection_tag();
-        
+
         template <typename T>
         void send(PeerId to, MsgType type, const T& data)
         {
@@ -127,9 +127,9 @@ namespace beam
             std::vector<NodeConnectCallback> m_connections_callbacks;
             bool m_connecting;
         };
-    
+
     private:
-        Protocol<WalletNetworkIO> m_protocol;
+        Protocol m_protocol;
         io::Address m_address;
         io::Address m_node_address;
         io::Reactor::Ptr m_reactor;
