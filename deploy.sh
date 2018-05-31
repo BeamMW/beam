@@ -8,14 +8,14 @@ cd $HOME
 
 git config --global user.email "vadim@beam-mw.com"
 git config --global user.name "Vadim Grigoruk"
-git clone https://${TRAVIS_SECURE_TOKEN_NAME}@github.com/beam-mw/beam-builds
+git clone https://${GITHUB_API_KEY}@github.com/beam-mw/beam-builds
 cd beam-builds
 
 cp $HOME/beam.tar.gz ./beam.tar.gz
 
 git add ./beam.tar.gz
 git commit -m "Travis build $TRAVIS_BUILD_NUMBER"
-git push https://${TRAVIS_SECURE_TOKEN_NAME}@github.com/beam-mw/beam-builds master
+git push https://${GITHUB_API_KEY}@github.com/beam-mw/beam-builds master
 
 echo "Done\n"
 
