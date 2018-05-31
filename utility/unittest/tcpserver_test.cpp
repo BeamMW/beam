@@ -63,14 +63,11 @@ void tcpserver_test() {
 }
 
 int main() {
-    LoggerConfig lc;
     int logLevel = LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
-    lc.consoleLevel = logLevel;
-    lc.flushLevel = logLevel;
-    auto logger = Logger::create(lc);
+    auto logger = Logger::create(logLevel, logLevel);
     tcpserver_test();
     return wasAccepted ? 0 : 1;
 }

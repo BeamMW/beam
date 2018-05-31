@@ -267,14 +267,11 @@ void TreasuryBlockGenerator::Proceed(uint32_t i)
 
 int main(int argc, char* argv[])
 {
-    LoggerConfig lc;
     int logLevel = LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
-    lc.consoleLevel = logLevel;
-    lc.flushLevel = logLevel;
-    auto logger = Logger::create(lc);
+    auto logger = beam::Logger::create(logLevel, logLevel);
 
     po::options_description general_options("General options");
     general_options.add_options()
@@ -437,7 +434,7 @@ int main(int argc, char* argv[])
                 if (vm.count(cli::COMMAND))
                 {
                     auto command = vm[cli::COMMAND].as<string>();
-                    if (command != cli::INIT 
+                    if (command != cli::INIT
                      && command != cli::SEND
                      && command != cli::LISTEN
                      && command != cli::TREASURY
@@ -455,7 +452,7 @@ int main(int argc, char* argv[])
                         LOG_ERROR() << "Please, provide password for the wallet.";
                         return -1;
                     }
- 
+
                     if (command == cli::INIT)
                     {
                         if (!hasWalletSeed)
@@ -474,7 +471,7 @@ int main(int argc, char* argv[])
                                     Coin coin(amount);
                                     keychain->store(coin);
                                 }
-                                
+
                                 LOG_INFO() << "wallet with coins successfully created...";
                             }
                             return 0;
@@ -515,15 +512,15 @@ int main(int argc, char* argv[])
                         keychain->visit([](const Coin& c)->bool
                         {
                             cout << setw(8) << c.m_id
-                                 << setw(16) << c.m_amount 
-                                 << setw(16) << c.m_height 
+                                 << setw(16) << c.m_amount
+                                 << setw(16) << c.m_height
                                  << "  " << c.m_status << '\t'
                                  << "  " << c.m_key_type << '\n';
                             return true;
                         });
                         return 0;
                     }
- 
+
                     // resolve address after network io
                     io::Address node_addr;
                     node_addr.resolve(vm[cli::NODE_ADDR].as<string>().c_str());
@@ -534,14 +531,14 @@ int main(int argc, char* argv[])
                                              , keychain
                                              , reactor};
 
-					wallet_io.sync_with_node([&]() 
+					wallet_io.sync_with_node([&]()
 					{
 						if (command == cli::SEND)
 						{
 							auto amount = vm[cli::AMOUNT].as<ECC::Amount>();
 							io::Address receiver_addr;
 							receiver_addr.resolve(vm[cli::RECEIVER_ADDR].as<string>().c_str());
-                    
+
 							LOG_INFO() << "sending money " << receiver_addr.str();
 							wallet_io.transfer_money(receiver_addr, move(amount));
 						}

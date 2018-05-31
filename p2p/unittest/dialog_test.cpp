@@ -112,7 +112,7 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork, public AsyncCon
         } else {
             _reactor->tcp_connect(
                 address,
-                address.packed,
+                address.u64(),
                 BIND_THIS_MEMFN(on_client_connected)
             );
         }
@@ -131,23 +131,23 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork, public AsyncCon
             if (!connection) {
                 connection = make_unique<Connection>(
                     protocol,
-                    address.packed,
+                    address.u64(),
                     Connection::inbound,
                     100,
                     std::move(newStream)
                 );
             }
         } else {
-            on_connection_error(address.packed, errorCode);
+            on_connection_error(address.u64(), errorCode);
         }
     }
 
     void on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, int status) {
-        assert(tag == address.packed);
+        assert(tag == address.u64());
         if (newStream && !connection) {
             connection = make_unique<Connection>(
                 protocol,
-                address.packed,
+                address.u64(),
                 Connection::outbound,
                 100,
                 std::move(newStream)
@@ -198,7 +198,7 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork, public AsyncCon
 
     bool on_request(uint64_t connectionId, Request&& req) {
         // this assertion is for this test only
-        assert(connectionId = address.packed);
+        assert(connectionId = address.u64());
         if (!req.is_valid()) return false; // shut down stream
 
         proxy.handle_request(someId, std::move(req));
@@ -207,7 +207,7 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork, public AsyncCon
 
     bool on_response(uint64_t connectionId, Response&& res) {
         // this assertion is for this test only
-        assert(connectionId = address.packed);
+        assert(connectionId = address.u64());
         if (!res.is_valid()) return false; // shut down stream
         proxy.handle_response(someId, std::move(res));
         return true;
@@ -218,7 +218,7 @@ struct NetworkSide : public IMsgHandler, public ILogicToNetwork, public AsyncCon
 // App-side async thread context
 struct AppSideAsyncContext : public AsyncContext {
     NetworkToLogicBridge bridge;
-    
+
     AppSideAsyncContext(INetworkToLogic& logicCallbacks) :
         bridge(logicCallbacks, _reactor)
     {}
@@ -304,10 +304,7 @@ struct App {
 };
 
 int main() {
-    LoggerConfig lc;
-    lc.consoleLevel = LOG_LEVEL_DEBUG;
-    lc.flushLevel = LOG_LEVEL_DEBUG;
-    auto logger = Logger::create(lc);
+    auto logger = Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
     try {
         constexpr uint16_t port = 32123;
 

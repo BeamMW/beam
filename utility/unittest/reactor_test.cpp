@@ -35,16 +35,17 @@ void error_codes_test() {
     str = format_io_error("", "", 0, EC_ ## code); \
     LOG_VERBOSE() << str; \
     assert(str.find(unknown_descr) == string::npos);
-    
+
     UV_ERRNO_MAP(XX)
 #undef XX
 }
 
 int main() {
-    LoggerConfig lc;
-    lc.consoleLevel = LOG_LEVEL_VERBOSE;
-    lc.flushLevel = LOG_LEVEL_VERBOSE;
-    auto logger = Logger::create(lc);
+    int logLevel = LOG_LEVEL_DEBUG;
+#if LOG_VERBOSE_ENABLED
+    logLevel = LOG_LEVEL_VERBOSE;
+#endif
+    auto logger = Logger::create(logLevel, logLevel);
     reactor_start_stop();
     error_codes_test();
 }

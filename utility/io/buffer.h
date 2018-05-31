@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <vector>
 #include <cstddef>
 #include <stdint.h>
 #include <string.h>
@@ -19,7 +20,7 @@ struct IOVec {
     const uint8_t* data;
     size_t size;
 #endif
-    
+
 
     IOVec() : data(0), size(0)
     {}
@@ -72,6 +73,9 @@ using SharedMem = std::shared_ptr<void>;
 struct SharedBuffer : IOVec {
     SharedMem guard;
 
+    /// Empty buffer
+    SharedBuffer() {}
+
     /// Creates a copy of data
     SharedBuffer(const void* _data, size_t _size) {
         if (_size) {
@@ -102,5 +106,12 @@ struct SharedBuffer : IOVec {
         guard.reset();
     }
 };
+
+/// May have fragments...
+using SerializedMsg = std::vector<SharedBuffer>;
+
+/// Normalizes to 1 fragment and copies data.
+/// This needed to detach some small and long-term message from large fragment
+SharedBuffer normalize(const SerializedMsg& msg);
 
 }} //namespaces

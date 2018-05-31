@@ -44,7 +44,7 @@ struct Thread {
     }
 
     operator bool() const { return _thread.get() != 0; }
-    
+
     void join() {
         if (_thread) {
             _thread->join();

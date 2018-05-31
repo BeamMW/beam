@@ -8,7 +8,7 @@ set(P2P_SRC
     msg_serializer.cpp
     connection.cpp
     roulette.cpp
-    peers.cpp
+    #peers.cpp
     peer_storage.cpp
 )
 

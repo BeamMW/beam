@@ -7,6 +7,7 @@ set(UTILITY_SRC
 )
 
 set(IO_SRC
+    io/buffer.cpp
     io/bufferchain.cpp
     io/reactor.cpp
     io/asyncevent.cpp
@@ -20,11 +21,11 @@ set(IO_SRC
 # ~etc
 )
 
-if (MSVC)
+IF (MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX")
-else()
+ELSE()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
-endif()
+ENDIF()
 
 add_library(utility STATIC ${UTILITY_SRC} ${IO_SRC})
 add_library(crypto STATIC crypto/blake/blake2b.cpp)

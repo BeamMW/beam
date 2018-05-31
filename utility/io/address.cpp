@@ -1,6 +1,6 @@
 #include "address.h"
+#include <iostream>
 #include <stdlib.h>
-#include <ostream>
 #ifdef WIN32
     #include <Ws2tcpip.h>
 #else
@@ -75,20 +75,15 @@ std::string Address::str() const {
     return std::string(buf);
 }
 
-#ifndef _countof
-#	define _countof(_Array) (sizeof(_Array) / sizeof(_Array[0]))
-#endif // _countof
-
-std::ostream& operator << (std::ostream& s, const Address& v)
-{
-	uint32_t ipAddr = v.ip();
-
-#define ADDR_FMT_STR "%u.%u.%u.%u:%u"
-	char sz[_countof(ADDR_FMT_STR) + (3 - 2) * 4 + (5 - 2)];
-	sprintf(sz, ADDR_FMT_STR, uint8_t(ipAddr >> 24), uint8_t(ipAddr >> 16), uint8_t(ipAddr >> 8), uint8_t(ipAddr), v.port());
-
-	s << sz;
-	return s;
+std::ostream& operator<<(std::ostream& os, const Address& a) {
+    uint32_t ip = a.ip();
+    os << (ip >> 24) << '.' << ((ip >> 16) & 0xFF) << '.' << ((ip >> 8) & 0xFF) << '.' << (ip & 0xFF);
+    uint16_t p = a.port();
+    if (p) {
+        os << ':' << p;
+    }
+    return os;
 }
 
 }} //namespaces
+

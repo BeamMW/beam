@@ -13,11 +13,14 @@ std::ostream& operator<<(std::ostream& os, const XXX& xxx) {
     return os;
 }
 
+static size_t custom_header_formatter(char* buf, size_t maxSize, const char* timestampFormatted, const LogMessageHeader& header) {
+    return snprintf(buf, maxSize, "%c %s ", loglevel_tag(header.level), timestampFormatted);
+}
+
 void test_logger_1() {
-    LoggerConfig c;
-    c.fileLevel = LOG_LEVEL_WARNING;
-    c.filePrefix = "Zzzzz";
-    auto logger = Logger::create (c);
+    auto logger = Logger::create(LOG_LEVEL_WARNING, LOG_LEVEL_DEBUG, LOG_LEVEL_WARNING, "Zzzzz");
+    logger->set_header_formatter(custom_header_formatter);
+    logger->set_time_format("%T", false);
 
     LOG_CRITICAL() << "Let's die";
     LOG_ERROR() << "Not so bad at all, here is " << format_timestamp("%y-%m-%d.%T", local_timestamp_msec());
@@ -29,10 +32,8 @@ void test_logger_1() {
 }
 
 void test_ndc_1() {
-    LoggerConfig c;
-    c.fileLevel = LOG_LEVEL_WARNING;
-    c.filePrefix = "Zzzzz";
-    auto logger = Logger::create (c);
+    auto logger = Logger::create(LOG_LEVEL_WARNING, LOG_LEVEL_DEBUG, LOG_LEVEL_WARNING, "Zzzzz");
+    logger->set_header_formatter(custom_header_formatter);
     CHECKPOINT_CREATE (6);
     CHECKPOINT_ADD() << "ssss" << 333 << 555;
     CHECKPOINT_CREATE (6);
@@ -45,8 +46,8 @@ void test_ndc_1() {
 
 void test_ndc_2(bool exc)
 {
-    LoggerConfig c;
-    auto logger = Logger::create (c);
+    auto logger = Logger::create();
+    logger->set_header_formatter(custom_header_formatter);
     {
         std::thread::id threadId = std::this_thread::get_id();
         CHECKPOINT("WorkerThread:", &threadId); // constraint: objects captured by ptr in checkpoints

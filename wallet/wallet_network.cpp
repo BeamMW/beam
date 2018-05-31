@@ -29,7 +29,7 @@ namespace beam {
         m_protocol.add_message_handler<wallet::sender::ConfirmationData,   &WalletNetworkIO::on_message>(senderConfirmationCode, 1, 2000);
         m_protocol.add_message_handler<wallet::receiver::ConfirmationData, &WalletNetworkIO::on_message>(receiverConfirmationCode, 1, 2000);
         m_protocol.add_message_handler<wallet::TxRegisteredData,           &WalletNetworkIO::on_message>(receiverRegisteredCode, 1, 2000);
-        
+
         m_node_connection.connect(m_node_address, [this]() { m_is_node_connected = true; });
     }
 
@@ -156,7 +156,7 @@ namespace beam {
         }
         else
         {
-            on_connection_error(m_address.packed, errorCode);
+            on_connection_error(m_address.u64(), errorCode);
         }
     }
 
