@@ -1,6 +1,7 @@
 #pragma once
 #include "peer_info.h"
 #include "roulette.h"
+#include <unordered_set>
 
 namespace beam {
 

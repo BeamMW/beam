@@ -304,10 +304,11 @@ struct App {
 };
 
 int main() {
-    LoggerConfig lc;
-    lc.consoleLevel = LOG_LEVEL_DEBUG;
-    lc.flushLevel = LOG_LEVEL_DEBUG;
-    auto logger = Logger::create(lc);
+    int logLevel = LOG_LEVEL_DEBUG;
+#if LOG_VERBOSE_ENABLED
+    logLevel = LOG_LEVEL_VERBOSE;
+#endif
+    auto logger = Logger::create(logLevel, logLevel);
     try {
         constexpr uint16_t port = 32123;
 

@@ -97,7 +97,7 @@ void send_inter_thread(IXxx& xxx) {
 }
 
 int main() {
-    auto logger = Logger::create(LoggerConfig());
+    auto logger = Logger::create();
 
     RemoteThreadLogicExample remoteLogic;
     IXxx& proxyXxx = remoteLogic.bridge;

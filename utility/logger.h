@@ -3,6 +3,7 @@
 #include <memory>
 #include <type_traits>
 #include <string.h>
+#include <stdio.h>
 #include <assert.h>
 
 #ifndef LOG_VERBOSE_ENABLED
@@ -70,55 +71,70 @@ struct LoggerConfig {
     // ~etc rotation
 };
 
-// Logger interface
+struct LogMessageHeader {
+    uint64_t timestamp;
+    const char* func;
+    const char* file;
+    int line;
+    int level;
+
+    LogMessageHeader(int _level, const char* _file, int _line, const char* _func);
+};
+
+/// Returns char corresponding to log level
+inline char loglevel_tag(int level) {
+    static const char logTags[] = "~VDIWEC";
+    if (level < 0 || level >= int(sizeof(logTags))) level = 0;
+    return logTags[level];
+}
+
+/// Custom header formatter interface, must return bytes consumed in buf, not exceeding maxSize
+typedef size_t (*LogMessageHeaderFormatter)(char* buf, size_t maxSize, const char* timestampFormatted, const LogMessageHeader& header);
+
+/// Default header formatter
+inline size_t def_header_formatter(char* buf, size_t maxSize, const char* timestampFormatted, const LogMessageHeader& header) {
+    return snprintf(buf, maxSize, "%c %s (%s, %s:%d) ", loglevel_tag(header.level), timestampFormatted, header.func, header.file, header.line);
+}
+
+/// Logger interface
 class Logger {
 public:
-    static Logger* get() {
-        assert(g_logger);
-        return g_logger;
-    }
+    /// RAII
+    static std::shared_ptr<Logger> create(
+        // flushes sinks if level >= flushLevel
+        int flushLevel=LOG_LEVEL_WARNING,
 
-    // RAII
-    static std::shared_ptr<Logger> create(const LoggerConfig& config);
+        // default console minimal level, use LOG_SINK_DISABLED to disable console log
+        int consoleLevel=LOG_LEVEL_DEBUG,
+
+        // default file logger minimal level, use LOG_SINK_DISABLED to disable file log
+        int fileLevel=LOG_SINK_DISABLED,
+
+        // filename prefix, needed if file log enabled
+        const std::string& fileNamePrefix = std::string()
+    );
+
     virtual ~Logger() {}
 
-    virtual void write_message(int level, const char* buf, size_t size) = 0;
+    /// Sets custom msg header formatter, default is def_header_formatter
+    virtual void set_header_formatter(LogMessageHeaderFormatter formatter) = 0;
+
+    /// Sets custom timestamp formatter as for strftime(), default is "%Y-%m-%d.%T" and milliseconds are printed
+    virtual void set_time_format(const char* format, bool printMilliseconds) = 0;
 
     static bool will_log(int level) {
         return g_logger && g_logger->level_accepted(level);
     }
 
 protected:
+    friend class LogMessage;
+
     virtual bool level_accepted(int level) = 0;
 
+    /// Called from LogMessage dtor on message completed
+    virtual void write_message(const LogMessageHeader& header, const char* buf, size_t size) = 0;
+
     static Logger* g_logger;
-};
-
-// __FILE__, __LINE__, __FUNCTION__ **references** in a single struct
-struct From {
-    From(const char* _file, int _line, const char* _func) :
-        file(_file), line(_line), func(_func)
-    {}
-
-    From() : file(""), line(0), func("")
-    {}
-
-    const char* file;
-    int line;
-    const char* func;
-
-    friend std::ostream& operator<<(std::ostream& o, const From& from) {
-        // TODO header formatters
-#ifdef PROJECT_SOURCE_DIR
-        //std::cout << PROJECT_SOURCE_DIR ;
-        //static const size_t offset = 0;
-        static const size_t offset = strlen(PROJECT_SOURCE_DIR)+1;
-#else
-        static const size_t offset = 0;
-#endif
-        o << " (" << from.func << ", " << from.file + offset << ':' << from.line << ") ";
-        return o;
-    }
 };
 
 struct FlushCheckpoint {};
@@ -130,15 +146,11 @@ void flush_last_checkpoint(class LogMessage* to);
 // Log message, supports operator<< and writes itself in destructor
 class LogMessage {
 public:
-    static LogMessage create(int level, const char* file, int line, const char* func) {
-        return LogMessage(level, file, line, func);
-    }
+    LogMessageHeader header;
 
-    static LogMessage create(int level, const From& from) {
-        return LogMessage(level, from.file, from.line, from.func);
-    }
+    LogMessage(int _level, const char* _file, int _line, const char* _func);
 
-    LogMessage(int level, const char* file, int line, const char* func);
+    LogMessage(const LogMessageHeader& h);
 
     template <class T> LogMessage& operator<<(T x) {
         if constexpr (std::is_same<T, FlushAllCheckpoints>::value) {
@@ -154,12 +166,9 @@ public:
     }
 
     ~LogMessage();
-
-    LogMessage() {}
-
 private:
-    int _level=0;
-    From _from;
+    void init_formatter();
+
     std::ostream* _formatter=0;
 };
 

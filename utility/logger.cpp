@@ -14,12 +14,27 @@ using namespace std;
 Logger* Logger::g_logger = 0;
 
 class LoggerImpl : public Logger {
+    mutex _mutex;
 protected:
-    explicit LoggerImpl(int minLevel, int flushLevel) :
+    static const size_t MAX_HEADER_SIZE = 256;
+    static const size_t MAX_TIMESTAMP_SIZE = 80;
+
+    ostream* _sink;
+    int _minLevel;
+    int _flushLevel;
+    LogMessageHeaderFormatter _headerFormatter = def_header_formatter;
+    std::string _timeFormat;
+    bool _printMilliseconds;
+
+    LoggerImpl(ostream* sink, int minLevel, int flushLevel) :
+        _sink(sink),
         _minLevel(minLevel),
-        _flushLevel(flushLevel)
+        _flushLevel(flushLevel),
+        _headerFormatter(def_header_formatter),
+        _timeFormat("%Y-%m-%d.%T"),
+        _printMilliseconds(true)
     {
-        assert(minLevel > 0);
+        if (minLevel <= 0) throw runtime_error("logger: minimal level out of range");
     }
 
     virtual ~LoggerImpl() {
@@ -28,49 +43,67 @@ protected:
         }
     }
 
-    virtual bool level_accepted(int level) {
-        // checkpoints use level==0 which is translated according to config
-        return level==0 || level >= _minLevel;
+    void set_header_formatter(LogMessageHeaderFormatter formatter) override {
+        if (formatter) _headerFormatter = formatter;
     }
 
-    int _minLevel;
-    int _flushLevel;
+    void set_time_format(const char* format, bool printMilliseconds) override {
+        if (format) {
+            _timeFormat = format;
+            _printMilliseconds = printMilliseconds;
+        } else {
+            _timeFormat.clear();
+            _printMilliseconds = false;
+        }
+    }
+
+    void write_message(const LogMessageHeader& header, const char* buf, size_t size) override {
+        char timestampFormatted[MAX_TIMESTAMP_SIZE];
+        char headerFormatted[MAX_HEADER_SIZE];
+        if (!_timeFormat.empty()) {
+            format_timestamp(timestampFormatted, MAX_TIMESTAMP_SIZE, _timeFormat.c_str(), header.timestamp, _printMilliseconds);
+        } else {
+            timestampFormatted[0] = 0;
+        }
+        size_t headerSize = _headerFormatter(headerFormatted, MAX_HEADER_SIZE, timestampFormatted, header);
+        write_impl(header.level, headerFormatted, headerSize, buf, size);
+    }
+
+public:
+    bool level_accepted(int level) override {
+        return level >= _minLevel;
+    }
+
+    void write_impl(int level, const char* header, size_t headerSize, const char* msg, size_t size) {
+        if (!_sink) return;
+        lock_guard<mutex> lock(_mutex);
+        _sink->write(header, headerSize);
+        _sink->write(msg, size);
+        if (level >= _flushLevel) _sink->flush();
+    }
 };
 
 class ConsoleLogger : public LoggerImpl {
-    mutex _mutex;
 public:
-    ConsoleLogger(const LoggerConfig& config) :
-        LoggerImpl(config.consoleLevel, config.flushLevel)
+    ConsoleLogger(int flushLevel, int consoleLevel) :
+        LoggerImpl(&cout, consoleLevel, flushLevel)
     {}
-
-    void write_message(int level, const char* buf, size_t size) override {
-        lock_guard<mutex> lock(_mutex);
-        cout.write(buf, size);
-        if (level >= _flushLevel) cout.flush();
-    }
 };
 
 class FileLogger : public LoggerImpl {
-    mutex _mutex;
     ofstream _os;
 public:
-    FileLogger(const LoggerConfig& config) :
-        LoggerImpl(config.consoleLevel, config.flushLevel)
+    FileLogger(int flushLevel, int minLevel, const string& fileNamePrefix) :
+        LoggerImpl(0, minLevel, flushLevel)
     {
-        string fileName(config.filePrefix);
+        string fileName(fileNamePrefix);
 #ifndef _WIN32
         fileName += to_string(getpid());
 #endif
         fileName += ".log";
         _os.open(fileName);
         if (!_os) throw runtime_error(string("cannot open file ") + fileName);
-    }
-
-    void write_message(int level, const char* buf, size_t size) override {
-        lock_guard<mutex> lock(_mutex);
-        _os.write(buf, size);
-        if (level >= _flushLevel) _os.flush();
+        _sink = &_os;
     }
 };
 
@@ -79,19 +112,36 @@ class CombinedLogger : public LoggerImpl {
     ConsoleLogger _consoleSink;
 
 public:
-    CombinedLogger(const LoggerConfig& config) :
-        LoggerImpl(min(config.fileLevel, config.consoleLevel), config.flushLevel),
-        _fileSink(config),
-        _consoleSink(config)
+    CombinedLogger(int flushLevel, int consoleLevel, int fileLevel, const std::string& fileNamePrefix) :
+        LoggerImpl(0, min(fileLevel, consoleLevel), flushLevel),
+        _fileSink(flushLevel, fileLevel, fileNamePrefix),
+        _consoleSink(flushLevel, consoleLevel)
     {}
 
-    void write_message(int level, const char* buf, size_t size) override {
-        if (_consoleSink.will_log(level)) _consoleSink.write_message(level, buf, size);
-        if (_fileSink.will_log(level)) _fileSink.write_message(level, buf, size);
+    void write_message(const LogMessageHeader& header, const char* buf, size_t size) override {
+        char timestampFormatted[MAX_TIMESTAMP_SIZE];
+        char headerFormatted[MAX_HEADER_SIZE];
+        if (!_timeFormat.empty()) {
+            format_timestamp(timestampFormatted, MAX_TIMESTAMP_SIZE, _timeFormat.c_str(), header.timestamp, _printMilliseconds);
+        } else {
+            timestampFormatted[0] = 0;
+        }
+        size_t headerSize = _headerFormatter(headerFormatted, MAX_HEADER_SIZE, timestampFormatted, header);
+        if (_consoleSink.level_accepted(header.level)) {
+            _consoleSink.write_impl(header.level, headerFormatted, headerSize, buf, size);
+        }
+        if (_fileSink.level_accepted(header.level)) {
+            _fileSink.write_impl(header.level, headerFormatted, headerSize, buf, size);
+        }
     }
 };
 
-std::shared_ptr<Logger> Logger::create(const LoggerConfig& config) {
+std::shared_ptr<Logger> Logger::create(
+    int flushLevel,
+    int consoleLevel,
+    int fileLevel,
+    const std::string& fileNamePrefix
+) {
     if (g_logger) {
         throw runtime_error("logger already initialized");
     }
@@ -100,18 +150,18 @@ std::shared_ptr<Logger> Logger::create(const LoggerConfig& config) {
 
     int what = 0;
 
-    if (config.consoleLevel > 0) what += 1;
-    if (config.fileLevel > 0) what += 2;
+    if (consoleLevel > 0) what += 1;
+    if (fileLevel > 0) what += 2;
 
     switch (what) {
         case 3:
-            logger.reset(new CombinedLogger(config));
+            logger.reset(new CombinedLogger(flushLevel, consoleLevel, fileLevel, fileNamePrefix));
             break;
         case 2:
-            logger.reset(new FileLogger(config));
+            logger.reset(new FileLogger(flushLevel, fileLevel, fileNamePrefix));
             break;
         case 1:
-            logger.reset(new ConsoleLogger(config));
+            logger.reset(new ConsoleLogger(flushLevel, consoleLevel));
             break;
         default:
             throw runtime_error("no logger sink configured");
@@ -139,37 +189,55 @@ LogThreadContext* get_context() {
 
 } //namespace
 
-LogMessage::LogMessage(int level, const char* file, int line, const char* func) : _level(level) {
+LogMessageHeader::LogMessageHeader(int _level, const char* _file, int _line, const char* _func) :
+    timestamp(local_timestamp_msec()),
+    func(_func),
+    file(_file),
+    line(_line),
+    level(_level)
+{
+    if (!func) func = "";
+    if (!file) {
+        file = "";
+    } else {
+#ifdef PROJECT_SOURCE_DIR
+        static const size_t offset = strlen(PROJECT_SOURCE_DIR)+1;
+#else
+        static const size_t offset = 0;
+#endif
+        assert(strlen(file) > offset);
+        file += offset;
+    }
+}
+
+LogMessage::LogMessage(int _level, const char* _file, int _line, const char* _func) :
+    header(_level, _file, _line, _func)
+{
+    init_formatter();
+}
+
+LogMessage::LogMessage(const LogMessageHeader& h) :
+    header(h)
+{
+    init_formatter();
+}
+
+void LogMessage::init_formatter() {
     LogThreadContext* ctx = get_context();
-
-
-
     assert(!ctx->in_use);
 
     ctx->in_use = true;
     ctx->formatter.clear();
     ctx->formatter.buffer(ctx->buffer, MAX_MSG_SIZE);
     _formatter = &ctx->formatter;
-
-    static const char logTags[] = "~VDIWEC";
-    assert(level < int(sizeof(logTags)));
-    char b[80];
-    format_timestamp(b, 80, " %Y-%m-%d.%T", local_timestamp_msec());
-    *_formatter << logTags[level] << b << From(file, line, func);
-
-
 }
 
 LogMessage::~LogMessage() {
-    if (_formatter) {
+    if (Logger::g_logger && _formatter) {
         *_formatter << '\n';
-        Logger* logger = Logger::get();
         get_context()->in_use = false;
-        if (!logger) return;
-        logger->write_message(_level, get_context()->buffer, _formatter->tellp());
-
+        Logger::g_logger->write_message(header, get_context()->buffer, _formatter->tellp());
     }
-
 }
 
 } //namespace
