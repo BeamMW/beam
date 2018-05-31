@@ -2,6 +2,7 @@
 #include "peer_info.h"
 #include "roulette.h"
 #include <unordered_set>
+#include <unordered_map>
 
 namespace beam {
 
