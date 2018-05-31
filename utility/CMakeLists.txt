@@ -21,7 +21,7 @@ set(IO_SRC
 # ~etc
 )
 
-IF (WIN32)
+IF (MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX")
 ELSE()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")

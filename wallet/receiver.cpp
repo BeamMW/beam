@@ -1,4 +1,5 @@
 #include "receiver.h"
+#include "../core/block_crypt.h"
 
 namespace beam::wallet
 {
@@ -14,7 +15,7 @@ namespace beam::wallet
         , m_publicSenderBlindingExcess{ initData->m_publicSenderBlindingExcess }
         , m_publicSenderNonce{ initData->m_publicSenderNonce }
         , m_transaction{ make_shared<Transaction>() }
-        , m_receiver_coin{keychain->getNextID(), m_amount, Coin::Unconfirmed, initData->m_height}
+        , m_receiver_coin{m_amount, Coin::Unconfirmed, initData->m_height}
     {
         m_transaction->m_Offset = ECC::Zero;
         m_transaction->m_vInputs = move(initData->m_inputs);
@@ -25,7 +26,7 @@ namespace beam::wallet
     {
         auto confirmationData = make_shared<receiver::ConfirmationData>();
         confirmationData->m_txId = m_txId;
-
+        
         TxKernel::Ptr kernel = make_unique<TxKernel>();
         kernel->m_Fee = 0;
         kernel->m_HeightMin = 0;
@@ -39,11 +40,14 @@ namespace beam::wallet
         Amount amount = m_amount;
         Output::Ptr output = make_unique<Output>();
         output->m_Coinbase = false;
+        m_keychain->store(m_receiver_coin);
+        Scalar::Native blindingFactor = m_keychain->calcKey(m_receiver_coin);
+        output->Create(blindingFactor, amount);
+        auto [privateExcess, offset] = split_key(blindingFactor, m_receiver_coin.m_id);
 
-        Scalar::Native blindingFactor = m_keychain->calcKey(m_receiver_coin.m_id);
-        output->Create(blindingFactor, amount, true);
-
-        m_blindingExcess = -blindingFactor;
+        m_blindingExcess = -privateExcess;
+        assert(m_transaction->m_Offset.m_Value == Zero);
+        m_transaction->m_Offset = offset;
 
         m_transaction->m_vOutputs.push_back(move(output));
  
@@ -74,17 +78,11 @@ namespace beam::wallet
     {
         auto data = event.data;
         // 1. Verify sender's Schnor signature
-        Scalar::Native ne = m_kernel->m_Signature.m_e;
-        ne = -ne;
-        Point::Native s, s2;
 
-        s = m_publicSenderNonce;
-        s += m_publicSenderBlindingExcess * ne;
-
-        s2 = Context::get().G * data->m_senderSignature;
-        Point p(s), p2(s2);
-
-        return (p == p2);
+		Signature sigPeer;
+		sigPeer.m_e = m_kernel->m_Signature.m_e;
+		sigPeer.m_k = data->m_senderSignature;
+		return sigPeer.IsValidPartial(m_publicSenderNonce, m_publicSenderBlindingExcess);
     }
 
     bool Receiver::FSMDefinition::is_invalid_signature(const TxConfirmationCompleted& event)
@@ -118,21 +116,19 @@ namespace beam::wallet
     void Receiver::FSMDefinition::rollback_tx(const TxFailed& event)
     {
         LOG_DEBUG() << "[Receiver] rollback_tx";
+        m_keychain->remove(vector<Coin> { m_receiver_coin });
     }
 
     void Receiver::FSMDefinition::cancel_tx(const TxConfirmationCompleted& )
     {
         LOG_DEBUG() << "[Receiver] cancel_tx";
+        m_keychain->remove(vector<Coin> { m_receiver_coin });
     }
 
-    void Receiver::FSMDefinition::confirm_output(const TxRegistrationCompleted& )
-    {
-        m_gateway.send_tx_registered(make_unique<Uuid>(m_txId));
-        m_gateway.send_output_confirmation(m_receiver_coin);
-    }
-
-    void Receiver::FSMDefinition::complete_tx(const TxOutputConfirmCompleted& )
+    void Receiver::FSMDefinition::complete_tx(const TxRegistrationCompleted& )
     {
         LOG_DEBUG() << "[Receiver] complete tx";
+
+		m_gateway.send_tx_registered(make_unique<Uuid>(m_txId));
     }
 }

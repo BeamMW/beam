@@ -12,7 +12,7 @@ void PrintFailure(const char* expression, const char* file, int line){\
 
 #define WALLET_CHECK(s) \
 do {\
-    if (!s) {\
+    if (!(s)) {\
         PrintFailure(#s, __FILE__, __LINE__);\
     }\
 } while(false)\

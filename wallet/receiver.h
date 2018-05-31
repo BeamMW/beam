@@ -4,8 +4,6 @@
 #include "wallet/keychain.h"
 #include "wallet/sender.h"
 
-#include <boost/msm/front/functor_row.hpp>
-
 namespace beam::wallet
 {
     class Receiver : public FSMHelper<Receiver>
@@ -22,7 +20,6 @@ namespace beam::wallet
         {
             Uuid m_txId;
         };
-        struct TxOutputConfirmCompleted {};
         
         Receiver(receiver::IGateway& gateway, beam::IKeyChain::Ptr keychain, sender::InvitationData::Ptr initData)
             : m_fsm{boost::ref(gateway), keychain, initData}
@@ -82,8 +79,7 @@ namespace beam::wallet
             void register_tx(const TxConfirmationCompleted& event);
             void rollback_tx(const TxFailed& event);
             void cancel_tx(const TxConfirmationCompleted& event);
-            void confirm_output(const TxRegistrationCompleted& event);
-            void complete_tx(const TxOutputConfirmCompleted& event);
+            void complete_tx(const TxRegistrationCompleted& event);
 
             using initial_state = Init;
             using d = FSMDefinition;
@@ -94,10 +90,8 @@ namespace beam::wallet
                 a_row< TxConfirming      , TxFailed                , Terminate            , &d::rollback_tx                              >,
                 row  < TxConfirming      , TxConfirmationCompleted , TxRegistering        , &d::register_tx    , &d::is_valid_signature  >,
                 row  < TxConfirming      , TxConfirmationCompleted , Terminate            , &d::cancel_tx      , &d::is_invalid_signature>,
-                a_row< TxRegistering     , TxRegistrationCompleted , TxOutputConfirming   , &d::confirm_output                           >,
-                a_row< TxRegistering     , TxFailed                , Terminate            , &d::rollback_tx                              >,
-                a_row< TxOutputConfirming, TxOutputConfirmCompleted, Terminate            , &d::complete_tx                              >,
-                a_row< TxOutputConfirming, TxFailed                , Terminate            , &d::rollback_tx                              >
+                a_row< TxRegistering     , TxRegistrationCompleted , Terminate			  , &d::complete_tx								 >,
+                a_row< TxRegistering     , TxFailed                , Terminate            , &d::rollback_tx                              >
             > {};
 
             template <class FSM, class Event>

@@ -1,6 +1,6 @@
 #include <iostream>
 #include "../ecc_native.h"
-#include "../common.h"
+#include "../block_crypt.h"
 
 #include "../beam/secp256k1-zkp/include/secp256k1_rangeproof.h" // For benchmark comparison with secp256k1
 void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a);
@@ -20,6 +20,8 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 	} while (false)
 
 namespace ECC {
+
+Initializer g_Initializer;
 
 void GenerateRandom(void* p, uint32_t n)
 {
@@ -43,8 +45,37 @@ void SetRandom(Scalar::Native& x)
 	}
 }
 
-Context g_Ctx;
-const Context& Context::get() { return g_Ctx; }
+void TestUintBig()
+{
+	for (int i = 0; i < 100; i++)
+	{
+		uint32_t a, b;
+		GenerateRandom(&a, sizeof(a));
+		GenerateRandom(&b, sizeof(b));
+
+		uint64_t ab = a;
+		ab *= b;
+
+		uintBig v0, v1;
+		v0 = a;
+		v1 = b;
+		v0 = v0 * v1;
+		v1 = ab;
+
+		verify_test(v0 == v1);
+
+		ab = a;
+		ab += b;
+
+		v0 = a;
+		v1 = b;
+
+		v0 += v1;
+		v1 = ab;
+
+		verify_test(v0 == v1);
+	}
+}
 
 void TestHash()
 {
@@ -104,6 +135,8 @@ void TestScalars()
 
 void TestPoints()
 {
+	Mode::Scope scope(Mode::Fast); // suppress assertion in point multiplication
+
 	// generate, import, export
 	Point::Native p0, p1;
 	Point p_, p2_;
@@ -311,15 +344,24 @@ void TestRangeProof()
 
 	RangeProof::Public rp;
 	rp.m_Value = 345000;
-	rp.Create(sk);
+	{
+		Oracle oracle;
+		rp.Create(sk, oracle);
+	}
 
 	Point::Native comm = Commitment(sk, rp.m_Value);
 
-	verify_test(rp.IsValid(Point(comm)));
+	{
+		Oracle oracle;
+		verify_test(rp.IsValid(Point(comm), oracle));
+	}
 
 	// tamper value
 	rp.m_Value++;
-	verify_test(!rp.IsValid(Point(comm)));
+	{
+		Oracle oracle;
+		verify_test(!rp.IsValid(Point(comm), oracle));
+	}
 	rp.m_Value--;
 
 	// try with invalid key
@@ -327,7 +369,45 @@ void TestRangeProof()
 
 	comm = Commitment(sk, rp.m_Value);
 
-	verify_test(!rp.IsValid(Point(comm)));
+	{
+		Oracle oracle;
+		verify_test(!rp.IsValid(Point(comm), oracle));
+	}
+
+	Scalar::Native pA[InnerProduct::nDim];
+	Scalar::Native pB[InnerProduct::nDim];
+
+	for (int i = 0; i < _countof(pA); i++)
+	{
+		SetRandom(pA[i]);
+		SetRandom(pB[i]);
+	}
+
+	Scalar::Native pwrMul;
+	SetRandom(pwrMul);
+	InnerProduct::Modifier mod;
+	mod.m_pMultiplier[1] = &pwrMul;
+
+	InnerProduct sig;
+	sig.Create(pA, pB, mod);
+
+	Scalar::Native dot;
+	InnerProduct::get_Dot(dot, pA, pB);
+
+	verify_test(sig.IsValid(dot, mod));
+
+	RangeProof::Confidential bp;
+	Amount v = 23110;
+	comm = Commitment(sk, v);
+
+	{
+		Oracle oracle;
+		bp.Create(sk, v, oracle);
+	}
+	{
+		Oracle oracle;
+		verify_test(bp.IsValid(comm, oracle));
+	}
 }
 
 struct TransactionMaker
@@ -384,7 +464,7 @@ struct TransactionMaker
 
 			Scalar::Native k;
 			SetRandom(k);
-			pOut->Create(k, val, true);
+			pOut->Create(k, val);
 
 			t.m_vOutputs.push_back(std::move(pOut));
 
@@ -506,7 +586,7 @@ void TestTransaction()
 
 	beam::TxBase::Context ctx;
 	verify_test(tm.m_Trans.IsValid(ctx));
-	verify_test(ctx.m_Fee == fee1 + fee2);
+	verify_test(!ctx.m_Fee.Hi && (ctx.m_Fee.Lo == fee1 + fee2));
 }
 
 void TestTransactionKernelConsuming()
@@ -558,11 +638,12 @@ void TestTransactionKernelConsuming()
 
 	beam::TxBase::Context ctx;
 	verify_test(t.IsValid(ctx));
-	verify_test(ctx.m_Fee == 0);
+	verify_test(ctx.m_Fee.Lo == 0);
 }
 
 void TestAll()
 {
+	TestUintBig();
 	TestHash();
 	TestScalars();
 	TestPoints();
@@ -740,6 +821,7 @@ void RunBenchmark()
 	}
 
 	{
+		Mode::Scope scope(Mode::Fast);
 		k1 = Zero;
 
 		BenchmarkMeter bm("point.Multiply.Min");
@@ -752,6 +834,8 @@ void RunBenchmark()
 	}
 
 	{
+		Mode::Scope scope(Mode::Fast);
+
 		BenchmarkMeter bm("point.Multiply.Avg");
 		do
 		{
@@ -863,6 +947,76 @@ void RunBenchmark()
 
 		} while (bm.ShouldContinue());
 	}
+
+	Scalar::Native pA[InnerProduct::nDim];
+	Scalar::Native pB[InnerProduct::nDim];
+
+	for (int i = 0; i < _countof(pA); i++)
+	{
+		SetRandom(pA[i]);
+		SetRandom(pB[i]);
+	}
+
+	InnerProduct sig2;
+
+	Scalar::Native dot;
+	InnerProduct::get_Dot(dot, pA, pB);
+
+	{
+		BenchmarkMeter bm("InnerProduct.Sign");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				sig2.Create(pA, pB);
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		BenchmarkMeter bm("InnerProduct.Verify");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				sig2.IsValid(dot);
+
+		} while (bm.ShouldContinue());
+	}
+
+	Amount v = 23110;
+	RangeProof::Confidential bp;
+
+	{
+		BenchmarkMeter bm("BulletProof.Sign");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+			{
+				Oracle oracle;
+				bp.Create(k1, v, oracle);
+			}
+
+		} while (bm.ShouldContinue());
+	}
+
+	Point comm = Commitment(k1, v);
+
+	{
+		BenchmarkMeter bm("BulletProof.Verify");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+			{
+				Oracle oracle;
+				bp.IsValid(comm, oracle);
+			}
+
+		} while (bm.ShouldContinue());
+	}
+
 
 	secp256k1_context* pCtx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 

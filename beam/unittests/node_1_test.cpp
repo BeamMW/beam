@@ -8,8 +8,7 @@ int g_Ret = 0;
 
 namespace ECC {
 
-	Context g_Ctx;
-	const Context& Context::get() { return g_Ctx; }
+	Initializer g_Initializer;
 
 	void GenerateRandom(void* p, uint32_t n)
 	{
@@ -240,14 +239,11 @@ namespace beam
 
 int main()
 {
-    beam::LoggerConfig lc;
     int logLevel = LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
-    lc.consoleLevel = logLevel;
-    lc.flushLevel = logLevel;
-    auto logger = beam::Logger::create(lc);
+    auto logger = beam::Logger::create(logLevel, logLevel);
 
     beam::TestP2pSane();
     beam::TestNode1(10, 100);

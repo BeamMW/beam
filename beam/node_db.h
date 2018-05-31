@@ -126,6 +126,7 @@ public:
 
 		// Perform the query step. SELECT only: returns true while there're rows to read
 		bool Step();
+		void StepStrict(); // must return at least 1 row, applicable for SELECT
 
 		// in/out
 		void put(int col, uint32_t);
@@ -201,6 +202,7 @@ public:
 	struct StateID {
 		uint64_t m_Row;
 		Height m_Height;
+		void SetNull();
 	};
 
 
@@ -265,7 +267,9 @@ private:
 	sqlite3_stmt* m_pPrep[Query::count];
 
 	void TestRet(int);
-	void ThrowError(int);
+	void ThrowSqliteError(int);
+	static void ThrowError(const char*);
+	static void ThrowInconsistent();
 
 	void Create();
 	void ExecQuick(const char*);

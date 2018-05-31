@@ -15,48 +15,22 @@
 
 using namespace beam;
 using namespace std;
+using namespace ECC;
 
 WALLET_TEST_INIT
 
 namespace
 {
-    void generateRandom(void* p, uint32_t n)
-    {
-        for (uint32_t i = 0; i < n; i++)
-            ((uint8_t*)p)[i] = (uint8_t)rand();
-    }
-
-    void setRandom(ECC::uintBig& x)
-    {
-        generateRandom(x.m_pData, sizeof(x.m_pData));
-    }
-
-    void setRandom(ECC::Scalar::Native& x)
-    {
-        ECC::Scalar s;
-        while (true)
-        {
-            setRandom(s.m_Value);
-            if (!x.Import(s))
-                break;
-        }
-    }
-
     class BaseTestKeyChain : public IKeyChain
     {
     public:
-      
-        uint64_t getNextID()
+
+        ECC::Scalar::Native calcKey(const Coin&) const
         {
-            return 1;
+            return ECC::Scalar::Native();
         }
 
-        ECC::Scalar calcKey(uint64_t id)
-        {
-            return ECC::Scalar();
-        }
-
-        std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock)
+        std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool /*lock*/)
         {
             std::vector<beam::Coin> res;
             ECC::Amount t = 0;
@@ -73,19 +47,20 @@ namespace
             return res;
         }
 
-        void store(const beam::Coin& coin)
+        void store(beam::Coin& ) override {}
+        void store(std::vector<beam::Coin>& ) {}
+        void update(const std::vector<beam::Coin>& ) override {}
+        void remove(const std::vector<beam::Coin>& ) override {}
+        void remove(const beam::Coin& ) override {}
+        void visit(std::function<bool(const beam::Coin& coin)> func) override {}
+		void setVarRaw(const char* name, const void* data, int size) override {}
+		int getVarRaw(const char* name, void* data) const override { return 0; }
+		void setSystemStateID(const Block::SystemState::ID& stateID) override {};
+		bool getSystemStateID(Block::SystemState::ID& stateID) const override { return false; };
+
+        Height getCurrentHeight() const override
         {
-
-        }
-
-        void update(const std::vector<beam::Coin>& coins)
-        {
-
-        }
-
-        void remove(const std::vector<beam::Coin>& coins)
-        {
-
+            return 134;
         }
 
     protected:
@@ -97,9 +72,9 @@ namespace
     public:
         TestKeyChain()
         {
-            m_coins.emplace_back(1, 5);
-            m_coins.emplace_back(2, 2);
-            m_coins.emplace_back(3, 3);
+            m_coins.emplace_back(5);
+            m_coins.emplace_back(2);
+            m_coins.emplace_back(3);
         }
     };
 
@@ -108,8 +83,8 @@ namespace
     public:
         TestKeyChain2()
         {
-            m_coins.emplace_back(1, 1);
-            m_coins.emplace_back(2, 3);
+            m_coins.emplace_back(1);
+            m_coins.emplace_back(3);
         }
     };
 
@@ -117,9 +92,14 @@ namespace
     {
         SqliteKeychainInt()
         {
-            store(beam::Coin(getNextID(), 5));
-            store(beam::Coin(getNextID(), 2));
-            store(beam::Coin(getNextID(), 3));
+            Block::SystemState::ID id = { 0 };
+            id.m_Height = 134;
+            setVar("SystemStateID", id);
+            for (auto amount : {5, 2, 1})
+            {
+                Coin coin(amount);
+                store(coin);
+            }
         }
     };
 
@@ -130,7 +110,7 @@ namespace
     }
 
     struct TestGateway : wallet::sender::IGateway
-                       , wallet::receiver::IGateway
+        , wallet::receiver::IGateway
     {
         void send_tx_invitation(wallet::sender::InvitationData::Ptr) override
         {
@@ -142,19 +122,14 @@ namespace
             cout << "sent senders's tx confirmation message\n";
         }
 
-        void send_output_confirmation(const Coin&) override
-        {
-            cout << "sent change output confirmation message\n";
-        }
-
-        void send_tx_failed(const Uuid& txId) override
+        void send_tx_failed(const Uuid& /*txId*/) override
         {
 
         }
 
-        void on_tx_completed(const Uuid& txId) override
+        void on_tx_completed(const Uuid& /*txId*/) override
         {
-            cout << __FUNCTION__ <<"\n";
+            cout << __FUNCTION__ << "\n";
         }
 
         void send_tx_confirmation(wallet::receiver::ConfirmationData::Ptr) override
@@ -244,7 +219,8 @@ namespace
     {
         using Task = function<void()>;
         TestNetworkBase(IOLoop& mainLoop)
-            : m_mainLoop(mainLoop)
+            : m_peerCount{0}
+            , m_mainLoop(mainLoop)
             , m_thread{ [this] { m_networkLoop.run(); } }
         {
 
@@ -267,11 +243,13 @@ namespace
 
         void enqueueNetworkTask(Task&& task)
         {
-            m_networkLoop.enqueueTask([this, t = std::move(task)] ()
+            m_networkLoop.enqueueTask([this, t = std::move(task)]()
             {
                 m_mainLoop.enqueueTask([t = std::move(t)](){t(); });
             });
         }
+
+        int m_peerCount;
 
         vector<IWallet*> m_peers;
         IOLoop m_networkLoop;
@@ -281,111 +259,76 @@ namespace
 
     struct TestNetwork : public TestNetworkBase
     {
-        TestNetwork(IOLoop& mainLoop) : TestNetworkBase{mainLoop}
+        TestNetwork(IOLoop& mainLoop) : TestNetworkBase{ mainLoop }
         {}
 
         void send_tx_message(PeerId to, wallet::sender::InvitationData::Ptr&& data) override
         {
             cout << "[Sender] send_tx_invitation\n";
-            enqueueNetworkTask([this, to, data] () mutable {m_peers[1]->handle_tx_message(to, move(data)); });
+            ++m_peerCount;
+            assert(data->m_height == 134);
+            WALLET_CHECK(data->m_height == 134);
+            WALLET_CHECK(data->m_amount == 6);
+            enqueueNetworkTask([this, to, data]() mutable {m_peers[1]->handle_tx_message(to, move(data)); });
         }
 
         void send_tx_message(PeerId to, wallet::sender::ConfirmationData::Ptr&& data) override
         {
             cout << "[Sender] send_tx_confirmation\n";
-            enqueueNetworkTask([this, to, data] () mutable {m_peers[1]->handle_tx_message(to, move(data)); });
+            enqueueNetworkTask([this, to, data]() mutable {m_peers[1]->handle_tx_message(to, move(data)); });
         }
 
         void send_tx_message(PeerId to, wallet::receiver::ConfirmationData::Ptr&& data) override
         {
             cout << "[Receiver] send_tx_confirmation\n";
-            enqueueNetworkTask([this, to, data] () mutable {m_peers[0]->handle_tx_message(to, move(data)); });
+            ++m_peerCount;
+            enqueueNetworkTask([this, to, data]() mutable {m_peers[0]->handle_tx_message(to, move(data)); });
         }
-        
+
         void send_tx_message(PeerId to, wallet::TxRegisteredData&& res) override
         {
             cout << "[Receiver] send_tx_registered\n";
 
-            enqueueNetworkTask([this, to, res=move(res)] () mutable {m_peers[0]->handle_tx_message(to, move(res)); });
-            shutdown();
+            enqueueNetworkTask([this, to, res = move(res)]() mutable {m_peers[0]->handle_tx_message(to, move(res)); });
         }
 
         void send_node_message(proto::NewTransaction&& data) override
         {
             cout << "[Receiver] register_tx\n";
             enqueueNetworkTask([this, data] {m_peers[1]->handle_node_message(proto::Boolean{ true }); });
-         
+
+        }
+
+        void send_node_message(proto::GetMined&& data) override
+        {
+            cout << "[Receiver] register_tx\n";
+            enqueueNetworkTask([this, data] {m_peers[1]->handle_node_message(proto::Mined{ }); });
+
         }
 
         void send_node_message(proto::GetProofUtxo&&) override
         {
             cout << "[Sender] send_output_confirmation\n";
-            enqueueNetworkTask([this] {m_peers[0]->handle_node_message(proto::ProofUtxo()); });
+            int id = m_proof_id;
+            --m_proof_id;
+            if (m_proof_id < 0)
+            {
+                m_proof_id = 1;
+            }
+            enqueueNetworkTask([this, id] {m_peers[id]->handle_node_message(proto::ProofUtxo()); });
         }
+
+        void send_node_message(proto::GetHdr&&) override
+        {
+            cout << "[Sender] request chain header\n";
+        }
+
+        void close_connection(beam::PeerId) override
+        {
+        }
+
+        int m_proof_id{ 1 };
     };
-
-    //struct BadTestNetwork1 : public TestNetwork
-    //{
-    //    BadTestNetwork1(IOLoop& mainLoop) : TestNetwork{ mainLoop }
-    //    {}
-
-    //    bool isFailed()
-    //    {
-    //        return (std::rand() % 2) == 0;
-    //    }
-
-    //    bool tryToSendTxFailed(const Uuid& txId, PeerId peerId)
-    //    {
-    //        if (isFailed())
-    //        {
-    //            enqueueNetworkTask([this, txId, peerId]
-    //            {
-    //                cout << "[Sender/Receiver] sendTxFailed\n";
-    //                m_peers[peerId]->handle_tx_message(PeerId(), make_unique<Uuid>(txId));
-    //            });
-    //            return true;
-    //        }
-    //        return false;
-    //    }
-
-    //    void send_tx_message(PeerId to, wallet::sender::InvitationData::Ptr&& data) override
-    //    {
-    //        if (!tryToSendTxFailed(data->m_txId, 0))
-    //        {
-    //            TestNetwork::send_tx_message(to, move(data));
-    //        }
-    //    }
-
-    //    void send_tx_message(PeerId to, wallet::sender::ConfirmationData::Ptr&& data) override
-    //    {
-    //        if (!tryToSendTxFailed(data->m_txId, 0))
-    //        {
-    //            TestNetwork::send_tx_message(to, move(data));
-    //        }
-    //    }
-
-    //    void send_node_message(proto::GetProofUtxo&&) override
-    //    {
-    //       /* if (!tryToSendTxFailed(data->m_txId))
-    //        {
-    //            TestNetwork::send_tx_invitation(peer, data);
-    //        }*/
-    //    }
-
-    //    void send_tx_message(PeerId to, wallet::receiver::ConfirmationData::Ptr&& data) override
-    //    {
-    //        if (!tryToSendTxFailed(data->m_txId, 1))
-    //        {
-    //            TestNetwork::send_tx_message(to, move(data));
-    //        };
-    //    }
-
-    //    void send_node_message(proto::NewTransaction&&) override
-    //    {
-    //        cout << "[Receiver] register_tx\n";
-    //        m_networkLoop.shutdown();
-    //    }
-    //};
 }
 
 template<typename KeychainS, typename KeychainR>
@@ -396,8 +339,18 @@ void TestWalletNegotiation()
     PeerId receiver_id = 4;
     IOLoop mainLoop;
     TestNetwork network{ mainLoop };
-    Wallet sender(createKeyChain<KeychainS>(), network);
-    Wallet receiver(createKeyChain<KeychainR>(), network);
+
+    int count = 0;
+    auto f = [&count, &network](const auto& /*id*/)
+    {
+        if (++count >= network.m_peerCount)
+        {
+            network.shutdown();
+        }
+    };
+
+    Wallet sender(createKeyChain<KeychainS>(), network, f);
+    Wallet receiver(createKeyChain<KeychainR>(), network, f);
 
     network.registerPeer(&sender);
     network.registerPeer(&receiver);
@@ -417,11 +370,10 @@ void TestFSM()
     TestGateway gateway;
     Uuid id;
 
-    wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), id , 6, 1};
+    wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), id , 6};
     s.start();
     WALLET_CHECK(s.process_event(wallet::Sender::TxInitCompleted{ std::make_shared<wallet::receiver::ConfirmationData>() }));
     WALLET_CHECK(s.process_event(wallet::Sender::TxConfirmationCompleted()));
-    WALLET_CHECK(s.process_event(wallet::Sender::TxOutputConfirmCompleted()));
 
     cout << "\nreceiver\n";
     wallet::sender::InvitationData::Ptr initData = std::make_shared<wallet::sender::InvitationData>();
@@ -438,7 +390,8 @@ enum NodeNetworkMessageCodes : uint8_t
     NewTransactionCode = 23,
     BooleanCode = 5,
     GetUtxoProofCode = 10,
-    ProofUtxoCode = 12
+    ProofUtxoCode = 12,
+	ConfigCode = 20
 };
 
 class TestNode : public IMsgHandler
@@ -453,6 +406,7 @@ public:
     {
         m_protocol.add_message_handler<proto::NewTransaction, &TestNode::on_message>(NewTransactionCode, 1, 2000);
         m_protocol.add_message_handler<proto::GetProofUtxo,   &TestNode::on_message>(GetUtxoProofCode, 1, 2000);
+		m_protocol.add_message_handler<proto::Config,         &TestNode::on_message>(ConfigCode, 1, 2000);
     }
 
     void start()
@@ -481,23 +435,28 @@ private:
     }
 
     // IMsgHandler
-    void on_protocol_error(uint64_t fromStream, ProtocolError error) override
+    void on_protocol_error(uint64_t /*fromStream*/, ProtocolError /*error*/) override
     {
         assert(false && "NODE: on_protocol_error");
     }
 
     // protocol handler
-    bool on_message(uint64_t connectionId, proto::NewTransaction&& data)
+    bool on_message(uint64_t connectionId, proto::NewTransaction&& /*data*/)
     {
         send(connectionId, BooleanCode, proto::Boolean{true});
         return true;
     }
 
-    bool on_message(uint64_t connectionId, proto::GetProofUtxo&& data)
+    bool on_message(uint64_t connectionId, proto::GetProofUtxo&& /*data*/)
     {
         send(connectionId, ProofUtxoCode, proto::ProofUtxo());
         return true;
     }
+
+	bool on_message(uint64_t connectionId, proto::Config&& /*data*/)
+	{
+		return true;
+	}
 
     template <typename T>
     void send(PeerId to, MsgType type, T&& data)
@@ -507,16 +466,16 @@ private:
         {
             SerializedMsg msgToSend;
             m_protocol.serialize(msgToSend, type, data);
-            it->second->write_msg(msgToSend); 
+            it->second->write_msg(msgToSend);
         }
-        else 
+        else
         {
             LOG_ERROR() << "No connection";
             // add some handling
         }
     }
 
-    void on_connection_error(uint64_t fromStream, int errorCode) override
+    void on_connection_error(uint64_t /*fromStream*/, int /*errorCode*/) override
     {
         assert(false && "NODE: on_connection_error");
     }
@@ -571,13 +530,29 @@ void TestP2PWalletNegotiationST()
     main_reactor->run();
 }
 
+void TestSplitKey()
+{
+    auto nonce = beam::generateNonce();
+    auto res1 = beam::split_key(nonce, 123456789);
+    auto res2 = beam::split_key(nonce, 123456789);
+    auto res3 = beam::split_key(nonce, 123456789);
+    WALLET_CHECK(res1.first == res2.first && res2.first == res3.first);
+    WALLET_CHECK(res1.second == res2.second && res2.second == res3.second);
+    Scalar::Native s2 = res1.second;
+    s2 = -s2;
+    Scalar::Native s1 = res1.first+s2;
+    WALLET_CHECK(s1 == nonce);
+}
+
 int main()
 {
-    LoggerConfig lc;
     int logLevel = LOG_LEVEL_DEBUG;
-    lc.consoleLevel = logLevel;
-    lc.flushLevel = logLevel;
-    auto logger = Logger::create(lc);
+#if LOG_VERBOSE_ENABLED
+    logLevel = LOG_LEVEL_VERBOSE;
+#endif
+    auto logger = beam::Logger::create(logLevel, logLevel);
+
+    TestSplitKey();
 
     TestP2PWalletNegotiationST();
     TestWalletNegotiation<TestKeyChain, TestKeyChain2>();

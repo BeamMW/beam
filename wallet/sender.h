@@ -3,7 +3,6 @@
 #include "wallet/common.h"
 #include "wallet/keychain.h"
 
-#include <boost/msm/front/functor_row.hpp>
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
@@ -20,11 +19,11 @@ namespace beam::wallet
             receiver::ConfirmationData::Ptr data;
         };
         struct TxConfirmationCompleted {};
-        struct TxOutputConfirmCompleted {};
 
-        Sender(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, const ECC::Amount& amount, const Height& currentHeight)
-            : m_fsm{boost::ref(gateway), keychain, boost::ref(txId), boost::ref(amount), boost::ref(currentHeight)}
+        Sender(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, const ECC::Amount& amount)
+            : m_fsm{boost::ref(gateway), keychain, boost::ref(txId), boost::ref(amount)}
         {
+            
         }
     private:
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
@@ -72,12 +71,11 @@ namespace beam::wallet
                 }
             };
 
-            FSMDefinition(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, ECC::Amount amount, Height currentHeight)
+            FSMDefinition(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, ECC::Amount amount)
                 : m_gateway{ gateway }
                 , m_keychain{ keychain }
                 , m_txId{ txId }
                 , m_amount{ amount }
-                , m_height{ currentHeight }
             {}
 
             // transition actions
@@ -89,10 +87,9 @@ namespace beam::wallet
             void confirm_tx(const TxInitCompleted& );
             void rollback_tx(const TxFailed& );
             void cancel_tx(const TxInitCompleted& );
-            void confirm_change_output(const TxConfirmationCompleted&);
             void complete_tx(const TxConfirmationCompleted&);
-            void complete_tx(const TxOutputConfirmCompleted&);
             void complete_tx();
+            void rollback_tx();
 
             using initial_state = Init;
             using d = FSMDefinition;
@@ -103,11 +100,8 @@ namespace beam::wallet
                 a_row< TxInitiating      , TxFailed                , Terminate           , &d::rollback_tx                                    >,
                 row  < TxInitiating      , TxInitCompleted         , TxConfirming        , &d::confirm_tx           , &d::is_valid_signature  >,
                 row  < TxInitiating      , TxInitCompleted         , Terminate           , &d::cancel_tx            , &d::is_invalid_signature>,
-                row  < TxConfirming      , TxConfirmationCompleted , TxOutputConfirming  , &d::confirm_change_output, &d::has_change          >,
-                row  < TxConfirming      , TxConfirmationCompleted , Terminate           , &d::complete_tx          , &d::has_no_change       >,
-                a_row< TxConfirming      , TxFailed                , Terminate           , &d::rollback_tx                                    >,
-                a_row< TxOutputConfirming, TxOutputConfirmCompleted, Terminate           , &d::complete_tx                                    >,
-                a_row< TxOutputConfirming, TxFailed                , Terminate           , &d::rollback_tx                                    >
+                a_row< TxConfirming      , TxConfirmationCompleted , Terminate           , &d::complete_tx										>,
+                a_row< TxConfirming      , TxFailed                , Terminate           , &d::rollback_tx                                    >
             > {};
 
             template <class FSM, class Event>
@@ -129,7 +123,6 @@ namespace beam::wallet
 
             Uuid m_txId;
             ECC::Amount m_amount;
-            Height m_height;
             ECC::Scalar::Native m_blindingExcess;
             ECC::Scalar::Native m_nonce;
             ECC::Scalar::Native m_senderSignature;

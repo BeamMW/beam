@@ -14,7 +14,6 @@ namespace beam {
 #define TblStates_Height		"Height"
 #define TblStates_Hash			"Hash"
 #define TblStates_HashPrev		"HashPrev"
-#define TblStates_Difficulty	"Difficulty"
 #define TblStates_Timestamp		"Timestamp"
 #define TblStates_LiveObjects	"LiveObjects"
 #define TblStates_History		"History"
@@ -58,14 +57,24 @@ NodeDB::~NodeDB()
 void NodeDB::TestRet(int ret)
 {
 	if (SQLITE_OK != ret)
-		ThrowError(ret);
+		ThrowSqliteError(ret);
 }
 
-void NodeDB::ThrowError(int ret)
+void NodeDB::ThrowSqliteError(int ret)
 {
 	char sz[0x1000];
 	snprintf(sz, _countof(sz), "sqlite err %d, %s", ret, sqlite3_errmsg(m_pDb));
+	ThrowError(sz);
+}
+
+void NodeDB::ThrowError(const char* sz)
+{
 	throw std::runtime_error(sz);
+}
+
+void NodeDB::ThrowInconsistent()
+{
+	ThrowError("data inconcistent");
 }
 
 void NodeDB::Close()
@@ -123,6 +132,12 @@ void NodeDB::Recordset::Reset(Query::Enum val, const char* sql)
 bool NodeDB::Recordset::Step()
 {
 	return m_DB.ExecStep(m_pStmt);
+}
+
+void NodeDB::Recordset::StepStrict()
+{
+	if (!Step())
+		ThrowError("not found");
 }
 
 bool NodeDB::Recordset::IsNull(int col)
@@ -193,7 +208,7 @@ const void* NodeDB::Recordset::get_BlobStrict(int col, uint32_t n)
 	{
 		char sz[0x80];
 		snprintf(sz, sizeof(sz), "Blob size expected=%u, actual=%u", n, x.n);
-		throw std::runtime_error(sz);
+		ThrowError(sz);
 	}
 
 	return x.p;
@@ -223,7 +238,7 @@ void NodeDB::Open(const char* szPath)
 	{
 		// test the DB version
 		if (nVersion != ParamIntGetDef(ParamID::DbVer))
-			throw std::runtime_error("wrong version");
+			ThrowError("wrong version");
 	}
 }
 
@@ -241,7 +256,6 @@ void NodeDB::Create()
 		"[" TblStates_Height		"] INTEGER NOT NULL,"
 		"[" TblStates_Hash			"] BLOB NOT NULL,"
 		"[" TblStates_HashPrev		"] BLOB NOT NULL,"
-		"[" TblStates_Difficulty	"] INTEGER NOT NULL,"
 		"[" TblStates_Timestamp		"] INTEGER NOT NULL,"
 		"[" TblStates_LiveObjects	"] BLOB NOT NULL,"
 		"[" TblStates_History		"] BLOB NOT NULL,"
@@ -297,7 +311,7 @@ bool NodeDB::ExecStep(sqlite3_stmt* pStmt)
 	{
 
 	default:
-		ThrowError(nVal);
+		ThrowSqliteError(nVal);
 		// no break
 
 	case SQLITE_DONE:
@@ -350,7 +364,7 @@ uint64_t NodeDB::get_LastInsertRowID() const
 void NodeDB::TestChanged1Row()
 {
 	if (1 != get_RowsChanged())
-		throw std::runtime_error("oops1");
+		ThrowError("1row change failed");
 }
 
 void NodeDB::ParamSet(uint32_t ID, const uint64_t* p0, const Blob* p1)
@@ -445,7 +459,6 @@ void NodeDB::Transaction::Rollback()
 #define StateCvt_Fields(macro, sep) \
 	macro(Height,		m_Height) sep \
 	macro(HashPrev,		m_Prev) sep \
-	macro(Difficulty,	m_Difficulty) sep \
 	macro(Timestamp,	m_TimeStamp) sep \
 	macro(PoW,			m_PoW) sep \
 	macro(LiveObjects,	m_LiveObjects) sep \
@@ -462,8 +475,7 @@ void NodeDB::get_State(uint64_t rowid, Block::SystemState::Full& out)
 
 	rs.put(0, rowid);
 
-	if (!rs.Step())
-		throw "State not found!";
+	rs.StepStrict();
 
 	int iCol = 0;
 
@@ -474,6 +486,8 @@ void NodeDB::get_State(uint64_t rowid, Block::SystemState::Full& out)
 
 uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 {
+	assert(s.m_Height >= Block::Rules::HeightGenesis);
+
 	// Is there a prev? Is it a tip currently?
 	Recordset rs(*this, Query::StateFind2, "SELECT rowid," TblStates_CountNext " FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_Hash "=?");
 	rs.put(0, s.m_Height - 1);
@@ -567,8 +581,7 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 		" FROM " TblStates " LEFT JOIN " TblStates " prv ON " TblStates "." TblStates_RowPrev "=prv.rowid" " WHERE " TblStates ".rowid=?");
 
 	rs.put(0, rowid);
-	if (!rs.Step())
-		throw "State not found!";
+	rs.StepStrict();
 
 	if (rs.IsNull(1))
 		rowPrev = 0;
@@ -582,7 +595,7 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 
 	rs.get(4, nFlags);
 	if (StateFlags::Active & nFlags)
-		throw "attempt to delete an active state";
+		ThrowError("attempt to delete an active state");
 
 	Height h;
 	rs.get(0, h);
@@ -591,7 +604,7 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 	{
 		rs.get(3, nCountNext);
 		if (!nCountNext)
-			throw "oops!";
+			ThrowInconsistent();
 
 		nCountNext--;
 
@@ -605,7 +618,7 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 			rs.get(5, nCountPrevF);
 
 			if (!nCountPrevF)
-				throw "oops";
+				ThrowInconsistent();
 
 			nCountPrevF--;
 			SetNextCountFunctional(rowPrev, nCountPrevF);
@@ -718,8 +731,7 @@ void NodeDB::SetStateFunctional(uint64_t rowid)
 		" FROM " TblStates " LEFT JOIN " TblStates " prv ON " TblStates "." TblStates_RowPrev "=prv.rowid" " WHERE " TblStates ".rowid=?");
 
 	rs.put(0, rowid);
-	if (!rs.Step())
-		throw "not found";
+	rs.StepStrict();
 
 	uint32_t nFlags, nFlagsPrev, nCountPrevF;
 	rs.get(2, nFlags);
@@ -730,10 +742,11 @@ void NodeDB::SetStateFunctional(uint64_t rowid)
 
 	Height h;
 	rs.get(0, h);
+	assert(h >= Block::Rules::HeightGenesis);
 
 	uint64_t rowPrev = 0;
 
-	if (h)
+	if (h > Block::Rules::HeightGenesis)
 	{
 		if (!rs.IsNull(1))
 		{
@@ -774,8 +787,7 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 		" FROM " TblStates " LEFT JOIN " TblStates " prv ON " TblStates "." TblStates_RowPrev "=prv.rowid" " WHERE " TblStates ".rowid=?");
 
 	rs.put(0, rowid);
-	if (!rs.Step())
-		throw "State not found!";
+	rs.StepStrict();
 
 	uint32_t nFlags, nCountPrevF;
 	rs.get(2, nFlags);
@@ -786,6 +798,7 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 
 	Height h;
 	rs.get(0, h);
+	assert(h >= Block::Rules::HeightGenesis);
 
 	uint64_t rowPrev = 0;
 
@@ -793,7 +806,7 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 	if (bReachable)
 		nFlags &= ~StateFlags::Reachable;
 
-	if (h)
+	if (h > Block::Rules::HeightGenesis)
 	{
 		if (rs.IsNull(1))
 			assert(!bReachable); // orphan
@@ -803,7 +816,7 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 			rs.get(3, nCountPrevF);
 
 			if (!nCountPrevF)
-				throw "oops";
+				ThrowInconsistent();
 
 			nCountPrevF--;
 			SetNextCountFunctional(rowPrev, nCountPrevF);
@@ -885,8 +898,7 @@ bool NodeDB::get_Peer(uint64_t rowid, PeerID& peer)
 {
 	Recordset rs(*this, Query::StateGetPeer, "SELECT " TblStates_Peer " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
-	if (!rs.Step())
-		throw "oops5";
+	rs.StepStrict();
 
 	if (rs.IsNull(0))
 		return false;
@@ -911,8 +923,7 @@ void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rollbac
 {
 	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_Body "," TblStates_Rollback " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
-	if (!rs.Step())
-		throw "oops3";
+	rs.StepStrict();
 
 	if (!rs.IsNull(0))
 	{
@@ -954,8 +965,7 @@ uint32_t NodeDB::GetStateFlags(uint64_t rowid)
 	Recordset rs(*this, Query::StateGetFlags0, "SELECT " TblStates_Flags " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 
-	if (!rs.Step())
-		throw "oops4";
+	rs.StepStrict();
 	
 	uint32_t nFlags;
 	rs.get(0, nFlags);
@@ -967,8 +977,7 @@ uint32_t NodeDB::GetStateNextCount(uint64_t rowid)
 	Recordset rs(*this, Query::StateGetNextCount, "SELECT " TblStates_CountNext " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 
-	if (!rs.Step())
-		throw "oops5";
+	rs.StepStrict();
 
 	uint32_t nCount;
 	rs.get(0, nCount);
@@ -1023,7 +1032,7 @@ void NodeDB::assert_valid()
 		} else
 		{
 			if (StateFlags::Reachable & nFlags)
-				assert(!h);
+				assert(Block::Rules::HeightGenesis == h);
 		}
 
 		assert(nNext >= nNextF);
@@ -1147,8 +1156,7 @@ bool NodeDB::get_Prev(uint64_t& rowid)
 	Recordset rs(*this, Query::StateGetPrev, "SELECT " TblStates_RowPrev " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 
-	if (!rs.Step())
-		throw "oops";
+	rs.StepStrict();
 
 	if (rs.IsNull(0))
 		return false;
@@ -1168,15 +1176,27 @@ bool NodeDB::get_Prev(StateID& sid)
 
 bool NodeDB::get_Cursor(StateID& sid)
 {
-	sid.m_Row = ParamIntGetDef(ParamID::CursorRow);
+	if (!(sid.m_Row = ParamIntGetDef(ParamID::CursorRow)))
+	{
+		sid.m_Height = Block::Rules::HeightGenesis - 1;
+		return false;
+	}
+
 	sid.m_Height = ParamIntGetDef(ParamID::CursorHeight);
-	return (sid.m_Row > 0);
+	assert(sid.m_Height >= Block::Rules::HeightGenesis);
+	return true;
 }
 
 void NodeDB::put_Cursor(const StateID& sid)
 {
 	ParamSet(ParamID::CursorRow, &sid.m_Row, NULL);
 	ParamSet(ParamID::CursorHeight, &sid.m_Height, NULL);
+}
+
+void NodeDB::StateID::SetNull()
+{
+	m_Row = 0;
+	m_Height = Block::Rules::HeightGenesis - 1;
 }
 
 void NodeDB::MoveBack(StateID& sid)
@@ -1188,7 +1208,7 @@ void NodeDB::MoveBack(StateID& sid)
 	TestChanged1Row();
 
 	if (!get_Prev(sid))
-		ZeroObject(sid);
+		sid.SetNull();
 
 	put_Cursor(sid);
 }
@@ -1232,8 +1252,7 @@ void NodeDB::Dmmr::Goto(uint64_t rowid)
 
 	m_Rs.Reset(Query::MmrGet, "SELECT " TblStates_Mmr "," TblStates_HashPrev " FROM " TblStates " WHERE rowid=?");
 	m_Rs.put(0, rowid);
-	if (!m_Rs.Step())
-		throw "state not found";
+	m_Rs.StepStrict();
 }
 
 const void* NodeDB::Dmmr::get_NodeData(Key rowid) const
@@ -1255,8 +1274,13 @@ void NodeDB::Dmmr::get_NodeHash(Merkle::Hash& hv, Key rowid) const
 
 void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
 {
-	assert(!h == !rowPrev);
-	assert(rowid != rowPrev);
+	if (Block::Rules::HeightGenesis == h)
+	{
+		assert(!rowPrev);
+		return;
+	}
+
+	assert((h > Block::Rules::HeightGenesis) && rowPrev && (rowid != rowPrev));
 
 	Dmmr dmmr(*this);
 	dmmr.Goto(rowid);
@@ -1264,14 +1288,14 @@ void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
 	if (!dmmr.m_Rs.IsNull(0))
 		return;
 
-	dmmr.m_Count = h;
+	dmmr.m_Count = h - (Block::Rules::HeightGenesis + 1);
 	dmmr.m_kLast = rowPrev;
 
 	Merkle::Hash hv;
 	dmmr.m_Rs.get(1, hv);
 
 	Blob b;
-	b.n = dmmr.get_NodeSize(h);
+	b.n = dmmr.get_NodeSize(dmmr.m_Count);
 	std::unique_ptr<uint8_t[]> pRes(new uint8_t[b.n]);
 	b.p = pRes.get();
 
@@ -1288,13 +1312,13 @@ void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
 
 void NodeDB::get_Proof(Merkle::Proof& proof, const StateID& sid, Height hPrev)
 {
-	assert(hPrev <= sid.m_Height);
+	assert((hPrev >= Block::Rules::HeightGenesis) && (hPrev < sid.m_Height));
 
     Dmmr dmmr(*this);
-    dmmr.m_Count = sid.m_Height + 1;
+    dmmr.m_Count = sid.m_Height - Block::Rules::HeightGenesis;
     dmmr.m_kLast = sid.m_Row;
 
-    dmmr.get_Proof(proof, hPrev);
+    dmmr.get_Proof(proof, hPrev - Block::Rules::HeightGenesis);
 }
 
 void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
@@ -1304,7 +1328,7 @@ void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
 	s.get_Hash(hv);
 
     Dmmr dmmr(*this);
-    dmmr.m_Count = sid.m_Height + 1;
+    dmmr.m_Count = sid.m_Height - Block::Rules::HeightGenesis;
     dmmr.m_kLast = sid.m_Row;
 
     dmmr.get_PredictedHash(hv, hv);

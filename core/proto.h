@@ -44,13 +44,18 @@ namespace proto {
 	macro(Merkle::Proof, Proof)
 
 #define BeamNodeMsg_ProofUtxo(macro) \
-	macro(std::vector<PerUtxoProof>, Proofs)
+	macro(std::vector<Input::Proof>, Proofs)
 
 #define BeamNodeMsg_GetMined(macro) \
 	macro(Height, HeightMin)
 
 #define BeamNodeMsg_Mined(macro) \
 	macro(std::vector<PerMined>, Entries)
+
+#define BeamNodeMsg_Config(macro) \
+	macro(bool, SpreadingTransactions) \
+	macro(bool, Mining) \
+	macro(bool, AutoSendHdr) /* prefer the header in addition to the NewTip message */
 
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)
@@ -74,34 +79,17 @@ namespace proto {
 	macro(12, ProofUtxo) \
 	macro(15, GetMined) \
 	macro(16, Mined) \
+	macro(20, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
 	macro(21, Ping) \
 	macro(22, Pong) \
 	macro(23, NewTransaction)
 
 
-	struct PerUtxoProof
-	{
-		Height m_Maturity;
-		Input::Count m_Count;
-		Merkle::Proof m_Proof;
-
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_Maturity
-				& m_Count
-				& m_Proof;
-		}
-
-		static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
-	};
-
 	struct PerMined
 	{
 		Block::SystemState::ID m_ID;
 		Amount m_Fees;
-		bool m_Active;
+		bool m_Active; // mined on active(longest) branch
 
 		template <typename Archive>
 		void serialize(Archive& ar)
@@ -161,6 +149,8 @@ namespace proto {
 
 		void Connect(const io::Address& addr);
 		void Accept(io::TcpStream::Ptr&& newStream);
+
+		const Connection* get_Connection() { return m_Connection.get(); }
 
 		virtual void OnConnected() {}
 		virtual void OnClosed(int errorCode) {}

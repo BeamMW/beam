@@ -97,7 +97,6 @@ namespace beam
 		struct TagInfo
 		{
 			Height		m_Height;
-			Difficulty	m_Difficulty;
 			TagType		m_Tag;
 
 			void ModifyBy(const TagInfo&, bool bFwd);

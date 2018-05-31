@@ -1,7 +1,9 @@
 #include "node_processor.h"
 #include "../utility/serialize.h"
-#include "../core/ecc_native.h"
+#include "../core/block_crypt.h"
 #include "../core/serialization_adapters.h"
+#include "../utility/logger.h"
+#include "../utility/logger_checkpoints.h"
 
 namespace beam {
 
@@ -80,8 +82,7 @@ void NodeProcessor::Initialize(const char* szPath)
 void NodeProcessor::EnumCongestions()
 {
 	NodeDB::StateID sidPos;
-	if (!m_DB.get_Cursor(sidPos))
-		sidPos.m_Height = 0;
+	m_DB.get_Cursor(sidPos);
 
 	// request all potentially missing data
 	NodeDB::WalkerState ws(m_DB);
@@ -96,7 +97,7 @@ void NodeProcessor::EnumCongestions()
 
 		bool bBlock = true;
 
-		while (sid.m_Height)
+		while (sid.m_Height > Block::Rules::HeightGenesis)
 		{
 			NodeDB::StateID sidThis = sid;
 			if (!m_DB.get_Prev(sid))
@@ -154,6 +155,8 @@ void NodeProcessor::TryGoUp()
 		}
 
 		assert(sidTrg.m_Height >= sidPos.m_Height);
+		if (sidTrg.m_Height == sidPos.m_Height)
+			break; // already at maximum height (though maybe at different tip)
 
 		// Calculate the path
 		std::vector<uint64_t> vPath;
@@ -162,25 +165,24 @@ void NodeProcessor::TryGoUp()
 			assert(sidTrg.m_Row);
 			vPath.push_back(sidTrg.m_Row);
 
-			if (sidPos.m_Row && (sidPos.m_Height == sidTrg.m_Height))
+			if (sidPos.m_Height == sidTrg.m_Height)
 			{
 				Rollback(sidPos);
 				bDirty = true;
 
 				if (!m_DB.get_Prev(sidPos))
-					ZeroObject(sidPos);
+					sidPos.SetNull();
 			}
 
 			if (!m_DB.get_Prev(sidTrg))
-				ZeroObject(sidTrg);
+				sidTrg.SetNull();
 		}
 
 		bool bPathOk = true;
 
 		for (size_t i = vPath.size(); i--; )
 		{
-			if (sidPos.m_Row)
-				sidPos.m_Height++;
+			sidPos.m_Height++;
 			sidPos.m_Row = vPath[i];
 
 			bDirty = true;
@@ -246,7 +248,7 @@ void NodeProcessor::PruneOld(Height h)
 
 		{
 			NodeDB::WalkerState ws(m_DB);
-			m_DB.EnumStatesAt(ws, hFossil);
+			m_DB.EnumStatesAt(ws, hFossil + Block::Rules::HeightGenesis);
 			if (!ws.MoveNext())
 				OnCorrupted();
 
@@ -302,7 +304,10 @@ struct NodeProcessor::RollbackData
 		return (Utxo*) &m_Buf.at(0);
 	}
 
-	size_t get_Utxos() const { return m_pUtxo - get_BufAs(); }
+	size_t get_Utxos() const
+	{
+		return m_Buf.empty() ? 0 : (m_pUtxo - get_BufAs());
+	}
 };
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
@@ -311,40 +316,69 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	RollbackData rbData;
 	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf);
 
-	Block::Body block;
+	Block::SystemState::Full s;
+	m_DB.get_State(sid.m_Row, s); // need it for logging anyway
+
+	Block::SystemState::ID id;
+	s.get_ID(id);
+
+	std::shared_ptr<Block::Body> pBlock(std::make_shared<Block::Body>());
 	try {
 
 		Deserializer der;
 		der.reset(bb.empty() ? NULL : &bb.at(0), bb.size());
-		der & block;
+		der & *pBlock;
 	}
 	catch (const std::exception&) {
+		LOG_WARNING() << id << " Block deserialization failed";
 		return false;
 	}
 
 	bb.clear();
 
 	bool bFirstTime = false;
-	Block::SystemState::Full s;
 
 	if (bFwd)
 	{
-		size_t n = std::max(size_t(1), block.m_vInputs.size() * sizeof(RollbackData::Utxo));
+		size_t n = std::max(size_t(1), pBlock->m_vInputs.size() * sizeof(RollbackData::Utxo));
 		if (rbData.m_Buf.size() != n)
 		{
 			bFirstTime = true;
 
-			m_DB.get_State(sid.m_Row, s);
-
-			Merkle::Proof proof;
-			m_DB.get_Proof(proof, sid, sid.m_Height);
-
-			Merkle::Interpret(s.m_Prev, proof);
-			if (s.m_History != s.m_Prev)
-				return false; // The state (even the header) is formed incorrectly!
-
-			if (!block.IsValid(sid.m_Height, sid.m_Height))
+			uint8_t nDifficulty = get_NextDifficulty();
+			if (nDifficulty != s.m_PoW.m_Difficulty)
+			{
+				LOG_WARNING() << id << " Difficulty expected=" << uint32_t(nDifficulty) << ", actual=" << uint32_t(s.m_PoW.m_Difficulty);
 				return false;
+			}
+
+			if (s.m_TimeStamp <= get_MovingMedian())
+			{
+				LOG_WARNING() << id << " Timestamp inconsistent wrt median";
+				return false;
+			}
+
+			Merkle::Hash hvHist;
+			if (sid.m_Height > Block::Rules::HeightGenesis)
+			{
+				NodeDB::StateID sidPrev = sid;
+				verify(m_DB.get_Prev(sidPrev));
+				m_DB.get_PredictedStatesHash(hvHist, sidPrev);
+			}
+			else
+				ZeroObject(hvHist);
+
+			if (s.m_History != hvHist)
+			{
+				LOG_WARNING() << id << " Header History mismatch";
+				return false; // The state (even the header) is formed incorrectly!
+			}
+
+			if (!VerifyBlock(pBlock, sid.m_Height, sid.m_Height))
+			{
+				LOG_WARNING() << id << " context-free verification failed";
+				return false;
+			}
 
 			rbData.m_Buf.resize(n);
 		}
@@ -354,9 +388,11 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	rbData.m_pUtxo = rbData.get_BufAs();
 	if (!bFwd)
-		rbData.m_pUtxo += block.m_vInputs.size();
+		rbData.m_pUtxo += pBlock->m_vInputs.size();
 
-	bool bOk = HandleValidatedTx(block, sid.m_Height, bFwd, rbData);
+	bool bOk = HandleValidatedTx(*pBlock, sid.m_Height, bFwd, rbData);
+	if (!bOk)
+		LOG_WARNING() << id << " invalid in its context";
 
 	if (bFirstTime && bOk)
 	{
@@ -365,12 +401,15 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		get_CurrentLive(hv);
 
 		if (s.m_LiveObjects != hv)
+		{
+			LOG_WARNING() << id << " Header LiveObjects mismatch";
 			bOk = false;
+		}
 
 		if (bOk)
 			m_DB.SetStateRollback(sid.m_Row, rbData.m_Buf);
 		else
-			HandleValidatedTx(block, sid.m_Height, false, rbData);
+			HandleValidatedTx(*pBlock, sid.m_Height, false, rbData);
 	}
 
 	if (bOk)
@@ -381,7 +420,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
 			kOffset.m_Value = ECC::Zero;
 
-		ECC::Scalar::Native k(kOffset), k2(block.m_Offset);
+		ECC::Scalar::Native k(kOffset), k2(pBlock->m_Offset);
 		if (!bFwd)
 			k2 = -k2;
 
@@ -389,6 +428,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		kOffset = k;
 
 		m_DB.ParamSet(NodeDB::ParamID::StateExtra, NULL, &blob);
+
+		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
 
 	return bOk;
@@ -553,7 +594,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
 	d.m_Maturity = h;
-	d.m_Maturity += v.m_Coinbase ? Block::s_MaturityCoinbase : Block::s_MaturityStd;
+	d.m_Maturity += v.m_Coinbase ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd;
 
 	// add explicit incubation offset, beware of overflow attack (to cheat on maturity settings)
 	Height hSum = d.m_Maturity + v.m_Incubation;
@@ -736,35 +777,73 @@ bool NodeProcessor::get_CurrentState(Block::SystemState::ID& id)
 bool NodeProcessor::IsRelevantHeight(Height h)
 {
 	uint64_t hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight);
-	return !hFossil || (h > hFossil);
+	return h >= hFossil + Block::Rules::HeightGenesis;
 }
 
-bool NodeProcessor::OnState(const Block::SystemState::Full& s, const PeerID& peer)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState::Full& s, bool bIgnorePoW, const PeerID& peer)
 {
-	if (!IsRelevantHeight(s.m_Height))
-		return false;
-
 	Block::SystemState::ID id;
 	s.get_ID(id);
+
+	if (!s.IsSane())
+	{
+		LOG_WARNING() << id << " header insane!";
+		return DataStatus::Invalid;
+	}
+
+	if (!bIgnorePoW && !s.IsValidPoW())
+	{
+		LOG_WARNING() << id << " PoW invalid";
+		return DataStatus::Invalid;
+	}
+
+	Timestamp ts = time(NULL);
+	if (s.m_TimeStamp > ts)
+	{
+		ts = s.m_TimeStamp - ts; // dt
+		if (ts > Block::Rules::TimestampAheadThreshold_s)
+		{
+			LOG_WARNING() << id << " Timestamp ahead by " << ts;
+			return DataStatus::Invalid;
+		}
+	}
+
+	if (!IsRelevantHeight(s.m_Height))
+		return DataStatus::Rejected;
+
 	if (m_DB.StateFindSafe(id))
-		return false;
+		return DataStatus::Rejected;
 
 	NodeDB::Transaction t(m_DB);
 	uint64_t rowid = m_DB.InsertState(s);
 	m_DB.set_Peer(rowid, &peer);
 	t.Commit();
 
-	return true;
+	LOG_INFO() << id << " Header accepted";
+
+	return DataStatus::Accepted;
 }
 
-bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob& block, const PeerID& peer)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob& block, const PeerID& peer)
 {
+	if (block.n > Block::Rules::MaxBodySize)
+	{
+		LOG_WARNING() << id << " Block too large: " << block.n;
+		return DataStatus::Invalid;
+	}
+
 	uint64_t rowid = m_DB.StateFindSafe(id);
 	if (!rowid)
-		return false;
+	{
+		LOG_WARNING() << id << " Block unexpected";
+		return DataStatus::Rejected;
+	}
 
 	if (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(rowid))
-		return false;
+	{
+		LOG_WARNING() << id << " Block already received";
+		return DataStatus::Rejected;
+	}
 
 	NodeDB::Transaction t(m_DB);
 
@@ -772,17 +851,14 @@ bool NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob
 	m_DB.SetStateFunctional(rowid);
 	m_DB.set_Peer(rowid, &peer);
 
+	LOG_INFO() << id << " Block accepted";
+
 	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
 		TryGoUp();
 
 	t.Commit();
 
-	return true;
-}
-
-void NodeProcessor::DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType::Enum eType, uint32_t nIdx /* = 0 */)
-{
-	kdf.DeriveKey(out, h, eType, nIdx);
+	return DataStatus::Accepted;
 }
 
 bool NodeProcessor::IsStateNeeded(const Block::SystemState::ID& id)
@@ -837,7 +913,7 @@ bool NodeProcessor::TxPool::AddTx(Transaction::Ptr&& pValue, Height h)
 
 	Element* p = new Element;
 	p->m_Threshold.m_Value	= ctx.m_hMax;
-	p->m_Profit.m_Fee	= ctx.m_Fee;
+	p->m_Profit.m_Fee	= ctx.m_Fee.Hi ? Amount(-1) : ctx.m_Fee.Lo; // ignore huge fees (which are  highly unlikely), saturate.
 	p->m_Profit.m_nSize	= ssc.m_Counter.m_Value;
 	p->m_Tx.m_pValue = std::move(pValue);
 
@@ -890,8 +966,21 @@ bool NodeProcessor::TxPool::Element::Tx::operator < (const Tx& t) const
 
 bool NodeProcessor::TxPool::Element::Profit::operator < (const Profit& t) const
 {
-	// TODO: handle overflow. To be precise need to use big-int (128-bit) arithmetics
-	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
+	// handle overflow. To be precise need to use big-int (128-bit) arithmetics
+	//	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
+
+	typedef ECC::uintBig_t<128> uint128;
+
+	uint128 f0, s0, f1, s1;
+	f0 = m_Fee;
+	s0 = m_nSize;
+	f1 = t.m_Fee;
+	s1 = t.m_nSize;
+
+	f0 = f0 * s1;
+	f1 = f1 * s0;
+
+	return f0 > f1;
 }
 
 /////////////////////////////
@@ -914,50 +1003,85 @@ void AppendCloneArray(Serializer& ser, std::vector<T>& trg, const std::vector<T>
 	}
 }
 
-struct NodeProcessor::BlockBulder
-{
-	Block::Body m_Block;
-	ECC::Scalar::Native m_Offset;
-
-	void AddOutput(const ECC::Scalar::Native& k, Amount val, bool bCoinbase)
-	{
-		Output::Ptr pOutp(new Output);
-		pOutp->Create(k, val, true);
-		pOutp->m_Coinbase = bCoinbase;
-		m_Block.m_vOutputs.push_back(std::move(pOutp));
-
-		ECC::Scalar::Native km = -k;
-		m_Offset += km;
-	}
-};
-
 Height NodeProcessor::get_NextHeight()
 {
 	NodeDB::StateID sid;
 	m_DB.get_Cursor(sid);
 
-	return sid.m_Row ? (sid.m_Height + 1) : 0;
+	return sid.m_Height + 1;
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
+uint8_t NodeProcessor::get_NextDifficulty()
 {
-	NodeDB::Transaction t(m_DB);
+	NodeDB::StateID sid;
+	if (!m_DB.get_Cursor(sid))
+		return 0; // 1st block difficulty 0
 
-	Height h = get_NextHeight();
+	Block::SystemState::Full s;
+	m_DB.get_State(sid.m_Row, s);
+
+	Height dh = s.m_Height - Block::Rules::HeightGenesis;
+
+	if (!dh || (dh % Block::Rules::DifficultyReviewCycle))
+		return s.m_PoW.m_Difficulty; // no change
+
+	// review the difficulty
+	NodeDB::WalkerState ws(m_DB);
+	m_DB.EnumStatesAt(ws, s.m_Height - Block::Rules::DifficultyReviewCycle);
+	while (true)
+	{
+		if (!ws.MoveNext())
+			OnCorrupted();
+
+		if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
+			break;
+	}
+
+	Block::SystemState::Full s2;
+	m_DB.get_State(ws.m_Sid.m_Row, s2);
+
+	Block::Rules::AdjustDifficulty(s.m_PoW.m_Difficulty, s2.m_TimeStamp, s.m_TimeStamp);
+	return s.m_PoW.m_Difficulty;
+}
+
+Timestamp NodeProcessor::get_MovingMedian()
+{
+	NodeDB::StateID sid;
+	if (!m_DB.get_Cursor(sid))
+		return 0;
+
+	Timestamp pArr[Block::Rules::WindowForMedian];
+	uint32_t n = 0;
+
+	while (true)
+	{
+		Block::SystemState::Full s;
+		m_DB.get_State(sid.m_Row, s);
+		pArr[n] = s.m_TimeStamp;
+
+		if (Block::Rules::WindowForMedian == ++n)
+			break;
+
+		if (!m_DB.get_Prev(sid))
+			break;
+	}
+
+	std::sort(pArr, pArr + n); // there's a better algorithm to find a median (or whatever order), however our array isn't too big, so it's ok.
+
+	return pArr[n >> 1];
+}
+
+bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
+{
 	fees = 0;
 
 	size_t nBlockSize = 0;
 
 	// due to (potential) inaccuracy in the block size estimation, our rough estimate - take no more than 95% of allowed block size, minus potential UTXOs to consume fees and coinbase.
 	const size_t nRoughExtra = sizeof(ECC::Point) * 2 + sizeof(ECC::RangeProof::Confidential) + sizeof(ECC::RangeProof::Public) + 300;
-	const size_t nSizeThreshold = Block::s_MaxBodySize * 95 / 100 - nRoughExtra;
+	const size_t nSizeThreshold = Block::Rules::MaxBodySize * 95 / 100 - nRoughExtra;
 
-	ByteBuffer bbRbData;
-	RollbackData rbData;
-	rbData.m_pUtxo = NULL;
-
-	BlockBulder ctxBlock;
-	ctxBlock.m_Offset = ECC::Zero;
+	ECC::Scalar::Native offset(ECC::Zero);
 
 	Serializer ser;
 
@@ -971,7 +1095,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 		if (!tx.m_vInputs.empty())
 		{
-			size_t nInputs = rbData.m_pUtxo ? rbData.get_Utxos() : 0;
+			size_t nInputs = rbData.get_Utxos();
 			rbData.m_Buf.resize(rbData.m_Buf.size() + sizeof(RollbackData::Utxo) * tx.m_vInputs.size());
 			rbData.m_pUtxo = rbData.get_BufAs() + nInputs;
 		}
@@ -981,17 +1105,22 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 			// Clone the transaction before copying it to the block. We're forced to do this because they're not shared.
 			// TODO: Fix this!
 
-			AppendCloneArray(ser, ctxBlock.m_Block.m_vInputs, tx.m_vInputs);
-			AppendCloneArray(ser, ctxBlock.m_Block.m_vOutputs, tx.m_vOutputs);
-			AppendCloneArray(ser, ctxBlock.m_Block.m_vKernelsInput, tx.m_vKernelsInput);
-			AppendCloneArray(ser, ctxBlock.m_Block.m_vKernelsOutput, tx.m_vKernelsOutput);
+			AppendCloneArray(ser, res.m_vInputs, tx.m_vInputs);
+			AppendCloneArray(ser, res.m_vOutputs, tx.m_vOutputs);
+			AppendCloneArray(ser, res.m_vKernelsInput, tx.m_vKernelsInput);
+			AppendCloneArray(ser, res.m_vKernelsOutput, tx.m_vKernelsOutput);
 
 			fees += x.m_Profit.m_Fee;
-			ctxBlock.m_Offset += ECC::Scalar::Native(tx.m_Offset);
+			offset += ECC::Scalar::Native(tx.m_Offset);
 			nBlockSize += x.m_Profit.m_nSize;
 
-		} else
+		}
+		else
+		{
+			rbData.m_Buf.resize(rbData.m_Buf.size() - sizeof(RollbackData::Utxo) * tx.m_vInputs.size());
+
 			txp.Delete(x); // isn't available in this context
+		}
 	}
 
 	if (fees)
@@ -999,8 +1128,16 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		ECC::Scalar::Native kFee;
 		DeriveKey(kFee, m_Kdf, h, KeyType::Comission);
 
-		ctxBlock.AddOutput(kFee, fees, false);
-		verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
+		Output::Ptr pOutp(new Output);
+		pOutp->Create(kFee, fees);
+
+		if (!HandleBlockElement(*pOutp, h, true))
+			return false; // though should not happen!
+
+		res.m_vOutputs.push_back(std::move(pOutp));
+
+		kFee = -kFee;
+		offset += kFee;
 	}
 	else
 	{
@@ -1013,23 +1150,33 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		ECC::Hash::Value hv;
 		pKrn->get_HashForSigning(hv);
 		pKrn->m_Signature.Sign(hv, kKernel);
-		ctxBlock.m_Block.m_vKernelsOutput.push_back(std::move(pKrn));
 
-		verify(HandleBlockElement(*ctxBlock.m_Block.m_vKernelsOutput.back(), true, false)); // Will fail if kernel key duplicated!
+		if (!HandleBlockElement(*pKrn, true, false))
+			return false; // Will fail if kernel key duplicated!
+
+		res.m_vKernelsOutput.push_back(std::move(pKrn));
 
 		kKernel = -kKernel;
-		ctxBlock.m_Offset += kKernel;
+		offset += kKernel;
 	}
 
 	ECC::Scalar::Native kCoinbase;
 	DeriveKey(kCoinbase, m_Kdf, h, KeyType::Coinbase);
 
-	ctxBlock.AddOutput(kCoinbase, Block::s_CoinbaseEmission, true);
+	Output::Ptr pOutp(new Output);
+	pOutp->m_Coinbase = true;
+	pOutp->Create(kCoinbase, Block::Rules::CoinbaseEmission, true);
 
-	verify(HandleBlockElement(*ctxBlock.m_Block.m_vOutputs.back(), h, true));
+	if (!HandleBlockElement(*pOutp, h, true))
+		return false;
+
+	res.m_vOutputs.push_back(std::move(pOutp));
+
+	kCoinbase = -kCoinbase;
+	offset += kCoinbase;
 
 	// Finalize block construction.
-	if (h)
+	if (h > Block::Rules::HeightGenesis)
 	{
 		NodeDB::StateID sid;
 		m_DB.get_Cursor(sid);
@@ -1047,20 +1194,49 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	s.m_Height = h;
 	get_CurrentLive(s.m_LiveObjects);
 
-	// For test: undo the changes, and then redo, using the newly-created block
-	verify(HandleValidatedTx(ctxBlock.m_Block, h, false, rbData));
+	s.m_PoW.m_Difficulty = get_NextDifficulty();
+	s.m_TimeStamp = time(NULL); // TODO: 64-bit time
+
+	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
+	Timestamp tm = get_MovingMedian() + 1;
+	s.m_TimeStamp = std::max(s.m_TimeStamp, tm);
+
+	res.m_Offset = offset;
+
+	return true;
+}
+
+bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
+{
+	NodeDB::Transaction t(m_DB);
+
+	Height h = get_NextHeight();
+	RollbackData rbData;
+
+	Block::Body res;
+	bool bRes = GenerateNewBlock(txp, s, res, fees, h, rbData);
+
+	if (!HandleValidatedTx(res, h, false, rbData)) // undo changes
+		OnCorrupted();
+
+	res.Sort(); // can sort only after the changes are undone.
+	res.DeleteIntermediateOutputs();
 
 	t.Rollback(); // commit/rollback - doesn't matter, by now the system state should be fully restored to its original state. 
 
-	ctxBlock.m_Block.Sort();
-	ctxBlock.m_Block.DeleteIntermediateOutputs();
-	ctxBlock.m_Block.m_Offset = ctxBlock.m_Offset;
+	Serializer ser;
 
 	ser.reset();
-	ser & ctxBlock.m_Block;
+	ser & res;
 	ser.swap_buf(bbBlock);
 
-	return bbBlock.size() <= Block::s_MaxBodySize;
+	return bbBlock.size() <= Block::Rules::MaxBodySize;
 }
+
+bool NodeProcessor::VerifyBlock(const std::shared_ptr<Block::Body>& pBlock, Height h0, Height h1)
+{
+	return pBlock->IsValid(h0, h1);
+}
+
 
 } // namespace beam

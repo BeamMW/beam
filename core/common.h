@@ -33,11 +33,21 @@ namespace beam
 {
 	// sorry for replacing 'using' by 'typedefs', some compilers don't support it
 	typedef uint64_t Timestamp;
-	typedef uint64_t Difficulty;
 	typedef uint64_t Height;
 	typedef ECC::uintBig_t<256> uint256_t;
 	typedef std::vector<uint8_t> ByteBuffer;
 	typedef ECC::Amount Amount;
+
+	struct AmountBig
+	{
+		Amount Lo;
+		Amount Hi;
+
+		void operator += (const Amount);
+		void operator += (const AmountBig&);
+
+		void Export(ECC::uintBig&) const;
+	};
 
 	namespace Merkle
 	{
@@ -58,11 +68,28 @@ namespace beam
 
 		ECC::Point	m_Commitment; // If there are multiple UTXOs matching this commitment (which is supported) the Node always selects the most mature one.
 	
+		struct Proof
+		{
+			Height m_Maturity;
+			Input::Count m_Count;
+			Merkle::Proof m_Proof;
+
+			bool IsValid(const Input&, const Merkle::Hash& root) const;
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar
+					& m_Maturity
+					& m_Count
+					& m_Proof;
+			}
+
+			static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
+		};
+
 		int cmp(const Input&) const;
 		COMPARISON_VIA_CMP(Input)
-
-		void get_Hash(Merkle::Hash&, Count) const;
-		bool IsValidProof(Count, const Merkle::Proof&, const Merkle::Hash& root) const;
 	};
 
 	inline bool operator < (const Input::Ptr& a, const Input::Ptr& b) { return *a < *b; }
@@ -132,7 +159,7 @@ namespace beam
 
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
-		bool IsValid(Amount& fee, ECC::Point::Native& exc) const;
+		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
 
 		void get_HashForSigning(Merkle::Hash&) const; // Includes the contents, but not the excess and the signature
 
@@ -145,7 +172,7 @@ namespace beam
 		COMPARISON_VIA_CMP(TxKernel)
 
 	private:
-		bool Traverse(ECC::Hash::Value&, Amount*, ECC::Point::Native*) const;
+		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
@@ -177,18 +204,8 @@ namespace beam
 		// Define: Sigma = Sum(Outputs) - Sum(Inputs) + Sum(TxKernels.Excess) + m_Offset*G
 		// Sigma is either zero or -Sum(Fee)*H, depending on what we validate
 
-		struct Context
-		{
-			Amount m_Fee; // TODO: may overflow!
-			Amount m_Coinbase; // TODO: may overflow!
-			Height m_hMin;
-			Height m_hMax;
-
-			Context() { Reset(); }
-			void Reset();
-		};
-
-		bool ValidateAndSummarize(Context&, ECC::Point::Native& sigma) const;
+		struct Context;
+		bool ValidateAndSummarize(Context&) const;
 
 		int cmp(const TxBase&) const;
 		COMPARISON_VIA_CMP(TxBase)
@@ -223,15 +240,16 @@ namespace beam
 
 			std::array<uint8_t, nSolutionBytes>	m_Indices;
 
-			typedef ECC::uintBig_t<112> NonceType;
-			NonceType m_Nonce; // 14 bytes. The overall solution size is 64 bytes.
+			typedef ECC::uintBig_t<104> NonceType;
+			NonceType m_Nonce; // 13 bytes. The overall solution size is 64 bytes.
+			uint8_t m_Difficulty;
 
-			bool IsValid(const void* pInput, uint32_t nSizeInput, Difficulty) const;
+			bool IsValid(const void* pInput, uint32_t nSizeInput) const;
 
 			using Cancel = std::function<bool(bool bRetrying)>;
-			// Nonce must be initialized. During the solution it's incremented each time by 1.
+			// Difficulty and Nonce must be initialized. During the solution it's incremented each time by 1.
 			// returns false only if cancelled
-			bool Solve(const void* pInput, uint32_t nSizeInput, Difficulty, const Cancel& = [](bool) { return false; });
+			bool Solve(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
 
 		private:
 			struct Helper;
@@ -252,23 +270,39 @@ namespace beam
 				Merkle::Hash	m_Prev;			// explicit referebce to prev
 				Merkle::Hash	m_History;		// Objects that are only added and never deleted. Currently: previous states.
 				Merkle::Hash	m_LiveObjects;	// Objects that can be both added and deleted. Currently: UTXOs and kernels
-				Difficulty		m_Difficulty;
 				Timestamp		m_TimeStamp;
 				PoW				m_PoW;
 
 				void get_Hash(Merkle::Hash&) const; // Calculated from all the above
 				void get_ID(ID&) const;
 
+				bool IsSane() const;
 				bool IsValidPoW() const;
 				bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
 			};
 		};
 
-		static const Amount s_CoinbaseEmission; // the maximum allowed coinbase in a single block
-		static const Height s_MaturityCoinbase;
-		static const Height s_MaturityStd;
+		struct Rules
+		{
+			static const Amount Coin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
+			static const Amount CoinbaseEmission; // the maximum allowed coinbase in a single block
+			static const Height MaturityCoinbase;
+			static const Height MaturityStd;
 
-		static const size_t s_MaxBodySize;
+			static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
+
+			static const size_t MaxBodySize;
+
+			// timestamp & difficulty. Basically very close to those from bitcoin, except the desired rate is 1 minute (instead of 10 minutes)
+			static const uint32_t DesiredRate_s = 60; // 1 minute
+			static const uint32_t DifficultyReviewCycle = 24 * 60 * 7; // 10,080 blocks, 1 week roughly
+			static const uint32_t MaxDifficultyChange = 3; // i.e. x8 roughly. (There's no equivalent to this in bitcoin).
+			static const uint32_t TimestampAheadThreshold_s = 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
+			static const uint32_t WindowForMedian = 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
+
+			static void AdjustDifficulty(uint8_t&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s);
+		};
+
 
 		struct Body
 			:public TxBase
@@ -286,4 +320,16 @@ namespace beam
 			bool IsValid(Height h0, Height h1) const;
 		};
 	};
-}
+
+	enum struct KeyType
+	{
+		Comission,
+		Coinbase,
+		Kernel,
+		Regular
+	};
+	void DeriveKey(ECC::Scalar::Native&, const ECC::Kdf&, Height, KeyType, uint32_t nIdx = 0);
+
+	std::ostream& operator << (std::ostream&, const Block::SystemState::ID&);
+
+} // namespace beam

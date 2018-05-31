@@ -115,6 +115,26 @@ namespace ECC
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result
 	};
 
+#ifdef ECC_COMPACT_GEN
+
+	// Generator tables are stored in compact structs (x,y in canonical form). Memory footprint: ~8.5MB. Slightly faster (probably due to better cache)
+	// Disadvantage: slow initialization, because needs "normalizing". For all the generators takes ~1sec in release, 4-5 seconds in debug.
+	//
+	// Currently *disabled* to prevent app startup lag.
+
+	typedef secp256k1_ge_storage CompactPoint;
+
+#else // ECC_COMPACT_GEN
+
+	// Generator tables are stored in "jacobian" form. Memory footprint ~16.5MB. Slightly slower (probably due to increased mem)
+	// Initialization is fast
+	//
+	// Currently used.
+
+	typedef secp256k1_gej CompactPoint;
+
+#endif // ECC_COMPACT_GEN
+
 	namespace Generator
 	{
 		static const uint32_t nBitsPerLevel = 4;
@@ -127,11 +147,11 @@ namespace ECC
 			static const uint32_t nLevels = nBits_ / nBitsPerLevel;
 			static_assert(nLevels * nBitsPerLevel == nBits_, "");
 
-			secp256k1_ge_storage m_pPts[nLevels * nPointsPerLevel];
+			CompactPoint m_pPts[nLevels * nPointsPerLevel];
 		};
 
-		void GeneratePts(const char* szSeed, secp256k1_ge_storage* pPts, uint32_t nLevels);
-		void SetMul(Point::Native& res, bool bSet, const secp256k1_ge_storage* pPts, const Scalar::Native::uint* p, int nWords);
+		void GeneratePts(const char* szSeed, CompactPoint* pPts, uint32_t nLevels);
+		void SetMul(Point::Native& res, bool bSet, const CompactPoint* pPts, const Scalar::Native::uint* p, int nWords);
 
 		template <uint32_t nBits_>
 		class Simple
@@ -168,7 +188,7 @@ namespace ECC
 			};
 
 		public:
-			Simple(const char* szSeed)
+			void Initialize(const char* szSeed)
 			{
 				GeneratePts(szSeed, Base<nBits_>::m_pPts, Base<nBits_>::nLevels);
 			}
@@ -180,7 +200,7 @@ namespace ECC
 		class Obscured
 			:public Base<nBits>
 		{
-			secp256k1_ge_storage m_AddPt;
+			CompactPoint m_AddPt;
 			Scalar::Native m_AddScalar;
 
 			template <typename TScalar>
@@ -196,7 +216,7 @@ namespace ECC
 			void AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native&) const;
 
 		public:
-			Obscured(const char* szSeed);
+			void Initialize(const char* szSeed);
 
 			template <typename TScalar>
 			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
@@ -221,6 +241,7 @@ namespace ECC
 		void Write(uint8_t);
 		void Write(const uintBig&);
 		void Write(const Scalar&);
+		void Write(const Scalar::Native&);
 		void Write(const Point&);
 		void Write(const Point::Native&);
 
@@ -253,11 +274,25 @@ namespace ECC
 
 	struct Context
 	{
-		Context();
 		static const Context& get();
 
-		const Generator::Obscured						G;
-		const Generator::Simple<sizeof(Amount) << 3>	H;
+		Generator::Obscured						G;
+		Generator::Obscured						H_Big;
+		Generator::Simple<sizeof(Amount) << 3>	H;
+
+		struct IppCalculator
+		{
+			// generators used for inner product proof
+			Generator::Obscured m_pGen[2][InnerProduct::nDim];
+			Generator::Obscured m_GenDot; // seems that it's not necessary, can use G instead
+
+			CompactPoint m_pAux1[2][InnerProduct::nDim];
+			CompactPoint m_Aux2; // better to use generator, but nevermind
+
+		} m_Ipp;
+
+	private:
+		Context() {}
 	};
 
 	class Commitment
@@ -279,5 +314,6 @@ namespace ECC
 		Oracle& operator << (const T& t) { m_hp << t; return *this; }
 
 		void operator >> (Scalar::Native&);
+		void operator >> (Hash::Value& hv) { m_hp >> hv; }
 	};
 }

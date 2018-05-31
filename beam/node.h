@@ -3,8 +3,10 @@
 #include "node_processor.h"
 #include "../utility/io/timer.h"
 #include "../core/proto.h"
+#include "../core/block_crypt.h"
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/set.hpp>
+#include <condition_variable>
 
 namespace beam
 {
@@ -18,6 +20,7 @@ struct Node
 		std::vector<io::Address> m_Connect;
 
 		std::string m_sPathLocal;
+        ECC::NoLeak<ECC::uintBig> m_WalletKey;
 		NodeProcessor::Horizon m_Horizon;
 
 		struct Timeout {
@@ -28,10 +31,19 @@ struct Node
 			uint32_t m_MiningSoftRestart_ms = 100;
 		} m_Timeout;
 
-		bool m_bDontVerifyPoW = false; // for testing only!
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
 		uint32_t m_MinerID = 0; // used as a seed for miner nonce generation
+
+		uint32_t m_VerificationThreads = 0; // by default single-threaded
+
+		struct TestMode {
+			// for testing only!
+			bool m_bFakePoW = false;
+			bool m_bMineGenesisBlock = false;
+			uint32_t m_FakePowSolveTime_ms = 15 * 1000;
+
+		} m_TestMode;
 
 
 	} m_Cfg; // must not be changed after initialization
@@ -50,6 +62,23 @@ private:
 		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override;
 		virtual void OnPeerInsane(const PeerID&) override;
 		virtual void OnNewState() override;
+		virtual bool VerifyBlock(const std::shared_ptr<Block::Body>&, Height h0, Height h1) override;
+
+		struct VerifierContext
+		{
+			typedef std::shared_ptr<VerifierContext> Ptr;
+
+			std::shared_ptr<TxBase> m_pTx;
+			TxBase::Context m_Context;
+
+			volatile bool m_bAbort;
+			uint32_t m_Remaining;
+
+			std::mutex m_Mutex;
+			std::condition_variable m_Cond;
+
+			static void Proceed(Ptr, uint32_t iVerifier);
+		};
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
@@ -105,6 +134,7 @@ private:
 		State::Enum m_eState;
 
 		Height m_TipHeight;
+		proto::Config m_Config;
 
 		TaskList m_lstTasks;
 		void TakeTasks();
@@ -122,6 +152,7 @@ private:
 
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
+		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 
 		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
 
@@ -129,6 +160,7 @@ private:
 		virtual void OnConnected() override;
 		virtual void OnClosed(int errorCode) override;
 		// messages
+		virtual void OnMsg(proto::Config&&) override;
 		virtual void OnMsg(proto::Ping&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;
 		virtual void OnMsg(proto::DataMissing&&) override;

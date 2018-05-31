@@ -10,6 +10,7 @@ namespace beam::wallet
         // 1. Create transaction Uuid
         auto invitationData = make_shared<sender::InvitationData>();
         invitationData->m_txId = m_txId;
+		invitationData->m_height = m_keychain->getCurrentHeight();
 
         m_coins = m_keychain->getCoins(m_amount); // need to lock 
         if (m_coins.empty())
@@ -32,7 +33,7 @@ namespace beam::wallet
                 assert(coin.m_status == Coin::Locked);
                 Input::Ptr input = make_unique<Input>();
 
-                Scalar::Native key{ m_keychain->calcKey(coin.m_id) };
+                Scalar::Native key{ m_keychain->calcKey(coin) };
                 input->m_Commitment = Commitment(key, coin.m_amount);
 
                 invitationData->m_inputs.push_back(move(input));
@@ -51,11 +52,11 @@ namespace beam::wallet
             change -= m_amount;
             if (change > 0)
             {
-                m_changeOutput = beam::Coin(m_keychain->getNextID(), change);
+                m_changeOutput = beam::Coin(change, Coin::Unconfirmed);
                 Output::Ptr output = make_unique<Output>();
                 output->m_Coinbase = false;
-                Scalar::Native blindingFactor = m_keychain->calcKey(m_changeOutput->m_id);
-                output->Create(blindingFactor, change, true);
+                Scalar::Native blindingFactor = m_keychain->calcKey(*m_changeOutput);
+                output->Create(blindingFactor, change);
 
                 m_keychain->store(*m_changeOutput);
 
@@ -95,25 +96,11 @@ namespace beam::wallet
         m_kernel.get_HashForSigning(message);
         m_kernel.m_Signature.CoSign(m_senderSignature, message, m_blindingExcess, msig);
         
-
-        // 2. Compute Schnorr challenge e
-        Point::Native k;
-        k = m_publicNonce + data->m_publicReceiverNonce;
-        Scalar::Native e = m_kernel.m_Signature.m_e;
- 
         // 3. Verify recepients Schnorr signature 
-        Point::Native s, s2;
-        Scalar::Native ne;
-        Point::Native publicReceiverBlindingExcess;
-        publicReceiverBlindingExcess = data->m_publicReceiverBlindingExcess;
-        ne = -e;
-        s = data->m_publicReceiverNonce;
-        s += publicReceiverBlindingExcess * ne;
-
-        s2 = Context::get().G * data->m_receiverSignature;
-        Point p(s), p2(s2);
-
-        return (p == p2);
+		Signature sigPeer;
+		sigPeer.m_e = m_kernel.m_Signature.m_e;
+		sigPeer.m_k = data->m_receiverSignature;
+		return sigPeer.IsValidPartial(data->m_publicReceiverNonce, data->m_publicReceiverBlindingExcess);
     }
 
     bool Sender::FSMDefinition::is_invalid_signature(const TxInitCompleted& event)
@@ -150,43 +137,36 @@ namespace beam::wallet
 
     void Sender::FSMDefinition::rollback_tx(const TxFailed& )
     {
+		rollback_tx();
     }
 
     void Sender::FSMDefinition::cancel_tx(const TxInitCompleted& )
     {
-        
+		rollback_tx();
     }
 
-    void Sender::FSMDefinition::confirm_change_output(const TxConfirmationCompleted&)
-    {
-        if (m_changeOutput)
-        {
-            m_gateway.send_output_confirmation(*m_changeOutput);
-        }
-    }
+
+	void Sender::FSMDefinition::rollback_tx()
+	{
+		for (auto& c : m_coins)
+		{
+			c.m_status = Coin::Unspent;
+		}
+		m_keychain->update(m_coins);
+		if (m_changeOutput)
+		{
+			m_keychain->remove(vector<Coin> { *m_changeOutput });
+		}
+	}
 
     void Sender::FSMDefinition::complete_tx(const TxConfirmationCompleted&)
     {
         complete_tx();
     }
 
-    void Sender::FSMDefinition::complete_tx(const TxOutputConfirmCompleted&)
-    {
-        complete_tx();
-    }
 
     void Sender::FSMDefinition::complete_tx()
     {
         LOG_DEBUG() << "[Sender] complete tx";
-        for (auto& c : m_coins)
-        {
-            c.m_status = Coin::Spent;
-        }
-        if (m_changeOutput)
-        {
-            m_changeOutput->m_status = Coin::Unspent;
-            m_coins.push_back(*m_changeOutput);
-        }
-        m_keychain->update(m_coins);
     }
 }
