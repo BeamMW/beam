@@ -4,9 +4,9 @@ env:
   global:
     secure: LX6nVvNXIqK91ldaDfDLVhK3MMFtEaFREx8cl8TKHpWjtdWWuGzk1TreOYqcPW7cSO+W3ynBZshNXsAcAJuqV3FjI7+ywlv130rtoW3a2pOfhe8WJTwcMoOKAf7xXnuX3LsrDbMgadV6YJnCPrfELLIyDV6cc7Nyw8saBwAgQ3dC4FaYLOWJGssZZmEcXFa0d6xcpJGAY4dAbjecrukV0NEsKXA5BfiDvQCQpQ6AAU44Atx3HP4dhY+TgzI6VDZCL4GgFaTLZ1lSGQZ3JSHanVXKeYH41dhPFSYNGBmiMP2dYGkULfJhUupRF9rwJb3Enq56DbBcvinwKDEhq7N27xFrVV2Frwhx9F6YLBRZ8j6gUdDGpTHFj050oCY0DTjifZRfkgZOhyGC9PAnTNlJR25eJMDJcRmrBnHHBeA0RM4vZQ7WGeRBDtHeGcalbNvaF42vcyhtaoayb0h1INkrWEOFff657h2S+7EIq2Wtpjv4wirVmzIg31rXenIaTQVbI69h5sRJxTMFi56DAxhEg9l9U1SWfPlNf1l2ucfjPqn64KV9LrMsj9pR1EHH89TfZAkTb5KgeTW1Be+gDOnUPQ/KnV4qvEuUicZU4sgdTzAUFnajHf651wRfOiR8ZyOXP5DWgKmhVOgLccJlLRsvY/od9hIRwZdUhuypKmFxUUE=
 
- deploy:
-   provider: script
-   script: bash ./deploy.sh
-   api_key:
+deploy:
+  provider: script
+  script: bash ./deploy.sh
+  api_key:
   on:
     branch: deploy_test
