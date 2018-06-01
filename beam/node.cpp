@@ -1027,7 +1027,11 @@ bool Node::Miner::Restart(Block::Body* pTreasury /* = NULL */)
 	std::scoped_lock<std::mutex> scope(m_Mutex);
 
 	if (m_pTask)
+	{
+		if (*m_pTask->m_pStop)
+			return true; // block already mined, probably notification to this thread on its way. Ignore the newly-constructed block
 		pTask->m_pStop = m_pTask->m_pStop; // use the same soft-restart indicator
+	}
 	else
 	{
 		pTask->m_pStop.reset(new volatile bool);
