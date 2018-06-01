@@ -569,6 +569,28 @@ namespace beam
 			ctx.IsValidTransaction();
 	}
 
+	template <typename T>
+	void TestNotNull(const std::unique_ptr<T>& p)
+	{
+		if (!p)
+			throw std::runtime_error("invalid NULL ptr");
+	}
+
+	void TxBase::TestNoNulls() const
+	{
+		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
+			TestNotNull(*it);
+
+		for (auto it = m_vKernelsInput.begin(); m_vKernelsInput.end() != it; it++)
+			TestNotNull(*it);
+
+		for (auto it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
+			TestNotNull(*it);
+
+		for (auto it = m_vKernelsOutput.begin(); m_vKernelsOutput.end() != it; it++)
+			TestNotNull(*it);
+	}
+
 	/////////////
 	// AmoutBig
 	void AmountBig::operator += (Amount x)

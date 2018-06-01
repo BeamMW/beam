@@ -429,6 +429,8 @@ namespace detail
 				& tx.m_vKernelsOutput
 				& tx.m_Offset;
 
+			tx.TestNoNulls();
+
             return ar;
         }
 
