@@ -77,7 +77,7 @@ namespace beam
         case KeyType::Coinbase: os << "Coinbase"; break;
         case KeyType::Comission: os << "Commission"; break;
         case KeyType::Kernel: os << "Kernel"; break;
-        case KeyType::Regular: os << "Regualar"; break;
+        case KeyType::Regular: os << "Regular"; break;
         default:
             assert(false && "Unknown key type");
         }
@@ -530,7 +530,7 @@ int main(int argc, char* argv[])
                         keychain->visit([](const Coin& c)->bool
                         {
                             cout << setw(8) << c.m_id
-                                 << setw(16) << c.m_amount
+                                 << setw(16) << PrintableAmount(c.m_amount)
                                  << setw(16) << c.m_height
                                  << "  " << c.m_status << '\t'
                                  << "  " << c.m_key_type << '\n';
@@ -596,7 +596,6 @@ int main(int argc, char* argv[])
                         , reactor };
                     if (command == cli::SEND)
                     {
-                        LOG_INFO() << "sending money to " << receiverAddr.str();
                         wallet_io.transfer_money(receiverAddr, move(amount));
                     }
                     wallet_io.start();

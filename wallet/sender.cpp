@@ -7,6 +7,7 @@ namespace beam::wallet
 
     void Sender::FSMDefinition::init_tx(const msmf::none&)
     {
+        LOG_INFO() << "Sending " << PrintableAmount(m_amount);
         // 1. Create transaction Uuid
         auto invitationData = make_shared<sender::InvitationData>();
         invitationData->m_txId = m_txId;
@@ -15,7 +16,7 @@ namespace beam::wallet
         m_coins = m_keychain->getCoins(m_amount); // need to lock 
         if (m_coins.empty())
         {
-            LOG_INFO() << "There is no money to pay " << m_amount;
+            LOG_ERROR() << "You only have " << PrintableAmount(get_total());
             throw runtime_error("no money");
         }
         invitationData->m_amount = m_amount;
@@ -168,5 +169,19 @@ namespace beam::wallet
     void Sender::FSMDefinition::complete_tx()
     {
         LOG_DEBUG() << "[Sender] complete tx";
+    }
+
+    Amount Sender::FSMDefinition::get_total() const
+    {
+        Amount total = 0;
+        m_keychain->visit([&total](const Coin& c)->bool
+        {
+            if (c.m_status == Coin::Unspent)
+            {
+                total += c.m_amount;
+            }
+            return true;
+        });
+        return total;
     }
 }

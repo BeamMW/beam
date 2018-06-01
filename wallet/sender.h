@@ -34,7 +34,7 @@ namespace beam::wallet
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    LOG_DEBUG() << "[Sender] Init state";
+                    LOG_VERBOSE() << "[Sender] Init state";
                 } 
             };
             struct Terminate : public msmf::terminate_state<>
@@ -42,7 +42,7 @@ namespace beam::wallet
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm& fsm)
                 {
-                    LOG_DEBUG() << "[Sender] Terminate state";
+                    LOG_VERBOSE() << "[Sender] Terminate state";
                     fsm.m_gateway.on_tx_completed(fsm.m_txId);
                 } 
             };
@@ -51,7 +51,7 @@ namespace beam::wallet
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    LOG_DEBUG() << "[Sender] TxInitiating state"; 
+                    LOG_VERBOSE() << "[Sender] TxInitiating state";
                 } 
             };
             struct TxConfirming : public msmf::state<>
@@ -59,7 +59,7 @@ namespace beam::wallet
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    LOG_DEBUG() << "[Sender] TxConfirming state"; 
+                    LOG_VERBOSE() << "[Sender] TxConfirming state";
                 } 
             };
             struct TxOutputConfirming : public msmf::state<>
@@ -67,7 +67,7 @@ namespace beam::wallet
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 { 
-                    LOG_DEBUG() << "[Sender] TxOutputConfirming state"; 
+                    LOG_VERBOSE() << "[Sender] TxOutputConfirming state";
                 }
             };
 
@@ -76,7 +76,9 @@ namespace beam::wallet
                 , m_keychain{ keychain }
                 , m_txId{ txId }
                 , m_amount{ amount }
-            {}
+            {
+                assert(keychain);
+            }
 
             // transition actions
             void init_tx(const msmf::none&);
@@ -90,6 +92,8 @@ namespace beam::wallet
             void complete_tx(const TxConfirmationCompleted&);
             void complete_tx();
             void rollback_tx();
+
+            Amount get_total() const;
 
             using initial_state = Init;
             using d = FSMDefinition;

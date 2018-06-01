@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <random>
 #include "core/storage.h"
+#include <iomanip>
 
 namespace ECC {
 	Initializer g_Initializer;
@@ -27,6 +28,9 @@ namespace
         }
         T& m_v;
     };
+
+    const char* ReceiverPrefix = "[Receiver] ";
+    const char* SenderPrefix = "[Sender] ";
 }
 
 namespace beam
@@ -38,6 +42,22 @@ namespace beam
     std::ostream& operator<<(std::ostream& os, const Uuid& uuid)
     {
         os << "[" << to_hex(uuid.data(), uuid.size()) << "]";
+        return os;
+    }
+
+    std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount)
+    {
+        const string_view beams{" beams" };
+        const string_view chattles{ " chattles" };
+        auto width = os.width();
+        if (amount.m_value > Block::Rules::Coin)
+        {
+            os << setw(width - beams.length()) << Amount(amount.m_value / Block::Rules::Coin) << beams.data();
+        }
+        else
+        {
+            os << setw(width - chattles.length()) << amount.m_value << chattles.data();
+        }
         return os;
     }
 
@@ -83,6 +103,7 @@ namespace beam
         , m_network{ network }
         , m_tx_completed_action{move(action)}
     {
+        assert(keyChain);
     }
 
     Wallet::~Wallet()
@@ -174,7 +195,7 @@ namespace beam
 
     void Wallet::register_tx(const Uuid& txId, Transaction::Ptr data)
     {
-        LOG_DEBUG() << "[Receiver] sending tx for registration";
+        LOG_VERBOSE() << ReceiverPrefix << "sending tx for registration";
         m_node_requests_queue.push(txId);
         m_network.send_node_message(proto::NewTransaction{ move(data) });
     }
@@ -192,12 +213,12 @@ namespace beam
         auto it = m_receivers.find(data->m_txId);
         if (it == m_receivers.end())
         {
-            LOG_DEBUG() << "[Receiver] Received tx invitation " << data->m_txId;
+            LOG_VERBOSE() << ReceiverPrefix << "Received tx invitation " << data->m_txId;
 
             auto currentHeight = m_keyChain->getCurrentHeight();
             if (currentHeight != data->m_height)
             {
-                LOG_DEBUG() << "[Receiver] invalid sender's height";
+                LOG_ERROR() << ReceiverPrefix << " invalid sender's height";
                 m_network.close_connection(from);
                 return;
             }
@@ -208,7 +229,7 @@ namespace beam
         }
         else
         {
-            LOG_DEBUG() << "[Receiver] Unexpected tx invitation " << data->m_txId;
+            LOG_DEBUG() << ReceiverPrefix << "Unexpected tx invitation " << data->m_txId;
         }
     }
     
@@ -218,12 +239,12 @@ namespace beam
         auto it = m_receivers.find(data->m_txId);
         if (it != m_receivers.end())
         {
-            LOG_DEBUG() << "[Receiver] Received sender tx confirmation " << data->m_txId;
+            LOG_DEBUG() << ReceiverPrefix << "Received sender tx confirmation " << data->m_txId;
             it->second->process_event(Receiver::TxConfirmationCompleted{data});
         }
         else
         {
-            LOG_DEBUG() << "[Receiver] Unexpected sender tx confirmation "<< data->m_txId;
+            LOG_DEBUG() << ReceiverPrefix << "Unexpected sender tx confirmation "<< data->m_txId;
             m_network.close_connection(from);
         }
     }
@@ -234,12 +255,12 @@ namespace beam
         auto it = m_senders.find(data->m_txId);
         if (it != m_senders.end())
         {
-            LOG_DEBUG() << "[Sender] Received tx confirmation " << data->m_txId;
+            LOG_VERBOSE() << SenderPrefix << "Received tx confirmation " << data->m_txId;
             it->second->process_event(Sender::TxInitCompleted{data});
         }
         else
         {
-            LOG_DEBUG() << "[Sender] Unexpected tx confirmation " << data->m_txId;
+            LOG_DEBUG() << SenderPrefix << "Unexpected tx confirmation " << data->m_txId;
         }
     }
 
@@ -383,12 +404,15 @@ namespace beam
         {
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
+                Amount reward = Block::Rules::CoinbaseEmission;
                 // coinbase 
                 mined.emplace_back(Block::Rules::CoinbaseEmission, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Coinbase);
                 if (minedCoin.m_Fees > 0)
                 {
+                    reward += minedCoin.m_Fees;
                     mined.emplace_back(minedCoin.m_Fees, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Comission);
                 }
+                LOG_INFO() << "Block reward received: " << PrintableAmount(reward);
             }
         }
 

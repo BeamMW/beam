@@ -24,6 +24,7 @@ namespace beam::wallet
 
     void Receiver::FSMDefinition::confirm_tx(const msmf::none&)
     {
+        LOG_INFO() << "Receiving " << PrintableAmount(m_amount);
         auto confirmationData = make_shared<receiver::ConfirmationData>();
         confirmationData->m_txId = m_txId;
         
@@ -115,20 +116,20 @@ namespace beam::wallet
 
     void Receiver::FSMDefinition::rollback_tx(const TxFailed& event)
     {
-        LOG_DEBUG() << "[Receiver] rollback_tx";
+        LOG_VERBOSE() << "[Receiver] rollback_tx";
         m_keychain->remove(m_receiver_coin);
     }
 
     void Receiver::FSMDefinition::cancel_tx(const TxConfirmationCompleted& )
     {
-        LOG_DEBUG() << "[Receiver] cancel_tx";
+        LOG_VERBOSE() << "[Receiver] cancel_tx";
         m_keychain->remove(m_receiver_coin);
     }
 
     void Receiver::FSMDefinition::complete_tx(const TxRegistrationCompleted& )
     {
-        LOG_DEBUG() << "[Receiver] complete tx";
-
+        LOG_VERBOSE() << "[Receiver] complete tx";
+        LOG_INFO() << "Transaction completed and sent to node";
 		m_gateway.send_tx_registered(make_unique<Uuid>(m_txId));
     }
 }
