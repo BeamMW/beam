@@ -7,6 +7,7 @@ matrix:
       before_install: 
         - brew upgrade openssl
         - brew upgrade boost
+        - brew upgrade cmake
       env: 
         - BUILD_TYPE=Debug
         - OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
@@ -20,6 +21,7 @@ matrix:
       before_install:
         - brew upgrade openssl
         - brew upgrade boost
+        - brew upgrade cmake
       env: 
         - BUILD_TYPE=Release
         - OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
