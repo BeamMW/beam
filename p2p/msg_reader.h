@@ -1,6 +1,7 @@
 #pragma once
 #include "protocol_base.h"
 #include <vector>
+#include <bitset>
 
 namespace beam {
 
@@ -13,6 +14,18 @@ public:
     /// Called from the stream on new data.
     /// Calls the callback whenever a new protocol message is exctracted or on errors
     void new_data_from_stream(const void* data, size_t size);
+
+    /// Allows receiving messages of given type
+    void enable_msg_type(MsgType type);
+
+    /// Allows receiving of all msg types
+    void enable_all_msg_types();
+
+    /// Disables receiving messages of given type
+    void disable_msg_type(MsgType type);
+
+    /// Disables all messages
+    void disable_all_msg_types();
 
 private:
     /// 2 states of the reader
@@ -44,6 +57,9 @@ private:
 
     /// Cursor inside the buffer
     uint8_t* _cursor;
+
+    /// Filter for per-connection protocol logic
+    std::bitset<256> _expectedMsgTypes;
 };
 
 } //namespace

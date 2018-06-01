@@ -15,6 +15,18 @@ public:
     /// Dtor
     ~Connection();
 
+    /// Allows receiving messages of given type
+    void enable_msg_type(MsgType type) { _msgReader.enable_msg_type(type); }
+
+    /// Allows receiving of all msg types
+    void enable_all_msg_types() { _msgReader.enable_all_msg_types(); }
+
+    /// Disables receiving messages of given type
+    void disable_msg_type(MsgType type) { _msgReader.disable_msg_type(type); }
+
+    /// Disables all messages
+    void disable_all_msg_types() { _msgReader.disable_all_msg_types(); }
+
     /// Writes fragments to stream
     io::Result write_msg(const SerializedMsg& fragments);
 

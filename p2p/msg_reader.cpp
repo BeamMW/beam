@@ -15,6 +15,25 @@ MsgReader::MsgReader(ProtocolBase& protocol, uint64_t from, size_t defaultSize) 
     assert(_defaultSize >= MsgHeader::SIZE);
     _msgBuffer.resize(_defaultSize);
     _cursor = _msgBuffer.data();
+
+    // by default, all message types are allowed
+    enable_all_msg_types();
+}
+
+void MsgReader::enable_msg_type(MsgType type) {
+    _expectedMsgTypes.set(type);
+}
+
+void MsgReader::enable_all_msg_types() {
+    _expectedMsgTypes.set();
+}
+
+void MsgReader::disable_msg_type(MsgType type) {
+    _expectedMsgTypes.reset(type);
+}
+
+void MsgReader::disable_all_msg_types() {
+    _expectedMsgTypes.reset();
 }
 
 void MsgReader::new_data_from_stream(const void* data, size_t size) {
@@ -41,6 +60,12 @@ size_t MsgReader::feed_data(const uint8_t* p, size_t sz) {
             // whole header has been read
             MsgHeader header(_msgBuffer.data());
             if (!_protocol.approve_msg_header(_from, header)) {
+                _state = corrupted;
+                return 0;
+            }
+
+            if (!_expectedMsgTypes.test(header.type)) {
+                _protocol.on_unexpected_msg(_from, header.type);
                 _state = corrupted;
                 return 0;
             }

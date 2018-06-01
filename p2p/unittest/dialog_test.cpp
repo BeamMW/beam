@@ -136,6 +136,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
                     100,
                     std::move(newStream)
                 );
+                //connection->disable_all_msg_types();
             }
         } else {
             on_connection_error(address.u64(), errorCode);
@@ -152,6 +153,8 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
                 100,
                 std::move(newStream)
             );
+            //connection->disable_all_msg_types();
+            //connection->disable_msg_type(4);
         } else {
             on_connection_error(tag, status);
         }
@@ -165,6 +168,10 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
     // handles network errors, may optionally notify the logic about that
     void on_connection_error(uint64_t fromStream, int errorCode) override {
         LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << errorCode << ")";
+    }
+
+    void on_unexpected_msg(uint64_t fromStream, MsgType type) override {
+        LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << unsigned(type) << ")";
     }
 
     void send_request(PeerLocator to, Request&& req) override {

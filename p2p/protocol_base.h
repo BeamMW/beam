@@ -62,11 +62,12 @@ struct MsgHeader {
 
 /// Errors occured during deserialization
 enum ProtocolError {
-    no_error = 0,
-    protocol_version_error = -1,
-    msg_type_error = -2,
-    msg_size_error = -3,
-    message_corrupted = -4
+    no_error = 0,               // ok
+    protocol_version_error = -1,// wrong protocol version (first 3 bytes)
+    msg_type_error = -2,        // msg type is not handled by this protocol
+    msg_size_error = -3,        // msg size out of allowed range
+    message_corrupted = -4,     // deserialization error
+    unexpected_msg_type = -5    // receiving of msg type disabled for this stream
 };
 
 /// Protocol errors handler base
@@ -78,6 +79,12 @@ struct IErrorHandler {
 
     /// Handles network connection errors
     virtual void on_connection_error(uint64_t fromStream, int errorCode) = 0;
+
+    /// Per-connection msg type filter fails
+    virtual void on_unexpected_msg(uint64_t fromStream, MsgType type) {
+        // default impl
+        on_protocol_error(fromStream, unexpected_msg_type);
+    }
 };
 
 class Deserializer;
@@ -136,6 +143,12 @@ public:
     /// Called by Connection on network errors
     void on_connection_error(uint64_t fromStream, int errorCode) {
         _errorHandler.on_connection_error(fromStream, errorCode);
+    }
+
+    /// Called by msg reader if msg type disabled (by the protocol logic)
+    /// for the connection at the moment
+    void on_unexpected_msg(uint64_t fromStream, MsgType type) {
+        _errorHandler.on_unexpected_msg(fromStream, type);
     }
 
     typedef bool(*OnRawMessage)(
