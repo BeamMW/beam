@@ -4,7 +4,9 @@ matrix:
   include:
     - os: osx
       osx_image: xcode9.3
-      before_install: brew install openssl boost
+      before_install: 
+        - brew upgrade openssl
+        - brew upgrade boost
       env: 
         - BUILD_TYPE=Debug
         - OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
@@ -15,7 +17,9 @@ matrix:
 
     - os: osx
       osx_image: xcode9.3
-      before_install: brew install openssl boost
+      before_install:
+        - brew upgrade openssl
+        - brew upgrade boost
       env: 
         - BUILD_TYPE=Release
         - OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
