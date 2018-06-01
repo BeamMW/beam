@@ -35,3 +35,7 @@ deploy:
   script: bash ./deploy.sh
   on:
     branch: master
+
+stages:
+  - name: deploy
+    if: type = cron
