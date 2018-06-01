@@ -2,6 +2,7 @@
 #include "utility/helpers.h"
 
 #define LOG_VERBOSE_ENABLED 0
+#define LOG_DEBUG_ENABLED 1
 #include "utility/logger.h"
 
 namespace beam {

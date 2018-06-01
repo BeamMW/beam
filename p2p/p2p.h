@@ -33,7 +33,10 @@ private:
 
     void on_peer_handshaked(ConnectionPtr&& conn, uint16_t listensTo);
 
+    void on_timer();
+
     RandomGen _rdGen;
+    uint64_t _sessionId;
     Servers _knownServers;
     Protocol _protocol;
     HandshakingPeers _handshakingPeers;
@@ -42,6 +45,7 @@ private:
     uint16_t _port; // !=0 if this is server
     io::TcpServer::Ptr _thisServer;
     SerializedMsg _msgToSend;
+    io::Timer::Ptr _timer;
 };
 
 } //namespace
