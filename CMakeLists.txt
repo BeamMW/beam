@@ -22,11 +22,16 @@ else()
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 endif()
 
-
 if(UNIX OR WIN32)
     set(UV_INTERNAL ON)
     add_definitions(-DUV_INTERNAL)
 endif()
+
+include(FindBoost)
+
+set(Boost_USE_STATIC_LIBS ON)
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_USE_STATIC_RUNTIME ON)
 
 if (WIN32)
     add_definitions(-DNOMINMAX)
