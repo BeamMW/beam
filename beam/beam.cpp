@@ -348,7 +348,8 @@ int main(int argc, char* argv[])
             walletSeed.V = Zero;
             if (hasWalletSeed)
             {
-                auto seed = vm[cli::WALLET_SEED].as<string>();
+                // TODO: use secure string here
+                string seed = vm[cli::WALLET_SEED].as<string>();
                 Hash::Value hv;
                 Hash::Processor() << seed.c_str() >> hv;
                 walletSeed.V = hv;
@@ -448,7 +449,7 @@ int main(int argc, char* argv[])
                         return -1;
                     }
 
-                    if (!Keychain::isInitialized())
+                    if (!Keychain::isInitialized() && command != cli::INIT)
                     {
                         LOG_ERROR() << "Please initialize your wallet first... \nExample: beam wallet --command=init --pass=<password to access wallet> --wallet_seed=<seed to generate secret keys>";
                         return -1;
@@ -456,7 +457,13 @@ int main(int argc, char* argv[])
 
                     LOG_INFO() << "starting a wallet...";
 
-                    std::string pass(vm[cli::PASS].as<std::string>());
+                    // TODO: we should use secure string
+                    string pass;
+                    if (vm.count(cli::PASS))
+                    {
+                        pass = vm[cli::PASS].as<string>();
+                    }
+
                     if (!pass.size())
                     {
                         LOG_ERROR() << "Please, provide password for the wallet.";
@@ -492,6 +499,7 @@ int main(int argc, char* argv[])
                             return -1;
                         }
                     }
+
 
                     auto keychain = Keychain::open(pass);
                     if (!keychain)
