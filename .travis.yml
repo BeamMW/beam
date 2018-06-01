@@ -8,6 +8,10 @@ matrix:
       env: 
         - BUILD_TYPE=Debug
         - OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
+      script:
+        - cmake -DCMAKE_BUILD_TYPE=Debug .
+        - make -j 4
+        - ctest --verbose
 
     - os: osx
       osx_image: xcode9.3
@@ -15,6 +19,18 @@ matrix:
       env: 
         - BUILD_TYPE=Release
         - OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
+      script:
+        - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then
+            cmake .;
+            make -j 4;
+          else
+            echo Nothing to build...;
+          fi
+      after_success:
+        - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
+            chmod +x ./deploy.sh;
+            ./deploy.sh;
+          fi
 
     - os: linux
       addons:
@@ -30,6 +46,10 @@ matrix:
       before_install:
         - eval "CC=gcc-7 && CXX=g++-7"
       env: BUILD_TYPE=Debug
+      script:
+        - cmake -DCMAKE_BUILD_TYPE=Debug .
+        - make -j 4
+        - ctest --verbose
 
     - os: linux
       addons:
@@ -45,24 +65,18 @@ matrix:
       before_install:
         - eval "CC=gcc-7 && CXX=g++-7"
       env: BUILD_TYPE=Release
-
-script: 
-  - if [ $BUILD_TYPE == "Debug" ]; then 
-      cmake -DCMAKE_BUILD_TYPE=Debug .;
-      make;
-      ctest --verbose;
-    elif [ $TRAVIS_EVENT_TYPE == "cron" ]; then
-      cmake -DCMAKE_BUILD_TYPE=Release .;
-      make;
-    else
-      echo Nothing to build...;
-    fi
-
-after_success: 
-  - if [ $TRAVIS_EVENT_TYPE == "cron" ] && [ $BUILD_TYPE == "Release" ]; then 
-      chmod +x ./deploy.sh;
-      ./deploy.sh;
-    fi
+      script:
+        - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then
+            cmake .;
+            make -j 4;
+          else
+            echo Nothing to build...;
+          fi
+      after_success:
+        - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
+            chmod +x ./deploy.sh;
+            ./deploy.sh;
+          fi
 
 notifications:
   email:
