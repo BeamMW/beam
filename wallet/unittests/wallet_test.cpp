@@ -94,7 +94,7 @@ namespace
         {
             Block::SystemState::ID id = { 0 };
             id.m_Height = 134;
-            setVar("SystemStateID", id);
+            setSystemStateID(id);
             for (auto amount : {5, 2, 1})
             {
                 Coin coin(amount);
@@ -239,6 +239,9 @@ namespace
         void registerPeer(IWallet* walletPeer)
         {
             m_peers.push_back(walletPeer);
+            proto::Hdr msg = { 0 };
+            msg.m_Description.m_Height = 134;
+            walletPeer->handle_node_message(move(msg));
         }
 
         void enqueueNetworkTask(Task&& task)
@@ -389,6 +392,7 @@ enum NodeNetworkMessageCodes : uint8_t
 {
     NewTransactionCode = 23,
     BooleanCode = 5,
+    HdrCode = 3,
     GetUtxoProofCode = 10,
     ProofUtxoCode = 12,
 	ConfigCode = 20
@@ -432,6 +436,9 @@ private:
 
 	bool on_message(uint64_t connectionId, proto::Config&& /*data*/)
 	{
+        proto::Hdr msg = { 0 };
+        msg.m_Description.m_Height = 134;
+        send(connectionId, HdrCode, move(msg));
 		return true;
 	}
 
@@ -518,6 +525,8 @@ void TestSplitKey()
     Scalar::Native s1 = res1.first+s2;
     WALLET_CHECK(s1 == nonce);
 }
+
+#define LOG_VERBOSE_ENABLED 0
 
 int main()
 {

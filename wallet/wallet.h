@@ -99,6 +99,7 @@ namespace beam
         }
 
         void remove_peer(const Uuid& txId);
+        void finishSync();
     private:
         IKeyChain::Ptr m_keyChain;
         INetworkIO& m_network;
@@ -110,6 +111,8 @@ namespace beam
         TxCompletedAction m_tx_completed_action;
         std::queue<Uuid> m_node_requests_queue;
         Merkle::Hash m_LiveObjects;
-        bool m_syncing;
+        Block::SystemState::ID m_knownStateID;
+        Block::SystemState::ID m_newStateID;
+        int m_syncing;
     };
 }

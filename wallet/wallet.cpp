@@ -102,9 +102,11 @@ namespace beam
         : m_keyChain{ keyChain }
         , m_network{ network }
         , m_tx_completed_action{move(action)}
-        , m_syncing{true}
+        , m_syncing{1}
+        , m_knownStateID{0}
     {
         assert(keyChain);
+        m_keyChain->getSystemStateID(m_knownStateID);
     }
 
     Wallet::~Wallet()
@@ -355,6 +357,7 @@ namespace beam
         {
             // invalid proof!!!
         }
+        finishSync();
     }
 
     void Wallet::handle_node_message(proto::NewTip&& msg)
@@ -362,13 +365,11 @@ namespace beam
         // TODO: check if we're already waiting for the ProofUtxo,
         // don't send request if yes
 
-        Block::SystemState::ID id = {0};
-        bool hasId = m_keyChain->getSystemStateID(id);
-
-        if (!hasId || msg.m_ID > id)
+        if (msg.m_ID > m_knownStateID)
         {
-            m_keyChain->setSystemStateID(msg.m_ID);
-            m_network.send_node_message(proto::GetMined{ id.m_Height });
+            m_newStateID = msg.m_ID;
+            ++m_syncing;
+            m_network.send_node_message(proto::GetMined{ m_knownStateID.m_Height });
         }
     }
 
@@ -381,31 +382,22 @@ namespace beam
         {
             if (coin.m_status == Coin::Unconfirmed)
             {
+                ++m_syncing;
                 m_network.send_node_message(
                     proto::GetProofUtxo
                     {
                         Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) }
-                        , coin.m_height
+                        , m_knownStateID.m_Height
                     });
             }
 
             return true;
         });
+
         Block::SystemState::ID newID = {0};
         msg.m_Description.get_ID(newID);
-        m_keyChain->setSystemStateID(newID);
-        if (m_syncing)
-        {
-            m_syncing = false;
-            for (auto& s : m_senders)
-            {
-                s.second->start();
-            }
-            for (auto& r : m_receivers)
-            {
-                r.second->start();
-            }
-        }
+        m_newStateID = newID;
+        finishSync();
     }
 
     void Wallet::handle_node_message(proto::Mined&& msg)
@@ -432,6 +424,7 @@ namespace beam
 		{
 			m_keyChain->store(mined);
 		}
+        finishSync();
     }
 
     void Wallet::handle_connection_error(PeerId from)
@@ -463,6 +456,27 @@ namespace beam
         {
             m_network.close_connection(it->second);
             m_peers.erase(it);
+        }
+    }
+
+    void Wallet::finishSync()
+    {
+        if (m_syncing)
+        {
+            --m_syncing;
+            if (!m_syncing)
+            {
+                m_keyChain->setSystemStateID(m_newStateID);
+                m_knownStateID = m_newStateID;
+                for (auto& s : m_senders)
+                {
+                    s.second->start();
+                }
+                for (auto& r : m_receivers)
+                {
+                    r.second->start();
+                }
+            }
         }
     }
 }

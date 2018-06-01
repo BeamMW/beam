@@ -385,7 +385,7 @@ namespace beam
 							? Block::Rules::MaturityCoinbase 
 							: Block::Rules::MaturityStd);
 
-						if (lockHeight >= stateID.m_Height)
+						if (lockHeight <= stateID.m_Height)
 						{
 							if (lock)
 							{

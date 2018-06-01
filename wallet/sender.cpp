@@ -174,10 +174,15 @@ namespace beam::wallet
 
     Amount Sender::FSMDefinition::get_total() const
     {
+        auto currentHeight = m_keychain->getCurrentHeight();
         Amount total = 0;
-        m_keychain->visit([&total](const Coin& c)->bool
+        m_keychain->visit([&total, &currentHeight](const Coin& c)->bool
         {
-            if (c.m_status == Coin::Unspent)
+            Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
+                ? Block::Rules::MaturityCoinbase
+                : Block::Rules::MaturityStd);
+
+            if (c.m_status == Coin::Unspent && lockHeight <= currentHeight)
             {
                 total += c.m_amount;
             }

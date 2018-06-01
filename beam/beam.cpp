@@ -84,6 +84,25 @@ namespace beam
         os << "]";
         return os;
     }
+
+    Amount getTotal(beam::IKeyChain::Ptr keychain)
+    {
+        auto currentHeight = keychain->getCurrentHeight();
+        Amount total = 0;
+        keychain->visit([&total, &currentHeight](const Coin& c)->bool
+        {
+            Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
+                ? Block::Rules::MaturityCoinbase
+                : Block::Rules::MaturityStd);
+
+            if (c.m_status == Coin::Unspent && lockHeight <= currentHeight)
+            {
+                total += c.m_amount;
+            }
+            return true;
+        });
+        return total;
+    }
 }
 namespace
 {
@@ -526,6 +545,7 @@ int main(int argc, char* argv[])
                     if (command == cli::INFO)
                     {
                         cout << "____Wallet summary____\n\n";
+                        cout << "Total unspent:" << PrintableAmount(getTotal(keychain)) << "\n\n";
                         cout << "| id\t| amount\t| height\t| status\t| key type\t|\n";
                         keychain->visit([](const Coin& c)->bool
                         {

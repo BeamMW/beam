@@ -29,16 +29,9 @@ namespace beam::wallet
         auto confirmationData = make_shared<receiver::ConfirmationData>();
         confirmationData->m_txId = m_txId;
 
-        auto currentHeight = m_keychain->getCurrentHeight();
-        if (currentHeight != m_height)
-        {
-            LOG_ERROR() << " Wallets are not in sync";
-            throw runtime_error("wallets are not in sync");
-        }
-        
         TxKernel::Ptr kernel = make_unique<TxKernel>();
         kernel->m_Fee = 0;
-        kernel->m_HeightMin = m_keychain->getCurrentHeight();
+        kernel->m_HeightMin = m_height;
         kernel->m_HeightMax = static_cast<Height>(-1);
         m_kernel = kernel.get();
         m_transaction->m_vKernelsOutput.push_back(move(kernel));
