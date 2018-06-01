@@ -116,13 +116,13 @@ namespace beam::wallet
     void Receiver::FSMDefinition::rollback_tx(const TxFailed& event)
     {
         LOG_DEBUG() << "[Receiver] rollback_tx";
-        m_keychain->remove(vector<Coin> { m_receiver_coin });
+        m_keychain->remove(m_receiver_coin);
     }
 
     void Receiver::FSMDefinition::cancel_tx(const TxConfirmationCompleted& )
     {
         LOG_DEBUG() << "[Receiver] cancel_tx";
-        m_keychain->remove(vector<Coin> { m_receiver_coin });
+        m_keychain->remove(m_receiver_coin);
     }
 
     void Receiver::FSMDefinition::complete_tx(const TxRegistrationCompleted& )

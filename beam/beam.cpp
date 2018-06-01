@@ -295,7 +295,7 @@ int main(int argc, char* argv[])
     po::options_description wallet_options("Wallet options");
     wallet_options.add_options()
         (cli::PASS, po::value<string>()->default_value(""), "password for the wallet")
-        (cli::AMOUNT_FULL, po::value<ECC::Amount>(), "amount to send")
+        (cli::AMOUNT_FULL, po::value<int64_t>(), "amount to send")
         (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
         (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
 		(cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
@@ -504,7 +504,7 @@ int main(int argc, char* argv[])
                     auto keychain = Keychain::open(pass);
                     if (!keychain)
                     {
-                        LOG_ERROR() << "something went wrong, wallet not opened...";
+                        LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";
                         return -1;
                     }
 
@@ -545,7 +545,6 @@ int main(int argc, char* argv[])
                         return -1;
                     }
  
-                    // resolve address after network io
                     string nodeURI = vm[cli::NODE_ADDR].as<string>();
                     io::Address node_addr;
                     if (!node_addr.resolve(nodeURI.c_str()))
@@ -553,14 +552,9 @@ int main(int argc, char* argv[])
                         LOG_ERROR() << "unable to resolve node address: " << nodeURI;
                         return -1;
                     }
-                    bool is_server = command == cli::LISTEN;
-                    WalletNetworkIO wallet_io{ io::Address().ip(INADDR_ANY).port(port)
-                                             , node_addr
-                                             , is_server
-                                             , keychain
-                                             , reactor};
 
                     io::Address receiverAddr;
+                    ECC::Amount amount = 0;
                     if (command == cli::SEND)
                     {
                         if (vm.count(cli::RECEIVER_ADDR) == 0)
@@ -579,12 +573,32 @@ int main(int argc, char* argv[])
                             LOG_ERROR() << "unable to resolve receiver address: " << receiverURI;
                             return -1;
                         }
-                        auto amount = vm[cli::AMOUNT].as<ECC::Amount>();
+                        auto signedAmount = vm[cli::AMOUNT].as<int64_t>();
+                        if (signedAmount < 0)
+                        {
+                            LOG_ERROR() << "Unable to send negative amount of coins";
+                            return -1;
+                        }
 
-                        LOG_INFO() << "sending money " << receiverAddr.str();
-                        wallet_io.transfer_money(receiverAddr, move(amount));
+                        amount = static_cast<ECC::Amount>(signedAmount);
+                        if (amount == 0)
+                        {
+                            LOG_ERROR() << "Unable to send zero coins";
+                            return -1;
+                        }
                     }
 
+                    bool is_server = command == cli::LISTEN;
+                    WalletNetworkIO wallet_io{ io::Address().ip(INADDR_ANY).port(port)
+                        , node_addr
+                        , is_server
+                        , keychain
+                        , reactor };
+                    if (command == cli::SEND)
+                    {
+                        LOG_INFO() << "sending money to " << receiverAddr.str();
+                        wallet_io.transfer_money(receiverAddr, move(amount));
+                    }
                     wallet_io.start();
                 }
                 else

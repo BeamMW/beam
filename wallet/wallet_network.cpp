@@ -52,7 +52,10 @@ namespace beam {
 
     void WalletNetworkIO::transfer_money(io::Address receiver, Amount&& amount)
     {
-        connect_wallet(receiver, [this, amount = move(amount)](uint64_t tag) mutable {m_wallet.transfer_money(tag, move(amount)); });
+        connect_wallet(receiver, [this, amount = move(amount)](uint64_t tag) mutable 
+        {
+            m_wallet.transfer_money(tag, move(amount));
+        });
     }
 
     void WalletNetworkIO::connect_wallet(io::Address address, ConnectCallback&& callback)
@@ -168,6 +171,7 @@ namespace beam {
         }
         else
         {
+            m_connections_callbacks.erase(tag);
             on_connection_error(tag, status);
         }
     }
@@ -202,18 +206,18 @@ namespace beam {
 
     void WalletNetworkIO::on_protocol_error(uint64_t from, ProtocolError error)
     {
-        LOG_ERROR() << __FUNCTION__ << "(" << from << "," << error << ")";
+        LOG_ERROR() << "Failed to connect to remote wallet";
+        m_wallet.handle_connection_error(from);
         if (m_connections.empty())
         {
             stop();
             return;
         }
-        m_wallet.handle_connection_error(from);
     }
 
     void WalletNetworkIO::on_connection_error(uint64_t from, int errorCode)
     {
-        LOG_ERROR() << __FUNCTION__ << "(" << from << "," << errorCode << ")";
+        LOG_ERROR() << "Failed to connect to remote wallet";
         if (m_connections.empty())
         {
             stop();

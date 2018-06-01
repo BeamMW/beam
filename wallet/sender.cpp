@@ -155,7 +155,7 @@ namespace beam::wallet
 		m_keychain->update(m_coins);
 		if (m_changeOutput)
 		{
-			m_keychain->remove(vector<Coin> { *m_changeOutput });
+			m_keychain->remove(*m_changeOutput);
 		}
 	}
 

@@ -18,8 +18,8 @@ namespace beam
             Spent
         };
 
+        Coin(const ECC::Amount& amount, Status status = Coin::Unspent, const Height& height = 0, KeyType keyType = KeyType::Regular);
         Coin();
-        Coin(const ECC::Amount& amount, Status status = Coin::Unspent, const Height& height = 0, KeyType keyType = KeyType::Kernel);
 
         uint64_t m_id;
         Height m_height;
