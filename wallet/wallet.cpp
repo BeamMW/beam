@@ -102,6 +102,7 @@ namespace beam
         : m_keyChain{ keyChain }
         , m_network{ network }
         , m_tx_completed_action{move(action)}
+        , m_syncing{true}
     {
         assert(keyChain);
     }
@@ -125,7 +126,10 @@ namespace beam
         m_peers.emplace(txId, to);
         auto s = make_unique<Sender>(*this, m_keyChain, txId, amount);
         auto p = m_senders.emplace(txId, move(s));
-        p.first->second->start();
+        if (!m_syncing)
+        {
+            p.first->second->start();
+        }
     }
 
     void Wallet::send_tx_invitation(sender::InvitationData::Ptr data)
@@ -215,17 +219,13 @@ namespace beam
         {
             LOG_VERBOSE() << ReceiverPrefix << "Received tx invitation " << data->m_txId;
 
-            auto currentHeight = m_keyChain->getCurrentHeight();
-            if (currentHeight != data->m_height)
-            {
-                LOG_ERROR() << ReceiverPrefix << " invalid sender's height";
-                m_network.close_connection(from);
-                return;
-            }
             auto txId = data->m_txId;
             m_peers.emplace(txId, from);
             auto p = m_receivers.emplace(txId, make_unique<Receiver>(*this, m_keyChain, data));
-            p.first->second->start();
+            if (!m_syncing)
+            {
+                p.first->second->start();
+            }
         }
         else
         {
@@ -394,6 +394,18 @@ namespace beam
         Block::SystemState::ID newID = {0};
         msg.m_Description.get_ID(newID);
         m_keyChain->setSystemStateID(newID);
+        if (m_syncing)
+        {
+            m_syncing = false;
+            for (auto& s : m_senders)
+            {
+                s.second->start();
+            }
+            for (auto& r : m_receivers)
+            {
+                r.second->start();
+            }
+        }
     }
 
     void Wallet::handle_node_message(proto::Mined&& msg)

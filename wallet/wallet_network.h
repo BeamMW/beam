@@ -146,5 +146,6 @@ namespace beam
         io::Reactor::Scope m_reactor_scope;
         WalletNodeConnection m_node_connection;
         SerializedMsg m_msgToSend;
+        bool m_syncing;
     };
 }

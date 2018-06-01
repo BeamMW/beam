@@ -131,6 +131,7 @@ namespace beam::wallet
 
             Transaction::Ptr m_transaction;
             TxKernel* m_kernel;
+            Height m_height;
         };
 
         friend FSMHelper<Receiver>;

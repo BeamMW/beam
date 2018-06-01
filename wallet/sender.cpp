@@ -11,7 +11,8 @@ namespace beam::wallet
         // 1. Create transaction Uuid
         auto invitationData = make_shared<sender::InvitationData>();
         invitationData->m_txId = m_txId;
-		invitationData->m_height = m_keychain->getCurrentHeight();
+        Height currentHeight = m_keychain->getCurrentHeight();
+        invitationData->m_height = currentHeight;
 
         m_coins = m_keychain->getCoins(m_amount); // need to lock 
         if (m_coins.empty())
@@ -21,7 +22,7 @@ namespace beam::wallet
         }
         invitationData->m_amount = m_amount;
         m_kernel.m_Fee = 0;
-        m_kernel.m_HeightMin = 0; 
+        m_kernel.m_HeightMin = currentHeight;
         m_kernel.m_HeightMax = static_cast<Height>(-1);
         m_kernel.get_HashForSigning(invitationData->m_message);
         
@@ -53,7 +54,7 @@ namespace beam::wallet
             change -= m_amount;
             if (change > 0)
             {
-                m_changeOutput = beam::Coin(change, Coin::Unconfirmed);
+                m_changeOutput = beam::Coin(change, Coin::Unconfirmed, currentHeight);
                 Output::Ptr output = make_unique<Output>();
                 output->m_Coinbase = false;
                 Scalar::Native blindingFactor = m_keychain->calcKey(*m_changeOutput);

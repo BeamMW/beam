@@ -16,6 +16,7 @@ namespace beam::wallet
         , m_publicSenderNonce{ initData->m_publicSenderNonce }
         , m_transaction{ make_shared<Transaction>() }
         , m_receiver_coin{m_amount, Coin::Unconfirmed, initData->m_height}
+        , m_height{ initData->m_height }
     {
         m_transaction->m_Offset = ECC::Zero;
         m_transaction->m_vInputs = move(initData->m_inputs);
@@ -27,10 +28,17 @@ namespace beam::wallet
         LOG_INFO() << "Receiving " << PrintableAmount(m_amount);
         auto confirmationData = make_shared<receiver::ConfirmationData>();
         confirmationData->m_txId = m_txId;
+
+        auto currentHeight = m_keychain->getCurrentHeight();
+        if (currentHeight != m_height)
+        {
+            LOG_ERROR() << " Wallets are not in sync";
+            throw runtime_error("wallets are not in sync");
+        }
         
         TxKernel::Ptr kernel = make_unique<TxKernel>();
         kernel->m_Fee = 0;
-        kernel->m_HeightMin = 0;
+        kernel->m_HeightMin = m_keychain->getCurrentHeight();
         kernel->m_HeightMax = static_cast<Height>(-1);
         m_kernel = kernel.get();
         m_transaction->m_vKernelsOutput.push_back(move(kernel));
