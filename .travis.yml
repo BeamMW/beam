@@ -30,7 +30,8 @@ notifications:
   email:
     - big.romanov@gmail.com
 
-after_success: 
-  if: branch = master
-  script:
-    - deploy.sh
+deploy:
+  provider: script
+  script: bash ./deploy.sh
+  on:
+    branch: master
