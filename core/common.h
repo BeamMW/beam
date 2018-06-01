@@ -189,6 +189,8 @@ namespace beam
 		void Sort(); // w.r.t. the standard
 		size_t DeleteIntermediateOutputs(); // assumed to be already sorted. Retruns the num deleted
 
+		void TestNoNulls() const; // valid object should not have NULL members. Should be used during (de)serialization
+
 		// tests the validity of all the components, overall arithmetics, and the lexicographical order of the components.
 		// Determines the min/max block height that the transaction can fit, wrt component heights and maturity policies
 		// Does *not* check the existence of the input UTXOs

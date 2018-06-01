@@ -649,7 +649,9 @@ void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
 
 void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 {
-	// TODO: Verify all the Ptrs for being non-NULL (or better do this within serialization)
+	if (!msg.m_Transaction)
+		ThrowUnexpected(); // our deserialization permits NULL Ptrs.
+	// However the transaction body must have already been checked for NULLs
 
 	proto::Boolean msgOut;
 	msgOut.m_Value = true;
