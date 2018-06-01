@@ -31,4 +31,4 @@ notifications:
     - big.romanov@gmail.com
 
 after_success: 
-  - ./deploy.sh
+  - if [ "$TRAVIS_BRANCH" == "master" ]; ./deploy.sh; fi
