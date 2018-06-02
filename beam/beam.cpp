@@ -197,11 +197,16 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 		coin.m_status = Coin::Unconfirmed;
 		coin.m_height = h + Block::Rules::HeightGenesis;
 
+
 		m_vIncubationAndKeys[i].first = h;
-		m_vIncubationAndKeys[i].second = m_pKeyChain->calcKey(coin);
 	}
 
-	m_pKeyChain->store(m_Coins);
+	m_pKeyChain->store(m_Coins); // we get coin id only after store
+
+    for (uint32_t i = 0; i < nCount; ++i)
+    {
+        m_vIncubationAndKeys[i].second = m_pKeyChain->calcKey(m_Coins[i]);
+    }
 
 	m_vThreads.resize(std::thread::hardware_concurrency());
 	assert(!m_vThreads.empty());

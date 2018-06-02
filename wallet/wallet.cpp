@@ -330,7 +330,8 @@ namespace beam
 
         for (const auto& proof : proof.m_Proofs)
         {
-            m_keyChain->visit([&](const Coin& coin)
+            Input::Count count = proof.m_Count;
+            m_keyChain->visit([&](const Coin& coin)->bool
             {
                 if (coin.m_status == Coin::Unconfirmed)
                 {
@@ -340,7 +341,11 @@ namespace beam
                     {
                         found = coin;
                         found->m_status = Coin::Unspent;
-
+                        
+                        if (--count)
+                        {
+                            return true;
+                        }
                         return false;
                     }
                 }
@@ -351,11 +356,11 @@ namespace beam
 
         if (found)
         {
-            m_keyChain->store(*found);
+            m_keyChain->update(vector<Coin>{*found});
         }
         else
         {
-            // invalid proof!!!
+            LOG_ERROR() << "Got empty proof";
         }
         finishSync();
     }
@@ -387,7 +392,7 @@ namespace beam
                     proto::GetProofUtxo
                     {
                         Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) }
-                        , m_knownStateID.m_Height
+                        , coin.m_height
                     });
             }
 
