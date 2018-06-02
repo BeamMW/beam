@@ -7,20 +7,22 @@ namespace beam::wallet
 
     void Sender::FSMDefinition::init_tx(const msmf::none&)
     {
+        LOG_INFO() << "Sending " << PrintableAmount(m_amount);
         // 1. Create transaction Uuid
         auto invitationData = make_shared<sender::InvitationData>();
         invitationData->m_txId = m_txId;
-		invitationData->m_height = m_keychain->getCurrentHeight();
+        Height currentHeight = m_keychain->getCurrentHeight();
+        invitationData->m_height = currentHeight;
 
         m_coins = m_keychain->getCoins(m_amount); // need to lock 
         if (m_coins.empty())
         {
-            LOG_INFO() << "There is no money to pay " << m_amount;
+            LOG_ERROR() << "You only have " << PrintableAmount(get_total());
             throw runtime_error("no money");
         }
         invitationData->m_amount = m_amount;
         m_kernel.m_Fee = 0;
-        m_kernel.m_HeightMin = 0; 
+        m_kernel.m_HeightMin = currentHeight;
         m_kernel.m_HeightMax = static_cast<Height>(-1);
         m_kernel.get_HashForSigning(invitationData->m_message);
         
@@ -52,7 +54,7 @@ namespace beam::wallet
             change -= m_amount;
             if (change > 0)
             {
-                m_changeOutput = beam::Coin(change, Coin::Unconfirmed);
+                m_changeOutput = beam::Coin(change, Coin::Unconfirmed, currentHeight);
                 Output::Ptr output = make_unique<Output>();
                 output->m_Coinbase = false;
                 Scalar::Native blindingFactor = m_keychain->calcKey(*m_changeOutput);
@@ -155,7 +157,7 @@ namespace beam::wallet
 		m_keychain->update(m_coins);
 		if (m_changeOutput)
 		{
-			m_keychain->remove(vector<Coin> { *m_changeOutput });
+			m_keychain->remove(*m_changeOutput);
 		}
 	}
 
@@ -168,5 +170,24 @@ namespace beam::wallet
     void Sender::FSMDefinition::complete_tx()
     {
         LOG_DEBUG() << "[Sender] complete tx";
+    }
+
+    Amount Sender::FSMDefinition::get_total() const
+    {
+        auto currentHeight = m_keychain->getCurrentHeight();
+        Amount total = 0;
+        m_keychain->visit([&total, &currentHeight](const Coin& c)->bool
+        {
+            Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
+                ? Block::Rules::MaturityCoinbase
+                : Block::Rules::MaturityStd);
+
+            if (c.m_status == Coin::Unspent && lockHeight <= currentHeight)
+            {
+                total += c.m_amount;
+            }
+            return true;
+        });
+        return total;
     }
 }

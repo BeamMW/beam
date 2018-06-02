@@ -77,12 +77,31 @@ namespace beam
         case KeyType::Coinbase: os << "Coinbase"; break;
         case KeyType::Comission: os << "Commission"; break;
         case KeyType::Kernel: os << "Kernel"; break;
-        case KeyType::Regular: os << "Regualar"; break;
+        case KeyType::Regular: os << "Regular"; break;
         default:
             assert(false && "Unknown key type");
         }
         os << "]";
         return os;
+    }
+
+    Amount getTotal(beam::IKeyChain::Ptr keychain)
+    {
+        auto currentHeight = keychain->getCurrentHeight();
+        Amount total = 0;
+        keychain->visit([&total, &currentHeight](const Coin& c)->bool
+        {
+            Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
+                ? Block::Rules::MaturityCoinbase
+                : Block::Rules::MaturityStd);
+
+            if (c.m_status == Coin::Unspent && lockHeight <= currentHeight)
+            {
+                total += c.m_amount;
+            }
+            return true;
+        });
+        return total;
     }
 }
 namespace
@@ -178,11 +197,16 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 		coin.m_status = Coin::Unconfirmed;
 		coin.m_height = h + Block::Rules::HeightGenesis;
 
+
 		m_vIncubationAndKeys[i].first = h;
-		m_vIncubationAndKeys[i].second = m_pKeyChain->calcKey(coin);
 	}
 
-	m_pKeyChain->store(m_Coins);
+	m_pKeyChain->store(m_Coins); // we get coin id only after store
+
+    for (uint32_t i = 0; i < nCount; ++i)
+    {
+        m_vIncubationAndKeys[i].second = m_pKeyChain->calcKey(m_Coins[i]);
+    }
 
 	m_vThreads.resize(std::thread::hardware_concurrency());
 	assert(!m_vThreads.empty());
@@ -295,7 +319,7 @@ int main(int argc, char* argv[])
     po::options_description wallet_options("Wallet options");
     wallet_options.add_options()
         (cli::PASS, po::value<string>()->default_value(""), "password for the wallet")
-        (cli::AMOUNT_FULL, po::value<ECC::Amount>(), "amount to send")
+        (cli::AMOUNT_FULL, po::value<int64_t>(), "amount to send")
         (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
         (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
 		(cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
@@ -504,7 +528,7 @@ int main(int argc, char* argv[])
                     auto keychain = Keychain::open(pass);
                     if (!keychain)
                     {
-                        LOG_ERROR() << "something went wrong, wallet not opened...";
+                        LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";
                         return -1;
                     }
 
@@ -526,11 +550,12 @@ int main(int argc, char* argv[])
                     if (command == cli::INFO)
                     {
                         cout << "____Wallet summary____\n\n";
+                        cout << "Total unspent:" << PrintableAmount(getTotal(keychain)) << "\n\n";
                         cout << "| id\t| amount\t| height\t| status\t| key type\t|\n";
                         keychain->visit([](const Coin& c)->bool
                         {
                             cout << setw(8) << c.m_id
-                                 << setw(16) << c.m_amount
+                                 << setw(16) << PrintableAmount(c.m_amount)
                                  << setw(16) << c.m_height
                                  << "  " << c.m_status << '\t'
                                  << "  " << c.m_key_type << '\n';
@@ -545,7 +570,6 @@ int main(int argc, char* argv[])
                         return -1;
                     }
  
-                    // resolve address after network io
                     string nodeURI = vm[cli::NODE_ADDR].as<string>();
                     io::Address node_addr;
                     if (!node_addr.resolve(nodeURI.c_str()))
@@ -553,14 +577,9 @@ int main(int argc, char* argv[])
                         LOG_ERROR() << "unable to resolve node address: " << nodeURI;
                         return -1;
                     }
-                    bool is_server = command == cli::LISTEN;
-                    WalletNetworkIO wallet_io{ io::Address().ip(INADDR_ANY).port(port)
-                                             , node_addr
-                                             , is_server
-                                             , keychain
-                                             , reactor};
 
                     io::Address receiverAddr;
+                    ECC::Amount amount = 0;
                     if (command == cli::SEND)
                     {
                         if (vm.count(cli::RECEIVER_ADDR) == 0)
@@ -579,12 +598,31 @@ int main(int argc, char* argv[])
                             LOG_ERROR() << "unable to resolve receiver address: " << receiverURI;
                             return -1;
                         }
-                        auto amount = vm[cli::AMOUNT].as<ECC::Amount>();
+                        auto signedAmount = vm[cli::AMOUNT].as<int64_t>();
+                        if (signedAmount < 0)
+                        {
+                            LOG_ERROR() << "Unable to send negative amount of coins";
+                            return -1;
+                        }
 
-                        LOG_INFO() << "sending money " << receiverAddr.str();
-                        wallet_io.transfer_money(receiverAddr, move(amount));
+                        amount = static_cast<ECC::Amount>(signedAmount);
+                        if (amount == 0)
+                        {
+                            LOG_ERROR() << "Unable to send zero coins";
+                            return -1;
+                        }
                     }
 
+                    bool is_server = command == cli::LISTEN;
+                    WalletNetworkIO wallet_io{ io::Address().ip(INADDR_ANY).port(port)
+                        , node_addr
+                        , is_server
+                        , keychain
+                        , reactor };
+                    if (command == cli::SEND)
+                    {
+                        wallet_io.transfer_money(receiverAddr, move(amount));
+                    }
                     wallet_io.start();
                 }
                 else

@@ -187,18 +187,17 @@ namespace beam
         };
     }
 
-    Coin::Coin()
-		: m_status(Unspent)
-    {
-
-    }
-
     Coin::Coin(const Amount& amount, Status status, const Height& height, KeyType keyType)
         : m_id{0}
         , m_amount{amount}
         , m_status{status}
         , m_height{height}
         , m_key_type{ keyType }
+    {
+
+    }
+
+    Coin::Coin() : Coin(0)
     {
 
     }
@@ -386,7 +385,7 @@ namespace beam
 							? Block::Rules::MaturityCoinbase 
 							: Block::Rules::MaturityStd);
 
-						if (lockHeight >= stateID.m_Height)
+						if (lockHeight <= stateID.m_Height)
 						{
 							if (lock)
 							{

@@ -400,6 +400,7 @@ void Node::Peer::OnTimer()
 		assert(m_iPeer >= 0);
 
 		try {
+            m_eState = State::Connecting;
 			Connect(m_pThis->m_Cfg.m_Connect[m_iPeer]);
 		} catch (...) {
 			OnPostError();
@@ -441,7 +442,7 @@ void Node::Peer::OnConnected()
 
 void Node::Peer::OnClosed(int errorCode)
 {
-	assert(State::Connected == m_eState);
+	assert(State::Connected == m_eState || State::Connecting == m_eState);
 	if (-1 == errorCode) // protocol error
 		m_eState = State::Snoozed;
 	OnPostError();

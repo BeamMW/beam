@@ -16,6 +16,7 @@ namespace beam::wallet
         , m_publicSenderNonce{ initData->m_publicSenderNonce }
         , m_transaction{ make_shared<Transaction>() }
         , m_receiver_coin{m_amount, Coin::Unconfirmed, initData->m_height}
+        , m_height{ initData->m_height }
     {
         m_transaction->m_Offset = ECC::Zero;
         m_transaction->m_vInputs = move(initData->m_inputs);
@@ -24,12 +25,13 @@ namespace beam::wallet
 
     void Receiver::FSMDefinition::confirm_tx(const msmf::none&)
     {
+        LOG_INFO() << "Receiving " << PrintableAmount(m_amount);
         auto confirmationData = make_shared<receiver::ConfirmationData>();
         confirmationData->m_txId = m_txId;
-        
+
         TxKernel::Ptr kernel = make_unique<TxKernel>();
         kernel->m_Fee = 0;
-        kernel->m_HeightMin = 0;
+        kernel->m_HeightMin = m_height;
         kernel->m_HeightMax = static_cast<Height>(-1);
         m_kernel = kernel.get();
         m_transaction->m_vKernelsOutput.push_back(move(kernel));
@@ -115,20 +117,20 @@ namespace beam::wallet
 
     void Receiver::FSMDefinition::rollback_tx(const TxFailed& event)
     {
-        LOG_DEBUG() << "[Receiver] rollback_tx";
-        m_keychain->remove(vector<Coin> { m_receiver_coin });
+        LOG_VERBOSE() << "[Receiver] rollback_tx";
+        m_keychain->remove(m_receiver_coin);
     }
 
     void Receiver::FSMDefinition::cancel_tx(const TxConfirmationCompleted& )
     {
-        LOG_DEBUG() << "[Receiver] cancel_tx";
-        m_keychain->remove(vector<Coin> { m_receiver_coin });
+        LOG_VERBOSE() << "[Receiver] cancel_tx";
+        m_keychain->remove(m_receiver_coin);
     }
 
     void Receiver::FSMDefinition::complete_tx(const TxRegistrationCompleted& )
     {
-        LOG_DEBUG() << "[Receiver] complete tx";
-
+        LOG_VERBOSE() << "[Receiver] complete tx";
+        LOG_INFO() << "Transaction completed and sent to node";
 		m_gateway.send_tx_registered(make_unique<Uuid>(m_txId));
     }
 }
