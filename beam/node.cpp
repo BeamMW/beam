@@ -209,7 +209,7 @@ bool Node::Processor::VerifyBlock(const Block::Body& block, Height h0, Height h1
 	vctx.m_pTx = &block;
 	vctx.m_bAbort = false;
 	vctx.m_Remaining = nThreads;
-	vctx.m_Context.m_bRangeMode = true;
+	vctx.m_Context.m_bBlockMode = true;
 	vctx.m_Context.m_hMin = h0;
 	vctx.m_Context.m_hMax = h1;
 	vctx.m_Context.m_nVerifiers = nThreads;
@@ -239,7 +239,7 @@ void Node::Processor::VerifierContext::Proceed(VerifierContext* pVctx, uint32_t 
 	VerifierContext& vctx = *pVctx;
 
 	TxBase::Context ctx;
-	ctx.m_bRangeMode = true;
+	ctx.m_bBlockMode = true;
 	ctx.m_hMin = vctx.m_Context.m_hMin;
 	ctx.m_hMax = vctx.m_Context.m_hMax;
 	ctx.m_nVerifiers = vctx.m_Context.m_nVerifiers;

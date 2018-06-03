@@ -275,7 +275,7 @@ namespace beam
 		ZeroObject(m_Coinbase);
 		m_hMin = 0;
 		m_hMax = -1;
-		m_bRangeMode = false;
+		m_bBlockMode = false;
 		m_nVerifiers = 1;
 		m_iVerifier = 0;
 		m_pAbort = NULL;
@@ -311,7 +311,7 @@ namespace beam
 		if (h0 > h1)
 			return false;
 
-		if (!m_bRangeMode)
+		if (!m_bBlockMode)
 		{
 			// shrink permitted range
 			m_hMin = h0;
@@ -323,7 +323,7 @@ namespace beam
 
 	bool TxBase::Context::Merge(const Context& x)
 	{
-		assert(m_bRangeMode == x.m_bRangeMode);
+		assert(m_bBlockMode == x.m_bBlockMode);
 
 		if (!HandleElementHeight(x.m_hMin, x.m_hMax))
 			return false;
@@ -432,8 +432,21 @@ namespace beam
 
 			if (v.m_Coinbase)
 			{
-				assert(v.m_pPublic);
+				if (!ctx.m_bBlockMode)
+					return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
+
+				assert(v.m_pPublic); // must have already been checked
 				ctx.m_Coinbase += v.m_pPublic->m_Value;
+			}
+
+			if (v.m_hDelta)
+			{
+				if (!ctx.m_bBlockMode)
+					return false; // this should only be used in merged blocks
+				
+				Height h = ctx.m_hMin + v.m_hDelta;
+				if ((h < ctx.m_hMin) || (h > ctx.m_hMax))
+					return false;
 			}
 		}
 
@@ -554,8 +567,7 @@ namespace beam
 
 	bool TxBase::Context::IsValidTransaction()
 	{
-		if (m_Coinbase.Lo || m_Coinbase.Hi)
-			return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
+		assert(!(m_Coinbase.Lo || m_Coinbase.Hi)); // must have already been checked
 
 		m_Fee.AddTo(m_Sigma);
 
@@ -765,7 +777,7 @@ namespace beam
 		Context ctx;
 		ctx.m_hMin = h0;
 		ctx.m_hMax = h1;
-		ctx.m_bRangeMode = true;
+		ctx.m_bBlockMode = true;
 
 		return
 			ValidateAndSummarize(ctx) &&

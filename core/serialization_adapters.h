@@ -268,7 +268,8 @@ namespace detail
 				(output.m_Coinbase ? 2 : 0) |
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
-				(output.m_Incubation ? 0x10 : 0);
+				(output.m_Incubation ? 0x10 : 0) |
+				(output.m_hDelta ? 0x20 : 0);
 
 			ar
 				& nFlags
@@ -282,6 +283,9 @@ namespace detail
 
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
+
+			if (output.m_hDelta)
+				ar & output.m_hDelta;
 
             return ar;
         }
@@ -305,6 +309,9 @@ namespace detail
 
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
+
+			if (0x20 & nFlags)
+				ar & output.m_hDelta;
 
             return ar;
         }

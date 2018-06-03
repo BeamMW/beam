@@ -102,10 +102,12 @@ namespace beam
 		ECC::Point	m_Commitment;
 		bool		m_Coinbase;
 		Height		m_Incubation; // # of blocks before it's mature
+		Height		m_hDelta;
 
 		Output()
 			:m_Coinbase(false)
 			,m_Incubation(0)
+			,m_hDelta(0)
 		{
 		}
 
