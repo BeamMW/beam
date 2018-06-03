@@ -41,6 +41,8 @@ class NodeProcessor
 	uint8_t get_NextDifficulty();
 	Timestamp get_MovingMedian();
 
+	struct UtxoSig;
+
 public:
 
 	typedef NodeDB::PeerID PeerID;

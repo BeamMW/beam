@@ -616,6 +616,25 @@ bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd, Height h, Roll
 	return true;
 }
 
+struct NodeProcessor::UtxoSig
+{
+	bool	m_Coinbase;
+	Height	m_Incubation; // # of blocks before it's mature
+
+	std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
+	std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
+
+	template <typename Archive>
+	void serialize(Archive& ar)
+	{
+		ar
+			& m_Coinbase
+			& m_Incubation
+			& m_pConfidential
+			& m_pPublic;
+	}
+};
+
 bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 {
 	UtxoTree::Key::Data d;
@@ -644,10 +663,20 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 			p->m_Value.m_Count = 1;
 
 			Serializer ser;
-			if (v.m_pConfidential)
-				ser & *v.m_pConfidential;
-			else
-				ser & *v.m_pPublic;
+
+			{
+				UtxoSig sig;
+				sig.m_Coinbase = v.m_Coinbase;
+				sig.m_Incubation = v.m_Incubation;
+				sig.m_pConfidential.swap(((Output&) v).m_pConfidential);
+				sig.m_pPublic.swap(((Output&)v).m_pPublic);
+
+				ser & sig;
+
+				sig.m_pConfidential.swap(((Output&)v).m_pConfidential);
+				sig.m_pPublic.swap(((Output&)v).m_pPublic);
+			}
+
 
 			SerializeBuffer sb = ser.buffer();
 
