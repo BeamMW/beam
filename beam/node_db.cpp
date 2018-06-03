@@ -1336,7 +1336,10 @@ void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
 
 void NodeDB::EnumUnpsent(WalkerSpendable& x)
 {
-	x.m_Rs.Reset(Query::SpendableEnum, "SELECT " TblSpendable_Key "," TblSpendable_Unspent " FROM " TblSpendable " WHERE " TblSpendable_Unspent "!=0");
+	if (x.m_bWithSignature)
+		x.m_Rs.Reset(Query::SpendableEnumWithSig, "SELECT " TblSpendable_Key "," TblSpendable_Unspent "," TblSpendable_Body " FROM " TblSpendable " WHERE " TblSpendable_Unspent "!=0");
+	else
+		x.m_Rs.Reset(Query::SpendableEnum, "SELECT " TblSpendable_Key "," TblSpendable_Unspent " FROM " TblSpendable " WHERE " TblSpendable_Unspent "!=0");
 }
 
 bool NodeDB::WalkerSpendable::MoveNext()
@@ -1345,6 +1348,10 @@ bool NodeDB::WalkerSpendable::MoveNext()
 		return false;
 	m_Rs.get(0, m_Key);
 	m_Rs.get(1, m_nUnspentCount);
+
+	if (m_bWithSignature)
+		m_Rs.get(2, m_Signature);
+
 	return true;
 }
 

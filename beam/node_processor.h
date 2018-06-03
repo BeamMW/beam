@@ -42,6 +42,7 @@ class NodeProcessor
 	Timestamp get_MovingMedian();
 
 	struct UtxoSig;
+	struct UnspentWalker;
 
 public:
 
@@ -61,6 +62,8 @@ public:
 
 	bool get_CurrentState(Block::SystemState::ID&); // returns false if no valid states so far
 	bool get_CurrentState(Block::SystemState::Full&);
+
+	void ExportMacroBlock(Block::Body&); // can be time-consuming
 
 	struct DataStatus {
 		enum Enum {
