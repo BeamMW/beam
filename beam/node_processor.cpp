@@ -444,6 +444,18 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 		m_DB.ParamSet(NodeDB::ParamID::StateExtra, NULL, &blob);
 
+		AmountBig subsidy;
+		subsidy.Lo = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
+		subsidy.Hi = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
+
+		if (bFwd)
+			subsidy += block.m_Subsidy;
+		else
+			subsidy -= block.m_Subsidy;
+
+		m_DB.ParamSet(NodeDB::ParamID::SubsidyLo, &subsidy.Lo, NULL);
+		m_DB.ParamSet(NodeDB::ParamID::SubsidyHi, &subsidy.Hi, NULL);
+
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
 

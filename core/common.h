@@ -44,7 +44,9 @@ namespace beam
 		Amount Hi;
 
 		void operator += (const Amount);
+		void operator -= (const Amount);
 		void operator += (const AmountBig&);
+		void operator -= (const AmountBig&);
 
 		void Export(ECC::uintBig&) const;
 		void AddTo(ECC::Point::Native&) const;

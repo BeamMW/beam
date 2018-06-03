@@ -612,10 +612,23 @@ namespace beam
 			Hi++;
 	}
 
+	void AmountBig::operator -= (Amount x)
+	{
+		if (Lo < x)
+			Hi--;
+		Lo -= x;
+	}
+
 	void AmountBig::operator += (const AmountBig& x)
 	{
 		operator += (x.Lo);
 		Hi += x.Hi;
+	}
+
+	void AmountBig::operator -= (const AmountBig& x)
+	{
+		operator -= (x.Lo);
+		Hi -= x.Hi;
 	}
 
 	void AmountBig::Export(ECC::uintBig& x) const

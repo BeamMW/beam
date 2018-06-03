@@ -23,6 +23,8 @@ public:
 			CursorHeight,
 			StateExtra,
 			FossilHeight,
+			SubsidyLo,
+			SubsidyHi,
 		};
 	};
 
