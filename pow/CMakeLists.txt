@@ -11,6 +11,11 @@ set(POW_SRC
 )
 
 set_source_files_properties(impl/crypto/equihash_impl.cpp PROPERTIES COMPILE_FLAGS -w)
+
+if(UNIX)
+    set_source_files_properties(impl/crypto/equihash_impl.cpp PROPERTIES COMPILE_FLAGS -O2)
+endif()
+
 add_library(pow STATIC ${POW_SRC})
 add_dependencies(pow crypto)
 target_link_libraries(pow crypto)

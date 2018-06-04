@@ -32,7 +32,7 @@ namespace beam::wallet
         TxKernel::Ptr kernel = make_unique<TxKernel>();
         kernel->m_Fee = 0;
         kernel->m_HeightMin = m_height;
-        kernel->m_HeightMax = static_cast<Height>(-1);
+        kernel->m_HeightMax = MaxHeight;
         m_kernel = kernel.get();
         m_transaction->m_vKernelsOutput.push_back(move(kernel));
 
@@ -112,17 +112,22 @@ namespace beam::wallet
         beam::TxBase::Context ctx;
         assert(m_transaction->IsValid(ctx));
 
+        auto c = Commitment{ m_keychain->calcKey(m_receiver_coin), m_receiver_coin.m_amount };
+        LOG_DEBUG() << "Receiver's commitment: " << c;
+
         m_gateway.register_tx(m_txId, m_transaction);
     }
 
     void Receiver::FSMDefinition::rollback_tx(const TxFailed& event)
     {
+        LOG_DEBUG() << "Transaction failed. Rollback...";
         LOG_VERBOSE() << "[Receiver] rollback_tx";
         m_keychain->remove(m_receiver_coin);
     }
 
     void Receiver::FSMDefinition::cancel_tx(const TxConfirmationCompleted& )
     {
+        LOG_DEBUG() << "Transaction failed. Rollback...";
         LOG_VERBOSE() << "[Receiver] cancel_tx";
         m_keychain->remove(m_receiver_coin);
     }

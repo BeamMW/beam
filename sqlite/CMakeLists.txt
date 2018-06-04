@@ -18,11 +18,15 @@ endif()
 
 # cmake can't find static lib on macos, harcoded
 if(APPLE)
-    set(STATIC_OPENSSL /usr/local/opt/openssl/lib/libcrypto.a)
+    set(STATIC_OPENSSL $ENV{OPENSSL_ROOT_DIR}/lib/libcrypto.a)
 elseif(UNIX)
     set(STATIC_OPENSSL /usr/lib/x86_64-linux-gnu/libcrypto.a)
-else()
-    set(STATIC_OPENSSL OpenSSL::Crypto)
+elseif(MSVC)
+    set(STATIC_OPENSSL $ENV{OPENSSL_ROOT_DIR}/lib/VC/static/libcrypto64MT.lib crypt32.lib)
+
+	if(MSVC_VERSION GREATER_EQUAL 1900)
+		set(STATIC_OPENSSL ${STATIC_OPENSSL} legacy_stdio_definitions.lib)
+	endif()
 endif()
 
 add_library(sqlite STATIC ${SQLITE_SRC})

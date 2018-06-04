@@ -108,6 +108,8 @@ namespace beam
         std::map<Uuid, wallet::Receiver::Ptr> m_receivers;
         std::vector<wallet::Sender::Ptr>      m_removed_senders;
         std::vector<wallet::Receiver::Ptr>    m_removed_receivers;
+        std::vector<wallet::Sender::Ptr>      m_pendingSenders;
+        std::vector<wallet::Receiver::Ptr>    m_pendingReceivers;
         TxCompletedAction m_tx_completed_action;
         std::queue<Uuid> m_node_requests_queue;
         Merkle::Hash m_Definition;

@@ -52,11 +52,12 @@ namespace beam
         auto width = os.width();
         if (amount.m_value > Block::Rules::Coin)
         {
-            os << setw(width - beams.length()) << Amount(amount.m_value / Block::Rules::Coin) << beams.data();
+            os << setw(width - beams.length()) << Amount(amount.m_value / Block::Rules::Coin) << beams.data() << ' ';
         }
-        else
+        Amount c = amount.m_value % Block::Rules::Coin;
+        if (c > 0 || amount.m_value == 0)
         {
-            os << setw(width - chattles.length()) << amount.m_value << chattles.data();
+            os << setw(width - chattles.length()) << c << chattles.data();
         }
         return os;
     }
@@ -126,11 +127,15 @@ namespace beam
         Uuid txId;
         copy(id.begin(), id.end(), txId.begin());
         m_peers.emplace(txId, to);
-        auto s = make_unique<Sender>(*this, m_keyChain, txId, amount);
-        auto p = m_senders.emplace(txId, move(s));
+        auto s = make_shared<Sender>(*this, m_keyChain, txId, amount);
+        auto p = m_senders.emplace(txId, s);
         if (!m_syncing)
         {
             p.first->second->start();
+        }
+        else
+        {
+            m_pendingSenders.emplace_back(s);
         }
     }
 
@@ -223,10 +228,14 @@ namespace beam
 
             auto txId = data->m_txId;
             m_peers.emplace(txId, from);
-            auto p = m_receivers.emplace(txId, make_unique<Receiver>(*this, m_keyChain, data));
+            auto p = m_receivers.emplace(txId, make_shared<Receiver>(*this, m_keyChain, data));
             if (!m_syncing)
             {
                 p.first->second->start();
+            }
+            else
+            {
+                m_pendingReceivers.emplace_back(p.first->second);
             }
         }
         else
@@ -326,7 +335,7 @@ namespace beam
     void Wallet::handle_node_message(proto::ProofUtxo&& proof)
     {
         // TODO: handle the maturity of the several proofs (> 1)
-        boost::optional<Coin> found;
+        vector<Coin> found;
 
         for (const auto& proof : proof.m_Proofs)
         {
@@ -339,8 +348,9 @@ namespace beam
                 
                     if (proof.IsValid(input, m_Definition))
                     {
-                        found = coin;
-                        found->m_status = Coin::Unspent;
+                        auto& c = found.emplace_back(coin);
+                        c.m_status = Coin::Unspent;
+                        c.m_maturity = proof.m_Maturity;
                         
                         if (--count)
                         {
@@ -354,9 +364,9 @@ namespace beam
             });
         }
 
-        if (found)
+        if (!found.empty())
         {
-            m_keyChain->update(vector<Coin>{*found});
+            m_keyChain->update(found);
         }
         else
         {
@@ -388,11 +398,14 @@ namespace beam
             if (coin.m_status == Coin::Unconfirmed)
             {
                 ++m_syncing;
+                auto input = Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
+                LOG_DEBUG() << "Get proof: " << input.m_Commitment;
                 m_network.send_node_message(
                     proto::GetProofUtxo
                     {
-                        Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) }
-                        , coin.m_height
+                        input
+                        //Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) }
+                        , 0
                     });
             }
 
@@ -415,11 +428,19 @@ namespace beam
             {
                 Amount reward = Block::Rules::CoinbaseEmission;
                 // coinbase 
-                mined.emplace_back(Block::Rules::CoinbaseEmission, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Coinbase);
+                mined.emplace_back(Block::Rules::CoinbaseEmission
+                                 , Coin::Unspent
+                                 , minedCoin.m_ID.m_Height
+                                 , minedCoin.m_ID.m_Height + Block::Rules::MaturityCoinbase
+                                 , KeyType::Coinbase);
                 if (minedCoin.m_Fees > 0)
                 {
                     reward += minedCoin.m_Fees;
-                    mined.emplace_back(minedCoin.m_Fees, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Comission);
+                    mined.emplace_back(minedCoin.m_Fees
+                                     , Coin::Unspent
+                                     , minedCoin.m_ID.m_Height
+                                     , minedCoin.m_ID.m_Height + Block::Rules::MaturityStd
+                                     , KeyType::Comission);
                 }
                 LOG_INFO() << "Block reward received: " << PrintableAmount(reward);
             }
@@ -473,13 +494,25 @@ namespace beam
             {
                 m_keyChain->setSystemStateID(m_newStateID);
                 m_knownStateID = m_newStateID;
-                for (auto& s : m_senders)
+                if (!m_pendingSenders.empty())
                 {
-                    s.second->start();
+                    Cleaner<std::vector<wallet::Sender::Ptr> > cr{ m_removed_senders };
+                    
+                    for (auto& s : m_pendingSenders)
+                    {
+                        s->start();
+                    }
+                    m_pendingSenders.clear();
                 }
-                for (auto& r : m_receivers)
+
+                if (!m_pendingReceivers.empty())
                 {
-                    r.second->start();
+                    Cleaner<std::vector<wallet::Receiver::Ptr> > cr{ m_removed_receivers };
+                    for (auto& r : m_pendingReceivers)
+                    {
+                        r->start();
+                    }
+                    m_pendingReceivers.clear();
                 }
             }
         }

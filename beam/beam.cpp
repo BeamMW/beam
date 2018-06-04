@@ -110,6 +110,33 @@ namespace
     {
         cout << options << std::endl;
     }
+
+    void readTreasuryFile(beam::Node& node, const string& sPath)
+    {
+        if (!sPath.empty())
+        {
+            Block::Body block;
+
+            {
+                std::ifstream f(sPath, std::ifstream::binary);
+                if (f.fail())
+                {
+                    LOG_INFO() << "can't open treasury file";
+                    return;
+                }
+
+                std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+
+                Deserializer der;
+                der.reset(&vContents.at(0), vContents.size());
+
+                der & block;
+            }
+
+            node.GenerateGenesisBlock(block);
+        }
+
+    }
 }
 
 struct SerializerFile {
@@ -319,7 +346,7 @@ int main(int argc, char* argv[])
     po::options_description wallet_options("Wallet options");
     wallet_options.add_options()
         (cli::PASS, po::value<string>()->default_value(""), "password for the wallet")
-        (cli::AMOUNT_FULL, po::value<int64_t>(), "amount to send")
+        (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 1000000 chattle)")
         (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
         (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
 		(cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
@@ -432,28 +459,7 @@ int main(int argc, char* argv[])
                 if (vm.count(cli::TREASURY_BLOCK))
                 {
                     string sPath = vm[cli::TREASURY_BLOCK].as<string>();
-                    if (!sPath.empty())
-                    {
-                        Block::Body block;
-
-                        {
-                            std::ifstream f(sPath, std::ifstream::binary);
-                            if (f.fail())
-                            {
-                                LOG_ERROR() << "can't open treasury file";
-                                return -1;
-                            }
-
-                            std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-
-                            Deserializer der;
-                            der.reset(&vContents.at(0), vContents.size());
-
-                            der & block;
-                        }
-
-                        node.GenerateGenesisBlock(block);
-                    }
+                    readTreasuryFile(node, sPath);
                 }
 
                 reactor->run();
@@ -505,16 +511,6 @@ int main(int argc, char* argv[])
                         if (keychain)
                         {
                             LOG_INFO() << "wallet successfully created...";
-                            if (debug)
-                            {
-                                for(auto amount : {5, 10, 20, 50, 100, 200, 500})
-                                {
-                                    Coin coin(amount);
-                                    keychain->store(coin);
-                                }
-
-                                LOG_INFO() << "wallet with coins successfully created...";
-                            }
                             return 0;
                         }
                         else
@@ -551,12 +547,13 @@ int main(int argc, char* argv[])
                     {
                         cout << "____Wallet summary____\n\n";
                         cout << "Total unspent:" << PrintableAmount(getTotal(keychain)) << "\n\n";
-                        cout << "| id\t| amount\t| height\t| status\t| key type\t|\n";
+                        cout << "| id\t| amount\t| height\t| maturity\t| status\t| key type\t|\n";
                         keychain->visit([](const Coin& c)->bool
                         {
                             cout << setw(8) << c.m_id
                                  << setw(16) << PrintableAmount(c.m_amount)
                                  << setw(16) << c.m_height
+                                 << setw(16) << c.m_maturity
                                  << "  " << c.m_status << '\t'
                                  << "  " << c.m_key_type << '\n';
                             return true;
@@ -598,12 +595,14 @@ int main(int argc, char* argv[])
                             LOG_ERROR() << "unable to resolve receiver address: " << receiverURI;
                             return -1;
                         }
-                        auto signedAmount = vm[cli::AMOUNT].as<int64_t>();
+                        auto signedAmount = vm[cli::AMOUNT].as<double>();
                         if (signedAmount < 0)
                         {
                             LOG_ERROR() << "Unable to send negative amount of coins";
                             return -1;
                         }
+
+                        signedAmount *= Block::Rules::Coin; // convert beams to coins
 
                         amount = static_cast<ECC::Amount>(signedAmount);
                         if (amount == 0)

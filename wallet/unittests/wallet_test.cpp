@@ -92,9 +92,6 @@ namespace
     {
         SqliteKeychainInt()
         {
-            Block::SystemState::ID id = { 0 };
-            id.m_Height = 134;
-            setSystemStateID(id);
             for (auto amount : {5, 2, 1})
             {
                 Coin coin(amount);

@@ -34,6 +34,7 @@ namespace beam
 	// sorry for replacing 'using' by 'typedefs', some compilers don't support it
 	typedef uint64_t Timestamp;
 	typedef uint64_t Height;
+    const Height MaxHeight = static_cast<Height>(-1);
 	typedef ECC::uintBig_t<256> uint256_t;
 	typedef std::vector<uint8_t> ByteBuffer;
 	typedef ECC::Amount Amount;

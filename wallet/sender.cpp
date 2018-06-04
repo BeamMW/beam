@@ -23,7 +23,7 @@ namespace beam::wallet
         invitationData->m_amount = m_amount;
         m_kernel.m_Fee = 0;
         m_kernel.m_HeightMin = currentHeight;
-        m_kernel.m_HeightMax = static_cast<Height>(-1);
+        m_kernel.m_HeightMax = MaxHeight;
         m_kernel.get_HashForSigning(invitationData->m_message);
         
         // 2. Set lock_height for output (current chain height)
@@ -139,17 +139,18 @@ namespace beam::wallet
 
     void Sender::FSMDefinition::rollback_tx(const TxFailed& )
     {
-		rollback_tx();
+        rollback_tx();
     }
 
     void Sender::FSMDefinition::cancel_tx(const TxInitCompleted& )
     {
-		rollback_tx();
+        rollback_tx();
     }
 
 
 	void Sender::FSMDefinition::rollback_tx()
 	{
+        LOG_DEBUG() << "Transaction failed. Rollback...";
 		for (auto& c : m_coins)
 		{
 			c.m_status = Coin::Unspent;
@@ -169,7 +170,7 @@ namespace beam::wallet
 
     void Sender::FSMDefinition::complete_tx()
     {
-        LOG_DEBUG() << "[Sender] complete tx";
+        LOG_DEBUG() << "Transaction completed";
     }
 
     Amount Sender::FSMDefinition::get_total() const
@@ -178,11 +179,7 @@ namespace beam::wallet
         Amount total = 0;
         m_keychain->visit([&total, &currentHeight](const Coin& c)->bool
         {
-            Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
-                ? Block::Rules::MaturityCoinbase
-                : Block::Rules::MaturityStd);
-
-            if (c.m_status == Coin::Unspent && lockHeight <= currentHeight)
+            if (c.m_status == Coin::Unspent && c.m_maturity <= currentHeight)
             {
                 total += c.m_amount;
             }
