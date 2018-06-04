@@ -68,6 +68,7 @@ public:
 		Block::SystemState::Full m_Full;
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
+		uint8_t m_DifficultyNext;
 
 	} m_Cursor;
 

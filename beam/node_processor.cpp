@@ -137,6 +137,8 @@ void NodeProcessor::InitCursor()
 			m_DB.get_PredictedStatesHash(m_Cursor.m_History, sid);
 		else
 			ZeroObject(m_Cursor.m_History);
+
+		m_Cursor.m_DifficultyNext = get_NextDifficulty();
 	}
 	else
 		ZeroObject(m_Cursor);
@@ -418,10 +420,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		{
 			bFirstTime = true;
 
-			uint8_t nDifficulty = get_NextDifficulty();
-			if (nDifficulty != s.m_PoW.m_Difficulty)
+			if (m_Cursor.m_DifficultyNext != s.m_PoW.m_Difficulty)
 			{
-				LOG_WARNING() << id << " Difficulty expected=" << uint32_t(nDifficulty) << ", actual=" << uint32_t(s.m_PoW.m_Difficulty);
+				LOG_WARNING() << id << " Difficulty expected=" << uint32_t(m_Cursor.m_DifficultyNext) << ", actual=" << uint32_t(s.m_PoW.m_Difficulty);
 				return false;
 			}
 
@@ -1254,7 +1255,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	get_Definition(s.m_Definition, m_Cursor.m_HistoryNext);
 
 	s.m_Height = h;
-	s.m_PoW.m_Difficulty = get_NextDifficulty();
+	s.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
 	s.m_TimeStamp = time(NULL); // TODO: 64-bit time
 
 	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
@@ -1450,6 +1451,8 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 		verify(HandleValidatedTx(block, Block::Rules::HeightGenesis, false, rbData));
 
 		// DB changes are not reverted explicitly, but they will be reverted by DB transaction rollback.
+
+		ZeroObject(m_Cursor);
 
 		return false;
 	}
