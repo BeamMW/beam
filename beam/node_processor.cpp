@@ -129,6 +129,14 @@ void NodeProcessor::InitCursor()
 	{
 		m_DB.get_State(m_Cursor.m_Sid.m_Row, m_Cursor.m_Full);
 		m_Cursor.m_Full.get_ID(m_Cursor.m_ID);
+
+		m_DB.get_PredictedStatesHash(m_Cursor.m_HistoryNext, m_Cursor.m_Sid);
+
+		NodeDB::StateID sid = m_Cursor.m_Sid;
+		if (m_DB.get_Prev(sid))
+			m_DB.get_PredictedStatesHash(m_Cursor.m_History, sid);
+		else
+			ZeroObject(m_Cursor.m_History);
 	}
 	else
 		ZeroObject(m_Cursor);
@@ -332,23 +340,8 @@ void NodeProcessor::get_CurrentLive(Merkle::Hash& hv)
 	Merkle::Interpret(hv, hv2, true);
 }
 
-void NodeProcessor::get_History(Merkle::Hash& hv, const NodeDB::StateID& sidPrev)
+void NodeProcessor::get_Definition(Merkle::Hash& hv, const Merkle::Hash& hvHist)
 {
-	if (sidPrev.m_Row)
-	{
-		assert(sidPrev.m_Height >= Block::Rules::HeightGenesis);
-		m_DB.get_PredictedStatesHash(hv, sidPrev);
-	}
-	else
-		ZeroObject(hv);
-}
-
-void NodeProcessor::get_Definition(Merkle::Hash& hv, const NodeDB::StateID& sidPrev)
-{
-	Merkle::Hash hvHist;
-	get_History(hvHist, sidPrev);
-
-	// check the validity of state description.
 	get_CurrentLive(hv);
 	Merkle::Interpret(hv, hvHist, false);
 }
@@ -461,15 +454,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	if (bFirstTime && bOk)
 	{
 		// check the validity of state description.
-		NodeDB::StateID sidPrev = sid;
-		if (!m_DB.get_Prev(sidPrev))
-		{
-			assert(Block::Rules::HeightGenesis == sid.m_Height);
-			ZeroObject(sidPrev);
-		}
-
 		Merkle::Hash hvDef;
-		get_Definition(hvDef, sidPrev);
+		get_Definition(hvDef, m_Cursor.m_HistoryNext);
 
 		if (s.m_Definition != hvDef)
 		{
@@ -1265,7 +1251,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	else
 		ZeroObject(s.m_Prev);
 
-	get_Definition(s.m_Definition, m_Cursor.m_Sid);
+	get_Definition(s.m_Definition, m_Cursor.m_HistoryNext);
 
 	s.m_Height = h;
 	s.m_PoW.m_Difficulty = get_NextDifficulty();
@@ -1456,12 +1442,8 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 
 	InitCursor();
 
-	sid.m_Height = id.m_Height;
-	if (!m_DB.get_Prev(sid))
-		ZeroObject(sid);
-
 	Merkle::Hash hvDef;
-	get_Definition(hvDef, sid);
+	get_Definition(hvDef, m_Cursor.m_History);
 
 	if (s.m_Definition != hvDef)
 	{

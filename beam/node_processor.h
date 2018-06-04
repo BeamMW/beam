@@ -36,7 +36,7 @@ class NodeProcessor
 
 	void InitCursor();
 	void OnCorrupted();
-	void get_Definition(Merkle::Hash&, const NodeDB::StateID& sidPrev);
+	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
 
 	bool IsRelevantHeight(Height);
 	uint8_t get_NextDifficulty();
@@ -66,11 +66,12 @@ public:
 		NodeDB::StateID m_Sid;
 		Block::SystemState::ID m_ID;
 		Block::SystemState::Full m_Full;
+		Merkle::Hash m_History;
+		Merkle::Hash m_HistoryNext;
 
 	} m_Cursor;
 
 	void get_CurrentLive(Merkle::Hash&);
-	void get_History(Merkle::Hash&, const NodeDB::StateID& sidPrev);
 
 	void ExportMacroBlock(Block::Body&); // can be time-consuming
 	bool ImportMacroBlock(const Block::SystemState::ID&, const Block::Body&);

@@ -808,35 +808,26 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 	if (t.Find(cu, msg.m_KernelHash, bCreate))
 	{
 		t.get_Proof(msgOut.m_Proof, cu);
+		msgOut.m_Proof.reserve(msgOut.m_Proof.size() + 2);
 
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 		msgOut.m_Proof.back().first = false;
-
 		m_pThis->m_Processor.get_Utxos().get_Hash(msgOut.m_Proof.back().second);
 
-		NodeDB::StateID sidPrev;
-		if (!m_pThis->m_Processor.get_DB().get_Cursor(sidPrev) ||
-			!m_pThis->m_Processor.get_DB().get_Prev(sidPrev))
-			ZeroObject(sidPrev);
-
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 		msgOut.m_Proof.back().first = false;
-		m_pThis->m_Processor.get_History(msgOut.m_Proof.back().second, sidPrev);
+		msgOut.m_Proof.back().second = m_pThis->m_Processor.m_Cursor.m_History;
 	}
 }
 
 void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 {
-	NodeDB::StateID sidPrev;
-	if (!m_pThis->m_Processor.get_DB().get_Cursor(sidPrev) ||
-		!m_pThis->m_Processor.get_DB().get_Prev(sidPrev))
-		ZeroObject(sidPrev);
-
 	struct Traveler :public UtxoTree::ITraveler
 	{
 		proto::ProofUtxo m_Msg;
 		UtxoTree* m_pTree;
-		Merkle::Hash m_hvKernels, m_hvHistory;
+		const Merkle::Hash* m_phvHistory;
+		Merkle::Hash m_hvKernels;
 
 		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
 
@@ -851,13 +842,15 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 			ret.m_Maturity = d.m_Maturity;
 			m_pTree->get_Proof(ret.m_Proof, *m_pCu);
 
+			ret.m_Proof.reserve(ret.m_Proof.size() + 2);
+
 			ret.m_Proof.resize(ret.m_Proof.size() + 1);
 			ret.m_Proof.back().first = true;
 			ret.m_Proof.back().second = m_hvKernels;
 
 			ret.m_Proof.resize(ret.m_Proof.size() + 1);
 			ret.m_Proof.back().first = false;
-			ret.m_Proof.back().second = m_hvHistory;
+			ret.m_Proof.back().second = *m_phvHistory;
 
 			return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
 		}
@@ -865,7 +858,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 
 	t.m_pTree = &m_pThis->m_Processor.get_Utxos();
 	m_pThis->m_Processor.get_Kernels().get_Hash(t.m_hvKernels);
-	m_pThis->m_Processor.get_History(t.m_hvHistory, sidPrev);
+	t.m_phvHistory = &m_pThis->m_Processor.m_Cursor.m_History;
 
 	UtxoTree::Cursor cu;
 	t.m_pCu = &cu;
