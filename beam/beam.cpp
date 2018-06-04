@@ -110,6 +110,33 @@ namespace
     {
         cout << options << std::endl;
     }
+
+    void readTreasuryFile(beam::Node& node, const string& sPath)
+    {
+        if (!sPath.empty())
+        {
+            Block::Body block;
+
+            {
+                std::ifstream f(sPath, std::ifstream::binary);
+                if (f.fail())
+                {
+                    LOG_INFO() << "can't open treasury file";
+                    return;
+                }
+
+                std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+
+                Deserializer der;
+                der.reset(&vContents.at(0), vContents.size());
+
+                der & block;
+            }
+
+            node.GenerateGenesisBlock(block);
+        }
+
+    }
 }
 
 struct SerializerFile {
@@ -432,28 +459,7 @@ int main(int argc, char* argv[])
                 if (vm.count(cli::TREASURY_BLOCK))
                 {
                     string sPath = vm[cli::TREASURY_BLOCK].as<string>();
-                    if (!sPath.empty())
-                    {
-                        Block::Body block;
-
-                        {
-                            std::ifstream f(sPath, std::ifstream::binary);
-                            if (f.fail())
-                            {
-                                LOG_ERROR() << "can't open treasury file";
-                                return -1;
-                            }
-
-                            std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-
-                            Deserializer der;
-                            der.reset(&vContents.at(0), vContents.size());
-
-                            der & block;
-                        }
-
-                        node.GenerateGenesisBlock(block);
-                    }
+                    readTreasuryFile(node, sPath);
                 }
 
                 reactor->run();
