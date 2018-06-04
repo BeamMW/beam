@@ -55,7 +55,7 @@ namespace beam
             os << setw(width - beams.length()) << Amount(amount.m_value / Block::Rules::Coin) << beams.data() << ' ';
         }
         Amount c = amount.m_value % Block::Rules::Coin;
-        if (c > 0)
+        if (c > 0 || amount.m_value == 0)
         {
             os << setw(width - chattles.length()) << c << chattles.data();
         }
@@ -485,6 +485,7 @@ namespace beam
                 m_knownStateID = m_newStateID;
                 if (!m_senders.empty())
                 {
+                    Cleaner<std::vector<wallet::Sender::Ptr> > cr{ m_removed_senders };
                     vector<Sender::Ptr> temp; // copy to avoid iterators invalidation
                     temp.reserve(m_senders.size());
                     for (auto& s : m_senders)
@@ -499,6 +500,7 @@ namespace beam
 
                 if (!m_receivers.empty())
                 {
+                    Cleaner<std::vector<wallet::Receiver::Ptr> > cr{ m_removed_receivers };
                     vector<Receiver::Ptr> temp; // copy to avoid iterators invalidation
                     temp.reserve(m_receivers.size());
                     for (auto& r : m_receivers)
