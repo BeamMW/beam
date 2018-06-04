@@ -34,6 +34,7 @@ namespace beam
 	// sorry for replacing 'using' by 'typedefs', some compilers don't support it
 	typedef uint64_t Timestamp;
 	typedef uint64_t Height;
+    const Height MaxHeight = static_cast<Height>(-1);
 	typedef ECC::uintBig_t<256> uint256_t;
 	typedef std::vector<uint8_t> ByteBuffer;
 	typedef ECC::Amount Amount;
@@ -44,7 +45,9 @@ namespace beam
 		Amount Hi;
 
 		void operator += (const Amount);
+		void operator -= (const Amount);
 		void operator += (const AmountBig&);
+		void operator -= (const AmountBig&);
 
 		void Export(ECC::uintBig&) const;
 		void AddTo(ECC::Point::Native&) const;
@@ -102,10 +105,12 @@ namespace beam
 		ECC::Point	m_Commitment;
 		bool		m_Coinbase;
 		Height		m_Incubation; // # of blocks before it's mature
+		Height		m_hDelta;
 
 		Output()
 			:m_Coinbase(false)
 			,m_Incubation(0)
+			,m_hDelta(0)
 		{
 		}
 
@@ -188,6 +193,8 @@ namespace beam
 
 		void Sort(); // w.r.t. the standard
 		size_t DeleteIntermediateOutputs(); // assumed to be already sorted. Retruns the num deleted
+
+		void TestNoNulls() const; // valid object should not have NULL members. Should be used during (de)serialization
 
 		// tests the validity of all the components, overall arithmetics, and the lexicographical order of the components.
 		// Determines the min/max block height that the transaction can fit, wrt component heights and maturity policies

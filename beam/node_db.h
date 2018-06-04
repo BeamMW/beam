@@ -23,6 +23,8 @@ public:
 			CursorHeight,
 			StateExtra,
 			FossilHeight,
+			SubsidyLo,
+			SubsidyHi,
 		};
 	};
 
@@ -72,6 +74,7 @@ public:
 			SpendableDel,
 			SpendableModify,
 			SpendableEnum,
+			SpendableEnumWithSig,
 			StateGetBlock,
 			StateSetBlock,
 			StateDelBlock,
@@ -113,9 +116,10 @@ public:
 
 	class Recordset
 	{
-		NodeDB& m_DB;
 		sqlite3_stmt* m_pStmt;
 	public:
+
+		NodeDB & m_DB;
 
 		Recordset(NodeDB&);
 		Recordset(NodeDB&, Query::Enum, const char*);
@@ -231,12 +235,20 @@ public:
 	void MoveFwd(const StateID&);
 
 	// Utxos & kernels
-	struct WalkerSpendable {
+	struct WalkerSpendable
+	{
+		const bool m_bWithSignature;
+
 		Recordset m_Rs;
 		Blob m_Key;
+		Blob m_Signature;
 		uint32_t m_nUnspentCount;
 
-		WalkerSpendable(NodeDB& db) :m_Rs(db) {}
+		WalkerSpendable(NodeDB& db, bool bWithSignature)
+			:m_Rs(db)
+			,m_bWithSignature(bWithSignature)
+		{
+		}
 		bool MoveNext();
 	};
 

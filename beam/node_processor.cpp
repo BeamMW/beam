@@ -18,60 +18,102 @@ NodeProcessor::Horizon::Horizon()
 {
 }
 
+struct NodeProcessor::UnspentWalker
+	:public NodeDB::WalkerSpendable
+{
+	NodeProcessor& m_This;
+
+	UnspentWalker(NodeProcessor& me, bool bWithSignature)
+		:m_This(me)
+		,NodeDB::WalkerSpendable(me.m_DB, bWithSignature)
+	{
+	}
+
+	bool Traverse();
+
+	virtual bool OnUtxo(const UtxoTree::Key&) = 0;
+	virtual bool OnKernel(const Merkle::Hash&) = 0;
+};
+
+bool NodeProcessor::UnspentWalker::Traverse()
+{
+	for (m_Rs.m_DB.EnumUnpsent(*this); MoveNext(); )
+	{
+		assert(m_nUnspentCount);
+		if (!m_Key.n)
+			m_This.OnCorrupted();
+
+		uint8_t nType = *(uint8_t*) m_Key.p;
+		((uint8_t*&) m_Key.p)++;
+		m_Key.n--;
+
+		switch (nType)
+		{
+		case DbType::Utxo:
+		{
+			if (UtxoTree::Key::s_Bytes != m_Key.n)
+				m_This.OnCorrupted();
+
+			static_assert(sizeof(UtxoTree::Key) == UtxoTree::Key::s_Bytes, "");
+
+			if (!OnUtxo(*(UtxoTree::Key*) m_Key.p))
+				return false;
+		}
+		break;
+
+		case DbType::Kernel:
+		{
+			if (sizeof(Merkle::Hash) != m_Key.n)
+				m_This.OnCorrupted();
+
+			if (!OnKernel(*(Merkle::Hash*) m_Key.p))
+				return false;
+
+		}
+		break;
+
+		default:
+			m_This.OnCorrupted();
+		}
+	}
+}
+
 void NodeProcessor::Initialize(const char* szPath)
 {
 	m_DB.Open(szPath);
 
 	// Load all th 'live' data
 	{
-		NodeDB::WalkerSpendable wsp(m_DB);
-		for (m_DB.EnumUnpsent(wsp); wsp.MoveNext(); )
+		struct Walker
+			:public UnspentWalker
 		{
-			assert(wsp.m_nUnspentCount);
-			if (!wsp.m_Key.n)
-				OnCorrupted();
+			Walker(NodeProcessor& me) :UnspentWalker(me, false) {}
 
-			uint8_t nType = *(uint8_t*) wsp.m_Key.p;
-			((uint8_t*&) wsp.m_Key.p)++;
-			wsp.m_Key.n--;
-
-			switch (nType)
+			virtual bool OnUtxo(const UtxoTree::Key& key) override
 			{
-			case DbType::Utxo:
-				{
-					if (UtxoTree::Key::s_Bytes != wsp.m_Key.n)
-						OnCorrupted();
+				UtxoTree::Cursor cu;
+				bool bCreate = true;
 
-					static_assert(sizeof(UtxoTree::Key) == UtxoTree::Key::s_Bytes, "");
-					const UtxoTree::Key& key = *(UtxoTree::Key*) wsp.m_Key.p;
+				m_This.m_Utxos.Find(cu, key, bCreate)->m_Value.m_Count = m_nUnspentCount;
+				assert(bCreate);
 
-					UtxoTree::Cursor cu;
-					bool bCreate = true;
-
-					m_Utxos.Find(cu, key, bCreate)->m_Value.m_Count = wsp.m_nUnspentCount;
-					assert(bCreate);
-				}
-				break;
-
-			case DbType::Kernel:
-				{
-					if (sizeof(Merkle::Hash) != wsp.m_Key.n)
-						OnCorrupted();
-
-					const Merkle::Hash& key = *(Merkle::Hash*) wsp.m_Key.p;
-
-					RadixHashOnlyTree::Cursor cu;
-					bool bCreate = true;
-
-					m_Kernels.Find(cu, key, bCreate);
-					assert(bCreate);
-				}
-				break;
-
-			default:
-				OnCorrupted();
+				return true;
 			}
-		}
+
+			virtual bool OnKernel(const Merkle::Hash& key) override
+			{
+				RadixHashOnlyTree::Cursor cu;
+				bool bCreate = true;
+
+				m_This.m_Kernels.Find(cu, key, bCreate);
+				assert(bCreate);
+
+				return true;
+			}
+		};
+
+		Walker wlk(*this);
+		wlk.Traverse();
 	}
 
 	NodeDB::Transaction t(m_DB);
@@ -444,6 +486,18 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 		m_DB.ParamSet(NodeDB::ParamID::StateExtra, NULL, &blob);
 
+		AmountBig subsidy;
+		subsidy.Lo = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
+		subsidy.Hi = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
+
+		if (bFwd)
+			subsidy += block.m_Subsidy;
+		else
+			subsidy -= block.m_Subsidy;
+
+		m_DB.ParamSet(NodeDB::ParamID::SubsidyLo, &subsidy.Lo, NULL);
+		m_DB.ParamSet(NodeDB::ParamID::SubsidyHi, &subsidy.Hi, NULL);
+
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
 
@@ -604,6 +658,25 @@ bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd, Height h, Roll
 	return true;
 }
 
+struct NodeProcessor::UtxoSig
+{
+	bool	m_Coinbase;
+	Height	m_Incubation; // # of blocks before it's mature
+
+	std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
+	std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
+
+	template <typename Archive>
+	void serialize(Archive& ar)
+	{
+		ar
+			& m_Coinbase
+			& m_Incubation
+			& m_pConfidential
+			& m_pPublic;
+	}
+};
+
 bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 {
 	UtxoTree::Key::Data d;
@@ -632,10 +705,20 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 			p->m_Value.m_Count = 1;
 
 			Serializer ser;
-			if (v.m_pConfidential)
-				ser & *v.m_pConfidential;
-			else
-				ser & *v.m_pPublic;
+
+			{
+				UtxoSig sig;
+				sig.m_Coinbase = v.m_Coinbase;
+				sig.m_Incubation = v.m_Incubation;
+				sig.m_pConfidential.swap(((Output&) v).m_pConfidential);
+				sig.m_pPublic.swap(((Output&)v).m_pPublic);
+
+				ser & sig;
+
+				sig.m_pConfidential.swap(((Output&)v).m_pConfidential);
+				sig.m_pPublic.swap(((Output&)v).m_pPublic);
+			}
+
 
 			SerializeBuffer sb = ser.buffer();
 
@@ -1269,5 +1352,69 @@ bool NodeProcessor::VerifyBlock(const Block::Body& block, Height h0, Height h1)
 	return block.IsValid(h0, h1);
 }
 
+void NodeProcessor::ExportMacroBlock(Block::Body& res)
+{
+	struct Walker
+		:public UnspentWalker
+	{
+		Walker(NodeProcessor& me) :UnspentWalker(me, true) {}
+
+		Block::Body* m_pRes;
+
+		virtual bool OnUtxo(const UtxoTree::Key& key) override
+		{
+			UtxoSig sig;
+
+			Deserializer der;
+			der.reset(m_Signature.p, m_Signature.n);
+			der & sig;
+
+			UtxoTree::Key::Data d;
+			d = key;
+
+			Output::Ptr pOutp(new Output);
+			pOutp->m_Commitment	= d.m_Commitment;
+			pOutp->m_Coinbase	= sig.m_Coinbase;
+			pOutp->m_Incubation	= sig.m_Incubation;
+			pOutp->m_pConfidential.swap(sig.m_pConfidential);
+			pOutp->m_pPublic.swap(sig.m_pPublic);
+
+			// calculate hDelta, to fit the needed maturity
+			pOutp->m_hDelta = d.m_Maturity - sig.m_Incubation - Block::Rules::HeightGenesis;
+			pOutp->m_hDelta -= sig.m_Coinbase ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd;
+
+			m_pRes->m_vOutputs.push_back(std::move(pOutp));
+
+			return true;
+		}
+
+		virtual bool OnKernel(const Merkle::Hash&) override
+		{
+			TxKernel::Ptr pKrn(new TxKernel);
+
+			Deserializer der;
+			der.reset(m_Signature.p, m_Signature.n);
+			der & *pKrn;
+
+			m_pRes->m_vKernelsOutput.push_back(std::move(pKrn));
+
+			return true;
+		}
+	};
+
+	Walker wlk(*this);
+	wlk.m_pRes = &res;
+	wlk.Traverse();
+
+	res.Sort();
+
+	NodeDB::Blob blob(res.m_Offset.m_Value.m_pData, sizeof(res.m_Offset.m_Value.m_pData));
+
+	if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
+		res.m_Offset.m_Value = ECC::Zero;
+
+	res.m_Subsidy.Lo = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
+	res.m_Subsidy.Hi = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
+}
 
 } // namespace beam

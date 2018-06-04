@@ -92,9 +92,6 @@ namespace
     {
         SqliteKeychainInt()
         {
-            Block::SystemState::ID id = { 0 };
-            id.m_Height = 134;
-            setVar("SystemStateID", id);
             for (auto amount : {5, 2, 1})
             {
                 Coin coin(amount);
@@ -239,6 +236,9 @@ namespace
         void registerPeer(IWallet* walletPeer)
         {
             m_peers.push_back(walletPeer);
+            proto::Hdr msg = { 0 };
+            msg.m_Description.m_Height = 134;
+            walletPeer->handle_node_message(move(msg));
         }
 
         void enqueueNetworkTask(Task&& task)
@@ -335,7 +335,7 @@ template<typename KeychainS, typename KeychainR>
 void TestWalletNegotiation()
 {
     cout << "\nTesting wallets negotiation...\n";
-
+    
     PeerId receiver_id = 4;
     IOLoop mainLoop;
     TestNetwork network{ mainLoop };
@@ -389,6 +389,7 @@ enum NodeNetworkMessageCodes : uint8_t
 {
     NewTransactionCode = 23,
     BooleanCode = 5,
+    HdrCode = 3,
     GetUtxoProofCode = 10,
     ProofUtxoCode = 12,
 	ConfigCode = 20
@@ -409,32 +410,9 @@ public:
 		m_protocol.add_message_handler<TestNode, proto::Config,         &TestNode::on_message>(ConfigCode, this, 1, 2000);
     }
 
-    void start()
-    {
-        m_thread.start(BIND_THIS_MEMFN(thread_func));
-    }
-
-    void stop()
-    {
-        m_reactor->stop();
-        wait();
-    }
-
-    void wait()
-    {
-        if (this_thread::get_id() != m_thread_id) {
-            m_thread.join();
-        }
-    }
-
 private:
-    void thread_func()
-    {
-        m_thread_id = this_thread::get_id();
-        m_reactor->run();
-    }
 
-    // IMsgHandler
+    // IErrorHandler
     void on_protocol_error(uint64_t /*fromStream*/, ProtocolError /*error*/) override
     {
         assert(false && "NODE: on_protocol_error");
@@ -455,6 +433,9 @@ private:
 
 	bool on_message(uint64_t connectionId, proto::Config&& /*data*/)
 	{
+        proto::Hdr msg = { 0 };
+        msg.m_Description.m_Height = 134;
+        send(connectionId, HdrCode, move(msg));
 		return true;
 	}
 
@@ -466,9 +447,9 @@ private:
         {
             SerializedMsg msgToSend;
             m_protocol.serialize(msgToSend, type, data);
-            it->second->write_msg(msgToSend);
+            it->second->write_msg(msgToSend); 
         }
-        else
+        else 
         {
             LOG_ERROR() << "No connection";
             // add some handling
@@ -505,8 +486,6 @@ private:
     io::TcpServer::Ptr m_server;
 
     std::map<uint64_t, std::unique_ptr<Connection>> m_connections;
-    Thread m_thread;
-    thread::id m_thread_id;
     uint64_t m_tag;
 };
 
@@ -523,7 +502,7 @@ void TestP2PWalletNegotiationST()
 
     TestNode node{ node_address, main_reactor };
     WalletNetworkIO sender_io{ sender_address, node_address, false, createKeyChain<TestKeyChain>(), main_reactor };
-    WalletNetworkIO receiver_io{ receiver_address, node_address, true, createKeyChain<TestKeyChain2>(), main_reactor, 1000 };
+    WalletNetworkIO receiver_io{ receiver_address, node_address, true, createKeyChain<TestKeyChain2>(), main_reactor, 1000, 100 };
 
     sender_io.transfer_money(receiver_address, 6);
 
@@ -543,6 +522,8 @@ void TestSplitKey()
     Scalar::Native s1 = res1.first+s2;
     WALLET_CHECK(s1 == nonce);
 }
+
+#define LOG_VERBOSE_ENABLED 0
 
 int main()
 {

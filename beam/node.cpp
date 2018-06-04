@@ -209,7 +209,7 @@ bool Node::Processor::VerifyBlock(const Block::Body& block, Height h0, Height h1
 	vctx.m_pTx = &block;
 	vctx.m_bAbort = false;
 	vctx.m_Remaining = nThreads;
-	vctx.m_Context.m_bRangeMode = true;
+	vctx.m_Context.m_bBlockMode = true;
 	vctx.m_Context.m_hMin = h0;
 	vctx.m_Context.m_hMax = h1;
 	vctx.m_Context.m_nVerifiers = nThreads;
@@ -239,7 +239,7 @@ void Node::Processor::VerifierContext::Proceed(VerifierContext* pVctx, uint32_t 
 	VerifierContext& vctx = *pVctx;
 
 	TxBase::Context ctx;
-	ctx.m_bRangeMode = true;
+	ctx.m_bBlockMode = true;
 	ctx.m_hMin = vctx.m_Context.m_hMin;
 	ctx.m_hMax = vctx.m_Context.m_hMax;
 	ctx.m_nVerifiers = vctx.m_Context.m_nVerifiers;
@@ -306,6 +306,12 @@ void Node::Initialize()
 		ZeroObject(id);
 
 	LOG_INFO() << "Initial Tip: " << id;
+
+	if (m_Cfg.m_VerificationThreads < 0)
+	{
+		uint32_t numCores = std::thread::hardware_concurrency();
+		m_Cfg.m_VerificationThreads = (numCores > m_Cfg.m_MiningThreads + 1) ? (numCores - m_Cfg.m_MiningThreads) : 0;
+	}
 
 	RefreshCongestions();
 
@@ -394,6 +400,7 @@ void Node::Peer::OnTimer()
 		assert(m_iPeer >= 0);
 
 		try {
+            m_eState = State::Connecting;
 			Connect(m_pThis->m_Cfg.m_Connect[m_iPeer]);
 		} catch (...) {
 			OnPostError();
@@ -435,7 +442,7 @@ void Node::Peer::OnConnected()
 
 void Node::Peer::OnClosed(int errorCode)
 {
-	assert(State::Connected == m_eState);
+	assert(State::Connected == m_eState || State::Connecting == m_eState);
 	if (-1 == errorCode) // protocol error
 		m_eState = State::Snoozed;
 	OnPostError();
@@ -643,7 +650,9 @@ void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
 
 void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 {
-	// TODO: Verify all the Ptrs for being non-NULL (or better do this within serialization)
+	if (!msg.m_Transaction)
+		ThrowUnexpected(); // our deserialization permits NULL Ptrs.
+	// However the transaction body must have already been checked for NULLs
 
 	proto::Boolean msgOut;
 	msgOut.m_Value = true;
@@ -995,7 +1004,9 @@ bool Node::Miner::Restart(Block::Body* pTreasury /* = NULL */)
 		bool bMineGenesis = pTreasury || get_ParentObj().m_Cfg.m_TestMode.m_bMineGenesisBlock;
 		if (!bMineGenesis)
 			return false;
-	}
+	} else
+		if (pTreasury)
+			LOG_WARNING() << "Treasury ignored, already past genesis block";
 
 	Task::Ptr pTask(std::make_shared<Task>());
 
@@ -1017,7 +1028,11 @@ bool Node::Miner::Restart(Block::Body* pTreasury /* = NULL */)
 	std::scoped_lock<std::mutex> scope(m_Mutex);
 
 	if (m_pTask)
+	{
+		if (*m_pTask->m_pStop)
+			return true; // block already mined, probably notification to this thread on its way. Ignore the newly-constructed block
 		pTask->m_pStop = m_pTask->m_pStop; // use the same soft-restart indicator
+	}
 	else
 	{
 		pTask->m_pStop.reset(new volatile bool);

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <random>
 #include "core/storage.h"
+#include <iomanip>
 
 namespace ECC {
 	Initializer g_Initializer;
@@ -27,6 +28,9 @@ namespace
         }
         T& m_v;
     };
+
+    const char* ReceiverPrefix = "[Receiver] ";
+    const char* SenderPrefix = "[Sender] ";
 }
 
 namespace beam
@@ -38,6 +42,22 @@ namespace beam
     std::ostream& operator<<(std::ostream& os, const Uuid& uuid)
     {
         os << "[" << to_hex(uuid.data(), uuid.size()) << "]";
+        return os;
+    }
+
+    std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount)
+    {
+        const string_view beams{" beams" };
+        const string_view chattles{ " chattles" };
+        auto width = os.width();
+        if (amount.m_value > Block::Rules::Coin)
+        {
+            os << setw(width - beams.length()) << Amount(amount.m_value / Block::Rules::Coin) << beams.data();
+        }
+        else
+        {
+            os << setw(width - chattles.length()) << amount.m_value << chattles.data();
+        }
         return os;
     }
 
@@ -82,7 +102,11 @@ namespace beam
         : m_keyChain{ keyChain }
         , m_network{ network }
         , m_tx_completed_action{move(action)}
+        , m_syncing{1}
+        , m_knownStateID{0}
     {
+        assert(keyChain);
+        m_keyChain->getSystemStateID(m_knownStateID);
     }
 
     Wallet::~Wallet()
@@ -104,7 +128,10 @@ namespace beam
         m_peers.emplace(txId, to);
         auto s = make_unique<Sender>(*this, m_keyChain, txId, amount);
         auto p = m_senders.emplace(txId, move(s));
-        p.first->second->start();
+        if (!m_syncing)
+        {
+            p.first->second->start();
+        }
     }
 
     void Wallet::send_tx_invitation(sender::InvitationData::Ptr data)
@@ -174,7 +201,7 @@ namespace beam
 
     void Wallet::register_tx(const Uuid& txId, Transaction::Ptr data)
     {
-        LOG_DEBUG() << "[Receiver] sending tx for registration";
+        LOG_VERBOSE() << ReceiverPrefix << "sending tx for registration";
         m_node_requests_queue.push(txId);
         m_network.send_node_message(proto::NewTransaction{ move(data) });
     }
@@ -192,23 +219,19 @@ namespace beam
         auto it = m_receivers.find(data->m_txId);
         if (it == m_receivers.end())
         {
-            LOG_DEBUG() << "[Receiver] Received tx invitation " << data->m_txId;
+            LOG_VERBOSE() << ReceiverPrefix << "Received tx invitation " << data->m_txId;
 
-            auto currentHeight = m_keyChain->getCurrentHeight();
-            if (currentHeight != data->m_height)
-            {
-                LOG_DEBUG() << "[Receiver] invalid sender's height";
-                m_network.close_connection(from);
-                return;
-            }
             auto txId = data->m_txId;
             m_peers.emplace(txId, from);
             auto p = m_receivers.emplace(txId, make_unique<Receiver>(*this, m_keyChain, data));
-            p.first->second->start();
+            if (!m_syncing)
+            {
+                p.first->second->start();
+            }
         }
         else
         {
-            LOG_DEBUG() << "[Receiver] Unexpected tx invitation " << data->m_txId;
+            LOG_DEBUG() << ReceiverPrefix << "Unexpected tx invitation " << data->m_txId;
         }
     }
     
@@ -218,12 +241,12 @@ namespace beam
         auto it = m_receivers.find(data->m_txId);
         if (it != m_receivers.end())
         {
-            LOG_DEBUG() << "[Receiver] Received sender tx confirmation " << data->m_txId;
+            LOG_DEBUG() << ReceiverPrefix << "Received sender tx confirmation " << data->m_txId;
             it->second->process_event(Receiver::TxConfirmationCompleted{data});
         }
         else
         {
-            LOG_DEBUG() << "[Receiver] Unexpected sender tx confirmation "<< data->m_txId;
+            LOG_DEBUG() << ReceiverPrefix << "Unexpected sender tx confirmation "<< data->m_txId;
             m_network.close_connection(from);
         }
     }
@@ -234,12 +257,12 @@ namespace beam
         auto it = m_senders.find(data->m_txId);
         if (it != m_senders.end())
         {
-            LOG_DEBUG() << "[Sender] Received tx confirmation " << data->m_txId;
+            LOG_VERBOSE() << SenderPrefix << "Received tx confirmation " << data->m_txId;
             it->second->process_event(Sender::TxInitCompleted{data});
         }
         else
         {
-            LOG_DEBUG() << "[Sender] Unexpected tx confirmation " << data->m_txId;
+            LOG_DEBUG() << SenderPrefix << "Unexpected tx confirmation " << data->m_txId;
         }
     }
 
@@ -303,11 +326,12 @@ namespace beam
     void Wallet::handle_node_message(proto::ProofUtxo&& proof)
     {
         // TODO: handle the maturity of the several proofs (> 1)
-        boost::optional<Coin> found;
+        vector<Coin> found;
 
         for (const auto& proof : proof.m_Proofs)
         {
-            m_keyChain->visit([&](const Coin& coin)
+            Input::Count count = proof.m_Count;
+            m_keyChain->visit([&](const Coin& coin)->bool
             {
                 if (coin.m_status == Coin::Unconfirmed)
                 {
@@ -315,9 +339,14 @@ namespace beam
                 
                     if (proof.IsValid(input, m_LiveObjects))
                     {
-                        found = coin;
-                        found->m_status = Coin::Unspent;
-
+                        auto& c = found.emplace_back(coin);
+                        c.m_status = Coin::Unspent;
+                        c.m_maturity = proof.m_Maturity;
+                        
+                        if (--count)
+                        {
+                            return true;
+                        }
                         return false;
                     }
                 }
@@ -326,14 +355,15 @@ namespace beam
             });
         }
 
-        if (found)
+        if (!found.empty())
         {
-            m_keyChain->store(*found);
+            m_keyChain->update(found);
         }
         else
         {
-            // invalid proof!!!
+            LOG_ERROR() << "Got empty proof";
         }
+        finishSync();
     }
 
     void Wallet::handle_node_message(proto::NewTip&& msg)
@@ -341,13 +371,11 @@ namespace beam
         // TODO: check if we're already waiting for the ProofUtxo,
         // don't send request if yes
 
-        Block::SystemState::ID id = {0};
-        bool hasId = m_keyChain->getSystemStateID(id);
-
-        if (!hasId || msg.m_ID > id)
+        if (msg.m_ID > m_knownStateID)
         {
-            m_keyChain->setSystemStateID(msg.m_ID);
-            m_network.send_node_message(proto::GetMined{ id.m_Height });
+            m_newStateID = msg.m_ID;
+            ++m_syncing;
+            m_network.send_node_message(proto::GetMined{ m_knownStateID.m_Height });
         }
     }
 
@@ -360,6 +388,7 @@ namespace beam
         {
             if (coin.m_status == Coin::Unconfirmed)
             {
+                ++m_syncing;
                 m_network.send_node_message(
                     proto::GetProofUtxo
                     {
@@ -370,9 +399,11 @@ namespace beam
 
             return true;
         });
+
         Block::SystemState::ID newID = {0};
         msg.m_Description.get_ID(newID);
-        m_keyChain->setSystemStateID(newID);
+        m_newStateID = newID;
+        finishSync();
     }
 
     void Wallet::handle_node_message(proto::Mined&& msg)
@@ -383,12 +414,23 @@ namespace beam
         {
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
+                Amount reward = Block::Rules::CoinbaseEmission;
                 // coinbase 
-                mined.emplace_back(Block::Rules::CoinbaseEmission, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Coinbase);
+                mined.emplace_back(Block::Rules::CoinbaseEmission
+                                 , Coin::Unspent
+                                 , minedCoin.m_ID.m_Height
+                                 , minedCoin.m_ID.m_Height + Block::Rules::MaturityCoinbase
+                                 , KeyType::Coinbase);
                 if (minedCoin.m_Fees > 0)
                 {
-                    mined.emplace_back(minedCoin.m_Fees, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Comission);
+                    reward += minedCoin.m_Fees;
+                    mined.emplace_back(minedCoin.m_Fees
+                                     , Coin::Unspent
+                                     , minedCoin.m_ID.m_Height
+                                     , minedCoin.m_ID.m_Height + Block::Rules::MaturityStd
+                                     , KeyType::Comission);
                 }
+                LOG_INFO() << "Block reward received: " << PrintableAmount(reward);
             }
         }
 
@@ -396,6 +438,7 @@ namespace beam
 		{
 			m_keyChain->store(mined);
 		}
+        finishSync();
     }
 
     void Wallet::handle_connection_error(PeerId from)
@@ -427,6 +470,27 @@ namespace beam
         {
             m_network.close_connection(it->second);
             m_peers.erase(it);
+        }
+    }
+
+    void Wallet::finishSync()
+    {
+        if (m_syncing)
+        {
+            --m_syncing;
+            if (!m_syncing)
+            {
+                m_keyChain->setSystemStateID(m_newStateID);
+                m_knownStateID = m_newStateID;
+                for (auto& s : m_senders)
+                {
+                    s.second->start();
+                }
+                for (auto& r : m_receivers)
+                {
+                    r.second->start();
+                }
+            }
         }
     }
 }

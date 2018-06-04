@@ -24,6 +24,8 @@ namespace beam::wallet
         Receiver(receiver::IGateway& gateway, beam::IKeyChain::Ptr keychain, sender::InvitationData::Ptr initData)
             : m_fsm{boost::ref(gateway), keychain, initData}
         {
+            assert(keychain);
+            assert(initData);
         }  
     private:
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
@@ -34,14 +36,14 @@ namespace beam::wallet
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    LOG_DEBUG() << "[Receiver] Init state";
+                    LOG_VERBOSE() << "[Receiver] Init state";
                 }
             };
             struct Terminate : public msmf::terminate_state<> {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm& fsm)
                 {
-                    LOG_DEBUG() << "[Receiver] Terminate state";
+                    LOG_VERBOSE() << "[Receiver] Terminate state";
                     fsm.m_gateway.on_tx_completed(fsm.m_txId);
                 }
             };
@@ -50,7 +52,7 @@ namespace beam::wallet
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    LOG_DEBUG() << "[Receiver] TxConfirming state";
+                    LOG_VERBOSE() << "[Receiver] TxConfirming state";
                 }
             };
             struct TxRegistering : public msmf::state<>
@@ -58,7 +60,7 @@ namespace beam::wallet
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    LOG_DEBUG() << "[Receiver] TxRegistering state";
+                    LOG_VERBOSE() << "[Receiver] TxRegistering state";
                 }
             };
             struct TxOutputConfirming : public msmf::state<>
@@ -66,7 +68,7 @@ namespace beam::wallet
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    LOG_DEBUG() << "[Receiver] TxOutputConfirming state";
+                    LOG_VERBOSE() << "[Receiver] TxOutputConfirming state";
                 }
             };
 
@@ -129,6 +131,7 @@ namespace beam::wallet
 
             Transaction::Ptr m_transaction;
             TxKernel* m_kernel;
+            Height m_height;
         };
 
         friend FSMHelper<Receiver>;

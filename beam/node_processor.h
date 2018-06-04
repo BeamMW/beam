@@ -41,6 +41,9 @@ class NodeProcessor
 	uint8_t get_NextDifficulty();
 	Timestamp get_MovingMedian();
 
+	struct UtxoSig;
+	struct UnspentWalker;
+
 public:
 
 	typedef NodeDB::PeerID PeerID;
@@ -59,6 +62,8 @@ public:
 
 	bool get_CurrentState(Block::SystemState::ID&); // returns false if no valid states so far
 	bool get_CurrentState(Block::SystemState::Full&);
+
+	void ExportMacroBlock(Block::Body&); // can be time-consuming
 
 	struct DataStatus {
 		enum Enum {

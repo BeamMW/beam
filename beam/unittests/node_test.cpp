@@ -309,7 +309,7 @@ namespace beam
 
 		db.AddSpendable(b0, NodeDB::Blob("hello, world!", 13), 5, 3);
 
-		NodeDB::WalkerSpendable wsp(db);
+		NodeDB::WalkerSpendable wsp(db, false);
 		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
 		db.ModifySpendable(b0, 0, -3);
@@ -506,6 +506,10 @@ namespace beam
 			np.m_Wallet.AddMyUtxo(Block::Rules::CoinbaseEmission, h, KeyType::Coinbase);
 
 			blockChain.push_back(std::move(pBlock));
+
+			Block::Body macroBlock;
+			np.ExportMacroBlock(macroBlock);
+
 		}
 
 	}
