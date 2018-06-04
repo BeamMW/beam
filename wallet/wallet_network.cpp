@@ -207,7 +207,7 @@ namespace beam {
 
     void WalletNetworkIO::on_protocol_error(uint64_t from, ProtocolError error)
     {
-        LOG_ERROR() << "Failed to connect to remote wallet: " << error;
+        LOG_ERROR() << "Wallet protocol error: " << error;
         m_wallet.handle_connection_error(from);
         if (m_connections.empty())
         {
@@ -218,7 +218,7 @@ namespace beam {
 
     void WalletNetworkIO::on_connection_error(uint64_t from, int errorCode)
     {
-        LOG_ERROR() << "Failed to connect to remote wallet: " << errorCode;
+        LOG_ERROR() << "Wallet connection error: " << errorCode;
         if (m_connections.empty())
         {
             stop();

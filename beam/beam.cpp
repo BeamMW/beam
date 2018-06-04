@@ -505,16 +505,6 @@ int main(int argc, char* argv[])
                         if (keychain)
                         {
                             LOG_INFO() << "wallet successfully created...";
-                            if (debug)
-                            {
-                                for(auto amount : {5, 10, 20, 50, 100, 200, 500})
-                                {
-                                    Coin coin(amount);
-                                    keychain->store(coin);
-                                }
-
-                                LOG_INFO() << "wallet with coins successfully created...";
-                            }
                             return 0;
                         }
                         else
@@ -551,12 +541,13 @@ int main(int argc, char* argv[])
                     {
                         cout << "____Wallet summary____\n\n";
                         cout << "Total unspent:" << PrintableAmount(getTotal(keychain)) << "\n\n";
-                        cout << "| id\t| amount\t| height\t| status\t| key type\t|\n";
+                        cout << "| id\t| amount\t| height\t| maturity\t| status\t| key type\t|\n";
                         keychain->visit([](const Coin& c)->bool
                         {
                             cout << setw(8) << c.m_id
                                  << setw(16) << PrintableAmount(c.m_amount)
                                  << setw(16) << c.m_height
+                                 << setw(16) << c.m_maturity
                                  << "  " << c.m_status << '\t'
                                  << "  " << c.m_key_type << '\n';
                             return true;
