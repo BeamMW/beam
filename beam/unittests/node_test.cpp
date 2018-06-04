@@ -96,6 +96,8 @@ namespace beam
 		const uint32_t nOrd = 3;
 		const uint32_t hFork0 = 70;
 
+		Merkle::Hash hvZero = { 0 };
+
 		std::vector<Block::SystemState::Full> vStates;
 		vStates.resize(hMax);
 		memset0(&vStates.at(0), vStates.size());
@@ -116,7 +118,9 @@ namespace beam
 			if (hFork0 == h)
 				cmmrFork = cmmr;
 
-			cmmr.get_Hash(s.m_History);
+			cmmr.get_Hash(s.m_Definition);
+
+			Merkle::Interpret(s.m_Definition, hvZero, true);
 		}
 
 		uint64_t pRows[hMax];
@@ -167,7 +171,7 @@ namespace beam
 
 		// a subbranch
 		Block::SystemState::Full s = vStates[hFork0];
-		s.m_LiveObjects.Inc(); // alter
+		s.m_Definition.Inc(); // alter
 
 		uint64_t r0 = db.InsertState(s);
 
@@ -181,7 +185,8 @@ namespace beam
 
 		s.get_Hash(s.m_Prev);
 		cmmrFork.Append(s.m_Prev);
-		cmmrFork.get_Hash(s.m_History);
+		cmmrFork.get_Hash(s.m_Definition);
+		Merkle::Interpret(s.m_Definition, hvZero, true);
 		s.m_Height++;
 
 		uint64_t rowLast1 = db.InsertState(s);
@@ -233,10 +238,11 @@ namespace beam
 			{
 				Merkle::Hash hv;
 				db.get_PredictedStatesHash(hv, sid2);
-				verify_test(hv == vStates[(size_t) sid2.m_Height + 1 - Block::Rules::HeightGenesis].m_History);
+				Merkle::Interpret(hv, hvZero, true);
+				verify_test(hv == vStates[(size_t) sid2.m_Height + 1 - Block::Rules::HeightGenesis].m_Definition);
 			}
 
-			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height - Block::Rules::HeightGenesis].m_History;
+			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height - Block::Rules::HeightGenesis].m_Definition;
 
 			for (uint32_t h = Block::Rules::HeightGenesis; h < sid2.m_Height; h++)
 			{
@@ -246,6 +252,7 @@ namespace beam
 				Merkle::Hash hv;
 				vStates[h - Block::Rules::HeightGenesis].get_Hash(hv);
 				Merkle::Interpret(hv, proof);
+				Merkle::Interpret(hv, hvZero, true);
 
 				verify_test(hvRoot == hv);
 			}
@@ -868,7 +875,8 @@ namespace beam
 					m_vStates[i].get_Hash(hv);
 					Merkle::Interpret(hv, msg.m_Proof);
 
-					verify_test(hv == m_vStates.back().m_History);
+					verify_test(hv == m_vStates.back().m_Definition);
+					verify_test(!msg.m_Proof.empty() && msg.m_Proof.back().first);
 				}
 				else
 					fail_test("unexpected proof");
@@ -887,8 +895,8 @@ namespace beam
 						verify_test(m_UtxosConfirmed.end() == it);
 					else
 					{
-					for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
-							verify_test(msg.m_Proofs[j].IsValid(inp, m_vStates.back().m_LiveObjects));
+						for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
+							verify_test(msg.m_Proofs[j].IsValid(inp, m_vStates.back().m_Definition));
 
 						if (m_UtxosConfirmed.end() == it)
 							m_UtxosConfirmed.insert(inp.m_Commitment);

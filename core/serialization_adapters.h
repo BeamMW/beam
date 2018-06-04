@@ -505,8 +505,7 @@ namespace detail
 			ar
 				& v.m_Height
 				& v.m_Prev
-				& v.m_History
-				& v.m_LiveObjects
+				& v.m_Definition
 				& v.m_TimeStamp
 				& v.m_PoW;
 
@@ -519,8 +518,7 @@ namespace detail
 			ar
 				& v.m_Height
 				& v.m_Prev
-				& v.m_History
-				& v.m_LiveObjects
+				& v.m_Definition
 				& v.m_TimeStamp
 				& v.m_PoW;
 

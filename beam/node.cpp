@@ -783,7 +783,14 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 	if (m_pThis->m_Processor.get_DB().get_Cursor(sid))
 	{
 		if (msg.m_Height < sid.m_Height)
+		{
 			m_pThis->m_Processor.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height);
+
+			msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+
+			msgOut.m_Proof.back().first = true;
+			m_pThis->m_Processor.get_CurrentLive(msgOut.m_Proof.back().second);
+		}
 	}
 
 	Send(msgOut);
@@ -805,16 +812,30 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 		msgOut.m_Proof.back().first = false;
 
 		m_pThis->m_Processor.get_Utxos().get_Hash(msgOut.m_Proof.back().second);
+
+		NodeDB::StateID sidPrev;
+		if (!m_pThis->m_Processor.get_DB().get_Cursor(sidPrev) ||
+			!m_pThis->m_Processor.get_DB().get_Prev(sidPrev))
+			ZeroObject(sidPrev);
+
+		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+		msgOut.m_Proof.back().first = false;
+		m_pThis->m_Processor.get_History(msgOut.m_Proof.back().second, sidPrev);
 	}
 }
 
 void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 {
+	NodeDB::StateID sidPrev;
+	if (!m_pThis->m_Processor.get_DB().get_Cursor(sidPrev) ||
+		!m_pThis->m_Processor.get_DB().get_Prev(sidPrev))
+		ZeroObject(sidPrev);
+
 	struct Traveler :public UtxoTree::ITraveler
 	{
 		proto::ProofUtxo m_Msg;
 		UtxoTree* m_pTree;
-		Merkle::Hash m_hvKernels;
+		Merkle::Hash m_hvKernels, m_hvHistory;
 
 		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
 
@@ -833,12 +854,17 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 			ret.m_Proof.back().first = true;
 			ret.m_Proof.back().second = m_hvKernels;
 
+			ret.m_Proof.resize(ret.m_Proof.size() + 1);
+			ret.m_Proof.back().first = false;
+			ret.m_Proof.back().second = m_hvHistory;
+
 			return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
 		}
 	} t;
 
 	t.m_pTree = &m_pThis->m_Processor.get_Utxos();
 	m_pThis->m_Processor.get_Kernels().get_Hash(t.m_hvKernels);
+	m_pThis->m_Processor.get_History(t.m_hvHistory, sidPrev);
 
 	UtxoTree::Cursor cu;
 	t.m_pCu = &cu;

@@ -330,6 +330,27 @@ void NodeProcessor::get_CurrentLive(Merkle::Hash& hv)
 	Merkle::Interpret(hv, hv2, true);
 }
 
+void NodeProcessor::get_History(Merkle::Hash& hv, const NodeDB::StateID& sidPrev)
+{
+	if (sidPrev.m_Row)
+	{
+		assert(sidPrev.m_Height >= Block::Rules::HeightGenesis);
+		m_DB.get_PredictedStatesHash(hv, sidPrev);
+	}
+	else
+		ZeroObject(hv);
+}
+
+void NodeProcessor::get_Definition(Merkle::Hash& hv, const NodeDB::StateID& sidPrev)
+{
+	Merkle::Hash hvHist;
+	get_History(hvHist, sidPrev);
+
+	// check the validity of state description.
+	get_CurrentLive(hv);
+	Merkle::Interpret(hv, hvHist, false);
+}
+
 struct NodeProcessor::RollbackData
 {
 	// helper structures for rollback
@@ -415,22 +436,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				return false;
 			}
 
-			Merkle::Hash hvHist;
-			if (sid.m_Height > Block::Rules::HeightGenesis)
-			{
-				NodeDB::StateID sidPrev = sid;
-				verify(m_DB.get_Prev(sidPrev));
-				m_DB.get_PredictedStatesHash(hvHist, sidPrev);
-			}
-			else
-				ZeroObject(hvHist);
-
-			if (s.m_History != hvHist)
-			{
-				LOG_WARNING() << id << " Header History mismatch";
-				return false; // The state (even the header) is formed incorrectly!
-			}
-
 			if (!VerifyBlock(block, sid.m_Height, sid.m_Height))
 			{
 				LOG_WARNING() << id << " context-free verification failed";
@@ -454,12 +459,19 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	if (bFirstTime && bOk)
 	{
 		// check the validity of state description.
-		Merkle::Hash hv;
-		get_CurrentLive(hv);
-
-		if (s.m_LiveObjects != hv)
+		NodeDB::StateID sidPrev = sid;
+		if (!m_DB.get_Prev(sidPrev))
 		{
-			LOG_WARNING() << id << " Header LiveObjects mismatch";
+			assert(Block::Rules::HeightGenesis == sid.m_Height);
+			ZeroObject(sidPrev);
+		}
+
+		Merkle::Hash hvDef;
+		get_Definition(hvDef, sidPrev);
+
+		if (s.m_Definition != hvDef)
+		{
+			LOG_WARNING() << id << " Header Definition mismatch";
 			bOk = false;
 		}
 
@@ -1273,24 +1285,21 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	res.m_Subsidy += Block::Rules::CoinbaseEmission;
 
 	// Finalize block construction.
-	if (h > Block::Rules::HeightGenesis)
+	NodeDB::StateID sid;
+	if (m_DB.get_Cursor(sid))
 	{
-		NodeDB::StateID sid;
-		m_DB.get_Cursor(sid);
-
 		m_DB.get_State(sid.m_Row, s);
 		s.get_Hash(s.m_Prev);
-		m_DB.get_PredictedStatesHash(s.m_History, sid);
 	}
 	else
 	{
+		ZeroObject(sid);
 		ZeroObject(s.m_Prev);
-		ZeroObject(s.m_History);
 	}
 
-	s.m_Height = h;
-	get_CurrentLive(s.m_LiveObjects);
+	get_Definition(s.m_Definition, sid);
 
+	s.m_Height = h;
 	s.m_PoW.m_Difficulty = get_NextDifficulty();
 	s.m_TimeStamp = time(NULL); // TODO: 64-bit time
 
@@ -1465,17 +1474,7 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 	if (!HandleValidatedTx(block, Block::Rules::HeightGenesis, true, rbData))
 		return false;
 
-	// check the current state validity
-	Merkle::Hash hv;
-	get_CurrentLive(hv);
-
-	if (s.m_LiveObjects != hv)
-	{
-		verify(HandleValidatedTx(block, Block::Rules::HeightGenesis, false, rbData));
-		return false;
-	}
-
-	// everything's fine. Update DB state flags and cursor.
+	// Update DB state flags and cursor. This will also buils the MMR for prev states
 	NodeDB::StateID sid;
 	for (sid.m_Height = Block::Rules::HeightGenesis; sid.m_Height <= id.m_Height; sid.m_Height++)
 	{
@@ -1488,8 +1487,24 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 		m_DB.MoveFwd(sid);
 	}
 
-	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
+	sid.m_Height = id.m_Height;
+	if (!m_DB.get_Prev(sid))
+		ZeroObject(sid);
 
+	Merkle::Hash hvDef;
+	get_Definition(hvDef, sid);
+
+	if (s.m_Definition != hvDef)
+	{
+		verify(HandleValidatedTx(block, Block::Rules::HeightGenesis, false, rbData));
+
+		// DB changes are not reverted explicitly, but they will be reverted by DB transaction rollback.
+
+		return false;
+	}
+
+	// everything's fine
+	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
 	t.Commit();
 
 	TryGoUp();

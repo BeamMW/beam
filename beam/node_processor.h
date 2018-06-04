@@ -35,7 +35,7 @@ class NodeProcessor
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
 
 	void OnCorrupted();
-	void get_CurrentLive(Merkle::Hash&);
+	void get_Definition(Merkle::Hash&, const NodeDB::StateID& sidPrev);
 
 	bool IsRelevantHeight(Height);
 	uint8_t get_NextDifficulty();
@@ -62,6 +62,9 @@ public:
 
 	bool get_CurrentState(Block::SystemState::ID&); // returns false if no valid states so far
 	bool get_CurrentState(Block::SystemState::Full&);
+
+	void get_CurrentLive(Merkle::Hash&);
+	void get_History(Merkle::Hash&, const NodeDB::StateID& sidPrev);
 
 	void ExportMacroBlock(Block::Body&); // can be time-consuming
 	bool ImportMacroBlock(const Block::SystemState::ID&, const Block::Body&);

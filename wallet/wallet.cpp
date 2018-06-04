@@ -337,7 +337,7 @@ namespace beam
                 {
                     Input input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
                 
-                    if (proof.IsValid(input, m_LiveObjects))
+                    if (proof.IsValid(input, m_Definition))
                     {
                         found = coin;
                         found->m_status = Coin::Unspent;
@@ -380,7 +380,7 @@ namespace beam
 
     void Wallet::handle_node_message(proto::Hdr&& msg)
     {
-        m_LiveObjects = msg.m_Description.m_LiveObjects;
+		m_Definition = msg.m_Description.m_Definition;
 
         // TODO: do one kernel proof instead many per coin proofs
         m_keyChain->visit([&](const Coin& coin)
