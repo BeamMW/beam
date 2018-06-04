@@ -9,7 +9,7 @@ namespace beam::wallet
     class Receiver : public FSMHelper<Receiver>
     {
     public:
-        using Ptr = std::unique_ptr<Receiver>;
+        using Ptr = std::shared_ptr<Receiver>;
         // events
         struct TxFailed {};
         struct TxConfirmationCompleted

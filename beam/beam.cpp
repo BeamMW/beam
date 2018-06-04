@@ -319,7 +319,7 @@ int main(int argc, char* argv[])
     po::options_description wallet_options("Wallet options");
     wallet_options.add_options()
         (cli::PASS, po::value<string>()->default_value(""), "password for the wallet")
-        (cli::AMOUNT_FULL, po::value<int64_t>(), "amount to send")
+        (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 1000000 chattle)")
         (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
         (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
 		(cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
@@ -589,12 +589,14 @@ int main(int argc, char* argv[])
                             LOG_ERROR() << "unable to resolve receiver address: " << receiverURI;
                             return -1;
                         }
-                        auto signedAmount = vm[cli::AMOUNT].as<int64_t>();
+                        auto signedAmount = vm[cli::AMOUNT].as<double>();
                         if (signedAmount < 0)
                         {
                             LOG_ERROR() << "Unable to send negative amount of coins";
                             return -1;
                         }
+
+                        signedAmount *= Block::Rules::Coin; // convert beams to coins
 
                         amount = static_cast<ECC::Amount>(signedAmount);
                         if (amount == 0)
