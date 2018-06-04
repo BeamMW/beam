@@ -128,10 +128,14 @@ namespace beam
         copy(id.begin(), id.end(), txId.begin());
         m_peers.emplace(txId, to);
         auto s = make_shared<Sender>(*this, m_keyChain, txId, amount);
-        auto p = m_senders.emplace(txId, move(s));
+        auto p = m_senders.emplace(txId, s);
         if (!m_syncing)
         {
             p.first->second->start();
+        }
+        else
+        {
+            m_pendingSenders.emplace_back(s);
         }
     }
 
@@ -228,6 +232,10 @@ namespace beam
             if (!m_syncing)
             {
                 p.first->second->start();
+            }
+            else
+            {
+                m_pendingReceivers.emplace_back(p.first->second);
             }
         }
         else
@@ -390,10 +398,13 @@ namespace beam
             if (coin.m_status == Coin::Unconfirmed)
             {
                 ++m_syncing;
+                auto input = Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
+                LOG_DEBUG() << "Get proof: " << input.m_Commitment;
                 m_network.send_node_message(
                     proto::GetProofUtxo
                     {
-                        Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) }
+                        input
+                        //Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) }
                         , 0
                     });
             }
@@ -483,34 +494,25 @@ namespace beam
             {
                 m_keyChain->setSystemStateID(m_newStateID);
                 m_knownStateID = m_newStateID;
-                if (!m_senders.empty())
+                if (!m_pendingSenders.empty())
                 {
                     Cleaner<std::vector<wallet::Sender::Ptr> > cr{ m_removed_senders };
-                    vector<Sender::Ptr> temp; // copy to avoid iterators invalidation
-                    temp.reserve(m_senders.size());
-                    for (auto& s : m_senders)
+                    
+                    for (auto& s : m_pendingSenders)
                     {
-                        temp.emplace_back(s.second);
+                        s->start();
                     }
-                    for (auto& t : temp)
-                    {
-                        t->start();
-                    }
+                    m_pendingSenders.clear();
                 }
 
-                if (!m_receivers.empty())
+                if (!m_pendingReceivers.empty())
                 {
                     Cleaner<std::vector<wallet::Receiver::Ptr> > cr{ m_removed_receivers };
-                    vector<Receiver::Ptr> temp; // copy to avoid iterators invalidation
-                    temp.reserve(m_receivers.size());
-                    for (auto& r : m_receivers)
+                    for (auto& r : m_pendingReceivers)
                     {
-                        temp.emplace_back(r.second);
+                        r->start();
                     }
-                    for (auto& t : temp)
-                    {
-                        t->start();
-                    }
+                    m_pendingReceivers.clear();
                 }
             }
         }

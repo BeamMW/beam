@@ -381,8 +381,7 @@ namespace beam
 
                     ENUM_STORAGE_FIELDS(STM_GET_LIST, NOSEP);
 
-                    if (coin.m_status == beam::Coin::Unspent
-                     && coin.m_maturity <= stateID.m_Height)
+                    if (coin.m_maturity <= stateID.m_Height)
                     {
 						if (lock)
 						{
