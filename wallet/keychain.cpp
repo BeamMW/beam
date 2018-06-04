@@ -9,19 +9,20 @@
 
 // Coin ID fields
 // id          - coin counter
-// height      - block height where we got the coin
+// height      - block height where we got the coin(coinbase) or the height of the latest known block
 // key_type    - key type
 //
 // amount      - amount
 // count       - number of coins with same commitment
 // status      - spent/unspent/unconfirmed/locked
-// lock_height - height where we can spend the coin
+// maturity    - height where we can spend the coin
 #define ENUM_STORAGE_FIELDS(each, sep) \
     each(1, id,			sep, INTEGER PRIMARY KEY AUTOINCREMENT) \
     each(2, amount,		sep, INTEGER) \
     each(3, status,		sep, INTEGER) \
     each(4, height,		sep, INTEGER) \
-    each(5, key_type,	   , INTEGER) // last item without separator
+    each(5, maturity,	sep, INTEGER) \
+    each(6, key_type,	   , INTEGER) // last item without separator
 
 #define LIST(num, name, sep, type) #name sep
 #define LIST_WITH_TYPES(num, name, sep, type) #name " " #type sep
@@ -187,11 +188,12 @@ namespace beam
         };
     }
 
-    Coin::Coin(const Amount& amount, Status status, const Height& height, KeyType keyType)
+    Coin::Coin(const Amount& amount, Status status, const Height& height, const Height& maturity, KeyType keyType)
         : m_id{0}
         , m_amount{amount}
         , m_status{status}
         , m_height{height}
+        , m_maturity{maturity}
         , m_key_type{ keyType }
     {
 
@@ -379,22 +381,16 @@ namespace beam
 
                     ENUM_STORAGE_FIELDS(STM_GET_LIST, NOSEP);
 
-                    if (coin.m_status == beam::Coin::Unspent)
+                    if (coin.m_status == beam::Coin::Unspent
+                     && coin.m_maturity <= stateID.m_Height)
                     {
-						Height lockHeight = coin.m_height + (coin.m_key_type == KeyType::Coinbase 
-							? Block::Rules::MaturityCoinbase 
-							: Block::Rules::MaturityStd);
-
-						if (lockHeight <= stateID.m_Height)
+						if (lock)
 						{
-							if (lock)
-							{
-								coin.m_status = beam::Coin::Locked;
-							}
-
-							coins.push_back(coin);
-							sum += coin.m_amount;
+							coin.m_status = beam::Coin::Locked;
 						}
+
+						coins.push_back(coin);
+						sum += coin.m_amount;
                     }
                 }
                 else break;
@@ -431,13 +427,14 @@ namespace beam
         sqlite::Transaction trans(_db);
         
         {
-            const char* req = "INSERT INTO " STORAGE_NAME " (amount, status, height, key_type) VALUES(?1, ?2, ?3, ?4);";
+            const char* req = "INSERT INTO " STORAGE_NAME " (amount, status, height, maturity, key_type) VALUES(?1, ?2, ?3, ?4, ?5);";
             sqlite::Statement stm(_db, req);
 
 			stm.bind(1, coin.m_amount);
 			stm.bind(2, coin.m_status);
 			stm.bind(3, coin.m_height);
-			stm.bind(4, coin.m_key_type);
+            stm.bind(4, coin.m_maturity);
+			stm.bind(5, coin.m_key_type);
 
             stm.step();
         }
@@ -454,13 +451,14 @@ namespace beam
         sqlite::Transaction trans(_db);
         for (auto& coin : coins)
         {
-			const char* req = "INSERT INTO " STORAGE_NAME " (amount, status, height, key_type) VALUES(?1, ?2, ?3, ?4);";
+			const char* req = "INSERT INTO " STORAGE_NAME " (amount, status, height, maturity, key_type) VALUES(?1, ?2, ?3, ?4, ?5);";
 			sqlite::Statement stm(_db, req);
 
 			stm.bind(1, coin.m_amount);
 			stm.bind(2, coin.m_status);
 			stm.bind(3, coin.m_height);
-			stm.bind(4, coin.m_key_type);
+            stm.bind(4, coin.m_maturity);
+            stm.bind(5, coin.m_key_type);
 
             stm.step();
 

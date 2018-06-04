@@ -326,7 +326,7 @@ namespace beam
     void Wallet::handle_node_message(proto::ProofUtxo&& proof)
     {
         // TODO: handle the maturity of the several proofs (> 1)
-        boost::optional<Coin> found;
+        vector<Coin> found;
 
         for (const auto& proof : proof.m_Proofs)
         {
@@ -339,8 +339,9 @@ namespace beam
                 
                     if (proof.IsValid(input, m_LiveObjects))
                     {
-                        found = coin;
-                        found->m_status = Coin::Unspent;
+                        auto& c = found.emplace_back(coin);
+                        c.m_status = Coin::Unspent;
+                        c.m_maturity = proof.m_Maturity;
                         
                         if (--count)
                         {
@@ -354,9 +355,9 @@ namespace beam
             });
         }
 
-        if (found)
+        if (!found.empty())
         {
-            m_keyChain->update(vector<Coin>{*found});
+            m_keyChain->update(found);
         }
         else
         {
@@ -415,11 +416,19 @@ namespace beam
             {
                 Amount reward = Block::Rules::CoinbaseEmission;
                 // coinbase 
-                mined.emplace_back(Block::Rules::CoinbaseEmission, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Coinbase);
+                mined.emplace_back(Block::Rules::CoinbaseEmission
+                                 , Coin::Unspent
+                                 , minedCoin.m_ID.m_Height
+                                 , minedCoin.m_ID.m_Height + Block::Rules::MaturityCoinbase
+                                 , KeyType::Coinbase);
                 if (minedCoin.m_Fees > 0)
                 {
                     reward += minedCoin.m_Fees;
-                    mined.emplace_back(minedCoin.m_Fees, Coin::Unspent, minedCoin.m_ID.m_Height, KeyType::Comission);
+                    mined.emplace_back(minedCoin.m_Fees
+                                     , Coin::Unspent
+                                     , minedCoin.m_ID.m_Height
+                                     , minedCoin.m_ID.m_Height + Block::Rules::MaturityStd
+                                     , KeyType::Comission);
                 }
                 LOG_INFO() << "Block reward received: " << PrintableAmount(reward);
             }
