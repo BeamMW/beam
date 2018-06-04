@@ -161,9 +161,11 @@ void Node::Processor::OnPeerInsane(const PeerID& peerID)
 
 void Node::Processor::OnNewState()
 {
-	proto::Hdr msgHdr;
-	if (!get_CurrentState(msgHdr.m_Description))
+	if (!m_Cursor.m_Sid.m_Row)
 		return;
+
+	proto::Hdr msgHdr;
+	msgHdr.m_Description = m_Cursor.m_Full;
 
 	proto::NewTip msg;
 	msgHdr.m_Description.get_ID(msg.m_ID);
@@ -301,11 +303,7 @@ void Node::Initialize()
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
     m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
 
-	Block::SystemState::ID id;
-	if (!m_Processor.get_CurrentState(id))
-		ZeroObject(id);
-
-	LOG_INFO() << "Initial Tip: " << id;
+	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
 
 	if (m_Cfg.m_VerificationThreads < 0)
 	{
@@ -435,9 +433,12 @@ void Node::Peer::OnConnected()
 	msgCfg.m_AutoSendHdr = false;
 	Send(msgCfg);
 
-	proto::NewTip msg;
-	if (m_pThis->m_Processor.get_CurrentState(msg.m_ID))
+	if (m_pThis->m_Processor.m_Cursor.m_Sid.m_Row)
+	{
+		proto::NewTip msg;
+		msg.m_ID = m_pThis->m_Processor.m_Cursor.m_ID;
 		Send(msg);
+	}
 }
 
 void Node::Peer::OnClosed(int errorCode)
@@ -736,11 +737,11 @@ void Node::Peer::OnMsg(proto::Config&& msg)
 		// maybe this isn't necessary, in this case it'll receive only new transactions.
 	}
 
-	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr)
+	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr && m_pThis->m_Processor.m_Cursor.m_Sid.m_Row)
 	{
 		proto::Hdr msgHdr;
-		if (m_pThis->m_Processor.get_CurrentState(msgHdr.m_Description))
-			Send(msgHdr);
+		msgHdr.m_Description = m_pThis->m_Processor.m_Cursor.m_Full;
+		Send(msgHdr);
 	}
 
 	m_Config = msg;
@@ -1024,8 +1025,7 @@ bool Node::Miner::Restart(Block::Body* pTreasury /* = NULL */)
 	if (m_vThreads.empty())
 		return false; //  n/a
 
-	Block::SystemState::ID id;
-	if (!get_ParentObj().m_Processor.get_CurrentState(id))
+	if (!get_ParentObj().m_Processor.m_Cursor.m_Sid.m_Row)
 	{
 		bool bMineGenesis = pTreasury || get_ParentObj().m_Cfg.m_TestMode.m_bMineGenesisBlock;
 		if (!bMineGenesis)
@@ -1046,6 +1046,7 @@ bool Node::Miner::Restart(Block::Body* pTreasury /* = NULL */)
 		return false;
 	}
 
+	Block::SystemState::ID id;
 	pTask->m_Hdr.get_ID(id);
 
 	LOG_INFO() << "Block generated: " << id << ", Fee=" << pTask->m_Fees << ", Difficulty=" << uint32_t(pTask->m_Hdr.m_PoW.m_Difficulty) << ", Size=" << pTask->m_Body.size();

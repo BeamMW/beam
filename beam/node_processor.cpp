@@ -82,6 +82,8 @@ void NodeProcessor::Initialize(const char* szPath)
 {
 	m_DB.Open(szPath);
 
+	InitCursor();
+
 	// Load all th 'live' data
 	{
 		struct Walker
@@ -119,6 +121,18 @@ void NodeProcessor::Initialize(const char* szPath)
 	NodeDB::Transaction t(m_DB);
 	TryGoUp();
 	t.Commit();
+}
+
+void NodeProcessor::InitCursor()
+{
+	if (m_DB.get_Cursor(m_Cursor.m_Sid))
+	{
+		m_DB.get_State(m_Cursor.m_Sid.m_Row, m_Cursor.m_Full);
+		m_Cursor.m_Full.get_ID(m_Cursor.m_ID);
+	}
+	else
+		ZeroObject(m_Cursor);
+
 }
 
 void NodeProcessor::EnumCongestions()
@@ -844,6 +858,7 @@ bool NodeProcessor::GoForward(const NodeDB::StateID& sid)
 	if (HandleBlock(sid, true))
 	{
 		m_DB.MoveFwd(sid);
+		InitCursor();
 		return true;
 	}
 
@@ -867,26 +882,7 @@ void NodeProcessor::Rollback(const NodeDB::StateID& sid)
 
 	NodeDB::StateID sid2(sid);
 	m_DB.MoveBack(sid2);
-}
-
-bool NodeProcessor::get_CurrentState(Block::SystemState::Full& s)
-{
-	NodeDB::StateID sid;
-	if (!m_DB.get_Cursor(sid))
-		return false;
-
-	m_DB.get_State(sid.m_Row, s);
-	return true;
-}
-
-bool NodeProcessor::get_CurrentState(Block::SystemState::ID& id)
-{
-	Block::SystemState::Full s;
-	if (!get_CurrentState(s))
-		return false;
-
-	s.get_ID(id);
-	return true;
+	InitCursor();
 }
 
 bool NodeProcessor::IsRelevantHeight(Height h)
@@ -1486,6 +1482,8 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 
 		m_DB.MoveFwd(sid);
 	}
+
+	InitCursor();
 
 	sid.m_Height = id.m_Height;
 	if (!m_DB.get_Prev(sid))

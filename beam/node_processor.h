@@ -34,6 +34,7 @@ class NodeProcessor
 	bool HandleBlockElement(const Output&, Height, bool bFwd);
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
 
+	void InitCursor();
 	void OnCorrupted();
 	void get_Definition(Merkle::Hash&, const NodeDB::StateID& sidPrev);
 
@@ -59,9 +60,14 @@ public:
 
 	} m_Horizon;
 
+	struct Cursor
+	{
+		// frequently used data
+		NodeDB::StateID m_Sid;
+		Block::SystemState::ID m_ID;
+		Block::SystemState::Full m_Full;
 
-	bool get_CurrentState(Block::SystemState::ID&); // returns false if no valid states so far
-	bool get_CurrentState(Block::SystemState::Full&);
+	} m_Cursor;
 
 	void get_CurrentLive(Merkle::Hash&);
 	void get_History(Merkle::Hash&, const NodeDB::StateID& sidPrev);
