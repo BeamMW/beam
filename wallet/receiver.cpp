@@ -112,9 +112,6 @@ namespace beam::wallet
         beam::TxBase::Context ctx;
         assert(m_transaction->IsValid(ctx));
 
-        auto c = Commitment{ m_keychain->calcKey(m_receiver_coin), m_receiver_coin.m_amount };
-        LOG_DEBUG() << "Receiver's commitment: " << c;
-
         m_gateway.register_tx(m_txId, m_transaction);
     }
 

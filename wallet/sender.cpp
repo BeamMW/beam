@@ -55,12 +55,11 @@ namespace beam::wallet
             if (change > 0)
             {
                 m_changeOutput = beam::Coin(change, Coin::Unconfirmed, currentHeight);
+                m_keychain->store(*m_changeOutput);
                 Output::Ptr output = make_unique<Output>();
                 output->m_Coinbase = false;
                 Scalar::Native blindingFactor = m_keychain->calcKey(*m_changeOutput);
                 output->Create(blindingFactor, change);
-
-                m_keychain->store(*m_changeOutput);
 
                 blindingFactor = -blindingFactor;
                 m_blindingExcess += blindingFactor;
