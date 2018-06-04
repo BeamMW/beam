@@ -26,6 +26,10 @@ struct SqliteKeychain : beam::IKeyChain
 		// open wallet with password
 		_keychain = beam::Keychain::open(Pass);
 		assert(_keychain != nullptr);
+
+		beam::Block::SystemState::ID id = { 0 };
+		id.m_Height = 134;
+		setSystemStateID(id);
 	}
 
 
