@@ -695,7 +695,7 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 				os << "\n\tK: Fee=" << tx.m_vKernelsOutput[i]->m_Fee;
 		}
 
-		Height h = m_pThis->m_Processor.get_NextHeight();
+		Height h = m_pThis->m_Processor.m_Cursor.m_Sid.m_Height + 1;
 		msgOut.m_Value = m_pThis->m_TxPool.AddTx(std::move(key.m_pValue), h);
 
 		os << "\n\tValid: " << msgOut.m_Value;
@@ -780,8 +780,8 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 
 	proto::Proof msgOut;
 
-	NodeDB::StateID sid;
-	if (m_pThis->m_Processor.get_DB().get_Cursor(sid))
+	const NodeDB::StateID& sid = m_pThis->m_Processor.m_Cursor.m_Sid;
+	if (sid.m_Row)
 	{
 		if (msg.m_Height < sid.m_Height)
 		{

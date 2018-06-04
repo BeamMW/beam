@@ -137,9 +137,6 @@ void NodeProcessor::InitCursor()
 
 void NodeProcessor::EnumCongestions()
 {
-	NodeDB::StateID sidPos;
-	m_DB.get_Cursor(sidPos);
-
 	// request all potentially missing data
 	NodeDB::WalkerState ws(m_DB);
 	for (m_DB.EnumTips(ws); ws.MoveNext(); )
@@ -148,7 +145,7 @@ void NodeProcessor::EnumCongestions()
 		if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row))
 			continue;
 
-		if (sid.m_Height < sidPos.m_Height)
+		if (sid.m_Height < m_Cursor.m_Sid.m_Height)
 			continue; // not interested in tips behind the current cursor
 
 		bool bBlock = true;
@@ -195,8 +192,7 @@ void NodeProcessor::TryGoUp()
 
 	while (true)
 	{
-		NodeDB::StateID sidPos, sidTrg;
-		m_DB.get_Cursor(sidPos);
+		NodeDB::StateID sidTrg;
 
 		{
 			NodeDB::WalkerState ws(m_DB);
@@ -204,30 +200,27 @@ void NodeProcessor::TryGoUp()
 
 			if (!ws.MoveNext())
 			{
-				assert(!sidPos.m_Row);
+				assert(!m_Cursor.m_Sid.m_Row);
 				break; // nowhere to go
 			}
 			sidTrg = ws.m_Sid;
 		}
 
-		assert(sidTrg.m_Height >= sidPos.m_Height);
-		if (sidTrg.m_Height == sidPos.m_Height)
+		assert(sidTrg.m_Height >= m_Cursor.m_Sid.m_Height);
+		if (sidTrg.m_Height == m_Cursor.m_Sid.m_Height)
 			break; // already at maximum height (though maybe at different tip)
 
 		// Calculate the path
 		std::vector<uint64_t> vPath;
-		while (sidTrg.m_Row != sidPos.m_Row)
+		while (sidTrg.m_Row != m_Cursor.m_Sid.m_Row)
 		{
 			assert(sidTrg.m_Row);
 			vPath.push_back(sidTrg.m_Row);
 
-			if (sidPos.m_Height == sidTrg.m_Height)
+			if (m_Cursor.m_Sid.m_Height == sidTrg.m_Height)
 			{
-				Rollback(sidPos);
+				Rollback();
 				bDirty = true;
-
-				if (!m_DB.get_Prev(sidPos))
-					sidPos.SetNull();
 			}
 
 			if (!m_DB.get_Prev(sidTrg))
@@ -238,11 +231,8 @@ void NodeProcessor::TryGoUp()
 
 		for (size_t i = vPath.size(); i--; )
 		{
-			sidPos.m_Height++;
-			sidPos.m_Row = vPath[i];
-
 			bDirty = true;
-			if (!GoForward(sidPos))
+			if (!GoForward(vPath[i]))
 			{
 				bPathOk = false;
 				break;
@@ -255,16 +245,14 @@ void NodeProcessor::TryGoUp()
 
 	if (bDirty)
 	{
-		NodeDB::StateID sidPos;
-		m_DB.get_Cursor(sidPos);
-		PruneOld(sidPos.m_Height);
-
+		PruneOld();
 		OnNewState();
 	}
 }
 
-void NodeProcessor::PruneOld(Height h)
+void NodeProcessor::PruneOld()
 {
+	Height h = m_Cursor.m_Sid.m_Height;
 	if (h <= m_Horizon.m_Branching)
 		return;
 	h -= m_Horizon.m_Branching;
@@ -853,8 +841,12 @@ void NodeProcessor::DereferenceFossilBlock(uint64_t rowid)
 	}
 }
 
-bool NodeProcessor::GoForward(const NodeDB::StateID& sid)
+bool NodeProcessor::GoForward(uint64_t row)
 {
+	NodeDB::StateID sid;
+	sid.m_Height = m_Cursor.m_Sid.m_Height + 1;
+	sid.m_Row = row;
+
 	if (HandleBlock(sid, true))
 	{
 		m_DB.MoveFwd(sid);
@@ -862,26 +854,25 @@ bool NodeProcessor::GoForward(const NodeDB::StateID& sid)
 		return true;
 	}
 
-	m_DB.DelStateBlock(sid.m_Row);
-	m_DB.SetStateNotFunctional(sid.m_Row);
+	m_DB.DelStateBlock(row);
+	m_DB.SetStateNotFunctional(row);
 
 	PeerID peer;
-	if (m_DB.get_Peer(sid.m_Row, peer))
+	if (m_DB.get_Peer(row, peer))
 	{
-		m_DB.set_Peer(sid.m_Row, NULL);
+		m_DB.set_Peer(row, NULL);
 		OnPeerInsane(peer);
 	}
 
 	return false;
 }
 
-void NodeProcessor::Rollback(const NodeDB::StateID& sid)
+void NodeProcessor::Rollback()
 {
-	if (!HandleBlock(sid, false))
+	if (!HandleBlock(m_Cursor.m_Sid, false))
 		OnCorrupted();
 
-	NodeDB::StateID sid2(sid);
-	m_DB.MoveBack(sid2);
+	m_DB.MoveBack(m_Cursor.m_Sid);
 	InitCursor();
 }
 
@@ -1114,31 +1105,19 @@ void AppendCloneArray(Serializer& ser, std::vector<T>& trg, const std::vector<T>
 	}
 }
 
-Height NodeProcessor::get_NextHeight()
-{
-	NodeDB::StateID sid;
-	m_DB.get_Cursor(sid);
-
-	return sid.m_Height + 1;
-}
-
 uint8_t NodeProcessor::get_NextDifficulty()
 {
-	NodeDB::StateID sid;
-	if (!m_DB.get_Cursor(sid))
+	if (!m_Cursor.m_Sid.m_Row)
 		return 0; // 1st block difficulty 0
 
-	Block::SystemState::Full s;
-	m_DB.get_State(sid.m_Row, s);
-
-	Height dh = s.m_Height - Block::Rules::HeightGenesis;
+	Height dh = m_Cursor.m_Full.m_Height - Block::Rules::HeightGenesis;
 
 	if (!dh || (dh % Block::Rules::DifficultyReviewCycle))
-		return s.m_PoW.m_Difficulty; // no change
+		return m_Cursor.m_Full.m_PoW.m_Difficulty; // no change
 
 	// review the difficulty
 	NodeDB::WalkerState ws(m_DB);
-	m_DB.EnumStatesAt(ws, s.m_Height - Block::Rules::DifficultyReviewCycle);
+	m_DB.EnumStatesAt(ws, m_Cursor.m_Full.m_Height - Block::Rules::DifficultyReviewCycle);
 	while (true)
 	{
 		if (!ws.MoveNext())
@@ -1151,29 +1130,29 @@ uint8_t NodeProcessor::get_NextDifficulty()
 	Block::SystemState::Full s2;
 	m_DB.get_State(ws.m_Sid.m_Row, s2);
 
-	Block::Rules::AdjustDifficulty(s.m_PoW.m_Difficulty, s2.m_TimeStamp, s.m_TimeStamp);
-	return s.m_PoW.m_Difficulty;
+	uint8_t ret = m_Cursor.m_Full.m_PoW.m_Difficulty;
+	Block::Rules::AdjustDifficulty(ret, s2.m_TimeStamp, m_Cursor.m_Full.m_TimeStamp);
+	return ret;
 }
 
 Timestamp NodeProcessor::get_MovingMedian()
 {
-	NodeDB::StateID sid;
-	if (!m_DB.get_Cursor(sid))
+	if (!m_Cursor.m_Sid.m_Row)
 		return 0;
 
 	Timestamp pArr[Block::Rules::WindowForMedian];
 	uint32_t n = 0;
 
-	while (true)
+	for (uint64_t row = m_Cursor.m_Sid.m_Row; ; )
 	{
 		Block::SystemState::Full s;
-		m_DB.get_State(sid.m_Row, s);
+		m_DB.get_State(row, s);
 		pArr[n] = s.m_TimeStamp;
 
 		if (Block::Rules::WindowForMedian == ++n)
 			break;
 
-		if (!m_DB.get_Prev(sid))
+		if (!m_DB.get_Prev(row))
 			break;
 	}
 
@@ -1281,19 +1260,12 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	res.m_Subsidy += Block::Rules::CoinbaseEmission;
 
 	// Finalize block construction.
-	NodeDB::StateID sid;
-	if (m_DB.get_Cursor(sid))
-	{
-		m_DB.get_State(sid.m_Row, s);
-		s.get_Hash(s.m_Prev);
-	}
+	if (m_Cursor.m_Sid.m_Row)
+		s.m_Prev = m_Cursor.m_ID.m_Hash;
 	else
-	{
-		ZeroObject(sid);
 		ZeroObject(s.m_Prev);
-	}
 
-	get_Definition(s.m_Definition, sid);
+	get_Definition(s.m_Definition, m_Cursor.m_Sid);
 
 	s.m_Height = h;
 	s.m_PoW.m_Difficulty = get_NextDifficulty();
@@ -1322,7 +1294,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res, bool bInitiallyEmpty)
 {
-	Height h = get_NextHeight();
+	Height h = m_Cursor.m_Sid.m_Height + 1;
 
 	if (!bInitiallyEmpty && !VerifyBlock(res, h, h))
 		return false;
@@ -1436,8 +1408,7 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 	if (!(block.m_vInputs.empty() && block.m_vKernelsInput.empty()))
 		return false; //macroblock may not have inputs
 
-	NodeDB::StateID sidPos;
-	if (m_DB.get_Cursor(sidPos))
+	if (m_Cursor.m_Sid.m_Row)
 		return false; // must be at "clean" state
 
 	uint64_t rowid = m_DB.StateFindSafe(id);

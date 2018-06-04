@@ -20,9 +20,9 @@ class NodeProcessor
 
 	void TryGoUp();
 
-	bool GoForward(const NodeDB::StateID&);
-	void Rollback(const NodeDB::StateID&);
-	void PruneOld(Height);
+	bool GoForward(uint64_t);
+	void Rollback();
+	void PruneOld();
 	void DereferenceFossilBlock(uint64_t);
 
 	struct RollbackData;
@@ -156,7 +156,6 @@ public:
 
 	};
 
-	Height get_NextHeight();
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body& blockInOut);
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees);
 
