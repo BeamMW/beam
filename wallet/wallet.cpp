@@ -52,11 +52,12 @@ namespace beam
         auto width = os.width();
         if (amount.m_value > Block::Rules::Coin)
         {
-            os << setw(width - beams.length()) << Amount(amount.m_value / Block::Rules::Coin) << beams.data();
+            os << setw(width - beams.length()) << Amount(amount.m_value / Block::Rules::Coin) << beams.data() << ' ';
         }
-        else
+        Amount c = amount.m_value % Block::Rules::Coin;
+        if (c > 0 || amount.m_value == 0)
         {
-            os << setw(width - chattles.length()) << amount.m_value << chattles.data();
+            os << setw(width - chattles.length()) << c << chattles.data();
         }
         return os;
     }
@@ -126,7 +127,7 @@ namespace beam
         Uuid txId;
         copy(id.begin(), id.end(), txId.begin());
         m_peers.emplace(txId, to);
-        auto s = make_unique<Sender>(*this, m_keyChain, txId, amount);
+        auto s = make_shared<Sender>(*this, m_keyChain, txId, amount);
         auto p = m_senders.emplace(txId, move(s));
         if (!m_syncing)
         {
@@ -223,7 +224,7 @@ namespace beam
 
             auto txId = data->m_txId;
             m_peers.emplace(txId, from);
-            auto p = m_receivers.emplace(txId, make_unique<Receiver>(*this, m_keyChain, data));
+            auto p = m_receivers.emplace(txId, make_shared<Receiver>(*this, m_keyChain, data));
             if (!m_syncing)
             {
                 p.first->second->start();
@@ -393,7 +394,7 @@ namespace beam
                     proto::GetProofUtxo
                     {
                         Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) }
-                        , coin.m_height
+                        , 0
                     });
             }
 
@@ -482,13 +483,34 @@ namespace beam
             {
                 m_keyChain->setSystemStateID(m_newStateID);
                 m_knownStateID = m_newStateID;
-                for (auto& s : m_senders)
+                if (!m_senders.empty())
                 {
-                    s.second->start();
+                    Cleaner<std::vector<wallet::Sender::Ptr> > cr{ m_removed_senders };
+                    vector<Sender::Ptr> temp; // copy to avoid iterators invalidation
+                    temp.reserve(m_senders.size());
+                    for (auto& s : m_senders)
+                    {
+                        temp.emplace_back(s.second);
+                    }
+                    for (auto& t : temp)
+                    {
+                        t->start();
+                    }
                 }
-                for (auto& r : m_receivers)
+
+                if (!m_receivers.empty())
                 {
-                    r.second->start();
+                    Cleaner<std::vector<wallet::Receiver::Ptr> > cr{ m_removed_receivers };
+                    vector<Receiver::Ptr> temp; // copy to avoid iterators invalidation
+                    temp.reserve(m_receivers.size());
+                    for (auto& r : m_receivers)
+                    {
+                        temp.emplace_back(r.second);
+                    }
+                    for (auto& t : temp)
+                    {
+                        t->start();
+                    }
                 }
             }
         }

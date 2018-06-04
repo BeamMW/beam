@@ -11,7 +11,7 @@ namespace beam::wallet
     class Sender : public FSMHelper<Sender>
     {
     public:
-        using Ptr = std::unique_ptr<Sender>;
+        using Ptr = std::shared_ptr<Sender>;
         // events
         struct TxFailed {};
         struct TxInitCompleted
