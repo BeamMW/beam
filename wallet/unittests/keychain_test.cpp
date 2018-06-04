@@ -65,10 +65,10 @@ void TestKeychain()
 	}
 
     {
-        Coin coin1{ 5, Coin::Unspent, 1, KeyType::Coinbase };
-        Coin coin2{ 4, Coin::Unspent, 1, KeyType::Comission };
-        Coin coin3{ 2, Coin::Unspent, 1, KeyType::Regular };
-        Coin coin4{ 1, Coin::Unspent, 1, KeyType::Regular };
+        Coin coin1{ 5, Coin::Unspent, 1, MaxHeight, KeyType::Coinbase };
+        Coin coin2{ 4, Coin::Unspent, 1, MaxHeight, KeyType::Comission };
+        Coin coin3{ 2, Coin::Unspent, 1, MaxHeight, KeyType::Regular };
+        Coin coin4{ 1, Coin::Unspent, 1, MaxHeight, KeyType::Regular };
 
         keychain.store(coin1);
         keychain.store(coin2);
