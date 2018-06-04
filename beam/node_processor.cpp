@@ -677,16 +677,21 @@ struct NodeProcessor::UtxoSig
 	}
 };
 
+void HeightAdd(Height& trg, Height val)
+{
+	trg += val;
+	if (trg < val)
+		trg = Height(-1);
+}
+
 bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 {
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
 	d.m_Maturity = h;
-	d.m_Maturity += v.m_Coinbase ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd;
-
-	// add explicit incubation offset, beware of overflow attack (to cheat on maturity settings)
-	Height hSum = d.m_Maturity + v.m_Incubation;
-	d.m_Maturity = (d.m_Maturity <= hSum) ? hSum : Height(-1);
+	HeightAdd(d.m_Maturity, v.m_Coinbase ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd);
+	HeightAdd(d.m_Maturity, v.m_Incubation);
+	HeightAdd(d.m_Maturity, v.m_hDelta);
 
 	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
 	skey.m_Key = d;
@@ -1363,33 +1368,37 @@ void NodeProcessor::ExportMacroBlock(Block::Body& res)
 
 		virtual bool OnUtxo(const UtxoTree::Key& key) override
 		{
-			UtxoSig sig;
+			for (Input::Count i = 0; i < m_nUnspentCount; i++)
+			{
+				UtxoSig sig;
 
-			Deserializer der;
-			der.reset(m_Signature.p, m_Signature.n);
-			der & sig;
+				Deserializer der;
+				der.reset(m_Signature.p, m_Signature.n);
+				der & sig;
 
-			UtxoTree::Key::Data d;
-			d = key;
+				UtxoTree::Key::Data d;
+				d = key;
 
-			Output::Ptr pOutp(new Output);
-			pOutp->m_Commitment	= d.m_Commitment;
-			pOutp->m_Coinbase	= sig.m_Coinbase;
-			pOutp->m_Incubation	= sig.m_Incubation;
-			pOutp->m_pConfidential.swap(sig.m_pConfidential);
-			pOutp->m_pPublic.swap(sig.m_pPublic);
+				Output::Ptr pOutp(new Output);
+				pOutp->m_Commitment	= d.m_Commitment;
+				pOutp->m_Coinbase	= sig.m_Coinbase;
+				pOutp->m_Incubation	= sig.m_Incubation;
+				pOutp->m_pConfidential.swap(sig.m_pConfidential);
+				pOutp->m_pPublic.swap(sig.m_pPublic);
 
-			// calculate hDelta, to fit the needed maturity
-			pOutp->m_hDelta = d.m_Maturity - sig.m_Incubation - Block::Rules::HeightGenesis;
-			pOutp->m_hDelta -= sig.m_Coinbase ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd;
+				// calculate hDelta, to fit the needed maturity
+				pOutp->m_hDelta = d.m_Maturity - sig.m_Incubation - Block::Rules::HeightGenesis;
+				pOutp->m_hDelta -= sig.m_Coinbase ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd;
 
-			m_pRes->m_vOutputs.push_back(std::move(pOutp));
-
+				m_pRes->m_vOutputs.push_back(std::move(pOutp));
+}
 			return true;
 		}
 
 		virtual bool OnKernel(const Merkle::Hash&) override
 		{
+			assert(1 == m_nUnspentCount);
+
 			TxKernel::Ptr pKrn(new TxKernel);
 
 			Deserializer der;
@@ -1415,6 +1424,77 @@ void NodeProcessor::ExportMacroBlock(Block::Body& res)
 
 	res.m_Subsidy.Lo = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
 	res.m_Subsidy.Hi = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
+}
+
+bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Block::Body& block)
+{
+	if (!(block.m_vInputs.empty() && block.m_vKernelsInput.empty()))
+		return false; //macroblock may not have inputs
+
+	NodeDB::StateID sidPos;
+	if (m_DB.get_Cursor(sidPos))
+		return false; // must be at "clean" state
+
+	uint64_t rowid = m_DB.StateFindSafe(id);
+	if (!rowid)
+		return false;
+
+	Block::SystemState::Full s;
+	m_DB.get_State(rowid, s);
+
+	// we must have all the headers
+	std::vector<uint64_t> rowids(id.m_Height - Block::Rules::HeightGenesis + 1);
+	for (Height h = id.m_Height; ; h--)
+	{
+		rowids[h - Block::Rules::HeightGenesis] = rowid;
+
+		if (Block::Rules::HeightGenesis == h)
+			break;
+
+		if (!m_DB.get_Prev(rowid))
+			return false;
+	}
+
+	if (!VerifyBlock(block, Block::Rules::HeightGenesis, id.m_Height))
+		return false;
+
+	NodeDB::Transaction t(m_DB);
+
+	RollbackData rbData;
+	rbData.Prepare(block); // not really necessary, since no inputs are allowed. nevermind.
+	if (!HandleValidatedTx(block, Block::Rules::HeightGenesis, true, rbData))
+		return false;
+
+	// check the current state validity
+	Merkle::Hash hv;
+	get_CurrentLive(hv);
+
+	if (s.m_LiveObjects != hv)
+	{
+		verify(HandleValidatedTx(block, Block::Rules::HeightGenesis, false, rbData));
+		return false;
+	}
+
+	// everything's fine. Update DB state flags and cursor.
+	NodeDB::StateID sid;
+	for (sid.m_Height = Block::Rules::HeightGenesis; sid.m_Height <= id.m_Height; sid.m_Height++)
+	{
+		sid.m_Row = rowids[sid.m_Height - Block::Rules::HeightGenesis];
+		m_DB.SetStateFunctional(sid.m_Row);
+
+		m_DB.DelStateBlock(sid.m_Row); // if somehow it was downloaded
+		m_DB.set_Peer(sid.m_Row, NULL);
+
+		m_DB.MoveFwd(sid);
+	}
+
+	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
+
+	t.Commit();
+
+	TryGoUp();
+
+	return true;
 }
 
 } // namespace beam

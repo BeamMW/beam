@@ -506,12 +506,23 @@ namespace beam
 			np.m_Wallet.AddMyUtxo(Block::Rules::CoinbaseEmission, h, KeyType::Coinbase);
 
 			blockChain.push_back(std::move(pBlock));
-
-			Block::Body macroBlock;
-			np.ExportMacroBlock(macroBlock);
-
 		}
 
+		Block::Body macroBlock;
+		np.ExportMacroBlock(macroBlock);
+
+		NodeProcessor np2;
+		np2.Initialize(g_sz2);
+
+		Block::SystemState::ID id;
+		blockChain.back()->m_Hdr.get_ID(id);
+
+		verify_test(!np2.ImportMacroBlock(id, macroBlock)); // no headers
+
+		for (size_t i = 0; i < blockChain.size(); i++)
+			np2.OnState(blockChain[i]->m_Hdr, true, NodeDB::PeerID());
+
+		verify_test(np2.ImportMacroBlock(id, macroBlock));
 	}
 
 
@@ -941,6 +952,7 @@ int main()
 		std::vector<beam::BlockPlus::Ptr> blockChain;
 		beam::TestNodeProcessor1(blockChain);
 		DeleteFileA(beam::g_sz);
+		DeleteFileA(beam::g_sz2);
 
 		beam::TestNodeProcessor2(blockChain);
 		DeleteFileA(beam::g_sz);

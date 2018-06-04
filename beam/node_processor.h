@@ -64,6 +64,7 @@ public:
 	bool get_CurrentState(Block::SystemState::Full&);
 
 	void ExportMacroBlock(Block::Body&); // can be time-consuming
+	bool ImportMacroBlock(const Block::SystemState::ID&, const Block::Body&);
 
 	struct DataStatus {
 		enum Enum {
@@ -73,7 +74,6 @@ public:
 		};
 	};
 
-	//  both functions return true if dirty (i.e. data is relevant, and added)
 	DataStatus::Enum OnState(const Block::SystemState::Full&, bool bIgnorePoW, const PeerID&);
 	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&);
 
