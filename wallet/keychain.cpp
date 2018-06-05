@@ -46,6 +46,7 @@
 namespace
 {
     const char* WalletSeed = "WalletSeed";
+    const int BusyTimeoutMs = 1000;
 }
 
 namespace beam
@@ -270,7 +271,10 @@ namespace beam
                 int ret = sqlite3_key(keychain->_db, password.c_str(), password.size());
                 assert(ret == SQLITE_OK);
             }
-
+            {
+                int ret = sqlite3_busy_timeout(keychain->_db, BusyTimeoutMs);
+                assert(ret == SQLITE_OK);
+            }
             {
                 const char* req = "SELECT name FROM sqlite_master WHERE type='table' AND name='" STORAGE_NAME "';";
                 int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
