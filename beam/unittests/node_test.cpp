@@ -494,7 +494,10 @@ namespace beam
 				if (!np.m_Wallet.MakeTx(pTx, h, hIncubation))
 					break;
 
-				np.m_TxPool.AddTx(std::move(pTx), h);
+				Transaction::Context ctx;
+				verify_test(np.ValidateTx(*pTx, ctx));
+
+				np.m_TxPool.AddValidTx(std::move(pTx), ctx);
 			}
 
 			BlockPlus::Ptr pBlock(new BlockPlus);
