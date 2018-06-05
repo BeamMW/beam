@@ -28,6 +28,7 @@ struct Node
 			uint32_t m_Insane_ms	= 1000 * 3600; // 1 hour
 			uint32_t m_GetState_ms	= 1000 * 5;
 			uint32_t m_GetBlock_ms	= 1000 * 30;
+			uint32_t m_GetTx_ms		= 1000 * 5;
 			uint32_t m_MiningSoftRestart_ms = 100;
 		} m_Timeout;
 
@@ -125,6 +126,33 @@ private:
 
 	static uint32_t GetTime_ms();
 
+	struct WantedTx
+	{
+		struct Node
+			:public boost::intrusive::set_base_hook<>
+			,public boost::intrusive::list_base_hook<>
+		{
+			Transaction::KeyType m_Key;
+			uint32_t m_Advertised_ms;
+
+			bool operator < (const Node& n) const { return (m_Key < n.m_Key); }
+		};
+
+		typedef boost::intrusive::list<Node> List;
+		typedef boost::intrusive::multiset<Node> Set;
+
+		List m_lst;
+		Set m_set;
+
+		void Delete(Node&);
+
+		io::Timer::Ptr m_pTimer;
+		void SetTimer();
+		void OnTimer();
+
+		IMPLEMENT_GET_PARENT_OBJ(beam::Node, m_Wtx)
+	} m_Wtx;
+
 	struct Peer
 		:public proto::NodeConnection
 		,public boost::intrusive::list_base_hook<>
@@ -174,6 +202,8 @@ private:
 		virtual void OnMsg(proto::GetBody&&) override;
 		virtual void OnMsg(proto::Body&&) override;
 		virtual void OnMsg(proto::NewTransaction&&) override;
+		virtual void OnMsg(proto::HaveTransaction&&) override;
+		virtual void OnMsg(proto::GetTransaction&&) override;
 		virtual void OnMsg(proto::GetMined&&) override;
 		virtual void OnMsg(proto::GetProofState&&) override;
 		virtual void OnMsg(proto::GetProofKernel&&) override;

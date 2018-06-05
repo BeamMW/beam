@@ -947,6 +947,15 @@ namespace beam
 
 		cl.Connect(addr);
 
+		Node node2;
+		node2.m_Cfg.m_sPathLocal = g_sz2;
+		node2.m_Cfg.m_TestMode.m_bFakePoW = true;
+		node2.m_Cfg.m_Connect.resize(1);
+		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
+		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
+		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
+
+		node2.Initialize();
 
 		pReactor->run();
 	}
@@ -978,6 +987,7 @@ int main()
 
 	beam::TestNodeClientProto();
 	DeleteFileA(beam::g_sz);
+	DeleteFileA(beam::g_sz2);
 
 	return g_TestsFailed ? -1 : 0;
 }

@@ -36,6 +36,71 @@ void Node::DeleteUnassignedTask(Task& t)
 	delete &t;
 }
 
+void Node::WantedTx::Delete(Node& n)
+{
+	bool bFront = (&m_lst.front() == &n);
+
+	m_lst.erase(List::s_iterator_to(n));
+	m_set.erase(Set::s_iterator_to(n));
+	delete &n;
+
+	if (bFront)
+		SetTimer();
+}
+
+void Node::WantedTx::SetTimer()
+{
+	if (m_lst.empty())
+	{
+		if (m_pTimer)
+			m_pTimer->cancel();
+	}
+	else
+	{
+		if (!m_pTimer)
+			m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+
+		uint32_t dt = GetTime_ms() - m_lst.front().m_Advertised_ms;
+		const uint32_t timeout_ms = get_ParentObj().m_Cfg.m_Timeout.m_GetTx_ms;
+
+		m_pTimer->start((timeout_ms > dt) ? (timeout_ms - dt) : 0, false, [this]() { OnTimer(); });
+	}
+}
+
+void Node::WantedTx::OnTimer()
+{
+	uint32_t t_ms = GetTime_ms();
+	const uint32_t timeout_ms = get_ParentObj().m_Cfg.m_Timeout.m_GetTx_ms;
+
+	while (!m_lst.empty())
+	{
+		Node& n = m_lst.front();
+		if (t_ms - n.m_Advertised_ms < timeout_ms)
+			break;
+
+		// timeout expired. Ask from all
+		proto::GetTransaction msg;
+		msg.m_ID = n.m_Key;
+
+		Delete(n); // will also reschedule the timer
+
+		for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
+		{
+			PeerList::iterator itThis = it;
+			it++;
+			Peer& peer = *itThis;
+
+			if ((State::Connected == peer.m_eState) && peer.m_Config.m_SpreadingTransactions)
+				try {
+					peer.Send(msg);
+				}
+				catch (...) {
+					peer.OnPostError();
+				}
+		}
+	}
+}
+
 uint32_t Node::GetTime_ms()
 {
 	// platform-independent analogue of GetTickCount
@@ -381,6 +446,9 @@ Node::~Node()
 		DeleteUnassignedTask(m_lstTasksUnassigned.front());
 
 	assert(m_setTasks.empty());
+
+	while (!m_Wtx.m_lst.empty())
+		m_Wtx.Delete(m_Wtx.m_lst.back());
 }
 
 void Node::Peer::SetTimer(uint32_t timeout_ms)
@@ -671,6 +739,13 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 	NodeProcessor::TxPool::TxSet::iterator it = m_pThis->m_TxPool.m_setTxs.find(key);
 	if (m_pThis->m_TxPool.m_setTxs.end() == it)
 	{
+		WantedTx::Node wtxn;
+		wtxn.m_Key = key.m_Key;
+
+		WantedTx::Set::iterator it2 = m_pThis->m_Wtx.m_set.find(wtxn);
+		if (m_pThis->m_Wtx.m_set.end() != it2)
+			m_pThis->m_Wtx.Delete(*it2);
+
 		// new transaction
 		const Transaction& tx = *msg.m_Transaction;
 		Transaction::Context ctx;
@@ -709,7 +784,9 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 
 		if (msgOut.m_Value)
 		{
-			// Current (naive) design: send it to all other nodes
+			proto::HaveTransaction msgOut;
+			msgOut.m_ID = key.m_Key;
+
 			for (PeerList::iterator it = m_pThis->m_lstPeers.begin(); m_pThis->m_lstPeers.end() != it; )
 			{
 				Peer& peer = *it++;
@@ -721,7 +798,7 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 					continue;
 
 				try {
-					peer.Send(msg);
+					peer.Send(msgOut);
 				} catch (...) {
 					peer.OnPostError();
 				}
@@ -738,12 +815,6 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 
 void Node::Peer::OnMsg(proto::Config&& msg)
 {
-	if (!m_Config.m_SpreadingTransactions && msg.m_SpreadingTransactions)
-	{
-		// TODO: decide if/how to sent the pending transactions.
-		// maybe this isn't necessary, in this case it'll receive only new transactions.
-	}
-
 	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr && m_pThis->m_Processor.m_Cursor.m_Sid.m_Row)
 	{
 		proto::Hdr msgHdr;
@@ -751,7 +822,77 @@ void Node::Peer::OnMsg(proto::Config&& msg)
 		Send(msgHdr);
 	}
 
+	if (!m_Config.m_SpreadingTransactions && msg.m_SpreadingTransactions)
+	{
+		proto::HaveTransaction msgOut;
+
+		for (NodeProcessor::TxPool::TxSet::iterator it = m_pThis->m_TxPool.m_setTxs.begin(); m_pThis->m_TxPool.m_setTxs.end() != it; it++)
+		{
+			msgOut.m_ID = it->m_Key;
+			Send(msgOut);
+		}
+	}
+
 	m_Config = msg;
+}
+
+void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
+{
+	NodeProcessor::TxPool::Element::Tx key;
+	key.m_Key = msg.m_ID;
+
+	NodeProcessor::TxPool::TxSet::iterator it = m_pThis->m_TxPool.m_setTxs.find(key);
+	if (m_pThis->m_TxPool.m_setTxs.end() != it)
+		return; // already have it
+
+	WantedTx::Node wtxn;
+	wtxn.m_Key = msg.m_ID;
+	WantedTx::Set::iterator it2 = m_pThis->m_Wtx.m_set.find(wtxn);
+	if (m_pThis->m_Wtx.m_set.end() != it2)
+		return; // already waiting for it
+
+	bool bEmpty = m_pThis->m_Wtx.m_lst.empty();
+
+	WantedTx::Node* pWtxn = new WantedTx::Node;
+	pWtxn->m_Key = msg.m_ID;
+	pWtxn->m_Advertised_ms = GetTime_ms();
+
+	m_pThis->m_Wtx.m_set.insert(*pWtxn);
+	m_pThis->m_Wtx.m_lst.push_back(*pWtxn);
+
+	if (bEmpty)
+		m_pThis->m_Wtx.SetTimer();
+
+	proto::GetTransaction msgOut;
+	msgOut.m_ID = msg.m_ID;
+	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetTransaction&& msg)
+{
+	NodeProcessor::TxPool::Element::Tx key;
+	key.m_Key = msg.m_ID;
+
+	NodeProcessor::TxPool::TxSet::iterator it = m_pThis->m_TxPool.m_setTxs.find(key);
+	if (m_pThis->m_TxPool.m_setTxs.end() == it)
+		return; // don't have it
+
+	// temporarily move the transaction to the Msg object, but make sure it'll be restored back, even in case of the exception.
+	struct Guard
+	{
+		proto::NewTransaction m_Msg;
+		Transaction::Ptr* m_ppVal;
+
+		void Swap() { m_ppVal->swap(m_Msg.m_Transaction); }
+
+		~Guard() { Swap(); }
+	};
+
+	Guard g;
+	g.m_ppVal = &it->get_ParentObj().m_pValue;
+	g.Swap();
+
+	Send(g.m_Msg);
 }
 
 void Node::Peer::OnMsg(proto::GetMined&& msg)
