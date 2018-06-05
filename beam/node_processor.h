@@ -20,9 +20,9 @@ class NodeProcessor
 
 	void TryGoUp();
 
-	bool GoForward(const NodeDB::StateID&);
-	void Rollback(const NodeDB::StateID&);
-	void PruneOld(Height);
+	bool GoForward(uint64_t);
+	void Rollback();
+	void PruneOld();
 	void DereferenceFossilBlock(uint64_t);
 
 	struct RollbackData;
@@ -34,8 +34,9 @@ class NodeProcessor
 	bool HandleBlockElement(const Output&, Height, bool bFwd);
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
 
+	void InitCursor();
 	void OnCorrupted();
-	void get_CurrentLive(Merkle::Hash&);
+	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
 
 	bool IsRelevantHeight(Height);
 	uint8_t get_NextDifficulty();
@@ -59,11 +60,22 @@ public:
 
 	} m_Horizon;
 
+	struct Cursor
+	{
+		// frequently used data
+		NodeDB::StateID m_Sid;
+		Block::SystemState::ID m_ID;
+		Block::SystemState::Full m_Full;
+		Merkle::Hash m_History;
+		Merkle::Hash m_HistoryNext;
+		uint8_t m_DifficultyNext;
 
-	bool get_CurrentState(Block::SystemState::ID&); // returns false if no valid states so far
-	bool get_CurrentState(Block::SystemState::Full&);
+	} m_Cursor;
+
+	void get_CurrentLive(Merkle::Hash&);
 
 	void ExportMacroBlock(Block::Body&); // can be time-consuming
+	bool ImportMacroBlock(const Block::SystemState::ID&, const Block::Body&);
 
 	struct DataStatus {
 		enum Enum {
@@ -73,7 +85,6 @@ public:
 		};
 	};
 
-	//  both functions return true if dirty (i.e. data is relevant, and added)
 	DataStatus::Enum OnState(const Block::SystemState::Full&, bool bIgnorePoW, const PeerID&);
 	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&);
 
@@ -147,7 +158,6 @@ public:
 
 	};
 
-	Height get_NextHeight();
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body& blockInOut);
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees);
 

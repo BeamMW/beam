@@ -351,6 +351,7 @@ namespace beam
 
     ECC::Scalar::Native Keychain::calcKey(const beam::Coin& coin) const
     {
+        assert(coin.m_id > 0);
         ECC::Scalar::Native key;
         // For coinbase and free commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
         DeriveKey(key, m_kdf, coin.m_height, coin.m_key_type, (coin.m_key_type == KeyType::Regular) ? coin.m_id : 0);
@@ -381,8 +382,7 @@ namespace beam
 
                     ENUM_STORAGE_FIELDS(STM_GET_LIST, NOSEP);
 
-                    if (coin.m_status == beam::Coin::Unspent
-                     && coin.m_maturity <= stateID.m_Height)
+                    if (coin.m_maturity <= stateID.m_Height)
                     {
 						if (lock)
 						{

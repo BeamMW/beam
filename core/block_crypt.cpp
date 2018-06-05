@@ -670,32 +670,12 @@ namespace beam
 	void Block::SystemState::Full::get_Hash(Merkle::Hash& out) const
 	{
 		// Our formula:
-		//
-		//	[
-		//		[
-		//			m_Height
-		//			m_TimeStamp
-		//		]
-		//		[
-		//			[
-		//				m_Prev
-		//				m_States
-		//			]
-		//			m_LiveObjects
-		//			]
-		//		]
-		//	]
-
-		Merkle::Hash h0, h1;
-
-		ECC::Hash::Processor() << m_Height >> h0;
-		ECC::Hash::Processor() << m_TimeStamp >> h1;
-		Merkle::Interpret(h0, h1, true); // [ m_Height, m_TimeStamp ]
-
-		Merkle::Interpret(h1, m_Prev, m_History);
-		Merkle::Interpret(h1, m_LiveObjects, true); // [ [m_Prev, m_States], m_LiveObjects ]
-
-		Merkle::Interpret(out, h0, h1);
+		ECC::Hash::Processor()
+			<< m_Height
+			<< m_TimeStamp
+			<< m_Prev
+			<< m_Definition
+			>> out;
 	}
 
 	bool Block::SystemState::Full::IsSane() const

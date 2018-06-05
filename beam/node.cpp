@@ -161,9 +161,11 @@ void Node::Processor::OnPeerInsane(const PeerID& peerID)
 
 void Node::Processor::OnNewState()
 {
-	proto::Hdr msgHdr;
-	if (!get_CurrentState(msgHdr.m_Description))
+	if (!m_Cursor.m_Sid.m_Row)
 		return;
+
+	proto::Hdr msgHdr;
+	msgHdr.m_Description = m_Cursor.m_Full;
 
 	proto::NewTip msg;
 	msgHdr.m_Description.get_ID(msg.m_ID);
@@ -301,11 +303,7 @@ void Node::Initialize()
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
     m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
 
-	Block::SystemState::ID id;
-	if (!m_Processor.get_CurrentState(id))
-		ZeroObject(id);
-
-	LOG_INFO() << "Initial Tip: " << id;
+	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
 
 	if (m_Cfg.m_VerificationThreads < 0)
 	{
@@ -435,9 +433,12 @@ void Node::Peer::OnConnected()
 	msgCfg.m_AutoSendHdr = false;
 	Send(msgCfg);
 
-	proto::NewTip msg;
-	if (m_pThis->m_Processor.get_CurrentState(msg.m_ID))
+	if (m_pThis->m_Processor.m_Cursor.m_Sid.m_Row)
+	{
+		proto::NewTip msg;
+		msg.m_ID = m_pThis->m_Processor.m_Cursor.m_ID;
 		Send(msg);
+	}
 }
 
 void Node::Peer::OnClosed(int errorCode)
@@ -694,7 +695,7 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 				os << "\n\tK: Fee=" << tx.m_vKernelsOutput[i]->m_Fee;
 		}
 
-		Height h = m_pThis->m_Processor.get_NextHeight();
+		Height h = m_pThis->m_Processor.m_Cursor.m_Sid.m_Height + 1;
 		msgOut.m_Value = m_pThis->m_TxPool.AddTx(std::move(key.m_pValue), h);
 
 		os << "\n\tValid: " << msgOut.m_Value;
@@ -736,11 +737,11 @@ void Node::Peer::OnMsg(proto::Config&& msg)
 		// maybe this isn't necessary, in this case it'll receive only new transactions.
 	}
 
-	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr)
+	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr && m_pThis->m_Processor.m_Cursor.m_Sid.m_Row)
 	{
 		proto::Hdr msgHdr;
-		if (m_pThis->m_Processor.get_CurrentState(msgHdr.m_Description))
-			Send(msgHdr);
+		msgHdr.m_Description = m_pThis->m_Processor.m_Cursor.m_Full;
+		Send(msgHdr);
 	}
 
 	m_Config = msg;
@@ -779,11 +780,18 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 
 	proto::Proof msgOut;
 
-	NodeDB::StateID sid;
-	if (m_pThis->m_Processor.get_DB().get_Cursor(sid))
+	const NodeDB::StateID& sid = m_pThis->m_Processor.m_Cursor.m_Sid;
+	if (sid.m_Row)
 	{
 		if (msg.m_Height < sid.m_Height)
+		{
 			m_pThis->m_Processor.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height);
+
+			msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+
+			msgOut.m_Proof.back().first = true;
+			m_pThis->m_Processor.get_CurrentLive(msgOut.m_Proof.back().second);
+		}
 	}
 
 	Send(msgOut);
@@ -800,11 +808,15 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 	if (t.Find(cu, msg.m_KernelHash, bCreate))
 	{
 		t.get_Proof(msgOut.m_Proof, cu);
+		msgOut.m_Proof.reserve(msgOut.m_Proof.size() + 2);
 
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 		msgOut.m_Proof.back().first = false;
-
 		m_pThis->m_Processor.get_Utxos().get_Hash(msgOut.m_Proof.back().second);
+
+		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+		msgOut.m_Proof.back().first = false;
+		msgOut.m_Proof.back().second = m_pThis->m_Processor.m_Cursor.m_History;
 	}
 }
 
@@ -814,6 +826,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	{
 		proto::ProofUtxo m_Msg;
 		UtxoTree* m_pTree;
+		const Merkle::Hash* m_phvHistory;
 		Merkle::Hash m_hvKernels;
 
 		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
@@ -829,9 +842,15 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 			ret.m_Maturity = d.m_Maturity;
 			m_pTree->get_Proof(ret.m_Proof, *m_pCu);
 
+			ret.m_Proof.reserve(ret.m_Proof.size() + 2);
+
 			ret.m_Proof.resize(ret.m_Proof.size() + 1);
 			ret.m_Proof.back().first = true;
 			ret.m_Proof.back().second = m_hvKernels;
+
+			ret.m_Proof.resize(ret.m_Proof.size() + 1);
+			ret.m_Proof.back().first = false;
+			ret.m_Proof.back().second = *m_phvHistory;
 
 			return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
 		}
@@ -839,6 +858,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 
 	t.m_pTree = &m_pThis->m_Processor.get_Utxos();
 	m_pThis->m_Processor.get_Kernels().get_Hash(t.m_hvKernels);
+	t.m_phvHistory = &m_pThis->m_Processor.m_Cursor.m_History;
 
 	UtxoTree::Cursor cu;
 	t.m_pCu = &cu;
@@ -998,8 +1018,7 @@ bool Node::Miner::Restart(Block::Body* pTreasury /* = NULL */)
 	if (m_vThreads.empty())
 		return false; //  n/a
 
-	Block::SystemState::ID id;
-	if (!get_ParentObj().m_Processor.get_CurrentState(id))
+	if (!get_ParentObj().m_Processor.m_Cursor.m_Sid.m_Row)
 	{
 		bool bMineGenesis = pTreasury || get_ParentObj().m_Cfg.m_TestMode.m_bMineGenesisBlock;
 		if (!bMineGenesis)
@@ -1020,6 +1039,7 @@ bool Node::Miner::Restart(Block::Body* pTreasury /* = NULL */)
 		return false;
 	}
 
+	Block::SystemState::ID id;
 	pTask->m_Hdr.get_ID(id);
 
 	LOG_INFO() << "Block generated: " << id << ", Fee=" << pTask->m_Fees << ", Difficulty=" << uint32_t(pTask->m_Hdr.m_PoW.m_Difficulty) << ", Size=" << pTask->m_Body.size();

@@ -276,8 +276,7 @@ namespace beam
 			struct Full {
 				Height			m_Height;
 				Merkle::Hash	m_Prev;			// explicit referebce to prev
-				Merkle::Hash	m_History;		// Objects that are only added and never deleted. Currently: previous states.
-				Merkle::Hash	m_LiveObjects;	// Objects that can be both added and deleted. Currently: UTXOs and kernels
+				Merkle::Hash	m_Definition;	// defined as H ( PrevStates | LiveObjects )
 				Timestamp		m_TimeStamp;
 				PoW				m_PoW;
 
