@@ -99,6 +99,7 @@ namespace beam
         }
 
         void remove_peer(const Uuid& txId);
+        void getUtxoProofs(const std::vector<Coin>& coins);
         void finishSync();
     private:
         IKeyChain::Ptr m_keyChain;
@@ -116,5 +117,6 @@ namespace beam
         Block::SystemState::ID m_knownStateID;
         Block::SystemState::ID m_newStateID;
         int m_syncing;
+        std::queue<Coin> m_pendingProofs;
     };
 }

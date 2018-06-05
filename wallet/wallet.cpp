@@ -29,6 +29,22 @@ namespace
         T& m_v;
     };
 
+    struct ScopeGuard
+    {
+        using Callback = std::function<void()>;
+        ScopeGuard(Callback&& callback) : m_callback{callback}
+        {
+            assert(callback);
+        }
+
+        ~ScopeGuard()
+        {
+            m_callback();
+        }
+
+        Callback m_callback;
+    };
+
     const char* ReceiverPrefix = "[Receiver] ";
     const char* SenderPrefix = "[Sender] ";
 }
@@ -335,43 +351,58 @@ namespace beam
     void Wallet::handle_node_message(proto::ProofUtxo&& proof)
     {
         // TODO: handle the maturity of the several proofs (> 1)
-        vector<Coin> found;
-
-        for (const auto& proof : proof.m_Proofs)
+        if (m_pendingProofs.empty())
         {
-            Input::Count count = proof.m_Count;
-            m_keyChain->visit([&](const Coin& coin)->bool
-            {
-                if (coin.m_status == Coin::Unconfirmed)
-                {
-                    Input input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
-                
-                    if (proof.IsValid(input, m_Definition))
-                    {
-                        auto& c = found.emplace_back(coin);
-                        c.m_status = Coin::Unspent;
-                        c.m_maturity = proof.m_Maturity;
-                        
-                        if (--count)
-                        {
-                            return true;
-                        }
-                        return false;
-                    }
-                }
-
-                return true;
-            });
+            LOG_DEBUG() << "Unexpected UTXO proof";
+            return;
         }
 
-        if (!found.empty())
+        Coin& coin = m_pendingProofs.front();
+        Input input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
+        if (proof.m_Proofs.empty())
         {
-            m_keyChain->update(found);
+            LOG_ERROR() << "Got empty proof for: " << input.m_Commitment;
+
+            if (coin.m_status == Coin::Locked)
+            {
+                coin.m_status = Coin::Spent;
+                m_keyChain->update(vector<Coin>{coin});
+            }
+            else if (coin.m_key_type == KeyType::Coinbase
+             || coin.m_key_type == KeyType::Comission)
+            {
+                m_keyChain->remove(coin);
+            }
         }
         else
         {
-            LOG_ERROR() << "Got empty proof";
+            for (const auto& proof : proof.m_Proofs)
+            {
+                if (coin.m_status == Coin::Unconfirmed)
+                {
+
+                    if (proof.IsValid(input, m_Definition))
+                    {
+                        LOG_ERROR() << "Got proof for: " << input.m_Commitment;
+                        coin.m_status = Coin::Unspent;
+                        coin.m_maturity = proof.m_Maturity;
+                        if (coin.m_key_type == KeyType::Coinbase
+                         || coin.m_key_type == KeyType::Comission)
+                        {
+                            LOG_INFO() << "Block reward received: " << PrintableAmount(coin.m_amount);
+                        }
+                        m_keyChain->update(vector<Coin>{coin});
+                    }
+                    else
+                    {
+                        LOG_ERROR() << "Invalid proof provided";
+                    }
+                }
+            }
         }
+
+        m_pendingProofs.pop();
+
         finishSync();
     }
 
@@ -393,24 +424,19 @@ namespace beam
 		m_Definition = msg.m_Description.m_Definition;
 
         // TODO: do one kernel proof instead many per coin proofs
+        vector<Coin> unconfirmed;
         m_keyChain->visit([&](const Coin& coin)
         {
-            if (coin.m_status == Coin::Unconfirmed)
+            if (coin.m_status == Coin::Unconfirmed
+             || coin.m_status == Coin::Locked)
             {
-                ++m_syncing;
-                auto input = Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
-                LOG_DEBUG() << "Get proof: " << input.m_Commitment;
-                m_network.send_node_message(
-                    proto::GetProofUtxo
-                    {
-                        input
-                        //Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) }
-                        , 0
-                    });
+                unconfirmed.emplace_back(coin);
             }
 
             return true;
         });
+
+        getUtxoProofs(unconfirmed);
 
         Block::SystemState::ID newID = {0};
         msg.m_Description.get_ID(newID);
@@ -429,26 +455,26 @@ namespace beam
                 Amount reward = Block::Rules::CoinbaseEmission;
                 // coinbase 
                 mined.emplace_back(Block::Rules::CoinbaseEmission
-                                 , Coin::Unspent
+                                 , Coin::Unconfirmed
                                  , minedCoin.m_ID.m_Height
-                                 , minedCoin.m_ID.m_Height + Block::Rules::MaturityCoinbase
+                                 , MaxHeight
                                  , KeyType::Coinbase);
                 if (minedCoin.m_Fees > 0)
                 {
                     reward += minedCoin.m_Fees;
                     mined.emplace_back(minedCoin.m_Fees
-                                     , Coin::Unspent
+                                     , Coin::Unconfirmed
                                      , minedCoin.m_ID.m_Height
-                                     , minedCoin.m_ID.m_Height + Block::Rules::MaturityStd
+                                     , MaxHeight
                                      , KeyType::Comission);
                 }
-                LOG_INFO() << "Block reward received: " << PrintableAmount(reward);
             }
         }
 
 		if (!mined.empty())
 		{
 			m_keyChain->store(mined);
+            getUtxoProofs(mined);
 		}
         finishSync();
     }
@@ -482,6 +508,18 @@ namespace beam
         {
             m_network.close_connection(it->second);
             m_peers.erase(it);
+        }
+    }
+
+    void Wallet::getUtxoProofs(const vector<Coin>& coins)
+    {
+        for (auto& coin : coins)
+        {
+            ++m_syncing;
+            m_pendingProofs.push(coin);
+            auto input = Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
+            LOG_DEBUG() << "Get proof: " << input.m_Commitment;
+            m_network.send_node_message(proto::GetProofUtxo{ input, 0 });
         }
     }
 
