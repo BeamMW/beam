@@ -497,7 +497,10 @@ namespace beam
 				Transaction::Context ctx;
 				verify_test(np.ValidateTx(*pTx, ctx));
 
-				np.m_TxPool.AddValidTx(std::move(pTx), ctx);
+				Transaction::KeyType key;
+				pTx->get_Key(key);
+
+				np.m_TxPool.AddValidTx(std::move(pTx), ctx, key);
 			}
 
 			BlockPlus::Ptr pBlock(new BlockPlus);

@@ -603,6 +603,27 @@ namespace beam
 			TestNotNull(*it);
 	}
 
+	void Transaction::get_Key(KeyType& key) const
+	{
+		if (m_Offset.m_Value == ECC::Zero)
+		{
+			// proper transactions must contain non-trivial offset, and this should be enough to identify it with sufficient probability
+			// However in case it's not specified - construct the key from contents
+			key = ECC::Zero;
+
+			for (auto i = 0; i < m_vInputs.size(); i++)
+				key ^= m_vInputs[i]->m_Commitment.m_X;
+
+			for (auto i = 0; i < m_vOutputs.size(); i++)
+				key ^= m_vOutputs[i]->m_Commitment.m_X;
+
+			for (auto i = 0; i < m_vKernelsOutput.size(); i++)
+				key ^= m_vKernelsOutput[i]->m_Excess.m_X;
+		}
+		else
+			key = m_Offset.m_Value;
+	}
+
 	/////////////
 	// AmoutBig
 	void AmountBig::operator += (Amount x)

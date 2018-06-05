@@ -996,7 +996,7 @@ bool NodeProcessor::ValidateTx(const Transaction& tx, Transaction::Context& ctx)
 	return (h >= ctx.m_hMin) && (h <= ctx.m_hMax);
 }
 
-void NodeProcessor::TxPool::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx)
+void NodeProcessor::TxPool::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key)
 {
 	assert(pValue);
 
@@ -1004,10 +1004,11 @@ void NodeProcessor::TxPool::AddValidTx(Transaction::Ptr&& pValue, const Transact
 	ssc & pValue;
 
 	Element* p = new Element;
+	p->m_pValue = std::move(pValue);
 	p->m_Threshold.m_Value	= ctx.m_hMax;
 	p->m_Profit.m_Fee	= ctx.m_Fee.Hi ? Amount(-1) : ctx.m_Fee.Lo; // ignore huge fees (which are  highly unlikely), saturate.
 	p->m_Profit.m_nSize	= ssc.m_Counter.m_Value;
-	p->m_Tx.m_pValue = std::move(pValue);
+	p->m_Tx.m_Key = key;
 
 	m_setThreshold.insert(p->m_Threshold);
 	m_setProfit.insert(p->m_Profit);
@@ -1044,14 +1045,6 @@ void NodeProcessor::TxPool::Clear()
 {
 	while (!m_setThreshold.empty())
 		Delete(m_setThreshold.begin()->get_ParentObj());
-}
-
-bool NodeProcessor::TxPool::Element::Tx::operator < (const Tx& t) const
-{
-	assert(m_pValue && t.m_pValue);
-	// TODO: Normally we can account for tx offset only, different transactions highly unlikely to have the same offset.
-	// But current wallet implementation doesn't use the offset.
-	return m_pValue->cmp(*t.m_pValue) < 0;
 }
 
 bool NodeProcessor::TxPool::Element::Profit::operator < (const Profit& t) const
@@ -1169,7 +1162,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		if (nBlockSize + x.m_Profit.m_nSize > nSizeThreshold)
 			break;
 
-		Transaction& tx = *x.m_Tx.m_pValue;
+		Transaction& tx = *x.m_pValue;
 		rbData.Prepare(tx);
 
 		if (HandleValidatedTx(tx, h, true, rbData))

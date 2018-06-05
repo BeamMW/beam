@@ -108,12 +108,14 @@ public:
 	{
 		struct Element
 		{
+			Transaction::Ptr m_pValue;
+
 			struct Tx
 				:public boost::intrusive::set_base_hook<>
 			{
-				Transaction::Ptr m_pValue;
+				Transaction::KeyType m_Key;
 
-				bool operator < (const Tx& t) const;
+				bool operator < (const Tx& t) const { return m_Key < t.m_Key; }
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Tx)
 			} m_Tx;
 
@@ -147,7 +149,7 @@ public:
 		ProfitSet m_setProfit;
 		ThresholdSet m_setThreshold;
 
-		void AddValidTx(Transaction::Ptr&&, const Transaction::Context&);
+		void AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);
 		void Delete(Element&);
 		void Clear();
 

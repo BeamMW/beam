@@ -225,6 +225,11 @@ namespace beam
 		typedef std::shared_ptr<Transaction> Ptr;
 		// Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
 		bool IsValid(Context&) const;
+
+		static const uint32_t s_KeyBits = ECC::nBits; // key len for map of transactions. Can actually be less than 256 bits.
+		typedef ECC::uintBig_t<s_KeyBits> KeyType;
+
+		void get_Key(KeyType&) const;
 	};
 
 	struct Block

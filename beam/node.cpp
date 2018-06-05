@@ -659,13 +659,13 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 	msgOut.m_Value = true;
 
 	NodeProcessor::TxPool::Element::Tx key;
-	key.m_pValue.swap(msg.m_Transaction);
+	msg.m_Transaction->get_Key(key.m_Key);
 
 	NodeProcessor::TxPool::TxSet::iterator it = m_pThis->m_TxPool.m_setTxs.find(key);
 	if (m_pThis->m_TxPool.m_setTxs.end() == it)
 	{
 		// new transaction
-		const Transaction& tx = *key.m_pValue;
+		const Transaction& tx = *msg.m_Transaction;
 		Transaction::Context ctx;
 		msgOut.m_Value = m_pThis->m_Processor.ValidateTx(tx, ctx);
 
@@ -702,8 +702,6 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 
 		if (msgOut.m_Value)
 		{
-			key.m_pValue.swap(msg.m_Transaction); // back to msg
-
 			// Current (naive) design: send it to all other nodes
 			for (PeerList::iterator it = m_pThis->m_lstPeers.begin(); m_pThis->m_lstPeers.end() != it; )
 			{
@@ -721,9 +719,8 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 					peer.OnPostError();
 				}
 			}
-			key.m_pValue.swap(msg.m_Transaction); // back to key
 
-			m_pThis->m_TxPool.AddValidTx(std::move(key.m_pValue), ctx);
+			m_pThis->m_TxPool.AddValidTx(std::move(msg.m_Transaction), ctx, key.m_Key);
 			m_pThis->m_TxPool.ShrinkUpTo(m_pThis->m_Cfg.m_MaxPoolTransactions);
 			m_pThis->m_Miner.SetTimer(m_pThis->m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
 		}
