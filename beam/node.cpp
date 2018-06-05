@@ -36,6 +36,13 @@ void Node::DeleteUnassignedTask(Task& t)
 	delete &t;
 }
 
+uint32_t Node::GetTime_ms()
+{
+	// platform-independent analogue of GetTickCount
+	using namespace std::chrono;
+	return (uint32_t) duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+}
+
 void Node::TryAssignTask(Task& t, const NodeDB::PeerID* pPeerID)
 {
 	while (true)
@@ -347,17 +354,17 @@ bool Node::GenerateGenesisBlock(Block::Body& treasury)
 }
 
 Node::~Node()
-	{
+{
 	m_Miner.HardAbortSafe();
 
 	for (size_t i = 0; i < m_Miner.m_vThreads.size(); i++)
-		{
+	{
 		Miner::PerThread& pt = m_Miner.m_vThreads[i];
 		if (pt.m_pReactor)
 			pt.m_pReactor->stop();
 
 		pt.m_Thread.join();
-}
+	}
 	m_Miner.m_vThreads.clear();
 
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
@@ -673,7 +680,7 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 			// Log it
 			std::ostringstream os;
 
-			os << "Tx from " << get_Connection()->peer_address();
+			os << "Tx " << key.m_Key << " from " << get_Connection()->peer_address();
 
 			for (size_t i = 0; i < tx.m_vInputs.size(); i++)
 				os << "\n\tI: " << tx.m_vInputs[i]->m_Commitment;
@@ -942,15 +949,13 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 
 			bool bSolved = false;
 
-			//std::chrono::high_resolution_clock::duration
-			for (std::chrono::system_clock::time_point tmStart = std::chrono::system_clock::now(); ; )
+			for (uint32_t t0_ms = GetTime_ms(); ; )
 			{
 				if (fnCancel(false))
 					break;
 				std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-				std::chrono::system_clock::duration dt = std::chrono::system_clock::now() - tmStart;
-				uint32_t dt_ms = std::chrono::duration_cast<std::chrono::milliseconds>(dt).count();
+				uint32_t dt_ms = GetTime_ms() - t0_ms;
 
 				if (dt_ms >= timeout_ms)
 				{

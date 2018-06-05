@@ -123,6 +123,8 @@ private:
 	void AssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
 
+	static uint32_t GetTime_ms();
+
 	struct Peer
 		:public proto::NodeConnection
 		,public boost::intrusive::list_base_hook<>
