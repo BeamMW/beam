@@ -986,16 +986,19 @@ struct SerializerSizeCounter
 	}
 };
 
-bool NodeProcessor::TxPool::AddTx(Transaction::Ptr&& pValue, Height h)
+bool NodeProcessor::ValidateTx(const Transaction& tx, Transaction::Context& ctx)
+{
+	if (!tx.IsValid(ctx))
+		return false;
+
+	Height h = m_Cursor.m_Sid.m_Height + 1;
+
+	return (h >= ctx.m_hMin) && (h <= ctx.m_hMax);
+}
+
+void NodeProcessor::TxPool::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx)
 {
 	assert(pValue);
-
-	TxBase::Context ctx;
-	if (!pValue->IsValid(ctx))
-		return false;
-
-	if ((h < ctx.m_hMin) || (h > ctx.m_hMax))
-		return false;
 
 	SerializerSizeCounter ssc;
 	ssc & pValue;
@@ -1009,8 +1012,6 @@ bool NodeProcessor::TxPool::AddTx(Transaction::Ptr&& pValue, Height h)
 	m_setThreshold.insert(p->m_Threshold);
 	m_setProfit.insert(p->m_Profit);
 	m_setTxs.insert(p->m_Tx);
-
-	return true;
 }
 
 void NodeProcessor::TxPool::Delete(Element& x)

@@ -147,7 +147,7 @@ public:
 		ProfitSet m_setProfit;
 		ThresholdSet m_setThreshold;
 
-		bool AddTx(Transaction::Ptr&&, Height); // return false if transaction doesn't pass context-free validation
+		void AddValidTx(Transaction::Ptr&&, const Transaction::Context&);
 		void Delete(Element&);
 		void Clear();
 
@@ -157,6 +157,8 @@ public:
 		~TxPool() { Clear(); }
 
 	};
+
+	bool ValidateTx(const Transaction&, Transaction::Context&); // wrt height of the next block
 
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body& blockInOut);
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees);
