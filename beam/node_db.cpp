@@ -15,8 +15,7 @@ namespace beam {
 #define TblStates_Hash			"Hash"
 #define TblStates_HashPrev		"HashPrev"
 #define TblStates_Timestamp		"Timestamp"
-#define TblStates_LiveObjects	"LiveObjects"
-#define TblStates_History		"History"
+#define TblStates_Definition	"Definition"
 #define TblStates_Flags			"Flags"
 #define TblStates_RowPrev		"RowPrev"
 #define TblStates_CountNext		"CountNext"
@@ -225,7 +224,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 1;
+	const uint64_t nVersion = 2;
 
 	if (bCreate)
 	{
@@ -257,8 +256,7 @@ void NodeDB::Create()
 		"[" TblStates_Hash			"] BLOB NOT NULL,"
 		"[" TblStates_HashPrev		"] BLOB NOT NULL,"
 		"[" TblStates_Timestamp		"] INTEGER NOT NULL,"
-		"[" TblStates_LiveObjects	"] BLOB NOT NULL,"
-		"[" TblStates_History		"] BLOB NOT NULL,"
+		"[" TblStates_Definition	"] BLOB NOT NULL,"
 		"[" TblStates_Flags			"] INTEGER NOT NULL,"
 		"[" TblStates_RowPrev		"] INTEGER,"
 		"[" TblStates_CountNext		"] INTEGER NOT NULL,"
@@ -461,8 +459,7 @@ void NodeDB::Transaction::Rollback()
 	macro(HashPrev,		m_Prev) sep \
 	macro(Timestamp,	m_TimeStamp) sep \
 	macro(PoW,			m_PoW) sep \
-	macro(LiveObjects,	m_LiveObjects) sep \
-	macro(History,		m_History)
+	macro(Definition,	m_Definition)
 
 #define THE_MACRO_NOP0
 #define THE_MACRO_COMMA_S ","
@@ -1336,7 +1333,10 @@ void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
 
 void NodeDB::EnumUnpsent(WalkerSpendable& x)
 {
-	x.m_Rs.Reset(Query::SpendableEnum, "SELECT " TblSpendable_Key "," TblSpendable_Unspent " FROM " TblSpendable " WHERE " TblSpendable_Unspent "!=0");
+	if (x.m_bWithSignature)
+		x.m_Rs.Reset(Query::SpendableEnumWithSig, "SELECT " TblSpendable_Key "," TblSpendable_Unspent "," TblSpendable_Body " FROM " TblSpendable " WHERE " TblSpendable_Unspent "!=0");
+	else
+		x.m_Rs.Reset(Query::SpendableEnum, "SELECT " TblSpendable_Key "," TblSpendable_Unspent " FROM " TblSpendable " WHERE " TblSpendable_Unspent "!=0");
 }
 
 bool NodeDB::WalkerSpendable::MoveNext()
@@ -1345,6 +1345,10 @@ bool NodeDB::WalkerSpendable::MoveNext()
 		return false;
 	m_Rs.get(0, m_Key);
 	m_Rs.get(1, m_nUnspentCount);
+
+	if (m_bWithSignature)
+		m_Rs.get(2, m_Signature);
+
 	return true;
 }
 

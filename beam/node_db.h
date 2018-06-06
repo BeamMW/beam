@@ -13,7 +13,7 @@ public:
 	struct StateFlags {
 		static const uint32_t Functional	= 0x1;	// has block body
 		static const uint32_t Reachable		= 0x2;	// has only functional nodes up to the genesis state
-		static const uint32_t Active		= 0x4;	// part of the current blockchain (not really necessary).
+		static const uint32_t Active		= 0x4;	// part of the current blockchain
 	};
 
 	struct ParamID {
@@ -23,6 +23,9 @@ public:
 			CursorHeight,
 			StateExtra,
 			FossilHeight,
+			SubsidyLo,
+			SubsidyHi,
+			SubsidyOpen,
 		};
 	};
 
@@ -72,6 +75,7 @@ public:
 			SpendableDel,
 			SpendableModify,
 			SpendableEnum,
+			SpendableEnumWithSig,
 			StateGetBlock,
 			StateSetBlock,
 			StateDelBlock,
@@ -113,9 +117,10 @@ public:
 
 	class Recordset
 	{
-		NodeDB& m_DB;
 		sqlite3_stmt* m_pStmt;
 	public:
+
+		NodeDB & m_DB;
 
 		Recordset(NodeDB&);
 		Recordset(NodeDB&, Query::Enum, const char*);
@@ -231,12 +236,20 @@ public:
 	void MoveFwd(const StateID&);
 
 	// Utxos & kernels
-	struct WalkerSpendable {
+	struct WalkerSpendable
+	{
+		const bool m_bWithSignature;
+
 		Recordset m_Rs;
 		Blob m_Key;
+		Blob m_Signature;
 		uint32_t m_nUnspentCount;
 
-		WalkerSpendable(NodeDB& db) :m_Rs(db) {}
+		WalkerSpendable(NodeDB& db, bool bWithSignature)
+			:m_Rs(db)
+			,m_bWithSignature(bWithSignature)
+		{
+		}
 		bool MoveNext();
 	};
 

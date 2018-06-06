@@ -504,6 +504,9 @@ void UtxoTree::Value::get_Hash(Merkle::Hash& hv, const Key& key) const
 
 bool Input::Proof::IsValid(const Input& inp, const Merkle::Hash& root) const
 {
+	if (m_Proof.empty() || m_Proof.back().first)
+		return false; // valid proof must have history hash interpreted at left
+
 	UtxoTree::Key::Data d;
 	d.m_Commitment = inp.m_Commitment;
 	d.m_Maturity = m_Maturity;

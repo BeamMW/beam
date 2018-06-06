@@ -63,6 +63,11 @@ namespace proto {
 #define BeamNodeMsg_NewTransaction(macro) \
 	macro(Transaction::Ptr, Transaction)
 
+#define BeamNodeMsg_HaveTransaction(macro) \
+	macro(Transaction::KeyType, ID)
+
+#define BeamNodeMsg_GetTransaction(macro) \
+	macro(Transaction::KeyType, ID)
 
 #define BeamNodeMsgsAll(macro) \
 	macro(1, NewTip) /* Also the first message sent by the node */ \
@@ -82,7 +87,9 @@ namespace proto {
 	macro(20, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
 	macro(21, Ping) \
 	macro(22, Pong) \
-	macro(23, NewTransaction)
+	macro(23, NewTransaction) \
+	macro(24, HaveTransaction) \
+	macro(25, GetTransaction)
 
 
 	struct PerMined

@@ -34,6 +34,7 @@ namespace beam
 	// sorry for replacing 'using' by 'typedefs', some compilers don't support it
 	typedef uint64_t Timestamp;
 	typedef uint64_t Height;
+    const Height MaxHeight = static_cast<Height>(-1);
 	typedef ECC::uintBig_t<256> uint256_t;
 	typedef std::vector<uint8_t> ByteBuffer;
 	typedef ECC::Amount Amount;
@@ -44,7 +45,9 @@ namespace beam
 		Amount Hi;
 
 		void operator += (const Amount);
+		void operator -= (const Amount);
 		void operator += (const AmountBig&);
+		void operator -= (const AmountBig&);
 
 		void Export(ECC::uintBig&) const;
 		void AddTo(ECC::Point::Native&) const;
@@ -102,10 +105,12 @@ namespace beam
 		ECC::Point	m_Commitment;
 		bool		m_Coinbase;
 		Height		m_Incubation; // # of blocks before it's mature
+		Height		m_hDelta;
 
 		Output()
 			:m_Coinbase(false)
 			,m_Incubation(0)
+			,m_hDelta(0)
 		{
 		}
 
@@ -189,6 +194,8 @@ namespace beam
 		void Sort(); // w.r.t. the standard
 		size_t DeleteIntermediateOutputs(); // assumed to be already sorted. Retruns the num deleted
 
+		void TestNoNulls() const; // valid object should not have NULL members. Should be used during (de)serialization
+
 		// tests the validity of all the components, overall arithmetics, and the lexicographical order of the components.
 		// Determines the min/max block height that the transaction can fit, wrt component heights and maturity policies
 		// Does *not* check the existence of the input UTXOs
@@ -218,6 +225,11 @@ namespace beam
 		typedef std::shared_ptr<Transaction> Ptr;
 		// Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
 		bool IsValid(Context&) const;
+
+		static const uint32_t s_KeyBits = ECC::nBits; // key len for map of transactions. Can actually be less than 256 bits.
+		typedef ECC::uintBig_t<s_KeyBits> KeyType;
+
+		void get_Key(KeyType&) const;
 	};
 
 	struct Block
@@ -269,8 +281,7 @@ namespace beam
 			struct Full {
 				Height			m_Height;
 				Merkle::Hash	m_Prev;			// explicit referebce to prev
-				Merkle::Hash	m_History;		// Objects that are only added and never deleted. Currently: previous states.
-				Merkle::Hash	m_LiveObjects;	// Objects that can be both added and deleted. Currently: UTXOs and kernels
+				Merkle::Hash	m_Definition;	// defined as H ( PrevStates | LiveObjects )
 				Timestamp		m_TimeStamp;
 				PoW				m_PoW;
 
@@ -310,7 +321,9 @@ namespace beam
 		{
 			AmountBig m_Subsidy; // the overall amount created by the block
 			// For standard blocks this should be equal to the coinbase emission.
-			// Genesis block may have higher emission (aka premined)
+			// Genesis block(s) may have higher emission (aka premined)
+
+			bool m_SubsidyClosing; // Last block that contains arbitrary subsidy.
 
 			void ZeroInit();
 
@@ -321,7 +334,7 @@ namespace beam
 			// Not tested by this function (but should be tested by nodes!)
 			//		Existence of all the input UTXOs
 			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
-			bool IsValid(Height h0, Height h1) const;
+			bool IsValid(Height h0, Height h1, bool bSubsidyOpen) const;
 		};
 	};
 

@@ -18,11 +18,12 @@ namespace beam
             Spent
         };
 
+        Coin(const ECC::Amount& amount, Status status = Coin::Unspent, const Height& height = 0, const Height& maturity = MaxHeight, KeyType keyType = KeyType::Regular);
         Coin();
-        Coin(const ECC::Amount& amount, Status status = Coin::Unspent, const Height& height = 0, KeyType keyType = KeyType::Kernel);
 
         uint64_t m_id;
-        Height m_height;
+        Height m_height; // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
+        Height m_maturity; // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
         KeyType m_key_type;
         ECC::Amount m_amount;
 
@@ -67,6 +68,7 @@ namespace beam
 
     struct Keychain : IKeyChain
     {
+        static bool isInitialized();
         static Ptr init(const std::string& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
         static Ptr open(const std::string& password);
         static const char* getName();

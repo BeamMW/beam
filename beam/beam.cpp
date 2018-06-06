@@ -77,12 +77,31 @@ namespace beam
         case KeyType::Coinbase: os << "Coinbase"; break;
         case KeyType::Comission: os << "Commission"; break;
         case KeyType::Kernel: os << "Kernel"; break;
-        case KeyType::Regular: os << "Regualar"; break;
+        case KeyType::Regular: os << "Regular"; break;
         default:
             assert(false && "Unknown key type");
         }
         os << "]";
         return os;
+    }
+
+    Amount getTotal(beam::IKeyChain::Ptr keychain)
+    {
+        auto currentHeight = keychain->getCurrentHeight();
+        Amount total = 0;
+        keychain->visit([&total, &currentHeight](const Coin& c)->bool
+        {
+            Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
+                ? Block::Rules::MaturityCoinbase
+                : Block::Rules::MaturityStd);
+
+            if (c.m_status == Coin::Unspent && lockHeight <= currentHeight)
+            {
+                total += c.m_amount;
+            }
+            return true;
+        });
+        return total;
     }
 }
 namespace
@@ -92,7 +111,25 @@ namespace
         cout << options << std::endl;
     }
 
+    void readTreasuryFile(beam::Node& node, const string& sPath)
+    {
+        if (!sPath.empty())
+        {
+            std::ifstream f(sPath, std::ifstream::binary);
+            if (f.fail())
+            {
+                LOG_INFO() << "can't open treasury file";
+                return;
+            }
 
+            std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+
+            Deserializer der;
+            der.reset(&vContents.at(0), vContents.size());
+
+            der & node.m_Cfg.m_vTreasury;
+        }
+    }
 }
 
 struct SerializerFile {
@@ -122,7 +159,7 @@ struct TreasuryBlockGenerator
 	std::string m_sPath;
 	IKeyChain* m_pKeyChain;
 
-	Block::Body m_Block;
+	std::vector<Block::Body> m_vBlocks;
 	ECC::Scalar::Native m_Offset;
 
 	std::vector<Coin> m_Coins;
@@ -131,6 +168,8 @@ struct TreasuryBlockGenerator
 	std::mutex m_Mutex;
 	std::vector<std::thread> m_vThreads;
 
+	Block::Body& get_WriteBlock();
+	void FinishLastBlock();
 	int Generate(uint32_t nCount, Height dh);
 private:
 	void Proceed(uint32_t i);
@@ -144,8 +183,6 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 		return -1;
 	}
 
-	m_Block.ZeroInit();
-
 	{
 		std::ifstream f(m_sPath, std::ifstream::binary);
 		if (!f.fail())
@@ -155,15 +192,18 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 			{
 				Deserializer der;
 				der.reset(&vContents.at(0), vContents.size());
-				der & m_Block;
+				der & m_vBlocks;
 
 				LOG_INFO() << "Treasury block is non-empty, appending.";
 			}
 		}
 	}
 
-	m_Offset = m_Block.m_Offset;
-	m_Offset = -m_Offset;
+	if (!m_vBlocks.empty())
+	{
+		m_Offset = m_vBlocks.back().m_Offset;
+		m_Offset = -m_Offset;
+	}
 
 	LOG_INFO() << "Generating coins...";
 
@@ -180,11 +220,14 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 		coin.m_status = Coin::Unconfirmed;
 		coin.m_height = h + Block::Rules::HeightGenesis;
 
+
 		m_vIncubationAndKeys[i].first = h;
-		m_vIncubationAndKeys[i].second = m_pKeyChain->calcKey(coin);
 	}
 
-	m_pKeyChain->store(m_Coins);
+	m_pKeyChain->store(m_Coins); // we get coin id only after store
+
+    for (uint32_t i = 0; i < nCount; ++i)
+        m_vIncubationAndKeys[i].second = m_pKeyChain->calcKey(m_Coins[i]);
 
 	m_vThreads.resize(std::thread::hardware_concurrency());
 	assert(!m_vThreads.empty());
@@ -210,36 +253,56 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 		pKrn->get_HashForSigning(hv);
 		pKrn->m_Signature.Sign(hv, k);
 
-		m_Block.m_vKernelsOutput.push_back(std::move(pKrn));
+		get_WriteBlock().m_vKernelsOutput.push_back(std::move(pKrn));
 		m_Offset += k;
 	}
 
-	m_Offset = -m_Offset;
-	m_Block.m_Offset = m_Offset;
+	FinishLastBlock();
 
-	m_Block.Sort();
-	m_Block.DeleteIntermediateOutputs();
+	for (auto i = 0; i < m_vBlocks.size(); i++)
+	{
+		m_vBlocks[i].Sort();
+		m_vBlocks[i].DeleteIntermediateOutputs();
+	}
 
 	SerializerFile ser;
 	ser.m_File.open(m_sPath, std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
-	ser & m_Block;
+	ser & m_vBlocks;
 	ser.m_File.flush();
 
-	bool bbb = m_Block.IsValid(1, 1);
+	for (auto i = 0; i < m_vBlocks.size(); i++)
+		m_vBlocks[i].IsValid(i + 1, i + 1, true);
 
 	LOG_INFO() << "Done";
 
 	return 0;
 }
 
-void TreasuryBlockGenerator::Proceed(uint32_t i)
+void TreasuryBlockGenerator::FinishLastBlock()
 {
-	ECC::Scalar::Native offset(ECC::Zero);
+	m_Offset = -m_Offset;
+	m_vBlocks.back().m_Offset = m_Offset;
+}
 
-	Block::Body subBlock;
-	ZeroObject(subBlock.m_Subsidy);
+Block::Body& TreasuryBlockGenerator::get_WriteBlock()
+{
+	if (m_vBlocks.empty() || m_vBlocks.back().m_vOutputs.size() >= 1000)
+	{
+		if (!m_vBlocks.empty())
+			FinishLastBlock();
 
-	for ( ; i < m_Coins.size(); i += m_vThreads.size())
+		m_vBlocks.resize(m_vBlocks.size() + 1);
+		m_vBlocks.back().ZeroInit();
+		m_Offset = ECC::Zero;
+	}
+	return m_vBlocks.back();
+}
+
+void TreasuryBlockGenerator::Proceed(uint32_t i0)
+{
+	std::vector<Output::Ptr> vOut;
+
+	for (uint32_t i = i0; i < m_Coins.size(); i += m_vThreads.size())
 	{
 		const Coin& coin = m_Coins[i];
 
@@ -247,23 +310,28 @@ void TreasuryBlockGenerator::Proceed(uint32_t i)
 		pOutp->m_Incubation = m_vIncubationAndKeys[i].first;
 
 		const ECC::Scalar::Native& k = m_vIncubationAndKeys[i].second;
-
 		pOutp->Create(k, coin.m_amount);
 
-		subBlock.m_vOutputs.push_back(std::move(pOutp));
-		offset += k;
-		subBlock.m_Subsidy += coin.m_amount;
+		vOut.push_back(std::move(pOutp));
+		//offset += k;
+		//subBlock.m_Subsidy += coin.m_amount;
 	}
 
 	std::unique_lock<std::mutex> scope(m_Mutex);
 
-	m_Offset += offset;
-	m_Block.m_Subsidy += subBlock.m_Subsidy;
-	m_Block.m_vOutputs.reserve(m_Block.m_vOutputs.size() + subBlock.m_vOutputs.size());
+	uint32_t iOutp = 0;
+	for (uint32_t i = i0; i < m_Coins.size(); i += m_vThreads.size(), iOutp++)
+	{
+		Block::Body& block = get_WriteBlock();
 
-	for (i = 0; i < subBlock.m_vOutputs.size(); i++)
-		m_Block.m_vOutputs.push_back(std::move(subBlock.m_vOutputs[i]));
+		block.m_vOutputs.push_back(std::move(vOut[iOutp]));
+		block.m_Subsidy += m_Coins[i].m_amount;
+		m_Offset += m_vIncubationAndKeys[i].second;
+	}
 }
+
+#define LOG_VERBOSE_ENABLED 0
+
 
 int main(int argc, char* argv[])
 {
@@ -285,19 +353,19 @@ int main(int argc, char* argv[])
     node_options.add_options()
         (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
         (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
-		(cli::VERIFICATION_THREADS, po::value<uint32_t>()->default_value(0), "number of threads for cryptographic verifications (0 = single thread)")
+		(cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
 		(cli::MINER_ID, po::value<uint32_t>()->default_value(0), "seed for miner nonce generation")
-		(cli::NODE_PEER, po::value<std::vector<std::string> >(), "nodes to connect to")
+		(cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
 		//(cli::TREASURY_BLOCK, po::value<string>(), "Treasury block to generate genesis block from")
 		;
 
     po::options_description wallet_options("Wallet options");
     wallet_options.add_options()
         (cli::PASS, po::value<string>()->default_value(""), "password for the wallet")
-        (cli::AMOUNT_FULL, po::value<ECC::Amount>(), "amount to send")
+        (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 1000000 chattle)")
         (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
         (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
-		(cli::TREASURY_BLOCK, po::value<string>(), "Block to create/append treasury to")
+		(cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
 		(cli::COMMAND, po::value<string>(), "command to execute [send|listen|init|info|treasury]");
 
     po::options_description options{ "Allowed options" };
@@ -347,7 +415,8 @@ int main(int argc, char* argv[])
             walletSeed.V = Zero;
             if (hasWalletSeed)
             {
-                auto seed = vm[cli::WALLET_SEED].as<string>();
+                // TODO: use secure string here
+                string seed = vm[cli::WALLET_SEED].as<string>();
                 Hash::Value hv;
                 Hash::Processor() << seed.c_str() >> hv;
                 walletSeed.V = hv;
@@ -363,7 +432,7 @@ int main(int argc, char* argv[])
                 node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<std::string>();
                 node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
                 node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
-				node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<uint32_t>();
+				node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
 				node.m_Cfg.m_TestMode.m_bFakePoW = debug;
                 if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
                 {
@@ -398,34 +467,16 @@ int main(int argc, char* argv[])
 						addr.port(port);
 					}
 				}
-
+				
                 LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
-                node.Initialize();
+                if (vm.count(cli::TREASURY_BLOCK))
+                {
+                    string sPath = vm[cli::TREASURY_BLOCK].as<string>();
+                    readTreasuryFile(node, sPath);
+                }
 
-				std::string sPath = vm[cli::TREASURY_BLOCK].as<string>();
-				if (!sPath.empty())
-				{
-					Block::Body block;
-
-					{
-						std::ifstream f(sPath, std::ifstream::binary);
-						if (f.fail())
-						{
-							LOG_ERROR() << "can't open treasury file";
-							return -1;
-						}
-
-						std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-
-						Deserializer der;
-						der.reset(&vContents.at(0), vContents.size());
-
-						der & block;
-					}
-
-					node.GenerateGenesisBlock(block);
-				}
+				node.Initialize();
 
                 reactor->run();
             }
@@ -444,9 +495,21 @@ int main(int argc, char* argv[])
                         return -1;
                     }
 
+                    if (!Keychain::isInitialized() && command != cli::INIT)
+                    {
+                        LOG_ERROR() << "Please initialize your wallet first... \nExample: beam wallet --command=init --pass=<password to access wallet> --wallet_seed=<seed to generate secret keys>";
+                        return -1;
+                    }
+
                     LOG_INFO() << "starting a wallet...";
 
-                    std::string pass(vm[cli::PASS].as<std::string>());
+                    // TODO: we should use secure string
+                    string pass;
+                    if (vm.count(cli::PASS))
+                    {
+                        pass = vm[cli::PASS].as<string>();
+                    }
+
                     if (!pass.size())
                     {
                         LOG_ERROR() << "Please, provide password for the wallet.";
@@ -464,16 +527,6 @@ int main(int argc, char* argv[])
                         if (keychain)
                         {
                             LOG_INFO() << "wallet successfully created...";
-                            if (debug)
-                            {
-                                for(auto amount : {5, 10, 20, 50, 100, 200, 500})
-                                {
-                                    Coin coin(amount);
-                                    keychain->store(coin);
-                                }
-
-                                LOG_INFO() << "wallet with coins successfully created...";
-                            }
                             return 0;
                         }
                         else
@@ -483,10 +536,11 @@ int main(int argc, char* argv[])
                         }
                     }
 
+
                     auto keychain = Keychain::open(pass);
                     if (!keychain)
                     {
-                        LOG_ERROR() << "something went wrong, wallet not opened...";
+                        LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";
                         return -1;
                     }
 
@@ -508,42 +562,82 @@ int main(int argc, char* argv[])
                     if (command == cli::INFO)
                     {
                         cout << "____Wallet summary____\n\n";
-                        cout << "| id\t| amount\t| height\t| status\t| key type\t|\n";
+                        cout << "Total unspent:" << PrintableAmount(getTotal(keychain)) << "\n\n";
+                        cout << "| id\t| amount\t| height\t| maturity\t| status\t| key type\t|\n";
                         keychain->visit([](const Coin& c)->bool
                         {
                             cout << setw(8) << c.m_id
-                                 << setw(16) << c.m_amount
+                                 << setw(16) << PrintableAmount(c.m_amount)
                                  << setw(16) << c.m_height
+                                 << setw(16) << c.m_maturity
                                  << "  " << c.m_status << '\t'
                                  << "  " << c.m_key_type << '\n';
                             return true;
                         });
                         return 0;
                     }
-
-                    // resolve address after network io
+                    
+                    if (vm.count(cli::NODE_ADDR) == 0)
+                    {
+                        LOG_ERROR() << "node address should be specified";
+                        return -1;
+                    }
+ 
+                    string nodeURI = vm[cli::NODE_ADDR].as<string>();
                     io::Address node_addr;
-                    node_addr.resolve(vm[cli::NODE_ADDR].as<string>().c_str());
+                    if (!node_addr.resolve(nodeURI.c_str()))
+                    {
+                        LOG_ERROR() << "unable to resolve node address: " << nodeURI;
+                        return -1;
+                    }
+
+                    io::Address receiverAddr;
+                    ECC::Amount amount = 0;
+                    if (command == cli::SEND)
+                    {
+                        if (vm.count(cli::RECEIVER_ADDR) == 0)
+                        {
+                            LOG_ERROR() << "receiver's address is missing";
+                            return -1;
+                        }
+                        if (vm.count(cli::AMOUNT) == 0)
+                        {
+                            LOG_ERROR() << "amount is missing";
+                            return -1;
+                        }
+                        string receiverURI = vm[cli::RECEIVER_ADDR].as<string>();
+                        if (!receiverAddr.resolve(receiverURI.c_str()))
+                        {
+                            LOG_ERROR() << "unable to resolve receiver address: " << receiverURI;
+                            return -1;
+                        }
+                        auto signedAmount = vm[cli::AMOUNT].as<double>();
+                        if (signedAmount < 0)
+                        {
+                            LOG_ERROR() << "Unable to send negative amount of coins";
+                            return -1;
+                        }
+
+                        signedAmount *= Block::Rules::Coin; // convert beams to coins
+
+                        amount = static_cast<ECC::Amount>(signedAmount);
+                        if (amount == 0)
+                        {
+                            LOG_ERROR() << "Unable to send zero coins";
+                            return -1;
+                        }
+                    }
+
                     bool is_server = command == cli::LISTEN;
                     WalletNetworkIO wallet_io{ io::Address().ip(INADDR_ANY).port(port)
-                                             , node_addr
-                                             , is_server
-                                             , keychain
-                                             , reactor};
-
-					wallet_io.sync_with_node([&]()
-					{
-						if (command == cli::SEND)
-						{
-							auto amount = vm[cli::AMOUNT].as<ECC::Amount>();
-							io::Address receiver_addr;
-							receiver_addr.resolve(vm[cli::RECEIVER_ADDR].as<string>().c_str());
-
-							LOG_INFO() << "sending money " << receiver_addr.str();
-							wallet_io.transfer_money(receiver_addr, move(amount));
-						}
-					});
-
+                        , node_addr
+                        , is_server
+                        , keychain
+                        , reactor };
+                    if (command == cli::SEND)
+                    {
+                        wallet_io.transfer_money(receiverAddr, move(amount));
+                    }
                     wallet_io.start();
                 }
                 else

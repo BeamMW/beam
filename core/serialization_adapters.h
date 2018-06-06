@@ -268,7 +268,8 @@ namespace detail
 				(output.m_Coinbase ? 2 : 0) |
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
-				(output.m_Incubation ? 0x10 : 0);
+				(output.m_Incubation ? 0x10 : 0) |
+				(output.m_hDelta ? 0x20 : 0);
 
 			ar
 				& nFlags
@@ -282,6 +283,9 @@ namespace detail
 
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
+
+			if (output.m_hDelta)
+				ar & output.m_hDelta;
 
             return ar;
         }
@@ -305,6 +309,9 @@ namespace detail
 
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
+
+			if (0x20 & nFlags)
+				ar & output.m_hDelta;
 
             return ar;
         }
@@ -429,6 +436,8 @@ namespace detail
 				& tx.m_vKernelsOutput
 				& tx.m_Offset;
 
+			tx.TestNoNulls();
+
             return ar;
         }
 
@@ -496,8 +505,7 @@ namespace detail
 			ar
 				& v.m_Height
 				& v.m_Prev
-				& v.m_History
-				& v.m_LiveObjects
+				& v.m_Definition
 				& v.m_TimeStamp
 				& v.m_PoW;
 
@@ -510,8 +518,7 @@ namespace detail
 			ar
 				& v.m_Height
 				& v.m_Prev
-				& v.m_History
-				& v.m_LiveObjects
+				& v.m_Definition
 				& v.m_TimeStamp
 				& v.m_PoW;
 
@@ -521,9 +528,16 @@ namespace detail
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Block::Body& bb)
 		{
+			uint8_t nFlags =
+				(bb.m_Subsidy.Hi ? 1 : 0) |
+				(bb.m_SubsidyClosing ? 2 : 0);
+
 			ar & (const beam::TxBase&) bb;
+			ar & nFlags;
 			ar & bb.m_Subsidy.Lo;
-			ar & bb.m_Subsidy.Hi;
+
+			if (bb.m_Subsidy.Hi)
+				ar & bb.m_Subsidy.Hi;
 
 			return ar;
 		}
@@ -531,9 +545,18 @@ namespace detail
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Block::Body& bb)
 		{
+			uint8_t nFlags;
+
 			ar & (beam::TxBase&) bb;
+			ar & nFlags;
 			ar & bb.m_Subsidy.Lo;
-			ar & bb.m_Subsidy.Hi;
+
+			if (1 & nFlags)
+				ar & bb.m_Subsidy.Hi;
+			else
+				bb.m_Subsidy.Hi = 0;
+
+			bb.m_SubsidyClosing = ((2 & nFlags) != 0);
 
 			return ar;
 		}

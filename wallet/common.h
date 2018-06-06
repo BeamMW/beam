@@ -22,7 +22,16 @@ namespace beam
 {
     using Uuid = std::array<uint8_t, 16>;
 
+    struct PrintableAmount
+    {
+        explicit PrintableAmount(const Amount& amount) : m_value{amount}
+        {}
+        const Amount& m_value;
+    };
+
+    std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount);
     std::ostream& operator<<(std::ostream& os, const Uuid& uuid);
+
     struct Coin;
     using UuidPtr = std::shared_ptr<Uuid>;
     using TransactionPtr = std::shared_ptr<Transaction>;

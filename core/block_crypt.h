@@ -13,7 +13,7 @@ namespace beam
 		Height m_hMin;
 		Height m_hMax;
 
-		bool m_bRangeMode; // in 'range' mode the hMin/hMax on input denote the range of heights. Each element is verified wrt it independently.
+		bool m_bBlockMode; // in 'block' mode the hMin/hMax on input denote the range of heights. Each element is verified wrt it independently.
 		// i.e. different elements may have non-overlapping valid range, and it's valid.
 		// Suitable for merged block validation
 
@@ -35,6 +35,6 @@ namespace beam
 
 		// hi-level functions, should be used after Merge (in case the verification was split)
 		bool IsValidTransaction();
-		bool IsValidBlock(const Block::Body&);
+		bool IsValidBlock(const Block::Body&, bool bSubsidyOpen);
 	};
 }

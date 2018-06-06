@@ -99,6 +99,8 @@ namespace beam
         }
 
         void remove_peer(const Uuid& txId);
+        void getUtxoProofs(const std::vector<Coin>& coins);
+        void finishSync();
     private:
         IKeyChain::Ptr m_keyChain;
         INetworkIO& m_network;
@@ -107,8 +109,14 @@ namespace beam
         std::map<Uuid, wallet::Receiver::Ptr> m_receivers;
         std::vector<wallet::Sender::Ptr>      m_removed_senders;
         std::vector<wallet::Receiver::Ptr>    m_removed_receivers;
+        std::vector<wallet::Sender::Ptr>      m_pendingSenders;
+        std::vector<wallet::Receiver::Ptr>    m_pendingReceivers;
         TxCompletedAction m_tx_completed_action;
         std::queue<Uuid> m_node_requests_queue;
-		Merkle::Hash m_LiveObjects;
+        Merkle::Hash m_Definition;
+        Block::SystemState::ID m_knownStateID;
+        Block::SystemState::ID m_newStateID;
+        int m_syncing;
+        std::queue<Coin> m_pendingProofs;
     };
 }

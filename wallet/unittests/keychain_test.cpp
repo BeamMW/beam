@@ -12,12 +12,12 @@ void TestKeychain()
 {
 	SqliteKeychain keychain;
 
-	Coin coin1(5);
+	Coin coin1(5, Coin::Unspent, 0, 10);
 	keychain.store(coin1);
 
     WALLET_CHECK(coin1.m_id == 1);
 
-	Coin coin2(2);
+	Coin coin2(2, Coin::Unspent, 0, 10);
 	keychain.store(coin2);
 
     WALLET_CHECK(coin2.m_id == 2);
@@ -65,10 +65,10 @@ void TestKeychain()
 	}
 
     {
-        Coin coin1{ 5, Coin::Unspent, 1, KeyType::Coinbase };
-        Coin coin2{ 4, Coin::Unspent, 1, KeyType::Comission };
-        Coin coin3{ 2, Coin::Unspent, 1, KeyType::Regular };
-        Coin coin4{ 1, Coin::Unspent, 1, KeyType::Regular };
+        Coin coin1{ 5, Coin::Unspent, 1, 10, KeyType::Coinbase };
+        Coin coin2{ 4, Coin::Unspent, 1, 10, KeyType::Comission };
+        Coin coin3{ 2, Coin::Unspent, 1, 10, KeyType::Regular };
+        Coin coin4{ 1, Coin::Unspent, 1, 10, KeyType::Regular };
 
         keychain.store(coin1);
         keychain.store(coin2);

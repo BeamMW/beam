@@ -189,6 +189,12 @@ namespace ECC
 			Inc();
 		}
 
+		void operator ^= (const uintBig_t& x)
+		{
+			for (int i = _countof(m_pData); i--; )
+				m_pData[i] ^= x.m_pData[i];
+		}
+
 		int cmp(const uintBig_t& x) const { return memcmp(m_pData, x.m_pData, sizeof(m_pData)); }
 		COMPARISON_VIA_CMP(uintBig_t)
 	};

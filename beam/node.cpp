@@ -36,6 +36,78 @@ void Node::DeleteUnassignedTask(Task& t)
 	delete &t;
 }
 
+void Node::WantedTx::Delete(Node& n)
+{
+	bool bFront = (&m_lst.front() == &n);
+
+	m_lst.erase(List::s_iterator_to(n));
+	m_set.erase(Set::s_iterator_to(n));
+	delete &n;
+
+	if (bFront)
+		SetTimer();
+}
+
+void Node::WantedTx::SetTimer()
+{
+	if (m_lst.empty())
+	{
+		if (m_pTimer)
+			m_pTimer->cancel();
+	}
+	else
+	{
+		if (!m_pTimer)
+			m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+
+		uint32_t dt = GetTime_ms() - m_lst.front().m_Advertised_ms;
+		const uint32_t timeout_ms = get_ParentObj().m_Cfg.m_Timeout.m_GetTx_ms;
+
+		m_pTimer->start((timeout_ms > dt) ? (timeout_ms - dt) : 0, false, [this]() { OnTimer(); });
+	}
+}
+
+void Node::WantedTx::OnTimer()
+{
+	uint32_t t_ms = GetTime_ms();
+	const uint32_t timeout_ms = get_ParentObj().m_Cfg.m_Timeout.m_GetTx_ms;
+
+	while (!m_lst.empty())
+	{
+		Node& n = m_lst.front();
+		if (t_ms - n.m_Advertised_ms < timeout_ms)
+			break;
+
+		// timeout expired. Ask from all
+		proto::GetTransaction msg;
+		msg.m_ID = n.m_Key;
+
+		Delete(n); // will also reschedule the timer
+
+		for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
+		{
+			PeerList::iterator itThis = it;
+			it++;
+			Peer& peer = *itThis;
+
+			if ((State::Connected == peer.m_eState) && peer.m_Config.m_SpreadingTransactions)
+				try {
+					peer.Send(msg);
+				}
+				catch (...) {
+					peer.OnPostError();
+				}
+		}
+	}
+}
+
+uint32_t Node::GetTime_ms()
+{
+	// platform-independent analogue of GetTickCount
+	using namespace std::chrono;
+	return (uint32_t) duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+}
+
 void Node::TryAssignTask(Task& t, const NodeDB::PeerID* pPeerID)
 {
 	while (true)
@@ -161,9 +233,11 @@ void Node::Processor::OnPeerInsane(const PeerID& peerID)
 
 void Node::Processor::OnNewState()
 {
-	proto::Hdr msgHdr;
-	if (!get_CurrentState(msgHdr.m_Description))
+	if (!m_Cursor.m_Sid.m_Row)
 		return;
+
+	proto::Hdr msgHdr;
+	msgHdr.m_Description = m_Cursor.m_Full;
 
 	proto::NewTip msg;
 	msgHdr.m_Description.get_ID(msg.m_ID);
@@ -209,7 +283,7 @@ bool Node::Processor::VerifyBlock(const Block::Body& block, Height h0, Height h1
 	vctx.m_pTx = &block;
 	vctx.m_bAbort = false;
 	vctx.m_Remaining = nThreads;
-	vctx.m_Context.m_bRangeMode = true;
+	vctx.m_Context.m_bBlockMode = true;
 	vctx.m_Context.m_hMin = h0;
 	vctx.m_Context.m_hMax = h1;
 	vctx.m_Context.m_nVerifiers = nThreads;
@@ -231,7 +305,7 @@ bool Node::Processor::VerifyBlock(const Block::Body& block, Height h0, Height h1
 	for (uint32_t i = 0; i < nThreads; i++)
 		vThreads[i].join();
 
-	return !vctx.m_bAbort && vctx.m_Context.IsValidBlock(block);
+	return !vctx.m_bAbort && vctx.m_Context.IsValidBlock(block, m_Cursor.m_SubsidyOpen);
 }
 
 void Node::Processor::VerifierContext::Proceed(VerifierContext* pVctx, uint32_t iVerifier)
@@ -239,7 +313,7 @@ void Node::Processor::VerifierContext::Proceed(VerifierContext* pVctx, uint32_t 
 	VerifierContext& vctx = *pVctx;
 
 	TxBase::Context ctx;
-	ctx.m_bRangeMode = true;
+	ctx.m_bBlockMode = true;
 	ctx.m_hMin = vctx.m_Context.m_hMin;
 	ctx.m_hMax = vctx.m_Context.m_hMax;
 	ctx.m_nVerifiers = vctx.m_Context.m_nVerifiers;
@@ -301,11 +375,13 @@ void Node::Initialize()
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
     m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
 
-	Block::SystemState::ID id;
-	if (!m_Processor.get_CurrentState(id))
-		ZeroObject(id);
+	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
 
-	LOG_INFO() << "Initial Tip: " << id;
+	if (m_Cfg.m_VerificationThreads < 0)
+	{
+		uint32_t numCores = std::thread::hardware_concurrency();
+		m_Cfg.m_VerificationThreads = (numCores > m_Cfg.m_MiningThreads + 1) ? (numCores - m_Cfg.m_MiningThreads) : 0;
+	}
 
 	RefreshCongestions();
 
@@ -337,23 +413,18 @@ void Node::Initialize()
 	}
 }
 
-bool Node::GenerateGenesisBlock(Block::Body& treasury)
-{
-	return m_Miner.Restart(&treasury);
-}
-
 Node::~Node()
-	{
+{
 	m_Miner.HardAbortSafe();
 
 	for (size_t i = 0; i < m_Miner.m_vThreads.size(); i++)
-		{
+	{
 		Miner::PerThread& pt = m_Miner.m_vThreads[i];
 		if (pt.m_pReactor)
 			pt.m_pReactor->stop();
 
 		pt.m_Thread.join();
-}
+	}
 	m_Miner.m_vThreads.clear();
 
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
@@ -370,6 +441,9 @@ Node::~Node()
 		DeleteUnassignedTask(m_lstTasksUnassigned.front());
 
 	assert(m_setTasks.empty());
+
+	while (!m_Wtx.m_lst.empty())
+		m_Wtx.Delete(m_Wtx.m_lst.back());
 }
 
 void Node::Peer::SetTimer(uint32_t timeout_ms)
@@ -394,6 +468,7 @@ void Node::Peer::OnTimer()
 		assert(m_iPeer >= 0);
 
 		try {
+            m_eState = State::Connecting;
 			Connect(m_pThis->m_Cfg.m_Connect[m_iPeer]);
 		} catch (...) {
 			OnPostError();
@@ -428,14 +503,17 @@ void Node::Peer::OnConnected()
 	msgCfg.m_AutoSendHdr = false;
 	Send(msgCfg);
 
-	proto::NewTip msg;
-	if (m_pThis->m_Processor.get_CurrentState(msg.m_ID))
+	if (m_pThis->m_Processor.m_Cursor.m_Sid.m_Row)
+	{
+		proto::NewTip msg;
+		msg.m_ID = m_pThis->m_Processor.m_Cursor.m_ID;
 		Send(msg);
+	}
 }
 
 void Node::Peer::OnClosed(int errorCode)
 {
-	assert(State::Connected == m_eState);
+	assert(State::Connected == m_eState || State::Connecting == m_eState);
 	if (-1 == errorCode) // protocol error
 		m_eState = State::Snoozed;
 	OnPostError();
@@ -643,25 +721,36 @@ void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
 
 void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 {
-	// TODO: Verify all the Ptrs for being non-NULL (or better do this within serialization)
+	if (!msg.m_Transaction)
+		ThrowUnexpected(); // our deserialization permits NULL Ptrs.
+	// However the transaction body must have already been checked for NULLs
 
 	proto::Boolean msgOut;
 	msgOut.m_Value = true;
 
 	NodeProcessor::TxPool::Element::Tx key;
-	key.m_pValue = std::move(msg.m_Transaction);
+	msg.m_Transaction->get_Key(key.m_Key);
 
 	NodeProcessor::TxPool::TxSet::iterator it = m_pThis->m_TxPool.m_setTxs.find(key);
 	if (m_pThis->m_TxPool.m_setTxs.end() == it)
 	{
-		// new transaction
+		WantedTx::Node wtxn;
+		wtxn.m_Key = key.m_Key;
 
-		std::ostringstream os;
+		WantedTx::Set::iterator it2 = m_pThis->m_Wtx.m_set.find(wtxn);
+		if (m_pThis->m_Wtx.m_set.end() != it2)
+			m_pThis->m_Wtx.Delete(*it2);
+
+		// new transaction
+		const Transaction& tx = *msg.m_Transaction;
+		Transaction::Context ctx;
+		msgOut.m_Value = m_pThis->m_Processor.ValidateTx(tx, ctx);
+
 		{
 			// Log it
-			const TxBase& tx = *key.m_pValue;
+			std::ostringstream os;
 
-			os << "Tx from " << get_Connection()->peer_address();
+			os << "Tx " << key.m_Key << " from " << get_Connection()->peer_address();
 
 			for (size_t i = 0; i < tx.m_vInputs.size(); i++)
 				os << "\n\tI: " << tx.m_vInputs[i]->m_Commitment;
@@ -683,20 +772,16 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 
 			for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
 				os << "\n\tK: Fee=" << tx.m_vKernelsOutput[i]->m_Fee;
+
+			os << "\n\tValid: " << msgOut.m_Value;
+			LOG_INFO() << os.str();
 		}
-
-		Height h = m_pThis->m_Processor.get_NextHeight();
-		msgOut.m_Value = m_pThis->m_TxPool.AddTx(std::move(key.m_pValue), h);
-
-		os << "\n\tValid: " << msgOut.m_Value;
-		LOG_INFO() << os.str();
 
 		if (msgOut.m_Value)
 		{
-			m_pThis->m_TxPool.ShrinkUpTo(m_pThis->m_Cfg.m_MaxPoolTransactions);
-			m_pThis->m_Miner.SetTimer(m_pThis->m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
+			proto::HaveTransaction msgOut;
+			msgOut.m_ID = key.m_Key;
 
-			// Current (naive) design: send it to all other nodes
 			for (PeerList::iterator it = m_pThis->m_lstPeers.begin(); m_pThis->m_lstPeers.end() != it; )
 			{
 				Peer& peer = *it++;
@@ -708,11 +793,15 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 					continue;
 
 				try {
-					peer.Send(msg);
+					peer.Send(msgOut);
 				} catch (...) {
 					peer.OnPostError();
 				}
 			}
+
+			m_pThis->m_TxPool.AddValidTx(std::move(msg.m_Transaction), ctx, key.m_Key);
+			m_pThis->m_TxPool.ShrinkUpTo(m_pThis->m_Cfg.m_MaxPoolTransactions);
+			m_pThis->m_Miner.SetTimer(m_pThis->m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
 		}
 	}
 
@@ -721,20 +810,84 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 
 void Node::Peer::OnMsg(proto::Config&& msg)
 {
-	if (!m_Config.m_SpreadingTransactions && msg.m_SpreadingTransactions)
-	{
-		// TODO: decide if/how to sent the pending transactions.
-		// maybe this isn't necessary, in this case it'll receive only new transactions.
-	}
-
-	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr)
+	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr && m_pThis->m_Processor.m_Cursor.m_Sid.m_Row)
 	{
 		proto::Hdr msgHdr;
-		if (m_pThis->m_Processor.get_CurrentState(msgHdr.m_Description))
-			Send(msgHdr);
+		msgHdr.m_Description = m_pThis->m_Processor.m_Cursor.m_Full;
+		Send(msgHdr);
+	}
+
+	if (!m_Config.m_SpreadingTransactions && msg.m_SpreadingTransactions)
+	{
+		proto::HaveTransaction msgOut;
+
+		for (NodeProcessor::TxPool::TxSet::iterator it = m_pThis->m_TxPool.m_setTxs.begin(); m_pThis->m_TxPool.m_setTxs.end() != it; it++)
+		{
+			msgOut.m_ID = it->m_Key;
+			Send(msgOut);
+		}
 	}
 
 	m_Config = msg;
+}
+
+void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
+{
+	NodeProcessor::TxPool::Element::Tx key;
+	key.m_Key = msg.m_ID;
+
+	NodeProcessor::TxPool::TxSet::iterator it = m_pThis->m_TxPool.m_setTxs.find(key);
+	if (m_pThis->m_TxPool.m_setTxs.end() != it)
+		return; // already have it
+
+	WantedTx::Node wtxn;
+	wtxn.m_Key = msg.m_ID;
+	WantedTx::Set::iterator it2 = m_pThis->m_Wtx.m_set.find(wtxn);
+	if (m_pThis->m_Wtx.m_set.end() != it2)
+		return; // already waiting for it
+
+	bool bEmpty = m_pThis->m_Wtx.m_lst.empty();
+
+	WantedTx::Node* pWtxn = new WantedTx::Node;
+	pWtxn->m_Key = msg.m_ID;
+	pWtxn->m_Advertised_ms = GetTime_ms();
+
+	m_pThis->m_Wtx.m_set.insert(*pWtxn);
+	m_pThis->m_Wtx.m_lst.push_back(*pWtxn);
+
+	if (bEmpty)
+		m_pThis->m_Wtx.SetTimer();
+
+	proto::GetTransaction msgOut;
+	msgOut.m_ID = msg.m_ID;
+	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetTransaction&& msg)
+{
+	NodeProcessor::TxPool::Element::Tx key;
+	key.m_Key = msg.m_ID;
+
+	NodeProcessor::TxPool::TxSet::iterator it = m_pThis->m_TxPool.m_setTxs.find(key);
+	if (m_pThis->m_TxPool.m_setTxs.end() == it)
+		return; // don't have it
+
+	// temporarily move the transaction to the Msg object, but make sure it'll be restored back, even in case of the exception.
+	struct Guard
+	{
+		proto::NewTransaction m_Msg;
+		Transaction::Ptr* m_ppVal;
+
+		void Swap() { m_ppVal->swap(m_Msg.m_Transaction); }
+
+		~Guard() { Swap(); }
+	};
+
+	Guard g;
+	g.m_ppVal = &it->get_ParentObj().m_pValue;
+	g.Swap();
+
+	Send(g.m_Msg);
 }
 
 void Node::Peer::OnMsg(proto::GetMined&& msg)
@@ -770,11 +923,18 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 
 	proto::Proof msgOut;
 
-	NodeDB::StateID sid;
-	if (m_pThis->m_Processor.get_DB().get_Cursor(sid))
+	const NodeDB::StateID& sid = m_pThis->m_Processor.m_Cursor.m_Sid;
+	if (sid.m_Row)
 	{
 		if (msg.m_Height < sid.m_Height)
+		{
 			m_pThis->m_Processor.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height);
+
+			msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+
+			msgOut.m_Proof.back().first = true;
+			m_pThis->m_Processor.get_CurrentLive(msgOut.m_Proof.back().second);
+		}
 	}
 
 	Send(msgOut);
@@ -791,11 +951,15 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 	if (t.Find(cu, msg.m_KernelHash, bCreate))
 	{
 		t.get_Proof(msgOut.m_Proof, cu);
+		msgOut.m_Proof.reserve(msgOut.m_Proof.size() + 2);
 
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 		msgOut.m_Proof.back().first = false;
-
 		m_pThis->m_Processor.get_Utxos().get_Hash(msgOut.m_Proof.back().second);
+
+		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+		msgOut.m_Proof.back().first = false;
+		msgOut.m_Proof.back().second = m_pThis->m_Processor.m_Cursor.m_History;
 	}
 }
 
@@ -805,6 +969,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	{
 		proto::ProofUtxo m_Msg;
 		UtxoTree* m_pTree;
+		const Merkle::Hash* m_phvHistory;
 		Merkle::Hash m_hvKernels;
 
 		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
@@ -820,9 +985,15 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 			ret.m_Maturity = d.m_Maturity;
 			m_pTree->get_Proof(ret.m_Proof, *m_pCu);
 
+			ret.m_Proof.reserve(ret.m_Proof.size() + 2);
+
 			ret.m_Proof.resize(ret.m_Proof.size() + 1);
 			ret.m_Proof.back().first = true;
 			ret.m_Proof.back().second = m_hvKernels;
+
+			ret.m_Proof.resize(ret.m_Proof.size() + 1);
+			ret.m_Proof.back().first = false;
+			ret.m_Proof.back().second = *m_phvHistory;
 
 			return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
 		}
@@ -830,6 +1001,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 
 	t.m_pTree = &m_pThis->m_Processor.get_Utxos();
 	m_pThis->m_Processor.get_Kernels().get_Hash(t.m_hvKernels);
+	t.m_phvHistory = &m_pThis->m_Processor.m_Cursor.m_History;
 
 	UtxoTree::Cursor cu;
 	t.m_pCu = &cu;
@@ -913,15 +1085,13 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 
 			bool bSolved = false;
 
-			//std::chrono::high_resolution_clock::duration
-			for (std::chrono::system_clock::time_point tmStart = std::chrono::system_clock::now(); ; )
+			for (uint32_t t0_ms = GetTime_ms(); ; )
 			{
 				if (fnCancel(false))
 					break;
 				std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-				std::chrono::system_clock::duration dt = std::chrono::system_clock::now() - tmStart;
-				uint32_t dt_ms = std::chrono::duration_cast<std::chrono::milliseconds>(dt).count();
+				uint32_t dt_ms = GetTime_ms() - t0_ms;
 
 				if (dt_ms >= timeout_ms)
 				{
@@ -984,17 +1154,22 @@ void Node::Miner::OnTimer()
 	Restart();
 }
 
-bool Node::Miner::Restart(Block::Body* pTreasury /* = NULL */)
+bool Node::Miner::Restart()
 {
 	if (m_vThreads.empty())
 		return false; //  n/a
 
-	Block::SystemState::ID id;
-	if (!get_ParentObj().m_Processor.get_CurrentState(id))
+	Block::Body* pTreasury = NULL;
+
+	if (get_ParentObj().m_Processor.m_Cursor.m_SubsidyOpen)
 	{
-		bool bMineGenesis = pTreasury || get_ParentObj().m_Cfg.m_TestMode.m_bMineGenesisBlock;
-		if (!bMineGenesis)
+		Height dh = get_ParentObj().m_Processor.m_Cursor.m_Sid.m_Height + 1 - Block::Rules::HeightGenesis;
+		std::vector<Block::Body>& vTreasury = get_ParentObj().m_Cfg.m_vTreasury;
+		if (dh >= vTreasury.size())
 			return false;
+
+		pTreasury = &vTreasury[dh];
+		pTreasury->m_SubsidyClosing = (dh + 1 == vTreasury.size());
 	}
 
 	Task::Ptr pTask(std::make_shared<Task>());
@@ -1009,6 +1184,7 @@ bool Node::Miner::Restart(Block::Body* pTreasury /* = NULL */)
 		return false;
 	}
 
+	Block::SystemState::ID id;
 	pTask->m_Hdr.get_ID(id);
 
 	LOG_INFO() << "Block generated: " << id << ", Fee=" << pTask->m_Fees << ", Difficulty=" << uint32_t(pTask->m_Hdr.m_PoW.m_Difficulty) << ", Size=" << pTask->m_Body.size();
@@ -1017,7 +1193,11 @@ bool Node::Miner::Restart(Block::Body* pTreasury /* = NULL */)
 	std::scoped_lock<std::mutex> scope(m_Mutex);
 
 	if (m_pTask)
+	{
+		if (*m_pTask->m_pStop)
+			return true; // block already mined, probably notification to this thread on its way. Ignore the newly-constructed block
 		pTask->m_pStop = m_pTask->m_pStop; // use the same soft-restart indicator
+	}
 	else
 	{
 		pTask->m_pStop.reset(new volatile bool);

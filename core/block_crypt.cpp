@@ -218,6 +218,13 @@ namespace beam
 			<< m_Signature.m_e
 			<< m_Signature.m_k
 			>> hv;
+
+		// Some kernel hash values are reserved for the system usage
+		if (hv == ECC::Zero)
+		{
+			ECC::Hash::Processor() << hv >> hv;
+			assert(!(hv == ECC::Zero));
+		}
 	}
 
 	bool TxKernel::IsValidProof(const Merkle::Proof& proof, const Merkle::Hash& root) const
@@ -275,7 +282,7 @@ namespace beam
 		ZeroObject(m_Coinbase);
 		m_hMin = 0;
 		m_hMax = -1;
-		m_bRangeMode = false;
+		m_bBlockMode = false;
 		m_nVerifiers = 1;
 		m_iVerifier = 0;
 		m_pAbort = NULL;
@@ -311,7 +318,7 @@ namespace beam
 		if (h0 > h1)
 			return false;
 
-		if (!m_bRangeMode)
+		if (!m_bBlockMode)
 		{
 			// shrink permitted range
 			m_hMin = h0;
@@ -323,7 +330,7 @@ namespace beam
 
 	bool TxBase::Context::Merge(const Context& x)
 	{
-		assert(m_bRangeMode == x.m_bRangeMode);
+		assert(m_bBlockMode == x.m_bBlockMode);
 
 		if (!HandleElementHeight(x.m_hMin, x.m_hMax))
 			return false;
@@ -432,8 +439,21 @@ namespace beam
 
 			if (v.m_Coinbase)
 			{
-				assert(v.m_pPublic);
+				if (!ctx.m_bBlockMode)
+					return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
+
+				assert(v.m_pPublic); // must have already been checked
 				ctx.m_Coinbase += v.m_pPublic->m_Value;
+			}
+
+			if (v.m_hDelta)
+			{
+				if (!ctx.m_bBlockMode)
+					return false; // this should only be used in merged blocks
+				
+				Height h = ctx.m_hMin + v.m_hDelta;
+				if ((h < ctx.m_hMin) || (h > ctx.m_hMax))
+					return false;
 			}
 		}
 
@@ -554,8 +574,7 @@ namespace beam
 
 	bool TxBase::Context::IsValidTransaction()
 	{
-		if (m_Coinbase.Lo || m_Coinbase.Hi)
-			return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
+		assert(!(m_Coinbase.Lo || m_Coinbase.Hi)); // must have already been checked
 
 		m_Fee.AddTo(m_Sigma);
 
@@ -569,6 +588,49 @@ namespace beam
 			ctx.IsValidTransaction();
 	}
 
+	template <typename T>
+	void TestNotNull(const std::unique_ptr<T>& p)
+	{
+		if (!p)
+			throw std::runtime_error("invalid NULL ptr");
+	}
+
+	void TxBase::TestNoNulls() const
+	{
+		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
+			TestNotNull(*it);
+
+		for (auto it = m_vKernelsInput.begin(); m_vKernelsInput.end() != it; it++)
+			TestNotNull(*it);
+
+		for (auto it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
+			TestNotNull(*it);
+
+		for (auto it = m_vKernelsOutput.begin(); m_vKernelsOutput.end() != it; it++)
+			TestNotNull(*it);
+	}
+
+	void Transaction::get_Key(KeyType& key) const
+	{
+		if (m_Offset.m_Value == ECC::Zero)
+		{
+			// proper transactions must contain non-trivial offset, and this should be enough to identify it with sufficient probability
+			// However in case it's not specified - construct the key from contents
+			key = ECC::Zero;
+
+			for (auto i = 0; i < m_vInputs.size(); i++)
+				key ^= m_vInputs[i]->m_Commitment.m_X;
+
+			for (auto i = 0; i < m_vOutputs.size(); i++)
+				key ^= m_vOutputs[i]->m_Commitment.m_X;
+
+			for (auto i = 0; i < m_vKernelsOutput.size(); i++)
+				key ^= m_vKernelsOutput[i]->m_Excess.m_X;
+		}
+		else
+			key = m_Offset.m_Value;
+	}
+
 	/////////////
 	// AmoutBig
 	void AmountBig::operator += (Amount x)
@@ -578,10 +640,23 @@ namespace beam
 			Hi++;
 	}
 
+	void AmountBig::operator -= (Amount x)
+	{
+		if (Lo < x)
+			Hi--;
+		Lo -= x;
+	}
+
 	void AmountBig::operator += (const AmountBig& x)
 	{
 		operator += (x.Lo);
 		Hi += x.Hi;
+	}
+
+	void AmountBig::operator -= (const AmountBig& x)
+	{
+		operator -= (x.Lo);
+		Hi -= x.Hi;
 	}
 
 	void AmountBig::Export(ECC::uintBig& x) const
@@ -623,32 +698,12 @@ namespace beam
 	void Block::SystemState::Full::get_Hash(Merkle::Hash& out) const
 	{
 		// Our formula:
-		//
-		//	[
-		//		[
-		//			m_Height
-		//			m_TimeStamp
-		//		]
-		//		[
-		//			[
-		//				m_Prev
-		//				m_States
-		//			]
-		//			m_LiveObjects
-		//			]
-		//		]
-		//	]
-
-		Merkle::Hash h0, h1;
-
-		ECC::Hash::Processor() << m_Height >> h0;
-		ECC::Hash::Processor() << m_TimeStamp >> h1;
-		Merkle::Interpret(h0, h1, true); // [ m_Height, m_TimeStamp ]
-
-		Merkle::Interpret(h1, m_Prev, m_History);
-		Merkle::Interpret(h1, m_LiveObjects, true); // [ [m_Prev, m_States], m_LiveObjects ]
-
-		Merkle::Interpret(out, h0, h1);
+		ECC::Hash::Processor()
+			<< m_Height
+			<< m_TimeStamp
+			<< m_Prev
+			<< m_Definition
+			>> out;
 	}
 
 	bool Block::SystemState::Full::IsSane() const
@@ -681,7 +736,7 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
 	}
 
-	bool TxBase::Context::IsValidBlock(const Block::Body& body)
+	bool TxBase::Context::IsValidBlock(const Block::Body& body, bool bSubsidyOpen)
 	{
 		m_Sigma = -m_Sigma;
 		body.m_Subsidy.AddTo(m_Sigma);
@@ -689,8 +744,11 @@ namespace beam
 		if (!(m_Sigma == ECC::Zero))
 			return false;
 
-		if (m_hMin == Block::Rules::HeightGenesis)
-			return true; // genesis block may have arbitrary subsidy and/or coinbase outputs, there're no restrictions
+		if (bSubsidyOpen)
+			return true;
+
+		if (body.m_SubsidyClosing)
+			return false; // already closed
 
 		// For non-genesis blocks we have the following restrictions:
 		// Subsidy is bounded by num of blocks multiplied by coinbase emission
@@ -734,20 +792,21 @@ namespace beam
 	{
 		ZeroObject(m_Subsidy);
 		ZeroObject(m_Offset);
+		m_SubsidyClosing = false;
 	}
 
-	bool Block::Body::IsValid(Height h0, Height h1) const
+	bool Block::Body::IsValid(Height h0, Height h1, bool bSubsidyOpen) const
 	{
 		assert((h0 >= Block::Rules::HeightGenesis) && (h0 <= h1));
 
 		Context ctx;
 		ctx.m_hMin = h0;
 		ctx.m_hMax = h1;
-		ctx.m_bRangeMode = true;
+		ctx.m_bBlockMode = true;
 
 		return
 			ValidateAndSummarize(ctx) &&
-			ctx.IsValidBlock(*this);
+			ctx.IsValidBlock(*this, bSubsidyOpen);
 	}
 
     void DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType eType, uint32_t nIdx /* = 0 */)
