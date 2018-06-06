@@ -78,8 +78,6 @@ namespace beam
             // interface to communicate with receiver
             struct InvitationData
             {
-                using Ptr = std::shared_ptr<InvitationData>;
-
                 Uuid m_txId;
                 ECC::Amount m_amount;
                 Height m_height;
@@ -101,8 +99,6 @@ namespace beam
 
             struct ConfirmationData
             {
-                using Ptr = std::shared_ptr<ConfirmationData>;
-
                 Uuid m_txId;
                 ECC::Scalar m_senderSignature;
 
@@ -111,8 +107,8 @@ namespace beam
 
             struct IGateway : virtual IWalletGateway
             {
-                virtual void send_tx_invitation(InvitationData::Ptr) = 0;
-                virtual void send_tx_confirmation(ConfirmationData::Ptr) = 0;
+                virtual void send_tx_invitation(const InvitationData&) = 0;
+                virtual void send_tx_confirmation(const ConfirmationData&) = 0;
             };
         }
 
@@ -121,8 +117,6 @@ namespace beam
             // interface to communicate with sender
             struct ConfirmationData
             {
-                using Ptr = std::shared_ptr<ConfirmationData>;
-
                 Uuid m_txId;
                 ECC::Point m_publicReceiverBlindingExcess;
                 ECC::Point m_publicReceiverNonce;
@@ -133,7 +127,7 @@ namespace beam
 
             struct IGateway : virtual IWalletGateway
             {
-                virtual void send_tx_confirmation(ConfirmationData::Ptr) = 0;
+                virtual void send_tx_confirmation(const ConfirmationData&) = 0;
                 virtual void register_tx(const Uuid&, Transaction::Ptr) = 0;
                 virtual void send_tx_registered(UuidPtr&&) = 0;
             };

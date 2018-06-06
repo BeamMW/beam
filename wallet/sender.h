@@ -16,7 +16,7 @@ namespace beam::wallet
         struct TxFailed {};
         struct TxInitCompleted
         {
-            receiver::ConfirmationData::Ptr data;
+            receiver::ConfirmationData data;
         };
         struct TxConfirmationCompleted {};
 

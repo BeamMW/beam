@@ -14,18 +14,17 @@ namespace beam::wallet
         struct TxFailed {};
         struct TxConfirmationCompleted
         {
-            sender::ConfirmationData::Ptr data;
+            sender::ConfirmationData data;
         };
         struct TxRegistrationCompleted 
         {
             Uuid m_txId;
         };
         
-        Receiver(receiver::IGateway& gateway, beam::IKeyChain::Ptr keychain, sender::InvitationData::Ptr initData)
-            : m_fsm{boost::ref(gateway), keychain, initData}
+        Receiver(receiver::IGateway& gateway, beam::IKeyChain::Ptr keychain, sender::InvitationData& initData)
+            : m_fsm{std::ref(gateway), keychain, std::ref(initData)}
         {
             assert(keychain);
-            assert(initData);
         }  
     private:
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
@@ -72,7 +71,7 @@ namespace beam::wallet
                 }
             };
 
-            FSMDefinition(receiver::IGateway &gateway, beam::IKeyChain::Ptr keychain, sender::InvitationData::Ptr initData);
+            FSMDefinition(receiver::IGateway &gateway, beam::IKeyChain::Ptr keychain, sender::InvitationData& initData);
 
             // transition actions
             void confirm_tx(const msmf::none&);

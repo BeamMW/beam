@@ -16,10 +16,10 @@ namespace beam
     {
         virtual ~INetworkIO() {}
         // wallet to wallet requests
-        virtual void send_tx_message(PeerId to, wallet::sender::InvitationData::Ptr&&) = 0;
-        virtual void send_tx_message(PeerId to, wallet::sender::ConfirmationData::Ptr&&) = 0;
-        virtual void send_tx_message(PeerId to, wallet::receiver::ConfirmationData::Ptr&&) = 0;
-        virtual void send_tx_message(PeerId to, wallet::TxRegisteredData&&) = 0 ;
+        virtual void send_tx_message(PeerId to, const wallet::sender::InvitationData&) = 0;
+        virtual void send_tx_message(PeerId to, const wallet::sender::ConfirmationData&) = 0;
+        virtual void send_tx_message(PeerId to, const wallet::receiver::ConfirmationData&) = 0;
+        virtual void send_tx_message(PeerId to, const wallet::TxRegisteredData&) = 0 ;
         // wallet to node requests
         virtual void send_node_message(proto::NewTransaction&&) = 0;
         virtual void send_node_message(proto::GetProofUtxo&&) = 0;
@@ -33,9 +33,9 @@ namespace beam
     {
         virtual ~IWallet() {}
         // wallet to wallet responses
-        virtual void handle_tx_message(PeerId, wallet::sender::InvitationData::Ptr&&) = 0;
-        virtual void handle_tx_message(PeerId, wallet::sender::ConfirmationData::Ptr&&) = 0;
-        virtual void handle_tx_message(PeerId, wallet::receiver::ConfirmationData::Ptr&&) = 0;
+        virtual void handle_tx_message(PeerId, wallet::sender::InvitationData&&) = 0;
+        virtual void handle_tx_message(PeerId, wallet::sender::ConfirmationData&&) = 0;
+        virtual void handle_tx_message(PeerId, wallet::receiver::ConfirmationData&&) = 0;
         virtual void handle_tx_message(PeerId, wallet::TxRegisteredData&&) = 0;
         // node to wallet responses
         virtual void handle_node_message(proto::Boolean&&) = 0;
@@ -59,21 +59,21 @@ namespace beam
 
         void transfer_money(PeerId to, ECC::Amount&& amount);
 
-        void send_tx_invitation(wallet::sender::InvitationData::Ptr) override;
-        void send_tx_confirmation(wallet::sender::ConfirmationData::Ptr) override;
+        void send_tx_invitation(const wallet::sender::InvitationData&) override;
+        void send_tx_confirmation(const wallet::sender::ConfirmationData&) override;
         void on_tx_completed(const Uuid& txId) override;
         void send_tx_failed(const Uuid& txId) override;
 
         void remove_sender(const Uuid& txId);
         void remove_receiver(const Uuid& txId);
 
-        void send_tx_confirmation(wallet::receiver::ConfirmationData::Ptr) override;
+        void send_tx_confirmation(const wallet::receiver::ConfirmationData&) override;
         void register_tx(const Uuid&, Transaction::Ptr) override;
         void send_tx_registered(UuidPtr&& txId) override;
 
-        void handle_tx_message(PeerId from, wallet::sender::InvitationData::Ptr&&) override;
-        void handle_tx_message(PeerId from, wallet::sender::ConfirmationData::Ptr&&) override;
-        void handle_tx_message(PeerId from, wallet::receiver::ConfirmationData::Ptr&&) override;
+        void handle_tx_message(PeerId from, wallet::sender::InvitationData&&) override;
+        void handle_tx_message(PeerId from, wallet::sender::ConfirmationData&&) override;
+        void handle_tx_message(PeerId from, wallet::receiver::ConfirmationData&&) override;
         void handle_tx_message(PeerId from, wallet::TxRegisteredData&&) override;
         void handle_node_message(proto::Boolean&& res) override;
         void handle_node_message(proto::ProofUtxo&& proof) override;

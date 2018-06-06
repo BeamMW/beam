@@ -109,12 +109,12 @@ namespace
     struct TestGateway : wallet::sender::IGateway
         , wallet::receiver::IGateway
     {
-        void send_tx_invitation(wallet::sender::InvitationData::Ptr) override
+        void send_tx_invitation(const wallet::sender::InvitationData&) override
         {
             cout << "sent tx initiation message\n";
         }
 
-        void send_tx_confirmation(wallet::sender::ConfirmationData::Ptr) override
+        void send_tx_confirmation(const wallet::sender::ConfirmationData&) override
         {
             cout << "sent senders's tx confirmation message\n";
         }
@@ -129,7 +129,7 @@ namespace
             cout << __FUNCTION__ << "\n";
         }
 
-        void send_tx_confirmation(wallet::receiver::ConfirmationData::Ptr) override
+        void send_tx_confirmation(const wallet::receiver::ConfirmationData&) override
         {
             cout << "sent recever's tx confirmation message\n";
         }
@@ -249,6 +249,23 @@ namespace
             });
         }
 
+        template<typename Msg>
+        void send(size_t peedId, uint64_t to, const Msg& msg)
+        {
+            Serializer s;
+            s & msg;
+            ByteBuffer buf;
+            s.swap_buf(buf);
+            enqueueNetworkTask([this, peedId, to, buf = move(buf)]()
+            {
+                Deserializer d;
+                d.reset(&buf[0], buf.size());
+                Msg msg;
+                d & msg;
+                m_peers[peedId]->handle_tx_message(to, move(msg));
+            });
+        }
+
         int m_peerCount;
 
         vector<IWallet*> m_peers;
@@ -262,48 +279,45 @@ namespace
         TestNetwork(IOLoop& mainLoop) : TestNetworkBase{ mainLoop }
         {}
 
-        void send_tx_message(PeerId to, wallet::sender::InvitationData::Ptr&& data) override
+        void send_tx_message(PeerId to, const wallet::sender::InvitationData& data) override
         {
             cout << "[Sender] send_tx_invitation\n";
             ++m_peerCount;
-            assert(data->m_height == 134);
-            WALLET_CHECK(data->m_height == 134);
-            WALLET_CHECK(data->m_amount == 6);
-            enqueueNetworkTask([this, to, data]() mutable {m_peers[1]->handle_tx_message(to, move(data)); });
+            assert(data.m_height == 134);
+            WALLET_CHECK(data.m_height == 134);
+            WALLET_CHECK(data.m_amount == 6);
+            send(1, to, data);
         }
 
-        void send_tx_message(PeerId to, wallet::sender::ConfirmationData::Ptr&& data) override
+        void send_tx_message(PeerId to, const wallet::sender::ConfirmationData& data) override
         {
             cout << "[Sender] send_tx_confirmation\n";
-            enqueueNetworkTask([this, to, data]() mutable {m_peers[1]->handle_tx_message(to, move(data)); });
+            send(1, to, data);
         }
 
-        void send_tx_message(PeerId to, wallet::receiver::ConfirmationData::Ptr&& data) override
+        void send_tx_message(PeerId to, const wallet::receiver::ConfirmationData& data) override
         {
             cout << "[Receiver] send_tx_confirmation\n";
             ++m_peerCount;
-            enqueueNetworkTask([this, to, data]() mutable {m_peers[0]->handle_tx_message(to, move(data)); });
+            send(0, to, data);
         }
 
-        void send_tx_message(PeerId to, wallet::TxRegisteredData&& res) override
+        void send_tx_message(PeerId to, const wallet::TxRegisteredData& data) override
         {
             cout << "[Receiver] send_tx_registered\n";
-
-            enqueueNetworkTask([this, to, res = move(res)]() mutable {m_peers[0]->handle_tx_message(to, move(res)); });
+            send(0, to, data);
         }
 
         void send_node_message(proto::NewTransaction&& data) override
         {
             cout << "[Receiver] register_tx\n";
             enqueueNetworkTask([this, data] {m_peers[1]->handle_node_message(proto::Boolean{ true }); });
-
         }
 
         void send_node_message(proto::GetMined&& data) override
         {
             cout << "[Receiver] register_tx\n";
             enqueueNetworkTask([this, data] {m_peers[1]->handle_node_message(proto::Mined{ }); });
-
         }
 
         void send_node_message(proto::GetProofUtxo&&) override
@@ -372,12 +386,12 @@ void TestFSM()
 
     wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), id , 6};
     s.start();
-    WALLET_CHECK(s.process_event(wallet::Sender::TxInitCompleted{ std::make_shared<wallet::receiver::ConfirmationData>() }));
+    WALLET_CHECK(s.process_event(wallet::Sender::TxInitCompleted{ wallet::receiver::ConfirmationData() }));
     WALLET_CHECK(s.process_event(wallet::Sender::TxConfirmationCompleted()));
 
     cout << "\nreceiver\n";
-    wallet::sender::InvitationData::Ptr initData = std::make_shared<wallet::sender::InvitationData>();
-    initData->m_amount = 100;
+    wallet::sender::InvitationData initData;
+    initData.m_amount = 100;
     wallet::Receiver r{ gateway, createKeyChain<TestKeyChain>(), initData };
     r.start();
     WALLET_CHECK(!r.process_event(wallet::Receiver::TxRegistrationCompleted()));

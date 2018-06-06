@@ -45,10 +45,10 @@ namespace beam
 
     private:
         // INetworkIO
-        void send_tx_message(PeerId to, wallet::sender::InvitationData::Ptr&&) override;
-        void send_tx_message(PeerId to, wallet::sender::ConfirmationData::Ptr&&) override;
-        void send_tx_message(PeerId to, wallet::receiver::ConfirmationData::Ptr&&) override;
-        void send_tx_message(PeerId to, wallet::TxRegisteredData&&) override;
+        void send_tx_message(PeerId to, const wallet::sender::InvitationData&) override;
+        void send_tx_message(PeerId to, const wallet::sender::ConfirmationData&) override;
+        void send_tx_message(PeerId to, const wallet::receiver::ConfirmationData&) override;
+        void send_tx_message(PeerId to, const wallet::TxRegisteredData&) override;
         void send_node_message(proto::NewTransaction&&) override;
 		void send_node_message(proto::GetProofUtxo&&) override;
         void send_node_message(proto::GetHdr&&) override;

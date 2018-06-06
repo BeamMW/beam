@@ -9,10 +9,10 @@ namespace beam::wallet
     {
         LOG_INFO() << "Sending " << PrintableAmount(m_amount);
         // 1. Create transaction Uuid
-        auto invitationData = make_shared<sender::InvitationData>();
-        invitationData->m_txId = m_txId;
+        sender::InvitationData invitationData;
+        invitationData.m_txId = m_txId;
         Height currentHeight = m_keychain->getCurrentHeight();
-        invitationData->m_height = currentHeight;
+        invitationData.m_height = currentHeight;
 
         m_coins = m_keychain->getCoins(m_amount); // need to lock 
         if (m_coins.empty())
@@ -20,11 +20,11 @@ namespace beam::wallet
             LOG_ERROR() << "You only have " << PrintableAmount(get_total());
             throw runtime_error("no money");
         }
-        invitationData->m_amount = m_amount;
+        invitationData.m_amount = m_amount;
         m_kernel.m_Fee = 0;
         m_kernel.m_HeightMin = currentHeight;
         m_kernel.m_HeightMax = MaxHeight;
-        m_kernel.get_HashForSigning(invitationData->m_message);
+        m_kernel.get_HashForSigning(invitationData.m_message);
         
         // 2. Set lock_height for output (current chain height)
         // 3. Select inputs using desired selection strategy
@@ -38,7 +38,7 @@ namespace beam::wallet
                 Scalar::Native key{ m_keychain->calcKey(coin) };
                 input->m_Commitment = Commitment(key, coin.m_amount);
 
-                invitationData->m_inputs.push_back(move(input));
+                invitationData.m_inputs.push_back(move(input));
                 m_blindingExcess += key;
             }
         }
@@ -64,7 +64,7 @@ namespace beam::wallet
                 blindingFactor = -blindingFactor;
                 m_blindingExcess += blindingFactor;
 
-                invitationData->m_outputs.push_back(move(output));
+                invitationData.m_outputs.push_back(move(output));
             }
         }
         // 6. calculate tx_weight
@@ -77,22 +77,22 @@ namespace beam::wallet
         msig.m_Nonce = m_nonce;
         // 10. Multiply xS and kS by generator G to create public curve points xSG and kSG
         m_publicBlindingExcess = Context::get().G * m_blindingExcess;
-        invitationData->m_publicSenderBlindingExcess = m_publicBlindingExcess;
+        invitationData.m_publicSenderBlindingExcess = m_publicBlindingExcess;
             
         m_publicNonce = Context::get().G * m_nonce;
-        invitationData->m_publicSenderNonce = m_publicNonce;
+        invitationData.m_publicSenderNonce = m_publicNonce;
 
         m_gateway.send_tx_invitation(invitationData);
     }
 
     bool Sender::FSMDefinition::is_valid_signature(const TxInitCompleted& event)
     {
-        auto data = event.data;
+        auto& data = event.data;
         // 4. Compute Sender Schnorr signature
         // 1. Calculate message m
         Signature::MultiSig msig;
         msig.m_Nonce = m_nonce;
-        msig.m_NoncePub = m_publicNonce + data->m_publicReceiverNonce;
+        msig.m_NoncePub = m_publicNonce + data.m_publicReceiverNonce;
         Hash::Value message;
         m_kernel.get_HashForSigning(message);
         m_kernel.m_Signature.CoSign(m_senderSignature, message, m_blindingExcess, msig);
@@ -100,8 +100,8 @@ namespace beam::wallet
         // 3. Verify recepients Schnorr signature 
 		Signature sigPeer;
 		sigPeer.m_e = m_kernel.m_Signature.m_e;
-		sigPeer.m_k = data->m_receiverSignature;
-		return sigPeer.IsValidPartial(data->m_publicReceiverNonce, data->m_publicReceiverBlindingExcess);
+		sigPeer.m_k = data.m_receiverSignature;
+		return sigPeer.IsValidPartial(data.m_publicReceiverNonce, data.m_publicReceiverBlindingExcess);
     }
 
     bool Sender::FSMDefinition::is_invalid_signature(const TxInitCompleted& event)
@@ -121,18 +121,18 @@ namespace beam::wallet
 
     void Sender::FSMDefinition::confirm_tx(const TxInitCompleted& event)
     {
-        auto data = event.data;
+        auto& data = event.data;
         // 4. Compute Sender Schnorr signature
-        auto confirmationData = make_shared<sender::ConfirmationData>();
-        confirmationData->m_txId = m_txId;
+        sender::ConfirmationData confirmationData;
+        confirmationData.m_txId = m_txId;
         Signature::MultiSig msig;
         msig.m_Nonce = m_nonce;
-        msig.m_NoncePub = m_publicNonce + data->m_publicReceiverNonce;
+        msig.m_NoncePub = m_publicNonce + data.m_publicReceiverNonce;
         Hash::Value message;
         m_kernel.get_HashForSigning(message);
         Scalar::Native senderSignature;
         m_kernel.m_Signature.CoSign(senderSignature, message, m_blindingExcess, msig);
-        confirmationData->m_senderSignature = senderSignature;
+        confirmationData.m_senderSignature = senderSignature;
         m_gateway.send_tx_confirmation(confirmationData);
     }
 

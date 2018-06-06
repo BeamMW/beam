@@ -66,24 +66,24 @@ namespace beam {
         m_reactor->tcp_connect(address, tag, BIND_THIS_MEMFN(on_client_connected));
     }
 
-    void WalletNetworkIO::send_tx_message(PeerId to, wallet::sender::InvitationData::Ptr&& data)
+    void WalletNetworkIO::send_tx_message(PeerId to, const wallet::sender::InvitationData& data)
     {
-        send(to, senderInvitationCode, *data);
+        send(to, senderInvitationCode, data);
     }
 
-    void WalletNetworkIO::send_tx_message(PeerId to, wallet::sender::ConfirmationData::Ptr&& data)
+    void WalletNetworkIO::send_tx_message(PeerId to, const wallet::sender::ConfirmationData& data)
     {
-        send(to, senderConfirmationCode, *data);
+        send(to, senderConfirmationCode, data);
     }
 
-    void WalletNetworkIO::send_tx_message(PeerId to, wallet::receiver::ConfirmationData::Ptr&& data)
+    void WalletNetworkIO::send_tx_message(PeerId to, const wallet::receiver::ConfirmationData& data)
     {
-        send(to, receiverConfirmationCode, *data);
+        send(to, receiverConfirmationCode, data);
     }
 
-    void WalletNetworkIO::send_tx_message(PeerId to, wallet::TxRegisteredData&& data)
+    void WalletNetworkIO::send_tx_message(PeerId to, const  wallet::TxRegisteredData& data)
     {
-        send(to, receiverRegisteredCode, move(data));
+        send(to, receiverRegisteredCode, data);
     }
 
     void WalletNetworkIO::send_node_message(proto::NewTransaction&& data)
@@ -118,19 +118,19 @@ namespace beam {
 
     bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::sender::InvitationData&& data)
     {
-        m_wallet.handle_tx_message(connectionId, make_shared<wallet::sender::InvitationData>(move(data)));
+        m_wallet.handle_tx_message(connectionId, move(data));
         return true;
     }
 
     bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::sender::ConfirmationData&& data)
     {
-        m_wallet.handle_tx_message(connectionId, make_shared<wallet::sender::ConfirmationData>(move(data)));
+        m_wallet.handle_tx_message(connectionId, move(data));
         return true;
     }
 
     bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::receiver::ConfirmationData&& data)
     {
-        m_wallet.handle_tx_message(connectionId, make_shared<wallet::receiver::ConfirmationData>(move(data)));
+        m_wallet.handle_tx_message(connectionId, move(data));
         return true;
     }
 

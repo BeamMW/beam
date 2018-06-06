@@ -6,28 +6,28 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
-    Receiver::FSMDefinition::FSMDefinition(receiver::IGateway &gateway, beam::IKeyChain::Ptr keychain, sender::InvitationData::Ptr initData)
+    Receiver::FSMDefinition::FSMDefinition(receiver::IGateway &gateway, beam::IKeyChain::Ptr keychain, sender::InvitationData& initData)
         : m_gateway{ gateway }
         , m_keychain{ keychain }
-        , m_txId{ initData->m_txId }
-        , m_amount{ initData->m_amount }
-        , m_message{ initData->m_message }
-        , m_publicSenderBlindingExcess{ initData->m_publicSenderBlindingExcess }
-        , m_publicSenderNonce{ initData->m_publicSenderNonce }
+        , m_txId{ initData.m_txId }
+        , m_amount{ initData.m_amount }
+        , m_message{ initData.m_message }
+        , m_publicSenderBlindingExcess{ initData.m_publicSenderBlindingExcess }
+        , m_publicSenderNonce{ initData.m_publicSenderNonce }
         , m_transaction{ make_shared<Transaction>() }
-        , m_receiver_coin{m_amount, Coin::Unconfirmed, initData->m_height}
-        , m_height{ initData->m_height }
+        , m_receiver_coin{m_amount, Coin::Unconfirmed, initData.m_height}
+        , m_height{ initData.m_height }
     {
         m_transaction->m_Offset = ECC::Zero;
-        m_transaction->m_vInputs = move(initData->m_inputs);
-        m_transaction->m_vOutputs = move(initData->m_outputs);
+        m_transaction->m_vInputs = move(initData.m_inputs);
+        m_transaction->m_vOutputs = move(initData.m_outputs);
     }
 
     void Receiver::FSMDefinition::confirm_tx(const msmf::none&)
     {
         LOG_INFO() << "Receiving " << PrintableAmount(m_amount);
-        auto confirmationData = make_shared<receiver::ConfirmationData>();
-        confirmationData->m_txId = m_txId;
+        receiver::ConfirmationData confirmationData;
+        confirmationData.m_txId = m_txId;
 
         TxKernel::Ptr kernel = make_unique<TxKernel>();
         kernel->m_Fee = 0;
@@ -60,30 +60,30 @@ namespace beam::wallet
         msig.m_Nonce = m_nonce;
         // 6. Make public nonce and blinding factor
         m_publicReceiverBlindingExcess = Context::get().G * m_blindingExcess;
-        confirmationData->m_publicReceiverBlindingExcess = m_publicReceiverBlindingExcess;
+        confirmationData.m_publicReceiverBlindingExcess = m_publicReceiverBlindingExcess;
 
         Point::Native publicNonce;
         publicNonce = Context::get().G * m_nonce;
-        confirmationData->m_publicReceiverNonce = publicNonce;
+        confirmationData.m_publicReceiverNonce = publicNonce;
         // 7. Compute Shnorr challenge e = H(M|K)
 
-        msig.m_NoncePub = m_publicSenderNonce + confirmationData->m_publicReceiverNonce;
+        msig.m_NoncePub = m_publicSenderNonce + confirmationData.m_publicReceiverNonce;
         // 8. Compute recepient Shnorr signature
         m_kernel->m_Signature.CoSign(m_receiverSignature, m_message, m_blindingExcess, msig);
         
-        confirmationData->m_receiverSignature = m_receiverSignature;
+        confirmationData.m_receiverSignature = m_receiverSignature;
 
         m_gateway.send_tx_confirmation(confirmationData);
     }
 
     bool Receiver::FSMDefinition::is_valid_signature(const TxConfirmationCompleted& event)
     {
-        auto data = event.data;
+        auto& data = event.data;
         // 1. Verify sender's Schnor signature
 
 		Signature sigPeer;
 		sigPeer.m_e = m_kernel->m_Signature.m_e;
-		sigPeer.m_k = data->m_senderSignature;
+		sigPeer.m_k = data.m_senderSignature;
 		return sigPeer.IsValidPartial(m_publicSenderNonce, m_publicSenderBlindingExcess);
     }
 
@@ -96,7 +96,7 @@ namespace beam::wallet
     {
         // 2. Calculate final signature
         Scalar::Native senderSignature;
-        senderSignature = event.data->m_senderSignature;
+        senderSignature = event.data.m_senderSignature;
         Scalar::Native finialSignature = senderSignature + m_receiverSignature;
 
         // 3. Calculate public key for excess

@@ -155,19 +155,19 @@ namespace beam
         }
     }
 
-    void Wallet::send_tx_invitation(sender::InvitationData::Ptr data)
+    void Wallet::send_tx_invitation(const sender::InvitationData& data)
     {
-        send_tx_message(data->m_txId, [this, &data](auto peer_id) mutable
+        send_tx_message(data.m_txId, [this, &data](auto peer_id) mutable
         {
-            m_network.send_tx_message(peer_id, move(data));
+            m_network.send_tx_message(peer_id, data);
         });
     }
 
-    void Wallet::send_tx_confirmation(sender::ConfirmationData::Ptr data)
+    void Wallet::send_tx_confirmation(const sender::ConfirmationData& data)
     {
-        send_tx_message(data->m_txId, [this, &data](auto peer_id) mutable
+        send_tx_message(data.m_txId, [this, &data](auto peer_id) mutable
         {
-            m_network.send_tx_message(peer_id, move(data));
+            m_network.send_tx_message(peer_id, data);
         });
     }
 
@@ -212,11 +212,11 @@ namespace beam
         }
     }
 
-    void Wallet::send_tx_confirmation(receiver::ConfirmationData::Ptr data)
+    void Wallet::send_tx_confirmation(const receiver::ConfirmationData& data)
     {
-        send_tx_message(data->m_txId, [this, &data](auto peer_id) mutable
+        send_tx_message(data.m_txId, [this, &data](auto peer_id) mutable
         {
-            m_network.send_tx_message(peer_id, move(data));
+            m_network.send_tx_message(peer_id, data);
         });
     }
 
@@ -235,14 +235,14 @@ namespace beam
         });
     }
 
-    void Wallet::handle_tx_message(PeerId from, sender::InvitationData::Ptr&& data)
+    void Wallet::handle_tx_message(PeerId from, sender::InvitationData&& data)
     {
-        auto it = m_receivers.find(data->m_txId);
+        auto it = m_receivers.find(data.m_txId);
         if (it == m_receivers.end())
         {
-            LOG_VERBOSE() << ReceiverPrefix << "Received tx invitation " << data->m_txId;
+            LOG_VERBOSE() << ReceiverPrefix << "Received tx invitation " << data.m_txId;
 
-            auto txId = data->m_txId;
+            auto txId = data.m_txId;
             m_peers.emplace(txId, from);
             auto p = m_receivers.emplace(txId, make_shared<Receiver>(*this, m_keyChain, data));
             if (!m_syncing)
@@ -256,38 +256,38 @@ namespace beam
         }
         else
         {
-            LOG_DEBUG() << ReceiverPrefix << "Unexpected tx invitation " << data->m_txId;
+            LOG_DEBUG() << ReceiverPrefix << "Unexpected tx invitation " << data.m_txId;
         }
     }
     
-    void Wallet::handle_tx_message(PeerId from, sender::ConfirmationData::Ptr&& data)
+    void Wallet::handle_tx_message(PeerId from, sender::ConfirmationData&& data)
     {
         Cleaner<std::vector<wallet::Receiver::Ptr> > c{ m_removed_receivers };
-        auto it = m_receivers.find(data->m_txId);
+        auto it = m_receivers.find(data.m_txId);
         if (it != m_receivers.end())
         {
-            LOG_DEBUG() << ReceiverPrefix << "Received sender tx confirmation " << data->m_txId;
+            LOG_DEBUG() << ReceiverPrefix << "Received sender tx confirmation " << data.m_txId;
             it->second->process_event(Receiver::TxConfirmationCompleted{data});
         }
         else
         {
-            LOG_DEBUG() << ReceiverPrefix << "Unexpected sender tx confirmation "<< data->m_txId;
+            LOG_DEBUG() << ReceiverPrefix << "Unexpected sender tx confirmation "<< data.m_txId;
             m_network.close_connection(from);
         }
     }
 
-    void Wallet::handle_tx_message(PeerId /*from*/, receiver::ConfirmationData::Ptr&& data)
+    void Wallet::handle_tx_message(PeerId /*from*/, receiver::ConfirmationData&& data)
     {
         Cleaner<std::vector<wallet::Sender::Ptr> > c{ m_removed_senders };
-        auto it = m_senders.find(data->m_txId);
+        auto it = m_senders.find(data.m_txId);
         if (it != m_senders.end())
         {
-            LOG_VERBOSE() << SenderPrefix << "Received tx confirmation " << data->m_txId;
+            LOG_VERBOSE() << SenderPrefix << "Received tx confirmation " << data.m_txId;
             it->second->process_event(Sender::TxInitCompleted{data});
         }
         else
         {
-            LOG_DEBUG() << SenderPrefix << "Unexpected tx confirmation " << data->m_txId;
+            LOG_DEBUG() << SenderPrefix << "Unexpected tx confirmation " << data.m_txId;
         }
     }
 
