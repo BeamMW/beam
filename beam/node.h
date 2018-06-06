@@ -44,11 +44,11 @@ struct Node
 		struct TestMode {
 			// for testing only!
 			bool m_bFakePoW = false;
-			bool m_bMineGenesisBlock = false;
 			uint32_t m_FakePowSolveTime_ms = 15 * 1000;
 
 		} m_TestMode;
 
+		std::vector<Block::Body> m_vTreasury;
 
 	} m_Cfg; // must not be changed after initialization
 
@@ -56,8 +56,6 @@ struct Node
 	void Initialize();
 
 	NodeProcessor& get_Processor() { return m_Processor; } // for tests only!
-
-	bool GenerateGenesisBlock(Block::Body& treasury); // returns true if block is ok and mining started
 
 private:
 
@@ -258,7 +256,7 @@ private:
 		void OnMined();
 
 		void HardAbortSafe();
-		bool Restart(Block::Body* pTreasury = NULL);
+		bool Restart();
 
 		std::mutex m_Mutex;
 		Task::Ptr m_pTask; // currently being-mined
