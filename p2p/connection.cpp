@@ -11,6 +11,7 @@ Connection::Connection(ProtocolBase& protocol, uint64_t peerId, Connection::Dire
     _direction(d)
 {
     assert(_stream);
+    _peerAddress = _stream->peer_address();
     _stream->enable_read([this](io::ErrorCode what, void* data, size_t size){ on_recv(what, data, size); });
 }
 
@@ -46,7 +47,7 @@ io::Address Connection::address() const {
 
 /// Returns peer address (non-null if connected)
 io::Address Connection::peer_address() const {
-    return _stream->peer_address();
+    return _peerAddress;
 }
 
 } //namespace
