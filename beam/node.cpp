@@ -305,7 +305,7 @@ bool Node::Processor::VerifyBlock(const Block::Body& block, Height h0, Height h1
 	for (uint32_t i = 0; i < nThreads; i++)
 		vThreads[i].join();
 
-	return !vctx.m_bAbort && vctx.m_Context.IsValidBlock(block);
+	return !vctx.m_bAbort && vctx.m_Context.IsValidBlock(block, m_Cursor.m_SubsidyOpen);
 }
 
 void Node::Processor::VerifierContext::Proceed(VerifierContext* pVctx, uint32_t iVerifier)

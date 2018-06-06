@@ -13,7 +13,7 @@ public:
 	struct StateFlags {
 		static const uint32_t Functional	= 0x1;	// has block body
 		static const uint32_t Reachable		= 0x2;	// has only functional nodes up to the genesis state
-		static const uint32_t Active		= 0x4;	// part of the current blockchain (not really necessary).
+		static const uint32_t Active		= 0x4;	// part of the current blockchain
 	};
 
 	struct ParamID {
@@ -25,6 +25,7 @@ public:
 			FossilHeight,
 			SubsidyLo,
 			SubsidyHi,
+			SubsidyOpen,
 		};
 	};
 

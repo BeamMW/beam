@@ -33,6 +33,7 @@ class NodeProcessor
 	bool HandleBlockElement(const Input&, bool bFwd, Height, RollbackData&);
 	bool HandleBlockElement(const Output&, Height, bool bFwd);
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
+	void OnSubsidyOptionChanged(bool);
 
 	void InitCursor();
 	void OnCorrupted();
@@ -69,6 +70,7 @@ public:
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
 		uint8_t m_DifficultyNext;
+		bool m_SubsidyOpen;
 
 	} m_Cursor;
 
