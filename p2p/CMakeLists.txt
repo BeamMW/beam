@@ -6,7 +6,9 @@ set(P2P_SRC
     msg_reader.cpp
     fragment_writer.cpp
     msg_serializer.cpp
+    common_messages.cpp
     connection.cpp
+    connections.cpp
     roulette.cpp
     peer_storage.cpp
     p2p.cpp

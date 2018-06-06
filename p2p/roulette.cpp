@@ -15,6 +15,8 @@ Roulette::Roulette(RandomGen& rdGen, uint32_t maxItemWeight) :
 void Roulette::push(Roulette::ID id, uint32_t weight) {
     if (weight == 0 || id == INVALID_ID) return;
     if (weight > _maxItemWeight) weight = _maxItemWeight;
+    if (weight < _minWeight) _minWeight = weight;
+    if (weight > _maxWeight) _maxWeight = weight;
     _buckets[weight].items.push_back(id);
 
     // update total weight and partial weights
@@ -33,7 +35,7 @@ Roulette::ID Roulette::pull() {
 
     // choose random bucket according weighted distribution
     uint32_t x = _rdGen.rnd<uint32_t>(0, _totalWeight-1);
-    uint32_t bucketIdx = find_bucket(x, 1, _maxItemWeight);
+    uint32_t bucketIdx = find_bucket(x, _minWeight, _maxWeight);
     Bucket& bucket = _buckets[bucketIdx];
 
     assert(!bucket.items.empty());

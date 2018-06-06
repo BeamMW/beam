@@ -1,13 +1,11 @@
 #pragma once
 #include "peer_info.h"
-#include "protocol_base.h"
+#include "common_messages.h"
 #include "connection.h"
 
 namespace beam {
 
 using Nonce = uint64_t;
-
-using ConnectionPtr = std::unique_ptr<Connection>;
 
 /// Handshake request/response
 struct Handshake {
@@ -37,11 +35,11 @@ class Protocol;
 
 class HandshakingPeers {
 public:
-    using OnPeerHandshaked = std::function<void(ConnectionPtr&& conn, uint16_t listensTo)>;
+    using OnPeerHandshaked = std::function<void(Connection::Ptr&& conn, uint16_t listensTo)>;
 
-    HandshakingPeers(Protocol& protocol, OnPeerHandshaked callback, uint16_t thisNodeListenPort, Nonce thisNodeNonce);
+    HandshakingPeers(Protocol& protocol, CommonMessages& commonMessages, OnPeerHandshaked callback, uint16_t thisNodeListenPort, Nonce thisNodeNonce);
 
-    void connected(uint64_t connId, ConnectionPtr&& conn);
+    void connected(uint64_t connId, Connection::Ptr&& conn);
 
     void disconnected(uint64_t connId);
 
@@ -58,15 +56,13 @@ private:
     /// Callback
     OnPeerHandshaked _onPeerHandshaked;
 
-    /// Serialized handshake and errors from this peer
-    io::SharedBuffer _handshakeRequest;
-    io::SharedBuffer _handshakeResponse;
-    io::SharedBuffer _nonceExistsError;
+    /// Storage for handshake-related common messages
+    CommonMessages& _commonMessages;
 
     /// Nonce is session ID (at the moment)
     std::unordered_set<Nonce> _nonces;
 
-    using Connections = std::unordered_map<uint64_t, ConnectionPtr>;
+    using Connections = std::unordered_map<uint64_t, Connection::Ptr>;
 
     /// Waiting for handshake request
     Connections _inbound;

@@ -116,6 +116,10 @@ public:
         return MsgHeader(V0, V1, V2);
     }
 
+    size_t max_message_types() const {
+        return _maxMessageTypes;
+    }
+
     /// Called by MsgReader on receiving message header
     bool approve_msg_header(uint64_t fromStream, const MsgHeader& header) {
         ProtocolError error = no_error;

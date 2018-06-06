@@ -14,28 +14,28 @@ const char* HandshakeError::str() const {
     return "unknown";
 }
 
-HandshakingPeers::HandshakingPeers(Protocol& protocol, OnPeerHandshaked callback, uint16_t thisNodeListenPort, Nonce thisNodeNonce) :
-    _onPeerHandshaked(std::move(callback))
+HandshakingPeers::HandshakingPeers(Protocol& protocol, CommonMessages& commonMessages, OnPeerHandshaked callback, uint16_t thisNodeListenPort, Nonce thisNodeNonce) :
+    _onPeerHandshaked(std::move(callback)),
+    _commonMessages(commonMessages)
 {
     protocol.add_message_handler<HandshakingPeers, Handshake, &HandshakingPeers::on_handshake_request>(Handshake::REQUEST_MSG_TYPE, this, 2, 20);
     protocol.add_message_handler<HandshakingPeers, Handshake, &HandshakingPeers::on_handshake_response>(Handshake::RESPONSE_MSG_TYPE, this, 2, 20);
     protocol.add_message_handler<HandshakingPeers, HandshakeError, &HandshakingPeers::on_handshake_error_response>(HandshakeError::MSG_TYPE, this, 1, 9);
+
     Handshake hs;
     hs.listensTo = thisNodeListenPort;
     hs.nonce = thisNodeNonce;
-    SerializedMsg msg;
-    protocol.serialize(msg, Handshake::REQUEST_MSG_TYPE, hs);
-    _handshakeRequest = io::normalize(msg);
-    protocol.serialize(msg, Handshake::RESPONSE_MSG_TYPE, hs);
-    _handshakeResponse = io::normalize(msg);
+    _commonMessages.update(Handshake::REQUEST_MSG_TYPE, hs);
+    _commonMessages.update(Handshake::RESPONSE_MSG_TYPE, hs);
+
     HandshakeError hse;
     hse.what = HandshakeError::nonce_exists;
-    protocol.serialize(msg, HandshakeError::MSG_TYPE, hse);
-    _nonceExistsError = io::normalize(msg);
+    _commonMessages.update(HandshakeError::MSG_TYPE, hse);
+
     _nonces.insert(thisNodeNonce);
 }
 
-void HandshakingPeers::connected(uint64_t connId, ConnectionPtr&& conn) {
+void HandshakingPeers::connected(uint64_t connId, Connection::Ptr&& conn) {
     if (_inbound.count(connId) || _outbound.count(connId)) {
         LOG_WARNING() << "Ignoring multiple connections to the same IP: " << io::Address::from_u64(connId);
         return;
@@ -46,7 +46,7 @@ void HandshakingPeers::connected(uint64_t connId, ConnectionPtr&& conn) {
     if (isInbound) {
         _inbound[connId] = std::move(conn);
     } else {
-        auto result = conn->write_msg(_handshakeRequest);
+        auto result = conn->write_msg(_commonMessages.get(Handshake::REQUEST_MSG_TYPE));
         if (!result) {
             LOG_WARNING() << "Cannot send handshake request to " << conn->peer_address() << "error=" << io::error_str(result.error());
             return;
@@ -67,7 +67,7 @@ bool HandshakingPeers::on_handshake_request(uint64_t connId, Handshake&& hs) {
     }
 
     if (_nonces.count(hs.nonce)) {
-        it->second->write_msg(_nonceExistsError);
+        it->second->write_msg(_commonMessages.get(HandshakeError::MSG_TYPE));
         it->second->shutdown();
         return false;
 
@@ -75,7 +75,7 @@ bool HandshakingPeers::on_handshake_request(uint64_t connId, Handshake&& hs) {
     }
 
     // send response ...
-    auto result = it->second->write_msg(_handshakeResponse);
+    auto result = it->second->write_msg(_commonMessages.get(Handshake::RESPONSE_MSG_TYPE));
     if (!result) {
         LOG_WARNING() << "Cannot send handshake response to " << it->second->peer_address() << " error=" << io::error_str(result.error());
         return false;

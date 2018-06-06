@@ -38,6 +38,8 @@ private:
 
     RandomGen& _rdGen;
     const uint32_t _maxItemWeight;
+    uint32_t _minWeight=0xFFFFFFFF;
+    uint32_t _maxWeight=0;
     uint32_t _totalWeight=0;
     uint32_t _totalItems=0;
     Buckets _buckets;

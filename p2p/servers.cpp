@@ -11,24 +11,25 @@ const KnownServers& Servers::get_known_servers() const {
     return _allServers;
 }
 
-void Servers::update(const KnownServers& received, bool isInitialLoad) {
-    for (const auto& [p, m] : received) {
-        update(p, m, isInitialLoad);
+bool Servers::update(const KnownServers& received, bool isInitialLoad) {
+    bool listChanged = false;
+    for (const auto& [address, weight] : received) {
+        uint32_t correctedWeight = isInitialLoad ? weight : 1;
+        if (add_server(address, correctedWeight)) listChanged = true;
     }
+    return listChanged;
 }
 
-void Servers::update(io::Address p, uint32_t w, bool isInitialLoad) {
-    uint32_t& weight = _allServers[p];
-    if (weight == 0) {
-        LOG_INFO() << "New server address=" << p.str() << TRACE(w);
-        if (isInitialLoad) {
-            weight = w;
-        } else {
-            // ignoring metrics if came from network
-            weight = 1;
-        }
-        _connectCandidates.insert(p);
+bool Servers::add_server(io::Address a, uint32_t weight) {
+    bool isNewServer = false;
+    uint32_t& w = _allServers[a];
+    if (w == 0) {
+        isNewServer = true;
+        w = weight;
+        LOG_INFO() << "New server address=" << a;
+        _connectCandidates.insert(a);
     }
+    return isNewServer;
 }
 
 io::Address Servers::get_connect_candidate() {
@@ -46,7 +47,7 @@ io::Address Servers::get_connect_candidate() {
     return io::Address::from_u64(_connectRoulette.pull());
 }
 
-void Servers::update_connect_candidate(io::Address p, double weightCoefficient) {
+void Servers::update_weight(io::Address p, double weightCoefficient) {
     auto it = _allServers.find(p);
     if (it == _allServers.end()) {
         LOG_WARNING() << "Unknown server " << p.str() << ", ignoring...";

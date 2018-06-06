@@ -9,11 +9,15 @@ class Connection {
 public:
     enum Direction : uint8_t { inbound, outbound };
 
+    using Ptr = std::unique_ptr<Connection>;
+
     /// Attaches connected tcp stream to protocol
     Connection(ProtocolBase& protocol, uint64_t peerId, Direction d, size_t defaultMsgSize, io::TcpStream::Ptr&& stream);
 
     /// Dtor
     ~Connection();
+
+    uint64_t id() const { return _peerId; }
 
     /// Allows receiving messages of given type
     void enable_msg_type(MsgType type) { _msgReader.enable_msg_type(type); }

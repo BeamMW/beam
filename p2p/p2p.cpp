@@ -6,7 +6,9 @@ P2P::P2P(io::Address bindTo, uint16_t listenTo) :
     _sessionId(_rdGen.rnd<uint64_t>()),
     _knownServers(_rdGen, 15), // max weight TODO from config
     _protocol(0xAA, 0xBB, 0xCC, 100, *this, 0x2000),
-    _handshakingPeers(_protocol, BIND_THIS_MEMFN(on_peer_handshaked), listenTo, _sessionId),
+    _commonMessages(_protocol),
+    _handshakingPeers(_protocol, _commonMessages, BIND_THIS_MEMFN(on_peer_handshaked), listenTo, _sessionId),
+    _connections(BIND_THIS_MEMFN(connection_removed)),
     _bindToIp(bindTo),
     _port(listenTo)
 {
@@ -70,7 +72,7 @@ void P2P::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode error
     // port is ignored for inbound connections ids
     uint64_t id = newStream->peer_address().port(0).u64();
 
-    ConnectionPtr conn = std::make_unique<Connection>(
+    Connection::Ptr conn = std::make_unique<Connection>(
         _protocol,
         id,
         Connection::inbound,
@@ -98,7 +100,7 @@ void P2P::on_stream_connected(Peer peer, io::TcpStream::Ptr&& newStream, io::Err
     // double check if IP banned
     // _ipAccess.is_ip_allowed(a.ip());
 
-    ConnectionPtr conn = std::make_unique<Connection>(
+    Connection::Ptr conn = std::make_unique<Connection>(
         _protocol,
         peer,
         Connection::outbound,
@@ -123,11 +125,14 @@ void P2P::on_connection_error(Peer from, int errorCode) {
     LOG_INFO() << "Connection error from " << io::Address::from_u64(from).str() << " error=" << io::error_str(io::ErrorCode(errorCode)) << TRACE(_sessionId);;
 }
 
-void P2P::on_peer_handshaked(ConnectionPtr&& conn, uint16_t listensTo) {
-    LOG_INFO() << "Peer handshaked, " << conn->peer_address() << TRACE(_sessionId);;
+void P2P::on_peer_handshaked(Connection::Ptr&& conn, uint16_t listensTo) {
+    LOG_INFO() << "Peer handshaked, " << conn->peer_address() << TRACE(_sessionId);
     if (listensTo) {
         //_knownServers.add();
     }
+}
+
+void P2P::connection_removed(uint64_t id) {
 }
 
 void P2P::on_timer() {

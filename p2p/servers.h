@@ -19,18 +19,20 @@ public:
     const KnownServers& get_known_servers() const;
 
     /// Updates servers list received from network or on loading
-    void update(const KnownServers& received, bool isInitialLoad);
+    /// Returns true if new servers appeared in list
+    bool update(const KnownServers& received, bool isInitialLoad);
+
+    /// Adds a new server address. Returns true if the address is new for the list
+    bool add_server(io::Address a, uint32_t weight);
 
     /// Chooses random (weighted) peer address to connect to
     io::Address get_connect_candidate();
 
     /// Updated peer metrics as connect candidate
     /// (before possible reconnect)
-    void update_connect_candidate(io::Address p, double weightCoefficient);
+    void update_weight(io::Address a, double weightCoefficient);
 
 private:
-    void update(io::Address p, uint32_t w, bool isInitialLoad);
-
     KnownServers _allServers;
     std::unordered_set<io::Address> _connectCandidates;
     Roulette _connectRoulette;

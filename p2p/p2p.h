@@ -3,7 +3,8 @@
 #include "servers.h"
 #include "handshake.h"
 #include "ip_access_control.h"
-#include "protocol.h"
+#include "common_messages.h"
+#include "connections.h"
 #include "utility/asynccontext.h"
 #include "utility/io/tcpserver.h"
 
@@ -31,7 +32,9 @@ private:
 
     void connect_to_servers();
 
-    void on_peer_handshaked(ConnectionPtr&& conn, uint16_t listensTo);
+    void on_peer_handshaked(Connection::Ptr&& conn, uint16_t listensTo);
+
+    void connection_removed(uint64_t id);
 
     void on_timer();
 
@@ -39,7 +42,9 @@ private:
     uint64_t _sessionId;
     Servers _knownServers;
     Protocol _protocol;
+    CommonMessages _commonMessages;
     HandshakingPeers _handshakingPeers;
+    Connections _connections;
     //IpAccessControl _ipAccess;
     io::Address _bindToIp;
     uint16_t _port; // !=0 if this is server

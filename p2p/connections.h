@@ -1,5 +1,4 @@
 #pragma once
-#include "peer_info.h"
 #include "connection.h"
 #include <unordered_map>
 
@@ -8,21 +7,28 @@ namespace beam {
 /// Active connections
 class Connections {
 public:
-    Connections(ProtocolBase& protocol);
+    using OnConnectionRemoved = std::function<void(uint64_t)>;
+
+    Connections(OnConnectionRemoved removedCallback);
 
     uint32_t total_connected() const;
 
-    void on_connected(Peer peerId, Connection::Direction d, io::TcpStream::Ptr&& stream);
+    void add_connection(Connection::Ptr&& conn);
 
-    void on_disconnected(Peer peerId);
+    void remove_connection(uint64_t id);
 
-    io::Result write_msg(Peer peerId, const std::vector<io::SharedBuffer>& fragments);
+    io::Result write_msg(uint64_t id, const SerializedMsg& fragments);
 
-    void broadcast_msg(const std::vector<io::SharedBuffer>& fragments);
+    void broadcast_msg(const SerializedMsg& fragments);
 
 private:
-    ProtocolBase& _protocol;
-    std::unordered_map<Peer, Connection> _connections;
+    using Container = std::unordered_map<uint64_t, Connection::Ptr>;
+
+    bool find(uint64_t id, Container::iterator& it);
+
+    OnConnectionRemoved _removedCallback;
+    Container _connections;
+    std::vector<uint64_t> _toBeRemoved;
 };
 
 } //namespace
