@@ -3,18 +3,13 @@
 
 namespace beam {
 
-static MsgType PING_MSG_TYPE = 46;
-static MsgType PONG_MSG_TYPE = 47;
-static MsgType KNOWN_SERVERS_REQUEST_MSG_TYPE = 48;
-static MsgType KNOWN_SERVERS_RESPONSE_MSG_TYPE = 49;
-
 P2P::P2P(io::Address bindTo, uint16_t listenTo) :
     _sessionId(_rdGen.rnd<uint64_t>()),
     _knownServers(_rdGen, 15), // max weight TODO from config
     _protocol(0xAA, 0xBB, 0xCC, 100, *this, 0x2000),
     _commonMessages(_protocol),
     _handshakingPeers(_protocol, _commonMessages, BIND_THIS_MEMFN(on_peer_handshaked), listenTo, _sessionId),
-    _connections(BIND_THIS_MEMFN(connection_removed)),
+    _connections(_commonMessages, BIND_THIS_MEMFN(connection_removed)),
     _bindToIp(bindTo),
     _port(listenTo)
 {
@@ -22,6 +17,8 @@ P2P::P2P(io::Address bindTo, uint16_t listenTo) :
     _protocol.add_message_handler<P2P, PeerState, &P2P::on_pong>(PONG_MSG_TYPE, this, 2, 200);
     _protocol.add_message_handler<P2P, VoidMessage, &P2P::on_known_servers_request>(KNOWN_SERVERS_REQUEST_MSG_TYPE, this, 0, 0);
     _protocol.add_message_handler<P2P, KnownServers, &P2P::on_known_servers>(KNOWN_SERVERS_RESPONSE_MSG_TYPE, this, 0, 2000000);
+
+    _commonMessages.update(KNOWN_SERVERS_REQUEST_MSG_TYPE, VoidMessage());
 }
 
 P2P::~P2P() {
@@ -145,9 +142,10 @@ void P2P::on_peer_handshaked(Connection::Ptr&& conn, uint16_t listensTo) {
         io::Address newServerAddr = conn->peer_address().port(listensTo);
         if (_knownServers.add_server(newServerAddr, 1)) {
             _peerState.knownServers = _knownServers.get_known_servers().size();
-            _peerStateDirty = true;
         }
     }
+    _peerState.connectedPeers = _connections.total_connected();
+    _peerStateDirty = true;
     conn->enable_all_msg_types();
     conn->disable_msg_type(Handshake::RESPONSE_MSG_TYPE);
     conn->disable_msg_type(HandshakeError::MSG_TYPE);
@@ -160,28 +158,39 @@ void P2P::connection_removed(uint64_t id) {
     // TODO schedule reconnect
 }
 
+void P2P::update_pingpong() {
+    if (_peerStateDirty) {
+        _commonMessages.update(PING_MSG_TYPE, _peerState);
+        _commonMessages.update(PONG_MSG_TYPE, _peerState);
+        _peerStateDirty = false;
+    }
+}
+
 void P2P::on_timer() {
     static int pingPeriod = config().get_int("p2p.ping_period", 2, 1, 600);
-    static int queryKnownServersPeriod = config().get_int("p2p.query_known_servers_period", 7, 1, 600);
+    static int queryKnownServersPeriod = config().get_int("p2p.query_known_servers_period", 3, 1, 600);
 
     if ((_timerCall++ % pingPeriod) == 0) {
-        LOG_DEBUG() << "broadcasting ping" << TRACE(_sessionId);
-        if (_peerStateDirty) {
-            _commonMessages.update(PING_MSG_TYPE, _peerState);
-            _peerStateDirty = false;
-        }
+        update_pingpong();
+        _connections.ping();
+    }
 
-        _connections.broadcast_msg(_commonMessages.get(PING_MSG_TYPE));
+    if ((_timerCall++ % queryKnownServersPeriod) == 0) {
+        _connections.query_known_servers();
     }
 }
 
 bool P2P::on_ping(uint64_t id, PeerState&& state) {
     LOG_DEBUG() << TRACE(_sessionId);
+    _connections.update_state(id, std::move(state));
+    update_pingpong();
+    _connections.pong(id);
     return true;
 }
 
 bool P2P::on_pong(uint64_t id, PeerState&& state) {
     LOG_DEBUG() << TRACE(_sessionId);
+    _connections.update_state(id, std::move(state));
     return true;
 }
 

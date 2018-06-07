@@ -38,6 +38,8 @@ private:
 
     void on_timer();
 
+    void update_pingpong();
+
     bool on_ping(uint64_t id, PeerState&& state);
     bool on_pong(uint64_t id, PeerState&& state);
     bool on_known_servers_request(uint64_t id, VoidMessage&&);
