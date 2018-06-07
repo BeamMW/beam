@@ -113,6 +113,21 @@ namespace ECC
 
 		bool Import(const Point&);
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result
+
+		struct MacEntry;
+		void MultiMac(MacEntry*, int nEntries);
+	};
+
+	struct Point::Native::MacEntry
+	{
+		static const int nBits = 4;
+		static const int nValuesPerLayer = (1 << nBits) - 1; // skip zero
+
+		Point::Native m_pPt[nValuesPerLayer];
+		const Scalar::Native::uint* m_pK;
+		int m_nPrepared;
+
+		void Init(const Point::Native&, const Scalar::Native&);
 	};
 
 #ifdef ECC_COMPACT_GEN

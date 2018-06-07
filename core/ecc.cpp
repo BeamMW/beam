@@ -387,48 +387,58 @@ namespace ECC {
 		return *this;
 	}
 
-	Point::Native& Point::Native::operator = (Mul v)
+	void Point::Native::MacEntry::Init(const Point::Native& p, const Scalar::Native& k)
+	{
+		m_nPrepared = 1;
+		m_pPt[0] = p;
+		m_pK = k.get().d;
+	}
+
+	void Point::Native::MultiMac(MacEntry* pE, int nEntries)
 	{
 		assert(Mode::Fast == g_Mode);
 
-		const int nBits = 4;
-		const int nValuesPerLayer = (1 << nBits) - 1; // skip zero
-
-		Point::Native pPt[nValuesPerLayer];
-		pPt[0] = v.x;
-		int nPrepared = 1;
-
-		const secp256k1_scalar& k = v.y.get(); // alias
-
 		const int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
-		static_assert(!(nBitsPerWord % nBits), "");
-		const int nLayersPerWord = nBitsPerWord / nBits;
+		static_assert(!(nBitsPerWord % MacEntry::nBits), "");
+		const int nLayersPerWord = nBitsPerWord / MacEntry::nBits;
 
 		*this = Zero;
 
-		for (int iWord = _countof(k.d); iWord--; )
+		for (int iWord = _countof(Scalar::Native().get().d); iWord--; )
 		{
-			const Scalar::Native::uint n = k.d[iWord];
-
 			for (int iLayer = nLayersPerWord; iLayer--; )
 			{
 				if (!(*this == Zero))
-					for (int i = 0; i < nBits; i++)
+					for (int i = 0; i < MacEntry::nBits; i++)
 						*this = *this * Two;
 
-				int nVal = (n >> (iLayer * nBits)) & nValuesPerLayer;
-				if (nVal--)
+				for (int iEntry = 0; iEntry < nEntries; iEntry++)
 				{
-					for (; nPrepared <= nVal; nPrepared++)
-						if (nPrepared & (nPrepared + 1))
-							pPt[nPrepared] = pPt[nPrepared - 1] + pPt[0];
-						else
-							pPt[nPrepared] = pPt[nPrepared >> 1] * Two;
+					MacEntry& me = pE[iEntry];
+					const Scalar::Native::uint n = me.m_pK[iWord];
 
-					*this += pPt[nVal];
+					int nVal = (n >> (iLayer * MacEntry::nBits)) & MacEntry::nValuesPerLayer;
+					if (nVal--)
+					{
+						for (; me.m_nPrepared <= nVal; me.m_nPrepared++)
+							if (me.m_nPrepared & (me.m_nPrepared + 1))
+								me.m_pPt[me.m_nPrepared] = me.m_pPt[me.m_nPrepared - 1] + me.m_pPt[0];
+							else
+								me.m_pPt[me.m_nPrepared] = me.m_pPt[me.m_nPrepared >> 1] * Two;
+
+						*this += me.m_pPt[nVal];
+					}
 				}
 			}
 		}
+	}
+
+	Point::Native& Point::Native::operator = (Mul v)
+	{
+		MacEntry me;
+		me.Init(v.x, v.y);
+
+		MultiMac(&me, 1);
 
 		return *this;
 	}
@@ -1491,9 +1501,14 @@ namespace ECC {
 
 		xx = x * x;
 
-		ptVal = Point::Native(commitment) * zz;
-		ptVal += Point::Native(m_T1) * x;
-		ptVal += Point::Native(m_T2) * xx;
+		{
+			Point::Native::MacEntry pE[3];
+			pE[0].Init(commitment, zz);
+			pE[1].Init(m_T1, x);
+			pE[2].Init(m_T2, xx);
+
+			ptVal.MultiMac(pE, _countof(pE));
+		}
 
 		ptVal = -ptVal;
 
