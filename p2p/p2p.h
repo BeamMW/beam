@@ -8,13 +8,11 @@
 #include "utility/asynccontext.h"
 #include "utility/io/tcpserver.h"
 
-#include "utility/logger.h"
-
 namespace beam {
 
 class P2P : public IErrorHandler, protected AsyncContext {
 public:
-    P2P(io::Address bindTo, uint16_t listenTo);
+    P2P(uint64_t sessionId, io::Address bindTo, uint16_t listenTo);
     ~P2P();
 
     void add_known_servers(const KnownServers& servers);

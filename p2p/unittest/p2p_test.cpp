@@ -22,7 +22,7 @@ int p2ptest(int numNodes, int runTime) {
     for (int i=0; i<numNodes; ++i) {
         // odd node numbers are not servers
         uint16_t listenTo = (i & 1) ? 0 : PORT_BASE + i;
-        nodes.push_back(std::make_unique<P2P>(io::Address(LOCALHOST_BASE + i, 0), listenTo));
+        nodes.push_back(std::make_unique<P2P>(i+1, io::Address(LOCALHOST_BASE + i, 0), listenTo));
     }
 
     LOG_DEBUG() << "Seeding all of them initial server address";
@@ -49,18 +49,25 @@ int p2ptest(int numNodes, int runTime) {
 } //namespace
 
 static const int DEF_NUM_NODES = 17;
+static const int DEF_RUN_TIME = 20;
 
 int main() {
     using namespace beam;
 
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = LOG_LEVEL_INFO;
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
+    logger->set_header_formatter(
+        [](char* buf, size_t maxSize, const char* timestampFormatted, const LogMessageHeader& header) -> size_t {
+            return snprintf(buf, maxSize, "%c %s (%s, %d) ", loglevel_tag(header.level), timestampFormatted, header.func, (int)get_thread_id());
+        }
+    );
+    logger->set_time_format("%T", true);
 
     try {
-        return p2ptest(DEF_NUM_NODES, 6);
+        return p2ptest(DEF_NUM_NODES, DEF_RUN_TIME);
     } catch (const std::exception& e) {
         LOG_ERROR() << "Exception: " << e.what();
     } catch (...) {
