@@ -1276,8 +1276,6 @@ namespace ECC {
 		Point::Native comm = Context::get().G * alpha;
 
 		{
-			Point::Native ptVal(Zero);
-
 			NoLeak<secp256k1_ge> ge;
 			NoLeak<CompactPoint> ge_s;
 
@@ -1290,8 +1288,6 @@ namespace ECC {
 
 				Generator::ToPt(comm, ge.V, ge_s.V, false);
 			}
-			ptVal = -ptVal;
-			comm += ptVal;
 		}
 
 		m_A = comm;
