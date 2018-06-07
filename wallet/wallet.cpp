@@ -78,28 +78,6 @@ namespace beam
         return os;
     }
 
-    Scalar::Native generateNonce()
-    {
-        Scalar nonce;
-        Scalar::Native n;
-        random_device r;
-        default_random_engine e{ r() };
-        uniform_int_distribution<uint32_t> d;
-        uint32_t *p = reinterpret_cast<uint32_t*>(nonce.m_Value.m_pData);
-        constexpr size_t const count = sizeof(nonce.m_Value.m_pData) / sizeof(uint32_t);
-        while (true)
-        {
-            generate(p, p + count, [&d, &e] { return d(e); });
-            // better generator should be used
-            //generate(nonce.m_Value.m_pData, nonce.m_Value.m_pData + sizeof(nonce.m_Value.m_pData), rand);
-            if (!n.Import(nonce))
-            {
-                break;
-            }
-        }
-        return n;
-    }
-
     pair<Scalar::Native, Scalar::Native> split_key(const Scalar::Native& key, uint64_t index)
     {
         pair<Scalar::Native, Scalar::Native> res;

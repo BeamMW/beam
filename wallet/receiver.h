@@ -126,7 +126,6 @@ namespace beam::wallet
             ECC::Point::Native m_publicSenderNonce;
             ECC::Scalar::Native m_receiverSignature;
             ECC::Scalar::Native m_blindingExcess;
-            ECC::Scalar::Native m_nonce;
             ECC::Scalar::Native m_schnorrChallenge;
 
             Transaction::Ptr m_transaction;

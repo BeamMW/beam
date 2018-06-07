@@ -56,14 +56,13 @@ namespace beam::wallet
         // 4. Calculate message M
         // 5. Choose random nonce
         Signature::MultiSig msig;
-        m_nonce = generateNonce();
-        msig.m_Nonce = m_nonce;
+		msig.GenerateNonce(m_message, m_blindingExcess);
         // 6. Make public nonce and blinding factor
         m_publicReceiverBlindingExcess = Context::get().G * m_blindingExcess;
         confirmationData->m_publicReceiverBlindingExcess = m_publicReceiverBlindingExcess;
 
         Point::Native publicNonce;
-        publicNonce = Context::get().G * m_nonce;
+        publicNonce = Context::get().G * msig.m_Nonce;
         confirmationData->m_publicReceiverNonce = publicNonce;
         // 7. Compute Shnorr challenge e = H(M|K)
 

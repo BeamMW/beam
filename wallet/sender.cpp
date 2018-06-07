@@ -72,14 +72,12 @@ namespace beam::wallet
         // 8. Calculate total blinding excess for all inputs and outputs xS
         // 9. Select random nonce kS
         Signature::MultiSig msig;
-        m_nonce = generateNonce();
-
-        msig.m_Nonce = m_nonce;
+		msig.GenerateNonce(invitationData->m_message, m_blindingExcess);
         // 10. Multiply xS and kS by generator G to create public curve points xSG and kSG
         m_publicBlindingExcess = Context::get().G * m_blindingExcess;
         invitationData->m_publicSenderBlindingExcess = m_publicBlindingExcess;
             
-        m_publicNonce = Context::get().G * m_nonce;
+        m_publicNonce = Context::get().G * msig.m_Nonce;
         invitationData->m_publicSenderNonce = m_publicNonce;
 
         m_gateway.send_tx_invitation(invitationData);
@@ -91,11 +89,13 @@ namespace beam::wallet
         // 4. Compute Sender Schnorr signature
         // 1. Calculate message m
         Signature::MultiSig msig;
-        msig.m_Nonce = m_nonce;
-        msig.m_NoncePub = m_publicNonce + data->m_publicReceiverNonce;
         Hash::Value message;
         m_kernel.get_HashForSigning(message);
-        m_kernel.m_Signature.CoSign(m_senderSignature, message, m_blindingExcess, msig);
+
+		msig.GenerateNonce(message, m_blindingExcess);
+		msig.m_NoncePub = m_publicNonce + data->m_publicReceiverNonce;
+
+		m_kernel.m_Signature.CoSign(m_senderSignature, message, m_blindingExcess, msig);
         
         // 3. Verify recepients Schnorr signature 
 		Signature sigPeer;
@@ -125,11 +125,11 @@ namespace beam::wallet
         // 4. Compute Sender Schnorr signature
         auto confirmationData = make_shared<sender::ConfirmationData>();
         confirmationData->m_txId = m_txId;
-        Signature::MultiSig msig;
-        msig.m_Nonce = m_nonce;
+		Hash::Value message;
+		m_kernel.get_HashForSigning(message);
+		Signature::MultiSig msig;
+		msig.GenerateNonce(message, m_blindingExcess);
         msig.m_NoncePub = m_publicNonce + data->m_publicReceiverNonce;
-        Hash::Value message;
-        m_kernel.get_HashForSigning(message);
         Scalar::Native senderSignature;
         m_kernel.m_Signature.CoSign(senderSignature, message, m_blindingExcess, msig);
         confirmationData->m_senderSignature = senderSignature;

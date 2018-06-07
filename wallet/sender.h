@@ -128,7 +128,6 @@ namespace beam::wallet
             Uuid m_txId;
             ECC::Amount m_amount;
             ECC::Scalar::Native m_blindingExcess;
-            ECC::Scalar::Native m_nonce;
             ECC::Scalar::Native m_senderSignature;
             ECC::Point::Native m_publicBlindingExcess;
             ECC::Point::Native m_publicNonce;
