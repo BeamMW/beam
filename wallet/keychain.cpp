@@ -1,7 +1,6 @@
 #include "keychain.h"
 #include "utility/logger.h"
 #include "sqlite/sqlite3.h"
-#include "wallet/private_key.h"
 
 #include <boost/filesystem.hpp>
 
@@ -227,7 +226,7 @@ namespace beam
 	{
 		if (!boost::filesystem::exists(getName()))
 		{
-			auto keychain = std::make_shared<Keychain>(password, secretKey);
+			auto keychain = std::make_shared<Keychain>(secretKey);
 
 			{
 				int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
@@ -268,7 +267,7 @@ namespace beam
 		{
 			ECC::NoLeak<ECC::uintBig> seed;
 			seed.V = ECC::Zero;
-			auto keychain = std::make_shared<Keychain>(password, seed);
+			auto keychain = std::make_shared<Keychain>(seed);
 
 			{
 				int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
@@ -330,9 +329,8 @@ namespace beam
 		return Ptr();
 	}
 
-	Keychain::Keychain(const std::string& pass, const ECC::NoLeak<ECC::uintBig>& secretKey)
+	Keychain::Keychain(const ECC::NoLeak<ECC::uintBig>& secretKey)
 		: _db(nullptr)
-		, _nonce(std::make_shared<Nonce>(pass.c_str()))
 	{
 		m_kdf.m_Secret = secretKey;
 	}
