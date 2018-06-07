@@ -6,7 +6,7 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
-    Receiver::FSMDefinition::FSMDefinition(receiver::IGateway &gateway, beam::IKeyChain::Ptr keychain, sender::InvitationData& initData)
+    Receiver::FSMDefinition::FSMDefinition(receiver::IGateway &gateway, beam::IKeyChain::Ptr keychain, InviteReceiver& initData)
         : m_gateway{ gateway }
         , m_keychain{ keychain }
         , m_txId{ initData.m_txId }
@@ -26,7 +26,7 @@ namespace beam::wallet
     void Receiver::FSMDefinition::confirm_tx(const msmf::none&)
     {
         LOG_INFO() << "Receiving " << PrintableAmount(m_amount);
-        receiver::ConfirmationData confirmationData;
+        ConfirmInvitation confirmationData;
         confirmationData.m_txId = m_txId;
 
         TxKernel::Ptr kernel = make_unique<TxKernel>();
@@ -119,14 +119,14 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "Transaction failed. Rollback...";
         LOG_VERBOSE() << "[Receiver] rollback_tx";
-        m_keychain->remove(m_receiver_coin);
+        rollback_tx();
     }
 
     void Receiver::FSMDefinition::cancel_tx(const TxConfirmationCompleted& )
     {
         LOG_DEBUG() << "Transaction failed. Rollback...";
         LOG_VERBOSE() << "[Receiver] cancel_tx";
-        m_keychain->remove(m_receiver_coin);
+        rollback_tx();
     }
 
     void Receiver::FSMDefinition::complete_tx(const TxRegistrationCompleted& )
@@ -134,5 +134,11 @@ namespace beam::wallet
         LOG_VERBOSE() << "[Receiver] complete tx";
         LOG_INFO() << "Transaction completed and sent to node";
 		m_gateway.send_tx_registered(make_unique<Uuid>(m_txId));
+    }
+
+    void Receiver::FSMDefinition::rollback_tx()
+    {
+        m_gateway.send_tx_failed(m_txId);
+        m_keychain->remove(m_receiver_coin);
     }
 }

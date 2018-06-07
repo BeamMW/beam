@@ -9,7 +9,7 @@ namespace beam::wallet
     {
         LOG_INFO() << "Sending " << PrintableAmount(m_amount);
         // 1. Create transaction Uuid
-        sender::InvitationData invitationData;
+        InviteReceiver invitationData;
         invitationData.m_txId = m_txId;
         Height currentHeight = m_keychain->getCurrentHeight();
         invitationData.m_height = currentHeight;
@@ -123,7 +123,7 @@ namespace beam::wallet
     {
         auto& data = event.data;
         // 4. Compute Sender Schnorr signature
-        sender::ConfirmationData confirmationData;
+        ConfirmTransaction confirmationData;
         confirmationData.m_txId = m_txId;
         Signature::MultiSig msig;
         msig.m_Nonce = m_nonce;
@@ -150,6 +150,7 @@ namespace beam::wallet
 	void Sender::FSMDefinition::rollback_tx()
 	{
         LOG_DEBUG() << "Transaction failed. Rollback...";
+        m_gateway.send_tx_failed(m_txId);
 		for (auto& c : m_coins)
 		{
 			c.m_status = Coin::Unspent;

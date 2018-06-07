@@ -1,5 +1,6 @@
 #include "wallet/wallet_network.h"
 #include "wallet/wallet.h"
+#include "utility/test_helpers.h"
 
 #include "test_helpers.h"
 
@@ -109,12 +110,12 @@ namespace
     struct TestGateway : wallet::sender::IGateway
         , wallet::receiver::IGateway
     {
-        void send_tx_invitation(const wallet::sender::InvitationData&) override
+        void send_tx_invitation(const wallet::InviteReceiver&) override
         {
             cout << "sent tx initiation message\n";
         }
 
-        void send_tx_confirmation(const wallet::sender::ConfirmationData&) override
+        void send_tx_confirmation(const wallet::ConfirmTransaction&) override
         {
             cout << "sent senders's tx confirmation message\n";
         }
@@ -129,7 +130,7 @@ namespace
             cout << __FUNCTION__ << "\n";
         }
 
-        void send_tx_confirmation(const wallet::receiver::ConfirmationData&) override
+        void send_tx_confirmation(const wallet::ConfirmInvitation&) override
         {
             cout << "sent recever's tx confirmation message\n";
         }
@@ -279,7 +280,7 @@ namespace
         TestNetwork(IOLoop& mainLoop) : TestNetworkBase{ mainLoop }
         {}
 
-        void send_tx_message(PeerId to, const wallet::sender::InvitationData& data) override
+        void send_tx_message(PeerId to, const wallet::InviteReceiver& data) override
         {
             cout << "[Sender] send_tx_invitation\n";
             ++m_peerCount;
@@ -289,22 +290,28 @@ namespace
             send(1, to, data);
         }
 
-        void send_tx_message(PeerId to, const wallet::sender::ConfirmationData& data) override
+        void send_tx_message(PeerId to, const wallet::ConfirmTransaction& data) override
         {
             cout << "[Sender] send_tx_confirmation\n";
             send(1, to, data);
         }
 
-        void send_tx_message(PeerId to, const wallet::receiver::ConfirmationData& data) override
+        void send_tx_message(PeerId to, const wallet::ConfirmInvitation& data) override
         {
             cout << "[Receiver] send_tx_confirmation\n";
             ++m_peerCount;
             send(0, to, data);
         }
 
-        void send_tx_message(PeerId to, const wallet::TxRegisteredData& data) override
+        void send_tx_message(PeerId to, const wallet::TxRegistered& data) override
         {
             cout << "[Receiver] send_tx_registered\n";
+            send(0, to, data);
+        }
+
+        void send_tx_message(beam::PeerId to, const beam::wallet::TxFailed& data) override
+        {
+            cout << "TxFailed\n";
             send(0, to, data);
         }
 
@@ -386,11 +393,11 @@ void TestFSM()
 
     wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), id , 6};
     s.start();
-    WALLET_CHECK(s.process_event(wallet::Sender::TxInitCompleted{ wallet::receiver::ConfirmationData() }));
+    WALLET_CHECK(s.process_event(wallet::Sender::TxInitCompleted{ wallet::ConfirmInvitation() }));
     WALLET_CHECK(s.process_event(wallet::Sender::TxConfirmationCompleted()));
 
     cout << "\nreceiver\n";
-    wallet::sender::InvitationData initData;
+    wallet::InviteReceiver initData;
     initData.m_amount = 100;
     wallet::Receiver r{ gateway, createKeyChain<TestKeyChain>(), initData };
     r.start();
@@ -506,7 +513,8 @@ private:
 void TestP2PWalletNegotiationST()
 {
     cout << "\nTesting p2p wallets negotiation single thread...\n";
-
+    helpers::StopWatch sw;
+    sw.start();
     auto node_address = io::Address::localhost().port(32125);
     auto receiver_address = io::Address::localhost().port(32124);
     auto sender_address = io::Address::localhost().port(32123);
@@ -521,6 +529,8 @@ void TestP2PWalletNegotiationST()
     sender_io.transfer_money(receiver_address, 6);
 
     main_reactor->run();
+    sw.stop();
+    cout << "Elapsed: " << sw.milliseconds() << " ms\n";
 }
 
 void TestSplitKey()
@@ -541,11 +551,11 @@ void TestSplitKey()
 
 int main()
 {
-    int logLevel = LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
-#endif
-    auto logger = beam::Logger::create(logLevel, logLevel);
+//    int logLevel = LOG_LEVEL_DEBUG;
+//#if LOG_VERBOSE_ENABLED
+//    logLevel = LOG_LEVEL_VERBOSE;
+//#endif
+//    auto logger = beam::Logger::create(logLevel, logLevel);
 
     TestSplitKey();
 

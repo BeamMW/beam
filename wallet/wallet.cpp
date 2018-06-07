@@ -155,7 +155,7 @@ namespace beam
         }
     }
 
-    void Wallet::send_tx_invitation(const sender::InvitationData& data)
+    void Wallet::send_tx_invitation(const InviteReceiver& data)
     {
         send_tx_message(data.m_txId, [this, &data](auto peer_id) mutable
         {
@@ -163,7 +163,7 @@ namespace beam
         });
     }
 
-    void Wallet::send_tx_confirmation(const sender::ConfirmationData& data)
+    void Wallet::send_tx_confirmation(const ConfirmTransaction& data)
     {
         send_tx_message(data.m_txId, [this, &data](auto peer_id) mutable
         {
@@ -184,9 +184,9 @@ namespace beam
 
     void Wallet::send_tx_failed(const Uuid& txId)
     {
-        send_tx_message(txId, [this](auto peer_id)
+        send_tx_message(txId, [this, &txId](auto peer_id)
         {
-            m_network.send_tx_message(peer_id, wallet::TxRegisteredData{ false });
+            m_network.send_tx_message(peer_id, wallet::TxFailed{ txId });
         });
     }
 
@@ -212,7 +212,7 @@ namespace beam
         }
     }
 
-    void Wallet::send_tx_confirmation(const receiver::ConfirmationData& data)
+    void Wallet::send_tx_confirmation(const ConfirmInvitation& data)
     {
         send_tx_message(data.m_txId, [this, &data](auto peer_id) mutable
         {
@@ -231,11 +231,11 @@ namespace beam
     {
         send_tx_message(*txId, [this](auto peer_id)
         {
-            m_network.send_tx_message(peer_id, wallet::TxRegisteredData{ true });
+            m_network.send_tx_message(peer_id, wallet::TxRegistered{ true });
         });
     }
 
-    void Wallet::handle_tx_message(PeerId from, sender::InvitationData&& data)
+    void Wallet::handle_tx_message(PeerId from, InviteReceiver&& data)
     {
         auto it = m_receivers.find(data.m_txId);
         if (it == m_receivers.end())
@@ -260,7 +260,7 @@ namespace beam
         }
     }
     
-    void Wallet::handle_tx_message(PeerId from, sender::ConfirmationData&& data)
+    void Wallet::handle_tx_message(PeerId from, ConfirmTransaction&& data)
     {
         Cleaner<std::vector<wallet::Receiver::Ptr> > c{ m_removed_receivers };
         auto it = m_receivers.find(data.m_txId);
@@ -276,7 +276,7 @@ namespace beam
         }
     }
 
-    void Wallet::handle_tx_message(PeerId /*from*/, receiver::ConfirmationData&& data)
+    void Wallet::handle_tx_message(PeerId /*from*/, ConfirmInvitation&& data)
     {
         Cleaner<std::vector<wallet::Sender::Ptr> > c{ m_removed_senders };
         auto it = m_senders.find(data.m_txId);
@@ -291,7 +291,7 @@ namespace beam
         }
     }
 
-    void Wallet::handle_tx_message(PeerId from, wallet::TxRegisteredData&& data)
+    void Wallet::handle_tx_message(PeerId from, wallet::TxRegistered&& data)
     {
         // TODO: change data structure
         auto cit = find_if(m_peers.cbegin(), m_peers.cend(), [from](const auto& p) {return p.second == from; });
@@ -300,6 +300,12 @@ namespace beam
             return;
         }
         handle_tx_registered(cit->first, data.m_value);
+    }
+
+    void Wallet::handle_tx_message(PeerId from, wallet::TxFailed&& data)
+    {
+        LOG_DEBUG() << "tx " << data.m_txId << " failed";
+        handle_tx_failed(data.m_txId);
     }
 
     void Wallet::handle_node_message(proto::Boolean&& res)
@@ -335,16 +341,21 @@ namespace beam
         }
         else
         {
-            if (auto it = m_senders.find(txId); it != m_senders.end())
-            {
-                it->second->process_event(Sender::TxFailed());
-                return;
-            }
-            if (auto it = m_receivers.find(txId); it != m_receivers.end())
-            {
-                it->second->process_event(Receiver::TxFailed());
-                return;
-            }
+            handle_tx_failed(txId);
+        }
+    }
+
+    void Wallet::handle_tx_failed(const Uuid& txId)
+    {
+        if (auto it = m_senders.find(txId); it != m_senders.end())
+        {
+            it->second->process_event(Sender::TxFailed());
+            return;
+        }
+        if (auto it = m_receivers.find(txId); it != m_receivers.end())
+        {
+            it->second->process_event(Receiver::TxFailed());
+            return;
         }
     }
 

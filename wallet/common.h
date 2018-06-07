@@ -60,10 +60,60 @@ namespace beam
             }
         };
 
-        struct TxRegisteredData
+        // messages
+        struct InviteReceiver
         {
+            Uuid m_txId;
+            ECC::Amount m_amount;
+            Height m_height;
+            ECC::Hash::Value m_message;
+            ECC::Point m_publicSenderBlindingExcess;
+            ECC::Point m_publicSenderNonce;
+            std::vector<Input::Ptr> m_inputs;
+            std::vector<Output::Ptr> m_outputs;
+
+            SERIALIZE(m_txId
+                    , m_amount
+                    , m_height
+                    , m_message
+                    , m_publicSenderBlindingExcess
+                    , m_publicSenderNonce
+                    , m_inputs
+                    , m_outputs);
+        };
+
+        struct ConfirmTransaction
+        {
+            Uuid m_txId;
+            ECC::Scalar m_senderSignature;
+
+            SERIALIZE(m_txId, m_senderSignature);
+        };
+
+        struct ConfirmInvitation
+        {
+            Uuid m_txId;
+            ECC::Point m_publicReceiverBlindingExcess;
+            ECC::Point m_publicReceiverNonce;
+            ECC::Scalar m_receiverSignature;
+
+            SERIALIZE(m_txId
+                    , m_publicReceiverBlindingExcess
+                    , m_publicReceiverNonce
+                    , m_receiverSignature);
+        };
+
+        struct TxRegistered
+        {
+            Uuid m_txId;
             bool m_value;
-            SERIALIZE(m_value);
+            SERIALIZE(m_txId, m_value);
+        };
+
+        struct TxFailed
+        {
+            Uuid m_txId;
+            SERIALIZE(m_txId);
         };
 
         struct IWalletGateway
@@ -75,59 +125,18 @@ namespace beam
 
         namespace sender
         {
-            // interface to communicate with receiver
-            struct InvitationData
-            {
-                Uuid m_txId;
-                ECC::Amount m_amount;
-                Height m_height;
-                ECC::Hash::Value m_message;
-                ECC::Point m_publicSenderBlindingExcess;
-                ECC::Point m_publicSenderNonce;
-                std::vector<Input::Ptr> m_inputs;
-                std::vector<Output::Ptr> m_outputs;
-
-                SERIALIZE(m_txId
-                        , m_amount
-                        , m_height
-                        , m_message
-                        , m_publicSenderBlindingExcess
-                        , m_publicSenderNonce
-                        , m_inputs
-                        , m_outputs);
-            };
-
-            struct ConfirmationData
-            {
-                Uuid m_txId;
-                ECC::Scalar m_senderSignature;
-
-                SERIALIZE(m_txId, m_senderSignature);
-            };
-
             struct IGateway : virtual IWalletGateway
             {
-                virtual void send_tx_invitation(const InvitationData&) = 0;
-                virtual void send_tx_confirmation(const ConfirmationData&) = 0;
+                virtual void send_tx_invitation(const InviteReceiver&) = 0;
+                virtual void send_tx_confirmation(const ConfirmTransaction&) = 0;
             };
         }
 
         namespace receiver
         {
-            // interface to communicate with sender
-            struct ConfirmationData
-            {
-                Uuid m_txId;
-                ECC::Point m_publicReceiverBlindingExcess;
-                ECC::Point m_publicReceiverNonce;
-                ECC::Scalar m_receiverSignature;
-
-                SERIALIZE(m_txId, m_publicReceiverBlindingExcess, m_publicReceiverNonce, m_receiverSignature);
-            };
-
             struct IGateway : virtual IWalletGateway
             {
-                virtual void send_tx_confirmation(const ConfirmationData&) = 0;
+                virtual void send_tx_confirmation(const ConfirmInvitation&) = 0;
                 virtual void register_tx(const Uuid&, Transaction::Ptr) = 0;
                 virtual void send_tx_registered(UuidPtr&&) = 0;
             };

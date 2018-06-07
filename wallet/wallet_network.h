@@ -20,6 +20,7 @@ namespace beam
         senderConfirmationCode   ,
         receiverConfirmationCode ,
         receiverRegisteredCode   ,
+        failedCode
     };
 
     class WalletNetworkIO : public IErrorHandler
@@ -45,12 +46,14 @@ namespace beam
 
     private:
         // INetworkIO
-        void send_tx_message(PeerId to, const wallet::sender::InvitationData&) override;
-        void send_tx_message(PeerId to, const wallet::sender::ConfirmationData&) override;
-        void send_tx_message(PeerId to, const wallet::receiver::ConfirmationData&) override;
-        void send_tx_message(PeerId to, const wallet::TxRegisteredData&) override;
+        void send_tx_message(PeerId to, const wallet::InviteReceiver&) override;
+        void send_tx_message(PeerId to, const wallet::ConfirmTransaction&) override;
+        void send_tx_message(PeerId to, const wallet::ConfirmInvitation&) override;
+        void send_tx_message(PeerId to, const wallet::TxRegistered&) override;
+        void send_tx_message(PeerId to, const wallet::TxFailed&) override;
+
         void send_node_message(proto::NewTransaction&&) override;
-		void send_node_message(proto::GetProofUtxo&&) override;
+        void send_node_message(proto::GetProofUtxo&&) override;
         void send_node_message(proto::GetHdr&&) override;
         void send_node_message(proto::GetMined&&) override;
 
@@ -61,10 +64,11 @@ namespace beam
         void on_connection_error(uint64_t fromStream, int errorCode) override;
 
         // handlers for the protocol messages
-        bool on_message(uint64_t connectionId, wallet::sender::InvitationData&& data);
-        bool on_message(uint64_t connectionId, wallet::sender::ConfirmationData&& data);
-        bool on_message(uint64_t connectionId, wallet::receiver::ConfirmationData&& data);
-        bool on_message(uint64_t connectionId, wallet::TxRegisteredData&& data);
+        bool on_message(uint64_t connectionId, wallet::InviteReceiver&& msg);
+        bool on_message(uint64_t connectionId, wallet::ConfirmTransaction&& msg);
+        bool on_message(uint64_t connectionId, wallet::ConfirmInvitation&& msg);
+        bool on_message(uint64_t connectionId, wallet::TxRegistered&& msg);
+        bool on_message(uint64_t connectionId, wallet::TxFailed&& msg);
 
         void connect_wallet(io::Address address, ConnectCallback&& callback);
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
