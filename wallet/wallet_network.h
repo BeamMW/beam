@@ -35,7 +35,8 @@ namespace beam
                       , bool is_server
                       , IKeyChain::Ptr keychain
                       , io::Reactor::Ptr reactor = io::Reactor::Ptr()
-                      , unsigned reconnectMsec = 1000
+                      , unsigned reconnect_ms = 1000 // 1 sec
+                      , unsigned sync_period_ms = 60 * 1000  // 1 minute
                       , uint64_t start_tag = 0);
         virtual ~WalletNetworkIO();
 
@@ -58,6 +59,7 @@ namespace beam
         void send_node_message(proto::GetMined&&) override;
 
         void close_connection(uint64_t id) override;
+        void close_node_connection() override;
 
         // IMsgHandler
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;
@@ -76,6 +78,8 @@ namespace beam
         bool register_connection(uint64_t tag, io::TcpStream::Ptr&& newStream);
         
         void connect_node();
+        void start_sync_timer();
+        void on_sync_timer();
         void on_node_connected();
         
         uint64_t get_connection_tag();
@@ -101,15 +105,15 @@ namespace beam
         {
             if (!m_is_node_connected)
             {
-                m_node_connection.connect([this, msg=std::move(msg)]()
+                m_node_connection->connect([this, msg=std::move(msg)]()
                 {
                     m_is_node_connected = true;
-                    m_node_connection.Send(msg);
+                    m_node_connection->Send(msg);
                 });
             }
             else
             {
-                m_node_connection.Send(msg);
+                m_node_connection->Send(msg);
             }
         }
 
@@ -140,6 +144,7 @@ namespace beam
     private:
         Protocol m_protocol;
         io::Address m_address;
+        io::Address m_node_address;
         io::Reactor::Ptr m_reactor;
         io::TcpServer::Ptr m_server;
         Wallet m_wallet;
@@ -148,8 +153,11 @@ namespace beam
         bool m_is_node_connected;
         uint64_t m_connection_tag;
         io::Reactor::Scope m_reactor_scope;
-        WalletNodeConnection m_node_connection;
+        unsigned m_reconnect_ms;
+        unsigned m_sync_period_ms;
+        std::unique_ptr<WalletNodeConnection> m_node_connection;
         SerializedMsg m_msgToSend;
-        bool m_syncing;
+        io::Timer::Ptr m_sync_timer;
+        io::Timer::Ptr m_close_timer;
     };
 }

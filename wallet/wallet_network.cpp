@@ -14,17 +14,22 @@ namespace beam {
                                    , bool is_server
                                    , IKeyChain::Ptr keychain
                                    , io::Reactor::Ptr reactor
-                                   , unsigned reconnectMsec
+                                   , unsigned reconnect_ms
+                                   , unsigned sync_period_ms
                                    , uint64_t start_tag)
         : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, 150, *this, 20000 }
         , m_address{address}
+        , m_node_address{node_address}
         , m_reactor{ !reactor ? io::Reactor::create() : reactor }
         , m_server{ is_server ? io::TcpServer::create(m_reactor, m_address, BIND_THIS_MEMFN(on_stream_accepted)) : io::TcpServer::Ptr() }
         , m_wallet{keychain, *this, is_server ? Wallet::TxCompletedAction() : [this](auto a) { this->stop(); } }
         , m_is_node_connected{false}
         , m_connection_tag{ start_tag }
         , m_reactor_scope{*m_reactor }
-        , m_node_connection{node_address, m_wallet, m_reactor, reconnectMsec }
+        , m_reconnect_ms{ reconnect_ms }
+        , m_sync_period_ms{ sync_period_ms }
+        , m_sync_timer{io::Timer::create(m_reactor)}
+        , m_close_timer{io::Timer::create(m_reactor)}
     {
         m_protocol.add_message_handler<WalletNetworkIO, wallet::InviteReceiver,     &WalletNetworkIO::on_message>(senderInvitationCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmTransaction, &WalletNetworkIO::on_message>(senderConfirmationCode, this, 1, 20000);
@@ -114,12 +119,26 @@ namespace beam {
 
     void WalletNetworkIO::close_connection(uint64_t id)
     {
-        m_connections.erase(id);
-        if (auto it = m_connections_callbacks.find(id); it != m_connections_callbacks.end())
+        m_close_timer->start(0, false, [this, id]()
         {
-            m_connections_callbacks.erase(it);
-            m_reactor->cancel_tcp_connect(id);
-        }
+            m_connections.erase(id);
+            if (auto it = m_connections_callbacks.find(id); it != m_connections_callbacks.end())
+            {
+                m_connections_callbacks.erase(it);
+                m_reactor->cancel_tcp_connect(id);
+            }
+        });        
+    }
+
+    void WalletNetworkIO::close_node_connection()
+    {
+        LOG_DEBUG() << "Close node connection";
+     //   m_close_timer->start(0, false, [this]()
+     //   {
+            m_is_node_connected = false;
+            m_node_connection.reset();
+            start_sync_timer();
+    //    });
     }
 
     bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::InviteReceiver&& msg)
@@ -209,7 +228,23 @@ namespace beam {
 
     void WalletNetworkIO::connect_node()
     {
-        m_node_connection.connect(BIND_THIS_MEMFN(on_node_connected));
+        assert(m_is_node_connected == false && !m_node_connection);
+
+        m_node_connection = make_unique<WalletNodeConnection>(m_node_address, m_wallet, m_reactor, m_reconnect_ms);
+        m_node_connection->connect(BIND_THIS_MEMFN(on_node_connected));
+    }
+
+    void WalletNetworkIO::start_sync_timer()
+    {
+        m_sync_timer->start(m_sync_period_ms, false, BIND_THIS_MEMFN(on_sync_timer));
+    }
+
+    void WalletNetworkIO::on_sync_timer()
+    {
+        if (!m_is_node_connected)
+        {
+            connect_node();
+        }
     }
 
     void WalletNetworkIO::on_node_connected()
@@ -255,6 +290,7 @@ namespace beam {
 
     void WalletNetworkIO::WalletNodeConnection::connect(NodeConnectCallback&& cb)
     {
+        LOG_DEBUG() << "Connecting to node...";
         m_callbacks.emplace_back(move(cb));
         if (!m_connecting)
         {

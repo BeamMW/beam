@@ -563,6 +563,7 @@ namespace beam
                     }
                     m_pendingReceivers.clear();
                 }
+                m_network.close_node_connection();
             }
         }
     }

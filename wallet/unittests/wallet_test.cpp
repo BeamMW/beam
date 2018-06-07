@@ -348,7 +348,13 @@ namespace
         {
         }
 
+        void close_node_connection() override
+        {
+            ++m_closeNodeCount;
+        }
+
         int m_proof_id{ 1 };
+        int m_closeNodeCount{ 0 };
     };
 }
 
@@ -378,6 +384,8 @@ void TestWalletNegotiation()
 
     sender.transfer_money(receiver_id, 6);
     mainLoop.run();
+
+    WALLET_CHECK(network.m_closeNodeCount == 2);
 }
 
 void TestRollback()
@@ -477,9 +485,13 @@ private:
         }
     }
 
-    void on_connection_error(uint64_t /*fromStream*/, int /*errorCode*/) override
+    void on_connection_error(uint64_t fromStream, int /*errorCode*/) override
     {
-        assert(false && "NODE: on_connection_error");
+        //assert(false && "NODE: on_connection_error");
+        if (auto it = m_connections.find(fromStream); it != m_connections.end())
+        {
+            ++m_closeCount;
+        }
     }
 
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, int errorCode)
@@ -494,6 +506,7 @@ private:
                     Connection::inbound,
                     100,
                     std::move(newStream)));
+            ++m_connectCount;
         }
         else
         {
@@ -508,6 +521,9 @@ private:
 
     std::map<uint64_t, std::unique_ptr<Connection>> m_connections;
     uint64_t m_tag;
+public:
+    int m_connectCount{ 0 };
+    int m_closeCount{ 0 };
 };
 
 void TestP2PWalletNegotiationST()
@@ -531,7 +547,8 @@ void TestP2PWalletNegotiationST()
     main_reactor->run();
     sw.stop();
     cout << "Elapsed: " << sw.milliseconds() << " ms\n";
-}
+    WALLET_CHECK(node.m_connectCount == 3);
+ }
 
 void TestSplitKey()
 {
