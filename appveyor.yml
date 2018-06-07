@@ -9,6 +9,7 @@ platform:
 
 environment:
   BOOST_ROOT: C:\Libraries\boost_1_67_0
+  OPENSSL_ROOT_DIR: C:\OpenSSL-Win64
   matrix:
   - arch: Win64
 
