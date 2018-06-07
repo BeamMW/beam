@@ -1,5 +1,6 @@
 #include "roulette.h"
 #include "rnd_gen.h"
+#include "utility/logger.h"
 #include <assert.h>
 
 namespace beam {
@@ -40,6 +41,8 @@ Roulette::ID Roulette::pull() {
 
     assert(!bucket.items.empty());
 
+    //LOG_DEBUG() << TRACE(x) << TRACE(_totalWeight) << TRACE(bucketIdx) << TRACE(bucket.items.size()) << TRACE(bucket.weightBoundary);
+
     // choose random item within the bucket
     uint32_t itemIdx = (x - bucket.weightBoundary) / bucketIdx;
     assert(itemIdx < bucket.items.size());
@@ -55,11 +58,17 @@ Roulette::ID Roulette::pull() {
     // update total weight and partial weights
     uint32_t weight = bucketIdx;
     _totalWeight -= weight;
-    for (; bucketIdx<=_maxItemWeight; ++bucketIdx) {
+    for (++bucketIdx; bucketIdx<=_maxItemWeight; ++bucketIdx) {
         _buckets[bucketIdx].weightBoundary -= weight;
+        if (_buckets[bucketIdx].weightBoundary == 0) {
+            ++_minWeight;
+        }
     }
 
-    _totalItems--;
+    if (--_totalItems == 0) {
+        _minWeight = 0xFFFFFFFF;
+        _maxWeight = 0;
+    }
 
     return id;
 }

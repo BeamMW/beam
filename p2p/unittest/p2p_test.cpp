@@ -2,7 +2,6 @@
 #include "utility/helpers.h"
 
 #define LOG_VERBOSE_ENABLED 0
-#define LOG_DEBUG_ENABLED 1
 #include "utility/logger.h"
 
 namespace beam {
@@ -18,37 +17,37 @@ int p2ptest(int numNodes, int runTime) {
     std::vector<std::unique_ptr<P2P>> nodes;
     nodes.reserve(numNodes);
 
-    LOG_DEBUG() << "Creating " << numNodes << " nodes";
+    LOG_INFO() << "Creating " << numNodes << " nodes";
     for (int i=0; i<numNodes; ++i) {
         // odd node numbers are not servers
         uint16_t listenTo = (i & 1) ? 0 : PORT_BASE + i;
         nodes.push_back(std::make_unique<P2P>(i+1, io::Address(LOCALHOST_BASE + i, 0), listenTo));
     }
 
-    LOG_DEBUG() << "Seeding all of them initial server address";
+    LOG_INFO() << "Seeding all of them initial server address";
     KnownServers seed { {io::Address(LOCALHOST_BASE, PORT_BASE), 1} };
     for (auto& n : nodes) {
         n->add_known_servers(seed);
     }
 
-    LOG_DEBUG() << "Starting nodes";
+    LOG_INFO() << "Starting nodes";
     for (auto& n : nodes) {
         n->start();
     }
 
-    LOG_DEBUG() << "Waiting for signal or " << runTime << " seconds";
+    LOG_INFO() << "Waiting for signal or " << runTime << " seconds";
     wait_for_termination(runTime);
 
-    LOG_DEBUG() << "Waiting for nodes to quit";
+    LOG_INFO() << "Waiting for nodes to quit";
     nodes.clear();
 
-    LOG_DEBUG() << "Done";
+    LOG_INFO() << "Done";
     return 0;
 }
 
 } //namespace
 
-static const int DEF_NUM_NODES = 17;
+static const int DEF_NUM_NODES = 15;
 static const int DEF_RUN_TIME = 20;
 
 int main() {

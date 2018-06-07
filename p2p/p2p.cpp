@@ -43,12 +43,12 @@ void P2P::start() {
         LOG_DEBUG() << "Listening to " << listenTo  << TRACE(_sessionId);
     }
     connect_to_servers();
-    _timer = set_timer(1000, BIND_THIS_MEMFN(on_timer));
+    _timer = set_timer(_rdGen.rnd(1000, 1300), BIND_THIS_MEMFN(on_timer));
     run_async();
 }
 
 void P2P::connect_to_servers() {
-    static size_t maxActiveConnections = config().get_int("p2p.max_active_connections", 3, 1, 1000);
+    static size_t maxActiveConnections = config().get_int("p2p.max_active_connections", 13, 1, 1000);
 
     size_t nConnections = _connections.total_connected();
     if (nConnections >= maxActiveConnections) return;
@@ -134,11 +134,13 @@ void P2P::on_stream_connected(Peer peer, io::TcpStream::Ptr&& newStream, io::Err
 }
 
 void P2P::on_protocol_error(Peer from, ProtocolError error) {
-    LOG_INFO() << "Protocol error " << error << " from " << io::Address::from_u64(from) << TRACE(_sessionId);;
+    LOG_WARNING() << "Protocol error " << error << " from " << io::Address::from_u64(from) << TRACE(_sessionId);
 }
 
 void P2P::on_connection_error(Peer from, io::ErrorCode errorCode) {
     LOG_INFO() << "Connection error from " << io::Address::from_u64(from) << " error=" << io::error_str(errorCode) << TRACE(_sessionId);
+
+    // TODO remove connection
 }
 
 void P2P::on_peer_handshaked(Connection::Ptr&& conn, uint16_t listensTo) {
@@ -149,12 +151,12 @@ void P2P::on_peer_handshaked(Connection::Ptr&& conn, uint16_t listensTo) {
             _peerState.knownServers = _knownServers.get_known_servers().size();
         }
     }
-    _peerState.connectedPeers = _connections.total_connected();
-    _peerStateDirty = true;
     conn->enable_all_msg_types();
     conn->disable_msg_type(Handshake::RESPONSE_MSG_TYPE);
     conn->disable_msg_type(HandshakeError::MSG_TYPE);
     _connections.add_connection(std::move(conn));
+    _peerState.connectedPeers = _connections.total_connected();
+    _peerStateDirty = true;
 }
 
 void P2P::connection_removed(uint64_t id) {
@@ -194,7 +196,7 @@ bool P2P::on_ping(uint64_t id, PeerState&& state) {
 }
 
 bool P2P::on_pong(uint64_t id, PeerState&& state) {
-    LOG_DEBUG() << TRACE(_sessionId);
+    LOG_INFO() << TRACE(_sessionId) << " peer " << io::Address::from_u64(id) << " connected to " << state.connectedPeers << " peers";
     _connections.update_state(id, std::move(state));
     return true;
 }
@@ -211,6 +213,7 @@ bool P2P::on_known_servers(uint64_t id, KnownServers&& servers) {
     if (_knownServers.update(servers, false)) {
         _peerState.knownServers = _knownServers.get_known_servers().size();
         _peerStateDirty = true;
+        connect_to_servers();
     }
     return true;
 }
