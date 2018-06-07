@@ -21,6 +21,8 @@ using Height = uint64_t;
 
 /// Pingpong message, reflects peer's state
 struct PeerState {
+
+
     Height height=0;
     uint32_t knownServers=0;
     uint32_t connectedPeers=0;

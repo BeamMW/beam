@@ -48,11 +48,11 @@ io::Result Connections::write_msg(uint64_t id, const SerializedMsg& fragments) {
     return it->second->write_msg(fragments);
 }
 
-void Connections::broadcast_msg(const SerializedMsg& fragments) {
+void Connections::broadcast_msg(const io::SharedBuffer& msg) {
     io::Result result;
     _toBeRemoved.clear();
     for (auto& [id, ptr] : _connections) {
-        result = ptr->write_msg(fragments);
+        result = ptr->write_msg(msg);
         if (!result) {
             LOG_WARNING() << ptr->peer_address() << " disconnected, error=" << io::error_str(result.error());
             _toBeRemoved.push_back(id);

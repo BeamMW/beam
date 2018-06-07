@@ -38,6 +38,14 @@ private:
 
     void on_timer();
 
+    bool on_ping(uint64_t id, PeerState&& state);
+    bool on_pong(uint64_t id, PeerState&& state);
+    bool on_known_servers_request(uint64_t id, VoidMessage&&);
+    bool on_known_servers(uint64_t id, KnownServers&& servers);
+
+    PeerState _peerState;
+    bool _peerStateDirty=true;
+
     RandomGen _rdGen;
     uint64_t _sessionId;
     Servers _knownServers;
@@ -51,6 +59,7 @@ private:
     io::TcpServer::Ptr _thisServer;
     SerializedMsg _msgToSend;
     io::Timer::Ptr _timer;
+    int _timerCall=0;
 };
 
 } //namespace

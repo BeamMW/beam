@@ -61,6 +61,12 @@ struct MsgHeader {
     }
 };
 
+/// Zero sized message placeholder
+struct VoidMessage {
+    template<typename A> void serialize(A&) const {}
+    template<typename A> void serialize(A&) {}
+};
+
 /// Errors occured during deserialization
 enum ProtocolError {
     no_error = 0,               // ok

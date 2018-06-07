@@ -1,6 +1,12 @@
 #include "p2p.h"
+#include "utility/config.h"
 
 namespace beam {
+
+static MsgType PING_MSG_TYPE = 46;
+static MsgType PONG_MSG_TYPE = 47;
+static MsgType KNOWN_SERVERS_REQUEST_MSG_TYPE = 48;
+static MsgType KNOWN_SERVERS_RESPONSE_MSG_TYPE = 49;
 
 P2P::P2P(io::Address bindTo, uint16_t listenTo) :
     _sessionId(_rdGen.rnd<uint64_t>()),
@@ -12,8 +18,10 @@ P2P::P2P(io::Address bindTo, uint16_t listenTo) :
     _bindToIp(bindTo),
     _port(listenTo)
 {
-    //protocol.add_message_handler<Request, &NetworkSide::on_request>(requestCode, 1, 2000000);
-    //protocol.add_message_handler<Response, &NetworkSide::on_response>(responseCode, 1, 200);
+    _protocol.add_message_handler<P2P, PeerState, &P2P::on_ping>(PING_MSG_TYPE, this, 2, 200);
+    _protocol.add_message_handler<P2P, PeerState, &P2P::on_pong>(PONG_MSG_TYPE, this, 2, 200);
+    _protocol.add_message_handler<P2P, VoidMessage, &P2P::on_known_servers_request>(KNOWN_SERVERS_REQUEST_MSG_TYPE, this, 0, 0);
+    _protocol.add_message_handler<P2P, KnownServers, &P2P::on_known_servers>(KNOWN_SERVERS_RESPONSE_MSG_TYPE, this, 0, 2000000);
 }
 
 P2P::~P2P() {
@@ -38,9 +46,13 @@ void P2P::start() {
 }
 
 void P2P::connect_to_servers() {
-    // TODO limit # of connections
+    static size_t maxActiveConnections = config().get_int("p2p.max_active_connections", 3, 1, 1000);
 
-    for (;;) {
+    size_t nConnections = _connections.total_connected();
+    if (nConnections >= maxActiveConnections) return;
+    nConnections = maxActiveConnections - nConnections;
+
+    while (nConnections > 0) {
         io::Address a = _knownServers.get_connect_candidate();
         if (a.empty())
             break;
@@ -52,8 +64,10 @@ void P2P::connect_to_servers() {
         auto result = _reactor->tcp_connect(a, a.u64(), BIND_THIS_MEMFN(on_stream_connected), -1, _bindToIp);
         if (!result) {
             LOG_ERROR() << "Cannot connect to " << a << " error=" << io::error_str(result.error())  << TRACE(_sessionId);
+            // TODO schedule reconnect
         }
 
+        --nConnections;
     }
 }
 
@@ -118,25 +132,67 @@ void P2P::on_stream_connected(Peer peer, io::TcpStream::Ptr&& newStream, io::Err
 }
 
 void P2P::on_protocol_error(Peer from, ProtocolError error) {
-    LOG_INFO() << "Protocol error " << error << " from " << io::Address::from_u64(from).str() << TRACE(_sessionId);;
+    LOG_INFO() << "Protocol error " << error << " from " << io::Address::from_u64(from) << TRACE(_sessionId);;
 }
 
 void P2P::on_connection_error(Peer from, io::ErrorCode errorCode) {
-    LOG_INFO() << "Connection error from " << io::Address::from_u64(from).str() << " error=" << io::error_str(errorCode) << TRACE(_sessionId);;
+    LOG_INFO() << "Connection error from " << io::Address::from_u64(from) << " error=" << io::error_str(errorCode) << TRACE(_sessionId);
 }
 
 void P2P::on_peer_handshaked(Connection::Ptr&& conn, uint16_t listensTo) {
-    LOG_INFO() << "Peer handshaked, " << conn->peer_address() << TRACE(_sessionId);
+    LOG_INFO() << "Peer handshaked, " << conn->peer_address() << TRACE(listensTo) << TRACE(_sessionId);
     if (listensTo) {
-        //_knownServers.add();
+        io::Address newServerAddr = conn->peer_address().port(listensTo);
+        if (_knownServers.add_server(newServerAddr, 1)) {
+            _peerState.knownServers = _knownServers.get_known_servers().size();
+            _peerStateDirty = true;
+        }
     }
+    conn->enable_all_msg_types();
+    conn->disable_msg_type(Handshake::RESPONSE_MSG_TYPE);
+    conn->disable_msg_type(HandshakeError::MSG_TYPE);
+    _connections.add_connection(std::move(conn));
 }
 
 void P2P::connection_removed(uint64_t id) {
+    LOG_INFO() << "Connection removed, id=" << io::Address::from_u64(id);
+
+    // TODO schedule reconnect
 }
 
 void P2P::on_timer() {
-    LOG_DEBUG() << "on timer" << TRACE(_sessionId);
+    static int pingPeriod = config().get_int("p2p.ping_period", 2, 1, 600);
+    static int queryKnownServersPeriod = config().get_int("p2p.query_known_servers_period", 7, 1, 600);
+
+    if ((_timerCall++ % pingPeriod) == 0) {
+        LOG_DEBUG() << "broadcasting ping" << TRACE(_sessionId);
+        if (_peerStateDirty) {
+            _commonMessages.update(PING_MSG_TYPE, _peerState);
+            _peerStateDirty = false;
+        }
+
+        _connections.broadcast_msg(_commonMessages.get(PING_MSG_TYPE));
+    }
+}
+
+bool P2P::on_ping(uint64_t id, PeerState&& state) {
+    LOG_DEBUG() << TRACE(_sessionId);
+    return true;
+}
+
+bool P2P::on_pong(uint64_t id, PeerState&& state) {
+    LOG_DEBUG() << TRACE(_sessionId);
+    return true;
+}
+
+bool P2P::on_known_servers_request(uint64_t id, VoidMessage&&) {
+    LOG_DEBUG() << TRACE(_sessionId);
+    return true;
+}
+
+bool P2P::on_known_servers(uint64_t id, KnownServers&& servers) {
+    LOG_DEBUG() << TRACE(_sessionId);
+    return true;
 }
 
 } //namespace

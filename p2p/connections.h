@@ -20,7 +20,7 @@ public:
     io::Result write_msg(uint64_t id, const SerializedMsg& fragments);
     io::Result write_msg(uint64_t id, const io::SharedBuffer& msg);
 
-    void broadcast_msg(const SerializedMsg& fragments);
+    //void broadcast_msg(const SerializedMsg& fragments);
     void broadcast_msg(const io::SharedBuffer& msg);
 
 private:
