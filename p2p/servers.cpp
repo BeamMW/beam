@@ -3,7 +3,8 @@
 
 namespace beam {
 
-Servers::Servers(RandomGen& rdGen, uint32_t maxWeight) :
+Servers::Servers(CommonMessages& commonMessages, RandomGen& rdGen, uint32_t maxWeight) :
+    _commonMessages(commonMessages),
     _connectRoulette(rdGen, maxWeight)
 {}
 
@@ -28,6 +29,7 @@ bool Servers::add_server(io::Address a, uint32_t weight) {
         w = weight;
         LOG_INFO() << "New server address=" << a;
         _connectCandidates.insert(a);
+        _stateChanged = true;
     }
     return isNewServer;
 }
@@ -57,6 +59,13 @@ void Servers::update_weight(io::Address p, double weightCoefficient) {
     if (weightCoefficient != 1.0) {
         uint32_t newWeight = uint32_t(weightCoefficient * it->second);
         it->second = newWeight > 0 ? newWeight : 1;
+    }
+}
+
+void Servers::update_known_servers_response() {
+    if (_stateChanged) {
+        _commonMessages.update(KNOWN_SERVERS_RESPONSE_MSG_TYPE, _allServers);
+        _stateChanged = false;
     }
 }
 

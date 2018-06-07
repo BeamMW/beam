@@ -9,7 +9,6 @@ namespace beam {
 static const MsgType PING_MSG_TYPE = 46;
 static const MsgType PONG_MSG_TYPE = 47;
 static const MsgType KNOWN_SERVERS_REQUEST_MSG_TYPE = 48;
-static const MsgType KNOWN_SERVERS_RESPONSE_MSG_TYPE = 49;
 
 /// Active connections
 class Connections {
@@ -26,7 +25,7 @@ public:
 
     void update_state(uint64_t id, PeerState&& state);
 
-    io::Result write_msg(uint64_t id, const SerializedMsg& fragments);
+    //io::Result write_msg(uint64_t id, const SerializedMsg& fragments);
     io::Result write_msg(uint64_t id, const io::SharedBuffer& msg);
 
     //void broadcast_msg(const SerializedMsg& fragments);

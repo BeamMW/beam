@@ -50,9 +50,9 @@ private:
 
     RandomGen _rdGen;
     uint64_t _sessionId;
-    Servers _knownServers;
     Protocol _protocol;
     CommonMessages _commonMessages;
+    Servers _knownServers;
     HandshakingPeers _handshakingPeers;
     Connections _connections;
     //IpAccessControl _ipAccess;

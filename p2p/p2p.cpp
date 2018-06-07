@@ -5,9 +5,9 @@ namespace beam {
 
 P2P::P2P(io::Address bindTo, uint16_t listenTo) :
     _sessionId(_rdGen.rnd<uint64_t>()),
-    _knownServers(_rdGen, 15), // max weight TODO from config
     _protocol(0xAA, 0xBB, 0xCC, 100, *this, 0x2000),
     _commonMessages(_protocol),
+    _knownServers(_commonMessages, _rdGen, 15), // max weight TODO from config
     _handshakingPeers(_protocol, _commonMessages, BIND_THIS_MEMFN(on_peer_handshaked), listenTo, _sessionId),
     _connections(_commonMessages, BIND_THIS_MEMFN(connection_removed)),
     _bindToIp(bindTo),
@@ -196,11 +196,17 @@ bool P2P::on_pong(uint64_t id, PeerState&& state) {
 
 bool P2P::on_known_servers_request(uint64_t id, VoidMessage&&) {
     LOG_DEBUG() << TRACE(_sessionId);
+    _knownServers.update_known_servers_response();
+    _connections.write_msg(id, _commonMessages.get(KNOWN_SERVERS_RESPONSE_MSG_TYPE));
     return true;
 }
 
 bool P2P::on_known_servers(uint64_t id, KnownServers&& servers) {
     LOG_DEBUG() << TRACE(_sessionId);
+    if (_knownServers.update(servers, false)) {
+        _peerState.knownServers = _knownServers.get_known_servers().size();
+        _peerStateDirty = true;
+    }
     return true;
 }
 

@@ -42,12 +42,12 @@ bool Connections::find(uint64_t id, Connections::Container::iterator& it) {
     return true;
 }
 
-io::Result Connections::write_msg(uint64_t id, const SerializedMsg& fragments) {
+io::Result Connections::write_msg(uint64_t id, const io::SharedBuffer& msg) {
     Container::iterator it;
     if (!find(id, it)) {
         return make_unexpected(io::EC_ENOTCONN);
     }
-    return it->second.conn->write_msg(fragments);
+    return it->second.conn->write_msg(msg);
 }
 
 void Connections::broadcast_msg(const io::SharedBuffer& msg) {
