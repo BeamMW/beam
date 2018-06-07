@@ -45,12 +45,34 @@ int p2ptest(int numNodes, int runTime) {
     return 0;
 }
 
+int p2ptest_1(io::Address seedAddr, int port) {
+    std::unique_ptr<P2P> node;
+
+    LOG_INFO() << "Creating node";
+    node = std::make_unique<P2P>(0, io::Address(), port);
+
+    KnownServers seed { {seedAddr, 1} };
+    node->add_known_servers(seed);
+
+    LOG_INFO() << "Starting node";
+    node->start();
+
+    LOG_INFO() << "Waiting for signal";
+    wait_for_termination(0);
+
+    LOG_INFO() << "Waiting for nodes to quit";
+    node.reset();
+
+    LOG_INFO() << "Done";
+    return 0;
+}
+
 } //namespace
 
 static const int DEF_NUM_NODES = 15;
 static const int DEF_RUN_TIME = 20;
 
-int main() {
+int main(int argc, char* argv[]) {
     using namespace beam;
 
     int logLevel = LOG_LEVEL_INFO;
@@ -65,8 +87,33 @@ int main() {
     );
     logger->set_time_format("%T", true);
 
+    bool isUnittest = true;
+    int numNodes = DEF_NUM_NODES;
+    int runTimeOrPort = DEF_RUN_TIME;
+    io::Address seedAddr;
+
+    if (argc > 1) {
+        if (strchr(argv[1], ':') && seedAddr.resolve(argv[1]) && seedAddr.ip())
+            isUnittest = false;
+        else {
+            numNodes = atoi(argv[1]);
+            if (numNodes <= 0) numNodes = DEF_NUM_NODES;
+        }
+    }
+
+    if (argc > 2) {
+        runTimeOrPort = atoi(argv[2]);
+        if (runTimeOrPort <= 0) {
+            if (isUnittest) runTimeOrPort = DEF_RUN_TIME;
+            else runTimeOrPort = 0;
+        }
+    }
+
     try {
-        return p2ptest(DEF_NUM_NODES, DEF_RUN_TIME);
+        if (isUnittest)
+            return p2ptest(numNodes, runTimeOrPort);
+        else
+            return p2ptest_1(seedAddr, runTimeOrPort);
     } catch (const std::exception& e) {
         LOG_ERROR() << "Exception: " << e.what();
     } catch (...) {

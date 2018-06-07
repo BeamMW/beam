@@ -5,7 +5,7 @@
 namespace beam {
 
 P2P::P2P(uint64_t sessionId, io::Address bindTo, uint16_t listenTo) :
-    _sessionId(sessionId),
+    _sessionId(sessionId ? sessionId : _rdGen.rnd<uint64_t>()),
     _protocol(0xAA, 0xBB, 0xCC, 100, *this, 0x2000),
     _commonMessages(_protocol),
     _knownServers(_commonMessages, _rdGen, 15), // max weight TODO from config
@@ -20,10 +20,6 @@ P2P::P2P(uint64_t sessionId, io::Address bindTo, uint16_t listenTo) :
     _protocol.add_message_handler<P2P, KnownServers, &P2P::on_known_servers>(KNOWN_SERVERS_RESPONSE_MSG_TYPE, this, 0, 2000000);
 
     _commonMessages.update(KNOWN_SERVERS_REQUEST_MSG_TYPE, VoidMessage());
-
-    if (_sessionId == 0) {
-        _sessionId = _rdGen.rnd<uint64_t>();
-    }
 }
 
 P2P::~P2P() {
