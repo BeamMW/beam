@@ -1247,13 +1247,27 @@ namespace ECC {
 		return comm == Zero;
 	}
 
+	struct NonceGenerator
+	{
+		NoLeak<Oracle> m_Oracle;
+		NoLeak<Scalar> m_sk;
+
+		void operator >> (Scalar::Native& k)
+		{
+			NoLeak<Hash::Value> hv;
+			m_Oracle.V >> hv.V;
+
+			k.GenerateNonce(m_sk.V.m_Value, hv.V, NULL);
+		}
+	};
 
 	/////////////////////
 	// Bulletproof
 	void RangeProof::Confidential::Create(const Scalar::Native& sk, Amount v, Oracle& oracle)
 	{
-		Oracle nonceGen;
-		nonceGen << sk << v; // init
+		NonceGenerator nonceGen;
+		nonceGen.m_sk.V = sk;
+		nonceGen.m_Oracle.V << v;
 
 		// A = G*alpha + vec(aL)*vec(G) + vec(aR)*vec(H)
 		Scalar::Native alpha;
