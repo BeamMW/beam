@@ -1,5 +1,6 @@
 #pragma once
 #include "utility/io/buffer.h"
+#include "utility/io/errorhandling.h"
 #include <string.h>
 #include <vector>
 
@@ -78,7 +79,7 @@ struct IErrorHandler {
     virtual void on_protocol_error(uint64_t fromStream, ProtocolError error) = 0;
 
     /// Handles network connection errors
-    virtual void on_connection_error(uint64_t fromStream, int errorCode) = 0;
+    virtual void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) = 0;
 
     /// Per-connection msg type filter fails
     virtual void on_unexpected_msg(uint64_t fromStream, MsgType type) {
@@ -145,7 +146,7 @@ public:
     }
 
     /// Called by Connection on network errors
-    void on_connection_error(uint64_t fromStream, int errorCode) {
+    void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) {
         _errorHandler.on_connection_error(fromStream, errorCode);
     }
 

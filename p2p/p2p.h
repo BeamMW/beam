@@ -24,7 +24,7 @@ public:
 private:
     // IMsgHandler impl
     void on_protocol_error(Peer from, ProtocolError error) override;
-    void on_connection_error(Peer from, int errorCode) override;
+    void on_connection_error(Peer from, io::ErrorCode errorCode) override;
 
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
 

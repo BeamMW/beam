@@ -58,7 +58,7 @@ namespace beam
 
         // IMsgHandler
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;
-        void on_connection_error(uint64_t fromStream, int errorCode) override;
+        void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override;
 
         // handlers for the protocol messages
         bool on_message(uint64_t connectionId, wallet::sender::InvitationData&& data);
@@ -70,10 +70,10 @@ namespace beam
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
         void on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status);
         bool register_connection(uint64_t tag, io::TcpStream::Ptr&& newStream);
-        
+
         void connect_node();
         void on_node_connected();
-        
+
         uint64_t get_connection_tag();
 
         template <typename T>

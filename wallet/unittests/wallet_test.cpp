@@ -335,7 +335,7 @@ template<typename KeychainS, typename KeychainR>
 void TestWalletNegotiation()
 {
     cout << "\nTesting wallets negotiation...\n";
-    
+
     PeerId receiver_id = 4;
     IOLoop mainLoop;
     TestNetwork network{ mainLoop };
@@ -447,16 +447,16 @@ private:
         {
             SerializedMsg msgToSend;
             m_protocol.serialize(msgToSend, type, data);
-            it->second->write_msg(msgToSend); 
+            it->second->write_msg(msgToSend);
         }
-        else 
+        else
         {
             LOG_ERROR() << "No connection";
             // add some handling
         }
     }
 
-    void on_connection_error(uint64_t /*fromStream*/, int /*errorCode*/) override
+    void on_connection_error(uint64_t /*fromStream*/, io::ErrorCode /*errorCode*/) override
     {
         assert(false && "NODE: on_connection_error");
     }

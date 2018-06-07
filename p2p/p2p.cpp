@@ -121,8 +121,8 @@ void P2P::on_protocol_error(Peer from, ProtocolError error) {
     LOG_INFO() << "Protocol error " << error << " from " << io::Address::from_u64(from).str() << TRACE(_sessionId);;
 }
 
-void P2P::on_connection_error(Peer from, int errorCode) {
-    LOG_INFO() << "Connection error from " << io::Address::from_u64(from).str() << " error=" << io::error_str(io::ErrorCode(errorCode)) << TRACE(_sessionId);;
+void P2P::on_connection_error(Peer from, io::ErrorCode errorCode) {
+    LOG_INFO() << "Connection error from " << io::Address::from_u64(from).str() << " error=" << io::error_str(errorCode) << TRACE(_sessionId);;
 }
 
 void P2P::on_peer_handshaked(Connection::Ptr&& conn, uint16_t listensTo) {

@@ -41,7 +41,7 @@ struct MessageHandler : IErrorHandler {
         cout << __FUNCTION__ << "(" << fromStream << "," << error << ")" << endl;
     }
 
-    void on_connection_error(uint64_t fromStream, int errorCode) override {
+    void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override {
         cout << __FUNCTION__ << "(" << fromStream << "," << errorCode << ")" << endl;
     }
 
@@ -200,7 +200,7 @@ struct Client {
         protocol.serialize(serializedMsg, msgTypeForSomeObject, msg);
     }
 
-    void on_client_connected(uint64_t tag, TcpStream::Ptr&& newStream, int status) {
+    void on_client_connected(uint64_t tag, TcpStream::Ptr&& newStream, io::ErrorCode status) {
         assert(tag == streamId);
         if (newStream && !connection) {
             connection = make_unique<Connection>(

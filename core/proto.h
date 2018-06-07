@@ -142,7 +142,7 @@ namespace proto {
 		void OnConnectInternal2(io::TcpStream::Ptr&& newStream, int status);
 
 		virtual void on_protocol_error(uint64_t, ProtocolError error) override;
-		virtual void on_connection_error(uint64_t, int errorCode) override;
+		virtual void on_connection_error(uint64_t, io::ErrorCode errorCode) override;
 
 #define THE_MACRO(code, msg) bool OnMsgInternal(uint64_t, msg&& v);
 		BeamNodeMsgsAll(THE_MACRO)

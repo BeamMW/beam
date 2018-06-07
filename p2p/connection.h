@@ -17,7 +17,8 @@ public:
     /// Dtor
     ~Connection();
 
-    uint64_t id() const { return _peerId; }
+    uint64_t id() const { return _msgReader.id(); }
+    void change_id(uint64_t newId) { _msgReader.change_id(newId); }
 
     /// Allows receiving messages of given type
     void enable_msg_type(MsgType type) { _msgReader.enable_msg_type(type); }
@@ -50,11 +51,6 @@ public:
     Direction direction() const { return _direction; }
 
 private:
-    /// stream message handler
-    void on_recv(io::ErrorCode what, const void* data, size_t size);
-
-    ProtocolBase& _protocol;
-    uint64_t _peerId;
     MsgReader _msgReader;
     io::TcpStream::Ptr _stream;
     const Direction _direction;

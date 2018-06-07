@@ -125,7 +125,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
         wait();
     }
 
-    void on_stream_accepted(io::TcpStream::Ptr&& newStream, int errorCode) {
+    void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode) {
         if (errorCode == 0) {
             LOG_DEBUG() << "Stream accepted";
             if (!connection) {
@@ -143,7 +143,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
         }
     }
 
-    void on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, int status) {
+    void on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status) {
         assert(tag == address.u64());
         if (newStream && !connection) {
             connection = make_unique<Connection>(
@@ -166,8 +166,8 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
     }
 
     // handles network errors, may optionally notify the logic about that
-    void on_connection_error(uint64_t fromStream, int errorCode) override {
-        LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << errorCode << ")";
+    void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override {
+        LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << io::error_str(errorCode) << ")";
     }
 
     void on_unexpected_msg(uint64_t fromStream, MsgType type) override {

@@ -71,7 +71,7 @@ void NodeConnection::on_protocol_error(uint64_t, ProtocolError error)
 	OnClosed(-1);
 }
 
-void NodeConnection::on_connection_error(uint64_t, int errorCode)
+void NodeConnection::on_connection_error(uint64_t, io::ErrorCode errorCode)
 {
 	Reset();
 	OnClosed(errorCode);

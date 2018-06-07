@@ -18,8 +18,10 @@ public:
     void remove_connection(uint64_t id);
 
     io::Result write_msg(uint64_t id, const SerializedMsg& fragments);
+    io::Result write_msg(uint64_t id, const io::SharedBuffer& msg);
 
     void broadcast_msg(const SerializedMsg& fragments);
+    void broadcast_msg(const io::SharedBuffer& msg);
 
 private:
     using Container = std::unordered_map<uint64_t, Connection::Ptr>;

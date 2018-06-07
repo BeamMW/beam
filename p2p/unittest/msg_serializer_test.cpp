@@ -56,7 +56,7 @@ struct MsgHandler : IErrorHandler {
         cout << __FUNCTION__ << "(" << fromStream << "," << error << ")" << endl;
     }
 
-    void on_connection_error(uint64_t fromStream, int errorCode) override {
+    void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override {
         cout << __FUNCTION__ << "(" << fromStream << "," << errorCode << ")" << endl;
     }
 
@@ -163,7 +163,7 @@ void msg_serializer_test_2() {
     );
 
     for (const auto& f: fragments) {
-        reader.new_data_from_stream(f.data, f.size);
+        reader.new_data_from_stream(io::EC_OK, f.data, f.size);
     }
 
     assert(msg == handler.receivedObj);
