@@ -512,7 +512,7 @@ void TestP2PWalletNegotiationST()
 void TestSplitKey()
 {
 	Scalar::Native nonce;
-	nonce = 0xa231234f92381353UL;
+	nonce = (uint64_t) 0xa231234f92381353UL;
 
     auto res1 = beam::split_key(nonce, 123456789);
     auto res2 = beam::split_key(nonce, 123456789);
