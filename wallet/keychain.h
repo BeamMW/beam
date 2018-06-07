@@ -4,7 +4,6 @@
 #include "core/ecc_native.h"
 
 struct sqlite3;
-struct Nonce;
 
 namespace beam
 {
