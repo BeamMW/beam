@@ -551,11 +551,11 @@ void TestSplitKey()
 
 int main()
 {
-//    int logLevel = LOG_LEVEL_DEBUG;
-//#if LOG_VERBOSE_ENABLED
-//    logLevel = LOG_LEVEL_VERBOSE;
-//#endif
-//    auto logger = beam::Logger::create(logLevel, logLevel);
+    int logLevel = LOG_LEVEL_DEBUG;
+#if LOG_VERBOSE_ENABLED
+    logLevel = LOG_LEVEL_VERBOSE;
+#endif
+    auto logger = beam::Logger::create(logLevel, logLevel);
 
     TestSplitKey();
 
