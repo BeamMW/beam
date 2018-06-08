@@ -230,7 +230,7 @@ namespace beam {
     {
         assert(m_is_node_connected == false && !m_node_connection);
 
-        m_node_connection = make_unique<WalletNodeConnection>(m_node_address, m_wallet, m_reactor, m_reconnect_ms);
+        create_node_connection();
         m_node_connection->connect(BIND_THIS_MEMFN(on_node_connected));
     }
 
@@ -277,6 +277,12 @@ namespace beam {
     uint64_t WalletNetworkIO::get_connection_tag()
     {
         return ++m_connection_tag;
+    }
+
+    void WalletNetworkIO::create_node_connection()
+    {
+        assert(!m_node_connection);
+        m_node_connection = make_unique<WalletNodeConnection>(m_node_address, m_wallet, m_reactor, m_reconnect_ms);
     }
 
     WalletNetworkIO::WalletNodeConnection::WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec)

@@ -83,6 +83,7 @@ namespace beam
         void on_node_connected();
         
         uint64_t get_connection_tag();
+        void create_node_connection();
 
         template <typename T>
         void send(PeerId to, MsgType type, const T& data)
@@ -105,6 +106,7 @@ namespace beam
         {
             if (!m_is_node_connected)
             {
+                create_node_connection();
                 m_node_connection->connect([this, msg=std::move(msg)]()
                 {
                     m_is_node_connected = true;

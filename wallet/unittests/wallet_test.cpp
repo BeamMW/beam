@@ -487,7 +487,6 @@ private:
 
     void on_connection_error(uint64_t fromStream, int /*errorCode*/) override
     {
-        //assert(false && "NODE: on_connection_error");
         if (auto it = m_connections.find(fromStream); it != m_connections.end())
         {
             ++m_closeCount;
@@ -498,7 +497,7 @@ private:
     {
         if (errorCode == 0)
         {
-            LOG_DEBUG() << "Stream accepted";
+            LOG_DEBUG() << "Stream accepted: " << newStream->peer_address();
             auto tag = ++m_tag;// id
             m_connections.emplace(tag, make_unique<Connection>(
                     m_protocol,
@@ -506,6 +505,7 @@ private:
                     Connection::inbound,
                     100,
                     std::move(newStream)));
+
             ++m_connectCount;
         }
         else
@@ -540,7 +540,7 @@ void TestP2PWalletNegotiationST()
 
     TestNode node{ node_address, main_reactor };
     WalletNetworkIO sender_io{ sender_address, node_address, false, createKeyChain<TestKeyChain>(), main_reactor };
-    WalletNetworkIO receiver_io{ receiver_address, node_address, true, createKeyChain<TestKeyChain2>(), main_reactor, 1000, 100 };
+    WalletNetworkIO receiver_io{ receiver_address, node_address, true, createKeyChain<TestKeyChain2>(), main_reactor, 1000, 5000, 100 };
 
     sender_io.transfer_money(receiver_address, 6);
 
@@ -548,6 +548,7 @@ void TestP2PWalletNegotiationST()
     sw.stop();
     cout << "Elapsed: " << sw.milliseconds() << " ms\n";
     WALLET_CHECK(node.m_connectCount == 3);
+    WALLET_CHECK(node.m_closeCount == 3);
  }
 
 void TestSplitKey()

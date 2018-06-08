@@ -179,6 +179,10 @@ namespace beam
         {
             m_tx_completed_action(txId);
         }
+        if (m_node_requests_queue.empty())
+        {
+            m_network.close_node_connection();
+        }
     }
 
 
@@ -563,8 +567,11 @@ namespace beam
                     }
                     m_pendingReceivers.clear();
                 }
-                m_network.close_node_connection();
             }
+        }
+        if (!m_syncing && m_node_requests_queue.empty())
+        {
+            m_network.close_node_connection();
         }
     }
 }
