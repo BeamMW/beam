@@ -59,3 +59,8 @@ on_success:
     git commit -m "AppVeyor build for Windows"
 
     git push %REPO% master
+
+notifications:
+  - provider: email
+    to:
+      - big.romanov@gmail.com
