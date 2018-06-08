@@ -305,7 +305,7 @@ bool Node::Processor::VerifyBlock(const Block::Body& block, Height h0, Height h1
 	for (uint32_t i = 0; i < nThreads; i++)
 		vThreads[i].join();
 
-	return !vctx.m_bAbort && vctx.m_Context.IsValidBlock(block);
+	return !vctx.m_bAbort && vctx.m_Context.IsValidBlock(block, m_Cursor.m_SubsidyOpen);
 }
 
 void Node::Processor::VerifierContext::Proceed(VerifierContext* pVctx, uint32_t iVerifier)
@@ -411,11 +411,6 @@ void Node::Initialize()
 
 		m_Miner.Restart();
 	}
-}
-
-bool Node::GenerateGenesisBlock(Block::Body& treasury)
-{
-	return m_Miner.Restart(&treasury);
 }
 
 Node::~Node()
@@ -1159,19 +1154,23 @@ void Node::Miner::OnTimer()
 	Restart();
 }
 
-bool Node::Miner::Restart(Block::Body* pTreasury /* = NULL */)
+bool Node::Miner::Restart()
 {
 	if (m_vThreads.empty())
 		return false; //  n/a
 
-	if (!get_ParentObj().m_Processor.m_Cursor.m_Sid.m_Row)
+	Block::Body* pTreasury = NULL;
+
+	if (get_ParentObj().m_Processor.m_Cursor.m_SubsidyOpen)
 	{
-		bool bMineGenesis = pTreasury || get_ParentObj().m_Cfg.m_TestMode.m_bMineGenesisBlock;
-		if (!bMineGenesis)
+		Height dh = get_ParentObj().m_Processor.m_Cursor.m_Sid.m_Height + 1 - Block::Rules::HeightGenesis;
+		std::vector<Block::Body>& vTreasury = get_ParentObj().m_Cfg.m_vTreasury;
+		if (dh >= vTreasury.size())
 			return false;
-	} else
-		if (pTreasury)
-			LOG_WARNING() << "Treasury ignored, already past genesis block";
+
+		pTreasury = &vTreasury[dh];
+		pTreasury->m_SubsidyClosing = (dh + 1 == vTreasury.size());
+	}
 
 	Task::Ptr pTask(std::make_shared<Task>());
 

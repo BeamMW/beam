@@ -779,8 +779,6 @@ namespace beam
 
 		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
 
-		node.Initialize();
-
 		struct MyClient
 			:public proto::NodeConnection
 		{
@@ -929,7 +927,9 @@ namespace beam
 		addr.resolve("127.0.0.1");
 		addr.port(Node::s_PortDefault);
 
-		Block::Body treasury;
+		node.m_Cfg.m_vTreasury.resize(1);
+		Block::Body& treasury = node.m_Cfg.m_vTreasury[0];
+
 		treasury.ZeroInit();
 		ECC::Scalar::Native offset(ECC::Zero);
 
@@ -943,7 +943,8 @@ namespace beam
 
 		treasury.m_Offset = offset;
 		treasury.Sort();
-		node.GenerateGenesisBlock(treasury);
+
+		node.Initialize();
 
 		cl.Connect(addr);
 

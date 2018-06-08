@@ -35,6 +35,6 @@ namespace beam
 
 		// hi-level functions, should be used after Merge (in case the verification was split)
 		bool IsValidTransaction();
-		bool IsValidBlock(const Block::Body&);
+		bool IsValidBlock(const Block::Body&, bool bSubsidyOpen);
 	};
 }

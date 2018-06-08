@@ -528,9 +528,16 @@ namespace detail
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Block::Body& bb)
 		{
+			uint8_t nFlags =
+				(bb.m_Subsidy.Hi ? 1 : 0) |
+				(bb.m_SubsidyClosing ? 2 : 0);
+
 			ar & (const beam::TxBase&) bb;
+			ar & nFlags;
 			ar & bb.m_Subsidy.Lo;
-			ar & bb.m_Subsidy.Hi;
+
+			if (bb.m_Subsidy.Hi)
+				ar & bb.m_Subsidy.Hi;
 
 			return ar;
 		}
@@ -538,9 +545,18 @@ namespace detail
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Block::Body& bb)
 		{
+			uint8_t nFlags;
+
 			ar & (beam::TxBase&) bb;
+			ar & nFlags;
 			ar & bb.m_Subsidy.Lo;
-			ar & bb.m_Subsidy.Hi;
+
+			if (1 & nFlags)
+				ar & bb.m_Subsidy.Hi;
+			else
+				bb.m_Subsidy.Hi = 0;
+
+			bb.m_SubsidyClosing = ((2 & nFlags) != 0);
 
 			return ar;
 		}
