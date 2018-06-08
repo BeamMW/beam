@@ -1,6 +1,7 @@
 [![Build Status](https://travis-ci.com/beam-mw/beam.svg?token=9GsAxqTGpjsBMMHVvgzz&branch=master)](https://travis-ci.com/beam-mw/beam)
+[![Build Status](https://ci.appveyor.com/api/projects/status/voh9d2q7i5oj20rr/branch/master?svg=true)](https://ci.appveyor.com/project/beam-mw/beam/branch/master)
 
-# beam
+# Beam
 
 # How to build
 ## Windows
