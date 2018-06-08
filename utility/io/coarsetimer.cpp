@@ -11,9 +11,9 @@ CoarseTimer::Ptr CoarseTimer::create(const Reactor::Ptr& reactor, unsigned resol
     assert(reactor);
     assert(cb);
     assert(resolutionMsec > 0);
-    
+
     if (!reactor || !cb || !resolutionMsec) IO_EXCEPTION(EC_EINVAL);
-    
+
     return CoarseTimer::Ptr(new CoarseTimer(resolutionMsec, cb, Timer::create(reactor)));
 }
 
@@ -27,7 +27,7 @@ CoarseTimer::CoarseTimer(unsigned resolutionMsec, const Callback& cb, Timer::Ptr
 }
 
 CoarseTimer::~CoarseTimer() {
-    LOG_VERBOSE() << ".";
+    assert(!_insideCallback && "attempt to delete coarse timer from inside its callback, unsupported feature");
 }
 
 static inline uint64_t mono_clock() {
@@ -71,29 +71,29 @@ static constexpr unsigned TIMER_ACCURACY = 10;
 
 void CoarseTimer::on_timer() {
     LOG_VERBOSE() << TRACE(_queue.size());
-    
+
     if (_queue.empty()) return;
     Clock now = mono_clock();
-    
+
     _insideCallback = true;
-    
+
     Clock clock = 0;
-    
+
     while (!_queue.empty()) {
         auto it = _queue.begin();
-        
+
         clock = it->first;
-        
+
         LOG_VERBOSE() << TRACE(now) << TRACE(clock) << TRACE(_timerSetTo);
-        
+
         if (clock > now + TIMER_ACCURACY) break;
         ID id = it->second;
-        
+
         LOG_VERBOSE() << TRACE(id);
-        
+
         // this helps calling set_timer(), cancel(), cancel_all() from inside callbacks
-        _queue.erase(it); 
-        
+        _queue.erase(it);
+
         auto v = _validIds.find(id);
         if (v != _validIds.end()) {
             if (v->second == clock) {
@@ -102,9 +102,9 @@ void CoarseTimer::on_timer() {
             }
         }
     }
-    
+
     _insideCallback = false;
-    
+
     if (_queue.empty()) {
         cancel_all();
     } else {
@@ -114,11 +114,11 @@ void CoarseTimer::on_timer() {
         LOG_VERBOSE() << TRACE(intervalMsec);
         Result res =_timer->restart(intervalMsec, false);
         if (!res) {
-            LOG_ERROR() << "cannot restart timer, code=" << res.error(); 
+            LOG_ERROR() << "cannot restart timer, code=" << res.error();
         } else {
             _timerSetTo = now + intervalMsec;
         }
     }
 }
-    
+
 }} //namespaces
