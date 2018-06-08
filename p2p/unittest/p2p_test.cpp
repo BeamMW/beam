@@ -69,8 +69,8 @@ int p2ptest_1(io::Address seedAddr, int port) {
 
 } //namespace
 
-static const int DEF_NUM_NODES = 15;
-static const int DEF_RUN_TIME = 20;
+static const int DEF_NUM_NODES = 5;
+static const int DEF_RUN_TIME = 5;
 
 int main(int argc, char* argv[]) {
     using namespace beam;

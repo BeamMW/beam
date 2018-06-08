@@ -42,7 +42,6 @@ void MsgReader::disable_all_msg_types() {
 
 void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void* data, size_t size) {
     if (connectionStatus != 0) {
-        _state = corrupted;
         _protocol.on_connection_error(_streamId, connectionStatus);
         return;
     }
@@ -58,6 +57,7 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
         consumed = feed_data(p, sz);
         if (consumed == 0) {
             // error occured, no more reads from this stream
+            // at this moment, the *this* may be deleted
             return;
         }
         assert(consumed <= sz);
@@ -74,13 +74,13 @@ size_t MsgReader::feed_data(const uint8_t* p, size_t sz) {
             // whole header has been read
             MsgHeader header(_msgBuffer.data());
             if (!_protocol.approve_msg_header(_streamId, header)) {
-                _state = corrupted;
+                // at this moment, the *this* may be deleted
                 return 0;
             }
 
             if (!_expectedMsgTypes.test(header.type)) {
                 _protocol.on_unexpected_msg(_streamId, header.type);
-                _state = corrupted;
+                // at this moment, the *this* may be deleted
                 return 0;
             }
 
@@ -94,11 +94,11 @@ size_t MsgReader::feed_data(const uint8_t* p, size_t sz) {
             _cursor += consumed;
             _bytesLeft -= consumed;
         }
-    } else if (_state == reading_message) {
+    } else {
         if (consumed == _bytesLeft) {
             // whole message has been read
             if (!_protocol.on_new_message(_streamId, _type, _msgBuffer.data(), _msgBuffer.size())) {
-                _state = corrupted;
+                // at this moment, the *this* may be deleted
                 return 0;
             }
             if (_msgBuffer.size() > 2*_defaultSize) {
@@ -116,8 +116,6 @@ size_t MsgReader::feed_data(const uint8_t* p, size_t sz) {
             _cursor += consumed;
             _bytesLeft -= consumed;
         }
-    } else {
-        return 0;
     }
     return consumed;
 }
