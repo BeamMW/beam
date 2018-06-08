@@ -61,6 +61,6 @@ on_success:
     git push %REPO% master
 
 notifications:
-  - provider: email
+  - provider: Email
     to:
       - big.romanov@gmail.com
