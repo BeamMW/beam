@@ -318,6 +318,8 @@ namespace ECC
 			Point::Native::MacPrepared m_pGen_[2][InnerProduct::nDim];
 			Point::Native::MacPrepared m_GenDot_;
 			Point::Native::MacPrepared m_Aux2_;
+			Point::Native::MacPrepared G_;
+			Point::Native::MacPrepared H_;
 
 		} m_Ipp;
 

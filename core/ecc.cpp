@@ -786,6 +786,9 @@ namespace ECC {
 		ctx.H.Initialize("H-gen");
 		ctx.H_Big.Initialize("H-gen");
 
+		ctx.m_Ipp.G_.Initialize("G-gen");
+		ctx.m_Ipp.H_.Initialize("H-gen");
+
 		Point::Native pt, ptAux2(Zero);
 
 #define STR_GEN_PREFIX "ip-"
@@ -1596,37 +1599,35 @@ namespace ECC {
 		xx = x * x;
 
 		Point::Native::MacCasual pCasual[3];
-		pCasual[0].Init(commitment, zz);
-		pCasual[1].Init(m_T1, x);
-		pCasual[2].Init(m_T2, xx);
-
-		Point::Native ptVal;
-		ptVal.MultiMac(pCasual, _countof(pCasual), NULL, NULL, 0);
-
-		ptVal = -ptVal;
-
-		ptVal += Context::get().G * m_TauX; // MacPrepared
+		pCasual[0].Init(commitment, -zz);
+		pCasual[1].Init(m_T1, -x);
+		pCasual[2].Init(m_T2, -xx);
 
 		tDot = m_tDot;
 		sumY = tDot;
 		sumY += -delta;
-		ptVal += Context::get().H_Big * sumY; // MacPrepared
+
+		const Point::Native::MacPrepared* ppPrep[InnerProduct::nDim + 2];
+		Scalar::Native pK[_countof(ppPrep)];
+
+		ppPrep[0] = &Context::get().m_Ipp.G_;
+		ppPrep[1] = &Context::get().m_Ipp.H_;
+		pK[0] = m_TauX;
+		pK[1] = sumY;
+
+		Point::Native ptVal;
+		ptVal.MultiMac(pCasual, _countof(pCasual), ppPrep, pK, 2);
 
 		if (!(ptVal == Zero))
 			return false;
 
 		// (P - m_Mu*G) + m_Mu*G =?= m_A + m_S*x - vec(G)*vec(z) + vec(H)*( vec(z) + vec(z^2*2^n*y^-n) )
-		ptVal = m_P_Tag.m_AB;
-		ptVal += Context::get().G * m_Mu; // MacPrepared
-		ptVal = -ptVal;
-
-		ptVal += Point::Native(m_A);
-
-		const Point::Native::MacPrepared* ppPrep[InnerProduct::nDim + 1];
-		Scalar::Native pK[_countof(ppPrep)];
-
 		ppPrep[InnerProduct::nDim] = &Context::get().m_Ipp.m_Aux2_;
 		pK[InnerProduct::nDim] = z;
+
+		ppPrep[InnerProduct::nDim + 1] = &Context::get().m_Ipp.G_;
+		pK[InnerProduct::nDim + 1] = m_Mu;
+		pK[InnerProduct::nDim + 1] = -pK[InnerProduct::nDim + 1];
 
 		pCasual[0].Init(Point::Native(m_S), x);
 
@@ -1648,10 +1649,12 @@ namespace ECC {
 			pwr *= mul;
 		}
 
-		Point::Native ptVal2;
-		ptVal2.MultiMac(pCasual, 1, ppPrep, pK, _countof(ppPrep));
+		ptVal.MultiMac(pCasual, 1, ppPrep, pK, _countof(ppPrep));
 
-		ptVal += ptVal2;
+		ptVal += Point::Native(m_A);
+
+		ptVal = -ptVal;
+		ptVal += Point::Native(m_P_Tag.m_AB);
 
 		if (!(ptVal == Zero))
 			return false;
