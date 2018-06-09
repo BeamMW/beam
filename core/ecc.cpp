@@ -800,6 +800,7 @@ namespace ECC {
 			{
 				szStr[_countof(STR_GEN_PREFIX) + 1] = '0' + j;
 				ctx.m_Ipp.m_pGen[j][i].Initialize(szStr);
+				ctx.m_Ipp.m_pGen_[j][i].Initialize(szStr);
 			}
 
 			pt = ctx.m_Ipp.m_pGen[1][i] * minus_one;
@@ -814,6 +815,7 @@ namespace ECC {
 		Generator::FromPt(ctx.m_Ipp.m_Aux2, ptAux2);
 
 		ctx.m_Ipp.m_GenDot.Initialize("ip-dot");
+		ctx.m_Ipp.m_GenDot_.Initialize("ip-dot");
 
 #ifndef NDEBUG
 		g_bContextInitialized = true;
@@ -1036,7 +1038,7 @@ namespace ECC {
 		static void get_Challenge(Scalar::Native* pX, Oracle&);
 		static void Mac(Point::Native&, const Generator::Obscured& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc);
 
-		static void Aggregate(Point::Native& res, const ChallengeSet&, const Scalar::Native&, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul);
+		static void Aggregate(Scalar::Native* pK, const ChallengeSet&, const Scalar::Native&, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul);
 	};
 
 
@@ -1152,7 +1154,7 @@ namespace ECC {
 		}
 	}
 
-	void InnerProduct::Calculator::Aggregate(Point::Native& res, const ChallengeSet& cs, const Scalar::Native& k, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul)
+	void InnerProduct::Calculator::Aggregate(Scalar::Native* pK, const ChallengeSet& cs, const Scalar::Native& k, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul)
 	{
 		if (iCycle)
 		{
@@ -1160,19 +1162,28 @@ namespace ECC {
 			Scalar::Native k0 = k;
 			k0 *= cs.m_Val[nCycles - iCycle][!j];
 
-			Aggregate(res, cs, k0, j, iPos, iCycle - 1, pwr, pPwrMul);
+			Aggregate(pK, cs, k0, j, iPos, iCycle - 1, pwr, pPwrMul);
 
 			k0 = k;
 			k0 *= cs.m_Val[nCycles - iCycle][j];
 
 			uint32_t nStep = 1 << (iCycle - 1);
 
-			Aggregate(res, cs, k0, j, iPos + nStep, iCycle - 1, pwr, pPwrMul);
+			Aggregate(pK, cs, k0, j, iPos + nStep, iCycle - 1, pwr, pPwrMul);
 
 		} else
 		{
 			assert(iPos < nDim);
-			Mac(res, Context::get().m_Ipp.m_pGen[j][iPos], k, pPwrMul, pwr, true);
+			//Mac(res, Context::get().m_Ipp.m_pGen[j][iPos], k, pPwrMul, pwr, true);
+
+			Scalar::Native& res = pK[iPos + j * nDim];
+			res = k;
+
+			if (pPwrMul)
+			{
+				res *= pwr;
+				pwr *= *pPwrMul;
+			}
 		}
 	}
 
@@ -1264,9 +1275,12 @@ namespace ECC {
 		Calculator::ChallengeSet cs;
 		oracle >> cs.m_DotMultiplier;
 
-		Point::Native comm = m_AB;
-		Point::Native ptTmp;
-		Scalar::Native valTmp;
+		// Calculate the aggregated sum, consisting of sum of multiplications at once.
+		// The expression we're calculating is:
+		//
+		// - sum( LR[iCycle][0] * k[iCycle]^2 + LR[iCycle][0] * k[iCycle]^-2 )
+
+		Point::Native::MacCasual pCasual[nCycles * 2];
 
 		uint32_t n = nDim;
 		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
@@ -1274,13 +1288,14 @@ namespace ECC {
 			Calculator::get_Challenge(cs.m_Val[iCycle], oracle);
 
 			const Point* pLR = m_pLR[iCycle];
-			for (int i = 0; i < 2; i++)
+			for (int j = 0; j < 2; j++)
 			{
-				valTmp = cs.m_Val[iCycle][i];
-				valTmp *= valTmp;
+				Point::Native::MacCasual& mc = pCasual[iCycle + j * nCycles];
+				mc.Init(pLR[j]);
 
-				ptTmp = pLR[i];
-				comm += ptTmp * valTmp;
+				mc.m_K = cs.m_Val[iCycle][j];
+				mc.m_K *= mc.m_K;
+				mc.m_K = -mc.m_K;
 			}
 
 			oracle << pLR[0] << pLR[1];
@@ -1288,31 +1303,40 @@ namespace ECC {
 
 		assert(1 == n);
 
-		// finally verify commitment
-		comm = -comm;
+		// The expression we're calculating is: the transformed generator
+		//
+		// sum( G_Condensed[j] * pCondensed[j] )
+		// whereas G_Condensed[j] = Gen[j] * sum (k[iCycle]^(+/-)2 ), i.e. transformed (condensed) generators
+
+		Scalar::Native pK[InnerProduct::nDim * 2 + 1];
+		const Point::Native::MacPrepared* ppPrep[InnerProduct::nDim * 2 + 1];
 
 		for (int j = 0; j < 2; j++)
 		{
-			// calculate the transformed generator
-			valTmp = m_pCondensed[j];
-			ptTmp = Zero;
-
 			Scalar::Native pwr(1U);
+			Calculator::Aggregate(pK, cs, m_pCondensed[j], j, 0, nCycles, pwr, mod.m_pMultiplier[j]);
 
-			Calculator::Aggregate(ptTmp, cs, valTmp, j, 0, nCycles, pwr, mod.m_pMultiplier[j]);
-			comm += ptTmp;
+			for (int i = 0; i < InnerProduct::nDim; i++)
+				ppPrep[i + j * InnerProduct::nDim] = &Context::get().m_Ipp.m_pGen_[j][i];
 		}
 
 		// add the new (mutated) dot product, substract the original (claimed)
-		valTmp = m_pCondensed[0];
-		valTmp *= m_pCondensed[1];
-		valTmp += -dot;
+		pK[InnerProduct::nDim * 2] = m_pCondensed[0];
+		pK[InnerProduct::nDim * 2] *= m_pCondensed[1];
+		pK[InnerProduct::nDim * 2] += -dot;
+		pK[InnerProduct::nDim * 2] *= cs.m_DotMultiplier;
 
-		valTmp *= cs.m_DotMultiplier;
+		ppPrep[InnerProduct::nDim * 2] = &Context::get().m_Ipp.m_GenDot_;
 
-		comm += Context::get().m_Ipp.m_GenDot * valTmp;
+		// Calculate all at-once
+		Point::Native res;
+		res.MultiMac(pCasual, _countof(pCasual), ppPrep, pK, _countof(ppPrep));
 
-		return comm == Zero;
+		// verify. Should be equal to AB
+		res = -res;
+		res += Point::Native(m_AB);
+
+		return res == Zero;
 	}
 
 	struct NonceGenerator

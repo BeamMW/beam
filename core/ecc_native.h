@@ -315,6 +315,11 @@ namespace ECC
 			CompactPoint m_pAux1[2][InnerProduct::nDim];
 			CompactPoint m_Aux2; // better to use generator, but nevermind
 
+
+
+			Point::Native::MacPrepared m_pGen_[2][InnerProduct::nDim];
+			Point::Native::MacPrepared m_GenDot_;
+
 		} m_Ipp;
 
 	private:
