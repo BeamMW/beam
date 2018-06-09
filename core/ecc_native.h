@@ -114,16 +114,16 @@ namespace ECC
 		bool Import(const Point&);
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result
 
-		struct MacEntry;
-		void MultiMac(MacEntry*, int nEntries);
+		struct MacCasual;
+		struct MacPrepared;
+		void MultiMac(MacCasual*, int nCasual, const MacPrepared**, const Scalar::Native*, int nPrepared);
 	};
 
-	struct Point::Native::MacEntry
+	struct Point::Native::MacCasual
 	{
 		static const int nBits = 4;
-		static const int nValuesPerLayer = (1 << nBits) - 1; // skip zero
 
-		Point::Native m_pPt[nValuesPerLayer];
+		Point::Native m_pPt[(1 << nBits) - 1]; // skip zero
 		const Scalar::Native::uint* m_pK;
 		int m_nPrepared;
 
@@ -150,8 +150,18 @@ namespace ECC
 
 #endif // ECC_COMPACT_GEN
 
+	struct Point::Native::MacPrepared
+	{
+		static const int nBits = 8;
+		CompactPoint m_pPt[(1 << nBits) - 1]; // skip zero
+
+		void Initialize(const char* szSeed);
+	};
+
 	namespace Generator
 	{
+		void ToPt(Point::Native&, secp256k1_ge& ge, const CompactPoint&, bool bSet);
+
 		static const uint32_t nBitsPerLevel = 4;
 		static const uint32_t nPointsPerLevel = 1 << nBitsPerLevel; // 16
 

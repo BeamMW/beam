@@ -387,37 +387,39 @@ namespace ECC {
 		return *this;
 	}
 
-	void Point::Native::MacEntry::Init(const Point::Native& p, const Scalar::Native& k)
+	void Point::Native::MacCasual::Init(const Point::Native& p, const Scalar::Native& k)
 	{
 		m_nPrepared = 1;
 		m_pPt[0] = p;
 		m_pK = k.get().d;
 	}
 
-	void Point::Native::MultiMac(MacEntry* pE, int nEntries)
+	void Point::Native::MultiMac(MacCasual* pCasual, int nCasual, const MacPrepared** ppPrepared, const Scalar::Native* pKPrep, int nPrepared)
 	{
 		assert(Mode::Fast == g_Mode);
 
 		const int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
-		static_assert(!(nBitsPerWord % MacEntry::nBits), "");
-		const int nLayersPerWord = nBitsPerWord / MacEntry::nBits;
+
+		static_assert(MacCasual::nBits <= MacPrepared::nBits, "");
+		static_assert(!(nBitsPerWord % MacCasual::nBits), "");
+		static_assert(!(nBitsPerWord % MacPrepared::nBits), "");
 
 		*this = Zero;
 
 		for (int iWord = _countof(Scalar::Native().get().d); iWord--; )
 		{
-			for (int iLayer = nLayersPerWord; iLayer--; )
+			for (int iLayer = nBitsPerWord / MacCasual::nBits; iLayer--; )
 			{
 				if (!(*this == Zero))
-					for (int i = 0; i < MacEntry::nBits; i++)
+					for (int i = 0; i < MacCasual::nBits; i++)
 						*this = *this * Two;
 
-				for (int iEntry = 0; iEntry < nEntries; iEntry++)
+				for (int iEntry = 0; iEntry < nCasual; iEntry++)
 				{
-					MacEntry& me = pE[iEntry];
+					MacCasual& me = pCasual[iEntry];
 					const Scalar::Native::uint n = me.m_pK[iWord];
 
-					int nVal = (n >> (iLayer * MacEntry::nBits)) & MacEntry::nValuesPerLayer;
+					int nVal = (n >> (iLayer * MacCasual::nBits)) & _countof(me.m_pPt);
 					if (nVal--)
 					{
 						for (; me.m_nPrepared <= nVal; me.m_nPrepared++)
@@ -429,16 +431,35 @@ namespace ECC {
 						*this += me.m_pPt[nVal];
 					}
 				}
+
+				if (iLayer & (MacPrepared::nBits / MacCasual::nBits - 1))
+					continue;
+
+				int iLayerPrep = iLayer / (MacPrepared::nBits / MacCasual::nBits);
+
+				for (int iEntry = 0; iEntry < nPrepared; iEntry++)
+				{
+					const MacPrepared& me = *ppPrepared[iEntry];
+					const Scalar::Native::uint n = pKPrep[iEntry].get().d[iWord];
+
+					int nVal = (n >> (iLayerPrep * MacPrepared::nBits)) & _countof(me.m_pPt);
+					if (nVal--)
+					{
+						secp256k1_ge ge;
+						Generator::ToPt(*this, ge, me.m_pPt[nVal], false);
+					}
+				}
+
 			}
 		}
 	}
 
 	Point::Native& Point::Native::operator = (Mul v)
 	{
-		MacEntry me;
+		MacCasual me;
 		me.Init(v.x, v.y);
 
-		MultiMac(&me, 1);
+		MultiMac(&me, 1, NULL, NULL, 0);
 
 		return *this;
 	}
@@ -700,6 +721,38 @@ namespace ECC {
 		}
 
 	} // namespace Generator
+
+	void Point::Native::MacPrepared::Initialize(const char* szSeed)
+	{
+		Point::Native val;
+
+		for (uint32_t nCounter = 0; ; nCounter++)
+		{
+			Hash::Processor hp;
+			Generator::InitSeedIteration(hp, szSeed, nCounter);
+
+			if (Generator::CreatePointNnz(val, hp))
+				break;
+
+		}
+
+		Generator::FromPt(m_pPt[0], val);
+		Point::Native ptLast, pwr = val;
+
+		for (int i = 1; i < _countof(m_pPt); i++)
+		{
+			if (i & (i + 1))
+				ptLast += val;
+			else
+			{
+				pwr = pwr * Two;
+				ptLast = pwr;
+			}
+
+			Generator::FromPt(m_pPt[i], ptLast);
+		}
+	}
+
 
 	/////////////////////
 	// Context
