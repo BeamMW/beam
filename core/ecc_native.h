@@ -157,6 +157,7 @@ namespace ECC
 		CompactPoint m_pPt[(1 << nBits) - 1]; // skip zero
 
 		void Initialize(const char* szSeed);
+		void Initialize(Point::Native&);
 	};
 
 	namespace Generator
@@ -312,13 +313,11 @@ namespace ECC
 			Generator::Obscured m_pGen[2][InnerProduct::nDim];
 			Generator::Obscured m_GenDot; // seems that it's not necessary, can use G instead
 
-			CompactPoint m_pAux1[2][InnerProduct::nDim];
-			CompactPoint m_Aux2; // better to use generator, but nevermind
-
-
+			CompactPoint m_pGet1_Minus[InnerProduct::nDim];
 
 			Point::Native::MacPrepared m_pGen_[2][InnerProduct::nDim];
 			Point::Native::MacPrepared m_GenDot_;
+			Point::Native::MacPrepared m_Aux2_;
 
 		} m_Ipp;
 

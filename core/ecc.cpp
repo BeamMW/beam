@@ -741,6 +741,11 @@ namespace ECC {
 
 		}
 
+		Initialize(val);
+	}
+
+	void Point::Native::MacPrepared::Initialize(Point::Native& val)
+	{
 		Generator::FromPt(m_pPt[0], val);
 		Point::Native ptLast, pwr = val;
 
@@ -781,10 +786,6 @@ namespace ECC {
 		ctx.H.Initialize("H-gen");
 		ctx.H_Big.Initialize("H-gen");
 
-		Scalar::Native one, minus_one;
-		one = 1U;
-		minus_one = -one;
-
 		Point::Native pt, ptAux2(Zero);
 
 #define STR_GEN_PREFIX "ip-"
@@ -803,16 +804,17 @@ namespace ECC {
 				ctx.m_Ipp.m_pGen_[j][i].Initialize(szStr);
 			}
 
-			pt = ctx.m_Ipp.m_pGen[1][i] * minus_one;
-			Generator::FromPt(ctx.m_Ipp.m_pAux1[0][i], pt);
+			secp256k1_ge ge;
 
-			pt = ctx.m_Ipp.m_pGen[0][i] * one;
-			Generator::FromPt(ctx.m_Ipp.m_pAux1[1][i], pt);
+			Generator::ToPt(pt, ge, ctx.m_Ipp.m_pGen_[1][i].m_pPt[0], true);
+			pt = -pt;
+			Generator::FromPt(ctx.m_Ipp.m_pGet1_Minus[i], pt);
 
-			ptAux2 += pt;
+			Generator::ToPt(ptAux2, ge, ctx.m_Ipp.m_pGen_[0][i].m_pPt[0], false);
 		}
 
-		Generator::FromPt(ctx.m_Ipp.m_Aux2, ptAux2);
+		ptAux2 = -ptAux2;
+		ctx.m_Ipp.m_Aux2_.Initialize(ptAux2);
 
 		ctx.m_Ipp.m_GenDot.Initialize("ip-dot");
 		ctx.m_Ipp.m_GenDot_.Initialize("ip-dot");
@@ -1385,8 +1387,9 @@ namespace ECC {
 			{
 				uint32_t iBit = 1 & (v >> i);
 
-				for (uint32_t j = 0; j < 2; j++)
-					Generator::object_cmov(ge_s.V, Context::get().m_Ipp.m_pAux1[iBit][i], j == iBit); // protection against side-channel attacks
+				// protection against side-channel attacks
+				Generator::object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet1_Minus[i], 0 == iBit);
+				Generator::object_cmov(ge_s.V, Context::get().m_Ipp.m_pGen_[0][i].m_pPt[0], 1 == iBit);
 
 				Generator::ToPt(comm, ge.V, ge_s.V, false);
 			}
@@ -1589,44 +1592,43 @@ namespace ECC {
 		// H_Big * m_tDot + G * m_TauX =?= commitment * z^2 + H_Big * delta(y,z) + m_T1*x + m_T2*x^2
 		// H_Big * (m_tDot - delta(y,z)) + G * m_TauX =?= commitment * z^2 + m_T1*x + m_T2*x^2
 
-		Point::Native ptVal;
 
 		xx = x * x;
 
-		{
-			Point::Native::MacCasual pE[3];
-			pE[0].Init(commitment, zz);
-			pE[1].Init(m_T1, x);
-			pE[2].Init(m_T2, xx);
+		Point::Native::MacCasual pCasual[3];
+		pCasual[0].Init(commitment, zz);
+		pCasual[1].Init(m_T1, x);
+		pCasual[2].Init(m_T2, xx);
 
-			ptVal.MultiMac(pE, _countof(pE), NULL, NULL, 0);
-		}
+		Point::Native ptVal;
+		ptVal.MultiMac(pCasual, _countof(pCasual), NULL, NULL, 0);
 
 		ptVal = -ptVal;
 
-		ptVal += Context::get().G * m_TauX;
+		ptVal += Context::get().G * m_TauX; // MacPrepared
 
 		tDot = m_tDot;
 		sumY = tDot;
 		sumY += -delta;
-		ptVal += Context::get().H_Big * sumY;
+		ptVal += Context::get().H_Big * sumY; // MacPrepared
 
 		if (!(ptVal == Zero))
 			return false;
 
 		// (P - m_Mu*G) + m_Mu*G =?= m_A + m_S*x - vec(G)*vec(z) + vec(H)*( vec(z) + vec(z^2*2^n*y^-n) )
 		ptVal = m_P_Tag.m_AB;
-		ptVal += Context::get().G * m_Mu;
-
-		secp256k1_ge ge;
-		Point::Native ptSum0;
-		Generator::ToPt(ptSum0, ge, Context::get().m_Ipp.m_Aux2, true);
-		ptVal += ptSum0 * z;
-
+		ptVal += Context::get().G * m_Mu; // MacPrepared
 		ptVal = -ptVal;
 
 		ptVal += Point::Native(m_A);
-		ptVal += Point::Native(m_S) * x;
+
+		const Point::Native::MacPrepared* ppPrep[InnerProduct::nDim + 1];
+		Scalar::Native pK[_countof(ppPrep)];
+
+		ppPrep[InnerProduct::nDim] = &Context::get().m_Ipp.m_Aux2_;
+		pK[InnerProduct::nDim] = z;
+
+		pCasual[0].Init(Point::Native(m_S), x);
 
 		Scalar::Native yInv, pwr, mul;
 		yInv.SetInv(y);
@@ -1640,10 +1642,16 @@ namespace ECC {
 			sum2 = pwr;
 			sum2 += z;
 
-			ptVal += Context::get().m_Ipp.m_pGen[1][i] * sum2;
+			ppPrep[i] = &Context::get().m_Ipp.m_pGen_[1][i];
+			pK[i] = sum2;
 
 			pwr *= mul;
 		}
+
+		Point::Native ptVal2;
+		ptVal2.MultiMac(pCasual, 1, ppPrep, pK, _countof(ppPrep));
+
+		ptVal += ptVal2;
 
 		if (!(ptVal == Zero))
 			return false;
