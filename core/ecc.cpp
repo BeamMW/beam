@@ -1038,6 +1038,7 @@ namespace ECC {
 		static void get_Challenge(Scalar::Native* pX, Oracle&);
 		static void Mac(Point::Native&, const Generator::Obscured& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc);
 
+		static void AssignWrtPwrMul(Scalar::Native& res, const Scalar::Native& k, Scalar::Native& pwr, const Scalar::Native* pPwrMul);
 		static void Aggregate(Scalar::Native* pK, const ChallengeSet&, const Scalar::Native&, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul);
 	};
 
@@ -1154,6 +1155,17 @@ namespace ECC {
 		}
 	}
 
+	void InnerProduct::Calculator::AssignWrtPwrMul(Scalar::Native& res, const Scalar::Native& k, Scalar::Native& pwr, const Scalar::Native* pPwrMul)
+	{
+		res = k;
+
+		if (pPwrMul)
+		{
+			res *= pwr;
+			pwr *= *pPwrMul;
+		}
+	}
+
 	void InnerProduct::Calculator::Aggregate(Scalar::Native* pK, const ChallengeSet& cs, const Scalar::Native& k, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul)
 	{
 		if (iCycle)
@@ -1174,16 +1186,7 @@ namespace ECC {
 		} else
 		{
 			assert(iPos < nDim);
-			//Mac(res, Context::get().m_Ipp.m_pGen[j][iPos], k, pPwrMul, pwr, true);
-
-			Scalar::Native& res = pK[iPos + j * nDim];
-			res = k;
-
-			if (pPwrMul)
-			{
-				res *= pwr;
-				pwr *= *pPwrMul;
-			}
+			AssignWrtPwrMul(pK[iPos + j * nDim], k, pwr, pPwrMul);
 		}
 	}
 
@@ -1222,15 +1225,22 @@ namespace ECC {
 			s1.m_pVal[i] = pBufVal[i];
 		}
 
-		Point::Native comm(Zero);
 
+		Scalar::Native pK[InnerProduct::nDim * 2];
+		const Point::Native::MacPrepared* ppPrep[InnerProduct::nDim * 2];
 
 		for (int j = 0; j < 2; j++)
 		{
 			Scalar::Native pwr0(1U);
 			for (uint32_t i = 0; i < nDim; i++)
-				Calculator::Mac(comm, Context::get().m_Ipp.m_pGen[j][i], s0.m_pVal[j][i], mod.m_pMultiplier[j], pwr0, true);
+			{
+				ppPrep[i + j * nDim] = &Context::get().m_Ipp.m_pGen_[j][i];
+				Calculator::AssignWrtPwrMul(pK[i + j * nDim], s0.m_pVal[j][i], pwr0, mod.m_pMultiplier[j]);
+			}
 		}
+
+		Point::Native comm;
+		comm.MultiMac(NULL, 0, ppPrep, pK, _countof(ppPrep));
 
 		m_AB = comm;
 
