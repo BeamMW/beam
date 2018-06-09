@@ -387,11 +387,16 @@ namespace ECC {
 		return *this;
 	}
 
-	void Point::Native::MacCasual::Init(const Point::Native& p, const Scalar::Native& k)
+	void Point::Native::MacCasual::Init(const Point::Native& p)
 	{
 		m_nPrepared = 1;
 		m_pPt[0] = p;
-		m_pK = k.get().d;
+	}
+
+	void Point::Native::MacCasual::Init(const Point::Native& p, const Scalar::Native& k)
+	{
+		Init(p);
+		m_K = k;
 	}
 
 	void Point::Native::MultiMac(MacCasual* pCasual, int nCasual, const MacPrepared** ppPrepared, const Scalar::Native* pKPrep, int nPrepared)
@@ -417,7 +422,7 @@ namespace ECC {
 				for (int iEntry = 0; iEntry < nCasual; iEntry++)
 				{
 					MacCasual& me = pCasual[iEntry];
-					const Scalar::Native::uint n = me.m_pK[iWord];
+					const Scalar::Native::uint n = me.m_K.get().d[iWord];
 
 					int nVal = (n >> (iLayer * MacCasual::nBits)) & _countof(me.m_pPt);
 					if (nVal--)
@@ -1555,12 +1560,12 @@ namespace ECC {
 		xx = x * x;
 
 		{
-			Point::Native::MacEntry pE[3];
+			Point::Native::MacCasual pE[3];
 			pE[0].Init(commitment, zz);
 			pE[1].Init(m_T1, x);
 			pE[2].Init(m_T2, xx);
 
-			ptVal.MultiMac(pE, _countof(pE));
+			ptVal.MultiMac(pE, _countof(pE), NULL, NULL, 0);
 		}
 
 		ptVal = -ptVal;

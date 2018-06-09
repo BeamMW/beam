@@ -124,9 +124,10 @@ namespace ECC
 		static const int nBits = 4;
 
 		Point::Native m_pPt[(1 << nBits) - 1]; // skip zero
-		const Scalar::Native::uint* m_pK;
+		Scalar::Native m_K;
 		int m_nPrepared;
 
+		void Init(const Point::Native&);
 		void Init(const Point::Native&, const Scalar::Native&);
 	};
 
