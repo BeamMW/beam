@@ -660,56 +660,98 @@ namespace ECC {
 
 	/////////////////////
 	// MultiMac
-	void MultiMac::Prepared::Initialize(const char* szSeed, Point::Native& val)
+	void MultiMac::Prepared::Initialize(const char* szSeed)
 	{
+		Point::Native val;
+
 		for (uint32_t nCounter = 0; ; nCounter++)
 		{
 			Hash::Processor hp;
 			Generator::InitSeedIteration(hp, szSeed, nCounter);
 
 			if (Generator::CreatePointNnz(val, hp))
+			{
+				Initialize(val, hp);
 				break;
+			}
 
 		}
-
-		Initialize(val);
 	}
 
-	void MultiMac::Prepared::Initialize(Point::Native& val)
+	void MultiMac::Prepared::Initialize(Point::Native& val, Hash::Processor& hp)
 	{
-		Point::Native nums, npos;
+		Generator::FromPt(m_Fast.m_pPt[0], val);
+		Point::Native npos, nums = val;
 
-		for (Hash::Processor hp; ; )
+		for (int i = 1; i < _countof(m_Fast.m_pPt); i++)
+		{
+			if (i & (i + 1))
+				npos += val;
+			else
+			{
+				nums = nums * Two;
+				npos = nums;
+			}
+			Generator::FromPt(m_Fast.m_pPt[i], npos);
+		}
+
+		while (true)
 		{
 			Hash::Value hv;
 			hp << "nums" >> hv;
 
-			if (Generator::CreatePointNnz(nums, hp))
-				break;
-		}
+			if (!Generator::CreatePointNnz(nums, hp))
+				continue;
 
-		npos = nums;
+			hp << "blind-scalar";
+			Scalar s0;
+			hp >> s0.m_Value;
+			if (m_Secure.m_Scalar.Import(s0))
+				continue;
 
-		for (int i = 0; ; )
-		{
-			Generator::FromPt(m_pPt[i], npos);
+			npos = nums;
+			bool bOk = true;
 
-			if (++i == _countof(m_pPt))
-				break;
+			for (int i = 0; ; )
+			{
+				if (npos == Zero)
+					bOk = false;
+				Generator::FromPt(m_Secure.m_pPt[i], npos);
 
-			npos += val;
-		}
+				if (++i == _countof(m_Secure.m_pPt))
+					break;
 
-		npos = nums;
-		for (int i = ECC::nBits / Prepared::nBits; --i; )
-		{
-			for (int j = Prepared::nBits; j--; )
-				nums = nums * Two;
+				npos += val;
+			}
+
+			assert(Mode::Fast == g_Mode);
+			MultiMac mm;
+
+			const Prepared* ppPrep[] = { this };
+			mm.m_ppPrepared = ppPrep;
+			mm.m_pKPrep = &m_Secure.m_Scalar;
+			mm.m_Prepared = 1;
+
+			mm.Calculate(npos);
+
 			npos += nums;
-		}
+			for (int i = ECC::nBits / Secure::nBits; --i; )
+			{
+				for (int j = Secure::nBits; j--; )
+					nums = nums * Two;
+				npos += nums;
+			}
 
-		npos = -npos;
-		Generator::FromPt(m_Compensation, npos);
+			if (npos == Zero)
+				bOk = false;
+
+			if (bOk)
+			{
+				npos = -npos;
+				Generator::FromPt(m_Secure.m_Compensation, npos);
+				break;
+			}
+		}
 	}
 
 	void MultiMac::Casual::Init(const Point::Native& p)
@@ -736,14 +778,20 @@ namespace ECC {
 
 		const int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
 
-		static_assert(Casual::nBits <= Prepared::nBits, "");
+		static_assert(Casual::nBits <= Prepared::Fast::nBits, "");
+		static_assert(Casual::nBits <= Prepared::Secure::nBits, "");
 		static_assert(!(nBitsPerWord % Casual::nBits), "");
-		static_assert(!(nBitsPerWord % Prepared::nBits), "");
+		static_assert(!(nBitsPerWord % Prepared::Fast::nBits), "");
+		static_assert(!(nBitsPerWord % Prepared::Secure::nBits), "");
 
 		res = Zero;
 
 		NoLeak<secp256k1_ge> ge;
 		NoLeak<CompactPoint> ge_s;
+
+		if (Mode::Secure == g_Mode)
+			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+				m_pKPrep[iEntry] += m_ppPrepared[iEntry]->m_Secure.m_Scalar;
 
 		for (int iWord = _countof(Scalar::Native().get().d); iWord--; )
 		{
@@ -771,22 +819,37 @@ namespace ECC {
 					}
 				}
 
-				if (iLayer & (Prepared::nBits / Casual::nBits - 1))
-					continue;
-
-				int iLayerPrep = iLayer / (Prepared::nBits / Casual::nBits);
-
-				for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+				if (Mode::Fast == g_Mode)
 				{
-					const Prepared& x = *m_ppPrepared[iEntry];
-					const Scalar::Native::uint n = m_pKPrep[iEntry].get().d[iWord];
+					if (iLayer & (Prepared::Fast::nBits / Casual::nBits - 1))
+						continue;
 
-					int nVal = (n >> (iLayerPrep * Prepared::nBits)) & ((1 << Prepared::nBits) - 1);
+					int iLayerPrep = iLayer / (Prepared::Fast::nBits / Casual::nBits);
 
-					if (Mode::Fast == g_Mode)
-						Generator::ToPt(res, ge.V, x.m_pPt[nVal], false);
-					else
+					for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
 					{
+						const Prepared::Fast& x = m_ppPrepared[iEntry]->m_Fast;
+						const Scalar::Native::uint n = m_pKPrep[iEntry].get().d[iWord];
+
+						int nVal = (n >> (iLayerPrep * Prepared::Fast::nBits)) & ((1 << Prepared::Fast::nBits) - 1);
+						if (nVal--)
+							Generator::ToPt(res, ge.V, x.m_pPt[nVal], false);
+					}
+				}
+				else
+				{
+					if (iLayer & (Prepared::Secure::nBits / Casual::nBits - 1))
+						continue;
+
+					int iLayerPrep = iLayer / (Prepared::Secure::nBits / Casual::nBits);
+
+					for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+					{
+						const Prepared::Secure& x = m_ppPrepared[iEntry]->m_Secure;
+						const Scalar::Native::uint n = m_pKPrep[iEntry].get().d[iWord];
+
+						int nVal = (n >> (iLayerPrep * Prepared::Secure::nBits)) & ((1 << Prepared::Secure::nBits) - 1);
+
 						for (int i = 0; i < _countof(x.m_pPt); i++)
 							Generator::object_cmov(ge_s.V, x.m_pPt[i], i == nVal);
 
@@ -796,13 +859,14 @@ namespace ECC {
 			}
 		}
 
-		for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
-		{
-			const Prepared& x = *m_ppPrepared[iEntry];
+		if (Mode::Secure == g_Mode)
+			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+			{
+				const Prepared::Secure& x = m_ppPrepared[iEntry]->m_Secure;
 
-			secp256k1_ge ge;
-			Generator::ToPt(res, ge, x.m_Compensation, false);
-		}
+				secp256k1_ge ge;
+				Generator::ToPt(res, ge, x.m_Compensation, false);
+			}
 	}
 
 	/////////////////////
@@ -823,14 +887,16 @@ namespace ECC {
 	{
 		Context& ctx = *(Context*) g_pContextBuf;
 
+		Mode::Scope scope(Mode::Fast);
+
 		ctx.G.Initialize("G-gen");
 		ctx.H.Initialize("H-gen");
 		ctx.H_Big.Initialize("H-gen");
 
 		Point::Native pt, ptAux2(Zero);
 
-		ctx.m_Ipp.G_.Initialize("G-gen", pt);
-		ctx.m_Ipp.H_.Initialize("H-gen", pt);
+		ctx.m_Ipp.G_.Initialize("G-gen");
+		ctx.m_Ipp.H_.Initialize("H-gen");
 
 #define STR_GEN_PREFIX "ip-"
 		char szStr[0x20] = STR_GEN_PREFIX;
@@ -844,25 +910,26 @@ namespace ECC {
 			for (uint32_t j = 0; j < 2; j++)
 			{
 				szStr[_countof(STR_GEN_PREFIX) + 1] = '0' + j;
-				ctx.m_Ipp.m_pGen_[j][i].Initialize(szStr, pt);
+				ctx.m_Ipp.m_pGen_[j][i].Initialize(szStr);
+
+				secp256k1_ge ge;
 
 				if (1 == j)
 				{
+					Generator::ToPt(pt, ge, ctx.m_Ipp.m_pGen_[j][i].m_Fast.m_pPt[0], true);
 					pt = -pt;
 					Generator::FromPt(ctx.m_Ipp.m_pGet1_Minus[i], pt);
-				}
-				else
-				{
-					Generator::FromPt(ctx.m_Ipp.m_pGet0_Plus[i], pt);
-					ptAux2 += pt;
-				}
+				} else
+					Generator::ToPt(ptAux2, ge, ctx.m_Ipp.m_pGen_[j][i].m_Fast.m_pPt[0], false);
 			}
 		}
 
 		ptAux2 = -ptAux2;
-		ctx.m_Ipp.m_Aux2_.Initialize(ptAux2);
+		Hash::Processor hp;
+		hp << "aux2";
+		ctx.m_Ipp.m_Aux2_.Initialize(ptAux2, hp);
 
-		ctx.m_Ipp.m_GenDot_.Initialize("ip-dot", pt);
+		ctx.m_Ipp.m_GenDot_.Initialize("ip-dot");
 
 #ifndef NDEBUG
 		g_bContextInitialized = true;
@@ -1106,7 +1173,7 @@ namespace ECC {
 		{
 			MultiMac& mm = pMm[j];
 
-			Scalar::Native& crossTrm = (Scalar::Native&) mm.m_pKPrep[mm.m_Prepared];
+			Scalar::Native& crossTrm = mm.m_pKPrep[mm.m_Prepared];
 			mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_GenDot_;
 
 			crossTrm = Zero;
@@ -1144,12 +1211,12 @@ namespace ECC {
 				MultiMac& mm0 = pMm[j];
 				MultiMac& mm1 = pMm[!j];
 
-				Scalar::Native& k0 = (Scalar::Native&) mm0.m_pKPrep[mm0.m_Prepared];
+				Scalar::Native& k0 = mm0.m_pKPrep[mm0.m_Prepared];
 				k0 = v0;
 				if (mod.m_pMultiplier[j])
 					k0 *= pwr1;
 
-				Scalar::Native& k1 = (Scalar::Native&) mm1.m_pKPrep[mm1.m_Prepared];
+				Scalar::Native& k1 = mm1.m_pKPrep[mm1.m_Prepared];
 				k1 = v1;
 				if (mod.m_pMultiplier[j])
 					k1 *= pwr0;
@@ -1161,9 +1228,9 @@ namespace ECC {
 				m_pVal[j][i] += v1 * cs.m_Val[0][!j];
 
 				MultiMac_WithBufs<1, 2> mm;
-				AssignWrtPwrMul(mm.m_Bufs.m_pKPrep[mm.m_Prepared], cs.m_Val[0][!j], pwr0, mod.m_pMultiplier[j]);
+				AssignWrtPwrMul(mm.m_pKPrep[mm.m_Prepared], cs.m_Val[0][!j], pwr0, mod.m_pMultiplier[j]);
 				mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][i];
-				AssignWrtPwrMul(mm.m_Bufs.m_pKPrep[mm.m_Prepared], cs.m_Val[0][j], pwr1, mod.m_pMultiplier[j]);
+				AssignWrtPwrMul(mm.m_pKPrep[mm.m_Prepared], cs.m_Val[0][j], pwr1, mod.m_pMultiplier[j]);
 				mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][n + i];
 
 				mm.Calculate(m_pGen[j][i]);
@@ -1268,7 +1335,7 @@ namespace ECC {
 			for (uint32_t i = 0; i < nDim; i++, mm.m_Prepared++)
 			{
 				mm.m_ppPrepared[mm.m_Prepared] = &Context::get().m_Ipp.m_pGen_[j][i];
-				Calculator::AssignWrtPwrMul(mm.m_Bufs.m_pKPrep[mm.m_Prepared], ppVal[j][i], pwr0, mod.m_pMultiplier[j]);
+				Calculator::AssignWrtPwrMul(mm.m_pKPrep[mm.m_Prepared], ppVal[j][i], pwr0, mod.m_pMultiplier[j]);
 			}
 		}
 
@@ -1373,17 +1440,17 @@ namespace ECC {
 		for (int j = 0; j < 2; j++)
 		{
 			Scalar::Native pwr(1U);
-			Calculator::Aggregate(mm.m_Bufs.m_pKPrep, cs, m_pCondensed[j], j, 0, nCycles, pwr, mod.m_pMultiplier[j]);
+			Calculator::Aggregate(mm.m_pKPrep, cs, m_pCondensed[j], j, 0, nCycles, pwr, mod.m_pMultiplier[j]);
 
 			for (int i = 0; i < nDim; i++)
 				mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][i];
 		}
 
 		// add the new (mutated) dot product, substract the original (claimed)
-		mm.m_Bufs.m_pKPrep[mm.m_Prepared] = m_pCondensed[0];
-		mm.m_Bufs.m_pKPrep[mm.m_Prepared] *= m_pCondensed[1];
-		mm.m_Bufs.m_pKPrep[mm.m_Prepared] += -dot;
-		mm.m_Bufs.m_pKPrep[mm.m_Prepared] *= cs.m_DotMultiplier;
+		mm.m_pKPrep[mm.m_Prepared] = m_pCondensed[0];
+		mm.m_pKPrep[mm.m_Prepared] *= m_pCondensed[1];
+		mm.m_pKPrep[mm.m_Prepared] += -dot;
+		mm.m_pKPrep[mm.m_Prepared] *= cs.m_DotMultiplier;
 
 		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_GenDot_;
 
@@ -1436,7 +1503,7 @@ namespace ECC {
 
 				// protection against side-channel attacks
 				Generator::object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet1_Minus[i], 0 == iBit);
-				Generator::object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet0_Plus[i], 1 == iBit);
+				Generator::object_cmov(ge_s.V, Context::get().m_Ipp.m_pGen_[0][i].m_Fast.m_pPt[0], 1 == iBit);
 
 				Generator::ToPt(comm, ge.V, ge_s.V, false);
 			}
@@ -1450,7 +1517,7 @@ namespace ECC {
 		nonceGen >> ro;
 
 		MultiMac_WithBufs<1, InnerProduct::nDim * 2 + 1> mm;
-		mm.m_Bufs.m_pKPrep[mm.m_Prepared] = ro;
+		mm.m_pKPrep[mm.m_Prepared] = ro;
 		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.G_;
 
 		Scalar::Native pS[2][InnerProduct::nDim];
@@ -1460,7 +1527,7 @@ namespace ECC {
 			{
 				nonceGen >> pS[j][i];
 
-				mm.m_Bufs.m_pKPrep[mm.m_Prepared] = pS[j][i];
+				mm.m_pKPrep[mm.m_Prepared] = pS[j][i];
 				mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][i];
 			}
 
@@ -1659,10 +1726,10 @@ namespace ECC {
 		sumY = tDot;
 		sumY += -delta;
 
-		mm.m_Bufs.m_pKPrep[mm.m_Prepared] = m_TauX;
+		mm.m_pKPrep[mm.m_Prepared] = m_TauX;
 		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.G_;
 
-		mm.m_Bufs.m_pKPrep[mm.m_Prepared] = sumY;
+		mm.m_pKPrep[mm.m_Prepared] = sumY;
 		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.H_;
 
 		Point::Native ptVal;
@@ -1674,11 +1741,11 @@ namespace ECC {
 		mm.Reset();
 
 		// (P - m_Mu*G) + m_Mu*G =?= m_A + m_S*x - vec(G)*vec(z) + vec(H)*( vec(z) + vec(z^2*2^n*y^-n) )
-		mm.m_Bufs.m_pKPrep[mm.m_Prepared] = z;
+		mm.m_pKPrep[mm.m_Prepared] = z;
 		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_Aux2_;
 
-		mm.m_Bufs.m_pKPrep[mm.m_Prepared] = m_Mu;
-		mm.m_Bufs.m_pKPrep[mm.m_Prepared] = -mm.m_Bufs.m_pKPrep[mm.m_Prepared];
+		mm.m_pKPrep[mm.m_Prepared] = m_Mu;
+		mm.m_pKPrep[mm.m_Prepared] = -mm.m_pKPrep[mm.m_Prepared];
 		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.G_;
 
 		mm.m_pCasual[mm.m_Casual++].Init(Point::Native(m_S), x);
@@ -1695,7 +1762,7 @@ namespace ECC {
 			sum2 = pwr;
 			sum2 += z;
 
-			mm.m_Bufs.m_pKPrep[mm.m_Prepared] = sum2;
+			mm.m_pKPrep[mm.m_Prepared] = sum2;
 			mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[1][i];
 
 			pwr *= mul;

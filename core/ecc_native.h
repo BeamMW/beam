@@ -116,9 +116,13 @@ namespace ECC
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result
 	};
 
+#ifdef NDEBUG
+#	define ECC_COMPACT_GEN // init time is insignificant in release build. ~1sec in debug.
+#endif // NDEBUG
+
 #ifdef ECC_COMPACT_GEN
 
-	// Generator tables are stored in compact structs (x,y in canonical form). Memory footprint: ~8.5MB. Slightly faster (probably due to better cache)
+	// Generator tables are stored in compact structs (x,y in canonical form). Memory footprint: ~2.5MB. Slightly faster (probably due to better cache)
 	// Disadvantage: slow initialization, because needs "normalizing". For all the generators takes ~1sec in release, 4-5 seconds in debug.
 	//
 	// Currently *disabled* to prevent app startup lag.
@@ -127,7 +131,7 @@ namespace ECC
 
 #else // ECC_COMPACT_GEN
 
-	// Generator tables are stored in "jacobian" form. Memory footprint ~16.5MB. Slightly slower (probably due to increased mem)
+	// Generator tables are stored in "jacobian" form. Memory footprint ~4.7MB. Slightly slower (probably due to increased mem)
 	// Initialization is fast
 	//
 	// Currently used.
@@ -152,18 +156,26 @@ namespace ECC
 
 		struct Prepared
 		{
-			static const int nBits = 8;
-			CompactPoint m_pPt[(1 << nBits)];
+			struct Fast {
+				static const int nBits = 8;
+				CompactPoint m_pPt[(1 << nBits) - 1]; // skip zero
+			} m_Fast;
 
-			CompactPoint m_Compensation;
+			struct Secure {
+				// A variant of Generator::Obscured. Much less space & init time. Slower for single multiplication, nearly equal in MultiMac.
+				static const int nBits = 4;
+				CompactPoint m_pPt[(1 << nBits)];
+				CompactPoint m_Compensation;
+				Scalar::Native m_Scalar;
+			} m_Secure;
 
-			void Initialize(const char* szSeed, Point::Native&);
-			void Initialize(Point::Native&);
+			void Initialize(const char* szSeed);
+			void Initialize(Point::Native&, Hash::Processor&);
 		};
 
 		Casual* m_pCasual;
 		const Prepared** m_ppPrepared;
-		const Scalar::Native* m_pKPrep;
+		Scalar::Native* m_pKPrep;
 
 		int m_Casual;
 		int m_Prepared;
@@ -349,10 +361,8 @@ namespace ECC
 		struct IppCalculator
 		{
 			// generators used for inner product proof
-			CompactPoint m_pGet1_Minus[InnerProduct::nDim];
-			CompactPoint m_pGet0_Plus[InnerProduct::nDim];
-
 			MultiMac::Prepared m_pGen_[2][InnerProduct::nDim];
+			CompactPoint m_pGet1_Minus[InnerProduct::nDim];
 			MultiMac::Prepared m_GenDot_; // seems that it's not necessary, can use G instead
 			MultiMac::Prepared m_Aux2_;
 			MultiMac::Prepared G_;
