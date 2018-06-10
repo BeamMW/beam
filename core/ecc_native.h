@@ -153,9 +153,11 @@ namespace ECC
 		struct Prepared
 		{
 			static const int nBits = 8;
-			CompactPoint m_pPt[(1 << nBits) - 1]; // skip zero
+			CompactPoint m_pPt[(1 << nBits)];
 
-			void Initialize(const char* szSeed);
+			CompactPoint m_Compensation;
+
+			void Initialize(const char* szSeed, Point::Native&);
 			void Initialize(Point::Native&);
 		};
 
@@ -347,9 +349,8 @@ namespace ECC
 		struct IppCalculator
 		{
 			// generators used for inner product proof
-			Generator::Obscured m_pGen[2][InnerProduct::nDim];
-
 			CompactPoint m_pGet1_Minus[InnerProduct::nDim];
+			CompactPoint m_pGet0_Plus[InnerProduct::nDim];
 
 			MultiMac::Prepared m_pGen_[2][InnerProduct::nDim];
 			MultiMac::Prepared m_GenDot_; // seems that it's not necessary, can use G instead

@@ -660,10 +660,8 @@ namespace ECC {
 
 	/////////////////////
 	// MultiMac
-	void MultiMac::Prepared::Initialize(const char* szSeed)
+	void MultiMac::Prepared::Initialize(const char* szSeed, Point::Native& val)
 	{
-		Point::Native val;
-
 		for (uint32_t nCounter = 0; ; nCounter++)
 		{
 			Hash::Processor hp;
@@ -679,21 +677,39 @@ namespace ECC {
 
 	void MultiMac::Prepared::Initialize(Point::Native& val)
 	{
-		Generator::FromPt(m_pPt[0], val);
-		Point::Native ptLast, pwr = val;
+		Point::Native nums, npos;
 
-		for (int i = 1; i < _countof(m_pPt); i++)
+		for (Hash::Processor hp; ; )
 		{
-			if (i & (i + 1))
-				ptLast += val;
-			else
-			{
-				pwr = pwr * Two;
-				ptLast = pwr;
-			}
+			Hash::Value hv;
+			hp << "nums" >> hv;
 
-			Generator::FromPt(m_pPt[i], ptLast);
+			if (Generator::CreatePointNnz(nums, hp))
+				break;
 		}
+
+		npos = nums;
+
+		for (int i = 0; ; )
+		{
+			Generator::FromPt(m_pPt[i], npos);
+
+			if (++i == _countof(m_pPt))
+				break;
+
+			npos += val;
+		}
+
+		npos = nums;
+		for (int i = ECC::nBits / Prepared::nBits; --i; )
+		{
+			for (int j = Prepared::nBits; j--; )
+				nums = nums * Two;
+			npos += nums;
+		}
+
+		npos = -npos;
+		Generator::FromPt(m_Compensation, npos);
 	}
 
 	void MultiMac::Casual::Init(const Point::Native& p)
@@ -716,7 +732,7 @@ namespace ECC {
 
 	void MultiMac::Calculate(Point::Native& res) const
 	{
-		assert(Mode::Fast == g_Mode);
+		assert(!m_Casual || (Mode::Fast == g_Mode));
 
 		const int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
 
@@ -725,6 +741,9 @@ namespace ECC {
 		static_assert(!(nBitsPerWord % Prepared::nBits), "");
 
 		res = Zero;
+
+		NoLeak<secp256k1_ge> ge;
+		NoLeak<CompactPoint> ge_s;
 
 		for (int iWord = _countof(Scalar::Native().get().d); iWord--; )
 		{
@@ -762,15 +781,27 @@ namespace ECC {
 					const Prepared& x = *m_ppPrepared[iEntry];
 					const Scalar::Native::uint n = m_pKPrep[iEntry].get().d[iWord];
 
-					int nVal = (n >> (iLayerPrep * Prepared::nBits)) & _countof(x.m_pPt);
-					if (nVal--)
+					int nVal = (n >> (iLayerPrep * Prepared::nBits)) & ((1 << Prepared::nBits) - 1);
+
+					if (Mode::Fast == g_Mode)
+						Generator::ToPt(res, ge.V, x.m_pPt[nVal], false);
+					else
 					{
-						secp256k1_ge ge;
-						Generator::ToPt(res, ge, x.m_pPt[nVal], false);
+						for (int i = 0; i < _countof(x.m_pPt); i++)
+							Generator::object_cmov(ge_s.V, x.m_pPt[i], i == nVal);
+
+						Generator::ToPt(res, ge.V, ge_s.V, false);
 					}
 				}
-
 			}
+		}
+
+		for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+		{
+			const Prepared& x = *m_ppPrepared[iEntry];
+
+			secp256k1_ge ge;
+			Generator::ToPt(res, ge, x.m_Compensation, false);
 		}
 	}
 
@@ -796,10 +827,10 @@ namespace ECC {
 		ctx.H.Initialize("H-gen");
 		ctx.H_Big.Initialize("H-gen");
 
-		ctx.m_Ipp.G_.Initialize("G-gen");
-		ctx.m_Ipp.H_.Initialize("H-gen");
-
 		Point::Native pt, ptAux2(Zero);
+
+		ctx.m_Ipp.G_.Initialize("G-gen", pt);
+		ctx.m_Ipp.H_.Initialize("H-gen", pt);
 
 #define STR_GEN_PREFIX "ip-"
 		char szStr[0x20] = STR_GEN_PREFIX;
@@ -813,23 +844,25 @@ namespace ECC {
 			for (uint32_t j = 0; j < 2; j++)
 			{
 				szStr[_countof(STR_GEN_PREFIX) + 1] = '0' + j;
-				ctx.m_Ipp.m_pGen[j][i].Initialize(szStr);
-				ctx.m_Ipp.m_pGen_[j][i].Initialize(szStr);
+				ctx.m_Ipp.m_pGen_[j][i].Initialize(szStr, pt);
+
+				if (1 == j)
+				{
+					pt = -pt;
+					Generator::FromPt(ctx.m_Ipp.m_pGet1_Minus[i], pt);
+				}
+				else
+				{
+					Generator::FromPt(ctx.m_Ipp.m_pGet0_Plus[i], pt);
+					ptAux2 += pt;
+				}
 			}
-
-			secp256k1_ge ge;
-
-			Generator::ToPt(pt, ge, ctx.m_Ipp.m_pGen_[1][i].m_pPt[0], true);
-			pt = -pt;
-			Generator::FromPt(ctx.m_Ipp.m_pGet1_Minus[i], pt);
-
-			Generator::ToPt(ptAux2, ge, ctx.m_Ipp.m_pGen_[0][i].m_pPt[0], false);
 		}
 
 		ptAux2 = -ptAux2;
 		ctx.m_Ipp.m_Aux2_.Initialize(ptAux2);
 
-		ctx.m_Ipp.m_GenDot_.Initialize("ip-dot");
+		ctx.m_Ipp.m_GenDot_.Initialize("ip-dot", pt);
 
 #ifndef NDEBUG
 		g_bContextInitialized = true;
@@ -1403,7 +1436,7 @@ namespace ECC {
 
 				// protection against side-channel attacks
 				Generator::object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet1_Minus[i], 0 == iBit);
-				Generator::object_cmov(ge_s.V, Context::get().m_Ipp.m_pGen_[0][i].m_pPt[0], 1 == iBit);
+				Generator::object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet0_Plus[i], 1 == iBit);
 
 				Generator::ToPt(comm, ge.V, ge_s.V, false);
 			}
@@ -1415,7 +1448,10 @@ namespace ECC {
 		// S = G*ro + vec(sL)*vec(G) + vec(sR)*vec(H)
 		Scalar::Native ro;
 		nonceGen >> ro;
-		comm = Context::get().G * ro;
+
+		MultiMac_WithBufs<1, InnerProduct::nDim * 2 + 1> mm;
+		mm.m_Bufs.m_pKPrep[mm.m_Prepared] = ro;
+		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.G_;
 
 		Scalar::Native pS[2][InnerProduct::nDim];
 
@@ -1423,8 +1459,12 @@ namespace ECC {
 			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 			{
 				nonceGen >> pS[j][i];
-				comm += Context::get().m_Ipp.m_pGen[j][i] * pS[j][i];
+
+				mm.m_Bufs.m_pKPrep[mm.m_Prepared] = pS[j][i];
+				mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][i];
 			}
+
+		mm.Calculate(comm);
 
 		m_S = comm;
 		oracle << m_S; // exposed
