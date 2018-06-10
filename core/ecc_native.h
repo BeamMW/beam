@@ -348,12 +348,11 @@ namespace ECC
 		{
 			// generators used for inner product proof
 			Generator::Obscured m_pGen[2][InnerProduct::nDim];
-			Generator::Obscured m_GenDot; // seems that it's not necessary, can use G instead
 
 			CompactPoint m_pGet1_Minus[InnerProduct::nDim];
 
 			MultiMac::Prepared m_pGen_[2][InnerProduct::nDim];
-			MultiMac::Prepared m_GenDot_;
+			MultiMac::Prepared m_GenDot_; // seems that it's not necessary, can use G instead
 			MultiMac::Prepared m_Aux2_;
 			MultiMac::Prepared G_;
 			MultiMac::Prepared H_;

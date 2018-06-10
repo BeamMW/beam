@@ -829,7 +829,6 @@ namespace ECC {
 		ptAux2 = -ptAux2;
 		ctx.m_Ipp.m_Aux2_.Initialize(ptAux2);
 
-		ctx.m_Ipp.m_GenDot.Initialize("ip-dot");
 		ctx.m_Ipp.m_GenDot_.Initialize("ip-dot");
 
 #ifndef NDEBUG
@@ -1046,14 +1045,13 @@ namespace ECC {
 			Point::Native m_pGen[2][nDim >> 1];
 			Scalar::Native m_pVal[2][nDim >> 1];
 
-			void PerformCycle0(const Scalar::Native* ppVal[], const ChallengeSet&, Point::Native* pLR, const Modifier&);
-			void PerformCycle(uint32_t iCycle, const ChallengeSet&, Point::Native* pLR);
+			void PerformCycle0(const Scalar::Native* ppVal[], const ChallengeSet&, MultiMac* pMm, const Modifier&);
+			void PerformCycle(uint32_t iCycle, const ChallengeSet&, MultiMac* pMm);
 		};
 
-		static void CalcCrossTerm(const Scalar::Native* ppVal[], uint32_t n, const ChallengeSet&, Point::Native* pLR);
+		static void CalcCrossTerm(const Scalar::Native* ppVal[], uint32_t n, const ChallengeSet&, MultiMac* pMm);
 
 		static void get_Challenge(Scalar::Native* pX, Oracle&);
-		static void Mac(Point::Native&, const Generator::Obscured& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc);
 
 		static void AssignWrtPwrMul(Scalar::Native& res, const Scalar::Native& k, Scalar::Native& pwr, const Scalar::Native* pPwrMul);
 		static void Aggregate(Scalar::Native* pK, const ChallengeSet&, const Scalar::Native&, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul);
@@ -1069,39 +1067,25 @@ namespace ECC {
 		pX[1].SetInv(pX[0]);
 	}
 
-	void InnerProduct::Calculator::Mac(Point::Native& res, const Generator::Obscured& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc)
+	void InnerProduct::Calculator::CalcCrossTerm(const Scalar::Native* ppVal[], uint32_t n, const ChallengeSet& cs, MultiMac* pMm)
 	{
-		if (pPwrMul)
-		{
-			Scalar::Native k2(k);
-			k2 *= pwr;
-
-			if (bPwrInc)
-				pwr *= *pPwrMul;
-
-			Mac(res, g, k2, NULL, pwr, bPwrInc);
-		}
-		else
-			res += g * k;
-	}
-
-	void InnerProduct::Calculator::CalcCrossTerm(const Scalar::Native* ppVal[], uint32_t n, const ChallengeSet& cs, Point::Native* pLR)
-	{
-		Scalar::Native crossTrm;
 		for (int j = 0; j < 2; j++)
 		{
+			MultiMac& mm = pMm[j];
+
+			Scalar::Native& crossTrm = (Scalar::Native&) mm.m_pKPrep[mm.m_Prepared];
+			mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_GenDot_;
+
 			crossTrm = Zero;
 
 			for (uint32_t i = 0; i < n; i++)
 				crossTrm += ppVal[j][i] * ppVal[!j][n + i];
 
 			crossTrm *= cs.m_DotMultiplier;
-
-			pLR[j] = Context::get().m_Ipp.m_GenDot * crossTrm;
 		}
 	}
 
-	void InnerProduct::Calculator::State::PerformCycle0(const Scalar::Native* ppVal[], const ChallengeSet& cs, Point::Native* pLR, const Modifier& mod)
+	void InnerProduct::Calculator::State::PerformCycle0(const Scalar::Native* ppVal[], const ChallengeSet& cs, MultiMac* pMm, const Modifier& mod)
 	{
 		const uint32_t n = nDim >> 1;
 		static_assert(n, "");
@@ -1124,8 +1108,21 @@ namespace ECC {
 				const Scalar::Native& v0 = ppVal[j][i];
 				const Scalar::Native& v1 = ppVal[j][n + i];
 
-				Mac(pLR[j], Context::get().m_Ipp.m_pGen[j][n + i], v0, mod.m_pMultiplier[j], pwr1, false);
-				Mac(pLR[!j], Context::get().m_Ipp.m_pGen[j][i], v1, mod.m_pMultiplier[j], pwr0, false);
+				MultiMac& mm0 = pMm[j];
+				MultiMac& mm1 = pMm[!j];
+
+				Scalar::Native& k0 = (Scalar::Native&) mm0.m_pKPrep[mm0.m_Prepared];
+				k0 = v0;
+				if (mod.m_pMultiplier[j])
+					k0 *= pwr1;
+
+				Scalar::Native& k1 = (Scalar::Native&) mm1.m_pKPrep[mm1.m_Prepared];
+				k1 = v1;
+				if (mod.m_pMultiplier[j])
+					k1 *= pwr0;
+
+				mm0.m_ppPrepared[mm0.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][n + i];
+				mm1.m_ppPrepared[mm1.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][i];
 
 				m_pVal[j][i] = v0 * cs.m_Val[0][j];
 				m_pVal[j][i] += v1 * cs.m_Val[0][!j];
@@ -1141,7 +1138,7 @@ namespace ECC {
 		}
 	}
 
-	void InnerProduct::Calculator::State::PerformCycle(uint32_t iCycle, const ChallengeSet& cs, Point::Native* pLR)
+	void InnerProduct::Calculator::State::PerformCycle(uint32_t iCycle, const ChallengeSet& cs, MultiMac* pMm)
 	{
 		uint32_t n = nDim >> (iCycle + 1);
 		assert(n);
@@ -1157,8 +1154,8 @@ namespace ECC {
 				Scalar::Native& v0 = m_pVal[j][i];
 				Scalar::Native& v1 = m_pVal[j][n + i];
 
-				pLR[j] += g1 * v0;
-				pLR[!j] += g0 * v1;
+				pMm[j].m_pCasual[pMm[j].m_Casual++].Init(g1, v0);
+				pMm[!j].m_pCasual[pMm[!j].m_Casual++].Init(g0, v1);
 
 				v0 *= cs.m_Val[iCycle][j];
 				v0 += v1 * cs.m_Val[iCycle][!j];
@@ -1230,7 +1227,7 @@ namespace ECC {
 		Calculator::State s;
 		const Scalar::Native* ppVal[2] = { pA, pB };
 
-		MultiMac_WithBufs<1, nDim * 2> mm;
+		MultiMac_WithBufs<nDim, (nDim + 1) * 2> mm;
 
 		for (int j = 0; j < 2; j++)
 		{
@@ -1253,28 +1250,40 @@ namespace ECC {
 		Calculator::ChallengeSet cs;
 		oracle >> cs.m_DotMultiplier;
 
-		Point::Native pLR[2];
+		Point::Native lr;
 
 		uint32_t n = nDim;
 		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
 		{
 			Calculator::get_Challenge(cs.m_Val[iCycle], oracle);
 
-			Calculator::CalcCrossTerm(ppVal, n >> 1, cs, pLR);
+			MultiMac pMm[2];
+			pMm[0].m_pCasual = mm.m_pCasual;
+			pMm[0].m_pKPrep = mm.m_pKPrep;
+			pMm[0].m_ppPrepared = mm.m_ppPrepared;
+			pMm[1].m_pCasual = mm.m_pCasual + (nDim >> 1);
+			pMm[1].m_pKPrep = mm.m_pKPrep + (nDim + 1);
+			pMm[1].m_ppPrepared = mm.m_ppPrepared + (nDim + 1);
+
+			Calculator::CalcCrossTerm(ppVal, n >> 1, cs, pMm);
 
 			if (iCycle)
-				s.PerformCycle(iCycle, cs, pLR);
+				s.PerformCycle(iCycle, cs, pMm);
 			else
 			{
-				s.PerformCycle0(ppVal, cs, pLR, mod);
+				s.PerformCycle0(ppVal, cs, pMm, mod);
 
 				for (int j = 0; j < _countof(ppVal); j++)
 					ppVal[j] = s.m_pVal[j];
 			}
 
+			assert(pMm[0].m_Casual <= (nDim >> 1));
+			assert(pMm[0].m_Prepared <= (nDim + 1));
+
 			for (int j = 0; j < 2; j++)
 			{
-				m_pLR[iCycle][j] = pLR[j];
+				pMm[j].Calculate(lr);
+				m_pLR[iCycle][j] = lr;
 				oracle << m_pLR[iCycle][j];
 			}
 		}
