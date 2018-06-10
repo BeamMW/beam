@@ -1,5 +1,6 @@
 #pragma once
 #include "ecc.h"
+#include <assert.h>
 
 #define USE_BASIC_CONFIG
 
