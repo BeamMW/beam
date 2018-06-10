@@ -387,84 +387,15 @@ namespace ECC {
 		return *this;
 	}
 
-	void Point::Native::MacCasual::Init(const Point::Native& p)
-	{
-		m_nPrepared = 1;
-		m_pPt[0] = p;
-	}
-
-	void Point::Native::MacCasual::Init(const Point::Native& p, const Scalar::Native& k)
-	{
-		Init(p);
-		m_K = k;
-	}
-
-	void Point::Native::MultiMac(MacCasual* pCasual, int nCasual, const MacPrepared** ppPrepared, const Scalar::Native* pKPrep, int nPrepared)
-	{
-		assert(Mode::Fast == g_Mode);
-
-		const int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
-
-		static_assert(MacCasual::nBits <= MacPrepared::nBits, "");
-		static_assert(!(nBitsPerWord % MacCasual::nBits), "");
-		static_assert(!(nBitsPerWord % MacPrepared::nBits), "");
-
-		*this = Zero;
-
-		for (int iWord = _countof(Scalar::Native().get().d); iWord--; )
-		{
-			for (int iLayer = nBitsPerWord / MacCasual::nBits; iLayer--; )
-			{
-				if (!(*this == Zero))
-					for (int i = 0; i < MacCasual::nBits; i++)
-						*this = *this * Two;
-
-				for (int iEntry = 0; iEntry < nCasual; iEntry++)
-				{
-					MacCasual& me = pCasual[iEntry];
-					const Scalar::Native::uint n = me.m_K.get().d[iWord];
-
-					int nVal = (n >> (iLayer * MacCasual::nBits)) & _countof(me.m_pPt);
-					if (nVal--)
-					{
-						for (; me.m_nPrepared <= nVal; me.m_nPrepared++)
-							if (me.m_nPrepared & (me.m_nPrepared + 1))
-								me.m_pPt[me.m_nPrepared] = me.m_pPt[me.m_nPrepared - 1] + me.m_pPt[0];
-							else
-								me.m_pPt[me.m_nPrepared] = me.m_pPt[me.m_nPrepared >> 1] * Two;
-
-						*this += me.m_pPt[nVal];
-					}
-				}
-
-				if (iLayer & (MacPrepared::nBits / MacCasual::nBits - 1))
-					continue;
-
-				int iLayerPrep = iLayer / (MacPrepared::nBits / MacCasual::nBits);
-
-				for (int iEntry = 0; iEntry < nPrepared; iEntry++)
-				{
-					const MacPrepared& me = *ppPrepared[iEntry];
-					const Scalar::Native::uint n = pKPrep[iEntry].get().d[iWord];
-
-					int nVal = (n >> (iLayerPrep * MacPrepared::nBits)) & _countof(me.m_pPt);
-					if (nVal--)
-					{
-						secp256k1_ge ge;
-						Generator::ToPt(*this, ge, me.m_pPt[nVal], false);
-					}
-				}
-
-			}
-		}
-	}
-
 	Point::Native& Point::Native::operator = (Mul v)
 	{
-		MacCasual me;
-		me.Init(v.x, v.y);
+		MultiMac::Casual mc;
+		mc.Init(v.x, v.y);
 
-		MultiMac(&me, 1, NULL, NULL, 0);
+		MultiMac mm;
+		mm.m_pCasual = &mc;
+		mm.m_Casual = 1;
+		mm.Calculate(*this);
 
 		return *this;
 	}
@@ -727,7 +658,9 @@ namespace ECC {
 
 	} // namespace Generator
 
-	void Point::Native::MacPrepared::Initialize(const char* szSeed)
+	/////////////////////
+	// MultiMac
+	void MultiMac::Prepared::Initialize(const char* szSeed)
 	{
 		Point::Native val;
 
@@ -744,7 +677,7 @@ namespace ECC {
 		Initialize(val);
 	}
 
-	void Point::Native::MacPrepared::Initialize(Point::Native& val)
+	void MultiMac::Prepared::Initialize(Point::Native& val)
 	{
 		Generator::FromPt(m_pPt[0], val);
 		Point::Native ptLast, pwr = val;
@@ -763,6 +696,83 @@ namespace ECC {
 		}
 	}
 
+	void MultiMac::Casual::Init(const Point::Native& p)
+	{
+		m_nPrepared = 1;
+		m_pPt[0] = p;
+	}
+
+	void MultiMac::Casual::Init(const Point::Native& p, const Scalar::Native& k)
+	{
+		Init(p);
+		m_K = k;
+	}
+
+	void MultiMac::Reset()
+	{
+		m_Casual = 0;
+		m_Prepared = 0;
+	}
+
+	void MultiMac::Calculate(Point::Native& res) const
+	{
+		assert(Mode::Fast == g_Mode);
+
+		const int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
+
+		static_assert(Casual::nBits <= Prepared::nBits, "");
+		static_assert(!(nBitsPerWord % Casual::nBits), "");
+		static_assert(!(nBitsPerWord % Prepared::nBits), "");
+
+		res = Zero;
+
+		for (int iWord = _countof(Scalar::Native().get().d); iWord--; )
+		{
+			for (int iLayer = nBitsPerWord / Casual::nBits; iLayer--; )
+			{
+				if (!(res == Zero))
+					for (int i = 0; i < Casual::nBits; i++)
+						res = res * Two;
+
+				for (int iEntry = 0; iEntry < m_Casual; iEntry++)
+				{
+					Casual& x = m_pCasual[iEntry];
+					const Scalar::Native::uint n = x.m_K.get().d[iWord];
+
+					int nVal = (n >> (iLayer * Casual::nBits)) & _countof(x.m_pPt);
+					if (nVal--)
+					{
+						for (; x.m_nPrepared <= nVal; x.m_nPrepared++)
+							if (x.m_nPrepared & (x.m_nPrepared + 1))
+								x.m_pPt[x.m_nPrepared] = x.m_pPt[x.m_nPrepared - 1] + x.m_pPt[0];
+							else
+								x.m_pPt[x.m_nPrepared] = x.m_pPt[x.m_nPrepared >> 1] * Two;
+
+						res += x.m_pPt[nVal];
+					}
+				}
+
+				if (iLayer & (Prepared::nBits / Casual::nBits - 1))
+					continue;
+
+				int iLayerPrep = iLayer / (Prepared::nBits / Casual::nBits);
+
+				for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+				{
+					const Prepared& x = *m_ppPrepared[iEntry];
+					const Scalar::Native::uint n = m_pKPrep[iEntry].get().d[iWord];
+
+					int nVal = (n >> (iLayerPrep * Prepared::nBits)) & _countof(x.m_pPt);
+					if (nVal--)
+					{
+						secp256k1_ge ge;
+						Generator::ToPt(res, ge, x.m_pPt[nVal], false);
+					}
+				}
+
+			}
+		}
+	}
 
 	/////////////////////
 	// Context
@@ -1230,22 +1240,20 @@ namespace ECC {
 			s1.m_pVal[i] = pBufVal[i];
 		}
 
-
-		Scalar::Native pK[InnerProduct::nDim * 2];
-		const Point::Native::MacPrepared* ppPrep[InnerProduct::nDim * 2];
+		MultiMac_WithBufs<1, InnerProduct::nDim * 2> mm;
 
 		for (int j = 0; j < 2; j++)
 		{
 			Scalar::Native pwr0(1U);
-			for (uint32_t i = 0; i < nDim; i++)
+			for (uint32_t i = 0; i < nDim; i++, mm.m_Prepared++)
 			{
-				ppPrep[i + j * nDim] = &Context::get().m_Ipp.m_pGen_[j][i];
-				Calculator::AssignWrtPwrMul(pK[i + j * nDim], s0.m_pVal[j][i], pwr0, mod.m_pMultiplier[j]);
+				mm.m_ppPrepared[mm.m_Prepared] = &Context::get().m_Ipp.m_pGen_[j][i];
+				Calculator::AssignWrtPwrMul(mm.m_Bufs.m_pKPrep[mm.m_Prepared], s0.m_pVal[j][i], pwr0, mod.m_pMultiplier[j]);
 			}
 		}
 
 		Point::Native comm;
-		comm.MultiMac(NULL, 0, ppPrep, pK, _countof(ppPrep));
+		mm.Calculate(comm);
 
 		m_AB = comm;
 
@@ -1295,7 +1303,7 @@ namespace ECC {
 		//
 		// - sum( LR[iCycle][0] * k[iCycle]^2 + LR[iCycle][0] * k[iCycle]^-2 )
 
-		Point::Native::MacCasual pCasual[nCycles * 2];
+		MultiMac_WithBufs<nCycles * 2, InnerProduct::nDim * 2 + 1> mm;
 
 		uint32_t n = nDim;
 		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
@@ -1305,12 +1313,12 @@ namespace ECC {
 			const Point* pLR = m_pLR[iCycle];
 			for (int j = 0; j < 2; j++)
 			{
-				Point::Native::MacCasual& mc = pCasual[iCycle + j * nCycles];
-				mc.Init(pLR[j]);
+				MultiMac::Casual& x = mm.m_pCasual[mm.m_Casual++];
+				x.Init(pLR[j]);
 
-				mc.m_K = cs.m_Val[iCycle][j];
-				mc.m_K *= mc.m_K;
-				mc.m_K = -mc.m_K;
+				x.m_K = cs.m_Val[iCycle][j];
+				x.m_K *= x.m_K;
+				x.m_K = -x.m_K;
 			}
 
 			oracle << pLR[0] << pLR[1];
@@ -1323,29 +1331,26 @@ namespace ECC {
 		// sum( G_Condensed[j] * pCondensed[j] )
 		// whereas G_Condensed[j] = Gen[j] * sum (k[iCycle]^(+/-)2 ), i.e. transformed (condensed) generators
 
-		Scalar::Native pK[InnerProduct::nDim * 2 + 1];
-		const Point::Native::MacPrepared* ppPrep[InnerProduct::nDim * 2 + 1];
-
 		for (int j = 0; j < 2; j++)
 		{
 			Scalar::Native pwr(1U);
-			Calculator::Aggregate(pK, cs, m_pCondensed[j], j, 0, nCycles, pwr, mod.m_pMultiplier[j]);
+			Calculator::Aggregate(mm.m_Bufs.m_pKPrep, cs, m_pCondensed[j], j, 0, nCycles, pwr, mod.m_pMultiplier[j]);
 
 			for (int i = 0; i < InnerProduct::nDim; i++)
-				ppPrep[i + j * InnerProduct::nDim] = &Context::get().m_Ipp.m_pGen_[j][i];
+				mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][i];
 		}
 
 		// add the new (mutated) dot product, substract the original (claimed)
-		pK[InnerProduct::nDim * 2] = m_pCondensed[0];
-		pK[InnerProduct::nDim * 2] *= m_pCondensed[1];
-		pK[InnerProduct::nDim * 2] += -dot;
-		pK[InnerProduct::nDim * 2] *= cs.m_DotMultiplier;
+		mm.m_Bufs.m_pKPrep[mm.m_Prepared] = m_pCondensed[0];
+		mm.m_Bufs.m_pKPrep[mm.m_Prepared] *= m_pCondensed[1];
+		mm.m_Bufs.m_pKPrep[mm.m_Prepared] += -dot;
+		mm.m_Bufs.m_pKPrep[mm.m_Prepared] *= cs.m_DotMultiplier;
 
-		ppPrep[InnerProduct::nDim * 2] = &Context::get().m_Ipp.m_GenDot_;
+		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_GenDot_;
 
 		// Calculate all at-once
 		Point::Native res;
-		res.MultiMac(pCasual, _countof(pCasual), ppPrep, pK, _countof(ppPrep));
+		mm.Calculate(res);
 
 		// verify. Should be equal to AB
 		res = -res;
@@ -1598,38 +1603,39 @@ namespace ECC {
 
 		xx = x * x;
 
-		Point::Native::MacCasual pCasual[3];
-		pCasual[0].Init(commitment, -zz);
-		pCasual[1].Init(m_T1, -x);
-		pCasual[2].Init(m_T2, -xx);
+		MultiMac_WithBufs<3, InnerProduct::nDim + 2> mm;
+
+		mm.m_pCasual[mm.m_Casual++].Init(commitment, -zz);
+		mm.m_pCasual[mm.m_Casual++].Init(m_T1, -x);
+		mm.m_pCasual[mm.m_Casual++].Init(m_T2, -xx);
 
 		tDot = m_tDot;
 		sumY = tDot;
 		sumY += -delta;
 
-		const Point::Native::MacPrepared* ppPrep[InnerProduct::nDim + 2];
-		Scalar::Native pK[_countof(ppPrep)];
+		mm.m_Bufs.m_pKPrep[mm.m_Prepared] = m_TauX;
+		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.G_;
 
-		ppPrep[0] = &Context::get().m_Ipp.G_;
-		ppPrep[1] = &Context::get().m_Ipp.H_;
-		pK[0] = m_TauX;
-		pK[1] = sumY;
+		mm.m_Bufs.m_pKPrep[mm.m_Prepared] = sumY;
+		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.H_;
 
 		Point::Native ptVal;
-		ptVal.MultiMac(pCasual, _countof(pCasual), ppPrep, pK, 2);
+		mm.Calculate(ptVal);
 
 		if (!(ptVal == Zero))
 			return false;
 
+		mm.Reset();
+
 		// (P - m_Mu*G) + m_Mu*G =?= m_A + m_S*x - vec(G)*vec(z) + vec(H)*( vec(z) + vec(z^2*2^n*y^-n) )
-		ppPrep[InnerProduct::nDim] = &Context::get().m_Ipp.m_Aux2_;
-		pK[InnerProduct::nDim] = z;
+		mm.m_Bufs.m_pKPrep[mm.m_Prepared] = z;
+		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_Aux2_;
 
-		ppPrep[InnerProduct::nDim + 1] = &Context::get().m_Ipp.G_;
-		pK[InnerProduct::nDim + 1] = m_Mu;
-		pK[InnerProduct::nDim + 1] = -pK[InnerProduct::nDim + 1];
+		mm.m_Bufs.m_pKPrep[mm.m_Prepared] = m_Mu;
+		mm.m_Bufs.m_pKPrep[mm.m_Prepared] = -mm.m_Bufs.m_pKPrep[mm.m_Prepared];
+		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.G_;
 
-		pCasual[0].Init(Point::Native(m_S), x);
+		mm.m_pCasual[mm.m_Casual++].Init(Point::Native(m_S), x);
 
 		Scalar::Native yInv, pwr, mul;
 		yInv.SetInv(y);
@@ -1643,13 +1649,13 @@ namespace ECC {
 			sum2 = pwr;
 			sum2 += z;
 
-			ppPrep[i] = &Context::get().m_Ipp.m_pGen_[1][i];
-			pK[i] = sum2;
+			mm.m_Bufs.m_pKPrep[mm.m_Prepared] = sum2;
+			mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[1][i];
 
 			pwr *= mul;
 		}
 
-		ptVal.MultiMac(pCasual, 1, ppPrep, pK, _countof(ppPrep));
+		mm.Calculate(ptVal);
 
 		ptVal += Point::Native(m_A);
 

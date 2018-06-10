@@ -114,22 +114,6 @@ namespace ECC
 
 		bool Import(const Point&);
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result
-
-		struct MacCasual;
-		struct MacPrepared;
-		void MultiMac(MacCasual*, int nCasual, const MacPrepared**, const Scalar::Native*, int nPrepared);
-	};
-
-	struct Point::Native::MacCasual
-	{
-		static const int nBits = 4;
-
-		Point::Native m_pPt[(1 << nBits) - 1]; // skip zero
-		Scalar::Native m_K;
-		int m_nPrepared;
-
-		void Init(const Point::Native&);
-		void Init(const Point::Native&, const Scalar::Native&);
 	};
 
 #ifdef ECC_COMPACT_GEN
@@ -152,13 +136,65 @@ namespace ECC
 
 #endif // ECC_COMPACT_GEN
 
-	struct Point::Native::MacPrepared
+	struct MultiMac
 	{
-		static const int nBits = 8;
-		CompactPoint m_pPt[(1 << nBits) - 1]; // skip zero
+		struct Casual
+		{
+			static const int nBits = 4;
 
-		void Initialize(const char* szSeed);
-		void Initialize(Point::Native&);
+			Point::Native m_pPt[(1 << nBits) - 1]; // skip zero
+			Scalar::Native m_K;
+			int m_nPrepared;
+
+			void Init(const Point::Native&);
+			void Init(const Point::Native&, const Scalar::Native&);
+		};
+
+		struct Prepared
+		{
+			static const int nBits = 8;
+			CompactPoint m_pPt[(1 << nBits) - 1]; // skip zero
+
+			void Initialize(const char* szSeed);
+			void Initialize(Point::Native&);
+		};
+
+		Casual* m_pCasual;
+		const Prepared** m_ppPrepared;
+		const Scalar::Native* m_pKPrep;
+
+		int m_Casual;
+		int m_Prepared;
+
+		MultiMac() { Reset(); }
+
+		void Reset();
+		void Calculate(Point::Native&) const;
+	};
+
+	template <int nMaxCasual, int nMaxPrepared>
+	struct MultiMac_WithBufs
+		:public MultiMac
+	{
+		struct Bufs {
+			Casual m_pCasual[nMaxCasual];
+			const Prepared* m_ppPrepared[nMaxPrepared];
+			Scalar::Native m_pKPrep[nMaxPrepared];
+		} m_Bufs;
+
+		MultiMac_WithBufs()
+		{
+			m_pCasual		= m_Bufs.m_pCasual;
+			m_ppPrepared	= m_Bufs.m_ppPrepared;
+			m_pKPrep		= m_Bufs.m_pKPrep;
+		}
+
+		void Calculate(Point::Native& res)
+		{
+			assert(m_Casual <= nMaxCasual);
+			assert(m_Prepared <= nMaxPrepared);
+			MultiMac::Calculate(res);
+		}
 	};
 
 	namespace Generator
@@ -316,11 +352,11 @@ namespace ECC
 
 			CompactPoint m_pGet1_Minus[InnerProduct::nDim];
 
-			Point::Native::MacPrepared m_pGen_[2][InnerProduct::nDim];
-			Point::Native::MacPrepared m_GenDot_;
-			Point::Native::MacPrepared m_Aux2_;
-			Point::Native::MacPrepared G_;
-			Point::Native::MacPrepared H_;
+			MultiMac::Prepared m_pGen_[2][InnerProduct::nDim];
+			MultiMac::Prepared m_GenDot_;
+			MultiMac::Prepared m_Aux2_;
+			MultiMac::Prepared G_;
+			MultiMac::Prepared H_;
 
 		} m_Ipp;
 
