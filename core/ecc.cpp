@@ -1041,14 +1041,16 @@ namespace ECC {
 			Scalar::Native m_Val[nCycles][2];
 		};
 
-		struct State {
-			Point::Native* m_pGen[2];
-			Scalar::Native* m_pVal[2];
+		struct State
+		{
+			Point::Native m_pGen[2][nDim >> 1];
+			Scalar::Native m_pVal[2][nDim >> 1];
 
-			void CalcCrossTerm(uint32_t n, const ChallengeSet&, Point::Native* pLR) const;
-			void PerformCycle0(const State& src, const ChallengeSet&, Point::Native* pLR, const Modifier&);
+			void PerformCycle0(const Scalar::Native* ppVal[], const ChallengeSet&, Point::Native* pLR, const Modifier&);
 			void PerformCycle(uint32_t iCycle, const ChallengeSet&, Point::Native* pLR);
 		};
+
+		static void CalcCrossTerm(const Scalar::Native* ppVal[], uint32_t n, const ChallengeSet&, Point::Native* pLR);
 
 		static void get_Challenge(Scalar::Native* pX, Oracle&);
 		static void Mac(Point::Native&, const Generator::Obscured& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc);
@@ -1083,7 +1085,7 @@ namespace ECC {
 			res += g * k;
 	}
 
-	void InnerProduct::Calculator::State::CalcCrossTerm(uint32_t n, const ChallengeSet& cs, Point::Native* pLR) const
+	void InnerProduct::Calculator::CalcCrossTerm(const Scalar::Native* ppVal[], uint32_t n, const ChallengeSet& cs, Point::Native* pLR)
 	{
 		Scalar::Native crossTrm;
 		for (int j = 0; j < 2; j++)
@@ -1091,7 +1093,7 @@ namespace ECC {
 			crossTrm = Zero;
 
 			for (uint32_t i = 0; i < n; i++)
-				crossTrm += m_pVal[j][i] * m_pVal[!j][n + i];
+				crossTrm += ppVal[j][i] * ppVal[!j][n + i];
 
 			crossTrm *= cs.m_DotMultiplier;
 
@@ -1099,12 +1101,10 @@ namespace ECC {
 		}
 	}
 
-	void InnerProduct::Calculator::State::PerformCycle0(const State& src, const ChallengeSet& cs, Point::Native* pLR, const Modifier& mod)
+	void InnerProduct::Calculator::State::PerformCycle0(const Scalar::Native* ppVal[], const ChallengeSet& cs, Point::Native* pLR, const Modifier& mod)
 	{
 		const uint32_t n = nDim >> 1;
 		static_assert(n, "");
-
-		src.CalcCrossTerm(n, cs, pLR);
 
 		Scalar::Native pwr0, pwr1;
 
@@ -1121,21 +1121,22 @@ namespace ECC {
 
 			for (uint32_t i = 0; i < n; i++)
 			{
-				const Generator::Obscured& g0 = Context::get().m_Ipp.m_pGen[j][i];
-				const Generator::Obscured& g1 = Context::get().m_Ipp.m_pGen[j][n + i];
+				const Scalar::Native& v0 = ppVal[j][i];
+				const Scalar::Native& v1 = ppVal[j][n + i];
 
-				const Scalar::Native& v0 = src.m_pVal[j][i];
-				const Scalar::Native& v1 = src.m_pVal[j][n + i];
-
-				Mac(pLR[j], g1, v0, mod.m_pMultiplier[j], pwr1, false);
-				Mac(pLR[!j], g0, v1, mod.m_pMultiplier[j], pwr0, false);
+				Mac(pLR[j], Context::get().m_Ipp.m_pGen[j][n + i], v0, mod.m_pMultiplier[j], pwr1, false);
+				Mac(pLR[!j], Context::get().m_Ipp.m_pGen[j][i], v1, mod.m_pMultiplier[j], pwr0, false);
 
 				m_pVal[j][i] = v0 * cs.m_Val[0][j];
 				m_pVal[j][i] += v1 * cs.m_Val[0][!j];
 
-				m_pGen[j][i] = Zero;
-				Mac(m_pGen[j][i], g0, cs.m_Val[0][!j], mod.m_pMultiplier[j], pwr0, true);
-				Mac(m_pGen[j][i], g1, cs.m_Val[0][j], mod.m_pMultiplier[j], pwr1, true);
+				MultiMac_WithBufs<1, 2> mm;
+				AssignWrtPwrMul(mm.m_Bufs.m_pKPrep[mm.m_Prepared], cs.m_Val[0][!j], pwr0, mod.m_pMultiplier[j]);
+				mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][i];
+				AssignWrtPwrMul(mm.m_Bufs.m_pKPrep[mm.m_Prepared], cs.m_Val[0][j], pwr1, mod.m_pMultiplier[j]);
+				mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][n + i];
+
+				mm.Calculate(m_pGen[j][i]);
 			}
 		}
 	}
@@ -1144,8 +1145,6 @@ namespace ECC {
 	{
 		uint32_t n = nDim >> (iCycle + 1);
 		assert(n);
-
-		CalcCrossTerm(n, cs, pLR);
 
 		for (int j = 0; j < 2; j++)
 		{
@@ -1164,8 +1163,11 @@ namespace ECC {
 				v0 *= cs.m_Val[iCycle][j];
 				v0 += v1 * cs.m_Val[iCycle][!j];
 
-				g0 = g0 * cs.m_Val[iCycle][!j];
-				g0 += g1 * cs.m_Val[iCycle][j];
+				MultiMac_WithBufs<2, 1> mm;
+				mm.m_pCasual[mm.m_Casual++].Init(g0, cs.m_Val[iCycle][!j]);
+				mm.m_pCasual[mm.m_Casual++].Init(g1, cs.m_Val[iCycle][j]);
+
+				mm.Calculate(g0);
 			}
 		}
 	}
@@ -1225,22 +1227,10 @@ namespace ECC {
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		// bufs
-		const uint32_t nBufDim = nDim >> 1;
-		Point::Native pBufGen[2][nBufDim];
-		Scalar::Native pBufVal[2][nBufDim];
+		Calculator::State s;
+		const Scalar::Native* ppVal[2] = { pA, pB };
 
-		Calculator::State s0, s1;
-		s0.m_pVal[0] = (Scalar::Native*) pA;
-		s0.m_pVal[1] = (Scalar::Native*) pB;
-
-		for (int i = 0; i < 2; i++)
-		{
-			s1.m_pGen[i] = pBufGen[i];
-			s1.m_pVal[i] = pBufVal[i];
-		}
-
-		MultiMac_WithBufs<1, InnerProduct::nDim * 2> mm;
+		MultiMac_WithBufs<1, nDim * 2> mm;
 
 		for (int j = 0; j < 2; j++)
 		{
@@ -1248,7 +1238,7 @@ namespace ECC {
 			for (uint32_t i = 0; i < nDim; i++, mm.m_Prepared++)
 			{
 				mm.m_ppPrepared[mm.m_Prepared] = &Context::get().m_Ipp.m_pGen_[j][i];
-				Calculator::AssignWrtPwrMul(mm.m_Bufs.m_pKPrep[mm.m_Prepared], s0.m_pVal[j][i], pwr0, mod.m_pMultiplier[j]);
+				Calculator::AssignWrtPwrMul(mm.m_Bufs.m_pKPrep[mm.m_Prepared], ppVal[j][i], pwr0, mod.m_pMultiplier[j]);
 			}
 		}
 
@@ -1270,10 +1260,17 @@ namespace ECC {
 		{
 			Calculator::get_Challenge(cs.m_Val[iCycle], oracle);
 
+			Calculator::CalcCrossTerm(ppVal, n >> 1, cs, pLR);
+
 			if (iCycle)
-				s1.PerformCycle(iCycle, cs, pLR);
+				s.PerformCycle(iCycle, cs, pLR);
 			else
-				s1.PerformCycle0(s0, cs, pLR, mod);
+			{
+				s.PerformCycle0(ppVal, cs, pLR, mod);
+
+				for (int j = 0; j < _countof(ppVal); j++)
+					ppVal[j] = s.m_pVal[j];
+			}
 
 			for (int j = 0; j < 2; j++)
 			{
@@ -1285,7 +1282,7 @@ namespace ECC {
 		assert(1 == n);
 
 		for (int i = 0; i < 2; i++)
-			m_pCondensed[i] = s1.m_pVal[i][0];
+			m_pCondensed[i] = s.m_pVal[i][0];
 	}
 
 	bool InnerProduct::IsValid(const Scalar::Native& dot, const Modifier& mod) const
@@ -1303,7 +1300,7 @@ namespace ECC {
 		//
 		// - sum( LR[iCycle][0] * k[iCycle]^2 + LR[iCycle][0] * k[iCycle]^-2 )
 
-		MultiMac_WithBufs<nCycles * 2, InnerProduct::nDim * 2 + 1> mm;
+		MultiMac_WithBufs<nCycles * 2, nDim * 2 + 1> mm;
 
 		uint32_t n = nDim;
 		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
@@ -1336,7 +1333,7 @@ namespace ECC {
 			Scalar::Native pwr(1U);
 			Calculator::Aggregate(mm.m_Bufs.m_pKPrep, cs, m_pCondensed[j], j, 0, nCycles, pwr, mod.m_pMultiplier[j]);
 
-			for (int i = 0; i < InnerProduct::nDim; i++)
+			for (int i = 0; i < nDim; i++)
 				mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][i];
 		}
 
