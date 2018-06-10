@@ -1,6 +1,10 @@
 version: '{build}'
 image: Visual Studio 2017
 
+branches:
+  only:
+    - master
+
 configuration:
 - Release
 
@@ -9,16 +13,54 @@ platform:
 
 environment:
   BOOST_ROOT: C:\Libraries\boost_1_67_0
-  OPENSSL_ROOT_DIR: C:\OpenSSL-Win64
+  OPENSSL_ROOT_DIR: C:\openssl
+  GITHUB_API_KEY:
+    secure: 3teRuVd1PpR8Y2XJEOWPWo7LYRhEKIZZk3w53nFG7hPsXrONIUb18SNfkVl+SICw
   matrix:
   - arch: Win64
 
-# install: git submodule update --init --recursive
-
 before_build:
-  cmd: cmake -G "Visual Studio 15 2017 Win64"
+  - appveyor DownloadFile https://github.com/nesbox/openssl-static/raw/master/openssl.zip
+  - cmd: "7z x -oC: ./openssl.zip"
+  - cmd: cmake -G "Visual Studio 15 2017 Win64"
+
+test_script:
+  - cmd: ctest -C Release --verbose
 
 build:
   project: c:\projects\beam\beam.sln
   verbosity: minimal
   parallel: true
+
+on_success:
+- ps: $env:DATE=$(Get-Date -UFormat "%Y.%m.%d")
+- cmd: >-
+
+    set REPO=https://%GITHUB_API_KEY%@github.com/beam-mw/beam-builds
+
+    git config --global user.email "vadim@beam-mw.com"
+
+    git config --global user.name "Vadim Grigoruk"
+
+    git clone %REPO%
+
+    cd beam-builds
+
+    set RELEASE_FOLDER=nightly\%DATE%\release\win
+
+    ECHO %RELEASE_FOLDER%
+
+    if not exist "%RELEASE_FOLDER%" mkdir %RELEASE_FOLDER%
+
+    7z a %RELEASE_FOLDER%/beam.zip c:/projects/beam/beam/Release/beam.exe c:/projects/beam/beam/beam.cfg
+
+    git add %RELEASE_FOLDER%/beam.zip
+
+    git commit -m "AppVeyor build for Windows"
+
+    git push %REPO% master
+
+notifications:
+  - provider: Email
+    to:
+      - big.romanov@gmail.com
