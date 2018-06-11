@@ -155,8 +155,19 @@ namespace beam
 
 	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess) const
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent) const
 	{
+		if (pParent)
+		{
+			// nested kernel restrictions
+			if (m_Multiplier != pParent->m_Multiplier) // Multipliers must be equal
+				return false; 
+
+			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
+				(m_Height.m_Max < pParent->m_Height.m_Max))
+				return false; // parent Height range must be contained in ours.
+		}
+
 		ECC::Hash::Processor hp;
 		hp	<< m_Fee
 			<< m_Height.m_Min
@@ -177,7 +188,7 @@ namespace beam
 				return false;
 			p0Krn = &v;
 
-			if (!v.Traverse(hv, pFee, pExcess))
+			if (!v.Traverse(hv, pFee, pExcess, this))
 				return false;
 
 			// The hash of this kernel should account for the signature and the excess of the internal kernels.
@@ -232,13 +243,13 @@ namespace beam
 
 	void TxKernel::get_HashForSigning(Merkle::Hash& out) const
 	{
-		Traverse(out, NULL, NULL);
+		Traverse(out, NULL, NULL, NULL);
 	}
 
 	bool TxKernel::IsValid(AmountBig& fee, ECC::Point::Native& exc) const
 	{
 		ECC::Hash::Value hv;
-		return Traverse(hv, &fee, &exc);
+		return Traverse(hv, &fee, &exc, NULL);
 	}
 
 	void TxKernel::get_HashTotal(Merkle::Hash& hv) const

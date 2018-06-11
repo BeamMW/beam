@@ -187,6 +187,14 @@ namespace beam
 
 		std::unique_ptr<Contract> m_pContract;
 
+		static const uint32_t s_MaxRecursionDepth = 2;
+
+		static void TestRecursion(uint32_t n)
+		{
+			if (n > s_MaxRecursionDepth)
+				throw std::runtime_error("recursion too deep");
+		}
+
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
 		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
@@ -202,7 +210,7 @@ namespace beam
 		COMPARISON_VIA_CMP(TxKernel)
 
 	private:
-		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*) const;
+		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*, const TxKernel* pParent) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }

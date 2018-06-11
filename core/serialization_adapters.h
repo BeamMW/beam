@@ -368,14 +368,21 @@ namespace detail
 				ar & val.m_Height.m_Max;
 			if (0x10 & nFlags)
 				ar & val.m_pContract;
+
 			if (0x20 & nFlags)
-				ar & val.m_vNested;
+			{
+				uint32_t nCount = (uint32_t) val.m_vNested.size();
+				ar & nCount;
+
+				for (uint32_t i = 0; i < nCount; i++)
+					save(ar, *val.m_vNested[i]);
+			}
 
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::TxKernel& val)
+        static Archive& load_Recursive(Archive& ar, beam::TxKernel& val, uint32_t nRecusion)
         {
 			uint8_t nFlags;
 			ar
@@ -407,10 +414,29 @@ namespace detail
 				ar & val.m_pContract;
 
 			if (0x20 & nFlags)
-				ar & val.m_vNested;
+			{
+				beam::TxKernel::TestRecursion(++nRecusion);
+
+				uint32_t nCount;
+				ar & nCount;
+				val.m_vNested.resize(nCount);
+
+				for (uint32_t i = 0; i < nCount; i++)
+				{
+					std::unique_ptr<beam::TxKernel>& v = val.m_vNested[i];
+					v = std::make_unique<beam::TxKernel>();
+					load_Recursive(ar, *v, nRecusion);
+				}
+			}
 
             return ar;
         }
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::TxKernel& val)
+		{
+			return load_Recursive(ar, val, 0);
+		}
 
         /// beam::Transaction serialization
         template<typename Archive>
