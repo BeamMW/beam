@@ -1168,21 +1168,6 @@ namespace ECC {
 			}
 		};
 
-		struct State
-		{
-			Point::Native m_pGen[2][nDim >> 1];
-			Scalar::Native m_pVal[2][nDim >> 1];
-
-			ModifierExpanded m_Mod;
-
-			static const uint32_t s_iCycleLast0 = 2;
-
-			void PerformCycle0(uint32_t iCycle, const Scalar::Native* ppVal[], const ChallengeSet&, MultiMac* pMm);
-			void PerformCycle(uint32_t iCycle, const ChallengeSet&, MultiMac* pMm);
-		};
-
-		static void CalcCrossTerm(const Scalar::Native* ppVal[], uint32_t n, const ChallengeSet&, MultiMac* pMm);
-
 		static void get_Challenge(Scalar::Native* pX, Oracle&);
 
 		struct Aggregator
@@ -1204,6 +1189,21 @@ namespace ECC {
 
 			void Proceed(uint32_t iPos, int iCycle, const Scalar::Native& k);
 		};
+
+		Point::Native m_pGen[2][nDim >> 1];
+		Scalar::Native m_pVal[2][nDim >> 1];
+
+		const Scalar::Native* m_ppSrc[2];
+
+		ModifierExpanded m_Mod;
+		ChallengeSet m_Cs;
+
+		uint32_t m_iCycle;
+		uint32_t m_n;
+		static const uint32_t s_iCycleLast0 = 2;
+
+		void Condense();
+		void ExtractLR(MultiMac& mm, int j_);
 	};
 
 
@@ -1216,98 +1216,81 @@ namespace ECC {
 		pX[1].SetInv(pX[0]);
 	}
 
-	void InnerProduct::Calculator::CalcCrossTerm(const Scalar::Native* ppVal[], uint32_t n, const ChallengeSet& cs, MultiMac* pMm)
+	void InnerProduct::Calculator::Condense()
 	{
+		// Vectors
 		for (int j = 0; j < 2; j++)
-		{
-			MultiMac& mm = pMm[j];
-
-			Scalar::Native& crossTrm = mm.m_pKPrep[mm.m_Prepared];
-			mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_GenDot_;
-
-			crossTrm = Zero;
-
-			for (uint32_t i = 0; i < n; i++)
-				crossTrm += ppVal[j][i] * ppVal[!j][n + i];
-
-			crossTrm *= cs.m_DotMultiplier;
-		}
-	}
-
-	void InnerProduct::Calculator::State::PerformCycle0(uint32_t iCycle, const Scalar::Native* ppVal[], const ChallengeSet& cs, MultiMac* pMm)
-	{
-		uint32_t n = nDim >> (iCycle + 1);
-		assert(n);
-
-		for (int j = 0; j < 2; j++)
-		{
-			for (uint32_t i = 0; i < n; i++)
+			for (uint32_t i = 0; i < m_n; i++)
 			{
-				for (int jj = 0; jj < 2; jj++)
-				{
-					uint32_t off0 = jj ? 0 : n;
-					uint32_t off1 = jj ? n : 0;
-
-					Aggregator aggr(pMm[j ^ jj], cs, m_Mod, j, nCycles - iCycle);
-					aggr.Proceed(i + off0, nCycles, ppVal[j][i + off1]);
-				}
-
-				m_pVal[j][i] = ppVal[j][i] * cs.m_Val[iCycle][j];
-				m_pVal[j][i] += ppVal[j][n + i] * cs.m_Val[iCycle][!j];
-
-				if (s_iCycleLast0 == iCycle)
-				{
-
-					//AssignWrtPwrMul(mm2.m_pKPrep[mm2.m_Prepared], cs.m_Val[0][!j], pPwr[0], mod.m_pMultiplier[j]);
-					//mm2.m_ppPrepared[mm2.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][i];
-					//AssignWrtPwrMul(mm2.m_pKPrep[mm2.m_Prepared], cs.m_Val[0][j], pPwr[1], mod.m_pMultiplier[j]);
-					//mm2.m_ppPrepared[mm2.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][n + i];
-
-					//assert(mm.m_ppPrepared[0] == mm2.m_ppPrepared[0]);
-					//assert(mm.m_ppPrepared[1] == mm2.m_ppPrepared[1]);
-					//assert(mm.m_pKPrep[0] == mm2.m_pKPrep[0]);
-					//assert(mm.m_pKPrep[1] == mm2.m_pKPrep[1]);
-
-
-
-					MultiMac_WithBufs<1, 2 << s_iCycleLast0> mm;
-
-					Aggregator aggr(mm, cs, m_Mod, j, nCycles - iCycle - 1);
-					aggr.Proceed(i, nCycles, 1U);
-
-					mm.Calculate(m_pGen[j][i]);
-				}
+				// dst and src need not to be distinct
+				m_pVal[j][i] = m_ppSrc[j][i] * m_Cs.m_Val[m_iCycle][j];
+				m_pVal[j][i] += m_ppSrc[j][m_n + i] * m_Cs.m_Val[m_iCycle][!j];
 			}
-		}
-	}
 
-	void InnerProduct::Calculator::State::PerformCycle(uint32_t iCycle, const ChallengeSet& cs, MultiMac* pMm)
-	{
-		uint32_t n = nDim >> (iCycle + 1);
-		assert(n);
+		// Points
+		if (m_iCycle < s_iCycleLast0)
+			return;
+
+		MultiMac_WithBufs<2, 2 << s_iCycleLast0> mm;
 
 		for (int j = 0; j < 2; j++)
-		{
-			for (uint32_t i = 0; i < n; i++)
+			for (uint32_t i = 0; i < m_n; i++)
 			{
-				// inplace modification
+				mm.Reset();
+
 				Point::Native& g0 = m_pGen[j][i];
-				Point::Native& g1 = m_pGen[j][n + i];
 
-				Scalar::Native& v0 = m_pVal[j][i];
-				Scalar::Native& v1 = m_pVal[j][n + i];
+				if (m_iCycle > s_iCycleLast0)
+				{
+					Point::Native& g1 = m_pGen[j][m_n + i];
 
-				pMm[j].m_pCasual[pMm[j].m_Casual++].Init(g1, v0);
-				pMm[!j].m_pCasual[pMm[!j].m_Casual++].Init(g0, v1);
+					mm.m_pCasual[mm.m_Casual++].Init(g0, m_Cs.m_Val[m_iCycle][!j]);
+					mm.m_pCasual[mm.m_Casual++].Init(g1, m_Cs.m_Val[m_iCycle][j]);
+				}
+				else
+				{
+					assert(s_iCycleLast0 == m_iCycle);
 
-				v0 *= cs.m_Val[iCycle][j];
-				v0 += v1 * cs.m_Val[iCycle][!j];
-
-				MultiMac_WithBufs<2, 1> mm;
-				mm.m_pCasual[mm.m_Casual++].Init(g0, cs.m_Val[iCycle][!j]);
-				mm.m_pCasual[mm.m_Casual++].Init(g1, cs.m_Val[iCycle][j]);
+					Aggregator aggr(mm, m_Cs, m_Mod, j, nCycles - m_iCycle - 1);
+					aggr.Proceed(i, nCycles, 1U);
+				}
 
 				mm.Calculate(g0);
+			}
+	}
+
+	void InnerProduct::Calculator::ExtractLR(MultiMac& mm, int j)
+	{
+		mm.Reset();
+
+		// Cross-term
+		Scalar::Native& crossTrm = mm.m_pKPrep[mm.m_Prepared];
+		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_GenDot_;
+
+		crossTrm = Zero;
+
+		for (uint32_t i = 0; i < m_n; i++)
+			crossTrm += m_ppSrc[j][i] * m_ppSrc[!j][m_n + i];
+
+		crossTrm *= m_Cs.m_DotMultiplier;
+
+		// other
+		for (int jSrc = 0; jSrc < 2; jSrc++)
+		{
+			uint32_t off0 = (jSrc == j) ? 0 : m_n;
+			uint32_t off1 = (jSrc == j) ? m_n : 0;
+
+			for (uint32_t i = 0; i < m_n; i++)
+			{
+				const Scalar::Native& v = m_ppSrc[jSrc][i + off0];
+
+				if (m_iCycle > s_iCycleLast0)
+					mm.m_pCasual[mm.m_Casual++].Init(m_pGen[jSrc][i + off1], v);
+				else
+				{
+					Aggregator aggr(mm, m_Cs, m_Mod, jSrc, nCycles - m_iCycle);
+					aggr.Proceed(i + off1, nCycles, v);
+				}
 			}
 		}
 	}
@@ -1358,21 +1341,20 @@ namespace ECC {
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		Calculator::State s;
-		s.m_Mod.Init(mod);
+		Calculator c;
+		c.m_Mod.Init(mod);
 
-		const Scalar::Native* ppVal[2] = { pA, pB };
+		c.m_ppSrc[0] = pA;
+		c.m_ppSrc[1] = pB;
 
-		MultiMac_WithBufs<nDim, (nDim + 1) * 2> mm;
+		MultiMac_WithBufs<(nDim >> (Calculator::s_iCycleLast0 + 1)), nDim * 2> mm;
 
 		for (int j = 0; j < 2; j++)
-		{
 			for (uint32_t i = 0; i < nDim; i++, mm.m_Prepared++)
 			{
 				mm.m_ppPrepared[mm.m_Prepared] = &Context::get().m_Ipp.m_pGen_[j][i];
-				s.m_Mod.Set(mm.m_pKPrep[mm.m_Prepared], ppVal[j][i], i, j);
+				c.m_Mod.Set(mm.m_pKPrep[mm.m_Prepared], c.m_ppSrc[j][i], i, j);
 			}
-		}
 
 		Point::Native comm;
 		mm.Calculate(comm);
@@ -1382,52 +1364,34 @@ namespace ECC {
 		Oracle oracle;
 		oracle << m_AB;
 
-		Calculator::ChallengeSet cs;
-		oracle >> cs.m_DotMultiplier;
+		oracle >> c.m_Cs.m_DotMultiplier;
 
 		Point::Native lr;
 
-		uint32_t n = nDim;
-
-		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
+		for (c.m_iCycle = 0; c.m_iCycle < nCycles; c.m_iCycle++)
 		{
-			Calculator::get_Challenge(cs.m_Val[iCycle], oracle);
+			c.m_n = nDim >> (c.m_iCycle + 1);
 
-			MultiMac pMm[2];
-			pMm[0].m_pCasual = mm.m_pCasual;
-			pMm[0].m_pKPrep = mm.m_pKPrep;
-			pMm[0].m_ppPrepared = mm.m_ppPrepared;
-			pMm[1].m_pCasual = mm.m_pCasual + (nDim >> 1);
-			pMm[1].m_pKPrep = mm.m_pKPrep + (nDim + 1);
-			pMm[1].m_ppPrepared = mm.m_ppPrepared + (nDim + 1);
-
-			Calculator::CalcCrossTerm(ppVal, n >> 1, cs, pMm);
-
-			if (iCycle > Calculator::State::s_iCycleLast0)
-				s.PerformCycle(iCycle, cs, pMm);
-			else
-			{
-				s.PerformCycle0(iCycle, ppVal, cs, pMm);
-
-				for (int j = 0; j < _countof(ppVal); j++)
-					ppVal[j] = s.m_pVal[j];
-			}
-
-			assert(pMm[0].m_Casual <= (nDim >> 1));
-			assert(pMm[0].m_Prepared <= (nDim + 1));
+			Calculator::get_Challenge(c.m_Cs.m_Val[c.m_iCycle], oracle);
 
 			for (int j = 0; j < 2; j++)
 			{
-				pMm[j].Calculate(lr);
-				m_pLR[iCycle][j] = lr;
-				oracle << m_pLR[iCycle][j];
+				c.ExtractLR(mm, j);
+
+				mm.Calculate(lr);
+				m_pLR[c.m_iCycle][j] = lr;
+				oracle << m_pLR[c.m_iCycle][j];
 			}
+
+			c.Condense();
+
+			if (!c.m_iCycle)
+				for (int j = 0; j < 2; j++)
+					c.m_ppSrc[j] = c.m_pVal[j];
 		}
 
-		assert(1 == n);
-
 		for (int i = 0; i < 2; i++)
-			m_pCondensed[i] = s.m_pVal[i][0];
+			m_pCondensed[i] = c.m_pVal[i][0];
 	}
 
 	bool InnerProduct::IsValid(const Scalar::Native& dot, const Modifier& mod) const
