@@ -22,8 +22,8 @@ namespace beam::wallet
         }
         invitationData->m_amount = m_amount;
         m_kernel.m_Fee = 0;
-        m_kernel.m_HeightMin = currentHeight;
-        m_kernel.m_HeightMax = MaxHeight;
+        m_kernel.m_Height.m_Min = currentHeight;
+        m_kernel.m_Height.m_Max = MaxHeight;
         m_kernel.get_HashForSigning(invitationData->m_message);
         
         // 2. Set lock_height for output (current chain height)
