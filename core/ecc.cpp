@@ -1175,6 +1175,7 @@ namespace ECC {
 			MultiMac& m_Mm;
 			const ChallengeSet& m_cs;
 			const ModifierExpanded& m_Mod;
+			const Calculator* m_pCalc; // set if source are already condensed points
 			const int m_j;
 			const int m_iCycleTrg;
 
@@ -1182,6 +1183,7 @@ namespace ECC {
 				:m_Mm(mm)
 				,m_cs(cs)
 				,m_Mod(mod)
+				,m_pCalc(NULL)
 				,m_j(j)
 				,m_iCycleTrg(iCycleTrg)
 			{
@@ -1190,7 +1192,9 @@ namespace ECC {
 			void Proceed(uint32_t iPos, int iCycle, const Scalar::Native& k);
 		};
 
-		Point::Native m_pGen[2][nDim >> 1];
+		static const uint32_t s_iCycle0 = 2; // condense source generators into points (after 3 iterations, 8 points)
+
+		Point::Native m_pGen[2][nDim >> (1 + s_iCycle0)];
 		Scalar::Native m_pVal[2][nDim >> 1];
 
 		const Scalar::Native* m_ppSrc[2];
@@ -1198,12 +1202,14 @@ namespace ECC {
 		ModifierExpanded m_Mod;
 		ChallengeSet m_Cs;
 
+		MultiMac_WithBufs<(nDim >> (s_iCycle0 + 1)), nDim * 2> m_Mm;
+
 		uint32_t m_iCycle;
 		uint32_t m_n;
-		static const uint32_t s_iCycleLast0 = 2;
+		uint32_t m_GenOrder;
 
 		void Condense();
-		void ExtractLR(MultiMac& mm, int j_);
+		void ExtractLR(int j);
 	};
 
 
@@ -1228,44 +1234,45 @@ namespace ECC {
 			}
 
 		// Points
-		if (m_iCycle < s_iCycleLast0)
-			return;
+		switch (m_iCycle)
+		{
+		case s_iCycle0:
+			// further compression points (casual)
+			// Currently according to benchmarks - not necessary
+			break;
 
-		MultiMac_WithBufs<2, 2 << s_iCycleLast0> mm;
+		case nCycles - 1: // last iteration - no need to condense points
+		default:
+			return;
+		}
 
 		for (int j = 0; j < 2; j++)
 			for (uint32_t i = 0; i < m_n; i++)
 			{
-				mm.Reset();
+				m_Mm.Reset();
 
 				Point::Native& g0 = m_pGen[j][i];
 
-				if (m_iCycle > s_iCycleLast0)
-				{
-					Point::Native& g1 = m_pGen[j][m_n + i];
+				Aggregator aggr(m_Mm, m_Cs, m_Mod, j, nCycles - m_iCycle - 1);
 
-					mm.m_pCasual[mm.m_Casual++].Init(g0, m_Cs.m_Val[m_iCycle][!j]);
-					mm.m_pCasual[mm.m_Casual++].Init(g1, m_Cs.m_Val[m_iCycle][j]);
-				}
-				else
-				{
-					assert(s_iCycleLast0 == m_iCycle);
+				if (m_iCycle > s_iCycle0)
+					aggr.m_pCalc = this;
 
-					Aggregator aggr(mm, m_Cs, m_Mod, j, nCycles - m_iCycle - 1);
-					aggr.Proceed(i, nCycles, 1U);
-				}
+				aggr.Proceed(i, m_GenOrder, 1U);
 
-				mm.Calculate(g0);
+				m_Mm.Calculate(g0);
 			}
+
+		m_GenOrder = nCycles - m_iCycle - 1;
 	}
 
-	void InnerProduct::Calculator::ExtractLR(MultiMac& mm, int j)
+	void InnerProduct::Calculator::ExtractLR(int j)
 	{
-		mm.Reset();
+		m_Mm.Reset();
 
 		// Cross-term
-		Scalar::Native& crossTrm = mm.m_pKPrep[mm.m_Prepared];
-		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_GenDot_;
+		Scalar::Native& crossTrm = m_Mm.m_pKPrep[m_Mm.m_Prepared];
+		m_Mm.m_ppPrepared[m_Mm.m_Prepared++] = &Context::get().m_Ipp.m_GenDot_;
 
 		crossTrm = Zero;
 
@@ -1284,13 +1291,12 @@ namespace ECC {
 			{
 				const Scalar::Native& v = m_ppSrc[jSrc][i + off0];
 
-				if (m_iCycle > s_iCycleLast0)
-					mm.m_pCasual[mm.m_Casual++].Init(m_pGen[jSrc][i + off1], v);
-				else
-				{
-					Aggregator aggr(mm, m_Cs, m_Mod, jSrc, nCycles - m_iCycle);
-					aggr.Proceed(i + off1, nCycles, v);
-				}
+				Aggregator aggr(m_Mm, m_Cs, m_Mod, jSrc, nCycles - m_iCycle);
+
+				if (m_iCycle > s_iCycle0)
+					aggr.m_pCalc = this;
+
+				aggr.Proceed(i + off1, m_GenOrder, v);
 			}
 		}
 	}
@@ -1314,10 +1320,18 @@ namespace ECC {
 
 		} else
 		{
-			assert(iPos < nDim);
+			if (m_pCalc)
+			{
+				assert(iPos < _countof(m_pCalc->m_pGen[m_j]));
+				m_Mm.m_pCasual[m_Mm.m_Casual++].Init(m_pCalc->m_pGen[m_j][iPos], k);
+			}
+			else
+			{
+				assert(iPos < nDim);
 
-			m_Mod.Set(m_Mm.m_pKPrep[m_Mm.m_Prepared], k, iPos, m_j);
-			m_Mm.m_ppPrepared[m_Mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[m_j][iPos];
+				m_Mod.Set(m_Mm.m_pKPrep[m_Mm.m_Prepared], k, iPos, m_j);
+				m_Mm.m_ppPrepared[m_Mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[m_j][iPos];
+			}
 		}
 	}
 
@@ -1343,21 +1357,19 @@ namespace ECC {
 
 		Calculator c;
 		c.m_Mod.Init(mod);
-
+		c.m_GenOrder = nCycles;
 		c.m_ppSrc[0] = pA;
 		c.m_ppSrc[1] = pB;
 
-		MultiMac_WithBufs<(nDim >> (Calculator::s_iCycleLast0 + 1)), nDim * 2> mm;
-
 		for (int j = 0; j < 2; j++)
-			for (uint32_t i = 0; i < nDim; i++, mm.m_Prepared++)
+			for (uint32_t i = 0; i < nDim; i++, c.m_Mm.m_Prepared++)
 			{
-				mm.m_ppPrepared[mm.m_Prepared] = &Context::get().m_Ipp.m_pGen_[j][i];
-				c.m_Mod.Set(mm.m_pKPrep[mm.m_Prepared], c.m_ppSrc[j][i], i, j);
+				c.m_Mm.m_ppPrepared[c.m_Mm.m_Prepared] = &Context::get().m_Ipp.m_pGen_[j][i];
+				c.m_Mod.Set(c.m_Mm.m_pKPrep[c.m_Mm.m_Prepared], c.m_ppSrc[j][i], i, j);
 			}
 
 		Point::Native comm;
-		mm.Calculate(comm);
+		c.m_Mm.Calculate(comm);
 
 		m_AB = comm;
 
@@ -1376,9 +1388,9 @@ namespace ECC {
 
 			for (int j = 0; j < 2; j++)
 			{
-				c.ExtractLR(mm, j);
+				c.ExtractLR(j);
 
-				mm.Calculate(lr);
+				c.m_Mm.Calculate(lr);
 				m_pLR[c.m_iCycle][j] = lr;
 				oracle << m_pLR[c.m_iCycle][j];
 			}
