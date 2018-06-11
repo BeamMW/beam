@@ -790,8 +790,7 @@ namespace beam
 
 			std::set<ECC::Point> m_UtxosConfirmed;
 			std::list<ECC::Point> m_queProofsExpected;
-
-			uint32_t m_iProof;
+			std::list<uint32_t> m_queProofsStateExpected;
 
 			MyClient() {
 				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
@@ -843,6 +842,8 @@ namespace beam
 					proto::GetProofState msgOut;
 					msgOut.m_Height = i + Block::Rules::HeightGenesis;
 					Send(msgOut);
+
+					m_queProofsStateExpected.push_back((uint32_t) i);
 				}
 
 				for (auto it = m_Wallet.m_MyUtxos.begin(); m_Wallet.m_MyUtxos.end() != it; it++)
@@ -857,8 +858,6 @@ namespace beam
 					m_queProofsExpected.push_back(msgOut.m_Utxo.m_Commitment);
 				}
 
-				m_iProof = 0;
-
 				proto::NewTransaction msgTx;
 				while (true)
 				{
@@ -872,15 +871,16 @@ namespace beam
 
 			virtual void OnMsg(proto::Proof&& msg) override
 			{
-				uint32_t i = m_iProof++;
-				if (i + 1 < m_vStates.size())
+				if (!m_queProofsStateExpected.empty())
 				{
 					Merkle::Hash hv;
-					m_vStates[i].get_Hash(hv);
+					m_vStates[m_queProofsStateExpected.front()].get_Hash(hv);
 					Merkle::Interpret(hv, msg.m_Proof);
 
 					verify_test(hv == m_vStates.back().m_Definition);
 					verify_test(!msg.m_Proof.empty() && msg.m_Proof.back().first);
+
+					m_queProofsStateExpected.pop_front();
 				}
 				else
 					fail_test("unexpected proof");
