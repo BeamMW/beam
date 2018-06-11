@@ -10,8 +10,7 @@ namespace beam
 
 		AmountBig m_Fee;
 		AmountBig m_Coinbase;
-		Height m_hMin;
-		Height m_hMax;
+		HeightRange m_Height;
 
 		bool m_bBlockMode; // in 'block' mode the hMin/hMax on input denote the range of heights. Each element is verified wrt it independently.
 		// i.e. different elements may have non-overlapping valid range, and it's valid.
@@ -28,8 +27,7 @@ namespace beam
 		Context() { Reset(); }
 		void Reset();
 
-		bool IsValidHeight() const;
-		bool HandleElementHeight(Height h0, Height h1);
+		bool HandleElementHeight(const HeightRange&);
 
 		bool Merge(const Context&);
 

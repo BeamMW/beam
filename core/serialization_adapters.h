@@ -348,8 +348,8 @@ namespace detail
 			uint8_t nFlags =
 				(val.m_Multiplier ? 1 : 0) |
 				(val.m_Fee ? 2 : 0) |
-				(val.m_HeightMin ? 4 : 0) |
-				((val.m_HeightMax != beam::Height(-1)) ? 8 : 0) |
+				(val.m_Height.m_Min ? 4 : 0) |
+				((val.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
 				(val.m_pContract ? 0x10 : 0) |
 				(val.m_vNested.empty() ? 0 : 0x20);
 
@@ -363,9 +363,9 @@ namespace detail
 			if (2 & nFlags)
 				ar & val.m_Fee;
 			if (4 & nFlags)
-				ar & val.m_HeightMin;
+				ar & val.m_Height.m_Min;
 			if (8 & nFlags)
-				ar & val.m_HeightMax;
+				ar & val.m_Height.m_Max;
 			if (0x10 & nFlags)
 				ar & val.m_pContract;
 			if (0x20 & nFlags)
@@ -394,14 +394,14 @@ namespace detail
 				val.m_Fee = 0;
 
 			if (4 & nFlags)
-				ar & val.m_HeightMin;
+				ar & val.m_Height.m_Min;
 			else
-				val.m_HeightMin = 0;
+				val.m_Height.m_Min = 0;
 
 			if (8 & nFlags)
-				ar & val.m_HeightMax;
+				ar & val.m_Height.m_Max;
 			else
-				val.m_HeightMax = beam::Height(-1);
+				val.m_Height.m_Max = beam::Height(-1);
 
 			if (0x10 & nFlags)
 				ar & val.m_pContract;

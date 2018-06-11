@@ -442,7 +442,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				return false;
 			}
 
-			if (!VerifyBlock(block, sid.m_Height, sid.m_Height))
+			if (!VerifyBlock(block, sid.m_Height))
 			{
 				LOG_WARNING() << id << " context-free verification failed";
 				return false;
@@ -1035,9 +1035,7 @@ bool NodeProcessor::ValidateTx(const Transaction& tx, Transaction::Context& ctx)
 	if (!tx.IsValid(ctx))
 		return false;
 
-	Height h = m_Cursor.m_Sid.m_Height + 1;
-
-	return (h >= ctx.m_hMin) && (h <= ctx.m_hMax);
+	return ctx.m_Height.IsInRange(m_Cursor.m_Sid.m_Height + 1);
 }
 
 void NodeProcessor::TxPool::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key)
@@ -1049,7 +1047,7 @@ void NodeProcessor::TxPool::AddValidTx(Transaction::Ptr&& pValue, const Transact
 
 	Element* p = new Element;
 	p->m_pValue = std::move(pValue);
-	p->m_Threshold.m_Value	= ctx.m_hMax;
+	p->m_Threshold.m_Value	= ctx.m_Height.m_Max;
 	p->m_Profit.m_Fee	= ctx.m_Fee.Hi ? Amount(-1) : ctx.m_Fee.Lo; // ignore huge fees (which are  highly unlikely), saturate.
 	p->m_Profit.m_nSize	= ssc.m_Counter.m_Value;
 	p->m_Tx.m_Key = key;
@@ -1331,7 +1329,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 
-	if (!bInitiallyEmpty && !VerifyBlock(res, h, h))
+	if (!bInitiallyEmpty && !VerifyBlock(res, h))
 		return false;
 
 	{
@@ -1364,9 +1362,9 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	return bbBlock.size() <= Block::Rules::MaxBodySize;
 }
 
-bool NodeProcessor::VerifyBlock(const Block::Body& block, Height h0, Height h1)
+bool NodeProcessor::VerifyBlock(const Block::Body& block, const HeightRange& hr)
 {
-	return block.IsValid(h0, h1, m_Cursor.m_SubsidyOpen);
+	return block.IsValid(hr, m_Cursor.m_SubsidyOpen);
 }
 
 void NodeProcessor::ExportMacroBlock(Block::Body& res)
@@ -1468,7 +1466,7 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 			return false;
 	}
 
-	if (!VerifyBlock(block, Block::Rules::HeightGenesis, id.m_Height))
+	if (!VerifyBlock(block, HeightRange(Block::Rules::HeightGenesis, id.m_Height)))
 		return false;
 
 	NodeDB::Transaction t(m_DB);
