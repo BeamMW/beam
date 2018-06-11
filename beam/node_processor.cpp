@@ -1349,6 +1349,9 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		if (!HandleValidatedTx(res, h, false, rbData)) // undo changes
 			OnCorrupted();
 
+		if (!bRes)
+			return false;
+
 		res.Sort(); // can sort only after the changes are undone.
 		res.DeleteIntermediateOutputs();
 	}
