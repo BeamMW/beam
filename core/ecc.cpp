@@ -1378,8 +1378,6 @@ namespace ECC {
 
 		oracle >> c.m_Cs.m_DotMultiplier;
 
-		Point::Native lr;
-
 		for (c.m_iCycle = 0; c.m_iCycle < nCycles; c.m_iCycle++)
 		{
 			c.m_n = nDim >> (c.m_iCycle + 1);
@@ -1390,8 +1388,8 @@ namespace ECC {
 			{
 				c.ExtractLR(j);
 
-				c.m_Mm.Calculate(lr);
-				m_pLR[c.m_iCycle][j] = lr;
+				c.m_Mm.Calculate(comm);
+				m_pLR[c.m_iCycle][j] = comm;
 				oracle << m_pLR[c.m_iCycle][j];
 			}
 
