@@ -115,27 +115,20 @@ namespace
     {
         if (!sPath.empty())
         {
-            Block::Body block;
-
+            std::ifstream f(sPath, std::ifstream::binary);
+            if (f.fail())
             {
-                std::ifstream f(sPath, std::ifstream::binary);
-                if (f.fail())
-                {
-                    LOG_INFO() << "can't open treasury file";
-                    return;
-                }
-
-                std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-
-                Deserializer der;
-                der.reset(&vContents.at(0), vContents.size());
-
-                der & block;
+                LOG_INFO() << "can't open treasury file";
+                return;
             }
 
-            node.GenerateGenesisBlock(block);
-        }
+            std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
 
+            Deserializer der;
+            der.reset(&vContents.at(0), vContents.size());
+
+            der & node.m_Cfg.m_vTreasury;
+        }
     }
 }
 
@@ -166,7 +159,7 @@ struct TreasuryBlockGenerator
 	std::string m_sPath;
 	IKeyChain* m_pKeyChain;
 
-	Block::Body m_Block;
+	std::vector<Block::Body> m_vBlocks;
 	ECC::Scalar::Native m_Offset;
 
 	std::vector<Coin> m_Coins;
@@ -175,6 +168,8 @@ struct TreasuryBlockGenerator
 	std::mutex m_Mutex;
 	std::vector<std::thread> m_vThreads;
 
+	Block::Body& get_WriteBlock();
+	void FinishLastBlock();
 	int Generate(uint32_t nCount, Height dh);
 private:
 	void Proceed(uint32_t i);
@@ -188,8 +183,6 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 		return -1;
 	}
 
-	m_Block.ZeroInit();
-
 	{
 		std::ifstream f(m_sPath, std::ifstream::binary);
 		if (!f.fail())
@@ -199,15 +192,18 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 			{
 				Deserializer der;
 				der.reset(&vContents.at(0), vContents.size());
-				der & m_Block;
+				der & m_vBlocks;
 
 				LOG_INFO() << "Treasury block is non-empty, appending.";
 			}
 		}
 	}
 
-	m_Offset = m_Block.m_Offset;
-	m_Offset = -m_Offset;
+	if (!m_vBlocks.empty())
+	{
+		m_Offset = m_vBlocks.back().m_Offset;
+		m_Offset = -m_Offset;
+	}
 
 	LOG_INFO() << "Generating coins...";
 
@@ -231,9 +227,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 	m_pKeyChain->store(m_Coins); // we get coin id only after store
 
     for (uint32_t i = 0; i < nCount; ++i)
-    {
         m_vIncubationAndKeys[i].second = m_pKeyChain->calcKey(m_Coins[i]);
-    }
 
 	m_vThreads.resize(std::thread::hardware_concurrency());
 	assert(!m_vThreads.empty());
@@ -259,36 +253,56 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 		pKrn->get_HashForSigning(hv);
 		pKrn->m_Signature.Sign(hv, k);
 
-		m_Block.m_vKernelsOutput.push_back(std::move(pKrn));
+		get_WriteBlock().m_vKernelsOutput.push_back(std::move(pKrn));
 		m_Offset += k;
 	}
 
-	m_Offset = -m_Offset;
-	m_Block.m_Offset = m_Offset;
+	FinishLastBlock();
 
-	m_Block.Sort();
-	m_Block.DeleteIntermediateOutputs();
+	for (auto i = 0; i < m_vBlocks.size(); i++)
+	{
+		m_vBlocks[i].Sort();
+		m_vBlocks[i].DeleteIntermediateOutputs();
+	}
 
 	SerializerFile ser;
 	ser.m_File.open(m_sPath, std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
-	ser & m_Block;
+	ser & m_vBlocks;
 	ser.m_File.flush();
 
-	bool bbb = m_Block.IsValid(1, 1);
+	for (auto i = 0; i < m_vBlocks.size(); i++)
+		m_vBlocks[i].IsValid(i + 1, i + 1, true);
 
 	LOG_INFO() << "Done";
 
 	return 0;
 }
 
-void TreasuryBlockGenerator::Proceed(uint32_t i)
+void TreasuryBlockGenerator::FinishLastBlock()
 {
-	ECC::Scalar::Native offset(ECC::Zero);
+	m_Offset = -m_Offset;
+	m_vBlocks.back().m_Offset = m_Offset;
+}
 
-	Block::Body subBlock;
-	ZeroObject(subBlock.m_Subsidy);
+Block::Body& TreasuryBlockGenerator::get_WriteBlock()
+{
+	if (m_vBlocks.empty() || m_vBlocks.back().m_vOutputs.size() >= 1000)
+	{
+		if (!m_vBlocks.empty())
+			FinishLastBlock();
 
-	for ( ; i < m_Coins.size(); i += m_vThreads.size())
+		m_vBlocks.resize(m_vBlocks.size() + 1);
+		m_vBlocks.back().ZeroInit();
+		m_Offset = ECC::Zero;
+	}
+	return m_vBlocks.back();
+}
+
+void TreasuryBlockGenerator::Proceed(uint32_t i0)
+{
+	std::vector<Output::Ptr> vOut;
+
+	for (uint32_t i = i0; i < m_Coins.size(); i += m_vThreads.size())
 	{
 		const Coin& coin = m_Coins[i];
 
@@ -296,22 +310,24 @@ void TreasuryBlockGenerator::Proceed(uint32_t i)
 		pOutp->m_Incubation = m_vIncubationAndKeys[i].first;
 
 		const ECC::Scalar::Native& k = m_vIncubationAndKeys[i].second;
-
 		pOutp->Create(k, coin.m_amount);
 
-		subBlock.m_vOutputs.push_back(std::move(pOutp));
-		offset += k;
-		subBlock.m_Subsidy += coin.m_amount;
+		vOut.push_back(std::move(pOutp));
+		//offset += k;
+		//subBlock.m_Subsidy += coin.m_amount;
 	}
 
 	std::unique_lock<std::mutex> scope(m_Mutex);
 
-	m_Offset += offset;
-	m_Block.m_Subsidy += subBlock.m_Subsidy;
-	m_Block.m_vOutputs.reserve(m_Block.m_vOutputs.size() + subBlock.m_vOutputs.size());
+	uint32_t iOutp = 0;
+	for (uint32_t i = i0; i < m_Coins.size(); i += m_vThreads.size(), iOutp++)
+	{
+		Block::Body& block = get_WriteBlock();
 
-	for (i = 0; i < subBlock.m_vOutputs.size(); i++)
-		m_Block.m_vOutputs.push_back(std::move(subBlock.m_vOutputs[i]));
+		block.m_vOutputs.push_back(std::move(vOut[iOutp]));
+		block.m_Subsidy += m_Coins[i].m_amount;
+		m_Offset += m_vIncubationAndKeys[i].second;
+	}
 }
 
 #define LOG_VERBOSE_ENABLED 0
@@ -454,13 +470,13 @@ int main(int argc, char* argv[])
 				
                 LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
-                node.Initialize();
-
                 if (vm.count(cli::TREASURY_BLOCK))
                 {
                     string sPath = vm[cli::TREASURY_BLOCK].as<string>();
                     readTreasuryFile(node, sPath);
                 }
+
+				node.Initialize();
 
                 reactor->run();
             }

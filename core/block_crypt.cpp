@@ -165,7 +165,9 @@ namespace beam
 			if (m_Multiplier)
 			{
 				ECC::Mode::Scope scope(ECC::Mode::Fast);
-				pt += pt * m_Multiplier;
+
+				ECC::Point::Native pt2(pt);
+				pt = pt2 * (m_Multiplier + 1);
 			}
 
 			if (!m_Signature.IsValid(hv, pt))
@@ -218,6 +220,13 @@ namespace beam
 			<< m_Signature.m_e
 			<< m_Signature.m_k
 			>> hv;
+
+		// Some kernel hash values are reserved for the system usage
+		if (hv == ECC::Zero)
+		{
+			ECC::Hash::Processor() << hv >> hv;
+			assert(!(hv == ECC::Zero));
+		}
 	}
 
 	bool TxKernel::IsValidProof(const Merkle::Proof& proof, const Merkle::Hash& root) const
@@ -603,6 +612,27 @@ namespace beam
 			TestNotNull(*it);
 	}
 
+	void Transaction::get_Key(KeyType& key) const
+	{
+		if (m_Offset.m_Value == ECC::Zero)
+		{
+			// proper transactions must contain non-trivial offset, and this should be enough to identify it with sufficient probability
+			// However in case it's not specified - construct the key from contents
+			key = ECC::Zero;
+
+			for (auto i = 0; i < m_vInputs.size(); i++)
+				key ^= m_vInputs[i]->m_Commitment.m_X;
+
+			for (auto i = 0; i < m_vOutputs.size(); i++)
+				key ^= m_vOutputs[i]->m_Commitment.m_X;
+
+			for (auto i = 0; i < m_vKernelsOutput.size(); i++)
+				key ^= m_vKernelsOutput[i]->m_Excess.m_X;
+		}
+		else
+			key = m_Offset.m_Value;
+	}
+
 	/////////////
 	// AmoutBig
 	void AmountBig::operator += (Amount x)
@@ -708,7 +738,7 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
 	}
 
-	bool TxBase::Context::IsValidBlock(const Block::Body& body)
+	bool TxBase::Context::IsValidBlock(const Block::Body& body, bool bSubsidyOpen)
 	{
 		m_Sigma = -m_Sigma;
 		body.m_Subsidy.AddTo(m_Sigma);
@@ -716,8 +746,11 @@ namespace beam
 		if (!(m_Sigma == ECC::Zero))
 			return false;
 
-		if (m_hMin == Block::Rules::HeightGenesis)
-			return true; // genesis block may have arbitrary subsidy and/or coinbase outputs, there're no restrictions
+		if (bSubsidyOpen)
+			return true;
+
+		if (body.m_SubsidyClosing)
+			return false; // already closed
 
 		// For non-genesis blocks we have the following restrictions:
 		// Subsidy is bounded by num of blocks multiplied by coinbase emission
@@ -761,9 +794,10 @@ namespace beam
 	{
 		ZeroObject(m_Subsidy);
 		ZeroObject(m_Offset);
+		m_SubsidyClosing = false;
 	}
 
-	bool Block::Body::IsValid(Height h0, Height h1) const
+	bool Block::Body::IsValid(Height h0, Height h1, bool bSubsidyOpen) const
 	{
 		assert((h0 >= Block::Rules::HeightGenesis) && (h0 <= h1));
 
@@ -774,7 +808,7 @@ namespace beam
 
 		return
 			ValidateAndSummarize(ctx) &&
-			ctx.IsValidBlock(*this);
+			ctx.IsValidBlock(*this, bSubsidyOpen);
 	}
 
     void DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType eType, uint32_t nIdx /* = 0 */)

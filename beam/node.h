@@ -28,6 +28,7 @@ struct Node
 			uint32_t m_Insane_ms	= 1000 * 3600; // 1 hour
 			uint32_t m_GetState_ms	= 1000 * 5;
 			uint32_t m_GetBlock_ms	= 1000 * 30;
+			uint32_t m_GetTx_ms		= 1000 * 5;
 			uint32_t m_MiningSoftRestart_ms = 100;
 		} m_Timeout;
 
@@ -43,11 +44,11 @@ struct Node
 		struct TestMode {
 			// for testing only!
 			bool m_bFakePoW = false;
-			bool m_bMineGenesisBlock = false;
 			uint32_t m_FakePowSolveTime_ms = 15 * 1000;
 
 		} m_TestMode;
 
+		std::vector<Block::Body> m_vTreasury;
 
 	} m_Cfg; // must not be changed after initialization
 
@@ -55,8 +56,6 @@ struct Node
 	void Initialize();
 
 	NodeProcessor& get_Processor() { return m_Processor; } // for tests only!
-
-	bool GenerateGenesisBlock(Block::Body& treasury); // returns true if block is ok and mining started
 
 private:
 
@@ -123,6 +122,35 @@ private:
 	void AssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
 
+	static uint32_t GetTime_ms();
+
+	struct WantedTx
+	{
+		struct Node
+			:public boost::intrusive::set_base_hook<>
+			,public boost::intrusive::list_base_hook<>
+		{
+			Transaction::KeyType m_Key;
+			uint32_t m_Advertised_ms;
+
+			bool operator < (const Node& n) const { return (m_Key < n.m_Key); }
+		};
+
+		typedef boost::intrusive::list<Node> List;
+		typedef boost::intrusive::multiset<Node> Set;
+
+		List m_lst;
+		Set m_set;
+
+		void Delete(Node&);
+
+		io::Timer::Ptr m_pTimer;
+		void SetTimer();
+		void OnTimer();
+
+		IMPLEMENT_GET_PARENT_OBJ(beam::Node, m_Wtx)
+	} m_Wtx;
+
 	struct Peer
 		:public proto::NodeConnection
 		,public boost::intrusive::list_base_hook<>
@@ -172,6 +200,8 @@ private:
 		virtual void OnMsg(proto::GetBody&&) override;
 		virtual void OnMsg(proto::Body&&) override;
 		virtual void OnMsg(proto::NewTransaction&&) override;
+		virtual void OnMsg(proto::HaveTransaction&&) override;
+		virtual void OnMsg(proto::GetTransaction&&) override;
 		virtual void OnMsg(proto::GetMined&&) override;
 		virtual void OnMsg(proto::GetProofState&&) override;
 		virtual void OnMsg(proto::GetProofKernel&&) override;
@@ -226,7 +256,7 @@ private:
 		void OnMined();
 
 		void HardAbortSafe();
-		bool Restart(Block::Body* pTreasury = NULL);
+		bool Restart();
 
 		std::mutex m_Mutex;
 		Task::Ptr m_pTask; // currently being-mined

@@ -84,7 +84,10 @@ void NodeProcessor::Initialize(const char* szPath)
 
 	InitCursor();
 
-	// Load all th 'live' data
+	if (!m_Cursor.m_SubsidyOpen)
+		OnSubsidyOptionChanged(m_Cursor.m_SubsidyOpen);
+
+	// Load all the 'live' data
 	{
 		struct Walker
 			:public UnspentWalker
@@ -143,6 +146,7 @@ void NodeProcessor::InitCursor()
 	else
 		ZeroObject(m_Cursor);
 
+	m_Cursor.m_SubsidyOpen = 0 != (m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyOpen, 1));
 }
 
 void NodeProcessor::EnumCongestions()
@@ -420,6 +424,12 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		{
 			bFirstTime = true;
 
+			if (!m_Cursor.m_SubsidyOpen && block.m_SubsidyClosing)
+			{
+				LOG_WARNING() << id << " illegal subsidy-close flag";
+				return false;
+			}
+
 			if (m_Cursor.m_DifficultyNext != s.m_PoW.m_Difficulty)
 			{
 				LOG_WARNING() << id << " Difficulty expected=" << uint32_t(m_Cursor.m_DifficultyNext) << ", actual=" << uint32_t(s.m_PoW.m_Difficulty);
@@ -452,6 +462,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	if (!bOk)
 		LOG_WARNING() << id << " invalid in its context";
 
+	if (block.m_SubsidyClosing)
+		OnSubsidyOptionChanged(!bFwd);
+
 	if (bFirstTime && bOk)
 	{
 		// check the validity of state description.
@@ -467,7 +480,15 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		if (bOk)
 			m_DB.SetStateRollback(sid.m_Row, rbData.m_Buf);
 		else
+		{
+			if (block.m_SubsidyClosing)
+			{
+				assert(bFwd);
+				OnSubsidyOptionChanged(bFwd);
+			}
+
 			HandleValidatedTx(block, sid.m_Height, false, rbData);
+		}
 	}
 
 	if (bOk)
@@ -498,6 +519,12 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 		m_DB.ParamSet(NodeDB::ParamID::SubsidyLo, &subsidy.Lo, NULL);
 		m_DB.ParamSet(NodeDB::ParamID::SubsidyHi, &subsidy.Hi, NULL);
+
+		if (block.m_SubsidyClosing)
+		{
+			uint64_t nVal = !bFwd;
+			m_DB.ParamSet(NodeDB::ParamID::SubsidyOpen, &nVal, NULL);
+		}
 
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
@@ -748,6 +775,22 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 	return true;
 }
 
+void NodeProcessor::OnSubsidyOptionChanged(bool bOpen)
+{
+	bool bAdd = !bOpen;
+
+	Merkle::Hash hv;
+	hv = ECC::Zero;
+
+	RadixHashOnlyTree::Cursor cu;
+	bool bCreate = true;
+	m_Kernels.Find(cu, hv, bCreate);
+
+	assert(bAdd == bCreate);
+	if (!bAdd)
+		m_Kernels.Delete(cu);
+}
+
 bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInput)
 {
 	bool bAdd = (bFwd != bIsInput);
@@ -856,11 +899,12 @@ bool NodeProcessor::GoForward(uint64_t row)
 
 void NodeProcessor::Rollback()
 {
-	if (!HandleBlock(m_Cursor.m_Sid, false))
-		OnCorrupted();
-
+	NodeDB::StateID sid = m_Cursor.m_Sid;
 	m_DB.MoveBack(m_Cursor.m_Sid);
 	InitCursor();
+
+	if (!HandleBlock(sid, false))
+		OnCorrupted();
 }
 
 bool NodeProcessor::IsRelevantHeight(Height h)
@@ -986,31 +1030,33 @@ struct SerializerSizeCounter
 	}
 };
 
-bool NodeProcessor::TxPool::AddTx(Transaction::Ptr&& pValue, Height h)
+bool NodeProcessor::ValidateTx(const Transaction& tx, Transaction::Context& ctx)
+{
+	if (!tx.IsValid(ctx))
+		return false;
+
+	Height h = m_Cursor.m_Sid.m_Height + 1;
+
+	return (h >= ctx.m_hMin) && (h <= ctx.m_hMax);
+}
+
+void NodeProcessor::TxPool::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key)
 {
 	assert(pValue);
-
-	TxBase::Context ctx;
-	if (!pValue->IsValid(ctx))
-		return false;
-
-	if ((h < ctx.m_hMin) || (h > ctx.m_hMax))
-		return false;
 
 	SerializerSizeCounter ssc;
 	ssc & pValue;
 
 	Element* p = new Element;
+	p->m_pValue = std::move(pValue);
 	p->m_Threshold.m_Value	= ctx.m_hMax;
 	p->m_Profit.m_Fee	= ctx.m_Fee.Hi ? Amount(-1) : ctx.m_Fee.Lo; // ignore huge fees (which are  highly unlikely), saturate.
 	p->m_Profit.m_nSize	= ssc.m_Counter.m_Value;
-	p->m_Tx.m_pValue = std::move(pValue);
+	p->m_Tx.m_Key = key;
 
 	m_setThreshold.insert(p->m_Threshold);
 	m_setProfit.insert(p->m_Profit);
 	m_setTxs.insert(p->m_Tx);
-
-	return true;
 }
 
 void NodeProcessor::TxPool::Delete(Element& x)
@@ -1043,14 +1089,6 @@ void NodeProcessor::TxPool::Clear()
 {
 	while (!m_setThreshold.empty())
 		Delete(m_setThreshold.begin()->get_ParentObj());
-}
-
-bool NodeProcessor::TxPool::Element::Tx::operator < (const Tx& t) const
-{
-	assert(m_pValue && t.m_pValue);
-	// TODO: Normally we can account for tx offset only, different transactions highly unlikely to have the same offset.
-	// But current wallet implementation doesn't use the offset.
-	return m_pValue->cmp(*t.m_pValue) < 0;
 }
 
 bool NodeProcessor::TxPool::Element::Profit::operator < (const Profit& t) const
@@ -1168,7 +1206,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		if (nBlockSize + x.m_Profit.m_nSize > nSizeThreshold)
 			break;
 
-		Transaction& tx = *x.m_Tx.m_pValue;
+		Transaction& tx = *x.m_pValue;
 		rbData.Prepare(tx);
 
 		if (HandleValidatedTx(tx, h, true, rbData))
@@ -1252,7 +1290,16 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	else
 		ZeroObject(s.m_Prev);
 
+	if (!m_Cursor.m_SubsidyOpen)
+		res.m_SubsidyClosing = false;
+
+	if (res.m_SubsidyClosing)
+		OnSubsidyOptionChanged(false);
+
 	get_Definition(s.m_Definition, m_Cursor.m_HistoryNext);
+
+	if (res.m_SubsidyClosing)
+		OnSubsidyOptionChanged(true);
 
 	s.m_Height = h;
 	s.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
@@ -1271,6 +1318,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 {
 	Block::Body block;
 	block.ZeroInit();
+	block.m_SubsidyClosing = true; // by default insist on it. If already closed - this flag will automatically be turned OFF
 	return GenerateNewBlock(txp, s, bbBlock, fees, block, true);
 }
 
@@ -1318,7 +1366,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 bool NodeProcessor::VerifyBlock(const Block::Body& block, Height h0, Height h1)
 {
-	return block.IsValid(h0, h1);
+	return block.IsValid(h0, h1, m_Cursor.m_SubsidyOpen);
 }
 
 void NodeProcessor::ExportMacroBlock(Block::Body& res)
@@ -1388,6 +1436,8 @@ void NodeProcessor::ExportMacroBlock(Block::Body& res)
 
 	res.m_Subsidy.Lo = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
 	res.m_Subsidy.Hi = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
+
+	res.m_SubsidyClosing = !m_Cursor.m_SubsidyOpen;
 }
 
 bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Block::Body& block)
@@ -1441,7 +1491,13 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 		m_DB.MoveFwd(sid);
 	}
 
+	uint64_t val = !block.m_SubsidyClosing;
+	m_DB.ParamSet(NodeDB::ParamID::SubsidyOpen, &val, NULL);
+
 	InitCursor();
+
+	if (!m_Cursor.m_SubsidyOpen)
+		OnSubsidyOptionChanged(m_Cursor.m_SubsidyOpen);
 
 	Merkle::Hash hvDef;
 	get_Definition(hvDef, m_Cursor.m_History);

@@ -494,7 +494,13 @@ namespace beam
 				if (!np.m_Wallet.MakeTx(pTx, h, hIncubation))
 					break;
 
-				np.m_TxPool.AddTx(std::move(pTx), h);
+				Transaction::Context ctx;
+				verify_test(np.ValidateTx(*pTx, ctx));
+
+				Transaction::KeyType key;
+				pTx->get_Key(key);
+
+				np.m_TxPool.AddValidTx(std::move(pTx), ctx, key);
 			}
 
 			BlockPlus::Ptr pBlock(new BlockPlus);
@@ -773,8 +779,6 @@ namespace beam
 
 		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
 
-		node.Initialize();
-
 		struct MyClient
 			:public proto::NodeConnection
 		{
@@ -923,7 +927,9 @@ namespace beam
 		addr.resolve("127.0.0.1");
 		addr.port(Node::s_PortDefault);
 
-		Block::Body treasury;
+		node.m_Cfg.m_vTreasury.resize(1);
+		Block::Body& treasury = node.m_Cfg.m_vTreasury[0];
+
 		treasury.ZeroInit();
 		ECC::Scalar::Native offset(ECC::Zero);
 
@@ -937,10 +943,20 @@ namespace beam
 
 		treasury.m_Offset = offset;
 		treasury.Sort();
-		node.GenerateGenesisBlock(treasury);
+
+		node.Initialize();
 
 		cl.Connect(addr);
 
+		Node node2;
+		node2.m_Cfg.m_sPathLocal = g_sz2;
+		node2.m_Cfg.m_TestMode.m_bFakePoW = true;
+		node2.m_Cfg.m_Connect.resize(1);
+		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
+		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
+		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
+
+		node2.Initialize();
 
 		pReactor->run();
 	}
@@ -972,6 +988,7 @@ int main()
 
 	beam::TestNodeClientProto();
 	DeleteFileA(beam::g_sz);
+	DeleteFileA(beam::g_sz2);
 
 	return g_TestsFailed ? -1 : 0;
 }

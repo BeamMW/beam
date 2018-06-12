@@ -5,15 +5,19 @@ set(SQLITE_SRC
     sqlite3.c
 )
 
-find_package(OpenSSL REQUIRED)
-
-if( OpenSSL_FOUND )
-    set(OPENSSL_USE_STATIC_LIBS TRUE)
-    link_directories(${OPENSSL_LIBRARIES})
-    include_directories(${OPENSSL_INCLUDE_DIR})
-    message(STATUS "Using OpenSSL ${OPENSSL_VERSION}")
+if(MSVC)
+    include_directories($ENV{OPENSSL_ROOT_DIR}/include)
 else()
-    message(FATAL_ERROR "error, OpenSSL not found, please install: 'apt-get install libssl-dev' on Ubuntu")
+    find_package(OpenSSL REQUIRED)
+
+    if( OpenSSL_FOUND )
+        set(OPENSSL_USE_STATIC_LIBS TRUE)
+        link_directories(${OPENSSL_LIBRARIES})
+        include_directories(${OPENSSL_INCLUDE_DIR})
+        message(STATUS "Using OpenSSL ${OPENSSL_VERSION}")
+    else()
+        message(FATAL_ERROR "error, OpenSSL not found, please install: 'apt-get install libssl-dev' on Ubuntu")
+    endif()
 endif()
 
 # cmake can't find static lib on macos, harcoded

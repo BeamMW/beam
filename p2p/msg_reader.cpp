@@ -25,6 +25,7 @@ void MsgReader::new_data_from_stream(const void* data, size_t size) {
         consumed = feed_data(p, sz);
         if (consumed == 0) {
             // error occured, no more reads from this stream
+            // at this moment, the *this* may be deleted
             return;
         }
         assert(consumed <= sz);
@@ -41,7 +42,7 @@ size_t MsgReader::feed_data(const uint8_t* p, size_t sz) {
             // whole header has been read
             MsgHeader header(_msgBuffer.data());
             if (!_protocol.approve_msg_header(_from, header)) {
-                _state = corrupted;
+                // at this moment, the *this* may be deleted
                 return 0;
             }
 
@@ -55,11 +56,11 @@ size_t MsgReader::feed_data(const uint8_t* p, size_t sz) {
             _cursor += consumed;
             _bytesLeft -= consumed;
         }
-    } else if (_state == reading_message) {
+    } else {
         if (consumed == _bytesLeft) {
             // whole message has been read
             if (!_protocol.on_new_message(_from, _type, _msgBuffer.data(), _msgBuffer.size())) {
-                _state = corrupted;
+                // at this moment, the *this* may be deleted
                 return 0;
             }
             if (_msgBuffer.size() > 2*_defaultSize) {
@@ -77,8 +78,6 @@ size_t MsgReader::feed_data(const uint8_t* p, size_t sz) {
             _cursor += consumed;
             _bytesLeft -= consumed;
         }
-    } else {
-        return 0;
     }
     return consumed;
 }

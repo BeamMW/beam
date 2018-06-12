@@ -225,6 +225,11 @@ namespace beam
 		typedef std::shared_ptr<Transaction> Ptr;
 		// Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
 		bool IsValid(Context&) const;
+
+		static const uint32_t s_KeyBits = ECC::nBits; // key len for map of transactions. Can actually be less than 256 bits.
+		typedef ECC::uintBig_t<s_KeyBits> KeyType;
+
+		void get_Key(KeyType&) const;
 	};
 
 	struct Block
@@ -316,7 +321,9 @@ namespace beam
 		{
 			AmountBig m_Subsidy; // the overall amount created by the block
 			// For standard blocks this should be equal to the coinbase emission.
-			// Genesis block may have higher emission (aka premined)
+			// Genesis block(s) may have higher emission (aka premined)
+
+			bool m_SubsidyClosing; // Last block that contains arbitrary subsidy.
 
 			void ZeroInit();
 
@@ -327,7 +334,7 @@ namespace beam
 			// Not tested by this function (but should be tested by nodes!)
 			//		Existence of all the input UTXOs
 			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
-			bool IsValid(Height h0, Height h1) const;
+			bool IsValid(Height h0, Height h1, bool bSubsidyOpen) const;
 		};
 	};
 

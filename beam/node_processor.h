@@ -33,6 +33,7 @@ class NodeProcessor
 	bool HandleBlockElement(const Input&, bool bFwd, Height, RollbackData&);
 	bool HandleBlockElement(const Output&, Height, bool bFwd);
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
+	void OnSubsidyOptionChanged(bool);
 
 	void InitCursor();
 	void OnCorrupted();
@@ -69,6 +70,7 @@ public:
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
 		uint8_t m_DifficultyNext;
+		bool m_SubsidyOpen;
 
 	} m_Cursor;
 
@@ -108,12 +110,14 @@ public:
 	{
 		struct Element
 		{
+			Transaction::Ptr m_pValue;
+
 			struct Tx
 				:public boost::intrusive::set_base_hook<>
 			{
-				Transaction::Ptr m_pValue;
+				Transaction::KeyType m_Key;
 
-				bool operator < (const Tx& t) const;
+				bool operator < (const Tx& t) const { return m_Key < t.m_Key; }
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Tx)
 			} m_Tx;
 
@@ -147,7 +151,7 @@ public:
 		ProfitSet m_setProfit;
 		ThresholdSet m_setThreshold;
 
-		bool AddTx(Transaction::Ptr&&, Height); // return false if transaction doesn't pass context-free validation
+		void AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);
 		void Delete(Element&);
 		void Clear();
 
@@ -157,6 +161,8 @@ public:
 		~TxPool() { Clear(); }
 
 	};
+
+	bool ValidateTx(const Transaction&, Transaction::Context&); // wrt height of the next block
 
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body& blockInOut);
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees);

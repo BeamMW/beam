@@ -14,18 +14,17 @@ namespace beam::wallet
         struct TxFailed {};
         struct TxConfirmationCompleted
         {
-            sender::ConfirmationData::Ptr data;
+            ConfirmTransaction data;
         };
         struct TxRegistrationCompleted 
         {
             Uuid m_txId;
         };
         
-        Receiver(receiver::IGateway& gateway, beam::IKeyChain::Ptr keychain, sender::InvitationData::Ptr initData)
-            : m_fsm{boost::ref(gateway), keychain, initData}
+        Receiver(receiver::IGateway& gateway, beam::IKeyChain::Ptr keychain, InviteReceiver& initData)
+            : m_fsm{std::ref(gateway), keychain, std::ref(initData)}
         {
             assert(keychain);
-            assert(initData);
         }  
     private:
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
@@ -72,7 +71,7 @@ namespace beam::wallet
                 }
             };
 
-            FSMDefinition(receiver::IGateway &gateway, beam::IKeyChain::Ptr keychain, sender::InvitationData::Ptr initData);
+            FSMDefinition(receiver::IGateway &gateway, beam::IKeyChain::Ptr keychain, InviteReceiver& initData);
 
             // transition actions
             void confirm_tx(const msmf::none&);
@@ -82,6 +81,7 @@ namespace beam::wallet
             void rollback_tx(const TxFailed& event);
             void cancel_tx(const TxConfirmationCompleted& event);
             void complete_tx(const TxRegistrationCompleted& event);
+            void rollback_tx();
 
             using initial_state = Init;
             using d = FSMDefinition;
@@ -126,7 +126,6 @@ namespace beam::wallet
             ECC::Point::Native m_publicSenderNonce;
             ECC::Scalar::Native m_receiverSignature;
             ECC::Scalar::Native m_blindingExcess;
-            ECC::Scalar::Native m_nonce;
             ECC::Scalar::Native m_schnorrChallenge;
 
             Transaction::Ptr m_transaction;
