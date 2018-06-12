@@ -5,7 +5,7 @@ matrix:
     - os: osx
       osx_image: xcode9.3
 	  before_script:
-		- export PATH=$PATH:/usr/local/opt/qt/bin
+		- export PATH="$PATH:/usr/local/opt/qt/bin"
       before_install: 
         - brew upgrade openssl boost cmake
         - brew install qt5
@@ -18,7 +18,7 @@ matrix:
     - os: osx
       osx_image: xcode9.3
 	  before_script:
-		- export PATH=$PATH:/usr/local/opt/qt/bin
+		- export PATH="$PATH:/usr/local/opt/qt/bin"
       before_install:
         - brew upgrade openssl boost cmake
         - brew install qt5
