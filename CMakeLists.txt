@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.1)
 project(beam)
 
+# defined UI here because we don't use static linking with QT5
+add_subdirectory(ui)
+
 enable_testing()
 
 function(add_test_snippet EXE_NAME LIB_NAME)
