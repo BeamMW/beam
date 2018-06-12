@@ -1,4 +1,6 @@
 import QtQuick 2.0
+import QtQuick.Controls 1.0
+import QtQuick.Dialogs 1.1
 
 Rectangle {
     id: page
@@ -13,4 +15,16 @@ Rectangle {
         anchors.horizontalCenter: page.horizontalCenter
         font.pointSize: 24; font.bold: true
     }
+
+    MessageDialog {
+            id: msg
+            title: "Title"
+            text: "Button pressed"
+            onAccepted: visible = false
+        }
+
+    Button {
+            text: "press me"
+            onClicked: msg.visible = true
+        }
 }
