@@ -363,11 +363,6 @@ namespace beam
                 coin.m_status = Coin::Spent;
                 m_keyChain->update(vector<Coin>{coin});
             }
-            else if (coin.m_key_type == KeyType::Coinbase
-             || coin.m_key_type == KeyType::Comission)
-            {
-                m_keyChain->remove(coin);
-            }
         }
         else
         {
@@ -382,11 +377,15 @@ namespace beam
                         coin.m_status = Coin::Unspent;
                         coin.m_maturity = proof.m_Maturity;
                         if (coin.m_key_type == KeyType::Coinbase
-                         || coin.m_key_type == KeyType::Comission)
+                            || coin.m_key_type == KeyType::Comission)
                         {
                             LOG_INFO() << "Block reward received: " << PrintableAmount(coin.m_amount);
+                            m_keyChain->store(coin);
                         }
-                        m_keyChain->update(vector<Coin>{coin});
+                        else
+                        {
+                            m_keyChain->update(vector<Coin>{coin});
+                        }
                     }
                     else
                     {
@@ -449,7 +448,6 @@ namespace beam
         {
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
-                Amount reward = Block::Rules::CoinbaseEmission;
                 // coinbase 
                 mined.emplace_back(Block::Rules::CoinbaseEmission
                                  , Coin::Unconfirmed
@@ -458,7 +456,6 @@ namespace beam
                                  , KeyType::Coinbase);
                 if (minedCoin.m_Fees > 0)
                 {
-                    reward += minedCoin.m_Fees;
                     mined.emplace_back(minedCoin.m_Fees
                                      , Coin::Unconfirmed
                                      , minedCoin.m_ID.m_Height
@@ -468,11 +465,10 @@ namespace beam
             }
         }
 
-		if (!mined.empty())
-		{
-			m_keyChain->store(mined);
+        if (!mined.empty())
+        {
             getUtxoProofs(mined);
-		}
+        }
         return finishSync();
     }
 
