@@ -164,7 +164,12 @@ namespace proto {
 
 #define THE_MACRO(code, msg) \
 		void Send(const msg& v); \
-		virtual void OnMsg(msg&& v) {}
+		virtual bool OnMsg2(msg&& v) \
+		{ \
+			OnMsg(std::move(v)); \
+			return true; \
+		} \
+		virtual void OnMsg(msg&& v) {} 
 		BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 
