@@ -1,6 +1,8 @@
 #include <iostream>
 #include "../ecc_native.h"
 #include "../block_crypt.h"
+#include "../utility/serialize.h"
+#include "../core/serialization_adapters.h"
 
 #include "../beam/secp256k1-zkp/include/secp256k1_rangeproof.h" // For benchmark comparison with secp256k1
 void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a);
@@ -337,6 +339,15 @@ void TestCommitments()
 	verify_test(sigma == Zero);
 }
 
+template <typename T>
+void WriteSizeSerialized(const char* sz, const T& t)
+{
+	beam::SerializerSizeCounter ssc;
+	ssc & t;
+
+	printf("%s size = %u\n", sz, (uint32_t) ssc.m_Counter.m_Value);
+}
+
 void TestRangeProof()
 {
 	Scalar::Native sk;
@@ -410,6 +421,27 @@ void TestRangeProof()
 		Oracle oracle;
 		verify_test(bp.IsValid(comm, oracle));
 	}
+
+	WriteSizeSerialized("BulletProof", bp);
+
+	{
+		beam::Output outp;
+		outp.Create(1U, 20300, true);
+		verify_test(outp.IsValid());
+		WriteSizeSerialized("Out-UTXO-Public", outp);
+	}
+	{
+		beam::Output outp;
+		outp.Create(1U, 20300, false);
+		verify_test(outp.IsValid());
+		WriteSizeSerialized("Out-UTXO-Confidential", outp);
+	}
+
+	WriteSizeSerialized("In-Utxo", beam::Input());
+
+	beam::TxKernel txk;
+	txk.m_Fee = 50;
+	WriteSizeSerialized("Kernel(simple)", txk);
 }
 
 struct TransactionMaker
