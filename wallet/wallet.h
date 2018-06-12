@@ -124,6 +124,7 @@ namespace beam
         Block::SystemState::ID m_knownStateID;
         Block::SystemState::ID m_newStateID;
         int m_syncing;
+        bool m_synchronized;
         std::queue<Coin> m_pendingProofs;
     };
 }

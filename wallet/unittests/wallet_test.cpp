@@ -238,6 +238,9 @@ namespace
         void registerPeer(IWallet* walletPeer)
         {
             m_peers.push_back(walletPeer);
+
+            walletPeer->handle_node_message(proto::NewTip{ 0 });
+
             proto::Hdr msg = { 0 };
             msg.m_Description.m_Height = 134;
             walletPeer->handle_node_message(move(msg));
@@ -417,6 +420,7 @@ void TestFSM()
 
 enum NodeNetworkMessageCodes : uint8_t
 {
+    NewTipCode = 1,
     NewTransactionCode = 23,
     BooleanCode = 5,
     HdrCode = 3,
@@ -508,6 +512,7 @@ private:
                     std::move(newStream)));
 
             ++m_connectCount;
+            send(tag, NewTipCode, proto::NewTip{ 0 });
         }
         else
         {
@@ -584,5 +589,6 @@ int main()
     TestRollback();
     TestFSM();
 
+    assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
 }

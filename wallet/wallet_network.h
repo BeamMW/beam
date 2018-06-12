@@ -160,6 +160,5 @@ namespace beam
         std::unique_ptr<WalletNodeConnection> m_node_connection;
         SerializedMsg m_msgToSend;
         io::Timer::Ptr m_sync_timer;
-        io::Timer::Ptr m_close_timer;
     };
 }

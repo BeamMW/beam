@@ -29,7 +29,6 @@ namespace beam {
         , m_reconnect_ms{ reconnect_ms }
         , m_sync_period_ms{ sync_period_ms }
         , m_sync_timer{io::Timer::create(m_reactor)}
-        , m_close_timer{io::Timer::create(m_reactor)}
     {
         m_protocol.add_message_handler<WalletNetworkIO, wallet::InviteReceiver,     &WalletNetworkIO::on_message>(senderInvitationCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmTransaction, &WalletNetworkIO::on_message>(senderConfirmationCode, this, 1, 20000);

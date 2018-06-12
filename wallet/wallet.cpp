@@ -119,7 +119,8 @@ namespace beam
         : m_keyChain{ keyChain }
         , m_network{ network }
         , m_tx_completed_action{move(action)}
-        , m_syncing{1}
+        , m_syncing{0}
+        , m_synchronized{false}
         , m_knownStateID{0}
     {
         assert(keyChain);
@@ -145,7 +146,7 @@ namespace beam
         m_peers.emplace(txId, to);
         auto s = make_shared<Sender>(*this, m_keyChain, txId, amount);
         auto p = m_senders.emplace(txId, s);
-        if (!m_syncing)
+        if (m_synchronized)
         {
             p.first->second->start();
         }
@@ -249,7 +250,7 @@ namespace beam
             auto txId = data.m_txId;
             m_peers.emplace(txId, from);
             auto p = m_receivers.emplace(txId, make_shared<Receiver>(*this, m_keyChain, data));
-            if (!m_syncing)
+            if (m_synchronized)
             {
                 p.first->second->start();
             }
@@ -426,11 +427,12 @@ namespace beam
     {
         // TODO: check if we're already waiting for the ProofUtxo,
         // don't send request if yes
-
+        ++m_syncing; // Hdr
         if (msg.m_ID > m_knownStateID)
         {
             m_newStateID = msg.m_ID;
-            ++m_syncing;
+            m_synchronized = false;
+            ++m_syncing; // Mined
             m_network.send_node_message(proto::GetMined{ m_knownStateID.m_Height });
         }
         return true;
@@ -569,6 +571,7 @@ namespace beam
                     }
                     m_pendingReceivers.clear();
                 }
+                m_synchronized = true;
             }
         }
         if (!m_syncing && m_node_requests_queue.empty())
