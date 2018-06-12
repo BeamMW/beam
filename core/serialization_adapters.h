@@ -162,7 +162,6 @@ namespace detail
 		static Archive& save(Archive& ar, const ECC::InnerProduct& v)
 		{
 			ar
-				& v.m_AB
 				& v.m_pLR
 				& v.m_pCondensed;
 
@@ -173,7 +172,6 @@ namespace detail
 		static Archive& load(Archive& ar, ECC::InnerProduct& v)
 		{
 			ar
-				& v.m_AB
 				& v.m_pLR
 				& v.m_pCondensed;
 

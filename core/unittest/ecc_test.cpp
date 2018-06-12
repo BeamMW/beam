@@ -383,18 +383,20 @@ void TestRangeProof()
 		SetRandom(pB[i]);
 	}
 
-	Scalar::Native pwrMul;
+	Scalar::Native pwrMul, dot;
+
+	InnerProduct::get_Dot(dot, pA, pB);
+
 	SetRandom(pwrMul);
 	InnerProduct::Modifier mod;
 	mod.m_pMultiplier[1] = &pwrMul;
 
 	InnerProduct sig;
-	sig.Create(pA, pB, mod);
+	sig.Create(comm, dot, pA, pB, mod);
 
-	Scalar::Native dot;
 	InnerProduct::get_Dot(dot, pA, pB);
 
-	verify_test(sig.IsValid(dot, mod));
+	verify_test(sig.IsValid(comm, dot, mod));
 
 	RangeProof::Confidential bp;
 	Amount v = 23110;
@@ -959,6 +961,7 @@ void RunBenchmark()
 
 	InnerProduct sig2;
 
+	Point::Native commAB;
 	Scalar::Native dot;
 	InnerProduct::get_Dot(dot, pA, pB);
 
@@ -968,7 +971,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				sig2.Create(pA, pB);
+				sig2.Create(commAB, dot, pA, pB);
 
 		} while (bm.ShouldContinue());
 	}
@@ -979,7 +982,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				sig2.IsValid(dot);
+				sig2.IsValid(commAB, dot);
 
 		} while (bm.ShouldContinue());
 	}

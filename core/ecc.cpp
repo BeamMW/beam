@@ -1351,7 +1351,7 @@ namespace ECC {
 		}
 	}
 
-	void InnerProduct::Create(const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
+	void InnerProduct::Create(ECC::Point::Native& commAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
 	{
 		Mode::Scope scope(Mode::Fast);
 
@@ -1369,14 +1369,10 @@ namespace ECC {
 			}
 
 		Point::Native comm;
-		c.m_Mm.Calculate(comm);
-
-		m_AB = comm;
+		c.m_Mm.Calculate(commAB);
 
 		Oracle oracle;
-		oracle << m_AB;
-
-		oracle >> c.m_Cs.m_DotMultiplier;
+		oracle << commAB << dotAB >> c.m_Cs.m_DotMultiplier;
 
 		for (c.m_iCycle = 0; c.m_iCycle < nCycles; c.m_iCycle++)
 		{
@@ -1404,15 +1400,14 @@ namespace ECC {
 			m_pCondensed[i] = c.m_pVal[i][0];
 	}
 
-	bool InnerProduct::IsValid(const Scalar::Native& dot, const Modifier& mod) const
+	bool InnerProduct::IsValid(const ECC::Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& mod) const
 	{
 		Mode::Scope scope(Mode::Fast);
 
 		Oracle oracle;
-		oracle << m_AB;
-
 		Calculator::ChallengeSet cs;
-		oracle >> cs.m_DotMultiplier;
+
+		oracle << commAB << dotAB >> cs.m_DotMultiplier;
 
 		// Calculate the aggregated sum, consisting of sum of multiplications at once.
 		// The expression we're calculating is:
@@ -1459,7 +1454,7 @@ namespace ECC {
 		// add the new (mutated) dot product, substract the original (claimed)
 		mm.m_pKPrep[mm.m_Prepared] = m_pCondensed[0];
 		mm.m_pKPrep[mm.m_Prepared] *= m_pCondensed[1];
-		mm.m_pKPrep[mm.m_Prepared] += -dot;
+		mm.m_pKPrep[mm.m_Prepared] += -dotAB;
 		mm.m_pKPrep[mm.m_Prepared] *= cs.m_DotMultiplier;
 
 		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_GenDot_;
@@ -1470,7 +1465,7 @@ namespace ECC {
 
 		// verify. Should be equal to AB
 		res = -res;
-		res += Point::Native(m_AB);
+		res += commAB;
 
 		return res == Zero;
 	}
@@ -1681,7 +1676,7 @@ namespace ECC {
 		InnerProduct::Modifier mod;
 		mod.m_pMultiplier[1] = &yPwr;
 
-		m_P_Tag.Create(pS[0], pS[1], mod);
+		m_P_Tag.Create(comm, l0, pS[0], pS[1], mod);
 	}
 
 	bool RangeProof::Confidential::IsValid(const Point& commitment, Oracle& oracle) const
@@ -1782,16 +1777,11 @@ namespace ECC {
 
 		ptVal += Point::Native(m_A);
 
-		ptVal = -ptVal;
-		ptVal += Point::Native(m_P_Tag.m_AB);
-
-		if (!(ptVal == Zero))
-			return false;
-
+		// By now the ptVal should be equal to the commAB
 		// finally check the inner product
 		InnerProduct::Modifier mod;
 		mod.m_pMultiplier[1] = &yInv;
-		if (!m_P_Tag.IsValid(tDot, mod))
+		if (!m_P_Tag.IsValid(ptVal, tDot, mod))
 			return false;
 
 		return true;
