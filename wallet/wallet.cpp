@@ -233,9 +233,9 @@ namespace beam
 
     void Wallet::send_tx_registered(UuidPtr&& txId)
     {
-        send_tx_message(*txId, [this](auto peer_id)
+        send_tx_message(*txId, [&txId, this](auto peer_id)
         {
-            m_network.send_tx_message(peer_id, wallet::TxRegistered{ true });
+            m_network.send_tx_message(peer_id, wallet::TxRegistered{ *txId, true });
         });
     }
 
@@ -312,17 +312,18 @@ namespace beam
         handle_tx_failed(data.m_txId);
     }
 
-    void Wallet::handle_node_message(proto::Boolean&& res)
+    bool Wallet::handle_node_message(proto::Boolean&& res)
     {
         if (m_node_requests_queue.empty())
         {
             LOG_DEBUG() << "Received unexpected tx registration confirmation";
             assert(m_receivers.empty() && m_senders.empty());
-            return;
+            return false;
         }
         auto txId = m_node_requests_queue.front();
         m_node_requests_queue.pop();
         handle_tx_registered(txId, res.m_Value);
+        return true;
     }
 
     void Wallet::handle_tx_registered(const Uuid& txId, bool res)
@@ -363,13 +364,13 @@ namespace beam
         }
     }
 
-    void Wallet::handle_node_message(proto::ProofUtxo&& proof)
+    bool Wallet::handle_node_message(proto::ProofUtxo&& proof)
     {
         // TODO: handle the maturity of the several proofs (> 1)
         if (m_pendingProofs.empty())
         {
             LOG_DEBUG() << "Unexpected UTXO proof";
-            return;
+            return false;
         }
 
         Coin& coin = m_pendingProofs.front();
@@ -418,10 +419,10 @@ namespace beam
 
         m_pendingProofs.pop();
 
-        finishSync();
+        return finishSync();
     }
 
-    void Wallet::handle_node_message(proto::NewTip&& msg)
+    bool Wallet::handle_node_message(proto::NewTip&& msg)
     {
         // TODO: check if we're already waiting for the ProofUtxo,
         // don't send request if yes
@@ -432,9 +433,10 @@ namespace beam
             ++m_syncing;
             m_network.send_node_message(proto::GetMined{ m_knownStateID.m_Height });
         }
+        return true;
     }
 
-    void Wallet::handle_node_message(proto::Hdr&& msg)
+    bool Wallet::handle_node_message(proto::Hdr&& msg)
     {
 		m_Definition = msg.m_Description.m_Definition;
 
@@ -456,10 +458,10 @@ namespace beam
         Block::SystemState::ID newID = {0};
         msg.m_Description.get_ID(newID);
         m_newStateID = newID;
-        finishSync();
+        return finishSync();
     }
 
-    void Wallet::handle_node_message(proto::Mined&& msg)
+    bool Wallet::handle_node_message(proto::Mined&& msg)
     {
         vector<Coin> mined;
         auto currentHeight = m_keyChain->getCurrentHeight();
@@ -491,7 +493,7 @@ namespace beam
 			m_keyChain->store(mined);
             getUtxoProofs(mined);
 		}
-        finishSync();
+        return finishSync();
     }
 
     void Wallet::handle_connection_error(PeerId from)
@@ -538,7 +540,7 @@ namespace beam
         }
     }
 
-    void Wallet::finishSync()
+    bool Wallet::finishSync()
     {
         if (m_syncing)
         {
@@ -572,6 +574,8 @@ namespace beam
         if (!m_syncing && m_node_requests_queue.empty())
         {
             m_network.close_node_connection();
+            return false;
         }
+        return true;
     }
 }

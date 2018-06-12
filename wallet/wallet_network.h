@@ -129,11 +129,11 @@ namespace beam
             // NodeConnection
             void OnConnected() override;
             void OnClosed(int errorCode) override;
-            void OnMsg(proto::Boolean&& msg) override;
-            void OnMsg(proto::ProofUtxo&& msg) override;
-			void OnMsg(proto::NewTip&& msg) override;
-            void OnMsg(proto::Hdr&& msg) override;
-            void OnMsg(proto::Mined&& msg) override;
+            bool OnMsg2(proto::Boolean&& msg) override;
+            bool OnMsg2(proto::ProofUtxo&& msg) override;
+            bool OnMsg2(proto::NewTip&& msg) override;
+            bool OnMsg2(proto::Hdr&& msg) override;
+            bool OnMsg2(proto::Mined&& msg) override;
         private:
             io::Address m_address;
             IWallet & m_wallet;

@@ -119,26 +119,20 @@ namespace beam {
 
     void WalletNetworkIO::close_connection(uint64_t id)
     {
-        m_close_timer->start(0, false, [this, id]()
+        m_connections.erase(id);
+        if (auto it = m_connections_callbacks.find(id); it != m_connections_callbacks.end())
         {
-            m_connections.erase(id);
-            if (auto it = m_connections_callbacks.find(id); it != m_connections_callbacks.end())
-            {
-                m_connections_callbacks.erase(it);
-                m_reactor->cancel_tcp_connect(id);
-            }
-        });        
+            m_connections_callbacks.erase(it);
+            m_reactor->cancel_tcp_connect(id);
+        }
     }
 
     void WalletNetworkIO::close_node_connection()
     {
         LOG_DEBUG() << "Close node connection";
-     //   m_close_timer->start(0, false, [this]()
-     //   {
-            m_is_node_connected = false;
-            m_node_connection.reset();
-            start_sync_timer();
-    //    });
+        m_is_node_connected = false;
+        m_node_connection.reset();
+        start_sync_timer();
     }
 
     bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::InviteReceiver&& msg)
@@ -249,7 +243,7 @@ namespace beam {
 
     void WalletNetworkIO::on_node_connected()
     {
-         m_is_node_connected = true;
+        m_is_node_connected = true;
     }
 
     void WalletNetworkIO::on_protocol_error(uint64_t from, ProtocolError error)
@@ -326,28 +320,28 @@ namespace beam {
         m_timer->start(m_reconnectMsec, false, [this]() {Connect(m_address); });
     }
 
-    void WalletNetworkIO::WalletNodeConnection::OnMsg(proto::Boolean&& msg)
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Boolean&& msg)
     {
-        m_wallet.handle_node_message(move(msg));
+        return m_wallet.handle_node_message(move(msg));
     }
 
-    void WalletNetworkIO::WalletNodeConnection::OnMsg(proto::ProofUtxo&& msg)
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::ProofUtxo&& msg)
     {
-        m_wallet.handle_node_message(move(msg));
+        return m_wallet.handle_node_message(move(msg));
     }
 
-	void WalletNetworkIO::WalletNodeConnection::OnMsg(proto::NewTip&& msg)
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::NewTip&& msg)
 	{
-		m_wallet.handle_node_message(move(msg));
+		return m_wallet.handle_node_message(move(msg));
 	}
 
-    void WalletNetworkIO::WalletNodeConnection::OnMsg(proto::Hdr&& msg)
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Hdr&& msg)
     {
-        m_wallet.handle_node_message(move(msg));
+        return m_wallet.handle_node_message(move(msg));
     }
 
-    void WalletNetworkIO::WalletNodeConnection::OnMsg(proto::Mined&& msg)
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Mined&& msg)
     {
-        m_wallet.handle_node_message(move(msg));
+        return m_wallet.handle_node_message(move(msg));
     }
 }

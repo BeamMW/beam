@@ -41,11 +41,11 @@ namespace beam
         virtual void handle_tx_message(PeerId, wallet::TxRegistered&&) = 0;
         virtual void handle_tx_message(PeerId, wallet::TxFailed&&) = 0;
         // node to wallet responses
-        virtual void handle_node_message(proto::Boolean&&) = 0;
-        virtual void handle_node_message(proto::ProofUtxo&&) = 0;
-		virtual void handle_node_message(proto::NewTip&&) = 0;
-		virtual void handle_node_message(proto::Hdr&&) = 0;
-        virtual void handle_node_message(proto::Mined&& msg) = 0;
+        virtual bool handle_node_message(proto::Boolean&&) = 0;
+        virtual bool handle_node_message(proto::ProofUtxo&&) = 0;
+		virtual bool handle_node_message(proto::NewTip&&) = 0;
+		virtual bool handle_node_message(proto::Hdr&&) = 0;
+        virtual bool handle_node_message(proto::Mined&& msg) = 0;
         // connection control
         virtual void handle_connection_error(PeerId) = 0;
     };
@@ -80,11 +80,11 @@ namespace beam
         void handle_tx_message(PeerId, wallet::TxRegistered&&) override;
         void handle_tx_message(PeerId, wallet::TxFailed&&) override;
 
-        void handle_node_message(proto::Boolean&& res) override;
-        void handle_node_message(proto::ProofUtxo&& proof) override;
-		void handle_node_message(proto::NewTip&& msg) override;
-		void handle_node_message(proto::Hdr&& msg) override;
-        void handle_node_message(proto::Mined&& msg) override;
+        bool handle_node_message(proto::Boolean&& res) override;
+        bool handle_node_message(proto::ProofUtxo&& proof) override;
+        bool handle_node_message(proto::NewTip&& msg) override;
+        bool handle_node_message(proto::Hdr&& msg) override;
+        bool handle_node_message(proto::Mined&& msg) override;
         void handle_connection_error(PeerId from) override;
 
         void handle_tx_registered(const Uuid& txId, bool res);
@@ -106,7 +106,8 @@ namespace beam
 
         void remove_peer(const Uuid& txId);
         void getUtxoProofs(const std::vector<Coin>& coins);
-        void finishSync();
+        bool finishSync();
+
     private:
         IKeyChain::Ptr m_keyChain;
         INetworkIO& m_network;

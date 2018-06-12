@@ -96,6 +96,7 @@ namespace
             for (auto amount : {5, 2, 1})
             {
                 Coin coin(amount);
+                coin.m_maturity = 0;
                 store(coin);
             }
         }
@@ -385,7 +386,7 @@ void TestWalletNegotiation()
     sender.transfer_money(receiver_id, 6);
     mainLoop.run();
 
-    WALLET_CHECK(network.m_closeNodeCount == 2);
+    WALLET_CHECK(network.m_closeNodeCount == 4);
 }
 
 void TestRollback()
