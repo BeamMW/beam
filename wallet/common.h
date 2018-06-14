@@ -57,6 +57,17 @@ namespace beam
             {
                 return static_cast<Derived*>(this)->m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
             }
+
+            template<class Archive>
+            void serialize(Archive & ar, const unsigned int)
+            {
+                static_cast<Derived*>(this)->m_fsm.serialize(ar, 0);
+            }
+            // for test only
+            const int* current_state() const
+            {
+                return static_cast<const Derived*>(this)->m_fsm.current_state();
+            }
         };
 
         // messages

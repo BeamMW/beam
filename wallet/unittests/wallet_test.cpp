@@ -13,6 +13,7 @@
 
 #include "sqlite_keychain.hpp"
 #include "core/proto.h"
+#include "wallet/wallet_serialization.h"
 
 using namespace beam;
 using namespace std;
@@ -573,6 +574,77 @@ void TestSplitKey()
     WALLET_CHECK(s1 == nonce);
 }
 
+void TestSerializeFSM()
+{
+    cout << "\nTesting wallet's fsm serialization...\nsender\n";
+    TestGateway gateway;
+    
+    {
+        Uuid id;
+
+        wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), id , 6 };
+        WALLET_CHECK(*(s.current_state()) == 0);
+        s.start();
+        WALLET_CHECK(*(s.current_state()) == 1);
+
+        Serializer ser;
+        ser & s;
+
+        auto buffer = ser.buffer();
+
+        Deserializer der;
+        der.reset(buffer.first, buffer.second);
+
+        wallet::Sender s2 { gateway, createKeyChain<TestKeyChain>()};
+        WALLET_CHECK(*(s2.current_state()) == 0);
+        der & s2;
+        WALLET_CHECK(*(s2.current_state()) == 1);
+        s2.process_event(wallet::Sender::TxInitCompleted{ wallet::ConfirmInvitation() });
+        WALLET_CHECK(*(s2.current_state()) == 2);
+
+        ser.reset();
+        ser & s2;
+
+        buffer = ser.buffer();
+        der.reset(buffer.first, buffer.second);
+        der & s;
+        WALLET_CHECK(*(s.current_state()) == 2);
+    }
+
+    {
+        wallet::InviteReceiver initData{0};
+        initData.m_amount = 100;
+        wallet::Receiver r{ gateway, createKeyChain<TestKeyChain>(), initData };
+        WALLET_CHECK(*(r.current_state()) == 0);
+        r.start();
+        WALLET_CHECK(*(r.current_state()) == 1);
+
+        Serializer ser;
+        ser & r;
+
+        auto buffer = ser.buffer();
+
+        Deserializer der;
+        der.reset(buffer.first, buffer.second);
+
+        wallet::Receiver r2{ gateway, createKeyChain<TestKeyChain>(), initData };
+        WALLET_CHECK(*(r2.current_state()) == 0);
+        der & r2;
+        WALLET_CHECK(*(r2.current_state()) == 1);
+        r2.process_event(wallet::Receiver::TxConfirmationCompleted{});
+        WALLET_CHECK(*(r2.current_state()) == 3);
+
+        ser.reset();
+        ser & r2;
+
+        buffer = ser.buffer();
+        der.reset(buffer.first, buffer.second);
+        der & r;
+        WALLET_CHECK(*(r.current_state()) == 3);
+    }
+
+}
+
 #define LOG_VERBOSE_ENABLED 0
 
 int main()
@@ -590,6 +662,7 @@ int main()
     TestWalletNegotiation<SqliteKeychainInt, TestKeyChain2>();
     TestRollback();
     TestFSM();
+    TestSerializeFSM();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

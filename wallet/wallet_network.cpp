@@ -221,10 +221,11 @@ namespace beam {
 
     void WalletNetworkIO::connect_node()
     {
-        assert(m_is_node_connected == false && !m_node_connection);
-
-        create_node_connection();
-        m_node_connection->connect(BIND_THIS_MEMFN(on_node_connected));
+        if (m_is_node_connected == false && !m_node_connection)
+        {
+            create_node_connection();
+            m_node_connection->connect(BIND_THIS_MEMFN(on_node_connected));
+        }
     }
 
     void WalletNetworkIO::start_sync_timer()
@@ -274,7 +275,7 @@ namespace beam {
 
     void WalletNetworkIO::create_node_connection()
     {
-        assert(!m_node_connection);
+        assert(!m_node_connection && !m_is_node_connected);
         m_node_connection = make_unique<WalletNodeConnection>(m_node_address, m_wallet, m_reactor, m_reconnect_ms);
     }
 

@@ -20,12 +20,12 @@ namespace beam::wallet
         };
         struct TxConfirmationCompleted {};
 
-        Sender(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, const ECC::Amount& amount)
+        Sender(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId = Uuid(), const ECC::Amount& amount = 0)
             : m_fsm{boost::ref(gateway), keychain, boost::ref(txId), boost::ref(amount)}
         {
             
         }
-    private:
+        
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
             // states
@@ -84,8 +84,6 @@ namespace beam::wallet
             void init_tx(const msmf::none&);
             bool is_valid_signature(const TxInitCompleted& );
             bool is_invalid_signature(const TxInitCompleted& );
-            bool has_change(const TxConfirmationCompleted&);
-            bool has_no_change(const TxConfirmationCompleted&);
             void confirm_tx(const TxInitCompleted& );
             void rollback_tx(const TxFailed& );
             void cancel_tx(const TxInitCompleted& );
@@ -95,6 +93,7 @@ namespace beam::wallet
 
             Amount get_total() const;
 
+            //using do_serialize = int;
             using initial_state = Init;
             using d = FSMDefinition;
             struct transition_table : mpl::vector<
@@ -120,6 +119,20 @@ namespace beam::wallet
             {
                 LOG_ERROR() << ex.what();
                 fsm.process_event(TxFailed());
+            }
+
+            template<typename Archive>
+            void serialize(Archive & ar, const unsigned int)
+            {
+                ar  & m_txId
+                    & m_amount
+                    & m_blindingExcess
+                    & m_senderSignature
+                    & m_publicBlindingExcess
+                    & m_publicNonce
+                    & m_kernel
+                    & m_coins
+                    & m_changeOutput;
             }
 
             sender::IGateway& m_gateway;

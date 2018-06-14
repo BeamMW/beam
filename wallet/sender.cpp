@@ -110,16 +110,6 @@ namespace beam::wallet
         return !is_valid_signature(event);
     }
 
-    bool Sender::FSMDefinition::has_change(const TxConfirmationCompleted&)
-    {
-        return m_changeOutput.is_initialized();
-    }
-
-    bool Sender::FSMDefinition::has_no_change(const TxConfirmationCompleted&)
-    {
-        return !m_changeOutput.is_initialized();
-    }
-
     void Sender::FSMDefinition::confirm_tx(const TxInitCompleted& event)
     {
         auto& data = event.data;

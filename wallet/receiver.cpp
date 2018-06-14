@@ -29,12 +29,10 @@ namespace beam::wallet
         ConfirmInvitation confirmationData;
         confirmationData.m_txId = m_txId;
 
-        TxKernel::Ptr kernel = make_unique<TxKernel>();
-        kernel->m_Fee = 0;
-        kernel->m_Height.m_Min = m_height;
-        kernel->m_Height.m_Max = MaxHeight;
-        m_kernel = kernel.get();
-        m_transaction->m_vKernelsOutput.push_back(move(kernel));
+        m_kernel = make_unique<TxKernel>();
+        m_kernel->m_Fee = 0;
+        m_kernel->m_Height.m_Min = m_height;
+        m_kernel->m_Height.m_Max = MaxHeight;
 
         // 1. Check fee
         // 2. Create receiver_output
@@ -106,6 +104,8 @@ namespace beam::wallet
         // 5. Create transaction kernel
         m_kernel->m_Excess = x;
         m_kernel->m_Signature.m_k = finialSignature;
+
+        m_transaction->m_vKernelsOutput.push_back(move(m_kernel));
 
         // 6. Create final transaction and send it to mempool
         m_transaction->Sort();

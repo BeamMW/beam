@@ -26,7 +26,7 @@ namespace beam::wallet
         {
             assert(keychain);
         }  
-    private:
+
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
             // states
@@ -83,6 +83,7 @@ namespace beam::wallet
             void complete_tx(const TxRegistrationCompleted& event);
             void rollback_tx();
 
+            using do_serialize = int;
             using initial_state = Init;
             using d = FSMDefinition;
             struct transition_table : mpl::vector<
@@ -110,6 +111,23 @@ namespace beam::wallet
                 fsm.process_event(TxFailed());
             }
 
+            template<typename Archive>
+            void serialize(Archive & ar, const unsigned int)
+            {
+                ar  & m_txId
+                    & m_amount
+                    & m_message
+                    & m_receiver_coin
+                    & m_publicReceiverBlindingExcess
+                    & m_publicSenderBlindingExcess
+                    & m_publicSenderNonce
+                    & m_receiverSignature
+                    & m_blindingExcess
+                    & m_transaction
+                    & m_kernel
+                    & m_height;
+            }
+
             receiver::IGateway& m_gateway;
             beam::IKeyChain::Ptr m_keychain;
 
@@ -117,8 +135,6 @@ namespace beam::wallet
 
             ECC::Amount m_amount; 
             ECC::Hash::Value m_message;
-            std::vector<Input::Ptr> m_inputs;
-            std::vector<Output::Ptr> m_outputs;
             Coin m_receiver_coin;
 
             ECC::Point::Native m_publicReceiverBlindingExcess;
@@ -126,10 +142,9 @@ namespace beam::wallet
             ECC::Point::Native m_publicSenderNonce;
             ECC::Scalar::Native m_receiverSignature;
             ECC::Scalar::Native m_blindingExcess;
-            ECC::Scalar::Native m_schnorrChallenge;
 
             Transaction::Ptr m_transaction;
-            TxKernel* m_kernel;
+            TxKernel::Ptr m_kernel;
             Height m_height;
         };
 
