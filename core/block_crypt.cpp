@@ -374,147 +374,163 @@ namespace beam
 		return true;
 	}
 
-	bool TxBase::ValidateAndSummarize(Context& ctx) const
+	bool TxBase::Context::ValidateAndSummarize(Reader& r)
 	{
-		if (ctx.m_Height.IsEmpty())
+		if (m_Height.IsEmpty())
 			return false;
 
-		ctx.m_Sigma = -ctx.m_Sigma;
+		m_Sigma = -m_Sigma;
 		AmountBig feeInp; // dummy var
 
-		assert(ctx.m_nVerifiers);
-		uint32_t iV = ctx.m_iVerifier;
+		assert(m_nVerifiers);
+		uint32_t iV = m_iVerifier;
 
 		// Inputs
+		r.Reset();
 
-		const Input* p0Inp = NULL;
-		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
+		for (const Input* pPrev = NULL; ; )
 		{
-			if (ctx.ShouldAbort())
+			if (ShouldAbort())
 				return false;
 
-			const Input& v = *(*it);
+			const Input* pInp = r.get_NextUtxoIn();
+			if (!pInp)
+				break;
 
-			if (p0Inp && (*p0Inp > v))
-				return false;
-			p0Inp = &v;
+			if (ShouldVerify(iV))
+			{
+				if (pPrev && (*pPrev > *pInp))
+					return false;
 
-			if (!ctx.ShouldVerify(iV))
-				continue;
+				m_Sigma += ECC::Point::Native(pInp->m_Commitment);
+			}
 
-			ctx.m_Sigma += ECC::Point::Native(v.m_Commitment);
+			pPrev = pInp;
 		}
 
-		auto itKrnOut = m_vKernelsOutput.begin();
-		const TxKernel* p0Krn = NULL;
+		const TxKernel* pKrnOut = r.get_NextKernelOut();
 
-		for (auto it = m_vKernelsInput.begin(); m_vKernelsInput.end() != it; it++)
+		for (const TxKernel* pPrev = NULL; ; )
 		{
-			if (ctx.ShouldAbort())
+			if (ShouldAbort())
 				return false;
 
-			const TxKernel& v = *(*it);
+			const TxKernel* pKrn = r.get_NextKernelIn();
+			if (!pKrn)
+				break;
 
 			// locate the corresponding output kernel. Use the fact that kernels are sorted by excess, and then by multiplier
+			// Do it regardless to the milti-verifier logic, to ensure we're not confused (muliple identical inputs, less outputs, and etc.)
 			while (true)
 			{
-				if (m_vKernelsOutput.end() == itKrnOut)
+				if (!pKrnOut)
 					return false;
 
-				const TxKernel& vOut = *(*itKrnOut);
-				itKrnOut++;
+				const TxKernel& vOut = *pKrnOut;
+				pKrnOut = r.get_NextKernelOut();
 
-				if (vOut.m_Excess > v.m_Excess)
+				if (vOut.m_Excess > pKrn->m_Excess)
 					return false;
 
-				if (vOut.m_Excess == v.m_Excess)
+				if (vOut.m_Excess == pKrn->m_Excess)
 				{
-					if (vOut.m_Multiplier <= v.m_Multiplier)
+					if (vOut.m_Multiplier <= pKrn->m_Multiplier)
 						return false;
 					break; // ok
 				}
 			}
 
-			if (p0Krn && (*p0Krn > v))
-				return false;
-			p0Krn = &v;
-
-			if (!ctx.ShouldVerify(iV))
-				return false;
-
-			if (!v.IsValid(feeInp, ctx.m_Sigma))
-				return false;
-		}
-
-		ctx.m_Sigma = -ctx.m_Sigma;
-
-		// Outputs
-
-		const Output* p0Out = NULL;
-		for (auto it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
-		{
-			if (ctx.ShouldAbort())
-				return false;
-
-			const Output& v = *(*it);
-
-			if (p0Out && (*p0Out > v))
-				return false;
-			p0Out = &v;
-
-			if (!ctx.ShouldVerify(iV))
-				continue;
-
-			if (!v.IsValid())
-				return false;
-
-			ctx.m_Sigma += ECC::Point::Native(v.m_Commitment);
-
-			if (v.m_Coinbase)
+			if (ShouldVerify(iV))
 			{
-				if (!ctx.m_bBlockMode)
-					return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
+				if (pPrev && (*pPrev > *pKrn))
+					return false;
 
-				assert(v.m_pPublic); // must have already been checked
-				ctx.m_Coinbase += v.m_pPublic->m_Value;
-			}
-
-			if (v.m_hDelta)
-			{
-				if (!ctx.m_bBlockMode)
-					return false; // this should only be used in merged blocks
-				
-				if (!ctx.m_Height.IsInRangeRelative(v.m_hDelta))
+				if (!pKrn->IsValid(feeInp, m_Sigma))
 					return false;
 			}
+
+			pPrev = pKrn;
 		}
 
-		p0Krn = NULL;
-		for (auto it = m_vKernelsOutput.begin(); m_vKernelsOutput.end() != it; it++)
+		m_Sigma = -m_Sigma;
+
+		// Outputs
+		r.Reset();
+
+		for (const Output* pPrev = NULL; ; )
 		{
-			if (ctx.ShouldAbort())
+			if (ShouldAbort())
 				return false;
 
-			const TxKernel& v = *(*it);
+			const Output* pOut = r.get_NextUtxoOut();
+			if (!pOut)
+				break;
 
-			if (p0Krn && (*p0Krn > v))
-				return false;
-			p0Krn = &v;
+			if (ShouldVerify(iV))
+			{
+				if (pPrev && (*pPrev > *pOut))
+					return false;
 
-			if (!ctx.ShouldVerify(iV))
-				continue;
+				if (!pOut->IsValid())
+					return false;
 
-			if (!v.IsValid(ctx.m_Fee, ctx.m_Sigma))
-				return false;
+				m_Sigma += ECC::Point::Native(pOut->m_Commitment);
 
-			if (!ctx.HandleElementHeight(v.m_Height))
-				return false;
+				if (pOut->m_Coinbase)
+				{
+					if (!m_bBlockMode)
+						return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
+
+					assert(pOut->m_pPublic); // must have already been checked
+					m_Coinbase += pOut->m_pPublic->m_Value;
+				}
+
+				if (pOut->m_hDelta)
+				{
+					if (!m_bBlockMode)
+						return false; // this should only be used in merged blocks
+
+					if (!m_Height.IsInRangeRelative(pOut->m_hDelta))
+						return false;
+				}
+			}
+
+
+			pPrev = pOut;
 		}
 
-		if (ctx.ShouldVerify(iV))
-			ctx.m_Sigma += ECC::Context::get().G * m_Offset;
+		for (const TxKernel* pPrev = NULL; ; )
+		{
+			if (ShouldAbort())
+				return false;
 
-		assert(!ctx.m_Height.IsEmpty());
+			const TxKernel* pKrn = r.get_NextKernelOut();
+			if (!pKrn)
+				break;
+
+			if (ShouldVerify(iV))
+			{
+				if (pPrev && (*pPrev > *pKrn))
+					return false;
+
+				if (!pKrn->IsValid(m_Fee, m_Sigma))
+					return false;
+
+				if (!HandleElementHeight(pKrn->m_Height))
+					return false;
+			}
+
+			pPrev = pKrn;
+		}
+
+		if (ShouldVerify(iV))
+		{
+			ECC::Scalar::Native offs;
+			r.get_Offset(offs);
+			m_Sigma += ECC::Context::get().G * offs;
+		}
+
+		assert(!m_Height.IsEmpty());
 		return true;
 	}
 
@@ -616,7 +632,7 @@ namespace beam
 	bool Transaction::IsValid(Context& ctx) const
 	{
 		return
-			ValidateAndSummarize(ctx) &&
+			ctx.ValidateAndSummarize(get_Reader()) &&
 			ctx.IsValidTransaction();
 	}
 
@@ -661,6 +677,42 @@ namespace beam
 		}
 		else
 			key = m_Offset.m_Value;
+	}
+
+	void TxBase::Reader::Reset()
+	{
+		ZeroObject(m_pIdx);
+	}
+
+	template <typename T>
+	const T* get_NextFromVector(const std::vector<std::unique_ptr<T> >& v, size_t& idx)
+	{
+		return (idx >= v.size()) ? NULL : v[idx++].get();
+	}
+
+	const Input* TxBase::Reader::get_NextUtxoIn()
+	{
+		return get_NextFromVector(m_Tx.m_vInputs, m_pIdx[0]);
+	}
+
+	const Output* TxBase::Reader::get_NextUtxoOut()
+	{
+		return get_NextFromVector(m_Tx.m_vOutputs, m_pIdx[1]);
+	}
+
+	const TxKernel* TxBase::Reader::get_NextKernelIn()
+	{
+		return get_NextFromVector(m_Tx.m_vKernelsInput, m_pIdx[2]);
+	}
+
+	const TxKernel* TxBase::Reader::get_NextKernelOut()
+	{
+		return get_NextFromVector(m_Tx.m_vKernelsOutput, m_pIdx[3]);
+	}
+
+	void TxBase::Reader::get_Offset(ECC::Scalar::Native& offs)
+	{
+		offs = m_Tx.m_Offset;
 	}
 
 	/////////////
@@ -836,7 +888,7 @@ namespace beam
 		ctx.m_bBlockMode = true;
 
 		return
-			ValidateAndSummarize(ctx) &&
+			ctx.ValidateAndSummarize(get_Reader()) &&
 			ctx.IsValidBlock(*this, bSubsidyOpen);
 	}
 

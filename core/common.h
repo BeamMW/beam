@@ -217,6 +217,19 @@ namespace beam
 
 	struct TxBase
 	{
+		struct Context;
+
+		struct IReader
+		{
+			virtual void Reset() = 0;
+			// For all the following methods: the returned pointer should be valid during at least 2 consequent calls!
+			virtual const Input*	get_NextUtxoIn() = 0;
+			virtual const Output*	get_NextUtxoOut() = 0;
+			virtual const TxKernel*	get_NextKernelIn() = 0;
+			virtual const TxKernel*	get_NextKernelOut() = 0;
+			virtual void get_Offset(ECC::Scalar::Native&) = 0;
+		};
+
 		std::vector<Input::Ptr> m_vInputs;
 		std::vector<Output::Ptr> m_vOutputs;
 		std::vector<TxKernel::Ptr> m_vKernelsInput;
@@ -228,24 +241,23 @@ namespace beam
 
 		void TestNoNulls() const; // valid object should not have NULL members. Should be used during (de)serialization
 
-		// tests the validity of all the components, overall arithmetics, and the lexicographical order of the components.
-		// Determines the min/max block height that the transaction can fit, wrt component heights and maturity policies
-		// Does *not* check the existence of the input UTXOs
-		//
-		// Validation formula
-		//
-		// Sum(Input UTXOs) + Sum(Input Kernels.Excess) = Sum(Output UTXOs) + Sum(Output Kernels.Excess) + m_Offset*G [ + Sum(Fee)*H ]
-		//
-		// For transaction validation fees are considered as implicit outputs (i.e. Sum(Fee)*H should be added for the right equation side)
-		//
-		// For a block validation Fees are not accounted for, since they are consumed by new outputs injected by the miner.
-		// However Each block contains extra outputs (coinbase) for block closure, which should be subtracted from the outputs for sum validation.
-		//
-		// Define: Sigma = Sum(Outputs) - Sum(Inputs) + Sum(TxKernels.Excess) + m_Offset*G
-		// Sigma is either zero or -Sum(Fee)*H, depending on what we validate
+		class Reader :public IReader {
+			const TxBase& m_Tx;
+			size_t m_pIdx[4];
+		public:
+			Reader(const TxBase& tx) :m_Tx(tx) {}
+			// IReader
+			virtual void Reset() override;
+			virtual const Input*	get_NextUtxoIn() override;
+			virtual const Output*	get_NextUtxoOut() override;
+			virtual const TxKernel*	get_NextKernelIn() override;
+			virtual const TxKernel*	get_NextKernelOut() override;
+			virtual void get_Offset(ECC::Scalar::Native&) override;
+		};
 
-		struct Context;
-		bool ValidateAndSummarize(Context&) const;
+		Reader get_Reader() const {
+			return Reader(*this);
+		}
 
 		int cmp(const TxBase&) const;
 		COMPARISON_VIA_CMP(TxBase)

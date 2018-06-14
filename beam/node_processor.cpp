@@ -458,7 +458,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	if (!bFwd)
 		rbData.m_pUtxo += block.m_vInputs.size();
 
-	bool bOk = HandleValidatedTx(block, sid.m_Height, bFwd, rbData);
+	bool bOk = HandleValidatedTx(block.get_Reader(), sid.m_Height, bFwd, rbData);
 	if (!bOk)
 		LOG_WARNING() << id << " invalid in its context";
 
@@ -487,7 +487,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				OnSubsidyOptionChanged(bFwd);
 			}
 
-			HandleValidatedTx(block, sid.m_Height, false, rbData);
+			verify(HandleValidatedTx(block.get_Reader(), sid.m_Height, false, rbData));
 		}
 	}
 
@@ -532,74 +532,65 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	return bOk;
 }
 
-bool NodeProcessor::HandleValidatedTx(const TxBase& tx, Height h, bool bFwd, RollbackData& rbData)
+bool NodeProcessor::HandleValidatedTx(TxBase::IReader& r, Height h, bool bFwd, RollbackData& rbData)
 {
 	size_t nInp = 0, nOut = 0, nKrnInp = 0, nKrnOut = 0;
+	r.Reset();
 
 	bool bOk = true;
-	if (bFwd)
-	{
-		for ( ; nInp < tx.m_vInputs.size(); nInp++)
-			if (!HandleBlockElement(*tx.m_vInputs[nInp], bFwd, h, rbData))
+	for (const Input* pInput; (pInput = r.get_NextUtxoIn()); nInp++)
+		if (!HandleBlockElement(*pInput, bFwd, h, rbData))
+		{
+			bOk = false;
+			break;
+		}
+
+	if (bOk)
+		for (const Output* pOutput; (pOutput = r.get_NextUtxoOut()); nOut++)
+			if (!HandleBlockElement(*pOutput, h, bFwd))
 			{
 				bOk = false;
 				break;
 			}
-	} else
-	{
-		nInp = tx.m_vInputs.size();
-		nOut = tx.m_vOutputs.size();
-		nKrnInp = tx.m_vKernelsInput.size();
-		nKrnOut = tx.m_vKernelsOutput.size();
-	}
 
-	if (bFwd && bOk)
-	{
-		for ( ; nOut < tx.m_vOutputs.size(); nOut++)
-			if (!HandleBlockElement(*tx.m_vOutputs[nOut], h, bFwd))
+	if (bOk)
+		for (const TxKernel* pKrn; (pKrn = r.get_NextKernelIn()); nKrnInp++)
+			if (!HandleBlockElement(*pKrn, bFwd, true))
 			{
 				bOk = false;
 				break;
 			}
-	}
 
-	if (bFwd && bOk)
-	{
-		for ( ; nKrnInp < tx.m_vKernelsInput.size(); nKrnInp++)
-			if (!HandleBlockElement(*tx.m_vKernelsInput[nKrnInp], bFwd, true))
+	if (bOk)
+		for (const TxKernel* pKrn; (pKrn = r.get_NextKernelOut()); nKrnOut++)
+			if (!HandleBlockElement(*pKrn, bFwd, false))
 			{
 				bOk = false;
 				break;
 			}
-	}
 
-	if (bFwd && bOk)
-	{
-		for (; nKrnOut < tx.m_vKernelsOutput.size(); nKrnOut++)
-			if (!HandleBlockElement(*tx.m_vKernelsOutput[nKrnOut], bFwd, false))
-			{
-				bOk = false;
-				break;
-			}
-	}
+	if (bOk)
+		return true;
 
-	if (!(bFwd && bOk))
-	{
-		// Rollback all the changes. Must succeed!
-		while (nKrnOut--)
-			HandleBlockElement(*tx.m_vKernelsOutput[nKrnOut], false, false);
+	if (!bFwd)
+		OnCorrupted();
 
-		while (nKrnInp--)
-			HandleBlockElement(*tx.m_vKernelsInput[nKrnInp], false, true);
+	// Rollback all the changes. Must succeed!
+	r.Reset();
 
-		while (nOut--)
-			HandleBlockElement(*tx.m_vOutputs[nOut], h, false);
+	while (nKrnOut--)
+		HandleBlockElement(*r.get_NextKernelOut(), false, false);
 
-		while (nInp--)
-			HandleBlockElement(*tx.m_vInputs[nInp], false, h, rbData);
-	}
+	while (nKrnInp--)
+		HandleBlockElement(*r.get_NextKernelIn(), false, true);
 
-	return bOk;
+	while (nOut--)
+		HandleBlockElement(*r.get_NextUtxoOut(), h, false);
+
+	while (nInp--)
+		HandleBlockElement(*r.get_NextUtxoIn(), false, h, rbData);
+
+	return false;
 }
 
 template <typename T, uint8_t nType>
@@ -1178,7 +1169,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		Transaction& tx = *x.m_pValue;
 		rbData.Prepare(tx);
 
-		if (HandleValidatedTx(tx, h, true, rbData))
+		if (HandleValidatedTx(tx.get_Reader(), h, true, rbData))
 		{
 			// Clone the transaction before copying it to the block. We're forced to do this because they're not shared.
 			// TODO: Fix this!
@@ -1311,14 +1302,13 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		if (!bInitiallyEmpty)
 		{
 			rbData.Prepare(res);
-			if (!HandleValidatedTx(res, h, true, rbData))
+			if (!HandleValidatedTx(res.get_Reader(), h, true, rbData))
 				return false;
 		}
 
 		bool bRes = GenerateNewBlock(txp, s, res, fees, h, rbData);
 
-		if (!HandleValidatedTx(res, h, false, rbData)) // undo changes
-			OnCorrupted();
+		verify(HandleValidatedTx(res.get_Reader(), h, false, rbData)); // undo changes
 
 		if (!bRes)
 			return false;
@@ -1447,7 +1437,7 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 
 	RollbackData rbData;
 	rbData.Prepare(block); // not really necessary, since no inputs are allowed. nevermind.
-	if (!HandleValidatedTx(block, Block::Rules::HeightGenesis, true, rbData))
+	if (!HandleValidatedTx(block.get_Reader(), Block::Rules::HeightGenesis, true, rbData))
 		return false;
 
 	// Update DB state flags and cursor. This will also buils the MMR for prev states
@@ -1476,7 +1466,7 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 
 	if (s.m_Definition != hvDef)
 	{
-		verify(HandleValidatedTx(block, Block::Rules::HeightGenesis, false, rbData));
+		verify(HandleValidatedTx(block.get_Reader(), Block::Rules::HeightGenesis, false, rbData));
 
 		// DB changes are not reverted explicitly, but they will be reverted by DB transaction rollback.
 

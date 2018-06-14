@@ -4,9 +4,33 @@
 
 namespace beam
 {
-	struct TxBase::Context
+	class TxBase::Context
 	{
-		ECC::Point::Native m_Sigma; // outputs - inputs
+		bool ShouldVerify(uint32_t& iV) const;
+		bool ShouldAbort() const;
+
+		bool HandleElementHeight(const HeightRange&);
+
+	public:
+		// Tests the validity of all the components, overall arithmetics, and the lexicographical order of the components.
+		// Determines the min/max block height that the transaction can fit, wrt component heights and maturity policies
+		// Does *not* check the existence of the input UTXOs
+		//
+		// Validation formula
+		//
+		// Sum(Input UTXOs) + Sum(Input Kernels.Excess) = Sum(Output UTXOs) + Sum(Output Kernels.Excess) + m_Offset*G [ + Sum(Fee)*H ]
+		//
+		// For transaction validation fees are considered as implicit outputs (i.e. Sum(Fee)*H should be added for the right equation side)
+		//
+		// For a block validation Fees are not accounted for, since they are consumed by new outputs injected by the miner.
+		// However Each block contains extra outputs (coinbase) for block closure, which should be subtracted from the outputs for sum validation.
+		//
+		// Define: Sigma = Sum(Output UTXOs) - Sum(Input UTXOs) + Sum(Output Kernels.Excess) - Sum(Input Kernels.Excess) + m_Offset*G
+		// In other words Sigma = <all outputs> - <all inputs>
+		// Sigma is either zero or -Sum(Fee)*H, depending on what we validate
+
+
+		ECC::Point::Native m_Sigma;
 
 		AmountBig m_Fee;
 		AmountBig m_Coinbase;
@@ -21,17 +45,13 @@ namespace beam
 		uint32_t m_iVerifier;
 		volatile bool* m_pAbort;
 
-		bool ShouldVerify(uint32_t& iV) const;
-		bool ShouldAbort() const;
-
 		Context() { Reset(); }
 		void Reset();
 
-		bool HandleElementHeight(const HeightRange&);
-
+		bool ValidateAndSummarize(Reader&);
 		bool Merge(const Context&);
 
-		// hi-level functions, should be used after Merge (in case the verification was split)
+		// hi-level functions, should be used after all parts were validated and merged
 		bool IsValidTransaction();
 		bool IsValidBlock(const Block::Body&, bool bSubsidyOpen);
 	};

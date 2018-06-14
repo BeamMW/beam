@@ -318,7 +318,7 @@ void Node::Processor::VerifierContext::Proceed(VerifierContext* pVctx, uint32_t 
 	ctx.m_iVerifier = iVerifier;
 	ctx.m_pAbort = &vctx.m_bAbort;
 
-	bool bValid = vctx.m_pTx->ValidateAndSummarize(ctx);
+	bool bValid = ctx.ValidateAndSummarize(vctx.m_pTx->get_Reader());
 
 	{
 		std::unique_lock<std::mutex> scope(vctx.m_Mutex);

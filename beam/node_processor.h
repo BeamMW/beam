@@ -28,7 +28,7 @@ class NodeProcessor
 	struct RollbackData;
 
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
-	bool HandleValidatedTx(const TxBase&, Height, bool bFwd, RollbackData&);
+	bool HandleValidatedTx(TxBase::IReader&, Height, bool bFwd, RollbackData&);
 
 	bool HandleBlockElement(const Input&, bool bFwd, Height, RollbackData&);
 	bool HandleBlockElement(const Output&, Height, bool bFwd);
