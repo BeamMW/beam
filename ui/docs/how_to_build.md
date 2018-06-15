@@ -1,3 +1,8 @@
+# How to build on Windows
+
+download and install QT from here https://download.qt.io/official_releases/qt/5.11/5.11.0/qt-opensource-windows-x86-5.11.0.exe.mirrorlist
+add QT5_ROOT_DIR system var
+
 # How to build with static QT on Windows
 
 some info here http://amin-ahmadi.com/2016/09/22/how-to-build-qt-5-7-statically-using-msvc14-microsoft-visual-studio-2015/
