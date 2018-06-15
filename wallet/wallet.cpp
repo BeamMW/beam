@@ -124,6 +124,7 @@ namespace beam
         m_peers.emplace(txId, to);
         auto s = make_shared<Sender>(*this, m_keyChain, txId, amount);
         auto p = m_senders.emplace(txId, s);
+     //   save_to_history(*s);
         if (m_synchronized)
         {
             p.first->second->start();
@@ -343,7 +344,7 @@ namespace beam
         }
     }
 
-    bool Wallet::handle_node_message(proto::ProofUtxo&& proof)
+    bool Wallet::handle_node_message(proto::ProofUtxo&& utxoProof)
     {
         // TODO: handle the maturity of the several proofs (> 1)
         if (m_pendingProofs.empty())
@@ -354,7 +355,7 @@ namespace beam
 
         Coin& coin = m_pendingProofs.front();
         Input input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
-        if (proof.m_Proofs.empty())
+        if (utxoProof.m_Proofs.empty())
         {
             LOG_ERROR() << "Got empty proof for: " << input.m_Commitment;
 
@@ -366,7 +367,7 @@ namespace beam
         }
         else
         {
-            for (const auto& proof : proof.m_Proofs)
+            for (const auto& proof : utxoProof.m_Proofs)
             {
                 if (coin.m_status == Coin::Unconfirmed)
                 {

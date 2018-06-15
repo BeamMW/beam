@@ -5,6 +5,11 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
+    void Sender::update_history()
+    {
+
+    }
+
     void Sender::FSMDefinition::init_tx(const msmf::none&)
     {
         LOG_INFO() << "Sending " << PrintableAmount(m_amount);

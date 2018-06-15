@@ -3,7 +3,7 @@
 
 #include "node.h"
 #include "wallet/wallet.h"
-#include "wallet/keychain.h"
+#include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"

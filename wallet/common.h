@@ -55,7 +55,10 @@ namespace beam
             template<typename Event>
             bool process_event(const Event& event)
             {
-                return static_cast<Derived*>(this)->m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
+                auto* d = static_cast<Derived*>(this);
+                auto res = d->m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
+                d->update_history();
+                return res;
             }
 
             template<class Archive>

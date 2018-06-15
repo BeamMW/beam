@@ -1,6 +1,6 @@
 #pragma once
 
-#include "wallet/keychain.h"
+#include "wallet/wallet_db.h"
 
 #include <boost/filesystem.hpp>
 
@@ -96,6 +96,26 @@ struct SqliteKeychain : beam::IKeyChain
     beam::Height getCurrentHeight() const override
     {
         return _keychain->getCurrentHeight();
+    }
+
+    std::vector<beam::HistoryRecord> getHistory(uint64_t start, size_t count) override
+    {
+        return _keychain->getHistory(start, count);
+    }
+
+    bool insertHistory(const beam::HistoryRecord& hr) override
+    {
+        return _keychain->insertHistory(hr);
+    }
+
+    bool updateHistory(const beam::HistoryRecord& hr) override
+    {
+        return _keychain->updateHistory(hr);
+    }
+
+    void deleteHistory(const beam::Uuid& txId) override
+    {
+        _keychain->deleteHistory(txId);
     }
 
 private:

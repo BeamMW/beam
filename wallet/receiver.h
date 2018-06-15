@@ -1,7 +1,7 @@
 #pragma once
 
 #include "wallet/common.h"
-#include "wallet/keychain.h"
+#include "wallet/wallet_db.h"
 #include "wallet/sender.h"
 
 namespace beam::wallet
@@ -26,6 +26,8 @@ namespace beam::wallet
         {
             assert(keychain);
         }  
+
+        void update_history();
 
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {

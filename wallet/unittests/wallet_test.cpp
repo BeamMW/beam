@@ -60,6 +60,11 @@ namespace
 		void setSystemStateID(const Block::SystemState::ID& stateID) override {};
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override { return false; };
 
+        std::vector<HistoryRecord> getHistory(uint64_t start, size_t count) override { return {}; }
+        bool insertHistory(const HistoryRecord& hr) override { return true; }
+        bool updateHistory(const HistoryRecord& hr) override { return true; }
+        void deleteHistory(const Uuid& txId) override { };
+
         Height getCurrentHeight() const override
         {
             return 134;

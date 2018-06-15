@@ -1,6 +1,6 @@
 #pragma once
 
-#include "wallet/keychain.h"
+#include "wallet/wallet_db.h"
 #include "wallet/receiver.h"
 #include "wallet/sender.h"
 #include <thread>

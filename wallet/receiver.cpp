@@ -6,6 +6,11 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
+    void Receiver::update_history()
+    {
+        
+    }
+
     Receiver::FSMDefinition::FSMDefinition(receiver::IGateway &gateway, beam::IKeyChain::Ptr keychain, InviteReceiver& initData)
         : m_gateway{ gateway }
         , m_keychain{ keychain }

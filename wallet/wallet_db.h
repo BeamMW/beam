@@ -2,6 +2,7 @@
 
 #include "core/common.h"
 #include "core/ecc_native.h"
+#include "wallet/common.h"
 
 struct sqlite3;
 
@@ -29,6 +30,32 @@ namespace beam
         Status m_status;
     };
 
+    struct HistoryRecord
+    {
+        enum TxType
+        {};
+        enum Status
+        {
+            Uncompleted,
+            Cancelled,
+            Registered,
+            Failed
+        };
+        enum Flags : int
+        {
+            Sending   = 0,
+            Receiving = 1
+        };
+        
+        Uuid m_txId;
+        Amount m_amount;
+        Timestamp m_initTime;
+        Timestamp m_finishTime;
+        Flags m_flags;
+        Status m_status;
+        //fsmState,
+    };
+
     struct IKeyChain
     {
         using Ptr = std::shared_ptr<IKeyChain>;
@@ -49,6 +76,11 @@ namespace beam
 		virtual void setVarRaw(const char* name, const void* data, int size) = 0;
 		virtual int getVarRaw(const char* name, void* data) const = 0;
         virtual Height getCurrentHeight() const = 0;
+
+        virtual std::vector<HistoryRecord> getHistory(uint64_t start, size_t count) = 0;
+        virtual bool insertHistory(const HistoryRecord& hr) = 0;
+        virtual bool updateHistory(const HistoryRecord& hr) = 0;
+        virtual void deleteHistory(const beam::Uuid& txId) = 0;
 
 		template <typename Var>
 		void setVar(const char* name, const Var& var)
@@ -87,6 +119,11 @@ namespace beam
 		void setVarRaw(const char* name, const void* data, int size) override;
 		int getVarRaw(const char* name, void* data) const override;
         Height getCurrentHeight() const override;
+
+        std::vector<HistoryRecord> getHistory(uint64_t start, size_t count) override;
+        bool insertHistory(const HistoryRecord& hr) override;
+        bool updateHistory(const HistoryRecord& hr) override;
+        void deleteHistory(const Uuid& txId) override;
 
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override;

@@ -1,6 +1,7 @@
-#include "keychain.h"
+#include "wallet_db.h"
 #include "utility/logger.h"
 #include "sqlite/sqlite3.h"
+#include <sstream>
 
 #include <boost/filesystem.hpp>
 
@@ -17,38 +18,49 @@
 // status      - spent/unspent/unconfirmed/locked
 // maturity    - height where we can spend the coin
 
-#define ENUM_STORAGE_ID(each, sep) \
-    each(1, id, sep, INTEGER PRIMARY KEY AUTOINCREMENT)
+#define ENUM_STORAGE_ID(each, sep, obj) \
+    each(1, id, sep, INTEGER PRIMARY KEY AUTOINCREMENT, obj)
 
-#define ENUM_STORAGE_FIELDS(each, sep) \
-    each(2, amount,     sep, INTEGER) \
-    each(3, status,     sep, INTEGER) \
-    each(4, height,     sep, INTEGER) \
-    each(5, maturity,   sep, INTEGER) \
-    each(6, key_type,      , INTEGER) // last item without separator
+#define ENUM_STORAGE_FIELDS(each, sep, obj) \
+    each(2, amount,     sep, INTEGER, obj) \
+    each(3, status,     sep, INTEGER, obj) \
+    each(4, height,     sep, INTEGER, obj) \
+    each(5, maturity,   sep, INTEGER, obj) \
+    each(6, key_type,      , INTEGER, obj) // last item without separator
 
-#define ENUM_ALL_STORAGE_FIELDS(each, sep) \
-    ENUM_STORAGE_ID(each, sep) \
-    ENUM_STORAGE_FIELDS(each, sep)
+#define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
+    ENUM_STORAGE_ID(each, sep, obj) \
+    ENUM_STORAGE_FIELDS(each, sep, obj)
 
-#define LIST(num, name, sep, type) #name sep
-#define LIST_WITH_TYPES(num, name, sep, type) #name " " #type sep
+#define LIST(num, name, sep, type, obj) #name sep
+#define LIST_WITH_TYPES(num, name, sep, type, obj) #name " " #type sep
 
-#define STM_BIND_LIST(num, name, sep, type) stm.bind(num, coin.m_ ## name);
-#define STM_GET_LIST(num, name, sep, type) stm.get(num-1, coin.m_ ## name);
+#define STM_BIND_LIST(num, name, sep, type, obj) stm.bind(num, obj ## .m_ ## name);
+#define STM_GET_LIST(num, name, sep, type, obj) stm.get(num-1, obj ## .m_ ## name);
 
-#define BIND_LIST(num, name, sep, type) "?" #num sep
-#define SET_LIST(num, name, sep, type) #name "=?" #num sep
+#define BIND_LIST(num, name, sep, type, obj) "?" #num sep
+#define SET_LIST(num, name, sep, type, obj) #name "=?" #num sep
 
 #define STORAGE_FIELDS ENUM_ALL_STORAGE_FIELDS(LIST, COMMA)
 #define STORAGE_NAME "storage"
 #define VARIABLES_NAME "variables"
+#define HISTORY_NAME "history"
 
-#define ENUM_VARIABLES_FIELDS(each, sep) \
-    each(1, name, sep, TEXT UNIQUE) \
-    each(2, value,   , BLOB)
+#define ENUM_VARIABLES_FIELDS(each, sep, obj) \
+    each(1, name, sep, TEXT UNIQUE, obj) \
+    each(2, value,   , BLOB, obj)
 
 #define VARIABLES_FIELDS ENUM_VARIABLES_FIELDS(LIST, COMMA)
+
+#define ENUM_HISTORY_FIELDS(each, sep, obj) \
+    each(1, txId,       sep, BLOB NOT NULL PRIMARY KEY, obj) \
+    each(2, amount,     sep, INTEGER NOT NULL, obj) \
+    each(3, initTime,   sep, INTEGER NOT NULL, obj) \
+    each(4, finishTime, sep, INTEGER, obj) \
+    each(5, flags,      sep, INTEGER NOT NULL, obj) \
+    each(6, status,     , INTEGER NOT NULL, obj)// \
+ //   each(7, fsmState,      , BLOB, obj)
+#define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA)
 
 namespace
 {
@@ -68,45 +80,50 @@ namespace beam
 				, _stm(nullptr)
 			{
 				int ret = sqlite3_prepare_v2(_db, sql, -1, &_stm, NULL);
-				assert(ret == SQLITE_OK);
+                throwIfError(ret);
 			}
 
 			void bind(int col, int val)
 			{
 				int ret = sqlite3_bind_int(_stm, col, val);
-				assert(ret == SQLITE_OK);
+                throwIfError(ret);
 			}
 
 			void bind(int col, KeyType val)
 			{
 				int ret = sqlite3_bind_int(_stm, col, static_cast<int>(val));
-				assert(ret == SQLITE_OK);
+                throwIfError(ret);
 			}
 
 			void bind(int col, uint64_t val)
 			{
 				int ret = sqlite3_bind_int64(_stm, col, val);
-				assert(ret == SQLITE_OK);
+                throwIfError(ret);
 			}
 
 			void bind(int col, const void* blob, int size)
 			{
 				int ret = sqlite3_bind_blob(_stm, col, blob, size, NULL);
-				assert(ret == SQLITE_OK);
+                throwIfError(ret);
 			}
 
 			void bind(int col, const char* val)
 			{
 				int ret = sqlite3_bind_text(_stm, col, val, -1, NULL);
-				assert(ret == SQLITE_OK);
+                throwIfError(ret);
 			}
 
 			bool step()
 			{
 				int ret = sqlite3_step(_stm);
-				assert(ret == SQLITE_ROW || ret == SQLITE_DONE);
-
-				return ret == SQLITE_ROW;
+                switch (ret)
+                {
+                case SQLITE_ROW: return true;   // has another row ready continue
+                case SQLITE_DONE: return false; // has finished executing stop;
+                default:
+                    throwIfError(ret);
+                    return false; // and stop
+                }
 			}
 
 			void get(int col, uint64_t& val)
@@ -146,6 +163,17 @@ namespace beam
 			{
 				sqlite3_finalize(_stm);
 			}
+        private:
+            void throwIfError(int res)
+            {
+                if (res == SQLITE_OK)
+                {
+                    return;
+                }
+                std::stringstream ss;
+                ss << "sqlite error code=" << res << ", " << sqlite3_errmsg(_db);
+                throw std::runtime_error(ss.str());
+            }
 		private:
 
 			sqlite3 * _db;
@@ -174,12 +202,12 @@ namespace beam
 				assert(ret == SQLITE_OK);
 			}
 
-			void commit()
+			bool commit()
 			{
 				int ret = sqlite3_exec(_db, "COMMIT;", NULL, NULL, NULL);
-				assert(ret == SQLITE_OK);
 
-				_commited = true;
+				_commited = (ret == SQLITE_OK);
+                return _commited;
 			}
 
 			void rollback()
@@ -239,16 +267,22 @@ namespace beam
 			}
 
 			{
-				const char* req = "CREATE TABLE " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST_WITH_TYPES, COMMA) ");";
+				const char* req = "CREATE TABLE " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST_WITH_TYPES, COMMA,) ");";
 				int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
 				assert(ret == SQLITE_OK);
 			}
 
 			{
-				const char* req = "CREATE TABLE " VARIABLES_NAME " (" ENUM_VARIABLES_FIELDS(LIST_WITH_TYPES, COMMA) ");";
+				const char* req = "CREATE TABLE " VARIABLES_NAME " (" ENUM_VARIABLES_FIELDS(LIST_WITH_TYPES, COMMA,) ");";
 				int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
 				assert(ret == SQLITE_OK);
 			}
+
+            {
+                const char* req = "CREATE TABLE " HISTORY_NAME " (" ENUM_HISTORY_FIELDS(LIST_WITH_TYPES, COMMA,) ") WITHOUT ROWID;";
+                int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                assert(ret == SQLITE_OK);
+            }
 			{
 				keychain->setVar(WalletSeed, secretKey.V);
 			}
@@ -312,6 +346,16 @@ namespace beam
 				}
 			}
 
+            {
+                const char* req = "SELECT " HISTORY_FIELDS " FROM " HISTORY_NAME ";";
+                int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                if (ret != SQLITE_OK)
+                {
+                    LOG_ERROR() << "Invalid DB format :(";
+                    return Ptr();
+                }
+            }
+
 			if (keychain->getVar(WalletSeed, seed))
 			{
 				keychain->m_kdf.m_Secret = seed;
@@ -351,7 +395,6 @@ namespace beam
 		{
 			const char* req = "SELECT seq FROM sqlite_sequence WHERE name = '" STORAGE_NAME "';";
 			sqlite::Statement stm(db, req);
-
 			if (stm.step())
 				stm.get(0, lastId);
 		}
@@ -390,7 +433,7 @@ namespace beam
 				{
 					beam::Coin coin;
 
-					ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP);
+					ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
 
 					if (coin.m_maturity <= stateID.m_Height)
 					{
@@ -463,7 +506,7 @@ namespace beam
             sqlite::Statement stm(_db, req);
             stm.bind(1, coin.m_height);
             stm.bind(2, coin.m_key_type);
-            if (stm.step())
+            if (stm.step()) //has row
             {
                 return; // skip existing 
             }
@@ -472,7 +515,7 @@ namespace beam
         const char* req = "INSERT INTO " STORAGE_NAME " (" ENUM_STORAGE_FIELDS(LIST, COMMA) ") VALUES(" ENUM_STORAGE_FIELDS(BIND_LIST, COMMA) ");";
         sqlite::Statement stm(_db, req);
 
-        ENUM_STORAGE_FIELDS(STM_BIND_LIST, NOSEP);
+        ENUM_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
 
         stm.step();
 
@@ -490,7 +533,7 @@ namespace beam
 				const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA) " WHERE id=?1;";
 				sqlite::Statement stm(_db, req);
 
-				ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP);
+				ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
 
 				stm.step();
 			}
@@ -541,7 +584,7 @@ namespace beam
 		{
 			Coin coin;
 
-			ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP);
+			ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
 
 			if (!func(coin))
 				break;
@@ -602,4 +645,73 @@ namespace beam
 		return 0;
 	}
 
+    std::vector<HistoryRecord> Keychain::getHistory(uint64_t start, size_t count)
+    {
+        std::vector<HistoryRecord> res;
+        
+        const char* req = "SELECT * FROM " HISTORY_NAME " ORDER BY initTime DESC LIMIT ?1 OFFSET ?2 ;";
+
+        sqlite::Statement stm(_db, req);
+        stm.bind(1, count);
+        stm.bind(2, start);
+
+        while (stm.step())
+        {
+            auto& hr = res.emplace_back(HistoryRecord{});
+            //ENUM_HISTORY_FIELDS(STM_GET_LIST, NOSEP, hr);
+            int size = 0;
+            uint64_t t1, t2;
+            
+            stm.get(0, (void*)(hr.m_txId.data()), size);
+            assert(size == sizeof(Uuid));
+            stm.get(1, hr.m_amount);
+            stm.get(2, hr.m_initTime);
+            stm.get(3, hr.m_finishTime);
+            stm.get(4, t1);
+            stm.get(5, t2);
+            hr.m_flags = (HistoryRecord::Flags)t1;
+            hr.m_status = (HistoryRecord::Status)t2;
+            
+        }
+        return res;
+    }
+
+    bool Keychain::insertHistory(const HistoryRecord& hr)
+    {
+        const char* req = "INSERT INTO " HISTORY_NAME " (" ENUM_HISTORY_FIELDS(LIST, COMMA) ") VALUES(" ENUM_HISTORY_FIELDS(BIND_LIST, COMMA) ");";
+        sqlite::Statement stm(_db, req);
+
+        //ENUM_HISTORY_FIELDS(STM_BIND_LIST, NOSEP, tr);
+        stm.bind(1, hr.m_txId.data(), hr.m_txId.size());
+        stm.bind(2, hr.m_amount);
+        stm.bind(3, hr.m_initTime);
+        stm.bind(4, hr.m_finishTime);
+        stm.bind(5, static_cast<int>(hr.m_flags));
+        stm.bind(6, hr.m_status);
+
+        return stm.step();
+    }
+
+    bool Keychain::updateHistory(const HistoryRecord& hr)
+    {
+        const char* req = "UPDATE " HISTORY_NAME " SET finishTime=?2, flags=?3, status=?4 WHERE txId=?1;";
+        sqlite::Statement stm(_db, req);
+
+        stm.bind(1, static_cast<const void*>(hr.m_txId.data()), hr.m_txId.size());
+        stm.bind(2, hr.m_finishTime);
+        stm.bind(3, static_cast<int>(hr.m_flags));
+        stm.bind(4, hr.m_status);
+
+        return stm.step();
+    }
+
+    void Keychain::deleteHistory(const Uuid& txId)
+    {
+        const char* req = "DELETE FROM " HISTORY_NAME " WHERE txId=?1;";
+        sqlite::Statement stm(_db, req);
+
+        stm.bind(1, txId.data(), txId.size());
+
+        stm.step();
+    }
 }
