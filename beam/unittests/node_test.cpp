@@ -359,7 +359,7 @@ namespace beam
 			ECC::Scalar m_Key;
 			Amount m_Value;
 
-			void ToOutput(TxBase& tx, ECC::Scalar::Native& offset, Height hIncubation) const
+			void ToOutput(Transaction& tx, ECC::Scalar::Native& offset, Height hIncubation) const
 			{
 				ECC::Scalar::Native k = m_Key;
 

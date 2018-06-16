@@ -374,7 +374,7 @@ namespace beam
 		return true;
 	}
 
-	bool TxBase::Context::ValidateAndSummarize(Reader& r)
+	bool TxBase::Context::ValidateAndSummarize(IReader& r)
 	{
 		if (m_Height.IsEmpty())
 			return false;
@@ -534,7 +534,7 @@ namespace beam
 		return true;
 	}
 
-	void TxBase::Sort()
+	void Transaction::Sort()
 	{
 		std::sort(m_vInputs.begin(), m_vInputs.end());
 		std::sort(m_vOutputs.begin(), m_vOutputs.end());
@@ -554,7 +554,7 @@ namespace beam
 				v.push_back(std::move(vSrc[i]));
 	}
 
-	size_t TxBase::DeleteIntermediateOutputs()
+	size_t Transaction::DeleteIntermediateOutputs()
 	{
 		size_t nDel = 0;
 
@@ -610,7 +610,7 @@ namespace beam
 				return n; \
 		}
 
-	int TxBase::cmp(const TxBase& v) const
+	int Transaction::cmp(const Transaction& v) const
 	{
 		CMP_MEMBER(m_Offset)
 		CMP_MEMBER_VECPTR(m_vInputs)
@@ -643,7 +643,7 @@ namespace beam
 			throw std::runtime_error("invalid NULL ptr");
 	}
 
-	void TxBase::TestNoNulls() const
+	void Transaction::TestNoNulls() const
 	{
 		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
 			TestNotNull(*it);
@@ -679,7 +679,7 @@ namespace beam
 			key = m_Offset.m_Value;
 	}
 
-	void TxBase::Reader::Reset()
+	void Transaction::Reader::Reset()
 	{
 		ZeroObject(m_pIdx);
 	}
@@ -690,29 +690,34 @@ namespace beam
 		return (idx >= v.size()) ? NULL : v[idx++].get();
 	}
 
-	const Input* TxBase::Reader::get_NextUtxoIn()
+	const Input* Transaction::Reader::get_NextUtxoIn()
 	{
 		return get_NextFromVector(m_Tx.m_vInputs, m_pIdx[0]);
 	}
 
-	const Output* TxBase::Reader::get_NextUtxoOut()
+	const Output* Transaction::Reader::get_NextUtxoOut()
 	{
 		return get_NextFromVector(m_Tx.m_vOutputs, m_pIdx[1]);
 	}
 
-	const TxKernel* TxBase::Reader::get_NextKernelIn()
+	const TxKernel* Transaction::Reader::get_NextKernelIn()
 	{
 		return get_NextFromVector(m_Tx.m_vKernelsInput, m_pIdx[2]);
 	}
 
-	const TxKernel* TxBase::Reader::get_NextKernelOut()
+	const TxKernel* Transaction::Reader::get_NextKernelOut()
 	{
 		return get_NextFromVector(m_Tx.m_vKernelsOutput, m_pIdx[3]);
 	}
 
-	void TxBase::Reader::get_Offset(ECC::Scalar::Native& offs)
+	void Transaction::Reader::get_Offset(ECC::Scalar::Native& offs)
 	{
 		offs = m_Tx.m_Offset;
+	}
+
+	size_t Transaction::Reader::get_CountInputs()
+	{
+		return m_Tx.m_vInputs.size();
 	}
 
 	/////////////
@@ -820,10 +825,13 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
 	}
 
-	bool TxBase::Context::IsValidBlock(const Block::Body& body, bool bSubsidyOpen)
+	bool TxBase::Context::IsValidBlock(Block::Body::IReader& r, bool bSubsidyOpen)
 	{
 		m_Sigma = -m_Sigma;
-		body.m_Subsidy.AddTo(m_Sigma);
+
+		AmountBig subs;
+		r.get_Subsidy(subs);
+		subs.AddTo(m_Sigma);
 
 		if (!(m_Sigma == ECC::Zero))
 			return false;
@@ -831,7 +839,7 @@ namespace beam
 		if (bSubsidyOpen)
 			return true;
 
-		if (body.m_SubsidyClosing)
+		if (r.get_SubsidyClosing())
 			return false; // already closed
 
 		// For non-genesis blocks we have the following restrictions:
@@ -842,7 +850,7 @@ namespace beam
 		Height nBlocksInRange = m_Height.m_Max - m_Height.m_Min + 1;
 
 		ECC::uintBig ubSubsidy, ubCoinbase, mul;
-		body.m_Subsidy.Export(ubSubsidy);
+		subs.Export(ubSubsidy);
 
 		mul = Block::Rules::CoinbaseEmission;
 		ubCoinbase = nBlocksInRange;
@@ -889,7 +897,17 @@ namespace beam
 
 		return
 			ctx.ValidateAndSummarize(get_Reader()) &&
-			ctx.IsValidBlock(*this, bSubsidyOpen);
+			ctx.IsValidBlock(get_Reader(), bSubsidyOpen);
+	}
+
+	void Block::Body::Reader::get_Subsidy(AmountBig& res)
+	{
+		res = ((Body&) m_R.m_Tx).m_Subsidy;
+	}
+
+	bool Block::Body::Reader::get_SubsidyClosing()
+	{
+		return ((Body&) m_R.m_Tx).m_SubsidyClosing;
 	}
 
     void DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType eType, uint32_t nIdx /* = 0 */)

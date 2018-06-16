@@ -542,7 +542,7 @@ namespace detail
 
         /// beam::Transaction serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxBase& tx)
+        static Archive& save(Archive& ar, const beam::Transaction& tx)
         {
             ar
                 & tx.m_vInputs
@@ -555,7 +555,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::TxBase& tx)
+        static Archive& load(Archive& ar, beam::Transaction& tx)
         {
             ar
                 & tx.m_vInputs
@@ -565,22 +565,6 @@ namespace detail
 				& tx.m_Offset;
 
 			tx.TestNoNulls();
-
-            return ar;
-        }
-
-		template<typename Archive>
-        static Archive& save(Archive& ar, const beam::Transaction& tx)
-        {
-            ar & (const beam::TxBase&) tx;
-
-            return ar;
-        }
-
-        template<typename Archive>
-        static Archive& load(Archive& ar, beam::Transaction& tx)
-        {
-            ar & (beam::TxBase&) tx;
 
             return ar;
         }
@@ -660,7 +644,7 @@ namespace detail
 				(bb.m_Subsidy.Hi ? 1 : 0) |
 				(bb.m_SubsidyClosing ? 2 : 0);
 
-			ar & (const beam::TxBase&) bb;
+			ar & (const beam::Transaction&) bb;
 			ar & nFlags;
 			ar & bb.m_Subsidy.Lo;
 
@@ -675,7 +659,7 @@ namespace detail
 		{
 			uint8_t nFlags;
 
-			ar & (beam::TxBase&) bb;
+			ar & (beam::Transaction&) bb;
 			ar & nFlags;
 			ar & bb.m_Subsidy.Lo;
 

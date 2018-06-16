@@ -70,7 +70,7 @@ private:
 
 		struct VerifierContext
 		{
-			const TxBase* m_pTx;
+			const Block::Body* m_pBlock;
 			TxBase::Context m_Context;
 
 			volatile bool m_bAbort;

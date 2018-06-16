@@ -373,19 +373,20 @@ struct NodeProcessor::RollbackData
 		return m_Buf.empty() ? 0 : (m_pUtxo - get_BufAs());
 	}
 
-	void Prepare(const TxBase& tx)
+	void Prepare(TxBase::IReader& r)
 	{
-		if (!tx.m_vInputs.empty())
+		size_t nInputsNew = r.get_CountInputs();
+		if (nInputsNew)
 		{
 			size_t nInputs = get_Utxos();
-			m_Buf.resize(m_Buf.size() + sizeof(Utxo) * tx.m_vInputs.size());
+			m_Buf.resize(m_Buf.size() + sizeof(Utxo) * nInputsNew);
 			m_pUtxo = get_BufAs() + nInputs;
 		}
 	}
 
-	void Unprepare(const TxBase& tx)
+	void Unprepare(TxBase::IReader& r)
 	{
-		m_Buf.resize(m_Buf.size() - sizeof(Utxo) * tx.m_vInputs.size());
+		m_Buf.resize(m_Buf.size() - sizeof(Utxo) * r.get_CountInputs());
 	}
 };
 
@@ -1167,7 +1168,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 			break;
 
 		Transaction& tx = *x.m_pValue;
-		rbData.Prepare(tx);
+		rbData.Prepare(tx.get_Reader());
 
 		if (HandleValidatedTx(tx.get_Reader(), h, true, rbData))
 		{
@@ -1186,7 +1187,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		}
 		else
 		{
-			rbData.Unprepare(tx);
+			rbData.Unprepare(tx.get_Reader());
 			txp.Delete(x); // isn't available in this context
 		}
 	}
@@ -1301,7 +1302,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 		if (!bInitiallyEmpty)
 		{
-			rbData.Prepare(res);
+			rbData.Prepare(res.get_Reader());
 			if (!HandleValidatedTx(res.get_Reader(), h, true, rbData))
 				return false;
 		}
@@ -1436,7 +1437,7 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 	NodeDB::Transaction t(m_DB);
 
 	RollbackData rbData;
-	rbData.Prepare(block); // not really necessary, since no inputs are allowed. nevermind.
+	rbData.Prepare(block.get_Reader()); // not really necessary, since no inputs are allowed. nevermind.
 	if (!HandleValidatedTx(block.get_Reader(), Block::Rules::HeightGenesis, true, rbData))
 		return false;
 

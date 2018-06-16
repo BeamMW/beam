@@ -222,13 +222,20 @@ namespace beam
 		struct IReader
 		{
 			virtual void Reset() = 0;
+			virtual void get_Offset(ECC::Scalar::Native&) = 0;
+			virtual size_t get_CountInputs() = 0;
 			// For all the following methods: the returned pointer should be valid during at least 2 consequent calls!
 			virtual const Input*	get_NextUtxoIn() = 0;
 			virtual const Output*	get_NextUtxoOut() = 0;
 			virtual const TxKernel*	get_NextKernelIn() = 0;
 			virtual const TxKernel*	get_NextKernelOut() = 0;
-			virtual void get_Offset(ECC::Scalar::Native&) = 0;
 		};
+	};
+
+	struct Transaction
+		:public TxBase
+	{
+		typedef std::shared_ptr<Transaction> Ptr;
 
 		std::vector<Input::Ptr> m_vInputs;
 		std::vector<Output::Ptr> m_vOutputs;
@@ -242,33 +249,28 @@ namespace beam
 		void TestNoNulls() const; // valid object should not have NULL members. Should be used during (de)serialization
 
 		class Reader :public IReader {
-			const TxBase& m_Tx;
 			size_t m_pIdx[4];
 		public:
-			Reader(const TxBase& tx) :m_Tx(tx) {}
+			const Transaction& m_Tx;
+			Reader(const Transaction& tx) :m_Tx(tx) {}
 			// IReader
 			virtual void Reset() override;
+			virtual void get_Offset(ECC::Scalar::Native&) override;
+			virtual size_t get_CountInputs() override;
 			virtual const Input*	get_NextUtxoIn() override;
 			virtual const Output*	get_NextUtxoOut() override;
 			virtual const TxKernel*	get_NextKernelIn() override;
 			virtual const TxKernel*	get_NextKernelOut() override;
-			virtual void get_Offset(ECC::Scalar::Native&) override;
 		};
 
 		Reader get_Reader() const {
 			return Reader(*this);
 		}
 
-		int cmp(const TxBase&) const;
-		COMPARISON_VIA_CMP(TxBase)
-	};
+		int cmp(const Transaction&) const;
+		COMPARISON_VIA_CMP(Transaction)
 
-	struct Transaction
-		:public TxBase
-	{
-		typedef std::shared_ptr<Transaction> Ptr;
-		// Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
-		bool IsValid(Context&) const;
+		bool IsValid(Context&) const; // Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
 
 		static const uint32_t s_KeyBits = ECC::nBits; // key len for map of transactions. Can actually be less than 256 bits.
 		typedef ECC::uintBig_t<s_KeyBits> KeyType;
@@ -361,8 +363,38 @@ namespace beam
 
 
 		struct Body
-			:public TxBase
+			:public Transaction
 		{
+			struct IReader
+				:public TxBase::IReader
+			{
+				virtual void get_Subsidy(AmountBig&) = 0;
+				virtual bool get_SubsidyClosing() = 0;
+			};
+
+			class Reader
+				:public IReader
+			{
+				Transaction::Reader m_R;
+			public:
+				Reader(const Body& b) :m_R(b) {}
+				// IReader
+				virtual void get_Subsidy(AmountBig&) override;
+				virtual bool get_SubsidyClosing() override;
+				// TxBase::IReader
+				virtual void Reset() override { m_R.Reset(); }
+				virtual void get_Offset(ECC::Scalar::Native& x) override { return m_R.get_Offset(x); }
+				virtual size_t get_CountInputs() override { return m_R.get_CountInputs(); }
+				virtual const Input*	get_NextUtxoIn() override { return m_R.get_NextUtxoIn(); }
+				virtual const Output*	get_NextUtxoOut() override { return m_R.get_NextUtxoOut(); }
+				virtual const TxKernel*	get_NextKernelIn() override { return m_R.get_NextKernelIn(); }
+				virtual const TxKernel*	get_NextKernelOut() override { return m_R.get_NextKernelOut(); }
+			};
+
+			Reader get_Reader() const {
+				return Reader(*this);
+			}
+
 			AmountBig m_Subsidy; // the overall amount created by the block
 			// For standard blocks this should be equal to the coinbase emission.
 			// Genesis block(s) may have higher emission (aka premined)
