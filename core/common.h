@@ -222,7 +222,6 @@ namespace beam
 		struct IReader
 		{
 			virtual void Reset() = 0;
-			virtual void get_Offset(ECC::Scalar::Native&) = 0;
 			virtual size_t get_CountInputs() = 0;
 			// For all the following methods: the returned pointer should be valid during at least 2 consequent calls!
 			virtual const Input*	get_NextUtxoIn() = 0;
@@ -230,32 +229,29 @@ namespace beam
 			virtual const TxKernel*	get_NextKernelIn() = 0;
 			virtual const TxKernel*	get_NextKernelOut() = 0;
 		};
+
+		ECC::Scalar m_Offset;
 	};
 
-	struct Transaction
-		:public TxBase
+	struct TxVectors
 	{
-		typedef std::shared_ptr<Transaction> Ptr;
-
 		std::vector<Input::Ptr> m_vInputs;
 		std::vector<Output::Ptr> m_vOutputs;
 		std::vector<TxKernel::Ptr> m_vKernelsInput;
 		std::vector<TxKernel::Ptr> m_vKernelsOutput;
-		ECC::Scalar m_Offset;
 
 		void Sort(); // w.r.t. the standard
 		size_t DeleteIntermediateOutputs(); // assumed to be already sorted. Retruns the num deleted
 
 		void TestNoNulls() const; // valid object should not have NULL members. Should be used during (de)serialization
 
-		class Reader :public IReader {
+		class Reader :public TxBase::IReader {
 			size_t m_pIdx[4];
 		public:
-			const Transaction& m_Tx;
-			Reader(const Transaction& tx) :m_Tx(tx) {}
+			const TxVectors& m_Txv;
+			Reader(const TxVectors& txv) :m_Txv(txv) {}
 			// IReader
 			virtual void Reset() override;
-			virtual void get_Offset(ECC::Scalar::Native&) override;
 			virtual size_t get_CountInputs() override;
 			virtual const Input*	get_NextUtxoIn() override;
 			virtual const Output*	get_NextUtxoOut() override;
@@ -266,6 +262,13 @@ namespace beam
 		Reader get_Reader() const {
 			return Reader(*this);
 		}
+	};
+
+	struct Transaction
+		:public TxBase
+		,public TxVectors
+	{
+		typedef std::shared_ptr<Transaction> Ptr;
 
 		int cmp(const Transaction&) const;
 		COMPARISON_VIA_CMP(Transaction)
@@ -361,43 +364,12 @@ namespace beam
 			static void AdjustDifficulty(uint8_t&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s);
 		};
 
-
-		struct Body
-			:public Transaction
+		struct BodyBase
+			:public TxBase
 		{
-			struct IReader
-				:public TxBase::IReader
-			{
-				virtual void get_Subsidy(AmountBig&) = 0;
-				virtual bool get_SubsidyClosing() = 0;
-			};
-
-			class Reader
-				:public IReader
-			{
-				Transaction::Reader m_R;
-			public:
-				Reader(const Body& b) :m_R(b) {}
-				// IReader
-				virtual void get_Subsidy(AmountBig&) override;
-				virtual bool get_SubsidyClosing() override;
-				// TxBase::IReader
-				virtual void Reset() override { m_R.Reset(); }
-				virtual void get_Offset(ECC::Scalar::Native& x) override { return m_R.get_Offset(x); }
-				virtual size_t get_CountInputs() override { return m_R.get_CountInputs(); }
-				virtual const Input*	get_NextUtxoIn() override { return m_R.get_NextUtxoIn(); }
-				virtual const Output*	get_NextUtxoOut() override { return m_R.get_NextUtxoOut(); }
-				virtual const TxKernel*	get_NextKernelIn() override { return m_R.get_NextKernelIn(); }
-				virtual const TxKernel*	get_NextKernelOut() override { return m_R.get_NextKernelOut(); }
-			};
-
-			Reader get_Reader() const {
-				return Reader(*this);
-			}
-
 			AmountBig m_Subsidy; // the overall amount created by the block
-			// For standard blocks this should be equal to the coinbase emission.
-			// Genesis block(s) may have higher emission (aka premined)
+								 // For standard blocks this should be equal to the coinbase emission.
+								 // Genesis block(s) may have higher emission (aka premined)
 
 			bool m_SubsidyClosing; // Last block that contains arbitrary subsidy.
 
@@ -410,7 +382,17 @@ namespace beam
 			// Not tested by this function (but should be tested by nodes!)
 			//		Existence of all the input UTXOs
 			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
-			bool IsValid(const HeightRange&, bool bSubsidyOpen) const;
+			bool IsValid(const HeightRange&, bool bSubsidyOpen, TxBase::IReader&) const;
+		};
+
+		struct Body
+			:public BodyBase
+			,public TxVectors
+		{
+			bool IsValid(const HeightRange& hr, bool bSubsidyOpen) const
+			{
+				return BodyBase::IsValid(hr, bSubsidyOpen, get_Reader());
+			}
 		};
 	};
 

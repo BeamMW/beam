@@ -48,11 +48,11 @@ namespace beam
 		Context() { Reset(); }
 		void Reset();
 
-		bool ValidateAndSummarize(IReader&);
+		bool ValidateAndSummarize(const TxBase&, IReader&);
 		bool Merge(const Context&);
 
 		// hi-level functions, should be used after all parts were validated and merged
 		bool IsValidTransaction();
-		bool IsValidBlock(Block::Body::IReader&, bool bSubsidyOpen);
+		bool IsValidBlock(const Block::BodyBase&, bool bSubsidyOpen);
 	};
 }

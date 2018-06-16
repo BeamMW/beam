@@ -359,14 +359,14 @@ namespace beam
 			ECC::Scalar m_Key;
 			Amount m_Value;
 
-			void ToOutput(Transaction& tx, ECC::Scalar::Native& offset, Height hIncubation) const
+			void ToOutput(TxVectors& txv, ECC::Scalar::Native& offset, Height hIncubation) const
 			{
 				ECC::Scalar::Native k = m_Key;
 
 				Output::Ptr pOut(new Output);
 				pOut->m_Incubation = hIncubation;
 				pOut->Create(k, m_Value, true); // confidential transactions will be too slow for test in debug mode.
-				tx.m_vOutputs.push_back(std::move(pOut));
+				txv.m_vOutputs.push_back(std::move(pOut));
 
 				k = -k;
 				offset += k;

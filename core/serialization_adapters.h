@@ -542,14 +542,55 @@ namespace detail
 
         /// beam::Transaction serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::Transaction& tx)
+        static Archive& save(Archive& ar, const beam::TxBase& txb)
         {
             ar
-                & tx.m_vInputs
-                & tx.m_vOutputs
-                & tx.m_vKernelsInput
-				& tx.m_vKernelsOutput
-				& tx.m_Offset;
+				& txb.m_Offset;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::TxBase& txb)
+        {
+            ar
+				& txb.m_Offset;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& save(Archive& ar, const beam::TxVectors& txv)
+        {
+			ar
+				& txv.m_vInputs
+				& txv.m_vOutputs
+				& txv.m_vKernelsInput
+				& txv.m_vKernelsOutput;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::TxVectors& txv)
+        {
+			ar
+				& txv.m_vInputs
+				& txv.m_vOutputs
+				& txv.m_vKernelsInput
+				& txv.m_vKernelsOutput;
+
+			txv.TestNoNulls();
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& save(Archive& ar, const beam::Transaction& tx)
+        {
+			ar
+				& (beam::TxVectors&) tx
+				& (beam::TxBase&) tx;
 
             return ar;
         }
@@ -557,14 +598,9 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, beam::Transaction& tx)
         {
-            ar
-                & tx.m_vInputs
-                & tx.m_vOutputs
-				& tx.m_vKernelsInput
-				& tx.m_vKernelsOutput
-				& tx.m_Offset;
-
-			tx.TestNoNulls();
+			ar
+				& (beam::TxVectors&) tx
+				& (beam::TxBase&) tx;
 
             return ar;
         }
@@ -638,13 +674,13 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Block::Body& bb)
+		static Archive& save(Archive& ar, const beam::Block::BodyBase& bb)
 		{
 			uint8_t nFlags =
 				(bb.m_Subsidy.Hi ? 1 : 0) |
 				(bb.m_SubsidyClosing ? 2 : 0);
 
-			ar & (const beam::Transaction&) bb;
+			ar & (const beam::TxBase&) bb;
 			ar & nFlags;
 			ar & bb.m_Subsidy.Lo;
 
@@ -655,11 +691,11 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Block::Body& bb)
+		static Archive& load(Archive& ar, beam::Block::BodyBase& bb)
 		{
 			uint8_t nFlags;
 
-			ar & (beam::Transaction&) bb;
+			ar & (beam::TxBase&) bb;
 			ar & nFlags;
 			ar & bb.m_Subsidy.Lo;
 
@@ -669,6 +705,24 @@ namespace detail
 				bb.m_Subsidy.Hi = 0;
 
 			bb.m_SubsidyClosing = ((2 & nFlags) != 0);
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Block::Body& bb)
+		{
+			ar & (const beam::Block::BodyBase&) bb;
+			ar & (const beam::TxVectors&) bb;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Block::Body& bb)
+		{
+			ar & (beam::Block::BodyBase&) bb;
+			ar & (beam::TxVectors&) bb;
 
 			return ar;
 		}

@@ -374,7 +374,7 @@ namespace beam
 		return true;
 	}
 
-	bool TxBase::Context::ValidateAndSummarize(IReader& r)
+	bool TxBase::Context::ValidateAndSummarize(const TxBase& txb, IReader& r)
 	{
 		if (m_Height.IsEmpty())
 			return false;
@@ -524,17 +524,13 @@ namespace beam
 		}
 
 		if (ShouldVerify(iV))
-		{
-			ECC::Scalar::Native offs;
-			r.get_Offset(offs);
-			m_Sigma += ECC::Context::get().G * offs;
-		}
+			m_Sigma += ECC::Context::get().G * txb.m_Offset;
 
 		assert(!m_Height.IsEmpty());
 		return true;
 	}
 
-	void Transaction::Sort()
+	void TxVectors::Sort()
 	{
 		std::sort(m_vInputs.begin(), m_vInputs.end());
 		std::sort(m_vOutputs.begin(), m_vOutputs.end());
@@ -554,7 +550,7 @@ namespace beam
 				v.push_back(std::move(vSrc[i]));
 	}
 
-	size_t Transaction::DeleteIntermediateOutputs()
+	size_t TxVectors::DeleteIntermediateOutputs()
 	{
 		size_t nDel = 0;
 
@@ -632,7 +628,7 @@ namespace beam
 	bool Transaction::IsValid(Context& ctx) const
 	{
 		return
-			ctx.ValidateAndSummarize(get_Reader()) &&
+			ctx.ValidateAndSummarize(*this, get_Reader()) &&
 			ctx.IsValidTransaction();
 	}
 
@@ -643,7 +639,7 @@ namespace beam
 			throw std::runtime_error("invalid NULL ptr");
 	}
 
-	void Transaction::TestNoNulls() const
+	void TxVectors::TestNoNulls() const
 	{
 		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
 			TestNotNull(*it);
@@ -692,32 +688,27 @@ namespace beam
 
 	const Input* Transaction::Reader::get_NextUtxoIn()
 	{
-		return get_NextFromVector(m_Tx.m_vInputs, m_pIdx[0]);
+		return get_NextFromVector(m_Txv.m_vInputs, m_pIdx[0]);
 	}
 
 	const Output* Transaction::Reader::get_NextUtxoOut()
 	{
-		return get_NextFromVector(m_Tx.m_vOutputs, m_pIdx[1]);
+		return get_NextFromVector(m_Txv.m_vOutputs, m_pIdx[1]);
 	}
 
 	const TxKernel* Transaction::Reader::get_NextKernelIn()
 	{
-		return get_NextFromVector(m_Tx.m_vKernelsInput, m_pIdx[2]);
+		return get_NextFromVector(m_Txv.m_vKernelsInput, m_pIdx[2]);
 	}
 
 	const TxKernel* Transaction::Reader::get_NextKernelOut()
 	{
-		return get_NextFromVector(m_Tx.m_vKernelsOutput, m_pIdx[3]);
-	}
-
-	void Transaction::Reader::get_Offset(ECC::Scalar::Native& offs)
-	{
-		offs = m_Tx.m_Offset;
+		return get_NextFromVector(m_Txv.m_vKernelsOutput, m_pIdx[3]);
 	}
 
 	size_t Transaction::Reader::get_CountInputs()
 	{
-		return m_Tx.m_vInputs.size();
+		return m_Txv.m_vInputs.size();
 	}
 
 	/////////////
@@ -825,13 +816,11 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
 	}
 
-	bool TxBase::Context::IsValidBlock(Block::Body::IReader& r, bool bSubsidyOpen)
+	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb, bool bSubsidyOpen)
 	{
 		m_Sigma = -m_Sigma;
 
-		AmountBig subs;
-		r.get_Subsidy(subs);
-		subs.AddTo(m_Sigma);
+		bb.m_Subsidy.AddTo(m_Sigma);
 
 		if (!(m_Sigma == ECC::Zero))
 			return false;
@@ -839,7 +828,7 @@ namespace beam
 		if (bSubsidyOpen)
 			return true;
 
-		if (r.get_SubsidyClosing())
+		if (bb.m_SubsidyClosing)
 			return false; // already closed
 
 		// For non-genesis blocks we have the following restrictions:
@@ -850,7 +839,7 @@ namespace beam
 		Height nBlocksInRange = m_Height.m_Max - m_Height.m_Min + 1;
 
 		ECC::uintBig ubSubsidy, ubCoinbase, mul;
-		subs.Export(ubSubsidy);
+		bb.m_Subsidy.Export(ubSubsidy);
 
 		mul = Block::Rules::CoinbaseEmission;
 		ubCoinbase = nBlocksInRange;
@@ -880,34 +869,24 @@ namespace beam
 		return (ubCoinbase >= ubSubsidy);
 	}
 
-	void Block::Body::ZeroInit()
+	void Block::BodyBase::ZeroInit()
 	{
 		ZeroObject(m_Subsidy);
 		ZeroObject(m_Offset);
 		m_SubsidyClosing = false;
 	}
 
-	bool Block::Body::IsValid(const HeightRange& hr, bool bSubsidyOpen) const
+	bool Block::BodyBase::IsValid(const HeightRange& hr, bool bSubsidyOpen, TxBase::IReader& r) const
 	{
 		assert((hr.m_Min >= Block::Rules::HeightGenesis) && !hr.IsEmpty());
 
-		Context ctx;
+		TxBase::Context ctx;
 		ctx.m_Height = hr;
 		ctx.m_bBlockMode = true;
 
 		return
-			ctx.ValidateAndSummarize(get_Reader()) &&
-			ctx.IsValidBlock(get_Reader(), bSubsidyOpen);
-	}
-
-	void Block::Body::Reader::get_Subsidy(AmountBig& res)
-	{
-		res = ((Body&) m_R.m_Tx).m_Subsidy;
-	}
-
-	bool Block::Body::Reader::get_SubsidyClosing()
-	{
-		return ((Body&) m_R.m_Tx).m_SubsidyClosing;
+			ctx.ValidateAndSummarize(*this, r) &&
+			ctx.IsValidBlock(*this, bSubsidyOpen);
 	}
 
     void DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType eType, uint32_t nIdx /* = 0 */)

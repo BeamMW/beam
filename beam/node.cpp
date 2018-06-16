@@ -304,7 +304,7 @@ bool Node::Processor::VerifyBlock(const Block::Body& block, const HeightRange& h
 	for (uint32_t i = 0; i < nThreads; i++)
 		vThreads[i].join();
 
-	return !vctx.m_bAbort && vctx.m_Context.IsValidBlock(block.get_Reader(), m_Cursor.m_SubsidyOpen);
+	return !vctx.m_bAbort && vctx.m_Context.IsValidBlock(block, m_Cursor.m_SubsidyOpen);
 }
 
 void Node::Processor::VerifierContext::Proceed(VerifierContext* pVctx, uint32_t iVerifier)
@@ -318,7 +318,7 @@ void Node::Processor::VerifierContext::Proceed(VerifierContext* pVctx, uint32_t 
 	ctx.m_iVerifier = iVerifier;
 	ctx.m_pAbort = &vctx.m_bAbort;
 
-	bool bValid = ctx.ValidateAndSummarize(vctx.m_pBlock->get_Reader());
+	bool bValid = ctx.ValidateAndSummarize(*vctx.m_pBlock, vctx.m_pBlock->get_Reader());
 
 	{
 		std::unique_lock<std::mutex> scope(vctx.m_Mutex);
