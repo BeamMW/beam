@@ -340,8 +340,16 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Input& input)
         {
+			uint8_t nFlags =
+				(input.m_Commitment.m_Y ? 1 : 0) |
+				(input.m_Maturity ? 0x2 : 0);
+
 			ar
-				& input.m_Commitment;
+				& nFlags
+				& input.m_Commitment.m_X;
+
+			if (input.m_Maturity)
+				ar & input.m_Maturity;
 
             return ar;
         }
@@ -349,8 +357,15 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, beam::Input& input)
         {
+			uint8_t nFlags;
 			ar
-				& input.m_Commitment;
+				& nFlags
+				& input.m_Commitment.m_X;
+
+			input.m_Commitment.m_Y = 0 != (1 & nFlags);
+
+			if (0x2 & nFlags)
+				ar & input.m_Maturity;
 
             return ar;
         }
@@ -365,7 +380,7 @@ namespace detail
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
 				(output.m_Incubation ? 0x10 : 0) |
-				(output.m_hDelta ? 0x20 : 0);
+				(output.m_Maturity ? 0x20 : 0);
 
 			ar
 				& nFlags
@@ -380,8 +395,8 @@ namespace detail
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
 
-			if (output.m_hDelta)
-				ar & output.m_hDelta;
+			if (output.m_Maturity)
+				ar & output.m_Maturity;
 
             return ar;
         }
@@ -413,7 +428,7 @@ namespace detail
 				ar & output.m_Incubation;
 
 			if (0x20 & nFlags)
-				ar & output.m_hDelta;
+				ar & output.m_Maturity;
 
             return ar;
         }

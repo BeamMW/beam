@@ -526,38 +526,38 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	return bOk;
 }
 
-bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, RollbackData& rbData)
+bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, RollbackData& rbData, bool bCompressed)
 {
 	size_t nInp = 0, nOut = 0, nKrnInp = 0, nKrnOut = 0;
 	r.Reset();
 
 	bool bOk = true;
-	for (const Input* pInput; (pInput = r.get_NextUtxoIn()); nInp++)
-		if (!HandleBlockElement(*pInput, bFwd, h, rbData))
+	for (; r.m_pUtxoIn; r.NextUtxoIn(), nInp++)
+		if (!HandleBlockElement(*r.m_pUtxoIn, h, bFwd, rbData))
 		{
 			bOk = false;
 			break;
 		}
 
 	if (bOk)
-		for (const Output* pOutput; (pOutput = r.get_NextUtxoOut()); nOut++)
-			if (!HandleBlockElement(*pOutput, h, bFwd))
+		for (; r.m_pUtxoOut; r.NextUtxoOut(), nOut++)
+			if (!HandleBlockElement(*r.m_pUtxoOut, h, bFwd, bCompressed))
 			{
 				bOk = false;
 				break;
 			}
 
 	if (bOk)
-		for (const TxKernel* pKrn; (pKrn = r.get_NextKernelIn()); nKrnInp++)
-			if (!HandleBlockElement(*pKrn, bFwd, true))
+		for (; r.m_pKernelIn; r.NextKernelIn(), nKrnInp++)
+			if (!HandleBlockElement(*r.m_pKernelIn, bFwd, true))
 			{
 				bOk = false;
 				break;
 			}
 
 	if (bOk)
-		for (const TxKernel* pKrn; (pKrn = r.get_NextKernelOut()); nKrnOut++)
-			if (!HandleBlockElement(*pKrn, bFwd, false))
+		for (; r.m_pKernelOut; r.NextKernelOut(), nKrnOut++)
+			if (!HandleBlockElement(*r.m_pKernelOut, bFwd, false))
 			{
 				bOk = false;
 				break;
@@ -572,20 +572,20 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 	// Rollback all the changes. Must succeed!
 	r.Reset();
 
-	while (nKrnOut--)
-		HandleBlockElement(*r.get_NextKernelOut(), false, false);
+	for (; nKrnOut--; r.NextKernelOut())
+		HandleBlockElement(*r.m_pKernelOut, false, false);
 
-	while (nKrnInp--)
-		HandleBlockElement(*r.get_NextKernelIn(), false, true);
+	for (; nKrnInp--; r.NextKernelIn())
+		HandleBlockElement(*r.m_pKernelIn, false, true);
 
-	while (nOut--)
-		HandleBlockElement(*r.get_NextUtxoOut(), h, false);
+	for (; nOut--; r.NextUtxoOut())
+		HandleBlockElement(*r.m_pUtxoOut, h, false, bCompressed);
 
 	rbData.m_Inputs -= nInp;
 	size_t n = rbData.m_Inputs;
 
-	while (nInp--)
-		HandleBlockElement(*r.get_NextUtxoIn(), false, h, rbData);
+	for (; nInp--; r.NextUtxoIn())
+		HandleBlockElement(*r.m_pUtxoIn, h, false, rbData);
 
 	rbData.m_Inputs = n;
 
@@ -605,7 +605,7 @@ struct SpendableKey
 	}
 };
 
-bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd, Height h, RollbackData& rbData)
+bool NodeProcessor::HandleBlockElement(const Input& v, Height h, bool bFwd, RollbackData& rbData)
 {
 	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
 
@@ -625,7 +625,10 @@ bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd, Height h, Roll
 
 		UtxoTree::Key kMin, kMax;
 
-		d.m_Maturity = 0;
+		if (v.m_Maturity > h)
+			return false;
+
+		d.m_Maturity = v.m_Maturity;
 		kMin = d;
 		d.m_Maturity = h;
 		kMax = d;
@@ -700,14 +703,23 @@ void HeightAdd(Height& trg, Height val)
 		trg = Height(-1);
 }
 
-bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
+bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd, bool bCompressed)
 {
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
 	d.m_Maturity = h;
 	HeightAdd(d.m_Maturity, v.m_Coinbase ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd);
 	HeightAdd(d.m_Maturity, v.m_Incubation);
-	HeightAdd(d.m_Maturity, v.m_hDelta);
+
+	if (v.m_Maturity >= Block::Rules::HeightGenesis)
+	{
+		if (!bCompressed)
+			return false; // maturity forgery isn't allowed
+		if (v.m_Maturity < d.m_Maturity)
+			return false; // decrease not allowed
+
+		d.m_Maturity = v.m_Maturity;
+	}
 
 	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
 	skey.m_Key = d;
@@ -836,10 +848,10 @@ void NodeProcessor::DereferenceFossilBlock(uint64_t rowid)
 	Block::Body::Reader r = block.get_Reader();
 	r.Reset();
 
-	for (const Input* pInp; (pInp = r.get_NextUtxoIn()); )
+	for (; r.m_pUtxoIn; r.NextUtxoIn())
 	{
 		UtxoTree::Key::Data d;
-		d.m_Commitment = pInp->m_Commitment;
+		d.m_Commitment = r.m_pUtxoIn->m_Commitment;
 		d.m_Maturity = rbData.PushInput().m_Maturity;
 
 		SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
@@ -848,10 +860,10 @@ void NodeProcessor::DereferenceFossilBlock(uint64_t rowid)
 		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), -1, 0);
 	}
 
-	for (const TxKernel* pKrn; (pKrn = r.get_NextKernelIn()); )
+	for (; r.m_pKernelIn; r.NextKernelIn())
 	{
 		SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-		pKrn->get_HashTotal(skey.m_Key);
+		r.m_pKernelIn->get_HashTotal(skey.m_Key);
 
 		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), -1, 0);
 	}
@@ -1190,7 +1202,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		Output::Ptr pOutp(new Output);
 		pOutp->Create(kFee, fees);
 
-		if (!HandleBlockElement(*pOutp, h, true))
+		if (!HandleBlockElement(*pOutp, h, true, false))
 			return false; // though should not happen!
 
 		res.m_vOutputs.push_back(std::move(pOutp));
@@ -1226,7 +1238,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	pOutp->m_Coinbase = true;
 	pOutp->Create(kCoinbase, Block::Rules::CoinbaseEmission, true);
 
-	if (!HandleBlockElement(*pOutp, h, true))
+	if (!HandleBlockElement(*pOutp, h, true, false))
 		return false;
 
 	res.m_vOutputs.push_back(std::move(pOutp));
@@ -1346,17 +1358,14 @@ void NodeProcessor::ExportMacroBlock(Block::Body& res)
 
 				Output::Ptr pOutp(new Output);
 				pOutp->m_Commitment	= d.m_Commitment;
+				pOutp->m_Maturity	= d.m_Maturity;
 				pOutp->m_Coinbase	= sig.m_Coinbase;
 				pOutp->m_Incubation	= sig.m_Incubation;
 				pOutp->m_pConfidential.swap(sig.m_pConfidential);
 				pOutp->m_pPublic.swap(sig.m_pPublic);
 
-				// calculate hDelta, to fit the needed maturity
-				pOutp->m_hDelta = d.m_Maturity - sig.m_Incubation - Block::Rules::HeightGenesis;
-				pOutp->m_hDelta -= sig.m_Coinbase ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd;
-
 				m_pRes->m_vOutputs.push_back(std::move(pOutp));
-}
+			}
 			return true;
 		}
 
@@ -1424,7 +1433,7 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 	NodeDB::Transaction t(m_DB);
 
 	RollbackData rbData;
-	if (!HandleValidatedTx(std::move(r), Block::Rules::HeightGenesis, true, rbData))
+	if (!HandleValidatedTx(std::move(r), Block::Rules::HeightGenesis, true, rbData, true))
 		return false;
 
 	// Update DB state flags and cursor. This will also buils the MMR for prev states

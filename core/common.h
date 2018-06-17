@@ -98,7 +98,13 @@ namespace beam
 		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system
 
 		ECC::Point	m_Commitment; // If there are multiple UTXOs matching this commitment (which is supported) the Node always selects the most mature one.
-	
+		Height		m_Maturity; // used only in compressed blocks
+
+		Input()
+			:m_Maturity(0)
+		{
+		}
+
 		struct Proof
 		{
 			Height m_Maturity;
@@ -132,12 +138,12 @@ namespace beam
 		ECC::Point	m_Commitment;
 		bool		m_Coinbase;
 		Height		m_Incubation; // # of blocks before it's mature
-		Height		m_hDelta;
+		Height		m_Maturity; // used only in compressed blocks
 
 		Output()
 			:m_Coinbase(false)
 			,m_Incubation(0)
-			,m_hDelta(0)
+			,m_Maturity(0)
 		{
 		}
 
@@ -223,13 +229,19 @@ namespace beam
 		{
 			typedef std::unique_ptr<IReader> Ptr;
 
+			// during iterations those pointers are guaranteed to be valid during at least 1 consequent iteration
+			const Input* m_pUtxoIn;
+			const Output* m_pUtxoOut;
+			const TxKernel* m_pKernelIn;
+			const TxKernel* m_pKernelOut;
+
 			virtual void Clone(Ptr&) = 0;
 			virtual void Reset() = 0;
 			// For all the following methods: the returned pointer should be valid during at least 2 consequent calls!
-			virtual const Input*	get_NextUtxoIn() = 0;
-			virtual const Output*	get_NextUtxoOut() = 0;
-			virtual const TxKernel*	get_NextKernelIn() = 0;
-			virtual const TxKernel*	get_NextKernelOut() = 0;
+			virtual void NextUtxoIn() = 0;
+			virtual void NextUtxoOut() = 0;
+			virtual void NextKernelIn() = 0;
+			virtual void NextKernelOut() = 0;
 		};
 
 		ECC::Scalar m_Offset;
@@ -255,10 +267,10 @@ namespace beam
 			// IReader
 			virtual void Clone(Ptr&) override;
 			virtual void Reset() override;
-			virtual const Input*	get_NextUtxoIn() override;
-			virtual const Output*	get_NextUtxoOut() override;
-			virtual const TxKernel*	get_NextKernelIn() override;
-			virtual const TxKernel*	get_NextKernelOut() override;
+			virtual void NextUtxoIn() override;
+			virtual void NextUtxoOut() override;
+			virtual void NextKernelIn() override;
+			virtual void NextKernelOut() override;
 		};
 
 		Reader get_Reader() const {
@@ -381,14 +393,6 @@ namespace beam
 		struct BodyBase
 			:public TxBase
 		{
-			struct IWriter
-			{
-				virtual void put_UtxoIn(const Input&) = 0;
-				virtual void put_UtxoOut(const Output&) = 0;
-				virtual void put_KernelIn(const TxKernel&) = 0;
-				virtual void put_KernelOut(const TxKernel&) = 0;
-			};
-
 			AmountBig m_Subsidy; // the overall amount created by the block
 								 // For standard blocks this should be equal to the coinbase emission.
 								 // Genesis block(s) may have higher emission (aka premined)

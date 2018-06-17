@@ -28,10 +28,10 @@ class NodeProcessor
 	struct RollbackData;
 
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
-	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, RollbackData&);
+	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, RollbackData&, bool bCompressed = false);
 
-	bool HandleBlockElement(const Input&, bool bFwd, Height, RollbackData&);
-	bool HandleBlockElement(const Output&, Height, bool bFwd);
+	bool HandleBlockElement(const Input&, Height, bool bFwd, RollbackData&);
+	bool HandleBlockElement(const Output&, Height, bool bFwd, bool bCompressed);
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
 	void OnSubsidyOptionChanged(bool);
 

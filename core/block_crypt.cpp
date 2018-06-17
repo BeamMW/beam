@@ -97,7 +97,9 @@ namespace beam
 
 	int Input::cmp(const Input& v) const
 	{
-		return m_Commitment.cmp(v.m_Commitment);
+		CMP_MEMBER_EX(m_Commitment)
+		CMP_MEMBER(m_Maturity)
+		return 0;
 	}
 
 	/////////////
@@ -127,6 +129,7 @@ namespace beam
 	int Output::cmp(const Output& v) const
 	{
 		CMP_MEMBER_EX(m_Commitment)
+		CMP_MEMBER(m_Maturity)
 		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
@@ -388,53 +391,41 @@ namespace beam
 		// Inputs
 		r.Reset();
 
-		for (const Input* pPrev = NULL; ; )
+		for (const Input* pPrev = NULL; r.m_pUtxoIn; pPrev = r.m_pUtxoIn, r.NextUtxoIn())
 		{
 			if (ShouldAbort())
 				return false;
-
-			const Input* pInp = r.get_NextUtxoIn();
-			if (!pInp)
-				break;
 
 			if (ShouldVerify(iV))
 			{
-				if (pPrev && (*pPrev > *pInp))
+				if (pPrev && (*pPrev > *r.m_pUtxoIn))
 					return false;
 
-				m_Sigma += ECC::Point::Native(pInp->m_Commitment);
+				m_Sigma += ECC::Point::Native(r.m_pUtxoIn->m_Commitment);
 			}
-
-			pPrev = pInp;
 		}
 
-		const TxKernel* pKrnOut = r.get_NextKernelOut();
-
-		for (const TxKernel* pPrev = NULL; ; )
+		for (const TxKernel* pPrev = NULL; r.m_pKernelIn; pPrev = r.m_pKernelIn, r.NextKernelIn())
 		{
 			if (ShouldAbort())
 				return false;
-
-			const TxKernel* pKrn = r.get_NextKernelIn();
-			if (!pKrn)
-				break;
 
 			// locate the corresponding output kernel. Use the fact that kernels are sorted by excess, and then by multiplier
 			// Do it regardless to the milti-verifier logic, to ensure we're not confused (muliple identical inputs, less outputs, and etc.)
 			while (true)
 			{
-				if (!pKrnOut)
+				if (!r.m_pKernelOut)
 					return false;
 
-				const TxKernel& vOut = *pKrnOut;
-				pKrnOut = r.get_NextKernelOut();
+				const TxKernel& vOut = *r.m_pKernelOut;
+				r.NextKernelOut();
 
-				if (vOut.m_Excess > pKrn->m_Excess)
+				if (vOut.m_Excess > r.m_pKernelIn->m_Excess)
 					return false;
 
-				if (vOut.m_Excess == pKrn->m_Excess)
+				if (vOut.m_Excess == r.m_pKernelIn->m_Excess)
 				{
-					if (vOut.m_Multiplier <= pKrn->m_Multiplier)
+					if (vOut.m_Multiplier <= r.m_pKernelIn->m_Multiplier)
 						return false;
 					break; // ok
 				}
@@ -442,14 +433,12 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (pPrev && (*pPrev > *pKrn))
+				if (pPrev && (*pPrev > *r.m_pKernelIn))
 					return false;
 
-				if (!pKrn->IsValid(feeInp, m_Sigma))
+				if (!r.m_pKernelIn->IsValid(feeInp, m_Sigma))
 					return false;
 			}
-
-			pPrev = pKrn;
 		}
 
 		m_Sigma = -m_Sigma;
@@ -457,70 +446,48 @@ namespace beam
 		// Outputs
 		r.Reset();
 
-		for (const Output* pPrev = NULL; ; )
+		for (const Output* pPrev = NULL; r.m_pUtxoOut; pPrev = r.m_pUtxoOut, r.NextUtxoOut())
 		{
 			if (ShouldAbort())
 				return false;
 
-			const Output* pOut = r.get_NextUtxoOut();
-			if (!pOut)
-				break;
-
 			if (ShouldVerify(iV))
 			{
-				if (pPrev && (*pPrev > *pOut))
+				if (pPrev && (*pPrev > *r.m_pUtxoOut))
 					return false;
 
-				if (!pOut->IsValid())
+				if (!r.m_pUtxoOut->IsValid())
 					return false;
 
-				m_Sigma += ECC::Point::Native(pOut->m_Commitment);
+				m_Sigma += ECC::Point::Native(r.m_pUtxoOut->m_Commitment);
 
-				if (pOut->m_Coinbase)
+				if (r.m_pUtxoOut->m_Coinbase)
 				{
 					if (!m_bBlockMode)
 						return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 
-					assert(pOut->m_pPublic); // must have already been checked
-					m_Coinbase += pOut->m_pPublic->m_Value;
-				}
-
-				if (pOut->m_hDelta)
-				{
-					if (!m_bBlockMode)
-						return false; // this should only be used in merged blocks
-
-					if (!m_Height.IsInRangeRelative(pOut->m_hDelta))
-						return false;
+					assert(r.m_pUtxoOut->m_pPublic); // must have already been checked
+					m_Coinbase += r.m_pUtxoOut->m_pPublic->m_Value;
 				}
 			}
-
-
-			pPrev = pOut;
 		}
 
-		for (const TxKernel* pPrev = NULL; ; )
+		for (const TxKernel* pPrev = NULL; r.m_pKernelOut; pPrev = r.m_pKernelOut, r.NextKernelOut())
 		{
 			if (ShouldAbort())
 				return false;
 
-			const TxKernel* pKrn = r.get_NextKernelOut();
-			if (!pKrn)
-				break;
-
 			if (ShouldVerify(iV))
 			{
-				if (pPrev && (*pPrev > *pKrn))
+				if (pPrev && (*pPrev > *r.m_pKernelOut))
 					return false;
 
-				if (!pKrn->IsValid(m_Fee, m_Sigma))
+				if (!r.m_pKernelOut->IsValid(m_Fee, m_Sigma))
 					return false;
 
-				if (!HandleElementHeight(pKrn->m_Height))
+				if (!HandleElementHeight(r.m_pKernelOut->m_Height))
 					return false;
 			}
-
-			pPrev = pKrn;
 		}
 
 		if (ShouldVerify(iV))
@@ -675,40 +642,45 @@ namespace beam
 			key = m_Offset.m_Value;
 	}
 
-	void Transaction::Reader::Clone(Ptr& pOut)
+	template <typename T>
+	const T* get_FromVector(const std::vector<std::unique_ptr<T> >& v, size_t idx)
+	{
+		return (idx >= v.size()) ? NULL : v[idx].get();
+	}
+
+	void TxVectors::Reader::Clone(Ptr& pOut)
 	{
 		pOut.reset(new Reader(m_Txv));
 	}
 
-	void Transaction::Reader::Reset()
+	void TxVectors::Reader::Reset()
 	{
 		ZeroObject(m_pIdx);
+
+		m_pUtxoIn = get_FromVector(m_Txv.m_vInputs, 0);
+		m_pUtxoOut = get_FromVector(m_Txv.m_vOutputs, 0);
+		m_pKernelIn = get_FromVector(m_Txv.m_vKernelsInput, 0);
+		m_pKernelOut = get_FromVector(m_Txv.m_vKernelsOutput, 0);
 	}
 
-	template <typename T>
-	const T* get_NextFromVector(const std::vector<std::unique_ptr<T> >& v, size_t& idx)
+	void TxVectors::Reader::NextUtxoIn()
 	{
-		return (idx >= v.size()) ? NULL : v[idx++].get();
+		m_pUtxoIn = get_FromVector(m_Txv.m_vInputs, ++m_pIdx[0]);
 	}
 
-	const Input* Transaction::Reader::get_NextUtxoIn()
+	void TxVectors::Reader::NextUtxoOut()
 	{
-		return get_NextFromVector(m_Txv.m_vInputs, m_pIdx[0]);
+		m_pUtxoOut = get_FromVector(m_Txv.m_vOutputs, ++m_pIdx[1]);
 	}
 
-	const Output* Transaction::Reader::get_NextUtxoOut()
+	void TxVectors::Reader::NextKernelIn()
 	{
-		return get_NextFromVector(m_Txv.m_vOutputs, m_pIdx[1]);
+		m_pKernelIn = get_FromVector(m_Txv.m_vKernelsInput, ++m_pIdx[2]);
 	}
 
-	const TxKernel* Transaction::Reader::get_NextKernelIn()
+	void TxVectors::Reader::NextKernelOut()
 	{
-		return get_NextFromVector(m_Txv.m_vKernelsInput, m_pIdx[2]);
-	}
-
-	const TxKernel* Transaction::Reader::get_NextKernelOut()
-	{
-		return get_NextFromVector(m_Txv.m_vKernelsOutput, m_pIdx[3]);
+		m_pKernelOut = get_FromVector(m_Txv.m_vKernelsOutput, ++m_pIdx[3]);
 	}
 
 	/////////////
