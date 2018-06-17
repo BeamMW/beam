@@ -218,11 +218,12 @@ namespace ECC {
 	void Hash::Processor::Finalize(Hash::Value& v)
 	{
 		secp256k1_sha256_finalize(this, v.m_pData);
+		*this << v;
 	}
 
 	void Hash::Processor::Write(const char* sz)
 	{
-		Write(sz, (uint32_t) strlen(sz));
+		Write(sz, (uint32_t) (strlen(sz) + 1));
 	}
 
 	void Hash::Processor::Write(bool b)
