@@ -48,7 +48,7 @@ namespace beam
 		Context() { Reset(); }
 		void Reset();
 
-		bool ValidateAndSummarize(const TxBase&, IReader&);
+		bool ValidateAndSummarize(const TxBase&, IReader&&);
 		bool Merge(const Context&);
 
 		// hi-level functions, should be used after all parts were validated and merged

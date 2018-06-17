@@ -66,7 +66,7 @@ private:
 		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override;
 		virtual void OnPeerInsane(const PeerID&) override;
 		virtual void OnNewState() override;
-		virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&, const HeightRange&) override;
+		virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&) override;
 
 		struct VerifierContext
 		{

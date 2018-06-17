@@ -374,7 +374,7 @@ namespace beam
 		return true;
 	}
 
-	bool TxBase::Context::ValidateAndSummarize(const TxBase& txb, IReader& r)
+	bool TxBase::Context::ValidateAndSummarize(const TxBase& txb, IReader&& r)
 	{
 		if (m_Height.IsEmpty())
 			return false;
@@ -885,7 +885,7 @@ namespace beam
 		m_SubsidyClosing = false;
 	}
 
-	bool Block::BodyBase::IsValid(const HeightRange& hr, bool bSubsidyOpen, TxBase::IReader& r) const
+	bool Block::BodyBase::IsValid(const HeightRange& hr, bool bSubsidyOpen, TxBase::IReader&& r) const
 	{
 		assert((hr.m_Min >= Block::Rules::HeightGenesis) && !hr.IsEmpty());
 
@@ -894,7 +894,7 @@ namespace beam
 		ctx.m_bBlockMode = true;
 
 		return
-			ctx.ValidateAndSummarize(*this, r) &&
+			ctx.ValidateAndSummarize(*this, std::move(r)) &&
 			ctx.IsValidBlock(*this, bSubsidyOpen);
 	}
 

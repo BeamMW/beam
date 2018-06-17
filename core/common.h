@@ -404,7 +404,7 @@ namespace beam
 			// Not tested by this function (but should be tested by nodes!)
 			//		Existence of all the input UTXOs
 			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
-			bool IsValid(const HeightRange&, bool bSubsidyOpen, TxBase::IReader&) const;
+			bool IsValid(const HeightRange&, bool bSubsidyOpen, TxBase::IReader&&) const;
 		};
 
 		struct Body

@@ -28,7 +28,7 @@ class NodeProcessor
 	struct RollbackData;
 
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
-	bool HandleValidatedTx(TxBase::IReader&, Height, bool bFwd, RollbackData&);
+	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, RollbackData&);
 
 	bool HandleBlockElement(const Input&, bool bFwd, Height, RollbackData&);
 	bool HandleBlockElement(const Output&, Height, bool bFwd);
@@ -77,7 +77,7 @@ public:
 	void get_CurrentLive(Merkle::Hash&);
 
 	void ExportMacroBlock(Block::Body&); // can be time-consuming
-	bool ImportMacroBlock(const Block::SystemState::ID&, const Block::BodyBase&, TxBase::IReader&);
+	bool ImportMacroBlock(const Block::SystemState::ID&, const Block::BodyBase&, TxBase::IReader&&);
 
 	struct DataStatus {
 		enum Enum {
@@ -100,7 +100,7 @@ public:
 	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) {}
 	virtual void OnPeerInsane(const PeerID&) {}
 	virtual void OnNewState() {}
-	virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&, const HeightRange&);
+	virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 
 	bool IsStateNeeded(const Block::SystemState::ID&);
 

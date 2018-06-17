@@ -272,11 +272,11 @@ void Node::Processor::OnNewState()
 	get_ParentObj().RefreshCongestions();
 }
 
-bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader& r, const HeightRange& hr)
+bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
 {
 	uint32_t nThreads = get_ParentObj().m_Cfg.m_VerificationThreads;
 	if (!nThreads)
-		return NodeProcessor::VerifyBlock(block, r, hr);
+		return NodeProcessor::VerifyBlock(block, std::move(r), hr);
 
 	VerifierContext vctx;
 
@@ -322,7 +322,7 @@ void Node::Processor::VerifierContext::Proceed(VerifierContext* pVctx, uint32_t 
 	TxBase::IReader::Ptr pR;
 	vctx.m_pR->Clone(pR);
 
-	bool bValid = ctx.ValidateAndSummarize(*vctx.m_pTx, *pR);
+	bool bValid = ctx.ValidateAndSummarize(*vctx.m_pTx, std::move(*pR));
 
 	{
 		std::unique_lock<std::mutex> scope(vctx.m_Mutex);
