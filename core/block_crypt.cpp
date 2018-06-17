@@ -775,6 +775,15 @@ namespace beam
 		return 0;
 	}
 
+	void Block::SystemState::Full::Set(Prefix& p, const Element& x)
+	{
+		((Prefix&) *this) = p;
+		((Element&) *this) = x;
+
+		get_Hash(p.m_Prev);
+		p.m_Height++;
+	}
+
 	void Block::SystemState::Full::get_Hash(Merkle::Hash& out) const
 	{
 		// Our formula:

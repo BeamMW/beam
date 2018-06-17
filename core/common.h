@@ -327,13 +327,25 @@ namespace beam
 				COMPARISON_VIA_CMP(ID)
 			};
 
-			struct Full {
-				Height			m_Height;
-				Merkle::Hash	m_Prev;			// explicit referebce to prev
-				Merkle::Hash	m_Definition;	// defined as H ( PrevStates | LiveObjects )
-				Timestamp		m_TimeStamp;
-				PoW				m_PoW;
+			struct Sequence
+			{
+				struct Prefix {
+					Height			m_Height;
+					Merkle::Hash	m_Prev;			// explicit referebce to prev
+				};
 
+				struct Element {
+					Merkle::Hash	m_Definition;	// defined as H ( PrevStates | LiveObjects )
+					Timestamp		m_TimeStamp;
+					PoW				m_PoW;
+				};
+			};
+
+			struct Full
+				:public Sequence::Prefix
+				,public Sequence::Element
+			{
+				void Set(Prefix&, const Element&);
 				void get_Hash(Merkle::Hash&) const; // Calculated from all the above
 				void get_ID(ID&) const;
 
