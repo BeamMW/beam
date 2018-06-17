@@ -530,12 +530,12 @@ namespace beam
 		Block::SystemState::ID id;
 		blockChain.back()->m_Hdr.get_ID(id);
 
-		verify_test(!np2.ImportMacroBlock(id, macroBlock)); // no headers
+		verify_test(!np2.ImportMacroBlock(id, macroBlock, macroBlock.get_Reader())); // no headers
 
 		for (size_t i = 0; i < blockChain.size(); i++)
 			np2.OnState(blockChain[i]->m_Hdr, true, NodeDB::PeerID());
 
-		verify_test(np2.ImportMacroBlock(id, macroBlock));
+		verify_test(np2.ImportMacroBlock(id, macroBlock, macroBlock.get_Reader()));
 	}
 
 
@@ -778,6 +778,10 @@ namespace beam
 		node.m_Cfg.m_MiningThreads = 1;
 
 		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
+
+		node.m_Cfg.m_Horizon.m_Branching = 6;
+		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
+		node.m_Cfg.m_VerificationThreads = -1;
 
 		struct MyClient
 			:public proto::NodeConnection

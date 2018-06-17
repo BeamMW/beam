@@ -431,7 +431,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				return false;
 			}
 
-			if (!VerifyBlock(block, sid.m_Height))
+			if (!VerifyBlock(block, block.get_Reader(), sid.m_Height))
 			{
 				LOG_WARNING() << id << " context-free verification failed";
 				return false;
@@ -1282,7 +1282,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 
-	if (!bInitiallyEmpty && !VerifyBlock(res, h))
+	if (!bInitiallyEmpty && !VerifyBlock(res, res.get_Reader(), h))
 		return false;
 
 	{
@@ -1317,9 +1317,9 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	return bbBlock.size() <= Block::Rules::MaxBodySize;
 }
 
-bool NodeProcessor::VerifyBlock(const Block::Body& block, const HeightRange& hr)
+bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader& r, const HeightRange& hr)
 {
-	return block.IsValid(hr, m_Cursor.m_SubsidyOpen);
+	return block.IsValid(hr, m_Cursor.m_SubsidyOpen, r);
 }
 
 void NodeProcessor::ExportMacroBlock(Block::Body& res)
@@ -1393,7 +1393,7 @@ void NodeProcessor::ExportMacroBlock(Block::Body& res)
 	res.m_SubsidyClosing = !m_Cursor.m_SubsidyOpen;
 }
 
-bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Block::Body& block)
+bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Block::BodyBase& block, TxBase::IReader& r)
 {
 	if (m_Cursor.m_Sid.m_Row)
 		return false; // must be at "clean" state
@@ -1418,13 +1418,13 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 			return false;
 	}
 
-	if (!VerifyBlock(block, HeightRange(Block::Rules::HeightGenesis, id.m_Height)))
+	if (!VerifyBlock(block, r, HeightRange(Block::Rules::HeightGenesis, id.m_Height)))
 		return false;
 
 	NodeDB::Transaction t(m_DB);
 
 	RollbackData rbData;
-	if (!HandleValidatedTx(block.get_Reader(), Block::Rules::HeightGenesis, true, rbData))
+	if (!HandleValidatedTx(r, Block::Rules::HeightGenesis, true, rbData))
 		return false;
 
 	// Update DB state flags and cursor. This will also buils the MMR for prev states
@@ -1454,7 +1454,7 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 	if (s.m_Definition != hvDef)
 	{
 		rbData.m_Inputs = 0;
-		verify(HandleValidatedTx(block.get_Reader(), Block::Rules::HeightGenesis, false, rbData));
+		verify(HandleValidatedTx(r, Block::Rules::HeightGenesis, false, rbData));
 
 		// DB changes are not reverted explicitly, but they will be reverted by DB transaction rollback.
 

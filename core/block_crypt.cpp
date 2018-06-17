@@ -675,6 +675,11 @@ namespace beam
 			key = m_Offset.m_Value;
 	}
 
+	void Transaction::Reader::Clone(Ptr& pOut)
+	{
+		pOut.reset(new Reader(m_Txv));
+	}
+
 	void Transaction::Reader::Reset()
 	{
 		ZeroObject(m_pIdx);

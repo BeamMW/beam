@@ -221,6 +221,9 @@ namespace beam
 
 		struct IReader
 		{
+			typedef std::unique_ptr<IReader> Ptr;
+
+			virtual void Clone(Ptr&) = 0;
 			virtual void Reset() = 0;
 			// For all the following methods: the returned pointer should be valid during at least 2 consequent calls!
 			virtual const Input*	get_NextUtxoIn() = 0;
@@ -250,6 +253,7 @@ namespace beam
 			const TxVectors& m_Txv;
 			Reader(const TxVectors& txv) :m_Txv(txv) {}
 			// IReader
+			virtual void Clone(Ptr&) override;
 			virtual void Reset() override;
 			virtual const Input*	get_NextUtxoIn() override;
 			virtual const Output*	get_NextUtxoOut() override;
@@ -377,6 +381,14 @@ namespace beam
 		struct BodyBase
 			:public TxBase
 		{
+			struct IWriter
+			{
+				virtual void put_UtxoIn(const Input&) = 0;
+				virtual void put_UtxoOut(const Output&) = 0;
+				virtual void put_KernelIn(const TxKernel&) = 0;
+				virtual void put_KernelOut(const TxKernel&) = 0;
+			};
+
 			AmountBig m_Subsidy; // the overall amount created by the block
 								 // For standard blocks this should be equal to the coinbase emission.
 								 // Genesis block(s) may have higher emission (aka premined)

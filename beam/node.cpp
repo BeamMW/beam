@@ -272,15 +272,16 @@ void Node::Processor::OnNewState()
 	get_ParentObj().RefreshCongestions();
 }
 
-bool Node::Processor::VerifyBlock(const Block::Body& block, const HeightRange& hr)
+bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader& r, const HeightRange& hr)
 {
 	uint32_t nThreads = get_ParentObj().m_Cfg.m_VerificationThreads;
 	if (!nThreads)
-		return NodeProcessor::VerifyBlock(block, hr);
+		return NodeProcessor::VerifyBlock(block, r, hr);
 
 	VerifierContext vctx;
 
-	vctx.m_pBlock = &block;
+	vctx.m_pTx = &block;
+	vctx.m_pR = &r;
 	vctx.m_bAbort = false;
 	vctx.m_Remaining = nThreads;
 	vctx.m_Context.m_bBlockMode = true;
@@ -318,7 +319,10 @@ void Node::Processor::VerifierContext::Proceed(VerifierContext* pVctx, uint32_t 
 	ctx.m_iVerifier = iVerifier;
 	ctx.m_pAbort = &vctx.m_bAbort;
 
-	bool bValid = ctx.ValidateAndSummarize(*vctx.m_pBlock, vctx.m_pBlock->get_Reader());
+	TxBase::IReader::Ptr pR;
+	vctx.m_pR->Clone(pR);
+
+	bool bValid = ctx.ValidateAndSummarize(*vctx.m_pTx, *pR);
 
 	{
 		std::unique_lock<std::mutex> scope(vctx.m_Mutex);
