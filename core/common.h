@@ -222,7 +222,6 @@ namespace beam
 		struct IReader
 		{
 			virtual void Reset() = 0;
-			virtual size_t get_CountInputs() = 0;
 			// For all the following methods: the returned pointer should be valid during at least 2 consequent calls!
 			virtual const Input*	get_NextUtxoIn() = 0;
 			virtual const Output*	get_NextUtxoOut() = 0;
@@ -252,7 +251,6 @@ namespace beam
 			Reader(const TxVectors& txv) :m_Txv(txv) {}
 			// IReader
 			virtual void Reset() override;
-			virtual size_t get_CountInputs() override;
 			virtual const Input*	get_NextUtxoIn() override;
 			virtual const Output*	get_NextUtxoOut() override;
 			virtual const TxKernel*	get_NextKernelIn() override;

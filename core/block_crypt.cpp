@@ -706,11 +706,6 @@ namespace beam
 		return get_NextFromVector(m_Txv.m_vKernelsOutput, m_pIdx[3]);
 	}
 
-	size_t Transaction::Reader::get_CountInputs()
-	{
-		return m_Txv.m_vInputs.size();
-	}
-
 	/////////////
 	// AmoutBig
 	void AmountBig::operator += (Amount x)

@@ -360,33 +360,22 @@ struct NodeProcessor::RollbackData
 	};
 
 	ByteBuffer m_Buf;
-	Utxo* m_pUtxo;
+	size_t m_Inputs;
 
-	Utxo* get_BufAs() const
+	RollbackData() :m_Inputs(0) {}
+
+	Utxo& PushInput()
 	{
-		assert(!m_Buf.empty());
-		return (Utxo*) &m_Buf.at(0);
+		size_t nSize = (m_Inputs + 1) * sizeof(Utxo);
+		if (nSize > m_Buf.size())
+			m_Buf.resize(nSize);
+
+		return ((Utxo*) &m_Buf.at(0))[m_Inputs++];
 	}
 
-	size_t get_Utxos() const
+	void PopInput()
 	{
-		return m_Buf.empty() ? 0 : (m_pUtxo - get_BufAs());
-	}
-
-	void Prepare(TxBase::IReader& r)
-	{
-		size_t nInputsNew = r.get_CountInputs();
-		if (nInputsNew)
-		{
-			size_t nInputs = get_Utxos();
-			m_Buf.resize(m_Buf.size() + sizeof(Utxo) * nInputsNew);
-			m_pUtxo = get_BufAs() + nInputs;
-		}
-	}
-
-	void Unprepare(TxBase::IReader& r)
-	{
-		m_Buf.resize(m_Buf.size() - sizeof(Utxo) * r.get_CountInputs());
+		verify(m_Inputs--);
 	}
 };
 
@@ -420,8 +409,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	if (bFwd)
 	{
-		size_t n = std::max(size_t(1), block.m_vInputs.size() * sizeof(RollbackData::Utxo));
-		if (rbData.m_Buf.size() != n)
+		if (rbData.m_Buf.empty())
 		{
 			bFirstTime = true;
 
@@ -448,16 +436,10 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				LOG_WARNING() << id << " context-free verification failed";
 				return false;
 			}
-
-			rbData.m_Buf.resize(n);
 		}
 	} else
 		assert(!rbData.m_Buf.empty());
 
-
-	rbData.m_pUtxo = rbData.get_BufAs();
-	if (!bFwd)
-		rbData.m_pUtxo += block.m_vInputs.size();
 
 	bool bOk = HandleValidatedTx(block.get_Reader(), sid.m_Height, bFwd, rbData);
 	if (!bOk)
@@ -479,7 +461,17 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		}
 
 		if (bOk)
-			m_DB.SetStateRollback(sid.m_Row, rbData.m_Buf);
+		{
+			if (rbData.m_Inputs)
+				m_DB.SetStateRollback(sid.m_Row, NodeDB::Blob(&rbData.m_Buf.at(0), sizeof(RollbackData::Utxo) * rbData.m_Inputs));
+			else
+			{
+				// make sure it's not empty, even if there were no inputs, this is how we distinguish processed blocks.
+				uint8_t zero = 0;
+				m_DB.SetStateRollback(sid.m_Row, NodeDB::Blob(&zero, 1));
+
+			}
+		}
 		else
 		{
 			if (block.m_SubsidyClosing)
@@ -488,6 +480,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				OnSubsidyOptionChanged(bFwd);
 			}
 
+			rbData.m_Inputs = 0;
 			verify(HandleValidatedTx(block.get_Reader(), sid.m_Height, false, rbData));
 		}
 	}
@@ -588,8 +581,13 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader& r, Height h, bool bFwd, R
 	while (nOut--)
 		HandleBlockElement(*r.get_NextUtxoOut(), h, false);
 
+	rbData.m_Inputs -= nInp;
+	size_t n = rbData.m_Inputs;
+
 	while (nInp--)
 		HandleBlockElement(*r.get_NextUtxoIn(), false, h, rbData);
+
+	rbData.m_Inputs = n;
 
 	return false;
 }
@@ -653,13 +651,11 @@ bool NodeProcessor::HandleBlockElement(const Input& v, bool bFwd, Height h, Roll
 		else
 			cu.Invalidate();
 
-		rbData.m_pUtxo->m_Maturity = d.m_Maturity;
-		rbData.m_pUtxo++;
+		rbData.PushInput().m_Maturity = d.m_Maturity;
 
 	} else
 	{
-		const RollbackData::Utxo& x = *--rbData.m_pUtxo;
-		d.m_Maturity = x.m_Maturity;
+		d.m_Maturity = rbData.PushInput().m_Maturity;
 		skey.m_Key = d;
 
 		bool bCreate = true;
@@ -837,16 +833,14 @@ void NodeProcessor::DereferenceFossilBlock(uint64_t rowid)
 	der.reset(&bbBlock.at(0), bbBlock.size());
 	der & block;
 
-	rbData.m_pUtxo = rbData.get_BufAs();
+	Block::Body::Reader r = block.get_Reader();
+	r.Reset();
 
-	for (size_t n = 0; n < block.m_vInputs.size(); n++)
+	for (const Input* pInp; (pInp = r.get_NextUtxoIn()); )
 	{
-		const Input& v = *block.m_vInputs[n];
-
 		UtxoTree::Key::Data d;
-		d.m_Commitment = v.m_Commitment;
-		d.m_Maturity = rbData.m_pUtxo[n].m_Maturity;
-
+		d.m_Commitment = pInp->m_Commitment;
+		d.m_Maturity = rbData.PushInput().m_Maturity;
 
 		SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
 		skey.m_Key = d;
@@ -854,10 +848,10 @@ void NodeProcessor::DereferenceFossilBlock(uint64_t rowid)
 		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), -1, 0);
 	}
 
-	for (size_t n = 0; n < block.m_vKernelsInput.size(); n++)
+	for (const TxKernel* pKrn; (pKrn = r.get_NextKernelIn()); )
 	{
 		SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-		block.m_vKernelsInput[n]->get_HashTotal(skey.m_Key);
+		pKrn->get_HashTotal(skey.m_Key);
 
 		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), -1, 0);
 	}
@@ -1168,7 +1162,6 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 			break;
 
 		Transaction& tx = *x.m_pValue;
-		rbData.Prepare(tx.get_Reader());
 
 		if (HandleValidatedTx(tx.get_Reader(), h, true, rbData))
 		{
@@ -1186,10 +1179,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 		}
 		else
-		{
-			rbData.Unprepare(tx.get_Reader());
 			txp.Delete(x); // isn't available in this context
-		}
 	}
 
 	if (fees)
@@ -1302,13 +1292,13 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 		if (!bInitiallyEmpty)
 		{
-			rbData.Prepare(res.get_Reader());
 			if (!HandleValidatedTx(res.get_Reader(), h, true, rbData))
 				return false;
 		}
 
 		bool bRes = GenerateNewBlock(txp, s, res, fees, h, rbData);
 
+		rbData.m_Inputs = 0;
 		verify(HandleValidatedTx(res.get_Reader(), h, false, rbData)); // undo changes
 
 		if (!bRes)
@@ -1405,9 +1395,6 @@ void NodeProcessor::ExportMacroBlock(Block::Body& res)
 
 bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Block::Body& block)
 {
-	if (!(block.m_vInputs.empty() && block.m_vKernelsInput.empty()))
-		return false; //macroblock may not have inputs
-
 	if (m_Cursor.m_Sid.m_Row)
 		return false; // must be at "clean" state
 
@@ -1437,7 +1424,6 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 	NodeDB::Transaction t(m_DB);
 
 	RollbackData rbData;
-	rbData.Prepare(block.get_Reader()); // not really necessary, since no inputs are allowed. nevermind.
 	if (!HandleValidatedTx(block.get_Reader(), Block::Rules::HeightGenesis, true, rbData))
 		return false;
 
@@ -1467,6 +1453,7 @@ bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Blo
 
 	if (s.m_Definition != hvDef)
 	{
+		rbData.m_Inputs = 0;
 		verify(HandleValidatedTx(block.get_Reader(), Block::Rules::HeightGenesis, false, rbData));
 
 		// DB changes are not reverted explicitly, but they will be reverted by DB transaction rollback.
