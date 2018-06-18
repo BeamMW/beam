@@ -1,30 +1,26 @@
-import QtQuick 2.0
+import QtQuick 2.2
 import QtQuick.Controls 1.0
-import QtQuick.Dialogs 1.1
 
 Rectangle {
-    id: page
-    width: 320; height: 480
-    color: "lightgray"
+    width: 360
+    height: 360
 
-    Text {
-        id: helloText
-        objectName: "helloText"
-        text: "Hello Beam Wallet!"
-        y: 30
-        anchors.horizontalCenter: page.horizontalCenter
-        font.pointSize: 24; font.bold: true
+    Column {
+        id: column
+        spacing: 0
+        anchors.fill: parent
+
+        Text {
+            id: text1
+            text: model.label
+            horizontalAlignment: Text.AlignLeft
+            font.pixelSize: 12
+        }
+
+        Button {
+            id: button
+            text: qsTr("Button")
+            onClicked: model.sayHello("Beam")
+        }
     }
-
-    MessageDialog {
-            id: msg
-            title: "Title"
-            text: "Button pressed"
-            onAccepted: visible = false
-        }
-
-    Button {
-            text: "press me"
-            onClicked: msg.visible = true
-        }
 }

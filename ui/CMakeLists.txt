@@ -4,6 +4,9 @@ endif()
 
 find_package(Qt5 COMPONENTS Qml Quick REQUIRED)
 
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+set(CMAKE_AUTOMOC ON)
+
 if(MSVC)
 	set(SYSTEM_TYPE WIN32)
 elseif(APPLE)
@@ -12,6 +15,8 @@ endif()
 
 set(UI_SRC
 	ui.cpp
+	test_model.h
+	test_model.cpp
 )
 
 set( QML_FILES
