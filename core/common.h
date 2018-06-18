@@ -247,6 +247,15 @@ namespace beam
 			virtual void NextKernelOut() = 0;
 		};
 
+		struct IWriter
+		{
+			virtual void WriteIn(const Input&) = 0;
+			virtual void WriteIn(const TxKernel&) = 0;
+			virtual void WriteOut(const Output&) = 0;
+			virtual void WriteOut(const TxKernel&) = 0;
+		};
+
+
 		ECC::Scalar m_Offset;
 	};
 
@@ -412,6 +421,9 @@ namespace beam
 			//		Existence of all the input UTXOs
 			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
 			bool IsValid(const HeightRange&, bool bSubsidyOpen, TxBase::IReader&&) const;
+
+			// suitable for big (compressed) blocks
+			class RW;
 		};
 
 		struct Body

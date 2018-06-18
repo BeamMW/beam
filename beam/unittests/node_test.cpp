@@ -335,9 +335,11 @@ namespace beam
 #ifdef WIN32
 		const char* g_sz = "mytest.db";
 		const char* g_sz2 = "mytest2.db";
+		const char* g_sz3 = "macroblock_";
 #else // WIN32
 		const char* g_sz = "/tmp/mytest.db";
 		const char* g_sz2 = "/tmp/mytest2.db";
+		const char* g_sz2 = "/tmp/macroblock_";
 #endif // WIN32
 
 	void TestNodeDB()
@@ -521,8 +523,16 @@ namespace beam
 			blockChain.push_back(std::move(pBlock));
 		}
 
-		Block::Body macroBlock;
-		np.ExportMacroBlock(macroBlock);
+		Block::BodyBase macroBlock;
+
+		{
+			Block::BodyBase::RW rwData;
+			verify_test(rwData.Open(g_sz3, false));
+			np.ExportMacroBlock(macroBlock, rwData);
+		}
+
+		Block::BodyBase::RW rwData;
+		verify_test(rwData.Open(g_sz3, true));
 
 		NodeProcessor np2;
 		np2.Initialize(g_sz2);
@@ -530,12 +540,12 @@ namespace beam
 		Block::SystemState::ID id;
 		blockChain.back()->m_Hdr.get_ID(id);
 
-		verify_test(!np2.ImportMacroBlock(id, macroBlock, macroBlock.get_Reader())); // no headers
+		verify_test(!np2.ImportMacroBlock(id, macroBlock, std::move(rwData))); // no headers
 
 		for (size_t i = 0; i < blockChain.size(); i++)
 			np2.OnState(blockChain[i]->m_Hdr, true, NodeDB::PeerID());
 
-		verify_test(np2.ImportMacroBlock(id, macroBlock, macroBlock.get_Reader()));
+		verify_test(np2.ImportMacroBlock(id, macroBlock, std::move(rwData)));
 	}
 
 

@@ -1,6 +1,8 @@
 #include <utility> // std::swap
 #include <algorithm>
 #include "block_crypt.h"
+#include "../utility/serialize.h"
+#include "../core/serialization_adapters.h"
 
 namespace beam
 {
@@ -939,6 +941,188 @@ namespace beam
 	{
 		s << id.m_Height << "-" << id.m_Hash;
 		return s;
+	}
+
+	/////////////
+	// RW
+	bool Block::BodyBase::RW::Open(const char* szPath, bool bRead)
+	{
+		m_sPath = szPath;
+		m_bRead = bRead;
+
+		using namespace std;
+
+		int mode = ios_base::binary;
+		mode |= (bRead ? (ios_base::in | ios_base::ate) : (ios_base::out | ios_base::trunc));
+
+		return
+			OpenInternal("ui", 0, mode) &&
+			OpenInternal("uo", 1, mode) &&
+			OpenInternal("ki", 2, mode) &&
+			OpenInternal("ko", 3, mode);
+	}
+
+	bool Block::BodyBase::RW::OpenInternal(const char* szTag, int i, int mode)
+	{
+		Stream& s = m_pS[i];
+		s.m_F.open(m_sPath + szTag, mode);
+		if (s.m_F.fail())
+			return false;
+
+		if (m_bRead)
+		{
+			s.m_Remaining = s.m_F.tellg();
+			s.m_F.seekg(0);
+		}
+
+		return true;
+	}
+
+	void Block::BodyBase::RW::Reset()
+	{
+		for (int i = 0; i < _countof(m_pS); i++)
+		{
+			Stream& s = m_pS[i];
+			s.m_Remaining += s.m_F.tellg();
+			s.m_F.seekg(0);
+		}
+
+		// preload
+		LoadInternal(m_pUtxoIn, m_pS[0], m_pGuardUtxoIn);
+		LoadInternal(m_pUtxoOut, m_pS[1], m_pGuardUtxoOut);
+		LoadInternal(m_pKernelIn, m_pS[2], m_pGuardKernelIn);
+		LoadInternal(m_pKernelOut, m_pS[3], m_pGuardKernelOut);
+	}
+
+	void Block::BodyBase::RW::Stream::TestNoFail()
+	{
+		if (m_F.fail())
+			throw std::runtime_error("fail");
+	}
+
+	void Block::BodyBase::RW::Stream::NotImpl()
+	{
+		throw std::runtime_error("not impl");
+	}
+
+	size_t Block::BodyBase::RW::Stream::read(void* pPtr, size_t nSize)
+	{
+		m_F.read((char*)pPtr, nSize);
+		size_t ret = m_F.gcount();
+		m_Remaining -= ret;
+
+		if (ret != nSize)
+			throw std::runtime_error("underflow");
+
+		return ret;
+	}
+
+	size_t Block::BodyBase::RW::Stream::write(const void* pPtr, size_t nSize)
+	{
+		m_F.write((char*) pPtr, nSize);
+		TestNoFail();
+
+		return nSize;
+	}
+
+	char Block::BodyBase::RW::Stream::getch()
+	{
+		char ch;
+		read(&ch, 1);
+		return ch;
+	}
+
+	char Block::BodyBase::RW::Stream::peekch() const
+	{
+		NotImpl();
+		return 0;
+	}
+
+	void Block::BodyBase::RW::Stream::ungetch(char)
+	{
+		NotImpl();
+	}
+
+	void Block::BodyBase::RW::Flush()
+	{
+		for (int i = 0; i < _countof(m_pS); i++)
+		{
+			Stream& s = m_pS[i];
+			s.m_F.flush();
+			s.TestNoFail();
+		}
+	}
+
+	void Block::BodyBase::RW::Clone(Ptr& pOut)
+	{
+		RW* pRet = new RW;
+		pOut.reset(pRet);
+		pRet->Open(m_sPath.c_str(), m_bRead);
+	}
+
+	void Block::BodyBase::RW::NextUtxoIn()
+	{
+		LoadInternal(m_pUtxoIn, m_pS[0], m_pGuardUtxoIn);
+	}
+
+	void Block::BodyBase::RW::NextUtxoOut()
+	{
+		LoadInternal(m_pUtxoOut, m_pS[1], m_pGuardUtxoOut);
+	}
+
+	void Block::BodyBase::RW::NextKernelIn()
+	{
+		LoadInternal(m_pKernelIn, m_pS[2], m_pGuardKernelIn);
+	}
+
+	void Block::BodyBase::RW::NextKernelOut()
+	{
+		LoadInternal(m_pKernelOut, m_pS[3], m_pGuardKernelOut);
+	}
+
+	void Block::BodyBase::RW::WriteIn(const Input& v)
+	{
+		WriteInternal(v, m_pS[0]);
+	}
+
+	void Block::BodyBase::RW::WriteIn(const TxKernel& v)
+	{
+		WriteInternal(v, m_pS[2]);
+	}
+
+	void Block::BodyBase::RW::WriteOut(const Output& v)
+	{
+		WriteInternal(v, m_pS[1]);
+	}
+
+	void Block::BodyBase::RW::WriteOut(const TxKernel& v)
+	{
+		WriteInternal(v, m_pS[3]);
+	}
+
+	template <typename T>
+	void Block::BodyBase::RW::LoadInternal(const T*& pPtr, Stream& s, typename T::Ptr* ppGuard)
+	{
+		if (s.m_Remaining)
+		{
+			ppGuard[0].swap(ppGuard[1]);
+			//if (!ppGuard[0])
+				ppGuard[0].reset(new T);
+
+			yas::binary_iarchive<Stream, SERIALIZE_OPTIONS> arc(s);
+			arc & *ppGuard[0];
+
+			pPtr = ppGuard[0].get();
+		}
+		else
+			pPtr = NULL;
+	}
+
+	template <typename T>
+	void Block::BodyBase::RW::WriteInternal(const T& v, Stream& s)
+	{
+		yas::binary_oarchive<Stream, SERIALIZE_OPTIONS> arc(s);
+		arc & v;
 	}
 
 } // namespace beam

@@ -76,7 +76,7 @@ public:
 
 	void get_CurrentLive(Merkle::Hash&);
 
-	void ExportMacroBlock(Block::Body&); // can be time-consuming
+	void ExportMacroBlock(Block::BodyBase&, TxBase::IWriter&); // can be time-consuming
 	bool ImportMacroBlock(const Block::SystemState::ID&, const Block::BodyBase&, TxBase::IReader&&);
 
 	struct DataStatus {

@@ -1,6 +1,6 @@
 #include "node_processor.h"
-#include "../utility/serialize.h"
 #include "../core/block_crypt.h"
+#include "../utility/serialize.h"
 #include "../core/serialization_adapters.h"
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
@@ -1334,7 +1334,7 @@ bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& 
 	return block.IsValid(hr, m_Cursor.m_SubsidyOpen, std::move(r));
 }
 
-void NodeProcessor::ExportMacroBlock(Block::Body& res)
+void NodeProcessor::ExportMacroBlock(Block::BodyBase& res, TxBase::IWriter& w)
 {
 	struct Walker
 		:public UnspentWalker
@@ -1385,11 +1385,24 @@ void NodeProcessor::ExportMacroBlock(Block::Body& res)
 		}
 	};
 
+	// Currently we convert it to a block in memory, because we need to sort the data.
+	Block::Body block;
+
 	Walker wlk(*this);
-	wlk.m_pRes = &res;
+	wlk.m_pRes = &block;
 	wlk.Traverse();
 
-	res.Sort();
+	block.Sort();
+
+	// store it
+	for (auto i = 0; i < block.m_vInputs.size(); i++)
+		w.WriteIn(*block.m_vInputs[i]);
+	for (auto i = 0; i < block.m_vOutputs.size(); i++)
+		w.WriteOut(*block.m_vOutputs[i]);
+	for (auto i = 0; i < block.m_vKernelsInput.size(); i++)
+		w.WriteIn(*block.m_vKernelsInput[i]);
+	for (auto i = 0; i < block.m_vKernelsOutput.size(); i++)
+		w.WriteOut(*block.m_vKernelsOutput[i]);
 
 	NodeDB::Blob blob(res.m_Offset.m_Value.m_pData, sizeof(res.m_Offset.m_Value.m_pData));
 

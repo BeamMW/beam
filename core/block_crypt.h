@@ -1,4 +1,5 @@
 #pragma once
+#include <fstream>
 #include "common.h"
 #include "ecc_native.h"
 
@@ -55,4 +56,66 @@ namespace beam
 		bool IsValidTransaction();
 		bool IsValidBlock(const Block::BodyBase&, bool bSubsidyOpen);
 	};
+
+	class Block::BodyBase::RW
+		:public TxBase::IReader
+		,public TxBase::IWriter
+	{
+		std::string m_sPath;
+		bool m_bRead;
+
+		struct Stream
+		{
+			std::fstream m_F;
+			uint64_t m_Remaining;
+
+			void TestNoFail();
+			static void NotImpl();
+
+			size_t read(void* pPtr, size_t nSize);
+			size_t write(const void* pPtr, size_t nSize);
+
+			char getch();
+			char peekch() const;
+			void ungetch(char);
+		};
+
+		Stream m_pS[4];
+
+		Input::Ptr m_pGuardUtxoIn[2];
+		Output::Ptr m_pGuardUtxoOut[2];
+		TxKernel::Ptr m_pGuardKernelIn[2];
+		TxKernel::Ptr m_pGuardKernelOut[2];
+
+		bool OpenInternal(const char* szTag, int, int mode);
+
+		template <typename T>
+		static void LoadInternal(const T*& pPtr, Stream&, typename T::Ptr* ppGuard);
+
+		template <typename T>
+		static void WriteInternal(const T&, Stream&);
+
+	public:
+
+		bool Open(const char* szPath, bool bRead);
+
+		// IReader
+		virtual void Clone(Ptr&) override;
+		virtual void Reset() override;
+		virtual void NextUtxoIn() override;
+		virtual void NextUtxoOut() override;
+		virtual void NextKernelIn() override;
+		virtual void NextKernelOut() override;
+
+		void Combine(IReader& r0, IReader& r1); // combine consequent blocks, merge-sort and delete consumed outputs
+
+		// IWriter
+		virtual void WriteIn(const Input&) override;
+		virtual void WriteIn(const TxKernel&) override;
+		virtual void WriteOut(const Output&) override;
+		virtual void WriteOut(const TxKernel&) override;
+
+		void Flush();
+	};
+
 }
