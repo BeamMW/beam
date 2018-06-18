@@ -272,11 +272,11 @@ void Node::Processor::OnNewState()
 	get_ParentObj().RefreshCongestions();
 }
 
-bool Node::Processor::VerifyBlock(const Block::Body& block, Height h0, Height h1)
+bool Node::Processor::VerifyBlock(const Block::Body& block, const HeightRange& hr)
 {
 	uint32_t nThreads = get_ParentObj().m_Cfg.m_VerificationThreads;
 	if (!nThreads)
-		return NodeProcessor::VerifyBlock(block, h0, h1);
+		return NodeProcessor::VerifyBlock(block, hr);
 
 	VerifierContext vctx;
 
@@ -284,8 +284,7 @@ bool Node::Processor::VerifyBlock(const Block::Body& block, Height h0, Height h1
 	vctx.m_bAbort = false;
 	vctx.m_Remaining = nThreads;
 	vctx.m_Context.m_bBlockMode = true;
-	vctx.m_Context.m_hMin = h0;
-	vctx.m_Context.m_hMax = h1;
+	vctx.m_Context.m_Height = hr;
 	vctx.m_Context.m_nVerifiers = nThreads;
 
 	std::vector<std::thread> vThreads;
@@ -314,8 +313,7 @@ void Node::Processor::VerifierContext::Proceed(VerifierContext* pVctx, uint32_t 
 
 	TxBase::Context ctx;
 	ctx.m_bBlockMode = true;
-	ctx.m_hMin = vctx.m_Context.m_hMin;
-	ctx.m_hMax = vctx.m_Context.m_hMax;
+	ctx.m_Height = vctx.m_Context.m_Height;
 	ctx.m_nVerifiers = vctx.m_Context.m_nVerifiers;
 	ctx.m_iVerifier = iVerifier;
 	ctx.m_pAbort = &vctx.m_bAbort;

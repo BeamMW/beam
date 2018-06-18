@@ -270,8 +270,10 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 	ser & m_vBlocks;
 	ser.m_File.flush();
 
+/*
 	for (auto i = 0; i < m_vBlocks.size(); i++)
-		m_vBlocks[i].IsValid(i + 1, i + 1, true);
+		m_vBlocks[i].IsValid(i + 1, true);
+*/
 
 	LOG_INFO() << "Done";
 

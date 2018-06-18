@@ -91,6 +91,8 @@ namespace beam
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override;
     private:
+        void storeImpl(Coin& coin);
+    private:
 
         sqlite3* _db;
         ECC::Kdf m_kdf;

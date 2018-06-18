@@ -39,6 +39,33 @@ namespace beam
 	typedef std::vector<uint8_t> ByteBuffer;
 	typedef ECC::Amount Amount;
 
+	struct HeightRange
+	{
+		// Convention: inclusive, i.e. both endings are part of the range.
+		Height m_Min;
+		Height m_Max;
+
+		HeightRange() {
+			Reset();
+		}
+
+		HeightRange(Height h0, Height h1) {
+			m_Min = h0;
+			m_Max = h1;
+		}
+
+		HeightRange(Height h) {
+			m_Min = m_Max = h;
+		}
+
+		void Reset();
+		void Intersect(const HeightRange&);
+
+		bool IsEmpty() const;
+		bool IsInRange(Height) const;
+		bool IsInRangeRelative(Height) const; // assuming m_Min was already subtracted
+	};
+
 	struct AmountBig
 	{
 		Amount Lo;
@@ -139,14 +166,11 @@ namespace beam
 		ECC::Signature	m_Signature;	// For the whole tx body, including nested kernels, excluding contract signature
 		uint64_t		m_Multiplier;
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
-		Height			m_HeightMin;
-		Height			m_HeightMax;
+		HeightRange		m_Height;
 
 		TxKernel()
 			:m_Multiplier(0) // 0-based, 
 			,m_Fee(0)
-			,m_HeightMin(0)
-			,m_HeightMax(Height(-1))
 		{
 		}
 
@@ -163,6 +187,14 @@ namespace beam
 
 		std::unique_ptr<Contract> m_pContract;
 
+		static const uint32_t s_MaxRecursionDepth = 2;
+
+		static void TestRecursion(uint32_t n)
+		{
+			if (n > s_MaxRecursionDepth)
+				throw std::runtime_error("recursion too deep");
+		}
+
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
 		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
@@ -178,7 +210,7 @@ namespace beam
 		COMPARISON_VIA_CMP(TxKernel)
 
 	private:
-		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*) const;
+		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*, const TxKernel* pParent) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
@@ -334,7 +366,7 @@ namespace beam
 			// Not tested by this function (but should be tested by nodes!)
 			//		Existence of all the input UTXOs
 			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
-			bool IsValid(Height h0, Height h1, bool bSubsidyOpen) const;
+			bool IsValid(const HeightRange&, bool bSubsidyOpen) const;
 		};
 	};
 

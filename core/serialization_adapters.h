@@ -76,6 +76,52 @@ namespace detail
         }
     };
 
+	/// ECC::InnerProduct
+	struct InnerProductFlags
+	{
+		static const uint32_t N = ECC::InnerProduct::nCycles * 2;
+		static const uint32_t N_Max = (N + 7) & ~7;
+		uint8_t m_pF[N_Max >> 3];
+
+		void get(uint32_t i, bool& b) const
+		{
+			assert(i < N_Max);
+			uint8_t x = m_pF[i >> 3];
+			uint8_t msk = 1 << (i & 7);
+
+			b = (0 != (x & msk));
+		}
+		void set(uint32_t i, bool b)
+		{
+			// assume flags are zero-initialized
+			if (b)
+			{
+				assert(i < N_Max);
+				uint8_t& x = m_pF[i >> 3];
+				uint8_t msk = 1 << (i & 7);
+
+				if (b)
+					x |= msk;
+			}
+		}
+
+		void save(const ECC::InnerProduct& v)
+		{
+			uint32_t iBit = 0;
+			for (int i = 0; i < _countof(v.m_pLR); i++)
+				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+					set(iBit++, v.m_pLR[i][j].m_Y);
+		}
+
+		void load(ECC::InnerProduct& v) const
+		{
+			uint32_t iBit = 0;
+			for (int i = 0; i < _countof(v.m_pLR); i++)
+				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+					get(iBit++, v.m_pLR[i][j].m_Y);
+		}
+	};
+
 
     template<std::size_t F, typename T>
     struct serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, T>
@@ -157,25 +203,50 @@ namespace detail
             return ar;
         }
 
-		/// ECC::InnerProduct
+		template<typename Archive>
+		static void save_nobits(Archive& ar, const ECC::InnerProduct& v)
+		{
+			for (int i = 0; i < _countof(v.m_pLR); i++)
+				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+					ar & v.m_pLR[i][j].m_X;
+
+			for (int j = 0; j < _countof(v.m_pCondensed); j++)
+				ar & v.m_pCondensed[j];
+		}
+
 		template<typename Archive>
 		static Archive& save(Archive& ar, const ECC::InnerProduct& v)
 		{
-			ar
-				& v.m_AB
-				& v.m_pLR
-				& v.m_pCondensed;
+			save_nobits(ar, v);
+
+			InnerProductFlags ipf;
+			ZeroObject(ipf);
+
+			ipf.save(v);
+			ar & ipf.m_pF;
 
 			return ar;
 		}
 
 		template<typename Archive>
+		static void load_nobits(Archive& ar, ECC::InnerProduct& v)
+		{
+			for (int i = 0; i < _countof(v.m_pLR); i++)
+				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+					ar & v.m_pLR[i][j].m_X;
+
+			for (int j = 0; j < _countof(v.m_pCondensed); j++)
+				ar & v.m_pCondensed[j];
+		}
+
+		template<typename Archive>
 		static Archive& load(Archive& ar, ECC::InnerProduct& v)
 		{
-			ar
-				& v.m_AB
-				& v.m_pLR
-				& v.m_pCondensed;
+			load_nobits(ar, v);
+
+			InnerProductFlags ipf;
+			ar & ipf.m_pF;
+			ipf.load(v);
 
 			return ar;
 		}
@@ -185,15 +256,28 @@ namespace detail
         static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& v)
         {
 			ar
-				& v.m_A
-				& v.m_S
-				& v.m_T1
-				& v.m_T2
+				& v.m_A.m_X
+				& v.m_S.m_X
+				& v.m_T1.m_X
+				& v.m_T2.m_X
 				& v.m_TauX
 				& v.m_Mu
-				& v.m_tDot
-				& v.m_P_Tag;
+				& v.m_tDot;
 
+			save_nobits(ar, v.m_P_Tag);
+
+			InnerProductFlags ipf;
+			ZeroObject(ipf);
+
+			ipf.save(v.m_P_Tag);
+
+			static_assert(ipf.N_Max - ipf.N == 4, "");
+			ipf.set(ipf.N + 0, v.m_A.m_Y);
+			ipf.set(ipf.N + 1, v.m_S.m_Y);
+			ipf.set(ipf.N + 2, v.m_T1.m_Y);
+			ipf.set(ipf.N + 3, v.m_T2.m_Y);
+
+			ar & ipf.m_pF;
             return ar;
         }
 
@@ -201,17 +285,29 @@ namespace detail
         static Archive& load(Archive& ar, ECC::RangeProof::Confidential& v)
         {
 			ar
-				& v.m_A
-				& v.m_S
-				& v.m_T1
-				& v.m_T2
+				& v.m_A.m_X
+				& v.m_S.m_X
+				& v.m_T1.m_X
+				& v.m_T2.m_X
 				& v.m_TauX
 				& v.m_Mu
-				& v.m_tDot
-				& v.m_P_Tag;
+				& v.m_tDot;
+
+			load_nobits(ar, v.m_P_Tag);
+
+			InnerProductFlags ipf;
+			ar & ipf.m_pF;
+
+			ipf.load(v.m_P_Tag);
+
+			static_assert(ipf.N_Max - ipf.N == 4, "");
+			ipf.get(ipf.N + 0, v.m_A.m_Y);
+			ipf.get(ipf.N + 1, v.m_S.m_Y);
+			ipf.get(ipf.N + 2, v.m_T1.m_Y);
+			ipf.get(ipf.N + 3, v.m_T2.m_Y);
 
 			return ar;
-        }
+		}
 
         /// ECC::RangeProof::Public serialization
         template<typename Archive>
@@ -276,10 +372,10 @@ namespace detail
 				& output.m_Commitment.m_X;
 
 			if (output.m_pConfidential)
-				ar & output.m_pConfidential;
+				ar & *output.m_pConfidential;
 
 			if (output.m_pPublic)
-				ar & output.m_pPublic;
+				ar & *output.m_pPublic;
 
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
@@ -302,10 +398,16 @@ namespace detail
 			output.m_Coinbase = 0 != (2 & nFlags);
 
 			if (4 & nFlags)
-				ar & output.m_pConfidential;
+			{
+				output.m_pConfidential = std::make_unique<ECC::RangeProof::Confidential>();
+				ar & *output.m_pConfidential;
+			}
 
 			if (8 & nFlags)
-				ar & output.m_pPublic;
+			{
+				output.m_pPublic = std::make_unique<ECC::RangeProof::Public>();
+				ar & *output.m_pPublic;
+			}
 
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
@@ -348,8 +450,8 @@ namespace detail
 			uint8_t nFlags =
 				(val.m_Multiplier ? 1 : 0) |
 				(val.m_Fee ? 2 : 0) |
-				(val.m_HeightMin ? 4 : 0) |
-				((val.m_HeightMax != beam::Height(-1)) ? 8 : 0) |
+				(val.m_Height.m_Min ? 4 : 0) |
+				((val.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
 				(val.m_pContract ? 0x10 : 0) |
 				(val.m_vNested.empty() ? 0 : 0x20);
 
@@ -363,19 +465,26 @@ namespace detail
 			if (2 & nFlags)
 				ar & val.m_Fee;
 			if (4 & nFlags)
-				ar & val.m_HeightMin;
+				ar & val.m_Height.m_Min;
 			if (8 & nFlags)
-				ar & val.m_HeightMax;
+				ar & val.m_Height.m_Max;
 			if (0x10 & nFlags)
 				ar & val.m_pContract;
+
 			if (0x20 & nFlags)
-				ar & val.m_vNested;
+			{
+				uint32_t nCount = (uint32_t) val.m_vNested.size();
+				ar & nCount;
+
+				for (uint32_t i = 0; i < nCount; i++)
+					save(ar, *val.m_vNested[i]);
+			}
 
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::TxKernel& val)
+        static Archive& load_Recursive(Archive& ar, beam::TxKernel& val, uint32_t nRecusion)
         {
 			uint8_t nFlags;
 			ar
@@ -394,23 +503,42 @@ namespace detail
 				val.m_Fee = 0;
 
 			if (4 & nFlags)
-				ar & val.m_HeightMin;
+				ar & val.m_Height.m_Min;
 			else
-				val.m_HeightMin = 0;
+				val.m_Height.m_Min = 0;
 
 			if (8 & nFlags)
-				ar & val.m_HeightMax;
+				ar & val.m_Height.m_Max;
 			else
-				val.m_HeightMax = beam::Height(-1);
+				val.m_Height.m_Max = beam::Height(-1);
 
 			if (0x10 & nFlags)
 				ar & val.m_pContract;
 
 			if (0x20 & nFlags)
-				ar & val.m_vNested;
+			{
+				beam::TxKernel::TestRecursion(++nRecusion);
+
+				uint32_t nCount;
+				ar & nCount;
+				val.m_vNested.resize(nCount);
+
+				for (uint32_t i = 0; i < nCount; i++)
+				{
+					std::unique_ptr<beam::TxKernel>& v = val.m_vNested[i];
+					v = std::make_unique<beam::TxKernel>();
+					load_Recursive(ar, *v, nRecusion);
+				}
+			}
 
             return ar;
         }
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::TxKernel& val)
+		{
+			return load_Recursive(ar, val, 0);
+		}
 
         /// beam::Transaction serialization
         template<typename Archive>

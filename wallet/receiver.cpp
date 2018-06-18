@@ -31,8 +31,8 @@ namespace beam::wallet
 
         TxKernel::Ptr kernel = make_unique<TxKernel>();
         kernel->m_Fee = 0;
-        kernel->m_HeightMin = m_height;
-        kernel->m_HeightMax = MaxHeight;
+        kernel->m_Height.m_Min = m_height;
+        kernel->m_Height.m_Max = MaxHeight;
         m_kernel = kernel.get();
         m_transaction->m_vKernelsOutput.push_back(move(kernel));
 

@@ -436,18 +436,9 @@ namespace beam
 	{
 		sqlite::Transaction trans(_db);
 
-		{
-			const char* req = "INSERT INTO " STORAGE_NAME " (" ENUM_STORAGE_FIELDS(LIST, COMMA) ") VALUES(" ENUM_STORAGE_FIELDS(BIND_LIST, COMMA) ");";
-			sqlite::Statement stm(_db, req);
-
-			ENUM_STORAGE_FIELDS(STM_BIND_LIST, NOSEP);
-
-			stm.step();
-		}
+        storeImpl(coin);
 
 		trans.commit();
-
-		coin.m_id = getLastID(_db);
 	}
 
 	void Keychain::store(std::vector<beam::Coin>& coins)
@@ -457,18 +448,36 @@ namespace beam
 		sqlite::Transaction trans(_db);
 		for (auto& coin : coins)
 		{
-			const char* req = "INSERT INTO " STORAGE_NAME " (" ENUM_STORAGE_FIELDS(LIST, COMMA) ") VALUES(" ENUM_STORAGE_FIELDS(BIND_LIST, COMMA) ");";
-			sqlite::Statement stm(_db, req);
-
-			ENUM_STORAGE_FIELDS(STM_BIND_LIST, NOSEP);
-
-			stm.step();
-
-			coin.m_id = getLastID(_db);
+            storeImpl(coin);
 		}
 
 		trans.commit();
 	}
+
+    void Keychain::storeImpl(Coin& coin)
+    {
+        if (coin.m_key_type == KeyType::Coinbase
+            || coin.m_key_type == KeyType::Comission)
+        {
+            const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE height=?1 AND key_type=?2;";
+            sqlite::Statement stm(_db, req);
+            stm.bind(1, coin.m_height);
+            stm.bind(2, coin.m_key_type);
+            if (stm.step())
+            {
+                return; // skip existing 
+            }
+        }
+
+        const char* req = "INSERT INTO " STORAGE_NAME " (" ENUM_STORAGE_FIELDS(LIST, COMMA) ") VALUES(" ENUM_STORAGE_FIELDS(BIND_LIST, COMMA) ");";
+        sqlite::Statement stm(_db, req);
+
+        ENUM_STORAGE_FIELDS(STM_BIND_LIST, NOSEP);
+
+        stm.step();
+
+        coin.m_id = getLastID(_db);
+    }
 
 	void Keychain::update(const std::vector<beam::Coin>& coins)
 	{

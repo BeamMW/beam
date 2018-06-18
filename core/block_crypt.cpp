@@ -5,6 +5,37 @@
 namespace beam
 {
 
+	/////////////
+	// HeightRange
+	void HeightRange::Reset()
+	{
+		m_Min = 0;
+		m_Max = MaxHeight;
+	}
+
+	void HeightRange::Intersect(const HeightRange& x)
+	{
+		m_Min = std::max(m_Min, x.m_Min);
+		m_Max = std::min(m_Max, x.m_Max);
+	}
+
+	bool HeightRange::IsEmpty() const
+	{
+		return m_Min > m_Max;
+	}
+
+	bool HeightRange::IsInRange(Height h) const
+	{
+		return IsInRangeRelative(h - m_Min);
+	}
+
+	bool HeightRange::IsInRangeRelative(Height dh) const
+	{
+		return dh <= (m_Max - m_Min);
+	}
+
+	/////////////
+	// Merkle
 	namespace Merkle
 	{
 		void Interpret(Hash& out, const Hash& hLeft, const Hash& hRight)
@@ -124,12 +155,23 @@ namespace beam
 
 	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess) const
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent) const
 	{
+		if (pParent)
+		{
+			// nested kernel restrictions
+			if (m_Multiplier != pParent->m_Multiplier) // Multipliers must be equal
+				return false; 
+
+			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
+				(m_Height.m_Max < pParent->m_Height.m_Max))
+				return false; // parent Height range must be contained in ours.
+		}
+
 		ECC::Hash::Processor hp;
 		hp	<< m_Fee
-			<< m_HeightMin
-			<< m_HeightMax
+			<< m_Height.m_Min
+			<< m_Height.m_Max
 			<< (bool) m_pContract;
 
 		if (m_pContract)
@@ -146,7 +188,7 @@ namespace beam
 				return false;
 			p0Krn = &v;
 
-			if (!v.Traverse(hv, pFee, pExcess))
+			if (!v.Traverse(hv, pFee, pExcess, this))
 				return false;
 
 			// The hash of this kernel should account for the signature and the excess of the internal kernels.
@@ -201,13 +243,13 @@ namespace beam
 
 	void TxKernel::get_HashForSigning(Merkle::Hash& out) const
 	{
-		Traverse(out, NULL, NULL);
+		Traverse(out, NULL, NULL, NULL);
 	}
 
 	bool TxKernel::IsValid(AmountBig& fee, ECC::Point::Native& exc) const
 	{
 		ECC::Hash::Value hv;
-		return Traverse(hv, &fee, &exc);
+		return Traverse(hv, &fee, &exc, NULL);
 	}
 
 	void TxKernel::get_HashTotal(Merkle::Hash& hv) const
@@ -251,8 +293,8 @@ namespace beam
 		CMP_MEMBER(m_Multiplier)
 		CMP_MEMBER_EX(m_Signature)
 		CMP_MEMBER(m_Fee)
-		CMP_MEMBER(m_HeightMin)
-		CMP_MEMBER(m_HeightMax)
+		CMP_MEMBER(m_Height.m_Min)
+		CMP_MEMBER(m_Height.m_Max)
 		CMP_MEMBER_PTR(m_pContract)
 
 		auto it0 = m_vNested.begin();
@@ -282,8 +324,7 @@ namespace beam
 
 		ZeroObject(m_Fee);
 		ZeroObject(m_Coinbase);
-		m_hMin = 0;
-		m_hMax = -1;
+		m_Height.Reset();
 		m_bBlockMode = false;
 		m_nVerifiers = 1;
 		m_iVerifier = 0;
@@ -307,25 +348,15 @@ namespace beam
 		return m_pAbort && *m_pAbort;
 	}
 
-	bool TxBase::Context::IsValidHeight() const
+	bool TxBase::Context::HandleElementHeight(const HeightRange& hr)
 	{
-		return m_hMin <= m_hMax;
-	}
-
-	bool TxBase::Context::HandleElementHeight(Height h0, Height h1)
-	{
-		h0 = std::max(h0, m_hMin);
-		h1 = std::min(h1, m_hMax);
-
-		if (h0 > h1)
+		HeightRange r = m_Height;
+		r.Intersect(hr);
+		if (r.IsEmpty())
 			return false;
 
 		if (!m_bBlockMode)
-		{
-			// shrink permitted range
-			m_hMin = h0;
-			m_hMax = h1;
-		}
+			m_Height = r; // shrink permitted range
 
 		return true;
 	}
@@ -334,7 +365,7 @@ namespace beam
 	{
 		assert(m_bBlockMode == x.m_bBlockMode);
 
-		if (!HandleElementHeight(x.m_hMin, x.m_hMax))
+		if (!HandleElementHeight(x.m_Height))
 			return false;
 
 		m_Sigma += x.m_Sigma;
@@ -345,7 +376,7 @@ namespace beam
 
 	bool TxBase::ValidateAndSummarize(Context& ctx) const
 	{
-		if (!ctx.IsValidHeight())
+		if (ctx.m_Height.IsEmpty())
 			return false;
 
 		ctx.m_Sigma = -ctx.m_Sigma;
@@ -453,8 +484,7 @@ namespace beam
 				if (!ctx.m_bBlockMode)
 					return false; // this should only be used in merged blocks
 				
-				Height h = ctx.m_hMin + v.m_hDelta;
-				if ((h < ctx.m_hMin) || (h > ctx.m_hMax))
+				if (!ctx.m_Height.IsInRangeRelative(v.m_hDelta))
 					return false;
 			}
 		}
@@ -477,14 +507,14 @@ namespace beam
 			if (!v.IsValid(ctx.m_Fee, ctx.m_Sigma))
 				return false;
 
-			if (!ctx.HandleElementHeight(v.m_HeightMin, v.m_HeightMax))
+			if (!ctx.HandleElementHeight(v.m_Height))
 				return false;
 		}
 
 		if (ctx.ShouldVerify(iV))
 			ctx.m_Sigma += ECC::Context::get().G * m_Offset;
 
-		assert(ctx.IsValidHeight());
+		assert(!ctx.m_Height.IsEmpty());
 		return true;
 	}
 
@@ -757,7 +787,7 @@ namespace beam
 		// There must at least some unspent coinbase UTXOs wrt maturity settings
 
 		// check the subsidy is within allowed range
-		Height nBlocksInRange = m_hMax - m_hMin + 1;
+		Height nBlocksInRange = m_Height.m_Max - m_Height.m_Min + 1;
 
 		ECC::uintBig ubSubsidy, ubCoinbase, mul;
 		body.m_Subsidy.Export(ubSubsidy);
@@ -797,13 +827,12 @@ namespace beam
 		m_SubsidyClosing = false;
 	}
 
-	bool Block::Body::IsValid(Height h0, Height h1, bool bSubsidyOpen) const
+	bool Block::Body::IsValid(const HeightRange& hr, bool bSubsidyOpen) const
 	{
-		assert((h0 >= Block::Rules::HeightGenesis) && (h0 <= h1));
+		assert((hr.m_Min >= Block::Rules::HeightGenesis) && !hr.IsEmpty());
 
 		Context ctx;
-		ctx.m_hMin = h0;
-		ctx.m_hMax = h1;
+		ctx.m_Height = hr;
 		ctx.m_bBlockMode = true;
 
 		return
