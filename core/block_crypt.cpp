@@ -945,37 +945,62 @@ namespace beam
 
 	/////////////
 	// RW
-	bool Block::BodyBase::RW::Open(const char* szPath, bool bRead)
-	{
-		m_sPath = szPath;
-		m_bRead = bRead;
+	const char* const Block::BodyBase::RW::s_pszSufix[] = {
+		"ui",
+		"uo",
+		"ki",
+		"ko",
+	};
 
+	bool Block::BodyBase::RW::Open(bool bRead)
+	{
 		using namespace std;
 
+		m_bRead = bRead;
+
 		int mode = ios_base::binary;
-		mode |= (bRead ? (ios_base::in | ios_base::ate) : (ios_base::out | ios_base::trunc));
+		mode |= (m_bRead ? (ios_base::in | ios_base::ate) : (ios_base::out | ios_base::trunc));
 
-		return
-			OpenInternal("ui", 0, mode) &&
-			OpenInternal("uo", 1, mode) &&
-			OpenInternal("ki", 2, mode) &&
-			OpenInternal("ko", 3, mode);
-	}
+		static_assert(_countof(s_pszSufix) == _countof(m_pS), "");
 
-	bool Block::BodyBase::RW::OpenInternal(const char* szTag, int i, int mode)
-	{
-		Stream& s = m_pS[i];
-		s.m_F.open(m_sPath + szTag, mode);
-		if (s.m_F.fail())
-			return false;
-
-		if (m_bRead)
+		for (int i = 0; i < _countof(m_pS); i++)
 		{
-			s.m_Remaining = s.m_F.tellg();
-			s.m_F.seekg(0);
+			Stream& s = m_pS[i];
+			s.m_F.open(m_sPath + s_pszSufix[i], mode);
+			if (s.m_F.fail())
+				return false;
+
+			if (m_bRead)
+			{
+				s.m_Remaining = s.m_F.tellg();
+				s.m_F.seekg(0);
+			}
 		}
 
 		return true;
+	}
+
+	void Block::BodyBase::RW::Delete()
+	{
+		for (int i = 0; i < _countof(m_pS); i++)
+		{
+			std::string sPath = m_sPath + s_pszSufix[i];
+#ifdef WIN32
+			DeleteFileA(sPath.c_str());
+#else // WIN32
+			unlink(sPath.c_str());
+#endif // WIN32
+		}
+	}
+
+	void Block::BodyBase::RW::Close()
+	{
+		for (int i = 0; i < _countof(m_pS); i++)
+		{
+			Stream& s = m_pS[i];
+			if (s.m_F.is_open())
+				s.m_F.close();
+		}
 	}
 
 	void Block::BodyBase::RW::Reset()
@@ -1057,7 +1082,9 @@ namespace beam
 	{
 		RW* pRet = new RW;
 		pOut.reset(pRet);
-		pRet->Open(m_sPath.c_str(), m_bRead);
+
+		pRet->m_sPath = m_sPath;
+		pRet->Open(m_bRead);
 	}
 
 	void Block::BodyBase::RW::NextUtxoIn()

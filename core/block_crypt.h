@@ -61,9 +61,6 @@ namespace beam
 		:public TxBase::IReader
 		,public TxBase::IWriter
 	{
-		std::string m_sPath;
-		bool m_bRead;
-
 		struct Stream
 		{
 			std::fstream m_F;
@@ -82,12 +79,12 @@ namespace beam
 
 		Stream m_pS[4];
 
+		static const char* const s_pszSufix[];
+
 		Input::Ptr m_pGuardUtxoIn[2];
 		Output::Ptr m_pGuardUtxoOut[2];
 		TxKernel::Ptr m_pGuardKernelIn[2];
 		TxKernel::Ptr m_pGuardKernelOut[2];
-
-		bool OpenInternal(const char* szTag, int, int mode);
 
 		template <typename T>
 		static void LoadInternal(const T*& pPtr, Stream&, typename T::Ptr* ppGuard);
@@ -95,9 +92,18 @@ namespace beam
 		template <typename T>
 		static void WriteInternal(const T&, Stream&);
 
+		bool m_bRead;
+
 	public:
 
-		bool Open(const char* szPath, bool bRead);
+		// do not modify between Open() and Close()
+		std::string m_sPath;
+
+		bool Open(bool bRead);
+		void Flush();
+		void Close();
+		void Delete(); // must be closed
+
 
 		// IReader
 		virtual void Clone(Ptr&) override;
@@ -114,8 +120,6 @@ namespace beam
 		virtual void WriteIn(const TxKernel&) override;
 		virtual void WriteOut(const Output&) override;
 		virtual void WriteOut(const TxKernel&) override;
-
-		void Flush();
 	};
 
 }

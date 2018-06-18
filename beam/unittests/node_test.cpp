@@ -525,14 +525,14 @@ namespace beam
 
 		Block::BodyBase macroBlock;
 
-		{
-			Block::BodyBase::RW rwData;
-			verify_test(rwData.Open(g_sz3, false));
-			np.ExportMacroBlock(macroBlock, rwData);
-		}
-
 		Block::BodyBase::RW rwData;
-		verify_test(rwData.Open(g_sz3, true));
+		rwData.m_sPath = g_sz3;
+
+		verify_test(rwData.Open(false));
+		np.ExportMacroBlock(macroBlock, rwData);
+
+		rwData.Close();
+		verify_test(rwData.Open(true));
 
 		NodeProcessor np2;
 		np2.Initialize(g_sz2);
@@ -546,6 +546,9 @@ namespace beam
 			np2.OnState(blockChain[i]->m_Hdr, true, NodeDB::PeerID());
 
 		verify_test(np2.ImportMacroBlock(id, macroBlock, std::move(rwData)));
+
+		rwData.Close();
+		rwData.Delete();
 	}
 
 
