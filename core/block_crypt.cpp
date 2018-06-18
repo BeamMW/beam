@@ -1152,4 +1152,135 @@ namespace beam
 		arc & v;
 	}
 
+	bool TxBase::IWriter::Combine(IReader* pR, int nR, const volatile bool& bStop)
+	{
+		for (int i = 0; i < nR; i++)
+			pR[i].Reset();
+
+		// Utxo
+		while (true)
+		{
+			if (bStop)
+				return false;
+
+			const Input* pInp = NULL;
+			const Output* pOut = NULL;
+			int iInp, iOut;
+
+			for (int i = 0; i < nR; i++)
+			{
+				const Input* pi = pR[i].m_pUtxoIn;
+				if (pi && (!pInp || (*pInp > *pi)))
+				{
+					pInp = pi;
+					iInp = i;
+				}
+
+				const Output* po = pR[i].m_pUtxoOut;
+				if (po && (!pOut || (*pOut > *po)))
+				{
+					pOut = po;
+					iOut = i;
+				}
+			}
+
+			if (pInp)
+			{
+				if (pOut)
+				{
+					int n = pInp->cmp_CaM(*pOut);
+					if (n > 0)
+						pInp = NULL;
+					else
+						if (!n)
+						{
+							// skip both
+							pR[iInp].NextUtxoIn();
+							pR[iOut].NextUtxoOut();
+							continue;
+						}
+				}
+			}
+			else
+				if (!pOut)
+					break;
+
+
+			if (pInp)
+			{
+				WriteIn(*pInp);
+				pR[iInp].NextUtxoIn();
+			}
+			else
+			{
+				WriteOut(*pOut);
+				pR[iOut].NextUtxoOut();
+			}
+		}
+
+
+		// Kernels
+		while (true)
+		{
+			if (bStop)
+				return false;
+
+			const TxKernel* pInp = NULL;
+			const TxKernel* pOut = NULL;
+			int iInp, iOut;
+
+			for (int i = 0; i < nR; i++)
+			{
+				const TxKernel* pi = pR[i].m_pKernelIn;
+				if (pi && (!pInp || (*pInp > *pi)))
+				{
+					pInp = pi;
+					iInp = i;
+				}
+
+				const TxKernel* po = pR[i].m_pKernelOut;
+				if (po && (!pOut || (*pOut > *po)))
+				{
+					pOut = po;
+					iOut = i;
+				}
+			}
+
+			if (pInp)
+			{
+				if (pOut)
+				{
+					int n = pInp->cmp(*pOut);
+					if (n > 0)
+						pInp = NULL;
+					else
+						if (!n)
+						{
+							// skip both
+							pR[iInp].NextUtxoIn();
+							pR[iOut].NextUtxoOut();
+							continue;
+						}
+				}
+			}
+			else
+				if (!pOut)
+					break;
+
+
+			if (pInp)
+			{
+				WriteIn(*pInp);
+				pR[iInp].NextKernelIn();
+			}
+			else
+			{
+				WriteOut(*pOut);
+				pR[iOut].NextKernelOut();
+			}
+		}
+
+		return true;
+	}
+
 } // namespace beam

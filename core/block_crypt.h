@@ -113,8 +113,6 @@ namespace beam
 		virtual void NextKernelIn() override;
 		virtual void NextKernelOut() override;
 
-		void Combine(IReader& r0, IReader& r1); // combine consequent blocks, merge-sort and delete consumed outputs
-
 		// IWriter
 		virtual void WriteIn(const Input&) override;
 		virtual void WriteIn(const TxKernel&) override;

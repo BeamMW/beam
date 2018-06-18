@@ -253,6 +253,9 @@ namespace beam
 			virtual void WriteIn(const TxKernel&) = 0;
 			virtual void WriteOut(const Output&) = 0;
 			virtual void WriteOut(const TxKernel&) = 0;
+
+			bool Combine(IReader* pR, int nR, const volatile bool& bStop); // combine consequent blocks, merge-sort and delete consumed outputs
+			// returns false if aborted
 		};
 
 
