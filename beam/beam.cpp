@@ -55,17 +55,22 @@ namespace beam
 {
     std::ostream& operator<<(std::ostream& os, Coin::Status s)
     {
-        os << "[";
+        stringstream ss;
+        ss << "[";
         switch (s)
         {
-        case Coin::Locked: os << "Locked"; break;
-        case Coin::Spent: os << "Spent"; break;
-        case Coin::Unconfirmed: os << "Unconfirmed"; break;
-        case Coin::Unspent: os << "Unspent"; break;
+        case Coin::Locked: ss << "Locked"; break;
+        case Coin::Spent: ss << "Spent"; break;
+        case Coin::Unconfirmed: ss << "Unconfirmed"; break;
+        case Coin::Unspent: ss << "Unspent"; break;
         default:
             assert(false && "Unknown coin status");
         }
-        os << "]";
+        ss << "]";
+        string str = ss.str();
+        os << str;
+        int c = 13 - str.length();
+        for (int i = 0; i < c; ++i) os << ' ';
         return os;
     }
 
@@ -565,14 +570,15 @@ int main(int argc, char* argv[])
                     {
                         cout << "____Wallet summary____\n\n";
                         cout << "Total unspent:" << PrintableAmount(getTotal(keychain)) << "\n\n";
-                        cout << "| id\t| amount\t| height\t| maturity\t| status\t| key type\t|\n";
+                        cout << "| id\t| amount(Beam)\t| amount(c)\t| height\t| maturity\t| status \t| key type\t|\n";
                         keychain->visit([](const Coin& c)->bool
                         {
                             cout << setw(8) << c.m_id
-                                 << setw(16) << PrintableAmount(c.m_amount)
-                                 << setw(16) << c.m_height
-                                 << setw(16) << c.m_maturity
-                                 << "  " << c.m_status << '\t'
+                                 << setw(16) << PrintableAmount(Block::Rules::Coin * ((Amount)(c.m_amount / Block::Rules::Coin)))
+                                 << setw(16) << PrintableAmount(c.m_amount % Block::Rules::Coin)
+                                 << setw(16) << static_cast<int64_t>(c.m_height)
+                                 << setw(16) << static_cast<int64_t>(c.m_maturity)
+                                 << "  " << c.m_status
                                  << "  " << c.m_key_type << '\n';
                             return true;
                         });

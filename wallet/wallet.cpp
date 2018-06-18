@@ -63,12 +63,12 @@ namespace beam
 
     std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount)
     {
-        const string_view beams{" beams" };
-        const string_view chattles{ " chattles" };
+        const string_view beams{" beams " };
+        const string_view chattles{ " chattles " };
         auto width = os.width();
-        if (amount.m_value > Block::Rules::Coin)
+        if (amount.m_value >= Block::Rules::Coin)
         {
-            os << setw(width - beams.length()) << Amount(amount.m_value / Block::Rules::Coin) << beams.data() << ' ';
+            os << setw(width - beams.length()) << Amount(amount.m_value / Block::Rules::Coin) << beams.data();
         }
         Amount c = amount.m_value % Block::Rules::Coin;
         if (c > 0 || amount.m_value == 0)
@@ -110,7 +110,7 @@ namespace beam
         assert(m_peers.empty());
         assert(m_receivers.empty());
         assert(m_senders.empty());
-        assert(m_node_requests_queue.empty());
+        assert(m_reg_requests.empty());
         assert(m_removed_senders.empty());
         assert(m_removed_receivers.empty());
     }
@@ -158,7 +158,7 @@ namespace beam
         {
             m_tx_completed_action(txId);
         }
-        if (m_node_requests_queue.empty())
+        if (m_reg_requests.empty() && m_syncing == 0)
         {
             m_network.close_node_connection();
         }
@@ -206,8 +206,8 @@ namespace beam
     void Wallet::register_tx(const Uuid& txId, Transaction::Ptr data)
     {
         LOG_VERBOSE() << ReceiverPrefix << "sending tx for registration";
-        m_node_requests_queue.push(txId);
-        m_network.send_node_message(proto::NewTransaction{ move(data) });
+        m_reg_requests.push_back(make_pair(txId, data));
+        m_network.send_node_message(proto::NewTransaction{ data });
     }
 
     void Wallet::send_tx_registered(UuidPtr&& txId)
@@ -293,14 +293,14 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::Boolean&& res)
     {
-        if (m_node_requests_queue.empty())
+        if (m_reg_requests.empty())
         {
             LOG_DEBUG() << "Received unexpected tx registration confirmation";
             assert(m_receivers.empty() && m_senders.empty());
             return false;
         }
-        auto txId = m_node_requests_queue.front();
-        m_node_requests_queue.pop();
+        auto txId = m_reg_requests.front().first;
+        m_reg_requests.pop_front();
         handle_tx_registered(txId, res.m_Value);
         return true;
     }
@@ -364,11 +364,6 @@ namespace beam
                 coin.m_status = Coin::Spent;
                 m_keyChain->update(vector<Coin>{coin});
             }
-            else if (coin.m_key_type == KeyType::Coinbase
-             || coin.m_key_type == KeyType::Comission)
-            {
-                m_keyChain->remove(coin);
-            }
         }
         else
         {
@@ -383,11 +378,15 @@ namespace beam
                         coin.m_status = Coin::Unspent;
                         coin.m_maturity = proof.m_Maturity;
                         if (coin.m_key_type == KeyType::Coinbase
-                         || coin.m_key_type == KeyType::Comission)
+                            || coin.m_key_type == KeyType::Comission)
                         {
                             LOG_INFO() << "Block reward received: " << PrintableAmount(coin.m_amount);
+                            m_keyChain->store(coin);
                         }
-                        m_keyChain->update(vector<Coin>{coin});
+                        else
+                        {
+                            m_keyChain->update(vector<Coin>{coin});
+                        }
                     }
                     else
                     {
@@ -397,16 +396,25 @@ namespace beam
             }
         }
 
-        m_pendingProofs.pop();
+        m_pendingProofs.pop_front();
 
         return finishSync();
     }
 
     bool Wallet::handle_node_message(proto::NewTip&& msg)
     {
-        // TODO: check if we're already waiting for the ProofUtxo,
-        // don't send request if yes
-        ++m_syncing; // Hdr
+        // TODO: restore from wallet db 
+        for (auto& r : m_pending_reg_requests)
+        {
+            register_tx(r.first, r.second);
+        }
+        m_pending_reg_requests.clear();
+
+        if (!m_syncing)
+        {
+            ++m_syncing; // Hdr
+        }
+
         if (msg.m_ID > m_knownStateID)
         {
             m_newStateID = msg.m_ID;
@@ -450,7 +458,6 @@ namespace beam
         {
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
-                Amount reward = Block::Rules::CoinbaseEmission;
                 // coinbase 
                 mined.emplace_back(Block::Rules::CoinbaseEmission
                                  , Coin::Unconfirmed
@@ -459,7 +466,6 @@ namespace beam
                                  , KeyType::Coinbase);
                 if (minedCoin.m_Fees > 0)
                 {
-                    reward += minedCoin.m_Fees;
                     mined.emplace_back(minedCoin.m_Fees
                                      , Coin::Unconfirmed
                                      , minedCoin.m_ID.m_Height
@@ -469,11 +475,10 @@ namespace beam
             }
         }
 
-		if (!mined.empty())
-		{
-			m_keyChain->store(mined);
+        if (!mined.empty())
+        {
             getUtxoProofs(mined);
-		}
+        }
         return finishSync();
     }
 
@@ -499,6 +504,14 @@ namespace beam
         }
     }
 
+    void Wallet::stop_sync()
+    {
+        m_syncing = 0;
+        copy(m_reg_requests.begin(), m_reg_requests.end(), back_inserter(m_pending_reg_requests));
+        m_reg_requests.clear();
+        m_pendingProofs.clear();
+    }
+
     void Wallet::remove_peer(const Uuid& txId)
     {
         auto it = m_peers.find(txId);
@@ -514,7 +527,7 @@ namespace beam
         for (auto& coin : coins)
         {
             ++m_syncing;
-            m_pendingProofs.push(coin);
+            m_pendingProofs.push_back(coin);
 			Input input;
 			input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
             LOG_DEBUG() << "Get proof: " << input.m_Commitment;
@@ -554,7 +567,7 @@ namespace beam
                 m_synchronized = true;
             }
         }
-        if (!m_syncing && m_node_requests_queue.empty())
+        if (!m_syncing && m_reg_requests.empty())
         {
             m_network.close_node_connection();
             return false;
