@@ -4,6 +4,10 @@
 #include "../utility/serialize.h"
 #include "../core/serialization_adapters.h"
 
+#ifndef WIN32
+#	include <unistd.h>
+#endif // WIN32
+
 namespace beam
 {
 
