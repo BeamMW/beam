@@ -77,9 +77,13 @@ namespace beam
 			void ungetch(char);
 		};
 
-		Stream m_pS[4];
+	public:
 
-		static const char* const s_pszSufix[];
+		static const int s_Datas = 4;
+
+	private:
+
+		Stream m_pS[s_Datas];
 
 		Input::Ptr m_pGuardUtxoIn[2];
 		Output::Ptr m_pGuardUtxoOut[2];
@@ -98,12 +102,12 @@ namespace beam
 
 		// do not modify between Open() and Close()
 		std::string m_sPath;
+		void GetPathes(std::string* pArr) const;
 
 		bool Open(bool bRead);
 		void Flush();
 		void Close();
 		void Delete(); // must be closed
-
 
 		// IReader
 		virtual void Clone(Ptr&) override;

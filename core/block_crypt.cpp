@@ -949,12 +949,13 @@ namespace beam
 
 	/////////////
 	// RW
-	const char* const Block::BodyBase::RW::s_pszSufix[] = {
-		"ui",
-		"uo",
-		"ki",
-		"ko",
-	};
+	void Block::BodyBase::RW::GetPathes(std::string* pArr) const
+	{
+		pArr[0] = m_sPath + "ui";
+		pArr[1] = m_sPath + "uo";
+		pArr[2] = m_sPath + "ki";
+		pArr[3] = m_sPath + "ko";
+	}
 
 	bool Block::BodyBase::RW::Open(bool bRead)
 	{
@@ -965,12 +966,13 @@ namespace beam
 		int mode = ios_base::binary;
 		mode |= (m_bRead ? (ios_base::in | ios_base::ate) : (ios_base::out | ios_base::trunc));
 
-		static_assert(_countof(s_pszSufix) == _countof(m_pS), "");
+		std::string pArr[s_Datas];
+		GetPathes(pArr);
 
 		for (int i = 0; i < _countof(m_pS); i++)
 		{
 			Stream& s = m_pS[i];
-			s.m_F.open(m_sPath + s_pszSufix[i], mode);
+			s.m_F.open(pArr[i], mode);
 			if (s.m_F.fail())
 				return false;
 
@@ -986,9 +988,12 @@ namespace beam
 
 	void Block::BodyBase::RW::Delete()
 	{
+		std::string pArr[s_Datas];
+		GetPathes(pArr);
+
 		for (int i = 0; i < _countof(m_pS); i++)
 		{
-			std::string sPath = m_sPath + s_pszSufix[i];
+			const std::string& sPath = pArr[i];
 #ifdef WIN32
 			DeleteFileA(sPath.c_str());
 #else // WIN32
@@ -1154,6 +1159,20 @@ namespace beam
 	{
 		yas::binary_oarchive<Stream, SERIALIZE_OPTIONS> arc(s);
 		arc & v;
+	}
+
+	void TxBase::IWriter::Dump(IReader&& r)
+	{
+		r.Reset();
+
+		for (; r.m_pUtxoIn; r.NextUtxoIn())
+			WriteIn(*r.m_pUtxoIn);
+		for (; r.m_pUtxoOut; r.NextUtxoOut())
+			WriteOut(*r.m_pUtxoOut);
+		for (; r.m_pKernelIn; r.NextKernelIn())
+			WriteIn(*r.m_pKernelIn);
+		for (; r.m_pKernelOut; r.NextKernelOut())
+			WriteOut(*r.m_pKernelOut);
 	}
 
 	bool TxBase::IWriter::Combine(IReader* pR, int nR, const volatile bool& bStop)

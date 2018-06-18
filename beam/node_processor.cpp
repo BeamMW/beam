@@ -1394,15 +1394,7 @@ void NodeProcessor::ExportMacroBlock(Block::BodyBase& res, TxBase::IWriter& w)
 
 	block.Sort();
 
-	// store it
-	for (auto i = 0; i < block.m_vInputs.size(); i++)
-		w.WriteIn(*block.m_vInputs[i]);
-	for (auto i = 0; i < block.m_vOutputs.size(); i++)
-		w.WriteOut(*block.m_vOutputs[i]);
-	for (auto i = 0; i < block.m_vKernelsInput.size(); i++)
-		w.WriteIn(*block.m_vKernelsInput[i]);
-	for (auto i = 0; i < block.m_vKernelsOutput.size(); i++)
-		w.WriteOut(*block.m_vKernelsOutput[i]);
+	w.Dump(block.get_Reader());
 
 	NodeDB::Blob blob(res.m_Offset.m_Value.m_pData, sizeof(res.m_Offset.m_Value.m_pData));
 

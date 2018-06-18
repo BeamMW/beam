@@ -663,11 +663,29 @@ namespace detail
         }
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Block::SystemState::Full& v)
+		static Archive& save(Archive& ar, const beam::Block::SystemState::Sequence::Prefix& v)
 		{
 			ar
 				& v.m_Height
-				& v.m_Prev
+				& v.m_Prev;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Block::SystemState::Sequence::Prefix& v)
+		{
+			ar
+				& v.m_Height
+				& v.m_Prev;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Block::SystemState::Sequence::Element& v)
+		{
+			ar
 				& v.m_Definition
 				& v.m_TimeStamp
 				& v.m_PoW;
@@ -676,14 +694,30 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Block::SystemState::Full& v)
+		static Archive& load(Archive& ar, beam::Block::SystemState::Sequence::Element& v)
 		{
 			ar
-				& v.m_Height
-				& v.m_Prev
 				& v.m_Definition
 				& v.m_TimeStamp
 				& v.m_PoW;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Block::SystemState::Full& v)
+		{
+			save(ar, (const beam::Block::SystemState::Sequence::Prefix&) v);
+			save(ar, (const beam::Block::SystemState::Sequence::Element&) v);
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Block::SystemState::Full& v)
+		{
+			load(ar, (beam::Block::SystemState::Sequence::Prefix&) v);
+			load(ar, (beam::Block::SystemState::Sequence::Element&) v);
 
 			return ar;
 		}
