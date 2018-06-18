@@ -92,18 +92,23 @@ namespace beam
 		void Interpret(Hash&, const Hash& hNew, bool bNewOnRight);
 	}
 
+	struct CommitmentAndMaturity
+	{
+		ECC::Point m_Commitment;
+		Height m_Maturity;
+
+		CommitmentAndMaturity() :m_Maturity(0) {}
+
+		int cmp_CaM(const CommitmentAndMaturity&) const;
+		int cmp(const CommitmentAndMaturity&) const;
+		COMPARISON_VIA_CMP(CommitmentAndMaturity)
+	};
+
 	struct Input
+		:public CommitmentAndMaturity
 	{
 		typedef std::unique_ptr<Input> Ptr;
 		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system
-
-		ECC::Point	m_Commitment; // If there are multiple UTXOs matching this commitment (which is supported) the Node always selects the most mature one.
-		Height		m_Maturity; // used only in compressed blocks
-
-		Input()
-			:m_Maturity(0)
-		{
-		}
 
 		struct Proof
 		{
@@ -132,18 +137,16 @@ namespace beam
 	inline bool operator < (const Input::Ptr& a, const Input::Ptr& b) { return *a < *b; }
 
 	struct Output
+		:public CommitmentAndMaturity
 	{
 		typedef std::unique_ptr<Output> Ptr;
 
-		ECC::Point	m_Commitment;
 		bool		m_Coinbase;
 		Height		m_Incubation; // # of blocks before it's mature
-		Height		m_Maturity; // used only in compressed blocks
 
 		Output()
 			:m_Coinbase(false)
 			,m_Incubation(0)
-			,m_Maturity(0)
 		{
 		}
 

@@ -94,12 +94,21 @@ namespace beam
 
 	/////////////
 	// Input
-
-	int Input::cmp(const Input& v) const
+	int CommitmentAndMaturity::cmp_CaM(const CommitmentAndMaturity& v) const
 	{
 		CMP_MEMBER_EX(m_Commitment)
 		CMP_MEMBER(m_Maturity)
 		return 0;
+	}
+
+	int CommitmentAndMaturity::cmp(const CommitmentAndMaturity& v) const
+	{
+		return cmp_CaM(v);
+	}
+
+	int Input::cmp(const Input& v) const
+	{
+		return cmp_CaM(v);
 	}
 
 	/////////////
@@ -128,8 +137,10 @@ namespace beam
 
 	int Output::cmp(const Output& v) const
 	{
-		CMP_MEMBER_EX(m_Commitment)
-		CMP_MEMBER(m_Maturity)
+		int n = cmp_CaM(v);
+		if (n)
+			return n;
+
 		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
@@ -530,7 +541,7 @@ namespace beam
 			{
 				Output::Ptr& pOut = m_vOutputs[i1];
 
-				int n = pInp->m_Commitment.cmp(pOut->m_Commitment);
+				int n = pInp->cmp_CaM(*pOut);
 				if (n <= 0)
 				{
 					if (!n)
