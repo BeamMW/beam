@@ -339,7 +339,7 @@ namespace beam
 #else // WIN32
 		const char* g_sz = "/tmp/mytest.db";
 		const char* g_sz2 = "/tmp/mytest2.db";
-		const char* g_sz2 = "/tmp/macroblock_";
+		const char* g_sz3 = "/tmp/macroblock_";
 #endif // WIN32
 
 	void TestNodeDB()
