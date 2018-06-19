@@ -17,20 +17,17 @@ int p2ptest(int numNodes, int runTime) {
     std::vector<std::unique_ptr<P2P>> nodes;
     nodes.reserve(numNodes);
 
-    P2PSettings settings;
-
-    // seed initial server address
-    settings.priorityPeers.emplace_back(LOCALHOST_BASE, PORT_BASE);
-
     LOG_INFO() << "Creating " << numNodes << " nodes";
     for (int i=0; i<numNodes; ++i) {
-        //settings.peerId = i+1;
-        settings.bindToIp = LOCALHOST_BASE + i;
         // odd node numbers are not servers
-        settings.listenToPort = (i & 1) ? 0 : PORT_BASE + i;
-        // ~ etc
+        uint16_t listenTo = (i & 1) ? 0 : PORT_BASE + i;
+        nodes.push_back(std::make_unique<P2P>(i+1, io::Address(LOCALHOST_BASE + i, 0), listenTo));
+    }
 
-        nodes.push_back(std::make_unique<P2P>(settings));
+    LOG_INFO() << "Seeding all of them initial server address";
+    KnownServers seed { {io::Address(LOCALHOST_BASE, PORT_BASE), 1} };
+    for (auto& n : nodes) {
+        n->add_known_servers(seed);
     }
 
     LOG_INFO() << "Starting nodes";
@@ -52,13 +49,10 @@ int p2ptest_1(io::Address seedAddr, int port) {
     std::unique_ptr<P2P> node;
 
     LOG_INFO() << "Creating node";
+    node = std::make_unique<P2P>(0, io::Address(), port);
 
-    P2PSettings settings;
-
-    // seed initial server address
-    settings.priorityPeers.emplace_back(seedAddr.port(port));
-
-    node = std::make_unique<P2P>(settings);
+    KnownServers seed { {seedAddr, 1} };
+    node->add_known_servers(seed);
 
     LOG_INFO() << "Starting node";
     node->start();
@@ -75,7 +69,7 @@ int p2ptest_1(io::Address seedAddr, int port) {
 
 } //namespace
 
-static const int DEF_NUM_NODES = 3;
+static const int DEF_NUM_NODES = 5;
 static const int DEF_RUN_TIME = 5;
 
 int main(int argc, char* argv[]) {

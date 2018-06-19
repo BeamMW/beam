@@ -6,12 +6,39 @@
 
 namespace beam {
 
-/// IP only
-using Peer = uint64_t;
+using SessionId = uint64_t;
 
-/// Only 1 connection per IP allowed
-inline Peer peer_id(uint64_t x) { return (x & 0xFFFFFFFF0000); }
-inline Peer peer_id(io::Address a) { return peer_id(a.u64()); }
+struct PeerId {
+    union {
+        uint64_t u64;
+        struct {
+            uint32_t ip;
+            uint16_t port;
+            uint16_t flags;
+        } fields;
+    };
+
+    io::Address address() const {
+        return io::Address(fields.ip, fields.port);
+    }
+
+    uint16_t flags() const {
+        return fields.flags;
+    }
+
+    bool operator==(const PeerId& i) const { return u64 == i.u64; }
+    bool operator<(const PeerId& i) const { return u64 < i.u64; }
+
+    PeerId(io::Address a, uint16_t f=0) {
+        fields.ip = a.ip();
+        fields.port = a.port();
+        fields.flags = f;
+    }
+
+    PeerId(uint64_t u=0) : u64(u) {}
+};
+
+std::ostream& operator<<(std::ostream& os, const PeerId& p);
 
 /// Seconds since the epoch
 using Timestamp = uint32_t;
@@ -32,8 +59,8 @@ struct PeerState {
 
 /// Peer info
 struct PeerInfo {
-    // IP with port, port==0 for inbound connections
-    Peer address;
+    SessionId sessionId;
+    PeerId lastPeerId;
 
     // connected state
     uint32_t connectAttempt=0; // >0 for outbound connections

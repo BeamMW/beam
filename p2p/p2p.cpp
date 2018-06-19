@@ -4,6 +4,164 @@
 
 namespace beam {
 
+enum TimerIDs {
+    SERVER_RESTART_TIMER = 1,
+    CONNECT_TIMER = 2
+};
+
+P2P::P2P(P2PSettings settings) :
+    _settings(std::move(settings)),
+    _protocol(0xAA, 0xBB, 0xCC, 100, *this, 0x2000),
+    _handshakes(_connectPool, BIND_THIS_MEMFN(on_peer_handshaked), BIND_THIS_MEMFN(on_handshake_error)),
+    _connectedPeers(_protocol, BIND_THIS_MEMFN(on_peer_removed))
+{
+    if (_settings.peerId == 0) {
+        _settings.peerId = _rdGen.rnd<uint64_t>();
+        LOG_INFO() << "initializing this peer id: " << std::hex << _settings.peerId << std::dec;
+        // TODO save settings
+    }
+    _connectPool.setup(_settings.peerId, _settings.priorityPeers);
+    _handshakes.setup(_protocol, _settings.listenToPort, _settings.peerId);
+}
+
+P2P::~P2P() {
+    stop();
+    wait();
+}
+
+void P2P::start() {
+    io::Result result;
+    if (_settings.listenToPort != 0) {
+        result = set_coarse_timer(SERVER_RESTART_TIMER, 0, BIND_THIS_MEMFN(on_start_server));
+        if (!result) IO_EXCEPTION(result.error());
+    }
+    result = set_coarse_timer(CONNECT_TIMER, 0, BIND_THIS_MEMFN(on_connect_to_peers));
+    run_async();
+}
+
+void P2P::on_protocol_error(uint64_t id, ProtocolError error) {
+    StreamId streamId(id);
+    LOG_WARNING() << "protocol error " << error << " from " << streamId.address() << ", closing connection";
+    cleanup_connection(streamId);
+}
+
+void P2P::on_connection_error(uint64_t id, io::ErrorCode errorCode) {
+    StreamId streamId(id);
+    LOG_WARNING() << "connection error " << io::error_str(errorCode) << " from " << streamId.address() << ", closing connection";
+    cleanup_connection(streamId);
+}
+
+void P2P::cleanup_connection(StreamId streamId) {
+    uint16_t flags = streamId.flags();
+    if (flags & StreamId::handshaking) {
+        _handshakes.on_disconnected(streamId);
+    } else if (flags & StreamId::active) {
+        _connectPool.release_peer_id(streamId.address());
+        //~~~~~~~
+    }
+}
+
+void P2P::on_start_server(TimerID) {
+    io::Address listenTo(_settings.bindToIp, _settings.listenToPort);
+    try {
+        _thisServer = io::TcpServer::create(_reactor, listenTo, BIND_THIS_MEMFN(on_stream_accepted));
+    } catch (const io::Exception e) {
+        LOG_ERROR() << "tcp server error " << io::error_str(e.errorCode) << ", restarting in 1 second";
+    }
+    if (_thisServer) {
+        LOG_INFO() << "listening to " << listenTo;
+    } else {
+        set_coarse_timer(SERVER_RESTART_TIMER, 1000, BIND_THIS_MEMFN(on_start_server));
+    }
+}
+
+void P2P::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode) {
+    if (errorCode != 0) {
+        LOG_ERROR() << "tcp server error " << io::error_str(errorCode) << ", restarting in 1 second";
+        _thisServer.reset();
+        set_coarse_timer(SERVER_RESTART_TIMER, 1000, BIND_THIS_MEMFN(on_start_server));
+        return;
+    }
+
+    assert(newStream);
+
+    _handshakes.on_new_connection(
+        std::make_unique<Connection>(
+            _protocol,
+            StreamId(newStream->peer_address()).u64,
+            Connection::inbound,
+            10000, //TODO config
+            std::move(newStream)
+        )
+    );
+}
+
+void P2P::on_connect_to_peers(TimerID) {
+    auto connectTo = _connectPool.get_connect_candidates();
+
+    LOG_DEBUG() << "connecting to " << connectTo.size() << " peers";
+
+    for (auto& a: connectTo) {
+        StreamId id(a);
+        auto result = _reactor->tcp_connect(a, StreamId(a).u64, BIND_THIS_MEMFN(on_stream_connected), 10000, io::Address(_settings.bindToIp, 0));
+        if (!result) {
+            _connectPool.schedule_reconnect(a, result.error());
+        } else {
+            LOG_INFO() << "connecting to " << a;
+        }
+    }
+
+    set_coarse_timer(CONNECT_TIMER, 1000, BIND_THIS_MEMFN(on_connect_to_peers));
+}
+
+void P2P::on_stream_connected(uint64_t id, io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode) {
+    if (errorCode != 0) {
+         _connectPool.schedule_reconnect(StreamId(id).address(), errorCode);
+        return;
+    }
+
+    _handshakes.on_new_connection(
+        std::make_unique<Connection>(
+            _protocol,
+            StreamId(newStream->peer_address()).u64,
+            Connection::outbound,
+            10000, //TODO config
+            std::move(newStream)
+        )
+    );
+}
+
+void P2P::on_peer_handshaked(Connection::Ptr&& conn, bool isServer) {
+    if (isServer) {
+        io::Address addr = StreamId(conn->id()).address();
+        auto p = _knownServers.insert(addr);
+        if (p.second) {
+            _peerState.knownServersCount = _knownServers.size();
+            _peerStateUpdated = true;
+            _knownServersUpdated = true;
+        }
+    }
+
+    StreamId streamId = conn->id();
+    streamId.fields.flags &= StreamId::active;
+    conn->change_id(streamId.u64);
+    _connectedPeers.add_connection(std::move(conn));
+    _peerState.connectedPeersCount++;
+    _peerStateUpdated = true;
+}
+
+void P2P::on_handshake_error(StreamId streamId, const HandshakeError& e) {
+    LOG_ERROR() << "handshake with " << streamId.address() << " failed, " << e.str();
+}
+
+void P2P::on_peer_removed(StreamId streamId) {
+    _connectPool.release_peer_id(streamId.address());
+    _peerState.connectedPeersCount--;
+    _peerStateUpdated = true;
+}
+
+/*
+
 P2P::P2P(uint64_t sessionId, io::Address bindTo, uint16_t listenTo) :
     _sessionId(sessionId ? sessionId : _rdGen.rnd<uint64_t>()),
     _protocol(0xAA, 0xBB, 0xCC, 100, *this, 0x2000),
@@ -101,7 +259,7 @@ void P2P::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode error
     // TODO nonce is stream ID ????
 }
 
-void P2P::on_stream_connected(Peer peer, io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode) {
+void P2P::on_stream_connected(uint64_t peer, io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode) {
     if (errorCode != 0) {
         LOG_DEBUG() << "connect error, code=" << io::error_str(errorCode) << TRACE(_sessionId);;
         return;
@@ -129,12 +287,12 @@ void P2P::on_stream_connected(Peer peer, io::TcpStream::Ptr&& newStream, io::Err
     _handshakingPeers.connected(peer, std::move(conn));
 }
 
-void P2P::on_protocol_error(Peer from, ProtocolError error) {
+void P2P::on_protocol_error(uint64_t from, ProtocolError error) {
     LOG_WARNING() << "Protocol error " << error << " from " << io::Address::from_u64(from) << TRACE(_sessionId);
 }
 
-void P2P::on_connection_error(Peer from, io::ErrorCode errorCode) {
-    LOG_INFO() << "Connection error from " << io::Address::from_u64(from) << " error=" << io::error_str(errorCode) << TRACE(_sessionId);
+void P2P::on_connection_error(uint64_t from, io::ErrorCode errorCode) {
+    LOG_INFO() << "Connection error from " << PeerId(from).address() << " error=" << io::error_str(errorCode) << TRACE(_sessionId);
 
     // TODO remove connection
 }
@@ -213,5 +371,7 @@ bool P2P::on_known_servers(uint64_t id, KnownServers&& servers) {
     }
     return true;
 }
+
+*/
 
 } //namespace

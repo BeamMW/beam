@@ -2,6 +2,7 @@
 #include "helpers.h"
 #include "io/coarsetimer.h"
 #include <unordered_map>
+#include <atomic>
 
 namespace beam {
 
@@ -21,7 +22,7 @@ AsyncContext* ctx();
 class AsyncContext {
 public:
     // TODO: unify IDs
-    using ID = io::CoarseTimer::ID;
+    using TimerID = io::CoarseTimer::ID;
     using TimerCallback = io::CoarseTimer::Callback;
 
     explicit AsyncContext(unsigned coarseTimerResolutionMsec=100);
@@ -44,10 +45,10 @@ public:
     void wait();
 
     /// Sets one-shot coarse timer
-    io::Result set_coarse_timer(ID id, unsigned intervalMsec, TimerCallback&& callback);
+    io::Result set_coarse_timer(TimerID id, unsigned intervalMsec, TimerCallback&& callback);
 
     /// Cancels one-shot timer
-    void cancel_coarse_timer(ID id);
+    void cancel_coarse_timer(TimerID id);
 
     /// periodic timer
     io::Timer::Ptr set_timer(unsigned periodMsec, io::Timer::Callback&& onTimer) {
@@ -61,7 +62,7 @@ private:
     void thread_func(RunCallback&& beforeRun, RunCallback&& afterRun);
 
     /// Internal timer callback
-    void on_coarse_timer(ID id);
+    void on_coarse_timer(TimerID id);
 
 
     void attach_to_thread();
@@ -71,10 +72,11 @@ protected:
     io::Reactor::Ptr _reactor;
 
 private:
-    std::unordered_map<ID, TimerCallback> _timerCallbacks;
+    std::unordered_map<TimerID, TimerCallback> _timerCallbacks;
     io::CoarseTimer::Ptr _timer;
     Thread _thread;
     AsyncContext* _prevInThread=0;
+    std::atomic<bool> _started;
 };
 
 } //namespace
