@@ -972,7 +972,7 @@ namespace beam
 		for (int i = 0; i < _countof(m_pS); i++)
 		{
 			Stream& s = m_pS[i];
-			s.m_F.open(pArr[i], mode);
+			s.m_F.open(pArr[i], (ios_base::openmode) mode);
 			if (s.m_F.fail())
 				return false;
 
