@@ -36,7 +36,7 @@ class NodeProcessor
 	void OnSubsidyOptionChanged(bool);
 
 	void InitCursor();
-	void OnCorrupted();
+	static void OnCorrupted();
 	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
 
 	bool IsRelevantHeight(Height);

@@ -41,7 +41,7 @@ bool NodeProcessor::UnspentWalker::Traverse()
 	{
 		assert(m_nUnspentCount);
 		if (!m_Key.n)
-			m_This.OnCorrupted();
+			OnCorrupted();
 
 		uint8_t nType = *(uint8_t*) m_Key.p;
 		((uint8_t*&) m_Key.p)++;
@@ -52,7 +52,7 @@ bool NodeProcessor::UnspentWalker::Traverse()
 		case DbType::Utxo:
 		{
 			if (UtxoTree::Key::s_Bytes != m_Key.n)
-				m_This.OnCorrupted();
+				OnCorrupted();
 
 			static_assert(sizeof(UtxoTree::Key) == UtxoTree::Key::s_Bytes, "");
 
@@ -64,7 +64,7 @@ bool NodeProcessor::UnspentWalker::Traverse()
 		case DbType::Kernel:
 		{
 			if (sizeof(Merkle::Hash) != m_Key.n)
-				m_This.OnCorrupted();
+				OnCorrupted();
 
 			if (!OnKernel(*(Merkle::Hash*) m_Key.p))
 				return false;
@@ -73,7 +73,7 @@ bool NodeProcessor::UnspentWalker::Traverse()
 		break;
 
 		default:
-			m_This.OnCorrupted();
+			OnCorrupted();
 		}
 	}
 }
@@ -364,18 +364,17 @@ struct NodeProcessor::RollbackData
 
 	RollbackData() :m_Inputs(0) {}
 
-	Utxo& PushInput()
+	Utxo& NextInput(bool bWrite)
 	{
 		size_t nSize = (m_Inputs + 1) * sizeof(Utxo);
 		if (nSize > m_Buf.size())
+		{
+			if (!bWrite)
+				OnCorrupted();
 			m_Buf.resize(nSize);
+		}
 
 		return ((Utxo*) &m_Buf.at(0))[m_Inputs++];
-	}
-
-	void PopInput()
-	{
-		verify(m_Inputs--);
 	}
 };
 
@@ -654,11 +653,11 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, bool bFwd, Roll
 		else
 			cu.Invalidate();
 
-		rbData.PushInput().m_Maturity = d.m_Maturity;
+		rbData.NextInput(true).m_Maturity = d.m_Maturity;
 
 	} else
 	{
-		d.m_Maturity = rbData.PushInput().m_Maturity;
+		d.m_Maturity = rbData.NextInput(false).m_Maturity;
 		skey.m_Key = d;
 
 		bool bCreate = true;
@@ -852,7 +851,7 @@ void NodeProcessor::DereferenceFossilBlock(uint64_t rowid)
 	{
 		UtxoTree::Key::Data d;
 		d.m_Commitment = r.m_pUtxoIn->m_Commitment;
-		d.m_Maturity = rbData.PushInput().m_Maturity;
+		d.m_Maturity = rbData.NextInput(false).m_Maturity;
 
 		SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
 		skey.m_Key = d;
