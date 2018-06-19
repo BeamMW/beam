@@ -14,6 +14,7 @@ public:
 	QString label() const;
 	void setLabel(const QString& val);
 
+public slots:
 	void sayHello(const QString& name);
 
 signals:
