@@ -269,7 +269,16 @@ void Node::Processor::OnNewState()
 		}
 	}
 
+	if (!get_ParentObj().m_Compressor.m_bStop)
+		get_ParentObj().m_Compressor.OnNewState();
+
 	get_ParentObj().RefreshCongestions();
+}
+
+void Node::Processor::OnRolledBack()
+{
+	if (!get_ParentObj().m_Compressor.m_bStop)
+		get_ParentObj().m_Compressor.OnRolledBack();
 }
 
 bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
@@ -413,6 +422,10 @@ void Node::Initialize()
 
 		m_Miner.Restart();
 	}
+
+	m_Compressor.m_bStop = m_Cfg.m_HistoryCompression.m_sPathOutput.empty();
+	if (!m_Compressor.m_bStop)
+		m_Compressor.Init();
 }
 
 Node::~Node()
@@ -428,6 +441,13 @@ Node::~Node()
 		pt.m_Thread.join();
 	}
 	m_Miner.m_vThreads.clear();
+
+	m_Compressor.m_bStop = true;
+	if (m_Compressor.m_Thread.m_pReactor)
+	{
+		m_Compressor.m_Thread.m_pReactor->stop();
+		m_Compressor.m_Thread.m_Thread.join();
+	}
 
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
 		it->m_eState = State::Snoozed; // prevent re-assigning of tasks in the next loop
@@ -1240,6 +1260,69 @@ void Node::Miner::OnMined()
 
 	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, NodeDB::PeerID()); // will likely trigger OnNewState(), and spread this block to the network
 	assert(NodeProcessor::DataStatus::Accepted == eStatus);
+}
+
+void Node::Compressor::Init()
+{
+	// delete potentially ahead-of-time macroblocks
+	OnRolledBack();
+
+	// delete missing datas
+	uint64_t rowLastValid = 0;
+	Block::BodyBase::RW rw;
+	Processor& p = get_ParentObj().m_Processor;
+
+	NodeDB::WalkerState ws(p.get_DB());
+	for (p.get_DB().EnumMacroblocks(ws); ws.MoveNext(); )
+	{
+		FmtPath(rw, ws.m_Sid);
+		rowLastValid = rw.Open(true) ? ws.m_Sid.m_Row : 0;
+	}
+
+	for (p.get_DB().EnumMacroblocks(ws); ws.MoveNext(); )
+	{
+		if (rowLastValid == ws.m_Sid.m_Row)
+			break;
+
+		Delete(ws.m_Sid);
+	}
+
+	OnNewState();
+}
+
+void Node::Compressor::OnRolledBack()
+{
+	Processor& p = get_ParentObj().m_Processor;
+
+	NodeDB::WalkerState ws(p.get_DB());
+	p.get_DB().EnumMacroblocks(ws);
+
+	while (ws.MoveNext() && (ws.m_Sid.m_Height > p.m_Cursor.m_ID.m_Height))
+		Delete(ws.m_Sid);
+
+}
+
+void Node::Compressor::Delete(const NodeDB::StateID& sid)
+{
+	NodeDB& db = get_ParentObj().m_Processor.get_DB();
+	db.MacroblockDel(sid.m_Row);
+
+	Block::BodyBase::RW rw;
+	FmtPath(rw, sid);
+	rw.Delete();
+}
+
+void Node::Compressor::OnNewState()
+{
+}
+
+void Node::Compressor::FmtPath(Block::BodyBase::RW& rw, const NodeDB::StateID& sid)
+{
+	std::stringstream str;
+	str << get_ParentObj().m_Cfg.m_HistoryCompression.m_sPathOutput;
+	str << "mb_" << sid.m_Height;
+
+	rw.m_sPath = str.str();
 }
 
 } // namespace beam

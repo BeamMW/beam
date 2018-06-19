@@ -41,6 +41,14 @@ struct Node
 		// negative: number of cores minus number of mining threads. 
 		int m_VerificationThreads = 0;
 
+		struct HistoryCompression
+		{
+			std::string m_sPathOutput;
+
+			Height m_Threshold = 60 * 24; // 1 day roughly. Newer blocks should not be aggregated (not mature enough)
+			Height m_Naggling = 32; // combine up to 32 blocks in memory, before involving file system
+		} m_HistoryCompression;
+
 		struct TestMode {
 			// for testing only!
 			bool m_bFakePoW = false;
@@ -66,6 +74,7 @@ private:
 		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override;
 		virtual void OnPeerInsane(const PeerID&) override;
 		virtual void OnNewState() override;
+		virtual void OnRolledBack() override;
 		virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&) override;
 
 		struct VerifierContext
@@ -268,6 +277,20 @@ private:
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Miner)
 	} m_Miner;
+
+	struct Compressor
+	{
+		void Init();
+		void OnRolledBack();
+		void Delete(const NodeDB::StateID&);
+		void OnNewState();
+		void FmtPath(Block::BodyBase::RW&, const NodeDB::StateID&);
+
+		PerThread m_Thread;
+		volatile bool m_bStop;
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Compressor)
+	} m_Compressor;
 };
 
 } // namespace beam
