@@ -227,17 +227,16 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Server)
 	} m_Server;
 
+	struct PerThread
+	{
+		io::Reactor::Ptr m_pReactor;
+		io::AsyncEvent::Ptr m_pEvt;
+		std::thread m_Thread;
+	};
+
 	struct Miner
 	{
-		struct PerThread
-		{
-			io::Reactor::Ptr m_pReactor;
-			io::AsyncEvent::Ptr m_pEvtRefresh;
-			std::thread m_Thread;
-		};
-
 		std::vector<PerThread> m_vThreads;
-
 		io::AsyncEvent::Ptr m_pEvtMined;
 
 		struct Task

@@ -405,9 +405,9 @@ void Node::Initialize()
 		m_Miner.m_vThreads.resize(m_Cfg.m_MiningThreads);
 		for (uint32_t i = 0; i < m_Cfg.m_MiningThreads; i++)
 		{
-			Miner::PerThread& pt = m_Miner.m_vThreads[i];
+			PerThread& pt = m_Miner.m_vThreads[i];
 			pt.m_pReactor = io::Reactor::create();
-			pt.m_pEvtRefresh = io::AsyncEvent::create(pt.m_pReactor, [this, i]() { m_Miner.OnRefresh(i); });
+			pt.m_pEvt = io::AsyncEvent::create(pt.m_pReactor, [this, i]() { m_Miner.OnRefresh(i); });
 			pt.m_Thread = std::thread(&io::Reactor::run, pt.m_pReactor);
 		}
 
@@ -421,7 +421,7 @@ Node::~Node()
 
 	for (size_t i = 0; i < m_Miner.m_vThreads.size(); i++)
 	{
-		Miner::PerThread& pt = m_Miner.m_vThreads[i];
+		PerThread& pt = m_Miner.m_vThreads[i];
 		if (pt.m_pReactor)
 			pt.m_pReactor->stop();
 
@@ -1209,7 +1209,7 @@ bool Node::Miner::Restart()
 	m_pTask = pTask;
 
 	for (size_t i = 0; i < m_vThreads.size(); i++)
-		m_vThreads[i].m_pEvtRefresh->trigger();
+		m_vThreads[i].m_pEvt->trigger();
 
 	return true;
 }
