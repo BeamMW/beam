@@ -98,6 +98,27 @@ namespace beam
 
 #define CMP_MEMBER_PTR(member) CMP_PTRS(member, v.member)
 
+	template <typename T>
+	void ClonePtr(std::unique_ptr<T>& trg, const std::unique_ptr<T>& src)
+	{
+		if (src)
+		{
+			trg.reset(new T);
+			*trg = *src;
+		}
+		else
+			trg.reset();
+	}
+
+	template <typename T>
+	void PushVectorPtr(std::vector<typename T::Ptr>& vec, const T& val)
+	{
+		vec.resize(vec.size() + 1);
+		typename T::Ptr& p = vec.back();
+		p.reset(new T);
+		*p = val;
+	}
+
 	/////////////
 	// Input
 	int CommitmentAndMaturity::cmp_CaM(const CommitmentAndMaturity& v) const
@@ -141,6 +162,15 @@ namespace beam
 		return m_pPublic->IsValid(m_Commitment, oracle);
 	}
 
+	void Output::operator = (const Output& v)
+	{
+		*((CommitmentAndMaturity*) this) = v;
+		m_Coinbase = v.m_Coinbase;
+		m_Incubation = v.m_Incubation;
+		ClonePtr(m_pConfidential, v.m_pConfidential);
+		ClonePtr(m_pPublic, v.m_pPublic);
+	}
+
 	int Output::cmp(const Output& v) const
 	{
 		int n = cmp_CaM(v);
@@ -148,6 +178,7 @@ namespace beam
 			return n;
 
 		CMP_MEMBER(m_Coinbase)
+		CMP_MEMBER(m_Incubation)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
 
@@ -334,6 +365,21 @@ namespace beam
 			return -1;
 
 		return 0;
+	}
+
+	void TxKernel::operator = (const TxKernel& v)
+	{
+		m_Excess = v.m_Excess;
+		m_Multiplier = v.m_Multiplier;
+		m_Signature = v.m_Signature;
+		m_Fee = v.m_Fee;
+		m_Height = v.m_Height;
+		ClonePtr(m_pContract, v.m_pContract);
+
+		m_vNested.resize(v.m_vNested.size());
+
+		for (auto i = 0; i < v.m_vNested.size(); i++)
+			ClonePtr(m_vNested[i], v.m_vNested[i]);
 	}
 
 	/////////////
@@ -698,6 +744,26 @@ namespace beam
 	void TxVectors::Reader::NextKernelOut()
 	{
 		m_pKernelOut = get_FromVector(m_Txv.m_vKernelsOutput, ++m_pIdx[3]);
+	}
+
+	void TxVectors::Writer::WriteIn(const Input& v)
+	{
+		PushVectorPtr(m_Txv.m_vInputs, v);
+	}
+
+	void TxVectors::Writer::WriteOut(const Output& v)
+	{
+		PushVectorPtr(m_Txv.m_vOutputs, v);
+	}
+
+	void TxVectors::Writer::WriteIn(const TxKernel& v)
+	{
+		PushVectorPtr(m_Txv.m_vKernelsInput, v);
+	}
+
+	void TxVectors::Writer::WriteOut(const TxKernel& v)
+	{
+		PushVectorPtr(m_Txv.m_vKernelsOutput, v);
 	}
 
 	/////////////

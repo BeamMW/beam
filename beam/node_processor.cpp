@@ -1079,24 +1079,6 @@ bool NodeProcessor::TxPool::Element::Profit::operator < (const Profit& t) const
 
 /////////////////////////////
 // Block generation
-template <typename T>
-void AppendCloneArray(Serializer& ser, std::vector<T>& trg, const std::vector<T>& src)
-{
-	size_t i0 = trg.size();
-	trg.resize(i0 + src.size());
-
-	for (size_t i = 0; i < src.size(); i++)
-	{
-		ser.reset();
-		ser & src[i];
-		SerializeBuffer sb = ser.buffer();
-
-		Deserializer der;
-		der.reset(sb.first, sb.second);
-		der & trg[i0 + i];
-	}
-}
-
 uint8_t NodeProcessor::get_NextDifficulty()
 {
 	if (!m_Cursor.m_Sid.m_Row)
@@ -1156,7 +1138,6 @@ Timestamp NodeProcessor::get_MovingMedian()
 bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
 {
 	fees = 0;
-
 	size_t nBlockSize = 0;
 
 	// due to (potential) inaccuracy in the block size estimation, our rough estimate - take no more than 95% of allowed block size, minus potential UTXOs to consume fees and coinbase.
@@ -1164,8 +1145,6 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	const size_t nSizeThreshold = Block::Rules::MaxBodySize * 95 / 100 - nRoughExtra;
 
 	ECC::Scalar::Native offset = res.m_Offset;
-
-	Serializer ser;
 
 	for (TxPool::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
 	{
@@ -1177,13 +1156,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 		if (HandleValidatedTx(tx.get_Reader(), h, true, rbData))
 		{
-			// Clone the transaction before copying it to the block. We're forced to do this because they're not shared.
-			// TODO: Fix this!
-
-			AppendCloneArray(ser, res.m_vInputs, tx.m_vInputs);
-			AppendCloneArray(ser, res.m_vOutputs, tx.m_vOutputs);
-			AppendCloneArray(ser, res.m_vKernelsInput, tx.m_vKernelsInput);
-			AppendCloneArray(ser, res.m_vKernelsOutput, tx.m_vKernelsOutput);
+			Block::Body::Writer(res).Dump(tx.get_Reader());
 
 			fees += x.m_Profit.m_Fee;
 			offset += ECC::Scalar::Native(tx.m_Offset);

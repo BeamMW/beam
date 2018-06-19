@@ -157,9 +157,9 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		void Create(const ECC::Scalar::Native&, Amount, bool bPublic = false);
-
 		bool IsValid() const;
 
+		void operator = (const Output&);
 		int cmp(const Output&) const;
 		COMPARISON_VIA_CMP(Output)
 	};
@@ -195,6 +195,7 @@ namespace beam
 		};
 
 		std::unique_ptr<Contract> m_pContract;
+		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
 		static const uint32_t s_MaxRecursionDepth = 2;
 
@@ -204,17 +205,14 @@ namespace beam
 				throw std::runtime_error("recursion too deep");
 		}
 
-		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
+		void get_HashForSigning(Merkle::Hash&) const; // Includes the contents, but not the excess and the signature
+		void get_HashForContract(ECC::Hash::Value&, const ECC::Hash::Value& msg) const;
+		void get_HashTotal(Merkle::Hash&) const; // Includes everything. 
 
 		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
-
-		void get_HashForSigning(Merkle::Hash&) const; // Includes the contents, but not the excess and the signature
-
-		void get_HashTotal(Merkle::Hash&) const; // Includes everything. 
 		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
 
-		void get_HashForContract(ECC::Hash::Value&, const ECC::Hash::Value& msg) const;
-
+		void operator = (const TxKernel&);
 		int cmp(const TxKernel&) const;
 		COMPARISON_VIA_CMP(TxKernel)
 
@@ -292,6 +290,17 @@ namespace beam
 		Reader get_Reader() const {
 			return Reader(*this);
 		}
+
+		struct Writer :public TxBase::IWriter
+		{
+			TxVectors& m_Txv;
+			Writer(TxVectors& txv) :m_Txv(txv) {}
+
+			virtual void WriteIn(const Input&) override;
+			virtual void WriteIn(const TxKernel&) override;
+			virtual void WriteOut(const Output&) override;
+			virtual void WriteOut(const TxKernel&) override;
+		};
 	};
 
 	struct Transaction
