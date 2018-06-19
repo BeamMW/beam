@@ -96,7 +96,8 @@ Result TcpStream::write(const std::vector<SharedBuffer>& fragments) {
 void TcpStream::shutdown() {
     if (is_connected()) {
         disable_read();
-        _reactor->shutdown_tcpstream(this);
+        send_write_request();
+        _reactor->shutdown_tcpstream(this, std::move(_writeBuffer));
         assert(!_callback);
         assert(!is_connected());
     }
