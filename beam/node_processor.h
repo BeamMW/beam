@@ -76,6 +76,8 @@ public:
 
 	void get_CurrentLive(Merkle::Hash&);
 
+	void ExtractBlockWithExtra(Block::Body&, Block::SystemState::Full&, const NodeDB::StateID&);
+
 	void ExportMacroBlock(Block::BodyBase&, TxBase::IWriter&); // can be time-consuming
 	bool ImportMacroBlock(const Block::SystemState::ID&, const Block::BodyBase&, TxBase::IReader&&);
 
@@ -100,6 +102,7 @@ public:
 	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) {}
 	virtual void OnPeerInsane(const PeerID&) {}
 	virtual void OnNewState() {}
+	virtual void OnRolledBack() {}
 	virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 
 	bool IsStateNeeded(const Block::SystemState::ID&);

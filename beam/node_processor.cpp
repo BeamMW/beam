@@ -233,6 +233,7 @@ void NodeProcessor::TryGoUp()
 
 			if (m_Cursor.m_Sid.m_Height == sidTrg.m_Height)
 			{
+				OnRolledBack();
 				Rollback();
 				bDirty = true;
 			}
@@ -1304,6 +1305,21 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
 {
 	return block.IsValid(hr, m_Cursor.m_SubsidyOpen, std::move(r));
+}
+
+void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, Block::SystemState::Full& s, const NodeDB::StateID& sid)
+{
+	ByteBuffer bb;
+	RollbackData rbData;
+	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf);
+	m_DB.get_State(sid.m_Row, s);
+
+	Deserializer der;
+	der.reset(bb.empty() ? NULL : &bb.at(0), bb.size());
+	der & block;
+
+	for (auto i = 0; i < block.m_vInputs.size(); i++)
+		block.m_vInputs[i]->m_Maturity = rbData.NextInput(false).m_Maturity;
 }
 
 void NodeProcessor::ExportMacroBlock(Block::BodyBase& res, TxBase::IWriter& w)
