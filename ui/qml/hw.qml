@@ -1,5 +1,6 @@
-import QtQuick 2.2
-import QtQuick.Controls 1.0
+import QtQuick 2.3
+import QtQuick.Controls 1.2
+import QtQuick.Controls.Styles 1.2
 
 Rectangle {
     id: rectangle
@@ -87,14 +88,34 @@ Rectangle {
             movable: false
         }
 
-        model: listModel
+        style: TableViewStyle {
+            headerDelegate: Rectangle {
+                height: 40
+                color: "lightsteelblue"
+                Text {
+                    id: textItem
+                    anchors.fill: parent
+                    verticalAlignment: Text.AlignVCenter
+                    horizontalAlignment: styleData.textAlignment
+                    anchors.leftMargin: 12
+                    text: styleData.value
+                    elide: Text.ElideRight
+                    color: textColor
+                    renderType: Text.NativeRendering
+                }
+            }
+        }
 
+        model: listModel
     }
 
     ListView {
         id: listView
+        width: 415
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.top: parent.top
         anchors.topMargin: 283
-        anchors.fill: parent
         delegate: Item {
             height: 20
             Row {
@@ -106,5 +127,16 @@ Rectangle {
             }
         }
         model: listModel
+    }
+
+    Rectangle {
+        id: rectangle1
+        color: "#ca4b4b"
+        radius: 20
+        anchors.rightMargin: 71
+        anchors.bottomMargin: 55
+        anchors.leftMargin: 421
+        anchors.topMargin: 314
+        anchors.fill: parent
     }
 }
