@@ -90,7 +90,7 @@ namespace beam
         return os;
     }
 
-    Amount getTotal(beam::IKeyChain::Ptr keychain)
+    Amount getAvailable(beam::IKeyChain::Ptr keychain)
     {
         auto currentHeight = keychain->getCurrentHeight();
         Amount total = 0;
@@ -100,7 +100,8 @@ namespace beam
                 ? Block::Rules::MaturityCoinbase
                 : Block::Rules::MaturityStd);
 
-            if (c.m_status == Coin::Unspent && lockHeight <= currentHeight)
+            if (c.m_status == Coin::Unspent
+                && lockHeight <= currentHeight)
             {
                 total += c.m_amount;
             }
@@ -108,6 +109,56 @@ namespace beam
         });
         return total;
     }
+
+    Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType)
+    {
+        auto currentHeight = keychain->getCurrentHeight();
+        Amount total = 0;
+        keychain->visit([&total, &currentHeight, &status, &keyType](const Coin& c)->bool
+        {
+            Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
+                ? Block::Rules::MaturityCoinbase
+                : Block::Rules::MaturityStd);
+
+            if (c.m_status == status 
+             && c.m_key_type == keyType
+             && lockHeight <= currentHeight)
+            {
+                total += c.m_amount;
+            }
+            return true;
+        });
+        return total;
+    }
+
+    Amount getTotal(beam::IKeyChain::Ptr keychain, Coin::Status status)
+    {
+        Amount total = 0;
+        keychain->visit([&total, &status](const Coin& c)->bool
+        {
+            if (c.m_status == status)
+            {
+                total += c.m_amount;
+            }
+            return true;
+        });
+        return total;
+    }
+
+    Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType)
+    {
+        Amount total = 0;
+        keychain->visit([&total, &status, &keyType](const Coin& c)->bool
+        {
+            if (c.m_status == status && c.m_key_type == keyType)
+            {
+                total += c.m_amount;
+            }
+            return true;
+        });
+        return total;
+    }
+
 }
 namespace
 {
@@ -568,9 +619,21 @@ int main(int argc, char* argv[])
 
                     if (command == cli::INFO)
                     {
-                        cout << "____Wallet summary____\n\n";
-                        cout << "Total unspent:" << PrintableAmount(getTotal(keychain)) << "\n\n";
-                        cout << "| id\t| amount(Beam)\t| amount(c)\t| height\t| maturity\t| status \t| key type\t|\n";
+                        Block::SystemState::ID stateID = {};
+                        keychain->getSystemStateID(stateID);
+                        cout << "____Wallet summary____\n\n"
+                             << "Current height............" << stateID.m_Height << '\n'
+                             << "Current state ID............" << stateID.m_Hash << "\n\n"
+                             << "Available................." << PrintableAmount(getAvailable(keychain)) << '\n'
+                             << "Unconfirmed..............." << PrintableAmount(getTotal(keychain, Coin::Unconfirmed)) << '\n'
+                             << "Locked...................." << PrintableAmount(getTotal(keychain, Coin::Locked)) << '\n'
+                             << "Available coinbase ......." << PrintableAmount(getAvailableByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
+                             << "Total coinbasde..........." << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
+                             << "Avaliable fee............." << PrintableAmount(getAvailableByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
+                             << "Total fee................." << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
+                             << "Total unspent............." << PrintableAmount(getTotal(keychain, Coin::Unspent)) << "\n\n"
+                             //<< "Total spent..............." << PrintableAmount(getTotal(keychain, Coin::Spent)) << "\n\n"
+                             << "| id\t| amount(Beam)\t| amount(c)\t| height\t| maturity\t| status \t| key type\t|\n";
                         keychain->visit([](const Coin& c)->bool
                         {
                             cout << setw(8) << c.m_id

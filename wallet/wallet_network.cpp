@@ -310,7 +310,7 @@ namespace beam {
     {
         LOG_INFO() << "Wallet connected to node";
         m_connecting = false;
-        proto::Config msgCfg = {0};
+        proto::Config msgCfg = {};
 		msgCfg.m_AutoSendHdr = true;
 		Send(msgCfg);
 
