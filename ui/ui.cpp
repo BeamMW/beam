@@ -14,12 +14,15 @@ int main (int argc, char* argv[])
 
 	DataObject data;
 
-	QQuickView view(QUrl::fromLocalFile("qml/hw.qml"));
+	QQuickView view;
 	view.setResizeMode(QQuickView::SizeRootObjectToView);
 
 	QQmlContext *ctxt = view.rootContext();
 	ctxt->setContextProperty("model", &data);
 
+	ctxt->setContextProperty("listModel", QVariant::fromValue(data.tx()));
+
+	view.setSource(QUrl::fromLocalFile("qml/hw.qml"));
 	view.show();
 
     return app.exec();

@@ -37,79 +37,13 @@ Rectangle {
         }
     }
 
-    ListModel {
-        id: sourceModel
-
-        ListElement
-        {
-            date:       "12 June 2018 | 3:46 PM"
-            user:       "super_user"
-            comment:    "Beam is super cool, bla bla bla..."
-            amount:     "+0.63736 BEAM"
-            amountUsd:  "726.4 USD"
-            status:     "unspent"
-        }
-
-        ListElement
-        {
-            date:       "12 June 2018 | 3:46 PM"
-            user:       "super_user"
-            comment:    "Beam is super cool, bla bla bla..."
-            amount:     "+0.63736 BEAM"
-            amountUsd:  "726.4 USD"
-            status:     "unspent"
-        }
-
-        ListElement
-        {
-            date:       "12 June 2018 | 3:46 PM"
-            user:       "super_user"
-            comment:    "Beam is super cool, bla bla bla..."
-            amount:     "+0.63736 BEAM"
-            amountUsd:  "726.4 USD"
-            status:     "unspent"
-        }
-
-        ListElement
-        {
-            date:       "12 June 2018 | 3:46 PM"
-            user:       "super_user"
-            comment:    "Beam is super cool, bla bla bla..."
-            amount:     "+0.63736 BEAM"
-            amountUsd:  "726.4 USD"
-            status:     "unspent"
-        }
-
-        ListElement
-        {
-            date:       "12 June 2018 | 3:46 PM"
-            user:       "super_user"
-            comment:    "Beam is super cool, bla bla bla..."
-            amount:     "+0.63736 BEAM"
-            amountUsd:  "726.4 USD"
-            status:     "unspent"
-        }
-
-        ListElement
-        {
-            date:       "12 June 2018 | 3:46 PM"
-            user:       "super_user"
-            comment:    "Beam is super cool, bla bla bla..."
-            amount:     "+0.63736 BEAM"
-            amountUsd:  "726.4 USD"
-            status:     "unspent"
-        }
-
-    }
-
     TableView {
         id: tableView
+        height: 202
+        anchors.right: parent.right
+        anchors.left: parent.left
+        anchors.top: parent.top
         anchors.topMargin: 75
-        anchors.fill: parent
-
-        frameVisible: false
-        sortIndicatorVisible: true
-
 
         TableViewColumn {
             id: dateColumn
@@ -153,8 +87,24 @@ Rectangle {
             movable: false
         }
 
-        model: sourceModel
+        model: listModel
 
     }
 
+    ListView {
+        id: listView
+        anchors.topMargin: 283
+        anchors.fill: parent
+        delegate: Item {
+            height: 20
+            Row {
+                Text {
+                    text: user
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                spacing: 10
+            }
+        }
+        model: listModel
+    }
 }
