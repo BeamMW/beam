@@ -118,7 +118,7 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
 { \
 	try { \
 		/* checkpoint */ \
-		OnMsg(std::move(v)); \
+        return OnMsg2(std::move(v)); \
 	} catch (...) { \
 		OnClosed(-1); \
 		return false; \

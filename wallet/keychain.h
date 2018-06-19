@@ -4,7 +4,6 @@
 #include "core/ecc_native.h"
 
 struct sqlite3;
-struct Nonce;
 
 namespace beam
 {
@@ -73,7 +72,7 @@ namespace beam
         static Ptr open(const std::string& password);
         static const char* getName();
 
-        Keychain(const std::string& pass, const ECC::NoLeak<ECC::uintBig>& secretKey );
+        Keychain(const ECC::NoLeak<ECC::uintBig>& secretKey );
         ~Keychain();
 
         ECC::Scalar::Native calcKey(const beam::Coin& coin) const override;
@@ -92,9 +91,10 @@ namespace beam
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override;
     private:
+        void storeImpl(Coin& coin);
+    private:
 
         sqlite3* _db;
-        std::shared_ptr<Nonce> _nonce;
         ECC::Kdf m_kdf;
     };
 }

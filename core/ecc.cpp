@@ -389,46 +389,13 @@ namespace ECC {
 
 	Point::Native& Point::Native::operator = (Mul v)
 	{
-		assert(Mode::Fast == g_Mode);
+		MultiMac::Casual mc;
+		mc.Init(v.x, v.y);
 
-		const int nBits = 4;
-		const int nValuesPerLayer = (1 << nBits) - 1; // skip zero
-
-		Point::Native pPt[nValuesPerLayer];
-		pPt[0] = v.x;
-		int nPrepared = 1;
-
-		const secp256k1_scalar& k = v.y.get(); // alias
-
-		const int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
-		static_assert(!(nBitsPerWord % nBits), "");
-		const int nLayersPerWord = nBitsPerWord / nBits;
-
-		*this = Zero;
-
-		for (int iWord = _countof(k.d); iWord--; )
-		{
-			const Scalar::Native::uint n = k.d[iWord];
-
-			for (int iLayer = nLayersPerWord; iLayer--; )
-			{
-				if (!(*this == Zero))
-					for (int i = 0; i < nBits; i++)
-						*this = *this * Two;
-
-				int nVal = (n >> (iLayer * nBits)) & nValuesPerLayer;
-				if (nVal--)
-				{
-					for (; nPrepared <= nVal; nPrepared++)
-						if (nPrepared & (nPrepared + 1))
-							pPt[nPrepared] = pPt[nPrepared - 1] + pPt[0];
-						else
-							pPt[nPrepared] = pPt[nPrepared >> 1] * Two;
-
-					*this += pPt[nVal];
-				}
-			}
-		}
+		MultiMac mm;
+		mm.m_pCasual = &mc;
+		mm.m_Casual = 1;
+		mm.Calculate(*this);
 
 		return *this;
 	}
@@ -692,6 +659,217 @@ namespace ECC {
 	} // namespace Generator
 
 	/////////////////////
+	// MultiMac
+	void MultiMac::Prepared::Initialize(const char* szSeed)
+	{
+		Point::Native val;
+
+		for (uint32_t nCounter = 0; ; nCounter++)
+		{
+			Hash::Processor hp;
+			Generator::InitSeedIteration(hp, szSeed, nCounter);
+
+			if (Generator::CreatePointNnz(val, hp))
+			{
+				Initialize(val, hp);
+				break;
+			}
+
+		}
+	}
+
+	void MultiMac::Prepared::Initialize(Point::Native& val, Hash::Processor& hp)
+	{
+		Generator::FromPt(m_Fast.m_pPt[0], val);
+		Point::Native npos, nums = val;
+
+		for (int i = 1; i < _countof(m_Fast.m_pPt); i++)
+		{
+			if (i & (i + 1))
+				npos += val;
+			else
+			{
+				nums = nums * Two;
+				npos = nums;
+			}
+			Generator::FromPt(m_Fast.m_pPt[i], npos);
+		}
+
+		while (true)
+		{
+			Hash::Value hv;
+			hp << "nums" >> hv;
+
+			if (!Generator::CreatePointNnz(nums, hp))
+				continue;
+
+			hp << "blind-scalar";
+			Scalar s0;
+			hp >> s0.m_Value;
+			if (m_Secure.m_Scalar.Import(s0))
+				continue;
+
+			npos = nums;
+			bool bOk = true;
+
+			for (int i = 0; ; )
+			{
+				if (npos == Zero)
+					bOk = false;
+				Generator::FromPt(m_Secure.m_pPt[i], npos);
+
+				if (++i == _countof(m_Secure.m_pPt))
+					break;
+
+				npos += val;
+			}
+
+			assert(Mode::Fast == g_Mode);
+			MultiMac mm;
+
+			const Prepared* ppPrep[] = { this };
+			mm.m_ppPrepared = ppPrep;
+			mm.m_pKPrep = &m_Secure.m_Scalar;
+			mm.m_Prepared = 1;
+
+			mm.Calculate(npos);
+
+			npos += nums;
+			for (int i = ECC::nBits / Secure::nBits; --i; )
+			{
+				for (int j = Secure::nBits; j--; )
+					nums = nums * Two;
+				npos += nums;
+			}
+
+			if (npos == Zero)
+				bOk = false;
+
+			if (bOk)
+			{
+				npos = -npos;
+				Generator::FromPt(m_Secure.m_Compensation, npos);
+				break;
+			}
+		}
+	}
+
+	void MultiMac::Casual::Init(const Point::Native& p)
+	{
+		m_nPrepared = 1;
+		m_pPt[0] = p;
+	}
+
+	void MultiMac::Casual::Init(const Point::Native& p, const Scalar::Native& k)
+	{
+		Init(p);
+		m_K = k;
+	}
+
+	void MultiMac::Reset()
+	{
+		m_Casual = 0;
+		m_Prepared = 0;
+	}
+
+	void MultiMac::Calculate(Point::Native& res) const
+	{
+		assert(!m_Casual || (Mode::Fast == g_Mode));
+
+		const int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
+
+		static_assert(Casual::nBits <= Prepared::Fast::nBits, "");
+		static_assert(Casual::nBits <= Prepared::Secure::nBits, "");
+		static_assert(!(nBitsPerWord % Casual::nBits), "");
+		static_assert(!(nBitsPerWord % Prepared::Fast::nBits), "");
+		static_assert(!(nBitsPerWord % Prepared::Secure::nBits), "");
+
+		res = Zero;
+
+		NoLeak<secp256k1_ge> ge;
+		NoLeak<CompactPoint> ge_s;
+
+		if (Mode::Secure == g_Mode)
+			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+				m_pKPrep[iEntry] += m_ppPrepared[iEntry]->m_Secure.m_Scalar;
+
+		for (int iWord = _countof(Scalar::Native().get().d); iWord--; )
+		{
+			for (int iLayer = nBitsPerWord / Casual::nBits; iLayer--; )
+			{
+				if (!(res == Zero))
+					for (int i = 0; i < Casual::nBits; i++)
+						res = res * Two;
+
+				for (int iEntry = 0; iEntry < m_Casual; iEntry++)
+				{
+					Casual& x = m_pCasual[iEntry];
+					const Scalar::Native::uint n = x.m_K.get().d[iWord];
+
+					int nVal = (n >> (iLayer * Casual::nBits)) & _countof(x.m_pPt);
+					if (nVal--)
+					{
+						for (; x.m_nPrepared <= nVal; x.m_nPrepared++)
+							if (x.m_nPrepared & (x.m_nPrepared + 1))
+								x.m_pPt[x.m_nPrepared] = x.m_pPt[x.m_nPrepared - 1] + x.m_pPt[0];
+							else
+								x.m_pPt[x.m_nPrepared] = x.m_pPt[x.m_nPrepared >> 1] * Two;
+
+						res += x.m_pPt[nVal];
+					}
+				}
+
+				if (Mode::Fast == g_Mode)
+				{
+					if (iLayer & (Prepared::Fast::nBits / Casual::nBits - 1))
+						continue;
+
+					int iLayerPrep = iLayer / (Prepared::Fast::nBits / Casual::nBits);
+
+					for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+					{
+						const Prepared::Fast& x = m_ppPrepared[iEntry]->m_Fast;
+						const Scalar::Native::uint n = m_pKPrep[iEntry].get().d[iWord];
+
+						int nVal = (n >> (iLayerPrep * Prepared::Fast::nBits)) & ((1 << Prepared::Fast::nBits) - 1);
+						if (nVal--)
+							Generator::ToPt(res, ge.V, x.m_pPt[nVal], false);
+					}
+				}
+				else
+				{
+					if (iLayer & (Prepared::Secure::nBits / Casual::nBits - 1))
+						continue;
+
+					int iLayerPrep = iLayer / (Prepared::Secure::nBits / Casual::nBits);
+
+					for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+					{
+						const Prepared::Secure& x = m_ppPrepared[iEntry]->m_Secure;
+						const Scalar::Native::uint n = m_pKPrep[iEntry].get().d[iWord];
+
+						int nVal = (n >> (iLayerPrep * Prepared::Secure::nBits)) & ((1 << Prepared::Secure::nBits) - 1);
+
+						for (int i = 0; i < _countof(x.m_pPt); i++)
+							Generator::object_cmov(ge_s.V, x.m_pPt[i], i == nVal);
+
+						Generator::ToPt(res, ge.V, ge_s.V, false);
+					}
+				}
+			}
+		}
+
+		if (Mode::Secure == g_Mode)
+			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+			{
+				const Prepared::Secure& x = m_ppPrepared[iEntry]->m_Secure;
+
+				secp256k1_ge ge;
+				Generator::ToPt(res, ge, x.m_Compensation, false);
+			}
+	}
+
+	/////////////////////
 	// Context
 	uint64_t g_pContextBuf[(sizeof(Context) + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
 
@@ -709,15 +887,16 @@ namespace ECC {
 	{
 		Context& ctx = *(Context*) g_pContextBuf;
 
+		Mode::Scope scope(Mode::Fast);
+
 		ctx.G.Initialize("G-gen");
 		ctx.H.Initialize("H-gen");
 		ctx.H_Big.Initialize("H-gen");
 
-		Scalar::Native one, minus_one;
-		one = 1U;
-		minus_one = -one;
-
 		Point::Native pt, ptAux2(Zero);
+
+		ctx.m_Ipp.G_.Initialize("G-gen");
+		ctx.m_Ipp.H_.Initialize("H-gen");
 
 #define STR_GEN_PREFIX "ip-"
 		char szStr[0x20] = STR_GEN_PREFIX;
@@ -731,21 +910,26 @@ namespace ECC {
 			for (uint32_t j = 0; j < 2; j++)
 			{
 				szStr[_countof(STR_GEN_PREFIX) + 1] = '0' + j;
-				ctx.m_Ipp.m_pGen[j][i].Initialize(szStr);
+				ctx.m_Ipp.m_pGen_[j][i].Initialize(szStr);
+
+				secp256k1_ge ge;
+
+				if (1 == j)
+				{
+					Generator::ToPt(pt, ge, ctx.m_Ipp.m_pGen_[j][i].m_Fast.m_pPt[0], true);
+					pt = -pt;
+					Generator::FromPt(ctx.m_Ipp.m_pGet1_Minus[i], pt);
+				} else
+					Generator::ToPt(ptAux2, ge, ctx.m_Ipp.m_pGen_[j][i].m_Fast.m_pPt[0], false);
 			}
-
-			pt = ctx.m_Ipp.m_pGen[1][i] * minus_one;
-			Generator::FromPt(ctx.m_Ipp.m_pAux1[0][i], pt);
-
-			pt = ctx.m_Ipp.m_pGen[0][i] * one;
-			Generator::FromPt(ctx.m_Ipp.m_pAux1[1][i], pt);
-
-			ptAux2 += pt;
 		}
 
-		Generator::FromPt(ctx.m_Ipp.m_Aux2, ptAux2);
+		ptAux2 = -ptAux2;
+		Hash::Processor hp;
+		hp << "aux2";
+		ctx.m_Ipp.m_Aux2_.Initialize(ptAux2, hp);
 
-		ctx.m_Ipp.m_GenDot.Initialize("ip-dot");
+		ctx.m_Ipp.m_GenDot_.Initialize("ip-dot");
 
 #ifndef NDEBUG
 		g_bContextInitialized = true;
@@ -956,19 +1140,76 @@ namespace ECC {
 			Scalar::Native m_Val[nCycles][2];
 		};
 
-		struct State {
-			Point::Native* m_pGen[2];
-			Scalar::Native* m_pVal[2];
+		struct ModifierExpanded
+		{
+			Scalar::Native m_pPwr[2][nDim];
+			bool m_pUse[2];
 
-			void CalcCrossTerm(uint32_t n, const ChallengeSet&, Point::Native* pLR) const;
-			void PerformCycle0(const State& src, const ChallengeSet&, Point::Native* pLR, const Modifier&);
-			void PerformCycle(uint32_t iCycle, const ChallengeSet&, Point::Native* pLR);
+			void Init(const Modifier& mod)
+			{
+				for (int j = 0; j < _countof(mod.m_pMultiplier); j++)
+				{
+					m_pUse[j] = (NULL != mod.m_pMultiplier[j]);
+					if (m_pUse[j])
+					{
+						m_pPwr[j][0] = 1U;
+						for (int i = 1; i < nDim; i++)
+							m_pPwr[j][i] = m_pPwr[j][i - 1] * *(mod.m_pMultiplier[j]);
+					}
+				}
+			}
+
+			void Set(Scalar::Native& dst, const Scalar::Native& src, int i, int j) const
+			{
+				if (m_pUse[j])
+					dst = src * m_pPwr[j][i];
+				else
+					dst = src;
+			}
 		};
 
 		static void get_Challenge(Scalar::Native* pX, Oracle&);
-		static void Mac(Point::Native&, const Generator::Obscured& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc);
 
-		static void Aggregate(Point::Native& res, const ChallengeSet&, const Scalar::Native&, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul);
+		struct Aggregator
+		{
+			MultiMac& m_Mm;
+			const ChallengeSet& m_cs;
+			const ModifierExpanded& m_Mod;
+			const Calculator* m_pCalc; // set if source are already condensed points
+			const int m_j;
+			const int m_iCycleTrg;
+
+			Aggregator(MultiMac& mm, const ChallengeSet& cs, const ModifierExpanded& mod, int j, int iCycleTrg)
+				:m_Mm(mm)
+				,m_cs(cs)
+				,m_Mod(mod)
+				,m_pCalc(NULL)
+				,m_j(j)
+				,m_iCycleTrg(iCycleTrg)
+			{
+			}
+
+			void Proceed(uint32_t iPos, int iCycle, const Scalar::Native& k);
+		};
+
+		static const uint32_t s_iCycle0 = 2; // condense source generators into points (after 3 iterations, 8 points)
+
+		Point::Native m_pGen[2][nDim >> (1 + s_iCycle0)];
+		Scalar::Native m_pVal[2][nDim >> 1];
+
+		const Scalar::Native* m_ppSrc[2];
+
+		ModifierExpanded m_Mod;
+		ChallengeSet m_Cs;
+
+		MultiMac_WithBufs<(nDim >> (s_iCycle0 + 1)), nDim * 2> m_Mm;
+
+		uint32_t m_iCycle;
+		uint32_t m_n;
+		uint32_t m_GenOrder;
+
+		void Condense();
+		void ExtractLR(int j);
 	};
 
 
@@ -981,130 +1222,116 @@ namespace ECC {
 		pX[1].SetInv(pX[0]);
 	}
 
-	void InnerProduct::Calculator::Mac(Point::Native& res, const Generator::Obscured& g, const Scalar::Native& k, const Scalar::Native* pPwrMul, Scalar::Native& pwr, bool bPwrInc)
+	void InnerProduct::Calculator::Condense()
 	{
-		if (pPwrMul)
-		{
-			Scalar::Native k2(k);
-			k2 *= pwr;
-
-			if (bPwrInc)
-				pwr *= *pPwrMul;
-
-			Mac(res, g, k2, NULL, pwr, bPwrInc);
-		}
-		else
-			res += g * k;
-	}
-
-	void InnerProduct::Calculator::State::CalcCrossTerm(uint32_t n, const ChallengeSet& cs, Point::Native* pLR) const
-	{
-		Scalar::Native crossTrm;
+		// Vectors
 		for (int j = 0; j < 2; j++)
-		{
-			crossTrm = Zero;
-
-			for (uint32_t i = 0; i < n; i++)
-				crossTrm += m_pVal[j][i] * m_pVal[!j][n + i];
-
-			crossTrm *= cs.m_DotMultiplier;
-
-			pLR[j] = Context::get().m_Ipp.m_GenDot * crossTrm;
-		}
-	}
-
-	void InnerProduct::Calculator::State::PerformCycle0(const State& src, const ChallengeSet& cs, Point::Native* pLR, const Modifier& mod)
-	{
-		const uint32_t n = nDim >> 1;
-		static_assert(n, "");
-
-		src.CalcCrossTerm(n, cs, pLR);
-
-		Scalar::Native pwr0, pwr1;
-
-		for (int j = 0; j < 2; j++)
-		{
-			if (mod.m_pMultiplier[j])
+			for (uint32_t i = 0; i < m_n; i++)
 			{
-				pwr0 = 1U;
-				pwr1 = *mod.m_pMultiplier[j];
-
-				for (uint32_t i = 1; i < n; i++)
-					pwr1 *= *mod.m_pMultiplier[j];
+				// dst and src need not to be distinct
+				m_pVal[j][i] = m_ppSrc[j][i] * m_Cs.m_Val[m_iCycle][j];
+				m_pVal[j][i] += m_ppSrc[j][m_n + i] * m_Cs.m_Val[m_iCycle][!j];
 			}
 
-			for (uint32_t i = 0; i < n; i++)
-			{
-				const Generator::Obscured& g0 = Context::get().m_Ipp.m_pGen[j][i];
-				const Generator::Obscured& g1 = Context::get().m_Ipp.m_pGen[j][n + i];
+		// Points
+		switch (m_iCycle)
+		{
+		case s_iCycle0:
+			// further compression points (casual)
+			// Currently according to benchmarks - not necessary
+			break;
 
-				const Scalar::Native& v0 = src.m_pVal[j][i];
-				const Scalar::Native& v1 = src.m_pVal[j][n + i];
-
-				Mac(pLR[j], g1, v0, mod.m_pMultiplier[j], pwr1, false);
-				Mac(pLR[!j], g0, v1, mod.m_pMultiplier[j], pwr0, false);
-
-				m_pVal[j][i] = v0 * cs.m_Val[0][j];
-				m_pVal[j][i] += v1 * cs.m_Val[0][!j];
-
-				m_pGen[j][i] = Zero;
-				Mac(m_pGen[j][i], g0, cs.m_Val[0][!j], mod.m_pMultiplier[j], pwr0, true);
-				Mac(m_pGen[j][i], g1, cs.m_Val[0][j], mod.m_pMultiplier[j], pwr1, true);
-			}
+		case nCycles - 1: // last iteration - no need to condense points
+		default:
+			return;
 		}
-	}
-
-	void InnerProduct::Calculator::State::PerformCycle(uint32_t iCycle, const ChallengeSet& cs, Point::Native* pLR)
-	{
-		uint32_t n = nDim >> (iCycle + 1);
-		assert(n);
-
-		CalcCrossTerm(n, cs, pLR);
 
 		for (int j = 0; j < 2; j++)
-		{
-			for (uint32_t i = 0; i < n; i++)
+			for (uint32_t i = 0; i < m_n; i++)
 			{
-				// inplace modification
+				m_Mm.Reset();
+
 				Point::Native& g0 = m_pGen[j][i];
-				Point::Native& g1 = m_pGen[j][n + i];
 
-				Scalar::Native& v0 = m_pVal[j][i];
-				Scalar::Native& v1 = m_pVal[j][n + i];
+				Aggregator aggr(m_Mm, m_Cs, m_Mod, j, nCycles - m_iCycle - 1);
 
-				pLR[j] += g1 * v0;
-				pLR[!j] += g0 * v1;
+				if (m_iCycle > s_iCycle0)
+					aggr.m_pCalc = this;
 
-				v0 *= cs.m_Val[iCycle][j];
-				v0 += v1 * cs.m_Val[iCycle][!j];
+				aggr.Proceed(i, m_GenOrder, 1U);
 
-				g0 = g0 * cs.m_Val[iCycle][!j];
-				g0 += g1 * cs.m_Val[iCycle][j];
+				m_Mm.Calculate(g0);
+			}
+
+		m_GenOrder = nCycles - m_iCycle - 1;
+	}
+
+	void InnerProduct::Calculator::ExtractLR(int j)
+	{
+		m_Mm.Reset();
+
+		// Cross-term
+		Scalar::Native& crossTrm = m_Mm.m_pKPrep[m_Mm.m_Prepared];
+		m_Mm.m_ppPrepared[m_Mm.m_Prepared++] = &Context::get().m_Ipp.m_GenDot_;
+
+		crossTrm = Zero;
+
+		for (uint32_t i = 0; i < m_n; i++)
+			crossTrm += m_ppSrc[j][i] * m_ppSrc[!j][m_n + i];
+
+		crossTrm *= m_Cs.m_DotMultiplier;
+
+		// other
+		for (int jSrc = 0; jSrc < 2; jSrc++)
+		{
+			uint32_t off0 = (jSrc == j) ? 0 : m_n;
+			uint32_t off1 = (jSrc == j) ? m_n : 0;
+
+			for (uint32_t i = 0; i < m_n; i++)
+			{
+				const Scalar::Native& v = m_ppSrc[jSrc][i + off0];
+
+				Aggregator aggr(m_Mm, m_Cs, m_Mod, jSrc, nCycles - m_iCycle);
+
+				if (m_iCycle > s_iCycle0)
+					aggr.m_pCalc = this;
+
+				aggr.Proceed(i + off1, m_GenOrder, v);
 			}
 		}
 	}
 
-	void InnerProduct::Calculator::Aggregate(Point::Native& res, const ChallengeSet& cs, const Scalar::Native& k, int j, uint32_t iPos, uint32_t iCycle, Scalar::Native& pwr, const Scalar::Native* pPwrMul)
+	void InnerProduct::Calculator::Aggregator::Proceed(uint32_t iPos, int iCycle, const Scalar::Native& k)
 	{
-		if (iCycle)
+		if (iCycle != m_iCycleTrg)
 		{
 			assert(iCycle <= nCycles);
 			Scalar::Native k0 = k;
-			k0 *= cs.m_Val[nCycles - iCycle][!j];
+			k0 *= m_cs.m_Val[nCycles - iCycle][!m_j];
 
-			Aggregate(res, cs, k0, j, iPos, iCycle - 1, pwr, pPwrMul);
+			Proceed(iPos, iCycle - 1, k0);
 
 			k0 = k;
-			k0 *= cs.m_Val[nCycles - iCycle][j];
+			k0 *= m_cs.m_Val[nCycles - iCycle][m_j];
 
 			uint32_t nStep = 1 << (iCycle - 1);
 
-			Aggregate(res, cs, k0, j, iPos + nStep, iCycle - 1, pwr, pPwrMul);
+			Proceed(iPos + nStep, iCycle - 1, k0);
 
 		} else
 		{
-			assert(iPos < nDim);
-			Mac(res, Context::get().m_Ipp.m_pGen[j][iPos], k, pPwrMul, pwr, true);
+			if (m_pCalc)
+			{
+				assert(iPos < _countof(m_pCalc->m_pGen[m_j]));
+				m_Mm.m_pCasual[m_Mm.m_Casual++].Init(m_pCalc->m_pGen[m_j][iPos], k);
+			}
+			else
+			{
+				assert(iPos < nDim);
+
+				m_Mod.Set(m_Mm.m_pKPrep[m_Mm.m_Prepared], k, iPos, m_j);
+				m_Mm.m_ppPrepared[m_Mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[m_j][iPos];
+			}
 		}
 	}
 
@@ -1124,81 +1351,73 @@ namespace ECC {
 		}
 	}
 
-	void InnerProduct::Create(const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
+	void InnerProduct::Create(ECC::Point::Native& commAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		// bufs
-		const uint32_t nBufDim = nDim >> 1;
-		Point::Native pBufGen[2][nBufDim];
-		Scalar::Native pBufVal[2][nBufDim];
-
-		Calculator::State s0, s1;
-		s0.m_pVal[0] = (Scalar::Native*) pA;
-		s0.m_pVal[1] = (Scalar::Native*) pB;
-
-		for (int i = 0; i < 2; i++)
-		{
-			s1.m_pGen[i] = pBufGen[i];
-			s1.m_pVal[i] = pBufVal[i];
-		}
-
-		Point::Native comm(Zero);
-
+		Calculator c;
+		c.m_Mod.Init(mod);
+		c.m_GenOrder = nCycles;
+		c.m_ppSrc[0] = pA;
+		c.m_ppSrc[1] = pB;
 
 		for (int j = 0; j < 2; j++)
-		{
-			Scalar::Native pwr0(1U);
-			for (uint32_t i = 0; i < nDim; i++)
-				Calculator::Mac(comm, Context::get().m_Ipp.m_pGen[j][i], s0.m_pVal[j][i], mod.m_pMultiplier[j], pwr0, true);
-		}
+			for (uint32_t i = 0; i < nDim; i++, c.m_Mm.m_Prepared++)
+			{
+				c.m_Mm.m_ppPrepared[c.m_Mm.m_Prepared] = &Context::get().m_Ipp.m_pGen_[j][i];
+				c.m_Mod.Set(c.m_Mm.m_pKPrep[c.m_Mm.m_Prepared], c.m_ppSrc[j][i], i, j);
+			}
 
-		m_AB = comm;
+		Point::Native comm;
+		c.m_Mm.Calculate(commAB);
 
 		Oracle oracle;
-		oracle << m_AB;
+		oracle << commAB << dotAB >> c.m_Cs.m_DotMultiplier;
 
-		Calculator::ChallengeSet cs;
-		oracle >> cs.m_DotMultiplier;
-
-		Point::Native pLR[2];
-
-		uint32_t n = nDim;
-		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
+		for (c.m_iCycle = 0; c.m_iCycle < nCycles; c.m_iCycle++)
 		{
-			Calculator::get_Challenge(cs.m_Val[iCycle], oracle);
+			c.m_n = nDim >> (c.m_iCycle + 1);
 
-			if (iCycle)
-				s1.PerformCycle(iCycle, cs, pLR);
-			else
-				s1.PerformCycle0(s0, cs, pLR, mod);
+			Calculator::get_Challenge(c.m_Cs.m_Val[c.m_iCycle], oracle);
 
 			for (int j = 0; j < 2; j++)
 			{
-				m_pLR[iCycle][j] = pLR[j];
-				oracle << m_pLR[iCycle][j];
+				c.ExtractLR(j);
+
+				c.m_Mm.Calculate(comm);
+				m_pLR[c.m_iCycle][j] = comm;
+				oracle << m_pLR[c.m_iCycle][j];
 			}
+
+			c.Condense();
+
+			if (!c.m_iCycle)
+				for (int j = 0; j < 2; j++)
+					c.m_ppSrc[j] = c.m_pVal[j];
 		}
 
-		assert(1 == n);
-
 		for (int i = 0; i < 2; i++)
-			m_pCondensed[i] = s1.m_pVal[i][0];
+			m_pCondensed[i] = c.m_pVal[i][0];
 	}
 
-	bool InnerProduct::IsValid(const Scalar::Native& dot, const Modifier& mod) const
+	bool InnerProduct::IsValid(const ECC::Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& mod) const
 	{
 		Mode::Scope scope(Mode::Fast);
 
 		Oracle oracle;
-		oracle << m_AB;
-
 		Calculator::ChallengeSet cs;
-		oracle >> cs.m_DotMultiplier;
 
-		Point::Native comm = m_AB;
-		Point::Native ptTmp;
-		Scalar::Native valTmp;
+		oracle << commAB << dotAB >> cs.m_DotMultiplier;
+
+		// Calculate the aggregated sum, consisting of sum of multiplications at once.
+		// The expression we're calculating is:
+		//
+		// - sum( LR[iCycle][0] * k[iCycle]^2 + LR[iCycle][0] * k[iCycle]^-2 )
+
+		Calculator::ModifierExpanded modExp;
+		modExp.Init(mod);
+
+		MultiMac_WithBufs<nCycles * 2, nDim * 2 + 1> mm;
 
 		uint32_t n = nDim;
 		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
@@ -1206,13 +1425,14 @@ namespace ECC {
 			Calculator::get_Challenge(cs.m_Val[iCycle], oracle);
 
 			const Point* pLR = m_pLR[iCycle];
-			for (int i = 0; i < 2; i++)
+			for (int j = 0; j < 2; j++)
 			{
-				valTmp = cs.m_Val[iCycle][i];
-				valTmp *= valTmp;
+				MultiMac::Casual& x = mm.m_pCasual[mm.m_Casual++];
+				x.Init(pLR[j]);
 
-				ptTmp = pLR[i];
-				comm += ptTmp * valTmp;
+				x.m_K = cs.m_Val[iCycle][j];
+				x.m_K *= x.m_K;
+				x.m_K = -x.m_K;
 			}
 
 			oracle << pLR[0] << pLR[1];
@@ -1220,40 +1440,57 @@ namespace ECC {
 
 		assert(1 == n);
 
-		// finally verify commitment
-		comm = -comm;
+		// The expression we're calculating is: the transformed generator
+		//
+		// sum( G_Condensed[j] * pCondensed[j] )
+		// whereas G_Condensed[j] = Gen[j] * sum (k[iCycle]^(+/-)2 ), i.e. transformed (condensed) generators
 
 		for (int j = 0; j < 2; j++)
 		{
-			// calculate the transformed generator
-			valTmp = m_pCondensed[j];
-			ptTmp = Zero;
-
-			Scalar::Native pwr(1U);
-
-			Calculator::Aggregate(ptTmp, cs, valTmp, j, 0, nCycles, pwr, mod.m_pMultiplier[j]);
-			comm += ptTmp;
+			Calculator::Aggregator aggr(mm, cs, modExp, j, 0);
+			aggr.Proceed(0, nCycles, m_pCondensed[j]);
 		}
 
 		// add the new (mutated) dot product, substract the original (claimed)
-		valTmp = m_pCondensed[0];
-		valTmp *= m_pCondensed[1];
-		valTmp += -dot;
+		mm.m_pKPrep[mm.m_Prepared] = m_pCondensed[0];
+		mm.m_pKPrep[mm.m_Prepared] *= m_pCondensed[1];
+		mm.m_pKPrep[mm.m_Prepared] += -dotAB;
+		mm.m_pKPrep[mm.m_Prepared] *= cs.m_DotMultiplier;
 
-		valTmp *= cs.m_DotMultiplier;
+		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_GenDot_;
 
-		comm += Context::get().m_Ipp.m_GenDot * valTmp;
+		// Calculate all at-once
+		Point::Native res;
+		mm.Calculate(res);
 
-		return comm == Zero;
+		// verify. Should be equal to AB
+		res = -res;
+		res += commAB;
+
+		return res == Zero;
 	}
 
+	struct NonceGenerator
+	{
+		NoLeak<Oracle> m_Oracle;
+		NoLeak<Scalar> m_sk;
+
+		void operator >> (Scalar::Native& k)
+		{
+			NoLeak<Hash::Value> hv;
+			m_Oracle.V >> hv.V;
+
+			k.GenerateNonce(m_sk.V.m_Value, hv.V, NULL);
+		}
+	};
 
 	/////////////////////
 	// Bulletproof
 	void RangeProof::Confidential::Create(const Scalar::Native& sk, Amount v, Oracle& oracle)
 	{
-		Oracle nonceGen;
-		nonceGen << sk << v; // init
+		NonceGenerator nonceGen;
+		nonceGen.m_sk.V = sk;
+		nonceGen.m_Oracle.V << v;
 
 		// A = G*alpha + vec(aL)*vec(G) + vec(aR)*vec(H)
 		Scalar::Native alpha;
@@ -1262,8 +1499,6 @@ namespace ECC {
 		Point::Native comm = Context::get().G * alpha;
 
 		{
-			Point::Native ptVal(Zero);
-
 			NoLeak<secp256k1_ge> ge;
 			NoLeak<CompactPoint> ge_s;
 
@@ -1271,13 +1506,12 @@ namespace ECC {
 			{
 				uint32_t iBit = 1 & (v >> i);
 
-				for (uint32_t j = 0; j < 2; j++)
-					Generator::object_cmov(ge_s.V, Context::get().m_Ipp.m_pAux1[iBit][i], j == iBit); // protection against side-channel attacks
+				// protection against side-channel attacks
+				Generator::object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet1_Minus[i], 0 == iBit);
+				Generator::object_cmov(ge_s.V, Context::get().m_Ipp.m_pGen_[0][i].m_Fast.m_pPt[0], 1 == iBit);
 
 				Generator::ToPt(comm, ge.V, ge_s.V, false);
 			}
-			ptVal = -ptVal;
-			comm += ptVal;
 		}
 
 		m_A = comm;
@@ -1286,7 +1520,10 @@ namespace ECC {
 		// S = G*ro + vec(sL)*vec(G) + vec(sR)*vec(H)
 		Scalar::Native ro;
 		nonceGen >> ro;
-		comm = Context::get().G * ro;
+
+		MultiMac_WithBufs<1, InnerProduct::nDim * 2 + 1> mm;
+		mm.m_pKPrep[mm.m_Prepared] = ro;
+		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.G_;
 
 		Scalar::Native pS[2][InnerProduct::nDim];
 
@@ -1294,8 +1531,12 @@ namespace ECC {
 			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 			{
 				nonceGen >> pS[j][i];
-				comm += Context::get().m_Ipp.m_pGen[j][i] * pS[j][i];
+
+				mm.m_pKPrep[mm.m_Prepared] = pS[j][i];
+				mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][i];
 			}
+
+		mm.Calculate(comm);
 
 		m_S = comm;
 		oracle << m_S; // exposed
@@ -1435,7 +1676,7 @@ namespace ECC {
 		InnerProduct::Modifier mod;
 		mod.m_pMultiplier[1] = &yPwr;
 
-		m_P_Tag.Create(pS[0], pS[1], mod);
+		m_P_Tag.Create(comm, l0, pS[0], pS[1], mod);
 	}
 
 	bool RangeProof::Confidential::IsValid(const Point& commitment, Oracle& oracle) const
@@ -1477,39 +1718,42 @@ namespace ECC {
 		// H_Big * m_tDot + G * m_TauX =?= commitment * z^2 + H_Big * delta(y,z) + m_T1*x + m_T2*x^2
 		// H_Big * (m_tDot - delta(y,z)) + G * m_TauX =?= commitment * z^2 + m_T1*x + m_T2*x^2
 
-		Point::Native ptVal;
 
 		xx = x * x;
 
-		ptVal = Point::Native(commitment) * zz;
-		ptVal += Point::Native(m_T1) * x;
-		ptVal += Point::Native(m_T2) * xx;
+		MultiMac_WithBufs<3, InnerProduct::nDim + 2> mm;
 
-		ptVal = -ptVal;
-
-		ptVal += Context::get().G * m_TauX;
+		mm.m_pCasual[mm.m_Casual++].Init(commitment, -zz);
+		mm.m_pCasual[mm.m_Casual++].Init(m_T1, -x);
+		mm.m_pCasual[mm.m_Casual++].Init(m_T2, -xx);
 
 		tDot = m_tDot;
 		sumY = tDot;
 		sumY += -delta;
-		ptVal += Context::get().H_Big * sumY;
+
+		mm.m_pKPrep[mm.m_Prepared] = m_TauX;
+		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.G_;
+
+		mm.m_pKPrep[mm.m_Prepared] = sumY;
+		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.H_;
+
+		Point::Native ptVal;
+		mm.Calculate(ptVal);
 
 		if (!(ptVal == Zero))
 			return false;
 
+		mm.Reset();
+
 		// (P - m_Mu*G) + m_Mu*G =?= m_A + m_S*x - vec(G)*vec(z) + vec(H)*( vec(z) + vec(z^2*2^n*y^-n) )
-		ptVal = m_P_Tag.m_AB;
-		ptVal += Context::get().G * m_Mu;
+		mm.m_pKPrep[mm.m_Prepared] = z;
+		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_Aux2_;
 
-		secp256k1_ge ge;
-		Point::Native ptSum0;
-		Generator::ToPt(ptSum0, ge, Context::get().m_Ipp.m_Aux2, true);
-		ptVal += ptSum0 * z;
+		mm.m_pKPrep[mm.m_Prepared] = m_Mu;
+		mm.m_pKPrep[mm.m_Prepared] = -mm.m_pKPrep[mm.m_Prepared];
+		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.G_;
 
-		ptVal = -ptVal;
-
-		ptVal += Point::Native(m_A);
-		ptVal += Point::Native(m_S) * x;
+		mm.m_pCasual[mm.m_Casual++].Init(Point::Native(m_S), x);
 
 		Scalar::Native yInv, pwr, mul;
 		yInv.SetInv(y);
@@ -1523,18 +1767,21 @@ namespace ECC {
 			sum2 = pwr;
 			sum2 += z;
 
-			ptVal += Context::get().m_Ipp.m_pGen[1][i] * sum2;
+			mm.m_pKPrep[mm.m_Prepared] = sum2;
+			mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[1][i];
 
 			pwr *= mul;
 		}
 
-		if (!(ptVal == Zero))
-			return false;
+		mm.Calculate(ptVal);
 
+		ptVal += Point::Native(m_A);
+
+		// By now the ptVal should be equal to the commAB
 		// finally check the inner product
 		InnerProduct::Modifier mod;
 		mod.m_pMultiplier[1] = &yInv;
-		if (!m_P_Tag.IsValid(tDot, mod))
+		if (!m_P_Tag.IsValid(ptVal, tDot, mod))
 			return false;
 
 		return true;

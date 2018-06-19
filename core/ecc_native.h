@@ -1,5 +1,6 @@
 #pragma once
 #include "ecc.h"
+#include <assert.h>
 
 #define USE_BASIC_CONFIG
 
@@ -115,9 +116,13 @@ namespace ECC
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result
 	};
 
+#ifdef NDEBUG
+#	define ECC_COMPACT_GEN // init time is insignificant in release build. ~1sec in debug.
+#endif // NDEBUG
+
 #ifdef ECC_COMPACT_GEN
 
-	// Generator tables are stored in compact structs (x,y in canonical form). Memory footprint: ~8.5MB. Slightly faster (probably due to better cache)
+	// Generator tables are stored in compact structs (x,y in canonical form). Memory footprint: ~2.5MB. Slightly faster (probably due to better cache)
 	// Disadvantage: slow initialization, because needs "normalizing". For all the generators takes ~1sec in release, 4-5 seconds in debug.
 	//
 	// Currently *disabled* to prevent app startup lag.
@@ -126,7 +131,7 @@ namespace ECC
 
 #else // ECC_COMPACT_GEN
 
-	// Generator tables are stored in "jacobian" form. Memory footprint ~16.5MB. Slightly slower (probably due to increased mem)
+	// Generator tables are stored in "jacobian" form. Memory footprint ~4.7MB. Slightly slower (probably due to increased mem)
 	// Initialization is fast
 	//
 	// Currently used.
@@ -135,8 +140,81 @@ namespace ECC
 
 #endif // ECC_COMPACT_GEN
 
+	struct MultiMac
+	{
+		struct Casual
+		{
+			static const int nBits = 4;
+
+			Point::Native m_pPt[(1 << nBits) - 1]; // skip zero
+			Scalar::Native m_K;
+			int m_nPrepared;
+
+			void Init(const Point::Native&);
+			void Init(const Point::Native&, const Scalar::Native&);
+		};
+
+		struct Prepared
+		{
+			struct Fast {
+				static const int nBits = 8;
+				CompactPoint m_pPt[(1 << nBits) - 1]; // skip zero
+			} m_Fast;
+
+			struct Secure {
+				// A variant of Generator::Obscured. Much less space & init time. Slower for single multiplication, nearly equal in MultiMac.
+				static const int nBits = 4;
+				CompactPoint m_pPt[(1 << nBits)];
+				CompactPoint m_Compensation;
+				Scalar::Native m_Scalar;
+			} m_Secure;
+
+			void Initialize(const char* szSeed);
+			void Initialize(Point::Native&, Hash::Processor&);
+		};
+
+		Casual* m_pCasual;
+		const Prepared** m_ppPrepared;
+		Scalar::Native* m_pKPrep;
+
+		int m_Casual;
+		int m_Prepared;
+
+		MultiMac() { Reset(); }
+
+		void Reset();
+		void Calculate(Point::Native&) const;
+	};
+
+	template <int nMaxCasual, int nMaxPrepared>
+	struct MultiMac_WithBufs
+		:public MultiMac
+	{
+		struct Bufs {
+			Casual m_pCasual[nMaxCasual];
+			const Prepared* m_ppPrepared[nMaxPrepared];
+			Scalar::Native m_pKPrep[nMaxPrepared];
+		} m_Bufs;
+
+		MultiMac_WithBufs()
+		{
+			m_pCasual		= m_Bufs.m_pCasual;
+			m_ppPrepared	= m_Bufs.m_ppPrepared;
+			m_pKPrep		= m_Bufs.m_pKPrep;
+		}
+
+		void Calculate(Point::Native& res)
+		{
+			assert(m_Casual <= nMaxCasual);
+			assert(m_Prepared <= nMaxPrepared);
+			MultiMac::Calculate(res);
+		}
+	};
+
 	namespace Generator
 	{
+		void ToPt(Point::Native&, secp256k1_ge& ge, const CompactPoint&, bool bSet);
+
 		static const uint32_t nBitsPerLevel = 4;
 		static const uint32_t nPointsPerLevel = 1 << nBitsPerLevel; // 16
 
@@ -283,11 +361,12 @@ namespace ECC
 		struct IppCalculator
 		{
 			// generators used for inner product proof
-			Generator::Obscured m_pGen[2][InnerProduct::nDim];
-			Generator::Obscured m_GenDot; // seems that it's not necessary, can use G instead
-
-			CompactPoint m_pAux1[2][InnerProduct::nDim];
-			CompactPoint m_Aux2; // better to use generator, but nevermind
+			MultiMac::Prepared m_pGen_[2][InnerProduct::nDim];
+			CompactPoint m_pGet1_Minus[InnerProduct::nDim];
+			MultiMac::Prepared m_GenDot_; // seems that it's not necessary, can use G instead
+			MultiMac::Prepared m_Aux2_;
+			MultiMac::Prepared G_;
+			MultiMac::Prepared H_;
 
 		} m_Ipp;
 

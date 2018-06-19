@@ -6,7 +6,6 @@ set(WALLET_SRC
     sender.cpp
     receiver.cpp
     wallet_network.cpp
-    private_key.cpp
     keychain.cpp
 )
 

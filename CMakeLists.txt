@@ -67,7 +67,6 @@ add_subdirectory(utility)
 
 add_subdirectory(core)
 add_subdirectory(pow)
-add_subdirectory(pool)
 add_subdirectory(p2p)
 add_subdirectory(wallet)
 add_subdirectory(sqlite)

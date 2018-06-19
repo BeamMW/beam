@@ -72,7 +72,7 @@ Archive& save(Archive &ar, const T *beg, const T *end) {
     if ( F & yas::json ) {
         return save_chars<N, F>(ar, beg, end);
     } else {
-        ar.write_seq_size(N);
+        //ar.write_seq_size(N);
         if ( can_be_processed_as_byte_array<F, T>::value ) {
             ar.write(beg, sizeof(T) * N);
         } else {
@@ -145,8 +145,8 @@ Archive& load(Archive &ar, T *beg, T *end) {
     if ( F & yas::json ) {
         return load_chars<N, F>(ar, beg, end);
     } else {
-        const auto size = ar.read_seq_size();
-        if ( size != N ) { __YAS_THROW_BAD_ARRAY_SIZE(); }
+        //const auto size = ar.read_seq_size();
+        //if ( size != N ) { __YAS_THROW_BAD_ARRAY_SIZE(); }
         if ( can_be_processed_as_byte_array<F, T>::value ) {
             ar.read(beg, sizeof(T) * N);
         } else {
