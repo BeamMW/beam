@@ -44,9 +44,12 @@ struct Node
 		struct HistoryCompression
 		{
 			std::string m_sPathOutput;
+			std::string m_sPathTmp;
 
-			Height m_Threshold = 60 * 24; // 1 day roughly. Newer blocks should not be aggregated (not mature enough)
-			Height m_Naggling = 32; // combine up to 32 blocks in memory, before involving file system
+			Height m_Threshold = 60 * 24;		// 1 day roughly. Newer blocks should not be aggregated (not mature enough)
+			Height m_MinAggregate = 60 * 24;	// how many new blocks should produce new file
+			uint32_t m_Naggling = 32;			// combine up to 32 blocks in memory, before involving file system
+			uint32_t m_MaxBacklog = 7;
 		} m_HistoryCompression;
 
 		struct TestMode {
@@ -282,12 +285,32 @@ private:
 	{
 		void Init();
 		void OnRolledBack();
+		void Cleanup();
 		void Delete(const NodeDB::StateID&);
 		void OnNewState();
-		void FmtPath(Block::BodyBase::RW&, const NodeDB::StateID&);
+		void FmtPath(Block::BodyBase::RW&, Height, const Height* pH0);
+		void StopCurrent();
+		void AddMerged(Height);
 
-		PerThread m_Thread;
+		void OnNotify();
+		void Proceed();
+		bool ProceedInternal();
+		bool SquashOnce(std::vector<HeightRange>&);
+		bool SquashOnce(Block::BodyBase::RW&, Block::BodyBase::RW& rwSrc0, Block::BodyBase::RW& rwSrc1);
+
+		static void OnFileErr();
+
+		PerThread m_Link;
+		std::mutex m_Mutex;
+		std::condition_variable m_Cond;
+
 		volatile bool m_bStop;
+		bool m_bEnabled;
+		bool m_bSuccess;
+
+		// current data exchanged
+		HeightRange m_hrNew; // requested range. If min is non-zero - should be merged with previously-generated
+		HeightRange m_hrInplaceRequest;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Compressor)
 	} m_Compressor;
