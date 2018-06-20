@@ -158,6 +158,7 @@ namespace beam
 
 		void Create(const ECC::Scalar::Native&, Amount, bool bPublic = false);
 		bool IsValid() const;
+		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden
 
 		void operator = (const Output&);
 		int cmp(const Output&) const;

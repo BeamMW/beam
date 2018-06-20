@@ -204,6 +204,20 @@ namespace beam
 		}
 	}
 
+	void HeightAdd(Height& trg, Height val)
+	{
+		trg += val;
+		if (trg < val)
+			trg = Height(-1);
+	}
+
+	Height Output::get_MinMaturity(Height h) const
+	{
+		HeightAdd(h, m_Coinbase ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd);
+		HeightAdd(h, m_Incubation);
+		return h;
+	}
+
 	/////////////
 	// TxKernel
 	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent) const

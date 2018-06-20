@@ -677,20 +677,11 @@ struct NodeProcessor::UtxoSig
 	}
 };
 
-void HeightAdd(Height& trg, Height val)
-{
-	trg += val;
-	if (trg < val)
-		trg = Height(-1);
-}
-
 bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd, bool bCompressed)
 {
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
-	d.m_Maturity = h;
-	HeightAdd(d.m_Maturity, v.m_Coinbase ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd);
-	HeightAdd(d.m_Maturity, v.m_Incubation);
+	d.m_Maturity = v.get_MinMaturity(h);
 
 	if (v.m_Maturity >= Block::Rules::HeightGenesis)
 	{
