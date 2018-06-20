@@ -18,6 +18,58 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.top: parent.top
+
+        Column {
+            id: column
+            width: 0
+            height: 0
+            anchors.right: parent.right
+            anchors.rightMargin: 0
+            anchors.left: parent.left
+            anchors.leftMargin: 0
+            anchors.top: parent.top
+            anchors.topMargin: 130
+
+            Image {
+                id: image
+                width: 70
+                height: 70
+                fillMode: Image.Stretch
+                source: "qrc:///qml/assets/dashboard-icon.png"
+            }
+
+            Image {
+                id: image1
+                width: 70
+                height: 70
+                source: "qrc:///qml/assets/wallet-icon.png"
+                fillMode: Image.Stretch
+            }
+
+            Image {
+                id: image2
+                width: 70
+                height: 70
+                source: "qrc:///qml/assets/notifications-icon.png"
+                fillMode: Image.Stretch
+            }
+
+            Image {
+                id: image3
+                width: 70
+                height: 70
+                source: "qrc:///qml/assets/help-icon.png"
+                fillMode: Image.Stretch
+            }
+
+            Image {
+                id: image4
+                width: 70
+                height: 70
+                source: "qrc:///qml/assets/settings-icon.png"
+                fillMode: Image.Stretch
+            }
+        }
     }
 
     Item {
