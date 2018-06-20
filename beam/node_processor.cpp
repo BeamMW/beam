@@ -233,7 +233,6 @@ void NodeProcessor::TryGoUp()
 
 			if (m_Cursor.m_Sid.m_Height == sidTrg.m_Height)
 			{
-				OnRolledBack();
 				Rollback();
 				bDirty = true;
 			}
@@ -881,6 +880,10 @@ void NodeProcessor::Rollback()
 
 	if (!HandleBlock(sid, false))
 		OnCorrupted();
+
+	InitCursor(); // needed to refresh subsidy-open flag. Otherwise isn't necessary
+
+	OnRolledBack();
 }
 
 bool NodeProcessor::IsRelevantHeight(Height h)
