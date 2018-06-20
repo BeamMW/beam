@@ -1021,6 +1021,9 @@ namespace beam
 		pArr[1] = m_sPath + "uo";
 		pArr[2] = m_sPath + "ki";
 		pArr[3] = m_sPath + "ko";
+		pArr[4] = m_sPath + "hd";
+
+		static_assert(5 == s_Datas, "");
 	}
 
 	bool Block::BodyBase::RW::Open(bool bRead)
@@ -1182,6 +1185,25 @@ namespace beam
 		LoadInternal(m_pKernelOut, m_pS[3], m_pGuardKernelOut);
 	}
 
+	void Block::BodyBase::RW::get_Start(BodyBase& body, SystemState::Sequence::Prefix& prefix)
+	{
+		yas::binary_iarchive<Stream, SERIALIZE_OPTIONS> arc(m_pS[4]);
+		arc & body;
+		arc & prefix;
+	}
+
+	bool Block::BodyBase::RW::get_NextHdr(SystemState::Sequence::Element& elem)
+	{
+		Stream& s = m_pS[4];
+		if (!s.m_Remaining)
+			return false;
+
+		yas::binary_iarchive<Stream, SERIALIZE_OPTIONS> arc(s);
+		arc & elem;
+
+		return true;
+	}
+
 	void Block::BodyBase::RW::WriteIn(const Input& v)
 	{
 		WriteInternal(v, m_pS[0]);
@@ -1200,6 +1222,17 @@ namespace beam
 	void Block::BodyBase::RW::WriteOut(const TxKernel& v)
 	{
 		WriteInternal(v, m_pS[3]);
+	}
+
+	void Block::BodyBase::RW::put_Start(const BodyBase& body, const SystemState::Sequence::Prefix& prefix)
+	{
+		WriteInternal(body, m_pS[4]);
+		WriteInternal(prefix, m_pS[4]);
+	}
+
+	void Block::BodyBase::RW::put_NextHdr(const SystemState::Sequence::Element& elem)
+	{
+		WriteInternal(elem, m_pS[4]);
 	}
 
 	template <typename T>

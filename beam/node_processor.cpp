@@ -911,9 +911,8 @@ bool NodeProcessor::IsRelevantHeight(Height h)
 	return h >= hFossil + Block::Rules::HeightGenesis;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState::Full& s, bool bIgnorePoW, const PeerID& peer)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, bool bIgnorePoW, Block::SystemState::ID& id)
 {
-	Block::SystemState::ID id;
 	s.get_ID(id);
 
 	if (!s.IsSane())
@@ -945,14 +944,25 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 	if (m_DB.StateFindSafe(id))
 		return DataStatus::Rejected;
 
-	NodeDB::Transaction t(m_DB);
-	uint64_t rowid = m_DB.InsertState(s);
-	m_DB.set_Peer(rowid, &peer);
-	t.Commit();
-
-	LOG_INFO() << id << " Header accepted";
-
 	return DataStatus::Accepted;
+}
+
+NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState::Full& s, bool bIgnorePoW, const PeerID& peer)
+{
+	Block::SystemState::ID id;
+
+	DataStatus::Enum ret = OnStateInternal(s, bIgnorePoW, id);
+	if (DataStatus::Accepted == ret)
+	{
+		NodeDB::Transaction t(m_DB);
+		uint64_t rowid = m_DB.InsertState(s);
+		m_DB.set_Peer(rowid, &peer);
+		t.Commit();
+
+		LOG_INFO() << id << " Header accepted";
+	}
+
+	return ret;
 }
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob& block, const PeerID& peer)
@@ -1322,14 +1332,14 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, Block::SystemState
 		block.m_vInputs[i]->m_Maturity = rbData.NextInput(false).m_Maturity;
 }
 
-void NodeProcessor::ExportMacroBlock(Block::BodyBase& res, TxBase::IWriter& w)
+void NodeProcessor::ExportMacroBlock(Block::BodyBase::IMacroWriter& w)
 {
 	struct Walker
 		:public UnspentWalker
 	{
 		Walker(NodeProcessor& me) :UnspentWalker(me, true) {}
 
-		Block::Body* m_pRes;
+		TxVectors m_Vec;
 
 		virtual bool OnUtxo(const UtxoTree::Key& key) override
 		{
@@ -1352,7 +1362,7 @@ void NodeProcessor::ExportMacroBlock(Block::BodyBase& res, TxBase::IWriter& w)
 				pOutp->m_pConfidential.swap(sig.m_pConfidential);
 				pOutp->m_pPublic.swap(sig.m_pPublic);
 
-				m_pRes->m_vOutputs.push_back(std::move(pOutp));
+				m_Vec.m_vOutputs.push_back(std::move(pOutp));
 			}
 			return true;
 		}
@@ -1367,82 +1377,120 @@ void NodeProcessor::ExportMacroBlock(Block::BodyBase& res, TxBase::IWriter& w)
 			der.reset(m_Signature.p, m_Signature.n);
 			der & *pKrn;
 
-			m_pRes->m_vKernelsOutput.push_back(std::move(pKrn));
+			m_Vec.m_vKernelsOutput.push_back(std::move(pKrn));
 
 			return true;
 		}
 	};
 
 	// Currently we convert it to a block in memory, because we need to sort the data.
-	Block::Body block;
-
 	Walker wlk(*this);
-	wlk.m_pRes = &block;
 	wlk.Traverse();
+	wlk.m_Vec.Sort();
 
-	block.Sort();
+	w.Dump(wlk.m_Vec.get_Reader());
 
-	w.Dump(block.get_Reader());
+	std::vector<Block::SystemState::Sequence::Element> vElem;
+	vElem.resize(m_Cursor.m_ID.m_Height - Block::Rules::HeightGenesis + 1);
 
-	NodeDB::Blob blob(res.m_Offset.m_Value.m_pData, sizeof(res.m_Offset.m_Value.m_pData));
+	Block::SystemState::Sequence::Prefix prefix;
+	if (!m_Cursor.m_Sid.m_Row)
+		ZeroObject(prefix);
+	else
+		for (NodeDB::StateID sid = m_Cursor.m_Sid; ; )
+		{
+			Block::SystemState::Full s;
+			m_DB.get_State(sid.m_Row, s);
+
+			vElem[sid.m_Height - Block::Rules::HeightGenesis] = s;
+			prefix = s;
+
+			if (!m_DB.get_Prev(sid))
+				break;
+		}
+
+	Block::BodyBase body;
+	NodeDB::Blob blob(body.m_Offset.m_Value.m_pData, sizeof(body.m_Offset.m_Value.m_pData));
 
 	if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
-		res.m_Offset.m_Value = ECC::Zero;
+		body.m_Offset.m_Value = ECC::Zero;
 
-	res.m_Subsidy.Lo = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
-	res.m_Subsidy.Hi = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
+	body.m_Subsidy.Lo = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
+	body.m_Subsidy.Hi = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
 
-	res.m_SubsidyClosing = !m_Cursor.m_SubsidyOpen;
+	body.m_SubsidyClosing = !m_Cursor.m_SubsidyOpen;
+
+	w.put_Start(body, prefix);
+
+	for (auto i = 0; i < vElem.size(); i++)
+		w.put_NextHdr(vElem[i]);
 }
 
-bool NodeProcessor::ImportMacroBlock(const Block::SystemState::ID& id, const Block::BodyBase& block, TxBase::IReader&& r)
+bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgnorePoW)
 {
 	if (m_Cursor.m_Sid.m_Row)
 		return false; // must be at "clean" state
 
+	Block::BodyBase body;
+	Block::SystemState::Full s;
+	Block::SystemState::ID id;
+
+	NodeDB::Transaction t(m_DB);
+
+	// feed all headers
+	r.Reset();
+	for (r.get_Start(body, s); r.get_NextHdr(s); )
+	{
+		switch (OnStateInternal(s, bIgnorePoW, id))
+		{
+		case DataStatus::Invalid:
+			return false;
+
+		case DataStatus::Accepted:
+			m_DB.InsertState(s);
+		}
+
+		s.get_Hash(s.m_Prev);
+		s.m_Height++;
+	}
+
 	uint64_t rowid = m_DB.StateFindSafe(id);
 	if (!rowid)
 		return false;
-
-	Block::SystemState::Full s;
 	m_DB.get_State(rowid, s);
 
-	// we must have all the headers
-	std::vector<uint64_t> rowids(id.m_Height - Block::Rules::HeightGenesis + 1);
-	for (Height h = id.m_Height; ; h--)
-	{
-		rowids[h - Block::Rules::HeightGenesis] = rowid;
-
-		if (Block::Rules::HeightGenesis == h)
-			break;
-
-		if (!m_DB.get_Prev(rowid))
-			return false;
-	}
-
-	if (!VerifyBlock(block, std::move(r), HeightRange(Block::Rules::HeightGenesis, id.m_Height)))
+	// context-free validation
+	if (!VerifyBlock(body, std::move(r), HeightRange(Block::Rules::HeightGenesis, id.m_Height)))
 		return false;
-
-	NodeDB::Transaction t(m_DB);
 
 	RollbackData rbData;
 	if (!HandleValidatedTx(std::move(r), Block::Rules::HeightGenesis, true, rbData, true))
 		return false;
 
 	// Update DB state flags and cursor. This will also buils the MMR for prev states
-	NodeDB::StateID sid;
-	for (sid.m_Height = Block::Rules::HeightGenesis; sid.m_Height <= id.m_Height; sid.m_Height++)
+	r.Reset();
+	for (r.get_Start(body, s); r.get_NextHdr(s); )
 	{
-		sid.m_Row = rowids[sid.m_Height - Block::Rules::HeightGenesis];
+		s.get_ID(id);
+
+		NodeDB::StateID sid;
+		sid.m_Row = m_DB.StateFindSafe(id);
+		if (!sid.m_Row)
+			OnCorrupted();
+
 		m_DB.SetStateFunctional(sid.m_Row);
 
 		m_DB.DelStateBlock(sid.m_Row); // if somehow it was downloaded
 		m_DB.set_Peer(sid.m_Row, NULL);
 
+		sid.m_Height = id.m_Height;
 		m_DB.MoveFwd(sid);
+
+		s.get_Hash(s.m_Prev);
+		s.m_Height++;
 	}
 
-	uint64_t val = !block.m_SubsidyClosing;
+	uint64_t val = !body.m_SubsidyClosing;
 	m_DB.ParamSet(NodeDB::ParamID::SubsidyOpen, &val, NULL);
 
 	InitCursor();

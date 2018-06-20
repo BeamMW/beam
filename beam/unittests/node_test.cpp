@@ -523,13 +523,11 @@ namespace beam
 			blockChain.push_back(std::move(pBlock));
 		}
 
-		Block::BodyBase macroBlock;
-
 		Block::BodyBase::RW rwData;
 		rwData.m_sPath = g_sz3;
 
 		verify_test(rwData.Open(false));
-		np.ExportMacroBlock(macroBlock, rwData);
+		np.ExportMacroBlock(rwData);
 
 		rwData.Close();
 		verify_test(rwData.Open(true));
@@ -537,15 +535,8 @@ namespace beam
 		NodeProcessor np2;
 		np2.Initialize(g_sz2);
 
-		Block::SystemState::ID id;
-		blockChain.back()->m_Hdr.get_ID(id);
+		verify_test(np2.ImportMacroBlock(rwData, true)); // no headers
 
-		verify_test(!np2.ImportMacroBlock(id, macroBlock, std::move(rwData))); // no headers
-
-		for (size_t i = 0; i < blockChain.size(); i++)
-			np2.OnState(blockChain[i]->m_Hdr, true, NodeDB::PeerID());
-
-		verify_test(np2.ImportMacroBlock(id, macroBlock, std::move(rwData)));
 
 		rwData.Close();
 		rwData.Delete();

@@ -58,8 +58,8 @@ namespace beam
 	};
 
 	class Block::BodyBase::RW
-		:public TxBase::IReader
-		,public TxBase::IWriter
+		:public Block::BodyBase::IMacroReader
+		,public Block::BodyBase::IMacroWriter
 	{
 		struct Stream
 		{
@@ -79,7 +79,7 @@ namespace beam
 
 	public:
 
-		static const int s_Datas = 4;
+		static const int s_Datas = 5;
 
 	private:
 
@@ -116,12 +116,17 @@ namespace beam
 		virtual void NextUtxoOut() override;
 		virtual void NextKernelIn() override;
 		virtual void NextKernelOut() override;
-
+		// IMacroReader
+		virtual void get_Start(BodyBase&, SystemState::Sequence::Prefix&) override;
+		virtual bool get_NextHdr(SystemState::Sequence::Element&) override;
 		// IWriter
 		virtual void WriteIn(const Input&) override;
 		virtual void WriteIn(const TxKernel&) override;
 		virtual void WriteOut(const Output&) override;
 		virtual void WriteOut(const TxKernel&) override;
+		// IMacroWriter
+		virtual void put_Start(const BodyBase&, const SystemState::Sequence::Prefix&);
+		virtual void put_NextHdr(const SystemState::Sequence::Element&);
 	};
 
 }

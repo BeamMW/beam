@@ -435,6 +435,20 @@ namespace beam
 			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
 			bool IsValid(const HeightRange&, bool bSubsidyOpen, TxBase::IReader&&) const;
 
+			struct IMacroReader
+				:public IReader
+			{
+				virtual void get_Start(BodyBase&, SystemState::Sequence::Prefix&) = 0;
+				virtual bool get_NextHdr(SystemState::Sequence::Element&) = 0;
+			};
+
+			struct IMacroWriter
+				:public IWriter
+			{
+				virtual void put_Start(const BodyBase&, const SystemState::Sequence::Prefix&) = 0;
+				virtual void put_NextHdr(const SystemState::Sequence::Element&) = 0;
+			};
+
 			// suitable for big (compressed) blocks
 			class RW;
 		};

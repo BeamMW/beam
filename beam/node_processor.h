@@ -78,8 +78,8 @@ public:
 
 	void ExtractBlockWithExtra(Block::Body&, Block::SystemState::Full&, const NodeDB::StateID&);
 
-	void ExportMacroBlock(Block::BodyBase&, TxBase::IWriter&); // can be time-consuming
-	bool ImportMacroBlock(const Block::SystemState::ID&, const Block::BodyBase&, TxBase::IReader&&);
+	void ExportMacroBlock(Block::BodyBase::IMacroWriter&); // can be time-consuming. Suitable only for "small" databases.
+	bool ImportMacroBlock(Block::BodyBase::IMacroReader&, bool bIgnorePoW);
 
 	struct DataStatus {
 		enum Enum {
@@ -173,6 +173,7 @@ public:
 private:
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, Block::Body& block, Amount& fees, Height, RollbackData&);
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body&, bool bInitiallyEmpty);
+	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, bool bIgnorePoW, Block::SystemState::ID&);
 };
 
 
