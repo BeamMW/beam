@@ -35,6 +35,8 @@ class NodeProcessor
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
 	void OnSubsidyOptionChanged(bool);
 
+	static void SquashOnce(std::vector<Block::Body>&);
+
 	void InitCursor();
 	static void OnCorrupted();
 	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
@@ -77,7 +79,8 @@ public:
 	void get_CurrentLive(Merkle::Hash&);
 
 	// Export compressed history elements. Suitable only for "small" ranges, otherwise may be both time & memory consumng.
-	void ExtractBlockWithExtra(Block::Body&, Block::SystemState::Full&, const NodeDB::StateID&);
+	void ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
+	void ExportMacroBlock(Block::BodyBase::IMacroWriter&, const HeightRange&);
 	void ExportHdrRange(const HeightRange&, Block::SystemState::Sequence::Prefix&, std::vector<Block::SystemState::Sequence::Element>&);
 	void ExportMacroBlock(Block::BodyBase::IMacroWriter&);
 

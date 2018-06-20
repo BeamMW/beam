@@ -1300,12 +1300,11 @@ bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& 
 	return block.IsValid(hr, m_Cursor.m_SubsidyOpen, std::move(r));
 }
 
-void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, Block::SystemState::Full& s, const NodeDB::StateID& sid)
+void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)
 {
 	ByteBuffer bb;
 	RollbackData rbData;
 	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf);
-	m_DB.get_State(sid.m_Row, s);
 
 	Deserializer der;
 	der.reset(bb.empty() ? NULL : &bb.at(0), bb.size());
@@ -1313,6 +1312,67 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, Block::SystemState
 
 	for (auto i = 0; i < block.m_vInputs.size(); i++)
 		block.m_vInputs[i]->m_Maturity = rbData.NextInput(false).m_Maturity;
+
+	for (auto i = 0; i < block.m_vOutputs.size(); i++)
+	{
+		Output& v = *block.m_vOutputs[i];
+		v.m_Maturity = v.get_MinMaturity(sid.m_Height);
+	}
+}
+
+void NodeProcessor::SquashOnce(std::vector<Block::Body>& v)
+{
+	assert(v.size() >= 2);
+
+	Block::Body& trg = v[v.size() - 2];
+	const Block::Body& src0 = v.back();
+	Block::Body src1 = std::move(trg);
+
+	trg.Merge(src0);
+
+	bool bStop = false;
+	Block::Body::Writer(trg).Combine(src0.get_Reader(), src1.get_Reader(), bStop);
+
+	v.pop_back();
+}
+
+void NodeProcessor::ExportMacroBlock(Block::BodyBase::IMacroWriter& w, const HeightRange& hr)
+{
+	assert(hr.m_Min <= hr.m_Max);
+	NodeDB::StateID sid;
+	sid.m_Row = FindActiveAtStrict(hr.m_Max);
+	sid.m_Height = hr.m_Max;
+
+	std::vector<Block::Body> vBlocks;
+
+	for (uint32_t i = 0; ; i++)
+	{
+		vBlocks.resize(vBlocks.size() + 1);
+		ExtractBlockWithExtra(vBlocks.back(), sid);
+
+		if (hr.m_Min == sid.m_Height)
+			break;
+
+		if (!m_DB.get_Prev(sid))
+			OnCorrupted();
+
+		for (uint32_t j = i; 1 & j; j >>= 1)
+			SquashOnce(vBlocks);
+	}
+
+	while (vBlocks.size() > 1)
+		SquashOnce(vBlocks);
+
+	std::vector<Block::SystemState::Sequence::Element> vElem;
+	Block::SystemState::Sequence::Prefix prefix;
+	ExportHdrRange(hr, prefix, vElem);
+
+	w.put_Start(vBlocks[0], prefix);
+
+	for (auto i = 0; i < vElem.size(); i++)
+		w.put_NextHdr(vElem[i]);
+
+	w.Dump(vBlocks[0].get_Reader());
 }
 
 void NodeProcessor::ExportHdrRange(const HeightRange& hr, Block::SystemState::Sequence::Prefix& prefix, std::vector<Block::SystemState::Sequence::Element>& v)

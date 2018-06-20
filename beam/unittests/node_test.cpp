@@ -482,7 +482,7 @@ namespace beam
 	{
 		MyNodeProcessor1 np;
 		np.m_Horizon.m_Branching = 35;
-		np.m_Horizon.m_Schwarzschild = 40;
+		//np.m_Horizon.m_Schwarzschild = 40; - will prevent extracting some macroblock ranges
 		np.Initialize(g_sz);
 
 		const Height hIncubation = 3; // artificial incubation period for outputs.
@@ -526,20 +526,48 @@ namespace beam
 		Block::BodyBase::RW rwData;
 		rwData.m_sPath = g_sz3;
 
-		verify_test(rwData.Open(false));
-		np.ExportMacroBlock(rwData);
+		{
+			verify_test(rwData.Open(false));
+			np.ExportMacroBlock(rwData); // export current state
 
-		rwData.Close();
-		verify_test(rwData.Open(true));
+			rwData.Close();
+			verify_test(rwData.Open(true));
 
-		NodeProcessor np2;
-		np2.Initialize(g_sz2);
+			NodeProcessor np2;
+			np2.Initialize(g_sz2);
 
-		verify_test(np2.ImportMacroBlock(rwData, true)); // no headers
+			verify_test(np2.ImportMacroBlock(rwData, true));
 
+			rwData.Close();
+			rwData.Delete();
+		}
 
-		rwData.Close();
-		rwData.Delete();
+		Height hMid = blockChain.size() / 2 + Block::Rules::HeightGenesis;
+
+		{
+			DeleteFileA(g_sz2);
+
+			NodeProcessor np2;
+			np2.Initialize(g_sz2);
+
+			verify_test(rwData.Open(false));
+			np.ExportMacroBlock(rwData, HeightRange(Block::Rules::HeightGenesis, hMid)); // first half
+			rwData.Close();
+
+			verify_test(rwData.Open(true));
+			verify_test(np2.ImportMacroBlock(rwData, true));
+			rwData.Close();
+
+			verify_test(rwData.Open(false));
+			np.ExportMacroBlock(rwData, HeightRange(hMid + 1, Block::Rules::HeightGenesis + blockChain.size() - 1)); // second half
+			rwData.Close();
+
+			verify_test(rwData.Open(true));
+			verify_test(np2.ImportMacroBlock(rwData, true));
+			rwData.Close();
+
+			rwData.Delete();
+		}
 	}
 
 
