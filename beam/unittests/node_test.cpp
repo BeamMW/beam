@@ -751,7 +751,7 @@ namespace beam
 					++m_iNode %= _countof(m_ppNode);
 				}
 				else
-					if (m_WaitingCycles++ > 30)
+					if (m_WaitingCycles++ > 60)
 					{
 						fail_test("Blockchain height didn't reach target");
 						io::Reactor::get_Current().stop();
@@ -834,7 +834,7 @@ namespace beam
 			}
 
 			virtual void OnConnected() override {
-				SetTimer(60*1000);
+				SetTimer(90*1000);
 
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
@@ -853,8 +853,6 @@ namespace beam
 
 				fail_test("Blockchain height didn't reach target");
 				io::Reactor::get_Current().stop();
-
-				SetTimer(100);
 			}
 
 			virtual void OnMsg(proto::NewTip&& msg) override
