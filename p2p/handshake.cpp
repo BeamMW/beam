@@ -104,13 +104,13 @@ bool HandshakingPeers::on_handshake_message(uint64_t id, Handshake&& hs) {
         return false;
     }
 
+    LOG_INFO() << "handshake succeeded with peer=" << conn->peer_address() << TRACE(hs.listensTo);
     streamId.fields.flags &= ~StreamId::handshaking;
     if (hs.listensTo) {
         // stream ids for nodes that listen reflects listening port
         streamId.fields.port = hs.listensTo;
     }
     conn->change_id(streamId.u64);
-    LOG_INFO() << "handshake succeeded, peer=" << conn->peer_address() << TRACE(hs.listensTo) << TRACE(hs.peerId);
     _onPeerHandshaked(std::move(conn), (hs.listensTo != 0));
     return true;
 }

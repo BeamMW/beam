@@ -4,19 +4,30 @@
 
 namespace beam {
 
-void ConnectPool::setup(PeerId thisId, const std::vector<io::Address>& priorityPeers) {
-    _thisId = thisId;
+ConnectPool::ConnectPool(RandomGen& rdGen) :
+    _connectRoulette(rdGen, 4)
+{}
+
+void ConnectPool::setup(PeerId thisId, io::Address thisServer, const std::vector<io::Address>& priorityPeers) {
+    _thisServer = thisServer;
+    reserve_peer_id(thisId, thisServer);
     for (auto a: priorityPeers) {
         set_priority_peer(a);
     }
 }
 
 void ConnectPool::set_priority_peer(io::Address address) {
+    if (address == _thisServer) return;
     if (_priorityPeers.insert(address).second) {
         if (!_peersReservedByAddress.count(address)) {
             _priorityPeersUnconnected.push_back(address);
         }
     }
+}
+
+void ConnectPool::add_connect_candidate(io::Address address, uint32_t weight) {
+    if (_peersReservedByAddress.count(address) == 0)
+        _otherPeers[address] = weight;
 }
 
 const std::vector<io::Address>& ConnectPool::get_connect_candidates() {
@@ -28,7 +39,19 @@ const std::vector<io::Address>& ConnectPool::get_connect_candidates() {
     if (n < maxActiveConnections) {
         n = maxActiveConnections - n;
 
-        // TODO pull from roulette
+        for (auto& [address, weight] : _otherPeers) {
+            _connectRoulette.push(address.u64(), weight);
+        }
+        _otherPeers.clear();
+
+        io::Address a;
+
+        for (size_t i=0; i<n; ++i) {
+            a = io::Address::from_u64(_connectRoulette.pull());
+            if (a.empty()) break;
+            LOG_DEBUG() << a;
+            _connectCandidates.push_back(a);
+        }
     }
 
     return _connectCandidates;
@@ -37,7 +60,9 @@ const std::vector<io::Address>& ConnectPool::get_connect_candidates() {
 void ConnectPool::schedule_reconnect(io::Address address, io::ErrorCode whatHappened) {
     // TODO check whatHappened and decide when to reconnect
 
-    LOG_ERROR() << "connect to " << address << " failed, code=" << io::error_str(whatHappened) << ", rescheduling";
+    if (address == _thisServer) return;
+
+    LOG_ERROR() << "connection to " << address << " failed, code=" << io::error_str(whatHappened) << ", rescheduling";
 
     auto it = _peersReservedByAddress.find(address);
     if (it != _peersReservedByAddress.end()) {
@@ -48,7 +73,7 @@ void ConnectPool::schedule_reconnect(io::Address address, io::ErrorCode whatHapp
     if (_priorityPeers.count(address)) {
         _priorityPeersUnconnected.push_back(address);
     } else {
-        // push to roulette
+        _otherPeers[address] = 1; //??? TODO flexible weights
     }
 }
 
@@ -58,7 +83,7 @@ bool ConnectPool::is_ip_allowed(uint32_t) {
 }
 
 ConnectPool::PeerReserveResult ConnectPool::reserve_peer_id(PeerId id, io::Address address) {
-    if (_peersReservedById.count(id) || id == _thisId) {
+    if (_peersReservedById.count(id)) {
         LOG_ERROR() << "peer id " << std::hex << id << std::dec << " already reserved " << TRACE(address);
         return peer_exists;
     }

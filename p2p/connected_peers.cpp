@@ -28,6 +28,24 @@ void ConnectedPeers::add_connection(Connection::Ptr&& conn) {
     i.conn = std::move(conn);
 }
 
+void ConnectedPeers::update_peer_state(StreamId streamId, PeerState&& newState) {
+    Container::iterator it;
+    if (find(streamId, it)) {
+        if (newState != it->second.ps) {
+            LOG_INFO() << "peer state updated for " << streamId.address()
+                << "(connections:" << newState.connectedPeersCount
+                << ", known servers:" << newState.knownServersCount << ")";
+            // TODO external callback
+            if (newState.knownServersCount > it->second.ps.knownServersCount) {
+                it->second.conn->write_msg(_knownServersQueryMsg);
+                it->second.knownServersChanged = true;
+            }
+            it->second.ps = std::move(newState);
+        }
+        it->second.lastUpdated = time(0);
+    }
+}
+
 void ConnectedPeers::remove_connection(StreamId id) {
     _connections.erase(id);
 }
@@ -68,30 +86,23 @@ void ConnectedPeers::broadcast(const io::SharedBuffer& msg, std::function<bool(I
 }
 
 void ConnectedPeers::ping(const io::SharedBuffer& msg) {
-    Timestamp now = time(0);
+    //Timestamp now = time(0);
     broadcast(
         msg,
-        [now](ConnectedPeers::Info& i) -> bool {
-            static const uint32_t TIMEOUT = 2;
-            Timestamp last = i.lastPingPong;
-            i.lastPingPong = now;
-            return (now-last >= TIMEOUT);
+        [/*now*/](ConnectedPeers::Info& i) -> bool {
+            return true;
+
+            //static const uint32_t TIMEOUT = 3;
+            //Timestamp last = i.lastPingPong;
+            //return (now - last >= TIMEOUT);
+
+            //if (now-last >= TIMEOUT) {
+            //    i.lastPingPong = now;
+            //    return true;
+            //}
+            //return false;
         }
     );
-}
-
-io::Result ConnectedPeers::pong(StreamId id, const io::SharedBuffer& msg) {
-    Container::iterator it;
-    io::Result result;
-    if (find(id, it)) {
-        result = it->second.conn->write_msg(msg);
-        if (result) {
-            it->second.lastPingPong = time(0);
-        }
-    } else {
-        result = make_unexpected(io::EC_ENOTCONN);
-    }
-    return result;
 }
 
 void ConnectedPeers::query_known_servers() {

@@ -367,6 +367,7 @@ void Reactor::connect_callback(Reactor::ConnectContext* ctx, ErrorCode errorCode
     }
 
     _connectRequests.erase(tag);
+    _connectTimer->cancel(tag);
 
     callback(tag, std::move(stream), errorCode);
 }

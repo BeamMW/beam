@@ -15,7 +15,7 @@ using Timestamp = uint32_t;
 /// ID of connected stream, consists of address and state
 struct StreamId {
     enum Flags {
-        handshaking = 1, active = 2, inbound = 4, outbound = 8
+        handshaking = 8, active = 4, inbound = 2, outbound = 1
     };
 
     union {
@@ -72,8 +72,9 @@ struct PeerState {
     uint32_t knownServersCount=0;
     uint32_t connectedPeersCount=0;
 
-    // flag that requires message update
-    bool updated=false;
+    bool operator!=(const PeerState& ps) const {
+        return tip != ps.tip || knownServersCount != ps.knownServersCount || connectedPeersCount != ps.connectedPeersCount;
+    }
 
     SERIALIZE(tip, knownServersCount, connectedPeersCount);
 };
@@ -83,10 +84,9 @@ using KnownServers = std::unordered_set<io::Address>;
 
 const MsgType HANDSHAKE_MSG_TYPE = 43;
 const MsgType HANDSHAKE_ERROR_MSG_TYPE = 44;
-const MsgType PING_MSG_TYPE = 45;
-const MsgType PONG_MSG_TYPE = 46;
-const MsgType KNOWN_SERVERS_REQUEST_MSG_TYPE = 47;
-const MsgType KNOWN_SERVERS_MSG_TYPE = 48;
+const MsgType PEER_STATE_MSG_TYPE = 45;
+const MsgType KNOWN_SERVERS_REQUEST_MSG_TYPE = 46;
+const MsgType KNOWN_SERVERS_MSG_TYPE = 47;
 
 } //namespace
 

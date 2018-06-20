@@ -1,5 +1,6 @@
 #pragma once
 #include "types.h"
+#include "roulette.h"
 #include <vector>
 #include <unordered_set>
 #include <unordered_map>
@@ -10,9 +11,13 @@ namespace beam {
 
 class ConnectPool {
 public:
-    void setup(PeerId thisId, const std::vector<io::Address>& priorityPeers);
+    explicit ConnectPool(RandomGen& rdGen);
+
+    void setup(PeerId thisId, io::Address thisServer, const std::vector<io::Address>& priorityPeers);
 
     void set_priority_peer(io::Address addr);
+
+    void add_connect_candidate(io::Address address, uint32_t weight);
 
     /// Chooses peers to connect
     const std::vector<io::Address>& get_connect_candidates();
@@ -29,12 +34,14 @@ public:
     void release_peer_id(io::Address address);
 
 private:
-    PeerId _thisId;
+    io::Address _thisServer;
     std::vector<io::Address> _connectCandidates;
     std::unordered_set<io::Address> _priorityPeers;
     std::vector<io::Address> _priorityPeersUnconnected;
+    std::unordered_map<io::Address, uint32_t> _otherPeers;
     std::unordered_map<PeerId, io::Address> _peersReservedById;
     std::unordered_map<io::Address, PeerId> _peersReservedByAddress;
+    Roulette _connectRoulette;
 };
 
 } //namespace

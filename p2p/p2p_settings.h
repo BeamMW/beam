@@ -18,6 +18,8 @@ struct P2PSettings {
     // peers that will be always reconnected
     std::vector<io::Address> priorityPeers;
 
+    uint32_t pulsePeriodMsec=1000;
+
     // load
 
     // save

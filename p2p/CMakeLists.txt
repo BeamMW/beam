@@ -5,7 +5,7 @@ set(P2P_SRC
 #    common_messages.cpp
     connection.cpp
     connected_peers.cpp
-#    roulette.cpp
+    roulette.cpp
 #    peer_storage.cpp
     p2p.cpp
 #    servers.cpp

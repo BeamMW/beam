@@ -18,13 +18,13 @@ public:
 
     void add_connection(Connection::Ptr&& conn);
 
+    void update_peer_state(StreamId streamId, PeerState&& newState);
+
     void remove_connection(StreamId id);
 
     io::Result write_msg(StreamId id, const io::SharedBuffer& msg);
 
     void ping(const io::SharedBuffer& msg);
-
-    io::Result pong(StreamId id, const io::SharedBuffer& msg);
 
     void query_known_servers();
 
@@ -32,7 +32,7 @@ private:
     struct Info {
         Connection::Ptr conn;
         PeerState ps;
-        Timestamp lastPingPong=0;
+        Timestamp lastUpdated=0;
         bool knownServersChanged=false;
     };
 

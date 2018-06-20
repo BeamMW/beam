@@ -11,12 +11,31 @@
 
 namespace beam {
 
+struct NotificationsFromP2P {
+    virtual ~NotificationsFromP2P() {}
+    virtual void on_p2p_started() = 0;
+    virtual void on_peer_connected(StreamId id) = 0;
+    virtual void on_peer_state_updated(StreamId id, const PeerState& newState) = 0;
+    virtual void on_peer_disconnected(StreamId id) = 0;
+    virtual void on_p2p_stopped() = 0;
+};
+
 class P2P : public IErrorHandler, protected AsyncContext {
 public:
     explicit P2P(P2PSettings settings);
+
     ~P2P();
 
+    Protocol& get_protocol() { return _protocol; }
+
     void start();
+
+    bool send_message(StreamId peer, const io::SharedBuffer& msg);
+    bool send_message(StreamId peer, const SerializedMsg& msg);
+
+    void update_tip(uint32_t newTip);
+    void ban_peer(StreamId id, Timestamp until);
+    void ban_ip(uint32_t ip, Timestamp until);
 
 private:
     // IErrorHandler overrides
@@ -37,6 +56,13 @@ private:
 
     void cleanup_connection(StreamId streamId);
 
+    void on_ping_timer(TimerID);
+    void on_known_servers_timer(TimerID);
+
+    bool on_peer_state(uint64_t id, PeerState&& state);
+    bool on_known_servers_request(uint64_t id, VoidMessage&&);
+    bool on_known_servers(uint64_t id, KnownServers&& servers);
+
     RandomGen           _rdGen;
     P2PSettings         _settings;
     io::TcpServer::Ptr  _thisServer;
@@ -51,64 +77,7 @@ private:
 
     PeerState           _peerState;
     bool                _peerStateUpdated=false;
-    io::SharedBuffer    _pingMsg;
-    io::SharedBuffer    _pongMsg;
+    io::SharedBuffer    _peerStateMsg;
 };
-
-/*
-
-class P2P : public IErrorHandler, protected AsyncContext {
-public:
-    P2P(uint64_t sessionId, io::Address bindTo, uint16_t listenTo);
-    ~P2P();
-
-    void add_known_servers(const KnownServers& servers);
-
-    void start();
-
-private:
-    // IMsgHandler impl
-    void on_protocol_error(uint64_t from, ProtocolError error) override;
-    void on_connection_error(uint64_t from, io::ErrorCode errorCode) override;
-
-    void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
-
-    void on_stream_connected(uint64_t peer, io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
-
-    void connect_to_servers();
-
-    void on_peer_handshaked(Connection::Ptr&& conn, uint16_t listensTo);
-
-    void connection_removed(uint64_t id);
-
-    void on_timer();
-
-    void update_pingpong();
-
-    bool on_ping(uint64_t id, PeerState&& state);
-    bool on_pong(uint64_t id, PeerState&& state);
-    bool on_known_servers_request(uint64_t id, VoidMessage&&);
-    bool on_known_servers(uint64_t id, KnownServers&& servers);
-
-    PeerState _peerState;
-    bool _peerStateDirty=true;
-
-    RandomGen _rdGen;
-    uint64_t _sessionId;
-    Protocol _protocol;
-    CommonMessages _commonMessages;
-    Servers _knownServers;
-    HandshakingPeers _handshakingPeers;
-    Connections _connections;
-    //IpAccessControl _ipAccess;
-    io::Address _bindToIp;
-    uint16_t _port; // !=0 if this is server
-    io::TcpServer::Ptr _thisServer;
-    SerializedMsg _msgToSend;
-    io::Timer::Ptr _timer;
-    int _timerCall=0;
-};
-
-*/
 
 } //namespace

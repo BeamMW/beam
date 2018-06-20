@@ -81,7 +81,7 @@ static const int DEF_RUN_TIME = 5;
 int main(int argc, char* argv[]) {
     using namespace beam;
 
-    int logLevel = LOG_LEVEL_INFO;
+    int logLevel = LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
