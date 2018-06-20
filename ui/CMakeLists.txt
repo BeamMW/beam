@@ -13,20 +13,14 @@ elseif(APPLE)
 	set(SYSTEM_TYPE MACOSX_BUNDLE)
 endif()
 
+qt5_add_resources(QT_RESOURCES qml.qrc)
+
 set(UI_SRC
 	ui.cpp
 	test_model.h
 	test_model.cpp
 )
 
-set( QML_FILES
-   hw.qml
-)
-
-foreach( file_i ${QML_FILES})
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/qml/${file_i} ${CMAKE_CURRENT_BINARY_DIR}/qml/${file_i} COPYONLY)
-endforeach( file_i )
-
-add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC})
+add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES})
 
 target_link_libraries(beam-ui Qt5::Qml Qt5::Quick)

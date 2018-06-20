@@ -2,7 +2,7 @@
 #include "../ecc_native.h"
 #include "../block_crypt.h"
 
-#include "../beam/secp256k1-zkp/include/secp256k1_rangeproof.h" // For benchmark comparison with secp256k1
+#include "secp256k1-zkp/include/secp256k1_rangeproof.h" // For benchmark comparison with secp256k1
 void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a);
 
 int g_TestsFailed = 0;

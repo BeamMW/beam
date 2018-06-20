@@ -22,7 +22,7 @@ int main (int argc, char* argv[])
 
 	ctxt->setContextProperty("listModel", QVariant::fromValue(data.tx()));
 
-	view.setSource(QUrl::fromLocalFile("qml/hw.qml"));
+	view.setSource(QUrl("qrc:/qml/hw.qml"));
 	view.show();
 
     return app.exec();
