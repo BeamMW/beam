@@ -1496,10 +1496,18 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 
 	Cursor cu = m_Cursor;
 	if ((cu.m_ID.m_Height + 1 != s.m_Height) || (cu.m_ID.m_Hash != s.m_Prev))
+	{
+		id.m_Height = s.m_Height - 1;
+		id.m_Hash = s.m_Prev;
+		LOG_WARNING() << "Incompatible state for import. My Tip: " << cu.m_ID << ", Macroblock starts at " << id;
 		return false; // incompatible beginning state
+	}
 
 	if (!cu.m_SubsidyOpen && body.m_SubsidyClosing)
-		return false; // invalid subsidy closing
+	{
+		LOG_WARNING() << "Invald subsidy-close flag";
+		return false;
+	}
 
 	NodeDB::Transaction t(m_DB);
 
@@ -1509,7 +1517,10 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 		switch (OnStateInternal(s, bIgnorePoW, id))
 		{
 		case DataStatus::Invalid:
+		{
+			LOG_WARNING() << "Invald header encountered: " << id;
 			return false;
+		}
 
 		case DataStatus::Accepted:
 			m_DB.InsertState(s);
@@ -1521,16 +1532,22 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 
 	uint64_t rowid = m_DB.StateFindSafe(id);
 	if (!rowid)
-		return false;
+		OnCorrupted();
 	m_DB.get_State(rowid, s);
 
 	// context-free validation
 	if (!VerifyBlock(body, std::move(r), HeightRange(cu.m_ID.m_Height + 1, id.m_Height)))
+	{
+		LOG_WARNING() << "Context-free verification failed";
 		return false;
+	}
 
 	RollbackData rbData;
 	if (!HandleValidatedTx(std::move(r), cu.m_ID.m_Height + 1, true, rbData, &id.m_Height))
+	{
+		LOG_WARNING() << "Invalid in its context";
 		return false;
+	}
 
 	// Update DB state flags and cursor. This will also buils the MMR for prev states
 	r.Reset();
@@ -1571,6 +1588,8 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 
 	if (s.m_Definition != hvDef)
 	{
+		LOG_WARNING() << "Definition mismatch";
+
 		if (m_Cursor.m_SubsidyOpen != cu.m_SubsidyOpen)
 			OnSubsidyOptionChanged(cu.m_SubsidyOpen);
 
@@ -1587,6 +1606,8 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 	// everything's fine
 	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
 	t.Commit();
+
+	LOG_INFO() << "Macroblock import succeeded";
 
 	TryGoUp();
 

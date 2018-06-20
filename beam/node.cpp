@@ -277,6 +277,8 @@ void Node::Processor::OnNewState()
 
 void Node::Processor::OnRolledBack()
 {
+	LOG_INFO() << "Rolled back to: " << m_Cursor.m_ID;
+
 	if (get_ParentObj().m_Compressor.m_bEnabled)
 		get_ParentObj().m_Compressor.OnRolledBack();
 }
