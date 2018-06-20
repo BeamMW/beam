@@ -169,7 +169,7 @@ namespace ECC
 				Scalar::Native m_Scalar;
 			} m_Secure;
 
-			void Initialize(const char* szSeed);
+			void Initialize(const char* szSeed, Hash::Processor& hp);
 			void Initialize(Point::Native&, Hash::Processor&);
 		};
 
@@ -228,7 +228,7 @@ namespace ECC
 			CompactPoint m_pPts[nLevels * nPointsPerLevel];
 		};
 
-		void GeneratePts(const char* szSeed, CompactPoint* pPts, uint32_t nLevels);
+		void GeneratePts(const char* szSeed, Hash::Processor&, CompactPoint* pPts, uint32_t nLevels);
 		void SetMul(Point::Native& res, bool bSet, const CompactPoint* pPts, const Scalar::Native::uint* p, int nWords);
 
 		template <uint32_t nBits_>
@@ -266,9 +266,9 @@ namespace ECC
 			};
 
 		public:
-			void Initialize(const char* szSeed)
+			void Initialize(const char* szSeed, Hash::Processor& hp)
 			{
-				GeneratePts(szSeed, Base<nBits_>::m_pPts, Base<nBits_>::nLevels);
+				GeneratePts(szSeed, hp, Base<nBits_>::m_pPts, Base<nBits_>::nLevels);
 			}
 
 			template <typename TScalar>
@@ -294,7 +294,7 @@ namespace ECC
 			void AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native&) const;
 
 		public:
-			void Initialize(const char* szSeed);
+			void Initialize(const char* szSeed, Hash::Processor& hp);
 
 			template <typename TScalar>
 			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
@@ -365,6 +365,8 @@ namespace ECC
 			MultiMac::Prepared H_;
 
 		} m_Ipp;
+
+		Hash::Value m_hvChecksum; // all the generators and signature version. In case we change seed strings or formula
 
 	private:
 		Context() {}

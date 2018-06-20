@@ -575,19 +575,10 @@ namespace ECC {
 			SetMul(res, bSet, pPts, k.get().d, _countof(k.get().d));
 		}
 
-
-		void InitSeedIteration(Hash::Processor& hp, const char* szSeed, uint32_t n)
+		void GeneratePts(const char* szSeed, Hash::Processor& hp, CompactPoint* pPts, uint32_t nLevels)
 		{
-			hp << szSeed << n;
-		}
-
-		void GeneratePts(const char* szSeed, CompactPoint* pPts, uint32_t nLevels)
-		{
-			for (uint32_t nCounter = 0; ; nCounter++)
+			for (hp << szSeed; ; )
 			{
-				Hash::Processor hp;
-				InitSeedIteration(hp, szSeed, nCounter);
-
 				Point::Native g;
 				if (!CreatePointNnz(g, hp))
 					continue;
@@ -597,13 +588,10 @@ namespace ECC {
 			}
 		}
 
-		void Obscured::Initialize(const char* szSeed)
+		void Obscured::Initialize(const char* szSeed, Hash::Processor& hp)
 		{
-			for (uint32_t nCounter = 0; ; nCounter++)
+			for (hp << szSeed; ; )
 			{
-				Hash::Processor hp;
-				InitSeedIteration(hp, szSeed, nCounter);
-
 				Point::Native g;
 				if (!CreatePointNnz(g, hp))
 					continue;
@@ -661,22 +649,16 @@ namespace ECC {
 
 	/////////////////////
 	// MultiMac
-	void MultiMac::Prepared::Initialize(const char* szSeed)
+	void MultiMac::Prepared::Initialize(const char* szSeed, Hash::Processor& hp)
 	{
 		Point::Native val;
 
-		for (uint32_t nCounter = 0; ; nCounter++)
-		{
-			Hash::Processor hp;
-			Generator::InitSeedIteration(hp, szSeed, nCounter);
-
+		for (hp << szSeed; ; )
 			if (Generator::CreatePointNnz(val, hp))
 			{
 				Initialize(val, hp);
 				break;
 			}
-
-		}
 	}
 
 	void MultiMac::Prepared::Initialize(Point::Native& val, Hash::Processor& hp)
@@ -890,14 +872,16 @@ namespace ECC {
 
 		Mode::Scope scope(Mode::Fast);
 
-		ctx.G.Initialize("G-gen");
-		ctx.H.Initialize("H-gen");
-		ctx.H_Big.Initialize("H-gen");
+		Hash::Processor hp;
+
+		ctx.G.Initialize("G-gen", hp);
+		ctx.H.Initialize("H-gen", hp);
+		ctx.H_Big.Initialize("H-gen", hp);
 
 		Point::Native pt, ptAux2(Zero);
 
-		ctx.m_Ipp.G_.Initialize("G-gen");
-		ctx.m_Ipp.H_.Initialize("H-gen");
+		ctx.m_Ipp.G_.Initialize("G-gen", hp);
+		ctx.m_Ipp.H_.Initialize("H-gen", hp);
 
 #define STR_GEN_PREFIX "ip-"
 		char szStr[0x20] = STR_GEN_PREFIX;
@@ -911,7 +895,7 @@ namespace ECC {
 			for (uint32_t j = 0; j < 2; j++)
 			{
 				szStr[_countof(STR_GEN_PREFIX) + 1] = '0' + j;
-				ctx.m_Ipp.m_pGen_[j][i].Initialize(szStr);
+				ctx.m_Ipp.m_pGen_[j][i].Initialize(szStr, hp);
 
 				secp256k1_ge ge;
 
@@ -926,11 +910,14 @@ namespace ECC {
 		}
 
 		ptAux2 = -ptAux2;
-		Hash::Processor hp;
 		hp << "aux2";
 		ctx.m_Ipp.m_Aux2_.Initialize(ptAux2, hp);
 
-		ctx.m_Ipp.m_GenDot_.Initialize("ip-dot");
+		ctx.m_Ipp.m_GenDot_.Initialize("ip-dot", hp);
+
+		hp << uint32_t(0); // increment this each time we change signature formula (rangeproof and etc.)
+
+		hp >> ctx.m_hvChecksum;
 
 #ifndef NDEBUG
 		g_bContextInitialized = true;
