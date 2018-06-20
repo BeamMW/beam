@@ -1430,18 +1430,24 @@ void NodeProcessor::ExportMacroBlock(Block::BodyBase::IMacroWriter& w)
 
 bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgnorePoW)
 {
-	if (m_Cursor.m_Sid.m_Row)
-		return false; // must be at "clean" state
-
 	Block::BodyBase body;
 	Block::SystemState::Full s;
 	Block::SystemState::ID id;
 
+	r.Reset();
+	r.get_Start(body, s);
+
+	Cursor cu = m_Cursor;
+	if ((cu.m_ID.m_Height + 1 != s.m_Height) || (cu.m_ID.m_Hash != s.m_Prev))
+		return false; // incompatible beginning state
+
+	if (!cu.m_SubsidyOpen && body.m_SubsidyClosing)
+		return false; // invalid subsidy closing
+
 	NodeDB::Transaction t(m_DB);
 
 	// feed all headers
-	r.Reset();
-	for (r.get_Start(body, s); r.get_NextHdr(s); )
+	for ( ; r.get_NextHdr(s); )
 	{
 		switch (OnStateInternal(s, bIgnorePoW, id))
 		{
@@ -1462,11 +1468,11 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 	m_DB.get_State(rowid, s);
 
 	// context-free validation
-	if (!VerifyBlock(body, std::move(r), HeightRange(Block::Rules::HeightGenesis, id.m_Height)))
+	if (!VerifyBlock(body, std::move(r), HeightRange(cu.m_ID.m_Height + 1, id.m_Height)))
 		return false;
 
 	RollbackData rbData;
-	if (!HandleValidatedTx(std::move(r), Block::Rules::HeightGenesis, true, rbData, true))
+	if (!HandleValidatedTx(std::move(r), cu.m_ID.m_Height + 1, true, rbData, true))
 		return false;
 
 	// Update DB state flags and cursor. This will also buils the MMR for prev states
@@ -1497,7 +1503,7 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 
 	InitCursor();
 
-	if (!m_Cursor.m_SubsidyOpen)
+	if (m_Cursor.m_SubsidyOpen != cu.m_SubsidyOpen)
 		OnSubsidyOptionChanged(m_Cursor.m_SubsidyOpen);
 
 	Merkle::Hash hvDef;
@@ -1506,11 +1512,11 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 	if (s.m_Definition != hvDef)
 	{
 		rbData.m_Inputs = 0;
-		verify(HandleValidatedTx(std::move(r), Block::Rules::HeightGenesis, false, rbData));
+		verify(HandleValidatedTx(std::move(r), cu.m_ID.m_Height + 1, false, rbData, true));
 
 		// DB changes are not reverted explicitly, but they will be reverted by DB transaction rollback.
 
-		ZeroObject(m_Cursor);
+		m_Cursor = cu;
 
 		return false;
 	}
