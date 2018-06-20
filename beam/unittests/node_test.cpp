@@ -355,6 +355,7 @@ namespace beam
 	struct MiniWallet
 	{
 		ECC::Kdf m_Kdf;
+		uint32_t m_nKernelSubIdx = 1;
 
 		struct MyUtxo
 		{
@@ -436,7 +437,7 @@ namespace beam
 
 			m_MyUtxos.erase(it);
 
-			DeriveKey(k, m_Kdf, h, KeyType::Kernel);
+			DeriveKey(k, m_Kdf, h, KeyType::Kernel, m_nKernelSubIdx++);
 			pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * k);
 
 			ECC::Hash::Value hv;
