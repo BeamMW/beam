@@ -96,12 +96,16 @@ namespace beam
 		template <typename T>
 		static void WriteInternal(const T&, Stream&);
 
-		bool m_bRead;
-
 	public:
 
+		RW() :m_bAutoDelete(false) {}
+		~RW();
+
 		// do not modify between Open() and Close()
+		bool m_bRead;
+		bool m_bAutoDelete;
 		std::string m_sPath;
+
 		void GetPathes(std::string* pArr) const;
 
 		bool Open(bool bRead);

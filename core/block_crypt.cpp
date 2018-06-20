@@ -1107,6 +1107,15 @@ namespace beam
 		}
 	}
 
+	Block::BodyBase::RW::~RW()
+	{
+		if (m_bAutoDelete)
+		{
+			Close();
+			Delete();
+		}
+	}
+
 	void Block::BodyBase::RW::Reset()
 	{
 		for (int i = 0; i < _countof(m_pS); i++)
@@ -1432,6 +1441,37 @@ namespace beam
 				WriteOut(*pOut);
 				ppR[iOut]->NextKernelOut();
 			}
+		}
+
+		return true;
+	}
+
+	bool Block::BodyBase::IMacroWriter::CombineHdr(IMacroReader&& r0, IMacroReader&& r1, const volatile bool& bStop)
+	{
+		Block::BodyBase body0, body1;
+		Block::SystemState::Sequence::Prefix prefix0, prefix1;
+		Block::SystemState::Sequence::Element elem;
+
+		r0.Reset();
+		r0.get_Start(body0, prefix0);
+		r1.Reset();
+		r1.get_Start(body1, prefix1);
+
+		body0.Merge(body1);
+		put_Start(body0, prefix0);
+
+		while (r0.get_NextHdr(elem))
+		{
+			if (bStop)
+				return false;
+			put_NextHdr(elem);
+		}
+
+		while (r1.get_NextHdr(elem))
+		{
+			if (bStop)
+				return false;
+			put_NextHdr(elem);
 		}
 
 		return true;

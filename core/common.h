@@ -449,6 +449,8 @@ namespace beam
 			{
 				virtual void put_Start(const BodyBase&, const SystemState::Sequence::Prefix&) = 0;
 				virtual void put_NextHdr(const SystemState::Sequence::Element&) = 0;
+
+				bool CombineHdr(IMacroReader&& r0, IMacroReader&& r1, const volatile bool& bStop);
 			};
 
 			void Merge(const BodyBase& next);
