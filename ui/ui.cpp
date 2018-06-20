@@ -1,7 +1,7 @@
 #include <QtGui/QGuiApplication>
 #include <QtQuick/QQuickWindow>
 #include <QtQuick>
-#include <QQmlContext.h>
+#include <qqmlcontext.h>
 
 #include <QTimer>
 #include <QObject>
