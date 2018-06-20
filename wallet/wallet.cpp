@@ -444,7 +444,7 @@ namespace beam
 
         getUtxoProofs(unconfirmed);
 
-        Block::SystemState::ID newID = {0};
+        Block::SystemState::ID newID = {};
         msg.m_Description.get_ID(newID);
         m_newStateID = newID;
         return finishSync();
