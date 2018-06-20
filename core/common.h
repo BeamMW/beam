@@ -254,8 +254,9 @@ namespace beam
 			virtual void WriteOut(const TxKernel&) = 0;
 
 			void Dump(IReader&&);
-			bool Combine(IReader* pR, int nR, const volatile bool& bStop); // combine consequent blocks, merge-sort and delete consumed outputs
+			bool Combine(IReader** ppR, int nR, const volatile bool& bStop); // combine consequent blocks, merge-sort and delete consumed outputs
 			// returns false if aborted
+			bool Combine(IReader&& r0, IReader&& r1, const volatile bool& bStop);
 		};
 
 
@@ -449,6 +450,8 @@ namespace beam
 				virtual void put_Start(const BodyBase&, const SystemState::Sequence::Prefix&) = 0;
 				virtual void put_NextHdr(const SystemState::Sequence::Element&) = 0;
 			};
+
+			void Merge(const BodyBase& next);
 
 			// suitable for big (compressed) blocks
 			class RW;

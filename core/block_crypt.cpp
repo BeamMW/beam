@@ -954,6 +954,18 @@ namespace beam
 		m_SubsidyClosing = false;
 	}
 
+	void Block::BodyBase::Merge(const BodyBase& next)
+	{
+		m_Subsidy += next.m_Subsidy;
+
+		assert(!(m_SubsidyClosing && next.m_SubsidyClosing));
+		m_SubsidyClosing = next.m_SubsidyClosing;
+
+		ECC::Scalar::Native offs(m_Offset);
+		offs += next.m_Offset;
+		m_Offset = offs;
+	}
+
 	bool Block::BodyBase::IsValid(const HeightRange& hr, bool bSubsidyOpen, TxBase::IReader&& r) const
 	{
 		assert((hr.m_Min >= Block::Rules::HeightGenesis) && !hr.IsEmpty());
@@ -1288,10 +1300,16 @@ namespace beam
 			WriteOut(*r.m_pKernelOut);
 	}
 
-	bool TxBase::IWriter::Combine(IReader* pR, int nR, const volatile bool& bStop)
+	bool TxBase::IWriter::Combine(IReader&& r0, IReader&& r1, const volatile bool& bStop)
+	{
+		IReader* ppR[] = { &r0, &r1 };
+		return Combine(ppR, _countof(ppR), bStop);
+	}
+
+	bool TxBase::IWriter::Combine(IReader** ppR, int nR, const volatile bool& bStop)
 	{
 		for (int i = 0; i < nR; i++)
-			pR[i].Reset();
+			ppR[i]->Reset();
 
 		// Utxo
 		while (true)
@@ -1305,14 +1323,14 @@ namespace beam
 
 			for (int i = 0; i < nR; i++)
 			{
-				const Input* pi = pR[i].m_pUtxoIn;
+				const Input* pi = ppR[i]->m_pUtxoIn;
 				if (pi && (!pInp || (*pInp > *pi)))
 				{
 					pInp = pi;
 					iInp = i;
 				}
 
-				const Output* po = pR[i].m_pUtxoOut;
+				const Output* po = ppR[i]->m_pUtxoOut;
 				if (po && (!pOut || (*pOut > *po)))
 				{
 					pOut = po;
@@ -1331,8 +1349,8 @@ namespace beam
 						if (!n)
 						{
 							// skip both
-							pR[iInp].NextUtxoIn();
-							pR[iOut].NextUtxoOut();
+							ppR[iInp]->NextUtxoIn();
+							ppR[iOut]->NextUtxoOut();
 							continue;
 						}
 				}
@@ -1345,12 +1363,12 @@ namespace beam
 			if (pInp)
 			{
 				WriteIn(*pInp);
-				pR[iInp].NextUtxoIn();
+				ppR[iInp]->NextUtxoIn();
 			}
 			else
 			{
 				WriteOut(*pOut);
-				pR[iOut].NextUtxoOut();
+				ppR[iOut]->NextUtxoOut();
 			}
 		}
 
@@ -1367,14 +1385,14 @@ namespace beam
 
 			for (int i = 0; i < nR; i++)
 			{
-				const TxKernel* pi = pR[i].m_pKernelIn;
+				const TxKernel* pi = ppR[i]->m_pKernelIn;
 				if (pi && (!pInp || (*pInp > *pi)))
 				{
 					pInp = pi;
 					iInp = i;
 				}
 
-				const TxKernel* po = pR[i].m_pKernelOut;
+				const TxKernel* po = ppR[i]->m_pKernelOut;
 				if (po && (!pOut || (*pOut > *po)))
 				{
 					pOut = po;
@@ -1393,8 +1411,8 @@ namespace beam
 						if (!n)
 						{
 							// skip both
-							pR[iInp].NextUtxoIn();
-							pR[iOut].NextUtxoOut();
+							ppR[iInp]->NextUtxoIn();
+							ppR[iOut]->NextUtxoOut();
 							continue;
 						}
 				}
@@ -1407,12 +1425,12 @@ namespace beam
 			if (pInp)
 			{
 				WriteIn(*pInp);
-				pR[iInp].NextKernelIn();
+				ppR[iInp]->NextKernelIn();
 			}
 			else
 			{
 				WriteOut(*pOut);
-				pR[iOut].NextKernelOut();
+				ppR[iOut]->NextKernelOut();
 			}
 		}
 
