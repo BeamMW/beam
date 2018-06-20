@@ -439,10 +439,10 @@ void Node::ImportMacroblock(Height h)
 
 	Block::BodyBase::RW rw;
 	m_Compressor.FmtPath(rw, h, NULL);
-	if (rw.Open(true))
+	if (!rw.Open(true))
 		m_Compressor.OnFileErr();
 
-	if (m_Processor.ImportMacroBlock(rw, m_Cfg.m_TestMode.m_bFakePoW))
+	if (!m_Processor.ImportMacroBlock(rw, m_Cfg.m_TestMode.m_bFakePoW))
 		throw std::runtime_error("import failed");
 
 	m_Processor.get_DB().MacroblockIns(h);

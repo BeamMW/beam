@@ -958,8 +958,11 @@ namespace beam
 	{
 		m_Subsidy += next.m_Subsidy;
 
-		assert(!(m_SubsidyClosing && next.m_SubsidyClosing));
-		m_SubsidyClosing = next.m_SubsidyClosing;
+		if (next.m_SubsidyClosing)
+		{
+			assert(!m_SubsidyClosing);
+			m_SubsidyClosing = true;
+		}
 
 		ECC::Scalar::Native offs(m_Offset);
 		offs += next.m_Offset;
