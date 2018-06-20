@@ -29,7 +29,7 @@ class NodeProcessor
 
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
 	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, RollbackData&, const Height* = NULL);
-
+	void AdjustCumulativeParams(const Block::BodyBase&, bool bFwd);
 	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd, RollbackData&);
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);

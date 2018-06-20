@@ -422,7 +422,7 @@ void Node::Initialize()
 			pt.m_Thread = std::thread(&io::Reactor::run, pt.m_pReactor);
 		}
 
-		m_Miner.Restart();
+		m_Miner.SetTimer(0, true); // async start mining, since this method may be followed by ImportMacroblock.
 	}
 
 	ZeroObject(m_Compressor.m_hrNew);

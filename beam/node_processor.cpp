@@ -467,43 +467,48 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	if (bOk)
 	{
-		ECC::Scalar kOffset;
-		NodeDB::Blob blob(kOffset.m_Value.m_pData, sizeof(kOffset.m_Value.m_pData));
-
-		if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
-			kOffset.m_Value = ECC::Zero;
-
-		ECC::Scalar::Native k(kOffset), k2(block.m_Offset);
-		if (!bFwd)
-			k2 = -k2;
-
-		k += k2;
-		kOffset = k;
-
-		m_DB.ParamSet(NodeDB::ParamID::StateExtra, NULL, &blob);
-
-		AmountBig subsidy;
-		subsidy.Lo = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
-		subsidy.Hi = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
-
-		if (bFwd)
-			subsidy += block.m_Subsidy;
-		else
-			subsidy -= block.m_Subsidy;
-
-		m_DB.ParamSet(NodeDB::ParamID::SubsidyLo, &subsidy.Lo, NULL);
-		m_DB.ParamSet(NodeDB::ParamID::SubsidyHi, &subsidy.Hi, NULL);
-
-		if (block.m_SubsidyClosing)
-		{
-			uint64_t nVal = !bFwd;
-			m_DB.ParamSet(NodeDB::ParamID::SubsidyOpen, &nVal, NULL);
-		}
+		AdjustCumulativeParams(block, bFwd);
 
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
 
 	return bOk;
+}
+
+void NodeProcessor::AdjustCumulativeParams(const Block::BodyBase& block, bool bFwd)
+{
+	ECC::Scalar kOffset;
+	NodeDB::Blob blob(kOffset.m_Value.m_pData, sizeof(kOffset.m_Value.m_pData));
+
+	if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
+		kOffset.m_Value = ECC::Zero;
+
+	ECC::Scalar::Native k(kOffset), k2(block.m_Offset);
+	if (!bFwd)
+		k2 = -k2;
+
+	k += k2;
+	kOffset = k;
+
+	m_DB.ParamSet(NodeDB::ParamID::StateExtra, NULL, &blob);
+
+	AmountBig subsidy;
+	subsidy.Lo = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
+	subsidy.Hi = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
+
+	if (bFwd)
+		subsidy += block.m_Subsidy;
+	else
+		subsidy -= block.m_Subsidy;
+
+	m_DB.ParamSet(NodeDB::ParamID::SubsidyLo, &subsidy.Lo, NULL);
+	m_DB.ParamSet(NodeDB::ParamID::SubsidyHi, &subsidy.Hi, NULL);
+
+	if (block.m_SubsidyClosing)
+	{
+		uint64_t nVal = !bFwd;
+		m_DB.ParamSet(NodeDB::ParamID::SubsidyOpen, &nVal, NULL);
+	}
 }
 
 bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, RollbackData& rbData, const Height* pHMax)
@@ -1581,16 +1586,13 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 		s.m_Height++;
 	}
 
-	if (body.m_SubsidyClosing)
-	{
-		uint64_t val = 0;
-		m_DB.ParamSet(NodeDB::ParamID::SubsidyOpen, &val, NULL);
-	}
-
 	InitCursor();
 
-	if (m_Cursor.m_SubsidyOpen != cu.m_SubsidyOpen)
+	if (body.m_SubsidyClosing)
+	{
+		m_Cursor.m_SubsidyOpen = false;
 		OnSubsidyOptionChanged(m_Cursor.m_SubsidyOpen);
+	}
 
 	Merkle::Hash hvDef;
 	get_Definition(hvDef, m_Cursor.m_History);
@@ -1611,6 +1613,8 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 
 		return false;
 	}
+
+	AdjustCumulativeParams(body, true);
 
 	// everything's fine
 	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
