@@ -507,14 +507,14 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	return bOk;
 }
 
-bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, RollbackData& rbData, bool bCompressed)
+bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, RollbackData& rbData, const Height* pHMax)
 {
 	size_t nInp = 0, nOut = 0, nKrnInp = 0, nKrnOut = 0;
 	r.Reset();
 
 	bool bOk = true;
 	for (; r.m_pUtxoIn; r.NextUtxoIn(), nInp++)
-		if (!HandleBlockElement(*r.m_pUtxoIn, h, bFwd, rbData))
+		if (!HandleBlockElement(*r.m_pUtxoIn, h, pHMax, bFwd, rbData))
 		{
 			bOk = false;
 			break;
@@ -522,7 +522,7 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 
 	if (bOk)
 		for (; r.m_pUtxoOut; r.NextUtxoOut(), nOut++)
-			if (!HandleBlockElement(*r.m_pUtxoOut, h, bFwd, bCompressed))
+			if (!HandleBlockElement(*r.m_pUtxoOut, h, pHMax, bFwd))
 			{
 				bOk = false;
 				break;
@@ -560,13 +560,13 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 		HandleBlockElement(*r.m_pKernelIn, false, true);
 
 	for (; nOut--; r.NextUtxoOut())
-		HandleBlockElement(*r.m_pUtxoOut, h, false, bCompressed);
+		HandleBlockElement(*r.m_pUtxoOut, h, pHMax, false);
 
 	rbData.m_Inputs -= nInp;
 	size_t n = rbData.m_Inputs;
 
 	for (; nInp--; r.NextUtxoIn())
-		HandleBlockElement(*r.m_pUtxoIn, h, false, rbData);
+		HandleBlockElement(*r.m_pUtxoIn, h, pHMax, false, rbData);
 
 	rbData.m_Inputs = n;
 
@@ -586,7 +586,7 @@ struct SpendableKey
 	}
 };
 
-bool NodeProcessor::HandleBlockElement(const Input& v, Height h, bool bFwd, RollbackData& rbData)
+bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* pHMax, bool bFwd, RollbackData& rbData)
 {
 	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
 
@@ -606,12 +606,18 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, bool bFwd, Roll
 
 		UtxoTree::Key kMin, kMax;
 
-		if (v.m_Maturity > h)
-			return false;
+		if (v.m_Maturity >= Block::Rules::HeightGenesis)
+		{
+			if (!pHMax)
+				return false; // explicit maturity allowed only in macroblocks
+
+			if (v.m_Maturity > *pHMax)
+				return false;
+		}
 
 		d.m_Maturity = v.m_Maturity;
 		kMin = d;
-		d.m_Maturity = h;
+		d.m_Maturity = pHMax ? *pHMax : h;
 		kMax = d;
 
 		t.m_pCu = &cu;
@@ -626,7 +632,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, bool bFwd, Roll
 		skey.m_Key = p->m_Key;
 		d = skey.m_Key;
 		assert(d.m_Commitment == v.m_Commitment);
-		assert(d.m_Maturity <= h);
+		assert(d.m_Maturity <= (pHMax ? *pHMax : h));
 
 		assert(p->m_Value.m_Count); // we don't store zeroes
 
@@ -677,7 +683,7 @@ struct NodeProcessor::UtxoSig
 	}
 };
 
-bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd, bool bCompressed)
+bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* pHMax, bool bFwd)
 {
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
@@ -685,7 +691,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd, boo
 
 	if (v.m_Maturity >= Block::Rules::HeightGenesis)
 	{
-		if (!bCompressed)
+		if (!pHMax)
 			return false; // maturity forgery isn't allowed
 		if (v.m_Maturity < d.m_Maturity)
 			return false; // decrease not allowed
@@ -1162,7 +1168,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		Output::Ptr pOutp(new Output);
 		pOutp->Create(kFee, fees);
 
-		if (!HandleBlockElement(*pOutp, h, true, false))
+		if (!HandleBlockElement(*pOutp, h, NULL, true))
 			return false; // though should not happen!
 
 		res.m_vOutputs.push_back(std::move(pOutp));
@@ -1198,7 +1204,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	pOutp->m_Coinbase = true;
 	pOutp->Create(kCoinbase, Block::Rules::CoinbaseEmission, true);
 
-	if (!HandleBlockElement(*pOutp, h, true, false))
+	if (!HandleBlockElement(*pOutp, h, NULL, true))
 		return false;
 
 	res.m_vOutputs.push_back(std::move(pOutp));
@@ -1463,7 +1469,7 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 		return false;
 
 	RollbackData rbData;
-	if (!HandleValidatedTx(std::move(r), cu.m_ID.m_Height + 1, true, rbData, true))
+	if (!HandleValidatedTx(std::move(r), cu.m_ID.m_Height + 1, true, rbData, &id.m_Height))
 		return false;
 
 	// Update DB state flags and cursor. This will also buils the MMR for prev states
@@ -1503,7 +1509,7 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 	if (s.m_Definition != hvDef)
 	{
 		rbData.m_Inputs = 0;
-		verify(HandleValidatedTx(std::move(r), cu.m_ID.m_Height + 1, false, rbData, true));
+		verify(HandleValidatedTx(std::move(r), cu.m_ID.m_Height + 1, false, rbData, &id.m_Height));
 
 		// DB changes are not reverted explicitly, but they will be reverted by DB transaction rollback.
 
