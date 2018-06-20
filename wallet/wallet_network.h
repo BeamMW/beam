@@ -92,8 +92,9 @@ namespace beam
             if (it != m_connections.end())
             {
                 m_protocol.serialize(m_msgToSend, type, data);
-                it->second->write_msg(m_msgToSend);
+                auto res = it->second->write_msg(m_msgToSend);
                 m_msgToSend.clear();
+                test_io_result(res);
             }
             else
             {
@@ -118,6 +119,8 @@ namespace beam
                 m_node_connection->Send(msg);
             }
         }
+
+        void test_io_result(const io::Result res);
 
         class WalletNodeConnection : public proto::NodeConnection
         {

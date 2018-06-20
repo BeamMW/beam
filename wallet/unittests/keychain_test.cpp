@@ -93,18 +93,19 @@ void TestStoreCoins()
     coin = { 1, Coin::Unspent, 1, 10, KeyType::Regular };
     keychain.store(coin);
 
-    keychain.store(vector<Coin>{
+    auto coins = vector<Coin>{
         Coin{ 5, Coin::Unspent, 1, 10, KeyType::Coinbase },
-            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Comission },
-            Coin{ 2, Coin::Unspent, 1, 10, KeyType::Regular },
-            Coin{ 5, Coin::Unspent, 3, 10, KeyType::Coinbase },
-            Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular },
-            Coin{ 5, Coin::Unspent, 1, 10, KeyType::Coinbase },
-            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Comission },
-            Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular },
-            Coin{ 4, Coin::Unspent, 3, 10, KeyType::Comission },
-            Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular },
-            Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular } });
+        Coin{ 4, Coin::Unspent, 1, 10, KeyType::Comission },
+        Coin{ 2, Coin::Unspent, 1, 10, KeyType::Regular },
+        Coin{ 5, Coin::Unspent, 3, 10, KeyType::Coinbase },
+        Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular },
+        Coin{ 5, Coin::Unspent, 1, 10, KeyType::Coinbase },
+        Coin{ 4, Coin::Unspent, 1, 10, KeyType::Comission },
+        Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular },
+        Coin{ 4, Coin::Unspent, 3, 10, KeyType::Comission },
+        Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular },
+        Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular } };
+    keychain.store(coins);
 
 
     int coinBase = 0;

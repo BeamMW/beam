@@ -5,7 +5,7 @@
 #include "wallet/sender.h"
 #include <thread>
 #include <mutex>
-#include <queue>
+#include <deque>
 #include "core/proto.h"
 #include <tuple>
 namespace beam
@@ -48,6 +48,7 @@ namespace beam
         virtual bool handle_node_message(proto::Mined&& msg) = 0;
         // connection control
         virtual void handle_connection_error(PeerId) = 0;
+        virtual void stop_sync() = 0;
     };
 
     class Wallet : public IWallet
@@ -86,6 +87,7 @@ namespace beam
         bool handle_node_message(proto::Hdr&& msg) override;
         bool handle_node_message(proto::Mined&& msg) override;
         void handle_connection_error(PeerId from) override;
+        void stop_sync() override;
 
         void handle_tx_registered(const Uuid& txId, bool res);
         void handle_tx_failed(const Uuid& txId);
@@ -103,8 +105,8 @@ namespace beam
                 LOG_ERROR() << "Attempt to send message for unknown tx";
             }
         }
-
         void remove_peer(const Uuid& txId);
+    private:
         void getUtxoProofs(const std::vector<Coin>& coins);
         bool finishSync();
 
@@ -119,12 +121,13 @@ namespace beam
         std::vector<wallet::Sender::Ptr>      m_pendingSenders;
         std::vector<wallet::Receiver::Ptr>    m_pendingReceivers;
         TxCompletedAction m_tx_completed_action;
-        std::queue<Uuid> m_node_requests_queue;
+        std::deque<std::pair<Uuid, TransactionPtr>> m_reg_requests;
+        std::vector<std::pair<Uuid, TransactionPtr>> m_pending_reg_requests;
         Merkle::Hash m_Definition;
         Block::SystemState::ID m_knownStateID;
         Block::SystemState::ID m_newStateID;
         int m_syncing;
         bool m_synchronized;
-        std::queue<Coin> m_pendingProofs;
+        std::deque<Coin> m_pendingProofs;
     };
 }
