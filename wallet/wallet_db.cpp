@@ -37,13 +37,13 @@
 #define LIST(num, name, sep, type, obj) #name sep
 #define LIST_WITH_TYPES(num, name, sep, type, obj) #name " " #type sep
 
-#define STM_BIND_LIST(num, name, sep, type, obj) stm.bind(num, obj ## .m_ ## name);
-#define STM_GET_LIST(num, name, sep, type, obj) stm.get(num-1, obj ## .m_ ## name);
+#define STM_BIND_LIST(num, name, sep, type, obj) stm.bind(num, obj .m_ ## name);
+#define STM_GET_LIST(num, name, sep, type, obj) stm.get(num-1, obj .m_ ## name);
 
 #define BIND_LIST(num, name, sep, type, obj) "?" #num sep
 #define SET_LIST(num, name, sep, type, obj) #name "=?" #num sep
 
-#define STORAGE_FIELDS ENUM_ALL_STORAGE_FIELDS(LIST, COMMA)
+#define STORAGE_FIELDS ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, )
 #define STORAGE_NAME "storage"
 #define VARIABLES_NAME "variables"
 #define HISTORY_NAME "history"
@@ -52,7 +52,7 @@
     each(1, name, sep, TEXT UNIQUE, obj) \
     each(2, value,   , BLOB, obj)
 
-#define VARIABLES_FIELDS ENUM_VARIABLES_FIELDS(LIST, COMMA)
+#define VARIABLES_FIELDS ENUM_VARIABLES_FIELDS(LIST, COMMA, )
 
 #define ENUM_HISTORY_FIELDS(each, sep, obj) \
     each(1, txId,       sep, BLOB NOT NULL PRIMARY KEY, obj) \
@@ -64,7 +64,7 @@
     each(7, sender,     sep, INTEGER NOT NULL, obj) \
     each(8, status,     sep, INTEGER NOT NULL, obj) \
     each(9, fsmState,      , BLOB, obj)
-#define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA)
+#define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
 
 namespace
 {
@@ -560,7 +560,7 @@ namespace beam
             }
         }
 
-        const char* req = "INSERT INTO " STORAGE_NAME " (" ENUM_STORAGE_FIELDS(LIST, COMMA) ") VALUES(" ENUM_STORAGE_FIELDS(BIND_LIST, COMMA) ");";
+        const char* req = "INSERT INTO " STORAGE_NAME " (" ENUM_STORAGE_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_STORAGE_FIELDS(BIND_LIST, COMMA, ) ");";
         sqlite::Statement stm(_db, req);
 
         ENUM_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
@@ -578,7 +578,7 @@ namespace beam
 
 			for (const auto& coin : coins)
 			{
-				const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA) " WHERE id=?1;";
+				const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA, ) " WHERE id=?1;";
 				sqlite::Statement stm(_db, req);
 
 				ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
@@ -713,7 +713,6 @@ namespace beam
     boost::optional<TxDescription> Keychain::getTx(const Uuid& txId)
     {
         const char* req = "SELECT * FROM " HISTORY_NAME " WHERE txId=?1 ;";
-
         sqlite::Statement stm(_db, req);
         stm.bind(1, txId);
 
