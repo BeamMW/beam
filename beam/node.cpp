@@ -432,6 +432,22 @@ void Node::Initialize()
 		m_Compressor.Init();
 }
 
+void Node::ImportMacroblock(Height h)
+{
+	if (!m_Compressor.m_bEnabled)
+		throw std::runtime_error("History path not specified");
+
+	Block::BodyBase::RW rw;
+	m_Compressor.FmtPath(rw, h, NULL);
+	if (rw.Open(true))
+		m_Compressor.OnFileErr();
+
+	if (m_Processor.ImportMacroBlock(rw, m_Cfg.m_TestMode.m_bFakePoW))
+		throw std::runtime_error("import failed");
+
+	m_Processor.get_DB().MacroblockIns(h);
+}
+
 Node::~Node()
 {
 	m_Miner.HardAbortSafe();

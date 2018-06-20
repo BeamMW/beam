@@ -65,6 +65,7 @@ struct Node
 
 	~Node();
 	void Initialize();
+	void ImportMacroblock(Height); // throws on err
 
 	NodeProcessor& get_Processor() { return m_Processor; } // for tests only!
 
