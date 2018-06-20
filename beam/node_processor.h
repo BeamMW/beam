@@ -38,7 +38,7 @@ class NodeProcessor
 	void InitCursor();
 	static void OnCorrupted();
 	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
-
+	uint64_t FindActiveAtStrict(Height);
 	bool IsRelevantHeight(Height);
 	uint8_t get_NextDifficulty();
 	Timestamp get_MovingMedian();
@@ -76,9 +76,11 @@ public:
 
 	void get_CurrentLive(Merkle::Hash&);
 
+	// Export compressed history elements. Suitable only for "small" ranges, otherwise may be both time & memory consumng.
 	void ExtractBlockWithExtra(Block::Body&, Block::SystemState::Full&, const NodeDB::StateID&);
+	void ExportHdrRange(const HeightRange&, Block::SystemState::Sequence::Prefix&, std::vector<Block::SystemState::Sequence::Element>&);
+	void ExportMacroBlock(Block::BodyBase::IMacroWriter&);
 
-	void ExportMacroBlock(Block::BodyBase::IMacroWriter&); // can be time-consuming. Suitable only for "small" databases.
 	bool ImportMacroBlock(Block::BodyBase::IMacroReader&, bool bIgnorePoW);
 
 	struct DataStatus {

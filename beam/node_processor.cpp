@@ -303,26 +303,7 @@ void NodeProcessor::PruneOld()
 
 	for (Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight); hFossil < h; )
 	{
-		uint64_t rowid;
-
-		{
-			NodeDB::WalkerState ws(m_DB);
-			m_DB.EnumStatesAt(ws, hFossil + Block::Rules::HeightGenesis);
-			if (!ws.MoveNext())
-				OnCorrupted();
-
-			rowid = ws.m_Sid.m_Row;
-
-			if (ws.MoveNext())
-			{
-				if (!hFossil)
-					break; // several genesis blocks. Currently not blocked.
-
-				OnCorrupted();
-			}
-		}
-
-		assert(m_DB.GetStateFlags(rowid) & NodeDB::StateFlags::Active);
+		uint64_t rowid = FindActiveAtStrict(hFossil + Block::Rules::HeightGenesis);
 
 		if (1 != m_DB.GetStateNextCount(rowid))
 			break;
@@ -1007,6 +988,20 @@ bool NodeProcessor::IsStateNeeded(const Block::SystemState::ID& id)
 	return IsRelevantHeight(id.m_Height) && !m_DB.StateFindSafe(id);
 }
 
+uint64_t NodeProcessor::FindActiveAtStrict(Height h)
+{
+	NodeDB::WalkerState ws(m_DB);
+	m_DB.EnumStatesAt(ws, h);
+	while (true)
+	{
+		if (!ws.MoveNext())
+			OnCorrupted();
+
+		if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
+			return ws.m_Sid.m_Row;
+	}
+}
+
 /////////////////////////////
 // TxPool
 bool NodeProcessor::ValidateTx(const Transaction& tx, Transaction::Context& ctx)
@@ -1100,19 +1095,10 @@ uint8_t NodeProcessor::get_NextDifficulty()
 		return m_Cursor.m_Full.m_PoW.m_Difficulty; // no change
 
 	// review the difficulty
-	NodeDB::WalkerState ws(m_DB);
-	m_DB.EnumStatesAt(ws, m_Cursor.m_Full.m_Height - Block::Rules::DifficultyReviewCycle);
-	while (true)
-	{
-		if (!ws.MoveNext())
-			OnCorrupted();
-
-		if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
-			break;
-	}
+	uint64_t rowid = FindActiveAtStrict(m_Cursor.m_Full.m_Height - Block::Rules::DifficultyReviewCycle);
 
 	Block::SystemState::Full s2;
-	m_DB.get_State(ws.m_Sid.m_Row, s2);
+	m_DB.get_State(rowid, s2);
 
 	uint8_t ret = m_Cursor.m_Full.m_PoW.m_Difficulty;
 	Block::Rules::AdjustDifficulty(ret, s2.m_TimeStamp, m_Cursor.m_Full.m_TimeStamp);
@@ -1332,6 +1318,37 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, Block::SystemState
 		block.m_vInputs[i]->m_Maturity = rbData.NextInput(false).m_Maturity;
 }
 
+void NodeProcessor::ExportHdrRange(const HeightRange& hr, Block::SystemState::Sequence::Prefix& prefix, std::vector<Block::SystemState::Sequence::Element>& v)
+{
+	if (hr.m_Min > hr.m_Max) // can happen for empty range
+		ZeroObject(prefix);
+	else
+	{
+		v.resize(hr.m_Max - hr.m_Min + 1);
+
+		NodeDB::StateID sid;
+		sid.m_Row = FindActiveAtStrict(hr.m_Max);
+		sid.m_Height = hr.m_Max;
+
+		while (true)
+		{
+			Block::SystemState::Full s;
+			m_DB.get_State(sid.m_Row, s);
+
+			v[sid.m_Height - hr.m_Min] = s;
+
+			if (sid.m_Height == hr.m_Min)
+			{
+				prefix = s;
+				break;
+			}
+
+			if (!m_DB.get_Prev(sid))
+				OnCorrupted();
+		}
+	}
+}
+
 void NodeProcessor::ExportMacroBlock(Block::BodyBase::IMacroWriter& w)
 {
 	struct Walker
@@ -1391,23 +1408,8 @@ void NodeProcessor::ExportMacroBlock(Block::BodyBase::IMacroWriter& w)
 	w.Dump(wlk.m_Vec.get_Reader());
 
 	std::vector<Block::SystemState::Sequence::Element> vElem;
-	vElem.resize(m_Cursor.m_ID.m_Height - Block::Rules::HeightGenesis + 1);
-
 	Block::SystemState::Sequence::Prefix prefix;
-	if (!m_Cursor.m_Sid.m_Row)
-		ZeroObject(prefix);
-	else
-		for (NodeDB::StateID sid = m_Cursor.m_Sid; ; )
-		{
-			Block::SystemState::Full s;
-			m_DB.get_State(sid.m_Row, s);
-
-			vElem[sid.m_Height - Block::Rules::HeightGenesis] = s;
-			prefix = s;
-
-			if (!m_DB.get_Prev(sid))
-				break;
-		}
+	ExportHdrRange(HeightRange(Block::Rules::HeightGenesis, m_Cursor.m_ID.m_Height), prefix, vElem);
 
 	Block::BodyBase body;
 	NodeDB::Blob blob(body.m_Offset.m_Value.m_pData, sizeof(body.m_Offset.m_Value.m_pData));
