@@ -1514,7 +1514,8 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 
 	NodeDB::Transaction t(m_DB);
 
-	// feed all headers
+	LOG_INFO() << "Verifying headers...";
+
 	for ( ; r.get_NextHdr(s); )
 	{
 		switch (OnStateInternal(s, bIgnorePoW, id))
@@ -1538,12 +1539,15 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 		OnCorrupted();
 	m_DB.get_State(rowid, s);
 
-	// context-free validation
+	LOG_INFO() << "Context-free validation...";
+
 	if (!VerifyBlock(body, std::move(r), HeightRange(cu.m_ID.m_Height + 1, id.m_Height)))
 	{
 		LOG_WARNING() << "Context-free verification failed";
 		return false;
 	}
+
+	LOG_INFO() << "Applying macroblock...";
 
 	RollbackData rbData;
 	if (!HandleValidatedTx(std::move(r), cu.m_ID.m_Height + 1, true, rbData, &id.m_Height))
@@ -1553,6 +1557,8 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 	}
 
 	// Update DB state flags and cursor. This will also buils the MMR for prev states
+	LOG_INFO() << "Building auxilliary datas...";
+
 	r.Reset();
 	for (r.get_Start(body, s); r.get_NextHdr(s); )
 	{
