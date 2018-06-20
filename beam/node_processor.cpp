@@ -1495,8 +1495,11 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 		s.m_Height++;
 	}
 
-	uint64_t val = !body.m_SubsidyClosing;
-	m_DB.ParamSet(NodeDB::ParamID::SubsidyOpen, &val, NULL);
+	if (body.m_SubsidyClosing)
+	{
+		uint64_t val = 0;
+		m_DB.ParamSet(NodeDB::ParamID::SubsidyOpen, &val, NULL);
+	}
 
 	InitCursor();
 
@@ -1508,6 +1511,9 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 
 	if (s.m_Definition != hvDef)
 	{
+		if (m_Cursor.m_SubsidyOpen != cu.m_SubsidyOpen)
+			OnSubsidyOptionChanged(cu.m_SubsidyOpen);
+
 		rbData.m_Inputs = 0;
 		verify(HandleValidatedTx(std::move(r), cu.m_ID.m_Height + 1, false, rbData, &id.m_Height));
 
