@@ -60,10 +60,10 @@ namespace
 		void setSystemStateID(const Block::SystemState::ID& stateID) override {};
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override { return false; };
 
-        std::vector<HistoryRecord> getHistory(uint64_t start, size_t count) override { return {}; }
-        bool insertHistory(const HistoryRecord& hr) override { return true; }
-        bool updateHistory(const HistoryRecord& hr) override { return true; }
-        void deleteHistory(const Uuid& txId) override { };
+        std::vector<TxDescription> getTxHistory(uint64_t start, size_t count) override { return {}; };
+        boost::optional<TxDescription> getTx(const Uuid& txId) override { return boost::optional<TxDescription>{}; };
+        void saveTx(const TxDescription &) override {};
+        void deleteTx(const Uuid& txId) override {};
 
         Height getCurrentHeight() const override
         {
@@ -117,37 +117,37 @@ namespace
     struct TestGateway : wallet::sender::IGateway
         , wallet::receiver::IGateway
     {
-        void send_tx_invitation(const wallet::InviteReceiver&) override
+        void send_tx_invitation(const TxDescription& tx, const wallet::InviteReceiver&) override
         {
             cout << "sent tx initiation message\n";
         }
 
-        void send_tx_confirmation(const wallet::ConfirmTransaction&) override
+        void send_tx_confirmation(const TxDescription& tx, const wallet::ConfirmTransaction&) override
         {
             cout << "sent senders's tx confirmation message\n";
         }
 
-        void send_tx_failed(const Uuid& /*txId*/) override
+        void send_tx_failed(const TxDescription&) override
         {
 
         }
 
-        void on_tx_completed(const Uuid& /*txId*/) override
+        void on_tx_completed(const TxDescription&) override
         {
             cout << __FUNCTION__ << "\n";
         }
 
-        void send_tx_confirmation(const wallet::ConfirmInvitation&) override
+        void send_tx_confirmation(const TxDescription& tx, const wallet::ConfirmInvitation&) override
         {
             cout << "sent recever's tx confirmation message\n";
         }
 
-        void register_tx(const Uuid&, Transaction::Ptr) override
+        void register_tx(const TxDescription& tx, Transaction::Ptr) override
         {
             cout << "sent tx registration request\n";
         }
 
-        void send_tx_registered(UuidPtr&&) override
+        void send_tx_registered(const TxDescription& tx) override
         {
             cout << "sent tx registration completed \n";
         }
@@ -392,7 +392,7 @@ void TestWalletNegotiation()
     network.registerPeer(&sender);
     network.registerPeer(&receiver);
 
-    sender.transfer_money(receiver_id, 6);
+    sender.transfer_money(receiver_id, 6, {});
     mainLoop.run();
 
     WALLET_CHECK(network.m_closeNodeCount == 4);
@@ -409,7 +409,9 @@ void TestFSM()
     TestGateway gateway;
     Uuid id;
 
-    wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), id , 6};
+    TxDescription stx = {};
+    stx.m_amount = 6;
+    wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), stx};
     s.start();
     WALLET_CHECK(s.process_event(wallet::Sender::TxInitCompleted{ wallet::ConfirmInvitation() }));
     WALLET_CHECK(s.process_event(wallet::Sender::TxConfirmationCompleted()));
@@ -417,7 +419,7 @@ void TestFSM()
     cout << "\nreceiver\n";
     wallet::InviteReceiver initData;
     initData.m_amount = 100;
-    wallet::Receiver r{ gateway, createKeyChain<TestKeyChain>(), initData };
+    wallet::Receiver r{ gateway, createKeyChain<TestKeyChain>(), {}, initData };
     r.start();
     WALLET_CHECK(!r.process_event(wallet::Receiver::TxRegistrationCompleted()));
     WALLET_CHECK(r.process_event(wallet::Receiver::TxFailed()));
@@ -586,8 +588,9 @@ void TestSerializeFSM()
     
     {
         Uuid id;
-
-        wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), id , 6 };
+        TxDescription tx = {};
+        tx.m_amount = 6;
+        wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), tx};
         WALLET_CHECK(*(s.current_state()) == 0);
         s.start();
         WALLET_CHECK(*(s.current_state()) == 1);
@@ -600,7 +603,7 @@ void TestSerializeFSM()
         Deserializer der;
         der.reset(buffer.first, buffer.second);
 
-        wallet::Sender s2 { gateway, createKeyChain<TestKeyChain>()};
+        wallet::Sender s2{ gateway, createKeyChain<TestKeyChain>(), {} };
         WALLET_CHECK(*(s2.current_state()) == 0);
         der & s2;
         WALLET_CHECK(*(s2.current_state()) == 1);
@@ -619,7 +622,9 @@ void TestSerializeFSM()
     {
         wallet::InviteReceiver initData{0};
         initData.m_amount = 100;
-        wallet::Receiver r{ gateway, createKeyChain<TestKeyChain>(), initData };
+        TxDescription rtx = {};
+        rtx.m_amount = 100;
+        wallet::Receiver r{ gateway, createKeyChain<TestKeyChain>(), rtx, initData };
         WALLET_CHECK(*(r.current_state()) == 0);
         r.start();
         WALLET_CHECK(*(r.current_state()) == 1);
@@ -632,7 +637,7 @@ void TestSerializeFSM()
         Deserializer der;
         der.reset(buffer.first, buffer.second);
 
-        wallet::Receiver r2{ gateway, createKeyChain<TestKeyChain>(), initData };
+        wallet::Receiver r2{ gateway, createKeyChain<TestKeyChain>(), {}, initData };
         WALLET_CHECK(*(r2.current_state()) == 0);
         der & r2;
         WALLET_CHECK(*(r2.current_state()) == 1);

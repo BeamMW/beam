@@ -1,4 +1,6 @@
 #include "wallet_db.h"
+#include "sender.h"
+#include "receiver.h"
 #include "utility/logger.h"
 #include "sqlite/sqlite3.h"
 #include <sstream>
@@ -55,11 +57,13 @@
 #define ENUM_HISTORY_FIELDS(each, sep, obj) \
     each(1, txId,       sep, BLOB NOT NULL PRIMARY KEY, obj) \
     each(2, amount,     sep, INTEGER NOT NULL, obj) \
-    each(3, initTime,   sep, INTEGER NOT NULL, obj) \
-    each(4, finishTime, sep, INTEGER, obj) \
-    each(5, flags,      sep, INTEGER NOT NULL, obj) \
-    each(6, status,     , INTEGER NOT NULL, obj)// \
- //   each(7, fsmState,      , BLOB, obj)
+    each(3, peerId,     sep, INTEGER NOT NULL, obj) \
+    each(4, message,    sep, BLOB, obj) \
+    each(5, createTime, sep, INTEGER NOT NULL, obj) \
+    each(6, modifyTime, sep, INTEGER, obj) \
+    each(7, sender,     sep, INTEGER NOT NULL, obj) \
+    each(8, status,     sep, INTEGER NOT NULL, obj) \
+    each(9, fsmState,      , BLOB, obj)
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA)
 
 namespace
@@ -70,6 +74,7 @@ namespace
 
 namespace beam
 {
+    using namespace std;
 	namespace sqlite
 	{
 
@@ -95,11 +100,28 @@ namespace beam
                 throwIfError(ret);
 			}
 
+            void bind(int col, TxDescription::Status val)
+            {
+                int ret = sqlite3_bind_int(_stm, col, static_cast<int>(val));
+                throwIfError(ret);
+            }
+
 			void bind(int col, uint64_t val)
 			{
 				int ret = sqlite3_bind_int64(_stm, col, val);
                 throwIfError(ret);
 			}
+
+            void bind(int col, const Uuid& id)
+            {
+                bind(col, id.data(), id.size());
+            }
+
+            void bind(int col, const ByteBuffer& m)
+            {
+                int ret = sqlite3_bind_blob(_stm, col, m.data(), m.size(), NULL);
+                throwIfError(ret);
+            }
 
 			void bind(int col, const void* blob, int size)
 			{
@@ -136,27 +158,52 @@ namespace beam
 				val = sqlite3_column_int(_stm, col);
 			}
 
-			void get(int col, beam::Coin::Status& status)
+			void get(int col, Coin::Status& status)
 			{
-				status = static_cast<beam::Coin::Status>(sqlite3_column_int(_stm, col));
+				status = static_cast<Coin::Status>(sqlite3_column_int(_stm, col));
 			}
+
+            void get(int col, TxDescription::Status& status)
+            {
+                status = static_cast<TxDescription::Status>(sqlite3_column_int(_stm, col));
+            }
 
 			void get(int col, bool& val)
 			{
 				val = sqlite3_column_int(_stm, col) == 0 ? false : true;
 			}
 
+            void get(int col, Uuid& id)
+            {
+                int size = 0;
+                get(col, static_cast<void*>(id.data()), size);
+                assert(size == id.size());
+            }
+
+            void get(int col, ByteBuffer& b)
+            {
+                int size = sqlite3_column_bytes(_stm, col);
+                const void* data = sqlite3_column_blob(_stm, col);
+
+                if (data)
+                {
+                    b.clear();
+                    b.resize(size);
+                    memcpy(&b[0], data, size);
+                }
+            }
+
 			void get(int col, void* blob, int& size)
 			{
 				size = sqlite3_column_bytes(_stm, col);
 				const void* data = sqlite3_column_blob(_stm, col);
 
-				if (data) std::memcpy(blob, data, size);
+				if (data) memcpy(blob, data, size);
 			}
 
-			void get(int col, beam::KeyType& type)
+			void get(int col, KeyType& type)
 			{
-				type = static_cast<beam::KeyType>(sqlite3_column_int(_stm, col));
+				type = static_cast<KeyType>(sqlite3_column_int(_stm, col));
 			}
 
 			~Statement()
@@ -170,9 +217,10 @@ namespace beam
                 {
                     return;
                 }
-                std::stringstream ss;
+                stringstream ss;
                 ss << "sqlite error code=" << res << ", " << sqlite3_errmsg(_db);
-                throw std::runtime_error(ss.str());
+                LOG_DEBUG() << ss.str();
+                throw runtime_error(ss.str());
             }
 		private:
 
@@ -250,11 +298,11 @@ namespace beam
 		return boost::filesystem::exists(getName());
 	}
 
-	IKeyChain::Ptr Keychain::init(const std::string& password, const ECC::NoLeak<ECC::uintBig>& secretKey)
+	IKeyChain::Ptr Keychain::init(const string& password, const ECC::NoLeak<ECC::uintBig>& secretKey)
 	{
 		if (!boost::filesystem::exists(getName()))
 		{
-			auto keychain = std::make_shared<Keychain>(secretKey);
+			auto keychain = make_shared<Keychain>(secretKey);
 
 			{
 				int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
@@ -287,7 +335,7 @@ namespace beam
 				keychain->setVar(WalletSeed, secretKey.V);
 			}
 
-			return std::static_pointer_cast<IKeyChain>(keychain);
+			return static_pointer_cast<IKeyChain>(keychain);
 		}
 
 		LOG_ERROR() << getName() << " already exists.";
@@ -295,13 +343,13 @@ namespace beam
 		return Ptr();
 	}
 
-	IKeyChain::Ptr Keychain::open(const std::string& password)
+	IKeyChain::Ptr Keychain::open(const string& password)
 	{
 		if (boost::filesystem::exists(getName()))
 		{
 			ECC::NoLeak<ECC::uintBig> seed;
 			seed.V = ECC::Zero;
-			auto keychain = std::make_shared<Keychain>(seed);
+			auto keychain = make_shared<Keychain>(seed);
 
 			{
 				int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
@@ -365,7 +413,7 @@ namespace beam
 				assert(false && "there is no seed for keychain");
 			}
 
-			return std::static_pointer_cast<IKeyChain>(keychain);
+			return static_pointer_cast<IKeyChain>(keychain);
 		}
 
 		LOG_ERROR() << getName() << " not found, please init the wallet before.";
@@ -411,9 +459,9 @@ namespace beam
 		return key;
 	}
 
-	std::vector<beam::Coin> Keychain::getCoins(const ECC::Amount& amount, bool lock)
+	vector<beam::Coin> Keychain::getCoins(const ECC::Amount& amount, bool lock)
 	{
-		std::vector<beam::Coin> coins;
+		vector<beam::Coin> coins;
 
 		ECC::Amount sum = 0;
 
@@ -484,7 +532,7 @@ namespace beam
 		trans.commit();
 	}
 
-	void Keychain::store(std::vector<beam::Coin>& coins)
+	void Keychain::store(vector<beam::Coin>& coins)
 	{
 		if (coins.empty()) return;
 
@@ -522,7 +570,7 @@ namespace beam
         coin.m_id = getLastID(_db);
     }
 
-	void Keychain::update(const std::vector<beam::Coin>& coins)
+	void Keychain::update(const vector<beam::Coin>& coins)
 	{
 		if (coins.size())
 		{
@@ -542,7 +590,7 @@ namespace beam
 		}
 	}
 
-	void Keychain::remove(const std::vector<beam::Coin>& coins)
+	void Keychain::remove(const vector<beam::Coin>& coins)
 	{
 		if (coins.size())
 		{
@@ -575,7 +623,7 @@ namespace beam
 		trans.commit();
 	}
 
-	void Keychain::visit(std::function<bool(const beam::Coin& coin)> func)
+	void Keychain::visit(function<bool(const beam::Coin& coin)> func)
 	{
 		const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME ";";
 		sqlite::Statement stm(_db, req);
@@ -645,11 +693,10 @@ namespace beam
 		return 0;
 	}
 
-    std::vector<HistoryRecord> Keychain::getHistory(uint64_t start, size_t count)
+    vector<TxDescription> Keychain::getTxHistory(uint64_t start, size_t count)
     {
-        std::vector<HistoryRecord> res;
-        
-        const char* req = "SELECT * FROM " HISTORY_NAME " ORDER BY initTime DESC LIMIT ?1 OFFSET ?2 ;";
+        vector<TxDescription> res;
+        const char* req = "SELECT * FROM " HISTORY_NAME " ORDER BY createTime DESC LIMIT ?1 OFFSET ?2 ;";
 
         sqlite::Statement stm(_db, req);
         stm.bind(1, count);
@@ -657,60 +704,61 @@ namespace beam
 
         while (stm.step())
         {
-            auto& hr = res.emplace_back(HistoryRecord{});
-            //ENUM_HISTORY_FIELDS(STM_GET_LIST, NOSEP, hr);
-            int size = 0;
-            uint64_t t1, t2;
-            
-            stm.get(0, (void*)(hr.m_txId.data()), size);
-            assert(size == sizeof(Uuid));
-            stm.get(1, hr.m_amount);
-            stm.get(2, hr.m_initTime);
-            stm.get(3, hr.m_finishTime);
-            stm.get(4, t1);
-            stm.get(5, t2);
-            hr.m_flags = (HistoryRecord::Flags)t1;
-            hr.m_status = (HistoryRecord::Status)t2;
-            
+            auto& tx = res.emplace_back(TxDescription{});
+            ENUM_HISTORY_FIELDS(STM_GET_LIST, NOSEP, tx);
         }
         return res;
     }
 
-    bool Keychain::insertHistory(const HistoryRecord& hr)
+    boost::optional<TxDescription> Keychain::getTx(const Uuid& txId)
     {
-        const char* req = "INSERT INTO " HISTORY_NAME " (" ENUM_HISTORY_FIELDS(LIST, COMMA) ") VALUES(" ENUM_HISTORY_FIELDS(BIND_LIST, COMMA) ");";
+        const char* req = "SELECT * FROM " HISTORY_NAME " WHERE txId=?1 ;";
+
         sqlite::Statement stm(_db, req);
+        stm.bind(1, txId);
 
-        //ENUM_HISTORY_FIELDS(STM_BIND_LIST, NOSEP, tr);
-        stm.bind(1, hr.m_txId.data(), hr.m_txId.size());
-        stm.bind(2, hr.m_amount);
-        stm.bind(3, hr.m_initTime);
-        stm.bind(4, hr.m_finishTime);
-        stm.bind(5, static_cast<int>(hr.m_flags));
-        stm.bind(6, hr.m_status);
+        if (stm.step())
+        {
+            TxDescription tx;
+            ENUM_HISTORY_FIELDS(STM_GET_LIST, NOSEP, tx);
+            return tx;
+        }
 
-        return stm.step();
+        return boost::optional<TxDescription>{};
     }
 
-    bool Keychain::updateHistory(const HistoryRecord& hr)
+    void Keychain::saveTx(const TxDescription& p)
     {
-        const char* req = "UPDATE " HISTORY_NAME " SET finishTime=?2, flags=?3, status=?4 WHERE txId=?1;";
-        sqlite::Statement stm(_db, req);
+        const char* selectReq = "SELECT * FROM " HISTORY_NAME " WHERE txId=?1;";
+        sqlite::Statement stm(_db, selectReq);
+        stm.bind(1, p.m_txId);
 
-        stm.bind(1, static_cast<const void*>(hr.m_txId.data()), hr.m_txId.size());
-        stm.bind(2, hr.m_finishTime);
-        stm.bind(3, static_cast<int>(hr.m_flags));
-        stm.bind(4, hr.m_status);
+        if (stm.step())
+        {
+            const char* updateReq = "UPDATE " HISTORY_NAME " SET modifyTime=?2, status=?3, fsmState=?4 WHERE txId=?1;";
+            sqlite::Statement stm(_db, updateReq);
 
-        return stm.step();
+            stm.bind(1, p.m_txId);
+            stm.bind(2, p.m_modifyTime);
+            stm.bind(3, p.m_status);
+            stm.bind(4, p.m_fsmState);
+            stm.step();
+        }
+        else
+        {
+            const char* insertReq = "INSERT INTO " HISTORY_NAME " (" ENUM_HISTORY_FIELDS(LIST, COMMA) ") VALUES(" ENUM_HISTORY_FIELDS(BIND_LIST, COMMA) ");";
+            sqlite::Statement stm(_db, insertReq);
+            ENUM_HISTORY_FIELDS(STM_BIND_LIST, NOSEP, p);
+            stm.step();
+        }
     }
 
-    void Keychain::deleteHistory(const Uuid& txId)
+    void Keychain::deleteTx(const Uuid& txId)
     {
         const char* req = "DELETE FROM " HISTORY_NAME " WHERE txId=?1;";
         sqlite::Statement stm(_db, req);
 
-        stm.bind(1, txId.data(), txId.size());
+        stm.bind(1, txId);
 
         stm.step();
     }

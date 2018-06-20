@@ -638,7 +638,7 @@ int main(int argc, char* argv[])
                         , reactor };
                     if (command == cli::SEND)
                     {
-                        wallet_io.transfer_money(receiverAddr, move(amount));
+                        wallet_io.transfer_money(receiverAddr, move(amount), {});
                     }
                     wallet_io.start();
                 }

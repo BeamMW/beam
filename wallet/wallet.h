@@ -60,19 +60,21 @@ namespace beam
         Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
-        void transfer_money(PeerId to, ECC::Amount&& amount);
+        void transfer_money(PeerId to, Amount amount, ByteBuffer&& message);
+        void resume_tx(const TxDescription& tx);
+        void resume_all_tx();
 
-        void send_tx_invitation(const wallet::InviteReceiver&) override;
-        void send_tx_confirmation(const wallet::ConfirmTransaction&) override;
-        void on_tx_completed(const Uuid& txId) override;
-        void send_tx_failed(const Uuid& txId) override;
+        void send_tx_invitation(const TxDescription& tx, const wallet::InviteReceiver&) override;
+        void send_tx_confirmation(const TxDescription& tx, const wallet::ConfirmTransaction&) override;
+        void on_tx_completed(const TxDescription& tx) override;
+        void send_tx_failed(const TxDescription& tx) override;
 
         void remove_sender(const Uuid& txId);
         void remove_receiver(const Uuid& txId);
 
-        void send_tx_confirmation(const wallet::ConfirmInvitation&) override;
-        void register_tx(const Uuid&, Transaction::Ptr) override;
-        void send_tx_registered(UuidPtr&& txId) override;
+        void send_tx_confirmation(const TxDescription& tx, const wallet::ConfirmInvitation&) override;
+        void register_tx(const TxDescription& tx, Transaction::Ptr) override;
+        void send_tx_registered(const TxDescription& tx) override;
 
         void handle_tx_message(PeerId, wallet::InviteReceiver&&) override;
         void handle_tx_message(PeerId, wallet::ConfirmTransaction&&) override;
@@ -89,25 +91,12 @@ namespace beam
 
         void handle_tx_registered(const Uuid& txId, bool res);
         void handle_tx_failed(const Uuid& txId);
-
-        template<typename Func>
-        void send_tx_message(const Uuid& txId, Func f)
-        {
-            if (auto it = m_peers.find(txId); it != m_peers.end())
-            {
-                f(it->second);
-            }
-            else
-            {
-                assert(false && "no peers");
-                LOG_ERROR() << "Attempt to send message for unknown tx";
-            }
-        }
-
+    private:
         void remove_peer(const Uuid& txId);
         void getUtxoProofs(const std::vector<Coin>& coins);
         bool finishSync();
-
+        void resume_sender(const TxDescription& tx);
+        void resume_receiver(const TxDescription& tx, wallet::InviteReceiver&& data = {});
     private:
         IKeyChain::Ptr m_keyChain;
         INetworkIO& m_network;

@@ -36,24 +36,34 @@ namespace beam
         {};
         enum Status
         {
-            Uncompleted,
+            Pending,
+            InProgress,
             Cancelled,
-            Registered,
+            Completed,
             Failed
         };
-        enum Flags : int
+
+        HistoryRecord(const Uuid& id, Amount amount, uint64_t peerId, const ByteBuffer& message)
+            : m_txId{id}
+            , m_amount{ 0 }
+            , m_peerId{ peerId }
+            , m_message{message}
+            , m_createTime{ Timestamp(-1) }
+            , m_modifyTime{ Timestamp(-1) }
+            , m_sender{ false }
+            , m_status{ Pending }
+        {}
+        HistoryRecord() : HistoryRecord(Uuid{ 0 }, 0, 0, {})
         {
-            Sending   = 0,
-            Receiving = 1
-        };
-        
+        }
         Uuid m_txId;
         Amount m_amount;
-        Timestamp m_initTime;
-        Timestamp m_finishTime;
-        Flags m_flags;
+        uint64_t m_peerId;
+        ByteBuffer m_message;
+        Timestamp m_createTime;
+        Timestamp m_modifyTime;
+        bool m_sender;
         Status m_status;
-        //fsmState,
     };
 
     struct IKeyChain
@@ -77,10 +87,10 @@ namespace beam
 		virtual int getVarRaw(const char* name, void* data) const = 0;
         virtual Height getCurrentHeight() const = 0;
 
-        virtual std::vector<HistoryRecord> getHistory(uint64_t start, size_t count) = 0;
-        virtual bool insertHistory(const HistoryRecord& hr) = 0;
-        virtual bool updateHistory(const HistoryRecord& hr) = 0;
-        virtual void deleteHistory(const beam::Uuid& txId) = 0;
+        virtual std::vector<TxDescription> getTxHistory(uint64_t start, size_t count) = 0;
+        virtual boost::optional<TxDescription> getTx(const Uuid& txId) = 0;
+        virtual void saveTx(const TxDescription& p) = 0;
+        virtual void deleteTx(const Uuid& txId) = 0;
 
 		template <typename Var>
 		void setVar(const char* name, const Var& var)
@@ -120,10 +130,10 @@ namespace beam
 		int getVarRaw(const char* name, void* data) const override;
         Height getCurrentHeight() const override;
 
-        std::vector<HistoryRecord> getHistory(uint64_t start, size_t count) override;
-        bool insertHistory(const HistoryRecord& hr) override;
-        bool updateHistory(const HistoryRecord& hr) override;
-        void deleteHistory(const Uuid& txId) override;
+        std::vector<TxDescription> getTxHistory(uint64_t start, size_t count) override;
+        boost::optional<TxDescription> getTx(const Uuid& txId) override;
+        void saveTx(const TxDescription& p) override;
+        void deleteTx(const Uuid& txId) override;
 
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override;

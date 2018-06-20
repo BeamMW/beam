@@ -55,11 +55,11 @@ namespace beam {
         m_reactor->stop();
     }
 
-    void WalletNetworkIO::transfer_money(io::Address receiver, Amount&& amount)
+    void WalletNetworkIO::transfer_money(io::Address receiver, Amount&& amount, ByteBuffer&& message)
     {
-        connect_wallet(receiver, [this, receiver, amount = move(amount)](uint64_t tag) mutable
+        connect_wallet(receiver, [this, receiver, amount = move(amount), message = move(message)](uint64_t tag) mutable
         {
-            m_wallet.transfer_money(tag, move(amount));
+            m_wallet.transfer_money(tag, move(amount), move(message));
         });
     }
 

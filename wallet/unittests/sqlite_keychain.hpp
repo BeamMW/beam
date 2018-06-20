@@ -98,24 +98,24 @@ struct SqliteKeychain : beam::IKeyChain
         return _keychain->getCurrentHeight();
     }
 
-    std::vector<beam::HistoryRecord> getHistory(uint64_t start, size_t count) override
+    std::vector<beam::TxDescription> getTxHistory(uint64_t start, size_t count) override
     {
-        return _keychain->getHistory(start, count);
+        return _keychain->getTxHistory(start, count);
     }
 
-    bool insertHistory(const beam::HistoryRecord& hr) override
+    boost::optional<beam::TxDescription> getTx(const beam::Uuid& txId) override
     {
-        return _keychain->insertHistory(hr);
+        return _keychain->getTx(txId);
     }
 
-    bool updateHistory(const beam::HistoryRecord& hr) override
+    void saveTx(const beam::TxDescription& t) override
     {
-        return _keychain->updateHistory(hr);
+        _keychain->saveTx(t);
     }
 
-    void deleteHistory(const beam::Uuid& txId) override
+    void deleteTx(const beam::Uuid& txId) override
     {
-        _keychain->deleteHistory(txId);
+        _keychain->deleteTx(txId);
     }
 
 private:

@@ -2,6 +2,8 @@
 #include <assert.h>
 #include "test_helpers.h"
 
+#include "utility/logger.h"
+
 using namespace std;
 using namespace ECC;
 using namespace beam;
@@ -131,75 +133,94 @@ void TestStoreCoins()
     WALLET_CHECK(comission == 2);
     WALLET_CHECK(regular == 10);
 }
-
+using namespace beam;
+using namespace beam::wallet;
 void TestStoreTxRecord()
 {
     SqliteKeychain keychain;
-    beam::HistoryRecord tr;
     Uuid id = {1, 3, 4, 5 ,65};
+    TxDescription tr;
     tr.m_txId = id;
     tr.m_amount = 34;
-    tr.m_initTime = 123456;
-    tr.m_flags = HistoryRecord::Flags::Sending;
-    tr.m_status = HistoryRecord::Uncompleted;
-    WALLET_CHECK_NO_THROW(keychain.insertHistory(tr));
-    WALLET_CHECK_THROW(keychain.insertHistory(tr) == false);
-    beam::HistoryRecord tr2 = tr;
+    tr.m_peerId = 23;
+    tr.m_createTime = 123456;
+    tr.m_sender = true;
+    tr.m_status = TxDescription::InProgress;
+    WALLET_CHECK_NO_THROW(keychain.saveTx(tr));
+    WALLET_CHECK_NO_THROW(keychain.saveTx(tr));
+    TxDescription tr2 = tr;
     tr2.m_txId = id;
     tr2.m_amount = 43;
-    tr2.m_initTime = 1234564;
-    tr2.m_finishTime = 12345644;
-    tr2.m_flags = HistoryRecord::Flags::Sending;
-    tr2.m_status = HistoryRecord::Registered;
-    WALLET_CHECK_NO_THROW(keychain.updateHistory(tr2));
+    tr2.m_createTime = 1234564;
+    tr2.m_modifyTime = 12345644;
+    tr2.m_status = TxDescription::Completed;
+    WALLET_CHECK_NO_THROW(keychain.saveTx(tr2));
     
-    auto t = keychain.getHistory(0, -1);
+    auto t = keychain.getTxHistory(0, -1);
     WALLET_CHECK(t.size() == 1);
     WALLET_CHECK(t[0].m_txId == tr.m_txId);
     WALLET_CHECK(t[0].m_amount == tr.m_amount);
-    WALLET_CHECK(t[0].m_initTime == tr.m_initTime);
-    WALLET_CHECK(t[0].m_finishTime == tr2.m_finishTime);
-    WALLET_CHECK(t[0].m_flags == tr2.m_flags); 
+    WALLET_CHECK(t[0].m_peerId == tr.m_peerId);
+    WALLET_CHECK(t[0].m_createTime == tr.m_createTime);
+    WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
+    WALLET_CHECK(t[0].m_sender == tr2.m_sender);
     WALLET_CHECK(t[0].m_status == tr2.m_status);
     Uuid id2 = { 3,4,5 };
-    WALLET_CHECK_NO_THROW(keychain.deleteHistory(id2));
-    WALLET_CHECK_NO_THROW(keychain.deleteHistory(id));
-    WALLET_CHECK(keychain.updateHistory(tr2) == false);
-    WALLET_CHECK_NO_THROW(keychain.insertHistory(tr2));
-    WALLET_CHECK_NO_THROW(keychain.deleteHistory(tr2.m_txId));
-    WALLET_CHECK(keychain.getHistory(0, -1).empty());
+    WALLET_CHECK_NO_THROW(keychain.deleteTx(id2));
+    WALLET_CHECK_NO_THROW(keychain.deleteTx(id));
+
+    WALLET_CHECK_NO_THROW(keychain.saveTx(tr2));
+    WALLET_CHECK_NO_THROW(keychain.saveTx(tr2));
+    boost::optional<TxDescription> tr3;
+    WALLET_CHECK_NO_THROW(tr3 = keychain.getTx(tr2.m_txId));
+    WALLET_CHECK(tr3.is_initialized());
+    WALLET_CHECK(tr3->m_txId == tr2.m_txId);
+    WALLET_CHECK(tr3->m_amount == tr2.m_amount);
+    WALLET_CHECK(tr3->m_peerId == tr2.m_peerId);
+    WALLET_CHECK(tr3->m_message == tr2.m_message);
+    WALLET_CHECK(tr3->m_createTime == tr2.m_createTime);
+    WALLET_CHECK(tr3->m_modifyTime == tr2.m_modifyTime);
+    WALLET_CHECK(tr3->m_sender == tr2.m_sender);
+    WALLET_CHECK(tr3->m_status == tr2.m_status);
+    WALLET_CHECK(tr3->m_fsmState == tr2.m_fsmState);
+    WALLET_CHECK_NO_THROW(keychain.deleteTx(tr2.m_txId));
+    WALLET_CHECK(keychain.getTxHistory(0, -1).empty());
 
     for (uint8_t i = 0; i < 100; ++i)
     {
         tr.m_txId[0] = i;
-        WALLET_CHECK_NO_THROW(keychain.insertHistory(tr));
+        WALLET_CHECK_NO_THROW(keychain.saveTx(tr));
     }
-    WALLET_CHECK(keychain.getHistory(0, -1).size() == 100);
-    t = keychain.getHistory(50, 2);
+    WALLET_CHECK(keychain.getTxHistory(0, -1).size() == 100);
+    t = keychain.getTxHistory(50, 2);
     WALLET_CHECK(t.size() == 2);
-    t = keychain.getHistory(99, 10);
+    t = keychain.getTxHistory(99, 10);
     WALLET_CHECK(t.size() == 1);
-    t = keychain.getHistory(9, 0);
+    t = keychain.getTxHistory(9, 0);
     WALLET_CHECK(t.size() == 0);
-    t = keychain.getHistory(50, 2);
+    t = keychain.getTxHistory(50, 2);
     id[0] = 50;
     WALLET_CHECK(t[0].m_txId == id);
     id[0] = 51;
     WALLET_CHECK(t[1].m_txId == id);
 
-    t = keychain.getHistory(0, 1);
+    t = keychain.getTxHistory(0, 1);
     WALLET_CHECK(t.size() == 1 && t[0].m_txId[0] == 0);
 
-    t = keychain.getHistory(99, 1);
+    t = keychain.getTxHistory(99, 1);
     WALLET_CHECK(t.size() == 1 && t[0].m_txId[0] == 99);
 
-    t = keychain.getHistory(100, 1);
+    t = keychain.getTxHistory(100, 1);
     WALLET_CHECK(t.size() == 0);
 }
 
 int main() 
 {
-
+    int logLevel = LOG_LEVEL_DEBUG;
+#if LOG_VERBOSE_ENABLED
+    logLevel = LOG_LEVEL_VERBOSE;
+#endif
+    auto logger = beam::Logger::create(logLevel, logLevel);
 	ECC::InitializeContext();
 	TestKeychain();
     TestStoreCoins();

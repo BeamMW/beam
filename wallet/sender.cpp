@@ -1,31 +1,27 @@
 #include "sender.h"
+#include "wallet/wallet_serialization.h"
 
 namespace beam::wallet
 {
     using namespace ECC;
     using namespace std;
 
-    void Sender::update_history()
-    {
-
-    }
-
     void Sender::FSMDefinition::init_tx(const msmf::none&)
     {
-        LOG_INFO() << "Sending " << PrintableAmount(m_amount);
+        LOG_INFO() << "Sending " << PrintableAmount(m_txDesc.m_amount);
         // 1. Create transaction Uuid
         InviteReceiver invitationData;
-        invitationData.m_txId = m_txId;
+        invitationData.m_txId = m_txDesc.m_txId;
         Height currentHeight = m_keychain->getCurrentHeight();
         invitationData.m_height = currentHeight;
 
-        m_coins = m_keychain->getCoins(m_amount); // need to lock 
+        m_coins = m_keychain->getCoins(m_txDesc.m_amount); // need to lock 
         if (m_coins.empty())
         {
             LOG_ERROR() << "You only have " << PrintableAmount(get_total());
             throw runtime_error("no money");
         }
-        invitationData.m_amount = m_amount;
+        invitationData.m_amount = m_txDesc.m_amount;
         m_kernel.m_Fee = 0;
         m_kernel.m_Height.m_Min = currentHeight;
         m_kernel.m_Height.m_Max = MaxHeight;
@@ -56,7 +52,7 @@ namespace beam::wallet
                 change += coin.m_amount;
             }
 
-            change -= m_amount;
+            change -= m_txDesc.m_amount;
             if (change > 0)
             {
                 m_changeOutput = beam::Coin(change, Coin::Unconfirmed, currentHeight);
@@ -85,7 +81,8 @@ namespace beam::wallet
         m_publicNonce = Context::get().G * msig.m_Nonce;
         invitationData.m_publicSenderNonce = m_publicNonce;
 
-        m_gateway.send_tx_invitation(invitationData);
+        update_tx_description(TxDescription::InProgress);
+        m_gateway.send_tx_invitation(m_txDesc, invitationData);
     }
 
     bool Sender::FSMDefinition::is_valid_signature(const TxInitCompleted& event)
@@ -121,7 +118,7 @@ namespace beam::wallet
         // 4. Compute Sender Schnorr signature
 
         ConfirmTransaction confirmationData;
-        confirmationData.m_txId = m_txId;
+        confirmationData.m_txId = m_txDesc.m_txId;
 		Hash::Value message;
 		m_kernel.get_HashForSigning(message);
 		Signature::MultiSig msig;
@@ -131,24 +128,27 @@ namespace beam::wallet
         Scalar::Native senderSignature;
         m_kernel.m_Signature.CoSign(senderSignature, message, m_blindingExcess, msig);
         confirmationData.m_senderSignature = senderSignature;
-        m_gateway.send_tx_confirmation(confirmationData);
+        update_tx_description(TxDescription::InProgress);
+        m_gateway.send_tx_confirmation(m_txDesc, confirmationData);
     }
 
     void Sender::FSMDefinition::rollback_tx(const TxFailed& )
     {
+        update_tx_description(TxDescription::Failed);
         rollback_tx();
     }
 
     void Sender::FSMDefinition::cancel_tx(const TxInitCompleted& )
     {
+        update_tx_description(TxDescription::Cancelled);
         rollback_tx();
     }
-
 
 	void Sender::FSMDefinition::rollback_tx()
 	{
         LOG_DEBUG() << "Transaction failed. Rollback...";
-        m_gateway.send_tx_failed(m_txId);
+
+        m_gateway.send_tx_failed(m_txDesc);
 		for (auto& c : m_coins)
 		{
 			c.m_status = Coin::Unspent;
@@ -169,6 +169,7 @@ namespace beam::wallet
     void Sender::FSMDefinition::complete_tx()
     {
         LOG_DEBUG() << "Transaction completed";
+        update_tx_description(TxDescription::Completed);
     }
 
     Amount Sender::FSMDefinition::get_total() const
@@ -184,5 +185,14 @@ namespace beam::wallet
             return true;
         });
         return total;
+    }
+
+    void Sender::FSMDefinition::update_tx_description(TxDescription::Status s)
+    {
+        m_txDesc.m_status = s;
+        Serializer ser;
+        ser & *this;
+        ser.swap_buf(m_txDesc.m_fsmState);
+        m_keychain->saveTx(m_txDesc);
     }
 }

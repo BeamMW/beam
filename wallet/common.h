@@ -37,6 +37,46 @@ namespace beam
     using TransactionPtr = std::shared_ptr<Transaction>;
     std::pair<ECC::Scalar::Native, ECC::Scalar::Native> split_key(const ECC::Scalar::Native& key, uint64_t index);
 
+    struct TxDescription
+    {
+        enum Status
+        {
+            Pending,
+            InProgress,
+            Cancelled,
+            Completed,
+            Failed
+        };
+
+        TxDescription() = default;
+
+        TxDescription(const Uuid& txId
+            , Amount amount
+            , uint64_t peerId
+            , ByteBuffer&& message
+            , Timestamp createTime
+            , bool sender)
+            : m_txId{ txId }
+            , m_amount{ amount }
+            , m_peerId{ peerId }
+            , m_message{ std::move(message) }
+            , m_createTime{ createTime }
+            , m_sender{ sender }
+            , m_status{ Pending }
+            , m_fsmState{}
+        {}
+
+        Uuid m_txId;
+        Amount m_amount;
+        uint64_t m_peerId;
+        ByteBuffer m_message;
+        Timestamp m_createTime;
+        Timestamp m_modifyTime;
+        bool m_sender;
+        Status m_status;
+        ByteBuffer m_fsmState;
+    };
+
     namespace wallet
     {
         namespace msm = boost::msm;
@@ -57,7 +97,6 @@ namespace beam
             {
                 auto* d = static_cast<Derived*>(this);
                 auto res = d->m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
-                d->update_history();
                 return res;
             }
 
@@ -66,11 +105,21 @@ namespace beam
             {
                 static_cast<Derived*>(this)->m_fsm.serialize(ar, 0);
             }
+
             // for test only
             const int* current_state() const
             {
                 return static_cast<const Derived*>(this)->m_fsm.current_state();
             }
+        };
+
+        template <typename Derived>
+        struct FSMDefinitionBase 
+        {
+            FSMDefinitionBase(TxDescription& txDesc) : m_txDesc{txDesc}
+            {}
+            
+            TxDescription & m_txDesc;
         };
 
         // messages
@@ -132,16 +181,16 @@ namespace beam
         struct IWalletGateway
         {
             virtual ~IWalletGateway() {}
-            virtual void on_tx_completed(const Uuid& txId) = 0;
-            virtual void send_tx_failed(const Uuid& txId) = 0;
+            virtual void on_tx_completed(const TxDescription& ) = 0;
+            virtual void send_tx_failed(const TxDescription& ) = 0;
         };
 
         namespace sender
         {
             struct IGateway : virtual IWalletGateway
             {
-                virtual void send_tx_invitation(const InviteReceiver&) = 0;
-                virtual void send_tx_confirmation(const ConfirmTransaction&) = 0;
+                virtual void send_tx_invitation(const TxDescription&, const InviteReceiver&) = 0;
+                virtual void send_tx_confirmation(const TxDescription& , const ConfirmTransaction&) = 0;
             };
         }
 
@@ -149,9 +198,9 @@ namespace beam
         {
             struct IGateway : virtual IWalletGateway
             {
-                virtual void send_tx_confirmation(const ConfirmInvitation&) = 0;
-                virtual void register_tx(const Uuid&, Transaction::Ptr) = 0;
-                virtual void send_tx_registered(UuidPtr&&) = 0;
+                virtual void send_tx_confirmation(const TxDescription& , const ConfirmInvitation&) = 0;
+                virtual void register_tx(const TxDescription& , Transaction::Ptr) = 0;
+                virtual void send_tx_registered(const TxDescription& ) = 0;
             };
         }
     }

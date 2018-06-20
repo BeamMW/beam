@@ -21,15 +21,18 @@ namespace beam::wallet
             Uuid m_txId;
         };
         
-        Receiver(receiver::IGateway& gateway, beam::IKeyChain::Ptr keychain, InviteReceiver& initData)
-            : m_fsm{std::ref(gateway), keychain, std::ref(initData)}
+        Receiver(receiver::IGateway& gateway
+               , IKeyChain::Ptr keychain
+               , const TxDescription& txDesc
+               , InviteReceiver& initData)
+            : m_txDesc{txDesc}
+            , m_fsm{std::ref(gateway), keychain, std::ref(m_txDesc), std::ref(initData)}
         {
             assert(keychain);
         }  
 
-        void update_history();
-
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
+                             , public FSMDefinitionBase<FSMDefinition>
         {
             // states
             struct Init : public msmf::state<>
@@ -45,7 +48,7 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm& fsm)
                 {
                     LOG_VERBOSE() << "[Receiver] Terminate state";
-                    fsm.m_gateway.on_tx_completed(fsm.m_txId);
+                    fsm.m_gateway.on_tx_completed(fsm.m_txDesc);
                 }
             };
             struct TxConfirming : public msmf::state<>
@@ -73,7 +76,7 @@ namespace beam::wallet
                 }
             };
 
-            FSMDefinition(receiver::IGateway &gateway, beam::IKeyChain::Ptr keychain, InviteReceiver& initData);
+            FSMDefinition(receiver::IGateway &gateway, beam::IKeyChain::Ptr keychain, TxDescription& txDesc, InviteReceiver& initData);
 
             // transition actions
             void confirm_tx(const msmf::none&);
@@ -84,6 +87,8 @@ namespace beam::wallet
             void cancel_tx(const TxConfirmationCompleted& event);
             void complete_tx(const TxRegistrationCompleted& event);
             void rollback_tx();
+
+            void update_tx_description(TxDescription::Status s);
 
             using do_serialize = int;
             using initial_state = Init;
@@ -116,10 +121,7 @@ namespace beam::wallet
             template<typename Archive>
             void serialize(Archive & ar, const unsigned int)
             {
-                ar  & m_txId
-                    & m_amount
-                    & m_message
-                    & m_receiver_coin
+                ar  & m_receiver_coin
                     & m_publicReceiverBlindingExcess
                     & m_publicSenderBlindingExcess
                     & m_publicSenderNonce
@@ -133,9 +135,6 @@ namespace beam::wallet
             receiver::IGateway& m_gateway;
             beam::IKeyChain::Ptr m_keychain;
 
-            Uuid m_txId;
-
-            ECC::Amount m_amount; 
             ECC::Hash::Value m_message;
             Coin m_receiver_coin;
 
@@ -149,8 +148,9 @@ namespace beam::wallet
             TxKernel::Ptr m_kernel;
             Height m_height;
         };
-
+    private:
         friend FSMHelper<Receiver>;
+        TxDescription m_txDesc;
         msm::back::state_machine<FSMDefinition> m_fsm;
 
     };

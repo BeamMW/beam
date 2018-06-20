@@ -29,24 +29,13 @@ namespace
         T& m_v;
     };
 
-    struct ScopeGuard
-    {
-        using Callback = std::function<void()>;
-        ScopeGuard(Callback&& callback) : m_callback{callback}
-        {
-            assert(callback);
-        }
-
-        ~ScopeGuard()
-        {
-            m_callback();
-        }
-
-        Callback m_callback;
-    };
-
     const char* ReceiverPrefix = "[Receiver] ";
     const char* SenderPrefix = "[Sender] ";
+
+    beam::Timestamp getTimestamp()
+    {
+        return beam::Timestamp(std::chrono::seconds(std::time(nullptr)).count());
+    }
 }
 
 namespace beam
@@ -115,49 +104,55 @@ namespace beam
         assert(m_removed_receivers.empty());
     }
 
-    void Wallet::transfer_money(PeerId to, Amount&& amount)
+    void Wallet::transfer_money(PeerId to, Amount amount, ByteBuffer&& message)
     {
         Cleaner<std::vector<wallet::Sender::Ptr> > c{ m_removed_senders };
 		boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId;
         copy(id.begin(), id.end(), txId.begin());
         m_peers.emplace(txId, to);
-        auto s = make_shared<Sender>(*this, m_keyChain, txId, amount);
-        auto p = m_senders.emplace(txId, s);
-     //   save_to_history(*s);
-        if (m_synchronized)
+        TxDescription tx{ txId, amount, to, move(message), getTimestamp(), true};
+        resume_sender(tx);
+    }
+
+    void Wallet::resume_tx(const TxDescription& tx)
+    {
+        if (tx.m_sender)
         {
-            p.first->second->start();
+            resume_sender(tx);
         }
         else
         {
-            m_pendingSenders.emplace_back(s);
+            resume_receiver(tx);
         }
     }
 
-    void Wallet::send_tx_invitation(const InviteReceiver& data)
+    void Wallet::resume_all_tx()
     {
-        send_tx_message(data.m_txId, [this, &data](auto peer_id) mutable
+        auto txs = m_keyChain->getTxHistory(0, -1);
+        for (auto& tx : txs)
         {
-            m_network.send_tx_message(peer_id, data);
-        });
+            resume_tx(tx);
+        }
     }
 
-    void Wallet::send_tx_confirmation(const ConfirmTransaction& data)
+    void Wallet::send_tx_invitation(const TxDescription& tx, const InviteReceiver& data)
     {
-        send_tx_message(data.m_txId, [this, &data](auto peer_id) mutable
-        {
-            m_network.send_tx_message(peer_id, data);
-        });
+        m_network.send_tx_message(tx.m_peerId, data);
     }
 
-    void Wallet::on_tx_completed(const Uuid& txId)
+    void Wallet::send_tx_confirmation(const TxDescription& tx, const ConfirmTransaction& data)
     {
-        remove_sender(txId);
-        remove_receiver(txId);
+        m_network.send_tx_message(tx.m_peerId, data);
+    }
+
+    void Wallet::on_tx_completed(const TxDescription& tx)
+    {
+        remove_sender(tx.m_txId);
+        remove_receiver(tx.m_txId);
         if (m_tx_completed_action)
         {
-            m_tx_completed_action(txId);
+            m_tx_completed_action(tx.m_txId);
         }
         if (m_node_requests_queue.empty())
         {
@@ -166,12 +161,9 @@ namespace beam
     }
 
 
-    void Wallet::send_tx_failed(const Uuid& txId)
+    void Wallet::send_tx_failed(const TxDescription& tx)
     {
-        send_tx_message(txId, [this, &txId](auto peer_id)
-        {
-            m_network.send_tx_message(peer_id, wallet::TxFailed{ txId });
-        });
+        m_network.send_tx_message(tx.m_peerId, wallet::TxFailed{ tx.m_txId });
     }
 
     void Wallet::remove_sender(const Uuid& txId)
@@ -196,27 +188,21 @@ namespace beam
         }
     }
 
-    void Wallet::send_tx_confirmation(const ConfirmInvitation& data)
+    void Wallet::send_tx_confirmation(const TxDescription& tx, const ConfirmInvitation& data)
     {
-        send_tx_message(data.m_txId, [this, &data](auto peer_id) mutable
-        {
-            m_network.send_tx_message(peer_id, data);
-        });
+        m_network.send_tx_message(tx.m_peerId, data);
     }
 
-    void Wallet::register_tx(const Uuid& txId, Transaction::Ptr data)
+    void Wallet::register_tx(const TxDescription& tx, Transaction::Ptr data)
     {
         LOG_VERBOSE() << ReceiverPrefix << "sending tx for registration";
-        m_node_requests_queue.push(txId);
+        m_node_requests_queue.push(tx.m_txId);
         m_network.send_node_message(proto::NewTransaction{ move(data) });
     }
 
-    void Wallet::send_tx_registered(UuidPtr&& txId)
+    void Wallet::send_tx_registered(const TxDescription& tx)
     {
-        send_tx_message(*txId, [&txId, this](auto peer_id)
-        {
-            m_network.send_tx_message(peer_id, wallet::TxRegistered{ *txId, true });
-        });
+        m_network.send_tx_message(tx.m_peerId, wallet::TxRegistered{ tx.m_txId, true });
     }
 
     void Wallet::handle_tx_message(PeerId from, InviteReceiver&& data)
@@ -225,18 +211,19 @@ namespace beam
         if (it == m_receivers.end())
         {
             LOG_VERBOSE() << ReceiverPrefix << "Received tx invitation " << data.m_txId;
-
-            auto txId = data.m_txId;
-            m_peers.emplace(txId, from);
-            auto p = m_receivers.emplace(txId, make_shared<Receiver>(*this, m_keyChain, data));
+            m_peers.emplace(data.m_txId, from);
+            TxDescription tx{ data.m_txId, data.m_amount, from, {}, getTimestamp(), false };
+            auto r = make_shared<Receiver>(*this, m_keyChain, tx, move(data));
+            auto p = m_receivers.emplace(tx.m_txId, r);
             if (m_synchronized)
             {
-                p.first->second->start();
+                r->start();
             }
             else
             {
-                m_pendingReceivers.emplace_back(p.first->second);
+                m_pendingReceivers.emplace_back(r);
             }
+            resume_receiver(tx, move(data));
         }
         else
         {
@@ -286,7 +273,7 @@ namespace beam
         handle_tx_registered(cit->first, data.m_value);
     }
 
-    void Wallet::handle_tx_message(PeerId from, wallet::TxFailed&& data)
+    void Wallet::handle_tx_message(PeerId /*from*/, wallet::TxFailed&& data)
     {
         LOG_DEBUG() << "tx " << data.m_txId << " failed";
         handle_tx_failed(data.m_txId);
@@ -555,5 +542,32 @@ namespace beam
             return false;
         }
         return true;
+    }
+
+    void Wallet::resume_sender(const TxDescription& tx)
+    {
+        auto s = make_shared<Sender>(*this, m_keyChain, tx);
+        auto p = m_senders.emplace(tx.m_txId, s);
+        if (m_synchronized)
+        {
+            s->start();
+        }
+        else
+        {
+            m_pendingSenders.emplace_back(s);
+        }
+    }
+
+    void Wallet::resume_receiver(const TxDescription& tx, InviteReceiver&& data)
+    {
+        auto p = m_receivers.emplace(tx.m_txId, make_shared<Receiver>(*this, m_keyChain, tx, move(data)));
+        if (m_synchronized)
+        {
+            p.first->second->start();
+        }
+        else
+        {
+            m_pendingReceivers.emplace_back(p.first->second);
+        }
     }
 }
