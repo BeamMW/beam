@@ -46,7 +46,7 @@ public:
 
 };
 
-class DataObject : public QObject
+class WalletViewModel : public QObject
 {
 	Q_OBJECT
 
@@ -55,7 +55,7 @@ class DataObject : public QObject
 public:
 	using TxList = QList<QObject*>;
 
-	DataObject();
+	WalletViewModel();
 
 	QString label() const;
 	void setLabel(const QString& val);

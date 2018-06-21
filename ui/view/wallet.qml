@@ -35,14 +35,14 @@ Rectangle {
                 width: 70
                 height: 70
                 fillMode: Image.Stretch
-                source: "qrc:///qml/assets/dashboard-icon.png"
+                source: "qrc:///assets/dashboard-icon.png"
             }
 
             Image {
                 id: image1
                 width: 70
                 height: 70
-                source: "qrc:///qml/assets/wallet-icon.png"
+                source: "qrc:///assets/wallet-icon.png"
                 fillMode: Image.Stretch
             }
 
@@ -50,7 +50,7 @@ Rectangle {
                 id: image2
                 width: 70
                 height: 70
-                source: "qrc:///qml/assets/notifications-icon.png"
+                source: "qrc:///assets/notifications-icon.png"
                 fillMode: Image.Stretch
             }
 
@@ -58,7 +58,7 @@ Rectangle {
                 id: image3
                 width: 70
                 height: 70
-                source: "qrc:///qml/assets/help-icon.png"
+                source: "qrc:///assets/help-icon.png"
                 fillMode: Image.Stretch
             }
 
@@ -66,7 +66,7 @@ Rectangle {
                 id: image4
                 width: 70
                 height: 70
-                source: "qrc:///qml/assets/settings-icon.png"
+                source: "qrc:///assets/settings-icon.png"
                 fillMode: Image.Stretch
             }
         }
@@ -74,7 +74,7 @@ Rectangle {
 
     Item {
         id: content
-        anchors.topMargin: 30
+        anchors.topMargin: 54
         anchors.bottomMargin: 0
         anchors.rightMargin: 30
         anchors.leftMargin: 100
@@ -88,8 +88,52 @@ Rectangle {
             frameVisible: false
             anchors.rightMargin: 0
             anchors.leftMargin: 0
-            anchors.topMargin: 400
+            anchors.topMargin: 376
             anchors.fill: parent
+
+            TableViewColumn {
+                id: dateColumn
+                title: "Date | time"
+                role: "date"
+                movable: false
+            }
+
+            TableViewColumn {
+                id: userColumn
+                title: "User ID"
+                role: "user"
+                movable: false
+            }
+
+            TableViewColumn {
+                id: commentColumn
+                title: "Comment"
+                role: "comment"
+                movable: false
+            }
+
+            TableViewColumn {
+                id: amountColumn
+                title: "Amount, BEAM"
+                role: "amount"
+                movable: false
+            }
+
+            TableViewColumn {
+                id: amountUsdColumn
+                title: "Amount, USD"
+                role: "amountUsd"
+                movable: false
+            }
+
+            TableViewColumn {
+                id: amountstatusColumn
+                title: "Status"
+                role: "status"
+                movable: false
+            }
+
+            model: listModel
         }
 
         Text {
@@ -100,7 +144,7 @@ Rectangle {
             text: qsTr("Transactions")
             font.pixelSize: 18
             anchors.leftMargin: 30
-            anchors.topMargin: 360
+            anchors.topMargin: 336
             font.bold: true
             anchors.top: parent.top
             anchors.left: parent.left
@@ -118,7 +162,7 @@ Rectangle {
             anchors.right: parent.right
             anchors.rightMargin: 0
             border.width: 0
-            anchors.topMargin: 120
+            anchors.topMargin: 96
             anchors.top: parent.top
 
             Text {
@@ -188,7 +232,7 @@ Rectangle {
             anchors.left: parent.left
             anchors.leftMargin: 0
             anchors.top: parent.top
-            anchors.topMargin: 120
+            anchors.topMargin: 96
 
             Text {
                 id: availabl_label
@@ -263,7 +307,7 @@ Rectangle {
                     color: "#be44ea"
                 }
             }
-            anchors.topMargin: 24
+            anchors.topMargin: 0
             anchors.right: parent.right
             anchors.rightMargin: 0
             border.width: 0
@@ -305,7 +349,7 @@ Rectangle {
             }
             border.width: 0
             anchors.top: parent.top
-            anchors.topMargin: 24
+            anchors.topMargin: 0
             anchors.right: parent.right
             anchors.rightMargin: 200
 
@@ -332,7 +376,7 @@ Rectangle {
             color: "#00f9c9"
             radius: 6
             anchors.leftMargin: 0
-            anchors.topMargin: 80
+            anchors.topMargin: 56
             border.width: 0
             anchors.top: parent.top
             anchors.left: parent.left
@@ -346,7 +390,7 @@ Rectangle {
             text: qsTr("!lhfkjhHKJLHjh6743khKwe53453")
             font.pixelSize: 12
             anchors.leftMargin: 20
-            anchors.topMargin: 80
+            anchors.topMargin: 56
             anchors.top: parent.top
             anchors.left: parent.left
         }
@@ -357,11 +401,12 @@ Rectangle {
             y: 54
             color: "#f7fff7"
             text: qsTr("Wallet")
+            font.family: "Arial"
             font.bold: false
             anchors.left: parent.left
             anchors.leftMargin: 0
             anchors.top: parent.top
-            anchors.topMargin: 24
+            anchors.topMargin: 0
             font.pixelSize: 28
         }
 

@@ -1,4 +1,4 @@
-#include "test_model.h"
+#include "wallet_model.h"
 
 TxObject::TxObject(const QString& dateVal
 	, const QString& userVal
@@ -47,7 +47,7 @@ QString TxObject::status() const
 	return _status;
 }
 
-DataObject::DataObject()
+WalletViewModel::WalletViewModel()
 	: _label("Please, click the button!")
 {
 	_tx.append(new TxObject(
@@ -94,12 +94,12 @@ DataObject::DataObject()
 		, "unspent"));
 }
 
-QString DataObject::label() const
+QString WalletViewModel::label() const
 {
 	return _label;
 }
 
-void DataObject::setLabel(const QString& val)
+void WalletViewModel::setLabel(const QString& val)
 {
 	if (_label != val)
 	{
@@ -109,12 +109,12 @@ void DataObject::setLabel(const QString& val)
 	}
 }
 
-void DataObject::sayHello(const QString& name)
+void WalletViewModel::sayHello(const QString& name)
 {
 	setLabel("Hello, " + name);
 }
 
-const DataObject::TxList& DataObject::tx() const
+const WalletViewModel::TxList& WalletViewModel::tx() const
 {
 	return _tx;
 }

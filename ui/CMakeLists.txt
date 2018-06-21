@@ -13,12 +13,12 @@ elseif(APPLE)
 	set(SYSTEM_TYPE MACOSX_BUNDLE)
 endif()
 
-qt5_add_resources(QT_RESOURCES qml.qrc)
+qt5_add_resources(QT_RESOURCES view/qml.qrc)
 
 set(UI_SRC
 	ui.cpp
-	test_model.h
-	test_model.cpp
+	viewmodel/wallet_model.h
+	viewmodel/wallet_model.cpp
 )
 
 add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES})

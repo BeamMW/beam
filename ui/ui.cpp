@@ -1,28 +1,26 @@
 #include <QtGui/QGuiApplication>
 #include <QtQuick/QQuickWindow>
 #include <QtQuick>
-#include <QQmlContext.h>
 
-#include <QTimer>
-#include <QObject>
+#include <qqmlcontext.h>
 
-#include "test_model.h"
+#include "viewmodel/wallet_model.h"
 
 int main (int argc, char* argv[])
 {
 	QGuiApplication app(argc, argv);
 
-	DataObject data;
+	WalletViewModel wallet;
 
 	QQuickView view;
 	view.setResizeMode(QQuickView::SizeRootObjectToView);
 
 	QQmlContext *ctxt = view.rootContext();
-	ctxt->setContextProperty("model", &data);
+	ctxt->setContextProperty("model", &wallet);
 
-	ctxt->setContextProperty("listModel", QVariant::fromValue(data.tx()));
+	ctxt->setContextProperty("listModel", QVariant::fromValue(wallet.tx()));
 
-	view.setSource(QUrl("qrc:/qml/hw.qml"));
+	view.setSource(QUrl("qrc:///wallet.qml"));
 	view.show();
 
     return app.exec();
