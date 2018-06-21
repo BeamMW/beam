@@ -6,81 +6,28 @@
 
 namespace beam {
 
-struct TestP2PNotifications : P2PNotifications {
-    TestP2PNotifications(io::Address p=io::Address()) :  peer(p) {}
-
-    virtual void on_p2p_started(P2P* _p2p) {
-        p2p = _p2p;
-        threadId = get_thread_id();
-        LOG_INFO() << "p2p started, thread=" << threadId;
-        assert(async::ctx());
-        timer = async::ctx()->set_timer(1500 + rand() % 1500, BIND_THIS_MEMFN(on_timer));
-    }
-
-    virtual void on_peer_connected(StreamId id) {
-        LOG_INFO() << "new peer handshaked, peer=" << id.address();
-        wasConnectedTo.insert(id.address().ip());
-    }
-
-    virtual void on_peer_state_updated(StreamId id, const PeerState& newState) {
-        LOG_INFO() << "peer state upated, peer=" << id.address()
-            << TRACE(newState.tip)
-            << TRACE(newState.connectedPeersCount)
-            << TRACE(newState.knownServersCount);
-    }
-
-    virtual void on_peer_disconnected(StreamId id) {
-        LOG_INFO() << "peer disconnected, peer=" << id.address();
-    }
-
-    virtual void on_p2p_stopped() {
-        LOG_INFO() << "p2p stopped, thread=" << threadId;
-        timer.reset();
-        p2p=0;
-    }
-
-    void on_timer() {
-        if (p2p) p2p->update_tip(++tip);
-    }
-
-    uint32_t tip = 0;
-    P2P* p2p = 0;
-    io::Address peer;
-    io::Timer::Ptr timer;
-    uint64_t threadId=0;
-    std::unordered_set<uint32_t> wasConnectedTo;
-};
-
 int p2ptest(int numNodes, int runTime) {
 #ifndef __linux__
     LOG_WARNING() << "This test runs on linux only";
     return 0;
 #endif
-    srand(time(0));
-
     static const uint32_t LOCALHOST_BASE = 0x7F000001;
     static const uint16_t PORT_BASE = 20000;
 
-    std::vector<TestP2PNotifications> callbacks;
     std::vector<std::unique_ptr<P2P>> nodes;
     nodes.reserve(numNodes);
-    callbacks.reserve(numNodes);
-
-    P2PSettings settings;
-
-    // seed initial server address
-    settings.priorityPeers.emplace_back(LOCALHOST_BASE, PORT_BASE);
 
     LOG_INFO() << "Creating " << numNodes << " nodes";
     for (int i=0; i<numNodes; ++i) {
-        //settings.peerId = i+1;
-        settings.bindToIp = LOCALHOST_BASE + i;
-        // not all nodes listen
-        settings.listenToPort = ( (i+1)%3 == 0 ) ? 0 : PORT_BASE + i;
-        // ~ etc
+        // odd node numbers are not servers
+        uint16_t listenTo = (i & 1) ? 0 : PORT_BASE + i;
+        nodes.push_back(std::make_unique<P2P>(i+1, io::Address(LOCALHOST_BASE + i, 0), listenTo));
+    }
 
-        callbacks.emplace_back(io::Address(settings.bindToIp, settings.listenToPort));
-        nodes.push_back(std::make_unique<P2P>(callbacks.back(), settings));
+    LOG_INFO() << "Seeding all of them initial server address";
+    KnownServers seed { {io::Address(LOCALHOST_BASE, PORT_BASE), 1} };
+    for (auto& n : nodes) {
+        n->add_known_servers(seed);
     }
 
     LOG_INFO() << "Starting nodes";
@@ -94,10 +41,7 @@ int p2ptest(int numNodes, int runTime) {
     LOG_INFO() << "Waiting for nodes to quit";
     nodes.clear();
 
-    LOG_INFO() << "Done\n====================================================";
-    for (const auto& c : callbacks) {
-        LOG_INFO() << c.peer << " was connected to " << c.wasConnectedTo.size() << " peers";
-    }
+    LOG_INFO() << "Done";
     return 0;
 }
 
@@ -105,14 +49,10 @@ int p2ptest_1(io::Address seedAddr, int port) {
     std::unique_ptr<P2P> node;
 
     LOG_INFO() << "Creating node";
+    node = std::make_unique<P2P>(0, io::Address(), port);
 
-    TestP2PNotifications callbacks;
-    P2PSettings settings;
-
-    // seed initial server address
-    settings.priorityPeers.emplace_back(seedAddr.port(port));
-
-    node = std::make_unique<P2P>(callbacks, settings);
+    KnownServers seed { {seedAddr, 1} };
+    node->add_known_servers(seed);
 
     LOG_INFO() << "Starting node";
     node->start();
@@ -129,13 +69,13 @@ int p2ptest_1(io::Address seedAddr, int port) {
 
 } //namespace
 
-static const int DEF_NUM_NODES = 3;
+static const int DEF_NUM_NODES = 5;
 static const int DEF_RUN_TIME = 5;
 
 int main(int argc, char* argv[]) {
     using namespace beam;
 
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = LOG_LEVEL_INFO;
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif

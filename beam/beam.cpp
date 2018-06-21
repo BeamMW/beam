@@ -11,6 +11,7 @@
 #include <iomanip>
 
 #include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
 #include <iterator>
 
 namespace po = boost::program_options;
@@ -122,7 +123,7 @@ namespace beam
                 ? Block::Rules::MaturityCoinbase
                 : Block::Rules::MaturityStd);
 
-            if (c.m_status == status 
+            if (c.m_status == status
              && c.m_key_type == keyType
              && lockHeight <= currentHeight)
             {
@@ -214,6 +215,14 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 		return -1;
 	}
 
+	boost::filesystem::path path{ m_sPath };
+	boost::filesystem::path dir = path.parent_path();
+	if (!dir.empty() && !boost::filesystem::exists(dir) && !boost::filesystem::create_directory(dir))
+	{
+		LOG_ERROR() << "Failed to create directory: " << dir.c_str();
+		return -1;
+	}
+
 	if (ReadTreasury(m_vBlocks, m_sPath))
 		LOG_INFO() << "Treasury already contains " << m_vBlocks.size() << " blocks, appending.";
 
@@ -277,7 +286,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 
 	FinishLastBlock();
 
-	for (auto i = 0; i < m_vBlocks.size(); i++)
+	for (auto i = 0u; i < m_vBlocks.size(); i++)
 	{
 		m_vBlocks[i].Sort();
 		m_vBlocks[i].DeleteIntermediateOutputs();
@@ -506,7 +515,7 @@ int main(int argc, char* argv[])
 
 				node.m_Cfg.m_HistoryCompression.m_sPathOutput = vm[cli::HISTORY].as<string>();
 				node.m_Cfg.m_HistoryCompression.m_sPathTmp = vm[cli::TEMP].as<string>();
-				
+
                 LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
                 if (vm.count(cli::TREASURY_BLOCK))
@@ -635,13 +644,13 @@ int main(int argc, char* argv[])
                         });
                         return 0;
                     }
-                    
+
                     if (vm.count(cli::NODE_ADDR) == 0)
                     {
                         LOG_ERROR() << "node address should be specified";
                         return -1;
                     }
- 
+
                     string nodeURI = vm[cli::NODE_ADDR].as<string>();
                     io::Address node_addr;
                     if (!node_addr.resolve(nodeURI.c_str()))

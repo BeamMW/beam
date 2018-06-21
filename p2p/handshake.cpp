@@ -6,108 +6,129 @@ namespace beam {
 
 const char* HandshakeError::str() const {
     switch (what) {
-        case protocol_mismatch: return "protocol mismatch";
-        case nonce_exists: return "nonce exists";
-        case you_are_banned: return "banned";
+        case duplicate_connection: return "duplicate connection";
+        case peer_rejected: return "peer rejected";
         default: break;
     }
     return "unknown";
 }
 
-HandshakingPeers::HandshakingPeers(Protocol& protocol, OnPeerHandshaked callback, uint16_t thisNodeListenPort, Nonce thisNodeNonce) :
-    _onPeerHandshaked(std::move(callback))
+HandshakingPeers::HandshakingPeers(ConnectPool& connectPool, OnPeerHandshaked onHandshaked, OnHandshakeError onError) :
+    _connectPool(connectPool),
+    _onPeerHandshaked(std::move(onHandshaked)),
+    _onError(std::move(onError))
 {
-    protocol.add_message_handler<HandshakingPeers, Handshake, &HandshakingPeers::on_handshake_request>(Handshake::REQUEST_MSG_TYPE, this, 2, 20);
-    protocol.add_message_handler<HandshakingPeers, Handshake, &HandshakingPeers::on_handshake_response>(Handshake::RESPONSE_MSG_TYPE, this, 2, 20);
-    protocol.add_message_handler<HandshakingPeers, HandshakeError, &HandshakingPeers::on_handshake_error_response>(HandshakeError::MSG_TYPE, this, 1, 9);
-    Handshake hs;
-    hs.listensTo = thisNodeListenPort;
-    hs.nonce = thisNodeNonce;
-    SerializedMsg msg;
-    protocol.serialize(msg, Handshake::REQUEST_MSG_TYPE, hs);
-    _handshakeRequest = io::normalize(msg);
-    protocol.serialize(msg, Handshake::RESPONSE_MSG_TYPE, hs);
-    _handshakeResponse = io::normalize(msg);
-    HandshakeError hse;
-    hse.what = HandshakeError::nonce_exists;
-    protocol.serialize(msg, HandshakeError::MSG_TYPE, hse);
-    _nonceExistsError = io::normalize(msg);
-    _nonces.insert(thisNodeNonce);
+    assert(_onPeerHandshaked && _onError);
 }
 
-void HandshakingPeers::connected(uint64_t connId, ConnectionPtr&& conn) {
-    if (_inbound.count(connId) || _outbound.count(connId)) {
-        LOG_WARNING() << "Ignoring multiple connections to the same IP: " << io::Address::from_u64(connId);
+void HandshakingPeers::setup(Protocol& protocol, uint16_t thisNodeListenPort, PeerId thisPeerId) {
+    protocol.add_message_handler<HandshakingPeers, Handshake, &HandshakingPeers::on_handshake_message>(HANDSHAKE_MSG_TYPE, this, 2, 20);
+    protocol.add_message_handler<HandshakingPeers, HandshakeError, &HandshakingPeers::on_handshake_error>(HANDSHAKE_ERROR_MSG_TYPE, this, 1, 9);
+
+    Handshake hs;
+    hs.peerId = thisPeerId;
+    hs.listensTo = thisNodeListenPort;
+    _message = protocol.serialize(HANDSHAKE_MSG_TYPE, hs, true);
+    _duplicateConnectionErrorMsg = protocol.serialize(HANDSHAKE_ERROR_MSG_TYPE, HandshakeError{HandshakeError::duplicate_connection}, true);
+    _peerRejectedErrorMsg = protocol.serialize(HANDSHAKE_ERROR_MSG_TYPE, HandshakeError{HandshakeError::peer_rejected}, true);
+}
+
+void HandshakingPeers::on_new_connection(Connection::Ptr&& conn) {
+    StreamId streamId(conn->id());
+
+    if (_connections.count(streamId)) {
+        LOG_WARNING() << "ignoring duplicating connection, address=" << streamId.address();
         return;
     }
 
-    bool isInbound = conn->direction() == Connection::inbound;
-
-    if (isInbound) {
-        _inbound[connId] = std::move(conn);
-    } else {
-        auto result = conn->write_msg(_handshakeRequest);
+    bool isOutbound = conn->direction() == Connection::outbound;
+    streamId.fields.flags = StreamId::handshaking | (isOutbound ? StreamId::outbound : StreamId::inbound);
+    conn->change_id(streamId.u64);
+    if (isOutbound) {
+        // sending handshake
+        auto result = conn->write_msg(_message);
         if (!result) {
-            LOG_WARNING() << "Cannot send handshake request to " << conn->peer_address() << "error=" << io::error_str(result.error());
+            LOG_WARNING() << "cannot send handshake request to " << conn->peer_address() << "error=" << io::error_str(result.error());
             return;
         }
-        _outbound[connId] = std::move(conn);
     }
+
+    // wait for handshake messages **only**
+    conn->disable_all_msg_types();
+    conn->enable_msg_type(HANDSHAKE_MSG_TYPE);
+    if (isOutbound) conn->enable_msg_type(HANDSHAKE_ERROR_MSG_TYPE);
+
+    _connections[streamId] = std::move(conn);
 }
 
-void HandshakingPeers::disconnected(uint64_t connId) {
-    if (_inbound.erase(connId) == 0) _outbound.erase(connId);
+void HandshakingPeers::on_disconnected(StreamId streamId) {
+    _connections.erase(streamId);
 }
 
-bool HandshakingPeers::on_handshake_request(uint64_t connId, Handshake&& hs) {
-    auto it = _inbound.find(connId);
-    if (it == _inbound.end()) {
-        LOG_WARNING() << "Inbound connections are missing " << io::Address::from_u64(connId);
+bool HandshakingPeers::on_handshake_message(uint64_t id, Handshake&& hs) {
+    StreamId streamId(id);
+
+    Connections::iterator it = _connections.find(streamId);
+
+    if (it == _connections.end()) {
+        LOG_WARNING() << "wrong stream id, address=" << streamId.address();
         return false;
     }
 
-    if (_nonces.count(hs.nonce)) {
-        it->second->write_msg(_nonceExistsError);
-        it->second->shutdown();
-        return false;
+    Connection::Ptr conn = std::move(it->second);
+    _connections.erase(it);
 
-        // TODO more errors - flexible protocol version first
+    ConnectPool::PeerReserveResult result = _connectPool.reserve_peer_id(hs.peerId, conn->peer_address());
+
+    bool isInbound = streamId.flags() & StreamId::inbound;
+    if (isInbound) {
+        if (result == ConnectPool::success) {
+            auto r = conn->write_msg(_message);
+            if (!r) {
+                LOG_WARNING() << "cannot send handshake response to " << streamId.address() << " error=" << io::error_str(r.error());
+                return false;
+            }
+        } else if (result == ConnectPool::peer_exists) {
+            conn->write_msg(_duplicateConnectionErrorMsg);
+            conn->shutdown();
+            return false;
+        } else if (result == ConnectPool::peer_banned) {
+            conn->write_msg(_peerRejectedErrorMsg);
+            conn->shutdown();
+            return false;
+        } else {
+            assert(false && "unexpected reserve peer result");
+            return false;
+        }
+    } else if (result != ConnectPool::success) {
+        return false;
     }
 
-    // send response ...
-    auto result = it->second->write_msg(_handshakeResponse);
-    if (!result) {
-        LOG_WARNING() << "Cannot send handshake response to " << it->second->peer_address() << " error=" << io::error_str(result.error());
-        return false;
+    LOG_INFO() << "handshake succeeded with peer=" << conn->peer_address() << TRACE(hs.listensTo);
+    streamId.fields.flags &= ~StreamId::handshaking;
+    if (hs.listensTo) {
+        // stream ids for nodes that listen reflects listening port
+        streamId.fields.port = hs.listensTo;
     }
-
-    _onPeerHandshaked(std::move(it->second), hs.listensTo);
-    _inbound.erase(it);
-
+    conn->change_id(streamId.u64);
+    _onPeerHandshaked(std::move(conn), (hs.listensTo != 0));
     return true;
 }
 
-bool HandshakingPeers::on_handshake_response(uint64_t connId, Handshake&& hs) {
-    auto it = _outbound.find(connId);
-    if (it == _outbound.end()) {
-        LOG_WARNING() << "Outbound connections are missing " << io::Address::from_u64(connId);
-        return false;
+bool HandshakingPeers::on_handshake_error(uint64_t id, HandshakeError&& hs) {
+    StreamId streamId(id);
+
+    if ((streamId.flags() & (StreamId::handshaking | StreamId::outbound)) == 0) {
+        LOG_DEBUG() << "wrong flags, streamId=" << std::hex << streamId.u64 << std::dec;
     }
 
-    _onPeerHandshaked(std::move(it->second), hs.listensTo);
-    _outbound.erase(it);
-
-    return true;
-}
-
-bool HandshakingPeers::on_handshake_error_response(uint64_t connId, HandshakeError&& hs) {
-    auto it = _outbound.find(connId);
-    if (it == _outbound.end()) {
-        LOG_WARNING() << "Outbound connections are missing " << io::Address::from_u64(connId);
+    auto it = _connections.find(streamId);
+    if (it == _connections.end()) {
+        LOG_WARNING() << "handshaking connection is missing for " << streamId.address();
         return false;
     }
-    LOG_WARNING() << "Unsuccessful handshake response from " << it->second->peer_address() << " reason=" << hs.str();
-    _outbound.erase(it);
+    _connections.erase(it);
+    _onError(streamId, hs);
     return false;
 }
 

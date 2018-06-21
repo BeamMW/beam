@@ -257,9 +257,10 @@ namespace beam {
         }
     }
 
-    void WalletNetworkIO::on_connection_error(uint64_t from, int errorCode)
+    void WalletNetworkIO::on_connection_error(uint64_t from, io::ErrorCode errorCode)
     {
-        LOG_ERROR() << "Wallet connection error: " << io::error_str(io::ErrorCode(errorCode));
+        LOG_ERROR() << "Wallet connection error: " << io::error_str(errorCode);
+
         if (m_connections.empty())
         {
             stop();
