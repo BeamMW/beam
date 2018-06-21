@@ -82,20 +82,25 @@ private:
 		virtual void OnRolledBack() override;
 		virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&) override;
 
-		struct VerifierContext
+		struct Verifier
 		{
 			const TxBase* m_pTx;
 			TxBase::IReader* m_pR;
 			TxBase::Context m_Context;
 
-			volatile bool m_bAbort;
+			bool m_bFail;
+			uint32_t m_iTask;
 			uint32_t m_Remaining;
 
 			std::mutex m_Mutex;
 			std::condition_variable m_Cond;
 
-			static void Proceed(VerifierContext*, uint32_t iVerifier);
-		};
+			std::vector<std::thread> m_vThreads;
+
+			void Thread(uint32_t);
+
+			IMPLEMENT_GET_PARENT_OBJ(Processor, m_Verifier)
+		} m_Verifier;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;

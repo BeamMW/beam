@@ -289,65 +289,79 @@ bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&
 	if (!nThreads)
 		return NodeProcessor::VerifyBlock(block, std::move(r), hr);
 
-	VerifierContext vctx;
+	Verifier& v = m_Verifier; // alias
+	std::unique_lock<std::mutex> scope(v.m_Mutex);
 
-	vctx.m_pTx = &block;
-	vctx.m_pR = &r;
-	vctx.m_bAbort = false;
-	vctx.m_Remaining = nThreads;
-	vctx.m_Context.m_bBlockMode = true;
-	vctx.m_Context.m_Height = hr;
-	vctx.m_Context.m_nVerifiers = nThreads;
-
-	std::vector<std::thread> vThreads;
-	vThreads.resize(nThreads);
-
-	std::unique_lock<std::mutex> scope(vctx.m_Mutex);
-
-	for (uint32_t i = 0; i < nThreads; i++)
+	if (v.m_vThreads.empty())
 	{
-		std::thread& t = vThreads[i];
-		t = std::thread(&VerifierContext::Proceed, &vctx, i);
+		v.m_iTask = 1;
+
+		v.m_vThreads.resize(nThreads);
+		for (uint32_t i = 0; i < nThreads; i++)
+			v.m_vThreads[i] = std::thread(&Verifier::Thread, &v, i);
 	}
 
-	while (vctx.m_Remaining)
-		vctx.m_Cond.wait(scope);
 
-	for (uint32_t i = 0; i < nThreads; i++)
-		vThreads[i].join();
+	v.m_iTask ^= 2;
+	v.m_pTx = &block;
+	v.m_pR = &r;
+	v.m_bFail = false;
+	v.m_Remaining = nThreads;
+	v.m_Context.m_bBlockMode = true;
+	v.m_Context.m_Height = hr;
+	v.m_Context.m_nVerifiers = nThreads;
 
-	return !vctx.m_bAbort && vctx.m_Context.IsValidBlock(block, m_Cursor.m_SubsidyOpen);
+	v.m_Cond.notify_all();
+
+	while (v.m_Remaining)
+		v.m_Cond.wait(scope);
+
+	return !v.m_bFail && v.m_Context.IsValidBlock(block, m_Cursor.m_SubsidyOpen);
 }
 
-void Node::Processor::VerifierContext::Proceed(VerifierContext* pVctx, uint32_t iVerifier)
+void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 {
-	VerifierContext& vctx = *pVctx;
-
-	TxBase::Context ctx;
-	ctx.m_bBlockMode = true;
-	ctx.m_Height = vctx.m_Context.m_Height;
-	ctx.m_nVerifiers = vctx.m_Context.m_nVerifiers;
-	ctx.m_iVerifier = iVerifier;
-	ctx.m_pAbort = &vctx.m_bAbort;
-
-	TxBase::IReader::Ptr pR;
-	vctx.m_pR->Clone(pR);
-
-	bool bValid = ctx.ValidateAndSummarize(*vctx.m_pTx, std::move(*pR));
-
+	for (uint32_t iTask = 1; ; )
 	{
-		std::unique_lock<std::mutex> scope(vctx.m_Mutex);
+		{
+			std::unique_lock<std::mutex> scope(m_Mutex);
 
-		verify(vctx.m_Remaining--);
+			while (m_iTask == iTask)
+				m_Cond.wait(scope);
 
-		if (bValid && !vctx.m_bAbort)
-			bValid = vctx.m_Context.Merge(ctx);
+			if (!m_iTask)
+				return;
+
+			iTask = m_iTask;
+		}
+
+		assert(m_Remaining);
+
+		TxBase::Context ctx;
+		ctx.m_bBlockMode = true;
+		ctx.m_Height = m_Context.m_Height;
+		ctx.m_nVerifiers = m_Context.m_nVerifiers;
+		ctx.m_iVerifier = iVerifier;
+		ctx.m_pAbort = &m_bFail; // obsolete actually
+
+		TxBase::IReader::Ptr pR;
+		m_pR->Clone(pR);
+
+		bool bValid = ctx.ValidateAndSummarize(*m_pTx, std::move(*pR));
+
+		std::unique_lock<std::mutex> scope(m_Mutex);
+
+		verify(m_Remaining--);
+
+		if (bValid && !m_bFail)
+			bValid = m_Context.Merge(ctx);
 
 		if (!bValid)
-			vctx.m_bAbort = true;
-	}
+			m_bFail = true;
 
-	vctx.m_Cond.notify_one();
+		if (!m_Remaining)
+			m_Cond.notify_one();
+	}
 }
 
 Node::Peer* Node::AllocPeer()
@@ -460,7 +474,8 @@ Node::~Node()
 		if (pt.m_pReactor)
 			pt.m_pReactor->stop();
 
-		pt.m_Thread.join();
+		if (pt.m_Thread.joinable())
+			pt.m_Thread.join();
 	}
 	m_Miner.m_vThreads.clear();
 
@@ -483,6 +498,20 @@ Node::~Node()
 
 	while (!m_Wtx.m_lst.empty())
 		m_Wtx.Delete(m_Wtx.m_lst.back());
+
+	Processor::Verifier& v = m_Processor.m_Verifier; // alias
+	if (!v.m_vThreads.empty())
+	{
+		{
+			std::unique_lock<std::mutex> scope(v.m_Mutex);
+			v.m_iTask = 0;
+			v.m_Cond.notify_all();
+		}
+
+		for (size_t i = 0; i < v.m_vThreads.size(); i++)
+			if (v.m_vThreads[i].joinable())
+				v.m_vThreads[i].join();
+	}
 }
 
 void Node::Peer::SetTimer(uint32_t timeout_ms)
