@@ -442,7 +442,7 @@ void Node::ImportMacroblock(Height h)
 	Block::BodyBase::RW rw;
 	m_Compressor.FmtPath(rw, h, NULL);
 	if (!rw.Open(true))
-		m_Compressor.OnFileErr();
+		std::ThrowIoError();
 
 	if (!m_Processor.ImportMacroBlock(rw))
 		throw std::runtime_error("import failed");
@@ -1342,11 +1342,6 @@ void Node::Compressor::Delete(const NodeDB::StateID& sid)
 	rw.Delete();
 }
 
-void Node::Compressor::OnFileErr()
-{
-	throw std::runtime_error("File i/o error");
-}
-
 void Node::Compressor::OnNewState()
 {
 	if (m_hrNew.m_Max)
@@ -1406,7 +1401,7 @@ void Node::Compressor::OnNotify()
 			Block::Body::RW rw;
 			FmtPath(rw, m_hrInplaceRequest.m_Max, &m_hrInplaceRequest.m_Min);
 			if (!rw.Open(false))
-				OnFileErr();
+				std::ThrowIoError();
 
 			get_ParentObj().m_Processor.ExportMacroBlock(rw, m_hrInplaceRequest);
 		}
@@ -1592,7 +1587,7 @@ bool Node::Compressor::SquashOnce(Block::BodyBase::RW& rw, Block::BodyBase::RW& 
 	if (!rw.Open(false) ||
 		!rwSrc0.Open(true) ||
 		!rwSrc1.Open(true))
-		OnFileErr();
+		std::ThrowIoError();
 
 	if (!rw.CombineHdr(std::move(rwSrc0), std::move(rwSrc1), m_bStop))
 		return false;

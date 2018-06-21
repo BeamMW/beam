@@ -292,15 +292,12 @@ private:
 		void OnNewState();
 		void FmtPath(Block::BodyBase::RW&, Height, const Height* pH0);
 		void StopCurrent();
-		void AddMerged(Height);
 
 		void OnNotify();
 		void Proceed();
 		bool ProceedInternal();
 		bool SquashOnce(std::vector<HeightRange>&);
 		bool SquashOnce(Block::BodyBase::RW&, Block::BodyBase::RW& rwSrc0, Block::BodyBase::RW& rwSrc1);
-
-		static void OnFileErr();
 
 		PerThread m_Link;
 		std::mutex m_Mutex;
