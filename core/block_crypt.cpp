@@ -838,6 +838,8 @@ namespace beam
 	Height Block::Rules::MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
 	size_t Block::Rules::MaxBodySize		= 0x100000; // 1MB
 
+	bool Block::Rules::FakePoW = false;
+
 	uint32_t Block::Rules::DesiredRate_s				= 60; // 1 minute
 	uint32_t Block::Rules::DifficultyReviewCycle		= 24 * 60 * 7; // 10,080 blocks, 1 week roughly
 	uint32_t Block::Rules::MaxDifficultyChange			= 3; // i.e. x8 roughly. (There's no equivalent to this in bitcoin).
@@ -855,6 +857,7 @@ namespace beam
 			<< MaturityCoinbase
 			<< MaturityStd
 			<< MaxBodySize
+			<< FakePoW
 			<< DesiredRate_s
 			<< DifficultyReviewCycle
 			<< MaxDifficultyChange

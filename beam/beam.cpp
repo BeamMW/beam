@@ -480,6 +480,9 @@ int main(int argc, char* argv[])
         auto debug = vm.count(cli::DEBUG) > 0;
         auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;
 
+		if (debug)
+			Block::Rules::FakePoW = true;
+
         if (vm.count(cli::MODE))
         {
             io::Reactor::Ptr reactor(io::Reactor::create());
@@ -506,7 +509,6 @@ int main(int argc, char* argv[])
                 node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
                 node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
 				node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
-				node.m_Cfg.m_TestMode.m_bFakePoW = debug;
                 if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
                 {
                     LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";

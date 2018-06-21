@@ -414,6 +414,8 @@ namespace beam
 			static uint32_t TimestampAheadThreshold_s;
 			static uint32_t WindowForMedian;
 
+			static bool FakePoW; // for testing
+
 			static void get_Hash(ECC::Hash::Value&);
 
 			static void AdjustDifficulty(uint8_t&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s);

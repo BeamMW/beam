@@ -511,7 +511,7 @@ namespace beam
 			Amount fees = 0;
 			verify_test(np.GenerateNewBlock(np.m_TxPool, pBlock->m_Hdr, pBlock->m_Body, fees));
 
-			np.OnState(pBlock->m_Hdr, true, NodeDB::PeerID());
+			np.OnState(pBlock->m_Hdr, NodeDB::PeerID());
 
 			Block::SystemState::ID id;
 			pBlock->m_Hdr.get_ID(id);
@@ -537,7 +537,7 @@ namespace beam
 			NodeProcessor np2;
 			np2.Initialize(g_sz2);
 
-			verify_test(np2.ImportMacroBlock(rwData, true));
+			verify_test(np2.ImportMacroBlock(rwData));
 
 			rwData.Close();
 			rwData.Delete();
@@ -556,7 +556,7 @@ namespace beam
 			rwData.Close();
 
 			verify_test(rwData.Open(true));
-			verify_test(np2.ImportMacroBlock(rwData, true));
+			verify_test(np2.ImportMacroBlock(rwData));
 			rwData.Close();
 
 			verify_test(rwData.Open(false));
@@ -564,7 +564,7 @@ namespace beam
 			rwData.Close();
 
 			verify_test(rwData.Open(true));
-			verify_test(np2.ImportMacroBlock(rwData, true));
+			verify_test(np2.ImportMacroBlock(rwData));
 			rwData.Close();
 
 			rwData.Delete();
@@ -603,7 +603,7 @@ namespace beam
 			ZeroObject(peer);
 
 			for (size_t i = 0; i < blockChain.size(); i += 2)
-				np.OnState(blockChain[i]->m_Hdr, true, peer);
+				np.OnState(blockChain[i]->m_Hdr, peer);
 		}
 
 		{
@@ -631,7 +631,7 @@ namespace beam
 			ZeroObject(peer);
 
 			for (size_t i = 1; i < blockChain.size(); i += 2)
-				np.OnState(blockChain[i]->m_Hdr, true, peer);
+				np.OnState(blockChain[i]->m_Hdr, peer);
 		}
 
 		{
@@ -679,7 +679,6 @@ namespace beam
 		node.m_Cfg.m_sPathLocal = g_sz;
 		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
-		node.m_Cfg.m_TestMode.m_bFakePoW = true;
 
 		node.m_Cfg.m_Timeout.m_GetBlock_ms = 1000 * 60;
 		node.m_Cfg.m_Timeout.m_GetState_ms = 1000 * 60;
@@ -691,7 +690,6 @@ namespace beam
 		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
 		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
-		node2.m_Cfg.m_TestMode.m_bFakePoW = true;
 
 		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
 		ECC::SetRandom(node2.get_Processor().m_Kdf.m_Secret.V);
@@ -737,7 +735,7 @@ namespace beam
 					Amount fees = 0;
 					n.get_Processor().GenerateNewBlock(txPool, s, body, fees);
 
-					n.get_Processor().OnState(s, true, NodeDB::PeerID());
+					n.get_Processor().OnState(s, NodeDB::PeerID());
 
 					Block::SystemState::ID id;
 					s.get_ID(id);
@@ -806,7 +804,6 @@ namespace beam
 		node.m_Cfg.m_sPathLocal = g_sz;
 		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
-		node.m_Cfg.m_TestMode.m_bFakePoW = true;
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
 
@@ -986,7 +983,6 @@ namespace beam
 
 		Node node2;
 		node2.m_Cfg.m_sPathLocal = g_sz2;
-		node2.m_Cfg.m_TestMode.m_bFakePoW = true;
 		node2.m_Cfg.m_Connect.resize(1);
 		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
 		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
@@ -1002,6 +998,8 @@ namespace beam
 
 int main()
 {
+	beam::Block::Rules::FakePoW = true;
+
 	DeleteFileA(beam::g_sz);
 	DeleteFileA(beam::g_sz2);
 

@@ -444,7 +444,7 @@ void Node::ImportMacroblock(Height h)
 	if (!rw.Open(true))
 		m_Compressor.OnFileErr();
 
-	if (!m_Processor.ImportMacroBlock(rw, m_Cfg.m_TestMode.m_bFakePoW))
+	if (!m_Processor.ImportMacroBlock(rw))
 		throw std::runtime_error("import failed");
 
 	m_Processor.get_DB().MacroblockIns(h);
@@ -706,7 +706,7 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	NodeDB::PeerID pid;
 	get_ID(pid);
 
-	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnState(msg.m_Description, m_pThis->m_Cfg.m_TestMode.m_bFakePoW, pid);
+	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnState(msg.m_Description, pid);
 	OnFirstTaskDone(eStatus);
 }
 
@@ -1125,7 +1125,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 			return false;
 		};
 
-		if (get_ParentObj().m_Cfg.m_TestMode.m_bFakePoW)
+		if (Block::Rules::FakePoW)
 		{
 			uint32_t timeout_ms = get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms;
 
@@ -1273,7 +1273,7 @@ void Node::Miner::OnMined()
 
 	LOG_INFO() << "New block mined: " << id;
 
-	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, true, NodeDB::PeerID());
+	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, NodeDB::PeerID());
 	assert(NodeProcessor::DataStatus::Accepted == eStatus); // Otherwise either the block is invalid (some bug?). Or someone else mined exactly the same block!
 
 	NodeDB::StateID sid;

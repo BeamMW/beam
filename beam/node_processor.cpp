@@ -897,7 +897,7 @@ bool NodeProcessor::IsRelevantHeight(Height h)
 	return h >= hFossil + Block::Rules::HeightGenesis;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, bool bIgnorePoW, Block::SystemState::ID& id)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id)
 {
 	s.get_ID(id);
 
@@ -907,7 +907,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		return DataStatus::Invalid;
 	}
 
-	if (!bIgnorePoW && !s.IsValidPoW())
+	if (!Block::Rules::FakePoW && !s.IsValidPoW())
 	{
 		LOG_WARNING() << id << " PoW invalid";
 		return DataStatus::Invalid;
@@ -933,11 +933,11 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 	return DataStatus::Accepted;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState::Full& s, bool bIgnorePoW, const PeerID& peer)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState::Full& s, const PeerID& peer)
 {
 	Block::SystemState::ID id;
 
-	DataStatus::Enum ret = OnStateInternal(s, bIgnorePoW, id);
+	DataStatus::Enum ret = OnStateInternal(s, id);
 	if (DataStatus::Accepted == ret)
 	{
 		NodeDB::Transaction t(m_DB);
@@ -1492,7 +1492,7 @@ void NodeProcessor::ExportMacroBlock(Block::BodyBase::IMacroWriter& w)
 		w.put_NextHdr(vElem[i]);
 }
 
-bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgnorePoW)
+bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 {
 	Block::BodyBase body;
 	Block::SystemState::Full s;
@@ -1522,7 +1522,7 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 
 	for ( ; r.get_NextHdr(s); )
 	{
-		switch (OnStateInternal(s, bIgnorePoW, id))
+		switch (OnStateInternal(s, id))
 		{
 		case DataStatus::Invalid:
 		{
