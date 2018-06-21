@@ -1,10 +1,21 @@
 <RCC>
     <qresource prefix="/">
-        <file>wallet.qml</file>
+        <file>main.qml</file>
+
+        <file>dashboard.qml</file>
         <file>assets/dashboard-icon.png</file>
+      
+        <file>wallet.qml</file>
         <file>assets/wallet-icon.png</file>
+      
+        <file>notifications.qml</file>
         <file>assets/notifications-icon.png</file>
+      
+        <file>help.qml</file>
         <file>assets/help-icon.png</file>
+      
+        <file>settings.qml</file>
         <file>assets/settings-icon.png</file>
+
     </qresource>
 </RCC>
