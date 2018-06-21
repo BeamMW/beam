@@ -326,9 +326,15 @@ namespace ECC
 		template <typename T>
 		void Write(T v)
 		{
-			NoLeak<uintBig_t<(sizeof(T) << 3)> > x;
-			x.V = v;
-			Write(x.V.m_pData, sizeof(x.V.m_pData));
+			// Must be independent of the endian-ness
+			// Must prevent ambiguities (different inputs should be properly distinguished)
+			// Make it also independent of the actual type width, so that size_t (and friends) will be treated the same on all the platforms
+			static_assert(T(-1) > 0, "must be unsigned");
+
+			for (; v >= 0x80; v >>= 7)
+				Write(uint8_t(uint8_t(v) | 0x80));
+
+			Write(uint8_t(v));
 		}
 
 		void Finalize(Value&);
