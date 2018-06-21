@@ -554,7 +554,8 @@ void Node::Peer::OnTimer()
 
 void Node::Peer::OnConnected()
 {
-	LOG_INFO() << "+Peer " << get_Connection()->peer_address();
+	m_RemoteAddr = get_Connection()->peer_address();
+	LOG_INFO() << "+Peer " << m_RemoteAddr;
 
 	if (State::Connecting == m_eState)
 		KillTimer();
@@ -615,9 +616,7 @@ void Node::Peer::ReleaseTask(Task& t)
 
 void Node::Peer::OnPostError()
 {
-	const Connection* pConn = get_Connection();
-	if (pConn)
-		LOG_INFO() << "-Peer " << pConn->peer_address();
+	LOG_INFO() << "-Peer " << m_RemoteAddr;
 
 	if (State::Snoozed != m_eState)
 		m_eState = State::Idle; // prevent reassigning the tasks

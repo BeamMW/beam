@@ -183,6 +183,7 @@ private:
 		void get_ID(NodeProcessor::PeerID&);
 
 		State::Enum m_eState;
+		beam::io::Address m_RemoteAddr; // for logging only
 
 		Height m_TipHeight;
 		proto::Config m_Config;
