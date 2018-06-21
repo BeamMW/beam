@@ -142,7 +142,9 @@ int main(int argc, char* argv[]) {
     auto logger = Logger::create(logLevel, logLevel);
     logger->set_header_formatter(
         [](char* buf, size_t maxSize, const char* timestampFormatted, const LogMessageHeader& header) -> size_t {
-            return snprintf(buf, maxSize, "%c %s (%s, %d) ", loglevel_tag(header.level), timestampFormatted, header.func, (int)get_thread_id());
+            if (header.line)
+                return snprintf(buf, maxSize, "%c %s (%s, %d) ", loglevel_tag(header.level), timestampFormatted, header.func, (int)get_thread_id());
+            return snprintf(buf, maxSize, "%c %s (%d) ", loglevel_tag(header.level), timestampFormatted, (int)get_thread_id());
         }
     );
     logger->set_time_format("%T", true);
