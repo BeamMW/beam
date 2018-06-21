@@ -17,8 +17,18 @@ qt5_add_resources(QT_RESOURCES view/qml.qrc)
 
 set(UI_SRC
 	ui.cpp
-	viewmodel/wallet_model.h
-	viewmodel/wallet_model.cpp
+	viewmodel/main.h
+	viewmodel/main.cpp
+	viewmodel/dashboard.h
+	viewmodel/dashboard.cpp
+	viewmodel/wallet.h
+	viewmodel/wallet.cpp
+	viewmodel/notifications.h
+	viewmodel/notifications.cpp
+	viewmodel/help.h
+	viewmodel/help.cpp
+	viewmodel/settings.h
+	viewmodel/settings.cpp
 )
 
 add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES})

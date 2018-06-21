@@ -50,7 +50,7 @@ class WalletViewModel : public QObject
 {
 	Q_OBJECT
 
-		Q_PROPERTY(QString label READ label WRITE setLabel NOTIFY labelChanged)
+	Q_PROPERTY(QString label READ label WRITE setLabel NOTIFY labelChanged)
 
 public:
 	using TxList = QList<QObject*>;

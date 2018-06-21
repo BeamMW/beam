@@ -51,7 +51,6 @@ Rectangle {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         onClicked: updateItem(index)
-                        hoverEnabled: true
                     }
                 }
             }
@@ -71,6 +70,7 @@ Rectangle {
     {
         selectedItem = index
         content.source = "qrc:///" + contentItems[index] + ".qml"
+        mainViewModel.update(index)
     }
 
     Component.onCompleted:{

@@ -1,4 +1,4 @@
-#include "wallet_model.h"
+#include "wallet.h"
 
 TxObject::TxObject(const QString& dateVal
 	, const QString& userVal
