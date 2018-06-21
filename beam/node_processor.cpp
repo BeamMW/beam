@@ -1115,25 +1115,24 @@ Timestamp NodeProcessor::get_MovingMedian()
 	if (!m_Cursor.m_Sid.m_Row)
 		return 0;
 
-	Timestamp pArr[Block::Rules::WindowForMedian];
-	uint32_t n = 0;
+	std::vector<Timestamp> vTs;
 
 	for (uint64_t row = m_Cursor.m_Sid.m_Row; ; )
 	{
 		Block::SystemState::Full s;
 		m_DB.get_State(row, s);
-		pArr[n] = s.m_TimeStamp;
+		vTs.push_back(s.m_TimeStamp);
 
-		if (Block::Rules::WindowForMedian == ++n)
+		if (vTs.size() >= Block::Rules::WindowForMedian)
 			break;
 
 		if (!m_DB.get_Prev(row))
 			break;
 	}
 
-	std::sort(pArr, pArr + n); // there's a better algorithm to find a median (or whatever order), however our array isn't too big, so it's ok.
+	std::sort(vTs.begin(), vTs.end()); // there's a better algorithm to find a median (or whatever order), however our array isn't too big, so it's ok.
 
-	return pArr[n >> 1];
+	return vTs[vTs.size() >> 1];
 }
 
 bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)

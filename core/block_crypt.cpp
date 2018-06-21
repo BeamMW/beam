@@ -830,12 +830,20 @@ namespace beam
 
 	/////////////
 	// Block
-	const Amount Block::Rules::Coin				= 1000000;
-	const Amount Block::Rules::CoinbaseEmission = Coin * 40; // the maximum allowed coinbase in a single block
-	const Height Block::Rules::MaturityCoinbase	= 60; // 1 hour
-	const Height Block::Rules::MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
 	const Height Block::Rules::HeightGenesis	= 1;
-	const size_t Block::Rules::MaxBodySize		= 0x100000; // 1MB
+	const Amount Block::Rules::Coin				= 1000000;
+
+	Amount Block::Rules::CoinbaseEmission	= Coin * 40; // the maximum allowed coinbase in a single block
+	Height Block::Rules::MaturityCoinbase	= 60; // 1 hour
+	Height Block::Rules::MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+	size_t Block::Rules::MaxBodySize		= 0x100000; // 1MB
+
+	uint32_t Block::Rules::DesiredRate_s				= 60; // 1 minute
+	uint32_t Block::Rules::DifficultyReviewCycle		= 24 * 60 * 7; // 10,080 blocks, 1 week roughly
+	uint32_t Block::Rules::MaxDifficultyChange			= 3; // i.e. x8 roughly. (There's no equivalent to this in bitcoin).
+	uint32_t Block::Rules::TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
+	uint32_t Block::Rules::WindowForMedian				= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
+
 
 	int Block::SystemState::ID::cmp(const ID& v) const
 	{
@@ -989,7 +997,7 @@ namespace beam
 
 	void Block::Rules::AdjustDifficulty(uint8_t& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s)
 	{
-		static_assert(DesiredRate_s * DifficultyReviewCycle < uint32_t(-1), "overflow?");
+		//static_assert(DesiredRate_s * DifficultyReviewCycle < uint32_t(-1), "overflow?");
 		const uint32_t dtTrg_s = DesiredRate_s * DifficultyReviewCycle;
 
 		uint32_t dt_s; // evaluate carefully, avoid possible overflow
