@@ -109,11 +109,11 @@ namespace beam
         std::vector<wallet::Receiver::Ptr>    m_pendingReceivers;
         TxCompletedAction m_tx_completed_action;
         std::queue<Uuid> m_node_requests_queue;
+        std::queue<Coin> m_pendingProofs;
         Merkle::Hash m_Definition;
         Block::SystemState::ID m_knownStateID;
         Block::SystemState::ID m_newStateID;
         int m_syncing;
         bool m_synchronized;
-        std::queue<Coin> m_pendingProofs;
     };
 }

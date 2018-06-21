@@ -86,9 +86,11 @@ namespace beam
         : m_keyChain{ keyChain }
         , m_network{ network }
         , m_tx_completed_action{move(action)}
+        , m_Definition{}
+        , m_knownStateID{}
+        , m_newStateID{}
         , m_syncing{0}
         , m_synchronized{false}
-        , m_knownStateID{0}
     {
         assert(keyChain);
         m_keyChain->getSystemStateID(m_knownStateID);
@@ -129,7 +131,7 @@ namespace beam
 
     void Wallet::resume_all_tx()
     {
-        auto txs = m_keyChain->getTxHistory(0, -1);
+        auto txs = m_keyChain->getTxHistory(0, numeric_limits<size_t>::max());
         for (auto& tx : txs)
         {
             resume_tx(tx);
@@ -150,6 +152,12 @@ namespace beam
     {
         remove_sender(tx.m_txId);
         remove_receiver(tx.m_txId);
+
+        // remove state machine from db
+        TxDescription t{ tx };
+        t.m_fsmState.clear();
+        m_keyChain->saveTx(t);
+
         if (m_tx_completed_action)
         {
             m_tx_completed_action(tx.m_txId);
@@ -213,7 +221,7 @@ namespace beam
             LOG_VERBOSE() << ReceiverPrefix << "Received tx invitation " << data.m_txId;
             m_peers.emplace(data.m_txId, from);
             TxDescription tx{ data.m_txId, data.m_amount, from, {}, getTimestamp(), false };
-            auto r = make_shared<Receiver>(*this, m_keyChain, tx, move(data));
+            auto r = make_shared<Receiver>(*this, m_keyChain, tx, data);
             auto p = m_receivers.emplace(tx.m_txId, r);
             if (m_synchronized)
             {
@@ -223,7 +231,6 @@ namespace beam
             {
                 m_pendingReceivers.emplace_back(r);
             }
-            resume_receiver(tx, move(data));
         }
         else
         {
@@ -560,7 +567,7 @@ namespace beam
 
     void Wallet::resume_receiver(const TxDescription& tx, InviteReceiver&& data)
     {
-        auto p = m_receivers.emplace(tx.m_txId, make_shared<Receiver>(*this, m_keyChain, tx, move(data)));
+        auto p = m_receivers.emplace(tx.m_txId, make_shared<Receiver>(*this, m_keyChain, tx, data));
         if (m_synchronized)
         {
             p.first->second->start();

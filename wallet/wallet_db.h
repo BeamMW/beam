@@ -30,42 +30,6 @@ namespace beam
         Status m_status;
     };
 
-    struct HistoryRecord
-    {
-        enum TxType
-        {};
-        enum Status
-        {
-            Pending,
-            InProgress,
-            Cancelled,
-            Completed,
-            Failed
-        };
-
-        HistoryRecord(const Uuid& id, Amount amount, uint64_t peerId, const ByteBuffer& message)
-            : m_txId{id}
-            , m_amount{ 0 }
-            , m_peerId{ peerId }
-            , m_message{message}
-            , m_createTime{ Timestamp(-1) }
-            , m_modifyTime{ Timestamp(-1) }
-            , m_sender{ false }
-            , m_status{ Pending }
-        {}
-        HistoryRecord() : HistoryRecord(Uuid{ 0 }, 0, 0, {})
-        {
-        }
-        Uuid m_txId;
-        Amount m_amount;
-        uint64_t m_peerId;
-        ByteBuffer m_message;
-        Timestamp m_createTime;
-        Timestamp m_modifyTime;
-        bool m_sender;
-        Status m_status;
-    };
-
     struct IKeyChain
     {
         using Ptr = std::shared_ptr<IKeyChain>;
@@ -109,10 +73,9 @@ namespace beam
 
     struct Keychain : IKeyChain
     {
-        static bool isInitialized();
-        static Ptr init(const std::string& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
-        static Ptr open(const std::string& password);
-        static const char* getName();
+        static bool isInitialized(const std::string& path);
+        static Ptr init(const std::string& path, const std::string& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
+        static Ptr open(const std::string& path, const std::string& password);
 
         Keychain(const ECC::NoLeak<ECC::uintBig>& secretKey );
         ~Keychain();

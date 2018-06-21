@@ -11,9 +11,9 @@
 #include <atomic>
 #include <condition_variable>
 
-#include "sqlite_keychain.hpp"
 #include "core/proto.h"
 #include "wallet/wallet_serialization.h"
+#include <boost/filesystem.hpp>
 
 using namespace beam;
 using namespace std;
@@ -95,23 +95,44 @@ namespace
         }
     };
 
-    struct SqliteKeychainInt : SqliteKeychain
-    {
-        SqliteKeychainInt()
-        {
-            for (auto amount : {5, 2, 1})
-            {
-                Coin coin(amount);
-                coin.m_maturity = 0;
-                store(coin);
-            }
-        }
-    };
-
     template<typename KeychainImpl>
-    IKeyChain::Ptr createKeyChain()
+    IKeyChain::Ptr createKeychain()
     {
         return std::static_pointer_cast<IKeyChain>(std::make_shared<KeychainImpl>());
+    }
+
+    IKeyChain::Ptr createSqliteKeychain(const string& path)
+    {
+        ECC::NoLeak<ECC::uintBig> seed;
+        seed.V = ECC::Zero;
+        if (boost::filesystem::exists(path))
+        {
+            boost::filesystem::remove(path);
+        }
+
+        auto keychain = Keychain::init(path, "pass123", seed);
+        beam::Block::SystemState::ID id = {};
+        id.m_Height = 134;
+        keychain->setSystemStateID(id);
+        return keychain;
+    }
+
+    IKeyChain::Ptr createSenderKeychain()
+    {
+        auto keychain = createSqliteKeychain("sender_wallet.db");
+        for (auto amount : { 5, 2, 1 })
+        {
+            Coin coin(amount);
+            coin.m_maturity = 0;
+            keychain->store(coin);
+        }
+        return keychain;
+    }
+
+    IKeyChain::Ptr createReceiverKeychain()
+    {
+        auto keychain = createSqliteKeychain("receiver_wallet.db");
+        return keychain;
     }
 
     struct TestGateway : wallet::sender::IGateway
@@ -216,7 +237,6 @@ namespace
         atomic<bool> m_shutdown;
     };
 
-
     //
     // Test impl of the network io. The second thread isn't really needed, though this is much close to reality
     //
@@ -245,9 +265,9 @@ namespace
         {
             m_peers.push_back(walletPeer);
 
-            walletPeer->handle_node_message(proto::NewTip{ 0 });
+            walletPeer->handle_node_message(proto::NewTip{});
 
-            proto::Hdr msg = { 0 };
+            proto::Hdr msg = {};
             msg.m_Description.m_Height = 134;
             walletPeer->handle_node_message(move(msg));
         }
@@ -368,8 +388,7 @@ namespace
     };
 }
 
-template<typename KeychainS, typename KeychainR>
-void TestWalletNegotiation()
+void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receiverKeychain)
 {
     cout << "\nTesting wallets negotiation...\n";
     
@@ -386,8 +405,8 @@ void TestWalletNegotiation()
         }
     };
 
-    Wallet sender(createKeyChain<KeychainS>(), network, f);
-    Wallet receiver(createKeyChain<KeychainR>(), network, f);
+    Wallet sender(senderKeychain, network, f);
+    Wallet receiver(receiverKeychain, network, f);
 
     network.registerPeer(&sender);
     network.registerPeer(&receiver);
@@ -411,7 +430,7 @@ void TestFSM()
 
     TxDescription stx = {};
     stx.m_amount = 6;
-    wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), stx};
+    wallet::Sender s{ gateway, createKeychain<TestKeyChain>(), stx};
     s.start();
     WALLET_CHECK(s.process_event(wallet::Sender::TxInitCompleted{ wallet::ConfirmInvitation() }));
     WALLET_CHECK(s.process_event(wallet::Sender::TxConfirmationCompleted()));
@@ -419,7 +438,7 @@ void TestFSM()
     cout << "\nreceiver\n";
     wallet::InviteReceiver initData;
     initData.m_amount = 100;
-    wallet::Receiver r{ gateway, createKeyChain<TestKeyChain>(), {}, initData };
+    wallet::Receiver r{ gateway, createKeychain<TestKeyChain>(), {}, initData };
     r.start();
     WALLET_CHECK(!r.process_event(wallet::Receiver::TxRegistrationCompleted()));
     WALLET_CHECK(r.process_event(wallet::Receiver::TxFailed()));
@@ -475,7 +494,7 @@ private:
 
 	bool on_message(uint64_t connectionId, proto::Config&& /*data*/)
 	{
-        proto::Hdr msg = { 0 };
+        proto::Hdr msg = {};
         msg.m_Description.m_Height = 134;
         send(connectionId, HdrCode, move(msg));
 		return true;
@@ -520,7 +539,7 @@ private:
                     std::move(newStream)));
 
             ++m_connectCount;
-            send(tag, NewTipCode, proto::NewTip{ 0 });
+            send(tag, NewTipCode, proto::NewTip{ });
         }
         else
         {
@@ -553,8 +572,8 @@ void TestP2PWalletNegotiationST()
     io::Reactor::Scope scope(*main_reactor);
 
     TestNode node{ node_address, main_reactor };
-    WalletNetworkIO sender_io{ sender_address, node_address, false, createKeyChain<TestKeyChain>(), main_reactor };
-    WalletNetworkIO receiver_io{ receiver_address, node_address, true, createKeyChain<TestKeyChain2>(), main_reactor, 1000, 5000, 100 };
+    WalletNetworkIO sender_io{ sender_address, node_address, false, createSenderKeychain(), main_reactor };
+    WalletNetworkIO receiver_io{ receiver_address, node_address, true, createReceiverKeychain(), main_reactor, 1000, 5000, 100 };
 
     sender_io.transfer_money(receiver_address, 6);
 
@@ -590,7 +609,7 @@ void TestSerializeFSM()
         Uuid id;
         TxDescription tx = {};
         tx.m_amount = 6;
-        wallet::Sender s{ gateway, createKeyChain<TestKeyChain>(), tx};
+        wallet::Sender s{ gateway, createKeychain<TestKeyChain>(), tx};
         WALLET_CHECK(*(s.current_state()) == 0);
         s.start();
         WALLET_CHECK(*(s.current_state()) == 1);
@@ -603,7 +622,7 @@ void TestSerializeFSM()
         Deserializer der;
         der.reset(buffer.first, buffer.second);
 
-        wallet::Sender s2{ gateway, createKeyChain<TestKeyChain>(), {} };
+        wallet::Sender s2{ gateway, createKeychain<TestKeyChain>(), {} };
         WALLET_CHECK(*(s2.current_state()) == 0);
         der & s2;
         WALLET_CHECK(*(s2.current_state()) == 1);
@@ -624,7 +643,7 @@ void TestSerializeFSM()
         initData.m_amount = 100;
         TxDescription rtx = {};
         rtx.m_amount = 100;
-        wallet::Receiver r{ gateway, createKeyChain<TestKeyChain>(), rtx, initData };
+        wallet::Receiver r{ gateway, createKeychain<TestKeyChain>(), rtx, initData };
         WALLET_CHECK(*(r.current_state()) == 0);
         r.start();
         WALLET_CHECK(*(r.current_state()) == 1);
@@ -637,7 +656,7 @@ void TestSerializeFSM()
         Deserializer der;
         der.reset(buffer.first, buffer.second);
 
-        wallet::Receiver r2{ gateway, createKeyChain<TestKeyChain>(), {}, initData };
+        wallet::Receiver r2{ gateway, createKeychain<TestKeyChain>(), {}, initData };
         WALLET_CHECK(*(r2.current_state()) == 0);
         der & r2;
         WALLET_CHECK(*(r2.current_state()) == 1);
@@ -668,8 +687,8 @@ int main()
     TestSplitKey();
 
     TestP2PWalletNegotiationST();
-    TestWalletNegotiation<TestKeyChain, TestKeyChain2>();
-    TestWalletNegotiation<SqliteKeychainInt, TestKeyChain2>();
+    TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
+    TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
     TestRollback();
     TestFSM();
     TestSerializeFSM();

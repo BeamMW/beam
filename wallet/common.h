@@ -154,7 +154,7 @@ namespace beam
 
         struct ConfirmInvitation
         {
-            Uuid m_txId;
+            Uuid m_txId{};
             ECC::Point m_publicReceiverBlindingExcess;
             ECC::Point m_publicReceiverNonce;
             ECC::Scalar m_receiverSignature;

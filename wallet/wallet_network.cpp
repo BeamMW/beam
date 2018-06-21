@@ -22,7 +22,7 @@ namespace beam {
         , m_node_address{node_address}
         , m_reactor{ !reactor ? io::Reactor::create() : reactor }
         , m_server{ is_server ? io::TcpServer::create(m_reactor, m_address, BIND_THIS_MEMFN(on_stream_accepted)) : io::TcpServer::Ptr() }
-        , m_wallet{keychain, *this, is_server ? Wallet::TxCompletedAction() : [this](auto a) { this->stop(); } }
+        , m_wallet{keychain, *this, is_server ? Wallet::TxCompletedAction() : [this](auto ) { this->stop(); } }
         , m_is_node_connected{false}
         , m_connection_tag{ start_tag }
         , m_reactor_scope{*m_reactor }

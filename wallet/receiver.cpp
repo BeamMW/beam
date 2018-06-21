@@ -117,7 +117,7 @@ namespace beam::wallet
         m_gateway.register_tx(m_txDesc, m_transaction);
     }
 
-    void Receiver::FSMDefinition::rollback_tx(const TxFailed& event)
+    void Receiver::FSMDefinition::rollback_tx(const TxFailed&)
     {
         LOG_DEBUG() << "Transaction failed. Rollback...";
         LOG_VERBOSE() << "[Receiver] rollback_tx";

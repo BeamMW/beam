@@ -26,7 +26,7 @@ void address_test() {
 #ifdef WIN32
 struct WSAInit {
     WSAInit() {
-        WSADATA wsaData = { 0 };
+        WSADATA wsaData = { };
         int errorno = WSAStartup(MAKEWORD(2, 2), &wsaData);
         if (errorno != 0) {
             throw std::runtime_error("Failed to init WSA");

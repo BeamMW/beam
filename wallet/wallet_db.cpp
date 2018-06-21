@@ -288,24 +288,19 @@ namespace beam
 
 	}
 
-	const char* Keychain::getName()
+	bool Keychain::isInitialized(const string& path)
 	{
-		return "wallet.db";
+		return boost::filesystem::exists(path);
 	}
 
-	bool Keychain::isInitialized()
+	IKeyChain::Ptr Keychain::init(const string& path, const string& password, const ECC::NoLeak<ECC::uintBig>& secretKey)
 	{
-		return boost::filesystem::exists(getName());
-	}
-
-	IKeyChain::Ptr Keychain::init(const string& password, const ECC::NoLeak<ECC::uintBig>& secretKey)
-	{
-		if (!boost::filesystem::exists(getName()))
+		if (!boost::filesystem::exists(path))
 		{
 			auto keychain = make_shared<Keychain>(secretKey);
 
 			{
-				int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
+				int ret = sqlite3_open_v2(path.c_str(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
 				assert(ret == SQLITE_OK);
 			}
 
@@ -338,21 +333,21 @@ namespace beam
 			return static_pointer_cast<IKeyChain>(keychain);
 		}
 
-		LOG_ERROR() << getName() << " already exists.";
+		LOG_ERROR() << path << " already exists.";
 
 		return Ptr();
 	}
 
-	IKeyChain::Ptr Keychain::open(const string& password)
+	IKeyChain::Ptr Keychain::open(const string& path, const string& password)
 	{
-		if (boost::filesystem::exists(getName()))
+		if (boost::filesystem::exists(path))
 		{
 			ECC::NoLeak<ECC::uintBig> seed;
 			seed.V = ECC::Zero;
 			auto keychain = make_shared<Keychain>(seed);
 
 			{
-				int ret = sqlite3_open_v2(getName(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
+				int ret = sqlite3_open_v2(path.c_str(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
 				assert(ret == SQLITE_OK);
 			}
 
@@ -416,7 +411,7 @@ namespace beam
 			return static_pointer_cast<IKeyChain>(keychain);
 		}
 
-		LOG_ERROR() << getName() << " not found, please init the wallet before.";
+		LOG_ERROR() << path << " not found, please init the wallet before.";
 
 		return Ptr();
 	}
@@ -470,7 +465,7 @@ namespace beam
 			sqlite::Statement stm(_db, req);
 			stm.bind(1, Coin::Unspent);
 
-			Block::SystemState::ID stateID = { 0 };
+			Block::SystemState::ID stateID = {};
 			getSystemStateID(stateID);
 
 			while (true)
@@ -685,7 +680,7 @@ namespace beam
 
 	Height Keychain::getCurrentHeight() const
 	{
-		Block::SystemState::ID id = { 0 };
+		Block::SystemState::ID id = {};
 		if (getSystemStateID(id))
 		{
 			return id.m_Height;
@@ -729,10 +724,10 @@ namespace beam
     void Keychain::saveTx(const TxDescription& p)
     {
         const char* selectReq = "SELECT * FROM " HISTORY_NAME " WHERE txId=?1;";
-        sqlite::Statement stm(_db, selectReq);
-        stm.bind(1, p.m_txId);
+        sqlite::Statement stm2(_db, selectReq);
+        stm2.bind(1, p.m_txId);
 
-        if (stm.step())
+        if (stm2.step())
         {
             const char* updateReq = "UPDATE " HISTORY_NAME " SET modifyTime=?2, status=?3, fsmState=?4 WHERE txId=?1;";
             sqlite::Statement stm(_db, updateReq);
@@ -745,7 +740,7 @@ namespace beam
         }
         else
         {
-            const char* insertReq = "INSERT INTO " HISTORY_NAME " (" ENUM_HISTORY_FIELDS(LIST, COMMA) ") VALUES(" ENUM_HISTORY_FIELDS(BIND_LIST, COMMA) ");";
+            const char* insertReq = "INSERT INTO " HISTORY_NAME " (" ENUM_HISTORY_FIELDS(LIST, COMMA,) ") VALUES(" ENUM_HISTORY_FIELDS(BIND_LIST, COMMA,) ");";
             sqlite::Statement stm(_db, insertReq);
             ENUM_HISTORY_FIELDS(STM_BIND_LIST, NOSEP, p);
             stm.step();
