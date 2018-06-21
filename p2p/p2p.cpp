@@ -11,12 +11,13 @@ enum TimerIDs {
     QUERY_KNOWN_SERVERS_TIMER=4
 };
 
-P2P::P2P(P2PSettings settings) :
+P2P::P2P(P2PNotifications& notifications, P2PSettings settings) :
+    _notifications(notifications),
     _settings(std::move(settings)),
     _connectPool(_rdGen),
     _protocol(0xAA, 0xBB, 0xCC, 100, *this, 0x2000),
     _handshakes(_connectPool, BIND_THIS_MEMFN(on_peer_handshaked), BIND_THIS_MEMFN(on_handshake_error)),
-    _connectedPeers(_protocol, BIND_THIS_MEMFN(on_peer_removed))
+    _connectedPeers(_notifications, _protocol, BIND_THIS_MEMFN(on_peer_removed))
 {
     if (_settings.peerId == 0) {
         _settings.peerId = _rdGen.rnd<uint64_t>();
@@ -48,7 +49,7 @@ void P2P::start() {
     if (!result) IO_EXCEPTION(result.error());
     result = set_coarse_timer(QUERY_KNOWN_SERVERS_TIMER, _settings.pulsePeriodMsec * 5/2, BIND_THIS_MEMFN(on_known_servers_timer));
     if (!result) IO_EXCEPTION(result.error());
-    run_async();
+    run_async([this]{ _notifications.on_p2p_started(this); }, [this]{ _notifications.on_p2p_stopped(); });
 }
 
 void P2P::update_tip(uint32_t newTip) {

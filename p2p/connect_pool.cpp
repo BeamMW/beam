@@ -31,7 +31,7 @@ void ConnectPool::add_connect_candidate(io::Address address, uint32_t weight) {
 }
 
 const std::vector<io::Address>& ConnectPool::get_connect_candidates() {
-    static size_t maxActiveConnections = config().get_int("p2p.max_active_connections", 13, 1, 1000);
+    static size_t maxActiveConnections = config().get_int("p2p.max_active_connections", 25, 1, 1000);
 
     _connectCandidates = std::move(_priorityPeersUnconnected);
     size_t n = _connectCandidates.size() + _peersReservedByAddress.size(); // the latter is # of active connections

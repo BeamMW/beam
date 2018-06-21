@@ -1,5 +1,5 @@
 #pragma once
-#include "types.h"
+#include "notifications.h"
 #include "p2p_settings.h"
 #include "rnd_gen.h"
 #include "handshake.h"
@@ -11,18 +11,9 @@
 
 namespace beam {
 
-struct NotificationsFromP2P {
-    virtual ~NotificationsFromP2P() {}
-    virtual void on_p2p_started() = 0;
-    virtual void on_peer_connected(StreamId id) = 0;
-    virtual void on_peer_state_updated(StreamId id, const PeerState& newState) = 0;
-    virtual void on_peer_disconnected(StreamId id) = 0;
-    virtual void on_p2p_stopped() = 0;
-};
-
 class P2P : public IErrorHandler, protected AsyncContext {
 public:
-    explicit P2P(P2PSettings settings);
+    P2P(P2PNotifications& notifications, P2PSettings settings);
 
     ~P2P();
 
@@ -64,6 +55,7 @@ private:
     bool on_known_servers(uint64_t id, KnownServers&& servers);
 
     RandomGen           _rdGen;
+    P2PNotifications&   _notifications;
     P2PSettings         _settings;
     io::TcpServer::Ptr  _thisServer;
     ConnectPool         _connectPool;

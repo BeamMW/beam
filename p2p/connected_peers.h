@@ -1,6 +1,6 @@
 #pragma once
 #include "connection.h"
-#include "types.h"
+#include "notifications.h"
 #include <unordered_map>
 
 namespace beam {
@@ -12,7 +12,7 @@ class ConnectedPeers {
 public:
     using OnConnectionRemoved = std::function<void(StreamId)>;
 
-    ConnectedPeers(Protocol& protocol, OnConnectionRemoved removedCallback);
+    ConnectedPeers(P2PNotifications& notifications, Protocol& protocol, OnConnectionRemoved removedCallback);
 
     uint32_t total_connected() const;
 
@@ -42,6 +42,7 @@ private:
 
     bool find(StreamId id, Container::iterator& it);
 
+    P2PNotifications& _notifications;
     OnConnectionRemoved _removedCallback;
     io::SharedBuffer _knownServersQueryMsg;
     Container _connections;

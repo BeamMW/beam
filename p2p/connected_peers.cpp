@@ -4,7 +4,8 @@
 
 namespace beam {
 
-ConnectedPeers::ConnectedPeers(Protocol& protocol, OnConnectionRemoved removedCallback) :
+ConnectedPeers::ConnectedPeers(P2PNotifications& notifications, Protocol& protocol, OnConnectionRemoved removedCallback) :
+    _notifications(notifications),
     _removedCallback(removedCallback)
 {
     _knownServersQueryMsg = protocol.serialize(KNOWN_SERVERS_REQUEST_MSG_TYPE, VoidMessage{}, true);
@@ -17,25 +18,24 @@ uint32_t ConnectedPeers::total_connected() const {
 void ConnectedPeers::add_connection(Connection::Ptr&& conn) {
     assert(conn);
 
-    uint64_t id = conn->id();
+    StreamId id(conn->id());
 
     if (_connections.count(id)) {
-        LOG_WARNING() << "Connection with id=" << io::Address::from_u64(id) << " already exists, ignoring new connection";
+        LOG_WARNING() << "Connection with id=" << id.address() << " already exists, ignoring new connection";
         return;
     }
 
     Info& i = _connections[id];
     i.conn = std::move(conn);
+    _notifications.on_peer_connected(id);
 }
 
 void ConnectedPeers::update_peer_state(StreamId streamId, PeerState&& newState) {
     Container::iterator it;
+    bool changed = false;
     if (find(streamId, it)) {
         if (newState != it->second.ps) {
-            LOG_INFO() << "peer state updated for " << streamId.address()
-                << "(connections:" << newState.connectedPeersCount
-                << ", known servers:" << newState.knownServersCount << ")";
-            // TODO external callback
+            changed = true;
             if (newState.knownServersCount > it->second.ps.knownServersCount) {
                 it->second.conn->write_msg(_knownServersQueryMsg);
                 it->second.knownServersChanged = true;
@@ -44,10 +44,12 @@ void ConnectedPeers::update_peer_state(StreamId streamId, PeerState&& newState) 
         }
         it->second.lastUpdated = time(0);
     }
+    if (changed) _notifications.on_peer_state_updated(streamId, it->second.ps);
 }
 
 void ConnectedPeers::remove_connection(StreamId id) {
     _connections.erase(id);
+    _notifications.on_peer_disconnected(id);
 }
 
 bool ConnectedPeers::find(StreamId id, ConnectedPeers::Container::iterator& it) {
