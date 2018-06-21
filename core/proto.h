@@ -53,6 +53,7 @@ namespace proto {
 	macro(std::vector<PerMined>, Entries)
 
 #define BeamNodeMsg_Config(macro) \
+	macro(ECC::Hash::Value, CfgChecksum) \
 	macro(bool, SpreadingTransactions) \
 	macro(bool, Mining) \
 	macro(bool, AutoSendHdr) /* prefer the header in addition to the NewTip message */

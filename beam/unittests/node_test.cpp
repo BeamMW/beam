@@ -838,6 +838,7 @@ namespace beam
 
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
+				Block::Rules::get_Hash(msgCfg.m_CfgChecksum);
 				msgCfg.m_AutoSendHdr = true;
 				Send(msgCfg);
 			}

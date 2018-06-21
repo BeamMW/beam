@@ -384,6 +384,8 @@ Node::Peer* Node::FindPeer(const Processor::PeerID& peerID)
 
 void Node::Initialize()
 {
+	Block::Rules::get_Hash(m_hvCfg);
+
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
     m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
@@ -535,6 +537,7 @@ void Node::Peer::OnConnected()
 	ZeroObject(m_Config);
 
 	proto::Config msgCfg;
+	msgCfg.m_CfgChecksum = m_pThis->m_hvCfg;
 	msgCfg.m_SpreadingTransactions = true;
 	msgCfg.m_Mining = (m_pThis->m_Cfg.m_MiningThreads > 0);
 	msgCfg.m_AutoSendHdr = false;
@@ -847,6 +850,12 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 
 void Node::Peer::OnMsg(proto::Config&& msg)
 {
+	if (msg.m_CfgChecksum != m_pThis->m_hvCfg)
+	{
+		LOG_WARNING() << "Incompatible peer cfg!";
+		ThrowUnexpected();
+	}
+
 	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr && m_pThis->m_Processor.m_Cursor.m_Sid.m_Row)
 	{
 		proto::Hdr msgHdr;

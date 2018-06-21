@@ -844,6 +844,26 @@ namespace beam
 	uint32_t Block::Rules::TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
 	uint32_t Block::Rules::WindowForMedian				= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
 
+	void Block::Rules::get_Hash(ECC::Hash::Value& hv)
+	{
+		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
+		ECC::Hash::Processor()
+			<< ECC::Context::get().m_hvChecksum
+			<< HeightGenesis
+			<< Coin
+			<< CoinbaseEmission
+			<< MaturityCoinbase
+			<< MaturityStd
+			<< MaxBodySize
+			<< DesiredRate_s
+			<< DifficultyReviewCycle
+			<< MaxDifficultyChange
+			<< TimestampAheadThreshold_s
+			<< WindowForMedian
+			// out
+			>> hv;
+	}
+
 
 	int Block::SystemState::ID::cmp(const ID& v) const
 	{

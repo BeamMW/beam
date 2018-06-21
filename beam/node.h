@@ -71,6 +71,8 @@ struct Node
 
 private:
 
+	ECC::Hash::Value m_hvCfg;
+
 	struct Processor
 		:public NodeProcessor
 	{
