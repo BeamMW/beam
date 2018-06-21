@@ -26,8 +26,6 @@ namespace cli
     const char* MODE = "mode";
     const char* PORT = "port";
     const char* PORT_FULL = "port,p";
-    const char* DEBUG = "debug";
-    const char* DEBUG_FULL = "debug,d";
     const char* STORAGE = "storage";
 	const char* HISTORY = "history_dir";
 	const char* TEMP = "temp_dir";
@@ -387,7 +385,6 @@ int main(int argc, char* argv[])
         (cli::HELP_FULL, "list of all options")
         (cli::MODE, po::value<string>()->required(), "mode to execute [node|wallet]")
         (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
-        (cli::DEBUG_FULL, "launch in debug mode")
         (cli::WALLET_SEED, po::value<string>(), "secret key generation seed");
 
     po::options_description node_options("Node options");
@@ -411,10 +408,31 @@ int main(int argc, char* argv[])
 		(cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
 		(cli::COMMAND, po::value<string>(), "command to execute [send|listen|init|info|treasury]");
 
+#define RulesParams(macro) \
+	macro(Amount, CoinbaseEmission, "coinbase emission in a single block") \
+	macro(Height, MaturityCoinbase, "num of blocks before coinbase UTXO can be spent") \
+	macro(Height, MaturityStd, "num of blocks before non-coinbase UTXO can be spent") \
+	macro(size_t, MaxBodySize, "Max block body size [bytes]") \
+	macro(uint32_t, DesiredRate_s, "Desired rate of generated blocks [seconds]") \
+	macro(uint32_t, DifficultyReviewCycle, "num of blocks after which the mining difficulty can be adjusted") \
+	macro(uint32_t, MaxDifficultyChange, "Max difficulty change after each cycle (each step is roughly x2 complexity)") \
+	macro(uint32_t, TimestampAheadThreshold_s, "Block timestamp tolerance [seconds]") \
+	macro(uint32_t, WindowForMedian, "How many blocks are considered in calculating the timestamp median") \
+	macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
+
+#define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(Rules::name), comment)
+
+	po::options_description rules_options("Rules configuration");
+	rules_options.add_options() RulesParams(THE_MACRO);
+
+#undef THE_MACRO
+
     po::options_description options{ "Allowed options" };
-    options.add(general_options)
-           .add(node_options)
-           .add(wallet_options);
+    options
+		.add(general_options)
+        .add(node_options)
+        .add(wallet_options)
+		.add(rules_options);
 
     po::positional_options_description pos;
     pos.add(cli::MODE, 1);
@@ -446,12 +464,16 @@ int main(int argc, char* argv[])
 
         po::notify(vm);
 
-        auto port = vm[cli::PORT].as<uint16_t>();
-        auto debug = vm.count(cli::DEBUG) > 0;
-        auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;
+#define THE_MACRO(type, name, comment) Rules::name = vm[#name].as<type>();
+		RulesParams(THE_MACRO);
+#undef THE_MACRO
 
-		if (debug)
-			Rules::FakePoW = true;
+		ECC::Hash::Value hvCfg;
+		Rules::get_Hash(hvCfg);
+		LOG_INFO() << "Rules signature: " << hvCfg;
+
+        auto port = vm[cli::PORT].as<uint16_t>();
+        auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;
 
         if (vm.count(cli::MODE))
         {
