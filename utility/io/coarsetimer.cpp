@@ -35,7 +35,10 @@ static inline uint64_t mono_clock() {
 }
 
 Result CoarseTimer::set_timer(unsigned intervalMsec, ID id) {
-    if (_validIds.count(id)) return make_unexpected(EC_EINVAL);
+    if (_validIds.count(id)) {
+        LOG_DEBUG() << "coarse timer: existing id " << std::hex << id << std::dec;
+        return make_unexpected(EC_EINVAL);
+    }
     if (intervalMsec > 0 && intervalMsec < unsigned(-1) - _resolution) {
         // if 0 then callback will fire on next event loop cycle, otherwise adjust to coarse resolution
         intervalMsec -= ((intervalMsec + _resolution) % _resolution);

@@ -111,7 +111,7 @@ struct SharedBuffer : IOVec {
 using SerializedMsg = std::vector<SharedBuffer>;
 
 /// Normalizes to 1 fragment and copies data.
-/// This needed to detach some small and long-term message from large fragment
-SharedBuffer normalize(const SerializedMsg& msg);
+/// This needed to detach some small and long-term message from large fragment (if makeUnique)
+SharedBuffer normalize(const SerializedMsg& msg, bool makeUnique=false);
 
 }} //namespaces

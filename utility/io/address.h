@@ -1,4 +1,5 @@
 #pragma once
+#include "utility/serialize_fwd.h"
 #include <string>
 #include <iosfwd>
 #include <functional>
@@ -91,6 +92,8 @@ struct Address {
     bool resolve(const char* str);
 
     std::string str() const;
+
+    SERIALIZE(packed);
 
 private:
     Address (uint64_t x) : packed(x) {}

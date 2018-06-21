@@ -2,11 +2,18 @@
 
 namespace beam { namespace io {
 
-SharedBuffer normalize(const SerializedMsg& msg) {
+SharedBuffer normalize(const SerializedMsg& msg, bool makeUnique) {
     size_t n = msg.size();
-    if (n==0) return SharedBuffer(0, 0);
-    // copies
-    if (n==1) return SharedBuffer(msg[0].data, msg[0].size);
+    if (n==0) return SharedBuffer();
+
+    if (n==1) {
+        if (makeUnique) {
+            // copies
+            return SharedBuffer(msg[0].data, msg[0].size);
+        } else {
+            return msg[0];
+        }
+    }
 
     size_t size = 0;
     for (const auto& fr : msg) {

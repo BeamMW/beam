@@ -42,6 +42,9 @@ namespace beam {
 #define TblMined_State			"State"
 #define TblMined_Comission		"Comission"
 
+#define TblCompressed			"Macroblocks"
+#define TblCompressed_Row1		"RowLast"
+
 NodeDB::NodeDB()
 	:m_pDb(NULL)
 {
@@ -224,7 +227,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 2;
+	const uint64_t nVersion = 3;
 
 	if (bCreate)
 	{
@@ -295,6 +298,11 @@ void NodeDB::Create()
 		"[" TblSpendable_Refs		"] INTEGER NOT NULL,"
 		"[" TblSpendable_Unspent	"] INTEGER NOT NULL,"
 		"PRIMARY KEY (" TblSpendable_Key "))");
+
+	ExecQuick("CREATE TABLE [" TblCompressed "] ("
+		"[" TblCompressed_Row1	"] INTEGER NOT NULL,"
+		"PRIMARY KEY (" TblCompressed_Row1 "),"
+		"FOREIGN KEY (" TblCompressed_Row1 ") REFERENCES " TblStates "(OID))");
 }
 
 void NodeDB::ExecQuick(const char* szSql)
@@ -1436,6 +1444,29 @@ bool NodeDB::WalkerMined::MoveNext()
 	m_Rs.get(1, m_Sid.m_Row);
 	m_Rs.get(2, m_Amount);
 	return true;
+}
+
+void NodeDB::EnumMacroblocks(WalkerState& x)
+{
+	x.m_Rs.Reset(Query::MacroblockEnum, "SELECT " TblStates "." TblTips_Height "," TblCompressed_Row1
+		" FROM " TblCompressed " LEFT JOIN " TblStates " ON " TblCompressed_Row1 "=" TblStates ".rowid"
+		" ORDER BY " TblStates "." TblTips_Height " DESC");
+}
+
+void NodeDB::MacroblockIns(uint64_t rowid)
+{
+	Recordset rs(*this, Query::MacroblockIns, "INSERT INTO " TblCompressed " VALUES(?)");
+	rs.put(0, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::MacroblockDel(uint64_t rowid)
+{
+	Recordset rs(*this, Query::MinedDel, "DELETE FROM " TblCompressed " WHERE " TblCompressed_Row1 "=?");
+	rs.put(0, rowid);
+	rs.Step();
+	TestChanged1Row();
 }
 
 } // namespace beam

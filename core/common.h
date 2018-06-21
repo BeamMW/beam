@@ -27,8 +27,40 @@
 	parent_class& get_ParentObj() { return * (parent_class*) (((uint8_t*) this) + 1 - (uint8_t*) (&((parent_class*) 1)->this_var)); }
 
 #include "ecc.h"
-
 #include <iostream>
+#include <fstream>
+
+namespace std
+{
+	void ThrowIoError();
+	void TestNoError(const ios& obj);
+
+	// wrapper for std::fstream, with semantics suitable for serialization
+	class FStream
+	{
+		std::fstream m_F;
+		uint64_t m_Remaining; // used in read-stream, to indicate the EOF before trying to deserialize something
+
+		static void NotImpl();
+
+	public:
+
+		bool Open(const char*, bool bRead, bool bStrict = false); // strict - throw exc if error
+		void Close();
+		bool IsDataRemaining() const;
+		void Restart(); // for read-stream - jump to the beginning of the file
+
+		// read/write always return the size requested. Exception is thrown if underflow or error
+		size_t read(void* pPtr, size_t nSize);
+		size_t write(const void* pPtr, size_t nSize);
+		void Flush();
+
+		char getch();
+		char peekch() const;
+		void ungetch(char);
+	};
+}
+
 namespace beam
 {
 	// sorry for replacing 'using' by 'typedefs', some compilers don't support it
@@ -92,13 +124,24 @@ namespace beam
 		void Interpret(Hash&, const Hash& hNew, bool bNewOnRight);
 	}
 
+	struct CommitmentAndMaturity
+	{
+		ECC::Point m_Commitment;
+		Height m_Maturity;
+
+		CommitmentAndMaturity() :m_Maturity(0) {}
+
+		int cmp_CaM(const CommitmentAndMaturity&) const;
+		int cmp(const CommitmentAndMaturity&) const;
+		COMPARISON_VIA_CMP(CommitmentAndMaturity)
+	};
+
 	struct Input
+		:public CommitmentAndMaturity
 	{
 		typedef std::unique_ptr<Input> Ptr;
 		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system
 
-		ECC::Point	m_Commitment; // If there are multiple UTXOs matching this commitment (which is supported) the Node always selects the most mature one.
-	
 		struct Proof
 		{
 			Height m_Maturity;
@@ -126,18 +169,16 @@ namespace beam
 	inline bool operator < (const Input::Ptr& a, const Input::Ptr& b) { return *a < *b; }
 
 	struct Output
+		:public CommitmentAndMaturity
 	{
 		typedef std::unique_ptr<Output> Ptr;
 
-		ECC::Point	m_Commitment;
 		bool		m_Coinbase;
 		Height		m_Incubation; // # of blocks before it's mature
-		Height		m_hDelta;
 
 		Output()
 			:m_Coinbase(false)
 			,m_Incubation(0)
-			,m_hDelta(0)
 		{
 		}
 
@@ -148,9 +189,10 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		void Create(const ECC::Scalar::Native&, Amount, bool bPublic = false);
-
 		bool IsValid() const;
+		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden
 
+		void operator = (const Output&);
 		int cmp(const Output&) const;
 		COMPARISON_VIA_CMP(Output)
 	};
@@ -186,6 +228,7 @@ namespace beam
 		};
 
 		std::unique_ptr<Contract> m_pContract;
+		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
 		static const uint32_t s_MaxRecursionDepth = 2;
 
@@ -195,17 +238,14 @@ namespace beam
 				throw std::runtime_error("recursion too deep");
 		}
 
-		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
+		void get_HashForSigning(Merkle::Hash&) const; // Includes the contents, but not the excess and the signature
+		void get_HashForContract(ECC::Hash::Value&, const ECC::Hash::Value& msg) const;
+		void get_HashTotal(Merkle::Hash&) const; // Includes everything. 
 
 		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
-
-		void get_HashForSigning(Merkle::Hash&) const; // Includes the contents, but not the excess and the signature
-
-		void get_HashTotal(Merkle::Hash&) const; // Includes everything. 
 		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
 
-		void get_HashForContract(ECC::Hash::Value&, const ECC::Hash::Value& msg) const;
-
+		void operator = (const TxKernel&);
 		int cmp(const TxKernel&) const;
 		COMPARISON_VIA_CMP(TxKernel)
 
@@ -217,46 +257,96 @@ namespace beam
 
 	struct TxBase
 	{
+		struct Context;
+
+		struct IReader
+		{
+			typedef std::unique_ptr<IReader> Ptr;
+
+			// during iterations those pointers are guaranteed to be valid during at least 1 consequent iteration
+			const Input* m_pUtxoIn;
+			const Output* m_pUtxoOut;
+			const TxKernel* m_pKernelIn;
+			const TxKernel* m_pKernelOut;
+
+			virtual void Clone(Ptr&) = 0;
+			virtual void Reset() = 0;
+			// For all the following methods: the returned pointer should be valid during at least 2 consequent calls!
+			virtual void NextUtxoIn() = 0;
+			virtual void NextUtxoOut() = 0;
+			virtual void NextKernelIn() = 0;
+			virtual void NextKernelOut() = 0;
+		};
+
+		struct IWriter
+		{
+			virtual void WriteIn(const Input&) = 0;
+			virtual void WriteIn(const TxKernel&) = 0;
+			virtual void WriteOut(const Output&) = 0;
+			virtual void WriteOut(const TxKernel&) = 0;
+
+			void Dump(IReader&&);
+			bool Combine(IReader** ppR, int nR, const volatile bool& bStop); // combine consequent blocks, merge-sort and delete consumed outputs
+			// returns false if aborted
+			bool Combine(IReader&& r0, IReader&& r1, const volatile bool& bStop);
+		};
+
+
+		ECC::Scalar m_Offset;
+	};
+
+	struct TxVectors
+	{
 		std::vector<Input::Ptr> m_vInputs;
 		std::vector<Output::Ptr> m_vOutputs;
 		std::vector<TxKernel::Ptr> m_vKernelsInput;
 		std::vector<TxKernel::Ptr> m_vKernelsOutput;
-		ECC::Scalar m_Offset;
 
 		void Sort(); // w.r.t. the standard
 		size_t DeleteIntermediateOutputs(); // assumed to be already sorted. Retruns the num deleted
 
 		void TestNoNulls() const; // valid object should not have NULL members. Should be used during (de)serialization
 
-		// tests the validity of all the components, overall arithmetics, and the lexicographical order of the components.
-		// Determines the min/max block height that the transaction can fit, wrt component heights and maturity policies
-		// Does *not* check the existence of the input UTXOs
-		//
-		// Validation formula
-		//
-		// Sum(Input UTXOs) + Sum(Input Kernels.Excess) = Sum(Output UTXOs) + Sum(Output Kernels.Excess) + m_Offset*G [ + Sum(Fee)*H ]
-		//
-		// For transaction validation fees are considered as implicit outputs (i.e. Sum(Fee)*H should be added for the right equation side)
-		//
-		// For a block validation Fees are not accounted for, since they are consumed by new outputs injected by the miner.
-		// However Each block contains extra outputs (coinbase) for block closure, which should be subtracted from the outputs for sum validation.
-		//
-		// Define: Sigma = Sum(Outputs) - Sum(Inputs) + Sum(TxKernels.Excess) + m_Offset*G
-		// Sigma is either zero or -Sum(Fee)*H, depending on what we validate
+		class Reader :public TxBase::IReader {
+			size_t m_pIdx[4];
+		public:
+			const TxVectors& m_Txv;
+			Reader(const TxVectors& txv) :m_Txv(txv) {}
+			// IReader
+			virtual void Clone(Ptr&) override;
+			virtual void Reset() override;
+			virtual void NextUtxoIn() override;
+			virtual void NextUtxoOut() override;
+			virtual void NextKernelIn() override;
+			virtual void NextKernelOut() override;
+		};
 
-		struct Context;
-		bool ValidateAndSummarize(Context&) const;
+		Reader get_Reader() const {
+			return Reader(*this);
+		}
 
-		int cmp(const TxBase&) const;
-		COMPARISON_VIA_CMP(TxBase)
+		struct Writer :public TxBase::IWriter
+		{
+			TxVectors& m_Txv;
+			Writer(TxVectors& txv) :m_Txv(txv) {}
+
+			virtual void WriteIn(const Input&) override;
+			virtual void WriteIn(const TxKernel&) override;
+			virtual void WriteOut(const Output&) override;
+			virtual void WriteOut(const TxKernel&) override;
+		};
 	};
 
 	struct Transaction
 		:public TxBase
+		,public TxVectors
 	{
 		typedef std::shared_ptr<Transaction> Ptr;
-		// Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
-		bool IsValid(Context&) const;
+
+		int cmp(const Transaction&) const;
+		COMPARISON_VIA_CMP(Transaction)
+
+		bool IsValid(Context&) const; // Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
 
 		static const uint32_t s_KeyBits = ECC::nBits; // key len for map of transactions. Can actually be less than 256 bits.
 		typedef ECC::uintBig_t<s_KeyBits> KeyType;
@@ -310,13 +400,25 @@ namespace beam
 				COMPARISON_VIA_CMP(ID)
 			};
 
-			struct Full {
-				Height			m_Height;
-				Merkle::Hash	m_Prev;			// explicit referebce to prev
-				Merkle::Hash	m_Definition;	// defined as H ( PrevStates | LiveObjects )
-				Timestamp		m_TimeStamp;
-				PoW				m_PoW;
+			struct Sequence
+			{
+				struct Prefix {
+					Height			m_Height;
+					Merkle::Hash	m_Prev;			// explicit referebce to prev
+				};
 
+				struct Element {
+					Merkle::Hash	m_Definition;	// defined as H ( PrevStates | LiveObjects )
+					Timestamp		m_TimeStamp;
+					PoW				m_PoW;
+				};
+			};
+
+			struct Full
+				:public Sequence::Prefix
+				,public Sequence::Element
+			{
+				void Set(Prefix&, const Element&);
 				void get_Hash(Merkle::Hash&) const; // Calculated from all the above
 				void get_ID(ID&) const;
 
@@ -328,32 +430,35 @@ namespace beam
 
 		struct Rules
 		{
-			static const Amount Coin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
-			static const Amount CoinbaseEmission; // the maximum allowed coinbase in a single block
-			static const Height MaturityCoinbase;
-			static const Height MaturityStd;
-
 			static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
+			static const Amount Coin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
 
-			static const size_t MaxBodySize;
+			static Amount CoinbaseEmission; // the maximum allowed coinbase in a single block
+			static Height MaturityCoinbase;
+			static Height MaturityStd;
+
+			static size_t MaxBodySize;
 
 			// timestamp & difficulty. Basically very close to those from bitcoin, except the desired rate is 1 minute (instead of 10 minutes)
-			static const uint32_t DesiredRate_s = 60; // 1 minute
-			static const uint32_t DifficultyReviewCycle = 24 * 60 * 7; // 10,080 blocks, 1 week roughly
-			static const uint32_t MaxDifficultyChange = 3; // i.e. x8 roughly. (There's no equivalent to this in bitcoin).
-			static const uint32_t TimestampAheadThreshold_s = 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
-			static const uint32_t WindowForMedian = 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
+			static uint32_t DesiredRate_s;
+			static uint32_t DifficultyReviewCycle;
+			static uint32_t MaxDifficultyChange;
+			static uint32_t TimestampAheadThreshold_s;
+			static uint32_t WindowForMedian;
+
+			static bool FakePoW; // for testing
+
+			static void get_Hash(ECC::Hash::Value&);
 
 			static void AdjustDifficulty(uint8_t&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s);
 		};
 
-
-		struct Body
+		struct BodyBase
 			:public TxBase
 		{
 			AmountBig m_Subsidy; // the overall amount created by the block
-			// For standard blocks this should be equal to the coinbase emission.
-			// Genesis block(s) may have higher emission (aka premined)
+								 // For standard blocks this should be equal to the coinbase emission.
+								 // Genesis block(s) may have higher emission (aka premined)
 
 			bool m_SubsidyClosing; // Last block that contains arbitrary subsidy.
 
@@ -366,7 +471,38 @@ namespace beam
 			// Not tested by this function (but should be tested by nodes!)
 			//		Existence of all the input UTXOs
 			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
-			bool IsValid(const HeightRange&, bool bSubsidyOpen) const;
+			bool IsValid(const HeightRange&, bool bSubsidyOpen, TxBase::IReader&&) const;
+
+			struct IMacroReader
+				:public IReader
+			{
+				virtual void get_Start(BodyBase&, SystemState::Sequence::Prefix&) = 0;
+				virtual bool get_NextHdr(SystemState::Sequence::Element&) = 0;
+			};
+
+			struct IMacroWriter
+				:public IWriter
+			{
+				virtual void put_Start(const BodyBase&, const SystemState::Sequence::Prefix&) = 0;
+				virtual void put_NextHdr(const SystemState::Sequence::Element&) = 0;
+
+				bool CombineHdr(IMacroReader&& r0, IMacroReader&& r1, const volatile bool& bStop);
+			};
+
+			void Merge(const BodyBase& next);
+
+			// suitable for big (compressed) blocks
+			class RW;
+		};
+
+		struct Body
+			:public BodyBase
+			,public TxVectors
+		{
+			bool IsValid(const HeightRange& hr, bool bSubsidyOpen) const
+			{
+				return BodyBase::IsValid(hr, bSubsidyOpen, get_Reader());
+			}
 		};
 	};
 

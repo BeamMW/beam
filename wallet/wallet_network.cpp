@@ -68,7 +68,8 @@ namespace beam {
         LOG_INFO() << "Establishing secure channel with " << address.str();
         auto tag = get_connection_tag();
         m_connections_callbacks.emplace(tag, callback);
-        m_reactor->tcp_connect(address, tag, BIND_THIS_MEMFN(on_client_connected));
+        auto res = m_reactor->tcp_connect(address, tag, BIND_THIS_MEMFN(on_client_connected));
+        test_io_result(res);
     }
 
     void WalletNetworkIO::send_tx_message(PeerId to, const wallet::InviteReceiver& data)
@@ -257,9 +258,10 @@ namespace beam {
         }
     }
 
-    void WalletNetworkIO::on_connection_error(uint64_t from, int errorCode)
+    void WalletNetworkIO::on_connection_error(uint64_t from, io::ErrorCode errorCode)
     {
-        LOG_ERROR() << "Wallet connection error: " << errorCode;
+        LOG_ERROR() << "Wallet connection error: " << io::error_str(errorCode);
+
         if (m_connections.empty())
         {
             stop();
@@ -277,6 +279,14 @@ namespace beam {
     {
         assert(!m_node_connection && !m_is_node_connected);
         m_node_connection = make_unique<WalletNodeConnection>(m_node_address, m_wallet, m_reactor, m_reconnect_ms);
+    }
+
+    void WalletNetworkIO::test_io_result(const io::Result res)
+    {
+        if (!res)
+        {
+            throw runtime_error(io::error_descr(res.error()));
+        }
     }
 
     WalletNetworkIO::WalletNodeConnection::WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec)
@@ -302,7 +312,8 @@ namespace beam {
     {
         LOG_INFO() << "Wallet connected to node";
         m_connecting = false;
-        proto::Config msgCfg = {0};
+        proto::Config msgCfg = {};
+		Block::Rules::get_Hash(msgCfg.m_CfgChecksum);
 		msgCfg.m_AutoSendHdr = true;
 		Send(msgCfg);
 
@@ -316,7 +327,8 @@ namespace beam {
     void WalletNetworkIO::WalletNodeConnection::OnClosed(int errorCode)
     {
         LOG_INFO() << "Could not connect to node, retrying...";
-        LOG_VERBOSE() << "Wallet failed to connect to node, error: " << errorCode;
+        LOG_VERBOSE() << "Wallet failed to connect to node, error: " << io::error_str(io::ErrorCode(errorCode));
+        m_wallet.stop_sync();
         m_timer->start(m_reconnectMsec, false, [this]() {Connect(m_address); });
     }
 

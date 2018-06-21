@@ -335,9 +335,11 @@ namespace beam
 #ifdef WIN32
 		const char* g_sz = "mytest.db";
 		const char* g_sz2 = "mytest2.db";
+		const char* g_sz3 = "macroblock_";
 #else // WIN32
 		const char* g_sz = "/tmp/mytest.db";
 		const char* g_sz2 = "/tmp/mytest2.db";
+		const char* g_sz3 = "/tmp/macroblock_";
 #endif // WIN32
 
 	void TestNodeDB()
@@ -353,20 +355,21 @@ namespace beam
 	struct MiniWallet
 	{
 		ECC::Kdf m_Kdf;
+		uint32_t m_nKernelSubIdx = 1;
 
 		struct MyUtxo
 		{
 			ECC::Scalar m_Key;
 			Amount m_Value;
 
-			void ToOutput(TxBase& tx, ECC::Scalar::Native& offset, Height hIncubation) const
+			void ToOutput(TxVectors& txv, ECC::Scalar::Native& offset, Height hIncubation) const
 			{
 				ECC::Scalar::Native k = m_Key;
 
 				Output::Ptr pOut(new Output);
 				pOut->m_Incubation = hIncubation;
 				pOut->Create(k, m_Value, true); // confidential transactions will be too slow for test in debug mode.
-				tx.m_vOutputs.push_back(std::move(pOut));
+				txv.m_vOutputs.push_back(std::move(pOut));
 
 				k = -k;
 				offset += k;
@@ -434,7 +437,7 @@ namespace beam
 
 			m_MyUtxos.erase(it);
 
-			DeriveKey(k, m_Kdf, h, KeyType::Kernel);
+			DeriveKey(k, m_Kdf, h, KeyType::Kernel, m_nKernelSubIdx++);
 			pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * k);
 
 			ECC::Hash::Value hv;
@@ -480,7 +483,7 @@ namespace beam
 	{
 		MyNodeProcessor1 np;
 		np.m_Horizon.m_Branching = 35;
-		np.m_Horizon.m_Schwarzschild = 40;
+		//np.m_Horizon.m_Schwarzschild = 40; - will prevent extracting some macroblock ranges
 		np.Initialize(g_sz);
 
 		const Height hIncubation = 3; // artificial incubation period for outputs.
@@ -508,7 +511,7 @@ namespace beam
 			Amount fees = 0;
 			verify_test(np.GenerateNewBlock(np.m_TxPool, pBlock->m_Hdr, pBlock->m_Body, fees));
 
-			np.OnState(pBlock->m_Hdr, true, NodeDB::PeerID());
+			np.OnState(pBlock->m_Hdr, NodeDB::PeerID());
 
 			Block::SystemState::ID id;
 			pBlock->m_Hdr.get_ID(id);
@@ -521,21 +524,51 @@ namespace beam
 			blockChain.push_back(std::move(pBlock));
 		}
 
-		Block::Body macroBlock;
-		np.ExportMacroBlock(macroBlock);
+		Block::BodyBase::RW rwData;
+		rwData.m_sPath = g_sz3;
 
-		NodeProcessor np2;
-		np2.Initialize(g_sz2);
+		{
+			verify_test(rwData.Open(false));
+			np.ExportMacroBlock(rwData); // export current state
 
-		Block::SystemState::ID id;
-		blockChain.back()->m_Hdr.get_ID(id);
+			rwData.Close();
+			verify_test(rwData.Open(true));
 
-		verify_test(!np2.ImportMacroBlock(id, macroBlock)); // no headers
+			NodeProcessor np2;
+			np2.Initialize(g_sz2);
 
-		for (size_t i = 0; i < blockChain.size(); i++)
-			np2.OnState(blockChain[i]->m_Hdr, true, NodeDB::PeerID());
+			verify_test(np2.ImportMacroBlock(rwData));
 
-		verify_test(np2.ImportMacroBlock(id, macroBlock));
+			rwData.Close();
+			rwData.Delete();
+		}
+
+		Height hMid = blockChain.size() / 2 + Block::Rules::HeightGenesis;
+
+		{
+			DeleteFileA(g_sz2);
+
+			NodeProcessor np2;
+			np2.Initialize(g_sz2);
+
+			verify_test(rwData.Open(false));
+			np.ExportMacroBlock(rwData, HeightRange(Block::Rules::HeightGenesis, hMid)); // first half
+			rwData.Close();
+
+			verify_test(rwData.Open(true));
+			verify_test(np2.ImportMacroBlock(rwData));
+			rwData.Close();
+
+			verify_test(rwData.Open(false));
+			np.ExportMacroBlock(rwData, HeightRange(hMid + 1, Block::Rules::HeightGenesis + blockChain.size() - 1)); // second half
+			rwData.Close();
+
+			verify_test(rwData.Open(true));
+			verify_test(np2.ImportMacroBlock(rwData));
+			rwData.Close();
+
+			rwData.Delete();
+		}
 	}
 
 
@@ -570,7 +603,7 @@ namespace beam
 			ZeroObject(peer);
 
 			for (size_t i = 0; i < blockChain.size(); i += 2)
-				np.OnState(blockChain[i]->m_Hdr, true, peer);
+				np.OnState(blockChain[i]->m_Hdr, peer);
 		}
 
 		{
@@ -598,7 +631,7 @@ namespace beam
 			ZeroObject(peer);
 
 			for (size_t i = 1; i < blockChain.size(); i += 2)
-				np.OnState(blockChain[i]->m_Hdr, true, peer);
+				np.OnState(blockChain[i]->m_Hdr, peer);
 		}
 
 		{
@@ -646,7 +679,6 @@ namespace beam
 		node.m_Cfg.m_sPathLocal = g_sz;
 		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
-		node.m_Cfg.m_TestMode.m_bFakePoW = true;
 
 		node.m_Cfg.m_Timeout.m_GetBlock_ms = 1000 * 60;
 		node.m_Cfg.m_Timeout.m_GetState_ms = 1000 * 60;
@@ -658,7 +690,6 @@ namespace beam
 		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
 		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
-		node2.m_Cfg.m_TestMode.m_bFakePoW = true;
 
 		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
 		ECC::SetRandom(node2.get_Processor().m_Kdf.m_Secret.V);
@@ -704,7 +735,7 @@ namespace beam
 					Amount fees = 0;
 					n.get_Processor().GenerateNewBlock(txPool, s, body, fees);
 
-					n.get_Processor().OnState(s, true, NodeDB::PeerID());
+					n.get_Processor().OnState(s, NodeDB::PeerID());
 
 					Block::SystemState::ID id;
 					s.get_ID(id);
@@ -718,7 +749,7 @@ namespace beam
 					++m_iNode %= _countof(m_ppNode);
 				}
 				else
-					if (m_WaitingCycles++ > 30)
+					if (m_WaitingCycles++ > 60)
 					{
 						fail_test("Blockchain height didn't reach target");
 						io::Reactor::get_Current().stop();
@@ -773,11 +804,14 @@ namespace beam
 		node.m_Cfg.m_sPathLocal = g_sz;
 		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
-		node.m_Cfg.m_TestMode.m_bFakePoW = true;
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
 
 		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
+
+		node.m_Cfg.m_Horizon.m_Branching = 6;
+		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
+		node.m_Cfg.m_VerificationThreads = -1;
 
 		struct MyClient
 			:public proto::NodeConnection
@@ -797,10 +831,11 @@ namespace beam
 			}
 
 			virtual void OnConnected() override {
-				SetTimer(60*1000);
+				SetTimer(90*1000);
 
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
+				Block::Rules::get_Hash(msgCfg.m_CfgChecksum);
 				msgCfg.m_AutoSendHdr = true;
 				Send(msgCfg);
 			}
@@ -816,8 +851,6 @@ namespace beam
 
 				fail_test("Blockchain height didn't reach target");
 				io::Reactor::get_Current().stop();
-
-				SetTimer(100);
 			}
 
 			virtual void OnMsg(proto::NewTip&& msg) override
@@ -950,7 +983,6 @@ namespace beam
 
 		Node node2;
 		node2.m_Cfg.m_sPathLocal = g_sz2;
-		node2.m_Cfg.m_TestMode.m_bFakePoW = true;
 		node2.m_Cfg.m_Connect.resize(1);
 		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
 		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
@@ -966,6 +998,8 @@ namespace beam
 
 int main()
 {
+	beam::Block::Rules::FakePoW = true;
+
 	DeleteFileA(beam::g_sz);
 	DeleteFileA(beam::g_sz2);
 

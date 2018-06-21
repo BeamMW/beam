@@ -52,12 +52,12 @@ namespace beam
 
     std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount)
     {
-        const string_view beams{" beams" };
-        const string_view chattles{ " chattles" };
+        const string_view beams{" beams " };
+        const string_view chattles{ " chattles " };
         auto width = os.width();
-        if (amount.m_value > Block::Rules::Coin)
+        if (amount.m_value >= Block::Rules::Coin)
         {
-            os << setw(width - beams.length()) << Amount(amount.m_value / Block::Rules::Coin) << beams.data() << ' ';
+            os << setw(width - beams.length()) << Amount(amount.m_value / Block::Rules::Coin) << beams.data();
         }
         Amount c = amount.m_value % Block::Rules::Coin;
         if (c > 0 || amount.m_value == 0)
@@ -101,7 +101,7 @@ namespace beam
         assert(m_peers.empty());
         assert(m_receivers.empty());
         assert(m_senders.empty());
-        assert(m_node_requests_queue.empty());
+        assert(m_reg_requests.empty());
         assert(m_removed_senders.empty());
         assert(m_removed_receivers.empty());
     }
@@ -162,7 +162,7 @@ namespace beam
         {
             m_tx_completed_action(tx.m_txId);
         }
-        if (m_node_requests_queue.empty())
+        if (m_reg_requests.empty() && m_syncing == 0)
         {
             m_network.close_node_connection();
         }
@@ -203,9 +203,7 @@ namespace beam
 
     void Wallet::register_tx(const TxDescription& tx, Transaction::Ptr data)
     {
-        LOG_VERBOSE() << ReceiverPrefix << "sending tx for registration";
-        m_node_requests_queue.push(tx.m_txId);
-        m_network.send_node_message(proto::NewTransaction{ move(data) });
+        register_tx(tx.m_txId, data);
     }
 
     void Wallet::send_tx_registered(const TxDescription& tx)
@@ -288,14 +286,14 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::Boolean&& res)
     {
-        if (m_node_requests_queue.empty())
+        if (m_reg_requests.empty())
         {
             LOG_DEBUG() << "Received unexpected tx registration confirmation";
             assert(m_receivers.empty() && m_senders.empty());
             return false;
         }
-        auto txId = m_node_requests_queue.front();
-        m_node_requests_queue.pop();
+        auto txId = m_reg_requests.front().first;
+        m_reg_requests.pop_front();
         handle_tx_registered(txId, res.m_Value);
         return true;
     }
@@ -348,7 +346,8 @@ namespace beam
         }
 
         Coin& coin = m_pendingProofs.front();
-        Input input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
+		Input input;
+		input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
         if (utxoProof.m_Proofs.empty())
         {
             LOG_ERROR() << "Got empty proof for: " << input.m_Commitment;
@@ -390,16 +389,26 @@ namespace beam
             }
         }
 
-        m_pendingProofs.pop();
+        m_pendingProofs.pop_front();
 
         return finishSync();
     }
 
     bool Wallet::handle_node_message(proto::NewTip&& msg)
     {
-        // TODO: check if we're already waiting for the ProofUtxo,
-        // don't send request if yes
-        ++m_syncing; // Hdr
+        // TODO: restore from wallet db 
+        for (auto& r : m_pending_reg_requests)
+        {
+            register_tx(r.first, r.second);
+        }
+
+        m_pending_reg_requests.clear();
+
+        if (!m_syncing)
+        {
+            ++m_syncing; // Hdr
+        }
+
         if (msg.m_ID > m_knownStateID)
         {
             m_newStateID = msg.m_ID;
@@ -429,7 +438,7 @@ namespace beam
 
         getUtxoProofs(unconfirmed);
 
-        Block::SystemState::ID newID = {0};
+        Block::SystemState::ID newID = {};
         msg.m_Description.get_ID(newID);
         m_newStateID = newID;
         return finishSync();
@@ -489,6 +498,14 @@ namespace beam
         }
     }
 
+    void Wallet::stop_sync()
+    {
+        m_syncing = 0;
+        copy(m_reg_requests.begin(), m_reg_requests.end(), back_inserter(m_pending_reg_requests));
+        m_reg_requests.clear();
+        m_pendingProofs.clear();
+    }
+
     void Wallet::remove_peer(const Uuid& txId)
     {
         auto it = m_peers.find(txId);
@@ -504,8 +521,9 @@ namespace beam
         for (auto& coin : coins)
         {
             ++m_syncing;
-            m_pendingProofs.push(coin);
-            auto input = Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
+            m_pendingProofs.push_back(coin);
+			Input input;
+			input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
             LOG_DEBUG() << "Get proof: " << input.m_Commitment;
             m_network.send_node_message(proto::GetProofUtxo{ input, 0 });
         }
@@ -543,12 +561,20 @@ namespace beam
                 m_synchronized = true;
             }
         }
-        if (!m_syncing && m_node_requests_queue.empty())
+        if (!m_syncing && m_reg_requests.empty())
         {
             m_network.close_node_connection();
             return false;
         }
         return true;
+    }
+
+    void Wallet::register_tx(const Uuid& txId, Transaction::Ptr data)
+    {
+        LOG_VERBOSE() << ReceiverPrefix << "sending tx for registration";
+
+        m_reg_requests.push_back(make_pair(txId, data));
+        m_network.send_node_message(proto::NewTransaction{ data });
     }
 
     void Wallet::resume_sender(const TxDescription& tx)

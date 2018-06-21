@@ -59,9 +59,9 @@ Result TcpStream::enable_read(const TcpStream::Callback& callback) {
 }
 
 void TcpStream::disable_read() {
-    if (is_connected() && _readBuffer.len != 0) {
-        _callback = Callback();
-        free_read_buffer();
+    _callback = Callback();
+    free_read_buffer();
+    if (is_connected()) {
         int errorCode = uv_read_stop((uv_stream_t*)_handle);
         if (errorCode) {
             LOG_DEBUG() << "uv_read_stop failed,code=" << errorCode;
@@ -96,7 +96,8 @@ Result TcpStream::write(const std::vector<SharedBuffer>& fragments) {
 void TcpStream::shutdown() {
     if (is_connected()) {
         disable_read();
-        _reactor->shutdown_tcpstream(this);
+        send_write_request();
+        _reactor->shutdown_tcpstream(this, std::move(_writeBuffer));
         assert(!_callback);
         assert(!is_connected());
     }
