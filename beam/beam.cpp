@@ -11,6 +11,7 @@
 #include <iomanip>
 
 #include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
 #include <fstream>
 #include <iterator>
 
@@ -324,11 +325,23 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 		m_vBlocks[i].DeleteIntermediateOutputs();
 	}
 
+    boost::filesystem::path path{ m_sPath };
+    boost::filesystem::path dir = path.parent_path();
+    if (!boost::filesystem::exists(dir) && !boost::filesystem::create_directory(dir))
+    {
+        LOG_ERROR() << "Failed to create directory: " << dir.c_str();
+        return -1;
+    }
+    
 	SerializerFile ser;
 	ser.m_File.open(m_sPath, std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
-	ser & m_vBlocks;
-	ser.m_File.flush();
-
+    if (!ser.m_File)
+    {
+        LOG_ERROR() << "Failed to create treasury file: " << m_sPath;
+        return -1;
+    }
+    ser & m_vBlocks;
+    ser.m_File.flush();
 /*
 	for (auto i = 0; i < m_vBlocks.size(); i++)
 		m_vBlocks[i].IsValid(i + 1, true);
