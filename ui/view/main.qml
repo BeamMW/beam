@@ -10,7 +10,7 @@ Rectangle {
     color: "#032e48"
 
     property var contentItems : ["dashboard", "wallet", "notifications", "help", "settings"]
-    property int selectedItem : 1 // wallet item
+    property int selectedItem
 
     Rectangle {
         id: sidebar
@@ -40,15 +40,18 @@ Rectangle {
                     height: 70
 
                     Image {
+                        id: itemIcon
                         anchors.fill: parent
                         fillMode: Image.Stretch
-                        source: "qrc:///assets/" + modelData + "-icon.png"
+                        source: "qrc:///assets/" + modelData + "-icon" + (selectedItem == index ? "-active" : "") + ".png"
                     }
 
                     MouseArea {
+                        id: mouseArea
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: {content.source = "qrc:///" + modelData + ".qml"}
+                        onClicked: updateItem(index)
+                        hoverEnabled: true
                     }
                 }
             }
@@ -62,7 +65,15 @@ Rectangle {
         anchors.rightMargin: 30
         anchors.leftMargin: 100
         anchors.fill: parent
+    }
 
-        source: "qrc:///" + contentItems[selectedItem] + ".qml"
+    function updateItem(index)
+    {
+        selectedItem = index
+        content.source = "qrc:///" + contentItems[index] + ".qml"
+    }
+
+    Component.onCompleted:{
+        updateItem(1) // load wallet view by default
     }
 }
