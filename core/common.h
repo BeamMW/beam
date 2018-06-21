@@ -30,9 +30,35 @@
 #include <iostream>
 #include <fstream>
 
-namespace std {
+namespace std
+{
 	void ThrowIoError();
 	void TestNoError(const ios& obj);
+
+	// wrapper for std::fstream, with semantics suitable for serialization
+	class FStream
+	{
+		std::fstream m_F;
+		uint64_t m_Remaining; // used in read-stream, to indicate the EOF before trying to deserialize something
+
+		static void NotImpl();
+
+	public:
+
+		bool Open(const char*, bool bRead, bool bStrict = false); // strict - throw exc if error
+		void Close();
+		bool IsDataRemaining() const;
+		void Restart(); // for read-stream - jump to the beginning of the file
+
+		// read/write always return the size requested. Exception is thrown if underflow or error
+		size_t read(void* pPtr, size_t nSize);
+		size_t write(const void* pPtr, size_t nSize);
+		void Flush();
+
+		char getch();
+		char peekch() const;
+		void ungetch(char);
+	};
 }
 
 namespace beam

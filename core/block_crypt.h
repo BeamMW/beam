@@ -60,20 +60,6 @@ namespace beam
 		:public Block::BodyBase::IMacroReader
 		,public Block::BodyBase::IMacroWriter
 	{
-		struct Stream
-		{
-			std::fstream m_F;
-			uint64_t m_Remaining;
-
-			static void NotImpl();
-
-			size_t read(void* pPtr, size_t nSize);
-			size_t write(const void* pPtr, size_t nSize);
-
-			char getch();
-			char peekch() const;
-			void ungetch(char);
-		};
 
 	public:
 
@@ -81,7 +67,7 @@ namespace beam
 
 	private:
 
-		Stream m_pS[s_Datas];
+		std::FStream m_pS[s_Datas];
 
 		Input::Ptr m_pGuardUtxoIn[2];
 		Output::Ptr m_pGuardUtxoOut[2];
@@ -89,10 +75,10 @@ namespace beam
 		TxKernel::Ptr m_pGuardKernelOut[2];
 
 		template <typename T>
-		static void LoadInternal(const T*& pPtr, Stream&, typename T::Ptr* ppGuard);
+		static void LoadInternal(const T*& pPtr, std::FStream&, typename T::Ptr* ppGuard);
 
 		template <typename T>
-		static void WriteInternal(const T&, Stream&);
+		static void WriteInternal(const T&, std::FStream&);
 
 	public:
 

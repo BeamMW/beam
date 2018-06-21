@@ -1093,25 +1093,12 @@ namespace beam
 
 		m_bRead = bRead;
 
-		int mode = ios_base::binary;
-		mode |= (m_bRead ? (ios_base::in | ios_base::ate) : (ios_base::out | ios_base::trunc));
-
 		std::string pArr[s_Datas];
 		GetPathes(pArr);
 
 		for (int i = 0; i < _countof(m_pS); i++)
-		{
-			Stream& s = m_pS[i];
-			s.m_F.open(pArr[i], (ios_base::openmode) mode);
-			if (s.m_F.fail())
+			if (!m_pS[i].Open(pArr[i].c_str(), bRead))
 				return false;
-
-			if (m_bRead)
-			{
-				s.m_Remaining = s.m_F.tellg();
-				s.m_F.seekg(0);
-			}
-		}
 
 		return true;
 	}
@@ -1135,11 +1122,7 @@ namespace beam
 	void Block::BodyBase::RW::Close()
 	{
 		for (int i = 0; i < _countof(m_pS); i++)
-		{
-			Stream& s = m_pS[i];
-			if (s.m_F.is_open())
-				s.m_F.close();
-		}
+			m_pS[i].Close();
 	}
 
 	Block::BodyBase::RW::~RW()
@@ -1154,11 +1137,7 @@ namespace beam
 	void Block::BodyBase::RW::Reset()
 	{
 		for (int i = 0; i < _countof(m_pS); i++)
-		{
-			Stream& s = m_pS[i];
-			s.m_Remaining += s.m_F.tellg();
-			s.m_F.seekg(0);
-		}
+			m_pS[i].Restart();
 
 		// preload
 		LoadInternal(m_pUtxoIn, m_pS[0], m_pGuardUtxoIn);
@@ -1167,57 +1146,10 @@ namespace beam
 		LoadInternal(m_pKernelOut, m_pS[3], m_pGuardKernelOut);
 	}
 
-	void Block::BodyBase::RW::Stream::NotImpl()
-	{
-		throw std::runtime_error("not impl");
-	}
-
-	size_t Block::BodyBase::RW::Stream::read(void* pPtr, size_t nSize)
-	{
-		m_F.read((char*)pPtr, nSize);
-		size_t ret = m_F.gcount();
-		m_Remaining -= ret;
-
-		if (ret != nSize)
-			throw std::runtime_error("underflow");
-
-		return ret;
-	}
-
-	size_t Block::BodyBase::RW::Stream::write(const void* pPtr, size_t nSize)
-	{
-		m_F.write((char*) pPtr, nSize);
-		std::TestNoError(m_F);
-
-		return nSize;
-	}
-
-	char Block::BodyBase::RW::Stream::getch()
-	{
-		char ch;
-		read(&ch, 1);
-		return ch;
-	}
-
-	char Block::BodyBase::RW::Stream::peekch() const
-	{
-		NotImpl();
-		return 0;
-	}
-
-	void Block::BodyBase::RW::Stream::ungetch(char)
-	{
-		NotImpl();
-	}
-
 	void Block::BodyBase::RW::Flush()
 	{
 		for (int i = 0; i < _countof(m_pS); i++)
-		{
-			Stream& s = m_pS[i];
-			s.m_F.flush();
-			std::TestNoError(s.m_F);
-		}
+			m_pS[i].Flush();
 	}
 
 	void Block::BodyBase::RW::Clone(Ptr& pOut)
@@ -1251,7 +1183,7 @@ namespace beam
 
 	void Block::BodyBase::RW::get_Start(BodyBase& body, SystemState::Sequence::Prefix& prefix)
 	{
-		yas::binary_iarchive<Stream, SERIALIZE_OPTIONS> arc(m_pS[4]);
+		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[4]);
 
 		ECC::Hash::Value hv, hv2;
 		Block::Rules::get_Hash(hv);
@@ -1267,11 +1199,11 @@ namespace beam
 
 	bool Block::BodyBase::RW::get_NextHdr(SystemState::Sequence::Element& elem)
 	{
-		Stream& s = m_pS[4];
-		if (!s.m_Remaining)
+		std::FStream& s = m_pS[4];
+		if (!s.IsDataRemaining())
 			return false;
 
-		yas::binary_iarchive<Stream, SERIALIZE_OPTIONS> arc(s);
+		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
 		arc & elem;
 
 		return true;
@@ -1313,15 +1245,15 @@ namespace beam
 	}
 
 	template <typename T>
-	void Block::BodyBase::RW::LoadInternal(const T*& pPtr, Stream& s, typename T::Ptr* ppGuard)
+	void Block::BodyBase::RW::LoadInternal(const T*& pPtr, std::FStream& s, typename T::Ptr* ppGuard)
 	{
-		if (s.m_Remaining)
+		if (s.IsDataRemaining())
 		{
 			ppGuard[0].swap(ppGuard[1]);
 			//if (!ppGuard[0])
 				ppGuard[0].reset(new T);
 
-			yas::binary_iarchive<Stream, SERIALIZE_OPTIONS> arc(s);
+			yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
 			arc & *ppGuard[0];
 
 			pPtr = ppGuard[0].get();
@@ -1331,9 +1263,9 @@ namespace beam
 	}
 
 	template <typename T>
-	void Block::BodyBase::RW::WriteInternal(const T& v, Stream& s)
+	void Block::BodyBase::RW::WriteInternal(const T& v, std::FStream& s)
 	{
-		yas::binary_oarchive<Stream, SERIALIZE_OPTIONS> arc(s);
+		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
 		arc & v;
 	}
 
@@ -1533,13 +1465,101 @@ namespace std
 
 		char sz[0x20];
 		snprintf(sz, _countof(sz), "I/O Error=%d", nErrorCode);
-		throw std::runtime_error(sz);
+		throw runtime_error(sz);
 	}
 
 	void TestNoError(const ios& obj)
 	{
 		if (obj.fail())
 			ThrowIoError();
+	}
+
+	bool FStream::Open(const char* sz, bool bRead, bool bStrict /* = false */)
+	{
+		int mode = ios_base::binary;
+		mode |= (bRead ? (ios_base::in | ios_base::ate) : (ios_base::out | ios_base::trunc));
+
+		m_F.open(sz, (ios_base::openmode) mode);
+		if (m_F.fail())
+		{
+			if (bStrict)
+				ThrowIoError();
+			return false;
+		}
+
+		if (bRead)
+		{
+			m_Remaining = m_F.tellg();
+			m_F.seekg(0);
+		}
+
+		return true;
+	}
+
+	void FStream::Close()
+	{
+		if (m_F.is_open())
+			m_F.close();
+	}
+
+	bool FStream::IsDataRemaining() const
+	{
+		return m_Remaining > 0;
+	}
+
+	void FStream::Restart()
+	{
+		m_Remaining += m_F.tellg();
+		m_F.seekg(0);
+	}
+
+	void FStream::NotImpl()
+	{
+		throw runtime_error("not impl");
+	}
+
+	size_t FStream::read(void* pPtr, size_t nSize)
+	{
+		m_F.read((char*)pPtr, nSize);
+		size_t ret = m_F.gcount();
+		m_Remaining -= ret;
+
+		if (ret != nSize)
+			throw runtime_error("underflow");
+
+		return ret;
+	}
+
+	size_t FStream::write(const void* pPtr, size_t nSize)
+	{
+		m_F.write((char*) pPtr, nSize);
+		TestNoError(m_F);
+
+		return nSize;
+	}
+
+	char FStream::getch()
+	{
+		char ch;
+		read(&ch, 1);
+		return ch;
+	}
+
+	char FStream::peekch() const
+	{
+		NotImpl();
+		return 0;
+	}
+
+	void FStream::ungetch(char)
+	{
+		NotImpl();
+	}
+
+	void FStream::Flush()
+	{
+		m_F.flush();
+		TestNoError(m_F);
 	}
 
 } // namespace std
