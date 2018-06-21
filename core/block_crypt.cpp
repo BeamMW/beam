@@ -830,12 +830,43 @@ namespace beam
 
 	/////////////
 	// Block
-	const Amount Block::Rules::Coin				= 1000000;
-	const Amount Block::Rules::CoinbaseEmission = Coin * 40; // the maximum allowed coinbase in a single block
-	const Height Block::Rules::MaturityCoinbase	= 60; // 1 hour
-	const Height Block::Rules::MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
 	const Height Block::Rules::HeightGenesis	= 1;
-	const size_t Block::Rules::MaxBodySize		= 0x100000; // 1MB
+	const Amount Block::Rules::Coin				= 1000000;
+
+	Amount Block::Rules::CoinbaseEmission	= Coin * 40; // the maximum allowed coinbase in a single block
+	Height Block::Rules::MaturityCoinbase	= 60; // 1 hour
+	Height Block::Rules::MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+	size_t Block::Rules::MaxBodySize		= 0x100000; // 1MB
+
+	bool Block::Rules::FakePoW = false;
+
+	uint32_t Block::Rules::DesiredRate_s				= 60; // 1 minute
+	uint32_t Block::Rules::DifficultyReviewCycle		= 24 * 60 * 7; // 10,080 blocks, 1 week roughly
+	uint32_t Block::Rules::MaxDifficultyChange			= 3; // i.e. x8 roughly. (There's no equivalent to this in bitcoin).
+	uint32_t Block::Rules::TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
+	uint32_t Block::Rules::WindowForMedian				= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
+
+	void Block::Rules::get_Hash(ECC::Hash::Value& hv)
+	{
+		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
+		ECC::Hash::Processor()
+			<< ECC::Context::get().m_hvChecksum
+			<< HeightGenesis
+			<< Coin
+			<< CoinbaseEmission
+			<< MaturityCoinbase
+			<< MaturityStd
+			<< MaxBodySize
+			<< FakePoW
+			<< DesiredRate_s
+			<< DifficultyReviewCycle
+			<< MaxDifficultyChange
+			<< TimestampAheadThreshold_s
+			<< WindowForMedian
+			// out
+			>> hv;
+	}
+
 
 	int Block::SystemState::ID::cmp(const ID& v) const
 	{
@@ -958,8 +989,11 @@ namespace beam
 	{
 		m_Subsidy += next.m_Subsidy;
 
-		assert(!(m_SubsidyClosing && next.m_SubsidyClosing));
-		m_SubsidyClosing = next.m_SubsidyClosing;
+		if (next.m_SubsidyClosing)
+		{
+			assert(!m_SubsidyClosing);
+			m_SubsidyClosing = true;
+		}
 
 		ECC::Scalar::Native offs(m_Offset);
 		offs += next.m_Offset;
@@ -986,7 +1020,7 @@ namespace beam
 
 	void Block::Rules::AdjustDifficulty(uint8_t& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s)
 	{
-		static_assert(DesiredRate_s * DifficultyReviewCycle < uint32_t(-1), "overflow?");
+		//static_assert(DesiredRate_s * DifficultyReviewCycle < uint32_t(-1), "overflow?");
 		const uint32_t dtTrg_s = DesiredRate_s * DifficultyReviewCycle;
 
 		uint32_t dt_s; // evaluate carefully, avoid possible overflow
@@ -1223,6 +1257,15 @@ namespace beam
 	void Block::BodyBase::RW::get_Start(BodyBase& body, SystemState::Sequence::Prefix& prefix)
 	{
 		yas::binary_iarchive<Stream, SERIALIZE_OPTIONS> arc(m_pS[4]);
+
+		ECC::Hash::Value hv, hv2;
+		Block::Rules::get_Hash(hv);
+
+		arc & hv2;
+
+		if (hv != hv2)
+			throw std::runtime_error("Block rules mismatch");
+
 		arc & body;
 		arc & prefix;
 	}
@@ -1261,6 +1304,10 @@ namespace beam
 
 	void Block::BodyBase::RW::put_Start(const BodyBase& body, const SystemState::Sequence::Prefix& prefix)
 	{
+		ECC::Hash::Value hv;
+		Block::Rules::get_Hash(hv);
+
+		WriteInternal(hv, m_pS[4]);
 		WriteInternal(body, m_pS[4]);
 		WriteInternal(prefix, m_pS[4]);
 	}

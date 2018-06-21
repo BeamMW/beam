@@ -29,7 +29,7 @@ class NodeProcessor
 
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
 	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, RollbackData&, const Height* = NULL);
-
+	void AdjustCumulativeParams(const Block::BodyBase&, bool bFwd);
 	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd, RollbackData&);
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
@@ -84,7 +84,7 @@ public:
 	void ExportHdrRange(const HeightRange&, Block::SystemState::Sequence::Prefix&, std::vector<Block::SystemState::Sequence::Element>&);
 	void ExportMacroBlock(Block::BodyBase::IMacroWriter&);
 
-	bool ImportMacroBlock(Block::BodyBase::IMacroReader&, bool bIgnorePoW);
+	bool ImportMacroBlock(Block::BodyBase::IMacroReader&);
 
 	struct DataStatus {
 		enum Enum {
@@ -94,7 +94,7 @@ public:
 		};
 	};
 
-	DataStatus::Enum OnState(const Block::SystemState::Full&, bool bIgnorePoW, const PeerID&);
+	DataStatus::Enum OnState(const Block::SystemState::Full&, const PeerID&);
 	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&);
 
 	// use only for data retrieval for peers
@@ -178,7 +178,7 @@ public:
 private:
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, Block::Body& block, Amount& fees, Height, RollbackData&);
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body&, bool bInitiallyEmpty);
-	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, bool bIgnorePoW, Block::SystemState::ID&);
+	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&);
 };
 
 

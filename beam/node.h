@@ -54,7 +54,6 @@ struct Node
 
 		struct TestMode {
 			// for testing only!
-			bool m_bFakePoW = false;
 			uint32_t m_FakePowSolveTime_ms = 15 * 1000;
 
 		} m_TestMode;
@@ -65,10 +64,13 @@ struct Node
 
 	~Node();
 	void Initialize();
+	void ImportMacroblock(Height); // throws on err
 
 	NodeProcessor& get_Processor() { return m_Processor; } // for tests only!
 
 private:
+
+	ECC::Hash::Value m_hvCfg;
 
 	struct Processor
 		:public NodeProcessor

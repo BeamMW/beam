@@ -398,21 +398,25 @@ namespace beam
 
 		struct Rules
 		{
-			static const Amount Coin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
-			static const Amount CoinbaseEmission; // the maximum allowed coinbase in a single block
-			static const Height MaturityCoinbase;
-			static const Height MaturityStd;
-
 			static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
+			static const Amount Coin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
 
-			static const size_t MaxBodySize;
+			static Amount CoinbaseEmission; // the maximum allowed coinbase in a single block
+			static Height MaturityCoinbase;
+			static Height MaturityStd;
+
+			static size_t MaxBodySize;
 
 			// timestamp & difficulty. Basically very close to those from bitcoin, except the desired rate is 1 minute (instead of 10 minutes)
-			static const uint32_t DesiredRate_s = 60; // 1 minute
-			static const uint32_t DifficultyReviewCycle = 24 * 60 * 7; // 10,080 blocks, 1 week roughly
-			static const uint32_t MaxDifficultyChange = 3; // i.e. x8 roughly. (There's no equivalent to this in bitcoin).
-			static const uint32_t TimestampAheadThreshold_s = 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
-			static const uint32_t WindowForMedian = 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
+			static uint32_t DesiredRate_s;
+			static uint32_t DifficultyReviewCycle;
+			static uint32_t MaxDifficultyChange;
+			static uint32_t TimestampAheadThreshold_s;
+			static uint32_t WindowForMedian;
+
+			static bool FakePoW; // for testing
+
+			static void get_Hash(ECC::Hash::Value&);
 
 			static void AdjustDifficulty(uint8_t&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s);
 		};

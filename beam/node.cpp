@@ -277,6 +277,8 @@ void Node::Processor::OnNewState()
 
 void Node::Processor::OnRolledBack()
 {
+	LOG_INFO() << "Rolled back to: " << m_Cursor.m_ID;
+
 	if (get_ParentObj().m_Compressor.m_bEnabled)
 		get_ParentObj().m_Compressor.OnRolledBack();
 }
@@ -382,6 +384,8 @@ Node::Peer* Node::FindPeer(const Processor::PeerID& peerID)
 
 void Node::Initialize()
 {
+	Block::Rules::get_Hash(m_hvCfg);
+
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
     m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
@@ -420,7 +424,7 @@ void Node::Initialize()
 			pt.m_Thread = std::thread(&io::Reactor::run, pt.m_pReactor);
 		}
 
-		m_Miner.Restart();
+		m_Miner.SetTimer(0, true); // async start mining, since this method may be followed by ImportMacroblock.
 	}
 
 	ZeroObject(m_Compressor.m_hrNew);
@@ -428,6 +432,22 @@ void Node::Initialize()
 
 	if (m_Compressor.m_bEnabled)
 		m_Compressor.Init();
+}
+
+void Node::ImportMacroblock(Height h)
+{
+	if (!m_Compressor.m_bEnabled)
+		throw std::runtime_error("History path not specified");
+
+	Block::BodyBase::RW rw;
+	m_Compressor.FmtPath(rw, h, NULL);
+	if (!rw.Open(true))
+		m_Compressor.OnFileErr();
+
+	if (!m_Processor.ImportMacroBlock(rw))
+		throw std::runtime_error("import failed");
+
+	m_Processor.get_DB().MacroblockIns(h);
 }
 
 Node::~Node()
@@ -517,6 +537,7 @@ void Node::Peer::OnConnected()
 	ZeroObject(m_Config);
 
 	proto::Config msgCfg;
+	msgCfg.m_CfgChecksum = m_pThis->m_hvCfg;
 	msgCfg.m_SpreadingTransactions = true;
 	msgCfg.m_Mining = (m_pThis->m_Cfg.m_MiningThreads > 0);
 	msgCfg.m_AutoSendHdr = false;
@@ -685,7 +706,7 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	NodeDB::PeerID pid;
 	get_ID(pid);
 
-	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnState(msg.m_Description, m_pThis->m_Cfg.m_TestMode.m_bFakePoW, pid);
+	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnState(msg.m_Description, pid);
 	OnFirstTaskDone(eStatus);
 }
 
@@ -829,6 +850,12 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 
 void Node::Peer::OnMsg(proto::Config&& msg)
 {
+	if (msg.m_CfgChecksum != m_pThis->m_hvCfg)
+	{
+		LOG_WARNING() << "Incompatible peer cfg!";
+		ThrowUnexpected();
+	}
+
 	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr && m_pThis->m_Processor.m_Cursor.m_Sid.m_Row)
 	{
 		proto::Hdr msgHdr;
@@ -1098,7 +1125,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 			return false;
 		};
 
-		if (get_ParentObj().m_Cfg.m_TestMode.m_bFakePoW)
+		if (Block::Rules::FakePoW)
 		{
 			uint32_t timeout_ms = get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms;
 
@@ -1246,7 +1273,7 @@ void Node::Miner::OnMined()
 
 	LOG_INFO() << "New block mined: " << id;
 
-	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, true, NodeDB::PeerID());
+	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, NodeDB::PeerID());
 	assert(NodeProcessor::DataStatus::Accepted == eStatus); // Otherwise either the block is invalid (some bug?). Or someone else mined exactly the same block!
 
 	NodeDB::StateID sid;

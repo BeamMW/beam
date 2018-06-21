@@ -233,7 +233,6 @@ void NodeProcessor::TryGoUp()
 
 			if (m_Cursor.m_Sid.m_Height == sidTrg.m_Height)
 			{
-				OnRolledBack();
 				Rollback();
 				bDirty = true;
 			}
@@ -468,43 +467,48 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	if (bOk)
 	{
-		ECC::Scalar kOffset;
-		NodeDB::Blob blob(kOffset.m_Value.m_pData, sizeof(kOffset.m_Value.m_pData));
-
-		if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
-			kOffset.m_Value = ECC::Zero;
-
-		ECC::Scalar::Native k(kOffset), k2(block.m_Offset);
-		if (!bFwd)
-			k2 = -k2;
-
-		k += k2;
-		kOffset = k;
-
-		m_DB.ParamSet(NodeDB::ParamID::StateExtra, NULL, &blob);
-
-		AmountBig subsidy;
-		subsidy.Lo = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
-		subsidy.Hi = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
-
-		if (bFwd)
-			subsidy += block.m_Subsidy;
-		else
-			subsidy -= block.m_Subsidy;
-
-		m_DB.ParamSet(NodeDB::ParamID::SubsidyLo, &subsidy.Lo, NULL);
-		m_DB.ParamSet(NodeDB::ParamID::SubsidyHi, &subsidy.Hi, NULL);
-
-		if (block.m_SubsidyClosing)
-		{
-			uint64_t nVal = !bFwd;
-			m_DB.ParamSet(NodeDB::ParamID::SubsidyOpen, &nVal, NULL);
-		}
+		AdjustCumulativeParams(block, bFwd);
 
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
 
 	return bOk;
+}
+
+void NodeProcessor::AdjustCumulativeParams(const Block::BodyBase& block, bool bFwd)
+{
+	ECC::Scalar kOffset;
+	NodeDB::Blob blob(kOffset.m_Value.m_pData, sizeof(kOffset.m_Value.m_pData));
+
+	if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
+		kOffset.m_Value = ECC::Zero;
+
+	ECC::Scalar::Native k(kOffset), k2(block.m_Offset);
+	if (!bFwd)
+		k2 = -k2;
+
+	k += k2;
+	kOffset = k;
+
+	m_DB.ParamSet(NodeDB::ParamID::StateExtra, NULL, &blob);
+
+	AmountBig subsidy;
+	subsidy.Lo = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
+	subsidy.Hi = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
+
+	if (bFwd)
+		subsidy += block.m_Subsidy;
+	else
+		subsidy -= block.m_Subsidy;
+
+	m_DB.ParamSet(NodeDB::ParamID::SubsidyLo, &subsidy.Lo, NULL);
+	m_DB.ParamSet(NodeDB::ParamID::SubsidyHi, &subsidy.Hi, NULL);
+
+	if (block.m_SubsidyClosing)
+	{
+		uint64_t nVal = !bFwd;
+		m_DB.ParamSet(NodeDB::ParamID::SubsidyOpen, &nVal, NULL);
+	}
 }
 
 bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, RollbackData& rbData, const Height* pHMax)
@@ -881,6 +885,10 @@ void NodeProcessor::Rollback()
 
 	if (!HandleBlock(sid, false))
 		OnCorrupted();
+
+	InitCursor(); // needed to refresh subsidy-open flag. Otherwise isn't necessary
+
+	OnRolledBack();
 }
 
 bool NodeProcessor::IsRelevantHeight(Height h)
@@ -889,7 +897,7 @@ bool NodeProcessor::IsRelevantHeight(Height h)
 	return h >= hFossil + Block::Rules::HeightGenesis;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, bool bIgnorePoW, Block::SystemState::ID& id)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id)
 {
 	s.get_ID(id);
 
@@ -899,7 +907,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		return DataStatus::Invalid;
 	}
 
-	if (!bIgnorePoW && !s.IsValidPoW())
+	if (!Block::Rules::FakePoW && !s.IsValidPoW())
 	{
 		LOG_WARNING() << id << " PoW invalid";
 		return DataStatus::Invalid;
@@ -925,11 +933,11 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 	return DataStatus::Accepted;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState::Full& s, bool bIgnorePoW, const PeerID& peer)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState::Full& s, const PeerID& peer)
 {
 	Block::SystemState::ID id;
 
-	DataStatus::Enum ret = OnStateInternal(s, bIgnorePoW, id);
+	DataStatus::Enum ret = OnStateInternal(s, id);
 	if (DataStatus::Accepted == ret)
 	{
 		NodeDB::Transaction t(m_DB);
@@ -1107,25 +1115,24 @@ Timestamp NodeProcessor::get_MovingMedian()
 	if (!m_Cursor.m_Sid.m_Row)
 		return 0;
 
-	Timestamp pArr[Block::Rules::WindowForMedian];
-	uint32_t n = 0;
+	std::vector<Timestamp> vTs;
 
 	for (uint64_t row = m_Cursor.m_Sid.m_Row; ; )
 	{
 		Block::SystemState::Full s;
 		m_DB.get_State(row, s);
-		pArr[n] = s.m_TimeStamp;
+		vTs.push_back(s.m_TimeStamp);
 
-		if (Block::Rules::WindowForMedian == ++n)
+		if (vTs.size() >= Block::Rules::WindowForMedian)
 			break;
 
 		if (!m_DB.get_Prev(row))
 			break;
 	}
 
-	std::sort(pArr, pArr + n); // there's a better algorithm to find a median (or whatever order), however our array isn't too big, so it's ok.
+	std::sort(vTs.begin(), vTs.end()); // there's a better algorithm to find a median (or whatever order), however our array isn't too big, so it's ok.
 
-	return pArr[n >> 1];
+	return vTs[vTs.size() >> 1];
 }
 
 bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
@@ -1485,7 +1492,7 @@ void NodeProcessor::ExportMacroBlock(Block::BodyBase::IMacroWriter& w)
 		w.put_NextHdr(vElem[i]);
 }
 
-bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgnorePoW)
+bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 {
 	Block::BodyBase body;
 	Block::SystemState::Full s;
@@ -1496,20 +1503,32 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 
 	Cursor cu = m_Cursor;
 	if ((cu.m_ID.m_Height + 1 != s.m_Height) || (cu.m_ID.m_Hash != s.m_Prev))
+	{
+		id.m_Height = s.m_Height - 1;
+		id.m_Hash = s.m_Prev;
+		LOG_WARNING() << "Incompatible state for import. My Tip: " << cu.m_ID << ", Macroblock starts at " << id;
 		return false; // incompatible beginning state
+	}
 
 	if (!cu.m_SubsidyOpen && body.m_SubsidyClosing)
-		return false; // invalid subsidy closing
+	{
+		LOG_WARNING() << "Invald subsidy-close flag";
+		return false;
+	}
 
 	NodeDB::Transaction t(m_DB);
 
-	// feed all headers
+	LOG_INFO() << "Verifying headers...";
+
 	for ( ; r.get_NextHdr(s); )
 	{
-		switch (OnStateInternal(s, bIgnorePoW, id))
+		switch (OnStateInternal(s, id))
 		{
 		case DataStatus::Invalid:
+		{
+			LOG_WARNING() << "Invald header encountered: " << id;
 			return false;
+		}
 
 		case DataStatus::Accepted:
 			m_DB.InsertState(s);
@@ -1521,18 +1540,29 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 
 	uint64_t rowid = m_DB.StateFindSafe(id);
 	if (!rowid)
-		return false;
+		OnCorrupted();
 	m_DB.get_State(rowid, s);
 
-	// context-free validation
+	LOG_INFO() << "Context-free validation...";
+
 	if (!VerifyBlock(body, std::move(r), HeightRange(cu.m_ID.m_Height + 1, id.m_Height)))
+	{
+		LOG_WARNING() << "Context-free verification failed";
 		return false;
+	}
+
+	LOG_INFO() << "Applying macroblock...";
 
 	RollbackData rbData;
 	if (!HandleValidatedTx(std::move(r), cu.m_ID.m_Height + 1, true, rbData, &id.m_Height))
+	{
+		LOG_WARNING() << "Invalid in its context";
 		return false;
+	}
 
 	// Update DB state flags and cursor. This will also buils the MMR for prev states
+	LOG_INFO() << "Building auxilliary datas...";
+
 	r.Reset();
 	for (r.get_Start(body, s); r.get_NextHdr(s); )
 	{
@@ -1555,22 +1585,21 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 		s.m_Height++;
 	}
 
-	if (body.m_SubsidyClosing)
-	{
-		uint64_t val = 0;
-		m_DB.ParamSet(NodeDB::ParamID::SubsidyOpen, &val, NULL);
-	}
-
 	InitCursor();
 
-	if (m_Cursor.m_SubsidyOpen != cu.m_SubsidyOpen)
+	if (body.m_SubsidyClosing)
+	{
+		m_Cursor.m_SubsidyOpen = false;
 		OnSubsidyOptionChanged(m_Cursor.m_SubsidyOpen);
+	}
 
 	Merkle::Hash hvDef;
 	get_Definition(hvDef, m_Cursor.m_History);
 
 	if (s.m_Definition != hvDef)
 	{
+		LOG_WARNING() << "Definition mismatch";
+
 		if (m_Cursor.m_SubsidyOpen != cu.m_SubsidyOpen)
 			OnSubsidyOptionChanged(cu.m_SubsidyOpen);
 
@@ -1584,9 +1613,13 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r, bool bIgn
 		return false;
 	}
 
+	AdjustCumulativeParams(body, true);
+
 	// everything's fine
 	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
 	t.Commit();
+
+	LOG_INFO() << "Macroblock import succeeded";
 
 	TryGoUp();
 

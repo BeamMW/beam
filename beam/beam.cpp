@@ -29,7 +29,10 @@ namespace cli
     const char* DEBUG = "debug";
     const char* DEBUG_FULL = "debug,d";
     const char* STORAGE = "storage";
-    const char* MINING_THREADS = "mining_threads";
+	const char* HISTORY = "history_dir";
+	const char* TEMP = "temp_dir";
+	const char* IMPORT = "import";
+	const char* MINING_THREADS = "mining_threads";
 	const char* VERIFICATION_THREADS = "verification_threads";
 	const char* MINER_ID = "miner_id";
 	const char* NODE_PEER = "peer";
@@ -399,6 +402,16 @@ int main(int argc, char* argv[])
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
 
+#ifdef WIN32
+	char szLocalDir[] = ".\\";
+	char szTempDir[MAX_PATH] = { 0 };
+	GetTempPath(_countof(szTempDir), szTempDir);
+
+#else // WIN32
+	char szLocalDir[] = "./";
+	char szTempDir[] = "/tmp/";
+#endif // WIN32
+
     po::options_description general_options("General options");
     general_options.add_options()
         (cli::HELP_FULL, "list of all options")
@@ -410,11 +423,13 @@ int main(int argc, char* argv[])
     po::options_description node_options("Node options");
     node_options.add_options()
         (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
-        (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
+		(cli::HISTORY, po::value<string>()->default_value(szLocalDir), "directory for compressed history")
+		(cli::TEMP, po::value<string>()->default_value(szTempDir), "temp directory for compressed history, must be on the same volume")
+		(cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
 		(cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
 		(cli::MINER_ID, po::value<uint32_t>()->default_value(0), "seed for miner nonce generation")
 		(cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
-		//(cli::TREASURY_BLOCK, po::value<string>(), "Treasury block to generate genesis block from")
+		(cli::IMPORT, po::value<Height>()->default_value(0), "Specify the blockchain height to import. The compressed history is asumed to be downloaded the the specified directory")
 		;
 
     po::options_description wallet_options("Wallet options");
@@ -465,6 +480,9 @@ int main(int argc, char* argv[])
         auto debug = vm.count(cli::DEBUG) > 0;
         auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;
 
+		if (debug)
+			Block::Rules::FakePoW = true;
+
         if (vm.count(cli::MODE))
         {
             io::Reactor::Ptr reactor(io::Reactor::create());
@@ -491,7 +509,6 @@ int main(int argc, char* argv[])
                 node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
                 node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
 				node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
-				node.m_Cfg.m_TestMode.m_bFakePoW = debug;
                 if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
                 {
                     LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
@@ -526,6 +543,9 @@ int main(int argc, char* argv[])
 					}
 				}
 
+				node.m_Cfg.m_HistoryCompression.m_sPathOutput = vm[cli::HISTORY].as<string>();
+				node.m_Cfg.m_HistoryCompression.m_sPathTmp = vm[cli::TEMP].as<string>();
+
                 LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
                 if (vm.count(cli::TREASURY_BLOCK))
@@ -535,6 +555,10 @@ int main(int argc, char* argv[])
                 }
 
 				node.Initialize();
+
+				Height hImport = vm[cli::IMPORT].as<Height>();
+				if (hImport)
+					node.ImportMacroblock(hImport);
 
                 reactor->run();
             }
