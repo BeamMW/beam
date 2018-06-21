@@ -84,6 +84,9 @@ public:
 			MinedUpd,
 			MinedDel,
 			MinedSel,
+			MacroblockEnum,
+			MacroblockIns,
+			MacroblockDel,
 
 			Dbg0,
 			Dbg1,
@@ -273,6 +276,10 @@ public:
 	};
 
 	void EnumMined(WalkerMined&, Height hMin); // from low to high
+
+	void EnumMacroblocks(WalkerState&); // highest to lowest
+	void MacroblockIns(uint64_t rowid);
+	void MacroblockDel(uint64_t rowid);
 
 private:
 

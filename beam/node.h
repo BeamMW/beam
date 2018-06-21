@@ -41,6 +41,17 @@ struct Node
 		// negative: number of cores minus number of mining threads. 
 		int m_VerificationThreads = 0;
 
+		struct HistoryCompression
+		{
+			std::string m_sPathOutput;
+			std::string m_sPathTmp;
+
+			Height m_Threshold = 60 * 24;		// 1 day roughly. Newer blocks should not be aggregated (not mature enough)
+			Height m_MinAggregate = 60 * 24;	// how many new blocks should produce new file
+			uint32_t m_Naggling = 32;			// combine up to 32 blocks in memory, before involving file system
+			uint32_t m_MaxBacklog = 7;
+		} m_HistoryCompression;
+
 		struct TestMode {
 			// for testing only!
 			bool m_bFakePoW = false;
@@ -66,11 +77,13 @@ private:
 		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override;
 		virtual void OnPeerInsane(const PeerID&) override;
 		virtual void OnNewState() override;
-		virtual bool VerifyBlock(const Block::Body&, const HeightRange&) override;
+		virtual void OnRolledBack() override;
+		virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&) override;
 
 		struct VerifierContext
 		{
 			const TxBase* m_pTx;
+			TxBase::IReader* m_pR;
 			TxBase::Context m_Context;
 
 			volatile bool m_bAbort;
@@ -226,17 +239,16 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Server)
 	} m_Server;
 
+	struct PerThread
+	{
+		io::Reactor::Ptr m_pReactor;
+		io::AsyncEvent::Ptr m_pEvt;
+		std::thread m_Thread;
+	};
+
 	struct Miner
 	{
-		struct PerThread
-		{
-			io::Reactor::Ptr m_pReactor;
-			io::AsyncEvent::Ptr m_pEvtRefresh;
-			std::thread m_Thread;
-		};
-
 		std::vector<PerThread> m_vThreads;
-
 		io::AsyncEvent::Ptr m_pEvtMined;
 
 		struct Task
@@ -268,6 +280,40 @@ private:
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Miner)
 	} m_Miner;
+
+	struct Compressor
+	{
+		void Init();
+		void OnRolledBack();
+		void Cleanup();
+		void Delete(const NodeDB::StateID&);
+		void OnNewState();
+		void FmtPath(Block::BodyBase::RW&, Height, const Height* pH0);
+		void StopCurrent();
+		void AddMerged(Height);
+
+		void OnNotify();
+		void Proceed();
+		bool ProceedInternal();
+		bool SquashOnce(std::vector<HeightRange>&);
+		bool SquashOnce(Block::BodyBase::RW&, Block::BodyBase::RW& rwSrc0, Block::BodyBase::RW& rwSrc1);
+
+		static void OnFileErr();
+
+		PerThread m_Link;
+		std::mutex m_Mutex;
+		std::condition_variable m_Cond;
+
+		volatile bool m_bStop;
+		bool m_bEnabled;
+		bool m_bSuccess;
+
+		// current data exchanged
+		HeightRange m_hrNew; // requested range. If min is non-zero - should be merged with previously-generated
+		HeightRange m_hrInplaceRequest;
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Compressor)
+	} m_Compressor;
 };
 
 } // namespace beam

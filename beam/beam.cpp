@@ -120,7 +120,7 @@ namespace beam
                 ? Block::Rules::MaturityCoinbase
                 : Block::Rules::MaturityStd);
 
-            if (c.m_status == status 
+            if (c.m_status == status
              && c.m_key_type == keyType
              && lockHeight <= currentHeight)
             {
@@ -315,7 +315,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 
 	FinishLastBlock();
 
-	for (auto i = 0; i < m_vBlocks.size(); i++)
+	for (auto i = 0u; i < m_vBlocks.size(); i++)
 	{
 		m_vBlocks[i].Sort();
 		m_vBlocks[i].DeleteIntermediateOutputs();
@@ -525,7 +525,7 @@ int main(int argc, char* argv[])
 						addr.port(port);
 					}
 				}
-				
+
                 LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
                 if (vm.count(cli::TREASURY_BLOCK))
@@ -647,13 +647,13 @@ int main(int argc, char* argv[])
                         });
                         return 0;
                     }
-                    
+
                     if (vm.count(cli::NODE_ADDR) == 0)
                     {
                         LOG_ERROR() << "node address should be specified";
                         return -1;
                     }
- 
+
                     string nodeURI = vm[cli::NODE_ADDR].as<string>();
                     io::Address node_addr;
                     if (!node_addr.resolve(nodeURI.c_str()))

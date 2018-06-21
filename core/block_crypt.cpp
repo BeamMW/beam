@@ -1,6 +1,12 @@
 #include <utility> // std::swap
 #include <algorithm>
 #include "block_crypt.h"
+#include "../utility/serialize.h"
+#include "../core/serialization_adapters.h"
+
+#ifndef WIN32
+#	include <unistd.h>
+#endif // WIN32
 
 namespace beam
 {
@@ -92,12 +98,44 @@ namespace beam
 
 #define CMP_MEMBER_PTR(member) CMP_PTRS(member, v.member)
 
+	template <typename T>
+	void ClonePtr(std::unique_ptr<T>& trg, const std::unique_ptr<T>& src)
+	{
+		if (src)
+		{
+			trg.reset(new T);
+			*trg = *src;
+		}
+		else
+			trg.reset();
+	}
+
+	template <typename T>
+	void PushVectorPtr(std::vector<typename T::Ptr>& vec, const T& val)
+	{
+		vec.resize(vec.size() + 1);
+		typename T::Ptr& p = vec.back();
+		p.reset(new T);
+		*p = val;
+	}
+
 	/////////////
 	// Input
+	int CommitmentAndMaturity::cmp_CaM(const CommitmentAndMaturity& v) const
+	{
+		CMP_MEMBER_EX(m_Commitment)
+		CMP_MEMBER(m_Maturity)
+		return 0;
+	}
+
+	int CommitmentAndMaturity::cmp(const CommitmentAndMaturity& v) const
+	{
+		return cmp_CaM(v);
+	}
 
 	int Input::cmp(const Input& v) const
 	{
-		return m_Commitment.cmp(v.m_Commitment);
+		return cmp_CaM(v);
 	}
 
 	/////////////
@@ -124,10 +162,23 @@ namespace beam
 		return m_pPublic->IsValid(m_Commitment, oracle);
 	}
 
+	void Output::operator = (const Output& v)
+	{
+		*((CommitmentAndMaturity*) this) = v;
+		m_Coinbase = v.m_Coinbase;
+		m_Incubation = v.m_Incubation;
+		ClonePtr(m_pConfidential, v.m_pConfidential);
+		ClonePtr(m_pPublic, v.m_pPublic);
+	}
+
 	int Output::cmp(const Output& v) const
 	{
-		CMP_MEMBER_EX(m_Commitment)
+		int n = cmp_CaM(v);
+		if (n)
+			return n;
+
 		CMP_MEMBER(m_Coinbase)
+		CMP_MEMBER(m_Incubation)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
 
@@ -151,6 +202,20 @@ namespace beam
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
 			m_pConfidential->Create(k, v, oracle);
 		}
+	}
+
+	void HeightAdd(Height& trg, Height val)
+	{
+		trg += val;
+		if (trg < val)
+			trg = Height(-1);
+	}
+
+	Height Output::get_MinMaturity(Height h) const
+	{
+		HeightAdd(h, m_Coinbase ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd);
+		HeightAdd(h, m_Incubation);
+		return h;
 	}
 
 	/////////////
@@ -316,6 +381,21 @@ namespace beam
 		return 0;
 	}
 
+	void TxKernel::operator = (const TxKernel& v)
+	{
+		m_Excess = v.m_Excess;
+		m_Multiplier = v.m_Multiplier;
+		m_Signature = v.m_Signature;
+		m_Fee = v.m_Fee;
+		m_Height = v.m_Height;
+		ClonePtr(m_pContract, v.m_pContract);
+
+		m_vNested.resize(v.m_vNested.size());
+
+		for (auto i = 0; i < v.m_vNested.size(); i++)
+			ClonePtr(m_vNested[i], v.m_vNested[i]);
+	}
+
 	/////////////
 	// Transaction
 	void TxBase::Context::Reset()
@@ -374,151 +454,127 @@ namespace beam
 		return true;
 	}
 
-	bool TxBase::ValidateAndSummarize(Context& ctx) const
+	bool TxBase::Context::ValidateAndSummarize(const TxBase& txb, IReader&& r)
 	{
-		if (ctx.m_Height.IsEmpty())
+		if (m_Height.IsEmpty())
 			return false;
 
-		ctx.m_Sigma = -ctx.m_Sigma;
+		m_Sigma = -m_Sigma;
 		AmountBig feeInp; // dummy var
 
-		assert(ctx.m_nVerifiers);
-		uint32_t iV = ctx.m_iVerifier;
+		assert(m_nVerifiers);
+		uint32_t iV = m_iVerifier;
 
 		// Inputs
+		r.Reset();
 
-		const Input* p0Inp = NULL;
-		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
+		for (const Input* pPrev = NULL; r.m_pUtxoIn; pPrev = r.m_pUtxoIn, r.NextUtxoIn())
 		{
-			if (ctx.ShouldAbort())
+			if (ShouldAbort())
 				return false;
 
-			const Input& v = *(*it);
+			if (ShouldVerify(iV))
+			{
+				if (pPrev && (*pPrev > *r.m_pUtxoIn))
+					return false;
 
-			if (p0Inp && (*p0Inp > v))
-				return false;
-			p0Inp = &v;
-
-			if (!ctx.ShouldVerify(iV))
-				continue;
-
-			ctx.m_Sigma += ECC::Point::Native(v.m_Commitment);
+				m_Sigma += ECC::Point::Native(r.m_pUtxoIn->m_Commitment);
+			}
 		}
 
-		auto itKrnOut = m_vKernelsOutput.begin();
-		const TxKernel* p0Krn = NULL;
-
-		for (auto it = m_vKernelsInput.begin(); m_vKernelsInput.end() != it; it++)
+		for (const TxKernel* pPrev = NULL; r.m_pKernelIn; pPrev = r.m_pKernelIn, r.NextKernelIn())
 		{
-			if (ctx.ShouldAbort())
+			if (ShouldAbort())
 				return false;
 
-			const TxKernel& v = *(*it);
-
 			// locate the corresponding output kernel. Use the fact that kernels are sorted by excess, and then by multiplier
+			// Do it regardless to the milti-verifier logic, to ensure we're not confused (muliple identical inputs, less outputs, and etc.)
 			while (true)
 			{
-				if (m_vKernelsOutput.end() == itKrnOut)
+				if (!r.m_pKernelOut)
 					return false;
 
-				const TxKernel& vOut = *(*itKrnOut);
-				itKrnOut++;
+				const TxKernel& vOut = *r.m_pKernelOut;
+				r.NextKernelOut();
 
-				if (vOut.m_Excess > v.m_Excess)
+				if (vOut.m_Excess > r.m_pKernelIn->m_Excess)
 					return false;
 
-				if (vOut.m_Excess == v.m_Excess)
+				if (vOut.m_Excess == r.m_pKernelIn->m_Excess)
 				{
-					if (vOut.m_Multiplier <= v.m_Multiplier)
+					if (vOut.m_Multiplier <= r.m_pKernelIn->m_Multiplier)
 						return false;
 					break; // ok
 				}
 			}
 
-			if (p0Krn && (*p0Krn > v))
-				return false;
-			p0Krn = &v;
-
-			if (!ctx.ShouldVerify(iV))
-				return false;
-
-			if (!v.IsValid(feeInp, ctx.m_Sigma))
-				return false;
-		}
-
-		ctx.m_Sigma = -ctx.m_Sigma;
-
-		// Outputs
-
-		const Output* p0Out = NULL;
-		for (auto it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
-		{
-			if (ctx.ShouldAbort())
-				return false;
-
-			const Output& v = *(*it);
-
-			if (p0Out && (*p0Out > v))
-				return false;
-			p0Out = &v;
-
-			if (!ctx.ShouldVerify(iV))
-				continue;
-
-			if (!v.IsValid())
-				return false;
-
-			ctx.m_Sigma += ECC::Point::Native(v.m_Commitment);
-
-			if (v.m_Coinbase)
+			if (ShouldVerify(iV))
 			{
-				if (!ctx.m_bBlockMode)
-					return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
+				if (pPrev && (*pPrev > *r.m_pKernelIn))
+					return false;
 
-				assert(v.m_pPublic); // must have already been checked
-				ctx.m_Coinbase += v.m_pPublic->m_Value;
-			}
-
-			if (v.m_hDelta)
-			{
-				if (!ctx.m_bBlockMode)
-					return false; // this should only be used in merged blocks
-				
-				if (!ctx.m_Height.IsInRangeRelative(v.m_hDelta))
+				if (!r.m_pKernelIn->IsValid(feeInp, m_Sigma))
 					return false;
 			}
 		}
 
-		p0Krn = NULL;
-		for (auto it = m_vKernelsOutput.begin(); m_vKernelsOutput.end() != it; it++)
+		m_Sigma = -m_Sigma;
+
+		// Outputs
+		r.Reset();
+
+		for (const Output* pPrev = NULL; r.m_pUtxoOut; pPrev = r.m_pUtxoOut, r.NextUtxoOut())
 		{
-			if (ctx.ShouldAbort())
+			if (ShouldAbort())
 				return false;
 
-			const TxKernel& v = *(*it);
+			if (ShouldVerify(iV))
+			{
+				if (pPrev && (*pPrev > *r.m_pUtxoOut))
+					return false;
 
-			if (p0Krn && (*p0Krn > v))
-				return false;
-			p0Krn = &v;
+				if (!r.m_pUtxoOut->IsValid())
+					return false;
 
-			if (!ctx.ShouldVerify(iV))
-				continue;
+				m_Sigma += ECC::Point::Native(r.m_pUtxoOut->m_Commitment);
 
-			if (!v.IsValid(ctx.m_Fee, ctx.m_Sigma))
-				return false;
+				if (r.m_pUtxoOut->m_Coinbase)
+				{
+					if (!m_bBlockMode)
+						return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 
-			if (!ctx.HandleElementHeight(v.m_Height))
-				return false;
+					assert(r.m_pUtxoOut->m_pPublic); // must have already been checked
+					m_Coinbase += r.m_pUtxoOut->m_pPublic->m_Value;
+				}
+			}
 		}
 
-		if (ctx.ShouldVerify(iV))
-			ctx.m_Sigma += ECC::Context::get().G * m_Offset;
+		for (const TxKernel* pPrev = NULL; r.m_pKernelOut; pPrev = r.m_pKernelOut, r.NextKernelOut())
+		{
+			if (ShouldAbort())
+				return false;
 
-		assert(!ctx.m_Height.IsEmpty());
+			if (ShouldVerify(iV))
+			{
+				if (pPrev && (*pPrev > *r.m_pKernelOut))
+					return false;
+
+				if (!r.m_pKernelOut->IsValid(m_Fee, m_Sigma))
+					return false;
+
+				if (!HandleElementHeight(r.m_pKernelOut->m_Height))
+					return false;
+			}
+		}
+
+		if (ShouldVerify(iV))
+			m_Sigma += ECC::Context::get().G * txb.m_Offset;
+
+		assert(!m_Height.IsEmpty());
 		return true;
 	}
 
-	void TxBase::Sort()
+	void TxVectors::Sort()
 	{
 		std::sort(m_vInputs.begin(), m_vInputs.end());
 		std::sort(m_vOutputs.begin(), m_vOutputs.end());
@@ -538,7 +594,7 @@ namespace beam
 				v.push_back(std::move(vSrc[i]));
 	}
 
-	size_t TxBase::DeleteIntermediateOutputs()
+	size_t TxVectors::DeleteIntermediateOutputs()
 	{
 		size_t nDel = 0;
 
@@ -551,7 +607,7 @@ namespace beam
 			{
 				Output::Ptr& pOut = m_vOutputs[i1];
 
-				int n = pInp->m_Commitment.cmp(pOut->m_Commitment);
+				int n = pInp->cmp_CaM(*pOut);
 				if (n <= 0)
 				{
 					if (!n)
@@ -594,7 +650,7 @@ namespace beam
 				return n; \
 		}
 
-	int TxBase::cmp(const TxBase& v) const
+	int Transaction::cmp(const Transaction& v) const
 	{
 		CMP_MEMBER(m_Offset)
 		CMP_MEMBER_VECPTR(m_vInputs)
@@ -616,7 +672,7 @@ namespace beam
 	bool Transaction::IsValid(Context& ctx) const
 	{
 		return
-			ValidateAndSummarize(ctx) &&
+			ctx.ValidateAndSummarize(*this, get_Reader()) &&
 			ctx.IsValidTransaction();
 	}
 
@@ -627,7 +683,7 @@ namespace beam
 			throw std::runtime_error("invalid NULL ptr");
 	}
 
-	void TxBase::TestNoNulls() const
+	void TxVectors::TestNoNulls() const
 	{
 		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
 			TestNotNull(*it);
@@ -661,6 +717,67 @@ namespace beam
 		}
 		else
 			key = m_Offset.m_Value;
+	}
+
+	template <typename T>
+	const T* get_FromVector(const std::vector<std::unique_ptr<T> >& v, size_t idx)
+	{
+		return (idx >= v.size()) ? NULL : v[idx].get();
+	}
+
+	void TxVectors::Reader::Clone(Ptr& pOut)
+	{
+		pOut.reset(new Reader(m_Txv));
+	}
+
+	void TxVectors::Reader::Reset()
+	{
+		ZeroObject(m_pIdx);
+
+		m_pUtxoIn = get_FromVector(m_Txv.m_vInputs, 0);
+		m_pUtxoOut = get_FromVector(m_Txv.m_vOutputs, 0);
+		m_pKernelIn = get_FromVector(m_Txv.m_vKernelsInput, 0);
+		m_pKernelOut = get_FromVector(m_Txv.m_vKernelsOutput, 0);
+	}
+
+	void TxVectors::Reader::NextUtxoIn()
+	{
+		m_pUtxoIn = get_FromVector(m_Txv.m_vInputs, ++m_pIdx[0]);
+	}
+
+	void TxVectors::Reader::NextUtxoOut()
+	{
+		m_pUtxoOut = get_FromVector(m_Txv.m_vOutputs, ++m_pIdx[1]);
+	}
+
+	void TxVectors::Reader::NextKernelIn()
+	{
+		m_pKernelIn = get_FromVector(m_Txv.m_vKernelsInput, ++m_pIdx[2]);
+	}
+
+	void TxVectors::Reader::NextKernelOut()
+	{
+		m_pKernelOut = get_FromVector(m_Txv.m_vKernelsOutput, ++m_pIdx[3]);
+	}
+
+	void TxVectors::Writer::WriteIn(const Input& v)
+	{
+		PushVectorPtr(m_Txv.m_vInputs, v);
+	}
+
+	void TxVectors::Writer::WriteOut(const Output& v)
+	{
+		PushVectorPtr(m_Txv.m_vOutputs, v);
+	}
+
+	void TxVectors::Writer::WriteIn(const TxKernel& v)
+	{
+		PushVectorPtr(m_Txv.m_vKernelsInput, v);
+	}
+
+	void TxVectors::Writer::WriteOut(const TxKernel& v)
+	{
+		PushVectorPtr(m_Txv.m_vKernelsOutput, v);
 	}
 
 	/////////////
@@ -727,6 +844,15 @@ namespace beam
 		return 0;
 	}
 
+	void Block::SystemState::Full::Set(Prefix& p, const Element& x)
+	{
+		((Prefix&) *this) = p;
+		((Element&) *this) = x;
+
+		get_Hash(p.m_Prev);
+		p.m_Height++;
+	}
+
 	void Block::SystemState::Full::get_Hash(Merkle::Hash& out) const
 	{
 		// Our formula:
@@ -768,10 +894,11 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
 	}
 
-	bool TxBase::Context::IsValidBlock(const Block::Body& body, bool bSubsidyOpen)
+	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb, bool bSubsidyOpen)
 	{
 		m_Sigma = -m_Sigma;
-		body.m_Subsidy.AddTo(m_Sigma);
+
+		bb.m_Subsidy.AddTo(m_Sigma);
 
 		if (!(m_Sigma == ECC::Zero))
 			return false;
@@ -779,7 +906,7 @@ namespace beam
 		if (bSubsidyOpen)
 			return true;
 
-		if (body.m_SubsidyClosing)
+		if (bb.m_SubsidyClosing)
 			return false; // already closed
 
 		// For non-genesis blocks we have the following restrictions:
@@ -790,7 +917,7 @@ namespace beam
 		Height nBlocksInRange = m_Height.m_Max - m_Height.m_Min + 1;
 
 		ECC::uintBig ubSubsidy, ubCoinbase, mul;
-		body.m_Subsidy.Export(ubSubsidy);
+		bb.m_Subsidy.Export(ubSubsidy);
 
 		mul = Block::Rules::CoinbaseEmission;
 		ubCoinbase = nBlocksInRange;
@@ -820,23 +947,35 @@ namespace beam
 		return (ubCoinbase >= ubSubsidy);
 	}
 
-	void Block::Body::ZeroInit()
+	void Block::BodyBase::ZeroInit()
 	{
 		ZeroObject(m_Subsidy);
 		ZeroObject(m_Offset);
 		m_SubsidyClosing = false;
 	}
 
-	bool Block::Body::IsValid(const HeightRange& hr, bool bSubsidyOpen) const
+	void Block::BodyBase::Merge(const BodyBase& next)
+	{
+		m_Subsidy += next.m_Subsidy;
+
+		assert(!(m_SubsidyClosing && next.m_SubsidyClosing));
+		m_SubsidyClosing = next.m_SubsidyClosing;
+
+		ECC::Scalar::Native offs(m_Offset);
+		offs += next.m_Offset;
+		m_Offset = offs;
+	}
+
+	bool Block::BodyBase::IsValid(const HeightRange& hr, bool bSubsidyOpen, TxBase::IReader&& r) const
 	{
 		assert((hr.m_Min >= Block::Rules::HeightGenesis) && !hr.IsEmpty());
 
-		Context ctx;
+		TxBase::Context ctx;
 		ctx.m_Height = hr;
 		ctx.m_bBlockMode = true;
 
 		return
-			ValidateAndSummarize(ctx) &&
+			ctx.ValidateAndSummarize(*this, std::move(r)) &&
 			ctx.IsValidBlock(*this, bSubsidyOpen);
 	}
 
@@ -898,6 +1037,444 @@ namespace beam
 	{
 		s << id.m_Height << "-" << id.m_Hash;
 		return s;
+	}
+
+	/////////////
+	// RW
+	void Block::BodyBase::RW::GetPathes(std::string* pArr) const
+	{
+		pArr[0] = m_sPath + "ui";
+		pArr[1] = m_sPath + "uo";
+		pArr[2] = m_sPath + "ki";
+		pArr[3] = m_sPath + "ko";
+		pArr[4] = m_sPath + "hd";
+
+		static_assert(5 == s_Datas, "");
+	}
+
+	bool Block::BodyBase::RW::Open(bool bRead)
+	{
+		using namespace std;
+
+		m_bRead = bRead;
+
+		int mode = ios_base::binary;
+		mode |= (m_bRead ? (ios_base::in | ios_base::ate) : (ios_base::out | ios_base::trunc));
+
+		std::string pArr[s_Datas];
+		GetPathes(pArr);
+
+		for (int i = 0; i < _countof(m_pS); i++)
+		{
+			Stream& s = m_pS[i];
+			s.m_F.open(pArr[i], (ios_base::openmode) mode);
+			if (s.m_F.fail())
+				return false;
+
+			if (m_bRead)
+			{
+				s.m_Remaining = s.m_F.tellg();
+				s.m_F.seekg(0);
+			}
+		}
+
+		return true;
+	}
+
+	void Block::BodyBase::RW::Delete()
+	{
+		std::string pArr[s_Datas];
+		GetPathes(pArr);
+
+		for (int i = 0; i < _countof(m_pS); i++)
+		{
+			const std::string& sPath = pArr[i];
+#ifdef WIN32
+			DeleteFileA(sPath.c_str());
+#else // WIN32
+			unlink(sPath.c_str());
+#endif // WIN32
+		}
+	}
+
+	void Block::BodyBase::RW::Close()
+	{
+		for (int i = 0; i < _countof(m_pS); i++)
+		{
+			Stream& s = m_pS[i];
+			if (s.m_F.is_open())
+				s.m_F.close();
+		}
+	}
+
+	Block::BodyBase::RW::~RW()
+	{
+		if (m_bAutoDelete)
+		{
+			Close();
+			Delete();
+		}
+	}
+
+	void Block::BodyBase::RW::Reset()
+	{
+		for (int i = 0; i < _countof(m_pS); i++)
+		{
+			Stream& s = m_pS[i];
+			s.m_Remaining += s.m_F.tellg();
+			s.m_F.seekg(0);
+		}
+
+		// preload
+		LoadInternal(m_pUtxoIn, m_pS[0], m_pGuardUtxoIn);
+		LoadInternal(m_pUtxoOut, m_pS[1], m_pGuardUtxoOut);
+		LoadInternal(m_pKernelIn, m_pS[2], m_pGuardKernelIn);
+		LoadInternal(m_pKernelOut, m_pS[3], m_pGuardKernelOut);
+	}
+
+	void Block::BodyBase::RW::Stream::TestNoFail()
+	{
+		if (m_F.fail())
+			throw std::runtime_error("fail");
+	}
+
+	void Block::BodyBase::RW::Stream::NotImpl()
+	{
+		throw std::runtime_error("not impl");
+	}
+
+	size_t Block::BodyBase::RW::Stream::read(void* pPtr, size_t nSize)
+	{
+		m_F.read((char*)pPtr, nSize);
+		size_t ret = m_F.gcount();
+		m_Remaining -= ret;
+
+		if (ret != nSize)
+			throw std::runtime_error("underflow");
+
+		return ret;
+	}
+
+	size_t Block::BodyBase::RW::Stream::write(const void* pPtr, size_t nSize)
+	{
+		m_F.write((char*) pPtr, nSize);
+		TestNoFail();
+
+		return nSize;
+	}
+
+	char Block::BodyBase::RW::Stream::getch()
+	{
+		char ch;
+		read(&ch, 1);
+		return ch;
+	}
+
+	char Block::BodyBase::RW::Stream::peekch() const
+	{
+		NotImpl();
+		return 0;
+	}
+
+	void Block::BodyBase::RW::Stream::ungetch(char)
+	{
+		NotImpl();
+	}
+
+	void Block::BodyBase::RW::Flush()
+	{
+		for (int i = 0; i < _countof(m_pS); i++)
+		{
+			Stream& s = m_pS[i];
+			s.m_F.flush();
+			s.TestNoFail();
+		}
+	}
+
+	void Block::BodyBase::RW::Clone(Ptr& pOut)
+	{
+		RW* pRet = new RW;
+		pOut.reset(pRet);
+
+		pRet->m_sPath = m_sPath;
+		pRet->Open(m_bRead);
+	}
+
+	void Block::BodyBase::RW::NextUtxoIn()
+	{
+		LoadInternal(m_pUtxoIn, m_pS[0], m_pGuardUtxoIn);
+	}
+
+	void Block::BodyBase::RW::NextUtxoOut()
+	{
+		LoadInternal(m_pUtxoOut, m_pS[1], m_pGuardUtxoOut);
+	}
+
+	void Block::BodyBase::RW::NextKernelIn()
+	{
+		LoadInternal(m_pKernelIn, m_pS[2], m_pGuardKernelIn);
+	}
+
+	void Block::BodyBase::RW::NextKernelOut()
+	{
+		LoadInternal(m_pKernelOut, m_pS[3], m_pGuardKernelOut);
+	}
+
+	void Block::BodyBase::RW::get_Start(BodyBase& body, SystemState::Sequence::Prefix& prefix)
+	{
+		yas::binary_iarchive<Stream, SERIALIZE_OPTIONS> arc(m_pS[4]);
+		arc & body;
+		arc & prefix;
+	}
+
+	bool Block::BodyBase::RW::get_NextHdr(SystemState::Sequence::Element& elem)
+	{
+		Stream& s = m_pS[4];
+		if (!s.m_Remaining)
+			return false;
+
+		yas::binary_iarchive<Stream, SERIALIZE_OPTIONS> arc(s);
+		arc & elem;
+
+		return true;
+	}
+
+	void Block::BodyBase::RW::WriteIn(const Input& v)
+	{
+		WriteInternal(v, m_pS[0]);
+	}
+
+	void Block::BodyBase::RW::WriteIn(const TxKernel& v)
+	{
+		WriteInternal(v, m_pS[2]);
+	}
+
+	void Block::BodyBase::RW::WriteOut(const Output& v)
+	{
+		WriteInternal(v, m_pS[1]);
+	}
+
+	void Block::BodyBase::RW::WriteOut(const TxKernel& v)
+	{
+		WriteInternal(v, m_pS[3]);
+	}
+
+	void Block::BodyBase::RW::put_Start(const BodyBase& body, const SystemState::Sequence::Prefix& prefix)
+	{
+		WriteInternal(body, m_pS[4]);
+		WriteInternal(prefix, m_pS[4]);
+	}
+
+	void Block::BodyBase::RW::put_NextHdr(const SystemState::Sequence::Element& elem)
+	{
+		WriteInternal(elem, m_pS[4]);
+	}
+
+	template <typename T>
+	void Block::BodyBase::RW::LoadInternal(const T*& pPtr, Stream& s, typename T::Ptr* ppGuard)
+	{
+		if (s.m_Remaining)
+		{
+			ppGuard[0].swap(ppGuard[1]);
+			//if (!ppGuard[0])
+				ppGuard[0].reset(new T);
+
+			yas::binary_iarchive<Stream, SERIALIZE_OPTIONS> arc(s);
+			arc & *ppGuard[0];
+
+			pPtr = ppGuard[0].get();
+		}
+		else
+			pPtr = NULL;
+	}
+
+	template <typename T>
+	void Block::BodyBase::RW::WriteInternal(const T& v, Stream& s)
+	{
+		yas::binary_oarchive<Stream, SERIALIZE_OPTIONS> arc(s);
+		arc & v;
+	}
+
+	void TxBase::IWriter::Dump(IReader&& r)
+	{
+		r.Reset();
+
+		for (; r.m_pUtxoIn; r.NextUtxoIn())
+			WriteIn(*r.m_pUtxoIn);
+		for (; r.m_pUtxoOut; r.NextUtxoOut())
+			WriteOut(*r.m_pUtxoOut);
+		for (; r.m_pKernelIn; r.NextKernelIn())
+			WriteIn(*r.m_pKernelIn);
+		for (; r.m_pKernelOut; r.NextKernelOut())
+			WriteOut(*r.m_pKernelOut);
+	}
+
+	bool TxBase::IWriter::Combine(IReader&& r0, IReader&& r1, const volatile bool& bStop)
+	{
+		IReader* ppR[] = { &r0, &r1 };
+		return Combine(ppR, _countof(ppR), bStop);
+	}
+
+	bool TxBase::IWriter::Combine(IReader** ppR, int nR, const volatile bool& bStop)
+	{
+		for (int i = 0; i < nR; i++)
+			ppR[i]->Reset();
+
+		// Utxo
+		while (true)
+		{
+			if (bStop)
+				return false;
+
+			const Input* pInp = NULL;
+			const Output* pOut = NULL;
+			int iInp, iOut;
+
+			for (int i = 0; i < nR; i++)
+			{
+				const Input* pi = ppR[i]->m_pUtxoIn;
+				if (pi && (!pInp || (*pInp > *pi)))
+				{
+					pInp = pi;
+					iInp = i;
+				}
+
+				const Output* po = ppR[i]->m_pUtxoOut;
+				if (po && (!pOut || (*pOut > *po)))
+				{
+					pOut = po;
+					iOut = i;
+				}
+			}
+
+			if (pInp)
+			{
+				if (pOut)
+				{
+					int n = pInp->cmp_CaM(*pOut);
+					if (n > 0)
+						pInp = NULL;
+					else
+						if (!n)
+						{
+							// skip both
+							ppR[iInp]->NextUtxoIn();
+							ppR[iOut]->NextUtxoOut();
+							continue;
+						}
+				}
+			}
+			else
+				if (!pOut)
+					break;
+
+
+			if (pInp)
+			{
+				WriteIn(*pInp);
+				ppR[iInp]->NextUtxoIn();
+			}
+			else
+			{
+				WriteOut(*pOut);
+				ppR[iOut]->NextUtxoOut();
+			}
+		}
+
+
+		// Kernels
+		while (true)
+		{
+			if (bStop)
+				return false;
+
+			const TxKernel* pInp = NULL;
+			const TxKernel* pOut = NULL;
+			int iInp, iOut;
+
+			for (int i = 0; i < nR; i++)
+			{
+				const TxKernel* pi = ppR[i]->m_pKernelIn;
+				if (pi && (!pInp || (*pInp > *pi)))
+				{
+					pInp = pi;
+					iInp = i;
+				}
+
+				const TxKernel* po = ppR[i]->m_pKernelOut;
+				if (po && (!pOut || (*pOut > *po)))
+				{
+					pOut = po;
+					iOut = i;
+				}
+			}
+
+			if (pInp)
+			{
+				if (pOut)
+				{
+					int n = pInp->cmp(*pOut);
+					if (n > 0)
+						pInp = NULL;
+					else
+						if (!n)
+						{
+							// skip both
+							ppR[iInp]->NextUtxoIn();
+							ppR[iOut]->NextUtxoOut();
+							continue;
+						}
+				}
+			}
+			else
+				if (!pOut)
+					break;
+
+
+			if (pInp)
+			{
+				WriteIn(*pInp);
+				ppR[iInp]->NextKernelIn();
+			}
+			else
+			{
+				WriteOut(*pOut);
+				ppR[iOut]->NextKernelOut();
+			}
+		}
+
+		return true;
+	}
+
+	bool Block::BodyBase::IMacroWriter::CombineHdr(IMacroReader&& r0, IMacroReader&& r1, const volatile bool& bStop)
+	{
+		Block::BodyBase body0, body1;
+		Block::SystemState::Sequence::Prefix prefix0, prefix1;
+		Block::SystemState::Sequence::Element elem;
+
+		r0.Reset();
+		r0.get_Start(body0, prefix0);
+		r1.Reset();
+		r1.get_Start(body1, prefix1);
+
+		body0.Merge(body1);
+		put_Start(body0, prefix0);
+
+		while (r0.get_NextHdr(elem))
+		{
+			if (bStop)
+				return false;
+			put_NextHdr(elem);
+		}
+
+		while (r1.get_NextHdr(elem))
+		{
+			if (bStop)
+				return false;
+			put_NextHdr(elem);
+		}
+
+		return true;
 	}
 
 } // namespace beam

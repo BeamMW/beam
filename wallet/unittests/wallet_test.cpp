@@ -241,7 +241,8 @@ namespace
 
             walletPeer->handle_node_message(proto::NewTip{ 0 });
 
-            proto::Hdr msg = { 0 };
+			proto::Hdr msg;
+			ZeroObject(msg);
             msg.m_Description.m_Height = 134;
             walletPeer->handle_node_message(move(msg));
         }
@@ -467,7 +468,8 @@ private:
 
 	bool on_message(uint64_t connectionId, proto::Config&& /*data*/)
 	{
-        proto::Hdr msg = { 0 };
+		proto::Hdr msg;
+		ZeroObject(msg);
         msg.m_Description.m_Height = 134;
         send(connectionId, HdrCode, move(msg));
 		return true;

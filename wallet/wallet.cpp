@@ -353,7 +353,8 @@ namespace beam
         }
 
         Coin& coin = m_pendingProofs.front();
-        Input input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
+		Input input;
+		input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
         if (proof.m_Proofs.empty())
         {
             LOG_ERROR() << "Got empty proof for: " << input.m_Commitment;
@@ -527,7 +528,8 @@ namespace beam
         {
             ++m_syncing;
             m_pendingProofs.push_back(coin);
-            auto input = Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
+			Input input;
+			input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
             LOG_DEBUG() << "Get proof: " << input.m_Commitment;
             m_network.send_node_message(proto::GetProofUtxo{ input, 0 });
         }

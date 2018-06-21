@@ -326,13 +326,9 @@ namespace ECC
 		template <typename T>
 		void Write(T v)
 		{
-			static_assert(T(-1) > 0, "must be unsigned");
-			for (; ; v >>= 8)
-			{
-				Write((uint8_t) v);
-				if (!v)
-					break;
-			}
+			NoLeak<uintBig_t<(sizeof(T) << 3)> > x;
+			x.V = v;
+			Write(x.V.m_pData, sizeof(x.V.m_pData));
 		}
 
 		void Finalize(Value&);
