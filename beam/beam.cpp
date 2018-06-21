@@ -170,24 +170,22 @@ namespace
         cout << options << std::endl;
     }
 
-    void readTreasuryFile(beam::Node& node, const string& sPath)
+    bool ReadTreasury(std::vector<Block::Body>& vBlocks, const string& sPath)
     {
-        if (!sPath.empty())
-        {
-            std::ifstream f(sPath, std::ifstream::binary);
-            if (f.fail())
-            {
-                LOG_INFO() << "can't open treasury file";
-                return;
-            }
+		if (sPath.empty())
+			return false;
 
-            std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        std::ifstream f(sPath, std::ifstream::binary);
+		if (f.fail())
+			return false;
 
-            Deserializer der;
-            der.reset(&vContents.at(0), vContents.size());
+        std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
 
-            der & node.m_Cfg.m_vTreasury;
-        }
+        Deserializer der;
+        der.reset(&vContents.at(0), vContents.size());
+        der & vBlocks;
+        
+		return true;
     }
 }
 
@@ -204,8 +202,9 @@ struct SerializerFile {
 	{
 		size_t write(const void* p, size_t n)
 		{
-			std::ofstream::write((char*)p, n);
-			return fail() ? 0 : n;
+			std::ofstream::write((char*) p, n);
+			std::TestNoError(*this);
+			return n;
 		}
 	} m_File;
 
@@ -242,21 +241,8 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 		return -1;
 	}
 
-	{
-		std::ifstream f(m_sPath, std::ifstream::binary);
-		if (!f.fail())
-		{
-			std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-			if (!vContents.empty())
-			{
-				Deserializer der;
-				der.reset(&vContents.at(0), vContents.size());
-				der & m_vBlocks;
-
-				LOG_INFO() << "Treasury block is non-empty, appending.";
-			}
-		}
-	}
+	if (ReadTreasury(m_vBlocks, m_sPath))
+		LOG_INFO() << "Treasury already contains " << m_vBlocks.size() << " blocks, appending.";
 
 	if (!m_vBlocks.empty())
 	{
@@ -551,7 +537,10 @@ int main(int argc, char* argv[])
                 if (vm.count(cli::TREASURY_BLOCK))
                 {
                     string sPath = vm[cli::TREASURY_BLOCK].as<string>();
-                    readTreasuryFile(node, sPath);
+					ReadTreasury(node.m_Cfg.m_vTreasury, sPath);
+
+					if (!node.m_Cfg.m_vTreasury.empty())
+						LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_vTreasury.size();
                 }
 
 				node.Initialize();

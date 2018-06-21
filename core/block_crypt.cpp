@@ -6,6 +6,7 @@
 
 #ifndef WIN32
 #	include <unistd.h>
+#	include <errno.h>
 #endif // WIN32
 
 namespace beam
@@ -1166,12 +1167,6 @@ namespace beam
 		LoadInternal(m_pKernelOut, m_pS[3], m_pGuardKernelOut);
 	}
 
-	void Block::BodyBase::RW::Stream::TestNoFail()
-	{
-		if (m_F.fail())
-			throw std::runtime_error("fail");
-	}
-
 	void Block::BodyBase::RW::Stream::NotImpl()
 	{
 		throw std::runtime_error("not impl");
@@ -1192,7 +1187,7 @@ namespace beam
 	size_t Block::BodyBase::RW::Stream::write(const void* pPtr, size_t nSize)
 	{
 		m_F.write((char*) pPtr, nSize);
-		TestNoFail();
+		std::TestNoError(m_F);
 
 		return nSize;
 	}
@@ -1221,7 +1216,7 @@ namespace beam
 		{
 			Stream& s = m_pS[i];
 			s.m_F.flush();
-			s.TestNoFail();
+			std::TestNoError(s.m_F);
 		}
 	}
 
@@ -1525,3 +1520,26 @@ namespace beam
 	}
 
 } // namespace beam
+
+namespace std
+{
+	void ThrowIoError()
+	{
+#ifdef WIN32
+		int nErrorCode = GetLastError();
+#else // WIN32
+		int nErrorCode = errno;
+#endif // WIN32
+
+		char sz[0x20];
+		snprintf(sz, _countof(sz), "I/O Error=%d", nErrorCode);
+		throw std::runtime_error(sz);
+	}
+
+	void TestNoError(const ios& obj)
+	{
+		if (obj.fail())
+			ThrowIoError();
+	}
+
+} // namespace std

@@ -1,5 +1,4 @@
 #pragma once
-#include <fstream>
 #include "common.h"
 #include "ecc_native.h"
 
@@ -66,7 +65,6 @@ namespace beam
 			std::fstream m_F;
 			uint64_t m_Remaining;
 
-			void TestNoFail();
 			static void NotImpl();
 
 			size_t read(void* pPtr, size_t nSize);

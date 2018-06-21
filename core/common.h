@@ -27,8 +27,14 @@
 	parent_class& get_ParentObj() { return * (parent_class*) (((uint8_t*) this) + 1 - (uint8_t*) (&((parent_class*) 1)->this_var)); }
 
 #include "ecc.h"
-
 #include <iostream>
+#include <fstream>
+
+namespace std {
+	void ThrowIoError();
+	void TestNoError(const ios& obj);
+}
+
 namespace beam
 {
 	// sorry for replacing 'using' by 'typedefs', some compilers don't support it
