@@ -228,7 +228,7 @@ namespace ECC
 			CompactPoint m_pPts[nLevels * nPointsPerLevel];
 		};
 
-		void GeneratePts(const char* szSeed, Hash::Processor&, CompactPoint* pPts, uint32_t nLevels);
+		void GeneratePts(const Point::Native&, Hash::Processor&, CompactPoint* pPts, uint32_t nLevels);
 		void SetMul(Point::Native& res, bool bSet, const CompactPoint* pPts, const Scalar::Native::uint* p, int nWords);
 
 		template <uint32_t nBits_>
@@ -266,9 +266,9 @@ namespace ECC
 			};
 
 		public:
-			void Initialize(const char* szSeed, Hash::Processor& hp)
+			void Initialize(const Point::Native& p, Hash::Processor& hp)
 			{
-				GeneratePts(szSeed, hp, Base<nBits_>::m_pPts, Base<nBits_>::nLevels);
+				GeneratePts(p, hp, Base<nBits_>::m_pPts, Base<nBits_>::nLevels);
 			}
 
 			template <typename TScalar>
@@ -294,7 +294,7 @@ namespace ECC
 			void AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native&) const;
 
 		public:
-			void Initialize(const char* szSeed, Hash::Processor& hp);
+			void Initialize(const Point::Native&, Hash::Processor& hp);
 
 			template <typename TScalar>
 			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }

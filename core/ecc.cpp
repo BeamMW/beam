@@ -460,6 +460,13 @@ namespace ECC {
 			return CreatePointNnz(out, hv);
 		}
 
+		void CreatePointNnzFromSeed(Point::Native& out, const char* szSeed, Hash::Processor& hp)
+		{
+			for (hp << szSeed; ; )
+				if (CreatePointNnz(out, hp))
+					break;
+		}
+
 		bool CreatePts(CompactPoint* pPts, Point::Native& gpos, uint32_t nLevels, Hash::Processor& hp)
 		{
 			Point::Native nums, npos, pt;
@@ -575,28 +582,21 @@ namespace ECC {
 			SetMul(res, bSet, pPts, k.get().d, _countof(k.get().d));
 		}
 
-		void GeneratePts(const char* szSeed, Hash::Processor& hp, CompactPoint* pPts, uint32_t nLevels)
+		void GeneratePts(const Point::Native& pt, Hash::Processor& hp, CompactPoint* pPts, uint32_t nLevels)
 		{
-			for (hp << szSeed; ; )
+			while (true)
 			{
-				Point::Native g;
-				if (!CreatePointNnz(g, hp))
-					continue;
-
-				if (CreatePts(pPts, g, nLevels, hp))
+				Point::Native pt2 = pt;
+				if (CreatePts(pPts, pt2, nLevels, hp))
 					break;
 			}
 		}
 
-		void Obscured::Initialize(const char* szSeed, Hash::Processor& hp)
+		void Obscured::Initialize(const Point::Native& pt, Hash::Processor& hp)
 		{
-			for (hp << szSeed; ; )
+			while (true)
 			{
-				Point::Native g;
-				if (!CreatePointNnz(g, hp))
-					continue;
-
-				Point::Native pt2 = g;
+				Point::Native pt2 = pt;
 				if (!CreatePts(m_pPts, pt2, nLevels, hp))
 					continue;
 
@@ -874,14 +874,20 @@ namespace ECC {
 
 		Hash::Processor hp;
 
-		ctx.G.Initialize("G-gen", hp);
-		ctx.H.Initialize("H-gen", hp);
-		ctx.H_Big.Initialize("H-gen", hp);
+		// make sure we get the same G,H for different generator kinds
+		Point::Native G_raw, H_raw;
+		Generator::CreatePointNnzFromSeed(G_raw, "G-gen", hp);
+		Generator::CreatePointNnzFromSeed(H_raw, "H-gen", hp);
+
+
+		ctx.G.Initialize(G_raw, hp);
+		ctx.H.Initialize(H_raw, hp);
+		ctx.H_Big.Initialize(H_raw, hp);
 
 		Point::Native pt, ptAux2(Zero);
 
-		ctx.m_Ipp.G_.Initialize("G-gen", hp);
-		ctx.m_Ipp.H_.Initialize("H-gen", hp);
+		ctx.m_Ipp.G_.Initialize(G_raw, hp);
+		ctx.m_Ipp.H_.Initialize(H_raw, hp);
 
 #define STR_GEN_PREFIX "ip-"
 		char szStr[0x20] = STR_GEN_PREFIX;
