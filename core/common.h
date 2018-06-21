@@ -136,6 +136,31 @@ namespace beam
 		COMPARISON_VIA_CMP(CommitmentAndMaturity)
 	};
 
+	struct Rules
+	{
+		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
+		static const Amount Coin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
+
+		static Amount CoinbaseEmission; // the maximum allowed coinbase in a single block
+		static Height MaturityCoinbase;
+		static Height MaturityStd;
+
+		static size_t MaxBodySize;
+
+		// timestamp & difficulty. Basically very close to those from bitcoin, except the desired rate is 1 minute (instead of 10 minutes)
+		static uint32_t DesiredRate_s;
+		static uint32_t DifficultyReviewCycle;
+		static uint32_t MaxDifficultyChange;
+		static uint32_t TimestampAheadThreshold_s;
+		static uint32_t WindowForMedian;
+
+		static bool FakePoW; // for testing
+
+		static void get_Hash(ECC::Hash::Value&);
+
+		static void AdjustDifficulty(uint8_t&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s);
+	};
+
 	struct Input
 		:public CommitmentAndMaturity
 	{
@@ -426,31 +451,6 @@ namespace beam
 				bool IsValidPoW() const;
 				bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
 			};
-		};
-
-		struct Rules
-		{
-			static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
-			static const Amount Coin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
-
-			static Amount CoinbaseEmission; // the maximum allowed coinbase in a single block
-			static Height MaturityCoinbase;
-			static Height MaturityStd;
-
-			static size_t MaxBodySize;
-
-			// timestamp & difficulty. Basically very close to those from bitcoin, except the desired rate is 1 minute (instead of 10 minutes)
-			static uint32_t DesiredRate_s;
-			static uint32_t DifficultyReviewCycle;
-			static uint32_t MaxDifficultyChange;
-			static uint32_t TimestampAheadThreshold_s;
-			static uint32_t WindowForMedian;
-
-			static bool FakePoW; // for testing
-
-			static void get_Hash(ECC::Hash::Value&);
-
-			static void AdjustDifficulty(uint8_t&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s);
 		};
 
 		struct BodyBase

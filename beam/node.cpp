@@ -384,7 +384,7 @@ Node::Peer* Node::FindPeer(const Processor::PeerID& peerID)
 
 void Node::Initialize()
 {
-	Block::Rules::get_Hash(m_hvCfg);
+	Rules::get_Hash(m_hvCfg);
 
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
@@ -964,7 +964,7 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 
 void Node::Peer::OnMsg(proto::GetProofState&& msg)
 {
-	if (msg.m_Height < Block::Rules::HeightGenesis)
+	if (msg.m_Height < Rules::HeightGenesis)
 		ThrowUnexpected();
 
 	proto::Proof msgOut;
@@ -1125,7 +1125,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 			return false;
 		};
 
-		if (Block::Rules::FakePoW)
+		if (Rules::FakePoW)
 		{
 			uint32_t timeout_ms = get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms;
 
@@ -1209,7 +1209,7 @@ bool Node::Miner::Restart()
 
 	if (get_ParentObj().m_Processor.m_Cursor.m_SubsidyOpen)
 	{
-		Height dh = get_ParentObj().m_Processor.m_Cursor.m_Sid.m_Height + 1 - Block::Rules::HeightGenesis;
+		Height dh = get_ParentObj().m_Processor.m_Cursor.m_Sid.m_Height + 1 - Rules::HeightGenesis;
 		std::vector<Block::Body>& vTreasury = get_ParentObj().m_Cfg.m_vTreasury;
 		if (dh >= vTreasury.size())
 			return false;
@@ -1350,7 +1350,7 @@ void Node::Compressor::OnNewState()
 	const Config::HistoryCompression& cfg = get_ParentObj().m_Cfg.m_HistoryCompression;
 	Processor& p = get_ParentObj().m_Processor;
 
-	if (p.m_Cursor.m_ID.m_Height - Block::Rules::HeightGenesis + 1 <= cfg.m_Threshold)
+	if (p.m_Cursor.m_ID.m_Height - Rules::HeightGenesis + 1 <= cfg.m_Threshold)
 		return;
 
 	HeightRange hr;
@@ -1427,7 +1427,7 @@ void Node::Compressor::OnNotify()
 			std::string pTrg[Block::Body::RW::s_Datas];
 
 			Block::Body::RW rwSrc, rwTrg;
-			FmtPath(rwSrc, h, &Block::Rules::HeightGenesis);
+			FmtPath(rwSrc, h, &Rules::HeightGenesis);
 			FmtPath(rwTrg, h, NULL);
 			rwSrc.GetPathes(pSrc);
 			rwTrg.GetPathes(pTrg);
@@ -1537,11 +1537,11 @@ bool Node::Compressor::ProceedInternal()
 	while (v.size() > 1)
 		SquashOnce(v);
 
-	if (m_hrNew.m_Min >= Block::Rules::HeightGenesis)
+	if (m_hrNew.m_Min >= Rules::HeightGenesis)
 	{
 		Block::Body::RW rw, rwSrc0, rwSrc1;
 
-		FmtPath(rw, m_hrNew.m_Max, &Block::Rules::HeightGenesis);
+		FmtPath(rw, m_hrNew.m_Max, &Rules::HeightGenesis);
 		FmtPath(rwSrc0, m_hrNew.m_Min, NULL);
 
 		Height h0 = m_hrNew.m_Min + 1;

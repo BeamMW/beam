@@ -107,7 +107,7 @@ namespace beam
 		for (uint32_t h = 0; h < hMax; h++)
 		{
 			Block::SystemState::Full& s = vStates[h];
-			s.m_Height = h + Block::Rules::HeightGenesis;
+			s.m_Height = h + Rules::HeightGenesis;
 
 			if (h)
 			{
@@ -193,7 +193,7 @@ namespace beam
 
 		NodeDB::StateID sid;
 		verify_test(CountTips(db, false, &sid) == 2);
-		verify_test(sid.m_Height == hMax-1 + Block::Rules::HeightGenesis);
+		verify_test(sid.m_Height == hMax-1 + Rules::HeightGenesis);
 
 		db.SetMined(sid, 200000);
 		db.SetMined(sid, 250000);
@@ -222,7 +222,7 @@ namespace beam
 		db.SetStateFunctional(pRows[0]); // this should trigger big update
 		db.assert_valid();
 		verify_test(CountTips(db, true, &sid) == 2);
-		verify_test(sid.m_Height == hFork0 + 1 + Block::Rules::HeightGenesis);
+		verify_test(sid.m_Height == hFork0 + 1 + Rules::HeightGenesis);
 
 		tr.Commit();
 		tr.Start(db);
@@ -230,27 +230,27 @@ namespace beam
 		// test proofs
 		NodeDB::StateID sid2;
 		verify_test(CountTips(db, false, &sid2) == 2);
-		verify_test(sid2.m_Height == hMax-1 + Block::Rules::HeightGenesis);
+		verify_test(sid2.m_Height == hMax-1 + Rules::HeightGenesis);
 
 		do
 		{
-			if (sid2.m_Height + 1 < hMax + Block::Rules::HeightGenesis)
+			if (sid2.m_Height + 1 < hMax + Rules::HeightGenesis)
 			{
 				Merkle::Hash hv;
 				db.get_PredictedStatesHash(hv, sid2);
 				Merkle::Interpret(hv, hvZero, true);
-				verify_test(hv == vStates[(size_t) sid2.m_Height + 1 - Block::Rules::HeightGenesis].m_Definition);
+				verify_test(hv == vStates[(size_t) sid2.m_Height + 1 - Rules::HeightGenesis].m_Definition);
 			}
 
-			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height - Block::Rules::HeightGenesis].m_Definition;
+			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height - Rules::HeightGenesis].m_Definition;
 
-			for (uint32_t h = Block::Rules::HeightGenesis; h < sid2.m_Height; h++)
+			for (uint32_t h = Rules::HeightGenesis; h < sid2.m_Height; h++)
 			{
 				Merkle::Proof proof;
 				db.get_Proof(proof, sid2, h);
 
 				Merkle::Hash hv;
-				vStates[h - Block::Rules::HeightGenesis].get_Hash(hv);
+				vStates[h - Rules::HeightGenesis].get_Hash(hv);
 				Merkle::Interpret(hv, proof);
 				Merkle::Interpret(hv, hvZero, true);
 
@@ -261,7 +261,7 @@ namespace beam
 
 		while (db.get_Prev(sid))
 			;
-		verify_test(sid.m_Height == Block::Rules::HeightGenesis);
+		verify_test(sid.m_Height == Rules::HeightGenesis);
 
 		db.SetStateNotFunctional(pRows[0]);
 		db.assert_valid();
@@ -271,9 +271,9 @@ namespace beam
 		db.assert_valid();
 		verify_test(CountTips(db, true) == 2);
 
-		for (sid.m_Height = Block::Rules::HeightGenesis; sid.m_Height <= hMax; sid.m_Height++)
+		for (sid.m_Height = Rules::HeightGenesis; sid.m_Height <= hMax; sid.m_Height++)
 		{
-			sid.m_Row = pRows[sid.m_Height - Block::Rules::HeightGenesis];
+			sid.m_Row = pRows[sid.m_Height - Rules::HeightGenesis];
 			db.MoveFwd(sid);
 		}
 
@@ -391,7 +391,7 @@ namespace beam
 			utxo.m_Key = key;
 			utxo.m_Value = n;
 
-			h += (KeyType::Coinbase == eType) ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd;
+			h += (KeyType::Coinbase == eType) ? Rules::MaturityCoinbase : Rules::MaturityStd;
 
 			return &m_MyUtxos.insert(std::make_pair(h, utxo))->second;
 		}
@@ -488,7 +488,7 @@ namespace beam
 
 		const Height hIncubation = 3; // artificial incubation period for outputs.
 
-		for (Height h = Block::Rules::HeightGenesis; h < 96 + Block::Rules::HeightGenesis; h++)
+		for (Height h = Rules::HeightGenesis; h < 96 + Rules::HeightGenesis; h++)
 		{
 			while (true)
 			{
@@ -519,7 +519,7 @@ namespace beam
 			np.OnBlock(id, pBlock->m_Body, NodeDB::PeerID());
 
 			np.m_Wallet.AddMyUtxo(fees, h, KeyType::Comission);
-			np.m_Wallet.AddMyUtxo(Block::Rules::CoinbaseEmission, h, KeyType::Coinbase);
+			np.m_Wallet.AddMyUtxo(Rules::CoinbaseEmission, h, KeyType::Coinbase);
 
 			blockChain.push_back(std::move(pBlock));
 		}
@@ -543,7 +543,7 @@ namespace beam
 			rwData.Delete();
 		}
 
-		Height hMid = blockChain.size() / 2 + Block::Rules::HeightGenesis;
+		Height hMid = blockChain.size() / 2 + Rules::HeightGenesis;
 
 		{
 			DeleteFileA(g_sz2);
@@ -552,7 +552,7 @@ namespace beam
 			np2.Initialize(g_sz2);
 
 			verify_test(rwData.Open(false));
-			np.ExportMacroBlock(rwData, HeightRange(Block::Rules::HeightGenesis, hMid)); // first half
+			np.ExportMacroBlock(rwData, HeightRange(Rules::HeightGenesis, hMid)); // first half
 			rwData.Close();
 
 			verify_test(rwData.Open(true));
@@ -560,7 +560,7 @@ namespace beam
 			rwData.Close();
 
 			verify_test(rwData.Open(false));
-			np.ExportMacroBlock(rwData, HeightRange(hMid + 1, Block::Rules::HeightGenesis + blockChain.size() - 1)); // second half
+			np.ExportMacroBlock(rwData, HeightRange(hMid + 1, Rules::HeightGenesis + blockChain.size() - 1)); // second half
 			rwData.Close();
 
 			verify_test(rwData.Open(true));
@@ -835,7 +835,7 @@ namespace beam
 
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
-				Block::Rules::get_Hash(msgCfg.m_CfgChecksum);
+				Rules::get_Hash(msgCfg.m_CfgChecksum);
 				msgCfg.m_AutoSendHdr = true;
 				Send(msgCfg);
 			}
@@ -868,12 +868,12 @@ namespace beam
 				m_vStates.push_back(msg.m_Description);
 
 				// assume we've mined this
-				m_Wallet.AddMyUtxo(Block::Rules::CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
+				m_Wallet.AddMyUtxo(Rules::CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
 
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
 					proto::GetProofState msgOut;
-					msgOut.m_Height = i + Block::Rules::HeightGenesis;
+					msgOut.m_Height = i + Rules::HeightGenesis;
 					Send(msgOut);
 
 					m_queProofsStateExpected.push_back((uint32_t) i);
@@ -968,7 +968,7 @@ namespace beam
 
 		for (int i = 0; i < 10; i++)
 		{
-			const Amount val = Block::Rules::Coin * 10;
+			const Amount val = Rules::Coin * 10;
 			const MiniWallet::MyUtxo& utxo = *cl.m_Wallet.AddMyUtxo(val, i, KeyType::Regular);
 			utxo.ToOutput(treasury, offset, i);
 			treasury.m_Subsidy += val;
@@ -998,7 +998,7 @@ namespace beam
 
 int main()
 {
-	beam::Block::Rules::FakePoW = true;
+	beam::Rules::FakePoW = true;
 
 	DeleteFileA(beam::g_sz);
 	DeleteFileA(beam::g_sz2);

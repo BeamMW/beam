@@ -100,8 +100,8 @@ namespace beam
         keychain->visit([&total, &currentHeight](const Coin& c)->bool
         {
             Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
-                ? Block::Rules::MaturityCoinbase
-                : Block::Rules::MaturityStd);
+                ? Rules::MaturityCoinbase
+                : Rules::MaturityStd);
 
             if (c.m_status == Coin::Unspent
                 && lockHeight <= currentHeight)
@@ -120,8 +120,8 @@ namespace beam
         keychain->visit([&total, &currentHeight, &status, &keyType](const Coin& c)->bool
         {
             Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
-                ? Block::Rules::MaturityCoinbase
-                : Block::Rules::MaturityStd);
+                ? Rules::MaturityCoinbase
+                : Rules::MaturityStd);
 
             if (c.m_status == status
              && c.m_key_type == keyType
@@ -243,9 +243,9 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 	{
 		Coin& coin = m_Coins[i];
 		coin.m_key_type = KeyType::Regular;
-		coin.m_amount = Block::Rules::Coin * 10;
+		coin.m_amount = Rules::Coin * 10;
 		coin.m_status = Coin::Unconfirmed;
-		coin.m_height = h + Block::Rules::HeightGenesis;
+		coin.m_height = h + Rules::HeightGenesis;
 
 
 		m_vIncubationAndKeys[i].first = h;
@@ -451,7 +451,7 @@ int main(int argc, char* argv[])
         auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;
 
 		if (debug)
-			Block::Rules::FakePoW = true;
+			Rules::FakePoW = true;
 
         if (vm.count(cli::MODE))
         {
@@ -634,8 +634,8 @@ int main(int argc, char* argv[])
                         keychain->visit([](const Coin& c)->bool
                         {
                             cout << setw(8) << c.m_id
-                                 << setw(16) << PrintableAmount(Block::Rules::Coin * ((Amount)(c.m_amount / Block::Rules::Coin)))
-                                 << setw(16) << PrintableAmount(c.m_amount % Block::Rules::Coin)
+                                 << setw(16) << PrintableAmount(Rules::Coin * ((Amount)(c.m_amount / Rules::Coin)))
+                                 << setw(16) << PrintableAmount(c.m_amount % Rules::Coin)
                                  << setw(16) << static_cast<int64_t>(c.m_height)
                                  << setw(16) << static_cast<int64_t>(c.m_maturity)
                                  << "  " << c.m_status
@@ -686,7 +686,7 @@ int main(int argc, char* argv[])
                             return -1;
                         }
 
-                        signedAmount *= Block::Rules::Coin; // convert beams to coins
+                        signedAmount *= Rules::Coin; // convert beams to coins
 
                         amount = static_cast<ECC::Amount>(signedAmount);
                         if (amount == 0)

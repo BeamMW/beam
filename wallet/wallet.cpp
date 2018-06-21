@@ -66,11 +66,11 @@ namespace beam
         const string_view beams{" beams " };
         const string_view chattles{ " chattles " };
         auto width = os.width();
-        if (amount.m_value >= Block::Rules::Coin)
+        if (amount.m_value >= Rules::Coin)
         {
-            os << setw(width - beams.length()) << Amount(amount.m_value / Block::Rules::Coin) << beams.data();
+            os << setw(width - beams.length()) << Amount(amount.m_value / Rules::Coin) << beams.data();
         }
-        Amount c = amount.m_value % Block::Rules::Coin;
+        Amount c = amount.m_value % Rules::Coin;
         if (c > 0 || amount.m_value == 0)
         {
             os << setw(width - chattles.length()) << c << chattles.data();
@@ -459,7 +459,7 @@ namespace beam
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
                 // coinbase 
-                mined.emplace_back(Block::Rules::CoinbaseEmission
+                mined.emplace_back(Rules::CoinbaseEmission
                                  , Coin::Unconfirmed
                                  , minedCoin.m_ID.m_Height
                                  , MaxHeight
