@@ -1257,6 +1257,15 @@ namespace beam
 	void Block::BodyBase::RW::get_Start(BodyBase& body, SystemState::Sequence::Prefix& prefix)
 	{
 		yas::binary_iarchive<Stream, SERIALIZE_OPTIONS> arc(m_pS[4]);
+
+		ECC::Hash::Value hv, hv2;
+		Block::Rules::get_Hash(hv);
+
+		arc & hv2;
+
+		if (hv != hv2)
+			throw std::runtime_error("Block rules mismatch");
+
 		arc & body;
 		arc & prefix;
 	}
@@ -1295,6 +1304,10 @@ namespace beam
 
 	void Block::BodyBase::RW::put_Start(const BodyBase& body, const SystemState::Sequence::Prefix& prefix)
 	{
+		ECC::Hash::Value hv;
+		Block::Rules::get_Hash(hv);
+
+		WriteInternal(hv, m_pS[4]);
 		WriteInternal(body, m_pS[4]);
 		WriteInternal(prefix, m_pS[4]);
 	}
