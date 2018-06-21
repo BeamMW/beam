@@ -11,7 +11,6 @@
 #include <iomanip>
 
 #include <boost/program_options.hpp>
-#include <fstream>
 #include <iterator>
 
 namespace po = boost::program_options;
@@ -175,42 +174,16 @@ namespace
 		if (sPath.empty())
 			return false;
 
-        std::ifstream f(sPath, std::ifstream::binary);
-		if (f.fail())
+		std::FStream f;
+		if (!f.Open(sPath.c_str(), true))
 			return false;
 
-        std::vector<char> vContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-
-        Deserializer der;
-        der.reset(&vContents.at(0), vContents.size());
-        der & vBlocks;
+		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
+        arc & vBlocks;
         
 		return true;
     }
 }
-
-struct SerializerFile {
-
-	SerializerFile() : _oa(m_File) {}
-
-	template <typename T> SerializerFile& operator&(const T& object) {
-		_oa & object;
-		return *this;
-	}
-
-	struct Stream :public std::ofstream
-	{
-		size_t write(const void* p, size_t n)
-		{
-			std::ofstream::write((char*) p, n);
-			std::TestNoError(*this);
-			return n;
-		}
-	} m_File;
-
-private:
-	yas::binary_oarchive<Stream, SERIALIZE_OPTIONS> _oa;
-};
 
 struct TreasuryBlockGenerator
 {
@@ -310,10 +283,12 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 		m_vBlocks[i].DeleteIntermediateOutputs();
 	}
 
-	SerializerFile ser;
-	ser.m_File.open(m_sPath, std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
-	ser & m_vBlocks;
-	ser.m_File.flush();
+	std::FStream f;
+	f.Open(m_sPath.c_str(), false, true);
+
+	yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
+	arc & m_vBlocks;
+	f.Flush();
 
 /*
 	for (auto i = 0; i < m_vBlocks.size(); i++)
@@ -742,6 +717,10 @@ int main(int argc, char* argv[])
         LOG_ERROR() << e.what();
         printHelp(options);
     }
+	catch (const std::runtime_error& e)
+	{
+		LOG_ERROR() << e.what();
+	}
 
     return 0;
 }
