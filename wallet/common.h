@@ -33,10 +33,8 @@ namespace beam
     std::ostream& operator<<(std::ostream& os, const Uuid& uuid);
 
     struct Coin;
-    using UuidPtr = std::shared_ptr<Uuid>;
     using TransactionPtr = std::shared_ptr<Transaction>;
-    std::pair<ECC::Scalar::Native, ECC::Scalar::Native> split_key(const ECC::Scalar::Native& key, uint64_t index);
-
+    
     struct TxDescription
     {
         enum Status
@@ -61,6 +59,7 @@ namespace beam
             , m_peerId{ peerId }
             , m_message{ std::move(message) }
             , m_createTime{ createTime }
+            , m_modifyTime{ createTime }
             , m_sender{ sender }
             , m_status{ Pending }
             , m_fsmState{}
@@ -82,6 +81,9 @@ namespace beam
         namespace msm = boost::msm;
         namespace msmf = boost::msm::front;
         namespace mpl = boost::mpl;
+
+        std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
+        Timestamp getTimestamp();
 
         template <typename Derived>
         class FSMHelper 

@@ -32,11 +32,6 @@ namespace
 
     const char* ReceiverPrefix = "[Receiver] ";
     const char* SenderPrefix = "[Sender] ";
-
-    beam::Timestamp getTimestamp()
-    {
-        return beam::Timestamp(std::chrono::seconds(std::time(nullptr)).count());
-    }
 }
 
 namespace beam
@@ -68,19 +63,27 @@ namespace beam
         return os;
     }
 
-    pair<Scalar::Native, Scalar::Native> split_key(const Scalar::Native& key, uint64_t index)
+    namespace wallet
     {
-        pair<Scalar::Native, Scalar::Native> res;
-        Hash::Value hv;
-        Hash::Processor() << index >> hv;
-        NoLeak<Scalar> s;
-        s.V = key;
-        res.second.GenerateNonce(s.V.m_Value, hv, nullptr);
-        res.second = -res.second;
-        res.first = key;
-        res.first += res.second;
+        pair<Scalar::Native, Scalar::Native> splitKey(const Scalar::Native& key, uint64_t index)
+        {
+            pair<Scalar::Native, Scalar::Native> res;
+            Hash::Value hv;
+            Hash::Processor() << index >> hv;
+            NoLeak<Scalar> s;
+            s.V = key;
+            res.second.GenerateNonce(s.V.m_Value, hv, nullptr);
+            res.second = -res.second;
+            res.first = key;
+            res.first += res.second;
 
-        return res;
+            return res;
+        }
+
+        Timestamp getTimestamp()
+        {
+            return beam::Timestamp(std::chrono::seconds(std::time(nullptr)).count());
+        }
     }
 
     Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action)
@@ -114,7 +117,7 @@ namespace beam
         Uuid txId;
         copy(id.begin(), id.end(), txId.begin());
         m_peers.emplace(txId, to);
-        TxDescription tx{ txId, amount, to, move(message), getTimestamp(), true};
+        TxDescription tx{ txId, amount, to, move(message), wallet::getTimestamp(), true};
         resume_sender(tx);
     }
 
@@ -219,7 +222,7 @@ namespace beam
         {
             LOG_VERBOSE() << ReceiverPrefix << "Received tx invitation " << data.m_txId;
             m_peers.emplace(data.m_txId, from);
-            TxDescription tx{ data.m_txId, data.m_amount, from, {}, getTimestamp(), false };
+            TxDescription tx{ data.m_txId, data.m_amount, from, {}, wallet::getTimestamp(), false };
             auto r = make_shared<Receiver>(*this, m_keyChain, tx, data);
             auto p = m_receivers.emplace(tx.m_txId, r);
             if (m_synchronized)

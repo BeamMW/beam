@@ -66,12 +66,6 @@
     each(9, fsmState,      , BLOB, obj)
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
 
-namespace
-{
-	const char* WalletSeed = "WalletSeed";
-	const int BusyTimeoutMs = 1000;
-}
-
 namespace beam
 {
     using namespace std;
@@ -271,6 +265,13 @@ namespace beam
 			bool _rollbacked;
 		};
 	}
+
+    namespace
+    {
+        const char* WalletSeed = "WalletSeed";
+        const int BusyTimeoutMs = 1000;
+    }
+
 
 	Coin::Coin(const Amount& amount, Status status, const Height& height, const Height& maturity, KeyType keyType)
 		: m_id{ 0 }

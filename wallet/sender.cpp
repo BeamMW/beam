@@ -190,6 +190,7 @@ namespace beam::wallet
     void Sender::FSMDefinition::update_tx_description(TxDescription::Status s)
     {
         m_txDesc.m_status = s;
+        m_txDesc.m_modifyTime = wallet::getTimestamp();
         Serializer ser;
         ser & *this;
         ser.swap_buf(m_txDesc.m_fsmState);

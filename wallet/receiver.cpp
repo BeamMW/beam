@@ -44,7 +44,7 @@ namespace beam::wallet
         m_keychain->store(m_receiver_coin);
         Scalar::Native blindingFactor = m_keychain->calcKey(m_receiver_coin);
         output->Create(blindingFactor, amount);
-        auto [privateExcess, offset] = split_key(blindingFactor, m_receiver_coin.m_id);
+        auto [privateExcess, offset] = splitKey(blindingFactor, m_receiver_coin.m_id);
 
         m_blindingExcess = -privateExcess;
         assert(m_transaction->m_Offset.m_Value == Zero);
@@ -148,6 +148,7 @@ namespace beam::wallet
     void Receiver::FSMDefinition::update_tx_description(TxDescription::Status s)
     {
         m_txDesc.m_status = s;
+        m_txDesc.m_modifyTime = wallet::getTimestamp();
         Serializer ser;
         ser & *this;
         ser.swap_buf(m_txDesc.m_fsmState);
