@@ -2,7 +2,7 @@ if(MSVC)
 	set (CMAKE_PREFIX_PATH $ENV{QT5_ROOT_DIR})
 endif()
 
-find_package(Qt5 COMPONENTS Qml Quick REQUIRED)
+find_package(Qt5 COMPONENTS Qml Quick Widgets REQUIRED)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
@@ -33,4 +33,6 @@ set(UI_SRC
 
 add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES})
 
-target_link_libraries(beam-ui Qt5::Qml Qt5::Quick)
+add_dependencies(beam-ui wallet)
+
+target_link_libraries(beam-ui Qt5::Qml Qt5::Quick Qt5::Widgets wallet)

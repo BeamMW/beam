@@ -1,6 +1,6 @@
-#include <QtGui/QGuiApplication>
-#include <QtQuick/QQuickWindow>
+#include <QApplication>
 #include <QtQuick>
+#include <QInputDialog>
 
 #include <qqmlcontext.h>
 
@@ -13,30 +13,41 @@
 
 int main (int argc, char* argv[])
 {
-	QGuiApplication app(argc, argv);
+	QApplication app(argc, argv);
 
-	struct
+	bool ok = false;
+	QString pass = QInputDialog::getText(0, "Password", "Please, enter wallet password:", QLineEdit::Password, nullptr, &ok);
+
+	if (ok)
 	{
-		MainViewModel main;
-		DashboardViewModel dashboard;
-		WalletViewModel wallet;
-		NotificationsViewModel notifications;
-		HelpViewModel help;
-		SettingsViewModel settings;
-	} viewModel;
+		{
+		}
 
-	QQuickView view;
-	view.setResizeMode(QQuickView::SizeRootObjectToView);
+		struct
+		{
+			MainViewModel main;
+			DashboardViewModel dashboard;
+			WalletViewModel wallet;
+			NotificationsViewModel notifications;
+			HelpViewModel help;
+			SettingsViewModel settings;
+		} viewModel;
 
-	QQmlContext *ctxt = view.rootContext();
+		QQuickView view;
+		view.setResizeMode(QQuickView::SizeRootObjectToView);
 
-	ctxt->setContextProperty("mainViewModel", &viewModel.main);
+		QQmlContext *ctxt = view.rootContext();
 
-	ctxt->setContextProperty("walletViewModel", &viewModel.wallet);
-	ctxt->setContextProperty("listModel", QVariant::fromValue(viewModel.wallet.tx()));
+		ctxt->setContextProperty("mainViewModel", &viewModel.main);
 
-	view.setSource(QUrl("qrc:///main.qml"));
-	view.show();
+		ctxt->setContextProperty("walletViewModel", &viewModel.wallet);
+		ctxt->setContextProperty("listModel", QVariant::fromValue(viewModel.wallet.tx()));
 
-    return app.exec();
+		view.setSource(QUrl("qrc:///main.qml"));
+		view.show();
+
+		return app.exec();
+	}
+	
+	return 0;
 }
