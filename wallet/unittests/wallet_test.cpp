@@ -120,7 +120,7 @@ namespace
     IKeyChain::Ptr createSenderKeychain()
     {
         auto keychain = createSqliteKeychain("sender_wallet.db");
-        for (auto amount : { 5, 2, 1 })
+        for (auto amount : { 5, 2, 1, 9 })
         {
             Coin coin(amount);
             coin.m_maturity = 0;
@@ -573,17 +573,62 @@ void TestP2PWalletNegotiationST()
     io::Reactor::Ptr main_reactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*main_reactor);
 
+    auto senderKeychain = createSenderKeychain();
+    auto receiverKeychain = createReceiverKeychain();
+
+    auto sendCoins = senderKeychain->getCoins(6, false);
+    WALLET_CHECK(sendCoins.size() == 3);
+
     TestNode node{ node_address, main_reactor };
-    WalletNetworkIO sender_io{ sender_address, node_address, false, createSenderKeychain(), main_reactor };
-    WalletNetworkIO receiver_io{ receiver_address, node_address, true, createReceiverKeychain(), main_reactor, 1000, 5000, 100 };
+    WalletNetworkIO sender_io{ sender_address, node_address, false, senderKeychain, main_reactor };
+    WalletNetworkIO receiver_io{ receiver_address, node_address, true, receiverKeychain, main_reactor, 1000, 5000, 100 };
 
     sender_io.transfer_money(receiver_address, 6);
 
     main_reactor->run();
     sw.stop();
     cout << "Elapsed: " << sw.milliseconds() << " ms\n";
-    WALLET_CHECK(node.m_connectCount == 3);
-    WALLET_CHECK(node.m_closeCount == 3);
+
+    vector<Coin> newSenderCoins;
+    senderKeychain->visit([&newSenderCoins](const Coin& c)->bool
+    {
+        newSenderCoins.push_back(c);
+        return true;
+    });
+    vector<Coin> newReceiverCoins;
+    receiverKeychain->visit([&newReceiverCoins](const Coin& c)->bool
+    {
+        newReceiverCoins.push_back(c);
+        return true;
+    });
+
+    WALLET_CHECK(newSenderCoins.size() == 5);
+    WALLET_CHECK(newReceiverCoins.size() == 1);
+    WALLET_CHECK(newReceiverCoins[0].m_amount == 6);
+    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unconfirmed);
+    WALLET_CHECK(newReceiverCoins[0].m_key_type == KeyType::Regular);
+
+    WALLET_CHECK(newSenderCoins[0].m_amount == 5);
+    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Locked);
+    WALLET_CHECK(newSenderCoins[0].m_key_type == KeyType::Regular);
+
+    WALLET_CHECK(newSenderCoins[1].m_amount == 2);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Locked);
+    WALLET_CHECK(newSenderCoins[1].m_key_type == KeyType::Regular);
+
+    WALLET_CHECK(newSenderCoins[2].m_amount == 1);
+    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Locked);
+    WALLET_CHECK(newSenderCoins[2].m_key_type == KeyType::Regular);
+
+    WALLET_CHECK(newSenderCoins[3].m_amount == 9);
+    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Unspent);
+    WALLET_CHECK(newSenderCoins[3].m_key_type == KeyType::Regular);
+
+    WALLET_CHECK(newSenderCoins[4].m_amount == 2);
+    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Unconfirmed);
+    WALLET_CHECK(newSenderCoins[4].m_key_type == KeyType::Regular);
+
+
  }
 
 void TestSplitKey()

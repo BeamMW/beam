@@ -111,8 +111,6 @@ namespace beam::wallet
 
         // 6. Create final transaction and send it to mempool
         m_transaction->Sort();
-        beam::TxBase::Context ctx;
-        assert(m_transaction->IsValid(ctx));
         update_tx_description(TxDescription::InProgress);
         m_gateway.register_tx(m_txDesc, m_transaction);
     }

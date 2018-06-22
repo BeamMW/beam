@@ -2,6 +2,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include "core/ecc_native.h"
+#include "core/block_crypt.h"
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include <algorithm>
@@ -572,7 +573,8 @@ namespace beam
     void Wallet::register_tx(const Uuid& txId, Transaction::Ptr data)
     {
         LOG_VERBOSE() << ReceiverPrefix << "sending tx for registration";
-
+        TxBase::Context ctx;
+        assert(data->IsValid(ctx));
         m_reg_requests.push_back(make_pair(txId, data));
         m_network.send_node_message(proto::NewTransaction{ data });
     }
