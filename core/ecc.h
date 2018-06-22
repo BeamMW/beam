@@ -237,12 +237,16 @@ namespace ECC
 		bool	m_Y; // Flag for Y. Currently specifies if it's odd
 
 		Point() {}
-		template <typename T> Point(const T& t) { *this = t; }
+        
+        class Native;
+        Point(const Native& t) { *this = t; }
+        Point(const Point& t) { *this = t; }
+        Point(const Commitment& t) { *this = t; }
 
 		int cmp(const Point&) const;
 		COMPARISON_VIA_CMP(Point)
 
-		class Native;
+
 		Point& operator = (const Native&);
 		Point& operator = (const Point&);
 		Point& operator = (const Commitment&);
@@ -302,7 +306,6 @@ namespace ECC
 		static const uint32_t nCycles = 6;
 		static_assert(1 << nCycles == nDim, "");
 
-		ECC::Point m_AB;				// orifinal commitment of both vectors
 		ECC::Point m_pLR[nCycles][2];	// pairs of L,R values, per reduction  iteration
 		ECC::Scalar m_pCondensed[2];	// remaining 1-dimension vectors
 
@@ -314,8 +317,8 @@ namespace ECC
 			Modifier() { ZeroObject(m_pMultiplier); }
 		};
 
-		void Create(const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
-		bool IsValid(const Scalar::Native& dot, const Modifier& = Modifier()) const;
+		void Create(ECC::Point::Native& commAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
+		bool IsValid(const ECC::Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
 
 	private:
 		struct Calculator;

@@ -107,7 +107,7 @@ namespace beam
 		for (uint32_t h = 0; h < hMax; h++)
 		{
 			Block::SystemState::Full& s = vStates[h];
-			s.m_Height = h + Block::Rules::HeightGenesis;
+			s.m_Height = h + Rules::HeightGenesis;
 
 			if (h)
 			{
@@ -193,7 +193,7 @@ namespace beam
 
 		NodeDB::StateID sid;
 		verify_test(CountTips(db, false, &sid) == 2);
-		verify_test(sid.m_Height == hMax-1 + Block::Rules::HeightGenesis);
+		verify_test(sid.m_Height == hMax-1 + Rules::HeightGenesis);
 
 		db.SetMined(sid, 200000);
 		db.SetMined(sid, 250000);
@@ -222,7 +222,7 @@ namespace beam
 		db.SetStateFunctional(pRows[0]); // this should trigger big update
 		db.assert_valid();
 		verify_test(CountTips(db, true, &sid) == 2);
-		verify_test(sid.m_Height == hFork0 + 1 + Block::Rules::HeightGenesis);
+		verify_test(sid.m_Height == hFork0 + 1 + Rules::HeightGenesis);
 
 		tr.Commit();
 		tr.Start(db);
@@ -230,27 +230,27 @@ namespace beam
 		// test proofs
 		NodeDB::StateID sid2;
 		verify_test(CountTips(db, false, &sid2) == 2);
-		verify_test(sid2.m_Height == hMax-1 + Block::Rules::HeightGenesis);
+		verify_test(sid2.m_Height == hMax-1 + Rules::HeightGenesis);
 
 		do
 		{
-			if (sid2.m_Height + 1 < hMax + Block::Rules::HeightGenesis)
+			if (sid2.m_Height + 1 < hMax + Rules::HeightGenesis)
 			{
 				Merkle::Hash hv;
 				db.get_PredictedStatesHash(hv, sid2);
 				Merkle::Interpret(hv, hvZero, true);
-				verify_test(hv == vStates[(size_t) sid2.m_Height + 1 - Block::Rules::HeightGenesis].m_Definition);
+				verify_test(hv == vStates[(size_t) sid2.m_Height + 1 - Rules::HeightGenesis].m_Definition);
 			}
 
-			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height - Block::Rules::HeightGenesis].m_Definition;
+			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height - Rules::HeightGenesis].m_Definition;
 
-			for (uint32_t h = Block::Rules::HeightGenesis; h < sid2.m_Height; h++)
+			for (uint32_t h = Rules::HeightGenesis; h < sid2.m_Height; h++)
 			{
 				Merkle::Proof proof;
 				db.get_Proof(proof, sid2, h);
 
 				Merkle::Hash hv;
-				vStates[h - Block::Rules::HeightGenesis].get_Hash(hv);
+				vStates[h - Rules::HeightGenesis].get_Hash(hv);
 				Merkle::Interpret(hv, proof);
 				Merkle::Interpret(hv, hvZero, true);
 
@@ -261,7 +261,7 @@ namespace beam
 
 		while (db.get_Prev(sid))
 			;
-		verify_test(sid.m_Height == Block::Rules::HeightGenesis);
+		verify_test(sid.m_Height == Rules::HeightGenesis);
 
 		db.SetStateNotFunctional(pRows[0]);
 		db.assert_valid();
@@ -271,9 +271,9 @@ namespace beam
 		db.assert_valid();
 		verify_test(CountTips(db, true) == 2);
 
-		for (sid.m_Height = Block::Rules::HeightGenesis; sid.m_Height <= hMax; sid.m_Height++)
+		for (sid.m_Height = Rules::HeightGenesis; sid.m_Height <= hMax; sid.m_Height++)
 		{
-			sid.m_Row = pRows[sid.m_Height - Block::Rules::HeightGenesis];
+			sid.m_Row = pRows[sid.m_Height - Rules::HeightGenesis];
 			db.MoveFwd(sid);
 		}
 
@@ -335,9 +335,11 @@ namespace beam
 #ifdef WIN32
 		const char* g_sz = "mytest.db";
 		const char* g_sz2 = "mytest2.db";
+		const char* g_sz3 = "macroblock_";
 #else // WIN32
 		const char* g_sz = "/tmp/mytest.db";
 		const char* g_sz2 = "/tmp/mytest2.db";
+		const char* g_sz3 = "/tmp/macroblock_";
 #endif // WIN32
 
 	void TestNodeDB()
@@ -353,20 +355,21 @@ namespace beam
 	struct MiniWallet
 	{
 		ECC::Kdf m_Kdf;
+		uint32_t m_nKernelSubIdx = 1;
 
 		struct MyUtxo
 		{
 			ECC::Scalar m_Key;
 			Amount m_Value;
 
-			void ToOutput(TxBase& tx, ECC::Scalar::Native& offset, Height hIncubation) const
+			void ToOutput(TxVectors& txv, ECC::Scalar::Native& offset, Height hIncubation) const
 			{
 				ECC::Scalar::Native k = m_Key;
 
 				Output::Ptr pOut(new Output);
 				pOut->m_Incubation = hIncubation;
 				pOut->Create(k, m_Value, true); // confidential transactions will be too slow for test in debug mode.
-				tx.m_vOutputs.push_back(std::move(pOut));
+				txv.m_vOutputs.push_back(std::move(pOut));
 
 				k = -k;
 				offset += k;
@@ -388,7 +391,7 @@ namespace beam
 			utxo.m_Key = key;
 			utxo.m_Value = n;
 
-			h += (KeyType::Coinbase == eType) ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd;
+			h += (KeyType::Coinbase == eType) ? Rules::MaturityCoinbase : Rules::MaturityStd;
 
 			return &m_MyUtxos.insert(std::make_pair(h, utxo))->second;
 		}
@@ -434,7 +437,7 @@ namespace beam
 
 			m_MyUtxos.erase(it);
 
-			DeriveKey(k, m_Kdf, h, KeyType::Kernel);
+			DeriveKey(k, m_Kdf, h, KeyType::Kernel, m_nKernelSubIdx++);
 			pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * k);
 
 			ECC::Hash::Value hv;
@@ -480,12 +483,12 @@ namespace beam
 	{
 		MyNodeProcessor1 np;
 		np.m_Horizon.m_Branching = 35;
-		np.m_Horizon.m_Schwarzschild = 40;
+		//np.m_Horizon.m_Schwarzschild = 40; - will prevent extracting some macroblock ranges
 		np.Initialize(g_sz);
 
 		const Height hIncubation = 3; // artificial incubation period for outputs.
 
-		for (Height h = Block::Rules::HeightGenesis; h < 96 + Block::Rules::HeightGenesis; h++)
+		for (Height h = Rules::HeightGenesis; h < 96 + Rules::HeightGenesis; h++)
 		{
 			while (true)
 			{
@@ -508,7 +511,7 @@ namespace beam
 			Amount fees = 0;
 			verify_test(np.GenerateNewBlock(np.m_TxPool, pBlock->m_Hdr, pBlock->m_Body, fees));
 
-			np.OnState(pBlock->m_Hdr, true, NodeDB::PeerID());
+			np.OnState(pBlock->m_Hdr, NodeDB::PeerID());
 
 			Block::SystemState::ID id;
 			pBlock->m_Hdr.get_ID(id);
@@ -516,26 +519,56 @@ namespace beam
 			np.OnBlock(id, pBlock->m_Body, NodeDB::PeerID());
 
 			np.m_Wallet.AddMyUtxo(fees, h, KeyType::Comission);
-			np.m_Wallet.AddMyUtxo(Block::Rules::CoinbaseEmission, h, KeyType::Coinbase);
+			np.m_Wallet.AddMyUtxo(Rules::CoinbaseEmission, h, KeyType::Coinbase);
 
 			blockChain.push_back(std::move(pBlock));
 		}
 
-		Block::Body macroBlock;
-		np.ExportMacroBlock(macroBlock);
+		Block::BodyBase::RW rwData;
+		rwData.m_sPath = g_sz3;
 
-		NodeProcessor np2;
-		np2.Initialize(g_sz2);
+		{
+			verify_test(rwData.Open(false));
+			np.ExportMacroBlock(rwData); // export current state
 
-		Block::SystemState::ID id;
-		blockChain.back()->m_Hdr.get_ID(id);
+			rwData.Close();
+			verify_test(rwData.Open(true));
 
-		verify_test(!np2.ImportMacroBlock(id, macroBlock)); // no headers
+			NodeProcessor np2;
+			np2.Initialize(g_sz2);
 
-		for (size_t i = 0; i < blockChain.size(); i++)
-			np2.OnState(blockChain[i]->m_Hdr, true, NodeDB::PeerID());
+			verify_test(np2.ImportMacroBlock(rwData));
 
-		verify_test(np2.ImportMacroBlock(id, macroBlock));
+			rwData.Close();
+			rwData.Delete();
+		}
+
+		Height hMid = blockChain.size() / 2 + Rules::HeightGenesis;
+
+		{
+			DeleteFileA(g_sz2);
+
+			NodeProcessor np2;
+			np2.Initialize(g_sz2);
+
+			verify_test(rwData.Open(false));
+			np.ExportMacroBlock(rwData, HeightRange(Rules::HeightGenesis, hMid)); // first half
+			rwData.Close();
+
+			verify_test(rwData.Open(true));
+			verify_test(np2.ImportMacroBlock(rwData));
+			rwData.Close();
+
+			verify_test(rwData.Open(false));
+			np.ExportMacroBlock(rwData, HeightRange(hMid + 1, Rules::HeightGenesis + blockChain.size() - 1)); // second half
+			rwData.Close();
+
+			verify_test(rwData.Open(true));
+			verify_test(np2.ImportMacroBlock(rwData));
+			rwData.Close();
+
+			rwData.Delete();
+		}
 	}
 
 
@@ -570,7 +603,7 @@ namespace beam
 			ZeroObject(peer);
 
 			for (size_t i = 0; i < blockChain.size(); i += 2)
-				np.OnState(blockChain[i]->m_Hdr, true, peer);
+				np.OnState(blockChain[i]->m_Hdr, peer);
 		}
 
 		{
@@ -598,7 +631,7 @@ namespace beam
 			ZeroObject(peer);
 
 			for (size_t i = 1; i < blockChain.size(); i += 2)
-				np.OnState(blockChain[i]->m_Hdr, true, peer);
+				np.OnState(blockChain[i]->m_Hdr, peer);
 		}
 
 		{
@@ -646,7 +679,6 @@ namespace beam
 		node.m_Cfg.m_sPathLocal = g_sz;
 		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
-		node.m_Cfg.m_TestMode.m_bFakePoW = true;
 
 		node.m_Cfg.m_Timeout.m_GetBlock_ms = 1000 * 60;
 		node.m_Cfg.m_Timeout.m_GetState_ms = 1000 * 60;
@@ -658,7 +690,6 @@ namespace beam
 		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
 		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
-		node2.m_Cfg.m_TestMode.m_bFakePoW = true;
 
 		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
 		ECC::SetRandom(node2.get_Processor().m_Kdf.m_Secret.V);
@@ -704,7 +735,7 @@ namespace beam
 					Amount fees = 0;
 					n.get_Processor().GenerateNewBlock(txPool, s, body, fees);
 
-					n.get_Processor().OnState(s, true, NodeDB::PeerID());
+					n.get_Processor().OnState(s, NodeDB::PeerID());
 
 					Block::SystemState::ID id;
 					s.get_ID(id);
@@ -718,7 +749,7 @@ namespace beam
 					++m_iNode %= _countof(m_ppNode);
 				}
 				else
-					if (m_WaitingCycles++ > 30)
+					if (m_WaitingCycles++ > 60)
 					{
 						fail_test("Blockchain height didn't reach target");
 						io::Reactor::get_Current().stop();
@@ -773,11 +804,14 @@ namespace beam
 		node.m_Cfg.m_sPathLocal = g_sz;
 		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
-		node.m_Cfg.m_TestMode.m_bFakePoW = true;
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
 
 		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
+
+		node.m_Cfg.m_Horizon.m_Branching = 6;
+		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
+		node.m_Cfg.m_VerificationThreads = -1;
 
 		struct MyClient
 			:public proto::NodeConnection
@@ -790,18 +824,18 @@ namespace beam
 
 			std::set<ECC::Point> m_UtxosConfirmed;
 			std::list<ECC::Point> m_queProofsExpected;
-
-			uint32_t m_iProof;
+			std::list<uint32_t> m_queProofsStateExpected;
 
 			MyClient() {
 				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
 			}
 
 			virtual void OnConnected() override {
-				SetTimer(60*1000);
+				SetTimer(90*1000);
 
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
+				Rules::get_Hash(msgCfg.m_CfgChecksum);
 				msgCfg.m_AutoSendHdr = true;
 				Send(msgCfg);
 			}
@@ -817,8 +851,6 @@ namespace beam
 
 				fail_test("Blockchain height didn't reach target");
 				io::Reactor::get_Current().stop();
-
-				SetTimer(100);
 			}
 
 			virtual void OnMsg(proto::NewTip&& msg) override
@@ -836,13 +868,15 @@ namespace beam
 				m_vStates.push_back(msg.m_Description);
 
 				// assume we've mined this
-				m_Wallet.AddMyUtxo(Block::Rules::CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
+				m_Wallet.AddMyUtxo(Rules::CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
 
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
 					proto::GetProofState msgOut;
-					msgOut.m_Height = i + Block::Rules::HeightGenesis;
+					msgOut.m_Height = i + Rules::HeightGenesis;
 					Send(msgOut);
+
+					m_queProofsStateExpected.push_back((uint32_t) i);
 				}
 
 				for (auto it = m_Wallet.m_MyUtxos.begin(); m_Wallet.m_MyUtxos.end() != it; it++)
@@ -857,8 +891,6 @@ namespace beam
 					m_queProofsExpected.push_back(msgOut.m_Utxo.m_Commitment);
 				}
 
-				m_iProof = 0;
-
 				proto::NewTransaction msgTx;
 				while (true)
 				{
@@ -872,15 +904,16 @@ namespace beam
 
 			virtual void OnMsg(proto::Proof&& msg) override
 			{
-				uint32_t i = m_iProof++;
-				if (i + 1 < m_vStates.size())
+				if (!m_queProofsStateExpected.empty())
 				{
 					Merkle::Hash hv;
-					m_vStates[i].get_Hash(hv);
+					m_vStates[m_queProofsStateExpected.front()].get_Hash(hv);
 					Merkle::Interpret(hv, msg.m_Proof);
 
 					verify_test(hv == m_vStates.back().m_Definition);
 					verify_test(!msg.m_Proof.empty() && msg.m_Proof.back().first);
+
+					m_queProofsStateExpected.pop_front();
 				}
 				else
 					fail_test("unexpected proof");
@@ -935,7 +968,7 @@ namespace beam
 
 		for (int i = 0; i < 10; i++)
 		{
-			const Amount val = Block::Rules::Coin * 10;
+			const Amount val = Rules::Coin * 10;
 			const MiniWallet::MyUtxo& utxo = *cl.m_Wallet.AddMyUtxo(val, i, KeyType::Regular);
 			utxo.ToOutput(treasury, offset, i);
 			treasury.m_Subsidy += val;
@@ -950,7 +983,6 @@ namespace beam
 
 		Node node2;
 		node2.m_Cfg.m_sPathLocal = g_sz2;
-		node2.m_Cfg.m_TestMode.m_bFakePoW = true;
 		node2.m_Cfg.m_Connect.resize(1);
 		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
 		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
@@ -966,6 +998,8 @@ namespace beam
 
 int main()
 {
+	beam::Rules::FakePoW = true;
+
 	DeleteFileA(beam::g_sz);
 	DeleteFileA(beam::g_sz2);
 

@@ -2,6 +2,7 @@
 #include "errorhandling.h"
 #include "mempool.h"
 #include "address.h"
+#include "bufferchain.h"
 #include <memory>
 #include <functional>
 #include <unordered_map>
@@ -117,7 +118,7 @@ private:
     ErrorCode init_tcpserver(Object* o, Address bindAddress, uv_connection_cb cb);
     ErrorCode init_tcpstream(Object* o);
     ErrorCode accept_tcpstream(Object* acceptor, Object* newConnection);
-    void shutdown_tcpstream(Object* o);
+    void shutdown_tcpstream(Object* o, BufferChain&& unsent);
 
     ErrorCode init_object(ErrorCode errorCode, Object* o, uv_handle_t* h);
     void async_close(uv_handle_t*& handle);
@@ -144,6 +145,7 @@ private:
     MemPool<uv_shutdown_t, sizeof(uv_shutdown_t)> _shutdownRequestsPool;
     std::unordered_map<uint64_t, ConnectContext> _connectRequests;
     std::unordered_set<uv_shutdown_t*> _shutdownRequests;
+    std::unordered_map<uv_shutdown_t*, BufferChain> _unsent;
     std::unordered_set<uv_connect_t*> _cancelledConnectRequests;
     std::unique_ptr<CoarseTimer> _connectTimer;
     bool _creatingInternalObjects=false;

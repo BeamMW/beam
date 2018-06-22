@@ -2,11 +2,11 @@
 #include <errno.h>
 
 namespace beam {
-    
+
 using namespace io;
 
 static constexpr size_t ITEM_SIZE = sizeof(PeerInfo);
-    
+
 PeerStorage::~PeerStorage() {
     close();
 }
@@ -40,27 +40,27 @@ Result PeerStorage::load_peers(const LoadCallback& cb) {
     if (!_file) {
         return make_unexpected(ec);
     }
-    
+
     long length=0;
     if (!(seek_end(_file, length) && seek_to(_file, 0))) {
         return make_unexpected(ec);
     }
-    
+
     if (length % ITEM_SIZE != 0) {
         return make_unexpected(EC_FILE_CORRUPTED);
     }
-    
+
     size_t nPeers = length / ITEM_SIZE;
-    
+
     PeerInfo peer;
     for (size_t i=0; i<nPeers; ++i) {
         if (ITEM_SIZE != fread(&peer, 1, ITEM_SIZE, _file)) {
             return make_unexpected(EC_EOF);
         }
-        _index[peer_id(peer.address)] = ITEM_SIZE * i;
+        _index[peer.sessionId] = ITEM_SIZE * i;
         cb(peer);
     }
-    
+
     return Ok();
 }
 
@@ -74,27 +74,26 @@ Result PeerStorage::update_peer(const PeerInfo& peer) {
     if (!_file) {
         return make_unexpected(ec);
     }
-    Peer id = peer_id(peer.address);
-    
-    auto it = _index.find(id);
+
+    auto it = _index.find(peer.sessionId);
     long offset=0;
     if (it == _index.end()) {
         if (!seek_end(_file, offset)) {
             return make_unexpected(ec);
         }
-        _index[id] = offset;
+        _index[peer.sessionId] = offset;
     } else {
-        offset = _index[id];
+        offset = _index[peer.sessionId];
         if (!seek_to(_file, offset)) {
             return make_unexpected(ec);
         }
     }
-    
+
     if (ITEM_SIZE != fwrite(&peer, 1, ITEM_SIZE, _file)) {
-        _index.erase(id);
+        _index.erase(peer.sessionId);
         return make_unexpected(ec);
     }
-    
+
     return Ok();
 }
 

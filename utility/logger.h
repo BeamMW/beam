@@ -18,6 +18,10 @@
     #endif
 #endif
 
+#ifndef SHOW_CODE_LOCATION
+    #define SHOW_CODE_LOCATION 0
+#endif
+
 // API
 
 #define LOG_LEVEL_CRITICAL 6
@@ -35,7 +39,12 @@ struct LogMessageStub {
     template <typename T> LogMessageStub& operator<<(const T&) { return *this; }
 };
 
-#define LOG_MESSAGE(LEVEL) if (beam::Logger::will_log(LEVEL)) beam::LogMessage(LEVEL, __FILE__, __LINE__, __FUNCTION__)
+#if SHOW_CODE_LOCATION
+    #define LOG_MESSAGE(LEVEL) if (beam::Logger::will_log(LEVEL)) beam::LogMessage(LEVEL, __FILE__, __LINE__, __FUNCTION__)
+#else
+    #define LOG_MESSAGE(LEVEL) if (beam::Logger::will_log(LEVEL)) beam::LogMessage(LEVEL)
+#endif
+
 #define LOG_CRITICAL() LOG_MESSAGE(LOG_LEVEL_CRITICAL)
 #define LOG_ERROR() LOG_MESSAGE(LOG_LEVEL_ERROR)
 #define LOG_WARNING() LOG_MESSAGE(LOG_LEVEL_WARNING)
@@ -93,7 +102,9 @@ typedef size_t (*LogMessageHeaderFormatter)(char* buf, size_t maxSize, const cha
 
 /// Default header formatter
 inline size_t def_header_formatter(char* buf, size_t maxSize, const char* timestampFormatted, const LogMessageHeader& header) {
-    return snprintf(buf, maxSize, "%c %s (%s, %s:%d) ", loglevel_tag(header.level), timestampFormatted, header.func, header.file, header.line);
+    if (header.line)
+        return snprintf(buf, maxSize, "%c %s (%s, %s:%d) ", loglevel_tag(header.level), timestampFormatted, header.func, header.file, header.line);
+    return snprintf(buf, maxSize, "%c %s ", loglevel_tag(header.level), timestampFormatted);
 }
 
 /// Logger interface
@@ -148,7 +159,7 @@ class LogMessage {
 public:
     LogMessageHeader header;
 
-    LogMessage(int _level, const char* _file, int _line, const char* _func);
+    LogMessage(int _level, const char* _file=0, int _line=0, const char* _func=0);
 
     LogMessage(const LogMessageHeader& h);
 

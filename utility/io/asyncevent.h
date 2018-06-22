@@ -17,7 +17,7 @@ public:
     Result trigger();
 
     ~AsyncEvent();
-    
+
 private:
     explicit AsyncEvent(Callback&& callback);
 

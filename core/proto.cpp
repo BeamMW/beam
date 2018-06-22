@@ -71,7 +71,7 @@ void NodeConnection::on_protocol_error(uint64_t, ProtocolError error)
 	OnClosed(-1);
 }
 
-void NodeConnection::on_connection_error(uint64_t, int errorCode)
+void NodeConnection::on_connection_error(uint64_t, io::ErrorCode errorCode)
 {
 	Reset();
 	OnClosed(errorCode);
@@ -118,7 +118,7 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
 { \
 	try { \
 		/* checkpoint */ \
-		OnMsg(std::move(v)); \
+        return OnMsg2(std::move(v)); \
 	} catch (...) { \
 		OnClosed(-1); \
 		return false; \

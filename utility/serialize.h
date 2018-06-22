@@ -11,6 +11,10 @@
 #include "yas/binary_oarchive.hpp"
 #include "yas/std_types.hpp"
 
+#define YAS_SERIALIZE_BOOST_TYPES
+#include "yas/types/boost/optional.hpp"
+#undef YAS_SERIALIZE_BOOST_TYPES
+
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
@@ -88,6 +92,36 @@ private:
 
     Ostream _os;
     yas::binary_oarchive<Ostream, SERIALIZE_OPTIONS> _oa;
+};
+
+/// Size counter, doesn't store anything
+struct SerializerSizeCounter
+{
+	struct Counter
+	{
+		size_t m_Value;
+
+		size_t write(const void *ptr, const size_t size)
+		{
+			m_Value += size;
+			return size;
+		}
+
+	} m_Counter;
+
+	yas::binary_oarchive<Counter, SERIALIZE_OPTIONS> _oa;
+
+
+	SerializerSizeCounter() : _oa(m_Counter)
+	{
+		m_Counter.m_Value = 0;
+	}
+
+	template <typename T> SerializerSizeCounter& operator & (const T& object)
+	{
+		_oa & object;
+		return *this;
+	}
 };
 
 /// Deserializer from static buffer

@@ -28,17 +28,19 @@ class NodeProcessor
 	struct RollbackData;
 
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
-	bool HandleValidatedTx(const TxBase&, Height, bool bFwd, RollbackData&);
-
-	bool HandleBlockElement(const Input&, bool bFwd, Height, RollbackData&);
-	bool HandleBlockElement(const Output&, Height, bool bFwd);
+	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, RollbackData&, const Height* = NULL);
+	void AdjustCumulativeParams(const Block::BodyBase&, bool bFwd);
+	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd, RollbackData&);
+	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
 	void OnSubsidyOptionChanged(bool);
 
-	void InitCursor();
-	void OnCorrupted();
-	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
+	static void SquashOnce(std::vector<Block::Body>&);
 
+	void InitCursor();
+	static void OnCorrupted();
+	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
+	uint64_t FindActiveAtStrict(Height);
 	bool IsRelevantHeight(Height);
 	uint8_t get_NextDifficulty();
 	Timestamp get_MovingMedian();
@@ -76,8 +78,13 @@ public:
 
 	void get_CurrentLive(Merkle::Hash&);
 
-	void ExportMacroBlock(Block::Body&); // can be time-consuming
-	bool ImportMacroBlock(const Block::SystemState::ID&, const Block::Body&);
+	// Export compressed history elements. Suitable only for "small" ranges, otherwise may be both time & memory consumng.
+	void ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
+	void ExportMacroBlock(Block::BodyBase::IMacroWriter&, const HeightRange&);
+	void ExportHdrRange(const HeightRange&, Block::SystemState::Sequence::Prefix&, std::vector<Block::SystemState::Sequence::Element>&);
+	void ExportMacroBlock(Block::BodyBase::IMacroWriter&);
+
+	bool ImportMacroBlock(Block::BodyBase::IMacroReader&);
 
 	struct DataStatus {
 		enum Enum {
@@ -87,7 +94,7 @@ public:
 		};
 	};
 
-	DataStatus::Enum OnState(const Block::SystemState::Full&, bool bIgnorePoW, const PeerID&);
+	DataStatus::Enum OnState(const Block::SystemState::Full&, const PeerID&);
 	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&);
 
 	// use only for data retrieval for peers
@@ -100,7 +107,8 @@ public:
 	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) {}
 	virtual void OnPeerInsane(const PeerID&) {}
 	virtual void OnNewState() {}
-	virtual bool VerifyBlock(const Block::Body&, Height h0, Height h1);
+	virtual void OnRolledBack() {}
+	virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 
 	bool IsStateNeeded(const Block::SystemState::ID&);
 
@@ -170,6 +178,7 @@ public:
 private:
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, Block::Body& block, Amount& fees, Height, RollbackData&);
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body&, bool bInitiallyEmpty);
+	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&);
 };
 
 

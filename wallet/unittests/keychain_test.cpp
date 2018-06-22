@@ -63,18 +63,74 @@ void TestKeychain()
 
 		WALLET_CHECK(a == b);
 	}
+}
 
+void TestStoreCoins()
+{
+    SqliteKeychain keychain;
+
+  
+    Coin coin = { 5, Coin::Unspent, 1, 10, KeyType::Coinbase };
+    keychain.store(coin);
+    coin = { 4, Coin::Unspent, 1, 10, KeyType::Comission };
+    keychain.store(coin);
+    coin = { 2, Coin::Unspent, 1, 10, KeyType::Regular };
+    keychain.store(coin);
+    coin = { 5, Coin::Unspent, 1, 10, KeyType::Coinbase };
+    keychain.store(coin);
+    coin = { 1, Coin::Unspent, 1, 10, KeyType::Regular };
+    keychain.store(coin);
+    coin = { 5, Coin::Unspent, 1, 10, KeyType::Coinbase };
+    keychain.store(coin);
+    coin = { 4, Coin::Unspent, 1, 10, KeyType::Comission };
+    keychain.store(coin);
+    coin = { 1, Coin::Unspent, 1, 10, KeyType::Regular };
+    keychain.store(coin);
+    coin = { 4, Coin::Unspent, 1, 10, KeyType::Comission };
+    keychain.store(coin);
+    coin = { 1, Coin::Unspent, 1, 10, KeyType::Regular };
+    keychain.store(coin);
+    coin = { 1, Coin::Unspent, 1, 10, KeyType::Regular };
+    keychain.store(coin);
+
+    auto coins = vector<Coin>{
+        Coin{ 5, Coin::Unspent, 1, 10, KeyType::Coinbase },
+        Coin{ 4, Coin::Unspent, 1, 10, KeyType::Comission },
+        Coin{ 2, Coin::Unspent, 1, 10, KeyType::Regular },
+        Coin{ 5, Coin::Unspent, 3, 10, KeyType::Coinbase },
+        Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular },
+        Coin{ 5, Coin::Unspent, 1, 10, KeyType::Coinbase },
+        Coin{ 4, Coin::Unspent, 1, 10, KeyType::Comission },
+        Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular },
+        Coin{ 4, Coin::Unspent, 3, 10, KeyType::Comission },
+        Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular },
+        Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular } };
+    keychain.store(coins);
+
+
+    int coinBase = 0;
+    int comission = 0;
+    int regular = 0;
+    keychain.visit([&coinBase, &comission, &regular](const Coin& coin)->bool
     {
-        Coin coin1{ 5, Coin::Unspent, 1, 10, KeyType::Coinbase };
-        Coin coin2{ 4, Coin::Unspent, 1, 10, KeyType::Comission };
-        Coin coin3{ 2, Coin::Unspent, 1, 10, KeyType::Regular };
-        Coin coin4{ 1, Coin::Unspent, 1, 10, KeyType::Regular };
+        if (coin.m_key_type == KeyType::Coinbase)
+        {
+            ++coinBase;
+        }
+        else if (coin.m_key_type == KeyType::Comission)
+        {
+            ++comission;
+        }
+        else if (coin.m_key_type == KeyType::Regular)
+        {
+            ++regular;
+        }
+        return true;
+    });
 
-        keychain.store(coin1);
-        keychain.store(coin2);
-        keychain.store(coin3);
-        keychain.store(coin4);
-    }
+    WALLET_CHECK(coinBase == 2);
+    WALLET_CHECK(comission == 2);
+    WALLET_CHECK(regular == 10);
 }
 
 int main() 
@@ -82,6 +138,7 @@ int main()
 
 	ECC::InitializeContext();
 	TestKeychain();
+    TestStoreCoins();
 
     return WALLET_CHECK_RESULT;
 }

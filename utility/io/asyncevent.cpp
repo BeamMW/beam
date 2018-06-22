@@ -6,10 +6,10 @@ namespace beam { namespace io {
 AsyncEvent::Ptr AsyncEvent::create(const Reactor::Ptr& reactor, AsyncEvent::Callback&& callback) {
     assert(reactor);
     assert(callback);
-    
+
     if (!reactor || !callback)
         IO_EXCEPTION(EC_EINVAL);
-    
+
     Ptr event(new AsyncEvent(std::move(callback)));
     ErrorCode errorCode = reactor->init_asyncevent(
         event.get(),

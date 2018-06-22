@@ -53,6 +53,7 @@ namespace proto {
 	macro(std::vector<PerMined>, Entries)
 
 #define BeamNodeMsg_Config(macro) \
+	macro(ECC::Hash::Value, CfgChecksum) \
 	macro(bool, SpreadingTransactions) \
 	macro(bool, Mining) \
 	macro(bool, AutoSendHdr) /* prefer the header in addition to the NewTip message */
@@ -142,7 +143,7 @@ namespace proto {
 		void OnConnectInternal2(io::TcpStream::Ptr&& newStream, int status);
 
 		virtual void on_protocol_error(uint64_t, ProtocolError error) override;
-		virtual void on_connection_error(uint64_t, int errorCode) override;
+		virtual void on_connection_error(uint64_t, io::ErrorCode errorCode) override;
 
 #define THE_MACRO(code, msg) bool OnMsgInternal(uint64_t, msg&& v);
 		BeamNodeMsgsAll(THE_MACRO)
@@ -164,7 +165,12 @@ namespace proto {
 
 #define THE_MACRO(code, msg) \
 		void Send(const msg& v); \
-		virtual void OnMsg(msg&& v) {}
+		virtual bool OnMsg2(msg&& v) \
+		{ \
+			OnMsg(std::move(v)); \
+			return true; \
+		} \
+		virtual void OnMsg(msg&& v) {} 
 		BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 

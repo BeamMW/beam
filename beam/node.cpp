@@ -269,72 +269,99 @@ void Node::Processor::OnNewState()
 		}
 	}
 
+	if (get_ParentObj().m_Compressor.m_bEnabled)
+		get_ParentObj().m_Compressor.OnNewState();
+
 	get_ParentObj().RefreshCongestions();
 }
 
-bool Node::Processor::VerifyBlock(const Block::Body& block, Height h0, Height h1)
+void Node::Processor::OnRolledBack()
+{
+	LOG_INFO() << "Rolled back to: " << m_Cursor.m_ID;
+
+	if (get_ParentObj().m_Compressor.m_bEnabled)
+		get_ParentObj().m_Compressor.OnRolledBack();
+}
+
+bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
 {
 	uint32_t nThreads = get_ParentObj().m_Cfg.m_VerificationThreads;
 	if (!nThreads)
-		return NodeProcessor::VerifyBlock(block, h0, h1);
+		return NodeProcessor::VerifyBlock(block, std::move(r), hr);
 
-	VerifierContext vctx;
+	Verifier& v = m_Verifier; // alias
+	std::unique_lock<std::mutex> scope(v.m_Mutex);
 
-	vctx.m_pTx = &block;
-	vctx.m_bAbort = false;
-	vctx.m_Remaining = nThreads;
-	vctx.m_Context.m_bBlockMode = true;
-	vctx.m_Context.m_hMin = h0;
-	vctx.m_Context.m_hMax = h1;
-	vctx.m_Context.m_nVerifiers = nThreads;
-
-	std::vector<std::thread> vThreads;
-	vThreads.resize(nThreads);
-
-	std::unique_lock<std::mutex> scope(vctx.m_Mutex);
-
-	for (uint32_t i = 0; i < nThreads; i++)
+	if (v.m_vThreads.empty())
 	{
-		std::thread& t = vThreads[i];
-		t = std::thread(&VerifierContext::Proceed, &vctx, i);
+		v.m_iTask = 1;
+
+		v.m_vThreads.resize(nThreads);
+		for (uint32_t i = 0; i < nThreads; i++)
+			v.m_vThreads[i] = std::thread(&Verifier::Thread, &v, i);
 	}
 
-	while (vctx.m_Remaining)
-		vctx.m_Cond.wait(scope);
 
-	for (uint32_t i = 0; i < nThreads; i++)
-		vThreads[i].join();
+	v.m_iTask ^= 2;
+	v.m_pTx = &block;
+	v.m_pR = &r;
+	v.m_bFail = false;
+	v.m_Remaining = nThreads;
+	v.m_Context.m_bBlockMode = true;
+	v.m_Context.m_Height = hr;
+	v.m_Context.m_nVerifiers = nThreads;
 
-	return !vctx.m_bAbort && vctx.m_Context.IsValidBlock(block, m_Cursor.m_SubsidyOpen);
+	v.m_Cond.notify_all();
+
+	while (v.m_Remaining)
+		v.m_Cond.wait(scope);
+
+	return !v.m_bFail && v.m_Context.IsValidBlock(block, m_Cursor.m_SubsidyOpen);
 }
 
-void Node::Processor::VerifierContext::Proceed(VerifierContext* pVctx, uint32_t iVerifier)
+void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 {
-	VerifierContext& vctx = *pVctx;
-
-	TxBase::Context ctx;
-	ctx.m_bBlockMode = true;
-	ctx.m_hMin = vctx.m_Context.m_hMin;
-	ctx.m_hMax = vctx.m_Context.m_hMax;
-	ctx.m_nVerifiers = vctx.m_Context.m_nVerifiers;
-	ctx.m_iVerifier = iVerifier;
-	ctx.m_pAbort = &vctx.m_bAbort;
-
-	bool bValid = vctx.m_pTx->ValidateAndSummarize(ctx);
-
+	for (uint32_t iTask = 1; ; )
 	{
-		std::unique_lock<std::mutex> scope(vctx.m_Mutex);
+		{
+			std::unique_lock<std::mutex> scope(m_Mutex);
 
-		verify(vctx.m_Remaining--);
+			while (m_iTask == iTask)
+				m_Cond.wait(scope);
 
-		if (bValid && !vctx.m_bAbort)
-			bValid = vctx.m_Context.Merge(ctx);
+			if (!m_iTask)
+				return;
+
+			iTask = m_iTask;
+		}
+
+		assert(m_Remaining);
+
+		TxBase::Context ctx;
+		ctx.m_bBlockMode = true;
+		ctx.m_Height = m_Context.m_Height;
+		ctx.m_nVerifiers = m_Context.m_nVerifiers;
+		ctx.m_iVerifier = iVerifier;
+		ctx.m_pAbort = &m_bFail; // obsolete actually
+
+		TxBase::IReader::Ptr pR;
+		m_pR->Clone(pR);
+
+		bool bValid = ctx.ValidateAndSummarize(*m_pTx, std::move(*pR));
+
+		std::unique_lock<std::mutex> scope(m_Mutex);
+
+		verify(m_Remaining--);
+
+		if (bValid && !m_bFail)
+			bValid = m_Context.Merge(ctx);
 
 		if (!bValid)
-			vctx.m_bAbort = true;
-	}
+			m_bFail = true;
 
-	vctx.m_Cond.notify_one();
+		if (!m_Remaining)
+			m_Cond.notify_one();
+	}
 }
 
 Node::Peer* Node::AllocPeer()
@@ -371,6 +398,8 @@ Node::Peer* Node::FindPeer(const Processor::PeerID& peerID)
 
 void Node::Initialize()
 {
+	Rules::get_Hash(m_hvCfg);
+
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
     m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
@@ -403,14 +432,36 @@ void Node::Initialize()
 		m_Miner.m_vThreads.resize(m_Cfg.m_MiningThreads);
 		for (uint32_t i = 0; i < m_Cfg.m_MiningThreads; i++)
 		{
-			Miner::PerThread& pt = m_Miner.m_vThreads[i];
+			PerThread& pt = m_Miner.m_vThreads[i];
 			pt.m_pReactor = io::Reactor::create();
-			pt.m_pEvtRefresh = io::AsyncEvent::create(pt.m_pReactor, [this, i]() { m_Miner.OnRefresh(i); });
+			pt.m_pEvt = io::AsyncEvent::create(pt.m_pReactor, [this, i]() { m_Miner.OnRefresh(i); });
 			pt.m_Thread = std::thread(&io::Reactor::run, pt.m_pReactor);
 		}
 
-		m_Miner.Restart();
+		m_Miner.SetTimer(0, true); // async start mining, since this method may be followed by ImportMacroblock.
 	}
+
+	ZeroObject(m_Compressor.m_hrNew);
+	m_Compressor.m_bEnabled = !m_Cfg.m_HistoryCompression.m_sPathOutput.empty();
+
+	if (m_Compressor.m_bEnabled)
+		m_Compressor.Init();
+}
+
+void Node::ImportMacroblock(Height h)
+{
+	if (!m_Compressor.m_bEnabled)
+		throw std::runtime_error("History path not specified");
+
+	Block::BodyBase::RW rw;
+	m_Compressor.FmtPath(rw, h, NULL);
+	if (!rw.Open(true))
+		std::ThrowIoError();
+
+	if (!m_Processor.ImportMacroBlock(rw))
+		throw std::runtime_error("import failed");
+
+	m_Processor.get_DB().MacroblockIns(h);
 }
 
 Node::~Node()
@@ -419,13 +470,16 @@ Node::~Node()
 
 	for (size_t i = 0; i < m_Miner.m_vThreads.size(); i++)
 	{
-		Miner::PerThread& pt = m_Miner.m_vThreads[i];
+		PerThread& pt = m_Miner.m_vThreads[i];
 		if (pt.m_pReactor)
 			pt.m_pReactor->stop();
 
-		pt.m_Thread.join();
+		if (pt.m_Thread.joinable())
+			pt.m_Thread.join();
 	}
 	m_Miner.m_vThreads.clear();
+
+	m_Compressor.StopCurrent();
 
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
 		it->m_eState = State::Snoozed; // prevent re-assigning of tasks in the next loop
@@ -444,6 +498,20 @@ Node::~Node()
 
 	while (!m_Wtx.m_lst.empty())
 		m_Wtx.Delete(m_Wtx.m_lst.back());
+
+	Processor::Verifier& v = m_Processor.m_Verifier; // alias
+	if (!v.m_vThreads.empty())
+	{
+		{
+			std::unique_lock<std::mutex> scope(v.m_Mutex);
+			v.m_iTask = 0;
+			v.m_Cond.notify_all();
+		}
+
+		for (size_t i = 0; i < v.m_vThreads.size(); i++)
+			if (v.m_vThreads[i].joinable())
+				v.m_vThreads[i].join();
+	}
 }
 
 void Node::Peer::SetTimer(uint32_t timeout_ms)
@@ -486,7 +554,8 @@ void Node::Peer::OnTimer()
 
 void Node::Peer::OnConnected()
 {
-	LOG_INFO() << "+Peer " << get_Connection()->peer_address();
+	m_RemoteAddr = get_Connection()->peer_address();
+	LOG_INFO() << "+Peer " << m_RemoteAddr;
 
 	if (State::Connecting == m_eState)
 		KillTimer();
@@ -498,6 +567,7 @@ void Node::Peer::OnConnected()
 	ZeroObject(m_Config);
 
 	proto::Config msgCfg;
+	msgCfg.m_CfgChecksum = m_pThis->m_hvCfg;
 	msgCfg.m_SpreadingTransactions = true;
 	msgCfg.m_Mining = (m_pThis->m_Cfg.m_MiningThreads > 0);
 	msgCfg.m_AutoSendHdr = false;
@@ -546,9 +616,7 @@ void Node::Peer::ReleaseTask(Task& t)
 
 void Node::Peer::OnPostError()
 {
-	const Connection* pConn = get_Connection();
-	if (pConn)
-		LOG_INFO() << "-Peer " << pConn->peer_address();
+	LOG_INFO() << "-Peer " << m_RemoteAddr;
 
 	if (State::Snoozed != m_eState)
 		m_eState = State::Idle; // prevent reassigning the tasks
@@ -666,7 +734,7 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	NodeDB::PeerID pid;
 	get_ID(pid);
 
-	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnState(msg.m_Description, m_pThis->m_Cfg.m_TestMode.m_bFakePoW, pid);
+	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnState(msg.m_Description, pid);
 	OnFirstTaskDone(eStatus);
 }
 
@@ -810,6 +878,12 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 
 void Node::Peer::OnMsg(proto::Config&& msg)
 {
+	if (msg.m_CfgChecksum != m_pThis->m_hvCfg)
+	{
+		LOG_WARNING() << "Incompatible peer cfg!";
+		ThrowUnexpected();
+	}
+
 	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr && m_pThis->m_Processor.m_Cursor.m_Sid.m_Row)
 	{
 		proto::Hdr msgHdr;
@@ -918,7 +992,7 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 
 void Node::Peer::OnMsg(proto::GetProofState&& msg)
 {
-	if (msg.m_Height < Block::Rules::HeightGenesis)
+	if (msg.m_Height < Rules::HeightGenesis)
 		ThrowUnexpected();
 
 	proto::Proof msgOut;
@@ -1079,7 +1153,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 			return false;
 		};
 
-		if (get_ParentObj().m_Cfg.m_TestMode.m_bFakePoW)
+		if (Rules::FakePoW)
 		{
 			uint32_t timeout_ms = get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms;
 
@@ -1163,7 +1237,7 @@ bool Node::Miner::Restart()
 
 	if (get_ParentObj().m_Processor.m_Cursor.m_SubsidyOpen)
 	{
-		Height dh = get_ParentObj().m_Processor.m_Cursor.m_Sid.m_Height + 1 - Block::Rules::HeightGenesis;
+		Height dh = get_ParentObj().m_Processor.m_Cursor.m_Sid.m_Height + 1 - Rules::HeightGenesis;
 		std::vector<Block::Body>& vTreasury = get_ParentObj().m_Cfg.m_vTreasury;
 		if (dh >= vTreasury.size())
 			return false;
@@ -1207,7 +1281,7 @@ bool Node::Miner::Restart()
 	m_pTask = pTask;
 
 	for (size_t i = 0; i < m_vThreads.size(); i++)
-		m_vThreads[i].m_pEvtRefresh->trigger();
+		m_vThreads[i].m_pEvt->trigger();
 
 	return true;
 }
@@ -1227,7 +1301,7 @@ void Node::Miner::OnMined()
 
 	LOG_INFO() << "New block mined: " << id;
 
-	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, true, NodeDB::PeerID());
+	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, NodeDB::PeerID());
 	assert(NodeProcessor::DataStatus::Accepted == eStatus); // Otherwise either the block is invalid (some bug?). Or someone else mined exactly the same block!
 
 	NodeDB::StateID sid;
@@ -1238,6 +1312,318 @@ void Node::Miner::OnMined()
 
 	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, NodeDB::PeerID()); // will likely trigger OnNewState(), and spread this block to the network
 	assert(NodeProcessor::DataStatus::Accepted == eStatus);
+}
+
+void Node::Compressor::Init()
+{
+	m_bStop = true;
+
+	OnRolledBack(); // delete potentially ahead-of-time macroblocks
+	Cleanup(); // delete exceeding backlog, broken files
+
+	OnNewState();
+}
+
+void Node::Compressor::Cleanup()
+{
+	// delete missing datas, delete exceeding backlog
+	Processor& p = get_ParentObj().m_Processor;
+
+	uint32_t nBacklog = get_ParentObj().m_Cfg.m_HistoryCompression.m_MaxBacklog + 1;
+
+	NodeDB::WalkerState ws(p.get_DB());
+	for (p.get_DB().EnumMacroblocks(ws); ws.MoveNext(); )
+	{
+		Block::BodyBase::RW rw;
+		FmtPath(rw, ws.m_Sid.m_Height, NULL);
+
+		if (nBacklog && rw.Open(true))
+			nBacklog--; // ok
+		else
+			Delete(ws.m_Sid);
+	}
+}
+
+void Node::Compressor::OnRolledBack()
+{
+	Processor& p = get_ParentObj().m_Processor;
+
+	if (m_hrNew.m_Max > p.m_Cursor.m_ID.m_Height)
+		StopCurrent();
+
+	NodeDB::WalkerState ws(p.get_DB());
+	p.get_DB().EnumMacroblocks(ws);
+
+	while (ws.MoveNext() && (ws.m_Sid.m_Height > p.m_Cursor.m_ID.m_Height))
+		Delete(ws.m_Sid);
+
+	// wait for OnNewState callback to realize new task
+}
+
+void Node::Compressor::Delete(const NodeDB::StateID& sid)
+{
+	NodeDB& db = get_ParentObj().m_Processor.get_DB();
+	db.MacroblockDel(sid.m_Row);
+
+	Block::BodyBase::RW rw;
+	FmtPath(rw, sid.m_Height, NULL);
+	rw.Delete();
+}
+
+void Node::Compressor::OnNewState()
+{
+	if (m_hrNew.m_Max)
+		return; // alreaddy in progress
+
+	const Config::HistoryCompression& cfg = get_ParentObj().m_Cfg.m_HistoryCompression;
+	Processor& p = get_ParentObj().m_Processor;
+
+	if (p.m_Cursor.m_ID.m_Height - Rules::HeightGenesis + 1 <= cfg.m_Threshold)
+		return;
+
+	HeightRange hr;
+	hr.m_Max = p.m_Cursor.m_ID.m_Height - cfg.m_Threshold;
+
+	// last macroblock
+	NodeDB::WalkerState ws(p.get_DB());
+	p.get_DB().EnumMacroblocks(ws);
+	hr.m_Min = ws.MoveNext() ? ws.m_Sid.m_Height : 0;
+
+	if (hr.m_Min + cfg.m_MinAggregate > hr.m_Max)
+		return;
+
+	LOG_INFO() << "History generation started up to height " << hr.m_Max;
+
+	// Start aggregation
+	m_hrNew = hr;
+	m_bStop = false;
+	m_bSuccess = false;
+	ZeroObject(m_hrInplaceRequest);
+
+	m_Link.m_pReactor = io::Reactor::get_Current().shared_from_this();
+	m_Link.m_pEvt = io::AsyncEvent::create(m_Link.m_pReactor, [this]() { OnNotify(); });;
+	m_Link.m_Thread = std::thread(&Compressor::Proceed, this);
+}
+
+void Node::Compressor::FmtPath(Block::BodyBase::RW& rw, Height h, const Height* pH0)
+{
+	std::stringstream str;
+	if (!pH0)
+		str << get_ParentObj().m_Cfg.m_HistoryCompression.m_sPathOutput << "mb_";
+	else
+		str << get_ParentObj().m_Cfg.m_HistoryCompression.m_sPathTmp << "tmp_" << *pH0 << "_";
+
+	str << h;
+	rw.m_sPath = str.str();
+}
+
+void Node::Compressor::OnNotify()
+{
+	assert(m_hrNew.m_Max);
+
+	if (m_hrInplaceRequest.m_Max)
+	{
+		// extract & resume
+		try
+		{
+			Block::Body::RW rw;
+			FmtPath(rw, m_hrInplaceRequest.m_Max, &m_hrInplaceRequest.m_Min);
+			if (!rw.Open(false))
+				std::ThrowIoError();
+
+			get_ParentObj().m_Processor.ExportMacroBlock(rw, m_hrInplaceRequest);
+		}
+		catch (...) {
+			m_bStop = true; // error indication
+		}
+
+		{
+			// lock is aqcuired by the other thread before it trigger the events. The following line guarantees it won't miss our notification
+			std::unique_lock<std::mutex> scope(m_Mutex);
+		}
+
+		m_Cond.notify_one();
+	}
+	else
+	{
+		Height h = m_hrNew.m_Max;
+		StopCurrent();
+
+		if (m_bSuccess)
+		{
+			std::string pSrc[Block::Body::RW::s_Datas];
+			std::string pTrg[Block::Body::RW::s_Datas];
+
+			Block::Body::RW rwSrc, rwTrg;
+			FmtPath(rwSrc, h, &Rules::HeightGenesis);
+			FmtPath(rwTrg, h, NULL);
+			rwSrc.GetPathes(pSrc);
+			rwTrg.GetPathes(pTrg);
+
+			for (int i = 0; i < Block::Body::RW::s_Datas; i++)
+			{
+#ifdef WIN32
+				bool bOk = (FALSE != MoveFileExA(pSrc[i].c_str(), pTrg[i].c_str(), MOVEFILE_REPLACE_EXISTING));
+#else // WIN32
+				bool bOk = !rename(pSrc[i].c_str(), pTrg[i].c_str());
+#endif // WIN32
+
+				if (!bOk)
+				{
+					LOG_WARNING() << "History file move/rename failed";
+					m_bSuccess = false;
+					break;
+				}
+			}
+
+			if (!m_bSuccess)
+			{
+				rwSrc.Delete();
+				rwTrg.Delete();
+			}
+		}
+
+		if (m_bSuccess)
+		{
+			get_ParentObj().m_Processor.get_DB().MacroblockIns(h);
+			LOG_INFO() << "History generated up to height " << h;
+
+			Cleanup();
+		}
+		else
+			LOG_WARNING() << "History generation failed";
+
+	}
+}
+
+void Node::Compressor::StopCurrent()
+{
+	if (!m_hrNew.m_Max)
+		return;
+
+	{
+		std::unique_lock<std::mutex> scope(m_Mutex);
+		m_bStop = true;
+	}
+
+	m_Cond.notify_one();
+
+	if (m_Link.m_Thread.joinable())
+		m_Link.m_Thread.join();
+
+	ZeroObject(m_hrNew);
+	m_Link.m_pEvt = NULL; // should prevent "spurious" calls
+}
+
+void Node::Compressor::Proceed()
+{
+	try {
+		m_bSuccess = ProceedInternal();
+	} catch (...) {
+	}
+
+	if (!(m_bSuccess || m_bStop))
+		LOG_WARNING() << "History generation failed";
+
+	ZeroObject(m_hrInplaceRequest);
+	m_Link.m_pEvt->trigger();
+}
+
+bool Node::Compressor::ProceedInternal()
+{
+	assert(m_hrNew.m_Max);
+	const Config::HistoryCompression& cfg = get_ParentObj().m_Cfg.m_HistoryCompression;
+
+	std::vector<HeightRange> v;
+
+	uint32_t i = 0;
+	for (Height hPos = m_hrNew.m_Min; hPos < m_hrNew.m_Max; i++)
+	{
+		HeightRange hr;
+		hr.m_Min = hPos + 1; // convention is boundary-inclusive, whereas m_hrNew excludes min bound
+		hr.m_Max = std::min(hPos + cfg.m_Naggling, m_hrNew.m_Max);
+
+		{
+			std::unique_lock<std::mutex> scope(m_Mutex);
+			m_hrInplaceRequest = hr;
+
+			m_Link.m_pEvt->trigger();
+
+			m_Cond.wait(scope);
+
+			if (m_bStop)
+				return false;
+		}
+
+		v.push_back(hr);
+		hPos = hr.m_Max;
+
+		for (uint32_t j = i; 1 & j; j >>= 1)
+			SquashOnce(v);
+	}
+
+	while (v.size() > 1)
+		SquashOnce(v);
+
+	if (m_hrNew.m_Min >= Rules::HeightGenesis)
+	{
+		Block::Body::RW rw, rwSrc0, rwSrc1;
+
+		FmtPath(rw, m_hrNew.m_Max, &Rules::HeightGenesis);
+		FmtPath(rwSrc0, m_hrNew.m_Min, NULL);
+
+		Height h0 = m_hrNew.m_Min + 1;
+		FmtPath(rwSrc1, m_hrNew.m_Max, &h0);
+
+		rw.m_bAutoDelete = rwSrc1.m_bAutoDelete = true;
+
+		if (!SquashOnce(rw, rwSrc0, rwSrc1))
+			return false;
+
+		rw.m_bAutoDelete = false;
+	}
+
+	return true;
+}
+
+bool Node::Compressor::SquashOnce(std::vector<HeightRange>& v)
+{
+	assert(v.size() >= 2);
+
+	HeightRange& hr0 = v[v.size() - 2];
+	HeightRange& hr1 = v[v.size() - 1];
+
+	Block::Body::RW rw, rwSrc0, rwSrc1;
+	FmtPath(rw, hr1.m_Max, &hr0.m_Min);
+	FmtPath(rwSrc0, hr0.m_Max, &hr0.m_Min);
+	FmtPath(rwSrc1, hr1.m_Max, &hr1.m_Min);
+
+	hr0.m_Max = hr1.m_Max;
+	v.pop_back();
+
+	rw.m_bAutoDelete = rwSrc0.m_bAutoDelete = rwSrc1.m_bAutoDelete = true;
+
+	if (!SquashOnce(rw, rwSrc0, rwSrc1))
+		return false;
+
+	rw.m_bAutoDelete = false;
+	return true;
+}
+
+bool Node::Compressor::SquashOnce(Block::BodyBase::RW& rw, Block::BodyBase::RW& rwSrc0, Block::BodyBase::RW& rwSrc1)
+{
+	if (!rw.Open(false) ||
+		!rwSrc0.Open(true) ||
+		!rwSrc1.Open(true))
+		std::ThrowIoError();
+
+	if (!rw.CombineHdr(std::move(rwSrc0), std::move(rwSrc1), m_bStop))
+		return false;
+
+	if (!rw.Combine(std::move(rwSrc0), std::move(rwSrc1), m_bStop))
+		return false;
+
+	return true;
 }
 
 } // namespace beam

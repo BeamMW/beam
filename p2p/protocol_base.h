@@ -1,5 +1,6 @@
 #pragma once
 #include "utility/io/buffer.h"
+#include "utility/io/errorhandling.h"
 #include <string.h>
 #include <vector>
 
@@ -60,13 +61,20 @@ struct MsgHeader {
     }
 };
 
+/// Zero sized message placeholder
+struct VoidMessage {
+    template<typename A> void serialize(A&) const {}
+    template<typename A> void serialize(A&) {}
+};
+
 /// Errors occured during deserialization
 enum ProtocolError {
-    no_error = 0,
-    protocol_version_error = -1,
-    msg_type_error = -2,
-    msg_size_error = -3,
-    message_corrupted = -4
+    no_error = 0,               // ok
+    protocol_version_error = -1,// wrong protocol version (first 3 bytes)
+    msg_type_error = -2,        // msg type is not handled by this protocol
+    msg_size_error = -3,        // msg size out of allowed range
+    message_corrupted = -4,     // deserialization error
+    unexpected_msg_type = -5    // receiving of msg type disabled for this stream
 };
 
 /// Protocol errors handler base
@@ -77,7 +85,13 @@ struct IErrorHandler {
     virtual void on_protocol_error(uint64_t fromStream, ProtocolError error) = 0;
 
     /// Handles network connection errors
-    virtual void on_connection_error(uint64_t fromStream, int errorCode) = 0;
+    virtual void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) = 0;
+
+    /// Per-connection msg type filter fails
+    virtual void on_unexpected_msg(uint64_t fromStream, MsgType type) {
+        // default impl
+        on_protocol_error(fromStream, unexpected_msg_type);
+    }
 };
 
 class Deserializer;
@@ -109,6 +123,10 @@ public:
         return MsgHeader(V0, V1, V2);
     }
 
+    size_t max_message_types() const {
+        return _maxMessageTypes;
+    }
+
     /// Called by MsgReader on receiving message header
     bool approve_msg_header(uint64_t fromStream, const MsgHeader& header) {
         ProtocolError error = no_error;
@@ -134,8 +152,14 @@ public:
     }
 
     /// Called by Connection on network errors
-    void on_connection_error(uint64_t fromStream, int errorCode) {
+    void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) {
         _errorHandler.on_connection_error(fromStream, errorCode);
+    }
+
+    /// Called by msg reader if msg type disabled (by the protocol logic)
+    /// for the connection at the moment
+    void on_unexpected_msg(uint64_t fromStream, MsgType type) {
+        _errorHandler.on_unexpected_msg(fromStream, type);
     }
 
     typedef bool(*OnRawMessage)(
