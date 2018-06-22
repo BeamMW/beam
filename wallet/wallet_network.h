@@ -97,10 +97,10 @@ namespace beam
             }
             else if (auto it = m_addresses.find(to); it != m_addresses.end())
             {
-                auto t = std::make_shared<T>(move(msg)); // we need copyable object
+                auto t = std::make_shared<T>(std::move(msg)); // we need copyable object
                 connect_wallet(it->second, to, [this, type, t](uint64_t tag)
                 {
-                    send(tag, type, move(*t));
+                    send(tag, type, std::move(*t));
                 });
             }
         }
