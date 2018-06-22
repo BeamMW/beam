@@ -41,7 +41,7 @@ namespace beam {
 
     WalletNetworkIO::~WalletNetworkIO()
     {
-        assert(m_connections.empty());
+       // assert(m_connections.empty());
         assert(m_connections_callbacks.empty());
     }
 

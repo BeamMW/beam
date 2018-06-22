@@ -147,8 +147,6 @@ namespace beam::wallet
 	void Sender::FSMDefinition::rollback_tx()
 	{
         LOG_DEBUG() << "Transaction failed. Rollback...";
-
-        m_gateway.send_tx_failed(m_txDesc);
 		for (auto& c : m_coins)
 		{
 			c.m_status = Coin::Unspent;
@@ -164,7 +162,6 @@ namespace beam::wallet
     {
         complete_tx();
     }
-
 
     void Sender::FSMDefinition::complete_tx()
     {

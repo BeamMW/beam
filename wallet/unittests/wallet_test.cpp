@@ -645,6 +645,8 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(sh[0].m_status == rh[0].m_status);
     WALLET_CHECK(sh[0].m_fsmState.empty());
     WALLET_CHECK(rh[0].m_fsmState.empty());
+    WALLET_CHECK(sh[0].m_sender == true);
+    WALLET_CHECK(rh[0].m_sender == false);
 
     // second transfer
     sw.start();
@@ -709,13 +711,51 @@ void TestP2PWalletNegotiationST()
     rh = receiverKeychain->getTxHistory(0, numeric_limits<size_t>::max());
     WALLET_CHECK(rh.size() == 2);
 
-    WALLET_CHECK(sh[1].m_txId == rh[1].m_txId);
-    WALLET_CHECK(sh[1].m_amount == rh[1].m_amount);
-    WALLET_CHECK(sh[1].m_message == rh[1].m_message);
-    WALLET_CHECK(sh[1].m_createTime <= rh[1].m_createTime);
-    WALLET_CHECK(sh[1].m_status == rh[1].m_status);
-    WALLET_CHECK(sh[1].m_fsmState.empty());
-    WALLET_CHECK(rh[1].m_fsmState.empty());
+    WALLET_CHECK(sh[0].m_txId == rh[0].m_txId);
+    WALLET_CHECK(sh[0].m_amount == rh[0].m_amount);
+    WALLET_CHECK(sh[0].m_message == rh[0].m_message);
+    WALLET_CHECK(sh[0].m_createTime <= rh[0].m_createTime);
+    WALLET_CHECK(sh[0].m_status == rh[0].m_status);
+    WALLET_CHECK(sh[0].m_fsmState.empty());
+    WALLET_CHECK(rh[0].m_fsmState.empty());
+    WALLET_CHECK(sh[0].m_sender == true);
+    WALLET_CHECK(rh[0].m_sender == false);
+
+
+    // third transfer. no enough money should appear
+    sw.start();
+    sender_io.transfer_money(receiver_address, 6);
+    main_reactor->run();
+    sw.stop();
+    cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
+    // check coins
+    newSenderCoins.clear();
+    senderKeychain->visit([&newSenderCoins](const Coin& c)->bool
+    {
+        newSenderCoins.push_back(c);
+        return true;
+    });
+    newReceiverCoins.clear();
+    receiverKeychain->visit([&newReceiverCoins](const Coin& c)->bool
+    {
+        newReceiverCoins.push_back(c);
+        return true;
+    });
+
+    // no coins 
+    WALLET_CHECK(newSenderCoins.size() == 6);
+    WALLET_CHECK(newReceiverCoins.size() == 2);
+
+    // Tx history check. New failed tx should be added to sender
+    sh = senderKeychain->getTxHistory(0, numeric_limits<size_t>::max());
+    WALLET_CHECK(sh.size() == 3);
+    rh = receiverKeychain->getTxHistory(0, numeric_limits<size_t>::max());
+    WALLET_CHECK(rh.size() == 2);
+
+    WALLET_CHECK(sh[0].m_amount == 6);
+    WALLET_CHECK(sh[0].m_status == TxDescription::Failed);
+    WALLET_CHECK(sh[0].m_fsmState.empty());
+    WALLET_CHECK(sh[0].m_sender == true);
  }
 
 void TestSplitKey()
