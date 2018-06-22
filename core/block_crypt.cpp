@@ -214,7 +214,7 @@ namespace beam
 
 	Height Output::get_MinMaturity(Height h) const
 	{
-		HeightAdd(h, m_Coinbase ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd);
+		HeightAdd(h, m_Coinbase ? Rules::MaturityCoinbase : Rules::MaturityStd);
 		HeightAdd(h, m_Incubation);
 		return h;
 	}
@@ -831,23 +831,23 @@ namespace beam
 
 	/////////////
 	// Block
-	const Height Block::Rules::HeightGenesis	= 1;
-	const Amount Block::Rules::Coin				= 1000000;
+	const Height Rules::HeightGenesis	= 1;
+	const Amount Rules::Coin				= 1000000;
 
-	Amount Block::Rules::CoinbaseEmission	= Coin * 40; // the maximum allowed coinbase in a single block
-	Height Block::Rules::MaturityCoinbase	= 60; // 1 hour
-	Height Block::Rules::MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
-	size_t Block::Rules::MaxBodySize		= 0x100000; // 1MB
+	Amount Rules::CoinbaseEmission	= Coin * 40; // the maximum allowed coinbase in a single block
+	Height Rules::MaturityCoinbase	= 60; // 1 hour
+	Height Rules::MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+	size_t Rules::MaxBodySize		= 0x100000; // 1MB
 
-	bool Block::Rules::FakePoW = false;
+	bool Rules::FakePoW = false;
 
-	uint32_t Block::Rules::DesiredRate_s				= 60; // 1 minute
-	uint32_t Block::Rules::DifficultyReviewCycle		= 24 * 60 * 7; // 10,080 blocks, 1 week roughly
-	uint32_t Block::Rules::MaxDifficultyChange			= 3; // i.e. x8 roughly. (There's no equivalent to this in bitcoin).
-	uint32_t Block::Rules::TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
-	uint32_t Block::Rules::WindowForMedian				= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
+	uint32_t Rules::DesiredRate_s				= 60; // 1 minute
+	uint32_t Rules::DifficultyReviewCycle		= 24 * 60 * 7; // 10,080 blocks, 1 week roughly
+	uint32_t Rules::MaxDifficultyChange			= 3; // i.e. x8 roughly. (There's no equivalent to this in bitcoin).
+	uint32_t Rules::TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
+	uint32_t Rules::WindowForMedian				= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
 
-	void Block::Rules::get_Hash(ECC::Hash::Value& hv)
+	void Rules::get_Hash(ECC::Hash::Value& hv)
 	{
 		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
 		ECC::Hash::Processor()
@@ -898,9 +898,9 @@ namespace beam
 
 	bool Block::SystemState::Full::IsSane() const
 	{
-		if (m_Height < Block::Rules::HeightGenesis)
+		if (m_Height < Rules::HeightGenesis)
 			return false;
-		if ((m_Height == Block::Rules::HeightGenesis) && !(m_Prev == ECC::Zero))
+		if ((m_Height == Rules::HeightGenesis) && !(m_Prev == ECC::Zero))
 			return false;
 
 		return true;
@@ -951,7 +951,7 @@ namespace beam
 		ECC::uintBig ubSubsidy, ubCoinbase, mul;
 		bb.m_Subsidy.Export(ubSubsidy);
 
-		mul = Block::Rules::CoinbaseEmission;
+		mul = Rules::CoinbaseEmission;
 		ubCoinbase = nBlocksInRange;
 		ubCoinbase = ubCoinbase * mul;
 
@@ -959,10 +959,10 @@ namespace beam
 			return false;
 
 		// ensure there's a minimal unspent coinbase UTXOs
-		if (nBlocksInRange > Block::Rules::MaturityCoinbase)
+		if (nBlocksInRange > Rules::MaturityCoinbase)
 		{
 			// some UTXOs may be spent already. Calculate the minimum remaining
-			nBlocksInRange -= Block::Rules::MaturityCoinbase;
+			nBlocksInRange -= Rules::MaturityCoinbase;
 			ubCoinbase = nBlocksInRange;
 			ubCoinbase = ubCoinbase * mul;
 
@@ -1003,7 +1003,7 @@ namespace beam
 
 	bool Block::BodyBase::IsValid(const HeightRange& hr, bool bSubsidyOpen, TxBase::IReader&& r) const
 	{
-		assert((hr.m_Min >= Block::Rules::HeightGenesis) && !hr.IsEmpty());
+		assert((hr.m_Min >= Rules::HeightGenesis) && !hr.IsEmpty());
 
 		TxBase::Context ctx;
 		ctx.m_Height = hr;
@@ -1019,7 +1019,7 @@ namespace beam
         kdf.DeriveKey(out, h, static_cast<uint32_t>(eType), nIdx);
     }
 
-	void Block::Rules::AdjustDifficulty(uint8_t& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s)
+	void Rules::AdjustDifficulty(uint8_t& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s)
 	{
 		//static_assert(DesiredRate_s * DifficultyReviewCycle < uint32_t(-1), "overflow?");
 		const uint32_t dtTrg_s = DesiredRate_s * DifficultyReviewCycle;
@@ -1186,7 +1186,7 @@ namespace beam
 		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[4]);
 
 		ECC::Hash::Value hv, hv2;
-		Block::Rules::get_Hash(hv);
+		Rules::get_Hash(hv);
 
 		arc & hv2;
 
@@ -1232,7 +1232,7 @@ namespace beam
 	void Block::BodyBase::RW::put_Start(const BodyBase& body, const SystemState::Sequence::Prefix& prefix)
 	{
 		ECC::Hash::Value hv;
-		Block::Rules::get_Hash(hv);
+		Rules::get_Hash(hv);
 
 		WriteInternal(hv, m_pS[4]);
 		WriteInternal(body, m_pS[4]);

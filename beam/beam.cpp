@@ -26,8 +26,6 @@ namespace cli
     const char* MODE = "mode";
     const char* PORT = "port";
     const char* PORT_FULL = "port,p";
-    const char* DEBUG = "debug";
-    const char* DEBUG_FULL = "debug,d";
     const char* STORAGE = "storage";
     const char* WALLET_STORAGE = "wallet_path";
 	const char* HISTORY = "history_dir";
@@ -101,8 +99,8 @@ namespace beam
         keychain->visit([&total, &currentHeight](const Coin& c)->bool
         {
             Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
-                ? Block::Rules::MaturityCoinbase
-                : Block::Rules::MaturityStd);
+                ? Rules::MaturityCoinbase
+                : Rules::MaturityStd);
 
             if (c.m_status == Coin::Unspent
                 && lockHeight <= currentHeight)
@@ -121,8 +119,8 @@ namespace beam
         keychain->visit([&total, &currentHeight, &status, &keyType](const Coin& c)->bool
         {
             Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
-                ? Block::Rules::MaturityCoinbase
-                : Block::Rules::MaturityStd);
+                ? Rules::MaturityCoinbase
+                : Rules::MaturityStd);
 
             if (c.m_status == status
              && c.m_key_type == keyType
@@ -244,9 +242,9 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 	{
 		Coin& coin = m_Coins[i];
 		coin.m_key_type = KeyType::Regular;
-		coin.m_amount = Block::Rules::Coin * 10;
+		coin.m_amount = Rules::Coin * 10;
 		coin.m_status = Coin::Unconfirmed;
-		coin.m_height = h + Block::Rules::HeightGenesis;
+		coin.m_height = h + Rules::HeightGenesis;
 
 
 		m_vIncubationAndKeys[i].first = h;
@@ -388,7 +386,6 @@ int main(int argc, char* argv[])
         (cli::HELP_FULL, "list of all options")
         (cli::MODE, po::value<string>()->required(), "mode to execute [node|wallet]")
         (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
-        (cli::DEBUG_FULL, "launch in debug mode")
         (cli::WALLET_SEED, po::value<string>(), "secret key generation seed");
 
     po::options_description node_options("Node options");
@@ -413,10 +410,31 @@ int main(int argc, char* argv[])
         (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
 		(cli::COMMAND, po::value<string>(), "command to execute [send|listen|init|info|treasury]");
 
+#define RulesParams(macro) \
+	macro(Amount, CoinbaseEmission, "coinbase emission in a single block") \
+	macro(Height, MaturityCoinbase, "num of blocks before coinbase UTXO can be spent") \
+	macro(Height, MaturityStd, "num of blocks before non-coinbase UTXO can be spent") \
+	macro(size_t, MaxBodySize, "Max block body size [bytes]") \
+	macro(uint32_t, DesiredRate_s, "Desired rate of generated blocks [seconds]") \
+	macro(uint32_t, DifficultyReviewCycle, "num of blocks after which the mining difficulty can be adjusted") \
+	macro(uint32_t, MaxDifficultyChange, "Max difficulty change after each cycle (each step is roughly x2 complexity)") \
+	macro(uint32_t, TimestampAheadThreshold_s, "Block timestamp tolerance [seconds]") \
+	macro(uint32_t, WindowForMedian, "How many blocks are considered in calculating the timestamp median") \
+	macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
+
+#define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(Rules::name), comment)
+
+	po::options_description rules_options("Rules configuration");
+	rules_options.add_options() RulesParams(THE_MACRO);
+
+#undef THE_MACRO
+
     po::options_description options{ "Allowed options" };
-    options.add(general_options)
-           .add(node_options)
-           .add(wallet_options);
+    options
+		.add(general_options)
+        .add(node_options)
+        .add(wallet_options)
+		.add(rules_options);
 
     po::positional_options_description pos;
     pos.add(cli::MODE, 1);
@@ -448,12 +466,16 @@ int main(int argc, char* argv[])
 
         po::notify(vm);
 
-        auto port = vm[cli::PORT].as<uint16_t>();
-        auto debug = vm.count(cli::DEBUG) > 0;
-        auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;
+#define THE_MACRO(type, name, comment) Rules::name = vm[#name].as<type>();
+		RulesParams(THE_MACRO);
+#undef THE_MACRO
 
-		if (debug)
-			Block::Rules::FakePoW = true;
+		ECC::Hash::Value hvCfg;
+		Rules::get_Hash(hvCfg);
+		LOG_INFO() << "Rules signature: " << hvCfg;
+
+        auto port = vm[cli::PORT].as<uint16_t>();
+        auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;
 
         if (vm.count(cli::MODE))
         {
@@ -639,8 +661,8 @@ int main(int argc, char* argv[])
                         keychain->visit([](const Coin& c)->bool
                         {
                             cout << setw(8) << c.m_id
-                                 << setw(16) << PrintableAmount(Block::Rules::Coin * ((Amount)(c.m_amount / Block::Rules::Coin)))
-                                 << setw(16) << PrintableAmount(c.m_amount % Block::Rules::Coin)
+                                 << setw(16) << PrintableAmount(Rules::Coin * ((Amount)(c.m_amount / Rules::Coin)))
+                                 << setw(16) << PrintableAmount(c.m_amount % Rules::Coin)
                                  << setw(16) << static_cast<int64_t>(c.m_height)
                                  << setw(16) << static_cast<int64_t>(c.m_maturity)
                                  << "  " << c.m_status
@@ -691,7 +713,7 @@ int main(int argc, char* argv[])
                             return -1;
                         }
 
-                        signedAmount *= Block::Rules::Coin; // convert beams to coins
+                        signedAmount *= Rules::Coin; // convert beams to coins
 
                         amount = static_cast<ECC::Amount>(signedAmount);
                         if (amount == 0)

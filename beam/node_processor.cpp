@@ -164,7 +164,7 @@ void NodeProcessor::EnumCongestions()
 
 		bool bBlock = true;
 
-		while (sid.m_Height > Block::Rules::HeightGenesis)
+		while (sid.m_Height > Rules::HeightGenesis)
 		{
 			NodeDB::StateID sidThis = sid;
 			if (!m_DB.get_Prev(sid))
@@ -302,7 +302,7 @@ void NodeProcessor::PruneOld()
 
 	for (Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight); hFossil < h; )
 	{
-		uint64_t rowid = FindActiveAtStrict(hFossil + Block::Rules::HeightGenesis);
+		uint64_t rowid = FindActiveAtStrict(hFossil + Rules::HeightGenesis);
 
 		if (1 != m_DB.GetStateNextCount(rowid))
 			break;
@@ -610,7 +610,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 
 		UtxoTree::Key kMin, kMax;
 
-		if (v.m_Maturity >= Block::Rules::HeightGenesis)
+		if (v.m_Maturity >= Rules::HeightGenesis)
 		{
 			if (!pHMax)
 				return false; // explicit maturity allowed only in macroblocks
@@ -693,7 +693,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	d.m_Commitment = v.m_Commitment;
 	d.m_Maturity = v.get_MinMaturity(h);
 
-	if (v.m_Maturity >= Block::Rules::HeightGenesis)
+	if (v.m_Maturity >= Rules::HeightGenesis)
 	{
 		if (!pHMax)
 			return false; // maturity forgery isn't allowed
@@ -894,7 +894,7 @@ void NodeProcessor::Rollback()
 bool NodeProcessor::IsRelevantHeight(Height h)
 {
 	uint64_t hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight);
-	return h >= hFossil + Block::Rules::HeightGenesis;
+	return h >= hFossil + Rules::HeightGenesis;
 }
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id)
@@ -907,7 +907,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		return DataStatus::Invalid;
 	}
 
-	if (!Block::Rules::FakePoW && !s.IsValidPoW())
+	if (!Rules::FakePoW && !s.IsValidPoW())
 	{
 		LOG_WARNING() << id << " PoW invalid";
 		return DataStatus::Invalid;
@@ -917,7 +917,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 	if (s.m_TimeStamp > ts)
 	{
 		ts = s.m_TimeStamp - ts; // dt
-		if (ts > Block::Rules::TimestampAheadThreshold_s)
+		if (ts > Rules::TimestampAheadThreshold_s)
 		{
 			LOG_WARNING() << id << " Timestamp ahead by " << ts;
 			return DataStatus::Invalid;
@@ -953,7 +953,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob& block, const PeerID& peer)
 {
-	if (block.n > Block::Rules::MaxBodySize)
+	if (block.n > Rules::MaxBodySize)
 	{
 		LOG_WARNING() << id << " Block too large: " << block.n;
 		return DataStatus::Invalid;
@@ -1094,19 +1094,19 @@ uint8_t NodeProcessor::get_NextDifficulty()
 	if (!m_Cursor.m_Sid.m_Row)
 		return 0; // 1st block difficulty 0
 
-	Height dh = m_Cursor.m_Full.m_Height - Block::Rules::HeightGenesis;
+	Height dh = m_Cursor.m_Full.m_Height - Rules::HeightGenesis;
 
-	if (!dh || (dh % Block::Rules::DifficultyReviewCycle))
+	if (!dh || (dh % Rules::DifficultyReviewCycle))
 		return m_Cursor.m_Full.m_PoW.m_Difficulty; // no change
 
 	// review the difficulty
-	uint64_t rowid = FindActiveAtStrict(m_Cursor.m_Full.m_Height - Block::Rules::DifficultyReviewCycle);
+	uint64_t rowid = FindActiveAtStrict(m_Cursor.m_Full.m_Height - Rules::DifficultyReviewCycle);
 
 	Block::SystemState::Full s2;
 	m_DB.get_State(rowid, s2);
 
 	uint8_t ret = m_Cursor.m_Full.m_PoW.m_Difficulty;
-	Block::Rules::AdjustDifficulty(ret, s2.m_TimeStamp, m_Cursor.m_Full.m_TimeStamp);
+	Rules::AdjustDifficulty(ret, s2.m_TimeStamp, m_Cursor.m_Full.m_TimeStamp);
 	return ret;
 }
 
@@ -1123,7 +1123,7 @@ Timestamp NodeProcessor::get_MovingMedian()
 		m_DB.get_State(row, s);
 		vTs.push_back(s.m_TimeStamp);
 
-		if (vTs.size() >= Block::Rules::WindowForMedian)
+		if (vTs.size() >= Rules::WindowForMedian)
 			break;
 
 		if (!m_DB.get_Prev(row))
@@ -1142,7 +1142,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 	// due to (potential) inaccuracy in the block size estimation, our rough estimate - take no more than 95% of allowed block size, minus potential UTXOs to consume fees and coinbase.
 	const size_t nRoughExtra = sizeof(ECC::Point) * 2 + sizeof(ECC::RangeProof::Confidential) + sizeof(ECC::RangeProof::Public) + 300;
-	const size_t nSizeThreshold = Block::Rules::MaxBodySize * 95 / 100 - nRoughExtra;
+	const size_t nSizeThreshold = Rules::MaxBodySize * 95 / 100 - nRoughExtra;
 
 	ECC::Scalar::Native offset = res.m_Offset;
 
@@ -1209,7 +1209,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 	Output::Ptr pOutp(new Output);
 	pOutp->m_Coinbase = true;
-	pOutp->Create(kCoinbase, Block::Rules::CoinbaseEmission, true);
+	pOutp->Create(kCoinbase, Rules::CoinbaseEmission, true);
 
 	if (!HandleBlockElement(*pOutp, h, NULL, true))
 		return false;
@@ -1218,7 +1218,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 	kCoinbase = -kCoinbase;
 	offset += kCoinbase;
-	res.m_Subsidy += Block::Rules::CoinbaseEmission;
+	res.m_Subsidy += Rules::CoinbaseEmission;
 
 	// Finalize block construction.
 	if (m_Cursor.m_Sid.m_Row)
@@ -1299,7 +1299,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	ser & res;
 	ser.swap_buf(bbBlock);
 
-	return bbBlock.size() <= Block::Rules::MaxBodySize;
+	return bbBlock.size() <= Rules::MaxBodySize;
 }
 
 bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
@@ -1473,7 +1473,7 @@ void NodeProcessor::ExportMacroBlock(Block::BodyBase::IMacroWriter& w)
 
 	std::vector<Block::SystemState::Sequence::Element> vElem;
 	Block::SystemState::Sequence::Prefix prefix;
-	ExportHdrRange(HeightRange(Block::Rules::HeightGenesis, m_Cursor.m_ID.m_Height), prefix, vElem);
+	ExportHdrRange(HeightRange(Rules::HeightGenesis, m_Cursor.m_ID.m_Height), prefix, vElem);
 
 	Block::BodyBase body;
 	NodeDB::Blob blob(body.m_Offset.m_Value.m_pData, sizeof(body.m_Offset.m_Value.m_pData));
