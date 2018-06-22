@@ -191,8 +191,8 @@ namespace beam
         {
             struct IGateway : virtual IWalletGateway
             {
-                virtual void send_tx_invitation(const TxDescription&, const InviteReceiver&) = 0;
-                virtual void send_tx_confirmation(const TxDescription& , const ConfirmTransaction&) = 0;
+                virtual void send_tx_invitation(const TxDescription&, InviteReceiver&&) = 0;
+                virtual void send_tx_confirmation(const TxDescription& , ConfirmTransaction&&) = 0;
             };
         }
 
@@ -200,7 +200,7 @@ namespace beam
         {
             struct IGateway : virtual IWalletGateway
             {
-                virtual void send_tx_confirmation(const TxDescription& , const ConfirmInvitation&) = 0;
+                virtual void send_tx_confirmation(const TxDescription& , ConfirmInvitation&&) = 0;
                 virtual void register_tx(const TxDescription& , Transaction::Ptr) = 0;
                 virtual void send_tx_registered(const TxDescription& ) = 0;
             };

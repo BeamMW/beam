@@ -16,11 +16,11 @@ namespace beam
     {
         virtual ~INetworkIO() {}
         // wallet to wallet requests
-        virtual void send_tx_message(PeerId to, const wallet::InviteReceiver&) = 0;
-        virtual void send_tx_message(PeerId to, const wallet::ConfirmTransaction&) = 0;
-        virtual void send_tx_message(PeerId to, const wallet::ConfirmInvitation&) = 0;
-        virtual void send_tx_message(PeerId to, const wallet::TxRegistered&) = 0 ;
-        virtual void send_tx_message(PeerId to, const wallet::TxFailed&) = 0;
+        virtual void send_tx_message(PeerId to, wallet::InviteReceiver&&) = 0;
+        virtual void send_tx_message(PeerId to, wallet::ConfirmTransaction&&) = 0;
+        virtual void send_tx_message(PeerId to, wallet::ConfirmInvitation&&) = 0;
+        virtual void send_tx_message(PeerId to, wallet::TxRegistered&&) = 0 ;
+        virtual void send_tx_message(PeerId to, wallet::TxFailed&&) = 0;
         // wallet to node requests
         virtual void send_node_message(proto::NewTransaction&&) = 0;
         virtual void send_node_message(proto::GetProofUtxo&&) = 0;
@@ -65,15 +65,15 @@ namespace beam
         void resume_tx(const TxDescription& tx);
         void resume_all_tx();
 
-        void send_tx_invitation(const TxDescription& tx, const wallet::InviteReceiver&) override;
-        void send_tx_confirmation(const TxDescription& tx, const wallet::ConfirmTransaction&) override;
+        void send_tx_invitation(const TxDescription& tx, wallet::InviteReceiver&&) override;
+        void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmTransaction&&) override;
         void on_tx_completed(const TxDescription& tx) override;
         void send_tx_failed(const TxDescription& tx) override;
 
         void remove_sender(const Uuid& txId);
         void remove_receiver(const Uuid& txId);
 
-        void send_tx_confirmation(const TxDescription& tx, const wallet::ConfirmInvitation&) override;
+        void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmInvitation&&) override;
         void register_tx(const TxDescription& tx, Transaction::Ptr) override;
         void send_tx_registered(const TxDescription& tx) override;
 

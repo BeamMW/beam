@@ -138,12 +138,12 @@ namespace
     struct TestGateway : wallet::sender::IGateway
         , wallet::receiver::IGateway
     {
-        void send_tx_invitation(const TxDescription& tx, const wallet::InviteReceiver&) override
+        void send_tx_invitation(const TxDescription& tx, wallet::InviteReceiver&&) override
         {
             cout << "sent tx initiation message\n";
         }
 
-        void send_tx_confirmation(const TxDescription& tx, const wallet::ConfirmTransaction&) override
+        void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmTransaction&&) override
         {
             cout << "sent senders's tx confirmation message\n";
         }
@@ -158,7 +158,7 @@ namespace
             cout << __FUNCTION__ << "\n";
         }
 
-        void send_tx_confirmation(const TxDescription& tx, const wallet::ConfirmInvitation&) override
+        void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmInvitation&&) override
         {
             cout << "sent recever's tx confirmation message\n";
         }
@@ -282,7 +282,7 @@ namespace
         }
 
         template<typename Msg>
-        void send(size_t peedId, uint64_t to, const Msg& msg)
+        void send(size_t peedId, uint64_t to, Msg&& msg)
         {
             Serializer s;
             s & msg;
@@ -311,39 +311,39 @@ namespace
         TestNetwork(IOLoop& mainLoop) : TestNetworkBase{ mainLoop }
         {}
 
-        void send_tx_message(PeerId to, const wallet::InviteReceiver& data) override
+        void send_tx_message(PeerId to, wallet::InviteReceiver&& data) override
         {
             cout << "[Sender] send_tx_invitation\n";
             ++m_peerCount;
             assert(data.m_height == 134);
             WALLET_CHECK(data.m_height == 134);
             WALLET_CHECK(data.m_amount == 6);
-            send(1, to, data);
+            send(1, to, move(data));
         }
 
-        void send_tx_message(PeerId to, const wallet::ConfirmTransaction& data) override
+        void send_tx_message(PeerId to, wallet::ConfirmTransaction&& data) override
         {
             cout << "[Sender] send_tx_confirmation\n";
-            send(1, to, data);
+            send(1, to, move(data));
         }
 
-        void send_tx_message(PeerId to, const wallet::ConfirmInvitation& data) override
+        void send_tx_message(PeerId to, wallet::ConfirmInvitation&& data) override
         {
             cout << "[Receiver] send_tx_confirmation\n";
             ++m_peerCount;
-            send(0, to, data);
+            send(0, to, move(data));
         }
 
-        void send_tx_message(PeerId to, const wallet::TxRegistered& data) override
+        void send_tx_message(PeerId to, wallet::TxRegistered&& data) override
         {
             cout << "[Receiver] send_tx_registered\n";
-            send(0, to, data);
+            send(0, to, move(data));
         }
 
-        void send_tx_message(beam::PeerId to, const beam::wallet::TxFailed& data) override
+        void send_tx_message(beam::PeerId to, beam::wallet::TxFailed&& data) override
         {
             cout << "TxFailed\n";
-            send(0, to, data);
+            send(0, to, move(data));
         }
 
         void send_node_message(proto::NewTransaction&& data) override

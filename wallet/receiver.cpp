@@ -73,7 +73,7 @@ namespace beam::wallet
         confirmationData.m_receiverSignature = m_receiverSignature;
 
         update_tx_description(TxDescription::InProgress);
-        m_gateway.send_tx_confirmation(m_txDesc, confirmationData);
+        m_gateway.send_tx_confirmation(m_txDesc, move(confirmationData));
     }
 
     bool Receiver::FSMDefinition::is_valid_signature(const TxConfirmationCompleted& event)

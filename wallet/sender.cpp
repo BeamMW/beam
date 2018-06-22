@@ -82,7 +82,7 @@ namespace beam::wallet
         invitationData.m_publicSenderNonce = m_publicNonce;
 
         update_tx_description(TxDescription::InProgress);
-        m_gateway.send_tx_invitation(m_txDesc, invitationData);
+        m_gateway.send_tx_invitation(m_txDesc, move(invitationData));
     }
 
     bool Sender::FSMDefinition::is_valid_signature(const TxInitCompleted& event)
@@ -129,7 +129,7 @@ namespace beam::wallet
         m_kernel.m_Signature.CoSign(senderSignature, message, m_blindingExcess, msig);
         confirmationData.m_senderSignature = senderSignature;
         update_tx_description(TxDescription::InProgress);
-        m_gateway.send_tx_confirmation(m_txDesc, confirmationData);
+        m_gateway.send_tx_confirmation(m_txDesc, move(confirmationData));
     }
 
     void Sender::FSMDefinition::rollback_tx(const TxFailed& )

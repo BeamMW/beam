@@ -142,14 +142,14 @@ namespace beam
         }
     }
 
-    void Wallet::send_tx_invitation(const TxDescription& tx, const InviteReceiver& data)
+    void Wallet::send_tx_invitation(const TxDescription& tx, InviteReceiver&& data)
     {
-        m_network.send_tx_message(tx.m_peerId, data);
+        m_network.send_tx_message(tx.m_peerId, move(data));
     }
 
-    void Wallet::send_tx_confirmation(const TxDescription& tx, const ConfirmTransaction& data)
+    void Wallet::send_tx_confirmation(const TxDescription& tx, ConfirmTransaction&& data)
     {
-        m_network.send_tx_message(tx.m_peerId, data);
+        m_network.send_tx_message(tx.m_peerId, move(data));
     }
 
     void Wallet::on_tx_completed(const TxDescription& tx)
@@ -200,9 +200,9 @@ namespace beam
         }
     }
 
-    void Wallet::send_tx_confirmation(const TxDescription& tx, const ConfirmInvitation& data)
+    void Wallet::send_tx_confirmation(const TxDescription& tx, ConfirmInvitation&& data)
     {
-        m_network.send_tx_message(tx.m_peerId, data);
+        m_network.send_tx_message(tx.m_peerId, move(data));
     }
 
     void Wallet::register_tx(const TxDescription& tx, Transaction::Ptr data)
