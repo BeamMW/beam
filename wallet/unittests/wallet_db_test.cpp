@@ -177,7 +177,7 @@ void TestStoreTxRecord()
     tr2.m_status = TxDescription::Completed;
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr2));
     
-    auto t = keychain->getTxHistory(0, numeric_limits<size_t>::max());
+    auto t = keychain->getTxHistory();
     WALLET_CHECK(t.size() == 1);
     WALLET_CHECK(t[0].m_txId == tr.m_txId);
     WALLET_CHECK(t[0].m_amount == tr.m_amount);
@@ -205,14 +205,14 @@ void TestStoreTxRecord()
     WALLET_CHECK(tr3->m_status == tr2.m_status);
     WALLET_CHECK(tr3->m_fsmState == tr2.m_fsmState);
     WALLET_CHECK_NO_THROW(keychain->deleteTx(tr2.m_txId));
-    WALLET_CHECK(keychain->getTxHistory(0, numeric_limits<size_t>::max()).empty());
+    WALLET_CHECK(keychain->getTxHistory().empty());
 
     for (uint8_t i = 0; i < 100; ++i)
     {
         tr.m_txId[0] = i;
         WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
     }
-    WALLET_CHECK(keychain->getTxHistory(0, numeric_limits<size_t>::max()).size() == 100);
+    WALLET_CHECK(keychain->getTxHistory().size() == 100);
     t = keychain->getTxHistory(50, 2);
     WALLET_CHECK(t.size() == 2);
     t = keychain->getTxHistory(99, 10);

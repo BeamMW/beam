@@ -135,7 +135,7 @@ namespace beam
 
     void Wallet::resume_all_tx()
     {
-        auto txs = m_keyChain->getTxHistory(0, numeric_limits<size_t>::max());
+        auto txs = m_keyChain->getTxHistory();
         for (auto& tx : txs)
         {
             resume_tx(tx);

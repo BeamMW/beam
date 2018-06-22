@@ -60,7 +60,7 @@ namespace
 		void setSystemStateID(const Block::SystemState::ID& stateID) override {};
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override { return false; };
 
-        std::vector<TxDescription> getTxHistory(uint64_t start, size_t count) override { return {}; };
+        std::vector<TxDescription> getTxHistory(uint64_t start, int count) override { return {}; };
         boost::optional<TxDescription> getTx(const Uuid& txId) override { return boost::optional<TxDescription>{}; };
         void saveTx(const TxDescription &) override {};
         void deleteTx(const Uuid& txId) override {};
@@ -577,8 +577,8 @@ void TestP2PWalletNegotiationST()
 
     WALLET_CHECK(senderKeychain->getCoins(6, false).size() == 3);
 
-    WALLET_CHECK(senderKeychain->getTxHistory(0, numeric_limits<size_t>::max()).empty());
-    WALLET_CHECK(receiverKeychain->getTxHistory(0, numeric_limits<size_t>::max()).empty());
+    WALLET_CHECK(senderKeychain->getTxHistory().empty());
+    WALLET_CHECK(receiverKeychain->getTxHistory().empty());
 
     helpers::StopWatch sw;
     sw.start();
@@ -633,9 +633,9 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newSenderCoins[4].m_key_type == KeyType::Regular);
     
     // Tx history check
-    auto sh = senderKeychain->getTxHistory(0, numeric_limits<size_t>::max());
+    auto sh = senderKeychain->getTxHistory();
     WALLET_CHECK(sh.size() == 1);
-    auto rh = receiverKeychain->getTxHistory(0, numeric_limits<size_t>::max());
+    auto rh = receiverKeychain->getTxHistory();
     WALLET_CHECK(rh.size() == 1);
 
     WALLET_CHECK(sh[0].m_txId == rh[0].m_txId);
@@ -706,9 +706,9 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newSenderCoins[5].m_key_type == KeyType::Regular);
 
     // Tx history check
-    sh = senderKeychain->getTxHistory(0, numeric_limits<size_t>::max());
+    sh = senderKeychain->getTxHistory();
     WALLET_CHECK(sh.size() == 2);
-    rh = receiverKeychain->getTxHistory(0, numeric_limits<size_t>::max());
+    rh = receiverKeychain->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
 
     WALLET_CHECK(sh[0].m_txId == rh[0].m_txId);
@@ -747,9 +747,9 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newReceiverCoins.size() == 2);
 
     // Tx history check. New failed tx should be added to sender
-    sh = senderKeychain->getTxHistory(0, numeric_limits<size_t>::max());
+    sh = senderKeychain->getTxHistory();
     WALLET_CHECK(sh.size() == 3);
-    rh = receiverKeychain->getTxHistory(0, numeric_limits<size_t>::max());
+    rh = receiverKeychain->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
 
     WALLET_CHECK(sh[0].m_amount == 6);

@@ -689,7 +689,7 @@ namespace beam
 		return 0;
 	}
 
-    vector<TxDescription> Keychain::getTxHistory(uint64_t start, size_t count)
+    vector<TxDescription> Keychain::getTxHistory(uint64_t start, int count)
     {
         vector<TxDescription> res;
         const char* req = "SELECT * FROM " HISTORY_NAME " ORDER BY createTime DESC LIMIT ?1 OFFSET ?2 ;";
