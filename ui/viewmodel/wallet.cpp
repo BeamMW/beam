@@ -1,5 +1,7 @@
 #include "wallet.h"
 
+using namespace beam;
+
 TxObject::TxObject(const QString& dateVal
 	, const QString& userVal
 	, const QString& commentVal
@@ -47,8 +49,8 @@ QString TxObject::status() const
 	return _status;
 }
 
-WalletViewModel::WalletViewModel()
-	: _label("Please, click the button!")
+WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain)
+	: _keychain(keychain)
 {
 	_tx.append(new TxObject(
 		"12 June 2018 | 3:46 PM"
@@ -94,25 +96,52 @@ WalletViewModel::WalletViewModel()
 		, "unspent"));
 }
 
-QString WalletViewModel::label() const
+namespace 
 {
-	return _label;
-}
-
-void WalletViewModel::setLabel(const QString& val)
-{
-	if (_label != val)
+	// taken from beam.cpp
+	// TODO: move 'getAvailable' to one place
+	Amount getAvailable(IKeyChain::Ptr keychain)
 	{
-		_label = val;
+		auto currentHeight = keychain->getCurrentHeight();
+		Amount total = 0;
+		keychain->visit([&total, &currentHeight](const Coin& c)->bool
+		{
+			Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
+				? Rules::MaturityCoinbase
+				: Rules::MaturityStd);
 
-		emit labelChanged();
+			if (c.m_status == Coin::Unspent
+				&& lockHeight <= currentHeight)
+			{
+				total += c.m_amount;
+			}
+			return true;
+		});
+		return total;
 	}
 }
 
-void WalletViewModel::sayHello(const QString& name)
+QString WalletViewModel::available() const
 {
-	setLabel("Hello, " + name);
+	auto amount = getAvailable(_keychain);
+
+	return QString::number(static_cast<float>(amount) / Rules::Coin) + " BEAM";
 }
+
+//void WalletViewModel::setAvailable(const QString& val)
+//{
+//	if (_label != val)
+//	{
+//		_label = val;
+//
+//		emit labelChanged();
+//	}
+//}
+
+//void WalletViewModel::sayHello(const QString& name)
+//{
+//	setLabel("Hello, " + name);
+//}
 
 const WalletViewModel::TxList& WalletViewModel::tx() const
 {

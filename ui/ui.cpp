@@ -14,6 +14,9 @@
 
 #include "wallet/wallet_db.h"
 
+using namespace beam;
+using namespace ECC;
+
 int main (int argc, char* argv[])
 {
 	QApplication app(argc, argv);
@@ -21,7 +24,7 @@ int main (int argc, char* argv[])
 	static const char* WALLET_STORAGE = "wallet.db";
 	QString pass;
 
-	if (!beam::Keychain::isInitialized(WALLET_STORAGE))
+	if (!Keychain::isInitialized(WALLET_STORAGE))
 	{
 		if (QMessageBox::warning(0, "Warning", "Your wallet isn't created. Do you want to create it?", QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes) == QMessageBox::Yes)
 		{
@@ -32,9 +35,9 @@ int main (int argc, char* argv[])
 			{
 				if (!pass.isEmpty())
 				{
-					ECC::NoLeak<ECC::uintBig> walletSeed;
-					walletSeed.V = ECC::Zero;
-					auto keychain = beam::Keychain::init(WALLET_STORAGE, pass.toStdString(), walletSeed);
+					NoLeak<uintBig> walletSeed;
+					walletSeed.V = Zero;
+					auto keychain = Keychain::init(WALLET_STORAGE, pass.toStdString(), walletSeed);
 
 					if (!keychain)
 					{
@@ -56,22 +59,30 @@ int main (int argc, char* argv[])
 	{
 		bool ok = false;
 		pass = QInputDialog::getText(0, "Password", "Please, enter a password for your wallet:", QLineEdit::Password, nullptr, &ok);
+
+		if (!ok)
+		{
+			return 0;
+		}
 	}
 
 	{
-		auto keychain = beam::Keychain::open(WALLET_STORAGE, pass.toStdString());
+		auto keychain = Keychain::open(WALLET_STORAGE, pass.toStdString());
 
 		if (keychain)
 		{
-			struct
+			struct ViewModel
 			{
-				MainViewModel main;
-				DashboardViewModel dashboard;
-				WalletViewModel wallet;
-				NotificationsViewModel notifications;
-				HelpViewModel help;
-				SettingsViewModel settings;
-			} viewModel;
+				MainViewModel			main;
+				DashboardViewModel		dashboard;
+				WalletViewModel			wallet;
+				NotificationsViewModel	notifications;
+				HelpViewModel			help;
+				SettingsViewModel		settings;
+
+				ViewModel(IKeyChain::Ptr keychain) : wallet(keychain) {}
+
+			} viewModel(keychain);
 
 			QQuickView view;
 			view.setResizeMode(QQuickView::SizeRootObjectToView);

@@ -55,7 +55,7 @@ Rectangle {
             x: -4
             y: -4
             color: "#9f89ce"
-            text: qsTr("0.628")
+            text: qsTr("0.628 BEAM")
             verticalAlignment: Text.AlignVCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 0
@@ -122,7 +122,7 @@ Rectangle {
         Text {
             id: available_amount
             color: "#39d4c6"
-            text: qsTr("0.221746")
+            text: walletViewModel.available
             smooth: true
             antialiasing: true
             verticalAlignment: Text.AlignVCenter

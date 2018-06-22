@@ -2,6 +2,8 @@
 
 #include <QObject>
 
+#include "wallet/wallet_db.h"
+
 class TxObject : public QObject
 {
 	Q_OBJECT
@@ -50,26 +52,28 @@ class WalletViewModel : public QObject
 {
 	Q_OBJECT
 
-	Q_PROPERTY(QString label READ label WRITE setLabel NOTIFY labelChanged)
+	Q_PROPERTY(QString available READ available NOTIFY availableChanged)
 
 public:
 	using TxList = QList<QObject*>;
 
-	WalletViewModel();
+	WalletViewModel(beam::IKeyChain::Ptr keychain);
 
-	QString label() const;
-	void setLabel(const QString& val);
+	QString available() const;
+	//void setAvailable(const QString& val);
 
 	const TxList& tx() const;
 
-public slots:
-	void sayHello(const QString& name);
+//public slots:
+//	void sayHello(const QString& name);
 
 signals:
-	void labelChanged();
+	void availableChanged();
 
 private:
 
-	QString _label;
+	//QString _label;
 	TxList _tx;
+
+	beam::IKeyChain::Ptr _keychain;
 };
