@@ -31,6 +31,10 @@ set(UI_SRC
 	viewmodel/settings.cpp
 )
 
+if(MSVC)
+	add_definitions(-DWIN32_LEAN_AND_MEAN)
+endif()
+
 add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES})
 
 add_dependencies(beam-ui wallet)
