@@ -42,7 +42,7 @@ matrix:
         - eval "CC=gcc-7 && CXX=g++-7"
       env: BUILD_TYPE=Debug
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DLOG_VERBOSE_ENABLED=1 . && make -j 4 && ctest --verbose
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE . && make -j 4 && ctest --verbose
 
     - os: linux
       addons:
@@ -59,7 +59,7 @@ matrix:
         - eval "CC=gcc-7 && CXX=g++-7"
       env: BUILD_TYPE=Release
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DLOG_VERBOSE_ENABLED=1 . && make -j 4 && ctest --verbose;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE . && make -j 4 && ctest --verbose;
       after_success:
         - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
             chmod +x ./deploy.sh;

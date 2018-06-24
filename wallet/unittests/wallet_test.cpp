@@ -849,7 +849,7 @@ void TestSerializeFSM()
 
 }
 
-#define LOG_VERBOSE_ENABLED 0
+#define LOG_VERBOSE_ENABLED 1
 
 int main()
 {
