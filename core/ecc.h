@@ -207,6 +207,7 @@ namespace ECC
 
 	class Commitment;
 	class Oracle;
+	struct NonceGenerator;
 
 	struct Scalar
 	{
@@ -302,8 +303,8 @@ namespace ECC
 		static const uint32_t nCycles = 6;
 		static_assert(1 << nCycles == nDim, "");
 
-		ECC::Point m_pLR[nCycles][2];	// pairs of L,R values, per reduction  iteration
-		ECC::Scalar m_pCondensed[2];	// remaining 1-dimension vectors
+		Point m_pLR[nCycles][2];	// pairs of L,R values, per reduction  iteration
+		Scalar m_pCondensed[2];		// remaining 1-dimension vectors
 
 		static void get_Dot(Scalar::Native& res, const Scalar::Native* pA, const Scalar::Native* pB);
 
@@ -313,8 +314,8 @@ namespace ECC
 			Modifier() { ZeroObject(m_pMultiplier); }
 		};
 
-		void Create(ECC::Point::Native& commAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
-		bool IsValid(const ECC::Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
+		void Create(Point::Native& commAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
+		bool IsValid(const Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
 
 	private:
 		struct Calculator;

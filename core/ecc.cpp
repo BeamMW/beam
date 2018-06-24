@@ -1345,7 +1345,7 @@ namespace ECC {
 		}
 	}
 
-	void InnerProduct::Create(ECC::Point::Native& commAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
+	void InnerProduct::Create(Point::Native& commAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
 	{
 		Mode::Scope scope(Mode::Fast);
 
@@ -1394,7 +1394,7 @@ namespace ECC {
 			m_pCondensed[i] = c.m_pVal[i][0];
 	}
 
-	bool InnerProduct::IsValid(const ECC::Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& mod) const
+	bool InnerProduct::IsValid(const Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& mod) const
 	{
 		Mode::Scope scope(Mode::Fast);
 
