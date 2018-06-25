@@ -15,8 +15,22 @@ endif()
 
 qt5_add_resources(QT_RESOURCES view/qml.qrc)
 
+if(!MSVC)
+	find_package(Qt5 COMPONENTS LinguistTools REQUIRED)
+
+	qt5_add_resources(QT_RESOURCES lang/translations.qrc)
+
+	file (GLOB_RECURSE FILES_TO_TRANSLATE "${CMAKE_CURRENT_SOURCE_DIR}/view/*.qml")
+
+	file (GLOB_RECURSE TRANSLATION_FILES "${CMAKE_CURRENT_SOURCE_DIR}/lang/*.ts")
+
+	qt5_create_translation(QM_FILES ${FILES_TO_TRANSLATE} ${TRANSLATION_FILES})
+endif()
+
 set(UI_SRC
 	ui.cpp
+	translator.h
+	translator.cpp
 	viewmodel/main.h
 	viewmodel/main.cpp
 	viewmodel/dashboard.h

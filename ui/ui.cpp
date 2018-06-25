@@ -14,6 +14,8 @@
 
 #include "wallet/wallet_db.h"
 
+#include "translator.h"
+
 using namespace beam;
 using namespace ECC;
 
@@ -84,6 +86,8 @@ int main (int argc, char* argv[])
 
 			} viewModel(keychain);
 
+			Translator translator;
+
 			QQuickView view;
 			view.setResizeMode(QQuickView::SizeRootObjectToView);
 
@@ -93,6 +97,8 @@ int main (int argc, char* argv[])
 
 			ctxt->setContextProperty("walletViewModel", &viewModel.wallet);
 			ctxt->setContextProperty("listModel", QVariant::fromValue(viewModel.wallet.tx()));
+
+			ctxt->setContextProperty("translator", &translator);
 
 			view.setSource(QUrl("qrc:///main.qml"));
 			view.show();
