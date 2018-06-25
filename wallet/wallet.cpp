@@ -110,15 +110,16 @@ namespace beam
         assert(m_removed_receivers.empty());
     }
 
-    void Wallet::transfer_money(PeerId to, Amount amount, ByteBuffer&& message)
+    Uuid Wallet::transfer_money(PeerId to, Amount amount, ByteBuffer&& message)
     {
         Cleaner<std::vector<wallet::Sender::Ptr> > c{ m_removed_senders };
 		boost::uuids::uuid id = boost::uuids::random_generator()();
-        Uuid txId;
+        Uuid txId{};
         copy(id.begin(), id.end(), txId.begin());
         m_peers.emplace(txId, to);
         TxDescription tx{ txId, amount, to, move(message), wallet::getTimestamp(), true};
         resume_sender(tx);
+        return txId;
     }
 
     void Wallet::resume_tx(const TxDescription& tx)
@@ -224,7 +225,7 @@ namespace beam
             m_peers.emplace(data.m_txId, from);
             TxDescription tx{ data.m_txId, data.m_amount, from, {}, wallet::getTimestamp(), false };
             auto r = make_shared<Receiver>(*this, m_keyChain, tx, data);
-            auto p = m_receivers.emplace(tx.m_txId, r);
+            m_receivers.emplace(tx.m_txId, r);
             if (m_synchronized)
             {
                 r->start();
@@ -585,7 +586,7 @@ namespace beam
     void Wallet::resume_sender(const TxDescription& tx)
     {
         auto s = make_shared<Sender>(*this, m_keyChain, tx);
-        auto p = m_senders.emplace(tx.m_txId, s);
+        m_senders.emplace(tx.m_txId, s);
         if (m_synchronized)
         {
             s->start();

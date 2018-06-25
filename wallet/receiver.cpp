@@ -14,8 +14,8 @@ namespace beam::wallet
         , m_message{initData.m_message}
         , m_publicSenderBlindingExcess{ initData.m_publicSenderBlindingExcess }
         , m_publicSenderNonce{ initData.m_publicSenderNonce }
-        , m_transaction{ make_shared<Transaction>() }
         , m_receiver_coin{ initData.m_amount, Coin::Unconfirmed, initData.m_height}
+        , m_transaction{ make_shared<Transaction>() }
         , m_height{ initData.m_height }
     {
         m_transaction->m_Offset = ECC::Zero;

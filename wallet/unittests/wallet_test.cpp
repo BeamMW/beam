@@ -586,7 +586,7 @@ void TestP2PWalletNegotiationST()
     WalletNetworkIO sender_io{ sender_address, node_address, false, senderKeychain, main_reactor };
     WalletNetworkIO receiver_io{ receiver_address, node_address, true, receiverKeychain, main_reactor, 1000, 5000, 100 };
 
-    sender_io.transfer_money(receiver_address, 6);
+    Uuid txId = sender_io.transfer_money(receiver_address, 6);
 
     main_reactor->run();
     sw.stop();
@@ -637,20 +637,24 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(sh.size() == 1);
     auto rh = receiverKeychain->getTxHistory();
     WALLET_CHECK(rh.size() == 1);
+    auto stx = senderKeychain->getTx(txId);
+    WALLET_CHECK(stx.is_initialized());
+    auto rtx = receiverKeychain->getTx(txId);
+    WALLET_CHECK(rtx.is_initialized());
 
-    WALLET_CHECK(sh[0].m_txId == rh[0].m_txId);
-    WALLET_CHECK(sh[0].m_amount == rh[0].m_amount);
-    WALLET_CHECK(sh[0].m_message == rh[0].m_message);
-    WALLET_CHECK(sh[0].m_createTime <= rh[0].m_createTime);
-    WALLET_CHECK(sh[0].m_status == rh[0].m_status);
-    WALLET_CHECK(sh[0].m_fsmState.empty());
-    WALLET_CHECK(rh[0].m_fsmState.empty());
-    WALLET_CHECK(sh[0].m_sender == true);
-    WALLET_CHECK(rh[0].m_sender == false);
+    WALLET_CHECK(stx->m_txId == rtx->m_txId);
+    WALLET_CHECK(stx->m_amount == rtx->m_amount);
+    WALLET_CHECK(stx->m_message == rtx->m_message);
+    WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
+    WALLET_CHECK(stx->m_status == rtx->m_status);
+    WALLET_CHECK(stx->m_fsmState.empty());
+    WALLET_CHECK(rtx->m_fsmState.empty());
+    WALLET_CHECK(stx->m_sender == true);
+    WALLET_CHECK(rtx->m_sender == false);
 
     // second transfer
     sw.start();
-    sender_io.transfer_money(receiver_address, 6);
+    txId = sender_io.transfer_money(receiver_address, 6);
     main_reactor->run();
     sw.stop();
     cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -710,22 +714,25 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(sh.size() == 2);
     rh = receiverKeychain->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
+    stx = senderKeychain->getTx(txId);
+    WALLET_CHECK(stx.is_initialized());
+    rtx = receiverKeychain->getTx(txId);
+    WALLET_CHECK(rtx.is_initialized());
 
-
-    //WALLET_CHECK(sh[1].m_txId == rh[1].m_txId);
-    //WALLET_CHECK(sh[1].m_amount == rh[1].m_amount);
-    //WALLET_CHECK(sh[1].m_message == rh[1].m_message);
-    //WALLET_CHECK(sh[1].m_createTime <= rh[1].m_createTime);
-    //WALLET_CHECK(sh[1].m_status == rh[1].m_status);
-    //WALLET_CHECK(sh[1].m_fsmState.empty());
-    //WALLET_CHECK(rh[1].m_fsmState.empty());
-    //WALLET_CHECK(sh[1].m_sender == true);
-    //WALLET_CHECK(rh[1].m_sender == false);
+    WALLET_CHECK(stx->m_txId == rtx->m_txId);
+    WALLET_CHECK(stx->m_amount == rtx->m_amount);
+    WALLET_CHECK(stx->m_message == rtx->m_message);
+    WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
+    WALLET_CHECK(stx->m_status == rtx->m_status);
+    WALLET_CHECK(stx->m_fsmState.empty());
+    WALLET_CHECK(rtx->m_fsmState.empty());
+    WALLET_CHECK(stx->m_sender == true);
+    WALLET_CHECK(rtx->m_sender == false);
 
 
     // third transfer. no enough money should appear
     sw.start();
-    sender_io.transfer_money(receiver_address, 6);
+    txId = sender_io.transfer_money(receiver_address, 6);
     main_reactor->run();
     sw.stop();
     cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -752,11 +759,15 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(sh.size() == 3);
     rh = receiverKeychain->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
+    stx = senderKeychain->getTx(txId);
+    WALLET_CHECK(stx.is_initialized());
+    rtx = receiverKeychain->getTx(txId);
+    WALLET_CHECK(!rtx.is_initialized());
 
-    //WALLET_CHECK(sh[2].m_amount == 6);
-    //WALLET_CHECK(sh[2].m_status == TxDescription::Failed);
-    //WALLET_CHECK(sh[2].m_fsmState.empty());
-    //WALLET_CHECK(sh[2].m_sender == true);
+    WALLET_CHECK(stx->m_amount == 6);
+    WALLET_CHECK(stx->m_status == TxDescription::Failed);
+    WALLET_CHECK(stx->m_fsmState.empty());
+    WALLET_CHECK(stx->m_sender == true);
  }
 
 void TestSplitKey()
@@ -860,7 +871,7 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     TestSplitKey();
-    for (int i = 0; i < 20; ++i)
+    for (int i = 0; i < 10; ++i)
     {
         TestP2PWalletNegotiationST();
     }

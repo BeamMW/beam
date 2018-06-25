@@ -53,7 +53,7 @@ void TestKeychain()
 		localCoins.push_back(coin2);
 		localCoins.push_back(coin1);
 
-		for (int i = 0; i < coins.size(); ++i)
+		for (size_t i = 0; i < coins.size(); ++i)
 		{
             WALLET_CHECK(localCoins[i].m_id == coins[i].m_id);
             WALLET_CHECK(localCoins[i].m_amount == coins[i].m_amount);
