@@ -849,7 +849,7 @@ void TestSerializeFSM()
 
 }
 
-#define LOG_VERBOSE_ENABLED 1
+#define LOG_VERBOSE_ENABLED 0
 
 int main()
 {
@@ -860,7 +860,10 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     TestSplitKey();
-    TestP2PWalletNegotiationST();
+    for (int i = 0; i < 20; ++i)
+    {
+        TestP2PWalletNegotiationST();
+    }
     TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
     TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
     TestRollback();
