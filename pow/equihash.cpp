@@ -39,7 +39,7 @@ struct Block::PoW::Helper
 		{
 			if (d < 8)
 			{
-				uint8_t msk = (1 << uint8_t(d)) - 1;
+				uint8_t msk = ~(0xff >> uint8_t(d));
 				if (msk & *pPos)
 					return false;
 
