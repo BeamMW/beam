@@ -1567,7 +1567,7 @@ namespace ECC {
 		// calculate t1, t2 - parts of vec(L)*vec(R) which depend on (future) x and x^2.
 		Scalar::Native t0(Zero), t1(Zero), t2(Zero);
 
-		Scalar::Native l0, lx, r0, rx, one(1U), two(2U), yPwr, zz_twoPwr;
+		Scalar::Native l0, r0, rx, one(1U), two(2U), yPwr, zz_twoPwr;
 
 		yPwr = one;
 		zz_twoPwr = cs.zz;
@@ -1580,7 +1580,7 @@ namespace ECC {
 			if (bit)
 				l0 += one;
 
-			lx = pS[0][i];
+			const Scalar::Native& lx = pS[0][i];
 
 			r0 = cs.z;
 			if (!bit)
