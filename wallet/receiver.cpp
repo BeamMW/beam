@@ -1,51 +1,50 @@
 #include "receiver.h"
 #include "../core/block_crypt.h"
+#include "wallet/wallet_serialization.h"
 
 namespace beam::wallet
 {
     using namespace ECC;
     using namespace std;
 
-    Receiver::FSMDefinition::FSMDefinition(receiver::IGateway &gateway, beam::IKeyChain::Ptr keychain, InviteReceiver& initData)
-        : m_gateway{ gateway }
+    Receiver::FSMDefinition::FSMDefinition(receiver::IGateway &gateway, beam::IKeyChain::Ptr keychain, TxDescription& txDesc, InviteReceiver& initData)
+        : FSMDefinitionBase{txDesc}
+        , m_gateway{ gateway }
         , m_keychain{ keychain }
-        , m_txId{ initData.m_txId }
-        , m_amount{ initData.m_amount }
-        , m_message{ initData.m_message }
+        , m_message{initData.m_message}
         , m_publicSenderBlindingExcess{ initData.m_publicSenderBlindingExcess }
         , m_publicSenderNonce{ initData.m_publicSenderNonce }
         , m_transaction{ make_shared<Transaction>() }
-        , m_receiver_coin{m_amount, Coin::Unconfirmed, initData.m_height}
+        , m_receiver_coin{ initData.m_amount, Coin::Unconfirmed, initData.m_height}
         , m_height{ initData.m_height }
     {
         m_transaction->m_Offset = ECC::Zero;
         m_transaction->m_vInputs = move(initData.m_inputs);
         m_transaction->m_vOutputs = move(initData.m_outputs);
+        update_tx_description(TxDescription::Pending);
     }
 
     void Receiver::FSMDefinition::confirm_tx(const msmf::none&)
     {
-        LOG_INFO() << "Receiving " << PrintableAmount(m_amount);
+        LOG_INFO() << "Receiving " << PrintableAmount(m_txDesc.m_amount);
         ConfirmInvitation confirmationData;
-        confirmationData.m_txId = m_txId;
+        confirmationData.m_txId = m_txDesc.m_txId;
 
-        TxKernel::Ptr kernel = make_unique<TxKernel>();
-        kernel->m_Fee = 0;
-        kernel->m_Height.m_Min = m_height;
-        kernel->m_Height.m_Max = MaxHeight;
-        m_kernel = kernel.get();
-        m_transaction->m_vKernelsOutput.push_back(move(kernel));
+        m_kernel = make_unique<TxKernel>();
+        m_kernel->m_Fee = 0;
+        m_kernel->m_Height.m_Min = m_height;
+        m_kernel->m_Height.m_Max = MaxHeight;
 
         // 1. Check fee
         // 2. Create receiver_output
         // 3. Choose random blinding factor for receiver_output
-        Amount amount = m_amount;
+        Amount amount = m_txDesc.m_amount;
         Output::Ptr output = make_unique<Output>();
         output->m_Coinbase = false;
         m_keychain->store(m_receiver_coin);
         Scalar::Native blindingFactor = m_keychain->calcKey(m_receiver_coin);
         output->Create(blindingFactor, amount);
-        auto [privateExcess, offset] = split_key(blindingFactor, m_receiver_coin.m_id);
+        auto [privateExcess, offset] = splitKey(blindingFactor, m_receiver_coin.m_id);
 
         m_blindingExcess = -privateExcess;
         assert(m_transaction->m_Offset.m_Value == Zero);
@@ -73,7 +72,8 @@ namespace beam::wallet
         
         confirmationData.m_receiverSignature = m_receiverSignature;
 
-        m_gateway.send_tx_confirmation(confirmationData);
+        update_tx_description(TxDescription::InProgress);
+        m_gateway.send_tx_confirmation(m_txDesc, move(confirmationData));
     }
 
     bool Receiver::FSMDefinition::is_valid_signature(const TxConfirmationCompleted& event)
@@ -107,18 +107,19 @@ namespace beam::wallet
         m_kernel->m_Excess = x;
         m_kernel->m_Signature.m_k = finialSignature;
 
+        m_transaction->m_vKernelsOutput.push_back(move(m_kernel));
+
         // 6. Create final transaction and send it to mempool
         m_transaction->Sort();
-        beam::TxBase::Context ctx;
-        assert(m_transaction->IsValid(ctx));
-
-        m_gateway.register_tx(m_txId, m_transaction);
+        update_tx_description(TxDescription::InProgress);
+        m_gateway.register_tx(m_txDesc, m_transaction);
     }
 
-    void Receiver::FSMDefinition::rollback_tx(const TxFailed& event)
+    void Receiver::FSMDefinition::rollback_tx(const TxFailed&)
     {
         LOG_DEBUG() << "Transaction failed. Rollback...";
         LOG_VERBOSE() << "[Receiver] rollback_tx";
+        update_tx_description(TxDescription::Failed);
         rollback_tx();
     }
 
@@ -126,6 +127,7 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "Transaction failed. Rollback...";
         LOG_VERBOSE() << "[Receiver] cancel_tx";
+        update_tx_description(TxDescription::Cancelled);
         rollback_tx();
     }
 
@@ -133,12 +135,23 @@ namespace beam::wallet
     {
         LOG_VERBOSE() << "[Receiver] complete tx";
         LOG_INFO() << "Transaction completed and sent to node";
-		m_gateway.send_tx_registered(make_unique<Uuid>(m_txId));
+        update_tx_description(TxDescription::Completed);
+		m_gateway.send_tx_registered(m_txDesc);
     }
 
     void Receiver::FSMDefinition::rollback_tx()
     {
-        m_gateway.send_tx_failed(m_txId);
+        m_gateway.send_tx_failed(m_txDesc);
         m_keychain->remove(m_receiver_coin);
+    }
+
+    void Receiver::FSMDefinition::update_tx_description(TxDescription::Status s)
+    {
+        m_txDesc.m_status = s;
+        m_txDesc.m_modifyTime = wallet::getTimestamp();
+        Serializer ser;
+        ser & *this;
+        ser.swap_buf(m_txDesc.m_fsmState);
+        m_keychain->saveTx(m_txDesc);
     }
 }

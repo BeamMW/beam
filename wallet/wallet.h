@@ -1,6 +1,6 @@
 #pragma once
 
-#include "wallet/keychain.h"
+#include "wallet/wallet_db.h"
 #include "wallet/receiver.h"
 #include "wallet/sender.h"
 #include <thread>
@@ -16,11 +16,11 @@ namespace beam
     {
         virtual ~INetworkIO() {}
         // wallet to wallet requests
-        virtual void send_tx_message(PeerId to, const wallet::InviteReceiver&) = 0;
-        virtual void send_tx_message(PeerId to, const wallet::ConfirmTransaction&) = 0;
-        virtual void send_tx_message(PeerId to, const wallet::ConfirmInvitation&) = 0;
-        virtual void send_tx_message(PeerId to, const wallet::TxRegistered&) = 0 ;
-        virtual void send_tx_message(PeerId to, const wallet::TxFailed&) = 0;
+        virtual void send_tx_message(PeerId to, wallet::InviteReceiver&&) = 0;
+        virtual void send_tx_message(PeerId to, wallet::ConfirmTransaction&&) = 0;
+        virtual void send_tx_message(PeerId to, wallet::ConfirmInvitation&&) = 0;
+        virtual void send_tx_message(PeerId to, wallet::TxRegistered&&) = 0 ;
+        virtual void send_tx_message(PeerId to, wallet::TxFailed&&) = 0;
         // wallet to node requests
         virtual void send_node_message(proto::NewTransaction&&) = 0;
         virtual void send_node_message(proto::GetProofUtxo&&) = 0;
@@ -61,19 +61,21 @@ namespace beam
         Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
-        void transfer_money(PeerId to, ECC::Amount&& amount);
+        void transfer_money(PeerId to, Amount amount, ByteBuffer&& message);
+        void resume_tx(const TxDescription& tx);
+        void resume_all_tx();
 
-        void send_tx_invitation(const wallet::InviteReceiver&) override;
-        void send_tx_confirmation(const wallet::ConfirmTransaction&) override;
-        void on_tx_completed(const Uuid& txId) override;
-        void send_tx_failed(const Uuid& txId) override;
+        void send_tx_invitation(const TxDescription& tx, wallet::InviteReceiver&&) override;
+        void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmTransaction&&) override;
+        void on_tx_completed(const TxDescription& tx) override;
+        void send_tx_failed(const TxDescription& tx) override;
 
         void remove_sender(const Uuid& txId);
         void remove_receiver(const Uuid& txId);
 
-        void send_tx_confirmation(const wallet::ConfirmInvitation&) override;
-        void register_tx(const Uuid&, Transaction::Ptr) override;
-        void send_tx_registered(UuidPtr&& txId) override;
+        void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmInvitation&&) override;
+        void register_tx(const TxDescription& tx, Transaction::Ptr) override;
+        void send_tx_registered(const TxDescription& tx) override;
 
         void handle_tx_message(PeerId, wallet::InviteReceiver&&) override;
         void handle_tx_message(PeerId, wallet::ConfirmTransaction&&) override;
@@ -92,24 +94,13 @@ namespace beam
         void handle_tx_registered(const Uuid& txId, bool res);
         void handle_tx_failed(const Uuid& txId);
 
-        template<typename Func>
-        void send_tx_message(const Uuid& txId, Func f)
-        {
-            if (auto it = m_peers.find(txId); it != m_peers.end())
-            {
-                f(it->second);
-            }
-            else
-            {
-                assert(false && "no peers");
-                LOG_ERROR() << "Attempt to send message for unknown tx";
-            }
-        }
-        void remove_peer(const Uuid& txId);
     private:
+        void remove_peer(const Uuid& txId);
         void getUtxoProofs(const std::vector<Coin>& coins);
         bool finishSync();
-
+        void register_tx(const Uuid& txId, Transaction::Ptr);
+        void resume_sender(const TxDescription& tx);
+        void resume_receiver(const TxDescription& tx, wallet::InviteReceiver&& data = {});
     private:
         IKeyChain::Ptr m_keyChain;
         INetworkIO& m_network;
@@ -123,11 +114,12 @@ namespace beam
         TxCompletedAction m_tx_completed_action;
         std::deque<std::pair<Uuid, TransactionPtr>> m_reg_requests;
         std::vector<std::pair<Uuid, TransactionPtr>> m_pending_reg_requests;
+        std::deque<Coin> m_pendingProofs;
+
         Merkle::Hash m_Definition;
         Block::SystemState::ID m_knownStateID;
         Block::SystemState::ID m_newStateID;
         int m_syncing;
         bool m_synchronized;
-        std::deque<Coin> m_pendingProofs;
     };
 }

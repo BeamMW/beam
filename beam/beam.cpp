@@ -3,7 +3,7 @@
 
 #include "node.h"
 #include "wallet/wallet.h"
-#include "wallet/keychain.h"
+#include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
@@ -27,6 +27,7 @@ namespace cli
     const char* PORT = "port";
     const char* PORT_FULL = "port,p";
     const char* STORAGE = "storage";
+    const char* WALLET_STORAGE = "wallet_path";
 	const char* HISTORY = "history_dir";
 	const char* TEMP = "temp_dir";
 	const char* IMPORT = "import";
@@ -406,6 +407,7 @@ int main(int argc, char* argv[])
         (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
         (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
 		(cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
+        (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
 		(cli::COMMAND, po::value<string>(), "command to execute [send|listen|init|info|treasury]");
 
 #define RulesParams(macro) \
@@ -572,7 +574,10 @@ int main(int argc, char* argv[])
                         return -1;
                     }
 
-                    if (!Keychain::isInitialized() && command != cli::INIT)
+                    assert(vm.count(cli::WALLET_STORAGE) > 0);
+                    auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
+
+                    if (!Keychain::isInitialized(walletPath) && command != cli::INIT)
                     {
                         LOG_ERROR() << "Please initialize your wallet first... \nExample: beam wallet --command=init --pass=<password to access wallet> --wallet_seed=<seed to generate secret keys>";
                         return -1;
@@ -600,7 +605,7 @@ int main(int argc, char* argv[])
                             LOG_ERROR() << "Please, provide seed phrase for the wallet.";
                             return -1;
                         }
-                        auto keychain = Keychain::init(pass, walletSeed);
+                        auto keychain = Keychain::init(walletPath, pass, walletSeed);
                         if (keychain)
                         {
                             LOG_INFO() << "wallet successfully created...";
@@ -614,7 +619,7 @@ int main(int argc, char* argv[])
                     }
 
 
-                    auto keychain = Keychain::open(pass);
+                    auto keychain = Keychain::open(walletPath, pass);
                     if (!keychain)
                     {
                         LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";
@@ -726,7 +731,7 @@ int main(int argc, char* argv[])
                         , reactor };
                     if (command == cli::SEND)
                     {
-                        wallet_io.transfer_money(receiverAddr, move(amount));
+                        wallet_io.transfer_money(receiverAddr, move(amount), {});
                     }
                     wallet_io.start();
                 }

@@ -2,6 +2,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include "core/ecc_native.h"
+#include "core/block_crypt.h"
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include <algorithm>
@@ -27,22 +28,6 @@ namespace
             }
         }
         T& m_v;
-    };
-
-    struct ScopeGuard
-    {
-        using Callback = std::function<void()>;
-        ScopeGuard(Callback&& callback) : m_callback{callback}
-        {
-            assert(callback);
-        }
-
-        ~ScopeGuard()
-        {
-            m_callback();
-        }
-
-        Callback m_callback;
     };
 
     const char* ReceiverPrefix = "[Receiver] ";
@@ -78,28 +63,38 @@ namespace beam
         return os;
     }
 
-    pair<Scalar::Native, Scalar::Native> split_key(const Scalar::Native& key, uint64_t index)
+    namespace wallet
     {
-        pair<Scalar::Native, Scalar::Native> res;
-        Hash::Value hv;
-        Hash::Processor() << index >> hv;
-        NoLeak<Scalar> s;
-        s.V = key;
-        res.second.GenerateNonce(s.V.m_Value, hv, nullptr);
-        res.second = -res.second;
-        res.first = key;
-        res.first += res.second;
+        pair<Scalar::Native, Scalar::Native> splitKey(const Scalar::Native& key, uint64_t index)
+        {
+            pair<Scalar::Native, Scalar::Native> res;
+            Hash::Value hv;
+            Hash::Processor() << index >> hv;
+            NoLeak<Scalar> s;
+            s.V = key;
+            res.second.GenerateNonce(s.V.m_Value, hv, nullptr);
+            res.second = -res.second;
+            res.first = key;
+            res.first += res.second;
 
-        return res;
+            return res;
+        }
+
+        Timestamp getTimestamp()
+        {
+            return beam::Timestamp(std::chrono::seconds(std::time(nullptr)).count());
+        }
     }
 
     Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action)
         : m_keyChain{ keyChain }
         , m_network{ network }
         , m_tx_completed_action{move(action)}
+        , m_Definition{}
+        , m_knownStateID{}
+        , m_newStateID{}
         , m_syncing{0}
         , m_synchronized{false}
-        , m_knownStateID{0}
     {
         assert(keyChain);
         m_keyChain->getSystemStateID(m_knownStateID);
@@ -115,48 +110,61 @@ namespace beam
         assert(m_removed_receivers.empty());
     }
 
-    void Wallet::transfer_money(PeerId to, Amount&& amount)
+    void Wallet::transfer_money(PeerId to, Amount amount, ByteBuffer&& message)
     {
         Cleaner<std::vector<wallet::Sender::Ptr> > c{ m_removed_senders };
 		boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId;
         copy(id.begin(), id.end(), txId.begin());
         m_peers.emplace(txId, to);
-        auto s = make_shared<Sender>(*this, m_keyChain, txId, amount);
-        auto p = m_senders.emplace(txId, s);
-        if (m_synchronized)
+        TxDescription tx{ txId, amount, to, move(message), wallet::getTimestamp(), true};
+        resume_sender(tx);
+    }
+
+    void Wallet::resume_tx(const TxDescription& tx)
+    {
+        if (tx.m_sender)
         {
-            p.first->second->start();
+            resume_sender(tx);
         }
         else
         {
-            m_pendingSenders.emplace_back(s);
+            resume_receiver(tx);
         }
     }
 
-    void Wallet::send_tx_invitation(const InviteReceiver& data)
+    void Wallet::resume_all_tx()
     {
-        send_tx_message(data.m_txId, [this, &data](auto peer_id) mutable
+        auto txs = m_keyChain->getTxHistory();
+        for (auto& tx : txs)
         {
-            m_network.send_tx_message(peer_id, data);
-        });
+            resume_tx(tx);
+        }
     }
 
-    void Wallet::send_tx_confirmation(const ConfirmTransaction& data)
+    void Wallet::send_tx_invitation(const TxDescription& tx, InviteReceiver&& data)
     {
-        send_tx_message(data.m_txId, [this, &data](auto peer_id) mutable
-        {
-            m_network.send_tx_message(peer_id, data);
-        });
+        m_network.send_tx_message(tx.m_peerId, move(data));
     }
 
-    void Wallet::on_tx_completed(const Uuid& txId)
+    void Wallet::send_tx_confirmation(const TxDescription& tx, ConfirmTransaction&& data)
     {
-        remove_sender(txId);
-        remove_receiver(txId);
+        m_network.send_tx_message(tx.m_peerId, move(data));
+    }
+
+    void Wallet::on_tx_completed(const TxDescription& tx)
+    {
+        remove_sender(tx.m_txId);
+        remove_receiver(tx.m_txId);
+
+        // remove state machine from db
+        TxDescription t{ tx };
+        t.m_fsmState.clear();
+        m_keyChain->saveTx(t);
+
         if (m_tx_completed_action)
         {
-            m_tx_completed_action(txId);
+            m_tx_completed_action(tx.m_txId);
         }
         if (m_reg_requests.empty() && m_syncing == 0)
         {
@@ -165,12 +173,9 @@ namespace beam
     }
 
 
-    void Wallet::send_tx_failed(const Uuid& txId)
+    void Wallet::send_tx_failed(const TxDescription& tx)
     {
-        send_tx_message(txId, [this, &txId](auto peer_id)
-        {
-            m_network.send_tx_message(peer_id, wallet::TxFailed{ txId });
-        });
+        m_network.send_tx_message(tx.m_peerId, wallet::TxFailed{ tx.m_txId });
     }
 
     void Wallet::remove_sender(const Uuid& txId)
@@ -195,27 +200,19 @@ namespace beam
         }
     }
 
-    void Wallet::send_tx_confirmation(const ConfirmInvitation& data)
+    void Wallet::send_tx_confirmation(const TxDescription& tx, ConfirmInvitation&& data)
     {
-        send_tx_message(data.m_txId, [this, &data](auto peer_id) mutable
-        {
-            m_network.send_tx_message(peer_id, data);
-        });
+        m_network.send_tx_message(tx.m_peerId, move(data));
     }
 
-    void Wallet::register_tx(const Uuid& txId, Transaction::Ptr data)
+    void Wallet::register_tx(const TxDescription& tx, Transaction::Ptr data)
     {
-        LOG_VERBOSE() << ReceiverPrefix << "sending tx for registration";
-        m_reg_requests.push_back(make_pair(txId, data));
-        m_network.send_node_message(proto::NewTransaction{ data });
+        register_tx(tx.m_txId, data);
     }
 
-    void Wallet::send_tx_registered(UuidPtr&& txId)
+    void Wallet::send_tx_registered(const TxDescription& tx)
     {
-        send_tx_message(*txId, [&txId, this](auto peer_id)
-        {
-            m_network.send_tx_message(peer_id, wallet::TxRegistered{ *txId, true });
-        });
+        m_network.send_tx_message(tx.m_peerId, wallet::TxRegistered{ tx.m_txId, true });
     }
 
     void Wallet::handle_tx_message(PeerId from, InviteReceiver&& data)
@@ -224,17 +221,17 @@ namespace beam
         if (it == m_receivers.end())
         {
             LOG_VERBOSE() << ReceiverPrefix << "Received tx invitation " << data.m_txId;
-
-            auto txId = data.m_txId;
-            m_peers.emplace(txId, from);
-            auto p = m_receivers.emplace(txId, make_shared<Receiver>(*this, m_keyChain, data));
+            m_peers.emplace(data.m_txId, from);
+            TxDescription tx{ data.m_txId, data.m_amount, from, {}, wallet::getTimestamp(), false };
+            auto r = make_shared<Receiver>(*this, m_keyChain, tx, data);
+            auto p = m_receivers.emplace(tx.m_txId, r);
             if (m_synchronized)
             {
-                p.first->second->start();
+                r->start();
             }
             else
             {
-                m_pendingReceivers.emplace_back(p.first->second);
+                m_pendingReceivers.emplace_back(r);
             }
         }
         else
@@ -285,7 +282,7 @@ namespace beam
         handle_tx_registered(cit->first, data.m_value);
     }
 
-    void Wallet::handle_tx_message(PeerId from, wallet::TxFailed&& data)
+    void Wallet::handle_tx_message(PeerId /*from*/, wallet::TxFailed&& data)
     {
         LOG_DEBUG() << "tx " << data.m_txId << " failed";
         handle_tx_failed(data.m_txId);
@@ -343,7 +340,7 @@ namespace beam
         }
     }
 
-    bool Wallet::handle_node_message(proto::ProofUtxo&& proof)
+    bool Wallet::handle_node_message(proto::ProofUtxo&& utxoProof)
     {
         // TODO: handle the maturity of the several proofs (> 1)
         if (m_pendingProofs.empty())
@@ -355,7 +352,7 @@ namespace beam
         Coin& coin = m_pendingProofs.front();
 		Input input;
 		input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
-        if (proof.m_Proofs.empty())
+        if (utxoProof.m_Proofs.empty())
         {
             LOG_ERROR() << "Got empty proof for: " << input.m_Commitment;
 
@@ -367,7 +364,7 @@ namespace beam
         }
         else
         {
-            for (const auto& proof : proof.m_Proofs)
+            for (const auto& proof : utxoProof.m_Proofs)
             {
                 if (coin.m_status == Coin::Unconfirmed)
                 {
@@ -408,6 +405,7 @@ namespace beam
         {
             register_tx(r.first, r.second);
         }
+
         m_pending_reg_requests.clear();
 
         if (!m_syncing)
@@ -573,5 +571,41 @@ namespace beam
             return false;
         }
         return true;
+    }
+
+    void Wallet::register_tx(const Uuid& txId, Transaction::Ptr data)
+    {
+        LOG_VERBOSE() << ReceiverPrefix << "sending tx for registration";
+        TxBase::Context ctx;
+        assert(data->IsValid(ctx));
+        m_reg_requests.push_back(make_pair(txId, data));
+        m_network.send_node_message(proto::NewTransaction{ data });
+    }
+
+    void Wallet::resume_sender(const TxDescription& tx)
+    {
+        auto s = make_shared<Sender>(*this, m_keyChain, tx);
+        auto p = m_senders.emplace(tx.m_txId, s);
+        if (m_synchronized)
+        {
+            s->start();
+        }
+        else
+        {
+            m_pendingSenders.emplace_back(s);
+        }
+    }
+
+    void Wallet::resume_receiver(const TxDescription& tx, InviteReceiver&& data)
+    {
+        auto p = m_receivers.emplace(tx.m_txId, make_shared<Receiver>(*this, m_keyChain, tx, data));
+        if (m_synchronized)
+        {
+            p.first->second->start();
+        }
+        else
+        {
+            m_pendingReceivers.emplace_back(p.first->second);
+        }
     }
 }

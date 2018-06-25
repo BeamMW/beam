@@ -238,12 +238,16 @@ namespace ECC
 		bool	m_Y; // Flag for Y. Currently specifies if it's odd
 
 		Point() {}
-		template <typename T> Point(const T& t) { *this = t; }
+        
+        class Native;
+        Point(const Native& t) { *this = t; }
+        Point(const Point& t) { *this = t; }
+        Point(const Commitment& t) { *this = t; }
 
 		int cmp(const Point&) const;
 		COMPARISON_VIA_CMP(Point)
 
-		class Native;
+
 		Point& operator = (const Native&);
 		Point& operator = (const Point&);
 		Point& operator = (const Commitment&);

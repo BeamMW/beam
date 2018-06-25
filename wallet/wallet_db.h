@@ -2,6 +2,7 @@
 
 #include "core/common.h"
 #include "core/ecc_native.h"
+#include "wallet/common.h"
 
 struct sqlite3;
 
@@ -50,6 +51,11 @@ namespace beam
 		virtual int getVarRaw(const char* name, void* data) const = 0;
         virtual Height getCurrentHeight() const = 0;
 
+        virtual std::vector<TxDescription> getTxHistory(uint64_t start = 0, int count = std::numeric_limits<int>::max()) = 0;
+        virtual boost::optional<TxDescription> getTx(const Uuid& txId) = 0;
+        virtual void saveTx(const TxDescription& p) = 0;
+        virtual void deleteTx(const Uuid& txId) = 0;
+
 		template <typename Var>
 		void setVar(const char* name, const Var& var)
 		{
@@ -67,10 +73,9 @@ namespace beam
 
     struct Keychain : IKeyChain
     {
-        static bool isInitialized();
-        static Ptr init(const std::string& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
-        static Ptr open(const std::string& password);
-        static const char* getName();
+        static bool isInitialized(const std::string& path);
+        static Ptr init(const std::string& path, const std::string& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
+        static Ptr open(const std::string& path, const std::string& password);
 
         Keychain(const ECC::NoLeak<ECC::uintBig>& secretKey );
         ~Keychain();
@@ -87,6 +92,11 @@ namespace beam
 		void setVarRaw(const char* name, const void* data, int size) override;
 		int getVarRaw(const char* name, void* data) const override;
         Height getCurrentHeight() const override;
+
+        std::vector<TxDescription> getTxHistory(uint64_t start, int count) override;
+        boost::optional<TxDescription> getTx(const Uuid& txId) override;
+        void saveTx(const TxDescription& p) override;
+        void deleteTx(const Uuid& txId) override;
 
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override;

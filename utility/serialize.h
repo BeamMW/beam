@@ -11,6 +11,10 @@
 #include "yas/binary_oarchive.hpp"
 #include "yas/std_types.hpp"
 
+#define YAS_SERIALIZE_BOOST_TYPES
+#include "yas/types/boost/optional.hpp"
+#undef YAS_SERIALIZE_BOOST_TYPES
+
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
