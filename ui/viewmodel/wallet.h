@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QtCore/qvariant.h>
 
 #include "wallet/wallet_db.h"
 
@@ -53,6 +54,7 @@ class WalletViewModel : public QObject
 	Q_OBJECT
 
 	Q_PROPERTY(QString available READ available NOTIFY availableChanged)
+	Q_PROPERTY(QVariant tx READ tx)
 
 public:
 	using TxList = QList<QObject*>;
@@ -62,7 +64,7 @@ public:
 	QString available() const;
 	//void setAvailable(const QString& val);
 
-	const TxList& tx() const;
+	QVariant tx() const;
 
 //public slots:
 //	void sayHello(const QString& name);

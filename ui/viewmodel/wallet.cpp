@@ -143,7 +143,8 @@ QString WalletViewModel::available() const
 //	setLabel("Hello, " + name);
 //}
 
-const WalletViewModel::TxList& WalletViewModel::tx() const
+//const WalletViewModel::TxList& WalletViewModel::tx() const
+QVariant WalletViewModel::tx() const
 {
-	return _tx;
+	return QVariant::fromValue(_tx);
 }
