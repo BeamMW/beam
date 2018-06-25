@@ -847,8 +847,7 @@ namespace ECC {
 			{
 				const Prepared::Secure& x = m_ppPrepared[iEntry]->m_Secure;
 
-				secp256k1_ge ge;
-				Generator::ToPt(res, ge, x.m_Compensation, false);
+				Generator::ToPt(res, ge.V, x.m_Compensation, false);
 			}
 	}
 

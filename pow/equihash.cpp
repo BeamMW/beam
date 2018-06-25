@@ -104,7 +104,7 @@ bool Block::PoW::IsValid(const void* pInput, uint32_t nSizeInput) const
 	std::vector<uint8_t> v(m_Indices.begin(), m_Indices.end());
     return
 		hlp.m_Eh.IsValidSolution(hlp.m_Blake, v) &&
-		hlp.TestDifficulty(&m_Indices.front(), m_Indices.size(), m_Difficulty);
+		hlp.TestDifficulty(&m_Indices.front(), (uint32_t) m_Indices.size(), m_Difficulty);
 }
 
 } // namespace beam

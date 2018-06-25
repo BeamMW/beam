@@ -11,7 +11,6 @@
 #include <functional>
 
 #ifdef WIN32
-#	define NOMINMAX
 #	include <winsock2.h>
 #endif // WIN32
 
@@ -282,7 +281,7 @@ namespace beam
 
 	struct TxBase
 	{
-		struct Context;
+		class Context;
 
 		struct IReader
 		{

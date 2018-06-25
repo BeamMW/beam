@@ -76,6 +76,8 @@ bool NodeProcessor::UnspentWalker::Traverse()
 			OnCorrupted();
 		}
 	}
+
+	return true;
 }
 
 void NodeProcessor::Initialize(const char* szPath)
@@ -341,7 +343,7 @@ struct NodeProcessor::RollbackData
 	};
 
 	ByteBuffer m_Buf;
-	size_t m_Inputs;
+	uint32_t m_Inputs;
 
 	RollbackData() :m_Inputs(0) {}
 
@@ -513,7 +515,7 @@ void NodeProcessor::AdjustCumulativeParams(const Block::BodyBase& block, bool bF
 
 bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, RollbackData& rbData, const Height* pHMax)
 {
-	size_t nInp = 0, nOut = 0, nKrnInp = 0, nKrnOut = 0;
+	uint32_t nInp = 0, nOut = 0, nKrnInp = 0, nKrnOut = 0;
 	r.Reset();
 
 	bool bOk = true;
@@ -567,7 +569,7 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 		HandleBlockElement(*r.m_pUtxoOut, h, pHMax, false);
 
 	rbData.m_Inputs -= nInp;
-	size_t n = rbData.m_Inputs;
+	uint32_t n = rbData.m_Inputs;
 
 	for (; nInp--; r.NextUtxoIn())
 		HandleBlockElement(*r.m_pUtxoIn, h, pHMax, false, rbData);

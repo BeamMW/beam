@@ -417,7 +417,7 @@ void Node::Initialize()
 	if (m_Cfg.m_Listen.port())
 		m_Server.Listen(m_Cfg.m_Listen);
 
-	for (size_t i = 0; i < m_Cfg.m_Connect.size(); i++)
+	for (uint32_t i = 0; i < m_Cfg.m_Connect.size(); i++)
 	{
 		Peer* p = AllocPeer();
 		p->m_iPeer = i;
