@@ -342,6 +342,6 @@ Rectangle {
             movable: false
         }
 
-        model: listModel
+        model: walletViewModel.tx
     }
 }

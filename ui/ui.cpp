@@ -96,7 +96,6 @@ int main (int argc, char* argv[])
 			ctxt->setContextProperty("mainViewModel", &viewModel.main);
 
 			ctxt->setContextProperty("walletViewModel", &viewModel.wallet);
-			ctxt->setContextProperty("listModel", QVariant::fromValue(viewModel.wallet.tx()));
 
 			ctxt->setContextProperty("translator", &translator);
 
