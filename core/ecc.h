@@ -91,6 +91,21 @@ namespace ECC
 	template <uint32_t nBits_>
 	struct uintBig_t
 	{
+        uintBig_t()
+        {
+            ZeroObject(m_pData);
+        }
+
+        uintBig_t(const uint8_t bytes[nBits_ >> 3])
+        {
+            memcpy(m_pData, bytes, nBits_ >> 3);
+        }
+
+        uintBig_t(std::initializer_list<uint8_t> bytes)
+        {
+            std::copy(bytes.begin(), bytes.end(), m_pData);
+        }
+
 		static_assert(!(7 & nBits_), "should be byte-aligned");
 
 		// in Big-Endian representation
@@ -151,7 +166,7 @@ namespace ECC
 			{
 				carry += m_pData[i];
 				carry += x.m_pData[i];
-				
+
 				m_pData[i] = (uint8_t) carry;
 				carry >>= 8;
 			}
@@ -237,7 +252,7 @@ namespace ECC
 		bool	m_Y; // Flag for Y. Currently specifies if it's odd
 
 		Point() {}
-        
+
         class Native;
         Point(const Native& t) { *this = t; }
         Point(const Point& t) { *this = t; }

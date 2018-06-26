@@ -111,6 +111,11 @@ namespace ECC {
 		return *this;
 	}
 
+	Scalar::Native::Native()
+    {
+        secp256k1_scalar_clear(this);
+    }
+
 	Scalar::Native& Scalar::Native::operator = (Zero_)
 	{
 		secp256k1_scalar_clear(this);

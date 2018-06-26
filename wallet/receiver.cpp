@@ -12,10 +12,10 @@ namespace beam::wallet
         , m_gateway{ gateway }
         , m_keychain{ keychain }
         , m_message{initData.m_message}
+        , m_receiver_coin{ initData.m_amount, Coin::Unconfirmed, initData.m_height}
         , m_publicSenderBlindingExcess{ initData.m_publicSenderBlindingExcess }
         , m_publicSenderNonce{ initData.m_publicSenderNonce }
         , m_transaction{ make_shared<Transaction>() }
-        , m_receiver_coin{ initData.m_amount, Coin::Unconfirmed, initData.m_height}
         , m_height{ initData.m_height }
     {
         m_transaction->m_Offset = ECC::Zero;
@@ -51,7 +51,7 @@ namespace beam::wallet
         m_transaction->m_Offset = offset;
 
         m_transaction->m_vOutputs.push_back(move(output));
- 
+
         // 4. Calculate message M
         // 5. Choose random nonce
         Signature::MultiSig msig;
@@ -69,7 +69,7 @@ namespace beam::wallet
         msig.m_NoncePub = m_publicSenderNonce + confirmationData.m_publicReceiverNonce;
         // 8. Compute recepient Shnorr signature
         m_kernel->m_Signature.CoSign(m_receiverSignature, m_message, m_blindingExcess, msig);
-        
+
         confirmationData.m_receiverSignature = m_receiverSignature;
 
         update_tx_description(TxDescription::InProgress);

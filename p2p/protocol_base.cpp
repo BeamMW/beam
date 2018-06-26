@@ -9,9 +9,9 @@ bool ProtocolBase::on_new_message(uint64_t fromStream, MsgType type, const void*
         _errorHandler.on_protocol_error(fromStream, msg_type_error);
         return false;
     }
-    LOG_DEBUG() << __FUNCTION__ << TRACE(int(type));
+    LOG_VERBOSE() << __FUNCTION__ << TRACE(int(type));
     bool ret = callback(_dispatchTable[type].msgHandler, _errorHandler, *_deserializer, fromStream, data, size);
-    LOG_DEBUG() << __FUNCTION__ << TRACE(int(type)) << TRACE(ret);
+    LOG_VERBOSE() << __FUNCTION__ << TRACE(int(type)) << TRACE(ret);
     return ret;
 }
 

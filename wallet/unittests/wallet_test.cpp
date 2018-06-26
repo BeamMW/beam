@@ -427,7 +427,7 @@ void TestFSM()
 {
     cout << "\nTesting wallet's fsm...\nsender\n";
     TestGateway gateway;
-    Uuid id;
+    //Uuid id;
 
     TxDescription stx = {};
     stx.m_amount = 6;
@@ -781,7 +781,7 @@ void TestSerializeFSM()
     TestGateway gateway;
 
     {
-        Uuid id;
+        //Uuid id;
         TxDescription tx = {};
         tx.m_amount = 6;
         wallet::Sender s{ gateway, createKeychain<TestKeyChain>(), tx};
@@ -814,7 +814,7 @@ void TestSerializeFSM()
     }
 
     {
-        wallet::InviteReceiver initData{0};
+        wallet::InviteReceiver initData;
         initData.m_amount = 100;
         TxDescription rtx = {};
         rtx.m_amount = 100;
@@ -859,16 +859,16 @@ int main()
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
 
-    TestSplitKey();
-    //for (int i = 0; i < 20; ++i)
-    {
-        TestP2PWalletNegotiationST();
-    }
+     TestSplitKey();
+//     //for (int i = 0; i < 20; ++i)
+//     {
+         TestP2PWalletNegotiationST();
+//     }
      TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
      TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
      TestRollback();
-     TestFSM();
-     TestSerializeFSM();
+    TestFSM();
+    TestSerializeFSM();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

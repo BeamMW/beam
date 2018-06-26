@@ -117,7 +117,7 @@ namespace beam
         Uuid txId;
         copy(id.begin(), id.end(), txId.begin());
         m_peers.emplace(txId, to);
-        TxDescription tx{ txId, amount, to, move(message), wallet::getTimestamp(), true};
+        TxDescription tx( txId, amount, to, move(message), wallet::getTimestamp(), true );
         resume_sender(tx);
     }
 
@@ -224,7 +224,7 @@ namespace beam
             m_peers.emplace(data.m_txId, from);
             TxDescription tx{ data.m_txId, data.m_amount, from, {}, wallet::getTimestamp(), false };
             auto r = make_shared<Receiver>(*this, m_keyChain, tx, data);
-            auto p = m_receivers.emplace(tx.m_txId, r);
+            m_receivers.emplace(tx.m_txId, r);
             if (m_synchronized)
             {
                 r->start();
@@ -239,7 +239,7 @@ namespace beam
             LOG_DEBUG() << ReceiverPrefix << "Unexpected tx invitation " << data.m_txId;
         }
     }
-    
+
     void Wallet::handle_tx_message(PeerId from, ConfirmTransaction&& data)
     {
         Cleaner<std::vector<wallet::Receiver::Ptr> > c{ m_removed_receivers };
@@ -299,7 +299,7 @@ namespace beam
         auto txId = m_reg_requests.front().first;
         m_reg_requests.pop_front();
         handle_tx_registered(txId, res.m_Value);
-        return true;
+        return false; //?????
     }
 
     void Wallet::handle_tx_registered(const Uuid& txId, bool res)
@@ -400,7 +400,7 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::NewTip&& msg)
     {
-        // TODO: restore from wallet db 
+        // TODO: restore from wallet db
         for (auto& r : m_pending_reg_requests)
         {
             register_tx(r.first, r.second);
@@ -456,7 +456,7 @@ namespace beam
         {
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
-                // coinbase 
+                // coinbase
                 mined.emplace_back(Rules::CoinbaseEmission
                                  , Coin::Unconfirmed
                                  , minedCoin.m_ID.m_Height
@@ -545,7 +545,7 @@ namespace beam
                 if (!m_pendingSenders.empty())
                 {
                     Cleaner<std::vector<wallet::Sender::Ptr> > cr{ m_removed_senders };
-                    
+
                     for (auto& s : m_pendingSenders)
                     {
                         s->start();
@@ -585,7 +585,7 @@ namespace beam
     void Wallet::resume_sender(const TxDescription& tx)
     {
         auto s = make_shared<Sender>(*this, m_keyChain, tx);
-        auto p = m_senders.emplace(tx.m_txId, s);
+        m_senders.emplace(tx.m_txId, s);
         if (m_synchronized)
         {
             s->start();

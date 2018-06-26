@@ -275,16 +275,22 @@ namespace beam
 
 	Coin::Coin(const Amount& amount, Status status, const Height& height, const Height& maturity, KeyType keyType)
 		: m_id{ 0 }
-		, m_amount{ amount }
-		, m_status{ status }
 		, m_height{ height }
 		, m_maturity{ maturity }
 		, m_key_type{ keyType }
+		, m_amount{ amount }
+		, m_status{ status }
 	{
 
 	}
 
-	Coin::Coin() : Coin(0)
+	Coin::Coin()
+        : m_id{ 0 }
+		, m_height{ 0 }
+		, m_maturity{ MaxHeight }
+		, m_key_type{ KeyType::Regular }
+		, m_amount{ 0 }
+		, m_status{ Coin::Unspent }
 	{
 
 	}
@@ -552,7 +558,7 @@ namespace beam
             stm.bind(2, coin.m_key_type);
             if (stm.step()) //has row
             {
-                return; // skip existing 
+                return; // skip existing
             }
         }
 

@@ -51,6 +51,7 @@ struct Block::PoW::Helper
 			d -= 8;
 
 		}
+		return true;
 	}
 };
 

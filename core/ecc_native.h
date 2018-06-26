@@ -42,7 +42,7 @@ namespace ECC
 		typedef uint32_t uint;
 #endif // USE_SCALAR_4X64
 
-		Native() {}
+		Native();
 		template <typename T> Native(const T& t) { *this = t; }
 		~Native() { SecureErase(*this); }
 

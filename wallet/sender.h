@@ -26,7 +26,7 @@ namespace beam::wallet
             : m_txDesc{txDesc}
             , m_fsm{boost::ref(gateway), keychain, boost::ref(m_txDesc)}
         {
-            
+
         }
 
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
@@ -39,7 +39,7 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm&)
                 {
                     LOG_VERBOSE() << "[Sender] Init state";
-                } 
+                }
             };
             struct Terminate : public msmf::terminate_state<>
             {
@@ -48,7 +48,7 @@ namespace beam::wallet
                 {
                     LOG_VERBOSE() << "[Sender] Terminate state";
                     fsm.m_gateway.on_tx_completed(fsm.m_txDesc);
-                } 
+                }
             };
             struct TxInitiating : public msmf::state<>
             {
@@ -56,7 +56,7 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm&)
                 {
                     LOG_VERBOSE() << "[Sender] TxInitiating state";
-                } 
+                }
             };
             struct TxConfirming : public msmf::state<>
             {
@@ -64,13 +64,13 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm&)
                 {
                     LOG_VERBOSE() << "[Sender] TxConfirming state";
-                } 
+                }
             };
             struct TxOutputConfirming : public msmf::state<>
             {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { 
+                {
                     LOG_VERBOSE() << "[Sender] TxOutputConfirming state";
                 }
             };
@@ -81,6 +81,7 @@ namespace beam::wallet
                 : FSMDefinitionBase{txDesc}
                 , m_gateway{ gateway }
                 , m_keychain{ keychain }
+                , m_changeOutput{ false }
             {
                 assert(keychain);
                 update_tx_description(TxDescription::Pending);
@@ -153,7 +154,7 @@ namespace beam::wallet
             std::vector<Coin> m_coins;
             boost::optional<Coin> m_changeOutput;
         };
-        
+
     private:
         friend FSMHelper<Sender>;
         TxDescription m_txDesc;
