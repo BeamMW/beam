@@ -27,12 +27,12 @@ namespace
     {
     public:
 
-        ECC::Scalar::Native calcKey(const Coin&) const
+        ECC::Scalar::Native calcKey(const Coin&) const override
         {
             return ECC::Scalar::Native();
         }
 
-        std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool /*lock*/)
+        std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool /*lock*/) override
         {
             std::vector<beam::Coin> res;
             ECC::Amount t = 0;
@@ -50,7 +50,7 @@ namespace
         }
 
         void store(beam::Coin& ) override {}
-        void store(std::vector<beam::Coin>& ) {}
+        void store(std::vector<beam::Coin>& ) override {}
         void update(const std::vector<beam::Coin>& ) override {}
         void remove(const std::vector<beam::Coin>& ) override {}
         void remove(const beam::Coin& ) override {}
@@ -355,7 +355,7 @@ namespace
         void send_node_message(proto::GetMined&& data) override
         {
             cout << "[Receiver] register_tx\n";
-            enqueueNetworkTask([this, data] {m_peers[1]->handle_node_message(proto::Mined{ }); });
+            enqueueNetworkTask([this] {m_peers[1]->handle_node_message(proto::Mined{ }); });
         }
 
         void send_node_message(proto::GetProofUtxo&&) override
@@ -427,7 +427,6 @@ void TestFSM()
 {
     cout << "\nTesting wallet's fsm...\nsender\n";
     TestGateway gateway;
-    Uuid id;
 
     TxDescription stx = {};
     stx.m_amount = 6;
@@ -792,7 +791,6 @@ void TestSerializeFSM()
     TestGateway gateway;
     
     {
-        Uuid id;
         TxDescription tx = {};
         tx.m_amount = 6;
         wallet::Sender s{ gateway, createKeychain<TestKeyChain>(), tx};
@@ -825,7 +823,7 @@ void TestSerializeFSM()
     }
 
     {
-        wallet::InviteReceiver initData{0};
+        wallet::InviteReceiver initData{};
         initData.m_amount = 100;
         TxDescription rtx = {};
         rtx.m_amount = 100;
@@ -869,7 +867,7 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     TestSplitKey();
-    for (int i = 0; i < 10; ++i)
+    for (int i = 0; i < 5; ++i)
     {
         TestP2PWalletNegotiationST();
     }

@@ -136,31 +136,31 @@ namespace beam {
     bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::InviteReceiver&& msg)
     {
         m_wallet.handle_tx_message(connectionId, move(msg));
-        return true;
+        return is_connected(connectionId);
     }
 
     bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::ConfirmTransaction&& msg)
     {
         m_wallet.handle_tx_message(connectionId, move(msg));
-        return true;
+        return is_connected(connectionId);
     }
 
     bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::ConfirmInvitation&& msg)
     {
         m_wallet.handle_tx_message(connectionId, move(msg));
-        return true;
+        return is_connected(connectionId);
     }
 
     bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::TxRegistered&& msg)
     {
         m_wallet.handle_tx_message(connectionId, move(msg));
-        return true;
+        return is_connected(connectionId);
     }
 
     bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::TxFailed&& msg)
     {
         m_wallet.handle_tx_message(connectionId, move(msg));
-        return true;
+        return is_connected(connectionId);
     }
 
     void WalletNetworkIO::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -285,6 +285,11 @@ namespace beam {
         {
             throw runtime_error(io::error_descr(res.error()));
         }
+    }
+
+    bool WalletNetworkIO::is_connected(uint64_t id)
+    {
+        return m_connections.find(id) != m_connections.end();
     }
 
     WalletNetworkIO::WalletNodeConnection::WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec)

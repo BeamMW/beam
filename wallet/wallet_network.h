@@ -124,6 +124,7 @@ namespace beam
         }
 
         void test_io_result(const io::Result res);
+        bool is_connected(uint64_t id);
 
         class WalletNodeConnection : public proto::NodeConnection
         {
