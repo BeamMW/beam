@@ -1003,22 +1003,33 @@ int main()
 	DeleteFileA(beam::g_sz);
 	DeleteFileA(beam::g_sz2);
 
+	printf("NodeDB test...\n");
+
 	beam::TestNodeDB();
 	DeleteFileA(beam::g_sz);
 
 	{
+		printf("NodeProcessor test1...\n");
+
+
 		std::vector<beam::BlockPlus::Ptr> blockChain;
 		beam::TestNodeProcessor1(blockChain);
 		DeleteFileA(beam::g_sz);
 		DeleteFileA(beam::g_sz2);
 
+		printf("NodeProcessor test2...\n");
+
 		beam::TestNodeProcessor2(blockChain);
 		DeleteFileA(beam::g_sz);
 	}
 
+	printf("NodeX2 concurrent test...\n");
+
 	beam::TestNodeConversation();
 	DeleteFileA(beam::g_sz);
 	DeleteFileA(beam::g_sz2);
+
+	printf("Node <---> Client test (with proofs)...\n");
 
 	beam::TestNodeClientProto();
 	DeleteFileA(beam::g_sz);
