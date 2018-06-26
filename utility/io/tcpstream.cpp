@@ -8,6 +8,7 @@
 namespace beam { namespace io {
 
 TcpStream::~TcpStream() {
+    LOG_DEBUG() << __FUNCTION__ << TRACE(this);
     disable_read();
 }
 
@@ -178,7 +179,7 @@ Address TcpStream::peer_address() const {
 }
 
 void TcpStream::on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
-    LOG_VERBOSE() << TRACE(handle) << TRACE(nread);
+    LOG_DEBUG() << TRACE(handle) << TRACE(nread) << TRACE(handle->data);
 
     TcpStream* self = reinterpret_cast<TcpStream*>(handle->data);
 

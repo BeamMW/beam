@@ -631,7 +631,7 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newSenderCoins[4].m_amount == 2);
     WALLET_CHECK(newSenderCoins[4].m_status == Coin::Unconfirmed);
     WALLET_CHECK(newSenderCoins[4].m_key_type == KeyType::Regular);
-    
+
     // Tx history check
     auto sh = senderKeychain->getTxHistory();
     WALLET_CHECK(sh.size() == 1);
@@ -675,7 +675,7 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newReceiverCoins[0].m_amount == 6);
     WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unconfirmed);
     WALLET_CHECK(newReceiverCoins[0].m_key_type == KeyType::Regular);
-    
+
     WALLET_CHECK(newReceiverCoins[1].m_amount == 6);
     WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Unconfirmed);
     WALLET_CHECK(newReceiverCoins[1].m_key_type == KeyType::Regular);
@@ -743,7 +743,7 @@ void TestP2PWalletNegotiationST()
         return true;
     });
 
-    // no coins 
+    // no coins
     WALLET_CHECK(newSenderCoins.size() == 6);
     WALLET_CHECK(newReceiverCoins.size() == 2);
 
@@ -779,7 +779,7 @@ void TestSerializeFSM()
 {
     cout << "\nTesting wallet's fsm serialization...\nsender\n";
     TestGateway gateway;
-    
+
     {
         Uuid id;
         TxDescription tx = {};
@@ -860,15 +860,15 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     TestSplitKey();
-    for (int i = 0; i < 20; ++i)
+    //for (int i = 0; i < 20; ++i)
     {
         TestP2PWalletNegotiationST();
     }
-    TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
-    TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
-    TestRollback();
-    TestFSM();
-    TestSerializeFSM();
+     TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
+     TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
+     TestRollback();
+     TestFSM();
+     TestSerializeFSM();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

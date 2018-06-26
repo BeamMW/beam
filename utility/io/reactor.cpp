@@ -239,6 +239,7 @@ void Reactor::shutdown_tcpstream(Object* o, BufferChain&& unsent) {
         // already closed
         return;
     }
+    h->data = 0;
     assert(o->_reactor.get() == this);
     uv_shutdown_t* req = _shutdownRequestsPool.alloc();
     req->data = this;
@@ -259,7 +260,6 @@ void Reactor::shutdown_tcpstream(Object* o, BufferChain&& unsent) {
             }
         }
     );
-    req->handle->data = 0;
     o->_handle = 0;
     o->_reactor.reset();
 }
