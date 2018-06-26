@@ -36,7 +36,7 @@ private:
     enum State { reading_header, reading_message };
 
     /// Called from new_data_from_stream() in loop since more than 1 message could be read at once
-    size_t feed_data(const uint8_t* p, size_t sz);
+    size_t feed_data(const uint8_t* p, size_t sz, const volatile bool& bAlive);
 
     /// Callbacks
     ProtocolBase& _protocol;

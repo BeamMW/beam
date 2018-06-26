@@ -65,7 +65,7 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
     size_t sz = size;
     size_t consumed = 0;
     while ((sz > 0) && *pAlive) {
-        consumed = feed_data(p, sz);
+        consumed = feed_data(p, sz, *pAlive);
         if (consumed == 0) {
             // error occured, no more reads from this stream
             // at this moment, the *this* may be deleted
@@ -77,7 +77,7 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
     }
 }
 
-size_t MsgReader::feed_data(const uint8_t* p, size_t sz) {
+size_t MsgReader::feed_data(const uint8_t* p, size_t sz, const volatile bool& bAlive) {
     size_t consumed = std::min(sz, _bytesLeft);
     memcpy(_cursor, p, consumed);
     if (_state == reading_header) {
@@ -89,11 +89,17 @@ size_t MsgReader::feed_data(const uint8_t* p, size_t sz) {
                 return 0;
             }
 
+			if (!bAlive)
+				return 0;
+
             if (!_expectedMsgTypes.test(header.type)) {
                 _protocol.on_unexpected_msg(_streamId, header.type);
                 // at this moment, the *this* may be deleted
                 return 0;
             }
+
+			if (!bAlive)
+				return 0;
 
             // header deserialized successfully
             _msgBuffer.resize(header.size);
@@ -112,6 +118,10 @@ size_t MsgReader::feed_data(const uint8_t* p, size_t sz) {
                 // at this moment, the *this* may be deleted
                 return 0;
             }
+
+			if (!bAlive)
+				return 0;
+
             if (_msgBuffer.size() > 2*_defaultSize) {
                 {
                     std::vector<uint8_t> newBuffer;
