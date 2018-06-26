@@ -117,12 +117,12 @@ namespace beam {
 
     void WalletNetworkIO::close_connection(uint64_t id)
     {
-        m_connections.erase(id);
         if (auto it = m_connections_callbacks.find(id); it != m_connections_callbacks.end())
         {
             m_connections_callbacks.erase(it);
             m_reactor->cancel_tcp_connect(id);
         }
+        m_connections.erase(id);
     }
 
     void WalletNetworkIO::close_node_connection()

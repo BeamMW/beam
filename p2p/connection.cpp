@@ -1,12 +1,14 @@
 #include "connection.h"
 #include <assert.h>
 
+#include "utility/logger.h"
+
 namespace beam {
 
 Connection::Connection(ProtocolBase& protocol, uint64_t peerId, Connection::Direction d, size_t defaultMsgSize, io::TcpStream::Ptr&& stream) :
     _msgReader(protocol, peerId, defaultMsgSize),
-    _stream(std::move(stream)),
-    _direction(d)
+    _direction(d),
+    _stream(std::move(stream))
 {
     assert(_stream);
     _peerAddress = _stream->peer_address();
@@ -14,7 +16,9 @@ Connection::Connection(ProtocolBase& protocol, uint64_t peerId, Connection::Dire
 }
 
 Connection::~Connection()
-{}
+{
+
+}
 
 io::Result Connection::write_msg(const std::vector<io::SharedBuffer>& fragments) {
     return _stream->write(fragments);

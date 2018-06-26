@@ -87,7 +87,7 @@ namespace beam
         Timestamp getTimestamp();
 
         template <typename Derived>
-        class FSMHelper 
+        class FSMHelper
         {
         public:
             void start()
@@ -117,11 +117,11 @@ namespace beam
         };
 
         template <typename Derived>
-        struct FSMDefinitionBase 
+        struct FSMDefinitionBase
         {
             FSMDefinitionBase(TxDescription& txDesc) : m_txDesc{txDesc}
             {}
-            
+
             TxDescription & m_txDesc;
         };
 
@@ -136,6 +136,11 @@ namespace beam
             ECC::Point m_publicSenderNonce;
             std::vector<Input::Ptr> m_inputs;
             std::vector<Output::Ptr> m_outputs;
+
+            InviteReceiver() :
+                m_amount(0), m_height(0) {
+
+                }
 
             SERIALIZE(m_txId
                     , m_amount

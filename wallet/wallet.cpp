@@ -127,7 +127,7 @@ namespace beam
         Uuid txId{};
         copy(id.begin(), id.end(), txId.begin());
         m_peers.emplace(txId, to);
-        TxDescription tx{ txId, amount, to, move(message), wallet::getTimestamp(), true};
+        TxDescription tx( txId, amount, to, move(message), wallet::getTimestamp(), true);
         resume_sender(tx);
         return txId;
     }
@@ -310,7 +310,7 @@ namespace beam
         auto txId = m_reg_requests.front().first;
         m_reg_requests.pop_front();
         handle_tx_registered(txId, res.m_Value);
-        return true;
+        return false; //?????
     }
 
     void Wallet::handle_tx_registered(const Uuid& txId, bool res)
