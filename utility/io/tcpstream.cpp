@@ -9,7 +9,6 @@ namespace beam { namespace io {
 
 TcpStream::~TcpStream() {
     disable_read();
-    LOG_VERBOSE() << ".";
 }
 
 void TcpStream::alloc_read_buffer() {
@@ -60,13 +59,13 @@ Result TcpStream::enable_read(const TcpStream::Callback& callback) {
 
 void TcpStream::disable_read() {
     _callback = Callback();
-    free_read_buffer();
     if (is_connected()) {
         int errorCode = uv_read_stop((uv_stream_t*)_handle);
         if (errorCode) {
             LOG_DEBUG() << "uv_read_stop failed,code=" << errorCode;
         }
     }
+    free_read_buffer();
 }
 
 Result TcpStream::write(const SharedBuffer& buf) {

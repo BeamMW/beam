@@ -51,8 +51,8 @@ public:
     Direction direction() const { return _direction; }
 
 private:
-    MsgReader _msgReader;
     io::TcpStream::Ptr _stream;
+    MsgReader _msgReader;
     const Direction _direction;
     io::Address _peerAddress; // keep it after disconnect
 };
