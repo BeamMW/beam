@@ -51,6 +51,16 @@ namespace beam
         const string_view beams{" beams " };
         const string_view chattles{ " chattles " };
         auto width = os.width();
+
+        if (amount.m_showPoint)
+        {
+            os << setw(width - beams.length() - 1) << Amount(amount.m_value / Rules::Coin)
+                << "."
+                << (amount.m_value % Rules::Coin)
+                << beams.data();
+            return os;
+        }
+        
         if (amount.m_value >= Rules::Coin)
         {
             os << setw(width - beams.length()) << Amount(amount.m_value / Rules::Coin) << beams.data();

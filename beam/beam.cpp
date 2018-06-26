@@ -51,6 +51,7 @@ namespace cli
     const char* INIT = "init";
     const char* SEND = "send";
     const char* INFO = "info";
+    const char* TX_HISTORY = "tx_history";
     const char* WALLET_SEED = "wallet_seed";
 }
 namespace beam
@@ -90,6 +91,30 @@ namespace beam
         }
         os << "]";
         return os;
+    }
+
+    const char* getTxStatus(const TxDescription& tx)
+    {
+        static const char* Pending = "Pending";
+        static const char* Sending = "Sending";
+        static const char* Receiving = "Receiving";
+        static const char* Cancelled = "Cancelled";
+        static const char* Sent = "Sent";
+        static const char* Received = "Received";
+        static const char* Failed = "Failed";
+        
+        switch (tx.m_status)
+        {
+        case TxDescription::Pending: return Pending;
+        case TxDescription::InProgress: return tx.m_sender ? Sending : Receiving;
+        case TxDescription::Cancelled: return Cancelled;
+        case TxDescription::Completed: return tx.m_sender ? Sent : Received;
+        case TxDescription::Failed: return Failed;
+        default:
+            assert(false && "Unknown key type");
+        }
+        
+        return "";
     }
 
     Amount getAvailable(beam::IKeyChain::Ptr keychain)
@@ -408,6 +433,7 @@ int main(int argc, char* argv[])
         (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
 		(cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
         (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
+        (cli::TX_HISTORY, "print transacrions' history in info command")
 		(cli::COMMAND, po::value<string>(), "command to execute [send|listen|init|info|treasury]");
 
 #define RulesParams(macro) \
@@ -646,18 +672,38 @@ int main(int argc, char* argv[])
                         Block::SystemState::ID stateID = {};
                         keychain->getSystemStateID(stateID);
                         cout << "____Wallet summary____\n\n"
-                             << "Current height............" << stateID.m_Height << '\n'
-                             << "Current state ID............" << stateID.m_Hash << "\n\n"
-                             << "Available................." << PrintableAmount(getAvailable(keychain)) << '\n'
-                             << "Unconfirmed..............." << PrintableAmount(getTotal(keychain, Coin::Unconfirmed)) << '\n'
-                             << "Locked...................." << PrintableAmount(getTotal(keychain, Coin::Locked)) << '\n'
-                             << "Available coinbase ......." << PrintableAmount(getAvailableByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
-                             << "Total coinbasde..........." << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
-                             << "Avaliable fee............." << PrintableAmount(getAvailableByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
-                             << "Total fee................." << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
-                             << "Total unspent............." << PrintableAmount(getTotal(keychain, Coin::Unspent)) << "\n\n"
+                            << "Current height............" << stateID.m_Height << '\n'
+                            << "Current state ID.........." << stateID.m_Hash << "\n\n"
+                            << "Available................." << PrintableAmount(getAvailable(keychain)) << '\n'
+                            << "Unconfirmed..............." << PrintableAmount(getTotal(keychain, Coin::Unconfirmed)) << '\n'
+                            << "Locked...................." << PrintableAmount(getTotal(keychain, Coin::Locked)) << '\n'
+                            << "Available coinbase ......." << PrintableAmount(getAvailableByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
+                            << "Total coinbasde..........." << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
+                            << "Avaliable fee............." << PrintableAmount(getAvailableByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
+                            << "Total fee................." << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
+                            << "Total unspent............." << PrintableAmount(getTotal(keychain, Coin::Unspent)) << "\n\n";
                              //<< "Total spent..............." << PrintableAmount(getTotal(keychain, Coin::Spent)) << "\n\n"
-                             << "| id\t| amount(Beam)\t| amount(c)\t| height\t| maturity\t| status \t| key type\t|\n";
+                        if (vm.count(cli::TX_HISTORY))
+                        {
+                            auto txHistory = keychain->getTxHistory();
+                            if (txHistory.empty())
+                            {
+                                cout << "No transactions\n";
+                                return 0;
+                            }
+
+                            cout << "TRANSACTIONS\n\n"
+                                 << "| datetime          | amount, BEAM    | status\t|\n";
+                            for (auto& tx : txHistory)
+                            {
+                                cout << "  " << put_time(localtime((const time_t*)(&tx.m_createTime)), "%D  %T")
+                                     << setw(17) << PrintableAmount(tx.m_amount, true)
+                                     << "  " << getTxStatus(tx) << '\n';
+                            }
+                            return 0;
+                        }
+                        
+                        cout << "| id\t| amount(Beam)\t| amount(c)\t| height\t| maturity\t| status \t| key type\t|\n";
                         keychain->visit([](const Coin& c)->bool
                         {
                             cout << setw(8) << c.m_id

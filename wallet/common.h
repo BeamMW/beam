@@ -24,9 +24,10 @@ namespace beam
 
     struct PrintableAmount
     {
-        explicit PrintableAmount(const Amount& amount) : m_value{amount}
+        explicit PrintableAmount(const Amount& amount, bool showPoint = false) : m_value{ amount }, m_showPoint{showPoint}
         {}
         const Amount& m_value;
+        bool m_showPoint;
     };
 
     std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount);
