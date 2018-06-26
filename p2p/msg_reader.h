@@ -10,6 +10,7 @@ class MsgReader {
 public:
     /// Ctor sets initial statr (reading_header)
     MsgReader(ProtocolBase& protocol, uint64_t streamId, size_t defaultSize);
+	~MsgReader();
 
     uint64_t id() const { return _streamId; }
     void change_id(uint64_t newStreamId);
@@ -63,6 +64,8 @@ private:
 
     /// Filter for per-connection protocol logic
     std::bitset<256> _expectedMsgTypes;
+
+	std::shared_ptr<bool> _pAlive;
 };
 
 } //namespace

@@ -12,12 +12,21 @@ MsgReader::MsgReader(ProtocolBase& protocol, uint64_t streamId, size_t defaultSi
     _state(reading_header),
     _type(0)
 {
+	_pAlive.reset(new bool);
+	*_pAlive = true;
+
     assert(_defaultSize >= MsgHeader::SIZE);
     _msgBuffer.resize(_defaultSize);
     _cursor = _msgBuffer.data();
 
     // by default, all message types are allowed
     enable_all_msg_types();
+}
+
+MsgReader::~MsgReader()
+{
+	if (_pAlive)
+		*_pAlive = false;
 }
 
 void MsgReader::change_id(uint64_t newStreamId) {
@@ -50,10 +59,12 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
         return;
     }
 
+	std::shared_ptr<bool> pAlive(_pAlive);
+
     const uint8_t* p = (const uint8_t*)data;
     size_t sz = size;
     size_t consumed = 0;
-    while (sz > 0) {
+    while ((sz > 0) && *pAlive) {
         consumed = feed_data(p, sz);
         if (consumed == 0) {
             // error occured, no more reads from this stream
