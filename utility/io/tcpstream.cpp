@@ -9,6 +9,10 @@ namespace beam { namespace io {
 
 TcpStream::~TcpStream() {
     disable_read();
+
+	if (_handle)
+		_handle->data = NULL;
+
     LOG_VERBOSE() << ".";
 }
 
