@@ -12,9 +12,9 @@ namespace beam::wallet
         , m_gateway{ gateway }
         , m_keychain{ keychain }
         , m_message{initData.m_message}
+        , m_receiver_coin{ initData.m_amount, Coin::Unconfirmed, initData.m_height}
         , m_publicSenderBlindingExcess{ initData.m_publicSenderBlindingExcess }
         , m_publicSenderNonce{ initData.m_publicSenderNonce }
-        , m_receiver_coin{ initData.m_amount, Coin::Unconfirmed, initData.m_height}
         , m_transaction{ make_shared<Transaction>() }
         , m_height{ initData.m_height }
     {
@@ -84,7 +84,9 @@ namespace beam::wallet
 		Signature sigPeer;
 		sigPeer.m_e = m_kernel->m_Signature.m_e;
 		sigPeer.m_k = data.m_senderSignature;
-		return sigPeer.IsValidPartial(m_publicSenderNonce, m_publicSenderBlindingExcess);
+        auto res = sigPeer.IsValidPartial(m_publicSenderNonce, m_publicSenderBlindingExcess);
+        LOG_DEBUG() << "is_valid_signsture = " << res;
+		return res;
     }
 
     bool Receiver::FSMDefinition::is_invalid_signature(const TxConfirmationCompleted& event)

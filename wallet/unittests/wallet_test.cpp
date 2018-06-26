@@ -841,11 +841,14 @@ void TestSerializeFSM()
         der.reset(buffer.first, buffer.second);
 
         wallet::Receiver r2{ gateway, createKeychain<TestKeyChain>(), {}, initData };
+        LOG_DEBUG() << "state = " << *(r2.current_state());
         WALLET_CHECK(*(r2.current_state()) == 0);
         der & r2;
-      //  WALLET_CHECK(*(r2.current_state()) == 1);
+        LOG_DEBUG() << "state = " << *(r2.current_state());
+        WALLET_CHECK(*(r2.current_state()) == 1);
         r2.process_event(wallet::Receiver::TxConfirmationCompleted{});
-      //  WALLET_CHECK(*(r2.current_state()) == 3);
+        LOG_DEBUG() << "state = " << *(r2.current_state());
+        WALLET_CHECK(*(r2.current_state()) == 3);
 
         ser.reset();
         ser & r2;
@@ -853,7 +856,8 @@ void TestSerializeFSM()
         buffer = ser.buffer();
         der.reset(buffer.first, buffer.second);
         der & r;
-       // WALLET_CHECK(*(r.current_state()) == 3);
+        LOG_DEBUG() << "state = " << *(r2.current_state());
+        WALLET_CHECK(*(r.current_state()) == 3);
     }
 
 }
@@ -867,10 +871,8 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     TestSplitKey();
-    for (int i = 0; i < 5; ++i)
-    {
-        TestP2PWalletNegotiationST();
-    }
+    
+    TestP2PWalletNegotiationST();
     TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
     TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
     TestRollback();

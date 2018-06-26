@@ -22,11 +22,11 @@ namespace beam
         Coin();
 
         uint64_t m_id;
+        ECC::Amount m_amount;
         Status m_status;
         Height m_height; // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
         Height m_maturity; // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
         KeyType m_key_type;
-        ECC::Amount m_amount;
     };
 
     struct IKeyChain
