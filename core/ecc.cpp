@@ -304,6 +304,11 @@ namespace ECC {
 		return operator = (Native(v));
 	}
 
+	Point::Native::Native()
+    {
+        secp256k1_gej_set_infinity(this);
+    }
+
 	bool Point::Native::ImportInternal(const Point& v)
 	{
 		NoLeak<secp256k1_fe> nx;
@@ -1596,7 +1601,7 @@ namespace ECC {
 		m_T2 = comm;
 		oracle << m_T2; // exposed
 
-		// get challenge 
+		// get challenge
 		oracle >> x;
 
 		// m_TauX = tau2*x^2 + tau1*x + sk*z^2
