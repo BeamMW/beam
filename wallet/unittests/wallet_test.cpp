@@ -860,8 +860,6 @@ void TestSerializeFSM()
 
 }
 
-#define LOG_VERBOSE_ENABLED 0
-
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
