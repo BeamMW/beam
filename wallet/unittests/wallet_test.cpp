@@ -848,7 +848,7 @@ void TestSerializeFSM()
         WALLET_CHECK(*(r2.current_state()) == 1);
         r2.process_event(wallet::Receiver::TxConfirmationCompleted{});
         LOG_DEBUG() << "state = " << *(r2.current_state());
-        WALLET_CHECK(*(r2.current_state()) == 3);
+        WALLET_CHECK(*(r2.current_state()) == 2);
 
         ser.reset();
         ser & r2;
@@ -857,9 +857,8 @@ void TestSerializeFSM()
         der.reset(buffer.first, buffer.second);
         der & r;
         LOG_DEBUG() << "state = " << *(r2.current_state());
-        WALLET_CHECK(*(r.current_state()) == 3);
+        WALLET_CHECK(*(r.current_state()) == 2);
     }
-
 }
 
 int main()
