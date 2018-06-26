@@ -1177,7 +1177,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 			if (!bSolved)
 				continue;
 
-			ZeroObject(s.m_PoW);
+			ZeroObject(s.m_PoW.m_Indices); // keep the difficulty intact
 		}
 		else
 		{

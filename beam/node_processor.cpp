@@ -974,13 +974,13 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 		return DataStatus::Rejected;
 	}
 
+	LOG_INFO() << id << " Block received";
+
 	NodeDB::Transaction t(m_DB);
 
 	m_DB.SetStateBlock(rowid, block);
 	m_DB.SetStateFunctional(rowid);
 	m_DB.set_Peer(rowid, &peer);
-
-	LOG_INFO() << id << " Block accepted";
 
 	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
 		TryGoUp();
