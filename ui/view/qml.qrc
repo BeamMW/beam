@@ -5,8 +5,9 @@
         <file>dashboard.qml</file>
         <file>assets/dashboard-icon.png</file>
         <file>assets/dashboard-icon-active.png</file>
-      
+
         <file>wallet.qml</file>
+        <file>WalletSend.qml</file>
         <file>assets/wallet-icon.png</file>
         <file>assets/wallet-icon-active.png</file>
       

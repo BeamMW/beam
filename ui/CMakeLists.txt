@@ -2,18 +2,21 @@ if(MSVC)
 	set (CMAKE_PREFIX_PATH $ENV{QT5_ROOT_DIR})
 endif()
 
+find_package(Qt5QuickCompiler)
 find_package(Qt5 COMPONENTS Qml Quick Widgets REQUIRED)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
 
 if(MSVC)
-	set(SYSTEM_TYPE WIN32)
+	if(CMAKE_BUILD_TYPE STREQUAL "Release")
+		set(SYSTEM_TYPE WIN32)
+	endif()	
 elseif(APPLE)
 	set(SYSTEM_TYPE MACOSX_BUNDLE)
 endif()
 
-qt5_add_resources(QT_RESOURCES view/qml.qrc)
+qtquick_compiler_add_resources(QT_RESOURCES view/qml.qrc)
 
 if(!MSVC)
 	find_package(Qt5 COMPONENTS LinguistTools REQUIRED)
