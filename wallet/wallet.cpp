@@ -305,12 +305,14 @@ namespace beam
         {
             LOG_DEBUG() << "Received unexpected tx registration confirmation";
             assert(m_receivers.empty() && m_senders.empty());
-            return false;
         }
-        auto txId = m_reg_requests.front().first;
-        m_reg_requests.pop_front();
-        handle_tx_registered(txId, res.m_Value);
-        return false; //?????
+        else
+        {
+            auto txId = m_reg_requests.front().first;
+            m_reg_requests.pop_front();
+            handle_tx_registered(txId, res.m_Value);
+        }
+        return close_node_connection();
     }
 
     void Wallet::handle_tx_registered(const Uuid& txId, bool res)
@@ -357,7 +359,7 @@ namespace beam
         if (m_pendingProofs.empty())
         {
             LOG_DEBUG() << "Unexpected UTXO proof";
-            return false;
+            return finish_sync();
         }
 
         Coin& coin = m_pendingProofs.front();
@@ -406,7 +408,7 @@ namespace beam
 
         m_pendingProofs.pop_front();
 
-        return finishSync();
+        return finish_sync();
     }
 
     bool Wallet::handle_node_message(proto::NewTip&& msg)
@@ -456,7 +458,7 @@ namespace beam
         Block::SystemState::ID newID = {};
         msg.m_Description.get_ID(newID);
         m_newStateID = newID;
-        return finishSync();
+        return finish_sync();
     }
 
     bool Wallet::handle_node_message(proto::Mined&& msg)
@@ -488,7 +490,7 @@ namespace beam
         {
             getUtxoProofs(mined);
         }
-        return finishSync();
+        return finish_sync();
     }
 
     void Wallet::handle_connection_error(PeerId from)
@@ -544,7 +546,7 @@ namespace beam
         }
     }
 
-    bool Wallet::finishSync()
+    bool Wallet::finish_sync()
     {
         if (m_syncing)
         {
@@ -576,6 +578,11 @@ namespace beam
                 m_synchronized = true;
             }
         }
+        return close_node_connection();
+    }
+
+    bool Wallet::close_node_connection()
+    {
         if (!m_syncing && m_reg_requests.empty())
         {
             m_network.close_node_connection();

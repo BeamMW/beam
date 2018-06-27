@@ -97,7 +97,8 @@ namespace beam
     private:
         void remove_peer(const Uuid& txId);
         void getUtxoProofs(const std::vector<Coin>& coins);
-        bool finishSync();
+        bool finish_sync();
+        bool close_node_connection();
         void register_tx(const Uuid& txId, Transaction::Ptr);
         void resume_sender(const TxDescription& tx);
         void resume_receiver(const TxDescription& tx, wallet::InviteReceiver&& data = {});

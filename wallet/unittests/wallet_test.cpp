@@ -54,16 +54,16 @@ namespace
         void update(const std::vector<beam::Coin>& ) override {}
         void remove(const std::vector<beam::Coin>& ) override {}
         void remove(const beam::Coin& ) override {}
-        void visit(std::function<bool(const beam::Coin& coin)> func) override {}
-		void setVarRaw(const char* name, const void* data, int size) override {}
-		int getVarRaw(const char* name, void* data) const override { return 0; }
-		void setSystemStateID(const Block::SystemState::ID& stateID) override {};
-		bool getSystemStateID(Block::SystemState::ID& stateID) const override { return false; };
+        void visit(std::function<bool(const beam::Coin& coin)> ) override {}
+		void setVarRaw(const char* , const void* , int ) override {}
+		int getVarRaw(const char* , void* ) const override { return 0; }
+		void setSystemStateID(const Block::SystemState::ID& ) override {};
+		bool getSystemStateID(Block::SystemState::ID& ) const override { return false; };
 
-        std::vector<TxDescription> getTxHistory(uint64_t start, int count) override { return {}; };
-        boost::optional<TxDescription> getTx(const Uuid& txId) override { return boost::optional<TxDescription>{}; };
+        std::vector<TxDescription> getTxHistory(uint64_t , int ) override { return {}; };
+        boost::optional<TxDescription> getTx(const Uuid& ) override { return boost::optional<TxDescription>{}; };
         void saveTx(const TxDescription &) override {};
-        void deleteTx(const Uuid& txId) override {};
+        void deleteTx(const Uuid& ) override {};
 
         Height getCurrentHeight() const override
         {
@@ -138,12 +138,12 @@ namespace
     struct TestGateway : wallet::sender::IGateway
         , wallet::receiver::IGateway
     {
-        void send_tx_invitation(const TxDescription& tx, wallet::InviteReceiver&&) override
+        void send_tx_invitation(const TxDescription& , wallet::InviteReceiver&&) override
         {
             cout << "sent tx initiation message\n";
         }
 
-        void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmTransaction&&) override
+        void send_tx_confirmation(const TxDescription& , wallet::ConfirmTransaction&&) override
         {
             cout << "sent senders's tx confirmation message\n";
         }
@@ -158,17 +158,17 @@ namespace
             cout << __FUNCTION__ << "\n";
         }
 
-        void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmInvitation&&) override
+        void send_tx_confirmation(const TxDescription& , wallet::ConfirmInvitation&&) override
         {
             cout << "sent recever's tx confirmation message\n";
         }
 
-        void register_tx(const TxDescription& tx, Transaction::Ptr) override
+        void register_tx(const TxDescription& , Transaction::Ptr) override
         {
             cout << "sent tx registration request\n";
         }
 
-        void send_tx_registered(const TxDescription& tx) override
+        void send_tx_registered(const TxDescription& ) override
         {
             cout << "sent tx registration completed \n";
         }
@@ -381,11 +381,9 @@ namespace
 
         void close_node_connection() override
         {
-            ++m_closeNodeCount;
         }
 
         int m_proof_id{ 1 };
-        int m_closeNodeCount{ 0 };
     };
 }
 
@@ -414,8 +412,6 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
 
     sender.transfer_money(receiver_id, 6, {});
     mainLoop.run();
-
-    WALLET_CHECK(network.m_closeNodeCount == 4);
 }
 
 void TestRollback()
@@ -518,12 +514,8 @@ private:
         }
     }
 
-    void on_connection_error(uint64_t fromStream, io::ErrorCode /*errorCode*/) override
+    void on_connection_error(uint64_t /*fromStream*/, io::ErrorCode /*errorCode*/) override
     {
-        if (auto it = m_connections.find(fromStream); it != m_connections.end())
-        {
-            ++m_closeCount;
-        }
     }
 
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, int errorCode)
@@ -539,7 +531,6 @@ private:
                     100,
                     std::move(newStream)));
 
-            ++m_connectCount;
             send(tag, NewTipCode, proto::NewTip{ });
         }
         else
@@ -555,9 +546,6 @@ private:
 
     std::map<uint64_t, std::unique_ptr<Connection>> m_connections;
     uint64_t m_tag;
-public:
-    int m_connectCount{ 0 };
-    int m_closeCount{ 0 };
 };
 
 void TestP2PWalletNegotiationST()

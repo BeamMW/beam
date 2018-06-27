@@ -84,9 +84,7 @@ namespace beam::wallet
 		Signature sigPeer;
 		sigPeer.m_e = m_kernel->m_Signature.m_e;
 		sigPeer.m_k = data.m_senderSignature;
-        auto res = sigPeer.IsValidPartial(m_publicSenderNonce, m_publicSenderBlindingExcess);
-        LOG_DEBUG() << "is_valid_signsture = " << res;
-		return res;
+        return sigPeer.IsValidPartial(m_publicSenderNonce, m_publicSenderBlindingExcess);
     }
 
     bool Receiver::FSMDefinition::is_invalid_signature(const TxConfirmationCompleted& event)
