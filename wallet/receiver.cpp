@@ -57,8 +57,9 @@ namespace beam::wallet
         Signature::MultiSig msig;
 		msig.GenerateNonce(m_message, m_blindingExcess);
         // 6. Make public nonce and blinding factor
-        m_publicReceiverBlindingExcess = Context::get().G * m_blindingExcess;
-        confirmationData.m_publicReceiverBlindingExcess = m_publicReceiverBlindingExcess;
+        Point::Native publicBlindingExcess;
+        publicBlindingExcess = Context::get().G * m_blindingExcess;
+        confirmationData.m_publicReceiverBlindingExcess = publicBlindingExcess;
 
         Point::Native publicNonce;
         publicNonce = Context::get().G * msig.m_Nonce;
@@ -67,10 +68,12 @@ namespace beam::wallet
         // 7. Compute Shnorr challenge e = H(M|K)
 
         msig.m_NoncePub = m_publicSenderNonce + confirmationData.m_publicReceiverNonce;
-        // 8. Compute recepient Shnorr signature
-        m_kernel->m_Signature.CoSign(m_receiverSignature, m_message, m_blindingExcess, msig);
 
-        confirmationData.m_receiverSignature = m_receiverSignature;
+        // 8. Compute recepient Shnorr signature
+        Scalar::Native receiverSignature;
+        m_kernel->m_Signature.CoSign(receiverSignature, m_message, m_blindingExcess, msig);
+
+        confirmationData.m_receiverSignature = receiverSignature;
 
         update_tx_description(TxDescription::InProgress);
         m_gateway.send_tx_confirmation(m_txDesc, move(confirmationData));
@@ -97,10 +100,20 @@ namespace beam::wallet
         // 2. Calculate final signature
         Scalar::Native senderSignature;
         senderSignature = event.data.m_senderSignature;
-        Scalar::Native finialSignature = senderSignature + m_receiverSignature;
+
+        Signature::MultiSig msig;
+        msig.GenerateNonce(m_message, m_blindingExcess);
+        Point::Native publicNonce;
+        publicNonce = Context::get().G * msig.m_Nonce;
+        msig.m_NoncePub = m_publicSenderNonce + publicNonce;
+        Scalar::Native receiverSignature;
+        m_kernel->m_Signature.CoSign(receiverSignature, m_message, m_blindingExcess, msig);
+
+        Scalar::Native finialSignature = senderSignature + receiverSignature;
 
         // 3. Calculate public key for excess
-        Point::Native x = m_publicReceiverBlindingExcess;
+        Point::Native x;
+        x = Context::get().G * m_blindingExcess;
         x += m_publicSenderBlindingExcess;
         // 4. Verify excess value in final transaction
         // 5. Create transaction kernel
@@ -111,6 +124,7 @@ namespace beam::wallet
 
         // 6. Create final transaction and send it to mempool
         m_transaction->Sort();
+
         update_tx_description(TxDescription::InProgress);
         m_gateway.register_tx(m_txDesc, m_transaction);
     }

@@ -22,10 +22,14 @@ namespace beam::wallet
             throw runtime_error("no money");
         }
         invitationData.m_amount = m_txDesc.m_amount;
-        m_kernel.m_Fee = 0;
-        m_kernel.m_Height.m_Min = currentHeight;
-        m_kernel.m_Height.m_Max = MaxHeight;
-        m_kernel.get_HashForSigning(invitationData.m_message);
+        
+        // create kernel
+        m_kernel = make_unique<TxKernel>();
+        m_kernel->m_Fee = 0;
+        m_kernel->m_Height.m_Min = currentHeight;
+        m_kernel->m_Height.m_Max = MaxHeight;
+
+        m_kernel->get_HashForSigning(invitationData.m_message);
         
         // 2. Set lock_height for output (current chain height)
         // 3. Select inputs using desired selection strategy
@@ -74,12 +78,12 @@ namespace beam::wallet
         // 9. Select random nonce kS
         Signature::MultiSig msig;
 		msig.GenerateNonce(invitationData.m_message, m_blindingExcess);
+        
         // 10. Multiply xS and kS by generator G to create public curve points xSG and kSG
-        m_publicBlindingExcess = Context::get().G * m_blindingExcess;
-        invitationData.m_publicSenderBlindingExcess = m_publicBlindingExcess;
+        Point::Native publicBlindingExcess = Context::get().G * m_blindingExcess;
+        invitationData.m_publicSenderBlindingExcess = publicBlindingExcess;
 
-        m_publicNonce = Context::get().G * msig.m_Nonce;
-        invitationData.m_publicSenderNonce = m_publicNonce;
+        invitationData.m_publicSenderNonce = Context::get().G * msig.m_Nonce;
 
         update_tx_description(TxDescription::InProgress);
         m_gateway.send_tx_invitation(m_txDesc, move(invitationData));
@@ -93,16 +97,19 @@ namespace beam::wallet
         Signature::MultiSig msig;
 
         Hash::Value message;
-        m_kernel.get_HashForSigning(message);
+        m_kernel->get_HashForSigning(message);
 
 		msig.GenerateNonce(message, m_blindingExcess);
-		msig.m_NoncePub = m_publicNonce + data.m_publicReceiverNonce;
+        Point::Native publicNonce = Context::get().G * msig.m_Nonce;
+		msig.m_NoncePub = publicNonce + data.m_publicReceiverNonce;
 
-		m_kernel.m_Signature.CoSign(m_senderSignature, message, m_blindingExcess, msig);
+        // temp signature to calc challenge
+        Scalar::Native senderSignature;
+		m_kernel->m_Signature.CoSign(senderSignature, message, m_blindingExcess, msig);
         
         // 3. Verify recepients Schnorr signature 
 		Signature sigPeer;
-		sigPeer.m_e = m_kernel.m_Signature.m_e;
+		sigPeer.m_e = m_kernel->m_Signature.m_e;
 		sigPeer.m_k = data.m_receiverSignature;
 		return sigPeer.IsValidPartial(data.m_publicReceiverNonce, data.m_publicReceiverBlindingExcess);
     }
@@ -119,14 +126,18 @@ namespace beam::wallet
 
         ConfirmTransaction confirmationData;
         confirmationData.m_txId = m_txDesc.m_txId;
-		Hash::Value message;
-		m_kernel.get_HashForSigning(message);
-		Signature::MultiSig msig;
-		msig.GenerateNonce(message, m_blindingExcess);
-        msig.m_NoncePub = m_publicNonce + data.m_publicReceiverNonce;
+		
+        Hash::Value message;
+		m_kernel->get_HashForSigning(message);
+		
+        Signature::MultiSig msig;
+        msig.GenerateNonce(message, m_blindingExcess);
+        Point::Native publicNonce = Context::get().G * msig.m_Nonce;
+        msig.m_NoncePub = publicNonce + data.m_publicReceiverNonce;
 
         Scalar::Native senderSignature;
-        m_kernel.m_Signature.CoSign(senderSignature, message, m_blindingExcess, msig);
+        m_kernel->m_Signature.CoSign(senderSignature, message, m_blindingExcess, msig);
+
         confirmationData.m_senderSignature = senderSignature;
         update_tx_description(TxDescription::InProgress);
         m_gateway.send_tx_confirmation(m_txDesc, move(confirmationData));
@@ -193,4 +204,5 @@ namespace beam::wallet
         ser.swap_buf(m_txDesc.m_fsmState);
         m_keychain->saveTx(m_txDesc);
     }
+
 }

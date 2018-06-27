@@ -122,10 +122,8 @@ namespace beam::wallet
             void serialize(Archive & ar, const unsigned int)
             {
                 ar  & m_receiver_coin
-                    & m_publicReceiverBlindingExcess
                     & m_publicSenderBlindingExcess
                     & m_publicSenderNonce
-                    & m_receiverSignature
                     & m_blindingExcess
                     & m_transaction
                     & m_kernel
@@ -138,10 +136,8 @@ namespace beam::wallet
             ECC::Hash::Value m_message;
             Coin m_receiver_coin;
 
-            ECC::Point::Native m_publicReceiverBlindingExcess;
             ECC::Point::Native m_publicSenderBlindingExcess;
             ECC::Point::Native m_publicSenderNonce;
-            ECC::Scalar::Native m_receiverSignature;
             ECC::Scalar::Native m_blindingExcess;
 
             Transaction::Ptr m_transaction;

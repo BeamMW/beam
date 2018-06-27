@@ -134,9 +134,6 @@ namespace beam::wallet
             void serialize(Archive & ar, const unsigned int)
             {
                 ar  & m_blindingExcess
-                    & m_senderSignature
-                    & m_publicBlindingExcess
-                    & m_publicNonce
                     & m_kernel
                     & m_coins
                     & m_changeOutput;
@@ -145,11 +142,10 @@ namespace beam::wallet
             sender::IGateway& m_gateway;
             beam::IKeyChain::Ptr m_keychain;
 
+            /////////////////////////////////////////////
+
             ECC::Scalar::Native m_blindingExcess;
-            ECC::Scalar::Native m_senderSignature;
-            ECC::Point::Native m_publicBlindingExcess;
-            ECC::Point::Native m_publicNonce;
-            TxKernel m_kernel;
+            TxKernel::Ptr m_kernel;
 
             std::vector<Coin> m_coins;
             boost::optional<Coin> m_changeOutput;
