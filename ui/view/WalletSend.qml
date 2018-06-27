@@ -4,18 +4,103 @@ import QtQuick.Controls.Styles 1.2
 
 Item {
     id: item1
+    width: 1024
+    height: 768
 
     Rectangle {
-        id: rectangle
         color: "#053d5a"
         radius: 10
         anchors.topMargin: 96
         anchors.bottomMargin: 240
         anchors.fill: parent
+
+        Item {
+            id: item3
+            anchors.rightMargin: 30
+            anchors.leftMargin: 30
+            anchors.bottomMargin: 30
+            anchors.topMargin: 30
+            anchors.fill: parent
+
+            Rectangle {
+                id: send_btn
+                width: 100
+                height: 40
+
+                gradient: Gradient {
+                    GradientStop {
+                        position: 0
+                        color: "#dd72f3"
+                    }
+
+                    GradientStop {
+                        position: 1
+                        color: "#be44ea"
+                    }
+                }
+
+                radius: 20
+                border.width: 0
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 0
+                anchors.horizontalCenterOffset: 65
+                anchors.horizontalCenter: parent.horizontalCenter
+
+                Text {
+                    id: text1
+                    color: "#ffffff"
+                    text: qsTr("SEND")
+                    verticalAlignment: Text.AlignVCenter
+                    horizontalAlignment: Text.AlignHCenter
+                    anchors.fill: parent
+                    font.pixelSize: 18
+                }
+
+                MouseArea {
+                    id: mouseArea1
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                }
+            }
+
+            Rectangle {
+                id: cancel_btn
+                x: 2
+                y: -7
+                width: 100
+                height: 40
+                color: "#023451"
+                radius: 20
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottomMargin: 0
+                anchors.bottom: parent.bottom
+                anchors.horizontalCenterOffset: -65
+                border.width: 0
+                Text {
+                    id: text2
+                    color: "#ffffff"
+                    text: qsTr("CANCEL")
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    font.pixelSize: 18
+                    anchors.fill: parent
+                }
+
+                MouseArea {
+                    id: mouseArea
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        walletLayout.state = ""
+                    }
+                }
+            }
+        }
     }
 
     Item {
         id: item2
+        width: 1000
         height: 210
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -159,7 +244,7 @@ Item {
                         font.weight: Font.Normal
                         anchors.left: parent.left
                     }
-                }
+        }
 
     }
 }
