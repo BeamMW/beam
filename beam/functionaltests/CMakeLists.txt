@@ -1,1 +1,2 @@
 add_functional_test_snippet(node_connection_test node)
+add_functional_test_snippet(send_to_node_10tx_test node)

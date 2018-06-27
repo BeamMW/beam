@@ -1,7 +1,11 @@
-#include "../node.h"
+#include <thread>
+#include <chrono>
+#include <future>
 
+#include "../node.h"
 #include "utility/logger.h"
 
+using namespace std::chrono_literals;
 using namespace beam;
 using namespace ECC;
 
@@ -19,7 +23,8 @@ private:
 	bool OnMsg2(proto::GetHdr&& msg) override;
 	bool OnMsg2(proto::Config&& msg) override;
 
-	void SendTransaction();
+	void SendTransaction(Height h);
+	void SendEmptyTransaction();
 private:
 
 	proto::Hdr m_Hdr;
@@ -43,7 +48,17 @@ void TestNodeConnection::OnConnected()
 	LOG_INFO() << "connection is succeded";
 	//beam::io::Reactor::get_Current().stop();
 
-	SendTransaction();
+	for (int i = 20; i < 30; i++)
+	{
+		LOG_INFO() << "Try to send transaction";		
+		SendTransaction(i);
+		
+		std::this_thread::sleep_for(1s);
+	}
+
+	//SendEmptyTransaction();
+
+	beam::io::Reactor::get_Current().stop();
 
 	/*Rules::FakePoW = true;
 	proto::Config msgCfg = {};
@@ -148,15 +163,15 @@ bool TestNodeConnection::OnMsg2(proto::Config&& msg)
 	return true;
 }
 
-void TestNodeConnection::SendTransaction()
+void TestNodeConnection::SendTransaction(Height h)
 {
-	const Height h = 200;
+	//const Height h = 200;
 
 	proto::NewTransaction msgTx;
 
 	msgTx.m_Transaction = std::make_shared<Transaction>();
 
-	
+	// Inputs
 	ECC::Scalar::Native key1;
 	DeriveKey(key1, m_Kdf, h, KeyType::Coinbase);
 	ECC::Scalar::Native offset = key1;
@@ -165,6 +180,7 @@ void TestNodeConnection::SendTransaction()
 	pInp->m_Commitment = ECC::Commitment(key1, Rules::CoinbaseEmission);
 	msgTx.m_Transaction->m_vInputs.push_back(std::move(pInp));
 
+	// Outputs
 	Output::Ptr pOut(new Output);
 	ECC::Scalar::Native key2;
 
@@ -176,22 +192,20 @@ void TestNodeConnection::SendTransaction()
 	key2 = -key2;
 	offset += key2;
 
+	// Kernels
 	TxKernel::Ptr pKrn(new TxKernel);
 	ECC::Scalar::Native key3;
 
-	//pKrn->m_Fee = -1090000;
-
-	DeriveKey(key3, m_Kdf, h, KeyType::Kernel, 1);
+	DeriveKey(key2, m_Kdf, h, KeyType::Kernel);
 	pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * key3);
 
 	ECC::Hash::Value hv;
 	pKrn->get_HashForSigning(hv);
 	pKrn->m_Signature.Sign(hv, key3);
+	msgTx.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
 
 	key3 = -key3;
-	offset += key2;
-
-	msgTx.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
+	offset += key3;
 
 	msgTx.m_Transaction->m_Offset = offset;
 
@@ -205,15 +219,24 @@ void TestNodeConnection::SendTransaction()
 	LOG_INFO() << "Invalid transaction";
 }
 
-
-int main()
+void TestNodeConnection::SendEmptyTransaction()
 {
-	int logLevel = LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-	logLevel = LOG_LEVEL_VERBOSE;
-#endif
-	auto logger = Logger::create(logLevel, logLevel);
+	LOG_INFO() << "Send empty transaction";
+	proto::NewTransaction msgTx;
 
+	msgTx.m_Transaction = std::make_shared<Transaction>();
+	Transaction::Context ctx;
+	if (msgTx.m_Transaction->IsValid(ctx))
+	{
+		LOG_INFO() << "valid transaction";
+	}
+
+	Send(msgTx);
+}
+
+void ConnectToNode()
+{
+	LOG_INFO() << "Start new thread";
 	io::Reactor::Ptr reactor(io::Reactor::create());
 	io::Reactor::Scope scope(*reactor);
 
@@ -226,6 +249,29 @@ int main()
 	connection.Connect(addr);
 
 	reactor->run();
+}
+
+
+int main()
+{
+	int logLevel = LOG_LEVEL_DEBUG;
+#if LOG_VERBOSE_ENABLED
+	logLevel = LOG_LEVEL_VERBOSE;
+#endif
+	auto logger = Logger::create(logLevel, logLevel);
+
+	ConnectToNode();
+	/*std::vector<std::future<void>> futures;
+
+	for (int i = 0; i < 20; i++)
+	{
+		futures.push_back(std::async(ConnectToNode));
+	}
+	
+	for (auto &f : futures)
+	{
+		f.get();
+	}*/
 
 	return 0;
 }
