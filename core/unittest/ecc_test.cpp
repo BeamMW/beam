@@ -425,6 +425,55 @@ void TestRangeProof()
 	WriteSizeSerialized("BulletProof", bp);
 
 	{
+		// multi-signed bulletproof
+		Scalar::Native sk2;
+		SetRandom(sk2);
+
+		// 1. peer(s) produces partial Part2
+		RangeProof::Confidential::Part2 p2;
+		{
+			Oracle oracle;
+			RangeProof::Confidential::CoSignPart(sk2, v, oracle, p2);
+		}
+
+		// 2. Signer advances, produces final Part1 and Part2
+		RangeProof::Confidential::Part1 p1;
+		{
+			Oracle oracle;
+			bp.m_Part2 = p2;
+			bp.CoSign(sk, v, oracle, RangeProof::Confidential::Phase::Step2);
+			p1 = bp.m_Part1;
+			p2 = bp.m_Part2;
+		}
+
+		// 3. peer(s) produces partial Part3
+		RangeProof::Confidential::Part3 p3;
+		{
+			Oracle oracle;
+			RangeProof::Confidential::CoSignPart(sk2, v, oracle, p1, p2, p3);
+		}
+
+		// 4. Signer finalizes
+		{
+			Oracle oracle;
+			bp.m_Part2 = p2;
+			bp.m_Part3 = p3;
+			bp.CoSign(sk, v, oracle, RangeProof::Confidential::Phase::Finalize);
+		}
+
+		// Final UTXO commitment
+		Point::Native comm2 = comm;
+		comm2 += Context::get().G * sk2;
+
+		{
+			// test
+			Oracle oracle;
+			verify_test(bp.IsValid(comm2, oracle));
+		}
+	}
+
+
+	{
 		beam::Output outp;
 		outp.Create(1U, 20300, true);
 		verify_test(outp.IsValid());

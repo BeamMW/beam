@@ -93,7 +93,8 @@ private:
 			uint32_t m_Remaining;
 
 			std::mutex m_Mutex;
-			std::condition_variable m_Cond;
+			std::condition_variable m_TaskNew;
+			std::condition_variable m_TaskFinished;
 
 			std::vector<std::thread> m_vThreads;
 

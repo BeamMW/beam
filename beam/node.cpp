@@ -311,10 +311,10 @@ bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&
 	v.m_Context.m_Height = hr;
 	v.m_Context.m_nVerifiers = nThreads;
 
-	v.m_Cond.notify_all();
+	v.m_TaskNew.notify_all();
 
 	while (v.m_Remaining)
-		v.m_Cond.wait(scope);
+		v.m_TaskFinished.wait(scope);
 
 	return !v.m_bFail && v.m_Context.IsValidBlock(block, m_Cursor.m_SubsidyOpen);
 }
@@ -327,7 +327,7 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 			std::unique_lock<std::mutex> scope(m_Mutex);
 
 			while (m_iTask == iTask)
-				m_Cond.wait(scope);
+				m_TaskNew.wait(scope);
 
 			if (!m_iTask)
 				return;
@@ -360,7 +360,7 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 			m_bFail = true;
 
 		if (!m_Remaining)
-			m_Cond.notify_one();
+			m_TaskFinished.notify_one();
 	}
 }
 
@@ -417,7 +417,7 @@ void Node::Initialize()
 	if (m_Cfg.m_Listen.port())
 		m_Server.Listen(m_Cfg.m_Listen);
 
-	for (size_t i = 0; i < m_Cfg.m_Connect.size(); i++)
+	for (uint32_t i = 0; i < m_Cfg.m_Connect.size(); i++)
 	{
 		Peer* p = AllocPeer();
 		p->m_iPeer = i;
@@ -505,7 +505,7 @@ Node::~Node()
 		{
 			std::unique_lock<std::mutex> scope(v.m_Mutex);
 			v.m_iTask = 0;
-			v.m_Cond.notify_all();
+			v.m_TaskNew.notify_all();
 		}
 
 		for (size_t i = 0; i < v.m_vThreads.size(); i++)
@@ -1177,7 +1177,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 			if (!bSolved)
 				continue;
 
-			ZeroObject(s.m_PoW);
+			ZeroObject(s.m_PoW.m_Indices); // keep the difficulty intact
 		}
 		else
 		{

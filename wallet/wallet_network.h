@@ -43,7 +43,7 @@ namespace beam
         void start();
         void stop();
 
-        void transfer_money(io::Address receiver, Amount&& amount, ByteBuffer&& message = {});
+        Uuid transfer_money(io::Address receiver, Amount&& amount, ByteBuffer&& message = {});
 
     private:
         // INetworkIO
@@ -124,6 +124,7 @@ namespace beam
         }
 
         void test_io_result(const io::Result res);
+        bool is_connected(uint64_t id);
 
         class WalletNodeConnection : public proto::NodeConnection
         {
