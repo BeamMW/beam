@@ -1,0 +1,1 @@
+add_functional_test_snippet(node_connection_test node)

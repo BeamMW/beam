@@ -10,6 +10,12 @@ function(add_test_snippet EXE_NAME LIB_NAME)
     add_test(NAME ${EXE_NAME} COMMAND $<TARGET_FILE:${EXE_NAME}>)
 endfunction()
 
+function(add_functional_test_snippet EXE_NAME LIB_NAME)
+    add_executable(${EXE_NAME} ${EXE_NAME}.cpp)
+    add_dependencies(${EXE_NAME} ${LIB_NAME})
+    target_link_libraries(${EXE_NAME} ${LIB_NAME})
+endfunction()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
