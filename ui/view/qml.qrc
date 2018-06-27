@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/">
         <file>main.qml</file>
+        <file>assets/logo.png</file>
 
         <file>dashboard.qml</file>
         <file>assets/dashboard-icon.png</file>

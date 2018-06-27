@@ -55,6 +55,18 @@ Rectangle {
                 }
             }
         }
+
+        Image {
+            id: image
+            x: 0
+            y: 0
+            width: 50
+            height: 50
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            anchors.topMargin: 50
+            source: "qrc:///assets/logo.png"
+        }
     }
 
     Loader {
