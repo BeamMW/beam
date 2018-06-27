@@ -1,42 +1,61 @@
 #include "../node.h"
 #include "utility/logger.h"
 
+#include <boost/program_options.hpp>
+
+namespace po = boost::program_options;
 using namespace beam;
-using namespace ECC;
+using namespace ECC;	
+
 
 Initializer g_Initializer;
 
 class TestNodeConnection : public proto::NodeConnection
 {
 public:
-	TestNodeConnection();
+	TestNodeConnection(const std::string& seed);
+
+	int CheckOnFailed();
 private:
 	void OnConnected() override;
 	void OnClosed(int errorCode) override;
-	//bool OnMsg2(proto::Boolean&& msg) override;	
+	bool OnMsg2(proto::Boolean&& msg) override;	
 
 	void SendTransaction(Height h);	
 private:
-
+	const int TxAmount = 10;
 	ECC::Kdf m_Kdf;
+	io::Timer::Ptr m_Timer;
+	int m_Amount;
+	bool m_Failed;
 };
 
-TestNodeConnection::TestNodeConnection()
+TestNodeConnection::TestNodeConnection(const std::string& seed)
+	: m_Timer(io::Timer::create(io::Reactor::get_Current().shared_from_this()))
+	, m_Amount(0)
+	, m_Failed(false)
 {
 	NoLeak<uintBig> walletSeed;
 	Hash::Value hv;
 
-	Hash::Processor() << "321" >> hv;
+	Hash::Processor() << seed.c_str() >> hv;
 	walletSeed.V = hv;
 
 	m_Kdf.m_Secret = walletSeed;
+}
+
+int TestNodeConnection::CheckOnFailed()
+{
+	return m_Failed || m_Amount != TxAmount ? 1 : 0;
 }
 
 void TestNodeConnection::OnConnected()
 {
 	LOG_INFO() << "connection is succeded";	
 
-	for (int i = 1; i < 11; i++)
+	m_Timer->start(10 * 1000, false, []() {io::Reactor::get_Current().stop(); });
+
+	for (int i = 1; i <= TxAmount; i++)
 	{
 		SendTransaction(i);
 	}
@@ -45,14 +64,22 @@ void TestNodeConnection::OnConnected()
 void TestNodeConnection::OnClosed(int errorCode)
 {
 	LOG_ERROR() << "problem with connecting to node: code = " << io::error_str(static_cast<io::ErrorCode>(errorCode));
+	m_Failed = true;
 	io::Reactor::get_Current().stop();
 }
 
-//bool TestNodeConnection::OnMsg2(proto::Boolean&& msg)
-//{
-//	LOG_INFO() << "Boolean is received: value = " << msg.m_Value;
-//	return true;
-//}
+bool TestNodeConnection::OnMsg2(proto::Boolean&& msg)
+{
+	LOG_INFO() << "Boolean is received: value = " << msg.m_Value;
+
+	if (msg.m_Value)
+	{
+		m_Amount++;
+		LOG_INFO() << "Amount = " << m_Amount;
+	}
+
+	return true;
+}
 
 void TestNodeConnection::SendTransaction(Height h)
 {
@@ -106,26 +133,38 @@ void TestNodeConnection::SendTransaction(Height h)
 	}
 }
 
-int main()
+int main(int argc, char* argv[])
 {
 	int logLevel = LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
 	logLevel = LOG_LEVEL_VERBOSE;
 #endif
 	auto logger = Logger::create(logLevel, logLevel);
+
+	
+	po::options_description options("allowed options");
+
+	options.add_options()
+		("address", po::value<std::string>()->default_value("127.0.0.1"), "ip address")
+		("port", po::value<uint16_t>()->default_value(10000), "port")
+		("walled_seed", po::value<std::string>()->default_value("321"), "wallet seed");
+
+	po::variables_map vm;
+	
+	po::store(po::command_line_parser(argc, argv).options(options).run(), vm);
 	
 	io::Reactor::Ptr reactor(io::Reactor::create());
 	io::Reactor::Scope scope(*reactor);
 
-	TestNodeConnection connection;
+	TestNodeConnection connection(vm["walled_seed"].as<std::string>());
 
 	io::Address addr;
-	addr.resolve("127.0.0.1");
-	addr.port(10000);
+	addr.resolve(vm["address"].as<std::string>().c_str());
+	addr.port(vm["port"].as<uint16_t>());
 
 	connection.Connect(addr);
 
 	reactor->run();
 
-	return 0;
+	return connection.CheckOnFailed();
 }
