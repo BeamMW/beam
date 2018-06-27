@@ -16,11 +16,11 @@ namespace beam::wallet
         {
             ConfirmTransaction data;
         };
-        struct TxRegistrationCompleted 
+        struct TxRegistrationCompleted
         {
             Uuid m_txId;
         };
-        
+
         Receiver(receiver::IGateway& gateway
                , IKeyChain::Ptr keychain
                , const TxDescription& txDesc
@@ -29,7 +29,7 @@ namespace beam::wallet
             , m_fsm{std::ref(gateway), keychain, std::ref(m_txDesc), std::ref(initData)}
         {
             assert(keychain);
-        }  
+        }
 
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
                              , public FSMDefinitionBase<FSMDefinition>
@@ -146,7 +146,7 @@ namespace beam::wallet
 
             Transaction::Ptr m_transaction;
             TxKernel::Ptr m_kernel;
-            Height m_height;
+            Height m_height=0;
         };
     private:
         friend FSMHelper<Receiver>;

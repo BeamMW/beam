@@ -12,10 +12,10 @@ namespace beam::wallet
         , m_gateway{ gateway }
         , m_keychain{ keychain }
         , m_message{initData.m_message}
+        , m_receiver_coin{ initData.m_amount, Coin::Unconfirmed, initData.m_height}
         , m_publicSenderBlindingExcess{ initData.m_publicSenderBlindingExcess }
         , m_publicSenderNonce{ initData.m_publicSenderNonce }
         , m_transaction{ make_shared<Transaction>() }
-        , m_receiver_coin{ initData.m_amount, Coin::Unconfirmed, initData.m_height}
         , m_height{ initData.m_height }
     {
         m_transaction->m_Offset = ECC::Zero;
@@ -44,14 +44,14 @@ namespace beam::wallet
         m_keychain->store(m_receiver_coin);
         Scalar::Native blindingFactor = m_keychain->calcKey(m_receiver_coin);
         output->Create(blindingFactor, amount);
-        auto [privateExcess, offset] = split_key(blindingFactor, m_receiver_coin.m_id);
+        auto [privateExcess, offset] = splitKey(blindingFactor, m_receiver_coin.m_id);
 
         m_blindingExcess = -privateExcess;
         assert(m_transaction->m_Offset.m_Value == Zero);
         m_transaction->m_Offset = offset;
 
         m_transaction->m_vOutputs.push_back(move(output));
- 
+
         // 4. Calculate message M
         // 5. Choose random nonce
         Signature::MultiSig msig;
@@ -69,11 +69,11 @@ namespace beam::wallet
         msig.m_NoncePub = m_publicSenderNonce + confirmationData.m_publicReceiverNonce;
         // 8. Compute recepient Shnorr signature
         m_kernel->m_Signature.CoSign(m_receiverSignature, m_message, m_blindingExcess, msig);
-        
+
         confirmationData.m_receiverSignature = m_receiverSignature;
 
         update_tx_description(TxDescription::InProgress);
-        m_gateway.send_tx_confirmation(m_txDesc, confirmationData);
+        m_gateway.send_tx_confirmation(m_txDesc, move(confirmationData));
     }
 
     bool Receiver::FSMDefinition::is_valid_signature(const TxConfirmationCompleted& event)
@@ -84,7 +84,7 @@ namespace beam::wallet
 		Signature sigPeer;
 		sigPeer.m_e = m_kernel->m_Signature.m_e;
 		sigPeer.m_k = data.m_senderSignature;
-		return sigPeer.IsValidPartial(m_publicSenderNonce, m_publicSenderBlindingExcess);
+        return sigPeer.IsValidPartial(m_publicSenderNonce, m_publicSenderBlindingExcess);
     }
 
     bool Receiver::FSMDefinition::is_invalid_signature(const TxConfirmationCompleted& event)
@@ -148,6 +148,7 @@ namespace beam::wallet
     void Receiver::FSMDefinition::update_tx_description(TxDescription::Status s)
     {
         m_txDesc.m_status = s;
+        m_txDesc.m_modifyTime = wallet::getTimestamp();
         Serializer ser;
         ser & *this;
         ser.swap_buf(m_txDesc.m_fsmState);

@@ -24,19 +24,18 @@ namespace beam
 
     struct PrintableAmount
     {
-        explicit PrintableAmount(const Amount& amount) : m_value{amount}
+        explicit PrintableAmount(const Amount& amount, bool showPoint = false) : m_value{ amount }, m_showPoint{showPoint}
         {}
         const Amount& m_value;
+        bool m_showPoint;
     };
 
     std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount);
     std::ostream& operator<<(std::ostream& os, const Uuid& uuid);
 
     struct Coin;
-    using UuidPtr = std::shared_ptr<Uuid>;
     using TransactionPtr = std::shared_ptr<Transaction>;
-    std::pair<ECC::Scalar::Native, ECC::Scalar::Native> split_key(const ECC::Scalar::Native& key, uint64_t index);
-
+    
     struct TxDescription
     {
         enum Status
@@ -61,6 +60,7 @@ namespace beam
             , m_peerId{ peerId }
             , m_message{ std::move(message) }
             , m_createTime{ createTime }
+            , m_modifyTime{ createTime }
             , m_sender{ sender }
             , m_status{ Pending }
             , m_fsmState{}
@@ -83,8 +83,11 @@ namespace beam
         namespace msmf = boost::msm::front;
         namespace mpl = boost::mpl;
 
+        std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
+        Timestamp getTimestamp();
+
         template <typename Derived>
-        class FSMHelper 
+        class FSMHelper
         {
         public:
             void start()
@@ -114,11 +117,11 @@ namespace beam
         };
 
         template <typename Derived>
-        struct FSMDefinitionBase 
+        struct FSMDefinitionBase
         {
             FSMDefinitionBase(TxDescription& txDesc) : m_txDesc{txDesc}
             {}
-            
+
             TxDescription & m_txDesc;
         };
 
@@ -133,6 +136,11 @@ namespace beam
             ECC::Point m_publicSenderNonce;
             std::vector<Input::Ptr> m_inputs;
             std::vector<Output::Ptr> m_outputs;
+
+            InviteReceiver() :
+                m_amount(0), m_height(0) {
+
+                }
 
             SERIALIZE(m_txId
                     , m_amount
@@ -189,8 +197,8 @@ namespace beam
         {
             struct IGateway : virtual IWalletGateway
             {
-                virtual void send_tx_invitation(const TxDescription&, const InviteReceiver&) = 0;
-                virtual void send_tx_confirmation(const TxDescription& , const ConfirmTransaction&) = 0;
+                virtual void send_tx_invitation(const TxDescription&, InviteReceiver&&) = 0;
+                virtual void send_tx_confirmation(const TxDescription& , ConfirmTransaction&&) = 0;
             };
         }
 
@@ -198,7 +206,7 @@ namespace beam
         {
             struct IGateway : virtual IWalletGateway
             {
-                virtual void send_tx_confirmation(const TxDescription& , const ConfirmInvitation&) = 0;
+                virtual void send_tx_confirmation(const TxDescription& , ConfirmInvitation&&) = 0;
                 virtual void register_tx(const TxDescription& , Transaction::Ptr) = 0;
                 virtual void send_tx_registered(const TxDescription& ) = 0;
             };

@@ -22,12 +22,11 @@ namespace beam
         Coin();
 
         uint64_t m_id;
+        ECC::Amount m_amount;
+        Status m_status;
         Height m_height; // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
         Height m_maturity; // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
         KeyType m_key_type;
-        ECC::Amount m_amount;
-
-        Status m_status;
     };
 
     struct IKeyChain
@@ -51,7 +50,7 @@ namespace beam
 		virtual int getVarRaw(const char* name, void* data) const = 0;
         virtual Height getCurrentHeight() const = 0;
 
-        virtual std::vector<TxDescription> getTxHistory(uint64_t start, size_t count) = 0;
+        virtual std::vector<TxDescription> getTxHistory(uint64_t start = 0, int count = std::numeric_limits<int>::max()) = 0;
         virtual boost::optional<TxDescription> getTx(const Uuid& txId) = 0;
         virtual void saveTx(const TxDescription& p) = 0;
         virtual void deleteTx(const Uuid& txId) = 0;
@@ -93,7 +92,7 @@ namespace beam
 		int getVarRaw(const char* name, void* data) const override;
         Height getCurrentHeight() const override;
 
-        std::vector<TxDescription> getTxHistory(uint64_t start, size_t count) override;
+        std::vector<TxDescription> getTxHistory(uint64_t start, int count) override;
         boost::optional<TxDescription> getTx(const Uuid& txId) override;
         void saveTx(const TxDescription& p) override;
         void deleteTx(const Uuid& txId) override;

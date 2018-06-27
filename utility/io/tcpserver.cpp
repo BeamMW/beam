@@ -21,7 +21,7 @@ TcpServer::Ptr TcpServer::create(const Reactor::Ptr& reactor, Address bindAddres
         }
     );
     IO_EXCEPTION_IF(errorCode);
-    return std::move(server);
+    return server;
 }
 
 TcpServer::TcpServer(Callback&& callback) :

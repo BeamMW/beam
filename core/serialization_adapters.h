@@ -108,16 +108,16 @@ namespace detail
 		void save(const ECC::InnerProduct& v)
 		{
 			uint32_t iBit = 0;
-			for (int i = 0; i < _countof(v.m_pLR); i++)
-				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+			for (size_t i = 0; i < _countof(v.m_pLR); i++)
+				for (size_t j = 0; j < _countof(v.m_pLR[i]); j++)
 					set(iBit++, v.m_pLR[i][j].m_Y);
 		}
 
 		void load(ECC::InnerProduct& v) const
 		{
 			uint32_t iBit = 0;
-			for (int i = 0; i < _countof(v.m_pLR); i++)
-				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+			for (size_t i = 0; i < _countof(v.m_pLR); i++)
+				for (size_t j = 0; j < _countof(v.m_pLR[i]); j++)
 					get(iBit++, v.m_pLR[i][j].m_Y);
 		}
 	};
@@ -206,11 +206,11 @@ namespace detail
 		template<typename Archive>
 		static void save_nobits(Archive& ar, const ECC::InnerProduct& v)
 		{
-			for (int i = 0; i < _countof(v.m_pLR); i++)
-				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+			for (size_t i = 0; i < _countof(v.m_pLR); i++)
+				for (size_t j = 0; j < _countof(v.m_pLR[i]); j++)
 					ar & v.m_pLR[i][j].m_X;
 
-			for (int j = 0; j < _countof(v.m_pCondensed); j++)
+			for (size_t j = 0; j < _countof(v.m_pCondensed); j++)
 				ar & v.m_pCondensed[j];
 		}
 
@@ -231,11 +231,11 @@ namespace detail
 		template<typename Archive>
 		static void load_nobits(Archive& ar, ECC::InnerProduct& v)
 		{
-			for (int i = 0; i < _countof(v.m_pLR); i++)
-				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+			for (size_t i = 0; i < _countof(v.m_pLR); i++)
+				for (size_t j = 0; j < _countof(v.m_pLR[i]); j++)
 					ar & v.m_pLR[i][j].m_X;
 
-			for (int j = 0; j < _countof(v.m_pCondensed); j++)
+			for (size_t j = 0; j < _countof(v.m_pCondensed); j++)
 				ar & v.m_pCondensed[j];
 		}
 
@@ -256,11 +256,11 @@ namespace detail
         static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& v)
         {
 			ar
-				& v.m_A.m_X
-				& v.m_S.m_X
-				& v.m_T1.m_X
-				& v.m_T2.m_X
-				& v.m_TauX
+				& v.m_Part1.m_A.m_X
+				& v.m_Part1.m_S.m_X
+				& v.m_Part2.m_T1.m_X
+				& v.m_Part2.m_T2.m_X
+				& v.m_Part3.m_TauX
 				& v.m_Mu
 				& v.m_tDot;
 
@@ -272,10 +272,10 @@ namespace detail
 			ipf.save(v.m_P_Tag);
 
 			static_assert(ipf.N_Max - ipf.N == 4, "");
-			ipf.set(ipf.N + 0, v.m_A.m_Y);
-			ipf.set(ipf.N + 1, v.m_S.m_Y);
-			ipf.set(ipf.N + 2, v.m_T1.m_Y);
-			ipf.set(ipf.N + 3, v.m_T2.m_Y);
+			ipf.set(ipf.N + 0, v.m_Part1.m_A.m_Y);
+			ipf.set(ipf.N + 1, v.m_Part1.m_S.m_Y);
+			ipf.set(ipf.N + 2, v.m_Part2.m_T1.m_Y);
+			ipf.set(ipf.N + 3, v.m_Part2.m_T2.m_Y);
 
 			ar & ipf.m_pF;
             return ar;
@@ -285,11 +285,11 @@ namespace detail
         static Archive& load(Archive& ar, ECC::RangeProof::Confidential& v)
         {
 			ar
-				& v.m_A.m_X
-				& v.m_S.m_X
-				& v.m_T1.m_X
-				& v.m_T2.m_X
-				& v.m_TauX
+				& v.m_Part1.m_A.m_X
+				& v.m_Part1.m_S.m_X
+				& v.m_Part2.m_T1.m_X
+				& v.m_Part2.m_T2.m_X
+				& v.m_Part3.m_TauX
 				& v.m_Mu
 				& v.m_tDot;
 
@@ -301,10 +301,10 @@ namespace detail
 			ipf.load(v.m_P_Tag);
 
 			static_assert(ipf.N_Max - ipf.N == 4, "");
-			ipf.get(ipf.N + 0, v.m_A.m_Y);
-			ipf.get(ipf.N + 1, v.m_S.m_Y);
-			ipf.get(ipf.N + 2, v.m_T1.m_Y);
-			ipf.get(ipf.N + 3, v.m_T2.m_Y);
+			ipf.get(ipf.N + 0, v.m_Part1.m_A.m_Y);
+			ipf.get(ipf.N + 1, v.m_Part1.m_S.m_Y);
+			ipf.get(ipf.N + 2, v.m_Part2.m_T1.m_Y);
+			ipf.get(ipf.N + 3, v.m_Part2.m_T2.m_Y);
 
 			return ar;
 		}

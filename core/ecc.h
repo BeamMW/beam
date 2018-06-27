@@ -91,6 +91,21 @@ namespace ECC
 	template <uint32_t nBits_>
 	struct uintBig_t
 	{
+        uintBig_t()
+        {
+            ZeroObject(m_pData);
+        }
+
+        uintBig_t(const uint8_t bytes[nBits_ >> 3])
+        {
+            memcpy(m_pData, bytes, nBits_ >> 3);
+        }
+
+        uintBig_t(std::initializer_list<uint8_t> bytes)
+        {
+            std::copy(bytes.begin(), bytes.end(), m_pData);
+        }
+
 		static_assert(!(7 & nBits_), "should be byte-aligned");
 
 		// in Big-Endian representation
@@ -151,7 +166,7 @@ namespace ECC
 			{
 				carry += m_pData[i];
 				carry += x.m_pData[i];
-				
+
 				m_pData[i] = (uint8_t) carry;
 				carry >>= 8;
 			}
@@ -207,6 +222,7 @@ namespace ECC
 
 	class Commitment;
 	class Oracle;
+	struct NonceGenerator;
 
 	struct Scalar
 	{
@@ -237,7 +253,7 @@ namespace ECC
 		bool	m_Y; // Flag for Y. Currently specifies if it's odd
 
 		Point() {}
-        
+
         class Native;
         Point(const Native& t) { *this = t; }
         Point(const Point& t) { *this = t; }
@@ -306,8 +322,8 @@ namespace ECC
 		static const uint32_t nCycles = 6;
 		static_assert(1 << nCycles == nDim, "");
 
-		ECC::Point m_pLR[nCycles][2];	// pairs of L,R values, per reduction  iteration
-		ECC::Scalar m_pCondensed[2];	// remaining 1-dimension vectors
+		Point m_pLR[nCycles][2];	// pairs of L,R values, per reduction  iteration
+		Scalar m_pCondensed[2];		// remaining 1-dimension vectors
 
 		static void get_Dot(Scalar::Native& res, const Scalar::Native* pA, const Scalar::Native* pB);
 
@@ -317,8 +333,8 @@ namespace ECC
 			Modifier() { ZeroObject(m_pMultiplier); }
 		};
 
-		void Create(ECC::Point::Native& commAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
-		bool IsValid(const ECC::Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
+		void Create(Point::Native& commAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
+		bool IsValid(const Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
 
 	private:
 		struct Calculator;
@@ -331,16 +347,26 @@ namespace ECC
 		struct Confidential
 		{
 			// Bulletproof scheme
+			struct Part1 {
+				Point m_A;
+				Point m_S;
+			} m_Part1;
 
-			ECC::Point m_A;
-			ECC::Point m_S;
 			// <- y,z
-			ECC::Point m_T1;
-			ECC::Point m_T2;
+
+			struct Part2 {
+				Point m_T1;
+				Point m_T2;
+			} m_Part2;
+
 			// <- x
-			ECC::Scalar m_TauX;
-			ECC::Scalar m_Mu;
-			ECC::Scalar m_tDot;
+
+			struct Part3 {
+				Scalar m_TauX;
+			} m_Part3;
+
+			Scalar m_Mu;
+			Scalar m_tDot;
 
 			InnerProduct m_P_Tag; // contains commitment P - m_Mu*G
 
@@ -349,6 +375,26 @@ namespace ECC
 
 			int cmp(const Confidential&) const;
 			COMPARISON_VIA_CMP(Confidential)
+
+			// multisig
+			static void CoSignPart(const Scalar::Native& sk, Amount, Oracle&, Part2&);
+			static void CoSignPart(const Scalar::Native& sk, Amount, Oracle&, const Part1&, const Part2&, Part3&);
+
+			struct Phase {
+				enum Enum {
+					SinglePass, // regular, no multisig
+					//Step1,
+					Step2,
+					Finalize,
+				};
+			};
+
+			void CoSign(const Scalar::Native& sk, Amount, Oracle&, Phase::Enum); // for multi-sig use 1,2,3 for 1st-pass
+
+
+		private:
+			struct MultiSig;
+			struct ChallengeSet;
 		};
 
 		struct Public
