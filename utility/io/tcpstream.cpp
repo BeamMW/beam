@@ -10,6 +10,11 @@ namespace beam { namespace io {
 TcpStream::~TcpStream() {
     LOG_VERBOSE() << __FUNCTION__ << TRACE(this);
     disable_read();
+
+    if (_handle)
+		_handle->data = NULL;
+
+    LOG_VERBOSE() << ".";
 }
 
 void TcpStream::alloc_read_buffer() {
