@@ -36,18 +36,32 @@ WalletModel::WalletModel(beam::IKeyChain::Ptr keychain)
 
 WalletModel::~WalletModel()
 {
-	_thread.quit();
-	_thread.wait();
+	if(_wallet_io)
+		_wallet_io->stop();
 }
 
-void WalletModel::start()
-{
-	moveToThread(&_thread);
-	connect(&_thread, SIGNAL(started()), SLOT(statusReq()));
-	_thread.start();
-}
-
-void WalletModel::statusReq()
+void WalletModel::run()
 {
 	emit onStatus(getAvailable(_keychain));
+
+	beam::io::Reactor::Ptr reactor(io::Reactor::create());
+
+	// TODO: move port/addr to the config?
+	int port = 10000;
+	io::Address node_addr;
+
+	if(node_addr.resolve("127.0.0.1:9999"))
+	{
+		_wallet_io = std::make_shared<WalletNetworkIO>( io::Address().ip(INADDR_ANY).port(port)
+			, node_addr
+			, true
+			, _keychain
+			, reactor);
+
+		_wallet_io->start();
+	}
+	else
+	{
+		LOG_ERROR() << "unable to resolve node address";
+	}
 }

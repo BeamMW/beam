@@ -3,24 +3,24 @@
 #include <QObject>
 #include <QThread>
 
+#include "wallet/wallet.h"
 #include "wallet/wallet_db.h"
+#include "wallet/wallet_network.h"
 
-class WalletModel : public QObject
+class WalletModel : public QThread
 {
 	Q_OBJECT
 public:
 	WalletModel(beam::IKeyChain::Ptr keychain);
 	WalletModel::~WalletModel();
 
-	void start();
+	void run() override;
+
 signals:
 	void onStatus(const beam::Amount& amount);
 
-private slots:
-	void statusReq();
-
 private:
-	QThread _thread;
 
 	beam::IKeyChain::Ptr _keychain;
+	std::shared_ptr<beam::WalletNetworkIO> _wallet_io;
 };
