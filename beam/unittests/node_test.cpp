@@ -832,6 +832,22 @@ namespace beam
 
 			virtual void OnConnected() override {
 				SetTimer(90*1000);
+				SecureConnect();
+			}
+
+			void get_MyID(ECC::Scalar::Native& sk) override
+			{
+				DeriveKey(sk, m_Wallet.m_Kdf, 0, KeyType::Identity);
+			}
+
+			void GenerateSChannelNonce(ECC::Scalar& nonce) override
+			{
+				ECC::SetRandom(nonce.m_Value);
+			}
+
+			virtual void OnMsg(proto::SChannelAuthentication&& msg) override {
+				proto::NodeConnection::OnMsg(std::move(msg));
+				// by now the secure channel is established
 
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);

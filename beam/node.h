@@ -217,6 +217,8 @@ private:
 		// proto::NodeConnection
 		virtual void OnConnected() override;
 		virtual void OnClosed(int errorCode) override;
+		virtual void get_MyID(ECC::Scalar::Native&); // by default no-ID (secure channel, but no authentication)
+		virtual void GenerateSChannelNonce(ECC::Scalar&); // Must be overridden to support SChannel
 		// messages
 		virtual void OnMsg(proto::Config&&) override;
 		virtual void OnMsg(proto::Ping&&) override;

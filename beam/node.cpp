@@ -552,6 +552,25 @@ void Node::Peer::OnTimer()
 	}
 }
 
+void Node::Peer::get_MyID(ECC::Scalar::Native& sk)
+{
+	ECC::Kdf& kdf = m_pThis->m_Processor.m_Kdf;
+
+	if (kdf.m_Secret.V == ECC::Zero)
+		sk = ECC::Zero;
+	else
+		DeriveKey(sk, kdf, 0, KeyType::Identity);
+}
+
+void Node::Peer::GenerateSChannelNonce(ECC::Scalar& nonce)
+{
+	ECC::Kdf& kdf = m_pThis->m_Processor.m_Kdf;
+	ECC::Scalar::Native k;
+
+	DeriveKey(k, kdf, m_pThis->m_Processor.m_Cursor.m_ID.m_Height, KeyType::SChannelNonce, time(NULL)); // TODO: stronger nonce?
+	nonce = k;
+}
+
 void Node::Peer::OnConnected()
 {
 	m_RemoteAddr = get_Connection()->peer_address();
