@@ -251,6 +251,17 @@ void TestPoints()
 		p0 = p1;
 	}
 
+	SetRandom(s1);
+	p0 = g * s1;
+
+	{
+		Mode::Scope scope(Mode::Secure);
+		p1 = g * s1;
+	}
+
+	p1 = -p1;
+	p1 += p0;
+	verify_test(p1 == Zero);
 }
 
 void TestSigning()
@@ -920,6 +931,19 @@ void RunBenchmark()
 		Mode::Scope scope(Mode::Fast);
 
 		BenchmarkMeter bm("point.Multiply.Avg");
+		do
+		{
+			SetRandom(k1);
+			for (uint32_t i = 0; i < bm.N; i++)
+				p0 += p1 * k1;
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		Mode::Scope scope(Mode::Secure);
+
+		BenchmarkMeter bm("point.Multiply.Sec");
 		do
 		{
 			SetRandom(k1);

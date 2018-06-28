@@ -45,7 +45,6 @@ void ProtocolPlus::InitCipher(Cipher& c)
 	assert(!(m_MyNonce.V.m_Value == ECC::Zero));
 
 	 // Diffie-Hellman
-	ECC::Mode::Scope scope(ECC::Mode::Fast); // TODO !!!
 	ECC::Point::Native ptSecret = ECC::Point::Native(m_RemoteNonce) * ECC::Scalar::Native(m_MyNonce.V);
 
 	ECC::NoLeak<ECC::Hash::Processor> hp;
