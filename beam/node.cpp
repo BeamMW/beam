@@ -1000,7 +1000,8 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 
 		ECC::Scalar::Native sk;
 		get_MyID(sk);
-		ECC::Point myID = ECC::Context::get().G * sk;
+		ECC::Point myID;
+		myID = ECC::Context::get().G * sk;
 
 		if (!(myID == *pID))
 			ThrowUnexpected(); // unauthorized
