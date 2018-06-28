@@ -691,8 +691,8 @@ namespace beam
 		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
 
-		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
-		ECC::SetRandom(node2.get_Processor().m_Kdf.m_Secret.V);
+		ECC::SetRandom(node.m_Cfg.m_WalletKey.V);
+		ECC::SetRandom(node2.m_Cfg.m_WalletKey.V);
 
 		node.Initialize();
 		node2.Initialize();
@@ -807,7 +807,7 @@ namespace beam
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
 
-		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
+		ECC::SetRandom(node.m_Cfg.m_WalletKey.V);
 
 		node.m_Cfg.m_Horizon.m_Branching = 6;
 		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
@@ -954,7 +954,7 @@ namespace beam
 		};
 
 		MyClient cl;
-		cl.m_Wallet.m_Kdf = node.get_Processor().m_Kdf; // same key gen
+		cl.m_Wallet.m_Kdf.m_Secret = node.m_Cfg.m_WalletKey; // same key gen
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");

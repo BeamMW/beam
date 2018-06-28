@@ -60,6 +60,11 @@ struct Node
 
 		std::vector<Block::Body> m_vTreasury;
 
+		Config()
+		{
+			m_WalletKey.V = ECC::Zero;
+		}
+
 	} m_Cfg; // must not be changed after initialization
 
 	~Node();
