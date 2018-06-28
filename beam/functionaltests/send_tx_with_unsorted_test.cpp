@@ -26,6 +26,7 @@ private:
 	void GenerateInputInTx(Height h, Amount v);
 	void GenerateOutputInTx(Height h, Amount v);
 	void GenerateKernel(Height h);
+	void GenerateTx();
 	void GenerateTests();
 private:
 	ECC::Kdf m_Kdf;
@@ -33,7 +34,7 @@ private:
 	bool m_Failed;
 	proto::NewTransaction m_MsgTx;
 	Scalar::Native m_Offset;
-	std::vector<std::function<void()>> m_Tests;
+	std::vector<std::pair<std::function<void()>,bool>> m_Tests;
 	int m_Index;
 };
 
@@ -75,15 +76,17 @@ void TestNodeConnection::OnClosed(int errorCode)
 
 bool TestNodeConnection::OnMsg2(proto::Boolean&& msg)
 {
-	if (msg.m_Value)
+	if (msg.m_Value != m_Tests[m_Index].second)
 	{
-		LOG_INFO() << "Failed: return true";
+		LOG_INFO() << "Failed: node returned " << msg.m_Value;
 		m_Failed = true;
 	}
 	else
 	{
-		LOG_INFO() << "Ok: return false";
+		LOG_INFO() << "Ok: node returned " << msg.m_Value;
 	}
+
+	++m_Index;
 
 	if (m_Index >= m_Tests.size())
 		io::Reactor::get_Current().stop();
@@ -96,7 +99,7 @@ bool TestNodeConnection::OnMsg2(proto::Boolean&& msg)
 void TestNodeConnection::RunTest()
 {
 	if (m_Index < m_Tests.size())
-		m_Tests[m_Index++]();
+		m_Tests[m_Index].first();
 }
 
 void TestNodeConnection::GenerateInputInTx(Height h, Amount v)
@@ -141,100 +144,77 @@ void TestNodeConnection::GenerateKernel(Height h)
 	m_Offset += key;
 }
 
+void TestNodeConnection::GenerateTx()
+{
+	m_MsgTx.m_Transaction = std::make_shared<Transaction>();
+	m_Offset = Zero;
+
+	// Inputs
+	GenerateInputInTx(4, 5);
+	GenerateInputInTx(2, 2);
+	GenerateInputInTx(3, 3);
+
+	// Outputs
+	GenerateOutputInTx(5, 1);
+	GenerateOutputInTx(4, 4);
+	GenerateOutputInTx(2, 2);
+	GenerateOutputInTx(3, 3);
+
+	// Kernels
+	GenerateKernel(4);
+	GenerateKernel(2);
+	GenerateKernel(3);
+
+	m_MsgTx.m_Transaction->m_Offset = m_Offset;
+}
+
 void TestNodeConnection::GenerateTests()
 {
-	m_Tests.push_back([this]() 
+	m_Tests.push_back(std::make_pair([this]()
 	{
-		LOG_INFO() << "Run test with empty kernel";
+		LOG_INFO() << "Run test with unsorded kernels";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+		GenerateTx();
+		
+		std::sort(m_MsgTx.m_Transaction->m_vInputs.begin(), m_MsgTx.m_Transaction->m_vInputs.end());
+		std::sort(m_MsgTx.m_Transaction->m_vOutputs.begin(), m_MsgTx.m_Transaction->m_vOutputs.end());
 
-		// Inputs
-		GenerateInputInTx(1, 1);
+		Send(m_MsgTx);
+	}, false));
 
-		// Outputs
-		GenerateOutputInTx(1, 1);
+	m_Tests.push_back(std::make_pair([this]()
+	{
+		LOG_INFO() << "Run test with unsorted inputs";
 
-		// Kernels
-		TxKernel::Ptr pKrn(new TxKernel);
+		GenerateTx();
 
-		m_MsgTx.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
+		std::sort(m_MsgTx.m_Transaction->m_vKernelsOutput.begin(), m_MsgTx.m_Transaction->m_vKernelsOutput.end());
+		std::sort(m_MsgTx.m_Transaction->m_vOutputs.begin(), m_MsgTx.m_Transaction->m_vOutputs.end());
+
+		Send(m_MsgTx);
+	}, false));
+
+	m_Tests.push_back(std::make_pair([this]()
+	{
+		LOG_INFO() << "Run test with unsorted outputs";
+
+		GenerateTx();
+
+		std::sort(m_MsgTx.m_Transaction->m_vInputs.begin(), m_MsgTx.m_Transaction->m_vInputs.end());
+		std::sort(m_MsgTx.m_Transaction->m_vKernelsOutput.begin(), m_MsgTx.m_Transaction->m_vKernelsOutput.end());
+
+		Send(m_MsgTx);
+	}, false));
+
+	m_Tests.push_back(std::make_pair([this]()
+	{
+		LOG_INFO() << "Run test with sorted inputs,outputs and kernels";
+
+		GenerateTx();
 		m_MsgTx.m_Transaction->Sort();
 
 		Send(m_MsgTx);
-	});
-
-	m_Tests.push_back([this]()
-	{
-		LOG_INFO() << "Run test with normal and empty kernels";
-
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
-
-		// Inputs
-		GenerateInputInTx(1, 1);
-
-		// Outputs
-		GenerateOutputInTx(1, 1);
-
-		// Kernels
-
-		// valid
-		GenerateKernel(1);
-
-		// empty
-		TxKernel::Ptr pKrn(new TxKernel);
-
-		m_MsgTx.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
-
-		Send(m_MsgTx);
-	});
-
-	m_Tests.push_back([this]()
-	{
-		LOG_INFO() << "Run test with 2 empty kernels";
-
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
-
-		// Inputs
-		GenerateInputInTx(1, 1);
-
-		// Outputs
-		GenerateOutputInTx(1, 1);
-
-		// Kernels
-		TxKernel::Ptr pKrn(new TxKernel);
-
-		m_MsgTx.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
-
-		pKrn = std::make_unique<TxKernel>();
-		m_MsgTx.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
-
-		Send(m_MsgTx);
-	});
-
-	m_Tests.push_back([this]()
-	{
-		LOG_INFO() << "Run test without kernels";
-
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
-
-		// Inputs
-		GenerateInputInTx(1, 1);
-
-		// Outputs
-		GenerateOutputInTx(1, 1);
-
-		Send(m_MsgTx);
-	});
+	}, true));
 }
 
 int main(int argc, char* argv[])

@@ -2,7 +2,7 @@
 #include <chrono>
 #include <future>
 
-#include "../node.h"
+#include "beam/node.h"
 #include "utility/logger.h"
 
 using namespace std::chrono_literals;

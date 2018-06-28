@@ -1,4 +1,4 @@
-#include "../node.h"
+#include "beam/node.h"
 #include "utility/logger.h"
 
 #include <boost/program_options.hpp>
