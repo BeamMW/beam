@@ -81,7 +81,6 @@ namespace beam::wallet
                 : FSMDefinitionBase{txDesc}
                 , m_gateway{ gateway }
                 , m_keychain{ keychain }
-                , m_changeOutput{ false }
             {
                 assert(keychain);
                 update_tx_description(TxDescription::Pending);
@@ -134,21 +133,14 @@ namespace beam::wallet
             void serialize(Archive & ar, const unsigned int)
             {
                 ar  & m_blindingExcess
-                    & m_kernel
-                    & m_coins
-                    & m_changeOutput;
+                    & m_kernel;
             }
 
             sender::IGateway& m_gateway;
             beam::IKeyChain::Ptr m_keychain;
 
-            /////////////////////////////////////////////
-
             ECC::Scalar::Native m_blindingExcess;
             TxKernel::Ptr m_kernel;
-
-            std::vector<Coin> m_coins;
-            boost::optional<Coin> m_changeOutput;
         };
 
     private:

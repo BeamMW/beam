@@ -15,8 +15,8 @@ namespace beam::wallet
         Height currentHeight = m_keychain->getCurrentHeight();
         invitationData.m_height = currentHeight;
 
-        m_coins = m_keychain->getCoins(m_txDesc.m_amount); // need to lock 
-        if (m_coins.empty())
+        auto coins = m_keychain->getCoins(m_txDesc.m_amount); // need to lock 
+        if (coins.empty())
         {
             LOG_ERROR() << "You only have " << PrintableAmount(get_total());
             throw runtime_error("no money");
@@ -35,7 +35,7 @@ namespace beam::wallet
         // 3. Select inputs using desired selection strategy
         {
             m_blindingExcess = Zero;
-            for (const auto& coin: m_coins)
+            for (const auto& coin: coins)
             {
                 assert(coin.m_status == Coin::Locked);
                 Input::Ptr input = make_unique<Input>();
@@ -51,7 +51,7 @@ namespace beam::wallet
         // 5. Select blinding factor for change_output
         {
             Amount change = 0;
-            for (const auto &coin : m_coins)
+            for (const auto &coin : coins)
             {
                 change += coin.m_amount;
             }
@@ -59,13 +59,14 @@ namespace beam::wallet
             change -= m_txDesc.m_amount;
             if (change > 0)
             {
-                m_changeOutput = beam::Coin(change, Coin::Unconfirmed, currentHeight);
-                m_keychain->store(*m_changeOutput);
+                auto changeCoin = beam::Coin(change, Coin::Unconfirmed, currentHeight);
+                m_keychain->store(changeCoin);
                 Output::Ptr output = make_unique<Output>();
                 output->m_Coinbase = false;
-                Scalar::Native blindingFactor = m_keychain->calcKey(*m_changeOutput);
+                Scalar::Native blindingFactor = m_keychain->calcKey(changeCoin);
                 output->Create(blindingFactor, change);
 
+                blindingFactor = -blindingFactor;
                 blindingFactor = -blindingFactor;
                 m_blindingExcess += blindingFactor;
 
@@ -158,15 +159,7 @@ namespace beam::wallet
 	void Sender::FSMDefinition::rollback_tx()
 	{
         LOG_DEBUG() << "Transaction failed. Rollback...";
-		for (auto& c : m_coins)
-		{
-			c.m_status = Coin::Unspent;
-		}
-		m_keychain->update(m_coins);
-		if (m_changeOutput)
-		{
-			m_keychain->remove(*m_changeOutput);
-		}
+        m_keychain->rollbackTx(m_txDesc.m_txId);
 	}
 
     void Sender::FSMDefinition::complete_tx(const TxConfirmationCompleted&)
