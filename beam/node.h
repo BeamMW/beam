@@ -243,6 +243,8 @@ private:
 	typedef boost::intrusive::list<Peer> PeerList;
 	PeerList m_lstPeers;
 
+	ECC::NoLeak<ECC::uintBig> m_SChannelSeed;
+
 	Peer* AllocPeer();
 	void DeletePeer(Peer*);
 	Peer* FindPeer(const Processor::PeerID&);

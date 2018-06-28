@@ -1,4 +1,5 @@
 #include "node.h"
+#include "node.h"
 #include "../core/serialization_adapters.h"
 #include "../core/proto.h"
 #include "../core/ecc_native.h"
@@ -404,6 +405,8 @@ void Node::Initialize()
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
     m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
 
+	m_SChannelSeed.V = ECC::Zero;
+
 	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
 
 	if (m_Cfg.m_VerificationThreads < 0)
@@ -564,10 +567,12 @@ void Node::Peer::get_MyID(ECC::Scalar::Native& sk)
 
 void Node::Peer::GenerateSChannelNonce(ECC::Scalar& nonce)
 {
-	ECC::Kdf& kdf = m_pThis->m_Processor.m_Kdf;
-	ECC::Scalar::Native k;
+	ECC::uintBig& hv = m_pThis->m_SChannelSeed.V; // alias
 
-	DeriveKey(k, kdf, m_pThis->m_Processor.m_Cursor.m_ID.m_Height, KeyType::SChannelNonce, time(NULL)); // TODO: stronger nonce?
+	ECC::Hash::Processor() << "sch.nonce" << hv << GetTime_ms() >> hv;
+
+	ECC::Scalar::Native k;
+	k.GenerateNonce(m_pThis->m_Cfg.m_WalletKey.V, hv, NULL);
 	nonce = k;
 }
 
