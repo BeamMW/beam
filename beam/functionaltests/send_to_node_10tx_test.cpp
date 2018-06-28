@@ -112,7 +112,7 @@ void TestNodeConnection::SendTransaction(Height h)
 	TxKernel::Ptr pKrn(new TxKernel);
 	ECC::Scalar::Native key3;
 
-	DeriveKey(key2, m_Kdf, h, KeyType::Kernel);
+	DeriveKey(key3, m_Kdf, h, KeyType::Kernel);
 	pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * key3);
 
 	ECC::Hash::Value hv;
