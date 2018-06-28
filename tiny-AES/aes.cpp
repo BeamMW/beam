@@ -12,7 +12,7 @@ void AES_StreamCipher::PerfXor(uint8_t* pBuf, uint32_t nSize)
 		pBuf[i] ^= pXor[i];
 }
 
-void AES_StreamCipher::Init(const uint8_t* pKey, const uint8_t* pIV /* = NULL */)
+void AES_StreamCipher::Init(const uint8_t* pKey, const uint8_t* pIV /* = 0 */)
 {
 	AES_init_ctx(&m_Ctx, pKey);
 	if (pIV)

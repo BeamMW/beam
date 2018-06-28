@@ -20,7 +20,7 @@ class AES_StreamCipher
 
 public:
 
-	void Init(const uint8_t* pKey, const uint8_t* pIV = NULL);
+	void Init(const uint8_t* pKey, const uint8_t* pIV = 0);
 	void XCrypt(uint8_t* pBuf, uint32_t nSize);
 };
 
