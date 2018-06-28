@@ -77,67 +77,72 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
     }
 }
 
-size_t MsgReader::feed_data(const uint8_t* p, size_t sz, const volatile bool& bAlive) {
+size_t MsgReader::feed_data(const uint8_t* p, size_t sz, const volatile bool& bAlive)
+{
     size_t consumed = std::min(sz, _bytesLeft);
     memcpy(_cursor, p, consumed);
-    if (_state == reading_header) {
-        if (consumed == _bytesLeft) {
-            // whole header has been read
-            MsgHeader header(_msgBuffer.data());
-            if (!_protocol.approve_msg_header(_streamId, header)) {
-                // at this moment, the *this* may be deleted
-                return 0;
-            }
+	_protocol.Decrypt(_cursor, (uint32_t) consumed); // decrypt as much as we expect, no more (because cipher may change)
+
+	if (consumed == _bytesLeft)
+	{
+		if (_state == reading_header)
+		{
+			// whole header has been read
+			MsgHeader header(_msgBuffer.data());
+			if (!_protocol.approve_msg_header(_streamId, header)) {
+				// at this moment, the *this* may be deleted
+				return 0;
+			}
 
 			if (!bAlive)
 				return 0;
 
-            if (!_expectedMsgTypes.test(header.type)) {
-                _protocol.on_unexpected_msg(_streamId, header.type);
-                // at this moment, the *this* may be deleted
-                return 0;
-            }
+			if (!_expectedMsgTypes.test(header.type)) {
+				_protocol.on_unexpected_msg(_streamId, header.type);
+				// at this moment, the *this* may be deleted
+				return 0;
+			}
 
 			if (!bAlive)
 				return 0;
 
-            // header deserialized successfully
-            _msgBuffer.resize(header.size);
-            _type = header.type;
-            _cursor = _msgBuffer.data();
-            _bytesLeft = header.size;
-            _state = reading_message;
-        } else {
-            _cursor += consumed;
-            _bytesLeft -= consumed;
-        }
-    } else {
-        if (consumed == _bytesLeft) {
-            // whole message has been read
-            if (!_protocol.on_new_message(_streamId, _type, _msgBuffer.data(), _msgBuffer.size())) {
-                // at this moment, the *this* may be deleted
-                return 0;
-            }
+			// header deserialized successfully
+			_msgBuffer.resize(header.size);
+			_type = header.type;
+			_bytesLeft = header.size;
+			_state = reading_message;
+		}
+		else
+		{
+			// whole message has been read
+			if (!_protocol.on_new_message(_streamId, _type, _msgBuffer.data(), _msgBuffer.size())) {
+				// at this moment, the *this* may be deleted
+				return 0;
+			}
 
 			if (!bAlive)
 				return 0;
 
-            if (_msgBuffer.size() > 2*_defaultSize) {
-                {
-                    std::vector<uint8_t> newBuffer;
-                    _msgBuffer.swap(newBuffer);
-                }
-                // preventing from excessive memory consumption per individual stream
-                _msgBuffer.resize(_defaultSize);
-            }
-            _cursor = _msgBuffer.data();
-            _bytesLeft = MsgHeader::SIZE;
-            _state = reading_header;
-        } else {
-            _cursor += consumed;
-            _bytesLeft -= consumed;
-        }
-    }
+			if (_msgBuffer.size() > 2 * _defaultSize) {
+				{
+					std::vector<uint8_t> newBuffer;
+					_msgBuffer.swap(newBuffer);
+				}
+				// preventing from excessive memory consumption per individual stream
+				_msgBuffer.resize(_defaultSize);
+			}
+			_bytesLeft = MsgHeader::SIZE;
+			_state = reading_header;
+		}
+
+		_cursor = _msgBuffer.data();
+	}
+	else
+	{
+		_cursor += consumed;
+		_bytesLeft -= consumed;
+	}
+
     return consumed;
 }
 

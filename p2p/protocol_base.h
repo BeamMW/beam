@@ -181,6 +181,8 @@ public:
         return callback(_dispatchTable[type].msgHandler, _errorHandler, *_deserializer, fromStream, data, size);
     }
 
+	virtual void Decrypt(uint8_t*, uint32_t nSize) {}
+
 private:
     /// protocol version, all received messages must have these bytes
     uint8_t V0, V1, V2;
