@@ -77,12 +77,12 @@ bool TestNodeConnection::OnMsg2(proto::Boolean&& msg)
 {
 	if (msg.m_Value)
 	{
-		LOG_INFO() << "Failed";
+		LOG_INFO() << "Failed: return true";
 		m_Failed = true;
 	}
 	else
 	{
-		LOG_INFO() << "Ok";
+		LOG_INFO() << "Ok: return false";
 	}
 
 	if (m_Index >= m_Tests.size())
@@ -160,8 +160,8 @@ void TestNodeConnection::GenerateTests()
 		TxKernel::Ptr pKrn(new TxKernel);
 
 		m_MsgTx.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
-
 		m_MsgTx.m_Transaction->m_Offset = m_Offset;
+		m_MsgTx.m_Transaction->Sort();
 
 		Send(m_MsgTx);
 	});
@@ -188,8 +188,8 @@ void TestNodeConnection::GenerateTests()
 		TxKernel::Ptr pKrn(new TxKernel);
 
 		m_MsgTx.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
-
 		m_MsgTx.m_Transaction->m_Offset = m_Offset;
+		m_MsgTx.m_Transaction->Sort();
 
 		Send(m_MsgTx);
 	});
@@ -214,8 +214,24 @@ void TestNodeConnection::GenerateTests()
 
 		pKrn = std::make_unique<TxKernel>();
 		m_MsgTx.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
-
 		m_MsgTx.m_Transaction->m_Offset = m_Offset;
+		m_MsgTx.m_Transaction->Sort();
+
+		Send(m_MsgTx);
+	});
+
+	m_Tests.push_back([this]()
+	{
+		LOG_INFO() << "Run test without kernels";
+
+		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
+		m_Offset = Zero;
+
+		// Inputs
+		GenerateInputInTx(1, 1);
+
+		// Outputs
+		GenerateOutputInTx(1, 1);
 
 		Send(m_MsgTx);
 	});
