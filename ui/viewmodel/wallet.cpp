@@ -50,7 +50,8 @@ QString TxObject::status() const
 }
 
 WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain)
-	: _keychain(keychain)
+	: _model(keychain)
+	, _available(0)
 {
 	_tx.append(new TxObject(
 		"12 June 2018 | 3:46 PM"
@@ -94,56 +95,27 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain)
 		, "+0.63736 BEAM"
 		, "726.4 USD"
 		, "unspent"));
+
+	connect(&_model, SIGNAL(onStatus(const beam::Amount&)), SLOT(onStatus(const beam::Amount&)));
+
+	_model.start();
 }
 
-namespace 
+void WalletViewModel::onStatus(const beam::Amount& amount)
 {
-	// taken from beam.cpp
-	// TODO: move 'getAvailable' to one place
-	Amount getAvailable(IKeyChain::Ptr keychain)
+	if (_available != amount)
 	{
-		auto currentHeight = keychain->getCurrentHeight();
-		Amount total = 0;
-		keychain->visit([&total, &currentHeight](const Coin& c)->bool
-		{
-			Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
-				? Rules::MaturityCoinbase
-				: Rules::MaturityStd);
+		_available = amount;
 
-			if (c.m_status == Coin::Unspent
-				&& lockHeight <= currentHeight)
-			{
-				total += c.m_amount;
-			}
-			return true;
-		});
-		return total;
+		emit availableChanged();
 	}
 }
 
 QString WalletViewModel::available() const
 {
-	auto amount = getAvailable(_keychain);
-
-	return QString::number(static_cast<float>(amount) / Rules::Coin) + " BEAM";
+	return QString::number(static_cast<float>(_available) / Rules::Coin) + " BEAM";
 }
 
-//void WalletViewModel::setAvailable(const QString& val)
-//{
-//	if (_label != val)
-//	{
-//		_label = val;
-//
-//		emit labelChanged();
-//	}
-//}
-
-//void WalletViewModel::sayHello(const QString& name)
-//{
-//	setLabel("Hello, " + name);
-//}
-
-//const WalletViewModel::TxList& WalletViewModel::tx() const
 QVariant WalletViewModel::tx() const
 {
 	return QVariant::fromValue(_tx);

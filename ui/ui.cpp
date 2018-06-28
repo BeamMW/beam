@@ -13,6 +13,7 @@
 #include "viewmodel/settings.h"
 
 #include "wallet/wallet_db.h"
+#include "utility/logger.h"
 
 #include "translator.h"
 
@@ -21,6 +22,8 @@ using namespace ECC;
 
 int main (int argc, char* argv[])
 {
+	auto logger = Logger::create();
+
 	QApplication app(argc, argv);
 
 	static const char* WALLET_STORAGE = "wallet.db";

@@ -3,7 +3,7 @@
 #include <QObject>
 #include <QtCore/qvariant.h>
 
-#include "wallet/wallet_db.h"
+#include "model/wallet.h"
 
 class TxObject : public QObject
 {
@@ -60,22 +60,19 @@ public:
 	using TxList = QList<QObject*>;
 
 	WalletViewModel(beam::IKeyChain::Ptr keychain);
-
 	QString available() const;
-	//void setAvailable(const QString& val);
-
 	QVariant tx() const;
 
-//public slots:
-//	void sayHello(const QString& name);
+public slots:
+	void onStatus(const beam::Amount& amount);
 
 signals:
 	void availableChanged();
 
 private:
 
-	//QString _label;
+	beam::Amount _available;
 	TxList _tx;
 
-	beam::IKeyChain::Ptr _keychain;
+	WalletModel _model;
 };
