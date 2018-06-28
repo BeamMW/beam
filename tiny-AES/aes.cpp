@@ -1,6 +1,6 @@
-//#include <stdint.h>
-//#include <string.h> // CBC mode, for memset
+#include <assert.h>
 #include "aes.hpp"
+#include "../core/ecc.h"
 
 void AES_StreamCipher::PerfXor(uint8_t* pBuf, uint32_t nSize)
 {
