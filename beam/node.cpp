@@ -991,7 +991,21 @@ void Node::Peer::OnMsg(proto::GetTransaction&& msg)
 
 void Node::Peer::OnMsg(proto::GetMined&& msg)
 {
-	// TODO: report this only to authenticated users over secure channel
+	if (m_pThis->m_Cfg.m_RestrictMinedReportToOwner)
+	{
+		// Who's asking?
+		const ECC::Point* pID = get_RemoteID();
+		if (!pID)
+			ThrowUnexpected();
+
+		ECC::Scalar::Native sk;
+		get_MyID(sk);
+		ECC::Point myID = ECC::Context::get().G * sk;
+
+		if (!(myID == *pID))
+			ThrowUnexpected(); // unauthorized
+	}
+
 	proto::Mined msgOut;
 
 	NodeDB& db = m_pThis->m_Processor.get_DB();

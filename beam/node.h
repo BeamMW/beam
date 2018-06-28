@@ -23,6 +23,8 @@ struct Node
         ECC::NoLeak<ECC::uintBig> m_WalletKey;
 		NodeProcessor::Horizon m_Horizon;
 
+		bool m_RestrictMinedReportToOwner = false; // TODO: turn this ON once wallet supports this
+
 		struct Timeout {
 			uint32_t m_Reconnect_ms	= 1000;
 			uint32_t m_Insane_ms	= 1000 * 3600; // 1 hour

@@ -806,6 +806,7 @@ namespace beam
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
+		node.m_Cfg.m_RestrictMinedReportToOwner = true;
 
 		ECC::SetRandom(node.m_Cfg.m_WalletKey.V);
 
@@ -876,6 +877,10 @@ namespace beam
 
 				if (msg.m_ID.m_Height >= m_HeightTrg)
 					io::Reactor::get_Current().stop();
+
+				proto::GetMined msgOut;
+				msgOut.m_HeightMin = 0;
+				Send(msgOut);
 			}
 
 			virtual void OnMsg(proto::Hdr&& msg) override
