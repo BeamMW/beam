@@ -510,7 +510,9 @@ namespace beam
 		Comission,
 		Coinbase,
 		Kernel,
-		Regular
+		Regular,
+		Identity,
+		SChannelNonce
 	};
 	void DeriveKey(ECC::Scalar::Native&, const ECC::Kdf&, Height, KeyType, uint32_t nIdx = 0);
 
