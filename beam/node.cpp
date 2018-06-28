@@ -600,6 +600,12 @@ void Node::Peer::OnConnected()
 	}
 }
 
+void Node::Peer::OnMsg(proto::SChannelAuthentication&& msg)
+{
+	proto::NodeConnection::OnMsg(std::move(msg));
+	LOG_INFO() << "Peer " << m_RemoteAddr << " SChannel. RemoteID=" << msg.m_MyID;
+}
+
 void Node::Peer::OnClosed(int errorCode)
 {
 	assert(State::Connected == m_eState || State::Connecting == m_eState);
