@@ -64,6 +64,7 @@ namespace
         boost::optional<TxDescription> getTx(const Uuid& ) override { return boost::optional<TxDescription>{}; };
         void saveTx(const TxDescription &) override {};
         void deleteTx(const Uuid& ) override {};
+        void rollbackTx(const Uuid&) override {}
 
         Height getCurrentHeight() const override
         {

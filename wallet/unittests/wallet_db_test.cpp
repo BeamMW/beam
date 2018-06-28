@@ -235,6 +235,62 @@ void TestStoreTxRecord()
     WALLET_CHECK(t.size() == 0);
 }
 
+void TestTxRollback()
+{
+    auto keychain = createSqliteKeychain();
+    Uuid id = { { 1, 3, 4, 5 ,65 } };
+    Uuid id2 = { {1, 3, 4} };
+
+    Coin coin1 = { 5, Coin::Unspent, 1, 10, KeyType::Coinbase };
+    keychain->store(coin1);
+    Coin coin2 = { 6, Coin::Unspent, 2, 11, KeyType::Coinbase };
+    keychain->store(coin2);
+    
+    coin2.m_spentTxId = id;
+    coin2.m_status = Coin::Locked;
+    
+    Coin coin3 = { 3, Coin::Unconfirmed, 2 };
+    coin3.m_createTxId = id;
+    keychain->update({ coin2, coin3 });
+
+    vector<Coin> coins;
+    keychain->visit([&coins](const Coin& c)->bool
+    {
+        coins.push_back(c);
+        return true;
+    });
+
+    WALLET_CHECK(coins.size() == 3);
+
+    WALLET_CHECK(coins[1].m_status == Coin::Locked);
+    WALLET_CHECK(coins[1].m_spentTxId == id);
+    WALLET_CHECK(coins[2].m_status == Coin::Unconfirmed);
+    WALLET_CHECK(coins[2].m_createTxId == id);
+
+    keychain->rollbackTx(id2);
+
+    coins.clear();
+    keychain->visit([&coins](const Coin& c)->bool
+    {
+        coins.push_back(c);
+        return true;
+    });
+    WALLET_CHECK(coins.size() == 3);
+
+    keychain->rollbackTx(id);
+
+    coins.clear();
+    keychain->visit([&coins](const Coin& c)->bool
+    {
+        coins.push_back(c);
+        return true;
+    });
+
+    WALLET_CHECK(coins.size() == 2);
+    WALLET_CHECK(coins[1].m_status == Coin::Unspent);
+}
+
+
 int main() 
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -246,6 +302,7 @@ int main()
 	TestKeychain();
     TestStoreCoins();
     TestStoreTxRecord();
+    TestTxRollback();
 
     return WALLET_CHECK_RESULT;
 }
