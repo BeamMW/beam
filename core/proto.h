@@ -5,6 +5,7 @@
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"
 #include "../utility/io/tcpserver.h"
+#include "../tiny-AES/aes.hpp"
 
 namespace beam {
 namespace proto {
@@ -70,6 +71,15 @@ namespace proto {
 #define BeamNodeMsg_GetTransaction(macro) \
 	macro(Transaction::KeyType, ID)
 
+#define BeamNodeMsg_SChannelInitiate(macro) \
+	macro(ECC::Point, NoncePub)
+
+#define BeamNodeMsg_SChannelReady(macro)
+
+#define BeamNodeMsg_SChannelAuthentication(macro) \
+	macro(ECC::Point, MyID) \
+	macro(ECC::Signature, Sig)
+
 #define BeamNodeMsgsAll(macro) \
 	macro(1, NewTip) /* Also the first message sent by the node */ \
 	macro(2, GetHdr) \
@@ -90,7 +100,10 @@ namespace proto {
 	macro(22, Pong) \
 	macro(23, NewTransaction) \
 	macro(24, HaveTransaction) \
-	macro(25, GetTransaction)
+	macro(25, GetTransaction) \
+	macro(61, SChannelInitiate) \
+	macro(62, SChannelReady) \
+	macro(63, SChannelAuthentication) \
 
 
 	struct PerMined
@@ -126,12 +139,53 @@ namespace proto {
 #undef THE_MACRO2
 #undef THE_MACRO3
 
+	struct ProtocolPlus
+		:public Protocol
+	{
+		struct Cipher
+			:public AES_StreamCipher
+		{
+			bool m_bON;
+		};
+
+		Cipher m_CipherIn;
+		Cipher m_CipherOut;
+
+		bool m_bHandshakeSent;
+
+		ECC::NoLeak<ECC::Scalar> m_MyNonce;
+		ECC::Point m_RemoteNonce;
+		ECC::Point m_RemoteID;
+
+		ProtocolPlus(uint8_t v0, uint8_t v1, uint8_t v2, size_t maxMessageTypes, IErrorHandler& errorHandler, size_t serializedFragmentsSize);
+		void ResetVars();
+		void InitCipher(Cipher&);
+
+		// Protocol
+		virtual void Decrypt(uint8_t*, uint32_t nSize) override;
+
+		void Encrypt(SerializedMsg&);
+	};
+
+	struct INodeMsgHandler
+		:public IErrorHandler
+	{
+#define THE_MACRO(code, msg) \
+		virtual void OnMsg(msg&&) {} \
+		virtual bool OnMsg2(msg&& v) \
+		{ \
+			OnMsg(std::move(v)); \
+			return true; \
+		}
+		BeamNodeMsgsAll(THE_MACRO)
+#undef THE_MACRO
+	};
 
 
 	class NodeConnection
-		:public IErrorHandler
+		:public INodeMsgHandler
 	{
-		Protocol m_Protocol;
+		ProtocolPlus m_Protocol;
 		std::unique_ptr<Connection> m_Connection;
 		bool m_ConnectPending;
 
@@ -158,19 +212,27 @@ namespace proto {
 		void Connect(const io::Address& addr);
 		void Accept(io::TcpStream::Ptr&& newStream);
 
+		// Secure-channel-specific
+		void SecureConnect(); // must be connected already
+
+		virtual void OnMsg(SChannelInitiate&&) override;
+		virtual void OnMsg(SChannelReady&&) override;
+		virtual void OnMsg(SChannelAuthentication&&) override;
+
+		virtual void get_MyID(ECC::Scalar::Native&); // by default no-ID (secure channel, but no authentication)
+		virtual void GenerateSChannelNonce(ECC::Scalar&); // Must be overridden to support SChannel
+
+		bool IsSecureIn() const;
+		bool IsSecureOut() const;
+		const ECC::Point* get_RemoteID() const;
+
+
 		const Connection* get_Connection() { return m_Connection.get(); }
 
 		virtual void OnConnected() {}
 		virtual void OnClosed(int errorCode) {}
 
-#define THE_MACRO(code, msg) \
-		void Send(const msg& v); \
-		virtual bool OnMsg2(msg&& v) \
-		{ \
-			OnMsg(std::move(v)); \
-			return true; \
-		} \
-		virtual void OnMsg(msg&& v) {} 
+#define THE_MACRO(code, msg) void Send(const msg& v);
 		BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 
