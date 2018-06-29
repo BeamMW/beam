@@ -71,7 +71,6 @@ namespace beam
         void send_tx_failed(const TxDescription& tx) override;
 
         void remove_sender(const Uuid& txId);
-        void remove_receiver(const Uuid& txId);
 
         void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmInvitation&&) override;
         void register_tx(const TxDescription& tx, Transaction::Ptr) override;
@@ -101,17 +100,16 @@ namespace beam
         bool close_node_connection();
         void register_tx(const Uuid& txId, Transaction::Ptr);
         void resume_sender(const TxDescription& tx);
-        void resume_receiver(const TxDescription& tx, wallet::InviteReceiver&& data = {});
     private:
         IKeyChain::Ptr m_keyChain;
         INetworkIO& m_network;
         std::map<Uuid, PeerId> m_peers;
         std::map<Uuid, wallet::Sender::Ptr>   m_senders;
-        std::map<Uuid, wallet::Receiver::Ptr> m_receivers;
+      //  std::map<Uuid, wallet::Receiver::Ptr> m_receivers;
         std::vector<wallet::Sender::Ptr>      m_removed_senders;
-        std::vector<wallet::Receiver::Ptr>    m_removed_receivers;
+      //  std::vector<wallet::Receiver::Ptr>    m_removed_receivers;
         std::vector<wallet::Sender::Ptr>      m_pendingSenders;
-        std::vector<wallet::Receiver::Ptr>    m_pendingReceivers;
+      //  std::vector<wallet::Receiver::Ptr>    m_pendingReceivers;
         TxCompletedAction m_tx_completed_action;
         std::deque<std::pair<Uuid, TransactionPtr>> m_reg_requests;
         std::vector<std::pair<Uuid, TransactionPtr>> m_pending_reg_requests;

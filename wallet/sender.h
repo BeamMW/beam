@@ -8,112 +8,184 @@
 
 namespace beam::wallet
 {
+    namespace events
+    {
+        struct TxRegistrationCompleted
+        {
+            Uuid m_txId;
+        };
+        struct TxConfirmationCompleted2 { ConfirmTransaction data; };
+        struct TxSenderInvited {};
+        struct TxReceiverInvited { InviteReceiver data; };
+        struct TxSend {};
+        struct TxBill {};
+        struct TxConfirmationCompleted { ConfirmTransaction data; };
+        struct TxInvitationCompleted { ConfirmInvitation data; };
+        struct TxOutputsConfirmed {};
+        struct TxFailed {};
+    }
+    
+
     class Sender : public FSMHelper<Sender>
     {
     public:
         using Ptr = std::shared_ptr<Sender>;
-        // events
-        struct TxFailed {};
-        struct TxInitCompleted
-        {
-            ConfirmInvitation data;
-        };
-        struct TxConfirmationCompleted {};
 
         Sender(sender::IGateway& gateway
              , beam::IKeyChain::Ptr keychain
              , const TxDescription& txDesc )
-            : m_txDesc{txDesc}
-            , m_fsm{boost::ref(gateway), keychain, boost::ref(m_txDesc)}
+            : m_gateway{gateway}
+            , m_keychain{keychain}
+            , m_txDesc{txDesc}
+            , m_fsm{std::ref(*this)}
         {
-
+            assert(keychain);
         }
 
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
-                             , public FSMDefinitionBase<FSMDefinition>
         {
             // states
-            struct Init : public msmf::state<>
+            struct TxAllOk : public msmf::state<>
+            {
+
+            };
+
+            struct TxInitial : public msmf::state<>
             {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    LOG_VERBOSE() << "[Sender] Init state";
+                    LOG_VERBOSE() << "TxInitial state";
                 }
             };
-            struct Terminate : public msmf::terminate_state<>
+            struct TxTerminal : public msmf::terminate_state<>
             {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm& fsm)
                 {
-                    LOG_VERBOSE() << "[Sender] Terminate state";
-                    fsm.m_gateway.on_tx_completed(fsm.m_txDesc);
+                    LOG_VERBOSE() << "TxTerminal state";
+                    fsm.m_parent.m_gateway.on_tx_completed(fsm.m_parent.m_txDesc);
                 }
             };
-            struct TxInitiating : public msmf::state<>
+            struct TxReceiverInvitation : public msmf::state<>
             {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    LOG_VERBOSE() << "[Sender] TxInitiating state";
+                    LOG_VERBOSE() << "TxReceiverInvitation state";
                 }
             };
-            struct TxConfirming : public msmf::state<>
+            struct TxSenderInvitation : public msmf::state<>
             {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    LOG_VERBOSE() << "[Sender] TxConfirming state";
+                    LOG_VERBOSE() << "TxSenderInvitation state";
                 }
             };
-            struct TxOutputConfirming : public msmf::state<>
+            struct TxBillConfirmation : public msmf::state<>
             {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    LOG_VERBOSE() << "[Sender] TxOutputConfirming state";
+                    LOG_VERBOSE() << "TxBillConfirmation state";
+                }
+            };
+            struct TxSendingConfirmation : public msmf::state<>
+            {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                {
+                    LOG_VERBOSE() << "TxSendingConfirmation state";
+                }
+            };
+            struct TxSenderConfirmation : public msmf::state<>
+            {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                {
+                    LOG_VERBOSE() << "TxSenderConfirmation state";
+                }
+            };
+            struct TxReceiverConfirmation : public msmf::state<>
+            {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                {
+                    LOG_VERBOSE() << "TxReceiverConfirmation state";
+                }
+            };
+            struct TxRegistration : public msmf::state<>
+            {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                {
+                    LOG_VERBOSE() << "TxRegistration state";
+                }
+            };
+            struct TxOutputsConfirmation : public msmf::state<>
+            {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm&)
+                {
+                    LOG_VERBOSE() << "TxOutputsConfirmation state";
                 }
             };
 
-            FSMDefinition(sender::IGateway& gateway
-                        , beam::IKeyChain::Ptr keychain
-                        , TxDescription& txDesc)
-                : FSMDefinitionBase{txDesc}
-                , m_gateway{ gateway }
-                , m_keychain{ keychain }
+            FSMDefinition(Sender& parent)
+                : m_parent{parent}
             {
-                assert(keychain);
                 update_tx_description(TxDescription::Pending);
             }
 
             // transition actions
-            void init_tx(const msmf::none&);
-            bool is_valid_signature(const TxInitCompleted& );
-            bool is_invalid_signature(const TxInitCompleted& );
-            void confirm_tx(const TxInitCompleted& );
-            void rollback_tx(const TxFailed& );
-            void cancel_tx(const TxInitCompleted& );
-            void complete_tx(const TxConfirmationCompleted&);
+            bool isValidSignature(const events::TxInvitationCompleted&);
+            bool isValidSignature(const events::TxConfirmationCompleted&);
+            void rollbackTx(const events::TxFailed& );
             void complete_tx();
-            void rollback_tx();
+            void rollbackTx();
+
+            void confirmSenderInvitation(const events::TxSenderInvited&);
+            void confirmReceiverInvitation(const events::TxReceiverInvited&);
+            void inviteReceiver(const events::TxSend&);
+            void inviteSender(const events::TxBill&);
+            void registerTx(const events::TxConfirmationCompleted&);
+            void confirmReceiver(const events::TxInvitationCompleted&);
+            void confirmSender(const events::TxInvitationCompleted&);
+            void confirmOutputs(const events::TxRegistrationCompleted&);
+            void confirmOutputs(const events::TxConfirmationCompleted&);
+            void completeTx(const events::TxOutputsConfirmed&);
 
             Amount get_total() const;
 
             void update_tx_description(TxDescription::Status s);
 
             using do_serialize = int;
-            using initial_state = Init;
+            typedef int no_message_queue;
+
+            using initial_state = mpl::vector<TxInitial, TxAllOk>;
             using d = FSMDefinition;
+
             struct transition_table : mpl::vector<
-                //   Start                 Event                     Next                  Action                     Guard
-                a_row< Init              , msmf::none              , TxInitiating        , &d::init_tx                                        >,
-                a_row< Init              , TxFailed                , Terminate           , &d::rollback_tx                                    >,
-                a_row< TxInitiating      , TxFailed                , Terminate           , &d::rollback_tx                                    >,
-                row  < TxInitiating      , TxInitCompleted         , TxConfirming        , &d::confirm_tx           , &d::is_valid_signature  >,
-                row  < TxInitiating      , TxInitCompleted         , Terminate           , &d::cancel_tx            , &d::is_invalid_signature>,
-                a_row< TxConfirming      , TxConfirmationCompleted , Terminate           , &d::complete_tx                                    >,
-                a_row< TxConfirming      , TxFailed                , Terminate           , &d::rollback_tx                                    >
+                //   Start                      Event                             Next                  Action                     Guard
+                a_row< TxInitial              , events::TxSenderInvited         , TxBillConfirmation    , &d::confirmSenderInvitation    >,
+                a_row< TxInitial              , events::TxReceiverInvited       , TxSendingConfirmation , &d::confirmReceiverInvitation  >,
+                a_row< TxInitial              , events::TxSend                  , TxReceiverInvitation  , &d::inviteReceiver             >,
+                a_row< TxInitial              , events::TxBill                  , TxSenderInvitation    , &d::inviteSender               >,
+
+                a_row< TxBillConfirmation     , events::TxConfirmationCompleted , TxRegistration        , &d::registerTx                 >,
+                a_row< TxSendingConfirmation  , events::TxConfirmationCompleted , TxRegistration        , &d::registerTx                 >,
+                a_row< TxReceiverInvitation   , events::TxInvitationCompleted   , TxReceiverConfirmation, &d::confirmReceiver            >,
+                a_row< TxSenderInvitation     , events::TxInvitationCompleted   , TxSenderConfirmation  , &d::confirmSender              >,
+
+                a_row< TxRegistration         , events::TxRegistrationCompleted , TxOutputsConfirmation , &d::confirmOutputs             >,
+                a_row< TxReceiverConfirmation , events::TxConfirmationCompleted , TxOutputsConfirmation , &d::confirmOutputs             >,
+                a_row< TxSenderConfirmation   , events::TxConfirmationCompleted , TxOutputsConfirmation , &d::confirmOutputs             >,
+
+                a_row< TxOutputsConfirmation  , events::TxOutputsConfirmed      , TxTerminal            , &d::completeTx                 >,
+                a_row< TxAllOk                , events::TxFailed                , TxTerminal            , &d::rollbackTx                 >
             > {};
+
 
             template <class FSM, class Event>
             void no_transition(Event const& e, FSM&, int state)
@@ -126,26 +198,34 @@ namespace beam::wallet
             void exception_caught(Event const&, FSM& fsm, std::exception& ex)
             {
                 LOG_ERROR() << ex.what();
-                fsm.process_event(TxFailed());
+                fsm.process_event(events::TxFailed());
             }
 
             template<typename Archive>
             void serialize(Archive & ar, const unsigned int)
             {
-                ar  & m_blindingExcess
-                    & m_kernel;
+       /*         ar  & m_blindingExcess
+                    & m_kernel;*/
             }
-
-            sender::IGateway& m_gateway;
-            beam::IKeyChain::Ptr m_keychain;
-
-            ECC::Scalar::Native m_blindingExcess;
-            TxKernel::Ptr m_kernel;
+            Sender& m_parent;
         };
 
     private:
         friend FSMHelper<Sender>;
+        friend msm::back::state_machine<FSMDefinition>;
+
+        sender::IGateway& m_gateway;
+        beam::IKeyChain::Ptr m_keychain;
+
         TxDescription m_txDesc;
+
+        ECC::Scalar::Native m_blindingExcess;
+        ECC::Point::Native m_publicPeerBlindingExcess;
+        ECC::Point::Native m_publicPeerNonce;
+        ECC::Hash::Value m_message;
+        Transaction::Ptr m_transaction;
+        TxKernel::Ptr m_kernel;
+
         msm::back::state_machine<FSMDefinition> m_fsm;
     };
 }

@@ -10,16 +10,6 @@ namespace beam::wallet
     {
     public:
         using Ptr = std::shared_ptr<Receiver>;
-        // events
-        struct TxFailed {};
-        struct TxConfirmationCompleted
-        {
-            ConfirmTransaction data;
-        };
-        struct TxRegistrationCompleted
-        {
-            Uuid m_txId;
-        };
 
         Receiver(receiver::IGateway& gateway
                , IKeyChain::Ptr keychain
@@ -80,12 +70,12 @@ namespace beam::wallet
 
             // transition actions
             void confirm_tx(const msmf::none&);
-            bool is_valid_signature(const TxConfirmationCompleted& event);
-            bool is_invalid_signature(const TxConfirmationCompleted& event);
-            void register_tx(const TxConfirmationCompleted& event);
-            void rollback_tx(const TxFailed& event);
-            void cancel_tx(const TxConfirmationCompleted& event);
-            void complete_tx(const TxRegistrationCompleted& event);
+            bool is_valid_signature(const events::TxConfirmationCompleted2& event);
+            bool is_invalid_signature(const events::TxConfirmationCompleted2& event);
+            void register_tx(const events::TxConfirmationCompleted2& event);
+            void rollback_tx(const events::TxFailed& event);
+            void cancel_tx(const events::TxConfirmationCompleted2& event);
+            void complete_tx(const events::TxRegistrationCompleted& event);
             void rollback_tx();
 
             void update_tx_description(TxDescription::Status s);
@@ -94,14 +84,14 @@ namespace beam::wallet
             using initial_state = Init;
             using d = FSMDefinition;
             struct transition_table : mpl::vector<
-                //   Start                 Event                     Next                   Action               Guard
-                a_row< Init              , msmf::none              , TxConfirming         , &d::confirm_tx                               >,
-                a_row< Init              , TxFailed                , Terminate            , &d::rollback_tx                              >,
-                a_row< TxConfirming      , TxFailed                , Terminate            , &d::rollback_tx                              >,
-                row  < TxConfirming      , TxConfirmationCompleted , TxRegistering        , &d::register_tx    , &d::is_valid_signature  >,
-                row  < TxConfirming      , TxConfirmationCompleted , Terminate            , &d::cancel_tx      , &d::is_invalid_signature>,
-                a_row< TxRegistering     , TxRegistrationCompleted , Terminate			  , &d::complete_tx								 >,
-                a_row< TxRegistering     , TxFailed                , Terminate            , &d::rollback_tx                              >
+                //   Start                 Event                              Next                   Action               Guard
+                a_row< Init              , msmf::none                       , TxConfirming         , &d::confirm_tx                               >,
+                a_row< Init              , events::TxFailed                 , Terminate            , &d::rollback_tx                              >,
+                a_row< TxConfirming      , events::TxFailed                 , Terminate            , &d::rollback_tx                              >,
+                row  < TxConfirming      , events::TxConfirmationCompleted2 , TxRegistering        , &d::register_tx    , &d::is_valid_signature  >,
+                row  < TxConfirming      , events::TxConfirmationCompleted2 , Terminate            , &d::cancel_tx      , &d::is_invalid_signature>,
+                a_row< TxRegistering     , events::TxRegistrationCompleted  , Terminate            , &d::complete_tx                              >,
+                a_row< TxRegistering     , events::TxFailed                 , Terminate            , &d::rollback_tx                              >
             > {};
 
             template <class FSM, class Event>
@@ -121,20 +111,17 @@ namespace beam::wallet
             template<typename Archive>
             void serialize(Archive & ar, const unsigned int)
             {
-                ar  & m_receiver_coin
-                    & m_publicSenderBlindingExcess
+                ar  & m_publicSenderBlindingExcess
                     & m_publicSenderNonce
                     & m_blindingExcess
                     & m_transaction
-                    & m_kernel
-                    & m_height;
+                    & m_kernel;
             }
 
             receiver::IGateway& m_gateway;
             beam::IKeyChain::Ptr m_keychain;
 
             ECC::Hash::Value m_message;
-            Coin m_receiver_coin;
 
             ECC::Point::Native m_publicSenderBlindingExcess;
             ECC::Point::Native m_publicSenderNonce;
@@ -142,7 +129,6 @@ namespace beam::wallet
 
             Transaction::Ptr m_transaction;
             TxKernel::Ptr m_kernel;
-            Height m_height=0;
         };
     private:
         friend FSMHelper<Receiver>;

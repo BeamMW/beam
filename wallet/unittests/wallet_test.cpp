@@ -316,8 +316,6 @@ namespace
         {
             cout << "[Sender] send_tx_invitation\n";
             ++m_peerCount;
-            assert(data.m_height == 134);
-            WALLET_CHECK(data.m_height == 134);
             WALLET_CHECK(data.m_amount == 6);
             send(1, to, move(data));
         }
@@ -429,17 +427,17 @@ void TestFSM()
     stx.m_amount = 6;
     wallet::Sender s{ gateway, createKeychain<TestKeyChain>(), stx};
     s.start();
-    WALLET_CHECK(s.process_event(wallet::Sender::TxInitCompleted{ wallet::ConfirmInvitation() }));
-    WALLET_CHECK(s.process_event(wallet::Sender::TxConfirmationCompleted()));
+    WALLET_CHECK(s.process_event(wallet::events::TxInvitationCompleted{ wallet::ConfirmInvitation() }));
+    WALLET_CHECK(s.process_event(wallet::events::TxConfirmationCompleted()));
 
     cout << "\nreceiver\n";
     wallet::InviteReceiver initData;
     initData.m_amount = 100;
     wallet::Receiver r{ gateway, createKeychain<TestKeyChain>(), {}, initData };
     r.start();
-    WALLET_CHECK(!r.process_event(wallet::Receiver::TxRegistrationCompleted()));
-    WALLET_CHECK(r.process_event(wallet::Receiver::TxFailed()));
-    WALLET_CHECK(r.process_event(wallet::Receiver::TxConfirmationCompleted()));
+    WALLET_CHECK(!r.process_event(wallet::events::TxRegistrationCompleted()));
+    WALLET_CHECK(r.process_event(wallet::events::TxFailed()));
+    WALLET_CHECK(r.process_event(wallet::events::TxConfirmationCompleted()));
 }
 
 enum NodeNetworkMessageCodes : uint8_t
@@ -799,7 +797,7 @@ void TestSerializeFSM()
         WALLET_CHECK(*(s2.current_state()) == 0);
         der & s2;
         WALLET_CHECK(*(s2.current_state()) == 1);
-        s2.process_event(wallet::Sender::TxInitCompleted{ wallet::ConfirmInvitation() });
+        s2.process_event(wallet::events::TxInvitationCompleted{ wallet::ConfirmInvitation() });
         WALLET_CHECK(*(s2.current_state()) == 2);
 
         ser.reset();
@@ -835,7 +833,7 @@ void TestSerializeFSM()
         der & r2;
         LOG_DEBUG() << "state = " << *(r2.current_state());
         WALLET_CHECK(*(r2.current_state()) == 1);
-        r2.process_event(wallet::Receiver::TxConfirmationCompleted{});
+        r2.process_event(wallet::events::TxConfirmationCompleted{});
         LOG_DEBUG() << "state = " << *(r2.current_state());
         WALLET_CHECK(*(r2.current_state()) == 2);
 

@@ -94,7 +94,7 @@ namespace beam
             {
                 static_cast<Derived*>(this)->m_fsm.start();
             }
-
+            
             template<typename Event>
             bool process_event(const Event& event)
             {
@@ -130,21 +130,31 @@ namespace beam
         {
             Uuid m_txId;
             ECC::Amount m_amount;
-            Height m_height;
             ECC::Hash::Value m_message;
             ECC::Point m_publicSenderBlindingExcess;
             ECC::Point m_publicSenderNonce;
             std::vector<Input::Ptr> m_inputs;
             std::vector<Output::Ptr> m_outputs;
 
-            InviteReceiver() :
-                m_amount(0), m_height(0) {
+            InviteReceiver() : m_amount(0)
+            {
 
-                }
+            }
+
+            InviteReceiver(InviteReceiver&& other)
+                : m_txId{other.m_txId}
+                , m_amount{ other.m_amount }
+                , m_message{std::move(other.m_message)}
+                , m_publicSenderBlindingExcess{other.m_publicSenderBlindingExcess}
+                , m_publicSenderNonce{other.m_publicSenderNonce}
+                , m_inputs{std::move(other.m_inputs)}
+                , m_outputs{std::move(other.m_outputs)}
+            {
+
+            }
 
             SERIALIZE(m_txId
                     , m_amount
-                    , m_height
                     , m_message
                     , m_publicSenderBlindingExcess
                     , m_publicSenderNonce
@@ -154,7 +164,7 @@ namespace beam
 
         struct ConfirmTransaction
         {
-            Uuid m_txId;
+            Uuid m_txId{};
             ECC::Scalar m_senderSignature;
 
             SERIALIZE(m_txId, m_senderSignature);
@@ -163,14 +173,14 @@ namespace beam
         struct ConfirmInvitation
         {
             Uuid m_txId{};
-            ECC::Point m_publicReceiverBlindingExcess;
-            ECC::Point m_publicReceiverNonce;
-            ECC::Scalar m_receiverSignature;
+            ECC::Point m_publicPeerBlindingExcess;
+            ECC::Point m_publicPeerNonce;
+            ECC::Scalar m_peerSignature;
 
             SERIALIZE(m_txId
-                    , m_publicReceiverBlindingExcess
-                    , m_publicReceiverNonce
-                    , m_receiverSignature);
+                    , m_publicPeerBlindingExcess
+                    , m_publicPeerNonce
+                    , m_peerSignature);
         };
 
         struct TxRegistered
@@ -199,6 +209,8 @@ namespace beam
             {
                 virtual void send_tx_invitation(const TxDescription&, InviteReceiver&&) = 0;
                 virtual void send_tx_confirmation(const TxDescription& , ConfirmTransaction&&) = 0;
+                virtual void send_tx_confirmation(const TxDescription&, ConfirmInvitation&&) = 0;
+                virtual void register_tx(const TxDescription&, Transaction::Ptr) = 0;
             };
         }
 
