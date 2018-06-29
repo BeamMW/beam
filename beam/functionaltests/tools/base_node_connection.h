@@ -8,6 +8,8 @@ class BaseTestNodeConnection : public beam::proto::NodeConnection
 public:
 	BaseTestNodeConnection(int argc, char* argv[]);
 
+	void DisabledTimer();
+
 	void Run();
 
 	int CheckOnFailed();
@@ -28,6 +30,7 @@ protected:
 	void GenerateKernel(beam::Height h);
 	
 protected:
+	bool m_WillStartTimer = true;
 	ECC::Kdf m_Kdf;
 	beam::io::Reactor::Ptr m_Reactor;
 	beam::io::Reactor::Scope m_Scope;

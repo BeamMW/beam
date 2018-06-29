@@ -32,6 +32,12 @@ void BaseTestNodeConnection::Run()
 	m_Reactor->run();
 }
 
+void BaseTestNodeConnection::DisabledTimer()
+{
+	m_WillStartTimer = false;
+
+}
+
 int BaseTestNodeConnection::CheckOnFailed()
 {
 	return m_Failed;
@@ -64,7 +70,8 @@ void BaseTestNodeConnection::OnConnected()
 {
 	LOG_INFO() << "connection is succeded";
 
-	m_Timer->start(5 * 1000, false, []() {io::Reactor::get_Current().stop(); });
+	if (m_WillStartTimer)
+		m_Timer->start(5 * 1000, false, []() {io::Reactor::get_Current().stop(); });
 
 	GenerateTests();
 	m_Index = 0;
