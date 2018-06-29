@@ -811,5 +811,6 @@ namespace beam
             stm.bind(1, txId);
             stm.step();
         }
+        trans.commit();
     }
 }

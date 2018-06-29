@@ -251,7 +251,8 @@ void TestTxRollback()
     
     Coin coin3 = { 3, Coin::Unconfirmed, 2 };
     coin3.m_createTxId = id;
-    keychain->update({ coin2, coin3 });
+    keychain->store(coin3);
+    keychain->update({ coin2 });
 
     vector<Coin> coins;
     keychain->visit([&coins](const Coin& c)->bool
