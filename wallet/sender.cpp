@@ -100,34 +100,29 @@ namespace beam::wallet
         Hash::Value message;
         m_parent.m_kernel->get_HashForSigning(message);
 
-		msig.GenerateNonce(message, m_parent.m_blindingExcess);
+        msig.GenerateNonce(message, m_parent.m_blindingExcess);
         Point::Native publicNonce = Context::get().G * msig.m_Nonce;
-		msig.m_NoncePub = publicNonce + data.m_publicPeerNonce;
+        msig.m_NoncePub = publicNonce + data.m_publicPeerNonce;
 
         // temp signature to calc challenge
         Scalar::Native senderSignature;
         m_parent.m_kernel->m_Signature.CoSign(senderSignature, message, m_parent.m_blindingExcess, msig);
-        
+
         // 3. Verify recepients Schnorr signature 
-		Signature sigPeer;
-		sigPeer.m_e = m_parent.m_kernel->m_Signature.m_e;
-		sigPeer.m_k = data.m_peerSignature;
-		return sigPeer.IsValidPartial(data.m_publicPeerNonce, data.m_publicPeerBlindingExcess);
-    }
-
-    bool Sender::FSMDefinition::isValidSignature(const events::TxConfirmationCompleted& event)
-    {
-        auto& data = event.data;
-        // 1. Verify sender's Schnor signature
-
         Signature sigPeer;
         sigPeer.m_e = m_parent.m_kernel->m_Signature.m_e;
-        sigPeer.m_k = data.m_senderSignature;
-        return sigPeer.IsValidPartial(m_parent.m_publicPeerNonce, m_parent.m_publicPeerBlindingExcess);
+        sigPeer.m_k = data.m_peerSignature;
+        return sigPeer.IsValidPartial(data.m_publicPeerNonce, data.m_publicPeerBlindingExcess);
     }
 
     void Sender::FSMDefinition::confirmReceiver(const events::TxInvitationCompleted& event)
     {
+        if (!isValidSignature(event))
+        {
+            Sender::Fsm &fsm = static_cast<Sender::Fsm&>(*this);
+            fsm.process_event(events::TxFailed{true});
+            return;
+        }
         auto& data = event.data;
         // 4. Compute Sender Schnorr signature
 
@@ -150,77 +145,6 @@ namespace beam::wallet
         m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmationData));
     }
 
-    /// Receiver
-
-    void Sender::FSMDefinition::confirmReceiverInvitation(const events::TxReceiverInvited& event)
-    {
-        auto& data = event.data;
-        m_parent.m_message = data.m_message;
-        m_parent.m_publicPeerBlindingExcess = data.m_publicSenderBlindingExcess;
-        m_parent.m_publicPeerNonce = data.m_publicSenderNonce;
-
-        m_parent.m_transaction = make_shared<Transaction>();
-        m_parent.m_transaction->m_Offset = ECC::Zero;
-    //    m_transaction->m_vInputs = move(data.m_inputs);
-    //    m_transaction->m_vOutputs = move(data.m_outputs);
-        update_tx_description(TxDescription::Pending);
-
-        LOG_INFO() << "Receiving " << PrintableAmount(m_parent.m_txDesc.m_amount);
-        ConfirmInvitation confirmationData;
-        confirmationData.m_txId = m_parent.m_txDesc.m_txId;
-
-        Height currentHeight = m_parent.m_keychain->getCurrentHeight();
-
-        m_parent.m_kernel = make_unique<TxKernel>();
-        m_parent.m_kernel->m_Fee = 0;
-        m_parent.m_kernel->m_Height.m_Min = currentHeight;
-        m_parent.m_kernel->m_Height.m_Max = MaxHeight;
-
-        // 1. Check fee
-        // 2. Create receiver_output
-        // 3. Choose random blinding factor for receiver_output
-        Amount amount = m_parent.m_txDesc.m_amount;
-        Output::Ptr output = make_unique<Output>();
-        output->m_Coinbase = false;
-        Coin coin{ m_parent.m_txDesc.m_amount, Coin::Unconfirmed, currentHeight };
-        coin.m_createTxId = m_parent.m_txDesc.m_txId;
-        m_parent.m_keychain->store(coin);
-        Scalar::Native blindingFactor = m_parent.m_keychain->calcKey(coin);
-        output->Create(blindingFactor, amount);
-        auto[privateExcess, offset] = splitKey(blindingFactor, coin.m_id);
-
-        m_parent.m_blindingExcess = -privateExcess;
-        assert(m_parent.m_transaction->m_Offset.m_Value == Zero);
-        m_parent.m_transaction->m_Offset = offset;
-
-        m_parent.m_transaction->m_vOutputs.push_back(move(output));
-
-        // 4. Calculate message M
-        // 5. Choose random nonce
-        Signature::MultiSig msig;
-        msig.GenerateNonce(m_parent.m_message, m_parent.m_blindingExcess);
-        // 6. Make public nonce and blinding factor
-        Point::Native publicBlindingExcess;
-        publicBlindingExcess = Context::get().G * m_parent.m_blindingExcess;
-        confirmationData.m_publicPeerBlindingExcess = publicBlindingExcess;
-
-        Point::Native publicNonce;
-        publicNonce = Context::get().G * msig.m_Nonce;
-        confirmationData.m_publicPeerNonce = publicNonce;
-
-        // 7. Compute Shnorr challenge e = H(M|K)
-
-        msig.m_NoncePub = m_parent.m_publicPeerNonce + confirmationData.m_publicPeerNonce;
-
-        // 8. Compute recepient Shnorr signature
-        Scalar::Native receiverSignature;
-        m_parent.m_kernel->m_Signature.CoSign(receiverSignature, m_parent.m_message, m_parent.m_blindingExcess, msig);
-
-        confirmationData.m_peerSignature = receiverSignature;
-
-        update_tx_description(TxDescription::InProgress);
-        m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmationData));
-    }
 
     void Sender::FSMDefinition::confirmSenderInvitation(const events::TxSenderInvited&)
     {
@@ -229,44 +153,12 @@ namespace beam::wallet
 
     /// Common
 
-    void Sender::FSMDefinition::registerTx(const events::TxConfirmationCompleted& event)
-    {
-        // 2. Calculate final signature
-        Scalar::Native senderSignature;
-        senderSignature = event.data.m_senderSignature;
 
-        Signature::MultiSig msig;
-        msig.GenerateNonce(m_parent.m_message, m_parent.m_blindingExcess);
-        Point::Native publicNonce;
-        publicNonce = Context::get().G * msig.m_Nonce;
-        msig.m_NoncePub = m_parent.m_publicPeerNonce + publicNonce;
-        Scalar::Native receiverSignature;
-        m_parent.m_kernel->m_Signature.CoSign(receiverSignature, m_parent.m_message, m_parent.m_blindingExcess, msig);
-
-        Scalar::Native finialSignature = senderSignature + receiverSignature;
-
-        // 3. Calculate public key for excess
-        Point::Native x;
-        x = Context::get().G * m_parent.m_blindingExcess;
-        x += m_parent.m_publicPeerBlindingExcess;
-        // 4. Verify excess value in final transaction
-        // 5. Create transaction kernel
-        m_parent.m_kernel->m_Excess = x;
-        m_parent.m_kernel->m_Signature.m_k = finialSignature;
-
-        m_parent.m_transaction->m_vKernelsOutput.push_back(move(m_parent.m_kernel));
-
-        // 6. Create final transaction and send it to mempool
-        m_parent.m_transaction->Sort();
-
-        update_tx_description(TxDescription::InProgress);
-        m_parent.m_gateway.register_tx(m_parent.m_txDesc, m_parent.m_transaction);
-    }
-
-    void Sender::FSMDefinition::rollbackTx(const events::TxFailed& )
+    void Sender::FSMDefinition::rollbackTx(const events::TxFailed& event)
     {
         update_tx_description(TxDescription::Failed);
         rollbackTx();
+        m_parent.m_gateway.send_tx_failed(m_parent.m_txDesc);
     }
 
     void Sender::FSMDefinition::confirmOutputs(const events::TxConfirmationCompleted&)
@@ -274,34 +166,36 @@ namespace beam::wallet
 
     }
 
-	void Sender::FSMDefinition::rollbackTx()
-	{
+    void Sender::FSMDefinition::rollbackTx()
+    {
         LOG_DEBUG() << "Transaction failed. Rollback...";
         m_parent.m_keychain->rollbackTx(m_parent.m_txDesc.m_txId);
-	}
+    }
 
     void Sender::FSMDefinition::completeTx(const events::TxOutputsConfirmed&)
     {
-        complete_tx();
+        completeTx();
     }
 
-    void Sender::FSMDefinition::complete_tx()
+    void Sender::FSMDefinition::completeTx(const events::TxRegistrationCompleted&)
+    {
+        LOG_INFO() << "Transaction completed and sent to node";
+        update_tx_description(TxDescription::Completed);
+        m_parent.m_gateway.send_tx_registered(m_parent.m_txDesc);
+    }
+    
+    void Sender::FSMDefinition::completeTx(const events::TxConfirmationCompleted&)
+    {
+        completeTx();
+    }
+
+    void Sender::FSMDefinition::completeTx()
     {
         LOG_DEBUG() << "Transaction completed";
         update_tx_description(TxDescription::Completed);
     }
 
-    void Sender::FSMDefinition::inviteSender(const events::TxBill&)
-    {
-
-    }
-
-    void Sender::FSMDefinition::confirmSender(const events::TxInvitationCompleted&)
-    {
-
-    }
-
-    void Sender::FSMDefinition::confirmOutputs(const events::TxRegistrationCompleted&)
+    void Sender::FSMDefinition::confirmOutputs(const events::TxRegistrationCompleted& event)
     {
 
     }

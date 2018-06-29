@@ -1,3 +1,5 @@
+#define LOG_VERBOSE_ENABLED 0
+
 #include "wallet/wallet_network.h"
 #include "wallet/wallet.h"
 #include "utility/test_helpers.h"
@@ -413,11 +415,6 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
     mainLoop.run();
 }
 
-void TestRollback()
-{
-
-}
-
 void TestFSM()
 {
     cout << "\nTesting wallet's fsm...\nsender\n";
@@ -426,18 +423,36 @@ void TestFSM()
     TxDescription stx = {};
     stx.m_amount = 6;
     wallet::Sender s{ gateway, createKeychain<TestKeyChain>(), stx};
+    s.process_event(wallet::events::TxSend());
+    WALLET_CHECK(*(s.current_state()) == 3);
     s.start();
-    WALLET_CHECK(s.process_event(wallet::events::TxInvitationCompleted{ wallet::ConfirmInvitation() }));
-    WALLET_CHECK(s.process_event(wallet::events::TxConfirmationCompleted()));
+    WALLET_CHECK(*(s.current_state()) == 0);
+    s.process_event(wallet::events::TxSend());
+    WALLET_CHECK(*(s.current_state()) == 3);
+    s.stop();
+    WALLET_CHECK(*(s.current_state()) == 3);
+    s.start();
+    WALLET_CHECK(*(s.current_state()) == 0);
 
-    cout << "\nreceiver\n";
-    wallet::InviteReceiver initData;
-    initData.m_amount = 100;
-    wallet::Receiver r{ gateway, createKeychain<TestKeyChain>(), {}, initData };
-    r.start();
-    WALLET_CHECK(!r.process_event(wallet::events::TxRegistrationCompleted()));
-    WALLET_CHECK(r.process_event(wallet::events::TxFailed()));
-    WALLET_CHECK(r.process_event(wallet::events::TxConfirmationCompleted()));
+    s.process_event(wallet::events::TxSend());
+    WALLET_CHECK(*(s.current_state()) == 3);
+    s.process_event(wallet::events::TxSend());
+    WALLET_CHECK(*(s.current_state()) == 3);
+    s.process_event(wallet::events::TxInvitationCompleted{});
+    WALLET_CHECK(*(s.current_state()) == 6);
+    s.process_event(wallet::events::TxConfirmationCompleted{});
+    WALLET_CHECK(*(s.current_state()) == 9);
+    //WALLET_CHECK(s.process_event(wallet::events::TxInvitationCompleted{ wallet::ConfirmInvitation() }));
+    //WALLET_CHECK(s.process_event(wallet::events::TxConfirmationCompleted()));
+
+    //cout << "\nreceiver\n";
+    //wallet::InviteReceiver initData;
+    //initData.m_amount = 100;
+    //wallet::Receiver r{ gateway, createKeychain<TestKeyChain>(), {}, initData };
+    //r.start();
+    //WALLET_CHECK(!r.process_event(wallet::events::TxRegistrationCompleted()));
+    //WALLET_CHECK(r.process_event(wallet::events::TxFailed()));
+    //WALLET_CHECK(r.process_event(wallet::events::TxConfirmationCompleted()));
 }
 
 enum NodeNetworkMessageCodes : uint8_t
@@ -814,7 +829,7 @@ void TestSerializeFSM()
         initData.m_amount = 100;
         TxDescription rtx = {};
         rtx.m_amount = 100;
-        wallet::Receiver r{ gateway, createKeychain<TestKeyChain>(), rtx, initData };
+        wallet::Sender r{ gateway, createKeychain<TestKeyChain>(), rtx, initData };
         WALLET_CHECK(*(r.current_state()) == 0);
         r.start();
         WALLET_CHECK(*(r.current_state()) == 1);
@@ -827,7 +842,7 @@ void TestSerializeFSM()
         Deserializer der;
         der.reset(buffer.first, buffer.second);
 
-        wallet::Receiver r2{ gateway, createKeychain<TestKeyChain>(), {}, initData };
+        wallet::Sender r2{ gateway, createKeychain<TestKeyChain>(), {}, initData };
         LOG_DEBUG() << "state = " << *(r2.current_state());
         WALLET_CHECK(*(r2.current_state()) == 0);
         der & r2;
@@ -861,9 +876,8 @@ int main()
     TestP2PWalletNegotiationST();
     TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
     TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
-    TestRollback();
     TestFSM();
-    TestSerializeFSM();
+//    TestSerializeFSM();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

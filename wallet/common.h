@@ -86,45 +86,6 @@ namespace beam
         std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
         Timestamp getTimestamp();
 
-        template <typename Derived>
-        class FSMHelper
-        {
-        public:
-            void start()
-            {
-                static_cast<Derived*>(this)->m_fsm.start();
-            }
-            
-            template<typename Event>
-            bool process_event(const Event& event)
-            {
-                auto* d = static_cast<Derived*>(this);
-                auto res = d->m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
-                return res;
-            }
-
-            template<class Archive>
-            void serialize(Archive & ar, const unsigned int)
-            {
-                static_cast<Derived*>(this)->m_fsm.serialize(ar, 0);
-            }
-
-            // for test only
-            const int* current_state() const
-            {
-                return static_cast<const Derived*>(this)->m_fsm.current_state();
-            }
-        };
-
-        template <typename Derived>
-        struct FSMDefinitionBase
-        {
-            FSMDefinitionBase(TxDescription& txDesc) : m_txDesc{txDesc}
-            {}
-
-            TxDescription & m_txDesc;
-        };
-
         // messages
         struct InviteReceiver
         {
@@ -211,6 +172,7 @@ namespace beam
                 virtual void send_tx_confirmation(const TxDescription& , ConfirmTransaction&&) = 0;
                 virtual void send_tx_confirmation(const TxDescription&, ConfirmInvitation&&) = 0;
                 virtual void register_tx(const TxDescription&, Transaction::Ptr) = 0;
+                virtual void send_tx_registered(const TxDescription&) = 0;
             };
         }
 

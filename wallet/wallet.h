@@ -1,7 +1,6 @@
 #pragma once
 
 #include "wallet/wallet_db.h"
-#include "wallet/receiver.h"
 #include "wallet/sender.h"
 #include <thread>
 #include <mutex>
@@ -55,6 +54,7 @@ namespace beam
                  , public wallet::receiver::IGateway
                  , public wallet::sender::IGateway
     {
+        using Callback = std::function<void()>;
     public:
         using TxCompletedAction = std::function<void(const Uuid& tx_id)>;
 
@@ -69,8 +69,6 @@ namespace beam
         void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmTransaction&&) override;
         void on_tx_completed(const TxDescription& tx) override;
         void send_tx_failed(const TxDescription& tx) override;
-
-        void remove_sender(const Uuid& txId);
 
         void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmInvitation&&) override;
         void register_tx(const TxDescription& tx, Transaction::Ptr) override;
@@ -100,20 +98,29 @@ namespace beam
         bool close_node_connection();
         void register_tx(const Uuid& txId, Transaction::Ptr);
         void resume_sender(const TxDescription& tx);
+
+        template<typename Event>
+        bool process_event(const Uuid& txId, Event&& event)
+        {
+            Cleaner<std::vector<wallet::Sender::Ptr> > cs{ m_removed_senders };
+            if (auto it = m_senders.find(txId); it != m_senders.end())
+            {
+                return it->second->process_event(event);
+            }
+            return false;
+        }
+
     private:
         IKeyChain::Ptr m_keyChain;
         INetworkIO& m_network;
-        std::map<Uuid, PeerId> m_peers;
+        std::map<PeerId, wallet::Sender::Ptr> m_peers;
         std::map<Uuid, wallet::Sender::Ptr>   m_senders;
-      //  std::map<Uuid, wallet::Receiver::Ptr> m_receivers;
         std::vector<wallet::Sender::Ptr>      m_removed_senders;
-      //  std::vector<wallet::Receiver::Ptr>    m_removed_receivers;
-        std::vector<wallet::Sender::Ptr>      m_pendingSenders;
-      //  std::vector<wallet::Receiver::Ptr>    m_pendingReceivers;
         TxCompletedAction m_tx_completed_action;
         std::deque<std::pair<Uuid, TransactionPtr>> m_reg_requests;
         std::vector<std::pair<Uuid, TransactionPtr>> m_pending_reg_requests;
         std::deque<Coin> m_pendingProofs;
+        std::vector<Callback> m_pendingEvents;
 
         Merkle::Hash m_Definition;
         Block::SystemState::ID m_knownStateID;
