@@ -10,18 +10,6 @@ function(add_test_snippet EXE_NAME LIB_NAME)
     add_test(NAME ${EXE_NAME} COMMAND $<TARGET_FILE:${EXE_NAME}>)
 endfunction()
 
-function(add_functional_test_snippet EXE_NAME LIB_NAME)
-    add_executable(${EXE_NAME} ${EXE_NAME}.cpp)
-    add_dependencies(${EXE_NAME} ${LIB_NAME})
-    target_link_libraries(${EXE_NAME} ${LIB_NAME})
-	if (Boost_FOUND)
-		find_package(Boost COMPONENTS program_options)
-		target_link_libraries(${EXE_NAME} Boost::program_options)
-	else()
-		target_link_libraries(${EXE_NAME} boost_program_options)
-	endif()
-endfunction()
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
