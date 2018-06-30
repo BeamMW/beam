@@ -82,6 +82,7 @@ private:
 
         void async_close() {
             if (_handle) {
+                _handle->data = 0;
                 if (_reactor) {
                     _reactor->async_close(_handle);
                     _reactor.reset();

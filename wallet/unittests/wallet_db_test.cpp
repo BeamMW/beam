@@ -53,7 +53,7 @@ void TestKeychain()
 		localCoins.push_back(coin2);
 		localCoins.push_back(coin1);
 
-		for (int i = 0; i < coins.size(); ++i)
+		for (size_t i = 0; i < coins.size(); ++i)
 		{
             WALLET_CHECK(localCoins[i].m_id == coins[i].m_id);
             WALLET_CHECK(localCoins[i].m_amount == coins[i].m_amount);
@@ -159,7 +159,7 @@ using namespace beam::wallet;
 void TestStoreTxRecord()
 {
     auto keychain = createSqliteKeychain();
-    Uuid id = {1, 3, 4, 5 ,65};
+    Uuid id = {{1, 3, 4, 5 ,65}};
     TxDescription tr;
     tr.m_txId = id;
     tr.m_amount = 34;
@@ -186,7 +186,7 @@ void TestStoreTxRecord()
     WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
     WALLET_CHECK(t[0].m_sender == tr2.m_sender);
     WALLET_CHECK(t[0].m_status == tr2.m_status);
-    Uuid id2 = { 3,4,5 };
+    Uuid id2 = {{ 3,4,5 }};
     WALLET_CHECK_NO_THROW(keychain->deleteTx(id2));
     WALLET_CHECK_NO_THROW(keychain->deleteTx(id));
 

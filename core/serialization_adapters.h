@@ -108,16 +108,16 @@ namespace detail
 		void save(const ECC::InnerProduct& v)
 		{
 			uint32_t iBit = 0;
-			for (int i = 0; i < _countof(v.m_pLR); i++)
-				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+			for (size_t i = 0; i < _countof(v.m_pLR); i++)
+				for (size_t j = 0; j < _countof(v.m_pLR[i]); j++)
 					set(iBit++, v.m_pLR[i][j].m_Y);
 		}
 
 		void load(ECC::InnerProduct& v) const
 		{
 			uint32_t iBit = 0;
-			for (int i = 0; i < _countof(v.m_pLR); i++)
-				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+			for (size_t i = 0; i < _countof(v.m_pLR); i++)
+				for (size_t j = 0; j < _countof(v.m_pLR[i]); j++)
 					get(iBit++, v.m_pLR[i][j].m_Y);
 		}
 	};
@@ -206,11 +206,11 @@ namespace detail
 		template<typename Archive>
 		static void save_nobits(Archive& ar, const ECC::InnerProduct& v)
 		{
-			for (int i = 0; i < _countof(v.m_pLR); i++)
-				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+			for (size_t i = 0; i < _countof(v.m_pLR); i++)
+				for (size_t j = 0; j < _countof(v.m_pLR[i]); j++)
 					ar & v.m_pLR[i][j].m_X;
 
-			for (int j = 0; j < _countof(v.m_pCondensed); j++)
+			for (size_t j = 0; j < _countof(v.m_pCondensed); j++)
 				ar & v.m_pCondensed[j];
 		}
 
@@ -231,11 +231,11 @@ namespace detail
 		template<typename Archive>
 		static void load_nobits(Archive& ar, ECC::InnerProduct& v)
 		{
-			for (int i = 0; i < _countof(v.m_pLR); i++)
-				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+			for (size_t i = 0; i < _countof(v.m_pLR); i++)
+				for (size_t j = 0; j < _countof(v.m_pLR[i]); j++)
 					ar & v.m_pLR[i][j].m_X;
 
-			for (int j = 0; j < _countof(v.m_pCondensed); j++)
+			for (size_t j = 0; j < _countof(v.m_pCondensed); j++)
 				ar & v.m_pCondensed[j];
 		}
 

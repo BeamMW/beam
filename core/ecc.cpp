@@ -111,6 +111,11 @@ namespace ECC {
 		return *this;
 	}
 
+	Scalar::Native::Native()
+    {
+        secp256k1_scalar_clear(this);
+    }
+
 	Scalar::Native& Scalar::Native::operator = (Zero_)
 	{
 		secp256k1_scalar_clear(this);
@@ -303,6 +308,11 @@ namespace ECC {
 	{
 		return operator = (Native(v));
 	}
+
+	Point::Native::Native()
+    {
+        secp256k1_gej_set_infinity(this);
+    }
 
 	bool Point::Native::ImportInternal(const Point& v)
 	{

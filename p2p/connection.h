@@ -52,9 +52,9 @@ public:
 
 private:
     MsgReader _msgReader;
-    io::TcpStream::Ptr _stream;
     const Direction _direction;
     io::Address _peerAddress; // keep it after disconnect
+    io::TcpStream::Ptr _stream;
 };
 
 } //namespace

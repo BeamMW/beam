@@ -172,14 +172,7 @@ public:
     );
 
     /// Called by MsgReader on new message. Returning false means no more reading
-    bool on_new_message(uint64_t fromStream, MsgType type, const void* data, size_t size) {
-        OnRawMessage callback = _dispatchTable[type].callback;
-        if (!callback) {
-            _errorHandler.on_protocol_error(fromStream, msg_type_error);
-            return false;
-        }
-        return callback(_dispatchTable[type].msgHandler, _errorHandler, *_deserializer, fromStream, data, size);
-    }
+    bool on_new_message(uint64_t fromStream, MsgType type, const void* data, size_t size);
 
 	virtual void Decrypt(uint8_t*, uint32_t nSize) {}
 

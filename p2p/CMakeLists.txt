@@ -2,6 +2,7 @@ set(P2P_SRC
     msg_reader.cpp
     fragment_writer.cpp
     msg_serializer.cpp
+    protocol_base.cpp
 #    common_messages.cpp
     connection.cpp
     connected_peers.cpp
