@@ -84,6 +84,19 @@ void NodeProcessor::Initialize(const char* szPath)
 {
 	m_DB.Open(szPath);
 
+	Merkle::Hash hv;
+	NodeDB::Blob blob(hv.m_pData, sizeof(hv.m_pData));
+
+	if (!m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob))
+	{
+		blob.p = &Rules::get().Checksum;
+		blob.n = sizeof(Rules::get().Checksum);
+		m_DB.ParamSet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
+	}
+	else
+		if (hv != Rules::get().Checksum)
+			OnCorrupted();
+
 	InitCursor();
 
 	if (!m_Cursor.m_SubsidyOpen)
