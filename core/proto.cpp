@@ -420,6 +420,36 @@ void PeerManager::ModifyRating(PeerInfo& pi, uint32_t delta, bool bAdd, bool ban
 	m_Ratings.insert(pi.m_RawRating);
 }
 
+void PeerManager::RemoveAddr(PeerInfo& pi)
+{
+	if (!pi.m_Addr.m_Value.empty())
+	{
+		m_Addr.erase(pi.m_Addr);
+		pi.m_Addr.m_Value = io::Address();
+	}
+}
+
+void PeerManager::ModifyAddr(PeerInfo& pi, const io::Address& addr)
+{
+	if (addr == pi.m_Addr.m_Value)
+		return;
+
+	RemoveAddr(pi);
+
+	if (addr.empty())
+		return;
+
+	PeerInfo::Addr pia;
+	pia.m_Value = addr;
+
+	AddrSet::iterator it = m_Addr.find(pia);
+	if (m_Addr.end() != it)
+		RemoveAddr(it->get_ParentObj());
+
+	pi.m_Addr.m_Value = addr;
+	m_Addr.insert(pi.m_Addr);
+}
+
 void PeerManager::OnActive(PeerInfo& pi, bool bActive)
 {
 	pi.m_LastSeen = m_tLast;
@@ -440,8 +470,8 @@ PeerManager::PeerInfo* PeerManager::OnPeer(const PeerID& id, const io::Address& 
 	bool bCreate = true;
 	PeerInfo* pRet = Find(id, bCreate);
 
-	if (bAddrVerified || bCreate)
-		pRet->m_LastAddr = addr;
+	if (bAddrVerified || !pRet->m_Addr.m_Value.empty())
+		ModifyAddr(*pRet, addr);
 
 	return pRet;
 }
@@ -449,6 +479,7 @@ PeerManager::PeerInfo* PeerManager::OnPeer(const PeerID& id, const io::Address& 
 void PeerManager::Delete(PeerInfo& pi)
 {
 	OnActive(pi, false);
+	RemoveAddr(pi);
 	m_Ratings.erase(pi.m_RawRating);
 	m_AdjustedRatings.erase(pi.m_AdjustedRating);
 }

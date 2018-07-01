@@ -618,6 +618,7 @@ void Node::Peer::OnConnected()
 
 	proto::PeerInfoSelf msgPi;
 	msgPi.m_ID = m_pThis->m_MyID;
+	msgPi.m_Port = m_pThis->m_Cfg.m_Listen.port();
 	Send(msgPi);
 
 	if (m_pThis->m_Processor.m_Cursor.m_Sid.m_Row)

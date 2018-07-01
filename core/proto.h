@@ -75,7 +75,8 @@ namespace proto {
 	macro(Transaction::KeyType, ID)
 
 #define BeamNodeMsg_PeerInfoSelf(macro) \
-	macro(PeerID, ID)
+	macro(PeerID, ID) \
+	macro(uint16_t, Port)
 
 #define BeamNodeMsg_PeerInfo(macro) \
 	macro(PeerID, ID) \
@@ -355,13 +356,22 @@ namespace proto {
 				IMPLEMENT_GET_PARENT_OBJ(PeerInfo, m_Active)
 			} m_Active;
 
+			struct Addr
+				:public boost::intrusive::set_base_hook<>
+			{
+				io::Address m_Value;
+				bool operator < (const Addr& x) const { return (m_Value < x.m_Value); }
+
+				IMPLEMENT_GET_PARENT_OBJ(PeerInfo, m_Addr)
+			} m_Addr;
+
 			Timestamp m_LastSeen; // needed to filter-out dead peers, and to know when to update the address
-			io::Address m_LastAddr; // address for Connect(), not the accepted (the port is likely to be different)
 		};
 
 		typedef boost::intrusive::multiset<PeerInfo::ID> PeerIDSet;
 		typedef boost::intrusive::multiset<PeerInfo::RawRating> RawRatingSet;
 		typedef boost::intrusive::multiset<PeerInfo::AdjustedRating> AdjustedRatingSet;
+		typedef boost::intrusive::multiset<PeerInfo::Addr> AddrSet;
 		typedef boost::intrusive::list<PeerInfo::Active> ActiveList;
 
 		void UpdateTime(Timestamp t);
@@ -369,6 +379,9 @@ namespace proto {
 
 		void OnActive(PeerInfo&, bool bActive);
 		void ModifyRating(PeerInfo&, uint32_t, bool bAdd, bool ban = false);
+
+		void ModifyAddr(PeerInfo&, const io::Address&);
+		void RemoveAddr(PeerInfo&);
 
 		PeerInfo* OnPeer(const PeerID&, const io::Address&, bool bAddrVerified);
 
@@ -384,6 +397,7 @@ namespace proto {
 		PeerIDSet m_IDs;
 		RawRatingSet m_Ratings;
 		AdjustedRatingSet m_AdjustedRatings;
+		AddrSet m_Addr;
 		ActiveList m_Active;
 		Timestamp m_tLast = 0;
 
