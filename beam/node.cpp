@@ -420,7 +420,8 @@ void Node::Initialize()
 	if (m_Cfg.m_Listen.port())
 	{
 		m_Server.Listen(m_Cfg.m_Listen);
-		m_Beacon.Start();
+		if (m_Cfg.m_BeaconPeriod_ms)
+			m_Beacon.Start();
 	}
 
 	for (uint32_t i = 0; i < m_Cfg.m_Connect.size(); i++)
@@ -1803,7 +1804,7 @@ void Node::Beacon::OutCtx::OnDone(uv_udp_send_t* req, int /* status */)
 	pVal->get_ParentObj().Release();
 }
 
-void Node::Beacon::OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags)
+void Node::Beacon::OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* pSa, unsigned flags)
 {
 	OutCtx::Message msg;
 	if (sizeof(msg) != nread)
@@ -1816,8 +1817,11 @@ void Node::Beacon::OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, c
 	if (msg.m_CfgChecksum != hv)
 		return;
 
+	io::Address addr(*(sockaddr_in*)pSa);
+	addr.port(ntohs(msg.m_Port));
+
 	Beacon* pThis = (Beacon*)handle->data;
-	msg.m_Port;
+	pThis->OnPeer(addr);
 }
 
 void Node::Beacon::AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
@@ -1827,6 +1831,11 @@ void Node::Beacon::AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t
 
 	buf->base = (char*) &pThis->m_BufRcv.at(0);
 	buf->len = sizeof(OutCtx::Message);
+}
+
+void Node::Beacon::OnPeer(const io::Address& addr)
+{
+	// could be self
 }
 
 } // namespace beam
