@@ -391,7 +391,7 @@ namespace beam
 			utxo.m_Key = key;
 			utxo.m_Value = n;
 
-			h += (KeyType::Coinbase == eType) ? Rules::MaturityCoinbase : Rules::MaturityStd;
+			h += (KeyType::Coinbase == eType) ? Rules::get().MaturityCoinbase : Rules::get().MaturityStd;
 
 			return &m_MyUtxos.insert(std::make_pair(h, utxo))->second;
 		}
@@ -519,7 +519,7 @@ namespace beam
 			np.OnBlock(id, pBlock->m_Body, NodeDB::PeerID());
 
 			np.m_Wallet.AddMyUtxo(fees, h, KeyType::Comission);
-			np.m_Wallet.AddMyUtxo(Rules::CoinbaseEmission, h, KeyType::Coinbase);
+			np.m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, h, KeyType::Coinbase);
 
 			blockChain.push_back(std::move(pBlock));
 		}
@@ -852,7 +852,7 @@ namespace beam
 
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
-				Rules::get_Hash(msgCfg.m_CfgChecksum);
+				msgCfg.m_CfgChecksum = Rules::get().Checksum;
 				msgCfg.m_AutoSendHdr = true;
 				Send(msgCfg);
 			}
@@ -889,7 +889,7 @@ namespace beam
 				m_vStates.push_back(msg.m_Description);
 
 				// assume we've mined this
-				m_Wallet.AddMyUtxo(Rules::CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
+				m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
 
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
@@ -1019,7 +1019,8 @@ namespace beam
 
 int main()
 {
-	beam::Rules::FakePoW = true;
+	beam::Rules::get().FakePoW = true;
+	beam::Rules::get().UpdateChecksum();
 
 	DeleteFileA(beam::g_sz);
 	DeleteFileA(beam::g_sz2);

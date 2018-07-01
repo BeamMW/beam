@@ -470,7 +470,7 @@ namespace beam
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
                 // coinbase 
-                mined.emplace_back(Rules::CoinbaseEmission
+                mined.emplace_back(Rules::get().CoinbaseEmission
                                  , Coin::Unconfirmed
                                  , minedCoin.m_ID.m_Height
                                  , MaxHeight

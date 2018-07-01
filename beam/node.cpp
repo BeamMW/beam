@@ -399,8 +399,6 @@ Node::Peer* Node::FindPeer(const Processor::PeerID& peerID)
 
 void Node::Initialize()
 {
-	Rules::get_Hash(m_hvCfg);
-
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
     m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
@@ -595,7 +593,7 @@ void Node::Peer::OnConnected()
 	ZeroObject(m_Config);
 
 	proto::Config msgCfg;
-	msgCfg.m_CfgChecksum = m_pThis->m_hvCfg;
+	msgCfg.m_CfgChecksum = Rules::get().Checksum;
 	msgCfg.m_SpreadingTransactions = true;
 	msgCfg.m_Mining = (m_pThis->m_Cfg.m_MiningThreads > 0);
 	msgCfg.m_AutoSendHdr = false;
@@ -912,7 +910,7 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 
 void Node::Peer::OnMsg(proto::Config&& msg)
 {
-	if (msg.m_CfgChecksum != m_pThis->m_hvCfg)
+	if (msg.m_CfgChecksum != Rules::get().Checksum)
 	{
 		LOG_WARNING() << "Incompatible peer cfg!";
 		ThrowUnexpected();
@@ -1202,7 +1200,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 			return false;
 		};
 
-		if (Rules::FakePoW)
+		if (Rules::get().FakePoW)
 		{
 			uint32_t timeout_ms = get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms;
 
@@ -1772,7 +1770,7 @@ void Node::Beacon::OnTimer()
 		m_pOut = new OutCtx;
 		m_pOut->m_Refs = 1;
 
-		Rules::get_Hash(m_pOut->m_Message.m_CfgChecksum);
+		m_pOut->m_Message.m_CfgChecksum = Rules::get().Checksum;
 		m_pOut->m_Message.m_Port = htons(get_ParentObj().m_Cfg.m_Listen.port());
 
 		m_pOut->m_BufDescr.base = (char*) &m_pOut->m_Message;
@@ -1812,9 +1810,7 @@ void Node::Beacon::OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, c
 
 	memcpy(&msg, buf->base, sizeof(msg)); // copy it to prevent (potential) datatype misallignment and etc.
 
-	Merkle::Hash hv;
-	Rules::get_Hash(hv);
-	if (msg.m_CfgChecksum != hv)
+	if (msg.m_CfgChecksum != Rules::get().Checksum)
 		return;
 
 	io::Address addr(*(sockaddr_in*)pSa);
