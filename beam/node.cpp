@@ -418,7 +418,10 @@ void Node::Initialize()
 	RefreshCongestions();
 
 	if (m_Cfg.m_Listen.port())
+	{
 		m_Server.Listen(m_Cfg.m_Listen);
+		m_Beacon.Start();
+	}
 
 	for (uint32_t i = 0; i < m_Cfg.m_Connect.size(); i++)
 	{
@@ -1669,6 +1672,161 @@ bool Node::Compressor::SquashOnce(Block::BodyBase::RW& rw, Block::BodyBase::RW& 
 		return false;
 
 	return true;
+}
+
+struct Node::Beacon::OutCtx
+{
+	int m_Refs;
+	OutCtx() :m_Refs(0) {}
+
+	struct UvRequest
+		:public uv_udp_send_t
+	{
+		IMPLEMENT_GET_PARENT_OBJ(OutCtx, m_Request)
+	} m_Request;
+
+	uv_buf_t m_BufDescr;
+
+#pragma pack (push, 1)
+	struct Message
+	{
+		Merkle::Hash m_CfgChecksum;
+		uint16_t m_Port; // in network byte order
+	};
+#pragma pack (pop)
+
+	Message m_Message; // the message broadcasted
+
+	void Release()
+	{
+		assert(m_Refs > 0);
+		if (!--m_Refs)
+			delete this;
+	}
+
+	static void OnDone(uv_udp_send_t* req, int status);
+};
+
+Node::Beacon::Beacon()
+{
+	m_bShouldClose = false;
+	m_bRcv = false;
+	m_pOut = NULL;
+}
+
+Node::Beacon::~Beacon()
+{
+	if (m_bRcv)
+		uv_udp_recv_stop(&m_Udp);
+
+	if (m_bShouldClose)
+		uv_close((uv_handle_t*) &m_Udp, NULL);
+
+	if (m_pOut)
+		m_pOut->Release();
+}
+
+void Node::Beacon::Start()
+{
+	assert(!m_bRcv);
+
+	uv_udp_init(&io::Reactor::get_Current().get_UvLoop(), &m_Udp);
+	m_Udp.data = this;
+
+	uint16_t nPort = get_ParentObj().m_Cfg.m_BeaconPort;
+	if (!nPort)
+		nPort = get_ParentObj().m_Cfg.m_Listen.port();
+
+	m_BufRcv.resize(sizeof(OutCtx::Message));
+
+	io::Address addr;
+	addr.port(nPort);
+
+	sockaddr_in sa;
+	get_ParentObj().m_Cfg.m_Listen.fill_sockaddr_in(sa);
+	int nErr;
+
+	m_bShouldClose = true;
+
+	if (uv_udp_bind(&m_Udp, (sockaddr*)&sa, 0))
+		std::ThrowIoError();
+
+	if (uv_udp_recv_start(&m_Udp, AllocBuf, OnRcv))
+		std::ThrowIoError();
+
+	m_bRcv = true;
+
+	if (uv_udp_set_broadcast(&m_Udp, 1))
+		std::ThrowIoError();
+
+	m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+	m_pTimer->start(get_ParentObj().m_Cfg.m_BeaconPeriod_ms, true, [this]() { OnTimer(); }); // periodic timer
+	OnTimer();
+}
+
+void Node::Beacon::OnTimer()
+{
+	if (!m_pOut)
+	{
+		m_pOut = new OutCtx;
+		m_pOut->m_Refs = 1;
+
+		Rules::get_Hash(m_pOut->m_Message.m_CfgChecksum);
+		m_pOut->m_Message.m_Port = htons(get_ParentObj().m_Cfg.m_Listen.port());
+
+		m_pOut->m_BufDescr.base = (char*) &m_pOut->m_Message;
+		m_pOut->m_BufDescr.len = sizeof(m_pOut->m_Message);
+	}
+	else
+		if (m_pOut->m_Refs > 1)
+			return; // send still pending
+
+	io::Address addr;
+	addr.port(get_ParentObj().m_Cfg.m_Listen.port());
+	addr.ip(INADDR_BROADCAST);
+
+	sockaddr_in sa;
+	addr.fill_sockaddr_in(sa);
+
+	m_pOut->m_Refs++;
+
+	int nErr = uv_udp_send(&m_pOut->m_Request, &m_Udp, &m_pOut->m_BufDescr, 1, (sockaddr*) &sa, OutCtx::OnDone);
+	if (nErr)
+		m_pOut->Release();
+}
+
+void Node::Beacon::OutCtx::OnDone(uv_udp_send_t* req, int /* status */)
+{
+	UvRequest* pVal = (UvRequest*)req;
+	assert(pVal);
+
+	pVal->get_ParentObj().Release();
+}
+
+void Node::Beacon::OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags)
+{
+	OutCtx::Message msg;
+	if (sizeof(msg) != nread)
+		return;
+
+	memcpy(&msg, buf->base, sizeof(msg)); // copy it to prevent (potential) datatype misallignment and etc.
+
+	Merkle::Hash hv;
+	Rules::get_Hash(hv);
+	if (msg.m_CfgChecksum != hv)
+		return;
+
+	Beacon* pThis = (Beacon*)handle->data;
+	msg.m_Port;
+}
+
+void Node::Beacon::AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
+{
+	Beacon* pThis = (Beacon*)handle->data;
+	assert(pThis);
+
+	buf->base = (char*) &pThis->m_BufRcv.at(0);
+	buf->len = sizeof(OutCtx::Message);
 }
 
 } // namespace beam

@@ -17,6 +17,8 @@ struct Node
 	struct Config
 	{
 		io::Address m_Listen;
+		uint16_t m_BeaconPort = 0; // set to 0 if should use the same port for listen
+		uint32_t m_BeaconPeriod_ms = 500;
 		std::vector<io::Address> m_Connect;
 
 		std::string m_sPathLocal;
@@ -259,6 +261,30 @@ private:
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Server)
 	} m_Server;
+
+	struct Beacon
+	{
+		struct OutCtx;
+
+		uv_udp_t m_Udp;
+		bool m_bShouldClose;
+		bool m_bRcv;
+		OutCtx* m_pOut;
+		std::vector<uint8_t> m_BufRcv;
+
+		io::Timer::Ptr m_pTimer;
+		void OnTimer();
+
+		Beacon();
+		~Beacon();
+
+		void Start();
+
+		static void OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags);
+		static void AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Beacon)
+	} m_Beacon;
 
 	struct PerThread
 	{
