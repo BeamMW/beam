@@ -69,6 +69,7 @@ namespace beam
 	typedef ECC::uintBig_t<256> uint256_t;
 	typedef std::vector<uint8_t> ByteBuffer;
 	typedef ECC::Amount Amount;
+	typedef ECC::Hash::Value PeerID;
 
 	Timestamp getTimestamp();
 

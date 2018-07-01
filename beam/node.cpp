@@ -109,7 +109,7 @@ uint32_t Node::GetTime_ms()
 	return (uint32_t) duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
 
-void Node::TryAssignTask(Task& t, const NodeDB::PeerID* pPeerID)
+void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 {
 	while (true)
 	{
@@ -122,7 +122,7 @@ void Node::TryAssignTask(Task& t, const NodeDB::PeerID* pPeerID)
 			{
 				assert(pPeerID);
 
-				NodeDB::PeerID id;
+				PeerID id;
 				p.get_ID(id);
 				if (id != *pPeerID)
 					continue;
@@ -384,12 +384,12 @@ void Node::DeletePeer(Peer* p)
 	delete p;
 }
 
-Node::Peer* Node::FindPeer(const Processor::PeerID& peerID)
+Node::Peer* Node::FindPeer(const PeerID& peerID)
 {
 	// current interpretation (naive): just assume that peerID is the index
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
 	{
-		Processor::PeerID id2;
+		PeerID id2;
 		id2 = (uint32_t) it->m_iPeer;
 		if (peerID == id2)
 			return &*it;
@@ -637,7 +637,7 @@ void Node::Peer::OnClosed(int errorCode)
 	OnPostError();
 }
 
-void Node::Peer::get_ID(NodeProcessor::PeerID& id)
+void Node::Peer::get_ID(PeerID& id)
 {
 	id = (size_t) m_iPeer;
 }
@@ -714,13 +714,13 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 	m_TipHeight = msg.m_ID.m_Height;
 	m_setRejected.clear();
 
-	LOG_INFO() << "Peer " << get_Connection()->peer_address() << " Tip: " << msg.m_ID;
+	LOG_INFO() << "Peer " << m_RemoteAddr << " Tip: " << msg.m_ID;
 
 	TakeTasks();
 
 	if (m_pThis->m_Processor.IsStateNeeded(msg.m_ID))
 	{
-		NodeProcessor::PeerID id;
+		PeerID id;
 		get_ID(id);
 		m_pThis->m_Processor.RequestData(msg.m_ID, false, &id);
 	}
@@ -779,7 +779,7 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	if (id != t.m_Key.first)
 		ThrowUnexpected();
 
-	NodeDB::PeerID pid;
+	PeerID pid;
 	get_ID(pid);
 
 	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnState(msg.m_Description, pid);
@@ -814,7 +814,7 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	if (!t.m_Key.second)
 		ThrowUnexpected();
 
-	NodeDB::PeerID pid;
+	PeerID pid;
 	get_ID(pid);
 
 	const Block::SystemState::ID& id = t.m_Key.first;
@@ -866,7 +866,7 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 			// Log it
 			std::ostringstream os;
 
-			os << "Tx " << key.m_Key << " from " << get_Connection()->peer_address();
+			os << "Tx " << key.m_Key << " from " << m_RemoteAddr;
 
 			for (size_t i = 0; i < tx.m_vInputs.size(); i++)
 				os << "\n\tI: " << tx.m_vInputs[i]->m_Commitment;
@@ -1364,7 +1364,7 @@ void Node::Miner::OnMined()
 
 	LOG_INFO() << "New block mined: " << id;
 
-	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, NodeDB::PeerID());
+	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, PeerID());
 	assert(NodeProcessor::DataStatus::Accepted == eStatus); // Otherwise either the block is invalid (some bug?). Or someone else mined exactly the same block!
 
 	NodeDB::StateID sid;
@@ -1373,7 +1373,7 @@ void Node::Miner::OnMined()
 
 	get_ParentObj().m_Processor.get_DB().SetMined(sid, pTask->m_Fees); // ding!
 
-	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, NodeDB::PeerID()); // will likely trigger OnNewState(), and spread this block to the network
+	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, PeerID()); // will likely trigger OnNewState(), and spread this block to the network
 	assert(NodeProcessor::DataStatus::Accepted == eStatus);
 }
 
@@ -1706,7 +1706,7 @@ struct Node::Beacon::OutCtx
 	struct Message
 	{
 		Merkle::Hash m_CfgChecksum;
-		Merkle::Hash m_NodeID;
+		PeerID m_NodeID;
 		uint16_t m_Port; // in network byte order
 	};
 #pragma pack (pop)
@@ -1850,7 +1850,7 @@ void Node::Beacon::AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t
 	buf->len = sizeof(OutCtx::Message);
 }
 
-void Node::Beacon::OnPeer(const io::Address& addr, const Merkle::Hash& id)
+void Node::Beacon::OnPeer(const io::Address& addr, const PeerID& id)
 {
 }
 

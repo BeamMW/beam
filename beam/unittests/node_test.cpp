@@ -511,12 +511,12 @@ namespace beam
 			Amount fees = 0;
 			verify_test(np.GenerateNewBlock(np.m_TxPool, pBlock->m_Hdr, pBlock->m_Body, fees));
 
-			np.OnState(pBlock->m_Hdr, NodeDB::PeerID());
+			np.OnState(pBlock->m_Hdr, PeerID());
 
 			Block::SystemState::ID id;
 			pBlock->m_Hdr.get_ID(id);
 
-			np.OnBlock(id, pBlock->m_Body, NodeDB::PeerID());
+			np.OnBlock(id, pBlock->m_Body, PeerID());
 
 			np.m_Wallet.AddMyUtxo(fees, h, KeyType::Comission);
 			np.m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, h, KeyType::Coinbase);
@@ -599,7 +599,7 @@ namespace beam
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
-			NodeProcessor::PeerID peer;
+			PeerID peer;
 			ZeroObject(peer);
 
 			for (size_t i = 0; i < blockChain.size(); i += 2)
@@ -611,7 +611,7 @@ namespace beam
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
-			NodeProcessor::PeerID peer;
+			PeerID peer;
 			ZeroObject(peer);
 
 			for (size_t i = 0; i < nMid; i += 2)
@@ -627,7 +627,7 @@ namespace beam
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
-			NodeProcessor::PeerID peer;
+			PeerID peer;
 			ZeroObject(peer);
 
 			for (size_t i = 1; i < blockChain.size(); i += 2)
@@ -639,7 +639,7 @@ namespace beam
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
-			NodeProcessor::PeerID peer;
+			PeerID peer;
 			ZeroObject(peer);
 
 			for (size_t i = 0; i < nMid; i++)
@@ -655,7 +655,7 @@ namespace beam
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
-			NodeProcessor::PeerID peer;
+			PeerID peer;
 			ZeroObject(peer);
 
 			for (size_t i = nMid; i < blockChain.size(); i++)
@@ -735,12 +735,12 @@ namespace beam
 					Amount fees = 0;
 					n.get_Processor().GenerateNewBlock(txPool, s, body, fees);
 
-					n.get_Processor().OnState(s, NodeDB::PeerID());
+					n.get_Processor().OnState(s, PeerID());
 
 					Block::SystemState::ID id;
 					s.get_ID(id);
 
-					n.get_Processor().OnBlock(id, body, NodeDB::PeerID());
+					n.get_Processor().OnBlock(id, body, PeerID());
 
 					m_HeightMax = std::max(m_HeightMax, s.m_Height);
 

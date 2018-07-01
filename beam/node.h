@@ -145,7 +145,7 @@ private:
 	TaskList m_lstTasksUnassigned;
 	TaskSet m_setTasks;
 
-	void TryAssignTask(Task&, const NodeDB::PeerID*);
+	void TryAssignTask(Task&, const PeerID*);
 	bool ShouldAssignTask(Task&, Peer&);
 	void AssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
@@ -188,7 +188,7 @@ private:
 		Node* m_pThis;
 
 		int m_iPeer; // negative if accepted connection
-		void get_ID(NodeProcessor::PeerID&);
+		void get_ID(PeerID&);
 
 		State::Enum m_eState;
 		beam::io::Address m_RemoteAddr; // for logging only
@@ -244,11 +244,11 @@ private:
 	PeerList m_lstPeers;
 
 	ECC::NoLeak<ECC::uintBig> m_SChannelSeed;
-	Merkle::Hash m_MyID;
+	PeerID m_MyID;
 
 	Peer* AllocPeer();
 	void DeletePeer(Peer*);
-	Peer* FindPeer(const Processor::PeerID&);
+	Peer* FindPeer(const PeerID&);
 
 	void RefreshCongestions();
 
@@ -279,7 +279,7 @@ private:
 
 		void Start();
 
-		void OnPeer(const io::Address&, const Merkle::Hash& id);
+		void OnPeer(const io::Address&, const PeerID&);
 
 		static void OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags);
 		static void AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
