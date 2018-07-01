@@ -854,6 +854,7 @@ namespace beam
 				ZeroObject(msgCfg);
 				msgCfg.m_CfgChecksum = Rules::get().Checksum;
 				msgCfg.m_AutoSendHdr = true;
+				msgCfg.m_SendPeers = false;
 				Send(msgCfg);
 			}
 

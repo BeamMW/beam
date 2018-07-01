@@ -291,7 +291,7 @@ void PeerManager::UpdateTime(Timestamp t)
 	{
 		PeerInfo& pi = it->get_ParentObj();
 
-		bool bTooEarlyToDisconnect = (m_tLast - pi.m_LastSeen < m_Cfg.m_TimeoutLo_ms);
+		bool bTooEarlyToDisconnect = (m_tLast - pi.m_LastSeen < m_Cfg.m_TimeoutDisconnect_s);
 
 		it->m_Next = bTooEarlyToDisconnect;
 		if (bTooEarlyToDisconnect)
@@ -327,6 +327,9 @@ void PeerManager::ActivatePeerInternal(PeerInfo& pi, uint32_t& nSelected)
 {
 	if (pi.m_Active.m_Now && pi.m_Active.m_Next)
 		return; // already selected
+
+	if (!pi.m_Active.m_Now && (m_tLast - pi.m_LastSeen < m_Cfg.m_TimeoutReconnect_s))
+		return; // too early for reconnect
 
 	nSelected++;
 
@@ -381,7 +384,7 @@ PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)
 	if (!bCreate)
 		return NULL;
 
-	PeerInfo* ret = new PeerInfo;
+	PeerInfo* ret = AllocPeer();
 	ret->m_ID.m_Key = id;
 	m_IDs.insert(ret->m_ID);
 
@@ -436,12 +439,26 @@ PeerManager::PeerInfo* PeerManager::OnPeer(const PeerID& id, const io::Address& 
 {
 	bool bCreate = true;
 	PeerInfo* pRet = Find(id, bCreate);
-	assert(bCreate);
 
-	if (bAddrVerified)
+	if (bAddrVerified || bCreate)
 		pRet->m_LastAddr = addr;
 
 	return pRet;
+}
+
+void PeerManager::Delete(PeerInfo& pi)
+{
+	OnActive(pi, false);
+	m_Ratings.erase(pi.m_RawRating);
+	m_AdjustedRatings.erase(pi.m_AdjustedRating);
+}
+
+void PeerManager::Clear()
+{
+	while (!m_Ratings.empty())
+		Delete(m_Ratings.begin()->get_ParentObj());
+
+	assert(m_AdjustedRatings.empty() && m_Active.empty());
 }
 
 } // namespace proto

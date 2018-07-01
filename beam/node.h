@@ -183,8 +183,6 @@ private:
 		:public proto::NodeConnection
 		,public boost::intrusive::list_base_hook<>
 	{
-		typedef std::unique_ptr<Peer> Ptr;
-
 		Node* m_pThis;
 
 		int m_iPeer; // negative if accepted connection

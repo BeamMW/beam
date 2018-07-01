@@ -613,7 +613,12 @@ void Node::Peer::OnConnected()
 	msgCfg.m_SpreadingTransactions = true;
 	msgCfg.m_Mining = (m_pThis->m_Cfg.m_MiningThreads > 0);
 	msgCfg.m_AutoSendHdr = false;
+	msgCfg.m_SendPeers = true;
 	Send(msgCfg);
+
+	proto::PeerInfoSelf msgPi;
+	msgPi.m_ID = m_pThis->m_MyID;
+	Send(msgPi);
 
 	if (m_pThis->m_Processor.m_Cursor.m_Sid.m_Row)
 	{
@@ -948,6 +953,11 @@ void Node::Peer::OnMsg(proto::Config&& msg)
 			msgOut.m_ID = it->m_Key;
 			Send(msgOut);
 		}
+	}
+
+	if (!m_Config.m_SendPeers && msg.m_SendPeers)
+	{
+		// TODO
 	}
 
 	m_Config = msg;

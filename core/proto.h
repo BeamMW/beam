@@ -59,6 +59,7 @@ namespace proto {
 	macro(ECC::Hash::Value, CfgChecksum) \
 	macro(bool, SpreadingTransactions) \
 	macro(bool, Mining) \
+	macro(bool, SendPeers) \
 	macro(bool, AutoSendHdr) /* prefer the header in addition to the NewTip message */
 
 #define BeamNodeMsg_Ping(macro)
@@ -73,10 +74,12 @@ namespace proto {
 #define BeamNodeMsg_GetTransaction(macro) \
 	macro(Transaction::KeyType, ID)
 
-#define BeamNodeMsg_GetTopPeers(macro)
+#define BeamNodeMsg_PeerInfoSelf(macro) \
+	macro(PeerID, ID)
 
-#define BeamNodeMsg_TopPeers(macro) \
-	macro(std::vector<PerPeer>, Peers)
+#define BeamNodeMsg_PeerInfo(macro) \
+	macro(PeerID, ID) \
+	macro(io::Address, LastAddr)
 
 #define BeamNodeMsg_SChannelInitiate(macro) \
 	macro(ECC::Point, NoncePub)
@@ -108,8 +111,8 @@ namespace proto {
 	macro(23, NewTransaction) \
 	macro(24, HaveTransaction) \
 	macro(25, GetTransaction) \
-	macro(31, GetTopPeers) \
-	macro(32, TopPeers) \
+	macro(31, PeerInfoSelf) \
+	macro(32, PeerInfo) \
 	macro(61, SChannelInitiate) \
 	macro(62, SChannelReady) \
 	macro(63, SChannelAuthentication) \
@@ -131,20 +134,6 @@ namespace proto {
 		}
 
 		static const uint32_t s_EntriesMax = 200; // if this is the size of the vector - the result is probably trunacted
-	};
-
-	struct PerPeer
-	{
-		PeerID m_ID;
-		io::Address m_LastAddr;
-
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_ID
-				& m_LastAddr;
-		}
 	};
 
 #define THE_MACRO3(type, name) & m_##name
@@ -316,7 +305,8 @@ namespace proto {
 		struct Cfg {
 			uint32_t m_DesiredHighest = 5;
 			uint32_t m_DesiredTotal = 10;
-			uint32_t m_TimeoutLo_ms = 60 * 2; // connected for less than 2 minutes -> penalty
+			uint32_t m_TimeoutDisconnect_s = 60 * 2; // connected for less than 2 minutes -> penalty
+			uint32_t m_TimeoutReconnect_s = 1;
 			uint32_t m_StarvationRatioInc = 1; // increase per second while not connected
 			uint32_t m_StarvationRatioDec = 2; // decrease per second while connected (until starvation reward is zero)
 			uint32_t m_BanTimeout_s = 60 * 10;
@@ -382,8 +372,13 @@ namespace proto {
 
 		PeerInfo* OnPeer(const PeerID&, const io::Address&, bool bAddrVerified);
 
+		void Delete(PeerInfo&);
+		void Clear();
+
 		virtual void ActivatePeer(PeerInfo&) {}
 		virtual void DeactivatePeer(PeerInfo&) {}
+		virtual PeerInfo* AllocPeer() = 0;
+		virtual void DeletePeer(PeerInfo&) = 0;
 
 	private:
 		PeerIDSet m_IDs;
