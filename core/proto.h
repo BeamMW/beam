@@ -71,6 +71,11 @@ namespace proto {
 #define BeamNodeMsg_GetTransaction(macro) \
 	macro(Transaction::KeyType, ID)
 
+#define BeamNodeMsg_GetTopPeers(macro)
+
+#define BeamNodeMsg_TopPeers(macro) \
+	macro(std::vector<PerPeer>, Peers)
+
 #define BeamNodeMsg_SChannelInitiate(macro) \
 	macro(ECC::Point, NoncePub)
 
@@ -101,6 +106,8 @@ namespace proto {
 	macro(23, NewTransaction) \
 	macro(24, HaveTransaction) \
 	macro(25, GetTransaction) \
+	macro(31, GetTopPeers) \
+	macro(32, TopPeers) \
 	macro(61, SChannelInitiate) \
 	macro(62, SChannelReady) \
 	macro(63, SChannelAuthentication) \
@@ -124,6 +131,19 @@ namespace proto {
 		static const uint32_t s_EntriesMax = 200; // if this is the size of the vector - the result is probably trunacted
 	};
 
+	struct PerPeer
+	{
+		PeerID m_ID;
+		io::Address m_LastAddr;
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_ID
+				& m_LastAddr;
+		}
+	};
 
 #define THE_MACRO3(type, name) & m_##name
 #define THE_MACRO2(type, name) type m_##name;
