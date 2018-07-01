@@ -405,6 +405,22 @@ void Node::Initialize()
 
 	m_SChannelSeed.V = ECC::Zero;
 
+	NodeDB::Blob blob(m_MyID.m_pData, sizeof(m_MyID.m_pData));
+
+	if (!m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob))
+	{
+		ECC::Hash::Processor() << "myid" << GetTime_ms() >> m_MyID;
+
+		ECC::Scalar::Native k;
+		k.GenerateNonce(m_Cfg.m_WalletKey.V, m_MyID, NULL);
+		m_MyID = ECC::Scalar(k).m_Value;
+
+		m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, NULL, &blob);
+	}
+
+
+
+	LOG_INFO() << "Node ID: " << m_MyID;
 	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
 
 	if (m_Cfg.m_VerificationThreads < 0)
@@ -1690,6 +1706,7 @@ struct Node::Beacon::OutCtx
 	struct Message
 	{
 		Merkle::Hash m_CfgChecksum;
+		Merkle::Hash m_NodeID;
 		uint16_t m_Port; // in network byte order
 	};
 #pragma pack (pop)
@@ -1770,6 +1787,7 @@ void Node::Beacon::OnTimer()
 		m_pOut->m_Refs = 1;
 
 		m_pOut->m_Message.m_CfgChecksum = Rules::get().Checksum;
+		m_pOut->m_Message.m_NodeID = get_ParentObj().m_MyID;
 		m_pOut->m_Message.m_Port = htons(get_ParentObj().m_Cfg.m_Listen.port());
 
 		m_pOut->m_BufDescr.base = (char*) &m_pOut->m_Message;
@@ -1812,11 +1830,15 @@ void Node::Beacon::OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, c
 	if (msg.m_CfgChecksum != Rules::get().Checksum)
 		return;
 
+	Beacon* pThis = (Beacon*)handle->data;
+
+	if (pThis->get_ParentObj().m_MyID == msg.m_NodeID)
+		return;
+
 	io::Address addr(*(sockaddr_in*)pSa);
 	addr.port(ntohs(msg.m_Port));
 
-	Beacon* pThis = (Beacon*)handle->data;
-	pThis->OnPeer(addr);
+	pThis->OnPeer(addr, msg.m_NodeID);
 }
 
 void Node::Beacon::AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
@@ -1828,9 +1850,8 @@ void Node::Beacon::AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t
 	buf->len = sizeof(OutCtx::Message);
 }
 
-void Node::Beacon::OnPeer(const io::Address& addr)
+void Node::Beacon::OnPeer(const io::Address& addr, const Merkle::Hash& id)
 {
-	// could be self
 }
 
 } // namespace beam

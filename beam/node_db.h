@@ -27,6 +27,7 @@ public:
 			SubsidyHi,
 			SubsidyOpen,
 			CfgChecksum,
+			MyID,
 		};
 	};
 
