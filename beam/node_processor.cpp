@@ -915,7 +915,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		return DataStatus::Invalid;
 	}
 
-	Timestamp ts = time(NULL);
+	Timestamp ts = getTimestamp();
 	if (s.m_TimeStamp > ts)
 	{
 		ts = s.m_TimeStamp - ts; // dt
@@ -1241,7 +1241,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 	s.m_Height = h;
 	s.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
-	s.m_TimeStamp = time(NULL); // TODO: 64-bit time
+	s.m_TimeStamp = getTimestamp();
 
 	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
 	Timestamp tm = get_MovingMedian() + 1;

@@ -1,5 +1,6 @@
 #include <utility> // std::swap
 #include <algorithm>
+#include <ctime>
 #include "block_crypt.h"
 #include "../utility/serialize.h"
 #include "../core/serialization_adapters.h"
@@ -1439,6 +1440,13 @@ namespace beam
 		}
 
 		return true;
+	}
+
+	/////////////
+	// Misc
+	Timestamp getTimestamp()
+	{
+		return beam::Timestamp(std::chrono::seconds(std::time(nullptr)).count());
 	}
 
 } // namespace beam

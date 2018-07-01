@@ -70,6 +70,8 @@ namespace beam
 	typedef std::vector<uint8_t> ByteBuffer;
 	typedef ECC::Amount Amount;
 
+	Timestamp getTimestamp();
+
 	struct HeightRange
 	{
 		// Convention: inclusive, i.e. both endings are part of the range.
