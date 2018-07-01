@@ -1763,7 +1763,7 @@ void Node::Beacon::Start()
 
 	m_bShouldClose = true;
 
-	if (uv_udp_bind(&m_Udp, (sockaddr*)&sa, 0))
+	if (uv_udp_bind(&m_Udp, (sockaddr*)&sa, UV_UDP_REUSEADDR)) // should allow multiple nodes on the same machine (for testing)
 		std::ThrowIoError();
 
 	if (uv_udp_recv_start(&m_Udp, AllocBuf, OnRcv))
