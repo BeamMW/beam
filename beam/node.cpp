@@ -1742,8 +1742,7 @@ void Node::Beacon::Start()
 	addr.port(nPort);
 
 	sockaddr_in sa;
-	get_ParentObj().m_Cfg.m_Listen.fill_sockaddr_in(sa);
-	int nErr;
+	addr.fill_sockaddr_in(sa);
 
 	m_bShouldClose = true;
 
