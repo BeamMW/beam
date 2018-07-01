@@ -275,7 +275,174 @@ void NodeConnection::Server::Listen(const io::Address& addr)
 	m_pServer = io::TcpServer::create(io::Reactor::get_Current().shared_from_this(), addr, BIND_THIS_MEMFN(OnAccepted));
 }
 
+/////////////////////////
+// PeerManager
+void PeerManager::UpdateTime(Timestamp t)
+{
+	if (m_tLast)
+		UpdateTimeInternal(t);
 
+	m_tLast = t;
+
+	// select recommended peers
+	uint32_t nSelected = 0;
+
+	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; it++)
+	{
+		PeerInfo& pi = it->get_ParentObj();
+
+		bool bTooEarlyToDisconnect = (m_tLast - pi.m_LastSeen < m_Cfg.m_TimeoutLo_ms);
+
+		it->m_Next = bTooEarlyToDisconnect;
+		if (bTooEarlyToDisconnect)
+			nSelected++;
+		else
+			it->m_Next = false; // potential disconnect target
+	}
+
+	// 1st group
+	uint32_t nHighest = 0;
+	for (RawRatingSet::iterator it = m_Ratings.begin(); (nHighest < m_Cfg.m_DesiredHighest) && (nSelected < m_Cfg.m_DesiredTotal) && (m_Ratings.end() != it); it++, nHighest++)
+		ActivatePeerInternal(it->get_ParentObj(), nSelected);
+
+	// 2nd group
+	for (AdjustedRatingSet::iterator it = m_AdjustedRatings.begin(); (nSelected < m_Cfg.m_DesiredTotal) && (m_AdjustedRatings.end() != it); it++)
+		ActivatePeerInternal(it->get_ParentObj(), nSelected);
+
+	// remove eccess
+	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; )
+	{
+		PeerInfo& pi = (it++)->get_ParentObj();
+		assert(pi.m_Active.m_Now);
+
+		if (!pi.m_Active.m_Next)
+		{
+			OnActive(pi, false);
+			DeactivatePeer(pi);
+		}
+	}
+}
+
+void PeerManager::ActivatePeerInternal(PeerInfo& pi, uint32_t& nSelected)
+{
+	if (pi.m_Active.m_Now && pi.m_Active.m_Next)
+		return; // already selected
+
+	nSelected++;
+
+	pi.m_Active.m_Next = true;
+
+	if (!pi.m_Active.m_Now)
+	{
+		OnActive(pi, true);
+		ActivatePeer(pi);
+	}
+}
+
+void PeerManager::UpdateTimeInternal(Timestamp t)
+{
+	uint32_t dt = (uint32_t)(t - m_tLast);
+	uint32_t rInc = dt * m_Cfg.m_StarvationRatioInc;
+	uint32_t rDec = dt * m_Cfg.m_StarvationRatioDec;
+
+	// For inactive peers: modify adjusted ratings in-place, no need to rebuild the tree. For active (presumably lesser part) rebuild is necessary
+	for (AdjustedRatingSet::iterator it = m_AdjustedRatings.begin(); m_AdjustedRatings.end() != it; )
+	{
+		PeerInfo& pi = (it++)->get_ParentObj();
+
+		if (pi.m_Active.m_Now)
+			m_AdjustedRatings.erase(pi.m_AdjustedRating);
+		else
+			Rating::Inc(pi.m_AdjustedRating.m_Increment, rInc);
+	}
+
+	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; it++)
+	{
+		PeerInfo& pi = it->get_ParentObj();
+
+		uint32_t& val = pi.m_AdjustedRating.m_Increment;
+		val = (val > rDec) ? (val - rDec) : 0;
+		m_AdjustedRatings.insert(pi.m_AdjustedRating);
+	}
+}
+
+PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)
+{
+	PeerInfo::ID pid;
+	pid.m_Key = id;
+
+	PeerIDSet::iterator it = m_IDs.find(pid);
+	if (m_IDs.end() != it)
+	{
+		bCreate = false;
+		return &it->get_ParentObj();
+	}
+
+	if (!bCreate)
+		return NULL;
+
+	PeerInfo* ret = new PeerInfo;
+	ret->m_ID.m_Key = id;
+	m_IDs.insert(ret->m_ID);
+
+	ret->m_RawRating.m_Value = Rating::Initial;
+	m_Ratings.insert(ret->m_RawRating);
+
+	ret->m_AdjustedRating.m_Increment = 0;
+	m_AdjustedRatings.insert(ret->m_AdjustedRating);
+
+	ret->m_Active.m_Now = false;
+	ret->m_LastSeen = 0;
+
+	return ret;
+}
+
+void PeerManager::ModifyRating(PeerInfo& pi, uint32_t delta, bool bAdd, bool ban /* = false */)
+{
+	m_Ratings.erase(pi.m_RawRating);
+	m_AdjustedRatings.erase(pi.m_AdjustedRating);
+
+	if (ban)
+	{
+		pi.m_RawRating.m_Value = 0;
+		pi.m_AdjustedRating.m_Increment = 0;
+	}
+	else
+		if (bAdd)
+			Rating::Inc(pi.m_RawRating.m_Value, delta);
+		else
+			Rating::Dec(pi.m_RawRating.m_Value, delta);
+
+	m_AdjustedRatings.insert(pi.m_AdjustedRating);
+	m_Ratings.insert(pi.m_RawRating);
+}
+
+void PeerManager::OnActive(PeerInfo& pi, bool bActive)
+{
+	pi.m_LastSeen = m_tLast;
+
+	if (pi.m_Active.m_Now != bActive)
+	{
+		pi.m_Active.m_Now = bActive;
+
+		if (bActive)
+			m_Active.push_back(pi.m_Active);
+		else
+			m_Active.erase(ActiveList::s_iterator_to(pi.m_Active));
+	}
+}
+
+PeerManager::PeerInfo* PeerManager::OnPeer(const PeerID& id, const io::Address& addr, bool bAddrVerified)
+{
+	bool bCreate = true;
+	PeerInfo* pRet = Find(id, bCreate);
+	assert(bCreate);
+
+	if (bAddrVerified)
+		pRet->m_LastAddr = addr;
+
+	return pRet;
+}
 
 } // namespace proto
 } // namespace beam
