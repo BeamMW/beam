@@ -352,9 +352,6 @@ void PeerManager::ActivatePeerInternal(PeerInfo& pi, uint32_t nTicks_ms, uint32_
 	if (pi.m_Active.m_Now && pi.m_Active.m_Next)
 		return; // already selected
 
-	if (!pi.m_RawRating.m_Value)
-		return; // banned
-
 	if (!pi.m_Active.m_Now && (nTicks_ms - pi.m_LastActivity_ms < m_Cfg.m_TimeoutReconnect_ms))
 		return; // too early for reconnect
 
@@ -381,11 +378,11 @@ void PeerManager::UpdateRatingsInternal(uint32_t t_ms)
 	uint32_t rDec = dt_s * m_Cfg.m_StarvationRatioDec;
 
 	// First unban peers
-	for (AdjustedRatingSet::reverse_iterator it = m_AdjustedRatings.rbegin(); m_AdjustedRatings.rend() != it; )
+	for (RawRatingSet::reverse_iterator it = m_Ratings.rbegin(); m_Ratings.rend() != it; )
 	{
 		PeerInfo& pi = (it++)->get_ParentObj();
 		if (pi.m_RawRating.m_Value)
-			break;
+			break; // starting from this - not banned
 
 		assert(!pi.m_AdjustedRating.m_Increment); // shouldn't be adjusted while banned
 
@@ -402,11 +399,7 @@ void PeerManager::UpdateRatingsInternal(uint32_t t_ms)
 		if (pi.m_Active.m_Now)
 			m_AdjustedRatings.erase(AdjustedRatingSet::s_iterator_to(pi.m_AdjustedRating));
 		else
-		{
-			if (!pi.m_RawRating.m_Value)
-				break; // all the remaining are banned
 			Rating::Inc(pi.m_AdjustedRating.m_Increment, rInc);
-		}
 	}
 
 	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; it++)
@@ -466,6 +459,7 @@ void PeerManager::Ban(PeerInfo& pi)
 void PeerManager::ModifyRatingInternal(PeerInfo& pi, uint32_t delta, bool bAdd, bool ban)
 {
 	m_Ratings.erase(RawRatingSet::s_iterator_to(pi.m_RawRating));
+	if (pi.m_RawRating.m_Value)
 		m_AdjustedRatings.erase(AdjustedRatingSet::s_iterator_to(pi.m_AdjustedRating));
 
 	if (ban)
@@ -474,12 +468,15 @@ void PeerManager::ModifyRatingInternal(PeerInfo& pi, uint32_t delta, bool bAdd, 
 		pi.m_AdjustedRating.m_Increment = 0;
 	}
 	else
+	{
 		if (bAdd)
 			Rating::Inc(pi.m_RawRating.m_Value, delta);
 		else
 			Rating::Dec(pi.m_RawRating.m_Value, delta);
 
-	m_AdjustedRatings.insert(pi.m_AdjustedRating);
+		m_AdjustedRatings.insert(pi.m_AdjustedRating);
+	}
+
 	m_Ratings.insert(pi.m_RawRating);
 }
 
@@ -527,6 +524,18 @@ void PeerManager::OnActive(PeerInfo& pi, bool bActive)
 	}
 }
 
+void PeerManager::OnRemoteError(PeerInfo& pi, bool bShouldBan)
+{
+	if (bShouldBan)
+		Ban(pi);
+	else
+	{
+		uint32_t dt_ms = GetTimeNnz_ms() - pi.m_LastActivity_ms;
+		if (dt_ms < m_Cfg.m_TimeoutDisconnect_ms)
+			ModifyRating(pi, Rating::PenaltyNetworkErr, false);
+	}
+}
+
 PeerManager::PeerInfo* PeerManager::OnPeer(const PeerID& id, const io::Address& addr, bool bAddrVerified)
 {
 	if (id == ECC::Zero)
@@ -558,9 +567,13 @@ void PeerManager::Delete(PeerInfo& pi)
 	RemoveAddr(pi);
 	m_Ratings.erase(RawRatingSet::s_iterator_to(pi.m_RawRating));
 
+	if (pi.m_RawRating.m_Value)
 		m_AdjustedRatings.erase(AdjustedRatingSet::s_iterator_to(pi.m_AdjustedRating));
+
 	if (!(pi.m_ID.m_Key == ECC::Zero))
 		m_IDs.erase(PeerIDSet::s_iterator_to(pi.m_ID));
+
+	DeletePeer(pi);
 }
 
 void PeerManager::Clear()
