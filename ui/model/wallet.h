@@ -27,5 +27,5 @@ private:
 private:
 
 	beam::IKeyChain::Ptr _keychain;
-	std::shared_ptr<beam::WalletNetworkIO> _wallet_io;
+	std::weak_ptr<beam::WalletNetworkIO> _wallet_io;
 };

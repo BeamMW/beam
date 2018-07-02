@@ -37,56 +37,74 @@ WalletModel::WalletModel(beam::IKeyChain::Ptr keychain)
 
 WalletModel::~WalletModel()
 {
-	if(_wallet_io)
-		_wallet_io->stop();
+	auto wallet_io = _wallet_io.lock();
+
+	if (wallet_io)
+	{
+		wallet_io->stop();
+		wait();
+	}
 }
 
 void WalletModel::run()
 {
-	emit onStatus(getAvailable(_keychain));
-
-	// TODO: read this from the config
-	Rules::FakePoW = true;
-
-	beam::io::Reactor::Ptr reactor(io::Reactor::create());
-
-	// TODO: move port/addr to the config?
-	int port = 10000;
-	io::Address node_addr;
-
-	if(node_addr.resolve("127.0.0.1:9999"))
+	try
 	{
-		_wallet_io = std::make_shared<WalletNetworkIO>( io::Address().ip(INADDR_ANY).port(port)
-			, node_addr
-			, true
-			, _keychain
-			, reactor);
+		emit onStatus(getAvailable(_keychain));
 
-		struct KeychainSubscriber
+		// TODO: read this from the config
+		Rules::FakePoW = true;
+
+		beam::io::Reactor::Ptr reactor(io::Reactor::create());
+
+		// TODO: move port/addr to the config?
+		int port = 10000;
+		io::Address node_addr;
+
+		if(node_addr.resolve("127.0.0.1:9999"))
 		{
-			KeychainSubscriber(IKeyChainObserver* client, beam::IKeyChain::Ptr keychain)
-				: _client(client)
-				, _keychain(keychain)
+			auto wallet_io = std::make_shared<WalletNetworkIO>( io::Address().ip(INADDR_ANY).port(port)
+				, node_addr
+				, true
+				, _keychain
+				, reactor);
+
+			_wallet_io = wallet_io;
+
+			struct KeychainSubscriber
 			{
-				_keychain->subscribe(_client);
-			}
+				KeychainSubscriber(IKeyChainObserver* client, beam::IKeyChain::Ptr keychain)
+					: _client(client)
+					, _keychain(keychain)
+				{
+					_keychain->subscribe(_client);
+				}
 
-			~KeychainSubscriber()
-			{
-				_keychain->unsubscribe(_client);
-			}
-		private:
-			IKeyChainObserver* _client;
-			IKeyChain::Ptr _keychain;
-		};
+				~KeychainSubscriber()
+				{
+					_keychain->unsubscribe(_client);
+				}
+			private:
+				IKeyChainObserver* _client;
+				IKeyChain::Ptr _keychain;
+			};
 
-		KeychainSubscriber subscriber(this, _keychain);
+			KeychainSubscriber subscriber(this, _keychain);
 
-		_wallet_io->start();
+			wallet_io->start();
+		}
+		else
+		{
+			LOG_ERROR() << "unable to resolve node address";
+		}
 	}
-	else
+	catch (const std::runtime_error& e)
 	{
-		LOG_ERROR() << "unable to resolve node address";
+		LOG_ERROR() << e.what();
+	}
+	catch (...)
+	{
+		LOG_ERROR() << "Unhandled exception";
 	}
 }
 
