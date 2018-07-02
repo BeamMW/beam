@@ -400,7 +400,7 @@ void PeerManager::UpdateRatingsInternal(uint32_t t_ms)
 		PeerInfo& pi = (it++)->get_ParentObj();
 
 		if (pi.m_Active.m_Now)
-			m_AdjustedRatings.erase(pi.m_AdjustedRating);
+			m_AdjustedRatings.erase(AdjustedRatingSet::s_iterator_to(pi.m_AdjustedRating));
 		else
 		{
 			if (!pi.m_RawRating.m_Value)
@@ -465,8 +465,8 @@ void PeerManager::Ban(PeerInfo& pi)
 
 void PeerManager::ModifyRatingInternal(PeerInfo& pi, uint32_t delta, bool bAdd, bool ban)
 {
-	m_Ratings.erase(pi.m_RawRating);
-	m_AdjustedRatings.erase(pi.m_AdjustedRating);
+	m_Ratings.erase(RawRatingSet::s_iterator_to(pi.m_RawRating));
+		m_AdjustedRatings.erase(AdjustedRatingSet::s_iterator_to(pi.m_AdjustedRating));
 
 	if (ban)
 	{
@@ -487,7 +487,7 @@ void PeerManager::RemoveAddr(PeerInfo& pi)
 {
 	if (!pi.m_Addr.m_Value.empty())
 	{
-		m_Addr.erase(pi.m_Addr);
+		m_Addr.erase(AddrSet::s_iterator_to(pi.m_Addr));
 		pi.m_Addr.m_Value = io::Address();
 	}
 }
@@ -556,11 +556,11 @@ void PeerManager::Delete(PeerInfo& pi)
 {
 	OnActive(pi, false);
 	RemoveAddr(pi);
-	m_Ratings.erase(pi.m_RawRating);
-	m_AdjustedRatings.erase(pi.m_AdjustedRating);
+	m_Ratings.erase(RawRatingSet::s_iterator_to(pi.m_RawRating));
 
+		m_AdjustedRatings.erase(AdjustedRatingSet::s_iterator_to(pi.m_AdjustedRating));
 	if (!(pi.m_ID.m_Key == ECC::Zero))
-		m_IDs.erase(pi.m_ID);
+		m_IDs.erase(PeerIDSet::s_iterator_to(pi.m_ID));
 }
 
 void PeerManager::Clear()

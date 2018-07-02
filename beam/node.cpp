@@ -32,7 +32,7 @@ void Node::DeleteUnassignedTask(Task& t)
 {
 	assert(!t.m_pOwner);
 	m_lstTasksUnassigned.erase(TaskList::s_iterator_to(t));
-	m_setTasks.erase(t);
+	m_setTasks.erase(TaskSet::s_iterator_to(t));
 	delete &t;
 }
 
@@ -41,7 +41,7 @@ void Node::WantedTx::Delete(Node& n)
 	bool bFront = (&m_lst.front() == &n);
 
 	m_lst.erase(List::s_iterator_to(n));
-	m_set.erase(n);
+	m_set.erase(Set::s_iterator_to(n));
 	delete &n;
 
 	if (bFront)
