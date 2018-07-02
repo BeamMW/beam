@@ -352,6 +352,9 @@ void PeerManager::ActivatePeerInternal(PeerInfo& pi, uint32_t nTicks_ms, uint32_
 	if (pi.m_Active.m_Now && pi.m_Active.m_Next)
 		return; // already selected
 
+	if (pi.m_Addr.m_Value.empty())
+		return; // current adddress unknown
+
 	if (!pi.m_Active.m_Now && (nTicks_ms - pi.m_LastActivity_ms < m_Cfg.m_TimeoutReconnect_ms))
 		return; // too early for reconnect
 
@@ -444,6 +447,11 @@ PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)
 	ret->m_LastActivity_ms = 0;
 
 	return ret;
+}
+
+void PeerManager::OnSeen(PeerInfo& pi)
+{
+	pi.m_LastSeen = getTimestamp();
 }
 
 void PeerManager::ModifyRating(PeerInfo& pi, uint32_t delta, bool bAdd)

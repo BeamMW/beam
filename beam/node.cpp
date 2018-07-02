@@ -745,7 +745,7 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 		ThrowUnexpected();
 
 	if (m_pInfo)
-		m_pThis->m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true); // task (request) wasn't handled in time.
+		m_pThis->m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true);
 
 	assert(m_pInfo);
 	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnState(msg.m_Description, m_pInfo->m_ID.m_Key);
@@ -781,7 +781,7 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 		ThrowUnexpected();
 
 	if (m_pInfo)
-		m_pThis->m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true); // task (request) wasn't handled in time.
+		m_pThis->m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
 
 	const Block::SystemState::ID& id = t.m_Key.first;
 
@@ -1137,27 +1137,32 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 
 	m_bPiRcvd = true;
 
+	PeerMan& pm = m_pThis->m_PeerMan; // alias
+
 	if (m_pInfo)
 	{
 		// probably we connected by the address
 		if (m_pInfo->m_ID.m_Key == msg.m_ID)
+		{
+			pm.OnSeen(*m_pInfo);
 			return; // all settled (already)
+		}
 
 		// detach from it
 		m_pInfo->m_pLive = NULL;
 
 		if (m_pInfo->m_ID.m_Key == ECC::Zero)
-			m_pThis->m_PeerMan.Delete(*m_pInfo); // it's anonymous.
+			pm.Delete(*m_pInfo); // it's anonymous.
 		else
 		{
-			m_pThis->m_PeerMan.OnActive(*m_pInfo, false);
-			m_pThis->m_PeerMan.RemoveAddr(*m_pInfo); // turned-out to be wrong
+			pm.OnActive(*m_pInfo, false);
+			pm.RemoveAddr(*m_pInfo); // turned-out to be wrong
 		}
 
 		m_pInfo = NULL;
 	}
 
-	PeerMan::PeerInfoPlus* pPi = (PeerMan::PeerInfoPlus*) m_pThis->m_PeerMan.OnPeer(msg.m_ID, m_RemoteAddr, true);
+	PeerMan::PeerInfoPlus* pPi = (PeerMan::PeerInfoPlus*) pm.OnPeer(msg.m_ID, m_RemoteAddr, true);
 	assert(pPi);
 
 	if (pPi->m_pLive)
@@ -1170,7 +1175,8 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 		// attach to it
 		pPi->m_pLive = this;
 		m_pInfo = pPi;
-		m_pThis->m_PeerMan.OnActive(*pPi, true);
+		pm.OnActive(*pPi, true);
+		pm.OnSeen(*pPi);
 	}
 }
 

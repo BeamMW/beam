@@ -375,6 +375,7 @@ namespace proto {
 		void OnActive(PeerInfo&, bool bActive);
 		void ModifyRating(PeerInfo&, uint32_t, bool bAdd);
 		void Ban(PeerInfo&);
+		void OnSeen(PeerInfo&);
 		void OnRemoteError(PeerInfo&, bool bShouldBan);
 
 		void ModifyAddr(PeerInfo&, const io::Address&);
