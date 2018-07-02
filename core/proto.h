@@ -406,5 +406,7 @@ namespace proto {
 	};
 
 
+	std::ostream& operator << (std::ostream& s, const PeerManager::PeerInfo&);
+
 } // namespace proto
 } // namespace beam

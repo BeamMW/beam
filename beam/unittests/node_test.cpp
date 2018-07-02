@@ -7,6 +7,9 @@
 #include "../../utility/serialize.h"
 #include "../../core/serialization_adapters.h"
 
+#define LOG_VERBOSE_ENABLED 0
+#include "utility/logger.h"
+
 namespace ECC {
 
 	Initializer g_Initializer;
@@ -1019,6 +1022,8 @@ namespace beam
 
 int main()
 {
+	auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+
 	beam::Rules::get().FakePoW = true;
 	beam::Rules::get().UpdateChecksum();
 

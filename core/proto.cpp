@@ -2,6 +2,8 @@
 #include "../../core/serialization_adapters.h"
 #include "../../core/ecc_native.h"
 #include "proto.h"
+#include "../utility/logger.h"
+#include "../utility/logger_checkpoints.h"
 
 namespace beam {
 namespace proto {
@@ -466,6 +468,8 @@ void PeerManager::Ban(PeerInfo& pi)
 
 void PeerManager::ModifyRatingInternal(PeerInfo& pi, uint32_t delta, bool bAdd, bool ban)
 {
+	uint32_t r0 = pi.m_RawRating.m_Value;
+
 	m_Ratings.erase(RawRatingSet::s_iterator_to(pi.m_RawRating));
 	if (pi.m_RawRating.m_Value)
 		m_AdjustedRatings.erase(AdjustedRatingSet::s_iterator_to(pi.m_AdjustedRating));
@@ -486,6 +490,8 @@ void PeerManager::ModifyRatingInternal(PeerInfo& pi, uint32_t delta, bool bAdd, 
 	}
 
 	m_Ratings.insert(pi.m_RawRating);
+
+	LOG_INFO() << pi << " Rating " << r0 << " -> " << pi.m_RawRating.m_Value;
 }
 
 void PeerManager::RemoveAddr(PeerInfo& pi)
@@ -590,6 +596,12 @@ void PeerManager::Clear()
 		Delete(m_Ratings.begin()->get_ParentObj());
 
 	assert(m_AdjustedRatings.empty() && m_Active.empty());
+}
+
+std::ostream& operator << (std::ostream& s, const PeerManager::PeerInfo& pi)
+{
+	s << "PI " << pi.m_ID.m_Key << "--" << pi.m_Addr.m_Value;
+	return s;
 }
 
 } // namespace proto

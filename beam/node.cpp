@@ -6,7 +6,6 @@
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"
 
-#include "../utility/logger.h"
 #include "../utility/io/tcpserver.h"
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
@@ -534,6 +533,8 @@ void Node::Peer::OnTimer()
 	if (m_bConnected)
 	{
 		assert(!m_lstTasks.empty());
+
+		LOG_WARNING() << "Peer " << m_RemoteAddr << " request timeout";
 
 		if (m_pInfo)
 			m_pThis->m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::PenaltyTimeout, false); // task (request) wasn't handled in time.
