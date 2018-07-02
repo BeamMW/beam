@@ -227,8 +227,8 @@ private:
 		// proto::NodeConnection
 		virtual void OnConnected() override;
 		virtual void OnClosed(int errorCode) override;
-		virtual void get_MyID(ECC::Scalar::Native&); // by default no-ID (secure channel, but no authentication)
-		virtual void GenerateSChannelNonce(ECC::Scalar&); // Must be overridden to support SChannel
+		virtual void get_MyID(ECC::Scalar::Native&) override; // by default no-ID (secure channel, but no authentication)
+		virtual void GenerateSChannelNonce(ECC::Scalar&) override; // Must be overridden to support SChannel
 		// messages
 		virtual void OnMsg(proto::SChannelAuthentication&&) override;
 		virtual void OnMsg(proto::Config&&) override;
@@ -247,6 +247,7 @@ private:
 		virtual void OnMsg(proto::GetProofKernel&&) override;
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
 		virtual void OnMsg(proto::PeerInfoSelf&&) override;
+		virtual void OnMsg(proto::PeerInfo&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
