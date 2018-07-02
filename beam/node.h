@@ -33,6 +33,8 @@ struct Node
 			uint32_t m_GetTx_ms		= 1000 * 5;
 			uint32_t m_MiningSoftRestart_ms = 100;
 			uint32_t m_TopPeersUpd_ms = 1000 * 60 * 10; // once in 10 minutes
+			uint32_t m_PeersUpdate_ms	= 1000; // reconsider every second
+			uint32_t m_PeersDbFlush_ms = 1000 * 60; // 1 minute
 		} m_Timeout;
 
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
@@ -170,7 +172,9 @@ private:
 	struct PeerMan
 		:public proto::PeerManager
 	{
-		io::Timer::Ptr m_pTimer;
+		io::Timer::Ptr m_pTimerUpd;
+		io::Timer::Ptr m_pTimerFlush;
+		void OnFlush();
 
 		struct PeerInfoPlus
 			:public PeerInfo

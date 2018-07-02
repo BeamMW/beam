@@ -426,8 +426,34 @@ void Node::Initialize()
 		m_PeerMan.OnPeer(id0, m_Cfg.m_Connect[i], true);
 	}
 
-	m_PeerMan.m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
-	m_PeerMan.m_pTimer->start(1000, true, [this]() { m_PeerMan.Update(); });
+	// peers
+	m_PeerMan.m_pTimerUpd = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+	m_PeerMan.m_pTimerUpd->start(m_Cfg.m_Timeout.m_PeersUpdate_ms, true, [this]() { m_PeerMan.Update(); });
+
+	m_PeerMan.m_pTimerFlush = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+	m_PeerMan.m_pTimerFlush->start(m_Cfg.m_Timeout.m_PeersDbFlush_ms, true, [this]() { m_PeerMan.OnFlush(); });
+
+	{
+		NodeDB::WalkerPeer wlk(m_Processor.get_DB());
+		for (m_Processor.get_DB().EnumPeers(wlk); wlk.MoveNext(); )
+		{
+			PeerMan::PeerInfo* pPi = m_PeerMan.OnPeer(wlk.m_Data.m_ID, io::Address::from_u64(wlk.m_Data.m_Address), false);
+			if (!pPi)
+				continue;
+
+			// set rating (akward, TODO - fix this)
+			uint32_t r = wlk.m_Data.m_Rating;
+			if (!r)
+				m_PeerMan.Ban(*pPi);
+			else
+				if (r > pPi->m_RawRating.m_Value)
+					m_PeerMan.ModifyRating(*pPi, r - pPi->m_RawRating.m_Value, true);
+				else
+					m_PeerMan.ModifyRating(*pPi, pPi->m_RawRating.m_Value - r, false);
+				
+			pPi->m_LastSeen = wlk.m_Data.m_LastSeen;
+		}
+	}
 
 	if (m_Cfg.m_MiningThreads)
 	{
@@ -1908,6 +1934,31 @@ void Node::Beacon::AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t
 void Node::Beacon::OnPeer(const io::Address& addr, const PeerID& id)
 {
 	get_ParentObj().m_PeerMan.OnPeer(id, addr, true);
+}
+
+void Node::PeerMan::OnFlush()
+{
+	NodeDB& db = get_ParentObj().m_Processor.get_DB();
+	NodeDB::Transaction t(db);
+
+	db.PeersDel();
+
+	const PeerMan::RawRatingSet& rs = get_Ratings();
+
+	for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); rs.end() != it; it++)
+	{
+		const PeerMan::PeerInfo& pi = it->get_ParentObj();
+
+		NodeDB::WalkerPeer::Data d;
+		d.m_ID = pi.m_ID.m_Key;
+		d.m_Rating = pi.m_RawRating.m_Value;
+		d.m_Address = pi.m_Addr.m_Value.u64();
+		d.m_LastSeen = pi.m_LastSeen;
+
+		db.PeerIns(d);
+	}
+
+	t.Commit();
 }
 
 void Node::PeerMan::ActivatePeer(PeerInfo& pi)
