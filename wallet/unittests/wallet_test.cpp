@@ -138,8 +138,7 @@ namespace
         return keychain;
     }
 
-    struct TestGateway : wallet::sender::IGateway
-        , wallet::receiver::IGateway
+    struct TestGateway : wallet::INegotiatorGateway
     {
         void send_tx_invitation(const TxDescription& , wallet::InviteReceiver&&) override
         {

@@ -46,7 +46,6 @@ namespace beam::wallet
         // TODO: add ability to calculate fee
         m_parent.createKernel(m_parent.m_txDesc.m_fee, currentHeight);
 
-
         invitationData.m_publicSenderExcess = m_parent.getPublicExcess();
         invitationData.m_publicSenderNonce = m_parent.getPublicNonce();
         invitationData.m_offset = m_parent.m_offset;
@@ -55,41 +54,20 @@ namespace beam::wallet
         m_parent.m_gateway.send_tx_invitation(m_parent.m_txDesc, move(invitationData));
     }
 
-    bool Negotiator::FSMDefinition::isValidSignature(const events::TxInvitationCompleted& event)
-    {
-        auto& data = event.data;
-        // 4. Compute Sender Schnorr signature
-        // 1. Calculate message m
-        Signature::MultiSig msig;
-
-        Hash::Value message;
-        m_parent.m_kernel->get_HashForSigning(message);
-
-        msig.GenerateNonce(message, m_parent.m_blindingExcess);
-        Point::Native publicNonce = Context::get().G * msig.m_Nonce;
-        msig.m_NoncePub = publicNonce + data.m_publicPeerNonce;
-
-        // temp signature to calc challenge
-        Scalar::Native senderSignature;
-        m_parent.m_kernel->m_Signature.CoSign(senderSignature, message, m_parent.m_blindingExcess, msig);
-
-        // 3. Verify recepients Schnorr signature 
-        Signature sigPeer;
-        sigPeer.m_e = m_parent.m_kernel->m_Signature.m_e;
-        sigPeer.m_k = data.m_peerSignature;
-        return sigPeer.IsValidPartial(data.m_publicPeerNonce, data.m_publicPeerBlindingExcess);
-    }
-
     void Negotiator::FSMDefinition::confirmReceiver(const events::TxInvitationCompleted& event)
     {
-        auto& data = event.data;
-        m_parent.setPublicPeerNonce(data.m_publicPeerNonce);
-        if (!isValidSignature(event))
+        auto& msg = event.data;
+
+        if (!m_parent.isValidSignature(msg.m_peerSignature, msg.m_publicPeerNonce, msg.m_publicPeerExcess))
         {
             Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
             fsm.process_event(events::TxFailed{true});
             return;
         }
+
+        m_parent.m_publicPeerExcess = msg.m_publicPeerExcess;
+        m_parent.m_publicPeerNonce = msg.m_publicPeerNonce;
+        m_parent.m_peerSignature = msg.m_peerSignature;
 
         // Compute Sender Schnorr signature
         ConfirmTransaction confirmationData;
@@ -228,25 +206,14 @@ namespace beam::wallet
 
     Scalar Negotiator::createSignature()
     {
-        //assert(!(m_publicPeerNonce == Zero));
-        Hash::Value message;
-        m_kernel->get_HashForSigning(message);
-
-        Signature::MultiSig msig;
-        msig.GenerateNonce(message, m_blindingExcess);
-
-        Point::Native publicNonce = Context::get().G * msig.m_Nonce;
-        msig.m_NoncePub = m_publicPeerNonce + publicNonce;
-
-        Scalar::Native partialSignature;
-        m_kernel->m_Signature.CoSign(partialSignature, message, m_blindingExcess, msig);
-
-        return Scalar(partialSignature);
+        Point publicNonce;
+        Scalar partialSignature;
+        createSignature2(partialSignature, publicNonce);
+        return partialSignature;
     }
 
-    void Negotiator::createSignature2(ECC::Scalar& signature, ECC::Point& publicNonce)
+    void Negotiator::createSignature2(Scalar& signature, Point& publicNonce)
     {
-        assert(!(m_publicPeerNonce == Zero));
         Hash::Value message;
         m_kernel->get_HashForSigning(message);
 
@@ -276,5 +243,33 @@ namespace beam::wallet
         msig.GenerateNonce(message, m_blindingExcess);
 
         return Point(Context::get().G * msig.m_Nonce);
+    }
+
+    bool Negotiator::isValidSignature(const Scalar& peerSignature)
+    {
+        return isValidSignature(peerSignature, m_publicPeerNonce, m_publicPeerExcess);
+    }
+
+    bool Negotiator::isValidSignature(const Scalar& peerSignature, const Point& publicPeerNonce, const Point& publicPeerExcess)
+    {
+        assert(m_kernel);
+        if (!m_kernel)
+        {
+            return false;
+        }
+        Signature::MultiSig msig;
+        Hash::Value message;
+        m_kernel->get_HashForSigning(message);
+
+        msig.GenerateNonce(message, m_blindingExcess);
+        Point::Native publicNonce = Context::get().G * msig.m_Nonce;
+        msig.m_NoncePub = publicNonce + publicPeerNonce;
+
+        // temp signature to calc challenge
+        Scalar::Native mySig;
+        Signature peerSig;
+        peerSig.CoSign(mySig, message, m_blindingExcess, msig);
+        peerSig.m_k = peerSignature;
+        return peerSig.IsValidPartial(publicPeerNonce, publicPeerExcess);
     }
 }

@@ -34,7 +34,7 @@ namespace beam::wallet
     public:
         using Ptr = std::shared_ptr<Negotiator>;
 
-        Negotiator(sender::IGateway& gateway
+        Negotiator(INegotiatorGateway& gateway
              , beam::IKeyChain::Ptr keychain
              , const TxDescription& txDesc )
             : m_gateway{gateway}
@@ -46,7 +46,7 @@ namespace beam::wallet
             m_blindingExcess = ECC::Zero;
         }
 
-        Negotiator(sender::IGateway& gateway
+        Negotiator(INegotiatorGateway& gateway
             , beam::IKeyChain::Ptr keychain
             , const TxDescription& txDesc
             , InviteReceiver& inviteMsg)
@@ -54,7 +54,7 @@ namespace beam::wallet
         {
             assert(keychain);
             m_offset = inviteMsg.m_offset;
-            m_publicPeerBlindingExcess = inviteMsg.m_publicSenderExcess;
+            m_publicPeerExcess = inviteMsg.m_publicSenderExcess;
             setPublicPeerNonce(inviteMsg.m_publicSenderNonce);
             m_transaction = std::make_shared<Transaction>();
             m_transaction->m_Offset = ECC::Zero;
@@ -259,8 +259,8 @@ namespace beam::wallet
             template<typename Archive>
             void serialize(Archive & ar, const unsigned int)
             {
-       /*         ar  & m_blindingExcess
-                    & m_kernel;*/
+              //  ar  & m_blindingExcess
+              //      & m_kernel;
             }
             Negotiator& m_parent;
         };
@@ -274,19 +274,22 @@ namespace beam::wallet
         void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce);
         ECC::Point getPublicExcess();
         ECC::Point getPublicNonce();
+        bool isValidSignature(const ECC::Scalar& peerSignature);
+        bool isValidSignature(const ECC::Scalar& peerSignature, const ECC::Point& publicPeerNonce, const ECC::Point& publicPeerExcess);
 
     private:
         using Fsm = msm::back::state_machine<FSMDefinition>;
         friend Fsm;
         
-        sender::IGateway& m_gateway;
+        INegotiatorGateway& m_gateway;
         beam::IKeyChain::Ptr m_keychain;
 
         TxDescription m_txDesc;
 
         ECC::Scalar::Native m_blindingExcess;
         ECC::Scalar::Native m_offset;
-        ECC::Point::Native m_publicPeerBlindingExcess;
+        ECC::Scalar::Native m_peerSignature;
+        ECC::Point::Native m_publicPeerExcess;
         ECC::Point::Native m_publicPeerNonce;
         Transaction::Ptr m_transaction;
         TxKernel::Ptr m_kernel;

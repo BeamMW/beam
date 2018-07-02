@@ -51,8 +51,7 @@ namespace beam
     };
 
     class Wallet : public IWallet
-                 , public wallet::receiver::IGateway
-                 , public wallet::sender::IGateway
+                 , public wallet::INegotiatorGateway
     {
         using Callback = std::function<void()>;
     public:
