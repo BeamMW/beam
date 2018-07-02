@@ -53,6 +53,7 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain)
 	: _model(keychain)
 	, _available(0)
 	, _sendAmount(40)
+	, _receiverAddr("127.0.0.1:8888")
 {
 	_tx.append(new TxObject(
 		"12 June 2018 | 3:46 PM"
@@ -129,8 +130,24 @@ void WalletViewModel::setSendAmount(const QString& text)
 	if (amount != _sendAmount)
 	{
 		_sendAmount = amount;
-		sendAmountChanged();
+		emit sendAmountChanged();
 	}
+}
+
+void WalletViewModel::setReceiverAddr(const QString& text)
+{
+	std::string addr = text.toStdString();
+
+	if (addr != _receiverAddr)
+	{
+		_receiverAddr = addr;
+		emit receiverAddrChanged();
+	}
+}
+
+QString WalletViewModel::receiverAddr() const
+{
+	return QString(_receiverAddr.c_str());
 }
 
 QVariant WalletViewModel::tx() const

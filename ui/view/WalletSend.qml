@@ -120,9 +120,10 @@ Item {
                 }
 
                 TextInput {
+                    id: receiverAddr
                     height: 20
                     color: "#bce7f6"
-                    text: qsTr("127.0.0.1:8888")
+                    text: walletViewModel.receiverAddr
                     anchors.right: parent.right
                     anchors.rightMargin: 0
                     horizontalAlignment: Text.AlignLeft
@@ -131,6 +132,12 @@ Item {
                     anchors.top: parent.top
                     anchors.topMargin: 60
                     font.pixelSize: 12
+                }
+
+                Binding {
+                    target: walletViewModel
+                    property: "receiverAddr"
+                    value: receiverAddr.text
                 }
 
                 Rectangle {
