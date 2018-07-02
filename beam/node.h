@@ -28,8 +28,6 @@ struct Node
 		bool m_RestrictMinedReportToOwner = false; // TODO: turn this ON once wallet supports this
 
 		struct Timeout {
-			uint32_t m_Reconnect_ms	= 1000;
-			uint32_t m_Insane_ms	= 1000 * 3600; // 1 hour
 			uint32_t m_GetState_ms	= 1000 * 5;
 			uint32_t m_GetBlock_ms	= 1000 * 30;
 			uint32_t m_GetTx_ms		= 1000 * 5;
@@ -115,15 +113,6 @@ private:
 
 	NodeProcessor::TxPool m_TxPool;
 
-	struct State {
-		enum Enum {
-			Idle,
-			Connecting,
-			Connected,
-			Snoozed,
-		};
-	};
-
 	struct Peer;
 
 	struct Task
@@ -177,16 +166,39 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(beam::Node, m_Wtx)
 	} m_Wtx;
 
+	struct PeerMan
+		:public proto::PeerManager
+	{
+		io::Timer::Ptr m_pTimer;
+
+		struct PeerInfoPlus
+			:public PeerInfo
+		{
+			Peer* m_pLive;
+		};
+
+		// PeerManager
+		virtual void ActivatePeer(PeerInfo&) override;
+		virtual void DeactivatePeer(PeerInfo&) override;
+		virtual PeerInfo* AllocPeer() override;
+		virtual void DeletePeer(PeerInfo&) override;
+
+		~PeerMan() { Clear(); }
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_PeerMan)
+	} m_PeerMan;
+
 	struct Peer
 		:public proto::NodeConnection
 		,public boost::intrusive::list_base_hook<>
 	{
 		Node* m_pThis;
 
-		int m_iPeer; // negative if accepted connection
-		void get_ID(PeerID&);
+		PeerMan::PeerInfoPlus* m_pInfo;
 
-		State::Enum m_eState;
+		bool m_bConnected;
+		bool m_bPiRcvd; // peers should send PeerInfoSelf only once
+
 		beam::io::Address m_RemoteAddr; // for logging only
 
 		Height m_TipHeight;
@@ -203,7 +215,7 @@ private:
 		void SetTimer(uint32_t timeout_ms);
 		void KillTimer();
 
-		void OnPostError();
+		void DeleteSelf(bool bIsError, bool bIsBan);
 		static void ThrowUnexpected();
 
 		Task& get_FirstTask();
@@ -234,6 +246,7 @@ private:
 		virtual void OnMsg(proto::GetProofState&&) override;
 		virtual void OnMsg(proto::GetProofKernel&&) override;
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
+		virtual void OnMsg(proto::PeerInfoSelf&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
@@ -243,8 +256,6 @@ private:
 	PeerID m_MyID;
 
 	Peer* AllocPeer();
-	void DeletePeer(Peer*);
-	Peer* FindPeer(const PeerID&);
 
 	void RefreshCongestions();
 

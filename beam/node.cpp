@@ -90,12 +90,12 @@ void Node::WantedTx::OnTimer()
 			it++;
 			Peer& peer = *itThis;
 
-			if ((State::Connected == peer.m_eState) && peer.m_Config.m_SpreadingTransactions)
+			if (peer.m_Config.m_SpreadingTransactions)
 				try {
 					peer.Send(msg);
 				}
 				catch (...) {
-					peer.OnPostError();
+					peer.DeleteSelf(true, false);
 				}
 		}
 	}
@@ -105,38 +105,37 @@ void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 {
 	while (true)
 	{
-		Peer* pBestMatch = NULL;
+		Peer* pSel = NULL;
 
-		for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+		if (pPeerID)
+		{
+			bool bCreate = false;
+			PeerMan::PeerInfoPlus* pInfo = (PeerMan::PeerInfoPlus*) m_PeerMan.Find(*pPeerID, bCreate);
+
+			if (pInfo && pInfo->m_pLive && pInfo->m_pLive->m_bConnected)
+				pSel = pInfo->m_pLive;
+		}
+
+		for (PeerList::iterator it = m_lstPeers.begin(); !pSel && (m_lstPeers.end() != it); it++)
 		{
 			Peer& p = *it;
-			if (pBestMatch)
-			{
-				assert(pPeerID);
-
-				PeerID id;
-				p.get_ID(id);
-				if (id != *pPeerID)
-					continue;
-			}
-
 			if (ShouldAssignTask(t, p))
 			{
-				pBestMatch = &p;
-				if (!pPeerID)
-					break;
+				pSel = &p;
+				break;
 			}
 		}
 
-		if (!pBestMatch)
+		if (!pSel)
 			break;
 
 		try {
-			AssignTask(t, *pBestMatch);
+			AssignTask(t, *pSel);
 			return; // done
 
 		} catch (...) {
-			pBestMatch->OnPostError();
+			pSel->DeleteSelf(true, false);
+			//  retry
 		}
 	}
 }
@@ -178,10 +177,11 @@ void Node::Peer::SetTimerWrtFirstTask()
 
 bool Node::ShouldAssignTask(Task& t, Peer& p)
 {
-	if (State::Connected != p.m_eState)
+	if (p.m_TipHeight < t.m_Key.first.m_Height)
 		return false;
 
-	if (p.m_TipHeight < t.m_Key.first.m_Height)
+	// Current design: don't ask anything from non-authenticated peers
+	if (!p.m_pInfo)
 		return false;
 
 	// check if the peer currently transfers a block
@@ -219,9 +219,16 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 
 void Node::Processor::OnPeerInsane(const PeerID& peerID)
 {
-	Peer* pPeer = get_ParentObj().FindPeer(peerID);
-	if (pPeer && (State::Snoozed != pPeer->m_eState))
-		pPeer->OnClosed(-1);
+	bool bCreate = false;
+	PeerMan::PeerInfoPlus* pInfo = (PeerMan::PeerInfoPlus*) get_ParentObj().m_PeerMan.Find(peerID, bCreate);
+
+	if (pInfo)
+	{
+		if (pInfo->m_pLive)
+			pInfo->m_pLive->DeleteSelf(true, true); // will ban
+		else
+			get_ParentObj().m_PeerMan.Ban(*pInfo);
+	}
 }
 
 void Node::Processor::OnNewState()
@@ -250,7 +257,7 @@ void Node::Processor::OnNewState()
 		Peer& peer = *itThis;
 
 		try {
-			if ((State::Connected == peer.m_eState) && (peer.m_TipHeight <= msg.m_ID.m_Height))
+			if (peer.m_bConnected && (peer.m_TipHeight <= msg.m_ID.m_Height))
 			{
 				peer.Send(msg);
 
@@ -258,7 +265,7 @@ void Node::Processor::OnNewState()
 					peer.Send(msgHdr);
 			}
 		} catch (...) {
-			peer.OnPostError();
+			peer.DeleteSelf(true, false);
 		}
 	}
 
@@ -362,31 +369,14 @@ Node::Peer* Node::AllocPeer()
 	Peer* pPeer = new Peer;
 	m_lstPeers.push_back(*pPeer);
 
-	pPeer->m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
-
-	pPeer->m_eState = State::Idle;
+	pPeer->m_pInfo = NULL;
+	pPeer->m_bConnected = false;
+	pPeer->m_bPiRcvd = false;
+	pPeer->m_TipHeight = 0;
 	pPeer->m_pThis = this;
+	ZeroObject(pPeer->m_Config);
 
 	return pPeer;
-}
-
-void Node::DeletePeer(Peer* p)
-{
-	m_lstPeers.erase(PeerList::s_iterator_to(*p));
-	delete p;
-}
-
-Node::Peer* Node::FindPeer(const PeerID& peerID)
-{
-	// current interpretation (naive): just assume that peerID is the index
-	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
-	{
-		PeerID id2;
-		id2 = (uint32_t) it->m_iPeer;
-		if (peerID == id2)
-			return &*it;
-	}
-	return NULL;
 }
 
 void Node::Initialize()
@@ -432,11 +422,13 @@ void Node::Initialize()
 
 	for (uint32_t i = 0; i < m_Cfg.m_Connect.size(); i++)
 	{
-		Peer* p = AllocPeer();
-		p->m_iPeer = i;
-
-		p->OnTimer(); // initiate connect
+		PeerID id0;
+		id0 = ECC::Zero;
+		m_PeerMan.OnPeer(id0, m_Cfg.m_Connect[i], true);
 	}
+
+	m_PeerMan.m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+	m_PeerMan.m_pTimer->start(1000, true, [this]() { m_PeerMan.Update(); });
 
 	if (m_Cfg.m_MiningThreads)
 	{
@@ -495,14 +487,10 @@ Node::~Node()
 	m_Compressor.StopCurrent();
 
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
-		it->m_eState = State::Snoozed; // prevent re-assigning of tasks in the next loop
+		ZeroObject(it->m_Config); // prevent re-assigning of tasks in the next loop
 
 	while (!m_lstPeers.empty())
-	{
-		Peer& p = m_lstPeers.front();
-		p.ReleaseTasks();
-		DeletePeer(&p);
-	}
+		m_lstPeers.front().DeleteSelf(false, false);
 
 	while (!m_lstTasksUnassigned.empty())
 		DeleteUnassignedTask(m_lstTasksUnassigned.front());
@@ -529,7 +517,9 @@ Node::~Node()
 
 void Node::Peer::SetTimer(uint32_t timeout_ms)
 {
-	assert(m_pTimer);
+	if (!m_pTimer)
+		m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+
 	m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
 }
 
@@ -541,28 +531,18 @@ void Node::Peer::KillTimer()
 
 void Node::Peer::OnTimer()
 {
-	switch (m_eState)
+	if (m_bConnected)
 	{
-	case State::Idle:
-	case State::Snoozed:
+		assert(!m_lstTasks.empty());
 
-		assert(m_iPeer >= 0);
+		if (m_pInfo)
+			m_pThis->m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::PenaltyTimeout, false); // task (request) wasn't handled in time.
 
-		try {
-            m_eState = State::Connecting;
-			Connect(m_pThis->m_Cfg.m_Connect[m_iPeer]);
-		} catch (...) {
-			OnPostError();
-		}
-
-		break;
-
-	case State::Connected:
-
-		assert(!m_lstTasks.empty()); // task (request) wasn't handled in time
-		OnPostError();
-		break;
+		DeleteSelf(false, false);
 	}
+	else
+		// Connect didn't finish in time
+		DeleteSelf(true, false);
 }
 
 void Node::Peer::get_MyID(ECC::Scalar::Native& sk)
@@ -591,14 +571,7 @@ void Node::Peer::OnConnected()
 	m_RemoteAddr = get_Connection()->peer_address();
 	LOG_INFO() << "+Peer " << m_RemoteAddr;
 
-	if (State::Connecting == m_eState)
-		KillTimer();
-	else
-		assert(State::Idle == m_eState);
-
-	m_eState = State::Connected;
-	m_TipHeight = 0;
-	ZeroObject(m_Config);
+	m_bConnected = true;
 
 	proto::Config msgCfg;
 	msgCfg.m_CfgChecksum = Rules::get().Checksum;
@@ -629,15 +602,13 @@ void Node::Peer::OnMsg(proto::SChannelAuthentication&& msg)
 
 void Node::Peer::OnClosed(int errorCode)
 {
-	assert(State::Connected == m_eState || State::Connecting == m_eState);
-	if (-1 == errorCode) // protocol error
-		m_eState = State::Snoozed;
-	OnPostError();
-}
-
-void Node::Peer::get_ID(PeerID& id)
-{
-	id = (size_t) m_iPeer;
+	if (-1 == errorCode)
+		DeleteSelf(true, true);
+	else
+	{
+		// Log error code?
+		DeleteSelf(true, false);
+	}
 }
 
 void Node::Peer::ReleaseTasks()
@@ -660,30 +631,28 @@ void Node::Peer::ReleaseTask(Task& t)
 		m_pThis->DeleteUnassignedTask(t);
 }
 
-void Node::Peer::OnPostError()
+void Node::Peer::DeleteSelf(bool bIsError, bool bIsBan)
 {
 	LOG_INFO() << "-Peer " << m_RemoteAddr;
 
-	if (State::Snoozed != m_eState)
-		m_eState = State::Idle; // prevent reassigning the tasks
+	ZeroObject(m_Config); // prevent reassigning the tasks
 
 	ReleaseTasks();
 
-	if (m_iPeer < 0)
-		m_pThis->DeletePeer(this);
-	else
+	if (m_pInfo)
 	{
-		Reset(); // connection layer
-		m_setRejected.clear();
+		// detach
+		assert(this == m_pInfo->m_pLive);
+		m_pInfo->m_pLive = NULL;
 
-		if (State::Snoozed == m_eState)
-			SetTimer(m_pThis->m_Cfg.m_Timeout.m_Insane_ms);
-		else
-		{
-			m_eState = State::Idle;
-			SetTimer(m_pThis->m_Cfg.m_Timeout.m_Reconnect_ms);
-		}
+		m_pThis->m_PeerMan.OnActive(*m_pInfo, false);
+
+		if (bIsError)
+			m_pThis->m_PeerMan.OnRemoteError(*m_pInfo, bIsBan);
 	}
+
+	m_pThis->m_lstPeers.erase(PeerList::s_iterator_to(*this));
+	delete this;
 }
 
 void Node::Peer::TakeTasks()
@@ -718,9 +687,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
 	if (m_pThis->m_Processor.IsStateNeeded(msg.m_ID))
 	{
-		PeerID id;
-		get_ID(id);
-		m_pThis->m_Processor.RequestData(msg.m_ID, false, &id);
+		m_pThis->m_Processor.RequestData(msg.m_ID, false, m_pInfo ? &m_pInfo->m_ID.m_Key : NULL);
 	}
 }
 
@@ -777,10 +744,11 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	if (id != t.m_Key.first)
 		ThrowUnexpected();
 
-	PeerID pid;
-	get_ID(pid);
+	if (m_pInfo)
+		m_pThis->m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true); // task (request) wasn't handled in time.
 
-	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnState(msg.m_Description, pid);
+	assert(m_pInfo);
+	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnState(msg.m_Description, m_pInfo->m_ID.m_Key);
 	OnFirstTaskDone(eStatus);
 }
 
@@ -812,12 +780,12 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	if (!t.m_Key.second)
 		ThrowUnexpected();
 
-	PeerID pid;
-	get_ID(pid);
+	if (m_pInfo)
+		m_pThis->m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true); // task (request) wasn't handled in time.
 
 	const Block::SystemState::ID& id = t.m_Key.first;
 
-	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnBlock(id, msg.m_Buffer, pid);
+	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnBlock(id, msg.m_Buffer, m_pInfo->m_ID.m_Key);
 	OnFirstTaskDone(eStatus);
 }
 
@@ -901,15 +869,13 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 				Peer& peer = *it++;
 				if (this == &peer)
 					continue;
-				if (State::Connected != peer.m_eState)
-					continue;
 				if (!peer.m_Config.m_SpreadingTransactions)
 					continue;
 
 				try {
 					peer.Send(msgOut);
 				} catch (...) {
-					peer.OnPostError();
+					peer.DeleteSelf(true, false);
 				}
 			}
 
@@ -1164,13 +1130,56 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	Send(t.m_Msg);
 }
 
+void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
+{
+	if (m_bPiRcvd || (msg.m_ID == ECC::Zero))
+		ThrowUnexpected();
+
+	m_bPiRcvd = true;
+
+	if (m_pInfo)
+	{
+		// probably we connected by the address
+		if (m_pInfo->m_ID.m_Key == msg.m_ID)
+			return; // all settled (already)
+
+		// detach from it
+		m_pInfo->m_pLive = NULL;
+
+		if (m_pInfo->m_ID.m_Key == ECC::Zero)
+			m_pThis->m_PeerMan.Delete(*m_pInfo); // it's anonymous.
+		else
+		{
+			m_pThis->m_PeerMan.OnActive(*m_pInfo, false);
+			m_pThis->m_PeerMan.RemoveAddr(*m_pInfo); // turned-out to be wrong
+		}
+
+		m_pInfo = NULL;
+	}
+
+	PeerMan::PeerInfoPlus* pPi = (PeerMan::PeerInfoPlus*) m_pThis->m_PeerMan.OnPeer(msg.m_ID, m_RemoteAddr, true);
+	assert(pPi);
+
+	if (pPi->m_pLive)
+	{
+		// threre's already another connection open to the same peer!
+		// Currently - just ignore this.
+	}
+	else
+	{
+		// attach to it
+		pPi->m_pLive = this;
+		m_pInfo = pPi;
+		m_pThis->m_PeerMan.OnActive(*pPi, true);
+	}
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
 	{
         LOG_DEBUG() << "New peer connected: " << newStream->address();
 		Peer* p = get_ParentObj().AllocPeer();
-		p->m_iPeer = -1;
 
 		p->Accept(std::move(newStream));
 		p->OnConnected();
@@ -1857,6 +1866,52 @@ void Node::Beacon::AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t
 
 void Node::Beacon::OnPeer(const io::Address& addr, const PeerID& id)
 {
+	get_ParentObj().m_PeerMan.OnPeer(id, addr, true);
+}
+
+void Node::PeerMan::ActivatePeer(PeerInfo& pi)
+{
+	PeerInfoPlus& pip = (PeerInfoPlus&)pi;
+	if (pip.m_pLive)
+		return; //?
+
+	Peer* p = get_ParentObj().AllocPeer();
+	p->m_pInfo = &pip;
+	pip.m_pLive = p;
+
+	try {
+		p->Connect(pip.m_Addr.m_Value);
+	}
+	catch (...) {
+
+		// TODO: asynchronously notify about failure.
+		// currently just detach from info, the caller doesn't any more actions
+		pip.m_pLive = NULL;
+		p->m_pInfo = NULL;
+
+		p->DeleteSelf(true, false);
+	}
+}
+
+void Node::PeerMan::DeactivatePeer(PeerInfo& pi)
+{
+	PeerInfoPlus& pip = (PeerInfoPlus&)pi;
+	if (!pip.m_pLive)
+		return; //?
+
+	pip.m_pLive->DeleteSelf(false, false);
+}
+
+proto::PeerManager::PeerInfo* Node::PeerMan::AllocPeer()
+{
+	PeerInfoPlus* p = new PeerInfoPlus;
+	p->m_pLive = NULL;
+	return p;
+}
+
+void Node::PeerMan::DeletePeer(PeerInfo& pi)
+{
+	delete (PeerInfoPlus*)&pi;
 }
 
 } // namespace beam
