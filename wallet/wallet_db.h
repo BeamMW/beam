@@ -75,6 +75,7 @@ namespace beam
 		virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
 
 		virtual void subscribe(IKeyChainObserver* observer) = 0;
+		virtual void unsubscribe(IKeyChainObserver* observer) = 0;
 	};
 
     struct Keychain : IKeyChain
@@ -108,8 +109,10 @@ namespace beam
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override;
 
 		void subscribe(IKeyChainObserver* observer) override;
+		void unsubscribe(IKeyChainObserver* observer) override;
     private:
         void storeImpl(Coin& coin);
+		void notifyKeychainChanged();
     private:
 
         sqlite3* _db;

@@ -519,6 +519,8 @@ namespace beam
 			}
 
 			trans.commit();
+
+			notifyKeychainChanged();
 		}
 
 		return coins;
@@ -570,7 +572,7 @@ namespace beam
 
         coin.m_id = getLastID(_db);
 
-		for (auto sub : m_subscribers) sub->onKeychainChanged();
+		notifyKeychainChanged();
     }
 
 	void Keychain::update(const vector<beam::Coin>& coins)
@@ -590,6 +592,8 @@ namespace beam
 			}
 
 			trans.commit();
+
+			notifyKeychainChanged();
 		}
 	}
 
@@ -610,6 +614,8 @@ namespace beam
 			}
 
 			trans.commit();
+
+			notifyKeychainChanged();
 		}
 	}
 
@@ -624,6 +630,8 @@ namespace beam
 
 		stm.step();
 		trans.commit();
+
+		notifyKeychainChanged();
 	}
 
 	void Keychain::visit(function<bool(const beam::Coin& coin)> func)
@@ -770,5 +778,19 @@ namespace beam
 		assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
 
 		m_subscribers.push_back(observer);
+	}
+
+	void Keychain::unsubscribe(IKeyChainObserver* observer)
+	{
+		auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
+
+		assert(it != m_subscribers.end());
+
+		m_subscribers.erase(it);
+	}
+
+	void Keychain::notifyKeychainChanged()
+	{
+		for (auto sub : m_subscribers) sub->onKeychainChanged();
 	}
 }

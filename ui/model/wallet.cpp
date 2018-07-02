@@ -62,7 +62,25 @@ void WalletModel::run()
 			, _keychain
 			, reactor);
 
-		_keychain->subscribe(this);
+		struct KeychainSubscriber
+		{
+			KeychainSubscriber(IKeyChainObserver* client, beam::IKeyChain::Ptr keychain)
+				: _client(client)
+				, _keychain(keychain)
+			{
+				_keychain->subscribe(_client);
+			}
+
+			~KeychainSubscriber()
+			{
+				_keychain->unsubscribe(_client);
+			}
+		private:
+			IKeyChainObserver* _client;
+			IKeyChain::Ptr _keychain;
+		};
+
+		KeychainSubscriber subscriber(this, _keychain);
 
 		_wallet_io->start();
 	}
