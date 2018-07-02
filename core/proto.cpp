@@ -277,6 +277,18 @@ void NodeConnection::Server::Listen(const io::Address& addr)
 
 /////////////////////////
 // PeerManager
+void PeerManager::Rating::Inc(uint32_t& r, uint32_t delta)
+{
+	// try not to take const refernce on Max, so its value can directly be substituted (otherwise gcc link error)
+	if ((r += delta) > Max)
+		r = Max;
+}
+
+void PeerManager::Rating::Dec(uint32_t& r, uint32_t delta)
+{
+	r = (r > delta) ? (r - delta) : 1;
+}
+
 void PeerManager::UpdateTime(Timestamp t)
 {
 	if (m_tLast)
@@ -385,8 +397,10 @@ PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)
 		return NULL;
 
 	PeerInfo* ret = AllocPeer();
+
 	ret->m_ID.m_Key = id;
-	m_IDs.insert(ret->m_ID);
+	if (!(id == ECC::Zero))
+		m_IDs.insert(ret->m_ID);
 
 	ret->m_RawRating.m_Value = Rating::Initial;
 	m_Ratings.insert(ret->m_RawRating);
@@ -467,6 +481,20 @@ void PeerManager::OnActive(PeerInfo& pi, bool bActive)
 
 PeerManager::PeerInfo* PeerManager::OnPeer(const PeerID& id, const io::Address& addr, bool bAddrVerified)
 {
+	if (id == ECC::Zero)
+	{
+		if (!bAddrVerified)
+			return NULL;
+
+		// find by addr
+		PeerInfo::Addr pia;
+		pia.m_Value = addr;
+
+		AddrSet::iterator it = m_Addr.find(pia);
+		if (m_Addr.end() != it)
+			return &it->get_ParentObj();
+	}
+
 	bool bCreate = true;
 	PeerInfo* pRet = Find(id, bCreate);
 
@@ -482,6 +510,9 @@ void PeerManager::Delete(PeerInfo& pi)
 	RemoveAddr(pi);
 	m_Ratings.erase(pi.m_RawRating);
 	m_AdjustedRatings.erase(pi.m_AdjustedRating);
+
+	if (!(pi.m_ID.m_Key == ECC::Zero))
+		m_IDs.erase(pi.m_ID);
 }
 
 void PeerManager::Clear()

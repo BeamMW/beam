@@ -295,12 +295,8 @@ namespace proto {
 			static const uint32_t PenaltyNetworkErr = 128;
 			static const uint32_t Max = 10240; // saturation
 
-			static void Inc(uint32_t& r, uint32_t delta) {
-				r = std::min(r + delta, Max);
-			}
-			static void Dec(uint32_t& r, uint32_t delta) {
-				r = (r > delta) ? (r - delta) : 1;
-			}
+			static void Inc(uint32_t& r, uint32_t delta);
+			static void Dec(uint32_t& r, uint32_t delta);
 		};
 
 		struct Cfg {
