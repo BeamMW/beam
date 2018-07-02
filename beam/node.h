@@ -32,6 +32,7 @@ struct Node
 			uint32_t m_GetBlock_ms	= 1000 * 30;
 			uint32_t m_GetTx_ms		= 1000 * 5;
 			uint32_t m_MiningSoftRestart_ms = 100;
+			uint32_t m_TopPeersUpd_ms = 1000 * 60 * 10; // once in 10 minutes
 		} m_Timeout;
 
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
@@ -211,10 +212,11 @@ private:
 		void SetTimerWrtFirstTask();
 
 		io::Timer::Ptr m_pTimer;
+		io::Timer::Ptr m_pTimerPeers;
 		void OnTimer();
 		void SetTimer(uint32_t timeout_ms);
 		void KillTimer();
-
+		void OnResendPeers();
 		void DeleteSelf(bool bIsError, bool bIsBan);
 		static void ThrowUnexpected();
 

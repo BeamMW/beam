@@ -391,6 +391,8 @@ namespace proto {
 		virtual PeerInfo* AllocPeer() = 0;
 		virtual void DeletePeer(PeerInfo&) = 0;
 
+		const RawRatingSet& get_Ratings() const { return m_Ratings; }
+
 	private:
 		PeerIDSet m_IDs;
 		RawRatingSet m_Ratings;

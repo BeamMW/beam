@@ -111,7 +111,7 @@ void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 			bool bCreate = false;
 			PeerMan::PeerInfoPlus* pInfo = (PeerMan::PeerInfoPlus*) m_PeerMan.Find(*pPeerID, bCreate);
 
-			if (pInfo && pInfo->m_pLive && pInfo->m_pLive->m_bConnected)
+			if (pInfo && pInfo->m_pLive && pInfo->m_pLive->m_bPiRcvd)
 				pSel = pInfo->m_pLive;
 		}
 
@@ -180,7 +180,7 @@ bool Node::ShouldAssignTask(Task& t, Peer& p)
 		return false;
 
 	// Current design: don't ask anything from non-authenticated peers
-	if (!p.m_pInfo)
+	if (!p.m_bPiRcvd)
 		return false;
 
 	// check if the peer currently transfers a block
@@ -546,6 +546,25 @@ void Node::Peer::OnTimer()
 		DeleteSelf(true, false);
 }
 
+void Node::Peer::OnResendPeers()
+{
+	PeerMan& pm = m_pThis->m_PeerMan;
+	const PeerMan::RawRatingSet& rs = pm.get_Ratings();
+	uint32_t nRemaining = pm.m_Cfg.m_DesiredHighest;
+
+	for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); nRemaining && (rs.end() != it); it++)
+	{
+		const PeerMan::PeerInfo& pi = it->get_ParentObj();
+		if (m_bPiRcvd && (&pi == m_pInfo))
+			continue; // skip
+
+		proto::PeerInfo msg;
+		msg.m_ID = pi.m_ID.m_Key;
+		msg.m_LastAddr = pi.m_Addr.m_Value;
+		Send(msg);
+	}
+}
+
 void Node::Peer::get_MyID(ECC::Scalar::Native& sk)
 {
 	ECC::Kdf& kdf = m_pThis->m_Processor.m_Kdf;
@@ -687,9 +706,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 	TakeTasks();
 
 	if (m_pThis->m_Processor.IsStateNeeded(msg.m_ID))
-	{
 		m_pThis->m_Processor.RequestData(msg.m_ID, false, m_pInfo ? &m_pInfo->m_ID.m_Key : NULL);
-	}
 }
 
 void Node::Peer::ThrowUnexpected()
@@ -915,9 +932,20 @@ void Node::Peer::OnMsg(proto::Config&& msg)
 		}
 	}
 
-	if (!m_Config.m_SendPeers && msg.m_SendPeers)
+	if (m_Config.m_SendPeers != msg.m_SendPeers)
 	{
-		// TODO
+		if (msg.m_SendPeers)
+		{
+			if (!m_pTimerPeers)
+				m_pTimerPeers = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+
+			m_pTimerPeers->start(m_pThis->m_Cfg.m_Timeout.m_TopPeersUpd_ms, true, [this]() { OnResendPeers(); });
+
+			OnResendPeers();
+		}
+		else
+			if (m_pTimerPeers)
+				m_pTimerPeers->cancel();
 	}
 
 	m_Config = msg;
@@ -1170,6 +1198,7 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 	{
 		// threre's already another connection open to the same peer!
 		// Currently - just ignore this.
+		m_bPiRcvd = false;
 	}
 	else
 	{
@@ -1179,6 +1208,11 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 		pm.OnActive(*pPi, true);
 		pm.OnSeen(*pPi);
 	}
+}
+
+void Node::Peer::OnMsg(proto::PeerInfo&& msg)
+{
+	m_pThis->m_PeerMan.OnPeer(msg.m_ID, msg.m_LastAddr, false);
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
