@@ -299,12 +299,14 @@ uint32_t PeerManager::PeerInfo::AdjustedRating::get() const
 	return Rating::Saturate(p->get_ParentObj().m_RawRating.m_Value + m_Increment);
 }
 
-void PeerManager::UpdateTime(Timestamp t)
+void PeerManager::Update()
 {
-	if (m_tLast)
-		UpdateTimeInternal(t);
+	uint32_t nTicks_ms = GetTimeNnz_ms();
 
-	m_tLast = t;
+	if (m_TicksLast_ms)
+		UpdateRatingsInternal(nTicks_ms);
+
+	m_TicksLast_ms = nTicks_ms;
 
 	// select recommended peers
 	uint32_t nSelected = 0;
@@ -313,7 +315,7 @@ void PeerManager::UpdateTime(Timestamp t)
 	{
 		PeerInfo& pi = it->get_ParentObj();
 
-		bool bTooEarlyToDisconnect = (m_tLast - pi.m_LastSeen < m_Cfg.m_TimeoutDisconnect_s);
+		bool bTooEarlyToDisconnect = (nTicks_ms - pi.m_LastActivity_ms < m_Cfg.m_TimeoutDisconnect_ms);
 
 		it->m_Next = bTooEarlyToDisconnect;
 		if (bTooEarlyToDisconnect)
@@ -325,13 +327,13 @@ void PeerManager::UpdateTime(Timestamp t)
 	// 1st group
 	uint32_t nHighest = 0;
 	for (RawRatingSet::iterator it = m_Ratings.begin(); (nHighest < m_Cfg.m_DesiredHighest) && (nSelected < m_Cfg.m_DesiredTotal) && (m_Ratings.end() != it); it++, nHighest++)
-		ActivatePeerInternal(it->get_ParentObj(), nSelected);
+		ActivatePeerInternal(it->get_ParentObj(), nTicks_ms, nSelected);
 
 	// 2nd group
 	for (AdjustedRatingSet::iterator it = m_AdjustedRatings.begin(); (nSelected < m_Cfg.m_DesiredTotal) && (m_AdjustedRatings.end() != it); it++)
-		ActivatePeerInternal(it->get_ParentObj(), nSelected);
+		ActivatePeerInternal(it->get_ParentObj(), nTicks_ms, nSelected);
 
-	// remove eccess
+	// remove excess
 	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; )
 	{
 		PeerInfo& pi = (it++)->get_ParentObj();
@@ -345,12 +347,15 @@ void PeerManager::UpdateTime(Timestamp t)
 	}
 }
 
-void PeerManager::ActivatePeerInternal(PeerInfo& pi, uint32_t& nSelected)
+void PeerManager::ActivatePeerInternal(PeerInfo& pi, uint32_t nTicks_ms, uint32_t& nSelected)
 {
 	if (pi.m_Active.m_Now && pi.m_Active.m_Next)
 		return; // already selected
 
-	if (!pi.m_Active.m_Now && (m_tLast - pi.m_LastSeen < m_Cfg.m_TimeoutReconnect_s))
+	if (!pi.m_RawRating.m_Value)
+		return; // banned
+
+	if (!pi.m_Active.m_Now && (nTicks_ms - pi.m_LastActivity_ms < m_Cfg.m_TimeoutReconnect_ms))
 		return; // too early for reconnect
 
 	nSelected++;
@@ -364,11 +369,30 @@ void PeerManager::ActivatePeerInternal(PeerInfo& pi, uint32_t& nSelected)
 	}
 }
 
-void PeerManager::UpdateTimeInternal(Timestamp t)
+void PeerManager::UpdateRatingsInternal(uint32_t t_ms)
 {
-	uint32_t dt = (uint32_t)(t - m_tLast);
-	uint32_t rInc = dt * m_Cfg.m_StarvationRatioInc;
-	uint32_t rDec = dt * m_Cfg.m_StarvationRatioDec;
+	// calc dt in seconds, resistant to rounding
+	uint32_t dt_ms = t_ms - m_TicksLast_ms;
+	uint32_t dt_s = dt_ms / 1000;
+	if ((t_ms % 1000) < (m_TicksLast_ms % 1000))
+		dt_s++;
+
+	uint32_t rInc = dt_s * m_Cfg.m_StarvationRatioInc;
+	uint32_t rDec = dt_s * m_Cfg.m_StarvationRatioDec;
+
+	// First unban peers
+	for (AdjustedRatingSet::reverse_iterator it = m_AdjustedRatings.rbegin(); m_AdjustedRatings.rend() != it; )
+	{
+		PeerInfo& pi = (it++)->get_ParentObj();
+		if (pi.m_RawRating.m_Value)
+			break;
+
+		assert(!pi.m_AdjustedRating.m_Increment); // shouldn't be adjusted while banned
+
+		uint32_t dtThis_ms = t_ms - pi.m_LastActivity_ms;
+		if (dtThis_ms >= m_Cfg.m_TimeoutBan_ms)
+			ModifyRatingInternal(pi, 1, true, false);
+	}
 
 	// For inactive peers: modify adjusted ratings in-place, no need to rebuild the tree. For active (presumably lesser part) rebuild is necessary
 	for (AdjustedRatingSet::iterator it = m_AdjustedRatings.begin(); m_AdjustedRatings.end() != it; )
@@ -378,7 +402,11 @@ void PeerManager::UpdateTimeInternal(Timestamp t)
 		if (pi.m_Active.m_Now)
 			m_AdjustedRatings.erase(pi.m_AdjustedRating);
 		else
+		{
+			if (!pi.m_RawRating.m_Value)
+				break; // all the remaining are banned
 			Rating::Inc(pi.m_AdjustedRating.m_Increment, rInc);
+		}
 	}
 
 	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; it++)
@@ -420,11 +448,22 @@ PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)
 
 	ret->m_Active.m_Now = false;
 	ret->m_LastSeen = 0;
+	ret->m_LastActivity_ms = 0;
 
 	return ret;
 }
 
-void PeerManager::ModifyRating(PeerInfo& pi, uint32_t delta, bool bAdd, bool ban /* = false */)
+void PeerManager::ModifyRating(PeerInfo& pi, uint32_t delta, bool bAdd)
+{
+	ModifyRatingInternal(pi, delta, bAdd, false);
+}
+
+void PeerManager::Ban(PeerInfo& pi)
+{
+	ModifyRatingInternal(pi, 0, false, true);
+}
+
+void PeerManager::ModifyRatingInternal(PeerInfo& pi, uint32_t delta, bool bAdd, bool ban)
 {
 	m_Ratings.erase(pi.m_RawRating);
 	m_AdjustedRatings.erase(pi.m_AdjustedRating);
@@ -476,11 +515,10 @@ void PeerManager::ModifyAddr(PeerInfo& pi, const io::Address& addr)
 
 void PeerManager::OnActive(PeerInfo& pi, bool bActive)
 {
-	pi.m_LastSeen = m_tLast;
-
 	if (pi.m_Active.m_Now != bActive)
 	{
 		pi.m_Active.m_Now = bActive;
+		pi.m_LastActivity_ms = GetTimeNnz_ms();
 
 		if (bActive)
 			m_Active.push_back(pi.m_Active);
@@ -508,7 +546,7 @@ PeerManager::PeerInfo* PeerManager::OnPeer(const PeerID& id, const io::Address& 
 	bool bCreate = true;
 	PeerInfo* pRet = Find(id, bCreate);
 
-	if (bAddrVerified || !pRet->m_Addr.m_Value.empty())
+	if (bAddrVerified || !pRet->m_Addr.m_Value.empty() || (getTimestamp() - pRet->m_LastSeen > m_Cfg.m_TimeoutAddrChange_s))
 		ModifyAddr(*pRet, addr);
 
 	return pRet;

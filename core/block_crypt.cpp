@@ -1451,9 +1451,19 @@ namespace beam
 
 	uint32_t GetTime_ms()
 	{
+#ifdef WIN32
+		return GetTickCount();
+#else // WIN32
 		// platform-independent analogue of GetTickCount
 		using namespace std::chrono;
 		return (uint32_t)duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+#endif // WIN32
+	}
+
+	uint32_t GetTimeNnz_ms()
+	{
+		uint32_t ret = GetTime_ms();
+		return ret ? ret : 1;
 	}
 
 } // namespace beam

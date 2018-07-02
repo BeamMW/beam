@@ -303,11 +303,12 @@ namespace proto {
 		struct Cfg {
 			uint32_t m_DesiredHighest = 5;
 			uint32_t m_DesiredTotal = 10;
-			uint32_t m_TimeoutDisconnect_s = 60 * 2; // connected for less than 2 minutes -> penalty
-			uint32_t m_TimeoutReconnect_s = 1;
-			uint32_t m_StarvationRatioInc = 1; // increase per second while not connected
-			uint32_t m_StarvationRatioDec = 2; // decrease per second while connected (until starvation reward is zero)
-			uint32_t m_BanTimeout_s = 60 * 10;
+			uint32_t m_TimeoutDisconnect_ms = 1000 * 60 * 2; // connected for less than 2 minutes -> penalty
+			uint32_t m_TimeoutReconnect_ms	= 1000;
+			uint32_t m_TimeoutBan_ms		= 1000 * 60 * 10;
+			uint32_t m_TimeoutAddrChange_s	= 60 * 60 * 2;
+			uint32_t m_StarvationRatioInc	= 1; // increase per second while not connected
+			uint32_t m_StarvationRatioDec	= 2; // decrease per second while connected (until starvation reward is zero)
 		} m_Cfg;
 
 
@@ -359,6 +360,7 @@ namespace proto {
 			} m_Addr;
 
 			Timestamp m_LastSeen; // needed to filter-out dead peers, and to know when to update the address
+			uint32_t m_LastActivity_ms; // updated on connection attempt, and disconnection.
 		};
 
 		typedef boost::intrusive::multiset<PeerInfo::ID> PeerIDSet;
@@ -367,11 +369,12 @@ namespace proto {
 		typedef boost::intrusive::multiset<PeerInfo::Addr> AddrSet;
 		typedef boost::intrusive::list<PeerInfo::Active> ActiveList;
 
-		void UpdateTime(Timestamp t);
+		void Update(); // will trigger activation/deactivation of peers
 		PeerInfo* Find(const PeerID& id, bool& bCreate);
 
 		void OnActive(PeerInfo&, bool bActive);
-		void ModifyRating(PeerInfo&, uint32_t, bool bAdd, bool ban = false);
+		void ModifyRating(PeerInfo&, uint32_t, bool bAdd);
+		void Ban(PeerInfo&);
 
 		void ModifyAddr(PeerInfo&, const io::Address&);
 		void RemoveAddr(PeerInfo&);
@@ -392,10 +395,12 @@ namespace proto {
 		AdjustedRatingSet m_AdjustedRatings;
 		AddrSet m_Addr;
 		ActiveList m_Active;
-		Timestamp m_tLast = 0;
+		uint32_t m_TicksLast_ms = 0;
 
-		void UpdateTimeInternal(Timestamp t);
-		void ActivatePeerInternal(PeerInfo&, uint32_t& nSelected);
+		void UpdateRatingsInternal(uint32_t t_ms);
+
+		void ActivatePeerInternal(PeerInfo&, uint32_t nTicks_ms, uint32_t& nSelected);
+		void ModifyRatingInternal(PeerInfo&, uint32_t, bool bAdd, bool ban);
 	};
 
 

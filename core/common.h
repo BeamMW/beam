@@ -73,6 +73,7 @@ namespace beam
 
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
+	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
 
 	struct HeightRange
 	{
