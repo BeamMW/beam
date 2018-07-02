@@ -14,7 +14,7 @@ class WalletModel
 	Q_OBJECT
 public:
 	WalletModel(beam::IKeyChain::Ptr keychain);
-	WalletModel::~WalletModel();
+	~WalletModel();
 
 	void run() override;
 
