@@ -60,6 +60,9 @@ namespace
 		void setSystemStateID(const Block::SystemState::ID& ) override {};
 		bool getSystemStateID(Block::SystemState::ID& ) const override { return false; };
 
+		void subscribe(IKeyChainObserver* observer) override {}
+		void unsubscribe(IKeyChainObserver* observer) override {}
+
         std::vector<TxDescription> getTxHistory(uint64_t , int ) override { return {}; };
         boost::optional<TxDescription> getTx(const Uuid& ) override { return boost::optional<TxDescription>{}; };
         void saveTx(const TxDescription &) override {};
