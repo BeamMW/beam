@@ -52,6 +52,7 @@ QString TxObject::status() const
 WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain)
 	: _model(keychain)
 	, _available(0)
+	, _sendAmount(40)
 {
 	_tx.append(new TxObject(
 		"12 June 2018 | 3:46 PM"
@@ -116,7 +117,28 @@ QString WalletViewModel::available() const
 	return QString::number(static_cast<float>(_available) / Rules::Coin) + " BEAM";
 }
 
+QString WalletViewModel::sendAmount() const
+{
+	return QString::number(_sendAmount);
+}
+
+void WalletViewModel::setSendAmount(const QString& text)
+{
+	beam::Amount amount = text.toUInt();
+
+	if (amount != _sendAmount)
+	{
+		_sendAmount = amount;
+		sendAmountChanged();
+	}
+}
+
 QVariant WalletViewModel::tx() const
 {
 	return QVariant::fromValue(_tx);
+}
+
+void WalletViewModel::sendMoney()
+{
+	
 }

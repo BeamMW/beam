@@ -56,6 +56,9 @@ Item {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        walletViewModel.sendMoney()
+                    }
                 }
             }
 
@@ -82,7 +85,6 @@ Item {
                 }
 
                 MouseArea {
-                    id: mouseArea
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
@@ -120,7 +122,7 @@ Item {
                 TextInput {
                     height: 20
                     color: "#bce7f6"
-                    text: qsTr("!lhfkjhHKJLHjh6743khKwe53453")
+                    text: qsTr("127.0.0.1:8888")
                     anchors.right: parent.right
                     anchors.rightMargin: 0
                     horizontalAlignment: Text.AlignLeft
@@ -187,17 +189,24 @@ Item {
                 }
 
                 TextInput {
+                    id: amountInput
+                    validator: IntValidator{bottom: 1; top: 10000;}
+                    focus: true
                     height: 40
                     color: "#c678e9"
-                    text: qsTr("0.9826")
+                    text: walletViewModel.sendAmount
                     cursorVisible: false
-                    anchors.right: parent.right
-                    anchors.rightMargin: 0
                     anchors.left: parent.left
                     anchors.leftMargin: 0
                     anchors.top: parent.top
                     anchors.topMargin: 40
                     font.pixelSize: 40
+                }
+
+                Binding {
+                    target: walletViewModel
+                    property: "sendAmount"
+                    value: amountInput.text
                 }
 
                 Rectangle {

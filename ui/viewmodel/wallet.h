@@ -54,6 +54,7 @@ class WalletViewModel : public QObject
 	Q_OBJECT
 
 	Q_PROPERTY(QString available READ available NOTIFY availableChanged)
+	Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
 	Q_PROPERTY(QVariant tx READ tx)
 
 public:
@@ -62,16 +63,22 @@ public:
 	WalletViewModel(beam::IKeyChain::Ptr keychain);
 	QString available() const;
 	QVariant tx() const;
+	QString sendAmount() const;
+
+	void setSendAmount(const QString& text);
 
 public slots:
 	void onStatus(const beam::Amount& amount);
+	void sendMoney();
 
 signals:
 	void availableChanged();
+	void sendAmountChanged();
 
 private:
 
 	beam::Amount _available;
+	beam::Amount _sendAmount;
 	TxList _tx;
 
 	WalletModel _model;
