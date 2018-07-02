@@ -1022,7 +1022,7 @@ namespace beam
 
 int main()
 {
-	auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+//	auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 
 	beam::Rules::get().FakePoW = true;
 	beam::Rules::get().UpdateChecksum();

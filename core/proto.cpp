@@ -322,8 +322,6 @@ void PeerManager::Update()
 		it->m_Next = bTooEarlyToDisconnect;
 		if (bTooEarlyToDisconnect)
 			nSelected++;
-		else
-			it->m_Next = false; // potential disconnect target
 	}
 
 	// 1st group
