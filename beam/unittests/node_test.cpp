@@ -314,6 +314,7 @@ namespace beam
 		verify_test(!h);
 
 		tr.Commit();
+		tr.Start(db);
 
 		// utxos and kernels
 		NodeDB::Blob b0(vStates[0].m_Prev.m_pData, sizeof(vStates[0].m_Prev.m_pData));
@@ -334,6 +335,29 @@ namespace beam
 		db.ModifySpendable(b0, -5, -4);
 		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
+
+		for (int i = 0; i < 20; i++)
+		{
+			NodeDB::WalkerPeer::Data d;
+			ECC::SetRandom(d.m_ID);
+			d.m_Address = i * 17;
+			d.m_LastSeen = i + 10;
+			d.m_Rating = i * 100 + 50;
+
+			db.PeerIns(d);
+		}
+
+		NodeDB::WalkerPeer wlkp(db);
+		for (db.EnumPeers(wlkp); wlkp.MoveNext(); )
+			;
+
+		db.PeersDel();
+
+		for (db.EnumPeers(wlkp); wlkp.MoveNext(); )
+			;
+
+
+		tr.Commit();
 	}
 
 #ifdef WIN32

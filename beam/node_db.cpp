@@ -45,6 +45,12 @@ namespace beam {
 #define TblCompressed			"Macroblocks"
 #define TblCompressed_Row1		"RowLast"
 
+#define TblPeer					"Peers"
+#define TblPeer_Key				"Key"
+#define TblPeer_Rating			"Rating"
+#define TblPeer_Addr			"Address"
+#define TblPeer_LastSeen		"LastSeen"
+
 NodeDB::NodeDB()
 	:m_pDb(NULL)
 {
@@ -227,7 +233,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 3;
+	const uint64_t nVersion = 4;
 
 	if (bCreate)
 	{
@@ -303,6 +309,12 @@ void NodeDB::Create()
 		"[" TblCompressed_Row1	"] INTEGER NOT NULL,"
 		"PRIMARY KEY (" TblCompressed_Row1 "),"
 		"FOREIGN KEY (" TblCompressed_Row1 ") REFERENCES " TblStates "(OID))");
+
+	ExecQuick("CREATE TABLE [" TblPeer "] ("
+		"[" TblPeer_Key			"] BLOB NOT NULL,"
+		"[" TblPeer_Rating		"] INTEGER NOT NULL,"
+		"[" TblPeer_Addr		"] INTEGER NOT NULL,"
+		"[" TblPeer_LastSeen	"] INTEGER NOT NULL)");
 }
 
 void NodeDB::ExecQuick(const char* szSql)
@@ -1465,6 +1477,39 @@ void NodeDB::MacroblockDel(uint64_t rowid)
 {
 	Recordset rs(*this, Query::MinedDel, "DELETE FROM " TblCompressed " WHERE " TblCompressed_Row1 "=?");
 	rs.put(0, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::EnumPeers(WalkerPeer& x)
+{
+	x.m_Rs.Reset(Query::PeerEnum, "SELECT " TblPeer_Key "," TblPeer_Rating "," TblPeer_Addr "," TblPeer_LastSeen " FROM " TblPeer);
+}
+
+bool NodeDB::WalkerPeer::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+	m_Rs.get(0, m_Data.m_ID);
+	m_Rs.get(1, m_Data.m_Rating);
+	m_Rs.get(2, m_Data.m_Address);
+	m_Rs.get(3, m_Data.m_LastSeen);
+	return true;
+}
+
+void NodeDB::PeersDel()
+{
+	Recordset rs(*this, Query::PeerDel, "DELETE FROM " TblPeer);
+	rs.Step();
+}
+
+void NodeDB::PeerIns(const WalkerPeer::Data& d)
+{
+	Recordset rs(*this, Query::PeerAdd, "INSERT INTO " TblPeer "(" TblPeer_Key "," TblPeer_Rating "," TblPeer_Addr "," TblPeer_LastSeen ") VALUES(?,?,?,?)");
+	rs.put(0, d.m_ID);
+	rs.put(1, d.m_Rating);
+	rs.put(2, d.m_Address);
+	rs.put(3, d.m_LastSeen);
 	rs.Step();
 	TestChanged1Row();
 }
