@@ -150,8 +150,6 @@ private:
 	void AssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
 
-	static uint32_t GetTime_ms();
-
 	struct WantedTx
 	{
 		struct Node

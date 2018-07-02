@@ -101,13 +101,6 @@ void Node::WantedTx::OnTimer()
 	}
 }
 
-uint32_t Node::GetTime_ms()
-{
-	// platform-independent analogue of GetTickCount
-	using namespace std::chrono;
-	return (uint32_t) duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-}
-
 void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 {
 	while (true)

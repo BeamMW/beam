@@ -1449,6 +1449,13 @@ namespace beam
 		return beam::Timestamp(std::chrono::seconds(std::time(nullptr)).count());
 	}
 
+	uint32_t GetTime_ms()
+	{
+		// platform-independent analogue of GetTickCount
+		using namespace std::chrono;
+		return (uint32_t)duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+	}
+
 } // namespace beam
 
 namespace std

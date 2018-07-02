@@ -72,6 +72,7 @@ namespace beam
 	typedef ECC::Hash::Value PeerID;
 
 	Timestamp getTimestamp();
+	uint32_t GetTime_ms(); // platform-independent GetTickCount
 
 	struct HeightRange
 	{
