@@ -29,6 +29,11 @@ namespace beam
         KeyType m_key_type;
     };
 
+	struct IKeyChainObserver
+	{
+		virtual void onKeychainChanged() = 0;
+	};
+
     struct IKeyChain
     {
         using Ptr = std::shared_ptr<IKeyChain>;
@@ -68,6 +73,8 @@ namespace beam
 		}
 		virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
 		virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
+
+		virtual void subscribe(IKeyChainObserver* observer) = 0;
 	};
 
     struct Keychain : IKeyChain
@@ -99,11 +106,15 @@ namespace beam
 
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override;
+
+		void subscribe(IKeyChainObserver* observer) override;
     private:
         void storeImpl(Coin& coin);
     private:
 
         sqlite3* _db;
         ECC::Kdf m_kdf;
+
+		std::vector<IKeyChainObserver*> m_subscribers;
     };
 }

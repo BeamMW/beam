@@ -22,6 +22,7 @@ namespace
 			{
 				total += c.m_amount;
 			}
+
 			return true;
 		});
 		return total;
@@ -44,6 +45,9 @@ void WalletModel::run()
 {
 	emit onStatus(getAvailable(_keychain));
 
+	// TODO: read this from the config
+	Rules::FakePoW = true;
+
 	beam::io::Reactor::Ptr reactor(io::Reactor::create());
 
 	// TODO: move port/addr to the config?
@@ -58,10 +62,17 @@ void WalletModel::run()
 			, _keychain
 			, reactor);
 
+		_keychain->subscribe(this);
+
 		_wallet_io->start();
 	}
 	else
 	{
 		LOG_ERROR() << "unable to resolve node address";
 	}
+}
+
+void WalletModel::onKeychainChanged()
+{
+	emit onStatus(getAvailable(_keychain));
 }

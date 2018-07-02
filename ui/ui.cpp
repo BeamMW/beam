@@ -42,6 +42,15 @@ int main (int argc, char* argv[])
 				{
 					NoLeak<uintBig> walletSeed;
 					walletSeed.V = Zero;
+					{
+						// TODO: temporary solution
+						// read it from the config
+						const char* seed = "123";
+						Hash::Value hv;
+						Hash::Processor() << seed >> hv;
+						walletSeed.V = hv;
+					}
+
 					auto keychain = Keychain::init(WALLET_STORAGE, pass.toStdString(), walletSeed);
 
 					if (!keychain)

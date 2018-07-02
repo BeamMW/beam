@@ -7,7 +7,9 @@
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
 
-class WalletModel : public QThread
+class WalletModel 
+	: public QThread
+	, private beam::IKeyChainObserver
 {
 	Q_OBJECT
 public:
@@ -18,6 +20,9 @@ public:
 
 signals:
 	void onStatus(const beam::Amount& amount);
+
+private:
+	void onKeychainChanged() override;
 
 private:
 

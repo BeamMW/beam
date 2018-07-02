@@ -569,6 +569,8 @@ namespace beam
         stm.step();
 
         coin.m_id = getLastID(_db);
+
+		for (auto sub : m_subscribers) sub->onKeychainChanged();
     }
 
 	void Keychain::update(const vector<beam::Coin>& coins)
@@ -762,4 +764,11 @@ namespace beam
 
         stm.step();
     }
+
+	void Keychain::subscribe(IKeyChainObserver* observer)
+	{
+		assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
+
+		m_subscribers.push_back(observer);
+	}
 }
