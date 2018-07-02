@@ -38,25 +38,30 @@ namespace beam::wallet
             return;
         }
 
-        // 2. Calculate final signature
+        // Calculate final signature
         Scalar::Native senderSignature;
         senderSignature = event.data.m_senderSignature;
         Scalar::Native receiverSignature = m_parent.createSignature();
         Scalar::Native finialSignature = senderSignature + receiverSignature;
 
-        // 3. Calculate public key for excess
+        // Calculate public key for excess
         Point::Native x = m_parent.getPublicExcess();
         x += m_parent.m_publicPeerExcess;
-        // 4. Verify excess value in final transaction
-        // 5. Create transaction kernel
+
+        // Create transaction kernel and transaction
         m_parent.m_kernel->m_Excess = x;
         m_parent.m_kernel->m_Signature.m_k = finialSignature;
         m_parent.m_transaction->m_vKernelsOutput.push_back(move(m_parent.m_kernel));
-
         m_parent.m_transaction->m_Offset = m_parent.m_offset;
-
-        // 6. Create final transaction and send it to mempool
         m_parent.m_transaction->Sort();
+
+        // Verify final transaction
+        if (!m_parent.m_transaction->IsValid(TxBase::Context{}))
+        {
+            Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
+            fsm.process_event(events::TxFailed{ true });
+            return;
+        }
 
         update_tx_description(TxDescription::InProgress);
         m_parent.m_gateway.register_tx(m_parent.m_txDesc, m_parent.m_transaction);
