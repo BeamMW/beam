@@ -60,7 +60,7 @@ namespace beam
         Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
-        Uuid transfer_money(PeerId to, Amount amount, Amount fee, ByteBuffer&& message);
+        Uuid transfer_money(PeerId to, Amount amount, Amount fee, bool sendBill, ByteBuffer&& message);
         void resume_tx(const TxDescription& tx);
         void resume_all_tx();
 
@@ -96,13 +96,13 @@ namespace beam
         bool finish_sync();
         bool close_node_connection();
         void register_tx(const Uuid& txId, Transaction::Ptr);
-        void resume_sender(const TxDescription& tx);
+        void resume_negotiator(const TxDescription& tx, bool sendBill = false);
 
         template<typename Event>
         bool process_event(const Uuid& txId, Event&& event)
         {
             Cleaner<std::vector<wallet::Negotiator::Ptr> > cs{ m_removed_senders };
-            if (auto it = m_senders.find(txId); it != m_senders.end())
+            if (auto it = m_negotiators.find(txId); it != m_negotiators.end())
             {
                 return it->second->process_event(event);
             }
@@ -113,7 +113,7 @@ namespace beam
         IKeyChain::Ptr m_keyChain;
         INetworkIO& m_network;
         std::map<PeerId, wallet::Negotiator::Ptr> m_peers;
-        std::map<Uuid, wallet::Negotiator::Ptr>   m_senders;
+        std::map<Uuid, wallet::Negotiator::Ptr>   m_negotiators;
         std::vector<wallet::Negotiator::Ptr>      m_removed_senders;
         TxCompletedAction m_tx_completed_action;
         std::deque<std::pair<Uuid, TransactionPtr>> m_reg_requests;

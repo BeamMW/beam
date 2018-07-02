@@ -410,7 +410,7 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
     network.registerPeer(&sender);
     network.registerPeer(&receiver);
 
-    sender.transfer_money(receiver_id, 6, 0, {});
+    sender.transfer_money(receiver_id, 6, 0, false, {});
     mainLoop.run();
 }
 
@@ -770,6 +770,215 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(stx->m_sender == true);
  }
 
+ void TestP2PWalletReverseNegotiationST()
+ {
+     cout << "\nTesting p2p wallets negotiation (reverse version)...\n";
+
+     auto node_address = io::Address::localhost().port(32125);
+     auto receiver_address = io::Address::localhost().port(32124);
+     auto sender_address = io::Address::localhost().port(32123);
+
+     io::Reactor::Ptr main_reactor{ io::Reactor::create() };
+     io::Reactor::Scope scope(*main_reactor);
+
+     auto senderKeychain = createSenderKeychain();
+     auto receiverKeychain = createReceiverKeychain();
+
+     WALLET_CHECK(senderKeychain->getCoins(6, false).size() == 3);
+
+     WALLET_CHECK(senderKeychain->getTxHistory().empty());
+     WALLET_CHECK(receiverKeychain->getTxHistory().empty());
+
+     helpers::StopWatch sw;
+     sw.start();
+     TestNode node{ node_address, main_reactor };
+     WalletNetworkIO sender_io{ sender_address, node_address, true, senderKeychain, main_reactor };
+     WalletNetworkIO receiver_io{ receiver_address, node_address, false, receiverKeychain, main_reactor, 1000, 5000, 100 };
+
+     Uuid txId = receiver_io.transfer_money(receiver_address, 6, 1, true);
+
+     main_reactor->run();
+     sw.stop();
+     cout << "First transfer elapsed time: " << sw.milliseconds() << " ms\n";
+
+     // check coins
+     vector<Coin> newSenderCoins;
+     senderKeychain->visit([&newSenderCoins](const Coin& c)->bool
+     {
+         newSenderCoins.push_back(c);
+         return true;
+     });
+     vector<Coin> newReceiverCoins;
+     receiverKeychain->visit([&newReceiverCoins](const Coin& c)->bool
+     {
+         newReceiverCoins.push_back(c);
+         return true;
+     });
+
+     WALLET_CHECK(newSenderCoins.size() == 5);
+     WALLET_CHECK(newReceiverCoins.size() == 1);
+     WALLET_CHECK(newReceiverCoins[0].m_amount == 6);
+     WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unconfirmed);
+     WALLET_CHECK(newReceiverCoins[0].m_key_type == KeyType::Regular);
+
+     WALLET_CHECK(newSenderCoins[0].m_amount == 5);
+     WALLET_CHECK(newSenderCoins[0].m_status == Coin::Locked);
+     WALLET_CHECK(newSenderCoins[0].m_key_type == KeyType::Regular);
+
+     WALLET_CHECK(newSenderCoins[1].m_amount == 2);
+     WALLET_CHECK(newSenderCoins[1].m_status == Coin::Locked);
+     WALLET_CHECK(newSenderCoins[1].m_key_type == KeyType::Regular);
+
+     WALLET_CHECK(newSenderCoins[2].m_amount == 1);
+     WALLET_CHECK(newSenderCoins[2].m_status == Coin::Locked);
+     WALLET_CHECK(newSenderCoins[2].m_key_type == KeyType::Regular);
+
+     WALLET_CHECK(newSenderCoins[3].m_amount == 9);
+     WALLET_CHECK(newSenderCoins[3].m_status == Coin::Unspent);
+     WALLET_CHECK(newSenderCoins[3].m_key_type == KeyType::Regular);
+
+     WALLET_CHECK(newSenderCoins[4].m_amount == 2);
+     WALLET_CHECK(newSenderCoins[4].m_status == Coin::Unconfirmed);
+     WALLET_CHECK(newSenderCoins[4].m_key_type == KeyType::Regular);
+
+     // Tx history check
+     auto sh = senderKeychain->getTxHistory();
+     WALLET_CHECK(sh.size() == 1);
+     auto rh = receiverKeychain->getTxHistory();
+     WALLET_CHECK(rh.size() == 1);
+     auto stx = senderKeychain->getTx(txId);
+     WALLET_CHECK(stx.is_initialized());
+     auto rtx = receiverKeychain->getTx(txId);
+     WALLET_CHECK(rtx.is_initialized());
+
+     WALLET_CHECK(stx->m_txId == rtx->m_txId);
+     WALLET_CHECK(stx->m_amount == rtx->m_amount);
+     WALLET_CHECK(stx->m_message == rtx->m_message);
+     WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
+     WALLET_CHECK(stx->m_status == rtx->m_status);
+     WALLET_CHECK(stx->m_fsmState.empty());
+     WALLET_CHECK(rtx->m_fsmState.empty());
+     WALLET_CHECK(stx->m_sender == true);
+     WALLET_CHECK(rtx->m_sender == false);
+
+     // second transfer
+     sw.start();
+     txId = sender_io.transfer_money(receiver_address, 6);
+     main_reactor->run();
+     sw.stop();
+     cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
+
+     // check coins
+     newSenderCoins.clear();
+     senderKeychain->visit([&newSenderCoins](const Coin& c)->bool
+     {
+         newSenderCoins.push_back(c);
+         return true;
+     });
+     newReceiverCoins.clear();
+     receiverKeychain->visit([&newReceiverCoins](const Coin& c)->bool
+     {
+         newReceiverCoins.push_back(c);
+         return true;
+     });
+
+     WALLET_CHECK(newSenderCoins.size() == 6);
+     WALLET_CHECK(newReceiverCoins.size() == 2);
+
+     WALLET_CHECK(newReceiverCoins[0].m_amount == 6);
+     WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unconfirmed);
+     WALLET_CHECK(newReceiverCoins[0].m_key_type == KeyType::Regular);
+
+     WALLET_CHECK(newReceiverCoins[1].m_amount == 6);
+     WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Unconfirmed);
+     WALLET_CHECK(newReceiverCoins[1].m_key_type == KeyType::Regular);
+
+
+     WALLET_CHECK(newSenderCoins[0].m_amount == 5);
+     WALLET_CHECK(newSenderCoins[0].m_status == Coin::Locked);
+     WALLET_CHECK(newSenderCoins[0].m_key_type == KeyType::Regular);
+
+     WALLET_CHECK(newSenderCoins[1].m_amount == 2);
+     WALLET_CHECK(newSenderCoins[1].m_status == Coin::Locked);
+     WALLET_CHECK(newSenderCoins[1].m_key_type == KeyType::Regular);
+
+     WALLET_CHECK(newSenderCoins[2].m_amount == 1);
+     WALLET_CHECK(newSenderCoins[2].m_status == Coin::Locked);
+     WALLET_CHECK(newSenderCoins[2].m_key_type == KeyType::Regular);
+
+     WALLET_CHECK(newSenderCoins[3].m_amount == 9);
+     WALLET_CHECK(newSenderCoins[3].m_status == Coin::Locked);
+     WALLET_CHECK(newSenderCoins[3].m_key_type == KeyType::Regular);
+
+     WALLET_CHECK(newSenderCoins[4].m_amount == 2);
+     WALLET_CHECK(newSenderCoins[4].m_status == Coin::Unconfirmed);
+     WALLET_CHECK(newSenderCoins[4].m_key_type == KeyType::Regular);
+
+     WALLET_CHECK(newSenderCoins[5].m_amount == 3);
+     WALLET_CHECK(newSenderCoins[5].m_status == Coin::Unconfirmed);
+     WALLET_CHECK(newSenderCoins[5].m_key_type == KeyType::Regular);
+
+     // Tx history check
+     sh = senderKeychain->getTxHistory();
+     WALLET_CHECK(sh.size() == 2);
+     rh = receiverKeychain->getTxHistory();
+     WALLET_CHECK(rh.size() == 2);
+     stx = senderKeychain->getTx(txId);
+     WALLET_CHECK(stx.is_initialized());
+     rtx = receiverKeychain->getTx(txId);
+     WALLET_CHECK(rtx.is_initialized());
+
+     WALLET_CHECK(stx->m_txId == rtx->m_txId);
+     WALLET_CHECK(stx->m_amount == rtx->m_amount);
+     WALLET_CHECK(stx->m_message == rtx->m_message);
+     WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
+     WALLET_CHECK(stx->m_status == rtx->m_status);
+     WALLET_CHECK(stx->m_fsmState.empty());
+     WALLET_CHECK(rtx->m_fsmState.empty());
+     WALLET_CHECK(stx->m_sender == true);
+     WALLET_CHECK(rtx->m_sender == false);
+
+
+     // third transfer. no enough money should appear
+     sw.start();
+     txId = sender_io.transfer_money(receiver_address, 6);
+     main_reactor->run();
+     sw.stop();
+     cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
+     // check coins
+     newSenderCoins.clear();
+     senderKeychain->visit([&newSenderCoins](const Coin& c)->bool
+     {
+         newSenderCoins.push_back(c);
+         return true;
+     });
+     newReceiverCoins.clear();
+     receiverKeychain->visit([&newReceiverCoins](const Coin& c)->bool
+     {
+         newReceiverCoins.push_back(c);
+         return true;
+     });
+
+     // no coins 
+     WALLET_CHECK(newSenderCoins.size() == 6);
+     WALLET_CHECK(newReceiverCoins.size() == 2);
+
+     // Tx history check. New failed tx should be added to sender
+     sh = senderKeychain->getTxHistory();
+     WALLET_CHECK(sh.size() == 3);
+     rh = receiverKeychain->getTxHistory();
+     WALLET_CHECK(rh.size() == 2);
+     stx = senderKeychain->getTx(txId);
+     WALLET_CHECK(stx.is_initialized());
+     rtx = receiverKeychain->getTx(txId);
+     WALLET_CHECK(!rtx.is_initialized());
+
+     WALLET_CHECK(stx->m_amount == 6);
+     WALLET_CHECK(stx->m_status == TxDescription::Failed);
+     WALLET_CHECK(stx->m_fsmState.empty());
+     WALLET_CHECK(stx->m_sender == true);
+ }
+
 void TestSplitKey()
 {
 	Scalar::Native nonce;
@@ -872,7 +1081,8 @@ int main()
 
     TestSplitKey();
     
-    TestP2PWalletNegotiationST();
+    //TestP2PWalletNegotiationST();
+    TestP2PWalletReverseNegotiationST();
     TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
     TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
     TestFSM();

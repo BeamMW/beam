@@ -43,7 +43,7 @@ namespace beam
         void start();
         void stop();
 
-        Uuid transfer_money(io::Address receiver, Amount&& amount, Amount&& fee = 0, ByteBuffer&& message = {});
+        Uuid transfer_money(io::Address receiver, Amount&& amount, Amount&& fee = 0, bool sendBill = false, ByteBuffer&& message = {});
 
     private:
         // INetworkIO
