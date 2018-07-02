@@ -411,7 +411,7 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
     network.registerPeer(&sender);
     network.registerPeer(&receiver);
 
-    sender.transfer_money(receiver_id, 6, {});
+    sender.transfer_money(receiver_id, 6, 0, {});
     mainLoop.run();
 }
 

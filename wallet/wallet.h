@@ -61,7 +61,7 @@ namespace beam
         Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
-        Uuid transfer_money(PeerId to, Amount amount, ByteBuffer&& message);
+        Uuid transfer_money(PeerId to, Amount amount, Amount fee, ByteBuffer&& message);
         void resume_tx(const TxDescription& tx);
         void resume_all_tx();
 

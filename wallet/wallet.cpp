@@ -118,13 +118,13 @@ namespace beam
         assert(m_removed_senders.empty());
     }
 
-    Uuid Wallet::transfer_money(PeerId to, Amount amount, ByteBuffer&& message)
+    Uuid Wallet::transfer_money(PeerId to, Amount amount, Amount fee, ByteBuffer&& message)
     {
         Cleaner<std::vector<wallet::Sender::Ptr> > c{ m_removed_senders };
 		boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId{};
         copy(id.begin(), id.end(), txId.begin());
-        TxDescription tx( txId, amount, to, move(message), wallet::getTimestamp(), true);
+        TxDescription tx( txId, amount, fee, to, move(message), wallet::getTimestamp(), true);
         resume_sender(tx);
         return txId;
     }
@@ -201,15 +201,15 @@ namespace beam
         m_network.send_tx_message(tx.m_peerId, wallet::TxRegistered{ tx.m_txId, true });
     }
 
-    void Wallet::handle_tx_message(PeerId from, InviteReceiver&& data)
+    void Wallet::handle_tx_message(PeerId from, InviteReceiver&& msg)
     {
-        auto it = m_senders.find(data.m_txId);
+        auto it = m_senders.find(msg.m_txId);
         if (it == m_senders.end())
         {
-            LOG_VERBOSE() << ReceiverPrefix << "Received tx invitation " << data.m_txId;
+            LOG_VERBOSE() << ReceiverPrefix << "Received tx invitation " << msg.m_txId;
 
-            TxDescription tx{ data.m_txId, data.m_amount, from, {}, wallet::getTimestamp(), false };
-            auto r = make_shared<Sender>(*this, m_keyChain, tx, move(data));
+            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, from, {}, wallet::getTimestamp(), false };
+            auto r = make_shared<Sender>(*this, m_keyChain, tx, move(msg));
             m_senders.emplace(tx.m_txId, r);
             m_peers.emplace(tx.m_peerId, r);
             if (m_synchronized)
@@ -228,7 +228,7 @@ namespace beam
         }
         else
         {
-            LOG_DEBUG() << ReceiverPrefix << "Unexpected tx invitation " << data.m_txId;
+            LOG_DEBUG() << ReceiverPrefix << "Unexpected tx invitation " << msg.m_txId;
         }
     }
     

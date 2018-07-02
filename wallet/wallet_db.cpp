@@ -58,13 +58,14 @@
 #define ENUM_HISTORY_FIELDS(each, sep, obj) \
     each(1, txId,       sep, BLOB NOT NULL PRIMARY KEY, obj) \
     each(2, amount,     sep, INTEGER NOT NULL, obj) \
-    each(3, peerId,     sep, INTEGER NOT NULL, obj) \
-    each(4, message,    sep, BLOB, obj) \
-    each(5, createTime, sep, INTEGER NOT NULL, obj) \
-    each(6, modifyTime, sep, INTEGER, obj) \
-    each(7, sender,     sep, INTEGER NOT NULL, obj) \
-    each(8, status,     sep, INTEGER NOT NULL, obj) \
-    each(9, fsmState,      , BLOB, obj)
+    each(3, fee,        sep, INTEGER NOT NULL, obj) \
+    each(4, peerId,     sep, INTEGER NOT NULL, obj) \
+    each(5, message,    sep, BLOB, obj) \
+    each(6, createTime, sep, INTEGER NOT NULL, obj) \
+    each(7, modifyTime, sep, INTEGER, obj) \
+    each(8, sender,     sep, INTEGER NOT NULL, obj) \
+    each(9, status,     sep, INTEGER NOT NULL, obj) \
+    each(10, fsmState,      , BLOB, obj)
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
 
 namespace beam

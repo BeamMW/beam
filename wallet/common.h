@@ -51,12 +51,14 @@ namespace beam
 
         TxDescription(const Uuid& txId
             , Amount amount
+            , Amount fee
             , uint64_t peerId
             , ByteBuffer&& message
             , Timestamp createTime
             , bool sender)
             : m_txId{ txId }
             , m_amount{ amount }
+            , m_fee{ fee }
             , m_peerId{ peerId }
             , m_message{ std::move(message) }
             , m_createTime{ createTime }
@@ -68,6 +70,7 @@ namespace beam
 
         Uuid m_txId;
         Amount m_amount;
+        Amount m_fee;
         uint64_t m_peerId;
         ByteBuffer m_message;
         Timestamp m_createTime;
@@ -91,8 +94,9 @@ namespace beam
         {
             Uuid m_txId;
             ECC::Amount m_amount;
-            ECC::Hash::Value m_message;
-            ECC::Point m_publicSenderBlindingExcess;
+            ECC::Amount m_fee;
+            ECC::Point m_publicSenderExcess;
+            ECC::Scalar m_offset;
             ECC::Point m_publicSenderNonce;
             std::vector<Input::Ptr> m_inputs;
             std::vector<Output::Ptr> m_outputs;
@@ -105,8 +109,9 @@ namespace beam
             InviteReceiver(InviteReceiver&& other)
                 : m_txId{other.m_txId}
                 , m_amount{ other.m_amount }
-                , m_message{std::move(other.m_message)}
-                , m_publicSenderBlindingExcess{other.m_publicSenderBlindingExcess}
+                , m_fee{ other.m_fee }
+                , m_publicSenderExcess{other.m_publicSenderExcess}
+                , m_offset{other.m_offset}
                 , m_publicSenderNonce{other.m_publicSenderNonce}
                 , m_inputs{std::move(other.m_inputs)}
                 , m_outputs{std::move(other.m_outputs)}
@@ -116,8 +121,9 @@ namespace beam
 
             SERIALIZE(m_txId
                     , m_amount
-                    , m_message
-                    , m_publicSenderBlindingExcess
+                    , m_fee
+                    , m_publicSenderExcess
+                    , m_offset
                     , m_publicSenderNonce
                     , m_inputs
                     , m_outputs);

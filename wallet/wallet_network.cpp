@@ -55,11 +55,11 @@ namespace beam {
         m_reactor->stop();
     }
 
-    Uuid WalletNetworkIO::transfer_money(io::Address receiver, Amount&& amount, ByteBuffer&& message)
+    Uuid WalletNetworkIO::transfer_money(io::Address receiver, Amount&& amount, Amount&& fee, ByteBuffer&& message)
     {
         auto tag = get_connection_tag();
         m_addresses.emplace(tag, receiver);
-        return m_wallet.transfer_money(tag, move(amount), move(message));
+        return m_wallet.transfer_money(tag, move(amount), move(fee), move(message));
     }
 
     void WalletNetworkIO::connect_wallet(io::Address address, uint64_t tag, ConnectCallback&& callback)

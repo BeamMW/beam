@@ -43,6 +43,7 @@ namespace beam::wallet
             , m_fsm{std::ref(*this)}
         {
             assert(keychain);
+            m_blindingExcess = ECC::Zero;
         }
 
         Sender(sender::IGateway& gateway
@@ -52,9 +53,9 @@ namespace beam::wallet
             : Sender{ gateway , keychain, txDesc}
         {
             assert(keychain);
-            m_message = inviteMsg.m_message;
-            m_publicPeerBlindingExcess = inviteMsg.m_publicSenderBlindingExcess;
-            m_publicPeerNonce = inviteMsg.m_publicSenderNonce;
+            m_offset = inviteMsg.m_offset;
+            m_publicPeerBlindingExcess = inviteMsg.m_publicSenderExcess;
+            setPublicPeerNonce(inviteMsg.m_publicSenderNonce);
             m_transaction = std::make_shared<Transaction>();
             m_transaction->m_Offset = ECC::Zero;
             m_transaction->m_vInputs = move(inviteMsg.m_inputs);
@@ -265,6 +266,16 @@ namespace beam::wallet
         };
 
     private:
+        void createKernel(Amount fee, Height minHeight);
+        Input::Ptr createInput(const Coin& utxo);
+        Output::Ptr createOutput(Amount amount, Height height);
+        void setPublicPeerNonce(const ECC::Point& publicPeerNonce);
+        ECC::Scalar createSignature();
+        void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce);
+        ECC::Point getPublicExcess();
+        ECC::Point getPublicNonce();
+
+    private:
         using Fsm = msm::back::state_machine<FSMDefinition>;
         friend Fsm;
         
@@ -274,9 +285,9 @@ namespace beam::wallet
         TxDescription m_txDesc;
 
         ECC::Scalar::Native m_blindingExcess;
+        ECC::Scalar::Native m_offset;
         ECC::Point::Native m_publicPeerBlindingExcess;
         ECC::Point::Native m_publicPeerNonce;
-        ECC::Hash::Value m_message;
         Transaction::Ptr m_transaction;
         TxKernel::Ptr m_kernel;
 

@@ -11,80 +11,45 @@ namespace beam::wallet
     void Sender::FSMDefinition::inviteReceiver(const events::TxSend&)
     {
         LOG_INFO() << "Sending " << PrintableAmount(m_parent.m_txDesc.m_amount);
-        // 1. Create transaction Uuid
+
         InviteReceiver invitationData;
         invitationData.m_txId = m_parent.m_txDesc.m_txId;
         Height currentHeight = m_parent.m_keychain->getCurrentHeight();
 
-        auto coins = m_parent.m_keychain->getCoins(m_parent.m_txDesc.m_amount); // need to lock 
+        invitationData.m_amount = m_parent.m_txDesc.m_amount;
+        invitationData.m_fee = m_parent.m_txDesc.m_fee;
+
+        // Select inputs using desired selection strategy
+        auto coins = m_parent.m_keychain->getCoins(m_parent.m_txDesc.m_amount);
         if (coins.empty())
         {
             LOG_ERROR() << "You only have " << PrintableAmount(get_total());
             throw runtime_error("no money");
         }
-        invitationData.m_amount = m_parent.m_txDesc.m_amount;
-        
-        // create kernel
-        m_parent.m_kernel = make_unique<TxKernel>();
-        m_parent.m_kernel->m_Fee = 0;
-        m_parent.m_kernel->m_Height.m_Min = currentHeight;
-        m_parent.m_kernel->m_Height.m_Max = MaxHeight;
-
-        m_parent.m_kernel->get_HashForSigning(invitationData.m_message);
-        
-        // 2. Set lock_height for output (current chain height)
-        // 3. Select inputs using desired selection strategy
+        for (const auto& coin: coins)
         {
-            m_parent.m_blindingExcess = Zero;
-            for (const auto& coin: coins)
-            {
-                assert(coin.m_status == Coin::Locked);
-                Input::Ptr input = make_unique<Input>();
-
-                Scalar::Native key{ m_parent.m_keychain->calcKey(coin) };
-                input->m_Commitment = Commitment(key, coin.m_amount);
-
-                invitationData.m_inputs.push_back(move(input));
-                m_parent.m_blindingExcess += key;
-            }
+            invitationData.m_inputs.push_back(m_parent.createInput(coin));
         }
-        // 4. Create change_output
-        // 5. Select blinding factor for change_output
+
+        // calculate change amount and create corresponding output if needed
+        Amount change = 0;
+        for (const auto &coin : coins)
         {
-            Amount change = 0;
-            for (const auto &coin : coins)
-            {
-                change += coin.m_amount;
-            }
-
-            change -= m_parent.m_txDesc.m_amount;
-            if (change > 0)
-            {
-                auto changeCoin = beam::Coin(change, Coin::Unconfirmed, currentHeight);
-                m_parent.m_keychain->store(changeCoin);
-                Output::Ptr output = make_unique<Output>();
-                output->m_Coinbase = false;
-                Scalar::Native blindingFactor = m_parent.m_keychain->calcKey(changeCoin);
-                output->Create(blindingFactor, change);
-
-                blindingFactor = -blindingFactor;
-                m_parent.m_blindingExcess += blindingFactor;
-
-                invitationData.m_outputs.push_back(move(output));
-            }
+            change += coin.m_amount;
         }
-        // 6. calculate tx_weight
-        // 7. calculate fee
-        // 8. Calculate total blinding excess for all inputs and outputs xS
-        // 9. Select random nonce kS
-        Signature::MultiSig msig;
-		msig.GenerateNonce(invitationData.m_message, m_parent.m_blindingExcess);
-        
-        // 10. Multiply xS and kS by generator G to create public curve points xSG and kSG
-        Point::Native publicBlindingExcess = Context::get().G *m_parent.m_blindingExcess;
-        invitationData.m_publicSenderBlindingExcess = publicBlindingExcess;
+        change -= m_parent.m_txDesc.m_amount;
+        if (change > 0)
+        {
+            invitationData.m_outputs.push_back(m_parent.createOutput(change, currentHeight));
+        }
 
-        invitationData.m_publicSenderNonce = Context::get().G * msig.m_Nonce;
+        // TODO: add ability to calculate fee
+        m_parent.createKernel(m_parent.m_txDesc.m_fee, currentHeight);
+
+
+        invitationData.m_publicSenderExcess = m_parent.getPublicExcess();
+        invitationData.m_publicSenderNonce = m_parent.getPublicNonce();
+        invitationData.m_offset = m_parent.m_offset;
 
         update_tx_description(TxDescription::InProgress);
         m_parent.m_gateway.send_tx_invitation(m_parent.m_txDesc, move(invitationData));
@@ -117,30 +82,20 @@ namespace beam::wallet
 
     void Sender::FSMDefinition::confirmReceiver(const events::TxInvitationCompleted& event)
     {
+        auto& data = event.data;
+        m_parent.setPublicPeerNonce(data.m_publicPeerNonce);
         if (!isValidSignature(event))
         {
             Sender::Fsm &fsm = static_cast<Sender::Fsm&>(*this);
             fsm.process_event(events::TxFailed{true});
             return;
         }
-        auto& data = event.data;
-        // 4. Compute Sender Schnorr signature
 
+        // Compute Sender Schnorr signature
         ConfirmTransaction confirmationData;
         confirmationData.m_txId = m_parent.m_txDesc.m_txId;
-		
-        Hash::Value message;
-        m_parent.m_kernel->get_HashForSigning(message);
-		
-        Signature::MultiSig msig;
-        msig.GenerateNonce(message, m_parent.m_blindingExcess);
-        Point::Native publicNonce = Context::get().G * msig.m_Nonce;
-        msig.m_NoncePub = publicNonce + data.m_publicPeerNonce;
+        confirmationData.m_senderSignature = m_parent.createSignature();
 
-        Scalar::Native senderSignature;
-        m_parent.m_kernel->m_Signature.CoSign(senderSignature, message, m_parent.m_blindingExcess, msig);
-
-        confirmationData.m_senderSignature = senderSignature;
         update_tx_description(TxDescription::InProgress);
         m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmationData));
     }
@@ -200,7 +155,6 @@ namespace beam::wallet
 
     }
 
-
     Amount Sender::FSMDefinition::get_total() const
     {
         auto currentHeight = m_parent.m_keychain->getCurrentHeight();
@@ -226,4 +180,101 @@ namespace beam::wallet
         m_parent.m_keychain->saveTx(m_parent.m_txDesc);
     }
 
+    void Sender::createKernel(Amount fee, Height minHeight)
+    {
+        m_kernel = make_unique<TxKernel>();
+        m_kernel->m_Fee = fee;
+        m_kernel->m_Height.m_Min = minHeight;
+        m_kernel->m_Height.m_Max = MaxHeight;
+    }
+
+    Input::Ptr Sender::createInput(const Coin& utxo)
+    {
+        assert(utxo.m_status == Coin::Locked);
+        Input::Ptr input = make_unique<Input>();
+
+        Scalar::Native blindingFactor = m_keychain->calcKey(utxo);
+        input->m_Commitment = Commitment(blindingFactor, utxo.m_amount);
+
+        m_blindingExcess += blindingFactor;
+
+        return input;
+    }
+
+    Output::Ptr Sender::createOutput(Amount amount, Height height)
+    {
+        Coin newUtxo{ amount, Coin::Unconfirmed, height };
+        newUtxo.m_createTxId = m_txDesc.m_txId;
+        m_keychain->store(newUtxo);
+
+        Output::Ptr output = make_unique<Output>();
+        output->m_Coinbase = false;
+        
+        Scalar::Native blindingFactor = m_keychain->calcKey(newUtxo);
+        output->Create(blindingFactor, amount);
+        auto [privateExcess, offset] = splitKey(blindingFactor, newUtxo.m_id);
+
+        blindingFactor = -privateExcess;
+        m_blindingExcess += blindingFactor;
+        m_offset += offset;
+
+        return output;
+    }
+
+    void Sender::setPublicPeerNonce(const Point& publicPeerNonce)
+    {
+        m_publicPeerNonce = publicPeerNonce;
+    }
+
+    Scalar Sender::createSignature()
+    {
+        //assert(!(m_publicPeerNonce == Zero));
+        Hash::Value message;
+        m_kernel->get_HashForSigning(message);
+
+        Signature::MultiSig msig;
+        msig.GenerateNonce(message, m_blindingExcess);
+
+        Point::Native publicNonce = Context::get().G * msig.m_Nonce;
+        msig.m_NoncePub = m_publicPeerNonce + publicNonce;
+
+        Scalar::Native partialSignature;
+        m_kernel->m_Signature.CoSign(partialSignature, message, m_blindingExcess, msig);
+
+        return Scalar(partialSignature);
+    }
+
+    void Sender::createSignature2(ECC::Scalar& signature, ECC::Point& publicNonce)
+    {
+        assert(!(m_publicPeerNonce == Zero));
+        Hash::Value message;
+        m_kernel->get_HashForSigning(message);
+
+        Signature::MultiSig msig;
+        msig.GenerateNonce(message, m_blindingExcess);
+
+        publicNonce = Context::get().G * msig.m_Nonce;
+        msig.m_NoncePub = m_publicPeerNonce + publicNonce;
+
+        Scalar::Native partialSignature;
+        m_kernel->m_Signature.CoSign(partialSignature, message, m_blindingExcess, msig);
+
+        signature = partialSignature;
+    }
+
+    Point Sender::getPublicExcess()
+    {
+        return Point(Context::get().G * m_blindingExcess);
+    }
+
+    Point Sender::getPublicNonce()
+    {
+        Hash::Value message;
+        m_kernel->get_HashForSigning(message);
+
+        Signature::MultiSig msig;
+        msig.GenerateNonce(message, m_blindingExcess);
+
+        return Point(Context::get().G * msig.m_Nonce);
+    }
 }
