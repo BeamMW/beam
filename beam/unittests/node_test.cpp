@@ -686,10 +686,9 @@ namespace beam
 		node2.m_Cfg.m_sPathLocal = g_sz2;
 		node2.m_Cfg.m_Listen.port(Node::s_PortDefault + 1);
 		node2.m_Cfg.m_Listen.ip(INADDR_ANY);
-		node2.m_Cfg.m_Connect.resize(1);
-		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
-		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
+
+		node2.m_Cfg.m_BeaconPort = Node::s_PortDefault;
 
 		ECC::SetRandom(node.m_Cfg.m_WalletKey.V);
 		ECC::SetRandom(node2.m_Cfg.m_WalletKey.V);
