@@ -59,7 +59,7 @@ inline bool ProcessWideLock(const char* szFilePath)
 	if (-1 == hFile)
 		return false;
 
-	return !lockf(fd, F_LOCK, 0);
+	return !lockf(hFile, F_LOCK, 0);
 #endif // WIN32
 }
 
