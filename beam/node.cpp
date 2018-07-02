@@ -1,5 +1,4 @@
 #include "node.h"
-#include "node.h"
 #include "../core/serialization_adapters.h"
 #include "../core/proto.h"
 #include "../core/ecc_native.h"
@@ -1753,6 +1752,12 @@ Node::Beacon::~Beacon()
 		m_pOut->Release();
 }
 
+uint16_t Node::Beacon::get_Port()
+{
+	uint16_t nPort = get_ParentObj().m_Cfg.m_BeaconPort;
+	return nPort ? nPort : get_ParentObj().m_Cfg.m_Listen.port();
+}
+
 void Node::Beacon::Start()
 {
 	assert(!m_bRcv);
@@ -1760,14 +1765,10 @@ void Node::Beacon::Start()
 	uv_udp_init(&io::Reactor::get_Current().get_UvLoop(), &m_Udp);
 	m_Udp.data = this;
 
-	uint16_t nPort = get_ParentObj().m_Cfg.m_BeaconPort;
-	if (!nPort)
-		nPort = get_ParentObj().m_Cfg.m_Listen.port();
-
 	m_BufRcv.resize(sizeof(OutCtx::Message));
 
 	io::Address addr;
-	addr.port(nPort);
+	addr.port(get_Port());
 
 	sockaddr_in sa;
 	addr.fill_sockaddr_in(sa);
@@ -1809,7 +1810,7 @@ void Node::Beacon::OnTimer()
 			return; // send still pending
 
 	io::Address addr;
-	addr.port(get_ParentObj().m_Cfg.m_Listen.port());
+	addr.port(get_Port());
 	addr.ip(INADDR_BROADCAST);
 
 	sockaddr_in sa;

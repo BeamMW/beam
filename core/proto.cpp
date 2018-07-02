@@ -277,16 +277,26 @@ void NodeConnection::Server::Listen(const io::Address& addr)
 
 /////////////////////////
 // PeerManager
-void PeerManager::Rating::Inc(uint32_t& r, uint32_t delta)
+uint32_t PeerManager::Rating::Saturate(uint32_t v)
 {
 	// try not to take const refernce on Max, so its value can directly be substituted (otherwise gcc link error)
-	if ((r += delta) > Max)
-		r = Max;
+	return (v < Max) ? v : Max;
+}
+
+void PeerManager::Rating::Inc(uint32_t& r, uint32_t delta)
+{
+	r = Saturate(r + delta);
 }
 
 void PeerManager::Rating::Dec(uint32_t& r, uint32_t delta)
 {
 	r = (r > delta) ? (r - delta) : 1;
+}
+
+uint32_t PeerManager::PeerInfo::AdjustedRating::get() const
+{
+	AdjustedRating* p = (AdjustedRating*)this;
+	return Rating::Saturate(p->get_ParentObj().m_RawRating.m_Value + m_Increment);
 }
 
 void PeerManager::UpdateTime(Timestamp t)

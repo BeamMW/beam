@@ -295,6 +295,7 @@ namespace proto {
 			static const uint32_t PenaltyNetworkErr = 128;
 			static const uint32_t Max = 10240; // saturation
 
+			static uint32_t Saturate(uint32_t);
 			static void Inc(uint32_t& r, uint32_t delta);
 			static void Dec(uint32_t& r, uint32_t delta);
 		};
@@ -334,11 +335,7 @@ namespace proto {
 				:public boost::intrusive::set_base_hook<>
 			{
 				uint32_t m_Increment;
-				uint32_t get() const {
-					AdjustedRating* p = (AdjustedRating*)this;
-					return std::min(p->get_ParentObj().m_RawRating.m_Value + m_Increment, Rating::Max);
-				}
-
+				uint32_t get() const;
 				bool operator < (const AdjustedRating& x) const { return (get() > x.get()); } // reverse order, begin - max
 
 				IMPLEMENT_GET_PARENT_OBJ(PeerInfo, m_AdjustedRating)
