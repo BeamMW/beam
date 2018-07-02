@@ -23,45 +23,45 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 
 void TestNodeConnection::GenerateTests()
 {
-	m_Tests.push_back(std::make_pair([this]()
-	{
-		LOG_INFO() << "Run test without inputs";
+	//m_Tests.push_back(std::make_pair([this]()
+	//{
+	//	LOG_INFO() << "Run test without inputs";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+	//	m_MsgTx.m_Transaction = std::make_shared<Transaction>();
+	//	m_Offset = Zero;
 
-		// Inputs are empty
-		
-		// Outputs
-		GenerateOutputInTx(1, 1);
+	//	// Inputs are empty
+	//	
+	//	// Outputs
+	//	GenerateOutputInTx(1, 1);
 
-		// Kernels
-		GenerateKernel(1);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+	//	// Kernels
+	//	GenerateKernel(1);
+	//	m_MsgTx.m_Transaction->m_Offset = m_Offset;
+	//	m_MsgTx.m_Transaction->Sort();
 
-		Send(m_MsgTx);
-	}, false));
+	//	Send(m_MsgTx);
+	//}, false));
 
-	m_Tests.push_back(std::make_pair([this]()
-	{
-		LOG_INFO() << "Run test without outputs";
+	//m_Tests.push_back(std::make_pair([this]()
+	//{
+	//	LOG_INFO() << "Run test without outputs";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+	//	m_MsgTx.m_Transaction = std::make_shared<Transaction>();
+	//	m_Offset = Zero;
 
-		// Inputs
-		GenerateInputInTx(1, 1);
+	//	// Inputs
+	//	GenerateInputInTx(1, 1);
 
-		// Outputs are empty
+	//	// Outputs are empty
 
-		// Kernels
-		GenerateKernel(1);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+	//	// Kernels
+	//	GenerateKernel(1);
+	//	m_MsgTx.m_Transaction->m_Offset = m_Offset;
+	//	m_MsgTx.m_Transaction->Sort();
 
-		Send(m_MsgTx);
-	}, false));
+	//	Send(m_MsgTx);
+	//}, false));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
@@ -84,72 +84,72 @@ void TestNodeConnection::GenerateTests()
 		Send(m_MsgTx);
 	}, true));
 
-	m_Tests.push_back(std::make_pair([this]()
-	{
-		LOG_INFO() << "Run test with 2 inputs, 2 ouputs and 1 kernel";
+	//m_Tests.push_back(std::make_pair([this]()
+	//{
+	//	LOG_INFO() << "Run test with 2 inputs, 2 ouputs and 1 kernel";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+	//	m_MsgTx.m_Transaction = std::make_shared<Transaction>();
+	//	m_Offset = Zero;
 
-		// Inputs 
-		GenerateInputInTx(1, 1);
-		GenerateInputInTx(1, 1);
+	//	// Inputs 
+	//	GenerateInputInTx(1, 1);
+	//	GenerateInputInTx(1, 1);
 
-		// Outputs
-		GenerateOutputInTx(1, 1);
-		GenerateOutputInTx(1, 1);
+	//	// Outputs
+	//	GenerateOutputInTx(1, 1);
+	//	GenerateOutputInTx(1, 1);
 
-		// Kernels
-		GenerateKernel(1);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+	//	// Kernels
+	//	GenerateKernel(1);
+	//	m_MsgTx.m_Transaction->m_Offset = m_Offset;
+	//	m_MsgTx.m_Transaction->Sort();
 
-		Send(m_MsgTx);
-	}, true));
+	//	Send(m_MsgTx);
+	//}, true));
 
-	m_Tests.push_back(std::make_pair([this]()
-	{
-		LOG_INFO() << "Run test with 2 inputs, 1 ouputs and 1 kernel";
+	//m_Tests.push_back(std::make_pair([this]()
+	//{
+	//	LOG_INFO() << "Run test with 2 inputs, 1 ouputs and 1 kernel";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+	//	m_MsgTx.m_Transaction = std::make_shared<Transaction>();
+	//	m_Offset = Zero;
 
-		// Inputs 
-		GenerateInputInTx(1, 1);
-		GenerateInputInTx(1, 1);
+	//	// Inputs 
+	//	GenerateInputInTx(1, 1);
+	//	GenerateInputInTx(1, 1);
 
-		// Outputs
-		GenerateOutputInTx(1, 2);		
+	//	// Outputs
+	//	GenerateOutputInTx(1, 2);		
 
-		// Kernels
-		GenerateKernel(1);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+	//	// Kernels
+	//	GenerateKernel(1);
+	//	m_MsgTx.m_Transaction->m_Offset = m_Offset;
+	//	m_MsgTx.m_Transaction->Sort();
 
-		Send(m_MsgTx);
-	}, true));
+	//	Send(m_MsgTx);
+	//}, true));
 
-	m_Tests.push_back(std::make_pair([this]()
-	{
-		LOG_INFO() << "Run test with 1 inputs, 2 ouputs and 1 kernel";
+	//m_Tests.push_back(std::make_pair([this]()
+	//{
+	//	LOG_INFO() << "Run test with 1 inputs, 2 ouputs and 1 kernel";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+	//	m_MsgTx.m_Transaction = std::make_shared<Transaction>();
+	//	m_Offset = Zero;
 
-		// Inputs 
-		GenerateInputInTx(1, 2);
+	//	// Inputs 
+	//	GenerateInputInTx(1, 2);
 
-		// Outputs
-		GenerateOutputInTx(1, 1);
-		GenerateOutputInTx(1, 1);
+	//	// Outputs
+	//	GenerateOutputInTx(1, 1);
+	//	GenerateOutputInTx(1, 1);
 
-		// Kernels
-		GenerateKernel(1);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+	//	// Kernels
+	//	GenerateKernel(1);
+	//	m_MsgTx.m_Transaction->m_Offset = m_Offset;
+	//	m_MsgTx.m_Transaction->Sort();
 
-		Send(m_MsgTx);
-	}, true));
+	//	Send(m_MsgTx);
+	//}, true));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
@@ -171,7 +171,7 @@ void TestNodeConnection::GenerateTests()
 
 		Transaction::Context ctx;
 
-		LOG_INFO() << m_MsgTx.m_Transaction->IsValid(ctx);
+		LOG_INFO() << "tx.IsValid == " << m_MsgTx.m_Transaction->IsValid(ctx);
 
 		Send(m_MsgTx);
 	}, false));
@@ -187,6 +187,7 @@ int main(int argc, char* argv[])
 
 	TestNodeConnection connection(argc, argv);
 
+	connection.DisabledTimer();
 	connection.Run();
 
 	return connection.CheckOnFailed();
