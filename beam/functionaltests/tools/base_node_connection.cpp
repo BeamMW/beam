@@ -138,10 +138,13 @@ void BaseTestNodeConnection::GenerateOutputInTx(Height h, Amount v)
 	m_Offset += key;
 }
 
-void BaseTestNodeConnection::GenerateKernel(Height h)
+void BaseTestNodeConnection::GenerateKernel(Height h, Amount fee)
 {
 	TxKernel::Ptr pKrn(new TxKernel);
 	ECC::Scalar::Native key;
+
+	if (fee > 0)
+		pKrn->m_Fee = fee;
 
 	DeriveKey(key, m_Kdf, h, KeyType::Kernel);
 	pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * key);

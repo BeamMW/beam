@@ -27,7 +27,7 @@ protected:
 	
 	void GenerateInputInTx(beam::Height h, beam::Amount v);
 	void GenerateOutputInTx(beam::Height h, beam::Amount v);
-	void GenerateKernel(beam::Height h);
+	void GenerateKernel(beam::Height h, beam::Amount fee = 0);
 	
 protected:
 	bool m_WillStartTimer = true;
