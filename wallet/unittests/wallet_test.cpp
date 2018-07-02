@@ -422,7 +422,7 @@ void TestFSM()
 
     TxDescription stx = {};
     stx.m_amount = 6;
-    wallet::Sender s{ gateway, createKeychain<TestKeyChain>(), stx};
+    wallet::Negotiator s{ gateway, createKeychain<TestKeyChain>(), stx};
     s.process_event(wallet::events::TxSend());
     WALLET_CHECK(*(s.current_state()) == 3);
     s.start();
@@ -795,7 +795,7 @@ void TestSerializeFSM()
     {
         TxDescription tx = {};
         tx.m_amount = 6;
-        wallet::Sender s{ gateway, createKeychain<TestKeyChain>(), tx};
+        wallet::Negotiator s{ gateway, createKeychain<TestKeyChain>(), tx};
         WALLET_CHECK(*(s.current_state()) == 0);
         s.start();
         WALLET_CHECK(*(s.current_state()) == 1);
@@ -808,7 +808,7 @@ void TestSerializeFSM()
         Deserializer der;
         der.reset(buffer.first, buffer.second);
 
-        wallet::Sender s2{ gateway, createKeychain<TestKeyChain>(), {} };
+        wallet::Negotiator s2{ gateway, createKeychain<TestKeyChain>(), {} };
         WALLET_CHECK(*(s2.current_state()) == 0);
         der & s2;
         WALLET_CHECK(*(s2.current_state()) == 1);
@@ -829,7 +829,7 @@ void TestSerializeFSM()
         initData.m_amount = 100;
         TxDescription rtx = {};
         rtx.m_amount = 100;
-        wallet::Sender r{ gateway, createKeychain<TestKeyChain>(), rtx, initData };
+        wallet::Negotiator r{ gateway, createKeychain<TestKeyChain>(), rtx, initData };
         WALLET_CHECK(*(r.current_state()) == 0);
         r.start();
         WALLET_CHECK(*(r.current_state()) == 1);
@@ -842,7 +842,7 @@ void TestSerializeFSM()
         Deserializer der;
         der.reset(buffer.first, buffer.second);
 
-        wallet::Sender r2{ gateway, createKeychain<TestKeyChain>(), {}, initData };
+        wallet::Negotiator r2{ gateway, createKeychain<TestKeyChain>(), {}, initData };
         LOG_DEBUG() << "state = " << *(r2.current_state());
         WALLET_CHECK(*(r2.current_state()) == 0);
         der & r2;

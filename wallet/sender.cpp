@@ -8,7 +8,7 @@ namespace beam::wallet
 
     /// Sender
 
-    void Sender::FSMDefinition::inviteReceiver(const events::TxSend&)
+    void Negotiator::FSMDefinition::inviteReceiver(const events::TxSend&)
     {
         LOG_INFO() << "Sending " << PrintableAmount(m_parent.m_txDesc.m_amount);
 
@@ -55,7 +55,7 @@ namespace beam::wallet
         m_parent.m_gateway.send_tx_invitation(m_parent.m_txDesc, move(invitationData));
     }
 
-    bool Sender::FSMDefinition::isValidSignature(const events::TxInvitationCompleted& event)
+    bool Negotiator::FSMDefinition::isValidSignature(const events::TxInvitationCompleted& event)
     {
         auto& data = event.data;
         // 4. Compute Sender Schnorr signature
@@ -80,13 +80,13 @@ namespace beam::wallet
         return sigPeer.IsValidPartial(data.m_publicPeerNonce, data.m_publicPeerBlindingExcess);
     }
 
-    void Sender::FSMDefinition::confirmReceiver(const events::TxInvitationCompleted& event)
+    void Negotiator::FSMDefinition::confirmReceiver(const events::TxInvitationCompleted& event)
     {
         auto& data = event.data;
         m_parent.setPublicPeerNonce(data.m_publicPeerNonce);
         if (!isValidSignature(event))
         {
-            Sender::Fsm &fsm = static_cast<Sender::Fsm&>(*this);
+            Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
             fsm.process_event(events::TxFailed{true});
             return;
         }
@@ -101,7 +101,7 @@ namespace beam::wallet
     }
 
 
-    void Sender::FSMDefinition::confirmSenderInvitation(const events::TxSenderInvited&)
+    void Negotiator::FSMDefinition::confirmSenderInvitation(const events::TxSenderInvited&)
     {
 
     }
@@ -109,53 +109,53 @@ namespace beam::wallet
     /// Common
 
 
-    void Sender::FSMDefinition::rollbackTx(const events::TxFailed& event)
+    void Negotiator::FSMDefinition::rollbackTx(const events::TxFailed& event)
     {
         update_tx_description(TxDescription::Failed);
         rollbackTx();
         m_parent.m_gateway.send_tx_failed(m_parent.m_txDesc);
     }
 
-    void Sender::FSMDefinition::confirmOutputs(const events::TxConfirmationCompleted&)
+    void Negotiator::FSMDefinition::confirmOutputs(const events::TxConfirmationCompleted&)
     {
 
     }
 
-    void Sender::FSMDefinition::rollbackTx()
+    void Negotiator::FSMDefinition::rollbackTx()
     {
         LOG_DEBUG() << "Transaction failed. Rollback...";
         m_parent.m_keychain->rollbackTx(m_parent.m_txDesc.m_txId);
     }
 
-    void Sender::FSMDefinition::completeTx(const events::TxOutputsConfirmed&)
+    void Negotiator::FSMDefinition::completeTx(const events::TxOutputsConfirmed&)
     {
         completeTx();
     }
 
-    void Sender::FSMDefinition::completeTx(const events::TxRegistrationCompleted&)
+    void Negotiator::FSMDefinition::completeTx(const events::TxRegistrationCompleted&)
     {
         LOG_INFO() << "Transaction completed and sent to node";
         update_tx_description(TxDescription::Completed);
         m_parent.m_gateway.send_tx_registered(m_parent.m_txDesc);
     }
     
-    void Sender::FSMDefinition::completeTx(const events::TxConfirmationCompleted&)
+    void Negotiator::FSMDefinition::completeTx(const events::TxConfirmationCompleted&)
     {
         completeTx();
     }
 
-    void Sender::FSMDefinition::completeTx()
+    void Negotiator::FSMDefinition::completeTx()
     {
         LOG_DEBUG() << "Transaction completed";
         update_tx_description(TxDescription::Completed);
     }
 
-    void Sender::FSMDefinition::confirmOutputs(const events::TxRegistrationCompleted& event)
+    void Negotiator::FSMDefinition::confirmOutputs(const events::TxRegistrationCompleted& event)
     {
 
     }
 
-    Amount Sender::FSMDefinition::get_total() const
+    Amount Negotiator::FSMDefinition::get_total() const
     {
         auto currentHeight = m_parent.m_keychain->getCurrentHeight();
         Amount total = 0;
@@ -170,7 +170,7 @@ namespace beam::wallet
         return total;
     }
 
-    void Sender::FSMDefinition::update_tx_description(TxDescription::Status s)
+    void Negotiator::FSMDefinition::update_tx_description(TxDescription::Status s)
     {
         m_parent.m_txDesc.m_status = s;
         m_parent.m_txDesc.m_modifyTime = wallet::getTimestamp();
@@ -180,7 +180,7 @@ namespace beam::wallet
         m_parent.m_keychain->saveTx(m_parent.m_txDesc);
     }
 
-    void Sender::createKernel(Amount fee, Height minHeight)
+    void Negotiator::createKernel(Amount fee, Height minHeight)
     {
         m_kernel = make_unique<TxKernel>();
         m_kernel->m_Fee = fee;
@@ -188,7 +188,7 @@ namespace beam::wallet
         m_kernel->m_Height.m_Max = MaxHeight;
     }
 
-    Input::Ptr Sender::createInput(const Coin& utxo)
+    Input::Ptr Negotiator::createInput(const Coin& utxo)
     {
         assert(utxo.m_status == Coin::Locked);
         Input::Ptr input = make_unique<Input>();
@@ -201,7 +201,7 @@ namespace beam::wallet
         return input;
     }
 
-    Output::Ptr Sender::createOutput(Amount amount, Height height)
+    Output::Ptr Negotiator::createOutput(Amount amount, Height height)
     {
         Coin newUtxo{ amount, Coin::Unconfirmed, height };
         newUtxo.m_createTxId = m_txDesc.m_txId;
@@ -221,12 +221,12 @@ namespace beam::wallet
         return output;
     }
 
-    void Sender::setPublicPeerNonce(const Point& publicPeerNonce)
+    void Negotiator::setPublicPeerNonce(const Point& publicPeerNonce)
     {
         m_publicPeerNonce = publicPeerNonce;
     }
 
-    Scalar Sender::createSignature()
+    Scalar Negotiator::createSignature()
     {
         //assert(!(m_publicPeerNonce == Zero));
         Hash::Value message;
@@ -244,7 +244,7 @@ namespace beam::wallet
         return Scalar(partialSignature);
     }
 
-    void Sender::createSignature2(ECC::Scalar& signature, ECC::Point& publicNonce)
+    void Negotiator::createSignature2(ECC::Scalar& signature, ECC::Point& publicNonce)
     {
         assert(!(m_publicPeerNonce == Zero));
         Hash::Value message;
@@ -262,12 +262,12 @@ namespace beam::wallet
         signature = partialSignature;
     }
 
-    Point Sender::getPublicExcess()
+    Point Negotiator::getPublicExcess()
     {
         return Point(Context::get().G * m_blindingExcess);
     }
 
-    Point Sender::getPublicNonce()
+    Point Negotiator::getPublicNonce()
     {
         Hash::Value message;
         m_kernel->get_HashForSigning(message);

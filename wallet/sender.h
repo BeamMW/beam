@@ -29,12 +29,12 @@ namespace beam::wallet
         };
     }
 
-    class Sender
+    class Negotiator
     {
     public:
-        using Ptr = std::shared_ptr<Sender>;
+        using Ptr = std::shared_ptr<Negotiator>;
 
-        Sender(sender::IGateway& gateway
+        Negotiator(sender::IGateway& gateway
              , beam::IKeyChain::Ptr keychain
              , const TxDescription& txDesc )
             : m_gateway{gateway}
@@ -46,11 +46,11 @@ namespace beam::wallet
             m_blindingExcess = ECC::Zero;
         }
 
-        Sender(sender::IGateway& gateway
+        Negotiator(sender::IGateway& gateway
             , beam::IKeyChain::Ptr keychain
             , const TxDescription& txDesc
             , InviteReceiver& inviteMsg)
-            : Sender{ gateway , keychain, txDesc}
+            : Negotiator{ gateway , keychain, txDesc}
         {
             assert(keychain);
             m_offset = inviteMsg.m_offset;
@@ -180,7 +180,7 @@ namespace beam::wallet
                 }
             };
 
-            FSMDefinition(Sender& parent)
+            FSMDefinition(Negotiator& parent)
                 : m_parent{parent}
             {
                 update_tx_description(TxDescription::Pending);
@@ -262,7 +262,7 @@ namespace beam::wallet
        /*         ar  & m_blindingExcess
                     & m_kernel;*/
             }
-            Sender& m_parent;
+            Negotiator& m_parent;
         };
 
     private:

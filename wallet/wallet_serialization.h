@@ -12,17 +12,17 @@ namespace yas::detail
     struct serializer<type_prop::not_a_fundamental
                     , ser_method::use_internal_serializer
                     , F
-                    , beam::wallet::Sender>
+                    , beam::wallet::Negotiator>
     {
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::wallet::Sender& sender)
+        static Archive& save(Archive& ar, const beam::wallet::Negotiator& sender)
         {
-            const_cast<beam::wallet::Sender&>(sender).serialize(ar, 0);
+            const_cast<beam::wallet::Negotiator&>(sender).serialize(ar, 0);
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::wallet::Sender& sender)
+        static Archive& load(Archive& ar, beam::wallet::Negotiator& sender)
         {
             sender.serialize(ar, 0);
             return ar;
@@ -55,9 +55,9 @@ namespace yas::detail
     struct serializer<type_prop::not_a_fundamental
         , ser_method::use_internal_serializer
         , F
-        , beam::wallet::Sender::FSMDefinition>
+        , beam::wallet::Negotiator::FSMDefinition>
     {
-        using Type = beam::wallet::Sender::FSMDefinition;
+        using Type = beam::wallet::Negotiator::FSMDefinition;
         template<typename Archive>
         static Archive& save(Archive& ar, const Type& d)
         {

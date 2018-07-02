@@ -102,7 +102,7 @@ namespace beam
         template<typename Event>
         bool process_event(const Uuid& txId, Event&& event)
         {
-            Cleaner<std::vector<wallet::Sender::Ptr> > cs{ m_removed_senders };
+            Cleaner<std::vector<wallet::Negotiator::Ptr> > cs{ m_removed_senders };
             if (auto it = m_senders.find(txId); it != m_senders.end())
             {
                 return it->second->process_event(event);
@@ -113,9 +113,9 @@ namespace beam
     private:
         IKeyChain::Ptr m_keyChain;
         INetworkIO& m_network;
-        std::map<PeerId, wallet::Sender::Ptr> m_peers;
-        std::map<Uuid, wallet::Sender::Ptr>   m_senders;
-        std::vector<wallet::Sender::Ptr>      m_removed_senders;
+        std::map<PeerId, wallet::Negotiator::Ptr> m_peers;
+        std::map<Uuid, wallet::Negotiator::Ptr>   m_senders;
+        std::vector<wallet::Negotiator::Ptr>      m_removed_senders;
         TxCompletedAction m_tx_completed_action;
         std::deque<std::pair<Uuid, TransactionPtr>> m_reg_requests;
         std::vector<std::pair<Uuid, TransactionPtr>> m_pending_reg_requests;

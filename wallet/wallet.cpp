@@ -120,7 +120,7 @@ namespace beam
 
     Uuid Wallet::transfer_money(PeerId to, Amount amount, Amount fee, ByteBuffer&& message)
     {
-        Cleaner<std::vector<wallet::Sender::Ptr> > c{ m_removed_senders };
+        Cleaner<std::vector<wallet::Negotiator::Ptr> > c{ m_removed_senders };
 		boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId{};
         copy(id.begin(), id.end(), txId.begin());
@@ -209,7 +209,7 @@ namespace beam
             LOG_VERBOSE() << ReceiverPrefix << "Received tx invitation " << msg.m_txId;
 
             TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, from, {}, wallet::getTimestamp(), false };
-            auto r = make_shared<Sender>(*this, m_keyChain, tx, move(msg));
+            auto r = make_shared<Negotiator>(*this, m_keyChain, tx, move(msg));
             m_senders.emplace(tx.m_txId, r);
             m_peers.emplace(tx.m_peerId, r);
             if (m_synchronized)
@@ -476,7 +476,7 @@ namespace beam
                 m_knownStateID = m_newStateID;
                 if (!m_pendingEvents.empty())
                 {
-                    Cleaner<std::vector<wallet::Sender::Ptr> > cr{ m_removed_senders };
+                    Cleaner<std::vector<wallet::Negotiator::Ptr> > cr{ m_removed_senders };
                     for (auto& cb : m_pendingEvents)
                     {
                         cb();
@@ -510,7 +510,7 @@ namespace beam
 
     void Wallet::resume_sender(const TxDescription& tx)
     {
-        auto s = make_shared<Sender>(*this, m_keyChain, tx);
+        auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
         m_senders.emplace(tx.m_txId, s);
         m_peers.emplace(tx.m_peerId, s);
         

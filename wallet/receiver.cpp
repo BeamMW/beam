@@ -7,7 +7,7 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
-    void Sender::FSMDefinition::confirmReceiverInvitation(const events::TxReceiverInvited& event)
+    void Negotiator::FSMDefinition::confirmReceiverInvitation(const events::TxReceiverInvited& event)
     {
         update_tx_description(TxDescription::Pending);
 
@@ -38,7 +38,7 @@ namespace beam::wallet
         m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmationData));
     }
 
-    bool Sender::FSMDefinition::isValidSignature(const events::TxConfirmationCompleted& event)
+    bool Negotiator::FSMDefinition::isValidSignature(const events::TxConfirmationCompleted& event)
     {
         // Verify sender's Schnor signature
         auto& data = event.data;
@@ -48,11 +48,11 @@ namespace beam::wallet
         return sigPeer.IsValidPartial(m_parent.m_publicPeerNonce, m_parent.m_publicPeerBlindingExcess);
     }
 
-    void Sender::FSMDefinition::registerTx(const events::TxConfirmationCompleted& event)
+    void Negotiator::FSMDefinition::registerTx(const events::TxConfirmationCompleted& event)
     {
         if (!isValidSignature(event))
         {
-            Sender::Fsm &fsm = static_cast<Sender::Fsm&>(*this);
+            Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
             fsm.process_event(events::TxFailed{ true });
             return;
         }
@@ -82,12 +82,12 @@ namespace beam::wallet
         m_parent.m_gateway.register_tx(m_parent.m_txDesc, m_parent.m_transaction);
     }
 
-    void Sender::FSMDefinition::inviteSender(const events::TxBill&)
+    void Negotiator::FSMDefinition::inviteSender(const events::TxBill&)
     {
 
     }
 
-    void Sender::FSMDefinition::confirmSender(const events::TxInvitationCompleted&)
+    void Negotiator::FSMDefinition::confirmSender(const events::TxInvitationCompleted&)
     {
 
     }
