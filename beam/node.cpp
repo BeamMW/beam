@@ -635,7 +635,7 @@ void Node::Peer::DeleteSelf(bool bIsError, bool bIsBan)
 {
 	LOG_INFO() << "-Peer " << m_RemoteAddr;
 
-	ZeroObject(m_Config); // prevent reassigning the tasks
+	m_TipHeight = 0; // prevent reassigning the tasks
 
 	ReleaseTasks();
 
