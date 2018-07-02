@@ -5,6 +5,7 @@
 #include "../node_processor.h"
 #include "../../core/block_crypt.h"
 #include "../../utility/serialize.h"
+#include "../../utility/test_helpers.h"
 #include "../../core/serialization_adapters.h"
 
 #define LOG_VERBOSE_ENABLED 0
@@ -1023,6 +1024,11 @@ namespace beam
 int main()
 {
 //	auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+
+	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
+	//	.db files
+	//	ports, wrong beacon and etc.
+	verify_test(beam::helpers::ProcessWideLock("/tmp/BEAM_node_test_lock"));
 
 	beam::Rules::get().FakePoW = true;
 	beam::Rules::get().UpdateChecksum();
