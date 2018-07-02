@@ -23,6 +23,8 @@ struct Node
         ECC::NoLeak<ECC::uintBig> m_WalletKey;
 		NodeProcessor::Horizon m_Horizon;
 
+		bool m_RestrictMinedReportToOwner = false; // TODO: turn this ON once wallet supports this
+
 		struct Timeout {
 			uint32_t m_Reconnect_ms	= 1000;
 			uint32_t m_Insane_ms	= 1000 * 3600; // 1 hour
@@ -59,6 +61,11 @@ struct Node
 		} m_TestMode;
 
 		std::vector<Block::Body> m_vTreasury;
+
+		Config()
+		{
+			m_WalletKey.V = ECC::Zero;
+		}
 
 	} m_Cfg; // must not be changed after initialization
 
@@ -212,7 +219,10 @@ private:
 		// proto::NodeConnection
 		virtual void OnConnected() override;
 		virtual void OnClosed(int errorCode) override;
+		virtual void get_MyID(ECC::Scalar::Native&); // by default no-ID (secure channel, but no authentication)
+		virtual void GenerateSChannelNonce(ECC::Scalar&); // Must be overridden to support SChannel
 		// messages
+		virtual void OnMsg(proto::SChannelAuthentication&&) override;
 		virtual void OnMsg(proto::Config&&) override;
 		virtual void OnMsg(proto::Ping&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;
@@ -232,6 +242,8 @@ private:
 
 	typedef boost::intrusive::list<Peer> PeerList;
 	PeerList m_lstPeers;
+
+	ECC::NoLeak<ECC::uintBig> m_SChannelSeed;
 
 	Peer* AllocPeer();
 	void DeletePeer(Peer*);

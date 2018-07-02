@@ -691,8 +691,8 @@ namespace beam
 		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
 
-		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
-		ECC::SetRandom(node2.get_Processor().m_Kdf.m_Secret.V);
+		ECC::SetRandom(node.m_Cfg.m_WalletKey.V);
+		ECC::SetRandom(node2.m_Cfg.m_WalletKey.V);
 
 		node.Initialize();
 		node2.Initialize();
@@ -806,8 +806,9 @@ namespace beam
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
+		node.m_Cfg.m_RestrictMinedReportToOwner = true;
 
-		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
+		ECC::SetRandom(node.m_Cfg.m_WalletKey.V);
 
 		node.m_Cfg.m_Horizon.m_Branching = 6;
 		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
@@ -832,6 +833,22 @@ namespace beam
 
 			virtual void OnConnected() override {
 				SetTimer(90*1000);
+				SecureConnect();
+			}
+
+			void get_MyID(ECC::Scalar::Native& sk) override
+			{
+				DeriveKey(sk, m_Wallet.m_Kdf, 0, KeyType::Identity);
+			}
+
+			void GenerateSChannelNonce(ECC::Scalar& nonce) override
+			{
+				ECC::SetRandom(nonce.m_Value);
+			}
+
+			virtual void OnMsg(proto::SChannelAuthentication&& msg) override {
+				proto::NodeConnection::OnMsg(std::move(msg));
+				// by now the secure channel is established
 
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
@@ -860,6 +877,10 @@ namespace beam
 
 				if (msg.m_ID.m_Height >= m_HeightTrg)
 					io::Reactor::get_Current().stop();
+
+				proto::GetMined msgOut;
+				msgOut.m_HeightMin = 0;
+				Send(msgOut);
 			}
 
 			virtual void OnMsg(proto::Hdr&& msg) override
@@ -954,7 +975,7 @@ namespace beam
 		};
 
 		MyClient cl;
-		cl.m_Wallet.m_Kdf = node.get_Processor().m_Kdf; // same key gen
+		cl.m_Wallet.m_Kdf.m_Secret = node.m_Cfg.m_WalletKey; // same key gen
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");

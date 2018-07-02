@@ -1,4 +1,5 @@
 #include "node.h"
+#include "node.h"
 #include "../core/serialization_adapters.h"
 #include "../core/proto.h"
 #include "../core/ecc_native.h"
@@ -404,6 +405,8 @@ void Node::Initialize()
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
     m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
 
+	m_SChannelSeed.V = ECC::Zero;
+
 	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
 
 	if (m_Cfg.m_VerificationThreads < 0)
@@ -552,6 +555,27 @@ void Node::Peer::OnTimer()
 	}
 }
 
+void Node::Peer::get_MyID(ECC::Scalar::Native& sk)
+{
+	ECC::Kdf& kdf = m_pThis->m_Processor.m_Kdf;
+
+	if (kdf.m_Secret.V == ECC::Zero)
+		sk = ECC::Zero;
+	else
+		DeriveKey(sk, kdf, 0, KeyType::Identity);
+}
+
+void Node::Peer::GenerateSChannelNonce(ECC::Scalar& nonce)
+{
+	ECC::uintBig& hv = m_pThis->m_SChannelSeed.V; // alias
+
+	ECC::Hash::Processor() << "sch.nonce" << hv << GetTime_ms() >> hv;
+
+	ECC::Scalar::Native k;
+	k.GenerateNonce(m_pThis->m_Cfg.m_WalletKey.V, hv, NULL);
+	nonce = k;
+}
+
 void Node::Peer::OnConnected()
 {
 	m_RemoteAddr = get_Connection()->peer_address();
@@ -579,6 +603,12 @@ void Node::Peer::OnConnected()
 		msg.m_ID = m_pThis->m_Processor.m_Cursor.m_ID;
 		Send(msg);
 	}
+}
+
+void Node::Peer::OnMsg(proto::SChannelAuthentication&& msg)
+{
+	proto::NodeConnection::OnMsg(std::move(msg));
+	LOG_INFO() << "Peer " << m_RemoteAddr << " SChannel. RemoteID=" << msg.m_MyID;
 }
 
 void Node::Peer::OnClosed(int errorCode)
@@ -966,7 +996,22 @@ void Node::Peer::OnMsg(proto::GetTransaction&& msg)
 
 void Node::Peer::OnMsg(proto::GetMined&& msg)
 {
-	// TODO: report this only to authenticated users over secure channel
+	if (m_pThis->m_Cfg.m_RestrictMinedReportToOwner)
+	{
+		// Who's asking?
+		const ECC::Point* pID = get_RemoteID();
+		if (!pID)
+			ThrowUnexpected();
+
+		ECC::Scalar::Native sk;
+		get_MyID(sk);
+		ECC::Point myID;
+		myID = ECC::Context::get().G * sk;
+
+		if (!(myID == *pID))
+			ThrowUnexpected(); // unauthorized
+	}
+
 	proto::Mined msgOut;
 
 	NodeDB& db = m_pThis->m_Processor.get_DB();
