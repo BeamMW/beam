@@ -12,65 +12,44 @@ using namespace ECC;
 class TestNodeConnection : public BaseTestNodeConnection
 {
 public:
-	TestNodeConnection(int argc, char* argv[], int h);
-	void BeforeConnection(Height h);
+	TestNodeConnection(int argc, char* argv[]);
 private:
 	
 	void GenerateTests() override;
-
-private:
-	int m_H;
 };
 
-TestNodeConnection::TestNodeConnection(int argc, char* argv[], int h)
+TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	: BaseTestNodeConnection(argc, argv)
-	, m_H(h)
 {
-}
-
-void TestNodeConnection::BeforeConnection(Height h)
-{
-	m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-	m_Offset = Zero;
-
-	Amount amount = 5000;
-
-	// Inputs
-	GenerateInputInTx(h, amount);
-
-	// Outputs
-	for (Amount i = 0; i < amount; ++i)
-	{
-		GenerateOutputInTx(h, 1);
-	}
-
-	// Kernels
-	GenerateKernel(h);
-
-	m_MsgTx.m_Transaction->m_Offset = m_Offset;
-	m_MsgTx.m_Transaction->Sort();
 }
 
 void TestNodeConnection::GenerateTests()
 {
-	for (int i = 0; i < 10; ++i)
+	m_Tests.push_back(std::make_pair([this]()
 	{
-		m_Tests.push_back(std::make_pair([this, i]()
+		LOG_INFO() << "Send big transaction";
+		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
+		m_Offset = Zero;
+
+		Amount amount = 20000;
+
+		// Inputs
+		GenerateInputInTx(1, amount);
+
+		// Outputs
+		for (Amount i = 0; i < amount; ++i)
 		{
-			LOG_INFO() << "Send big transaction";
-			BeforeConnection(100 * (m_H + 2) + i);
+			GenerateOutputInTx(1, 1);
+		}
 
-			Send(m_MsgTx);
-		}, false));
-	}
-}
+		// Kernels
+		GenerateKernel(1);
 
-void SendData(int argc, char* argv[], int h)
-{
-	TestNodeConnection connection(argc, argv, h);
+		m_MsgTx.m_Transaction->m_Offset = m_Offset;
+		m_MsgTx.m_Transaction->Sort();
 
-	connection.DisabledTimer();
-	connection.Run();
+		Send(m_MsgTx);
+	}, false));
 }
 
 int main(int argc, char* argv[])
@@ -80,15 +59,11 @@ int main(int argc, char* argv[])
 	logLevel = LOG_LEVEL_VERBOSE;
 #endif
 	auto logger = Logger::create(logLevel, logLevel);
-	std::vector<std::future<void>> futures;
 
-	for (int i = 0; i < 20; i++)
-	{
-		futures.push_back(std::async(SendData, argc, argv, i));
-	}
+	TestNodeConnection connection(argc, argv);
 
-	for (auto &f : futures)
-	{
-		f.get();
-	}
+	connection.DisabledTimer();
+	connection.Run();
+
+	return connection.CheckOnFailed();	
 }
