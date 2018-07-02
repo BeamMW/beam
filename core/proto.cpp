@@ -297,8 +297,7 @@ void PeerManager::Rating::Dec(uint32_t& r, uint32_t delta)
 
 uint32_t PeerManager::PeerInfo::AdjustedRating::get() const
 {
-	AdjustedRating* p = (AdjustedRating*)this;
-	return Rating::Saturate(p->get_ParentObj().m_RawRating.m_Value + m_Increment);
+	return Rating::Saturate(get_ParentObj().m_RawRating.m_Value + m_Increment);
 }
 
 void PeerManager::Update()
