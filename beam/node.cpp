@@ -22,9 +22,9 @@ void Node::RefreshCongestions()
 
 	for (TaskList::iterator it = m_lstTasksUnassigned.begin(); m_lstTasksUnassigned.end() != it; )
 	{
-		TaskList::iterator itThis = it++;
-		if (!itThis->m_bRelevant)
-			DeleteUnassignedTask(*itThis);
+		Task& t = *(it++);
+		if (!t.m_bRelevant)
+			DeleteUnassignedTask(t);
 	}
 }
 
@@ -304,9 +304,7 @@ void Node::Processor::OnNewState()
 
 	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
 	{
-		PeerList::iterator itThis = it;
-		it++;
-		Peer& peer = *itThis;
+		Peer& peer = *(it++);
 
 		try {
 			if (peer.m_bConnected && (peer.m_TipHeight <= msg.m_ID.m_Height))
@@ -576,9 +574,6 @@ Node::~Node()
 
 	assert(m_setTasks.empty());
 
-	while (!m_Wtx.m_lst.empty())
-		m_Wtx.Delete(m_Wtx.m_lst.back());
-
 	Processor::Verifier& v = m_Processor.m_Verifier; // alias
 	if (!v.m_vThreads.empty())
 	{
@@ -759,8 +754,7 @@ void Node::Peer::TakeTasks()
 {
 	for (TaskList::iterator it = m_pThis->m_lstTasksUnassigned.begin(); m_pThis->m_lstTasksUnassigned.end() != it; )
 	{
-		Task& t = *it;
-		it++;
+		Task& t = *(it++);
 
 		if (m_pThis->ShouldAssignTask(t, *this))
 			m_pThis->AssignTask(t, *this);
@@ -959,7 +953,7 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 
 			for (PeerList::iterator it = m_pThis->m_lstPeers.begin(); m_pThis->m_lstPeers.end() != it; )
 			{
-				Peer& peer = *it++;
+				Peer& peer = *(it++);
 				if (this == &peer)
 					continue;
 				if (!peer.m_Config.m_SpreadingTransactions)
