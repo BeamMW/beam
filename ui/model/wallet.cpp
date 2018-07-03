@@ -58,7 +58,7 @@ private:
 WalletModel::WalletModel(IKeyChain::Ptr keychain)
 	: _keychain(keychain)
 {
-	qRegisterMetaType<Amount>("Amount");
+	qRegisterMetaType<Amount>("beam::Amount");
 }
 
 WalletModel::~WalletModel()

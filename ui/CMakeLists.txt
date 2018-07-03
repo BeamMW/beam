@@ -13,7 +13,8 @@ if(MSVC)
 		set(SYSTEM_TYPE WIN32)
 	endif()	
 elseif(APPLE)
-	set(SYSTEM_TYPE MACOSX_BUNDLE)
+# TODO: uncomment this later
+#	set(SYSTEM_TYPE MACOSX_BUNDLE)
 endif()
 
 qtquick_compiler_add_resources(QT_RESOURCES view/qml.qrc)
