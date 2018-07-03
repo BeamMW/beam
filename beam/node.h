@@ -142,31 +142,48 @@ private:
 	void AssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
 
-	struct WantedTx
+	struct Wanted
 	{
-		struct Node
+		typedef ECC::Hash::Value KeyType;
+
+		struct Item
 			:public boost::intrusive::set_base_hook<>
 			,public boost::intrusive::list_base_hook<>
 		{
-			Transaction::KeyType m_Key;
+			KeyType m_Key;
 			uint32_t m_Advertised_ms;
 
-			bool operator < (const Node& n) const { return (m_Key < n.m_Key); }
+			bool operator < (const Item& n) const { return (m_Key < n.m_Key); }
 		};
 
-		typedef boost::intrusive::list<Node> List;
-		typedef boost::intrusive::multiset<Node> Set;
+		typedef boost::intrusive::list<Item> List;
+		typedef boost::intrusive::multiset<Item> Set;
 
 		List m_lst;
 		Set m_set;
-
-		void Delete(Node&);
-
 		io::Timer::Ptr m_pTimer;
+		uint32_t m_Timeout_ms = 0;
+
+		void Delete(Item&);
+		void DeleteInternal(Item&);
+		void Clear();
 		void SetTimer();
 		void OnTimer();
+		bool Add(const KeyType&);
+		bool Delete(const KeyType&);
 
-		IMPLEMENT_GET_PARENT_OBJ(beam::Node, m_Wtx)
+		~Wanted() { Clear(); }
+
+		virtual uint32_t get_Timeout_ms() = 0;
+		virtual void OnExpired(const KeyType&) = 0;
+	};
+
+	struct WantedTx :public Wanted {
+		// Wanted
+		virtual uint32_t get_Timeout_ms() override;
+		virtual void OnExpired(const KeyType&) override;
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Wtx)
 	} m_Wtx;
 
 	struct PeerMan

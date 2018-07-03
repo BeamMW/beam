@@ -36,19 +36,89 @@ void Node::DeleteUnassignedTask(Task& t)
 	delete &t;
 }
 
-void Node::WantedTx::Delete(Node& n)
+uint32_t Node::WantedTx::get_Timeout_ms()
 {
-	bool bFront = (&m_lst.front() == &n);
+	return get_ParentObj().m_Cfg.m_Timeout.m_GetTx_ms;
+}
 
+void Node::WantedTx::OnExpired(const KeyType& key)
+{
+	proto::GetTransaction msg;
+	msg.m_ID = key;
+
+	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
+	{
+		Peer& peer = *(it++);
+
+		if (peer.m_Config.m_SpreadingTransactions)
+			try {
+			peer.Send(msg);
+		}
+		catch (...) {
+			peer.DeleteSelf(true, false);
+		}
+	}
+}
+
+void Node::Wanted::Clear()
+{
+	while (!m_lst.empty())
+		DeleteInternal(m_lst.back());
+}
+
+void Node::Wanted::DeleteInternal(Item& n)
+{
 	m_lst.erase(List::s_iterator_to(n));
 	m_set.erase(Set::s_iterator_to(n));
 	delete &n;
+}
+
+void Node::Wanted::Delete(Item& n)
+{
+	bool bFront = (&m_lst.front() == &n);
+	DeleteInternal(n);
 
 	if (bFront)
 		SetTimer();
 }
 
-void Node::WantedTx::SetTimer()
+bool Node::Wanted::Delete(const KeyType& key)
+{
+	Item n;
+	n.m_Key = key;
+
+	Set::iterator it = m_set.find(n);
+	if (m_set.end() == it)
+		return false;
+		
+	Delete(*it);
+	return true;
+}
+
+bool Node::Wanted::Add(const KeyType& key)
+{
+	Item n;
+	n.m_Key = key;
+	Set::iterator it = m_set.find(n);
+	if (m_set.end() != it)
+		return false; // already waiting for it
+
+	bool bEmpty = m_lst.empty();
+
+	Item* p = new Item;
+	p->m_Key = key;
+	p->m_Advertised_ms = GetTime_ms();
+
+	m_set.insert(*p);
+	m_lst.push_back(*p);
+
+	if (bEmpty)
+		SetTimer();
+
+	return true;
+}
+
+void Node::Wanted::SetTimer()
 {
 	if (m_lst.empty())
 	{
@@ -61,43 +131,25 @@ void Node::WantedTx::SetTimer()
 			m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
 
 		uint32_t dt = GetTime_ms() - m_lst.front().m_Advertised_ms;
-		const uint32_t timeout_ms = get_ParentObj().m_Cfg.m_Timeout.m_GetTx_ms;
+		const uint32_t timeout_ms = get_Timeout_ms();
 
 		m_pTimer->start((timeout_ms > dt) ? (timeout_ms - dt) : 0, false, [this]() { OnTimer(); });
 	}
 }
 
-void Node::WantedTx::OnTimer()
+void Node::Wanted::OnTimer()
 {
 	uint32_t t_ms = GetTime_ms();
-	const uint32_t timeout_ms = get_ParentObj().m_Cfg.m_Timeout.m_GetTx_ms;
+	const uint32_t timeout_ms = get_Timeout_ms();
 
 	while (!m_lst.empty())
 	{
-		Node& n = m_lst.front();
+		Item& n = m_lst.front();
 		if (t_ms - n.m_Advertised_ms < timeout_ms)
 			break;
 
-		// timeout expired. Ask from all
-		proto::GetTransaction msg;
-		msg.m_ID = n.m_Key;
-
+		OnExpired(n.m_Key); // should not invalidate our structure
 		Delete(n); // will also reschedule the timer
-
-		for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
-		{
-			PeerList::iterator itThis = it;
-			it++;
-			Peer& peer = *itThis;
-
-			if (peer.m_Config.m_SpreadingTransactions)
-				try {
-					peer.Send(msg);
-				}
-				catch (...) {
-					peer.DeleteSelf(true, false);
-				}
-		}
 	}
 }
 
@@ -862,12 +914,7 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 	NodeProcessor::TxPool::TxSet::iterator it = m_pThis->m_TxPool.m_setTxs.find(key);
 	if (m_pThis->m_TxPool.m_setTxs.end() == it)
 	{
-		WantedTx::Node wtxn;
-		wtxn.m_Key = key.m_Key;
-
-		WantedTx::Set::iterator it2 = m_pThis->m_Wtx.m_set.find(wtxn);
-		if (m_pThis->m_Wtx.m_set.end() != it2)
-			m_pThis->m_Wtx.Delete(*it2);
+		m_pThis->m_Wtx.Delete(key.m_Key);
 
 		// new transaction
 		const Transaction& tx = *msg.m_Transaction;
@@ -988,23 +1035,8 @@ void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
 	if (m_pThis->m_TxPool.m_setTxs.end() != it)
 		return; // already have it
 
-	WantedTx::Node wtxn;
-	wtxn.m_Key = msg.m_ID;
-	WantedTx::Set::iterator it2 = m_pThis->m_Wtx.m_set.find(wtxn);
-	if (m_pThis->m_Wtx.m_set.end() != it2)
+	if (!m_pThis->m_Wtx.Add(key.m_Key))
 		return; // already waiting for it
-
-	bool bEmpty = m_pThis->m_Wtx.m_lst.empty();
-
-	WantedTx::Node* pWtxn = new WantedTx::Node;
-	pWtxn->m_Key = msg.m_ID;
-	pWtxn->m_Advertised_ms = GetTime_ms();
-
-	m_pThis->m_Wtx.m_set.insert(*pWtxn);
-	m_pThis->m_Wtx.m_lst.push_back(*pWtxn);
-
-	if (bEmpty)
-		m_pThis->m_Wtx.SetTimer();
 
 	proto::GetTransaction msgOut;
 	msgOut.m_ID = msg.m_ID;
