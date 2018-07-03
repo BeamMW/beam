@@ -3,6 +3,7 @@
 #include "../block_crypt.h"
 #include "../utility/serialize.h"
 #include "../core/serialization_adapters.h"
+#include "../tiny-AES/aes.hpp"
 
 #include "secp256k1-zkp/include/secp256k1_rangeproof.h" // For benchmark comparison with secp256k1
 void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a);
@@ -1120,6 +1121,25 @@ void RunBenchmark()
 			{
 				Oracle oracle;
 				bp.IsValid(comm, oracle);
+			}
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		AES_StreamCipher asc;;
+		asc.Init(hv.m_pData);
+
+		uint8_t pBuf[0x400];
+
+		BenchmarkMeter bm("AES.XCrypt-1MB");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+			{
+				for (size_t nSize = 0; nSize < 0x100000; nSize += sizeof(pBuf))
+					asc.XCrypt(pBuf, sizeof(pBuf));
 			}
 
 		} while (bm.ShouldContinue());
