@@ -157,5 +157,5 @@ QVariant WalletViewModel::tx() const
 
 void WalletViewModel::sendMoney()
 {
-	
+	_model.async->sendMoney();
 }

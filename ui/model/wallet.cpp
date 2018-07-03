@@ -1,9 +1,11 @@
 #include "wallet.h"
 #include "utility/logger.h"
+#include "utility/io/asyncevent.h"
 
 namespace
 {
 	using namespace beam;
+	using namespace beam::io;
 
 	// taken from beam.cpp
 	// TODO: move 'getAvailable' to one place
@@ -29,19 +31,43 @@ namespace
 	}
 }
 
-WalletModel::WalletModel(beam::IKeyChain::Ptr keychain)
+struct WalletModelAsync : IWalletModelAsync
+{
+	WalletModelAsync(Reactor::Ptr reactor, std::shared_ptr<WalletNetworkIO> wallet_io)
+		: _reactor(reactor) 
+		, _wallet_io(wallet_io)
+	{}
+
+	void sendMoney() override
+	{
+		_sendMoneyEvent = AsyncEvent::create(_reactor, [&]()
+			{
+				LOG_INFO() << "sendMoney event triggered";
+
+				//_wallet_io.transfer_money(receiverAddr, move(amount), {});
+			}
+		);
+
+		_sendMoneyEvent->trigger();
+	}
+private:
+	Reactor::Ptr _reactor;
+	std::shared_ptr<WalletNetworkIO> _wallet_io;
+
+	AsyncEvent::Ptr _sendMoneyEvent;
+};
+
+WalletModel::WalletModel(IKeyChain::Ptr keychain)
 	: _keychain(keychain)
 {
-	qRegisterMetaType<beam::Amount>("beam::Amount");
+	qRegisterMetaType<Amount>("Amount");
 }
 
 WalletModel::~WalletModel()
 {
-	auto wallet_io = _wallet_io.lock();
-
-	if (wallet_io)
+	if (_wallet_io)
 	{
-		wallet_io->stop();
+		_wallet_io->stop();
 		wait();
 	}
 }
@@ -55,25 +81,25 @@ void WalletModel::run()
 		// TODO: read this from the config
 		Rules::FakePoW = true;
 
-		beam::io::Reactor::Ptr reactor(io::Reactor::create());
+		_reactor = Reactor::create();
 
 		// TODO: move port/addr to the config?
 		int port = 10000;
-		io::Address node_addr;
+		Address node_addr;
 
 		if(node_addr.resolve("127.0.0.1:9999"))
 		{
-			auto wallet_io = std::make_shared<WalletNetworkIO>( io::Address().ip(INADDR_ANY).port(port)
+			_wallet_io = std::make_shared<WalletNetworkIO>( Address().ip(INADDR_ANY).port(port)
 				, node_addr
 				, true
 				, _keychain
-				, reactor);
+				, _reactor);
 
-			_wallet_io = wallet_io;
+			async = std::make_shared<WalletModelAsync>(_reactor, _wallet_io);
 
 			struct KeychainSubscriber
 			{
-				KeychainSubscriber(IKeyChainObserver* client, beam::IKeyChain::Ptr keychain)
+				KeychainSubscriber(IKeyChainObserver* client, IKeyChain::Ptr keychain)
 					: _client(client)
 					, _keychain(keychain)
 				{
@@ -91,7 +117,7 @@ void WalletModel::run()
 
 			KeychainSubscriber subscriber(this, _keychain);
 
-			wallet_io->start();
+			_wallet_io->start();
 		}
 		else
 		{

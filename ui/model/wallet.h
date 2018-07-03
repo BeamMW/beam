@@ -7,6 +7,15 @@
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
 
+struct IWalletModelAsync
+{
+	using Ptr = std::shared_ptr<IWalletModelAsync>;
+
+	virtual void sendMoney() = 0;
+
+	virtual ~IWalletModelAsync() {}
+};
+
 class WalletModel 
 	: public QThread
 	, private beam::IKeyChainObserver
@@ -18,6 +27,9 @@ public:
 
 	void run() override;
 
+public:
+	IWalletModelAsync::Ptr async;
+
 signals:
 	void onStatus(const beam::Amount& amount);
 
@@ -27,5 +39,6 @@ private:
 private:
 
 	beam::IKeyChain::Ptr _keychain;
-	std::weak_ptr<beam::WalletNetworkIO> _wallet_io;
+	beam::io::Reactor::Ptr _reactor;
+	std::shared_ptr<beam::WalletNetworkIO> _wallet_io;
 };
