@@ -1,5 +1,7 @@
 #include "wallet.h"
 
+#include <QMessageBox>
+
 using namespace beam;
 
 TxObject::TxObject(const QString& dateVal
@@ -157,5 +159,12 @@ QVariant WalletViewModel::tx() const
 
 void WalletViewModel::sendMoney()
 {
-	_model.async->sendMoney();
+	io::Address receiverAddr;
+	
+	if (receiverAddr.resolve(_receiverAddr.c_str()))
+	{
+		// TODO: show 'operation in process' animation here?
+		_model.async->sendMoney(receiverAddr, std::move(_sendAmount));
+	}
+	else QMessageBox::critical(0, "Error", (std::string("unable to resolve receiver address: ") + _receiverAddr).c_str(), QMessageBox::Ok);
 }
