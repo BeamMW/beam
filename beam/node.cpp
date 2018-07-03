@@ -1,4 +1,5 @@
 #include "node.h"
+#include <random>
 #include "../core/serialization_adapters.h"
 #include "../core/proto.h"
 #include "../core/ecc_native.h"
@@ -384,13 +385,14 @@ void Node::Initialize()
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
     m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
 
-	m_SChannelSeed.V = ECC::Zero;
+	std::random_device rd;
+	m_SChannelSeed.V = rd(); // short, but ok, since it's re-hashed before using every time
 
 	NodeDB::Blob blob(m_MyID.m_pData, sizeof(m_MyID.m_pData));
 
 	if (!m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob))
 	{
-		ECC::Hash::Processor() << "myid" << GetTime_ms() >> m_MyID;
+		ECC::Hash::Processor() << "myid" << rd() >> m_MyID;
 
 		ECC::Scalar::Native k;
 		k.GenerateNonce(m_Cfg.m_WalletKey.V, m_MyID, NULL);
