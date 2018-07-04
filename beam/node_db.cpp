@@ -204,11 +204,21 @@ void NodeDB::Recordset::get(int col, ByteBuffer& x)
 {
 	Blob b;
 	get(col, b);
+	b.Export(x);
+}
 
-	if (b.n)
+NodeDB::Blob::Blob(const ByteBuffer& bb)
+{
+	if ((n = (uint32_t)bb.size()))
+		p = &bb.at(0);
+}
+
+void NodeDB::Blob::Export(ByteBuffer& x) const
+{
+	if (n)
 	{
-		x.resize(b.n);
-		memcpy(&x.at(0), b.p, b.n);
+		x.resize(n);
+		memcpy(&x.at(0), p, n);
 	} else
 		x.clear();
 }

@@ -52,11 +52,11 @@ void Node::WantedTx::OnExpired(const KeyType& key)
 
 		if (peer.m_Config.m_SpreadingTransactions)
 			try {
-			peer.Send(msg);
-		}
-		catch (...) {
-			peer.DeleteSelf(true, false);
-		}
+				peer.Send(msg);
+			}
+			catch (...) {
+				peer.DeleteSelf(true, false);
+			}
 	}
 }
 
