@@ -266,7 +266,7 @@ bool Node::ShouldAssignTask(Task& t, Peer& p)
 		return false;
 
 	// Current design: don't ask anything from non-authenticated peers
-	if (!p.m_bPiRcvd)
+	if (!(p.m_bPiRcvd && p.m_pInfo))
 		return false;
 
 	// check if the peer currently transfers a block
@@ -897,10 +897,9 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	if (id != t.m_Key.first)
 		ThrowUnexpected();
 
-	if (m_pInfo)
-		m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true);
+	assert(m_bPiRcvd && m_pInfo);
+	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true);
 
-	assert(m_pInfo);
 	NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnState(msg.m_Description, m_pInfo->m_ID.m_Key);
 	OnFirstTaskDone(eStatus);
 }
@@ -933,8 +932,8 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	if (!t.m_Key.second)
 		ThrowUnexpected();
 
-	if (m_pInfo)
-		m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
+	assert(m_bPiRcvd && m_pInfo);
+	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
 
 	const Block::SystemState::ID& id = t.m_Key.first;
 
@@ -1325,6 +1324,12 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 		m_pInfo = NULL;
 	}
 
+	if (!msg.m_Port)
+	{
+		LOG_INFO() << "No PI port"; // doesn't accept incoming connections?
+		return;
+	}
+
 	io::Address addr = m_RemoteAddr;
 	addr.port(msg.m_Port);
 
@@ -1335,20 +1340,17 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 	{
 		// threre's already another connection open to the same peer!
 		// Currently - just ignore this.
-		m_bPiRcvd = false;
-
 		LOG_INFO() << "Duplicate connection with the same PI. Ignoring";
+		return;
 	}
-	else
-	{
-		// attach to it
-		pPi->m_pLive = this;
-		m_pInfo = pPi;
-		pm.OnActive(*pPi, true);
-		pm.OnSeen(*pPi);
 
-		LOG_INFO() << *m_pInfo << " connected, info updated";
-	}
+	// attach to it
+	pPi->m_pLive = this;
+	m_pInfo = pPi;
+	pm.OnActive(*pPi, true);
+	pm.OnSeen(*pPi);
+
+	LOG_INFO() << *m_pInfo << " connected, info updated";
 }
 
 void Node::Peer::OnMsg(proto::PeerInfo&& msg)
