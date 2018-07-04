@@ -1294,6 +1294,7 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 		ThrowUnexpected();
 
 	m_bPiRcvd = true;
+	LOG_INFO() << m_RemoteAddr << "received PI";
 
 	PeerMan& pm = m_This.m_PeerMan; // alias
 
@@ -1310,9 +1311,13 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 		m_pInfo->m_pLive = NULL;
 
 		if (m_pInfo->m_ID.m_Key == ECC::Zero)
+		{
+			LOG_INFO() << "deleted anonymous PI";
 			pm.Delete(*m_pInfo); // it's anonymous.
+		}
 		else
 		{
+			LOG_INFO() << "PeerID is differnt";
 			pm.OnActive(*m_pInfo, false);
 			pm.RemoveAddr(*m_pInfo); // turned-out to be wrong
 		}
@@ -1328,6 +1333,8 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 		// threre's already another connection open to the same peer!
 		// Currently - just ignore this.
 		m_bPiRcvd = false;
+
+		LOG_INFO() << " Duplicate connection with the same PI. Ignoring";
 	}
 	else
 	{
@@ -1336,6 +1343,8 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 		m_pInfo = pPi;
 		pm.OnActive(*pPi, true);
 		pm.OnSeen(*pPi);
+
+		LOG_INFO() << *m_pInfo << " connected, info updated";
 	}
 }
 

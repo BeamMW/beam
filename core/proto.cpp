@@ -445,6 +445,8 @@ PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)
 	ret->m_LastSeen = 0;
 	ret->m_LastActivity_ms = 0;
 
+	LOG_INFO() << *ret << " New";
+
 	return ret;
 }
 
@@ -567,7 +569,10 @@ PeerManager::PeerInfo* PeerManager::OnPeer(const PeerID& id, const io::Address& 
 	PeerInfo* pRet = Find(id, bCreate);
 
 	if (bAddrVerified || !pRet->m_Addr.m_Value.empty() || (getTimestamp() - pRet->m_LastSeen > m_Cfg.m_TimeoutAddrChange_s))
+	{
 		ModifyAddr(*pRet, addr);
+		LOG_INFO() << *pRet << " Address updated";
+	}
 
 	return pRet;
 }
