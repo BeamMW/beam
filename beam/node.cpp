@@ -1325,7 +1325,10 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 		m_pInfo = NULL;
 	}
 
-	PeerMan::PeerInfoPlus* pPi = (PeerMan::PeerInfoPlus*) pm.OnPeer(msg.m_ID, m_RemoteAddr, true);
+	io::Address addr = m_RemoteAddr;
+	addr.port(msg.m_Port);
+
+	PeerMan::PeerInfoPlus* pPi = (PeerMan::PeerInfoPlus*) pm.OnPeer(msg.m_ID, addr, true);
 	assert(pPi);
 
 	if (pPi->m_pLive)
