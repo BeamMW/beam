@@ -30,7 +30,7 @@ namespace beam {
         , m_sync_period_ms{ sync_period_ms }
         , m_sync_timer{io::Timer::create(m_reactor)}
     {
-        m_protocol.add_message_handler<WalletNetworkIO, wallet::InviteReceiver,     &WalletNetworkIO::on_message>(senderInvitationCode, this, 1, 20000);
+        m_protocol.add_message_handler<WalletNetworkIO, wallet::Invite,             &WalletNetworkIO::on_message>(senderInvitationCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmTransaction, &WalletNetworkIO::on_message>(senderConfirmationCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmInvitation,  &WalletNetworkIO::on_message>(receiverConfirmationCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::TxRegistered,       &WalletNetworkIO::on_message>(receiverRegisteredCode, this, 1, 20000);
@@ -55,11 +55,11 @@ namespace beam {
         m_reactor->stop();
     }
 
-    Uuid WalletNetworkIO::transfer_money(io::Address receiver, Amount&& amount, Amount&& fee, bool sendBill, ByteBuffer&& message)
+    Uuid WalletNetworkIO::transfer_money(io::Address receiver, Amount&& amount, Amount&& fee, bool sender, ByteBuffer&& message)
     {
         auto tag = get_connection_tag();
         m_addresses.emplace(tag, receiver);
-        return m_wallet.transfer_money(tag, move(amount), move(fee), sendBill, move(message));
+        return m_wallet.transfer_money(tag, move(amount), move(fee), sender, move(message));
     }
 
     void WalletNetworkIO::connect_wallet(io::Address address, uint64_t tag, ConnectCallback&& callback)
@@ -70,7 +70,7 @@ namespace beam {
         test_io_result(res);
     }
 
-    void WalletNetworkIO::send_tx_message(PeerId to, wallet::InviteReceiver&& msg)
+    void WalletNetworkIO::send_tx_message(PeerId to, wallet::Invite&& msg)
     {
         send(to, senderInvitationCode, move(msg));
     }
@@ -133,7 +133,7 @@ namespace beam {
         start_sync_timer();
     }
 
-    bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::InviteReceiver&& msg)
+    bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::Invite&& msg)
     {
         m_wallet.handle_tx_message(connectionId, move(msg));
         return is_connected(connectionId);

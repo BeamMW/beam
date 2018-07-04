@@ -110,17 +110,16 @@ namespace beam
         assert(m_peers.empty());
         assert(m_negotiators.empty());
         assert(m_reg_requests.empty());
-        assert(m_removed_senders.empty());
+        assert(m_removedNegotiators.empty());
     }
 
-    Uuid Wallet::transfer_money(PeerId to, Amount amount, Amount fee, bool sendBill, ByteBuffer&& message)
+    Uuid Wallet::transfer_money(PeerId to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
     {
-        Cleaner<std::vector<wallet::Negotiator::Ptr> > c{ m_removed_senders };
 		boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId{};
         copy(id.begin(), id.end(), txId.begin());
-        TxDescription tx( txId, amount, fee, to, move(message), getTimestamp(), true);
-        resume_negotiator(tx, sendBill);
+        TxDescription tx( txId, amount, fee, to, move(message), getTimestamp(), sender);
+        resume_negotiator(tx);
         return txId;
     }
 
@@ -138,7 +137,7 @@ namespace beam
         }
     }
 
-    void Wallet::send_tx_invitation(const TxDescription& tx, InviteReceiver&& data)
+    void Wallet::send_tx_invitation(const TxDescription& tx, Invite&& data)
     {
         m_network.send_tx_message(tx.m_peerId, move(data));
     }
@@ -153,7 +152,7 @@ namespace beam
         auto it = m_negotiators.find(tx.m_txId);
         if (it != m_negotiators.end())
         {
-            m_removed_senders.push_back(move(it->second));
+            m_removedNegotiators.push_back(move(it->second));
             m_negotiators.erase(it);
         }
 
@@ -196,29 +195,29 @@ namespace beam
         m_network.send_tx_message(tx.m_peerId, wallet::TxRegistered{ tx.m_txId, true });
     }
 
-    void Wallet::handle_tx_message(PeerId from, InviteReceiver&& msg)
+    void Wallet::handle_tx_message(PeerId from, Invite&& msg)
     {
         auto it = m_negotiators.find(msg.m_txId);
         if (it == m_negotiators.end())
         {
-            LOG_VERBOSE() << ReceiverPrefix << "Received tx invitation " << msg.m_txId;
-
-            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, from, {}, getTimestamp(), false };
+            LOG_VERBOSE() << "Received tx invitation " << msg.m_txId;
+            bool sender = !msg.m_send;
+            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, from, {}, getTimestamp(), sender };
             auto r = make_shared<Negotiator>(*this, m_keyChain, tx, move(msg));
             m_negotiators.emplace(tx.m_txId, r);
             m_peers.emplace(tx.m_peerId, r);
-
+            Cleaner<std::vector<wallet::Negotiator::Ptr> > c{ m_removedNegotiators };
             if (m_synchronized)
             {
                 r->start();
-                r->process_event(events::TxReceiverInvited{});
+                r->process_event(events::TxInvited{});
             }
             else
             {
-                m_pendingEvents.emplace_back([r]() 
+                m_pendingEvents.emplace_back([r]()
                 {
                     r->start();
-                    r->process_event(events::TxReceiverInvited{});
+                    r->process_event(events::TxInvited{});
                 });
             }
         }
@@ -249,7 +248,7 @@ namespace beam
 
     void Wallet::handle_tx_message(PeerId from, wallet::TxRegistered&& data)
     {
-        process_event(data.m_txId, events::TxConfirmationCompleted{});
+        process_event(data.m_txId, events::TxRegistrationCompleted{});
     }
 
     void Wallet::handle_tx_message(PeerId /*from*/, wallet::TxFailed&& data)
@@ -279,7 +278,7 @@ namespace beam
         LOG_DEBUG() << "tx " << txId << (res ? " has registered" : " has failed to register");
         if (res)
         {
-            process_event(txId, events::TxRegistrationCompleted{ txId });
+            process_event(txId, events::TxRegistrationCompleted{ });
         }
         else
         {
@@ -306,7 +305,7 @@ namespace beam
 		input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
         if (utxoProof.m_Proofs.empty())
         {
-            LOG_ERROR() << "Got empty proof for: " << input.m_Commitment;
+            LOG_WARNING() << "Got empty proof for: " << input.m_Commitment;
 
             if (coin.m_status == Coin::Locked)
             {
@@ -365,38 +364,49 @@ namespace beam
             ++m_syncing; // Hdr
         }
 
-        if (msg.m_ID > m_knownStateID)
-        {
-            m_newStateID = msg.m_ID;
-            m_synchronized = false;
-            ++m_syncing; // Mined
-            m_network.send_node_message(proto::GetMined{ m_knownStateID.m_Height });
-        }
         return true;
     }
 
     bool Wallet::handle_node_message(proto::Hdr&& msg)
     {
-		m_Definition = msg.m_Description.m_Definition;
-
-        // TODO: do one kernel proof instead many per coin proofs
-        vector<Coin> unconfirmed;
-        m_keyChain->visit([&](const Coin& coin)
-        {
-            if (coin.m_status == Coin::Unconfirmed
-             || coin.m_status == Coin::Locked)
-            {
-                unconfirmed.emplace_back(coin);
-            }
-
-            return true;
-        });
-
-        getUtxoProofs(unconfirmed);
-
         Block::SystemState::ID newID = {};
         msg.m_Description.get_ID(newID);
+        
+        if (newID == m_knownStateID)
+        {
+            return finish_sync();
+        }
+        
+        if (newID > m_knownStateID)
+        {
+            m_newStateID = newID;
+            m_synchronized = false;
+            ++m_syncing; // Mined
+            m_network.send_node_message(proto::GetMined{ m_knownStateID.m_Height });
+
+            vector<Coin> unconfirmed;
+            m_keyChain->visit([&](const Coin& coin)
+            {
+                if (coin.m_status == Coin::Unconfirmed
+                    || coin.m_status == Coin::Locked)
+                {
+                    unconfirmed.emplace_back(coin);
+                }
+
+                return true;
+            });
+
+            getUtxoProofs(unconfirmed);
+        }
+        else //rollback
+        {
+
+        }
+
         m_newStateID = newID;
+        m_Definition = msg.m_Description.m_Definition;
+
+
         return finish_sync();
     }
 
@@ -472,7 +482,7 @@ namespace beam
                 m_knownStateID = m_newStateID;
                 if (!m_pendingEvents.empty())
                 {
-                    Cleaner<std::vector<wallet::Negotiator::Ptr> > cr{ m_removed_senders };
+                    Cleaner<std::vector<wallet::Negotiator::Ptr> > cr{ m_removedNegotiators };
                     for (auto& cb : m_pendingEvents)
                     {
                         cb();
@@ -504,43 +514,25 @@ namespace beam
         m_network.send_node_message(proto::NewTransaction{ data });
     }
 
-    void Wallet::resume_negotiator(const TxDescription& tx, bool sendBill)
+    void Wallet::resume_negotiator(const TxDescription& tx)
     {
+        Cleaner<std::vector<wallet::Negotiator::Ptr> > c{ m_removedNegotiators };
         auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
         m_negotiators.emplace(tx.m_txId, s);
         m_peers.emplace(tx.m_peerId, s);
-        
-        if (sendBill)
+
+        if (m_synchronized)
         {
-            if (m_synchronized)
-            {
-                s->start();
-                s->process_event(events::TxBill{});
-            }
-            else
-            {
-                m_pendingEvents.emplace_back([s]()
-                {
-                    s->start();
-                    s->process_event(events::TxBill{});
-                });
-            }
+            s->start();
+            s->process_event(events::TxInitiated{});
         }
         else
         {
-            if (m_synchronized)
+            m_pendingEvents.emplace_back([s]()
             {
                 s->start();
-                s->process_event(events::TxSend{});
-            }
-            else
-            {
-                m_pendingEvents.emplace_back([s]()
-                {
-                    s->start();
-                    s->process_event(events::TxSend{});
-                });
-            }
+                s->process_event(events::TxInitiated{});
+            });
         }
     }
 }

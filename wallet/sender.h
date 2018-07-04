@@ -10,15 +10,9 @@ namespace beam::wallet
 {
     namespace events
     {
-        struct TxRegistrationCompleted
-        {
-            Uuid m_txId;
-        };
-        struct TxConfirmationCompleted2 { ConfirmTransaction data; };
-        struct TxSenderInvited {};
-        struct TxReceiverInvited {};
-        struct TxSend {};
-        struct TxBill {};
+        struct TxRegistrationCompleted {};
+        struct TxInvited {};
+        struct TxInitiated {};
         struct TxConfirmationCompleted { ConfirmTransaction data; };
         struct TxInvitationCompleted { ConfirmInvitation data; };
         struct TxOutputsConfirmed {};
@@ -49,13 +43,13 @@ namespace beam::wallet
         Negotiator(INegotiatorGateway& gateway
             , beam::IKeyChain::Ptr keychain
             , const TxDescription& txDesc
-            , InviteReceiver& inviteMsg)
+            , Invite& inviteMsg)
             : Negotiator{ gateway , keychain, txDesc}
         {
             assert(keychain);
             m_offset = inviteMsg.m_offset;
-            m_publicPeerExcess = inviteMsg.m_publicSenderExcess;
-            setPublicPeerNonce(inviteMsg.m_publicSenderNonce);
+            m_publicPeerExcess = inviteMsg.m_publicPeerExcess;
+            setPublicPeerNonce(inviteMsg.m_publicPeerNonce);
             m_transaction = std::make_shared<Transaction>();
             m_transaction->m_Offset = ECC::Zero;
             m_transaction->m_vInputs = move(inviteMsg.m_inputs);
@@ -115,52 +109,20 @@ namespace beam::wallet
                     fsm.m_parent.m_gateway.on_tx_completed(fsm.m_parent.m_txDesc);
                 }
             };
-            struct TxReceiverInvitation : public msmf::state<>
+            struct TxInvitation : public msmf::state<>
             {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    LOG_VERBOSE() << "TxReceiverInvitation state";
+                    LOG_VERBOSE() << "TxInvitation state";
                 }
             };
-            struct TxSenderInvitation : public msmf::state<>
+            struct TxConfirmation : public msmf::state<>
             {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
                 {
-                    LOG_VERBOSE() << "TxSenderInvitation state";
-                }
-            };
-            struct TxBillConfirmation : public msmf::state<>
-            {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
-                {
-                    LOG_VERBOSE() << "TxBillConfirmation state";
-                }
-            };
-            struct TxSendingConfirmation : public msmf::state<>
-            {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
-                {
-                    LOG_VERBOSE() << "TxSendingConfirmation state";
-                }
-            };
-            struct TxSenderConfirmation : public msmf::state<>
-            {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
-                {
-                    LOG_VERBOSE() << "TxSenderConfirmation state";
-                }
-            };
-            struct TxReceiverConfirmation : public msmf::state<>
-            {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
-                {
-                    LOG_VERBOSE() << "TxReceiverConfirmation state";
+                    LOG_VERBOSE() << "TxConfirmation state";
                 }
             };
             struct TxRegistration : public msmf::state<>
@@ -187,28 +149,23 @@ namespace beam::wallet
             }
 
             // transition actions
-            bool isValidSignature(const events::TxInvitationCompleted&);
-            bool isValidSignature(const events::TxConfirmationCompleted&);
+            void confirmInvitation(const events::TxInvited&);
+            void invitePeer(const events::TxInitiated&);
+            void registerTx(const events::TxConfirmationCompleted&);
+            void confirmPeer(const events::TxInvitationCompleted&);
+            void completeTx(const events::TxRegistrationCompleted&);
+            void confirmOutputs(const events::TxRegistrationCompleted&);
+            void completeTx(const events::TxOutputsConfirmed&);
+
             void rollbackTx(const events::TxFailed& );
             void completeTx();
             void rollbackTx();
 
-            void confirmSenderInvitation(const events::TxSenderInvited&);
-            void confirmReceiverInvitation(const events::TxReceiverInvited&);
-            void inviteReceiver(const events::TxSend&);
-            void inviteSender(const events::TxBill&);
-            void registerTx(const events::TxConfirmationCompleted&);
-            void confirmReceiver(const events::TxInvitationCompleted&);
-            void confirmSender(const events::TxInvitationCompleted&);
-            void confirmOutputs(const events::TxRegistrationCompleted&);
-            void confirmOutputs(const events::TxConfirmationCompleted&);
-            void completeTx(const events::TxOutputsConfirmed&);
-            void completeTx(const events::TxRegistrationCompleted&);
-            void completeTx(const events::TxConfirmationCompleted&);
-
             Amount get_total() const;
 
             void update_tx_description(TxDescription::Status s);
+
+            void getSenderInputsAndOutputs(const Height& currentHeight, std::vector<Input::Ptr>& inputs, std::vector<Output::Ptr>& outputs);
 
             using do_serialize = int;
             typedef int no_message_queue;
@@ -217,24 +174,15 @@ namespace beam::wallet
             using d = FSMDefinition;
 
             struct transition_table : mpl::vector<
-                //   Start                      Event                             Next                  Action                     Guard
-                a_row< TxInitial              , events::TxSenderInvited         , TxBillConfirmation    , &d::confirmSenderInvitation    >,
-                a_row< TxInitial              , events::TxReceiverInvited       , TxSendingConfirmation , &d::confirmReceiverInvitation  >,
-                a_row< TxInitial              , events::TxSend                  , TxReceiverInvitation  , &d::inviteReceiver             >,
-                a_row< TxInitial              , events::TxBill                  , TxSenderInvitation    , &d::inviteSender               >,
-
-                a_row< TxBillConfirmation     , events::TxConfirmationCompleted , TxRegistration        , &d::registerTx                 >,
-                a_row< TxSendingConfirmation  , events::TxConfirmationCompleted , TxRegistration        , &d::registerTx                 >,
-                a_row< TxReceiverInvitation   , events::TxInvitationCompleted   , TxReceiverConfirmation, &d::confirmReceiver            >,
-                a_row< TxSenderInvitation     , events::TxInvitationCompleted   , TxSenderConfirmation  , &d::confirmSender              >,
-
-                a_row< TxRegistration         , events::TxRegistrationCompleted , TxTerminal            , &d::completeTx                 >,
-                a_row< TxReceiverConfirmation , events::TxConfirmationCompleted , TxTerminal            , &d::completeTx                 >,
-                a_row< TxSenderConfirmation   , events::TxConfirmationCompleted , TxTerminal            , &d::completeTx                 >,
+                //   Start                      Event                             Next                  Action                     
+                a_row< TxInitial                , events::TxInvited              , TxConfirmation      , &d::confirmInvitation    >,
+                a_row< TxInitial                , events::TxInitiated            , TxInvitation        , &d::invitePeer           >,
+                
+                a_row< TxConfirmation           , events::TxConfirmationCompleted, TxRegistration      , &d::registerTx           >,
+                a_row< TxInvitation             , events::TxInvitationCompleted  , TxRegistration      , &d::confirmPeer          >,
 
                 //a_row< TxRegistration         , events::TxRegistrationCompleted , TxOutputsConfirmation , &d::confirmOutputs             >,
-                //a_row< TxReceiverConfirmation , events::TxConfirmationCompleted , TxOutputsConfirmation , &d::confirmOutputs             >,
-                //a_row< TxSenderConfirmation   , events::TxConfirmationCompleted , TxOutputsConfirmation , &d::confirmOutputs             >,
+                a_row< TxRegistration           , events::TxRegistrationCompleted, TxTerminal          , &d::completeTx           >,
 
                 //a_row< TxOutputsConfirmation  , events::TxOutputsConfirmed      , TxTerminal            , &d::completeTx                 >,
 
@@ -243,7 +191,7 @@ namespace beam::wallet
 
 
             template <class FSM, class Event>
-            void no_transition(Event const& e, FSM& fsm, int state)
+            void no_transition(Event const& e, FSM& , int state)
             {
                 LOG_DEBUG() << "[Sender] no transition from state " << state
                             << " on event " << typeid(e).name();

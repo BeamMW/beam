@@ -15,7 +15,7 @@ namespace beam
     {
         virtual ~INetworkIO() {}
         // wallet to wallet requests
-        virtual void send_tx_message(PeerId to, wallet::InviteReceiver&&) = 0;
+        virtual void send_tx_message(PeerId to, wallet::Invite&&) = 0;
         virtual void send_tx_message(PeerId to, wallet::ConfirmTransaction&&) = 0;
         virtual void send_tx_message(PeerId to, wallet::ConfirmInvitation&&) = 0;
         virtual void send_tx_message(PeerId to, wallet::TxRegistered&&) = 0 ;
@@ -34,7 +34,7 @@ namespace beam
     {
         virtual ~IWallet() {}
         // wallet to wallet responses
-        virtual void handle_tx_message(PeerId, wallet::InviteReceiver&&) = 0;
+        virtual void handle_tx_message(PeerId, wallet::Invite&&) = 0;
         virtual void handle_tx_message(PeerId, wallet::ConfirmTransaction&&) = 0;
         virtual void handle_tx_message(PeerId, wallet::ConfirmInvitation&&) = 0;
         virtual void handle_tx_message(PeerId, wallet::TxRegistered&&) = 0;
@@ -60,11 +60,11 @@ namespace beam
         Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
-        Uuid transfer_money(PeerId to, Amount amount, Amount fee, bool sendBill, ByteBuffer&& message);
+        Uuid transfer_money(PeerId to, Amount amount, Amount fee, bool sender, ByteBuffer&& message);
         void resume_tx(const TxDescription& tx);
         void resume_all_tx();
 
-        void send_tx_invitation(const TxDescription& tx, wallet::InviteReceiver&&) override;
+        void send_tx_invitation(const TxDescription& tx, wallet::Invite&&) override;
         void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmTransaction&&) override;
         void on_tx_completed(const TxDescription& tx) override;
         void send_tx_failed(const TxDescription& tx) override;
@@ -73,7 +73,7 @@ namespace beam
         void register_tx(const TxDescription& tx, Transaction::Ptr) override;
         void send_tx_registered(const TxDescription& tx) override;
 
-        void handle_tx_message(PeerId, wallet::InviteReceiver&&) override;
+        void handle_tx_message(PeerId, wallet::Invite&&) override;
         void handle_tx_message(PeerId, wallet::ConfirmTransaction&&) override;
         void handle_tx_message(PeerId, wallet::ConfirmInvitation&&) override;
         void handle_tx_message(PeerId, wallet::TxRegistered&&) override;
@@ -96,12 +96,12 @@ namespace beam
         bool finish_sync();
         bool close_node_connection();
         void register_tx(const Uuid& txId, Transaction::Ptr);
-        void resume_negotiator(const TxDescription& tx, bool sendBill = false);
+        void resume_negotiator(const TxDescription& tx);
 
         template<typename Event>
         bool process_event(const Uuid& txId, Event&& event)
         {
-            Cleaner<std::vector<wallet::Negotiator::Ptr> > cs{ m_removed_senders };
+            Cleaner<std::vector<wallet::Negotiator::Ptr> > cs{ m_removedNegotiators };
             if (auto it = m_negotiators.find(txId); it != m_negotiators.end())
             {
                 return it->second->process_event(event);
@@ -114,10 +114,10 @@ namespace beam
         INetworkIO& m_network;
         std::map<PeerId, wallet::Negotiator::Ptr> m_peers;
         std::map<Uuid, wallet::Negotiator::Ptr>   m_negotiators;
-        std::vector<wallet::Negotiator::Ptr>      m_removed_senders;
+        std::vector<wallet::Negotiator::Ptr>      m_removedNegotiators;
         TxCompletedAction m_tx_completed_action;
-        std::deque<std::pair<Uuid, TransactionPtr>> m_reg_requests;
-        std::vector<std::pair<Uuid, TransactionPtr>> m_pending_reg_requests;
+        std::deque<std::pair<Uuid, Transaction::Ptr>> m_reg_requests;
+        std::vector<std::pair<Uuid, Transaction::Ptr>> m_pending_reg_requests;
         std::deque<Coin> m_pendingProofs;
         std::vector<Callback> m_pendingEvents;
 

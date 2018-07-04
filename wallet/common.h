@@ -34,7 +34,6 @@ namespace beam
     std::ostream& operator<<(std::ostream& os, const Uuid& uuid);
 
     struct Coin;
-    using TransactionPtr = std::shared_ptr<Transaction>;
     
     struct TxDescription
     {
@@ -89,29 +88,35 @@ namespace beam
         std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
 
         // messages
-        struct InviteReceiver
+        struct Invite
         {
             Uuid m_txId;
             ECC::Amount m_amount;
             ECC::Amount m_fee;
-            ECC::Point m_publicSenderExcess;
+            bool m_send;
+            ECC::Point m_publicPeerExcess;
             ECC::Scalar m_offset;
-            ECC::Point m_publicSenderNonce;
+            ECC::Point m_publicPeerNonce;
             std::vector<Input::Ptr> m_inputs;
             std::vector<Output::Ptr> m_outputs;
 
-            InviteReceiver() : m_amount(0)
+            Invite() 
+                : m_amount(0)
+                , m_fee(0)
+                , m_send{true}
+                
             {
 
             }
 
-            InviteReceiver(InviteReceiver&& other)
+            Invite(Invite&& other)
                 : m_txId{other.m_txId}
                 , m_amount{ other.m_amount }
                 , m_fee{ other.m_fee }
-                , m_publicSenderExcess{other.m_publicSenderExcess}
+                , m_send{other.m_send}
+                , m_publicPeerExcess{other.m_publicPeerExcess}
                 , m_offset{other.m_offset}
-                , m_publicSenderNonce{other.m_publicSenderNonce}
+                , m_publicPeerNonce{other.m_publicPeerNonce}
                 , m_inputs{std::move(other.m_inputs)}
                 , m_outputs{std::move(other.m_outputs)}
             {
@@ -121,9 +126,10 @@ namespace beam
             SERIALIZE(m_txId
                     , m_amount
                     , m_fee
-                    , m_publicSenderExcess
+                    , m_send
+                    , m_publicPeerExcess
                     , m_offset
-                    , m_publicSenderNonce
+                    , m_publicPeerNonce
                     , m_inputs
                     , m_outputs);
         };
@@ -131,9 +137,9 @@ namespace beam
         struct ConfirmTransaction
         {
             Uuid m_txId{};
-            ECC::Scalar m_senderSignature;
+            ECC::Scalar m_peerSignature;
 
-            SERIALIZE(m_txId, m_senderSignature);
+            SERIALIZE(m_txId, m_peerSignature);
         };
 
         struct ConfirmInvitation
@@ -167,7 +173,7 @@ namespace beam
             virtual ~INegotiatorGateway() {}
             virtual void on_tx_completed(const TxDescription& ) = 0;
             virtual void send_tx_failed(const TxDescription& ) = 0;
-            virtual void send_tx_invitation(const TxDescription&, InviteReceiver&&) = 0;
+            virtual void send_tx_invitation(const TxDescription&, Invite&&) = 0;
             virtual void send_tx_confirmation(const TxDescription&, ConfirmTransaction&&) = 0;
             virtual void send_tx_confirmation(const TxDescription&, ConfirmInvitation&&) = 0;
             virtual void register_tx(const TxDescription&, Transaction::Ptr) = 0;
