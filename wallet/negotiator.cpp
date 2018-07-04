@@ -1,4 +1,4 @@
-#include "sender.h"
+#include "negotiator.h"
 #include "core/block_crypt.h"
 #include "wallet/wallet_serialization.h"
 

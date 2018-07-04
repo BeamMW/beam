@@ -1,5 +1,5 @@
 #include "wallet_db.h"
-#include "sender.h"
+#include "negotiator.h"
 #include "utility/logger.h"
 #include "sqlite/sqlite3.h"
 #include <sstream>

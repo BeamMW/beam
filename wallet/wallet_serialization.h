@@ -2,7 +2,7 @@
 
 #include "core/ecc_native.h"
 #include "wallet/common.h"
-#include "wallet/sender.h" 
+#include "wallet/negotiator.h" 
 
 #include "utility/serialize.h"
 

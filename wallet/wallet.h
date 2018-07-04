@@ -1,7 +1,7 @@
 #pragma once
 
 #include "wallet/wallet_db.h"
-#include "wallet/sender.h"
+#include "wallet/negotiator.h"
 #include <thread>
 #include <mutex>
 #include <deque>

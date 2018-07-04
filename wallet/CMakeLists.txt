@@ -3,8 +3,7 @@ add_definitions( -DSQLITE_HAS_CODEC )
 set(WALLET_SRC
     wallet.h
     wallet.cpp
-    sender.cpp
-    receiver.cpp
+    negotiator.cpp
     wallet_network.cpp
     wallet_db.cpp
 )
