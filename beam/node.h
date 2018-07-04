@@ -258,7 +258,7 @@ private:
 		:public proto::NodeConnection
 		,public boost::intrusive::list_base_hook<>
 	{
-		Node* m_pThis;
+		Node& m_This;
 
 		PeerMan::PeerInfoPlus* m_pInfo;
 
@@ -271,10 +271,14 @@ private:
 		proto::Config m_Config;
 
 		TaskList m_lstTasks;
+		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
+
 		Bbs::Subscription::PeerSet m_Subscriptions;
 
 		io::Timer::Ptr m_pTimer;
 		io::Timer::Ptr m_pTimerPeers;
+
+		Peer(Node& n) :m_This(n) {}
 
 		void TakeTasks();
 		void ReleaseTasks();
@@ -293,8 +297,6 @@ private:
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
-
-		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
 
 		// proto::NodeConnection
 		virtual void OnConnected() override;
