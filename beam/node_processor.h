@@ -50,8 +50,6 @@ class NodeProcessor
 
 public:
 
-	typedef NodeDB::PeerID PeerID;
-
 	void Initialize(const char* szPath);
 
 	struct Horizon {

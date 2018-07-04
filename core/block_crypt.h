@@ -113,8 +113,8 @@ namespace beam
 		virtual void WriteOut(const Output&) override;
 		virtual void WriteOut(const TxKernel&) override;
 		// IMacroWriter
-		virtual void put_Start(const BodyBase&, const SystemState::Sequence::Prefix&);
-		virtual void put_NextHdr(const SystemState::Sequence::Element&);
+		virtual void put_Start(const BodyBase&, const SystemState::Sequence::Prefix&) override;
+		virtual void put_NextHdr(const SystemState::Sequence::Element&) override;
 	};
 
 }

@@ -5,7 +5,11 @@
 #include "../node_processor.h"
 #include "../../core/block_crypt.h"
 #include "../../utility/serialize.h"
+#include "../../utility/test_helpers.h"
 #include "../../core/serialization_adapters.h"
+
+#define LOG_VERBOSE_ENABLED 0
+#include "utility/logger.h"
 
 namespace ECC {
 
@@ -310,6 +314,7 @@ namespace beam
 		verify_test(!h);
 
 		tr.Commit();
+		tr.Start(db);
 
 		// utxos and kernels
 		NodeDB::Blob b0(vStates[0].m_Prev.m_pData, sizeof(vStates[0].m_Prev.m_pData));
@@ -330,6 +335,66 @@ namespace beam
 		db.ModifySpendable(b0, -5, -4);
 		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
+
+		for (int i = 0; i < 20; i++)
+		{
+			NodeDB::WalkerPeer::Data d;
+			ECC::SetRandom(d.m_ID);
+			d.m_Address = i * 17;
+			d.m_LastSeen = i + 10;
+			d.m_Rating = i * 100 + 50;
+
+			db.PeerIns(d);
+		}
+
+		NodeDB::WalkerPeer wlkp(db);
+		for (db.EnumPeers(wlkp); wlkp.MoveNext(); )
+			;
+
+		db.PeersDel();
+
+		for (db.EnumPeers(wlkp); wlkp.MoveNext(); )
+			;
+
+
+		NodeDB::WalkerBbs::Data dBbs;
+
+		for (uint32_t i = 0; i < 200; i++)
+		{
+			dBbs.m_Key = i;
+			dBbs.m_Channel = i % 7;
+			dBbs.m_TimePosted = i + 100;
+			dBbs.m_Message.p = "hello";
+			dBbs.m_Message.n = 5;
+
+			db.BbsIns(dBbs);
+		}
+
+		NodeDB::WalkerBbs wlkbbs(db);
+		wlkbbs.m_Data = dBbs;
+		verify_test(db.BbsFind(wlkbbs));
+
+		wlkbbs.m_Data.m_Key.Inc();
+		verify_test(!db.BbsFind(wlkbbs));
+
+
+		for (wlkbbs.m_Data.m_Channel = 0; wlkbbs.m_Data.m_Channel < 7; wlkbbs.m_Data.m_Channel++)
+		{
+			wlkbbs.m_Data.m_TimePosted = 0;
+			for (db.EnumBbs(wlkbbs); wlkbbs.MoveNext(); )
+				;
+		}
+
+		db.BbsDelOld(267);
+
+		for (wlkbbs.m_Data.m_Channel = 0; wlkbbs.m_Data.m_Channel < 7; wlkbbs.m_Data.m_Channel++)
+		{
+			wlkbbs.m_Data.m_TimePosted = 0;
+			for (db.EnumBbs(wlkbbs); wlkbbs.MoveNext(); )
+				;
+		}
+
+		tr.Commit();
 	}
 
 #ifdef WIN32
@@ -391,7 +456,7 @@ namespace beam
 			utxo.m_Key = key;
 			utxo.m_Value = n;
 
-			h += (KeyType::Coinbase == eType) ? Rules::MaturityCoinbase : Rules::MaturityStd;
+			h += (KeyType::Coinbase == eType) ? Rules::get().MaturityCoinbase : Rules::get().MaturityStd;
 
 			return &m_MyUtxos.insert(std::make_pair(h, utxo))->second;
 		}
@@ -511,15 +576,15 @@ namespace beam
 			Amount fees = 0;
 			verify_test(np.GenerateNewBlock(np.m_TxPool, pBlock->m_Hdr, pBlock->m_Body, fees));
 
-			np.OnState(pBlock->m_Hdr, NodeDB::PeerID());
+			np.OnState(pBlock->m_Hdr, PeerID());
 
 			Block::SystemState::ID id;
 			pBlock->m_Hdr.get_ID(id);
 
-			np.OnBlock(id, pBlock->m_Body, NodeDB::PeerID());
+			np.OnBlock(id, pBlock->m_Body, PeerID());
 
 			np.m_Wallet.AddMyUtxo(fees, h, KeyType::Comission);
-			np.m_Wallet.AddMyUtxo(Rules::CoinbaseEmission, h, KeyType::Coinbase);
+			np.m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, h, KeyType::Coinbase);
 
 			blockChain.push_back(std::move(pBlock));
 		}
@@ -599,7 +664,7 @@ namespace beam
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
-			NodeProcessor::PeerID peer;
+			PeerID peer;
 			ZeroObject(peer);
 
 			for (size_t i = 0; i < blockChain.size(); i += 2)
@@ -611,7 +676,7 @@ namespace beam
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
-			NodeProcessor::PeerID peer;
+			PeerID peer;
 			ZeroObject(peer);
 
 			for (size_t i = 0; i < nMid; i += 2)
@@ -627,7 +692,7 @@ namespace beam
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
-			NodeProcessor::PeerID peer;
+			PeerID peer;
 			ZeroObject(peer);
 
 			for (size_t i = 1; i < blockChain.size(); i += 2)
@@ -639,7 +704,7 @@ namespace beam
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
-			NodeProcessor::PeerID peer;
+			PeerID peer;
 			ZeroObject(peer);
 
 			for (size_t i = 0; i < nMid; i++)
@@ -655,7 +720,7 @@ namespace beam
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
-			NodeProcessor::PeerID peer;
+			PeerID peer;
 			ZeroObject(peer);
 
 			for (size_t i = nMid; i < blockChain.size(); i++)
@@ -686,10 +751,9 @@ namespace beam
 		node2.m_Cfg.m_sPathLocal = g_sz2;
 		node2.m_Cfg.m_Listen.port(Node::s_PortDefault + 1);
 		node2.m_Cfg.m_Listen.ip(INADDR_ANY);
-		node2.m_Cfg.m_Connect.resize(1);
-		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
-		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
+
+		node2.m_Cfg.m_BeaconPort = Node::s_PortDefault;
 
 		ECC::SetRandom(node.m_Cfg.m_WalletKey.V);
 		ECC::SetRandom(node2.m_Cfg.m_WalletKey.V);
@@ -735,12 +799,12 @@ namespace beam
 					Amount fees = 0;
 					n.get_Processor().GenerateNewBlock(txPool, s, body, fees);
 
-					n.get_Processor().OnState(s, NodeDB::PeerID());
+					n.get_Processor().OnState(s, PeerID());
 
 					Block::SystemState::ID id;
 					s.get_ID(id);
 
-					n.get_Processor().OnBlock(id, body, NodeDB::PeerID());
+					n.get_Processor().OnBlock(id, body, PeerID());
 
 					m_HeightMax = std::max(m_HeightMax, s.m_Height);
 
@@ -852,7 +916,7 @@ namespace beam
 
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
-				Rules::get_Hash(msgCfg.m_CfgChecksum);
+				msgCfg.m_CfgChecksum = Rules::get().Checksum;
 				msgCfg.m_AutoSendHdr = true;
 				Send(msgCfg);
 			}
@@ -881,6 +945,13 @@ namespace beam
 				proto::GetMined msgOut;
 				msgOut.m_HeightMin = 0;
 				Send(msgOut);
+
+				proto::BbsMsg msgBbs;
+				msgBbs.m_Channel = 11;
+				msgBbs.m_TimePosted = getTimestamp();
+				msgBbs.m_Message.resize(1);
+				msgBbs.m_Message[0] = (uint8_t) msg.m_ID.m_Height;
+				Send(msgBbs);
 			}
 
 			virtual void OnMsg(proto::Hdr&& msg) override
@@ -889,7 +960,7 @@ namespace beam
 				m_vStates.push_back(msg.m_Description);
 
 				// assume we've mined this
-				m_Wallet.AddMyUtxo(Rules::CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
+				m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
 
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
@@ -1002,6 +1073,53 @@ namespace beam
 
 		cl.Connect(addr);
 
+
+		struct MyClient2
+			:public proto::NodeConnection
+		{
+			virtual void OnConnected() override {
+				proto::Config msgCfg;
+				ZeroObject(msgCfg);
+				msgCfg.m_CfgChecksum = Rules::get().Checksum;
+				msgCfg.m_SendPeers = true; // just for fun
+				Send(msgCfg);
+			}
+
+			virtual void OnClosed(int errorCode) override {
+				fail_test("OnClosed");
+			}
+
+			virtual void OnMsg(proto::NewTip&& msg) override {
+				if (msg.m_ID.m_Height == 10)
+				{
+					proto::BbsSubscribe msgOut;
+					msgOut.m_Channel = 11;
+					msgOut.m_On = true;
+					msgOut.m_TimeFrom = 0;
+
+					Send(msgOut);
+				}
+			}
+
+			uint32_t m_MsgCount = 0;
+
+			virtual void OnMsg(proto::BbsMsg&& msg) override {
+
+				verify_test(msg.m_Message.size() == 1);
+				uint8_t nMsg = msg.m_Message[0];
+
+				verify_test(nMsg == (uint8_t) m_MsgCount + 1);
+				m_MsgCount++;
+
+
+				printf("Got BBS msg=%u\n", m_MsgCount);
+			}
+		};
+
+		MyClient2 cl2;
+		cl2.Connect(addr);
+
+
 		Node node2;
 		node2.m_Cfg.m_sPathLocal = g_sz2;
 		node2.m_Cfg.m_Connect.resize(1);
@@ -1012,6 +1130,8 @@ namespace beam
 		node2.Initialize();
 
 		pReactor->run();
+
+		verify_test(cl2.m_MsgCount >= cl.m_HeightTrg - 10); // assume several last msgs may haven't arrived yet
 	}
 
 
@@ -1019,7 +1139,15 @@ namespace beam
 
 int main()
 {
-	beam::Rules::FakePoW = true;
+//	auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+
+	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
+	//	.db files
+	//	ports, wrong beacon and etc.
+	verify_test(beam::helpers::ProcessWideLock("/tmp/BEAM_node_test_lock"));
+
+	beam::Rules::get().FakePoW = true;
+	beam::Rules::get().UpdateChecksum();
 
 	DeleteFileA(beam::g_sz);
 	DeleteFileA(beam::g_sz2);

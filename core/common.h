@@ -23,7 +23,7 @@
 #endif // verify
 
 #define IMPLEMENT_GET_PARENT_OBJ(parent_class, this_var) \
-	parent_class& get_ParentObj() { return * (parent_class*) (((uint8_t*) this) + 1 - (uint8_t*) (&((parent_class*) 1)->this_var)); }
+	parent_class& get_ParentObj() const { return * (parent_class*) (((uint8_t*) this) + 1 - (uint8_t*) (&((parent_class*) 1)->this_var)); }
 
 #include "ecc.h"
 #include <iostream>
@@ -69,6 +69,13 @@ namespace beam
 	typedef ECC::uintBig_t<256> uint256_t;
 	typedef std::vector<uint8_t> ByteBuffer;
 	typedef ECC::Amount Amount;
+	typedef ECC::Hash::Value PeerID;
+	typedef uint64_t BbsChannel;
+	typedef ECC::Hash::Value BbsMsgID;
+
+	Timestamp getTimestamp();
+	uint32_t GetTime_ms(); // platform-independent GetTickCount
+	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
 
 	struct HeightRange
 	{
@@ -137,27 +144,30 @@ namespace beam
 
 	struct Rules
 	{
+		static Rules& get();
+
 		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
 		static const Amount Coin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
 
-		static Amount CoinbaseEmission; // the maximum allowed coinbase in a single block
-		static Height MaturityCoinbase;
-		static Height MaturityStd;
+		Amount CoinbaseEmission	= Coin * 40; // the maximum allowed coinbase in a single block
+		Height MaturityCoinbase = 60; // 1 hour
+		Height MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
 
-		static size_t MaxBodySize;
+		size_t MaxBodySize		= 0x100000; // 1MB
 
 		// timestamp & difficulty. Basically very close to those from bitcoin, except the desired rate is 1 minute (instead of 10 minutes)
-		static uint32_t DesiredRate_s;
-		static uint32_t DifficultyReviewCycle;
-		static uint32_t MaxDifficultyChange;
-		static uint32_t TimestampAheadThreshold_s;
-		static uint32_t WindowForMedian;
+		uint32_t DesiredRate_s				= 60; // 1 minute
+		uint32_t DifficultyReviewCycle		= 24 * 60 * 7; // 10,080 blocks, 1 week roughly
+		uint32_t MaxDifficultyChange		= 3; // i.e. x8 roughly. (There's no equivalent to this in bitcoin).
+		uint32_t TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
+		uint32_t WindowForMedian			= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
 
-		static bool FakePoW; // for testing
+		bool FakePoW = false;
 
-		static void get_Hash(ECC::Hash::Value&);
+		ECC::Hash::Value Checksum;
 
-		static void AdjustDifficulty(uint8_t&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s);
+		void UpdateChecksum();
+		void AdjustDifficulty(uint8_t&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const;
 	};
 
 	struct Input

@@ -45,6 +45,18 @@ namespace beam {
 #define TblCompressed			"Macroblocks"
 #define TblCompressed_Row1		"RowLast"
 
+#define TblPeer					"Peers"
+#define TblPeer_Key				"Key"
+#define TblPeer_Rating			"Rating"
+#define TblPeer_Addr			"Address"
+#define TblPeer_LastSeen		"LastSeen"
+
+#define TblBbs					"Bbs"
+#define TblBbs_Key				"Key"
+#define TblBbs_Channel			"Channel"
+#define TblBbs_Time				"Time"
+#define TblBbs_Msg				"Message"
+
 NodeDB::NodeDB()
 	:m_pDb(NULL)
 {
@@ -192,11 +204,21 @@ void NodeDB::Recordset::get(int col, ByteBuffer& x)
 {
 	Blob b;
 	get(col, b);
+	b.Export(x);
+}
 
-	if (b.n)
+NodeDB::Blob::Blob(const ByteBuffer& bb)
+{
+	if ((n = (uint32_t)bb.size()))
+		p = &bb.at(0);
+}
+
+void NodeDB::Blob::Export(ByteBuffer& x) const
+{
+	if (n)
 	{
-		x.resize(b.n);
-		memcpy(&x.at(0), b.p, b.n);
+		x.resize(n);
+		memcpy(&x.at(0), p, n);
 	} else
 		x.clear();
 }
@@ -227,7 +249,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 3;
+	const uint64_t nVersion = 5;
 
 	if (bCreate)
 	{
@@ -303,6 +325,22 @@ void NodeDB::Create()
 		"[" TblCompressed_Row1	"] INTEGER NOT NULL,"
 		"PRIMARY KEY (" TblCompressed_Row1 "),"
 		"FOREIGN KEY (" TblCompressed_Row1 ") REFERENCES " TblStates "(OID))");
+
+	ExecQuick("CREATE TABLE [" TblPeer "] ("
+		"[" TblPeer_Key			"] BLOB NOT NULL,"
+		"[" TblPeer_Rating		"] INTEGER NOT NULL,"
+		"[" TblPeer_Addr		"] INTEGER NOT NULL,"
+		"[" TblPeer_LastSeen	"] INTEGER NOT NULL)");
+
+	ExecQuick("CREATE TABLE [" TblBbs "] ("
+		"[" TblBbs_Key		"] BLOB NOT NULL,"
+		"[" TblBbs_Channel	"] INTEGER NOT NULL,"
+		"[" TblBbs_Time		"] INTEGER NOT NULL,"
+		"[" TblBbs_Msg		"] BLOB NOT NULL,"
+		"PRIMARY KEY (" TblBbs_Key "))");
+
+	ExecQuick("CREATE INDEX [Idx" TblBbs "CT] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_Time "]);"); // fetch messages for specific channel within time range, orderedd by time
+	ExecQuick("CREATE INDEX [Idx" TblBbs "T] ON [" TblBbs "] ([" TblBbs_Time "]);"); // delete old messages
 }
 
 void NodeDB::ExecQuick(const char* szSql)
@@ -1465,6 +1503,91 @@ void NodeDB::MacroblockDel(uint64_t rowid)
 {
 	Recordset rs(*this, Query::MinedDel, "DELETE FROM " TblCompressed " WHERE " TblCompressed_Row1 "=?");
 	rs.put(0, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::EnumPeers(WalkerPeer& x)
+{
+	x.m_Rs.Reset(Query::PeerEnum, "SELECT " TblPeer_Key "," TblPeer_Rating "," TblPeer_Addr "," TblPeer_LastSeen " FROM " TblPeer);
+}
+
+bool NodeDB::WalkerPeer::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+	m_Rs.get(0, m_Data.m_ID);
+	m_Rs.get(1, m_Data.m_Rating);
+	m_Rs.get(2, m_Data.m_Address);
+	m_Rs.get(3, m_Data.m_LastSeen);
+	return true;
+}
+
+void NodeDB::PeersDel()
+{
+	Recordset rs(*this, Query::PeerDel, "DELETE FROM " TblPeer);
+	rs.Step();
+}
+
+void NodeDB::PeerIns(const WalkerPeer::Data& d)
+{
+	Recordset rs(*this, Query::PeerAdd, "INSERT INTO " TblPeer "(" TblPeer_Key "," TblPeer_Rating "," TblPeer_Addr "," TblPeer_LastSeen ") VALUES(?,?,?,?)");
+	rs.put(0, d.m_ID);
+	rs.put(1, d.m_Rating);
+	rs.put(2, d.m_Address);
+	rs.put(3, d.m_LastSeen);
+	rs.Step();
+	TestChanged1Row();
+}
+
+#define TblBbs_AllFieldsListed TblBbs_Key "," TblBbs_Channel "," TblBbs_Time "," TblBbs_Msg
+
+void NodeDB::EnumBbs(WalkerBbs& x)
+{
+	x.m_Rs.Reset(Query::BbsEnum, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Channel "=? AND " TblBbs_Time ">=? ORDER BY " TblBbs_Time);
+
+	x.m_Rs.put(0, x.m_Data.m_Channel);
+	x.m_Rs.put(1, x.m_Data.m_TimePosted);
+}
+
+void NodeDB::EnumAllBbs(WalkerBbs& x)
+{
+	x.m_Rs.Reset(Query::BbsEnumAll, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs);
+}
+
+bool NodeDB::WalkerBbs::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+	m_Rs.get(0, m_Data.m_Key);
+	m_Rs.get(1, m_Data.m_Channel);
+	m_Rs.get(2, m_Data.m_TimePosted);
+	m_Rs.get(3, m_Data.m_Message);
+	return true;
+}
+
+bool NodeDB::BbsFind(WalkerBbs& x)
+{
+	x.m_Rs.Reset(Query::BbsFind, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Key "=?");
+
+	x.m_Rs.put(0, x.m_Data.m_Key);
+	return x.MoveNext();
+}
+
+void NodeDB::BbsDelOld(Timestamp tMinToRemain)
+{
+	Recordset rs(*this, Query::BbsDelOld, "DELETE FROM " TblBbs " WHERE " TblBbs_Time "<?");
+	rs.put(0, tMinToRemain);
+	rs.Step();
+}
+
+void NodeDB::BbsIns(const WalkerBbs::Data& d)
+{
+	Recordset rs(*this, Query::BbsIns, "INSERT INTO " TblBbs "(" TblBbs_AllFieldsListed ") VALUES(?,?,?,?)");
+	rs.put(0, d.m_Key);
+	rs.put(1, d.m_Channel);
+	rs.put(2, d.m_TimePosted);
+	rs.put(3, d.m_Message);
 	rs.Step();
 	TestChanged1Row();
 }

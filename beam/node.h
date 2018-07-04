@@ -17,6 +17,8 @@ struct Node
 	struct Config
 	{
 		io::Address m_Listen;
+		uint16_t m_BeaconPort = 0; // set to 0 if should use the same port for listen
+		uint32_t m_BeaconPeriod_ms = 500;
 		std::vector<io::Address> m_Connect;
 
 		std::string m_sPathLocal;
@@ -26,12 +28,17 @@ struct Node
 		bool m_RestrictMinedReportToOwner = false; // TODO: turn this ON once wallet supports this
 
 		struct Timeout {
-			uint32_t m_Reconnect_ms	= 1000;
-			uint32_t m_Insane_ms	= 1000 * 3600; // 1 hour
 			uint32_t m_GetState_ms	= 1000 * 5;
 			uint32_t m_GetBlock_ms	= 1000 * 30;
 			uint32_t m_GetTx_ms		= 1000 * 5;
+			uint32_t m_GetBbsMsg_ms	= 1000 * 10;
 			uint32_t m_MiningSoftRestart_ms = 100;
+			uint32_t m_TopPeersUpd_ms = 1000 * 60 * 10; // once in 10 minutes
+			uint32_t m_PeersUpdate_ms	= 1000; // reconsider every second
+			uint32_t m_PeersDbFlush_ms = 1000 * 60; // 1 minute
+			uint32_t m_BbsMessageTimeout_s	= 3600 * 24; // 1 day
+			uint32_t m_BbsMessageMaxAhead_s	= 3600 * 2; // 2 hours
+			uint32_t m_BbsCleanupPeriod_ms = 3600 * 1000; // 1 hour
 		} m_Timeout;
 
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
@@ -77,8 +84,6 @@ struct Node
 
 private:
 
-	ECC::Hash::Value m_hvCfg;
-
 	struct Processor
 		:public NodeProcessor
 	{
@@ -115,15 +120,6 @@ private:
 
 	NodeProcessor::TxPool m_TxPool;
 
-	struct State {
-		enum Enum {
-			Idle,
-			Connecting,
-			Connected,
-			Snoozed,
-		};
-	};
-
 	struct Peer;
 
 	struct Task
@@ -145,82 +141,168 @@ private:
 	TaskList m_lstTasksUnassigned;
 	TaskSet m_setTasks;
 
-	void TryAssignTask(Task&, const NodeDB::PeerID*);
+	void TryAssignTask(Task&, const PeerID*);
 	bool ShouldAssignTask(Task&, Peer&);
 	void AssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
 
-	static uint32_t GetTime_ms();
-
-	struct WantedTx
+	struct Wanted
 	{
-		struct Node
+		typedef ECC::Hash::Value KeyType;
+
+		struct Item
 			:public boost::intrusive::set_base_hook<>
 			,public boost::intrusive::list_base_hook<>
 		{
-			Transaction::KeyType m_Key;
+			KeyType m_Key;
 			uint32_t m_Advertised_ms;
 
-			bool operator < (const Node& n) const { return (m_Key < n.m_Key); }
+			bool operator < (const Item& n) const { return (m_Key < n.m_Key); }
 		};
 
-		typedef boost::intrusive::list<Node> List;
-		typedef boost::intrusive::multiset<Node> Set;
+		typedef boost::intrusive::list<Item> List;
+		typedef boost::intrusive::multiset<Item> Set;
 
 		List m_lst;
 		Set m_set;
-
-		void Delete(Node&);
-
 		io::Timer::Ptr m_pTimer;
+		uint32_t m_Timeout_ms = 0;
+
+		void Delete(Item&);
+		void DeleteInternal(Item&);
+		void Clear();
 		void SetTimer();
 		void OnTimer();
+		bool Add(const KeyType&);
+		bool Delete(const KeyType&);
 
-		IMPLEMENT_GET_PARENT_OBJ(beam::Node, m_Wtx)
+		~Wanted() { Clear(); }
+
+		virtual uint32_t get_Timeout_ms() = 0;
+		virtual void OnExpired(const KeyType&) = 0;
+	};
+
+	struct WantedTx :public Wanted {
+		// Wanted
+		virtual uint32_t get_Timeout_ms() override;
+		virtual void OnExpired(const KeyType&) override;
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Wtx)
 	} m_Wtx;
+
+	struct Bbs
+	{
+		struct WantedMsg :public Wanted {
+			// Wanted
+			virtual uint32_t get_Timeout_ms() override;
+			virtual void OnExpired(const KeyType&) override;
+
+			IMPLEMENT_GET_PARENT_OBJ(Bbs, m_W)
+		} m_W;
+
+		static void CalcMsgKey(NodeDB::WalkerBbs::Data&);
+		uint32_t m_LastCleanup_ms = 0;
+		void Cleanup();
+		void MaybeCleanup();
+
+		struct Subscription
+		{
+			struct InBbs :public boost::intrusive::set_base_hook<> {
+				BbsChannel m_Channel;
+				bool operator < (const InBbs& x) const { return (m_Channel < x.m_Channel); }
+				IMPLEMENT_GET_PARENT_OBJ(Subscription, m_Bbs)
+			} m_Bbs;
+
+			struct InPeer :public boost::intrusive::set_base_hook<> {
+				BbsChannel m_Channel;
+				bool operator < (const InPeer& x) const { return (m_Channel < x.m_Channel); }
+				IMPLEMENT_GET_PARENT_OBJ(Subscription, m_Peer)
+			} m_Peer;
+
+			Peer* m_pPeer;
+
+			typedef boost::intrusive::multiset<InBbs> BbsSet;
+			typedef boost::intrusive::multiset<InPeer> PeerSet;
+		};
+
+		Subscription::BbsSet m_Subscribed;
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Bbs)
+	} m_Bbs;
+
+	struct PeerMan
+		:public proto::PeerManager
+	{
+		io::Timer::Ptr m_pTimerUpd;
+		io::Timer::Ptr m_pTimerFlush;
+		void OnFlush();
+
+		struct PeerInfoPlus
+			:public PeerInfo
+		{
+			Peer* m_pLive;
+		};
+
+		// PeerManager
+		virtual void ActivatePeer(PeerInfo&) override;
+		virtual void DeactivatePeer(PeerInfo&) override;
+		virtual PeerInfo* AllocPeer() override;
+		virtual void DeletePeer(PeerInfo&) override;
+
+		~PeerMan() { Clear(); }
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_PeerMan)
+	} m_PeerMan;
 
 	struct Peer
 		:public proto::NodeConnection
 		,public boost::intrusive::list_base_hook<>
 	{
-		typedef std::unique_ptr<Peer> Ptr;
+		Node& m_This;
 
-		Node* m_pThis;
+		PeerMan::PeerInfoPlus* m_pInfo;
 
-		int m_iPeer; // negative if accepted connection
-		void get_ID(NodeProcessor::PeerID&);
+		bool m_bConnected;
+		bool m_bPiRcvd; // peers should send PeerInfoSelf only once
 
-		State::Enum m_eState;
 		beam::io::Address m_RemoteAddr; // for logging only
 
 		Height m_TipHeight;
 		proto::Config m_Config;
 
 		TaskList m_lstTasks;
+		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
+
+		Bbs::Subscription::PeerSet m_Subscriptions;
+
+		io::Timer::Ptr m_pTimer;
+		io::Timer::Ptr m_pTimerPeers;
+
+		Peer(Node& n) :m_This(n) {}
+
 		void TakeTasks();
 		void ReleaseTasks();
 		void ReleaseTask(Task&);
 		void SetTimerWrtFirstTask();
-
-		io::Timer::Ptr m_pTimer;
+		void Unsubscribe(Bbs::Subscription&);
+		void Unsubscribe();
 		void OnTimer();
 		void SetTimer(uint32_t timeout_ms);
 		void KillTimer();
-
-		void OnPostError();
+		void OnResendPeers();
+		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
+		void DeleteSelf(bool bIsError, bool bIsBan);
 		static void ThrowUnexpected();
 
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 
-		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
-
 		// proto::NodeConnection
 		virtual void OnConnected() override;
 		virtual void OnClosed(int errorCode) override;
-		virtual void get_MyID(ECC::Scalar::Native&); // by default no-ID (secure channel, but no authentication)
-		virtual void GenerateSChannelNonce(ECC::Scalar&); // Must be overridden to support SChannel
+		virtual void get_MyID(ECC::Scalar::Native&) override; // by default no-ID (secure channel, but no authentication)
+		virtual void GenerateSChannelNonce(ECC::Scalar&) override; // Must be overridden to support SChannel
 		// messages
 		virtual void OnMsg(proto::SChannelAuthentication&&) override;
 		virtual void OnMsg(proto::Config&&) override;
@@ -238,16 +320,21 @@ private:
 		virtual void OnMsg(proto::GetProofState&&) override;
 		virtual void OnMsg(proto::GetProofKernel&&) override;
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
+		virtual void OnMsg(proto::PeerInfoSelf&&) override;
+		virtual void OnMsg(proto::PeerInfo&&) override;
+		virtual void OnMsg(proto::BbsMsg&&) override;
+		virtual void OnMsg(proto::BbsHaveMsg&&) override;
+		virtual void OnMsg(proto::BbsGetMsg&&) override;
+		virtual void OnMsg(proto::BbsSubscribe&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
 	PeerList m_lstPeers;
 
 	ECC::NoLeak<ECC::uintBig> m_SChannelSeed;
+	PeerID m_MyID;
 
 	Peer* AllocPeer();
-	void DeletePeer(Peer*);
-	Peer* FindPeer(const Processor::PeerID&);
 
 	void RefreshCongestions();
 
@@ -259,6 +346,32 @@ private:
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Server)
 	} m_Server;
+
+	struct Beacon
+	{
+		struct OutCtx;
+
+		uv_udp_t m_Udp;
+		bool m_bShouldClose;
+		bool m_bRcv;
+		OutCtx* m_pOut;
+		std::vector<uint8_t> m_BufRcv;
+
+		io::Timer::Ptr m_pTimer;
+		void OnTimer();
+
+		Beacon();
+		~Beacon();
+
+		void Start();
+		uint16_t get_Port();
+		void OnPeer(const io::Address&, const PeerID&);
+
+		static void OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags);
+		static void AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Beacon)
+	} m_Beacon;
 
 	struct PerThread
 	{

@@ -124,8 +124,8 @@ namespace beam
         keychain->visit([&total, &currentHeight](const Coin& c)->bool
         {
             Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
-                ? Rules::MaturityCoinbase
-                : Rules::MaturityStd);
+                ? Rules::get().MaturityCoinbase
+                : Rules::get().MaturityStd);
 
             if (c.m_status == Coin::Unspent
                 && lockHeight <= currentHeight)
@@ -144,8 +144,8 @@ namespace beam
         keychain->visit([&total, &currentHeight, &status, &keyType](const Coin& c)->bool
         {
             Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
-                ? Rules::MaturityCoinbase
-                : Rules::MaturityStd);
+                ? Rules::get().MaturityCoinbase
+                : Rules::get().MaturityStd);
 
             if (c.m_status == status
              && c.m_key_type == keyType
@@ -448,7 +448,7 @@ int main(int argc, char* argv[])
 	macro(uint32_t, WindowForMedian, "How many blocks are considered in calculating the timestamp median") \
 	macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
 
-#define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(Rules::name), comment)
+#define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(Rules::get().name), comment)
 
 	po::options_description rules_options("Rules configuration");
 	rules_options.add_options() RulesParams(THE_MACRO);
@@ -492,13 +492,12 @@ int main(int argc, char* argv[])
 
         po::notify(vm);
 
-#define THE_MACRO(type, name, comment) Rules::name = vm[#name].as<type>();
+#define THE_MACRO(type, name, comment) Rules::get().name = vm[#name].as<type>();
 		RulesParams(THE_MACRO);
 #undef THE_MACRO
 
-		ECC::Hash::Value hvCfg;
-		Rules::get_Hash(hvCfg);
-		LOG_INFO() << "Rules signature: " << hvCfg;
+		Rules::get().UpdateChecksum();
+		LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
         auto port = vm[cli::PORT].as<uint16_t>();
         auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;

@@ -1,5 +1,5 @@
 #include "node.h"
-#include "node.h"
+#include <random>
 #include "../core/serialization_adapters.h"
 #include "../core/proto.h"
 #include "../core/ecc_native.h"
@@ -7,7 +7,6 @@
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"
 
-#include "../utility/logger.h"
 #include "../utility/io/tcpserver.h"
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
@@ -23,9 +22,9 @@ void Node::RefreshCongestions()
 
 	for (TaskList::iterator it = m_lstTasksUnassigned.begin(); m_lstTasksUnassigned.end() != it; )
 	{
-		TaskList::iterator itThis = it++;
-		if (!itThis->m_bRelevant)
-			DeleteUnassignedTask(*itThis);
+		Task& t = *(it++);
+		if (!t.m_bRelevant)
+			DeleteUnassignedTask(t);
 	}
 }
 
@@ -37,19 +36,122 @@ void Node::DeleteUnassignedTask(Task& t)
 	delete &t;
 }
 
-void Node::WantedTx::Delete(Node& n)
+uint32_t Node::WantedTx::get_Timeout_ms()
 {
-	bool bFront = (&m_lst.front() == &n);
+	return get_ParentObj().m_Cfg.m_Timeout.m_GetTx_ms;
+}
 
+void Node::WantedTx::OnExpired(const KeyType& key)
+{
+	proto::GetTransaction msg;
+	msg.m_ID = key;
+
+	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
+	{
+		Peer& peer = *(it++);
+
+		if (peer.m_Config.m_SpreadingTransactions)
+			try {
+				peer.Send(msg);
+			}
+			catch (...) {
+				peer.DeleteSelf(true, false);
+			}
+	}
+}
+
+void Node::Bbs::CalcMsgKey(NodeDB::WalkerBbs::Data& d)
+{
+	ECC::Hash::Processor hp;
+	hp.Write(d.m_Message.p, d.m_Message.n);
+	hp << d.m_Channel >> d.m_Key;
+}
+
+uint32_t Node::Bbs::WantedMsg::get_Timeout_ms()
+{
+	return get_ParentObj().get_ParentObj().m_Cfg.m_Timeout.m_GetBbsMsg_ms;
+}
+
+void Node::Bbs::WantedMsg::OnExpired(const KeyType& key)
+{
+	proto::BbsGetMsg msg;
+	msg.m_Key = key;
+
+	for (PeerList::iterator it = get_ParentObj().get_ParentObj().m_lstPeers.begin(); get_ParentObj().get_ParentObj().m_lstPeers.end() != it; )
+	{
+		Peer& peer = *(it++);
+
+		if (peer.m_Config.m_Bbs)
+			try {
+				peer.Send(msg);
+			}
+			catch (...) {
+				peer.DeleteSelf(true, false);
+			}
+	}
+
+	get_ParentObj().MaybeCleanup();
+}
+
+void Node::Wanted::Clear()
+{
+	while (!m_lst.empty())
+		DeleteInternal(m_lst.back());
+}
+
+void Node::Wanted::DeleteInternal(Item& n)
+{
 	m_lst.erase(List::s_iterator_to(n));
 	m_set.erase(Set::s_iterator_to(n));
 	delete &n;
+}
+
+void Node::Wanted::Delete(Item& n)
+{
+	bool bFront = (&m_lst.front() == &n);
+	DeleteInternal(n);
 
 	if (bFront)
 		SetTimer();
 }
 
-void Node::WantedTx::SetTimer()
+bool Node::Wanted::Delete(const KeyType& key)
+{
+	Item n;
+	n.m_Key = key;
+
+	Set::iterator it = m_set.find(n);
+	if (m_set.end() == it)
+		return false;
+		
+	Delete(*it);
+	return true;
+}
+
+bool Node::Wanted::Add(const KeyType& key)
+{
+	Item n;
+	n.m_Key = key;
+	Set::iterator it = m_set.find(n);
+	if (m_set.end() != it)
+		return false; // already waiting for it
+
+	bool bEmpty = m_lst.empty();
+
+	Item* p = new Item;
+	p->m_Key = key;
+	p->m_Advertised_ms = GetTime_ms();
+
+	m_set.insert(*p);
+	m_lst.push_back(*p);
+
+	if (bEmpty)
+		SetTimer();
+
+	return true;
+}
+
+void Node::Wanted::SetTimer()
 {
 	if (m_lst.empty())
 	{
@@ -62,89 +164,63 @@ void Node::WantedTx::SetTimer()
 			m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
 
 		uint32_t dt = GetTime_ms() - m_lst.front().m_Advertised_ms;
-		const uint32_t timeout_ms = get_ParentObj().m_Cfg.m_Timeout.m_GetTx_ms;
+		const uint32_t timeout_ms = get_Timeout_ms();
 
 		m_pTimer->start((timeout_ms > dt) ? (timeout_ms - dt) : 0, false, [this]() { OnTimer(); });
 	}
 }
 
-void Node::WantedTx::OnTimer()
+void Node::Wanted::OnTimer()
 {
 	uint32_t t_ms = GetTime_ms();
-	const uint32_t timeout_ms = get_ParentObj().m_Cfg.m_Timeout.m_GetTx_ms;
+	const uint32_t timeout_ms = get_Timeout_ms();
 
 	while (!m_lst.empty())
 	{
-		Node& n = m_lst.front();
+		Item& n = m_lst.front();
 		if (t_ms - n.m_Advertised_ms < timeout_ms)
 			break;
 
-		// timeout expired. Ask from all
-		proto::GetTransaction msg;
-		msg.m_ID = n.m_Key;
-
+		OnExpired(n.m_Key); // should not invalidate our structure
 		Delete(n); // will also reschedule the timer
-
-		for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
-		{
-			PeerList::iterator itThis = it;
-			it++;
-			Peer& peer = *itThis;
-
-			if ((State::Connected == peer.m_eState) && peer.m_Config.m_SpreadingTransactions)
-				try {
-					peer.Send(msg);
-				}
-				catch (...) {
-					peer.OnPostError();
-				}
-		}
 	}
 }
 
-uint32_t Node::GetTime_ms()
-{
-	// platform-independent analogue of GetTickCount
-	using namespace std::chrono;
-	return (uint32_t) duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-}
-
-void Node::TryAssignTask(Task& t, const NodeDB::PeerID* pPeerID)
+void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 {
 	while (true)
 	{
-		Peer* pBestMatch = NULL;
+		Peer* pSel = NULL;
 
-		for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+		if (pPeerID)
+		{
+			bool bCreate = false;
+			PeerMan::PeerInfoPlus* pInfo = (PeerMan::PeerInfoPlus*) m_PeerMan.Find(*pPeerID, bCreate);
+
+			if (pInfo && pInfo->m_pLive && pInfo->m_pLive->m_bPiRcvd)
+				pSel = pInfo->m_pLive;
+		}
+
+		for (PeerList::iterator it = m_lstPeers.begin(); !pSel && (m_lstPeers.end() != it); it++)
 		{
 			Peer& p = *it;
-			if (pBestMatch)
-			{
-				assert(pPeerID);
-
-				NodeDB::PeerID id;
-				p.get_ID(id);
-				if (id != *pPeerID)
-					continue;
-			}
-
 			if (ShouldAssignTask(t, p))
 			{
-				pBestMatch = &p;
-				if (!pPeerID)
-					break;
+				pSel = &p;
+				break;
 			}
 		}
 
-		if (!pBestMatch)
+		if (!pSel)
 			break;
 
 		try {
-			AssignTask(t, *pBestMatch);
+			AssignTask(t, *pSel);
 			return; // done
 
 		} catch (...) {
-			pBestMatch->OnPostError();
+			pSel->DeleteSelf(true, false);
+			//  retry
 		}
 	}
 }
@@ -181,15 +257,16 @@ void Node::Peer::SetTimerWrtFirstTask()
 	if (m_lstTasks.empty())
 		KillTimer();
 	else
-		SetTimer(m_lstTasks.front().m_Key.second ? m_pThis->m_Cfg.m_Timeout.m_GetBlock_ms : m_pThis->m_Cfg.m_Timeout.m_GetState_ms);
+		SetTimer(m_lstTasks.front().m_Key.second ? m_This.m_Cfg.m_Timeout.m_GetBlock_ms : m_This.m_Cfg.m_Timeout.m_GetState_ms);
 }
 
 bool Node::ShouldAssignTask(Task& t, Peer& p)
 {
-	if (State::Connected != p.m_eState)
+	if (p.m_TipHeight < t.m_Key.first.m_Height)
 		return false;
 
-	if (p.m_TipHeight < t.m_Key.first.m_Height)
+	// Current design: don't ask anything from non-authenticated peers
+	if (!p.m_bPiRcvd)
 		return false;
 
 	// check if the peer currently transfers a block
@@ -227,9 +304,16 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 
 void Node::Processor::OnPeerInsane(const PeerID& peerID)
 {
-	Peer* pPeer = get_ParentObj().FindPeer(peerID);
-	if (pPeer && (State::Snoozed != pPeer->m_eState))
-		pPeer->OnClosed(-1);
+	bool bCreate = false;
+	PeerMan::PeerInfoPlus* pInfo = (PeerMan::PeerInfoPlus*) get_ParentObj().m_PeerMan.Find(peerID, bCreate);
+
+	if (pInfo)
+	{
+		if (pInfo->m_pLive)
+			pInfo->m_pLive->DeleteSelf(true, true); // will ban
+		else
+			get_ParentObj().m_PeerMan.Ban(*pInfo);
+	}
 }
 
 void Node::Processor::OnNewState()
@@ -253,12 +337,10 @@ void Node::Processor::OnNewState()
 
 	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
 	{
-		PeerList::iterator itThis = it;
-		it++;
-		Peer& peer = *itThis;
+		Peer& peer = *(it++);
 
 		try {
-			if ((State::Connected == peer.m_eState) && (peer.m_TipHeight <= msg.m_ID.m_Height))
+			if (peer.m_bConnected && (peer.m_TipHeight <= msg.m_ID.m_Height))
 			{
 				peer.Send(msg);
 
@@ -266,7 +348,7 @@ void Node::Processor::OnNewState()
 					peer.Send(msgHdr);
 			}
 		} catch (...) {
-			peer.OnPostError();
+			peer.DeleteSelf(true, false);
 		}
 	}
 
@@ -367,46 +449,43 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 
 Node::Peer* Node::AllocPeer()
 {
-	Peer* pPeer = new Peer;
+	Peer* pPeer = new Peer(*this);
 	m_lstPeers.push_back(*pPeer);
 
-	pPeer->m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
-
-	pPeer->m_eState = State::Idle;
-	pPeer->m_pThis = this;
+	pPeer->m_pInfo = NULL;
+	pPeer->m_bConnected = false;
+	pPeer->m_bPiRcvd = false;
+	pPeer->m_TipHeight = 0;
+	ZeroObject(pPeer->m_Config);
 
 	return pPeer;
 }
 
-void Node::DeletePeer(Peer* p)
-{
-	m_lstPeers.erase(PeerList::s_iterator_to(*p));
-	delete p;
-}
-
-Node::Peer* Node::FindPeer(const Processor::PeerID& peerID)
-{
-	// current interpretation (naive): just assume that peerID is the index
-	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
-	{
-		Processor::PeerID id2;
-		id2 = (uint32_t) it->m_iPeer;
-		if (peerID == id2)
-			return &*it;
-	}
-	return NULL;
-}
-
 void Node::Initialize()
 {
-	Rules::get_Hash(m_hvCfg);
-
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
     m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
 
-	m_SChannelSeed.V = ECC::Zero;
+	std::random_device rd;
+	m_SChannelSeed.V = rd(); // short, but ok, since it's re-hashed before using every time
 
+	NodeDB::Blob blob(m_MyID.m_pData, sizeof(m_MyID.m_pData));
+
+	if (!m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob))
+	{
+		ECC::Hash::Processor() << "myid" << rd() >> m_MyID;
+
+		ECC::Scalar::Native k;
+		k.GenerateNonce(m_Cfg.m_WalletKey.V, m_MyID, NULL);
+		m_MyID = ECC::Scalar(k).m_Value;
+
+		m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, NULL, &blob);
+	}
+
+
+
+	LOG_INFO() << "Node ID: " << m_MyID;
 	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
 
 	if (m_Cfg.m_VerificationThreads < 0)
@@ -418,14 +497,46 @@ void Node::Initialize()
 	RefreshCongestions();
 
 	if (m_Cfg.m_Listen.port())
+	{
 		m_Server.Listen(m_Cfg.m_Listen);
+		if (m_Cfg.m_BeaconPeriod_ms)
+			m_Beacon.Start();
+	}
 
 	for (uint32_t i = 0; i < m_Cfg.m_Connect.size(); i++)
 	{
-		Peer* p = AllocPeer();
-		p->m_iPeer = i;
+		PeerID id0;
+		id0 = ECC::Zero;
+		m_PeerMan.OnPeer(id0, m_Cfg.m_Connect[i], true);
+	}
 
-		p->OnTimer(); // initiate connect
+	// peers
+	m_PeerMan.m_pTimerUpd = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+	m_PeerMan.m_pTimerUpd->start(m_Cfg.m_Timeout.m_PeersUpdate_ms, true, [this]() { m_PeerMan.Update(); });
+
+	m_PeerMan.m_pTimerFlush = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+	m_PeerMan.m_pTimerFlush->start(m_Cfg.m_Timeout.m_PeersDbFlush_ms, true, [this]() { m_PeerMan.OnFlush(); });
+
+	{
+		NodeDB::WalkerPeer wlk(m_Processor.get_DB());
+		for (m_Processor.get_DB().EnumPeers(wlk); wlk.MoveNext(); )
+		{
+			PeerMan::PeerInfo* pPi = m_PeerMan.OnPeer(wlk.m_Data.m_ID, io::Address::from_u64(wlk.m_Data.m_Address), false);
+			if (!pPi)
+				continue;
+
+			// set rating (akward, TODO - fix this)
+			uint32_t r = wlk.m_Data.m_Rating;
+			if (!r)
+				m_PeerMan.Ban(*pPi);
+			else
+				if (r > pPi->m_RawRating.m_Value)
+					m_PeerMan.ModifyRating(*pPi, r - pPi->m_RawRating.m_Value, true);
+				else
+					m_PeerMan.ModifyRating(*pPi, pPi->m_RawRating.m_Value - r, false);
+				
+			pPi->m_LastSeen = wlk.m_Data.m_LastSeen;
+		}
 	}
 
 	if (m_Cfg.m_MiningThreads)
@@ -449,6 +560,21 @@ void Node::Initialize()
 
 	if (m_Compressor.m_bEnabled)
 		m_Compressor.Init();
+
+	m_Bbs.Cleanup();
+}
+
+void Node::Bbs::Cleanup()
+{
+	get_ParentObj().m_Processor.get_DB().BbsDelOld(getTimestamp() - get_ParentObj().m_Cfg.m_Timeout.m_BbsMessageTimeout_s);
+	m_LastCleanup_ms = GetTime_ms();
+}
+
+void Node::Bbs::MaybeCleanup()
+{
+	uint32_t dt_ms = GetTime_ms() - m_LastCleanup_ms;
+	if (dt_ms >= get_ParentObj().m_Cfg.m_Timeout.m_BbsCleanupPeriod_ms)
+		Cleanup();
 }
 
 void Node::ImportMacroblock(Height h)
@@ -485,22 +611,15 @@ Node::~Node()
 	m_Compressor.StopCurrent();
 
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
-		it->m_eState = State::Snoozed; // prevent re-assigning of tasks in the next loop
+		ZeroObject(it->m_Config); // prevent re-assigning of tasks in the next loop
 
 	while (!m_lstPeers.empty())
-	{
-		Peer& p = m_lstPeers.front();
-		p.ReleaseTasks();
-		DeletePeer(&p);
-	}
+		m_lstPeers.front().DeleteSelf(false, false);
 
 	while (!m_lstTasksUnassigned.empty())
 		DeleteUnassignedTask(m_lstTasksUnassigned.front());
 
 	assert(m_setTasks.empty());
-
-	while (!m_Wtx.m_lst.empty())
-		m_Wtx.Delete(m_Wtx.m_lst.back());
 
 	Processor::Verifier& v = m_Processor.m_Verifier; // alias
 	if (!v.m_vThreads.empty())
@@ -519,7 +638,9 @@ Node::~Node()
 
 void Node::Peer::SetTimer(uint32_t timeout_ms)
 {
-	assert(m_pTimer);
+	if (!m_pTimer)
+		m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+
 	m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
 }
 
@@ -531,33 +652,44 @@ void Node::Peer::KillTimer()
 
 void Node::Peer::OnTimer()
 {
-	switch (m_eState)
+	if (m_bConnected)
 	{
-	case State::Idle:
-	case State::Snoozed:
+		assert(!m_lstTasks.empty());
 
-		assert(m_iPeer >= 0);
+		LOG_WARNING() << "Peer " << m_RemoteAddr << " request timeout";
 
-		try {
-            m_eState = State::Connecting;
-			Connect(m_pThis->m_Cfg.m_Connect[m_iPeer]);
-		} catch (...) {
-			OnPostError();
-		}
+		if (m_pInfo)
+			m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::PenaltyTimeout, false); // task (request) wasn't handled in time.
 
-		break;
+		DeleteSelf(false, false);
+	}
+	else
+		// Connect didn't finish in time
+		DeleteSelf(true, false);
+}
 
-	case State::Connected:
+void Node::Peer::OnResendPeers()
+{
+	PeerMan& pm = m_This.m_PeerMan;
+	const PeerMan::RawRatingSet& rs = pm.get_Ratings();
+	uint32_t nRemaining = pm.m_Cfg.m_DesiredHighest;
 
-		assert(!m_lstTasks.empty()); // task (request) wasn't handled in time
-		OnPostError();
-		break;
+	for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); nRemaining && (rs.end() != it); it++)
+	{
+		const PeerMan::PeerInfo& pi = it->get_ParentObj();
+		if (m_bPiRcvd && (&pi == m_pInfo))
+			continue; // skip
+
+		proto::PeerInfo msg;
+		msg.m_ID = pi.m_ID.m_Key;
+		msg.m_LastAddr = pi.m_Addr.m_Value;
+		Send(msg);
 	}
 }
 
 void Node::Peer::get_MyID(ECC::Scalar::Native& sk)
 {
-	ECC::Kdf& kdf = m_pThis->m_Processor.m_Kdf;
+	ECC::Kdf& kdf = m_This.m_Processor.m_Kdf;
 
 	if (kdf.m_Secret.V == ECC::Zero)
 		sk = ECC::Zero;
@@ -567,12 +699,12 @@ void Node::Peer::get_MyID(ECC::Scalar::Native& sk)
 
 void Node::Peer::GenerateSChannelNonce(ECC::Scalar& nonce)
 {
-	ECC::uintBig& hv = m_pThis->m_SChannelSeed.V; // alias
+	ECC::uintBig& hv = m_This.m_SChannelSeed.V; // alias
 
 	ECC::Hash::Processor() << "sch.nonce" << hv << GetTime_ms() >> hv;
 
 	ECC::Scalar::Native k;
-	k.GenerateNonce(m_pThis->m_Cfg.m_WalletKey.V, hv, NULL);
+	k.GenerateNonce(m_This.m_Cfg.m_WalletKey.V, hv, NULL);
 	nonce = k;
 }
 
@@ -581,26 +713,25 @@ void Node::Peer::OnConnected()
 	m_RemoteAddr = get_Connection()->peer_address();
 	LOG_INFO() << "+Peer " << m_RemoteAddr;
 
-	if (State::Connecting == m_eState)
-		KillTimer();
-	else
-		assert(State::Idle == m_eState);
-
-	m_eState = State::Connected;
-	m_TipHeight = 0;
-	ZeroObject(m_Config);
+	m_bConnected = true;
 
 	proto::Config msgCfg;
-	msgCfg.m_CfgChecksum = m_pThis->m_hvCfg;
+	msgCfg.m_CfgChecksum = Rules::get().Checksum;
 	msgCfg.m_SpreadingTransactions = true;
-	msgCfg.m_Mining = (m_pThis->m_Cfg.m_MiningThreads > 0);
+	msgCfg.m_Bbs = true;
 	msgCfg.m_AutoSendHdr = false;
+	msgCfg.m_SendPeers = true;
 	Send(msgCfg);
 
-	if (m_pThis->m_Processor.m_Cursor.m_Sid.m_Row)
+	proto::PeerInfoSelf msgPi;
+	msgPi.m_ID = m_This.m_MyID;
+	msgPi.m_Port = m_This.m_Cfg.m_Listen.port();
+	Send(msgPi);
+
+	if (m_This.m_Processor.m_Cursor.m_Sid.m_Row)
 	{
 		proto::NewTip msg;
-		msg.m_ID = m_pThis->m_Processor.m_Cursor.m_ID;
+		msg.m_ID = m_This.m_Processor.m_Cursor.m_ID;
 		Send(msg);
 	}
 }
@@ -613,15 +744,13 @@ void Node::Peer::OnMsg(proto::SChannelAuthentication&& msg)
 
 void Node::Peer::OnClosed(int errorCode)
 {
-	assert(State::Connected == m_eState || State::Connecting == m_eState);
-	if (-1 == errorCode) // protocol error
-		m_eState = State::Snoozed;
-	OnPostError();
-}
-
-void Node::Peer::get_ID(NodeProcessor::PeerID& id)
-{
-	id = (size_t) m_iPeer;
+	if (-1 == errorCode)
+		DeleteSelf(true, true);
+	else
+	{
+		// Log error code?
+		DeleteSelf(true, false);
+	}
 }
 
 void Node::Peer::ReleaseTasks()
@@ -636,49 +765,60 @@ void Node::Peer::ReleaseTask(Task& t)
 	t.m_pOwner = NULL;
 
 	m_lstTasks.erase(TaskList::s_iterator_to(t));
-	m_pThis->m_lstTasksUnassigned.push_back(t);
+	m_This.m_lstTasksUnassigned.push_back(t);
 
 	if (t.m_bRelevant)
-		m_pThis->TryAssignTask(t, NULL);
+		m_This.TryAssignTask(t, NULL);
 	else
-		m_pThis->DeleteUnassignedTask(t);
+		m_This.DeleteUnassignedTask(t);
 }
 
-void Node::Peer::OnPostError()
+void Node::Peer::DeleteSelf(bool bIsError, bool bIsBan)
 {
 	LOG_INFO() << "-Peer " << m_RemoteAddr;
 
-	if (State::Snoozed != m_eState)
-		m_eState = State::Idle; // prevent reassigning the tasks
+	m_TipHeight = 0; // prevent reassigning the tasks
 
 	ReleaseTasks();
+	Unsubscribe();
 
-	if (m_iPeer < 0)
-		m_pThis->DeletePeer(this);
-	else
+	if (m_pInfo)
 	{
-		Reset(); // connection layer
-		m_setRejected.clear();
+		// detach
+		assert(this == m_pInfo->m_pLive);
+		m_pInfo->m_pLive = NULL;
 
-		if (State::Snoozed == m_eState)
-			SetTimer(m_pThis->m_Cfg.m_Timeout.m_Insane_ms);
-		else
-		{
-			m_eState = State::Idle;
-			SetTimer(m_pThis->m_Cfg.m_Timeout.m_Reconnect_ms);
-		}
+		m_This.m_PeerMan.OnActive(*m_pInfo, false);
+
+		if (bIsError)
+			m_This.m_PeerMan.OnRemoteError(*m_pInfo, bIsBan);
 	}
+
+	m_This.m_lstPeers.erase(PeerList::s_iterator_to(*this));
+	delete this;
+}
+
+void Node::Peer::Unsubscribe(Bbs::Subscription& s)
+{
+	m_This.m_Bbs.m_Subscribed.erase(Bbs::Subscription::BbsSet::s_iterator_to(s.m_Bbs));
+	m_Subscriptions.erase(Bbs::Subscription::PeerSet::s_iterator_to(s.m_Peer));
+	delete &s;
+}
+
+void Node::Peer::Unsubscribe()
+{
+	while (!m_Subscriptions.empty())
+		Unsubscribe(m_Subscriptions.begin()->get_ParentObj());
 }
 
 void Node::Peer::TakeTasks()
 {
-	for (TaskList::iterator it = m_pThis->m_lstTasksUnassigned.begin(); m_pThis->m_lstTasksUnassigned.end() != it; )
+	for (TaskList::iterator it = m_This.m_lstTasksUnassigned.begin(); m_This.m_lstTasksUnassigned.end() != it; )
 	{
-		Task& t = *it;
-		it++;
+		Task& t = *(it++);
 
-		if (m_pThis->ShouldAssignTask(t, *this))
-			m_pThis->AssignTask(t, *this);
+		if (m_This.ShouldAssignTask(t, *this))
+			m_This.AssignTask(t, *this);
 	}
 }
 
@@ -696,16 +836,12 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 	m_TipHeight = msg.m_ID.m_Height;
 	m_setRejected.clear();
 
-	LOG_INFO() << "Peer " << get_Connection()->peer_address() << " Tip: " << msg.m_ID;
+	LOG_INFO() << "Peer " << m_RemoteAddr << " Tip: " << msg.m_ID;
 
 	TakeTasks();
 
-	if (m_pThis->m_Processor.IsStateNeeded(msg.m_ID))
-	{
-		NodeProcessor::PeerID id;
-		get_ID(id);
-		m_pThis->m_Processor.RequestData(msg.m_ID, false, &id);
-	}
+	if (m_This.m_Processor.IsStateNeeded(msg.m_ID))
+		m_This.m_Processor.RequestData(msg.m_ID, false, m_pInfo ? &m_pInfo->m_ID.m_Key : NULL);
 }
 
 void Node::Peer::ThrowUnexpected()
@@ -736,11 +872,11 @@ void Node::Peer::OnMsg(proto::DataMissing&&)
 
 void Node::Peer::OnMsg(proto::GetHdr&& msg)
 {
-	uint64_t rowid = m_pThis->m_Processor.get_DB().StateFindSafe(msg.m_ID);
+	uint64_t rowid = m_This.m_Processor.get_DB().StateFindSafe(msg.m_ID);
 	if (rowid)
 	{
 		proto::Hdr msgHdr;
-		m_pThis->m_Processor.get_DB().get_State(rowid, msgHdr.m_Description);
+		m_This.m_Processor.get_DB().get_State(rowid, msgHdr.m_Description);
 		Send(msgHdr);
 	} else
 	{
@@ -761,21 +897,22 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	if (id != t.m_Key.first)
 		ThrowUnexpected();
 
-	NodeDB::PeerID pid;
-	get_ID(pid);
+	if (m_pInfo)
+		m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true);
 
-	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnState(msg.m_Description, pid);
+	assert(m_pInfo);
+	NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnState(msg.m_Description, m_pInfo->m_ID.m_Key);
 	OnFirstTaskDone(eStatus);
 }
 
 void Node::Peer::OnMsg(proto::GetBody&& msg)
 {
-	uint64_t rowid = m_pThis->m_Processor.get_DB().StateFindSafe(msg.m_ID);
+	uint64_t rowid = m_This.m_Processor.get_DB().StateFindSafe(msg.m_ID);
 	if (rowid)
 	{
 		proto::Body msgBody;
 		ByteBuffer bbRollback;
-		m_pThis->m_Processor.get_DB().GetStateBlock(rowid, msgBody.m_Buffer, bbRollback);
+		m_This.m_Processor.get_DB().GetStateBlock(rowid, msgBody.m_Buffer, bbRollback);
 
 		if (!msgBody.m_Buffer.empty())
 		{
@@ -796,12 +933,12 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	if (!t.m_Key.second)
 		ThrowUnexpected();
 
-	NodeDB::PeerID pid;
-	get_ID(pid);
+	if (m_pInfo)
+		m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
 
 	const Block::SystemState::ID& id = t.m_Key.first;
 
-	NodeProcessor::DataStatus::Enum eStatus = m_pThis->m_Processor.OnBlock(id, msg.m_Buffer, pid);
+	NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnBlock(id, msg.m_Buffer, m_pInfo->m_ID.m_Key);
 	OnFirstTaskDone(eStatus);
 }
 
@@ -814,7 +951,7 @@ void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
 	OnFirstTaskDone();
 
 	if (NodeProcessor::DataStatus::Accepted == eStatus)
-		m_pThis->RefreshCongestions(); // NOTE! Can call OnPeerInsane()
+		m_This.RefreshCongestions(); // NOTE! Can call OnPeerInsane()
 }
 
 void Node::Peer::OnMsg(proto::NewTransaction&& msg)
@@ -829,26 +966,21 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 	NodeProcessor::TxPool::Element::Tx key;
 	msg.m_Transaction->get_Key(key.m_Key);
 
-	NodeProcessor::TxPool::TxSet::iterator it = m_pThis->m_TxPool.m_setTxs.find(key);
-	if (m_pThis->m_TxPool.m_setTxs.end() == it)
+	NodeProcessor::TxPool::TxSet::iterator it = m_This.m_TxPool.m_setTxs.find(key);
+	if (m_This.m_TxPool.m_setTxs.end() == it)
 	{
-		WantedTx::Node wtxn;
-		wtxn.m_Key = key.m_Key;
-
-		WantedTx::Set::iterator it2 = m_pThis->m_Wtx.m_set.find(wtxn);
-		if (m_pThis->m_Wtx.m_set.end() != it2)
-			m_pThis->m_Wtx.Delete(*it2);
+		m_This.m_Wtx.Delete(key.m_Key);
 
 		// new transaction
 		const Transaction& tx = *msg.m_Transaction;
 		Transaction::Context ctx;
-		msgOut.m_Value = m_pThis->m_Processor.ValidateTx(tx, ctx);
+		msgOut.m_Value = m_This.m_Processor.ValidateTx(tx, ctx);
 
 		{
 			// Log it
 			std::ostringstream os;
 
-			os << "Tx " << key.m_Key << " from " << get_Connection()->peer_address();
+			os << "Tx " << key.m_Key << " from " << m_RemoteAddr;
 
 			for (size_t i = 0; i < tx.m_vInputs.size(); i++)
 				os << "\n\tI: " << tx.m_vInputs[i]->m_Commitment;
@@ -880,12 +1012,10 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 			proto::HaveTransaction msgOut;
 			msgOut.m_ID = key.m_Key;
 
-			for (PeerList::iterator it = m_pThis->m_lstPeers.begin(); m_pThis->m_lstPeers.end() != it; )
+			for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; )
 			{
-				Peer& peer = *it++;
+				Peer& peer = *(it++);
 				if (this == &peer)
-					continue;
-				if (State::Connected != peer.m_eState)
 					continue;
 				if (!peer.m_Config.m_SpreadingTransactions)
 					continue;
@@ -893,13 +1023,13 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 				try {
 					peer.Send(msgOut);
 				} catch (...) {
-					peer.OnPostError();
+					peer.DeleteSelf(true, false);
 				}
 			}
 
-			m_pThis->m_TxPool.AddValidTx(std::move(msg.m_Transaction), ctx, key.m_Key);
-			m_pThis->m_TxPool.ShrinkUpTo(m_pThis->m_Cfg.m_MaxPoolTransactions);
-			m_pThis->m_Miner.SetTimer(m_pThis->m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
+			m_This.m_TxPool.AddValidTx(std::move(msg.m_Transaction), ctx, key.m_Key);
+			m_This.m_TxPool.ShrinkUpTo(m_This.m_Cfg.m_MaxPoolTransactions);
+			m_This.m_Miner.SetTimer(m_This.m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
 		}
 	}
 
@@ -908,16 +1038,16 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 
 void Node::Peer::OnMsg(proto::Config&& msg)
 {
-	if (msg.m_CfgChecksum != m_pThis->m_hvCfg)
+	if (msg.m_CfgChecksum != Rules::get().Checksum)
 	{
 		LOG_WARNING() << "Incompatible peer cfg!";
 		ThrowUnexpected();
 	}
 
-	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr && m_pThis->m_Processor.m_Cursor.m_Sid.m_Row)
+	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr && m_This.m_Processor.m_Cursor.m_Sid.m_Row)
 	{
 		proto::Hdr msgHdr;
-		msgHdr.m_Description = m_pThis->m_Processor.m_Cursor.m_Full;
+		msgHdr.m_Description = m_This.m_Processor.m_Cursor.m_Full;
 		Send(msgHdr);
 	}
 
@@ -925,9 +1055,39 @@ void Node::Peer::OnMsg(proto::Config&& msg)
 	{
 		proto::HaveTransaction msgOut;
 
-		for (NodeProcessor::TxPool::TxSet::iterator it = m_pThis->m_TxPool.m_setTxs.begin(); m_pThis->m_TxPool.m_setTxs.end() != it; it++)
+		for (NodeProcessor::TxPool::TxSet::iterator it = m_This.m_TxPool.m_setTxs.begin(); m_This.m_TxPool.m_setTxs.end() != it; it++)
 		{
 			msgOut.m_ID = it->m_Key;
+			Send(msgOut);
+		}
+	}
+
+	if (m_Config.m_SendPeers != msg.m_SendPeers)
+	{
+		if (msg.m_SendPeers)
+		{
+			if (!m_pTimerPeers)
+				m_pTimerPeers = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+
+			m_pTimerPeers->start(m_This.m_Cfg.m_Timeout.m_TopPeersUpd_ms, true, [this]() { OnResendPeers(); });
+
+			OnResendPeers();
+		}
+		else
+			if (m_pTimerPeers)
+				m_pTimerPeers->cancel();
+	}
+
+	if (!m_Config.m_Bbs && msg.m_Bbs)
+	{
+		proto::BbsHaveMsg msgOut;
+
+		NodeDB& db = m_This.m_Processor.get_DB();
+		NodeDB::WalkerBbs wlk(db);
+
+		for (db.EnumAllBbs(wlk); wlk.MoveNext(); )
+		{
+			msgOut.m_Key = wlk.m_Data.m_Key;
 			Send(msgOut);
 		}
 	}
@@ -940,27 +1100,12 @@ void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
 	NodeProcessor::TxPool::Element::Tx key;
 	key.m_Key = msg.m_ID;
 
-	NodeProcessor::TxPool::TxSet::iterator it = m_pThis->m_TxPool.m_setTxs.find(key);
-	if (m_pThis->m_TxPool.m_setTxs.end() != it)
+	NodeProcessor::TxPool::TxSet::iterator it = m_This.m_TxPool.m_setTxs.find(key);
+	if (m_This.m_TxPool.m_setTxs.end() != it)
 		return; // already have it
 
-	WantedTx::Node wtxn;
-	wtxn.m_Key = msg.m_ID;
-	WantedTx::Set::iterator it2 = m_pThis->m_Wtx.m_set.find(wtxn);
-	if (m_pThis->m_Wtx.m_set.end() != it2)
+	if (!m_This.m_Wtx.Add(key.m_Key))
 		return; // already waiting for it
-
-	bool bEmpty = m_pThis->m_Wtx.m_lst.empty();
-
-	WantedTx::Node* pWtxn = new WantedTx::Node;
-	pWtxn->m_Key = msg.m_ID;
-	pWtxn->m_Advertised_ms = GetTime_ms();
-
-	m_pThis->m_Wtx.m_set.insert(*pWtxn);
-	m_pThis->m_Wtx.m_lst.push_back(*pWtxn);
-
-	if (bEmpty)
-		m_pThis->m_Wtx.SetTimer();
 
 	proto::GetTransaction msgOut;
 	msgOut.m_ID = msg.m_ID;
@@ -972,8 +1117,8 @@ void Node::Peer::OnMsg(proto::GetTransaction&& msg)
 	NodeProcessor::TxPool::Element::Tx key;
 	key.m_Key = msg.m_ID;
 
-	NodeProcessor::TxPool::TxSet::iterator it = m_pThis->m_TxPool.m_setTxs.find(key);
-	if (m_pThis->m_TxPool.m_setTxs.end() == it)
+	NodeProcessor::TxPool::TxSet::iterator it = m_This.m_TxPool.m_setTxs.find(key);
+	if (m_This.m_TxPool.m_setTxs.end() == it)
 		return; // don't have it
 
 	// temporarily move the transaction to the Msg object, but make sure it'll be restored back, even in case of the exception.
@@ -996,7 +1141,7 @@ void Node::Peer::OnMsg(proto::GetTransaction&& msg)
 
 void Node::Peer::OnMsg(proto::GetMined&& msg)
 {
-	if (m_pThis->m_Cfg.m_RestrictMinedReportToOwner)
+	if (m_This.m_Cfg.m_RestrictMinedReportToOwner)
 	{
 		// Who's asking?
 		const ECC::Point* pID = get_RemoteID();
@@ -1014,7 +1159,7 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 
 	proto::Mined msgOut;
 
-	NodeDB& db = m_pThis->m_Processor.get_DB();
+	NodeDB& db = m_This.m_Processor.get_DB();
 	NodeDB::WalkerMined wlk(db);
 	for (db.EnumMined(wlk, msg.m_HeightMin); wlk.MoveNext(); )
 	{
@@ -1042,17 +1187,17 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 
 	proto::Proof msgOut;
 
-	const NodeDB::StateID& sid = m_pThis->m_Processor.m_Cursor.m_Sid;
+	const NodeDB::StateID& sid = m_This.m_Processor.m_Cursor.m_Sid;
 	if (sid.m_Row)
 	{
 		if (msg.m_Height < sid.m_Height)
 		{
-			m_pThis->m_Processor.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height);
+			m_This.m_Processor.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height);
 
 			msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 
 			msgOut.m_Proof.back().first = true;
-			m_pThis->m_Processor.get_CurrentLive(msgOut.m_Proof.back().second);
+			m_This.m_Processor.get_CurrentLive(msgOut.m_Proof.back().second);
 		}
 	}
 
@@ -1063,7 +1208,7 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 {
 	proto::Proof msgOut;
 
-	RadixHashOnlyTree& t = m_pThis->m_Processor.get_Kernels();
+	RadixHashOnlyTree& t = m_This.m_Processor.get_Kernels();
 
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = false;
@@ -1074,11 +1219,11 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 		msgOut.m_Proof.back().first = false;
-		m_pThis->m_Processor.get_Utxos().get_Hash(msgOut.m_Proof.back().second);
+		m_This.m_Processor.get_Utxos().get_Hash(msgOut.m_Proof.back().second);
 
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 		msgOut.m_Proof.back().first = false;
-		msgOut.m_Proof.back().second = m_pThis->m_Processor.m_Cursor.m_History;
+		msgOut.m_Proof.back().second = m_This.m_Processor.m_Cursor.m_History;
 	}
 }
 
@@ -1118,9 +1263,9 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 		}
 	} t;
 
-	t.m_pTree = &m_pThis->m_Processor.get_Utxos();
-	m_pThis->m_Processor.get_Kernels().get_Hash(t.m_hvKernels);
-	t.m_phvHistory = &m_pThis->m_Processor.m_Cursor.m_History;
+	t.m_pTree = &m_This.m_Processor.get_Utxos();
+	m_This.m_Processor.get_Kernels().get_Hash(t.m_hvKernels);
+	t.m_phvHistory = &m_This.m_Processor.m_Cursor.m_History;
 
 	UtxoTree::Cursor cu;
 	t.m_pCu = &cu;
@@ -1143,13 +1288,207 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	Send(t.m_Msg);
 }
 
+void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
+{
+	if (m_bPiRcvd || (msg.m_ID == ECC::Zero))
+		ThrowUnexpected();
+
+	m_bPiRcvd = true;
+
+	PeerMan& pm = m_This.m_PeerMan; // alias
+
+	if (m_pInfo)
+	{
+		// probably we connected by the address
+		if (m_pInfo->m_ID.m_Key == msg.m_ID)
+		{
+			pm.OnSeen(*m_pInfo);
+			return; // all settled (already)
+		}
+
+		// detach from it
+		m_pInfo->m_pLive = NULL;
+
+		if (m_pInfo->m_ID.m_Key == ECC::Zero)
+			pm.Delete(*m_pInfo); // it's anonymous.
+		else
+		{
+			pm.OnActive(*m_pInfo, false);
+			pm.RemoveAddr(*m_pInfo); // turned-out to be wrong
+		}
+
+		m_pInfo = NULL;
+	}
+
+	PeerMan::PeerInfoPlus* pPi = (PeerMan::PeerInfoPlus*) pm.OnPeer(msg.m_ID, m_RemoteAddr, true);
+	assert(pPi);
+
+	if (pPi->m_pLive)
+	{
+		// threre's already another connection open to the same peer!
+		// Currently - just ignore this.
+		m_bPiRcvd = false;
+	}
+	else
+	{
+		// attach to it
+		pPi->m_pLive = this;
+		m_pInfo = pPi;
+		pm.OnActive(*pPi, true);
+		pm.OnSeen(*pPi);
+	}
+}
+
+void Node::Peer::OnMsg(proto::PeerInfo&& msg)
+{
+	m_This.m_PeerMan.OnPeer(msg.m_ID, msg.m_LastAddr, false);
+}
+
+void Node::Peer::OnMsg(proto::BbsMsg&& msg)
+{
+	Timestamp t = getTimestamp();
+	Timestamp t0 = t - m_This.m_Cfg.m_Timeout.m_BbsMessageTimeout_s;
+	Timestamp t1 = t + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s;
+
+	if ((msg.m_TimePosted <= t0) || (msg.m_TimePosted > t1))
+		return;
+
+	NodeDB& db = m_This.m_Processor.get_DB();
+	NodeDB::WalkerBbs wlk(db);
+
+	wlk.m_Data.m_Channel = msg.m_Channel;
+	wlk.m_Data.m_TimePosted = msg.m_TimePosted;
+	wlk.m_Data.m_Message = NodeDB::Blob(msg.m_Message);
+
+	Bbs::CalcMsgKey(wlk.m_Data);
+
+	if (db.BbsFind(wlk))
+		return; // already have it
+
+	m_This.m_Bbs.MaybeCleanup();
+
+	db.BbsIns(wlk.m_Data);
+	m_This.m_Bbs.m_W.Delete(wlk.m_Data.m_Key);
+
+	// 1. Send to other BBS-es
+
+	proto::BbsHaveMsg msgOut;
+	msgOut.m_Key = wlk.m_Data.m_Key;
+
+	for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; )
+	{
+		Peer& peer = *(it++);
+		if (this == &peer)
+			continue;
+		if (!peer.m_Config.m_Bbs)
+			continue;
+
+		try {
+			peer.Send(msgOut);
+		} catch (...) {
+			peer.DeleteSelf(true, false);
+		}
+	}
+
+	// 2. Send to subscribed
+	typedef Bbs::Subscription::BbsSet::iterator It;
+
+	Bbs::Subscription::InBbs key;
+	key.m_Channel = msg.m_Channel;
+
+	for (std::pair<It, It> range = m_This.m_Bbs.m_Subscribed.equal_range(key); range.first != range.second; )
+	{
+		Bbs::Subscription& s = (range.first++)->get_ParentObj();
+
+		if (this == s.m_pPeer)
+			continue;
+
+		try {
+			s.m_pPeer->SendBbsMsg(wlk.m_Data);
+		}
+		catch (...) {
+			s.m_pPeer->DeleteSelf(true, false);
+		}
+	}
+}
+
+void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
+{
+	NodeDB& db = m_This.m_Processor.get_DB();
+	NodeDB::WalkerBbs wlk(db);
+
+	wlk.m_Data.m_Key = msg.m_Key;
+	if (db.BbsFind(wlk))
+		return; // already have it
+
+	if (!m_This.m_Bbs.m_W.Add(msg.m_Key))
+		return; // already waiting for it
+
+	proto::BbsGetMsg msgOut;
+	msgOut.m_Key = msg.m_Key;
+	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
+{
+	NodeDB& db = m_This.m_Processor.get_DB();
+	NodeDB::WalkerBbs wlk(db);
+
+	wlk.m_Data.m_Key = msg.m_Key;
+	if (!db.BbsFind(wlk))
+		return; // don't have it
+
+	SendBbsMsg(wlk.m_Data);
+}
+
+void Node::Peer::SendBbsMsg(const NodeDB::WalkerBbs::Data& d)
+{
+	proto::BbsMsg msgOut;
+	msgOut.m_Channel = d.m_Channel;
+	msgOut.m_TimePosted = d.m_TimePosted;
+	d.m_Message.Export(msgOut.m_Message); // TODO: avoid buf allocation
+
+	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
+{
+	Bbs::Subscription::InPeer key;
+	key.m_Channel = msg.m_Channel;
+
+	Bbs::Subscription::PeerSet::iterator it = m_Subscriptions.find(key);
+	if ((m_Subscriptions.end() == it) != msg.m_On)
+		return;
+
+	if (msg.m_On)
+	{
+		Bbs::Subscription* pS = new Bbs::Subscription;
+		pS->m_pPeer = this;
+
+		pS->m_Bbs.m_Channel = msg.m_Channel;
+		pS->m_Peer.m_Channel = msg.m_Channel;
+		m_This.m_Bbs.m_Subscribed.insert(pS->m_Bbs);
+		m_Subscriptions.insert(pS->m_Peer);
+
+		NodeDB& db = m_This.m_Processor.get_DB();
+		NodeDB::WalkerBbs wlk(db);
+
+		wlk.m_Data.m_Channel = msg.m_Channel;
+		wlk.m_Data.m_TimePosted = msg.m_TimeFrom;
+
+		for (db.EnumBbs(wlk); wlk.MoveNext(); )
+			SendBbsMsg(wlk.m_Data);
+	}
+	else
+		Unsubscribe(it->get_ParentObj());
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
 	{
         LOG_DEBUG() << "New peer connected: " << newStream->address();
 		Peer* p = get_ParentObj().AllocPeer();
-		p->m_iPeer = -1;
 
 		p->Accept(std::move(newStream));
 		p->OnConnected();
@@ -1198,7 +1537,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 			return false;
 		};
 
-		if (Rules::FakePoW)
+		if (Rules::get().FakePoW)
 		{
 			uint32_t timeout_ms = get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms;
 
@@ -1346,7 +1685,7 @@ void Node::Miner::OnMined()
 
 	LOG_INFO() << "New block mined: " << id;
 
-	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, NodeDB::PeerID());
+	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, PeerID());
 	assert(NodeProcessor::DataStatus::Accepted == eStatus); // Otherwise either the block is invalid (some bug?). Or someone else mined exactly the same block!
 
 	NodeDB::StateID sid;
@@ -1355,7 +1694,7 @@ void Node::Miner::OnMined()
 
 	get_ParentObj().m_Processor.get_DB().SetMined(sid, pTask->m_Fees); // ding!
 
-	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, NodeDB::PeerID()); // will likely trigger OnNewState(), and spread this block to the network
+	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, PeerID()); // will likely trigger OnNewState(), and spread this block to the network
 	assert(NodeProcessor::DataStatus::Accepted == eStatus);
 }
 
@@ -1669,6 +2008,244 @@ bool Node::Compressor::SquashOnce(Block::BodyBase::RW& rw, Block::BodyBase::RW& 
 		return false;
 
 	return true;
+}
+
+struct Node::Beacon::OutCtx
+{
+	int m_Refs;
+	OutCtx() :m_Refs(0) {}
+
+	struct UvRequest
+		:public uv_udp_send_t
+	{
+		IMPLEMENT_GET_PARENT_OBJ(OutCtx, m_Request)
+	} m_Request;
+
+	uv_buf_t m_BufDescr;
+
+#pragma pack (push, 1)
+	struct Message
+	{
+		Merkle::Hash m_CfgChecksum;
+		PeerID m_NodeID;
+		uint16_t m_Port; // in network byte order
+	};
+#pragma pack (pop)
+
+	Message m_Message; // the message broadcasted
+
+	void Release()
+	{
+		assert(m_Refs > 0);
+		if (!--m_Refs)
+			delete this;
+	}
+
+	static void OnDone(uv_udp_send_t* req, int status);
+};
+
+Node::Beacon::Beacon()
+{
+	m_bShouldClose = false;
+	m_bRcv = false;
+	m_pOut = NULL;
+}
+
+Node::Beacon::~Beacon()
+{
+	if (m_bRcv)
+		uv_udp_recv_stop(&m_Udp);
+
+	if (m_bShouldClose)
+		uv_close((uv_handle_t*) &m_Udp, NULL);
+
+	if (m_pOut)
+		m_pOut->Release();
+}
+
+uint16_t Node::Beacon::get_Port()
+{
+	uint16_t nPort = get_ParentObj().m_Cfg.m_BeaconPort;
+	return nPort ? nPort : get_ParentObj().m_Cfg.m_Listen.port();
+}
+
+void Node::Beacon::Start()
+{
+	assert(!m_bRcv);
+
+	uv_udp_init(&io::Reactor::get_Current().get_UvLoop(), &m_Udp);
+	m_Udp.data = this;
+
+	m_BufRcv.resize(sizeof(OutCtx::Message));
+
+	io::Address addr;
+	addr.port(get_Port());
+
+	sockaddr_in sa;
+	addr.fill_sockaddr_in(sa);
+
+	m_bShouldClose = true;
+
+	if (uv_udp_bind(&m_Udp, (sockaddr*)&sa, UV_UDP_REUSEADDR)) // should allow multiple nodes on the same machine (for testing)
+		std::ThrowIoError();
+
+	if (uv_udp_recv_start(&m_Udp, AllocBuf, OnRcv))
+		std::ThrowIoError();
+
+	m_bRcv = true;
+
+	if (uv_udp_set_broadcast(&m_Udp, 1))
+		std::ThrowIoError();
+
+	m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+	m_pTimer->start(get_ParentObj().m_Cfg.m_BeaconPeriod_ms, true, [this]() { OnTimer(); }); // periodic timer
+	OnTimer();
+}
+
+void Node::Beacon::OnTimer()
+{
+	if (!m_pOut)
+	{
+		m_pOut = new OutCtx;
+		m_pOut->m_Refs = 1;
+
+		m_pOut->m_Message.m_CfgChecksum = Rules::get().Checksum;
+		m_pOut->m_Message.m_NodeID = get_ParentObj().m_MyID;
+		m_pOut->m_Message.m_Port = htons(get_ParentObj().m_Cfg.m_Listen.port());
+
+		m_pOut->m_BufDescr.base = (char*) &m_pOut->m_Message;
+		m_pOut->m_BufDescr.len = sizeof(m_pOut->m_Message);
+	}
+	else
+		if (m_pOut->m_Refs > 1)
+			return; // send still pending
+
+	io::Address addr;
+	addr.port(get_Port());
+	addr.ip(INADDR_BROADCAST);
+
+	sockaddr_in sa;
+	addr.fill_sockaddr_in(sa);
+
+	m_pOut->m_Refs++;
+
+	int nErr = uv_udp_send(&m_pOut->m_Request, &m_Udp, &m_pOut->m_BufDescr, 1, (sockaddr*) &sa, OutCtx::OnDone);
+	if (nErr)
+		m_pOut->Release();
+}
+
+void Node::Beacon::OutCtx::OnDone(uv_udp_send_t* req, int /* status */)
+{
+	UvRequest* pVal = (UvRequest*)req;
+	assert(pVal);
+
+	pVal->get_ParentObj().Release();
+}
+
+void Node::Beacon::OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* pSa, unsigned flags)
+{
+	OutCtx::Message msg;
+	if (sizeof(msg) != nread)
+		return;
+
+	memcpy(&msg, buf->base, sizeof(msg)); // copy it to prevent (potential) datatype misallignment and etc.
+
+	if (msg.m_CfgChecksum != Rules::get().Checksum)
+		return;
+
+	Beacon* pThis = (Beacon*)handle->data;
+
+	if (pThis->get_ParentObj().m_MyID == msg.m_NodeID)
+		return;
+
+	io::Address addr(*(sockaddr_in*)pSa);
+	addr.port(ntohs(msg.m_Port));
+
+	pThis->OnPeer(addr, msg.m_NodeID);
+}
+
+void Node::Beacon::AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
+{
+	Beacon* pThis = (Beacon*)handle->data;
+	assert(pThis);
+
+	buf->base = (char*) &pThis->m_BufRcv.at(0);
+	buf->len = sizeof(OutCtx::Message);
+}
+
+void Node::Beacon::OnPeer(const io::Address& addr, const PeerID& id)
+{
+	get_ParentObj().m_PeerMan.OnPeer(id, addr, true);
+}
+
+void Node::PeerMan::OnFlush()
+{
+	NodeDB& db = get_ParentObj().m_Processor.get_DB();
+	NodeDB::Transaction t(db);
+
+	db.PeersDel();
+
+	const PeerMan::RawRatingSet& rs = get_Ratings();
+
+	for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); rs.end() != it; it++)
+	{
+		const PeerMan::PeerInfo& pi = it->get_ParentObj();
+
+		NodeDB::WalkerPeer::Data d;
+		d.m_ID = pi.m_ID.m_Key;
+		d.m_Rating = pi.m_RawRating.m_Value;
+		d.m_Address = pi.m_Addr.m_Value.u64();
+		d.m_LastSeen = pi.m_LastSeen;
+
+		db.PeerIns(d);
+	}
+
+	t.Commit();
+}
+
+void Node::PeerMan::ActivatePeer(PeerInfo& pi)
+{
+	PeerInfoPlus& pip = (PeerInfoPlus&)pi;
+	if (pip.m_pLive)
+		return; //?
+
+	Peer* p = get_ParentObj().AllocPeer();
+	p->m_pInfo = &pip;
+	pip.m_pLive = p;
+
+	try {
+		p->Connect(pip.m_Addr.m_Value);
+	}
+	catch (...) {
+
+		// TODO: asynchronously notify about failure.
+		// currently just detach from info, the caller doesn't any more actions
+		pip.m_pLive = NULL;
+		p->m_pInfo = NULL;
+
+		p->DeleteSelf(true, false);
+	}
+}
+
+void Node::PeerMan::DeactivatePeer(PeerInfo& pi)
+{
+	PeerInfoPlus& pip = (PeerInfoPlus&)pi;
+	if (!pip.m_pLive)
+		return; //?
+
+	pip.m_pLive->DeleteSelf(false, false);
+}
+
+proto::PeerManager::PeerInfo* Node::PeerMan::AllocPeer()
+{
+	PeerInfoPlus* p = new PeerInfoPlus;
+	p->m_pLive = NULL;
+	return p;
+}
+
+void Node::PeerMan::DeletePeer(PeerInfo& pi)
+{
+	delete (PeerInfoPlus*)&pi;
 }
 
 } // namespace beam
