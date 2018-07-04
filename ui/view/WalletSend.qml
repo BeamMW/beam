@@ -58,6 +58,7 @@ Item {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         walletViewModel.sendMoney()
+						walletLayout.state = ""
                     }
                 }
             }

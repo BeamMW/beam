@@ -1,54 +1,58 @@
 #include "wallet.h"
 
+#include <QDateTime>
 #include <QMessageBox>
 
 using namespace beam;
 
-TxObject::TxObject(const QString& dateVal
-	, const QString& userVal
-	, const QString& commentVal
-	, const QString& amountVal
-	, const QString& amountUsdVal
-	, const QString& statusVal)
-	: _date(dateVal)
-	, _user(userVal)
-	, _comment(commentVal)
-	, _amount(amountVal)
-	, _amountUsd(amountUsdVal)
-	, _status(statusVal)
+namespace
 {
+	QString BeamToString(const Amount& value)
+	{
+		return QString::number(static_cast<float>(value) / Rules::Coin, 'f') + " BEAM";
+	}
+}
 
+TxObject::TxObject(const TxDescription& tx) : _tx(tx) {}
+
+QString TxObject::dir() const
+{
+	return _tx.m_sender ? "outcome" : "income";
 }
 
 QString TxObject::date() const
 {
-	return _date;
+	QDateTime datetime;
+	datetime.setTime_t(_tx.m_createTime);
+
+	return datetime.toString(Qt::SystemLocaleShortDate);
 }
 
 QString TxObject::user() const
 {
-	return _user;
+	return QString::number(_tx.m_peerId);
 }
 
 QString TxObject::comment() const
 {
-	return _comment;
+	return "";
 }
 
 QString TxObject::amount() const
 {
-	return _amount;
+	return QString(_tx.m_sender ? "- " : "+ ") +  BeamToString(_tx.m_amount);
 }
 
 QString TxObject::amountUsd() const
 {
-	return _amountUsd;
-
+	// TODO: don't know how we're going to calc amount USD
+	return QString::number(_tx.m_amount) + " USD";
 }
 
 QString TxObject::status() const
 {
-	return _status;
+	static const char* Names[] = { "Pending", "InProgress", "Cancelled", "Completed", "Failed" };
+	return Names[_tx.m_status];
 }
 
 WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain)
@@ -57,50 +61,9 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain)
 	, _sendAmount(40)
 	, _receiverAddr("127.0.0.1:8888")
 {
-	_tx.append(new TxObject(
-		"12 June 2018 | 3:46 PM"
-		, "super_user"
-		, "Beam is super cool, bla bla bla..."
-		, "+0.63736 BEAM"
-		, "726.4 USD"
-		, "unspent"));
-	_tx.append(new TxObject(
-		"12 June 2018 | 3:46 PM"
-		, "super_user"
-		, "Beam is super cool, bla bla bla..."
-		, "+0.63736 BEAM"
-		, "726.4 USD"
-		, "unspent"));
-	_tx.append(new TxObject(
-		"12 June 2018 | 3:46 PM"
-		, "super_user"
-		, "Beam is super cool, bla bla bla..."
-		, "+0.63736 BEAM"
-		, "726.4 USD"
-		, "unspent"));
-	_tx.append(new TxObject(
-		"12 June 2018 | 3:46 PM"
-		, "super_user"
-		, "Beam is super cool, bla bla bla..."
-		, "+0.63736 BEAM"
-		, "726.4 USD"
-		, "unspent"));
-	_tx.append(new TxObject(
-		"12 June 2018 | 3:46 PM"
-		, "super_user"
-		, "Beam is super cool, bla bla bla..."
-		, "+0.63736 BEAM"
-		, "726.4 USD"
-		, "unspent"));
-	_tx.append(new TxObject(
-		"12 June 2018 | 3:46 PM"
-		, "super_user"
-		, "Beam is super cool, bla bla bla..."
-		, "+0.63736 BEAM"
-		, "726.4 USD"
-		, "unspent"));
-
 	connect(&_model, SIGNAL(onStatus(const beam::Amount&)), SLOT(onStatus(const beam::Amount&)));
+	connect(&_model, SIGNAL(onTxStatus(const std::vector<beam::TxDescription>&)), 
+		SLOT(onTxStatus(const std::vector<beam::TxDescription>&)));
 
 	_model.start();
 }
@@ -115,9 +78,21 @@ void WalletViewModel::onStatus(const beam::Amount& amount)
 	}
 }
 
+void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
+{
+	_tx.clear();
+
+	for (const auto& item : history)
+	{
+		_tx.append(new TxObject(item));
+	}
+
+	emit txChanged();
+}
+
 QString WalletViewModel::available() const
 {
-	return QString::number(static_cast<float>(_available) / Rules::Coin) + " BEAM";
+	return BeamToString(_available);
 }
 
 QString WalletViewModel::sendAmount() const
@@ -165,6 +140,7 @@ void WalletViewModel::sendMoney()
 	{
 		// TODO: show 'operation in process' animation here?
 		_model.async->sendMoney(receiverAddr, std::move(_sendAmount));
+
 	}
 	else QMessageBox::critical(0, "Error", (std::string("unable to resolve receiver address: ") + _receiverAddr).c_str(), QMessageBox::Ok);
 }

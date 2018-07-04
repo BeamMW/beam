@@ -42,7 +42,7 @@ struct WalletModelAsync : IWalletModelAsync
 	{
 		_sendMoneyEvent = AsyncEvent::create(_reactor, [&]()
 			{
-			_wallet_io->transfer_money(receiver, std::move(amount), {});
+				_wallet_io->transfer_money(receiver, std::move(amount), {});
 			}
 		);
 
@@ -59,6 +59,7 @@ WalletModel::WalletModel(IKeyChain::Ptr keychain)
 	: _keychain(keychain)
 {
 	qRegisterMetaType<Amount>("beam::Amount");
+	qRegisterMetaType<std::vector<TxDescription>>("std::vector<beam::TxDescription>");
 }
 
 WalletModel::~WalletModel()
@@ -75,6 +76,7 @@ void WalletModel::run()
 	try
 	{
 		emit onStatus(getAvailable(_keychain));
+		emit onTxStatus(_keychain->getTxHistory());
 
 		// TODO: read this from the config
 		Rules::FakePoW = true;
@@ -85,6 +87,7 @@ void WalletModel::run()
 		int port = 10000;
 		Address node_addr;
 
+		// TODO: move port/addr to the config?
 		if(node_addr.resolve("127.0.0.1:9999"))
 		{
 			_wallet_io = std::make_shared<WalletNetworkIO>( Address().ip(INADDR_ANY).port(port)
@@ -135,4 +138,9 @@ void WalletModel::run()
 void WalletModel::onKeychainChanged()
 {
 	emit onStatus(getAvailable(_keychain));
+}
+
+void WalletModel::onTransactionChanged()
+{
+	emit onTxStatus(_keychain->getTxHistory());
 }

@@ -308,6 +308,13 @@ Rectangle {
             anchors.fill: parent
 
             TableViewColumn {
+                id: typeColumn
+                role: "dir"
+                movable: false
+				width: 50
+            }
+
+            TableViewColumn {
                 id: dateColumn
                 title: "Date | time"
                 role: "date"

@@ -32,9 +32,11 @@ public:
 
 signals:
 	void onStatus(const beam::Amount& amount);
+	void onTxStatus(const std::vector<beam::TxDescription>& history);
 
 private:
 	void onKeychainChanged() override;
+	void onTransactionChanged() override;
 
 private:
 

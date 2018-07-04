@@ -739,38 +739,54 @@ namespace beam
 
     void Keychain::saveTx(const TxDescription& p)
     {
-        const char* selectReq = "SELECT * FROM " HISTORY_NAME " WHERE txId=?1;";
-        sqlite::Statement stm2(_db, selectReq);
-        stm2.bind(1, p.m_txId);
+		sqlite::Transaction trans(_db);
 
-        if (stm2.step())
-        {
-            const char* updateReq = "UPDATE " HISTORY_NAME " SET modifyTime=?2, status=?3, fsmState=?4 WHERE txId=?1;";
-            sqlite::Statement stm(_db, updateReq);
+		{
+			const char* selectReq = "SELECT * FROM " HISTORY_NAME " WHERE txId=?1;";
+			sqlite::Statement stm2(_db, selectReq);
+			stm2.bind(1, p.m_txId);
 
-            stm.bind(1, p.m_txId);
-            stm.bind(2, p.m_modifyTime);
-            stm.bind(3, p.m_status);
-            stm.bind(4, p.m_fsmState);
-            stm.step();
-        }
-        else
-        {
-            const char* insertReq = "INSERT INTO " HISTORY_NAME " (" ENUM_HISTORY_FIELDS(LIST, COMMA,) ") VALUES(" ENUM_HISTORY_FIELDS(BIND_LIST, COMMA,) ");";
-            sqlite::Statement stm(_db, insertReq);
-            ENUM_HISTORY_FIELDS(STM_BIND_LIST, NOSEP, p);
-            stm.step();
-        }
+			if (stm2.step())
+			{
+				const char* updateReq = "UPDATE " HISTORY_NAME " SET modifyTime=?2, status=?3, fsmState=?4 WHERE txId=?1;";
+				sqlite::Statement stm(_db, updateReq);
+
+				stm.bind(1, p.m_txId);
+				stm.bind(2, p.m_modifyTime);
+				stm.bind(3, p.m_status);
+				stm.bind(4, p.m_fsmState);
+				stm.step();
+			}
+			else
+			{
+				const char* insertReq = "INSERT INTO " HISTORY_NAME " (" ENUM_HISTORY_FIELDS(LIST, COMMA,) ") VALUES(" ENUM_HISTORY_FIELDS(BIND_LIST, COMMA,) ");";
+				sqlite::Statement stm(_db, insertReq);
+				ENUM_HISTORY_FIELDS(STM_BIND_LIST, NOSEP, p);
+				stm.step();
+			}
+		}
+
+		trans.commit();
+
+		notifyTransactionChanged();
     }
 
     void Keychain::deleteTx(const Uuid& txId)
     {
-        const char* req = "DELETE FROM " HISTORY_NAME " WHERE txId=?1;";
-        sqlite::Statement stm(_db, req);
+		sqlite::Transaction trans(_db);
 
-        stm.bind(1, txId);
+		{
+			const char* req = "DELETE FROM " HISTORY_NAME " WHERE txId=?1;";
+			sqlite::Statement stm(_db, req);
 
-        stm.step();
+			stm.bind(1, txId);
+
+			stm.step();
+		}
+
+		trans.commit();
+
+		notifyTransactionChanged();
     }
 
 	void Keychain::subscribe(IKeyChainObserver* observer)
@@ -792,5 +808,10 @@ namespace beam
 	void Keychain::notifyKeychainChanged()
 	{
 		for (auto sub : m_subscribers) sub->onKeychainChanged();
+	}
+
+	void Keychain::notifyTransactionChanged()
+	{
+		for (auto sub : m_subscribers) sub->onTransactionChanged();
 	}
 }

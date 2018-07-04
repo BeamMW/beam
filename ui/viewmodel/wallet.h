@@ -9,6 +9,7 @@ class TxObject : public QObject
 {
 	Q_OBJECT
 
+		Q_PROPERTY(QString dir			READ dir		NOTIFY dirChanged)
 		Q_PROPERTY(QString date			READ date		NOTIFY dateChanged)
 		Q_PROPERTY(QString user			READ user		NOTIFY userChanged)
 		Q_PROPERTY(QString comment		READ comment	NOTIFY commentChanged)
@@ -17,13 +18,10 @@ class TxObject : public QObject
 		Q_PROPERTY(QString status		READ status		NOTIFY statusChanged)
 
 public:
-	TxObject(const QString& dateVal
-		, const QString& userVal
-		, const QString& commentVal
-		, const QString& amountVal
-		, const QString& amountUsdVal
-		, const QString& statusVal);
 
+	TxObject(const beam::TxDescription& tx);
+
+	QString dir() const;
 	QString date() const;
 	QString user() const;
 	QString comment() const;
@@ -32,6 +30,7 @@ public:
 	QString status() const;
 
 signals:
+	void dirChanged();
 	void dateChanged();
 	void userChanged();
 	void commentChanged();
@@ -40,13 +39,7 @@ signals:
 	void statusChanged();
 
 public:
-	QString _date;
-	QString _user;
-	QString _comment;
-	QString _amount;
-	QString _amountUsd;
-	QString _status;
-
+	beam::TxDescription _tx;
 };
 
 class WalletViewModel : public QObject
@@ -56,7 +49,7 @@ class WalletViewModel : public QObject
 	Q_PROPERTY(QString available READ available NOTIFY availableChanged)
 	Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
 	Q_PROPERTY(QString receiverAddr READ receiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
-	Q_PROPERTY(QVariant tx READ tx)
+	Q_PROPERTY(QVariant tx READ tx NOTIFY txChanged)
 
 public:
 	using TxList = QList<QObject*>;
@@ -72,12 +65,14 @@ public:
 
 public slots:
 	void onStatus(const beam::Amount& amount);
+	void onTxStatus(const std::vector<beam::TxDescription>& history);
 	void sendMoney();
 
 signals:
 	void availableChanged();
 	void sendAmountChanged();
 	void receiverAddrChanged();
+	void txChanged();
 
 private:
 
