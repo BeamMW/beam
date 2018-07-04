@@ -58,6 +58,13 @@ endif()
 
 add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES})
 
+if (Boost_FOUND)
+	find_package(Boost COMPONENTS program_options)
+    target_link_libraries(beam-ui Boost::program_options)
+else()
+    target_link_libraries(beam-ui boost_program_options)
+endif()
+
 add_dependencies(beam-ui wallet)
 
 target_link_libraries(beam-ui Qt5::Qml Qt5::Quick Qt5::Widgets wallet)

@@ -102,7 +102,7 @@ Rectangle {
                 x: -4
                 y: -4
                 color: "#9f89ce"
-                text: qsTr("0.628 BEAM")
+                text: qsTr("0 BEAM")
                 verticalAlignment: Text.AlignVCenter
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 0
@@ -124,7 +124,7 @@ Rectangle {
                 x: 0
                 y: 2
                 color: "#86a8c1"
-                text: qsTr("339.2 USD")
+                text: qsTr("0.0 USD")
                 styleColor: "#000000"
                 font.family: "Arial"
                 anchors.bottom: parent.bottom
@@ -193,7 +193,7 @@ Rectangle {
                 x: 0
                 y: 2
                 color: "#86a8c1"
-                text: qsTr("1.6528 USD")
+                text: qsTr("0.0 USD")
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 30
                 font.family: "Arial"

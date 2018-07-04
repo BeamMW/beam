@@ -198,8 +198,6 @@ Item {
 
                 TextInput {
                     id: amountInput
-                    validator: IntValidator{bottom: 1; top: 10000;}
-                    focus: true
                     height: 40
                     color: "#c678e9"
                     text: walletViewModel.sendAmount
@@ -232,7 +230,7 @@ Item {
 
                 Text {
                     color: "#72a4c1"
-                    text: qsTr("1339.2 USD")
+                    text: qsTr("0.0 USD")
                     anchors.left: parent.left
                     anchors.leftMargin: 0
                     anchors.top: parent.top
@@ -455,7 +453,7 @@ Item {
                 x: -4
                 y: -4
                 color: "#9f89ce"
-                text: qsTr("0.628 BEAM")
+                text: qsTr("0 BEAM")
                 verticalAlignment: Text.AlignVCenter
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 0
@@ -477,7 +475,7 @@ Item {
                 x: 0
                 y: 2
                 color: "#86a8c1"
-                text: qsTr("339.2 USD")
+                text: qsTr("0.0 USD")
                 styleColor: "#000000"
                 font.family: "Arial"
                 anchors.bottom: parent.bottom

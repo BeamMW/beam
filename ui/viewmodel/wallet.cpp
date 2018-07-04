@@ -1,9 +1,9 @@
 #include "wallet.h"
 
 #include <QDateTime>
-#include <QMessageBox>
 
 using namespace beam;
+using namespace std;
 
 namespace
 {
@@ -55,8 +55,8 @@ QString TxObject::status() const
 	return Names[_tx.m_status];
 }
 
-WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain)
-	: _model(keychain)
+WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
+	: _model(keychain, port, nodeAddr)
 	, _available(0)
 	, _sendAmount(40)
 	, _receiverAddr("127.0.0.1:8888")
@@ -142,5 +142,8 @@ void WalletViewModel::sendMoney()
 		_model.async->sendMoney(receiverAddr, std::move(_sendAmount));
 
 	}
-	else QMessageBox::critical(0, "Error", (std::string("unable to resolve receiver address: ") + _receiverAddr).c_str(), QMessageBox::Ok);
+	else
+	{
+		LOG_ERROR() << std::string("unable to resolve receiver address: ") + _receiverAddr;
+	}
 }

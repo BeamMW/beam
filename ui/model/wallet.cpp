@@ -55,8 +55,10 @@ private:
 	AsyncEvent::Ptr _sendMoneyEvent;
 };
 
-WalletModel::WalletModel(IKeyChain::Ptr keychain)
+WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const std::string& nodeAddr)
 	: _keychain(keychain)
+	, _port(port)
+	, _nodeAddrString(nodeAddr)
 {
 	qRegisterMetaType<Amount>("beam::Amount");
 	qRegisterMetaType<std::vector<TxDescription>>("std::vector<beam::TxDescription>");
@@ -78,19 +80,13 @@ void WalletModel::run()
 		emit onStatus(getAvailable(_keychain));
 		emit onTxStatus(_keychain->getTxHistory());
 
-		// TODO: read this from the config
-		Rules::FakePoW = true;
-
 		_reactor = Reactor::create();
 
-		// TODO: move port/addr to the config?
-		int port = 10000;
 		Address node_addr;
 
-		// TODO: move port/addr to the config?
-		if(node_addr.resolve("127.0.0.1:9999"))
+		if(node_addr.resolve(_nodeAddrString.c_str()))
 		{
-			_wallet_io = std::make_shared<WalletNetworkIO>( Address().ip(INADDR_ANY).port(port)
+			_wallet_io = std::make_shared<WalletNetworkIO>( Address().ip(INADDR_ANY).port(_port)
 				, node_addr
 				, true
 				, _keychain

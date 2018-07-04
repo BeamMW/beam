@@ -54,7 +54,7 @@ class WalletViewModel : public QObject
 public:
 	using TxList = QList<QObject*>;
 
-	WalletViewModel(beam::IKeyChain::Ptr keychain);
+	WalletViewModel(beam::IKeyChain::Ptr keychain, uint16_t port, const std::string& nodeAddr);
 	QString available() const;
 	QVariant tx() const;
 	QString sendAmount() const;

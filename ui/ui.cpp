@@ -1,7 +1,5 @@
 #include <QApplication>
 #include <QtQuick>
-#include <QMessageBox>
-#include <QInputDialog>
 
 #include <qqmlcontext.h>
 
@@ -17,110 +15,137 @@
 
 #include "translator.h"
 
+#include <boost/program_options.hpp>
+
+namespace po = boost::program_options;
+
 using namespace beam;
+using namespace std;
 using namespace ECC;
+
+// TODO: use programm options from beam.cpp
+namespace cli
+{
+	const char* PORT = "port";
+	const char* WALLET_PASS = "pass";
+	const char* NODE_ADDR = "node_addr";
+	const char* FAKE_POW = "FakePoW";
+}
 
 int main (int argc, char* argv[])
 {
 	auto logger = Logger::create();
 
-	QApplication app(argc, argv);
-
-	static const char* WALLET_STORAGE = "wallet.db";
-	QString pass;
-
-	if (!Keychain::isInitialized(WALLET_STORAGE))
+	try
 	{
-		if (QMessageBox::warning(0, "Warning", "Your wallet isn't created. Do you want to create it?", QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes) == QMessageBox::Yes)
+		po::options_description rules("UI options");
+		rules.add_options()
+			(cli::PORT, po::value<uint16_t>())
+			(cli::WALLET_PASS, po::value<string>())
+			(cli::NODE_ADDR, po::value<string>())
+			(cli::FAKE_POW, po::value<bool>()->default_value(Rules::FakePoW));
+
+		po::options_description options{ "Allowed options" };
+		options.add(rules);
+
+		po::variables_map vm;
+
 		{
-			bool ok = false;
-			pass = QInputDialog::getText(0, "Password", "Please, enter a password for your wallet:", QLineEdit::Password, nullptr, &ok);
+			std::ifstream cfg("beam.cfg");
 
-			if (ok)
+			if (cfg)
 			{
-				if (!pass.isEmpty())
-				{
-					NoLeak<uintBig> walletSeed;
-					walletSeed.V = Zero;
-					{
-						// TODO: temporary solution
-						// read it from the config
-						const char* seed = "123";
-						Hash::Value hv;
-						Hash::Processor() << seed >> hv;
-						walletSeed.V = hv;
-					}
-
-					auto keychain = Keychain::init(WALLET_STORAGE, pass.toStdString(), walletSeed);
-
-					if (!keychain)
-					{
-						QMessageBox::critical(0, "Error", "Your wallet isn't created. Something went wrong.", QMessageBox::Ok);
-						return 0;
-					}
-				}
-				else
-				{
-					QMessageBox::critical(0, "Error", "Your wallet isn't created. Please, provide password for the wallet.", QMessageBox::Ok);
-					return 0;
-				}
+				po::store(po::parse_config_file(cfg, options), vm);
+			}
+			else
+			{
+				LOG_ERROR() << "beam.cfg not found!";
+				return -1;
 			}
 		}
-		else return 0;
-	}
 
-	if (pass.isEmpty())
-	{
-		bool ok = false;
-		pass = QInputDialog::getText(0, "Password", "Please, enter a password for your wallet:", QLineEdit::Password, nullptr, &ok);
+		QApplication app(argc, argv);
 
-		if (!ok)
+		string pass;
+		if (vm.count(cli::WALLET_PASS))
 		{
-			return 0;
-		}
-	}
-
-	{
-		auto keychain = Keychain::open(WALLET_STORAGE, pass.toStdString());
-
-		if (keychain)
-		{
-			struct ViewModel
-			{
-				MainViewModel			main;
-				DashboardViewModel		dashboard;
-				WalletViewModel			wallet;
-				NotificationsViewModel	notifications;
-				HelpViewModel			help;
-				SettingsViewModel		settings;
-
-				ViewModel(IKeyChain::Ptr keychain) : wallet(keychain) {}
-
-			} viewModel(keychain);
-
-			Translator translator;
-
-			QQuickView view;
-			view.setResizeMode(QQuickView::SizeRootObjectToView);
-
-			QQmlContext *ctxt = view.rootContext();
-
-			ctxt->setContextProperty("mainViewModel", &viewModel.main);
-
-			ctxt->setContextProperty("walletViewModel", &viewModel.wallet);
-
-			ctxt->setContextProperty("translator", &translator);
-
-			view.setSource(QUrl("qrc:///main.qml"));
-			view.show();
-
-			return app.exec();
+			pass = vm[cli::WALLET_PASS].as<string>();
 		}
 		else
 		{
-			QMessageBox::critical(0, "Error", "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet.", QMessageBox::Ok);
-			return 0;
+			LOG_ERROR() << "Please, provide wallet password!";
+			return -1;
 		}
+
+		if (!vm.count(cli::NODE_ADDR))
+		{
+			LOG_ERROR() << "Please, provide node address!";
+			return -1;
+		}
+
+		if (!vm.count(cli::PORT))
+		{
+			LOG_ERROR() << "Please, provide port!";
+			return -1;
+		}
+
+		Rules::FakePoW = vm[cli::FAKE_POW].as<bool>();
+
+		static const char* WALLET_STORAGE = "wallet.db";
+		if (!Keychain::isInitialized(WALLET_STORAGE))
+		{
+			LOG_ERROR() << WALLET_STORAGE << " not found!";
+			return -1;
+		}
+
+		{
+			auto keychain = Keychain::open(WALLET_STORAGE, pass);
+
+			if (keychain)
+			{
+				struct ViewModel
+				{
+					MainViewModel			main;
+					DashboardViewModel		dashboard;
+					WalletViewModel			wallet;
+					NotificationsViewModel	notifications;
+					HelpViewModel			help;
+					SettingsViewModel		settings;
+
+					ViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr) : wallet(keychain, port, nodeAddr) {}
+
+				} viewModel(keychain, vm[cli::PORT].as<uint16_t>(), vm[cli::NODE_ADDR].as<string>());
+
+				Translator translator;
+
+				QQuickView view;
+				view.setResizeMode(QQuickView::SizeRootObjectToView);
+
+				QQmlContext *ctxt = view.rootContext();
+
+				ctxt->setContextProperty("mainViewModel", &viewModel.main);
+
+				ctxt->setContextProperty("walletViewModel", &viewModel.wallet);
+
+				ctxt->setContextProperty("translator", &translator);
+
+				view.setSource(QUrl("qrc:///main.qml"));
+				view.show();
+
+				return app.exec();
+			}
+			else
+			{
+				LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet.";
+				return -1;
+			}
+		}
+
+	}
+	catch (const po::error& e)
+	{
+		LOG_ERROR() << e.what();
+		return -1;
 	}
 
 	return 0;
