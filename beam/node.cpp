@@ -1334,7 +1334,7 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 		// Currently - just ignore this.
 		m_bPiRcvd = false;
 
-		LOG_INFO() << " Duplicate connection with the same PI. Ignoring";
+		LOG_INFO() << "Duplicate connection with the same PI. Ignoring";
 	}
 	else
 	{
@@ -2226,6 +2226,8 @@ void Node::PeerMan::ActivatePeer(PeerInfo& pi)
 		p->Connect(pip.m_Addr.m_Value);
 	}
 	catch (...) {
+
+		LOG_WARNING() << pi << " ActivatePeer failed";
 
 		// TODO: asynchronously notify about failure.
 		// currently just detach from info, the caller doesn't any more actions
