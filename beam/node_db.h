@@ -93,6 +93,7 @@ public:
 			PeerDel,
 			PeerEnum,
 			BbsEnum,
+			BbsEnumAll,
 			BbsFind,
 			BbsDelOld,
 			BbsIns,
@@ -321,6 +322,7 @@ public:
 	};
 
 	void EnumBbs(WalkerBbs&); // set channel and min time before invocation
+	void EnumAllBbs(WalkerBbs&);
 	void BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it)
 	bool BbsFind(WalkerBbs&); // set Key
 	void BbsDelOld(Timestamp tMinToRemain);

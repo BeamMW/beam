@@ -1550,6 +1550,11 @@ void NodeDB::EnumBbs(WalkerBbs& x)
 	x.m_Rs.put(1, x.m_Data.m_TimePosted);
 }
 
+void NodeDB::EnumAllBbs(WalkerBbs& x)
+{
+	x.m_Rs.Reset(Query::BbsEnumAll, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs);
+}
+
 bool NodeDB::WalkerBbs::MoveNext()
 {
 	if (!m_Rs.Step())
