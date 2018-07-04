@@ -31,10 +31,13 @@ struct Node
 			uint32_t m_GetState_ms	= 1000 * 5;
 			uint32_t m_GetBlock_ms	= 1000 * 30;
 			uint32_t m_GetTx_ms		= 1000 * 5;
+			uint32_t m_GetBbsMsg_ms	= 1000 * 10;
 			uint32_t m_MiningSoftRestart_ms = 100;
 			uint32_t m_TopPeersUpd_ms = 1000 * 60 * 10; // once in 10 minutes
 			uint32_t m_PeersUpdate_ms	= 1000; // reconsider every second
 			uint32_t m_PeersDbFlush_ms = 1000 * 60; // 1 minute
+			uint32_t m_BbsMessageTimeout_s	= 3600 * 24; // 1 day
+			uint32_t m_BbsMessageMaxAhead_s	= 3600 * 2; // 2 hours
 		} m_Timeout;
 
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
@@ -186,6 +189,16 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Wtx)
 	} m_Wtx;
 
+	struct WantedBbsMsg :public Wanted {
+		// Wanted
+		virtual uint32_t get_Timeout_ms() override;
+		virtual void OnExpired(const KeyType&) override;
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Wbbs)
+	} m_Wbbs;
+
+	static void CalcBbsMsgKey(NodeDB::WalkerBbs::Data&);
+
 	struct PeerMan
 		:public proto::PeerManager
 	{
@@ -271,6 +284,10 @@ private:
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
 		virtual void OnMsg(proto::PeerInfoSelf&&) override;
 		virtual void OnMsg(proto::PeerInfo&&) override;
+		virtual void OnMsg(proto::BbsMsg&&) override;
+		virtual void OnMsg(proto::BbsHaveMsg&&) override;
+		virtual void OnMsg(proto::BbsGetMsg&&) override;
+		virtual void OnMsg(proto::BbsSubscribe&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;

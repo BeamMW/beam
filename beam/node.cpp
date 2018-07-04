@@ -60,6 +60,37 @@ void Node::WantedTx::OnExpired(const KeyType& key)
 	}
 }
 
+void Node::CalcBbsMsgKey(NodeDB::WalkerBbs::Data& d)
+{
+	ECC::Hash::Processor hp;
+	hp.Write(d.m_Message.p, d.m_Message.n);
+	hp << d.m_Channel >> d.m_Key;
+}
+
+uint32_t Node::WantedBbsMsg::get_Timeout_ms()
+{
+	return get_ParentObj().m_Cfg.m_Timeout.m_GetBbsMsg_ms;
+}
+
+void Node::WantedBbsMsg::OnExpired(const KeyType& key)
+{
+	proto::BbsGetMsg msg;
+	msg.m_Key = key;
+
+	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
+	{
+		Peer& peer = *(it++);
+
+		if (peer.m_Config.m_Bbs)
+			try {
+				peer.Send(msg);
+			}
+			catch (...) {
+				peer.DeleteSelf(true, false);
+			}
+	}
+}
+
 void Node::Wanted::Clear()
 {
 	while (!m_lst.empty())
@@ -671,7 +702,7 @@ void Node::Peer::OnConnected()
 	proto::Config msgCfg;
 	msgCfg.m_CfgChecksum = Rules::get().Checksum;
 	msgCfg.m_SpreadingTransactions = true;
-	msgCfg.m_Mining = (m_pThis->m_Cfg.m_MiningThreads > 0);
+	msgCfg.m_Bbs = true;
 	msgCfg.m_AutoSendHdr = false;
 	msgCfg.m_SendPeers = true;
 	Send(msgCfg);
@@ -1017,6 +1048,20 @@ void Node::Peer::OnMsg(proto::Config&& msg)
 				m_pTimerPeers->cancel();
 	}
 
+	if (!m_Config.m_Bbs && msg.m_Bbs)
+	{
+		proto::BbsHaveMsg msgOut;
+
+		NodeDB& db = m_pThis->m_Processor.get_DB();
+		NodeDB::WalkerBbs wlk(db);
+
+		for (db.EnumAllBbs(wlk); wlk.MoveNext(); )
+		{
+			msgOut.m_Key = wlk.m_Data.m_Key;
+			Send(msgOut);
+		}
+	}
+
 	m_Config = msg;
 }
 
@@ -1267,6 +1312,92 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 void Node::Peer::OnMsg(proto::PeerInfo&& msg)
 {
 	m_pThis->m_PeerMan.OnPeer(msg.m_ID, msg.m_LastAddr, false);
+}
+
+void Node::Peer::OnMsg(proto::BbsMsg&& msg)
+{
+	Timestamp t = getTimestamp();
+	Timestamp t0 = t - m_pThis->m_Cfg.m_Timeout.m_BbsMessageTimeout_s;
+	Timestamp t1 = t + m_pThis->m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s;
+
+	if ((msg.m_TimePosted <= t0) || (msg.m_TimePosted > t1))
+		return;
+
+	NodeDB& db = m_pThis->m_Processor.get_DB();
+	NodeDB::WalkerBbs wlk(db);
+
+	wlk.m_Data.m_Channel = msg.m_Channel;
+	wlk.m_Data.m_TimePosted = msg.m_TimePosted;
+	wlk.m_Data.m_Message = NodeDB::Blob(msg.m_Message);
+
+	CalcBbsMsgKey(wlk.m_Data);
+
+	if (db.BbsFind(wlk))
+		return; // already have it
+
+	db.BbsIns(wlk.m_Data);
+	m_pThis->m_Wbbs.Delete(wlk.m_Data.m_Key);
+
+	// 1. Send to other BBS-es
+
+	proto::BbsHaveMsg msgOut;
+	msgOut.m_Key = wlk.m_Data.m_Key;
+
+	for (PeerList::iterator it = m_pThis->m_lstPeers.begin(); m_pThis->m_lstPeers.end() != it; )
+	{
+		Peer& peer = *(it++);
+		if (this == &peer)
+			continue;
+		if (!peer.m_Config.m_Bbs)
+			continue;
+
+		try {
+			peer.Send(msgOut);
+		} catch (...) {
+			peer.DeleteSelf(true, false);
+		}
+	}
+
+	// 2. Send to subscribed TODO
+}
+
+void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
+{
+	NodeDB& db = m_pThis->m_Processor.get_DB();
+	NodeDB::WalkerBbs wlk(db);
+
+	wlk.m_Data.m_Key = msg.m_Key;
+	if (db.BbsFind(wlk))
+		return; // already have it
+
+	if (!m_pThis->m_Wbbs.Add(msg.m_Key))
+		return; // already waiting for it
+
+	proto::BbsGetMsg msgOut;
+	msgOut.m_Key = msg.m_Key;
+	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
+{
+	NodeDB& db = m_pThis->m_Processor.get_DB();
+	NodeDB::WalkerBbs wlk(db);
+
+	wlk.m_Data.m_Key = msg.m_Key;
+	if (!db.BbsFind(wlk))
+		return; // don't have it
+
+	proto::BbsMsg msgOut;
+	msgOut.m_Channel = wlk.m_Data.m_Channel;
+	msgOut.m_TimePosted = wlk.m_Data.m_TimePosted;
+	wlk.m_Data.m_Message.Export(msgOut.m_Message); // TODO: avoid buf allocation
+
+	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
+{
+	// TODO
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
