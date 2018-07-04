@@ -192,7 +192,7 @@ Item {
 
                 Text {
                     color: "#ffffff"
-                    text: qsTr("Transaction amount")
+                    text: qsTr("Transaction amount (in Chattles, 1 Beam = 1000000 chattle)")
                     font.pixelSize: 12
                 }
 
