@@ -781,6 +781,7 @@ void Node::Peer::DeleteSelf(bool bIsError, bool bIsBan)
 	m_TipHeight = 0; // prevent reassigning the tasks
 
 	ReleaseTasks();
+	Unsubscribe();
 
 	if (m_pInfo)
 	{
@@ -796,6 +797,19 @@ void Node::Peer::DeleteSelf(bool bIsError, bool bIsBan)
 
 	m_pThis->m_lstPeers.erase(PeerList::s_iterator_to(*this));
 	delete this;
+}
+
+void Node::Peer::Unsubscribe(Bbs::Subscription& s)
+{
+	m_pThis->m_Bbs.m_Subscribed.erase(Bbs::Subscription::BbsSet::s_iterator_to(s.m_Bbs));
+	m_Subscriptions.erase(Bbs::Subscription::PeerSet::s_iterator_to(s.m_Peer));
+	delete &s;
+}
+
+void Node::Peer::Unsubscribe()
+{
+	while (!m_Subscriptions.empty())
+		Unsubscribe(m_Subscriptions.begin()->get_ParentObj());
 }
 
 void Node::Peer::TakeTasks()
@@ -1377,7 +1391,26 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 		}
 	}
 
-	// 2. Send to subscribed TODO
+	// 2. Send to subscribed
+	typedef Bbs::Subscription::BbsSet::iterator It;
+
+	Bbs::Subscription::InBbs key;
+	key.m_Channel = msg.m_Channel;
+
+	for (std::pair<It, It> range = m_pThis->m_Bbs.m_Subscribed.equal_range(key); range.first != range.second; )
+	{
+		Bbs::Subscription& s = (range.first++)->get_ParentObj();
+
+		if (this == s.m_pPeer)
+			continue;
+
+		try {
+			s.m_pPeer->SendBbsMsg(wlk.m_Data);
+		}
+		catch (...) {
+			s.m_pPeer->DeleteSelf(true, false);
+		}
+	}
 }
 
 void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
@@ -1406,17 +1439,49 @@ void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
 	if (!db.BbsFind(wlk))
 		return; // don't have it
 
+	SendBbsMsg(wlk.m_Data);
+}
+
+void Node::Peer::SendBbsMsg(const NodeDB::WalkerBbs::Data& d)
+{
 	proto::BbsMsg msgOut;
-	msgOut.m_Channel = wlk.m_Data.m_Channel;
-	msgOut.m_TimePosted = wlk.m_Data.m_TimePosted;
-	wlk.m_Data.m_Message.Export(msgOut.m_Message); // TODO: avoid buf allocation
+	msgOut.m_Channel = d.m_Channel;
+	msgOut.m_TimePosted = d.m_TimePosted;
+	d.m_Message.Export(msgOut.m_Message); // TODO: avoid buf allocation
 
 	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
 {
-	// TODO
+	Bbs::Subscription::InPeer key;
+	key.m_Channel = msg.m_Channel;
+
+	Bbs::Subscription::PeerSet::iterator it = m_Subscriptions.find(key);
+	if ((m_Subscriptions.end() == it) != msg.m_On)
+		return;
+
+	if (msg.m_On)
+	{
+		Bbs::Subscription* pS = new Bbs::Subscription;
+		pS->m_pPeer = this;
+
+		pS->m_Bbs.m_Channel = msg.m_Channel;
+		pS->m_Peer.m_Channel = msg.m_Channel;
+		m_pThis->m_Bbs.m_Subscribed.insert(pS->m_Bbs);
+		m_Subscriptions.insert(pS->m_Peer);
+
+		NodeDB& db = m_pThis->m_Processor.get_DB();
+		NodeDB::WalkerBbs wlk(db);
+
+		wlk.m_Data.m_Channel = msg.m_Channel;
+		wlk.m_Data.m_TimePosted = msg.m_TimeFrom;
+
+		for (db.EnumBbs(wlk); wlk.MoveNext(); )
+			SendBbsMsg(wlk.m_Data);
+	}
+	else
+		Unsubscribe(it->get_ParentObj());
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)

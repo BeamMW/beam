@@ -205,7 +205,29 @@ private:
 		void Cleanup();
 		void MaybeCleanup();
 
-		IMPLEMENT_GET_PARENT_OBJ(Node, m_Wtx)
+		struct Subscription
+		{
+			struct InBbs :public boost::intrusive::set_base_hook<> {
+				BbsChannel m_Channel;
+				bool operator < (const InBbs& x) const { return (m_Channel < x.m_Channel); }
+				IMPLEMENT_GET_PARENT_OBJ(Subscription, m_Bbs)
+			} m_Bbs;
+
+			struct InPeer :public boost::intrusive::set_base_hook<> {
+				BbsChannel m_Channel;
+				bool operator < (const InPeer& x) const { return (m_Channel < x.m_Channel); }
+				IMPLEMENT_GET_PARENT_OBJ(Subscription, m_Peer)
+			} m_Peer;
+
+			Peer* m_pPeer;
+
+			typedef boost::intrusive::multiset<InBbs> BbsSet;
+			typedef boost::intrusive::multiset<InPeer> PeerSet;
+		};
+
+		Subscription::BbsSet m_Subscribed;
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Bbs)
 	} m_Bbs;
 
 	struct PeerMan
@@ -249,17 +271,22 @@ private:
 		proto::Config m_Config;
 
 		TaskList m_lstTasks;
+		Bbs::Subscription::PeerSet m_Subscriptions;
+
+		io::Timer::Ptr m_pTimer;
+		io::Timer::Ptr m_pTimerPeers;
+
 		void TakeTasks();
 		void ReleaseTasks();
 		void ReleaseTask(Task&);
 		void SetTimerWrtFirstTask();
-
-		io::Timer::Ptr m_pTimer;
-		io::Timer::Ptr m_pTimerPeers;
+		void Unsubscribe(Bbs::Subscription&);
+		void Unsubscribe();
 		void OnTimer();
 		void SetTimer(uint32_t timeout_ms);
 		void KillTimer();
 		void OnResendPeers();
+		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, bool bIsBan);
 		static void ThrowUnexpected();
 
