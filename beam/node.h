@@ -38,6 +38,7 @@ struct Node
 			uint32_t m_PeersDbFlush_ms = 1000 * 60; // 1 minute
 			uint32_t m_BbsMessageTimeout_s	= 3600 * 24; // 1 day
 			uint32_t m_BbsMessageMaxAhead_s	= 3600 * 2; // 2 hours
+			uint32_t m_BbsCleanupPeriod_ms = 3600 * 1000; // 1 hour
 		} m_Timeout;
 
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
@@ -189,15 +190,23 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Wtx)
 	} m_Wtx;
 
-	struct WantedBbsMsg :public Wanted {
-		// Wanted
-		virtual uint32_t get_Timeout_ms() override;
-		virtual void OnExpired(const KeyType&) override;
+	struct Bbs
+	{
+		struct WantedMsg :public Wanted {
+			// Wanted
+			virtual uint32_t get_Timeout_ms() override;
+			virtual void OnExpired(const KeyType&) override;
 
-		IMPLEMENT_GET_PARENT_OBJ(Node, m_Wbbs)
-	} m_Wbbs;
+			IMPLEMENT_GET_PARENT_OBJ(Bbs, m_W)
+		} m_W;
 
-	static void CalcBbsMsgKey(NodeDB::WalkerBbs::Data&);
+		static void CalcMsgKey(NodeDB::WalkerBbs::Data&);
+		uint32_t m_LastCleanup_ms = 0;
+		void Cleanup();
+		void MaybeCleanup();
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Wtx)
+	} m_Bbs;
 
 	struct PeerMan
 		:public proto::PeerManager

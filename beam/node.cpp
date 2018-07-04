@@ -60,24 +60,24 @@ void Node::WantedTx::OnExpired(const KeyType& key)
 	}
 }
 
-void Node::CalcBbsMsgKey(NodeDB::WalkerBbs::Data& d)
+void Node::Bbs::CalcMsgKey(NodeDB::WalkerBbs::Data& d)
 {
 	ECC::Hash::Processor hp;
 	hp.Write(d.m_Message.p, d.m_Message.n);
 	hp << d.m_Channel >> d.m_Key;
 }
 
-uint32_t Node::WantedBbsMsg::get_Timeout_ms()
+uint32_t Node::Bbs::WantedMsg::get_Timeout_ms()
 {
-	return get_ParentObj().m_Cfg.m_Timeout.m_GetBbsMsg_ms;
+	return get_ParentObj().get_ParentObj().m_Cfg.m_Timeout.m_GetBbsMsg_ms;
 }
 
-void Node::WantedBbsMsg::OnExpired(const KeyType& key)
+void Node::Bbs::WantedMsg::OnExpired(const KeyType& key)
 {
 	proto::BbsGetMsg msg;
 	msg.m_Key = key;
 
-	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
+	for (PeerList::iterator it = get_ParentObj().get_ParentObj().m_lstPeers.begin(); get_ParentObj().get_ParentObj().m_lstPeers.end() != it; )
 	{
 		Peer& peer = *(it++);
 
@@ -89,6 +89,8 @@ void Node::WantedBbsMsg::OnExpired(const KeyType& key)
 				peer.DeleteSelf(true, false);
 			}
 	}
+
+	get_ParentObj().MaybeCleanup();
 }
 
 void Node::Wanted::Clear()
@@ -559,6 +561,21 @@ void Node::Initialize()
 
 	if (m_Compressor.m_bEnabled)
 		m_Compressor.Init();
+
+	m_Bbs.Cleanup();
+}
+
+void Node::Bbs::Cleanup()
+{
+	get_ParentObj().m_Processor.get_DB().BbsDelOld(getTimestamp() - get_ParentObj().m_Cfg.m_Timeout.m_BbsMessageTimeout_s);
+	m_LastCleanup_ms = GetTime_ms();
+}
+
+void Node::Bbs::MaybeCleanup()
+{
+	uint32_t dt_ms = GetTime_ms() - m_LastCleanup_ms;
+	if (dt_ms >= get_ParentObj().m_Cfg.m_Timeout.m_BbsCleanupPeriod_ms)
+		Cleanup();
 }
 
 void Node::ImportMacroblock(Height h)
@@ -1330,13 +1347,15 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 	wlk.m_Data.m_TimePosted = msg.m_TimePosted;
 	wlk.m_Data.m_Message = NodeDB::Blob(msg.m_Message);
 
-	CalcBbsMsgKey(wlk.m_Data);
+	Bbs::CalcMsgKey(wlk.m_Data);
 
 	if (db.BbsFind(wlk))
 		return; // already have it
 
+	m_pThis->m_Bbs.MaybeCleanup();
+
 	db.BbsIns(wlk.m_Data);
-	m_pThis->m_Wbbs.Delete(wlk.m_Data.m_Key);
+	m_pThis->m_Bbs.m_W.Delete(wlk.m_Data.m_Key);
 
 	// 1. Send to other BBS-es
 
@@ -1370,7 +1389,7 @@ void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 	if (db.BbsFind(wlk))
 		return; // already have it
 
-	if (!m_pThis->m_Wbbs.Add(msg.m_Key))
+	if (!m_pThis->m_Bbs.m_W.Add(msg.m_Key))
 		return; // already waiting for it
 
 	proto::BbsGetMsg msgOut;
