@@ -48,6 +48,7 @@ public:
 	};
 
 	static Reactor& get_Current();
+	uv_loop_t& get_UvLoop() { return _loop; }
 
 private:
     /// Ctor. private and called by create()

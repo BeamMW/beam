@@ -74,6 +74,5 @@ namespace beam::wallet
 
     void Negotiator::FSMDefinition::confirmSender(const events::TxInvitationCompleted&)
     {
-
     }
 }

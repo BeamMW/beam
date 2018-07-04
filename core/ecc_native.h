@@ -146,7 +146,7 @@ namespace ECC
 		{
 			static const int nBits = 4;
 
-			Point::Native m_pPt[(1 << nBits) - 1]; // skip zero
+			Point::Native m_pPt[(1 << nBits)];
 			Scalar::Native m_K;
 			int m_nPrepared;
 
@@ -371,6 +371,13 @@ namespace ECC
 			MultiMac::Prepared H_;
 
 		} m_Ipp;
+
+		struct Casual
+		{
+			CompactPoint m_Nums;
+			CompactPoint m_Compensation;
+
+		} m_Casual;
 
 		Hash::Value m_hvChecksum; // all the generators and signature version. In case we change seed strings or formula
 

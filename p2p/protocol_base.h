@@ -174,6 +174,8 @@ public:
     /// Called by MsgReader on new message. Returning false means no more reading
     bool on_new_message(uint64_t fromStream, MsgType type, const void* data, size_t size);
 
+	virtual void Decrypt(uint8_t*, uint32_t nSize) {}
+
 private:
     /// protocol version, all received messages must have these bytes
     uint8_t V0, V1, V2;

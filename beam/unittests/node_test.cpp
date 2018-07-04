@@ -5,7 +5,11 @@
 #include "../node_processor.h"
 #include "../../core/block_crypt.h"
 #include "../../utility/serialize.h"
+#include "../../utility/test_helpers.h"
 #include "../../core/serialization_adapters.h"
+
+#define LOG_VERBOSE_ENABLED 0
+#include "utility/logger.h"
 
 namespace ECC {
 
@@ -310,6 +314,7 @@ namespace beam
 		verify_test(!h);
 
 		tr.Commit();
+		tr.Start(db);
 
 		// utxos and kernels
 		NodeDB::Blob b0(vStates[0].m_Prev.m_pData, sizeof(vStates[0].m_Prev.m_pData));
@@ -330,6 +335,29 @@ namespace beam
 		db.ModifySpendable(b0, -5, -4);
 		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
+
+		for (int i = 0; i < 20; i++)
+		{
+			NodeDB::WalkerPeer::Data d;
+			ECC::SetRandom(d.m_ID);
+			d.m_Address = i * 17;
+			d.m_LastSeen = i + 10;
+			d.m_Rating = i * 100 + 50;
+
+			db.PeerIns(d);
+		}
+
+		NodeDB::WalkerPeer wlkp(db);
+		for (db.EnumPeers(wlkp); wlkp.MoveNext(); )
+			;
+
+		db.PeersDel();
+
+		for (db.EnumPeers(wlkp); wlkp.MoveNext(); )
+			;
+
+
+		tr.Commit();
 	}
 
 #ifdef WIN32
@@ -391,7 +419,7 @@ namespace beam
 			utxo.m_Key = key;
 			utxo.m_Value = n;
 
-			h += (KeyType::Coinbase == eType) ? Rules::MaturityCoinbase : Rules::MaturityStd;
+			h += (KeyType::Coinbase == eType) ? Rules::get().MaturityCoinbase : Rules::get().MaturityStd;
 
 			return &m_MyUtxos.insert(std::make_pair(h, utxo))->second;
 		}
@@ -511,15 +539,15 @@ namespace beam
 			Amount fees = 0;
 			verify_test(np.GenerateNewBlock(np.m_TxPool, pBlock->m_Hdr, pBlock->m_Body, fees));
 
-			np.OnState(pBlock->m_Hdr, NodeDB::PeerID());
+			np.OnState(pBlock->m_Hdr, PeerID());
 
 			Block::SystemState::ID id;
 			pBlock->m_Hdr.get_ID(id);
 
-			np.OnBlock(id, pBlock->m_Body, NodeDB::PeerID());
+			np.OnBlock(id, pBlock->m_Body, PeerID());
 
 			np.m_Wallet.AddMyUtxo(fees, h, KeyType::Comission);
-			np.m_Wallet.AddMyUtxo(Rules::CoinbaseEmission, h, KeyType::Coinbase);
+			np.m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, h, KeyType::Coinbase);
 
 			blockChain.push_back(std::move(pBlock));
 		}
@@ -599,7 +627,7 @@ namespace beam
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
-			NodeProcessor::PeerID peer;
+			PeerID peer;
 			ZeroObject(peer);
 
 			for (size_t i = 0; i < blockChain.size(); i += 2)
@@ -611,7 +639,7 @@ namespace beam
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
-			NodeProcessor::PeerID peer;
+			PeerID peer;
 			ZeroObject(peer);
 
 			for (size_t i = 0; i < nMid; i += 2)
@@ -627,7 +655,7 @@ namespace beam
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
-			NodeProcessor::PeerID peer;
+			PeerID peer;
 			ZeroObject(peer);
 
 			for (size_t i = 1; i < blockChain.size(); i += 2)
@@ -639,7 +667,7 @@ namespace beam
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
-			NodeProcessor::PeerID peer;
+			PeerID peer;
 			ZeroObject(peer);
 
 			for (size_t i = 0; i < nMid; i++)
@@ -655,7 +683,7 @@ namespace beam
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
-			NodeProcessor::PeerID peer;
+			PeerID peer;
 			ZeroObject(peer);
 
 			for (size_t i = nMid; i < blockChain.size(); i++)
@@ -686,13 +714,12 @@ namespace beam
 		node2.m_Cfg.m_sPathLocal = g_sz2;
 		node2.m_Cfg.m_Listen.port(Node::s_PortDefault + 1);
 		node2.m_Cfg.m_Listen.ip(INADDR_ANY);
-		node2.m_Cfg.m_Connect.resize(1);
-		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
-		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
 
-		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
-		ECC::SetRandom(node2.get_Processor().m_Kdf.m_Secret.V);
+		node2.m_Cfg.m_BeaconPort = Node::s_PortDefault;
+
+		ECC::SetRandom(node.m_Cfg.m_WalletKey.V);
+		ECC::SetRandom(node2.m_Cfg.m_WalletKey.V);
 
 		node.Initialize();
 		node2.Initialize();
@@ -735,12 +762,12 @@ namespace beam
 					Amount fees = 0;
 					n.get_Processor().GenerateNewBlock(txPool, s, body, fees);
 
-					n.get_Processor().OnState(s, NodeDB::PeerID());
+					n.get_Processor().OnState(s, PeerID());
 
 					Block::SystemState::ID id;
 					s.get_ID(id);
 
-					n.get_Processor().OnBlock(id, body, NodeDB::PeerID());
+					n.get_Processor().OnBlock(id, body, PeerID());
 
 					m_HeightMax = std::max(m_HeightMax, s.m_Height);
 
@@ -806,8 +833,9 @@ namespace beam
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
+		node.m_Cfg.m_RestrictMinedReportToOwner = true;
 
-		ECC::SetRandom(node.get_Processor().m_Kdf.m_Secret.V);
+		ECC::SetRandom(node.m_Cfg.m_WalletKey.V);
 
 		node.m_Cfg.m_Horizon.m_Branching = 6;
 		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
@@ -832,11 +860,28 @@ namespace beam
 
 			virtual void OnConnected() override {
 				SetTimer(90*1000);
+				SecureConnect();
+			}
+
+			void get_MyID(ECC::Scalar::Native& sk) override
+			{
+				DeriveKey(sk, m_Wallet.m_Kdf, 0, KeyType::Identity);
+			}
+
+			void GenerateSChannelNonce(ECC::Scalar& nonce) override
+			{
+				ECC::SetRandom(nonce.m_Value);
+			}
+
+			virtual void OnMsg(proto::SChannelAuthentication&& msg) override {
+				proto::NodeConnection::OnMsg(std::move(msg));
+				// by now the secure channel is established
 
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
-				Rules::get_Hash(msgCfg.m_CfgChecksum);
+				msgCfg.m_CfgChecksum = Rules::get().Checksum;
 				msgCfg.m_AutoSendHdr = true;
+				msgCfg.m_SendPeers = false;
 				Send(msgCfg);
 			}
 
@@ -860,6 +905,10 @@ namespace beam
 
 				if (msg.m_ID.m_Height >= m_HeightTrg)
 					io::Reactor::get_Current().stop();
+
+				proto::GetMined msgOut;
+				msgOut.m_HeightMin = 0;
+				Send(msgOut);
 			}
 
 			virtual void OnMsg(proto::Hdr&& msg) override
@@ -868,7 +917,7 @@ namespace beam
 				m_vStates.push_back(msg.m_Description);
 
 				// assume we've mined this
-				m_Wallet.AddMyUtxo(Rules::CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
+				m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
 
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
@@ -954,7 +1003,7 @@ namespace beam
 		};
 
 		MyClient cl;
-		cl.m_Wallet.m_Kdf = node.get_Processor().m_Kdf; // same key gen
+		cl.m_Wallet.m_Kdf.m_Secret = node.m_Cfg.m_WalletKey; // same key gen
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");
@@ -998,7 +1047,15 @@ namespace beam
 
 int main()
 {
-	beam::Rules::FakePoW = true;
+//	auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+
+	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
+	//	.db files
+	//	ports, wrong beacon and etc.
+	verify_test(beam::helpers::ProcessWideLock("/tmp/BEAM_node_test_lock"));
+
+	beam::Rules::get().FakePoW = true;
+	beam::Rules::get().UpdateChecksum();
 
 	DeleteFileA(beam::g_sz);
 	DeleteFileA(beam::g_sz2);

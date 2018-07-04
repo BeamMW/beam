@@ -3,6 +3,7 @@
 
 #define LOG_VERBOSE_ENABLED 0
 #include "utility/logger.h"
+#include "utility/test_helpers.h"
 
 int g_Ret = 0;
 
@@ -244,6 +245,8 @@ int main()
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
+
+	beam::helpers::ProcessWideLock("/tmp/BEAM_node_test_lock");
 
     beam::TestP2pSane();
     beam::TestNode1(10, 100);
