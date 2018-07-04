@@ -17,11 +17,7 @@ private:
 	virtual void OnConnected() override;
 	virtual bool OnMsg2(proto::Boolean&& msg) override;
 	virtual bool OnMsg2(proto::NewTip&& msg) override;	
-	virtual bool OnMsg2(proto::GetHdr&& msg) override;
-	virtual bool OnMsg2(proto::GetBody&& msg) override;
-
-	void GenerateTests() override;
-
+	
 private:
 	Height m_Height;
 };
@@ -77,27 +73,6 @@ bool TestNodeConnection::OnMsg2(proto::NewTip&& msg)
 	}
 
 	return true;
-}
-
-bool TestNodeConnection::OnMsg2(proto::GetHdr&& msg)
-{
-	LOG_INFO() << "GetHdr: " << msg.m_ID.m_Height;
-
-	proto::Hdr msgHdr;
-	Send(msgHdr);
-	return true;
-}
-bool TestNodeConnection::OnMsg2(proto::GetBody&& msg)
-{
-	LOG_INFO() << "GetHdr: " << msg.m_ID.m_Height;
-
-	proto::Body msgHdr;
-	Send(msgHdr);
-	return true;
-}
-
-void TestNodeConnection::GenerateTests()
-{	
 }
 
 int main(int argc, char* argv[])
