@@ -64,7 +64,7 @@ add_definitions(-DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 include_directories(${PROJECT_SOURCE_DIR}/utility) # TODO  move to ./3rdparty all that stuff that requires to add this line
 
 add_subdirectory(utility)
-
+add_subdirectory(tiny-AES)
 add_subdirectory(core)
 add_subdirectory(pow)
 add_subdirectory(p2p)

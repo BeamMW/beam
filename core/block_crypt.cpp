@@ -1,5 +1,6 @@
 #include <utility> // std::swap
 #include <algorithm>
+#include <ctime>
 #include "block_crypt.h"
 #include "../utility/serialize.h"
 #include "../core/serialization_adapters.h"
@@ -214,7 +215,7 @@ namespace beam
 
 	Height Output::get_MinMaturity(Height h) const
 	{
-		HeightAdd(h, m_Coinbase ? Rules::MaturityCoinbase : Rules::MaturityStd);
+		HeightAdd(h, m_Coinbase ? Rules::get().MaturityCoinbase : Rules::get().MaturityStd);
 		HeightAdd(h, m_Incubation);
 		return h;
 	}
@@ -831,23 +832,17 @@ namespace beam
 
 	/////////////
 	// Block
+
+	Rules g_Rules; // refactor this to enable more flexible acess for current rules (via TLS or etc.)
+	Rules& Rules::get()
+	{
+		return g_Rules;
+	}
+
 	const Height Rules::HeightGenesis	= 1;
-	const Amount Rules::Coin				= 1000000;
+	const Amount Rules::Coin			= 1000000;
 
-	Amount Rules::CoinbaseEmission	= Coin * 40; // the maximum allowed coinbase in a single block
-	Height Rules::MaturityCoinbase	= 60; // 1 hour
-	Height Rules::MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
-	size_t Rules::MaxBodySize		= 0x100000; // 1MB
-
-	bool Rules::FakePoW = false;
-
-	uint32_t Rules::DesiredRate_s				= 60; // 1 minute
-	uint32_t Rules::DifficultyReviewCycle		= 24 * 60 * 7; // 10,080 blocks, 1 week roughly
-	uint32_t Rules::MaxDifficultyChange			= 3; // i.e. x8 roughly. (There's no equivalent to this in bitcoin).
-	uint32_t Rules::TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
-	uint32_t Rules::WindowForMedian				= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
-
-	void Rules::get_Hash(ECC::Hash::Value& hv)
+	void Rules::UpdateChecksum()
 	{
 		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
 		ECC::Hash::Processor()
@@ -864,8 +859,9 @@ namespace beam
 			<< MaxDifficultyChange
 			<< TimestampAheadThreshold_s
 			<< WindowForMedian
+			<< uint32_t(0) // increment this whenever we change something in the protocol
 			// out
-			>> hv;
+			>> Checksum;
 	}
 
 
@@ -951,7 +947,7 @@ namespace beam
 		ECC::uintBig ubSubsidy, ubCoinbase, mul;
 		bb.m_Subsidy.Export(ubSubsidy);
 
-		mul = Rules::CoinbaseEmission;
+		mul = Rules::get().CoinbaseEmission;
 		ubCoinbase = nBlocksInRange;
 		ubCoinbase = ubCoinbase * mul;
 
@@ -959,10 +955,10 @@ namespace beam
 			return false;
 
 		// ensure there's a minimal unspent coinbase UTXOs
-		if (nBlocksInRange > Rules::MaturityCoinbase)
+		if (nBlocksInRange > Rules::get().MaturityCoinbase)
 		{
 			// some UTXOs may be spent already. Calculate the minimum remaining
-			nBlocksInRange -= Rules::MaturityCoinbase;
+			nBlocksInRange -= Rules::get().MaturityCoinbase;
 			ubCoinbase = nBlocksInRange;
 			ubCoinbase = ubCoinbase * mul;
 
@@ -1019,7 +1015,7 @@ namespace beam
         kdf.DeriveKey(out, h, static_cast<uint32_t>(eType), nIdx);
     }
 
-	void Rules::AdjustDifficulty(uint8_t& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s)
+	void Rules::AdjustDifficulty(uint8_t& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const
 	{
 		//static_assert(DesiredRate_s * DifficultyReviewCycle < uint32_t(-1), "overflow?");
 		const uint32_t dtTrg_s = DesiredRate_s * DifficultyReviewCycle;
@@ -1185,12 +1181,10 @@ namespace beam
 	{
 		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[4]);
 
-		ECC::Hash::Value hv, hv2;
-		Rules::get_Hash(hv);
+		ECC::Hash::Value hv;
+		arc & hv;
 
-		arc & hv2;
-
-		if (hv != hv2)
+		if (hv != Rules::get().Checksum)
 			throw std::runtime_error("Block rules mismatch");
 
 		arc & body;
@@ -1231,10 +1225,7 @@ namespace beam
 
 	void Block::BodyBase::RW::put_Start(const BodyBase& body, const SystemState::Sequence::Prefix& prefix)
 	{
-		ECC::Hash::Value hv;
-		Rules::get_Hash(hv);
-
-		WriteInternal(hv, m_pS[4]);
+		WriteInternal(Rules::get().Checksum, m_pS[4]);
 		WriteInternal(body, m_pS[4]);
 		WriteInternal(prefix, m_pS[4]);
 	}
@@ -1449,6 +1440,30 @@ namespace beam
 		}
 
 		return true;
+	}
+
+	/////////////
+	// Misc
+	Timestamp getTimestamp()
+	{
+		return beam::Timestamp(std::chrono::seconds(std::time(nullptr)).count());
+	}
+
+	uint32_t GetTime_ms()
+	{
+#ifdef WIN32
+		return GetTickCount();
+#else // WIN32
+		// platform-independent analogue of GetTickCount
+		using namespace std::chrono;
+		return (uint32_t)duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+#endif // WIN32
+	}
+
+	uint32_t GetTimeNnz_ms()
+	{
+		uint32_t ret = GetTime_ms();
+		return ret ? ret : 1;
 	}
 
 } // namespace beam

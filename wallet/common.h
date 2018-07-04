@@ -84,7 +84,6 @@ namespace beam
         namespace mpl = boost::mpl;
 
         std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
-        Timestamp getTimestamp();
 
         template <typename Derived>
         class FSMHelper

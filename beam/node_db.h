@@ -26,6 +26,8 @@ public:
 			SubsidyLo,
 			SubsidyHi,
 			SubsidyOpen,
+			CfgChecksum,
+			MyID,
 		};
 	};
 
@@ -87,6 +89,9 @@ public:
 			MacroblockEnum,
 			MacroblockIns,
 			MacroblockDel,
+			PeerAdd,
+			PeerDel,
+			PeerEnum,
 
 			Dbg0,
 			Dbg1,
@@ -280,6 +285,25 @@ public:
 	void EnumMacroblocks(WalkerState&); // highest to lowest
 	void MacroblockIns(uint64_t rowid);
 	void MacroblockDel(uint64_t rowid);
+
+	struct WalkerPeer
+	{
+		Recordset m_Rs;
+
+		struct Data {
+			PeerID m_ID;
+			uint32_t m_Rating;
+			uint64_t m_Address;
+			Timestamp m_LastSeen;
+		} m_Data;
+
+		WalkerPeer(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
+	};
+
+	void EnumPeers(WalkerPeer&); // highest to lowest
+	void PeerIns(const WalkerPeer::Data&);
+	void PeersDel();
 
 private:
 

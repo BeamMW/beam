@@ -89,11 +89,6 @@ namespace beam
 
             return res;
         }
-
-        Timestamp getTimestamp()
-        {
-            return beam::Timestamp(std::chrono::seconds(std::time(nullptr)).count());
-        }
     }
 
     Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action)
@@ -127,7 +122,7 @@ namespace beam
         Uuid txId{};
         copy(id.begin(), id.end(), txId.begin());
         m_peers.emplace(txId, to);
-        TxDescription tx( txId, amount, to, move(message), wallet::getTimestamp(), true);
+        TxDescription tx( txId, amount, to, move(message), getTimestamp(), true);
         resume_sender(tx);
         return txId;
     }
@@ -233,7 +228,7 @@ namespace beam
         {
             LOG_VERBOSE() << ReceiverPrefix << "Received tx invitation " << data.m_txId;
             m_peers.emplace(data.m_txId, from);
-            TxDescription tx{ data.m_txId, data.m_amount, from, {}, wallet::getTimestamp(), false };
+            TxDescription tx{ data.m_txId, data.m_amount, from, {}, getTimestamp(), false };
             auto r = make_shared<Receiver>(*this, m_keyChain, tx, data);
             m_receivers.emplace(tx.m_txId, r);
             if (m_synchronized)
@@ -470,7 +465,7 @@ namespace beam
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
                 // coinbase 
-                mined.emplace_back(Rules::CoinbaseEmission
+                mined.emplace_back(Rules::get().CoinbaseEmission
                                  , Coin::Unconfirmed
                                  , minedCoin.m_ID.m_Height
                                  , MaxHeight
