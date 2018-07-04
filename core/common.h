@@ -70,6 +70,8 @@ namespace beam
 	typedef std::vector<uint8_t> ByteBuffer;
 	typedef ECC::Amount Amount;
 	typedef ECC::Hash::Value PeerID;
+	typedef uint64_t BbsChannel;
+	typedef ECC::Hash::Value BbsMsgID;
 
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount

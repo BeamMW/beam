@@ -92,6 +92,10 @@ public:
 			PeerAdd,
 			PeerDel,
 			PeerEnum,
+			BbsEnum,
+			BbsFind,
+			BbsDelOld,
+			BbsIns,
 
 			Dbg0,
 			Dbg1,
@@ -202,8 +206,6 @@ public:
 	void SetStateFunctional(uint64_t rowid);
 	void SetStateNotFunctional(uint64_t rowid);
 
-	typedef Merkle::Hash PeerID;
-
 	void set_Peer(uint64_t rowid, const PeerID*);
 	bool get_Peer(uint64_t rowid, PeerID&);
 
@@ -304,6 +306,26 @@ public:
 	void EnumPeers(WalkerPeer&); // highest to lowest
 	void PeerIns(const WalkerPeer::Data&);
 	void PeersDel();
+
+	struct WalkerBbs
+	{
+		Recordset m_Rs;
+
+		struct Data {
+			ECC::Hash::Value m_Key;
+			BbsChannel m_Channel;
+			Timestamp m_TimePosted;
+			Blob m_Message;
+		} m_Data;
+
+		WalkerBbs(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
+	};
+
+	void EnumBbs(WalkerBbs&); // set channel and min time before invocation
+	void BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it)
+	bool BbsFind(WalkerBbs&); // set Key
+	void BbsDelOld(Timestamp tMinToRemain);
 
 private:
 

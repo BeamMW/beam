@@ -357,6 +357,43 @@ namespace beam
 			;
 
 
+		NodeDB::WalkerBbs::Data dBbs;
+
+		for (uint32_t i = 0; i < 200; i++)
+		{
+			dBbs.m_Key = i;
+			dBbs.m_Channel = i % 7;
+			dBbs.m_TimePosted = i + 100;
+			dBbs.m_Message.p = "hello";
+			dBbs.m_Message.n = 5;
+
+			db.BbsIns(dBbs);
+		}
+
+		NodeDB::WalkerBbs wlkbbs(db);
+		wlkbbs.m_Data = dBbs;
+		verify_test(db.BbsFind(wlkbbs));
+
+		wlkbbs.m_Data.m_Key.Inc();
+		verify_test(!db.BbsFind(wlkbbs));
+
+
+		for (wlkbbs.m_Data.m_Channel = 0; wlkbbs.m_Data.m_Channel < 7; wlkbbs.m_Data.m_Channel++)
+		{
+			wlkbbs.m_Data.m_TimePosted = 0;
+			for (db.EnumBbs(wlkbbs); wlkbbs.MoveNext(); )
+				;
+		}
+
+		db.BbsDelOld(267);
+
+		for (wlkbbs.m_Data.m_Channel = 0; wlkbbs.m_Data.m_Channel < 7; wlkbbs.m_Data.m_Channel++)
+		{
+			wlkbbs.m_Data.m_TimePosted = 0;
+			for (db.EnumBbs(wlkbbs); wlkbbs.MoveNext(); )
+				;
+		}
+
 		tr.Commit();
 	}
 
