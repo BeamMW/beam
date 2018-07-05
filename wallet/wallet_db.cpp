@@ -23,13 +23,15 @@
     each(1, id, sep, INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, obj)
 
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
-    each(2, amount,     sep, INTEGER NOT NULL, obj) \
-    each(3, status,     sep, INTEGER NOT NULL, obj) \
-    each(4, height,     sep, INTEGER NOT NULL, obj) \
-    each(5, maturity,   sep, INTEGER NOT NULL, obj) \
-    each(6, key_type,   sep, INTEGER NOT NULL, obj) \
-    each(7, createTxId, sep, BLOB, obj) \
-    each(8, spentTxId,  , BLOB, obj)            // last item without separator
+    each(2, amount,        sep, INTEGER NOT NULL, obj) \
+    each(3, status,        sep, INTEGER NOT NULL, obj) \
+    each(4, height,        sep, INTEGER NOT NULL, obj) \
+    each(5, maturity,      sep, INTEGER NOT NULL, obj) \
+    each(6, key_type,      sep, INTEGER NOT NULL, obj) \
+    each(7, confirmHeight, sep, INTEGER, obj) \
+    each(8, confirmHash,   sep, BLOB, obj) \
+    each(9, createTxId,    sep, BLOB, obj) \
+    each(10, spentTxId,       , BLOB, obj)            // last item without separator
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) \
@@ -89,7 +91,6 @@ namespace beam
     
 	namespace sqlite
 	{
-
 		struct Statement
 		{
 			Statement(sqlite3* db, const char* sql)
@@ -139,6 +140,12 @@ namespace beam
                 {
                     bind(col, nullptr, 0);
                 }
+            }
+
+            void bind(int col, const ECC::Hash::Value& hash)
+            {
+                int ret = sqlite3_bind_blob(_stm, col, hash.m_pData, hash.size(), NULL);
+                throwIfError(ret, _db);
             }
 
             void bind(int col, const ByteBuffer& m)
@@ -216,6 +223,22 @@ namespace beam
                     {
                         id = Uuid{};
                         memcpy(id->data(), data, size);
+                    }
+                }
+            }
+
+            void get(int col, ECC::Hash::Value& hash)
+            {
+                int size = sqlite3_column_bytes(_stm, col);
+                if (size > 0)
+                {
+                    size = sqlite3_column_bytes(_stm, col);
+                    const void* data = sqlite3_column_blob(_stm, col);
+
+                    if (data)
+                    {
+                        assert(size == hash.size());
+                        memcpy(hash.m_pData, data, size);
                     }
                 }
             }
@@ -307,19 +330,20 @@ namespace beam
     }
 
 
-	Coin::Coin(const Amount& amount, Status status, const Height& height, const Height& maturity, KeyType keyType)
+	Coin::Coin(const Amount& amount, Status status, const Height& height, const Height& maturity, KeyType keyType, Height confirmHeight)
 		: m_id{ 0 }
 		, m_amount{ amount }
 		, m_status{ status }
 		, m_height{ height }
 		, m_maturity{ maturity }
 		, m_key_type{ keyType }
+        , m_confirmHeight{ confirmHeight }
 	{
 
 	}
 
 	Coin::Coin()
-        : Coin(0, Coin::Unspent, 0, MaxHeight, KeyType::Regular)
+        : Coin(0, Coin::Unspent, 0, MaxHeight, KeyType::Regular, MaxHeight)
 	{
 
 	}
@@ -331,6 +355,7 @@ namespace beam
 
 	IKeyChain::Ptr Keychain::init(const string& path, const string& password, const ECC::NoLeak<ECC::uintBig>& secretKey)
 	{
+        // TODO: add version
 		if (!boost::filesystem::exists(path))
 		{
 			auto keychain = make_shared<Keychain>(secretKey);
@@ -345,8 +370,9 @@ namespace beam
 				throwIfError(ret, keychain->_db);
 			}
 
-			{
-				const char* req = "CREATE TABLE " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST_WITH_TYPES, COMMA,) ");";
+            {
+				const char* req = "CREATE TABLE " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST_WITH_TYPES, COMMA,) ");"
+                                  "CREATE INDEX HeightIndex ON " STORAGE_NAME"(confirmHeight)";
 				int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
 				throwIfError(ret, keychain->_db);
 			}
@@ -376,6 +402,7 @@ namespace beam
 
 	IKeyChain::Ptr Keychain::open(const string& path, const string& password)
 	{
+        // TODO: add version check
 		if (boost::filesystem::exists(path))
 		{
 			ECC::NoLeak<ECC::uintBig> seed;
@@ -601,24 +628,14 @@ namespace beam
         coin.m_id = getLastID(_db);
     }
 
-	void Keychain::update(const vector<beam::Coin>& coins)
+	void Keychain::update(const beam::Coin& coin)
 	{
-		if (coins.size())
-		{
-			sqlite::Transaction trans(_db);
+        const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA, ) " WHERE id=?1;";
+        sqlite::Statement stm(_db, req);
 
-			for (const auto& coin : coins)
-			{
-				const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA, ) " WHERE id=?1;";
-				sqlite::Statement stm(_db, req);
+        ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
 
-				ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
-
-				stm.step();
-			}
-
-			trans.commit();
-		}
+        stm.step();
 	}
 
 	void Keychain::remove(const vector<beam::Coin>& coins)
@@ -723,6 +740,42 @@ namespace beam
 		}
 		return 0;
 	}
+
+    Block::SystemState::ID Keychain::getMedianStateID(Height minHeight, Height maxHeight)
+    {
+        uint64_t count = 0;
+        {
+            const char* req = "SELECT COUNT(DISTINCT confirmHeight) FROM " STORAGE_NAME " WHERE confirmHeight >= ?1 AND confirmHeight <= ?2 ;";
+            sqlite::Statement stm(_db, req);
+            stm.bind(1, minHeight);
+            stm.bind(2, maxHeight);
+            stm.step();
+            stm.get(0, count);
+        }
+
+        if (count == 0)
+        {
+            return {};
+        }
+
+        {
+            const char* req = "SELECT DISTINCT confirmHeight, confirmHash FROM " STORAGE_NAME " WHERE confirmHeight >= ?1 AND confirmHeight <= ?2 ;";
+            sqlite::Statement stm(_db, req);
+            stm.bind(1, minHeight);
+            stm.bind(2, maxHeight);
+            uint64_t skipCount = count / 2;
+            for (uint64_t i = 0; i < skipCount; ++i)
+            {
+                stm.step();
+            }
+
+            stm.step();
+            Block::SystemState::ID id = {};
+            stm.get(0, id.m_Height);
+            stm.get(1, id.m_Hash);
+            return id;
+        }
+    }
 
     vector<TxDescription> Keychain::getTxHistory(uint64_t start, int count)
     {

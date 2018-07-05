@@ -282,7 +282,7 @@ namespace beam
         // TODO: handle the maturity of the several proofs (> 1)
         if (m_pendingProofs.empty())
         {
-            LOG_DEBUG() << "Unexpected UTXO proof";
+            LOG_WARNING() << "Unexpected UTXO proof";
             return finish_sync();
         }
 
@@ -296,7 +296,7 @@ namespace beam
             if (coin.m_status == Coin::Locked)
             {
                 coin.m_status = Coin::Spent;
-                m_keyChain->update(vector<Coin>{coin});
+                m_keyChain->update(coin);
             }
         }
         else
@@ -308,9 +308,11 @@ namespace beam
 
                     if (proof.IsValid(input, m_Definition))
                     {
-                        LOG_ERROR() << "Got proof for: " << input.m_Commitment;
+                        LOG_INFO() << "Got proof for: " << input.m_Commitment;
                         coin.m_status = Coin::Unspent;
                         coin.m_maturity = proof.m_Maturity;
+                        coin.m_confirmHeight = m_newStateID.m_Height;
+                        coin.m_confirmHash = m_newStateID.m_Hash;
                         if (coin.m_key_type == KeyType::Coinbase
                             || coin.m_key_type == KeyType::Comission)
                         {
@@ -319,7 +321,7 @@ namespace beam
                         }
                         else
                         {
-                            m_keyChain->update(vector<Coin>{coin});
+                            m_keyChain->update(coin);
                         }
                     }
                     else
@@ -362,36 +364,15 @@ namespace beam
         {
             return finish_sync();
         }
-        
-        if (newID > m_knownStateID)
-        {
-            m_newStateID = newID;
-            m_synchronized = false;
-            ++m_syncing; // Mined
-            m_network.send_node_message(proto::GetMined{ m_knownStateID.m_Height });
 
-            vector<Coin> unconfirmed;
-            m_keyChain->visit([&](const Coin& coin)
-            {
-                if (coin.m_status == Coin::Unconfirmed
-                    || coin.m_status == Coin::Locked)
-                {
-                    unconfirmed.emplace_back(coin);
-                }
+        m_synchronized = false;
 
-                return true;
-            });
-
-            getUtxoProofs(unconfirmed);
-        }
-        else //rollback
-        {
-
-        }
+        ++m_syncing;
+        m_PendingStateProofs.push_back(m_knownStateID);
+        m_network.send_node_message(proto::GetProofState{ m_knownStateID.m_Height });
 
         m_newStateID = newID;
-        m_Definition = msg.m_Description.m_Definition;
-
+        m_NewDefinition = msg.m_Description.m_Definition;
 
         return finish_sync();
     }
@@ -425,6 +406,48 @@ namespace beam
         {
             getUtxoProofs(mined);
         }
+        return finish_sync();
+    }
+
+    bool Wallet::handle_node_message(proto::Proof&& msg)
+    {
+        if (m_PendingStateProofs.empty())
+        {
+            LOG_ERROR() << "Unexpected state proof";
+            return finish_sync();
+        }
+        
+        auto& id = m_PendingStateProofs.front();
+        Merkle::Hash hv = id.m_Hash;
+        m_PendingStateProofs.pop_front();
+        Merkle::Interpret(hv, msg.m_Proof);
+
+        if (hv == m_Definition)
+        {
+            // fast-forward
+            ++m_syncing; // Mined
+            m_network.send_node_message(proto::GetMined{ m_knownStateID.m_Height });
+
+            vector<Coin> unconfirmed;
+            m_keyChain->visit([&](const Coin& coin)
+            {
+                if (coin.m_status == Coin::Unconfirmed
+                    || coin.m_status == Coin::Locked)
+                {
+                    unconfirmed.emplace_back(coin);
+                }
+
+                return true;
+            });
+
+            getUtxoProofs(unconfirmed);
+        }
+        else
+        {
+            // rollback and fast-forward
+            auto id = m_keyChain->getMedianStateID(0, m_knownStateID.m_Height);
+        }
+
         return finish_sync();
     }
 

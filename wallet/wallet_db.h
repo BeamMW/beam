@@ -23,7 +23,8 @@ namespace beam
            , Status status = Coin::Unspent
            , const Height& height = 0
            , const Height& maturity = MaxHeight
-           , KeyType keyType = KeyType::Regular);
+           , KeyType keyType = KeyType::Regular
+           , Height confirmHeight = MaxHeight);
         Coin();
 
         uint64_t m_id;
@@ -32,6 +33,8 @@ namespace beam
         Height m_height; // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
         Height m_maturity; // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
         KeyType m_key_type;
+        Height m_confirmHeight;  
+        Merkle::Hash m_confirmHash;
         boost::optional<Uuid> m_createTxId;
         boost::optional<Uuid> m_spentTxId;
     };
@@ -47,7 +50,7 @@ namespace beam
         virtual std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock = true) = 0;
         virtual void store(beam::Coin& coin) = 0;
         virtual void store(std::vector<beam::Coin>& coins) = 0;
-        virtual void update(const std::vector<beam::Coin>& coins) = 0;
+        virtual void update(const beam::Coin& coin) = 0;
         virtual void remove(const std::vector<beam::Coin>& coins) = 0;
         virtual void remove(const beam::Coin& coin) = 0;
 
@@ -56,6 +59,7 @@ namespace beam
 		virtual void setVarRaw(const char* name, const void* data, int size) = 0;
 		virtual int getVarRaw(const char* name, void* data) const = 0;
         virtual Height getCurrentHeight() const = 0;
+        virtual Block::SystemState::ID getMedianStateID(Height minHeight, Height maxHeight) = 0;
 
         virtual std::vector<TxDescription> getTxHistory(uint64_t start = 0, int count = std::numeric_limits<int>::max()) = 0;
         virtual boost::optional<TxDescription> getTx(const Uuid& txId) = 0;
@@ -93,7 +97,7 @@ namespace beam
         std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock = true) override;
         void store(beam::Coin& coin) override;
         void store(std::vector<beam::Coin>& coins) override;
-        void update(const std::vector<beam::Coin>& coins) override;
+        void update(const beam::Coin& coin) override;
         void remove(const std::vector<beam::Coin>& coins) override;
         void remove(const beam::Coin& coin) override;
 		void visit(std::function<bool(const beam::Coin& coin)> func) override;
@@ -101,6 +105,7 @@ namespace beam
 		void setVarRaw(const char* name, const void* data, int size) override;
 		int getVarRaw(const char* name, void* data) const override;
         Height getCurrentHeight() const override;
+        Block::SystemState::ID getMedianStateID(Height minHeight, Height maxHeight) override;
 
         std::vector<TxDescription> getTxHistory(uint64_t start, int count) override;
         boost::optional<TxDescription> getTx(const Uuid& txId) override;

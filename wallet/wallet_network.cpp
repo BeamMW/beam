@@ -115,6 +115,11 @@ namespace beam {
         send_to_node(move(msg));
     }
 
+    void WalletNetworkIO::send_node_message(proto::GetProofState&& msg)
+    {
+        send_to_node(move(msg));
+    }
+
     void WalletNetworkIO::close_connection(uint64_t id)
     {
         if (auto it = m_connections_callbacks.find(id); it != m_connections_callbacks.end())

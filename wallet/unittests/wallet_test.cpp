@@ -53,7 +53,7 @@ namespace
 
         void store(beam::Coin& ) override {}
         void store(std::vector<beam::Coin>& ) override {}
-        void update(const std::vector<beam::Coin>& ) override {}
+        void update(const beam::Coin& ) override {}
         void remove(const std::vector<beam::Coin>& ) override {}
         void remove(const beam::Coin& ) override {}
         void visit(std::function<bool(const beam::Coin& coin)> ) override {}
@@ -71,6 +71,11 @@ namespace
         Height getCurrentHeight() const override
         {
             return 134;
+        }
+
+        Block::SystemState::ID getMedianStateID(Height minHeight, Height maxHeight) override
+        {
+            return {};
         }
 
     protected:
