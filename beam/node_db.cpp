@@ -105,14 +105,14 @@ void NodeDB::Close()
 }
 
 NodeDB::Recordset::Recordset(NodeDB& db)
-	:m_DB(db)
-	, m_pStmt(NULL)
+	:m_pStmt(NULL)
+	,m_DB(db)
 {
 }
 
 NodeDB::Recordset::Recordset(NodeDB& db, Query::Enum val, const char* sql)
-	:m_DB(db)
-	,m_pStmt(NULL)
+	:m_pStmt(NULL)
+	,m_DB(db)
 {
 	m_pStmt = m_DB.get_Statement(val, sql);
 }

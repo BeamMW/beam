@@ -399,7 +399,7 @@ void TestRangeProof()
 	Scalar::Native pA[InnerProduct::nDim];
 	Scalar::Native pB[InnerProduct::nDim];
 
-	for (int i = 0; i < _countof(pA); i++)
+	for (size_t i = 0; i < _countof(pA); i++)
 	{
 		SetRandom(pA[i]);
 		SetRandom(pB[i]);
@@ -580,7 +580,7 @@ struct TransactionMaker
 
 		Point::Native xG(Zero), kG(Zero);
 
-		for (int i = 0; i < _countof(m_pPeers); i++)
+		for (size_t i = 0; i < _countof(m_pPeers); i++)
 		{
 			Peer& p = m_pPeers[i];
 			p.FinalizeExcess(xG, offset);
@@ -597,7 +597,7 @@ struct TransactionMaker
 		// 2nd pass. Signing. Total excess is the signature public key.
 		Scalar::Native kSig = Zero;
 
-		for (int i = 0; i < _countof(m_pPeers); i++)
+		for (size_t i = 0; i < _countof(m_pPeers); i++)
 		{
 			Peer& p = m_pPeers[i];
 
@@ -1058,7 +1058,7 @@ void RunBenchmark()
 	Scalar::Native pA[InnerProduct::nDim];
 	Scalar::Native pB[InnerProduct::nDim];
 
-	for (int i = 0; i < _countof(pA); i++)
+	for (size_t i = 0; i < _countof(pA); i++)
 	{
 		SetRandom(pA[i]);
 		SetRandom(pB[i]);
@@ -1135,7 +1135,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-			secp256k1_pedersen_commit(pCtx, &comm, k_.m_Value.m_pData, 78945, secp256k1_generator_h);
+				secp256k1_pedersen_commit(pCtx, &comm, k_.m_Value.m_pData, 78945, secp256k1_generator_h);
 
 		} while (bm.ShouldContinue());
 	}

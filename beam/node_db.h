@@ -254,8 +254,8 @@ public:
 		uint32_t m_nUnspentCount;
 
 		WalkerSpendable(NodeDB& db, bool bWithSignature)
-			:m_Rs(db)
-			,m_bWithSignature(bWithSignature)
+			:m_bWithSignature(bWithSignature)
+			,m_Rs(db)
 		{
 		}
 		bool MoveNext();
