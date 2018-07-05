@@ -1,3 +1,4 @@
+#include "common.h"
 #include "ecc_native.h"
 #include <assert.h>
 
@@ -85,6 +86,36 @@ namespace ECC {
 	std::ostream& operator << (std::ostream& s, const Point& x)
 	{
 		return operator << (s, x.m_X);
+	}
+
+	bool GenRandom(void* p, uint32_t nSize)
+	{
+		bool bRet = false;
+
+#ifdef WIN32
+
+		HCRYPTPROV hProv;
+		if (CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_SCHANNEL, CRYPT_VERIFYCONTEXT))
+		{
+			if (CryptGenRandom(hProv, nSize, (uint8_t*)p))
+				bRet = true;
+			verify(CryptReleaseContext(hProv, 0));
+		}
+
+#else // WIN32
+
+		int hFile = open("/dev/urandom", O_RDONLY);
+		if (hFile >= 0)
+		{
+			if (read(hFile, p, nSize) == nSize)
+				bRet = true;
+
+			close(hFile);
+		}
+
+#endif // WIN32
+
+		return bRet;
 	}
 
 	/////////////////////
