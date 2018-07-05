@@ -793,6 +793,10 @@ void TestAll()
 	TestTransaction();
 	TestTransactionKernelConsuming();
 	TestAES();
+
+	uintBig val;
+	for (int i = 0; i < 10; i++)
+		GenRandom(val.m_pData, sizeof(val.m_pData));
 }
 
 

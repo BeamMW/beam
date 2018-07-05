@@ -88,9 +88,11 @@ namespace ECC {
 		return operator << (s, x.m_X);
 	}
 
-	bool GenRandom(void* p, uint32_t nSize)
+	void GenRandom(void* p, uint32_t nSize)
 	{
 		bool bRet = false;
+
+		// checkpoint?
 
 #ifdef WIN32
 
@@ -115,7 +117,8 @@ namespace ECC {
 
 #endif // WIN32
 
-		return bRet;
+		if (!bRet)
+			std::ThrowIoError();
 	}
 
 	/////////////////////
