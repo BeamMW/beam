@@ -38,7 +38,7 @@ struct WalletModelAsync : IWalletModelAsync
 		, _wallet_io(wallet_io)
 	{}
 
-	void sendMoney(const Address& receiver, Amount&& amount) override
+	void sendMoney(Address&& receiver, Amount&& amount) override
 	{
 		_sendMoneyEvent = AsyncEvent::create(_reactor, [&]()
 			{

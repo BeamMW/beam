@@ -139,7 +139,7 @@ void WalletViewModel::sendMoney()
 	if (receiverAddr.resolve(_receiverAddr.c_str()))
 	{
 		// TODO: show 'operation in process' animation here?
-		_model.async->sendMoney(receiverAddr, std::move(_sendAmount));
+		_model.async->sendMoney(std::move(receiverAddr), std::move(_sendAmount));
 
 	}
 	else

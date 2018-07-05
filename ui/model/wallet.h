@@ -11,7 +11,7 @@ struct IWalletModelAsync
 {
 	using Ptr = std::shared_ptr<IWalletModelAsync>;
 
-	virtual void sendMoney(const beam::io::Address& receiver, beam::Amount&& amount) = 0;
+	virtual void sendMoney(beam::io::Address&& receiver, beam::Amount&& amount) = 0;
 
 	virtual ~IWalletModelAsync() {}
 };

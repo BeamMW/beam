@@ -51,7 +51,9 @@ int main (int argc, char* argv[])
 		po::variables_map vm;
 
 		{
-			std::ifstream cfg("beam.cfg");
+			static const char* WalletDB = "beam-ui.cfg";
+
+			std::ifstream cfg(WalletDB);
 
 			if (cfg)
 			{
@@ -59,7 +61,7 @@ int main (int argc, char* argv[])
 			}
 			else
 			{
-				LOG_ERROR() << "beam.cfg not found!";
+				LOG_ERROR() << WalletDB << " not found!";
 				return -1;
 			}
 		}
