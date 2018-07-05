@@ -93,6 +93,9 @@ int main (int argc, char* argv[])
 
 		Rules::get().FakePoW = vm[cli::FAKE_POW].as<bool>();
 
+		Rules::get().UpdateChecksum();
+		LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+
 		static const char* WALLET_STORAGE = "wallet.db";
 		if (!Keychain::isInitialized(WALLET_STORAGE))
 		{
