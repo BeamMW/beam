@@ -20,6 +20,10 @@
     #pragma warning (pop)
 #endif
 
+#ifndef WIN32
+#	include <fcntl.h>
+#endif // WIN32
+
 // misc
 bool memis0(const void* p, size_t n)
 {
