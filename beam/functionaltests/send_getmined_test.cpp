@@ -12,20 +12,18 @@ public:
 private:
 	virtual void OnConnected() override;
 	virtual void OnMsg(proto::NewTip&&) override;
-	virtual void OnMsg(proto::Hdr&&) override;
-	virtual void OnMsg(proto::Body&&) override;
-	virtual void OnMsg(proto::DataMissing&&) override;
-
+	virtual void OnMsg(proto::Mined&&) override;
+	
 private:
 	bool m_IsInit;
 	Block::SystemState::ID m_ID;
-	bool m_IsSendWrongBody;
+	bool m_IsSendWrongMsg;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	: BaseTestNodeConnection(argc, argv)
 	, m_IsInit(false)
-	, m_IsSendWrongBody(false)
+	, m_IsSendWrongMsg(false)
 {
 }
 
@@ -47,56 +45,54 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		m_ID = msg.m_ID;
 		m_IsInit = true;
 
-		proto::GetHdr newMsg;
-		newMsg.m_ID = msg.m_ID;
+		proto::GetMined newMsg;
+		newMsg.m_HeightMin = msg.m_ID.m_Height + 5;
 
-		LOG_INFO() << "Send GetHdr message";
+		m_IsSendWrongMsg = true;
+
+		LOG_INFO() << "Send wrong GetMined message";
 		Send(newMsg);
 	}
 }
 
-void TestNodeConnection::OnMsg(proto::Hdr&& msg)
+void TestNodeConnection::OnMsg(proto::Mined&& msg)
 {
-	LOG_INFO() << "Ok: Header is received: height =  " << msg.m_Description.m_Height;
-
-	proto::GetBody newMsg;
-	newMsg.m_ID = m_ID;
-
-	LOG_INFO() << "Send GetBody message";
-	Send(newMsg);
-}
-
-void TestNodeConnection::OnMsg(proto::Body&& )
-{
-	LOG_INFO() << "Ok: Body is received";
-	proto::GetHdr hdrMsg;
-
-	hdrMsg.m_ID = m_ID;
-	hdrMsg.m_ID.m_Height += 2;
-
-	LOG_INFO() << "Send GetHdr with wrong ID";
-	Send(hdrMsg);
-}
-
-void TestNodeConnection::OnMsg(proto::DataMissing&& )
-{
-	LOG_INFO() << "Ok: DataMissing is received";
-
-	if (!m_IsSendWrongBody)
+	LOG_INFO() << "Mined";
+	if (m_IsSendWrongMsg)
 	{
-		m_IsSendWrongBody = true;
+		if (msg.m_Entries.empty())
+		{
+			LOG_INFO() << "Ok: received empty list";
+		}
+		else
+		{
+			LOG_INFO() << "Failed: list is not empty";
+			m_Failed = true;
+			io::Reactor::get_Current().stop();
+			return;
+		}
 
-		proto::GetBody bodyMsg;
+		proto::GetMined newMsg;
+		newMsg.m_HeightMin = m_ID.m_Height;
 
-		bodyMsg.m_ID = m_ID;
-		bodyMsg.m_ID.m_Height += 2;
+		m_IsSendWrongMsg = false;
 
-		LOG_INFO() << "Send GetBody with wrong ID";
-		Send(bodyMsg);
+		LOG_INFO() << "Send GetMined message";
+		Send(newMsg);
 
 		return;
 	}
 
+	if (!msg.m_Entries.empty())
+	{
+		LOG_INFO() << "Ok: list is not empty";
+	}
+	else
+	{
+		LOG_INFO() << "Failed: list is empty";
+		m_Failed = true;
+	}
+	
 	io::Reactor::get_Current().stop();
 }
 
