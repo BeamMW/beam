@@ -1718,7 +1718,23 @@ void Node::Miner::OnMined()
 	LOG_INFO() << "New block mined: " << id;
 
 	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, PeerID());
-	assert(NodeProcessor::DataStatus::Accepted == eStatus); // Otherwise either the block is invalid (some bug?). Or someone else mined exactly the same block!
+	switch (eStatus)
+	{
+	default:
+	case NodeProcessor::DataStatus::Invalid:
+		// Some bug?
+		LOG_WARNING() << "Mined block rejected as invalid!";
+		return;
+
+	case NodeProcessor::DataStatus::Rejected:
+		// Someone else mined exactly the same block!
+		LOG_WARNING() << "Mined block duplicated";
+		return;
+
+	case NodeProcessor::DataStatus::Accepted:
+		break; // ok
+	}
+	assert(NodeProcessor::DataStatus::Accepted == eStatus); 
 
 	NodeDB::StateID sid;
 	verify(sid.m_Row = get_ParentObj().m_Processor.get_DB().StateFindSafe(id));
