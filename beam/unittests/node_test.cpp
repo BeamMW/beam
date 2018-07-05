@@ -900,19 +900,26 @@ namespace beam
 				SecureConnect();
 			}
 
-			void get_MyID(ECC::Scalar::Native& sk) override
+			void GenerateSChannelNonce(ECC::Scalar::Native& nonce) override
 			{
-				DeriveKey(sk, m_Wallet.m_Kdf, 0, KeyType::Identity);
+				ECC::SetRandom(nonce);
 			}
 
-			void GenerateSChannelNonce(ECC::Scalar& nonce) override
+			virtual void OnMsg(proto::SChannelInitiate&& msg) override
 			{
-				ECC::SetRandom(nonce.m_Value);
-			}
-
-			virtual void OnMsg(proto::SChannelAuthentication&& msg) override {
 				proto::NodeConnection::OnMsg(std::move(msg));
-				// by now the secure channel is established
+				assert(IsSecureOut());
+
+				ECC::Scalar::Native sk;
+				DeriveKey(sk, m_Wallet.m_Kdf, 0, KeyType::Identity);
+
+				ProveID(sk, proto::IDType::Owner);
+			}
+
+			virtual void OnMsg(proto::SChannelReady&& msg) override
+			{
+				proto::NodeConnection::OnMsg(std::move(msg));
+				assert(IsSecureIn());
 
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);

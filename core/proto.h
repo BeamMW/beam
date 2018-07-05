@@ -75,7 +75,6 @@ namespace proto {
 	macro(Transaction::KeyType, ID)
 
 #define BeamNodeMsg_PeerInfoSelf(macro) \
-	macro(PeerID, ID) \
 	macro(uint16_t, Port)
 
 #define BeamNodeMsg_PeerInfo(macro) \
@@ -99,12 +98,13 @@ namespace proto {
 	macro(bool, On)
 
 #define BeamNodeMsg_SChannelInitiate(macro) \
-	macro(ECC::Point, NoncePub)
+	macro(ECC::uintBig, NoncePub)
 
 #define BeamNodeMsg_SChannelReady(macro)
 
-#define BeamNodeMsg_SChannelAuthentication(macro) \
-	macro(ECC::Point, MyID) \
+#define BeamNodeMsg_Authentication(macro) \
+	macro(PeerID, ID) \
+	macro(uint8_t, IDType) \
 	macro(ECC::Signature, Sig)
 
 #define BeamNodeMsgsAll(macro) \
@@ -136,7 +136,7 @@ namespace proto {
 	macro(43, BbsSubscribe) \
 	macro(61, SChannelInitiate) \
 	macro(62, SChannelReady) \
-	macro(63, SChannelAuthentication) \
+	macro(63, Authentication) \
 
 
 	struct PerMined
@@ -155,6 +155,12 @@ namespace proto {
 		}
 
 		static const uint32_t s_EntriesMax = 200; // if this is the size of the vector - the result is probably trunacted
+	};
+
+	struct IDType
+	{
+		static const uint8_t Node		= 'N';
+		static const uint8_t Owner		= 'O';
 	};
 
 #define THE_MACRO3(type, name) & m_##name
@@ -183,11 +189,8 @@ namespace proto {
 		Cipher m_CipherIn;
 		Cipher m_CipherOut;
 
-		bool m_bHandshakeSent;
-
 		ECC::NoLeak<ECC::Scalar> m_MyNonce;
-		ECC::Point m_RemoteNonce;
-		ECC::Point m_RemoteID;
+		ECC::uintBig m_RemoteNonce;
 
 		ProtocolPlus(uint8_t v0, uint8_t v1, uint8_t v2, size_t maxMessageTypes, IErrorHandler& errorHandler, size_t serializedFragmentsSize);
 		void ResetVars();
@@ -247,17 +250,17 @@ namespace proto {
 		// Secure-channel-specific
 		void SecureConnect(); // must be connected already
 
+		void ProveID(ECC::Scalar::Native&, uint8_t nIDType); // secure channel must be established
+
 		virtual void OnMsg(SChannelInitiate&&) override;
 		virtual void OnMsg(SChannelReady&&) override;
-		virtual void OnMsg(SChannelAuthentication&&) override;
+		virtual void OnMsg(Authentication&&) override;
 
-		virtual void get_MyID(ECC::Scalar::Native&); // by default no-ID (secure channel, but no authentication)
-		virtual void GenerateSChannelNonce(ECC::Scalar&); // Must be overridden to support SChannel
+		virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
+		static void Sk2Pk(PeerID&, ECC::Scalar::Native&); // will negate the scalar iff necessary
 		bool IsSecureIn() const;
 		bool IsSecureOut() const;
-		const ECC::Point* get_RemoteID() const;
-
 
 		const Connection* get_Connection() { return m_Connection.get(); }
 

@@ -264,7 +264,8 @@ private:
 
 		bool m_bConnected;
 		bool m_bPiRcvd; // peers should send PeerInfoSelf only once
-
+		bool m_bOwner;
+		uint16_t m_Port; // to connect to
 		beam::io::Address m_RemoteAddr; // for logging only
 
 		Height m_TipHeight;
@@ -301,10 +302,10 @@ private:
 		// proto::NodeConnection
 		virtual void OnConnected() override;
 		virtual void OnClosed(int errorCode) override;
-		virtual void get_MyID(ECC::Scalar::Native&) override; // by default no-ID (secure channel, but no authentication)
-		virtual void GenerateSChannelNonce(ECC::Scalar&) override; // Must be overridden to support SChannel
+		virtual void GenerateSChannelNonce(ECC::Scalar::Native&) override; // Must be overridden to support SChannel
 		// messages
-		virtual void OnMsg(proto::SChannelAuthentication&&) override;
+		virtual void OnMsg(proto::SChannelReady&&) override;
+		virtual void OnMsg(proto::Authentication&&) override;
 		virtual void OnMsg(proto::Config&&) override;
 		virtual void OnMsg(proto::Ping&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;
@@ -332,7 +333,9 @@ private:
 	PeerList m_lstPeers;
 
 	ECC::NoLeak<ECC::uintBig> m_SChannelSeed;
-	PeerID m_MyID;
+	ECC::NoLeak<ECC::Scalar> m_MyPrivateID;
+	PeerID m_MyPublicID;
+	PeerID m_MyOwnerID;
 
 	Peer* AllocPeer();
 

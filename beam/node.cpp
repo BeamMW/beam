@@ -455,6 +455,8 @@ Node::Peer* Node::AllocPeer()
 	pPeer->m_pInfo = NULL;
 	pPeer->m_bConnected = false;
 	pPeer->m_bPiRcvd = false;
+	pPeer->m_bOwner = false;
+	pPeer->m_Port = 0;
 	pPeer->m_TipHeight = 0;
 	ZeroObject(pPeer->m_Config);
 
@@ -470,22 +472,29 @@ void Node::Initialize()
 	std::random_device rd;
 	m_SChannelSeed.V = rd(); // short, but ok, since it's re-hashed before using every time
 
-	NodeDB::Blob blob(m_MyID.m_pData, sizeof(m_MyID.m_pData));
+	m_MyPrivateID.V.m_Value = ECC::Zero;
 
-	if (!m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob))
+	NodeDB::Blob blob(m_MyPrivateID.V.m_Value.m_pData, sizeof(m_MyPrivateID.V.m_Value.m_pData));
+	bool bNewID = !m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob);
+
+	if (bNewID)
+		ECC::Hash::Processor() << "myid" << rd() >> m_MyPrivateID.V.m_Value;
+
+	ECC::Scalar::Native sk = m_MyPrivateID.V;
+	proto::NodeConnection::Sk2Pk(m_MyPublicID, sk);
+
+	if (bNewID)
 	{
-		ECC::Hash::Processor() << "myid" << rd() >> m_MyID;
-
-		ECC::Scalar::Native k;
-		k.GenerateNonce(m_Cfg.m_WalletKey.V, m_MyID, NULL);
-		m_MyID = ECC::Scalar(k).m_Value;
-
+		m_MyPrivateID.V = sk; // may have been negated
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, NULL, &blob);
 	}
 
+	ECC::Kdf& kdf = m_Processor.m_Kdf;
 
+	DeriveKey(sk, kdf, 0, KeyType::Identity);
+	proto::NodeConnection::Sk2Pk(m_MyOwnerID, sk);
 
-	LOG_INFO() << "Node ID: " << m_MyID;
+	LOG_INFO() << "Node ID=" << m_MyPublicID << ", Owner=" << m_MyOwnerID;
 	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
 
 	if (m_Cfg.m_VerificationThreads < 0)
@@ -687,25 +696,13 @@ void Node::Peer::OnResendPeers()
 	}
 }
 
-void Node::Peer::get_MyID(ECC::Scalar::Native& sk)
-{
-	ECC::Kdf& kdf = m_This.m_Processor.m_Kdf;
-
-	if (kdf.m_Secret.V == ECC::Zero)
-		sk = ECC::Zero;
-	else
-		DeriveKey(sk, kdf, 0, KeyType::Identity);
-}
-
-void Node::Peer::GenerateSChannelNonce(ECC::Scalar& nonce)
+void Node::Peer::GenerateSChannelNonce(ECC::Scalar::Native& nonce)
 {
 	ECC::uintBig& hv = m_This.m_SChannelSeed.V; // alias
 
 	ECC::Hash::Processor() << "sch.nonce" << hv << GetTime_ms() >> hv;
 
-	ECC::Scalar::Native k;
-	k.GenerateNonce(m_This.m_Cfg.m_WalletKey.V, hv, NULL);
-	nonce = k;
+	nonce.GenerateNonce(m_This.m_Cfg.m_WalletKey.V, hv, NULL);
 }
 
 void Node::Peer::OnConnected()
@@ -715,6 +712,8 @@ void Node::Peer::OnConnected()
 
 	m_bConnected = true;
 
+	SecureConnect();
+
 	proto::Config msgCfg;
 	msgCfg.m_CfgChecksum = Rules::get().Checksum;
 	msgCfg.m_SpreadingTransactions = true;
@@ -723,10 +722,13 @@ void Node::Peer::OnConnected()
 	msgCfg.m_SendPeers = true;
 	Send(msgCfg);
 
-	proto::PeerInfoSelf msgPi;
-	msgPi.m_ID = m_This.m_MyID;
-	msgPi.m_Port = m_This.m_Cfg.m_Listen.port();
-	Send(msgPi);
+	if (m_Port && m_This.m_Cfg.m_Listen.port())
+	{
+		// we've connected to the peer, let it now know our port
+		proto::PeerInfoSelf msgPi;
+		msgPi.m_Port = m_This.m_Cfg.m_Listen.port();
+		Send(msgPi);
+	}
 
 	if (m_This.m_Processor.m_Cursor.m_Sid.m_Row)
 	{
@@ -736,10 +738,97 @@ void Node::Peer::OnConnected()
 	}
 }
 
-void Node::Peer::OnMsg(proto::SChannelAuthentication&& msg)
+void Node::Peer::OnMsg(proto::SChannelReady&& msg)
 {
 	proto::NodeConnection::OnMsg(std::move(msg));
-	LOG_INFO() << "Peer " << m_RemoteAddr << " SChannel. RemoteID=" << msg.m_MyID;
+
+	ECC::Scalar::Native sk = m_This.m_MyPrivateID.V;
+	ProveID(sk, proto::IDType::Node);
+}
+
+void Node::Peer::OnMsg(proto::Authentication&& msg)
+{
+	proto::NodeConnection::OnMsg(std::move(msg));
+	LOG_INFO() << "Peer " << m_RemoteAddr << " Auth. Type=" << msg.m_IDType << ", ID=" << msg.m_ID;
+
+	if (proto::IDType::Owner == msg.m_IDType)
+	{
+		if (msg.m_ID == m_This.m_MyOwnerID)
+			m_bOwner = true;
+	}
+
+	if (m_bPiRcvd || (msg.m_ID == ECC::Zero))
+		ThrowUnexpected();
+
+	m_bPiRcvd = true;
+	LOG_INFO() << m_RemoteAddr << "received PI";
+
+	PeerMan& pm = m_This.m_PeerMan; // alias
+
+	if (m_pInfo)
+	{
+		// probably we connected by the address
+		if (m_pInfo->m_ID.m_Key == msg.m_ID)
+		{
+			pm.OnSeen(*m_pInfo);
+			return; // all settled (already)
+		}
+
+		// detach from it
+		m_pInfo->m_pLive = NULL;
+
+		if (m_pInfo->m_ID.m_Key == ECC::Zero)
+		{
+			LOG_INFO() << "deleted anonymous PI";
+			pm.Delete(*m_pInfo); // it's anonymous.
+		}
+		else
+		{
+			LOG_INFO() << "PeerID is differnt";
+			pm.OnActive(*m_pInfo, false);
+			pm.RemoveAddr(*m_pInfo); // turned-out to be wrong
+		}
+
+		m_pInfo = NULL;
+	}
+
+	io::Address addr;
+
+	bool bAddrValid = (m_Port > 0);
+	if (bAddrValid)
+	{
+		addr = m_RemoteAddr;
+		addr.port(m_Port);
+	} else
+		LOG_INFO() << "No PI port"; // doesn't accept incoming connections?
+		
+
+	PeerMan::PeerInfoPlus* pPi = (PeerMan::PeerInfoPlus*) pm.OnPeer(msg.m_ID, addr, bAddrValid);
+	assert(pPi);
+
+	if (pPi->m_pLive)
+	{
+		// threre's already another connection open to the same peer!
+		// Currently - just ignore this.
+		LOG_INFO() << "Duplicate connection with the same PI. Ignoring";
+		return;
+	}
+
+	if (!pPi->m_RawRating.m_Value)
+	{
+		// threre's already another connection open to the same peer!
+		// Currently - just ignore this.
+		LOG_INFO() << "Banned PI. Ignoring";
+		return;
+	}
+
+	// attach to it
+	pPi->m_pLive = this;
+	m_pInfo = pPi;
+	pm.OnActive(*pPi, true);
+	pm.OnSeen(*pPi);
+
+	LOG_INFO() << *m_pInfo << " connected, info updated";
 }
 
 void Node::Peer::OnClosed(int errorCode)
@@ -1143,16 +1232,7 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 	if (m_This.m_Cfg.m_RestrictMinedReportToOwner)
 	{
 		// Who's asking?
-		const ECC::Point* pID = get_RemoteID();
-		if (!pID)
-			ThrowUnexpected();
-
-		ECC::Scalar::Native sk;
-		get_MyID(sk);
-		ECC::Point myID;
-		myID = ECC::Context::get().G * sk;
-
-		if (!(myID == *pID))
+		if (!m_bOwner)
 			ThrowUnexpected(); // unauthorized
 	}
 
@@ -1289,68 +1369,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 
 void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 {
-	if (m_bPiRcvd || (msg.m_ID == ECC::Zero))
-		ThrowUnexpected();
-
-	m_bPiRcvd = true;
-	LOG_INFO() << m_RemoteAddr << "received PI";
-
-	PeerMan& pm = m_This.m_PeerMan; // alias
-
-	if (m_pInfo)
-	{
-		// probably we connected by the address
-		if (m_pInfo->m_ID.m_Key == msg.m_ID)
-		{
-			pm.OnSeen(*m_pInfo);
-			return; // all settled (already)
-		}
-
-		// detach from it
-		m_pInfo->m_pLive = NULL;
-
-		if (m_pInfo->m_ID.m_Key == ECC::Zero)
-		{
-			LOG_INFO() << "deleted anonymous PI";
-			pm.Delete(*m_pInfo); // it's anonymous.
-		}
-		else
-		{
-			LOG_INFO() << "PeerID is differnt";
-			pm.OnActive(*m_pInfo, false);
-			pm.RemoveAddr(*m_pInfo); // turned-out to be wrong
-		}
-
-		m_pInfo = NULL;
-	}
-
-	if (!msg.m_Port)
-	{
-		LOG_INFO() << "No PI port"; // doesn't accept incoming connections?
-		return;
-	}
-
-	io::Address addr = m_RemoteAddr;
-	addr.port(msg.m_Port);
-
-	PeerMan::PeerInfoPlus* pPi = (PeerMan::PeerInfoPlus*) pm.OnPeer(msg.m_ID, addr, true);
-	assert(pPi);
-
-	if (pPi->m_pLive)
-	{
-		// threre's already another connection open to the same peer!
-		// Currently - just ignore this.
-		LOG_INFO() << "Duplicate connection with the same PI. Ignoring";
-		return;
-	}
-
-	// attach to it
-	pPi->m_pLive = this;
-	m_pInfo = pPi;
-	pm.OnActive(*pPi, true);
-	pm.OnSeen(*pPi);
-
-	LOG_INFO() << *m_pInfo << " connected, info updated";
+	m_Port = msg.m_Port;
 }
 
 void Node::Peer::OnMsg(proto::PeerInfo&& msg)
@@ -1503,7 +1522,6 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 	{
         LOG_DEBUG() << "New peer connected: " << newStream->address();
 		Peer* p = get_ParentObj().AllocPeer();
-
 		p->Accept(std::move(newStream));
 		p->OnConnected();
 	}
@@ -2124,7 +2142,7 @@ void Node::Beacon::OnTimer()
 		m_pOut->m_Refs = 1;
 
 		m_pOut->m_Message.m_CfgChecksum = Rules::get().Checksum;
-		m_pOut->m_Message.m_NodeID = get_ParentObj().m_MyID;
+		m_pOut->m_Message.m_NodeID = get_ParentObj().m_MyPublicID;
 		m_pOut->m_Message.m_Port = htons(get_ParentObj().m_Cfg.m_Listen.port());
 
 		m_pOut->m_BufDescr.base = (char*) &m_pOut->m_Message;
@@ -2169,7 +2187,7 @@ void Node::Beacon::OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, c
 
 	Beacon* pThis = (Beacon*)handle->data;
 
-	if (pThis->get_ParentObj().m_MyID == msg.m_NodeID)
+	if (pThis->get_ParentObj().m_MyPublicID == msg.m_NodeID)
 		return;
 
 	io::Address addr(*(sockaddr_in*)pSa);
@@ -2229,6 +2247,7 @@ void Node::PeerMan::ActivatePeer(PeerInfo& pi)
 
 	try {
 		p->Connect(pip.m_Addr.m_Value);
+		p->m_Port = pip.m_Addr.m_Value.port();
 	}
 	catch (...) {
 

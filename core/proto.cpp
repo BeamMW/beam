@@ -18,12 +18,10 @@ ProtocolPlus::ProtocolPlus(uint8_t v0, uint8_t v1, uint8_t v2, size_t maxMessage
 
 void ProtocolPlus::ResetVars()
 {
-	m_bHandshakeSent = false;
 	m_CipherIn.m_bON = false;
 	m_CipherOut.m_bON = false;
 	ZeroObject(m_MyNonce);
 	ZeroObject(m_RemoteNonce);
-	ZeroObject(m_RemoteID);
 }
 
 void ProtocolPlus::Decrypt(uint8_t* p, uint32_t nSize)
@@ -47,7 +45,10 @@ void ProtocolPlus::InitCipher(Cipher& c)
 	assert(!(m_MyNonce.V.m_Value == ECC::Zero));
 
 	 // Diffie-Hellman
-	ECC::Point::Native ptSecret = ECC::Point::Native(m_RemoteNonce) * ECC::Scalar::Native(m_MyNonce.V);
+	ECC::Point pt;
+	pt.m_X = m_RemoteNonce;
+	pt.m_Y = false;
+	ECC::Point::Native ptSecret = ECC::Point::Native(pt) * ECC::Scalar::Native(m_MyNonce.V);
 
 	ECC::NoLeak<ECC::Hash::Processor> hp;
 	ECC::NoLeak<ECC::Hash::Value> hvSecret;
@@ -190,63 +191,47 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
 BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 
-const ECC::Point* NodeConnection::get_RemoteID() const
+void NodeConnection::Sk2Pk(PeerID& res, ECC::Scalar::Native& sk)
 {
-	return (m_Protocol.m_CipherIn.m_bON && !(m_Protocol.m_RemoteID.m_X == ECC::Zero)) ? &m_Protocol.m_RemoteID : NULL;
+	ECC::Point pt = ECC::Context::get().G * sk;
+	if (pt.m_Y)
+		sk = -sk;
+
+	res = pt.m_X;
 }
 
-void NodeConnection::get_MyID(ECC::Scalar::Native& sk)
-{
-	sk = ECC::Zero;
-}
-
-void NodeConnection::GenerateSChannelNonce(ECC::Scalar&)
+void NodeConnection::GenerateSChannelNonce(ECC::Scalar::Native& sk)
 {
 	// unsupported
 }
 
 void NodeConnection::SecureConnect()
 {
-	if (!m_Protocol.m_bHandshakeSent)
-	{
-		if (m_Protocol.m_MyNonce.V.m_Value == ECC::Zero)
-		{
-			GenerateSChannelNonce(m_Protocol.m_MyNonce.V);
+	if (!(m_Protocol.m_MyNonce.V.m_Value == ECC::Zero))
+		return; // already sent
 
-			if (m_Protocol.m_MyNonce.V.m_Value == ECC::Zero)
-				throw std::runtime_error("SChannel not supported");
-		}
+	ECC::Scalar::Native nonce;
+	GenerateSChannelNonce(nonce);
 
-		assert(!(m_Protocol.m_MyNonce.V.m_Value == ECC::Zero));
-		m_Protocol.m_bHandshakeSent = true;
+	if (nonce == ECC::Zero)
+		throw std::runtime_error("SChannel not supported");
 
-		SChannelInitiate msg;
-		msg.m_NoncePub = ECC::Context::get().G * m_Protocol.m_MyNonce.V;
-		Send(msg);
-	}
+	SChannelInitiate msg;
+	Sk2Pk(msg.m_NoncePub, nonce);
+	Send(msg);
+
+	m_Protocol.m_MyNonce.V = nonce;
 }
 
 void NodeConnection::OnMsg(SChannelInitiate&& msg)
 {
 	SecureConnect(); // unless already sent
 
-	SChannelReady msgOut1;
-	Send(msgOut1); // activating new cipher.
+	SChannelReady msgOut;
+	Send(msgOut); // activating new cipher.
 
 	m_Protocol.m_RemoteNonce = msg.m_NoncePub;
 	m_Protocol.InitCipher(m_Protocol.m_CipherOut);
-
-	// confirm our ID
-	ECC::Hash::Value hv;
-	ECC::Hash::Processor() << msg.m_NoncePub >> hv;
-
-	ECC::Scalar::Native sk;
-	get_MyID(sk);
-
-	SChannelAuthentication msgOut2;
-	msgOut2.m_MyID = ECC::Context::get().G * sk;
-	msgOut2.m_Sig.Sign(hv, sk);
-	Send(msgOut2);
 }
 
 void NodeConnection::OnMsg(SChannelReady&& msg)
@@ -258,20 +243,51 @@ void NodeConnection::OnMsg(SChannelReady&& msg)
 	m_Protocol.InitCipher(m_Protocol.m_CipherIn);
 }
 
-void NodeConnection::OnMsg(SChannelAuthentication&& msg)
+void NodeConnection::ProveID(ECC::Scalar::Native& sk, uint8_t nIDType)
+{
+	assert(IsSecureOut());
+
+	// confirm our ID
+	ECC::Hash::Value hv;
+	ECC::Hash::Processor() << m_Protocol.m_RemoteNonce >> hv;
+
+	Authentication msgOut;
+	msgOut.m_IDType = nIDType;
+	Sk2Pk(msgOut.m_ID, sk);
+	msgOut.m_Sig.Sign(hv, sk);
+
+	Send(msgOut);
+}
+
+bool NodeConnection::IsSecureIn() const
+{
+	return m_Protocol.m_CipherIn.m_bON;
+}
+
+bool NodeConnection::IsSecureOut() const
+{
+	return m_Protocol.m_CipherOut.m_bON;
+}
+
+void NodeConnection::OnMsg(Authentication&& msg)
 {
 	if (!m_Protocol.m_CipherIn.m_bON)
 		throw std::runtime_error("peer insane");
 
 	// verify ID
-	ECC::Point::Native pt = ECC::Context::get().G * m_Protocol.m_MyNonce.V;
+	ECC::Scalar::Native sk = m_Protocol.m_MyNonce.V;
+	PeerID myPubNonce;
+	Sk2Pk(myPubNonce, sk);
+
 	ECC::Hash::Value hv;
-	ECC::Hash::Processor() << pt >> hv;
+	ECC::Hash::Processor() << myPubNonce >> hv;
 
-	if (!msg.m_Sig.IsValid(hv, msg.m_MyID))
+	ECC::Point pt;
+	pt.m_X = msg.m_ID;
+	pt.m_Y = false;
+
+	if (!msg.m_Sig.IsValid(hv, pt))
 		throw std::runtime_error("peer insane");
-
-	m_Protocol.m_RemoteID = msg.m_MyID;
 }
 
 /////////////////////////
