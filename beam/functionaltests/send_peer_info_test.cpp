@@ -16,6 +16,8 @@ public:
 private:
 	virtual void OnConnected() override;
 	virtual void OnClosed(int errorCode) override;
+
+	virtual void OnMsg(proto::NewTip&&) override;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
@@ -34,11 +36,11 @@ void TestNodeConnection::OnConnected()
 
 	proto::PeerInfo msg;
 
-	msg.m_LastAddr.resolve("127.0.0.2");
+	msg.m_LastAddr.resolve("8.8.8.8");
 	msg.m_ID = hv;
 	Send(msg);
 
-	m_Timer->start(3* 1000, false, [this]()
+	m_Timer->start(60 * 1000, false, [this]()
 	{
 		io::Reactor::get_Current().stop();
 	});
@@ -48,6 +50,11 @@ void TestNodeConnection::OnClosed(int errorCode)
 {
 	LOG_INFO() << "Ok: connection is reset";
 	io::Reactor::get_Current().stop();
+}
+
+void TestNodeConnection::OnMsg(proto::NewTip&& msg) 
+{
+	LOG_INFO() << "NewTip";
 }
 
 int main(int argc, char* argv[])
