@@ -11,9 +11,9 @@ public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
 	virtual void OnConnected() override;
-	virtual bool OnMsg2(proto::Boolean&& msg) override;
-	virtual bool OnMsg2(proto::NewTip&& msg) override;	
-	
+	virtual void OnMsg(proto::NewTip&&) override;
+	virtual void OnMsg(proto::Hdr&&) override;
+
 private:
 	Height m_Height;
 };
@@ -28,47 +28,19 @@ void TestNodeConnection::OnConnected()
 {
 }
 
-bool TestNodeConnection::OnMsg2(proto::Boolean&& msg)
-{
-	LOG_INFO() << "Node returned: " << msg.m_Value;
-	return true;
-}
-
-bool TestNodeConnection::OnMsg2(proto::NewTip&& msg)
+void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 {
 	LOG_INFO() << "NewTip: " << msg.m_ID;
 
-	if (m_Height == 0)
-	{
-		LOG_INFO() << "Send NewTip with height = " << msg.m_ID.m_Height + 5;
-		proto::NewTip newMsg;
+	proto::GetHdr newMsg;
+	newMsg.m_ID = msg.m_ID;
 
-		newMsg.m_ID = msg.m_ID;
-		newMsg.m_ID.m_Height += 5;
-		m_Height = newMsg.m_ID.m_Height;
+	Send(newMsg);
+}
 
-		Send(newMsg);
-
-		m_Timer->start(3 * 60 * 1000, false, [this]()
-		{
-			m_Failed = true;
-			io::Reactor::get_Current().stop();
-		});
-	}
-	else
-	{
-		if (msg.m_ID.m_Height == m_Height)
-		{
-			LOG_INFO() << "Ok";
-		}
-		else
-		{
-			LOG_INFO() << "Failed";
-		}
-		io::Reactor::get_Current().stop();
-	}
-
-	return true;
+void TestNodeConnection::OnMsg(proto::Hdr&& msg)
+{
+	LOG_INFO() << "Hdr: " << msg.m_Description.m_Height;
 }
 
 int main(int argc, char* argv[])
