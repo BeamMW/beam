@@ -43,11 +43,11 @@ namespace beam
         void start();
         void stop();
 
-        Uuid transfer_money(io::Address receiver, Amount&& amount, ByteBuffer&& message = {});
+        Uuid transfer_money(io::Address receiver, Amount&& amount, Amount&& fee = 0, bool sender = true, ByteBuffer&& message = {});
 
     private:
         // INetworkIO
-        void send_tx_message(PeerId to, wallet::InviteReceiver&&) override;
+        void send_tx_message(PeerId to, wallet::Invite&&) override;
         void send_tx_message(PeerId to, wallet::ConfirmTransaction&&) override;
         void send_tx_message(PeerId to, wallet::ConfirmInvitation&&) override;
         void send_tx_message(PeerId to, wallet::TxRegistered&&) override;
@@ -66,7 +66,7 @@ namespace beam
         void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override;
 
         // handlers for the protocol messages
-        bool on_message(uint64_t connectionId, wallet::InviteReceiver&& msg);
+        bool on_message(uint64_t connectionId, wallet::Invite&& msg);
         bool on_message(uint64_t connectionId, wallet::ConfirmTransaction&& msg);
         bool on_message(uint64_t connectionId, wallet::ConfirmInvitation&& msg);
         bool on_message(uint64_t connectionId, wallet::TxRegistered&& msg);

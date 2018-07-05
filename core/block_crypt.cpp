@@ -394,7 +394,7 @@ namespace beam
 
 		m_vNested.resize(v.m_vNested.size());
 
-		for (auto i = 0; i < v.m_vNested.size(); i++)
+		for (size_t i = 0; i < v.m_vNested.size(); i++)
 			ClonePtr(m_vNested[i], v.m_vNested[i]);
 	}
 
@@ -708,13 +708,13 @@ namespace beam
 			// However in case it's not specified - construct the key from contents
 			key = ECC::Zero;
 
-			for (auto i = 0; i < m_vInputs.size(); i++)
+			for (size_t i = 0; i < m_vInputs.size(); i++)
 				key ^= m_vInputs[i]->m_Commitment.m_X;
 
-			for (auto i = 0; i < m_vOutputs.size(); i++)
+			for (size_t i = 0; i < m_vOutputs.size(); i++)
 				key ^= m_vOutputs[i]->m_Commitment.m_X;
 
-			for (auto i = 0; i < m_vKernelsOutput.size(); i++)
+			for (size_t i = 0; i < m_vKernelsOutput.size(); i++)
 				key ^= m_vKernelsOutput[i]->m_Excess.m_X;
 		}
 		else
@@ -1092,7 +1092,7 @@ namespace beam
 		std::string pArr[s_Datas];
 		GetPathes(pArr);
 
-		for (int i = 0; i < _countof(m_pS); i++)
+		for (size_t i = 0; i < _countof(m_pS); i++)
 			if (!m_pS[i].Open(pArr[i].c_str(), bRead))
 				return false;
 
@@ -1104,7 +1104,7 @@ namespace beam
 		std::string pArr[s_Datas];
 		GetPathes(pArr);
 
-		for (int i = 0; i < _countof(m_pS); i++)
+		for (size_t i = 0; i < _countof(m_pS); i++)
 		{
 			const std::string& sPath = pArr[i];
 #ifdef WIN32
@@ -1117,7 +1117,7 @@ namespace beam
 
 	void Block::BodyBase::RW::Close()
 	{
-		for (int i = 0; i < _countof(m_pS); i++)
+		for (size_t i = 0; i < _countof(m_pS); i++)
 			m_pS[i].Close();
 	}
 
@@ -1132,7 +1132,7 @@ namespace beam
 
 	void Block::BodyBase::RW::Reset()
 	{
-		for (int i = 0; i < _countof(m_pS); i++)
+		for (size_t i = 0; i < _countof(m_pS); i++)
 			m_pS[i].Restart();
 
 		// preload
@@ -1144,7 +1144,7 @@ namespace beam
 
 	void Block::BodyBase::RW::Flush()
 	{
-		for (int i = 0; i < _countof(m_pS); i++)
+		for (size_t i = 0; i < _countof(m_pS); i++)
 			m_pS[i].Flush();
 	}
 

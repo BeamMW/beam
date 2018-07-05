@@ -35,7 +35,7 @@ void ProtocolPlus::Decrypt(uint8_t* p, uint32_t nSize)
 void ProtocolPlus::Encrypt(SerializedMsg& sm)
 {
 	if (m_CipherOut.m_bON)
-		for (auto i = 0; i < sm.size(); i++)
+		for (size_t i = 0; i < sm.size(); i++)
 		{
 			io::IOVec& iov = sm[i];
 			m_CipherOut.XCrypt((uint8_t*) iov.data, (uint32_t) iov.size);
