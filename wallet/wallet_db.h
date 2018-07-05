@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/optional.hpp>
 #include "core/common.h"
 #include "core/ecc_native.h"
 #include "wallet/common.h"
@@ -18,7 +19,11 @@ namespace beam
             Spent
         };
 
-        Coin(const ECC::Amount& amount, Status status = Coin::Unspent, const Height& height = 0, const Height& maturity = MaxHeight, KeyType keyType = KeyType::Regular);
+        Coin(const ECC::Amount& amount
+           , Status status = Coin::Unspent
+           , const Height& height = 0
+           , const Height& maturity = MaxHeight
+           , KeyType keyType = KeyType::Regular);
         Coin();
 
         uint64_t m_id;
@@ -27,6 +32,8 @@ namespace beam
         Height m_height; // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
         Height m_maturity; // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
         KeyType m_key_type;
+        boost::optional<Uuid> m_createTxId;
+        boost::optional<Uuid> m_spentTxId;
     };
 
 	struct IKeyChainObserver
@@ -60,6 +67,9 @@ namespace beam
         virtual boost::optional<TxDescription> getTx(const Uuid& txId) = 0;
         virtual void saveTx(const TxDescription& p) = 0;
         virtual void deleteTx(const Uuid& txId) = 0;
+
+        // Rolls back coin changes in db concerning given tx
+        virtual void rollbackTx(const Uuid& txId) = 0;
 
 		template <typename Var>
 		void setVar(const char* name, const Var& var)
@@ -105,6 +115,7 @@ namespace beam
         boost::optional<TxDescription> getTx(const Uuid& txId) override;
         void saveTx(const TxDescription& p) override;
         void deleteTx(const Uuid& txId) override;
+        void rollbackTx(const Uuid& txId) override;
 
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override;

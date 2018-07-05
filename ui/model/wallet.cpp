@@ -16,8 +16,8 @@ namespace
 		keychain->visit([&total, &currentHeight](const Coin& c)->bool
 		{
 			Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
-				? Rules::MaturityCoinbase
-				: Rules::MaturityStd);
+				? Rules::get().MaturityCoinbase
+				: Rules::get().MaturityStd);
 
 			if (c.m_status == Coin::Unspent
 				&& lockHeight <= currentHeight)

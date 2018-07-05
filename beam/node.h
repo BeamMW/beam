@@ -17,19 +17,24 @@ struct Node
 	struct Config
 	{
 		io::Address m_Listen;
+		uint16_t m_BeaconPort = 0; // set to 0 if should use the same port for listen
+		uint32_t m_BeaconPeriod_ms = 500;
 		std::vector<io::Address> m_Connect;
 
 		std::string m_sPathLocal;
         ECC::NoLeak<ECC::uintBig> m_WalletKey;
 		NodeProcessor::Horizon m_Horizon;
 
+		bool m_RestrictMinedReportToOwner = false; // TODO: turn this ON once wallet supports this
+
 		struct Timeout {
-			uint32_t m_Reconnect_ms	= 1000;
-			uint32_t m_Insane_ms	= 1000 * 3600; // 1 hour
 			uint32_t m_GetState_ms	= 1000 * 5;
 			uint32_t m_GetBlock_ms	= 1000 * 30;
 			uint32_t m_GetTx_ms		= 1000 * 5;
 			uint32_t m_MiningSoftRestart_ms = 100;
+			uint32_t m_TopPeersUpd_ms = 1000 * 60 * 10; // once in 10 minutes
+			uint32_t m_PeersUpdate_ms	= 1000; // reconsider every second
+			uint32_t m_PeersDbFlush_ms = 1000 * 60; // 1 minute
 		} m_Timeout;
 
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
@@ -60,6 +65,11 @@ struct Node
 
 		std::vector<Block::Body> m_vTreasury;
 
+		Config()
+		{
+			m_WalletKey.V = ECC::Zero;
+		}
+
 	} m_Cfg; // must not be changed after initialization
 
 	~Node();
@@ -69,8 +79,6 @@ struct Node
 	NodeProcessor& get_Processor() { return m_Processor; } // for tests only!
 
 private:
-
-	ECC::Hash::Value m_hvCfg;
 
 	struct Processor
 		:public NodeProcessor
@@ -108,15 +116,6 @@ private:
 
 	NodeProcessor::TxPool m_TxPool;
 
-	struct State {
-		enum Enum {
-			Idle,
-			Connecting,
-			Connected,
-			Snoozed,
-		};
-	};
-
 	struct Peer;
 
 	struct Task
@@ -138,12 +137,10 @@ private:
 	TaskList m_lstTasksUnassigned;
 	TaskSet m_setTasks;
 
-	void TryAssignTask(Task&, const NodeDB::PeerID*);
+	void TryAssignTask(Task&, const PeerID*);
 	bool ShouldAssignTask(Task&, Peer&);
 	void AssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
-
-	static uint32_t GetTime_ms();
 
 	struct WantedTx
 	{
@@ -172,18 +169,41 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(beam::Node, m_Wtx)
 	} m_Wtx;
 
+	struct PeerMan
+		:public proto::PeerManager
+	{
+		io::Timer::Ptr m_pTimerUpd;
+		io::Timer::Ptr m_pTimerFlush;
+		void OnFlush();
+
+		struct PeerInfoPlus
+			:public PeerInfo
+		{
+			Peer* m_pLive;
+		};
+
+		// PeerManager
+		virtual void ActivatePeer(PeerInfo&) override;
+		virtual void DeactivatePeer(PeerInfo&) override;
+		virtual PeerInfo* AllocPeer() override;
+		virtual void DeletePeer(PeerInfo&) override;
+
+		~PeerMan() { Clear(); }
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_PeerMan)
+	} m_PeerMan;
+
 	struct Peer
 		:public proto::NodeConnection
 		,public boost::intrusive::list_base_hook<>
 	{
-		typedef std::unique_ptr<Peer> Ptr;
-
 		Node* m_pThis;
 
-		int m_iPeer; // negative if accepted connection
-		void get_ID(NodeProcessor::PeerID&);
+		PeerMan::PeerInfoPlus* m_pInfo;
 
-		State::Enum m_eState;
+		bool m_bConnected;
+		bool m_bPiRcvd; // peers should send PeerInfoSelf only once
+
 		beam::io::Address m_RemoteAddr; // for logging only
 
 		Height m_TipHeight;
@@ -196,11 +216,12 @@ private:
 		void SetTimerWrtFirstTask();
 
 		io::Timer::Ptr m_pTimer;
+		io::Timer::Ptr m_pTimerPeers;
 		void OnTimer();
 		void SetTimer(uint32_t timeout_ms);
 		void KillTimer();
-
-		void OnPostError();
+		void OnResendPeers();
+		void DeleteSelf(bool bIsError, bool bIsBan);
 		static void ThrowUnexpected();
 
 		Task& get_FirstTask();
@@ -212,7 +233,10 @@ private:
 		// proto::NodeConnection
 		virtual void OnConnected() override;
 		virtual void OnClosed(int errorCode) override;
+		virtual void get_MyID(ECC::Scalar::Native&) override; // by default no-ID (secure channel, but no authentication)
+		virtual void GenerateSChannelNonce(ECC::Scalar&) override; // Must be overridden to support SChannel
 		// messages
+		virtual void OnMsg(proto::SChannelAuthentication&&) override;
 		virtual void OnMsg(proto::Config&&) override;
 		virtual void OnMsg(proto::Ping&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;
@@ -228,14 +252,17 @@ private:
 		virtual void OnMsg(proto::GetProofState&&) override;
 		virtual void OnMsg(proto::GetProofKernel&&) override;
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
+		virtual void OnMsg(proto::PeerInfoSelf&&) override;
+		virtual void OnMsg(proto::PeerInfo&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
 	PeerList m_lstPeers;
 
+	ECC::NoLeak<ECC::uintBig> m_SChannelSeed;
+	PeerID m_MyID;
+
 	Peer* AllocPeer();
-	void DeletePeer(Peer*);
-	Peer* FindPeer(const Processor::PeerID&);
 
 	void RefreshCongestions();
 
@@ -247,6 +274,32 @@ private:
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Server)
 	} m_Server;
+
+	struct Beacon
+	{
+		struct OutCtx;
+
+		uv_udp_t m_Udp;
+		bool m_bShouldClose;
+		bool m_bRcv;
+		OutCtx* m_pOut;
+		std::vector<uint8_t> m_BufRcv;
+
+		io::Timer::Ptr m_pTimer;
+		void OnTimer();
+
+		Beacon();
+		~Beacon();
+
+		void Start();
+		uint16_t get_Port();
+		void OnPeer(const io::Address&, const PeerID&);
+
+		static void OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags);
+		static void AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Beacon)
+	} m_Beacon;
 
 	struct PerThread
 	{

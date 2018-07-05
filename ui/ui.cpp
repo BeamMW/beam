@@ -43,7 +43,7 @@ int main (int argc, char* argv[])
 			(cli::PORT, po::value<uint16_t>())
 			(cli::WALLET_PASS, po::value<string>())
 			(cli::NODE_ADDR, po::value<string>())
-			(cli::FAKE_POW, po::value<bool>()->default_value(Rules::FakePoW));
+			(cli::FAKE_POW, po::value<bool>()->default_value(Rules::get().FakePoW));
 
 		po::options_description options{ "Allowed options" };
 		options.add(rules);
@@ -91,7 +91,7 @@ int main (int argc, char* argv[])
 			return -1;
 		}
 
-		Rules::FakePoW = vm[cli::FAKE_POW].as<bool>();
+		Rules::get().FakePoW = vm[cli::FAKE_POW].as<bool>();
 
 		static const char* WALLET_STORAGE = "wallet.db";
 		if (!Keychain::isInitialized(WALLET_STORAGE))

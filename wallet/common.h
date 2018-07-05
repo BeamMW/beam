@@ -34,7 +34,6 @@ namespace beam
     std::ostream& operator<<(std::ostream& os, const Uuid& uuid);
 
     struct Coin;
-    using TransactionPtr = std::shared_ptr<Transaction>;
     
     struct TxDescription
     {
@@ -51,12 +50,14 @@ namespace beam
 
         TxDescription(const Uuid& txId
             , Amount amount
+            , Amount fee
             , uint64_t peerId
             , ByteBuffer&& message
             , Timestamp createTime
             , bool sender)
             : m_txId{ txId }
             , m_amount{ amount }
+            , m_fee{ fee }
             , m_peerId{ peerId }
             , m_message{ std::move(message) }
             , m_createTime{ createTime }
@@ -68,6 +69,7 @@ namespace beam
 
         Uuid m_txId;
         Amount m_amount;
+        Amount m_fee;
         uint64_t m_peerId;
         ByteBuffer m_message;
         Timestamp m_createTime;
@@ -84,93 +86,73 @@ namespace beam
         namespace mpl = boost::mpl;
 
         std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
-        Timestamp getTimestamp();
-
-        template <typename Derived>
-        class FSMHelper
-        {
-        public:
-            void start()
-            {
-                static_cast<Derived*>(this)->m_fsm.start();
-            }
-
-            template<typename Event>
-            bool process_event(const Event& event)
-            {
-                auto* d = static_cast<Derived*>(this);
-                auto res = d->m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
-                return res;
-            }
-
-            template<class Archive>
-            void serialize(Archive & ar, const unsigned int)
-            {
-                static_cast<Derived*>(this)->m_fsm.serialize(ar, 0);
-            }
-
-            // for test only
-            const int* current_state() const
-            {
-                return static_cast<const Derived*>(this)->m_fsm.current_state();
-            }
-        };
-
-        template <typename Derived>
-        struct FSMDefinitionBase
-        {
-            FSMDefinitionBase(TxDescription& txDesc) : m_txDesc{txDesc}
-            {}
-
-            TxDescription & m_txDesc;
-        };
 
         // messages
-        struct InviteReceiver
+        struct Invite
         {
             Uuid m_txId;
             ECC::Amount m_amount;
-            Height m_height;
-            ECC::Hash::Value m_message;
-            ECC::Point m_publicSenderBlindingExcess;
-            ECC::Point m_publicSenderNonce;
+            ECC::Amount m_fee;
+            bool m_send;
+            ECC::Point m_publicPeerExcess;
+            ECC::Scalar m_offset;
+            ECC::Point m_publicPeerNonce;
             std::vector<Input::Ptr> m_inputs;
             std::vector<Output::Ptr> m_outputs;
 
-            InviteReceiver() :
-                m_amount(0), m_height(0) {
+            Invite() 
+                : m_amount(0)
+                , m_fee(0)
+                , m_send{true}
+                
+            {
 
-                }
+            }
+
+            Invite(Invite&& other)
+                : m_txId{other.m_txId}
+                , m_amount{ other.m_amount }
+                , m_fee{ other.m_fee }
+                , m_send{other.m_send}
+                , m_publicPeerExcess{other.m_publicPeerExcess}
+                , m_offset{other.m_offset}
+                , m_publicPeerNonce{other.m_publicPeerNonce}
+                , m_inputs{std::move(other.m_inputs)}
+                , m_outputs{std::move(other.m_outputs)}
+            {
+
+            }
 
             SERIALIZE(m_txId
                     , m_amount
-                    , m_height
-                    , m_message
-                    , m_publicSenderBlindingExcess
-                    , m_publicSenderNonce
+                    , m_fee
+                    , m_send
+                    , m_publicPeerExcess
+                    , m_offset
+                    , m_publicPeerNonce
                     , m_inputs
                     , m_outputs);
         };
 
         struct ConfirmTransaction
         {
-            Uuid m_txId;
-            ECC::Scalar m_senderSignature;
+            Uuid m_txId{};
+            ECC::Scalar m_peerSignature;
 
-            SERIALIZE(m_txId, m_senderSignature);
+            SERIALIZE(m_txId, m_peerSignature);
         };
 
         struct ConfirmInvitation
         {
             Uuid m_txId{};
-            ECC::Point m_publicReceiverBlindingExcess;
-            ECC::Point m_publicReceiverNonce;
-            ECC::Scalar m_receiverSignature;
+            ECC::Point m_publicPeerExcess;
+            ECC::Point m_publicPeerNonce;
+            ECC::Scalar m_peerSignature;
 
             SERIALIZE(m_txId
-                    , m_publicReceiverBlindingExcess
-                    , m_publicReceiverNonce
-                    , m_receiverSignature);
+                    , m_publicPeerExcess
+                    , m_publicPeerNonce
+                    , m_peerSignature);
         };
 
         struct TxRegistered
@@ -186,30 +168,16 @@ namespace beam
             SERIALIZE(m_txId);
         };
 
-        struct IWalletGateway
+        struct INegotiatorGateway
         {
-            virtual ~IWalletGateway() {}
+            virtual ~INegotiatorGateway() {}
             virtual void on_tx_completed(const TxDescription& ) = 0;
             virtual void send_tx_failed(const TxDescription& ) = 0;
+            virtual void send_tx_invitation(const TxDescription&, Invite&&) = 0;
+            virtual void send_tx_confirmation(const TxDescription&, ConfirmTransaction&&) = 0;
+            virtual void send_tx_confirmation(const TxDescription&, ConfirmInvitation&&) = 0;
+            virtual void register_tx(const TxDescription&, Transaction::Ptr) = 0;
+            virtual void send_tx_registered(const TxDescription&) = 0;
         };
-
-        namespace sender
-        {
-            struct IGateway : virtual IWalletGateway
-            {
-                virtual void send_tx_invitation(const TxDescription&, InviteReceiver&&) = 0;
-                virtual void send_tx_confirmation(const TxDescription& , ConfirmTransaction&&) = 0;
-            };
-        }
-
-        namespace receiver
-        {
-            struct IGateway : virtual IWalletGateway
-            {
-                virtual void send_tx_confirmation(const TxDescription& , ConfirmInvitation&&) = 0;
-                virtual void register_tx(const TxDescription& , Transaction::Ptr) = 0;
-                virtual void send_tx_registered(const TxDescription& ) = 0;
-            };
-        }
     }
 }

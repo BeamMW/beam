@@ -129,7 +129,7 @@ namespace ECC {
 
 	bool Scalar::Native::operator == (const Native& v) const
 	{
-		for (int i = 0; i < _countof(d); i++)
+		for (size_t i = 0; i < _countof(d); i++)
 			if (d[i] != v.d[i])
 				return false;
 		return true;
@@ -557,7 +557,7 @@ namespace ECC {
 
 				for (int j = 0; j < nLevelsPerWord; j++, pPts += nPointsPerLevel)
 				{
-					int nSel = (nPointsPerLevel - 1) & n;
+					uint32_t nSel = (nPointsPerLevel - 1) & n;
 					n >>= nBitsPerLevel;
 
 					/** This uses a conditional move to avoid any secret data in array indexes.
@@ -676,7 +676,7 @@ namespace ECC {
 		Generator::FromPt(m_Fast.m_pPt[0], val);
 		Point::Native npos, nums = val;
 
-		for (int i = 1; i < _countof(m_Fast.m_pPt); i++)
+		for (size_t i = 1; i < _countof(m_Fast.m_pPt); i++)
 		{
 			if (i & (i + 1))
 				npos += val;
@@ -749,8 +749,24 @@ namespace ECC {
 
 	void MultiMac::Casual::Init(const Point::Native& p)
 	{
-		m_nPrepared = 1;
-		m_pPt[0] = p;
+		if (Mode::Fast == g_Mode)
+		{
+			m_nPrepared = 2;
+			m_pPt[1] = p;
+		}
+		else
+		{
+			secp256k1_ge ge;
+			Generator::ToPt(m_pPt[0], ge, Context::get().m_Casual.m_Nums, true);
+
+			for (size_t i = 1; i < _countof(m_pPt); i++)
+			{
+				m_pPt[i] = m_pPt[i - 1];
+				m_pPt[i] += p;
+			}
+
+			m_nPrepared = _countof(m_pPt);
+		}
 	}
 
 	void MultiMac::Casual::Init(const Point::Native& p, const Scalar::Native& k)
@@ -767,8 +783,6 @@ namespace ECC {
 
 	void MultiMac::Calculate(Point::Native& res) const
 	{
-		assert(!m_Casual || (Mode::Fast == g_Mode));
-
 		const int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
 
 		static_assert(Casual::nBits <= Prepared::Fast::nBits, "");
@@ -799,17 +813,17 @@ namespace ECC {
 					Casual& x = m_pCasual[iEntry];
 					const Scalar::Native::uint n = x.m_K.get().d[iWord];
 
-					int nVal = (n >> (iLayer * Casual::nBits)) & _countof(x.m_pPt);
-					if (nVal--)
-					{
-						for (; x.m_nPrepared <= nVal; x.m_nPrepared++)
-							if (x.m_nPrepared & (x.m_nPrepared + 1))
-								x.m_pPt[x.m_nPrepared] = x.m_pPt[x.m_nPrepared - 1] + x.m_pPt[0];
-							else
-								x.m_pPt[x.m_nPrepared] = x.m_pPt[x.m_nPrepared >> 1] * Two;
+					int nVal = (n >> (iLayer * Casual::nBits)) & (_countof(x.m_pPt) - 1);
+					if (!nVal && (Mode::Fast == g_Mode))
+						continue; // skip zero
 
-						res += x.m_pPt[nVal];
-					}
+					for (; x.m_nPrepared <= nVal; x.m_nPrepared++)
+						if (x.m_nPrepared & (x.m_nPrepared - 1))
+							x.m_pPt[x.m_nPrepared] = x.m_pPt[x.m_nPrepared - 1] + x.m_pPt[1];
+						else
+							x.m_pPt[x.m_nPrepared] = x.m_pPt[x.m_nPrepared >> 1] * Two;
+
+					res += x.m_pPt[nVal];
 				}
 
 				if (Mode::Fast == g_Mode)
@@ -843,7 +857,7 @@ namespace ECC {
 
 						int nVal = (n >> (iLayerPrep * Prepared::Secure::nBits)) & ((1 << Prepared::Secure::nBits) - 1);
 
-						for (int i = 0; i < _countof(x.m_pPt); i++)
+						for (size_t i = 0; i < _countof(x.m_pPt); i++)
 							Generator::object_cmov(ge_s.V, x.m_pPt[i], i == nVal);
 
 						Generator::ToPt(res, ge.V, ge_s.V, false);
@@ -853,12 +867,18 @@ namespace ECC {
 		}
 
 		if (Mode::Secure == g_Mode)
+		{
 			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
 			{
 				const Prepared::Secure& x = m_ppPrepared[iEntry]->m_Secure;
 
 				Generator::ToPt(res, ge.V, x.m_Compensation, false);
 			}
+
+			for (int iEntry = 0; iEntry < m_Casual; iEntry++)
+				Generator::ToPt(res, ge.V, Context::get().m_Casual.m_Compensation, false);
+
+		}
 	}
 
 	/////////////////////
@@ -929,6 +949,29 @@ namespace ECC {
 		ctx.m_Ipp.m_Aux2_.Initialize(ptAux2, hp);
 
 		ctx.m_Ipp.m_GenDot_.Initialize("ip-dot", hp);
+
+		const MultiMac::Prepared& genericNums = ctx.m_Ipp.m_GenDot_;
+		ctx.m_Casual.m_Nums = genericNums.m_Fast.m_pPt[0]; // whatever
+
+		{
+			MultiMac_WithBufs<1, 1> mm;
+			Scalar::Native& k = mm.m_Bufs.m_pKPrep[0];
+			k = Zero;
+			for (int i = ECC::nBits; i--; )
+			{
+				k = k + k;
+				if (!(i % MultiMac::Casual::nBits))
+					k = k + 1U;
+			}
+
+			k = -k;
+
+			mm.m_Bufs.m_ppPrepared[0] = &ctx.m_Ipp.m_GenDot_;
+			mm.m_Prepared = 1;
+
+			mm.Calculate(pt);
+			Generator::FromPt(ctx.m_Casual.m_Compensation, pt);
+		}
 
 		hp << uint32_t(0); // increment this each time we change signature formula (rangeproof and etc.)
 
@@ -1150,13 +1193,13 @@ namespace ECC {
 
 			void Init(const Modifier& mod)
 			{
-				for (int j = 0; j < _countof(mod.m_pMultiplier); j++)
+				for (size_t j = 0; j < _countof(mod.m_pMultiplier); j++)
 				{
 					m_pUse[j] = (NULL != mod.m_pMultiplier[j]);
 					if (m_pUse[j])
 					{
 						m_pPwr[j][0] = 1U;
-						for (int i = 1; i < nDim; i++)
+						for (uint32_t i = 1; i < nDim; i++)
 							m_pPwr[j][i] = m_pPwr[j][i - 1] * *(mod.m_pMultiplier[j]);
 					}
 				}
@@ -1192,7 +1235,7 @@ namespace ECC {
 			{
 			}
 
-			void Proceed(uint32_t iPos, int iCycle, const Scalar::Native& k);
+			void Proceed(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k);
 		};
 
 		static const uint32_t s_iCycle0 = 2; // condense source generators into points (after 3 iterations, 8 points)
@@ -1304,7 +1347,7 @@ namespace ECC {
 		}
 	}
 
-	void InnerProduct::Calculator::Aggregator::Proceed(uint32_t iPos, int iCycle, const Scalar::Native& k)
+	void InnerProduct::Calculator::Aggregator::Proceed(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k)
 	{
 		if (iCycle != m_iCycleTrg)
 		{

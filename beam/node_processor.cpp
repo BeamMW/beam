@@ -24,8 +24,8 @@ struct NodeProcessor::UnspentWalker
 	NodeProcessor& m_This;
 
 	UnspentWalker(NodeProcessor& me, bool bWithSignature)
-		:m_This(me)
-		,NodeDB::WalkerSpendable(me.m_DB, bWithSignature)
+		:NodeDB::WalkerSpendable(me.m_DB, bWithSignature)
+		,m_This(me)
 	{
 	}
 
@@ -83,6 +83,19 @@ bool NodeProcessor::UnspentWalker::Traverse()
 void NodeProcessor::Initialize(const char* szPath)
 {
 	m_DB.Open(szPath);
+
+	Merkle::Hash hv;
+	NodeDB::Blob blob(hv.m_pData, sizeof(hv.m_pData));
+
+	if (!m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob))
+	{
+		blob.p = &Rules::get().Checksum;
+		blob.n = sizeof(Rules::get().Checksum);
+		m_DB.ParamSet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
+	}
+	else
+		if (hv != Rules::get().Checksum)
+			OnCorrupted();
 
 	InitCursor();
 
@@ -909,17 +922,17 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		return DataStatus::Invalid;
 	}
 
-	if (!Rules::FakePoW && !s.IsValidPoW())
+	if (!Rules::get().FakePoW && !s.IsValidPoW())
 	{
 		LOG_WARNING() << id << " PoW invalid";
 		return DataStatus::Invalid;
 	}
 
-	Timestamp ts = time(NULL);
+	Timestamp ts = getTimestamp();
 	if (s.m_TimeStamp > ts)
 	{
 		ts = s.m_TimeStamp - ts; // dt
-		if (ts > Rules::TimestampAheadThreshold_s)
+		if (ts > Rules::get().TimestampAheadThreshold_s)
 		{
 			LOG_WARNING() << id << " Timestamp ahead by " << ts;
 			return DataStatus::Invalid;
@@ -955,7 +968,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob& block, const PeerID& peer)
 {
-	if (block.n > Rules::MaxBodySize)
+	if (block.n > Rules::get().MaxBodySize)
 	{
 		LOG_WARNING() << id << " Block too large: " << block.n;
 		return DataStatus::Invalid;
@@ -1098,17 +1111,17 @@ uint8_t NodeProcessor::get_NextDifficulty()
 
 	Height dh = m_Cursor.m_Full.m_Height - Rules::HeightGenesis;
 
-	if (!dh || (dh % Rules::DifficultyReviewCycle))
+	if (!dh || (dh % Rules::get().DifficultyReviewCycle))
 		return m_Cursor.m_Full.m_PoW.m_Difficulty; // no change
 
 	// review the difficulty
-	uint64_t rowid = FindActiveAtStrict(m_Cursor.m_Full.m_Height - Rules::DifficultyReviewCycle);
+	uint64_t rowid = FindActiveAtStrict(m_Cursor.m_Full.m_Height - Rules::get().DifficultyReviewCycle);
 
 	Block::SystemState::Full s2;
 	m_DB.get_State(rowid, s2);
 
 	uint8_t ret = m_Cursor.m_Full.m_PoW.m_Difficulty;
-	Rules::AdjustDifficulty(ret, s2.m_TimeStamp, m_Cursor.m_Full.m_TimeStamp);
+	Rules::get().AdjustDifficulty(ret, s2.m_TimeStamp, m_Cursor.m_Full.m_TimeStamp);
 	return ret;
 }
 
@@ -1125,7 +1138,7 @@ Timestamp NodeProcessor::get_MovingMedian()
 		m_DB.get_State(row, s);
 		vTs.push_back(s.m_TimeStamp);
 
-		if (vTs.size() >= Rules::WindowForMedian)
+		if (vTs.size() >= Rules::get().WindowForMedian)
 			break;
 
 		if (!m_DB.get_Prev(row))
@@ -1144,7 +1157,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 	// due to (potential) inaccuracy in the block size estimation, our rough estimate - take no more than 95% of allowed block size, minus potential UTXOs to consume fees and coinbase.
 	const size_t nRoughExtra = sizeof(ECC::Point) * 2 + sizeof(ECC::RangeProof::Confidential) + sizeof(ECC::RangeProof::Public) + 300;
-	const size_t nSizeThreshold = Rules::MaxBodySize * 95 / 100 - nRoughExtra;
+	const size_t nSizeThreshold = Rules::get().MaxBodySize * 95 / 100 - nRoughExtra;
 
 	ECC::Scalar::Native offset = res.m_Offset;
 
@@ -1211,7 +1224,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 	Output::Ptr pOutp(new Output);
 	pOutp->m_Coinbase = true;
-	pOutp->Create(kCoinbase, Rules::CoinbaseEmission, true);
+	pOutp->Create(kCoinbase, Rules::get().CoinbaseEmission, true);
 
 	if (!HandleBlockElement(*pOutp, h, NULL, true))
 		return false;
@@ -1220,7 +1233,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 	kCoinbase = -kCoinbase;
 	offset += kCoinbase;
-	res.m_Subsidy += Rules::CoinbaseEmission;
+	res.m_Subsidy += Rules::get().CoinbaseEmission;
 
 	// Finalize block construction.
 	if (m_Cursor.m_Sid.m_Row)
@@ -1241,7 +1254,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 	s.m_Height = h;
 	s.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
-	s.m_TimeStamp = time(NULL); // TODO: 64-bit time
+	s.m_TimeStamp = getTimestamp();
 
 	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
 	Timestamp tm = get_MovingMedian() + 1;
@@ -1301,7 +1314,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	ser & res;
 	ser.swap_buf(bbBlock);
 
-	return bbBlock.size() <= Rules::MaxBodySize;
+	return bbBlock.size() <= Rules::get().MaxBodySize;
 }
 
 bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
@@ -1319,10 +1332,10 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 	der.reset(bb.empty() ? NULL : &bb.at(0), bb.size());
 	der & block;
 
-	for (auto i = 0; i < block.m_vInputs.size(); i++)
+	for (size_t i = 0; i < block.m_vInputs.size(); i++)
 		block.m_vInputs[i]->m_Maturity = rbData.NextInput(false).m_Maturity;
 
-	for (auto i = 0; i < block.m_vOutputs.size(); i++)
+	for (size_t i = 0; i < block.m_vOutputs.size(); i++)
 	{
 		Output& v = *block.m_vOutputs[i];
 		v.m_Maturity = v.get_MinMaturity(sid.m_Height);
@@ -1378,7 +1391,7 @@ void NodeProcessor::ExportMacroBlock(Block::BodyBase::IMacroWriter& w, const Hei
 
 	w.put_Start(vBlocks[0], prefix);
 
-	for (auto i = 0; i < vElem.size(); i++)
+	for (size_t i = 0; i < vElem.size(); i++)
 		w.put_NextHdr(vElem[i]);
 
 	w.Dump(vBlocks[0].get_Reader());
@@ -1490,7 +1503,7 @@ void NodeProcessor::ExportMacroBlock(Block::BodyBase::IMacroWriter& w)
 
 	w.put_Start(body, prefix);
 
-	for (auto i = 0; i < vElem.size(); i++)
+	for (size_t i = 0; i < vElem.size(); i++)
 		w.put_NextHdr(vElem[i]);
 }
 

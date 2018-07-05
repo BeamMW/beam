@@ -2,8 +2,7 @@
 
 #include "core/ecc_native.h"
 #include "wallet/common.h"
-#include "wallet/receiver.h"
-#include "wallet/sender.h" 
+#include "wallet/negotiator.h" 
 
 #include "utility/serialize.h"
 
@@ -13,40 +12,19 @@ namespace yas::detail
     struct serializer<type_prop::not_a_fundamental
                     , ser_method::use_internal_serializer
                     , F
-                    , beam::wallet::Sender>
+                    , beam::wallet::Negotiator>
     {
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::wallet::Sender& sender)
+        static Archive& save(Archive& ar, const beam::wallet::Negotiator& sender)
         {
-            const_cast<beam::wallet::Sender&>(sender).serialize(ar, 0);
+            const_cast<beam::wallet::Negotiator&>(sender).serialize(ar, 0);
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::wallet::Sender& sender)
+        static Archive& load(Archive& ar, beam::wallet::Negotiator& sender)
         {
             sender.serialize(ar, 0);
-            return ar;
-        }
-    };
-
-    template<std::size_t F>
-    struct serializer<type_prop::not_a_fundamental
-        , ser_method::use_internal_serializer
-        , F
-        , beam::wallet::Receiver>
-    {
-        template<typename Archive>
-        static Archive& save(Archive& ar, const beam::wallet::Receiver& receiver)
-        {
-            const_cast<beam::wallet::Receiver&>(receiver).serialize(ar, 0);
-            return ar;
-        }
-
-        template<typename Archive>
-        static Archive& load(Archive& ar, beam::wallet::Receiver& receiver)
-        {
-            receiver.serialize(ar, 0);
             return ar;
         }
     };
@@ -77,31 +55,9 @@ namespace yas::detail
     struct serializer<type_prop::not_a_fundamental
         , ser_method::use_internal_serializer
         , F
-        , beam::wallet::Sender::FSMDefinition>
+        , beam::wallet::Negotiator::FSMDefinition>
     {
-        using Type = beam::wallet::Sender::FSMDefinition;
-        template<typename Archive>
-        static Archive& save(Archive& ar, const Type& d)
-        {
-            const_cast<Type&>(d).serialize(ar, 0);
-            return ar;
-        }
-
-        template<typename Archive>
-        static Archive& load(Archive& ar, Type& d)
-        {
-            d.serialize(ar, 0);
-            return ar;
-        }
-    };
-
-    template<std::size_t F>
-    struct serializer<type_prop::not_a_fundamental
-        , ser_method::use_internal_serializer
-        , F
-        , beam::wallet::Receiver::FSMDefinition>
-    {
-        using Type = beam::wallet::Receiver::FSMDefinition;
+        using Type = beam::wallet::Negotiator::FSMDefinition;
         template<typename Archive>
         static Archive& save(Archive& ar, const Type& d)
         {
