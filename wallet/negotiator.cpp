@@ -310,7 +310,7 @@ namespace beam::wallet
 
     bool Negotiator::isValidSignature(const Scalar& peerSignature, const Point& publicPeerNonce, const Point& publicPeerExcess)
     {
-        assert(m_kernel);
+        //assert(m_kernel);
         if (!m_kernel)
         {
             return false;

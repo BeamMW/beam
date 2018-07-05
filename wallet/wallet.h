@@ -98,10 +98,23 @@ namespace beam
         void register_tx(const Uuid& txId, Transaction::Ptr);
         void resume_negotiator(const TxDescription& tx);
 
+        struct Cleaner
+        {
+            Cleaner(std::vector<wallet::Negotiator::Ptr>& t) : m_v{ t } {}
+            ~Cleaner()
+            {
+                if (!m_v.empty())
+                {
+                    m_v.clear();
+                }
+            }
+            std::vector<wallet::Negotiator::Ptr>& m_v;
+        };
+
         template<typename Event>
         bool process_event(const Uuid& txId, Event&& event)
         {
-            Cleaner<std::vector<wallet::Negotiator::Ptr> > cs{ m_removedNegotiators };
+            Cleaner cs{ m_removedNegotiators };
             if (auto it = m_negotiators.find(txId); it != m_negotiators.end())
             {
                 return it->second->process_event(event);

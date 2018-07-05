@@ -16,20 +16,6 @@ namespace ECC {
 
 namespace
 {
-    template<typename T>
-    struct Cleaner
-    {
-        Cleaner(T& t) : m_v{ t } {}
-        ~Cleaner()
-        {
-            if (!m_v.empty())
-            {
-                m_v.clear();
-            }
-        }
-        T& m_v;
-    };
-
     const char* ReceiverPrefix = "[Receiver] ";
     const char* SenderPrefix = "[Sender] ";
 }
@@ -203,10 +189,10 @@ namespace beam
             LOG_VERBOSE() << "Received tx invitation " << msg.m_txId;
             bool sender = !msg.m_send;
             TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, from, {}, getTimestamp(), sender };
-            auto r = make_shared<Negotiator>(*this, m_keyChain, tx, move(msg));
+            auto r = make_shared<Negotiator>(*this, m_keyChain, tx, msg);
             m_negotiators.emplace(tx.m_txId, r);
             m_peers.emplace(tx.m_peerId, r);
-            Cleaner<std::vector<wallet::Negotiator::Ptr> > c{ m_removedNegotiators };
+            Cleaner c{ m_removedNegotiators };
             if (m_synchronized)
             {
                 r->start();
@@ -482,7 +468,7 @@ namespace beam
                 m_knownStateID = m_newStateID;
                 if (!m_pendingEvents.empty())
                 {
-                    Cleaner<std::vector<wallet::Negotiator::Ptr> > cr{ m_removedNegotiators };
+                    Cleaner c{ m_removedNegotiators };
                     for (auto& cb : m_pendingEvents)
                     {
                         cb();
@@ -516,7 +502,7 @@ namespace beam
 
     void Wallet::resume_negotiator(const TxDescription& tx)
     {
-        Cleaner<std::vector<wallet::Negotiator::Ptr> > c{ m_removedNegotiators };
+        Cleaner c{ m_removedNegotiators };
         auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
         m_negotiators.emplace(tx.m_txId, s);
         m_peers.emplace(tx.m_peerId, s);

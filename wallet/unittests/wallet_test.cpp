@@ -448,17 +448,6 @@ void TestFSM()
     WALLET_CHECK(*(s.current_state()) == 3);
     s.process_event(wallet::events::TxConfirmationCompleted{});
     WALLET_CHECK(*(s.current_state()) == 3);
-    //WALLET_CHECK(s.process_event(wallet::events::TxInvitationCompleted{ wallet::ConfirmInvitation() }));
-    //WALLET_CHECK(s.process_event(wallet::events::TxConfirmationCompleted()));
-
-    //cout << "\nreceiver\n";
-    //wallet::Invite initData;
-    //initData.m_amount = 100;
-    //wallet::Receiver r{ gateway, createKeychain<TestKeyChain>(), {}, initData };
-    //r.start();
-    //WALLET_CHECK(!r.process_event(wallet::events::TxRegistrationCompleted()));
-    //WALLET_CHECK(r.process_event(wallet::events::TxFailed()));
-    //WALLET_CHECK(r.process_event(wallet::events::TxConfirmationCompleted()));
 }
 
 enum NodeNetworkMessageCodes : uint8_t
@@ -1021,76 +1010,39 @@ void TestSerializeFSM()
 {
     cout << "\nTesting wallet's fsm serialization...\nsender\n";
     TestGateway gateway;
-    
-    {
-        TxDescription tx = {};
-        tx.m_amount = 6;
-        wallet::Negotiator s{ gateway, createKeychain<TestKeyChain>(), tx};
-        WALLET_CHECK(*(s.current_state()) == 0);
-        s.start();
-        WALLET_CHECK(*(s.current_state()) == 1);
 
-        Serializer ser;
-        ser & s;
+    beam::Uuid id = { 3, 65, 70 };
+    TxDescription tx = {};
+    tx.m_txId = id;
+    tx.m_amount = 6;
+    wallet::Negotiator s{ gateway, createKeychain<TestKeyChain>(), tx};
+    WALLET_CHECK(*(s.current_state()) == 0);
+    s.start();
+    s.process_event(wallet::events::TxInitiated{});
+    WALLET_CHECK(*(s.current_state()) == 2);
 
-        auto buffer = ser.buffer();
+    Serializer ser;
+    ser & s;
 
-        Deserializer der;
-        der.reset(buffer.first, buffer.second);
+    auto buffer = ser.buffer();
 
-        wallet::Negotiator s2{ gateway, createKeychain<TestKeyChain>(), {} };
-        WALLET_CHECK(*(s2.current_state()) == 0);
-        der & s2;
-        WALLET_CHECK(*(s2.current_state()) == 1);
-        s2.process_event(wallet::events::TxInvitationCompleted{ wallet::ConfirmInvitation() });
-        WALLET_CHECK(*(s2.current_state()) == 2);
+    Deserializer der;
+    der.reset(buffer.first, buffer.second);
 
-        ser.reset();
-        ser & s2;
+    wallet::Negotiator s2{ gateway, createKeychain<TestKeyChain>(), {} };
+    WALLET_CHECK(*(s2.current_state()) == 0);
+    der & s2;
+    WALLET_CHECK(*(s2.current_state()) == 2);
+    s2.process_event(wallet::events::TxInvitationCompleted{ wallet::ConfirmInvitation() });
+    WALLET_CHECK(*(s2.current_state()) == 3);
 
-        buffer = ser.buffer();
-        der.reset(buffer.first, buffer.second);
-        der & s;
-        WALLET_CHECK(*(s.current_state()) == 2);
-    }
+    ser.reset();
+    ser & s2;
 
-    {
-        wallet::Invite initData{};
-        initData.m_amount = 100;
-        TxDescription rtx = {};
-        rtx.m_amount = 100;
-        wallet::Negotiator r{ gateway, createKeychain<TestKeyChain>(), rtx, initData };
-        WALLET_CHECK(*(r.current_state()) == 0);
-        r.start();
-        WALLET_CHECK(*(r.current_state()) == 1);
-
-        Serializer ser;
-        ser & r;
-
-        auto buffer = ser.buffer();
-
-        Deserializer der;
-        der.reset(buffer.first, buffer.second);
-
-        wallet::Negotiator r2{ gateway, createKeychain<TestKeyChain>(), {}, initData };
-        LOG_DEBUG() << "state = " << *(r2.current_state());
-        WALLET_CHECK(*(r2.current_state()) == 0);
-        der & r2;
-        LOG_DEBUG() << "state = " << *(r2.current_state());
-        WALLET_CHECK(*(r2.current_state()) == 1);
-        r2.process_event(wallet::events::TxConfirmationCompleted{});
-        LOG_DEBUG() << "state = " << *(r2.current_state());
-        WALLET_CHECK(*(r2.current_state()) == 2);
-
-        ser.reset();
-        ser & r2;
-
-        buffer = ser.buffer();
-        der.reset(buffer.first, buffer.second);
-        der & r;
-        LOG_DEBUG() << "state = " << *(r2.current_state());
-        WALLET_CHECK(*(r.current_state()) == 2);
-    }
+    buffer = ser.buffer();
+    der.reset(buffer.first, buffer.second);
+    der & s;
+    WALLET_CHECK(*(s.current_state()) == 3);
 }
 
 int main()
@@ -1108,7 +1060,7 @@ int main()
     TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
     TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
     TestFSM();
-//    TestSerializeFSM();
+    TestSerializeFSM();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
