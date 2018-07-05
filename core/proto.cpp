@@ -193,7 +193,7 @@ BeamNodeMsgsAll(THE_MACRO)
 
 void NodeConnection::Sk2Pk(PeerID& res, ECC::Scalar::Native& sk)
 {
-	ECC::Point pt = ECC::Context::get().G * sk;
+	ECC::Point pt = ECC::Point::Native(ECC::Context::get().G * sk);
 	if (pt.m_Y)
 		sk = -sk;
 
