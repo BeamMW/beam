@@ -13,34 +13,90 @@ private:
 	virtual void OnConnected() override;
 	virtual void OnMsg(proto::NewTip&&) override;
 	virtual void OnMsg(proto::Hdr&&) override;
+	virtual void OnMsg(proto::Body&&) override;
+	virtual void OnMsg(proto::DataMissing&&) override;
 
 private:
-	Height m_Height;
+	bool m_IsInit;
+	Block::SystemState::ID m_ID;
+	bool m_IsSendWrongBody;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	: BaseTestNodeConnection(argc, argv)
-	, m_Height(0)
+	, m_IsInit(false)
+	, m_IsSendWrongBody(false)
 {
 }
 
 void TestNodeConnection::OnConnected()
 {
+	m_Timer->start(10 * 1000, false, [this]()
+	{
+		m_Failed = true;
+		io::Reactor::get_Current().stop();
+	});
 }
 
 void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 {
-	LOG_INFO() << "NewTip: " << msg.m_ID;
+	if (!m_IsInit)
+	{
+		LOG_INFO() << "NewTip: " << msg.m_ID;
 
-	proto::GetHdr newMsg;
-	newMsg.m_ID = msg.m_ID;
+		m_ID = msg.m_ID;
+		m_IsInit = true;
 
-	Send(newMsg);
+		proto::GetHdr newMsg;
+		newMsg.m_ID = msg.m_ID;
+
+		LOG_INFO() << "Send GetHdr message";
+		Send(newMsg);
+	}
 }
 
 void TestNodeConnection::OnMsg(proto::Hdr&& msg)
 {
-	LOG_INFO() << "Hdr: " << msg.m_Description.m_Height;
+	LOG_INFO() << "Ok: Header is received: height =  " << msg.m_Description.m_Height;
+
+	proto::GetBody newMsg;
+	newMsg.m_ID = m_ID;
+
+	LOG_INFO() << "Send GetBody message";
+	Send(newMsg);
+}
+
+void TestNodeConnection::OnMsg(proto::Body&& )
+{
+	LOG_INFO() << "Ok: Body is received";
+	proto::GetHdr hdrMsg;
+
+	hdrMsg.m_ID = m_ID;
+	hdrMsg.m_ID.m_Height += 2;
+
+	LOG_INFO() << "Send GetHdr with wrong ID";
+	Send(hdrMsg);
+}
+
+void TestNodeConnection::OnMsg(proto::DataMissing&& )
+{
+	LOG_INFO() << "Ok: DataMissing is received";
+
+	if (!m_IsSendWrongBody)
+	{
+		m_IsSendWrongBody = true;
+
+		proto::GetBody bodyMsg;
+
+		bodyMsg.m_ID = m_ID;
+		bodyMsg.m_ID.m_Height += 2;
+
+		LOG_INFO() << "Send GetBody with wrong ID";
+		Send(bodyMsg);
+
+		return;
+	}
+	io::Reactor::get_Current().stop();
 }
 
 int main(int argc, char* argv[])
