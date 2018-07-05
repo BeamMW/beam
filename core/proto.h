@@ -5,7 +5,7 @@
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"
 #include "../utility/io/tcpserver.h"
-#include "../tiny-AES/aes.hpp"
+#include "aes.h"
 #include <boost/intrusive/set.hpp>
 #include <boost/intrusive/list.hpp>
 
