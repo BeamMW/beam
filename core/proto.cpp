@@ -53,10 +53,14 @@ void ProtocolPlus::InitCipher(Cipher& c)
 	ECC::NoLeak<ECC::Hash::Value> hvSecret;
 	hp.V << ptSecret >> hvSecret.V;
 
-	static_assert(AES_KEYLEN == sizeof(hvSecret.V), "");
-	static_assert(AES_BLOCKLEN <= sizeof(hvSecret.V), "");
+	static_assert(AES::s_KeyBytes == sizeof(hvSecret.V), "");
+	c.Init(hvSecret.V.m_pData);
 
-	c.Init(hvSecret.V.m_pData, hvSecret.V.m_pData);
+	hp.V << hvSecret.V >> hvSecret.V; // IV
+
+	static_assert(sizeof(hvSecret.V) >= sizeof(c.m_Counter), "");
+	memcpy(c.m_Counter.m_pData, hvSecret.V.m_pData, sizeof(c.m_Counter.m_pData));
+
 	c.m_bON = true;
 }
 

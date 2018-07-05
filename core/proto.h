@@ -175,7 +175,7 @@ namespace proto {
 		:public Protocol
 	{
 		struct Cipher
-			:public AES_StreamCipher
+			:public AES::StreamCipher
 		{
 			bool m_bON;
 		};
