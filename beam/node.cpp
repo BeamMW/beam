@@ -1,5 +1,4 @@
 #include "node.h"
-#include <random>
 #include "../core/serialization_adapters.h"
 #include "../core/proto.h"
 #include "../core/ecc_native.h"
@@ -469,8 +468,7 @@ void Node::Initialize()
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
     m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
 
-	std::random_device rd;
-	m_SChannelSeed.V = rd(); // short, but ok, since it's re-hashed before using every time
+	ECC::GenRandom(m_SChannelSeed.V.m_pData, sizeof(m_SChannelSeed.V.m_pData));
 
 	m_MyPrivateID.V.m_Value = ECC::Zero;
 
@@ -478,7 +476,7 @@ void Node::Initialize()
 	bool bNewID = !m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob);
 
 	if (bNewID)
-		ECC::Hash::Processor() << "myid" << rd() >> m_MyPrivateID.V.m_Value;
+		ECC::Hash::Processor() << "myid" << m_SChannelSeed.V >> m_MyPrivateID.V.m_Value;
 
 	ECC::Scalar::Native sk = m_MyPrivateID.V;
 	proto::NodeConnection::Sk2Pk(m_MyPublicID, sk);
@@ -710,9 +708,19 @@ void Node::Peer::OnConnected()
 	m_RemoteAddr = get_Connection()->peer_address();
 	LOG_INFO() << "+Peer " << m_RemoteAddr;
 
+	SecureConnect();
+}
+
+void Node::Peer::OnMsg(proto::SChannelReady&& msg)
+{
+	proto::NodeConnection::OnMsg(std::move(msg));
+
 	m_bConnected = true;
 
-	SecureConnect();
+	proto::NodeConnection::OnMsg(std::move(msg));
+
+	ECC::Scalar::Native sk = m_This.m_MyPrivateID.V;
+	ProveID(sk, proto::IDType::Node);
 
 	proto::Config msgCfg;
 	msgCfg.m_CfgChecksum = Rules::get().Checksum;
@@ -736,14 +744,6 @@ void Node::Peer::OnConnected()
 		msg.m_ID = m_This.m_Processor.m_Cursor.m_ID;
 		Send(msg);
 	}
-}
-
-void Node::Peer::OnMsg(proto::SChannelReady&& msg)
-{
-	proto::NodeConnection::OnMsg(std::move(msg));
-
-	ECC::Scalar::Native sk = m_This.m_MyPrivateID.V;
-	ProveID(sk, proto::IDType::Node);
 }
 
 void Node::Peer::OnMsg(proto::Authentication&& msg)

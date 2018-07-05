@@ -202,7 +202,12 @@ void NodeConnection::Sk2Pk(PeerID& res, ECC::Scalar::Native& sk)
 
 void NodeConnection::GenerateSChannelNonce(ECC::Scalar::Native& sk)
 {
-	// unsupported
+	ECC::NoLeak<ECC::uintBig> secret;
+	ECC::GenRandom(secret.V.m_pData, sizeof(secret.V.m_pData));
+
+	ECC::Hash::Value hv;
+	hv = ECC::Zero;
+	sk.GenerateNonce(secret.V, hv, NULL);
 }
 
 void NodeConnection::SecureConnect()
