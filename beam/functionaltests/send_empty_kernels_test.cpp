@@ -51,14 +51,14 @@ void TestNodeConnection::GenerateTests()
 		TxGenerator gen(m_Kdf);
 
 		// Inputs
-		gen.GenerateInputInTx(1, 1);
+		gen.GenerateInputInTx(2, 1);
 
 		// Outputs
-		gen.GenerateOutputInTx(1, 1);
+		gen.GenerateOutputInTx(2, 1);
 
 		// Kernels
 		// valid
-		gen.GenerateKernel(1);
+		gen.GenerateKernel(2);
 
 		// empty
 		gen.GenerateKernel();
@@ -75,10 +75,10 @@ void TestNodeConnection::GenerateTests()
 		TxGenerator gen(m_Kdf);
 
 		// Inputs
-		gen.GenerateInputInTx(1, 1);
+		gen.GenerateInputInTx(3, 1);
 
 		// Outputs
-		gen.GenerateOutputInTx(1, 1);
+		gen.GenerateOutputInTx(3, 1);
 
 		// Kernels
 		gen.GenerateKernel();
@@ -96,12 +96,14 @@ void TestNodeConnection::GenerateTests()
 		TxGenerator gen(m_Kdf);
 
 		// Inputs
-		gen.GenerateInputInTx(1, 1);
+		gen.GenerateInputInTx(4, 1);
 
 		// Outputs
-		gen.GenerateOutputInTx(1, 1);
+		gen.GenerateOutputInTx(4, 1);
 
 		gen.Sort();
+
+		LOG_INFO() << "tx.IsValid = " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	}, false));

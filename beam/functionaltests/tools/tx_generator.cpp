@@ -8,6 +8,7 @@ TxGenerator::TxGenerator(const Kdf& kdf)
 	, m_Offset(Zero)
 {
 	m_MsgTx.m_Transaction = std::make_shared<Transaction>();
+	m_MsgTx.m_Transaction->m_Offset = m_Offset;
 }
 
 void TxGenerator::GenerateInputInTx(Height h, Amount v)
@@ -19,6 +20,7 @@ void TxGenerator::GenerateInputInTx(Height h, Amount v)
 	pInp->m_Commitment = ECC::Commitment(key, v);
 	m_MsgTx.m_Transaction->m_vInputs.push_back(std::move(pInp));
 	m_Offset += key;
+	m_MsgTx.m_Transaction->m_Offset = m_Offset;
 }
 
 void TxGenerator::GenerateOutputInTx(Height h, Amount v)
@@ -33,6 +35,7 @@ void TxGenerator::GenerateOutputInTx(Height h, Amount v)
 
 	key = -key;
 	m_Offset += key;
+	m_MsgTx.m_Transaction->m_Offset = m_Offset;
 }
 
 void TxGenerator::GenerateKernel(Height h, Amount fee)
@@ -53,6 +56,7 @@ void TxGenerator::GenerateKernel(Height h, Amount fee)
 
 	key = -key;
 	m_Offset += key;
+	m_MsgTx.m_Transaction->m_Offset = m_Offset;
 }
 
 void TxGenerator::GenerateKernel()
@@ -64,8 +68,6 @@ void TxGenerator::GenerateKernel()
 
 proto::NewTransaction TxGenerator::GetTransaction()
 {
-	m_MsgTx.m_Transaction->m_Offset = m_Offset;
-
 	return m_MsgTx;
 }
 
