@@ -1,6 +1,7 @@
 #include "beam/node.h"
 #include "utility/logger.h"
 #include "tools/base_node_connection.h"
+#include "tools/tx_generator.h"
 
 #include <vector>
 #include <thread>
@@ -28,27 +29,25 @@ void TestNodeConnection::GenerateTests()
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Send big transaction";
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+		TxGenerator gen(m_Kdf);
 
 		Amount amount = 20000;
 
 		// Inputs
-		GenerateInputInTx(1, amount);
+		gen.GenerateInputInTx(1, amount);
 
 		// Outputs
 		for (Amount i = 0; i < amount; ++i)
 		{
-			GenerateOutputInTx(1, 1);
+			gen.GenerateOutputInTx(1, 1);
 		}
 
 		// Kernels
-		GenerateKernel(1);
+		gen.GenerateKernel(1);
 
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+		gen.Sort();
 
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, false));
 }
 

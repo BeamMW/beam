@@ -25,10 +25,6 @@ protected:
 
 	virtual void RunTest();
 	
-	void GenerateInputInTx(beam::Height h, beam::Amount v);
-	void GenerateOutputInTx(beam::Height h, beam::Amount v);
-	void GenerateKernel(beam::Height h, beam::Amount fee = 0);
-	
 protected:
 	bool m_WillStartTimer = true;
 	ECC::Kdf m_Kdf;
@@ -36,8 +32,6 @@ protected:
 	beam::io::Reactor::Scope m_Scope;
 	beam::io::Timer::Ptr m_Timer;
 	bool m_Failed;
-	beam::proto::NewTransaction m_MsgTx;
-	ECC::Scalar::Native m_Offset;
 	std::vector<std::pair<std::function<void()>, bool>> m_Tests;
 	size_t m_Index;
 	boost::program_options::variables_map m_VM;	

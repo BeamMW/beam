@@ -1,6 +1,7 @@
 #include "beam/node.h"
 #include "utility/logger.h"
 #include "tools/base_node_connection.h"
+#include "tools/tx_generator.h"
 
 using namespace beam;
 using namespace ECC;
@@ -12,7 +13,7 @@ public:
 private:
 	void GenerateTests() override;
 
-	void GenerateTx();
+	TxGenerator GenerateTx();
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
@@ -27,71 +28,70 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Run test with unsorded kernels";
 
-		GenerateTx();
+		TxGenerator gen = GenerateTx();
 		
-		std::sort(m_MsgTx.m_Transaction->m_vInputs.begin(), m_MsgTx.m_Transaction->m_vInputs.end());
-		std::sort(m_MsgTx.m_Transaction->m_vOutputs.begin(), m_MsgTx.m_Transaction->m_vOutputs.end());
+		gen.SortInputs();
+		gen.SortOutputs();
 
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, false));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test with unsorted inputs";
 
-		GenerateTx();
+		TxGenerator gen = GenerateTx();
 
-		std::sort(m_MsgTx.m_Transaction->m_vKernelsOutput.begin(), m_MsgTx.m_Transaction->m_vKernelsOutput.end());
-		std::sort(m_MsgTx.m_Transaction->m_vOutputs.begin(), m_MsgTx.m_Transaction->m_vOutputs.end());
+		gen.SortOutputs();
+		gen.SortKernels();
 
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, false));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test with unsorted outputs";
 
-		GenerateTx();
+		TxGenerator gen = GenerateTx();
 
-		std::sort(m_MsgTx.m_Transaction->m_vInputs.begin(), m_MsgTx.m_Transaction->m_vInputs.end());
-		std::sort(m_MsgTx.m_Transaction->m_vKernelsOutput.begin(), m_MsgTx.m_Transaction->m_vKernelsOutput.end());
+		gen.SortInputs();
+		gen.SortKernels();
 
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, false));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test with sorted inputs,outputs and kernels";
 
-		GenerateTx();
-		m_MsgTx.m_Transaction->Sort();
+		TxGenerator gen = GenerateTx();
+		gen.Sort();
 
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, true));
 }
 
-void TestNodeConnection::GenerateTx()
+TxGenerator TestNodeConnection::GenerateTx()
 {
-	m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-	m_Offset = Zero;
+	TxGenerator gen(m_Kdf);
 
 	// Inputs
-	GenerateInputInTx(4, 5);
-	GenerateInputInTx(2, 2);
-	GenerateInputInTx(3, 3);
+	gen.GenerateInputInTx(4, 5);
+	gen.GenerateInputInTx(2, 2);
+	gen.GenerateInputInTx(3, 3);
 
 	// Outputs
-	GenerateOutputInTx(5, 1);
-	GenerateOutputInTx(4, 4);
-	GenerateOutputInTx(2, 2);
-	GenerateOutputInTx(3, 3);
+	gen.GenerateOutputInTx(5, 1);
+	gen.GenerateOutputInTx(4, 4);
+	gen.GenerateOutputInTx(2, 2);
+	gen.GenerateOutputInTx(3, 3);
 
 	// Kernels
-	GenerateKernel(4);
-	GenerateKernel(2);
-	GenerateKernel(3);
-
-	m_MsgTx.m_Transaction->m_Offset = m_Offset;
+	gen.GenerateKernel(4);
+	gen.GenerateKernel(2);
+	gen.GenerateKernel(3);
+		
+	return gen;
 }
 
 int main(int argc, char* argv[])

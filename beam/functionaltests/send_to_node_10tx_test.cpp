@@ -1,6 +1,7 @@
 #include "beam/node.h"
 #include "utility/logger.h"
 #include "tools/base_node_connection.h"
+#include "tools/tx_generator.h"
 
 using namespace beam;
 using namespace ECC;	
@@ -25,18 +26,16 @@ void TestNodeConnection::GenerateTests()
 	{
 		m_Tests.push_back(std::make_pair([this, i]()
 		{
-			m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-			m_Offset = Zero;
-
+			TxGenerator gen(m_Kdf);
+			
 			// Inputs
-			GenerateInputInTx(i, 1);
+			gen.GenerateInputInTx(i, 1);
 			// Outputs
-			GenerateOutputInTx(i, 1);
+			gen.GenerateOutputInTx(i, 1);
 			// Kernels
-			GenerateKernel(4);
+			gen.GenerateKernel(4);
 
-			m_MsgTx.m_Transaction->m_Offset = m_Offset;
-			Send(m_MsgTx);
+			Send(gen.GetTransaction());
 		}, true));
 	}
 }

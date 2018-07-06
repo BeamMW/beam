@@ -2,6 +2,7 @@
 #include "utility/logger.h"
 
 #include "tools/base_node_connection.h"
+#include "tools/tx_generator.h"
 
 using namespace beam;
 using namespace ECC;
@@ -26,331 +27,282 @@ void TestNodeConnection::GenerateTests()
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test without inputs";
-
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
-
+		TxGenerator gen(m_Kdf);
+		
 		// Inputs are empty
 		
 		// Outputs
-		GenerateOutputInTx(1, 1);
+		gen.GenerateOutputInTx(1, 1);
 
 		// Kernels
-		GenerateKernel(1);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+		gen.GenerateKernel(1);
+		
+		gen.Sort();
 
-		Transaction::Context ctx;
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
-		LOG_INFO() << "tx.IsValid == " << m_MsgTx.m_Transaction->IsValid(ctx);
-
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, false));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test without outputs";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+		TxGenerator gen(m_Kdf);
 
 		// Inputs
-		GenerateInputInTx(2, 1);
+		gen.GenerateInputInTx(2, 1);
 
 		// Outputs are empty
 
 		// Kernels
-		GenerateKernel(2);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+		gen.GenerateKernel(2);
+		
+		gen.Sort();
 
-		Transaction::Context ctx;
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
-		LOG_INFO() << "tx.IsValid == " << m_MsgTx.m_Transaction->IsValid(ctx);
-
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, false));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test with normal tx";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+		TxGenerator gen(m_Kdf);
 
 		// Inputs 
-		GenerateInputInTx(3, 1);
+		gen.GenerateInputInTx(3, 1);
 
 		// Outputs
-		GenerateOutputInTx(3, 1);
+		gen.GenerateOutputInTx(3, 1);
 
 		// Kernels
-		GenerateKernel(3);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+		gen.GenerateKernel(3);
 
-		Transaction::Context ctx;
+		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << m_MsgTx.m_Transaction->IsValid(ctx);
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, true));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test with 2 inputs, 2 ouputs and 1 kernel";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+		TxGenerator gen(m_Kdf);
 
 		// Inputs 
-		GenerateInputInTx(4, 1);
-		GenerateInputInTx(4, 1);
+		gen.GenerateInputInTx(4, 1);
+		gen.GenerateInputInTx(4, 1);
 
 		// Outputs
-		GenerateOutputInTx(5, 1);
-		GenerateOutputInTx(5, 1);
+		gen.GenerateOutputInTx(5, 1);
+		gen.GenerateOutputInTx(5, 1);
 
 		// Kernels
-		GenerateKernel(5);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+		gen.GenerateKernel(5);
 
-		Transaction::Context ctx;
+		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << m_MsgTx.m_Transaction->IsValid(ctx);
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, true));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test with 2 inputs, 1 ouputs and 1 kernel";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+		TxGenerator gen(m_Kdf);
 
 		// Inputs 
-		GenerateInputInTx(6, 1);
-		GenerateInputInTx(6, 1);
+		gen.GenerateInputInTx(6, 1);
+		gen.GenerateInputInTx(6, 1);
 
 		// Outputs
-		GenerateOutputInTx(6, 2);		
+		gen.GenerateOutputInTx(6, 2);		
 
 		// Kernels
-		GenerateKernel(6);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+		gen.GenerateKernel(6);
+		gen.Sort();
 
-		Transaction::Context ctx;
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
-		LOG_INFO() << "tx.IsValid == " << m_MsgTx.m_Transaction->IsValid(ctx);
-
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, true));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test with 1 inputs, 2 ouputs and 1 kernel";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+		TxGenerator gen(m_Kdf);
 
 		// Inputs 
-		GenerateInputInTx(7, 2);
+		gen.GenerateInputInTx(7, 2);
 
 		// Outputs
-		GenerateOutputInTx(7, 1);
-		GenerateOutputInTx(7, 1);
+		gen.GenerateOutputInTx(7, 1);
+		gen.GenerateOutputInTx(7, 1);
 
 		// Kernels
-		GenerateKernel(7);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+		gen.GenerateKernel(7);
+		gen.Sort();
 
-		Transaction::Context ctx;
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
-		LOG_INFO() << "tx.IsValid == " << m_MsgTx.m_Transaction->IsValid(ctx);
-
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, true));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test with input = 1 chattle, output= 2 chattles, fee=0";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+		TxGenerator gen(m_Kdf);
 
 		// Inputs 
-		GenerateInputInTx(8, 1);
+		gen.GenerateInputInTx(8, 1);
 
 		// Outputs
-		GenerateOutputInTx(8, 2);
+		gen.GenerateOutputInTx(8, 2);
 
 		// Kernels
-		GenerateKernel(8);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+		gen.GenerateKernel(8);
+		gen.Sort();
 
-		Transaction::Context ctx;
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
-		LOG_INFO() << "tx.IsValid == " << m_MsgTx.m_Transaction->IsValid(ctx);
-
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, false));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test with input = 2 chattle, output= 1 chattles, fee=0";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+		TxGenerator gen(m_Kdf);
 
 		// Inputs 
-		GenerateInputInTx(9, 2);
+		gen.GenerateInputInTx(9, 2);
 
 		// Outputs
-		GenerateOutputInTx(9, 1);
+		gen.GenerateOutputInTx(9, 1);
 
 		// Kernels
-		GenerateKernel(9);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+		gen.GenerateKernel(9);
+		gen.Sort();
 
-		Transaction::Context ctx;
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
-		LOG_INFO() << "tx.IsValid == " << m_MsgTx.m_Transaction->IsValid(ctx);
-
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, false));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test with input = 2 chattle, output= 3 chattles, fee=0";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+		TxGenerator gen(m_Kdf);
 
 		// Inputs 
-		GenerateInputInTx(10, 2);
+		gen.GenerateInputInTx(10, 2);
 
 		// Outputs
-		GenerateOutputInTx(10, 3);
+		gen.GenerateOutputInTx(10, 3);
 
 		// Kernels
-		GenerateKernel(10);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+		gen.GenerateKernel(10);
+		gen.Sort();
 
-		Transaction::Context ctx;
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
-		LOG_INFO() << "tx.IsValid == " << m_MsgTx.m_Transaction->IsValid(ctx);
-
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, false));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test with input = 4 chattle, output= 2 chattle, fee = 2 chattles";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+		TxGenerator gen(m_Kdf);
 
 		// Inputs 
-		GenerateInputInTx(11, 4);
+		gen.GenerateInputInTx(11, 4);
 
 		// Outputs
-		GenerateOutputInTx(11, 2);
+		gen.GenerateOutputInTx(11, 2);
 
 		// Kernels
-		GenerateKernel(11, 2);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+		gen.GenerateKernel(11, 2);
+		gen.Sort();
 
-		Transaction::Context ctx;
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
-		LOG_INFO() << "tx.IsValid == " << m_MsgTx.m_Transaction->IsValid(ctx);
-
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, true));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test with input = 4 chattle, output= 2 chattle, fee= 1 chattle, fee = 1 chattle";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+		TxGenerator gen(m_Kdf);
 
 		// Inputs 
-		GenerateInputInTx(12, 4);
+		gen.GenerateInputInTx(12, 4);
 
 		// Outputs
-		GenerateOutputInTx(12, 2);
+		gen.GenerateOutputInTx(12, 2);
 
 		// Kernels
-		GenerateKernel(12, 1);
-		GenerateKernel(12, 1);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+		gen.GenerateKernel(12, 1);
+		gen.GenerateKernel(12, 1);
+		gen.Sort();
 
-		Transaction::Context ctx;
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
-		LOG_INFO() << "tx.IsValid == " << m_MsgTx.m_Transaction->IsValid(ctx);
-
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, true));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test with input = 4 chattle, output= 2 chattle, fee= 1 chattle, fee = 1 chattle, fee = 1 chattle";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+		TxGenerator gen(m_Kdf);
 
 		// Inputs 
-		GenerateInputInTx(13, 4);
+		gen.GenerateInputInTx(13, 4);
 
 		// Outputs
-		GenerateOutputInTx(13, 2);
+		gen.GenerateOutputInTx(13, 2);
 
 		// Kernels
-		GenerateKernel(13, 1);
-		GenerateKernel(13, 1);
-		GenerateKernel(13, 1);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+		gen.GenerateKernel(13, 1);
+		gen.GenerateKernel(13, 1);
+		gen.GenerateKernel(13, 1);
+		gen.Sort();
 
-		Transaction::Context ctx;
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
-		LOG_INFO() << "tx.IsValid == " << m_MsgTx.m_Transaction->IsValid(ctx);
-
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, false));
 
 	m_Tests.push_back(std::make_pair([this]()
 	{
 		LOG_INFO() << "Run test with input = 4 chattle, output= 2 chattle, fee= 3 chattles";
 
-		m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-		m_Offset = Zero;
+		TxGenerator gen(m_Kdf);
 
 		// Inputs 
-		GenerateInputInTx(14, 4);
+		gen.GenerateInputInTx(14, 4);
 
 		// Outputs
-		GenerateOutputInTx(14, 2);
+		gen.GenerateOutputInTx(14, 2);
 
 		// Kernels
-		GenerateKernel(14, 3);
-		m_MsgTx.m_Transaction->m_Offset = m_Offset;
-		m_MsgTx.m_Transaction->Sort();
+		gen.GenerateKernel(14, 3);
+		gen.Sort();
 
-		Transaction::Context ctx;
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
-		LOG_INFO() << "tx.IsValid == " << m_MsgTx.m_Transaction->IsValid(ctx);
-
-		Send(m_MsgTx);
+		Send(gen.GetTransaction());
 	}, false));
 }
 

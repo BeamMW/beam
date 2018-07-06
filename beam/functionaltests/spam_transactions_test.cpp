@@ -1,6 +1,7 @@
 #include "beam/node.h"
 #include "utility/logger.h"
 #include "tools/base_node_connection.h"
+#include "tools/tx_generator.h"
 
 #include <vector>
 #include <thread>
@@ -20,6 +21,7 @@ private:
 
 private:
 	int m_H;
+	proto::NewTransaction m_MsgTx;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[], int h)
@@ -30,25 +32,25 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[], int h)
 
 void TestNodeConnection::BeforeConnection(Height h)
 {
-	m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-	m_Offset = Zero;
+	TxGenerator gen(m_Kdf);
 
 	Amount amount = 5000;
 
 	// Inputs
-	GenerateInputInTx(h, amount);
+	gen.GenerateInputInTx(h, amount);
 
 	// Outputs
 	for (Amount i = 0; i < amount; ++i)
 	{
-		GenerateOutputInTx(h, 1);
+		gen.GenerateOutputInTx(h, 1);
 	}
 
 	// Kernels
-	GenerateKernel(h);
+	gen.GenerateKernel(h);
 
-	m_MsgTx.m_Transaction->m_Offset = m_Offset;
-	m_MsgTx.m_Transaction->Sort();
+	gen.Sort();
+
+	m_MsgTx = gen.GetTransaction();
 }
 
 void TestNodeConnection::GenerateTests()

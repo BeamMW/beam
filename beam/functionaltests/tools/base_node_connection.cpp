@@ -35,7 +35,6 @@ void BaseTestNodeConnection::Run()
 void BaseTestNodeConnection::DisabledTimer()
 {
 	m_WillStartTimer = false;
-
 }
 
 int BaseTestNodeConnection::CheckOnFailed()
@@ -111,51 +110,6 @@ void BaseTestNodeConnection::RunTest()
 {
 	if (m_Index < m_Tests.size())
 		m_Tests[m_Index].first();
-}
-
-void BaseTestNodeConnection::GenerateInputInTx(Height h, Amount v)
-{
-	ECC::Scalar::Native key;
-	DeriveKey(key, m_Kdf, h, KeyType::Coinbase);
-
-	Input::Ptr pInp(new Input);
-	pInp->m_Commitment = ECC::Commitment(key, v);
-	m_MsgTx.m_Transaction->m_vInputs.push_back(std::move(pInp));
-	m_Offset += key;
-}
-
-void BaseTestNodeConnection::GenerateOutputInTx(Height h, Amount v)
-{
-	Output::Ptr pOut(new Output);
-	ECC::Scalar::Native key;
-
-	DeriveKey(key, m_Kdf, h, KeyType::Regular);
-	pOut->m_Incubation = 2;
-	pOut->Create(key, v, true);
-	m_MsgTx.m_Transaction->m_vOutputs.push_back(std::move(pOut));
-
-	key = -key;
-	m_Offset += key;
-}
-
-void BaseTestNodeConnection::GenerateKernel(Height h, Amount fee)
-{
-	TxKernel::Ptr pKrn(new TxKernel);
-	ECC::Scalar::Native key;
-
-	if (fee > 0)
-		pKrn->m_Fee = fee;
-
-	DeriveKey(key, m_Kdf, h, KeyType::Kernel);
-	pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * key);
-
-	ECC::Hash::Value hv;
-	pKrn->get_HashForSigning(hv);
-	pKrn->m_Signature.Sign(hv, key);
-	m_MsgTx.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
-
-	key = -key;
-	m_Offset += key;
 }
 
 void BaseTestNodeConnection::GenerateTests()
