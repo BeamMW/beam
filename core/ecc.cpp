@@ -259,7 +259,7 @@ namespace ECC {
 		secp256k1_sha256_write(this, (const uint8_t*) p, n);
 	}
 
-	void Hash::Processor::Finalize(Hash::Value& v)
+	void Hash::Processor::Finalize(Value& v)
 	{
 		secp256k1_sha256_finalize(this, v.m_pData);
 		*this << v;
@@ -307,6 +307,21 @@ namespace ECC {
 	void Hash::Processor::Write(const Point::Native& v)
 	{
 		Write(Point(v));
+	}
+
+	Hash::Mac::Mac(const void* pSecret, uint32_t nSecret)
+	{
+		secp256k1_hmac_sha256_initialize(this, (uint8_t*)pSecret, nSecret);
+	}
+
+	void Hash::Mac::Write(const void* p, uint32_t n)
+	{
+		secp256k1_hmac_sha256_write(this, (uint8_t*)p, n);
+	}
+
+	void Hash::Mac::Finalize(Value& hv)
+	{
+		secp256k1_hmac_sha256_finalize(this, hv.m_pData);
 	}
 
 	/////////////////////

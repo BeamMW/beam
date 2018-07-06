@@ -278,6 +278,7 @@ namespace ECC
 		Value m_Value;
 
 		class Processor;
+		class Mac;
 	};
 
 	typedef uint64_t Amount;
