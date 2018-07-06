@@ -1,6 +1,5 @@
 #include "wallet_db.h"
-#include "sender.h"
-#include "receiver.h"
+#include "negotiator.h"
 #include "utility/logger.h"
 #include "sqlite/sqlite3.h"
 #include <sstream>
@@ -21,14 +20,16 @@
 // maturity    - height where we can spend the coin
 
 #define ENUM_STORAGE_ID(each, sep, obj) \
-    each(1, id, sep, INTEGER PRIMARY KEY AUTOINCREMENT, obj)
+    each(1, id, sep, INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, obj)
 
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
-    each(2, amount,     sep, INTEGER, obj) \
-    each(3, status,     sep, INTEGER, obj) \
-    each(4, height,     sep, INTEGER, obj) \
-    each(5, maturity,   sep, INTEGER, obj) \
-    each(6, key_type,      , INTEGER, obj) // last item without separator
+    each(2, amount,     sep, INTEGER NOT NULL, obj) \
+    each(3, status,     sep, INTEGER NOT NULL, obj) \
+    each(4, height,     sep, INTEGER NOT NULL, obj) \
+    each(5, maturity,   sep, INTEGER NOT NULL, obj) \
+    each(6, key_type,   sep, INTEGER NOT NULL, obj) \
+    each(7, createTxId, sep, BLOB, obj) \
+    each(8, spentTxId,  , BLOB, obj)            // last item without separator
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) \
@@ -57,13 +58,14 @@
 #define ENUM_HISTORY_FIELDS(each, sep, obj) \
     each(1, txId,       sep, BLOB NOT NULL PRIMARY KEY, obj) \
     each(2, amount,     sep, INTEGER NOT NULL, obj) \
-    each(3, peerId,     sep, INTEGER NOT NULL, obj) \
-    each(4, message,    sep, BLOB, obj) \
-    each(5, createTime, sep, INTEGER NOT NULL, obj) \
-    each(6, modifyTime, sep, INTEGER, obj) \
-    each(7, sender,     sep, INTEGER NOT NULL, obj) \
-    each(8, status,     sep, INTEGER NOT NULL, obj) \
-    each(9, fsmState,      , BLOB, obj)
+    each(3, fee,        sep, INTEGER NOT NULL, obj) \
+    each(4, peerId,     sep, INTEGER NOT NULL, obj) \
+    each(5, message,    sep, BLOB, obj) \
+    each(6, createTime, sep, INTEGER NOT NULL, obj) \
+    each(7, modifyTime, sep, INTEGER, obj) \
+    each(8, sender,     sep, INTEGER NOT NULL, obj) \
+    each(9, status,     sep, INTEGER NOT NULL, obj) \
+    each(10, fsmState,      , BLOB, obj)
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
 
 namespace beam
@@ -127,6 +129,18 @@ namespace beam
                 bind(col, id.data(), id.size());
             }
 
+            void bind(int col, const boost::optional<Uuid>& id)
+            {
+                if (id.is_initialized())
+                {
+                    bind(col, *id);
+                }
+                else
+                {
+                    bind(col, nullptr, 0);
+                }
+            }
+
             void bind(int col, const ByteBuffer& m)
             {
                 int ret = sqlite3_bind_blob(_stm, col, m.data(), m.size(), NULL);
@@ -188,6 +202,22 @@ namespace beam
                 int size = 0;
                 get(col, static_cast<void*>(id.data()), size);
                 assert(size == id.size());
+            }
+
+            void get(int col, boost::optional<Uuid>& id)
+            {
+                int size = sqlite3_column_bytes(_stm, col);
+                if (size > 0)
+                {
+                    size = sqlite3_column_bytes(_stm, col);
+                    const void* data = sqlite3_column_blob(_stm, col);
+
+                    if (data)
+                    {
+                        id = Uuid{};
+                        memcpy(id->data(), data, size);
+                    }
+                }
             }
 
             void get(int col, ByteBuffer& b)
@@ -761,5 +791,26 @@ namespace beam
         stm.bind(1, txId);
 
         stm.step();
+    }
+
+    void Keychain::rollbackTx(const Uuid& txId)
+    {
+        sqlite::Transaction trans(_db);
+
+        {
+            const char* req = "UPDATE " STORAGE_NAME " SET status=?3 WHERE spentTxId=?1 AND status=?2;";
+            sqlite::Statement stm(_db, req);
+            stm.bind(1, txId);
+            stm.bind(2, Coin::Locked);
+            stm.bind(3, Coin::Unspent);
+            stm.step();
+        }
+        {
+            const char* req = "DELETE FROM " STORAGE_NAME " WHERE createTxId=?1;";
+            sqlite::Statement stm(_db, req);
+            stm.bind(1, txId);
+            stm.step();
+        }
+        trans.commit();
     }
 }

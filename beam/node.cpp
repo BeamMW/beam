@@ -266,7 +266,7 @@ bool Node::ShouldAssignTask(Task& t, Peer& p)
 		return false;
 
 	// Current design: don't ask anything from non-authenticated peers
-	if (!p.m_bPiRcvd)
+	if (!(p.m_bPiRcvd && p.m_pInfo))
 		return false;
 
 	// check if the peer currently transfers a block
@@ -897,10 +897,9 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	if (id != t.m_Key.first)
 		ThrowUnexpected();
 
-	if (m_pInfo)
-		m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true);
+	assert(m_bPiRcvd && m_pInfo);
+	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true);
 
-	assert(m_pInfo);
 	NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnState(msg.m_Description, m_pInfo->m_ID.m_Key);
 	OnFirstTaskDone(eStatus);
 }
@@ -933,8 +932,8 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	if (!t.m_Key.second)
 		ThrowUnexpected();
 
-	if (m_pInfo)
-		m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
+	assert(m_bPiRcvd && m_pInfo);
+	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
 
 	const Block::SystemState::ID& id = t.m_Key.first;
 
@@ -1294,6 +1293,7 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 		ThrowUnexpected();
 
 	m_bPiRcvd = true;
+	LOG_INFO() << m_RemoteAddr << "received PI";
 
 	PeerMan& pm = m_This.m_PeerMan; // alias
 
@@ -1310,9 +1310,13 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 		m_pInfo->m_pLive = NULL;
 
 		if (m_pInfo->m_ID.m_Key == ECC::Zero)
+		{
+			LOG_INFO() << "deleted anonymous PI";
 			pm.Delete(*m_pInfo); // it's anonymous.
+		}
 		else
 		{
+			LOG_INFO() << "PeerID is differnt";
 			pm.OnActive(*m_pInfo, false);
 			pm.RemoveAddr(*m_pInfo); // turned-out to be wrong
 		}
@@ -1320,23 +1324,33 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 		m_pInfo = NULL;
 	}
 
-	PeerMan::PeerInfoPlus* pPi = (PeerMan::PeerInfoPlus*) pm.OnPeer(msg.m_ID, m_RemoteAddr, true);
+	if (!msg.m_Port)
+	{
+		LOG_INFO() << "No PI port"; // doesn't accept incoming connections?
+		return;
+	}
+
+	io::Address addr = m_RemoteAddr;
+	addr.port(msg.m_Port);
+
+	PeerMan::PeerInfoPlus* pPi = (PeerMan::PeerInfoPlus*) pm.OnPeer(msg.m_ID, addr, true);
 	assert(pPi);
 
 	if (pPi->m_pLive)
 	{
 		// threre's already another connection open to the same peer!
 		// Currently - just ignore this.
-		m_bPiRcvd = false;
+		LOG_INFO() << "Duplicate connection with the same PI. Ignoring";
+		return;
 	}
-	else
-	{
-		// attach to it
-		pPi->m_pLive = this;
-		m_pInfo = pPi;
-		pm.OnActive(*pPi, true);
-		pm.OnSeen(*pPi);
-	}
+
+	// attach to it
+	pPi->m_pLive = this;
+	m_pInfo = pPi;
+	pm.OnActive(*pPi, true);
+	pm.OnSeen(*pPi);
+
+	LOG_INFO() << *m_pInfo << " connected, info updated";
 }
 
 void Node::Peer::OnMsg(proto::PeerInfo&& msg)
@@ -2217,6 +2231,8 @@ void Node::PeerMan::ActivatePeer(PeerInfo& pi)
 		p->Connect(pip.m_Addr.m_Value);
 	}
 	catch (...) {
+
+		LOG_WARNING() << pi << " ActivatePeer failed";
 
 		// TODO: asynchronously notify about failure.
 		// currently just detach from info, the caller doesn't any more actions

@@ -480,7 +480,7 @@ namespace beam
 
 			Input::Ptr pInp(new Input);
 			pInp->m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
-				pTx->m_vInputs.push_back(std::move(pInp));
+			pTx->m_vInputs.push_back(std::move(pInp));
 
 			ECC::Scalar::Native kOffset = utxo.m_Key;
 			ECC::Scalar::Native k;
@@ -517,7 +517,9 @@ namespace beam
 
 			pTx->Sort();
 			Transaction::Context ctx;
-			verify_test(pTx->IsValid(ctx));
+			bool isTxValid = pTx->IsValid(ctx);
+			verify_test(isTxValid);
+			return isTxValid;
 		}
 	};
 
@@ -1139,7 +1141,7 @@ namespace beam
 
 int main()
 {
-//	auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 
 	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
 	//	.db files
