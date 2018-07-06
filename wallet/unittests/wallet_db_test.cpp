@@ -273,6 +273,54 @@ void TestStateIDSearch()
     WALLET_CHECK(id.m_Hash == h);
 }
 
+void TestRollback()
+{
+    auto db = createSqliteKeychain();
+    for (uint64_t i = 0; i < 9; ++i)
+    {
+        Coin coin1 = { 5, Coin::Unspent, i, i + 10, KeyType::Regular, Height(i) };
+        db->store(coin1);
+    }
+
+    for (uint64_t i = 9; i < 10; ++i)
+    {
+        Coin coin1 = { 5, Coin::Spent, 0, 0, KeyType::Regular, Height(0), Height(i) };
+        db->store(coin1);
+    }
+
+    db->rollbackConfirmedUtxo(5);
+
+    vector<Coin> coins;
+    db->visit([&coins](const auto& c)->bool
+    {
+        coins.push_back(c);
+        return true;
+    });
+
+    for (int i = 0; i < 5; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Unspent);
+        WALLET_CHECK(c.m_confirmHeight != MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+    }
+
+    for (int i = 6; i < 9; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Unconfirmed);
+        WALLET_CHECK(c.m_confirmHeight == MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+    }
+    for (int i = 9; i < 10; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Unspent);
+        WALLET_CHECK(c.m_confirmHeight != MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+    }
+}
+
 void TestTxRollback()
 {
     auto keychain = createSqliteKeychain();
@@ -344,6 +392,7 @@ int main()
     TestStoreCoins();
     TestStoreTxRecord();
     TestTxRollback();
+    TestRollback();
 
     return WALLET_CHECK_RESULT;
 }

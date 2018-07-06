@@ -365,4 +365,9 @@ namespace beam {
     {
         return m_wallet.handle_node_message(move(msg));
     }
+
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Proof&& msg)
+    {
+        return m_wallet.handle_node_message(move(msg));
+    }
 }

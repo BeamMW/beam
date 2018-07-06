@@ -78,6 +78,9 @@ namespace
             return {};
         }
 
+        void rollbackConfirmedUtxo(Height /*minHeight*/) override
+        {}
+
     protected:
         std::vector<beam::Coin> m_coins;
     };
@@ -386,6 +389,18 @@ namespace
             cout << "GetHdr request chain header\n";
         }
 
+        void send_node_message(beam::proto::GetProofState &&) override
+        {
+            cout << "GetProofState\n";
+            int id = m_ps_id;
+            ++m_ps_id;
+            if (m_ps_id > 1)
+            {
+                m_ps_id = 0;
+            }
+            enqueueNetworkTask([this, id] {m_peers[id]->handle_node_message(proto::Proof{}); });
+        }
+
         void close_connection(beam::PeerId) override
         {
         }
@@ -396,6 +411,7 @@ namespace
 
         int m_proof_id{ 1 };
         int m_mined_id{ 0 };
+        int m_ps_id{ 0 };
     };
 }
 
@@ -463,9 +479,11 @@ enum NodeNetworkMessageCodes : uint8_t
     HdrCode = 3,
     GetUtxoProofCode = 10,
     ProofUtxoCode = 12,
-	ConfigCode = 20,
+    ConfigCode = 20,
     GetMinedCode = 15,
-    MinedCode = 16
+    MinedCode = 16,
+    GetProofStateCode = 8,
+    ProofCode = 11
 };
 
 class TestNode : public IErrorHandler
@@ -482,6 +500,7 @@ public:
         m_protocol.add_message_handler<TestNode, proto::GetProofUtxo,   &TestNode::on_message>(GetUtxoProofCode, this, 1, 2000);
 		m_protocol.add_message_handler<TestNode, proto::Config,         &TestNode::on_message>(ConfigCode, this, 1, 2000);
         m_protocol.add_message_handler<TestNode, proto::GetMined,       &TestNode::on_message>(GetMinedCode, this, 1, 2000);
+        m_protocol.add_message_handler<TestNode, proto::GetProofState,  &TestNode::on_message>(GetProofStateCode, this, 1, 2000);
     }
 
 private:
@@ -517,6 +536,12 @@ private:
     bool on_message(uint64_t connectionId, proto::GetMined&&)
     {
         send(connectionId, MinedCode, proto::Mined{});
+        return true;
+    }
+
+    bool on_message(uint64_t connectionId, proto::GetProofState&&)
+    {
+        send(connectionId, ProofCode, proto::Proof{});
         return true;
     }
 

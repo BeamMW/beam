@@ -25,13 +25,14 @@
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
     each(2, amount,        sep, INTEGER NOT NULL, obj) \
     each(3, status,        sep, INTEGER NOT NULL, obj) \
-    each(4, height,        sep, INTEGER NOT NULL, obj) \
+    each(4, createHeight,  sep, INTEGER NOT NULL, obj) \
     each(5, maturity,      sep, INTEGER NOT NULL, obj) \
     each(6, key_type,      sep, INTEGER NOT NULL, obj) \
     each(7, confirmHeight, sep, INTEGER, obj) \
     each(8, confirmHash,   sep, BLOB, obj) \
     each(9, createTxId,    sep, BLOB, obj) \
-    each(10, spentTxId,       , BLOB, obj)            // last item without separator
+    each(10, spentTxId,    sep, BLOB, obj) \
+    each(11, lockedHeight,    , BLOB, obj)            // last item without separator// last item without separator
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) \
@@ -326,18 +327,21 @@ namespace beam
     namespace
     {
         const char* WalletSeed = "WalletSeed";
+        const char* Version = "Version";
+        const char* SystemStateIDName = "SystemStateID";
         const int BusyTimeoutMs = 1000;
+        const int DbVersion = 1;
     }
 
-
-	Coin::Coin(const Amount& amount, Status status, const Height& height, const Height& maturity, KeyType keyType, Height confirmHeight)
+	Coin::Coin(const Amount& amount, Status status, const Height& createHeight, const Height& maturity, KeyType keyType, Height confirmHeight, Height lockedHeight)
 		: m_id{ 0 }
 		, m_amount{ amount }
 		, m_status{ status }
-		, m_height{ height }
+		, m_createHeight{ createHeight }
 		, m_maturity{ maturity }
 		, m_key_type{ keyType }
         , m_confirmHeight{ confirmHeight }
+        , m_lockedHeight{ lockedHeight }
 	{
 
 	}
@@ -355,7 +359,6 @@ namespace beam
 
 	IKeyChain::Ptr Keychain::init(const string& path, const string& password, const ECC::NoLeak<ECC::uintBig>& secretKey)
 	{
-        // TODO: add version
 		if (!boost::filesystem::exists(path))
 		{
 			auto keychain = make_shared<Keychain>(secretKey);
@@ -372,7 +375,8 @@ namespace beam
 
             {
 				const char* req = "CREATE TABLE " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST_WITH_TYPES, COMMA,) ");"
-                                  "CREATE INDEX HeightIndex ON " STORAGE_NAME"(confirmHeight)";
+                                  "CREATE INDEX ConfirmIndex ON " STORAGE_NAME"(confirmHeight);"
+                                  "CREATE INDEX SpentIndex ON " STORAGE_NAME"(lockedHeight);";
 				int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
 				throwIfError(ret, keychain->_db);
 			}
@@ -390,6 +394,7 @@ namespace beam
             }
 			{
 				keychain->setVar(WalletSeed, secretKey.V);
+                keychain->setVar(Version, DbVersion);
 			}
 
 			return static_pointer_cast<IKeyChain>(keychain);
@@ -422,6 +427,14 @@ namespace beam
 				int ret = sqlite3_busy_timeout(keychain->_db, BusyTimeoutMs);
 				throwIfError(ret, keychain->_db);
 			}
+            {
+                int version = 0;
+                if (!keychain->getVar(Version, version) || version != DbVersion)
+                {
+                    LOG_DEBUG() << "Invalid DB version: " << version << ". Expected: " << DbVersion;
+                    return Ptr();
+                }
+            }
 			{
 				const char* req = "SELECT name FROM sqlite_master WHERE type='table' AND name='" STORAGE_NAME "';";
 				int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
@@ -513,25 +526,22 @@ namespace beam
 		assert(coin.m_key_type != KeyType::Regular || coin.m_id > 0);
 		ECC::Scalar::Native key;
 		// For coinbase and free commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
-		DeriveKey(key, m_kdf, coin.m_height, coin.m_key_type, (coin.m_key_type == KeyType::Regular) ? coin.m_id : 0);
+		DeriveKey(key, m_kdf, coin.m_createHeight, coin.m_key_type, (coin.m_key_type == KeyType::Regular) ? coin.m_id : 0);
 		return key;
 	}
 
 	vector<beam::Coin> Keychain::getCoins(const ECC::Amount& amount, bool lock)
 	{
 		vector<beam::Coin> coins;
-
+        Block::SystemState::ID stateID = {};
+        getSystemStateID(stateID);
 		ECC::Amount sum = 0;
-
 		{
 			const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 ORDER BY amount ASC;";
 			sqlite::Statement stm(_db, req);
 			stm.bind(1, Coin::Unspent);
 
-			Block::SystemState::ID stateID = {};
-			getSystemStateID(stateID);
-
-			while (true)
+            while (true)
 			{
 				if (sum >= amount) break;
 
@@ -566,11 +576,12 @@ namespace beam
 
 			for (const auto& coin : coins)
 			{
-				const char* req = "UPDATE " STORAGE_NAME " SET status=?2 WHERE id=?1;";
+				const char* req = "UPDATE " STORAGE_NAME " SET status=?2, lockedHeight=?3 WHERE id=?1;";
 				sqlite::Statement stm(_db, req);
 
 				stm.bind(1, coin.m_id);
 				stm.bind(2, coin.m_status);
+                stm.bind(3, stateID.m_Height);
 
 				stm.step();
 			}
@@ -608,9 +619,9 @@ namespace beam
         if (coin.m_key_type == KeyType::Coinbase
             || coin.m_key_type == KeyType::Comission)
         {
-            const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE height=?1 AND key_type=?2;";
+            const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createHeight=?1 AND key_type=?2;";
             sqlite::Statement stm(_db, req);
-            stm.bind(1, coin.m_height);
+            stm.bind(1, coin.m_createHeight);
             stm.bind(2, coin.m_key_type);
             if (stm.step()) //has row
             {
@@ -719,8 +730,6 @@ namespace beam
 		return size;
 	}
 
-	const char* SystemStateIDName = "SystemStateID";
-
 	void Keychain::setSystemStateID(const Block::SystemState::ID& stateID)
 	{
 		setVar(SystemStateIDName, stateID);
@@ -775,6 +784,31 @@ namespace beam
             stm.get(1, id.m_Hash);
             return id;
         }
+    }
+
+    void Keychain::rollbackConfirmedUtxo(Height minHeight)
+    {
+        sqlite::Transaction trans(_db);
+        
+        {
+            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, confirmHeight=?2, lockedHeight=?2 WHERE confirmHeight > ?3 ;";
+            sqlite::Statement stm(_db, req);
+            stm.bind(1, Coin::Unconfirmed);
+            stm.bind(2, MaxHeight);
+            stm.bind(3, minHeight);
+            stm.step();
+        }
+
+        {
+            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, lockedHeight=?2 WHERE lockedHeight > ?3 AND confirmHeight <= ?3 ;";
+            sqlite::Statement stm(_db, req);
+            stm.bind(1, Coin::Unspent);
+            stm.bind(2, MaxHeight);
+            stm.bind(3, minHeight);
+            stm.step();
+        }
+
+        trans.commit();
     }
 
     vector<TxDescription> Keychain::getTxHistory(uint64_t start, int count)

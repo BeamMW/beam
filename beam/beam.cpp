@@ -123,9 +123,7 @@ namespace beam
         Amount total = 0;
         keychain->visit([&total, &currentHeight](const Coin& c)->bool
         {
-            Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
-                ? Rules::get().MaturityCoinbase
-                : Rules::get().MaturityStd);
+            Height lockHeight = c.m_maturity;
 
             if (c.m_status == Coin::Unspent
                 && lockHeight <= currentHeight)
@@ -143,9 +141,7 @@ namespace beam
         Amount total = 0;
         keychain->visit([&total, &currentHeight, &status, &keyType](const Coin& c)->bool
         {
-            Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
-                ? Rules::get().MaturityCoinbase
-                : Rules::get().MaturityStd);
+            Height lockHeight = c.m_maturity;
 
             if (c.m_status == status
              && c.m_key_type == keyType
@@ -269,7 +265,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 		coin.m_key_type = KeyType::Regular;
 		coin.m_amount = Rules::Coin * 10;
 		coin.m_status = Coin::Unconfirmed;
-		coin.m_height = h + Rules::HeightGenesis;
+		coin.m_createHeight = h + Rules::HeightGenesis;
 
 
 		m_vIncubationAndKeys[i].first = h;
@@ -708,7 +704,7 @@ int main(int argc, char* argv[])
                             cout << setw(8) << c.m_id
                                  << setw(16) << PrintableAmount(Rules::Coin * ((Amount)(c.m_amount / Rules::Coin)))
                                  << setw(16) << PrintableAmount(c.m_amount % Rules::Coin)
-                                 << setw(16) << static_cast<int64_t>(c.m_height)
+                                 << setw(16) << static_cast<int64_t>(c.m_createHeight)
                                  << setw(16) << static_cast<int64_t>(c.m_maturity)
                                  << "  " << c.m_status
                                  << "  " << c.m_key_type << '\n';

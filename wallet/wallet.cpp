@@ -422,31 +422,50 @@ namespace beam
         m_PendingStateProofs.pop_front();
         Merkle::Interpret(hv, msg.m_Proof);
 
-        if (hv == m_Definition)
+        if (hv != m_Definition) 
         {
-            // fast-forward
-            ++m_syncing; // Mined
-            m_network.send_node_message(proto::GetMined{ m_knownStateID.m_Height });
-
-            vector<Coin> unconfirmed;
-            m_keyChain->visit([&](const Coin& coin)
+            // rollback
+            // search for the latest valid known state
+            Height lowerBound = 0;
+            Height upperBound = m_knownStateID.m_Height;
+            Height step = (upperBound - lowerBound + 1) / 2;
+            Block::SystemState::ID id = {};
+            while (lowerBound < upperBound)
             {
-                if (coin.m_status == Coin::Unconfirmed
-                    || coin.m_status == Coin::Locked)
+                id = m_keyChain->getMedianStateID(lowerBound, upperBound);
+                Merkle::Hash hv = id.m_Hash;
+                Merkle::Interpret(hv, msg.m_Proof);
+                if (hv != m_NewDefinition)
                 {
-                    unconfirmed.emplace_back(coin);
+                    upperBound -= step + 1;
                 }
-
-                return true;
-            });
-
-            getUtxoProofs(unconfirmed);
+                else
+                {
+                    lowerBound += step;
+                }
+                step /= 2;
+            }
+            m_keyChain->rollbackConfirmedUtxo(id.m_Height);
+            m_knownStateID = id;
         }
-        else
+
+        // fast-forward
+        ++m_syncing; // Mined
+        m_network.send_node_message(proto::GetMined{ m_knownStateID.m_Height });
+
+        vector<Coin> unconfirmed;
+        m_keyChain->visit([&](const Coin& coin)
         {
-            // rollback and fast-forward
-            auto id = m_keyChain->getMedianStateID(0, m_knownStateID.m_Height);
-        }
+            if (coin.m_status == Coin::Unconfirmed
+             || coin.m_status == Coin::Locked)
+            {
+                unconfirmed.emplace_back(coin);
+            }
+
+            return true;
+        });
+
+        getUtxoProofs(unconfirmed);
 
         return finish_sync();
     }

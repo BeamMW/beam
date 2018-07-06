@@ -21,20 +21,22 @@ namespace beam
 
         Coin(const ECC::Amount& amount
            , Status status = Coin::Unspent
-           , const Height& height = 0
+           , const Height& createHeight = 0
            , const Height& maturity = MaxHeight
            , KeyType keyType = KeyType::Regular
-           , Height confirmHeight = MaxHeight);
+           , Height confirmHeight = MaxHeight
+           , Height lockedHeight = MaxHeight);
         Coin();
 
         uint64_t m_id;
         ECC::Amount m_amount;
         Status m_status;
-        Height m_height; // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
-        Height m_maturity; // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
+        Height m_createHeight;  // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
+        Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
         KeyType m_key_type;
-        Height m_confirmHeight;  
+        Height m_confirmHeight; 
         Merkle::Hash m_confirmHash;
+        Height m_lockedHeight;
         boost::optional<Uuid> m_createTxId;
         boost::optional<Uuid> m_spentTxId;
     };
@@ -60,6 +62,7 @@ namespace beam
 		virtual int getVarRaw(const char* name, void* data) const = 0;
         virtual Height getCurrentHeight() const = 0;
         virtual Block::SystemState::ID getMedianStateID(Height minHeight, Height maxHeight) = 0;
+        virtual void rollbackConfirmedUtxo(Height minHeight) = 0;
 
         virtual std::vector<TxDescription> getTxHistory(uint64_t start = 0, int count = std::numeric_limits<int>::max()) = 0;
         virtual boost::optional<TxDescription> getTx(const Uuid& txId) = 0;
@@ -106,6 +109,7 @@ namespace beam
 		int getVarRaw(const char* name, void* data) const override;
         Height getCurrentHeight() const override;
         Block::SystemState::ID getMedianStateID(Height minHeight, Height maxHeight) override;
+        void rollbackConfirmedUtxo(Height minHeight) override;
 
         std::vector<TxDescription> getTxHistory(uint64_t start, int count) override;
         boost::optional<TxDescription> getTx(const Uuid& txId) override;
