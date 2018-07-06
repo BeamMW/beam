@@ -26,8 +26,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 void TestNodeConnection::OnConnected()
 {
 	LOG_INFO() << "Send DataMissing message";
-	proto::DataMissing msgMiss;
-	Send(msgMiss);
+	Send(proto::DataMissing());
 
 	m_Timer->start(5 * 1000, false, [this]()
 	{
@@ -37,7 +36,7 @@ void TestNodeConnection::OnConnected()
 	});
 }
 
-void TestNodeConnection::OnClosed(int errorCode)
+void TestNodeConnection::OnClosed(int)
 {
 	LOG_INFO() << "Ok: connection is reset";
 	io::Reactor::get_Current().stop();

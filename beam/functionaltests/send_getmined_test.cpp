@@ -45,13 +45,10 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		m_ID = msg.m_ID;
 		m_IsInit = true;
 
-		proto::GetMined newMsg;
-		newMsg.m_HeightMin = msg.m_ID.m_Height + 5;
-
 		m_IsSendWrongMsg = true;
 
 		LOG_INFO() << "Send wrong GetMined message";
-		Send(newMsg);
+		Send(proto::GetMined{ m_ID.m_Height + 5 });
 	}
 }
 
@@ -71,14 +68,11 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 			io::Reactor::get_Current().stop();
 			return;
 		}
-
-		proto::GetMined newMsg;
-		newMsg.m_HeightMin = m_ID.m_Height;
-
+				
 		m_IsSendWrongMsg = false;
 
 		LOG_INFO() << "Send GetMined message";
-		Send(newMsg);
+		Send(proto::GetMined{ m_ID.m_Height });
 
 		return;
 	}

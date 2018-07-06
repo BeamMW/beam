@@ -47,11 +47,8 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		m_ID = msg.m_ID;
 		m_IsInit = true;
 
-		proto::GetHdr newMsg;
-		newMsg.m_ID = msg.m_ID;
-
 		LOG_INFO() << "Send GetHdr message";
-		Send(newMsg);
+		Send(proto::GetHdr{ m_ID });
 	}
 }
 
@@ -59,11 +56,8 @@ void TestNodeConnection::OnMsg(proto::Hdr&& msg)
 {
 	LOG_INFO() << "Ok: Header is received: height =  " << msg.m_Description.m_Height;
 
-	proto::GetBody newMsg;
-	newMsg.m_ID = m_ID;
-
 	LOG_INFO() << "Send GetBody message";
-	Send(newMsg);
+	Send(proto::GetBody{ m_ID });
 }
 
 void TestNodeConnection::OnMsg(proto::Body&& )
