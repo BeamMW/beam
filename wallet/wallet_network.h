@@ -135,8 +135,8 @@ namespace beam
         private:
             // NodeConnection
             void OnConnected() override;
-            void OnClosed(int errorCode) override;
-            bool OnMsg2(proto::Boolean&& msg) override;
+			void OnDisconnect(const DisconnectReason&) override;
+			bool OnMsg2(proto::Boolean&& msg) override;
             bool OnMsg2(proto::ProofUtxo&& msg) override;
             bool OnMsg2(proto::NewTip&& msg) override;
             bool OnMsg2(proto::Hdr&& msg) override;

@@ -90,25 +90,38 @@ void NodeConnection::Reset()
 	}
 
 	m_Connection = NULL;
+	m_pAsyncFail = NULL;
 
 	m_Protocol.ResetVars();
 }
 
 
-void NodeConnection::TestIoResult(const io::Result& res)
+void NodeConnection::TestIoResultAsync(const io::Result& res)
 {
-	if (!res)
-		throw std::runtime_error(io::error_descr(res.error()));
+	if (res)
+		return; // ok
+
+	if (m_pAsyncFail)
+		return;
+
+	io::ErrorCode err = res.error();
+
+	io::AsyncEvent::Callback cb = [this, err]() {
+		OnIoErr(err);
+	};
+
+	m_pAsyncFail = io::AsyncEvent::create(io::Reactor::get_Current().shared_from_this(), std::move(cb));
+	m_pAsyncFail->trigger();
 }
 
-void NodeConnection::OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, int status)
+void NodeConnection::OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status)
 {
 	NodeConnection* pThis = (NodeConnection*)tag;
 	assert(pThis);
 	pThis->OnConnectInternal2(std::move(newStream), status);
 }
 
-void NodeConnection::OnConnectInternal2(io::TcpStream::Ptr&& newStream, int status)
+void NodeConnection::OnConnectInternal2(io::TcpStream::Ptr&& newStream, io::ErrorCode status)
 {
 	assert(!m_Connection && m_ConnectPending);
 	m_ConnectPending = false;
@@ -119,24 +132,72 @@ void NodeConnection::OnConnectInternal2(io::TcpStream::Ptr&& newStream, int stat
 
 		try {
 			OnConnected();
-		} catch (...) {
-			OnClosed(-1);
+		}
+		catch (const std::exception& e) {
+			OnExc(e);
 		}
 	}
 	else
-		OnClosed(status);
+		OnIoErr(status);
+}
+
+void NodeConnection::OnExc(const std::exception& e)
+{
+	DisconnectReason r;
+	r.m_Type = DisconnectReason::ProcessingExc;
+	r.m_szErrorMsg = e.what();
+	OnDisconnect(r);
+}
+
+void NodeConnection::OnIoErr(io::ErrorCode err)
+{
+	DisconnectReason r;
+	r.m_Type = DisconnectReason::Io;
+	r.m_IoError = err;
+	OnDisconnect(r);
 }
 
 void NodeConnection::on_protocol_error(uint64_t, ProtocolError error)
 {
 	Reset();
-	OnClosed(-1);
+
+	DisconnectReason r;
+	r.m_Type = DisconnectReason::Protocol;
+	r.m_eProtoCode = error;
+	OnDisconnect(r);
+}
+
+std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReason& r)
+{
+	switch (r.m_Type)
+	{
+	case NodeConnection::DisconnectReason::Io:
+		s << io::error_descr(r.m_IoError);
+		break;
+
+	case NodeConnection::DisconnectReason::Protocol:
+		s << "Protocol " << r.m_eProtoCode;
+		break;
+
+	case NodeConnection::DisconnectReason::ProcessingExc:
+		s << r.m_szErrorMsg;
+		break;
+
+	default:
+		assert(false);
+	}
+	return s;
 }
 
 void NodeConnection::on_connection_error(uint64_t, io::ErrorCode errorCode)
 {
 	Reset();
-	OnClosed(errorCode);
+	OnIoErr(errorCode);
+}
+
+void NodeConnection::ThrowUnexpected(const char* sz)
+{
+	throw std::runtime_error(sz ? sz : "proto violation");
 }
 
 void NodeConnection::Connect(const io::Address& addr)
@@ -148,7 +209,7 @@ void NodeConnection::Connect(const io::Address& addr)
 		uint64_t(this),
 		OnConnectInternal);
 
-	TestIoResult(res);
+	TestIoResultAsync(res);
 	m_ConnectPending = true;
 }
 
@@ -168,13 +229,15 @@ void NodeConnection::Accept(io::TcpStream::Ptr&& newStream)
 #define THE_MACRO(code, msg) \
 void NodeConnection::Send(const msg& v) \
 { \
+	if (m_pAsyncFail) \
+		return; \
 	m_SerializeCache.clear(); \
 	m_Protocol.serialize(m_SerializeCache, uint8_t(code), v); \
 	m_Protocol.Encrypt(m_SerializeCache); \
 	io::Result res = m_Connection->write_msg(m_SerializeCache); \
 	m_SerializeCache.clear(); \
 \
-	TestIoResult(res); \
+	TestIoResultAsync(res); \
 } \
 \
 bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
@@ -182,8 +245,8 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
 	try { \
 		/* checkpoint */ \
         return OnMsg2(std::move(v)); \
-	} catch (...) { \
-		OnClosed(-1); \
+	} catch (const std::exception& e) { \
+		OnExc(e); \
 		return false; \
 	} \
 } \
@@ -219,7 +282,7 @@ void NodeConnection::SecureConnect()
 	GenerateSChannelNonce(nonce);
 
 	if (nonce == ECC::Zero)
-		throw std::runtime_error("SChannel not supported");
+		ThrowUnexpected("SChannel not supported");
 
 	SChannelInitiate msg;
 	Sk2Pk(msg.m_NoncePub, nonce);
@@ -242,7 +305,7 @@ void NodeConnection::OnMsg(SChannelInitiate&& msg)
 void NodeConnection::OnMsg(SChannelReady&& msg)
 {
 	if (!m_Protocol.m_CipherOut.m_bON)
-		throw std::runtime_error("peer insane");
+		ThrowUnexpected();
 
 	ECC::NoLeak<ECC::Hash::Value> hv;
 	m_Protocol.InitCipher(m_Protocol.m_CipherIn);
@@ -277,7 +340,7 @@ bool NodeConnection::IsSecureOut() const
 void NodeConnection::OnMsg(Authentication&& msg)
 {
 	if (!m_Protocol.m_CipherIn.m_bON)
-		throw std::runtime_error("peer insane");
+		ThrowUnexpected();
 
 	// verify ID
 	ECC::Scalar::Native sk = m_Protocol.m_MyNonce.V;
@@ -292,7 +355,7 @@ void NodeConnection::OnMsg(Authentication&& msg)
 	pt.m_Y = false;
 
 	if (!msg.m_Sig.IsValid(hv, pt))
-		throw std::runtime_error("peer insane");
+		ThrowUnexpected();
 }
 
 /////////////////////////

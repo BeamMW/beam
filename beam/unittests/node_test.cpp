@@ -779,8 +779,8 @@ namespace beam
 				OnTimer();
 			}
 
-			virtual void OnClosed(int errorCode) override {
-				fail_test("OnClosed");
+			virtual void OnDisconnect(const DisconnectReason&) override {
+				fail_test("OnDisconnect");
 			}
 
 			io::Timer::Ptr m_pTimer;
@@ -928,8 +928,8 @@ namespace beam
 				Send(msgCfg);
 			}
 
-			virtual void OnClosed(int errorCode) override {
-				fail_test("OnClosed");
+			virtual void OnDisconnect(const DisconnectReason&) override {
+				fail_test("OnDisconnect");
 				io::Reactor::get_Current().stop();
 			}
 
@@ -1092,8 +1092,8 @@ namespace beam
 				Send(msgCfg);
 			}
 
-			virtual void OnClosed(int errorCode) override {
-				fail_test("OnClosed");
+			virtual void OnDisconnect(const DisconnectReason&) override {
+				fail_test("OnDisconnect");
 			}
 
 			virtual void OnMsg(proto::NewTip&& msg) override {

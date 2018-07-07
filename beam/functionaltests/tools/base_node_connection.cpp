@@ -78,9 +78,9 @@ void BaseTestNodeConnection::OnConnected()
 	RunTest();
 }
 
-void BaseTestNodeConnection::OnClosed(int errorCode)
+void BaseTestNodeConnection::OnDisconnect(const DisconnectReason& r)
 {
-	LOG_ERROR() << "problem with connecting to node: code = " << io::error_str(static_cast<io::ErrorCode>(errorCode));
+	LOG_ERROR() << "problem with connecting to node: " << r;
 	m_Failed = true;
 	io::Reactor::get_Current().stop();
 }

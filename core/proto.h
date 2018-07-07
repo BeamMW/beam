@@ -222,14 +222,15 @@ namespace proto {
 	{
 		ProtocolPlus m_Protocol;
 		std::unique_ptr<Connection> m_Connection;
+		io::AsyncEvent::Ptr m_pAsyncFail;
 		bool m_ConnectPending;
 
 		SerializedMsg m_SerializeCache;
 
-		static void TestIoResult(const io::Result& res);
+		void TestIoResultAsync(const io::Result& res);
 
-		static void OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, int status);
-		void OnConnectInternal2(io::TcpStream::Ptr&& newStream, int status);
+		static void OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode);
+		void OnConnectInternal2(io::TcpStream::Ptr&& newStream, io::ErrorCode);
 
 		virtual void on_protocol_error(uint64_t, ProtocolError error) override;
 		virtual void on_connection_error(uint64_t, io::ErrorCode errorCode) override;
@@ -243,6 +244,8 @@ namespace proto {
 		NodeConnection();
 		virtual ~NodeConnection();
 		void Reset();
+
+		static void ThrowUnexpected(const char* = NULL);
 
 		void Connect(const io::Address& addr);
 		void Accept(io::TcpStream::Ptr&& newStream);
@@ -265,7 +268,28 @@ namespace proto {
 		const Connection* get_Connection() { return m_Connection.get(); }
 
 		virtual void OnConnected() {}
-		virtual void OnClosed(int errorCode) {}
+
+		struct DisconnectReason
+		{
+			enum Enum {
+				Io,
+				Protocol,
+				ProcessingExc
+			};
+
+			Enum m_Type;
+
+			union {
+				io::ErrorCode m_IoError;
+				ProtocolError m_eProtoCode;
+				const char* m_szErrorMsg;
+			};
+		};
+
+		virtual void OnDisconnect(const DisconnectReason&) {}
+
+		void OnIoErr(io::ErrorCode);
+		void OnExc(const std::exception&);
 
 #define THE_MACRO(code, msg) void Send(const msg& v);
 		BeamNodeMsgsAll(THE_MACRO)
@@ -280,7 +304,7 @@ namespace proto {
 		};
 	};
 
-
+	std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReason&);
 
 
 	class PeerManager

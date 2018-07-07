@@ -45,17 +45,11 @@ void Node::WantedTx::OnExpired(const KeyType& key)
 	proto::GetTransaction msg;
 	msg.m_ID = key;
 
-	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
+	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
 	{
-		Peer& peer = *(it++);
-
+		Peer& peer = *it;
 		if (peer.m_Config.m_SpreadingTransactions)
-			try {
-				peer.Send(msg);
-			}
-			catch (...) {
-				peer.DeleteSelf(true, false);
-			}
+			peer.Send(msg);
 	}
 }
 
@@ -76,17 +70,11 @@ void Node::Bbs::WantedMsg::OnExpired(const KeyType& key)
 	proto::BbsGetMsg msg;
 	msg.m_Key = key;
 
-	for (PeerList::iterator it = get_ParentObj().get_ParentObj().m_lstPeers.begin(); get_ParentObj().get_ParentObj().m_lstPeers.end() != it; )
+	for (PeerList::iterator it = get_ParentObj().get_ParentObj().m_lstPeers.begin(); get_ParentObj().get_ParentObj().m_lstPeers.end() != it; it++)
 	{
-		Peer& peer = *(it++);
-
+		Peer& peer = *it;
 		if (peer.m_Config.m_Bbs)
-			try {
-				peer.Send(msg);
-			}
-			catch (...) {
-				peer.DeleteSelf(true, false);
-			}
+			peer.Send(msg);
 	}
 
 	get_ParentObj().MaybeCleanup();
@@ -216,11 +204,12 @@ void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 		try {
 			AssignTask(t, *pSel);
 			return; // done
-
-		} catch (...) {
-			pSel->DeleteSelf(true, false);
-			//  retry
 		}
+		catch (const std::exception& e) {
+			pSel->OnExc(e);
+		}
+
+		//  retry
 	}
 }
 
@@ -334,20 +323,16 @@ void Node::Processor::OnNewState()
 	
 	get_ParentObj().m_Miner.SetTimer(0, true); // don't start mined block construction, because we're called in the context of NodeProcessor, which holds the DB transaction.
 
-	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
+	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
 	{
-		Peer& peer = *(it++);
+		Peer& peer = *it;
 
-		try {
-			if (peer.m_bConnected && (peer.m_TipHeight <= msg.m_ID.m_Height))
-			{
-				peer.Send(msg);
+		if (peer.m_bConnected && (peer.m_TipHeight <= msg.m_ID.m_Height))
+		{
+			peer.Send(msg);
 
-				if (peer.m_Config.m_AutoSendHdr)
-					peer.Send(msgHdr);
-			}
-		} catch (...) {
-			peer.DeleteSelf(true, false);
+			if (peer.m_Config.m_AutoSendHdr)
+				peer.Send(msgHdr);
 		}
 	}
 
@@ -831,15 +816,10 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	LOG_INFO() << *m_pInfo << " connected, info updated";
 }
 
-void Node::Peer::OnClosed(int errorCode)
+void Node::Peer::OnDisconnect(const DisconnectReason& dr)
 {
-	if (-1 == errorCode)
-		DeleteSelf(true, true);
-	else
-	{
-		// Log error code?
-		DeleteSelf(true, false);
-	}
+	LOG_WARNING() << m_RemoteAddr << ": " << dr;
+	DeleteSelf(true, DisconnectReason::Io != dr.m_Type);
 }
 
 void Node::Peer::ReleaseTasks()
@@ -931,11 +911,6 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
 	if (m_This.m_Processor.IsStateNeeded(msg.m_ID))
 		m_This.m_Processor.RequestData(msg.m_ID, false, m_pInfo ? &m_pInfo->m_ID.m_Key : NULL);
-}
-
-void Node::Peer::ThrowUnexpected()
-{
-	throw std::runtime_error("unexpected");
 }
 
 Node::Task& Node::Peer::get_FirstTask()
@@ -1100,19 +1075,15 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 			proto::HaveTransaction msgOut;
 			msgOut.m_ID = key.m_Key;
 
-			for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; )
+			for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; it++)
 			{
-				Peer& peer = *(it++);
+				Peer& peer = *it;
 				if (this == &peer)
 					continue;
 				if (!peer.m_Config.m_SpreadingTransactions)
 					continue;
 
-				try {
-					peer.Send(msgOut);
-				} catch (...) {
-					peer.DeleteSelf(true, false);
-				}
+				peer.Send(msgOut);
 			}
 
 			m_This.m_TxPool.AddValidTx(std::move(msg.m_Transaction), ctx, key.m_Key);
@@ -1127,10 +1098,7 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 void Node::Peer::OnMsg(proto::Config&& msg)
 {
 	if (msg.m_CfgChecksum != Rules::get().Checksum)
-	{
-		LOG_WARNING() << "Incompatible peer cfg!";
-		ThrowUnexpected();
-	}
+		ThrowUnexpected("Incompatible peer cfg!");
 
 	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr && m_This.m_Processor.m_Cursor.m_Sid.m_Row)
 	{
@@ -1233,7 +1201,7 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 	{
 		// Who's asking?
 		if (!m_bOwner)
-			ThrowUnexpected(); // unauthorized
+			ThrowUnexpected("Unauthorized Mining report request"); // unauthorized
 	}
 
 	proto::Mined msgOut;
@@ -1408,19 +1376,15 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 	proto::BbsHaveMsg msgOut;
 	msgOut.m_Key = wlk.m_Data.m_Key;
 
-	for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; )
+	for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; it++)
 	{
-		Peer& peer = *(it++);
+		Peer& peer = *it;
 		if (this == &peer)
 			continue;
 		if (!peer.m_Config.m_Bbs)
 			continue;
 
-		try {
-			peer.Send(msgOut);
-		} catch (...) {
-			peer.DeleteSelf(true, false);
-		}
+		peer.Send(msgOut);
 	}
 
 	// 2. Send to subscribed
@@ -1429,19 +1393,14 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 	Bbs::Subscription::InBbs key;
 	key.m_Channel = msg.m_Channel;
 
-	for (std::pair<It, It> range = m_This.m_Bbs.m_Subscribed.equal_range(key); range.first != range.second; )
+	for (std::pair<It, It> range = m_This.m_Bbs.m_Subscribed.equal_range(key); range.first != range.second; range.first++)
 	{
-		Bbs::Subscription& s = (range.first++)->get_ParentObj();
+		Bbs::Subscription& s = range.first->get_ParentObj();
 
 		if (this == s.m_pPeer)
 			continue;
 
-		try {
-			s.m_pPeer->SendBbsMsg(wlk.m_Data);
-		}
-		catch (...) {
-			s.m_pPeer->DeleteSelf(true, false);
-		}
+		s.m_pPeer->SendBbsMsg(wlk.m_Data);
 	}
 }
 
@@ -2261,21 +2220,8 @@ void Node::PeerMan::ActivatePeer(PeerInfo& pi)
 	p->m_pInfo = &pip;
 	pip.m_pLive = p;
 
-	try {
-		p->Connect(pip.m_Addr.m_Value);
-		p->m_Port = pip.m_Addr.m_Value.port();
-	}
-	catch (...) {
-
-		LOG_WARNING() << pi << " ActivatePeer failed";
-
-		// TODO: asynchronously notify about failure.
-		// currently just detach from info, the caller doesn't any more actions
-		pip.m_pLive = NULL;
-		p->m_pInfo = NULL;
-
-		p->DeleteSelf(true, false);
-	}
+	p->Connect(pip.m_Addr.m_Value);
+	p->m_Port = pip.m_Addr.m_Value.port();
 }
 
 void Node::PeerMan::DeactivatePeer(PeerInfo& pi)

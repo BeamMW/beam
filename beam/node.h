@@ -293,7 +293,6 @@ private:
 		void OnResendPeers();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, bool bIsBan);
-		static void ThrowUnexpected();
 
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
@@ -301,7 +300,7 @@ private:
 
 		// proto::NodeConnection
 		virtual void OnConnected() override;
-		virtual void OnClosed(int errorCode) override;
+		virtual void OnDisconnect(const DisconnectReason&) override;
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&) override; // Must be overridden to support SChannel
 		// messages
 		virtual void OnMsg(proto::SChannelReady&&) override;
