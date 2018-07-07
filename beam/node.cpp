@@ -1824,8 +1824,9 @@ void Node::Compressor::OnNotify()
 
 			get_ParentObj().m_Processor.ExportMacroBlock(rw, m_hrInplaceRequest);
 		}
-		catch (...) {
+		catch (const std::exception& e) {
 			m_bStop = true; // error indication
+			LOG_WARNING() << "History add " << e.what();
 		}
 
 		{
@@ -1910,7 +1911,8 @@ void Node::Compressor::Proceed()
 {
 	try {
 		m_bSuccess = ProceedInternal();
-	} catch (...) {
+	} catch (const std::exception& e) {
+		LOG_WARNING() << e.what();
 	}
 
 	if (!(m_bSuccess || m_bStop))
