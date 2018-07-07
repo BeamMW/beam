@@ -81,10 +81,15 @@ public:
     }
 
     template <typename MsgObject> void serialize(SerializedMsg& out, MsgType type, const MsgObject& obj) {
-        _ser.new_message(type);
-        _ser & obj;
+		serializeNoFinalize(out, type, obj);
         _ser.finalize(out);
     }
+
+	template <typename MsgObject> MsgSerializer& serializeNoFinalize(SerializedMsg& out, MsgType type, const MsgObject& obj) {
+		_ser.new_message(type);
+		_ser & obj;
+		return _ser;
+	}
 
     template <typename MsgObject> io::SharedBuffer serialize(MsgType type, const MsgObject& obj, bool makeUnique) {
         SerializedMsg fragments;
