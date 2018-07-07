@@ -363,7 +363,7 @@ namespace ECC
 		void Write(const void*, uint32_t);
 
 		template <typename T>
-		Processor& operator << (const T& t)
+		Mac& operator << (const T& t)
 		{
 			static_assert(sizeof(Processor) == sizeof(inner));
 			((Processor&)inner) << t;

@@ -111,7 +111,7 @@ void NodeConnection::TestIoResultAsync(const io::Result& res)
 	};
 
 	m_pAsyncFail = io::AsyncEvent::create(io::Reactor::get_Current().shared_from_this(), std::move(cb));
-	m_pAsyncFail->trigger();
+	m_pAsyncFail->get_trigger()();
 }
 
 void NodeConnection::OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status)
