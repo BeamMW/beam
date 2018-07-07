@@ -168,7 +168,7 @@ namespace ECC {
 
 	bool Scalar::Native::operator == (const Native& v) const
 	{
-		for (int i = 0; i < _countof(d); i++)
+		for (size_t i = 0; i < _countof(d); i++)
 			if (d[i] != v.d[i])
 				return false;
 		return true;
@@ -611,7 +611,7 @@ namespace ECC {
 
 				for (int j = 0; j < nLevelsPerWord; j++, pPts += nPointsPerLevel)
 				{
-					int nSel = (nPointsPerLevel - 1) & n;
+					uint32_t nSel = (nPointsPerLevel - 1) & n;
 					n >>= nBitsPerLevel;
 
 					/** This uses a conditional move to avoid any secret data in array indexes.
@@ -730,7 +730,7 @@ namespace ECC {
 		Generator::FromPt(m_Fast.m_pPt[0], val);
 		Point::Native npos, nums = val;
 
-		for (int i = 1; i < _countof(m_Fast.m_pPt); i++)
+		for (size_t i = 1; i < _countof(m_Fast.m_pPt); i++)
 		{
 			if (i & (i + 1))
 				npos += val;
@@ -813,7 +813,7 @@ namespace ECC {
 			secp256k1_ge ge;
 			Generator::ToPt(m_pPt[0], ge, Context::get().m_Casual.m_Nums, true);
 
-			for (int i = 1; i < _countof(m_pPt); i++)
+			for (size_t i = 1; i < _countof(m_pPt); i++)
 			{
 				m_pPt[i] = m_pPt[i - 1];
 				m_pPt[i] += p;
@@ -911,7 +911,7 @@ namespace ECC {
 
 						int nVal = (n >> (iLayerPrep * Prepared::Secure::nBits)) & ((1 << Prepared::Secure::nBits) - 1);
 
-						for (int i = 0; i < _countof(x.m_pPt); i++)
+						for (size_t i = 0; i < _countof(x.m_pPt); i++)
 							Generator::object_cmov(ge_s.V, x.m_pPt[i], i == nVal);
 
 						Generator::ToPt(res, ge.V, ge_s.V, false);
@@ -1247,13 +1247,13 @@ namespace ECC {
 
 			void Init(const Modifier& mod)
 			{
-				for (int j = 0; j < _countof(mod.m_pMultiplier); j++)
+				for (size_t j = 0; j < _countof(mod.m_pMultiplier); j++)
 				{
 					m_pUse[j] = (NULL != mod.m_pMultiplier[j]);
 					if (m_pUse[j])
 					{
 						m_pPwr[j][0] = 1U;
-						for (int i = 1; i < nDim; i++)
+						for (uint32_t i = 1; i < nDim; i++)
 							m_pPwr[j][i] = m_pPwr[j][i - 1] * *(mod.m_pMultiplier[j]);
 					}
 				}
@@ -1289,7 +1289,7 @@ namespace ECC {
 			{
 			}
 
-			void Proceed(uint32_t iPos, int iCycle, const Scalar::Native& k);
+			void Proceed(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k);
 		};
 
 		static const uint32_t s_iCycle0 = 2; // condense source generators into points (after 3 iterations, 8 points)
@@ -1401,7 +1401,7 @@ namespace ECC {
 		}
 	}
 
-	void InnerProduct::Calculator::Aggregator::Proceed(uint32_t iPos, int iCycle, const Scalar::Native& k)
+	void InnerProduct::Calculator::Aggregator::Proceed(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k)
 	{
 		if (iCycle != m_iCycleTrg)
 		{

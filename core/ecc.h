@@ -146,13 +146,13 @@ namespace ECC
 			static_assert(sizeof(m_pData) >= sizeof(x) + (nOffset >> 3), "too small");
 			static_assert(T(-1) > 0, "must be unsigned");
 
-			for (int i = 0; i < sizeof(x); i++, x >>= 8)
+			for (size_t i = 0; i < sizeof(x); i++, x >>= 8)
 				m_pData[_countof(m_pData) - 1 - (nOffset >> 3) - i] = (uint8_t) x;
 		}
 
 		void Inc()
 		{
-			for (int i = _countof(m_pData); i--; )
+			for (size_t i = _countof(m_pData); i--; )
 				if (++m_pData[i])
 					break;
 
@@ -179,12 +179,12 @@ namespace ECC
 			uintBig_t res;
 			res = Zero;
 
-			for (int j = 0; j < _countof(x.m_pData); j++)
+			for (size_t j = 0; j < _countof(x.m_pData); j++)
 			{
 				uint8_t y = x.m_pData[_countof(x.m_pData) - 1 - j];
 
 				uint16_t carry = 0;
-				for (int i = _countof(m_pData); i-- > j; )
+				for (size_t i = _countof(m_pData); i-- > j; )
 				{
 					uint16_t val = m_pData[i];
 					val *= y;

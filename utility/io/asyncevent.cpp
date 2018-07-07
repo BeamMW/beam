@@ -32,7 +32,7 @@ AsyncEvent::~AsyncEvent() {
     //_valid = false;
 }
 
-Result AsyncEvent::trigger() {
+Result AsyncEvent::post() {
     ErrorCode errorCode = (ErrorCode)uv_async_send((uv_async_t*)_handle);
     return make_result(errorCode);
 }

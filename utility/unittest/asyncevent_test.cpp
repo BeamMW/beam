@@ -20,7 +20,7 @@ void asyncevent_test() {
         [reactor, e]() {
             for (int i=0; i<4; ++i) {
                 cout << "triggering async event from foreign thread..." << endl;
-                e->trigger();
+                e->post();
                 this_thread::sleep_for(chrono::microseconds(300000));
                 //usleep(300000);
             }

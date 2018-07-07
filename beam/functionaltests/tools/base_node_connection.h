@@ -39,6 +39,6 @@ protected:
 	beam::proto::NewTransaction m_MsgTx;
 	ECC::Scalar::Native m_Offset;
 	std::vector<std::pair<std::function<void()>, bool>> m_Tests;
-	int m_Index;
+	size_t m_Index;
 	boost::program_options::variables_map m_VM;	
 };
