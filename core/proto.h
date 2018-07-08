@@ -198,8 +198,10 @@ namespace proto {
 
 		// Protocol
 		virtual void Decrypt(uint8_t*, uint32_t nSize) override;
+		virtual uint32_t get_MacSize() override;
+		virtual bool VerifyMsg(const uint8_t*, uint32_t nSize) override;
 
-		void Encrypt(SerializedMsg&);
+		void Encrypt(SerializedMsg&, MsgSerializer&);
 	};
 
 	struct INodeMsgHandler

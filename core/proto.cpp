@@ -30,8 +30,33 @@ void ProtocolPlus::Decrypt(uint8_t* p, uint32_t nSize)
 		m_CipherIn.XCrypt(p, nSize);
 }
 
-void ProtocolPlus::Encrypt(SerializedMsg& sm)
+uint32_t ProtocolPlus::get_MacSize()
 {
+	return m_CipherIn.m_bON ? sizeof(uint64_t) : 0;
+}
+
+bool ProtocolPlus::VerifyMsg(const uint8_t* p, uint32_t nSize)
+{
+	if (!m_CipherIn.m_bON)
+		return true;
+
+	if (nSize < sizeof(uint64_t))
+		return false; // could happen on (sort of) overflow attach?
+
+	return memis0(p + nSize - sizeof(uint64_t), sizeof(uint64_t));
+}
+
+void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
+{
+	if (m_CipherOut.m_bON)
+	{
+		ECC::uintBig_t<64> val;
+		val = ECC::Zero;
+		ser & val;
+	}
+
+	ser.finalize(sm);
+
 	if (m_CipherOut.m_bON)
 		for (size_t i = 0; i < sm.size(); i++)
 		{
@@ -232,8 +257,8 @@ void NodeConnection::Send(const msg& v) \
 	if (m_pAsyncFail) \
 		return; \
 	m_SerializeCache.clear(); \
-	m_Protocol.serialize(m_SerializeCache, uint8_t(code), v); \
-	m_Protocol.Encrypt(m_SerializeCache); \
+	MsgSerializer& ser = m_Protocol.serializeNoFinalize(m_SerializeCache, uint8_t(code), v); \
+	m_Protocol.Encrypt(m_SerializeCache, ser); \
 	io::Result res = m_Connection->write_msg(m_SerializeCache); \
 	m_SerializeCache.clear(); \
 \
