@@ -40,40 +40,101 @@ bool ProtocolPlus::VerifyMsg(const uint8_t* p, uint32_t nSize)
 	if (!m_CipherIn.m_bON)
 		return true;
 
-	if (nSize < sizeof(uint64_t))
-		return false; // could happen on (sort of) overflow attach?
+	if (nSize < sizeof(MacValue))
+		return false; // could happen on (sort of) overflow attack?
 
-	return memis0(p + nSize - sizeof(uint64_t), sizeof(uint64_t));
+	ECC::Hash::Mac hm = m_HMac;
+	hm.Write(p, nSize - sizeof(MacValue));
+
+	MacValue hmac;
+	get_HMac(hm, hmac);
+
+	return !memcmp(p + nSize - sizeof(MacValue), hmac.m_pData, sizeof(MacValue));
+}
+
+void ProtocolPlus::get_HMac(ECC::Hash::Mac& hm, MacValue& res)
+{
+	ECC::Hash::Value hv;
+	hm >> hv;
+
+	static_assert(sizeof(hv) >= sizeof(MacValue), "");
+	memcpy(res.m_pData, hv.m_pData, sizeof(res.m_pData));
 }
 
 void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
 {
+	MacValue hmac;
+
 	if (m_CipherOut.m_bON)
 	{
-		ECC::uintBig_t<64> val;
-		val = ECC::Zero;
-		ser & val;
+		// 1. append dummy of the needed size
+		hmac = ECC::Zero;
+		ser & hmac;
 	}
 
 	ser.finalize(sm);
 
 	if (m_CipherOut.m_bON)
+	{
+		// 2. get size
+		size_t n = 0;
+
+		for (size_t i = 0; i < sm.size(); i++)
+			n += sm[i].size;
+
+		// 3. Calculate
+		ECC::Hash::Mac hm = m_HMac;
+		size_t n2 = n - sizeof(MacValue);
+
+		for (size_t i = 0; ; i++)
+		{
+			assert(i < sm.size());
+			io::IOVec& iov = sm[i];
+			if (iov.size >= n2)
+			{
+				hm.Write(iov.data, n2);
+				break;
+			}
+
+			hm.Write(iov.data, iov.size);
+			n2 -= iov.size;
+		}
+
+		get_HMac(hm, hmac);
+
+		// 4. Overwrite the hmac, encrypt
+		n2 = n;
+
 		for (size_t i = 0; i < sm.size(); i++)
 		{
 			io::IOVec& iov = sm[i];
-			m_CipherOut.XCrypt((uint8_t*) iov.data, (uint32_t) iov.size);
+			uint8_t* dst = (uint8_t*)iov.data;
+
+			if (n2 <= sizeof(hmac))
+				memcpy(dst, hmac.m_pData + sizeof(hmac) - n2, iov.size);
+			else
+			{
+				size_t offs = n2 - sizeof(hmac);
+				if (offs < iov.size)
+					memcpy(dst + offs, hmac.m_pData, iov.size - offs);
+			}
+
+			n2 -= iov.size;
+
+			m_CipherOut.XCrypt(dst, (uint32_t)iov.size);
 		}
+	}
 }
 
-void ProtocolPlus::InitCipher(Cipher& c)
+void ProtocolPlus::InitCipher(Cipher& c, bool bHMac)
 {
-	assert(!(m_MyNonce.V.m_Value == ECC::Zero));
+	assert(!(m_MyNonce == ECC::Zero));
 
 	 // Diffie-Hellman
 	ECC::Point pt;
 	pt.m_X = m_RemoteNonce;
 	pt.m_Y = false;
-	ECC::Point::Native ptSecret = ECC::Point::Native(pt) * ECC::Scalar::Native(m_MyNonce.V);
+	ECC::Point::Native ptSecret = ECC::Point::Native(pt) * m_MyNonce;
 
 	ECC::NoLeak<ECC::Hash::Processor> hp;
 	ECC::NoLeak<ECC::Hash::Value> hvSecret;
@@ -88,6 +149,9 @@ void ProtocolPlus::InitCipher(Cipher& c)
 	memcpy(c.m_Counter.m_pData, hvSecret.V.m_pData, sizeof(c.m_Counter.m_pData));
 
 	c.m_bON = true;
+
+	if (bHMac)
+		m_HMac.Reset(hvSecret.V.m_pData, sizeof(hvSecret.V.m_pData));
 }
 
 /////////////////////////
@@ -300,20 +364,17 @@ void NodeConnection::GenerateSChannelNonce(ECC::Scalar::Native& sk)
 
 void NodeConnection::SecureConnect()
 {
-	if (!(m_Protocol.m_MyNonce.V.m_Value == ECC::Zero))
+	if (!(m_Protocol.m_MyNonce == ECC::Zero))
 		return; // already sent
 
-	ECC::Scalar::Native nonce;
-	GenerateSChannelNonce(nonce);
+	GenerateSChannelNonce(m_Protocol.m_MyNonce);
 
-	if (nonce == ECC::Zero)
+	if (m_Protocol.m_MyNonce == ECC::Zero)
 		ThrowUnexpected("SChannel not supported");
 
 	SChannelInitiate msg;
-	Sk2Pk(msg.m_NoncePub, nonce);
+	Sk2Pk(msg.m_NoncePub, m_Protocol.m_MyNonce);
 	Send(msg);
-
-	m_Protocol.m_MyNonce.V = nonce;
 }
 
 void NodeConnection::OnMsg(SChannelInitiate&& msg)
@@ -324,7 +385,7 @@ void NodeConnection::OnMsg(SChannelInitiate&& msg)
 	Send(msgOut); // activating new cipher.
 
 	m_Protocol.m_RemoteNonce = msg.m_NoncePub;
-	m_Protocol.InitCipher(m_Protocol.m_CipherOut);
+	m_Protocol.InitCipher(m_Protocol.m_CipherOut, true);
 }
 
 void NodeConnection::OnMsg(SChannelReady&& msg)
@@ -333,7 +394,7 @@ void NodeConnection::OnMsg(SChannelReady&& msg)
 		ThrowUnexpected();
 
 	ECC::NoLeak<ECC::Hash::Value> hv;
-	m_Protocol.InitCipher(m_Protocol.m_CipherIn);
+	m_Protocol.InitCipher(m_Protocol.m_CipherIn, false);
 }
 
 void NodeConnection::ProveID(ECC::Scalar::Native& sk, uint8_t nIDType)
@@ -368,9 +429,8 @@ void NodeConnection::OnMsg(Authentication&& msg)
 		ThrowUnexpected();
 
 	// verify ID
-	ECC::Scalar::Native sk = m_Protocol.m_MyNonce.V;
 	PeerID myPubNonce;
-	Sk2Pk(myPubNonce, sk);
+	Sk2Pk(myPubNonce, m_Protocol.m_MyNonce);
 
 	ECC::Hash::Value hv;
 	ECC::Hash::Processor() << myPubNonce >> hv;

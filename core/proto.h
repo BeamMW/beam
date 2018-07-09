@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.h"
+#include "ecc_native.h"
 #include "../utility/bridge.h"
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"
@@ -189,12 +190,16 @@ namespace proto {
 		Cipher m_CipherIn;
 		Cipher m_CipherOut;
 
-		ECC::NoLeak<ECC::Scalar> m_MyNonce;
+		ECC::Scalar::Native m_MyNonce;
 		ECC::uintBig m_RemoteNonce;
+		ECC::Hash::Mac m_HMac;
+
+		typedef ECC::uintBig_t<64> MacValue;
+		static void get_HMac(ECC::Hash::Mac&, MacValue&);
 
 		ProtocolPlus(uint8_t v0, uint8_t v1, uint8_t v2, size_t maxMessageTypes, IErrorHandler& errorHandler, size_t serializedFragmentsSize);
 		void ResetVars();
-		void InitCipher(Cipher&);
+		void InitCipher(Cipher&, bool bHMac);
 
 		// Protocol
 		virtual void Decrypt(uint8_t*, uint32_t nSize) override;
