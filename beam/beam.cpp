@@ -815,7 +815,8 @@ int main(int argc, char* argv[]) {
     auto f = std::async(
         std::launch::async,
         [argc, argv]() -> int {
-            block_signals_in_this_thread();
+            // TODO: this hungs app on OSX
+            //lock_signals_in_this_thread();
             int ret = main_impl(argc, argv);
             kill(0, SIGINT);
             return ret;
