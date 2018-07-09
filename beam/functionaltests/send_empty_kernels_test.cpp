@@ -106,7 +106,7 @@ void TestNodeConnection::GenerateTests()
 		LOG_INFO() << "tx.IsValid = " << gen.IsValid();
 
 		Send(gen.GetTransaction());
-	}, false));
+	}, true));
 }
 
 int main(int argc, char* argv[])
