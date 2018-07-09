@@ -11,7 +11,7 @@ set(CMAKE_AUTOMOC ON)
 if(MSVC)
 	if(CMAKE_BUILD_TYPE STREQUAL "Release")
 		set(SYSTEM_TYPE WIN32)
-	endif()	
+	endif()
 elseif(APPLE)
 # TODO: uncomment this later
 #	set(SYSTEM_TYPE MACOSX_BUNDLE)
