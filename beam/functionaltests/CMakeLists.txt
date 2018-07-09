@@ -17,7 +17,6 @@ function(add_functional_test_snippet EXE_NAME LIB_NAME)
 	endif()
 endfunction()
 
-#add_functional_test_snippet(node_connection_test node)
 add_functional_test_snippet(send_to_node_10tx_test node)
 add_functional_test_snippet(send_empty_kernels_test node)
 add_functional_test_snippet(send_tx_with_unsorted_test node)
