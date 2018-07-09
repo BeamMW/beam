@@ -14,6 +14,8 @@ platform:
 environment:
   BOOST_ROOT: C:\Libraries\boost_1_67_0
   OPENSSL_ROOT_DIR: C:\openssl
+  QT5_ROOT_DIR: C:\Qt\5.11.0\msvc2017_64
+  QML_IMPORT_PATH: C:\Qt\5.11.0\msvc2017_64\qml
   GITHUB_API_KEY:
     secure: 3teRuVd1PpR8Y2XJEOWPWo7LYRhEKIZZk3w53nFG7hPsXrONIUb18SNfkVl+SICw
   matrix:
