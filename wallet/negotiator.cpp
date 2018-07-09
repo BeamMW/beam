@@ -15,11 +15,12 @@ namespace beam::wallet
         Height currentHeight = m_parent.m_keychain->getCurrentHeight();
         // TODO: add ability to calculate fee
         m_parent.createKernel(m_parent.m_txDesc.m_fee, currentHeight);
-
+        m_parent.m_txDesc.m_minHeight = currentHeight;
         Invite inviteMsg;
         inviteMsg.m_txId = m_parent.m_txDesc.m_txId;
         inviteMsg.m_amount = m_parent.m_txDesc.m_amount;
         inviteMsg.m_fee = m_parent.m_txDesc.m_fee;
+        inviteMsg.m_height = currentHeight;
         inviteMsg.m_send = sender;
 
         if (sender)
@@ -69,7 +70,7 @@ namespace beam::wallet
         LOG_INFO() << (sender ? "Sending " : "Receiving ") << PrintableAmount(m_parent.m_txDesc.m_amount);
         Height currentHeight = m_parent.m_keychain->getCurrentHeight();
 
-        m_parent.createKernel(m_parent.m_txDesc.m_fee, currentHeight);
+        m_parent.createKernel(m_parent.m_txDesc.m_fee, m_parent.m_txDesc.m_minHeight);
         // TODO: check fee
 
         if (sender)
@@ -199,10 +200,12 @@ namespace beam::wallet
             LOG_ERROR() << "You only have " << PrintableAmount(get_total());
             throw runtime_error("no money");
         }
-        for (const auto& coin : coins)
+        for (auto& coin : coins)
         {
             inputs.push_back(m_parent.createInput(coin));
+            coin.m_spentTxId = m_parent.m_txDesc.m_txId;
         }
+        m_parent.m_keychain->update(coins);
         // calculate change amount and create corresponding output if needed
         Amount change = 0;
         for (const auto &coin : coins)
@@ -283,7 +286,6 @@ namespace beam::wallet
 
         Scalar::Native partialSignature;
         m_kernel->m_Signature.CoSign(partialSignature, message, m_blindingExcess, msig);
-
         signature = partialSignature;
     }
 

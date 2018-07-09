@@ -135,7 +135,7 @@ namespace yas::detail
         static Archive& save(Archive& ar, const Type& v)
         {
             ar  & v.m_id
-                & v.m_height
+                & v.m_createHeight
                 & v.m_maturity
                 & v.m_key_type
                 & v.m_amount
@@ -148,7 +148,7 @@ namespace yas::detail
         {
             // TODO: store id only
             ar & v.m_id
-               & v.m_height
+               & v.m_createHeight
                & v.m_maturity
                & v.m_key_type
                & v.m_amount

@@ -62,11 +62,10 @@ void TestKeychain()
 	}
 
 	{
-		vector<Coin> coins;
 		coin2.m_status = Coin::Spent;
-		coins.push_back(coin2);
+		
 
-		keychain->update(coins);
+		keychain->update(coin2);
 
         WALLET_CHECK(keychain->getCoins(5).size() == 0);
 	}
@@ -153,6 +152,28 @@ void TestStoreCoins()
     WALLET_CHECK(coinBase == 2);
     WALLET_CHECK(comission == 2);
     WALLET_CHECK(regular == 10);
+
+    coins.clear();
+    keychain->visit([&coins](const auto& coin)->bool
+    {
+        coins.push_back(coin);
+        return false;
+    });
+    WALLET_CHECK(coins[0].m_confirmHash == Zero);
+    WALLET_CHECK(coins[0].m_confirmHeight == MaxHeight);
+    coins[0].m_confirmHeight = 423;
+    coins[0].m_confirmHash = 12345678U;
+    keychain->update(coins[0]);
+    coins.clear();
+    keychain->visit([&coins](const auto& coin)->bool
+    {
+        coins.push_back(coin);
+        return false;
+    });
+    beam::Merkle::Hash t;
+    t = 12345678U;
+    WALLET_CHECK(coins[0].m_confirmHash == t);
+    WALLET_CHECK(coins[0].m_confirmHeight == 423);
 }
 using namespace beam;
 using namespace beam::wallet;
@@ -165,6 +186,7 @@ void TestStoreTxRecord()
     tr.m_amount = 34;
     tr.m_peerId = 23;
     tr.m_createTime = 123456;
+    tr.m_minHeight = 134;
     tr.m_sender = true;
     tr.m_status = TxDescription::InProgress;
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
@@ -172,6 +194,7 @@ void TestStoreTxRecord()
     TxDescription tr2 = tr;
     tr2.m_txId = id;
     tr2.m_amount = 43;
+    tr2.m_minHeight = 234;
     tr2.m_createTime = 1234564;
     tr2.m_modifyTime = 12345644;
     tr2.m_status = TxDescription::Completed;
@@ -181,6 +204,7 @@ void TestStoreTxRecord()
     WALLET_CHECK(t.size() == 1);
     WALLET_CHECK(t[0].m_txId == tr.m_txId);
     WALLET_CHECK(t[0].m_amount == tr.m_amount);
+    WALLET_CHECK(t[0].m_minHeight == tr2.m_minHeight);
     WALLET_CHECK(t[0].m_peerId == tr.m_peerId);
     WALLET_CHECK(t[0].m_createTime == tr.m_createTime);
     WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
@@ -233,6 +257,72 @@ void TestStoreTxRecord()
 
     t = keychain->getTxHistory(100, 1);
     WALLET_CHECK(t.size() == 0);
+}
+
+void TestStateIDSearch()
+{
+    auto db = createSqliteKeychain();
+    for (int i = 0; i < 100; ++i)
+    {
+        Coin coin1 = { 5, Coin::Unspent, 1, 10, KeyType::Regular, Height(i) };
+        coin1.m_confirmHash = unsigned(i + 2);
+        db->store(coin1);
+    }
+
+    // TODO
+    /*auto id = db->getKnownStateID(0, 100);
+    WALLET_CHECK(id.m_Height == 50);
+    Merkle::Hash h;
+    h = 52U;
+    WALLET_CHECK(id.m_Hash == h);*/
+}
+
+void TestRollback()
+{
+    auto db = createSqliteKeychain();
+    for (uint64_t i = 0; i < 9; ++i)
+    {
+        Coin coin1 = { 5, Coin::Unspent, i, i + 10, KeyType::Regular, Height(i) };
+        db->store(coin1);
+    }
+
+    for (uint64_t i = 9; i < 10; ++i)
+    {
+        Coin coin1 = { 5, Coin::Spent, 0, 0, KeyType::Regular, Height(0), Height(i) };
+        db->store(coin1);
+    }
+
+    db->rollbackConfirmedUtxo(5);
+
+    vector<Coin> coins;
+    db->visit([&coins](const auto& c)->bool
+    {
+        coins.push_back(c);
+        return true;
+    });
+
+    for (int i = 0; i < 5; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Unspent);
+        WALLET_CHECK(c.m_confirmHeight != MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+    }
+
+    for (int i = 6; i < 9; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Unconfirmed);
+        WALLET_CHECK(c.m_confirmHeight == MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+    }
+    for (int i = 9; i < 10; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Unspent);
+        WALLET_CHECK(c.m_confirmHeight != MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+    }
 }
 
 void TestTxRollback()
@@ -289,6 +379,7 @@ void TestTxRollback()
 
     WALLET_CHECK(coins.size() == 2);
     WALLET_CHECK(coins[1].m_status == Coin::Unspent);
+    WALLET_CHECK(coins[1].m_spentTxId.is_initialized() == false);
 }
 
 
@@ -300,10 +391,13 @@ int main()
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
 	ECC::InitializeContext();
+
+    TestStateIDSearch();
 	TestKeychain();
     TestStoreCoins();
     TestStoreTxRecord();
     TestTxRollback();
+    TestRollback();
 
     return WALLET_CHECK_RESULT;
 }

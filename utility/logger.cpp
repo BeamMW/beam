@@ -98,9 +98,11 @@ public:
         LoggerImpl(0, minLevel, flushLevel)
     {
         string fileName(fileNamePrefix);
-#ifndef _WIN32
-        fileName += to_string(getpid());
-#endif
+//#ifndef _WIN32
+//        fileName += to_string(getpid());
+//#endif
+        fileName += format_timestamp("%y_%m_%d_%H_%M_%S", local_timestamp_msec(), false);
+
         fileName += ".log";
         _os.open(fileName);
         if (!_os) throw runtime_error(string("cannot open file ") + fileName);
