@@ -9,22 +9,19 @@ namespace
 
 	// taken from beam.cpp
 	// TODO: move 'getAvailable' to one place
-	Amount getAvailable(IKeyChain::Ptr keychain)
+	Amount getAvailable(beam::IKeyChain::Ptr keychain)
 	{
 		auto currentHeight = keychain->getCurrentHeight();
 		Amount total = 0;
 		keychain->visit([&total, &currentHeight](const Coin& c)->bool
 		{
-			Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
-				? Rules::get().MaturityCoinbase
-				: Rules::get().MaturityStd);
+			Height lockHeight = c.m_maturity;
 
 			if (c.m_status == Coin::Unspent
 				&& lockHeight <= currentHeight)
 			{
 				total += c.m_amount;
 			}
-
 			return true;
 		});
 		return total;
