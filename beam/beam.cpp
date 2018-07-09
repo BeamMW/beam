@@ -389,10 +389,11 @@ io::Reactor::Ptr reactor;
 int main_impl(int argc, char* argv[])
 {
     int logLevel = LOG_LEVEL_DEBUG;
+    int fileLogLevel = LOG_LEVEL_INFO;
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
-    auto logger = beam::Logger::create(logLevel, logLevel);
+    auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_");
 
 #ifdef WIN32
 	char szLocalDir[] = ".\\";

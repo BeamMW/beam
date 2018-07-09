@@ -77,7 +77,7 @@ namespace
             return 134;
         }
 
-        Block::SystemState::ID getMedianStateID(Height minHeight, Height maxHeight) override
+        Block::SystemState::ID getKnownStateID(const Merkle::Hash& stateDefinition, const Merkle::Proof& proof) override
         {
             return {};
         }
