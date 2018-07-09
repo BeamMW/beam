@@ -1,9 +1,5 @@
 language: cpp
 
-branches:
-  except:
-   - ui
-
 matrix:
   include:
     - os: osx

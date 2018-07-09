@@ -43,7 +43,7 @@ struct WalletModelAsync : IWalletModelAsync
 			}
 		);
 
-		_sendMoneyEvent->trigger();
+		_sendMoneyEvent->post();
 	}
 private:
 	Reactor::Ptr _reactor;
