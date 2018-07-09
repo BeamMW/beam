@@ -11,6 +11,7 @@ public:
 private:
 	virtual void OnClosed(int errorCode) override;
 	virtual void GenerateTests() override;
+	virtual void OnMsg(proto::ProofUtxo&& msg) override;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
@@ -28,9 +29,23 @@ void TestNodeConnection::GenerateTests()
 {
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send DataMissing message";
-		Send(proto::DataMissing());
+		LOG_INFO() << "Send GetProofUtxo message";
+		Send(proto::GetProofUtxo());
 	});
+}
+
+void TestNodeConnection::OnMsg(proto::ProofUtxo&& msg)
+{
+	if (msg.m_Proofs.empty())
+	{
+		LOG_INFO() << "ProofUtxo: Ok - list is empty";
+	}
+	else
+	{
+		LOG_INFO() << "ProofUtxo: Failed - list is not empty";
+		m_Failed = true;
+	}
+	io::Reactor::get_Current().stop();
 }
 
 int main(int argc, char* argv[])
