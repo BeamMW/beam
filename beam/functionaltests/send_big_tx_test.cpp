@@ -16,13 +16,20 @@ public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
 	
-	void GenerateTests() override;
+	virtual void OnClosed(int errorCode) override;
+	virtual void GenerateTests() override;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	: BaseTestNodeConnection(argc, argv)
 {
 	m_Timeout = 0;
+}
+
+void TestNodeConnection::OnClosed(int)
+{
+	LOG_INFO() << "Ok: connection is reset";
+	io::Reactor::get_Current().stop();
 }
 
 void TestNodeConnection::GenerateTests()
