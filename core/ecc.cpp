@@ -309,7 +309,7 @@ namespace ECC {
 		Write(Point(v));
 	}
 
-	Hash::Mac::Mac(const void* pSecret, uint32_t nSecret)
+	void Hash::Mac::Reset(const void* pSecret, uint32_t nSecret)
 	{
 		secp256k1_hmac_sha256_initialize(this, (uint8_t*)pSecret, nSecret);
 	}

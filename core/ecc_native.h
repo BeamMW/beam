@@ -357,9 +357,11 @@ namespace ECC
 	{
 		void Finalize(Value&);
 	public:
-		Mac(const void* pSecret, uint32_t nSecret);
+		Mac() {}
+		Mac(const void* pSecret, uint32_t nSecret) { Reset(pSecret, nSecret); }
 		~Mac() { SecureErase(*this); }
 
+		void Reset(const void* pSecret, uint32_t nSecret);
 		void Write(const void*, uint32_t);
 
 		template <typename T>
