@@ -52,6 +52,7 @@ namespace beam
         virtual std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock = true) = 0;
         virtual void store(beam::Coin& coin) = 0;
         virtual void store(std::vector<beam::Coin>& coins) = 0;
+        virtual void update(const std::vector<beam::Coin>& coins) = 0;
         virtual void update(const beam::Coin& coin) = 0;
         virtual void remove(const std::vector<beam::Coin>& coins) = 0;
         virtual void remove(const beam::Coin& coin) = 0;
@@ -100,6 +101,7 @@ namespace beam
         std::vector<beam::Coin> getCoins(const ECC::Amount& amount, bool lock = true) override;
         void store(beam::Coin& coin) override;
         void store(std::vector<beam::Coin>& coins) override;
+        void update(const std::vector<beam::Coin>& coins) override;
         void update(const beam::Coin& coin) override;
         void remove(const std::vector<beam::Coin>& coins) override;
         void remove(const beam::Coin& coin) override;

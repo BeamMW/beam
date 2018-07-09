@@ -650,6 +650,26 @@ namespace beam
         stm.step();
 	}
 
+    void Keychain::update(const vector<beam::Coin>& coins)
+    {
+        if (coins.size())
+        {
+            sqlite::Transaction trans(_db);
+
+            for (const auto& coin : coins)
+            {
+                const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA, ) " WHERE id=?1;";
+                sqlite::Statement stm(_db, req);
+
+                ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
+
+                stm.step();
+            }
+
+            trans.commit();
+        }
+    }
+
 	void Keychain::remove(const vector<beam::Coin>& coins)
 	{
 		if (coins.size())

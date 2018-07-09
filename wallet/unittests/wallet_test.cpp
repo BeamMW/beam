@@ -53,6 +53,7 @@ namespace
 
         void store(beam::Coin& ) override {}
         void store(std::vector<beam::Coin>& ) override {}
+        void update(const vector<beam::Coin>& coins) override {}
         void update(const beam::Coin& ) override {}
         void remove(const std::vector<beam::Coin>& ) override {}
         void remove(const beam::Coin& ) override {}
