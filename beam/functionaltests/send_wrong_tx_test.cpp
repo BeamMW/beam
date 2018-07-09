@@ -27,6 +27,17 @@ void TestNodeConnection::GenerateTests()
 {
 	m_Tests.push_back([this]()
 	{
+		LOG_INFO() << "Run test without inputs, outputs and kernels";
+		TxGenerator gen(m_Kdf);
+
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+
+		Send(gen.GetTransaction());
+	});
+	m_Results.push_back(false);
+
+	m_Tests.push_back([this]()
+	{
 		LOG_INFO() << "Run test without inputs";
 		TxGenerator gen(m_Kdf);
 		
