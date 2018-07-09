@@ -8,8 +8,6 @@ class BaseTestNodeConnection : public beam::proto::NodeConnection
 public:
 	BaseTestNodeConnection(int argc, char* argv[]);
 
-	void DisabledTimer();
-
 	void Run();
 
 	int CheckOnFailed();
@@ -26,7 +24,6 @@ protected:
 	virtual void RunTest();
 	
 protected:
-	bool m_WillStartTimer = true;
 	ECC::Kdf m_Kdf;
 	beam::io::Reactor::Ptr m_Reactor;
 	beam::io::Reactor::Scope m_Scope;
@@ -34,5 +31,6 @@ protected:
 	bool m_Failed;
 	std::vector<std::pair<std::function<void()>, bool>> m_Tests;
 	size_t m_Index;
-	boost::program_options::variables_map m_VM;	
+	boost::program_options::variables_map m_VM;
+	unsigned int m_Timeout;
 };

@@ -14,36 +14,17 @@ class TestNodeConnection : public BaseTestNodeConnection
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	virtual void OnConnected() override;
 	virtual void OnClosed(int errorCode) override;
 
 	virtual void OnMsg(proto::NewTip&&) override;
+
+	virtual void GenerateTests() override;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	: BaseTestNodeConnection(argc, argv)
 {
-}
-
-void TestNodeConnection::OnConnected()
-{
-	LOG_INFO() << "Send PeerInfo message";
-
-	Hash::Processor hp;
-	Hash::Value hv;
-
-	hp << "test" >> hv;
-
-	proto::PeerInfo msg;
-
-	msg.m_LastAddr.resolve("8.8.8.8");
-	msg.m_ID = hv;
-	Send(msg);
-
-	m_Timer->start(60 * 1000, false, [this]()
-	{
-		io::Reactor::get_Current().stop();
-	});
+	m_Timeout = 60 * 1000;
 }
 
 void TestNodeConnection::OnClosed(int errorCode)
@@ -55,6 +36,25 @@ void TestNodeConnection::OnClosed(int errorCode)
 void TestNodeConnection::OnMsg(proto::NewTip&& msg) 
 {
 	LOG_INFO() << "NewTip";
+}
+
+void TestNodeConnection::GenerateTests()
+{
+	m_Tests.push_back(std::make_pair([this]()
+	{
+		LOG_INFO() << "Send PeerInfo message";
+
+		Hash::Processor hp;
+		Hash::Value hv;
+
+		hp << "test" >> hv;
+
+		proto::PeerInfo msg;
+
+		msg.m_LastAddr.resolve("8.8.8.8");
+		msg.m_ID = hv;
+		Send(msg);
+	}, false));
 }
 
 int main(int argc, char* argv[])

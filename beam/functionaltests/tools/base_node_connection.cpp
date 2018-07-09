@@ -15,6 +15,7 @@ BaseTestNodeConnection::BaseTestNodeConnection(int argc, char* argv[])
 	, m_Scope(*m_Reactor)
 	, m_Timer(io::Timer::create(io::Reactor::get_Current().shared_from_this()))
 	, m_Failed(false)
+	, m_Timeout(5 * 1000)
 	
 {
 	ParseCommandLine(argc, argv);
@@ -30,11 +31,6 @@ void BaseTestNodeConnection::Run()
 	Connect(addr);
 
 	m_Reactor->run();
-}
-
-void BaseTestNodeConnection::DisabledTimer()
-{
-	m_WillStartTimer = false;
 }
 
 int BaseTestNodeConnection::CheckOnFailed()
@@ -69,8 +65,15 @@ void BaseTestNodeConnection::OnConnected()
 {
 	LOG_INFO() << "connection is succeded";
 
-	if (m_WillStartTimer)
-		m_Timer->start(5 * 1000, false, []() {io::Reactor::get_Current().stop(); });
+	if (m_Timeout > 0)
+	{
+		m_Timer->start(m_Timeout, false, [this]()
+		{
+			LOG_INFO() << "Timeout";
+			io::Reactor::get_Current().stop();
+			m_Failed = true;
+		});
+	}
 
 	GenerateTests();
 	m_Index = 0;

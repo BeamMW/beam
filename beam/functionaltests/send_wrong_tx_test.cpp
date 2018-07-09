@@ -316,7 +316,6 @@ int main(int argc, char* argv[])
 
 	TestNodeConnection connection(argc, argv);
 
-	connection.DisabledTimer();
 	connection.Run();
 
 	return connection.CheckOnFailed();

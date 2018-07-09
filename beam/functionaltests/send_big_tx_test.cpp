@@ -22,6 +22,7 @@ private:
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	: BaseTestNodeConnection(argc, argv)
 {
+	m_Timeout = 0;
 }
 
 void TestNodeConnection::GenerateTests()
@@ -61,7 +62,6 @@ int main(int argc, char* argv[])
 
 	TestNodeConnection connection(argc, argv);
 
-	connection.DisabledTimer();
 	connection.Run();
 
 	return connection.CheckOnFailed();	

@@ -14,8 +14,8 @@ class TestNodeConnection : public BaseTestNodeConnection
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	virtual void OnConnected() override;
 	virtual void OnClosed(int errorCode) override;
+	virtual void GenerateTests() override;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
@@ -23,23 +23,19 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 {
 }
 
-void TestNodeConnection::OnConnected()
-{
-	LOG_INFO() << "Send DataMissing message";
-	Send(proto::DataMissing());
-
-	m_Timer->start(5 * 1000, false, [this]()
-	{
-		m_Failed = true;
-		LOG_INFO() << "Failed: connection is not reset";
-		io::Reactor::get_Current().stop();
-	});
-}
-
 void TestNodeConnection::OnClosed(int)
 {
 	LOG_INFO() << "Ok: connection is reset";
 	io::Reactor::get_Current().stop();
+}
+
+void TestNodeConnection::GenerateTests()
+{
+	m_Tests.push_back(std::make_pair([this]()
+	{
+		LOG_INFO() << "Send DataMissing message";
+		Send(proto::DataMissing());
+	}, false));
 }
 
 int main(int argc, char* argv[])

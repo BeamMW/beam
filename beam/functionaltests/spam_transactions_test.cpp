@@ -28,6 +28,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[], int h)
 	: BaseTestNodeConnection(argc, argv)
 	, m_H(h)
 {
+	m_Timeout = 0;
 }
 
 void TestNodeConnection::BeforeConnection(Height h)
@@ -70,8 +71,7 @@ void TestNodeConnection::GenerateTests()
 void SendData(int argc, char* argv[], int h)
 {
 	TestNodeConnection connection(argc, argv, h);
-
-	connection.DisabledTimer();
+		
 	connection.Run();
 }
 

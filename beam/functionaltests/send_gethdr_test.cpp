@@ -10,7 +10,6 @@ class TestNodeConnection : public BaseTestNodeConnection
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	virtual void OnConnected() override;
 	virtual void OnMsg(proto::NewTip&&) override;
 	virtual void OnMsg(proto::Hdr&&) override;
 	virtual void OnMsg(proto::Body&&) override;
@@ -27,15 +26,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	, m_IsInit(false)
 	, m_IsSendWrongBody(false)
 {
-}
-
-void TestNodeConnection::OnConnected()
-{
-	m_Timer->start(10 * 1000, false, [this]()
-	{
-		m_Failed = true;
-		io::Reactor::get_Current().stop();
-	});
+	m_Timeout = 10 * 1000;
 }
 
 void TestNodeConnection::OnMsg(proto::NewTip&& msg)

@@ -10,7 +10,6 @@ class TestNodeConnection : public BaseTestNodeConnection
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	virtual void OnConnected() override;
 	virtual bool OnMsg2(proto::Boolean&& msg) override;
 	virtual bool OnMsg2(proto::NewTip&& msg) override;	
 	
@@ -22,10 +21,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	: BaseTestNodeConnection(argc, argv)
 	, m_Height(0)
 {
-}
-
-void TestNodeConnection::OnConnected()
-{
+	m_Timeout = 60 * 1000;
 }
 
 bool TestNodeConnection::OnMsg2(proto::Boolean&& msg)
