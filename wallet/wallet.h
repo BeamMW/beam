@@ -25,6 +25,7 @@ namespace beam
         virtual void send_node_message(proto::GetProofUtxo&&) = 0;
 		virtual void send_node_message(proto::GetHdr&&) = 0;
         virtual void send_node_message(proto::GetMined&&) = 0;
+        virtual void send_node_message(proto::GetProofState&&) = 0;
         // connection control
         virtual void close_connection(PeerId id) = 0;
         virtual void close_node_connection() = 0;
@@ -45,6 +46,7 @@ namespace beam
 		virtual bool handle_node_message(proto::NewTip&&) = 0;
 		virtual bool handle_node_message(proto::Hdr&&) = 0;
         virtual bool handle_node_message(proto::Mined&& msg) = 0;
+        virtual bool handle_node_message(proto::Proof&& msg) = 0;
         // connection control
         virtual void handle_connection_error(PeerId) = 0;
         virtual void stop_sync() = 0;
@@ -84,6 +86,8 @@ namespace beam
         bool handle_node_message(proto::NewTip&& msg) override;
         bool handle_node_message(proto::Hdr&& msg) override;
         bool handle_node_message(proto::Mined&& msg) override;
+        bool handle_node_message(proto::Proof&& msg) override;
+
         void handle_connection_error(PeerId from) override;
         void stop_sync() override;
 
@@ -132,9 +136,11 @@ namespace beam
         std::deque<std::pair<Uuid, Transaction::Ptr>> m_reg_requests;
         std::vector<std::pair<Uuid, Transaction::Ptr>> m_pending_reg_requests;
         std::deque<Coin> m_pendingProofs;
+        std::deque<Block::SystemState::ID> m_PendingStateProofs;
         std::vector<Callback> m_pendingEvents;
 
         Merkle::Hash m_Definition;
+        Merkle::Hash m_NewDefinition;
         Block::SystemState::ID m_knownStateID;
         Block::SystemState::ID m_newStateID;
         int m_syncing;

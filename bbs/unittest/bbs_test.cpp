@@ -11,7 +11,10 @@ void test1() {
         std::unique_ptr<Client> client(Client::create());
         client->connect(io::Address::localhost().port(2020), [](io::ErrorCode status){});
     } catch (...) {
+#ifndef WIN32
         kill(0, SIGTERM);
+#endif // !WIN32
+        
     }
 }
 

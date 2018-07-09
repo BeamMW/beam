@@ -57,6 +57,7 @@ namespace beam
         void send_node_message(proto::GetProofUtxo&&) override;
         void send_node_message(proto::GetHdr&&) override;
         void send_node_message(proto::GetMined&&) override;
+        void send_node_message(proto::GetProofState&&) override;
 
         void close_connection(uint64_t id) override;
         void close_node_connection() override;
@@ -141,6 +142,7 @@ namespace beam
             bool OnMsg2(proto::NewTip&& msg) override;
             bool OnMsg2(proto::Hdr&& msg) override;
             bool OnMsg2(proto::Mined&& msg) override;
+            bool OnMsg2(proto::Proof&& msg) override;
         private:
             io::Address m_address;
             IWallet & m_wallet;
