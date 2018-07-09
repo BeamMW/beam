@@ -31,11 +31,11 @@ void TestNodeConnection::OnClosed(int)
 
 void TestNodeConnection::GenerateTests()
 {
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Send DataMissing message";
 		Send(proto::DataMissing());
-	}, false));
+	});
 }
 
 int main(int argc, char* argv[])

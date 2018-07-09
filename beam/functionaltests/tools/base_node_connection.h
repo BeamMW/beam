@@ -17,7 +17,6 @@ protected:
 
 	virtual void OnConnected() override;
 	virtual void OnClosed(int errorCode) override;
-	virtual bool OnMsg2(beam::proto::Boolean&& msg) override;
 
 	virtual void GenerateTests();
 
@@ -29,7 +28,7 @@ protected:
 	beam::io::Reactor::Scope m_Scope;
 	beam::io::Timer::Ptr m_Timer;
 	bool m_Failed;
-	std::vector<std::pair<std::function<void()>, bool>> m_Tests;
+	std::vector<std::function<void()>> m_Tests;
 	size_t m_Index;
 	boost::program_options::variables_map m_VM;
 	unsigned int m_Timeout;

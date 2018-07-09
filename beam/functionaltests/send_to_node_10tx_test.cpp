@@ -2,11 +2,12 @@
 #include "utility/logger.h"
 #include "tools/base_node_connection.h"
 #include "tools/tx_generator.h"
+#include "tools/new_tx_tests.h"
 
 using namespace beam;
 using namespace ECC;	
 
-class TestNodeConnection : public BaseTestNodeConnection
+class TestNodeConnection : public NewTxConnection
 {
 public:
 	TestNodeConnection(int argc, char* argv[]);
@@ -15,7 +16,7 @@ private:
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
-	: BaseTestNodeConnection(argc, argv)
+	: NewTxConnection(argc, argv)
 {
 }
 
@@ -24,7 +25,7 @@ void TestNodeConnection::GenerateTests()
 {
 	for (int i = 1; i <= 10; i++)
 	{
-		m_Tests.push_back(std::make_pair([this, i]()
+		m_Tests.push_back([this, i]()
 		{
 			TxGenerator gen(m_Kdf);
 			
@@ -36,7 +37,8 @@ void TestNodeConnection::GenerateTests()
 			gen.GenerateKernel(4);
 
 			Send(gen.GetTransaction());
-		}, true));
+		});
+		m_Results.push_back(true);
 	}
 }
 

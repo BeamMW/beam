@@ -2,6 +2,7 @@
 #include "utility/logger.h"
 #include "tools/base_node_connection.h"
 #include "tools/tx_generator.h"
+#include "tools/new_tx_tests.h"
 
 #include <vector>
 #include <thread>
@@ -10,7 +11,7 @@
 using namespace beam;
 using namespace ECC;
 
-class TestNodeConnection : public BaseTestNodeConnection
+class TestNodeConnection : public NewTxConnection
 {
 public:
 	TestNodeConnection(int argc, char* argv[], int h);
@@ -25,7 +26,7 @@ private:
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[], int h)
-	: BaseTestNodeConnection(argc, argv)
+	: NewTxConnection(argc, argv)
 	, m_H(h)
 {
 	m_Timeout = 0;
@@ -58,13 +59,14 @@ void TestNodeConnection::GenerateTests()
 {
 	for (int i = 0; i < 3; ++i)
 	{
-		m_Tests.push_back(std::make_pair([this, i]()
+		m_Tests.push_back([this, i]()
 		{
 			LOG_INFO() << "Send big transaction";
 			BeforeConnection(100 * (m_H + 2) + i);
 
 			Send(m_MsgTx);
-		}, true));
+		});
+		m_Results.push_back(true);
 	}
 }
 

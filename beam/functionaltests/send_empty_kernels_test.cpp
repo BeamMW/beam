@@ -3,11 +3,12 @@
 
 #include "tools/base_node_connection.h"
 #include "tools/tx_generator.h"
+#include "tools/new_tx_tests.h"
 
 using namespace beam;
 using namespace ECC;
 
-class TestNodeConnection : public BaseTestNodeConnection
+class TestNodeConnection : public NewTxConnection
 {
 public:
 	TestNodeConnection(int argc, char* argv[]);
@@ -18,13 +19,13 @@ private:
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
-	: BaseTestNodeConnection(argc, argv)
+	: NewTxConnection(argc, argv)
 {
 }
 
 void TestNodeConnection::GenerateTests()
 {
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with empty kernel";
 
@@ -42,9 +43,10 @@ void TestNodeConnection::GenerateTests()
 		gen.Sort();
 
 		Send(gen.GetTransaction());
-	}, false));
+	});
+	m_Results.push_back(false);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with normal and empty kernels";
 
@@ -66,9 +68,10 @@ void TestNodeConnection::GenerateTests()
 		gen.Sort();
 
 		Send(gen.GetTransaction());
-	}, false));
+	});
+	m_Results.push_back(false);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with 2 empty kernels";
 
@@ -87,9 +90,10 @@ void TestNodeConnection::GenerateTests()
 		gen.Sort();
 
 		Send(gen.GetTransaction());
-	}, false));
+	});
+	m_Results.push_back(false);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test without kernels";
 
@@ -106,7 +110,8 @@ void TestNodeConnection::GenerateTests()
 		LOG_INFO() << "tx.IsValid = " << gen.IsValid();
 
 		Send(gen.GetTransaction());
-	}, true));
+	});
+	m_Results.push_back(true);
 }
 
 int main(int argc, char* argv[])

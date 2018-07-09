@@ -40,7 +40,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 
 void TestNodeConnection::GenerateTests()
 {
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Send PeerInfo message";
 
@@ -54,7 +54,7 @@ void TestNodeConnection::GenerateTests()
 		msg.m_LastAddr.resolve("8.8.8.8");
 		msg.m_ID = hv;
 		Send(msg);
-	}, false));
+	});
 }
 
 int main(int argc, char* argv[])

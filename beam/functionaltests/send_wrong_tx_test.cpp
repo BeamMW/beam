@@ -3,11 +3,12 @@
 
 #include "tools/base_node_connection.h"
 #include "tools/tx_generator.h"
+#include "tools/new_tx_tests.h"
 
 using namespace beam;
 using namespace ECC;
 
-class TestNodeConnection : public BaseTestNodeConnection
+class TestNodeConnection : public NewTxConnection
 {
 public:
 	TestNodeConnection(int argc, char* argv[]);
@@ -18,13 +19,13 @@ private:
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
-	: BaseTestNodeConnection(argc, argv)
+	: NewTxConnection(argc, argv)
 {
 }
 
 void TestNodeConnection::GenerateTests()
 {
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test without inputs";
 		TxGenerator gen(m_Kdf);
@@ -42,9 +43,10 @@ void TestNodeConnection::GenerateTests()
 		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
-	}, false));
+	});
+	m_Results.push_back(false);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test without outputs";
 
@@ -63,9 +65,10 @@ void TestNodeConnection::GenerateTests()
 		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
-	}, false));
+	});
+	m_Results.push_back(false);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with normal tx";
 
@@ -85,9 +88,10 @@ void TestNodeConnection::GenerateTests()
 		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
-	}, true));
+	});
+	m_Results.push_back(true);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with 2 inputs, 2 ouputs and 1 kernel";
 
@@ -109,9 +113,10 @@ void TestNodeConnection::GenerateTests()
 		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
-	}, true));
+	});
+	m_Results.push_back(true);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with 2 inputs, 1 ouputs and 1 kernel";
 
@@ -131,9 +136,10 @@ void TestNodeConnection::GenerateTests()
 		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
-	}, true));
+	});
+	m_Results.push_back(true);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with 1 inputs, 2 ouputs and 1 kernel";
 
@@ -153,9 +159,10 @@ void TestNodeConnection::GenerateTests()
 		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
-	}, true));
+	});
+	m_Results.push_back(true);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with input = 1 chattle, output= 2 chattles, fee=0";
 
@@ -174,9 +181,10 @@ void TestNodeConnection::GenerateTests()
 		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
-	}, false));
+	});
+	m_Results.push_back(false);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with input = 2 chattle, output= 1 chattles, fee=0";
 
@@ -195,9 +203,10 @@ void TestNodeConnection::GenerateTests()
 		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
-	}, false));
+	});
+	m_Results.push_back(false);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with input = 2 chattle, output= 3 chattles, fee=0";
 
@@ -216,9 +225,10 @@ void TestNodeConnection::GenerateTests()
 		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
-	}, false));
+	});
+	m_Results.push_back(false);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with input = 4 chattle, output= 2 chattle, fee = 2 chattles";
 
@@ -237,9 +247,10 @@ void TestNodeConnection::GenerateTests()
 		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
-	}, true));
+	});
+	m_Results.push_back(true);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with input = 4 chattle, output= 2 chattle, fee= 1 chattle, fee = 1 chattle";
 
@@ -259,9 +270,10 @@ void TestNodeConnection::GenerateTests()
 		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
-	}, true));
+	});
+	m_Results.push_back(true);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with input = 4 chattle, output= 2 chattle, fee= 1 chattle, fee = 1 chattle, fee = 1 chattle";
 
@@ -282,9 +294,10 @@ void TestNodeConnection::GenerateTests()
 		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
-	}, false));
+	});
+	m_Results.push_back(false);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with input = 4 chattle, output= 2 chattle, fee= 3 chattles";
 
@@ -303,7 +316,8 @@ void TestNodeConnection::GenerateTests()
 		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
-	}, false));
+	});
+	m_Results.push_back(false);
 }
 
 int main(int argc, char* argv[])

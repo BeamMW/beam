@@ -2,11 +2,12 @@
 #include "utility/logger.h"
 #include "tools/base_node_connection.h"
 #include "tools/tx_generator.h"
+#include "tools/new_tx_tests.h"
 
 using namespace beam;
 using namespace ECC;
 
-class TestNodeConnection : public BaseTestNodeConnection
+class TestNodeConnection : public NewTxConnection
 {
 public:
 	TestNodeConnection(int argc, char* argv[]);
@@ -17,14 +18,14 @@ private:
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
-	: BaseTestNodeConnection(argc, argv)
+	: NewTxConnection(argc, argv)
 {
 
 }
 
 void TestNodeConnection::GenerateTests()
 {
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with unsorded kernels";
 
@@ -34,9 +35,10 @@ void TestNodeConnection::GenerateTests()
 		gen.SortOutputs();
 
 		Send(gen.GetTransaction());
-	}, false));
+	});
+	m_Results.push_back(false);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with unsorted inputs";
 
@@ -46,9 +48,10 @@ void TestNodeConnection::GenerateTests()
 		gen.SortKernels();
 
 		Send(gen.GetTransaction());
-	}, false));
+	});
+	m_Results.push_back(false);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with unsorted outputs";
 
@@ -58,9 +61,10 @@ void TestNodeConnection::GenerateTests()
 		gen.SortKernels();
 
 		Send(gen.GetTransaction());
-	}, false));
+	});
+	m_Results.push_back(false);
 
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Run test with sorted inputs,outputs and kernels";
 
@@ -68,7 +72,8 @@ void TestNodeConnection::GenerateTests()
 		gen.Sort();
 
 		Send(gen.GetTransaction());
-	}, true));
+	});
+	m_Results.push_back(true);
 }
 
 TxGenerator TestNodeConnection::GenerateTx()

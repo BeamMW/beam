@@ -87,32 +87,10 @@ void BaseTestNodeConnection::OnClosed(int errorCode)
 	io::Reactor::get_Current().stop();
 }
 
-bool BaseTestNodeConnection::OnMsg2(proto::Boolean&& msg)
-{
-	if (msg.m_Value != m_Tests[m_Index].second)
-	{
-		LOG_INFO() << "Failed: node returned " << msg.m_Value;
-		m_Failed = true;
-	}
-	else
-	{
-		LOG_INFO() << "Ok: node returned " << msg.m_Value;
-	}
-
-	++m_Index;
-
-	if (m_Index >= m_Tests.size())
-		io::Reactor::get_Current().stop();
-	else
-		RunTest();
-
-	return true;
-}
-
 void BaseTestNodeConnection::RunTest()
 {
 	if (m_Index < m_Tests.size())
-		m_Tests[m_Index].first();
+		m_Tests[m_Index]();
 }
 
 void BaseTestNodeConnection::GenerateTests()

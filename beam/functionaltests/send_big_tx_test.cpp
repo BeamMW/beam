@@ -27,7 +27,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 
 void TestNodeConnection::GenerateTests()
 {
-	m_Tests.push_back(std::make_pair([this]()
+	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Send big transaction";
 		TxGenerator gen(m_Kdf);
@@ -49,7 +49,7 @@ void TestNodeConnection::GenerateTests()
 		gen.Sort();
 
 		Send(gen.GetTransaction());
-	}, false));
+	});
 }
 
 int main(int argc, char* argv[])
