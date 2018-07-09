@@ -771,40 +771,59 @@ namespace beam
 		return 0;
 	}
 
-    Block::SystemState::ID Keychain::getMedianStateID(Height minHeight, Height maxHeight)
+    Block::SystemState::ID Keychain::getKnownStateID(const Merkle::Hash& stateDefinition, const Merkle::Proof& proof)
     {
+        Block::SystemState::ID id = {};
         uint64_t count = 0;
         {
-            const char* req = "SELECT COUNT(DISTINCT confirmHeight) FROM " STORAGE_NAME " WHERE confirmHeight >= ?1 AND confirmHeight <= ?2 ;";
-            sqlite::Statement stm(_db, req);
-            stm.bind(1, minHeight);
-            stm.bind(2, maxHeight);
+            sqlite::Statement stm(_db, "SELECT COUNT(confirmHash) FROM " STORAGE_NAME " ;");
             stm.step();
             stm.get(0, count);
         }
 
         if (count == 0)
         {
-            return {};
-        }
-
-        {
-            const char* req = "SELECT DISTINCT confirmHeight, confirmHash FROM " STORAGE_NAME " WHERE confirmHeight >= ?1 AND confirmHeight <= ?2 ;";
-            sqlite::Statement stm(_db, req);
-            stm.bind(1, minHeight);
-            stm.bind(2, maxHeight);
-            uint64_t skipCount = count / 2;
-            for (uint64_t i = 0; i < skipCount; ++i)
-            {
-                stm.step();
-            }
-
-            stm.step();
-            Block::SystemState::ID id = {};
-            stm.get(0, id.m_Height);
-            stm.get(1, id.m_Hash);
             return id;
         }
+
+        const char* req = "SELECT confirmHeight, confirmHash FROM " STORAGE_NAME " ORDER BY confirmHeight LIMIT 1 OFFSET ?1 ;";
+
+        uint64_t first = 0;
+        uint64_t last = count;
+        uint64_t offset = 0;
+        while (count > 0)
+        {
+            offset = first;
+            int64_t step = count / 2;
+            offset = first + step;
+            sqlite::Statement stm(_db, req);
+            stm.bind(1, offset);
+
+            if (stm.step())
+            {
+                stm.get(0, id.m_Height);
+                stm.get(1, id.m_Hash);
+
+                Merkle::Hash hv = id.m_Hash;
+                Merkle::Interpret(hv, proof);
+                
+                if (hv != stateDefinition)
+                {
+                    first = offset + 1;
+                    count -= step + 1;
+                }
+                else
+                {
+                    count = step;
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        return id;
     }
 
     void Keychain::rollbackConfirmedUtxo(Height minHeight)
