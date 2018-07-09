@@ -97,6 +97,7 @@ namespace beam
     private:
         void remove_peer(const Uuid& txId);
         void getUtxoProofs(const std::vector<Coin>& coins);
+        void do_fast_forward();
         bool finish_sync();
         bool close_node_connection();
         void register_tx(const Uuid& txId, Transaction::Ptr);
@@ -136,11 +137,9 @@ namespace beam
         std::deque<std::pair<Uuid, Transaction::Ptr>> m_reg_requests;
         std::vector<std::pair<Uuid, Transaction::Ptr>> m_pending_reg_requests;
         std::deque<Coin> m_pendingProofs;
-        std::deque<Block::SystemState::ID> m_PendingStateProofs;
         std::vector<Callback> m_pendingEvents;
 
         Merkle::Hash m_Definition;
-        Merkle::Hash m_NewDefinition;
         Block::SystemState::ID m_knownStateID;
         Block::SystemState::ID m_newStateID;
         int m_syncing;
