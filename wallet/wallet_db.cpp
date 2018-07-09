@@ -5,6 +5,8 @@
 #include <sstream>
 
 #include <boost/filesystem.hpp>
+#include <boost/iterator/counting_iterator.hpp>
+#include <algorithm>
 
 #define NOSEP
 #define COMMA ", "
@@ -804,17 +806,11 @@ namespace beam
 
         const char* req = "SELECT confirmHeight, confirmHash FROM " STORAGE_NAME " ORDER BY confirmHeight LIMIT 1 OFFSET ?1 ;";
 
-        uint64_t first = 0;
-        uint64_t last = count;
-        uint64_t offset = 0;
-        while (count > 0)
+        upper_bound(boost::counting_iterator<uint64_t>(0), boost::counting_iterator<uint64_t>(count), stateDefinition,
+        [this, &id, &req, &stateDefinition, &proof](const auto& definition, const auto& right)->bool
         {
-            offset = first;
-            int64_t step = count / 2;
-            offset = first + step;
             sqlite::Statement stm(_db, req);
-            stm.bind(1, offset);
-
+            stm.bind(1, right);
             if (stm.step())
             {
                 stm.get(0, id.m_Height);
@@ -822,22 +818,11 @@ namespace beam
 
                 Merkle::Hash hv = id.m_Hash;
                 Merkle::Interpret(hv, proof);
-                
-                if (hv != stateDefinition)
-                {
-                    first = offset + 1;
-                    count -= step + 1;
-                }
-                else
-                {
-                    count = step;
-                }
+
+                return hv == definition;
             }
-            else
-            {
-                break;
-            }
-        }
+            return false;
+        });
 
         return id;
     }
