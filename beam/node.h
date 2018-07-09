@@ -31,10 +31,14 @@ struct Node
 			uint32_t m_GetState_ms	= 1000 * 5;
 			uint32_t m_GetBlock_ms	= 1000 * 30;
 			uint32_t m_GetTx_ms		= 1000 * 5;
+			uint32_t m_GetBbsMsg_ms	= 1000 * 10;
 			uint32_t m_MiningSoftRestart_ms = 100;
 			uint32_t m_TopPeersUpd_ms = 1000 * 60 * 10; // once in 10 minutes
 			uint32_t m_PeersUpdate_ms	= 1000; // reconsider every second
 			uint32_t m_PeersDbFlush_ms = 1000 * 60; // 1 minute
+			uint32_t m_BbsMessageTimeout_s	= 3600 * 24; // 1 day
+			uint32_t m_BbsMessageMaxAhead_s	= 3600 * 2; // 2 hours
+			uint32_t m_BbsCleanupPeriod_ms = 3600 * 1000; // 1 hour
 		} m_Timeout;
 
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
@@ -142,32 +146,89 @@ private:
 	void AssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
 
-	struct WantedTx
+	struct Wanted
 	{
-		struct Node
+		typedef ECC::Hash::Value KeyType;
+
+		struct Item
 			:public boost::intrusive::set_base_hook<>
 			,public boost::intrusive::list_base_hook<>
 		{
-			Transaction::KeyType m_Key;
+			KeyType m_Key;
 			uint32_t m_Advertised_ms;
 
-			bool operator < (const Node& n) const { return (m_Key < n.m_Key); }
+			bool operator < (const Item& n) const { return (m_Key < n.m_Key); }
 		};
 
-		typedef boost::intrusive::list<Node> List;
-		typedef boost::intrusive::multiset<Node> Set;
+		typedef boost::intrusive::list<Item> List;
+		typedef boost::intrusive::multiset<Item> Set;
 
 		List m_lst;
 		Set m_set;
-
-		void Delete(Node&);
-
 		io::Timer::Ptr m_pTimer;
+		uint32_t m_Timeout_ms = 0;
+
+		void Delete(Item&);
+		void DeleteInternal(Item&);
+		void Clear();
 		void SetTimer();
 		void OnTimer();
+		bool Add(const KeyType&);
+		bool Delete(const KeyType&);
 
-		IMPLEMENT_GET_PARENT_OBJ(beam::Node, m_Wtx)
+		~Wanted() { Clear(); }
+
+		virtual uint32_t get_Timeout_ms() = 0;
+		virtual void OnExpired(const KeyType&) = 0;
+	};
+
+	struct WantedTx :public Wanted {
+		// Wanted
+		virtual uint32_t get_Timeout_ms() override;
+		virtual void OnExpired(const KeyType&) override;
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Wtx)
 	} m_Wtx;
+
+	struct Bbs
+	{
+		struct WantedMsg :public Wanted {
+			// Wanted
+			virtual uint32_t get_Timeout_ms() override;
+			virtual void OnExpired(const KeyType&) override;
+
+			IMPLEMENT_GET_PARENT_OBJ(Bbs, m_W)
+		} m_W;
+
+		static void CalcMsgKey(NodeDB::WalkerBbs::Data&);
+		uint32_t m_LastCleanup_ms = 0;
+		void Cleanup();
+		void MaybeCleanup();
+
+		struct Subscription
+		{
+			struct InBbs :public boost::intrusive::set_base_hook<> {
+				BbsChannel m_Channel;
+				bool operator < (const InBbs& x) const { return (m_Channel < x.m_Channel); }
+				IMPLEMENT_GET_PARENT_OBJ(Subscription, m_Bbs)
+			} m_Bbs;
+
+			struct InPeer :public boost::intrusive::set_base_hook<> {
+				BbsChannel m_Channel;
+				bool operator < (const InPeer& x) const { return (m_Channel < x.m_Channel); }
+				IMPLEMENT_GET_PARENT_OBJ(Subscription, m_Peer)
+			} m_Peer;
+
+			Peer* m_pPeer;
+
+			typedef boost::intrusive::multiset<InBbs> BbsSet;
+			typedef boost::intrusive::multiset<InPeer> PeerSet;
+		};
+
+		Subscription::BbsSet m_Subscribed;
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Bbs)
+	} m_Bbs;
 
 	struct PeerMan
 		:public proto::PeerManager
@@ -197,7 +258,7 @@ private:
 		:public proto::NodeConnection
 		,public boost::intrusive::list_base_hook<>
 	{
-		Node* m_pThis;
+		Node& m_This;
 
 		PeerMan::PeerInfoPlus* m_pInfo;
 
@@ -210,25 +271,32 @@ private:
 		proto::Config m_Config;
 
 		TaskList m_lstTasks;
+		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
+
+		Bbs::Subscription::PeerSet m_Subscriptions;
+
+		io::Timer::Ptr m_pTimer;
+		io::Timer::Ptr m_pTimerPeers;
+
+		Peer(Node& n) :m_This(n) {}
+
 		void TakeTasks();
 		void ReleaseTasks();
 		void ReleaseTask(Task&);
 		void SetTimerWrtFirstTask();
-
-		io::Timer::Ptr m_pTimer;
-		io::Timer::Ptr m_pTimerPeers;
+		void Unsubscribe(Bbs::Subscription&);
+		void Unsubscribe();
 		void OnTimer();
 		void SetTimer(uint32_t timeout_ms);
 		void KillTimer();
 		void OnResendPeers();
+		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, bool bIsBan);
 		static void ThrowUnexpected();
 
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
-
-		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
 
 		// proto::NodeConnection
 		virtual void OnConnected() override;
@@ -254,6 +322,10 @@ private:
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
 		virtual void OnMsg(proto::PeerInfoSelf&&) override;
 		virtual void OnMsg(proto::PeerInfo&&) override;
+		virtual void OnMsg(proto::BbsMsg&&) override;
+		virtual void OnMsg(proto::BbsHaveMsg&&) override;
+		virtual void OnMsg(proto::BbsGetMsg&&) override;
+		virtual void OnMsg(proto::BbsSubscribe&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;

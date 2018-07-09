@@ -1,27 +1,40 @@
-#ifndef _AES_HPP_
-#define _AES_HPP_
+#pragma once
+#include "../core/ecc.h"
 
-#ifndef __cplusplus
-#error Do not include the hpp header in a c project!
-#endif //__cplusplus
-
-extern "C" {
-#include "aes.h"
-}
-
-class AES_StreamCipher
+struct AES
 {
-	AES_ctx m_Ctx;
+	static const int s_KeyBits = 256;
+	static const int s_KeyBytes = s_KeyBits >> 3;
+	static const int Nr = 14; // num-rounds
+	static const int s_BlockSize = 16;
 
-	uint8_t m_pBuf[AES_BLOCKLEN];
-	uint8_t m_nBuf;
+	struct Encoder
+	{
+		uint32_t m_erk[64]; // encryption round keys. Actually needed 60, but during init extra space is used
+		void Init(const uint8_t* pKey);
+		void Proceed(uint8_t* pDst, const uint8_t* pSrc) const;
+	};
 
-	void PerfXor(uint8_t* pBuf, uint32_t nSize);
+	struct Decoder
+	{
+		uint32_t m_drk[60]; // decryption round keys
+		void Init(const Encoder&);
+		void Proceed(uint8_t* pDst, const uint8_t* pSrc) const;
+	};
 
-public:
+	struct StreamCipher
+	{
+		Encoder m_Enc;
+		ECC::uintBig_t<(s_BlockSize << 3)> m_Counter; // CTR mode
 
-	void Init(const uint8_t* pKey, const uint8_t* pIV = 0);
-	void XCrypt(uint8_t* pBuf, uint32_t nSize);
+		// generated cipherstream
+		uint8_t m_pBuf[s_BlockSize];
+		uint8_t m_nBuf;
+
+		void PerfXor(uint8_t* pBuf, uint32_t nSize);
+
+		void Init(const uint8_t* pKey);
+		void XCrypt(uint8_t* pBuf, uint32_t nSize);
+	};
+
 };
-
-#endif //_AES_HPP_

@@ -104,7 +104,7 @@ namespace beam
 		boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId{};
         copy(id.begin(), id.end(), txId.begin());
-        TxDescription tx( txId, amount, fee, to, move(message), getTimestamp(), sender);
+        TxDescription tx( txId, amount, fee, m_keyChain->getCurrentHeight(), to, move(message), getTimestamp(), sender);
         resume_negotiator(tx);
         return txId;
     }
@@ -188,7 +188,7 @@ namespace beam
         {
             LOG_VERBOSE() << "Received tx invitation " << msg.m_txId;
             bool sender = !msg.m_send;
-            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, from, {}, getTimestamp(), sender };
+            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, from, {}, getTimestamp(), sender };
             auto r = make_shared<Negotiator>(*this, m_keyChain, tx, msg);
             m_negotiators.emplace(tx.m_txId, r);
             m_peers.emplace(tx.m_peerId, r);

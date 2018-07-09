@@ -78,13 +78,14 @@ struct SharedBuffer : IOVec {
 
     /// Creates a copy of data
     SharedBuffer(const void* _data, size_t _size) {
+        assign(_data, _size);
+    }
+
+    void assign(const void* _data, size_t _size) {
+        clear();
         if (_size) {
-            void* d = malloc(_size);
-            // TODO throw if d==0
+            void* d = alloc_data(_size);
             memcpy(d, _data, _size);
-            data = (uint8_t*)d;
-            size = _size;
-            guard.reset(d, [](void* p) { free(p); });
         }
     }
 
@@ -104,6 +105,33 @@ struct SharedBuffer : IOVec {
     void clear() {
         IOVec::clear();
         guard.reset();
+    }
+
+    template<typename A> void serialize(A& a) const {
+        a & size;
+        if (size) {
+            a.write(data, size);
+        }
+    }
+
+    template<typename A> void serialize(A& a) {
+        clear();
+        size_t sz=0;
+        a & sz;
+        if (sz) {
+            void* d = alloc_data(sz);
+            a.read(d, sz);
+        }
+    }
+
+private:
+    void* alloc_data(size_t _size) {
+        void* d = malloc(_size);
+        if (d==0) throw std::runtime_error("out of memory");
+        data = (uint8_t*)d;
+        size = _size;
+        guard.reset(d, [](void* p) { free(p); });
+        return d;
     }
 };
 

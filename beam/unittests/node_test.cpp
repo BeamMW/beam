@@ -357,6 +357,43 @@ namespace beam
 			;
 
 
+		NodeDB::WalkerBbs::Data dBbs;
+
+		for (uint32_t i = 0; i < 200; i++)
+		{
+			dBbs.m_Key = i;
+			dBbs.m_Channel = i % 7;
+			dBbs.m_TimePosted = i + 100;
+			dBbs.m_Message.p = "hello";
+			dBbs.m_Message.n = 5;
+
+			db.BbsIns(dBbs);
+		}
+
+		NodeDB::WalkerBbs wlkbbs(db);
+		wlkbbs.m_Data = dBbs;
+		verify_test(db.BbsFind(wlkbbs));
+
+		wlkbbs.m_Data.m_Key.Inc();
+		verify_test(!db.BbsFind(wlkbbs));
+
+
+		for (wlkbbs.m_Data.m_Channel = 0; wlkbbs.m_Data.m_Channel < 7; wlkbbs.m_Data.m_Channel++)
+		{
+			wlkbbs.m_Data.m_TimePosted = 0;
+			for (db.EnumBbs(wlkbbs); wlkbbs.MoveNext(); )
+				;
+		}
+
+		db.BbsDelOld(267);
+
+		for (wlkbbs.m_Data.m_Channel = 0; wlkbbs.m_Data.m_Channel < 7; wlkbbs.m_Data.m_Channel++)
+		{
+			wlkbbs.m_Data.m_TimePosted = 0;
+			for (db.EnumBbs(wlkbbs); wlkbbs.MoveNext(); )
+				;
+		}
+
 		tr.Commit();
 	}
 
@@ -883,7 +920,6 @@ namespace beam
 				ZeroObject(msgCfg);
 				msgCfg.m_CfgChecksum = Rules::get().Checksum;
 				msgCfg.m_AutoSendHdr = true;
-				msgCfg.m_SendPeers = false;
 				Send(msgCfg);
 			}
 
@@ -911,6 +947,13 @@ namespace beam
 				proto::GetMined msgOut;
 				msgOut.m_HeightMin = 0;
 				Send(msgOut);
+
+				proto::BbsMsg msgBbs;
+				msgBbs.m_Channel = 11;
+				msgBbs.m_TimePosted = getTimestamp();
+				msgBbs.m_Message.resize(1);
+				msgBbs.m_Message[0] = (uint8_t) msg.m_ID.m_Height;
+				Send(msgBbs);
 			}
 
 			virtual void OnMsg(proto::Hdr&& msg) override
@@ -1032,6 +1075,53 @@ namespace beam
 
 		cl.Connect(addr);
 
+
+		struct MyClient2
+			:public proto::NodeConnection
+		{
+			virtual void OnConnected() override {
+				proto::Config msgCfg;
+				ZeroObject(msgCfg);
+				msgCfg.m_CfgChecksum = Rules::get().Checksum;
+				msgCfg.m_SendPeers = true; // just for fun
+				Send(msgCfg);
+			}
+
+			virtual void OnClosed(int errorCode) override {
+				fail_test("OnClosed");
+			}
+
+			virtual void OnMsg(proto::NewTip&& msg) override {
+				if (msg.m_ID.m_Height == 10)
+				{
+					proto::BbsSubscribe msgOut;
+					msgOut.m_Channel = 11;
+					msgOut.m_On = true;
+					msgOut.m_TimeFrom = 0;
+
+					Send(msgOut);
+				}
+			}
+
+			uint32_t m_MsgCount = 0;
+
+			virtual void OnMsg(proto::BbsMsg&& msg) override {
+
+				verify_test(msg.m_Message.size() == 1);
+				uint8_t nMsg = msg.m_Message[0];
+
+				verify_test(nMsg == (uint8_t) m_MsgCount + 1);
+				m_MsgCount++;
+
+
+				printf("Got BBS msg=%u\n", m_MsgCount);
+			}
+		};
+
+		MyClient2 cl2;
+		cl2.Connect(addr);
+
+
 		Node node2;
 		node2.m_Cfg.m_sPathLocal = g_sz2;
 		node2.m_Cfg.m_Connect.resize(1);
@@ -1042,6 +1132,8 @@ namespace beam
 		node2.Initialize();
 
 		pReactor->run();
+
+		verify_test(cl2.m_MsgCount >= cl.m_HeightTrg - 10); // assume several last msgs may haven't arrived yet
 	}
 
 
@@ -1049,7 +1141,7 @@ namespace beam
 
 int main()
 {
-//	auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 
 	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
 	//	.db files
