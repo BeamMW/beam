@@ -679,7 +679,7 @@ int main_impl(int argc, char* argv[])
                             << "Unconfirmed..............." << PrintableAmount(getTotal(keychain, Coin::Unconfirmed)) << '\n'
                             << "Locked...................." << PrintableAmount(getTotal(keychain, Coin::Locked)) << '\n'
                             << "Available coinbase ......." << PrintableAmount(getAvailableByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
-                            << "Total coinbasde..........." << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
+                            << "Total coinbase............" << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
                             << "Avaliable fee............." << PrintableAmount(getAvailableByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
                             << "Total fee................." << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
                             << "Total unspent............." << PrintableAmount(getTotal(keychain, Coin::Unspent)) << "\n\n";
