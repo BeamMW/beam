@@ -62,13 +62,14 @@
     each(1, txId,       sep, BLOB NOT NULL PRIMARY KEY, obj) \
     each(2, amount,     sep, INTEGER NOT NULL, obj) \
     each(3, fee,        sep, INTEGER NOT NULL, obj) \
-    each(4, peerId,     sep, INTEGER NOT NULL, obj) \
-    each(5, message,    sep, BLOB, obj) \
-    each(6, createTime, sep, INTEGER NOT NULL, obj) \
-    each(7, modifyTime, sep, INTEGER, obj) \
-    each(8, sender,     sep, INTEGER NOT NULL, obj) \
-    each(9, status,     sep, INTEGER NOT NULL, obj) \
-    each(10, fsmState,      , BLOB, obj)
+    each(4, minHeight,  sep, INTEGER NOT NULL, obj) \
+    each(5, peerId,     sep, INTEGER NOT NULL, obj) \
+    each(6, message,    sep, BLOB, obj) \
+    each(7, createTime, sep, INTEGER NOT NULL, obj) \
+    each(8, modifyTime, sep, INTEGER, obj) \
+    each(9, sender,     sep, INTEGER NOT NULL, obj) \
+    each(10, status,     sep, INTEGER NOT NULL, obj) \
+    each(11, fsmState,      , BLOB, obj)
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
 
 namespace beam
@@ -661,6 +662,26 @@ namespace beam
 		notifyKeychainChanged();
 	}
 
+    void Keychain::update(const vector<beam::Coin>& coins)
+    {
+        if (coins.size())
+        {
+            sqlite::Transaction trans(_db);
+
+            for (const auto& coin : coins)
+            {
+                const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA, ) " WHERE id=?1;";
+                sqlite::Statement stm(_db, req);
+
+                ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
+
+                stm.step();
+            }
+
+            trans.commit();
+        }
+    }
+
 	void Keychain::remove(const vector<beam::Coin>& coins)
 	{
 		if (coins.size())
@@ -869,24 +890,25 @@ namespace beam
 			sqlite::Statement stm2(_db, selectReq);
 			stm2.bind(1, p.m_txId);
 
-			if (stm2.step())
-			{
-				const char* updateReq = "UPDATE " HISTORY_NAME " SET modifyTime=?2, status=?3, fsmState=?4 WHERE txId=?1;";
-				sqlite::Statement stm(_db, updateReq);
+	        if (stm2.step())
+	        {
+	            const char* updateReq = "UPDATE " HISTORY_NAME " SET modifyTime=?2, status=?3, fsmState=?4, minHeight=?5 WHERE txId=?1;";
+	            sqlite::Statement stm(_db, updateReq);
 
-				stm.bind(1, p.m_txId);
-				stm.bind(2, p.m_modifyTime);
-				stm.bind(3, p.m_status);
-				stm.bind(4, p.m_fsmState);
-				stm.step();
-			}
-			else
-			{
-				const char* insertReq = "INSERT INTO " HISTORY_NAME " (" ENUM_HISTORY_FIELDS(LIST, COMMA,) ") VALUES(" ENUM_HISTORY_FIELDS(BIND_LIST, COMMA,) ");";
-				sqlite::Statement stm(_db, insertReq);
-				ENUM_HISTORY_FIELDS(STM_BIND_LIST, NOSEP, p);
-				stm.step();
-			}
+	            stm.bind(1, p.m_txId);
+	            stm.bind(2, p.m_modifyTime);
+	            stm.bind(3, p.m_status);
+	            stm.bind(4, p.m_fsmState);
+	            stm.bind(5, p.m_minHeight);
+	            stm.step();
+	        }
+	        else
+	        {
+	            const char* insertReq = "INSERT INTO " HISTORY_NAME " (" ENUM_HISTORY_FIELDS(LIST, COMMA,) ") VALUES(" ENUM_HISTORY_FIELDS(BIND_LIST, COMMA,) ");";
+	            sqlite::Statement stm(_db, insertReq);
+	            ENUM_HISTORY_FIELDS(STM_BIND_LIST, NOSEP, p);
+	            stm.step();
+	        }
 		}
 
 		trans.commit();
@@ -917,7 +939,7 @@ namespace beam
         sqlite::Transaction trans(_db);
 
         {
-            const char* req = "UPDATE " STORAGE_NAME " SET status=?3 WHERE spentTxId=?1 AND status=?2;";
+            const char* req = "UPDATE " STORAGE_NAME " SET status=?3, spentTxId=NULL WHERE spentTxId=?1 AND status=?2;";
             sqlite::Statement stm(_db, req);
             stm.bind(1, txId);
             stm.bind(2, Coin::Locked);

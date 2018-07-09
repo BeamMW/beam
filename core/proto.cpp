@@ -53,10 +53,14 @@ void ProtocolPlus::InitCipher(Cipher& c)
 	ECC::NoLeak<ECC::Hash::Value> hvSecret;
 	hp.V << ptSecret >> hvSecret.V;
 
-	static_assert(AES_KEYLEN == sizeof(hvSecret.V), "");
-	static_assert(AES_BLOCKLEN <= sizeof(hvSecret.V), "");
+	static_assert(AES::s_KeyBytes == sizeof(hvSecret.V), "");
+	c.Init(hvSecret.V.m_pData);
 
-	c.Init(hvSecret.V.m_pData, hvSecret.V.m_pData);
+	hp.V << hvSecret.V >> hvSecret.V; // IV
+
+	static_assert(sizeof(hvSecret.V) >= sizeof(c.m_Counter), "");
+	memcpy(c.m_Counter.m_pData, hvSecret.V.m_pData, sizeof(c.m_Counter.m_pData));
+
 	c.m_bON = true;
 }
 
@@ -315,6 +319,7 @@ void PeerManager::Update()
 	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; it++)
 	{
 		PeerInfo& pi = it->get_ParentObj();
+		assert(pi.m_Active.m_Now);
 
 		bool bTooEarlyToDisconnect = (nTicks_ms - pi.m_LastActivity_ms < m_Cfg.m_TimeoutDisconnect_ms);
 
@@ -407,6 +412,8 @@ void PeerManager::UpdateRatingsInternal(uint32_t t_ms)
 	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; it++)
 	{
 		PeerInfo& pi = it->get_ParentObj();
+		assert(pi.m_Active.m_Now);
+		assert(pi.m_RawRating.m_Value); // must not be banned (i.e. must be re-inserted into m_AdjustedRatings).
 
 		uint32_t& val = pi.m_AdjustedRating.m_Increment;
 		val = (val > rDec) ? (val - rDec) : 0;
@@ -444,6 +451,8 @@ PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)
 	ret->m_Active.m_Now = false;
 	ret->m_LastSeen = 0;
 	ret->m_LastActivity_ms = 0;
+
+	LOG_INFO() << *ret << " New";
 
 	return ret;
 }
@@ -483,6 +492,7 @@ void PeerManager::ModifyRatingInternal(PeerInfo& pi, uint32_t delta, bool bAdd, 
 		else
 			Rating::Dec(pi.m_RawRating.m_Value, delta);
 
+		assert(pi.m_RawRating.m_Value);
 		m_AdjustedRatings.insert(pi.m_AdjustedRating);
 	}
 
@@ -497,6 +507,7 @@ void PeerManager::RemoveAddr(PeerInfo& pi)
 	{
 		m_Addr.erase(AddrSet::s_iterator_to(pi.m_Addr));
 		pi.m_Addr.m_Value = io::Address();
+		assert(pi.m_Addr.m_Value.empty());
 	}
 }
 
@@ -504,6 +515,8 @@ void PeerManager::ModifyAddr(PeerInfo& pi, const io::Address& addr)
 {
 	if (addr == pi.m_Addr.m_Value)
 		return;
+
+	LOG_INFO() << pi << " Address changed to " << addr;
 
 	RemoveAddr(pi);
 
@@ -519,6 +532,7 @@ void PeerManager::ModifyAddr(PeerInfo& pi, const io::Address& addr)
 
 	pi.m_Addr.m_Value = addr;
 	m_Addr.insert(pi.m_Addr);
+	assert(!pi.m_Addr.m_Value.empty());
 }
 
 void PeerManager::OnActive(PeerInfo& pi, bool bActive)

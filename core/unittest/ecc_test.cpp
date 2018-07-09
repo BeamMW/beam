@@ -3,6 +3,7 @@
 #include "../block_crypt.h"
 #include "../utility/serialize.h"
 #include "../core/serialization_adapters.h"
+#include "../tiny-AES/aes.hpp"
 
 #include "secp256k1-zkp/include/secp256k1_rangeproof.h" // For benchmark comparison with secp256k1
 void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a);
@@ -735,6 +736,51 @@ void TestTransactionKernelConsuming()
 	verify_test(ctx.m_Fee.Lo == 0);
 }
 
+void TestAES()
+{
+	// AES in ECB mode (simplest): https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Standards-and-Guidelines/documents/examples/AES_Core256.pdf
+
+	uint8_t pKey[AES::s_KeyBytes] = {
+		0x60,0x3D,0xEB,0x10,0x15,0xCA,0x71,0xBE,0x2B,0x73,0xAE,0xF0,0x85,0x7D,0x77,0x81,
+		0x1F,0x35,0x2C,0x07,0x3B,0x61,0x08,0xD7,0x2D,0x98,0x10,0xA3,0x09,0x14,0xDF,0xF4
+	};
+
+	const uint8_t pPlaintext[AES::s_BlockSize] = {
+		0x6B,0xC1,0xBE,0xE2,0x2E,0x40,0x9F,0x96,0xE9,0x3D,0x7E,0x11,0x73,0x93,0x17,0x2A
+	};
+
+	const uint8_t pCiphertext[AES::s_BlockSize] = {
+		0xF3,0xEE,0xD1,0xBD,0xB5,0xD2,0xA0,0x3C,0x06,0x4B,0x5A,0x7E,0x3D,0xB1,0x81,0xF8
+	};
+
+	struct {
+		uint32_t zero0 = 0;
+		AES::Encoder enc;
+		uint32_t zero1 = 0;
+	} se;
+
+	se.enc.Init(pKey);
+	verify_test(!se.zero0 && !se.zero1);
+
+	uint8_t pBuf[sizeof(pPlaintext)];
+	memcpy(pBuf, pPlaintext, sizeof(pBuf));
+
+	se.enc.Proceed(pBuf, pBuf); // inplace encode
+	verify_test(!memcmp(pBuf, pCiphertext, sizeof(pBuf)));
+
+	struct {
+		uint32_t zero0 = 0;
+		AES::Decoder dec;
+		uint32_t zero1 = 0;
+	} sd;
+
+	sd.dec.Init(se.enc);
+	verify_test(!sd.zero0 && !sd.zero1);
+
+	sd.dec.Proceed(pBuf, pBuf); // inplace decode
+	verify_test(!memcmp(pBuf, pBuf, sizeof(pPlaintext)));
+}
+
 void TestAll()
 {
 	TestUintBig();
@@ -746,6 +792,7 @@ void TestAll()
 	TestRangeProof();
 	TestTransaction();
 	TestTransactionKernelConsuming();
+	TestAES();
 }
 
 
@@ -1120,6 +1167,25 @@ void RunBenchmark()
 			{
 				Oracle oracle;
 				bp.IsValid(comm, oracle);
+			}
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		AES::StreamCipher asc;
+		asc.Init(hv.m_pData);
+
+		uint8_t pBuf[0x400];
+
+		BenchmarkMeter bm("AES.XCrypt-1MB");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+			{
+				for (size_t nSize = 0; nSize < 0x100000; nSize += sizeof(pBuf))
+					asc.XCrypt(pBuf, sizeof(pBuf));
 			}
 
 		} while (bm.ShouldContinue());

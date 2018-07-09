@@ -23,7 +23,11 @@
 #endif // verify
 
 #define IMPLEMENT_GET_PARENT_OBJ(parent_class, this_var) \
-	parent_class& get_ParentObj() const { return * (parent_class*) (((uint8_t*) this) + 1 - (uint8_t*) (&((parent_class*) 1)->this_var)); }
+	parent_class& get_ParentObj() const { \
+		parent_class*  p = (parent_class*) (((uint8_t*) this) + 1 - (uint8_t*) (&((parent_class*) 1)->this_var)); \
+		assert(this == &p->this_var); /* this also tests that the variable of the correct type */ \
+		return *p; \
+	}
 
 #include "ecc.h"
 #include <iostream>
@@ -70,6 +74,8 @@ namespace beam
 	typedef std::vector<uint8_t> ByteBuffer;
 	typedef ECC::Amount Amount;
 	typedef ECC::Hash::Value PeerID;
+	typedef uint64_t BbsChannel;
+	typedef ECC::Hash::Value BbsMsgID;
 
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount

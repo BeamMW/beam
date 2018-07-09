@@ -51,6 +51,7 @@ namespace beam
         TxDescription(const Uuid& txId
             , Amount amount
             , Amount fee
+            , Height minHeight
             , uint64_t peerId
             , ByteBuffer&& message
             , Timestamp createTime
@@ -58,6 +59,7 @@ namespace beam
             : m_txId{ txId }
             , m_amount{ amount }
             , m_fee{ fee }
+            , m_minHeight{ minHeight }
             , m_peerId{ peerId }
             , m_message{ std::move(message) }
             , m_createTime{ createTime }
@@ -70,6 +72,7 @@ namespace beam
         Uuid m_txId;
         Amount m_amount;
         Amount m_fee;
+        Height m_minHeight;
         uint64_t m_peerId;
         ByteBuffer m_message;
         Timestamp m_createTime;
@@ -93,6 +96,7 @@ namespace beam
             Uuid m_txId;
             ECC::Amount m_amount;
             ECC::Amount m_fee;
+            Height m_height;
             bool m_send;
             ECC::Point m_publicPeerExcess;
             ECC::Scalar m_offset;
@@ -113,6 +117,7 @@ namespace beam
                 : m_txId{other.m_txId}
                 , m_amount{ other.m_amount }
                 , m_fee{ other.m_fee }
+                , m_height{other.m_height }
                 , m_send{other.m_send}
                 , m_publicPeerExcess{other.m_publicPeerExcess}
                 , m_offset{other.m_offset}
@@ -126,6 +131,7 @@ namespace beam
             SERIALIZE(m_txId
                     , m_amount
                     , m_fee
+                    , m_height
                     , m_send
                     , m_publicPeerExcess
                     , m_offset

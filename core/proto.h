@@ -58,7 +58,7 @@ namespace proto {
 #define BeamNodeMsg_Config(macro) \
 	macro(ECC::Hash::Value, CfgChecksum) \
 	macro(bool, SpreadingTransactions) \
-	macro(bool, Mining) \
+	macro(bool, Bbs) \
 	macro(bool, SendPeers) \
 	macro(bool, AutoSendHdr) /* prefer the header in addition to the NewTip message */
 
@@ -81,6 +81,22 @@ namespace proto {
 #define BeamNodeMsg_PeerInfo(macro) \
 	macro(PeerID, ID) \
 	macro(io::Address, LastAddr)
+
+#define BeamNodeMsg_BbsMsg(macro) \
+	macro(BbsChannel, Channel) \
+	macro(Timestamp, TimePosted) \
+	macro(ByteBuffer, Message)
+
+#define BeamNodeMsg_BbsHaveMsg(macro) \
+	macro(BbsMsgID, Key)
+
+#define BeamNodeMsg_BbsGetMsg(macro) \
+	macro(BbsMsgID, Key)
+
+#define BeamNodeMsg_BbsSubscribe(macro) \
+	macro(BbsChannel, Channel) \
+	macro(Timestamp, TimeFrom) \
+	macro(bool, On)
 
 #define BeamNodeMsg_SChannelInitiate(macro) \
 	macro(ECC::Point, NoncePub)
@@ -114,6 +130,10 @@ namespace proto {
 	macro(25, GetTransaction) \
 	macro(31, PeerInfoSelf) \
 	macro(32, PeerInfo) \
+	macro(40, BbsMsg) \
+	macro(41, BbsHaveMsg) \
+	macro(42, BbsGetMsg) \
+	macro(43, BbsSubscribe) \
 	macro(61, SChannelInitiate) \
 	macro(62, SChannelReady) \
 	macro(63, SChannelAuthentication) \
@@ -155,7 +175,7 @@ namespace proto {
 		:public Protocol
 	{
 		struct Cipher
-			:public AES_StreamCipher
+			:public AES::StreamCipher
 		{
 			bool m_bON;
 		};

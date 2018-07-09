@@ -186,6 +186,7 @@ void TestStoreTxRecord()
     tr.m_amount = 34;
     tr.m_peerId = 23;
     tr.m_createTime = 123456;
+    tr.m_minHeight = 134;
     tr.m_sender = true;
     tr.m_status = TxDescription::InProgress;
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
@@ -193,6 +194,7 @@ void TestStoreTxRecord()
     TxDescription tr2 = tr;
     tr2.m_txId = id;
     tr2.m_amount = 43;
+    tr2.m_minHeight = 234;
     tr2.m_createTime = 1234564;
     tr2.m_modifyTime = 12345644;
     tr2.m_status = TxDescription::Completed;
@@ -202,6 +204,7 @@ void TestStoreTxRecord()
     WALLET_CHECK(t.size() == 1);
     WALLET_CHECK(t[0].m_txId == tr.m_txId);
     WALLET_CHECK(t[0].m_amount == tr.m_amount);
+    WALLET_CHECK(t[0].m_minHeight == tr2.m_minHeight);
     WALLET_CHECK(t[0].m_peerId == tr.m_peerId);
     WALLET_CHECK(t[0].m_createTime == tr.m_createTime);
     WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
@@ -375,6 +378,7 @@ void TestTxRollback()
 
     WALLET_CHECK(coins.size() == 2);
     WALLET_CHECK(coins[1].m_status == Coin::Unspent);
+    WALLET_CHECK(coins[1].m_spentTxId.is_initialized() == false);
 }
 
 

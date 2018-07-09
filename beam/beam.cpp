@@ -13,6 +13,7 @@
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <iterator>
+#include <future>
 
 namespace po = boost::program_options;
 using namespace std;
@@ -102,7 +103,7 @@ namespace beam
         static const char* Sent = "Sent";
         static const char* Received = "Received";
         static const char* Failed = "Failed";
-        
+
         switch (tx.m_status)
         {
         case TxDescription::Pending: return Pending;
@@ -113,7 +114,7 @@ namespace beam
         default:
             assert(false && "Unknown key type");
         }
-        
+
         return "";
     }
 
@@ -201,7 +202,7 @@ namespace
 
 		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
         arc & vBlocks;
-        
+
 		return true;
     }
 }
@@ -383,8 +384,9 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 
 #define LOG_VERBOSE_ENABLED 0
 
+io::Reactor::Ptr reactor;
 
-int main(int argc, char* argv[])
+int main_impl(int argc, char* argv[])
 {
     int logLevel = LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
@@ -500,7 +502,7 @@ int main(int argc, char* argv[])
 
         if (vm.count(cli::MODE))
         {
-            io::Reactor::Ptr reactor(io::Reactor::create());
+            reactor = io::Reactor::create();
             io::Reactor::Scope scope(*reactor);
             NoLeak<uintBig> walletSeed;
             walletSeed.V = Zero;
@@ -673,7 +675,7 @@ int main(int argc, char* argv[])
                             << "Unconfirmed..............." << PrintableAmount(getTotal(keychain, Coin::Unconfirmed)) << '\n'
                             << "Locked...................." << PrintableAmount(getTotal(keychain, Coin::Locked)) << '\n'
                             << "Available coinbase ......." << PrintableAmount(getAvailableByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
-                            << "Total coinbasde..........." << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
+                            << "Total coinbase............" << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
                             << "Avaliable fee............." << PrintableAmount(getAvailableByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
                             << "Total fee................." << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
                             << "Total unspent............." << PrintableAmount(getTotal(keychain, Coin::Unspent)) << "\n\n";
@@ -697,7 +699,7 @@ int main(int argc, char* argv[])
                             }
                             return 0;
                         }
-                        
+
                         cout << "| id\t| amount(Beam)\t| amount(c)\t| height\t| maturity\t| status \t| key type\t|\n";
                         keychain->visit([](const Coin& c)->bool
                         {
@@ -772,7 +774,7 @@ int main(int argc, char* argv[])
                         , reactor };
                     if (command == cli::SEND)
                     {
-                        wallet_io.transfer_money(receiverAddr, move(amount), 0, {});
+                        wallet_io.transfer_money(receiverAddr, move(amount), 0);
                     }
                     wallet_io.start();
                 }
@@ -801,3 +803,27 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+
+int main(int argc, char* argv[]) {
+#ifdef _WIN32
+    return main_impl(argc, argv);
+#else
+    auto f = std::async(
+        std::launch::async,
+        [argc, argv]() -> int {
+            // TODO: this hungs app on OSX
+            //lock_signals_in_this_thread();
+            int ret = main_impl(argc, argv);
+            kill(0, SIGINT);
+            return ret;
+        }
+    );
+
+    wait_for_termination(0);
+
+    if (reactor) reactor->stop();
+
+    return f.get();
+#endif
+}
+
