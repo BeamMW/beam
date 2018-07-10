@@ -1,6 +1,7 @@
 import QtQuick 2.3
 import QtQuick.Controls 1.2
 import QtQuick.Controls.Styles 1.2
+import QtGraphicalEffects 1.0
 import "."
 
 Rectangle {
@@ -49,6 +50,24 @@ Rectangle {
                         width: 28
                         height: 28
                         source: "qrc:///assets/icon-" + modelData + (selectedItem == index ? "-active" : "") + ".svg"
+                    }
+
+                    Rectangle {
+                        id: indicator
+                        y: 6
+                        width: 4
+                        height: 48
+                        color: Style.bright_teal
+                        visible: selectedItem == index
+                    }
+
+                    DropShadow {
+                        anchors.fill: indicator
+                        radius: 5
+                        samples: 9
+                        color: Style.bright_teal
+                        source: indicator
+						visible: selectedItem == index
                     }
 
                     MouseArea {
