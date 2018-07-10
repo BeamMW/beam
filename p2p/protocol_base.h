@@ -162,6 +162,10 @@ public:
         _errorHandler.on_unexpected_msg(fromStream, type);
     }
 
+	void on_corrupt_msg(uint64_t fromStream) {
+		_errorHandler.on_protocol_error(fromStream, message_corrupted);
+	}
+
     typedef bool(*OnRawMessage)(
         void* msgHandler,
         IErrorHandler& errorHandler,
@@ -175,6 +179,8 @@ public:
     bool on_new_message(uint64_t fromStream, MsgType type, const void* data, size_t size);
 
 	virtual void Decrypt(uint8_t*, uint32_t nSize) {}
+	virtual uint32_t get_MacSize() { return 0; }
+	virtual bool VerifyMsg(const uint8_t*, uint32_t nSize) { return true; } // all together: header, body, MAC
 
 private:
     /// protocol version, all received messages must have these bytes

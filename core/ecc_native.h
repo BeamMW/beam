@@ -352,6 +352,29 @@ namespace ECC
 		void operator >> (Value& hv) { Finalize(hv); }
 	};
 
+	class Hash::Mac
+		:private secp256k1_hmac_sha256_t
+	{
+		void Finalize(Value&);
+	public:
+		Mac() {}
+		Mac(const void* pSecret, uint32_t nSecret) { Reset(pSecret, nSecret); }
+		~Mac() { SecureErase(*this); }
+
+		void Reset(const void* pSecret, uint32_t nSecret);
+		void Write(const void*, uint32_t);
+
+		template <typename T>
+		Mac& operator << (const T& t)
+		{
+			static_assert(sizeof(Processor) == sizeof(inner));
+			((Processor&)inner) << t;
+			return *this;
+		}
+
+		void operator >> (Value& hv) { Finalize(hv); }
+	};
+
 	struct Context
 	{
 		static const Context& get();

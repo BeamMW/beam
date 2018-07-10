@@ -1,5 +1,5 @@
 #pragma once
-#include "../core/ecc.h"
+#include "ecc.h"
 
 struct AES
 {
