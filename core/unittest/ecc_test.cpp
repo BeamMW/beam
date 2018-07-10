@@ -634,6 +634,13 @@ struct TransactionMaker
 
 		pKrn->m_pContract->m_PublicKey = Point::Native(Context::get().G * skContract);
 
+		pKrn->m_pHashLock.reset(new beam::TxKernel::HashLock);
+
+		uintBig hlPreimage;
+		SetRandom(hlPreimage);
+
+		Hash::Processor() << hlPreimage >> pKrn->m_pHashLock->m_Hash;
+
 		CoSignKernel(*pKrn);
 
 		// sign contract
@@ -642,6 +649,9 @@ struct TransactionMaker
 		pKrn->get_HashForContract(hv, hv);
 
 		pKrn->m_pContract->m_Signature.Sign(hv, skContract);
+
+		// finit HL: add hash preimage
+		pKrn->m_pHashLock->m_Preimage = hlPreimage;
 
 		lstTrg.push_back(std::move(pKrn));
 	}
