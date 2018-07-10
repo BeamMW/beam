@@ -1024,75 +1024,82 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 	// However the transaction body must have already been checked for NULLs
 
 	proto::Boolean msgOut;
-	msgOut.m_Value = true;
+	msgOut.m_Value = OnNewTransaction(std::move(msg.m_Transaction));
+	Send(msgOut);
+}
 
+bool Node::Peer::OnNewTransaction(Transaction::Ptr&& ptx)
+{
 	NodeProcessor::TxPool::Element::Tx key;
-	msg.m_Transaction->get_Key(key.m_Key);
+	ptx->get_Key(key.m_Key);
 
 	NodeProcessor::TxPool::TxSet::iterator it = m_This.m_TxPool.m_setTxs.find(key);
-	if (m_This.m_TxPool.m_setTxs.end() == it)
+	if (m_This.m_TxPool.m_setTxs.end() != it)
+		return true;
+
+	m_This.m_Wtx.Delete(key.m_Key);
+
+	// new transaction
+	const Transaction& tx = *ptx;
+	Transaction::Context ctx;
+
+	bool bValid = !tx.m_vInputs.empty() && !tx.m_vKernelsOutput.empty();
+	if (bValid)
+		bValid = m_This.m_Processor.ValidateTx(tx, ctx);
+
 	{
-		m_This.m_Wtx.Delete(key.m_Key);
+		// Log it
+		std::ostringstream os;
 
-		// new transaction
-		const Transaction& tx = *msg.m_Transaction;
-		Transaction::Context ctx;
-		msgOut.m_Value = m_This.m_Processor.ValidateTx(tx, ctx);
+		os << "Tx " << key.m_Key << " from " << m_RemoteAddr;
 
+		for (size_t i = 0; i < tx.m_vInputs.size(); i++)
+			os << "\n\tI: " << tx.m_vInputs[i]->m_Commitment;
+
+		for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
 		{
-			// Log it
-			std::ostringstream os;
+			const Output& outp = *tx.m_vOutputs[i];
+			os << "\n\tO: " << outp.m_Commitment;
 
-			os << "Tx " << key.m_Key << " from " << m_RemoteAddr;
+			if (outp.m_Incubation)
+				os << ", Incubation +" << outp.m_Incubation;
 
-			for (size_t i = 0; i < tx.m_vInputs.size(); i++)
-				os << "\n\tI: " << tx.m_vInputs[i]->m_Commitment;
+			if (outp.m_pPublic)
+				os << ", Sum=" << outp.m_pPublic->m_Value;
 
-			for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
-			{
-				const Output& outp = *tx.m_vOutputs[i];
-				os << "\n\tO: " << outp.m_Commitment;
-
-				if (outp.m_Incubation)
-					os << ", Incubation +" << outp.m_Incubation;
-
-				if (outp.m_pPublic)
-					os << ", Sum=" << outp.m_pPublic->m_Value;
-
-				if (outp.m_pConfidential)
-					os << ", Confidential";
-			}
-
-			for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
-				os << "\n\tK: Fee=" << tx.m_vKernelsOutput[i]->m_Fee;
-
-			os << "\n\tValid: " << msgOut.m_Value;
-			LOG_INFO() << os.str();
+			if (outp.m_pConfidential)
+				os << ", Confidential";
 		}
 
-		if (msgOut.m_Value)
-		{
-			proto::HaveTransaction msgOut;
-			msgOut.m_ID = key.m_Key;
+		for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
+			os << "\n\tK: Fee=" << tx.m_vKernelsOutput[i]->m_Fee;
 
-			for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; it++)
-			{
-				Peer& peer = *it;
-				if (this == &peer)
-					continue;
-				if (!peer.m_Config.m_SpreadingTransactions)
-					continue;
-
-				peer.Send(msgOut);
-			}
-
-			m_This.m_TxPool.AddValidTx(std::move(msg.m_Transaction), ctx, key.m_Key);
-			m_This.m_TxPool.ShrinkUpTo(m_This.m_Cfg.m_MaxPoolTransactions);
-			m_This.m_Miner.SetTimer(m_This.m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
-		}
+		os << "\n\tValid: " << bValid;
+		LOG_INFO() << os.str();
 	}
 
-	Send(msgOut);
+	if (!bValid)
+		return false;
+
+	proto::HaveTransaction msgOut;
+	msgOut.m_ID = key.m_Key;
+
+	for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; it++)
+	{
+		Peer& peer = *it;
+		if (this == &peer)
+			continue;
+		if (!peer.m_Config.m_SpreadingTransactions)
+			continue;
+
+		peer.Send(msgOut);
+	}
+
+	m_This.m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
+	m_This.m_TxPool.ShrinkUpTo(m_This.m_Cfg.m_MaxPoolTransactions);
+	m_This.m_Miner.SetTimer(m_This.m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
+
+	return true;
 }
 
 void Node::Peer::OnMsg(proto::Config&& msg)

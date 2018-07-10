@@ -293,6 +293,7 @@ private:
 		void OnResendPeers();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, bool bIsBan);
+		bool OnNewTransaction(Transaction::Ptr&&);
 
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
