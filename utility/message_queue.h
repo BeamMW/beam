@@ -65,11 +65,11 @@ template <class T> class TX {
 public:
 
     bool send(const T& message) {
-        return _queue->send(message) && _asyncEvent->trigger();
+        return _queue->send(message) && _asyncEvent();
     }
 
     bool send(T&& message) {
-        return _queue->send(std::move(message)) && _asyncEvent->trigger();
+        return _queue->send(std::move(message)) && _asyncEvent();
     }
 
     size_t queue_size() {
@@ -88,7 +88,7 @@ private:
     std::shared_ptr<MessageQueue<T>> _queue;
 
     /// io::Reactor event that can be called from another thread
-    io::AsyncEvent::Ptr _asyncEvent;
+    io::AsyncEvent::Trigger _asyncEvent;
 };
 
 /// Receiver side of inter=thread channel

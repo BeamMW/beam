@@ -2,6 +2,7 @@
 #include <chrono>
 #include <stdio.h>
 #include <time.h>
+#include <atomic>
 
 #if defined __linux__
     #include <unistd.h>
@@ -77,8 +78,8 @@ uint64_t get_thread_id() {
 #ifndef _WIN32
 
 namespace {
-    
-bool g_quit = false;
+
+std::atomic<bool> g_quit = false;
 
 void signal_handler(int sig) {
     if (sig == SIGINT || sig == SIGTERM)
@@ -103,16 +104,16 @@ void block_signals_in_this_thread() {
 
 void wait_for_termination(int nSec) {
     g_quit = false;
-    
+
     install_signal(SIGTERM);
     install_signal(SIGINT);
     install_signal(SIGHUP);
     install_signal(SIGPIPE);
-    
+
     struct timespec req, rem;
     if (nSec > 0)
         req.tv_sec = nSec;
-    else 
+    else
         req.tv_sec = 8640000;
     req.tv_nsec = 0;
     rem.tv_sec = 0;

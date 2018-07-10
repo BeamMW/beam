@@ -123,7 +123,7 @@ bool Node::Wanted::Delete(const KeyType& key)
 	Set::iterator it = m_set.find(n);
 	if (m_set.end() == it)
 		return false;
-		
+
 	Delete(*it);
 	return true;
 }
@@ -332,7 +332,7 @@ void Node::Processor::OnNewState()
 	get_ParentObj().m_TxPool.DeleteOutOfBound(msg.m_ID.m_Height + 1);
 
 	get_ParentObj().m_Miner.HardAbortSafe();
-	
+
 	get_ParentObj().m_Miner.SetTimer(0, true); // don't start mined block construction, because we're called in the context of NodeProcessor, which holds the DB transaction.
 
 	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
@@ -534,7 +534,7 @@ void Node::Initialize()
 					m_PeerMan.ModifyRating(*pPi, r - pPi->m_RawRating.m_Value, true);
 				else
 					m_PeerMan.ModifyRating(*pPi, pPi->m_RawRating.m_Value - r, false);
-				
+
 			pPi->m_LastSeen = wlk.m_Data.m_LastSeen;
 		}
 	}
@@ -1535,7 +1535,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 
 		static_assert(sizeof(s.m_PoW.m_Nonce) <= sizeof(hv));
 		memcpy(s.m_PoW.m_Nonce.m_pData, hv.m_pData, sizeof(s.m_PoW.m_Nonce.m_pData));
-	
+
 		Block::PoW::Cancel fnCancel = [this, pTask](bool bRetrying)
 		{
 			if (*pTask->m_pStop)
@@ -1592,7 +1592,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 		*pTask->m_pStop = true;
 		m_pTask = pTask; // In case there was a soft restart we restore the one that we mined.
 
-		m_pEvtMined->trigger();
+		m_pEvtMined->post();
 		break;
 	}
 }
@@ -1679,7 +1679,7 @@ bool Node::Miner::Restart()
 	m_pTask = pTask;
 
 	for (size_t i = 0; i < m_vThreads.size(); i++)
-		m_vThreads[i].m_pEvt->trigger();
+		m_vThreads[i].m_pEvt->post();
 
 	return true;
 }
@@ -1924,7 +1924,7 @@ void Node::Compressor::Proceed()
 		LOG_WARNING() << "History generation failed";
 
 	ZeroObject(m_hrInplaceRequest);
-	m_Link.m_pEvt->trigger();
+	m_Link.m_pEvt->post();
 }
 
 bool Node::Compressor::ProceedInternal()
@@ -1945,7 +1945,7 @@ bool Node::Compressor::ProceedInternal()
 			std::unique_lock<std::mutex> scope(m_Mutex);
 			m_hrInplaceRequest = hr;
 
-			m_Link.m_pEvt->trigger();
+			m_Link.m_pEvt->post();
 
 			m_Cond.wait(scope);
 

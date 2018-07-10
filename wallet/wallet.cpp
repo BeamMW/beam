@@ -104,7 +104,7 @@ namespace beam
 		boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId{};
         copy(id.begin(), id.end(), txId.begin());
-        TxDescription tx( txId, amount, fee, to, move(message), getTimestamp(), sender);
+        TxDescription tx( txId, amount, fee, m_keyChain->getCurrentHeight(), to, move(message), getTimestamp(), sender);
         resume_negotiator(tx);
         return txId;
     }
@@ -188,7 +188,7 @@ namespace beam
         {
             LOG_VERBOSE() << "Received tx invitation " << msg.m_txId;
             bool sender = !msg.m_send;
-            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, from, {}, getTimestamp(), sender };
+            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, from, {}, getTimestamp(), sender };
             auto r = make_shared<Negotiator>(*this, m_keyChain, tx, msg);
             m_negotiators.emplace(tx.m_txId, r);
             m_peers.emplace(tx.m_peerId, r);
@@ -282,7 +282,7 @@ namespace beam
         // TODO: handle the maturity of the several proofs (> 1)
         if (m_pendingProofs.empty())
         {
-            LOG_DEBUG() << "Unexpected UTXO proof";
+            LOG_WARNING() << "Unexpected UTXO proof";
             return finish_sync();
         }
 
@@ -296,7 +296,7 @@ namespace beam
             if (coin.m_status == Coin::Locked)
             {
                 coin.m_status = Coin::Spent;
-                m_keyChain->update(vector<Coin>{coin});
+                m_keyChain->update(coin);
             }
         }
         else
@@ -308,9 +308,11 @@ namespace beam
 
                     if (proof.IsValid(input, m_Definition))
                     {
-                        LOG_ERROR() << "Got proof for: " << input.m_Commitment;
+                        LOG_INFO() << "Got proof for: " << input.m_Commitment;
                         coin.m_status = Coin::Unspent;
                         coin.m_maturity = proof.m_Maturity;
+                        coin.m_confirmHeight = m_newStateID.m_Height;
+                        coin.m_confirmHash = m_newStateID.m_Hash;
                         if (coin.m_key_type == KeyType::Coinbase
                             || coin.m_key_type == KeyType::Comission)
                         {
@@ -319,12 +321,12 @@ namespace beam
                         }
                         else
                         {
-                            m_keyChain->update(vector<Coin>{coin});
+                            m_keyChain->update(coin);
                         }
                     }
                     else
                     {
-                        LOG_ERROR() << "Invalid proof provided";
+                        LOG_ERROR() << "Invalid proof provided: " << input.m_Commitment;
                     }
                 }
             }
@@ -358,40 +360,26 @@ namespace beam
         Block::SystemState::ID newID = {};
         msg.m_Description.get_ID(newID);
         
+        m_Definition = msg.m_Description.m_Definition;
+        m_newStateID = newID;
+
         if (newID == m_knownStateID)
         {
             return finish_sync();
         }
-        
-        if (newID > m_knownStateID)
+
+        m_synchronized = false;
+
+        if (m_knownStateID.m_Height <= Rules::HeightGenesis)
         {
-            m_newStateID = newID;
-            m_synchronized = false;
-            ++m_syncing; // Mined
-            m_network.send_node_message(proto::GetMined{ m_knownStateID.m_Height });
-
-            vector<Coin> unconfirmed;
-            m_keyChain->visit([&](const Coin& coin)
-            {
-                if (coin.m_status == Coin::Unconfirmed
-                    || coin.m_status == Coin::Locked)
-                {
-                    unconfirmed.emplace_back(coin);
-                }
-
-                return true;
-            });
-
-            getUtxoProofs(unconfirmed);
+            // cold start
+            do_fast_forward();
         }
-        else //rollback
+        else
         {
-
+            ++m_syncing;
+            m_network.send_node_message(proto::GetProofState{ m_knownStateID.m_Height });
         }
-
-        m_newStateID = newID;
-        m_Definition = msg.m_Description.m_Definition;
-
 
         return finish_sync();
     }
@@ -428,6 +416,33 @@ namespace beam
         return finish_sync();
     }
 
+    bool Wallet::handle_node_message(proto::Proof&& msg)
+    {
+        Merkle::Hash hv = m_knownStateID.m_Hash;
+        Merkle::Interpret(hv, msg.m_Proof);
+
+        if (hv != m_Definition)
+        {
+            LOG_INFO() << "Last known state doesn't present on current branch. Rollback... ";
+            // rollback
+            // search for the latest valid known state
+            Block::SystemState::ID id = m_keyChain->getKnownStateID(m_Definition, msg.m_Proof);
+            if (id.m_Height != MaxHeight) // found
+            {
+                m_keyChain->rollbackConfirmedUtxo(id.m_Height);
+                m_knownStateID = id;
+            }
+            else
+            {
+                m_knownStateID = {};
+            }
+        }
+
+        do_fast_forward();
+
+        return finish_sync();
+    }
+
     void Wallet::handle_connection_error(PeerId from)
     {
         if (auto it = m_peers.find(from); it != m_peers.end())
@@ -442,6 +457,28 @@ namespace beam
         copy(m_reg_requests.begin(), m_reg_requests.end(), back_inserter(m_pending_reg_requests));
         m_reg_requests.clear();
         m_pendingProofs.clear();
+    }
+
+    void Wallet::do_fast_forward()
+    {
+        LOG_INFO() << "Sync up to " << m_newStateID.m_Height << "-" << m_newStateID.m_Hash;
+        // fast-forward
+        ++m_syncing; // Mined
+        m_network.send_node_message(proto::GetMined{ m_knownStateID.m_Height });
+
+        vector<Coin> unconfirmed;
+        m_keyChain->visit([&](const Coin& coin)
+        {
+            if (coin.m_status == Coin::Unconfirmed
+                || coin.m_status == Coin::Locked)
+            {
+                unconfirmed.emplace_back(coin);
+            }
+
+            return true;
+        });
+
+        getUtxoProofs(unconfirmed);
     }
 
     void Wallet::getUtxoProofs(const vector<Coin>& coins)

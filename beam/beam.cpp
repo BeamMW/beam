@@ -124,9 +124,7 @@ namespace beam
         Amount total = 0;
         keychain->visit([&total, &currentHeight](const Coin& c)->bool
         {
-            Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
-                ? Rules::get().MaturityCoinbase
-                : Rules::get().MaturityStd);
+            Height lockHeight = c.m_maturity;
 
             if (c.m_status == Coin::Unspent
                 && lockHeight <= currentHeight)
@@ -144,9 +142,7 @@ namespace beam
         Amount total = 0;
         keychain->visit([&total, &currentHeight, &status, &keyType](const Coin& c)->bool
         {
-            Height lockHeight = c.m_height + (c.m_key_type == KeyType::Coinbase
-                ? Rules::get().MaturityCoinbase
-                : Rules::get().MaturityStd);
+            Height lockHeight = c.m_maturity;
 
             if (c.m_status == status
              && c.m_key_type == keyType
@@ -270,7 +266,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 		coin.m_key_type = KeyType::Regular;
 		coin.m_amount = Rules::Coin * 10;
 		coin.m_status = Coin::Unconfirmed;
-		coin.m_height = h + Rules::HeightGenesis;
+		coin.m_createHeight = h + Rules::HeightGenesis;
 
 
 		m_vIncubationAndKeys[i].first = h;
@@ -393,10 +389,11 @@ io::Reactor::Ptr reactor;
 int main_impl(int argc, char* argv[])
 {
     int logLevel = LOG_LEVEL_DEBUG;
+    int fileLogLevel = LOG_LEVEL_INFO;
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
-    auto logger = beam::Logger::create(logLevel, logLevel);
+    auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_");
 
 #ifdef WIN32
 	char szLocalDir[] = ".\\";
@@ -679,7 +676,7 @@ int main_impl(int argc, char* argv[])
                             << "Unconfirmed..............." << PrintableAmount(getTotal(keychain, Coin::Unconfirmed)) << '\n'
                             << "Locked...................." << PrintableAmount(getTotal(keychain, Coin::Locked)) << '\n'
                             << "Available coinbase ......." << PrintableAmount(getAvailableByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
-                            << "Total coinbasde..........." << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
+                            << "Total coinbase............" << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
                             << "Avaliable fee............." << PrintableAmount(getAvailableByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
                             << "Total fee................." << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
                             << "Total unspent............." << PrintableAmount(getTotal(keychain, Coin::Unspent)) << "\n\n";
@@ -710,7 +707,7 @@ int main_impl(int argc, char* argv[])
                             cout << setw(8) << c.m_id
                                  << setw(16) << PrintableAmount(Rules::Coin * ((Amount)(c.m_amount / Rules::Coin)))
                                  << setw(16) << PrintableAmount(c.m_amount % Rules::Coin)
-                                 << setw(16) << static_cast<int64_t>(c.m_height)
+                                 << setw(16) << static_cast<int64_t>(c.m_createHeight)
                                  << setw(16) << static_cast<int64_t>(c.m_maturity)
                                  << "  " << c.m_status
                                  << "  " << c.m_key_type << '\n';
@@ -778,7 +775,7 @@ int main_impl(int argc, char* argv[])
                         , reactor };
                     if (command == cli::SEND)
                     {
-                        wallet_io.transfer_money(receiverAddr, move(amount), 0, {});
+                        wallet_io.transfer_money(receiverAddr, move(amount), 0);
                     }
                     wallet_io.start();
                 }
@@ -815,7 +812,8 @@ int main(int argc, char* argv[]) {
     auto f = std::async(
         std::launch::async,
         [argc, argv]() -> int {
-            block_signals_in_this_thread();
+            // TODO: this hungs app on OSX
+            //lock_signals_in_this_thread();
             int ret = main_impl(argc, argv);
             kill(0, SIGINT);
             return ret;
