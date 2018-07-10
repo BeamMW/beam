@@ -66,6 +66,4 @@ endif()
 
 add_dependencies(beam-ui wallet)
 
-qt5_use_modules(beam-ui Qml Quick Widgets)
-
-target_link_libraries(beam-ui wallet)
+target_link_libraries(beam-ui Qt5::Qml Qt5::Quick Qt5::Widgets wallet)
