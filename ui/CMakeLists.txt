@@ -2,7 +2,6 @@ if(MSVC)
 	set (CMAKE_PREFIX_PATH $ENV{QT5_ROOT_DIR})
 endif()
 
-find_package(Qt5QuickCompiler)
 find_package(Qt5 COMPONENTS Qml Quick Widgets REQUIRED)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -17,7 +16,7 @@ elseif(APPLE)
 #	set(SYSTEM_TYPE MACOSX_BUNDLE)
 endif()
 
-qtquick_compiler_add_resources(QT_RESOURCES view/qml.qrc)
+qt5_add_resources(QT_RESOURCES view/qml.qrc)
 
 if(!MSVC)
 	find_package(Qt5 COMPONENTS LinguistTools REQUIRED)
@@ -67,4 +66,6 @@ endif()
 
 add_dependencies(beam-ui wallet)
 
-target_link_libraries(beam-ui Qt5::Qml Qt5::Quick Qt5::Widgets wallet)
+qt5_use_modules(beam-ui Qml Quick Widgets)
+
+target_link_libraries(beam-ui wallet)
