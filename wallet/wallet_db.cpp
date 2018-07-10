@@ -984,4 +984,72 @@ namespace beam
 	{
 		for (auto sub : m_subscribers) sub->onTransactionChanged();
 	}
+
+	namespace wallet
+	{
+		Amount getAvailable(beam::IKeyChain::Ptr keychain)
+		{
+			auto currentHeight = keychain->getCurrentHeight();
+			Amount total = 0;
+			keychain->visit([&total, &currentHeight](const Coin& c)->bool
+			{
+				Height lockHeight = c.m_maturity;
+
+				if (c.m_status == Coin::Unspent
+					&& lockHeight <= currentHeight)
+				{
+					total += c.m_amount;
+				}
+				return true;
+			});
+			return total;
+		}
+
+		Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType)
+		{
+			auto currentHeight = keychain->getCurrentHeight();
+			Amount total = 0;
+			keychain->visit([&total, &currentHeight, &status, &keyType](const Coin& c)->bool
+			{
+				Height lockHeight = c.m_maturity;
+
+				if (c.m_status == status
+					&& c.m_key_type == keyType
+					&& lockHeight <= currentHeight)
+				{
+					total += c.m_amount;
+				}
+				return true;
+			});
+			return total;
+		}
+
+		Amount getTotal(beam::IKeyChain::Ptr keychain, Coin::Status status)
+		{
+			Amount total = 0;
+			keychain->visit([&total, &status](const Coin& c)->bool
+			{
+				if (c.m_status == status)
+				{
+					total += c.m_amount;
+				}
+				return true;
+			});
+			return total;
+		}
+
+		Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType)
+		{
+			Amount total = 0;
+			keychain->visit([&total, &status, &keyType](const Coin& c)->bool
+			{
+				if (c.m_status == status && c.m_key_type == keyType)
+				{
+					total += c.m_amount;
+				}
+				return true;
+			});
+			return total;
+		}
+	}
 }

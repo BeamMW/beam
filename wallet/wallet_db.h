@@ -144,4 +144,12 @@ namespace beam
 
 		std::vector<IKeyChainObserver*> m_subscribers;
     };
+
+	namespace wallet
+	{
+		Amount getAvailable(beam::IKeyChain::Ptr keychain);
+		Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType);
+		Amount getTotal(beam::IKeyChain::Ptr keychain, Coin::Status status);
+		Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType);
+	}
 }
