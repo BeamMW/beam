@@ -4,6 +4,7 @@
         <file>qmldir</file>
       
         <file>main.qml</file>
+        <file>SvgImage.qml</file>
         <file>assets/logo.png</file>
 
         <file>dashboard.qml</file>
