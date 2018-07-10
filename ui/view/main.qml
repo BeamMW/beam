@@ -7,7 +7,7 @@ import "."
 Rectangle {
     id: main
 
-    width: 1100
+    width: 1440
     height: 800
     color: Style.marine
 
@@ -52,22 +52,24 @@ Rectangle {
                         source: "qrc:///assets/icon-" + modelData + (selectedItem == index ? "-active" : "") + ".svg"
                     }
 
-                    Rectangle {
-                        id: indicator
-                        y: 6
-                        width: 4
-                        height: 48
-                        color: Style.bright_teal
-                        visible: selectedItem == index
-                    }
+                    Item {
+                        Rectangle {
+                            id: indicator
+                            y: 6
+                            width: 4
+                            height: 48
+                            color: Style.bright_teal
+                        }
 
-                    DropShadow {
-                        anchors.fill: indicator
-                        radius: 5
-                        samples: 9
-                        color: Style.bright_teal
-                        source: indicator
-						visible: selectedItem == index
+                        DropShadow {
+                            anchors.fill: indicator
+                            radius: 5
+                            samples: 9
+                            color: Style.bright_teal
+                            source: indicator
+                        }                        
+
+    					visible: selectedItem == index
                     }
 
                     MouseArea {
