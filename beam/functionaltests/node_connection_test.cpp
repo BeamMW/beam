@@ -17,7 +17,7 @@ public:
 	TestNodeConnection();
 private:
 	void OnConnected() override;
-	void OnClosed(int errorCode) override;
+	void OnDisconnect(const DisconnectReason&) override;
 	bool OnMsg2(proto::NewTip&& msg) override;
 	bool OnMsg2(proto::Hdr&& msg) override;
 	bool OnMsg2(proto::GetHdr&& msg) override;
@@ -79,9 +79,9 @@ void TestNodeConnection::OnConnected()
 	Send(hdr);*/
 }
 
-void TestNodeConnection::OnClosed(int errorCode)
+void TestNodeConnection::OnDisconnect(const DisconnectReason& r)
 {
-	LOG_ERROR() << "problem with connecting to node: code = " << io::error_str(static_cast<io::ErrorCode>(errorCode));
+	LOG_ERROR() << "problem with connecting to node: " << r;
 	io::Reactor::get_Current().stop();
 }
 

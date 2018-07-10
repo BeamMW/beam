@@ -18,12 +18,10 @@ ProtocolPlus::ProtocolPlus(uint8_t v0, uint8_t v1, uint8_t v2, size_t maxMessage
 
 void ProtocolPlus::ResetVars()
 {
-	m_bHandshakeSent = false;
 	m_CipherIn.m_bON = false;
 	m_CipherOut.m_bON = false;
 	ZeroObject(m_MyNonce);
 	ZeroObject(m_RemoteNonce);
-	ZeroObject(m_RemoteID);
 }
 
 void ProtocolPlus::Decrypt(uint8_t* p, uint32_t nSize)
@@ -32,22 +30,111 @@ void ProtocolPlus::Decrypt(uint8_t* p, uint32_t nSize)
 		m_CipherIn.XCrypt(p, nSize);
 }
 
-void ProtocolPlus::Encrypt(SerializedMsg& sm)
+uint32_t ProtocolPlus::get_MacSize()
 {
+	return m_CipherIn.m_bON ? sizeof(uint64_t) : 0;
+}
+
+bool ProtocolPlus::VerifyMsg(const uint8_t* p, uint32_t nSize)
+{
+	if (!m_CipherIn.m_bON)
+		return true;
+
+	if (nSize < sizeof(MacValue))
+		return false; // could happen on (sort of) overflow attack?
+
+	ECC::Hash::Mac hm = m_HMac;
+	hm.Write(p, nSize - sizeof(MacValue));
+
+	MacValue hmac;
+	get_HMac(hm, hmac);
+
+	return !memcmp(p + nSize - sizeof(MacValue), hmac.m_pData, sizeof(MacValue));
+}
+
+void ProtocolPlus::get_HMac(ECC::Hash::Mac& hm, MacValue& res)
+{
+	ECC::Hash::Value hv;
+	hm >> hv;
+
+	static_assert(sizeof(hv) >= sizeof(MacValue), "");
+	memcpy(res.m_pData, hv.m_pData, sizeof(res.m_pData));
+}
+
+void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
+{
+	MacValue hmac;
+
 	if (m_CipherOut.m_bON)
+	{
+		// 1. append dummy of the needed size
+		hmac = ECC::Zero;
+		ser & hmac;
+	}
+
+	ser.finalize(sm);
+
+	if (m_CipherOut.m_bON)
+	{
+		// 2. get size
+		size_t n = 0;
+
+		for (size_t i = 0; i < sm.size(); i++)
+			n += sm[i].size;
+
+		// 3. Calculate
+		ECC::Hash::Mac hm = m_HMac;
+		size_t n2 = n - sizeof(MacValue);
+
+		for (size_t i = 0; ; i++)
+		{
+			assert(i < sm.size());
+			io::IOVec& iov = sm[i];
+			if (iov.size >= n2)
+			{
+				hm.Write(iov.data, n2);
+				break;
+			}
+
+			hm.Write(iov.data, iov.size);
+			n2 -= iov.size;
+		}
+
+		get_HMac(hm, hmac);
+
+		// 4. Overwrite the hmac, encrypt
+		n2 = n;
+
 		for (size_t i = 0; i < sm.size(); i++)
 		{
 			io::IOVec& iov = sm[i];
-			m_CipherOut.XCrypt((uint8_t*) iov.data, (uint32_t) iov.size);
+			uint8_t* dst = (uint8_t*)iov.data;
+
+			if (n2 <= sizeof(hmac))
+				memcpy(dst, hmac.m_pData + sizeof(hmac) - n2, iov.size);
+			else
+			{
+				size_t offs = n2 - sizeof(hmac);
+				if (offs < iov.size)
+					memcpy(dst + offs, hmac.m_pData, iov.size - offs);
+			}
+
+			n2 -= iov.size;
+
+			m_CipherOut.XCrypt(dst, (uint32_t)iov.size);
 		}
+	}
 }
 
-void ProtocolPlus::InitCipher(Cipher& c)
+void ProtocolPlus::InitCipher(Cipher& c, bool bHMac)
 {
-	assert(!(m_MyNonce.V.m_Value == ECC::Zero));
+	assert(!(m_MyNonce == ECC::Zero));
 
 	 // Diffie-Hellman
-	ECC::Point::Native ptSecret = ECC::Point::Native(m_RemoteNonce) * ECC::Scalar::Native(m_MyNonce.V);
+	ECC::Point pt;
+	pt.m_X = m_RemoteNonce;
+	pt.m_Y = false;
+	ECC::Point::Native ptSecret = ECC::Point::Native(pt) * m_MyNonce;
 
 	ECC::NoLeak<ECC::Hash::Processor> hp;
 	ECC::NoLeak<ECC::Hash::Value> hvSecret;
@@ -62,6 +149,9 @@ void ProtocolPlus::InitCipher(Cipher& c)
 	memcpy(c.m_Counter.m_pData, hvSecret.V.m_pData, sizeof(c.m_Counter.m_pData));
 
 	c.m_bON = true;
+
+	if (bHMac)
+		m_HMac.Reset(hvSecret.V.m_pData, sizeof(hvSecret.V.m_pData));
 }
 
 /////////////////////////
@@ -89,25 +179,38 @@ void NodeConnection::Reset()
 	}
 
 	m_Connection = NULL;
+	m_pAsyncFail = NULL;
 
 	m_Protocol.ResetVars();
 }
 
 
-void NodeConnection::TestIoResult(const io::Result& res)
+void NodeConnection::TestIoResultAsync(const io::Result& res)
 {
-	if (!res)
-		throw std::runtime_error(io::error_descr(res.error()));
+	if (res)
+		return; // ok
+
+	if (m_pAsyncFail)
+		return;
+
+	io::ErrorCode err = res.error();
+
+	io::AsyncEvent::Callback cb = [this, err]() {
+		OnIoErr(err);
+	};
+
+	m_pAsyncFail = io::AsyncEvent::create(io::Reactor::get_Current().shared_from_this(), std::move(cb));
+	m_pAsyncFail->get_trigger()();
 }
 
-void NodeConnection::OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, int status)
+void NodeConnection::OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status)
 {
 	NodeConnection* pThis = (NodeConnection*)tag;
 	assert(pThis);
 	pThis->OnConnectInternal2(std::move(newStream), status);
 }
 
-void NodeConnection::OnConnectInternal2(io::TcpStream::Ptr&& newStream, int status)
+void NodeConnection::OnConnectInternal2(io::TcpStream::Ptr&& newStream, io::ErrorCode status)
 {
 	assert(!m_Connection && m_ConnectPending);
 	m_ConnectPending = false;
@@ -118,24 +221,72 @@ void NodeConnection::OnConnectInternal2(io::TcpStream::Ptr&& newStream, int stat
 
 		try {
 			OnConnected();
-		} catch (...) {
-			OnClosed(-1);
+		}
+		catch (const std::exception& e) {
+			OnExc(e);
 		}
 	}
 	else
-		OnClosed(status);
+		OnIoErr(status);
+}
+
+void NodeConnection::OnExc(const std::exception& e)
+{
+	DisconnectReason r;
+	r.m_Type = DisconnectReason::ProcessingExc;
+	r.m_szErrorMsg = e.what();
+	OnDisconnect(r);
+}
+
+void NodeConnection::OnIoErr(io::ErrorCode err)
+{
+	DisconnectReason r;
+	r.m_Type = DisconnectReason::Io;
+	r.m_IoError = err;
+	OnDisconnect(r);
 }
 
 void NodeConnection::on_protocol_error(uint64_t, ProtocolError error)
 {
 	Reset();
-	OnClosed(-1);
+
+	DisconnectReason r;
+	r.m_Type = DisconnectReason::Protocol;
+	r.m_eProtoCode = error;
+	OnDisconnect(r);
+}
+
+std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReason& r)
+{
+	switch (r.m_Type)
+	{
+	case NodeConnection::DisconnectReason::Io:
+		s << io::error_descr(r.m_IoError);
+		break;
+
+	case NodeConnection::DisconnectReason::Protocol:
+		s << "Protocol " << r.m_eProtoCode;
+		break;
+
+	case NodeConnection::DisconnectReason::ProcessingExc:
+		s << r.m_szErrorMsg;
+		break;
+
+	default:
+		assert(false);
+	}
+	return s;
 }
 
 void NodeConnection::on_connection_error(uint64_t, io::ErrorCode errorCode)
 {
 	Reset();
-	OnClosed(errorCode);
+	OnIoErr(errorCode);
+}
+
+void NodeConnection::ThrowUnexpected(const char* sz)
+{
+	throw std::runtime_error(sz ? sz : "proto violation");
 }
 
 void NodeConnection::Connect(const io::Address& addr)
@@ -147,7 +298,7 @@ void NodeConnection::Connect(const io::Address& addr)
 		uint64_t(this),
 		OnConnectInternal);
 
-	TestIoResult(res);
+	TestIoResultAsync(res);
 	m_ConnectPending = true;
 }
 
@@ -167,13 +318,15 @@ void NodeConnection::Accept(io::TcpStream::Ptr&& newStream)
 #define THE_MACRO(code, msg) \
 void NodeConnection::Send(const msg& v) \
 { \
+	if (m_pAsyncFail) \
+		return; \
 	m_SerializeCache.clear(); \
-	m_Protocol.serialize(m_SerializeCache, uint8_t(code), v); \
-	m_Protocol.Encrypt(m_SerializeCache); \
+	MsgSerializer& ser = m_Protocol.serializeNoFinalize(m_SerializeCache, uint8_t(code), v); \
+	m_Protocol.Encrypt(m_SerializeCache, ser); \
 	io::Result res = m_Connection->write_msg(m_SerializeCache); \
 	m_SerializeCache.clear(); \
 \
-	TestIoResult(res); \
+	TestIoResultAsync(res); \
 } \
 \
 bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
@@ -181,8 +334,8 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
 	try { \
 		/* checkpoint */ \
         return OnMsg2(std::move(v)); \
-	} catch (...) { \
-		OnClosed(-1); \
+	} catch (const std::exception& e) { \
+		OnExc(e); \
 		return false; \
 	} \
 } \
@@ -190,88 +343,104 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
 BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 
-const ECC::Point* NodeConnection::get_RemoteID() const
+void NodeConnection::Sk2Pk(PeerID& res, ECC::Scalar::Native& sk)
 {
-	return (m_Protocol.m_CipherIn.m_bON && !(m_Protocol.m_RemoteID.m_X == ECC::Zero)) ? &m_Protocol.m_RemoteID : NULL;
+	ECC::Point pt = ECC::Point::Native(ECC::Context::get().G * sk);
+	if (pt.m_Y)
+		sk = -sk;
+
+	res = pt.m_X;
 }
 
-void NodeConnection::get_MyID(ECC::Scalar::Native& sk)
+void NodeConnection::GenerateSChannelNonce(ECC::Scalar::Native& sk)
 {
-	sk = ECC::Zero;
-}
+	ECC::NoLeak<ECC::uintBig> secret;
+	ECC::GenRandom(secret.V.m_pData, sizeof(secret.V.m_pData));
 
-void NodeConnection::GenerateSChannelNonce(ECC::Scalar&)
-{
-	// unsupported
+	ECC::Hash::Value hv;
+	hv = ECC::Zero;
+	sk.GenerateNonce(secret.V, hv, NULL);
 }
 
 void NodeConnection::SecureConnect()
 {
-	if (!m_Protocol.m_bHandshakeSent)
-	{
-		if (m_Protocol.m_MyNonce.V.m_Value == ECC::Zero)
-		{
-			GenerateSChannelNonce(m_Protocol.m_MyNonce.V);
+	if (!(m_Protocol.m_MyNonce == ECC::Zero))
+		return; // already sent
 
-			if (m_Protocol.m_MyNonce.V.m_Value == ECC::Zero)
-				throw std::runtime_error("SChannel not supported");
-		}
+	GenerateSChannelNonce(m_Protocol.m_MyNonce);
 
-		assert(!(m_Protocol.m_MyNonce.V.m_Value == ECC::Zero));
-		m_Protocol.m_bHandshakeSent = true;
+	if (m_Protocol.m_MyNonce == ECC::Zero)
+		ThrowUnexpected("SChannel not supported");
 
-		SChannelInitiate msg;
-		msg.m_NoncePub = ECC::Context::get().G * m_Protocol.m_MyNonce.V;
-		Send(msg);
-	}
+	SChannelInitiate msg;
+	Sk2Pk(msg.m_NoncePub, m_Protocol.m_MyNonce);
+	Send(msg);
 }
 
 void NodeConnection::OnMsg(SChannelInitiate&& msg)
 {
 	SecureConnect(); // unless already sent
 
-	SChannelReady msgOut1;
-	Send(msgOut1); // activating new cipher.
+	SChannelReady msgOut;
+	Send(msgOut); // activating new cipher.
 
 	m_Protocol.m_RemoteNonce = msg.m_NoncePub;
-	m_Protocol.InitCipher(m_Protocol.m_CipherOut);
-
-	// confirm our ID
-	ECC::Hash::Value hv;
-	ECC::Hash::Processor() << msg.m_NoncePub >> hv;
-
-	ECC::Scalar::Native sk;
-	get_MyID(sk);
-
-	SChannelAuthentication msgOut2;
-	msgOut2.m_MyID = ECC::Context::get().G * sk;
-	msgOut2.m_Sig.Sign(hv, sk);
-	Send(msgOut2);
+	m_Protocol.InitCipher(m_Protocol.m_CipherOut, true);
 }
 
 void NodeConnection::OnMsg(SChannelReady&& msg)
 {
 	if (!m_Protocol.m_CipherOut.m_bON)
-		throw std::runtime_error("peer insane");
+		ThrowUnexpected();
 
 	ECC::NoLeak<ECC::Hash::Value> hv;
-	m_Protocol.InitCipher(m_Protocol.m_CipherIn);
+	m_Protocol.InitCipher(m_Protocol.m_CipherIn, false);
 }
 
-void NodeConnection::OnMsg(SChannelAuthentication&& msg)
+void NodeConnection::ProveID(ECC::Scalar::Native& sk, uint8_t nIDType)
+{
+	assert(IsSecureOut());
+
+	// confirm our ID
+	ECC::Hash::Value hv;
+	ECC::Hash::Processor() << m_Protocol.m_RemoteNonce >> hv;
+
+	Authentication msgOut;
+	msgOut.m_IDType = nIDType;
+	Sk2Pk(msgOut.m_ID, sk);
+	msgOut.m_Sig.Sign(hv, sk);
+
+	Send(msgOut);
+}
+
+bool NodeConnection::IsSecureIn() const
+{
+	return m_Protocol.m_CipherIn.m_bON;
+}
+
+bool NodeConnection::IsSecureOut() const
+{
+	return m_Protocol.m_CipherOut.m_bON;
+}
+
+void NodeConnection::OnMsg(Authentication&& msg)
 {
 	if (!m_Protocol.m_CipherIn.m_bON)
-		throw std::runtime_error("peer insane");
+		ThrowUnexpected();
 
 	// verify ID
-	ECC::Point::Native pt = ECC::Context::get().G * m_Protocol.m_MyNonce.V;
+	PeerID myPubNonce;
+	Sk2Pk(myPubNonce, m_Protocol.m_MyNonce);
+
 	ECC::Hash::Value hv;
-	ECC::Hash::Processor() << pt >> hv;
+	ECC::Hash::Processor() << myPubNonce >> hv;
 
-	if (!msg.m_Sig.IsValid(hv, msg.m_MyID))
-		throw std::runtime_error("peer insane");
+	ECC::Point pt;
+	pt.m_X = msg.m_ID;
+	pt.m_Y = false;
 
-	m_Protocol.m_RemoteID = msg.m_MyID;
+	if (!msg.m_Sig.IsValid(hv, pt))
+		ThrowUnexpected();
 }
 
 /////////////////////////

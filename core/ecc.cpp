@@ -1,3 +1,4 @@
+#include "common.h"
 #include "ecc_native.h"
 #include <assert.h>
 
@@ -18,6 +19,11 @@
 #else
     #pragma warning (pop)
 #endif
+
+#ifndef WIN32
+#	include <unistd.h>
+#	include <fcntl.h>
+#endif // WIN32
 
 // misc
 bool memis0(const void* p, size_t n)
@@ -85,6 +91,39 @@ namespace ECC {
 	std::ostream& operator << (std::ostream& s, const Point& x)
 	{
 		return operator << (s, x.m_X);
+	}
+
+	void GenRandom(void* p, uint32_t nSize)
+	{
+		bool bRet = false;
+
+		// checkpoint?
+
+#ifdef WIN32
+
+		HCRYPTPROV hProv;
+		if (CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_SCHANNEL, CRYPT_VERIFYCONTEXT))
+		{
+			if (CryptGenRandom(hProv, nSize, (uint8_t*)p))
+				bRet = true;
+			verify(CryptReleaseContext(hProv, 0));
+		}
+
+#else // WIN32
+
+		int hFile = open("/dev/urandom", O_RDONLY);
+		if (hFile >= 0)
+		{
+			if (read(hFile, p, nSize) == nSize)
+				bRet = true;
+
+			close(hFile);
+		}
+
+#endif // WIN32
+
+		if (!bRet)
+			std::ThrowIoError();
 	}
 
 	/////////////////////
@@ -220,7 +259,7 @@ namespace ECC {
 		secp256k1_sha256_write(this, (const uint8_t*) p, n);
 	}
 
-	void Hash::Processor::Finalize(Hash::Value& v)
+	void Hash::Processor::Finalize(Value& v)
 	{
 		secp256k1_sha256_finalize(this, v.m_pData);
 		*this << v;
@@ -268,6 +307,21 @@ namespace ECC {
 	void Hash::Processor::Write(const Point::Native& v)
 	{
 		Write(Point(v));
+	}
+
+	void Hash::Mac::Reset(const void* pSecret, uint32_t nSecret)
+	{
+		secp256k1_hmac_sha256_initialize(this, (uint8_t*)pSecret, nSecret);
+	}
+
+	void Hash::Mac::Write(const void* p, uint32_t n)
+	{
+		secp256k1_hmac_sha256_write(this, (uint8_t*)p, n);
+	}
+
+	void Hash::Mac::Finalize(Value& hv)
+	{
+		secp256k1_hmac_sha256_finalize(this, hv.m_pData);
 	}
 
 	/////////////////////

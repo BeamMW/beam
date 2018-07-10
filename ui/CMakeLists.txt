@@ -2,7 +2,6 @@ if(MSVC)
 	set (CMAKE_PREFIX_PATH $ENV{QT5_ROOT_DIR})
 endif()
 
-find_package(Qt5QuickCompiler)
 find_package(Qt5 COMPONENTS Qml Quick Widgets Svg REQUIRED)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -17,7 +16,7 @@ elseif(APPLE)
 #	set(SYSTEM_TYPE MACOSX_BUNDLE)
 endif()
 
-qtquick_compiler_add_resources(QT_RESOURCES view/qml.qrc)
+qt5_add_resources(QT_RESOURCES view/qml.qrc)
 
 if(!MSVC)
 	find_package(Qt5 COMPONENTS LinguistTools REQUIRED)

@@ -1,11 +1,12 @@
 #pragma once
 
 #include "common.h"
+#include "ecc_native.h"
 #include "../utility/bridge.h"
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"
 #include "../utility/io/tcpserver.h"
-#include "../tiny-AES/aes.hpp"
+#include "aes.h"
 #include <boost/intrusive/set.hpp>
 #include <boost/intrusive/list.hpp>
 
@@ -75,7 +76,6 @@ namespace proto {
 	macro(Transaction::KeyType, ID)
 
 #define BeamNodeMsg_PeerInfoSelf(macro) \
-	macro(PeerID, ID) \
 	macro(uint16_t, Port)
 
 #define BeamNodeMsg_PeerInfo(macro) \
@@ -99,12 +99,13 @@ namespace proto {
 	macro(bool, On)
 
 #define BeamNodeMsg_SChannelInitiate(macro) \
-	macro(ECC::Point, NoncePub)
+	macro(ECC::uintBig, NoncePub)
 
 #define BeamNodeMsg_SChannelReady(macro)
 
-#define BeamNodeMsg_SChannelAuthentication(macro) \
-	macro(ECC::Point, MyID) \
+#define BeamNodeMsg_Authentication(macro) \
+	macro(PeerID, ID) \
+	macro(uint8_t, IDType) \
 	macro(ECC::Signature, Sig)
 
 #define BeamNodeMsgsAll(macro) \
@@ -136,7 +137,7 @@ namespace proto {
 	macro(43, BbsSubscribe) \
 	macro(61, SChannelInitiate) \
 	macro(62, SChannelReady) \
-	macro(63, SChannelAuthentication) \
+	macro(63, Authentication) \
 
 
 	struct PerMined
@@ -155,6 +156,12 @@ namespace proto {
 		}
 
 		static const uint32_t s_EntriesMax = 200; // if this is the size of the vector - the result is probably trunacted
+	};
+
+	struct IDType
+	{
+		static const uint8_t Node		= 'N';
+		static const uint8_t Owner		= 'O';
 	};
 
 #define THE_MACRO3(type, name) & m_##name
@@ -183,20 +190,23 @@ namespace proto {
 		Cipher m_CipherIn;
 		Cipher m_CipherOut;
 
-		bool m_bHandshakeSent;
+		ECC::Scalar::Native m_MyNonce;
+		ECC::uintBig m_RemoteNonce;
+		ECC::Hash::Mac m_HMac;
 
-		ECC::NoLeak<ECC::Scalar> m_MyNonce;
-		ECC::Point m_RemoteNonce;
-		ECC::Point m_RemoteID;
+		typedef ECC::uintBig_t<64> MacValue;
+		static void get_HMac(ECC::Hash::Mac&, MacValue&);
 
 		ProtocolPlus(uint8_t v0, uint8_t v1, uint8_t v2, size_t maxMessageTypes, IErrorHandler& errorHandler, size_t serializedFragmentsSize);
 		void ResetVars();
-		void InitCipher(Cipher&);
+		void InitCipher(Cipher&, bool bHMac);
 
 		// Protocol
 		virtual void Decrypt(uint8_t*, uint32_t nSize) override;
+		virtual uint32_t get_MacSize() override;
+		virtual bool VerifyMsg(const uint8_t*, uint32_t nSize) override;
 
-		void Encrypt(SerializedMsg&);
+		void Encrypt(SerializedMsg&, MsgSerializer&);
 	};
 
 	struct INodeMsgHandler
@@ -219,14 +229,15 @@ namespace proto {
 	{
 		ProtocolPlus m_Protocol;
 		std::unique_ptr<Connection> m_Connection;
+		io::AsyncEvent::Ptr m_pAsyncFail;
 		bool m_ConnectPending;
 
 		SerializedMsg m_SerializeCache;
 
-		static void TestIoResult(const io::Result& res);
+		void TestIoResultAsync(const io::Result& res);
 
-		static void OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, int status);
-		void OnConnectInternal2(io::TcpStream::Ptr&& newStream, int status);
+		static void OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode);
+		void OnConnectInternal2(io::TcpStream::Ptr&& newStream, io::ErrorCode);
 
 		virtual void on_protocol_error(uint64_t, ProtocolError error) override;
 		virtual void on_connection_error(uint64_t, io::ErrorCode errorCode) override;
@@ -241,28 +252,51 @@ namespace proto {
 		virtual ~NodeConnection();
 		void Reset();
 
+		static void ThrowUnexpected(const char* = NULL);
+
 		void Connect(const io::Address& addr);
 		void Accept(io::TcpStream::Ptr&& newStream);
 
 		// Secure-channel-specific
 		void SecureConnect(); // must be connected already
 
+		void ProveID(ECC::Scalar::Native&, uint8_t nIDType); // secure channel must be established
+
 		virtual void OnMsg(SChannelInitiate&&) override;
 		virtual void OnMsg(SChannelReady&&) override;
-		virtual void OnMsg(SChannelAuthentication&&) override;
+		virtual void OnMsg(Authentication&&) override;
 
-		virtual void get_MyID(ECC::Scalar::Native&); // by default no-ID (secure channel, but no authentication)
-		virtual void GenerateSChannelNonce(ECC::Scalar&); // Must be overridden to support SChannel
+		virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
+		static void Sk2Pk(PeerID&, ECC::Scalar::Native&); // will negate the scalar iff necessary
 		bool IsSecureIn() const;
 		bool IsSecureOut() const;
-		const ECC::Point* get_RemoteID() const;
-
 
 		const Connection* get_Connection() { return m_Connection.get(); }
 
 		virtual void OnConnected() {}
-		virtual void OnClosed(int errorCode) {}
+
+		struct DisconnectReason
+		{
+			enum Enum {
+				Io,
+				Protocol,
+				ProcessingExc
+			};
+
+			Enum m_Type;
+
+			union {
+				io::ErrorCode m_IoError;
+				ProtocolError m_eProtoCode;
+				const char* m_szErrorMsg;
+			};
+		};
+
+		virtual void OnDisconnect(const DisconnectReason&) {}
+
+		void OnIoErr(io::ErrorCode);
+		void OnExc(const std::exception&);
 
 #define THE_MACRO(code, msg) void Send(const msg& v);
 		BeamNodeMsgsAll(THE_MACRO)
@@ -277,7 +311,7 @@ namespace proto {
 		};
 	};
 
-
+	std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReason&);
 
 
 	class PeerManager
