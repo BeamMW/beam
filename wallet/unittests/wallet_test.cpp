@@ -17,6 +17,8 @@
 #include "wallet/wallet_serialization.h"
 #include <boost/filesystem.hpp>
 
+#include "core/storage.h"
+
 using namespace beam;
 using namespace std;
 using namespace ECC;
@@ -77,7 +79,7 @@ namespace
             return 134;
         }
 
-        Block::SystemState::ID getKnownStateID(const Merkle::Hash& stateDefinition, const Merkle::Proof& proof) override
+        Block::SystemState::ID getKnownStateID(Height height) override
         {
             return {};
         }
@@ -282,9 +284,13 @@ namespace
             walletPeer->handle_node_message(proto::NewTip{});
 
             proto::Hdr msg = {};
-
-            msg.m_Description.m_Height = 134;
+            InitHdr(msg);
             walletPeer->handle_node_message(move(msg));
+        }
+
+        virtual void InitHdr(proto::Hdr& msg)
+        {
+            msg.m_Description.m_Height = 134;
         }
 
         void enqueueNetworkTask(Task&& task)
@@ -369,10 +375,7 @@ namespace
             cout << "GetMined\n";
             int id = m_mined_id;
             ++m_mined_id;
-            if (m_mined_id > 1)
-            {
-                m_mined_id = 0;
-            }
+            m_mined_id = m_mined_id % m_peers.size();
             enqueueNetworkTask([this, id] {m_peers[id]->handle_node_message(proto::Mined{ }); });
         }
 
@@ -380,11 +383,8 @@ namespace
         {
             cout << "GetProofUtxo\n";
             int id = m_proof_id;
-            --m_proof_id;
-            if (m_proof_id < 0)
-            {
-                m_proof_id = 1;
-            }
+            ++m_proof_id;
+            m_proof_id = m_proof_id % m_peers.size();
             enqueueNetworkTask([this, id] {m_peers[id]->handle_node_message(proto::ProofUtxo()); });
         }
 
@@ -398,10 +398,7 @@ namespace
             cout << "GetProofState\n";
             int id = m_ps_id;
             ++m_ps_id;
-            if (m_ps_id > 1)
-            {
-                m_ps_id = 0;
-            }
+            m_ps_id = m_ps_id % m_peers.size();
             enqueueNetworkTask([this, id] {m_peers[id]->handle_node_message(proto::Proof{}); });
         }
 
@@ -413,7 +410,7 @@ namespace
         {
         }
 
-        int m_proof_id{ 1 };
+        int m_proof_id{ 0 };
         int m_mined_id{ 0 };
         int m_ps_id{ 0 };
     };
@@ -1079,6 +1076,167 @@ void TestSerializeFSM()
     WALLET_CHECK(*(s.current_state()) == 3);
 }
 
+struct MyMmr : public Merkle::Mmr
+{
+    typedef std::vector<Merkle::Hash> HashVector;
+    typedef std::unique_ptr<HashVector> HashVectorPtr;
+
+    std::vector<HashVectorPtr> m_vec;
+
+    Merkle::Hash& get_At(size_t nIdx, uint8_t nHeight)
+    {
+        if (m_vec.size() <= nHeight)
+            m_vec.resize(nHeight + 1);
+
+        HashVectorPtr& ptr = m_vec[nHeight];
+        if (!ptr)
+            ptr.reset(new HashVector);
+
+
+        HashVector& vec = *ptr;
+        if (vec.size() <= nIdx)
+            vec.resize(nIdx + 1);
+
+        return vec[nIdx];
+    }
+
+    virtual void LoadElement(Merkle::Hash& hv, uint64_t nIdx, uint8_t nHeight) const override
+    {
+        hv = ((MyMmr*)this)->get_At(nIdx, nHeight);
+    }
+
+    virtual void SaveElement(const Merkle::Hash& hv, uint64_t nIdx, uint8_t nHeight) override
+    {
+        get_At(nIdx, nHeight) = hv;
+    }
+};
+
+struct RollbackIO : public TestNetwork
+{
+    RollbackIO(IOLoop& mainLoop, const MyMmr& mmr)
+        : TestNetwork(mainLoop)
+        , m_mmr(mmr)
+    {
+
+
+    }
+
+    void InitHdr(proto::Hdr& msg) override
+    {
+        msg.m_Description.m_Height = 99;
+        m_mmr.get_Hash(msg.m_Description.m_Definition);
+    }
+
+    void send_node_message(beam::proto::GetProofState&& msg) override
+    {
+        cout << "Rollback. GetProofState\n";
+        int id = m_ps_id;
+        ++m_ps_id;
+        m_ps_id = m_ps_id % m_peers.size();
+        Merkle::Proof proof;
+        m_mmr.get_Proof(proof, msg.m_Height);
+        enqueueNetworkTask([this, id, proof]{ m_peers[id]->handle_node_message(proto::Proof{proof}); });
+    }
+
+    void close_node_connection() override
+    {
+        shutdown();
+    }
+
+    const MyMmr& m_mmr;
+};
+
+void TestRollback(Height branch, Height current)
+{
+    cout << "\nRollback from " << current << " to " << branch << '\n';
+
+    auto db = createSqliteKeychain("wallet.db");
+    
+    MyMmr mmrNew, mmrOld;
+
+    for (Height i = 0; i <= current; ++i)
+    {
+        Coin coin1 = { 5, Coin::Unspent, 1, 10, KeyType::Regular, i };
+        Merkle::Hash hash = {};
+        hash = i + 2;
+        coin1.m_confirmHash = hash;
+        mmrOld.Append(hash);
+        if (i < branch)
+        {
+            mmrNew.Append(hash);
+        }
+        else // change history
+        {
+            hash = i + 3;
+            mmrNew.Append(hash);
+        }
+
+        db->store(coin1);
+    }
+
+    Merkle::Hash newStateDefinition;
+    mmrNew.get_Hash(newStateDefinition);
+
+    Merkle::Hash oldStateDefinition;
+    mmrOld.get_Hash(oldStateDefinition);
+
+    WALLET_CHECK(newStateDefinition != oldStateDefinition);
+
+    beam::Block::SystemState::ID id = {};
+    id.m_Height = current;
+    id.m_Hash = unsigned(current + 2);
+    db->setSystemStateID(id);
+
+    for (Height i = branch; i <= current ; ++i)
+    {
+        Merkle::Proof proof;
+        mmrNew.get_Proof(proof, i);
+        Merkle::Hash hash = {};
+        hash = i + 3;
+        Merkle::Interpret(hash, proof);
+        WALLET_CHECK(hash == newStateDefinition);
+    }
+
+    for (Height i = 0; i < branch; ++i)
+    {
+        Merkle::Proof proof;
+        mmrNew.get_Proof(proof, i);
+        Merkle::Hash hash = {};
+        hash = i + 2;
+        Merkle::Interpret(hash, proof);
+        WALLET_CHECK(hash == newStateDefinition);
+    }
+
+    for (Height i = 0; i < current; ++i)
+    {
+        Merkle::Proof proof;
+        mmrOld.get_Proof(proof, i);
+        Merkle::Hash hash = {};
+        hash = i + 2;
+        Merkle::Interpret(hash, proof);
+        WALLET_CHECK(hash == oldStateDefinition);
+    }
+
+    IOLoop mainLoop;
+    RollbackIO network{ mainLoop, mmrNew };
+
+    Wallet sender(db, network);
+    
+    network.registerPeer(&sender);
+    
+    mainLoop.run();
+}
+
+void TestRollback()
+{
+    cout << "\nTesting wallet rollback...\n";
+    TestRollback(0, 0);
+    TestRollback(0, 1);
+    TestRollback(2, 50);
+    TestRollback(2, 51);
+    TestRollback(99, 100);
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -1095,6 +1253,7 @@ int main()
     TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
     TestFSM();
     TestSerializeFSM();
+    TestRollback();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
