@@ -42,7 +42,7 @@ namespace ECC
 		typedef uint32_t uint;
 #endif // USE_SCALAR_4X64
 
-		Native() {}
+		Native();
 		template <typename T> Native(const T& t) { *this = t; }
 		~Native() { SecureErase(*this); }
 
@@ -86,7 +86,7 @@ namespace ECC
 	public:
 		secp256k1_gej& get_Raw() { return *this; } // use with care
 
-		Native() {}
+		Native();
 		template <typename T> Native(const T& t) { *this = t; }
 		~Native() { SecureErase(*this); }
 
@@ -146,7 +146,7 @@ namespace ECC
 		{
 			static const int nBits = 4;
 
-			Point::Native m_pPt[(1 << nBits) - 1]; // skip zero
+			Point::Native m_pPt[(1 << nBits)];
 			Scalar::Native m_K;
 			int m_nPrepared;
 
@@ -169,7 +169,7 @@ namespace ECC
 				Scalar::Native m_Scalar;
 			} m_Secure;
 
-			void Initialize(const char* szSeed);
+			void Initialize(const char* szSeed, Hash::Processor& hp);
 			void Initialize(Point::Native&, Hash::Processor&);
 		};
 
@@ -228,7 +228,7 @@ namespace ECC
 			CompactPoint m_pPts[nLevels * nPointsPerLevel];
 		};
 
-		void GeneratePts(const char* szSeed, CompactPoint* pPts, uint32_t nLevels);
+		void GeneratePts(const Point::Native&, Hash::Processor&, CompactPoint* pPts, uint32_t nLevels);
 		void SetMul(Point::Native& res, bool bSet, const CompactPoint* pPts, const Scalar::Native::uint* p, int nWords);
 
 		template <uint32_t nBits_>
@@ -266,9 +266,9 @@ namespace ECC
 			};
 
 		public:
-			void Initialize(const char* szSeed)
+			void Initialize(const Point::Native& p, Hash::Processor& hp)
 			{
-				GeneratePts(szSeed, Base<nBits_>::m_pPts, Base<nBits_>::nLevels);
+				GeneratePts(p, hp, Base<nBits_>::m_pPts, Base<nBits_>::nLevels);
 			}
 
 			template <typename TScalar>
@@ -294,7 +294,7 @@ namespace ECC
 			void AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native&) const;
 
 		public:
-			void Initialize(const char* szSeed);
+			void Initialize(const Point::Native&, Hash::Processor& hp);
 
 			template <typename TScalar>
 			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
@@ -326,13 +326,15 @@ namespace ECC
 		template <typename T>
 		void Write(T v)
 		{
+			// Must be independent of the endian-ness
+			// Must prevent ambiguities (different inputs should be properly distinguished)
+			// Make it also independent of the actual type width, so that size_t (and friends) will be treated the same on all the platforms
 			static_assert(T(-1) > 0, "must be unsigned");
-			for (; ; v >>= 8)
-			{
-				Write((uint8_t) v);
-				if (!v)
-					break;
-			}
+
+			for (; v >= 0x80; v >>= 7)
+				Write(uint8_t(uint8_t(v) | 0x80));
+
+			Write(uint8_t(v));
 		}
 
 		void Finalize(Value&);
@@ -369,6 +371,15 @@ namespace ECC
 			MultiMac::Prepared H_;
 
 		} m_Ipp;
+
+		struct Casual
+		{
+			CompactPoint m_Nums;
+			CompactPoint m_Compensation;
+
+		} m_Casual;
+
+		Hash::Value m_hvChecksum; // all the generators and signature version. In case we change seed strings or formula
 
 	private:
 		Context() {}

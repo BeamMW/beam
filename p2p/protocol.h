@@ -86,6 +86,12 @@ public:
         _ser.finalize(out);
     }
 
+    template <typename MsgObject> io::SharedBuffer serialize(MsgType type, const MsgObject& obj, bool makeUnique) {
+        SerializedMsg fragments;
+        serialize(fragments, type, obj);
+        return io::normalize(fragments, makeUnique);
+    }
+
 private:
     Deserializer _des;
     MsgSerializer _ser;

@@ -17,4 +17,17 @@ do {\
     }\
 } while(false)\
 
+#define WALLET_CHECK_NO_THROW(s) \
+try { \
+    s; \
+} catch(...) { \
+    PrintFailure(#s, __FILE__, __LINE__); \
+} \
+
+#define WALLET_CHECK_THROW(s) \
+try { \
+    s; \
+    PrintFailure(#s, __FILE__, __LINE__); \
+} catch(...) { } \
+
 #define WALLET_CHECK_RESULT g_failureCount ? -1 : 0;

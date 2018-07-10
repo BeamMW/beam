@@ -1,6 +1,7 @@
 #include "logger_checkpoints.h"
 #include "helpers.h"
-#include <boost/interprocess/streams/bufferstream.hpp>
+#include <boost/iostreams/device/back_inserter.hpp>
+#include <boost/iostreams/filtering_stream.hpp>
 #include <stdexcept>
 #include <iostream>
 #include <fstream>
@@ -97,9 +98,11 @@ public:
         LoggerImpl(0, minLevel, flushLevel)
     {
         string fileName(fileNamePrefix);
-#ifndef _WIN32
-        fileName += to_string(getpid());
-#endif
+//#ifndef _WIN32
+//        fileName += to_string(getpid());
+//#endif
+        fileName += format_timestamp("%y_%m_%d_%H_%M_%S", local_timestamp_msec(), false);
+
         fileName += ".log";
         _os.open(fileName);
         if (!_os) throw runtime_error(string("cannot open file ") + fileName);
@@ -173,13 +176,23 @@ std::shared_ptr<Logger> Logger::create(
 
 namespace {
 
-// TODO growable streams
 static constexpr size_t MAX_MSG_SIZE = 10000;
 
 struct LogThreadContext {
-    boost::interprocess::obufferstream formatter;
-    char buffer[MAX_MSG_SIZE];
+    using Formatter = boost::iostreams::filtering_ostream;
+
+    std::string msgBuffer;
+    std::unique_ptr<Formatter> formatter;
     bool in_use = false;
+
+    LogThreadContext() :
+        formatter(std::make_unique<Formatter>(boost::iostreams::back_inserter(msgBuffer)))
+    {}
+
+    void reset() {
+        msgBuffer = std::string();
+        formatter = std::make_unique<Formatter>(boost::iostreams::back_inserter(msgBuffer));
+    }
 };
 
 LogThreadContext* get_context() {
@@ -227,16 +240,27 @@ void LogMessage::init_formatter() {
     assert(!ctx->in_use);
 
     ctx->in_use = true;
-    ctx->formatter.clear();
-    ctx->formatter.buffer(ctx->buffer, MAX_MSG_SIZE);
-    _formatter = &ctx->formatter;
+
+    if (ctx->msgBuffer.capacity() < MAX_MSG_SIZE) {
+        ctx->msgBuffer.reserve(MAX_MSG_SIZE);
+    }
+
+    _formatter = ctx->formatter.get();
 }
 
 LogMessage::~LogMessage() {
     if (Logger::g_logger && _formatter) {
         *_formatter << '\n';
+        _formatter->flush();
+        std::string& buffer = get_context()->msgBuffer;
+        Logger::g_logger->write_message(header, buffer.data(), buffer.size());
+        if (buffer.size() > MAX_MSG_SIZE) {
+            get_context()->reset();
+        }
+        else {
+            buffer.clear();
+        }
         get_context()->in_use = false;
-        Logger::g_logger->write_message(header, get_context()->buffer, _formatter->tellp());
     }
 }
 

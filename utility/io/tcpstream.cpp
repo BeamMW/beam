@@ -8,7 +8,12 @@
 namespace beam { namespace io {
 
 TcpStream::~TcpStream() {
+    LOG_VERBOSE() << __FUNCTION__ << TRACE(this);
     disable_read();
+
+    if (_handle)
+		_handle->data = NULL;
+
     LOG_VERBOSE() << ".";
 }
 
@@ -59,14 +64,14 @@ Result TcpStream::enable_read(const TcpStream::Callback& callback) {
 }
 
 void TcpStream::disable_read() {
-    if (is_connected() && _readBuffer.len != 0) {
-        _callback = Callback();
-        free_read_buffer();
+    _callback = Callback();
+    if (is_connected()) {
         int errorCode = uv_read_stop((uv_stream_t*)_handle);
         if (errorCode) {
             LOG_DEBUG() << "uv_read_stop failed,code=" << errorCode;
         }
     }
+    free_read_buffer();
 }
 
 Result TcpStream::write(const SharedBuffer& buf) {
@@ -96,7 +101,8 @@ Result TcpStream::write(const std::vector<SharedBuffer>& fragments) {
 void TcpStream::shutdown() {
     if (is_connected()) {
         disable_read();
-        _reactor->shutdown_tcpstream(this);
+        send_write_request();
+        _reactor->shutdown_tcpstream(this, std::move(_writeBuffer));
         assert(!_callback);
         assert(!is_connected());
     }
@@ -178,7 +184,7 @@ Address TcpStream::peer_address() const {
 }
 
 void TcpStream::on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
-    LOG_VERBOSE() << TRACE(handle) << TRACE(nread);
+    LOG_VERBOSE() << TRACE(handle) << TRACE(nread) << TRACE(handle->data);
 
     TcpStream* self = reinterpret_cast<TcpStream*>(handle->data);
 

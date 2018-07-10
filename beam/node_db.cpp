@@ -42,6 +42,21 @@ namespace beam {
 #define TblMined_State			"State"
 #define TblMined_Comission		"Comission"
 
+#define TblCompressed			"Macroblocks"
+#define TblCompressed_Row1		"RowLast"
+
+#define TblPeer					"Peers"
+#define TblPeer_Key				"Key"
+#define TblPeer_Rating			"Rating"
+#define TblPeer_Addr			"Address"
+#define TblPeer_LastSeen		"LastSeen"
+
+#define TblBbs					"Bbs"
+#define TblBbs_Key				"Key"
+#define TblBbs_Channel			"Channel"
+#define TblBbs_Time				"Time"
+#define TblBbs_Msg				"Message"
+
 NodeDB::NodeDB()
 	:m_pDb(NULL)
 {
@@ -96,14 +111,14 @@ void NodeDB::Close()
 }
 
 NodeDB::Recordset::Recordset(NodeDB& db)
-	:m_DB(db)
-	, m_pStmt(NULL)
+	:m_pStmt(NULL)
+	,m_DB(db)
 {
 }
 
 NodeDB::Recordset::Recordset(NodeDB& db, Query::Enum val, const char* sql)
-	:m_DB(db)
-	,m_pStmt(NULL)
+	:m_pStmt(NULL)
+	,m_DB(db)
 {
 	m_pStmt = m_DB.get_Statement(val, sql);
 }
@@ -189,11 +204,21 @@ void NodeDB::Recordset::get(int col, ByteBuffer& x)
 {
 	Blob b;
 	get(col, b);
+	b.Export(x);
+}
 
-	if (b.n)
+NodeDB::Blob::Blob(const ByteBuffer& bb)
+{
+	if ((n = (uint32_t)bb.size()))
+		p = &bb.at(0);
+}
+
+void NodeDB::Blob::Export(ByteBuffer& x) const
+{
+	if (n)
 	{
-		x.resize(b.n);
-		memcpy(&x.at(0), b.p, b.n);
+		x.resize(n);
+		memcpy(&x.at(0), p, n);
 	} else
 		x.clear();
 }
@@ -224,7 +249,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 2;
+	const uint64_t nVersion = 5;
 
 	if (bCreate)
 	{
@@ -295,6 +320,27 @@ void NodeDB::Create()
 		"[" TblSpendable_Refs		"] INTEGER NOT NULL,"
 		"[" TblSpendable_Unspent	"] INTEGER NOT NULL,"
 		"PRIMARY KEY (" TblSpendable_Key "))");
+
+	ExecQuick("CREATE TABLE [" TblCompressed "] ("
+		"[" TblCompressed_Row1	"] INTEGER NOT NULL,"
+		"PRIMARY KEY (" TblCompressed_Row1 "),"
+		"FOREIGN KEY (" TblCompressed_Row1 ") REFERENCES " TblStates "(OID))");
+
+	ExecQuick("CREATE TABLE [" TblPeer "] ("
+		"[" TblPeer_Key			"] BLOB NOT NULL,"
+		"[" TblPeer_Rating		"] INTEGER NOT NULL,"
+		"[" TblPeer_Addr		"] INTEGER NOT NULL,"
+		"[" TblPeer_LastSeen	"] INTEGER NOT NULL)");
+
+	ExecQuick("CREATE TABLE [" TblBbs "] ("
+		"[" TblBbs_Key		"] BLOB NOT NULL,"
+		"[" TblBbs_Channel	"] INTEGER NOT NULL,"
+		"[" TblBbs_Time		"] INTEGER NOT NULL,"
+		"[" TblBbs_Msg		"] BLOB NOT NULL,"
+		"PRIMARY KEY (" TblBbs_Key "))");
+
+	ExecQuick("CREATE INDEX [Idx" TblBbs "CT] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_Time "]);"); // fetch messages for specific channel within time range, orderedd by time
+	ExecQuick("CREATE INDEX [Idx" TblBbs "T] ON [" TblBbs "] ([" TblBbs_Time "]);"); // delete old messages
 }
 
 void NodeDB::ExecQuick(const char* szSql)
@@ -483,7 +529,7 @@ void NodeDB::get_State(uint64_t rowid, Block::SystemState::Full& out)
 
 uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 {
-	assert(s.m_Height >= Block::Rules::HeightGenesis);
+	assert(s.m_Height >= Rules::HeightGenesis);
 
 	// Is there a prev? Is it a tip currently?
 	Recordset rs(*this, Query::StateFind2, "SELECT rowid," TblStates_CountNext " FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_Hash "=?");
@@ -739,11 +785,11 @@ void NodeDB::SetStateFunctional(uint64_t rowid)
 
 	Height h;
 	rs.get(0, h);
-	assert(h >= Block::Rules::HeightGenesis);
+	assert(h >= Rules::HeightGenesis);
 
 	uint64_t rowPrev = 0;
 
-	if (h > Block::Rules::HeightGenesis)
+	if (h > Rules::HeightGenesis)
 	{
 		if (!rs.IsNull(1))
 		{
@@ -795,7 +841,7 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 
 	Height h;
 	rs.get(0, h);
-	assert(h >= Block::Rules::HeightGenesis);
+	assert(h >= Rules::HeightGenesis);
 
 	uint64_t rowPrev = 0;
 
@@ -803,7 +849,7 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 	if (bReachable)
 		nFlags &= ~StateFlags::Reachable;
 
-	if (h > Block::Rules::HeightGenesis)
+	if (h > Rules::HeightGenesis)
 	{
 		if (rs.IsNull(1))
 			assert(!bReachable); // orphan
@@ -1029,7 +1075,7 @@ void NodeDB::assert_valid()
 		} else
 		{
 			if (StateFlags::Reachable & nFlags)
-				assert(Block::Rules::HeightGenesis == h);
+				assert(Rules::HeightGenesis == h);
 		}
 
 		assert(nNext >= nNextF);
@@ -1175,12 +1221,12 @@ bool NodeDB::get_Cursor(StateID& sid)
 {
 	if (!(sid.m_Row = ParamIntGetDef(ParamID::CursorRow)))
 	{
-		sid.m_Height = Block::Rules::HeightGenesis - 1;
+		sid.m_Height = Rules::HeightGenesis - 1;
 		return false;
 	}
 
 	sid.m_Height = ParamIntGetDef(ParamID::CursorHeight);
-	assert(sid.m_Height >= Block::Rules::HeightGenesis);
+	assert(sid.m_Height >= Rules::HeightGenesis);
 	return true;
 }
 
@@ -1193,7 +1239,7 @@ void NodeDB::put_Cursor(const StateID& sid)
 void NodeDB::StateID::SetNull()
 {
 	m_Row = 0;
-	m_Height = Block::Rules::HeightGenesis - 1;
+	m_Height = Rules::HeightGenesis - 1;
 }
 
 void NodeDB::MoveBack(StateID& sid)
@@ -1271,13 +1317,13 @@ void NodeDB::Dmmr::get_NodeHash(Merkle::Hash& hv, Key rowid) const
 
 void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
 {
-	if (Block::Rules::HeightGenesis == h)
+	if (Rules::HeightGenesis == h)
 	{
 		assert(!rowPrev);
 		return;
 	}
 
-	assert((h > Block::Rules::HeightGenesis) && rowPrev && (rowid != rowPrev));
+	assert((h > Rules::HeightGenesis) && rowPrev && (rowid != rowPrev));
 
 	Dmmr dmmr(*this);
 	dmmr.Goto(rowid);
@@ -1285,7 +1331,7 @@ void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
 	if (!dmmr.m_Rs.IsNull(0))
 		return;
 
-	dmmr.m_Count = h - (Block::Rules::HeightGenesis + 1);
+	dmmr.m_Count = h - (Rules::HeightGenesis + 1);
 	dmmr.m_kLast = rowPrev;
 
 	Merkle::Hash hv;
@@ -1309,13 +1355,13 @@ void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
 
 void NodeDB::get_Proof(Merkle::Proof& proof, const StateID& sid, Height hPrev)
 {
-	assert((hPrev >= Block::Rules::HeightGenesis) && (hPrev < sid.m_Height));
+	assert((hPrev >= Rules::HeightGenesis) && (hPrev < sid.m_Height));
 
     Dmmr dmmr(*this);
-    dmmr.m_Count = sid.m_Height - Block::Rules::HeightGenesis;
+    dmmr.m_Count = sid.m_Height - Rules::HeightGenesis;
     dmmr.m_kLast = sid.m_Row;
 
-    dmmr.get_Proof(proof, hPrev - Block::Rules::HeightGenesis);
+    dmmr.get_Proof(proof, hPrev - Rules::HeightGenesis);
 }
 
 void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
@@ -1325,7 +1371,7 @@ void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
 	s.get_Hash(hv);
 
     Dmmr dmmr(*this);
-    dmmr.m_Count = sid.m_Height - Block::Rules::HeightGenesis;
+    dmmr.m_Count = sid.m_Height - Rules::HeightGenesis;
     dmmr.m_kLast = sid.m_Row;
 
     dmmr.get_PredictedHash(hv, hv);
@@ -1436,6 +1482,114 @@ bool NodeDB::WalkerMined::MoveNext()
 	m_Rs.get(1, m_Sid.m_Row);
 	m_Rs.get(2, m_Amount);
 	return true;
+}
+
+void NodeDB::EnumMacroblocks(WalkerState& x)
+{
+	x.m_Rs.Reset(Query::MacroblockEnum, "SELECT " TblStates "." TblTips_Height "," TblCompressed_Row1
+		" FROM " TblCompressed " LEFT JOIN " TblStates " ON " TblCompressed_Row1 "=" TblStates ".rowid"
+		" ORDER BY " TblStates "." TblTips_Height " DESC");
+}
+
+void NodeDB::MacroblockIns(uint64_t rowid)
+{
+	Recordset rs(*this, Query::MacroblockIns, "INSERT INTO " TblCompressed " VALUES(?)");
+	rs.put(0, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::MacroblockDel(uint64_t rowid)
+{
+	Recordset rs(*this, Query::MinedDel, "DELETE FROM " TblCompressed " WHERE " TblCompressed_Row1 "=?");
+	rs.put(0, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::EnumPeers(WalkerPeer& x)
+{
+	x.m_Rs.Reset(Query::PeerEnum, "SELECT " TblPeer_Key "," TblPeer_Rating "," TblPeer_Addr "," TblPeer_LastSeen " FROM " TblPeer);
+}
+
+bool NodeDB::WalkerPeer::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+	m_Rs.get(0, m_Data.m_ID);
+	m_Rs.get(1, m_Data.m_Rating);
+	m_Rs.get(2, m_Data.m_Address);
+	m_Rs.get(3, m_Data.m_LastSeen);
+	return true;
+}
+
+void NodeDB::PeersDel()
+{
+	Recordset rs(*this, Query::PeerDel, "DELETE FROM " TblPeer);
+	rs.Step();
+}
+
+void NodeDB::PeerIns(const WalkerPeer::Data& d)
+{
+	Recordset rs(*this, Query::PeerAdd, "INSERT INTO " TblPeer "(" TblPeer_Key "," TblPeer_Rating "," TblPeer_Addr "," TblPeer_LastSeen ") VALUES(?,?,?,?)");
+	rs.put(0, d.m_ID);
+	rs.put(1, d.m_Rating);
+	rs.put(2, d.m_Address);
+	rs.put(3, d.m_LastSeen);
+	rs.Step();
+	TestChanged1Row();
+}
+
+#define TblBbs_AllFieldsListed TblBbs_Key "," TblBbs_Channel "," TblBbs_Time "," TblBbs_Msg
+
+void NodeDB::EnumBbs(WalkerBbs& x)
+{
+	x.m_Rs.Reset(Query::BbsEnum, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Channel "=? AND " TblBbs_Time ">=? ORDER BY " TblBbs_Time);
+
+	x.m_Rs.put(0, x.m_Data.m_Channel);
+	x.m_Rs.put(1, x.m_Data.m_TimePosted);
+}
+
+void NodeDB::EnumAllBbs(WalkerBbs& x)
+{
+	x.m_Rs.Reset(Query::BbsEnumAll, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs);
+}
+
+bool NodeDB::WalkerBbs::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+	m_Rs.get(0, m_Data.m_Key);
+	m_Rs.get(1, m_Data.m_Channel);
+	m_Rs.get(2, m_Data.m_TimePosted);
+	m_Rs.get(3, m_Data.m_Message);
+	return true;
+}
+
+bool NodeDB::BbsFind(WalkerBbs& x)
+{
+	x.m_Rs.Reset(Query::BbsFind, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Key "=?");
+
+	x.m_Rs.put(0, x.m_Data.m_Key);
+	return x.MoveNext();
+}
+
+void NodeDB::BbsDelOld(Timestamp tMinToRemain)
+{
+	Recordset rs(*this, Query::BbsDelOld, "DELETE FROM " TblBbs " WHERE " TblBbs_Time "<?");
+	rs.put(0, tMinToRemain);
+	rs.Step();
+}
+
+void NodeDB::BbsIns(const WalkerBbs::Data& d)
+{
+	Recordset rs(*this, Query::BbsIns, "INSERT INTO " TblBbs "(" TblBbs_AllFieldsListed ") VALUES(?,?,?,?)");
+	rs.put(0, d.m_Key);
+	rs.put(1, d.m_Channel);
+	rs.put(2, d.m_TimePosted);
+	rs.put(3, d.m_Message);
+	rs.Step();
+	TestChanged1Row();
 }
 
 } // namespace beam

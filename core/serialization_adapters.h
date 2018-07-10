@@ -108,16 +108,16 @@ namespace detail
 		void save(const ECC::InnerProduct& v)
 		{
 			uint32_t iBit = 0;
-			for (int i = 0; i < _countof(v.m_pLR); i++)
-				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+			for (size_t i = 0; i < _countof(v.m_pLR); i++)
+				for (size_t j = 0; j < _countof(v.m_pLR[i]); j++)
 					set(iBit++, v.m_pLR[i][j].m_Y);
 		}
 
 		void load(ECC::InnerProduct& v) const
 		{
 			uint32_t iBit = 0;
-			for (int i = 0; i < _countof(v.m_pLR); i++)
-				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+			for (size_t i = 0; i < _countof(v.m_pLR); i++)
+				for (size_t j = 0; j < _countof(v.m_pLR[i]); j++)
 					get(iBit++, v.m_pLR[i][j].m_Y);
 		}
 	};
@@ -206,11 +206,11 @@ namespace detail
 		template<typename Archive>
 		static void save_nobits(Archive& ar, const ECC::InnerProduct& v)
 		{
-			for (int i = 0; i < _countof(v.m_pLR); i++)
-				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+			for (size_t i = 0; i < _countof(v.m_pLR); i++)
+				for (size_t j = 0; j < _countof(v.m_pLR[i]); j++)
 					ar & v.m_pLR[i][j].m_X;
 
-			for (int j = 0; j < _countof(v.m_pCondensed); j++)
+			for (size_t j = 0; j < _countof(v.m_pCondensed); j++)
 				ar & v.m_pCondensed[j];
 		}
 
@@ -231,11 +231,11 @@ namespace detail
 		template<typename Archive>
 		static void load_nobits(Archive& ar, ECC::InnerProduct& v)
 		{
-			for (int i = 0; i < _countof(v.m_pLR); i++)
-				for (int j = 0; j < _countof(v.m_pLR[i]); j++)
+			for (size_t i = 0; i < _countof(v.m_pLR); i++)
+				for (size_t j = 0; j < _countof(v.m_pLR[i]); j++)
 					ar & v.m_pLR[i][j].m_X;
 
-			for (int j = 0; j < _countof(v.m_pCondensed); j++)
+			for (size_t j = 0; j < _countof(v.m_pCondensed); j++)
 				ar & v.m_pCondensed[j];
 		}
 
@@ -256,11 +256,11 @@ namespace detail
         static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& v)
         {
 			ar
-				& v.m_A.m_X
-				& v.m_S.m_X
-				& v.m_T1.m_X
-				& v.m_T2.m_X
-				& v.m_TauX
+				& v.m_Part1.m_A.m_X
+				& v.m_Part1.m_S.m_X
+				& v.m_Part2.m_T1.m_X
+				& v.m_Part2.m_T2.m_X
+				& v.m_Part3.m_TauX
 				& v.m_Mu
 				& v.m_tDot;
 
@@ -272,10 +272,10 @@ namespace detail
 			ipf.save(v.m_P_Tag);
 
 			static_assert(ipf.N_Max - ipf.N == 4, "");
-			ipf.set(ipf.N + 0, v.m_A.m_Y);
-			ipf.set(ipf.N + 1, v.m_S.m_Y);
-			ipf.set(ipf.N + 2, v.m_T1.m_Y);
-			ipf.set(ipf.N + 3, v.m_T2.m_Y);
+			ipf.set(ipf.N + 0, v.m_Part1.m_A.m_Y);
+			ipf.set(ipf.N + 1, v.m_Part1.m_S.m_Y);
+			ipf.set(ipf.N + 2, v.m_Part2.m_T1.m_Y);
+			ipf.set(ipf.N + 3, v.m_Part2.m_T2.m_Y);
 
 			ar & ipf.m_pF;
             return ar;
@@ -285,11 +285,11 @@ namespace detail
         static Archive& load(Archive& ar, ECC::RangeProof::Confidential& v)
         {
 			ar
-				& v.m_A.m_X
-				& v.m_S.m_X
-				& v.m_T1.m_X
-				& v.m_T2.m_X
-				& v.m_TauX
+				& v.m_Part1.m_A.m_X
+				& v.m_Part1.m_S.m_X
+				& v.m_Part2.m_T1.m_X
+				& v.m_Part2.m_T2.m_X
+				& v.m_Part3.m_TauX
 				& v.m_Mu
 				& v.m_tDot;
 
@@ -301,10 +301,10 @@ namespace detail
 			ipf.load(v.m_P_Tag);
 
 			static_assert(ipf.N_Max - ipf.N == 4, "");
-			ipf.get(ipf.N + 0, v.m_A.m_Y);
-			ipf.get(ipf.N + 1, v.m_S.m_Y);
-			ipf.get(ipf.N + 2, v.m_T1.m_Y);
-			ipf.get(ipf.N + 3, v.m_T2.m_Y);
+			ipf.get(ipf.N + 0, v.m_Part1.m_A.m_Y);
+			ipf.get(ipf.N + 1, v.m_Part1.m_S.m_Y);
+			ipf.get(ipf.N + 2, v.m_Part2.m_T1.m_Y);
+			ipf.get(ipf.N + 3, v.m_Part2.m_T2.m_Y);
 
 			return ar;
 		}
@@ -340,8 +340,16 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Input& input)
         {
+			uint8_t nFlags =
+				(input.m_Commitment.m_Y ? 1 : 0) |
+				(input.m_Maturity ? 0x2 : 0);
+
 			ar
-				& input.m_Commitment;
+				& nFlags
+				& input.m_Commitment.m_X;
+
+			if (input.m_Maturity)
+				ar & input.m_Maturity;
 
             return ar;
         }
@@ -349,8 +357,15 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, beam::Input& input)
         {
+			uint8_t nFlags;
 			ar
-				& input.m_Commitment;
+				& nFlags
+				& input.m_Commitment.m_X;
+
+			input.m_Commitment.m_Y = 0 != (1 & nFlags);
+
+			if (0x2 & nFlags)
+				ar & input.m_Maturity;
 
             return ar;
         }
@@ -365,7 +380,7 @@ namespace detail
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
 				(output.m_Incubation ? 0x10 : 0) |
-				(output.m_hDelta ? 0x20 : 0);
+				(output.m_Maturity ? 0x20 : 0);
 
 			ar
 				& nFlags
@@ -380,8 +395,8 @@ namespace detail
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
 
-			if (output.m_hDelta)
-				ar & output.m_hDelta;
+			if (output.m_Maturity)
+				ar & output.m_Maturity;
 
             return ar;
         }
@@ -413,7 +428,7 @@ namespace detail
 				ar & output.m_Incubation;
 
 			if (0x20 & nFlags)
-				ar & output.m_hDelta;
+				ar & output.m_Maturity;
 
             return ar;
         }
@@ -542,37 +557,55 @@ namespace detail
 
         /// beam::Transaction serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxBase& tx)
+        static Archive& save(Archive& ar, const beam::TxBase& txb)
         {
             ar
-                & tx.m_vInputs
-                & tx.m_vOutputs
-                & tx.m_vKernelsInput
-				& tx.m_vKernelsOutput
-				& tx.m_Offset;
+				& txb.m_Offset;
 
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::TxBase& tx)
+        static Archive& load(Archive& ar, beam::TxBase& txb)
         {
             ar
-                & tx.m_vInputs
-                & tx.m_vOutputs
-				& tx.m_vKernelsInput
-				& tx.m_vKernelsOutput
-				& tx.m_Offset;
-
-			tx.TestNoNulls();
+				& txb.m_Offset;
 
             return ar;
         }
 
-		template<typename Archive>
+        template<typename Archive>
+        static Archive& save(Archive& ar, const beam::TxVectors& txv)
+        {
+			ar
+				& txv.m_vInputs
+				& txv.m_vOutputs
+				& txv.m_vKernelsInput
+				& txv.m_vKernelsOutput;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, beam::TxVectors& txv)
+        {
+			ar
+				& txv.m_vInputs
+				& txv.m_vOutputs
+				& txv.m_vKernelsInput
+				& txv.m_vKernelsOutput;
+
+			txv.TestNoNulls();
+
+            return ar;
+        }
+
+        template<typename Archive>
         static Archive& save(Archive& ar, const beam::Transaction& tx)
         {
-            ar & (const beam::TxBase&) tx;
+			ar
+				& (beam::TxVectors&) tx
+				& (beam::TxBase&) tx;
 
             return ar;
         }
@@ -580,7 +613,9 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, beam::Transaction& tx)
         {
-            ar & (beam::TxBase&) tx;
+			ar
+				& (beam::TxVectors&) tx
+				& (beam::TxBase&) tx;
 
             return ar;
         }
@@ -628,14 +663,52 @@ namespace detail
         }
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Block::SystemState::Full& v)
+		static Archive& save(Archive& ar, const beam::Block::SystemState::Sequence::Prefix& v)
 		{
 			ar
 				& v.m_Height
-				& v.m_Prev
+				& v.m_Prev;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Block::SystemState::Sequence::Prefix& v)
+		{
+			ar
+				& v.m_Height
+				& v.m_Prev;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Block::SystemState::Sequence::Element& v)
+		{
+			ar
 				& v.m_Definition
 				& v.m_TimeStamp
 				& v.m_PoW;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Block::SystemState::Sequence::Element& v)
+		{
+			ar
+				& v.m_Definition
+				& v.m_TimeStamp
+				& v.m_PoW;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Block::SystemState::Full& v)
+		{
+			save(ar, (const beam::Block::SystemState::Sequence::Prefix&) v);
+			save(ar, (const beam::Block::SystemState::Sequence::Element&) v);
 
 			return ar;
 		}
@@ -643,18 +716,14 @@ namespace detail
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Block::SystemState::Full& v)
 		{
-			ar
-				& v.m_Height
-				& v.m_Prev
-				& v.m_Definition
-				& v.m_TimeStamp
-				& v.m_PoW;
+			load(ar, (beam::Block::SystemState::Sequence::Prefix&) v);
+			load(ar, (beam::Block::SystemState::Sequence::Element&) v);
 
 			return ar;
 		}
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Block::Body& bb)
+		static Archive& save(Archive& ar, const beam::Block::BodyBase& bb)
 		{
 			uint8_t nFlags =
 				(bb.m_Subsidy.Hi ? 1 : 0) |
@@ -671,7 +740,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Block::Body& bb)
+		static Archive& load(Archive& ar, beam::Block::BodyBase& bb)
 		{
 			uint8_t nFlags;
 
@@ -685,6 +754,24 @@ namespace detail
 				bb.m_Subsidy.Hi = 0;
 
 			bb.m_SubsidyClosing = ((2 & nFlags) != 0);
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Block::Body& bb)
+		{
+			ar & (const beam::Block::BodyBase&) bb;
+			ar & (const beam::TxVectors&) bb;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Block::Body& bb)
+		{
+			ar & (beam::Block::BodyBase&) bb;
+			ar & (beam::TxVectors&) bb;
 
 			return ar;
 		}

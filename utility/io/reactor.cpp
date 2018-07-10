@@ -232,16 +232,18 @@ ErrorCode Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     return errorCode;
 }
 
-void Reactor::shutdown_tcpstream(Object* o) {
+void Reactor::shutdown_tcpstream(Object* o, BufferChain&& unsent) {
     assert(o);
     uv_handle_t* h = o->_handle;
     if (!h) {
         // already closed
         return;
     }
+    h->data = 0;
     assert(o->_reactor.get() == this);
     uv_shutdown_t* req = _shutdownRequestsPool.alloc();
     req->data = this;
+    _unsent[req] = std::move(unsent);
     uv_shutdown(
         req,
         (uv_stream_t*)h,
@@ -254,6 +256,7 @@ void Reactor::shutdown_tcpstream(Object* o) {
                 self->async_close((uv_handle_t*&)req->handle);
                 self->_shutdownRequests.erase(req);
                 self->_shutdownRequestsPool.release(req);
+                self->_unsent.erase(req);
             }
         }
     );
@@ -364,6 +367,7 @@ void Reactor::connect_callback(Reactor::ConnectContext* ctx, ErrorCode errorCode
     }
 
     _connectRequests.erase(tag);
+    _connectTimer->cancel(tag);
 
     callback(tag, std::move(stream), errorCode);
 }

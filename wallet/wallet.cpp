@@ -2,6 +2,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include "core/ecc_native.h"
+#include "core/block_crypt.h"
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include <algorithm>
@@ -15,36 +16,6 @@ namespace ECC {
 
 namespace
 {
-    template<typename T>
-    struct Cleaner
-    {
-        Cleaner(T& t) : m_v{ t } {}
-        ~Cleaner()
-        {
-            if (!m_v.empty())
-            {
-                m_v.clear();
-            }
-        }
-        T& m_v;
-    };
-
-    struct ScopeGuard
-    {
-        using Callback = std::function<void()>;
-        ScopeGuard(Callback&& callback) : m_callback{callback}
-        {
-            assert(callback);
-        }
-
-        ~ScopeGuard()
-        {
-            m_callback();
-        }
-
-        Callback m_callback;
-    };
-
     const char* ReceiverPrefix = "[Receiver] ";
     const char* SenderPrefix = "[Sender] ";
 }
@@ -66,11 +37,21 @@ namespace beam
         const string_view beams{" beams " };
         const string_view chattles{ " chattles " };
         auto width = os.width();
-        if (amount.m_value >= Block::Rules::Coin)
+
+        if (amount.m_showPoint)
         {
-            os << setw(width - beams.length()) << Amount(amount.m_value / Block::Rules::Coin) << beams.data();
+            os << setw(width - beams.length() - 1) << Amount(amount.m_value / Rules::Coin)
+                << "."
+                << (amount.m_value % Rules::Coin)
+                << beams.data();
+            return os;
         }
-        Amount c = amount.m_value % Block::Rules::Coin;
+        
+        if (amount.m_value >= Rules::Coin)
+        {
+            os << setw(width - beams.length()) << Amount(amount.m_value / Rules::Coin) << beams.data();
+        }
+        Amount c = amount.m_value % Rules::Coin;
         if (c > 0 || amount.m_value == 0)
         {
             os << setw(width - chattles.length()) << c << chattles.data();
@@ -78,28 +59,33 @@ namespace beam
         return os;
     }
 
-    pair<Scalar::Native, Scalar::Native> split_key(const Scalar::Native& key, uint64_t index)
+    namespace wallet
     {
-        pair<Scalar::Native, Scalar::Native> res;
-        Hash::Value hv;
-        Hash::Processor() << index >> hv;
-        NoLeak<Scalar> s;
-        s.V = key;
-        res.second.GenerateNonce(s.V.m_Value, hv, nullptr);
-        res.second = -res.second;
-        res.first = key;
-        res.first += res.second;
+        pair<Scalar::Native, Scalar::Native> splitKey(const Scalar::Native& key, uint64_t index)
+        {
+            pair<Scalar::Native, Scalar::Native> res;
+            Hash::Value hv;
+            Hash::Processor() << index >> hv;
+            NoLeak<Scalar> s;
+            s.V = key;
+            res.second.GenerateNonce(s.V.m_Value, hv, nullptr);
+            res.second = -res.second;
+            res.first = key;
+            res.first += res.second;
 
-        return res;
+            return res;
+        }
     }
 
     Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action)
         : m_keyChain{ keyChain }
         , m_network{ network }
         , m_tx_completed_action{move(action)}
+        , m_Definition{}
+        , m_knownStateID{}
+        , m_newStateID{}
         , m_syncing{0}
         , m_synchronized{false}
-        , m_knownStateID{0}
     {
         assert(keyChain);
         m_keyChain->getSystemStateID(m_knownStateID);
@@ -108,55 +94,65 @@ namespace beam
     Wallet::~Wallet()
     {
         assert(m_peers.empty());
-        assert(m_receivers.empty());
-        assert(m_senders.empty());
+        assert(m_negotiators.empty());
         assert(m_reg_requests.empty());
-        assert(m_removed_senders.empty());
-        assert(m_removed_receivers.empty());
+        assert(m_removedNegotiators.empty());
     }
 
-    void Wallet::transfer_money(PeerId to, Amount&& amount)
+    Uuid Wallet::transfer_money(PeerId to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
     {
-        Cleaner<std::vector<wallet::Sender::Ptr> > c{ m_removed_senders };
 		boost::uuids::uuid id = boost::uuids::random_generator()();
-        Uuid txId;
+        Uuid txId{};
         copy(id.begin(), id.end(), txId.begin());
-        m_peers.emplace(txId, to);
-        auto s = make_shared<Sender>(*this, m_keyChain, txId, amount);
-        auto p = m_senders.emplace(txId, s);
-        if (m_synchronized)
+        TxDescription tx( txId, amount, fee, m_keyChain->getCurrentHeight(), to, move(message), getTimestamp(), sender);
+        resume_negotiator(tx);
+        return txId;
+    }
+
+    void Wallet::resume_tx(const TxDescription& tx)
+    {
+        resume_negotiator(tx);
+    }
+
+    void Wallet::resume_all_tx()
+    {
+        auto txs = m_keyChain->getTxHistory();
+        for (auto& tx : txs)
         {
-            p.first->second->start();
+            resume_tx(tx);
         }
-        else
+    }
+
+    void Wallet::send_tx_invitation(const TxDescription& tx, Invite&& data)
+    {
+        m_network.send_tx_message(tx.m_peerId, move(data));
+    }
+
+    void Wallet::send_tx_confirmation(const TxDescription& tx, ConfirmTransaction&& data)
+    {
+        m_network.send_tx_message(tx.m_peerId, move(data));
+    }
+
+    void Wallet::on_tx_completed(const TxDescription& tx)
+    {
+        auto it = m_negotiators.find(tx.m_txId);
+        if (it != m_negotiators.end())
         {
-            m_pendingSenders.emplace_back(s);
+            m_removedNegotiators.push_back(move(it->second));
+            m_negotiators.erase(it);
         }
-    }
 
-    void Wallet::send_tx_invitation(const InviteReceiver& data)
-    {
-        send_tx_message(data.m_txId, [this, &data](auto peer_id) mutable
-        {
-            m_network.send_tx_message(peer_id, data);
-        });
-    }
+        m_network.close_connection(tx.m_peerId);
+        m_peers.erase(tx.m_peerId);
+ 
+        // remove state machine from db
+        TxDescription t{ tx };
+        t.m_fsmState.clear();
+        m_keyChain->saveTx(t);
 
-    void Wallet::send_tx_confirmation(const ConfirmTransaction& data)
-    {
-        send_tx_message(data.m_txId, [this, &data](auto peer_id) mutable
-        {
-            m_network.send_tx_message(peer_id, data);
-        });
-    }
-
-    void Wallet::on_tx_completed(const Uuid& txId)
-    {
-        remove_sender(txId);
-        remove_receiver(txId);
         if (m_tx_completed_action)
         {
-            m_tx_completed_action(txId);
+            m_tx_completed_action(tx.m_txId);
         }
         if (m_reg_requests.empty() && m_syncing == 0)
         {
@@ -165,110 +161,72 @@ namespace beam
     }
 
 
-    void Wallet::send_tx_failed(const Uuid& txId)
+    void Wallet::send_tx_failed(const TxDescription& tx)
     {
-        send_tx_message(txId, [this, &txId](auto peer_id)
-        {
-            m_network.send_tx_message(peer_id, wallet::TxFailed{ txId });
-        });
+        m_network.send_tx_message(tx.m_peerId, wallet::TxFailed{ tx.m_txId });
     }
 
-    void Wallet::remove_sender(const Uuid& txId)
+    void Wallet::send_tx_confirmation(const TxDescription& tx, ConfirmInvitation&& data)
     {
-        auto it = m_senders.find(txId);
-        if (it != m_senders.end())
-        {
-            remove_peer(txId);
-            m_removed_senders.push_back(move(it->second));
-            m_senders.erase(it);
-        }
+        m_network.send_tx_message(tx.m_peerId, move(data));
     }
 
-    void Wallet::remove_receiver(const Uuid& txId)
+    void Wallet::register_tx(const TxDescription& tx, Transaction::Ptr data)
     {
-        auto it = m_receivers.find(txId);
-        if (it != m_receivers.end())
-        {
-            remove_peer(txId);
-            m_removed_receivers.push_back(move(it->second));
-            m_receivers.erase(it);
-        }
+        register_tx(tx.m_txId, data);
     }
 
-    void Wallet::send_tx_confirmation(const ConfirmInvitation& data)
+    void Wallet::send_tx_registered(const TxDescription& tx)
     {
-        send_tx_message(data.m_txId, [this, &data](auto peer_id) mutable
-        {
-            m_network.send_tx_message(peer_id, data);
-        });
+        m_network.send_tx_message(tx.m_peerId, wallet::TxRegistered{ tx.m_txId, true });
     }
 
-    void Wallet::register_tx(const Uuid& txId, Transaction::Ptr data)
+    void Wallet::handle_tx_message(PeerId from, Invite&& msg)
     {
-        LOG_VERBOSE() << ReceiverPrefix << "sending tx for registration";
-        m_reg_requests.push_back(make_pair(txId, data));
-        m_network.send_node_message(proto::NewTransaction{ data });
-    }
-
-    void Wallet::send_tx_registered(UuidPtr&& txId)
-    {
-        send_tx_message(*txId, [&txId, this](auto peer_id)
+        auto it = m_negotiators.find(msg.m_txId);
+        if (it == m_negotiators.end())
         {
-            m_network.send_tx_message(peer_id, wallet::TxRegistered{ *txId, true });
-        });
-    }
-
-    void Wallet::handle_tx_message(PeerId from, InviteReceiver&& data)
-    {
-        auto it = m_receivers.find(data.m_txId);
-        if (it == m_receivers.end())
-        {
-            LOG_VERBOSE() << ReceiverPrefix << "Received tx invitation " << data.m_txId;
-
-            auto txId = data.m_txId;
-            m_peers.emplace(txId, from);
-            auto p = m_receivers.emplace(txId, make_shared<Receiver>(*this, m_keyChain, data));
+            LOG_VERBOSE() << "Received tx invitation " << msg.m_txId;
+            bool sender = !msg.m_send;
+            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, from, {}, getTimestamp(), sender };
+            auto r = make_shared<Negotiator>(*this, m_keyChain, tx, msg);
+            m_negotiators.emplace(tx.m_txId, r);
+            m_peers.emplace(tx.m_peerId, r);
+            Cleaner c{ m_removedNegotiators };
             if (m_synchronized)
             {
-                p.first->second->start();
+                r->start();
+                r->process_event(events::TxInvited{});
             }
             else
             {
-                m_pendingReceivers.emplace_back(p.first->second);
+                m_pendingEvents.emplace_back([r]()
+                {
+                    r->start();
+                    r->process_event(events::TxInvited{});
+                });
             }
         }
         else
         {
-            LOG_DEBUG() << ReceiverPrefix << "Unexpected tx invitation " << data.m_txId;
+            LOG_DEBUG() << ReceiverPrefix << "Unexpected tx invitation " << msg.m_txId;
         }
     }
     
     void Wallet::handle_tx_message(PeerId from, ConfirmTransaction&& data)
     {
-        Cleaner<std::vector<wallet::Receiver::Ptr> > c{ m_removed_receivers };
-        auto it = m_receivers.find(data.m_txId);
-        if (it != m_receivers.end())
+        LOG_DEBUG() << ReceiverPrefix << "Received sender tx confirmation " << data.m_txId;
+        if (!process_event(data.m_txId, events::TxConfirmationCompleted{ data }))
         {
-            LOG_DEBUG() << ReceiverPrefix << "Received sender tx confirmation " << data.m_txId;
-            it->second->process_event(Receiver::TxConfirmationCompleted{data});
-        }
-        else
-        {
-            LOG_DEBUG() << ReceiverPrefix << "Unexpected sender tx confirmation "<< data.m_txId;
+            LOG_DEBUG() << ReceiverPrefix << "Unexpected sender tx confirmation " << data.m_txId;
             m_network.close_connection(from);
         }
     }
 
     void Wallet::handle_tx_message(PeerId /*from*/, ConfirmInvitation&& data)
     {
-        Cleaner<std::vector<wallet::Sender::Ptr> > c{ m_removed_senders };
-        auto it = m_senders.find(data.m_txId);
-        if (it != m_senders.end())
-        {
-            LOG_VERBOSE() << SenderPrefix << "Received tx confirmation " << data.m_txId;
-            it->second->process_event(Sender::TxInitCompleted{data});
-        }
-        else
+        LOG_VERBOSE() << SenderPrefix << "Received tx confirmation " << data.m_txId;
+        if (!process_event(data.m_txId, events::TxInvitationCompleted{ data }))
         {
             LOG_DEBUG() << SenderPrefix << "Unexpected tx confirmation " << data.m_txId;
         }
@@ -276,16 +234,10 @@ namespace beam
 
     void Wallet::handle_tx_message(PeerId from, wallet::TxRegistered&& data)
     {
-        // TODO: change data structure
-        auto cit = find_if(m_peers.cbegin(), m_peers.cend(), [from](const auto& p) {return p.second == from; });
-        if (cit == m_peers.end())
-        {
-            return;
-        }
-        handle_tx_registered(cit->first, data.m_value);
+        process_event(data.m_txId, events::TxRegistrationCompleted{});
     }
 
-    void Wallet::handle_tx_message(PeerId from, wallet::TxFailed&& data)
+    void Wallet::handle_tx_message(PeerId /*from*/, wallet::TxFailed&& data)
     {
         LOG_DEBUG() << "tx " << data.m_txId << " failed";
         handle_tx_failed(data.m_txId);
@@ -296,32 +248,23 @@ namespace beam
         if (m_reg_requests.empty())
         {
             LOG_DEBUG() << "Received unexpected tx registration confirmation";
-            assert(m_receivers.empty() && m_senders.empty());
-            return false;
+            assert(m_negotiators.empty());
         }
-        auto txId = m_reg_requests.front().first;
-        m_reg_requests.pop_front();
-        handle_tx_registered(txId, res.m_Value);
-        return true;
+        else
+        {
+            auto txId = m_reg_requests.front().first;
+            m_reg_requests.pop_front();
+            handle_tx_registered(txId, res.m_Value);
+        }
+        return close_node_connection();
     }
 
     void Wallet::handle_tx_registered(const Uuid& txId, bool res)
     {
         LOG_DEBUG() << "tx " << txId << (res ? " has registered" : " has failed to register");
-        Cleaner<std::vector<wallet::Receiver::Ptr> > cr{ m_removed_receivers };
-        Cleaner<std::vector<wallet::Sender::Ptr> > cs{ m_removed_senders };
         if (res)
         {
-            if (auto it = m_receivers.find(txId); it != m_receivers.end())
-            {
-                it->second->process_event(Receiver::TxRegistrationCompleted{ txId });
-                return;
-            }
-            if (auto it = m_senders.find(txId); it != m_senders.end())
-            {
-                it->second->process_event(Sender::TxConfirmationCompleted());
-                return;
-            }
+            process_event(txId, events::TxRegistrationCompleted{ });
         }
         else
         {
@@ -331,51 +274,45 @@ namespace beam
 
     void Wallet::handle_tx_failed(const Uuid& txId)
     {
-        if (auto it = m_senders.find(txId); it != m_senders.end())
-        {
-            it->second->process_event(Sender::TxFailed());
-            return;
-        }
-        if (auto it = m_receivers.find(txId); it != m_receivers.end())
-        {
-            it->second->process_event(Receiver::TxFailed());
-            return;
-        }
+        process_event(txId, events::TxFailed());
     }
 
-    bool Wallet::handle_node_message(proto::ProofUtxo&& proof)
+    bool Wallet::handle_node_message(proto::ProofUtxo&& utxoProof)
     {
         // TODO: handle the maturity of the several proofs (> 1)
         if (m_pendingProofs.empty())
         {
-            LOG_DEBUG() << "Unexpected UTXO proof";
-            return false;
+            LOG_WARNING() << "Unexpected UTXO proof";
+            return finish_sync();
         }
 
         Coin& coin = m_pendingProofs.front();
-        Input input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
-        if (proof.m_Proofs.empty())
+		Input input;
+		input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
+        if (utxoProof.m_Proofs.empty())
         {
-            LOG_ERROR() << "Got empty proof for: " << input.m_Commitment;
+            LOG_WARNING() << "Got empty proof for: " << input.m_Commitment;
 
             if (coin.m_status == Coin::Locked)
             {
                 coin.m_status = Coin::Spent;
-                m_keyChain->update(vector<Coin>{coin});
+                m_keyChain->update(coin);
             }
         }
         else
         {
-            for (const auto& proof : proof.m_Proofs)
+            for (const auto& proof : utxoProof.m_Proofs)
             {
                 if (coin.m_status == Coin::Unconfirmed)
                 {
 
                     if (proof.IsValid(input, m_Definition))
                     {
-                        LOG_ERROR() << "Got proof for: " << input.m_Commitment;
+                        LOG_INFO() << "Got proof for: " << input.m_Commitment;
                         coin.m_status = Coin::Unspent;
                         coin.m_maturity = proof.m_Maturity;
+                        coin.m_confirmHeight = m_newStateID.m_Height;
+                        coin.m_confirmHash = m_newStateID.m_Hash;
                         if (coin.m_key_type == KeyType::Coinbase
                             || coin.m_key_type == KeyType::Comission)
                         {
@@ -384,12 +321,12 @@ namespace beam
                         }
                         else
                         {
-                            m_keyChain->update(vector<Coin>{coin});
+                            m_keyChain->update(coin);
                         }
                     }
                     else
                     {
-                        LOG_ERROR() << "Invalid proof provided";
+                        LOG_ERROR() << "Invalid proof provided: " << input.m_Commitment;
                     }
                 }
             }
@@ -397,7 +334,7 @@ namespace beam
 
         m_pendingProofs.pop_front();
 
-        return finishSync();
+        return finish_sync();
     }
 
     bool Wallet::handle_node_message(proto::NewTip&& msg)
@@ -407,6 +344,7 @@ namespace beam
         {
             register_tx(r.first, r.second);
         }
+
         m_pending_reg_requests.clear();
 
         if (!m_syncing)
@@ -414,39 +352,36 @@ namespace beam
             ++m_syncing; // Hdr
         }
 
-        if (msg.m_ID > m_knownStateID)
-        {
-            m_newStateID = msg.m_ID;
-            m_synchronized = false;
-            ++m_syncing; // Mined
-            m_network.send_node_message(proto::GetMined{ m_knownStateID.m_Height });
-        }
         return true;
     }
 
     bool Wallet::handle_node_message(proto::Hdr&& msg)
     {
-		m_Definition = msg.m_Description.m_Definition;
-
-        // TODO: do one kernel proof instead many per coin proofs
-        vector<Coin> unconfirmed;
-        m_keyChain->visit([&](const Coin& coin)
-        {
-            if (coin.m_status == Coin::Unconfirmed
-             || coin.m_status == Coin::Locked)
-            {
-                unconfirmed.emplace_back(coin);
-            }
-
-            return true;
-        });
-
-        getUtxoProofs(unconfirmed);
-
         Block::SystemState::ID newID = {};
         msg.m_Description.get_ID(newID);
+        
+        m_Definition = msg.m_Description.m_Definition;
         m_newStateID = newID;
-        return finishSync();
+
+        if (newID == m_knownStateID)
+        {
+            return finish_sync();
+        }
+
+        m_synchronized = false;
+
+        if (m_knownStateID.m_Height <= Rules::HeightGenesis)
+        {
+            // cold start
+            do_fast_forward();
+        }
+        else
+        {
+            ++m_syncing;
+            m_network.send_node_message(proto::GetProofState{ m_knownStateID.m_Height });
+        }
+
+        return finish_sync();
     }
 
     bool Wallet::handle_node_message(proto::Mined&& msg)
@@ -458,7 +393,7 @@ namespace beam
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
                 // coinbase 
-                mined.emplace_back(Block::Rules::CoinbaseEmission
+                mined.emplace_back(Rules::get().CoinbaseEmission
                                  , Coin::Unconfirmed
                                  , minedCoin.m_ID.m_Height
                                  , MaxHeight
@@ -478,28 +413,41 @@ namespace beam
         {
             getUtxoProofs(mined);
         }
-        return finishSync();
+        return finish_sync();
+    }
+
+    bool Wallet::handle_node_message(proto::Proof&& msg)
+    {
+        Merkle::Hash hv = m_knownStateID.m_Hash;
+        Merkle::Interpret(hv, msg.m_Proof);
+
+        if (hv != m_Definition)
+        {
+            LOG_INFO() << "Last known state doesn't present on current branch. Rollback... ";
+            // rollback
+            // search for the latest valid known state
+            Block::SystemState::ID id = m_keyChain->getKnownStateID(m_Definition, msg.m_Proof);
+            if (id.m_Height != MaxHeight) // found
+            {
+                m_keyChain->rollbackConfirmedUtxo(id.m_Height);
+                m_knownStateID = id;
+            }
+            else
+            {
+                m_knownStateID = {};
+            }
+        }
+
+        do_fast_forward();
+
+        return finish_sync();
     }
 
     void Wallet::handle_connection_error(PeerId from)
     {
-        // TODO: change data structure, we need multi index here
-        auto cit = find_if(m_peers.cbegin(), m_peers.cend(), [from](const auto& p) {return p.second == from; });
-        if (cit == m_peers.end())
+        if (auto it = m_peers.find(from); it != m_peers.end())
         {
-            return;
-        }
-        Cleaner<std::vector<wallet::Receiver::Ptr> > cr{ m_removed_receivers };
-        Cleaner<std::vector<wallet::Sender::Ptr> > cs{ m_removed_senders };
-        if (auto it = m_receivers.find(cit->first); it != m_receivers.end())
-        {
-            it->second->process_event(Receiver::TxFailed());
-            return;
-        }
-        if (auto it = m_senders.find(cit->first); it != m_senders.end())
-        {
-            it->second->process_event(Sender::TxFailed());
-            return;
+            it->second->process_event(events::TxFailed{});
         }
     }
 
@@ -511,14 +459,26 @@ namespace beam
         m_pendingProofs.clear();
     }
 
-    void Wallet::remove_peer(const Uuid& txId)
+    void Wallet::do_fast_forward()
     {
-        auto it = m_peers.find(txId);
-        if (it != m_peers.end())
+        LOG_INFO() << "Sync up to " << m_newStateID.m_Height << "-" << m_newStateID.m_Hash;
+        // fast-forward
+        ++m_syncing; // Mined
+        m_network.send_node_message(proto::GetMined{ m_knownStateID.m_Height });
+
+        vector<Coin> unconfirmed;
+        m_keyChain->visit([&](const Coin& coin)
         {
-            m_network.close_connection(it->second);
-            m_peers.erase(it);
-        }
+            if (coin.m_status == Coin::Unconfirmed
+                || coin.m_status == Coin::Locked)
+            {
+                unconfirmed.emplace_back(coin);
+            }
+
+            return true;
+        });
+
+        getUtxoProofs(unconfirmed);
     }
 
     void Wallet::getUtxoProofs(const vector<Coin>& coins)
@@ -527,13 +487,14 @@ namespace beam
         {
             ++m_syncing;
             m_pendingProofs.push_back(coin);
-            auto input = Input{ Commitment(m_keyChain->calcKey(coin), coin.m_amount) };
+			Input input;
+			input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
             LOG_DEBUG() << "Get proof: " << input.m_Commitment;
             m_network.send_node_message(proto::GetProofUtxo{ input, 0 });
         }
     }
 
-    bool Wallet::finishSync()
+    bool Wallet::finish_sync()
     {
         if (m_syncing)
         {
@@ -542,34 +503,59 @@ namespace beam
             {
                 m_keyChain->setSystemStateID(m_newStateID);
                 m_knownStateID = m_newStateID;
-                if (!m_pendingSenders.empty())
+                if (!m_pendingEvents.empty())
                 {
-                    Cleaner<std::vector<wallet::Sender::Ptr> > cr{ m_removed_senders };
-                    
-                    for (auto& s : m_pendingSenders)
+                    Cleaner c{ m_removedNegotiators };
+                    for (auto& cb : m_pendingEvents)
                     {
-                        s->start();
+                        cb();
                     }
-                    m_pendingSenders.clear();
-                }
-
-                if (!m_pendingReceivers.empty())
-                {
-                    Cleaner<std::vector<wallet::Receiver::Ptr> > cr{ m_removed_receivers };
-                    for (auto& r : m_pendingReceivers)
-                    {
-                        r->start();
-                    }
-                    m_pendingReceivers.clear();
+                    m_pendingEvents.clear();
                 }
                 m_synchronized = true;
             }
         }
+        return close_node_connection();
+    }
+
+    bool Wallet::close_node_connection()
+    {
         if (!m_syncing && m_reg_requests.empty())
         {
             m_network.close_node_connection();
             return false;
         }
         return true;
+    }
+
+    void Wallet::register_tx(const Uuid& txId, Transaction::Ptr data)
+    {
+        LOG_VERBOSE() << ReceiverPrefix << "sending tx for registration";
+        TxBase::Context ctx;
+        assert(data->IsValid(ctx));
+        m_reg_requests.push_back(make_pair(txId, data));
+        m_network.send_node_message(proto::NewTransaction{ data });
+    }
+
+    void Wallet::resume_negotiator(const TxDescription& tx)
+    {
+        Cleaner c{ m_removedNegotiators };
+        auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
+        m_negotiators.emplace(tx.m_txId, s);
+        m_peers.emplace(tx.m_peerId, s);
+
+        if (m_synchronized)
+        {
+            s->start();
+            s->process_event(events::TxInitiated{});
+        }
+        else
+        {
+            m_pendingEvents.emplace_back([s]()
+            {
+                s->start();
+                s->process_event(events::TxInitiated{});
+            });
+        }
     }
 }

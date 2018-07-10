@@ -3,10 +3,9 @@ add_definitions( -DSQLITE_HAS_CODEC )
 set(WALLET_SRC
     wallet.h
     wallet.cpp
-    sender.cpp
-    receiver.cpp
+    negotiator.cpp
     wallet_network.cpp
-    keychain.cpp
+    wallet_db.cpp
 )
 
 add_library(wallet STATIC ${WALLET_SRC})

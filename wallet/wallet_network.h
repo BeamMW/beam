@@ -43,62 +43,66 @@ namespace beam
         void start();
         void stop();
 
-        void transfer_money(io::Address receiver, Amount&& amount);
+        Uuid transfer_money(io::Address receiver, Amount&& amount, Amount&& fee = 0, bool sender = true, ByteBuffer&& message = {});
 
     private:
         // INetworkIO
-        void send_tx_message(PeerId to, const wallet::InviteReceiver&) override;
-        void send_tx_message(PeerId to, const wallet::ConfirmTransaction&) override;
-        void send_tx_message(PeerId to, const wallet::ConfirmInvitation&) override;
-        void send_tx_message(PeerId to, const wallet::TxRegistered&) override;
-        void send_tx_message(PeerId to, const wallet::TxFailed&) override;
+        void send_tx_message(PeerId to, wallet::Invite&&) override;
+        void send_tx_message(PeerId to, wallet::ConfirmTransaction&&) override;
+        void send_tx_message(PeerId to, wallet::ConfirmInvitation&&) override;
+        void send_tx_message(PeerId to, wallet::TxRegistered&&) override;
+        void send_tx_message(PeerId to, wallet::TxFailed&&) override;
 
         void send_node_message(proto::NewTransaction&&) override;
         void send_node_message(proto::GetProofUtxo&&) override;
         void send_node_message(proto::GetHdr&&) override;
         void send_node_message(proto::GetMined&&) override;
+        void send_node_message(proto::GetProofState&&) override;
 
         void close_connection(uint64_t id) override;
         void close_node_connection() override;
 
         // IMsgHandler
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;
-        void on_connection_error(uint64_t fromStream, int errorCode) override;
+        void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override;
 
         // handlers for the protocol messages
-        bool on_message(uint64_t connectionId, wallet::InviteReceiver&& msg);
+        bool on_message(uint64_t connectionId, wallet::Invite&& msg);
         bool on_message(uint64_t connectionId, wallet::ConfirmTransaction&& msg);
         bool on_message(uint64_t connectionId, wallet::ConfirmInvitation&& msg);
         bool on_message(uint64_t connectionId, wallet::TxRegistered&& msg);
         bool on_message(uint64_t connectionId, wallet::TxFailed&& msg);
 
-        void connect_wallet(io::Address address, ConnectCallback&& callback);
+        void connect_wallet(io::Address address, uint64_t tag, ConnectCallback&& callback);
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
         void on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status);
         bool register_connection(uint64_t tag, io::TcpStream::Ptr&& newStream);
-        
+
         void connect_node();
         void start_sync_timer();
         void on_sync_timer();
         void on_node_connected();
-        
+
         uint64_t get_connection_tag();
         void create_node_connection();
 
         template <typename T>
-        void send(PeerId to, MsgType type, const T& data)
+        void send(PeerId to, MsgType type, T&& msg)
         {
-            auto it = m_connections.find(to);
-            if (it != m_connections.end())
+            if (auto it = m_connections.find(to); it != m_connections.end())
             {
-                m_protocol.serialize(m_msgToSend, type, data);
+                m_protocol.serialize(m_msgToSend, type, msg);
                 auto res = it->second->write_msg(m_msgToSend);
                 m_msgToSend.clear();
                 test_io_result(res);
             }
-            else
+            else if (auto it = m_addresses.find(to); it != m_addresses.end())
             {
-                LOG_ERROR() << "No connection";
+                auto t = std::make_shared<T>(std::move(msg)); // we need copyable object
+                connect_wallet(it->second, to, [this, type, t](uint64_t tag)
+                {
+                    send(tag, type, std::move(*t));
+                });
             }
         }
 
@@ -121,6 +125,7 @@ namespace beam
         }
 
         void test_io_result(const io::Result res);
+        bool is_connected(uint64_t id);
 
         class WalletNodeConnection : public proto::NodeConnection
         {
@@ -137,6 +142,7 @@ namespace beam
             bool OnMsg2(proto::NewTip&& msg) override;
             bool OnMsg2(proto::Hdr&& msg) override;
             bool OnMsg2(proto::Mined&& msg) override;
+            bool OnMsg2(proto::Proof&& msg) override;
         private:
             io::Address m_address;
             IWallet & m_wallet;
@@ -153,6 +159,7 @@ namespace beam
         io::Reactor::Ptr m_reactor;
         io::TcpServer::Ptr m_server;
         Wallet m_wallet;
+        std::unordered_map<uint64_t, io::Address> m_addresses;
         std::map<uint64_t, std::unique_ptr<Connection>> m_connections;
         std::map<uint64_t, ConnectCallback> m_connections_callbacks;
         bool m_is_node_connected;

@@ -24,18 +24,63 @@ namespace beam
 
     struct PrintableAmount
     {
-        explicit PrintableAmount(const Amount& amount) : m_value{amount}
+        explicit PrintableAmount(const Amount& amount, bool showPoint = false) : m_value{ amount }, m_showPoint{showPoint}
         {}
         const Amount& m_value;
+        bool m_showPoint;
     };
 
     std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount);
     std::ostream& operator<<(std::ostream& os, const Uuid& uuid);
 
     struct Coin;
-    using UuidPtr = std::shared_ptr<Uuid>;
-    using TransactionPtr = std::shared_ptr<Transaction>;
-    std::pair<ECC::Scalar::Native, ECC::Scalar::Native> split_key(const ECC::Scalar::Native& key, uint64_t index);
+    
+    struct TxDescription
+    {
+        enum Status
+        {
+            Pending,
+            InProgress,
+            Cancelled,
+            Completed,
+            Failed
+        };
+
+        TxDescription() = default;
+
+        TxDescription(const Uuid& txId
+            , Amount amount
+            , Amount fee
+            , Height minHeight
+            , uint64_t peerId
+            , ByteBuffer&& message
+            , Timestamp createTime
+            , bool sender)
+            : m_txId{ txId }
+            , m_amount{ amount }
+            , m_fee{ fee }
+            , m_minHeight{ minHeight }
+            , m_peerId{ peerId }
+            , m_message{ std::move(message) }
+            , m_createTime{ createTime }
+            , m_modifyTime{ createTime }
+            , m_sender{ sender }
+            , m_status{ Pending }
+            , m_fsmState{}
+        {}
+
+        Uuid m_txId;
+        Amount m_amount;
+        Amount m_fee;
+        Height m_minHeight;
+        uint64_t m_peerId;
+        ByteBuffer m_message;
+        Timestamp m_createTime;
+        Timestamp m_modifyTime;
+        bool m_sender;
+        Status m_status;
+        ByteBuffer m_fsmState;
+    };
 
     namespace wallet
     {
@@ -43,63 +88,77 @@ namespace beam
         namespace msmf = boost::msm::front;
         namespace mpl = boost::mpl;
 
-        template <typename Derived>
-        class FSMHelper 
-        {
-        public:
-            void start()
-            {
-                static_cast<Derived*>(this)->m_fsm.start();
-            }
-
-            template<typename Event>
-            bool process_event(const Event& event)
-            {
-                return static_cast<Derived*>(this)->m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
-            }
-        };
+        std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
 
         // messages
-        struct InviteReceiver
+        struct Invite
         {
             Uuid m_txId;
             ECC::Amount m_amount;
+            ECC::Amount m_fee;
             Height m_height;
-            ECC::Hash::Value m_message;
-            ECC::Point m_publicSenderBlindingExcess;
-            ECC::Point m_publicSenderNonce;
+            bool m_send;
+            ECC::Point m_publicPeerExcess;
+            ECC::Scalar m_offset;
+            ECC::Point m_publicPeerNonce;
             std::vector<Input::Ptr> m_inputs;
             std::vector<Output::Ptr> m_outputs;
 
+            Invite() 
+                : m_amount(0)
+                , m_fee(0)
+                , m_send{true}
+                
+            {
+
+            }
+
+            Invite(Invite&& other)
+                : m_txId{other.m_txId}
+                , m_amount{ other.m_amount }
+                , m_fee{ other.m_fee }
+                , m_height{other.m_height }
+                , m_send{other.m_send}
+                , m_publicPeerExcess{other.m_publicPeerExcess}
+                , m_offset{other.m_offset}
+                , m_publicPeerNonce{other.m_publicPeerNonce}
+                , m_inputs{std::move(other.m_inputs)}
+                , m_outputs{std::move(other.m_outputs)}
+            {
+
+            }
+
             SERIALIZE(m_txId
                     , m_amount
+                    , m_fee
                     , m_height
-                    , m_message
-                    , m_publicSenderBlindingExcess
-                    , m_publicSenderNonce
+                    , m_send
+                    , m_publicPeerExcess
+                    , m_offset
+                    , m_publicPeerNonce
                     , m_inputs
                     , m_outputs);
         };
 
         struct ConfirmTransaction
         {
-            Uuid m_txId;
-            ECC::Scalar m_senderSignature;
+            Uuid m_txId{};
+            ECC::Scalar m_peerSignature;
 
-            SERIALIZE(m_txId, m_senderSignature);
+            SERIALIZE(m_txId, m_peerSignature);
         };
 
         struct ConfirmInvitation
         {
-            Uuid m_txId;
-            ECC::Point m_publicReceiverBlindingExcess;
-            ECC::Point m_publicReceiverNonce;
-            ECC::Scalar m_receiverSignature;
+            Uuid m_txId{};
+            ECC::Point m_publicPeerExcess;
+            ECC::Point m_publicPeerNonce;
+            ECC::Scalar m_peerSignature;
 
             SERIALIZE(m_txId
-                    , m_publicReceiverBlindingExcess
-                    , m_publicReceiverNonce
-                    , m_receiverSignature);
+                    , m_publicPeerExcess
+                    , m_publicPeerNonce
+                    , m_peerSignature);
         };
 
         struct TxRegistered
@@ -115,30 +174,16 @@ namespace beam
             SERIALIZE(m_txId);
         };
 
-        struct IWalletGateway
+        struct INegotiatorGateway
         {
-            virtual ~IWalletGateway() {}
-            virtual void on_tx_completed(const Uuid& txId) = 0;
-            virtual void send_tx_failed(const Uuid& txId) = 0;
+            virtual ~INegotiatorGateway() {}
+            virtual void on_tx_completed(const TxDescription& ) = 0;
+            virtual void send_tx_failed(const TxDescription& ) = 0;
+            virtual void send_tx_invitation(const TxDescription&, Invite&&) = 0;
+            virtual void send_tx_confirmation(const TxDescription&, ConfirmTransaction&&) = 0;
+            virtual void send_tx_confirmation(const TxDescription&, ConfirmInvitation&&) = 0;
+            virtual void register_tx(const TxDescription&, Transaction::Ptr) = 0;
+            virtual void send_tx_registered(const TxDescription&) = 0;
         };
-
-        namespace sender
-        {
-            struct IGateway : virtual IWalletGateway
-            {
-                virtual void send_tx_invitation(const InviteReceiver&) = 0;
-                virtual void send_tx_confirmation(const ConfirmTransaction&) = 0;
-            };
-        }
-
-        namespace receiver
-        {
-            struct IGateway : virtual IWalletGateway
-            {
-                virtual void send_tx_confirmation(const ConfirmInvitation&) = 0;
-                virtual void register_tx(const Uuid&, Transaction::Ptr) = 0;
-                virtual void send_tx_registered(UuidPtr&&) = 0;
-            };
-        }
     }
 }

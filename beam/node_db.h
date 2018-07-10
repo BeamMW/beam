@@ -26,6 +26,8 @@ public:
 			SubsidyLo,
 			SubsidyHi,
 			SubsidyOpen,
+			CfgChecksum,
+			MyID,
 		};
 	};
 
@@ -84,6 +86,17 @@ public:
 			MinedUpd,
 			MinedDel,
 			MinedSel,
+			MacroblockEnum,
+			MacroblockIns,
+			MacroblockDel,
+			PeerAdd,
+			PeerDel,
+			PeerEnum,
+			BbsEnum,
+			BbsEnumAll,
+			BbsFind,
+			BbsDelOld,
+			BbsIns,
 
 			Dbg0,
 			Dbg1,
@@ -108,11 +121,9 @@ public:
 
 		Blob() {}
 		Blob(const void* p_, uint32_t n_) :p(p_) ,n(n_) {}
-		Blob(const ByteBuffer& bb)
-		{
-			if ((n = (uint32_t) bb.size()))
-				p = &bb.at(0);
-		}
+		Blob(const ByteBuffer& bb);
+
+		void Export(ByteBuffer&) const;
 	};
 
 	class Recordset
@@ -194,8 +205,6 @@ public:
 	void SetStateFunctional(uint64_t rowid);
 	void SetStateNotFunctional(uint64_t rowid);
 
-	typedef Merkle::Hash PeerID;
-
 	void set_Peer(uint64_t rowid, const PeerID*);
 	bool get_Peer(uint64_t rowid, PeerID&);
 
@@ -246,8 +255,8 @@ public:
 		uint32_t m_nUnspentCount;
 
 		WalkerSpendable(NodeDB& db, bool bWithSignature)
-			:m_Rs(db)
-			,m_bWithSignature(bWithSignature)
+			:m_bWithSignature(bWithSignature)
+			,m_Rs(db)
 		{
 		}
 		bool MoveNext();
@@ -273,6 +282,50 @@ public:
 	};
 
 	void EnumMined(WalkerMined&, Height hMin); // from low to high
+
+	void EnumMacroblocks(WalkerState&); // highest to lowest
+	void MacroblockIns(uint64_t rowid);
+	void MacroblockDel(uint64_t rowid);
+
+	struct WalkerPeer
+	{
+		Recordset m_Rs;
+
+		struct Data {
+			PeerID m_ID;
+			uint32_t m_Rating;
+			uint64_t m_Address;
+			Timestamp m_LastSeen;
+		} m_Data;
+
+		WalkerPeer(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
+	};
+
+	void EnumPeers(WalkerPeer&); // highest to lowest
+	void PeerIns(const WalkerPeer::Data&);
+	void PeersDel();
+
+	struct WalkerBbs
+	{
+		Recordset m_Rs;
+
+		struct Data {
+			ECC::Hash::Value m_Key;
+			BbsChannel m_Channel;
+			Timestamp m_TimePosted;
+			Blob m_Message;
+		} m_Data;
+
+		WalkerBbs(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
+	};
+
+	void EnumBbs(WalkerBbs&); // set channel and min time before invocation
+	void EnumAllBbs(WalkerBbs&);
+	void BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it)
+	bool BbsFind(WalkerBbs&); // set Key
+	void BbsDelOld(Timestamp tMinToRemain);
 
 private:
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "wallet/common.h"
-#include "wallet/keychain.h"
+#include "wallet/wallet_db.h"
 
 #include <boost/optional.hpp>
 #include "utility/logger.h"
@@ -20,13 +20,17 @@ namespace beam::wallet
         };
         struct TxConfirmationCompleted {};
 
-        Sender(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, const ECC::Amount& amount)
-            : m_fsm{boost::ref(gateway), keychain, boost::ref(txId), boost::ref(amount)}
+        Sender(sender::IGateway& gateway
+             , beam::IKeyChain::Ptr keychain
+             , const TxDescription& txDesc )
+            : m_txDesc{txDesc}
+            , m_fsm{boost::ref(gateway), keychain, boost::ref(m_txDesc)}
         {
-            
+
         }
-    private:
+
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
+                             , public FSMDefinitionBase<FSMDefinition>
         {
             // states
             struct Init : public msmf::state<>
@@ -35,7 +39,7 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm&)
                 {
                     LOG_VERBOSE() << "[Sender] Init state";
-                } 
+                }
             };
             struct Terminate : public msmf::terminate_state<>
             {
@@ -43,8 +47,8 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm& fsm)
                 {
                     LOG_VERBOSE() << "[Sender] Terminate state";
-                    fsm.m_gateway.on_tx_completed(fsm.m_txId);
-                } 
+                    fsm.m_gateway.on_tx_completed(fsm.m_txDesc);
+                }
             };
             struct TxInitiating : public msmf::state<>
             {
@@ -52,7 +56,7 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm&)
                 {
                     LOG_VERBOSE() << "[Sender] TxInitiating state";
-                } 
+                }
             };
             struct TxConfirming : public msmf::state<>
             {
@@ -60,32 +64,33 @@ namespace beam::wallet
                 void on_entry(Event const&, Fsm&)
                 {
                     LOG_VERBOSE() << "[Sender] TxConfirming state";
-                } 
+                }
             };
             struct TxOutputConfirming : public msmf::state<>
             {
                 template <class Event, class Fsm>
                 void on_entry(Event const&, Fsm&)
-                { 
+                {
                     LOG_VERBOSE() << "[Sender] TxOutputConfirming state";
                 }
             };
 
-            FSMDefinition(sender::IGateway& gateway, beam::IKeyChain::Ptr keychain, const Uuid& txId, ECC::Amount amount)
-                : m_gateway{ gateway }
+            FSMDefinition(sender::IGateway& gateway
+                        , beam::IKeyChain::Ptr keychain
+                        , TxDescription& txDesc)
+                : FSMDefinitionBase{txDesc}
+                , m_gateway{ gateway }
                 , m_keychain{ keychain }
-                , m_txId{ txId }
-                , m_amount{ amount }
+                , m_changeOutput{ false }
             {
                 assert(keychain);
+                update_tx_description(TxDescription::Pending);
             }
 
             // transition actions
             void init_tx(const msmf::none&);
             bool is_valid_signature(const TxInitCompleted& );
             bool is_invalid_signature(const TxInitCompleted& );
-            bool has_change(const TxConfirmationCompleted&);
-            bool has_no_change(const TxConfirmationCompleted&);
             void confirm_tx(const TxInitCompleted& );
             void rollback_tx(const TxFailed& );
             void cancel_tx(const TxInitCompleted& );
@@ -95,6 +100,9 @@ namespace beam::wallet
 
             Amount get_total() const;
 
+            void update_tx_description(TxDescription::Status s);
+
+            using do_serialize = int;
             using initial_state = Init;
             using d = FSMDefinition;
             struct transition_table : mpl::vector<
@@ -104,7 +112,7 @@ namespace beam::wallet
                 a_row< TxInitiating      , TxFailed                , Terminate           , &d::rollback_tx                                    >,
                 row  < TxInitiating      , TxInitCompleted         , TxConfirming        , &d::confirm_tx           , &d::is_valid_signature  >,
                 row  < TxInitiating      , TxInitCompleted         , Terminate           , &d::cancel_tx            , &d::is_invalid_signature>,
-                a_row< TxConfirming      , TxConfirmationCompleted , Terminate           , &d::complete_tx										>,
+                a_row< TxConfirming      , TxConfirmationCompleted , Terminate           , &d::complete_tx                                    >,
                 a_row< TxConfirming      , TxFailed                , Terminate           , &d::rollback_tx                                    >
             > {};
 
@@ -122,11 +130,21 @@ namespace beam::wallet
                 fsm.process_event(TxFailed());
             }
 
+            template<typename Archive>
+            void serialize(Archive & ar, const unsigned int)
+            {
+                ar  & m_blindingExcess
+                    & m_senderSignature
+                    & m_publicBlindingExcess
+                    & m_publicNonce
+                    & m_kernel
+                    & m_coins
+                    & m_changeOutput;
+            }
+
             sender::IGateway& m_gateway;
             beam::IKeyChain::Ptr m_keychain;
 
-            Uuid m_txId;
-            ECC::Amount m_amount;
             ECC::Scalar::Native m_blindingExcess;
             ECC::Scalar::Native m_senderSignature;
             ECC::Point::Native m_publicBlindingExcess;
@@ -136,9 +154,10 @@ namespace beam::wallet
             std::vector<Coin> m_coins;
             boost::optional<Coin> m_changeOutput;
         };
-        
-    protected:
+
+    private:
         friend FSMHelper<Sender>;
+        TxDescription m_txDesc;
         msm::back::state_machine<FSMDefinition> m_fsm;
     };
 }
