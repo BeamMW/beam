@@ -117,72 +117,6 @@ namespace beam
 
         return "";
     }
-
-    Amount getAvailable(beam::IKeyChain::Ptr keychain)
-    {
-        auto currentHeight = keychain->getCurrentHeight();
-        Amount total = 0;
-        keychain->visit([&total, &currentHeight](const Coin& c)->bool
-        {
-            Height lockHeight = c.m_maturity;
-
-            if (c.m_status == Coin::Unspent
-                && lockHeight <= currentHeight)
-            {
-                total += c.m_amount;
-            }
-            return true;
-        });
-        return total;
-    }
-
-    Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType)
-    {
-        auto currentHeight = keychain->getCurrentHeight();
-        Amount total = 0;
-        keychain->visit([&total, &currentHeight, &status, &keyType](const Coin& c)->bool
-        {
-            Height lockHeight = c.m_maturity;
-
-            if (c.m_status == status
-             && c.m_key_type == keyType
-             && lockHeight <= currentHeight)
-            {
-                total += c.m_amount;
-            }
-            return true;
-        });
-        return total;
-    }
-
-    Amount getTotal(beam::IKeyChain::Ptr keychain, Coin::Status status)
-    {
-        Amount total = 0;
-        keychain->visit([&total, &status](const Coin& c)->bool
-        {
-            if (c.m_status == status)
-            {
-                total += c.m_amount;
-            }
-            return true;
-        });
-        return total;
-    }
-
-    Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType)
-    {
-        Amount total = 0;
-        keychain->visit([&total, &status, &keyType](const Coin& c)->bool
-        {
-            if (c.m_status == status && c.m_key_type == keyType)
-            {
-                total += c.m_amount;
-            }
-            return true;
-        });
-        return total;
-    }
-
 }
 namespace
 {
@@ -672,15 +606,15 @@ int main_impl(int argc, char* argv[])
                         cout << "____Wallet summary____\n\n"
                             << "Current height............" << stateID.m_Height << '\n'
                             << "Current state ID.........." << stateID.m_Hash << "\n\n"
-                            << "Available................." << PrintableAmount(getAvailable(keychain)) << '\n'
-                            << "Unconfirmed..............." << PrintableAmount(getTotal(keychain, Coin::Unconfirmed)) << '\n'
-                            << "Locked...................." << PrintableAmount(getTotal(keychain, Coin::Locked)) << '\n'
-                            << "Available coinbase ......." << PrintableAmount(getAvailableByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
-                            << "Total coinbase............" << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
-                            << "Avaliable fee............." << PrintableAmount(getAvailableByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
-                            << "Total fee................." << PrintableAmount(getTotalByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
-                            << "Total unspent............." << PrintableAmount(getTotal(keychain, Coin::Unspent)) << "\n\n";
-                             //<< "Total spent..............." << PrintableAmount(getTotal(keychain, Coin::Spent)) << "\n\n"
+                            << "Available................." << PrintableAmount(wallet::getAvailable(keychain)) << '\n'
+                            << "Unconfirmed..............." << PrintableAmount(wallet::getTotal(keychain, Coin::Unconfirmed)) << '\n'
+                            << "Locked...................." << PrintableAmount(wallet::getTotal(keychain, Coin::Locked)) << '\n'
+                            << "Available coinbase ......." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
+                            << "Total coinbase............" << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
+                            << "Avaliable fee............." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
+                            << "Total fee................." << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
+                            << "Total unspent............." << PrintableAmount(wallet::getTotal(keychain, Coin::Unspent)) << "\n\n";
+                             //<< "Total spent..............." << PrintableAmount(wallet::getTotal(keychain, Coin::Spent)) << "\n\n"
                         if (vm.count(cli::TX_HISTORY))
                         {
                             auto txHistory = keychain->getTxHistory();

@@ -2,31 +2,8 @@
 #include "utility/logger.h"
 #include "utility/io/asyncevent.h"
 
-namespace
-{
-	using namespace beam;
-	using namespace beam::io;
-
-	// taken from beam.cpp
-	// TODO: move 'getAvailable' to one place
-	Amount getAvailable(beam::IKeyChain::Ptr keychain)
-	{
-		auto currentHeight = keychain->getCurrentHeight();
-		Amount total = 0;
-		keychain->visit([&total, &currentHeight](const Coin& c)->bool
-		{
-			Height lockHeight = c.m_maturity;
-
-			if (c.m_status == Coin::Unspent
-				&& lockHeight <= currentHeight)
-			{
-				total += c.m_amount;
-			}
-			return true;
-		});
-		return total;
-	}
-}
+using namespace beam;
+using namespace beam::io;
 
 struct WalletModelAsync : IWalletModelAsync
 {
@@ -74,7 +51,7 @@ void WalletModel::run()
 {
 	try
 	{
-		emit onStatus(getAvailable(_keychain));
+		emit onStatus(wallet::getAvailable(_keychain));
 		emit onTxStatus(_keychain->getTxHistory());
 
 		_reactor = Reactor::create();
@@ -130,7 +107,7 @@ void WalletModel::run()
 
 void WalletModel::onKeychainChanged()
 {
-	emit onStatus(getAvailable(_keychain));
+	emit onStatus(wallet::getAvailable(_keychain));
 }
 
 void WalletModel::onTransactionChanged()
