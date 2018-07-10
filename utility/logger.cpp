@@ -20,14 +20,14 @@ protected:
     static const size_t MAX_HEADER_SIZE = 256;
     static const size_t MAX_TIMESTAMP_SIZE = 80;
 
-    ostream* _sink;
+    FILE* _sink;
     int _minLevel;
     int _flushLevel;
     LogMessageHeaderFormatter _headerFormatter = def_header_formatter;
     std::string _timeFormat;
     bool _printMilliseconds;
 
-    LoggerImpl(ostream* sink, int minLevel, int flushLevel) :
+    LoggerImpl(FILE* sink, int minLevel, int flushLevel) :
         _sink(sink),
         _minLevel(minLevel),
         _flushLevel(flushLevel),
@@ -78,35 +78,33 @@ public:
     void write_impl(int level, const char* header, size_t headerSize, const char* msg, size_t size) {
         if (!_sink) return;
         lock_guard<mutex> lock(_mutex);
-        _sink->write(header, headerSize);
-        _sink->write(msg, size);
-        if (level >= _flushLevel) _sink->flush();
+        fwrite(header, 1, headerSize, _sink);
+        fwrite(msg, 1, size, _sink);
+        if (level >= _flushLevel) fflush(_sink);
     }
 };
 
 class ConsoleLogger : public LoggerImpl {
 public:
     ConsoleLogger(int flushLevel, int consoleLevel) :
-        LoggerImpl(&cout, consoleLevel, flushLevel)
+        LoggerImpl(stdout, consoleLevel, flushLevel)
     {}
 };
 
 class FileLogger : public LoggerImpl {
-    ofstream _os;
 public:
     FileLogger(int flushLevel, int minLevel, const string& fileNamePrefix) :
         LoggerImpl(0, minLevel, flushLevel)
     {
         string fileName(fileNamePrefix);
-//#ifndef _WIN32
-//        fileName += to_string(getpid());
-//#endif
         fileName += format_timestamp("%y_%m_%d_%H_%M_%S", local_timestamp_msec(), false);
-
         fileName += ".log";
-        _os.open(fileName);
-        if (!_os) throw runtime_error(string("cannot open file ") + fileName);
-        _sink = &_os;
+        _sink = fopen(fileName.c_str(), "ab");
+        if (!_sink) throw runtime_error(string("cannot open file ") + fileName);
+    }
+
+    ~FileLogger() {
+        fclose(_sink);
     }
 };
 

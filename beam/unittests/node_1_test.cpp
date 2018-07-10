@@ -87,7 +87,7 @@ namespace beam
 				}
 			}
 
-			virtual void OnClosed(int errorCode) override {
+			virtual void OnDisconnect(const DisconnectReason&) override {
 				OnFail();
 			}
 
@@ -183,9 +183,9 @@ namespace beam
 				OnTimer();
 			}
 
-			virtual void OnClosed(int errorCode) override
+			virtual void OnDisconnect(const DisconnectReason&) override
 			{
-				printf("OnClosed, Error=%d\n", errorCode);
+				printf("OnDisconnect\n");
 				g_Ret = 1;
 				io::Reactor::get_Current().stop();
 			}

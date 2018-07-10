@@ -1,5 +1,5 @@
 #include <assert.h>
-#include "aes.hpp"
+#include "aes.h"
 
 /*
 *  FIPS-197 compliant AES implementation
@@ -813,24 +813,6 @@ int main(void)
 }
 
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -18,7 +18,7 @@ protected:
 	void InitKdf();
 
 	virtual void OnConnected() override;
-	virtual void OnClosed(int errorCode) override;
+	virtual void OnDisconnect(const DisconnectReason&) override;
 	virtual bool OnMsg2(beam::proto::Boolean&& msg) override;
 
 	virtual void GenerateTests();

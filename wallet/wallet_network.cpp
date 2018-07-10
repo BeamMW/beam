@@ -333,10 +333,10 @@ namespace beam {
         m_callbacks.clear();
     }
 
-    void WalletNetworkIO::WalletNodeConnection::OnClosed(int errorCode)
+    void WalletNetworkIO::WalletNodeConnection::OnDisconnect(const DisconnectReason& r)
     {
         LOG_INFO() << "Could not connect to node, retrying...";
-        LOG_VERBOSE() << "Wallet failed to connect to node, error: " << io::error_str(io::ErrorCode(errorCode));
+        LOG_VERBOSE() << "Wallet failed to connect to node, error: " << r;
         m_wallet.stop_sync();
         m_timer->start(m_reconnectMsec, false, [this]() {Connect(m_address); });
     }

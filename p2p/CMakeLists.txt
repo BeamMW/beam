@@ -17,7 +17,7 @@ set(P2P_SRC
 )
 
 add_library(p2p STATIC ${P2P_SRC})
-add_dependencies(p2p utility aes)
-target_link_libraries(p2p utility aes)
+add_dependencies(p2p utility)
+target_link_libraries(p2p utility)
 
 add_subdirectory(unittest)
