@@ -33,30 +33,32 @@ Rectangle {
 
             AvailablePanel {
                 width: (parent.width - 3*30)*500/1220
-                height: parent.height                
+                height: parent.height
             }
 
-            Rectangle {
+            SecondaryPanel {
                 width: (parent.width - 3*30)*240/1220
                 height: parent.height
-                radius: 10
-                color: Style.dark_slate_blue
+                title: "Received"
+                amountColor: Style.bright_sky_blue
+                value: walletViewModel.received
             }
 
-            Rectangle {
+            SecondaryPanel {
                 width: (parent.width - 3*30)*240/1220
                 height: parent.height
-                radius: 10
-                color: Style.dark_slate_blue
+                title: "Sent"
+                amountColor: Style.heliotrope
+                value: walletViewModel.sent
             }
 
-            Rectangle {
+            SecondaryPanel {
                 width: (parent.width - 3*30)*240/1220
                 height: parent.height
-                radius: 10
-                color: Style.dark_slate_blue
+                title: "Unconfirmed"
+                amountColor: Style.white
+                value: walletViewModel.unconfirmed
             }
-            
         }
 
         Row {
@@ -74,11 +76,12 @@ Rectangle {
                 height: parent.height              
             }
 
-            Rectangle {
+            SecondaryPanel {
                 width: (parent.width - parent.spacing)*346/864
                 height: parent.height
-                radius: 10
-                color: Style.dark_slate_blue
+                title: "Received"
+                amountColor: Style.bright_sky_blue
+                value: walletViewModel.received
             }
             
             visible: false

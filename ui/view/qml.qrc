@@ -5,6 +5,7 @@
         <file>controls/SvgImage.qml</file>
         <file>controls/SFText.qml</file>
         <file>controls/AvailablePanel.qml</file>
+        <file>controls/SecondaryPanel.qml</file>        
       
         <file>main.qml</file>
         <file>dashboard.qml</file>

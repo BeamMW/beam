@@ -9,7 +9,7 @@ namespace
 {
 	QString BeamToString(const Amount& value)
 	{
-		return QString::number(static_cast<float>(value) / Rules::Coin, 'f', 1);
+		return QString::number(static_cast<float>(value) / Rules::Coin, 'f', 3);
 	}
 }
 
@@ -57,24 +57,46 @@ QString TxObject::status() const
 
 WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
 	: _model(keychain, port, nodeAddr)
-	, _available(0)
+	, _status{0, 0, 0, 0}
 	, _sendAmount(40)
 	, _receiverAddr("127.0.0.1:8888")
 {
-	connect(&_model, SIGNAL(onStatus(const beam::Amount&)), SLOT(onStatus(const beam::Amount&)));
+	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
+
 	connect(&_model, SIGNAL(onTxStatus(const std::vector<beam::TxDescription>&)), 
 		SLOT(onTxStatus(const std::vector<beam::TxDescription>&)));
 
 	_model.start();
 }
 
-void WalletViewModel::onStatus(const beam::Amount& amount)
+void WalletViewModel::onStatus(const WalletStatus& status)
 {
-	if (_available != amount)
+	if (_status.available != status.available)
 	{
-		_available = amount;
+		_status.available = status.available;
 
 		emit availableChanged();
+	}
+
+	if (_status.received != status.received)
+	{
+		_status.received = status.received;
+
+		emit receivedChanged();
+	}
+
+	if (_status.sent != status.sent)
+	{
+		_status.sent = status.sent;
+
+		emit sentChanged();
+	}
+
+	if (_status.unconfirmed != status.unconfirmed)
+	{
+		_status.unconfirmed = status.unconfirmed;
+
+		emit unconfirmedChanged();
 	}
 }
 
@@ -92,7 +114,22 @@ void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
 
 QString WalletViewModel::available() const
 {
-	return BeamToString(_available);
+	return BeamToString(_status.available);
+}
+
+QString WalletViewModel::received() const
+{
+	return BeamToString(_status.received);
+}
+
+QString WalletViewModel::sent() const
+{
+	return BeamToString(_status.sent);
+}
+
+QString WalletViewModel::unconfirmed() const
+{
+	return BeamToString(_status.unconfirmed);
 }
 
 QString WalletViewModel::sendAmount() const

@@ -4,6 +4,10 @@ import QtQuick.Controls.Styles 1.2
 import "."
 
 Rectangle {
+    property string title
+    property string value
+    property color amountColor
+
     radius: 10
     color: Style.dark_slate_blue
 
@@ -19,33 +23,39 @@ Rectangle {
 
         x: 30
         y: 30
-        text: qsTr("Available")
+        text: title
     }
 
-    Row
-    {
+    Row {
         x: 30
-        y: 61
+        y: 88
         spacing: 6
 
         SFText {
-            font.pixelSize: 64
-            color: Style.bright_teal
+            font {
+                pixelSize: 36
+            }
 
-            text: walletViewModel.available
+            color: amountColor
+
+            text: value
 
             anchors.bottom: parent.bottom
         }
 
         SFText {
-            font.pixelSize: 36
-            color: Style.bright_teal
+            font {
+                pixelSize: 24
+            }
+
+            color: amountColor
 
             text: "BEAM"
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 6
+            anchors.bottomMargin: 3
         }
     }
+    
 
     SFText {
         font {
@@ -56,6 +66,6 @@ Rectangle {
 
         x: 30
         y: 147
-        text: walletViewModel.available + " USD"
+        text: value + " USD"
     }
 }
