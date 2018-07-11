@@ -1,7 +1,6 @@
 #include "beam/node.h"
 #include "utility/logger.h"
 #include "tools/base_node_connection.h"
-#include "tools/tx_generator.h"
 
 #include <vector>
 #include <thread>
@@ -15,15 +14,17 @@ class TestNodeConnection : public BaseTestNodeConnection
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	
-	virtual void OnDisconnect(const DisconnectReason& ) override;
+	virtual void OnDisconnect(const DisconnectReason&) override;
+
+	virtual void OnMsg(proto::NewTip&&) override;
+
 	virtual void GenerateTests() override;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	: BaseTestNodeConnection(argc, argv)
 {
-	m_Timeout = 0;
+	m_Timeout = 60 * 1000;
 }
 
 void TestNodeConnection::OnDisconnect(const DisconnectReason&)
@@ -32,30 +33,27 @@ void TestNodeConnection::OnDisconnect(const DisconnectReason&)
 	io::Reactor::get_Current().stop();
 }
 
+void TestNodeConnection::OnMsg(proto::NewTip&& msg) 
+{
+	LOG_INFO() << "NewTip";
+}
+
 void TestNodeConnection::GenerateTests()
 {
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send big transaction";
-		TxGenerator gen(m_Kdf);
+		LOG_INFO() << "Send PeerInfo message";
 
-		Amount amount = 20000;
+		Hash::Processor hp;
+		Hash::Value hv;
 
-		// Inputs
-		gen.GenerateInputInTx(1, amount);
+		hp << "test" >> hv;
 
-		// Outputs
-		for (Amount i = 0; i < amount; ++i)
-		{
-			gen.GenerateOutputInTx(1, 1);
-		}
+		proto::PeerInfo msg;
 
-		// Kernels
-		gen.GenerateKernel(1);
-
-		gen.Sort();
-
-		Send(gen.GetTransaction());
+		msg.m_LastAddr.resolve("8.8.8.8");
+		msg.m_ID = hv;
+		Send(msg);
 	});
 }
 
@@ -71,5 +69,5 @@ int main(int argc, char* argv[])
 
 	connection.Run();
 
-	return connection.CheckOnFailed();	
+	return connection.CheckOnFailed();
 }

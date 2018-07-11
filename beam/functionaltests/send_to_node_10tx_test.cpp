@@ -1,11 +1,13 @@
 #include "beam/node.h"
 #include "utility/logger.h"
 #include "tools/base_node_connection.h"
+#include "tools/tx_generator.h"
+#include "tools/new_tx_tests.h"
 
 using namespace beam;
 using namespace ECC;	
 
-class TestNodeConnection : public BaseTestNodeConnection
+class TestNodeConnection : public NewTxConnection
 {
 public:
 	TestNodeConnection(int argc, char* argv[]);
@@ -14,7 +16,7 @@ private:
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
-	: BaseTestNodeConnection(argc, argv)
+	: NewTxConnection(argc, argv)
 {
 }
 
@@ -23,21 +25,20 @@ void TestNodeConnection::GenerateTests()
 {
 	for (int i = 1; i <= 10; i++)
 	{
-		m_Tests.push_back(std::make_pair([this, i]()
+		m_Tests.push_back([this, i]()
 		{
-			m_MsgTx.m_Transaction = std::make_shared<Transaction>();
-			m_Offset = Zero;
-
+			TxGenerator gen(m_Kdf);
+			
 			// Inputs
-			GenerateInputInTx(i, 1);
+			gen.GenerateInputInTx(i, 1);
 			// Outputs
-			GenerateOutputInTx(i, 1);
+			gen.GenerateOutputInTx(i, 1);
 			// Kernels
-			GenerateKernel(4);
+			gen.GenerateKernel(4);
 
-			m_MsgTx.m_Transaction->m_Offset = m_Offset;
-			Send(m_MsgTx);
-		}, true));
+			Send(gen.GetTransaction());
+		});
+		m_Results.push_back(true);
 	}
 }
 
