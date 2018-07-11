@@ -1028,6 +1028,20 @@ namespace beam
         kdf.DeriveKey(out, h, static_cast<uint32_t>(eType), nIdx);
     }
 
+	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height h /* = 0 */, uint32_t nIdx /* = 0 */)
+	{
+		ECC::Hash::Value hv;
+		ECC::Hash::Processor() << h << nIdx >> hv;
+
+		ECC::NoLeak<ECC::Scalar> s;
+		s.V = kKernel;
+
+		kOffset.GenerateNonce(s.V.m_Value, hv, NULL);
+
+		kKernel += kOffset;
+		kOffset = -kOffset;
+	}
+
 	void Rules::AdjustDifficulty(uint8_t& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const
 	{
 		//static_assert(DesiredRate_s * DifficultyReviewCycle < uint32_t(-1), "overflow?");

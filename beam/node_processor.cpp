@@ -1150,6 +1150,28 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return vTs[vTs.size() >> 1];
 }
 
+void NodeProcessor::DeriveKeys(const ECC::Kdf& kdf, Height h, Amount fees, ECC::Scalar::Native& kCoinbase, ECC::Scalar::Native& kFee, ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset)
+{
+	DeriveKey(kCoinbase, kdf, h, KeyType::Coinbase);
+
+	kKernel = kCoinbase;
+
+	if (fees)
+	{
+		DeriveKey(kFee, kdf, h, KeyType::Comission);
+		kKernel += kFee;
+	}
+	else
+		kFee = ECC::Zero;
+
+	kKernel = -kKernel;
+
+	ECC::Scalar::Native k2;
+	ExtractOffset(kKernel, k2, h);
+
+	kOffset += k2;
+}
+
 bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
 {
 	fees = 0;
@@ -1182,11 +1204,11 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 			txp.Delete(x); // isn't available in this context
 	}
 
+	ECC::Scalar::Native kCoinbase, kFee, kKernel;
+	DeriveKeys(m_Kdf, h, fees, kCoinbase, kFee, kKernel, offset);
+
 	if (fees)
 	{
-		ECC::Scalar::Native kFee;
-		DeriveKey(kFee, m_Kdf, h, KeyType::Comission);
-
 		Output::Ptr pOutp(new Output);
 		pOutp->Create(kFee, fees);
 
@@ -1194,15 +1216,9 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 			return false; // though should not happen!
 
 		res.m_vOutputs.push_back(std::move(pOutp));
-
-		kFee = -kFee;
-		offset += kFee;
 	}
-	else
-	{
-		ECC::Scalar::Native kKernel;
-		DeriveKey(kKernel, m_Kdf, h, KeyType::Kernel);
 
+	{
 		TxKernel::Ptr pKrn(new TxKernel);
 		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kKernel);
 
@@ -1214,25 +1230,19 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 			return false; // Will fail if kernel key duplicated!
 
 		res.m_vKernelsOutput.push_back(std::move(pKrn));
-
-		kKernel = -kKernel;
-		offset += kKernel;
 	}
 
-	ECC::Scalar::Native kCoinbase;
-	DeriveKey(kCoinbase, m_Kdf, h, KeyType::Coinbase);
+	{
+		Output::Ptr pOutp(new Output);
+		pOutp->m_Coinbase = true;
+		pOutp->Create(kCoinbase, Rules::get().CoinbaseEmission, true);
 
-	Output::Ptr pOutp(new Output);
-	pOutp->m_Coinbase = true;
-	pOutp->Create(kCoinbase, Rules::get().CoinbaseEmission, true);
+		if (!HandleBlockElement(*pOutp, h, NULL, true))
+			return false;
 
-	if (!HandleBlockElement(*pOutp, h, NULL, true))
-		return false;
+		res.m_vOutputs.push_back(std::move(pOutp));
+	}
 
-	res.m_vOutputs.push_back(std::move(pOutp));
-
-	kCoinbase = -kCoinbase;
-	offset += kCoinbase;
 	res.m_Subsidy += Rules::get().CoinbaseEmission;
 
 	// Finalize block construction.

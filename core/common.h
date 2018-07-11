@@ -537,6 +537,7 @@ namespace beam
 		SChannelNonce
 	};
 	void DeriveKey(ECC::Scalar::Native&, const ECC::Kdf&, Height, KeyType, uint32_t nIdx = 0);
+	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height = 0, uint32_t nIdx = 0);
 
 	std::ostream& operator << (std::ostream&, const Block::SystemState::ID&);
 
