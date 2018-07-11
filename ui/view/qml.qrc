@@ -5,7 +5,12 @@
       
         <file>main.qml</file>
         <file>SvgImage.qml</file>
+        <file>SFText.qml</file>
+        <file>AvailablePanel.qml</file>
         <file>assets/logo.png</file>
+        
+        <file>assets/fonts/SF-Pro-Display-Bold.otf</file>
+        <file>assets/fonts/SF-Pro-Display-Thin.otf</file>
 
         <file>dashboard.qml</file>
         <file>assets/icon-dashboard.svg</file>

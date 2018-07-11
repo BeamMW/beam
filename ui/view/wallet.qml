@@ -10,6 +10,10 @@ Rectangle {
     color: Style.marine
     state: "wide"
 
+    // Component.onCompleted:{
+    //     console.log(FontLoader.Ready)
+    // }
+
     Item {
         y: 97
         height: 206
@@ -27,11 +31,9 @@ Rectangle {
 
             spacing: 30
 
-            Rectangle {
+            AvailablePanel {
                 width: (parent.width - 3*30)*500/1220
-                height: parent.height
-                radius: 10
-                color: Style.dark_slate_blue
+                height: parent.height                
             }
 
             Rectangle {
@@ -67,11 +69,9 @@ Rectangle {
 
             spacing: 30
 
-            Rectangle {
+            AvailablePanel {
                 width: (parent.width - parent.spacing)*518/864
-                height: parent.height
-                radius: 10
-                color: Style.dark_slate_blue
+                height: parent.height              
             }
 
             Rectangle {
