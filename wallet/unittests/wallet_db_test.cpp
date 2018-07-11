@@ -1,6 +1,7 @@
 #include "wallet/wallet_db.h"
 #include <assert.h>
 #include "test_helpers.h"
+#include "core/storage.h"
 
 #include "utility/logger.h"
 #include <boost/filesystem.hpp>
@@ -259,24 +260,6 @@ void TestStoreTxRecord()
     WALLET_CHECK(t.size() == 0);
 }
 
-void TestStateIDSearch()
-{
-    auto db = createSqliteKeychain();
-    for (int i = 0; i < 100; ++i)
-    {
-        Coin coin1 = { 5, Coin::Unspent, 1, 10, KeyType::Regular, Height(i) };
-        coin1.m_confirmHash = unsigned(i + 2);
-        db->store(coin1);
-    }
-
-    // TODO
-    /*auto id = db->getKnownStateID(0, 100);
-    WALLET_CHECK(id.m_Height == 50);
-    Merkle::Hash h;
-    h = 52U;
-    WALLET_CHECK(id.m_Hash == h);*/
-}
-
 void TestRollback()
 {
     auto db = createSqliteKeychain();
@@ -392,7 +375,6 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
 	ECC::InitializeContext();
 
-    TestStateIDSearch();
 	TestKeychain();
     TestStoreCoins();
     TestStoreTxRecord();

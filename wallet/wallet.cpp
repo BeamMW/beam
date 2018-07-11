@@ -77,6 +77,42 @@ namespace beam
         }
     }
 
+    struct Wallet::StateFinder
+    {
+        StateFinder(Height newHeight)
+            : m_first{ 0 }
+            , m_last{newHeight}
+            , m_count{int64_t(newHeight + 1)}
+            , m_step{0}
+        {
+
+        }
+
+        Height getSearchHeight()
+        {
+            m_step = (m_count >> 1);
+            return m_first + m_step;
+        }
+
+        void moveBack()
+        {
+            m_count = m_step;
+        }
+
+        void moveForward()
+        {
+            m_first += m_step + 1;
+            m_count -= m_step + 1;
+        }
+
+        Height m_first;
+        Height m_last;
+        int64_t m_count;
+        int64_t m_step;
+        Block::SystemState::ID m_id;
+    };
+
+
     Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action)
         : m_keyChain{ keyChain }
         , m_network{ network }
@@ -423,18 +459,53 @@ namespace beam
 
         if (hv != m_Definition)
         {
-            LOG_INFO() << "Last known state doesn't present on current branch. Rollback... ";
             // rollback
             // search for the latest valid known state
-            Block::SystemState::ID id = m_keyChain->getKnownStateID(m_Definition, msg.m_Proof);
-            if (id.m_Height != MaxHeight) // found
+            if (!m_stateFinder || m_stateFinder->m_last < m_newStateID.m_Height)
             {
-                m_keyChain->rollbackConfirmedUtxo(id.m_Height);
-                m_knownStateID = id;
+                // restart search
+                if (!m_stateFinder)
+                {
+                    LOG_INFO() << "Last known state doesn't present on current branch. Rollback... ";
+                }
+                else
+                {
+                    LOG_INFO() << "Restarting rollback..."; 
+                }
+                m_stateFinder.reset(new StateFinder(m_newStateID.m_Height));
+            }
+            auto id = m_keyChain->getKnownStateID(m_stateFinder->getSearchHeight());
+            Merkle::Hash hv = id.m_Hash;
+            Merkle::Interpret(hv, msg.m_Proof);
+            if (hv == m_Definition)
+            {
+                m_stateFinder->m_id = id;
+                m_stateFinder->moveForward();
             }
             else
             {
-                m_knownStateID = {};
+                m_stateFinder->moveBack();
+            }
+
+            if (m_stateFinder->m_count > 0)
+            {
+                ++m_syncing;
+                m_network.send_node_message(proto::GetProofState{ m_stateFinder->getSearchHeight() });
+                return finish_sync();
+            }
+            else
+            {
+                if (m_stateFinder->m_id.m_Height != MaxHeight)
+                {
+                    m_keyChain->rollbackConfirmedUtxo(m_stateFinder->m_id.m_Height);
+                    m_knownStateID = m_stateFinder->m_id;
+                }
+                else
+                {
+                    m_knownStateID = {};
+                }
+                m_stateFinder.reset();
+                LOG_INFO() << "Rollback completed";
             }
         }
 

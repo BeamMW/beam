@@ -9,8 +9,7 @@ MsgReader::MsgReader(ProtocolBase& protocol, uint64_t streamId, size_t defaultSi
     _streamId(streamId),
     _defaultSize(defaultSize),
     _bytesLeft(MsgHeader::SIZE),
-    _state(reading_header),
-    _type(0)
+    _state(reading_header)
 {
 	_pAlive.reset(new bool);
 	*_pAlive = true;
@@ -73,11 +72,11 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
 		sz -= _bytesLeft;
 		p += _bytesLeft;
 
+		MsgHeader header(_msgBuffer.data());
+
 		if (_state == reading_header)
 		{
-			// whole header has been read
-			MsgHeader header(_msgBuffer.data());
-
+			// header has just been read
 			if (!_protocol.approve_msg_header(_streamId, header))
 				// at this moment, the *this* may be deleted
 				return;
@@ -95,15 +94,23 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
 				return;
 
 			// header deserialized successfully
-			_msgBuffer.resize(header.size);
-			_type = header.type;
 			_bytesLeft = header.size;
+			_msgBuffer.resize(MsgHeader::SIZE + _bytesLeft);
+			_cursor = _msgBuffer.data() + MsgHeader::SIZE;
+
 			_state = reading_message;
+
 		}
 		else
 		{
 			// whole message has been read
-			if (!_protocol.on_new_message(_streamId, _type, _msgBuffer.data(), _msgBuffer.size()))
+			if (!_protocol.VerifyMsg(_msgBuffer.data(), _msgBuffer.size()))
+			{
+				_protocol.on_corrupt_msg(_streamId);
+				return;
+			}
+
+			if (!_protocol.on_new_message(_streamId, header.type, _msgBuffer.data() + MsgHeader::SIZE, header.size - _protocol.get_MacSize()))
 				// at this moment, the *this* may be deleted
 				return;
 
@@ -120,9 +127,9 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
 			}
 			_bytesLeft = MsgHeader::SIZE;
 			_state = reading_header;
-		}
 
-		_cursor = _msgBuffer.data();
+			_cursor = _msgBuffer.data();
+		}
 	}
 
 	if (sz)

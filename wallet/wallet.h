@@ -128,6 +128,9 @@ namespace beam
         }
 
     private:
+
+        class StateFinder;
+
         IKeyChain::Ptr m_keyChain;
         INetworkIO& m_network;
         std::map<PeerId, wallet::Negotiator::Ptr> m_peers;
@@ -142,6 +145,8 @@ namespace beam
         Merkle::Hash m_Definition;
         Block::SystemState::ID m_knownStateID;
         Block::SystemState::ID m_newStateID;
+        std::unique_ptr<StateFinder> m_stateFinder;
+
         int m_syncing;
         bool m_synchronized;
     };

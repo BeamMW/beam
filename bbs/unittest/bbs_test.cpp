@@ -8,6 +8,8 @@ using namespace beam::bbs;
 
 void test1() {
     try {
+        auto reactor = io::Reactor::create();
+        io::Reactor::Scope s{ *reactor };
         std::unique_ptr<Client> client(Client::create());
         client->connect(io::Address::localhost().port(2020), [](io::ErrorCode status){});
     } catch (...) {

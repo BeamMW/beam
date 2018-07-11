@@ -5,8 +5,6 @@
 #include <sstream>
 
 #include <boost/filesystem.hpp>
-#include <boost/iterator/counting_iterator.hpp>
-#include <algorithm>
 
 #define NOSEP
 #define COMMA ", "
@@ -789,41 +787,18 @@ namespace beam
 		return 0;
 	}
 
-    Block::SystemState::ID Keychain::getKnownStateID(const Merkle::Hash& stateDefinition, const Merkle::Proof& proof)
+    Block::SystemState::ID Keychain::getKnownStateID(Height height)
     {
         Block::SystemState::ID id = {};
-        uint64_t count = 0;
+        const char* req = "SELECT confirmHeight, confirmHash FROM " STORAGE_NAME " where confirmHeight=?1 LIMIT 1;";
+
+        sqlite::Statement stm(_db, req);
+        stm.bind(1, height);
+        if (stm.step())
         {
-            sqlite::Statement stm(_db, "SELECT COUNT(confirmHash) FROM " STORAGE_NAME " ;");
-            stm.step();
-            stm.get(0, count);
+            stm.get(0, id.m_Height);
+            stm.get(1, id.m_Hash);
         }
-
-        if (count == 0)
-        {
-            return id;
-        }
-
-        const char* req = "SELECT confirmHeight, confirmHash FROM " STORAGE_NAME " ORDER BY confirmHeight LIMIT 1 OFFSET ?1 ;";
-
-        upper_bound(boost::counting_iterator<uint64_t>(0), boost::counting_iterator<uint64_t>(count), stateDefinition,
-        [this, &id, &req, &stateDefinition, &proof](const auto& definition, const auto& right)->bool
-        {
-            sqlite::Statement stm(_db, req);
-            stm.bind(1, right);
-            if (stm.step())
-            {
-                stm.get(0, id.m_Height);
-                stm.get(1, id.m_Hash);
-
-                Merkle::Hash hv = id.m_Hash;
-                Merkle::Interpret(hv, proof);
-
-                return hv == definition;
-            }
-            return false;
-        });
-
         return id;
     }
 
@@ -983,5 +958,73 @@ namespace beam
 	void Keychain::notifyTransactionChanged()
 	{
 		for (auto sub : m_subscribers) sub->onTransactionChanged();
+	}
+
+	namespace wallet
+	{
+		Amount getAvailable(beam::IKeyChain::Ptr keychain)
+		{
+			auto currentHeight = keychain->getCurrentHeight();
+			Amount total = 0;
+			keychain->visit([&total, &currentHeight](const Coin& c)->bool
+			{
+				Height lockHeight = c.m_maturity;
+
+				if (c.m_status == Coin::Unspent
+					&& lockHeight <= currentHeight)
+				{
+					total += c.m_amount;
+				}
+				return true;
+			});
+			return total;
+		}
+
+		Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType)
+		{
+			auto currentHeight = keychain->getCurrentHeight();
+			Amount total = 0;
+			keychain->visit([&total, &currentHeight, &status, &keyType](const Coin& c)->bool
+			{
+				Height lockHeight = c.m_maturity;
+
+				if (c.m_status == status
+					&& c.m_key_type == keyType
+					&& lockHeight <= currentHeight)
+				{
+					total += c.m_amount;
+				}
+				return true;
+			});
+			return total;
+		}
+
+		Amount getTotal(beam::IKeyChain::Ptr keychain, Coin::Status status)
+		{
+			Amount total = 0;
+			keychain->visit([&total, &status](const Coin& c)->bool
+			{
+				if (c.m_status == status)
+				{
+					total += c.m_amount;
+				}
+				return true;
+			});
+			return total;
+		}
+
+		Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType)
+		{
+			Amount total = 0;
+			keychain->visit([&total, &status, &keyType](const Coin& c)->bool
+			{
+				if (c.m_status == status && c.m_key_type == keyType)
+				{
+					total += c.m_amount;
+				}
+				return true;
+			});
+			return total;
+		}
 	}
 }

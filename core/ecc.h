@@ -30,6 +30,8 @@ namespace ECC
 	void InitializeContext(); // builds various generators. Necessary for commitments and signatures.
 	// Not necessary for hashes, scalar and 'casual' point arithmetics
 
+	void GenRandom(void*, uint32_t nSize); // with OS support
+
 	struct Mode {
 		enum Enum {
 			Secure, // maximum security. Constant-time guarantee whenever possible, protection from side-channel attacks
@@ -276,6 +278,7 @@ namespace ECC
 		Value m_Value;
 
 		class Processor;
+		class Mac;
 	};
 
 	typedef uint64_t Amount;

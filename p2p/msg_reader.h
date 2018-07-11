@@ -50,9 +50,6 @@ private:
     /// Current state
     State _state;
 
-    /// Current msg type
-    MsgType _type;
-
     /// Message buffer, grows if needed
     std::vector<uint8_t> _msgBuffer;
 

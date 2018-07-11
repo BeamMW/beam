@@ -68,7 +68,7 @@ namespace beam
 		virtual void setVarRaw(const char* name, const void* data, int size) = 0;
 		virtual int getVarRaw(const char* name, void* data) const = 0;
         virtual Height getCurrentHeight() const = 0;
-        virtual Block::SystemState::ID getKnownStateID(const Merkle::Hash& stateDefinition, const Merkle::Proof& proof) = 0;
+        virtual Block::SystemState::ID getKnownStateID(Height height) = 0;
         virtual void rollbackConfirmedUtxo(Height minHeight) = 0;
 
         virtual std::vector<TxDescription> getTxHistory(uint64_t start = 0, int count = std::numeric_limits<int>::max()) = 0;
@@ -119,7 +119,7 @@ namespace beam
 		void setVarRaw(const char* name, const void* data, int size) override;
 		int getVarRaw(const char* name, void* data) const override;
         Height getCurrentHeight() const override;
-        Block::SystemState::ID getKnownStateID(const Merkle::Hash& stateDefinition, const Merkle::Proof& proof) override;
+        Block::SystemState::ID getKnownStateID(Height height) override;
         void rollbackConfirmedUtxo(Height minHeight) override;
 
         std::vector<TxDescription> getTxHistory(uint64_t start, int count) override;
@@ -144,4 +144,12 @@ namespace beam
 
 		std::vector<IKeyChainObserver*> m_subscribers;
     };
+
+	namespace wallet
+	{
+		Amount getAvailable(beam::IKeyChain::Ptr keychain);
+		Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType);
+		Amount getTotal(beam::IKeyChain::Ptr keychain, Coin::Status status);
+		Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType);
+	}
 }
