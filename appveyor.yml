@@ -22,8 +22,10 @@ environment:
   - arch: Win64
 
 before_build:
+  # TODO: remove downloading openssl.zip from untrusted source
   # - appveyor DownloadFile https://github.com/nesbox/openssl-static/raw/master/openssl.zip
   # - cmd: "7z x -oC: ./openssl.zip"
+  - cmd: set PATH=%BOOST_ROOT%\lib64-msvc-14.1;%PATH%
   - cmd: cmake -G "Visual Studio 15 2017 Win64"
 
 test_script:
