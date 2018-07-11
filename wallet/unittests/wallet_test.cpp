@@ -193,9 +193,25 @@ namespace
     struct IOLoop
     {
         using Task = function<void()>;
-        IOLoop() : m_shutdown{ false }
+        IOLoop()
+          : m_shutdown{ false }
+          , m_uses{0}
         {
 
+        }
+
+
+        void addRef()
+        {
+            ++m_uses;
+        }
+
+        void release()
+        {
+            if (--m_uses == 0)
+            {
+                shutdown();
+            }
         }
 
         void shutdown()
@@ -251,6 +267,7 @@ namespace
         mutex m_tasksMutex;
         condition_variable m_cv;
         atomic<bool> m_shutdown;
+        atomic<int> m_uses;
     };
 
     //
@@ -264,7 +281,7 @@ namespace
             , m_mainLoop(mainLoop)
             , m_thread{ [this] { m_networkLoop.run(); } }
         {
-
+            mainLoop.addRef();
         }
 
         void shutdown()
@@ -273,19 +290,22 @@ namespace
             m_mainLoop.enqueueTask([this]()
             {
                 m_thread.join();
-                m_mainLoop.shutdown();
+                m_mainLoop.release();
             });
         }
 
-        void registerPeer(IWallet* walletPeer)
+        void registerPeer(IWallet* walletPeer, bool main)
         {
             m_peers.push_back(walletPeer);
 
-            walletPeer->handle_node_message(proto::NewTip{});
+            if (main)
+            {
+                walletPeer->handle_node_message(proto::NewTip{});
 
-            proto::Hdr msg = {};
-            InitHdr(msg);
-            walletPeer->handle_node_message(move(msg));
+                proto::Hdr msg = {};
+                InitHdr(msg);
+                walletPeer->handle_node_message(move(msg));
+            }
         }
 
         virtual void InitHdr(proto::Hdr& msg)
@@ -349,43 +369,38 @@ namespace
         {
             cout << "[Receiver] send_tx_confirmation\n";
             ++m_peerCount;
-            send(0, to, move(data));
+            send(1, to, move(data));
         }
 
         void send_tx_message(PeerId to, wallet::TxRegistered&& data) override
         {
             cout << "[Receiver] send_tx_registered\n";
-            send(0, to, move(data));
+            send(1, to, move(data));
         }
 
         void send_tx_message(beam::PeerId to, beam::wallet::TxFailed&& data) override
         {
             cout << "TxFailed\n";
-            send(0, to, move(data));
+            send(1, to, move(data));
         }
 
         void send_node_message(proto::NewTransaction&& data) override
         {
             cout << "NewTransaction\n";
-            enqueueNetworkTask([this, data] {m_peers[1]->handle_node_message(proto::Boolean{ true }); });
+            enqueueNetworkTask([this, data] {m_peers[0]->handle_node_message(proto::Boolean{ true }); });
         }
 
         void send_node_message(proto::GetMined&& data) override
         {
             cout << "GetMined\n";
-            int id = m_mined_id;
-            ++m_mined_id;
-            m_mined_id = m_mined_id % m_peers.size();
-            enqueueNetworkTask([this, id] {m_peers[id]->handle_node_message(proto::Mined{ }); });
+            enqueueNetworkTask([this] {m_peers[0]->handle_node_message(proto::Mined{ }); });
         }
 
         void send_node_message(proto::GetProofUtxo&&) override
         {
             cout << "GetProofUtxo\n";
-            int id = m_proof_id;
-            ++m_proof_id;
-            m_proof_id = m_proof_id % m_peers.size();
-            enqueueNetworkTask([this, id] {m_peers[id]->handle_node_message(proto::ProofUtxo()); });
+
+            enqueueNetworkTask([this] {m_peers[0]->handle_node_message(proto::ProofUtxo()); });
         }
 
         void send_node_message(proto::GetHdr&&) override
@@ -396,10 +411,7 @@ namespace
         void send_node_message(beam::proto::GetProofState &&) override
         {
             cout << "GetProofState\n";
-            int id = m_ps_id;
-            ++m_ps_id;
-            m_ps_id = m_ps_id % m_peers.size();
-            enqueueNetworkTask([this, id] {m_peers[id]->handle_node_message(proto::Proof{}); });
+            enqueueNetworkTask([this] {m_peers[0]->handle_node_message(proto::Proof{}); });
         }
 
         void close_connection(beam::PeerId) override
@@ -409,10 +421,6 @@ namespace
         void close_node_connection() override
         {
         }
-
-        int m_proof_id{ 0 };
-        int m_mined_id{ 0 };
-        int m_ps_id{ 0 };
     };
 }
 
@@ -423,6 +431,7 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
     PeerId receiver_id = 4;
     IOLoop mainLoop;
     TestNetwork network{ mainLoop };
+    TestNetwork network2 { mainLoop };
 
     int count = 0;
     auto f = [&count, &network](const auto& /*id*/)
@@ -432,12 +441,23 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
             network.shutdown();
         }
     };
+    int count2 = 0;
+    auto f2 = [&count2, &network2](const auto& /*id*/)
+    {
+        if (++count2 >= network2.m_peerCount)
+        {
+            network2.shutdown();
+        }
+    };
 
     Wallet sender(senderKeychain, network, f);
-    Wallet receiver(receiverKeychain, network, f);
+    Wallet receiver(receiverKeychain, network2, f2);
 
-    network.registerPeer(&sender);
-    network.registerPeer(&receiver);
+    network.registerPeer(&sender, true);
+    network.registerPeer(&receiver, false);
+
+    network2.registerPeer(&receiver, true);
+    network2.registerPeer(&sender, false);
 
     sender.transfer_money(receiver_id, 6, 0, true, {});
     mainLoop.run();
@@ -1130,12 +1150,9 @@ struct RollbackIO : public TestNetwork
     void send_node_message(beam::proto::GetProofState&& msg) override
     {
         cout << "Rollback. GetProofState\n";
-        int id = m_ps_id;
-        ++m_ps_id;
-        m_ps_id = m_ps_id % m_peers.size();
         Merkle::Proof proof;
         m_mmr.get_Proof(proof, msg.m_Height);
-        enqueueNetworkTask([this, id, proof]{ m_peers[id]->handle_node_message(proto::Proof{proof}); });
+        enqueueNetworkTask([this, proof]{ m_peers[0]->handle_node_message(proto::Proof{proof}); });
     }
 
     void close_node_connection() override
@@ -1222,7 +1239,7 @@ void TestRollback(Height branch, Height current)
 
     Wallet sender(db, network);
     
-    network.registerPeer(&sender);
+    network.registerPeer(&sender, true);
     
     mainLoop.run();
 }

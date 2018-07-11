@@ -1,6 +1,10 @@
 set(TEST_TOOLS_SRC
 	tools/base_node_connection.h
 	tools/base_node_connection.cpp
+	tools/new_tx_tests.h
+	tools/new_tx_tests.cpp
+	tools/tx_generator.h
+	tools/tx_generator.cpp
 )
 
 function(add_functional_test_snippet EXE_NAME LIB_NAME)
@@ -15,9 +19,18 @@ function(add_functional_test_snippet EXE_NAME LIB_NAME)
 	endif()
 endfunction()
 
-#add_functional_test_snippet(node_connection_test node)
 add_functional_test_snippet(send_to_node_10tx_test node)
 add_functional_test_snippet(send_empty_kernels_test node)
 add_functional_test_snippet(send_tx_with_unsorted_test node)
 add_functional_test_snippet(send_big_tx_test node)
 add_functional_test_snippet(send_wrong_tx_test node)
+add_functional_test_snippet(send_wrong_newtip_test node)
+add_functional_test_snippet(send_data_missing_test node)
+add_functional_test_snippet(send_peer_info_test node)
+add_functional_test_snippet(spam_transactions_test node)
+add_functional_test_snippet(send_gethdr_test node)
+add_functional_test_snippet(send_getmined_test node)
+add_functional_test_snippet(check_mined_test node)
+add_functional_test_snippet(send_broken_new_tx_test node)
+add_functional_test_snippet(send_getproofutxo_test node)
+add_functional_test_snippet(spend_mined_coins_test node)
