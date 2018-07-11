@@ -22,16 +22,31 @@ Rectangle {
         text: qsTr("Available")
     }
 
-    SFText {
-        font {
-            pixelSize: 64
-        }
-
-        color: Style.bright_teal
-
+    Row
+    {
+        id: row
         x: 30
         y: 61
-        text: walletViewModel.available
+        spacing: 6
+
+        SFText {
+            font.pixelSize: 64
+            color: Style.bright_teal
+
+            text: walletViewModel.available
+
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 0
+        }
+
+        SFText {
+            font.pixelSize: 36
+            color: Style.bright_teal
+
+            text: "BEAM"
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 6
+        }
     }
 
     SFText {

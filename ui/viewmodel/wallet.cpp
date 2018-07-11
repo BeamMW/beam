@@ -9,7 +9,7 @@ namespace
 {
 	QString BeamToString(const Amount& value)
 	{
-		return QString::number(static_cast<float>(value) / Rules::Coin, 'f') + " BEAM";
+		return QString::number(static_cast<float>(value) / Rules::Coin, 'f', 1);
 	}
 }
 
@@ -40,7 +40,7 @@ QString TxObject::comment() const
 
 QString TxObject::amount() const
 {
-	return QString(_tx.m_sender ? "- " : "+ ") +  BeamToString(_tx.m_amount);
+	return QString(_tx.m_sender ? "- " : "+ ") +  BeamToString(_tx.m_amount) + " BEAM";
 }
 
 QString TxObject::amountUsd() const
