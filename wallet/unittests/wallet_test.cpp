@@ -322,19 +322,19 @@ namespace
         }
 
         template<typename Msg>
-        void send(size_t peedId, uint64_t to, Msg&& msg)
+        void send(size_t peerId, uint64_t to, Msg&& msg)
         {
             Serializer s;
             s & msg;
             ByteBuffer buf;
             s.swap_buf(buf);
-            enqueueNetworkTask([this, peedId, to, buf = move(buf)]()
+            enqueueNetworkTask([this, peerId, to, buf = move(buf)]()
             {
                 Deserializer d;
                 d.reset(&buf[0], buf.size());
                 Msg msg;
                 d & msg;
-                m_peers[peedId]->handle_tx_message(to, move(msg));
+                m_peers[peerId]->handle_tx_message(to, move(msg));
             });
         }
 
@@ -434,24 +434,17 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
     TestNetwork network2 { mainLoop };
 
     int count = 0;
-    auto f = [&count, &network](const auto& /*id*/)
+    auto f = [&count, &network, &network2](const auto& /*id*/)
     {
-        if (++count >= network.m_peerCount)
+        if (++count >= (network.m_peerCount + network2.m_peerCount))
         {
             network.shutdown();
-        }
-    };
-    int count2 = 0;
-    auto f2 = [&count2, &network2](const auto& /*id*/)
-    {
-        if (++count2 >= network2.m_peerCount)
-        {
             network2.shutdown();
         }
     };
 
     Wallet sender(senderKeychain, network, f);
-    Wallet receiver(receiverKeychain, network2, f2);
+    Wallet receiver(receiverKeychain, network2, f);
 
     network.registerPeer(&sender, true);
     network.registerPeer(&receiver, false);

@@ -393,6 +393,10 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::Hdr&& msg)
     {
+        if (!m_syncing)
+        {
+            ++m_syncing; // Hdr
+        }
         Block::SystemState::ID newID = {};
         msg.m_Description.get_ID(newID);
         
