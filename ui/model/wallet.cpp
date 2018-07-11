@@ -114,3 +114,8 @@ void WalletModel::onTransactionChanged()
 {
 	emit onTxStatus(_keychain->getTxHistory());
 }
+
+void WalletModel::onSystemStateChanged()
+{
+	emit onStatus(wallet::getAvailable(_keychain));
+}

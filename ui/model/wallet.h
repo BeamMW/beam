@@ -37,6 +37,7 @@ signals:
 private:
 	void onKeychainChanged() override;
 	void onTransactionChanged() override;
+	void onSystemStateChanged() override;
 
 private:
 
