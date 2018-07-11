@@ -13,7 +13,7 @@ platform:
 
 environment:
   BOOST_ROOT: C:\Libraries\boost_1_67_0
-  OPENSSL_ROOT_DIR: C:\openssl
+  OPENSSL_ROOT_DIR: C:\OpenSSL-Win64
   QT5_ROOT_DIR: C:\Qt\5.11\msvc2017_64
   QML_IMPORT_PATH: C:\Qt\5.11\msvc2017_64\qml
   GITHUB_API_KEY:
@@ -22,8 +22,8 @@ environment:
   - arch: Win64
 
 before_build:
-  - appveyor DownloadFile https://github.com/nesbox/openssl-static/raw/master/openssl.zip
-  - cmd: "7z x -oC: ./openssl.zip"
+  # - appveyor DownloadFile https://github.com/nesbox/openssl-static/raw/master/openssl.zip
+  # - cmd: "7z x -oC: ./openssl.zip"
   - cmd: cmake -G "Visual Studio 15 2017 Win64"
 
 test_script:
