@@ -1,29 +1,22 @@
 #include "beam/node.h"
 #include "utility/logger.h"
 #include "tools/base_node_connection.h"
-#include "tools/tx_generator.h"
-
-#include <vector>
-#include <thread>
-#include <future>
 
 using namespace beam;
-using namespace ECC;
 
 class TestNodeConnection : public BaseTestNodeConnection
 {
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	
-	virtual void OnDisconnect(const DisconnectReason& ) override;
+	virtual void OnDisconnect(const DisconnectReason&) override;
 	virtual void GenerateTests() override;
+	virtual void OnMsg(proto::ProofUtxo&& msg) override;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	: BaseTestNodeConnection(argc, argv)
 {
-	m_Timeout = 0;
 }
 
 void TestNodeConnection::OnDisconnect(const DisconnectReason&)
@@ -36,27 +29,23 @@ void TestNodeConnection::GenerateTests()
 {
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send big transaction";
-		TxGenerator gen(m_Kdf);
-
-		Amount amount = 20000;
-
-		// Inputs
-		gen.GenerateInputInTx(1, amount);
-
-		// Outputs
-		for (Amount i = 0; i < amount; ++i)
-		{
-			gen.GenerateOutputInTx(1, 1);
-		}
-
-		// Kernels
-		gen.GenerateKernel(1);
-
-		gen.Sort();
-
-		Send(gen.GetTransaction());
+		LOG_INFO() << "Send GetProofUtxo message";
+		Send(proto::GetProofUtxo());
 	});
+}
+
+void TestNodeConnection::OnMsg(proto::ProofUtxo&& msg)
+{
+	if (msg.m_Proofs.empty())
+	{
+		LOG_INFO() << "ProofUtxo: Ok - list is empty";
+	}
+	else
+	{
+		LOG_INFO() << "ProofUtxo: Failed - list is not empty";
+		m_Failed = true;
+	}
+	io::Reactor::get_Current().stop();
 }
 
 int main(int argc, char* argv[])
@@ -71,5 +60,5 @@ int main(int argc, char* argv[])
 
 	connection.Run();
 
-	return connection.CheckOnFailed();	
+	return connection.CheckOnFailed();
 }
