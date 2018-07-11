@@ -5,9 +5,10 @@
         <file>controls/SvgImage.qml</file>
         <file>controls/SFText.qml</file>
         <file>controls/AvailablePanel.qml</file>
-        <file>controls/SecondaryPanel.qml</file>        
-      
-        <file>main.qml</file>
+        <file>controls/SecondaryPanel.qml</file>
+        <file>controls/Led.qml</file>
+
+      <file>main.qml</file>
         <file>dashboard.qml</file>
         <file>wallet.qml</file>
         <file>notification.qml</file>

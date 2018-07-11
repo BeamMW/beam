@@ -76,13 +76,99 @@ Rectangle {
                 height: parent.height              
             }
 
-            SecondaryPanel {
+            Item {
+                id: panel_holder
+
                 width: (parent.width - parent.spacing)*346/864
                 height: parent.height
-                title: "Received"
-                amountColor: Style.bright_sky_blue
-                value: walletViewModel.received
+                state: "one"
+
+                clip: true
+                
+                SecondaryPanel {
+                    id: received_panel
+                    title: "Received"
+                    amountColor: Style.bright_sky_blue
+                    value: walletViewModel.received
+                    anchors.fill: parent
+                    visible: true
+                }
+
+                SecondaryPanel {
+                    id: sent_panel
+                    title: "Sent"
+                    amountColor: Style.heliotrope
+                    value: walletViewModel.sent
+                    anchors.fill: parent
+                    visible: false
+                }
+
+                SecondaryPanel {
+                    id: unconfirmed_panel
+                    title: "Unconfirmed"
+                    amountColor: Style.white
+                    value: walletViewModel.unconfirmed
+                    anchors.fill: parent
+                    visible: false
+                }
+
+                Row {
+
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 10
+
+                    spacing: 10
+
+                    Led {
+                        id: led1
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: panel_holder.state = "one"
+                        }
+                    }
+                    
+                    Led {
+                        id: led2
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: panel_holder.state = "two"
+                        }
+                    }
+
+                    Led {
+                        id: led3
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: panel_holder.state = "three"
+                        }
+                    }
+                }
+
+                states: [
+                    State {
+                        name: "one"
+                        PropertyChanges {target: led1; turned_on: true}
+                    },
+                    State {
+                        name: "two"
+                        PropertyChanges {target: sent_panel; visible: true}
+                        PropertyChanges {target: led2; turned_on: true}
+                    },
+                    State {
+                        name: "three"
+                        PropertyChanges {target: unconfirmed_panel; visible: true}
+                        PropertyChanges {target: led3; turned_on: true}
+                    }
+                ]
             }
+
             
             visible: false
         }
