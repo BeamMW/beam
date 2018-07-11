@@ -9,7 +9,7 @@ class TestNodeConnection : public BaseTestNodeConnection
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	virtual void OnClosed(int errorCode) override;
+	virtual void OnDisconnect(const DisconnectReason&) override;
 	virtual void GenerateTests() override;
 };
 
@@ -18,7 +18,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 {
 }
 
-void TestNodeConnection::OnClosed(int)
+void TestNodeConnection::OnDisconnect(const DisconnectReason&)
 {
 	LOG_INFO() << "Ok: connection is reset";
 	io::Reactor::get_Current().stop();

@@ -16,7 +16,7 @@ protected:
 	void InitKdf();
 
 	virtual void OnConnected() override;
-	virtual void OnClosed(int errorCode) override;
+	virtual void OnDisconnect(const DisconnectReason&) override;
 
 	virtual void GenerateTests();
 
