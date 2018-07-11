@@ -1187,8 +1187,10 @@ void RunBenchmark()
 	}
 
 	{
+		AES::Encoder enc;
+		enc.Init(hv.m_pData);
 		AES::StreamCipher asc;
-		asc.Init(hv.m_pData);
+		asc.Reset();
 
 		uint8_t pBuf[0x400];
 
@@ -1199,7 +1201,7 @@ void RunBenchmark()
 			for (uint32_t i = 0; i < bm.N; i++)
 			{
 				for (size_t nSize = 0; nSize < 0x100000; nSize += sizeof(pBuf))
-					asc.XCrypt(pBuf, sizeof(pBuf));
+					asc.XCrypt(enc, pBuf, sizeof(pBuf));
 			}
 
 		} while (bm.ShouldContinue());
