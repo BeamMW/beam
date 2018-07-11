@@ -1,34 +1,29 @@
 <RCC>
     <qresource prefix="/">
-        <file>Style.qml</file>
-        <file>qmldir</file>
+        <file>controls/Style.qml</file>
+        <file>controls/qmldir</file>      
+        <file>controls/SvgImage.qml</file>
+        <file>controls/SFText.qml</file>
+        <file>controls/AvailablePanel.qml</file>
       
         <file>main.qml</file>
-        <file>SvgImage.qml</file>
-        <file>SFText.qml</file>
-        <file>AvailablePanel.qml</file>
+        <file>dashboard.qml</file>
+        <file>wallet.qml</file>
+        <file>notification.qml</file>
+        <file>info.qml</file>
+        <file>settings.qml</file>
+      
         <file>assets/logo.png</file>
-        
         <file>assets/fonts/SF-Pro-Display-Bold.otf</file>
         <file>assets/fonts/SF-Pro-Display-Thin.otf</file>
-
-        <file>dashboard.qml</file>
         <file>assets/icon-dashboard.svg</file>
         <file>assets/icon-dashboard-active.svg</file>
-
-        <file>wallet.qml</file>
         <file>assets/icon-wallet.svg</file>
-        <file>assets/icon-wallet-active.svg</file>
-      
-        <file>notification.qml</file>
+        <file>assets/icon-wallet-active.svg</file>     
         <file>assets/icon-notification.svg</file>
         <file>assets/icon-notification-active.svg</file>
-      
-        <file>info.qml</file>
         <file>assets/icon-info.svg</file>
         <file>assets/icon-info-active.svg</file>
-      
-        <file>settings.qml</file>
         <file>assets/icon-settings.svg</file>
         <file>assets/icon-settings-active.svg</file>
 
