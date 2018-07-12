@@ -1,6 +1,7 @@
 import QtQuick 2.3
 import QtQuick.Controls 1.2
 import QtQuick.Controls.Styles 1.2
+import QtGraphicalEffects 1.0
 import "controls"
 
 Rectangle {
@@ -172,6 +173,77 @@ Rectangle {
             
             visible: false
         }
+    }
+
+    Item
+    {
+        y: 353
+
+        anchors.left: parent.left
+        anchors.right: parent.right
+
+        SFText {
+            x: 30
+
+            font {
+                pixelSize: 18
+                weight: Font.Bold
+            }
+
+            color: Style.white
+
+            text: "Transactions"
+        }
+
+        Row {
+
+            anchors.right: parent.right
+            spacing: 20
+            state: "all"
+
+            TxFilter{
+                id: all
+                label: "ALL"
+                onClicked: parent.state = "all"
+            }
+
+            TxFilter{
+                id: sent
+                label: "SENT"
+                onClicked: parent.state = "sent"
+            }
+
+            TxFilter{
+                id: received
+                label: "RECEIVED"
+                onClicked: parent.state = "received"
+            }
+
+            TxFilter{
+                id: in_progress
+                label: "IN PROGRESS"
+                onClicked: parent.state = "in_progress"
+            }
+
+            states: [
+                State {
+                    name: "all"
+                    PropertyChanges {target: all; state: "active"}
+                },
+                State {
+                    name: "sent"
+                    PropertyChanges {target: sent; state: "active"}
+                },
+                State {
+                    name: "received"
+                    PropertyChanges {target: received; state: "active"}
+                },
+                State {
+                    name: "in_progress"
+                    PropertyChanges {target: in_progress; state: "active"}
+                }
+            ]
+        }        
     }
     
     states: [
