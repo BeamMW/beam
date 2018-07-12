@@ -36,7 +36,7 @@ void TestNodeConnection::BeforeConnection(Height h)
 {
 	TxGenerator gen(m_Kdf);
 
-	Amount amount = 5000;
+	Amount amount = 18000;
 
 	// Inputs
 	gen.GenerateInputInTx(h, amount);

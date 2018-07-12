@@ -66,7 +66,7 @@ void TxGenerator::GenerateKernel()
 	m_MsgTx.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
 }
 
-proto::NewTransaction TxGenerator::GetTransaction()
+const proto::NewTransaction& TxGenerator::GetTransaction()
 {
 	return m_MsgTx;
 }

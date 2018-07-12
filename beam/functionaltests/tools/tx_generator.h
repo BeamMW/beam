@@ -12,7 +12,7 @@ public:
 	void GenerateKernel(beam::Height h, beam::Amount fee = 0);
 	void GenerateKernel();
 
-	beam::proto::NewTransaction GetTransaction();
+	const beam::proto::NewTransaction& GetTransaction();
 	bool IsValid() const;
 
 	void Sort();
