@@ -51,6 +51,7 @@
 #define STORAGE_NAME "storage"
 #define VARIABLES_NAME "variables"
 #define HISTORY_NAME "history"
+#define PEERS_NAME "peers"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(1, name, sep, TEXT UNIQUE, obj) \
@@ -63,7 +64,7 @@
     each(2, amount,     sep, INTEGER NOT NULL, obj) \
     each(3, fee,        sep, INTEGER NOT NULL, obj) \
     each(4, minHeight,  sep, INTEGER NOT NULL, obj) \
-    each(5, peerId,     sep, INTEGER NOT NULL, obj) \
+    each(5, peerId,     sep, BLOB NOT NULL, obj) \
     each(6, message,    sep, BLOB, obj) \
     each(7, createTime, sep, INTEGER NOT NULL, obj) \
     each(8, modifyTime, sep, INTEGER, obj) \
@@ -71,6 +72,12 @@
     each(10, status,     sep, INTEGER NOT NULL, obj) \
     each(11, fsmState,      , BLOB, obj)
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
+
+#define ENUM_PEER_FIELDS(each, sep, obj) \
+    each(1, peerID,      sep, BLOB NOT NULL PRIMARY KEY, obj) \
+    each(2, address,        , INTEGER NOT NULL, obj) 
+    
+#define PEER_FIELDS ENUM_PEER_FIELDS(LIST, COMMA, )
 
 namespace beam
 {
@@ -148,6 +155,11 @@ namespace beam
             {
                 int ret = sqlite3_bind_blob(_stm, col, hash.m_pData, hash.size(), NULL);
                 throwIfError(ret, _db);
+            }
+
+            void bind(int col, const io::Address& address)
+            {
+                bind(col, address.u64());
             }
 
             void bind(int col, const ByteBuffer& m)
@@ -245,6 +257,12 @@ namespace beam
                 }
             }
 
+            void get(int col, io::Address& address)
+            {
+                uint64_t t = 0;;
+                get(col, t);
+                address.from_u64(t);
+            }
             void get(int col, ByteBuffer& b)
             {
                 int size = sqlite3_column_bytes(_stm, col);
@@ -393,6 +411,12 @@ namespace beam
                 int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
                 throwIfError(ret, keychain->_db);
             }
+            {
+                const char* req = "CREATE TABLE " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
+                int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                throwIfError(ret, keychain->_db);
+            }
+
 			{
 				keychain->setVar(WalletSeed, secretKey.V);
                 keychain->setVar(Version, DbVersion);
@@ -933,6 +957,36 @@ namespace beam
             stm.step();
         }
         trans.commit();
+    }
+
+    void Keychain::addPeer(const TxPeer& peer)
+    {
+        sqlite::Transaction trans(_db);
+        
+        sqlite::Statement stm2(_db, "SELECT * FROM " PEERS_NAME " WHERE peerID=?1;");
+        stm2.bind(1, peer.m_peerID);
+
+        const char* updateReq = "UPDATE " PEERS_NAME " SET address=?2 WHERE peerID=?1;";
+        const char* insertReq = "INSERT INTO " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_PEER_FIELDS(BIND_LIST, COMMA, ) ");";
+
+        sqlite::Statement stm(_db, stm2.step() ? updateReq : insertReq);
+        ENUM_PEER_FIELDS(STM_BIND_LIST, NOSEP, peer);
+        stm.step();
+
+        trans.commit();
+    }
+
+    boost::optional<TxPeer> Keychain::getPeer(const PeerID& peerID)
+    {
+        sqlite::Statement stm(_db, "SELECT * FROM " PEERS_NAME " WHERE peerID=?1;");
+        stm.bind(1, peerID);
+        if (stm.step())
+        {
+            TxPeer peer = {};
+            ENUM_PEER_FIELDS(STM_GET_LIST, NOSEP, peer);
+            return peer;
+        }
+        return boost::optional<TxPeer>{};
     }
 
     void Keychain::subscribe(IKeyChainObserver* observer)

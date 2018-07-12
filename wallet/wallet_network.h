@@ -10,6 +10,7 @@
 #include "core/proto.h"
 #include "utility/io/timer.h"
 
+#include <boost/intrusive/set.hpp>
 #include "wallet.h"
 
 namespace beam
@@ -30,7 +31,7 @@ namespace beam
 
         using ConnectCallback = std::function<void(uint64_t tag)>;
 
-        WalletNetworkIO(io::Address address
+        WalletNetworkIO(const TxPeer& peer
                       , io::Address node_address
                       , bool is_server
                       , IKeyChain::Ptr keychain
@@ -43,15 +44,15 @@ namespace beam
         void start();
         void stop();
 
-        Uuid transfer_money(io::Address receiver, Amount&& amount, Amount&& fee = 0, bool sender = true, ByteBuffer&& message = {});
+        Uuid transfer_money(const PeerID& receiver, Amount&& amount, Amount&& fee = 0, bool sender = true, ByteBuffer&& message = {});
 
     private:
         // INetworkIO
-        void send_tx_message(PeerId to, wallet::Invite&&) override;
-        void send_tx_message(PeerId to, wallet::ConfirmTransaction&&) override;
-        void send_tx_message(PeerId to, wallet::ConfirmInvitation&&) override;
-        void send_tx_message(PeerId to, wallet::TxRegistered&&) override;
-        void send_tx_message(PeerId to, wallet::TxFailed&&) override;
+        void send_tx_message(const PeerID& to, wallet::Invite&&) override;
+        void send_tx_message(const PeerID& to, wallet::ConfirmTransaction&&) override;
+        void send_tx_message(const PeerID& to, wallet::ConfirmInvitation&&) override;
+        void send_tx_message(const PeerID& to, wallet::TxRegistered&&) override;
+        void send_tx_message(const PeerID& to, wallet::TxFailed&&) override;
 
         void send_node_message(proto::NewTransaction&&) override;
         void send_node_message(proto::GetProofUtxo&&) override;
@@ -59,7 +60,7 @@ namespace beam
         void send_node_message(proto::GetMined&&) override;
         void send_node_message(proto::GetProofState&&) override;
 
-        void close_connection(uint64_t id) override;
+        void close_connection(const PeerID& id) override;
         void close_node_connection() override;
 
         // IMsgHandler
@@ -87,23 +88,24 @@ namespace beam
         void create_node_connection();
 
         template <typename T>
-        void send(PeerId to, MsgType type, T&& msg)
+        void send(const PeerID& peerID, MsgType type, T&& msg)
         {
-            if (auto it = m_connections.find(to); it != m_connections.end())
-            {
-                m_protocol.serialize(m_msgToSend, type, msg);
-                auto res = it->second->write_msg(m_msgToSend);
-                m_msgToSend.clear();
-                test_io_result(res);
-            }
-            else if (auto it = m_addresses.find(to); it != m_addresses.end())
-            {
-                auto t = std::make_shared<T>(std::move(msg)); // we need copyable object
-                connect_wallet(it->second, to, [this, type, t](uint64_t tag)
-                {
-                    send(tag, type, std::move(*t));
-                });
-            }
+            //auto to = get_connection(peerID);
+            //if (auto it = m_connections.find(to); it != m_connections.end())
+            //{
+            //    m_protocol.serialize(m_msgToSend, type, msg);
+            //    auto res = it->second->write_msg(m_msgToSend);
+            //    m_msgToSend.clear();
+            //    test_io_result(res);
+            //}
+            //else if (auto it = m_addresses.find(peerID); it != m_addresses.end())
+            //{
+            //    auto t = std::make_shared<T>(std::move(msg)); // we need copyable object
+            //    connect_wallet(it->second, to, [this, type, t](uint64_t tag)
+            //    {
+            //        send(tag, type, std::move(*t));
+            //    });
+            //}
         }
 
         template<typename T>
@@ -126,6 +128,9 @@ namespace beam
 
         void test_io_result(const io::Result res);
         bool is_connected(uint64_t id);
+
+        const PeerID& get_peer(uint64_t connectionId) const;
+        uint64_t get_connection(const PeerID& peerID) const;
 
         class WalletNodeConnection : public proto::NodeConnection
         {
@@ -153,13 +158,46 @@ namespace beam
         };
 
     private:
+
         Protocol m_protocol;
-        io::Address m_address;
+        PeerID m_peerID;
         io::Address m_node_address;
         io::Reactor::Ptr m_reactor;
         io::TcpServer::Ptr m_server;
         Wallet m_wallet;
-        std::unordered_map<uint64_t, io::Address> m_addresses;
+
+        struct PeerIDTag {};
+        struct ConnectionIDTag {};
+
+        struct PeerInfo : public boost::intrusive::set_base_hook<boost::intrusive::tag<PeerIDTag>>
+                       // , public boost::intrusive::set_base_hook<boost::intrusive::tag<ConnectionIDTag>>
+        {
+            PeerID m_peerID;
+            uint64_t m_connectionID;
+            io::Address m_address;
+            std::unique_ptr<Connection> m_connection;
+        };
+
+        struct PeerIDKey
+        {
+            typedef PeerID type;
+            const PeerID& operator()(const PeerInfo& pi) const { return pi.m_peerID; }
+        };
+
+        struct ConnectionIDKey
+        {
+            typedef uint64_t type;
+            const uint64_t& operator()(const PeerInfo& pi) const { return pi.m_connectionID; }
+        };
+
+        std::vector<PeerInfo> m_peers;
+
+       // boost::intrusive::set<PeerInfo, boost::intrusive::key_of_value<PeerIDKey> > m_peersSet;
+       // boost::intrusive::set<PeerInfo, boost::intrusive::key_of_value<ConnectionIDKey> > m_connectionsSet;
+
+        std::unordered_map<uint64_t, PeerID> m_connectionToPeer;
+        std::map<PeerID, uint64_t> m_peerToConnection;
+        std::map<PeerID, io::Address> m_addresses;
         std::map<uint64_t, std::unique_ptr<Connection>> m_connections;
         std::map<uint64_t, ConnectCallback> m_connections_callbacks;
         bool m_is_node_connected;

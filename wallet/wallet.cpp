@@ -135,7 +135,7 @@ namespace beam
         assert(m_removedNegotiators.empty());
     }
 
-    Uuid Wallet::transfer_money(PeerId to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
+    Uuid Wallet::transfer_money(const PeerID& to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
     {
 		boost::uuids::uuid id = boost::uuids::random_generator()();
         Uuid txId{};
@@ -217,7 +217,7 @@ namespace beam
         m_network.send_tx_message(tx.m_peerId, wallet::TxRegistered{ tx.m_txId, true });
     }
 
-    void Wallet::handle_tx_message(PeerId from, Invite&& msg)
+    void Wallet::handle_tx_message(const PeerID& from, Invite&& msg)
     {
         auto it = m_negotiators.find(msg.m_txId);
         if (it == m_negotiators.end())
@@ -249,7 +249,7 @@ namespace beam
         }
     }
     
-    void Wallet::handle_tx_message(PeerId from, ConfirmTransaction&& data)
+    void Wallet::handle_tx_message(const PeerID& from, ConfirmTransaction&& data)
     {
         LOG_DEBUG() << ReceiverPrefix << "Received sender tx confirmation " << data.m_txId;
         if (!process_event(data.m_txId, events::TxConfirmationCompleted{ data }))
@@ -259,7 +259,7 @@ namespace beam
         }
     }
 
-    void Wallet::handle_tx_message(PeerId /*from*/, ConfirmInvitation&& data)
+    void Wallet::handle_tx_message(const PeerID& /*from*/, ConfirmInvitation&& data)
     {
         LOG_VERBOSE() << SenderPrefix << "Received tx confirmation " << data.m_txId;
         if (!process_event(data.m_txId, events::TxInvitationCompleted{ data }))
@@ -268,12 +268,12 @@ namespace beam
         }
     }
 
-    void Wallet::handle_tx_message(PeerId from, wallet::TxRegistered&& data)
+    void Wallet::handle_tx_message(const PeerID& from, wallet::TxRegistered&& data)
     {
         process_event(data.m_txId, events::TxRegistrationCompleted{});
     }
 
-    void Wallet::handle_tx_message(PeerId /*from*/, wallet::TxFailed&& data)
+    void Wallet::handle_tx_message(const PeerID& /*from*/, wallet::TxFailed&& data)
     {
         LOG_DEBUG() << "tx " << data.m_txId << " failed";
         handle_tx_failed(data.m_txId);
@@ -516,14 +516,6 @@ namespace beam
         do_fast_forward();
 
         return finish_sync();
-    }
-
-    void Wallet::handle_connection_error(PeerId from)
-    {
-        if (auto it = m_peers.find(from); it != m_peers.end())
-        {
-            it->second->process_event(events::TxFailed{});
-        }
     }
 
     void Wallet::stop_sync()

@@ -9,17 +9,15 @@
 #include <tuple>
 namespace beam
 {
-    using PeerId = uint64_t;
-
     struct INetworkIO 
     {
         virtual ~INetworkIO() {}
         // wallet to wallet requests
-        virtual void send_tx_message(PeerId to, wallet::Invite&&) = 0;
-        virtual void send_tx_message(PeerId to, wallet::ConfirmTransaction&&) = 0;
-        virtual void send_tx_message(PeerId to, wallet::ConfirmInvitation&&) = 0;
-        virtual void send_tx_message(PeerId to, wallet::TxRegistered&&) = 0 ;
-        virtual void send_tx_message(PeerId to, wallet::TxFailed&&) = 0;
+        virtual void send_tx_message(const PeerID& to, wallet::Invite&&) = 0;
+        virtual void send_tx_message(const PeerID& to, wallet::ConfirmTransaction&&) = 0;
+        virtual void send_tx_message(const PeerID& to, wallet::ConfirmInvitation&&) = 0;
+        virtual void send_tx_message(const PeerID& to, wallet::TxRegistered&&) = 0 ;
+        virtual void send_tx_message(const PeerID& to, wallet::TxFailed&&) = 0;
         // wallet to node requests
         virtual void send_node_message(proto::NewTransaction&&) = 0;
         virtual void send_node_message(proto::GetProofUtxo&&) = 0;
@@ -27,7 +25,7 @@ namespace beam
         virtual void send_node_message(proto::GetMined&&) = 0;
         virtual void send_node_message(proto::GetProofState&&) = 0;
         // connection control
-        virtual void close_connection(PeerId id) = 0;
+        virtual void close_connection(const PeerID& id) = 0;
         virtual void close_node_connection() = 0;
     };
 
@@ -35,11 +33,11 @@ namespace beam
     {
         virtual ~IWallet() {}
         // wallet to wallet responses
-        virtual void handle_tx_message(PeerId, wallet::Invite&&) = 0;
-        virtual void handle_tx_message(PeerId, wallet::ConfirmTransaction&&) = 0;
-        virtual void handle_tx_message(PeerId, wallet::ConfirmInvitation&&) = 0;
-        virtual void handle_tx_message(PeerId, wallet::TxRegistered&&) = 0;
-        virtual void handle_tx_message(PeerId, wallet::TxFailed&&) = 0;
+        virtual void handle_tx_message(const PeerID&, wallet::Invite&&) = 0;
+        virtual void handle_tx_message(const PeerID&, wallet::ConfirmTransaction&&) = 0;
+        virtual void handle_tx_message(const PeerID&, wallet::ConfirmInvitation&&) = 0;
+        virtual void handle_tx_message(const PeerID&, wallet::TxRegistered&&) = 0;
+        virtual void handle_tx_message(const PeerID&, wallet::TxFailed&&) = 0;
         // node to wallet responses
         virtual bool handle_node_message(proto::Boolean&&) = 0;
         virtual bool handle_node_message(proto::ProofUtxo&&) = 0;
@@ -47,8 +45,7 @@ namespace beam
 		virtual bool handle_node_message(proto::Hdr&&) = 0;
         virtual bool handle_node_message(proto::Mined&& msg) = 0;
         virtual bool handle_node_message(proto::Proof&& msg) = 0;
-        // connection control
-        virtual void handle_connection_error(PeerId) = 0;
+
         virtual void stop_sync() = 0;
     };
 
@@ -62,7 +59,7 @@ namespace beam
         Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
-        Uuid transfer_money(PeerId to, Amount amount, Amount fee, bool sender, ByteBuffer&& message);
+        Uuid transfer_money(const PeerID& to, Amount amount, Amount fee, bool sender, ByteBuffer&& message);
         void resume_tx(const TxDescription& tx);
         void resume_all_tx();
 
@@ -75,11 +72,11 @@ namespace beam
         void register_tx(const TxDescription& tx, Transaction::Ptr) override;
         void send_tx_registered(const TxDescription& tx) override;
 
-        void handle_tx_message(PeerId, wallet::Invite&&) override;
-        void handle_tx_message(PeerId, wallet::ConfirmTransaction&&) override;
-        void handle_tx_message(PeerId, wallet::ConfirmInvitation&&) override;
-        void handle_tx_message(PeerId, wallet::TxRegistered&&) override;
-        void handle_tx_message(PeerId, wallet::TxFailed&&) override;
+        void handle_tx_message(const PeerID&, wallet::Invite&&) override;
+        void handle_tx_message(const PeerID&, wallet::ConfirmTransaction&&) override;
+        void handle_tx_message(const PeerID&, wallet::ConfirmInvitation&&) override;
+        void handle_tx_message(const PeerID&, wallet::TxRegistered&&) override;
+        void handle_tx_message(const PeerID&, wallet::TxFailed&&) override;
 
         bool handle_node_message(proto::Boolean&& res) override;
         bool handle_node_message(proto::ProofUtxo&& proof) override;
@@ -88,7 +85,6 @@ namespace beam
         bool handle_node_message(proto::Mined&& msg) override;
         bool handle_node_message(proto::Proof&& msg) override;
 
-        void handle_connection_error(PeerId from) override;
         void stop_sync() override;
 
         void handle_tx_registered(const Uuid& txId, bool res);
@@ -133,7 +129,7 @@ namespace beam
 
         IKeyChain::Ptr m_keyChain;
         INetworkIO& m_network;
-        std::map<PeerId, wallet::Negotiator::Ptr> m_peers;
+        std::map<PeerID, wallet::Negotiator::Ptr> m_peers;
         std::map<Uuid, wallet::Negotiator::Ptr>   m_negotiators;
         std::vector<wallet::Negotiator::Ptr>      m_removedNegotiators;
         TxCompletedAction m_tx_completed_action;

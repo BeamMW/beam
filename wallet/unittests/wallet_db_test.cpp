@@ -185,7 +185,7 @@ void TestStoreTxRecord()
     TxDescription tr;
     tr.m_txId = id;
     tr.m_amount = 34;
-    tr.m_peerId = 23;
+    tr.m_peerId = unsigned(23);
     tr.m_createTime = 123456;
     tr.m_minHeight = 134;
     tr.m_sender = true;
@@ -365,6 +365,21 @@ void TestTxRollback()
     WALLET_CHECK(coins[1].m_spentTxId.is_initialized() == false);
 }
 
+void TestPeers()
+{
+    auto db = createSqliteKeychain();
+    TxPeer peer = {};
+    peer.m_peerID = unsigned(1234567890);
+    auto p = db->getPeer(peer.m_peerID);
+    WALLET_CHECK(p.is_initialized() == false);
+    peer.m_address.from_u64(345454545569);
+    db->addPeer(peer);
+    p = db->getPeer(peer.m_peerID);
+    WALLET_CHECK(p.is_initialized() == true);
+    WALLET_CHECK(p->m_address == peer.m_address);
+    WALLET_CHECK(p->m_peerID == peer.m_peerID);
+}
+
 
 int main() 
 {
@@ -380,6 +395,7 @@ int main()
     TestStoreTxRecord();
     TestTxRollback();
     TestRollback();
+    TestPeers();
 
     return WALLET_CHECK_RESULT;
 }

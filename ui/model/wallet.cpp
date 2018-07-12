@@ -16,7 +16,7 @@ struct WalletModelAsync : IWalletModelAsync
 	{
 		_sendMoneyEvent = AsyncEvent::create(_reactor, [this, receiver = std::move(receiver), amount = std::move(amount)]() mutable
 			{
-				_wallet_io->transfer_money(receiver, std::move(amount), {});
+//				_wallet_io->transfer_money(receiver, std::move(amount), {});
 			}
 		);
 

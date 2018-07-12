@@ -52,7 +52,7 @@ namespace beam
             , Amount amount
             , Amount fee
             , Height minHeight
-            , uint64_t peerId
+            , const PeerID& peerId
             , ByteBuffer&& message
             , Timestamp createTime
             , bool sender)
@@ -73,7 +73,7 @@ namespace beam
         Amount m_amount;
         Amount m_fee;
         Height m_minHeight;
-        uint64_t m_peerId;
+        PeerID m_peerId;
         ByteBuffer m_message;
         Timestamp m_createTime;
         Timestamp m_modifyTime;

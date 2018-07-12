@@ -4,6 +4,7 @@
 #include "core/common.h"
 #include "core/ecc_native.h"
 #include "wallet/common.h"
+#include "utility/io/address.h"
 
 struct sqlite3;
 
@@ -39,6 +40,12 @@ namespace beam
         Height m_lockedHeight;
         boost::optional<Uuid> m_createTxId;
         boost::optional<Uuid> m_spentTxId;
+    };
+
+    struct TxPeer
+    {
+        PeerID m_peerID;
+        io::Address m_address;
     };
 
 	struct IKeyChainObserver
@@ -79,6 +86,9 @@ namespace beam
 
         // Rolls back coin changes in db concerning given tx
         virtual void rollbackTx(const Uuid& txId) = 0;
+
+        virtual void addPeer(const TxPeer&) = 0;
+        virtual boost::optional<TxPeer> getPeer(const PeerID&) = 0;
 
 		template <typename Var>
 		void setVar(const char* name, const Var& var)
@@ -128,6 +138,9 @@ namespace beam
         void saveTx(const TxDescription& p) override;
         void deleteTx(const Uuid& txId) override;
         void rollbackTx(const Uuid& txId) override;
+
+        void addPeer(const TxPeer&) override;
+        boost::optional<TxPeer> getPeer(const PeerID&) override;
 
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override;

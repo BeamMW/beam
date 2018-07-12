@@ -701,7 +701,7 @@ int main_impl(int argc, char* argv[])
                         }
                     }
 
-                    bool is_server = command == cli::LISTEN;
+                   /* bool is_server = command == cli::LISTEN;
                     WalletNetworkIO wallet_io{ io::Address().ip(INADDR_ANY).port(port)
                         , node_addr
                         , is_server
@@ -711,7 +711,7 @@ int main_impl(int argc, char* argv[])
                     {
                         wallet_io.transfer_money(receiverAddr, move(amount), 0);
                     }
-                    wallet_io.start();
+                    wallet_io.start();*/
                 }
                 else
                 {
