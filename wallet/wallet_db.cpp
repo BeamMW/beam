@@ -770,6 +770,7 @@ namespace beam
 	void Keychain::setSystemStateID(const Block::SystemState::ID& stateID)
 	{
 		setVar(SystemStateIDName, stateID);
+		notifySystemStateChanged();
 	}
 
 	bool Keychain::getSystemStateID(Block::SystemState::ID& stateID) const
@@ -958,6 +959,11 @@ namespace beam
 	void Keychain::notifyTransactionChanged()
 	{
 		for (auto sub : m_subscribers) sub->onTransactionChanged();
+	}
+
+	void Keychain::notifySystemStateChanged()
+	{
+		for (auto sub : m_subscribers) sub->onSystemStateChanged();
 	}
 
 	namespace wallet

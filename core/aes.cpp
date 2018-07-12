@@ -541,13 +541,6 @@ void AES::Decoder::Init(const Encoder& enc)
 }
 
 
-void AES::StreamCipher::Init(const uint8_t* pKey)
-{
-	m_nBuf = 0;
-	m_Counter = ECC::Zero;
-	m_Enc.Init(pKey);
-}
-
 /* AES 128-bit block encryption routine */
 
 void AES::Encoder::Proceed(uint8_t* pDst, const uint8_t* pSrc) const
@@ -815,6 +808,11 @@ int main(void)
 #endif
 
 
+void AES::StreamCipher::Reset()
+{
+	m_nBuf = 0;
+	m_Counter = ECC::Zero;
+}
 
 void AES::StreamCipher::PerfXor(uint8_t* pBuf, uint32_t nSize)
 {
@@ -826,13 +824,13 @@ void AES::StreamCipher::PerfXor(uint8_t* pBuf, uint32_t nSize)
 		pBuf[i] ^= pXor[i];
 }
 
-void AES::StreamCipher::XCrypt(uint8_t* pBuf, uint32_t nSize)
+void AES::StreamCipher::XCrypt(const Encoder& enc, uint8_t* pBuf, uint32_t nSize)
 {
 	while (true)
 	{
 		if (!m_nBuf)
 		{
-			m_Enc.Proceed(m_pBuf, m_Counter.m_pData);
+			enc.Proceed(m_pBuf, m_Counter.m_pData);
 			m_nBuf = _countof(m_pBuf);
 			m_Counter.Inc();
 		}

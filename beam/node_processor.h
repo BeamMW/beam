@@ -81,7 +81,6 @@ public:
 	void ExportMacroBlock(Block::BodyBase::IMacroWriter&, const HeightRange&);
 	void ExportHdrRange(const HeightRange&, Block::SystemState::Sequence::Prefix&, std::vector<Block::SystemState::Sequence::Element>&);
 	void ExportMacroBlock(Block::BodyBase::IMacroWriter&);
-
 	bool ImportMacroBlock(Block::BodyBase::IMacroReader&);
 
 	struct DataStatus {
@@ -111,6 +110,8 @@ public:
 	bool IsStateNeeded(const Block::SystemState::ID&);
 
 	ECC::Kdf m_Kdf;
+
+	static void DeriveKeys(const ECC::Kdf&, Height, Amount fees, ECC::Scalar::Native& kCoinbase, ECC::Scalar::Native& kFee, ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset);
 
 	struct TxPool
 	{

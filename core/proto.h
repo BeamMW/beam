@@ -181,25 +181,30 @@ namespace proto {
 	struct ProtocolPlus
 		:public Protocol
 	{
-		struct Cipher
-			:public AES::StreamCipher
-		{
-			bool m_bON;
-		};
-
-		Cipher m_CipherIn;
-		Cipher m_CipherOut;
+		AES::Encoder m_Enc;
+		AES::StreamCipher m_CipherIn;
+		AES::StreamCipher m_CipherOut;
 
 		ECC::Scalar::Native m_MyNonce;
 		ECC::uintBig m_RemoteNonce;
 		ECC::Hash::Mac m_HMac;
+
+		struct Mode {
+			enum Enum {
+				Plaintext,
+				Outgoing,
+				Duplex
+			};
+		};
+
+		Mode::Enum m_Mode;
 
 		typedef ECC::uintBig_t<64> MacValue;
 		static void get_HMac(ECC::Hash::Mac&, MacValue&);
 
 		ProtocolPlus(uint8_t v0, uint8_t v1, uint8_t v2, size_t maxMessageTypes, IErrorHandler& errorHandler, size_t serializedFragmentsSize);
 		void ResetVars();
-		void InitCipher(Cipher&, bool bHMac);
+		void InitCipher();
 
 		// Protocol
 		virtual void Decrypt(uint8_t*, uint32_t nSize) override;

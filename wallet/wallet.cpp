@@ -64,15 +64,9 @@ namespace beam
         pair<Scalar::Native, Scalar::Native> splitKey(const Scalar::Native& key, uint64_t index)
         {
             pair<Scalar::Native, Scalar::Native> res;
-            Hash::Value hv;
-            Hash::Processor() << index >> hv;
-            NoLeak<Scalar> s;
-            s.V = key;
-            res.second.GenerateNonce(s.V.m_Value, hv, nullptr);
-            res.second = -res.second;
-            res.first = key;
-            res.first += res.second;
-
+			res.first = key;
+			ExtractOffset(res.first, res.second, index);
+			res.second = -res.second; // different convention
             return res;
         }
     }
@@ -393,6 +387,10 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::Hdr&& msg)
     {
+        if (!m_syncing)
+        {
+            ++m_syncing; // Hdr
+        }
         Block::SystemState::ID newID = {};
         msg.m_Description.get_ID(newID);
         

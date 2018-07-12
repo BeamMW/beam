@@ -45,6 +45,7 @@ namespace beam
 	{
 		virtual void onKeychainChanged() = 0;
 		virtual void onTransactionChanged() = 0;
+		virtual void onSystemStateChanged() = 0;
 	};
 
     struct IKeyChain
@@ -137,6 +138,7 @@ namespace beam
         void storeImpl(Coin& coin);
 		void notifyKeychainChanged();
 		void notifyTransactionChanged();
+		void notifySystemStateChanged();
     private:
 
         sqlite3* _db;
