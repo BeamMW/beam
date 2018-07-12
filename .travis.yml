@@ -45,6 +45,8 @@ matrix:
             - qtdeclarative5-dev
             - qtdeclarative5-qtquick2-plugin
       before_install:
+        - sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa
+        - sudo apt-get update
         - eval "CC=gcc-7 && CXX=g++-7"
       env: BUILD_TYPE=Debug
       script:
