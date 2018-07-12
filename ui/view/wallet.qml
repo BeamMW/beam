@@ -245,6 +245,224 @@ Rectangle {
             ]
         }        
     }
+
+    Rectangle {
+        anchors.fill: parent;
+        anchors.topMargin: 394
+
+        radius: 10
+
+        color: Style.dark_slate_blue
+    }
+
+    Rectangle {
+        anchors.fill: parent;
+        anchors.topMargin: 394+46
+
+        color: "#0a344d"
+    }
+
+    TableView {
+        anchors.fill: parent;
+        anchors.topMargin: 394
+
+        frameVisible: false
+        selectionMode: SelectionMode.NoSelection
+        backgroundVisible: false
+
+        TableViewColumn {
+            role: "income"
+            width: 72
+
+            resizable: false
+            movable: false
+
+            delegate: Item {
+
+                anchors.fill: parent
+
+                SvgImage {
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    source: styleData.value ? "qrc:///assets/icon-received.svg" : "qrc:///assets/icon-sent.svg"
+                }
+            }
+        }
+
+        TableViewColumn {
+            role: "date"
+            title: "Date | time"
+            width: (300-72)
+
+            resizable: false
+            movable: false
+        }
+
+        TableViewColumn {
+            role: "recipient"
+            title: "Recipient / Sender ID"
+            width: (680-300)
+
+            resizable: false
+            movable: false
+        }
+
+        TableViewColumn {
+            role: "comment"
+            title: "Comment"
+            width: (800-680)
+
+            resizable: false
+            movable: false
+
+            delegate: Item {
+
+                anchors.fill: parent
+
+                SvgImage {
+                    anchors.verticalCenter: parent.verticalCenter
+                    x: 20
+                    source: "qrc:///assets/icon-comment.svg"
+                    visible: styleData.value != null
+                }
+            }
+        }
+
+        TableViewColumn {
+            role: "amount"
+            title: "Amount, BEAM"
+            width: (1000-800)
+
+            resizable: false
+            movable: false
+
+            delegate: Row {
+                anchors.fill: parent
+                spacing: 6
+
+                property bool income: model["income"]
+
+                SFText {
+                    font.pixelSize: 24
+
+                    color: parent.income ? Style.bright_sky_blue : Style.heliotrope
+
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: (parent.income ? "+ " : "- ") + styleData.value
+                }
+
+                SFText {
+                    font.pixelSize: 12
+
+                    color: parent.income ? Style.bright_sky_blue : Style.heliotrope
+
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.verticalCenterOffset: 4
+                    text: "BEAM"
+                }
+            }
+        }
+
+        TableViewColumn {
+            role: "amount_usd"
+            title: "Amount, USD"
+            width: (1214-1000)
+
+            resizable: false
+            movable: false
+        }
+
+        TableViewColumn {
+            role: "status"
+            title: "Status"
+            width: (34+62)
+
+            resizable: false
+            movable: false
+
+            delegate: Item {
+
+                anchors.fill: parent
+
+                SFText {
+                    font.pixelSize: 14
+
+                    color: {
+                        if(styleData.value == "sent")
+                            Style.heliotrope
+                        else if(styleData.value == "received")
+                            Style.bright_sky_blue
+                        else Style.white
+                    }
+
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: styleData.value
+                }
+            }
+        }
+
+        model: ListModel {
+            ListElement {
+                income: true
+                date: "12 June 2018  |  3:46 PM"
+                recipient: "1Cs4wu6pu5qCZ35bSLNVzGyEx5N6uzbg9t"
+                comment: "Thanks for your work!"
+                amount: "0.63736"
+                amount_usd: "726.4 USD"
+                status: "received"
+            }
+
+            ListElement {
+                income: false
+                date: "10 June 2018  |  7:02 AM"
+                recipient: "magic_stardust16"
+                amount: "1.300"
+                amount_usd: "10 726.4 USD"
+                status: "sent"
+            }
+        }
+
+        headerDelegate: Item {
+            height: 46
+
+            SFText {
+                anchors.verticalCenter: parent.verticalCenter
+
+                font.pixelSize: 14
+                color: Style.bluey_grey
+
+                text: styleData.value
+            }
+        }
+
+        rowDelegate: Item {
+            height: 69
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+
+            Rectangle {
+                anchors.fill: parent
+
+                color: Style.light_navy
+                visible: styleData.alternate
+            }
+        }
+
+        itemDelegate: Item {
+
+            anchors.fill: parent
+
+            SFText {
+                anchors.verticalCenter: parent.verticalCenter
+
+                font.pixelSize: 14
+                color: Style.white
+
+                text: styleData.value
+            }
+        }
+    }
     
     states: [
         State {

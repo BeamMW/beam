@@ -22,6 +22,7 @@ Item  {
         anchors.horizontalCenter: parent.horizontalCenter
 
         font.pixelSize: 12
+        font.weight: Font.Bold
         color: "#2c5066"
         text: label
 
@@ -64,7 +65,6 @@ Item  {
             name: "active"
 
             PropertyChanges {target: led; visible: true}
-            PropertyChanges {target: text_label; font.weight: Font.Bold}
             PropertyChanges {target: text_label; color: Style.white}
         }
     ]

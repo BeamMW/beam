@@ -44,7 +44,6 @@ Rectangle {
                     height: parent.width
 
                     SvgImage {
-                        id: itemIcon
                         x: 21
                         y: 16
                         width: 28
