@@ -30,6 +30,7 @@ Rectangle {
 
         SFText {
             font.pixelSize: 64
+            font.weight: Font.ExtraLight
             color: Style.bright_teal
 
             text: walletViewModel.available
@@ -39,6 +40,7 @@ Rectangle {
 
         SFText {
             font.pixelSize: 36
+            font.weight: Font.ExtraLight
             color: Style.bright_teal
 
             text: "BEAM"
@@ -49,6 +51,7 @@ Rectangle {
 
     SFText {
         font {
+            weight: Font.ExtraLight
             pixelSize: 24
         }
 

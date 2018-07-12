@@ -385,7 +385,7 @@ Rectangle {
                 anchors.fill: parent
 
                 SFText {
-                    font.pixelSize: 14
+                    font.pixelSize: 12
 
                     color: {
                         if(styleData.value == "sent")
@@ -428,7 +428,7 @@ Rectangle {
             SFText {
                 anchors.verticalCenter: parent.verticalCenter
 
-                font.pixelSize: 14
+                font.pixelSize: 12
                 color: Style.bluey_grey
 
                 text: styleData.value
@@ -456,8 +456,10 @@ Rectangle {
             SFText {
                 anchors.verticalCenter: parent.verticalCenter
 
-                font.pixelSize: 14
+                font.pixelSize: 12
                 color: Style.white
+
+                font.weight: Font.Normal
 
                 text: styleData.value
             }

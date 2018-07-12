@@ -33,6 +33,7 @@ Rectangle {
 
         SFText {
             font {
+                weight: Font.ExtraLight
                 pixelSize: 36
             }
 
@@ -46,6 +47,7 @@ Rectangle {
         SFText {
             font {
                 pixelSize: 24
+                weight: Font.ExtraLight
             }
 
             color: amountColor
@@ -59,6 +61,7 @@ Rectangle {
 
     SFText {
         font {
+            weight: Font.ExtraLight
             pixelSize: 24
         }
 
