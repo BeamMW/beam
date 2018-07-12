@@ -329,6 +329,27 @@ void TestNodeConnection::GenerateTests()
 		Send(gen.GetTransaction());
 	});
 	m_Results.push_back(false);
+
+	m_Tests.push_back([this]()
+	{
+		LOG_INFO() << "Run test with input = 2 chattle, without output, fee= 2 chattles";
+
+		TxGenerator gen(m_Kdf);
+
+		// Inputs 
+		gen.GenerateInputInTx(15, 2);
+
+		// Outputs
+		
+		// Kernels
+		gen.GenerateKernel(15, 2);
+		gen.Sort();
+
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+
+		Send(gen.GetTransaction());
+	});
+	m_Results.push_back(true);
 }
 
 int main(int argc, char* argv[])

@@ -11,10 +11,10 @@ TxGenerator::TxGenerator(const Kdf& kdf)
 	m_MsgTx.m_Transaction->m_Offset = m_Offset;
 }
 
-void TxGenerator::GenerateInputInTx(Height h, Amount v)
+void TxGenerator::GenerateInputInTx(Height h, Amount v, beam::KeyType keyType)
 {
 	Scalar::Native key;
-	DeriveKey(key, m_Kdf, h, KeyType::Coinbase);
+	DeriveKey(key, m_Kdf, h, keyType);
 
 	Input::Ptr pInp(new Input);
 	pInp->m_Commitment = ECC::Commitment(key, v);

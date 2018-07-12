@@ -7,7 +7,7 @@ class TxGenerator
 public:
 	TxGenerator(const ECC::Kdf& kdf);
 
-	void GenerateInputInTx(beam::Height h, beam::Amount v);
+	void GenerateInputInTx(beam::Height h, beam::Amount v, beam::KeyType keyType = beam::KeyType::Coinbase);
 	void GenerateOutputInTx(beam::Height h, beam::Amount v);
 	void GenerateKernel(beam::Height h, beam::Amount fee = 0);
 	void GenerateKernel();
