@@ -111,7 +111,7 @@ void TestNodeConnection::GenerateTests()
 
 		Send(gen.GetTransaction());
 	});
-	m_Results.push_back(true);
+	m_Results.push_back(false);
 }
 
 int main(int argc, char* argv[])

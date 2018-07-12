@@ -1,6 +1,7 @@
 #include "beam/node.h"
 #include "utility/logger.h"
 #include "tools/base_node_connection.h"
+#include "tools/tx_generator.h"
 
 using namespace beam;
 using namespace ECC;
@@ -16,18 +17,14 @@ private:
 	virtual void OnMsg(proto::ProofUtxo&&) override;
 	virtual void OnMsg(proto::Boolean&&) override;
 
-	void SendTx();
-
 private:
 	bool m_IsInit;
 	bool m_IsNeedToCheckOut;
 	unsigned int m_Counter;
 	Block::SystemState::ID m_ID;
 	Input m_Input;
-	Scalar::Native m_InKey;
-	Output m_Output;
-	Scalar::Native m_OutKey;
 	Merkle::Hash m_Definition;
+	TxGenerator m_Generator;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
@@ -35,6 +32,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	, m_IsInit(false)
 	, m_IsNeedToCheckOut(false)
 	, m_Counter(0)
+	, m_Generator(m_Kdf)
 {
 	m_Timeout = 5 * 60 * 1000;
 
@@ -64,21 +62,18 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		m_ID = msg.m_ID;
 		m_IsInit = true;
 
-		DeriveKey(m_InKey, m_Kdf, m_ID.m_Height - 70, KeyType::Coinbase);
+		m_Generator.GenerateInputInTx(m_ID.m_Height - 70, Rules::get().CoinbaseEmission);
 
-		m_Input.m_Commitment = Commitment(m_InKey, Rules::get().CoinbaseEmission);
-
+		m_Input = *m_Generator.GetTransaction().m_Transaction->m_vInputs.front();
 		LOG_INFO() << "Send GetProofUtxo message";
-		m_Timer->start(1 * 1000, false, [this] {Send(proto::GetProofUtxo{ m_Input, 0 }); });
-		//Send(proto::GetProofUtxo{ m_Input, 0 });
+		Send(proto::GetProofUtxo{ m_Input, 0 });
 	}
 
 	if (m_IsNeedToCheckOut)
 	{
-		if (++m_Counter >= 4)
+		if (++m_Counter >= 2)
 		{
-			m_Input.m_Commitment = m_Output.m_Commitment;
-			Send(proto::GetProofUtxo{ m_Input, 0 });
+			Send(proto::GetProofUtxo{ *m_Generator.GetTransaction().m_Transaction->m_vOutputs.front(), 0 });
 		}
 	}
 }
@@ -108,7 +103,11 @@ void TestNodeConnection::OnMsg(proto::ProofUtxo&& msg)
 				isValid = true;
 				if (!m_IsNeedToCheckOut)
 				{
-					SendTx();
+					m_Generator.GenerateOutputInTx(m_ID.m_Height + 1, Rules::get().CoinbaseEmission);
+					m_Input.m_Commitment = m_Generator.GetTransaction().m_Transaction->m_vOutputs.front()->m_Commitment;
+					m_Generator.GenerateKernel(m_ID.m_Height + 5);
+					m_Generator.Sort();
+					Send(m_Generator.GetTransaction());
 					return;
 				}
 				break;
@@ -139,38 +138,6 @@ void TestNodeConnection::OnMsg(proto::Boolean&& msg)
 	}
 
 	m_IsNeedToCheckOut = true;
-}
-
-void TestNodeConnection::SendTx()
-{
-	DeriveKey(m_OutKey, m_Kdf, m_ID.m_Height + 1, KeyType::Regular);
-	m_Output.Create(m_OutKey, Rules::get().CoinbaseEmission/* - 10*/);
-
-	proto::NewTransaction msg;
-	msg.m_Transaction = std::make_shared<Transaction>();
-
-	msg.m_Transaction->m_vInputs.push_back(Input::Ptr(new Input(m_Input)));
-	Output::Ptr out(new Output);
-	*out = m_Output;
-	msg.m_Transaction->m_vOutputs.push_back(std::move(out));
-
-	TxKernel::Ptr pKrn(new TxKernel);
-	Scalar::Native key;
-
-	DeriveKey(key, m_Kdf, m_ID.m_Height + 5, KeyType::Kernel);
-	pKrn->m_Excess = Point::Native(ECC::Context::get().G * key);
-
-	//pKrn->m_Fee = 10;
-	ECC::Hash::Value hv;
-	pKrn->get_HashForSigning(hv);
-	pKrn->m_Signature.Sign(hv, key);
-	msg.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
-
-	Scalar::Native offset = m_InKey + (-m_OutKey);
-	offset += -key;
-	msg.m_Transaction->m_Offset = offset;
-
-	Send(msg);
 }
 
 int main(int argc, char* argv[])
