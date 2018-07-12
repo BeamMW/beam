@@ -43,7 +43,7 @@ matrix:
             - libboost-all-dev
             - libssl-dev
       before_install:
-        - wget https://download.qt.io/official_releases/qt/5.11/5.11.1/qt-opensource-linux-x64-5.11.1.run
+        - wget -q https://download.qt.io/official_releases/qt/5.11/5.11.1/qt-opensource-linux-x64-5.11.1.run
         - chmod +x qt-opensource-linux-x64-5.11.1.run
         - export QT_QPA_PLATFORM="offscreen"
         - ./qt-opensource-linux-x64-5.11.1.run
