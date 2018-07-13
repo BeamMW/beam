@@ -47,6 +47,7 @@ private:
 	void onTransactionChanged() override;
 	void onSystemStateChanged() override;
 
+	void onStatusChanged();
 	WalletStatus getStatus() const;
 private:
 

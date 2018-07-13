@@ -627,6 +627,8 @@ Item {
 
         TableView {
 
+            id: tx_view
+
             anchors.fill: parent;
             anchors.topMargin: 394
 
@@ -663,7 +665,7 @@ Item {
             }
 
             TableViewColumn {
-                role: "recipient"
+                role: "user"
                 title: "Recipient / Sender ID"
                 width: (680-300)
 
@@ -704,7 +706,7 @@ Item {
                     anchors.fill: parent
                     spacing: 6
 
-                    property bool income: model["income"]
+                    property bool income: tx_view.model[styleData.row].income
 
                     SFText {
                         font.pixelSize: 24
@@ -728,7 +730,7 @@ Item {
             }
 
             TableViewColumn {
-                role: "amount_usd"
+                role: "amountUsd"
                 title: "Amount, USD"
                 width: (1214-1000)
 
@@ -766,27 +768,6 @@ Item {
             }
 
             model: walletViewModel.tx
-
-            // model: ListModel {
-            //     ListElement {
-            //         income: true
-            //         date: "12 June 2018  |  3:46 PM"
-            //         recipient: "1Cs4wu6pu5qCZ35bSLNVzGyEx5N6uzbg9t"
-            //         comment: "Thanks for your work!"
-            //         amount: "0.63736"
-            //         amount_usd: "726.4 USD"
-            //         status: "received"
-            //     }
-
-            //     ListElement {
-            //         income: false
-            //         date: "10 June 2018  |  7:02 AM"
-            //         recipient: "magic_stardust16"
-            //         amount: "1.300"
-            //         amount_usd: "10 726.4 USD"
-            //         status: "sent"
-            //     }
-            // }
 
             headerDelegate: Item {
                 height: 46

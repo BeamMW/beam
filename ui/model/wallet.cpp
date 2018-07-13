@@ -49,13 +49,26 @@ WalletModel::~WalletModel()
 
 WalletStatus WalletModel::getStatus() const
 {
-	return WalletStatus
+	WalletStatus status{ wallet::getAvailable(_keychain), 0, 0, 0};
+
+	auto history = _keychain->getTxHistory();
+
+	for (const auto& item : history)
 	{
-		wallet::getAvailable(_keychain), 
-		wallet::getTotal(_keychain, Coin::Unconfirmed),
-		wallet::getTotal(_keychain, Coin::Spent),
-		wallet::getTotal(_keychain, Coin::Unconfirmed)
-	};
+		switch (item.m_status)
+		{
+		case TxDescription::Completed:
+			(item.m_sender ? status.sent : status.received) += item.m_amount;
+			break;
+		case TxDescription::Pending:
+		case TxDescription::InProgress:
+			status.unconfirmed += item.m_amount;
+			break;
+		default: break;
+		}
+	}
+
+	return status;
 }
 
 void WalletModel::run()
@@ -116,17 +129,23 @@ void WalletModel::run()
 	}
 }
 
-void WalletModel::onKeychainChanged()
+void WalletModel::onStatusChanged()
 {
 	emit onStatus(getStatus());
+}
+
+void WalletModel::onKeychainChanged()
+{
+	onStatusChanged();
 }
 
 void WalletModel::onTransactionChanged()
 {
 	emit onTxStatus(_keychain->getTxHistory());
+	onStatusChanged();
 }
 
 void WalletModel::onSystemStateChanged()
 {
-	emit onStatus(getStatus());
+	onStatusChanged();
 }

@@ -7,9 +7,9 @@ using namespace std;
 
 namespace
 {
-	QString BeamToString(const Amount& value)
+	QString BeamToString(const Amount& value, int prec = 3)
 	{
-		return QString::number(static_cast<float>(value) / Rules::Coin, 'f', 3);
+		return QString::number(static_cast<float>(value) / Rules::Coin, 'f', prec);
 	}
 }
 
@@ -40,13 +40,13 @@ QString TxObject::comment() const
 
 QString TxObject::amount() const
 {
-	return QString(_tx.m_sender ? "- " : "+ ") +  BeamToString(_tx.m_amount) + " BEAM";
+	return BeamToString(_tx.m_amount);
 }
 
 QString TxObject::amountUsd() const
 {
 	// TODO: don't know how we're going to calc amount USD
-	return QString::number(_tx.m_amount) + " USD";
+	return BeamToString(_tx.m_amount) + " USD";
 }
 
 QString TxObject::status() const
@@ -176,7 +176,7 @@ void WalletViewModel::sendMoney()
 	if (receiverAddr.resolve(_receiverAddr.c_str()))
 	{
 		// TODO: show 'operation in process' animation here?
-		_model.async->sendMoney(std::move(receiverAddr), std::move(_sendAmount));
+		_model.async->sendMoney(std::move(receiverAddr), std::move(_sendAmount) * Rules::Coin);
 
 	}
 	else
