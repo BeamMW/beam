@@ -56,6 +56,7 @@ namespace cli
     const char* WALLET_SEED = "wallet_seed";
     const char* FEE = "fee";
     const char* FEE_FULL = "fee,f";
+    const char* RECEIVE = "receive";
 }
 namespace beam
 {
@@ -370,7 +371,7 @@ int main_impl(int argc, char* argv[])
 		(cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
         (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
         (cli::TX_HISTORY, "print transacrions' history in info command")
-		(cli::COMMAND, po::value<string>(), "command to execute [send|listen|init|info|treasury]");
+		(cli::COMMAND, po::value<string>(), "command to execute [send|receive|listen|init|info|treasury]");
 
 #define RulesParams(macro) \
 	macro(Amount, CoinbaseEmission, "coinbase emission in a single block") \
@@ -527,6 +528,7 @@ int main_impl(int argc, char* argv[])
                     auto command = vm[cli::COMMAND].as<string>();
                     if (command != cli::INIT
                      && command != cli::SEND
+                     && command != cli::RECEIVE
                      && command != cli::LISTEN
                      && command != cli::TREASURY
                      && command != cli::INFO)
@@ -670,7 +672,8 @@ int main_impl(int argc, char* argv[])
                     io::Address receiverAddr;
                     Amount amount = 0;
                     Amount fee = 0;
-                    if (command == cli::SEND)
+                    bool isTxInitiator = command == cli::SEND || command == cli::RECEIVE;
+                    if (isTxInitiator)
                     {
                         if (vm.count(cli::RECEIVER_ADDR) == 0)
                         {
@@ -722,9 +725,9 @@ int main_impl(int argc, char* argv[])
                         , is_server
                         , keychain
                         , reactor };
-                    if (command == cli::SEND)
+                    if (isTxInitiator)
                     {
-                        wallet_io.transfer_money(receiverAddr, move(amount), move(fee));
+                        wallet_io.transfer_money(receiverAddr, move(amount), move(fee), command == cli::SEND);
                     }
                     wallet_io.start();
                 }
