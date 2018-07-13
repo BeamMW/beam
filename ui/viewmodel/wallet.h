@@ -91,7 +91,7 @@ private:
 
 	WalletStatus _status;
 
-	beam::Amount _sendAmount;
+	QString _sendAmount;
 	std::string _receiverAddr;
 	TxList _tx;
 
