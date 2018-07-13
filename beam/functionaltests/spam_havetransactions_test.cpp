@@ -33,7 +33,7 @@ void SetRandom(Scalar::Native& x)
 	}
 }
 
-class TestNodeConnection : public BaseTestNodeConnection
+class TestNodeConnection : public BaseTestNode
 {
 public:
 	TestNodeConnection(int argc, char* argv[], int h);	
@@ -46,7 +46,7 @@ private:
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[], int h)
-	: BaseTestNodeConnection(argc, argv)
+	: BaseTestNode(argc, argv)
 	, m_Ind(h)
 {
 	m_Timeout = 0;

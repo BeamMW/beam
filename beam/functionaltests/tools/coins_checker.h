@@ -3,7 +3,7 @@
 #include "beam/node.h"
 #include "base_node_connection.h"
 
-class CoinsChecker : public BaseTestNodeConnection
+class CoinsChecker : public BaseTestNode
 {
 public:
 	using Inputs = std::vector<beam::Input>;
@@ -17,8 +17,6 @@ protected:
 
 	void Check(const Inputs& inputs, Callback callback);
 	void InitChecker();
-
-	//virtual void OnFinishCheck(bool isOk);
 
 protected:
 

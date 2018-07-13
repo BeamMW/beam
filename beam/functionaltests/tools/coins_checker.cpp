@@ -5,7 +5,7 @@ using namespace beam;
 using namespace ECC;
 
 CoinsChecker::CoinsChecker(int argc, char* argv[])
-	: BaseTestNodeConnection(argc, argv)
+	: BaseTestNode(argc, argv)
 	, m_IsInitChecker(false)
 {
 	Rules::get().FakePoW = true;
