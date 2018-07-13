@@ -12,16 +12,13 @@ CoinsChecker::CoinsChecker(int argc, char* argv[])
 	Rules::get().UpdateChecksum();
 }
 
-void CoinsChecker::Check(const Inputs& inputs)
+void CoinsChecker::Check(const Inputs& inputs, Callback callback)
 {
 	m_Inputs = inputs;
 	m_Current = m_Inputs.begin();
+	m_Callback = callback;
 	m_IsOk = true;
 	Send(proto::GetProofUtxo{*m_Current, 0});
-}
-
-void CoinsChecker::OnFinishCheck(bool isOk)
-{
 }
 
 void CoinsChecker::InitChecker()
@@ -56,7 +53,6 @@ void CoinsChecker::OnMsg(proto::ProofUtxo&& msg)
 		{
 			if (proof.IsValid(*m_Current, m_Definition))
 			{
-				LOG_INFO() << "OK: utxo is valid";
 				isValid = true;
 				break;
 			}
@@ -75,6 +71,6 @@ void CoinsChecker::OnMsg(proto::ProofUtxo&& msg)
 	}
 	else 
 	{
-		OnFinishCheck(m_IsOk);
+		m_Callback(m_IsOk);
 	}
 }

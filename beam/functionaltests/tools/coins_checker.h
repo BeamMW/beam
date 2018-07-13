@@ -7,6 +7,7 @@ class CoinsChecker : public BaseTestNodeConnection
 {
 public:
 	using Inputs = std::vector<beam::Input>;
+	using Callback = std::function<void(bool)>;
 public:
 	CoinsChecker(int argc, char* argv[]);
 
@@ -14,10 +15,10 @@ protected:
 	virtual void OnMsg(beam::proto::Hdr&&) override;
 	virtual void OnMsg(beam::proto::ProofUtxo&&) override;
 
-	void Check(const Inputs& inputs);
+	void Check(const Inputs& inputs, Callback callback);
 	void InitChecker();
 
-	virtual void OnFinishCheck(bool isOk);
+	//virtual void OnFinishCheck(bool isOk);
 
 protected:
 
@@ -26,4 +27,5 @@ protected:
 	beam::Merkle::Hash m_Definition;
 	Inputs m_Inputs;
 	Inputs::const_iterator m_Current;
+	Callback m_Callback;
 };

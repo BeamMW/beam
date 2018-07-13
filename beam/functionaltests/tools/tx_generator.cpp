@@ -103,3 +103,20 @@ void TxGenerator::ZeroOffset()
 	m_Offset = Zero;
 	m_MsgTx.m_Transaction->m_Offset = m_Offset;
 }
+
+TxGenerator::Inputs TxGenerator::GenerateInputsFromOutputs()
+{
+	Inputs inputs;
+	const auto& outputs = GetTransaction().m_Transaction->m_vOutputs;
+	inputs.resize(outputs.size());
+	std::transform(outputs.begin(), outputs.end(), inputs.begin(),
+		[](const Output::Ptr& output)
+		{
+			Input input;
+			input.m_Commitment = output->m_Commitment;
+			return input;
+		}
+	);
+
+	return inputs;
+}

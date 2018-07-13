@@ -16,17 +16,13 @@ private:
 
 	virtual void OnMsg(proto::NewTip&&) override;
 	virtual void OnMsg(proto::Boolean&&) override;
-	
-	virtual void OnFinishCheck(bool isOk) override;
 
 private:
 	bool m_IsInit;
 	bool m_IsNeedToCheckOut;
 	unsigned int m_Counter;
 	Block::SystemState::ID m_ID;
-	Merkle::Hash m_Definition;
 	TxGenerator m_Generator;
-	size_t m_Ind;
 	Input m_Input;
 
 	const Amount m_SpentAmount = 6000;
@@ -38,7 +34,6 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	, m_IsNeedToCheckOut(false)
 	, m_Counter(0)
 	, m_Generator(m_Kdf)
-	, m_Ind(0)
 {
 	m_Timeout = 5 * 60 * 1000;
 
@@ -81,18 +76,16 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 	{
 		if (++m_Counter >= 2)
 		{
-			Inputs inputs;
-			const auto& outputs = m_Generator.GetTransaction().m_Transaction->m_vOutputs;
-			inputs.resize(outputs.size());
-			std::transform(outputs.begin(), outputs.end(), inputs.begin(),
-				[](const Output::Ptr& output) 
-				{
-					Input input;
-					input.m_Commitment = output->m_Commitment;
-					return input;
-				}
+			Check(m_Generator.GenerateInputsFromOutputs(),
+				[](bool isOk) 
+					{
+						if (isOk)
+							LOG_INFO() << "Everythink is Ok";
+						else
+							LOG_INFO() << "Everythink is Failed";
+						io::Reactor::get_Current().stop();
+					}
 			);
-			Check(inputs);
 			m_IsNeedToCheckOut = false;
 		}
 	}
@@ -111,12 +104,6 @@ void TestNodeConnection::OnMsg(proto::Boolean&& msg)
 	}
 
 	m_IsNeedToCheckOut = true;
-}
-
-void TestNodeConnection::OnFinishCheck(bool isOk)
-{
-	LOG_INFO() << "Everythink is Ok";
-	io::Reactor::get_Current().stop();
 }
 
 int main(int argc, char* argv[])
