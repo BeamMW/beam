@@ -1,6 +1,8 @@
 set(TEST_TOOLS_SRC
 	tools/base_node_connection.h
 	tools/base_node_connection.cpp
+	tools/coins_checker.h
+	tools/coins_checker.cpp
 	tools/new_tx_tests.h
 	tools/new_tx_tests.cpp
 	tools/tx_generator.h

@@ -1,12 +1,13 @@
 #include "beam/node.h"
 #include "utility/logger.h"
-#include "tools/base_node_connection.h"
+#include "tools/coins_checker.h"
 #include "tools/tx_generator.h"
+
 
 using namespace beam;
 using namespace ECC;
 
-class TestNodeConnection : public BaseTestNodeConnection
+class TestNodeConnection : public CoinsChecker
 {
 public:
 	TestNodeConnection(int argc, char* argv[]);
@@ -14,11 +15,9 @@ private:
 	virtual void GenerateTests() override;
 
 	virtual void OnMsg(proto::NewTip&&) override;
-	virtual void OnMsg(proto::Hdr&&) override;
-	virtual void OnMsg(proto::ProofUtxo&&) override;
 	virtual void OnMsg(proto::Boolean&&) override;
-
-	void RequestProof();
+	
+	virtual void OnFinishCheck(bool isOk) override;
 
 private:
 	bool m_IsInit;
@@ -34,7 +33,7 @@ private:
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
-	: BaseTestNodeConnection(argc, argv)
+	: CoinsChecker(argc, argv)
 	, m_IsInit(false)
 	, m_IsNeedToCheckOut(false)
 	, m_Counter(0)
@@ -51,12 +50,7 @@ void TestNodeConnection::GenerateTests()
 {
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send Config to node";
-
-		proto::Config msg;
-		msg.m_CfgChecksum = Rules::get().Checksum;
-		msg.m_AutoSendHdr = true;
-		Send(msg);
+		InitChecker();		
 	});
 }
 
@@ -85,56 +79,23 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 
 	if (m_IsNeedToCheckOut)
 	{
-		if (++m_Counter >= 5)
+		if (++m_Counter >= 2)
 		{
-			RequestProof();
+			Inputs inputs;
+			const auto& outputs = m_Generator.GetTransaction().m_Transaction->m_vOutputs;
+			inputs.resize(outputs.size());
+			std::transform(outputs.begin(), outputs.end(), inputs.begin(),
+				[](const Output::Ptr& output) 
+				{
+					Input input;
+					input.m_Commitment = output->m_Commitment;
+					return input;
+				}
+			);
+			Check(inputs);
 			m_IsNeedToCheckOut = false;
 		}
 	}
-}
-
-void TestNodeConnection::OnMsg(proto::Hdr&& msg)
-{
-	LOG_INFO() << "Hdr: ";
-
-	m_Definition = msg.m_Description.m_Definition;
-}
-
-void TestNodeConnection::OnMsg(proto::ProofUtxo&& msg)
-{
-	if (msg.m_Proofs.empty())
-	{
-		LOG_INFO() << "Failed: list is empty";
-		m_Failed = true;
-	}
-	else
-	{
-		bool isValid = false;
-		for (const auto& proof : msg.m_Proofs)
-		{
-			if (proof.IsValid(m_Input, m_Definition))
-			{
-				LOG_INFO() << "OK: utxo is valid";
-				isValid = true;
-				break;
-			}
-		}
-
-		if (!isValid)
-		{
-			LOG_INFO() << "Failed: utxo is not valid";
-			m_Failed = true;
-		}
-	}
-
-	if (m_Ind >= m_Generator.GetTransaction().m_Transaction->m_vOutputs.size())
-	{
-		LOG_INFO() << "It's done";
-		io::Reactor::get_Current().stop();
-		return;
-	}
-
-	RequestProof();
 }
 
 void TestNodeConnection::OnMsg(proto::Boolean&& msg)
@@ -152,10 +113,10 @@ void TestNodeConnection::OnMsg(proto::Boolean&& msg)
 	m_IsNeedToCheckOut = true;
 }
 
-void TestNodeConnection::RequestProof()
+void TestNodeConnection::OnFinishCheck(bool isOk)
 {
-	m_Input.m_Commitment = m_Generator.GetTransaction().m_Transaction->m_vOutputs[m_Ind++]->m_Commitment;
-	Send(proto::GetProofUtxo{ m_Input, 0});
+	LOG_INFO() << "Everythink is Ok";
+	io::Reactor::get_Current().stop();
 }
 
 int main(int argc, char* argv[])
