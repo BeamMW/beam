@@ -395,7 +395,7 @@ namespace ECC {
 			return true;
 
 		*this = Zero;
-		return false;
+		return memis0(&v, sizeof(v));
 	}
 
 	Point::Native& Point::Native::operator = (const Point& v)
