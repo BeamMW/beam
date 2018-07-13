@@ -1,28 +1,55 @@
 <RCC>
     <qresource prefix="/">
+        <file>controls/Style.qml</file>
+        <file>controls/qmldir</file>      
+        <file>controls/SvgImage.qml</file>
+        <file>controls/SFText.qml</file>
+        <file>controls/AvailablePanel.qml</file>
+        <file>controls/SecondaryPanel.qml</file>
+        <file>controls/Led.qml</file>
+        <file>controls/TxFilter.qml</file>
+        <file>controls/CuteButton.qml</file>
+
         <file>main.qml</file>
-        <file>assets/logo.png</file>
-
         <file>dashboard.qml</file>
-        <file>assets/dashboard-icon.png</file>
-        <file>assets/dashboard-icon-active.png</file>
-
         <file>wallet.qml</file>
-        <file>WalletSend.qml</file>
-        <file>assets/wallet-icon.png</file>
-        <file>assets/wallet-icon-active.png</file>
-      
-        <file>notifications.qml</file>
-        <file>assets/notifications-icon.png</file>
-        <file>assets/notifications-icon-active.png</file>
-      
-        <file>help.qml</file>
-        <file>assets/help-icon.png</file>
-        <file>assets/help-icon-active.png</file>
-      
+        <file>notification.qml</file>
+        <file>info.qml</file>
         <file>settings.qml</file>
-        <file>assets/settings-icon.png</file>
-        <file>assets/settings-icon-active.png</file>
+      
+        <file>assets/fonts/SF-Pro-Display-Thin.otf</file>
+        <file>assets/fonts/SF-Pro-Display-Bold.otf</file>
+        <file>assets/fonts/SF-Pro-Display-Regular.otf</file>
+<!--         <file>assets/fonts/SF-Pro-Display-Black.otf</file>
+        <file>assets/fonts/SF-Pro-Display-MediumItalic.otf</file>
+        <file>assets/fonts/SF-Pro-Display-BlackItalic.otf</file>
+        <file>assets/fonts/SF-Pro-Display-RegularItalic.otf</file>
+        <file>assets/fonts/SF-Pro-Display-BoldItalic.otf</file>
+        <file>assets/fonts/SF-Pro-Display-Semibold.otf</file>
+        <file>assets/fonts/SF-Pro-Display-Heavy.otf</file>
+        <file>assets/fonts/SF-Pro-Display-SemiboldItalic.otf</file>
+        <file>assets/fonts/SF-Pro-Display-HeavyItalic.otf</file>
+        <file>assets/fonts/SF-Pro-Display-Light.otf</file>
+        <file>assets/fonts/SF-Pro-Display-ThinItalic.otf</file>
+        <file>assets/fonts/SF-Pro-Display-LightItalic.otf</file>
+        <file>assets/fonts/SF-Pro-Display-Ultralight.otf</file>
+        <file>assets/fonts/SF-Pro-Display-Medium.otf</file>
+        <file>assets/fonts/SF-Pro-Display-UltralightItalic.otf</file>
+ -->
+        <file>assets/logo.png</file>
+        <file>assets/icon-dashboard.svg</file>
+        <file>assets/icon-dashboard-active.svg</file>
+        <file>assets/icon-wallet.svg</file>
+        <file>assets/icon-wallet-active.svg</file>     
+        <file>assets/icon-notification.svg</file>
+        <file>assets/icon-notification-active.svg</file>
+        <file>assets/icon-info.svg</file>
+        <file>assets/icon-info-active.svg</file>
+        <file>assets/icon-settings.svg</file>
+        <file>assets/icon-settings-active.svg</file>
+        <file>assets/icon-sent.svg</file>
+        <file>assets/icon-received.svg</file>
+        <file>assets/icon-comment.svg</file>
 
     </qresource>
 </RCC>
