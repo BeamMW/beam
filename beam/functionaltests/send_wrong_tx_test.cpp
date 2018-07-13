@@ -379,19 +379,30 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Run test without input, output , fee ";
 
+		TxGenerator gen(m_Kdf);		
+
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+
+		Send(gen.GetTransaction());
+	});
+	m_Results.push_back(false);
+
+	m_Tests.push_back([this]()
+	{
+		LOG_INFO() << "Run test with input.m_Commitment = ouput.m_Commitment, fee = 0";
+
 		TxGenerator gen(m_Kdf);
 
 		// Inputs 
-		//gen.GenerateInputInTx(16, 2);
+		gen.GenerateInputInTx(17, 2, KeyType::Coinbase);
 
 		// Outputs
-		//gen.GenerateOutputInTx(16, 2);
+		gen.GenerateOutputInTx(17, 2, KeyType::Coinbase);
 
 		// Kernels
-		//gen.GenerateKernel(16, 1);
+		gen.GenerateKernel(17, 0);
 
-		//gen.ZeroOffset();
-		//gen.Sort();
+		gen.Sort();
 
 		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 

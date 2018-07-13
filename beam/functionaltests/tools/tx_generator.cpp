@@ -23,12 +23,12 @@ void TxGenerator::GenerateInputInTx(Height h, Amount v, beam::KeyType keyType)
 	m_MsgTx.m_Transaction->m_Offset = m_Offset;
 }
 
-void TxGenerator::GenerateOutputInTx(Height h, Amount v)
+void TxGenerator::GenerateOutputInTx(Height h, Amount v, beam::KeyType keyType)
 {
 	Output::Ptr pOut(new Output);
 	ECC::Scalar::Native key;
 
-	DeriveKey(key, m_Kdf, h, KeyType::Regular);
+	DeriveKey(key, m_Kdf, h, keyType);
 	pOut->m_Incubation = 2;
 	pOut->Create(key, v, true);
 	m_MsgTx.m_Transaction->m_vOutputs.push_back(std::move(pOut));
