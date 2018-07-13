@@ -167,6 +167,9 @@ namespace beam::wallet
 
             void getSenderInputsAndOutputs(const Height& currentHeight, std::vector<Input::Ptr>& inputs, std::vector<Output::Ptr>& outputs);
 
+			bool registerTxInternal(const events::TxConfirmationCompleted&);
+			bool confirmPeerInternal(const events::TxInvitationCompleted&);
+
             using do_serialize = int;
             typedef int no_message_queue;
 
