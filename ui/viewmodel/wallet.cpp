@@ -58,7 +58,7 @@ QString TxObject::status() const
 WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
 	: _model(keychain, port, nodeAddr)
 	, _status{0, 0, 0, 0}
-	, _sendAmount(40)
+	, _sendAmount(40 * Rules::Coin)
 	, _receiverAddr("127.0.0.1:8888")
 {
 	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
@@ -134,12 +134,12 @@ QString WalletViewModel::unconfirmed() const
 
 QString WalletViewModel::sendAmount() const
 {
-	return QString::number(_sendAmount);
+	return QString::number(static_cast<float>(_sendAmount) / Rules::Coin, 'f', 3);
 }
 
 void WalletViewModel::setSendAmount(const QString& text)
 {
-	beam::Amount amount = text.toUInt();
+	beam::Amount amount = text.toFloat() * Rules::Coin;
 
 	if (amount != _sendAmount)
 	{
@@ -176,7 +176,7 @@ void WalletViewModel::sendMoney()
 	if (receiverAddr.resolve(_receiverAddr.c_str()))
 	{
 		// TODO: show 'operation in process' animation here?
-		_model.async->sendMoney(std::move(receiverAddr), std::move(_sendAmount) * Rules::Coin);
+		_model.async->sendMoney(std::move(receiverAddr), std::move(_sendAmount));
 
 	}
 	else

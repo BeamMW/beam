@@ -68,6 +68,8 @@ WalletStatus WalletModel::getStatus() const
 		}
 	}
 
+	status.unconfirmed += wallet::getTotal(_keychain, Coin::Locked);
+
 	return status;
 }
 
