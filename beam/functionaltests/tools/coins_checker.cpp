@@ -5,7 +5,7 @@ using namespace beam;
 using namespace ECC;
 
 CoinsChecker::CoinsChecker(int argc, char* argv[])
-	: BaseTestNode(argc, argv)
+	: BaseNodeConnection(argc, argv)
 	, m_IsInitChecker(false)
 {
 	Rules::get().FakePoW = true;
@@ -14,14 +14,26 @@ CoinsChecker::CoinsChecker(int argc, char* argv[])
 
 void CoinsChecker::Check(const Inputs& inputs, Callback callback)
 {
-	m_Inputs = inputs;
-	m_Current = m_Inputs.begin();
-	m_Callback = callback;
+	m_Queue.push_back(std::make_pair(inputs, callback));
+	if (m_IsInitChecker && m_Queue.size() == 1)
+	{
+		StartChecking();
+	}	
+}
+
+void CoinsChecker::StartChecking()
+{
+	m_Current = m_Queue.front().first.begin();
 	m_IsOk = true;
-	Send(proto::GetProofUtxo{*m_Current, 0});
+	Send(proto::GetProofUtxo{ *m_Current, 0 });
 }
 
 void CoinsChecker::InitChecker()
+{
+	ConnectToNode();	
+}
+
+void CoinsChecker::OnConnected()
 {
 	LOG_INFO() << "Send Config to node";
 
@@ -31,12 +43,27 @@ void CoinsChecker::InitChecker()
 	Send(msg);
 }
 
+void CoinsChecker::OnDisconnect(const DisconnectReason& reason)
+{
+	LOG_ERROR() << "problem with connecting to node: code = " << reason;
+	for (const auto& tmp : m_Queue)
+	{
+		tmp.second(false);
+	}
+	m_Queue.clear();
+}
+
 void CoinsChecker::OnMsg(proto::Hdr&& msg)
 {
 	LOG_INFO() << "Hdr: ";
 
 	m_Definition = msg.m_Description.m_Definition;
-	m_IsInitChecker = true;
+	if (!m_IsInitChecker)
+	{
+		m_IsInitChecker = true;
+		if (!m_Queue.empty())
+			StartChecking();
+	}
 }
 
 void CoinsChecker::OnMsg(proto::ProofUtxo&& msg)
@@ -65,12 +92,15 @@ void CoinsChecker::OnMsg(proto::ProofUtxo&& msg)
 		}
 	}
 
-	if (++m_Current != m_Inputs.end())
+	if (++m_Current != m_Queue.front().first.end())
 	{
 		Send(proto::GetProofUtxo{ *m_Current, 0 });
 	}
 	else 
 	{
-		m_Callback(m_IsOk);
+		m_Queue.front().second(m_IsOk);
+		m_Queue.pop_front();
+		if (!m_Queue.empty())
+			StartChecking();
 	}
 }

@@ -7,7 +7,7 @@
 using namespace beam;
 using namespace ECC;
 
-class TestNodeConnection : public CoinsChecker
+class TestNodeConnection : public BaseTestNode
 {
 public:
 	TestNodeConnection(int argc, char* argv[]);
@@ -24,16 +24,18 @@ private:
 	Block::SystemState::ID m_ID;
 	TxGenerator m_Generator;
 	Input m_Input;
+	CoinsChecker m_CoinsChecker;
 
 	const Amount m_SpentAmount = 6000;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
-	: CoinsChecker(argc, argv)
+	: BaseTestNode(argc, argv)
 	, m_IsInit(false)
 	, m_IsNeedToCheckOut(false)
 	, m_Counter(0)
 	, m_Generator(m_Kdf)
+	, m_CoinsChecker(argc, argv)
 {
 	m_Timeout = 5 * 60 * 1000;
 
@@ -45,7 +47,7 @@ void TestNodeConnection::GenerateTests()
 {
 	m_Tests.push_back([this]()
 	{
-		InitChecker();		
+		m_CoinsChecker.InitChecker();
 	});
 }
 
@@ -76,7 +78,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 	{
 		if (++m_Counter >= 2)
 		{
-			Check(m_Generator.GenerateInputsFromOutputs(),
+			m_CoinsChecker.Check(m_Generator.GenerateInputsFromOutputs(),
 				[](bool isOk) 
 					{
 						if (isOk)
