@@ -1183,7 +1183,7 @@ namespace ECC {
 	// RangeProof
 	namespace RangeProof
 	{
-		void get_PtMinusVal(Point::Native& out, const Point& comm, Amount val)
+		void get_PtMinusVal(Point::Native& out, const Point::Native& comm, Amount val)
 		{
 			out = comm;
 
@@ -1194,7 +1194,7 @@ namespace ECC {
 		}
 
 		// Public
-		bool Public::IsValid(const Point& comm, Oracle& oracle) const
+		bool Public::IsValid(const Point::Native& comm, Oracle& oracle) const
 		{
 			Mode::Scope scope(Mode::Fast);
 
@@ -1885,7 +1885,7 @@ namespace ECC {
 		oracle >> x;
 	}
 
-	bool RangeProof::Confidential::IsValid(const Point& commitment, Oracle& oracle) const
+	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle) const
 	{
 		Mode::Scope scope(Mode::Fast);
 

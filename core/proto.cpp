@@ -133,7 +133,12 @@ void ProtocolPlus::InitCipher()
 	ECC::Point pt;
 	pt.m_X = m_RemoteNonce;
 	pt.m_Y = false;
-	ECC::Point::Native ptSecret = ECC::Point::Native(pt) * m_MyNonce;
+
+	ECC::Point::Native p;
+	if (!p.Import(pt))
+		NodeConnection::ThrowUnexpected();
+
+	ECC::Point::Native ptSecret = p * m_MyNonce;
 
 	ECC::NoLeak<ECC::Hash::Processor> hp;
 	ECC::NoLeak<ECC::Hash::Value> hvSecret;
@@ -442,7 +447,11 @@ void NodeConnection::OnMsg(Authentication&& msg)
 	pt.m_X = msg.m_ID;
 	pt.m_Y = false;
 
-	if (!msg.m_Sig.IsValid(hv, pt))
+	ECC::Point::Native p;
+	if (!p.Import(pt))
+		ThrowUnexpected();
+
+	if (!msg.m_Sig.IsValid(hv, p))
 		ThrowUnexpected();
 }
 

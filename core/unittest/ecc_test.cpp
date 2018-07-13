@@ -376,14 +376,14 @@ void TestRangeProof()
 
 	{
 		Oracle oracle;
-		verify_test(rp.IsValid(Point(comm), oracle));
+		verify_test(rp.IsValid(comm, oracle));
 	}
 
 	// tamper value
 	rp.m_Value++;
 	{
 		Oracle oracle;
-		verify_test(!rp.IsValid(Point(comm), oracle));
+		verify_test(!rp.IsValid(comm, oracle));
 	}
 	rp.m_Value--;
 
@@ -394,7 +394,7 @@ void TestRangeProof()
 
 	{
 		Oracle oracle;
-		verify_test(!rp.IsValid(Point(comm), oracle));
+		verify_test(!rp.IsValid(comm, oracle));
 	}
 
 	Scalar::Native pA[InnerProduct::nDim];
@@ -488,13 +488,13 @@ void TestRangeProof()
 	{
 		beam::Output outp;
 		outp.Create(1U, 20300, true);
-		verify_test(outp.IsValid());
+		verify_test(outp.IsValid(comm));
 		WriteSizeSerialized("Out-UTXO-Public", outp);
 	}
 	{
 		beam::Output outp;
 		outp.Create(1U, 20300, false);
-		verify_test(outp.IsValid());
+		verify_test(outp.IsValid(comm));
 		WriteSizeSerialized("Out-UTXO-Confidential", outp);
 	}
 
@@ -1170,7 +1170,7 @@ void RunBenchmark()
 		} while (bm.ShouldContinue());
 	}
 
-	Point comm = Commitment(k1, v);
+	Point::Native comm = Commitment(k1, v);
 
 	{
 		BenchmarkMeter bm("BulletProof.Verify");

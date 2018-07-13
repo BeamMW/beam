@@ -375,7 +375,7 @@ namespace ECC
 			InnerProduct m_P_Tag; // contains commitment P - m_Mu*G
 
 			void Create(const Scalar::Native& sk, Amount, Oracle&);
-			bool IsValid(const Point&, Oracle&) const;
+			bool IsValid(const Point::Native&, Oracle&) const;
 
 			int cmp(const Confidential&) const;
 			COMPARISON_VIA_CMP(Confidential)
@@ -407,7 +407,7 @@ namespace ECC
 			Amount m_Value;
 
 			void Create(const Scalar::Native& sk, Oracle&); // amount should have been set
-			bool IsValid(const Point&, Oracle&) const;
+			bool IsValid(const Point::Native&, Oracle&) const;
 
 			int cmp(const Public&) const;
 			COMPARISON_VIA_CMP(Public)
