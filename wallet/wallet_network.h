@@ -9,12 +9,13 @@
 #include "utility/io/tcpserver.h"
 #include "core/proto.h"
 #include "utility/io/timer.h"
-
 #include <boost/intrusive/set.hpp>
 #include "wallet.h"
 
 namespace beam
 {
+    namespace bi = boost::intrusive;
+
     enum WalletNetworkMessageCodes : uint8_t
     {
         senderInvitationCode     = 100,
@@ -25,16 +26,16 @@ namespace beam
     };
 
     class WalletNetworkIO : public IErrorHandler
-                          , public INetworkIO
+                          , public NetworkIOBase
     {
+        struct ConnectionInfo;
+        using ConnectCallback = std::function<void(const ConnectionInfo&)>;
     public:
 
-        using ConnectCallback = std::function<void(uint64_t tag)>;
 
-        WalletNetworkIO(const TxPeer& peer
+        WalletNetworkIO(io::Address address
                       , io::Address node_address
                       , bool is_server
-                      , IKeyChain::Ptr keychain
                       , io::Reactor::Ptr reactor = io::Reactor::Ptr()
                       , unsigned reconnect_ms = 1000 // 1 sec
                       , unsigned sync_period_ms = 60 * 1000  // 1 minute
@@ -44,15 +45,15 @@ namespace beam
         void start();
         void stop();
 
-        Uuid transfer_money(const PeerID& receiver, Amount&& amount, Amount&& fee = 0, bool sender = true, ByteBuffer&& message = {});
+        void add_wallet(const WalletID& walletID, io::Address address);
 
     private:
         // INetworkIO
-        void send_tx_message(const PeerID& to, wallet::Invite&&) override;
-        void send_tx_message(const PeerID& to, wallet::ConfirmTransaction&&) override;
-        void send_tx_message(const PeerID& to, wallet::ConfirmInvitation&&) override;
-        void send_tx_message(const PeerID& to, wallet::TxRegistered&&) override;
-        void send_tx_message(const PeerID& to, wallet::TxFailed&&) override;
+        void send_tx_message(const WalletID& to, wallet::Invite&&) override;
+        void send_tx_message(const WalletID& to, wallet::ConfirmTransaction&&) override;
+        void send_tx_message(const WalletID& to, wallet::ConfirmInvitation&&) override;
+        void send_tx_message(const WalletID& to, wallet::TxRegistered&&) override;
+        void send_tx_message(const WalletID& to, wallet::TxFailed&&) override;
 
         void send_node_message(proto::NewTransaction&&) override;
         void send_node_message(proto::GetProofUtxo&&) override;
@@ -60,7 +61,8 @@ namespace beam
         void send_node_message(proto::GetMined&&) override;
         void send_node_message(proto::GetProofState&&) override;
 
-        void close_connection(const PeerID& id) override;
+        void close_connection(const WalletID& id) override;
+        void connect_node() override;
         void close_node_connection() override;
 
         // IMsgHandler
@@ -73,39 +75,40 @@ namespace beam
         bool on_message(uint64_t connectionId, wallet::ConfirmInvitation&& msg);
         bool on_message(uint64_t connectionId, wallet::TxRegistered&& msg);
         bool on_message(uint64_t connectionId, wallet::TxFailed&& msg);
-
-        void connect_wallet(io::Address address, uint64_t tag, ConnectCallback&& callback);
+        struct WalletInfo;
+        void connect_wallet(const WalletInfo& wallet, uint64_t tag, ConnectCallback&& callback);
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
         void on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status);
-        bool register_connection(uint64_t tag, io::TcpStream::Ptr&& newStream);
 
-        void connect_node();
         void start_sync_timer();
         void on_sync_timer();
         void on_node_connected();
 
         uint64_t get_connection_tag();
         void create_node_connection();
+        void add_connection(uint64_t tag, ConnectionInfo&&);
 
         template <typename T>
-        void send(const PeerID& peerID, MsgType type, T&& msg)
+        void send(const WalletID& walletID, MsgType type, T&& msg)
         {
-            //auto to = get_connection(peerID);
-            //if (auto it = m_connections.find(to); it != m_connections.end())
-            //{
-            //    m_protocol.serialize(m_msgToSend, type, msg);
-            //    auto res = it->second->write_msg(m_msgToSend);
-            //    m_msgToSend.clear();
-            //    test_io_result(res);
-            //}
-            //else if (auto it = m_addresses.find(peerID); it != m_addresses.end())
-            //{
-            //    auto t = std::make_shared<T>(std::move(msg)); // we need copyable object
-            //    connect_wallet(it->second, to, [this, type, t](uint64_t tag)
-            //    {
-            //        send(tag, type, std::move(*t));
-            //    });
-            //}
+            if (auto it = m_connectionWalletsIndex.find(walletID); it != m_connectionWalletsIndex.end())
+            {
+                if (it->m_connection)
+                {
+                    m_protocol.serialize(m_msgToSend, type, msg);
+                    auto res = it->m_connection->write_msg(m_msgToSend);
+                    m_msgToSend.clear();
+                    test_io_result(res);
+                }
+            }
+            else if (auto it = m_walletsIndex.find(walletID); it != m_walletsIndex.end())
+            {
+                auto t = std::make_shared<T>(std::move(msg)); // we need copyable object
+                connect_wallet(*it, get_connection_tag(), [this, type, t](const ConnectionInfo& ci)
+                {
+                    send(ci.m_wallet.m_walletID, type, std::move(*t));
+                });
+            }
         }
 
         template<typename T>
@@ -129,8 +132,8 @@ namespace beam
         void test_io_result(const io::Result res);
         bool is_connected(uint64_t id);
 
-        const PeerID& get_peer(uint64_t connectionId) const;
-        uint64_t get_connection(const PeerID& peerID) const;
+        const WalletID& get_wallet_id(uint64_t connectionId) const;
+        uint64_t get_connection(const WalletID& peerID) const;
 
         class WalletNodeConnection : public proto::NodeConnection
         {
@@ -160,46 +163,95 @@ namespace beam
     private:
 
         Protocol m_protocol;
-        PeerID m_peerID;
+        WalletID m_peerID;
         io::Address m_node_address;
         io::Reactor::Ptr m_reactor;
         io::TcpServer::Ptr m_server;
-        Wallet m_wallet;
+        IWallet* m_wallet;
 
-        struct PeerIDTag {};
-        struct ConnectionIDTag {};
+        struct WalletIDTag;
+        struct AddressTag;
+      //  struct ConnectionIDTag;
 
-        struct PeerInfo : public boost::intrusive::set_base_hook<boost::intrusive::tag<PeerIDTag>>
-                       // , public boost::intrusive::set_base_hook<boost::intrusive::tag<ConnectionIDTag>>
+        using WalletIDHook = bi::set_base_hook <bi::tag<WalletIDTag>>;
+        using AddressHook = bi::set_base_hook<bi::tag<AddressTag>>;
+   //     using ConnectionIDHook = bi::set_base_hook<bi::tag<ConnectionIDTag>>;
+        
+        struct WalletInfo : public WalletIDHook
+                          , public AddressHook
         {
-            PeerID m_peerID;
-            uint64_t m_connectionID;
+            WalletID m_walletID;
             io::Address m_address;
-            std::unique_ptr<Connection> m_connection;
+            WalletInfo(const WalletID& id, io::Address address)
+                : m_walletID{id}
+                , m_address{address}
+            {}
         };
 
-        struct PeerIDKey
+        struct WalletIDKey
         {
-            typedef PeerID type;
-            const PeerID& operator()(const PeerInfo& pi) const { return pi.m_peerID; }
+            typedef WalletID type;
+            const WalletID& operator()(const WalletInfo& pi) const
+            { 
+                return pi.m_walletID; 
+            }
         };
 
-        struct ConnectionIDKey
+        struct AddressKey
         {
             typedef uint64_t type;
-            const uint64_t& operator()(const PeerInfo& pi) const { return pi.m_connectionID; }
+            const uint64_t& operator()(const WalletInfo& pi) const
+            { 
+                return pi.m_address.u64();
+            }
         };
 
-        std::vector<PeerInfo> m_peers;
+        struct ConnectionInfo : public WalletIDHook
+                              //, public ConnectionIDHook
+        {
+            uint64_t m_connectionID;
+            const WalletInfo& m_wallet;
+            ConnectCallback m_callback;
+            std::unique_ptr<Connection> m_connection;
 
-       // boost::intrusive::set<PeerInfo, boost::intrusive::key_of_value<PeerIDKey> > m_peersSet;
-       // boost::intrusive::set<PeerInfo, boost::intrusive::key_of_value<ConnectionIDKey> > m_connectionsSet;
+            ConnectionInfo(uint64_t id, const WalletInfo& wallet, ConnectCallback&& callback)
+                : m_connectionID{ id }
+                , m_wallet{ wallet }
+                , m_callback{ std::move(callback) }
+            {
+            }
 
-        std::unordered_map<uint64_t, PeerID> m_connectionToPeer;
-        std::map<PeerID, uint64_t> m_peerToConnection;
-        std::map<PeerID, io::Address> m_addresses;
-        std::map<uint64_t, std::unique_ptr<Connection>> m_connections;
-        std::map<uint64_t, ConnectCallback> m_connections_callbacks;
+            bool operator<(const ConnectionInfo& other) const
+            {
+                return m_connectionID < other.m_connectionID;
+            }
+        };
+
+        //struct ConnectionIDKey
+        //{
+        //    typedef uint64_t type;
+        //    const uint64_t& operator()(const ConnectionInfo& ci) const
+        //    {
+        //        return ci.m_connectionID;
+        //    }
+        //};
+
+        struct ConnectionWalletIDKey
+        {
+            typedef WalletID type;
+            const WalletID& operator()(const ConnectionInfo& ci) const
+            {
+                return ci.m_wallet.m_walletID;
+            }
+        };
+
+        std::vector<std::unique_ptr<WalletInfo>> m_wallets;
+        std::map<uint64_t, ConnectionInfo> m_connections;
+        bi::set<WalletInfo, bi::base_hook<WalletIDHook>, bi::key_of_value<WalletIDKey>> m_walletsIndex;
+        bi::set<WalletInfo, bi::base_hook<AddressHook>, bi::key_of_value<AddressKey>> m_addressIndex;
+        bi::set<ConnectionInfo, bi::base_hook<WalletIDHook>, bi::key_of_value<ConnectionWalletIDKey>> m_connectionWalletsIndex;
+        //bi::set<ConnectionInfo, bi::base_hook<ConnectionIDHook>, bi::key_of_value<ConnectionIDKey>> m_connectionsIndex;
+
         bool m_is_node_connected;
         uint64_t m_connection_tag;
         io::Reactor::Scope m_reactor_scope;

@@ -60,11 +60,11 @@ void WalletModel::run()
 
 		if(node_addr.resolve(_nodeAddrString.c_str()))
 		{
-			_wallet_io = std::make_shared<WalletNetworkIO>( Address().ip(INADDR_ANY).port(_port)
+			/*_wallet_io = std::make_shared<WalletNetworkIO>( Address().ip(INADDR_ANY).port(_port)
 				, node_addr
 				, true
 				, _keychain
-				, _reactor);
+				, _reactor);*/
 
 			async = std::make_shared<WalletModelAsync>(_reactor, _wallet_io);
 

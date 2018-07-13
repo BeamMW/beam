@@ -181,7 +181,7 @@ using namespace beam::wallet;
 void TestStoreTxRecord()
 {
     auto keychain = createSqliteKeychain();
-    Uuid id = {{1, 3, 4, 5 ,65}};
+    TxID id = {{1, 3, 4, 5 ,65}};
     TxDescription tr;
     tr.m_txId = id;
     tr.m_amount = 34;
@@ -211,7 +211,7 @@ void TestStoreTxRecord()
     WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
     WALLET_CHECK(t[0].m_sender == tr2.m_sender);
     WALLET_CHECK(t[0].m_status == tr2.m_status);
-    Uuid id2 = {{ 3,4,5 }};
+    TxID id2 = {{ 3,4,5 }};
     WALLET_CHECK_NO_THROW(keychain->deleteTx(id2));
     WALLET_CHECK_NO_THROW(keychain->deleteTx(id));
 
@@ -311,8 +311,8 @@ void TestRollback()
 void TestTxRollback()
 {
     auto keychain = createSqliteKeychain();
-    Uuid id = { { 1, 3, 4, 5 ,65 } };
-    Uuid id2 = { {1, 3, 4} };
+    TxID id = { { 1, 3, 4, 5 ,65 } };
+    TxID id2 = { {1, 3, 4} };
 
     Coin coin1 = { 5, Coin::Unspent, 1, 10, KeyType::Coinbase };
     keychain->store(coin1);

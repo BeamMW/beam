@@ -20,7 +20,9 @@
 
 namespace beam
 {
-    using Uuid = std::array<uint8_t, 16>;
+    using TxID = std::array<uint8_t, 16>;
+    using WalletID = PeerID;
+
 
     struct PrintableAmount
     {
@@ -31,7 +33,7 @@ namespace beam
     };
 
     std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount);
-    std::ostream& operator<<(std::ostream& os, const Uuid& uuid);
+    std::ostream& operator<<(std::ostream& os, const TxID& uuid);
 
     struct Coin;
     
@@ -48,14 +50,14 @@ namespace beam
 
         TxDescription() = default;
 
-        TxDescription(const Uuid& txId
-            , Amount amount
-            , Amount fee
-            , Height minHeight
-            , const PeerID& peerId
-            , ByteBuffer&& message
-            , Timestamp createTime
-            , bool sender)
+        TxDescription(const TxID& txId
+                    , Amount amount
+                    , Amount fee
+                    , Height minHeight
+                    , const WalletID& peerId
+                    , ByteBuffer&& message
+                    , Timestamp createTime
+                    , bool sender)
             : m_txId{ txId }
             , m_amount{ amount }
             , m_fee{ fee }
@@ -69,11 +71,11 @@ namespace beam
             , m_fsmState{}
         {}
 
-        Uuid m_txId;
+        TxID m_txId;
         Amount m_amount;
         Amount m_fee;
         Height m_minHeight;
-        PeerID m_peerId;
+        WalletID m_peerId;
         ByteBuffer m_message;
         Timestamp m_createTime;
         Timestamp m_modifyTime;
@@ -93,7 +95,7 @@ namespace beam
         // messages
         struct Invite
         {
-            Uuid m_txId;
+            TxID m_txId;
             ECC::Amount m_amount;
             ECC::Amount m_fee;
             Height m_height;
@@ -142,7 +144,7 @@ namespace beam
 
         struct ConfirmTransaction
         {
-            Uuid m_txId{};
+            TxID m_txId{};
             ECC::Scalar m_peerSignature;
 
             SERIALIZE(m_txId, m_peerSignature);
@@ -150,7 +152,7 @@ namespace beam
 
         struct ConfirmInvitation
         {
-            Uuid m_txId{};
+            TxID m_txId{};
             ECC::Point m_publicPeerExcess;
             ECC::Point m_publicPeerNonce;
             ECC::Scalar m_peerSignature;
@@ -163,14 +165,14 @@ namespace beam
 
         struct TxRegistered
         {
-            Uuid m_txId;
+            TxID m_txId;
             bool m_value;
             SERIALIZE(m_txId, m_value);
         };
 
         struct TxFailed
         {
-            Uuid m_txId;
+            TxID m_txId;
             SERIALIZE(m_txId);
         };
 
@@ -186,4 +188,9 @@ namespace beam
             virtual void send_tx_registered(const TxDescription&) = 0;
         };
     }
+}
+
+namespace std
+{
+    string to_string(const beam::WalletID&);
 }

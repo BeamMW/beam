@@ -701,17 +701,21 @@ int main_impl(int argc, char* argv[])
                         }
                     }
 
-                   /* bool is_server = command == cli::LISTEN;
+                    bool is_server = command == cli::LISTEN;
+                    
                     WalletNetworkIO wallet_io{ io::Address().ip(INADDR_ANY).port(port)
-                        , node_addr
-                        , is_server
-                        , keychain
-                        , reactor };
+                                             , node_addr
+                                             , is_server
+                                             , reactor };
+                    Wallet wallet{ keychain, wallet_io, is_server ? Wallet::TxCompletedAction() : [&wallet_io](auto) { wallet_io.stop(); } };
                     if (command == cli::SEND)
                     {
-                        wallet_io.transfer_money(receiverAddr, move(amount), 0);
+                        TxPeer receiverPeer = {};
+                        receiverPeer.m_address = receiverAddr;
+                        receiverPeer.m_peerID = {2, 4, 5};
+                        wallet.transfer_money(receiverPeer.m_peerID, move(amount), 0);
                     }
-                    wallet_io.start();*/
+                    wallet_io.start();
                 }
                 else
                 {

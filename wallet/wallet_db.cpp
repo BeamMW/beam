@@ -134,12 +134,12 @@ namespace beam
                 throwIfError(ret, _db);
 			}
 
-            void bind(int col, const Uuid& id)
+            void bind(int col, const TxID& id)
             {
                 bind(col, id.data(), id.size());
             }
 
-            void bind(int col, const boost::optional<Uuid>& id)
+            void bind(int col, const boost::optional<TxID>& id)
             {
                 if (id.is_initialized())
                 {
@@ -218,14 +218,14 @@ namespace beam
 				val = sqlite3_column_int(_stm, col) == 0 ? false : true;
 			}
 
-            void get(int col, Uuid& id)
+            void get(int col, TxID& id)
             {
                 int size = 0;
                 get(col, static_cast<void*>(id.data()), size);
                 assert(size == id.size());
             }
 
-            void get(int col, boost::optional<Uuid>& id)
+            void get(int col, boost::optional<TxID>& id)
             {
                 int size = sqlite3_column_bytes(_stm, col);
                 if (size > 0)
@@ -235,7 +235,7 @@ namespace beam
 
                     if (data)
                     {
-                        id = Uuid{};
+                        id = TxID{};
                         memcpy(id->data(), data, size);
                     }
                 }
@@ -869,7 +869,7 @@ namespace beam
         return res;
     }
 
-    boost::optional<TxDescription> Keychain::getTx(const Uuid& txId)
+    boost::optional<TxDescription> Keychain::getTx(const TxID& txId)
     {
         const char* req = "SELECT * FROM " HISTORY_NAME " WHERE txId=?1 ;";
         sqlite::Statement stm(_db, req);
@@ -920,7 +920,7 @@ namespace beam
 		notifyTransactionChanged();
     }
 
-    void Keychain::deleteTx(const Uuid& txId)
+    void Keychain::deleteTx(const TxID& txId)
     {
 		sqlite::Transaction trans(_db);
 
@@ -938,7 +938,7 @@ namespace beam
 		notifyTransactionChanged();
     }
 
-    void Keychain::rollbackTx(const Uuid& txId)
+    void Keychain::rollbackTx(const TxID& txId)
     {
         sqlite::Transaction trans(_db);
 
@@ -976,7 +976,7 @@ namespace beam
         trans.commit();
     }
 
-    boost::optional<TxPeer> Keychain::getPeer(const PeerID& peerID)
+    boost::optional<TxPeer> Keychain::getPeer(const WalletID& peerID)
     {
         sqlite::Statement stm(_db, "SELECT * FROM " PEERS_NAME " WHERE peerID=?1;");
         stm.bind(1, peerID);

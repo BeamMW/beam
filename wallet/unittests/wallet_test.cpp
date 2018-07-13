@@ -69,10 +69,10 @@ namespace
 		void unsubscribe(IKeyChainObserver* observer) override {}
 
         std::vector<TxDescription> getTxHistory(uint64_t , int ) override { return {}; };
-        boost::optional<TxDescription> getTx(const Uuid& ) override { return boost::optional<TxDescription>{}; };
+        boost::optional<TxDescription> getTx(const TxID& ) override { return boost::optional<TxDescription>{}; };
         void saveTx(const TxDescription &) override {};
-        void deleteTx(const Uuid& ) override {};
-        void rollbackTx(const Uuid&) override {}
+        void deleteTx(const TxID& ) override {};
+        void rollbackTx(const TxID&) override {}
 
         void addPeer(const TxPeer&) override {}
         boost::optional<TxPeer> getPeer(const PeerID&) override { return boost::optional<TxPeer>{}; }
@@ -139,20 +139,19 @@ namespace
 
     IKeyChain::Ptr createSenderKeychain()
     {
-        auto keychain = createSqliteKeychain("sender_wallet.db");
+        auto db = createSqliteKeychain("sender_wallet.db");
         for (auto amount : { 5, 2, 1, 9 })
         {
             Coin coin(amount);
             coin.m_maturity = 0;
-            keychain->store(coin);
+            db->store(coin);
         }
-        return keychain;
+        return db;
     }
 
     IKeyChain::Ptr createReceiverKeychain()
     {
-        auto keychain = createSqliteKeychain("receiver_wallet.db");
-        return keychain;
+        return createSqliteKeychain("receiver_wallet.db");
     }
 
     struct TestGateway : wallet::INegotiatorGateway
@@ -276,7 +275,7 @@ namespace
     //
     // Test impl of the network io. The second thread isn't really needed, though this is much close to reality
     //
-    struct TestNetworkBase : public INetworkIO
+    struct TestNetworkBase : public NetworkIOBase
     {
         using Task = function<void()>;
         TestNetworkBase(IOLoop& mainLoop)
@@ -419,6 +418,11 @@ namespace
 
         void close_connection(const beam::PeerID&) override
         {
+        }
+
+        void connect_node() override
+        {
+
         }
 
         void close_node_connection() override
@@ -631,7 +635,7 @@ void TestP2PWalletNegotiationST()
     TxPeer receiverPeer = {};
     receiverPeer.m_peerID = uint64_t(12345678912345);
     receiverPeer.m_address = receiver_address;
-
+    
     senderKeychain->addPeer(receiverPeer);
 
     TxPeer senderPeer = {};
@@ -649,10 +653,16 @@ void TestP2PWalletNegotiationST()
     helpers::StopWatch sw;
     sw.start();
     TestNode node{ node_address, main_reactor };
-    WalletNetworkIO sender_io{ senderPeer, node_address, false, senderKeychain, main_reactor };
-    WalletNetworkIO receiver_io{ receiverPeer, node_address, true, receiverKeychain, main_reactor, 1000, 5000, 100 };
+    WalletNetworkIO sender_io{ sender_address, node_address, false, main_reactor };
+    WalletNetworkIO receiver_io{ receiver_address, node_address, true, main_reactor, 1000, 5000, 100 };
 
-    Uuid txId = sender_io.transfer_money(receiverPeer.m_peerID, 6);
+    sender_io.add_wallet(receiverPeer.m_peerID, receiverPeer.m_address);
+    receiver_io.add_wallet(senderPeer.m_peerID, senderPeer.m_address);
+
+    Wallet sender{senderKeychain, sender_io, [&sender_io](auto) { sender_io.stop(); } };
+    Wallet receiver{ receiverKeychain, receiver_io };
+
+    TxID txId = sender.transfer_money(receiverPeer.m_peerID, 6);
 
     main_reactor->run();
     sw.stop();
@@ -720,7 +730,7 @@ void TestP2PWalletNegotiationST()
 
     // second transfer
     sw.start();
-    txId = sender_io.transfer_money(receiverPeer.m_peerID, 6);
+    txId = sender.transfer_money(receiverPeer.m_peerID, 6);
     main_reactor->run();
     sw.stop();
     cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -798,7 +808,7 @@ void TestP2PWalletNegotiationST()
 
     // third transfer. no enough money should appear
     sw.start();
-    txId = sender_io.transfer_money(receiverPeer.m_peerID, 6);
+    txId = sender.transfer_money(receiverPeer.m_peerID, 6);
     main_reactor->run();
     sw.stop();
     cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -870,10 +880,16 @@ void TestP2PWalletNegotiationST()
      helpers::StopWatch sw;
      sw.start();
      TestNode node{ node_address, main_reactor };
-     WalletNetworkIO sender_io{ senderPeer, node_address, true, senderKeychain, main_reactor };
-     WalletNetworkIO receiver_io{ receiverPeer, node_address, false, receiverKeychain, main_reactor, 1000, 5000, 100 };
+     WalletNetworkIO sender_io{ sender_address, node_address, true, main_reactor };
+     WalletNetworkIO receiver_io{ receiver_address, node_address, false, main_reactor, 1000, 5000, 100 };
 
-     Uuid txId = receiver_io.transfer_money(senderPeer.m_peerID, 6, 0, false);
+     sender_io.add_wallet(receiverPeer.m_peerID, receiverPeer.m_address);
+     receiver_io.add_wallet(senderPeer.m_peerID, senderPeer.m_address);
+
+     Wallet sender{ senderKeychain, sender_io };
+     Wallet receiver{ receiverKeychain, receiver_io, [&receiver_io](auto) { receiver_io.stop(); } };
+
+     TxID txId = receiver.transfer_money(senderPeer.m_peerID, 6, 0, false);
 
      main_reactor->run();
      sw.stop();
@@ -941,7 +957,7 @@ void TestP2PWalletNegotiationST()
 
      // second transfer
      sw.start();
-     txId = receiver_io.transfer_money(senderPeer.m_peerID, 6, 0, false);
+     txId = receiver.transfer_money(senderPeer.m_peerID, 6, 0, false);
      main_reactor->run();
      sw.stop();
      cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -1019,7 +1035,7 @@ void TestP2PWalletNegotiationST()
 
      // third transfer. no enough money should appear
      sw.start();
-     txId = receiver_io.transfer_money(senderPeer.m_peerID, 6, 0, false);
+     txId = receiver.transfer_money(senderPeer.m_peerID, 6, 0, false);
      main_reactor->run();
      sw.stop();
      cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -1084,7 +1100,7 @@ void TestSerializeFSM()
     cout << "\nTesting wallet's fsm serialization...\nsender\n";
     TestGateway gateway;
 
-    beam::Uuid id = { 3, 65, 70 };
+    beam::TxID id = { 3, 65, 70 };
     TxDescription tx = {};
     tx.m_txId = id;
     tx.m_amount = 6;

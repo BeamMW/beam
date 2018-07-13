@@ -25,7 +25,12 @@ namespace beam::wallet
 
         if (sender)
         {
-            getSenderInputsAndOutputs(currentHeight, inviteMsg.m_inputs, inviteMsg.m_outputs);
+            if (!getSenderInputsAndOutputs(currentHeight, inviteMsg.m_inputs, inviteMsg.m_outputs))
+            {
+                Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
+                fsm.process_event(events::TxFailed{});
+                return;
+            }
         }
         else
         {
@@ -75,7 +80,12 @@ namespace beam::wallet
 
         if (sender)
         {
-            getSenderInputsAndOutputs(currentHeight, m_parent.m_transaction->m_vInputs, m_parent.m_transaction->m_vOutputs);
+            if (!getSenderInputsAndOutputs(currentHeight, m_parent.m_transaction->m_vInputs, m_parent.m_transaction->m_vOutputs))
+            {
+                Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
+                fsm.process_event(events::TxFailed{true});
+                return;
+            }
         }
         else
         {
@@ -131,11 +141,14 @@ namespace beam::wallet
         m_parent.m_gateway.register_tx(m_parent.m_txDesc, m_parent.m_transaction);
     }
 
-    void Negotiator::FSMDefinition::rollbackTx(const events::TxFailed& )
+    void Negotiator::FSMDefinition::rollbackTx(const events::TxFailed& event)
     {
         update_tx_description(TxDescription::Failed);
         rollbackTx();
-        m_parent.m_gateway.send_tx_failed(m_parent.m_txDesc);
+        if (event.m_notify)
+        {
+            m_parent.m_gateway.send_tx_failed(m_parent.m_txDesc);
+        }
     }
 
     void Negotiator::FSMDefinition::rollbackTx()
@@ -192,13 +205,13 @@ namespace beam::wallet
         m_parent.m_keychain->saveTx(m_parent.m_txDesc);
     }
 
-    void Negotiator::FSMDefinition::getSenderInputsAndOutputs(const Height& currentHeight, std::vector<Input::Ptr>& inputs, std::vector<Output::Ptr>& outputs)
+    bool Negotiator::FSMDefinition::getSenderInputsAndOutputs(const Height& currentHeight, std::vector<Input::Ptr>& inputs, std::vector<Output::Ptr>& outputs)
     {
         auto coins = m_parent.m_keychain->getCoins(m_parent.m_txDesc.m_amount);
         if (coins.empty())
         {
             LOG_ERROR() << "You only have " << PrintableAmount(get_total());
-            throw runtime_error("no money");
+            return false;
         }
         for (auto& coin : coins)
         {
@@ -217,6 +230,7 @@ namespace beam::wallet
         {
             outputs.push_back(m_parent.createOutput(change, currentHeight));
         }
+        return true;
     }
 
     void Negotiator::createKernel(Amount fee, Height minHeight)

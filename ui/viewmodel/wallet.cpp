@@ -30,7 +30,7 @@ QString TxObject::date() const
 
 QString TxObject::user() const
 {
-	return QString::number(_tx.m_peerId);
+	return QString::fromStdString(std::to_string(_tx.m_peerId));
 }
 
 QString TxObject::comment() const

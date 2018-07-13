@@ -9,15 +9,17 @@
 #include <tuple>
 namespace beam
 {
+    struct IWallet;
     struct INetworkIO 
     {
         virtual ~INetworkIO() {}
+        virtual void set_wallet(IWallet*) = 0;
         // wallet to wallet requests
-        virtual void send_tx_message(const PeerID& to, wallet::Invite&&) = 0;
-        virtual void send_tx_message(const PeerID& to, wallet::ConfirmTransaction&&) = 0;
-        virtual void send_tx_message(const PeerID& to, wallet::ConfirmInvitation&&) = 0;
-        virtual void send_tx_message(const PeerID& to, wallet::TxRegistered&&) = 0 ;
-        virtual void send_tx_message(const PeerID& to, wallet::TxFailed&&) = 0;
+        virtual void send_tx_message(const WalletID& to, wallet::Invite&&) = 0;
+        virtual void send_tx_message(const WalletID& to, wallet::ConfirmTransaction&&) = 0;
+        virtual void send_tx_message(const WalletID& to, wallet::ConfirmInvitation&&) = 0;
+        virtual void send_tx_message(const WalletID& to, wallet::TxRegistered&&) = 0 ;
+        virtual void send_tx_message(const WalletID& to, wallet::TxFailed&&) = 0;
         // wallet to node requests
         virtual void send_node_message(proto::NewTransaction&&) = 0;
         virtual void send_node_message(proto::GetProofUtxo&&) = 0;
@@ -25,19 +27,40 @@ namespace beam
         virtual void send_node_message(proto::GetMined&&) = 0;
         virtual void send_node_message(proto::GetProofState&&) = 0;
         // connection control
-        virtual void close_connection(const PeerID& id) = 0;
+        virtual void close_connection(const WalletID& id) = 0;
+        virtual void connect_node() = 0;
         virtual void close_node_connection() = 0;
+    };
+
+    class NetworkIOBase : public INetworkIO
+    {
+    protected:
+        IWallet& get_wallet() const
+        {
+            assert(m_wallet);
+            return *m_wallet;
+        }
+    private:
+        void set_wallet(IWallet* wallet) override
+        {
+            m_wallet = wallet;
+            if (wallet != nullptr)
+            {
+                connect_node();
+            }
+        }
+        IWallet* m_wallet;
     };
 
     struct IWallet
     {
         virtual ~IWallet() {}
         // wallet to wallet responses
-        virtual void handle_tx_message(const PeerID&, wallet::Invite&&) = 0;
-        virtual void handle_tx_message(const PeerID&, wallet::ConfirmTransaction&&) = 0;
-        virtual void handle_tx_message(const PeerID&, wallet::ConfirmInvitation&&) = 0;
-        virtual void handle_tx_message(const PeerID&, wallet::TxRegistered&&) = 0;
-        virtual void handle_tx_message(const PeerID&, wallet::TxFailed&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::Invite&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::ConfirmTransaction&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::ConfirmInvitation&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::TxRegistered&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::TxFailed&&) = 0;
         // node to wallet responses
         virtual bool handle_node_message(proto::Boolean&&) = 0;
         virtual bool handle_node_message(proto::ProofUtxo&&) = 0;
@@ -54,12 +77,12 @@ namespace beam
     {
         using Callback = std::function<void()>;
     public:
-        using TxCompletedAction = std::function<void(const Uuid& tx_id)>;
+        using TxCompletedAction = std::function<void(const TxID& tx_id)>;
 
         Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
-        Uuid transfer_money(const PeerID& to, Amount amount, Amount fee, bool sender, ByteBuffer&& message);
+        TxID transfer_money(const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, ByteBuffer&& message = {} );
         void resume_tx(const TxDescription& tx);
         void resume_all_tx();
 
@@ -72,11 +95,11 @@ namespace beam
         void register_tx(const TxDescription& tx, Transaction::Ptr) override;
         void send_tx_registered(const TxDescription& tx) override;
 
-        void handle_tx_message(const PeerID&, wallet::Invite&&) override;
-        void handle_tx_message(const PeerID&, wallet::ConfirmTransaction&&) override;
-        void handle_tx_message(const PeerID&, wallet::ConfirmInvitation&&) override;
-        void handle_tx_message(const PeerID&, wallet::TxRegistered&&) override;
-        void handle_tx_message(const PeerID&, wallet::TxFailed&&) override;
+        void handle_tx_message(const WalletID&, wallet::Invite&&) override;
+        void handle_tx_message(const WalletID&, wallet::ConfirmTransaction&&) override;
+        void handle_tx_message(const WalletID&, wallet::ConfirmInvitation&&) override;
+        void handle_tx_message(const WalletID&, wallet::TxRegistered&&) override;
+        void handle_tx_message(const WalletID&, wallet::TxFailed&&) override;
 
         bool handle_node_message(proto::Boolean&& res) override;
         bool handle_node_message(proto::ProofUtxo&& proof) override;
@@ -87,16 +110,16 @@ namespace beam
 
         void stop_sync() override;
 
-        void handle_tx_registered(const Uuid& txId, bool res);
-        void handle_tx_failed(const Uuid& txId);
+        void handle_tx_registered(const TxID& txId, bool res);
+        void handle_tx_failed(const TxID& txId);
 
     private:
-        void remove_peer(const Uuid& txId);
+        void remove_peer(const TxID& txId);
         void getUtxoProofs(const std::vector<Coin>& coins);
         void do_fast_forward();
         bool finish_sync();
         bool close_node_connection();
-        void register_tx(const Uuid& txId, Transaction::Ptr);
+        void register_tx(const TxID& txId, Transaction::Ptr);
         void resume_negotiator(const TxDescription& tx);
 
         struct Cleaner
@@ -113,7 +136,7 @@ namespace beam
         };
 
         template<typename Event>
-        bool process_event(const Uuid& txId, Event&& event)
+        bool process_event(const TxID& txId, Event&& event)
         {
             Cleaner cs{ m_removedNegotiators };
             if (auto it = m_negotiators.find(txId); it != m_negotiators.end())
@@ -129,12 +152,12 @@ namespace beam
 
         IKeyChain::Ptr m_keyChain;
         INetworkIO& m_network;
-        std::map<PeerID, wallet::Negotiator::Ptr> m_peers;
-        std::map<Uuid, wallet::Negotiator::Ptr>   m_negotiators;
+        std::map<WalletID, wallet::Negotiator::Ptr> m_peers;
+        std::map<TxID, wallet::Negotiator::Ptr>   m_negotiators;
         std::vector<wallet::Negotiator::Ptr>      m_removedNegotiators;
         TxCompletedAction m_tx_completed_action;
-        std::deque<std::pair<Uuid, Transaction::Ptr>> m_reg_requests;
-        std::vector<std::pair<Uuid, Transaction::Ptr>> m_pending_reg_requests;
+        std::deque<std::pair<TxID, Transaction::Ptr>> m_reg_requests;
+        std::vector<std::pair<TxID, Transaction::Ptr>> m_pending_reg_requests;
         std::deque<Coin> m_pendingProofs;
         std::vector<Callback> m_pendingEvents;
 

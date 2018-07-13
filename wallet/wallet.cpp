@@ -20,13 +20,21 @@ namespace
     const char* SenderPrefix = "[Sender] ";
 }
 
+namespace std
+{
+    string to_string(const beam::WalletID& id)
+    {
+        return beam::to_hex(id.m_pData, id.size());
+    }
+}
+
 namespace beam
 {
     using namespace wallet;
     using namespace std;
     using namespace ECC;
 
-    std::ostream& operator<<(std::ostream& os, const Uuid& uuid)
+    std::ostream& operator<<(std::ostream& os, const TxID& uuid)
     {
         os << "[" << to_hex(uuid.data(), uuid.size()) << "]";
         return os;
@@ -125,20 +133,22 @@ namespace beam
     {
         assert(keyChain);
         m_keyChain->getSystemStateID(m_knownStateID);
+        m_network.set_wallet(this);
     }
 
     Wallet::~Wallet()
     {
+        m_network.set_wallet(nullptr);
         assert(m_peers.empty());
         assert(m_negotiators.empty());
         assert(m_reg_requests.empty());
         assert(m_removedNegotiators.empty());
     }
 
-    Uuid Wallet::transfer_money(const PeerID& to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
+    TxID Wallet::transfer_money(const WalletID& to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
     {
 		boost::uuids::uuid id = boost::uuids::random_generator()();
-        Uuid txId{};
+        TxID txId{};
         copy(id.begin(), id.end(), txId.begin());
         TxDescription tx( txId, amount, fee, m_keyChain->getCurrentHeight(), to, move(message), getTimestamp(), sender);
         resume_negotiator(tx);
@@ -217,7 +227,7 @@ namespace beam
         m_network.send_tx_message(tx.m_peerId, wallet::TxRegistered{ tx.m_txId, true });
     }
 
-    void Wallet::handle_tx_message(const PeerID& from, Invite&& msg)
+    void Wallet::handle_tx_message(const WalletID& from, Invite&& msg)
     {
         auto it = m_negotiators.find(msg.m_txId);
         if (it == m_negotiators.end())
@@ -249,7 +259,7 @@ namespace beam
         }
     }
     
-    void Wallet::handle_tx_message(const PeerID& from, ConfirmTransaction&& data)
+    void Wallet::handle_tx_message(const WalletID& from, ConfirmTransaction&& data)
     {
         LOG_DEBUG() << ReceiverPrefix << "Received sender tx confirmation " << data.m_txId;
         if (!process_event(data.m_txId, events::TxConfirmationCompleted{ data }))
@@ -259,7 +269,7 @@ namespace beam
         }
     }
 
-    void Wallet::handle_tx_message(const PeerID& /*from*/, ConfirmInvitation&& data)
+    void Wallet::handle_tx_message(const WalletID& /*from*/, ConfirmInvitation&& data)
     {
         LOG_VERBOSE() << SenderPrefix << "Received tx confirmation " << data.m_txId;
         if (!process_event(data.m_txId, events::TxInvitationCompleted{ data }))
@@ -268,12 +278,12 @@ namespace beam
         }
     }
 
-    void Wallet::handle_tx_message(const PeerID& from, wallet::TxRegistered&& data)
+    void Wallet::handle_tx_message(const WalletID& from, wallet::TxRegistered&& data)
     {
         process_event(data.m_txId, events::TxRegistrationCompleted{});
     }
 
-    void Wallet::handle_tx_message(const PeerID& /*from*/, wallet::TxFailed&& data)
+    void Wallet::handle_tx_message(const WalletID& /*from*/, wallet::TxFailed&& data)
     {
         LOG_DEBUG() << "tx " << data.m_txId << " failed";
         handle_tx_failed(data.m_txId);
@@ -295,7 +305,7 @@ namespace beam
         return close_node_connection();
     }
 
-    void Wallet::handle_tx_registered(const Uuid& txId, bool res)
+    void Wallet::handle_tx_registered(const TxID& txId, bool res)
     {
         LOG_DEBUG() << "tx " << txId << (res ? " has registered" : " has failed to register");
         if (res)
@@ -308,7 +318,7 @@ namespace beam
         }
     }
 
-    void Wallet::handle_tx_failed(const Uuid& txId)
+    void Wallet::handle_tx_failed(const TxID& txId)
     {
         process_event(txId, events::TxFailed());
     }
@@ -595,7 +605,7 @@ namespace beam
         return true;
     }
 
-    void Wallet::register_tx(const Uuid& txId, Transaction::Ptr data)
+    void Wallet::register_tx(const TxID& txId, Transaction::Ptr data)
     {
         LOG_VERBOSE() << ReceiverPrefix << "sending tx for registration";
         TxBase::Context ctx;
