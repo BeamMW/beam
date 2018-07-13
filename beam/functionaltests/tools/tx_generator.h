@@ -20,6 +20,8 @@ public:
 	void SortOutputs();
 	void SortKernels();
 
+	void ZeroOffset();
+
 private:
 	ECC::Kdf m_Kdf;
 	beam::proto::NewTransaction m_MsgTx;

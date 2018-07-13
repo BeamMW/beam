@@ -97,3 +97,9 @@ void TxGenerator::SortKernels()
 {
 	std::sort(m_MsgTx.m_Transaction->m_vKernelsOutput.begin(), m_MsgTx.m_Transaction->m_vKernelsOutput.end());
 }
+
+void TxGenerator::ZeroOffset()
+{
+	m_Offset = Zero;
+	m_MsgTx.m_Transaction->m_Offset = m_Offset;
+}
