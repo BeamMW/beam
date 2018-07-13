@@ -635,7 +635,7 @@ void TestP2PWalletNegotiationST()
     WalletNetworkIO sender_io{ sender_address, node_address, false, senderKeychain, main_reactor };
     WalletNetworkIO receiver_io{ receiver_address, node_address, true, receiverKeychain, main_reactor, 1000, 5000, 100 };
 
-    Uuid txId = sender_io.transfer_money(receiver_address, 6);
+    Uuid txId = sender_io.transfer_money(receiver_address, 4, 2);
 
     main_reactor->run();
     sw.stop();
@@ -657,7 +657,7 @@ void TestP2PWalletNegotiationST()
 
     WALLET_CHECK(newSenderCoins.size() == 5);
     WALLET_CHECK(newReceiverCoins.size() == 1);
-    WALLET_CHECK(newReceiverCoins[0].m_amount == 6);
+    WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
     WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unconfirmed);
     WALLET_CHECK(newReceiverCoins[0].m_key_type == KeyType::Regular);
 
@@ -693,6 +693,7 @@ void TestP2PWalletNegotiationST()
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
     WALLET_CHECK(stx->m_amount == rtx->m_amount);
+    WALLET_CHECK(stx->m_fee == rtx->m_fee);
     WALLET_CHECK(stx->m_message == rtx->m_message);
     WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
     WALLET_CHECK(stx->m_status == rtx->m_status);
@@ -725,7 +726,7 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newSenderCoins.size() == 6);
     WALLET_CHECK(newReceiverCoins.size() == 2);
 
-    WALLET_CHECK(newReceiverCoins[0].m_amount == 6);
+    WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
     WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unconfirmed);
     WALLET_CHECK(newReceiverCoins[0].m_key_type == KeyType::Regular);
     
@@ -844,7 +845,7 @@ void TestP2PWalletNegotiationST()
      WalletNetworkIO sender_io{ sender_address, node_address, true, senderKeychain, main_reactor };
      WalletNetworkIO receiver_io{ receiver_address, node_address, false, receiverKeychain, main_reactor, 1000, 5000, 100 };
 
-     Uuid txId = receiver_io.transfer_money(sender_address, 6, 0, false);
+     Uuid txId = receiver_io.transfer_money(sender_address, 4, 2, false);
 
      main_reactor->run();
      sw.stop();
@@ -866,7 +867,7 @@ void TestP2PWalletNegotiationST()
 
      WALLET_CHECK(newSenderCoins.size() == 5);
      WALLET_CHECK(newReceiverCoins.size() == 1);
-     WALLET_CHECK(newReceiverCoins[0].m_amount == 6);
+     WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
      WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unconfirmed);
      WALLET_CHECK(newReceiverCoins[0].m_key_type == KeyType::Regular);
 
@@ -934,7 +935,7 @@ void TestP2PWalletNegotiationST()
      WALLET_CHECK(newSenderCoins.size() == 6);
      WALLET_CHECK(newReceiverCoins.size() == 2);
 
-     WALLET_CHECK(newReceiverCoins[0].m_amount == 6);
+     WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
      WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unconfirmed);
      WALLET_CHECK(newReceiverCoins[0].m_key_type == KeyType::Regular);
 

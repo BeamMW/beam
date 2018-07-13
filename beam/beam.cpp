@@ -54,6 +54,8 @@ namespace cli
     const char* INFO = "info";
     const char* TX_HISTORY = "tx_history";
     const char* WALLET_SEED = "wallet_seed";
+    const char* FEE = "fee";
+    const char* FEE_FULL = "fee,f";
 }
 namespace beam
 {
@@ -362,6 +364,7 @@ int main_impl(int argc, char* argv[])
     wallet_options.add_options()
         (cli::PASS, po::value<string>()->default_value(""), "password for the wallet")
         (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 1000000 chattle)")
+        (cli::FEE_FULL, po::value<double>()->default_value(0), "fee (in Beams, 1 Beam = 1000000 chattle)")
         (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
         (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
 		(cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
@@ -665,7 +668,8 @@ int main_impl(int argc, char* argv[])
                     }
 
                     io::Address receiverAddr;
-                    ECC::Amount amount = 0;
+                    Amount amount = 0;
+                    Amount fee = 0;
                     if (command == cli::SEND)
                     {
                         if (vm.count(cli::RECEIVER_ADDR) == 0)
@@ -699,6 +703,17 @@ int main_impl(int argc, char* argv[])
                             LOG_ERROR() << "Unable to send zero coins";
                             return -1;
                         }
+
+                        auto signedFee = vm[cli::FEE].as<double>();
+                        if (signedFee < 0)
+                        {
+                            LOG_ERROR() << "Unable to take negative fee";
+                            return -1;
+                        }
+
+                        signedFee *= Rules::Coin; // convert beams to coins
+
+                        fee = static_cast<ECC::Amount>(signedFee);
                     }
 
                     bool is_server = command == cli::LISTEN;
@@ -709,7 +724,7 @@ int main_impl(int argc, char* argv[])
                         , reactor };
                     if (command == cli::SEND)
                     {
-                        wallet_io.transfer_money(receiverAddr, move(amount), 0);
+                        wallet_io.transfer_money(receiverAddr, move(amount), move(fee));
                     }
                     wallet_io.start();
                 }
