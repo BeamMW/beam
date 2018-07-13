@@ -398,12 +398,6 @@ namespace ECC {
 		return memis0(&v, sizeof(v));
 	}
 
-	Point::Native& Point::Native::operator = (const Point& v)
-	{
-		Import(v);
-		return *this;
-	}
-
 	bool Point::Native::Export(Point& v) const
 	{
 		if (*this == Zero)
