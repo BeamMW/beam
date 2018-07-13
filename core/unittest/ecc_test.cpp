@@ -150,7 +150,8 @@ void TestPoints()
 	verify_test(p0 == Zero);
 
 	p_.m_Y = false;
-	verify_test(!p0.Import(p_));
+	verify_test(p0.Import(p_));
+	verify_test(p0 == Zero);
 
 	p2_ = p0;
 	verify_test(p_ == p2_);
