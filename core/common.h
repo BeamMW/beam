@@ -265,7 +265,14 @@ namespace beam
 			COMPARISON_VIA_CMP(Contract)
 		};
 
+		struct HashLock
+		{
+			ECC::Hash::Value	m_Hash;
+			ECC::uintBig		m_Preimage;
+		};
+
 		std::unique_ptr<Contract> m_pContract;
+		std::unique_ptr<HashLock> m_pHashLock;
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
 		static const uint32_t s_MaxRecursionDepth = 2;
@@ -289,6 +296,7 @@ namespace beam
 
 	private:
 		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*, const TxKernel* pParent) const;
+		void HashForSigningToTotal(Merkle::Hash& hv) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
@@ -529,6 +537,7 @@ namespace beam
 		SChannelNonce
 	};
 	void DeriveKey(ECC::Scalar::Native&, const ECC::Kdf&, Height, KeyType, uint32_t nIdx = 0);
+	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height = 0, uint32_t nIdx = 0);
 
 	std::ostream& operator << (std::ostream&, const Block::SystemState::ID&);
 

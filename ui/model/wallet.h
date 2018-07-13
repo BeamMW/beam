@@ -16,6 +16,14 @@ struct IWalletModelAsync
 	virtual ~IWalletModelAsync() {}
 };
 
+struct WalletStatus
+{
+	beam::Amount available;
+	beam::Amount received;
+	beam::Amount sent;
+	beam::Amount unconfirmed;
+};
+
 class WalletModel 
 	: public QThread
 	, private beam::IKeyChainObserver
@@ -31,7 +39,7 @@ public:
 	IWalletModelAsync::Ptr async;
 
 signals:
-	void onStatus(const beam::Amount& amount);
+	void onStatus(const WalletStatus& status);
 	void onTxStatus(const std::vector<beam::TxDescription>& history);
 
 private:
@@ -39,6 +47,8 @@ private:
 	void onTransactionChanged() override;
 	void onSystemStateChanged() override;
 
+	void onStatusChanged();
+	WalletStatus getStatus() const;
 private:
 
 	uint16_t _port;

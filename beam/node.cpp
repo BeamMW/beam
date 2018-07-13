@@ -702,8 +702,6 @@ void Node::Peer::OnMsg(proto::SChannelReady&& msg)
 
 	m_bConnected = true;
 
-	proto::NodeConnection::OnMsg(std::move(msg));
-
 	ECC::Scalar::Native sk = m_This.m_MyPrivateID.V;
 	ProveID(sk, proto::IDType::Node);
 

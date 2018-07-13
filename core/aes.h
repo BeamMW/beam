@@ -24,7 +24,6 @@ struct AES
 
 	struct StreamCipher
 	{
-		Encoder m_Enc;
 		ECC::uintBig_t<(s_BlockSize << 3)> m_Counter; // CTR mode
 
 		// generated cipherstream
@@ -33,8 +32,8 @@ struct AES
 
 		void PerfXor(uint8_t* pBuf, uint32_t nSize);
 
-		void Init(const uint8_t* pKey);
-		void XCrypt(uint8_t* pBuf, uint32_t nSize);
+		void Reset();
+		void XCrypt(const Encoder&, uint8_t* pBuf, uint32_t nSize);
 	};
 
 };
