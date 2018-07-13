@@ -138,6 +138,12 @@ namespace ECC {
 		return m_Value < s_Order;
 	}
 
+	void Scalar::TestValid() const
+	{
+		if (!IsValid())
+			throw std::runtime_error("invalid scalar");
+	}
+
 	Scalar& Scalar::operator = (const Native& v)
 	{
 		v.Export(*this);

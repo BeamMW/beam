@@ -236,6 +236,7 @@ namespace ECC
 		template <typename T> explicit Scalar(const T& t) { *this = t; }
 
 		bool IsValid() const;
+		void TestValid() const; // will raise exc if invalid
 
 		class Native;
 		Scalar& operator = (const Native&);

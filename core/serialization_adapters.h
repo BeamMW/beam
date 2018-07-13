@@ -169,6 +169,7 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::Scalar& scalar)
         {
+			assert(scalar.IsValid());
             ar & scalar.m_Value;
             return ar;
         }
@@ -177,6 +178,8 @@ namespace detail
         static Archive& load(Archive& ar, ECC::Scalar& scalar)
         {
             ar & scalar.m_Value;
+			scalar.TestValid(); // prevent ambiguity
+
             return ar;
         }
 
