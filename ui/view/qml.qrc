@@ -8,8 +8,9 @@
         <file>controls/SecondaryPanel.qml</file>
         <file>controls/Led.qml</file>
         <file>controls/TxFilter.qml</file>
+        <file>controls/CuteButton.qml</file>
 
-      <file>main.qml</file>
+        <file>main.qml</file>
         <file>dashboard.qml</file>
         <file>wallet.qml</file>
         <file>notification.qml</file>

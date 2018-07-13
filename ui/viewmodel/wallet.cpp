@@ -15,9 +15,9 @@ namespace
 
 TxObject::TxObject(const TxDescription& tx) : _tx(tx) {}
 
-QString TxObject::dir() const
+bool TxObject::income() const
 {
-	return _tx.m_sender ? "outcome" : "income";
+	return _tx.m_sender == false;
 }
 
 QString TxObject::date() const

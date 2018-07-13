@@ -15,6 +15,15 @@ Rectangle {
     //     console.log(FontLoader.Ready)
     // }
 
+    CuteButton {
+        anchors.top: parent.top
+        anchors.right: parent.right
+
+        label: "SEND"
+
+        // onClicked: go to send screen
+    }
+
     Item {
         y: 97
         height: 206
@@ -263,6 +272,7 @@ Rectangle {
     }
 
     TableView {
+
         anchors.fill: parent;
         anchors.topMargin: 394
 
@@ -401,26 +411,28 @@ Rectangle {
             }
         }
 
-        model: ListModel {
-            ListElement {
-                income: true
-                date: "12 June 2018  |  3:46 PM"
-                recipient: "1Cs4wu6pu5qCZ35bSLNVzGyEx5N6uzbg9t"
-                comment: "Thanks for your work!"
-                amount: "0.63736"
-                amount_usd: "726.4 USD"
-                status: "received"
-            }
+        model: walletViewModel.tx
 
-            ListElement {
-                income: false
-                date: "10 June 2018  |  7:02 AM"
-                recipient: "magic_stardust16"
-                amount: "1.300"
-                amount_usd: "10 726.4 USD"
-                status: "sent"
-            }
-        }
+        // model: ListModel {
+        //     ListElement {
+        //         income: true
+        //         date: "12 June 2018  |  3:46 PM"
+        //         recipient: "1Cs4wu6pu5qCZ35bSLNVzGyEx5N6uzbg9t"
+        //         comment: "Thanks for your work!"
+        //         amount: "0.63736"
+        //         amount_usd: "726.4 USD"
+        //         status: "received"
+        //     }
+
+        //     ListElement {
+        //         income: false
+        //         date: "10 June 2018  |  7:02 AM"
+        //         recipient: "magic_stardust16"
+        //         amount: "1.300"
+        //         amount_usd: "10 726.4 USD"
+        //         status: "sent"
+        //     }
+        // }
 
         headerDelegate: Item {
             height: 46

@@ -99,6 +99,8 @@ Rectangle {
         anchors.rightMargin: 30
         anchors.leftMargin: 100
         anchors.fill: parent
+
+        clip: true
     }
 
     function updateItem(index)

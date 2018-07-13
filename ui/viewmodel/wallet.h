@@ -9,7 +9,7 @@ class TxObject : public QObject
 {
 	Q_OBJECT
 
-		Q_PROPERTY(QString dir			READ dir		NOTIFY dirChanged)
+		Q_PROPERTY(bool income			READ income		NOTIFY incomeChanged)
 		Q_PROPERTY(QString date			READ date		NOTIFY dateChanged)
 		Q_PROPERTY(QString user			READ user		NOTIFY userChanged)
 		Q_PROPERTY(QString comment		READ comment	NOTIFY commentChanged)
@@ -21,7 +21,7 @@ public:
 
 	TxObject(const beam::TxDescription& tx);
 
-	QString dir() const;
+	bool income() const;
 	QString date() const;
 	QString user() const;
 	QString comment() const;
@@ -30,7 +30,7 @@ public:
 	QString status() const;
 
 signals:
-	void dirChanged();
+	void incomeChanged();
 	void dateChanged();
 	void userChanged();
 	void commentChanged();
