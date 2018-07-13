@@ -110,6 +110,10 @@ namespace beam
                     send(ci.m_wallet.m_walletID, type, std::move(*t));
                 });
             }
+            else
+            {
+                throw std::runtime_error("failed to send message");
+            }
         }
 
         template<typename T>

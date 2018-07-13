@@ -652,13 +652,18 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(receiverKeychain->getTxHistory().empty());
 
     helpers::StopWatch sw;
-    sw.start();
     TestNode node{ node_address, main_reactor };
     WalletNetworkIO sender_io{ sender_address, node_address, false, senderKeychain, main_reactor };
     WalletNetworkIO receiver_io{ receiver_address, node_address, true, receiverKeychain, main_reactor, 1000, 5000, 100 };
 
     Wallet sender{senderKeychain, sender_io, [&sender_io](auto) { sender_io.stop(); } };
     Wallet receiver{ receiverKeychain, receiver_io };
+
+    // unknown peer
+    sender.transfer_money(senderPeer.m_walletID, 6);
+    main_reactor->run();
+
+    sw.start();
 
     TxID txId = sender.transfer_money(receiverPeer.m_walletID, 6);
 
