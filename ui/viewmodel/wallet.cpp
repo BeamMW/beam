@@ -7,17 +7,17 @@ using namespace std;
 
 namespace
 {
-	QString BeamToString(const Amount& value)
+	QString BeamToString(const Amount& value, int prec = 3)
 	{
-		return QString::number(static_cast<float>(value) / Rules::Coin, 'f') + " BEAM";
+		return QString::number(static_cast<float>(value) / Rules::Coin, 'f', prec);
 	}
 }
 
 TxObject::TxObject(const TxDescription& tx) : _tx(tx) {}
 
-QString TxObject::dir() const
+bool TxObject::income() const
 {
-	return _tx.m_sender ? "outcome" : "income";
+	return _tx.m_sender == false;
 }
 
 QString TxObject::date() const
@@ -40,13 +40,13 @@ QString TxObject::comment() const
 
 QString TxObject::amount() const
 {
-	return QString(_tx.m_sender ? "- " : "+ ") +  BeamToString(_tx.m_amount);
+	return BeamToString(_tx.m_amount);
 }
 
 QString TxObject::amountUsd() const
 {
 	// TODO: don't know how we're going to calc amount USD
-	return QString::number(_tx.m_amount) + " USD";
+	return BeamToString(_tx.m_amount) + " USD";
 }
 
 QString TxObject::status() const
@@ -57,24 +57,46 @@ QString TxObject::status() const
 
 WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
 	: _model(keychain, port, nodeAddr)
-	, _available(0)
-	, _sendAmount(40)
+	, _status{0, 0, 0, 0}
+	, _sendAmount("40.000")
 	, _receiverAddr("127.0.0.1:8888")
 {
-	connect(&_model, SIGNAL(onStatus(const beam::Amount&)), SLOT(onStatus(const beam::Amount&)));
+	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
+
 	connect(&_model, SIGNAL(onTxStatus(const std::vector<beam::TxDescription>&)), 
 		SLOT(onTxStatus(const std::vector<beam::TxDescription>&)));
 
 	_model.start();
 }
 
-void WalletViewModel::onStatus(const beam::Amount& amount)
+void WalletViewModel::onStatus(const WalletStatus& status)
 {
-	if (_available != amount)
+	if (_status.available != status.available)
 	{
-		_available = amount;
+		_status.available = status.available;
 
 		emit availableChanged();
+	}
+
+	if (_status.received != status.received)
+	{
+		_status.received = status.received;
+
+		emit receivedChanged();
+	}
+
+	if (_status.sent != status.sent)
+	{
+		_status.sent = status.sent;
+
+		emit sentChanged();
+	}
+
+	if (_status.unconfirmed != status.unconfirmed)
+	{
+		_status.unconfirmed = status.unconfirmed;
+
+		emit unconfirmedChanged();
 	}
 }
 
@@ -92,18 +114,31 @@ void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
 
 QString WalletViewModel::available() const
 {
-	return BeamToString(_available);
+	return BeamToString(_status.available);
+}
+
+QString WalletViewModel::received() const
+{
+	return BeamToString(_status.received);
+}
+
+QString WalletViewModel::sent() const
+{
+	return BeamToString(_status.sent);
+}
+
+QString WalletViewModel::unconfirmed() const
+{
+	return BeamToString(_status.unconfirmed);
 }
 
 QString WalletViewModel::sendAmount() const
 {
-	return QString::number(_sendAmount);
+	return _sendAmount;
 }
 
-void WalletViewModel::setSendAmount(const QString& text)
+void WalletViewModel::setSendAmount(const QString& amount)
 {
-	beam::Amount amount = text.toUInt();
-
 	if (amount != _sendAmount)
 	{
 		_sendAmount = amount;
@@ -139,7 +174,7 @@ void WalletViewModel::sendMoney()
 	if (receiverAddr.resolve(_receiverAddr.c_str()))
 	{
 		// TODO: show 'operation in process' animation here?
-		_model.async->sendMoney(std::move(receiverAddr), std::move(_sendAmount));
+		_model.async->sendMoney(std::move(receiverAddr), std::move(_sendAmount.toFloat() * Rules::Coin));
 
 	}
 	else

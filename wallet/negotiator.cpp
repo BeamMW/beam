@@ -10,7 +10,7 @@ namespace beam::wallet
     void Negotiator::FSMDefinition::invitePeer(const events::TxInitiated&)
     {
         bool sender = m_parent.m_txDesc.m_sender;
-        LOG_INFO() << ( sender ? "Sending " : "Receiving ") << PrintableAmount(m_parent.m_txDesc.m_amount);
+        LOG_INFO() << ( sender ? "Sending " : "Receiving ") << PrintableAmount(m_parent.m_txDesc.m_amount) << " (fee: " << PrintableAmount(m_parent.m_txDesc.m_fee) << ")";
         
         Height currentHeight = m_parent.m_keychain->getCurrentHeight();
         // TODO: add ability to calculate fee
@@ -76,12 +76,11 @@ namespace beam::wallet
     {
         update_tx_description(TxDescription::Pending);
         bool sender = m_parent.m_txDesc.m_sender;
-        LOG_INFO() << (sender ? "Sending " : "Receiving ") << PrintableAmount(m_parent.m_txDesc.m_amount);
+        LOG_INFO() << (sender ? "Sending " : "Receiving ") << PrintableAmount(m_parent.m_txDesc.m_amount) << " (fee: " << PrintableAmount(m_parent.m_txDesc.m_fee) << ")";
         Height currentHeight = m_parent.m_keychain->getCurrentHeight();
 
         m_parent.createKernel(m_parent.m_txDesc.m_fee, m_parent.m_txDesc.m_minHeight);
-        // TODO: check fee
-
+        
         if (sender)
         {
             getSenderInputsAndOutputs(currentHeight, m_parent.m_transaction->m_vInputs, m_parent.m_transaction->m_vOutputs);
@@ -207,7 +206,8 @@ namespace beam::wallet
 
     void Negotiator::FSMDefinition::getSenderInputsAndOutputs(const Height& currentHeight, std::vector<Input::Ptr>& inputs, std::vector<Output::Ptr>& outputs)
     {
-        auto coins = m_parent.m_keychain->getCoins(m_parent.m_txDesc.m_amount);
+        Amount amountWithFee = m_parent.m_txDesc.m_amount + m_parent.m_txDesc.m_fee;
+        auto coins = m_parent.m_keychain->getCoins(amountWithFee);
         if (coins.empty())
         {
             LOG_ERROR() << "You only have " << PrintableAmount(get_total());
@@ -225,7 +225,7 @@ namespace beam::wallet
         {
             change += coin.m_amount;
         }
-        change -= m_parent.m_txDesc.m_amount;
+        change -= amountWithFee;
         if (change > 0)
         {
             outputs.push_back(m_parent.createOutput(change, currentHeight));

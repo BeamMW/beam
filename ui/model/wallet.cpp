@@ -34,7 +34,7 @@ WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const std::stri
 	, _port(port)
 	, _nodeAddrString(nodeAddr)
 {
-	qRegisterMetaType<Amount>("beam::Amount");
+	qRegisterMetaType<WalletStatus>("WalletStatus");
 	qRegisterMetaType<std::vector<TxDescription>>("std::vector<beam::TxDescription>");
 }
 
@@ -47,11 +47,37 @@ WalletModel::~WalletModel()
 	}
 }
 
+WalletStatus WalletModel::getStatus() const
+{
+	WalletStatus status{ wallet::getAvailable(_keychain), 0, 0, 0};
+
+	auto history = _keychain->getTxHistory();
+
+	for (const auto& item : history)
+	{
+		switch (item.m_status)
+		{
+		case TxDescription::Completed:
+			(item.m_sender ? status.sent : status.received) += item.m_amount;
+			break;
+		case TxDescription::Pending:
+		case TxDescription::InProgress:
+			status.unconfirmed += item.m_amount;
+			break;
+		default: break;
+		}
+	}
+
+	status.unconfirmed += wallet::getTotal(_keychain, Coin::Unconfirmed);
+
+	return status;
+}
+
 void WalletModel::run()
 {
 	try
 	{
-		emit onStatus(wallet::getAvailable(_keychain));
+		emit onStatus(getStatus());
 		emit onTxStatus(_keychain->getTxHistory());
 
 		_reactor = Reactor::create();
@@ -105,17 +131,23 @@ void WalletModel::run()
 	}
 }
 
+void WalletModel::onStatusChanged()
+{
+	emit onStatus(getStatus());
+}
+
 void WalletModel::onKeychainChanged()
 {
-	emit onStatus(wallet::getAvailable(_keychain));
+	onStatusChanged();
 }
 
 void WalletModel::onTransactionChanged()
 {
 	emit onTxStatus(_keychain->getTxHistory());
+	onStatusChanged();
 }
 
 void WalletModel::onSystemStateChanged()
 {
-	emit onStatus(wallet::getAvailable(_keychain));
+	onStatusChanged();
 }
