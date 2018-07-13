@@ -454,7 +454,7 @@ void TestRangeProof()
 		{
 			Oracle oracle;
 			bp.m_Part2 = p2;
-			bp.CoSign(sk, v, oracle, RangeProof::Confidential::Phase::Step2);
+			verify_test(bp.CoSign(sk, v, oracle, RangeProof::Confidential::Phase::Step2));
 			p1 = bp.m_Part1;
 			p2 = bp.m_Part2;
 		}
@@ -471,7 +471,7 @@ void TestRangeProof()
 			Oracle oracle;
 			bp.m_Part2 = p2;
 			bp.m_Part3 = p3;
-			bp.CoSign(sk, v, oracle, RangeProof::Confidential::Phase::Finalize);
+			verify_test(bp.CoSign(sk, v, oracle, RangeProof::Confidential::Phase::Finalize));
 		}
 
 		// Final UTXO commitment

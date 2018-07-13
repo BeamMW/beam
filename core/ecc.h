@@ -393,7 +393,7 @@ namespace ECC
 				};
 			};
 
-			void CoSign(const Scalar::Native& sk, Amount, Oracle&, Phase::Enum); // for multi-sig use 1,2,3 for 1st-pass
+			bool CoSign(const Scalar::Native& sk, Amount, Oracle&, Phase::Enum); // for multi-sig use 1,2,3 for 1st-pass
 
 
 		private:
