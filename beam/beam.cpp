@@ -706,14 +706,16 @@ int main_impl(int argc, char* argv[])
                     WalletNetworkIO wallet_io{ io::Address().ip(INADDR_ANY).port(port)
                                              , node_addr
                                              , is_server
+                                             , keychain
                                              , reactor };
                     Wallet wallet{ keychain, wallet_io, is_server ? Wallet::TxCompletedAction() : [&wallet_io](auto) { wallet_io.stop(); } };
                     if (command == cli::SEND)
                     {
                         TxPeer receiverPeer = {};
                         receiverPeer.m_address = receiverAddr;
-                        receiverPeer.m_peerID = {2, 4, 5};
-                        wallet.transfer_money(receiverPeer.m_peerID, move(amount), 0);
+                        receiverPeer.m_walletID = {2, 4, 5};
+                        keychain->addPeer(receiverPeer);
+                        wallet.transfer_money(receiverPeer.m_walletID, move(amount), 0);
                     }
                     wallet_io.start();
                 }

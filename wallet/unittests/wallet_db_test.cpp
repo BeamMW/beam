@@ -368,16 +368,24 @@ void TestTxRollback()
 void TestPeers()
 {
     auto db = createSqliteKeychain();
+    auto peers = db->getPeers();
+    WALLET_CHECK(peers.empty());
     TxPeer peer = {};
-    peer.m_peerID = unsigned(1234567890);
-    auto p = db->getPeer(peer.m_peerID);
+    peer.m_walletID = unsigned(1234567890);
+    auto p = db->getPeer(peer.m_walletID);
     WALLET_CHECK(p.is_initialized() == false);
     peer.m_address.from_u64(345454545569);
     db->addPeer(peer);
-    p = db->getPeer(peer.m_peerID);
+    p = db->getPeer(peer.m_walletID);
     WALLET_CHECK(p.is_initialized() == true);
     WALLET_CHECK(p->m_address == peer.m_address);
-    WALLET_CHECK(p->m_peerID == peer.m_peerID);
+    WALLET_CHECK(p->m_walletID == peer.m_walletID);
+    peers = db->getPeers();
+    WALLET_CHECK(peers.size() == 1);
+
+    WALLET_CHECK(peers[0].m_address == peer.m_address);
+    WALLET_CHECK(peers[0].m_walletID == peer.m_walletID);
+
 }
 
 

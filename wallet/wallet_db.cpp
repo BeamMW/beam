@@ -74,7 +74,7 @@
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
 
 #define ENUM_PEER_FIELDS(each, sep, obj) \
-    each(1, peerID,      sep, BLOB NOT NULL PRIMARY KEY, obj) \
+    each(1, walletID,    sep, BLOB NOT NULL PRIMARY KEY, obj) \
     each(2, address,        , INTEGER NOT NULL, obj) 
     
 #define PEER_FIELDS ENUM_PEER_FIELDS(LIST, COMMA, )
@@ -261,7 +261,7 @@ namespace beam
             {
                 uint64_t t = 0;;
                 get(col, t);
-                address.from_u64(t);
+                address = io::Address::from_u64(t);
             }
             void get(int col, ByteBuffer& b)
             {
@@ -959,14 +959,26 @@ namespace beam
         trans.commit();
     }
 
+    std::vector<TxPeer> Keychain::getPeers()
+    {
+        std::vector<TxPeer> peers;
+        sqlite::Statement stm(_db, "SELECT * FROM " PEERS_NAME ";");
+        while (stm.step())
+        {
+            auto& peer = peers.emplace_back();
+            ENUM_PEER_FIELDS(STM_GET_LIST, NOSEP, peer);
+        }
+        return peers;
+    }
+
     void Keychain::addPeer(const TxPeer& peer)
     {
         sqlite::Transaction trans(_db);
         
-        sqlite::Statement stm2(_db, "SELECT * FROM " PEERS_NAME " WHERE peerID=?1;");
-        stm2.bind(1, peer.m_peerID);
+        sqlite::Statement stm2(_db, "SELECT * FROM " PEERS_NAME " WHERE walletID=?1;");
+        stm2.bind(1, peer.m_walletID);
 
-        const char* updateReq = "UPDATE " PEERS_NAME " SET address=?2 WHERE peerID=?1;";
+        const char* updateReq = "UPDATE " PEERS_NAME " SET address=?2 WHERE walletID=?1;";
         const char* insertReq = "INSERT INTO " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_PEER_FIELDS(BIND_LIST, COMMA, ) ");";
 
         sqlite::Statement stm(_db, stm2.step() ? updateReq : insertReq);
@@ -978,7 +990,7 @@ namespace beam
 
     boost::optional<TxPeer> Keychain::getPeer(const WalletID& peerID)
     {
-        sqlite::Statement stm(_db, "SELECT * FROM " PEERS_NAME " WHERE peerID=?1;");
+        sqlite::Statement stm(_db, "SELECT * FROM " PEERS_NAME " WHERE walletID=?1;");
         stm.bind(1, peerID);
         if (stm.step())
         {

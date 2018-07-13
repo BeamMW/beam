@@ -74,6 +74,7 @@ namespace
         void deleteTx(const TxID& ) override {};
         void rollbackTx(const TxID&) override {}
 
+        std::vector<TxPeer> getPeers() override { return {}; };
         void addPeer(const TxPeer&) override {}
         boost::optional<TxPeer> getPeer(const PeerID&) override { return boost::optional<TxPeer>{}; }
 
@@ -633,13 +634,13 @@ void TestP2PWalletNegotiationST()
     auto receiverKeychain = createReceiverKeychain();
 
     TxPeer receiverPeer = {};
-    receiverPeer.m_peerID = uint64_t(12345678912345);
+    receiverPeer.m_walletID = uint64_t(12345678912345);
     receiverPeer.m_address = receiver_address;
     
     senderKeychain->addPeer(receiverPeer);
 
     TxPeer senderPeer = {};
-    senderPeer.m_peerID = uint64_t(43412345678912345);
+    senderPeer.m_walletID = uint64_t(43412345678912345);
     senderPeer.m_address = sender_address;
 
     receiverKeychain->addPeer(senderPeer);
@@ -653,16 +654,13 @@ void TestP2PWalletNegotiationST()
     helpers::StopWatch sw;
     sw.start();
     TestNode node{ node_address, main_reactor };
-    WalletNetworkIO sender_io{ sender_address, node_address, false, main_reactor };
-    WalletNetworkIO receiver_io{ receiver_address, node_address, true, main_reactor, 1000, 5000, 100 };
-
-    sender_io.add_wallet(receiverPeer.m_peerID, receiverPeer.m_address);
-    receiver_io.add_wallet(senderPeer.m_peerID, senderPeer.m_address);
+    WalletNetworkIO sender_io{ sender_address, node_address, false, senderKeychain, main_reactor };
+    WalletNetworkIO receiver_io{ receiver_address, node_address, true, receiverKeychain, main_reactor, 1000, 5000, 100 };
 
     Wallet sender{senderKeychain, sender_io, [&sender_io](auto) { sender_io.stop(); } };
     Wallet receiver{ receiverKeychain, receiver_io };
 
-    TxID txId = sender.transfer_money(receiverPeer.m_peerID, 6);
+    TxID txId = sender.transfer_money(receiverPeer.m_walletID, 6);
 
     main_reactor->run();
     sw.stop();
@@ -730,7 +728,7 @@ void TestP2PWalletNegotiationST()
 
     // second transfer
     sw.start();
-    txId = sender.transfer_money(receiverPeer.m_peerID, 6);
+    txId = sender.transfer_money(receiverPeer.m_walletID, 6);
     main_reactor->run();
     sw.stop();
     cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -808,7 +806,7 @@ void TestP2PWalletNegotiationST()
 
     // third transfer. no enough money should appear
     sw.start();
-    txId = sender.transfer_money(receiverPeer.m_peerID, 6);
+    txId = sender.transfer_money(receiverPeer.m_walletID, 6);
     main_reactor->run();
     sw.stop();
     cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -861,13 +859,13 @@ void TestP2PWalletNegotiationST()
      auto receiverKeychain = createReceiverKeychain();
 
      TxPeer receiverPeer = {};
-     receiverPeer.m_peerID = uint64_t(12345678912345);
+     receiverPeer.m_walletID = uint64_t(12345678912345);
      receiverPeer.m_address = receiver_address;
 
      senderKeychain->addPeer(receiverPeer);
 
      TxPeer senderPeer = {};
-     senderPeer.m_peerID = uint64_t(43412345678912345);
+     senderPeer.m_walletID = uint64_t(43412345678912345);
      senderPeer.m_address = sender_address;
 
      receiverKeychain->addPeer(senderPeer);
@@ -880,16 +878,13 @@ void TestP2PWalletNegotiationST()
      helpers::StopWatch sw;
      sw.start();
      TestNode node{ node_address, main_reactor };
-     WalletNetworkIO sender_io{ sender_address, node_address, true, main_reactor };
-     WalletNetworkIO receiver_io{ receiver_address, node_address, false, main_reactor, 1000, 5000, 100 };
-
-     sender_io.add_wallet(receiverPeer.m_peerID, receiverPeer.m_address);
-     receiver_io.add_wallet(senderPeer.m_peerID, senderPeer.m_address);
+     WalletNetworkIO sender_io{ sender_address, node_address, true, receiverKeychain, main_reactor };
+     WalletNetworkIO receiver_io{ receiver_address, node_address, false, receiverKeychain, main_reactor, 1000, 5000, 100 };
 
      Wallet sender{ senderKeychain, sender_io };
      Wallet receiver{ receiverKeychain, receiver_io, [&receiver_io](auto) { receiver_io.stop(); } };
 
-     TxID txId = receiver.transfer_money(senderPeer.m_peerID, 6, 0, false);
+     TxID txId = receiver.transfer_money(senderPeer.m_walletID, 6, 0, false);
 
      main_reactor->run();
      sw.stop();
@@ -957,7 +952,7 @@ void TestP2PWalletNegotiationST()
 
      // second transfer
      sw.start();
-     txId = receiver.transfer_money(senderPeer.m_peerID, 6, 0, false);
+     txId = receiver.transfer_money(senderPeer.m_walletID, 6, 0, false);
      main_reactor->run();
      sw.stop();
      cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -1035,7 +1030,7 @@ void TestP2PWalletNegotiationST()
 
      // third transfer. no enough money should appear
      sw.start();
-     txId = receiver.transfer_money(senderPeer.m_peerID, 6, 0, false);
+     txId = receiver.transfer_money(senderPeer.m_walletID, 6, 0, false);
      main_reactor->run();
      sw.stop();
      cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";

@@ -36,6 +36,7 @@ namespace beam
         WalletNetworkIO(io::Address address
                       , io::Address node_address
                       , bool is_server
+                      , IKeyChain::Ptr keychain
                       , io::Reactor::Ptr reactor = io::Reactor::Ptr()
                       , unsigned reconnect_ms = 1000 // 1 sec
                       , unsigned sync_period_ms = 60 * 1000  // 1 minute
@@ -163,7 +164,7 @@ namespace beam
     private:
 
         Protocol m_protocol;
-        WalletID m_peerID;
+        WalletID m_walletID;
         io::Address m_node_address;
         io::Reactor::Ptr m_reactor;
         io::TcpServer::Ptr m_server;
@@ -171,11 +172,9 @@ namespace beam
 
         struct WalletIDTag;
         struct AddressTag;
-      //  struct ConnectionIDTag;
 
         using WalletIDHook = bi::set_base_hook <bi::tag<WalletIDTag>>;
         using AddressHook = bi::set_base_hook<bi::tag<AddressTag>>;
-   //     using ConnectionIDHook = bi::set_base_hook<bi::tag<ConnectionIDTag>>;
         
         struct WalletInfo : public WalletIDHook
                           , public AddressHook
@@ -207,7 +206,6 @@ namespace beam
         };
 
         struct ConnectionInfo : public WalletIDHook
-                              //, public ConnectionIDHook
         {
             uint64_t m_connectionID;
             const WalletInfo& m_wallet;
@@ -227,15 +225,6 @@ namespace beam
             }
         };
 
-        //struct ConnectionIDKey
-        //{
-        //    typedef uint64_t type;
-        //    const uint64_t& operator()(const ConnectionInfo& ci) const
-        //    {
-        //        return ci.m_connectionID;
-        //    }
-        //};
-
         struct ConnectionWalletIDKey
         {
             typedef WalletID type;
@@ -250,7 +239,6 @@ namespace beam
         bi::set<WalletInfo, bi::base_hook<WalletIDHook>, bi::key_of_value<WalletIDKey>> m_walletsIndex;
         bi::set<WalletInfo, bi::base_hook<AddressHook>, bi::key_of_value<AddressKey>> m_addressIndex;
         bi::set<ConnectionInfo, bi::base_hook<WalletIDHook>, bi::key_of_value<ConnectionWalletIDKey>> m_connectionWalletsIndex;
-        //bi::set<ConnectionInfo, bi::base_hook<ConnectionIDHook>, bi::key_of_value<ConnectionIDKey>> m_connectionsIndex;
 
         bool m_is_node_connected;
         uint64_t m_connection_tag;
