@@ -273,9 +273,19 @@ namespace beam::wallet
         return output;
     }
 
-    void Negotiator::setPublicPeerNonce(const Point& publicPeerNonce)
+	bool Negotiator::ProcessInvitation(Invite& inviteMsg)
 	{
-        m_publicPeerNonce = publicPeerNonce;
+		if (!m_publicPeerExcess.Import(inviteMsg.m_publicPeerExcess) ||
+			!m_publicPeerNonce.Import(inviteMsg.m_publicPeerNonce))
+			return false;
+
+		m_offset = inviteMsg.m_offset;
+		m_transaction = std::make_shared<Transaction>();
+		m_transaction->m_Offset = ECC::Zero;
+		m_transaction->m_vInputs = move(inviteMsg.m_inputs);
+		m_transaction->m_vOutputs = move(inviteMsg.m_outputs);
+
+		return true;
 	}
 
     Scalar Negotiator::createSignature()

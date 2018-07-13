@@ -40,21 +40,8 @@ namespace beam::wallet
             m_blindingExcess = ECC::Zero;
         }
 
-        Negotiator(INegotiatorGateway& gateway
-            , beam::IKeyChain::Ptr keychain
-            , const TxDescription& txDesc
-            , Invite& inviteMsg)
-            : Negotiator{ gateway , keychain, txDesc}
-        {
-            assert(keychain);
-            m_offset = inviteMsg.m_offset;
-            m_publicPeerExcess = inviteMsg.m_publicPeerExcess;
-            setPublicPeerNonce(inviteMsg.m_publicPeerNonce);
-            m_transaction = std::make_shared<Transaction>();
-            m_transaction->m_Offset = ECC::Zero;
-            m_transaction->m_vInputs = move(inviteMsg.m_inputs);
-            m_transaction->m_vOutputs = move(inviteMsg.m_outputs);
-        }
+		bool ProcessInvitation(Invite& inviteMsg);
+
         void start()
         {
             m_fsm.start();
@@ -220,7 +207,6 @@ namespace beam::wallet
         void createKernel(Amount fee, Height minHeight);
         Input::Ptr createInput(const Coin& utxo);
         Output::Ptr createOutput(Amount amount, Height height);
-        void setPublicPeerNonce(const ECC::Point& publicPeerNonce);
         ECC::Scalar createSignature();
         void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce);
         ECC::Point getPublicExcess();
