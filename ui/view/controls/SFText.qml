@@ -6,6 +6,8 @@ Text {
     FontLoader { source: "qrc:///assets/fonts/SF-Pro-Display-Bold.otf"; }
     FontLoader { source: "qrc:///assets/fonts/SF-Pro-Display-Thin.otf"; }
 
+    property string family: sf_pro_display.name
+
     font {
         family: sf_pro_display.name
     }
