@@ -458,6 +458,29 @@ namespace detail
             return ar;
         }
 
+		/// beam::TxKernel::HashLock serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxKernel::HashLock& val)
+		{
+			ar
+				& val.m_Hash
+				& val.m_Preimage
+				;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::TxKernel::HashLock& val)
+		{
+			ar
+				& val.m_Hash
+				& val.m_Preimage
+				;
+
+			return ar;
+		}
+
         /// beam::TxKernel serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::TxKernel& val)
@@ -468,7 +491,8 @@ namespace detail
 				(val.m_Height.m_Min ? 4 : 0) |
 				((val.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
 				(val.m_pContract ? 0x10 : 0) |
-				(val.m_vNested.empty() ? 0 : 0x20);
+				(val.m_pHashLock ? 0x20 : 0) |
+				(val.m_vNested.empty() ? 0 : 0x40);
 
 			ar
 				& nFlags
@@ -484,9 +508,11 @@ namespace detail
 			if (8 & nFlags)
 				ar & val.m_Height.m_Max;
 			if (0x10 & nFlags)
-				ar & val.m_pContract;
-
+				ar & *val.m_pContract;
 			if (0x20 & nFlags)
+				ar & *val.m_pHashLock;
+
+			if (0x40 & nFlags)
 			{
 				uint32_t nCount = (uint32_t) val.m_vNested.size();
 				ar & nCount;
@@ -528,9 +554,18 @@ namespace detail
 				val.m_Height.m_Max = beam::Height(-1);
 
 			if (0x10 & nFlags)
-				ar & val.m_pContract;
+			{
+				val.m_pContract.reset(new beam::TxKernel::Contract);
+				ar & *val.m_pContract;
+			}
 
 			if (0x20 & nFlags)
+			{
+				val.m_pHashLock.reset(new beam::TxKernel::HashLock);
+				ar & *val.m_pHashLock;
+			}
+
+			if (0x40 & nFlags)
 			{
 				beam::TxKernel::TestRecursion(++nRecusion);
 

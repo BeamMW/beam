@@ -634,6 +634,13 @@ struct TransactionMaker
 
 		pKrn->m_pContract->m_PublicKey = Point::Native(Context::get().G * skContract);
 
+		pKrn->m_pHashLock.reset(new beam::TxKernel::HashLock);
+
+		uintBig hlPreimage;
+		SetRandom(hlPreimage);
+
+		Hash::Processor() << hlPreimage >> pKrn->m_pHashLock->m_Hash;
+
 		CoSignKernel(*pKrn);
 
 		// sign contract
@@ -642,6 +649,9 @@ struct TransactionMaker
 		pKrn->get_HashForContract(hv, hv);
 
 		pKrn->m_pContract->m_Signature.Sign(hv, skContract);
+
+		// finit HL: add hash preimage
+		pKrn->m_pHashLock->m_Preimage = hlPreimage;
 
 		lstTrg.push_back(std::move(pKrn));
 	}
@@ -1177,8 +1187,10 @@ void RunBenchmark()
 	}
 
 	{
+		AES::Encoder enc;
+		enc.Init(hv.m_pData);
 		AES::StreamCipher asc;
-		asc.Init(hv.m_pData);
+		asc.Reset();
 
 		uint8_t pBuf[0x400];
 
@@ -1189,7 +1201,7 @@ void RunBenchmark()
 			for (uint32_t i = 0; i < bm.N; i++)
 			{
 				for (size_t nSize = 0; nSize < 0x100000; nSize += sizeof(pBuf))
-					asc.XCrypt(pBuf, sizeof(pBuf));
+					asc.XCrypt(enc, pBuf, sizeof(pBuf));
 			}
 
 		} while (bm.ShouldContinue());

@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.1)
 project(beam)
 
+if(UNIX AND NOT APPLE)
+	set(LINUX TRUE)
+endif()
+
 enable_testing()
 
 function(add_test_snippet EXE_NAME LIB_NAME)
@@ -87,4 +91,7 @@ add_subdirectory(wallet)
 add_subdirectory(sqlite)
 add_subdirectory(beam)
 add_subdirectory(bbs)
-add_subdirectory(ui)
+
+if(NOT LINUX)
+	add_subdirectory(ui)
+endif()

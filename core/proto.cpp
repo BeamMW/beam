@@ -18,26 +18,25 @@ ProtocolPlus::ProtocolPlus(uint8_t v0, uint8_t v1, uint8_t v2, size_t maxMessage
 
 void ProtocolPlus::ResetVars()
 {
-	m_CipherIn.m_bON = false;
-	m_CipherOut.m_bON = false;
+	m_Mode = Mode::Plaintext;
 	ZeroObject(m_MyNonce);
 	ZeroObject(m_RemoteNonce);
 }
 
 void ProtocolPlus::Decrypt(uint8_t* p, uint32_t nSize)
 {
-	if (m_CipherIn.m_bON)
-		m_CipherIn.XCrypt(p, nSize);
+	if (Mode::Duplex == m_Mode)
+		m_CipherIn.XCrypt(m_Enc, p, nSize);
 }
 
 uint32_t ProtocolPlus::get_MacSize()
 {
-	return m_CipherIn.m_bON ? sizeof(uint64_t) : 0;
+	return (Mode::Duplex == m_Mode) ? sizeof(uint64_t) : 0;
 }
 
 bool ProtocolPlus::VerifyMsg(const uint8_t* p, uint32_t nSize)
 {
-	if (!m_CipherIn.m_bON)
+	if (Mode::Duplex != m_Mode)
 		return true;
 
 	if (nSize < sizeof(MacValue))
@@ -65,7 +64,7 @@ void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
 {
 	MacValue hmac;
 
-	if (m_CipherOut.m_bON)
+	if (Mode::Plaintext != m_Mode)
 	{
 		// 1. append dummy of the needed size
 		hmac = ECC::Zero;
@@ -74,7 +73,7 @@ void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
 
 	ser.finalize(sm);
 
-	if (m_CipherOut.m_bON)
+	if (Mode::Plaintext != m_Mode)
 	{
 		// 2. get size
 		size_t n = 0;
@@ -121,12 +120,12 @@ void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
 
 			n2 -= iov.size;
 
-			m_CipherOut.XCrypt(dst, (uint32_t)iov.size);
+			m_CipherOut.XCrypt(m_Enc, dst, (uint32_t)iov.size);
 		}
 	}
 }
 
-void ProtocolPlus::InitCipher(Cipher& c, bool bHMac)
+void ProtocolPlus::InitCipher()
 {
 	assert(!(m_MyNonce == ECC::Zero));
 
@@ -141,17 +140,17 @@ void ProtocolPlus::InitCipher(Cipher& c, bool bHMac)
 	hp.V << ptSecret >> hvSecret.V;
 
 	static_assert(AES::s_KeyBytes == sizeof(hvSecret.V), "");
-	c.Init(hvSecret.V.m_pData);
+	m_Enc.Init(hvSecret.V.m_pData);
 
 	hp.V << hvSecret.V >> hvSecret.V; // IV
 
-	static_assert(sizeof(hvSecret.V) >= sizeof(c.m_Counter), "");
-	memcpy(c.m_Counter.m_pData, hvSecret.V.m_pData, sizeof(c.m_Counter.m_pData));
+	m_CipherIn.m_nBuf = m_CipherOut.m_nBuf = 0;
 
-	c.m_bON = true;
+	static_assert(sizeof(hvSecret.V) >= sizeof(m_CipherOut.m_Counter), "");
+	memcpy(m_CipherOut.m_Counter.m_pData, hvSecret.V.m_pData, sizeof(m_CipherOut.m_Counter.m_pData));
+	memcpy(m_CipherIn.m_Counter.m_pData, hvSecret.V.m_pData, sizeof(m_CipherIn.m_Counter.m_pData));
 
-	if (bHMac)
-		m_HMac.Reset(hvSecret.V.m_pData, sizeof(hvSecret.V.m_pData));
+	m_HMac.Reset(hvSecret.V.m_pData, sizeof(hvSecret.V.m_pData));
 }
 
 /////////////////////////
@@ -379,22 +378,26 @@ void NodeConnection::SecureConnect()
 
 void NodeConnection::OnMsg(SChannelInitiate&& msg)
 {
+	if ((ProtocolPlus::Mode::Plaintext != m_Protocol.m_Mode) || (msg.m_NoncePub == ECC::Zero))
+		ThrowUnexpected();
+
 	SecureConnect(); // unless already sent
 
 	SChannelReady msgOut;
 	Send(msgOut); // activating new cipher.
 
 	m_Protocol.m_RemoteNonce = msg.m_NoncePub;
-	m_Protocol.InitCipher(m_Protocol.m_CipherOut, true);
+	m_Protocol.InitCipher();
+
+	m_Protocol.m_Mode = ProtocolPlus::Mode::Outgoing;
 }
 
 void NodeConnection::OnMsg(SChannelReady&& msg)
 {
-	if (!m_Protocol.m_CipherOut.m_bON)
+	if (ProtocolPlus::Mode::Outgoing != m_Protocol.m_Mode)
 		ThrowUnexpected();
 
-	ECC::NoLeak<ECC::Hash::Value> hv;
-	m_Protocol.InitCipher(m_Protocol.m_CipherIn, false);
+	m_Protocol.m_Mode = ProtocolPlus::Mode::Duplex;
 }
 
 void NodeConnection::ProveID(ECC::Scalar::Native& sk, uint8_t nIDType)
@@ -415,17 +418,17 @@ void NodeConnection::ProveID(ECC::Scalar::Native& sk, uint8_t nIDType)
 
 bool NodeConnection::IsSecureIn() const
 {
-	return m_Protocol.m_CipherIn.m_bON;
+	return ProtocolPlus::Mode::Duplex == m_Protocol.m_Mode;
 }
 
 bool NodeConnection::IsSecureOut() const
 {
-	return m_Protocol.m_CipherOut.m_bON;
+	return ProtocolPlus::Mode::Plaintext != m_Protocol.m_Mode;
 }
 
 void NodeConnection::OnMsg(Authentication&& msg)
 {
-	if (!m_Protocol.m_CipherIn.m_bON)
+	if (!IsSecureIn())
 		ThrowUnexpected();
 
 	// verify ID

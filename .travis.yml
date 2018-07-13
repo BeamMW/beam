@@ -46,8 +46,8 @@ matrix:
             - cmake
             - libboost-all-dev
             - libssl-dev
-            - qtdeclarative5-dev
-            - qtdeclarative5-qtquick2-plugin
+            # - qtdeclarative5-dev
+            # - qtdeclarative5-qtquick2-plugin
       before_install:
         - eval "CC=gcc-7 && CXX=g++-7"
       env: BUILD_TYPE=Debug
@@ -65,8 +65,8 @@ matrix:
             - cmake
             - libboost-all-dev
             - libssl-dev
-            - qtdeclarative5-dev
-            - qtdeclarative5-qtquick2-plugin
+            # - qtdeclarative5-dev
+            # - qtdeclarative5-qtquick2-plugin
       before_install:
         - eval "CC=gcc-7 && CXX=g++-7"
       env: BUILD_TYPE=Release
