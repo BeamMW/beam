@@ -10,6 +10,41 @@ Item {
 
     state: "wallet"
 
+    SFText {
+        font.pixelSize: 36
+        color: Style.white
+        text: "Wallet"
+    }
+
+    Rectangle {
+        id: user_led
+        y: 55
+
+        width: 10
+        height: 10
+
+        radius: 5
+
+        color: Style.bright_teal
+    }
+
+    DropShadow {
+        anchors.fill: user_led
+        radius: 5
+        samples: 9
+        color: Style.bright_teal
+        source: user_led
+    }
+
+    SFText {
+        x: 20
+        y: 53
+
+        font.pixelSize: 12
+        color: Style.bluey_grey
+        text: "1Cs4wu6pu5qCZ35bSLNVzGyEx5N6uzbg9t"
+    }
+
     Rectangle {
         id: send_layout
         anchors.fill: parent
@@ -328,11 +363,10 @@ Item {
         visible: false
     }
 
-    Rectangle {
+    Item {
 
         id: wallet_layout
         anchors.fill: parent
-        color: Style.marine
         state: "wide"
 
         CuteButton {
