@@ -203,7 +203,7 @@ namespace beam
         struct AddressKey
         {
             typedef uint64_t type;
-            const uint64_t& operator()(const WalletInfo& pi) const
+            uint64_t operator()(const WalletInfo& pi) const
             { 
                 return pi.m_address.u64();
             }
