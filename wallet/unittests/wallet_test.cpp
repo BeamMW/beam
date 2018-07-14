@@ -662,6 +662,10 @@ void TestP2PWalletNegotiationST()
     // unknown peer
     sender.transfer_money(senderPeer.m_walletID, 6);
     main_reactor->run();
+    auto sh = senderKeychain->getTxHistory();
+    WALLET_CHECK(sh.size() == 1);
+    WALLET_CHECK(sh[0].m_status == TxDescription::Failed);
+    senderKeychain->deleteTx(sh[0].m_txId);
 
     sw.start();
 
@@ -712,7 +716,7 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newSenderCoins[4].m_key_type == KeyType::Regular);
     
     // Tx history check
-    auto sh = senderKeychain->getTxHistory();
+    sh = senderKeychain->getTxHistory();
     WALLET_CHECK(sh.size() == 1);
     auto rh = receiverKeychain->getTxHistory();
     WALLET_CHECK(rh.size() == 1);
