@@ -735,6 +735,8 @@ namespace beam
 
 	}
 
+	const uint16_t g_Port = 25003; // don't use the default port to prevent collisions with running nodes, beacons and etc.
+
 	void TestNodeConversation()
 	{
 		// Testing configuration: Node0 <-> Node1 <-> Client.
@@ -744,18 +746,18 @@ namespace beam
 
 		Node node, node2;
 		node.m_Cfg.m_sPathLocal = g_sz;
-		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
+		node.m_Cfg.m_Listen.port(g_Port);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
 
 		node.m_Cfg.m_Timeout.m_GetBlock_ms = 1000 * 60;
 		node.m_Cfg.m_Timeout.m_GetState_ms = 1000 * 60;
 
 		node2.m_Cfg.m_sPathLocal = g_sz2;
-		node2.m_Cfg.m_Listen.port(Node::s_PortDefault + 1);
+		node2.m_Cfg.m_Listen.port(g_Port + 1);
 		node2.m_Cfg.m_Listen.ip(INADDR_ANY);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
 
-		node2.m_Cfg.m_BeaconPort = Node::s_PortDefault;
+		node2.m_Cfg.m_BeaconPort = g_Port;
 
 		ECC::SetRandom(node.m_Cfg.m_WalletKey.V);
 		ECC::SetRandom(node2.m_Cfg.m_WalletKey.V);
@@ -849,7 +851,7 @@ namespace beam
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");
-		addr.port(Node::s_PortDefault + 1);
+		addr.port(g_Port + 1);
 
 		cl.Connect(addr);
 
@@ -868,7 +870,7 @@ namespace beam
 
 		Node node;
 		node.m_Cfg.m_sPathLocal = g_sz;
-		node.m_Cfg.m_Listen.port(Node::s_PortDefault);
+		node.m_Cfg.m_Listen.port(g_Port);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
@@ -1059,7 +1061,7 @@ namespace beam
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");
-		addr.port(Node::s_PortDefault);
+		addr.port(g_Port);
 
 		node.m_Cfg.m_vTreasury.resize(1);
 		Block::Body& treasury = node.m_Cfg.m_vTreasury[0];
@@ -1133,7 +1135,7 @@ namespace beam
 		node2.m_Cfg.m_sPathLocal = g_sz2;
 		node2.m_Cfg.m_Connect.resize(1);
 		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
-		node2.m_Cfg.m_Connect[0].port(Node::s_PortDefault);
+		node2.m_Cfg.m_Connect[0].port(g_Port);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
 
 		node2.Initialize();
