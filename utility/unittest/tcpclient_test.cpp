@@ -22,12 +22,17 @@ uint64_t tag_timedout = 103;
 
 int errorlevel = 0;
 int callbackCount = 3;
+bool g_FirstRcv = true;
 
 void on_recv(ErrorCode what, void* data, size_t size) {
     if (data && size) {
         LOG_DEBUG() << "RECEIVED " << size << " bytes";
         LOG_VERBOSE() << "\n" << std::string((const char*)data, size);
-        --callbackCount;
+		if (g_FirstRcv)
+		{
+			g_FirstRcv = false;
+			--callbackCount;
+		}
     } else {
         LOG_DEBUG() << "ERROR: " << error_str(what);
     }
