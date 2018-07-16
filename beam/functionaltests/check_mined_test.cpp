@@ -1,5 +1,6 @@
 #include "beam/node.h"
 #include "utility/logger.h"
+#include "tools/coins_checker.h"
 #include "tools/base_node_connection.h"
 
 using namespace beam;
@@ -10,24 +11,29 @@ class TestNodeConnection : public BaseTestNode
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
+	virtual void GenerateTests() override;
 	virtual void OnMsg(proto::NewTip&&) override;
-	virtual void OnMsg(proto::Hdr&&) override;
 	virtual void OnMsg(proto::Mined&&) override;
-	virtual void OnMsg(proto::ProofUtxo&&) override;
-
+	
 private:
 	bool m_IsInit;
-	Block::SystemState::ID m_ID;
-	Input m_Input;
-	Scalar::Native m_Key;
-	Merkle::Hash m_Definition;
+	CoinsChecker m_CoinsChecker;	
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	: BaseTestNode(argc, argv)
 	, m_IsInit(false)
+	, m_CoinsChecker(argc, argv)
 {
 	m_Timeout = 10 * 1000;
+}
+
+void TestNodeConnection::GenerateTests()
+{
+	m_Tests.push_back([this]
+	{
+		m_CoinsChecker.InitChecker();
+	});
 }
 
 void TestNodeConnection::OnMsg(proto::NewTip&& msg)
@@ -36,20 +42,11 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 	{
 		LOG_INFO() << "NewTip: " << msg.m_ID;
 
-		m_ID = msg.m_ID;
 		m_IsInit = true;		
 
-		LOG_INFO() << "Send GetHdr message";
-		Send(proto::GetHdr{ m_ID });
+		LOG_INFO() << "Send GetMined message";
+		Send(proto::GetMined{ msg.m_ID.m_Height });
 	}
-}
-
-void TestNodeConnection::OnMsg(proto::Hdr&& msg)
-{
-	m_Definition = msg.m_Description.m_Definition;
-
-	LOG_INFO() << "Send GetMined message";
-	Send(proto::GetMined{ m_ID.m_Height });
 }
 
 void TestNodeConnection::OnMsg(proto::Mined&& msg)
@@ -70,42 +67,29 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 	}
 
 	proto::PerMined mined = msg.m_Entries.front();
+	
+	Scalar::Native key;
+	DeriveKey(key, m_Kdf, mined.m_ID.m_Height, KeyType::Coinbase);
 
-	DeriveKey(m_Key, m_Kdf, mined.m_ID.m_Height, KeyType::Coinbase);
+	Input input;
+	input.m_Commitment = Commitment(key, Rules::get().CoinbaseEmission);
 
-	m_Input.m_Commitment = Commitment(m_Key, Rules::get().CoinbaseEmission);
-
-	Send(proto::GetProofUtxo{ m_Input, 0 });
-}
-
-void TestNodeConnection::OnMsg(proto::ProofUtxo&& msg)
-{
-	if (msg.m_Proofs.empty())
-	{
-		LOG_INFO() << "Failed: list is empty";
-		m_Failed = true;
-	}
-	else
-	{
-		bool isValid = false;
-		for (const auto& proof : msg.m_Proofs)
+	m_CoinsChecker.Check(CoinsChecker::Inputs{ input },
+		[this](bool isOk)
 		{
-			if (proof.IsValid(m_Input, m_Definition))
+			if (isOk)
 			{
 				LOG_INFO() << "OK: utxo is valid";
-				isValid = true;
-				break;
 			}
+			else
+			{
+				LOG_INFO() << "Failed: utxo is not valid";
+				m_Failed = true;
+				
+			}
+			io::Reactor::get_Current().stop();
 		}
-
-		if (!isValid)
-		{
-			LOG_INFO() << "Failed: utxo is not valid";
-			m_Failed = true;
-		}
-	}
-
-	io::Reactor::get_Current().stop();
+	);
 }
 
 int main(int argc, char* argv[])
