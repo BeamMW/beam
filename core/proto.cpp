@@ -140,7 +140,7 @@ void InitCipherIV(AES::StreamCipher& c, const ECC::Hash::Value& hvSecret, const 
 
 bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& remotePublic, AES::Encoder& enc, ECC::Hash::Mac& hmac, AES::StreamCipher* pCipherOut, AES::StreamCipher* pCipherIn)
 {
-	 // Diffie-Hellman
+	// Diffie-Hellman
 	ECC::Point pt;
 	pt.m_X = remotePublic;
 	pt.m_Y = false;
@@ -188,6 +188,62 @@ void Sk2Pk(PeerID& res, ECC::Scalar::Native& sk)
 		sk = -sk;
 
 	res = pt.m_X;
+}
+
+bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void* p, uint32_t n)
+{
+	PeerID myPublic;
+	Sk2Pk(myPublic, nonce);
+
+	AES::Encoder enc;
+	AES::StreamCipher cOut;
+	ECC::Hash::Mac hmac;
+	if (!InitViaDiffieHellman(nonce, publicAddr, enc, hmac, &cOut, NULL))
+		return false; // bad address
+
+	hmac.Write(p, n);
+	ECC::Hash::Value hvMac;
+	hmac >> hvMac;
+
+	res.resize(sizeof(myPublic) + sizeof(hvMac) + n);
+	uint8_t* pDst = &res.at(0);
+	
+	memcpy(pDst, myPublic.m_pData, sizeof(myPublic));
+	memcpy(pDst + sizeof(myPublic), hvMac.m_pData, sizeof(hvMac));
+	memcpy(pDst + sizeof(myPublic) + sizeof(hvMac), p, n);
+
+	cOut.XCrypt(enc, pDst + sizeof(myPublic), sizeof(hvMac) + n);
+
+	return true;
+}
+
+bool BbsDecrypt(uint8_t*& p, uint32_t& n, ECC::Scalar::Native& privateAddr)
+{
+	PeerID remotePublic;
+	ECC::Hash::Value hvMac, hvMac2;
+
+	if (n < sizeof(remotePublic) + sizeof(hvMac))
+		return false;
+
+	memcpy(remotePublic.m_pData, p, sizeof(remotePublic));
+
+	AES::Encoder enc;
+	AES::StreamCipher cIn;
+	ECC::Hash::Mac hmac;
+	if (!InitViaDiffieHellman(privateAddr, remotePublic, enc, hmac, NULL, &cIn))
+		return false; // bad address
+
+	cIn.XCrypt(enc, p + sizeof(remotePublic), n - sizeof(remotePublic));
+
+	memcpy(hvMac.m_pData, p + sizeof(remotePublic), sizeof(hvMac));
+
+	p += sizeof(remotePublic) + sizeof(hvMac);
+	n -= (sizeof(remotePublic) + sizeof(hvMac));
+
+	hmac.Write(p, n);
+	hmac >> hvMac2;
+
+	return (hvMac == hvMac2);
 }
 
 /////////////////////////
