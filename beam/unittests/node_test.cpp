@@ -930,6 +930,17 @@ namespace beam
 				msgCfg.m_CfgChecksum = Rules::get().Checksum;
 				msgCfg.m_AutoSendHdr = true;
 				Send(msgCfg);
+
+				Send(proto::GetTime());
+				Send(proto::GetExternalAddr());
+			}
+
+			virtual void OnMsg(proto::Time&& msg) override
+			{
+			}
+
+			virtual void OnMsg(proto::ExternalAddr&& msg) override
+			{
 			}
 
 			virtual void OnDisconnect(const DisconnectReason&) override {

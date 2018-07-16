@@ -82,6 +82,16 @@ namespace proto {
 	macro(PeerID, ID) \
 	macro(io::Address, LastAddr)
 
+#define BeamNodeMsg_GetTime(macro)
+
+#define BeamNodeMsg_Time(macro) \
+	macro(Timestamp, Value)
+
+#define BeamNodeMsg_GetExternalAddr(macro)
+
+#define BeamNodeMsg_ExternalAddr(macro) \
+	macro(uint32_t, Value)
+
 #define BeamNodeMsg_BbsMsg(macro) \
 	macro(BbsChannel, Channel) \
 	macro(Timestamp, TimePosted) \
@@ -131,6 +141,10 @@ namespace proto {
 	macro(25, GetTransaction) \
 	macro(31, PeerInfoSelf) \
 	macro(32, PeerInfo) \
+	macro(33, GetTime) \
+	macro(34, Time) \
+	macro(35, GetExternalAddr) \
+	macro(36, ExternalAddr) \
 	macro(40, BbsMsg) \
 	macro(41, BbsHaveMsg) \
 	macro(42, BbsGetMsg) \

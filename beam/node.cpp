@@ -1362,6 +1362,20 @@ void Node::Peer::OnMsg(proto::PeerInfo&& msg)
 		m_This.m_PeerMan.OnPeer(msg.m_ID, msg.m_LastAddr, false);
 }
 
+void Node::Peer::OnMsg(proto::GetTime&& msg)
+{
+	proto::Time msgOut;
+	msgOut.m_Value = getTimestamp();
+	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
+{
+	proto::ExternalAddr msgOut;
+	msgOut.m_Value = m_RemoteAddr.ip();
+	Send(msgOut);
+}
+
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 {
 	Timestamp t = getTimestamp();
