@@ -464,7 +464,7 @@ void Node::Initialize()
 		ECC::Hash::Processor() << "myid" << m_SChannelSeed.V >> m_MyPrivateID.V.m_Value;
 
 	ECC::Scalar::Native sk = m_MyPrivateID.V;
-	proto::NodeConnection::Sk2Pk(m_MyPublicID, sk);
+	proto::Sk2Pk(m_MyPublicID, sk);
 
 	if (bNewID)
 	{
@@ -475,7 +475,7 @@ void Node::Initialize()
 	ECC::Kdf& kdf = m_Processor.m_Kdf;
 
 	DeriveKey(sk, kdf, 0, KeyType::Identity);
-	proto::NodeConnection::Sk2Pk(m_MyOwnerID, sk);
+	proto::Sk2Pk(m_MyOwnerID, sk);
 
 	LOG_INFO() << "Node ID=" << m_MyPublicID << ", Owner=" << m_MyOwnerID;
 	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;

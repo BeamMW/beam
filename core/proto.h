@@ -214,6 +214,7 @@ namespace proto {
 		void Encrypt(SerializedMsg&, MsgSerializer&);
 	};
 
+	void Sk2Pk(PeerID&, ECC::Scalar::Native&); // will negate the scalar iff necessary
 	struct INodeMsgHandler
 		:public IErrorHandler
 	{
@@ -273,7 +274,6 @@ namespace proto {
 
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
-		static void Sk2Pk(PeerID&, ECC::Scalar::Native&); // will negate the scalar iff necessary
 		bool IsSecureIn() const;
 		bool IsSecureOut() const;
 

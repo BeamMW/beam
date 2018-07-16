@@ -125,37 +125,69 @@ void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
 	}
 }
 
-void ProtocolPlus::InitCipher()
+void InitCipherIV(AES::StreamCipher& c, const ECC::Hash::Value& hvSecret, const ECC::Hash::Value& hvParam)
 {
-	assert(!(m_MyNonce == ECC::Zero));
+	ECC::NoLeak<ECC::Hash::Processor> hpIV;
+	ECC::NoLeak<ECC::Hash::Value> hvIV;
 
+	hpIV.V << hvSecret << hvParam >> hvIV.V;
+
+	static_assert(sizeof(hvIV.V) >= sizeof(c.m_Counter), "");
+	memcpy(c.m_Counter.m_pData, hvIV.V.m_pData, sizeof(c.m_Counter.m_pData));
+
+	c.m_nBuf = 0;
+}
+
+bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& remotePublic, AES::Encoder& enc, ECC::Hash::Mac& hmac, AES::StreamCipher* pCipherOut, AES::StreamCipher* pCipherIn)
+{
 	 // Diffie-Hellman
 	ECC::Point pt;
-	pt.m_X = m_RemoteNonce;
+	pt.m_X = remotePublic;
 	pt.m_Y = false;
 
 	ECC::Point::Native p;
 	if (!p.Import(pt))
-		NodeConnection::ThrowUnexpected();
+		return false;
 
-	ECC::Point::Native ptSecret = p * m_MyNonce;
+	ECC::Point::Native ptSecret = p * myPrivate;
 
 	ECC::NoLeak<ECC::Hash::Processor> hp;
 	ECC::NoLeak<ECC::Hash::Value> hvSecret;
 	hp.V << ptSecret >> hvSecret.V;
 
 	static_assert(AES::s_KeyBytes == sizeof(hvSecret.V), "");
-	m_Enc.Init(hvSecret.V.m_pData);
+	enc.Init(hvSecret.V.m_pData);
 
-	hp.V << hvSecret.V >> hvSecret.V; // IV
+	hmac.Reset(hvSecret.V.m_pData, sizeof(hvSecret.V.m_pData));
 
-	m_CipherIn.m_nBuf = m_CipherOut.m_nBuf = 0;
+	if (pCipherOut)
+		InitCipherIV(*pCipherOut, hvSecret.V, remotePublic);
 
-	static_assert(sizeof(hvSecret.V) >= sizeof(m_CipherOut.m_Counter), "");
-	memcpy(m_CipherOut.m_Counter.m_pData, hvSecret.V.m_pData, sizeof(m_CipherOut.m_Counter.m_pData));
-	memcpy(m_CipherIn.m_Counter.m_pData, hvSecret.V.m_pData, sizeof(m_CipherIn.m_Counter.m_pData));
+	if (pCipherIn)
+	{
+		PeerID myPublic;
+		Sk2Pk(myPublic, (ECC::Scalar::Native&) myPrivate); // my private must have been already normalized. Should not be modified.
+		InitCipherIV(*pCipherIn, hvSecret.V, myPublic);
+	}
 
-	m_HMac.Reset(hvSecret.V.m_pData, sizeof(hvSecret.V.m_pData));
+	return true;
+}
+
+void ProtocolPlus::InitCipher()
+{
+	assert(!(m_MyNonce == ECC::Zero));
+
+	if (!InitViaDiffieHellman(m_MyNonce, m_RemoteNonce, m_Enc, m_HMac, &m_CipherOut, &m_CipherIn))
+		NodeConnection::ThrowUnexpected();
+}
+
+void Sk2Pk(PeerID& res, ECC::Scalar::Native& sk)
+{
+	ECC::Point pt = ECC::Point::Native(ECC::Context::get().G * sk);
+	if (pt.m_Y)
+		sk = -sk;
+
+	res = pt.m_X;
 }
 
 /////////////////////////
@@ -346,15 +378,6 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
 
 BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
-
-void NodeConnection::Sk2Pk(PeerID& res, ECC::Scalar::Native& sk)
-{
-	ECC::Point pt = ECC::Point::Native(ECC::Context::get().G * sk);
-	if (pt.m_Y)
-		sk = -sk;
-
-	res = pt.m_X;
-}
 
 void NodeConnection::GenerateSChannelNonce(ECC::Scalar::Native& sk)
 {
