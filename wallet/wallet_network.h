@@ -240,9 +240,9 @@ namespace beam
 
         std::vector<std::unique_ptr<WalletInfo>> m_wallets;
         std::map<uint64_t, ConnectionInfo> m_connections;
-        bi::set<WalletInfo, bi::base_hook<WalletIDHook>, bi::key_of_value<WalletIDKey>> m_walletsIndex;
-        bi::set<WalletInfo, bi::base_hook<AddressHook>, bi::key_of_value<AddressKey>> m_addressIndex;
-        bi::set<ConnectionInfo, bi::base_hook<WalletIDHook>, bi::key_of_value<ConnectionWalletIDKey>> m_connectionWalletsIndex;
+        bi::set<WalletInfo, bi::base_hook<WalletIDHook>, boost::intrusive::key_of_value<WalletIDKey> > m_walletsIndex;
+        bi::set<WalletInfo, bi::base_hook<AddressHook>, bi::key_of_value<AddressKey> > m_addressIndex;
+        bi::set<ConnectionInfo, bi::base_hook<WalletIDHook>, bi::key_of_value<ConnectionWalletIDKey> > m_connectionWalletsIndex;
 
         bool m_is_node_connected;
         uint64_t m_connection_tag;
