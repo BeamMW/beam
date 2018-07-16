@@ -409,6 +409,72 @@ void TestNodeConnection::GenerateTests()
 		Send(gen.GetTransaction());
 	});
 	m_Results.push_back(false);
+
+	m_Tests.push_back([this]()
+	{
+		LOG_INFO() << "Run test with input = 0, ouput = 0, fee = 0";
+
+		TxGenerator gen(m_Kdf);
+
+		// Inputs 
+		gen.GenerateInputInTx(18, 0);
+
+		// Outputs
+		gen.GenerateOutputInTx(18, 0, KeyType::Regular, false);
+
+		// Kernels
+		gen.GenerateKernel(18, 0);
+
+		gen.Sort();
+
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+
+		Send(gen.GetTransaction());
+	});
+	m_Results.push_back(false);
+
+	m_Tests.push_back([this]()
+	{
+		LOG_INFO() << "Run test with input = 2, ouput = empty, fee = 2";
+
+		TxGenerator gen(m_Kdf);
+
+		// Inputs 
+		gen.GenerateInputInTx(19, 2);
+				
+		// Kernels
+		gen.GenerateKernel(19, 2);
+
+		gen.Sort();
+
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+
+		Send(gen.GetTransaction());
+	});
+	m_Results.push_back(false);
+
+	m_Tests.push_back([this]()
+	{
+		LOG_INFO() << "Run test with input = 2, ouput = 0, fee = 2";
+
+		TxGenerator gen(m_Kdf);
+
+		// Inputs 
+		gen.GenerateInputInTx(20, 2);
+
+		// Outputs
+		gen.GenerateOutputInTx(20, 0, KeyType::Regular, false);
+
+		// Kernels
+		gen.GenerateKernel(20, 2);
+
+		gen.Sort();
+
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+
+		Send(gen.GetTransaction());
+	});
+	m_Results.push_back(false);
 }
 
 int main(int argc, char* argv[])

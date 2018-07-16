@@ -19,7 +19,7 @@ private:
 private:
 	bool m_IsInit;
 	bool m_IsNeedToCheckOut;
-	unsigned int m_Counter;	
+	unsigned int m_Counter;
 	TxGenerator m_Generator;
 	CoinsChecker m_CoinsChecker;
 };
@@ -54,9 +54,9 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 	{
 		m_IsInit = true;
 
-		m_Generator.GenerateInputInTx(msg.m_ID.m_Height - 70, Rules::get().CoinbaseEmission, KeyType::Coinbase);
-		m_Generator.GenerateOutputInTx(msg.m_ID.m_Height - 70, Rules::get().CoinbaseEmission, KeyType::Coinbase);
-		m_Generator.GenerateKernel(msg.m_ID.m_Height - 70);
+		m_Generator.GenerateInputInTx(msg.m_ID.m_Height - 70, Rules::get().CoinbaseEmission);
+		m_Generator.GenerateOutputInTx(msg.m_ID.m_Height - 70, 0, KeyType::Regular, false);
+		m_Generator.GenerateKernel(msg.m_ID.m_Height - 70, Rules::get().CoinbaseEmission);
 		m_Generator.Sort();
 		Send(m_Generator.GetTransaction());
 	}
