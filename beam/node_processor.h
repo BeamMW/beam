@@ -40,7 +40,6 @@ class NodeProcessor
 	void InitCursor();
 	static void OnCorrupted();
 	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
-	uint64_t FindActiveAtStrict(Height);
 	bool IsRelevantHeight(Height);
 	uint8_t get_NextDifficulty();
 	Timestamp get_MovingMedian();
@@ -108,6 +107,7 @@ public:
 	virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 
 	bool IsStateNeeded(const Block::SystemState::ID&);
+	uint64_t FindActiveAtStrict(Height);
 
 	ECC::Kdf m_Kdf;
 
