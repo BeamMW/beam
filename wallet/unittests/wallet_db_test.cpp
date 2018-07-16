@@ -396,7 +396,8 @@ void TestSelect()
     // double coins
     for (Amount i = 1; i <= c; ++i)
     {
-        db->store(Coin{ i, Coin::Unspent, 1, 10, KeyType::Regular });
+        Coin c{ i, Coin::Unspent, 1, 10, KeyType::Regular };
+        db->store(c);
     }
     auto c2 = c * 2;
     for (Amount i = 1; i <= c; ++i)
@@ -423,10 +424,12 @@ void TestSelect()
 
     {
         db->remove(db->selectCoins(110));
-        db->store(Coin{ 2, Coin::Unspent, 1, 10, KeyType::Regular });
-        db->store(Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular });
-        db->store(Coin{ 9, Coin::Unspent, 1, 10, KeyType::Regular });
-        auto coins = db->selectCoins(6);
+        vector<Coin> coins = {
+            Coin{ 2, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 9, Coin::Unspent, 1, 10, KeyType::Regular } };
+        db->store(coins);
+        coins = db->selectCoins(6);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_amount == 9);
     }
