@@ -513,6 +513,9 @@ void Node::Initialize()
 		NodeDB::WalkerPeer wlk(m_Processor.get_DB());
 		for (m_Processor.get_DB().EnumPeers(wlk); wlk.MoveNext(); )
 		{
+			if (wlk.m_Data.m_ID == m_MyPublicID)
+				continue; // could be left from previous run?
+
 			PeerMan::PeerInfo* pPi = m_PeerMan.OnPeer(wlk.m_Data.m_ID, io::Address::from_u64(wlk.m_Data.m_Address), false);
 			if (!pPi)
 				continue;
@@ -744,7 +747,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 		ThrowUnexpected();
 
 	m_bPiRcvd = true;
-	LOG_INFO() << m_RemoteAddr << "received PI";
+	LOG_INFO() << m_RemoteAddr << " received PI";
 
 	PeerMan& pm = m_This.m_PeerMan; // alias
 
@@ -767,12 +770,19 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 		}
 		else
 		{
-			LOG_INFO() << "PeerID is differnt";
+			LOG_INFO() << "PeerID is different";
 			pm.OnActive(*m_pInfo, false);
 			pm.RemoveAddr(*m_pInfo); // turned-out to be wrong
 		}
 
 		m_pInfo = NULL;
+	}
+
+	if (msg.m_ID == m_This.m_MyPublicID)
+	{
+		LOG_WARNING() << "Loopback connection";
+		DeleteSelf(false, false);
+		return;
 	}
 
 	io::Address addr;
@@ -1347,7 +1357,8 @@ void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 
 void Node::Peer::OnMsg(proto::PeerInfo&& msg)
 {
-	m_This.m_PeerMan.OnPeer(msg.m_ID, msg.m_LastAddr, false);
+	if (msg.m_ID != m_This.m_MyPublicID)
+		m_This.m_PeerMan.OnPeer(msg.m_ID, msg.m_LastAddr, false);
 }
 
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
@@ -2175,7 +2186,7 @@ void Node::Beacon::OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, c
 	io::Address addr(*(sockaddr_in*)pSa);
 	addr.port(ntohs(msg.m_Port));
 
-	pThis->OnPeer(addr, msg.m_NodeID);
+	pThis->get_ParentObj().m_PeerMan.OnPeer(msg.m_NodeID, addr, true);
 }
 
 void Node::Beacon::AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
@@ -2185,11 +2196,6 @@ void Node::Beacon::AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t
 
 	buf->base = (char*) &pThis->m_BufRcv.at(0);
 	buf->len = sizeof(OutCtx::Message);
-}
-
-void Node::Beacon::OnPeer(const io::Address& addr, const PeerID& id)
-{
-	get_ParentObj().m_PeerMan.OnPeer(id, addr, true);
 }
 
 void Node::PeerMan::OnFlush()

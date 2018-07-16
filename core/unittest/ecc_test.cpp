@@ -150,7 +150,8 @@ void TestPoints()
 	verify_test(p0 == Zero);
 
 	p_.m_Y = false;
-	verify_test(!p0.Import(p_));
+	verify_test(p0.Import(p_));
+	verify_test(p0 == Zero);
 
 	p2_ = p0;
 	verify_test(p_ == p2_);
@@ -376,14 +377,14 @@ void TestRangeProof()
 
 	{
 		Oracle oracle;
-		verify_test(rp.IsValid(Point(comm), oracle));
+		verify_test(rp.IsValid(comm, oracle));
 	}
 
 	// tamper value
 	rp.m_Value++;
 	{
 		Oracle oracle;
-		verify_test(!rp.IsValid(Point(comm), oracle));
+		verify_test(!rp.IsValid(comm, oracle));
 	}
 	rp.m_Value--;
 
@@ -394,7 +395,7 @@ void TestRangeProof()
 
 	{
 		Oracle oracle;
-		verify_test(!rp.IsValid(Point(comm), oracle));
+		verify_test(!rp.IsValid(comm, oracle));
 	}
 
 	Scalar::Native pA[InnerProduct::nDim];
@@ -453,7 +454,7 @@ void TestRangeProof()
 		{
 			Oracle oracle;
 			bp.m_Part2 = p2;
-			bp.CoSign(sk, v, oracle, RangeProof::Confidential::Phase::Step2);
+			verify_test(bp.CoSign(sk, v, oracle, RangeProof::Confidential::Phase::Step2));
 			p1 = bp.m_Part1;
 			p2 = bp.m_Part2;
 		}
@@ -470,7 +471,7 @@ void TestRangeProof()
 			Oracle oracle;
 			bp.m_Part2 = p2;
 			bp.m_Part3 = p3;
-			bp.CoSign(sk, v, oracle, RangeProof::Confidential::Phase::Finalize);
+			verify_test(bp.CoSign(sk, v, oracle, RangeProof::Confidential::Phase::Finalize));
 		}
 
 		// Final UTXO commitment
@@ -488,13 +489,13 @@ void TestRangeProof()
 	{
 		beam::Output outp;
 		outp.Create(1U, 20300, true);
-		verify_test(outp.IsValid());
+		verify_test(outp.IsValid(comm));
 		WriteSizeSerialized("Out-UTXO-Public", outp);
 	}
 	{
 		beam::Output outp;
 		outp.Create(1U, 20300, false);
-		verify_test(outp.IsValid());
+		verify_test(outp.IsValid(comm));
 		WriteSizeSerialized("Out-UTXO-Confidential", outp);
 	}
 
@@ -1170,7 +1171,7 @@ void RunBenchmark()
 		} while (bm.ShouldContinue());
 	}
 
-	Point comm = Commitment(k1, v);
+	Point::Native comm = Commitment(k1, v);
 
 	{
 		BenchmarkMeter bm("BulletProof.Verify");

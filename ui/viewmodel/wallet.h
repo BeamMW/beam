@@ -9,7 +9,7 @@ class TxObject : public QObject
 {
 	Q_OBJECT
 
-		Q_PROPERTY(QString dir			READ dir		NOTIFY dirChanged)
+		Q_PROPERTY(bool income			READ income		NOTIFY incomeChanged)
 		Q_PROPERTY(QString date			READ date		NOTIFY dateChanged)
 		Q_PROPERTY(QString user			READ user		NOTIFY userChanged)
 		Q_PROPERTY(QString comment		READ comment	NOTIFY commentChanged)
@@ -21,7 +21,7 @@ public:
 
 	TxObject(const beam::TxDescription& tx);
 
-	QString dir() const;
+	bool income() const;
 	QString date() const;
 	QString user() const;
 	QString comment() const;
@@ -30,7 +30,7 @@ public:
 	QString status() const;
 
 signals:
-	void dirChanged();
+	void incomeChanged();
 	void dateChanged();
 	void userChanged();
 	void commentChanged();
@@ -46,7 +46,11 @@ class WalletViewModel : public QObject
 {
 	Q_OBJECT
 
-	Q_PROPERTY(QString available READ available NOTIFY availableChanged)
+	Q_PROPERTY(QString available 	READ available 		NOTIFY availableChanged)
+	Q_PROPERTY(QString received 	READ received 		NOTIFY receivedChanged)
+	Q_PROPERTY(QString sent 		READ sent 			NOTIFY sentChanged)
+	Q_PROPERTY(QString unconfirmed 	READ unconfirmed 	NOTIFY unconfirmedChanged)
+
 	Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
 	Q_PROPERTY(QString receiverAddr READ receiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
 	Q_PROPERTY(QVariant tx READ tx NOTIFY txChanged)
@@ -55,7 +59,12 @@ public:
 	using TxList = QList<QObject*>;
 
 	WalletViewModel(beam::IKeyChain::Ptr keychain, uint16_t port, const std::string& nodeAddr);
+
 	QString available() const;
+	QString received() const;
+	QString sent() const;
+	QString unconfirmed() const;
+
 	QVariant tx() const;
 	QString sendAmount() const;
 	QString receiverAddr() const;
@@ -64,20 +73,25 @@ public:
 	void setReceiverAddr(const QString& text);
 
 public slots:
-	void onStatus(const beam::Amount& amount);
+	void onStatus(const WalletStatus& amount);
 	void onTxStatus(const std::vector<beam::TxDescription>& history);
 	void sendMoney();
 
 signals:
 	void availableChanged();
+	void receivedChanged();
+	void sentChanged();
+	void unconfirmedChanged();
+
 	void sendAmountChanged();
 	void receiverAddrChanged();
 	void txChanged();
 
 private:
 
-	beam::Amount _available;
-	beam::Amount _sendAmount;
+	WalletStatus _status;
+
+	QString _sendAmount;
 	std::string _receiverAddr;
 	TxList _tx;
 
