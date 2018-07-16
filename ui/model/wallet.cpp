@@ -60,10 +60,6 @@ WalletStatus WalletModel::getStatus() const
 		case TxDescription::Completed:
 			(item.m_sender ? status.sent : status.received) += item.m_amount;
 			break;
-		case TxDescription::Pending:
-		case TxDescription::InProgress:
-			status.unconfirmed += item.m_amount;
-			break;
 		default: break;
 		}
 	}

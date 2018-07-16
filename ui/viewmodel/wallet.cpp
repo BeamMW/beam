@@ -7,9 +7,14 @@ using namespace std;
 
 namespace
 {
-	QString BeamToString(const Amount& value, int prec = 3)
+	QString BeamToString(const Amount& value)
 	{
-		return QString::number(static_cast<float>(value) / Rules::Coin, 'f', prec);
+
+		std::string str = std::to_string(static_cast<float>(value) / Rules::Coin);
+		str.erase(str.find_last_not_of('0') + 1, std::string::npos);
+		str.erase(str.find_last_not_of('.') + 1, std::string::npos);
+
+		return QString::fromStdString(str);
 	}
 }
 
@@ -58,7 +63,7 @@ QString TxObject::status() const
 WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
 	: _model(keychain, port, nodeAddr)
 	, _status{0, 0, 0, 0}
-	, _sendAmount("40.000")
+	, _sendAmount("0.1")
 	, _receiverAddr("127.0.0.1:8888")
 {
 	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
