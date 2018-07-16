@@ -55,8 +55,6 @@ void CoinsChecker::OnDisconnect(const DisconnectReason& reason)
 
 void CoinsChecker::OnMsg(proto::Hdr&& msg)
 {
-	LOG_INFO() << "Hdr: ";
-
 	m_Definition = msg.m_Description.m_Definition;
 	if (!m_IsInitChecker)
 	{
