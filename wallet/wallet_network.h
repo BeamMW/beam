@@ -92,7 +92,7 @@ namespace beam
         template <typename T>
         void send(const WalletID& walletID, MsgType type, T&& msg)
         {
-            if (auto it = m_connectionWalletsIndex.find(walletID); it != m_connectionWalletsIndex.end())
+            if (auto it = m_connectionWalletsIndex.find(walletID, ConnectionWalletIDComparer()); it != m_connectionWalletsIndex.end())
             {
                 if (it->m_connection)
                 {
@@ -102,7 +102,7 @@ namespace beam
                     test_io_result(res);
                 }
             }
-            else if (auto it = m_walletsIndex.find(walletID); it != m_walletsIndex.end())
+            else if (auto it = m_walletsIndex.find(walletID, WalletIDComparer()); it != m_walletsIndex.end())
             {
                 auto t = std::make_shared<T>(std::move(msg)); // we need copyable object
                 connect_wallet(*it, get_connection_tag(), [this, type, t](const ConnectionInfo& ci)
@@ -191,21 +191,36 @@ namespace beam
             {}
         };
 
-        struct WalletIDKey
+        struct WalletIDComparer
         {
-            typedef WalletID type;
-            const WalletID& operator()(const WalletInfo& pi) const
+            bool operator()(const WalletInfo& left, const WalletInfo& right) const
             { 
-                return pi.m_walletID; 
+                return left.m_walletID < right.m_walletID; 
+            }
+            bool operator()(const WalletInfo& left, const WalletID& right) const
+            {
+                return left.m_walletID < right;
+            }
+            bool operator()(const WalletID& left, const WalletInfo& right) const
+            {
+                return left < right.m_walletID;
             }
         };
 
-        struct AddressKey
+        struct AddressComparer
         {
-            typedef uint64_t type;
-            uint64_t operator()(const WalletInfo& pi) const
+            bool operator()(const WalletInfo& left, const WalletInfo& right) const
             { 
-                return pi.m_address.u64();
+                return left.m_address.u64() < right.m_address.u64();
+            }
+
+            bool operator()(const WalletInfo& left, const uint64_t& right) const
+            {
+                return left.m_address.u64() < right;
+            }
+            bool operator()(const uint64_t& left, const WalletInfo& right) const
+            {
+                return left < right.m_address.u64();
             }
         };
 
@@ -222,27 +237,30 @@ namespace beam
                 , m_callback{ std::move(callback) }
             {
             }
-
-            bool operator<(const ConnectionInfo& other) const
-            {
-                return m_connectionID < other.m_connectionID;
-            }
         };
 
-        struct ConnectionWalletIDKey
+        struct ConnectionWalletIDComparer
         {
-            typedef WalletID type;
-            const WalletID& operator()(const ConnectionInfo& ci) const
+            bool operator()(const ConnectionInfo& left, const ConnectionInfo& right) const
             {
-                return ci.m_wallet.m_walletID;
+                return left.m_wallet.m_walletID < right.m_wallet.m_walletID;
+            }
+
+            bool operator()(const ConnectionInfo& left, const WalletID& right) const
+            {
+                return left.m_wallet.m_walletID < right;
+            }
+            bool operator()(const WalletID& left, const ConnectionInfo& right) const
+            {
+                return left < right.m_wallet.m_walletID;
             }
         };
 
         std::vector<std::unique_ptr<WalletInfo>> m_wallets;
         std::map<uint64_t, ConnectionInfo> m_connections;
-        bi::set<WalletInfo, bi::key_of_value<WalletIDKey>, bi::base_hook<WalletIDHook> > m_walletsIndex;
-        bi::set<WalletInfo, bi::base_hook<AddressHook>, bi::key_of_value<AddressKey> > m_addressIndex;
-        bi::set<ConnectionInfo, bi::base_hook<WalletIDHook>, bi::key_of_value<ConnectionWalletIDKey> > m_connectionWalletsIndex;
+        bi::set<WalletInfo, bi::base_hook<WalletIDHook>, bi::compare<WalletIDComparer>> m_walletsIndex;
+        bi::set<WalletInfo, bi::base_hook<AddressHook>, bi::compare<AddressComparer>> m_addressIndex;
+        bi::set < ConnectionInfo, bi::base_hook<WalletIDHook>, bi::compare<ConnectionWalletIDComparer>> m_connectionWalletsIndex;
 
         bool m_is_node_connected;
         uint64_t m_connection_tag;

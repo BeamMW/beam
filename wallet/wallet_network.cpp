@@ -125,7 +125,7 @@ namespace beam {
 
     void WalletNetworkIO::close_connection(const WalletID& walletID)
     {
-        if (auto it = m_connectionWalletsIndex.find(walletID); it != m_connectionWalletsIndex.end())
+        if (auto it = m_connectionWalletsIndex.find(walletID, ConnectionWalletIDComparer()); it != m_connectionWalletsIndex.end())
         {
             auto& ci = *it;
             if (ci.m_callback)
@@ -184,13 +184,13 @@ namespace beam {
             io::Address address = newStream->peer_address();
             LOG_DEBUG() << "Wallet connected: " << address;
 
-            auto it = m_addressIndex.find(address.u64());
+            auto it = m_addressIndex.find(address.u64(), AddressComparer());
             if (it == m_addressIndex.end())
             {
                 WalletID id = {};
                 id = address.u64();
                 add_wallet(id, address);
-                it = m_addressIndex.find(address.u64());
+                it = m_addressIndex.find(address.u64(), AddressComparer());
             }
 
             auto tag = get_connection_tag();
@@ -328,7 +328,7 @@ namespace beam {
 
     uint64_t WalletNetworkIO::get_connection(const WalletID& walletID) const
     {
-        auto it = m_connectionWalletsIndex.find(walletID);
+        auto it = m_connectionWalletsIndex.find(walletID, ConnectionWalletIDComparer());
         if (it == m_connectionWalletsIndex.end())
         {
             throw runtime_error("Unknown walletID");
