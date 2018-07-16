@@ -372,7 +372,8 @@ void TestSelect()
     const Amount c = 10;
     for (Amount i = 1; i <= c; ++i)
     {
-        db->store(Coin{ i, Coin::Unspent, 1, 10, KeyType::Regular });
+        Coin c{ i, Coin::Unspent, 1, 10, KeyType::Regular };
+        db->store(c);
     }
     for (Amount i = 1; i <= c; ++i)
     {
