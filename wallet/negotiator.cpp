@@ -207,7 +207,7 @@ namespace beam::wallet
     void Negotiator::FSMDefinition::getSenderInputsAndOutputs(const Height& currentHeight, std::vector<Input::Ptr>& inputs, std::vector<Output::Ptr>& outputs)
     {
         Amount amountWithFee = m_parent.m_txDesc.m_amount + m_parent.m_txDesc.m_fee;
-        auto coins = m_parent.m_keychain->getCoins(amountWithFee);
+        auto coins = m_parent.m_keychain->selectCoins(amountWithFee);
         if (coins.empty())
         {
             LOG_ERROR() << "You only have " << PrintableAmount(get_total());

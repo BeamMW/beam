@@ -531,41 +531,46 @@ namespace beam
 		return key;
 	}
 
-	vector<beam::Coin> Keychain::getCoins(const ECC::Amount& amount, bool lock)
+	vector<beam::Coin> Keychain::selectCoins(const ECC::Amount& amount, bool lock)
 	{
 		vector<beam::Coin> coins;
         Block::SystemState::ID stateID = {};
         getSystemStateID(stateID);
-		ECC::Amount sum = 0;
-		{
-			const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 ORDER BY amount ASC;";
-			sqlite::Statement stm(_db, req);
+		Amount sum = 0;
+        {
+			sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount<=?3 ORDER BY amount DESC;");
 			stm.bind(1, Coin::Unspent);
+            stm.bind(2, stateID.m_Height);
+            stm.bind(3, amount);
 
-            while (true)
+            while(sum < amount && stm.step())
 			{
-				if (sum >= amount) break;
-
-				if (stm.step())
-				{
-					beam::Coin coin;
-
-					ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
-
-					if (coin.m_maturity <= stateID.m_Height)
-					{
-						if (lock)
-						{
-							coin.m_status = beam::Coin::Locked;
-						}
-
-						coins.push_back(coin);
-						sum += coin.m_amount;
-					}
-				}
-				else break;
+                Amount remainder = amount - sum;
+				beam::Coin coin;
+				ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+                if (coin.m_amount <= remainder)
+                {
+                    coins.push_back(coin);
+                    sum += coin.m_amount;
+                }
 			}
 		}
+        if (sum < amount)
+        {
+            coins.clear();
+            sum = 0;
+            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount>?3 ORDER BY amount ASC;");
+            stm.bind(1, Coin::Unspent);
+            stm.bind(2, stateID.m_Height);
+            stm.bind(3, amount);
+            if ( stm.step())
+            {
+                beam::Coin coin;
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+                coins.push_back(coin);
+                sum += coin.m_amount;
+            }
+        }
 
 		if (sum < amount)
 		{
@@ -575,8 +580,9 @@ namespace beam
 		{
 			sqlite::Transaction trans(_db);
 
-			for (const auto& coin : coins)
+			for (auto& coin : coins)
 			{
+                coin.m_status = Coin::Locked;
 				const char* req = "UPDATE " STORAGE_NAME " SET status=?2, lockedHeight=?3 WHERE id=?1;";
 				sqlite::Statement stm(_db, req);
 
@@ -591,7 +597,7 @@ namespace beam
 
 			notifyKeychainChanged();
 		}
-
+        std::reverse(coins.begin(), coins.end());
 		return coins;
 	}
 
@@ -619,6 +625,7 @@ namespace beam
 
     void Keychain::storeImpl(Coin& coin)
     {
+        assert(coin.m_amount > 0);
         if (coin.m_key_type == KeyType::Coinbase
             || coin.m_key_type == KeyType::Comission)
         {
@@ -646,6 +653,7 @@ namespace beam
 
 	void Keychain::update(const beam::Coin& coin)
 	{
+        assert(coin.m_amount > 0);
 		sqlite::Transaction trans(_db);
 
 		{
