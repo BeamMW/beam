@@ -5,7 +5,7 @@ using namespace beam;
 using namespace ECC;
 
 NewTxConnection::NewTxConnection(int argc, char* argv[])
-	: BaseTestNodeConnection(argc, argv)
+	: BaseTestNode(argc, argv)
 {
 }
 

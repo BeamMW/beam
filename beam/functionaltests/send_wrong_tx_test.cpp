@@ -329,6 +329,86 @@ void TestNodeConnection::GenerateTests()
 		Send(gen.GetTransaction());
 	});
 	m_Results.push_back(false);
+
+	m_Tests.push_back([this]()
+	{
+		LOG_INFO() << "Run test with input = 2 chattle, without output, fee= 2 chattles";
+
+		TxGenerator gen(m_Kdf);
+
+		// Inputs 
+		gen.GenerateInputInTx(15, 2);
+
+		// Outputs
+		
+		// Kernels
+		gen.GenerateKernel(15, 2);
+		gen.Sort();
+
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+
+		Send(gen.GetTransaction());
+	});
+	m_Results.push_back(true);
+
+	m_Tests.push_back([this]()
+	{
+		LOG_INFO() << "Run test with input = 2 chattle, output = 1, fee = 1 chattles, offset of tx = 0";
+
+		TxGenerator gen(m_Kdf);
+
+		// Inputs 
+		gen.GenerateInputInTx(16, 2);
+
+		// Outputs
+		gen.GenerateOutputInTx(16, 2);
+
+		// Kernels
+		gen.GenerateKernel(16, 1);
+
+		gen.ZeroOffset();
+		gen.Sort();
+
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+
+		Send(gen.GetTransaction());
+	});
+	m_Results.push_back(false);
+
+	m_Tests.push_back([this]()
+	{
+		LOG_INFO() << "Run test without input, output , fee ";
+
+		TxGenerator gen(m_Kdf);		
+
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+
+		Send(gen.GetTransaction());
+	});
+	m_Results.push_back(false);
+
+	m_Tests.push_back([this]()
+	{
+		LOG_INFO() << "Run test with input.m_Commitment = ouput.m_Commitment, fee = 0";
+
+		TxGenerator gen(m_Kdf);
+
+		// Inputs 
+		gen.GenerateInputInTx(17, 2, KeyType::Coinbase);
+
+		// Outputs
+		gen.GenerateOutputInTx(17, 2, KeyType::Coinbase);
+
+		// Kernels
+		gen.GenerateKernel(17, 0);
+
+		gen.Sort();
+
+		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+
+		Send(gen.GetTransaction());
+	});
+	m_Results.push_back(false);
 }
 
 int main(int argc, char* argv[])

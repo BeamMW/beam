@@ -142,8 +142,11 @@ namespace beam
 
 	/////////////
 	// Output
-	bool Output::IsValid() const
+	bool Output::IsValid(ECC::Point::Native& comm) const
 	{
+		if (!comm.Import(m_Commitment))
+			return false;
+
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
 
@@ -155,13 +158,13 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			return m_pConfidential->IsValid(m_Commitment, oracle);
+			return m_pConfidential->IsValid(comm, oracle);
 		}
 
 		if (!m_pPublic)
 			return false;
 
-		return m_pPublic->IsValid(m_Commitment, oracle);
+		return m_pPublic->IsValid(comm, oracle);
 	}
 
 	void Output::operator = (const Output& v)
@@ -270,7 +273,10 @@ namespace beam
 
 		if (pExcess)
 		{
-			ECC::Point::Native pt(m_Excess);
+			ECC::Point::Native pt;
+			if (!pt.Import(m_Excess))
+				return false;
+
 			if (m_Multiplier)
 			{
 				ECC::Mode::Scope scope(ECC::Mode::Fast);
@@ -289,7 +295,10 @@ namespace beam
 				ECC::Hash::Value hv2;
 				get_HashForContract(hv2, hv);
 
-				if (!m_pContract->m_Signature.IsValid(hv2, ECC::Point::Native(m_pContract->m_PublicKey)))
+				if (!pt.Import(m_pContract->m_PublicKey))
+					return false;
+
+				if (!m_pContract->m_Signature.IsValid(hv2, pt))
 					return false;
 			}
 
@@ -483,6 +492,8 @@ namespace beam
 		// Inputs
 		r.Reset();
 
+		ECC::Point::Native pt;
+
 		for (const Input* pPrev = NULL; r.m_pUtxoIn; pPrev = r.m_pUtxoIn, r.NextUtxoIn())
 		{
 			if (ShouldAbort())
@@ -493,7 +504,10 @@ namespace beam
 				if (pPrev && (*pPrev > *r.m_pUtxoIn))
 					return false;
 
-				m_Sigma += ECC::Point::Native(r.m_pUtxoIn->m_Commitment);
+				if (!pt.Import(r.m_pUtxoIn->m_Commitment))
+					return false;
+
+				m_Sigma += pt;
 			}
 		}
 
@@ -548,10 +562,10 @@ namespace beam
 				if (pPrev && (*pPrev > *r.m_pUtxoOut))
 					return false;
 
-				if (!r.m_pUtxoOut->IsValid())
+				if (!r.m_pUtxoOut->IsValid(pt))
 					return false;
 
-				m_Sigma += ECC::Point::Native(r.m_pUtxoOut->m_Commitment);
+				m_Sigma += pt;
 
 				if (r.m_pUtxoOut->m_Coinbase)
 				{

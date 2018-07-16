@@ -5,7 +5,7 @@
 using namespace beam;
 using namespace ECC;
 
-class TestNodeConnection : public BaseTestNodeConnection
+class TestNodeConnection : public BaseTestNode
 {
 public:
 	TestNodeConnection(int argc, char* argv[]);
@@ -22,7 +22,7 @@ private:
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
-	: BaseTestNodeConnection(argc, argv)
+	: BaseTestNode(argc, argv)
 	, m_IsInit(false)
 	, m_IsSendWrongBody(false)
 {

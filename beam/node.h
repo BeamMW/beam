@@ -368,7 +368,6 @@ private:
 
 		void Start();
 		uint16_t get_Port();
-		void OnPeer(const io::Address&, const PeerID&);
 
 		static void OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags);
 		static void AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);

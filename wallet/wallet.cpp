@@ -219,24 +219,29 @@ namespace beam
             LOG_VERBOSE() << "Received tx invitation " << msg.m_txId;
             bool sender = !msg.m_send;
             TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, from, {}, getTimestamp(), sender };
-            auto r = make_shared<Negotiator>(*this, m_keyChain, tx, msg);
+            auto r = make_shared<Negotiator>(*this, m_keyChain, tx);
             m_negotiators.emplace(tx.m_txId, r);
             m_peers.emplace(tx.m_peerId, r);
-            Cleaner c{ m_removedNegotiators };
-            if (m_synchronized)
-            {
-                r->start();
-                r->process_event(events::TxInvited{});
-            }
-            else
-            {
-                m_pendingEvents.emplace_back([r]()
-                {
-                    r->start();
-                    r->process_event(events::TxInvited{});
-                });
-            }
-        }
+
+			if (r->ProcessInvitation(msg))
+			{
+				Cleaner c{ m_removedNegotiators };
+				if (m_synchronized)
+				{
+					r->start();
+					r->process_event(events::TxInvited{});
+				}
+				else
+				{
+					m_pendingEvents.emplace_back([r]()
+					{
+						r->start();
+						r->process_event(events::TxInvited{});
+					});
+				}
+			} else
+				r->process_event(events::TxFailed{ true });
+		}
         else
         {
             LOG_DEBUG() << ReceiverPrefix << "Unexpected tx invitation " << msg.m_txId;

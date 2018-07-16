@@ -1,6 +1,8 @@
 set(TEST_TOOLS_SRC
 	tools/base_node_connection.h
 	tools/base_node_connection.cpp
+	tools/coins_checker.h
+	tools/coins_checker.cpp
 	tools/new_tx_tests.h
 	tools/new_tx_tests.cpp
 	tools/tx_generator.h
@@ -34,3 +36,6 @@ add_functional_test_snippet(check_mined_test node)
 add_functional_test_snippet(send_broken_new_tx_test node)
 add_functional_test_snippet(send_getproofutxo_test node)
 add_functional_test_snippet(spend_mined_coins_test node)
+add_functional_test_snippet(spam_havetransactions_test node)
+add_functional_test_snippet(fraction_coin_test node)
+add_functional_test_snippet(send_tx_with_equal_commitment_test node)

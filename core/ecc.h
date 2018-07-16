@@ -236,6 +236,7 @@ namespace ECC
 		template <typename T> explicit Scalar(const T& t) { *this = t; }
 
 		bool IsValid() const;
+		void TestValid() const; // will raise exc if invalid
 
 		class Native;
 		Scalar& operator = (const Native&);
@@ -374,7 +375,7 @@ namespace ECC
 			InnerProduct m_P_Tag; // contains commitment P - m_Mu*G
 
 			void Create(const Scalar::Native& sk, Amount, Oracle&);
-			bool IsValid(const Point&, Oracle&) const;
+			bool IsValid(const Point::Native&, Oracle&) const;
 
 			int cmp(const Confidential&) const;
 			COMPARISON_VIA_CMP(Confidential)
@@ -392,7 +393,7 @@ namespace ECC
 				};
 			};
 
-			void CoSign(const Scalar::Native& sk, Amount, Oracle&, Phase::Enum); // for multi-sig use 1,2,3 for 1st-pass
+			bool CoSign(const Scalar::Native& sk, Amount, Oracle&, Phase::Enum); // for multi-sig use 1,2,3 for 1st-pass
 
 
 		private:
@@ -406,7 +407,7 @@ namespace ECC
 			Amount m_Value;
 
 			void Create(const Scalar::Native& sk, Oracle&); // amount should have been set
-			bool IsValid(const Point&, Oracle&) const;
+			bool IsValid(const Point::Native&, Oracle&) const;
 
 			int cmp(const Public&) const;
 			COMPARISON_VIA_CMP(Public)

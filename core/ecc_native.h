@@ -83,6 +83,7 @@ namespace ECC
 		typedef Op::Binary<Op::Mul, Native, Scalar::Native>	Mul;
 
 		bool ImportInternal(const Point&);
+		Native(const Point&);
 	public:
 		secp256k1_gej& get_Raw() { return *this; } // use with care
 
@@ -101,7 +102,6 @@ namespace ECC
 		Native& operator = (Minus);
 		Native& operator = (Plus);
 		Native& operator = (Double);
-		Native& operator = (const Point&);
 		Native& operator += (const Native& v) { return *this = *this + v; }
 
 		// non-secure implementation, suitable for casual use (such as signature verification), otherwise should use generators.

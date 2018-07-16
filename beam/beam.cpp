@@ -54,6 +54,9 @@ namespace cli
     const char* INFO = "info";
     const char* TX_HISTORY = "tx_history";
     const char* WALLET_SEED = "wallet_seed";
+    const char* FEE = "fee";
+    const char* FEE_FULL = "fee,f";
+    const char* RECEIVE = "receive";
 }
 namespace beam
 {
@@ -362,12 +365,13 @@ int main_impl(int argc, char* argv[])
     wallet_options.add_options()
         (cli::PASS, po::value<string>()->default_value(""), "password for the wallet")
         (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 1000000 chattle)")
+        (cli::FEE_FULL, po::value<double>()->default_value(0), "fee (in Beams, 1 Beam = 1000000 chattle)")
         (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
         (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
 		(cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
         (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
         (cli::TX_HISTORY, "print transacrions' history in info command")
-		(cli::COMMAND, po::value<string>(), "command to execute [send|listen|init|info|treasury]");
+		(cli::COMMAND, po::value<string>(), "command to execute [send|receive|listen|init|info|treasury]");
 
 #define RulesParams(macro) \
 	macro(Amount, CoinbaseEmission, "coinbase emission in a single block") \
@@ -524,6 +528,7 @@ int main_impl(int argc, char* argv[])
                     auto command = vm[cli::COMMAND].as<string>();
                     if (command != cli::INIT
                      && command != cli::SEND
+                     && command != cli::RECEIVE
                      && command != cli::LISTEN
                      && command != cli::TREASURY
                      && command != cli::INFO)
@@ -665,8 +670,10 @@ int main_impl(int argc, char* argv[])
                     }
 
                     io::Address receiverAddr;
-                    ECC::Amount amount = 0;
-                    if (command == cli::SEND)
+                    Amount amount = 0;
+                    Amount fee = 0;
+                    bool isTxInitiator = command == cli::SEND || command == cli::RECEIVE;
+                    if (isTxInitiator)
                     {
                         if (vm.count(cli::RECEIVER_ADDR) == 0)
                         {
@@ -699,6 +706,17 @@ int main_impl(int argc, char* argv[])
                             LOG_ERROR() << "Unable to send zero coins";
                             return -1;
                         }
+
+                        auto signedFee = vm[cli::FEE].as<double>();
+                        if (signedFee < 0)
+                        {
+                            LOG_ERROR() << "Unable to take negative fee";
+                            return -1;
+                        }
+
+                        signedFee *= Rules::Coin; // convert beams to coins
+
+                        fee = static_cast<ECC::Amount>(signedFee);
                     }
 
                     bool is_server = command == cli::LISTEN;
@@ -707,9 +725,9 @@ int main_impl(int argc, char* argv[])
                         , is_server
                         , keychain
                         , reactor };
-                    if (command == cli::SEND)
+                    if (isTxInitiator)
                     {
-                        wallet_io.transfer_money(receiverAddr, move(amount), 0);
+                        wallet_io.transfer_money(receiverAddr, move(amount), move(fee), command == cli::SEND);
                     }
                     wallet_io.start();
                 }
