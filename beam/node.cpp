@@ -1749,7 +1749,7 @@ void Node::Compressor::Cleanup()
 			nBacklog--; // ok
 		else
 		{
-			LOG_WARNING() << "History at height " << ws.m_Sid.m_Height < " not found";
+			LOG_WARNING() << "History at height " << ws.m_Sid.m_Height << " not found";
 			Delete(ws.m_Sid);
 		}
 	}
@@ -1780,7 +1780,7 @@ void Node::Compressor::Delete(const NodeDB::StateID& sid)
 	FmtPath(rw, sid.m_Height, NULL);
 	rw.Delete();
 
-	LOG_WARNING() << "History at height " << sid.m_Height < " deleted";
+	LOG_WARNING() << "History at height " << sid.m_Height << " deleted";
 }
 
 void Node::Compressor::OnNewState()
