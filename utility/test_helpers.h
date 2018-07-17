@@ -63,7 +63,7 @@ inline bool ProcessWideLock(const char* szFilePath)
 	struct flock fl = { 0 };
 	fl.l_type = F_WRLCK;
 
-	return !fcntl(hFile, F_SETLKW, &lock);
+	return !fcntl(hFile, F_SETLKW, &fl);
 #endif // WIN32
 }
 
