@@ -339,7 +339,7 @@ void NodeDB::Create()
 		"[" TblBbs_Msg		"] BLOB NOT NULL,"
 		"PRIMARY KEY (" TblBbs_Key "))");
 
-	ExecQuick("CREATE INDEX [Idx" TblBbs "CT] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_Time "]);"); // fetch messages for specific channel within time range, orderedd by time
+	ExecQuick("CREATE INDEX [Idx" TblBbs "CT] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_Time "]);"); // fetch messages for specific channel within time range, ordered by time
 	ExecQuick("CREATE INDEX [Idx" TblBbs "T] ON [" TblBbs "] ([" TblBbs_Time "]);"); // delete old messages
 }
 
@@ -1552,7 +1552,7 @@ void NodeDB::EnumBbs(WalkerBbs& x)
 
 void NodeDB::EnumAllBbs(WalkerBbs& x)
 {
-	x.m_Rs.Reset(Query::BbsEnumAll, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs);
+	x.m_Rs.Reset(Query::BbsEnumAll, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " ORDER BY " TblBbs_Channel " ASC," TblBbs_Time " ASC");
 }
 
 bool NodeDB::WalkerBbs::MoveNext()

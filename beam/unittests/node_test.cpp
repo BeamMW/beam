@@ -394,6 +394,9 @@ namespace beam
 				;
 		}
 
+		for (db.EnumAllBbs(wlkbbs); wlkbbs.MoveNext(); )
+			;
+
 		tr.Commit();
 	}
 
