@@ -52,6 +52,7 @@ class WalletViewModel : public QObject
 	Q_PROPERTY(QString unconfirmed 	READ unconfirmed 	NOTIFY unconfirmedChanged)
 
 	Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
+	Q_PROPERTY(QString sendAmountMils READ sendAmountMils WRITE setSendAmountMils NOTIFY sendAmountMilsChanged)
 	Q_PROPERTY(QString receiverAddr READ receiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
 	Q_PROPERTY(QVariant tx READ tx NOTIFY txChanged)
 
@@ -67,9 +68,11 @@ public:
 
 	QVariant tx() const;
 	QString sendAmount() const;
+	QString sendAmountMils() const;
 	QString receiverAddr() const;
 
 	void setSendAmount(const QString& text);
+	void setSendAmountMils(const QString& text);
 	void setReceiverAddr(const QString& text);
 
 public slots:
@@ -84,6 +87,7 @@ signals:
 	void unconfirmedChanged();
 
 	void sendAmountChanged();
+	void sendAmountMilsChanged();
 	void receiverAddrChanged();
 	void txChanged();
 
@@ -92,6 +96,8 @@ private:
 	WalletStatus _status;
 
 	QString _sendAmount;
+	QString _sendAmountMils;
+	
 	std::string _receiverAddr;
 	TxList _tx;
 

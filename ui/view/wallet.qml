@@ -125,7 +125,7 @@ Item {
                     y: 140
                     width: parent.width
                     height: 206
-                    value: walletViewModel.available*1 - walletViewModel.sendAmount*1
+                    value: walletViewModel.available*1 - (walletViewModel.sendAmount*1 + walletViewModel.sendAmountMils/1000000)
                 }
             }
 
@@ -155,6 +155,8 @@ Item {
                     color: Style.heliotrope
 
                     text: walletViewModel.sendAmount
+
+                    validator: IntValidator{bottom: 0; top: 210000000;}
                 }
 
                 Binding {
@@ -180,13 +182,51 @@ Item {
                     text: "BEAM"
                 }
 
+                TextInput {
+                    id: mils_amount_input
+                    y: 93+30
+                    width: 300
+
+                    font.pixelSize: 48
+                    font.family: tx_amout_label.family
+
+                    color: Style.heliotrope
+
+                    text: walletViewModel.sendAmountMils
+
+                    validator: IntValidator{bottom: 0; top: 999999;}
+                }
+
+                Binding {
+                    target: walletViewModel
+                    property: "sendAmountMils"
+                    value: mils_amount_input.text
+                }
+
+                Rectangle {
+                    y: 153+30
+                    width: 337
+                    height: 1
+
+                    color: "#33566b"
+                }
+
                 SFText {
-                    y: 164-30
+                    x: 204+157
+                    y: 117+30
+
+                    font.pixelSize: 24
+                    color: Style.white
+                    text: "MIL"
+                }
+
+                SFText {
+                    y: 164+30
                     opacity: 0.5
                     font.pixelSize: 24
                     font.weight: Font.ExtraLight
                     color: Style.white
-                    text: amount_input.text + " USD"
+                    text: (walletViewModel.sendAmount*1 + walletViewModel.sendAmountMils/1000000) + " USD"
                 }
 
                 /////////////////////////////////////////////////////////////
@@ -194,7 +234,7 @@ Item {
                 /////////////////////////////////////////////////////////////
 
                 SFText {
-                    y: 243-30   
+                    y: 243   
 
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -204,7 +244,7 @@ Item {
 
                 Rectangle {
                     id: fee_line
-                    y: 303-30
+                    y: 303
                     width: 360
                     height: 4
 
@@ -218,7 +258,7 @@ Item {
                     id: led
 
                     x: 140
-                    y: 303-30-8
+                    y: 303-8
 
                     width: 20
                     height: 20
@@ -242,7 +282,7 @@ Item {
                 }
 
                 SFText {
-                    y: 277-30
+                    y: 277
 
                     font.pixelSize: 12
                     color: Style.bluey_grey
@@ -250,7 +290,7 @@ Item {
                 }
 
                 SFText {
-                    y: 277-30
+                    y: 277
                     anchors.right: fee_line.right
 
                     font.pixelSize: 12
@@ -259,7 +299,7 @@ Item {
                 }
 
                 SFText {
-                    y: 319-30
+                    y: 319
 
                     font.pixelSize: 12
                     color: Style.bluey_grey
@@ -267,7 +307,7 @@ Item {
                 }
 
                 SFText {
-                    y: 319-30
+                    y: 319
                     anchors.right: fee_line.right
 
                     font.pixelSize: 12
