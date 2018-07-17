@@ -229,7 +229,9 @@ namespace beam::wallet
         if (change > 0)
         {
             outputs.push_back(m_parent.createOutput(change, currentHeight));
+			m_parent.m_txDesc.m_change = change;
         }
+
     }
 
     void Negotiator::createKernel(Amount fee, Height minHeight)

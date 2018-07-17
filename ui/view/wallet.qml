@@ -45,6 +45,10 @@ Item {
         text: "1Cs4wu6pu5qCZ35bSLNVzGyEx5N6uzbg9t"
     }
 
+    /////////////////////////////////////////////////////////////
+    /// Send layout /////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////
+
     Rectangle {
         id: send_layout
         anchors.fill: parent
@@ -78,7 +82,6 @@ Item {
                 }
 
                 SFText {
-                    id: rec_addr
 
                     y: 41
 
@@ -88,14 +91,13 @@ Item {
                     text: "Recipient address"
                 }
 
-                TextInput {
+                SFTextInput {
                     id: receiver_addr
 
                     y: 115-30
                     width: 300
 
                     font.pixelSize: 12
-                    font.family: rec_addr.family
 
                     color: Style.white
 
@@ -116,6 +118,13 @@ Item {
 
                     color: "#33566b"
                 }
+
+                AvailablePanel {
+                    y: 140
+                    width: parent.width
+                    height: 206
+                    value: walletViewModel.available*1 - (walletViewModel.sendAmount*1 + walletViewModel.sendAmountMils/1000000)
+                }
             }
 
             Item {
@@ -124,7 +133,6 @@ Item {
                 anchors.bottomMargin: 60
 
                 SFText {
-                    id: tx_amout_label
                     y: 41
 
                     font.pixelSize: 12
@@ -133,17 +141,18 @@ Item {
                     text: "Transaction amount"
                 }
 
-                TextInput {
+                SFTextInput {
                     id: amount_input
                     y: 93-30
                     width: 300
 
                     font.pixelSize: 48
-                    font.family: tx_amout_label.family
-
                     color: Style.heliotrope
 
                     text: walletViewModel.sendAmount
+
+                    validator: IntValidator{bottom: 0; top: 210000000;}
+                    selectByMouse: true
                 }
 
                 Binding {
@@ -169,13 +178,50 @@ Item {
                     text: "BEAM"
                 }
 
+                SFTextInput {
+                    id: mils_amount_input
+                    y: 93+30
+                    width: 300
+
+                    font.pixelSize: 48
+
+                    color: Style.heliotrope
+
+                    text: walletViewModel.sendAmountMils
+
+                    validator: IntValidator{bottom: 0; top: 999999;}
+                }
+
+                Binding {
+                    target: walletViewModel
+                    property: "sendAmountMils"
+                    value: mils_amount_input.text
+                }
+
+                Rectangle {
+                    y: 153+30
+                    width: 337
+                    height: 1
+
+                    color: "#33566b"
+                }
+
                 SFText {
-                    y: 164-30
+                    x: 204+157
+                    y: 117+30
+
+                    font.pixelSize: 24
+                    color: Style.white
+                    text: "MIL"
+                }
+
+                SFText {
+                    y: 164+30
                     opacity: 0.5
                     font.pixelSize: 24
                     font.weight: Font.ExtraLight
                     color: Style.white
-                    text: amount_input.text + " USD"
+                    text: (walletViewModel.sendAmount*1 + walletViewModel.sendAmountMils/1000000) + " USD"
                 }
 
                 /////////////////////////////////////////////////////////////
@@ -183,7 +229,7 @@ Item {
                 /////////////////////////////////////////////////////////////
 
                 SFText {
-                    y: 243-30   
+                    y: 243   
 
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -193,7 +239,7 @@ Item {
 
                 Rectangle {
                     id: fee_line
-                    y: 303-30
+                    y: 303
                     width: 360
                     height: 4
 
@@ -207,7 +253,7 @@ Item {
                     id: led
 
                     x: 140
-                    y: 303-30-8
+                    y: 303-8
 
                     width: 20
                     height: 20
@@ -231,7 +277,7 @@ Item {
                 }
 
                 SFText {
-                    y: 277-30
+                    y: 277
 
                     font.pixelSize: 12
                     color: Style.bluey_grey
@@ -239,7 +285,7 @@ Item {
                 }
 
                 SFText {
-                    y: 277-30
+                    y: 277
                     anchors.right: fee_line.right
 
                     font.pixelSize: 12
@@ -248,7 +294,7 @@ Item {
                 }
 
                 SFText {
-                    y: 319-30
+                    y: 319
 
                     font.pixelSize: 12
                     color: Style.bluey_grey
@@ -256,7 +302,7 @@ Item {
                 }
 
                 SFText {
-                    y: 319-30
+                    y: 319
                     anchors.right: fee_line.right
 
                     font.pixelSize: 12
@@ -277,12 +323,11 @@ Item {
                     text: "Comment"
                 }
 
-                TextInput {
+                SFTextInput {
                     y: 427-30
                     width: 300
 
                     font.pixelSize: 12
-                    font.family: tx_amout_label.family
 
                     color: Style.white
 
@@ -398,6 +443,7 @@ Item {
                 AvailablePanel {
                     width: (parent.width - 3*30)*500/1220
                     height: parent.height
+                    value: walletViewModel.available
                 }
 
                 SecondaryPanel {
@@ -437,7 +483,8 @@ Item {
 
                 AvailablePanel {
                     width: (parent.width - parent.spacing)*518/864
-                    height: parent.height              
+                    height: parent.height
+                    value: walletViewModel.available      
                 }
 
                 Item {
@@ -658,7 +705,7 @@ Item {
             TableViewColumn {
                 role: "date"
                 title: "Date | time"
-                width: (300-72)
+                width: 200
 
                 resizable: false
                 movable: false
@@ -667,7 +714,7 @@ Item {
             TableViewColumn {
                 role: "user"
                 title: "Recipient / Sender ID"
-                width: (680-300)
+                width: 200
 
                 resizable: false
                 movable: false
@@ -676,7 +723,7 @@ Item {
             TableViewColumn {
                 role: "comment"
                 title: "Comment"
-                width: (800-680)
+                width: 120
 
                 resizable: false
                 movable: false
@@ -697,7 +744,7 @@ Item {
             TableViewColumn {
                 role: "amount"
                 title: "Amount, BEAM"
-                width: (1000-800)
+                width: 200
 
                 resizable: false
                 movable: false
@@ -732,7 +779,16 @@ Item {
             TableViewColumn {
                 role: "amountUsd"
                 title: "Amount, USD"
-                width: (1214-1000)
+                width: 200
+
+                resizable: false
+                movable: false
+            }
+
+            TableViewColumn {
+                role: "change"
+                title: "Change, BEAM"
+                width: 200
 
                 resizable: false
                 movable: false
@@ -741,7 +797,7 @@ Item {
             TableViewColumn {
                 role: "status"
                 title: "Status"
-                width: (34+62)
+                width: 96
 
                 resizable: false
                 movable: false

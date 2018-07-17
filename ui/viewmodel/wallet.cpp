@@ -9,10 +9,17 @@ namespace
 {
 	QString BeamToString(const Amount& value)
 	{
+		auto str = std::to_string(value / Rules::Coin);
 
-		std::string str = std::to_string(static_cast<float>(value) / Rules::Coin);
-		str.erase(str.find_last_not_of('0') + 1, std::string::npos);
-		str.erase(str.find_last_not_of('.') + 1, std::string::npos);
+		int fraction = value % Rules::Coin;
+
+		if (fraction)
+		{
+			auto fracStr = std::to_string(fraction);
+			fracStr.erase(fracStr.find_last_not_of('0') + 1, std::string::npos);
+
+			str += "." + fracStr;
+		}
 
 		return QString::fromStdString(str);
 	}
@@ -54,6 +61,12 @@ QString TxObject::amountUsd() const
 	return BeamToString(_tx.m_amount) + " USD";
 }
 
+
+QString TxObject::change() const
+{
+	return BeamToString(_tx.m_change) + " BEAM";
+}
+
 QString TxObject::status() const
 {
 	static const char* Names[] = { "Pending", "InProgress", "Cancelled", "Completed", "Failed" };
@@ -63,7 +76,8 @@ QString TxObject::status() const
 WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
 	: _model(keychain, port, nodeAddr)
 	, _status{0, 0, 0, 0}
-	, _sendAmount("0.1")
+	, _sendAmount("0")
+	, _sendAmountMils("0")
 	, _receiverAddr("127.0.0.1:8888")
 {
 	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
@@ -142,12 +156,26 @@ QString WalletViewModel::sendAmount() const
 	return _sendAmount;
 }
 
+QString WalletViewModel::sendAmountMils() const
+{
+	return _sendAmountMils;
+}
+
 void WalletViewModel::setSendAmount(const QString& amount)
 {
 	if (amount != _sendAmount)
 	{
 		_sendAmount = amount;
 		emit sendAmountChanged();
+	}
+}
+
+void WalletViewModel::setSendAmountMils(const QString& amount)
+{
+	if (amount != _sendAmountMils)
+	{
+		_sendAmountMils = amount;
+		emit sendAmountMilsChanged();
 	}
 }
 
@@ -179,8 +207,7 @@ void WalletViewModel::sendMoney()
 	if (receiverAddr.resolve(_receiverAddr.c_str()))
 	{
 		// TODO: show 'operation in process' animation here?
-		_model.async->sendMoney(std::move(receiverAddr), std::move(_sendAmount.toFloat() * Rules::Coin));
-
+		_model.async->sendMoney(std::move(receiverAddr), std::move(_sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt()));
 	}
 	else
 	{
