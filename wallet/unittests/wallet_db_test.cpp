@@ -191,6 +191,7 @@ void TestStoreTxRecord()
     tr.m_minHeight = 134;
     tr.m_sender = true;
     tr.m_status = TxDescription::InProgress;
+	tr.m_change = 5;
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
     TxDescription tr2 = tr;
@@ -200,6 +201,7 @@ void TestStoreTxRecord()
     tr2.m_createTime = 1234564;
     tr2.m_modifyTime = 12345644;
     tr2.m_status = TxDescription::Completed;
+	tr2.m_change = 5;
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr2));
     
     auto t = keychain->getTxHistory();
@@ -211,7 +213,8 @@ void TestStoreTxRecord()
     WALLET_CHECK(t[0].m_createTime == tr.m_createTime);
     WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
     WALLET_CHECK(t[0].m_sender == tr2.m_sender);
-    WALLET_CHECK(t[0].m_status == tr2.m_status);
+	WALLET_CHECK(t[0].m_status == tr2.m_status);
+    WALLET_CHECK(t[0].m_change == tr2.m_change);
     Uuid id2 = {{ 3,4,5 }};
     WALLET_CHECK_NO_THROW(keychain->deleteTx(id2));
     WALLET_CHECK_NO_THROW(keychain->deleteTx(id));

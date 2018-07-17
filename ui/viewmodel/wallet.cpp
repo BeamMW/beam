@@ -9,10 +9,17 @@ namespace
 {
 	QString BeamToString(const Amount& value)
 	{
+		auto str = std::to_string(value / Rules::Coin);
 
-		std::string str = std::to_string(static_cast<float>(value) / Rules::Coin);
-		str.erase(str.find_last_not_of('0') + 1, std::string::npos);
-		str.erase(str.find_last_not_of('.') + 1, std::string::npos);
+		int fraction = value % Rules::Coin;
+
+		if (fraction)
+		{
+			auto fracStr = std::to_string(fraction);
+			fracStr.erase(fracStr.find_last_not_of('0') + 1, std::string::npos);
+
+			str += "." + fracStr;
+		}
 
 		return QString::fromStdString(str);
 	}
@@ -52,6 +59,12 @@ QString TxObject::amountUsd() const
 {
 	// TODO: don't know how we're going to calc amount USD
 	return BeamToString(_tx.m_amount) + " USD";
+}
+
+
+QString TxObject::change() const
+{
+	return BeamToString(_tx.m_change) + " BEAM";
 }
 
 QString TxObject::status() const

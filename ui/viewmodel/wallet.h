@@ -15,6 +15,7 @@ class TxObject : public QObject
 		Q_PROPERTY(QString comment		READ comment	NOTIFY commentChanged)
 		Q_PROPERTY(QString amount		READ amount		NOTIFY amountChanged)
 		Q_PROPERTY(QString amountUsd	READ amountUsd	NOTIFY amountUsdChanged)
+		Q_PROPERTY(QString change		READ change		NOTIFY changeChanged)
 		Q_PROPERTY(QString status		READ status		NOTIFY statusChanged)
 
 public:
@@ -27,6 +28,7 @@ public:
 	QString comment() const;
 	QString amount() const;
 	QString amountUsd() const;
+	QString change() const;
 	QString status() const;
 
 signals:
@@ -36,6 +38,7 @@ signals:
 	void commentChanged();
 	void amountChanged();
 	void amountUsdChanged();
+	void changeChanged();
 	void statusChanged();
 
 public:
@@ -97,7 +100,7 @@ private:
 
 	QString _sendAmount;
 	QString _sendAmountMils;
-	
+
 	std::string _receiverAddr;
 	TxList _tx;
 

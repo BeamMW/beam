@@ -68,8 +68,9 @@
     each(7, createTime, sep, INTEGER NOT NULL, obj) \
     each(8, modifyTime, sep, INTEGER, obj) \
     each(9, sender,     sep, INTEGER NOT NULL, obj) \
-    each(10, status,     sep, INTEGER NOT NULL, obj) \
-    each(11, fsmState,      , BLOB, obj)
+    each(10, status,    sep, INTEGER NOT NULL, obj) \
+    each(11, fsmState,  sep, BLOB, obj) \
+	each(12, change,       , INTEGER NOT NULL, obj)
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
 
 namespace beam
@@ -880,7 +881,7 @@ namespace beam
 
 	        if (stm2.step())
 	        {
-	            const char* updateReq = "UPDATE " HISTORY_NAME " SET modifyTime=?2, status=?3, fsmState=?4, minHeight=?5 WHERE txId=?1;";
+	            const char* updateReq = "UPDATE " HISTORY_NAME " SET modifyTime=?2, status=?3, fsmState=?4, minHeight=?5, change=?6 WHERE txId=?1;";
 	            sqlite::Statement stm(_db, updateReq);
 
 	            stm.bind(1, p.m_txId);
@@ -888,6 +889,7 @@ namespace beam
 	            stm.bind(3, p.m_status);
 	            stm.bind(4, p.m_fsmState);
 	            stm.bind(5, p.m_minHeight);
+				stm.bind(6, p.m_change);
 	            stm.step();
 	        }
 	        else

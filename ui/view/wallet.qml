@@ -711,7 +711,7 @@ Item {
             TableViewColumn {
                 role: "date"
                 title: "Date | time"
-                width: (300-72)
+                width: 200
 
                 resizable: false
                 movable: false
@@ -720,7 +720,7 @@ Item {
             TableViewColumn {
                 role: "user"
                 title: "Recipient / Sender ID"
-                width: (680-300)
+                width: 200
 
                 resizable: false
                 movable: false
@@ -729,7 +729,7 @@ Item {
             TableViewColumn {
                 role: "comment"
                 title: "Comment"
-                width: (800-680)
+                width: 120
 
                 resizable: false
                 movable: false
@@ -750,7 +750,7 @@ Item {
             TableViewColumn {
                 role: "amount"
                 title: "Amount, BEAM"
-                width: (1000-800)
+                width: 200
 
                 resizable: false
                 movable: false
@@ -785,7 +785,16 @@ Item {
             TableViewColumn {
                 role: "amountUsd"
                 title: "Amount, USD"
-                width: (1214-1000)
+                width: 200
+
+                resizable: false
+                movable: false
+            }
+
+            TableViewColumn {
+                role: "change"
+                title: "Change, BEAM"
+                width: 200
 
                 resizable: false
                 movable: false
@@ -794,7 +803,7 @@ Item {
             TableViewColumn {
                 role: "status"
                 title: "Status"
-                width: (34+62)
+                width: 96
 
                 resizable: false
                 movable: false
