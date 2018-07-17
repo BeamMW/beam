@@ -392,6 +392,10 @@ void TestSelect()
         auto coins = db->selectCoins(55, false);
         WALLET_CHECK(coins.size() == 10);
     }
+    {
+        auto coins = db->selectCoins(15, false);
+        WALLET_CHECK(coins.size() == 2);
+    }
     for (Amount i = c + 1; i <= 55; ++i)
     {
         auto coins = db->selectCoins(i, false);
@@ -427,15 +431,45 @@ void TestSelect()
     }
 
     {
-        db->remove(db->selectCoins(110));
+        db->remove(db->selectCoins(110, false));
         vector<Coin> coins = {
             Coin{ 2, Coin::Unspent, 1, 10, KeyType::Regular },
             Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular },
             Coin{ 9, Coin::Unspent, 1, 10, KeyType::Regular } };
         db->store(coins);
-        coins = db->selectCoins(6);
+        coins = db->selectCoins(6, false);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_amount == 9);
+    }
+    {
+        db->remove(db->selectCoins(12, false));
+        vector<Coin> coins = {
+            Coin{ 2, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular } };
+        db->store(coins);
+        coins = db->selectCoins(5, false);
+        WALLET_CHECK(coins.size() == 2);
+        WALLET_CHECK(coins[0].m_amount == 2);
+    }
+    {
+        db->remove(db->selectCoins(18, false));
+        vector<Coin> coins = {
+            Coin{ 235689, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 2999057, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 500000, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 5000000, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 40000000, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 40000000, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 40000000, Coin::Unspent, 1, 10, KeyType::Regular },
+        };
+        db->store(coins);
+        coins = db->selectCoins(41000000);
+        WALLET_CHECK(coins.size() == 2);
+        WALLET_CHECK(coins[0].m_amount == 2999057);
+        WALLET_CHECK(coins[1].m_amount == 40000000);
     }
 }
 

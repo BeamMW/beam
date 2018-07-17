@@ -90,6 +90,50 @@ namespace beam
 			LOG_DEBUG() << ss.str();
 			throw runtime_error(ss.str());
 		}
+
+        Amount selectImpl(const std::vector<Coin>::iterator& first, const std::vector<Coin>::iterator& last, Amount amount, Amount left, vector<Coin>& res)
+        {
+            vector<Coin> coins;
+            if (first == last || left < amount || amount == 0)
+            {
+                return 0;
+            }
+            
+            if (amount == left)
+            {
+                copy(first, last, back_inserter(res));
+                return amount;
+            }
+
+            vector<Coin> coins1, coins2;
+            Amount newLeft = left - first->m_amount;
+            auto sum1 = selectImpl(first + 1, last, amount, newLeft, coins1);
+            
+            auto sum2 = first->m_amount + selectImpl(first + 1, last, amount - first->m_amount, newLeft, coins2);
+
+            bool a = sum2 >= amount;
+            bool b = sum1 >= amount;
+            bool c = sum1 < sum2;
+
+            if (a && b && c || !a && b)
+            {
+                for (auto& t : coins1)
+                {
+                    res.push_back(t);
+                }
+                return sum1;
+            }
+            else if (a && b && !c || a && !b)
+            {
+                res.push_back(*first);
+                for (auto& t : coins2)
+                {
+                    res.push_back(t);
+                }
+                return sum2;
+            }
+            return 0;
+        }
 	}
     
 	namespace sqlite
@@ -532,52 +576,68 @@ namespace beam
 		return key;
 	}
 
-	vector<beam::Coin> Keychain::selectCoins(const ECC::Amount& amount, bool lock)
+	vector<beam::Coin> Keychain::selectCoins(const Amount& amount, bool lock)
 	{
 		vector<beam::Coin> coins;
         Block::SystemState::ID stateID = {};
         getSystemStateID(stateID);
-		Amount sum = 0;
         {
-			sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount<=?3 ORDER BY amount DESC;");
-			stm.bind(1, Coin::Unspent);
+            sqlite::Statement stm(_db, "SELECT SUM(amount)" STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 ;");
+            stm.bind(1, Coin::Unspent);
             stm.bind(2, stateID.m_Height);
-            stm.bind(3, amount);
-
-            while(sum < amount && stm.step())
-			{
-                Amount remainder = amount - sum;
-				beam::Coin coin;
-				ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
-                if (coin.m_amount <= remainder)
-                {
-                    coins.push_back(coin);
-                    sum += coin.m_amount;
-                }
-			}
-		}
-        if (sum < amount)
+            Amount avalableAmount = 0;
+            if (stm.step())
+            {
+                stm.get(0, avalableAmount);
+            }
+            if (avalableAmount < amount)
+            {
+                return coins;
+            }
+        }
+        Amount change = amount;
+        Amount sum = 0;
         {
-            coins.clear();
-            sum = 0;
-            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount>?3 ORDER BY amount ASC;");
+            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount<?3 ORDER BY amount DESC;");
             stm.bind(1, Coin::Unspent);
             stm.bind(2, stateID.m_Height);
             stm.bind(3, amount);
-            if ( stm.step())
+            vector<Coin> candidats;
+            
+            while (stm.step())
             {
-                beam::Coin coin;
+                auto& coin = candidats.emplace_back();
                 ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
-                coins.push_back(coin);
                 sum += coin.m_amount;
+            }
+            if (sum > amount)
+            {
+                unordered_map<Amount, Amount> mem;
+                change = selectImpl(candidats.begin(), candidats.end(), amount, sum, coins) - amount;
+            }
+            else if (sum == amount)
+            {
+                coins.swap(candidats);
+            }
+        }
+        Coin coin2;
+        {
+            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount>=?3 ORDER BY amount ASC LIMIT 1;");
+            stm.bind(1, Coin::Unspent);
+            stm.bind(2, stateID.m_Height);
+            stm.bind(3, amount);
+            if (stm.step())
+            {
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin2);
+                if (coin2.m_amount - amount <= change)
+                {
+                    coins.clear();
+                    coins.push_back(coin2);
+                }
             }
         }
 
-		if (sum < amount)
-		{
-			coins.clear();
-		}
-		else if (lock)
+        if (lock)
 		{
 			sqlite::Transaction trans(_db);
 
