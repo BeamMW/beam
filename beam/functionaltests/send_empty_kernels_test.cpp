@@ -111,7 +111,24 @@ void TestNodeConnection::GenerateTests()
 
 		Send(gen.GetTransaction());
 	});
-	m_Results.push_back(true);
+	m_Results.push_back(false);
+
+	m_Tests.push_back([this]()
+	{
+		LOG_INFO() << "Run test with kernel without input and output";
+
+		TxGenerator gen(m_Kdf);
+
+		// Kernels
+		gen.GenerateKernel(5, 0);
+
+		gen.Sort();
+
+		LOG_INFO() << "tx.IsValid = " << gen.IsValid();
+
+		Send(gen.GetTransaction());
+	});
+	m_Results.push_back(false);
 }
 
 int main(int argc, char* argv[])

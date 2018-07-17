@@ -10,35 +10,23 @@ using namespace ECC;
 
 Initializer g_Initializer;
 
-BaseTestNodeConnection::BaseTestNodeConnection(int argc, char* argv[])
-	: m_Reactor(io::Reactor::create())
-	, m_Scope(*m_Reactor)
-	, m_Timer(io::Timer::create(io::Reactor::get_Current().shared_from_this()))
-	, m_Failed(false)
-	, m_Timeout(5 * 1000)
-	
+BaseNodeConnection::BaseNodeConnection(int argc, char* argv[])
 {
 	ParseCommandLine(argc, argv);
 	InitKdf();	
 }
 
-void BaseTestNodeConnection::Run()
+void BaseNodeConnection::ConnectToNode()
 {
 	io::Address addr;
 	addr.resolve(m_VM["address"].as<std::string>().c_str());
 	addr.port(m_VM["port"].as<uint16_t>());
 
 	Connect(addr);
-
-	m_Reactor->run();
 }
 
-int BaseTestNodeConnection::CheckOnFailed()
-{
-	return m_Failed;
-}
 
-void BaseTestNodeConnection::ParseCommandLine(int argc, char* argv[])
+void BaseNodeConnection::ParseCommandLine(int argc, char* argv[])
 {
 	po::options_description options("allowed options");
 
@@ -50,7 +38,7 @@ void BaseTestNodeConnection::ParseCommandLine(int argc, char* argv[])
 	po::store(po::command_line_parser(argc, argv).options(options).run(), m_VM);
 }
 
-void BaseTestNodeConnection::InitKdf()
+void BaseNodeConnection::InitKdf()
 {
 	NoLeak<uintBig> walletSeed;
 	Hash::Value hv;
@@ -61,7 +49,30 @@ void BaseTestNodeConnection::InitKdf()
 	m_Kdf.m_Secret = walletSeed;
 }
 
-void BaseTestNodeConnection::OnConnected()
+BaseTestNode::BaseTestNode(int argc, char* argv[])
+	: BaseNodeConnection(argc, argv)
+	, m_Reactor(io::Reactor::create())
+	, m_Scope(*m_Reactor)
+	, m_Timer(io::Timer::create(io::Reactor::get_Current().shared_from_this()))
+	, m_Failed(false)
+	, m_Timeout(5 * 1000)
+{	
+}
+
+int BaseTestNode::CheckOnFailed()
+{
+	return m_Failed;
+}
+
+void BaseTestNode::Run()
+{
+	ConnectToNode();
+
+	m_Reactor->run();
+}
+
+
+void BaseTestNode::OnConnected()
 {
 	LOG_INFO() << "connection is succeded";
 
@@ -80,19 +91,19 @@ void BaseTestNodeConnection::OnConnected()
 	RunTest();
 }
 
-void BaseTestNodeConnection::OnDisconnect(const DisconnectReason& reason)
+void BaseTestNode::OnDisconnect(const DisconnectReason& reason)
 {
 	LOG_ERROR() << "problem with connecting to node: code = " << reason;
 	m_Failed = true;
 	io::Reactor::get_Current().stop();
 }
 
-void BaseTestNodeConnection::RunTest()
+void BaseTestNode::RunTest()
 {
 	if (m_Index < m_Tests.size())
 		m_Tests[m_Index]();
 }
 
-void BaseTestNodeConnection::GenerateTests()
+void BaseTestNode::GenerateTests()
 {	
 }

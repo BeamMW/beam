@@ -11,10 +11,10 @@ TxGenerator::TxGenerator(const Kdf& kdf)
 	m_MsgTx.m_Transaction->m_Offset = m_Offset;
 }
 
-void TxGenerator::GenerateInputInTx(Height h, Amount v)
+void TxGenerator::GenerateInputInTx(Height h, Amount v, beam::KeyType keyType)
 {
 	Scalar::Native key;
-	DeriveKey(key, m_Kdf, h, KeyType::Coinbase);
+	DeriveKey(key, m_Kdf, h, keyType);
 
 	Input::Ptr pInp(new Input);
 	pInp->m_Commitment = ECC::Commitment(key, v);
@@ -23,14 +23,14 @@ void TxGenerator::GenerateInputInTx(Height h, Amount v)
 	m_MsgTx.m_Transaction->m_Offset = m_Offset;
 }
 
-void TxGenerator::GenerateOutputInTx(Height h, Amount v)
+void TxGenerator::GenerateOutputInTx(Height h, Amount v, beam::KeyType keyType, bool isPublic)
 {
 	Output::Ptr pOut(new Output);
 	ECC::Scalar::Native key;
 
-	DeriveKey(key, m_Kdf, h, KeyType::Regular);
+	DeriveKey(key, m_Kdf, h, keyType);
 	pOut->m_Incubation = 2;
-	pOut->Create(key, v, true);
+	pOut->Create(key, v, isPublic);
 	m_MsgTx.m_Transaction->m_vOutputs.push_back(std::move(pOut));
 
 	key = -key;
@@ -66,7 +66,7 @@ void TxGenerator::GenerateKernel()
 	m_MsgTx.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
 }
 
-proto::NewTransaction TxGenerator::GetTransaction()
+const proto::NewTransaction& TxGenerator::GetTransaction()
 {
 	return m_MsgTx;
 }
@@ -96,4 +96,27 @@ void TxGenerator::SortOutputs()
 void TxGenerator::SortKernels()
 {
 	std::sort(m_MsgTx.m_Transaction->m_vKernelsOutput.begin(), m_MsgTx.m_Transaction->m_vKernelsOutput.end());
+}
+
+void TxGenerator::ZeroOffset()
+{
+	m_Offset = Zero;
+	m_MsgTx.m_Transaction->m_Offset = m_Offset;
+}
+
+TxGenerator::Inputs TxGenerator::GenerateInputsFromOutputs()
+{
+	Inputs inputs;
+	const auto& outputs = GetTransaction().m_Transaction->m_vOutputs;
+	inputs.resize(outputs.size());
+	std::transform(outputs.begin(), outputs.end(), inputs.begin(),
+		[](const Output::Ptr& output)
+		{
+			Input input;
+			input.m_Commitment = output->m_Commitment;
+			return input;
+		}
+	);
+
+	return inputs;
 }

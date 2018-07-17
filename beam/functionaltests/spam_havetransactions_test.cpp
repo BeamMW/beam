@@ -11,69 +11,67 @@
 using namespace beam;
 using namespace ECC;
 
-class TestNodeConnection : public NewTxConnection
+void GenerateRandom(void* p, uint32_t n)
+{
+	for (uint32_t i = 0; i < n; i++)
+		((uint8_t*)p)[i] = (uint8_t)rand();
+}
+
+void SetRandom(uintBig& x)
+{
+	GenerateRandom(x.m_pData, sizeof(x.m_pData));
+}
+
+void SetRandom(Scalar::Native& x)
+{
+	Scalar s;
+	while (true)
+	{
+		SetRandom(s.m_Value);
+		if (!x.Import(s))
+			break;
+	}
+}
+
+class TestNodeConnection : public BaseTestNode
 {
 public:
-	TestNodeConnection(int argc, char* argv[], int h);
-	void BeforeConnection(Height h);
-private:
+	TestNodeConnection(int argc, char* argv[], int h);	
 
+private:
 	void GenerateTests() override;
 
 private:
-	int m_H;
-	proto::NewTransaction m_MsgTx;
+	int m_Ind;	
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[], int h)
-	: NewTxConnection(argc, argv)
-	, m_H(h)
+	: BaseTestNode(argc, argv)
+	, m_Ind(h)
 {
 	m_Timeout = 0;
 }
 
-void TestNodeConnection::BeforeConnection(Height h)
-{
-	TxGenerator gen(m_Kdf);
-
-	Amount amount = 18000;
-
-	// Inputs
-	gen.GenerateInputInTx(h, amount);
-
-	// Outputs
-	for (Amount i = 0; i < amount; ++i)
-	{
-		gen.GenerateOutputInTx(h, 1);
-	}
-
-	// Kernels
-	gen.GenerateKernel(h);
-
-	gen.Sort();
-
-	m_MsgTx = gen.GetTransaction();
-}
 
 void TestNodeConnection::GenerateTests()
 {
-	for (int i = 0; i < 3; ++i)
+	m_Tests.push_back([this]()
 	{
-		m_Tests.push_back([this, i]()
+		m_Timer->start(10, true, [this]
 		{
-			LOG_INFO() << "Send big transaction";
-			BeforeConnection(100 * (m_H + 2) + i);
+			LOG_INFO() << "Send HaveTransaction: ind = " << m_Ind;
+			Transaction::KeyType id;
 
-			Send(m_MsgTx);
-		});
-		m_Results.push_back(true);
-	}
+			SetRandom(id);
+			Send(proto::HaveTransaction{ id });
+		});		
+	});
 }
 
 void SendData(int argc, char* argv[], int h)
 {
 	TestNodeConnection connection(argc, argv, h);
-		
+
 	connection.Run();
 }
 
@@ -84,9 +82,10 @@ int main(int argc, char* argv[])
 	logLevel = LOG_LEVEL_VERBOSE;
 #endif
 	auto logger = Logger::create(logLevel, logLevel);
+	//SendData(argc, argv, 1);
 	std::vector<std::future<void>> futures;
 
-	for (int i = 0; i < 10; i++)
+	for (int i = 0; i < 1000; i++)
 	{
 		futures.push_back(std::async(SendData, argc, argv, i));
 	}

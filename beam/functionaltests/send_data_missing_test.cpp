@@ -4,7 +4,7 @@
 
 using namespace beam;
 
-class TestNodeConnection : public BaseTestNodeConnection
+class TestNodeConnection : public BaseTestNode
 {
 public:
 	TestNodeConnection(int argc, char* argv[]);
@@ -14,7 +14,7 @@ private:
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
-	: BaseTestNodeConnection(argc, argv)
+	: BaseTestNode(argc, argv)
 {
 }
 

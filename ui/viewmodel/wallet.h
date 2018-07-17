@@ -15,6 +15,7 @@ class TxObject : public QObject
 		Q_PROPERTY(QString comment		READ comment	NOTIFY commentChanged)
 		Q_PROPERTY(QString amount		READ amount		NOTIFY amountChanged)
 		Q_PROPERTY(QString amountUsd	READ amountUsd	NOTIFY amountUsdChanged)
+		Q_PROPERTY(QString change		READ change		NOTIFY changeChanged)
 		Q_PROPERTY(QString status		READ status		NOTIFY statusChanged)
 
 public:
@@ -27,6 +28,7 @@ public:
 	QString comment() const;
 	QString amount() const;
 	QString amountUsd() const;
+	QString change() const;
 	QString status() const;
 
 signals:
@@ -36,6 +38,7 @@ signals:
 	void commentChanged();
 	void amountChanged();
 	void amountUsdChanged();
+	void changeChanged();
 	void statusChanged();
 
 public:
@@ -52,6 +55,7 @@ class WalletViewModel : public QObject
 	Q_PROPERTY(QString unconfirmed 	READ unconfirmed 	NOTIFY unconfirmedChanged)
 
 	Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
+	Q_PROPERTY(QString sendAmountMils READ sendAmountMils WRITE setSendAmountMils NOTIFY sendAmountMilsChanged)
 	Q_PROPERTY(QString receiverAddr READ receiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
 	Q_PROPERTY(QVariant tx READ tx NOTIFY txChanged)
 
@@ -67,9 +71,11 @@ public:
 
 	QVariant tx() const;
 	QString sendAmount() const;
+	QString sendAmountMils() const;
 	QString receiverAddr() const;
 
 	void setSendAmount(const QString& text);
+	void setSendAmountMils(const QString& text);
 	void setReceiverAddr(const QString& text);
 
 public slots:
@@ -84,6 +90,7 @@ signals:
 	void unconfirmedChanged();
 
 	void sendAmountChanged();
+	void sendAmountMilsChanged();
 	void receiverAddrChanged();
 	void txChanged();
 
@@ -91,7 +98,9 @@ private:
 
 	WalletStatus _status;
 
-	beam::Amount _sendAmount;
+	QString _sendAmount;
+	QString _sendAmountMils;
+
 	std::string _receiverAddr;
 	TxList _tx;
 

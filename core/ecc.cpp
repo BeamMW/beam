@@ -138,6 +138,12 @@ namespace ECC {
 		return m_Value < s_Order;
 	}
 
+	void Scalar::TestValid() const
+	{
+		if (!IsValid())
+			throw std::runtime_error("invalid scalar");
+	}
+
 	Scalar& Scalar::operator = (const Native& v)
 	{
 		v.Export(*this);
@@ -389,13 +395,7 @@ namespace ECC {
 			return true;
 
 		*this = Zero;
-		return false;
-	}
-
-	Point::Native& Point::Native::operator = (const Point& v)
-	{
-		Import(v);
-		return *this;
+		return memis0(&v, sizeof(v));
 	}
 
 	bool Point::Native::Export(Point& v) const
@@ -1177,7 +1177,7 @@ namespace ECC {
 	// RangeProof
 	namespace RangeProof
 	{
-		void get_PtMinusVal(Point::Native& out, const Point& comm, Amount val)
+		void get_PtMinusVal(Point::Native& out, const Point::Native& comm, Amount val)
 		{
 			out = comm;
 
@@ -1188,7 +1188,7 @@ namespace ECC {
 		}
 
 		// Public
-		bool Public::IsValid(const Point& comm, Oracle& oracle) const
+		bool Public::IsValid(const Point::Native& comm, Oracle& oracle) const
 		{
 			Mode::Scope scope(Mode::Fast);
 
@@ -1518,6 +1518,7 @@ namespace ECC {
 		modExp.Init(mod);
 
 		MultiMac_WithBufs<nCycles * 2, nDim * 2 + 1> mm;
+		Point::Native p;
 
 		uint32_t n = nDim;
 		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
@@ -1528,7 +1529,9 @@ namespace ECC {
 			for (int j = 0; j < 2; j++)
 			{
 				MultiMac::Casual& x = mm.m_pCasual[mm.m_Casual++];
-				x.Init(pLR[j]);
+				if (!p.Import(pLR[j]))
+					return false;
+				x.Init(p);
 
 				x.m_K = cs.m_Val[iCycle][j];
 				x.m_K *= x.m_K;
@@ -1588,7 +1591,7 @@ namespace ECC {
 	// Bulletproof
 	void RangeProof::Confidential::Create(const Scalar::Native& sk, Amount v, Oracle& oracle)
 	{
-		CoSign(sk, v, oracle, Phase::SinglePass);
+		verify(CoSign(sk, v, oracle, Phase::SinglePass));
 	}
 
 	struct RangeProof::Confidential::MultiSig
@@ -1610,7 +1613,7 @@ namespace ECC {
 		void Init(const Part2&, Oracle&);
 	};
 
-	void RangeProof::Confidential::CoSign(const Scalar::Native& sk, Amount v, Oracle& oracle, Phase::Enum ePhase)
+	bool RangeProof::Confidential::CoSign(const Scalar::Native& sk, Amount v, Oracle& oracle, Phase::Enum ePhase)
 	{
 		NonceGenerator nonceGen;
 		nonceGen.m_sk.V = sk;
@@ -1720,8 +1723,14 @@ namespace ECC {
 
 			if (Phase::SinglePass != ePhase)
 			{
-				comm += Point::Native(m_Part2.m_T1);
-				comm2 += Point::Native(m_Part2.m_T2);
+				Point::Native p;
+				if (!p.Import(m_Part2.m_T1))
+					return false;
+				comm += p;
+
+				if (!p.Import(m_Part2.m_T2))
+					return false;
+				comm2 += p;
 			}
 
 			m_Part2.m_T1 = comm;
@@ -1729,7 +1738,7 @@ namespace ECC {
 		}
 
 		if (Phase::Step2 == ePhase)
-			return; // stop after T1,T2 calculated
+			return true; // stop after T1,T2 calculated
 
 		cs.Init(m_Part2, oracle); // get challenge 
 
@@ -1798,6 +1807,8 @@ namespace ECC {
 		mod.m_pMultiplier[1] = &yPwr;
 
 		m_P_Tag.Create(comm, l0, pS[0], pS[1], mod);
+
+		return true;
 	}
 
 	void RangeProof::Confidential::MultiSig::Init(const Scalar::Native& sk, Amount v)
@@ -1879,7 +1890,7 @@ namespace ECC {
 		oracle >> x;
 	}
 
-	bool RangeProof::Confidential::IsValid(const Point& commitment, Oracle& oracle) const
+	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle) const
 	{
 		Mode::Scope scope(Mode::Fast);
 
@@ -1922,8 +1933,15 @@ namespace ECC {
 		MultiMac_WithBufs<3, InnerProduct::nDim + 2> mm;
 
 		mm.m_pCasual[mm.m_Casual++].Init(commitment, -zz);
-		mm.m_pCasual[mm.m_Casual++].Init(m_Part2.m_T1, -cs.x);
-		mm.m_pCasual[mm.m_Casual++].Init(m_Part2.m_T2, -xx);
+
+		Point::Native p;
+		if (!p.Import(m_Part2.m_T1))
+			return false;
+		mm.m_pCasual[mm.m_Casual++].Init(p, -cs.x);
+
+		if (!p.Import(m_Part2.m_T2))
+			return false;
+		mm.m_pCasual[mm.m_Casual++].Init(p, -xx);
 
 		tDot = m_tDot;
 		sumY = tDot;
@@ -1951,7 +1969,9 @@ namespace ECC {
 		mm.m_pKPrep[mm.m_Prepared] = -mm.m_pKPrep[mm.m_Prepared];
 		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.G_;
 
-		mm.m_pCasual[mm.m_Casual++].Init(Point::Native(m_Part1.m_S), cs.x);
+		if (!p.Import(m_Part1.m_S))
+			return false;
+		mm.m_pCasual[mm.m_Casual++].Init(p, cs.x);
 
 		Scalar::Native yInv, pwr, mul;
 		yInv.SetInv(cs.y);
@@ -1973,7 +1993,9 @@ namespace ECC {
 
 		mm.Calculate(ptVal);
 
-		ptVal += Point::Native(m_Part1.m_A);
+		if (!p.Import(m_Part1.m_A))
+			return false;
+		ptVal += p;
 
 		// By now the ptVal should be equal to the commAB
 		// finally check the inner product

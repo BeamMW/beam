@@ -3,7 +3,7 @@
 #include "beam/node.h"
 #include "base_node_connection.h"
 
-class NewTxConnection : public BaseTestNodeConnection
+class NewTxConnection : public BaseTestNode
 {
 public:
 	NewTxConnection(int argc, char* argv[]);

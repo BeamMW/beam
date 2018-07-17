@@ -19,8 +19,7 @@ private:
 private:
 	bool m_IsInit;
 	bool m_IsNeedToCheckOut;
-	unsigned int m_Counter;
-	Block::SystemState::ID m_ID;
+	unsigned int m_Counter;	
 	TxGenerator m_Generator;
 	CoinsChecker m_CoinsChecker;
 };
@@ -41,7 +40,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 
 void TestNodeConnection::GenerateTests()
 {
-	m_Tests.push_back([this] 
+	m_Tests.push_back([this]
 	{
 		m_CoinsChecker.InitChecker();
 	});
@@ -53,29 +52,13 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 
 	if (!m_IsInit)
 	{
-		m_ID = msg.m_ID;
 		m_IsInit = true;
 
-		m_Generator.GenerateInputInTx(m_ID.m_Height - 70, Rules::get().CoinbaseEmission);
-
-		m_CoinsChecker.Check(CoinsChecker::Inputs{ *m_Generator.GetTransaction().m_Transaction->m_vInputs.front() },
-			[this] (bool isOk)
-			{
-				if (isOk)
-				{
-					m_Generator.GenerateOutputInTx(m_ID.m_Height + 1, Rules::get().CoinbaseEmission);
-					m_Generator.GenerateKernel(m_ID.m_Height + 5);
-					m_Generator.Sort();
-					Send(m_Generator.GetTransaction());
-				}
-				else
-				{
-					LOG_INFO() << "Failed: utxo is not valid";
-					m_Failed = true;
-					io::Reactor::get_Current().stop();
-				}
-			}
-		);
+		m_Generator.GenerateInputInTx(msg.m_ID.m_Height - 70, Rules::get().CoinbaseEmission, KeyType::Coinbase);
+		m_Generator.GenerateOutputInTx(msg.m_ID.m_Height - 70, Rules::get().CoinbaseEmission, KeyType::Coinbase);
+		m_Generator.GenerateKernel(msg.m_ID.m_Height - 70);
+		m_Generator.Sort();
+		Send(m_Generator.GetTransaction());
 	}
 
 	if (m_IsNeedToCheckOut)
