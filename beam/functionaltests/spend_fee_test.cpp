@@ -41,9 +41,6 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	, m_CoinsChecker(argc, argv)
 {
 	m_Timeout = 5 * 60 * 1000;
-
-	Rules::get().FakePoW = true;
-	Rules::get().UpdateChecksum();
 }
 
 void TestNodeConnection::GenerateTests()

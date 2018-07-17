@@ -3,7 +3,6 @@
 #include "tools/base_node_connection.h"
 
 using namespace beam;
-using namespace ECC;
 
 class TestNodeConnection : public BaseTestNode
 {
