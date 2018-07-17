@@ -82,7 +82,6 @@ Item {
                 }
 
                 SFText {
-                    id: rec_addr
 
                     y: 41
 
@@ -92,14 +91,13 @@ Item {
                     text: "Recipient address"
                 }
 
-                TextInput {
+                SFTextInput {
                     id: receiver_addr
 
                     y: 115-30
                     width: 300
 
                     font.pixelSize: 12
-                    font.family: rec_addr.family
 
                     color: Style.white
 
@@ -135,7 +133,6 @@ Item {
                 anchors.bottomMargin: 60
 
                 SFText {
-                    id: tx_amout_label
                     y: 41
 
                     font.pixelSize: 12
@@ -144,19 +141,18 @@ Item {
                     text: "Transaction amount"
                 }
 
-                TextInput {
+                SFTextInput {
                     id: amount_input
                     y: 93-30
                     width: 300
 
                     font.pixelSize: 48
-                    font.family: tx_amout_label.family
-
                     color: Style.heliotrope
 
                     text: walletViewModel.sendAmount
 
                     validator: IntValidator{bottom: 0; top: 210000000;}
+                    selectByMouse: true
                 }
 
                 Binding {
@@ -182,13 +178,12 @@ Item {
                     text: "BEAM"
                 }
 
-                TextInput {
+                SFTextInput {
                     id: mils_amount_input
                     y: 93+30
                     width: 300
 
                     font.pixelSize: 48
-                    font.family: tx_amout_label.family
 
                     color: Style.heliotrope
 
@@ -328,12 +323,11 @@ Item {
                     text: "Comment"
                 }
 
-                TextInput {
+                SFTextInput {
                     y: 427-30
                     width: 300
 
                     font.pixelSize: 12
-                    font.family: tx_amout_label.family
 
                     color: Style.white
 
