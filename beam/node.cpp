@@ -563,6 +563,49 @@ void Node::Bbs::Cleanup()
 {
 	get_ParentObj().m_Processor.get_DB().BbsDelOld(getTimestamp() - get_ParentObj().m_Cfg.m_Timeout.m_BbsMessageTimeout_s);
 	m_LastCleanup_ms = GetTime_ms();
+
+	FindRecommendedChannel();
+}
+
+void Node::Bbs::FindRecommendedChannel()
+{
+	NodeDB& db = get_ParentObj().m_Processor.get_DB(); // alias
+
+	uint32_t nChannel = 0, nCount = 0, nCountFound;
+	bool bFound = false;
+
+	NodeDB::WalkerBbs wlk(db);
+	for (db.EnumAllBbs(wlk); ; )
+	{
+		bool bMoved = wlk.MoveNext();
+
+		if (bMoved && (wlk.m_Data.m_Channel == nChannel))
+			nCount++;
+		else
+		{
+			if ((nCount <= get_ParentObj().m_Cfg.m_BbsIdealChannelPopulation) && (!bFound || (nCountFound < nCount)))
+			{
+				bFound = true;
+				nCountFound = nCount;
+				m_RecommendedChannel = nChannel;
+			}
+
+			if (!bFound && (nChannel + 1 != wlk.m_Data.m_Channel)) // fine also for !bMoved
+			{
+				bFound = true;
+				nCountFound = 0;
+				m_RecommendedChannel = nChannel + 1;
+			}
+
+			if (!bMoved)
+				break;
+
+			nChannel = wlk.m_Data.m_Channel;
+			nCount = 1;
+		}
+	}
+
+	assert(bFound);
 }
 
 void Node::Bbs::MaybeCleanup()
@@ -1504,6 +1547,13 @@ void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
 	}
 	else
 		Unsubscribe(it->get_ParentObj());
+}
+
+void Node::Peer::OnMsg(proto::BbsPickChannel&& msg)
+{
+	proto::BbsPickChannelRes msgOut;
+	msgOut.m_Channel = m_This.m_Bbs.m_RecommendedChannel;
+	Send(msgOut);
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)

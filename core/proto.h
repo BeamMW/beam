@@ -108,6 +108,11 @@ namespace proto {
 	macro(Timestamp, TimeFrom) \
 	macro(bool, On)
 
+#define BeamNodeMsg_BbsPickChannel(macro)
+
+#define BeamNodeMsg_BbsPickChannelRes(macro) \
+	macro(BbsChannel, Channel)
+
 #define BeamNodeMsg_SChannelInitiate(macro) \
 	macro(ECC::uintBig, NoncePub)
 
@@ -149,6 +154,8 @@ namespace proto {
 	macro(41, BbsHaveMsg) \
 	macro(42, BbsGetMsg) \
 	macro(43, BbsSubscribe) \
+	macro(44, BbsPickChannel) \
+	macro(45, BbsPickChannelRes) \
 	macro(61, SChannelInitiate) \
 	macro(62, SChannelReady) \
 	macro(63, Authentication) \
