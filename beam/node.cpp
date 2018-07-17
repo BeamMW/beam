@@ -585,7 +585,8 @@ void Node::ImportMacroblock(Height h)
 	if (!m_Processor.ImportMacroBlock(rw))
 		throw std::runtime_error("import failed");
 
-	m_Processor.get_DB().MacroblockIns(h);
+	if (m_Processor.m_Cursor.m_Sid.m_Row)
+		m_Processor.get_DB().MacroblockIns(m_Processor.m_Cursor.m_Sid.m_Row);
 }
 
 Node::~Node()
@@ -1747,7 +1748,10 @@ void Node::Compressor::Cleanup()
 		if (nBacklog && rw.Open(true))
 			nBacklog--; // ok
 		else
+		{
+			LOG_WARNING() << "History at height " << ws.m_Sid.m_Height << " not found";
 			Delete(ws.m_Sid);
+		}
 	}
 }
 
@@ -1775,6 +1779,8 @@ void Node::Compressor::Delete(const NodeDB::StateID& sid)
 	Block::BodyBase::RW rw;
 	FmtPath(rw, sid.m_Height, NULL);
 	rw.Delete();
+
+	LOG_WARNING() << "History at height " << sid.m_Height << " deleted";
 }
 
 void Node::Compressor::OnNewState()
@@ -1893,7 +1899,9 @@ void Node::Compressor::OnNotify()
 
 		if (m_bSuccess)
 		{
-			get_ParentObj().m_Processor.get_DB().MacroblockIns(h);
+			uint64_t rowid = get_ParentObj().m_Processor.FindActiveAtStrict(h);
+			get_ParentObj().m_Processor.get_DB().MacroblockIns(rowid);
+
 			LOG_INFO() << "History generated up to height " << h;
 
 			Cleanup();

@@ -5,6 +5,7 @@
 
 #include "utility/logger.h"
 #include <boost/filesystem.hpp>
+#include <algorithm>
 
 using namespace std;
 using namespace ECC;
@@ -46,7 +47,7 @@ void TestKeychain()
     WALLET_CHECK(coin2.m_id == 2);
     
     {
-	    auto coins = keychain->getCoins(7);
+	    auto coins = keychain->selectCoins(7);
         WALLET_CHECK(coins.size() == 2);
 
 	
@@ -68,7 +69,7 @@ void TestKeychain()
 
 		keychain->update(coin2);
 
-        WALLET_CHECK(keychain->getCoins(5).size() == 0);
+        WALLET_CHECK(keychain->selectCoins(5).size() == 0);
 	}
 
 	{
@@ -365,6 +366,75 @@ void TestTxRollback()
     WALLET_CHECK(coins[1].m_spentTxId.is_initialized() == false);
 }
 
+void TestSelect()
+{
+    auto db = createSqliteKeychain();
+    const Amount c = 10;
+    for (Amount i = 1; i <= c; ++i)
+    {
+        Coin c{ i, Coin::Unspent, 1, 10, KeyType::Regular };
+        db->store(c);
+    }
+    for (Amount i = 1; i <= c; ++i)
+    {
+        auto coins = db->selectCoins(i, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == i);
+    }
+    {
+        auto coins = db->selectCoins(56, false);
+        WALLET_CHECK(coins.empty());
+    }
+    {
+        auto coins = db->selectCoins(55, false);
+        WALLET_CHECK(coins.size() == 10);
+    }
+    for (Amount i = c + 1; i <= 55; ++i)
+    {
+        auto coins = db->selectCoins(i, false);
+        WALLET_CHECK(!coins.empty());
+    }
+    // double coins
+    for (Amount i = 1; i <= c; ++i)
+    {
+        Coin c{ i, Coin::Unspent, 1, 10, KeyType::Regular };
+        db->store(c);
+    }
+    auto c2 = c * 2;
+    for (Amount i = 1; i <= c; ++i)
+    {
+        auto coins = db->selectCoins(i, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == i);
+    }
+    {
+        auto coins = db->selectCoins(111, false);
+        WALLET_CHECK(coins.empty());
+    }
+    {
+        auto coins = db->selectCoins(110, false);
+        WALLET_CHECK(coins.size() == 20);
+    }
+    for (Amount i = c + 1; i <= 110; ++i)
+    {
+        auto coins = db->selectCoins(i, false);
+        WALLET_CHECK(!coins.empty());
+        auto sum = accumulate(coins.begin(), coins.end(), 0, [](const auto& left, const auto& right) {return left + right.m_amount; });
+        WALLET_CHECK(sum == i);
+    }
+
+    {
+        db->remove(db->selectCoins(110));
+        vector<Coin> coins = {
+            Coin{ 2, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 9, Coin::Unspent, 1, 10, KeyType::Regular } };
+        db->store(coins);
+        coins = db->selectCoins(6);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == 9);
+    }
+}
 
 int main() 
 {
@@ -380,6 +450,7 @@ int main()
     TestStoreTxRecord();
     TestTxRollback();
     TestRollback();
+    TestSelect();
 
     return WALLET_CHECK_RESULT;
 }
