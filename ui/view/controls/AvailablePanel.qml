@@ -9,6 +9,8 @@ Rectangle {
 
     clip: true
 
+    property string value
+
     SFText {
         font {
             pixelSize: 18
@@ -33,7 +35,7 @@ Rectangle {
             font.weight: Font.ExtraLight
             color: Style.bright_teal
 
-            text: walletViewModel.available
+            text: value
 
             anchors.bottom: parent.bottom
         }
@@ -59,6 +61,6 @@ Rectangle {
 
         x: 30
         y: 147
-        text: walletViewModel.available + " USD"
+        text: value + " USD"
     }
 }

@@ -45,6 +45,10 @@ Item {
         text: "1Cs4wu6pu5qCZ35bSLNVzGyEx5N6uzbg9t"
     }
 
+    /////////////////////////////////////////////////////////////
+    /// Send layout /////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////
+
     Rectangle {
         id: send_layout
         anchors.fill: parent
@@ -115,6 +119,13 @@ Item {
                     height: 1
 
                     color: "#33566b"
+                }
+
+                AvailablePanel {
+                    y: 140
+                    width: parent.width
+                    height: 206
+                    value: walletViewModel.available*1 - walletViewModel.sendAmount*1
                 }
             }
 
@@ -398,6 +409,7 @@ Item {
                 AvailablePanel {
                     width: (parent.width - 3*30)*500/1220
                     height: parent.height
+                    value: walletViewModel.available
                 }
 
                 SecondaryPanel {
@@ -437,7 +449,8 @@ Item {
 
                 AvailablePanel {
                     width: (parent.width - parent.spacing)*518/864
-                    height: parent.height              
+                    height: parent.height
+                    value: walletViewModel.available      
                 }
 
                 Item {
