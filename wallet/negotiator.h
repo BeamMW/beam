@@ -152,7 +152,7 @@ namespace beam::wallet
 
             void update_tx_description(TxDescription::Status s);
 
-            void getSenderInputsAndOutputs(const Height& currentHeight, std::vector<Input::Ptr>& inputs, std::vector<Output::Ptr>& outputs);
+            bool getSenderInputsAndOutputs(const Height& currentHeight, std::vector<Input::Ptr>& inputs, std::vector<Output::Ptr>& outputs);
 
 			bool registerTxInternal(const events::TxConfirmationCompleted&);
 			bool confirmPeerInternal(const events::TxInvitationCompleted&);

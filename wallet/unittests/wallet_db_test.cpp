@@ -5,6 +5,7 @@
 
 #include "utility/logger.h"
 #include <boost/filesystem.hpp>
+#include <algorithm>
 
 using namespace std;
 using namespace ECC;
@@ -46,7 +47,7 @@ void TestKeychain()
     WALLET_CHECK(coin2.m_id == 2);
     
     {
-	    auto coins = keychain->getCoins(7);
+	    auto coins = keychain->selectCoins(7);
         WALLET_CHECK(coins.size() == 2);
 
 	
@@ -68,7 +69,7 @@ void TestKeychain()
 
 		keychain->update(coin2);
 
-        WALLET_CHECK(keychain->getCoins(5).size() == 0);
+        WALLET_CHECK(keychain->selectCoins(5).size() == 0);
 	}
 
 	{
@@ -190,6 +191,7 @@ void TestStoreTxRecord()
     tr.m_minHeight = 134;
     tr.m_sender = true;
     tr.m_status = TxDescription::InProgress;
+	tr.m_change = 5;
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
     TxDescription tr2 = tr;
@@ -199,6 +201,7 @@ void TestStoreTxRecord()
     tr2.m_createTime = 1234564;
     tr2.m_modifyTime = 12345644;
     tr2.m_status = TxDescription::Completed;
+	tr2.m_change = 5;
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr2));
     
     auto t = keychain->getTxHistory();
@@ -210,7 +213,8 @@ void TestStoreTxRecord()
     WALLET_CHECK(t[0].m_createTime == tr.m_createTime);
     WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
     WALLET_CHECK(t[0].m_sender == tr2.m_sender);
-    WALLET_CHECK(t[0].m_status == tr2.m_status);
+	WALLET_CHECK(t[0].m_status == tr2.m_status);
+    WALLET_CHECK(t[0].m_change == tr2.m_change);
     Uuid id2 = {{ 3,4,5 }};
     WALLET_CHECK_NO_THROW(keychain->deleteTx(id2));
     WALLET_CHECK_NO_THROW(keychain->deleteTx(id));
@@ -365,6 +369,149 @@ void TestTxRollback()
     WALLET_CHECK(coins[1].m_spentTxId.is_initialized() == false);
 }
 
+void TestSelect()
+{
+    auto db = createSqliteKeychain();
+    const Amount c = 10;
+    for (Amount i = 1; i <= c; ++i)
+    {
+        Coin c{ i, Coin::Unspent, 1, 10, KeyType::Regular };
+        db->store(c);
+    }
+    for (Amount i = 1; i <= c; ++i)
+    {
+        auto coins = db->selectCoins(i, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == i);
+    }
+    {
+        auto coins = db->selectCoins(56, false);
+        WALLET_CHECK(coins.empty());
+    }
+    {
+        auto coins = db->selectCoins(55, false);
+        WALLET_CHECK(coins.size() == 10);
+    }
+    {
+        auto coins = db->selectCoins(15, false);
+        WALLET_CHECK(coins.size() == 2);
+    }
+    for (Amount i = c + 1; i <= 55; ++i)
+    {
+        auto coins = db->selectCoins(i, false);
+        WALLET_CHECK(!coins.empty());
+    }
+    // double coins
+    for (Amount i = 1; i <= c; ++i)
+    {
+        Coin c{ i, Coin::Unspent, 1, 10, KeyType::Regular };
+        db->store(c);
+    }
+    auto c2 = c * 2;
+    for (Amount i = 1; i <= c; ++i)
+    {
+        auto coins = db->selectCoins(i, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == i);
+    }
+    {
+        auto coins = db->selectCoins(111, false);
+        WALLET_CHECK(coins.empty());
+    }
+    {
+        auto coins = db->selectCoins(110, false);
+        WALLET_CHECK(coins.size() == 20);
+    }
+    for (Amount i = c + 1; i <= 110; ++i)
+    {
+        auto coins = db->selectCoins(i, false);
+        WALLET_CHECK(!coins.empty());
+        auto sum = accumulate(coins.begin(), coins.end(), 0, [](const auto& left, const auto& right) {return left + right.m_amount; });
+        WALLET_CHECK(sum == i);
+    }
+
+    {
+        db->remove(db->selectCoins(110, false));
+        vector<Coin> coins = {
+            Coin{ 2, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 9, Coin::Unspent, 1, 10, KeyType::Regular } };
+        db->store(coins);
+        coins = db->selectCoins(6, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == 9);
+    }
+    {
+        db->remove(db->selectCoins(12, false));
+        vector<Coin> coins = {
+            Coin{ 2, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular } };
+        db->store(coins);
+        coins = db->selectCoins(5, false);
+        WALLET_CHECK(coins.size() == 2);
+        WALLET_CHECK(coins[0].m_amount == 2);
+    }
+    {
+        db->remove(db->selectCoins(18, false));
+        vector<Coin> coins = {
+            Coin{ 3, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 5, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 7, Coin::Unspent, 1, 10, KeyType::Regular } };
+        db->store(coins);
+        coins = db->selectCoins(6, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == 7);
+    }
+    {
+        db->remove(db->selectCoins(19, false));
+        vector<Coin> coins = {
+            Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 2, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 3, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular } };
+        db->store(coins);
+        coins = db->selectCoins(4, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == 4);
+
+        coins = db->selectCoins(7, false);
+        WALLET_CHECK(coins.size() == 2);
+        WALLET_CHECK(coins[0].m_amount == 3);
+        WALLET_CHECK(coins[1].m_amount == 4);
+    }
+    {
+        db->remove(db->selectCoins(10, false));
+        vector<Coin> coins = {
+            Coin{ 2, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 5, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 7, Coin::Unspent, 1, 10, KeyType::Regular } };
+        db->store(coins);
+        coins = db->selectCoins(6, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == 7);
+    }
+    {
+        db->remove(db->selectCoins(14, false));
+        vector<Coin> coins = {
+            Coin{ 235689, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 2999057, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 500000, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 5000000, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 40000000, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 40000000, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 40000000, Coin::Unspent, 1, 10, KeyType::Regular },
+        };
+        db->store(coins);
+        coins = db->selectCoins(41000000);
+        WALLET_CHECK(coins.size() == 2);
+        WALLET_CHECK(coins[0].m_amount == 2999057);
+        WALLET_CHECK(coins[1].m_amount == 40000000);
+    }
+}
 
 int main() 
 {
@@ -380,6 +527,7 @@ int main()
     TestStoreTxRecord();
     TestTxRollback();
     TestRollback();
+    TestSelect();
 
     return WALLET_CHECK_RESULT;
 }

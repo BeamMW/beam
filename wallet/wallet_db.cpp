@@ -68,8 +68,9 @@
     each(7, createTime, sep, INTEGER NOT NULL, obj) \
     each(8, modifyTime, sep, INTEGER, obj) \
     each(9, sender,     sep, INTEGER NOT NULL, obj) \
-    each(10, status,     sep, INTEGER NOT NULL, obj) \
-    each(11, fsmState,      , BLOB, obj)
+    each(10, status,    sep, INTEGER NOT NULL, obj) \
+    each(11, fsmState,  sep, BLOB, obj) \
+	each(12, change,       , INTEGER NOT NULL, obj)
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
 
 namespace beam
@@ -89,6 +90,50 @@ namespace beam
 			LOG_DEBUG() << ss.str();
 			throw runtime_error(ss.str());
 		}
+
+        Amount selectImpl(const std::vector<Coin>::iterator& first, const std::vector<Coin>::iterator& last, Amount amount, Amount left, vector<Coin>& res)
+        {
+            vector<Coin> coins;
+            if (first == last || left < amount || amount == 0)
+            {
+                return 0;
+            }
+            
+            if (amount == left)
+            {
+                copy(first, last, back_inserter(res));
+                return amount;
+            }
+
+            vector<Coin> coins1, coins2;
+            Amount newLeft = left - first->m_amount;
+            auto sum1 = selectImpl(first + 1, last, amount, newLeft, coins1);
+            
+            auto sum2 = first->m_amount + selectImpl(first + 1, last, amount - first->m_amount, newLeft, coins2);
+
+            bool a = sum2 >= amount;
+            bool b = sum1 >= amount;
+            bool c = sum1 < sum2;
+
+            if (a && b && c || !a && b)
+            {
+                for (auto& t : coins1)
+                {
+                    res.push_back(t);
+                }
+                return sum1;
+            }
+            else if (a && b && !c || a && !b)
+            {
+                res.push_back(*first);
+                for (auto& t : coins2)
+                {
+                    res.push_back(t);
+                }
+                return sum2;
+            }
+            return 0;
+        }
 	}
     
 	namespace sqlite
@@ -531,52 +576,74 @@ namespace beam
 		return key;
 	}
 
-	vector<beam::Coin> Keychain::getCoins(const ECC::Amount& amount, bool lock)
+	vector<beam::Coin> Keychain::selectCoins(const Amount& amount, bool lock)
 	{
 		vector<beam::Coin> coins;
         Block::SystemState::ID stateID = {};
         getSystemStateID(stateID);
-		ECC::Amount sum = 0;
-		{
-			const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 ORDER BY amount ASC;";
-			sqlite::Statement stm(_db, req);
-			stm.bind(1, Coin::Unspent);
+        {
+            sqlite::Statement stm(_db, "SELECT SUM(amount)" STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 ;");
+            stm.bind(1, Coin::Unspent);
+            stm.bind(2, stateID.m_Height);
+            Amount avalableAmount = 0;
+            if (stm.step())
+            {
+                stm.get(0, avalableAmount);
+            }
+            if (avalableAmount < amount)
+            {
+                return coins;
+            }
+        }
+        Amount change = amount;
+        Amount sum = 0;
+        {
+            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount<?3 ORDER BY amount DESC;");
+            stm.bind(1, Coin::Unspent);
+            stm.bind(2, stateID.m_Height);
+            stm.bind(3, amount);
+            vector<Coin> candidats;
+            
+            while (stm.step())
+            {
+                auto& coin = candidats.emplace_back();
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+                sum += coin.m_amount;
+            }
+            if (sum > amount)
+            {
+                unordered_map<Amount, Amount> mem;
+                change = selectImpl(candidats.begin(), candidats.end(), amount, sum, coins) - amount;
+            }
+            else if (sum == amount)
+            {
+                coins.swap(candidats);
+            }
+        }
+        Coin coin2;
+        {
+            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount>=?3 ORDER BY amount ASC LIMIT 1;");
+            stm.bind(1, Coin::Unspent);
+            stm.bind(2, stateID.m_Height);
+            stm.bind(3, amount);
+            if (stm.step())
+            {
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin2);
+                if (coin2.m_amount - amount <= change)
+                {
+                    coins.clear();
+                    coins.push_back(coin2);
+                }
+            }
+        }
 
-            while (true)
-			{
-				if (sum >= amount) break;
-
-				if (stm.step())
-				{
-					beam::Coin coin;
-
-					ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
-
-					if (coin.m_maturity <= stateID.m_Height)
-					{
-						if (lock)
-						{
-							coin.m_status = beam::Coin::Locked;
-						}
-
-						coins.push_back(coin);
-						sum += coin.m_amount;
-					}
-				}
-				else break;
-			}
-		}
-
-		if (sum < amount)
-		{
-			coins.clear();
-		}
-		else if (lock)
+        if (lock)
 		{
 			sqlite::Transaction trans(_db);
 
-			for (const auto& coin : coins)
+			for (auto& coin : coins)
 			{
+                coin.m_status = Coin::Locked;
 				const char* req = "UPDATE " STORAGE_NAME " SET status=?2, lockedHeight=?3 WHERE id=?1;";
 				sqlite::Statement stm(_db, req);
 
@@ -591,7 +658,7 @@ namespace beam
 
 			notifyKeychainChanged();
 		}
-
+        std::reverse(coins.begin(), coins.end());
 		return coins;
 	}
 
@@ -619,6 +686,7 @@ namespace beam
 
     void Keychain::storeImpl(Coin& coin)
     {
+        assert(coin.m_amount > 0);
         if (coin.m_key_type == KeyType::Coinbase
             || coin.m_key_type == KeyType::Comission)
         {
@@ -646,6 +714,7 @@ namespace beam
 
 	void Keychain::update(const beam::Coin& coin)
 	{
+        assert(coin.m_amount > 0);
 		sqlite::Transaction trans(_db);
 
 		{
@@ -872,7 +941,7 @@ namespace beam
 
 	        if (stm2.step())
 	        {
-	            const char* updateReq = "UPDATE " HISTORY_NAME " SET modifyTime=?2, status=?3, fsmState=?4, minHeight=?5 WHERE txId=?1;";
+	            const char* updateReq = "UPDATE " HISTORY_NAME " SET modifyTime=?2, status=?3, fsmState=?4, minHeight=?5, change=?6 WHERE txId=?1;";
 	            sqlite::Statement stm(_db, updateReq);
 
 	            stm.bind(1, p.m_txId);
@@ -880,6 +949,7 @@ namespace beam
 	            stm.bind(3, p.m_status);
 	            stm.bind(4, p.m_fsmState);
 	            stm.bind(5, p.m_minHeight);
+				stm.bind(6, p.m_change);
 	            stm.step();
 	        }
 	        else
