@@ -91,6 +91,7 @@ namespace beam
 		{
 			return getVarRaw(name, &var) == sizeof(var);
 		}
+        virtual Timestamp getLastUpdateTime() const = 0;
 		virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
 		virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
 
@@ -129,6 +130,7 @@ namespace beam
         void deleteTx(const Uuid& txId) override;
         void rollbackTx(const Uuid& txId) override;
 
+        Timestamp getLastUpdateTime() const override;
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override;
 
