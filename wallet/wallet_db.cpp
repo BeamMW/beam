@@ -393,6 +393,7 @@ namespace beam
         const char* WalletSeed = "WalletSeed";
         const char* Version = "Version";
         const char* SystemStateIDName = "SystemStateID";
+        const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
         const int DbVersion = 1;
     }
@@ -860,9 +861,20 @@ namespace beam
 		return size;
 	}
 
+    Timestamp Keychain::getLastUpdateTime() const
+    {
+        Timestamp timestamp = {};
+        if (getVar(LastUpdateTimeName, timestamp))
+        {
+            return timestamp;
+        }
+        return 0;
+    }
+
 	void Keychain::setSystemStateID(const Block::SystemState::ID& stateID)
 	{
 		setVar(SystemStateIDName, stateID);
+        setVar(LastUpdateTimeName, getTimestamp());
 		notifySystemStateChanged();
 	}
 

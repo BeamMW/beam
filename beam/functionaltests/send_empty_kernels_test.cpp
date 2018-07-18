@@ -6,7 +6,6 @@
 #include "tools/new_tx_tests.h"
 
 using namespace beam;
-using namespace ECC;
 
 class TestNodeConnection : public NewTxConnection
 {

@@ -6,7 +6,6 @@
 #include "tools/new_tx_tests.h"
 
 using namespace beam;
-using namespace ECC;
 
 class TestNodeConnection : public NewTxConnection
 {
@@ -27,18 +26,7 @@ void TestNodeConnection::GenerateTests()
 {
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test without inputs, outputs and kernels";
-		TxGenerator gen(m_Kdf);
-
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
-
-		Send(gen.GetTransaction());
-	});
-	m_Results.push_back(false);
-
-	m_Tests.push_back([this]()
-	{
-		LOG_INFO() << "Run test without inputs";
+		LOG_INFO() << "Send tx with input = empty, output = 1, fee = 0";
 		TxGenerator gen(m_Kdf);
 		
 		// Inputs are empty
@@ -59,7 +47,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test without outputs";
+		LOG_INFO() << "Send tx with input = 1, output = empty, fee = 0";
 
 		TxGenerator gen(m_Kdf);
 
@@ -81,7 +69,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with normal tx";
+		LOG_INFO() << "Send tx with input = 1, output = 1, fee = 1";
 
 		TxGenerator gen(m_Kdf);
 
@@ -104,7 +92,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with 2 inputs, 2 ouputs and 1 kernel";
+		LOG_INFO() << "Send tx with 2 inputs, 2 ouputs and 1 kernel";
 
 		TxGenerator gen(m_Kdf);
 
@@ -129,7 +117,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with 2 inputs, 1 ouputs and 1 kernel";
+		LOG_INFO() << "Send tx with 2 inputs, 1 ouputs and 1 kernel";
 
 		TxGenerator gen(m_Kdf);
 
@@ -152,7 +140,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with 1 inputs, 2 ouputs and 1 kernel";
+		LOG_INFO() << "Send tx with 1 inputs, 2 ouputs and 1 kernel";
 
 		TxGenerator gen(m_Kdf);
 
@@ -175,7 +163,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with input = 1 chattle, output= 2 chattles, fee=0";
+		LOG_INFO() << "Send tx with input = 1, output = 2, fee = 0";
 
 		TxGenerator gen(m_Kdf);
 
@@ -197,7 +185,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with input = 2 chattle, output= 1 chattles, fee=0";
+		LOG_INFO() << "Send tx with input = 2, output = 1, fee = 0";
 
 		TxGenerator gen(m_Kdf);
 
@@ -219,7 +207,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with input = 2 chattle, output= 3 chattles, fee=0";
+		LOG_INFO() << "Send tx with input = 2, output = 3, fee = 0";
 
 		TxGenerator gen(m_Kdf);
 
@@ -241,7 +229,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with input = 4 chattle, output= 2 chattle, fee = 2 chattles";
+		LOG_INFO() << "Send tx with input = 4, output = 2, fee = 2";
 
 		TxGenerator gen(m_Kdf);
 
@@ -263,7 +251,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with input = 4 chattle, output= 2 chattle, fee= 1 chattle, fee = 1 chattle";
+		LOG_INFO() << "Send tx with input = 4, output = 2, fee = 1, fee = 1";
 
 		TxGenerator gen(m_Kdf);
 
@@ -286,7 +274,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with input = 4 chattle, output= 2 chattle, fee= 1 chattle, fee = 1 chattle, fee = 1 chattle";
+		LOG_INFO() << "Send tx with input = 4, output = 2, fee = 1, fee = 1, fee = 1";
 
 		TxGenerator gen(m_Kdf);
 
@@ -310,7 +298,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with input = 4 chattle, output= 2 chattle, fee= 3 chattles";
+		LOG_INFO() << "Send tx with input = 4, output = 2, fee = 3";
 
 		TxGenerator gen(m_Kdf);
 
@@ -332,15 +320,13 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with input = 2 chattle, without output, fee= 2 chattles";
+		LOG_INFO() << "Send tx with input = 2, without output, fee = 2";
 
 		TxGenerator gen(m_Kdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(15, 2);
 
-		// Outputs
-		
 		// Kernels
 		gen.GenerateKernel(15, 2);
 		gen.Sort();
@@ -349,11 +335,11 @@ void TestNodeConnection::GenerateTests()
 
 		Send(gen.GetTransaction());
 	});
-	m_Results.push_back(true);
+	m_Results.push_back(false);
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with input = 2 chattle, output = 1, fee = 1 chattles, offset of tx = 0";
+		LOG_INFO() << "Send tx with input = 2, output = 1, fee = 1, offset of tx = 0";
 
 		TxGenerator gen(m_Kdf);
 
@@ -377,7 +363,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test without input, output , fee ";
+		LOG_INFO() << "Send tx without input, output , fee ";
 
 		TxGenerator gen(m_Kdf);		
 
@@ -389,7 +375,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with input.m_Commitment = ouput.m_Commitment, fee = 0";
+		LOG_INFO() << "Send tx with input.m_Commitment = ouput.m_Commitment, fee = 0";
 
 		TxGenerator gen(m_Kdf);
 
@@ -412,7 +398,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with input = 0, ouput = 0, fee = 0";
+		LOG_INFO() << "Send tx with input = 0, ouput = 0, fee = 0";
 
 		TxGenerator gen(m_Kdf);
 
@@ -435,38 +421,18 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with input = 2, ouput = empty, fee = 2";
+		LOG_INFO() << "Send tx with input = 2, ouput = 0, fee = 2";
 
 		TxGenerator gen(m_Kdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(19, 2);
-				
-		// Kernels
-		gen.GenerateKernel(19, 2);
-
-		gen.Sort();
-
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
-
-		Send(gen.GetTransaction());
-	});
-	m_Results.push_back(false);
-
-	m_Tests.push_back([this]()
-	{
-		LOG_INFO() << "Run test with input = 2, ouput = 0, fee = 2";
-
-		TxGenerator gen(m_Kdf);
-
-		// Inputs 
-		gen.GenerateInputInTx(20, 2);
 
 		// Outputs
-		gen.GenerateOutputInTx(20, 0, KeyType::Regular, false);
+		gen.GenerateOutputInTx(19, 0, KeyType::Regular, false);
 
 		// Kernels
-		gen.GenerateKernel(20, 2);
+		gen.GenerateKernel(19, 2);
 
 		gen.Sort();
 
