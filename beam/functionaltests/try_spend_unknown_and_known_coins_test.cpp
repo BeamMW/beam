@@ -19,8 +19,7 @@ private:
 	bool m_IsInit;
 	bool m_IsNeedToCheckOut;
 	unsigned int m_Counter;
-	TxGenerator m_Generator1;
-	TxGenerator m_Generator2;
+	TxGenerator m_Generator;
 	CoinsChecker m_CoinsChecker;
 };
 
@@ -29,8 +28,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	, m_IsInit(false)
 	, m_IsNeedToCheckOut(false)
 	, m_Counter(0)
-	, m_Generator1(m_Kdf)
-	, m_Generator2(m_Kdf)
+	, m_Generator(m_Kdf)
 	, m_CoinsChecker(argc, argv)
 {
 	m_Timeout = 5 * 60 * 1000;
@@ -52,52 +50,33 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 	{
 		m_IsInit = true;
 
-		m_Generator1.GenerateInputInTx(msg.m_ID.m_Height - 70, Rules::get().CoinbaseEmission);
-		m_Generator1.GenerateOutputInTx(msg.m_ID.m_Height + 1, Rules::get().CoinbaseEmission);
-		m_Generator1.GenerateKernel(msg.m_ID.m_Height + 5);
-		m_Generator1.Sort();
-		Send(m_Generator1.GetTransaction());
-
-		m_Generator2.GenerateInputInTx(msg.m_ID.m_Height - 70, Rules::get().CoinbaseEmission);
-		m_Generator2.GenerateOutputInTx(msg.m_ID.m_Height + 2, Rules::get().CoinbaseEmission);
-		m_Generator2.GenerateKernel(msg.m_ID.m_Height + 6);
-		m_Generator2.Sort();
-		Send(m_Generator2.GetTransaction());
+		m_Generator.GenerateInputInTx(msg.m_ID.m_Height - 70, Rules::get().CoinbaseEmission);
+		m_Generator.GenerateInputInTx(msg.m_ID.m_Height - 71, 2 * Rules::get().CoinbaseEmission);
+		m_Generator.GenerateOutputInTx(msg.m_ID.m_Height + 1, Rules::get().CoinbaseEmission);
+		m_Generator.GenerateOutputInTx(msg.m_ID.m_Height + 2, 2 * Rules::get().CoinbaseEmission);
+		m_Generator.GenerateKernel(msg.m_ID.m_Height + 5);
+		m_Generator.Sort();
+		Send(m_Generator.GetTransaction());
 	}
 
 	if (m_IsNeedToCheckOut)
 	{
-		if (++m_Counter >= 3)
+		if (++m_Counter >= 2)
 		{
-			m_CoinsChecker.Check(m_Generator1.GenerateInputsFromOutputs(),
+			m_CoinsChecker.Check(m_Generator.GenerateInputsFromOutputs(),
 				[this](bool isOk)
+			{
+				if (isOk)
 				{
-					if (isOk)
-					{
-						LOG_INFO() << "Ok: utxo is valid";
-					}
-					else
-					{
-						LOG_INFO() << "Failed: utxo is not valid";
-						m_Failed = true;
-					}
+					LOG_INFO() << "Failed: utxo is valid";
 				}
-			);
-
-			m_CoinsChecker.Check(m_Generator2.GenerateInputsFromOutputs(),
-				[this](bool isOk)
+				else
 				{
-					if (isOk)
-					{
-						LOG_INFO() << "Failed: utxo is valid";
-					}
-					else
-					{
-						LOG_INFO() << "Ok: utxo is not valid";
-						m_Failed = true;
-					}
-					io::Reactor::get_Current().stop();
+					LOG_INFO() << "Ok: utxo is not valid";
+					m_Failed = true;
 				}
+				io::Reactor::get_Current().stop();
+			}
 			);
 		}
 	}
