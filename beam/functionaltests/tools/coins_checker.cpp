@@ -68,7 +68,6 @@ void CoinsChecker::OnMsg(proto::ProofUtxo&& msg)
 {
 	if (msg.m_Proofs.empty())
 	{
-		LOG_INFO() << "Failed: list is empty";
 		m_IsOk = false;
 	}
 	else
@@ -85,7 +84,6 @@ void CoinsChecker::OnMsg(proto::ProofUtxo&& msg)
 
 		if (!isValid)
 		{
-			LOG_INFO() << "Failed: utxo is not valid";
 			m_IsOk = false;
 		}
 	}
