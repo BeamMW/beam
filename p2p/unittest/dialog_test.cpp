@@ -205,7 +205,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
 
     bool on_request(uint64_t connectionId, Request&& req) {
         // this assertion is for this test only
-        assert(connectionId = address.u64());
+        assert(connectionId == address.u64());
         if (!req.is_valid()) return false; // shut down stream
 
         proxy.handle_request(someId, std::move(req));
@@ -214,7 +214,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
 
     bool on_response(uint64_t connectionId, Response&& res) {
         // this assertion is for this test only
-        assert(connectionId = address.u64());
+        assert(connectionId == address.u64());
         if (!res.is_valid()) return false; // shut down stream
         proxy.handle_response(someId, std::move(res));
         return true;

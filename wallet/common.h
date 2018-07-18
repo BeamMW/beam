@@ -23,7 +23,6 @@ namespace beam
     using TxID = std::array<uint8_t, 16>;
     using WalletID = PeerID;
 
-
     struct PrintableAmount
     {
         explicit PrintableAmount(const Amount& amount, bool showPoint = false) : m_value{ amount }, m_showPoint{showPoint}

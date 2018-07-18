@@ -79,6 +79,7 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const s
 	, _sendAmount("0")
 	, _sendAmountMils("0")
 	, _receiverAddr("127.0.0.1:8888")
+    , _keychain(keychain)
 {
 	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
@@ -202,15 +203,19 @@ QVariant WalletViewModel::tx() const
 
 void WalletViewModel::sendMoney()
 {
-	io::Address receiverAddr;
-	
-	if (receiverAddr.resolve(_receiverAddr.c_str()))
-	{
-		// TODO: show 'operation in process' animation here?
-		_model.async->sendMoney(std::move(receiverAddr), std::move(_sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt()));
-	}
-	else
-	{
-		LOG_ERROR() << std::string("unable to resolve receiver address: ") + _receiverAddr;
-	}
+    io::Address receiverAddr;
+
+    if (receiverAddr.resolve(_receiverAddr.c_str()))
+    {
+        TxPeer receiverPeer = {};
+        receiverPeer.m_address = receiverAddr;
+        receiverPeer.m_walletID = receiverAddr.u64(); // fake ID
+        _keychain->addPeer(receiverPeer);
+        // TODO: show 'operation in process' animation here?
+        _model.async->sendMoney(std::move(receiverPeer.m_walletID), std::move(_sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt()));
+    }
+    else
+    {
+        LOG_ERROR() << std::string("unable to resolve receiver address: ") + _receiverAddr;
+    }
 }

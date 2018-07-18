@@ -77,7 +77,7 @@ namespace
 
         std::vector<TxPeer> getPeers() override { return {}; };
         void addPeer(const TxPeer&) override {}
-        boost::optional<TxPeer> getPeer(const PeerID&) override { return boost::optional<TxPeer>{}; }
+        boost::optional<TxPeer> getPeer(const WalletID&) override { return boost::optional<TxPeer>{}; }
 
         Height getCurrentHeight() const override
         {
@@ -326,7 +326,7 @@ namespace
         }
 
         template<typename Msg>
-        void send(size_t peerId, const PeerID& to, Msg&& msg)
+        void send(size_t peerId, const WalletID& to, Msg&& msg)
         {
             Serializer s;
             s & msg;
@@ -355,7 +355,7 @@ namespace
         TestNetwork(IOLoop& mainLoop) : TestNetworkBase{ mainLoop }
         {}
 
-        void send_tx_message(const PeerID& to, wallet::Invite&& data) override
+        void send_tx_message(const WalletID& to, wallet::Invite&& data) override
         {
             cout << "[Sender] send_tx_invitation\n";
             ++m_peerCount;
@@ -363,26 +363,26 @@ namespace
             send(1, to, move(data));
         }
 
-        void send_tx_message(const PeerID& to, wallet::ConfirmTransaction&& data) override
+        void send_tx_message(const WalletID& to, wallet::ConfirmTransaction&& data) override
         {
             cout << "[Sender] send_tx_confirmation\n";
             send(1, to, move(data));
         }
 
-        void send_tx_message(const PeerID& to, wallet::ConfirmInvitation&& data) override
+        void send_tx_message(const WalletID& to, wallet::ConfirmInvitation&& data) override
         {
             cout << "[Receiver] send_tx_confirmation\n";
             ++m_peerCount;
             send(1, to, move(data));
         }
 
-        void send_tx_message(const PeerID& to, wallet::TxRegistered&& data) override
+        void send_tx_message(const WalletID& to, wallet::TxRegistered&& data) override
         {
             cout << "[Receiver] send_tx_registered\n";
             send(1, to, move(data));
         }
 
-        void send_tx_message(const PeerID& to, beam::wallet::TxFailed&& data) override
+        void send_tx_message(const WalletID& to, beam::wallet::TxFailed&& data) override
         {
             cout << "TxFailed\n";
             send(1, to, move(data));
@@ -418,7 +418,7 @@ namespace
             enqueueNetworkTask([this] {m_peers[0]->handle_node_message(proto::Proof{}); });
         }
 
-        void close_connection(const beam::PeerID&) override
+        void close_connection(const beam::WalletID&) override
         {
         }
 
@@ -437,30 +437,30 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
 {
     cout << "\nTesting wallets negotiation...\n";
 
-    PeerID receiver_id = {};
+    WalletID receiver_id = {};
     receiver_id = unsigned(4);
     IOLoop mainLoop;
-    TestNetwork network{ mainLoop };
-    TestNetwork network2 { mainLoop };
+    auto network = make_shared<TestNetwork >(mainLoop);
+    auto network2 = make_shared<TestNetwork>(mainLoop);
 
     int count = 0;
-    auto f = [&count, &network, &network2](const auto& /*id*/)
+    auto f = [&count, network, network2](const auto& /*id*/)
     {
-        if (++count >= (network.m_peerCount + network2.m_peerCount))
+        if (++count >= (network->m_peerCount + network2->m_peerCount))
         {
-            network.shutdown();
-            network2.shutdown();
+            network->shutdown();
+            network2->shutdown();
         }
     };
 
     Wallet sender(senderKeychain, network, f);
     Wallet receiver(receiverKeychain, network2, f);
 
-    network.registerPeer(&sender, true);
-    network.registerPeer(&receiver, false);
+    network->registerPeer(&sender, true);
+    network->registerPeer(&receiver, false);
 
-    network2.registerPeer(&receiver, true);
-    network2.registerPeer(&sender, false);
+    network2->registerPeer(&receiver, true);
+    network2->registerPeer(&sender, false);
 
     sender.transfer_money(receiver_id, 6, 0, true, {});
     mainLoop.run();
@@ -654,11 +654,11 @@ void TestP2PWalletNegotiationST()
 
     helpers::StopWatch sw;
     TestNode node{ node_address, main_reactor };
-    WalletNetworkIO sender_io{ sender_address, node_address, false, senderKeychain, main_reactor };
-    WalletNetworkIO receiver_io{ receiver_address, node_address, true, receiverKeychain, main_reactor, 1000, 5000, 100 };
+    auto sender_io = make_shared<WalletNetworkIO>( sender_address, node_address, false, senderKeychain, main_reactor );
+    auto receiver_io = make_shared<WalletNetworkIO>( receiver_address, node_address, true, receiverKeychain, main_reactor, 1000, 5000, 100 );
 
 
-    Wallet sender{senderKeychain, sender_io, [&sender_io](auto) { sender_io.stop(); } };
+    Wallet sender{senderKeychain, sender_io, [sender_io](auto) { sender_io->stop(); } };
     Wallet receiver{ receiverKeychain, receiver_io };
 
     // unknown peer
@@ -881,12 +881,12 @@ void TestP2PWalletNegotiationST()
      helpers::StopWatch sw;
      sw.start();
      TestNode node{ node_address, main_reactor };
-     WalletNetworkIO sender_io{ sender_address, node_address, true, receiverKeychain, main_reactor };
-     WalletNetworkIO receiver_io{ receiver_address, node_address, false, receiverKeychain, main_reactor, 1000, 5000, 100 };
+     auto sender_io = make_shared<WalletNetworkIO>(sender_address, node_address, true, receiverKeychain, main_reactor);
+     auto receiver_io = make_shared<WalletNetworkIO>(receiver_address, node_address, false, receiverKeychain, main_reactor, 1000, 5000, 100);
 
 
      Wallet sender{ senderKeychain, sender_io };
-     Wallet receiver{ receiverKeychain, receiver_io, [&receiver_io](auto) { receiver_io.stop(); } };
+     Wallet receiver{ receiverKeychain, receiver_io, [receiver_io](auto) { receiver_io->stop(); } };
 
      TxID txId = receiver.transfer_money(senderPeer.m_walletID, 4, 2, false);
 
@@ -1264,11 +1264,11 @@ void TestRollback(Height branch, Height current)
     }
 
     IOLoop mainLoop;
-    RollbackIO network{ mainLoop, mmrNew };
+    auto network = make_shared<RollbackIO>(mainLoop, mmrNew);
 
     Wallet sender(db, network);
     
-    network.registerPeer(&sender, true);
+    network->registerPeer(&sender, true);
     
     mainLoop.run();
 }

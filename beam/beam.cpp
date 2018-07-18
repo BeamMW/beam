@@ -727,19 +727,19 @@ int main_impl(int argc, char* argv[])
                     receiverPeer.m_walletID = receiverAddr.u64();
                     keychain->addPeer(receiverPeer);
 
-                    WalletNetworkIO wallet_io{ io::Address().ip(INADDR_ANY).port(port)
-                                             , node_addr
-                                             , is_server
-                                             , keychain
-                                             , reactor };
+                    auto wallet_io = make_shared<WalletNetworkIO >( io::Address().ip(INADDR_ANY).port(port)
+                                                                 , node_addr
+                                                                 , is_server
+                                                                 , keychain
+                                                                 , reactor );
                     Wallet wallet{ keychain
                                  , wallet_io
-                                 , is_server ? Wallet::TxCompletedAction() : [&wallet_io](auto) { wallet_io.stop(); } };
+                                 , is_server ? Wallet::TxCompletedAction() : [wallet_io](auto) { wallet_io->stop(); } };
                     if (isTxInitiator)
                     {
                         wallet.transfer_money(receiverPeer.m_walletID, move(amount), move(fee), command == cli::SEND);
                     }
-                    wallet_io.start();
+                    wallet_io->start();
                 }
                 else
                 {

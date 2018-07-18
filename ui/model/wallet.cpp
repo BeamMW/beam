@@ -4,19 +4,20 @@
 
 using namespace beam;
 using namespace beam::io;
+using namespace std;
 
 struct WalletModelAsync : IWalletModelAsync
 {
-	WalletModelAsync(Reactor::Ptr reactor, std::shared_ptr<WalletNetworkIO> wallet_io)
+	WalletModelAsync(Reactor::Ptr reactor, shared_ptr<Wallet> wallet)
 		: _reactor(reactor) 
-		, _wallet_io(wallet_io)
+		, _wallet(wallet)
 	{}
 
-	void sendMoney(Address&& receiver, Amount&& amount) override
+	void sendMoney(beam::WalletID&& receiver, Amount&& amount, Amount&& fee) override
 	{
-		_sendMoneyEvent = AsyncEvent::create(_reactor, [this, receiver = std::move(receiver), amount = std::move(amount)]() mutable
+        _sendMoneyEvent = AsyncEvent::create(_reactor, [this, receiver = move(receiver), amount = move(amount), fee = move(fee) ]() mutable
 			{
-//				_wallet_io->transfer_money(receiver, std::move(amount), {});
+				_wallet->transfer_money(receiver, move(amount), move(fee));
 			}
 		);
 
@@ -24,18 +25,18 @@ struct WalletModelAsync : IWalletModelAsync
 	}
 private:
 	Reactor::Ptr _reactor;
-	std::shared_ptr<WalletNetworkIO> _wallet_io;
+	shared_ptr<Wallet> _wallet;
 
 	AsyncEvent::Ptr _sendMoneyEvent;
 };
 
-WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const std::string& nodeAddr)
+WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
 	: _keychain(keychain)
 	, _port(port)
 	, _nodeAddrString(nodeAddr)
 {
 	qRegisterMetaType<WalletStatus>("WalletStatus");
-	qRegisterMetaType<std::vector<TxDescription>>("std::vector<beam::TxDescription>");
+	qRegisterMetaType<vector<TxDescription>>("std::vector<beam::TxDescription>");
 }
 
 WalletModel::~WalletModel()
@@ -82,13 +83,14 @@ void WalletModel::run()
 
 		if(node_addr.resolve(_nodeAddrString.c_str()))
 		{
-			/*_wallet_io = std::make_shared<WalletNetworkIO>( Address().ip(INADDR_ANY).port(_port)
+			_wallet_io = make_shared<WalletNetworkIO>( Address().ip(INADDR_ANY).port(_port)
 				, node_addr
 				, true
 				, _keychain
-				, _reactor);*/
+				, _reactor);
+            _wallet = make_shared<Wallet>(_keychain, _wallet_io);
 
-			async = std::make_shared<WalletModelAsync>(_reactor, _wallet_io);
+			async = make_shared<WalletModelAsync>(_reactor, _wallet);
 
 			struct KeychainSubscriber
 			{
@@ -117,7 +119,7 @@ void WalletModel::run()
 			LOG_ERROR() << "unable to resolve node address";
 		}
 	}
-	catch (const std::runtime_error& e)
+	catch (const runtime_error& e)
 	{
 		LOG_ERROR() << e.what();
 	}

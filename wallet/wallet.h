@@ -2,16 +2,35 @@
 
 #include "wallet/wallet_db.h"
 #include "wallet/negotiator.h"
-#include <thread>
-#include <mutex>
 #include <deque>
 #include "core/proto.h"
-#include <tuple>
+
 namespace beam
 {
-    struct IWallet;
+    struct IWallet
+    {
+        using Ptr = std::shared_ptr<IWallet>;
+        virtual ~IWallet() {}
+        // wallet to wallet responses
+        virtual void handle_tx_message(const WalletID&, wallet::Invite&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::ConfirmTransaction&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::ConfirmInvitation&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::TxRegistered&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::TxFailed&&) = 0;
+        // node to wallet responses
+        virtual bool handle_node_message(proto::Boolean&&) = 0;
+        virtual bool handle_node_message(proto::ProofUtxo&&) = 0;
+        virtual bool handle_node_message(proto::NewTip&&) = 0;
+        virtual bool handle_node_message(proto::Hdr&&) = 0;
+        virtual bool handle_node_message(proto::Mined&& msg) = 0;
+        virtual bool handle_node_message(proto::Proof&& msg) = 0;
+
+        virtual void stop_sync() = 0;
+    };
+
     struct INetworkIO 
     {
+        using Ptr = std::shared_ptr<INetworkIO>;
         virtual ~INetworkIO() {}
         virtual void set_wallet(IWallet*) = 0;
         // wallet to wallet requests
@@ -49,27 +68,7 @@ namespace beam
                 connect_node();
             }
         }
-        IWallet* m_wallet;
-    };
-
-    struct IWallet
-    {
-        virtual ~IWallet() {}
-        // wallet to wallet responses
-        virtual void handle_tx_message(const WalletID&, wallet::Invite&&) = 0;
-        virtual void handle_tx_message(const WalletID&, wallet::ConfirmTransaction&&) = 0;
-        virtual void handle_tx_message(const WalletID&, wallet::ConfirmInvitation&&) = 0;
-        virtual void handle_tx_message(const WalletID&, wallet::TxRegistered&&) = 0;
-        virtual void handle_tx_message(const WalletID&, wallet::TxFailed&&) = 0;
-        // node to wallet responses
-        virtual bool handle_node_message(proto::Boolean&&) = 0;
-        virtual bool handle_node_message(proto::ProofUtxo&&) = 0;
-		virtual bool handle_node_message(proto::NewTip&&) = 0;
-		virtual bool handle_node_message(proto::Hdr&&) = 0;
-        virtual bool handle_node_message(proto::Mined&& msg) = 0;
-        virtual bool handle_node_message(proto::Proof&& msg) = 0;
-
-        virtual void stop_sync() = 0;
+        IWallet* m_wallet; // wallet holds reference to INetworkIO
     };
 
     class Wallet : public IWallet
@@ -79,7 +78,7 @@ namespace beam
     public:
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
 
-        Wallet(IKeyChain::Ptr keyChain, INetworkIO& network, TxCompletedAction&& action = TxCompletedAction());
+        Wallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
         TxID transfer_money(const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, ByteBuffer&& message = {} );
@@ -148,10 +147,10 @@ namespace beam
 
     private:
 
-        class StateFinder;
+        struct StateFinder;
 
         IKeyChain::Ptr m_keyChain;
-        INetworkIO& m_network;
+        INetworkIO::Ptr m_network;
         std::map<WalletID, wallet::Negotiator::Ptr> m_peers;
         std::map<TxID, wallet::Negotiator::Ptr>   m_negotiators;
         std::vector<wallet::Negotiator::Ptr>      m_removedNegotiators;

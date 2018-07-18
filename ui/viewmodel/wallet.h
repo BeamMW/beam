@@ -102,6 +102,7 @@ private:
 	QString _sendAmountMils;
 
 	std::string _receiverAddr;
+    beam::IKeyChain::Ptr _keychain;
 	TxList _tx;
 
 	WalletModel _model;
