@@ -457,6 +457,46 @@ void TestSelect()
     {
         db->remove(db->selectCoins(18, false));
         vector<Coin> coins = {
+            Coin{ 3, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 5, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 7, Coin::Unspent, 1, 10, KeyType::Regular } };
+        db->store(coins);
+        coins = db->selectCoins(6, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == 7);
+    }
+    {
+        db->remove(db->selectCoins(19, false));
+        vector<Coin> coins = {
+            Coin{ 1, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 2, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 3, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular } };
+        db->store(coins);
+        coins = db->selectCoins(4, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == 4);
+
+        coins = db->selectCoins(7, false);
+        WALLET_CHECK(coins.size() == 2);
+        WALLET_CHECK(coins[0].m_amount == 3);
+        WALLET_CHECK(coins[1].m_amount == 4);
+    }
+    {
+        db->remove(db->selectCoins(10, false));
+        vector<Coin> coins = {
+            Coin{ 2, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 5, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 7, Coin::Unspent, 1, 10, KeyType::Regular } };
+        db->store(coins);
+        coins = db->selectCoins(6, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == 7);
+    }
+    {
+        db->remove(db->selectCoins(14, false));
+        vector<Coin> coins = {
             Coin{ 235689, Coin::Unspent, 1, 10, KeyType::Regular },
             Coin{ 2999057, Coin::Unspent, 1, 10, KeyType::Regular },
             Coin{ 500000, Coin::Unspent, 1, 10, KeyType::Regular },
