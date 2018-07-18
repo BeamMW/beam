@@ -59,6 +59,7 @@ namespace beam
             : m_txId{ txId }
             , m_amount{ amount }
             , m_fee{ fee }
+			, m_change{}
             , m_minHeight{ minHeight }
             , m_peerId{ peerId }
             , m_message{ std::move(message) }
@@ -72,6 +73,7 @@ namespace beam
         Uuid m_txId;
         Amount m_amount;
         Amount m_fee;
+		Amount m_change;
         Height m_minHeight;
         uint64_t m_peerId;
         ByteBuffer m_message;
