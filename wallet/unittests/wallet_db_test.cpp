@@ -480,6 +480,18 @@ void TestSelect()
     {
         db->remove(db->selectCoins(18, false));
         vector<Coin> coins = {
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular } };
+        db->store(coins);
+        coins = db->selectCoins(1, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == 4);
+    }
+    {
+        db->remove(db->selectCoins(16, false));
+        vector<Coin> coins = {
             Coin{ 3, Coin::Unspent, 1, 10, KeyType::Regular },
             Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
             Coin{ 5, Coin::Unspent, 1, 10, KeyType::Regular },
@@ -529,10 +541,13 @@ void TestSelect()
             Coin{ 40000000, Coin::Unspent, 1, 10, KeyType::Regular },
         };
         db->store(coins);
-        coins = db->selectCoins(41000000);
+        coins = db->selectCoins(41000000, false);
         WALLET_CHECK(coins.size() == 2);
         WALLET_CHECK(coins[0].m_amount == 2999057);
         WALLET_CHECK(coins[1].m_amount == 40000000);
+        coins = db->selectCoins(4000000, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == 5000000);
     }
 }
 

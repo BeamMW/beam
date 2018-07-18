@@ -620,7 +620,6 @@ namespace beam
                 return coins;
             }
         }
-        Amount change = amount;
         Amount sum = 0;
         {
             sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount<?3 ORDER BY amount DESC;");
@@ -628,21 +627,21 @@ namespace beam
             stm.bind(2, stateID.m_Height);
             stm.bind(3, amount);
             vector<Coin> candidats;
-            
+            Amount smallSum = 0;
             while (stm.step())
             {
                 auto& coin = candidats.emplace_back();
                 ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
-                sum += coin.m_amount;
+                smallSum += coin.m_amount;
             }
-            if (sum > amount)
+            if (smallSum > amount)
             {
-                unordered_map<Amount, Amount> mem;
-                change = selectImpl(candidats.begin(), candidats.end(), amount, sum, coins) - amount;
+                sum = selectImpl(candidats.begin(), candidats.end(), amount, smallSum, coins);
             }
-            else if (sum == amount)
+            else if (smallSum == amount)
             {
                 coins.swap(candidats);
+                sum = amount;
             }
         }
         Coin coin2;
@@ -654,7 +653,7 @@ namespace beam
             if (stm.step())
             {
                 ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin2);
-                if (coin2.m_amount - amount <= change)
+                if (sum < amount || coin2.m_amount <= sum)
                 {
                     coins.clear();
                     coins.push_back(coin2);

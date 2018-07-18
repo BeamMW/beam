@@ -322,7 +322,7 @@ public:
 	};
 
 	void EnumBbs(WalkerBbs&); // set channel and min time before invocation
-	void EnumAllBbs(WalkerBbs&);
+	void EnumAllBbs(WalkerBbs&); // ordered by Channel,Time.
 	void BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it)
 	bool BbsFind(WalkerBbs&); // set Key
 	void BbsDelOld(Timestamp tMinToRemain);
