@@ -2,11 +2,14 @@
 
 #include <QDateTime>
 
+#include <iomanip>
+
 using namespace beam;
 using namespace std;
 
 namespace
 {
+
 	QString BeamToString(const Amount& value)
 	{
 		auto str = std::to_string(value / Rules::Coin);
@@ -15,10 +18,13 @@ namespace
 
 		if (fraction)
 		{
-			auto fracStr = std::to_string(fraction);
-			fracStr.erase(fracStr.find_last_not_of('0') + 1, std::string::npos);
+			std::stringstream fracStream;
+			fracStream << std::setw(log10(Rules::Coin)) << std::setfill('0') << fraction;
 
-			str += "." + fracStr;
+			auto fracString = fracStream.str();
+			fracString.erase(fracString.find_last_not_of('0') + 1, std::string::npos);
+
+			str += "." + fracString;
 		}
 
 		return QString::fromStdString(str);
