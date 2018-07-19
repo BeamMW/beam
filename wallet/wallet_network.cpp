@@ -22,6 +22,7 @@ namespace beam {
         , m_reactor{ !reactor ? io::Reactor::create() : reactor }
         , m_server{ is_server ? io::TcpServer::create(m_reactor, address, BIND_THIS_MEMFN(on_stream_accepted)) : io::TcpServer::Ptr() }
         , m_wallet{ nullptr }
+        , m_keychain{keychain}
         , m_is_node_connected{false}
         , m_connection_tag{ start_tag }
         , m_reactor_scope{*m_reactor }
@@ -334,6 +335,15 @@ namespace beam {
             throw runtime_error("Unknown walletID");
         }
         return it->m_connectionID;
+    }
+
+    void WalletNetworkIO::update_wallets(const WalletID& walletID)
+    {
+        auto p = m_keychain->getPeer(walletID);
+        if (p.is_initialized())
+        {
+            add_wallet(p->m_walletID, p->m_address);
+        }
     }
 
     WalletNetworkIO::WalletNodeConnection::WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec)

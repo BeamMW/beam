@@ -92,6 +92,7 @@ namespace beam
         template <typename T>
         void send(const WalletID& walletID, MsgType type, T&& msg)
         {
+            update_wallets(walletID);
             if (auto it = m_connectionWalletsIndex.find(walletID, ConnectionWalletIDComparer()); it != m_connectionWalletsIndex.end())
             {
                 if (it->m_connection)
@@ -138,7 +139,8 @@ namespace beam
         bool is_connected(uint64_t id);
 
         const WalletID& get_wallet_id(uint64_t connectionId) const;
-        uint64_t get_connection(const WalletID& peerID) const;
+        uint64_t get_connection(const WalletID& walletID) const;
+        void update_wallets(const WalletID& walletID);
 
         class WalletNodeConnection : public proto::NodeConnection
         {
@@ -173,6 +175,8 @@ namespace beam
         io::Reactor::Ptr m_reactor;
         io::TcpServer::Ptr m_server;
         IWallet* m_wallet;
+        IKeyChain::Ptr m_keychain;
+
 
         struct WalletIDTag;
         struct AddressTag;
