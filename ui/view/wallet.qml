@@ -150,15 +150,6 @@ Item {
                         text: "Address book"
                     }
 
-                    Component {
-                        id: highlightBar
-                        Rectangle {
-                            width: 200; height: 50
-                            color: "#FFFF88"
-                            y: addrBook.currentItem.y;
-                        }
-                    }
-
                     ListView {
                         id:addrBook
 
@@ -173,7 +164,7 @@ Item {
                             height: 60
                             width: parent.width
 
-                            Text { 
+                            SFText { 
                                 text: modelData 
                                 color: Style.white
 
@@ -181,14 +172,15 @@ Item {
                                 x: 10
                             }
 
-                            // MouseArea {
-                            //     anchors.fill: parent
-                            //     onClicked: wrapper.ListView.view.currentIndex = index
-                            // }
+                            MouseArea {
+                                anchors.fill: parent
+
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: addrBook.currentIndex = index
+                            }
                         }
 
-                        highlight: highlightBar
-                        // highlightFollowsCurrentItem: false
+                        highlight: Rectangle { color: "#33566b"; radius: 10 }
                     }
                 }
             }
