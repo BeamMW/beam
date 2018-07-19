@@ -79,12 +79,13 @@ QString TxObject::status() const
 	return Names[_tx.m_status];
 }
 
-WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
+WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr, const AddrList& addrList)
 	: _model(keychain, port, nodeAddr)
 	, _status{0, 0, 0, 0}
 	, _sendAmount("0")
 	, _sendAmountMils("0")
 	, _receiverAddr("127.0.0.1:8888")
+	, _addrList(addrList)
 {
 	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
@@ -204,6 +205,18 @@ QString WalletViewModel::receiverAddr() const
 QVariant WalletViewModel::tx() const
 {
 	return QVariant::fromValue(_tx);
+}
+
+QVariant WalletViewModel::addrBook() const
+{
+	QStringList book;
+
+	for (auto& const item : _addrList)
+	{
+		book.append(QString::fromStdString(item.name));
+	}
+
+	return QVariant::fromValue(book);
 }
 
 void WalletViewModel::sendMoney()
