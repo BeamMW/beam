@@ -556,7 +556,7 @@ void TestSelect()
 void TestSelect2()
 {
     auto db = createSqliteKeychain();
-    const Amount c = 10000;
+    const Amount c = 925;
     vector<Coin> t;
     t.reserve(c);
     for (Amount i = 1; i <= c; ++i)
@@ -582,12 +582,12 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
 	ECC::InitializeContext();
 
-	//TestKeychain();
- //   TestStoreCoins();
- //   TestStoreTxRecord();
- //   TestTxRollback();
- //   TestRollback();
- //   TestPeers();
+	TestKeychain();
+    TestStoreCoins();
+    TestStoreTxRecord();
+    TestTxRollback();
+    TestRollback();
+    TestPeers();
     TestSelect();
     TestSelect2();
 
