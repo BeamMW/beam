@@ -385,7 +385,7 @@ namespace beam {
     {
         LOG_INFO() << "Could not connect to node, retrying...";
         LOG_VERBOSE() << "Wallet failed to connect to node, error: " << r;
-        m_wallet.stop_sync();
+        m_wallet.abort_sync();
         m_timer->start(m_reconnectMsec, false, [this]() {Connect(m_address); });
     }
 

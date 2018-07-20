@@ -43,7 +43,7 @@ namespace beam
     std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount)
     {
         const string_view beams{" beams " };
-        const string_view chattles{ " chattles " };
+        const string_view chattles{ " mils " };
         auto width = os.width();
 
         if (amount.m_showPoint)
@@ -122,7 +122,8 @@ namespace beam
         , m_Definition{}
         , m_knownStateID{}
         , m_newStateID{}
-        , m_syncing{0}
+        , m_syncDone{0}
+        , m_syncTotal{0}
         , m_synchronized{false}
     {
         assert(keyChain);
@@ -194,7 +195,7 @@ namespace beam
         {
             m_tx_completed_action(tx.m_txId);
         }
-        if (m_reg_requests.empty() && m_syncing == 0)
+        if (m_reg_requests.empty() && m_syncDone == m_syncTotal)
         {
             m_network->close_node_connection();
         }
@@ -328,7 +329,7 @@ namespace beam
         if (m_pendingProofs.empty())
         {
             LOG_WARNING() << "Unexpected UTXO proof";
-            return finish_sync();
+            return exit_sync();
         }
 
         Coin& coin = m_pendingProofs.front();
@@ -379,7 +380,7 @@ namespace beam
 
         m_pendingProofs.pop_front();
 
-        return finish_sync();
+        return exit_sync();
     }
 
     bool Wallet::handle_node_message(proto::NewTip&& msg)
@@ -392,20 +393,11 @@ namespace beam
 
         m_pending_reg_requests.clear();
 
-        if (!m_syncing)
-        {
-            ++m_syncing; // Hdr
-        }
-
         return true;
     }
 
     bool Wallet::handle_node_message(proto::Hdr&& msg)
     {
-        if (!m_syncing)
-        {
-            ++m_syncing; // Hdr
-        }
         Block::SystemState::ID newID = {};
         msg.m_Description.get_ID(newID);
         
@@ -414,10 +406,9 @@ namespace beam
 
         if (newID == m_knownStateID)
         {
-            return finish_sync();
+            // here we may close connection with node
+            return close_node_connection();
         }
-
-        m_synchronized = false;
 
         if (m_knownStateID.m_Height <= Rules::HeightGenesis)
         {
@@ -426,11 +417,11 @@ namespace beam
         }
         else
         {
-            ++m_syncing;
+            enter_sync();
             m_network->send_node_message(proto::GetProofState{ m_knownStateID.m_Height });
         }
 
-        return finish_sync();
+        return true;
     }
 
     bool Wallet::handle_node_message(proto::Mined&& msg)
@@ -462,7 +453,7 @@ namespace beam
         {
             getUtxoProofs(mined);
         }
-        return finish_sync();
+        return exit_sync();
     }
 
     bool Wallet::handle_node_message(proto::Proof&& msg)
@@ -502,9 +493,9 @@ namespace beam
 
             if (m_stateFinder->m_count > 0)
             {
-                ++m_syncing;
+                enter_sync();
                 m_network->send_node_message(proto::GetProofState{ m_stateFinder->getSearchHeight() });
-                return finish_sync();
+                return exit_sync();
             }
             else
             {
@@ -524,12 +515,12 @@ namespace beam
 
         do_fast_forward();
 
-        return finish_sync();
+        return exit_sync();
     }
 
-    void Wallet::stop_sync()
+    void Wallet::abort_sync()
     {
-        m_syncing = 0;
+        m_syncDone = m_syncTotal = 0;
         copy(m_reg_requests.begin(), m_reg_requests.end(), back_inserter(m_pending_reg_requests));
         m_reg_requests.clear();
         m_pendingProofs.clear();
@@ -539,7 +530,7 @@ namespace beam
     {
         LOG_INFO() << "Sync up to " << m_newStateID.m_Height << "-" << m_newStateID.m_Hash;
         // fast-forward
-        ++m_syncing; // Mined
+        enter_sync(); // Mined
         m_network->send_node_message(proto::GetMined{ m_knownStateID.m_Height });
 
         vector<Coin> unconfirmed;
@@ -561,7 +552,7 @@ namespace beam
     {
         for (auto& coin : coins)
         {
-            ++m_syncing;
+            enter_sync();
             m_pendingProofs.push_back(coin);
 			Input input;
 			input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
@@ -570,12 +561,25 @@ namespace beam
         }
     }
 
-    bool Wallet::finish_sync()
+    void Wallet::enter_sync()
     {
-        if (m_syncing)
+        if (m_syncTotal == 0)
         {
-            --m_syncing;
-            if (!m_syncing)
+            m_synchronized = false;
+        }
+        ++m_syncTotal;
+        report_sync_progress();
+        
+    }
+
+    bool Wallet::exit_sync()
+    {
+        if (m_syncTotal)
+        {
+            ++m_syncDone;
+            report_sync_progress();
+            assert(m_syncDone <= m_syncTotal);
+            if (m_syncDone == m_syncTotal)
             {
                 m_keyChain->setSystemStateID(m_newStateID);
                 m_knownStateID = m_newStateID;
@@ -589,14 +593,22 @@ namespace beam
                     m_pendingEvents.clear();
                 }
                 m_synchronized = true;
+                m_syncDone = m_syncTotal = 0;
             }
         }
         return close_node_connection();
     }
 
+    void Wallet::report_sync_progress()
+    {
+        assert(m_syncDone <= m_syncTotal);
+        int p = static_cast<int>((m_syncDone * 100) / m_syncTotal);
+        LOG_INFO() << "Synchronizing with node: " << p << "% (" << m_syncDone << "/" << m_syncTotal << ")";
+    }
+
     bool Wallet::close_node_connection()
     {
-        if (!m_syncing && m_reg_requests.empty())
+        if (m_synchronized && m_reg_requests.empty())
         {
             m_network->close_node_connection();
             return false;
