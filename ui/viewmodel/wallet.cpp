@@ -79,13 +79,12 @@ QString TxObject::status() const
 	return Names[_tx.m_status];
 }
 
-WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr, const AddrList& addrList)
+WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
 	: _model(keychain, port, nodeAddr)
 	, _status{0, 0, 0, 0}
 	, _sendAmount("0")
 	, _sendAmountMils("0")
 	, _receiverAddr("127.0.0.1:8888")
-	, _addrList(addrList)
     , _keychain(keychain)
 {
 	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
@@ -211,10 +210,10 @@ QVariant WalletViewModel::tx() const
 QVariant WalletViewModel::addrBook() const
 {
 	QStringList book;
-
+    _addrList = _keychain->getPeers();
 	for (auto& const item : _addrList)
 	{
-		book.append(QString::fromStdString(item.name));
+		book.append(QString::fromStdString(item.m_label));
 	}
 
 	return QVariant::fromValue(book);
@@ -222,16 +221,12 @@ QVariant WalletViewModel::addrBook() const
 
 void WalletViewModel::sendMoney()
 {
-    io::Address receiverAddr;
-
-    if (receiverAddr.resolve(_receiverAddr.c_str()))
+    if (_selectedAddr > -1)
     {
-        TxPeer receiverPeer = {};
-        receiverPeer.m_address = receiverAddr;
-        receiverPeer.m_walletID = receiverAddr.u64(); // fake ID
-        _keychain->addPeer(receiverPeer);
+        auto& addr = _addrList[_selectedAddr];
         // TODO: show 'operation in process' animation here?
-        _model.async->sendMoney(std::move(receiverPeer.m_walletID), std::move(_sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt()));
+
+        _model.async->sendMoney(addr.m_walletID, std::move(_sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt()));
     }
     else
     {

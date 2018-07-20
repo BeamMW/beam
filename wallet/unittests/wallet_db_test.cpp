@@ -379,7 +379,7 @@ void TestPeers()
     peer.m_label = u8"test peer פûגא";
     auto p = db->getPeer(peer.m_walletID);
     WALLET_CHECK(p.is_initialized() == false);
-    peer.m_address.from_u64(345454545569);
+    peer.m_address = "92.123.10.3:3255";
     db->addPeer(peer);
     p = db->getPeer(peer.m_walletID);
     WALLET_CHECK(p.is_initialized() == true);

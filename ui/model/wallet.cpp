@@ -13,7 +13,7 @@ struct WalletModelAsync : IWalletModelAsync
 		, _wallet(wallet)
 	{}
 
-	void sendMoney(beam::WalletID&& receiver, Amount&& amount, Amount&& fee) override
+	void sendMoney(beam::WalletID receiver, Amount&& amount, Amount&& fee) override
 	{
         _sendMoneyEvent = AsyncEvent::create(_reactor, [this, receiver = move(receiver), amount = move(amount), fee = move(fee) ]() mutable
 			{

@@ -46,7 +46,7 @@ namespace beam
     {
         WalletID m_walletID;
         std::string m_label;
-        io::Address m_address;
+        std::string m_address;
     };
 
 	struct IKeyChainObserver

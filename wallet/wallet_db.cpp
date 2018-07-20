@@ -76,8 +76,8 @@
 
 #define ENUM_PEER_FIELDS(each, sep, obj) \
     each(1, walletID,    sep, BLOB NOT NULL PRIMARY KEY, obj) \
-    each(2, label,       sep, TEXT NOT NULL , obj) \
-    each(3, address,        , INTEGER NOT NULL, obj) 
+    each(2, address,     sep, TEXT NOT NULL, obj) \
+    each(3, label,          , TEXT NOT NULL , obj) 
     
 #define PEER_FIELDS ENUM_PEER_FIELDS(LIST, COMMA, )
 
@@ -1076,7 +1076,7 @@ namespace beam
         sqlite::Statement stm2(_db, "SELECT * FROM " PEERS_NAME " WHERE walletID=?1;");
         stm2.bind(1, peer.m_walletID);
 
-        const char* updateReq = "UPDATE " PEERS_NAME " SET address=?2 WHERE walletID=?1;";
+        const char* updateReq = "UPDATE " PEERS_NAME " SET address=?2, label=?3 WHERE walletID=?1;";
         const char* insertReq = "INSERT INTO " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_PEER_FIELDS(BIND_LIST, COMMA, ) ");";
 
         sqlite::Statement stm(_db, stm2.step() ? updateReq : insertReq);

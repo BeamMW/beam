@@ -182,6 +182,12 @@ Item {
 
                         highlight: Rectangle { color: "#33566b"; radius: 10 }
                     }
+
+					Binding {
+                        target: walletViewModel
+                        property: "selectedAddr"
+                        value: addrBook.currentIndex
+                    }
                 }
             }
 

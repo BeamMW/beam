@@ -5,15 +5,7 @@
 
 #include "model/wallet.h"
 
-struct WalletAddr
-{
-	std::string name;
-	std::string ip;
-	std::string port;
-	std::string hash;
-};
-
-using AddrList = std::vector<WalletAddr>;
+using AddrList = std::vector<beam::TxPeer>;
 
 class TxObject : public QObject
 {
@@ -69,11 +61,12 @@ class WalletViewModel : public QObject
 	Q_PROPERTY(QString receiverAddr READ receiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
 	Q_PROPERTY(QVariant tx READ tx NOTIFY txChanged)
 	Q_PROPERTY(QVariant addrBook READ addrBook NOTIFY addrBookChanged)
+    Q_PROPERTY(int selectedAddr WRITE setSelectedAddr NOTIFY selectedAddrChanged)
 
 public:
 	using TxList = QList<QObject*>;
 
-	WalletViewModel(beam::IKeyChain::Ptr keychain, uint16_t port, const std::string& nodeAddr, const AddrList& addrList);
+	WalletViewModel(beam::IKeyChain::Ptr keychain, uint16_t port, const std::string& nodeAddr);
 
 	QString available() const;
 	QString received() const;
@@ -89,6 +82,11 @@ public:
 	void setSendAmount(const QString& text);
 	void setSendAmountMils(const QString& text);
 	void setReceiverAddr(const QString& text);
+    void setSelectedAddr(int index)
+    {
+        _selectedAddr = index;
+        emit selectedAddrChanged();
+    }
 
 public slots:
 	void onStatus(const WalletStatus& amount);
@@ -106,6 +104,7 @@ signals:
 	void receiverAddrChanged();
 	void txChanged();
 	void addrBookChanged();
+    void selectedAddrChanged();
 
 private:
 
@@ -119,5 +118,7 @@ private:
 	TxList _tx;
 
 	WalletModel _model;
-	AddrList _addrList;
+    mutable std::vector<beam::TxPeer> _addrList;
+
+    int _selectedAddr;
 };

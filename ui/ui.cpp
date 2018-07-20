@@ -12,6 +12,7 @@
 
 #include "wallet/wallet_db.h"
 #include "utility/logger.h"
+#include "core/ecc_native.h"
 
 #include "translator.h"
 
@@ -89,33 +90,6 @@ int main (int argc, char* argv[])
 		}
 
 		auto peers = vm[ui::NODE_PEER].as<std::vector<std::string>>();
-		auto uris = vm[ui::WALLET_ADDR].as<std::vector<std::string>>();
-		AddrList addrList;
-
-		for (auto& const uri : uris)
-		{
-			auto vars = split(uri, '&');
-
-			WalletAddr addr;
-
-			for (auto& const var : vars)
-			{
-				auto parts = split(var, ':');
-
-				assert(parts.size() == 2);
-
-				auto varName = parts[0];
-				auto varValue = parts[1];
-
-				if (varName == "name") addr.name = varValue;
-				else if (varName == "ip") addr.ip = varValue;
-				else if (varName == "port") addr.port = varValue;
-				else if (varName == "hash") addr.hash = varValue;
-				else assert(!"Unknown variable");
-			}
-
-			addrList.push_back(addr);
-		}
 
 		QApplication app(argc, argv);
 
@@ -159,6 +133,39 @@ int main (int argc, char* argv[])
 
 			if (keychain)
 			{
+		        auto uris = vm[ui::WALLET_ADDR].as<std::vector<std::string>>();
+		        AddrList addrList;
+
+		        for (auto& const uri : uris)
+		        {
+			        auto vars = split(uri, '&');
+
+			        beam::TxPeer addr;
+
+			        for (auto& const var : vars)
+			        {
+				        auto parts = split(var, '=');
+
+				        assert(parts.size() == 2);
+
+				        auto varName = parts[0];
+				        auto varValue = parts[1];
+
+				        if (varName == "label") addr.m_label = varValue;
+                        else if (varName == "ip")
+                        {
+                            addr.m_address = varValue;
+                        }
+                        else if (varName == "hash")
+                        {
+                            ECC::Hash::Processor hp;
+                            hp << varValue.c_str() >> addr.m_walletID;
+                        }
+				        else assert(!"Unknown variable");
+			        }
+                    keychain->addPeer(addr);
+		        }
+
 				struct ViewModel
 				{
 					MainViewModel			main;
@@ -168,10 +175,10 @@ int main (int argc, char* argv[])
 					HelpViewModel			help;
 					SettingsViewModel		settings;
 
-					ViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr, const AddrList& addrList) 
-						: wallet(keychain, port, nodeAddr, addrList) {}
+					ViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr) 
+						: wallet(keychain, port, nodeAddr) {}
 
-				} viewModel(keychain, vm[ui::PORT].as<uint16_t>(), vm[ui::NODE_ADDR].as<string>(), addrList);
+				} viewModel(keychain, vm[ui::PORT].as<uint16_t>(), vm[ui::NODE_ADDR].as<string>());
 
 				Translator translator;
 

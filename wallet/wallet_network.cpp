@@ -30,11 +30,6 @@ namespace beam {
         , m_sync_period_ms{ sync_period_ms }
         , m_sync_timer{io::Timer::create(m_reactor)}
     {
-        auto peers = keychain->getPeers();
-        for (auto& p : peers)
-        {
-            add_wallet(p.m_walletID, p.m_address);
-        }
         m_protocol.add_message_handler<WalletNetworkIO, wallet::Invite,             &WalletNetworkIO::on_message>(senderInvitationCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmTransaction, &WalletNetworkIO::on_message>(senderConfirmationCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmInvitation,  &WalletNetworkIO::on_message>(receiverConfirmationCode, this, 1, 20000);
@@ -342,7 +337,11 @@ namespace beam {
         auto p = m_keychain->getPeer(walletID);
         if (p.is_initialized())
         {
-            add_wallet(p->m_walletID, p->m_address);
+            io::Address address;
+            if (address.resolve(p->m_address.c_str()))
+            {
+                add_wallet(p->m_walletID, address);
+            }
         }
     }
 
