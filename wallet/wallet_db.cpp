@@ -51,6 +51,7 @@
 #define STORAGE_NAME "storage"
 #define VARIABLES_NAME "variables"
 #define HISTORY_NAME "history"
+#define PEERS_NAME "peers"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(1, name, sep, TEXT UNIQUE, obj) \
@@ -63,7 +64,7 @@
     each(2, amount,     sep, INTEGER NOT NULL, obj) \
     each(3, fee,        sep, INTEGER NOT NULL, obj) \
     each(4, minHeight,  sep, INTEGER NOT NULL, obj) \
-    each(5, peerId,     sep, INTEGER NOT NULL, obj) \
+    each(5, peerId,     sep, BLOB NOT NULL, obj) \
     each(6, message,    sep, BLOB, obj) \
     each(7, createTime, sep, INTEGER NOT NULL, obj) \
     each(8, modifyTime, sep, INTEGER, obj) \
@@ -72,6 +73,12 @@
     each(11, fsmState,  sep, BLOB, obj) \
 	each(12, change,       , INTEGER NOT NULL, obj)
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
+
+#define ENUM_PEER_FIELDS(each, sep, obj) \
+    each(1, walletID,    sep, BLOB NOT NULL PRIMARY KEY, obj) \
+    each(2, address,        , INTEGER NOT NULL, obj) 
+    
+#define PEER_FIELDS ENUM_PEER_FIELDS(LIST, COMMA, )
 
 namespace beam
 {
@@ -90,6 +97,50 @@ namespace beam
 			LOG_DEBUG() << ss.str();
 			throw runtime_error(ss.str());
 		}
+
+        Amount selectImpl(const std::vector<Coin>::iterator& first, const std::vector<Coin>::iterator& last, Amount amount, Amount left, vector<Coin>& res)
+        {
+            vector<Coin> coins;
+            if (first == last || left < amount || amount == 0)
+            {
+                return 0;
+            }
+            
+            if (amount == left)
+            {
+                copy(first, last, back_inserter(res));
+                return amount;
+            }
+
+            vector<Coin> coins1, coins2;
+            Amount newLeft = left - first->m_amount;
+            auto sum1 = selectImpl(first + 1, last, amount, newLeft, coins1);
+            
+            auto sum2 = first->m_amount + selectImpl(first + 1, last, amount - first->m_amount, newLeft, coins2);
+
+            bool a = sum2 >= amount;
+            bool b = sum1 >= amount;
+            bool c = sum1 < sum2;
+
+            if (a && b && c || !a && b)
+            {
+                for (auto& t : coins1)
+                {
+                    res.push_back(t);
+                }
+                return sum1;
+            }
+            else if (a && b && !c || a && !b)
+            {
+                res.push_back(*first);
+                for (auto& t : coins2)
+                {
+                    res.push_back(t);
+                }
+                return sum2;
+            }
+            return 0;
+        }
 	}
     
 	namespace sqlite
@@ -128,12 +179,12 @@ namespace beam
                 throwIfError(ret, _db);
 			}
 
-            void bind(int col, const Uuid& id)
+            void bind(int col, const TxID& id)
             {
                 bind(col, id.data(), id.size());
             }
 
-            void bind(int col, const boost::optional<Uuid>& id)
+            void bind(int col, const boost::optional<TxID>& id)
             {
                 if (id.is_initialized())
                 {
@@ -149,6 +200,11 @@ namespace beam
             {
                 int ret = sqlite3_bind_blob(_stm, col, hash.m_pData, hash.size(), NULL);
                 throwIfError(ret, _db);
+            }
+
+            void bind(int col, const io::Address& address)
+            {
+                bind(col, address.u64());
             }
 
             void bind(int col, const ByteBuffer& m)
@@ -207,14 +263,14 @@ namespace beam
 				val = sqlite3_column_int(_stm, col) == 0 ? false : true;
 			}
 
-            void get(int col, Uuid& id)
+            void get(int col, TxID& id)
             {
                 int size = 0;
                 get(col, static_cast<void*>(id.data()), size);
                 assert(size == id.size());
             }
 
-            void get(int col, boost::optional<Uuid>& id)
+            void get(int col, boost::optional<TxID>& id)
             {
                 int size = sqlite3_column_bytes(_stm, col);
                 if (size > 0)
@@ -224,7 +280,7 @@ namespace beam
 
                     if (data)
                     {
-                        id = Uuid{};
+                        id = TxID{};
                         memcpy(id->data(), data, size);
                     }
                 }
@@ -246,6 +302,12 @@ namespace beam
                 }
             }
 
+            void get(int col, io::Address& address)
+            {
+                uint64_t t = 0;;
+                get(col, t);
+                address = io::Address::from_u64(t);
+            }
             void get(int col, ByteBuffer& b)
             {
                 int size = sqlite3_column_bytes(_stm, col);
@@ -331,6 +393,7 @@ namespace beam
         const char* WalletSeed = "WalletSeed";
         const char* Version = "Version";
         const char* SystemStateIDName = "SystemStateID";
+        const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
         const int DbVersion = 1;
     }
@@ -394,6 +457,12 @@ namespace beam
                 int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
                 throwIfError(ret, keychain->_db);
             }
+            {
+                const char* req = "CREATE TABLE " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
+                int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                throwIfError(ret, keychain->_db);
+            }
+
 			{
 				keychain->setVar(WalletSeed, secretKey.V);
                 keychain->setVar(Version, DbVersion);
@@ -532,52 +601,67 @@ namespace beam
 		return key;
 	}
 
-	vector<beam::Coin> Keychain::selectCoins(const ECC::Amount& amount, bool lock)
+	vector<beam::Coin> Keychain::selectCoins(const Amount& amount, bool lock)
 	{
 		vector<beam::Coin> coins;
         Block::SystemState::ID stateID = {};
         getSystemStateID(stateID);
-		Amount sum = 0;
         {
-			sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount<=?3 ORDER BY amount DESC;");
-			stm.bind(1, Coin::Unspent);
+            sqlite::Statement stm(_db, "SELECT SUM(amount)" STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 ;");
+            stm.bind(1, Coin::Unspent);
             stm.bind(2, stateID.m_Height);
-            stm.bind(3, amount);
-
-            while(sum < amount && stm.step())
-			{
-                Amount remainder = amount - sum;
-				beam::Coin coin;
-				ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
-                if (coin.m_amount <= remainder)
-                {
-                    coins.push_back(coin);
-                    sum += coin.m_amount;
-                }
-			}
-		}
-        if (sum < amount)
+            Amount avalableAmount = 0;
+            if (stm.step())
+            {
+                stm.get(0, avalableAmount);
+            }
+            if (avalableAmount < amount)
+            {
+                return coins;
+            }
+        }
+        Amount sum = 0;
         {
-            coins.clear();
-            sum = 0;
-            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount>?3 ORDER BY amount ASC;");
+            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount<?3 ORDER BY amount DESC;");
             stm.bind(1, Coin::Unspent);
             stm.bind(2, stateID.m_Height);
             stm.bind(3, amount);
-            if ( stm.step())
+            vector<Coin> candidats;
+            Amount smallSum = 0;
+            while (stm.step())
             {
-                beam::Coin coin;
+                auto& coin = candidats.emplace_back();
                 ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
-                coins.push_back(coin);
-                sum += coin.m_amount;
+                smallSum += coin.m_amount;
+            }
+            if (smallSum > amount)
+            {
+                sum = selectImpl(candidats.begin(), candidats.end(), amount, smallSum, coins);
+            }
+            else if (smallSum == amount)
+            {
+                coins.swap(candidats);
+                sum = amount;
+            }
+        }
+        Coin coin2;
+        {
+            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount>=?3 ORDER BY amount ASC LIMIT 1;");
+            stm.bind(1, Coin::Unspent);
+            stm.bind(2, stateID.m_Height);
+            stm.bind(3, amount);
+            if (stm.step())
+            {
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin2);
+                if (sum < amount || coin2.m_amount <= sum)
+                {
+                    coins.clear();
+                    coins.push_back(coin2);
+                }
             }
         }
 
-		if (sum < amount)
-		{
-			coins.clear();
-		}
-		else if (lock)
+        if (lock)
 		{
 			sqlite::Transaction trans(_db);
 
@@ -776,9 +860,20 @@ namespace beam
 		return size;
 	}
 
+    Timestamp Keychain::getLastUpdateTime() const
+    {
+        Timestamp timestamp = {};
+        if (getVar(LastUpdateTimeName, timestamp))
+        {
+            return timestamp;
+        }
+        return 0;
+    }
+
 	void Keychain::setSystemStateID(const Block::SystemState::ID& stateID)
 	{
 		setVar(SystemStateIDName, stateID);
+        setVar(LastUpdateTimeName, getTimestamp());
 		notifySystemStateChanged();
 	}
 
@@ -854,7 +949,7 @@ namespace beam
         return res;
     }
 
-    boost::optional<TxDescription> Keychain::getTx(const Uuid& txId)
+    boost::optional<TxDescription> Keychain::getTx(const TxID& txId)
     {
         const char* req = "SELECT * FROM " HISTORY_NAME " WHERE txId=?1 ;";
         sqlite::Statement stm(_db, req);
@@ -906,7 +1001,7 @@ namespace beam
 		notifyTransactionChanged();
     }
 
-    void Keychain::deleteTx(const Uuid& txId)
+    void Keychain::deleteTx(const TxID& txId)
     {
 		sqlite::Transaction trans(_db);
 
@@ -924,7 +1019,7 @@ namespace beam
 		notifyTransactionChanged();
     }
 
-    void Keychain::rollbackTx(const Uuid& txId)
+    void Keychain::rollbackTx(const TxID& txId)
     {
         sqlite::Transaction trans(_db);
 
@@ -943,6 +1038,48 @@ namespace beam
             stm.step();
         }
         trans.commit();
+    }
+
+    std::vector<TxPeer> Keychain::getPeers()
+    {
+        std::vector<TxPeer> peers;
+        sqlite::Statement stm(_db, "SELECT * FROM " PEERS_NAME ";");
+        while (stm.step())
+        {
+            auto& peer = peers.emplace_back();
+            ENUM_PEER_FIELDS(STM_GET_LIST, NOSEP, peer);
+        }
+        return peers;
+    }
+
+    void Keychain::addPeer(const TxPeer& peer)
+    {
+        sqlite::Transaction trans(_db);
+        
+        sqlite::Statement stm2(_db, "SELECT * FROM " PEERS_NAME " WHERE walletID=?1;");
+        stm2.bind(1, peer.m_walletID);
+
+        const char* updateReq = "UPDATE " PEERS_NAME " SET address=?2 WHERE walletID=?1;";
+        const char* insertReq = "INSERT INTO " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_PEER_FIELDS(BIND_LIST, COMMA, ) ");";
+
+        sqlite::Statement stm(_db, stm2.step() ? updateReq : insertReq);
+        ENUM_PEER_FIELDS(STM_BIND_LIST, NOSEP, peer);
+        stm.step();
+
+        trans.commit();
+    }
+
+    boost::optional<TxPeer> Keychain::getPeer(const WalletID& peerID)
+    {
+        sqlite::Statement stm(_db, "SELECT * FROM " PEERS_NAME " WHERE walletID=?1;");
+        stm.bind(1, peerID);
+        if (stm.step())
+        {
+            TxPeer peer = {};
+            ENUM_PEER_FIELDS(STM_GET_LIST, NOSEP, peer);
+            return peer;
+        }
+        return boost::optional<TxPeer>{};
     }
 
     void Keychain::subscribe(IKeyChainObserver* observer)

@@ -5,6 +5,7 @@
 
 #ifndef WIN32
 #	include <unistd.h>
+#	include <fcntl.h>
 #endif // WIN32
 
 namespace beam { namespace helpers {
@@ -59,7 +60,10 @@ inline bool ProcessWideLock(const char* szFilePath)
 	if (-1 == hFile)
 		return false;
 
-	return !lockf(hFile, F_LOCK, 0);
+	struct flock fl = { 0 };
+	fl.l_type = F_WRLCK;
+
+	return !fcntl(hFile, F_SETLKW, &fl);
 #endif // WIN32
 }
 

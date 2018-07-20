@@ -82,6 +82,16 @@ namespace proto {
 	macro(PeerID, ID) \
 	macro(io::Address, LastAddr)
 
+#define BeamNodeMsg_GetTime(macro)
+
+#define BeamNodeMsg_Time(macro) \
+	macro(Timestamp, Value)
+
+#define BeamNodeMsg_GetExternalAddr(macro)
+
+#define BeamNodeMsg_ExternalAddr(macro) \
+	macro(uint32_t, Value)
+
 #define BeamNodeMsg_BbsMsg(macro) \
 	macro(BbsChannel, Channel) \
 	macro(Timestamp, TimePosted) \
@@ -97,6 +107,11 @@ namespace proto {
 	macro(BbsChannel, Channel) \
 	macro(Timestamp, TimeFrom) \
 	macro(bool, On)
+
+#define BeamNodeMsg_BbsPickChannel(macro)
+
+#define BeamNodeMsg_BbsPickChannelRes(macro) \
+	macro(BbsChannel, Channel)
 
 #define BeamNodeMsg_SChannelInitiate(macro) \
 	macro(ECC::uintBig, NoncePub)
@@ -131,10 +146,16 @@ namespace proto {
 	macro(25, GetTransaction) \
 	macro(31, PeerInfoSelf) \
 	macro(32, PeerInfo) \
+	macro(33, GetTime) \
+	macro(34, Time) \
+	macro(35, GetExternalAddr) \
+	macro(36, ExternalAddr) \
 	macro(40, BbsMsg) \
 	macro(41, BbsHaveMsg) \
 	macro(42, BbsGetMsg) \
 	macro(43, BbsSubscribe) \
+	macro(44, BbsPickChannel) \
+	macro(45, BbsPickChannelRes) \
 	macro(61, SChannelInitiate) \
 	macro(62, SChannelReady) \
 	macro(63, Authentication) \
@@ -214,6 +235,10 @@ namespace proto {
 		void Encrypt(SerializedMsg&, MsgSerializer&);
 	};
 
+	void Sk2Pk(PeerID&, ECC::Scalar::Native&); // will negate the scalar iff necessary
+	bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void*, uint32_t); // will fail iff addr is invalid
+	bool BbsDecrypt(uint8_t*& p, uint32_t& n, ECC::Scalar::Native& privateAddr);
+
 	struct INodeMsgHandler
 		:public IErrorHandler
 	{
@@ -273,7 +298,6 @@ namespace proto {
 
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
-		static void Sk2Pk(PeerID&, ECC::Scalar::Native&); // will negate the scalar iff necessary
 		bool IsSecureIn() const;
 		bool IsSecureOut() const;
 

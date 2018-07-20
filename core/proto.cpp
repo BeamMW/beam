@@ -125,37 +125,125 @@ void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
 	}
 }
 
-void ProtocolPlus::InitCipher()
+void InitCipherIV(AES::StreamCipher& c, const ECC::Hash::Value& hvSecret, const ECC::Hash::Value& hvParam)
 {
-	assert(!(m_MyNonce == ECC::Zero));
+	ECC::NoLeak<ECC::Hash::Processor> hpIV;
+	ECC::NoLeak<ECC::Hash::Value> hvIV;
 
-	 // Diffie-Hellman
+	hpIV.V << hvSecret << hvParam >> hvIV.V;
+
+	static_assert(sizeof(hvIV.V) >= sizeof(c.m_Counter), "");
+	memcpy(c.m_Counter.m_pData, hvIV.V.m_pData, sizeof(c.m_Counter.m_pData));
+
+	c.m_nBuf = 0;
+}
+
+bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& remotePublic, AES::Encoder& enc, ECC::Hash::Mac& hmac, AES::StreamCipher* pCipherOut, AES::StreamCipher* pCipherIn)
+{
+	// Diffie-Hellman
 	ECC::Point pt;
-	pt.m_X = m_RemoteNonce;
+	pt.m_X = remotePublic;
 	pt.m_Y = false;
 
 	ECC::Point::Native p;
 	if (!p.Import(pt))
-		NodeConnection::ThrowUnexpected();
+		return false;
 
-	ECC::Point::Native ptSecret = p * m_MyNonce;
+	ECC::Point::Native ptSecret = p * myPrivate;
 
 	ECC::NoLeak<ECC::Hash::Processor> hp;
 	ECC::NoLeak<ECC::Hash::Value> hvSecret;
 	hp.V << ptSecret >> hvSecret.V;
 
 	static_assert(AES::s_KeyBytes == sizeof(hvSecret.V), "");
-	m_Enc.Init(hvSecret.V.m_pData);
+	enc.Init(hvSecret.V.m_pData);
 
-	hp.V << hvSecret.V >> hvSecret.V; // IV
+	hmac.Reset(hvSecret.V.m_pData, sizeof(hvSecret.V.m_pData));
 
-	m_CipherIn.m_nBuf = m_CipherOut.m_nBuf = 0;
+	if (pCipherOut)
+		InitCipherIV(*pCipherOut, hvSecret.V, remotePublic);
 
-	static_assert(sizeof(hvSecret.V) >= sizeof(m_CipherOut.m_Counter), "");
-	memcpy(m_CipherOut.m_Counter.m_pData, hvSecret.V.m_pData, sizeof(m_CipherOut.m_Counter.m_pData));
-	memcpy(m_CipherIn.m_Counter.m_pData, hvSecret.V.m_pData, sizeof(m_CipherIn.m_Counter.m_pData));
+	if (pCipherIn)
+	{
+		PeerID myPublic;
+		Sk2Pk(myPublic, (ECC::Scalar::Native&) myPrivate); // my private must have been already normalized. Should not be modified.
+		InitCipherIV(*pCipherIn, hvSecret.V, myPublic);
+	}
 
-	m_HMac.Reset(hvSecret.V.m_pData, sizeof(hvSecret.V.m_pData));
+	return true;
+}
+
+void ProtocolPlus::InitCipher()
+{
+	assert(!(m_MyNonce == ECC::Zero));
+
+	if (!InitViaDiffieHellman(m_MyNonce, m_RemoteNonce, m_Enc, m_HMac, &m_CipherOut, &m_CipherIn))
+		NodeConnection::ThrowUnexpected();
+}
+
+void Sk2Pk(PeerID& res, ECC::Scalar::Native& sk)
+{
+	ECC::Point pt = ECC::Point::Native(ECC::Context::get().G * sk);
+	if (pt.m_Y)
+		sk = -sk;
+
+	res = pt.m_X;
+}
+
+bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void* p, uint32_t n)
+{
+	PeerID myPublic;
+	Sk2Pk(myPublic, nonce);
+
+	AES::Encoder enc;
+	AES::StreamCipher cOut;
+	ECC::Hash::Mac hmac;
+	if (!InitViaDiffieHellman(nonce, publicAddr, enc, hmac, &cOut, NULL))
+		return false; // bad address
+
+	hmac.Write(p, n);
+	ECC::Hash::Value hvMac;
+	hmac >> hvMac;
+
+	res.resize(sizeof(myPublic) + sizeof(hvMac) + n);
+	uint8_t* pDst = &res.at(0);
+	
+	memcpy(pDst, myPublic.m_pData, sizeof(myPublic));
+	memcpy(pDst + sizeof(myPublic), hvMac.m_pData, sizeof(hvMac));
+	memcpy(pDst + sizeof(myPublic) + sizeof(hvMac), p, n);
+
+	cOut.XCrypt(enc, pDst + sizeof(myPublic), sizeof(hvMac) + n);
+
+	return true;
+}
+
+bool BbsDecrypt(uint8_t*& p, uint32_t& n, ECC::Scalar::Native& privateAddr)
+{
+	PeerID remotePublic;
+	ECC::Hash::Value hvMac, hvMac2;
+
+	if (n < sizeof(remotePublic) + sizeof(hvMac))
+		return false;
+
+	memcpy(remotePublic.m_pData, p, sizeof(remotePublic));
+
+	AES::Encoder enc;
+	AES::StreamCipher cIn;
+	ECC::Hash::Mac hmac;
+	if (!InitViaDiffieHellman(privateAddr, remotePublic, enc, hmac, NULL, &cIn))
+		return false; // bad address
+
+	cIn.XCrypt(enc, p + sizeof(remotePublic), n - sizeof(remotePublic));
+
+	memcpy(hvMac.m_pData, p + sizeof(remotePublic), sizeof(hvMac));
+
+	p += sizeof(remotePublic) + sizeof(hvMac);
+	n -= (sizeof(remotePublic) + sizeof(hvMac));
+
+	hmac.Write(p, n);
+	hmac >> hvMac2;
+
+	return (hvMac == hvMac2);
 }
 
 /////////////////////////
@@ -346,15 +434,6 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
 
 BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
-
-void NodeConnection::Sk2Pk(PeerID& res, ECC::Scalar::Native& sk)
-{
-	ECC::Point pt = ECC::Point::Native(ECC::Context::get().G * sk);
-	if (pt.m_Y)
-		sk = -sk;
-
-	res = pt.m_X;
-}
 
 void NodeConnection::GenerateSChannelNonce(ECC::Scalar::Native& sk)
 {
