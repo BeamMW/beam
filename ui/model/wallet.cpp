@@ -37,6 +37,7 @@ WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const string& n
 {
 	qRegisterMetaType<WalletStatus>("WalletStatus");
 	qRegisterMetaType<vector<TxDescription>>("std::vector<beam::TxDescription>");
+	qRegisterMetaType<vector<TxPeer>>("std::vector<beam::TxPeer>");
 }
 
 WalletModel::~WalletModel()
@@ -67,6 +68,8 @@ WalletStatus WalletModel::getStatus() const
 
 	status.unconfirmed += wallet::getTotal(_keychain, Coin::Unconfirmed);
 
+	status.lastUpdateTime = _keychain->getLastUpdateTime();
+
 	return status;
 }
 
@@ -76,6 +79,7 @@ void WalletModel::run()
 	{
 		emit onStatus(getStatus());
 		emit onTxStatus(_keychain->getTxHistory());
+		emit onTxPeerUpdated(_keychain->getPeers());
 
 		_reactor = Reactor::create();
 
@@ -148,4 +152,9 @@ void WalletModel::onTransactionChanged()
 void WalletModel::onSystemStateChanged()
 {
 	onStatusChanged();
+}
+
+void WalletModel::onTxPeerChanged()
+{
+	emit onTxPeerUpdated(_keychain->getPeers());
 }

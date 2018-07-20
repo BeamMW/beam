@@ -92,38 +92,53 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const s
 	connect(&_model, SIGNAL(onTxStatus(const std::vector<beam::TxDescription>&)), 
 		SLOT(onTxStatus(const std::vector<beam::TxDescription>&)));
 
+	connect(&_model, SIGNAL(onTxPeerUpdated(const std::vector<beam::TxPeer>&)),
+		SLOT(onTxPeerUpdated(const std::vector<beam::TxPeer>&)));
+
 	_model.start();
 }
 
 void WalletViewModel::onStatus(const WalletStatus& status)
 {
+	bool changed = false;
+
 	if (_status.available != status.available)
 	{
 		_status.available = status.available;
 
-		emit availableChanged();
+		changed = true;
 	}
 
 	if (_status.received != status.received)
 	{
 		_status.received = status.received;
 
-		emit receivedChanged();
+		changed = true;
 	}
 
 	if (_status.sent != status.sent)
 	{
 		_status.sent = status.sent;
 
-		emit sentChanged();
+		changed = true;
 	}
 
 	if (_status.unconfirmed != status.unconfirmed)
 	{
 		_status.unconfirmed = status.unconfirmed;
 
-		emit unconfirmedChanged();
+		changed = true;
 	}
+
+	if (_status.lastUpdateTime != status.lastUpdateTime)
+	{
+		_status.lastUpdateTime = status.lastUpdateTime;
+
+		changed = true;
+	}
+
+	if(changed)
+		emit stateChanged();
 }
 
 void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
@@ -136,6 +151,13 @@ void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
 	}
 
 	emit txChanged();
+}
+
+void WalletViewModel::onTxPeerUpdated(const std::vector<beam::TxPeer>& peers)
+{
+	_addrList = peers;
+
+	emit addrBookChanged();
 }
 
 QString WalletViewModel::available() const
@@ -197,6 +219,12 @@ void WalletViewModel::setReceiverAddr(const QString& text)
 	}
 }
 
+void WalletViewModel::setSelectedAddr(int index)
+{
+	_selectedAddr = index;
+	emit selectedAddrChanged();
+}
+
 QString WalletViewModel::receiverAddr() const
 {
 	return QString(_receiverAddr.c_str());
@@ -210,13 +238,20 @@ QVariant WalletViewModel::tx() const
 QVariant WalletViewModel::addrBook() const
 {
 	QStringList book;
-    _addrList = _keychain->getPeers();
+
 	for (auto& const item : _addrList)
 	{
 		book.append(QString::fromStdString(item.m_label));
 	}
 
 	return QVariant::fromValue(book);
+}
+
+QString WalletViewModel::syncTime() const
+{
+	auto time = beam::format_timestamp("%Y.%m.%d %H:%M:%S", local_timestamp_msec(), false);
+
+	return QString::fromStdString(time);
 }
 
 void WalletViewModel::sendMoney()

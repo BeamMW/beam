@@ -42,7 +42,7 @@ Item {
 
         font.pixelSize: 12
         color: Style.bluey_grey
-        text: "1Cs4wu6pu5qCZ35bSLNVzGyEx5N6uzbg9t"
+        text: "Last update time:" + walletViewModel.syncTime
     }
 
     /////////////////////////////////////////////////////////////
