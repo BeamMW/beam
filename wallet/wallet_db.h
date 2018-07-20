@@ -45,6 +45,7 @@ namespace beam
     struct TxPeer
     {
         WalletID m_walletID;
+        std::string m_label;
         io::Address m_address;
     };
 
