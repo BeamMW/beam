@@ -733,7 +733,7 @@ int main_impl(int argc, char* argv[])
 
 
                     TxPeer receiverPeer = {};
-                    receiverPeer.m_address = receiverAddr;
+                    receiverPeer.m_address = receiverAddr.str();
                     receiverPeer.m_walletID = receiverAddr.u64();
                     keychain->addPeer(receiverPeer);
 
