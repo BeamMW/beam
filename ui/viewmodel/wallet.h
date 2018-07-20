@@ -5,6 +5,8 @@
 
 #include "model/wallet.h"
 
+using AddrList = std::vector<beam::TxPeer>;
+
 class TxObject : public QObject
 {
 	Q_OBJECT
@@ -58,6 +60,8 @@ class WalletViewModel : public QObject
 	Q_PROPERTY(QString sendAmountMils READ sendAmountMils WRITE setSendAmountMils NOTIFY sendAmountMilsChanged)
 	Q_PROPERTY(QString receiverAddr READ receiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
 	Q_PROPERTY(QVariant tx READ tx NOTIFY txChanged)
+	Q_PROPERTY(QVariant addrBook READ addrBook NOTIFY addrBookChanged)
+    Q_PROPERTY(int selectedAddr WRITE setSelectedAddr NOTIFY selectedAddrChanged)
 
 public:
 	using TxList = QList<QObject*>;
@@ -73,10 +77,16 @@ public:
 	QString sendAmount() const;
 	QString sendAmountMils() const;
 	QString receiverAddr() const;
+	QVariant addrBook() const;
 
 	void setSendAmount(const QString& text);
 	void setSendAmountMils(const QString& text);
 	void setReceiverAddr(const QString& text);
+    void setSelectedAddr(int index)
+    {
+        _selectedAddr = index;
+        emit selectedAddrChanged();
+    }
 
 public slots:
 	void onStatus(const WalletStatus& amount);
@@ -93,6 +103,8 @@ signals:
 	void sendAmountMilsChanged();
 	void receiverAddrChanged();
 	void txChanged();
+	void addrBookChanged();
+    void selectedAddrChanged();
 
 private:
 
@@ -106,4 +118,7 @@ private:
 	TxList _tx;
 
 	WalletModel _model;
+    mutable std::vector<beam::TxPeer> _addrList;
+
+    int _selectedAddr;
 };

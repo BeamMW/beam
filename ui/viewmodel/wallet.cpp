@@ -207,18 +207,26 @@ QVariant WalletViewModel::tx() const
 	return QVariant::fromValue(_tx);
 }
 
+QVariant WalletViewModel::addrBook() const
+{
+	QStringList book;
+    _addrList = _keychain->getPeers();
+	for (auto& const item : _addrList)
+	{
+		book.append(QString::fromStdString(item.m_label));
+	}
+
+	return QVariant::fromValue(book);
+}
+
 void WalletViewModel::sendMoney()
 {
-    io::Address receiverAddr;
-
-    if (receiverAddr.resolve(_receiverAddr.c_str()))
+    if (_selectedAddr > -1)
     {
-        TxPeer receiverPeer = {};
-        receiverPeer.m_address = receiverAddr;
-        receiverPeer.m_walletID = receiverAddr.u64(); // fake ID
-        _keychain->addPeer(receiverPeer);
+        auto& addr = _addrList[_selectedAddr];
         // TODO: show 'operation in process' animation here?
-        _model.async->sendMoney(std::move(receiverPeer.m_walletID), std::move(_sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt()));
+
+        _model.async->sendMoney(addr.m_walletID, std::move(_sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt()));
     }
     else
     {

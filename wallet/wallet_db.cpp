@@ -76,7 +76,8 @@
 
 #define ENUM_PEER_FIELDS(each, sep, obj) \
     each(1, walletID,    sep, BLOB NOT NULL PRIMARY KEY, obj) \
-    each(2, address,        , INTEGER NOT NULL, obj) 
+    each(2, address,     sep, TEXT NOT NULL, obj) \
+    each(3, label,          , TEXT NOT NULL , obj) 
     
 #define PEER_FIELDS ENUM_PEER_FIELDS(LIST, COMMA, )
 
@@ -225,6 +226,12 @@ namespace beam
                 throwIfError(ret, _db);
 			}
 
+            void bind(int col, const string& val) // utf-8
+            {
+                int ret = sqlite3_bind_text(_stm, col, val.data(), -1, NULL);
+                throwIfError(ret, _db);
+            }
+
 			bool step()
 			{
 				int ret = sqlite3_step(_stm);
@@ -334,6 +341,16 @@ namespace beam
 				type = static_cast<KeyType>(sqlite3_column_int(_stm, col));
 			}
 
+            void get(int col, string& str) // utf-8
+            {
+                int size = sqlite3_column_bytes(_stm, col);
+                const unsigned char* data = sqlite3_column_text(_stm, col);
+                if (data && size)
+                {
+                    str.assign(reinterpret_cast<const string::value_type*>(data));
+                }
+            }
+
 			~Statement()
 			{
 				sqlite3_finalize(_stm);
@@ -395,7 +412,7 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 1;
+        const int DbVersion = 2;
     }
 
 	Coin::Coin(const Amount& amount, Status status, const Height& createHeight, const Height& maturity, KeyType keyType, Height confirmHeight, Height lockedHeight)
@@ -1059,7 +1076,7 @@ namespace beam
         sqlite::Statement stm2(_db, "SELECT * FROM " PEERS_NAME " WHERE walletID=?1;");
         stm2.bind(1, peer.m_walletID);
 
-        const char* updateReq = "UPDATE " PEERS_NAME " SET address=?2 WHERE walletID=?1;";
+        const char* updateReq = "UPDATE " PEERS_NAME " SET address=?2, label=?3 WHERE walletID=?1;";
         const char* insertReq = "INSERT INTO " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_PEER_FIELDS(BIND_LIST, COMMA, ) ");";
 
         sqlite::Statement stm(_db, stm2.step() ? updateReq : insertReq);
