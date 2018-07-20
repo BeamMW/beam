@@ -51,10 +51,10 @@ class WalletViewModel : public QObject
 {
 	Q_OBJECT
 
-	Q_PROPERTY(QString available 	READ available 		NOTIFY availableChanged)
-	Q_PROPERTY(QString received 	READ received 		NOTIFY receivedChanged)
-	Q_PROPERTY(QString sent 		READ sent 			NOTIFY sentChanged)
-	Q_PROPERTY(QString unconfirmed 	READ unconfirmed 	NOTIFY unconfirmedChanged)
+	Q_PROPERTY(QString available 	READ available 		NOTIFY stateChanged)
+	Q_PROPERTY(QString received 	READ received 		NOTIFY stateChanged)
+	Q_PROPERTY(QString sent 		READ sent 			NOTIFY stateChanged)
+	Q_PROPERTY(QString unconfirmed 	READ unconfirmed 	NOTIFY stateChanged)
 
 	Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
 	Q_PROPERTY(QString sendAmountMils READ sendAmountMils WRITE setSendAmountMils NOTIFY sendAmountMilsChanged)
@@ -62,6 +62,8 @@ class WalletViewModel : public QObject
 	Q_PROPERTY(QVariant tx READ tx NOTIFY txChanged)
 	Q_PROPERTY(QVariant addrBook READ addrBook NOTIFY addrBookChanged)
     Q_PROPERTY(int selectedAddr WRITE setSelectedAddr NOTIFY selectedAddrChanged)
+
+	Q_PROPERTY(QString syncTime READ syncTime NOTIFY stateChanged)
 
 public:
 	using TxList = QList<QObject*>;
@@ -78,15 +80,12 @@ public:
 	QString sendAmountMils() const;
 	QString receiverAddr() const;
 	QVariant addrBook() const;
+	QString syncTime() const;
 
 	void setSendAmount(const QString& text);
 	void setSendAmountMils(const QString& text);
 	void setReceiverAddr(const QString& text);
-    void setSelectedAddr(int index)
-    {
-        _selectedAddr = index;
-        emit selectedAddrChanged();
-    }
+	void setSelectedAddr(int index);
 
 public slots:
 	void onStatus(const WalletStatus& amount);
@@ -95,10 +94,7 @@ public slots:
 	void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
 
 signals:
-	void availableChanged();
-	void receivedChanged();
-	void sentChanged();
-	void unconfirmedChanged();
+	void stateChanged();
 
 	void sendAmountChanged();
 	void sendAmountMilsChanged();
@@ -106,6 +102,7 @@ signals:
 	void txChanged();
 	void addrBookChanged();
     void selectedAddrChanged();
+	void syncTimeChanged();
 
 private:
 

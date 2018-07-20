@@ -100,33 +100,45 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const s
 
 void WalletViewModel::onStatus(const WalletStatus& status)
 {
+	bool changed = false;
+
 	if (_status.available != status.available)
 	{
 		_status.available = status.available;
 
-		emit availableChanged();
+		changed = true;
 	}
 
 	if (_status.received != status.received)
 	{
 		_status.received = status.received;
 
-		emit receivedChanged();
+		changed = true;
 	}
 
 	if (_status.sent != status.sent)
 	{
 		_status.sent = status.sent;
 
-		emit sentChanged();
+		changed = true;
 	}
 
 	if (_status.unconfirmed != status.unconfirmed)
 	{
 		_status.unconfirmed = status.unconfirmed;
 
-		emit unconfirmedChanged();
+		changed = true;
 	}
+
+	if (_status.lastUpdateTime != status.lastUpdateTime)
+	{
+		_status.lastUpdateTime = status.lastUpdateTime;
+
+		changed = true;
+	}
+
+	if(changed)
+		emit stateChanged();
 }
 
 void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
@@ -207,6 +219,12 @@ void WalletViewModel::setReceiverAddr(const QString& text)
 	}
 }
 
+void WalletViewModel::setSelectedAddr(int index)
+{
+	_selectedAddr = index;
+	emit selectedAddrChanged();
+}
+
 QString WalletViewModel::receiverAddr() const
 {
 	return QString(_receiverAddr.c_str());
@@ -227,6 +245,13 @@ QVariant WalletViewModel::addrBook() const
 	}
 
 	return QVariant::fromValue(book);
+}
+
+QString WalletViewModel::syncTime() const
+{
+	auto time = beam::format_timestamp("%Y.%m.%d %H:%M:%S", local_timestamp_msec(), false);
+
+	return QString::fromStdString(time);
 }
 
 void WalletViewModel::sendMoney()

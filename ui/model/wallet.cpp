@@ -68,6 +68,8 @@ WalletStatus WalletModel::getStatus() const
 
 	status.unconfirmed += wallet::getTotal(_keychain, Coin::Unconfirmed);
 
+	status.lastUpdateTime = _keychain->getLastUpdateTime();
+
 	return status;
 }
 

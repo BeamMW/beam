@@ -22,6 +22,8 @@ struct WalletStatus
 	beam::Amount received;
 	beam::Amount sent;
 	beam::Amount unconfirmed;
+
+	beam::Timestamp lastUpdateTime;
 };
 
 class WalletModel 
