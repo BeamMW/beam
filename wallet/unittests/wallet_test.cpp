@@ -636,13 +636,13 @@ void TestP2PWalletNegotiationST()
 
     TxPeer receiverPeer = {};
     receiverPeer.m_walletID = uint64_t(12345678912345);
-    receiverPeer.m_address = receiver_address;
+    receiverPeer.m_address = receiver_address.str();
     
     senderKeychain->addPeer(receiverPeer);
 
     TxPeer senderPeer = {};
     senderPeer.m_walletID = uint64_t(43412345678912345);
-    senderPeer.m_address = sender_address;
+    senderPeer.m_address = sender_address.str();
 
     receiverKeychain->addPeer(senderPeer);
 
@@ -864,13 +864,13 @@ void TestP2PWalletNegotiationST()
 
      TxPeer receiverPeer = {};
      receiverPeer.m_walletID = uint64_t(12345678912345);
-     receiverPeer.m_address = receiver_address;
+     receiverPeer.m_address = receiver_address.str();
 
      senderKeychain->addPeer(receiverPeer);
 
      TxPeer senderPeer = {};
      senderPeer.m_walletID = uint64_t(43412345678912345);
-     senderPeer.m_address = sender_address;
+     senderPeer.m_address = sender_address.str();
 
      receiverKeychain->addPeer(senderPeer);
 
