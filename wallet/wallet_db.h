@@ -54,6 +54,7 @@ namespace beam
 		virtual void onKeychainChanged() = 0;
 		virtual void onTransactionChanged() = 0;
 		virtual void onSystemStateChanged() = 0;
+		virtual void onTxPeerChanged() = 0;
 	};
 
     struct IKeyChain

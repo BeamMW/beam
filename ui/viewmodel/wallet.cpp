@@ -92,6 +92,9 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const s
 	connect(&_model, SIGNAL(onTxStatus(const std::vector<beam::TxDescription>&)), 
 		SLOT(onTxStatus(const std::vector<beam::TxDescription>&)));
 
+	connect(&_model, SIGNAL(onTxPeerUpdated(const std::vector<beam::TxPeer>&)),
+		SLOT(onTxPeerUpdated(const std::vector<beam::TxPeer>&)));
+
 	_model.start();
 }
 
@@ -136,6 +139,13 @@ void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
 	}
 
 	emit txChanged();
+}
+
+void WalletViewModel::onTxPeerUpdated(const std::vector<beam::TxPeer>& peers)
+{
+	_addrList = peers;
+
+	emit addrBookChanged();
 }
 
 QString WalletViewModel::available() const
@@ -210,7 +220,7 @@ QVariant WalletViewModel::tx() const
 QVariant WalletViewModel::addrBook() const
 {
 	QStringList book;
-    _addrList = _keychain->getPeers();
+
 	for (auto& const item : _addrList)
 	{
 		book.append(QString::fromStdString(item.m_label));

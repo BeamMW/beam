@@ -41,11 +41,13 @@ public:
 signals:
 	void onStatus(const WalletStatus& status);
 	void onTxStatus(const std::vector<beam::TxDescription>& history);
+	void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
 
 private:
 	void onKeychainChanged() override;
 	void onTransactionChanged() override;
 	void onSystemStateChanged() override;
+	void onTxPeerChanged() override;
 
 	void onStatusChanged();
 	WalletStatus getStatus() const;

@@ -92,6 +92,7 @@ public slots:
 	void onStatus(const WalletStatus& amount);
 	void onTxStatus(const std::vector<beam::TxDescription>& history);
 	void sendMoney();
+	void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
 
 signals:
 	void availableChanged();
@@ -118,7 +119,7 @@ private:
 	TxList _tx;
 
 	WalletModel _model;
-    mutable std::vector<beam::TxPeer> _addrList;
+	std::vector<beam::TxPeer> _addrList;
 
     int _selectedAddr;
 };
