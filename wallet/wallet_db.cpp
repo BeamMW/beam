@@ -3,7 +3,7 @@
 #include "utility/logger.h"
 #include "sqlite/sqlite3.h"
 #include <sstream>
-
+#include <boost/functional/hash.hpp>
 #include <boost/filesystem.hpp>
 
 #define NOSEP
@@ -81,6 +81,21 @@
     
 #define PEER_FIELDS ENUM_PEER_FIELDS(LIST, COMMA, )
 
+namespace std 
+{
+    template<> 
+    struct hash<pair<beam::Amount, beam::Amount>>
+    {
+        typedef pair<beam::Amount, beam::Amount> argument_type;
+        typedef std::size_t result_type;
+
+        result_type operator()(const argument_type& a) const noexcept 
+        {
+            return boost::hash<argument_type>()(a);
+        }
+    };
+}
+
 namespace beam
 {
     using namespace std;
@@ -99,9 +114,13 @@ namespace beam
 			throw runtime_error(ss.str());
 		}
 
-        Amount selectImpl(const std::vector<Coin>::iterator& first, const std::vector<Coin>::iterator& last, Amount amount, Amount left, vector<Coin>& res)
+        Amount selectImpl(const std::vector<Coin>::iterator& first
+                        , const std::vector<Coin>::iterator& last
+                        , Amount amount
+                        , Amount left
+                        , unordered_map<pair<Amount, Amount>, pair<Amount, vector<Coin>>>& mem
+                        , vector<Coin>& res)
         {
-            vector<Coin> coins;
             if (first == last || left < amount || amount == 0)
             {
                 return 0;
@@ -113,11 +132,18 @@ namespace beam
                 return amount;
             }
 
+            if (auto it = mem.find({ amount, left }); it != mem.end())
+            {
+                res.assign(it->second.second.begin(), it->second.second.end());
+                return it->second.first;
+            }
+
             vector<Coin> coins1, coins2;
             Amount newLeft = left - first->m_amount;
-            auto sum1 = selectImpl(first + 1, last, amount, newLeft, coins1);
             
-            auto sum2 = first->m_amount + selectImpl(first + 1, last, amount - first->m_amount, newLeft, coins2);
+            auto sum1 = selectImpl(first + 1, last, amount, newLeft, mem, coins1);
+            
+            auto sum2 = first->m_amount + selectImpl(first + 1, last, amount - first->m_amount, newLeft, mem, coins2);
 
             bool a = sum2 >= amount;
             bool b = sum1 >= amount;
@@ -129,15 +155,17 @@ namespace beam
                 {
                     res.push_back(t);
                 }
+                mem.insert({ { amount, left }, {sum1, move(coins1) } });
                 return sum1;
             }
             else if (a && b && !c || a && !b)
             {
-                res.push_back(*first);
+                coins2.push_back(*first);
                 for (auto& t : coins2)
                 {
                     res.push_back(t);
                 }
+                mem.insert({ { amount, left }, {sum2, move(coins2)} });
                 return sum2;
             }
             return 0;
@@ -653,7 +681,8 @@ namespace beam
             }
             if (smallSum > amount)
             {
-                sum = selectImpl(candidats.begin(), candidats.end(), amount, smallSum, coins);
+                unordered_map<pair<Amount, Amount>, pair<Amount, vector<Coin>>> mem;
+                sum = selectImpl(candidats.begin(), candidats.end(), amount, smallSum, mem, coins);
             }
             else if (smallSum == amount)
             {
@@ -699,7 +728,7 @@ namespace beam
 
 			notifyKeychainChanged();
 		}
-        std::reverse(coins.begin(), coins.end());
+        std::sort(coins.begin(), coins.end(), [](const Coin& lhs, const Coin& rhs) {return lhs.m_amount < rhs.m_amount; });
 		return coins;
 	}
 
