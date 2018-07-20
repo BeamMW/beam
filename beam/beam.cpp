@@ -323,6 +323,8 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 
 io::Reactor::Ptr reactor;
 
+static const unsigned LOG_ROTATION_PERIOD = 3*60*60*1000; // 3 hours
+
 int main_impl(int argc, char* argv[])
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -518,6 +520,14 @@ int main_impl(int argc, char* argv[])
 				Height hImport = vm[cli::IMPORT].as<Height>();
 				if (hImport)
 					node.ImportMacroblock(hImport);
+
+                io::Timer::Ptr logRotateTimer = io::Timer::create(reactor);
+                logRotateTimer->start(
+                    LOG_ROTATION_PERIOD, true,
+                    []() {
+                        Logger::get()->rotate();
+                    }
+                );
 
                 reactor->run();
             }
@@ -720,7 +730,7 @@ int main_impl(int argc, char* argv[])
                     }
 
                     bool is_server = command == cli::LISTEN;
-                    
+
 
                     TxPeer receiverPeer = {};
                     receiverPeer.m_address = receiverAddr;

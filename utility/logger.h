@@ -133,8 +133,16 @@ public:
     /// Sets custom timestamp formatter as for strftime(), default is "%Y-%m-%d.%T" and milliseconds are printed
     virtual void set_time_format(const char* format, bool printMilliseconds) = 0;
 
+    /// Rotates file name, called externally
+    virtual void rotate() = 0;
+
     static bool will_log(int level) {
         return g_logger && g_logger->level_accepted(level);
+    }
+
+    static Logger* get() {
+        assert(g_logger);
+        return g_logger;
     }
 
 protected:
