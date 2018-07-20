@@ -71,7 +71,7 @@ Item {
                 anchors.fill: parent
                 anchors.rightMargin: parent.width/2
                 anchors.bottomMargin: 60
-
+                
                 clip: true
 
                 SFText {
@@ -81,49 +81,107 @@ Item {
                     text: "Send BEAM"
                 }
 
-                SFText {
+                Item {
+                    anchors.fill: parent
+                    anchors.rightMargin: parent.width/2
 
-                    y: 41
+                    clip: true
 
-                    font.pixelSize: 12
-                    font.weight: Font.Bold
-                    color: Style.white
-                    text: "Recipient address"
+                    SFText {
+
+                        y: 41
+
+                        font.pixelSize: 12
+                        font.weight: Font.Bold
+                        color: Style.white
+                        text: "Recipient address"
+                    }
+
+                    SFTextInput {
+                        id: receiver_addr
+
+                        y: 115-30
+                        width: 300
+
+                        font.pixelSize: 12
+
+                        color: Style.white
+
+                        text: walletViewModel.receiverAddr
+
+                    }
+
+                    Binding {
+                        target: walletViewModel
+                        property: "receiverAddr"
+                        value: receiver_addr.text
+                    }
+
+                    Rectangle {
+                        y: 109
+                        width: 300
+                        height: 1
+
+                        color: "#33566b"
+                    }
+
+                    AvailablePanel {
+                        y: 140
+                        width: parent.width
+                        height: 206
+                        value: walletViewModel.available*1 - (walletViewModel.sendAmount*1 + walletViewModel.sendAmountMils/1000000)
+                    }                    
                 }
 
-                SFTextInput {
-                    id: receiver_addr
+                Item {
+                    anchors.fill: parent
+                    anchors.leftMargin: parent.width/2
 
-                    y: 115-30
-                    width: 300
+                    clip: true
 
-                    font.pixelSize: 12
 
-                    color: Style.white
+                    SFText {
 
-                    text: walletViewModel.receiverAddr
+                        y: 41
 
-                }
+                        font.pixelSize: 12
+                        font.weight: Font.Bold
+                        color: Style.white
+                        text: "Address book"
+                    }
 
-                Binding {
-                    target: walletViewModel
-                    property: "receiverAddr"
-                    value: receiver_addr.text
-                }
+                    ListView {
+                        id:addrBook
 
-                Rectangle {
-                    y: 109
-                    width: 300
-                    height: 1
+                        anchors.fill: parent
+                        anchors.topMargin: 60
+                        anchors.rightMargin: 30
 
-                    color: "#33566b"
-                }
+                        model: walletViewModel.addrBook
 
-                AvailablePanel {
-                    y: 140
-                    width: parent.width
-                    height: 206
-                    value: walletViewModel.available*1 - (walletViewModel.sendAmount*1 + walletViewModel.sendAmountMils/1000000)
+                        delegate: Item {
+
+                            height: 60
+                            width: parent.width
+
+                            SFText { 
+                                text: modelData 
+                                color: Style.white
+
+                                anchors.verticalCenter: parent.verticalCenter
+                                x: 10
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: addrBook.currentIndex = index
+                            }
+                        }
+
+                        highlight: Rectangle { color: "#33566b"; radius: 10 }
+                    }
                 }
             }
 
