@@ -628,14 +628,14 @@ Item {
             }        
         }
 
-        Rectangle {
-            anchors.fill: parent;
-            anchors.topMargin: 394
+        // Rectangle {
+        //     anchors.fill: parent;
+        //     anchors.topMargin: 394
 
-            radius: 10
+        //     radius: 10
 
-            color: Style.dark_slate_blue
-        }
+        //     color: Style.dark_slate_blue
+        // }
 
         Rectangle {
             anchors.fill: parent;
@@ -657,14 +657,15 @@ Item {
 
             TableViewColumn {
                 role: "income"
-                width: 72
+                width: 72*parent.width/1310
 
-                resizable: false
                 movable: false
 
                 delegate: Item {
 
                     anchors.fill: parent
+
+                    clip:true
 
                     SvgImage {
                         anchors.verticalCenter: parent.verticalCenter
@@ -677,32 +678,31 @@ Item {
             TableViewColumn {
                 role: "date"
                 title: "Date | time"
-                width: 200
+                width: 200*parent.width/1310
 
-                resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "user"
                 title: "Recipient / Sender ID"
-                width: 200
+                width: 200*parent.width/1310
 
-                resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "comment"
                 title: "Comment"
-                width: 120
+                width: 120*parent.width/1310
 
-                resizable: false
                 movable: false
 
                 delegate: Item {
 
                     anchors.fill: parent
+
+                    clip:true
 
                     SvgImage {
                         anchors.verticalCenter: parent.verticalCenter
@@ -716,14 +716,15 @@ Item {
             TableViewColumn {
                 role: "amount"
                 title: "Amount, BEAM"
-                width: 200
+                width: 200*parent.width/1310
 
-                resizable: false
                 movable: false
 
                 delegate: Row {
                     anchors.fill: parent
                     spacing: 6
+
+                    clip:true
 
                     property bool income: tx_view.model[styleData.row].income
 
@@ -751,32 +752,31 @@ Item {
             TableViewColumn {
                 role: "amountUsd"
                 title: "Amount, USD"
-                width: 200
+                width: 200*parent.width/1310
 
-                resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "change"
                 title: "Change, BEAM"
-                width: 200
+                width: 200*parent.width/1310
 
-                resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "status"
                 title: "Status"
-                width: 96
+                width: 96*parent.width/1310
 
-                resizable: false
                 movable: false
 
                 delegate: Item {
 
                     anchors.fill: parent
+
+                    clip:true
 
                     SFText {
                         font.pixelSize: 12
@@ -797,8 +797,10 @@ Item {
 
             model: walletViewModel.tx
 
-            headerDelegate: Item {
+            headerDelegate: Rectangle {
                 height: 46
+
+                color: Style.dark_slate_blue
 
                 SFText {
                     anchors.verticalCenter: parent.verticalCenter
