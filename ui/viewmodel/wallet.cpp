@@ -84,7 +84,6 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const s
 	, _status{ 0, 0, 0, 0, {0, 0, 0} }
 	, _sendAmount("0")
 	, _sendAmountMils("0")
-	, _receiverAddr("127.0.0.1:8888")
     , _keychain(keychain)
 {
 	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
@@ -110,6 +109,8 @@ void WalletViewModel::onStatus(const WalletStatus& status)
 		_status.available = status.available;
 
 		changed = true;
+
+		emit actualAvailableChanged();
 	}
 
 	if (_status.received != status.received)
@@ -207,6 +208,7 @@ void WalletViewModel::setSendAmount(const QString& amount)
 	{
 		_sendAmount = amount;
 		emit sendAmountChanged();
+		emit actualAvailableChanged();
 	}
 }
 
@@ -216,17 +218,7 @@ void WalletViewModel::setSendAmountMils(const QString& amount)
 	{
 		_sendAmountMils = amount;
 		emit sendAmountMilsChanged();
-	}
-}
-
-void WalletViewModel::setReceiverAddr(const QString& text)
-{
-	std::string addr = text.toStdString();
-
-	if (addr != _receiverAddr)
-	{
-		_receiverAddr = addr;
-		emit receiverAddrChanged();
+		emit actualAvailableChanged();
 	}
 }
 
@@ -238,7 +230,11 @@ void WalletViewModel::setSelectedAddr(int index)
 
 QString WalletViewModel::receiverAddr() const
 {
-	return QString(_receiverAddr.c_str());
+	if (_selectedAddr < 0 || _addrList.empty()) return "";
+
+	stringstream str;
+	str << _addrList[_selectedAddr].m_walletID;
+	return QString::fromStdString(str.str());
 }
 
 QVariant WalletViewModel::tx() const
@@ -275,6 +271,11 @@ int WalletViewModel::syncProgress() const
 	return -1;
 }
 
+beam::Amount WalletViewModel::calcSendAmount() const
+{
+	return _sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt();
+}
+
 void WalletViewModel::sendMoney()
 {
     if (_selectedAddr > -1)
@@ -282,15 +283,16 @@ void WalletViewModel::sendMoney()
         auto& addr = _addrList[_selectedAddr];
         // TODO: show 'operation in process' animation here?
 
-        _model.async->sendMoney(addr.m_walletID, std::move(_sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt()));
-    }
-    else
-    {
-        LOG_ERROR() << std::string("unable to resolve receiver address: ") + _receiverAddr;
+        _model.async->sendMoney(addr.m_walletID, std::move(calcSendAmount()));
     }
 }
 
 void WalletViewModel::syncWithNode()
 {
 	_model.async->syncWithNode();
+}
+
+QString WalletViewModel::actualAvailable() const
+{
+	return BeamToString(_status.available - calcSendAmount());
 }

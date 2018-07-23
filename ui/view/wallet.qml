@@ -104,7 +104,7 @@ Item {
 
                 Item {
                     anchors.fill: parent
-                    anchors.rightMargin: parent.width/2
+                    anchors.leftMargin: parent.width/2
 
                     clip: true
 
@@ -119,7 +119,7 @@ Item {
                     }
 
                     SFTextInput {
-                        id: receiver_addr
+                        // id: receiver_addr
 
                         y: 115-30
                         width: 300
@@ -132,11 +132,11 @@ Item {
 
                     }
 
-                    Binding {
-                        target: walletViewModel
-                        property: "receiverAddr"
-                        value: receiver_addr.text
-                    }
+                    // Binding {
+                    //     target: walletViewModel
+                    //     property: "receiverAddr"
+                    //     value: receiver_addr.text
+                    // }
 
                     Rectangle {
                         y: 109
@@ -144,19 +144,12 @@ Item {
                         height: 1
 
                         color: "#33566b"
-                    }
-
-                    AvailablePanel {
-                        y: 140
-                        width: parent.width
-                        height: 206
-                        value: walletViewModel.available*1 - (walletViewModel.sendAmount*1 + walletViewModel.sendAmountMils/1000000)
-                    }                    
+                    }                   
                 }
 
                 Item {
                     anchors.fill: parent
-                    anchors.leftMargin: parent.width/2
+                    anchors.rightMargin: parent.width/2
 
                     clip: true
 
@@ -309,123 +302,130 @@ Item {
                     text: (walletViewModel.sendAmount*1 + walletViewModel.sendAmountMils/1000000) + " USD"
                 }
 
-                /////////////////////////////////////////////////////////////
-                /// Transaction fee /////////////////////////////////////////
-                /////////////////////////////////////////////////////////////
-
-                SFText {
-                    y: 243   
-
-                    font.pixelSize: 12
-                    font.weight: Font.Bold
-                    color: Style.white
-                    text: "Transaction fee"
+                AvailablePanel {
+                    y: 243
+                    width: parent.width
+                    height: 206
+                    value: walletViewModel.actualAvailable
                 }
 
-                Rectangle {
-                    id: fee_line
-                    y: 303
-                    width: 360
-                    height: 4
+                // /////////////////////////////////////////////////////////////
+                // /// Transaction fee /////////////////////////////////////////
+                // /////////////////////////////////////////////////////////////
 
-                    opacity: 0.1
-                    radius: 2
+                // SFText {
+                //     y: 243   
 
-                    color: Style.white
-                }
+                //     font.pixelSize: 12
+                //     font.weight: Font.Bold
+                //     color: Style.white
+                //     text: "Transaction fee"
+                // }
 
-                Rectangle {
-                    id: led
+                // Rectangle {
+                //     id: fee_line
+                //     y: 303
+                //     width: 360
+                //     height: 4
 
-                    x: 140
-                    y: 303-8
+                //     opacity: 0.1
+                //     radius: 2
 
-                    width: 20
-                    height: 20
+                //     color: Style.white
+                // }
 
-                    radius: 10
+                // Rectangle {
+                //     id: led
 
-                    color: Style.bright_teal
+                //     x: 140
+                //     y: 303-8
 
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                    }
-                }
+                //     width: 20
+                //     height: 20
 
-                DropShadow {
-                    anchors.fill: led
-                    radius: 5
-                    samples: 9
-                    color: Style.bright_teal
-                    source: led
-                }
+                //     radius: 10
 
-                SFText {
-                    y: 277
+                //     color: Style.bright_teal
 
-                    font.pixelSize: 12
-                    color: Style.bluey_grey
-                    text: "40h"
-                }
+                //     MouseArea {
+                //         anchors.fill: parent
+                //         cursorShape: Qt.PointingHandCursor
+                //     }
+                // }
 
-                SFText {
-                    y: 277
-                    anchors.right: fee_line.right
+                // DropShadow {
+                //     anchors.fill: led
+                //     radius: 5
+                //     samples: 9
+                //     color: Style.bright_teal
+                //     source: led
+                // }
 
-                    font.pixelSize: 12
-                    color: Style.bluey_grey
-                    text: "20m"
-                }
+                // SFText {
+                //     y: 277
 
-                SFText {
-                    y: 319
+                //     font.pixelSize: 12
+                //     color: Style.bluey_grey
+                //     text: "40h"
+                // }
 
-                    font.pixelSize: 12
-                    color: Style.bluey_grey
-                    text: "0.0002"
-                }
+                // SFText {
+                //     y: 277
+                //     anchors.right: fee_line.right
 
-                SFText {
-                    y: 319
-                    anchors.right: fee_line.right
+                //     font.pixelSize: 12
+                //     color: Style.bluey_grey
+                //     text: "20m"
+                // }
 
-                    font.pixelSize: 12
-                    color: Style.bluey_grey
-                    text: "0.01"
-                }
+                // SFText {
+                //     y: 319
 
-                /////////////////////////////////////////////////////////////
-                /////////////////////////////////////////////////////////////
-                /////////////////////////////////////////////////////////////
+                //     font.pixelSize: 12
+                //     color: Style.bluey_grey
+                //     text: "0.0002"
+                // }
 
-                SFText {
-                    y: 383-30   
+                // SFText {
+                //     y: 319
+                //     anchors.right: fee_line.right
 
-                    font.pixelSize: 12
-                    font.weight: Font.Bold
-                    color: Style.white
-                    text: "Comment"
-                }
+                //     font.pixelSize: 12
+                //     color: Style.bluey_grey
+                //     text: "0.01"
+                // }
 
-                SFTextInput {
-                    y: 427-30
-                    width: 300
+                // /////////////////////////////////////////////////////////////
+                // /////////////////////////////////////////////////////////////
+                // /////////////////////////////////////////////////////////////
 
-                    font.pixelSize: 12
+                // SFText {
+                //     y: 383-30   
 
-                    color: Style.white
+                //     font.pixelSize: 12
+                //     font.weight: Font.Bold
+                //     color: Style.white
+                //     text: "Comment"
+                // }
 
-                    text: "Thank you for your work!"
-                }
+                // SFTextInput {
+                //     y: 427-30
+                //     width: 300
 
-                Rectangle {
-                    y: 451-30
-                    width: 339
-                    height: 1
+                //     font.pixelSize: 12
 
-                    color: "#33566b"
-                }
+                //     color: Style.white
+
+                //     text: "Thank you for your work!"
+                // }
+
+                // Rectangle {
+                //     y: 451-30
+                //     width: 339
+                //     height: 1
+
+                //     color: "#33566b"
+                // }
             }
 
             Row {
@@ -628,14 +628,14 @@ Item {
             }        
         }
 
-        Rectangle {
-            anchors.fill: parent;
-            anchors.topMargin: 394
+        // Rectangle {
+        //     anchors.fill: parent;
+        //     anchors.topMargin: 394
 
-            radius: 10
+        //     radius: 10
 
-            color: Style.dark_slate_blue
-        }
+        //     color: Style.dark_slate_blue
+        // }
 
         Rectangle {
             anchors.fill: parent;
@@ -657,14 +657,15 @@ Item {
 
             TableViewColumn {
                 role: "income"
-                width: 72
+                width: 72*parent.width/1310
 
-                resizable: false
                 movable: false
 
                 delegate: Item {
 
                     anchors.fill: parent
+
+                    clip:true
 
                     SvgImage {
                         anchors.verticalCenter: parent.verticalCenter
@@ -677,32 +678,31 @@ Item {
             TableViewColumn {
                 role: "date"
                 title: "Date | time"
-                width: 200
+                width: 200*parent.width/1310
 
-                resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "user"
                 title: "Recipient / Sender ID"
-                width: 200
+                width: 200*parent.width/1310
 
-                resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "comment"
                 title: "Comment"
-                width: 120
+                width: 120*parent.width/1310
 
-                resizable: false
                 movable: false
 
                 delegate: Item {
 
                     anchors.fill: parent
+
+                    clip:true
 
                     SvgImage {
                         anchors.verticalCenter: parent.verticalCenter
@@ -716,14 +716,15 @@ Item {
             TableViewColumn {
                 role: "amount"
                 title: "Amount, BEAM"
-                width: 200
+                width: 200*parent.width/1310
 
-                resizable: false
                 movable: false
 
                 delegate: Row {
                     anchors.fill: parent
                     spacing: 6
+
+                    clip:true
 
                     property bool income: tx_view.model[styleData.row].income
 
@@ -751,32 +752,31 @@ Item {
             TableViewColumn {
                 role: "amountUsd"
                 title: "Amount, USD"
-                width: 200
+                width: 200*parent.width/1310
 
-                resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "change"
                 title: "Change, BEAM"
-                width: 200
+                width: 200*parent.width/1310
 
-                resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "status"
                 title: "Status"
-                width: 96
+                width: 96*parent.width/1310
 
-                resizable: false
                 movable: false
 
                 delegate: Item {
 
                     anchors.fill: parent
+
+                    clip:true
 
                     SFText {
                         font.pixelSize: 12
@@ -797,8 +797,10 @@ Item {
 
             model: walletViewModel.tx
 
-            headerDelegate: Item {
+            headerDelegate: Rectangle {
                 height: 46
+
+                color: Style.dark_slate_blue
 
                 SFText {
                     anchors.verticalCenter: parent.verticalCenter
