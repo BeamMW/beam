@@ -7,6 +7,30 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
+    Negotiator::Negotiator(INegotiatorGateway& gateway
+                         , beam::IKeyChain::Ptr keychain
+                         , const TxDescription& txDesc)
+        : m_gateway{ gateway }
+        , m_keychain{ keychain }
+        , m_txDesc{ txDesc }
+        , m_fsm{ std::ref(*this) }
+    {
+        assert(keychain);
+    }
+
+    Negotiator::FSMDefinition::FSMDefinition(Negotiator& parent)
+        : m_parent{ parent }
+    {
+        update_tx_description(TxDescription::Pending);
+        m_blindingExcess = ECC::Zero;
+        if (!m_parent.m_txDesc.m_fsmState.empty())
+        {
+            Deserializer d;
+            d.reset(&m_parent.m_txDesc.m_fsmState[0], m_parent.m_txDesc.m_fsmState.size());
+            d & *this;
+        }
+    }
+
     void Negotiator::FSMDefinition::invitePeer(const events::TxInitiated&)
     {
         bool sender = m_parent.m_txDesc.m_sender;
@@ -14,18 +38,12 @@ namespace beam::wallet
         
         Height currentHeight = m_parent.m_keychain->getCurrentHeight();
         // TODO: add ability to calculate fee
-        m_parent.createKernel(m_parent.m_txDesc.m_fee, currentHeight);
+        createKernel(m_parent.m_txDesc.m_fee, currentHeight);
         m_parent.m_txDesc.m_minHeight = currentHeight;
-        Invite inviteMsg;
-        inviteMsg.m_txId = m_parent.m_txDesc.m_txId;
-        inviteMsg.m_amount = m_parent.m_txDesc.m_amount;
-        inviteMsg.m_fee = m_parent.m_txDesc.m_fee;
-        inviteMsg.m_height = currentHeight;
-        inviteMsg.m_send = sender;
 
         if (sender)
         {
-            if (!getSenderInputsAndOutputs(currentHeight, inviteMsg.m_inputs, inviteMsg.m_outputs))
+            if (!prepareSenderUtxos(currentHeight))
             {
                 Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
                 fsm.process_event(events::TxFailed{});
@@ -34,14 +52,30 @@ namespace beam::wallet
         }
         else
         {
-            inviteMsg.m_outputs.push_back(m_parent.createOutput(m_parent.m_txDesc.m_amount, currentHeight));
+            createOutputUtxo(m_parent.m_txDesc.m_amount, currentHeight);
         }
 
-        inviteMsg.m_publicPeerExcess = m_parent.getPublicExcess();
-        inviteMsg.m_publicPeerNonce = m_parent.getPublicNonce();
-        inviteMsg.m_offset = m_parent.m_offset;
-
         update_tx_description(TxDescription::InProgress);
+    }
+
+    void Negotiator::FSMDefinition::sendInvite() const
+    {
+        bool sender = m_parent.m_txDesc.m_sender;
+        Height currentHeight = m_parent.m_txDesc.m_minHeight;
+        const TxID& txID = m_parent.m_txDesc.m_txId;
+
+        Invite inviteMsg;
+        inviteMsg.m_txId = txID;
+        inviteMsg.m_amount = m_parent.m_txDesc.m_amount;
+        inviteMsg.m_fee = m_parent.m_txDesc.m_fee;
+        inviteMsg.m_height = currentHeight;
+        inviteMsg.m_send = sender;
+        inviteMsg.m_inputs = getTxInputs(txID);
+        inviteMsg.m_outputs = getTxOutputs(txID);
+        inviteMsg.m_publicPeerExcess = getPublicExcess();
+        inviteMsg.m_publicPeerNonce = getPublicNonce();
+        inviteMsg.m_offset = m_offset;
+
         m_parent.m_gateway.send_tx_invitation(m_parent.m_txDesc, move(inviteMsg));
     }
 
@@ -58,18 +92,22 @@ namespace beam::wallet
 	{
 		auto& msg = event.data;
 
-		if (!m_parent.isValidSignature(msg.m_peerSignature, msg.m_publicPeerNonce, msg.m_publicPeerExcess))
+        if (!isValidSignature(msg.m_peerSignature, msg.m_publicPeerNonce, msg.m_publicPeerExcess))
+        {
 			return false;
+        }
 
-		if (!m_parent.m_publicPeerExcess.Import(msg.m_publicPeerExcess) ||
-			!m_parent.m_publicPeerNonce.Import(msg.m_publicPeerNonce))
-			return false;
+        if (!m_publicPeerExcess.Import(msg.m_publicPeerExcess)
+         || !m_publicPeerNonce.Import(msg.m_publicPeerNonce))
+        {
+            return false;
+        }
 
-        m_parent.m_peerSignature = msg.m_peerSignature;
+        m_peerSignature = msg.m_peerSignature;
 
         ConfirmTransaction confirmMsg;
         confirmMsg.m_txId = m_parent.m_txDesc.m_txId;
-        confirmMsg.m_peerSignature = m_parent.createSignature();
+        confirmMsg.m_peerSignature = createSignature();
 
         update_tx_description(TxDescription::InProgress);
         m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmMsg));
@@ -84,11 +122,11 @@ namespace beam::wallet
         LOG_INFO() << (sender ? "Sending " : "Receiving ") << PrintableAmount(m_parent.m_txDesc.m_amount) << " (fee: " << PrintableAmount(m_parent.m_txDesc.m_fee) << ")";
         Height currentHeight = m_parent.m_keychain->getCurrentHeight();
 
-        m_parent.createKernel(m_parent.m_txDesc.m_fee, m_parent.m_txDesc.m_minHeight);
+        createKernel(m_parent.m_txDesc.m_fee, m_parent.m_txDesc.m_minHeight);
         
         if (sender)
         {
-            if (!getSenderInputsAndOutputs(currentHeight, m_parent.m_transaction->m_vInputs, m_parent.m_transaction->m_vOutputs))
+            if (!getSenderInputsAndOutputs(currentHeight, m_transaction->m_vInputs, m_transaction->m_vOutputs))
             {
                 Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
                 fsm.process_event(events::TxFailed{true});
@@ -98,13 +136,13 @@ namespace beam::wallet
         else
         {
             // create receiver output
-            m_parent.m_transaction->m_vOutputs.push_back(m_parent.createOutput(m_parent.m_txDesc.m_amount, currentHeight));
+            m_transaction->m_vOutputs.push_back(createOutput(m_parent.m_txDesc.m_amount, currentHeight));
         }
 
         ConfirmInvitation confirmMsg;
         confirmMsg.m_txId = m_parent.m_txDesc.m_txId;
-        confirmMsg.m_publicPeerExcess = m_parent.getPublicExcess();
-        m_parent.createSignature2(confirmMsg.m_peerSignature, confirmMsg.m_publicPeerNonce);
+        confirmMsg.m_publicPeerExcess = getPublicExcess();
+        createSignature2(confirmMsg.m_peerSignature, confirmMsg.m_publicPeerNonce);
 
         update_tx_description(TxDescription::InProgress);
         m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmMsg));
@@ -121,35 +159,35 @@ namespace beam::wallet
 
 	bool Negotiator::FSMDefinition::registerTxInternal(const events::TxConfirmationCompleted& event)
 	{
-		if (!m_parent.isValidSignature(event.data.m_peerSignature))
+		if (!isValidSignature(event.data.m_peerSignature))
 			return false;
 
         // Calculate final signature
         Scalar::Native senderSignature;
         senderSignature = event.data.m_peerSignature;
-        Scalar::Native receiverSignature = m_parent.createSignature();
+        Scalar::Native receiverSignature = createSignature();
         Scalar::Native finialSignature = senderSignature + receiverSignature;
 
         // Calculate public key for excess
 		Point::Native x;
-		if (!x.Import(m_parent.getPublicExcess()))
+		if (!x.Import(getPublicExcess()))
 			return false;
-        x += m_parent.m_publicPeerExcess;
+        x += m_publicPeerExcess;
 
         // Create transaction kernel and transaction
-        m_parent.m_kernel->m_Excess = x;
-        m_parent.m_kernel->m_Signature.m_k = finialSignature;
-        m_parent.m_transaction->m_vKernelsOutput.push_back(move(m_parent.m_kernel));
-        m_parent.m_transaction->m_Offset = m_parent.m_offset;
-        m_parent.m_transaction->Sort();
+        m_kernel->m_Excess = x;
+        m_kernel->m_Signature.m_k = finialSignature;
+        m_transaction->m_vKernelsOutput.push_back(move(m_kernel));
+        m_transaction->m_Offset = m_offset;
+        m_transaction->Sort();
 
         // Verify final transaction
         TxBase::Context ctx;
-		if (!m_parent.m_transaction->IsValid(ctx))
+		if (!m_transaction->IsValid(ctx))
 			return false;
 
         update_tx_description(TxDescription::InProgress);
-        m_parent.m_gateway.register_tx(m_parent.m_txDesc, m_parent.m_transaction);
+        m_parent.m_gateway.register_tx(m_parent.m_txDesc, m_transaction);
 		return true;
     }
 
@@ -228,7 +266,7 @@ namespace beam::wallet
         }
         for (auto& coin : coins)
         {
-            inputs.push_back(m_parent.createInput(coin));
+            inputs.push_back(createInput(coin));
             coin.m_spentTxId = m_parent.m_txDesc.m_txId;
         }
         m_parent.m_keychain->update(coins);
@@ -241,13 +279,44 @@ namespace beam::wallet
         change -= amountWithFee;
         if (change > 0)
         {
-            outputs.push_back(m_parent.createOutput(change, currentHeight));
+            outputs.push_back(createOutput(change, currentHeight));
 			m_parent.m_txDesc.m_change = change;
         }
         return true;
     }
 
-    void Negotiator::createKernel(Amount fee, Height minHeight)
+    bool Negotiator::FSMDefinition::prepareSenderUtxos(const Height& currentHeight)
+    {
+        Amount amountWithFee = m_parent.m_txDesc.m_amount + m_parent.m_txDesc.m_fee;
+        auto coins = m_parent.m_keychain->selectCoins(amountWithFee);
+        if (coins.empty())
+        {
+            LOG_ERROR() << "You only have " << PrintableAmount(get_total());
+            return false;
+        }
+        for (auto& coin : coins)
+        {
+            Scalar::Native blindingFactor = m_parent.m_keychain->calcKey(coin);
+            m_blindingExcess += blindingFactor;
+            coin.m_spentTxId = m_parent.m_txDesc.m_txId;
+        }
+        m_parent.m_keychain->update(coins);
+        // calculate change amount and create corresponding output if needed
+        Amount change = 0;
+        for (const auto &coin : coins)
+        {
+            change += coin.m_amount;
+        }
+        change -= amountWithFee;
+        if (change > 0)
+        {
+            createOutputUtxo(change, currentHeight);
+            m_parent.m_txDesc.m_change = change;
+        }
+        return true;
+    }
+
+    void Negotiator::FSMDefinition::createKernel(Amount fee, Height minHeight)
     {
         m_kernel = make_unique<TxKernel>();
         m_kernel->m_Fee = fee;
@@ -255,12 +324,12 @@ namespace beam::wallet
         m_kernel->m_Height.m_Max = MaxHeight;
     }
 
-    Input::Ptr Negotiator::createInput(const Coin& utxo)
+    Input::Ptr Negotiator::FSMDefinition::createInput(const Coin& utxo)
     {
         assert(utxo.m_status == Coin::Locked);
         Input::Ptr input = make_unique<Input>();
 
-        Scalar::Native blindingFactor = m_keychain->calcKey(utxo);
+        Scalar::Native blindingFactor = m_parent.m_keychain->calcKey(utxo);
         input->m_Commitment = Commitment(blindingFactor, utxo.m_amount);
 
         m_blindingExcess += blindingFactor;
@@ -268,16 +337,16 @@ namespace beam::wallet
         return input;
     }
 
-    Output::Ptr Negotiator::createOutput(Amount amount, Height height)
+    Output::Ptr Negotiator::FSMDefinition::createOutput(Amount amount, Height height)
     {
         Coin newUtxo{ amount, Coin::Unconfirmed, height };
-        newUtxo.m_createTxId = m_txDesc.m_txId;
-        m_keychain->store(newUtxo);
+        newUtxo.m_createTxId = m_parent.m_txDesc.m_txId;
+        m_parent.m_keychain->store(newUtxo);
 
         Output::Ptr output = make_unique<Output>();
         output->m_Coinbase = false;
         
-        Scalar::Native blindingFactor = m_keychain->calcKey(newUtxo);
+        Scalar::Native blindingFactor = m_parent.m_keychain->calcKey(newUtxo);
         output->Create(blindingFactor, amount);
         auto [privateExcess, offset] = splitKey(blindingFactor, newUtxo.m_id);
 
@@ -288,22 +357,36 @@ namespace beam::wallet
         return output;
     }
 
+    void Negotiator::FSMDefinition::createOutputUtxo(Amount amount, Height height)
+    {
+        Coin newUtxo{ amount, Coin::Unconfirmed, height };
+        newUtxo.m_createTxId = m_parent.m_txDesc.m_txId;
+        m_parent.m_keychain->store(newUtxo);
+
+        Scalar::Native blindingFactor = m_parent.m_keychain->calcKey(newUtxo);
+        auto[privateExcess, offset] = splitKey(blindingFactor, newUtxo.m_id);
+
+        blindingFactor = -privateExcess;
+        m_blindingExcess += blindingFactor;
+        m_offset += offset;
+    }
+
 	bool Negotiator::ProcessInvitation(Invite& inviteMsg)
 	{
-		if (!m_publicPeerExcess.Import(inviteMsg.m_publicPeerExcess) ||
-			!m_publicPeerNonce.Import(inviteMsg.m_publicPeerNonce))
+		if (!m_fsm.m_publicPeerExcess.Import(inviteMsg.m_publicPeerExcess) ||
+			!m_fsm.m_publicPeerNonce.Import(inviteMsg.m_publicPeerNonce))
 			return false;
 
-		m_offset = inviteMsg.m_offset;
-		m_transaction = std::make_shared<Transaction>();
-		m_transaction->m_Offset = ECC::Zero;
-		m_transaction->m_vInputs = move(inviteMsg.m_inputs);
-		m_transaction->m_vOutputs = move(inviteMsg.m_outputs);
+        m_fsm.m_offset = inviteMsg.m_offset;
+        m_fsm.m_transaction = std::make_shared<Transaction>();
+        m_fsm.m_transaction->m_Offset = ECC::Zero;
+        m_fsm.m_transaction->m_vInputs = move(inviteMsg.m_inputs);
+        m_fsm.m_transaction->m_vOutputs = move(inviteMsg.m_outputs);
 
 		return true;
 	}
 
-    Scalar Negotiator::createSignature()
+    Scalar Negotiator::FSMDefinition::createSignature()
     {
         Point publicNonce;
         Scalar partialSignature;
@@ -311,7 +394,7 @@ namespace beam::wallet
         return partialSignature;
     }
 
-    void Negotiator::createSignature2(Scalar& signature, Point& publicNonce)
+    void Negotiator::FSMDefinition::createSignature2(Scalar& signature, Point& publicNonce)
     {
         Hash::Value message;
         m_kernel->get_HashForSigning(message);
@@ -328,12 +411,12 @@ namespace beam::wallet
         signature = partialSignature;
     }
 
-    Point Negotiator::getPublicExcess()
+    Point Negotiator::FSMDefinition::getPublicExcess() const
     {
         return Point(Context::get().G * m_blindingExcess);
     }
 
-    Point Negotiator::getPublicNonce()
+    Point Negotiator::FSMDefinition::getPublicNonce() const
     {
         Hash::Value message;
         m_kernel->get_HashForSigning(message);
@@ -344,12 +427,12 @@ namespace beam::wallet
         return Point(Context::get().G * msig.m_Nonce);
     }
 
-    bool Negotiator::isValidSignature(const Scalar& peerSignature)
+    bool Negotiator::FSMDefinition::isValidSignature(const Scalar& peerSignature) const
     {
         return isValidSignature(peerSignature, m_publicPeerNonce, m_publicPeerExcess);
     }
 
-    bool Negotiator::isValidSignature(const Scalar& peerSignature, const Point& publicPeerNonce, const Point& publicPeerExcess)
+    bool Negotiator::FSMDefinition::isValidSignature(const Scalar& peerSignature, const Point& publicPeerNonce, const Point& publicPeerExcess) const
     {
         //assert(m_kernel);
         if (!m_kernel)
@@ -376,5 +459,44 @@ namespace beam::wallet
         peerSig.CoSign(mySig, message, m_blindingExcess, msig);
         peerSig.m_k = peerSignature;
         return peerSig.IsValidPartial(pkPeer, xcPeer);
+    }
+
+    vector<Input::Ptr> Negotiator::FSMDefinition::getTxInputs(const TxID& txID) const
+    {
+        vector<Input::Ptr> inputs;
+        m_parent.m_keychain->visit([this, &txID, &inputs](const Coin& c)->bool
+        {
+            if (c.m_spentTxId == txID && c.m_status == Coin::Locked)
+            {
+                Input::Ptr input = make_unique<Input>();
+
+                Scalar::Native blindingFactor = m_parent.m_keychain->calcKey(c);
+                input->m_Commitment = Commitment(blindingFactor, c.m_amount);
+
+                inputs.push_back(move(input));
+            }
+            return true;
+        });
+        return inputs;
+    }
+
+    vector<Output::Ptr> Negotiator::FSMDefinition::getTxOutputs(const TxID& txID) const
+    {
+        vector<Output::Ptr> outputs;
+        m_parent.m_keychain->visit([this, &txID, &outputs](const Coin& c)->bool
+        {
+            if (c.m_createTxId == txID && c.m_status == Coin::Unconfirmed)
+            {
+                Output::Ptr output = make_unique<Output>();
+                output->m_Coinbase = false;
+
+                Scalar::Native blindingFactor = m_parent.m_keychain->calcKey(c);
+                output->Create(blindingFactor, c.m_amount);
+
+                outputs.push_back(move(output));
+            }
+            return true;
+        });
+        return outputs;
     }
 }

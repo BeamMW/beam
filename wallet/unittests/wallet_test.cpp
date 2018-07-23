@@ -208,6 +208,11 @@ namespace
         void addRef()
         {
             ++m_uses;
+            if (m_uses == 1)
+            {
+                m_shutdown.store(false);
+                m_cv.notify_all();
+            }
         }
 
         void release()
@@ -256,6 +261,29 @@ namespace
                     {
 
                     }
+                }
+            }
+        }
+
+        void step()
+        {
+            deque<Task> tasks;
+            {
+                unique_lock<mutex> lock(m_tasksMutex);
+                if (!m_tasks.empty())
+                {
+                    tasks.swap(m_tasks);
+                }
+            }
+            for (auto& task : tasks)
+            {
+                try
+                {
+                    task();
+                }
+                catch (...)
+                {
+
                 }
             }
         }
@@ -340,6 +368,12 @@ namespace
                 d & msg;
                 m_peers[peerId]->handle_tx_message(to, move(msg));
             });
+            onSent();
+        }
+
+        virtual void onSent()
+        {
+
         }
 
         int m_peerCount;
@@ -1283,6 +1317,73 @@ void TestRollback()
     TestRollback(99, 100);
 }
 
+
+void TestOfflineNegotiation()
+{
+    cout << "\nOffline negitiation";
+
+    struct OneTimeOfflineIO : public TestNetwork
+    {
+        OneTimeOfflineIO(IOLoop& mainLoop)
+            : TestNetwork(mainLoop)
+        {
+        }
+
+        //void onSent() override
+        //{
+        //    this->m_networkLoop.release();
+        //}
+    };
+
+    WalletID receiver_id = {};
+    receiver_id = unsigned(4);
+    IOLoop mainLoop;
+    auto senderKeychain = createSenderKeychain();
+    auto receiverKeychain = createReceiverKeychain();
+    auto network = make_shared<OneTimeOfflineIO>(mainLoop);
+    auto network2 = make_shared<OneTimeOfflineIO>(mainLoop);
+
+    {
+        Wallet sender(senderKeychain, network);
+        Wallet receiver(receiverKeychain, network2);
+
+        network->registerPeer(&sender, true);
+        network->registerPeer(&receiver, false);
+
+        network2->registerPeer(&receiver, true);
+        network2->registerPeer(&sender, false);
+
+        sender.transfer_money(receiver_id, 6, 0, true);
+        mainLoop.step();
+
+        network->m_peers.clear();
+        network2->m_peers.clear();
+    }
+
+
+    for (int i = 0; i < 10; ++i)
+    {
+        // recreate wallets on each loop
+        // Stages:
+        // 1. Invitation/Confirmation
+        // 2. Registration
+
+        Wallet sender(senderKeychain, network);
+        Wallet receiver(receiverKeychain, network2);
+
+        network->registerPeer(&sender, true);
+        network->registerPeer(&receiver, false);
+
+        network2->registerPeer(&receiver, true);
+        network2->registerPeer(&sender, false);
+
+        mainLoop.step();
+
+        network->m_peers.clear();
+        network2->m_peers.clear();
+    }
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -1292,9 +1393,10 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     TestSplitKey();
-    
+ //   TestOfflineNegotiation();
     TestP2PWalletNegotiationST();
     TestP2PWalletReverseNegotiationST();
+
     TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
     TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
     TestFSM();

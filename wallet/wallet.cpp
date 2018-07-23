@@ -129,13 +129,17 @@ namespace beam
         assert(keyChain);
         m_keyChain->getSystemStateID(m_knownStateID);
         m_network->set_wallet(this);
+        m_pendingEvents.emplace_back([this]()
+        {
+            resume_all_tx();
+        });
     }
 
     Wallet::~Wallet()
     {
         m_network->set_wallet(nullptr);
        // assert(m_peers.empty());
-        assert(m_negotiators.empty());
+        //assert(m_negotiators.empty());
         assert(m_reg_requests.empty());
         assert(m_removedNegotiators.empty());
     }
@@ -152,7 +156,14 @@ namespace beam
 
     void Wallet::resume_tx(const TxDescription& tx)
     {
-        resume_negotiator(tx);
+        //resume_negotiator(tx);
+        assert(m_synchronized);
+
+        Cleaner c{ m_removedNegotiators };
+        auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
+
+        m_negotiators.emplace(tx.m_txId, s);
+        m_peers.emplace(tx.m_peerId, s);
     }
 
     void Wallet::resume_all_tx()
@@ -585,6 +596,8 @@ namespace beam
             {
                 m_keyChain->setSystemStateID(m_newStateID);
                 m_knownStateID = m_newStateID;
+                m_synchronized = true;
+                m_syncDone = m_syncTotal = 0;
                 if (!m_pendingEvents.empty())
                 {
                     Cleaner c{ m_removedNegotiators };
@@ -594,9 +607,8 @@ namespace beam
                     }
                     m_pendingEvents.clear();
                 }
-                m_synchronized = true;
-                m_syncDone = m_syncTotal = 0;
-				notifySyncProgress();
+
+                notifySyncProgress();
             }
         }
 

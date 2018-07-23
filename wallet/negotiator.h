@@ -29,16 +29,8 @@ namespace beam::wallet
         using Ptr = std::shared_ptr<Negotiator>;
 
         Negotiator(INegotiatorGateway& gateway
-             , beam::IKeyChain::Ptr keychain
-             , const TxDescription& txDesc )
-            : m_gateway{gateway}
-            , m_keychain{keychain}
-            , m_txDesc{txDesc}
-            , m_fsm{std::ref(*this)}
-        {
-            assert(keychain);
-            m_blindingExcess = ECC::Zero;
-        }
+            , beam::IKeyChain::Ptr keychain
+            , const TxDescription& txDesc);
 
 		bool ProcessInvitation(Invite& inviteMsg);
 
@@ -99,9 +91,10 @@ namespace beam::wallet
             struct TxInvitation : public msmf::state<>
             {
                 template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
+                void on_entry(Event const&, Fsm& fsm)
                 {
                     LOG_VERBOSE() << "TxInvitation state";
+                    fsm.sendInvite();
                 }
             };
             struct TxConfirmation : public msmf::state<>
@@ -129,11 +122,7 @@ namespace beam::wallet
                 }
             };
 
-            FSMDefinition(Negotiator& parent)
-                : m_parent{parent}
-            {
-                update_tx_description(TxDescription::Pending);
-            }
+            FSMDefinition(Negotiator& parent);
 
             // transition actions
             void confirmInvitation(const events::TxInvited&);
@@ -148,17 +137,22 @@ namespace beam::wallet
             void completeTx();
             void rollbackTx();
 
+            void sendInvite() const;
+
             Amount get_total() const;
 
             void update_tx_description(TxDescription::Status s);
 
             bool getSenderInputsAndOutputs(const Height& currentHeight, std::vector<Input::Ptr>& inputs, std::vector<Output::Ptr>& outputs);
+            bool prepareSenderUtxos(const Height& currentHeight);
 
 			bool registerTxInternal(const events::TxConfirmationCompleted&);
 			bool confirmPeerInternal(const events::TxInvitationCompleted&);
 
             using do_serialize = int;
             typedef int no_message_queue;
+            typedef msm::active_state_switch_after_transition_action active_state_switch_policy;
+
 
             using initial_state = mpl::vector<TxInitial, TxAllOk>;
             using d = FSMDefinition;
@@ -197,22 +191,38 @@ namespace beam::wallet
             template<typename Archive>
             void serialize(Archive & ar, const unsigned int)
             {
-              //  ar  & m_blindingExcess
-              //      & m_kernel;
+                ar & m_blindingExcess
+                   & m_offset
+                   & m_peerSignature
+                   & m_publicPeerExcess
+                   & m_publicPeerNonce
+                   & m_transaction
+                   & m_kernel;
             }
-            Negotiator& m_parent;
-        };
 
-    private:
-        void createKernel(Amount fee, Height minHeight);
-        Input::Ptr createInput(const Coin& utxo);
-        Output::Ptr createOutput(Amount amount, Height height);
-        ECC::Scalar createSignature();
-        void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce);
-        ECC::Point getPublicExcess();
-        ECC::Point getPublicNonce();
-        bool isValidSignature(const ECC::Scalar& peerSignature);
-        bool isValidSignature(const ECC::Scalar& peerSignature, const ECC::Point& publicPeerNonce, const ECC::Point& publicPeerExcess);
+            void createKernel(Amount fee, Height minHeight);
+            Input::Ptr createInput(const Coin& utxo);
+            Output::Ptr createOutput(Amount amount, Height height);
+            void createOutputUtxo(Amount amount, Height height);
+            ECC::Scalar createSignature();
+            void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce);
+            ECC::Point getPublicExcess() const;
+            ECC::Point getPublicNonce() const;
+            bool isValidSignature(const ECC::Scalar& peerSignature) const;
+            bool isValidSignature(const ECC::Scalar& peerSignature, const ECC::Point& publicPeerNonce, const ECC::Point& publicPeerExcess) const;
+            std::vector<Input::Ptr> getTxInputs(const TxID& txID) const;
+            std::vector<Output::Ptr> getTxOutputs(const TxID& txID) const;
+
+            Negotiator& m_parent;
+
+            ECC::Scalar::Native m_blindingExcess;
+            ECC::Scalar::Native m_offset;
+            ECC::Scalar::Native m_peerSignature;
+            ECC::Point::Native m_publicPeerExcess;
+            ECC::Point::Native m_publicPeerNonce;
+            Transaction::Ptr m_transaction;
+            TxKernel::Ptr m_kernel;
+        };
 
     private:
         using Fsm = msm::back::state_machine<FSMDefinition>;
@@ -222,14 +232,6 @@ namespace beam::wallet
         beam::IKeyChain::Ptr m_keychain;
 
         TxDescription m_txDesc;
-
-        ECC::Scalar::Native m_blindingExcess;
-        ECC::Scalar::Native m_offset;
-        ECC::Scalar::Native m_peerSignature;
-        ECC::Point::Native m_publicPeerExcess;
-        ECC::Point::Native m_publicPeerNonce;
-        Transaction::Ptr m_transaction;
-        TxKernel::Ptr m_kernel;
 
         Fsm m_fsm;
     };
