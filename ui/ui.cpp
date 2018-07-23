@@ -141,13 +141,13 @@ int main (int argc, char* argv[])
 					auto uris = vm[ui::WALLET_ADDR].as<std::vector<std::string>>();
 					AddrList addrList;
 
-					for (auto& const uri : uris)
+					for (const auto& uri : uris)
 					{
 						auto vars = split(uri, '&');
 
 						beam::TxPeer addr;
 
-						for (auto& const var : vars)
+						for (const auto& var : vars)
 						{
 							auto parts = split(var, '=');
 

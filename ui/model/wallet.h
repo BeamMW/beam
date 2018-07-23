@@ -12,6 +12,7 @@ struct IWalletModelAsync
 	using Ptr = std::shared_ptr<IWalletModelAsync>;
 
     virtual void sendMoney(beam::WalletID receiver, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
+	virtual void syncWithNode() = 0;
 
 	virtual ~IWalletModelAsync() {}
 };
@@ -23,12 +24,17 @@ struct WalletStatus
 	beam::Amount sent;
 	beam::Amount unconfirmed;
 
-	beam::Timestamp lastUpdateTime;
+	struct
+	{
+		beam::Timestamp lastTime;
+		int done;
+		int total;
+	} update;
 };
 
 class WalletModel 
 	: public QThread
-	, private beam::IKeyChainObserver
+	, private beam::IWalletObserver
 {
 	Q_OBJECT
 public:
@@ -44,12 +50,14 @@ signals:
 	void onStatus(const WalletStatus& status);
 	void onTxStatus(const std::vector<beam::TxDescription>& history);
 	void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
+	void onSyncProgressUpdated(int done, int total);
 
 private:
 	void onKeychainChanged() override;
 	void onTransactionChanged() override;
 	void onSystemStateChanged() override;
 	void onTxPeerChanged() override;
+	void onSyncProgress(int done, int total) override;
 
 	void onStatusChanged();
 	WalletStatus getStatus() const;

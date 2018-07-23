@@ -37,12 +37,33 @@ Item {
     }
 
     SFText {
+		id: linkBtn
         x: 20
         y: 53
 
         font.pixelSize: 12
         color: Style.bluey_grey
-        text: "Last update time:" + walletViewModel.syncTime
+        linkColor: Style.white
+
+        text: {
+            if(walletViewModel.syncProgress < 0)
+                "Last update time: " + walletViewModel.syncTime + " (<a href=\"update\">update</a>)"
+            else
+                "Updating, please wait... [" + walletViewModel.syncProgress + "%]"
+        }
+
+        onLinkActivated: {
+			if(link == "update")
+			{
+				walletViewModel.syncWithNode()
+			}
+		}
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.NoButton
+            cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
+        }
     }
 
     /////////////////////////////////////////////////////////////
