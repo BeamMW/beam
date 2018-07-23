@@ -1176,6 +1176,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 {
 	fees = 0;
 	size_t nBlockSize = 0;
+	size_t nAmount = 0;
 
 	// due to (potential) inaccuracy in the block size estimation, our rough estimate - take no more than 95% of allowed block size, minus potential UTXOs to consume fees and coinbase.
 	const size_t nRoughExtra = sizeof(ECC::Point) * 2 + sizeof(ECC::RangeProof::Confidential) + sizeof(ECC::RangeProof::Public) + 300;
@@ -1186,8 +1187,17 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	for (TxPool::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
 	{
 		TxPool::Element& x = (it++)->get_ParentObj();
+
+		if (x.m_Profit.m_nSize > nSizeThreshold)
+		{
+			LOG_INFO() << "Tx is very big. It's deleted.";
+			txp.Delete(x);
+			continue;
+		}
+
 		if (nBlockSize + x.m_Profit.m_nSize > nSizeThreshold)
-			break;
+			continue;
+			//break;
 
 		Transaction& tx = *x.m_pValue;
 
@@ -1198,11 +1208,13 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 			fees += x.m_Profit.m_Fee;
 			offset += ECC::Scalar::Native(tx.m_Offset);
 			nBlockSize += x.m_Profit.m_nSize;
-
+			++nAmount;
 		}
 		else
 			txp.Delete(x); // isn't available in this context
 	}
+
+	LOG_INFO() << "GenerateNewBlock: size of block = " << nBlockSize << "; amount of tx = " << nAmount;
 
 	ECC::Scalar::Native kCoinbase, kFee, kKernel;
 	DeriveKeys(m_Kdf, h, fees, kCoinbase, kFee, kKernel, offset);

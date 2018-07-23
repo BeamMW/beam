@@ -55,7 +55,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		m_Generator.GenerateInputInTx(m_ID.m_Height - 70, Rules::get().CoinbaseEmission);
 
 		m_CoinsChecker.Check(CoinsChecker::Inputs{ *m_Generator.GetTransaction().m_Transaction->m_vInputs.front() },
-			[this] (bool isOk)
+			[this] (bool isOk, Height maturity)
 			{
 				if (isOk)
 				{
@@ -79,7 +79,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		if (++m_Counter >= 2)
 		{
 			m_CoinsChecker.Check(m_Generator.GenerateInputsFromOutputs(),
-				[this](bool isOk)
+				[this](bool isOk, Height maturity)
 				{
 					if (isOk)
 					{

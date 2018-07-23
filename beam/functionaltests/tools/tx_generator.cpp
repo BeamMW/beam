@@ -11,10 +11,10 @@ TxGenerator::TxGenerator(const Kdf& kdf)
 	m_MsgTx.m_Transaction->m_Offset = m_Offset;
 }
 
-void TxGenerator::GenerateInputInTx(Height h, Amount v, beam::KeyType keyType)
+void TxGenerator::GenerateInputInTx(Height h, Amount v, beam::KeyType keyType, uint32_t ind)
 {
 	Scalar::Native key;
-	DeriveKey(key, m_Kdf, h, keyType);
+	DeriveKey(key, m_Kdf, h, keyType, ind);
 
 	Input::Ptr pInp(new Input);
 	pInp->m_Commitment = ECC::Commitment(key, v);
@@ -23,12 +23,12 @@ void TxGenerator::GenerateInputInTx(Height h, Amount v, beam::KeyType keyType)
 	m_MsgTx.m_Transaction->m_Offset = m_Offset;
 }
 
-void TxGenerator::GenerateOutputInTx(Height h, Amount v, beam::KeyType keyType, bool isPublic)
+void TxGenerator::GenerateOutputInTx(Height h, Amount v, beam::KeyType keyType, bool isPublic, uint32_t ind)
 {
 	Output::Ptr pOut(new Output);
 	ECC::Scalar::Native key;
 
-	DeriveKey(key, m_Kdf, h, keyType);
+	DeriveKey(key, m_Kdf, h, keyType, ind);
 	pOut->m_Incubation = 2;
 	pOut->Create(key, v, isPublic);
 	m_MsgTx.m_Transaction->m_vOutputs.push_back(std::move(pOut));
@@ -38,7 +38,7 @@ void TxGenerator::GenerateOutputInTx(Height h, Amount v, beam::KeyType keyType, 
 	m_MsgTx.m_Transaction->m_Offset = m_Offset;
 }
 
-void TxGenerator::GenerateKernel(Height h, Amount fee)
+void TxGenerator::GenerateKernel(Height h, Amount fee, uint32_t ind)
 {
 	TxKernel::Ptr pKrn(new TxKernel);
 	Scalar::Native key;
@@ -46,7 +46,7 @@ void TxGenerator::GenerateKernel(Height h, Amount fee)
 	if (fee > 0)
 		pKrn->m_Fee = fee;
 
-	DeriveKey(key, m_Kdf, h, KeyType::Kernel);
+	DeriveKey(key, m_Kdf, h, KeyType::Kernel, ind);
 	pKrn->m_Excess = Point::Native(ECC::Context::get().G * key);
 
 	ECC::Hash::Value hv;

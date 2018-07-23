@@ -7,7 +7,7 @@ class CoinsChecker : public BaseNodeConnection
 {
 public:
 	using Inputs = std::vector<beam::Input>;
-	using Callback = std::function<void(bool)>;
+	using Callback = std::function<void(bool, beam::Height)>;
 public:
 	CoinsChecker(int argc, char* argv[]);
 	void InitChecker();
@@ -26,6 +26,7 @@ protected:
 
 	bool m_IsInitChecker;
 	bool m_IsOk;
+	beam::Height m_Maturity;
 	beam::Merkle::Hash m_Definition;
 	Inputs::const_iterator m_Current;
 	std::deque<std::pair<Inputs, Callback>> m_Queue;

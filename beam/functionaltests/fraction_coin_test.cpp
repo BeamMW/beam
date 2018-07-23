@@ -75,7 +75,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		if (++m_Counter >= 2)
 		{
 			m_CoinsChecker.Check(m_Generator.GenerateInputsFromOutputs(),
-				[](bool isOk) 
+				[](bool isOk, Height maturity) 
 					{
 						if (isOk)
 							LOG_INFO() << "Everythink is Ok";

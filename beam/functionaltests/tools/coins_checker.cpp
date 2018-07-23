@@ -25,6 +25,7 @@ void CoinsChecker::StartChecking()
 {
 	m_Current = m_Queue.front().first.begin();
 	m_IsOk = true;
+	m_Maturity = 0;
 	Send(proto::GetProofUtxo{ *m_Current, 0 });
 }
 
@@ -48,7 +49,7 @@ void CoinsChecker::OnDisconnect(const DisconnectReason& reason)
 	LOG_ERROR() << "problem with connecting to node: code = " << reason;
 	for (const auto& tmp : m_Queue)
 	{
-		tmp.second(false);
+		tmp.second(false, m_Maturity);
 	}
 	m_Queue.clear();
 }
@@ -77,6 +78,7 @@ void CoinsChecker::OnMsg(proto::ProofUtxo&& msg)
 		{
 			if (proof.IsValid(*m_Current, m_Definition))
 			{
+				m_Maturity = std::max(m_Maturity, proof.m_Maturity);
 				isValid = true;
 				break;
 			}
@@ -94,7 +96,7 @@ void CoinsChecker::OnMsg(proto::ProofUtxo&& msg)
 	}
 	else 
 	{
-		m_Queue.front().second(m_IsOk);
+		m_Queue.front().second(m_IsOk, m_Maturity);
 		m_Queue.pop_front();
 		if (!m_Queue.empty())
 			StartChecking();
