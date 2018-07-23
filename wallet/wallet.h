@@ -7,6 +7,11 @@
 
 namespace beam
 {
+	struct IWalletObserver : IKeyChainObserver
+	{
+		virtual void onSyncProgress(int done, int total) = 0;
+	};
+
     struct IWallet
     {
         using Ptr = std::shared_ptr<IWallet>;
@@ -26,6 +31,9 @@ namespace beam
         virtual bool handle_node_message(proto::Proof&& msg) = 0;
 
         virtual void abort_sync() = 0;
+
+		virtual void subscribe(IWalletObserver* observer) = 0;
+		virtual void unsubscribe(IWalletObserver* observer) = 0;
     };
 
     struct INetworkIO 
@@ -109,6 +117,9 @@ namespace beam
 
         void abort_sync() override;
 
+		void subscribe(IWalletObserver* observer) override;
+		void unsubscribe(IWalletObserver* observer) override;
+
         void handle_tx_registered(const TxID& txId, bool res);
         void handle_tx_failed(const TxID& txId);
 
@@ -122,6 +133,7 @@ namespace beam
         bool close_node_connection();
         void register_tx(const TxID& txId, Transaction::Ptr);
         void resume_negotiator(const TxDescription& tx);
+		void notifySyncProgress();
 
         struct Cleaner
         {
@@ -170,5 +182,7 @@ namespace beam
         int m_syncDone;
         int m_syncTotal;
         bool m_synchronized;
+
+		std::vector<IWalletObserver*> m_subscribers;
     };
 }

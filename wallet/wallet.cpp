@@ -524,6 +524,8 @@ namespace beam
         copy(m_reg_requests.begin(), m_reg_requests.end(), back_inserter(m_pending_reg_requests));
         m_reg_requests.clear();
         m_pendingProofs.clear();
+
+		notifySyncProgress();
     }
 
     void Wallet::do_fast_forward()
@@ -594,16 +596,25 @@ namespace beam
                 }
                 m_synchronized = true;
                 m_syncDone = m_syncTotal = 0;
+				notifySyncProgress();
             }
         }
+
         return close_node_connection();
     }
+
+	void Wallet::notifySyncProgress()
+	{
+		for (auto sub : m_subscribers) sub->onSyncProgress(m_syncDone, m_syncTotal);
+	}
 
     void Wallet::report_sync_progress()
     {
         assert(m_syncDone <= m_syncTotal);
         int p = static_cast<int>((m_syncDone * 100) / m_syncTotal);
         LOG_INFO() << "Synchronizing with node: " << p << "% (" << m_syncDone << "/" << m_syncTotal << ")";
+
+		notifySyncProgress();
     }
 
     bool Wallet::close_node_connection()
@@ -646,4 +657,24 @@ namespace beam
             });
         }
     }
+
+	void Wallet::subscribe(IWalletObserver* observer)
+	{
+		assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
+
+		m_subscribers.push_back(observer);
+
+		m_keyChain->subscribe(observer);
+	}
+
+	void Wallet::unsubscribe(IWalletObserver* observer)
+	{
+		auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
+
+		assert(it != m_subscribers.end());
+
+		m_subscribers.erase(it);
+
+		m_keyChain->unsubscribe(observer);
+	}
 }

@@ -81,7 +81,7 @@ QString TxObject::status() const
 
 WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
 	: _model(keychain, port, nodeAddr)
-	, _status{0, 0, 0, 0}
+	, _status{ 0, 0, 0, 0, {0, 0, 0} }
 	, _sendAmount("0")
 	, _sendAmountMils("0")
 	, _receiverAddr("127.0.0.1:8888")
@@ -94,6 +94,9 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const s
 
 	connect(&_model, SIGNAL(onTxPeerUpdated(const std::vector<beam::TxPeer>&)),
 		SLOT(onTxPeerUpdated(const std::vector<beam::TxPeer>&)));
+
+	connect(&_model, SIGNAL(onSyncProgressUpdated(int, int)),
+		SLOT(onSyncProgressUpdated(int, int)));
 
 	_model.start();
 }
@@ -130,9 +133,9 @@ void WalletViewModel::onStatus(const WalletStatus& status)
 		changed = true;
 	}
 
-	if (_status.lastUpdateTime != status.lastUpdateTime)
+	if (_status.update.lastTime != status.update.lastTime)
 	{
-		_status.lastUpdateTime = status.lastUpdateTime;
+		_status.update.lastTime = status.update.lastTime;
 
 		changed = true;
 	}
@@ -158,6 +161,14 @@ void WalletViewModel::onTxPeerUpdated(const std::vector<beam::TxPeer>& peers)
 	_addrList = peers;
 
 	emit addrBookChanged();
+}
+
+void WalletViewModel::onSyncProgressUpdated(int done, int total)
+{
+	_status.update.done = done;
+	_status.update.total = total;
+
+	emit stateChanged();
 }
 
 QString WalletViewModel::available() const
@@ -249,9 +260,19 @@ QVariant WalletViewModel::addrBook() const
 
 QString WalletViewModel::syncTime() const
 {
-	auto time = beam::format_timestamp("%Y.%m.%d %H:%M:%S", local_timestamp_msec(), false);
+	auto time = beam::format_timestamp("%Y.%m.%d %H:%M:%S", _status.update.lastTime * 1000, false);
 
 	return QString::fromStdString(time);
+}
+
+int WalletViewModel::syncProgress() const
+{
+	if (_status.update.total > 0)
+	{
+		return _status.update.done * 100 / _status.update.total;
+	}
+
+	return -1;
 }
 
 void WalletViewModel::sendMoney()
@@ -267,4 +288,9 @@ void WalletViewModel::sendMoney()
     {
         LOG_ERROR() << std::string("unable to resolve receiver address: ") + _receiverAddr;
     }
+}
+
+void WalletViewModel::syncWithNode()
+{
+	_model.async->syncWithNode();
 }

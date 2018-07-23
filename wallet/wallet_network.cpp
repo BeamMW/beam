@@ -235,6 +235,8 @@ namespace beam {
     {
         if (m_is_node_connected == false && !m_node_connection)
         {
+			m_sync_timer->cancel();
+
             create_node_connection();
             m_node_connection->connect(BIND_THIS_MEMFN(on_node_connected));
         }
