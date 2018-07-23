@@ -84,7 +84,6 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const s
 	, _status{ 0, 0, 0, 0, {0, 0, 0} }
 	, _sendAmount("0")
 	, _sendAmountMils("0")
-	, _receiverAddr("127.0.0.1:8888")
     , _keychain(keychain)
 {
 	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
@@ -223,17 +222,6 @@ void WalletViewModel::setSendAmountMils(const QString& amount)
 	}
 }
 
-void WalletViewModel::setReceiverAddr(const QString& text)
-{
-	std::string addr = text.toStdString();
-
-	if (addr != _receiverAddr)
-	{
-		_receiverAddr = addr;
-		emit receiverAddrChanged();
-	}
-}
-
 void WalletViewModel::setSelectedAddr(int index)
 {
 	_selectedAddr = index;
@@ -242,7 +230,11 @@ void WalletViewModel::setSelectedAddr(int index)
 
 QString WalletViewModel::receiverAddr() const
 {
-	return QString(_receiverAddr.c_str());
+	if (_selectedAddr < 0 || _addrList.empty()) return "";
+
+	stringstream str;
+	str << _addrList[_selectedAddr].m_walletID;
+	return QString::fromStdString(str.str());
 }
 
 QVariant WalletViewModel::tx() const
@@ -292,10 +284,6 @@ void WalletViewModel::sendMoney()
         // TODO: show 'operation in process' animation here?
 
         _model.async->sendMoney(addr.m_walletID, std::move(calcSendAmount()));
-    }
-    else
-    {
-        LOG_ERROR() << std::string("unable to resolve receiver address: ") + _receiverAddr;
     }
 }
 

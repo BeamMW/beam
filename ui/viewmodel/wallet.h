@@ -58,7 +58,7 @@ class WalletViewModel : public QObject
 
 	Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
 	Q_PROPERTY(QString sendAmountMils READ sendAmountMils WRITE setSendAmountMils NOTIFY sendAmountMilsChanged)
-	Q_PROPERTY(QString receiverAddr READ receiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
+	Q_PROPERTY(QString receiverAddr READ receiverAddr NOTIFY selectedAddrChanged)
 	Q_PROPERTY(QVariant tx READ tx NOTIFY txChanged)
 	Q_PROPERTY(QVariant addrBook READ addrBook NOTIFY addrBookChanged)
     Q_PROPERTY(int selectedAddr WRITE setSelectedAddr NOTIFY selectedAddrChanged)
@@ -105,7 +105,6 @@ signals:
 
 	void sendAmountChanged();
 	void sendAmountMilsChanged();
-	void receiverAddrChanged();
 	void txChanged();
 	void addrBookChanged();
     void selectedAddrChanged();
@@ -121,7 +120,6 @@ private:
 	QString _sendAmount;
 	QString _sendAmountMils;
 
-	std::string _receiverAddr;
     beam::IKeyChain::Ptr _keychain;
 	TxList _tx;
 
