@@ -607,7 +607,6 @@ namespace beam
                     }
                     m_pendingEvents.clear();
                 }
-
                 notifySyncProgress();
             }
         }
