@@ -111,7 +111,7 @@ signals:
 	void actualAvailableChanged();
 
 private:
-	beam::Amount&& calcSendAmount() const;
+	beam::Amount calcSendAmount() const;
 
 private:
 

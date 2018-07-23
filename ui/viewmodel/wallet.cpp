@@ -271,7 +271,7 @@ int WalletViewModel::syncProgress() const
 	return -1;
 }
 
-beam::Amount&& WalletViewModel::calcSendAmount() const
+beam::Amount WalletViewModel::calcSendAmount() const
 {
 	return _sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt();
 }
