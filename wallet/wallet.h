@@ -25,7 +25,7 @@ namespace beam
         virtual bool handle_node_message(proto::Mined&& msg) = 0;
         virtual bool handle_node_message(proto::Proof&& msg) = 0;
 
-        virtual void stop_sync() = 0;
+        virtual void abort_sync() = 0;
     };
 
     struct INetworkIO 
@@ -107,7 +107,7 @@ namespace beam
         bool handle_node_message(proto::Mined&& msg) override;
         bool handle_node_message(proto::Proof&& msg) override;
 
-        void stop_sync() override;
+        void abort_sync() override;
 
         void handle_tx_registered(const TxID& txId, bool res);
         void handle_tx_failed(const TxID& txId);
@@ -116,7 +116,9 @@ namespace beam
         void remove_peer(const TxID& txId);
         void getUtxoProofs(const std::vector<Coin>& coins);
         void do_fast_forward();
-        bool finish_sync();
+        void enter_sync();
+        bool exit_sync();
+        void report_sync_progress();
         bool close_node_connection();
         void register_tx(const TxID& txId, Transaction::Ptr);
         void resume_negotiator(const TxDescription& tx);
@@ -165,7 +167,8 @@ namespace beam
         Block::SystemState::ID m_newStateID;
         std::unique_ptr<StateFinder> m_stateFinder;
 
-        int m_syncing;
+        int m_syncDone;
+        int m_syncTotal;
         bool m_synchronized;
     };
 }

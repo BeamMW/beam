@@ -553,6 +553,26 @@ void TestSelect()
     }
 }
 
+void TestSelect2()
+{
+    auto db = createSqliteKeychain();
+    const Amount c = 925;
+    vector<Coin> t;
+    t.reserve(c);
+    for (Amount i = 1; i <= c; ++i)
+    {
+        t.emplace_back( 40000000, Coin::Unspent, 1, 10, KeyType::Regular );
+    }
+    db->store(t);
+    {
+        Coin c{ 30000000, Coin::Unspent, 1, 10, KeyType::Regular };
+        db->store(c);
+    }
+     auto coins = db->selectCoins(347000000, false);
+     WALLET_CHECK(coins.size() == 9);
+     WALLET_CHECK(coins[0].m_amount == 30000000);
+}
+
 int main() 
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -569,6 +589,7 @@ int main()
     TestRollback();
     TestPeers();
     TestSelect();
+    TestSelect2();
 
     return WALLET_CHECK_RESULT;
 }

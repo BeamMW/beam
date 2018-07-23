@@ -3,7 +3,7 @@
 #include "utility/logger.h"
 #include "sqlite/sqlite3.h"
 #include <sstream>
-
+#include <boost/functional/hash.hpp>
 #include <boost/filesystem.hpp>
 
 #define NOSEP
@@ -81,6 +81,21 @@
     
 #define PEER_FIELDS ENUM_PEER_FIELDS(LIST, COMMA, )
 
+namespace std 
+{
+    template<> 
+    struct hash<pair<beam::Amount, beam::Amount>>
+    {
+        typedef pair<beam::Amount, beam::Amount> argument_type;
+        typedef std::size_t result_type;
+
+        result_type operator()(const argument_type& a) const noexcept 
+        {
+            return boost::hash<argument_type>()(a);
+        }
+    };
+}
+
 namespace beam
 {
     using namespace std;
@@ -99,49 +114,69 @@ namespace beam
 			throw runtime_error(ss.str());
 		}
 
-        Amount selectImpl(const std::vector<Coin>::iterator& first, const std::vector<Coin>::iterator& last, Amount amount, Amount left, vector<Coin>& res)
+        struct CoinSelector
         {
-            vector<Coin> coins;
-            if (first == last || left < amount || amount == 0)
+            CoinSelector(const std::vector<Coin>& coins)
+                : m_coins{ coins }
+                , m_last{coins.cend()}
+                , m_it{coins.begin()}
+                , m_empty{ 0 ,{} }
             {
-                return 0;
-            }
-            
-            if (amount == left)
-            {
-                copy(first, last, back_inserter(res));
-                return amount;
+
             }
 
-            vector<Coin> coins1, coins2;
-            Amount newLeft = left - first->m_amount;
-            auto sum1 = selectImpl(first + 1, last, amount, newLeft, coins1);
-            
-            auto sum2 = first->m_amount + selectImpl(first + 1, last, amount - first->m_amount, newLeft, coins2);
-
-            bool a = sum2 >= amount;
-            bool b = sum1 >= amount;
-            bool c = sum1 < sum2;
-
-            if (a && b && c || !a && b)
+            const pair<Amount, vector<Coin>>& select(Amount amount
+                                                   , Amount left)
             {
-                for (auto& t : coins1)
+                if (left < amount || amount == 0)
                 {
-                    res.push_back(t);
+                    return m_empty;
                 }
-                return sum1;
-            }
-            else if (a && b && !c || a && !b)
-            {
-                res.push_back(*first);
-                for (auto& t : coins2)
+
+                if (amount == left)
                 {
-                    res.push_back(t);
+                    auto p = m_memory.insert({ { amount, left },{ amount, { m_it, m_last } } });
+                    return p.first->second;
                 }
-                return sum2;
+
+                if (auto it = m_memory.find({ amount, left }); it != m_memory.end())
+                {
+                    return it->second;
+                }
+
+                Amount coinAmount = m_it->m_amount;
+                Amount newLeft = left - coinAmount;
+
+                ++m_it;
+                auto res1 = select(amount, newLeft);
+                auto res2 = select(amount - coinAmount, newLeft);
+                --m_it;
+                auto sum1 = res1.first;
+                auto sum2 = res2.first + coinAmount;
+
+                bool a = sum2 >= amount;
+                bool b = sum1 >= amount;
+                bool c = sum1 < sum2;
+
+                if (a && b && c || !a && b)
+                {
+                    auto p = m_memory.insert({ { amount, left },{ sum1, move(res1.second) } });
+                    return p.first->second;
+                }
+                else if (a && b && !c || a && !b)
+                {
+                    res2.second.push_back(*m_it);
+                    auto p = m_memory.insert({ { amount, left },{ sum2, move(res2.second) } });
+                    return p.first->second;
+                }
+                return m_empty;
             }
-            return 0;
-        }
+            const std::vector<Coin>& m_coins;
+            std::vector<Coin>::const_iterator m_it;
+            const std::vector<Coin>::const_iterator m_last;
+            unordered_map<pair<Amount, Amount>, pair<Amount, vector<Coin>>> m_memory;
+            pair<Amount, vector<Coin>> m_empty;
+        };
 	}
     
 	namespace sqlite
@@ -653,7 +688,10 @@ namespace beam
             }
             if (smallSum > amount)
             {
-                sum = selectImpl(candidats.begin(), candidats.end(), amount, smallSum, coins);
+                CoinSelector s{ candidats };
+                auto t = s.select(amount, smallSum);
+                sum = t.first;
+                coins = t.second;
             }
             else if (smallSum == amount)
             {
@@ -699,7 +737,7 @@ namespace beam
 
 			notifyKeychainChanged();
 		}
-        std::reverse(coins.begin(), coins.end());
+        std::sort(coins.begin(), coins.end(), [](const Coin& lhs, const Coin& rhs) {return lhs.m_amount < rhs.m_amount; });
 		return coins;
 	}
 

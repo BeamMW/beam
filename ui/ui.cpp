@@ -89,7 +89,10 @@ int main (int argc, char* argv[])
 			}
 		}
 
-		auto peers = vm[ui::NODE_PEER].as<std::vector<std::string>>();
+		//if (vm.count(ui::NODE_PEER))
+		//{
+		//	auto peers = vm[ui::NODE_PEER].as<std::vector<std::string>>();
+		//}
 
 		QApplication app(argc, argv);
 
@@ -133,38 +136,41 @@ int main (int argc, char* argv[])
 
 			if (keychain)
 			{
-		        auto uris = vm[ui::WALLET_ADDR].as<std::vector<std::string>>();
-		        AddrList addrList;
+				if (vm.count(ui::WALLET_ADDR))
+				{
+					auto uris = vm[ui::WALLET_ADDR].as<std::vector<std::string>>();
+					AddrList addrList;
 
-		        for (auto& const uri : uris)
-		        {
-			        auto vars = split(uri, '&');
+					for (auto& const uri : uris)
+					{
+						auto vars = split(uri, '&');
 
-			        beam::TxPeer addr;
+						beam::TxPeer addr;
 
-			        for (auto& const var : vars)
-			        {
-				        auto parts = split(var, '=');
+						for (auto& const var : vars)
+						{
+							auto parts = split(var, '=');
 
-				        assert(parts.size() == 2);
+							assert(parts.size() == 2);
 
-				        auto varName = parts[0];
-				        auto varValue = parts[1];
+							auto varName = parts[0];
+							auto varValue = parts[1];
 
-				        if (varName == "label") addr.m_label = varValue;
-                        else if (varName == "ip")
-                        {
-                            addr.m_address = varValue;
-                        }
-                        else if (varName == "hash")
-                        {
-                            ECC::Hash::Processor hp;
-                            hp << varValue.c_str() >> addr.m_walletID;
-                        }
-				        else assert(!"Unknown variable");
-			        }
-                    keychain->addPeer(addr);
-		        }
+							if (varName == "label") addr.m_label = varValue;
+							else if (varName == "ip")
+							{
+								addr.m_address = varValue;
+							}
+							else if (varName == "hash")
+							{
+								ECC::Hash::Processor hp;
+								hp << varValue.c_str() >> addr.m_walletID;
+							}
+							else assert(!"Unknown variable");
+						}
+						keychain->addPeer(addr);
+					}
+				}
 
 				struct ViewModel
 				{
