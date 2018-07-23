@@ -376,7 +376,7 @@ void TestPeers()
     WALLET_CHECK(peers.empty());
     TxPeer peer = {};
     peer.m_walletID = unsigned(1234567890);
-    peer.m_label = u8"test peer פûגא";
+    peer.m_label = u8"test peer";
     auto p = db->getPeer(peer.m_walletID);
     WALLET_CHECK(p.is_initialized() == false);
     peer.m_address = "92.123.10.3:3255";

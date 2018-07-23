@@ -250,7 +250,7 @@ QVariant WalletViewModel::addrBook() const
 {
 	QStringList book;
 
-	for (auto& const item : _addrList)
+	for (const auto& item : _addrList)
 	{
 		book.append(QString::fromStdString(item.m_label));
 	}
