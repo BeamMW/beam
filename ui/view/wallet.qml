@@ -150,7 +150,7 @@ Item {
                         y: 140
                         width: parent.width
                         height: 206
-                        value: walletViewModel.available*1 - (walletViewModel.sendAmount*1 + walletViewModel.sendAmountMils/1000000)
+                        value: walletViewModel.actualAvailable
                     }                    
                 }
 

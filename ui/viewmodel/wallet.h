@@ -66,6 +66,8 @@ class WalletViewModel : public QObject
 	Q_PROPERTY(QString syncTime READ syncTime NOTIFY stateChanged)
 	Q_PROPERTY(int syncProgress READ syncProgress NOTIFY stateChanged)
 
+	Q_PROPERTY(QString actualAvailable READ actualAvailable NOTIFY actualAvailableChanged)
+
 public:
 	using TxList = QList<QObject*>;
 
@@ -83,6 +85,7 @@ public:
 	QVariant addrBook() const;
 	QString syncTime() const;
 	int syncProgress() const;
+	QString actualAvailable() const;
 
 	void setSendAmount(const QString& text);
 	void setSendAmountMils(const QString& text);
@@ -106,6 +109,10 @@ signals:
 	void txChanged();
 	void addrBookChanged();
     void selectedAddrChanged();
+	void actualAvailableChanged();
+
+private:
+	beam::Amount&& calcSendAmount() const;
 
 private:
 

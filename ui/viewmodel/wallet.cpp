@@ -110,6 +110,8 @@ void WalletViewModel::onStatus(const WalletStatus& status)
 		_status.available = status.available;
 
 		changed = true;
+
+		emit actualAvailableChanged();
 	}
 
 	if (_status.received != status.received)
@@ -207,6 +209,7 @@ void WalletViewModel::setSendAmount(const QString& amount)
 	{
 		_sendAmount = amount;
 		emit sendAmountChanged();
+		emit actualAvailableChanged();
 	}
 }
 
@@ -216,6 +219,7 @@ void WalletViewModel::setSendAmountMils(const QString& amount)
 	{
 		_sendAmountMils = amount;
 		emit sendAmountMilsChanged();
+		emit actualAvailableChanged();
 	}
 }
 
@@ -275,6 +279,11 @@ int WalletViewModel::syncProgress() const
 	return -1;
 }
 
+beam::Amount&& WalletViewModel::calcSendAmount() const
+{
+	return _sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt();
+}
+
 void WalletViewModel::sendMoney()
 {
     if (_selectedAddr > -1)
@@ -282,7 +291,7 @@ void WalletViewModel::sendMoney()
         auto& addr = _addrList[_selectedAddr];
         // TODO: show 'operation in process' animation here?
 
-        _model.async->sendMoney(addr.m_walletID, std::move(_sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt()));
+        _model.async->sendMoney(addr.m_walletID, std::move(calcSendAmount()));
     }
     else
     {
@@ -293,4 +302,9 @@ void WalletViewModel::sendMoney()
 void WalletViewModel::syncWithNode()
 {
 	_model.async->syncWithNode();
+}
+
+QString WalletViewModel::actualAvailable() const
+{
+	return BeamToString(_status.available - calcSendAmount());
 }
