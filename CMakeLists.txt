@@ -92,6 +92,7 @@ add_subdirectory(sqlite)
 add_subdirectory(beam)
 add_subdirectory(bbs)
 
-if(NOT LINUX)
+# TODO: UI can't be built with static runtime
+if(NOT ${BEAM_USE_STATIC})
 	add_subdirectory(ui)
 endif()
