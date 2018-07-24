@@ -12,22 +12,17 @@ namespace
 
 	QString BeamToString(const Amount& value)
 	{
-		auto str = std::to_string(value / Rules::Coin);
+		auto str = std::to_string(double(int64_t(value)) / Rules::Coin);
 
-		int fraction = value % Rules::Coin;
-
-		if (fraction)
-		{
-			std::stringstream fracStream;
-			fracStream << std::setw(log10(Rules::Coin)) << std::setfill('0') << fraction;
-
-			auto fracString = fracStream.str();
-			fracString.erase(fracString.find_last_not_of('0') + 1, std::string::npos);
-
-			str += "." + fracString;
-		}
+		str.erase(str.find_last_not_of('0') + 1, std::string::npos);
+		str.erase(str.find_last_not_of('.') + 1, std::string::npos);
 
 		return QString::fromStdString(str);
+	}
+
+	inline void ltrim(std::string &s, char sym) 
+	{
+    	s.erase(s.begin(), std::find_if(s.begin(), s.end(), [sym](char ch) {return ch != sym;}));
 	}
 }
 
@@ -48,7 +43,9 @@ QString TxObject::date() const
 
 QString TxObject::user() const
 {
-	return QString::fromStdString(std::to_string(_tx.m_peerId));
+	auto id = std::to_string(_tx.m_peerId);
+	ltrim(id, '0');
+	return QString::fromStdString(id);
 }
 
 QString TxObject::comment() const
@@ -269,6 +266,11 @@ int WalletViewModel::syncProgress() const
 	}
 
 	return -1;
+}
+
+int WalletViewModel::selectedAddr() const
+{
+	return _selectedAddr;
 }
 
 beam::Amount WalletViewModel::calcSendAmount() const

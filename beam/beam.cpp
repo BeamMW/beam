@@ -289,25 +289,46 @@ static const unsigned LOG_ROTATION_PERIOD = 3*60*60*1000; // 3 hours
 
 int main_impl(int argc, char* argv[])
 {
-    int logLevel = LOG_LEVEL_DEBUG;
-    int fileLogLevel = LOG_LEVEL_INFO;
-#if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
-#endif
-    auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_");
     auto options = createOptionsDescription();
 
-    try
-    {
-        po::variables_map vm = getOptions(argc, argv, "beam.cfg", options);
+    po::variables_map vm = getOptions(argc, argv, "beam.cfg", options);
 
-        if (vm.count(cli::HELP))
-        {
-            printHelp(options);
+#ifdef WIN32
+	char szLocalDir[] = ".\\";
+	char szTempDir[MAX_PATH] = { 0 };
+	GetTempPath(_countof(szTempDir), szTempDir);
 
-            return 0;
-        }
+#else // WIN32
+	char szLocalDir[] = "./";
+	char szTempDir[] = "/tmp/";
+#endif // WIN32
 
+	if (vm.count(cli::HELP))
+	{
+		printHelp(options);
+
+		return 0;
+	}
+
+	// init logger here to determine node/wallet name
+
+	int logLevel = LOG_LEVEL_DEBUG;
+	int fileLogLevel = LOG_LEVEL_INFO;
+#if LOG_VERBOSE_ENABLED
+	logLevel = LOG_LEVEL_VERBOSE;
+#endif
+	std::string prefix = "beam_";
+	if (vm.count(cli::MODE))
+	{
+		auto mode = vm[cli::MODE].as<string>();
+		if (mode == cli::NODE) prefix += "node_";
+		else if (mode == cli::WALLET) prefix += "wallet_";
+	}
+
+	auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, prefix);
+
+	try
+	{
         po::notify(vm);
 
 		Rules::get().UpdateChecksum();
