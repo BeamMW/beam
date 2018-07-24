@@ -55,7 +55,13 @@ namespace
 
 int main (int argc, char* argv[])
 {
-	auto logger = Logger::create();
+	int logLevel = LOG_LEVEL_DEBUG;
+	int fileLogLevel = LOG_LEVEL_INFO;
+#if LOG_VERBOSE_ENABLED
+	logLevel = LOG_LEVEL_VERBOSE;
+#endif
+
+	auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_");
 
 	try
 	{
