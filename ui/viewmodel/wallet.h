@@ -61,7 +61,7 @@ class WalletViewModel : public QObject
 	Q_PROPERTY(QString receiverAddr READ receiverAddr NOTIFY selectedAddrChanged)
 	Q_PROPERTY(QVariant tx READ tx NOTIFY txChanged)
 	Q_PROPERTY(QVariant addrBook READ addrBook NOTIFY addrBookChanged)
-    Q_PROPERTY(int selectedAddr WRITE setSelectedAddr NOTIFY selectedAddrChanged)
+    Q_PROPERTY(int selectedAddr READ selectedAddr WRITE setSelectedAddr NOTIFY selectedAddrChanged)
 
 	Q_PROPERTY(QString syncTime READ syncTime NOTIFY stateChanged)
 	Q_PROPERTY(int syncProgress READ syncProgress NOTIFY stateChanged)
@@ -86,6 +86,7 @@ public:
 	QString syncTime() const;
 	int syncProgress() const;
 	QString actualAvailable() const;
+	int selectedAddr() const;
 
 	void setSendAmount(const QString& text);
 	void setSendAmountMils(const QString& text);
@@ -115,6 +116,8 @@ private:
 
 private:
 
+	WalletModel _model;
+
 	WalletStatus _status;
 
 	QString _sendAmount;
@@ -123,7 +126,6 @@ private:
     beam::IKeyChain::Ptr _keychain;
 	TxList _tx;
 
-	WalletModel _model;
 	std::vector<beam::TxPeer> _addrList;
 
     int _selectedAddr;

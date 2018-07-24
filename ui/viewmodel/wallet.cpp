@@ -29,6 +29,11 @@ namespace
 
 		return QString::fromStdString(str);
 	}
+
+	inline void ltrim(std::string &s, char sym) 
+	{
+    	s.erase(s.begin(), std::find_if(s.begin(), s.end(), [sym](char ch) {return ch != sym;}));
+	}
 }
 
 TxObject::TxObject(const TxDescription& tx) : _tx(tx) {}
@@ -48,7 +53,9 @@ QString TxObject::date() const
 
 QString TxObject::user() const
 {
-	return QString::fromStdString(std::to_string(_tx.m_peerId));
+	auto id = std::to_string(_tx.m_peerId);
+	ltrim(id, '0');
+	return QString::fromStdString(id);
 }
 
 QString TxObject::comment() const
@@ -269,6 +276,11 @@ int WalletViewModel::syncProgress() const
 	}
 
 	return -1;
+}
+
+int WalletViewModel::selectedAddr() const
+{
+	return _selectedAddr;
 }
 
 beam::Amount WalletViewModel::calcSendAmount() const
