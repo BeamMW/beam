@@ -909,7 +909,7 @@ namespace ECC {
 						const Prepared::Secure& x = m_ppPrepared[iEntry]->m_Secure;
 						const Scalar::Native::uint n = m_pKPrep[iEntry].get().d[iWord];
 
-						int nVal = (n >> (iLayerPrep * Prepared::Secure::nBits)) & ((1 << Prepared::Secure::nBits) - 1);
+						size_t nVal = (n >> (iLayerPrep * Prepared::Secure::nBits)) & ((1 << Prepared::Secure::nBits) - 1);
 
 						for (size_t i = 0; i < _countof(x.m_pPt); i++)
 							Generator::object_cmov(ge_s.V, x.m_pPt[i], i == nVal);

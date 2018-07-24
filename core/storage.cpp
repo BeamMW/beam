@@ -43,7 +43,7 @@ void RadixTree::DeleteNode(Node* p)
 	{
 		Joint* p1 = (Joint*) p;
 
-		for (int i = 0; i < _countof(p1->m_ppC); i++)
+		for (size_t i = 0; i < _countof(p1->m_ppC); i++)
 			DeleteNode(p1->m_ppC[i]);
 
 		DeleteJoint(p1);
@@ -98,7 +98,7 @@ void RadixTree::ReplaceTip(CursorBase& cu, Node* pNew)
 		Joint* pPrev = (Joint*) cu.m_pp[cu.m_nPtrs - 2];
 		assert(pPrev);
 
-		for (int i = 0; ; i++)
+		for (size_t i = 0; ; i++)
 		{
 			assert(i < _countof(pPrev->m_ppC));
 			if (pPrev->m_ppC[i] == pOld)
@@ -258,7 +258,7 @@ void RadixTree::Delete(CursorBase& cu)
 		cu.m_nPtrs--;
 
 		Joint* pPrev = (Joint*) cu.m_pp[cu.m_nPtrs - 1];
-		for (int i = 0; ; i++)
+		for (size_t i = 0; ; i++)
 		{
 			assert(i < _countof(pPrev->m_ppC));
 			Node* p = pPrev->m_ppC[i];
@@ -298,7 +298,7 @@ bool RadixTree::Traverse(const Node& n, ITraveler& t) const
 	{
 		const uint8_t* pK = get_NodeKey(n);
 
-		for (int iBound = 0; iBound < _countof(t.m_pBound); iBound++)
+		for (size_t iBound = 0; iBound < _countof(t.m_pBound); iBound++)
 		{
 			const uint8_t*& pB = t.m_pBound[iBound];
 			if (!pB)
@@ -337,7 +337,7 @@ bool RadixTree::Traverse(const Node& n, ITraveler& t) const
 			t.m_pCu->m_nPtrs = nPtrs;
 		}
 
-		for (int iBound = 0; iBound < _countof(t.m_pBound); iBound++)
+		for (size_t iBound = 0; iBound < _countof(t.m_pBound); iBound++)
 		{
 			const uint8_t*& pB = t.m_pBound[iBound];
 			if (i)
@@ -453,7 +453,7 @@ const Merkle::Hash& RadixHashTree::get_Hash(Node& n, Merkle::Hash& hv)
 	{
 		ECC::Hash::Processor hp;
 
-		for (int i = 0; i < _countof(x.m_ppC); i++)
+		for (size_t i = 0; i < _countof(x.m_ppC); i++)
 		{
 			ECC::Hash::Value hv;
 			hp << get_Hash(*x.m_ppC[i], hv);
@@ -596,7 +596,7 @@ UtxoTree::Key::Data& UtxoTree::Key::Data::operator = (const Key& key)
 	m_Commitment.m_Y	= (1 & (pKey[0] >> 7)) != 0;
 
 	m_Maturity = 0;
-	for (int i = 0; i < sizeof(m_Maturity); i++, pKey++)
+	for (size_t i = 0; i < sizeof(m_Maturity); i++, pKey++)
 		m_Maturity = (m_Maturity << 8) | (pKey[0] << 1) | (pKey[1] >> 7);
 
 	return *this;
@@ -612,7 +612,7 @@ UtxoTree::Key& UtxoTree::Key::operator = (const Data& d)
 	if (d.m_Commitment.m_Y)
 		pKey[0] |= (1 << 7);
 
-	for (int i = 0; i < sizeof(d.m_Maturity); i++)
+	for (size_t i = 0; i < sizeof(d.m_Maturity); i++)
 	{
 		uint8_t val = uint8_t(d.m_Maturity >> ((sizeof(d.m_Maturity) - i - 1) << 3));
 		pKey[i] |= val >> 1;

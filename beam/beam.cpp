@@ -11,11 +11,11 @@
 #include "utility/options.h"
 #include <iomanip>
 
+#include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <iterator>
 #include <future>
 
-namespace po = boost::program_options;
 using namespace std;
 using namespace beam;
 using namespace ECC;
@@ -95,7 +95,7 @@ namespace
 		if (sPath.empty())
 			return false;
 
-		std::FStream f;
+		std::FStream f; 
 		if (!f.Open(sPath.c_str(), true))
 			return false;
 
@@ -292,16 +292,6 @@ int main_impl(int argc, char* argv[])
     auto options = createOptionsDescription();
 
     po::variables_map vm = getOptions(argc, argv, "beam.cfg", options);
-
-#ifdef WIN32
-	char szLocalDir[] = ".\\";
-	char szTempDir[MAX_PATH] = { 0 };
-	GetTempPath(_countof(szTempDir), szTempDir);
-
-#else // WIN32
-	char szLocalDir[] = "./";
-	char szTempDir[] = "/tmp/";
-#endif // WIN32
 
 	if (vm.count(cli::HELP))
 	{

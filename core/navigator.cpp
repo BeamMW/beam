@@ -569,7 +569,7 @@ namespace beam
 			m_Height += ti.m_Height; //?
 		}
 
-		for (int i = 0; i < _countof(m_Tag.m_pData); i++)
+		for (size_t i = 0; i < _countof(m_Tag.m_pData); i++)
 			m_Tag.m_pData[i] ^= ti.m_Tag.m_pData[i];
 	}
 
@@ -578,7 +578,7 @@ namespace beam
 		const FixedHdr& hdr = get_Hdr();
 
 		const uint8_t* p = (uint8_t*) &hdr.m_Root.m_Diff;
-		for (int i = 0; i < sizeof(hdr.m_Root.m_Diff); i++)
+		for (size_t i = 0; i < sizeof(hdr.m_Root.m_Diff); i++)
 			assert_valid(!p[i]); // 1st tag is zero
 
 		assert_valid(!hdr.m_Root.m_Parent);

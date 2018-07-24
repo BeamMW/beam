@@ -118,8 +118,8 @@ namespace beam
         {
             CoinSelector(const std::vector<Coin>& coins)
                 : m_coins{ coins }
-                , m_last{coins.cend()}
                 , m_it{coins.begin()}
+                , m_last{coins.cend()}
                 , m_empty{ 0 ,{} }
             {
 
@@ -158,12 +158,12 @@ namespace beam
                 bool b = sum1 >= amount;
                 bool c = sum1 < sum2;
 
-                if (a && b && c || !a && b)
+                if ((a && b && c) || (!a && b))
                 {
                     auto p = m_memory.insert({ { amount, left },{ sum1, move(res1.second) } });
                     return p.first->second;
                 }
-                else if (a && b && !c || a && !b)
+                else if ((a && b && !c) || (a && !b))
                 {
                     res2.second.push_back(*m_it);
                     auto p = m_memory.insert({ { amount, left },{ sum2, move(res2.second) } });

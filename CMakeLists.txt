@@ -34,7 +34,7 @@ if(MSVC)
 	SET(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "${CMAKE_EXE_LINKER_FLAGS_MINSIZEREL} /OPT:REF /INCREMENTAL:NO")
 
 
-	if(${BEAM_USE_STATIC})
+	if(BEAM_USE_STATIC)
 		# use static runtime
 		foreach(flag_var CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
 			CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
@@ -58,7 +58,7 @@ if(UNIX OR WIN32)
     add_definitions(-DUV_INTERNAL)
 endif()
 
-if(${BEAM_USE_STATIC})
+if(BEAM_USE_STATIC)
 	include(FindBoost)
 
 	set(Boost_USE_MULTITHREADED ON)
@@ -93,6 +93,6 @@ add_subdirectory(beam)
 add_subdirectory(bbs)
 
 # TODO: UI can't be built with static runtime
-if(NOT ${BEAM_USE_STATIC})
+if(BEAM_USE_STATIC)
 	add_subdirectory(ui)
 endif()

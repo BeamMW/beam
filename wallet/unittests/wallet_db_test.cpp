@@ -432,7 +432,6 @@ void TestSelect()
         Coin c{ i, Coin::Unspent, 1, 10, KeyType::Regular };
         db->store(c);
     }
-    auto c2 = c * 2;
     for (Amount i = 1; i <= c; ++i)
     {
         auto coins = db->selectCoins(i, false);
@@ -451,7 +450,7 @@ void TestSelect()
     {
         auto coins = db->selectCoins(i, false);
         WALLET_CHECK(!coins.empty());
-        auto sum = accumulate(coins.begin(), coins.end(), 0, [](const auto& left, const auto& right) {return left + right.m_amount; });
+        auto sum = accumulate(coins.begin(), coins.end(), Amount(0), [](const auto& left, const auto& right) {return left + right.m_amount; });
         WALLET_CHECK(sum == i);
     }
 

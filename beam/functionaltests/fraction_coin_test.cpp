@@ -78,9 +78,13 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 				[](bool isOk, Height maturity) 
 					{
 						if (isOk)
+						{
 							LOG_INFO() << "Everythink is Ok";
+						}
 						else
+						{
 							LOG_INFO() << "Everythink is Failed";
+						}
 						io::Reactor::get_Current().stop();
 					}
 			);

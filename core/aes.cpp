@@ -439,7 +439,7 @@ uint32_t KT3[256];
 void AES::Encoder::Init(const uint8_t* pKey)
 {
 	int i;
-	uint32_t *RK, *SK;
+	uint32_t *RK;
 
 	if (do_init)
 	{
