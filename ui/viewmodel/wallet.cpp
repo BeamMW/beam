@@ -12,20 +12,10 @@ namespace
 
 	QString BeamToString(const Amount& value)
 	{
-		auto str = std::to_string(value / Rules::Coin);
+		auto str = std::to_string(double(int64_t(value)) / Rules::Coin);
 
-		int fraction = value % Rules::Coin;
-
-		if (fraction)
-		{
-			std::stringstream fracStream;
-			fracStream << std::setw(log10(Rules::Coin)) << std::setfill('0') << fraction;
-
-			auto fracString = fracStream.str();
-			fracString.erase(fracString.find_last_not_of('0') + 1, std::string::npos);
-
-			str += "." + fracString;
-		}
+		str.erase(str.find_last_not_of('0') + 1, std::string::npos);
+		str.erase(str.find_last_not_of('.') + 1, std::string::npos);
 
 		return QString::fromStdString(str);
 	}
