@@ -3,6 +3,7 @@ set(UTILITY_SRC
     logger_checkpoints.cpp
     helpers.cpp
     config.cpp
+	options.cpp
 # ~etc
 )
 

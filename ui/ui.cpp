@@ -16,7 +16,7 @@
 
 #include "translator.h"
 
-#include <boost/program_options.hpp>
+#include "utility/options.h"
 
 namespace po = boost::program_options;
 
@@ -24,31 +24,20 @@ using namespace beam;
 using namespace std;
 using namespace ECC;
 
-// TODO: use programm options from beam.cpp
-namespace ui
-{
-	const char* PORT = "port";
-	const char* WALLET_PASS = "pass";
-	const char* NODE_ADDR = "node_addr";
-	const char* FAKE_POW = "FakePoW";
-	const char* NODE_PEER = "peer";
-	const char* WALLET_ADDR = "addr";
-}
-
 namespace
 {
 	template<typename Out>
-	void split(const std::string &s, char delim, Out result) {
-		std::stringstream ss(s);
-		std::string item;
-		while (std::getline(ss, item, delim)) {
+	void split(const string &s, char delim, Out result) {
+		stringstream ss(s);
+		string item;
+		while (getline(ss, item, delim)) {
 			*(result++) = item;
 		}
 	}
 
-	std::vector<std::string> split(const std::string &s, char delim) {
-		std::vector<std::string> elems;
-		split(s, delim, std::back_inserter(elems));
+	vector<string> split(const string &s, char delim) {
+		vector<string> elems;
+		split(s, delim, back_inserter(elems));
 		return elems;
 	}
 }
@@ -59,47 +48,26 @@ int main (int argc, char* argv[])
 
 	try
 	{
-		po::options_description rules("UI options");
-		rules.add_options()
-			(ui::PORT, po::value<uint16_t>())
-			(ui::WALLET_PASS, po::value<string>())
-			(ui::NODE_ADDR, po::value<string>())
-			(ui::FAKE_POW, po::value<bool>()->default_value(Rules::get().FakePoW))
-			(ui::NODE_PEER, po::value<vector<string>>()->multitoken())
-			(ui::WALLET_ADDR, po::value<vector<string>>()->multitoken());
+        po::options_description options = createOptionsDescription();
+		
+		po::variables_map vm = getOptions(argc, argv, "beam-ui.cfg", options);
 
-		po::options_description options{ "Allowed options" };
-		options.add(rules);
+        if (vm.count(cli::HELP))
+        {
+            cout << options << std::endl;
+        }
 
-		po::variables_map vm;
-
-		{
-			static const char* WalletDB = "beam-ui.cfg";
-
-			std::ifstream cfg(WalletDB);
-
-			if (cfg)
-			{
-				po::store(po::parse_config_file(cfg, options), vm);
-			}
-			else
-			{
-				LOG_ERROR() << WalletDB << " not found!";
-				return -1;
-			}
-		}
-
-		//if (vm.count(ui::NODE_PEER))
+		//if (vm.count(cli::NODE_PEER))
 		//{
-		//	auto peers = vm[ui::NODE_PEER].as<std::vector<std::string>>();
+		//	auto peers = vm[cli::NODE_PEER].as<vector<string>>();
 		//}
 
 		QApplication app(argc, argv);
 
 		string pass;
-		if (vm.count(ui::WALLET_PASS))
+		if (vm.count(cli::PASS))
 		{
-			pass = vm[ui::WALLET_PASS].as<string>();
+			pass = vm[cli::PASS].as<string>();
 		}
 		else
 		{
@@ -107,19 +75,17 @@ int main (int argc, char* argv[])
 			return -1;
 		}
 
-		if (!vm.count(ui::NODE_ADDR))
+		if (!vm.count(cli::NODE_ADDR))
 		{
 			LOG_ERROR() << "Please, provide node address!";
 			return -1;
 		}
 
-		if (!vm.count(ui::PORT))
+		if (!vm.count(cli::PORT))
 		{
 			LOG_ERROR() << "Please, provide port!";
 			return -1;
 		}
-
-		Rules::get().FakePoW = vm[ui::FAKE_POW].as<bool>();
 
 		Rules::get().UpdateChecksum();
 		LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
@@ -136,9 +102,9 @@ int main (int argc, char* argv[])
 
 			if (keychain)
 			{
-				if (vm.count(ui::WALLET_ADDR))
+				if (vm.count(cli::WALLET_ADDR))
 				{
-					auto uris = vm[ui::WALLET_ADDR].as<std::vector<std::string>>();
+					auto uris = vm[cli::WALLET_ADDR].as<vector<string>>();
 					AddrList addrList;
 
 					for (const auto& uri : uris)
@@ -184,7 +150,7 @@ int main (int argc, char* argv[])
 					ViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr) 
 						: wallet(keychain, port, nodeAddr) {}
 
-				} viewModel(keychain, vm[ui::PORT].as<uint16_t>(), vm[ui::NODE_ADDR].as<string>());
+				} viewModel(keychain, vm[cli::PORT].as<uint16_t>(), vm[cli::NODE_ADDR].as<string>());
 
 				Translator translator;
 

@@ -530,87 +530,93 @@ namespace beam
 
 	IKeyChain::Ptr Keychain::open(const string& path, const string& password)
 	{
-        // TODO: add version check
-		if (boost::filesystem::exists(path))
-		{
-			ECC::NoLeak<ECC::uintBig> seed;
-			seed.V = ECC::Zero;
-			auto keychain = make_shared<Keychain>(seed);
-
-			{
-				int ret = sqlite3_open_v2(path.c_str(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
-				throwIfError(ret, keychain->_db);
-			}
-
-			{
-				int ret = sqlite3_key(keychain->_db, password.c_str(), password.size());
-				throwIfError(ret, keychain->_db);
-			}
-			{
-				int ret = sqlite3_busy_timeout(keychain->_db, BusyTimeoutMs);
-				throwIfError(ret, keychain->_db);
-			}
+        try
+        {
+            if (boost::filesystem::exists(path))
             {
-                int version = 0;
-                if (!keychain->getVar(Version, version) || version != DbVersion)
+                ECC::NoLeak<ECC::uintBig> seed;
+                seed.V = ECC::Zero;
+                auto keychain = make_shared<Keychain>(seed);
+
                 {
-                    LOG_DEBUG() << "Invalid DB version: " << version << ". Expected: " << DbVersion;
-                    return Ptr();
+                    int ret = sqlite3_open_v2(path.c_str(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
+                    throwIfError(ret, keychain->_db);
                 }
-            }
-			{
-				const char* req = "SELECT name FROM sqlite_master WHERE type='table' AND name='" STORAGE_NAME "';";
-				int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
-				if (ret != SQLITE_OK)
-				{
-					LOG_ERROR() << "Invalid DB or wrong password :(";
-					return Ptr();
-				}
-			}
 
-			{
-				const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME ";";
-				int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
-				if (ret != SQLITE_OK)
-				{
-					LOG_ERROR() << "Invalid DB format :(";
-					return Ptr();
-				}
-			}
-
-			{
-				const char* req = "SELECT " VARIABLES_FIELDS " FROM " VARIABLES_NAME ";";
-				int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
-				if (ret != SQLITE_OK)
-				{
-					LOG_ERROR() << "Invalid DB format :(";
-					return Ptr();
-				}
-			}
-
-            {
-                const char* req = "SELECT " HISTORY_FIELDS " FROM " HISTORY_NAME ";";
-                int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
-                if (ret != SQLITE_OK)
                 {
-                    LOG_ERROR() << "Invalid DB format :(";
-                    return Ptr();
+                    int ret = sqlite3_key(keychain->_db, password.c_str(), password.size());
+                    throwIfError(ret, keychain->_db);
                 }
+                {
+                    int ret = sqlite3_busy_timeout(keychain->_db, BusyTimeoutMs);
+                    throwIfError(ret, keychain->_db);
+                }
+                {
+                    int version = 0;
+                    if (!keychain->getVar(Version, version) || version != DbVersion)
+                    {
+                        LOG_DEBUG() << "Invalid DB version: " << version << ". Expected: " << DbVersion;
+                        return Ptr();
+                    }
+                }
+                {
+                    const char* req = "SELECT name FROM sqlite_master WHERE type='table' AND name='" STORAGE_NAME "';";
+                    int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                    if (ret != SQLITE_OK)
+                    {
+                        LOG_ERROR() << "Invalid DB or wrong password :(";
+                        return Ptr();
+                    }
+                }
+
+                {
+                    const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME ";";
+                    int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                    if (ret != SQLITE_OK)
+                    {
+                        LOG_ERROR() << "Invalid DB format :(";
+                        return Ptr();
+                    }
+                }
+
+                {
+                    const char* req = "SELECT " VARIABLES_FIELDS " FROM " VARIABLES_NAME ";";
+                    int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                    if (ret != SQLITE_OK)
+                    {
+                        LOG_ERROR() << "Invalid DB format :(";
+                        return Ptr();
+                    }
+                }
+
+                {
+                    const char* req = "SELECT " HISTORY_FIELDS " FROM " HISTORY_NAME ";";
+                    int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                    if (ret != SQLITE_OK)
+                    {
+                        LOG_ERROR() << "Invalid DB format :(";
+                        return Ptr();
+                    }
+                }
+
+                if (keychain->getVar(WalletSeed, seed))
+                {
+                    keychain->m_kdf.m_Secret = seed;
+                }
+                else
+                {
+                    assert(false && "there is no seed for keychain");
+                }
+
+                return static_pointer_cast<IKeyChain>(keychain);
             }
 
-			if (keychain->getVar(WalletSeed, seed))
-			{
-				keychain->m_kdf.m_Secret = seed;
-			}
-			else
-			{
-				assert(false && "there is no seed for keychain");
-			}
+            LOG_ERROR() << path << " not found, please init the wallet before.";
+        }
+        catch (const runtime_error&)
+        {
 
-			return static_pointer_cast<IKeyChain>(keychain);
-		}
-
-		LOG_ERROR() << path << " not found, please init the wallet before.";
+        }
 
 		return Ptr();
 	}
