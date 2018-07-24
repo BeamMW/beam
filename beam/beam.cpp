@@ -327,13 +327,6 @@ static const unsigned LOG_ROTATION_PERIOD = 3*60*60*1000; // 3 hours
 
 int main_impl(int argc, char* argv[])
 {
-    int logLevel = LOG_LEVEL_DEBUG;
-    int fileLogLevel = LOG_LEVEL_INFO;
-#if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
-#endif
-    auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_");
-
 #ifdef WIN32
 	char szLocalDir[] = ".\\";
 	char szTempDir[MAX_PATH] = { 0 };
@@ -404,31 +397,48 @@ int main_impl(int argc, char* argv[])
     po::positional_options_description pos;
     pos.add(cli::MODE, 1);
 
-    try
-    {
-        po::variables_map vm;
+	po::variables_map vm;
 
+	{
+		std::ifstream cfg("beam.cfg");
+
+		if (cfg)
 		{
-			std::ifstream cfg("beam.cfg");
-
-			if (cfg)
-			{
-				po::store(po::parse_config_file(cfg, options), vm);
-			}
+			po::store(po::parse_config_file(cfg, options), vm);
 		}
+	}
 
-        po::store(po::command_line_parser(argc, argv)
-            .options(options)
-            .positional(pos)
-            .run(), vm);
+	po::store(po::command_line_parser(argc, argv)
+		.options(options)
+		.positional(pos)
+		.run(), vm);
 
-        if (vm.count(cli::HELP))
-        {
-            printHelp(options);
+	if (vm.count(cli::HELP))
+	{
+		printHelp(options);
 
-            return 0;
-        }
+		return 0;
+	}
 
+	// init logger here to determine node/wallet name
+
+	int logLevel = LOG_LEVEL_DEBUG;
+	int fileLogLevel = LOG_LEVEL_INFO;
+#if LOG_VERBOSE_ENABLED
+	logLevel = LOG_LEVEL_VERBOSE;
+#endif
+	std::string prefix = "beam_";
+	if (vm.count(cli::MODE))
+	{
+		auto mode = vm[cli::MODE].as<string>();
+		if (mode == cli::NODE) prefix += "node_";
+		else if (mode == cli::WALLET) prefix += "wallet_";
+	}
+
+	auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, prefix);
+
+	try
+	{
         po::notify(vm);
 
 #define THE_MACRO(type, name, comment) Rules::get().name = vm[#name].as<type>();
