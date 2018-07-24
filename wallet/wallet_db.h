@@ -4,6 +4,7 @@
 #include "core/common.h"
 #include "core/ecc_native.h"
 #include "wallet/common.h"
+#include "utility/io/address.h"
 
 struct sqlite3;
 
@@ -37,8 +38,15 @@ namespace beam
         Height m_confirmHeight; 
         Merkle::Hash m_confirmHash;
         Height m_lockedHeight;
-        boost::optional<Uuid> m_createTxId;
-        boost::optional<Uuid> m_spentTxId;
+        boost::optional<TxID> m_createTxId;
+        boost::optional<TxID> m_spentTxId;
+    };
+
+    struct TxPeer
+    {
+        WalletID m_walletID;
+        std::string m_label;
+        std::string m_address;
     };
 
 	struct IKeyChainObserver
@@ -46,6 +54,7 @@ namespace beam
 		virtual void onKeychainChanged() = 0;
 		virtual void onTransactionChanged() = 0;
 		virtual void onSystemStateChanged() = 0;
+		virtual void onTxPeerChanged() = 0;
 	};
 
     struct IKeyChain
@@ -73,12 +82,16 @@ namespace beam
         virtual void rollbackConfirmedUtxo(Height minHeight) = 0;
 
         virtual std::vector<TxDescription> getTxHistory(uint64_t start = 0, int count = std::numeric_limits<int>::max()) = 0;
-        virtual boost::optional<TxDescription> getTx(const Uuid& txId) = 0;
+        virtual boost::optional<TxDescription> getTx(const TxID& txId) = 0;
         virtual void saveTx(const TxDescription& p) = 0;
-        virtual void deleteTx(const Uuid& txId) = 0;
+        virtual void deleteTx(const TxID& txId) = 0;
 
         // Rolls back coin changes in db concerning given tx
-        virtual void rollbackTx(const Uuid& txId) = 0;
+        virtual void rollbackTx(const TxID& txId) = 0;
+
+        virtual std::vector<TxPeer> getPeers() = 0;
+        virtual void addPeer(const TxPeer&) = 0;
+        virtual boost::optional<TxPeer> getPeer(const WalletID&) = 0;
 
 		template <typename Var>
 		void setVar(const char* name, const Var& var)
@@ -91,6 +104,7 @@ namespace beam
 		{
 			return getVarRaw(name, &var) == sizeof(var);
 		}
+        virtual Timestamp getLastUpdateTime() const = 0;
 		virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
 		virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
 
@@ -124,11 +138,16 @@ namespace beam
         void rollbackConfirmedUtxo(Height minHeight) override;
 
         std::vector<TxDescription> getTxHistory(uint64_t start, int count) override;
-        boost::optional<TxDescription> getTx(const Uuid& txId) override;
+        boost::optional<TxDescription> getTx(const TxID& txId) override;
         void saveTx(const TxDescription& p) override;
-        void deleteTx(const Uuid& txId) override;
-        void rollbackTx(const Uuid& txId) override;
+        void deleteTx(const TxID& txId) override;
+        void rollbackTx(const TxID& txId) override;
 
+        std::vector<TxPeer> getPeers() override;
+        void addPeer(const TxPeer&) override;
+        boost::optional<TxPeer> getPeer(const WalletID&) override;
+
+        Timestamp getLastUpdateTime() const override;
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override;
 

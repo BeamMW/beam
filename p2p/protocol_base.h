@@ -26,7 +26,7 @@ struct MsgHeader {
     uint32_t size;
 
     /// To be written to stream
-    MsgHeader(uint8_t _v0, uint8_t _v1, uint8_t _v2, MsgType _type=0, size_t _size=0) :
+    MsgHeader(uint8_t _v0, uint8_t _v1, uint8_t _v2, MsgType _type=0, uint32_t _size=0) :
         V0(_v0),
         V1(_v1),
         V2(_v2),
@@ -35,7 +35,7 @@ struct MsgHeader {
     {}
 
     /// Reuse ctor
-    void reset(MsgType _type = 0, size_t _size=0) {
+    void reset(MsgType _type = 0, uint32_t _size=0) {
         type = _type;
         size = _size;
     }
@@ -178,9 +178,9 @@ public:
     /// Called by MsgReader on new message. Returning false means no more reading
     bool on_new_message(uint64_t fromStream, MsgType type, const void* data, size_t size);
 
-	virtual void Decrypt(uint8_t*, uint32_t nSize) {}
+	virtual void Decrypt(uint8_t*, uint32_t /*nSize*/) {}
 	virtual uint32_t get_MacSize() { return 0; }
-	virtual bool VerifyMsg(const uint8_t*, uint32_t nSize) { return true; } // all together: header, body, MAC
+	virtual bool VerifyMsg(const uint8_t*, uint32_t /*nSize*/) { return true; } // all together: header, body, MAC
 
 private:
     /// protocol version, all received messages must have these bytes

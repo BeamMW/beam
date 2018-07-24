@@ -37,12 +37,33 @@ Item {
     }
 
     SFText {
+		id: linkBtn
         x: 20
         y: 53
 
         font.pixelSize: 12
         color: Style.bluey_grey
-        text: "1Cs4wu6pu5qCZ35bSLNVzGyEx5N6uzbg9t"
+        linkColor: Style.white
+
+        text: {
+            if(walletViewModel.syncProgress < 0)
+                "Last update time: " + walletViewModel.syncTime + " (<a href=\"update\">update</a>)"
+            else
+                "Updating, please wait... [" + walletViewModel.syncProgress + "%]"
+        }
+
+        onLinkActivated: {
+			if(link == "update")
+			{
+				walletViewModel.syncWithNode()
+			}
+		}
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.NoButton
+            cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
+        }
     }
 
     /////////////////////////////////////////////////////////////
@@ -71,7 +92,7 @@ Item {
                 anchors.fill: parent
                 anchors.rightMargin: parent.width/2
                 anchors.bottomMargin: 60
-
+                
                 clip: true
 
                 SFText {
@@ -81,49 +102,106 @@ Item {
                     text: "Send BEAM"
                 }
 
-                SFText {
+                Item {
+                    anchors.fill: parent
+                    anchors.leftMargin: parent.width/2
 
-                    y: 41
+                    clip: true
 
-                    font.pixelSize: 12
-                    font.weight: Font.Bold
-                    color: Style.white
-                    text: "Recipient address"
+                    SFText {
+
+                        y: 41
+
+                        font.pixelSize: 12
+                        font.weight: Font.Bold
+                        color: Style.white
+                        text: "Recipient address"
+                    }
+
+                    SFTextInput {
+                        // id: receiver_addr
+
+                        y: 115-30
+                        width: 300
+
+                        font.pixelSize: 12
+
+                        color: Style.white
+
+                        text: walletViewModel.receiverAddr
+
+                    }
+
+                    // Binding {
+                    //     target: walletViewModel
+                    //     property: "receiverAddr"
+                    //     value: receiver_addr.text
+                    // }
+
+                    Rectangle {
+                        y: 109
+                        width: 300
+                        height: 1
+
+                        color: "#33566b"
+                    }                   
                 }
 
-                SFTextInput {
-                    id: receiver_addr
+                Item {
+                    anchors.fill: parent
+                    anchors.rightMargin: parent.width/2
 
-                    y: 115-30
-                    width: 300
+                    clip: true
 
-                    font.pixelSize: 12
 
-                    color: Style.white
+                    SFText {
 
-                    text: walletViewModel.receiverAddr
+                        y: 41
 
-                }
+                        font.pixelSize: 12
+                        font.weight: Font.Bold
+                        color: Style.white
+                        text: "Address book"
+                    }
 
-                Binding {
-                    target: walletViewModel
-                    property: "receiverAddr"
-                    value: receiver_addr.text
-                }
+                    ListView {
+                        id:addrBook
 
-                Rectangle {
-                    y: 109
-                    width: 300
-                    height: 1
+                        anchors.fill: parent
+                        anchors.topMargin: 60
+                        anchors.rightMargin: 30
 
-                    color: "#33566b"
-                }
+                        model: walletViewModel.addrBook
 
-                AvailablePanel {
-                    y: 140
-                    width: parent.width
-                    height: 206
-                    value: walletViewModel.available*1 - (walletViewModel.sendAmount*1 + walletViewModel.sendAmountMils/1000000)
+                        delegate: Item {
+
+                            height: 60
+                            width: parent.width
+
+                            SFText { 
+                                text: modelData 
+                                color: Style.white
+
+                                anchors.verticalCenter: parent.verticalCenter
+                                x: 10
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: addrBook.currentIndex = index
+                            }
+                        }
+
+                        highlight: Rectangle { color: "#33566b"; radius: 10 }
+                    }
+
+					Binding {
+                        target: walletViewModel
+                        property: "selectedAddr"
+                        value: addrBook.currentIndex
+                    }
                 }
             }
 
@@ -224,123 +302,130 @@ Item {
                     text: (walletViewModel.sendAmount*1 + walletViewModel.sendAmountMils/1000000) + " USD"
                 }
 
-                /////////////////////////////////////////////////////////////
-                /// Transaction fee /////////////////////////////////////////
-                /////////////////////////////////////////////////////////////
-
-                SFText {
-                    y: 243   
-
-                    font.pixelSize: 12
-                    font.weight: Font.Bold
-                    color: Style.white
-                    text: "Transaction fee"
+                AvailablePanel {
+                    y: 243
+                    width: parent.width
+                    height: 206
+                    value: walletViewModel.actualAvailable
                 }
 
-                Rectangle {
-                    id: fee_line
-                    y: 303
-                    width: 360
-                    height: 4
+                // /////////////////////////////////////////////////////////////
+                // /// Transaction fee /////////////////////////////////////////
+                // /////////////////////////////////////////////////////////////
 
-                    opacity: 0.1
-                    radius: 2
+                // SFText {
+                //     y: 243   
 
-                    color: Style.white
-                }
+                //     font.pixelSize: 12
+                //     font.weight: Font.Bold
+                //     color: Style.white
+                //     text: "Transaction fee"
+                // }
 
-                Rectangle {
-                    id: led
+                // Rectangle {
+                //     id: fee_line
+                //     y: 303
+                //     width: 360
+                //     height: 4
 
-                    x: 140
-                    y: 303-8
+                //     opacity: 0.1
+                //     radius: 2
 
-                    width: 20
-                    height: 20
+                //     color: Style.white
+                // }
 
-                    radius: 10
+                // Rectangle {
+                //     id: led
 
-                    color: Style.bright_teal
+                //     x: 140
+                //     y: 303-8
 
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                    }
-                }
+                //     width: 20
+                //     height: 20
 
-                DropShadow {
-                    anchors.fill: led
-                    radius: 5
-                    samples: 9
-                    color: Style.bright_teal
-                    source: led
-                }
+                //     radius: 10
 
-                SFText {
-                    y: 277
+                //     color: Style.bright_teal
 
-                    font.pixelSize: 12
-                    color: Style.bluey_grey
-                    text: "40h"
-                }
+                //     MouseArea {
+                //         anchors.fill: parent
+                //         cursorShape: Qt.PointingHandCursor
+                //     }
+                // }
 
-                SFText {
-                    y: 277
-                    anchors.right: fee_line.right
+                // DropShadow {
+                //     anchors.fill: led
+                //     radius: 5
+                //     samples: 9
+                //     color: Style.bright_teal
+                //     source: led
+                // }
 
-                    font.pixelSize: 12
-                    color: Style.bluey_grey
-                    text: "20m"
-                }
+                // SFText {
+                //     y: 277
 
-                SFText {
-                    y: 319
+                //     font.pixelSize: 12
+                //     color: Style.bluey_grey
+                //     text: "40h"
+                // }
 
-                    font.pixelSize: 12
-                    color: Style.bluey_grey
-                    text: "0.0002"
-                }
+                // SFText {
+                //     y: 277
+                //     anchors.right: fee_line.right
 
-                SFText {
-                    y: 319
-                    anchors.right: fee_line.right
+                //     font.pixelSize: 12
+                //     color: Style.bluey_grey
+                //     text: "20m"
+                // }
 
-                    font.pixelSize: 12
-                    color: Style.bluey_grey
-                    text: "0.01"
-                }
+                // SFText {
+                //     y: 319
 
-                /////////////////////////////////////////////////////////////
-                /////////////////////////////////////////////////////////////
-                /////////////////////////////////////////////////////////////
+                //     font.pixelSize: 12
+                //     color: Style.bluey_grey
+                //     text: "0.0002"
+                // }
 
-                SFText {
-                    y: 383-30   
+                // SFText {
+                //     y: 319
+                //     anchors.right: fee_line.right
 
-                    font.pixelSize: 12
-                    font.weight: Font.Bold
-                    color: Style.white
-                    text: "Comment"
-                }
+                //     font.pixelSize: 12
+                //     color: Style.bluey_grey
+                //     text: "0.01"
+                // }
 
-                SFTextInput {
-                    y: 427-30
-                    width: 300
+                // /////////////////////////////////////////////////////////////
+                // /////////////////////////////////////////////////////////////
+                // /////////////////////////////////////////////////////////////
 
-                    font.pixelSize: 12
+                // SFText {
+                //     y: 383-30   
 
-                    color: Style.white
+                //     font.pixelSize: 12
+                //     font.weight: Font.Bold
+                //     color: Style.white
+                //     text: "Comment"
+                // }
 
-                    text: "Thank you for your work!"
-                }
+                // SFTextInput {
+                //     y: 427-30
+                //     width: 300
 
-                Rectangle {
-                    y: 451-30
-                    width: 339
-                    height: 1
+                //     font.pixelSize: 12
 
-                    color: "#33566b"
-                }
+                //     color: Style.white
+
+                //     text: "Thank you for your work!"
+                // }
+
+                // Rectangle {
+                //     y: 451-30
+                //     width: 339
+                //     height: 1
+
+                //     color: "#33566b"
+                // }
             }
 
             Row {
@@ -441,147 +526,34 @@ Item {
                 spacing: 30
 
                 AvailablePanel {
-                    width: (parent.width - 3*30)*500/1220
+                    width: (parent.width - 30)*500/1220
                     height: parent.height
                     value: walletViewModel.available
                 }
 
-                SecondaryPanel {
-                    width: (parent.width - 3*30)*240/1220
-                    height: parent.height
-                    title: "Received"
-                    amountColor: Style.bright_sky_blue
-                    value: walletViewModel.received
-                }
+                // SecondaryPanel {
+                //     width: (parent.width - 3*30)*240/1220
+                //     height: parent.height
+                //     title: "Received"
+                //     amountColor: Style.bright_sky_blue
+                //     value: walletViewModel.received
+                // }
+
+                // SecondaryPanel {
+                //     width: (parent.width - 3*30)*240/1220
+                //     height: parent.height
+                //     title: "Sent"
+                //     amountColor: Style.heliotrope
+                //     value: walletViewModel.sent
+                // }
 
                 SecondaryPanel {
-                    width: (parent.width - 3*30)*240/1220
-                    height: parent.height
-                    title: "Sent"
-                    amountColor: Style.heliotrope
-                    value: walletViewModel.sent
-                }
-
-                SecondaryPanel {
-                    width: (parent.width - 3*30)*240/1220
+                    width: (parent.width - 30)*240*3/1220
                     height: parent.height
                     title: "Unconfirmed"
                     amountColor: Style.white
                     value: walletViewModel.unconfirmed
                 }
-            }
-
-            Row {
-
-                id: medium_panels
-
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: parent.height
-
-                spacing: 30
-
-                AvailablePanel {
-                    width: (parent.width - parent.spacing)*518/864
-                    height: parent.height
-                    value: walletViewModel.available      
-                }
-
-                Item {
-                    id: panel_holder
-
-                    width: (parent.width - parent.spacing)*346/864
-                    height: parent.height
-                    state: "one"
-
-                    clip: true
-                    
-                    SecondaryPanel {
-                        id: received_panel
-                        title: "Received"
-                        amountColor: Style.bright_sky_blue
-                        value: walletViewModel.received
-                        anchors.fill: parent
-                        visible: true
-                    }
-
-                    SecondaryPanel {
-                        id: sent_panel
-                        title: "Sent"
-                        amountColor: Style.heliotrope
-                        value: walletViewModel.sent
-                        anchors.fill: parent
-                        visible: false
-                    }
-
-                    SecondaryPanel {
-                        id: unconfirmed_panel
-                        title: "Unconfirmed"
-                        amountColor: Style.white
-                        value: walletViewModel.unconfirmed
-                        anchors.fill: parent
-                        visible: false
-                    }
-
-                    Row {
-
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.bottom: parent.bottom
-                        anchors.bottomMargin: 10
-
-                        spacing: 10
-
-                        Led {
-                            id: led1
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: panel_holder.state = "one"
-                            }
-                        }
-                        
-                        Led {
-                            id: led2
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: panel_holder.state = "two"
-                            }
-                        }
-
-                        Led {
-                            id: led3
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: panel_holder.state = "three"
-                            }
-                        }
-                    }
-
-                    states: [
-                        State {
-                            name: "one"
-                            PropertyChanges {target: led1; turned_on: true}
-                        },
-                        State {
-                            name: "two"
-                            PropertyChanges {target: sent_panel; visible: true}
-                            PropertyChanges {target: led2; turned_on: true}
-                        },
-                        State {
-                            name: "three"
-                            PropertyChanges {target: unconfirmed_panel; visible: true}
-                            PropertyChanges {target: led3; turned_on: true}
-                        }
-                    ]
-                }
-
-                
-                visible: false
             }
         }
 
@@ -656,14 +628,14 @@ Item {
             }        
         }
 
-        Rectangle {
-            anchors.fill: parent;
-            anchors.topMargin: 394
+        // Rectangle {
+        //     anchors.fill: parent;
+        //     anchors.topMargin: 394
 
-            radius: 10
+        //     radius: 10
 
-            color: Style.dark_slate_blue
-        }
+        //     color: Style.dark_slate_blue
+        // }
 
         Rectangle {
             anchors.fill: parent;
@@ -685,14 +657,15 @@ Item {
 
             TableViewColumn {
                 role: "income"
-                width: 72
+                width: 72*parent.width/1310
 
-                resizable: false
                 movable: false
 
                 delegate: Item {
 
                     anchors.fill: parent
+
+                    clip:true
 
                     SvgImage {
                         anchors.verticalCenter: parent.verticalCenter
@@ -705,32 +678,31 @@ Item {
             TableViewColumn {
                 role: "date"
                 title: "Date | time"
-                width: 200
+                width: 200*parent.width/1310
 
-                resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "user"
                 title: "Recipient / Sender ID"
-                width: 200
+                width: 200*parent.width/1310
 
-                resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "comment"
                 title: "Comment"
-                width: 120
+                width: 120*parent.width/1310
 
-                resizable: false
                 movable: false
 
                 delegate: Item {
 
                     anchors.fill: parent
+
+                    clip:true
 
                     SvgImage {
                         anchors.verticalCenter: parent.verticalCenter
@@ -744,14 +716,15 @@ Item {
             TableViewColumn {
                 role: "amount"
                 title: "Amount, BEAM"
-                width: 200
+                width: 200*parent.width/1310
 
-                resizable: false
                 movable: false
 
                 delegate: Row {
                     anchors.fill: parent
                     spacing: 6
+
+                    clip:true
 
                     property bool income: tx_view.model[styleData.row].income
 
@@ -779,32 +752,31 @@ Item {
             TableViewColumn {
                 role: "amountUsd"
                 title: "Amount, USD"
-                width: 200
+                width: 200*parent.width/1310
 
-                resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "change"
                 title: "Change, BEAM"
-                width: 200
+                width: 200*parent.width/1310
 
-                resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "status"
                 title: "Status"
-                width: 96
+                width: 96*parent.width/1310
 
-                resizable: false
                 movable: false
 
                 delegate: Item {
 
                     anchors.fill: parent
+
+                    clip:true
 
                     SFText {
                         font.pixelSize: 12
@@ -825,8 +797,10 @@ Item {
 
             model: walletViewModel.tx
 
-            headerDelegate: Item {
+            headerDelegate: Rectangle {
                 height: 46
+
+                color: Style.dark_slate_blue
 
                 SFText {
                     anchors.verticalCenter: parent.verticalCenter
@@ -866,6 +840,8 @@ Item {
 
                     text: styleData.value
                 }
+
+                clip:true
             }
         }
         
@@ -877,15 +853,15 @@ Item {
             State {
                 when: wallet_layout.visible && wallet_layout.width < (1440-70-2*30)
                 name: "medium"
-                PropertyChanges {target: wide_panels; visible: false}
-                PropertyChanges {target: medium_panels; visible: true}
+                // PropertyChanges {target: wide_panels; visible: false}
+                // PropertyChanges {target: medium_panels; visible: true}
             },
 
             State {
                 when: wallet_layout.visible && wallet_layout.width < (1440-70-2*30)
                 name: "small"
-                PropertyChanges {target: wide_panels; visible: false}
-                PropertyChanges {target: medium_panels; visible: true}
+                // PropertyChanges {target: wide_panels; visible: false}
+                // PropertyChanges {target: medium_panels; visible: true}
             }
         ]
     }    

@@ -41,6 +41,7 @@ struct Node
 			uint32_t m_BbsCleanupPeriod_ms = 3600 * 1000; // 1 hour
 		} m_Timeout;
 
+		uint32_t m_BbsIdealChannelPopulation = 100;
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
 		uint32_t m_MinerID = 0; // used as a seed for miner nonce generation
@@ -202,7 +203,9 @@ private:
 
 		static void CalcMsgKey(NodeDB::WalkerBbs::Data&);
 		uint32_t m_LastCleanup_ms = 0;
+		uint32_t m_RecommendedChannel = 0;
 		void Cleanup();
+		void FindRecommendedChannel();
 		void MaybeCleanup();
 
 		struct Subscription
@@ -323,10 +326,13 @@ private:
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
 		virtual void OnMsg(proto::PeerInfoSelf&&) override;
 		virtual void OnMsg(proto::PeerInfo&&) override;
+		virtual void OnMsg(proto::GetTime&&) override;
+		virtual void OnMsg(proto::GetExternalAddr&&) override;
 		virtual void OnMsg(proto::BbsMsg&&) override;
 		virtual void OnMsg(proto::BbsHaveMsg&&) override;
 		virtual void OnMsg(proto::BbsGetMsg&&) override;
 		virtual void OnMsg(proto::BbsSubscribe&&) override;
+		virtual void OnMsg(proto::BbsPickChannel&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;

@@ -9,11 +9,13 @@
 #include "utility/io/tcpserver.h"
 #include "core/proto.h"
 #include "utility/io/timer.h"
-
+#include <boost/intrusive/set.hpp>
 #include "wallet.h"
 
 namespace beam
 {
+    namespace bi = boost::intrusive;
+
     enum WalletNetworkMessageCodes : uint8_t
     {
         senderInvitationCode     = 100,
@@ -24,11 +26,12 @@ namespace beam
     };
 
     class WalletNetworkIO : public IErrorHandler
-                          , public INetworkIO
+                          , public NetworkIOBase
     {
+        struct ConnectionInfo;
+        using ConnectCallback = std::function<void(const ConnectionInfo&)>;
     public:
 
-        using ConnectCallback = std::function<void(uint64_t tag)>;
 
         WalletNetworkIO(io::Address address
                       , io::Address node_address
@@ -43,15 +46,15 @@ namespace beam
         void start();
         void stop();
 
-        Uuid transfer_money(io::Address receiver, Amount&& amount, Amount&& fee = 0, bool sender = true, ByteBuffer&& message = {});
+        void add_wallet(const WalletID& walletID, io::Address address);
 
     private:
         // INetworkIO
-        void send_tx_message(PeerId to, wallet::Invite&&) override;
-        void send_tx_message(PeerId to, wallet::ConfirmTransaction&&) override;
-        void send_tx_message(PeerId to, wallet::ConfirmInvitation&&) override;
-        void send_tx_message(PeerId to, wallet::TxRegistered&&) override;
-        void send_tx_message(PeerId to, wallet::TxFailed&&) override;
+        void send_tx_message(const WalletID& to, wallet::Invite&&) override;
+        void send_tx_message(const WalletID& to, wallet::ConfirmTransaction&&) override;
+        void send_tx_message(const WalletID& to, wallet::ConfirmInvitation&&) override;
+        void send_tx_message(const WalletID& to, wallet::TxRegistered&&) override;
+        void send_tx_message(const WalletID& to, wallet::TxFailed&&) override;
 
         void send_node_message(proto::NewTransaction&&) override;
         void send_node_message(proto::GetProofUtxo&&) override;
@@ -59,7 +62,8 @@ namespace beam
         void send_node_message(proto::GetMined&&) override;
         void send_node_message(proto::GetProofState&&) override;
 
-        void close_connection(uint64_t id) override;
+        void close_connection(const WalletID& id) override;
+        void connect_node() override;
         void close_node_connection() override;
 
         // IMsgHandler
@@ -72,37 +76,44 @@ namespace beam
         bool on_message(uint64_t connectionId, wallet::ConfirmInvitation&& msg);
         bool on_message(uint64_t connectionId, wallet::TxRegistered&& msg);
         bool on_message(uint64_t connectionId, wallet::TxFailed&& msg);
-
-        void connect_wallet(io::Address address, uint64_t tag, ConnectCallback&& callback);
+        struct WalletInfo;
+        void connect_wallet(const WalletInfo& wallet, uint64_t tag, ConnectCallback&& callback);
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
         void on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status);
-        bool register_connection(uint64_t tag, io::TcpStream::Ptr&& newStream);
 
-        void connect_node();
         void start_sync_timer();
         void on_sync_timer();
         void on_node_connected();
 
         uint64_t get_connection_tag();
         void create_node_connection();
+        void add_connection(uint64_t tag, ConnectionInfo&&);
 
         template <typename T>
-        void send(PeerId to, MsgType type, T&& msg)
+        void send(const WalletID& walletID, MsgType type, T&& msg)
         {
-            if (auto it = m_connections.find(to); it != m_connections.end())
+            update_wallets(walletID);
+            if (auto it = m_connectionWalletsIndex.find(walletID, ConnectionWalletIDComparer()); it != m_connectionWalletsIndex.end())
             {
-                m_protocol.serialize(m_msgToSend, type, msg);
-                auto res = it->second->write_msg(m_msgToSend);
-                m_msgToSend.clear();
-                test_io_result(res);
+                if (it->m_connection)
+                {
+                    m_protocol.serialize(m_msgToSend, type, msg);
+                    auto res = it->m_connection->write_msg(m_msgToSend);
+                    m_msgToSend.clear();
+                    test_io_result(res);
+                }
             }
-            else if (auto it = m_addresses.find(to); it != m_addresses.end())
+            else if (auto it = m_walletsIndex.find(walletID, WalletIDComparer()); it != m_walletsIndex.end())
             {
                 auto t = std::make_shared<T>(std::move(msg)); // we need copyable object
-                connect_wallet(it->second, to, [this, type, t](uint64_t tag)
+                connect_wallet(*it, get_connection_tag(), [this, type, t](const ConnectionInfo& ci)
                 {
-                    send(tag, type, std::move(*t));
+                    send(ci.m_wallet.m_walletID, type, std::move(*t));
                 });
+            }
+            else
+            {
+                throw std::runtime_error("failed to send message");
             }
         }
 
@@ -126,6 +137,10 @@ namespace beam
 
         void test_io_result(const io::Result res);
         bool is_connected(uint64_t id);
+
+        const WalletID& get_wallet_id(uint64_t connectionId) const;
+        uint64_t get_connection(const WalletID& walletID) const;
+        void update_wallets(const WalletID& walletID);
 
         class WalletNodeConnection : public proto::NodeConnection
         {
@@ -153,15 +168,104 @@ namespace beam
         };
 
     private:
+
         Protocol m_protocol;
-        io::Address m_address;
+        WalletID m_walletID;
         io::Address m_node_address;
         io::Reactor::Ptr m_reactor;
         io::TcpServer::Ptr m_server;
-        Wallet m_wallet;
-        std::unordered_map<uint64_t, io::Address> m_addresses;
-        std::map<uint64_t, std::unique_ptr<Connection>> m_connections;
-        std::map<uint64_t, ConnectCallback> m_connections_callbacks;
+        IWallet* m_wallet;
+        IKeyChain::Ptr m_keychain;
+
+
+        struct WalletIDTag;
+        struct AddressTag;
+
+        using WalletIDHook = bi::set_base_hook <bi::tag<WalletIDTag>>;
+        using AddressHook = bi::set_base_hook<bi::tag<AddressTag>>;
+        
+        struct WalletInfo : public WalletIDHook
+                          , public AddressHook
+        {
+            WalletID m_walletID;
+            io::Address m_address;
+            WalletInfo(const WalletID& id, io::Address address)
+                : m_walletID{id}
+                , m_address{address}
+            {}
+        };
+
+        struct WalletIDComparer
+        {
+            bool operator()(const WalletInfo& left, const WalletInfo& right) const
+            { 
+                return left.m_walletID < right.m_walletID; 
+            }
+            bool operator()(const WalletInfo& left, const WalletID& right) const
+            {
+                return left.m_walletID < right;
+            }
+            bool operator()(const WalletID& left, const WalletInfo& right) const
+            {
+                return left < right.m_walletID;
+            }
+        };
+
+        struct AddressComparer
+        {
+            bool operator()(const WalletInfo& left, const WalletInfo& right) const
+            { 
+                return left.m_address.u64() < right.m_address.u64();
+            }
+
+            bool operator()(const WalletInfo& left, const uint64_t& right) const
+            {
+                return left.m_address.u64() < right;
+            }
+            bool operator()(const uint64_t& left, const WalletInfo& right) const
+            {
+                return left < right.m_address.u64();
+            }
+        };
+
+        struct ConnectionInfo : public WalletIDHook
+        {
+            uint64_t m_connectionID;
+            const WalletInfo& m_wallet;
+            ConnectCallback m_callback;
+            std::unique_ptr<Connection> m_connection;
+
+            ConnectionInfo(uint64_t id, const WalletInfo& wallet, ConnectCallback&& callback)
+                : m_connectionID{ id }
+                , m_wallet{ wallet }
+                , m_callback{ std::move(callback) }
+            {
+            }
+        };
+
+        struct ConnectionWalletIDComparer
+        {
+            bool operator()(const ConnectionInfo& left, const ConnectionInfo& right) const
+            {
+                return left.m_wallet.m_walletID < right.m_wallet.m_walletID;
+            }
+
+            bool operator()(const ConnectionInfo& left, const WalletID& right) const
+            {
+                return left.m_wallet.m_walletID < right;
+            }
+            bool operator()(const WalletID& left, const ConnectionInfo& right) const
+            {
+                return left < right.m_wallet.m_walletID;
+            }
+        };
+
+        std::vector<std::unique_ptr<WalletInfo>> m_wallets;
+        std::map<uint64_t, ConnectionInfo> m_connections;
+        bi::set<WalletInfo, bi::base_hook<WalletIDHook>, bi::compare<WalletIDComparer>> m_walletsIndex;
+        bi::set<WalletInfo, bi::base_hook<AddressHook>, bi::compare<AddressComparer>> m_addressIndex;
+        bi::set < ConnectionInfo, bi::base_hook<WalletIDHook>, bi::compare<ConnectionWalletIDComparer>> m_connectionWalletsIndex;
+
         bool m_is_node_connected;
         uint64_t m_connection_tag;
         io::Reactor::Scope m_reactor_scope;

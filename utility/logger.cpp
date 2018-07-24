@@ -89,23 +89,41 @@ public:
     ConsoleLogger(int flushLevel, int consoleLevel) :
         LoggerImpl(stdout, consoleLevel, flushLevel)
     {}
+
+    // does nothing for console
+    void rotate() override {}
 };
 
 class FileLogger : public LoggerImpl {
 public:
     FileLogger(int flushLevel, int minLevel, const string& fileNamePrefix) :
-        LoggerImpl(0, minLevel, flushLevel)
+        LoggerImpl(0, minLevel, flushLevel),
+        _fileNamePrefix(fileNamePrefix)
     {
-        string fileName(fileNamePrefix);
+        open_new_file();
+    }
+
+    void rotate() override {
+        try {
+            open_new_file();
+        } catch (const std::exception& e) {
+            fprintf(stderr, "log error, %s\n", e.what());
+        }
+    }
+
+    ~FileLogger() {
+        fclose(_sink);
+    }
+private:
+    void open_new_file() {
+        string fileName(_fileNamePrefix);
         fileName += format_timestamp("%y_%m_%d_%H_%M_%S", local_timestamp_msec(), false);
         fileName += ".log";
         _sink = fopen(fileName.c_str(), "ab");
         if (!_sink) throw runtime_error(string("cannot open file ") + fileName);
     }
 
-    ~FileLogger() {
-        fclose(_sink);
-    }
+    std::string _fileNamePrefix;
 };
 
 class CombinedLogger : public LoggerImpl {
@@ -134,6 +152,10 @@ public:
         if (_fileSink.level_accepted(header.level)) {
             _fileSink.write_impl(header.level, headerFormatted, headerSize, buf, size);
         }
+    }
+
+    void rotate() override {
+        _fileSink.rotate();
     }
 };
 

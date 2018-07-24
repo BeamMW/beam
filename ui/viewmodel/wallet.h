@@ -5,6 +5,8 @@
 
 #include "model/wallet.h"
 
+using AddrList = std::vector<beam::TxPeer>;
+
 class TxObject : public QObject
 {
 	Q_OBJECT
@@ -49,15 +51,22 @@ class WalletViewModel : public QObject
 {
 	Q_OBJECT
 
-	Q_PROPERTY(QString available 	READ available 		NOTIFY availableChanged)
-	Q_PROPERTY(QString received 	READ received 		NOTIFY receivedChanged)
-	Q_PROPERTY(QString sent 		READ sent 			NOTIFY sentChanged)
-	Q_PROPERTY(QString unconfirmed 	READ unconfirmed 	NOTIFY unconfirmedChanged)
+	Q_PROPERTY(QString available 	READ available 		NOTIFY stateChanged)
+	Q_PROPERTY(QString received 	READ received 		NOTIFY stateChanged)
+	Q_PROPERTY(QString sent 		READ sent 			NOTIFY stateChanged)
+	Q_PROPERTY(QString unconfirmed 	READ unconfirmed 	NOTIFY stateChanged)
 
 	Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
 	Q_PROPERTY(QString sendAmountMils READ sendAmountMils WRITE setSendAmountMils NOTIFY sendAmountMilsChanged)
-	Q_PROPERTY(QString receiverAddr READ receiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
+	Q_PROPERTY(QString receiverAddr READ receiverAddr NOTIFY selectedAddrChanged)
 	Q_PROPERTY(QVariant tx READ tx NOTIFY txChanged)
+	Q_PROPERTY(QVariant addrBook READ addrBook NOTIFY addrBookChanged)
+    Q_PROPERTY(int selectedAddr WRITE setSelectedAddr NOTIFY selectedAddrChanged)
+
+	Q_PROPERTY(QString syncTime READ syncTime NOTIFY stateChanged)
+	Q_PROPERTY(int syncProgress READ syncProgress NOTIFY stateChanged)
+
+	Q_PROPERTY(QString actualAvailable READ actualAvailable NOTIFY actualAvailableChanged)
 
 public:
 	using TxList = QList<QObject*>;
@@ -73,26 +82,36 @@ public:
 	QString sendAmount() const;
 	QString sendAmountMils() const;
 	QString receiverAddr() const;
+	QVariant addrBook() const;
+	QString syncTime() const;
+	int syncProgress() const;
+	QString actualAvailable() const;
 
 	void setSendAmount(const QString& text);
 	void setSendAmountMils(const QString& text);
 	void setReceiverAddr(const QString& text);
+	void setSelectedAddr(int index);
 
 public slots:
 	void onStatus(const WalletStatus& amount);
 	void onTxStatus(const std::vector<beam::TxDescription>& history);
 	void sendMoney();
+	void syncWithNode();
+	void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
+	void onSyncProgressUpdated(int done, int total);
 
 signals:
-	void availableChanged();
-	void receivedChanged();
-	void sentChanged();
-	void unconfirmedChanged();
+	void stateChanged();
 
 	void sendAmountChanged();
 	void sendAmountMilsChanged();
-	void receiverAddrChanged();
 	void txChanged();
+	void addrBookChanged();
+    void selectedAddrChanged();
+	void actualAvailableChanged();
+
+private:
+	beam::Amount calcSendAmount() const;
 
 private:
 
@@ -101,8 +120,11 @@ private:
 	QString _sendAmount;
 	QString _sendAmountMils;
 
-	std::string _receiverAddr;
+    beam::IKeyChain::Ptr _keychain;
 	TxList _tx;
 
 	WalletModel _model;
+	std::vector<beam::TxPeer> _addrList;
+
+    int _selectedAddr;
 };

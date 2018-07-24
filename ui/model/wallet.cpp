@@ -4,38 +4,56 @@
 
 using namespace beam;
 using namespace beam::io;
+using namespace std;
 
 struct WalletModelAsync : IWalletModelAsync
 {
-	WalletModelAsync(Reactor::Ptr reactor, std::shared_ptr<WalletNetworkIO> wallet_io)
+	WalletModelAsync(Reactor::Ptr reactor
+		, shared_ptr<Wallet> wallet
+		, std::shared_ptr<INetworkIO> wallet_io)
 		: _reactor(reactor) 
-		, _wallet_io(wallet_io)
+		, _wallet(wallet)
+		, _network_io(wallet_io)
 	{}
 
-	void sendMoney(Address&& receiver, Amount&& amount) override
+	void sendMoney(beam::WalletID receiver, Amount&& amount, Amount&& fee) override
 	{
-		_sendMoneyEvent = AsyncEvent::create(_reactor, [this, receiver = std::move(receiver), amount = std::move(amount)]() mutable
+        _sendMoneyEvent = AsyncEvent::create(_reactor, [this, receiver = move(receiver), amount = move(amount), fee = move(fee) ]() mutable
 			{
-				_wallet_io->transfer_money(receiver, std::move(amount), {});
+				_wallet->transfer_money(receiver, move(amount), move(fee));
 			}
 		);
 
 		_sendMoneyEvent->post();
 	}
+
+	void syncWithNode() override
+	{
+		_syncWithNodeEvent = AsyncEvent::create(_reactor, [this]() mutable
+			{
+				_network_io->connect_node();
+			}
+		);
+
+		_syncWithNodeEvent->post();
+	}
 private:
 	Reactor::Ptr _reactor;
-	std::shared_ptr<WalletNetworkIO> _wallet_io;
+	shared_ptr<Wallet> _wallet;
+	std::shared_ptr<INetworkIO> _network_io;
 
 	AsyncEvent::Ptr _sendMoneyEvent;
+	AsyncEvent::Ptr _syncWithNodeEvent;
 };
 
-WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const std::string& nodeAddr)
+WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
 	: _keychain(keychain)
 	, _port(port)
 	, _nodeAddrString(nodeAddr)
 {
 	qRegisterMetaType<WalletStatus>("WalletStatus");
-	qRegisterMetaType<std::vector<TxDescription>>("std::vector<beam::TxDescription>");
+	qRegisterMetaType<vector<TxDescription>>("std::vector<beam::TxDescription>");
+	qRegisterMetaType<vector<TxPeer>>("std::vector<beam::TxPeer>");
 }
 
 WalletModel::~WalletModel()
@@ -66,6 +84,8 @@ WalletStatus WalletModel::getStatus() const
 
 	status.unconfirmed += wallet::getTotal(_keychain, Coin::Unconfirmed);
 
+	status.update.lastTime = _keychain->getLastUpdateTime();
+
 	return status;
 }
 
@@ -75,6 +95,7 @@ void WalletModel::run()
 	{
 		emit onStatus(getStatus());
 		emit onTxStatus(_keychain->getTxHistory());
+		emit onTxPeerUpdated(_keychain->getPeers());
 
 		_reactor = Reactor::create();
 
@@ -82,33 +103,34 @@ void WalletModel::run()
 
 		if(node_addr.resolve(_nodeAddrString.c_str()))
 		{
-			_wallet_io = std::make_shared<WalletNetworkIO>( Address().ip(INADDR_ANY).port(_port)
+			_wallet_io = make_shared<WalletNetworkIO>( Address().ip(INADDR_ANY).port(_port)
 				, node_addr
 				, true
 				, _keychain
 				, _reactor);
+            _wallet = make_shared<Wallet>(_keychain, _wallet_io);
 
-			async = std::make_shared<WalletModelAsync>(_reactor, _wallet_io);
+			async = make_shared<WalletModelAsync>(_reactor, _wallet, _wallet_io);
 
-			struct KeychainSubscriber
+			struct WalletSubscriber
 			{
-				KeychainSubscriber(IKeyChainObserver* client, IKeyChain::Ptr keychain)
+				WalletSubscriber(IWalletObserver* client, std::shared_ptr<beam::Wallet> wallet)
 					: _client(client)
-					, _keychain(keychain)
+					, _wallet(wallet)
 				{
-					_keychain->subscribe(_client);
+					_wallet->subscribe(_client);
 				}
 
-				~KeychainSubscriber()
+				~WalletSubscriber()
 				{
-					_keychain->unsubscribe(_client);
+					_wallet->unsubscribe(_client);
 				}
 			private:
-				IKeyChainObserver* _client;
-				IKeyChain::Ptr _keychain;
+				IWalletObserver* _client;
+				std::shared_ptr<beam::Wallet> _wallet;
 			};
 
-			KeychainSubscriber subscriber(this, _keychain);
+			WalletSubscriber subscriber(this, _wallet);
 
 			_wallet_io->start();
 		}
@@ -117,7 +139,7 @@ void WalletModel::run()
 			LOG_ERROR() << "unable to resolve node address";
 		}
 	}
-	catch (const std::runtime_error& e)
+	catch (const runtime_error& e)
 	{
 		LOG_ERROR() << e.what();
 	}
@@ -146,4 +168,14 @@ void WalletModel::onTransactionChanged()
 void WalletModel::onSystemStateChanged()
 {
 	onStatusChanged();
+}
+
+void WalletModel::onTxPeerChanged()
+{
+	emit onTxPeerUpdated(_keychain->getPeers());
+}
+
+void WalletModel::onSyncProgress(int done, int total)
+{
+	emit onSyncProgressUpdated(done, total);
 }

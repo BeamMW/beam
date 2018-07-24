@@ -1,9 +1,10 @@
 #include <iostream>
 #include "../ecc_native.h"
 #include "../block_crypt.h"
-#include "../utility/serialize.h"
-#include "../core/serialization_adapters.h"
-#include "../core/aes.h"
+#include "../../utility/serialize.h"
+#include "../serialization_adapters.h"
+#include "../aes.h"
+#include "../proto.h"
 
 #include "secp256k1-zkp/include/secp256k1_rangeproof.h" // For benchmark comparison with secp256k1
 void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a);
@@ -792,6 +793,34 @@ void TestAES()
 	verify_test(!memcmp(pBuf, pBuf, sizeof(pPlaintext)));
 }
 
+void TestBbs()
+{
+	Scalar::Native privateAddr, nonce;
+	beam::PeerID publicAddr;
+
+	SetRandom(privateAddr);
+	beam::proto::Sk2Pk(publicAddr, privateAddr);
+
+	const char szMsg[] = "Hello, World!";
+
+	SetRandom(nonce);
+	beam::ByteBuffer buf;
+	verify_test(beam::proto::BbsEncrypt(buf, publicAddr, nonce, szMsg, sizeof(szMsg)));
+
+	uint8_t* p = &buf.at(0);
+	uint32_t n = buf.size();
+
+	verify_test(beam::proto::BbsDecrypt(p, n, privateAddr));
+	verify_test(n == sizeof(szMsg));
+	verify_test(!memcmp(p, szMsg, n));
+
+	SetRandom(privateAddr);
+	p = &buf.at(0);
+	n = buf.size();
+
+	verify_test(!beam::proto::BbsDecrypt(p, n, privateAddr));
+}
+
 void TestAll()
 {
 	TestUintBig();
@@ -804,6 +833,7 @@ void TestAll()
 	TestTransaction();
 	TestTransactionKernelConsuming();
 	TestAES();
+	TestBbs();
 
 	uintBig val;
 	for (int i = 0; i < 10; i++)

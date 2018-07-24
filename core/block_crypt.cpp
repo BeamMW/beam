@@ -413,6 +413,7 @@ namespace beam
 		m_Fee = v.m_Fee;
 		m_Height = v.m_Height;
 		ClonePtr(m_pContract, v.m_pContract);
+		ClonePtr(m_pHashLock, v.m_pHashLock);
 
 		m_vNested.resize(v.m_vNested.size());
 

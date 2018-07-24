@@ -464,7 +464,7 @@ void Node::Initialize()
 		ECC::Hash::Processor() << "myid" << m_SChannelSeed.V >> m_MyPrivateID.V.m_Value;
 
 	ECC::Scalar::Native sk = m_MyPrivateID.V;
-	proto::NodeConnection::Sk2Pk(m_MyPublicID, sk);
+	proto::Sk2Pk(m_MyPublicID, sk);
 
 	if (bNewID)
 	{
@@ -475,7 +475,7 @@ void Node::Initialize()
 	ECC::Kdf& kdf = m_Processor.m_Kdf;
 
 	DeriveKey(sk, kdf, 0, KeyType::Identity);
-	proto::NodeConnection::Sk2Pk(m_MyOwnerID, sk);
+	proto::Sk2Pk(m_MyOwnerID, sk);
 
 	LOG_INFO() << "Node ID=" << m_MyPublicID << ", Owner=" << m_MyOwnerID;
 	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
@@ -563,6 +563,49 @@ void Node::Bbs::Cleanup()
 {
 	get_ParentObj().m_Processor.get_DB().BbsDelOld(getTimestamp() - get_ParentObj().m_Cfg.m_Timeout.m_BbsMessageTimeout_s);
 	m_LastCleanup_ms = GetTime_ms();
+
+	FindRecommendedChannel();
+}
+
+void Node::Bbs::FindRecommendedChannel()
+{
+	NodeDB& db = get_ParentObj().m_Processor.get_DB(); // alias
+
+	uint32_t nChannel = 0, nCount = 0, nCountFound;
+	bool bFound = false;
+
+	NodeDB::WalkerBbs wlk(db);
+	for (db.EnumAllBbs(wlk); ; )
+	{
+		bool bMoved = wlk.MoveNext();
+
+		if (bMoved && (wlk.m_Data.m_Channel == nChannel))
+			nCount++;
+		else
+		{
+			if ((nCount <= get_ParentObj().m_Cfg.m_BbsIdealChannelPopulation) && (!bFound || (nCountFound < nCount)))
+			{
+				bFound = true;
+				nCountFound = nCount;
+				m_RecommendedChannel = nChannel;
+			}
+
+			if (!bFound && (nChannel + 1 != wlk.m_Data.m_Channel)) // fine also for !bMoved
+			{
+				bFound = true;
+				nCountFound = 0;
+				m_RecommendedChannel = nChannel + 1;
+			}
+
+			if (!bMoved)
+				break;
+
+			nChannel = wlk.m_Data.m_Channel;
+			nCount = 1;
+		}
+	}
+
+	assert(bFound);
 }
 
 void Node::Bbs::MaybeCleanup()
@@ -1362,6 +1405,20 @@ void Node::Peer::OnMsg(proto::PeerInfo&& msg)
 		m_This.m_PeerMan.OnPeer(msg.m_ID, msg.m_LastAddr, false);
 }
 
+void Node::Peer::OnMsg(proto::GetTime&& msg)
+{
+	proto::Time msgOut;
+	msgOut.m_Value = getTimestamp();
+	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
+{
+	proto::ExternalAddr msgOut;
+	msgOut.m_Value = m_RemoteAddr.ip();
+	Send(msgOut);
+}
+
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 {
 	Timestamp t = getTimestamp();
@@ -1490,6 +1547,13 @@ void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
 	}
 	else
 		Unsubscribe(it->get_ParentObj());
+}
+
+void Node::Peer::OnMsg(proto::BbsPickChannel&& msg)
+{
+	proto::BbsPickChannelRes msgOut;
+	msgOut.m_Channel = m_This.m_Bbs.m_RecommendedChannel;
+	Send(msgOut);
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)

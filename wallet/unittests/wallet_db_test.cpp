@@ -182,11 +182,11 @@ using namespace beam::wallet;
 void TestStoreTxRecord()
 {
     auto keychain = createSqliteKeychain();
-    Uuid id = {{1, 3, 4, 5 ,65}};
+    TxID id = {{1, 3, 4, 5 ,65}};
     TxDescription tr;
     tr.m_txId = id;
     tr.m_amount = 34;
-    tr.m_peerId = 23;
+    tr.m_peerId = unsigned(23);
     tr.m_createTime = 123456;
     tr.m_minHeight = 134;
     tr.m_sender = true;
@@ -215,7 +215,7 @@ void TestStoreTxRecord()
     WALLET_CHECK(t[0].m_sender == tr2.m_sender);
 	WALLET_CHECK(t[0].m_status == tr2.m_status);
     WALLET_CHECK(t[0].m_change == tr2.m_change);
-    Uuid id2 = {{ 3,4,5 }};
+    TxID id2 = {{ 3,4,5 }};
     WALLET_CHECK_NO_THROW(keychain->deleteTx(id2));
     WALLET_CHECK_NO_THROW(keychain->deleteTx(id));
 
@@ -315,8 +315,8 @@ void TestRollback()
 void TestTxRollback()
 {
     auto keychain = createSqliteKeychain();
-    Uuid id = { { 1, 3, 4, 5 ,65 } };
-    Uuid id2 = { {1, 3, 4} };
+    TxID id = { { 1, 3, 4, 5 ,65 } };
+    TxID id2 = { {1, 3, 4} };
 
     Coin coin1 = { 5, Coin::Unspent, 1, 10, KeyType::Coinbase };
     keychain->store(coin1);
@@ -367,6 +367,31 @@ void TestTxRollback()
     WALLET_CHECK(coins.size() == 2);
     WALLET_CHECK(coins[1].m_status == Coin::Unspent);
     WALLET_CHECK(coins[1].m_spentTxId.is_initialized() == false);
+}
+
+void TestPeers()
+{
+    auto db = createSqliteKeychain();
+    auto peers = db->getPeers();
+    WALLET_CHECK(peers.empty());
+    TxPeer peer = {};
+    peer.m_walletID = unsigned(1234567890);
+    peer.m_label = u8"test peer";
+    auto p = db->getPeer(peer.m_walletID);
+    WALLET_CHECK(p.is_initialized() == false);
+    peer.m_address = "92.123.10.3:3255";
+    db->addPeer(peer);
+    p = db->getPeer(peer.m_walletID);
+    WALLET_CHECK(p.is_initialized() == true);
+    WALLET_CHECK(p->m_address == peer.m_address);
+    WALLET_CHECK(p->m_walletID == peer.m_walletID);
+    WALLET_CHECK(p->m_label == peer.m_label);
+    peers = db->getPeers();
+    WALLET_CHECK(peers.size() == 1);
+
+    WALLET_CHECK(peers[0].m_address == peer.m_address);
+    WALLET_CHECK(peers[0].m_walletID == peer.m_walletID);
+    WALLET_CHECK(peers[0].m_label == peer.m_label);
 }
 
 void TestSelect()
@@ -457,6 +482,18 @@ void TestSelect()
     {
         db->remove(db->selectCoins(18, false));
         vector<Coin> coins = {
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
+            Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular } };
+        db->store(coins);
+        coins = db->selectCoins(1, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == 4);
+    }
+    {
+        db->remove(db->selectCoins(16, false));
+        vector<Coin> coins = {
             Coin{ 3, Coin::Unspent, 1, 10, KeyType::Regular },
             Coin{ 4, Coin::Unspent, 1, 10, KeyType::Regular },
             Coin{ 5, Coin::Unspent, 1, 10, KeyType::Regular },
@@ -506,11 +543,34 @@ void TestSelect()
             Coin{ 40000000, Coin::Unspent, 1, 10, KeyType::Regular },
         };
         db->store(coins);
-        coins = db->selectCoins(41000000);
+        coins = db->selectCoins(41000000, false);
         WALLET_CHECK(coins.size() == 2);
         WALLET_CHECK(coins[0].m_amount == 2999057);
         WALLET_CHECK(coins[1].m_amount == 40000000);
+        coins = db->selectCoins(4000000, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_amount == 5000000);
     }
+}
+
+void TestSelect2()
+{
+    auto db = createSqliteKeychain();
+    const Amount c = 925;
+    vector<Coin> t;
+    t.reserve(c);
+    for (Amount i = 1; i <= c; ++i)
+    {
+        t.emplace_back( 40000000, Coin::Unspent, 1, 10, KeyType::Regular );
+    }
+    db->store(t);
+    {
+        Coin c{ 30000000, Coin::Unspent, 1, 10, KeyType::Regular };
+        db->store(c);
+    }
+     auto coins = db->selectCoins(347000000, false);
+     WALLET_CHECK(coins.size() == 9);
+     WALLET_CHECK(coins[0].m_amount == 30000000);
 }
 
 int main() 
@@ -527,7 +587,9 @@ int main()
     TestStoreTxRecord();
     TestTxRollback();
     TestRollback();
+    TestPeers();
     TestSelect();
+    TestSelect2();
 
     return WALLET_CHECK_RESULT;
 }
