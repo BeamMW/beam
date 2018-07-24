@@ -36,8 +36,6 @@ void CoinsChecker::InitChecker()
 
 void CoinsChecker::OnConnected()
 {
-	LOG_INFO() << "Send Config to node";
-
 	proto::Config msg;
 	msg.m_CfgChecksum = Rules::get().Checksum;
 	msg.m_AutoSendHdr = true;
@@ -67,6 +65,11 @@ void CoinsChecker::OnMsg(proto::Hdr&& msg)
 
 void CoinsChecker::OnMsg(proto::ProofUtxo&& msg)
 {
+	if (m_Current == m_Queue.front().first.end())
+	{
+		LOG_INFO() << "reaceived ProofUtxo twice";
+	}
+
 	if (msg.m_Proofs.empty())
 	{
 		m_IsOk = false;
@@ -90,7 +93,7 @@ void CoinsChecker::OnMsg(proto::ProofUtxo&& msg)
 		}
 	}
 
-	if (++m_Current != m_Queue.front().first.end())
+	if (m_IsOk && ++m_Current != m_Queue.front().first.end())
 	{
 		Send(proto::GetProofUtxo{ *m_Current, 0 });
 	}

@@ -20,6 +20,7 @@ private:
 		uint32_t m_Ind;
 		Input m_Input;
 		bool m_IsValid;
+		bool m_IsProcessChecking;
 	};
 public:
 	TestNodeConnection(int argc, char* argv[]);
@@ -39,7 +40,7 @@ private:
 
 	io::Timer::Ptr m_NewTimer;
 
-	const Amount m_Amount = 1000;
+	const Amount m_Amount = 500;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
@@ -79,7 +80,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 			const Output::Ptr& output = m_Generator.GetTransaction().m_Transaction->m_vOutputs.back();
 			Input input;
 			input.m_Commitment = output->m_Commitment;
-			m_Coins.push_back(Coin{ m_ID.m_Height, m_ID.m_Height, static_cast<uint32_t>(i), input, false });
+			m_Coins.push_back(Coin{ m_ID.m_Height, m_ID.m_Height, static_cast<uint32_t>(i), input, false, false });
 		}
 
 		m_Generator.GenerateKernel(m_ID.m_Height, Rules::get().CoinbaseEmission - m_Amount);
@@ -92,9 +93,10 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 			for (auto& coin : m_Coins)
 			{
 				if (coin.m_IsValid && coin.m_Maturity < m_ID.m_Height)
-				{
-					LOG_INFO() << "Send coin";
-					TxGenerator gen(m_Kdf);
+				{					
+					TxGenerator gen(m_Kdf);					
+
+					LOG_INFO() << "Send coin #" << coin.m_Ind << "; input = " << coin.m_Input.m_Commitment << "; h = " << coin.m_Height << "; m_ID.m_Height = " << m_ID.m_Height;
 
 					gen.GenerateInputInTx(coin.m_Height, 1, KeyType::Regular, coin.m_Ind);
 					gen.GenerateOutputInTx(m_ID.m_Height, 1, KeyType::Regular, false, coin.m_Ind);
@@ -107,6 +109,9 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 					coin.m_Height = m_ID.m_Height;
 					coin.m_Input = input;
 					coin.m_IsValid = false;
+					coin.m_IsProcessChecking = false;
+
+					LOG_INFO() << "Send coin #" << coin.m_Ind << "; output = " << input.m_Commitment;
 
 					Send(gen.GetTransaction());
 					return;
@@ -118,15 +123,24 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 	{
 		for (auto& coin : m_Coins)
 		{
-			if(!coin.m_IsValid)
+			if(!coin.m_IsValid && !coin.m_IsProcessChecking)
 			{
+				LOG_INFO() << "Add to check commitment = " << coin.m_Input.m_Commitment;
+
+				coin.m_IsProcessChecking = true;				
 				m_CoinsChecker.Check(CoinsChecker::Inputs{ coin.m_Input },
 					[this, &coin](bool isOk, Height maturity)
 					{
 						if (isOk)
 						{
+							LOG_INFO() << "Coin is valid: #" << coin.m_Ind << "; input = " << coin.m_Input.m_Commitment << "; maturity = " << maturity;
 							coin.m_IsValid = true;
+							coin.m_IsProcessChecking = false;
 							coin.m_Maturity = maturity;
+						}
+						else
+						{
+							coin.m_IsProcessChecking = false;
 						}
 					});
 			}
@@ -137,10 +151,11 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 int main(int argc, char* argv[])
 {
 	int logLevel = LOG_LEVEL_DEBUG;
+	int fileLogLevel = LOG_LEVEL_INFO;
 #if LOG_VERBOSE_ENABLED
 	logLevel = LOG_LEVEL_VERBOSE;
 #endif
-	auto logger = Logger::create(logLevel, logLevel);
+	auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "test_");
 
 	TestNodeConnection connection(argc, argv);
 
