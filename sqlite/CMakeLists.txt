@@ -7,7 +7,7 @@ set(SQLITE_SRC
 
 add_library(sqlite STATIC ${SQLITE_SRC})
 
-if(${BEAM_USE_STATIC})
+if(BEAM_USE_STATIC)
 
 	if(MSVC)
 		include_directories($ENV{OPENSSL_ROOT_DIR}/include)
