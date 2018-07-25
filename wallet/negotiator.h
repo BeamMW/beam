@@ -100,17 +100,28 @@ namespace beam::wallet
             struct TxConfirmation : public msmf::state<>
             {
                 template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
+                void on_entry(Event const&, Fsm& fsm)
                 {
                     LOG_VERBOSE() << "TxConfirmation state";
+                    fsm.sendConfirmInvitation();
                 }
             };
             struct TxRegistration : public msmf::state<>
             {
                 template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
+                void on_entry(Event const&, Fsm& fsm)
                 {
                     LOG_VERBOSE() << "TxRegistration state";
+                    fsm.sendNewTransaction();
+                }
+            };
+            struct TxPeerConfirmation : public msmf::state<>
+            {
+                template <class Event, class Fsm>
+                void on_entry(Event const&, Fsm& fsm)
+                {
+                    LOG_VERBOSE() << "TxPeerConfirmation state";
+                    fsm.sendConfirmTransaction();
                 }
             };
             struct TxOutputsConfirmation : public msmf::state<>
@@ -138,16 +149,16 @@ namespace beam::wallet
             void rollbackTx();
 
             void sendInvite() const;
+            void sendConfirmInvitation() const;
+            void sendConfirmTransaction() const;
+            void sendNewTransaction() const;
 
             Amount get_total() const;
 
             void update_tx_description(TxDescription::Status s);
-
-            bool getSenderInputsAndOutputs(const Height& currentHeight, std::vector<Input::Ptr>& inputs, std::vector<Output::Ptr>& outputs);
             bool prepareSenderUtxos(const Height& currentHeight);
-
 			bool registerTxInternal(const events::TxConfirmationCompleted&);
-			bool confirmPeerInternal(const events::TxInvitationCompleted&);
+
 
             using do_serialize = int;
             typedef int no_message_queue;
@@ -163,11 +174,11 @@ namespace beam::wallet
                 a_row< TxInitial                , events::TxInitiated            , TxInvitation        , &d::invitePeer           >,
                 
                 a_row< TxConfirmation           , events::TxConfirmationCompleted, TxRegistration      , &d::registerTx           >,
-                a_row< TxInvitation             , events::TxInvitationCompleted  , TxRegistration      , &d::confirmPeer          >,
+                a_row< TxInvitation             , events::TxInvitationCompleted  , TxPeerConfirmation  , &d::confirmPeer          >,
 
                 //a_row< TxRegistration         , events::TxRegistrationCompleted , TxOutputsConfirmation , &d::confirmOutputs             >,
                 a_row< TxRegistration           , events::TxRegistrationCompleted, TxTerminal          , &d::completeTx           >,
-
+                a_row< TxPeerConfirmation       , events::TxRegistrationCompleted, TxTerminal          , &d::completeTx           >,
                 //a_row< TxOutputsConfirmation  , events::TxOutputsConfirmed      , TxTerminal            , &d::completeTx                 >,
 
                 a_row< TxAllOk                , events::TxFailed                , TxTerminal            , &d::rollbackTx                 >
@@ -201,11 +212,10 @@ namespace beam::wallet
             }
 
             void createKernel(Amount fee, Height minHeight);
-            Input::Ptr createInput(const Coin& utxo);
-            Output::Ptr createOutput(Amount amount, Height height);
             void createOutputUtxo(Amount amount, Height height);
+            ECC::Scalar createSignature() const;
             ECC::Scalar createSignature();
-            void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce);
+            void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce, ECC::Scalar& challenge) const;
             ECC::Point getPublicExcess() const;
             ECC::Point getPublicNonce() const;
             bool isValidSignature(const ECC::Scalar& peerSignature) const;

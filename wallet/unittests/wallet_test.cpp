@@ -524,9 +524,9 @@ void TestFSM()
     s.process_event(wallet::events::TxInitiated());
     WALLET_CHECK(*(s.current_state()) == 2);
     s.process_event(wallet::events::TxInvitationCompleted{});
-    WALLET_CHECK(*(s.current_state()) == 3);
+    WALLET_CHECK(*(s.current_state()) == 4);
     s.process_event(wallet::events::TxConfirmationCompleted{});
-    WALLET_CHECK(*(s.current_state()) == 3);
+    WALLET_CHECK(*(s.current_state()) == 4);
 }
 
 enum NodeNetworkMessageCodes : uint8_t
@@ -1148,7 +1148,7 @@ void TestSerializeFSM()
     der & s2;
     WALLET_CHECK(*(s2.current_state()) == 2);
     s2.process_event(wallet::events::TxInvitationCompleted{ wallet::ConfirmInvitation() });
-    WALLET_CHECK(*(s2.current_state()) == 3);
+    WALLET_CHECK(*(s2.current_state()) == 4);
 
     ser.reset();
     ser & s2;
@@ -1156,7 +1156,7 @@ void TestSerializeFSM()
     buffer = ser.buffer();
     der.reset(buffer.first, buffer.second);
     der & s;
-    WALLET_CHECK(*(s.current_state()) == 3);
+    WALLET_CHECK(*(s.current_state()) == 4);
 }
 
 struct MyMmr : public Merkle::Mmr
