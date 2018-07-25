@@ -25,8 +25,9 @@ fi
 
 mkdir -p $OS_FOLDER
 
-tar -czvf $OS_FOLDER/$APP.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-tar -rvf $OS_FOLDER/$APP.tar.gz --directory=$HOME/build/beam-mw/beam/ui beam-ui beam-ui.cfg
+tar -cvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
+tar -rvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/ui beam-ui beam-ui.cfg
+tar -czvf $OS_FOLDER/$APP.tar.gz $OS_FOLDER/$APP.tar
 
 git add $OS_FOLDER/$APP.tar.gz
 git commit -m "Travis build $TRAVIS_BUILD_NUMBER on $OSTYPE"
