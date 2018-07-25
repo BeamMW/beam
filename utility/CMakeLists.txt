@@ -40,4 +40,11 @@ else()
     target_link_libraries(utility uv)
 endif()
 
+if (Boost_FOUND)
+	find_package(Boost COMPONENTS program_options)
+    target_link_libraries(utility Boost::program_options)
+else()
+    target_link_libraries(utility boost_program_options)
+endif()
+
 add_subdirectory(unittest)
