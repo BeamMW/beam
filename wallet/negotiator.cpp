@@ -135,7 +135,8 @@ namespace beam::wallet
         ConfirmInvitation confirmMsg;
         confirmMsg.m_txId = m_parent.m_txDesc.m_txId;
         confirmMsg.m_publicPeerExcess = getPublicExcess();
-        createSignature2(confirmMsg.m_peerSignature, confirmMsg.m_publicPeerNonce, NoLeak<Scalar>().V);
+        NoLeak<Scalar> t;
+        createSignature2(confirmMsg.m_peerSignature, confirmMsg.m_publicPeerNonce, t.V);
 
         m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmMsg));
     }
