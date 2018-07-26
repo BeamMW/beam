@@ -125,8 +125,7 @@ namespace beam
 
             }
 
-            const pair<Amount, vector<Coin>>& select(Amount amount
-                                                   , Amount left)
+            const pair<Amount, vector<Coin>>& select(Amount amount, Amount left)
             {
                 if (left < amount || amount == 0)
                 {
@@ -679,7 +678,26 @@ namespace beam
             }
         }
         Amount sum = 0;
+        Coin coin2;
         {
+            // get one coin >= amount
+            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount>=?3 ORDER BY amount ASC LIMIT 1;");
+            stm.bind(1, Coin::Unspent);
+            stm.bind(2, stateID.m_Height);
+            stm.bind(3, amount);
+            if (stm.step())
+            {
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin2);
+                sum = coin2.m_amount;
+            }
+        }
+        if (sum == amount)
+        {
+            coins.push_back(coin2);
+        }
+        else
+        {
+            // select all coins less than needed amount in sorted order
             sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount<?3 ORDER BY amount DESC;");
             stm.bind(1, Coin::Unspent);
             stm.bind(2, stateID.m_Height);
@@ -692,36 +710,31 @@ namespace beam
                 ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
                 smallSum += coin.m_amount;
             }
-            if (smallSum > amount)
+            if (smallSum == amount)
+            {
+                coins.swap(candidats);
+            }
+            else if (smallSum > amount)
             {
                 CoinSelector s{ candidats };
                 auto t = s.select(amount, smallSum);
-                sum = t.first;
-                coins = t.second;
-            }
-            else if (smallSum == amount)
-            {
-                coins.swap(candidats);
-                sum = amount;
-            }
-        }
-        Coin coin2;
-        {
-            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount>=?3 ORDER BY amount ASC LIMIT 1;");
-            stm.bind(1, Coin::Unspent);
-            stm.bind(2, stateID.m_Height);
-            stm.bind(3, amount);
-            if (stm.step())
-            {
-                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin2);
-                if (sum < amount || coin2.m_amount <= sum)
+                
+                if (sum > amount && sum <= t.first)
                 {
-                    coins.clear();
+                    // prefer one coin instead on many
                     coins.push_back(coin2);
                 }
+                else
+                {
+                    coins = t.second;
+                }
+            }
+            else if (sum > amount)
+            {
+                coins.push_back(coin2);
             }
         }
-
+ 
         if (lock)
 		{
 			sqlite::Transaction trans(_db);
