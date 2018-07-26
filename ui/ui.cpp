@@ -18,6 +18,10 @@
 
 #include "utility/options.h"
 
+#include <QtCore/QtPlugin>
+
+Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin)
+
 namespace po = boost::program_options;
 
 using namespace beam;
