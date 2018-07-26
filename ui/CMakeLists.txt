@@ -130,7 +130,13 @@ target_link_libraries(beam-ui Qt5::Qml Qt5::Quick Qt5::Svg
 	${CMAKE_PREFIX_PATH}/lib/Qt5Test.lib
 	${CMAKE_PREFIX_PATH}/lib/Qt5Xml.lib
 
+	${CMAKE_PREFIX_PATH}/qml/QtQuick.2/qtquick2plugin.lib
+	${CMAKE_PREFIX_PATH}/qml/QtQuick/Window.2/windowplugin.lib
+	${CMAKE_PREFIX_PATH}/qml/QtQuick/Controls/qtquickcontrolsplugin.lib
+
 	${CMAKE_PREFIX_PATH}/plugins/platforms/qwindows.lib
+	${CMAKE_PREFIX_PATH}/plugins/imageformats/qsvg.lib
+
 	Netapi32.lib 
 	version.lib 
 	winmm.lib 

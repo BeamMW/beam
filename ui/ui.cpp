@@ -20,7 +20,12 @@
 
 #include <QtCore/QtPlugin>
 
+Q_IMPORT_PLUGIN(QSvgPlugin)
+
 Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin)
+Q_IMPORT_PLUGIN(QtQuick2Plugin)
+Q_IMPORT_PLUGIN(QtQuick2WindowPlugin)
+Q_IMPORT_PLUGIN(QtQuickControls1Plugin)
 
 namespace po = boost::program_options;
 
