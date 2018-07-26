@@ -92,6 +92,7 @@ namespace beam
         virtual std::vector<TxPeer> getPeers() = 0;
         virtual void addPeer(const TxPeer&) = 0;
         virtual boost::optional<TxPeer> getPeer(const WalletID&) = 0;
+		virtual void clearPeers() = 0;
 
 		template <typename Var>
 		void setVar(const char* name, const Var& var)
@@ -146,6 +147,7 @@ namespace beam
         std::vector<TxPeer> getPeers() override;
         void addPeer(const TxPeer&) override;
         boost::optional<TxPeer> getPeer(const WalletID&) override;
+		void clearPeers() override;
 
         Timestamp getLastUpdateTime() const override;
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;

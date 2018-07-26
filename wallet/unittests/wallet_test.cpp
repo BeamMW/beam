@@ -78,6 +78,7 @@ namespace
         std::vector<TxPeer> getPeers() override { return {}; };
         void addPeer(const TxPeer&) override {}
         boost::optional<TxPeer> getPeer(const WalletID&) override { return boost::optional<TxPeer>{}; }
+		void clearPeers() override {}
 
         Height getCurrentHeight() const override
         {

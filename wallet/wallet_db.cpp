@@ -1156,6 +1156,12 @@ namespace beam
         return boost::optional<TxPeer>{};
     }
 
+	void Keychain::clearPeers()
+	{
+		sqlite::Statement stm(_db, "DELETE FROM " PEERS_NAME ";");
+		stm.step();
+	}
+
     void Keychain::subscribe(IKeyChainObserver* observer)
 	{
 		assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
