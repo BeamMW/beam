@@ -59,4 +59,4 @@ add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES})
 
 add_dependencies(beam-ui wallet)
 
-target_link_libraries(beam-ui Qt5::Qml Qt5::Quick Qt5::Svg wallet)
+target_link_libraries(beam-ui Qt5::Qml Qt5::Quick Qt5::Svg $ENV{QT5_ROOT_DIR}/lib/qtpcre2.lib $ENV{QT5_ROOT_DIR}/lib/qtharfbuzz.lib $ENV{QT5_ROOT_DIR}/lib/qtlibpng.lib Netapi32.lib version.lib winmm.lib wallet)

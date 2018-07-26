@@ -17,10 +17,14 @@ endfunction()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(BEAM_USE_STATIC FALSE)
+# TODO: don't commit this'
+set(BEAM_USE_STATIC TRUE)
 
 if(BEAM_LINK_TYPE MATCHES "Static")
 	set(BEAM_USE_STATIC TRUE)
+endif()
+
+if(BEAM_USE_STATIC)
 	add_definitions(-DBEAM_USE_STATIC)
 endif()
 
@@ -91,8 +95,9 @@ add_subdirectory(wallet)
 add_subdirectory(sqlite)
 add_subdirectory(beam)
 add_subdirectory(bbs)
+add_subdirectory(ui)
 
 # TODO: UI can't be built with static runtime
-if(NOT BEAM_USE_STATIC)
-	add_subdirectory(ui)
-endif()
+#if(NOT BEAM_USE_STATIC)
+#	add_subdirectory(ui)
+#endif()
