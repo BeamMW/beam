@@ -67,6 +67,7 @@ class WalletViewModel : public QObject
 	Q_PROPERTY(int syncProgress READ syncProgress NOTIFY stateChanged)
 
 	Q_PROPERTY(QString actualAvailable READ actualAvailable NOTIFY actualAvailableChanged)
+    Q_PROPERTY(QString change READ change NOTIFY changeChanged)
 
 public:
 	using TxList = QList<QObject*>;
@@ -86,6 +87,7 @@ public:
 	QString syncTime() const;
 	int syncProgress() const;
 	QString actualAvailable() const;
+    QString change() const;
 	int selectedAddr() const;
 
 	void setSendAmount(const QString& text);
@@ -100,6 +102,7 @@ public slots:
 	void syncWithNode();
 	void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
 	void onSyncProgressUpdated(int done, int total);
+    void onChangeCalculated(beam::Amount change);
 
 signals:
 	void stateChanged();
@@ -110,6 +113,7 @@ signals:
 	void addrBookChanged();
     void selectedAddrChanged();
 	void actualAvailableChanged();
+    void changeChanged();
 
 private:
 	beam::Amount calcSendAmount() const;
@@ -122,6 +126,8 @@ private:
 
 	QString _sendAmount;
 	QString _sendAmountMils;
+
+    beam::Amount _change;
 
     beam::IKeyChain::Ptr _keychain;
 	TxList _tx;

@@ -302,6 +302,16 @@ Item {
                     text: (walletViewModel.sendAmount*1 + walletViewModel.sendAmountMils/1000000) + " USD"
                 }
 
+				SFText {
+				    x: 204+157
+                    y: 164+30
+                    opacity: 0.5
+                    font.pixelSize: 24
+                    font.weight: Font.ExtraLight
+                    color: Style.white
+                    text: (walletViewModel.change) + " USD"
+                }
+
                 AvailablePanel {
                     y: 243
                     width: parent.width
