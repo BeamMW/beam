@@ -176,6 +176,7 @@ void WalletViewModel::onSyncProgressUpdated(int done, int total)
 void WalletViewModel::onChangeCalculated(beam::Amount change)
 {
     _change = change;
+    emit actualAvailableChanged();
     emit changeChanged();
 }
 
@@ -308,7 +309,7 @@ void WalletViewModel::syncWithNode()
 
 QString WalletViewModel::actualAvailable() const
 {
-	return BeamToString(_status.available - calcSendAmount());
+	return BeamToString(_status.available - calcSendAmount() - _change);
 }
 
 QString WalletViewModel::change() const
