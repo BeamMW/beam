@@ -81,6 +81,7 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const s
 	, _status{ 0, 0, 0, 0, {0, 0, 0} }
 	, _sendAmount("0")
 	, _sendAmountMils("0")
+    , _change(0)
     , _keychain(keychain)
 {
 	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
@@ -93,6 +94,9 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const s
 
 	connect(&_model, SIGNAL(onSyncProgressUpdated(int, int)),
 		SLOT(onSyncProgressUpdated(int, int)));
+
+    connect(&_model, SIGNAL(onChangeCalculated(beam::Amount)),
+        SLOT(onChangeCalculated(beam::Amount)));
 
 	_model.start();
 }
@@ -169,6 +173,12 @@ void WalletViewModel::onSyncProgressUpdated(int done, int total)
 	emit stateChanged();
 }
 
+void WalletViewModel::onChangeCalculated(beam::Amount change)
+{
+    _change = change;
+    emit changeChanged();
+}
+
 QString WalletViewModel::available() const
 {
 	return BeamToString(_status.available);
@@ -204,6 +214,7 @@ void WalletViewModel::setSendAmount(const QString& amount)
 	if (amount != _sendAmount)
 	{
 		_sendAmount = amount;
+        _model.async->calcChange(calcSendAmount());
 		emit sendAmountChanged();
 		emit actualAvailableChanged();
 	}
@@ -214,6 +225,7 @@ void WalletViewModel::setSendAmountMils(const QString& amount)
 	if (amount != _sendAmountMils)
 	{
 		_sendAmountMils = amount;
+        _model.async->calcChange(calcSendAmount());
 		emit sendAmountMilsChanged();
 		emit actualAvailableChanged();
 	}
@@ -285,7 +297,7 @@ void WalletViewModel::sendMoney()
         auto& addr = _addrList[_selectedAddr];
         // TODO: show 'operation in process' animation here?
 
-        _model.async->sendMoney(addr.m_walletID, std::move(calcSendAmount()));
+        _model.async->sendMoney(addr.m_walletID, calcSendAmount());
     }
 }
 
@@ -297,4 +309,9 @@ void WalletViewModel::syncWithNode()
 QString WalletViewModel::actualAvailable() const
 {
 	return BeamToString(_status.available - calcSendAmount());
+}
+
+QString WalletViewModel::change() const
+{
+    return BeamToString(_change);
 }
