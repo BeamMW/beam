@@ -15,8 +15,8 @@ platform:
 environment:
   BOOST_ROOT: C:\Libraries\boost_1_67_0
   OPENSSL_ROOT_DIR: c:\beam-libs\openssl
-  QT5_ROOT_DIR: c:\beam-libs\qt5-static
-  QML_IMPORT_PATH: c:\beam-libs\qt5-static\qml
+  QT5_ROOT_DIR: c:\beam-libs\qt5-static-win
+  QML_IMPORT_PATH: c:\beam-libs\qt5-static-win\qml
   GITHUB_API_KEY:
     secure: 3teRuVd1PpR8Y2XJEOWPWo7LYRhEKIZZk3w53nFG7hPsXrONIUb18SNfkVl+SICw
   matrix:
@@ -24,7 +24,7 @@ environment:
 
 before_build:
   - cmd: git clone https://github.com/beam-mw/libs.git c:/beam-libs
-  - cmd: set PATH=%BOOST_ROOT%\lib64-msvc-14.1;%PATH%
+  - cmd: git clone https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
   - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=Release -DBEAM_LINK_TYPE=Static
 
 test_script:
