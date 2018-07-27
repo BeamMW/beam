@@ -470,7 +470,7 @@ namespace beam
                 // restart search
                 if (!m_stateFinder)
                 {
-                    LOG_INFO() << "Last known state doesn't present on current branch. Rollback... ";
+                    LOG_INFO() << "State " << m_knownStateID << " doesn't present on current branch. Rollback... ";
                 }
                 else
                 {
@@ -509,7 +509,7 @@ namespace beam
                     m_knownStateID = {};
                 }
                 m_stateFinder.reset();
-                LOG_INFO() << "Rollback completed";
+                LOG_INFO() << "Rolled back to " << m_knownStateID;
             }
         }
 
@@ -530,7 +530,7 @@ namespace beam
 
     void Wallet::do_fast_forward()
     {
-        LOG_INFO() << "Sync up to " << m_newStateID.m_Height << "-" << m_newStateID.m_Hash;
+        LOG_INFO() << "Sync up to " << m_newStateID;
         // fast-forward
         enter_sync(); // Mined
         m_network->send_node_message(proto::GetMined{ m_knownStateID.m_Height });
@@ -585,6 +585,8 @@ namespace beam
             {
                 m_keyChain->setSystemStateID(m_newStateID);
                 m_knownStateID = m_newStateID;
+                LOG_INFO() << "Current state is " << m_knownStateID;
+
                 if (!m_pendingEvents.empty())
                 {
                     Cleaner c{ m_removedNegotiators };
