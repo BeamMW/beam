@@ -74,7 +74,7 @@ private:
 	std::string _nodeAddrString;
 
 	beam::IKeyChain::Ptr _keychain;
-	beam::io::Reactor::Ptr _reactor;
-    std::shared_ptr<beam::WalletNetworkIO> _wallet_io;
-    std::shared_ptr<beam::Wallet> _wallet;
+    beam::io::Reactor::Ptr _reactor;
+    std::weak_ptr<beam::INetworkIO> _wallet_io;
+    std::weak_ptr<beam::Wallet> _wallet;
 };
