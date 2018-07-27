@@ -135,7 +135,7 @@ namespace beam
     {
         m_network->set_wallet(nullptr);
        // assert(m_peers.empty());
-        assert(m_negotiators.empty());
+        //assert(m_negotiators.empty());
         assert(m_reg_requests.empty());
         assert(m_removedNegotiators.empty());
     }
@@ -286,7 +286,7 @@ namespace beam
     void Wallet::handle_tx_message(const WalletID& /*from*/, wallet::TxFailed&& data)
     {
         LOG_DEBUG() << "tx " << data.m_txId << " failed";
-        handle_tx_failed(data.m_txId);
+        process_event(data.m_txId, events::TxFailed(false));
     }
 
     bool Wallet::handle_node_message(proto::Boolean&& res)
@@ -314,13 +314,8 @@ namespace beam
         }
         else
         {
-            handle_tx_failed(txId);
+            process_event(txId, events::TxFailed(true));
         }
-    }
-
-    void Wallet::handle_tx_failed(const TxID& txId)
-    {
-        process_event(txId, events::TxFailed());
     }
 
     bool Wallet::handle_node_message(proto::ProofUtxo&& utxoProof)

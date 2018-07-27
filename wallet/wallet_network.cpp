@@ -263,24 +263,30 @@ namespace beam {
     void WalletNetworkIO::on_protocol_error(uint64_t from, ProtocolError error)
     {
         LOG_ERROR() << "Wallet protocol error: " << error;
-        //get_wallet().handle_connection_error(from);
-        if (m_connections.empty())
-        {
-            stop();
-            return;
-        }
+
+        close_connection(from);
     }
 
     void WalletNetworkIO::on_connection_error(uint64_t from, io::ErrorCode errorCode)
     {
         LOG_ERROR() << "Wallet connection error: " << io::error_str(errorCode);
 
-        if (m_connections.empty())
+        close_connection(from);
+    }
+
+    void WalletNetworkIO::close_connection(uint64_t tag)
+    {
+        if (auto it = m_connections.find(tag); it != m_connections.end())
+        {
+            m_connectionWalletsIndex.erase(it->second.m_wallet.m_walletID, ConnectionWalletIDComparer());
+            m_connections.erase(it);
+        }
+
+        if (!m_server && m_connections.empty())
         {
             stop();
             return;
         }
-        //get_wallet().handle_connection_error(from);
     }
 
     uint64_t WalletNetworkIO::get_connection_tag()
