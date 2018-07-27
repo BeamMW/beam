@@ -2,6 +2,7 @@ import QtQuick 2.3
 import QtQuick.Controls 1.2
 import QtQuick.Controls.Styles 1.2
 import QtGraphicalEffects 1.0
+import QtQuick.Layouts 1.3
 import "controls"
 
 Item {
@@ -211,6 +212,7 @@ Item {
                 anchors.bottomMargin: 60
 
                 SFText {
+                    id: amount_text
                     y: 41
 
                     font.pixelSize: 12
@@ -293,44 +295,103 @@ Item {
                     text: "MIL"
                 }
 
-                SFText {
-                    y: 164+30
-                    opacity: 0.5
-                    font.pixelSize: 24
-                    font.weight: Font.ExtraLight
-                    color: Style.white
-                    text: (walletViewModel.sendAmount*1 + walletViewModel.sendAmountMils/1000000) + " USD"
-                }
-
-				SFText {
-				    x: 204+157
-                    y: 164+30
-                    opacity: 0.5
-                    font.pixelSize: 24
-                    font.weight: Font.ExtraLight
-                    color: Style.white
-                    text: (walletViewModel.change) + " USD"
-                }
-
-                AvailablePanel {
-                    y: 243
-                    width: parent.width
-                    height: 206
-                    value: walletViewModel.actualAvailable
-                }
-
                 // /////////////////////////////////////////////////////////////
                 // /// Transaction fee /////////////////////////////////////////
                 // /////////////////////////////////////////////////////////////
 
-                // SFText {
-                //     y: 243   
+                Column {
+                    id: fee_input
+                    anchors {
+                        top: mils_amount_input.bottom
+                        left: amount_text.left
+                        right: parent.right
+                        topMargin: 20
+                    }
 
-                //     font.pixelSize: 12
-                //     font.weight: Font.Bold
-                //     color: Style.white
-                //     text: "Transaction fee"
-                // }
+                    SFText {
+
+                        font.pixelSize: 12
+                        font.weight: Font.Bold
+                        color: Style.white
+                        text: "Transaction fee"
+                    }
+
+                    RowLayout {
+                        anchors {
+                            left: parent.left
+                        }
+                        SFTextInput {
+                            id: mils_fee_input
+                            Layout.minimumWidth: 337
+                            Layout.maximumWidth: 337
+
+                            font.pixelSize: 48
+
+                            color: Style.heliotrope
+
+                            text: walletViewModel.feeMils
+
+                            validator: IntValidator{bottom: 0; top: 999999;}
+                        }
+                        SFText {
+                            Layout.alignment: Qt.AlignBottom
+                            Layout.leftMargin: 20
+                            font.pixelSize: 24
+                            color: Style.white
+                            text: "MIL"
+                        }
+                    }
+
+                    Rectangle {
+                        width: 337
+                        height: 1
+
+                        color: "#33566b"
+                    }
+
+                    Binding {
+                        target: walletViewModel
+                        property: "feeMils"
+                        value: mils_fee_input.text
+                    }
+                }
+                Item {
+                    id: total_amount
+                    anchors {
+                        top: fee_input.bottom
+                        left: parent.left
+                        right: parent.right
+                        topMargin: 20
+                        rightMargin: 30
+                    }
+                    height: 40
+
+                    SFText {
+                        opacity: 0.5
+                        font.pixelSize: 24
+                        font.weight: Font.ExtraLight
+                        color: Style.white
+                        text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils + walletViewModel.feeMils)/1000000) + " USD"
+                    }
+
+                    SFText {
+                        id: change_text
+                        anchors.right: parent.right
+                        opacity: 0.5
+                        font.pixelSize: 24
+                        font.weight: Font.ExtraLight
+                        color: Style.white
+                        text: (walletViewModel.change) + " USD"
+                    }
+                }
+
+                AvailablePanel {
+                    id:send_available
+                    anchors.top: total_amount.bottom
+                    width: parent.width
+                    height: 206
+                    value: walletViewModel.actualAvailable
+                }
 
                 // Rectangle {
                 //     id: fee_line
@@ -718,7 +779,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         x: 20
                         source: "qrc:///assets/icon-comment.svg"
-                        visible: styleData.value != null
+                        visible: styleData.value !== null
                     }
                 }
             }
@@ -792,9 +853,9 @@ Item {
                         font.pixelSize: 12
 
                         color: {
-                            if(styleData.value == "sent")
+                            if(styleData.value === "sent")
                                 Style.heliotrope
-                            else if(styleData.value == "received")
+                            else if(styleData.value === "received")
                                 Style.bright_sky_blue
                             else Style.white
                         }

@@ -81,6 +81,7 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const s
 	, _status{ 0, 0, 0, 0, {0, 0, 0} }
 	, _sendAmount("0")
 	, _sendAmountMils("0")
+    , _feeMils("0")
     , _change(0)
     , _keychain(keychain)
 {
@@ -210,12 +211,17 @@ QString WalletViewModel::sendAmountMils() const
 	return _sendAmountMils;
 }
 
+QString WalletViewModel::feeMils() const
+{
+    return _feeMils;
+}
+
 void WalletViewModel::setSendAmount(const QString& amount)
 {
 	if (amount != _sendAmount)
 	{
 		_sendAmount = amount;
-        _model.async->calcChange(calcSendAmount());
+        _model.async->calcChange(calcTotalAmount());
 		emit sendAmountChanged();
 		emit actualAvailableChanged();
 	}
@@ -226,10 +232,21 @@ void WalletViewModel::setSendAmountMils(const QString& amount)
 	if (amount != _sendAmountMils)
 	{
 		_sendAmountMils = amount;
-        _model.async->calcChange(calcSendAmount());
+        _model.async->calcChange(calcTotalAmount());
 		emit sendAmountMilsChanged();
 		emit actualAvailableChanged();
 	}
+}
+
+void WalletViewModel::setFeeMils(const QString& amount)
+{
+    if (amount != _feeMils)
+    {
+        _feeMils = amount;
+        _model.async->calcChange(calcTotalAmount());
+        emit feeMilsChanged();
+        emit actualAvailableChanged();
+    }
 }
 
 void WalletViewModel::setSelectedAddr(int index)
@@ -291,6 +308,17 @@ beam::Amount WalletViewModel::calcSendAmount() const
 	return _sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt();
 }
 
+beam::Amount WalletViewModel::calcFeeAmount() const
+{
+    return _feeMils.toInt();
+}
+
+beam::Amount WalletViewModel::calcTotalAmount() const
+{
+    return calcSendAmount() + calcFeeAmount();
+}
+
+
 void WalletViewModel::sendMoney()
 {
     if (_selectedAddr > -1)
@@ -298,7 +326,7 @@ void WalletViewModel::sendMoney()
         auto& addr = _addrList[_selectedAddr];
         // TODO: show 'operation in process' animation here?
 
-        _model.async->sendMoney(addr.m_walletID, calcSendAmount());
+        _model.async->sendMoney(addr.m_walletID, calcSendAmount(), calcFeeAmount());
     }
 }
 
@@ -309,7 +337,7 @@ void WalletViewModel::syncWithNode()
 
 QString WalletViewModel::actualAvailable() const
 {
-	return BeamToString(_status.available - calcSendAmount() - _change);
+	return BeamToString(_status.available - calcTotalAmount() - _change);
 }
 
 QString WalletViewModel::change() const
