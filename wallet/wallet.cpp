@@ -477,9 +477,13 @@ namespace beam
                     LOG_INFO() << "Restarting rollback..."; 
                 }
                 m_stateFinder.reset(new StateFinder(m_newStateID.m_Height));
+                enter_sync();
+                m_network->send_node_message(proto::GetProofState{ m_stateFinder->getSearchHeight() });
+                return exit_sync();
             }
             auto id = m_keyChain->getKnownStateID(m_stateFinder->getSearchHeight());
             Merkle::Hash hv = id.m_Hash;
+            LOG_INFO() << "Check state: " << id;
             Merkle::Interpret(hv, msg.m_Proof);
             if (hv == m_Definition)
             {
