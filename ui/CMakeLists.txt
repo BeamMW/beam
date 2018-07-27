@@ -133,6 +133,8 @@ target_link_libraries(beam-ui Qt5::Qml Qt5::Quick Qt5::Svg
 	${CMAKE_PREFIX_PATH}/qml/QtQuick.2/qtquick2plugin.lib
 	${CMAKE_PREFIX_PATH}/qml/QtQuick/Window.2/windowplugin.lib
 	${CMAKE_PREFIX_PATH}/qml/QtQuick/Controls/qtquickcontrolsplugin.lib
+	${CMAKE_PREFIX_PATH}/qml/QtGraphicalEffects/qtgraphicaleffectsplugin.lib
+	${CMAKE_PREFIX_PATH}/qml/QtGraphicalEffects/private/qtgraphicaleffectsprivate.lib
 
 	${CMAKE_PREFIX_PATH}/plugins/platforms/qwindows.lib
 	${CMAKE_PREFIX_PATH}/plugins/imageformats/qsvg.lib
