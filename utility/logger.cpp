@@ -1,5 +1,6 @@
 #include "logger_checkpoints.h"
 #include "helpers.h"
+#include <boost/filesystem.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <stdexcept>
@@ -96,9 +97,10 @@ public:
 
 class FileLogger : public LoggerImpl {
 public:
-    FileLogger(int flushLevel, int minLevel, const string& fileNamePrefix) :
+    FileLogger(int flushLevel, int minLevel, const string& fileNamePrefix, const string& dstPath) :
         LoggerImpl(0, minLevel, flushLevel),
-        _fileNamePrefix(fileNamePrefix)
+        _fileNamePrefix(fileNamePrefix),
+        _dstPath(dstPath)
     {
         open_new_file();
     }
@@ -119,11 +121,27 @@ private:
         string fileName(_fileNamePrefix);
         fileName += format_timestamp("%y_%m_%d_%H_%M_%S", local_timestamp_msec(), false);
         fileName += ".log";
-        _sink = fopen(fileName.c_str(), "ab");
+        if (!_dstPath.empty())
+        {
+            boost::filesystem::path path{ _dstPath };
+
+            if (!boost::filesystem::exists(path))
+            {
+                boost::filesystem::create_directories(path);
+            }
+
+            path.append(fileName);
+            _sink = fopen(path.string().c_str(), "ab");
+        }
+        else
+        {
+            _sink = fopen(fileName.c_str(), "ab");
+        }
         if (!_sink) throw runtime_error(string("cannot open file ") + fileName);
     }
 
     std::string _fileNamePrefix;
+    std::string _dstPath;
 };
 
 class CombinedLogger : public LoggerImpl {
@@ -131,9 +149,9 @@ class CombinedLogger : public LoggerImpl {
     ConsoleLogger _consoleSink;
 
 public:
-    CombinedLogger(int flushLevel, int consoleLevel, int fileLevel, const std::string& fileNamePrefix) :
+    CombinedLogger(int flushLevel, int consoleLevel, int fileLevel, const std::string& fileNamePrefix, const string& dstPath) :
         LoggerImpl(0, min(fileLevel, consoleLevel), flushLevel),
-        _fileSink(flushLevel, fileLevel, fileNamePrefix),
+        _fileSink(flushLevel, fileLevel, fileNamePrefix, dstPath),
         _consoleSink(flushLevel, consoleLevel)
     {}
 
@@ -163,7 +181,8 @@ std::shared_ptr<Logger> Logger::create(
     int flushLevel,
     int consoleLevel,
     int fileLevel,
-    const std::string& fileNamePrefix
+    const std::string& fileNamePrefix,
+    const std::string& dstPath
 ) {
     if (g_logger) {
         throw runtime_error("logger already initialized");
@@ -178,10 +197,10 @@ std::shared_ptr<Logger> Logger::create(
 
     switch (what) {
         case 3:
-            logger.reset(new CombinedLogger(flushLevel, consoleLevel, fileLevel, fileNamePrefix));
+            logger.reset(new CombinedLogger(flushLevel, consoleLevel, fileLevel, fileNamePrefix, dstPath));
             break;
         case 2:
-            logger.reset(new FileLogger(flushLevel, fileLevel, fileNamePrefix));
+            logger.reset(new FileLogger(flushLevel, fileLevel, fileNamePrefix, dstPath));
             break;
         case 1:
             logger.reset(new ConsoleLogger(flushLevel, consoleLevel));

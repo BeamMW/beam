@@ -41,10 +41,10 @@ else()
 endif()
 
 if (Boost_FOUND)
-	find_package(Boost COMPONENTS program_options)
-    target_link_libraries(utility Boost::program_options)
+    find_package(Boost COMPONENTS program_options filesystem)
+    target_link_libraries(utility Boost::program_options Boost::filesystem)
 else()
-    target_link_libraries(utility boost_program_options)
+    target_link_libraries(utility boost_program_options boost_filesystem)
 endif()
 
 add_subdirectory(unittest)
