@@ -291,7 +291,18 @@ int main_impl(int argc, char* argv[])
 {
     auto options = createOptionsDescription();
 
-    po::variables_map vm = getOptions(argc, argv, "beam.cfg", options);
+	po::variables_map vm;
+	try
+	{
+		vm = getOptions(argc, argv, "beam.cfg", options);
+	}
+	catch (const po::error& e)
+	{
+		cout << e.what() << std::endl;
+		printHelp(options);
+
+		return 0;
+	}
 
 	if (vm.count(cli::HELP))
 	{
