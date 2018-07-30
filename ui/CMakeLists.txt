@@ -124,3 +124,8 @@ if(BEAM_USE_STATIC)
 	endif()
 
 endif()
+
+install(TARGETS beam-ui
+	RUNTIME
+	DESTINATION .
+	COMPONENT applications)
