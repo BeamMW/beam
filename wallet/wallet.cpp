@@ -135,7 +135,7 @@ namespace beam
     {
         m_network->set_wallet(nullptr);
        // assert(m_peers.empty());
-        assert(m_negotiators.empty());
+        //assert(m_negotiators.empty());
         assert(m_reg_requests.empty());
         assert(m_removedNegotiators.empty());
     }
@@ -286,7 +286,7 @@ namespace beam
     void Wallet::handle_tx_message(const WalletID& /*from*/, wallet::TxFailed&& data)
     {
         LOG_DEBUG() << "tx " << data.m_txId << " failed";
-        handle_tx_failed(data.m_txId);
+        process_event(data.m_txId, events::TxFailed(false));
     }
 
     bool Wallet::handle_node_message(proto::Boolean&& res)
@@ -314,13 +314,8 @@ namespace beam
         }
         else
         {
-            handle_tx_failed(txId);
+            process_event(txId, events::TxFailed(true));
         }
-    }
-
-    void Wallet::handle_tx_failed(const TxID& txId)
-    {
-        process_event(txId, events::TxFailed());
     }
 
     bool Wallet::handle_node_message(proto::ProofUtxo&& utxoProof)
@@ -470,16 +465,20 @@ namespace beam
                 // restart search
                 if (!m_stateFinder)
                 {
-                    LOG_INFO() << "Last known state doesn't present on current branch. Rollback... ";
+                    LOG_INFO() << "State " << m_knownStateID << " doesn't present on current branch. Rollback... ";
                 }
                 else
                 {
                     LOG_INFO() << "Restarting rollback..."; 
                 }
                 m_stateFinder.reset(new StateFinder(m_newStateID.m_Height));
+                enter_sync();
+                m_network->send_node_message(proto::GetProofState{ m_stateFinder->getSearchHeight() });
+                return exit_sync();
             }
             auto id = m_keyChain->getKnownStateID(m_stateFinder->getSearchHeight());
             Merkle::Hash hv = id.m_Hash;
+            LOG_INFO() << "Check state: " << id;
             Merkle::Interpret(hv, msg.m_Proof);
             if (hv == m_Definition)
             {
@@ -509,7 +508,7 @@ namespace beam
                     m_knownStateID = {};
                 }
                 m_stateFinder.reset();
-                LOG_INFO() << "Rollback completed";
+                LOG_INFO() << "Rolled back to " << m_knownStateID;
             }
         }
 
@@ -530,7 +529,7 @@ namespace beam
 
     void Wallet::do_fast_forward()
     {
-        LOG_INFO() << "Sync up to " << m_newStateID.m_Height << "-" << m_newStateID.m_Hash;
+        LOG_INFO() << "Sync up to " << m_newStateID;
         // fast-forward
         enter_sync(); // Mined
         m_network->send_node_message(proto::GetMined{ m_knownStateID.m_Height });
@@ -585,6 +584,8 @@ namespace beam
             {
                 m_keyChain->setSystemStateID(m_newStateID);
                 m_knownStateID = m_newStateID;
+                LOG_INFO() << "Current state is " << m_knownStateID;
+
                 if (!m_pendingEvents.empty())
                 {
                     Cleaner c{ m_removedNegotiators };

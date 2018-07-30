@@ -121,7 +121,6 @@ namespace beam
 		void unsubscribe(IWalletObserver* observer) override;
 
         void handle_tx_registered(const TxID& txId, bool res);
-        void handle_tx_failed(const TxID& txId);
 
     private:
         void remove_peer(const TxID& txId);

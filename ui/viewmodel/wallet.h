@@ -58,6 +58,9 @@ class WalletViewModel : public QObject
 
 	Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
 	Q_PROPERTY(QString sendAmountMils READ sendAmountMils WRITE setSendAmountMils NOTIFY sendAmountMilsChanged)
+
+    Q_PROPERTY(QString feeMils READ feeMils WRITE setFeeMils NOTIFY feeMilsChanged)
+
 	Q_PROPERTY(QString receiverAddr READ receiverAddr NOTIFY selectedAddrChanged)
 	Q_PROPERTY(QVariant tx READ tx NOTIFY txChanged)
 	Q_PROPERTY(QVariant addrBook READ addrBook NOTIFY addrBookChanged)
@@ -68,6 +71,7 @@ class WalletViewModel : public QObject
 
 	Q_PROPERTY(QString actualAvailable READ actualAvailable NOTIFY actualAvailableChanged)
     Q_PROPERTY(QString change READ change NOTIFY changeChanged)
+
 
 public:
 	using TxList = QList<QObject*>;
@@ -82,6 +86,7 @@ public:
 	QVariant tx() const;
 	QString sendAmount() const;
 	QString sendAmountMils() const;
+    QString feeMils() const;
 	QString receiverAddr() const;
 	QVariant addrBook() const;
 	QString syncTime() const;
@@ -92,6 +97,7 @@ public:
 
 	void setSendAmount(const QString& text);
 	void setSendAmountMils(const QString& text);
+    void setFeeMils(const QString& text);
 	void setReceiverAddr(const QString& text);
 	void setSelectedAddr(int index);
 
@@ -109,6 +115,7 @@ signals:
 
 	void sendAmountChanged();
 	void sendAmountMilsChanged();
+    void feeMilsChanged();
 	void txChanged();
 	void addrBookChanged();
     void selectedAddrChanged();
@@ -117,6 +124,8 @@ signals:
 
 private:
 	beam::Amount calcSendAmount() const;
+    beam::Amount calcFeeAmount() const;
+    beam::Amount calcTotalAmount() const;
 
 private:
 
@@ -126,6 +135,7 @@ private:
 
 	QString _sendAmount;
 	QString _sendAmountMils;
+    QString _feeMils;
 
     beam::Amount _change;
 

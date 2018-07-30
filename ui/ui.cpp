@@ -129,6 +129,9 @@ int main (int argc, char* argv[])
 
 			if (keychain)
 			{
+				// delete old peers before importing new from .cfg
+				keychain->clearPeers();
+
 				if (vm.count(cli::WALLET_ADDR))
 				{
 					auto uris = vm[cli::WALLET_ADDR].as<vector<string>>();
