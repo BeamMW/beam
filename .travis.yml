@@ -18,13 +18,13 @@ matrix:
       osx_image: xcode9.3
       before_install:
         - brew upgrade openssl boost cmake
-        - git clone https://github.com/nesbox/qt5-static-mac.git ~/qt5-static
-        - export PATH=~/qt5-static-mac/bin:$PATH
+        - git clone https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
+        - export PATH=~/qt5-static/bin:$PATH
       env: 
         - BUILD_TYPE=Release
         - OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
-        - QT5_ROOT_DIR="~/qt5-static"
-        - QML_IMPORT_PATH="~/qt5-static/qml"
+        - QT5_ROOT_DIR="/usr/local/qt5-static"
+        - QML_IMPORT_PATH="/usr/local/qt5-static/qml"
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose;
       after_success:
