@@ -295,9 +295,9 @@ Item {
                     text: "MIL"
                 }
 
-                // /////////////////////////////////////////////////////////////
-                // /// Transaction fee /////////////////////////////////////////
-                // /////////////////////////////////////////////////////////////
+                /////////////////////////////////////////////////////////////
+                /// Transaction fee /////////////////////////////////////////
+                /////////////////////////////////////////////////////////////
 
                 Column {
                     id: fee_input
@@ -372,16 +372,6 @@ Item {
                         font.weight: Font.ExtraLight
                         color: Style.white
                         text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils + walletViewModel.feeMils)/1000000) + " USD"
-                    }
-
-                    SFText {
-                        id: change_text
-                        anchors.right: parent.right
-                        opacity: 0.5
-                        font.pixelSize: 24
-                        font.weight: Font.ExtraLight
-                        color: Style.white
-                        text: (walletViewModel.change) + " USD"
                     }
                 }
 
