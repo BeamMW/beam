@@ -90,7 +90,7 @@ namespace beam
             (cli::COMMAND, po::value<string>(), "command to execute [send|receive|listen|init|info|treasury]");
 
         po::options_description uioptions("UI options");
-        wallet_options.add_options()
+        uioptions.add_options()
             (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken());
 
 #define RulesParams(macro) \
@@ -117,6 +117,7 @@ namespace beam
             .add(general_options)
             .add(node_options)
             .add(wallet_options)
+            .add(uioptions)
             .add(rules_options);
         return options;
     }
