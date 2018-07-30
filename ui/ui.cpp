@@ -18,7 +18,26 @@
 
 #include "utility/options.h"
 
-namespace po = boost::program_options;
+#include <QtCore/QtPlugin>
+
+#if defined(BEAM_USE_STATIC)
+
+#if defined Q_OS_WIN
+Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin)
+#elif defined Q_OS_MAC
+Q_IMPORT_PLUGIN(QCocoaIntegrationPlugin)
+#elif defined Q_OS_LINUX
+Q_IMPORT_PLUGIN(QXcbIntegrationPlugin)
+#endif
+
+Q_IMPORT_PLUGIN(QtQuick2Plugin)
+Q_IMPORT_PLUGIN(QtQuick2WindowPlugin)
+Q_IMPORT_PLUGIN(QtQuickControls1Plugin)
+Q_IMPORT_PLUGIN(QtGraphicalEffectsPlugin)
+Q_IMPORT_PLUGIN(QtGraphicalEffectsPrivatePlugin)
+Q_IMPORT_PLUGIN(QSvgPlugin)
+
+#endif
 
 using namespace beam;
 using namespace std;

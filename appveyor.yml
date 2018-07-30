@@ -4,6 +4,7 @@ image: Visual Studio 2017
 branches:
   only:
     - master
+    - qt_static
 
 configuration:
 - Release
@@ -13,20 +14,18 @@ platform:
 
 environment:
   BOOST_ROOT: C:\Libraries\boost_1_67_0
-  OPENSSL_ROOT_DIR: C:\OpenSSL-Win64
-  QT5_ROOT_DIR: C:\Qt\5.11\msvc2017_64
-  QML_IMPORT_PATH: C:\Qt\5.11\msvc2017_64\qml
+  OPENSSL_ROOT_DIR: c:\beam-libs\openssl
+  QT5_ROOT_DIR: c:\beam-libs\qt5-static-win
+  QML_IMPORT_PATH: c:\beam-libs\qt5-static-win\qml
   GITHUB_API_KEY:
     secure: 3teRuVd1PpR8Y2XJEOWPWo7LYRhEKIZZk3w53nFG7hPsXrONIUb18SNfkVl+SICw
   matrix:
   - arch: Win64
 
 before_build:
-  # TODO: remove downloading openssl.zip from untrusted source
-  # - appveyor DownloadFile https://github.com/nesbox/openssl-static/raw/master/openssl.zip
-  # - cmd: "7z x -oC: ./openssl.zip"
-  - cmd: set PATH=%BOOST_ROOT%\lib64-msvc-14.1;%PATH%
-  - cmd: cmake -G "Visual Studio 15 2017 Win64"
+  - cmd: git clone https://github.com/beam-mw/libs.git c:/beam-libs
+  - cmd: git clone https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
+  - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=Release -DBEAM_LINK_TYPE=Static
 
 test_script:
   - cmd: ctest -C Release --verbose
