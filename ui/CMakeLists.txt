@@ -65,7 +65,7 @@ if(BEAM_USE_STATIC)
 			qml/QtGraphicalEffects/private/qtgraphicaleffectsprivate plugins/platforms/qwindows plugins/imageformats/qsvg)
 
 			target_link_libraries(beam-ui ${CMAKE_PREFIX_PATH}/${lib}.lib)
-		endforeach(flag_var)
+		endforeach()
 
 		target_link_libraries(beam-ui Netapi32.lib version.lib winmm.lib Imm32.lib Dwmapi.lib)
 		
@@ -93,7 +93,7 @@ if(BEAM_USE_STATIC)
 			plugins/platforms/libqcocoa plugins/platforms/libqminimal plugins/imageformats/libqsvg)
 
 			target_link_libraries(beam-ui ${CMAKE_PREFIX_PATH}/${lib}.a)
-		endforeach(flag_var)
+		endforeach()
 
 		target_link_libraries(beam-ui
 			"-framework CoreFoundation"
@@ -115,6 +115,12 @@ if(BEAM_USE_STATIC)
 			"-framework SystemConfiguration"
 			cups
 		)
+	endif()
+
+	if(LINUX)
+
+#....
+
 	endif()
 
 endif()
