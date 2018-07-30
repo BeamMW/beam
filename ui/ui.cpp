@@ -27,7 +27,7 @@ Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin)
 #elif defined Q_OS_MAC
 Q_IMPORT_PLUGIN(QCocoaIntegrationPlugin)
 #elif defined Q_OS_LINUX
-//...	
+Q_IMPORT_PLUGIN(QXcbIntegrationPlugin)
 #endif
 
 Q_IMPORT_PLUGIN(QtQuick2Plugin)
@@ -38,8 +38,6 @@ Q_IMPORT_PLUGIN(QtGraphicalEffectsPrivatePlugin)
 Q_IMPORT_PLUGIN(QSvgPlugin)
 
 #endif
-
-namespace po = boost::program_options;
 
 using namespace beam;
 using namespace std;

@@ -93,4 +93,7 @@ add_subdirectory(wallet)
 add_subdirectory(sqlite)
 add_subdirectory(beam)
 add_subdirectory(bbs)
-add_subdirectory(ui)
+
+if(NOT LINUX)
+	add_subdirectory(ui)
+endif()
