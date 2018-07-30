@@ -388,6 +388,7 @@ Item {
                 AvailablePanel {
                     id:send_available
                     anchors.top: total_amount.bottom
+                    model: walletViewModel.utxos
                     width: parent.width
                     height: 206
                     value: walletViewModel.actualAvailable
@@ -599,6 +600,7 @@ Item {
                 AvailablePanel {
                     width: (parent.width - 30)*500/1220
                     height: parent.height
+                    model: walletViewModel.utxos
                     value: walletViewModel.available
                 }
 

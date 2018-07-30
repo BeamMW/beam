@@ -33,6 +33,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
             receiver.calcChange(move(amount));
         });
     }
+
+    void getAvaliableUtxos() override
+    {
+        tx.send([](BridgeInterface& receiver) mutable
+        {
+            receiver.getAvaliableUtxos();
+        });
+    }
 };
 
 WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
@@ -44,6 +52,7 @@ WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const string& n
 	qRegisterMetaType<vector<TxDescription>>("std::vector<beam::TxDescription>");
 	qRegisterMetaType<vector<TxPeer>>("std::vector<beam::TxPeer>");
     qRegisterMetaType<Amount>("beam::Amount");
+    qRegisterMetaType<vector<Coin>>("std::vector<beam::Coin>");
 }
 
 WalletModel::~WalletModel() 
@@ -93,7 +102,7 @@ void WalletModel::run()
 		emit onStatus(getStatus());
 		emit onTxStatus(_keychain->getTxHistory());
 		emit onTxPeerUpdated(_keychain->getPeers());
-
+        
 		_reactor = Reactor::create();
 
 		Address node_addr;
@@ -215,4 +224,28 @@ void WalletModel::calcChange(beam::Amount&& amount)
     {
         emit onChangeCalculated(sum - amount);
     }    
+}
+
+void WalletModel::getAvaliableUtxos()
+{
+    emit onUtxoChanged(getUtxos());
+}
+
+vector<Coin> WalletModel::getUtxos() const
+{
+    vector<Coin> utxos;
+    auto currentHeight = _keychain->getCurrentHeight();
+    Amount total = 0;
+    _keychain->visit([&utxos, &currentHeight](const Coin& c)->bool
+    {
+        Height lockHeight = c.m_maturity;
+
+        if (c.m_status == Coin::Unspent
+            && lockHeight <= currentHeight)
+        {
+            utxos.push_back(c);
+        }
+        return true;
+    });
+    return utxos;
 }

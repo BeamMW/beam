@@ -148,8 +148,6 @@ namespace beam::wallet
             void completeTx();
             void rollbackTx();
 
-            Amount get_total() const;
-
             void update_tx_description(TxDescription::Status s);
 
             bool getSenderInputsAndOutputs(const Height& currentHeight, std::vector<Input::Ptr>& inputs, std::vector<Output::Ptr>& outputs);

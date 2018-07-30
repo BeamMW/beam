@@ -14,6 +14,7 @@ struct IWalletModelAsync
     virtual void sendMoney(beam::WalletID receiver, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
 	virtual void syncWithNode() = 0;
     virtual void calcChange(beam::Amount&& amount) = 0;
+    virtual void getAvaliableUtxos() = 0;
 
 	virtual ~IWalletModelAsync() {}
 };
@@ -54,6 +55,7 @@ signals:
 	void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
 	void onSyncProgressUpdated(int done, int total);
     void onChangeCalculated(beam::Amount change);
+    void onUtxoChanged(const std::vector<beam::Coin>& utxos);
 
 private:
 	void onKeychainChanged() override;
@@ -65,9 +67,11 @@ private:
     void sendMoney(beam::WalletID receiver, beam::Amount&& amount, beam::Amount&& fee) override;
     void syncWithNode() override;
     void calcChange(beam::Amount&& amount) override;
+    void getAvaliableUtxos() override;
 
 	void onStatusChanged();
 	WalletStatus getStatus() const;
+    std::vector<beam::Coin> getUtxos() const;
 private:
 
 	uint16_t _port;

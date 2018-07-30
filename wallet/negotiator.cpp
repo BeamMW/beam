@@ -192,21 +192,6 @@ namespace beam::wallet
         update_tx_description(TxDescription::Completed);
     }
 
-    Amount Negotiator::FSMDefinition::get_total() const
-    {
-        auto currentHeight = m_parent.m_keychain->getCurrentHeight();
-        Amount total = 0;
-        m_parent.m_keychain->visit([&total, &currentHeight](const Coin& c)->bool
-        {
-            if (c.m_status == Coin::Unspent && c.m_maturity <= currentHeight)
-            {
-                total += c.m_amount;
-            }
-            return true;
-        });
-        return total;
-    }
-
     void Negotiator::FSMDefinition::update_tx_description(TxDescription::Status s)
     {
         m_parent.m_txDesc.m_status = s;
@@ -223,7 +208,7 @@ namespace beam::wallet
         auto coins = m_parent.m_keychain->selectCoins(amountWithFee);
         if (coins.empty())
         {
-            LOG_ERROR() << "You only have " << PrintableAmount(get_total());
+            LOG_ERROR() << "You only have " << PrintableAmount(getAvailable(m_parent.m_keychain));
             return false;
         }
         for (auto& coin : coins)
