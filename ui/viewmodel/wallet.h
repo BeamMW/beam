@@ -98,7 +98,11 @@ class WalletViewModel : public QObject
         Q_PROPERTY(QString change READ change NOTIFY changeChanged)
 
         Q_PROPERTY(QVariant utxos READ utxos NOTIFY utxoChanged)
-
+public:
+        Q_INVOKABLE QVariant getTxAt(int i) const
+        {
+            return QVariant::fromValue(_tx[i]);
+        }
 
 public:
 	using TxList = QList<QObject*>;
