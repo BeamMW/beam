@@ -22,7 +22,14 @@
 
 #if defined(BEAM_USE_STATIC)
 
+#if defined Q_OS_WIN
 Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin)
+#elif defined Q_OS_MAC
+Q_IMPORT_PLUGIN(QCocoaIntegrationPlugin)
+#elif defined Q_OS_LINUX
+//...	
+#endif
+
 Q_IMPORT_PLUGIN(QtQuick2Plugin)
 Q_IMPORT_PLUGIN(QtQuick2WindowPlugin)
 Q_IMPORT_PLUGIN(QtQuickControls1Plugin)
