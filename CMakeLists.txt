@@ -17,8 +17,7 @@ endfunction()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# TODO: don't commit this'
-set(BEAM_USE_STATIC TRUE)
+set(BEAM_USE_STATIC FALSE)
 
 if(BEAM_LINK_TYPE MATCHES "Static")
 	set(BEAM_USE_STATIC TRUE)
@@ -36,7 +35,6 @@ if(MSVC)
 	SET(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /OPT:REF /INCREMENTAL:NO")
 	SET(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /OPT:REF /INCREMENTAL:NO")
 	SET(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "${CMAKE_EXE_LINKER_FLAGS_MINSIZEREL} /OPT:REF /INCREMENTAL:NO")
-
 
 	if(BEAM_USE_STATIC)
 		# use static runtime
@@ -96,8 +94,3 @@ add_subdirectory(sqlite)
 add_subdirectory(beam)
 add_subdirectory(bbs)
 add_subdirectory(ui)
-
-# TODO: UI can't be built with static runtime
-#if(NOT BEAM_USE_STATIC)
-#	add_subdirectory(ui)
-#endif()
