@@ -57,9 +57,9 @@ on_success:
 
     7z a %RELEASE_FOLDER%/beam.zip c:/projects/beam/beam/Release/beam.exe c:/projects/beam/beam/beam.cfg c:/projects/beam/ui/Release/beam-ui.exe c:/projects/beam/ui/beam-ui.cfg
 
-    copy c:/projects/beam/Beam-0.0.1-win64.exe %RELEASE_FOLDER%/beam-installer.exe
+    copy c:\projects\beam\Beam-0.0.1-win64.exe %RELEASE_FOLDER%\beam-setup.exe
 
-    git add %RELEASE_FOLDER%/beam.zip %RELEASE_FOLDER%/beam-installer.exe
+    git add %RELEASE_FOLDER%/beam.zip %RELEASE_FOLDER%/beam-setup.exe
 
     git commit -m "AppVeyor build for Windows"
 
