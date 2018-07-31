@@ -17,7 +17,5 @@ target_link_libraries(beam node wallet)
 add_subdirectory(unittests)
 add_subdirectory(functionaltests)
 
-install(TARGETS beam
-	RUNTIME
-	DESTINATION .
-	COMPONENT applications)
+install(TARGETS beam DESTINATION .)
+install(FILES beam.cfg DESTINATION .)
