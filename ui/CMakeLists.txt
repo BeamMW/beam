@@ -10,7 +10,7 @@ if(WIN32)
 		set(SYSTEM_TYPE WIN32)
 	endif()
 elseif(APPLE)
-	set(SYSTEM_TYPE MACOSX_BUNDLE)
+	#set(SYSTEM_TYPE MACOSX_BUNDLE)
 endif()
 
 find_package(Qt5QuickCompiler)
