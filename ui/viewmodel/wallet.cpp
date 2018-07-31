@@ -373,7 +373,7 @@ int WalletViewModel::selectedAddr() const
 
 QVariant WalletViewModel::utxos() 
 {
-    if (_utxos.empty() && _loadingUtxo == false)
+    if (_utxos.empty() && _loadingUtxo == false && _model.async)
     {
         _loadingUtxo = true;
         _model.async->getAvaliableUtxos();

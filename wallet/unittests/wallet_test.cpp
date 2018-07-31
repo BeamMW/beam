@@ -85,6 +85,11 @@ namespace
             return 134;
         }
 
+        uint64_t getKnownStateCount() const override
+        {
+            return 0;
+        }
+
         Block::SystemState::ID getKnownStateID(Height height) override
         {
             return {};
@@ -1163,11 +1168,12 @@ struct MyMmr : public Merkle::Mmr
 
 struct RollbackIO : public TestNetwork
 {
-    RollbackIO(IOLoop& mainLoop, const MyMmr& mmr, Height branch, Height current)
+    RollbackIO(IOLoop& mainLoop, const MyMmr& mmr, Height branch, Height current, unsigned step)
         : TestNetwork(mainLoop)
         , m_mmr(mmr)
         , m_branch(branch)
         , m_current(current)
+        , m_step(step)
     {
 
 
@@ -1189,7 +1195,9 @@ struct RollbackIO : public TestNetwork
 
     void send_node_message(proto::GetMined&& data) override
     {
-        WALLET_CHECK(data.m_HeightMin == Rules::HeightGenesis || data.m_HeightMin == m_branch-1);
+        Height h = m_step > 1 ? m_step * Height((m_branch - 1) / m_step) : m_branch - 1;
+        assert(data.m_HeightMin == Rules::HeightGenesis || data.m_HeightMin == h);
+        WALLET_CHECK(data.m_HeightMin == Rules::HeightGenesis || data.m_HeightMin == h);
         TestNetwork::send_node_message(move(data));
     }
 
@@ -1201,12 +1209,12 @@ struct RollbackIO : public TestNetwork
     const MyMmr& m_mmr;
     Height m_branch;
     Height m_current;
+    unsigned m_step;
 };
 
-void TestRollback(Height branch, Height current)
+void TestRollback(Height branch, Height current, unsigned step = 1)
 {
-    cout << "\nRollback from " << current << " to " << branch << '\n';
-
+    cout << "\nRollback from " << current << " to " << branch << " step: " << step <<'\n';
     auto db = createSqliteKeychain("wallet.db");
     
     MyMmr mmrNew, mmrOld;
@@ -1227,8 +1235,10 @@ void TestRollback(Height branch, Height current)
             ECC::Hash::Processor() << (i + current + 1) >> hash;
             mmrNew.Append(hash);
         }
-
-        db->store(coin1);
+        if (i % step == 0)
+        {
+            db->store(coin1);
+        }
     }
 
     Merkle::Hash newStateDefinition;
@@ -1277,7 +1287,7 @@ void TestRollback(Height branch, Height current)
     }
 
     IOLoop mainLoop;
-    auto network = make_shared<RollbackIO>(mainLoop, mmrNew, branch, current);
+    auto network = make_shared<RollbackIO>(mainLoop, mmrNew, branch, current, step);
 
     Wallet sender(db, network);
     
@@ -1293,16 +1303,21 @@ void TestRollback()
     for (Height i = 1; i <= s; ++i)
     {
         TestRollback(i, s);
+        TestRollback(i, s, 2);
     }
     s = 11;
     for (Height i = 1; i <= s; ++i)
     {
         TestRollback(i, s);
+        TestRollback(i, s, 2);
     }
+    
     TestRollback(0, 1);
     TestRollback(2, 50);
     TestRollback(2, 51);
     TestRollback(93, 120);
+    TestRollback(93, 120, 6);
+    TestRollback(93, 120, 7);
     TestRollback(99, 100);
 }
 

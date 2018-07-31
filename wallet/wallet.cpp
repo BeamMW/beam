@@ -81,16 +81,23 @@ namespace beam
 
     struct Wallet::StateFinder
     {
-        StateFinder(Height newHeight)
+        StateFinder(Height newHeight, IKeyChain::Ptr keychain)
             : m_first{ 0 }
-            , m_last{newHeight}
-            , m_count{int64_t(newHeight + 1)}
+            , m_syncHeight{newHeight}
+            , m_count{ int64_t(keychain->getKnownStateCount()) }
             , m_step{0}
+            , m_keychain{keychain}
         {
 
         }
 
         Height getSearchHeight()
+        {
+            auto id = m_keychain->getKnownStateID(getSearchOffset());
+            return id.m_Height;
+        }
+
+        Height getSearchOffset()
         {
             m_step = (m_count >> 1);
             return m_first + m_step;
@@ -108,10 +115,11 @@ namespace beam
         }
 
         Height m_first;
-        Height m_last;
+        Height m_syncHeight;
         int64_t m_count;
         int64_t m_step;
         Block::SystemState::ID m_id;
+        IKeyChain::Ptr m_keychain;
     };
 
 
@@ -460,7 +468,7 @@ namespace beam
         {
             // rollback
             // search for the latest valid known state
-            if (!m_stateFinder || m_stateFinder->m_last < m_newStateID.m_Height)
+            if (!m_stateFinder || m_stateFinder->m_syncHeight < m_newStateID.m_Height)
             {
                 // restart search
                 if (!m_stateFinder)
@@ -471,12 +479,12 @@ namespace beam
                 {
                     LOG_INFO() << "Restarting rollback..."; 
                 }
-                m_stateFinder.reset(new StateFinder(m_newStateID.m_Height));
+                m_stateFinder.reset(new StateFinder(m_newStateID.m_Height, m_keyChain));
                 enter_sync();
                 m_network->send_node_message(proto::GetProofState{ m_stateFinder->getSearchHeight() });
                 return exit_sync();
             }
-            auto id = m_keyChain->getKnownStateID(m_stateFinder->getSearchHeight());
+            auto id = m_keyChain->getKnownStateID(m_stateFinder->getSearchOffset());
             Merkle::Hash hv = id.m_Hash;
             LOG_INFO() << "Check state: " << id;
             Merkle::Interpret(hv, msg.m_Proof);

@@ -966,10 +966,21 @@ namespace beam
 		return 0;
 	}
 
+    uint64_t Keychain::getKnownStateCount() const
+    {
+        uint64_t count = 0;
+        {
+            sqlite::Statement stm(_db, "SELECT COUNT(DISTINCT confirmHash) FROM " STORAGE_NAME " ;");
+            stm.step();
+            stm.get(0, count);
+        }
+        return count;
+    }
+
     Block::SystemState::ID Keychain::getKnownStateID(Height height)
     {
         Block::SystemState::ID id = {};
-        const char* req = "SELECT confirmHeight, confirmHash FROM " STORAGE_NAME " where confirmHeight=?1 LIMIT 1;";
+        const char* req = "SELECT DISTINCT confirmHeight, confirmHash FROM " STORAGE_NAME " LIMIT 1 OFFSET ?1;";
 
         sqlite::Statement stm(_db, req);
         stm.bind(1, height);
