@@ -157,4 +157,25 @@ namespace beam
 
         return vm;
     }
+
+    int getLogLevel(const std::string &dstLog, const po::variables_map& vm, int defaultValue)
+    {
+        const map<std::string, int> logLevels
+        {
+            { cli::LOG_DEBUG, LOG_LEVEL_DEBUG },
+            { cli::INFO, LOG_LEVEL_INFO },
+            { cli::LOG_VERBOSE, LOG_LEVEL_VERBOSE }
+        };
+
+        if (vm.count(dstLog))
+        {
+            auto level = vm[dstLog].as<string>();
+            if (auto it = logLevels.find(level); it != logLevels.end())
+            {
+                return it->second;
+            }
+        }
+
+        return defaultValue;
+    }
 }

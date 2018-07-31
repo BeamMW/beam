@@ -2,6 +2,8 @@
 
 #include <boost/program_options.hpp>
 
+#include "logger.h"
+
 namespace beam
 {
     namespace po = boost::program_options;
@@ -54,4 +56,6 @@ namespace beam
     po::options_description createOptionsDescription();
 
     po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options);
+
+    int getLogLevel(const std::string &dstLog, const po::variables_map& vm, int defaultValue = LOG_LEVEL_DEBUG);
 }

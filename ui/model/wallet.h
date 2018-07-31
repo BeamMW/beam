@@ -81,4 +81,5 @@ private:
     beam::io::Reactor::Ptr _reactor;
     std::weak_ptr<beam::INetworkIO> _wallet_io;
     std::weak_ptr<beam::Wallet> _wallet;
+    beam::io::Timer::Ptr _logRotateTimer;
 };
