@@ -671,7 +671,7 @@ void TestP2PWalletNegotiationST()
     TxPeer receiverPeer = {};
     receiverPeer.m_walletID = uint64_t(12345678912345);
     receiverPeer.m_address = receiver_address.str();
-    
+
     senderKeychain->addPeer(receiverPeer);
 
     TxPeer senderPeer = {};
@@ -746,7 +746,7 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newSenderCoins[3].m_amount == 9);
     WALLET_CHECK(newSenderCoins[3].m_status == Coin::Unspent);
     WALLET_CHECK(newSenderCoins[3].m_key_type == KeyType::Regular);
-    
+
     // Tx history check
     sh = senderKeychain->getTxHistory();
     WALLET_CHECK(sh.size() == 1);
@@ -795,7 +795,7 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
     WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unconfirmed);
     WALLET_CHECK(newReceiverCoins[0].m_key_type == KeyType::Regular);
-    
+
     WALLET_CHECK(newReceiverCoins[1].m_amount == 6);
     WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Unconfirmed);
     WALLET_CHECK(newReceiverCoins[1].m_key_type == KeyType::Regular);
@@ -862,7 +862,7 @@ void TestP2PWalletNegotiationST()
         return true;
     });
 
-    // no coins 
+    // no coins
     WALLET_CHECK(newSenderCoins.size() == 5);
     WALLET_CHECK(newReceiverCoins.size() == 2);
 
@@ -1078,7 +1078,7 @@ void TestP2PWalletNegotiationST()
          return true;
      });
 
-     // no coins 
+     // no coins
      WALLET_CHECK(newSenderCoins.size() == 5);
      WALLET_CHECK(newReceiverCoins.size() == 2);
 
@@ -1231,7 +1231,7 @@ void TestRollback(Height branch, Height current)
     cout << "\nRollback from " << current << " to " << branch << '\n';
 
     auto db = createSqliteKeychain("wallet.db");
-    
+
     MyMmr mmrNew, mmrOld;
 
     for (Height i = 0; i <= current; ++i)
@@ -1301,9 +1301,9 @@ void TestRollback(Height branch, Height current)
     auto network = make_shared<RollbackIO>(mainLoop, mmrNew);
 
     Wallet sender(db, network);
-    
+
     network->registerPeer(&sender, true);
-    
+
     mainLoop.run();
 }
 

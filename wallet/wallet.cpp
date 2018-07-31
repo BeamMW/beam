@@ -1,4 +1,5 @@
 #include "wallet.h"
+#include "bbsutil.h"
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include "core/ecc_native.h"
@@ -54,7 +55,7 @@ namespace beam
                 << beams.data();
             return os;
         }
-        
+
         if (amount.m_value >= Rules::Coin)
         {
             os << setw(width - beams.length()) << Amount(amount.m_value / Rules::Coin) << beams.data();
@@ -177,12 +178,14 @@ namespace beam
 
     void Wallet::send_tx_invitation(const TxDescription& tx, Invite&& data)
     {
-        m_network->send_tx_message(tx.m_peerId, move(data));
+        data.m_from = tx.m_peerId;
+        m_network->send_tx_message(move(data));
     }
 
     void Wallet::send_tx_confirmation(const TxDescription& tx, ConfirmTransaction&& data)
     {
-        m_network->send_tx_message(tx.m_peerId, move(data));
+        data.m_from = tx.m_peerId;
+        m_network->send_tx_message(move(data));
     }
 
     void Wallet::on_tx_completed(const TxDescription& tx)
@@ -196,7 +199,7 @@ namespace beam
 
         m_network->close_connection(tx.m_peerId);
         m_peers.erase(tx.m_peerId);
- 
+
         // remove state machine from db
         TxDescription t{ tx };
         t.m_fsmState.clear();
@@ -215,12 +218,13 @@ namespace beam
 
     void Wallet::send_tx_failed(const TxDescription& tx)
     {
-        m_network->send_tx_message(tx.m_peerId, wallet::TxFailed{ tx.m_txId });
+        m_network->send_tx_message(wallet::TxFailed{ tx.m_peerId, tx.m_txId });
     }
 
     void Wallet::send_tx_confirmation(const TxDescription& tx, ConfirmInvitation&& data)
     {
-        m_network->send_tx_message(tx.m_peerId, move(data));
+        data.m_from = tx.m_peerId;
+        m_network->send_tx_message(move(data));
     }
 
     void Wallet::register_tx(const TxDescription& tx, Transaction::Ptr data)
@@ -230,17 +234,17 @@ namespace beam
 
     void Wallet::send_tx_registered(const TxDescription& tx)
     {
-        m_network->send_tx_message(tx.m_peerId, wallet::TxRegistered{ tx.m_txId, true });
+        m_network->send_tx_message(wallet::TxRegistered{ tx.m_peerId, tx.m_txId, true });
     }
 
-    void Wallet::handle_tx_message(const WalletID& from, Invite&& msg)
+    void Wallet::handle_tx_message(Invite&& msg)
     {
         auto it = m_negotiators.find(msg.m_txId);
         if (it == m_negotiators.end())
         {
             LOG_VERBOSE() << "Received tx invitation " << msg.m_txId;
             bool sender = !msg.m_send;
-            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, from, {}, getTimestamp(), sender };
+            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, {}, getTimestamp(), sender };
             auto r = make_shared<Negotiator>(*this, m_keyChain, tx);
             m_negotiators.emplace(tx.m_txId, r);
             m_peers.emplace(tx.m_peerId, r);
@@ -269,18 +273,19 @@ namespace beam
             LOG_DEBUG() << ReceiverPrefix << "Unexpected tx invitation " << msg.m_txId;
         }
     }
-    
-    void Wallet::handle_tx_message(const WalletID& from, ConfirmTransaction&& data)
+
+    void Wallet::handle_tx_message(ConfirmTransaction&& data)
     {
         LOG_DEBUG() << ReceiverPrefix << "Received sender tx confirmation " << data.m_txId;
         if (!process_event(data.m_txId, events::TxConfirmationCompleted{ data }))
         {
             LOG_DEBUG() << ReceiverPrefix << "Unexpected sender tx confirmation " << data.m_txId;
-            m_network->close_connection(from);
+            // TODO state transition
+            // m_network->close_connection(from);
         }
     }
 
-    void Wallet::handle_tx_message(const WalletID& /*from*/, ConfirmInvitation&& data)
+    void Wallet::handle_tx_message(ConfirmInvitation&& data)
     {
         LOG_VERBOSE() << SenderPrefix << "Received tx confirmation " << data.m_txId;
         if (!process_event(data.m_txId, events::TxInvitationCompleted{ data }))
@@ -289,12 +294,12 @@ namespace beam
         }
     }
 
-    void Wallet::handle_tx_message(const WalletID& from, wallet::TxRegistered&& data)
+    void Wallet::handle_tx_message(wallet::TxRegistered&& data)
     {
         process_event(data.m_txId, events::TxRegistrationCompleted{});
     }
 
-    void Wallet::handle_tx_message(const WalletID& /*from*/, wallet::TxFailed&& data)
+    void Wallet::handle_tx_message(wallet::TxFailed&& data)
     {
         LOG_DEBUG() << "tx " << data.m_txId << " failed";
         handle_tx_failed(data.m_txId);
@@ -396,7 +401,7 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::NewTip&& msg)
     {
-        // TODO: restore from wallet db 
+        // TODO: restore from wallet db
         for (auto& r : m_pending_reg_requests)
         {
             register_tx(r.first, r.second);
@@ -411,7 +416,7 @@ namespace beam
     {
         Block::SystemState::ID newID = {};
         msg.m_Description.get_ID(newID);
-        
+
         m_Definition = msg.m_Description.m_Definition;
         m_newStateID = newID;
 
@@ -443,7 +448,7 @@ namespace beam
         {
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
-                // coinbase 
+                // coinbase
                 mined.emplace_back(Rules::get().CoinbaseEmission
                                  , Coin::Unconfirmed
                                  , minedCoin.m_ID.m_Height
@@ -485,7 +490,7 @@ namespace beam
                 }
                 else
                 {
-                    LOG_INFO() << "Restarting rollback..."; 
+                    LOG_INFO() << "Restarting rollback...";
                 }
                 m_stateFinder.reset(new StateFinder(m_newStateID.m_Height));
             }
@@ -527,6 +532,22 @@ namespace beam
         do_fast_forward();
 
         return exit_sync();
+    }
+
+    bool Wallet::handle_bbs_message(proto::BbsMsg&& msg) {
+        // TODO multiple wallet IDs
+
+        uint32_t channel = util::channel_from_wallet_id(m_thisWalletID);
+
+        uint8_t* out=0;
+        uint32_t size=0;
+
+        if (msg.m_Channel == channel) {
+            if (util::decrypt(out, size, msg.m_Message, m_privKey)) {
+                return m_network->handle_decrypted_message(out, size);
+            }
+        }
+        return true;
     }
 
     void Wallet::abort_sync()
@@ -582,7 +603,7 @@ namespace beam
         }
         ++m_syncTotal;
         report_sync_progress();
-        
+
     }
 
     bool Wallet::exit_sync()

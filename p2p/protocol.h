@@ -91,10 +91,10 @@ public:
 		return _ser;
 	}
 
-    template <typename MsgObject> io::SharedBuffer serialize(MsgType type, const MsgObject& obj, bool makeUnique) {
+    template <typename MsgObject> io::SharedBuffer serialize(MsgType type, const MsgObject& obj) {
         SerializedMsg fragments;
         serialize(fragments, type, obj);
-        return io::normalize(fragments, makeUnique);
+        return io::normalize(fragments, true);
     }
 
 private:

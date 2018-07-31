@@ -28,6 +28,12 @@ MsgReader::~MsgReader()
 		*_pAlive = false;
 }
 
+void MsgReader::reset() {
+    _bytesLeft = MsgHeader::SIZE;
+    _state = reading_header;
+    _cursor = _msgBuffer.data();
+}
+
 void MsgReader::change_id(uint64_t newStreamId) {
     _streamId = newStreamId;
 }
@@ -141,6 +147,5 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
 		_bytesLeft -= sz;
 	}
 }
-
 
 } //namespace

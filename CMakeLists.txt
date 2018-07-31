@@ -94,5 +94,5 @@ add_subdirectory(bbs)
 
 # TODO: UI can't be built with static runtime
 if(NOT BEAM_USE_STATIC)
-	add_subdirectory(ui)
+#	add_subdirectory(ui)
 endif()

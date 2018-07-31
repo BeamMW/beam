@@ -28,9 +28,9 @@ void HandshakingPeers::setup(Protocol& protocol, uint16_t thisNodeListenPort, Pe
     Handshake hs;
     hs.peerId = thisPeerId;
     hs.listensTo = thisNodeListenPort;
-    _message = protocol.serialize(HANDSHAKE_MSG_TYPE, hs, true);
-    _duplicateConnectionErrorMsg = protocol.serialize(HANDSHAKE_ERROR_MSG_TYPE, HandshakeError{HandshakeError::duplicate_connection}, true);
-    _peerRejectedErrorMsg = protocol.serialize(HANDSHAKE_ERROR_MSG_TYPE, HandshakeError{HandshakeError::peer_rejected}, true);
+    _message = protocol.serialize(HANDSHAKE_MSG_TYPE, hs);
+    _duplicateConnectionErrorMsg = protocol.serialize(HANDSHAKE_ERROR_MSG_TYPE, HandshakeError{HandshakeError::duplicate_connection});
+    _peerRejectedErrorMsg = protocol.serialize(HANDSHAKE_ERROR_MSG_TYPE, HandshakeError{HandshakeError::peer_rejected});
 }
 
 void HandshakingPeers::on_new_connection(Connection::Ptr&& conn) {

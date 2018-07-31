@@ -35,7 +35,7 @@ namespace beam
     std::ostream& operator<<(std::ostream& os, const TxID& uuid);
 
     struct Coin;
-    
+
     struct TxDescription
     {
         enum Status
@@ -96,6 +96,8 @@ namespace beam
         // messages
         struct Invite
         {
+            WalletID m_from;
+            std::string m_message;
             TxID m_txId;
             ECC::Amount m_amount;
             ECC::Amount m_fee;
@@ -107,17 +109,18 @@ namespace beam
             std::vector<Input::Ptr> m_inputs;
             std::vector<Output::Ptr> m_outputs;
 
-            Invite() 
+            Invite()
                 : m_amount(0)
                 , m_fee(0)
                 , m_send{true}
-                
+
             {
 
             }
 
             Invite(Invite&& other)
-                : m_txId{other.m_txId}
+                : m_from{other.m_from}
+                , m_txId{other.m_txId}
                 , m_amount{ other.m_amount }
                 , m_fee{ other.m_fee }
                 , m_height{other.m_height }
@@ -131,7 +134,9 @@ namespace beam
 
             }
 
-            SERIALIZE(m_txId
+            SERIALIZE(m_from
+                    , m_message
+                    , m_txId
                     , m_amount
                     , m_fee
                     , m_height
@@ -145,20 +150,23 @@ namespace beam
 
         struct ConfirmTransaction
         {
+            WalletID m_from;
             TxID m_txId{};
             ECC::Scalar m_peerSignature;
 
-            SERIALIZE(m_txId, m_peerSignature);
+            SERIALIZE(m_from, m_txId, m_peerSignature);
         };
 
         struct ConfirmInvitation
         {
+            WalletID m_from;
             TxID m_txId{};
             ECC::Point m_publicPeerExcess;
             ECC::Point m_publicPeerNonce;
             ECC::Scalar m_peerSignature;
 
-            SERIALIZE(m_txId
+            SERIALIZE(m_from
+                    , m_txId
                     , m_publicPeerExcess
                     , m_publicPeerNonce
                     , m_peerSignature);
@@ -166,15 +174,17 @@ namespace beam
 
         struct TxRegistered
         {
+            WalletID m_from;
             TxID m_txId;
             bool m_value;
-            SERIALIZE(m_txId, m_value);
+            SERIALIZE(m_from, m_txId, m_value);
         };
 
         struct TxFailed
         {
+            WalletID m_from;
             TxID m_txId;
-            SERIALIZE(m_txId);
+            SERIALIZE(m_from, m_txId);
         };
 
         struct INegotiatorGateway

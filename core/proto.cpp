@@ -207,7 +207,7 @@ bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& 
 
 	res.resize(sizeof(myPublic) + sizeof(hvMac) + n);
 	uint8_t* pDst = &res.at(0);
-	
+
 	memcpy(pDst, myPublic.m_pData, sizeof(myPublic));
 	memcpy(pDst + sizeof(myPublic), hvMac.m_pData, sizeof(hvMac));
 	memcpy(pDst + sizeof(myPublic) + sizeof(hvMac), p, n);

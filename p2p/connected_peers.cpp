@@ -8,7 +8,7 @@ ConnectedPeers::ConnectedPeers(P2PNotifications& notifications, Protocol& protoc
     _notifications(notifications),
     _removedCallback(removedCallback)
 {
-    _knownServersQueryMsg = protocol.serialize(KNOWN_SERVERS_REQUEST_MSG_TYPE, VoidMessage{}, true);
+    _knownServersQueryMsg = protocol.serialize(KNOWN_SERVERS_REQUEST_MSG_TYPE, VoidMessage{});
 }
 
 uint32_t ConnectedPeers::total_connected() const {

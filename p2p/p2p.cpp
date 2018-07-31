@@ -190,7 +190,7 @@ void P2P::on_ping_timer(TimerID) {
     if (_connectedPeers.total_connected() > 0) {
         LOG_DEBUG() << "sending ping to connected peers";
         if (_peerStateUpdated) {
-            _peerStateMsg = _protocol.serialize(PEER_STATE_MSG_TYPE, _peerState, false);
+            _peerStateMsg = _protocol.serialize(PEER_STATE_MSG_TYPE, _peerState);
             _peerStateUpdated = false;
         }
         _connectedPeers.ping(_peerStateMsg);
@@ -214,7 +214,7 @@ bool P2P::on_known_servers_request(uint64_t id, VoidMessage&&) {
     StreamId streamId(id);
     LOG_DEBUG() << "known servers request from " << streamId.address();
     if (_knownServersUpdated) {
-        _knownServersMsg = _protocol.serialize(KNOWN_SERVERS_MSG_TYPE, _knownServers, false);
+        _knownServersMsg = _protocol.serialize(KNOWN_SERVERS_MSG_TYPE, _knownServers);
         _knownServersUpdated = false;
     }
     return bool(_connectedPeers.write_msg(streamId, _knownServersMsg));

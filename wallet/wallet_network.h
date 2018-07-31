@@ -2,11 +2,10 @@
 
 #include "p2p/protocol.h"
 #include "p2p/connection.h"
-#define LOG_DEBUG_ENABLED 1
-
+#include "p2p/msg_reader.h"
+#include "bbsutil.h"
 #include "utility/bridge.h"
 #include "utility/logger.h"
-#include "utility/io/tcpserver.h"
 #include "core/proto.h"
 #include "utility/io/timer.h"
 #include <boost/intrusive/set.hpp>
@@ -33,9 +32,7 @@ namespace beam
     public:
 
 
-        WalletNetworkIO(io::Address address
-                      , io::Address node_address
-                      , bool is_server
+        WalletNetworkIO(io::Address node_address
                       , IKeyChain::Ptr keychain
                       , io::Reactor::Ptr reactor = io::Reactor::Ptr()
                       , unsigned reconnect_ms = 1000 // 1 sec
@@ -46,15 +43,18 @@ namespace beam
         void start();
         void stop();
 
-        void add_wallet(const WalletID& walletID, io::Address address);
+        void add_wallet(const WalletID& walletID);
+
+        // TODO now from add_wallet
+        void listen_to_bbs_channel(uint32_t channel);
 
     private:
         // INetworkIO
-        void send_tx_message(const WalletID& to, wallet::Invite&&) override;
-        void send_tx_message(const WalletID& to, wallet::ConfirmTransaction&&) override;
-        void send_tx_message(const WalletID& to, wallet::ConfirmInvitation&&) override;
-        void send_tx_message(const WalletID& to, wallet::TxRegistered&&) override;
-        void send_tx_message(const WalletID& to, wallet::TxFailed&&) override;
+        void send_tx_message(wallet::Invite&&) override;
+        void send_tx_message(wallet::ConfirmTransaction&&) override;
+        void send_tx_message(wallet::ConfirmInvitation&&) override;
+        void send_tx_message(wallet::TxRegistered&&) override;
+        void send_tx_message(wallet::TxFailed&&) override;
 
         void send_node_message(proto::NewTransaction&&) override;
         void send_node_message(proto::GetProofUtxo&&) override;
@@ -70,16 +70,14 @@ namespace beam
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;
         void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override;
 
+        bool handle_decrypted_message(const void* buf, size_t size) override;
+
         // handlers for the protocol messages
-        bool on_message(uint64_t connectionId, wallet::Invite&& msg);
-        bool on_message(uint64_t connectionId, wallet::ConfirmTransaction&& msg);
-        bool on_message(uint64_t connectionId, wallet::ConfirmInvitation&& msg);
-        bool on_message(uint64_t connectionId, wallet::TxRegistered&& msg);
-        bool on_message(uint64_t connectionId, wallet::TxFailed&& msg);
-        struct WalletInfo;
-        void connect_wallet(const WalletInfo& wallet, uint64_t tag, ConnectCallback&& callback);
-        void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
-        void on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status);
+        bool on_message(uint64_t, wallet::Invite&& msg);
+        bool on_message(uint64_t, wallet::ConfirmTransaction&& msg);
+        bool on_message(uint64_t, wallet::ConfirmInvitation&& msg);
+        bool on_message(uint64_t, wallet::TxRegistered&& msg);
+        bool on_message(uint64_t, wallet::TxFailed&& msg);
 
         void start_sync_timer();
         void on_sync_timer();
@@ -93,28 +91,14 @@ namespace beam
         void send(const WalletID& walletID, MsgType type, T&& msg)
         {
             update_wallets(walletID);
-            if (auto it = m_connectionWalletsIndex.find(walletID, ConnectionWalletIDComparer()); it != m_connectionWalletsIndex.end())
-            {
-                if (it->m_connection)
-                {
-                    m_protocol.serialize(m_msgToSend, type, msg);
-                    auto res = it->m_connection->write_msg(m_msgToSend);
-                    m_msgToSend.clear();
-                    test_io_result(res);
-                }
-            }
-            else if (auto it = m_walletsIndex.find(walletID, WalletIDComparer()); it != m_walletsIndex.end())
-            {
-                auto t = std::make_shared<T>(std::move(msg)); // we need copyable object
-                connect_wallet(*it, get_connection_tag(), [this, type, t](const ConnectionInfo& ci)
-                {
-                    send(ci.m_wallet.m_walletID, type, std::move(*t));
-                });
-            }
-            else
-            {
-                throw std::runtime_error("failed to send message");
-            }
+
+            // send BBS message
+            proto::BbsMsg bbsMsg;
+            bbsMsg.m_Channel = util::channel_from_wallet_id(walletID);
+            bbsMsg.m_TimePosted = local_timestamp_msec();
+            m_protocol.serialize(m_msgToSend, type, msg);
+            util::encrypt(bbsMsg.m_Message, m_msgToSend, walletID);
+            send_to_node(std::move(bbsMsg));
         }
 
         template<typename T>
@@ -138,8 +122,6 @@ namespace beam
         void test_io_result(const io::Result res);
         bool is_connected(uint64_t id);
 
-        const WalletID& get_wallet_id(uint64_t connectionId) const;
-        uint64_t get_connection(const WalletID& walletID) const;
         void update_wallets(const WalletID& walletID);
 
         class WalletNodeConnection : public proto::NodeConnection
@@ -158,6 +140,7 @@ namespace beam
             bool OnMsg2(proto::Hdr&& msg) override;
             bool OnMsg2(proto::Mined&& msg) override;
             bool OnMsg2(proto::Proof&& msg) override;
+            bool OnMsg2(proto::BbsMsg&& msg) override;
         private:
             io::Address m_address;
             IWallet & m_wallet;
@@ -170,109 +153,22 @@ namespace beam
     private:
 
         Protocol m_protocol;
+        MsgReader m_msgReader;
         WalletID m_walletID;
         io::Address m_node_address;
         io::Reactor::Ptr m_reactor;
-        io::TcpServer::Ptr m_server;
         IWallet* m_wallet;
         IKeyChain::Ptr m_keychain;
 
-
-        struct WalletIDTag;
-        struct AddressTag;
-
-        using WalletIDHook = bi::set_base_hook <bi::tag<WalletIDTag>>;
-        using AddressHook = bi::set_base_hook<bi::tag<AddressTag>>;
-        
-        struct WalletInfo : public WalletIDHook
-                          , public AddressHook
-        {
-            WalletID m_walletID;
-            io::Address m_address;
-            WalletInfo(const WalletID& id, io::Address address)
-                : m_walletID{id}
-                , m_address{address}
-            {}
-        };
-
-        struct WalletIDComparer
-        {
-            bool operator()(const WalletInfo& left, const WalletInfo& right) const
-            { 
-                return left.m_walletID < right.m_walletID; 
-            }
-            bool operator()(const WalletInfo& left, const WalletID& right) const
-            {
-                return left.m_walletID < right;
-            }
-            bool operator()(const WalletID& left, const WalletInfo& right) const
-            {
-                return left < right.m_walletID;
-            }
-        };
-
-        struct AddressComparer
-        {
-            bool operator()(const WalletInfo& left, const WalletInfo& right) const
-            { 
-                return left.m_address.u64() < right.m_address.u64();
-            }
-
-            bool operator()(const WalletInfo& left, const uint64_t& right) const
-            {
-                return left.m_address.u64() < right;
-            }
-            bool operator()(const uint64_t& left, const WalletInfo& right) const
-            {
-                return left < right.m_address.u64();
-            }
-        };
-
-        struct ConnectionInfo : public WalletIDHook
-        {
-            uint64_t m_connectionID;
-            const WalletInfo& m_wallet;
-            ConnectCallback m_callback;
-            std::unique_ptr<Connection> m_connection;
-
-            ConnectionInfo(uint64_t id, const WalletInfo& wallet, ConnectCallback&& callback)
-                : m_connectionID{ id }
-                , m_wallet{ wallet }
-                , m_callback{ std::move(callback) }
-            {
-            }
-        };
-
-        struct ConnectionWalletIDComparer
-        {
-            bool operator()(const ConnectionInfo& left, const ConnectionInfo& right) const
-            {
-                return left.m_wallet.m_walletID < right.m_wallet.m_walletID;
-            }
-
-            bool operator()(const ConnectionInfo& left, const WalletID& right) const
-            {
-                return left.m_wallet.m_walletID < right;
-            }
-            bool operator()(const WalletID& left, const ConnectionInfo& right) const
-            {
-                return left < right.m_wallet.m_walletID;
-            }
-        };
-
-        std::vector<std::unique_ptr<WalletInfo>> m_wallets;
-        std::map<uint64_t, ConnectionInfo> m_connections;
-        bi::set<WalletInfo, bi::base_hook<WalletIDHook>, bi::compare<WalletIDComparer>> m_walletsIndex;
-        bi::set<WalletInfo, bi::base_hook<AddressHook>, bi::compare<AddressComparer>> m_addressIndex;
-        bi::set < ConnectionInfo, bi::base_hook<WalletIDHook>, bi::compare<ConnectionWalletIDComparer>> m_connectionWalletsIndex;
+        std::set<WalletID> m_wallets;
 
         bool m_is_node_connected;
-        uint64_t m_connection_tag;
         io::Reactor::Scope m_reactor_scope;
         unsigned m_reconnect_ms;
         unsigned m_sync_period_ms;
         std::unique_ptr<WalletNodeConnection> m_node_connection;
         SerializedMsg m_msgToSend;
         io::Timer::Ptr m_sync_timer;
+        uint64_t m_last_bbs_message_time;
     };
 }
