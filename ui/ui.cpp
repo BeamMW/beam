@@ -20,6 +20,8 @@
 
 #include <QtCore/QtPlugin>
 
+#include <boost/filesystem.hpp>
+
 #if defined(BEAM_USE_STATIC)
 
 #if defined Q_OS_WIN
@@ -69,7 +71,8 @@ int main (int argc, char* argv[])
 	logLevel = LOG_LEVEL_VERBOSE;
 #endif
 
-	auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_");
+	const auto path = boost::filesystem::system_complete("./logs");
+	auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_", path.string());
 
 	try
 	{
