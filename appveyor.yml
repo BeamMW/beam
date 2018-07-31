@@ -39,6 +39,8 @@ on_success:
 - ps: $env:DATE=$(Get-Date -UFormat "%Y.%m.%d")
 - cmd: >-
 
+    cpack --verbose -G NSIS
+
     set REPO=https://%GITHUB_API_KEY%@github.com/beam-mw/beam-builds
 
     git config --global user.email "vadim@beam-mw.com"
@@ -56,8 +58,6 @@ on_success:
     if not exist "%RELEASE_FOLDER%" mkdir %RELEASE_FOLDER%
 
     7z a %RELEASE_FOLDER%/beam.zip c:/projects/beam/beam/Release/beam.exe c:/projects/beam/beam/beam.cfg c:/projects/beam/ui/Release/beam-ui.exe c:/projects/beam/ui/beam-ui.cfg
-
-    cpack --verbose -G NSIS
 
     copy c:\projects\beam\Beam-0.0.1-win64.exe %RELEASE_FOLDER%\beam-setup.exe
 
