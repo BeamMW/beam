@@ -10,7 +10,7 @@ if(WIN32)
 		set(SYSTEM_TYPE WIN32)
 	endif()
 elseif(APPLE)
-	set(SYSTEM_TYPE MACOSX_BUNDLE)
+	#set(SYSTEM_TYPE MACOSX_BUNDLE)
 endif()
 
 find_package(Qt5QuickCompiler)
@@ -41,7 +41,7 @@ if(WIN32)
 	add_definitions(-DWIN32_LEAN_AND_MEAN)
 endif()
 
-add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES})
+add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc)
 
 add_dependencies(beam-ui wallet)
 
@@ -124,3 +124,6 @@ if(BEAM_USE_STATIC)
 	endif()
 
 endif()
+
+install(TARGETS beam-ui	DESTINATION .)
+install(FILES beam-ui.cfg DESTINATION .)
