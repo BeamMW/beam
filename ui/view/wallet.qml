@@ -371,7 +371,7 @@ Item {
                         font.pixelSize: 24
                         font.weight: Font.ExtraLight
                         color: Style.white
-                        text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils + walletViewModel.feeMils)/1000000) + " USD"
+                        text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils*1 + walletViewModel.feeMils*1)/1000000) + " USD"
                     }
                 }
 

@@ -106,6 +106,7 @@ namespace beam::wallet
         confirmMsg.m_publicPeerExcess = m_parent.getPublicExcess();
         m_parent.createSignature2(confirmMsg.m_peerSignature, confirmMsg.m_publicPeerNonce);
 
+        LOG_INFO() << "Invitation accepted";
         update_tx_description(TxDescription::InProgress);
         m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmMsg));
     }
@@ -165,7 +166,7 @@ namespace beam::wallet
 
     void Negotiator::FSMDefinition::rollbackTx()
     {
-        LOG_DEBUG() << "Transaction failed. Rollback...";
+        LOG_INFO() << "Transaction failed. Rollback...";
         m_parent.m_keychain->rollbackTx(m_parent.m_txDesc.m_txId);
     }
 

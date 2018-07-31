@@ -188,8 +188,8 @@ namespace beam::wallet
             template <class FSM, class Event>
             void exception_caught(Event const&, FSM& fsm, std::exception& ex)
             {
-                LOG_ERROR() << ex.what();
-                fsm.process_event(events::TxFailed());
+                LOG_INFO() << ex.what();
+                fsm.process_event(events::TxFailed(true));
             }
 
             template<typename Archive>
