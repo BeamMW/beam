@@ -42,6 +42,11 @@ namespace beam
         const char* FEE = "fee";
         const char* FEE_FULL = "fee,f";
         const char* RECEIVE = "receive";
+        const char* LOG_LEVEL = "log_level";
+        const char* FILE_LOG_LEVEL = "file_log_level";
+        const char* LOG_INFO = "info";
+        const char* LOG_DEBUG = "debug";
+        const char* LOG_VERBOSE = "verbose";
         // ui
         const char* WALLET_ADDR = "addr";
     }
@@ -63,7 +68,9 @@ namespace beam
             (cli::HELP_FULL, "list of all options")
             (cli::MODE, po::value<string>()->required(), "mode to execute [node|wallet]")
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
-            (cli::WALLET_SEED, po::value<string>(), "secret key generation seed");
+            (cli::WALLET_SEED, po::value<string>(), "secret key generation seed")
+            (cli::LOG_LEVEL, po::value<string>(), "log level [info|debug|verbose]")
+            (cli::FILE_LOG_LEVEL, po::value<string>(), "file log level [info|debug|verbose]");
 
         po::options_description node_options("Node options");
         node_options.add_options()

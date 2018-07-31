@@ -104,6 +104,27 @@ namespace
 
 		return true;
     }
+
+	int GetLogLevel(const string &dstLog, const po::variables_map& vm, int defaultValue = LOG_LEVEL_DEBUG)
+	{
+		const map<std::string, int> logLevels
+		{
+			{cli::LOG_DEBUG, LOG_LEVEL_DEBUG},
+			{cli::INFO, LOG_LEVEL_INFO},
+			{cli::LOG_VERBOSE, LOG_LEVEL_VERBOSE}
+		};
+
+		if (vm.count(dstLog))
+		{
+			auto level = vm[dstLog].as<string>();
+			if (auto it = logLevels.find(level); it != logLevels.end())
+			{
+				return it->second;
+			}
+		}
+
+		return defaultValue;
+	}
 }
 
 struct TreasuryBlockGenerator
@@ -315,8 +336,9 @@ int main_impl(int argc, char* argv[])
 
 		// init logger here to determine node/wallet name
 
-		int logLevel = LOG_LEVEL_DEBUG;
-		int fileLogLevel = LOG_LEVEL_INFO;
+		int logLevel = GetLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
+		int fileLogLevel = GetLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
+
 #if LOG_VERBOSE_ENABLED
 		logLevel = LOG_LEVEL_VERBOSE;
 #endif
