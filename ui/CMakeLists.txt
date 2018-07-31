@@ -41,7 +41,7 @@ if(WIN32)
 	add_definitions(-DWIN32_LEAN_AND_MEAN)
 endif()
 
-add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES})
+add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc)
 
 add_dependencies(beam-ui wallet)
 
