@@ -1,6 +1,6 @@
 #include "logger_checkpoints.h"
 #include "helpers.h"
-#include <filesystem>
+#include <boost/filesystem.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <stdexcept>
@@ -123,14 +123,14 @@ private:
         fileName += ".log";
         if (!_dstPath.empty())
         {
-            filesystem::path path{ _dstPath };
+            boost::filesystem::path path{ _dstPath };
 
-            if (!filesystem::exists(path))
+            if (!boost::filesystem::exists(path))
             {
-                filesystem::create_directories(path);
+                boost::filesystem::create_directories(path);
             }
 
-            path.append(fileName);
+            path /= fileName;
             _sink = fopen(path.string().c_str(), "ab");
         }
         else
