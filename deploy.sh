@@ -16,10 +16,10 @@ RELEASE_FOLDER=$DATE_FOLDER/release
 
 if [[ "$OSTYPE" == "linux"* ]]; then
     OS_FOLDER=$RELEASE_FOLDER/linux
-    LATEST_OS_FOLDER=latest/linux
+    LATEST_OS_FOLDER=latest/release/linux
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     OS_FOLDER=$RELEASE_FOLDER/mac
-    LATEST_OS_FOLDER=latest/mac
+    LATEST_OS_FOLDER=latest/release/mac
 else
     echo "Error, OS:$OSTYPE not supported"
     exit 1
