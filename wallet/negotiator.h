@@ -189,7 +189,7 @@ namespace beam::wallet
             void exception_caught(Event const&, FSM& fsm, std::exception& ex)
             {
                 LOG_INFO() << ex.what();
-                fsm.process_event(events::TxFailed(true));
+                fsm.process_event(events::TxFailed(/*true*/));
             }
 
             template<typename Archive>
