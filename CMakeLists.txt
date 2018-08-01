@@ -112,7 +112,7 @@ if (WIN32)
 	set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "Delete \\\"$DESKTOP\\\\Beam.lnk\\\"")
 
 elseif ( ${CMAKE_SYSTEM_NAME} MATCHES "Darwin" )
-    set(CPACK_GENERATOR "PackageMake")
+	set(CPACK_GENERATOR "DragNDrop")
 else ()
     set(CPACK_GENERATOR "DEB")
     set(CPACK_SOURCE_GENERATOR "TGZ")

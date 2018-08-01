@@ -10,7 +10,9 @@ if(WIN32)
 		#set(SYSTEM_TYPE WIN32)
 	endif()
 elseif(APPLE)
-	#set(SYSTEM_TYPE MACOSX_BUNDLE)
+	set(MACOSX_BUNDLE_ICON_FILE beam.icns)
+	set(SYSTEM_TYPE MACOSX_BUNDLE)
+	set_source_files_properties(beam.icns PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 endif()
 
 find_package(Qt5QuickCompiler)
@@ -41,7 +43,7 @@ if(WIN32)
 	add_definitions(-DWIN32_LEAN_AND_MEAN)
 endif()
 
-add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc)
+add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE})
 
 add_dependencies(beam-ui wallet)
 
