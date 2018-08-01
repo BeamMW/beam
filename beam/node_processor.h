@@ -41,7 +41,7 @@ class NodeProcessor
 	static void OnCorrupted();
 	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
 	bool IsRelevantHeight(Height);
-	uint8_t get_NextDifficulty();
+	Difficulty get_NextDifficulty();
 	Timestamp get_MovingMedian();
 
 	struct UtxoSig;
@@ -68,7 +68,7 @@ public:
 		Block::SystemState::Full m_Full;
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
-		uint8_t m_DifficultyNext;
+		Difficulty m_DifficultyNext;
 		bool m_SubsidyOpen;
 
 	} m_Cursor;

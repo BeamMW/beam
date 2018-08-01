@@ -414,9 +414,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				return false;
 			}
 
-			if (m_Cursor.m_DifficultyNext != s.m_PoW.m_Difficulty)
+			if (m_Cursor.m_DifficultyNext.m_Packed != s.m_PoW.m_Difficulty.m_Packed)
 			{
-				LOG_WARNING() << id << " Difficulty expected=" << uint32_t(m_Cursor.m_DifficultyNext) << ", actual=" << uint32_t(s.m_PoW.m_Difficulty);
+				LOG_WARNING() << id << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
 				return false;
 			}
 
@@ -1104,7 +1104,7 @@ bool NodeProcessor::TxPool::Element::Profit::operator < (const Profit& t) const
 
 /////////////////////////////
 // Block generation
-uint8_t NodeProcessor::get_NextDifficulty()
+Difficulty NodeProcessor::get_NextDifficulty()
 {
 	if (!m_Cursor.m_Sid.m_Row)
 		return 0; // 1st block difficulty 0
@@ -1120,7 +1120,7 @@ uint8_t NodeProcessor::get_NextDifficulty()
 	Block::SystemState::Full s2;
 	m_DB.get_State(rowid, s2);
 
-	uint8_t ret = m_Cursor.m_Full.m_PoW.m_Difficulty;
+	Difficulty ret = m_Cursor.m_Full.m_PoW.m_Difficulty;
 	Rules::get().AdjustDifficulty(ret, s2.m_TimeStamp, m_Cursor.m_Full.m_TimeStamp);
 	return ret;
 }

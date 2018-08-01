@@ -190,8 +190,8 @@ namespace beam
 
 		// timestamp & difficulty. Basically very close to those from bitcoin, except the desired rate is 1 minute (instead of 10 minutes)
 		uint32_t DesiredRate_s				= 60; // 1 minute
-		uint32_t DifficultyReviewCycle		= 24 * 60 * 7; // 10,080 blocks, 1 week roughly
-		uint32_t MaxDifficultyChange		= 3; // i.e. x8 roughly. (There's no equivalent to this in bitcoin).
+		uint32_t DifficultyReviewCycle		= 24 * 60; // 1,440 blocks, 1 day roughly
+		uint32_t MaxDifficultyChange		= 2; // (x4, same as in bitcoin).
 		uint32_t TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
 		uint32_t WindowForMedian			= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
 
@@ -200,7 +200,7 @@ namespace beam
 		ECC::Hash::Value Checksum;
 
 		void UpdateChecksum();
-		void AdjustDifficulty(uint8_t&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const;
+		void AdjustDifficulty(Difficulty&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const;
 	};
 
 	struct Input
@@ -450,9 +450,9 @@ namespace beam
 
 			std::array<uint8_t, nSolutionBytes>	m_Indices;
 
-			typedef ECC::uintBig_t<104> NonceType;
-			NonceType m_Nonce; // 13 bytes. The overall solution size is 64 bytes.
-			uint8_t m_Difficulty;
+			typedef ECC::uintBig_t<88> NonceType;
+			NonceType m_Nonce; // 11 bytes. The overall solution size is 64 bytes.
+			Difficulty m_Difficulty;
 
 			bool IsValid(const void* pInput, uint32_t nSizeInput) const;
 

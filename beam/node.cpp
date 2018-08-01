@@ -1719,7 +1719,7 @@ bool Node::Miner::Restart()
 	Block::SystemState::ID id;
 	pTask->m_Hdr.get_ID(id);
 
-	LOG_INFO() << "Block generated: " << id << ", Fee=" << pTask->m_Fees << ", Difficulty=" << uint32_t(pTask->m_Hdr.m_PoW.m_Difficulty) << ", Size=" << pTask->m_Body.size();
+	LOG_INFO() << "Block generated: " << id << ", Fee=" << pTask->m_Fees << ", Difficulty=" << pTask->m_Hdr.m_PoW.m_Difficulty << ", Size=" << pTask->m_Body.size();
 
 	// let's mine it.
 	std::scoped_lock<std::mutex> scope(m_Mutex);
