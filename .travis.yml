@@ -26,12 +26,13 @@ matrix:
         - QT5_ROOT_DIR="/usr/local/qt5-static"
         - QML_IMPORT_PATH="/usr/local/qt5-static/qml"
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
       after_success:
-        - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
+        # uncommented just for test
+        # - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
             chmod +x ./deploy.sh;
             ./deploy.sh;
-          fi
+          # fi
 
     - os: linux
       addons:
