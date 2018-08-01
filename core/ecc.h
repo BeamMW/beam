@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h> // memcmp
 #include <ostream>
+#include <assert.h>
 
 #ifndef _countof
 #	define _countof(_Array) (sizeof(_Array) / sizeof(_Array[0]))
@@ -93,6 +94,8 @@ namespace ECC
 	template <uint32_t nBits_>
 	struct uintBig_t
 	{
+		static const uint32_t nBits = nBits_;
+
         uintBig_t()
         {
             ZeroObject(m_pData);
@@ -124,6 +127,19 @@ namespace ECC
 			return *this;
 		}
 
+		template <uint32_t nBitsOther_>
+		uintBig_t& operator = (const uintBig_t<nBitsOther_>& v)
+		{
+			if (sizeof(v.m_pData) >= sizeof(m_pData))
+				memcpy(m_pData, v.m_pData + sizeof(v.m_pData) - sizeof(m_pData), sizeof(m_pData));
+			else
+			{
+				memset0(m_pData, sizeof(m_pData) - sizeof(v.m_pData));
+				memcpy(m_pData + sizeof(m_pData) - sizeof(v.m_pData), v.m_pData, sizeof(v.m_pData));
+			}
+			return *this;
+		}
+
 		bool operator == (Zero_) const
 		{
 			return memis0(m_pData, sizeof(m_pData));
@@ -139,15 +155,60 @@ namespace ECC
 			return *this;
 		}
 
+		template <typename T>
+		void AssignRangeAligned(T x, uint32_t nOffsetBytes, uint32_t nBytes)
+		{
+			assert(sizeof(m_pData) >= nBytes + nOffsetBytes);
+			static_assert(T(-1) > 0, "must be unsigned");
+
+			for (uint32_t i = 0; i < nBytes; i++, x >>= 8)
+				m_pData[_countof(m_pData) - 1 - nOffsetBytes - i] = (uint8_t) x;
+		}
+
 		template <typename T, uint32_t nOffset>
 		void AssignRange(T x)
 		{
 			static_assert(!(nOffset & 7), "offset must be on byte boundary");
 			static_assert(sizeof(m_pData) >= sizeof(x) + (nOffset >> 3), "too small");
+
+			AssignRangeAligned<T>(x, nOffset >> 3, sizeof(x));
+		}
+
+		template <typename T>
+		bool AssignRangeAlignedSafe(T x, uint32_t nOffsetBytes, uint32_t nBytes) // returns false if truncated
+		{
+			if (sizeof(m_pData) < nOffsetBytes)
+				return false;
+
+			uint32_t n = sizeof(m_pData) - nOffsetBytes;
+			bool b = (nBytes <= n);
+
+			AssignRangeAligned<T>(x, nOffsetBytes, b ? nBytes : n);
+			return b;
+		}
+
+		template <typename T>
+		bool AssignSafe(T x, uint32_t nOffset) // returns false if truncated
+		{
 			static_assert(T(-1) > 0, "must be unsigned");
 
-			for (size_t i = 0; i < sizeof(x); i++, x >>= 8)
-				m_pData[_countof(m_pData) - 1 - (nOffset >> 3) - i] = (uint8_t) x;
+			uint32_t nOffsetBytes = nOffset >> 3;
+			nOffset &= 7;
+
+			if (!AssignRangeAlignedSafe<T>(x << nOffset, nOffsetBytes, sizeof(x)))
+				return false;
+
+			if (nOffset)
+			{
+				nOffsetBytes += sizeof(x);
+				if (_countof(m_pData) - 1 < nOffsetBytes)
+					return false;
+
+				uint8_t resid = x >> ((sizeof(x) << 3) - nOffset);
+				m_pData[_countof(m_pData) - 1 - nOffsetBytes] = resid;
+			}
+
+			return true;
 		}
 
 		void Inc()
@@ -199,10 +260,15 @@ namespace ECC
 			return res;
 		}
 
-		void Negate()
+		void Inv()
 		{
 			for (int i = _countof(m_pData); i--; )
 				m_pData[i] ^= 0xff;
+		}
+
+		void Negate()
+		{
+			Inv();
 			Inc();
 		}
 
