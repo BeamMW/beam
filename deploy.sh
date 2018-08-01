@@ -37,7 +37,7 @@ cp -f $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
 git add $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
-	cp -f Beam-0.0.1-Darwin.dmg $OS_FOLDER/$APP-setup.dmg
+	cp -f $HOME/build/beam-mw/beam/Beam-0.0.1-Darwin.dmg $OS_FOLDER/$APP-setup.dmg
 	cp -f $OS_FOLDER/$APP-setup.dmg $LATEST_OS_FOLDER/$APP-setup.dmg
 	git add $OS_FOLDER/$APP-setup.dmg $LATEST_OS_FOLDER/$APP-setup.dmg
 fi
