@@ -28,6 +28,7 @@ public:
 			SubsidyOpen,
 			CfgChecksum,
 			MyID,
+			ChainWork,
 		};
 	};
 

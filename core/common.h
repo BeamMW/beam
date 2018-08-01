@@ -97,7 +97,6 @@ namespace beam
 		bool IsTargetReached(const ECC::uintBig&) const;
 
 		void Unpack(Raw&) const;
-		void Add(Raw&) const; // saturated
 
 		void Unpack(uint32_t& order, uint32_t& mantissa) const;
 		void Pack(uint32_t order, uint32_t mantissa);

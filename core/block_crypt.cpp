@@ -1132,20 +1132,6 @@ namespace beam
 			res.Inv();
 	}
 
-	void Difficulty::Add(Raw& acc) const
-	{
-		Raw val;
-		Unpack(val);
-
-		acc += val;
-
-		if (acc < val)
-		{
-			acc = ECC::Zero;
-			acc.Inv();
-		}
-	}
-
 	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange)
 	{
 		if (!(src || trg))
