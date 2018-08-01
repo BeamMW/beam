@@ -17,6 +17,7 @@
         <file>notification.qml</file>
         <file>info.qml</file>
         <file>settings.qml</file>
+        <file>address-book.qml</file>
       
         <file>assets/fonts/SF-Pro-Display-Thin.otf</file>
         <file>assets/fonts/SF-Pro-Display-Bold.otf</file>
@@ -40,6 +41,8 @@
         <file>assets/logo.png</file>
         <file>assets/icon-dashboard.svg</file>
         <file>assets/icon-dashboard-active.svg</file>
+        <file>assets/icon-address-book.svg</file>
+        <file>assets/icon-address-book-active.svg</file>
         <file>assets/icon-wallet.svg</file>
         <file>assets/icon-wallet-active.svg</file>     
         <file>assets/icon-notification.svg</file>

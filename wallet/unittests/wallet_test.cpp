@@ -80,6 +80,10 @@ namespace
         boost::optional<TxPeer> getPeer(const WalletID&) override { return boost::optional<TxPeer>{}; }
 		void clearPeers() override {}
 
+        std::vector<WalletAddress> getAddresses(bool own) override { return {}; }
+        void saveAddress(const WalletAddress&) override {}
+        void deleteAddress(const WalletID&) override {}
+
         Height getCurrentHeight() const override
         {
             return 134;

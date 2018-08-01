@@ -205,6 +205,11 @@ void WalletModel::onTxPeerChanged()
 	emit onTxPeerUpdated(_keychain->getPeers());
 }
 
+void WalletModel::onAddressChanged()
+{
+    
+}
+
 void WalletModel::onSyncProgress(int done, int total)
 {
 	emit onSyncProgressUpdated(done, total);

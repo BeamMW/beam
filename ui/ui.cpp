@@ -4,6 +4,7 @@
 #include <qqmlcontext.h>
 #include "viewmodel/main.h"
 #include "viewmodel/dashboard.h"
+#include "viewmodel/address_book.h"
 #include "viewmodel/wallet.h"
 #include "viewmodel/notifications.h"
 #include "viewmodel/help.h"
@@ -198,12 +199,16 @@ int main (int argc, char* argv[])
 						MainViewModel			main;
 						DashboardViewModel		dashboard;
 						WalletViewModel			wallet;
+                        AddressBookViewModel    addressBook;
 						NotificationsViewModel	notifications;
 						HelpViewModel			help;
 						SettingsViewModel		settings;
 
 						ViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
-							: wallet(keychain, port, nodeAddr) {}
+							: wallet(keychain, port, nodeAddr)
+                            , addressBook(keychain)
+                        {
+                        }
 
 					} viewModel(keychain, vm[cli::PORT].as<uint16_t>(), vm[cli::NODE_ADDR].as<string>());
 
@@ -214,9 +219,11 @@ int main (int argc, char* argv[])
 
 					QQmlContext *ctxt = view.rootContext();
 
+                    // TODO: try move instantiation of view models to views
 					ctxt->setContextProperty("mainViewModel", &viewModel.main);
 
 					ctxt->setContextProperty("walletViewModel", &viewModel.wallet);
+                    ctxt->setContextProperty("addressBookViewModel", &viewModel.addressBook);
 
 					ctxt->setContextProperty("translator", &translator);
 

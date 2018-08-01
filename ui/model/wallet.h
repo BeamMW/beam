@@ -63,6 +63,7 @@ private:
 	void onTransactionChanged() override;
 	void onSystemStateChanged() override;
 	void onTxPeerChanged() override;
+    void onAddressChanged() override;
 	void onSyncProgress(int done, int total) override;
 
     void sendMoney(beam::WalletID receiver, beam::Amount&& amount, beam::Amount&& fee) override;

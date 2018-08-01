@@ -1,30 +1,11 @@
 #include "wallet.h"
 
-#include <QDateTime>
-
 #include <iomanip>
+#include "ui_helpers.h"
 
 using namespace beam;
 using namespace std;
-
-namespace
-{
-
-	QString BeamToString(const Amount& value)
-	{
-		auto str = std::to_string(double(int64_t(value)) / Rules::Coin);
-
-		str.erase(str.find_last_not_of('0') + 1, std::string::npos);
-		str.erase(str.find_last_not_of('.') + 1, std::string::npos);
-
-		return QString::fromStdString(str);
-	}
-
-	inline void ltrim(std::string &s, char sym) 
-	{
-    	s.erase(s.begin(), std::find_if(s.begin(), s.end(), [sym](char ch) {return ch != sym;}));
-	}
-}
+using namespace beamui;
 
 TxObject::TxObject(const TxDescription& tx) : _tx(tx) {}
 
@@ -35,17 +16,12 @@ bool TxObject::income() const
 
 QString TxObject::date() const
 {
-	QDateTime datetime;
-	datetime.setTime_t(_tx.m_createTime);
-
-	return datetime.toString(Qt::SystemLocaleShortDate);
+    return toString(_tx.m_createTime);
 }
 
 QString TxObject::user() const
 {
-	auto id = std::to_string(_tx.m_peerId);
-	ltrim(id, '0');
-	return QString::fromStdString(id);
+	return toString(_tx.m_peerId);
 }
 
 QString TxObject::comment() const
