@@ -47,6 +47,9 @@ namespace beam
         const char* LOG_INFO = "info";
         const char* LOG_DEBUG = "debug";
         const char* LOG_VERBOSE = "verbose";
+        const char* VERSION = "version";
+        const char* VERSION_FULL = "version,v";
+        const char* GIT_COMMIT_HASH = "git_commit_hash";
         // ui
         const char* WALLET_ADDR = "addr";
     }
@@ -70,7 +73,9 @@ namespace beam
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::WALLET_SEED, po::value<string>(), "secret key generation seed")
             (cli::LOG_LEVEL, po::value<string>(), "log level [info|debug|verbose]")
-            (cli::FILE_LOG_LEVEL, po::value<string>(), "file log level [info|debug|verbose]");
+            (cli::FILE_LOG_LEVEL, po::value<string>(), "file log level [info|debug|verbose]")
+            (cli::VERSION_FULL, "return project version")
+            (cli::GIT_COMMIT_HASH, "return commit hash");
 
         po::options_description node_options("Node options");
         node_options.add_options()
@@ -156,5 +161,26 @@ namespace beam
         #undef THE_MACRO
 
         return vm;
+    }
+
+    int getLogLevel(const std::string &dstLog, const po::variables_map& vm, int defaultValue)
+    {
+        const map<std::string, int> logLevels
+        {
+            { cli::LOG_DEBUG, LOG_LEVEL_DEBUG },
+            { cli::INFO, LOG_LEVEL_INFO },
+            { cli::LOG_VERBOSE, LOG_LEVEL_VERBOSE }
+        };
+
+        if (vm.count(dstLog))
+        {
+            auto level = vm[dstLog].as<string>();
+            if (auto it = logLevels.find(level); it != logLevels.end())
+            {
+                return it->second;
+            }
+        }
+
+        return defaultValue;
     }
 }

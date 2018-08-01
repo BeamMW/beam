@@ -2,6 +2,8 @@
 
 #include <boost/program_options.hpp>
 
+#include "logger.h"
+
 namespace beam
 {
     namespace po = boost::program_options;
@@ -47,6 +49,9 @@ namespace beam
         extern const char* LOG_INFO;
         extern const char* LOG_DEBUG;
         extern const char* LOG_VERBOSE;
+        extern const char* VERSION;
+        extern const char* VERSION_FULL;
+        extern const char* GIT_COMMIT_HASH;
  // ui
         extern const char* WALLET_ADDR;
     }
@@ -54,4 +59,6 @@ namespace beam
     po::options_description createOptionsDescription();
 
     po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options);
+
+    int getLogLevel(const std::string &dstLog, const po::variables_map& vm, int defaultValue = LOG_LEVEL_DEBUG);
 }

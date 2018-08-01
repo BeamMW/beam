@@ -15,6 +15,7 @@
 #include <boost/filesystem.hpp>
 #include <iterator>
 #include <future>
+#include "version.h"
 
 using namespace std;
 using namespace beam;
@@ -104,27 +105,6 @@ namespace
 
 		return true;
     }
-
-	int GetLogLevel(const string &dstLog, const po::variables_map& vm, int defaultValue = LOG_LEVEL_DEBUG)
-	{
-		const map<std::string, int> logLevels
-		{
-			{cli::LOG_DEBUG, LOG_LEVEL_DEBUG},
-			{cli::INFO, LOG_LEVEL_INFO},
-			{cli::LOG_VERBOSE, LOG_LEVEL_VERBOSE}
-		};
-
-		if (vm.count(dstLog))
-		{
-			auto level = vm[dstLog].as<string>();
-			if (auto it = logLevels.find(level); it != logLevels.end())
-			{
-				return it->second;
-			}
-		}
-
-		return defaultValue;
-	}
 }
 
 struct TreasuryBlockGenerator
@@ -334,10 +314,22 @@ int main_impl(int argc, char* argv[])
 			return 0;
 		}
 
+		if (vm.count(cli::VERSION))
+		{
+			cout << PROJECT_VERSION << endl;
+			return 0;
+		}
+
+		if (vm.count(cli::GIT_COMMIT_HASH))
+		{
+			cout << GIT_COMMIT_HASH << endl;
+			return 0;
+		}
+
 		// init logger here to determine node/wallet name
 
-		int logLevel = GetLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
-		int fileLogLevel = GetLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
+		int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
+		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
 
 #if LOG_VERBOSE_ENABLED
 		logLevel = LOG_LEVEL_VERBOSE;
@@ -377,6 +369,14 @@ int main_impl(int argc, char* argv[])
 					Hash::Processor() << seed.c_str() >> hv;
 					walletSeed.V = hv;
 				}
+
+				io::Timer::Ptr logRotateTimer = io::Timer::create(reactor);
+				logRotateTimer->start(
+					LOG_ROTATION_PERIOD, true,
+					[]() {
+						Logger::get()->rotate();
+					}
+				);
 
 				auto mode = vm[cli::MODE].as<string>();
 				if (mode == cli::NODE)
@@ -442,14 +442,6 @@ int main_impl(int argc, char* argv[])
 					Height hImport = vm[cli::IMPORT].as<Height>();
 					if (hImport)
 						node.ImportMacroblock(hImport);
-
-					io::Timer::Ptr logRotateTimer = io::Timer::create(reactor);
-					logRotateTimer->start(
-						LOG_ROTATION_PERIOD, true,
-						[]() {
-						Logger::get()->rotate();
-					}
-					);
 
 					reactor->run();
 				}

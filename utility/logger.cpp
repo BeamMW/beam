@@ -130,7 +130,7 @@ private:
                 boost::filesystem::create_directories(path);
             }
 
-            path.append(fileName);
+            path /= fileName;
             _sink = fopen(path.string().c_str(), "ab");
         }
         else

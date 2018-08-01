@@ -5,8 +5,6 @@
 
 #include "model/wallet.h"
 
-using AddrList = std::vector<beam::TxPeer>;
-
 class TxObject : public QObject
 {
 	Q_OBJECT
@@ -19,7 +17,7 @@ class TxObject : public QObject
 		Q_PROPERTY(QString amountUsd	READ amountUsd	NOTIFY amountUsdChanged)
 		Q_PROPERTY(QString change		READ change		NOTIFY changeChanged)
 		Q_PROPERTY(QString status		READ status		NOTIFY statusChanged)
-
+        Q_PROPERTY(bool canCancel   	READ canCancel	NOTIFY canCancelChanged)
 public:
 
 	TxObject(const beam::TxDescription& tx);
@@ -32,6 +30,7 @@ public:
 	QString amountUsd() const;
 	QString change() const;
 	QString status() const;
+    bool canCancel() const;
 
 signals:
 	void incomeChanged();
@@ -42,6 +41,7 @@ signals:
 	void amountUsdChanged();
 	void changeChanged();
 	void statusChanged();
+    void canCancelChanged();
 
 public:
 	beam::TxDescription _tx;
@@ -99,10 +99,12 @@ class WalletViewModel : public QObject
 
         Q_PROPERTY(QVariant utxos READ utxos NOTIFY utxoChanged)
 public:
-        Q_INVOKABLE QVariant getTxAt(int i) const
+        Q_INVOKABLE QVariant getTxAt(int index) const
         {
-            return QVariant::fromValue(_tx[i]);
+            return QVariant::fromValue(_tx[index]);
         }
+
+        Q_INVOKABLE void cancelTx(int index);
 
 public:
 	using TxList = QList<QObject*>;
