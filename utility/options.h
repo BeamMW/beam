@@ -49,6 +49,9 @@ namespace beam
         extern const char* LOG_INFO;
         extern const char* LOG_DEBUG;
         extern const char* LOG_VERBOSE;
+        extern const char* VERSION;
+        extern const char* VERSION_FULL;
+        extern const char* GIT_COMMIT_HASH;
  // ui
         extern const char* WALLET_ADDR;
     }

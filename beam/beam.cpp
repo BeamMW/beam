@@ -15,6 +15,7 @@
 #include <boost/filesystem.hpp>
 #include <iterator>
 #include <future>
+#include "version.h"
 
 using namespace std;
 using namespace beam;
@@ -310,6 +311,18 @@ int main_impl(int argc, char* argv[])
 		{
 			printHelp(options);
 
+			return 0;
+		}
+
+		if (vm.count(cli::VERSION))
+		{
+			cout << PROJECT_VERSION << endl;
+			return 0;
+		}
+
+		if (vm.count(cli::GIT_COMMIT_HASH))
+		{
+			cout << GIT_COMMIT_HASH << endl;
 			return 0;
 		}
 

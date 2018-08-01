@@ -21,6 +21,8 @@
 
 #include <boost/filesystem.hpp>
 
+#include "version.h"
+
 #if defined(BEAM_USE_STATIC)
 
 #if defined Q_OS_WIN
@@ -108,6 +110,19 @@ int main (int argc, char* argv[])
 			if (vm.count(cli::HELP))
 			{
 				cout << options << std::endl;
+				return 0;
+			}
+
+			if (vm.count(cli::VERSION))
+			{
+				cout << PROJECT_VERSION << endl;
+				return 0;
+			}
+
+			if (vm.count(cli::GIT_COMMIT_HASH))
+			{
+				cout << GIT_COMMIT_HASH << endl;
+				return 0;
 			}
 
 			//if (vm.count(cli::NODE_PEER))

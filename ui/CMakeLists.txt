@@ -43,6 +43,9 @@ endif()
 
 add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc)
 
+configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
+target_include_directories(beam PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+
 add_dependencies(beam-ui wallet)
 
 target_link_libraries(beam-ui wallet Qt5::Qml Qt5::Quick Qt5::Svg)
