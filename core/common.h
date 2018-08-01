@@ -70,7 +70,6 @@ namespace beam
 	typedef uint64_t Timestamp;
 	typedef uint64_t Height;
     const Height MaxHeight = static_cast<Height>(-1);
-	typedef ECC::uintBig_t<256> uint256_t;
 	typedef std::vector<uint8_t> ByteBuffer;
 	typedef ECC::Amount Amount;
 	typedef ECC::Hash::Value PeerID;
@@ -80,6 +79,36 @@ namespace beam
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
+
+	struct Difficulty
+	{
+		uint32_t m_Packed;
+		static const uint32_t s_MantissaBits = 24;
+
+		Difficulty(uint32_t d = 0) :m_Packed(d) {}
+
+		typedef ECC::uintBig Raw;
+
+		// maximum theoretical difficulty value, which corresponds to 'infinite' (only Zero hash value meet the target).
+		// Corresponds to 0xffff...fff raw value.
+		static const uint32_t s_MaxOrder = Raw::nBits - s_MantissaBits - 1;
+		static const uint32_t s_Inf = (s_MaxOrder + 1) << s_MantissaBits;
+
+		bool IsTargetReached(const ECC::uintBig&) const;
+
+		void Unpack(Raw&) const;
+		void Add(Raw&) const; // saturated
+
+		void Unpack(uint32_t& order, uint32_t& mantissa) const;
+		void Pack(uint32_t order, uint32_t mantissa);
+
+		void Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange);
+
+	private:
+		static void Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange, uint32_t& order, uint32_t& mantissa);
+	};
+
+	std::ostream& operator << (std::ostream&, const Difficulty&);
 
 	struct HeightRange
 	{

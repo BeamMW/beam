@@ -1057,6 +1057,8 @@ namespace beam
 		kOffset = -kOffset;
 	}
 
+	/////////////
+	// Difficulty
 	void Rules::AdjustDifficulty(uint8_t& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const
 	{
 		//static_assert(DesiredRate_s * DifficultyReviewCycle < uint32_t(-1), "overflow?");
@@ -1104,6 +1106,165 @@ namespace beam
 			d--;
 			src >>= 2;
 		}
+	}
+
+	void Difficulty::Pack(uint32_t order, uint32_t mantissa)
+	{
+		if (order <= s_MaxOrder)
+		{
+			assert((mantissa >> s_MantissaBits) == 1U);
+			mantissa &= (1U << s_MantissaBits) - 1;
+
+			m_Packed = mantissa | (order << s_MantissaBits);
+		}
+		else
+			m_Packed = s_Inf;
+	}
+
+	void Difficulty::Unpack(uint32_t& order, uint32_t& mantissa) const
+	{
+		order = (m_Packed >> s_MantissaBits);
+
+		const uint32_t nLeadingBit = 1U << s_MantissaBits;
+		mantissa = nLeadingBit | (m_Packed & (nLeadingBit - 1));
+	}
+
+	bool Difficulty::IsTargetReached(const ECC::uintBig& hv) const
+	{
+		if (m_Packed > s_Inf)
+			return false; // invalid
+
+		// multiply by (raw) difficulty, check if the result fits wrt normalization.
+		Raw val;
+		Unpack(val);
+
+		typedef ECC::uintBig_t<ECC::nBits * 2> uintHuge;
+
+		uintHuge a, b;
+		a = hv;
+		b = val;
+		a = a * b;
+
+		static_assert(!(s_MantissaBits & 7), ""); // fix the following code lines to support non-byte-aligned mantissa size
+
+		return memis0(a.m_pData, sizeof(a.m_pData) / 2 - (s_MantissaBits >> 3));
+	}
+
+	void Difficulty::Unpack(Raw& res) const
+	{
+		res = ECC::Zero;
+		if (m_Packed < s_Inf)
+		{
+			uint32_t order, mantissa;
+			Unpack(order, mantissa);
+			res.AssignSafe(mantissa, order);
+
+		}
+		else
+			res.Inv();
+	}
+
+	void Difficulty::Add(Raw& acc) const
+	{
+		Raw val;
+		Unpack(val);
+
+		acc += val;
+
+		if (acc < val)
+		{
+			acc = ECC::Zero;
+			acc.Inv();
+		}
+	}
+
+	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange)
+	{
+		if (!(src || trg))
+			return; // degenerate case
+
+		uint32_t order, mantissa;
+		Unpack(order, mantissa);
+
+		Adjust(src, trg, nMaxOrderChange, order, mantissa);
+
+		if (signed(order) >= 0)
+			Pack(order, mantissa);
+		else
+			m_Packed = 0;
+
+	}
+
+	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange, uint32_t& order, uint32_t& mantissa)
+	{
+		bool bIncrease = (src < trg);
+
+		// order adjustment (rough)
+		for (uint32_t i = 0; ; i++)
+		{
+			if (i == nMaxOrderChange)
+				return;
+
+			uint32_t srcAdj = src;
+			if (bIncrease)
+			{
+				if ((srcAdj <<= 1) > trg)
+					break;
+
+				if (++order > s_MaxOrder)
+					return;
+				order++;
+			}
+			else
+			{
+				if ((srcAdj >>= 1) < trg)
+					break;
+
+				if (!order--)
+					return;
+			}
+
+			src = srcAdj;
+		}
+
+		// By now the ratio between src/trg is less than 2. Adjust the mantissa
+		uint64_t val = trg;
+		val *= uint64_t(mantissa);
+		val /= uint64_t(src);
+
+		mantissa = (uint32_t) val;
+
+		uint32_t nLeadingBit = mantissa >> Difficulty::s_MantissaBits;
+
+		if (bIncrease)
+		{
+			assert(nLeadingBit && (nLeadingBit <= 2));
+
+			if (nLeadingBit > 1)
+			{
+				order++;
+				mantissa >>= 1;
+			}
+		}
+		else
+		{
+			assert(nLeadingBit <= 1);
+
+			if (!nLeadingBit)
+			{
+				order--;
+				mantissa <<= 1;
+				assert(mantissa >> Difficulty::s_MantissaBits);
+			}
+		}
+	}
+
+	std::ostream& operator << (std::ostream& s, const Difficulty& d)
+	{
+		uint32_t order = d.m_Packed >> Difficulty::s_MantissaBits;
+		uint32_t mantissa = d.m_Packed & ((1U << Difficulty::s_MantissaBits) - 1);
+		s << std::hex << order << '-' << mantissa << std::dec;
+		return s;
 	}
 
 	std::ostream& operator << (std::ostream& s, const Block::SystemState::ID& id)
