@@ -91,7 +91,7 @@ if(BEAM_USE_STATIC)
 			lib/libQt5ClipboardSupport lib/libQt5MultimediaQuick lib/libQt5QuickControls2 lib/libQt5UiTools lib/libqttcime 
 			qml/QtQuick.2/libqtquick2plugin qml/QtQuick/Window.2/libwindowplugin qml/QtQuick/Controls/libqtquickcontrolsplugin 
 			qml/QtGraphicalEffects/libqtgraphicaleffectsplugin qml/QtGraphicalEffects/private/libqtgraphicaleffectsprivate 
-			qml/QtQuick/Layouts/qquicklayoutsplugin qml/QtQuick/Controls.2/qtquickcontrols2plugin qml/QtQuick/Templates.2/qtquicktemplates2plugin
+			qml/QtQuick/Layouts/libqquicklayoutsplugin qml/QtQuick/Controls.2/libqtquickcontrols2plugin qml/QtQuick/Templates.2/libqtquicktemplates2plugin
 			plugins/platforms/libqcocoa plugins/platforms/libqminimal plugins/imageformats/libqsvg)
 
 			target_link_libraries(beam-ui ${CMAKE_PREFIX_PATH}/${lib}.a)
