@@ -15,6 +15,7 @@ struct IWalletModelAsync
 	virtual void syncWithNode() = 0;
     virtual void calcChange(beam::Amount&& amount) = 0;
     virtual void getAvaliableUtxos() = 0;
+    virtual void cancelTx(beam::TxID id) = 0;
 
 	virtual ~IWalletModelAsync() {}
 };
@@ -68,6 +69,7 @@ private:
     void syncWithNode() override;
     void calcChange(beam::Amount&& amount) override;
     void getAvaliableUtxos() override;
+    void cancelTx(beam::TxID id) override;
 
 	void onStatusChanged();
 	WalletStatus getStatus() const;

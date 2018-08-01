@@ -15,6 +15,7 @@ namespace
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
 {
     BRIDGE_INIT(WalletModelBridge);
+
     void sendMoney(beam::WalletID receiverID, Amount&& amount, Amount&& fee) override
     {
         tx.send([receiverID, amount{ move(amount) }, fee{ move(fee) }](BridgeInterface& receiver) mutable
@@ -44,6 +45,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         tx.send([](BridgeInterface& receiver) mutable
         {
             receiver.getAvaliableUtxos();
+        });
+    }
+
+    void cancelTx(beam::TxID id) override
+    {
+        tx.send([id](BridgeInterface& receiver) mutable
+        {
+            receiver.cancelTx(id);
         });
     }
 };
@@ -242,6 +251,15 @@ void WalletModel::calcChange(beam::Amount&& amount)
 void WalletModel::getAvaliableUtxos()
 {
     emit onUtxoChanged(getUtxos());
+}
+
+void WalletModel::cancelTx(beam::TxID id)
+{
+    auto w = _wallet.lock();
+    if (w)
+    {
+        w->cancel_tx(id);
+    }
 }
 
 vector<Coin> WalletModel::getUtxos() const

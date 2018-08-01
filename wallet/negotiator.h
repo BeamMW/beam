@@ -21,6 +21,8 @@ namespace beam::wallet
             bool m_notify;
             TxFailed(bool notify = false) : m_notify{ notify } {}
         };
+
+        struct TxCanceled {};
     }
 
     class Negotiator
@@ -147,6 +149,7 @@ namespace beam::wallet
             void rollbackTx(const events::TxFailed& );
             void completeTx();
             void rollbackTx();
+            void cancelTx(const events::TxCanceled&);
 
             void update_tx_description(TxDescription::Status s);
 
@@ -174,7 +177,8 @@ namespace beam::wallet
 
                 //a_row< TxOutputsConfirmation  , events::TxOutputsConfirmed      , TxTerminal            , &d::completeTx                 >,
 
-                a_row< TxAllOk                , events::TxFailed                , TxTerminal            , &d::rollbackTx                 >
+                a_row< TxAllOk                , events::TxFailed                , TxTerminal            , &d::rollbackTx                 >,
+                a_row< TxAllOk                , events::TxCanceled              , TxTerminal            , &d::cancelTx                  >
             > {};
 
 

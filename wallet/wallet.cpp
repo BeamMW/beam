@@ -195,9 +195,13 @@ namespace beam
         m_peers.erase(tx.m_peerId);
  
         // remove state machine from db
-        TxDescription t{ tx };
-        t.m_fsmState.clear();
-        m_keyChain->saveTx(t);
+        auto t = m_keyChain->getTx(tx.m_txId);
+        if (t.is_initialized())
+        {
+            t->m_fsmState.clear();
+            m_keyChain->saveTx(*t);
+        }
+        
 
         if (m_tx_completed_action)
         {
@@ -325,6 +329,21 @@ namespace beam
         else
         {
             process_event(txId, events::TxFailed(true));
+        }
+    }
+
+    void Wallet::cancel_tx(const TxID& txId)
+    {
+        LOG_INFO() << "Canceling tx " << txId;
+
+        Cleaner cs{ m_removedNegotiators };
+        if (auto it = m_negotiators.find(txId); it != m_negotiators.end())
+        {
+            it->second->process_event(events::TxCanceled{});
+        }
+        else
+        {
+            m_keyChain->deleteTx(txId);
         }
     }
 

@@ -164,6 +164,19 @@ namespace beam::wallet
         }
     }
 
+    void Negotiator::FSMDefinition::cancelTx(const events::TxCanceled&)
+    {
+        if (m_parent.m_txDesc.m_status == TxDescription::Pending)
+        {
+            m_parent.m_keychain->deleteTx(m_parent.m_txDesc.m_txId);
+        }
+        else
+        {
+            rollbackTx();
+            m_parent.m_gateway.send_tx_failed(m_parent.m_txDesc);
+        }
+    }
+
     void Negotiator::FSMDefinition::rollbackTx()
     {
         LOG_INFO() << "Transaction failed. Rollback...";

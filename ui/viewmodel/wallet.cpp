@@ -76,6 +76,12 @@ QString TxObject::status() const
 	return Names[_tx.m_status];
 }
 
+bool TxObject::canCancel() const
+{
+    return _tx.m_status == beam::TxDescription::InProgress
+        || _tx.m_status == beam::TxDescription::Pending;
+}
+
 
 UtxoItem::UtxoItem(const beam::Coin& coin)
     : _coin{coin}
@@ -153,6 +159,12 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const s
 
 
 	_model.start();
+}
+
+void WalletViewModel::cancelTx(int index)
+{
+    auto *p = static_cast<TxObject*>(_tx[index]);
+    _model.async->cancelTx(p->_tx.m_txId);
 }
 
 void WalletViewModel::onStatus(const WalletStatus& status)

@@ -161,7 +161,6 @@ int main (int argc, char* argv[])
 					if (vm.count(cli::WALLET_ADDR))
 					{
 						auto uris = vm[cli::WALLET_ADDR].as<vector<string>>();
-						AddrList addrList;
 
 						for (const auto& uri : uris)
 						{

@@ -875,6 +875,17 @@ Item {
                 }
             }
 
+            Menu {
+                id: txContextMenu
+                property int txIndex;
+                MenuItem {
+                    text: qsTr('Cancel')
+                    onTriggered: {
+                       walletViewModel.cancelTx(txContextMenu.txIndex);
+                    }
+                }
+            }
+
             rowDelegate: Item {
                 height: 69
 
@@ -886,6 +897,22 @@ Item {
 
                     color: Style.light_navy
                     visible: styleData.alternate
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    onClicked: {
+                        if (mouse.button === Qt.RightButton && styleData.row !== undefined)
+                        {
+                            txContextMenu.txIndex = styleData.row;
+                            var tx = walletViewModel.getTxAt(styleData.row);
+                            if (tx.canCancel)
+                            {
+                                txContextMenu.popup();
+                            }
+                        }
+                    }
                 }
             }
 
