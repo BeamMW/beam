@@ -8,6 +8,7 @@ using namespace beamui;
 PeerAddressItem::PeerAddressItem(const beam::WalletAddress& address)
     : m_walletID{beamui::toString(address.m_walletID)}
     , m_name{QString::fromStdString(address.m_label)}
+    , m_category(QString::fromStdString(address.m_category))
 {
 
 }
@@ -59,11 +60,51 @@ QString OwnAddressItem::getCreateDate() const
 AddressBookViewModel::AddressBookViewModel(WalletModel& model)
     : m_model{model}
 {
+<<<<<<< HEAD
     connect(&m_model, SIGNAL(OnAdrresses(bool own, const std::vector<beam::WalletAddress>&)),
         SLOT(oOnAdrresses(bool own, const std::vector<beam::WalletAddress>&)));
 
     m_model.async->getAddresses(true);
     m_model.async->getAddresses(false);
+=======
+    
+    /*{
+        auto p =m_keychain->getAddresses(false);
+        for (const auto& a : p)
+        {
+            m_peerAddresses.push_back(new PeerAddressItem(a));
+        }
+    }
+
+    {
+        auto p = m_keychain->getAddresses(true);
+        for (const auto& a : p)
+        {
+            m_ownAddresses.push_back(new OwnAddressItem(a));
+        }
+    }*/
+
+    //for (int i = 0; i < 100; ++i)
+    //{
+    //    beam::WalletAddress a = {};
+    //    a.m_own = false;
+    //    a.m_label = "Peer address " + to_string(i);
+    //    ECC::Hash::Processor() << a.m_label.c_str() >> a.m_walletID;
+    //    a.m_category = "work";
+    //    m_peerAddresses.push_back(new PeerAddressItem(a));
+    //}
+    //for (int i = 0; i < 20; ++i)
+    //{
+    //    beam::WalletAddress a = {};
+    //    a.m_own = true;
+    //    a.m_label = "My address " + to_string(i);
+    //    ECC::Hash::Processor() << a.m_label.c_str() >> a.m_walletID;
+    //    a.m_createTime = beam::getTimestamp();
+    //    a.m_duration = 1000000;
+    //    a.m_category = "work";
+    //    m_ownAddresses.push_back(new OwnAddressItem(a));
+    //}
+>>>>>>> 7503fb9... BEAM-91 #comment added states. wip
 }
 
 QVariant AddressBookViewModel::getPeerAddresses() const

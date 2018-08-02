@@ -6,8 +6,11 @@ import QtQuick.Controls.Styles 1.2
 import "controls"
 
 ColumnLayout {
+    id: addressRoot
+    width: 800
+    height: 600
     anchors.fill: parent
-
+    state: "own"
 	SFText {
         Layout.minimumHeight: 40
         Layout.maximumHeight: 40
@@ -20,22 +23,35 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.minimumHeight: 40
         Layout.maximumHeight: 40
-        Rectangle {
-            color: "red"
+        spacing: 40
+        TxFilter{
+            id: ownFilter
+            Layout.leftMargin: 20
+            label: qsTr("OWN ADDRESSES")
+            onClicked: addressRoot.state = "own"
+        }
+
+        TxFilter{
+            id: peersFilter
+            label: qsTr("PEERS ADDRESSES")
+            onClicked: addressRoot.state = "peers"
+        }
+
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Button {
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.right: parent.right
+                text: "+ create"
+            }
         }
+
     }
 
     Item {
         Layout.fillWidth: true
         Layout.fillHeight: true
-
-        Rectangle {
-            color: "green"
-            anchors.fill: parent
-
-        }
 
         TableView {
             id: peersView
@@ -44,12 +60,13 @@ ColumnLayout {
             frameVisible: false
             selectionMode: SelectionMode.SingleSelection
             backgroundVisible: false
-            model: addressBookViewModel.peers
+            model: addressBookViewModel.peerAddresses
+            visible: false
 
             TableViewColumn {
                 role: "walletID"
                 title: qsTr("Address ID")
-                //width: 200*parent.width/1310
+                width: 300
 
                 movable: false
             }
@@ -57,7 +74,7 @@ ColumnLayout {
             TableViewColumn {
                 role: "name"
                 title: qsTr("Name")
-                //width: 200*parent.width/1310
+                width: 200
 
                 movable: false
             }
@@ -65,7 +82,6 @@ ColumnLayout {
             TableViewColumn {
                 role: "category"
                 title: qsTr("Category")
-                //width: 200*parent.width/1310
                 movable: false
             }
 
@@ -74,9 +90,10 @@ ColumnLayout {
 
                 color: Style.dark_slate_blue
 
-                SFText {
+                Text {
                     anchors.verticalCenter: parent.verticalCenter
-
+					anchors.left: parent.left
+                    anchors.leftMargin: 20
                     font.pixelSize: 12
                     color: Style.bluey_grey
 
@@ -98,32 +115,122 @@ ColumnLayout {
                     visible: styleData.alternate
                 }
 
-                MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    onClicked: {
-
-                    }
-                }
             }
 
-            itemDelegate: Item {
+            itemDelegate: TableItem {
+                text: styleData.value
+            }
+        }
 
-                anchors.fill: parent
+		TableView {
+            id: ownAddressesView
+            anchors.fill: parent
 
-                SFText {
+            frameVisible: false
+            selectionMode: SelectionMode.SingleSelection
+            backgroundVisible: false
+            model: addressBookViewModel.ownAddresses
+
+            TableViewColumn {
+                role: "walletID"
+                title: qsTr("Address ID")
+                width: 300
+
+                movable: false
+            }
+
+            TableViewColumn {
+                role: "name"
+                title: qsTr("Name")
+                width: 200
+
+                movable: false
+            }
+
+            TableViewColumn {
+                role: "category"
+                title: qsTr("Category")
+                movable: false
+            }
+
+            TableViewColumn {
+                role: "expirationDate"
+                title: qsTr("Expiration date")
+                movable: false
+            }
+
+            TableViewColumn {
+                role: "createDate"
+                title: qsTr("Created")
+                movable: false
+            }
+
+
+            headerDelegate: Rectangle {
+                height: 46
+
+                color: Style.dark_slate_blue
+
+                Text {
                     anchors.verticalCenter: parent.verticalCenter
-
+					anchors.left: parent.left
+                    anchors.leftMargin: 20
                     font.pixelSize: 12
-                    color: Style.white
-
-                    font.weight: Font.Normal
+                    color: Style.bluey_grey
 
                     text: styleData.value
                 }
+            }
 
-                clip:true
+            rowDelegate: Item {
+
+                height: 69
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+
+                Rectangle {
+                    anchors.fill: parent
+
+                    color: Style.light_navy
+                    visible: styleData.alternate
+                }
+            }
+
+            itemDelegate: TableItem {
+                text: styleData.value
             }
         }
     }
+
+    states: [
+        State {
+            name: "own"
+            PropertyChanges {target: ownFilter; state: "active"}
+            PropertyChanges {
+                target: ownAddressesView
+                visible: true
+            }
+
+            PropertyChanges {
+                target: peersView
+                visible: false
+            }
+        },
+        State {
+            name: "peers"
+            PropertyChanges {target: peersFilter; state: "active"}
+
+            PropertyChanges {
+                target: ownAddressesView
+                visible: false
+            }
+
+            PropertyChanges {
+                target: peersView
+                visible: true
+            }
+        }
+    ]
+
 }

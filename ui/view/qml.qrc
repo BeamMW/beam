@@ -10,6 +10,7 @@
         <file>controls/Led.qml</file>
         <file>controls/TxFilter.qml</file>
         <file>controls/CuteButton.qml</file>
+        <file>controls/TableItem.qml</file>
 
         <file>main.qml</file>
         <file>dashboard.qml</file>
