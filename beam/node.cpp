@@ -751,6 +751,14 @@ void Node::Peer::OnMsg(proto::SChannelReady&& msg)
 
 	m_bConnected = true;
 
+	if (m_Port && m_This.m_Cfg.m_Listen.port())
+	{
+		// we've connected to the peer, let it now know our port
+		proto::PeerInfoSelf msgPi;
+		msgPi.m_Port = m_This.m_Cfg.m_Listen.port();
+		Send(msgPi);
+	}
+
 	ECC::Scalar::Native sk = m_This.m_MyPrivateID.V;
 	ProveID(sk, proto::IDType::Node);
 
@@ -761,14 +769,6 @@ void Node::Peer::OnMsg(proto::SChannelReady&& msg)
 	msgCfg.m_AutoSendHdr = false;
 	msgCfg.m_SendPeers = true;
 	Send(msgCfg);
-
-	if (m_Port && m_This.m_Cfg.m_Listen.port())
-	{
-		// we've connected to the peer, let it now know our port
-		proto::PeerInfoSelf msgPi;
-		msgPi.m_Port = m_This.m_Cfg.m_Listen.port();
-		Send(msgPi);
-	}
 
 	if (m_This.m_Processor.m_Cursor.m_Sid.m_Row)
 	{
