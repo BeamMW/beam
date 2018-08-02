@@ -194,6 +194,10 @@ int main (int argc, char* argv[])
 						}
 					}
 
+					WalletModel model(keychain, vm[cli::PORT].as<uint16_t>(), vm[cli::NODE_ADDR].as<string>());
+
+					model.start();
+
 					struct ViewModel
 					{
 						MainViewModel			main;
@@ -204,13 +208,13 @@ int main (int argc, char* argv[])
 						HelpViewModel			help;
 						SettingsViewModel		settings;
 
-						ViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
-							: wallet(keychain, port, nodeAddr)
-                            , addressBook(keychain)
+						ViewModel(WalletModel& model)
+							: wallet(model)
+                            , addressBook(model)
                         {
                         }
 
-					} viewModel(keychain, vm[cli::PORT].as<uint16_t>(), vm[cli::NODE_ADDR].as<string>());
+					} viewModel(model);
 
 					Translator translator;
 

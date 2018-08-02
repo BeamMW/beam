@@ -56,34 +56,42 @@ QString OwnAddressItem::getCreateDate() const
 }
 
 
-AddressBookViewModel::AddressBookViewModel(beam::IKeyChain::Ptr keychain)
-    : m_keychain{keychain}
+AddressBookViewModel::AddressBookViewModel(WalletModel& model)
+    : m_model{model}
 {
-    
-    {
-        auto p =m_keychain->getAddresses(false);
-        for (const auto& a : p)
-        {
-            m_peerAddresses.push_back(new PeerAddressItem(a));
-        }
-    }
+    connect(&m_model, SIGNAL(OnAdrresses(bool own, const std::vector<beam::WalletAddress>&)),
+        SLOT(oOnAdrresses(bool own, const std::vector<beam::WalletAddress>&)));
 
-    {
-        auto p = m_keychain->getAddresses(true);
-        for (const auto& a : p)
-        {
-            m_ownAddresses.push_back(new OwnAddressItem(a));
-        }
-    }
+    m_model.async->getAddresses(true);
+    m_model.async->getAddresses(false);
 }
 
 QVariant AddressBookViewModel::getPeerAddresses() const
 {
-
     return QVariant::fromValue(m_peerAddresses);
 }
 
 QVariant AddressBookViewModel::getOwnAddresses() const
 {
     return QVariant::fromValue(m_ownAddresses);
+}
+
+void AddressBookViewModel::OnAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses)
+{
+    if (own)
+    {
+        for (const auto& addr : addresses)
+        {
+            m_ownAddresses.push_back(new OwnAddressItem(addr));
+        }
+    }
+    else
+    {
+        for (const auto& addr : addresses)
+        {
+            m_peerAddresses.push_back(new PeerAddressItem(addr));
+        }
+    }
+
+    emit addressesChanged();
 }

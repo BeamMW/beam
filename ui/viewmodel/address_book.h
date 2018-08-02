@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QtCore/qvariant.h>
 #include "wallet/wallet_db.h"
+#include "model/wallet.h"
 
 class PeerAddressItem : public QObject
 {
@@ -60,15 +61,19 @@ class AddressBookViewModel : public QObject
 
 public:
 
-    AddressBookViewModel(beam::IKeyChain::Ptr keychain);
+    AddressBookViewModel(WalletModel& model);
 
     QVariant getPeerAddresses() const;
     QVariant getOwnAddresses() const;
 
+public slots:
+    void OnAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
+
 signals:
     void addressesChanged();
+
 private:
-    beam::IKeyChain::Ptr m_keychain;
+    WalletModel& m_model;
     QList<QObject*> m_peerAddresses;
     QList<QObject*> m_ownAddresses;
 };

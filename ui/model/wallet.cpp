@@ -48,6 +48,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+	void getAddresses(bool own) override
+	{
+		tx.send([own](BridgeInterface& receiver) mutable
+		{
+			receiver.getAddresses(own);
+		});
+	}
+
     void cancelTx(beam::TxID id) override
     {
         tx.send([id](BridgeInterface& receiver) mutable
@@ -256,6 +264,11 @@ void WalletModel::calcChange(beam::Amount&& amount)
 void WalletModel::getAvaliableUtxos()
 {
     emit onUtxoChanged(getUtxos());
+}
+
+void WalletModel::getAddresses(bool own)
+{
+	emit onAdrresses(own, _keychain->getAddresses(own));
 }
 
 void WalletModel::cancelTx(beam::TxID id)

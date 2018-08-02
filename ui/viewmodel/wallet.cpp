@@ -106,14 +106,13 @@ QString UtxoItem::type() const
     return Names[static_cast<int>(_coin.m_key_type)];
 }
 
-WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
-	: _model(keychain, port, nodeAddr)
+WalletViewModel::WalletViewModel(WalletModel& model)
+	: _model(model)
 	, _status{ 0, 0, 0, 0, {0, 0, 0} }
 	, _sendAmount("0")
 	, _sendAmountMils("0")
     , _feeMils("0")
     , _change(0)
-    , _keychain(keychain)
     , _loadingUtxo{false}
 {
 	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
@@ -132,9 +131,6 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const s
 
     connect(&_model, SIGNAL(onUtxoChanged(const std::vector<beam::Coin>&)),
         SLOT(onUtxoChanged(const std::vector<beam::Coin>&)));
-
-
-	_model.start();
 }
 
 void WalletViewModel::cancelTx(int index)
