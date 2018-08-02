@@ -364,6 +364,10 @@ std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReas
 		s << r.m_szErrorMsg;
 		break;
 
+	case NodeConnection::DisconnectReason::Bye:
+		s << "Bye " << r.m_ByeReason;
+		break;
+
 	default:
 		assert(false);
 	}
@@ -532,6 +536,14 @@ void NodeConnection::OnMsg(Authentication&& msg)
 
 	if (!msg.m_Sig.IsValid(hv, p))
 		ThrowUnexpected();
+}
+
+void NodeConnection::OnMsg(Bye&& msg)
+{
+	DisconnectReason r;
+	r.m_Type = DisconnectReason::Bye;
+	r.m_ByeReason = msg.m_Reason;
+	OnDisconnect(r);
 }
 
 /////////////////////////

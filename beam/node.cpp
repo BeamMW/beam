@@ -298,7 +298,7 @@ void Node::Processor::OnPeerInsane(const PeerID& peerID)
 	if (pInfo)
 	{
 		if (pInfo->m_pLive)
-			pInfo->m_pLive->DeleteSelf(true, true); // will ban
+			pInfo->m_pLive->DeleteSelf(true, proto::NodeConnection::ByeReason::Ban);
 		else
 			get_ParentObj().m_PeerMan.Ban(*pInfo);
 	}
@@ -658,7 +658,7 @@ Node::~Node()
 		ZeroObject(it->m_Config); // prevent re-assigning of tasks in the next loop
 
 	while (!m_lstPeers.empty())
-		m_lstPeers.front().DeleteSelf(false, false);
+		m_lstPeers.front().DeleteSelf(false, proto::NodeConnection::ByeReason::Stopping);
 
 	while (!m_lstTasksUnassigned.empty())
 		DeleteUnassignedTask(m_lstTasksUnassigned.front());
@@ -705,11 +705,11 @@ void Node::Peer::OnTimer()
 		if (m_pInfo)
 			m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::PenaltyTimeout, false); // task (request) wasn't handled in time.
 
-		DeleteSelf(false, false);
+		DeleteSelf(false, ByeReason::Timeout);
 	}
 	else
 		// Connect didn't finish in time
-		DeleteSelf(true, false);
+		DeleteSelf(true, 0);
 }
 
 void Node::Peer::OnResendPeers()
@@ -794,6 +794,9 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	if (m_bPiRcvd || (msg.m_ID == ECC::Zero))
 		ThrowUnexpected();
 
+	if (proto::IDType::Node != msg.m_IDType)
+		return;
+
 	m_bPiRcvd = true;
 	LOG_INFO() << m_RemoteAddr << " received PI";
 
@@ -829,7 +832,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	if (msg.m_ID == m_This.m_MyPublicID)
 	{
 		LOG_WARNING() << "Loopback connection";
-		DeleteSelf(false, false);
+		DeleteSelf(false, ByeReason::Loopback);
 		return;
 	}
 
@@ -849,17 +852,26 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 
 	if (pPi->m_pLive)
 	{
-		// threre's already another connection open to the same peer!
-		// Currently - just ignore this.
-		LOG_INFO() << "Duplicate connection with the same PI. Ignoring";
-		return;
+		LOG_INFO() << "Duplicate connection with the same PI.";
+		// Duplicate connection. In this case we have to choose wether to terminate this connection, or the previous. The best is to do it asymmetrically.
+		// We decide this based on our Node IDs.
+
+		if (m_This.m_MyPublicID > msg.m_ID)
+		{
+			pPi->m_pLive->DeleteSelf(false, ByeReason::Duplicate);
+			assert(!pPi->m_pLive);
+		}
+		else
+		{
+			DeleteSelf(false, ByeReason::Duplicate);
+			return;
+		}
 	}
 
 	if (!pPi->m_RawRating.m_Value)
 	{
-		// threre's already another connection open to the same peer!
-		// Currently - just ignore this.
 		LOG_INFO() << "Banned PI. Ignoring";
+		DeleteSelf(false, ByeReason::Ban);
 		return;
 	}
 
@@ -875,7 +887,27 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 void Node::Peer::OnDisconnect(const DisconnectReason& dr)
 {
 	LOG_WARNING() << m_RemoteAddr << ": " << dr;
-	DeleteSelf(true, DisconnectReason::Io != dr.m_Type);
+
+	bool bIsErr = true;
+	uint8_t nByeReason = 0;
+
+	switch (dr.m_Type)
+	{
+	default: assert(false);
+
+	case DisconnectReason::Io:
+		break;
+
+	case DisconnectReason::Bye:
+		bIsErr = false;
+		break;
+
+	case DisconnectReason::ProcessingExc:
+		nByeReason = ByeReason::Ban;
+		break;
+	}
+
+	DeleteSelf(bIsErr, nByeReason);
 }
 
 void Node::Peer::ReleaseTasks()
@@ -898,9 +930,16 @@ void Node::Peer::ReleaseTask(Task& t)
 		m_This.DeleteUnassignedTask(t);
 }
 
-void Node::Peer::DeleteSelf(bool bIsError, bool bIsBan)
+void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 {
 	LOG_INFO() << "-Peer " << m_RemoteAddr;
+
+	if (nByeReason && m_bConnected)
+	{
+		proto::Bye msg;
+		msg.m_Reason = nByeReason;
+		Send(msg);
+	}
 
 	m_TipHeight = 0; // prevent reassigning the tasks
 	m_TipWork = ECC::Zero;
@@ -917,7 +956,7 @@ void Node::Peer::DeleteSelf(bool bIsError, bool bIsBan)
 		m_This.m_PeerMan.OnActive(*m_pInfo, false);
 
 		if (bIsError)
-			m_This.m_PeerMan.OnRemoteError(*m_pInfo, bIsBan);
+			m_This.m_PeerMan.OnRemoteError(*m_pInfo, ByeReason::Ban == nByeReason);
 	}
 
 	m_This.m_lstPeers.erase(PeerList::s_iterator_to(*this));
@@ -2323,7 +2362,7 @@ void Node::PeerMan::DeactivatePeer(PeerInfo& pi)
 	if (!pip.m_pLive)
 		return; //?
 
-	pip.m_pLive->DeleteSelf(false, false);
+	pip.m_pLive->DeleteSelf(false, proto::NodeConnection::ByeReason::Other);
 }
 
 proto::PeerManager::PeerInfo* Node::PeerMan::AllocPeer()

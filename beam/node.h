@@ -297,7 +297,7 @@ private:
 		void KillTimer();
 		void OnResendPeers();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
-		void DeleteSelf(bool bIsError, bool bIsBan);
+		void DeleteSelf(bool bIsError, uint8_t nByeReason);
 		bool OnNewTransaction(Transaction::Ptr&&);
 
 		Task& get_FirstTask();
