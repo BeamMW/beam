@@ -314,6 +314,7 @@ void Node::Processor::OnNewState()
 
 	proto::NewTip msg;
 	msgHdr.m_Description.get_ID(msg.m_ID);
+	msg.m_ChainWork = m_Cursor.m_ChainWork;
 
 	LOG_INFO() << "My Tip: " << msg.m_ID;
 
@@ -327,7 +328,7 @@ void Node::Processor::OnNewState()
 	{
 		Peer& peer = *it;
 
-		if (peer.m_bConnected && (peer.m_TipHeight <= msg.m_ID.m_Height))
+		if (peer.m_bConnected && (peer.m_TipWork <= msg.m_ChainWork))
 		{
 			peer.Send(msg);
 
@@ -442,6 +443,7 @@ Node::Peer* Node::AllocPeer()
 	pPeer->m_bOwner = false;
 	pPeer->m_Port = 0;
 	pPeer->m_TipHeight = 0;
+	pPeer->m_TipWork = ECC::Zero;
 	ZeroObject(pPeer->m_Config);
 
 	return pPeer;
@@ -772,6 +774,7 @@ void Node::Peer::OnMsg(proto::SChannelReady&& msg)
 	{
 		proto::NewTip msg;
 		msg.m_ID = m_This.m_Processor.m_Cursor.m_ID;
+		msg.m_ChainWork = m_This.m_Processor.m_Cursor.m_ChainWork;
 		Send(msg);
 	}
 }
@@ -899,6 +902,7 @@ void Node::Peer::DeleteSelf(bool bIsError, bool bIsBan)
 	LOG_INFO() << "-Peer " << m_RemoteAddr;
 
 	m_TipHeight = 0; // prevent reassigning the tasks
+	m_TipWork = ECC::Zero;
 
 	ReleaseTasks();
 	Unsubscribe();
@@ -951,10 +955,11 @@ void Node::Peer::OnMsg(proto::Ping&&)
 
 void Node::Peer::OnMsg(proto::NewTip&& msg)
 {
-	if (msg.m_ID.m_Height < m_TipHeight)
+	if (msg.m_ChainWork < m_TipWork)
 		ThrowUnexpected();
 
 	m_TipHeight = msg.m_ID.m_Height;
+	m_TipWork = msg.m_ChainWork;
 	m_setRejected.clear();
 
 	LOG_INFO() << "Peer " << m_RemoteAddr << " Tip: " << msg.m_ID;
