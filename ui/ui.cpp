@@ -70,6 +70,8 @@ namespace
 
 int main (int argc, char* argv[])
 {
+	QApplication app(argc, argv);
+
 	QApplication::setApplicationName("Beam");
 	QApplication::setOrganizationName("beam-mw.com");
 
@@ -79,7 +81,7 @@ int main (int argc, char* argv[])
 	{
 		po::options_description options = createOptionsDescription();
 		po::variables_map vm;
-				
+
 		try
 		{
 			vm = getOptions(argc, argv, "beam-ui.cfg", options);
@@ -111,7 +113,6 @@ int main (int argc, char* argv[])
 			return 0;
 		}
 
-
 		int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
 #if LOG_VERBOSE_ENABLED
@@ -122,8 +123,6 @@ int main (int argc, char* argv[])
 
 		try
 		{
-			QApplication app(argc, argv);
-
 			Rules::get().UpdateChecksum();
 			LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
