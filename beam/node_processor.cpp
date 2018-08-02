@@ -223,6 +223,7 @@ void NodeProcessor::TryGoUp()
 	while (true)
 	{
 		NodeDB::StateID sidTrg;
+		Difficulty::Raw wrkTrg;
 
 		{
 			NodeDB::WalkerState ws(m_DB);
@@ -233,28 +234,37 @@ void NodeProcessor::TryGoUp()
 				assert(!m_Cursor.m_Sid.m_Row);
 				break; // nowhere to go
 			}
-			sidTrg = ws.m_Sid;
-		}
 
-		assert(sidTrg.m_Height >= m_Cursor.m_Sid.m_Height);
-		if (sidTrg.m_Height == m_Cursor.m_Sid.m_Height)
-			break; // already at maximum height (though maybe at different tip)
+			sidTrg = ws.m_Sid;
+			m_DB.get_ChainWork(sidTrg.m_Row, wrkTrg);
+
+			assert(wrkTrg >= m_Cursor.m_ChainWork);
+			if (wrkTrg == m_Cursor.m_ChainWork)
+				break; // already at maximum (though maybe at different tip)
+		}
 
 		// Calculate the path
 		std::vector<uint64_t> vPath;
 		while (sidTrg.m_Row != m_Cursor.m_Sid.m_Row)
 		{
-			assert(sidTrg.m_Row);
-			vPath.push_back(sidTrg.m_Row);
-
-			if (m_Cursor.m_Sid.m_Height == sidTrg.m_Height)
+			if (m_Cursor.m_ChainWork > wrkTrg)
 			{
 				Rollback();
 				bDirty = true;
 			}
+			else
+			{
+				assert(sidTrg.m_Row);
+				vPath.push_back(sidTrg.m_Row);
 
-			if (!m_DB.get_Prev(sidTrg))
-				sidTrg.SetNull();
+				if (m_DB.get_Prev(sidTrg))
+					m_DB.get_ChainWork(sidTrg.m_Row, wrkTrg);
+				else
+				{
+					sidTrg.SetNull();
+					wrkTrg = ECC::Zero;
+				}
+			}
 		}
 
 		bool bPathOk = true;
