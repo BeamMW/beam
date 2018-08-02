@@ -7,9 +7,15 @@ using namespace beam;
 using namespace beam::io;
 using namespace std;
 
+namespace
+{
+    static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
+}
+
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
 {
     BRIDGE_INIT(WalletModelBridge);
+
     void sendMoney(beam::WalletID receiverID, Amount&& amount, Amount&& fee) override
     {
         tx.send([receiverID, amount{ move(amount) }, fee{ move(fee) }](BridgeInterface& receiver) mutable
@@ -33,6 +39,22 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
             receiver.calcChange(move(amount));
         });
     }
+
+    void getAvaliableUtxos() override
+    {
+        tx.send([](BridgeInterface& receiver) mutable
+        {
+            receiver.getAvaliableUtxos();
+        });
+    }
+
+    void cancelTx(beam::TxID id) override
+    {
+        tx.send([id](BridgeInterface& receiver) mutable
+        {
+            receiver.cancelTx(id);
+        });
+    }
 };
 
 WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
@@ -44,6 +66,7 @@ WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const string& n
 	qRegisterMetaType<vector<TxDescription>>("std::vector<beam::TxDescription>");
 	qRegisterMetaType<vector<TxPeer>>("std::vector<beam::TxPeer>");
     qRegisterMetaType<Amount>("beam::Amount");
+    qRegisterMetaType<vector<Coin>>("std::vector<beam::Coin>");
 }
 
 WalletModel::~WalletModel() 
@@ -93,7 +116,7 @@ void WalletModel::run()
 		emit onStatus(getStatus());
 		emit onTxStatus(_keychain->getTxHistory());
 		emit onTxPeerUpdated(_keychain->getPeers());
-
+        
 		_reactor = Reactor::create();
 
 		Address node_addr;
@@ -108,6 +131,14 @@ void WalletModel::run()
             _wallet_io = wallet_io;
             auto wallet = make_shared<Wallet>(_keychain, wallet_io);
             _wallet = wallet;
+
+			_logRotateTimer = io::Timer::create(_reactor);
+			_logRotateTimer->start(
+				LOG_ROTATION_PERIOD, true,
+				[]() {
+					Logger::get()->rotate();
+				}
+			);
 
 			async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), _reactor);
 
@@ -215,4 +246,37 @@ void WalletModel::calcChange(beam::Amount&& amount)
     {
         emit onChangeCalculated(sum - amount);
     }    
+}
+
+void WalletModel::getAvaliableUtxos()
+{
+    emit onUtxoChanged(getUtxos());
+}
+
+void WalletModel::cancelTx(beam::TxID id)
+{
+    auto w = _wallet.lock();
+    if (w)
+    {
+        w->cancel_tx(id);
+    }
+}
+
+vector<Coin> WalletModel::getUtxos() const
+{
+    vector<Coin> utxos;
+    auto currentHeight = _keychain->getCurrentHeight();
+    Amount total = 0;
+    _keychain->visit([&utxos, &currentHeight](const Coin& c)->bool
+    {
+        Height lockHeight = c.m_maturity;
+
+        if (c.m_status == Coin::Unspent
+            && lockHeight <= currentHeight)
+        {
+            utxos.push_back(c);
+        }
+        return true;
+    });
+    return utxos;
 }

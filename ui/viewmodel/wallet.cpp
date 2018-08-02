@@ -76,6 +76,60 @@ QString TxObject::status() const
 	return Names[_tx.m_status];
 }
 
+bool TxObject::canCancel() const
+{
+    return _tx.m_status == beam::TxDescription::InProgress
+        || _tx.m_status == beam::TxDescription::Pending;
+}
+
+
+UtxoItem::UtxoItem(const beam::Coin& coin)
+    : _coin{coin}
+{
+
+}
+
+QString UtxoItem::amount() const
+{
+    return BeamToString(_coin.m_amount) + " BEAM";
+}
+
+QString UtxoItem::height() const
+{
+    return QString::number(_coin.m_createHeight);
+}
+
+QString UtxoItem::maturity() const
+{
+    return QString::number(_coin.m_createHeight);
+}
+
+QString UtxoItem::status() const
+{
+    static const char* Names[] = 
+    {
+        "Unconfirmed",
+        "Unspent",
+        "Locked",
+        "Spent"
+    };
+    return Names[_coin.m_status];
+}
+
+QString UtxoItem::type() const
+{
+    static const char* Names[] = 
+    {
+        "Comission",
+        "Coinbase",
+        "Kernel",
+        "Regular",
+        "Identity",
+        "SChannelNonce"
+    };
+    return Names[static_cast<int>(_coin.m_key_type)];
+}
+
 WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
 	: _model(keychain, port, nodeAddr)
 	, _status{ 0, 0, 0, 0, {0, 0, 0} }
@@ -84,6 +138,7 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const s
     , _feeMils("0")
     , _change(0)
     , _keychain(keychain)
+    , _loadingUtxo{false}
 {
 	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
@@ -99,7 +154,17 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const s
     connect(&_model, SIGNAL(onChangeCalculated(beam::Amount)),
         SLOT(onChangeCalculated(beam::Amount)));
 
+    connect(&_model, SIGNAL(onUtxoChanged(const std::vector<beam::Coin>&)),
+        SLOT(onUtxoChanged(const std::vector<beam::Coin>&)));
+
+
 	_model.start();
+}
+
+void WalletViewModel::cancelTx(int index)
+{
+    auto *p = static_cast<TxObject*>(_tx[index]);
+    _model.async->cancelTx(p->_tx.m_txId);
 }
 
 void WalletViewModel::onStatus(const WalletStatus& status)
@@ -143,8 +208,11 @@ void WalletViewModel::onStatus(const WalletStatus& status)
 		changed = true;
 	}
 
-	if(changed)
-		emit stateChanged();
+    if (changed)
+    {
+        _utxos.clear();
+        emit stateChanged();
+    }
 }
 
 void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
@@ -179,6 +247,18 @@ void WalletViewModel::onChangeCalculated(beam::Amount change)
     _change = change;
     emit actualAvailableChanged();
     emit changeChanged();
+}
+
+void WalletViewModel::onUtxoChanged(const std::vector<beam::Coin>& utxos)
+{
+    _utxos.clear();
+    for (const auto& utxo : utxos)
+    {
+        _utxos.push_back(new UtxoItem(utxo));
+    }
+    _loadingUtxo = false;
+
+    emit utxoChanged();
 }
 
 QString WalletViewModel::available() const
@@ -301,6 +381,16 @@ int WalletViewModel::syncProgress() const
 int WalletViewModel::selectedAddr() const
 {
 	return _selectedAddr;
+}
+
+QVariant WalletViewModel::utxos() 
+{
+    if (_utxos.empty() && _loadingUtxo == false && _model.async)
+    {
+        _loadingUtxo = true;
+        _model.async->getAvaliableUtxos();
+    }
+    return QVariant::fromValue(_utxos);
 }
 
 beam::Amount WalletViewModel::calcSendAmount() const

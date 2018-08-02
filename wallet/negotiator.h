@@ -21,6 +21,8 @@ namespace beam::wallet
             bool m_notify;
             TxFailed(bool notify = false) : m_notify{ notify } {}
         };
+
+        struct TxCanceled {};
     }
 
     class Negotiator
@@ -147,8 +149,7 @@ namespace beam::wallet
             void rollbackTx(const events::TxFailed& );
             void completeTx();
             void rollbackTx();
-
-            Amount get_total() const;
+            void cancelTx(const events::TxCanceled&);
 
             void update_tx_description(TxDescription::Status s);
 
@@ -176,7 +177,8 @@ namespace beam::wallet
 
                 //a_row< TxOutputsConfirmation  , events::TxOutputsConfirmed      , TxTerminal            , &d::completeTx                 >,
 
-                a_row< TxAllOk                , events::TxFailed                , TxTerminal            , &d::rollbackTx                 >
+                a_row< TxAllOk                , events::TxFailed                , TxTerminal            , &d::rollbackTx                 >,
+                a_row< TxAllOk                , events::TxCanceled              , TxTerminal            , &d::cancelTx                  >
             > {};
 
 
@@ -190,8 +192,8 @@ namespace beam::wallet
             template <class FSM, class Event>
             void exception_caught(Event const&, FSM& fsm, std::exception& ex)
             {
-                LOG_ERROR() << ex.what();
-                fsm.process_event(events::TxFailed());
+                LOG_INFO() << ex.what();
+                fsm.process_event(events::TxFailed(/*true*/));
             }
 
             template<typename Archive>

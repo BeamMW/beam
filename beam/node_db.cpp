@@ -25,11 +25,13 @@ namespace beam {
 #define TblStates_Body			"Body"
 #define TblStates_Rollback		"Rollback"
 #define TblStates_Peer			"Peer"
+#define TblStates_ChainWork		"ChainWork"
 
 #define TblTips					"Tips"
 #define TblTipsReachable		"TipsReachable"
 #define TblTips_Height			"Height"
 #define TblTips_State			"State"
+#define TblTips_ChainWork		"ChainWork"
 
 #define TblSpendable			"Spendable"
 #define TblSpendable_Key		"Key"
@@ -249,7 +251,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 5;
+	const uint64_t nVersion = 6;
 
 	if (bCreate)
 	{
@@ -287,11 +289,11 @@ void NodeDB::Create()
 		"[" TblStates_CountNext		"] INTEGER NOT NULL,"
 		"[" TblStates_CountNextF	"] INTEGER NOT NULL,"
 		"[" TblStates_PoW			"] BLOB,"
-		//"[" TblStates_BlindOffset	"] BLOB,"
 		"[" TblStates_Mmr			"] BLOB,"
 		"[" TblStates_Body			"] BLOB,"
 		"[" TblStates_Rollback		"] BLOB,"
 		"[" TblStates_Peer			"] BLOB,"
+		"[" TblStates_ChainWork		"] BLOB,"
 		"PRIMARY KEY (" TblStates_Height "," TblStates_Hash "),"
 		"FOREIGN KEY (" TblStates_RowPrev ") REFERENCES " TblStates "(OID))");
 
@@ -302,10 +304,13 @@ void NodeDB::Create()
 		"FOREIGN KEY (" TblTips_State ") REFERENCES " TblStates "(OID))");
 
 	ExecQuick("CREATE TABLE [" TblTipsReachable "] ("
-		"[" TblTips_Height	"] INTEGER NOT NULL,"
-		"[" TblTips_State	"] INTEGER NOT NULL,"
-		"PRIMARY KEY (" TblTips_Height "," TblTips_State "),"
-		"FOREIGN KEY (" TblTips_State ") REFERENCES " TblStates "(OID))");
+		"[" TblTips_State		"] INTEGER NOT NULL,"
+		"[" TblTips_ChainWork	"] BLOB NOT NULL,"
+		"PRIMARY KEY (" TblTips_State "),"
+		"FOREIGN KEY (" TblTips_State ") REFERENCES " TblStates "(OID),"
+		"FOREIGN KEY (" TblTips_ChainWork ") REFERENCES " TblStates "(" TblStates_ChainWork "))");
+
+	ExecQuick("CREATE INDEX [Idx" TblTipsReachable "Wrk] ON [" TblTipsReachable "] ([" TblTips_ChainWork "]);");
 
 	ExecQuick("CREATE TABLE [" TblMined "] ("
 		"[" TblMined_Height		"] INTEGER NOT NULL,"
@@ -667,7 +672,7 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 			SetNextCountFunctional(rowPrev, nCountPrevF);
 
 			if (!nCountPrevF && (StateFlags::Reachable & nFlags))
-				TipReachableAdd(rowPrev, h - 1);
+				TipReachableAdd(rowPrev);
 
 		}
 	}
@@ -675,7 +680,7 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 	TipDel(rowid, h);
 
 	if (StateFlags::Reachable & nFlags)
-		TipReachableDel(rowid, h);
+		TipReachableDel(rowid);
 
 	StateID sid;
 	sid.m_Height = h;
@@ -744,20 +749,22 @@ void NodeDB::TipDel(uint64_t rowid, Height h)
 	TestChanged1Row();
 }
 
-void NodeDB::TipReachableAdd(uint64_t rowid, Height h)
+void NodeDB::TipReachableAdd(uint64_t rowid)
 {
+	Difficulty::Raw wrk;
+	get_ChainWork(rowid, wrk);
+
 	Recordset rs(*this, Query::TipReachableAdd, "INSERT INTO " TblTipsReachable " VALUES(?,?)");
-	rs.put(0, h);
-	rs.put(1, rowid);
+	rs.put(0, rowid);
+	rs.put(1, wrk);
 
 	rs.Step();
 }
 
-void NodeDB::TipReachableDel(uint64_t rowid, Height h)
+void NodeDB::TipReachableDel(uint64_t rowid)
 {
-	Recordset rs(*this, Query::TipReachableDel, "DELETE FROM " TblTipsReachable " WHERE " TblTips_Height "=? AND " TblTips_State "=?");
-	rs.put(0, h);
-	rs.put(1, rowid);
+	Recordset rs(*this, Query::TipReachableDel, "DELETE FROM " TblTipsReachable " WHERE " TblTips_State "=?");
+	rs.put(0, rowid);
 
 	rs.Step();
 	TestChanged1Row();
@@ -804,7 +811,7 @@ void NodeDB::SetStateFunctional(uint64_t rowid)
 				nFlags |= StateFlags::Reachable;
 
 				if (!nCountPrevF)
-					TipReachableDel(rowPrev, h - 1);
+					TipReachableDel(rowPrev);
 			}
 		}
 
@@ -817,7 +824,15 @@ void NodeDB::SetStateFunctional(uint64_t rowid)
 	SetFlags(rowid, nFlags);
 
 	if (StateFlags::Reachable & nFlags)
-		OnStateReachable(rowid, rowPrev, h, true);
+	{
+		Difficulty::Raw wrkPrev;
+		if (h > Rules::HeightGenesis)
+			get_ChainWork(rowPrev, wrkPrev);
+		else
+			wrkPrev = ECC::Zero;
+
+		OnStateReachable(rowid, rowPrev, h, wrkPrev, true);
+	}
 }
 
 void NodeDB::SetStateNotFunctional(uint64_t rowid)
@@ -865,7 +880,7 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 			SetNextCountFunctional(rowPrev, nCountPrevF);
 
 			if (!nCountPrevF && bReachable)
-				TipReachableAdd(rowPrev, h - 1);
+				TipReachableAdd(rowPrev);
 		}
 	} else
 		assert(rs.IsNull(1) && bReachable);
@@ -873,10 +888,13 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 	SetFlags(rowid, nFlags);
 
 	if (bReachable)
-		OnStateReachable(rowid, rowPrev, h, false);
+	{
+		Difficulty::Raw dummy;
+		OnStateReachable(rowid, rowPrev, h, dummy, false);
+	}
 }
 
-void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, bool b)
+void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, Difficulty::Raw& wrkPrev, bool b)
 {
 	typedef std::pair<uint64_t, uint32_t> RowAndFlags;
 	std::vector<RowAndFlags> rows;
@@ -884,7 +902,18 @@ void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, bool b
 	while (true)
 	{
 		if (b)
+		{
 			BuildMmr(rowid, rowPrev, h);
+
+			Block::SystemState::Full s;
+			get_State(rowid, s);
+
+			Difficulty::Raw wrk;
+			s.m_PoW.m_Difficulty.Unpack(wrk);
+			wrkPrev += wrk;
+			set_ChainWork(rowid, wrkPrev);
+		}
+
 		rowPrev = rowid;
 
 		{
@@ -907,9 +936,9 @@ void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, bool b
 		if (rows.empty())
 		{
 			if (b)
-				TipReachableAdd(rowid, h);
+				TipReachableAdd(rowid);
 			else
-				TipReachableDel(rowid, h);
+				TipReachableDel(rowid);
 
 			break;
 		}
@@ -921,7 +950,10 @@ void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, bool b
 		h++;
 
 		for (size_t i = 1; i < rows.size(); i++)
-			OnStateReachable(rows[i].first, rowPrev, h, b);
+		{
+			Difficulty::Raw wrk = wrkPrev;
+			OnStateReachable(rows[i].first, rowPrev, h, wrk, b);
+		}
 
 		rows.clear();
 	}
@@ -1013,6 +1045,26 @@ uint32_t NodeDB::GetStateFlags(uint64_t rowid)
 	uint32_t nFlags;
 	rs.get(0, nFlags);
 	return nFlags;
+}
+
+void NodeDB::set_ChainWork(uint64_t rowid, const Difficulty::Raw& wrk)
+{
+	Recordset rs(*this, Query::StateSetChainWork, "UPDATE " TblStates " SET " TblStates_ChainWork "=? WHERE rowid=?");
+	rs.put_As(0, wrk);
+	rs.put(1, rowid);
+
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::get_ChainWork(uint64_t rowid, Difficulty::Raw& wrk)
+{
+	Recordset rs(*this, Query::StateGetChainWork, "SELECT " TblStates_ChainWork " FROM " TblStates " WHERE rowid=?");
+	rs.put(0, rowid);
+
+	rs.StepStrict();
+
+	rs.get_As(0, wrk);
 }
 
 uint32_t NodeDB::GetStateNextCount(uint64_t rowid)
@@ -1108,22 +1160,15 @@ void NodeDB::assert_valid()
 	assert(!nTips);
 
 	rs.Reset(Query::Dbg2, "SELECT "
-		TblTipsReachable "." TblTips_Height ","
-		TblStates "." TblStates_Height ","
 		TblStates "." TblStates_CountNextF ","
 		TblStates "." TblStates_Flags
 		" FROM " TblTipsReachable " LEFT JOIN " TblStates " ON " TblTipsReachable "." TblTips_State "=" TblStates ".rowid");
 
 	for (; rs.Step(); nTipsReachable--)
 	{
-		Height h0, h1;
-		rs.get(0, h0);
-		rs.get(1, h1);
-		assert(h0 == h1);
-
 		uint32_t nNextF, nFlags;
-		rs.get(2, nNextF);
-		rs.get(3, nFlags);
+		rs.get(0, nNextF);
+		rs.get(1, nFlags);
 		assert(!nNextF);
 		assert(StateFlags::Reachable & nFlags);
 	}
@@ -1168,7 +1213,12 @@ void NodeDB::EnumTips(WalkerState& x)
 
 void NodeDB::EnumFunctionalTips(WalkerState& x)
 {
-	x.m_Rs.Reset(Query::EnumFunctionalTips, "SELECT " TblTips_Height "," TblTips_State " FROM " TblTipsReachable " ORDER BY "  TblTips_Height " DESC," TblTips_State " DESC");
+	x.m_Rs.Reset(Query::EnumFunctionalTips, "SELECT "
+		TblStates "." TblStates_Height ","
+		TblStates ".rowid"
+		" FROM " TblTipsReachable
+		" LEFT JOIN " TblStates " ON (" TblTipsReachable "." TblTips_State "=" TblStates ".rowid) "
+		" ORDER BY "  TblTipsReachable "." TblTips_ChainWork " DESC");
 }
 
 void NodeDB::EnumStatesAt(WalkerState& x, Height h)

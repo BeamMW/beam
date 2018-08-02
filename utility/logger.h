@@ -122,7 +122,10 @@ public:
         int fileLevel=LOG_SINK_DISABLED,
 
         // filename prefix, needed if file log enabled
-        const std::string& fileNamePrefix = std::string()
+        const std::string& fileNamePrefix = std::string(),
+
+        // path to log file
+        const std::string& dstPath = std::string()
     );
 
     virtual ~Logger() {}

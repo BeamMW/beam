@@ -14,7 +14,8 @@ namespace beam {
 namespace proto {
 
 #define BeamNodeMsg_NewTip(macro) \
-	macro(Block::SystemState::ID, ID)
+	macro(Block::SystemState::ID, ID) \
+	macro(Difficulty::Raw, ChainWork)
 
 #define BeamNodeMsg_GetHdr(macro) \
 	macro(Block::SystemState::ID, ID)

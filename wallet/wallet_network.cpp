@@ -129,7 +129,7 @@ namespace beam {
                 ci.m_callback = {};
                 m_reactor->cancel_tcp_connect(ci.m_connectionID);
             }
-            
+            LOG_INFO() << "Closing connection to remote wallet: " << it->m_connection->peer_address();
             m_connectionWalletsIndex.erase(it);
             m_connections.erase(ci.m_connectionID);
         }

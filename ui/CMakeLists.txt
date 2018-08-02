@@ -7,10 +7,12 @@ set(CMAKE_AUTOMOC ON)
 
 if(WIN32)
 	if(CMAKE_BUILD_TYPE STREQUAL "Release")
-		set(SYSTEM_TYPE WIN32)
+		#set(SYSTEM_TYPE WIN32)
 	endif()
 elseif(APPLE)
-	#set(SYSTEM_TYPE MACOSX_BUNDLE)
+	set(MACOSX_BUNDLE_ICON_FILE beam.icns)
+	set(SYSTEM_TYPE MACOSX_BUNDLE)
+	set_source_files_properties(beam.icns PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 endif()
 
 find_package(Qt5QuickCompiler)
@@ -41,7 +43,10 @@ if(WIN32)
 	add_definitions(-DWIN32_LEAN_AND_MEAN)
 endif()
 
-add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc)
+add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE})
+
+configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
+target_include_directories(beam PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 add_dependencies(beam-ui wallet)
 
@@ -62,7 +67,8 @@ if(BEAM_USE_STATIC)
 			lib/qtpinyin lib/Qt5Bootstrap lib/Qt5Gamepad lib/Qt5Positioning lib/Qt5QuickTest lib/Qt5Svg lib/Qt5WinExtras lib/qttcime 
 			lib/Qt5Charts lib/Qt5Gui lib/Qt5PositioningQuick lib/Qt5QuickWidgets lib/Qt5Test lib/Qt5Xml qml/QtQuick.2/qtquick2plugin 
 			qml/QtQuick/Window.2/windowplugin qml/QtQuick/Controls/qtquickcontrolsplugin qml/QtGraphicalEffects/qtgraphicaleffectsplugin 
-			qml/QtGraphicalEffects/private/qtgraphicaleffectsprivate plugins/platforms/qwindows plugins/imageformats/qsvg)
+			qml/QtGraphicalEffects/private/qtgraphicaleffectsprivate qml/QtQuick/Layouts/qquicklayoutsplugin qml/QtQuick/Controls.2/qtquickcontrols2plugin 
+			qml/QtQuick/Templates.2/qtquicktemplates2plugin plugins/platforms/qwindows plugins/imageformats/qsvg)
 
 			target_link_libraries(beam-ui ${CMAKE_PREFIX_PATH}/${lib}.lib)
 		endforeach()
@@ -90,6 +96,7 @@ if(BEAM_USE_STATIC)
 			lib/libQt5ClipboardSupport lib/libQt5MultimediaQuick lib/libQt5QuickControls2 lib/libQt5UiTools lib/libqttcime 
 			qml/QtQuick.2/libqtquick2plugin qml/QtQuick/Window.2/libwindowplugin qml/QtQuick/Controls/libqtquickcontrolsplugin 
 			qml/QtGraphicalEffects/libqtgraphicaleffectsplugin qml/QtGraphicalEffects/private/libqtgraphicaleffectsprivate 
+			qml/QtQuick/Layouts/libqquicklayoutsplugin qml/QtQuick/Controls.2/libqtquickcontrols2plugin qml/QtQuick/Templates.2/libqtquicktemplates2plugin
 			plugins/platforms/libqcocoa plugins/platforms/libqminimal plugins/imageformats/libqsvg)
 
 			target_link_libraries(beam-ui ${CMAKE_PREFIX_PATH}/${lib}.a)

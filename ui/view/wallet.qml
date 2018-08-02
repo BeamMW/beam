@@ -295,9 +295,9 @@ Item {
                     text: "MIL"
                 }
 
-                // /////////////////////////////////////////////////////////////
-                // /// Transaction fee /////////////////////////////////////////
-                // /////////////////////////////////////////////////////////////
+                /////////////////////////////////////////////////////////////
+                /// Transaction fee /////////////////////////////////////////
+                /////////////////////////////////////////////////////////////
 
                 Column {
                     id: fee_input
@@ -371,23 +371,14 @@ Item {
                         font.pixelSize: 24
                         font.weight: Font.ExtraLight
                         color: Style.white
-                        text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils + walletViewModel.feeMils)/1000000) + " USD"
-                    }
-
-                    SFText {
-                        id: change_text
-                        anchors.right: parent.right
-                        opacity: 0.5
-                        font.pixelSize: 24
-                        font.weight: Font.ExtraLight
-                        color: Style.white
-                        text: (walletViewModel.change) + " USD"
+                        text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils*1 + walletViewModel.feeMils*1)/1000000) + " USD"
                     }
                 }
 
                 AvailablePanel {
                     id:send_available
                     anchors.top: total_amount.bottom
+                    model: walletViewModel.utxos
                     width: parent.width
                     height: 206
                     value: walletViewModel.actualAvailable
@@ -599,6 +590,7 @@ Item {
                 AvailablePanel {
                     width: (parent.width - 30)*500/1220
                     height: parent.height
+                    model: walletViewModel.utxos
                     value: walletViewModel.available
                 }
 
@@ -797,7 +789,7 @@ Item {
 
                     clip:true
 
-                    property bool income: tx_view.model[styleData.row].income
+                    property bool income: (styleData.row >= 0) ? walletViewModel.getTxAt(styleData.row).income : false
 
                     SFText {
                         font.pixelSize: 24
@@ -883,6 +875,17 @@ Item {
                 }
             }
 
+            Menu {
+                id: txContextMenu
+                property int txIndex;
+                MenuItem {
+                    text: qsTr('Cancel')
+                    onTriggered: {
+                       walletViewModel.cancelTx(txContextMenu.txIndex);
+                    }
+                }
+            }
+
             rowDelegate: Item {
                 height: 69
 
@@ -894,6 +897,22 @@ Item {
 
                     color: Style.light_navy
                     visible: styleData.alternate
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    onClicked: {
+                        if (mouse.button === Qt.RightButton && styleData.row !== undefined)
+                        {
+                            txContextMenu.txIndex = styleData.row;
+                            var tx = walletViewModel.getTxAt(styleData.row);
+                            if (tx.canCancel)
+                            {
+                                txContextMenu.popup();
+                            }
+                        }
+                    }
                 }
             }
 
