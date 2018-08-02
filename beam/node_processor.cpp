@@ -156,11 +156,8 @@ void NodeProcessor::InitCursor()
 		else
 			ZeroObject(m_Cursor.m_History);
 
+		m_DB.get_ChainWork(m_Cursor.m_Sid.m_Row, m_Cursor.m_ChainWork);
 		m_Cursor.m_DifficultyNext = get_NextDifficulty();
-
-		NodeDB::Blob blob(m_Cursor.m_ChainWork.m_pData, sizeof(m_Cursor.m_ChainWork));
-		if (!m_DB.ParamGet(NodeDB::ParamID::ChainWork, NULL, &blob))
-			OnCorrupted();
 	}
 	else
 		ZeroObject(m_Cursor);
@@ -447,9 +444,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	if (block.m_SubsidyClosing)
 		OnSubsidyOptionChanged(!bFwd);
 
-	Difficulty::Raw wrkRaw;
-	s.m_PoW.m_Difficulty.Unpack(wrkRaw);
-
 	if (bFirstTime && bOk)
 	{
 		// check the validity of state description.
@@ -461,11 +455,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 			LOG_WARNING() << id << " Header Definition mismatch";
 			bOk = false;
 		}
-
-		Difficulty::Raw cw = m_Cursor.m_ChainWork;
-		
-		if (!AddChainWork(cw, wrkRaw, id))
-			bOk = false;
 
 		if (bOk)
 		{
@@ -495,41 +484,10 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	if (bOk)
 	{
 		AdjustCumulativeParams(block, bFwd);
-
-		if (!bFwd)
-			wrkRaw.Negate();
-
-		m_Cursor.m_ChainWork += wrkRaw;
-		SaveChainWork();
-
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
 
 	return bOk;
-}
-
-void NodeProcessor::SaveChainWork()
-{
-	NodeDB::Blob blob(m_Cursor.m_ChainWork.m_pData, sizeof(m_Cursor.m_ChainWork));
-	m_DB.ParamSet(NodeDB::ParamID::ChainWork, NULL, &blob);
-}
-
-bool NodeProcessor::AddChainWork(Difficulty::Raw& chainWrk, Difficulty d, const Block::SystemState::ID& id)
-{
-	Difficulty::Raw wrk;
-	d.Unpack(wrk);
-
-	return AddChainWork(chainWrk, wrk, id);
-}
-
-bool NodeProcessor::AddChainWork(Difficulty::Raw& chainWrk, const Difficulty::Raw& wrk, const Block::SystemState::ID& id)
-{
-	chainWrk += wrk;
-	if (chainWrk >= wrk)
-		return true;
-
-	LOG_WARNING() << id << " Chainwork overflow!";
-	return false;
 }
 
 void NodeProcessor::AdjustCumulativeParams(const Block::BodyBase& block, bool bFwd)
@@ -943,7 +901,7 @@ void NodeProcessor::Rollback()
 	if (!HandleBlock(sid, false))
 		OnCorrupted();
 
-	InitCursor(); // needed to refresh subsidy-open flag and chainwork. Otherwise isn't necessary
+	InitCursor(); // needed to refresh subsidy-open flag. Otherwise isn't necessary
 
 	OnRolledBack();
 }
@@ -1595,8 +1553,6 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 		return false;
 	}
 
-	Difficulty::Raw chainWrk = m_Cursor.m_ChainWork;
-
 	NodeDB::Transaction t(m_DB);
 
 	LOG_INFO() << "Verifying headers...";
@@ -1614,9 +1570,6 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 		case DataStatus::Accepted:
 			m_DB.InsertState(s);
 		}
-
-		if (!AddChainWork(chainWrk, s.m_PoW.m_Difficulty, id))
-			return false;
 
 		s.get_Hash(s.m_Prev);
 		s.m_Height++;
@@ -1668,9 +1621,6 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 		s.get_Hash(s.m_Prev);
 		s.m_Height++;
 	}
-
-	m_Cursor.m_ChainWork = chainWrk;
-	SaveChainWork();
 
 	InitCursor();
 
