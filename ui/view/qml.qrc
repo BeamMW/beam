@@ -11,6 +11,7 @@
         <file>controls/TxFilter.qml</file>
         <file>controls/CuteButton.qml</file>
         <file>controls/TableItem.qml</file>
+        <file>controls/ContextMenu.qml</file>
 
         <file>main.qml</file>
         <file>dashboard.qml</file>

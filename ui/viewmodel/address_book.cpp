@@ -104,6 +104,11 @@ void AddressBookViewModel::createNewAddress()
 
 }
 
+Q_INVOKABLE QVariant AddressBookViewModel::getPeerAddress(int index) const
+{
+    return QVariant::fromValue(m_peerAddresses[index]);
+}
+
 void AddressBookViewModel::OnAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses)
 {
     if (own)

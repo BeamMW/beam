@@ -49,7 +49,6 @@ ColumnLayout {
 				}
             }
         }
-
     }
 
     Item {
@@ -104,6 +103,18 @@ ColumnLayout {
                 }
             }
 
+            ContextMenu {
+                id: peersContextMenu
+                property int peerIndex;
+                MenuItem {
+                    text: qsTr('Send to...')
+                    onTriggered: {
+                        var peerAddress = addressBookViewModel.getPeerAddress(peersContextMenu.peerInde);
+                        main.updateItem(1);
+                    }
+                }
+            }
+
             rowDelegate: Item {
 
                 height: 69
@@ -116,6 +127,18 @@ ColumnLayout {
 
                     color: Style.light_navy
                     visible: styleData.alternate
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.RightButton
+                    onClicked: {
+                        if (mouse.button === Qt.RightButton && styleData.row !== undefined)
+                        {
+                            peersContextMenu.peerIndex = styleData.row;
+                            peersContextMenu.popup();
+                        }
+                    }
                 }
 
             }
