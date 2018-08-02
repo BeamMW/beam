@@ -56,11 +56,11 @@ namespace beam
         virtual void send_node_message(proto::GetMined&&) = 0;
         virtual void send_node_message(proto::GetProofState&&) = 0;
         // connection control
-        virtual void close_connection(const WalletID& id) = 0;
+        //virtual void close_connection(const WalletID& id) = 0;
         virtual void connect_node() = 0;
         virtual void close_node_connection() = 0;
 
-        virtual bool handle_decrypted_message(const void* buf, size_t size) = 0;
+        virtual bool handle_decrypted_message(uint64_t timestamp, const void* buf, size_t size) = 0;
     };
 
     class NetworkIOBase : public INetworkIO

@@ -27,6 +27,7 @@ namespace beam {
         , m_sync_period_ms{ sync_period_ms }
         , m_sync_timer{io::Timer::create(m_reactor)}
         , m_last_bbs_message_time(0)
+        , m_bbs_channel(0)
     {
          m_protocol.add_message_handler<WalletNetworkIO, wallet::Invite,             &WalletNetworkIO::on_message>(senderInvitationCode, this, 1, 20000);
          m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmTransaction, &WalletNetworkIO::on_message>(senderConfirmationCode, this, 1, 20000);
@@ -171,6 +172,7 @@ namespace beam {
     void WalletNetworkIO::on_node_connected()
     {
         m_is_node_connected = true;
+        listen_to_bbs_channel(m_bbs_channel);
     }
 
     void WalletNetworkIO::on_protocol_error(uint64_t, ProtocolError error)
@@ -204,6 +206,7 @@ namespace beam {
         m_node_connection = make_unique<WalletNodeConnection>(m_node_address, get_wallet(), m_reactor, m_reconnect_ms);
     }
 
+    /*
     void WalletNetworkIO::test_io_result(const io::Result res)
     {
         if (!res)
@@ -211,6 +214,7 @@ namespace beam {
             throw runtime_error(io::error_descr(res.error()));
         }
     }
+    */
 
     void WalletNetworkIO::update_wallets(const WalletID& walletID)
     {
@@ -219,6 +223,21 @@ namespace beam {
         {
             add_wallet(p->m_walletID);
         }
+    }
+
+    bool WalletNetworkIO::handle_decrypted_message(uint64_t timestamp, const void* buf, size_t size) {
+        m_last_bbs_message_time = timestamp;
+        m_msgReader.new_data_from_stream(io::EC_OK, buf, size);
+        return true;
+    }
+
+    void WalletNetworkIO::listen_to_bbs_channel(uint32_t channel) {
+        m_bbs_channel = channel;
+        proto::BbsSubscribe msg;
+        msg.m_Channel = channel;
+        msg.m_TimeFrom = m_last_bbs_message_time;
+        msg.m_On = true;
+        send_to_node(move(msg));
     }
 
     WalletNetworkIO::WalletNodeConnection::WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec)

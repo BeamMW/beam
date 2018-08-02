@@ -452,9 +452,9 @@ namespace
             enqueueNetworkTask([this] {m_peers[0]->handle_node_message(proto::Proof{}); });
         }
 
-        void close_connection(const beam::WalletID&) override
-        {
-        }
+//         void close_connection(const beam::WalletID&) override
+//         {
+//         }
 
         void connect_node() override
         {

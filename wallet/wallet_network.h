@@ -27,8 +27,6 @@ namespace beam
     class WalletNetworkIO : public IErrorHandler
                           , public NetworkIOBase
     {
-        struct ConnectionInfo;
-        using ConnectCallback = std::function<void(const ConnectionInfo&)>;
     public:
 
 
@@ -45,7 +43,7 @@ namespace beam
 
         void add_wallet(const WalletID& walletID);
 
-        // TODO now from add_wallet
+        // TODO now from add_wallet ???
         void listen_to_bbs_channel(uint32_t channel);
 
     private:
@@ -62,7 +60,7 @@ namespace beam
         void send_node_message(proto::GetMined&&) override;
         void send_node_message(proto::GetProofState&&) override;
 
-        void close_connection(const WalletID& id) override;
+        //void close_connection(const WalletID& id) override;
         void connect_node() override;
         void close_node_connection() override;
 
@@ -70,7 +68,7 @@ namespace beam
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;
         void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override;
 
-        bool handle_decrypted_message(const void* buf, size_t size) override;
+        bool handle_decrypted_message(uint64_t timestamp, const void* buf, size_t size) override;
 
         // handlers for the protocol messages
         bool on_message(uint64_t, wallet::Invite&& msg);
@@ -83,9 +81,7 @@ namespace beam
         void on_sync_timer();
         void on_node_connected();
 
-        uint64_t get_connection_tag();
         void create_node_connection();
-        void add_connection(uint64_t tag, ConnectionInfo&&);
 
         template <typename T>
         void send(const WalletID& walletID, MsgType type, T&& msg)
@@ -119,8 +115,8 @@ namespace beam
             }
         }
 
-        void test_io_result(const io::Result res);
-        bool is_connected(uint64_t id);
+        //void test_io_result(const io::Result res);
+        //bool is_connected(uint64_t id);
 
         void update_wallets(const WalletID& walletID);
 
@@ -169,6 +165,9 @@ namespace beam
         std::unique_ptr<WalletNodeConnection> m_node_connection;
         SerializedMsg m_msgToSend;
         io::Timer::Ptr m_sync_timer;
+
+        // TODO make persistent
         uint64_t m_last_bbs_message_time;
+        uint32_t m_bbs_channel;
     };
 }

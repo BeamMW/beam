@@ -197,7 +197,7 @@ namespace beam
             m_negotiators.erase(it);
         }
 
-        m_network->close_connection(tx.m_peerId);
+        // m_network->close_connection(tx.m_peerId);
         m_peers.erase(tx.m_peerId);
 
         // remove state machine from db
@@ -544,7 +544,7 @@ namespace beam
 
         if (msg.m_Channel == channel) {
             if (util::decrypt(out, size, msg.m_Message, m_privKey)) {
-                return m_network->handle_decrypted_message(out, size);
+                return m_network->handle_decrypted_message(msg.m_TimePosted, out, size);
             }
         }
         return true;
