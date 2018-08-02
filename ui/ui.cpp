@@ -73,9 +73,10 @@ int main (int argc, char* argv[])
 	{
 		po::options_description options = createOptionsDescription();
 		po::variables_map vm;
+				
 		try
 		{
-			vm = getOptions(argc, argv, "beam.cfg", options);
+			vm = getOptions(argc, argv, "beam-ui.cfg", options);
 		}
 		catch (const po::error& e)
 		{
@@ -92,6 +93,19 @@ int main (int argc, char* argv[])
 			return 0;
 		}
 
+		if (vm.count(cli::VERSION))
+		{
+			cout << PROJECT_VERSION << endl;
+			return 0;
+		}
+
+		if (vm.count(cli::GIT_COMMIT_HASH))
+		{
+			cout << GIT_COMMIT_HASH << endl;
+			return 0;
+		}
+
+
 		int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
 #if LOG_VERBOSE_ENABLED
@@ -103,28 +117,6 @@ int main (int argc, char* argv[])
 
 		try
 		{
-			po::options_description options = createOptionsDescription();
-
-			po::variables_map vm = getOptions(argc, argv, "beam-ui.cfg", options);
-
-			if (vm.count(cli::HELP))
-			{
-				cout << options << std::endl;
-				return 0;
-			}
-
-			if (vm.count(cli::VERSION))
-			{
-				cout << PROJECT_VERSION << endl;
-				return 0;
-			}
-
-			if (vm.count(cli::GIT_COMMIT_HASH))
-			{
-				cout << GIT_COMMIT_HASH << endl;
-				return 0;
-			}
-
 			//if (vm.count(cli::NODE_PEER))
 			//{
 			//	auto peers = vm[cli::NODE_PEER].as<vector<string>>();
