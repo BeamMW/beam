@@ -432,7 +432,7 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 	}
 }
 
-Node::Peer* Node::AllocPeer()
+Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 {
 	Peer* pPeer = new Peer(*this);
 	m_lstPeers.push_back(*pPeer);
@@ -444,7 +444,10 @@ Node::Peer* Node::AllocPeer()
 	pPeer->m_Port = 0;
 	pPeer->m_TipHeight = 0;
 	pPeer->m_TipWork = ECC::Zero;
+	pPeer->m_RemoteAddr = addr;
 	ZeroObject(pPeer->m_Config);
+
+	LOG_INFO() << "+Peer " << addr;
 
 	return pPeer;
 }
@@ -739,9 +742,7 @@ void Node::Peer::GenerateSChannelNonce(ECC::Scalar::Native& nonce)
 
 void Node::Peer::OnConnected()
 {
-	m_RemoteAddr = get_Connection()->peer_address();
-	LOG_INFO() << "+Peer " << m_RemoteAddr;
-
+	LOG_INFO() << "Peer " << m_RemoteAddr << " Connected";
 	SecureConnect();
 }
 
@@ -1566,7 +1567,7 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 	if (newStream)
 	{
         LOG_DEBUG() << "New peer connected: " << newStream->address();
-		Peer* p = get_ParentObj().AllocPeer();
+		Peer* p = get_ParentObj().AllocPeer(newStream->peer_address());
 		p->Accept(std::move(newStream));
 		p->OnConnected();
 	}
@@ -2308,7 +2309,7 @@ void Node::PeerMan::ActivatePeer(PeerInfo& pi)
 	if (pip.m_pLive)
 		return; //?
 
-	Peer* p = get_ParentObj().AllocPeer();
+	Peer* p = get_ParentObj().AllocPeer(pip.m_Addr.m_Value);
 	p->m_pInfo = &pip;
 	pip.m_pLive = p;
 

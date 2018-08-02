@@ -345,7 +345,7 @@ private:
 	PeerID m_MyPublicID;
 	PeerID m_MyOwnerID;
 
-	Peer* AllocPeer();
+	Peer* AllocPeer(const beam::io::Address&);
 
 	void RefreshCongestions();
 
