@@ -124,18 +124,6 @@ int main (int argc, char* argv[])
 		{
 			QApplication app(argc, argv);
 
-			if (!vm.count(cli::NODE_ADDR))
-			{
-				LOG_ERROR() << "Please, provide node address!";
-				return -1;
-			}
-
-			if (!vm.count(cli::PORT))
-			{
-				LOG_ERROR() << "Please, provide port!";
-				return -1;
-			}
-
 			Rules::get().UpdateChecksum();
 			LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
@@ -248,6 +236,17 @@ int main (int argc, char* argv[])
 						}
 					}
 
+					std::string nodeAddr = "0.0.0.0";
+
+					if (!vm.count(cli::NODE_ADDR))
+					{
+						LOG_ERROR() << "Please, provide node address!";
+					}
+					else
+					{
+						nodeAddr = vm[cli::NODE_ADDR].as<string>();
+					}
+
 					struct ViewModel
 					{
 						MainViewModel			main;
@@ -260,7 +259,7 @@ int main (int argc, char* argv[])
 						ViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
 							: wallet(keychain, port, nodeAddr) {}
 
-					} viewModel(keychain, vm[cli::PORT].as<uint16_t>(), vm[cli::NODE_ADDR].as<string>());
+					} viewModel(keychain, vm[cli::PORT].as<uint16_t>(), nodeAddr);
 
 					Translator translator;
 
