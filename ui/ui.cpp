@@ -1,6 +1,9 @@
 #include <QApplication>
 #include <QtQuick>
 
+#include <QInputDialog>
+#include <QMessageBox>
+
 #include <qqmlcontext.h>
 #include "viewmodel/main.h"
 #include "viewmodel/dashboard.h"
@@ -18,8 +21,6 @@
 #include "utility/options.h"
 
 #include <QtCore/QtPlugin>
-
-#include <boost/filesystem.hpp>
 
 #include "version.h"
 
@@ -69,6 +70,11 @@ namespace
 
 int main (int argc, char* argv[])
 {
+	QApplication::setApplicationName("Beam");
+	QApplication::setOrganizationName("beam-mw.com");
+
+	QDir appDataDir(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
+
 	try
 	{
 		po::options_description options = createOptionsDescription();
@@ -112,28 +118,11 @@ int main (int argc, char* argv[])
 		logLevel = LOG_LEVEL_VERBOSE;
 #endif
 		
-		const auto path = boost::filesystem::system_complete("./logs");
-		auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_", path.string());
+		auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_", appDataDir.filePath("./logs").toStdString());
 
 		try
 		{
-			//if (vm.count(cli::NODE_PEER))
-			//{
-			//	auto peers = vm[cli::NODE_PEER].as<vector<string>>();
-			//}
-
 			QApplication app(argc, argv);
-
-			string pass;
-			if (vm.count(cli::PASS))
-			{
-				pass = vm[cli::PASS].as<string>();
-			}
-			else
-			{
-				LOG_ERROR() << "Please, provide wallet password!";
-				return -1;
-			}
 
 			if (!vm.count(cli::NODE_ADDR))
 			{
@@ -150,15 +139,74 @@ int main (int argc, char* argv[])
 			Rules::get().UpdateChecksum();
 			LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
-			static const char* WALLET_STORAGE = "wallet.db";
-			if (!Keychain::isInitialized(WALLET_STORAGE))
+			auto walletStorage = appDataDir.filePath("wallet.db").toStdString();
+			std::string walletPass;
+
+			if (!Keychain::isInitialized(walletStorage))
 			{
-				LOG_ERROR() << WALLET_STORAGE << " not found!";
-				return -1;
+				bool ok = true;
+				QString seed;
+
+				while (seed.isEmpty() && ok)
+				{
+					seed = QInputDialog::getText(0, "Beam", "wallet.db not found\nPlease, enter a seed to initialize your wallet:", QLineEdit::Normal, nullptr, &ok);
+				}
+
+				if (ok && !seed.isEmpty())
+				{
+					QString pass;
+
+					while (pass.isEmpty() && ok)
+					{
+						pass = QInputDialog::getText(0, "Beam", "Please, enter a password:", QLineEdit::Password, nullptr, &ok);
+					}
+
+					if (ok && !pass.isEmpty()) 
+					{
+						walletPass = pass.toStdString();
+
+						NoLeak<uintBig> walletSeed;
+						walletSeed.V = Zero;
+						{
+							Hash::Value hv;
+							Hash::Processor() << seed.toStdString().c_str() >> hv;
+							walletSeed.V = hv;
+						}
+
+						auto keychain = Keychain::init(walletStorage, walletPass, walletSeed);
+
+						if (keychain)
+						{
+							QMessageBox::information(0, "Beam", "wallet.db successfully created.", QMessageBox::Ok);
+						}
+						else
+						{
+							QMessageBox::critical(0, "Error", "Your wallet isn't created. Something went wrong.", QMessageBox::Ok);
+							return -1;
+						}
+					}
+					else return 0;
+				}
+			}
+			else
+			{
+				bool ok = true;
+				QString pass;
+
+				while (pass.isEmpty() && ok)
+				{
+					pass = QInputDialog::getText(0, "Beam", "Please, enter a password:", QLineEdit::Password, nullptr, &ok);
+				}
+
+				if (ok && !pass.isEmpty())
+				{
+					walletPass = pass.toStdString();
+				}
+				else return 0;
 			}
 
 			{
-				auto keychain = Keychain::open(WALLET_STORAGE, pass);
+				auto keychain = Keychain::open(walletStorage, walletPass);
 
 				if (keychain)
 				{
@@ -234,6 +282,8 @@ int main (int argc, char* argv[])
 				}
 				else
 				{
+					QMessageBox::critical(0, "Error", "Invalid password or wallet data unreadable.\nRestore wallet.db from latest backup or delete it and reinitialize the wallet.", QMessageBox::Ok);
+
 					LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet.";
 					return -1;
 				}
