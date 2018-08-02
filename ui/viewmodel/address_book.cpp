@@ -60,29 +60,12 @@ QString OwnAddressItem::getCreateDate() const
 AddressBookViewModel::AddressBookViewModel(WalletModel& model)
     : m_model{model}
 {
-<<<<<<< HEAD
     connect(&m_model, SIGNAL(OnAdrresses(bool own, const std::vector<beam::WalletAddress>&)),
         SLOT(oOnAdrresses(bool own, const std::vector<beam::WalletAddress>&)));
 
     m_model.async->getAddresses(true);
     m_model.async->getAddresses(false);
-=======
-    
-    /*{
-        auto p =m_keychain->getAddresses(false);
-        for (const auto& a : p)
-        {
-            m_peerAddresses.push_back(new PeerAddressItem(a));
-        }
-    }
 
-    {
-        auto p = m_keychain->getAddresses(true);
-        for (const auto& a : p)
-        {
-            m_ownAddresses.push_back(new OwnAddressItem(a));
-        }
-    }*/
 
     //for (int i = 0; i < 100; ++i)
     //{
@@ -104,7 +87,6 @@ AddressBookViewModel::AddressBookViewModel(WalletModel& model)
     //    a.m_category = "work";
     //    m_ownAddresses.push_back(new OwnAddressItem(a));
     //}
->>>>>>> 7503fb9... BEAM-91 #comment added states. wip
 }
 
 QVariant AddressBookViewModel::getPeerAddresses() const
