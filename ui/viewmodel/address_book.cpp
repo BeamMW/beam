@@ -63,30 +63,30 @@ AddressBookViewModel::AddressBookViewModel(WalletModel& model)
     connect(&m_model, SIGNAL(OnAdrresses(bool own, const std::vector<beam::WalletAddress>&)),
         SLOT(oOnAdrresses(bool own, const std::vector<beam::WalletAddress>&)));
 
-    m_model.async->getAddresses(true);
-    m_model.async->getAddresses(false);
+   // m_model.async->getAddresses(true);
+    //m_model.async->getAddresses(false);
 
 
-    //for (int i = 0; i < 100; ++i)
-    //{
-    //    beam::WalletAddress a = {};
-    //    a.m_own = false;
-    //    a.m_label = "Peer address " + to_string(i);
-    //    ECC::Hash::Processor() << a.m_label.c_str() >> a.m_walletID;
-    //    a.m_category = "work";
-    //    m_peerAddresses.push_back(new PeerAddressItem(a));
-    //}
-    //for (int i = 0; i < 20; ++i)
-    //{
-    //    beam::WalletAddress a = {};
-    //    a.m_own = true;
-    //    a.m_label = "My address " + to_string(i);
-    //    ECC::Hash::Processor() << a.m_label.c_str() >> a.m_walletID;
-    //    a.m_createTime = beam::getTimestamp();
-    //    a.m_duration = 1000000;
-    //    a.m_category = "work";
-    //    m_ownAddresses.push_back(new OwnAddressItem(a));
-    //}
+    for (int i = 0; i < 100; ++i)
+    {
+        beam::WalletAddress a = {};
+        a.m_own = false;
+        a.m_label = "Peer address " + to_string(i);
+        ECC::Hash::Processor() << a.m_label.c_str() >> a.m_walletID;
+        a.m_category = "work";
+        m_peerAddresses.push_back(new PeerAddressItem(a));
+    }
+    for (int i = 0; i < 20; ++i)
+    {
+        beam::WalletAddress a = {};
+        a.m_own = true;
+        a.m_label = "My address " + to_string(i);
+        ECC::Hash::Processor() << a.m_label.c_str() >> a.m_walletID;
+        a.m_createTime = beam::getTimestamp();
+        a.m_duration = 1000000;
+        a.m_category = "work";
+        m_ownAddresses.push_back(new OwnAddressItem(a));
+    }
 }
 
 QVariant AddressBookViewModel::getPeerAddresses() const
@@ -97,6 +97,11 @@ QVariant AddressBookViewModel::getPeerAddresses() const
 QVariant AddressBookViewModel::getOwnAddresses() const
 {
     return QVariant::fromValue(m_ownAddresses);
+}
+
+void AddressBookViewModel::createNewAddress()
+{
+
 }
 
 void AddressBookViewModel::OnAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses)

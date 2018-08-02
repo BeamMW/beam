@@ -58,6 +58,8 @@ class AddressBookViewModel : public QObject
 
     Q_PROPERTY(QVariant peerAddresses           READ getPeerAddresses   NOTIFY addressesChanged)
     Q_PROPERTY(QVariant ownAddresses            READ getOwnAddresses    NOTIFY addressesChanged)
+public:
+    Q_INVOKABLE void createNewAddress();
 
 public:
 

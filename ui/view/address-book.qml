@@ -43,7 +43,10 @@ ColumnLayout {
             Button {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.right: parent.right
-                text: "+ create"
+                text: "+ create new address"
+				onClicked: {
+                    addressBookViewModel.createNewAddress();
+				}
             }
         }
 
