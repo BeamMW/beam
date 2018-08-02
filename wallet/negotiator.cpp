@@ -106,6 +106,7 @@ namespace beam::wallet
         confirmMsg.m_publicPeerExcess = m_parent.getPublicExcess();
         m_parent.createSignature2(confirmMsg.m_peerSignature, confirmMsg.m_publicPeerNonce);
 
+        LOG_INFO() << "Invitation accepted";
         update_tx_description(TxDescription::InProgress);
         m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmMsg));
     }
@@ -163,9 +164,22 @@ namespace beam::wallet
         }
     }
 
+    void Negotiator::FSMDefinition::cancelTx(const events::TxCanceled&)
+    {
+        if (m_parent.m_txDesc.m_status == TxDescription::Pending)
+        {
+            m_parent.m_keychain->deleteTx(m_parent.m_txDesc.m_txId);
+        }
+        else
+        {
+            rollbackTx();
+            m_parent.m_gateway.send_tx_failed(m_parent.m_txDesc);
+        }
+    }
+
     void Negotiator::FSMDefinition::rollbackTx()
     {
-        LOG_DEBUG() << "Transaction failed. Rollback...";
+        LOG_INFO() << "Transaction failed. Rollback...";
         m_parent.m_keychain->rollbackTx(m_parent.m_txDesc.m_txId);
     }
 
@@ -192,21 +206,6 @@ namespace beam::wallet
         update_tx_description(TxDescription::Completed);
     }
 
-    Amount Negotiator::FSMDefinition::get_total() const
-    {
-        auto currentHeight = m_parent.m_keychain->getCurrentHeight();
-        Amount total = 0;
-        m_parent.m_keychain->visit([&total, &currentHeight](const Coin& c)->bool
-        {
-            if (c.m_status == Coin::Unspent && c.m_maturity <= currentHeight)
-            {
-                total += c.m_amount;
-            }
-            return true;
-        });
-        return total;
-    }
-
     void Negotiator::FSMDefinition::update_tx_description(TxDescription::Status s)
     {
         m_parent.m_txDesc.m_status = s;
@@ -223,7 +222,7 @@ namespace beam::wallet
         auto coins = m_parent.m_keychain->selectCoins(amountWithFee);
         if (coins.empty())
         {
-            LOG_ERROR() << "You only have " << PrintableAmount(get_total());
+            LOG_ERROR() << "You only have " << PrintableAmount(getAvailable(m_parent.m_keychain));
             return false;
         }
         for (auto& coin : coins)

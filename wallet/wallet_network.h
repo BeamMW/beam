@@ -85,6 +85,7 @@ namespace beam
         void on_sync_timer();
         void on_node_connected();
 
+        void close_connection(uint64_t tag);
         uint64_t get_connection_tag();
         void create_node_connection();
         void add_connection(uint64_t tag, ConnectionInfo&&);

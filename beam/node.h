@@ -272,6 +272,8 @@ private:
 		beam::io::Address m_RemoteAddr; // for logging only
 
 		Height m_TipHeight;
+		Difficulty::Raw m_TipWork;
+
 		proto::Config m_Config;
 
 		TaskList m_lstTasks;

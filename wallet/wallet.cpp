@@ -11,7 +11,7 @@
 #include <iomanip>
 
 namespace ECC {
-	Initializer g_Initializer;
+    Initializer g_Initializer;
 }
 
 namespace
@@ -72,25 +72,32 @@ namespace beam
         pair<Scalar::Native, Scalar::Native> splitKey(const Scalar::Native& key, uint64_t index)
         {
             pair<Scalar::Native, Scalar::Native> res;
-			res.first = key;
-			ExtractOffset(res.first, res.second, index);
-			res.second = -res.second; // different convention
+            res.first = key;
+            ExtractOffset(res.first, res.second, index);
+            res.second = -res.second; // different convention
             return res;
         }
     }
 
     struct Wallet::StateFinder
     {
-        StateFinder(Height newHeight)
+        StateFinder(Height newHeight, IKeyChain::Ptr keychain)
             : m_first{ 0 }
-            , m_last{newHeight}
-            , m_count{int64_t(newHeight + 1)}
+            , m_syncHeight{newHeight}
+            , m_count{ int64_t(keychain->getKnownStateCount()) }
             , m_step{0}
+            , m_keychain{keychain}
         {
 
         }
 
         Height getSearchHeight()
+        {
+            auto id = m_keychain->getKnownStateID(getSearchOffset());
+            return id.m_Height;
+        }
+
+        Height getSearchOffset()
         {
             m_step = (m_count >> 1);
             return m_first + m_step;
@@ -108,10 +115,11 @@ namespace beam
         }
 
         Height m_first;
-        Height m_last;
+        Height m_syncHeight;
         int64_t m_count;
         int64_t m_step;
         Block::SystemState::ID m_id;
+        IKeyChain::Ptr m_keychain;
     };
 
 
@@ -135,14 +143,14 @@ namespace beam
     {
         m_network->set_wallet(nullptr);
        // assert(m_peers.empty());
-        assert(m_negotiators.empty());
+        //assert(m_negotiators.empty());
         assert(m_reg_requests.empty());
         assert(m_removedNegotiators.empty());
     }
 
     TxID Wallet::transfer_money(const WalletID& to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
     {
-		boost::uuids::uuid id = boost::uuids::random_generator()();
+        boost::uuids::uuid id = boost::uuids::random_generator()();
         TxID txId{};
         copy(id.begin(), id.end(), txId.begin());
         TxDescription tx( txId, amount, fee, m_keyChain->getCurrentHeight(), to, move(message), getTimestamp(), sender);
@@ -187,9 +195,13 @@ namespace beam
         m_peers.erase(tx.m_peerId);
  
         // remove state machine from db
-        TxDescription t{ tx };
-        t.m_fsmState.clear();
-        m_keyChain->saveTx(t);
+        auto t = m_keyChain->getTx(tx.m_txId);
+        if (t.is_initialized())
+        {
+            t->m_fsmState.clear();
+            m_keyChain->saveTx(*t);
+        }
+        
 
         if (m_tx_completed_action)
         {
@@ -233,26 +245,28 @@ namespace beam
             auto r = make_shared<Negotiator>(*this, m_keyChain, tx);
             m_negotiators.emplace(tx.m_txId, r);
             m_peers.emplace(tx.m_peerId, r);
-
-			if (r->ProcessInvitation(msg))
-			{
-				Cleaner c{ m_removedNegotiators };
-				if (m_synchronized)
-				{
-					r->start();
-					r->process_event(events::TxInvited{});
-				}
-				else
-				{
-					m_pendingEvents.emplace_back([r]()
-					{
-						r->start();
-						r->process_event(events::TxInvited{});
-					});
-				}
-			} else
-				r->process_event(events::TxFailed{ true });
-		}
+            Cleaner c{ m_removedNegotiators };
+            if (r->ProcessInvitation(msg))
+            {
+                if (m_synchronized)
+                {
+                    r->start();
+                    r->process_event(events::TxInvited{});
+                }
+                else
+                {
+                    m_pendingEvents.emplace_back([r]()
+                    {
+                        r->start();
+                        r->process_event(events::TxInvited{});
+                    });
+                }
+            }
+            else
+            {
+                r->process_event(events::TxFailed{ true });
+            }
+        }
         else
         {
             LOG_DEBUG() << ReceiverPrefix << "Unexpected tx invitation " << msg.m_txId;
@@ -286,7 +300,7 @@ namespace beam
     void Wallet::handle_tx_message(const WalletID& /*from*/, wallet::TxFailed&& data)
     {
         LOG_DEBUG() << "tx " << data.m_txId << " failed";
-        handle_tx_failed(data.m_txId);
+        process_event(data.m_txId, events::TxFailed(false));
     }
 
     bool Wallet::handle_node_message(proto::Boolean&& res)
@@ -314,13 +328,23 @@ namespace beam
         }
         else
         {
-            handle_tx_failed(txId);
+            process_event(txId, events::TxFailed(true));
         }
     }
 
-    void Wallet::handle_tx_failed(const TxID& txId)
+    void Wallet::cancel_tx(const TxID& txId)
     {
-        process_event(txId, events::TxFailed());
+        LOG_INFO() << "Canceling tx " << txId;
+
+        Cleaner cs{ m_removedNegotiators };
+        if (auto it = m_negotiators.find(txId); it != m_negotiators.end())
+        {
+            it->second->process_event(events::TxCanceled{});
+        }
+        else
+        {
+            m_keyChain->deleteTx(txId);
+        }
     }
 
     bool Wallet::handle_node_message(proto::ProofUtxo&& utxoProof)
@@ -333,8 +357,8 @@ namespace beam
         }
 
         Coin& coin = m_pendingProofs.front();
-		Input input;
-		input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
+        Input input;
+        input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
         if (utxoProof.m_Proofs.empty())
         {
             LOG_WARNING() << "Got empty proof for: " << input.m_Commitment;
@@ -465,21 +489,25 @@ namespace beam
         {
             // rollback
             // search for the latest valid known state
-            if (!m_stateFinder || m_stateFinder->m_last < m_newStateID.m_Height)
+            if (!m_stateFinder || m_stateFinder->m_syncHeight < m_newStateID.m_Height)
             {
                 // restart search
                 if (!m_stateFinder)
                 {
-                    LOG_INFO() << "Last known state doesn't present on current branch. Rollback... ";
+                    LOG_INFO() << "State " << m_knownStateID << " doesn't present on current branch. Rollback... ";
                 }
                 else
                 {
                     LOG_INFO() << "Restarting rollback..."; 
                 }
-                m_stateFinder.reset(new StateFinder(m_newStateID.m_Height));
+                m_stateFinder.reset(new StateFinder(m_newStateID.m_Height, m_keyChain));
+                enter_sync();
+                m_network->send_node_message(proto::GetProofState{ m_stateFinder->getSearchHeight() });
+                return exit_sync();
             }
-            auto id = m_keyChain->getKnownStateID(m_stateFinder->getSearchHeight());
+            auto id = m_keyChain->getKnownStateID(m_stateFinder->getSearchOffset());
             Merkle::Hash hv = id.m_Hash;
+            LOG_INFO() << "Check state: " << id;
             Merkle::Interpret(hv, msg.m_Proof);
             if (hv == m_Definition)
             {
@@ -509,7 +537,7 @@ namespace beam
                     m_knownStateID = {};
                 }
                 m_stateFinder.reset();
-                LOG_INFO() << "Rollback completed";
+                LOG_INFO() << "Rolled back to " << m_knownStateID;
             }
         }
 
@@ -525,12 +553,12 @@ namespace beam
         m_reg_requests.clear();
         m_pendingProofs.clear();
 
-		notifySyncProgress();
+        notifySyncProgress();
     }
 
     void Wallet::do_fast_forward()
     {
-        LOG_INFO() << "Sync up to " << m_newStateID.m_Height << "-" << m_newStateID.m_Hash;
+        LOG_INFO() << "Sync up to " << m_newStateID;
         // fast-forward
         enter_sync(); // Mined
         m_network->send_node_message(proto::GetMined{ m_knownStateID.m_Height });
@@ -556,8 +584,8 @@ namespace beam
         {
             enter_sync();
             m_pendingProofs.push_back(coin);
-			Input input;
-			input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
+            Input input;
+            input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
             LOG_DEBUG() << "Get proof: " << input.m_Commitment;
             m_network->send_node_message(proto::GetProofUtxo{ input, 0 });
         }
@@ -585,6 +613,8 @@ namespace beam
             {
                 m_keyChain->setSystemStateID(m_newStateID);
                 m_knownStateID = m_newStateID;
+                LOG_INFO() << "Current state is " << m_knownStateID;
+
                 if (!m_pendingEvents.empty())
                 {
                     Cleaner c{ m_removedNegotiators };
@@ -596,17 +626,17 @@ namespace beam
                 }
                 m_synchronized = true;
                 m_syncDone = m_syncTotal = 0;
-				notifySyncProgress();
+                notifySyncProgress();
             }
         }
 
         return close_node_connection();
     }
 
-	void Wallet::notifySyncProgress()
-	{
-		for (auto sub : m_subscribers) sub->onSyncProgress(m_syncDone, m_syncTotal);
-	}
+    void Wallet::notifySyncProgress()
+    {
+        for (auto sub : m_subscribers) sub->onSyncProgress(m_syncDone, m_syncTotal);
+    }
 
     void Wallet::report_sync_progress()
     {
@@ -614,7 +644,7 @@ namespace beam
         int p = static_cast<int>((m_syncDone * 100) / m_syncTotal);
         LOG_INFO() << "Synchronizing with node: " << p << "% (" << m_syncDone << "/" << m_syncTotal << ")";
 
-		notifySyncProgress();
+        notifySyncProgress();
     }
 
     bool Wallet::close_node_connection()
@@ -658,23 +688,23 @@ namespace beam
         }
     }
 
-	void Wallet::subscribe(IWalletObserver* observer)
-	{
-		assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
+    void Wallet::subscribe(IWalletObserver* observer)
+    {
+        assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
 
-		m_subscribers.push_back(observer);
+        m_subscribers.push_back(observer);
 
-		m_keyChain->subscribe(observer);
-	}
+        m_keyChain->subscribe(observer);
+    }
 
-	void Wallet::unsubscribe(IWalletObserver* observer)
-	{
-		auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
+    void Wallet::unsubscribe(IWalletObserver* observer)
+    {
+        auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
 
-		assert(it != m_subscribers.end());
+        assert(it != m_subscribers.end());
 
-		m_subscribers.erase(it);
+        m_subscribers.erase(it);
 
-		m_keyChain->unsubscribe(observer);
-	}
+        m_keyChain->unsubscribe(observer);
+    }
 }

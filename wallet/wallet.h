@@ -34,6 +34,8 @@ namespace beam
 
 		virtual void subscribe(IWalletObserver* observer) = 0;
 		virtual void unsubscribe(IWalletObserver* observer) = 0;
+
+        virtual void cancel_tx(const TxID& id) = 0;
     };
 
     struct INetworkIO 
@@ -121,7 +123,8 @@ namespace beam
 		void unsubscribe(IWalletObserver* observer) override;
 
         void handle_tx_registered(const TxID& txId, bool res);
-        void handle_tx_failed(const TxID& txId);
+
+        void cancel_tx(const TxID& txId) override;
 
     private:
         void remove_peer(const TxID& txId);

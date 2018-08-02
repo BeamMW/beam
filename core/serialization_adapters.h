@@ -663,7 +663,7 @@ namespace detail
 		{
 			ar
 				& pow.m_Indices
-				& pow.m_Difficulty
+				& pow.m_Difficulty.m_Packed
 				& pow.m_Nonce;
 
 			return ar;
@@ -674,7 +674,7 @@ namespace detail
 		{
 			ar
 				& pow.m_Indices
-				& pow.m_Difficulty
+				& pow.m_Difficulty.m_Packed
 				& pow.m_Nonce;
 
 			return ar;
