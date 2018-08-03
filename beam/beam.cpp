@@ -567,6 +567,7 @@ int main_impl(int argc, char* argv[])
                     io::Address receiverAddr;
                     Amount amount = 0;
                     Amount fee = 0;
+                    ECC::Hash::Value receiverWalletID;
                     bool isTxInitiator = command == cli::SEND || command == cli::RECEIVE;
                     if (isTxInitiator)
                     {
@@ -580,12 +581,16 @@ int main_impl(int argc, char* argv[])
                             LOG_ERROR() << "amount is missing";
                             return -1;
                         }
-                        string receiverURI = vm[cli::RECEIVER_ADDR].as<string>();
-                        if (!receiverAddr.resolve(receiverURI.c_str()))
+
+                        ECC::Hash::Value receiverID = from_hex(vm[cli::RECEIVER_ADDR].as<string>());
+                        receiverWalletID = receiverID;
+                        //string receiverURI = vm[cli::RECEIVER_ADDR].as<string>();
+
+                        /*if (!receiverAddr.resolve(receiverURI.c_str()))
                         {
                             LOG_ERROR() << "unable to resolve receiver address: " << receiverURI;
                             return -1;
-                        }
+                        }*/
                         auto signedAmount = vm[cli::AMOUNT].as<double>();
                         if (signedAmount < 0)
                         {
@@ -619,12 +624,11 @@ int main_impl(int argc, char* argv[])
 
                     TxPeer receiverPeer = {};
                     receiverPeer.m_address = receiverAddr.str();
-                    receiverPeer.m_walletID = receiverAddr.u64();
+                    
+                    receiverPeer.m_walletID = receiverWalletID;//receiverAddr.u64();
                     keychain->addPeer(receiverPeer);
 
-                    auto wallet_io = make_shared<WalletNetworkIO >( io::Address().ip(INADDR_ANY).port(port)
-                                                                 , node_addr
-                                                                 , is_server
+                    auto wallet_io = make_shared<WalletNetworkIO >( node_addr
                                                                  , keychain
                                                                  , reactor );
                     Wallet wallet{ keychain
@@ -632,7 +636,8 @@ int main_impl(int argc, char* argv[])
                                  , is_server ? Wallet::TxCompletedAction() : [wallet_io](auto) { wallet_io->stop(); } };
                     if (isTxInitiator)
                     {
-                        wallet.transfer_money(receiverPeer.m_walletID, move(amount), move(fee), command == cli::SEND);
+                        wallet.transfer_money(wallet_io->choose_wallet_id(), move(amount), move(fee), command == cli::SEND);
+                        //wallet.transfer_money(receiverPeer.m_walletID, move(amount), move(fee), command == cli::SEND);
                     }
                     wallet_io->start();
                 }

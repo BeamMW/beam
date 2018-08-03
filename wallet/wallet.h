@@ -30,8 +30,6 @@ namespace beam
         virtual bool handle_node_message(proto::Mined&& msg) = 0;
         virtual bool handle_node_message(proto::Proof&& msg) = 0;
 
-        virtual bool handle_bbs_message(proto::BbsMsg&& msg) = 0;
-
         virtual void abort_sync() = 0;
 
 		virtual void subscribe(IWalletObserver* observer) = 0;
@@ -44,11 +42,11 @@ namespace beam
         virtual ~INetworkIO() {}
         virtual void set_wallet(IWallet*) = 0;
         // wallet to wallet requests
-        virtual void send_tx_message(wallet::Invite&&) = 0;
-        virtual void send_tx_message(wallet::ConfirmTransaction&&) = 0;
-        virtual void send_tx_message(wallet::ConfirmInvitation&&) = 0;
-        virtual void send_tx_message(wallet::TxRegistered&&) = 0 ;
-        virtual void send_tx_message(wallet::TxFailed&&) = 0;
+        virtual void send_tx_message(const WalletID& to, wallet::Invite&&) = 0;
+        virtual void send_tx_message(const WalletID& to, wallet::ConfirmTransaction&&) = 0;
+        virtual void send_tx_message(const WalletID& to, wallet::ConfirmInvitation&&) = 0;
+        virtual void send_tx_message(const WalletID& to, wallet::TxRegistered&&) = 0 ;
+        virtual void send_tx_message(const WalletID& to, wallet::TxFailed&&) = 0;
         // wallet to node requests
         virtual void send_node_message(proto::NewTransaction&&) = 0;
         virtual void send_node_message(proto::GetProofUtxo&&) = 0;
@@ -59,13 +57,15 @@ namespace beam
         //virtual void close_connection(const WalletID& id) = 0;
         virtual void connect_node() = 0;
         virtual void close_node_connection() = 0;
-
-        virtual bool handle_decrypted_message(uint64_t timestamp, const void* buf, size_t size) = 0;
     };
 
     class NetworkIOBase : public INetworkIO
     {
     protected:
+        NetworkIOBase() : m_wallet{ nullptr }
+        {
+
+        }
         IWallet& get_wallet() const
         {
             assert(m_wallet);
@@ -118,8 +118,6 @@ namespace beam
         bool handle_node_message(proto::Hdr&& msg) override;
         bool handle_node_message(proto::Mined&& msg) override;
         bool handle_node_message(proto::Proof&& msg) override;
-
-        bool handle_bbs_message(proto::BbsMsg&& msg) override;
 
         void abort_sync() override;
 
@@ -190,11 +188,5 @@ namespace beam
         bool m_synchronized;
 
 		std::vector<IWalletObserver*> m_subscribers;
-
-        // TODO multiple wallet ids
-        WalletID m_thisWalletID;
-
-        // TODO PoC hide this in IKeystore or whatever
-        ECC::Scalar::Native m_privKey;
     };
 }

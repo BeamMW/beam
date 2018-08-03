@@ -178,14 +178,12 @@ namespace beam
 
     void Wallet::send_tx_invitation(const TxDescription& tx, Invite&& data)
     {
-        data.m_from = tx.m_peerId;
-        m_network->send_tx_message(move(data));
+        m_network->send_tx_message(tx.m_peerId, move(data));
     }
 
     void Wallet::send_tx_confirmation(const TxDescription& tx, ConfirmTransaction&& data)
     {
-        data.m_from = tx.m_peerId;
-        m_network->send_tx_message(move(data));
+        m_network->send_tx_message(tx.m_peerId, move(data));
     }
 
     void Wallet::on_tx_completed(const TxDescription& tx)
@@ -218,13 +216,12 @@ namespace beam
 
     void Wallet::send_tx_failed(const TxDescription& tx)
     {
-        m_network->send_tx_message(wallet::TxFailed{ tx.m_peerId, tx.m_txId });
+        m_network->send_tx_message(tx.m_peerId, wallet::TxFailed{ tx.m_peerId, tx.m_txId });
     }
 
     void Wallet::send_tx_confirmation(const TxDescription& tx, ConfirmInvitation&& data)
     {
-        data.m_from = tx.m_peerId;
-        m_network->send_tx_message(move(data));
+        m_network->send_tx_message(tx.m_peerId, move(data));
     }
 
     void Wallet::register_tx(const TxDescription& tx, Transaction::Ptr data)
@@ -234,7 +231,7 @@ namespace beam
 
     void Wallet::send_tx_registered(const TxDescription& tx)
     {
-        m_network->send_tx_message(wallet::TxRegistered{ tx.m_peerId, tx.m_txId, true });
+        m_network->send_tx_message(tx.m_peerId, wallet::TxRegistered{ tx.m_peerId, tx.m_txId, true });
     }
 
     void Wallet::handle_tx_message(Invite&& msg)
@@ -532,22 +529,6 @@ namespace beam
         do_fast_forward();
 
         return exit_sync();
-    }
-
-    bool Wallet::handle_bbs_message(proto::BbsMsg&& msg) {
-        // TODO multiple wallet IDs
-
-        uint32_t channel = util::channel_from_wallet_id(m_thisWalletID);
-
-        uint8_t* out=0;
-        uint32_t size=0;
-
-        if (msg.m_Channel == channel) {
-            if (util::decrypt(out, size, msg.m_Message, m_privKey)) {
-                return m_network->handle_decrypted_message(msg.m_TimePosted, out, size);
-            }
-        }
-        return true;
     }
 
     void Wallet::abort_sync()
