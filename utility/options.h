@@ -68,6 +68,7 @@ namespace beam
         extern const char* GIT_COMMIT_HASH;
  // ui
         extern const char* WALLET_ADDR;
+		extern const char* APPDATA_PATH;
     }
 
     po::options_description createOptionsDescription();
