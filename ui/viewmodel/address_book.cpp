@@ -116,6 +116,11 @@ void AddressBookViewModel::createNewAddress()
     }
 }
 
+Q_INVOKABLE QVariant AddressBookViewModel::getPeerAddress(int index) const
+{
+    return QVariant::fromValue(m_peerAddresses[index]);
+}
+
 void AddressBookViewModel::onStatus(const WalletStatus&)
 {
     if (m_model.async)

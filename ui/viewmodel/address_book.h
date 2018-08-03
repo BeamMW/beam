@@ -60,6 +60,7 @@ class AddressBookViewModel : public QObject
     Q_PROPERTY(QVariant ownAddresses            READ getOwnAddresses    NOTIFY addressesChanged)
 public:
     Q_INVOKABLE void createNewAddress();
+    Q_INVOKABLE QVariant getPeerAddress(int index) const;
 
 public:
 
@@ -67,6 +68,8 @@ public:
 
     QVariant getPeerAddresses() const;
     QVariant getOwnAddresses() const;
+
+    
 
 public slots:
     void onStatus(const WalletStatus& amount);
