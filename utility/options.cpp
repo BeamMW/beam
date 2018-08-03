@@ -51,7 +51,8 @@ namespace beam
         const char* VERSION_FULL = "version,v";
         const char* GIT_COMMIT_HASH = "git_commit_hash";
         // ui
-        const char* WALLET_ADDR = "addr";
+		const char* WALLET_ADDR = "addr";
+        const char* APPDATA_PATH = "appdata";
     }
 
     po::options_description createOptionsDescription()
@@ -103,7 +104,8 @@ namespace beam
 
         po::options_description uioptions("UI options");
         uioptions.add_options()
-            (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken());
+            (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
+			(cli::APPDATA_PATH, po::value<string>());
 
 #define RulesParams(macro) \
 	macro(Amount, CoinbaseEmission, "coinbase emission in a single block") \

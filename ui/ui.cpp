@@ -113,6 +113,11 @@ int main (int argc, char* argv[])
 			return 0;
 		}
 
+		if (vm.count(cli::APPDATA_PATH))
+		{
+			appDataDir = QString::fromStdString(vm[cli::APPDATA_PATH].as<string>());
+		}
+
 		int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
 #if LOG_VERBOSE_ENABLED
