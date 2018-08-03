@@ -41,8 +41,8 @@ public:
 	int CheckOnFailed();
 
 protected:
-	virtual void OnConnected() override;
-	virtual void OnDisconnect(const DisconnectReason&) override;
+	void OnConnected() override;
+	void OnDisconnect(const DisconnectReason&) override;
 
 	virtual void GenerateTests();
 

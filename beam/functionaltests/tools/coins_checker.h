@@ -28,10 +28,10 @@ public:
 	void Check(const Inputs& inputs, Callback callback);
 
 protected:
-	virtual void OnConnected() override;
-	virtual void OnDisconnect(const DisconnectReason&) override;
-	virtual void OnMsg(beam::proto::Hdr&&) override;
-	virtual void OnMsg(beam::proto::ProofUtxo&&) override;
+	void OnConnected() override;
+	void OnDisconnect(const DisconnectReason&) override;
+	void OnMsg(beam::proto::Hdr&&) override;
+	void OnMsg(beam::proto::ProofUtxo&&) override;
 
 	void StartChecking();
 	

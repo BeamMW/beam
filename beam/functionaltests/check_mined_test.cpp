@@ -89,7 +89,7 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 	input.m_Commitment = Commitment(key, Rules::get().CoinbaseEmission);
 
 	m_CoinsChecker.Check(CoinsChecker::Inputs{ input },
-		[this](bool isOk, Height maturity)
+		[this](bool isOk, Height)
 		{
 			if (isOk)
 			{

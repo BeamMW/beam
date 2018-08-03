@@ -78,7 +78,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		if (++m_Counter >= 2)
 		{
 			m_CoinsChecker.Check(m_Generator.GenerateInputsFromOutputs(),
-				[this](bool isOk, Height maturity)
+				[this](bool isOk, Height)
 			{
 				if (isOk)
 				{
