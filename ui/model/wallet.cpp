@@ -63,6 +63,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
             receiver.cancelTx(id);
         });
     }
+
+    void createNewAddress(WalletAddress&& address) override
+    {
+        tx.send([address{ move(address) }](BridgeInterface& receiver) mutable
+        {
+            receiver.createNewAddress(move(address));
+        });
+    }
 };
 
 WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
@@ -75,6 +83,7 @@ WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const string& n
 	qRegisterMetaType<vector<TxPeer>>("std::vector<beam::TxPeer>");
     qRegisterMetaType<Amount>("beam::Amount");
     qRegisterMetaType<vector<Coin>>("std::vector<beam::Coin>");
+    qRegisterMetaType<vector<WalletAddress>>("std::vector<beam::WalletAddress>");
 }
 
 WalletModel::~WalletModel() 
@@ -121,11 +130,32 @@ void WalletModel::run()
 {
 	try
 	{
+		struct WalletSubscriber
+		{
+			WalletSubscriber(IWalletObserver* client, std::shared_ptr<beam::Wallet> wallet)
+				: _client(client)
+				, _wallet(wallet)
+			{
+				_wallet->subscribe(_client);
+			}
+
+			~WalletSubscriber()
+			{
+				_wallet->unsubscribe(_client);
+			}
+		private:
+			IWalletObserver * _client;
+			std::shared_ptr<beam::Wallet> _wallet;
+		};
+
+		std::unique_ptr<WalletSubscriber> subscriber;
+
+		_reactor = Reactor::create();
+		async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), _reactor);
+		
 		emit onStatus(getStatus());
 		emit onTxStatus(_keychain->getTxHistory());
 		emit onTxPeerUpdated(_keychain->getPeers());
-        
-		_reactor = Reactor::create();
 
 		Address node_addr;
 
@@ -148,34 +178,14 @@ void WalletModel::run()
 				}
 			);
 
-			async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), _reactor);
-
-			struct WalletSubscriber
-			{
-				WalletSubscriber(IWalletObserver* client, std::shared_ptr<beam::Wallet> wallet)
-					: _client(client)
-					, _wallet(wallet)
-				{
-					_wallet->subscribe(_client);
-				}
-
-				~WalletSubscriber()
-				{
-					_wallet->unsubscribe(_client);
-				}
-			private:
-				IWalletObserver* _client;
-				std::shared_ptr<beam::Wallet> _wallet;
-			};
-
-			WalletSubscriber subscriber(this, wallet);
-
-			wallet_io->start();
+			subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 		}
 		else
 		{
 			LOG_ERROR() << "unable to resolve node address";
 		}
+		
+		_reactor->run();
 	}
 	catch (const runtime_error& e)
 	{
@@ -278,6 +288,11 @@ void WalletModel::cancelTx(beam::TxID id)
     {
         w->cancel_tx(id);
     }
+}
+
+void WalletModel::createNewAddress(WalletAddress&& address)
+{
+    _keychain->saveAddress(address);
 }
 
 vector<Coin> WalletModel::getUtxos() const

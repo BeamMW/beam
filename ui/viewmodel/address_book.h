@@ -69,7 +69,8 @@ public:
     QVariant getOwnAddresses() const;
 
 public slots:
-    void OnAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
+    void onStatus(const WalletStatus& amount);
+    void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
 
 signals:
     void addressesChanged();
