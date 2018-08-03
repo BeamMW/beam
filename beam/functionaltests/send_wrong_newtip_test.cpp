@@ -9,8 +9,8 @@ class TestNodeConnection : public BaseTestNode
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	virtual bool OnMsg2(proto::Boolean&& msg) override;
-	virtual bool OnMsg2(proto::NewTip&& msg) override;	
+	bool OnMsg2(proto::Boolean&& msg) override;
+	bool OnMsg2(proto::NewTip&& msg) override;	
 	
 private:
 	Height m_Height;

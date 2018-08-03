@@ -9,9 +9,9 @@ class TestNodeConnection : public BaseTestNode
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	virtual void OnDisconnect(const DisconnectReason&) override;
-	virtual void GenerateTests() override;
-	virtual void OnMsg(proto::ProofUtxo&& msg) override;
+	void OnDisconnect(const DisconnectReason&) override;
+	void GenerateTests() override;
+	void OnMsg(proto::ProofUtxo&& msg) override;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])

@@ -9,8 +9,8 @@ class TestNodeConnection : public BaseTestNode
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	virtual void OnMsg(proto::NewTip&&) override;
-	virtual void OnMsg(proto::Mined&&) override;
+	void OnMsg(proto::NewTip&&) override;
+	void OnMsg(proto::Mined&&) override;
 	
 private:
 	bool m_IsInit;

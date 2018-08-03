@@ -11,9 +11,9 @@ class TestNodeConnection : public BaseTestNode
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	virtual void GenerateTests() override;
-	virtual void OnMsg(proto::NewTip&&) override;
-	virtual void OnMsg(proto::Boolean&&) override;
+	void GenerateTests() override;
+	void OnMsg(proto::NewTip&&) override;
+	void OnMsg(proto::Boolean&&) override;
 
 private:
 	bool m_IsInit;
@@ -70,7 +70,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		if (++m_Counter >= 3)
 		{
 			m_CoinsChecker.Check(m_Generator1.GenerateInputsFromOutputs(),
-				[this](bool isOk, Height maturity)
+				[this](bool isOk, Height)
 				{
 					if (isOk)
 					{
@@ -85,7 +85,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 			);
 
 			m_CoinsChecker.Check(m_Generator2.GenerateInputsFromOutputs(),
-				[this](bool isOk, Height maturity)
+				[this](bool isOk, Height)
 				{
 					if (isOk)
 					{

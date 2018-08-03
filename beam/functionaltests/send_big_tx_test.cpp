@@ -16,8 +16,8 @@ public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
 	
-	virtual void OnDisconnect(const DisconnectReason& ) override;
-	virtual void GenerateTests() override;
+	void OnDisconnect(const DisconnectReason& ) override;
+	void GenerateTests() override;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])

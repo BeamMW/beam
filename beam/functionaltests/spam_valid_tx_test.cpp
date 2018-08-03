@@ -25,8 +25,8 @@ private:
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	virtual void GenerateTests() override;
-	virtual void OnMsg(proto::NewTip&&) override;
+	void GenerateTests() override;
+	void OnMsg(proto::NewTip&&) override;
 
 private:
 	bool m_IsInit;

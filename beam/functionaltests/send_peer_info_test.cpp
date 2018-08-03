@@ -14,11 +14,11 @@ class TestNodeConnection : public BaseTestNode
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	virtual void OnDisconnect(const DisconnectReason&) override;
+	void OnDisconnect(const DisconnectReason&) override;
 
-	virtual void OnMsg(proto::NewTip&&) override;
+	void OnMsg(proto::NewTip&&) override;
 
-	virtual void GenerateTests() override;
+	void GenerateTests() override;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
@@ -33,7 +33,7 @@ void TestNodeConnection::OnDisconnect(const DisconnectReason&)
 	io::Reactor::get_Current().stop();
 }
 
-void TestNodeConnection::OnMsg(proto::NewTip&& msg) 
+void TestNodeConnection::OnMsg(proto::NewTip&&) 
 {
 	LOG_INFO() << "NewTip";
 }
