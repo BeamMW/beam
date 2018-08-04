@@ -636,8 +636,8 @@ int main_impl(int argc, char* argv[])
                                  , is_server ? Wallet::TxCompletedAction() : [wallet_io](auto) { wallet_io->stop(); } };
                     if (isTxInitiator)
                     {
-                        wallet.transfer_money(wallet_io->choose_wallet_id(), move(amount), move(fee), command == cli::SEND);
-                        //wallet.transfer_money(receiverPeer.m_walletID, move(amount), move(fee), command == cli::SEND);
+                        //wallet.transfer_money(wallet_io->choose_wallet_id(), move(amount), move(fee), command == cli::SEND);
+                        wallet.transfer_money(receiverPeer.m_walletID, move(amount), move(fee), command == cli::SEND);
                     }
                     wallet_io->start();
                 }
