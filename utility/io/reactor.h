@@ -64,6 +64,22 @@ public:
 	static Reactor& get_Current();
 	uv_loop_t& get_UvLoop() { return _loop; }
 
+	class GracefulIntHandler
+	{
+		static Reactor* s_pAppReactor;
+
+#ifdef WIN32
+		static BOOL WINAPI Handler(DWORD dwCtrlType);
+#else // WIN32
+		void SetHandler(bool);
+		static void Handler(int sig);
+#endif // WIN32
+
+	public:
+		GracefulIntHandler(Reactor&);
+		~GracefulIntHandler();
+	};
+
 private:
     /// Ctor. private and called by create()
     Reactor();

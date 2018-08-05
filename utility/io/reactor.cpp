@@ -20,6 +20,10 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#ifndef WIN32
+#	include <signal.h>
+#endif // WIN32
+
 #define LOG_VERBOSE_ENABLED 1
 #include "utility/logger.h"
 
@@ -452,5 +456,63 @@ Reactor& Reactor::get_Current()
 	assert(s_pReactor); // core meltdown?
 	return *s_pReactor;
 }
+
+Reactor* Reactor::GracefulIntHandler::s_pAppReactor = NULL;
+
+Reactor::GracefulIntHandler::GracefulIntHandler(Reactor& r)
+{
+	assert(!s_pAppReactor);
+	s_pAppReactor = &r;
+
+#ifdef WIN32
+	SetConsoleCtrlHandler(Handler, TRUE);
+#else // WIN32
+	SetHandler(true);
+#endif // WIN32
+}
+
+Reactor::GracefulIntHandler::~GracefulIntHandler()
+{
+#ifdef WIN32
+	SetConsoleCtrlHandler(Handler, FALSE);
+#else // WIN32
+	SetHandler(false);
+#endif // WIN32
+
+	s_pAppReactor = NULL;
+}
+
+#ifdef WIN32
+
+BOOL WINAPI Reactor::GracefulIntHandler::Handler(DWORD dwCtrlType)
+{
+	assert(s_pAppReactor);
+	s_pAppReactor->stop();
+
+	return TRUE;
+}
+
+#else // WIN32
+
+void Reactor::GracefulIntHandler::SetHandler(bool bSet)
+{
+	struct sigaction sa;
+
+	sa.sa_handler = bSet ? Handler : NULL;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = 0;
+
+	sigaction(SIGINT, &sa, NULL);
+}
+
+void Reactor::GracefulIntHandler::Handler(int sig)
+{
+	assert(s_pAppReactor);
+	s_pAppReactor->stop();
+}
+
+#endif // WIN32
+
+
 
 }} //namespaces
