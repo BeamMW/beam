@@ -653,6 +653,8 @@ void Node::ImportMacroblock(Height h)
 
 Node::~Node()
 {
+	LOG_INFO() << "Node stopping...";
+
 	m_Miner.HardAbortSafe();
 
 	for (size_t i = 0; i < m_Miner.m_vThreads.size(); i++)
@@ -692,6 +694,8 @@ Node::~Node()
 			if (v.m_vThreads[i].joinable())
 				v.m_vThreads[i].join();
 	}
+
+	LOG_INFO() << "Node stopped";
 }
 
 void Node::Peer::SetTimer(uint32_t timeout_ms)

@@ -373,6 +373,9 @@ int main_impl(int argc, char* argv[])
 			{
 				reactor = io::Reactor::create();
 				io::Reactor::Scope scope(*reactor);
+
+				io::Reactor::GracefulIntHandler gih(*reactor);
+
 				NoLeak<uintBig> walletSeed;
 				walletSeed.V = Zero;
 				if (hasWalletSeed)
