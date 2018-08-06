@@ -14,6 +14,7 @@
 
 #include "options.h"
 #include "core/common.h"
+#include "utility/string_helpers.h"
 
 using namespace std;
 
@@ -199,4 +200,23 @@ namespace beam
 
         return defaultValue;
     }
+
+	vector<string> getCfgPeers(const po::variables_map& vm)
+	{
+		vector<string> peers;
+
+		if (vm.count(cli::NODE_PEER))
+		{
+			auto tempPeers = vm[cli::NODE_PEER].as<vector<string>>();
+
+			for (const auto& peer : tempPeers)
+			{
+				auto csv = string_helpers::split(peer, ',');
+
+				peers.insert(peers.end(), csv.begin(), csv.end());
+			}
+		}
+
+		return peers;
+	}
 }

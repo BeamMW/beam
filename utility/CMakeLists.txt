@@ -4,6 +4,7 @@ set(UTILITY_SRC
     helpers.cpp
     config.cpp
 	options.cpp
+	string_helpers.cpp
 # ~etc
 )
 
