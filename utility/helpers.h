@@ -28,6 +28,9 @@ char* to_hex(char* dst, const void* bytes, size_t size);
 // Converts bytes to base16 string.
 std::string to_hex(const void* bytes, size_t size);
 
+// Converts hexdec string to vector of bytes
+std::vector<uint8_t> from_hex(const std::string& str);
+
 /// Wraps member fn into std::function via lambda
 template <typename R, typename ...Args, typename T> std::function<R(Args...)> bind_memfn(T* object, R(T::*fn)(Args...)) {
     return [object, fn](Args ...args) { return (object->*fn)(std::forward<Args>(args)...); };

@@ -27,6 +27,7 @@ namespace beam
     class WalletNetworkIO : public IErrorHandler
                           , public NetworkIOBase
     {
+        using ConnectCallback = std::function<void()>;
     public:
 
 
@@ -48,11 +49,11 @@ namespace beam
 
     private:
         // INetworkIO
-        void send_tx_message(wallet::Invite&&) override;
-        void send_tx_message(wallet::ConfirmTransaction&&) override;
-        void send_tx_message(wallet::ConfirmInvitation&&) override;
-        void send_tx_message(wallet::TxRegistered&&) override;
-        void send_tx_message(wallet::TxFailed&&) override;
+        void send_tx_message(const WalletID& to, wallet::Invite&&) override;
+        void send_tx_message(const WalletID& to, wallet::ConfirmTransaction&&) override;
+        void send_tx_message(const WalletID& to, wallet::ConfirmInvitation&&) override;
+        void send_tx_message(const WalletID& to, wallet::TxRegistered&&) override;
+        void send_tx_message(const WalletID& to, wallet::TxFailed&&) override;
 
         void send_node_message(proto::NewTransaction&&) override;
         void send_node_message(proto::GetProofUtxo&&) override;
@@ -68,7 +69,7 @@ namespace beam
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;
         void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override;
 
-        bool handle_decrypted_message(uint64_t timestamp, const void* buf, size_t size) override;
+        bool handle_decrypted_message(uint64_t timestamp, const void* buf, size_t size);
 
         // handlers for the protocol messages
         bool on_message(uint64_t, wallet::Invite&& msg);
@@ -82,18 +83,26 @@ namespace beam
         void on_node_connected();
 
         void create_node_connection();
-
+    public:
+        WalletID choose_wallet_id();
+    private:
         template <typename T>
         void send(const WalletID& walletID, MsgType type, T&& msg)
         {
             update_wallets(walletID);
 
             // send BBS message
+            msg.m_from = choose_wallet_id();
+           
+            //listen_to_bbs_channel(util::channel_from_wallet_id(msg.m_from));
+            uint32_t channel = util::channel_from_wallet_id(walletID);
+            LOG_DEBUG() << "BBS send message to channel=" << channel << "[" << to_string(walletID) << "]  my pubkey=" << to_string(m_bbs_keys->first);
             proto::BbsMsg bbsMsg;
-            bbsMsg.m_Channel = util::channel_from_wallet_id(walletID);
-            bbsMsg.m_TimePosted = local_timestamp_msec();
+            bbsMsg.m_Channel = channel;
+            bbsMsg.m_TimePosted = getTimestamp();
             m_protocol.serialize(m_msgToSend, type, msg);
             util::encrypt(bbsMsg.m_Message, m_msgToSend, walletID);
+            
             send_to_node(std::move(bbsMsg));
         }
 
@@ -102,12 +111,12 @@ namespace beam
         {
             if (!m_is_node_connected)
             {
-                create_node_connection();
-                m_node_connection->connect([this, msg=std::move(msg)]()
+                auto f = [this, msg = std::move(msg)]()
                 {
-                    m_is_node_connected = true;
                     m_node_connection->Send(msg);
-                });
+                };
+                m_node_connect_callbacks.emplace_back(std::move(f));
+                connect_node();
             }
             else
             {
@@ -120,11 +129,13 @@ namespace beam
 
         void update_wallets(const WalletID& walletID);
 
+        bool handle_bbs_message(proto::BbsMsg&& msg);
+
         class WalletNodeConnection : public proto::NodeConnection
         {
         public:
             using NodeConnectCallback = std::function<void()>;
-            WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec);
+            WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec, WalletNetworkIO& io);
             void connect(NodeConnectCallback&& cb);
         private:
             // NodeConnection
@@ -144,6 +155,7 @@ namespace beam
             bool m_connecting;
             io::Timer::Ptr m_timer;
             unsigned m_reconnectMsec;
+            WalletNetworkIO& m_io;
         };
 
     private:
@@ -166,8 +178,13 @@ namespace beam
         SerializedMsg m_msgToSend;
         io::Timer::Ptr m_sync_timer;
 
+        std::vector<ConnectCallback> m_node_connect_callbacks;
+
         // TODO make persistent
         uint64_t m_last_bbs_message_time;
         uint32_t m_bbs_channel;
+        std::set<uint32_t> m_bbs_channels;
+        std::unique_ptr<std::pair<util::PubKey, util::PrivKey>> m_bbs_keys;
+
     };
 }

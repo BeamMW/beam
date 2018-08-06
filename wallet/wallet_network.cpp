@@ -34,6 +34,10 @@ namespace beam {
          m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmInvitation,  &WalletNetworkIO::on_message>(receiverConfirmationCode, this, 1, 20000);
          m_protocol.add_message_handler<WalletNetworkIO, wallet::TxRegistered,       &WalletNetworkIO::on_message>(receiverRegisteredCode, this, 1, 20000);
          m_protocol.add_message_handler<WalletNetworkIO, wallet::TxFailed,           &WalletNetworkIO::on_message>(failedCode, this, 1, 20000);
+
+         auto id = choose_wallet_id();
+         LOG_INFO() << "Pubkey: " << to_string(id);
+         listen_to_bbs_channel(util::channel_from_wallet_id(id));
     }
 
     WalletNetworkIO::~WalletNetworkIO()
@@ -57,29 +61,29 @@ namespace beam {
         m_wallets.insert(walletID);
     }
 
-    void WalletNetworkIO::send_tx_message(wallet::Invite&& msg)
+    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::Invite&& msg)
     {
-        send(msg.m_from, senderInvitationCode, move(msg));
+        send(to, senderInvitationCode, move(msg));
     }
 
-    void WalletNetworkIO::send_tx_message(wallet::ConfirmTransaction&& msg)
+    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::ConfirmTransaction&& msg)
     {
-        send(msg.m_from, senderConfirmationCode, move(msg));
+        send(to, senderConfirmationCode, move(msg));
     }
 
-    void WalletNetworkIO::send_tx_message(wallet::ConfirmInvitation&& msg)
+    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::ConfirmInvitation&& msg)
     {
-        send(msg.m_from, receiverConfirmationCode, move(msg));
+        send(to, receiverConfirmationCode, move(msg));
     }
 
-    void WalletNetworkIO::send_tx_message(wallet::TxRegistered&& msg)
+    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::TxRegistered&& msg)
     {
-        send(msg.m_from, receiverRegisteredCode, move(msg));
+        send(to, receiverRegisteredCode, move(msg));
     }
 
-    void WalletNetworkIO::send_tx_message(wallet::TxFailed&& msg)
+    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::TxFailed&& msg)
     {
-        send(msg.m_from, failedCode, move(msg));
+        send(to, failedCode, move(msg));
     }
 
     void WalletNetworkIO::send_node_message(proto::NewTransaction&& msg)
@@ -172,7 +176,18 @@ namespace beam {
     void WalletNetworkIO::on_node_connected()
     {
         m_is_node_connected = true;
-        listen_to_bbs_channel(m_bbs_channel);
+        for (auto c : m_bbs_channels)
+        {
+            listen_to_bbs_channel(c);
+        }
+        
+
+        vector<ConnectCallback> t;
+        t.swap(m_node_connect_callbacks);
+        for (auto& cb : t)
+        {
+            cb();
+        }
     }
 
     void WalletNetworkIO::on_protocol_error(uint64_t, ProtocolError error)
@@ -203,7 +218,21 @@ namespace beam {
     void WalletNetworkIO::create_node_connection()
     {
         assert(!m_node_connection && !m_is_node_connected);
-        m_node_connection = make_unique<WalletNodeConnection>(m_node_address, get_wallet(), m_reactor, m_reconnect_ms);
+        m_node_connection = make_unique<WalletNodeConnection>(m_node_address, get_wallet(), m_reactor, m_reconnect_ms, *this);
+    }
+
+    WalletID WalletNetworkIO::choose_wallet_id()
+    {
+        if (m_bbs_keys)
+        {
+            return m_bbs_keys->first;
+        }
+
+        util::PubKey pubKey;
+        util::PrivKey privKey;
+        util::gen_keypair(privKey, pubKey);
+        m_bbs_keys.reset(new pair<util::PubKey, util::PrivKey>(pubKey, privKey));
+        return pubKey;
     }
 
     /*
@@ -225,27 +254,60 @@ namespace beam {
         }
     }
 
-    bool WalletNetworkIO::handle_decrypted_message(uint64_t timestamp, const void* buf, size_t size) {
+    bool WalletNetworkIO::handle_decrypted_message(uint64_t timestamp, const void* buf, size_t size)
+    {
         m_last_bbs_message_time = timestamp;
         m_msgReader.new_data_from_stream(io::EC_OK, buf, size);
         return true;
     }
 
-    void WalletNetworkIO::listen_to_bbs_channel(uint32_t channel) {
-        m_bbs_channel = channel;
-        proto::BbsSubscribe msg;
-        msg.m_Channel = channel;
-        msg.m_TimeFrom = m_last_bbs_message_time;
-        msg.m_On = true;
-        send_to_node(move(msg));
+    void WalletNetworkIO::listen_to_bbs_channel(uint32_t channel)
+    {
+        m_bbs_channels.insert(channel);
+        if (m_is_node_connected)
+        {
+            LOG_DEBUG() << "Listen BBS channel=" << channel;
+            proto::BbsSubscribe msg;
+            msg.m_Channel = channel;
+            msg.m_TimeFrom = m_last_bbs_message_time;
+            msg.m_On = true;
+            send_to_node(move(msg));
+        }
     }
 
-    WalletNetworkIO::WalletNodeConnection::WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec)
+    bool WalletNetworkIO::handle_bbs_message(proto::BbsMsg&& msg)
+    {
+        // TODO multiple wallet IDs
+        
+        uint32_t channel = util::channel_from_wallet_id(choose_wallet_id());
+
+        LOG_DEBUG() << "BBS message form channel=" << msg.m_Channel << ". Listen channel=" << channel << " pubkey=" << to_string(m_bbs_keys->first);
+
+        uint8_t* out = 0;
+        uint32_t size = 0;
+
+        if (msg.m_Channel == channel)
+        {
+            if (util::decrypt(out, size, msg.m_Message, m_bbs_keys->second))
+            {
+                LOG_DEBUG() << "Succedded to decrypt BBS message form channel=" << msg.m_Channel;
+                return handle_decrypted_message(msg.m_TimePosted, out, size);
+            }
+            else
+            {
+                LOG_DEBUG() << "failed to decrypt BBS message form channel=" << msg.m_Channel;
+            }
+        }
+        return true;
+    }
+
+    WalletNetworkIO::WalletNodeConnection::WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec, WalletNetworkIO& io)
         : m_address{address}
         , m_wallet {wallet}
         , m_connecting{false}
         , m_timer{io::Timer::create(reactor)}
         , m_reconnectMsec{reconnectMsec}
+        , m_io{io}
     {
     }
 
@@ -316,6 +378,6 @@ namespace beam {
 
     bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::BbsMsg&& msg)
     {
-        return m_wallet.handle_bbs_message(move(msg));
+        return m_io.handle_bbs_message(move(msg));
     }
 }

@@ -19,6 +19,8 @@
     #include <errno.h>
 #endif
 
+using namespace std;
+
 namespace beam {
 
 uint64_t local_timestamp_msec() {
@@ -62,6 +64,34 @@ std::string to_hex(const void* bytes, size_t size) {
     char* buf = (char*)alloca(2 * size + 1);
     return std::string(to_hex(buf, bytes, size));
 }
+
+vector<uint8_t> from_hex(const std::string& str)
+{
+    assert(str.size() % 2 == 0);
+    vector<uint8_t> res(str.size() >> 1);
+    uint8_t b = 0;
+    for (size_t i = 0; i < str.size(); ++i)
+    {
+        auto c = str[i];
+        size_t j = i >> 1;
+        res[j] <<= 4;
+        if (c >= '0' && c <= '9')
+        {
+            res[j] += (c - '0');
+        }
+        else if (c >= 'a' && c <= 'f')
+        {
+            res[j] += 10 + (c - 'a');
+        }
+        else if (c >= 'A' && c <= 'F')
+        {
+            res[j] += 10 + (c - 'A');
+        }
+    }
+
+    return res;
+}
+
 
 uint64_t get_thread_id() {
 #if defined __linux__
