@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include "p2p/protocol.h"
@@ -30,6 +44,7 @@ namespace beam
     {
         struct ConnectionInfo;
         using ConnectCallback = std::function<void(const ConnectionInfo&)>;
+        using NodeConnectCallback = std::function<void()>;
     public:
 
 
@@ -85,6 +100,7 @@ namespace beam
         void on_sync_timer();
         void on_node_connected();
 
+        void close_connection(uint64_t tag);
         uint64_t get_connection_tag();
         void create_node_connection();
         void add_connection(uint64_t tag, ConnectionInfo&&);
@@ -122,12 +138,12 @@ namespace beam
         {
             if (!m_is_node_connected)
             {
-                create_node_connection();
-                m_node_connection->connect([this, msg=std::move(msg)]()
+                auto f = [this, msg = std::move(msg)]()
                 {
-                    m_is_node_connected = true;
                     m_node_connection->Send(msg);
-                });
+                };
+                m_node_connect_callbacks.emplace_back(std::move(f));
+                connect_node();
             }
             else
             {
@@ -274,5 +290,7 @@ namespace beam
         std::unique_ptr<WalletNodeConnection> m_node_connection;
         SerializedMsg m_msgToSend;
         io::Timer::Ptr m_sync_timer;
+
+        std::vector<NodeConnectCallback> m_node_connect_callbacks;
     };
 }

@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include "common.h"
@@ -14,7 +28,8 @@ namespace beam {
 namespace proto {
 
 #define BeamNodeMsg_NewTip(macro) \
-	macro(Block::SystemState::ID, ID)
+	macro(Block::SystemState::ID, ID) \
+	macro(Difficulty::Raw, ChainWork)
 
 #define BeamNodeMsg_GetHdr(macro) \
 	macro(Block::SystemState::ID, ID)
@@ -74,6 +89,9 @@ namespace proto {
 
 #define BeamNodeMsg_GetTransaction(macro) \
 	macro(Transaction::KeyType, ID)
+
+#define BeamNodeMsg_Bye(macro) \
+	macro(uint8_t, Reason)
 
 #define BeamNodeMsg_PeerInfoSelf(macro) \
 	macro(uint16_t, Port)
@@ -144,6 +162,7 @@ namespace proto {
 	macro(23, NewTransaction) \
 	macro(24, HaveTransaction) \
 	macro(25, GetTransaction) \
+	macro(29, Bye) \
 	macro(31, PeerInfoSelf) \
 	macro(32, PeerInfo) \
 	macro(33, GetTime) \
@@ -295,6 +314,7 @@ namespace proto {
 		virtual void OnMsg(SChannelInitiate&&) override;
 		virtual void OnMsg(SChannelReady&&) override;
 		virtual void OnMsg(Authentication&&) override;
+		virtual void OnMsg(Bye&&) override;
 
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
@@ -305,12 +325,23 @@ namespace proto {
 
 		virtual void OnConnected() {}
 
+		struct ByeReason
+		{
+			static const uint8_t Stopping	= 's';
+			static const uint8_t Ban		= 'b';
+			static const uint8_t Loopback	= 'L';
+			static const uint8_t Duplicate	= 'd';
+			static const uint8_t Timeout	= 't';
+			static const uint8_t Other		= 'o';
+		};
+
 		struct DisconnectReason
 		{
 			enum Enum {
 				Io,
 				Protocol,
-				ProcessingExc
+				ProcessingExc,
+				Bye,
 			};
 
 			Enum m_Type;
@@ -319,6 +350,7 @@ namespace proto {
 				io::ErrorCode m_IoError;
 				ProtocolError m_eProtoCode;
 				const char* m_szErrorMsg;
+				uint8_t m_ByeReason;
 			};
 		};
 

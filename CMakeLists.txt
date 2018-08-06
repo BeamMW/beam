@@ -1,5 +1,27 @@
 cmake_minimum_required(VERSION 3.1)
-project(beam)
+
+set(VERSION_MAJOR 1)
+set(VERSION_MINOR 0)
+set(VERSION_REVISION 0)
+set(GIT_COMMIT_HASH "unknown")
+
+find_package(Git)
+if(Git_FOUND)
+	execute_process(
+		COMMAND ${GIT_EXECUTABLE} log -1 --format=%H
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+		OUTPUT_VARIABLE GIT_COMMIT_HASH
+		OUTPUT_STRIP_TRAILING_WHITESPACE
+	)
+	execute_process(
+		COMMAND ${GIT_EXECUTABLE} rev-list HEAD --count
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+		OUTPUT_VARIABLE VERSION_REVISION
+		OUTPUT_STRIP_TRAILING_WHITESPACE
+	)
+endif()
+
+project(beam VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_REVISION})
 
 if(UNIX AND NOT APPLE)
 	set(LINUX TRUE)
@@ -21,6 +43,9 @@ set(BEAM_USE_STATIC FALSE)
 
 if(BEAM_LINK_TYPE MATCHES "Static")
 	set(BEAM_USE_STATIC TRUE)
+endif()
+
+if(BEAM_USE_STATIC)
 	add_definitions(-DBEAM_USE_STATIC)
 endif()
 
@@ -32,7 +57,6 @@ if(MSVC)
 	SET(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /OPT:REF /INCREMENTAL:NO")
 	SET(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /OPT:REF /INCREMENTAL:NO")
 	SET(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "${CMAKE_EXE_LINKER_FLAGS_MINSIZEREL} /OPT:REF /INCREMENTAL:NO")
-
 
 	if(BEAM_USE_STATIC)
 		# use static runtime
@@ -92,7 +116,40 @@ add_subdirectory(sqlite)
 add_subdirectory(beam)
 add_subdirectory(bbs)
 
-# TODO: UI can't be built with static runtime
-if(NOT BEAM_USE_STATIC)
+if(NOT LINUX)
 	add_subdirectory(ui)
 endif()
+
+########################################################
+### PACKAGING ##########################################
+########################################################
+
+if (WIN32)
+    set(CPACK_GENERATOR "NSIS")
+    set(CPACK_SOURCE_GENERATOR "ZIP")
+    set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/ui/icon.ico")
+    set(CPACK_NSIS_MUI_UNIICON "${CMAKE_SOURCE_DIR}/ui/icon.ico")
+	set(CPACK_NSIS_INSTALLED_ICON_NAME "${CMAKE_SOURCE_DIR}/ui/icon.ico")
+	set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "CreateShortCut \\\"$DESKTOP\\\\Beam.lnk\\\" \\\"$INSTDIR\\\\beam-ui.exe\\\"")
+	set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "Delete \\\"$DESKTOP\\\\Beam.lnk\\\"")
+
+elseif ( ${CMAKE_SYSTEM_NAME} MATCHES "Darwin" )
+	set(CPACK_GENERATOR "DragNDrop")
+else ()
+    set(CPACK_GENERATOR "DEB")
+    set(CPACK_SOURCE_GENERATOR "TGZ")
+endif ()
+
+
+set(CPACK_PACKAGE_NAME "Beam")
+set(CPACK_PACKAGE_VENDOR "Beam Vendor")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Scalable confidential cryptocurrency")
+set(CPACK_PACKAGE_VERSION_MAJOR "0")
+set(CPACK_PACKAGE_VERSION_MINOR "0")
+set(CPACK_PACKAGE_VERSION_PATCH "1")
+set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "Beam")
+
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
+
+include(CPack)

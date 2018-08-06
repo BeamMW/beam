@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "wallet_network.h"
 
 // protocol version
@@ -129,7 +143,7 @@ namespace beam {
                 ci.m_callback = {};
                 m_reactor->cancel_tcp_connect(ci.m_connectionID);
             }
-            
+            LOG_INFO() << "Closing connection to remote wallet: " << it->m_connection->peer_address();
             m_connectionWalletsIndex.erase(it);
             m_connections.erase(ci.m_connectionID);
         }
@@ -258,29 +272,42 @@ namespace beam {
     void WalletNetworkIO::on_node_connected()
     {
         m_is_node_connected = true;
+
+        vector<NodeConnectCallback> t;
+        t.swap(m_node_connect_callbacks);
+        for (auto& cb : t)
+        {
+            cb();
+        }
     }
 
     void WalletNetworkIO::on_protocol_error(uint64_t from, ProtocolError error)
     {
         LOG_ERROR() << "Wallet protocol error: " << error;
-        //get_wallet().handle_connection_error(from);
-        if (m_connections.empty())
-        {
-            stop();
-            return;
-        }
+
+        close_connection(from);
     }
 
     void WalletNetworkIO::on_connection_error(uint64_t from, io::ErrorCode errorCode)
     {
         LOG_ERROR() << "Wallet connection error: " << io::error_str(errorCode);
 
-        if (m_connections.empty())
+        close_connection(from);
+    }
+
+    void WalletNetworkIO::close_connection(uint64_t tag)
+    {
+        if (auto it = m_connections.find(tag); it != m_connections.end())
+        {
+            m_connectionWalletsIndex.erase(it->second.m_wallet.m_walletID, ConnectionWalletIDComparer());
+            m_connections.erase(it);
+        }
+
+        if (!m_server && m_connections.empty())
         {
             stop();
             return;
         }
-        //get_wallet().handle_connection_error(from);
     }
 
     uint64_t WalletNetworkIO::get_connection_tag()

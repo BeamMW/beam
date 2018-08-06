@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include <boost/optional.hpp>
@@ -78,6 +92,7 @@ namespace beam
 		virtual void setVarRaw(const char* name, const void* data, int size) = 0;
 		virtual int getVarRaw(const char* name, void* data) const = 0;
         virtual Height getCurrentHeight() const = 0;
+        virtual uint64_t getKnownStateCount() const = 0;
         virtual Block::SystemState::ID getKnownStateID(Height height) = 0;
         virtual void rollbackConfirmedUtxo(Height minHeight) = 0;
 
@@ -92,6 +107,7 @@ namespace beam
         virtual std::vector<TxPeer> getPeers() = 0;
         virtual void addPeer(const TxPeer&) = 0;
         virtual boost::optional<TxPeer> getPeer(const WalletID&) = 0;
+		virtual void clearPeers() = 0;
 
 		template <typename Var>
 		void setVar(const char* name, const Var& var)
@@ -134,6 +150,7 @@ namespace beam
 		void setVarRaw(const char* name, const void* data, int size) override;
 		int getVarRaw(const char* name, void* data) const override;
         Height getCurrentHeight() const override;
+        uint64_t getKnownStateCount() const override;
         Block::SystemState::ID getKnownStateID(Height height) override;
         void rollbackConfirmedUtxo(Height minHeight) override;
 
@@ -146,6 +163,7 @@ namespace beam
         std::vector<TxPeer> getPeers() override;
         void addPeer(const TxPeer&) override;
         boost::optional<TxPeer> getPeer(const WalletID&) override;
+		void clearPeers() override;
 
         Timestamp getLastUpdateTime() const override;
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;

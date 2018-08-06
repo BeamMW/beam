@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 #include "errorhandling.h"
 #include "mempool.h"
@@ -49,6 +63,22 @@ public:
 
 	static Reactor& get_Current();
 	uv_loop_t& get_UvLoop() { return _loop; }
+
+	class GracefulIntHandler
+	{
+		static Reactor* s_pAppReactor;
+
+#ifdef WIN32
+		static BOOL WINAPI Handler(DWORD dwCtrlType);
+#else // WIN32
+		void SetHandler(bool);
+		static void Handler(int sig);
+#endif // WIN32
+
+	public:
+		GracefulIntHandler(Reactor&);
+		~GracefulIntHandler();
+	};
 
 private:
     /// Ctor. private and called by create()

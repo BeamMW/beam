@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "node_processor.h"
 #include "../core/block_crypt.h"
 #include "../utility/serialize.h"
@@ -156,6 +170,7 @@ void NodeProcessor::InitCursor()
 		else
 			ZeroObject(m_Cursor.m_History);
 
+		m_DB.get_ChainWork(m_Cursor.m_Sid.m_Row, m_Cursor.m_ChainWork);
 		m_Cursor.m_DifficultyNext = get_NextDifficulty();
 	}
 	else
@@ -222,6 +237,7 @@ void NodeProcessor::TryGoUp()
 	while (true)
 	{
 		NodeDB::StateID sidTrg;
+		Difficulty::Raw wrkTrg;
 
 		{
 			NodeDB::WalkerState ws(m_DB);
@@ -232,28 +248,37 @@ void NodeProcessor::TryGoUp()
 				assert(!m_Cursor.m_Sid.m_Row);
 				break; // nowhere to go
 			}
-			sidTrg = ws.m_Sid;
-		}
 
-		assert(sidTrg.m_Height >= m_Cursor.m_Sid.m_Height);
-		if (sidTrg.m_Height == m_Cursor.m_Sid.m_Height)
-			break; // already at maximum height (though maybe at different tip)
+			sidTrg = ws.m_Sid;
+			m_DB.get_ChainWork(sidTrg.m_Row, wrkTrg);
+
+			assert(wrkTrg >= m_Cursor.m_ChainWork);
+			if (wrkTrg == m_Cursor.m_ChainWork)
+				break; // already at maximum (though maybe at different tip)
+		}
 
 		// Calculate the path
 		std::vector<uint64_t> vPath;
 		while (sidTrg.m_Row != m_Cursor.m_Sid.m_Row)
 		{
-			assert(sidTrg.m_Row);
-			vPath.push_back(sidTrg.m_Row);
-
-			if (m_Cursor.m_Sid.m_Height == sidTrg.m_Height)
+			if (m_Cursor.m_ChainWork > wrkTrg)
 			{
 				Rollback();
 				bDirty = true;
 			}
+			else
+			{
+				assert(sidTrg.m_Row);
+				vPath.push_back(sidTrg.m_Row);
 
-			if (!m_DB.get_Prev(sidTrg))
-				sidTrg.SetNull();
+				if (m_DB.get_Prev(sidTrg))
+					m_DB.get_ChainWork(sidTrg.m_Row, wrkTrg);
+				else
+				{
+					sidTrg.SetNull();
+					wrkTrg = ECC::Zero;
+				}
+			}
 		}
 
 		bool bPathOk = true;
@@ -414,9 +439,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				return false;
 			}
 
-			if (m_Cursor.m_DifficultyNext != s.m_PoW.m_Difficulty)
+			if (m_Cursor.m_DifficultyNext.m_Packed != s.m_PoW.m_Difficulty.m_Packed)
 			{
-				LOG_WARNING() << id << " Difficulty expected=" << uint32_t(m_Cursor.m_DifficultyNext) << ", actual=" << uint32_t(s.m_PoW.m_Difficulty);
+				LOG_WARNING() << id << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
 				return false;
 			}
 
@@ -483,7 +508,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	if (bOk)
 	{
 		AdjustCumulativeParams(block, bFwd);
-
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
 
@@ -1104,7 +1128,7 @@ bool NodeProcessor::TxPool::Element::Profit::operator < (const Profit& t) const
 
 /////////////////////////////
 // Block generation
-uint8_t NodeProcessor::get_NextDifficulty()
+Difficulty NodeProcessor::get_NextDifficulty()
 {
 	if (!m_Cursor.m_Sid.m_Row)
 		return 0; // 1st block difficulty 0
@@ -1120,7 +1144,7 @@ uint8_t NodeProcessor::get_NextDifficulty()
 	Block::SystemState::Full s2;
 	m_DB.get_State(rowid, s2);
 
-	uint8_t ret = m_Cursor.m_Full.m_PoW.m_Difficulty;
+	Difficulty ret = m_Cursor.m_Full.m_PoW.m_Difficulty;
 	Rules::get().AdjustDifficulty(ret, s2.m_TimeStamp, m_Cursor.m_Full.m_TimeStamp);
 	return ret;
 }
