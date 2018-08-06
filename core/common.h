@@ -208,6 +208,7 @@ namespace beam
 		uint32_t TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
 		uint32_t WindowForMedian			= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
 
+		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
 
 		ECC::Hash::Value Checksum;

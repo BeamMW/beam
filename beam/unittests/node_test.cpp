@@ -1185,6 +1185,7 @@ int main()
 	//	ports, wrong beacon and etc.
 	verify_test(beam::helpers::ProcessWideLock("/tmp/BEAM_node_test_lock"));
 
+	beam::Rules::get().AllowPublicUtxos = true;
 	beam::Rules::get().FakePoW = true;
 	beam::Rules::get().UpdateChecksum();
 

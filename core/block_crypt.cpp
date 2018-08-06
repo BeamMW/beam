@@ -178,6 +178,9 @@ namespace beam
 		if (!m_pPublic)
 			return false;
 
+		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
+			return false;
+
 		return m_pPublic->IsValid(comm, oracle);
 	}
 
@@ -896,6 +899,7 @@ namespace beam
 			<< MaturityStd
 			<< MaxBodySize
 			<< FakePoW
+			<< AllowPublicUtxos
 			<< DesiredRate_s
 			<< DifficultyReviewCycle
 			<< MaxDifficultyChange
