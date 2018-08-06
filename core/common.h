@@ -464,7 +464,7 @@ namespace beam
 
 			std::array<uint8_t, nSolutionBytes>	m_Indices;
 
-			typedef ECC::uintBig_t<88> NonceType;
+			typedef ECC::uintBig_t<80> NonceType;
 			NonceType m_Nonce; // 11 bytes. The overall solution size is 64 bytes.
 			Difficulty m_Difficulty;
 
