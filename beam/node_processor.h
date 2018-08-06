@@ -53,7 +53,7 @@ class NodeProcessor
 
 	void InitCursor();
 	static void OnCorrupted();
-	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
+	void get_Definition(Merkle::Hash&, bool bForNextState);
 	bool IsRelevantHeight(Height);
 	Difficulty get_NextDifficulty();
 	Timestamp get_MovingMedian();
@@ -89,6 +89,8 @@ public:
 	} m_Cursor;
 
 	void get_CurrentLive(Merkle::Hash&);
+	void get_CurrentPart2(Merkle::Hash&, bool bForNextState);
+	void get_ChainWork(Merkle::Hash&, bool bForNextState);
 
 	// Export compressed history elements. Suitable only for "small" ranges, otherwise may be both time & memory consumng.
 	void ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);

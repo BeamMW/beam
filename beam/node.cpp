@@ -1364,7 +1364,10 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 			m_This.m_Processor.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height);
 
 			msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+			msgOut.m_Proof.back().first = true;
+			m_This.m_Processor.get_ChainWork(msgOut.m_Proof.back().second, false);
 
+			msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 			msgOut.m_Proof.back().first = true;
 			m_This.m_Processor.get_CurrentLive(msgOut.m_Proof.back().second);
 		}
@@ -1392,7 +1395,7 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 		msgOut.m_Proof.back().first = false;
-		msgOut.m_Proof.back().second = m_This.m_Processor.m_Cursor.m_History;
+		m_This.m_Processor.get_CurrentPart2(msgOut.m_Proof.back().second, false);
 	}
 }
 
@@ -1402,7 +1405,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	{
 		proto::ProofUtxo m_Msg;
 		UtxoTree* m_pTree;
-		const Merkle::Hash* m_phvHistory;
+		Merkle::Hash m_hvPart2;
 		Merkle::Hash m_hvKernels;
 
 		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
@@ -1426,7 +1429,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 
 			ret.m_Proof.resize(ret.m_Proof.size() + 1);
 			ret.m_Proof.back().first = false;
-			ret.m_Proof.back().second = *m_phvHistory;
+			ret.m_Proof.back().second = m_hvPart2;
 
 			return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
 		}
@@ -1434,7 +1437,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 
 	t.m_pTree = &m_This.m_Processor.get_Utxos();
 	m_This.m_Processor.get_Kernels().get_Hash(t.m_hvKernels);
-	t.m_phvHistory = &m_This.m_Processor.m_Cursor.m_History;
+	m_This.m_Processor.get_CurrentPart2(t.m_hvPart2, false);
 
 	UtxoTree::Cursor cu;
 	t.m_pCu = &cu;
