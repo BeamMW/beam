@@ -4,5 +4,5 @@ add_test_snippet(wallet_test wallet)
 add_test_snippet(wallet_db_test wallet)
 
 add_executable(offline offline.cpp util.cpp)
-add_dependencies(offline wallet)
-target_link_libraries(offline wallet)
+add_dependencies(offline node wallet)
+target_link_libraries(offline node wallet)
