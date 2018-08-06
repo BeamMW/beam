@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "handshake.h"
 #include "protocol.h"
 #include "utility/logger.h"
@@ -28,9 +42,9 @@ void HandshakingPeers::setup(Protocol& protocol, uint16_t thisNodeListenPort, Pe
     Handshake hs;
     hs.peerId = thisPeerId;
     hs.listensTo = thisNodeListenPort;
-    _message = protocol.serialize(HANDSHAKE_MSG_TYPE, hs);
-    _duplicateConnectionErrorMsg = protocol.serialize(HANDSHAKE_ERROR_MSG_TYPE, HandshakeError{HandshakeError::duplicate_connection});
-    _peerRejectedErrorMsg = protocol.serialize(HANDSHAKE_ERROR_MSG_TYPE, HandshakeError{HandshakeError::peer_rejected});
+    _message = protocol.serialize(HANDSHAKE_MSG_TYPE, hs, true);
+    _duplicateConnectionErrorMsg = protocol.serialize(HANDSHAKE_ERROR_MSG_TYPE, HandshakeError{HandshakeError::duplicate_connection}, true);
+    _peerRejectedErrorMsg = protocol.serialize(HANDSHAKE_ERROR_MSG_TYPE, HandshakeError{HandshakeError::peer_rejected}, true);
 }
 
 void HandshakingPeers::on_new_connection(Connection::Ptr&& conn) {

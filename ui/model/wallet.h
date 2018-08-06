@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include <QObject>
@@ -13,6 +27,9 @@ struct IWalletModelAsync
 
     virtual void sendMoney(beam::WalletID receiver, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
 	virtual void syncWithNode() = 0;
+    virtual void calcChange(beam::Amount&& amount) = 0;
+    virtual void getAvaliableUtxos() = 0;
+    virtual void cancelTx(beam::TxID id) = 0;
 
 	virtual ~IWalletModelAsync() {}
 };
@@ -35,6 +52,7 @@ struct WalletStatus
 class WalletModel 
 	: public QThread
 	, private beam::IWalletObserver
+    , private IWalletModelAsync
 {
 	Q_OBJECT
 public:
@@ -51,6 +69,8 @@ signals:
 	void onTxStatus(const std::vector<beam::TxDescription>& history);
 	void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
 	void onSyncProgressUpdated(int done, int total);
+    void onChangeCalculated(beam::Amount change);
+    void onUtxoChanged(const std::vector<beam::Coin>& utxos);
 
 private:
 	void onKeychainChanged() override;
@@ -59,15 +79,23 @@ private:
 	void onTxPeerChanged() override;
 	void onSyncProgress(int done, int total) override;
 
+    void sendMoney(beam::WalletID receiver, beam::Amount&& amount, beam::Amount&& fee) override;
+    void syncWithNode() override;
+    void calcChange(beam::Amount&& amount) override;
+    void getAvaliableUtxos() override;
+    void cancelTx(beam::TxID id) override;
+
 	void onStatusChanged();
 	WalletStatus getStatus() const;
+    std::vector<beam::Coin> getUtxos() const;
 private:
 
 	uint16_t _port;
 	std::string _nodeAddrString;
 
 	beam::IKeyChain::Ptr _keychain;
-	beam::io::Reactor::Ptr _reactor;
-	std::shared_ptr<beam::WalletNetworkIO> _wallet_io;
-    std::shared_ptr<beam::Wallet> _wallet;
+    beam::io::Reactor::Ptr _reactor;
+    std::weak_ptr<beam::INetworkIO> _wallet_io;
+    std::weak_ptr<beam::Wallet> _wallet;
+    beam::io::Timer::Ptr _logRotateTimer;
 };

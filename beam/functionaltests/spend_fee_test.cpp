@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "beam/node.h"
 #include "utility/logger.h"
 #include "tools/base_node_connection.h"
@@ -12,10 +26,10 @@ class TestNodeConnection : public BaseTestNode
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	virtual void GenerateTests() override;
-	virtual void OnMsg(proto::NewTip&&) override;
-	virtual void OnMsg(proto::Boolean&&) override;
-	virtual void OnMsg(proto::Mined&&) override;
+	void GenerateTests() override;
+	void OnMsg(proto::NewTip&&) override;
+	void OnMsg(proto::Boolean&&) override;
+	void OnMsg(proto::Mined&&) override;
 
 private:
 	bool m_IsInit;
@@ -83,7 +97,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		if(++m_Counter >= 2)
 		{
 			m_CoinsChecker.Check(m_Generator.GenerateInputsFromOutputs(),
-				[this](bool isOk, Height maturity)
+				[this](bool isOk, Height)
 				{
 					if (isOk)
 					{
@@ -131,7 +145,7 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 			m_FeeGenerator.GenerateKernel(mined.m_ID.m_Height + 1);
 
 			m_CoinsChecker.Check(CoinsChecker::Inputs{ *m_FeeGenerator.GetTransaction().m_Transaction->m_vInputs.front() }, 
-				[this] (bool isOk, Height maturity)
+				[this] (bool isOk, Height)
 				{
 					if (isOk)
 					{

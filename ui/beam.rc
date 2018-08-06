@@ -1,0 +1,30 @@
+101 ICON "icon.ico"
+
+1 VERSIONINFO
+	FILEVERSION 0,0,1,0
+	PRODUCTVERSION 0,0,1,0
+	FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+	FILEFLAGS 0x1L
+#else
+	FILEFLAGS 0x0L
+#endif
+	FILEOS 0x40004L
+	FILETYPE 0x0L
+	FILESUBTYPE 0x0L
+BEGIN
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "040904E4"
+		BEGIN
+			VALUE "CompanyName", "Beam"
+			VALUE "FileDescription", "Beam"
+			VALUE "FileVersion", "0.0.1.0"
+			VALUE "InternalName", "beam-ui.exe"
+			VALUE "LegalCopyright", "https://beam-mw.com (C) 2018"
+			VALUE "OriginalFilename", "beam-ui.exe"
+			VALUE "ProductName", "Beam"
+			VALUE "ProductVersion", "0.0.1.0"
+		END
+	END
+END

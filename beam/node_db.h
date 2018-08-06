@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include "../core/common.h"
@@ -57,6 +71,8 @@ public:
 			StateSetFlags,
 			StateGetFlags0,
 			StateGetFlags1,
+			StateSetChainWork,
+			StateGetChainWork,
 			StateGetNextCount,
 			StateSetPeer,
 			StateGetPeer,
@@ -228,8 +244,9 @@ public:
 		bool MoveNext();
 	};
 
-	void EnumTips(WalkerState&); // lowest to highest
-	void EnumFunctionalTips(WalkerState&); // highest to lowest
+	void EnumTips(WalkerState&); // height lowest to highest
+	void EnumFunctionalTips(WalkerState&); // chainwork highest to lowest
+
 	void EnumStatesAt(WalkerState&, Height);
 	void EnumAncestors(WalkerState&, const StateID&);
 	bool get_Prev(StateID&);
@@ -239,6 +256,8 @@ public:
 
     void get_Proof(Merkle::Proof&, const StateID& sid, Height hPrev);
     void get_PredictedStatesHash(Merkle::Hash&, const StateID& sid); // For the next block.
+
+	void get_ChainWork(uint64_t, Difficulty::Raw&);
 
 	// the following functions move the curos, and mark the states with 'Active' flag
 	void MoveBack(StateID&);
@@ -347,14 +366,15 @@ private:
 
 	void TipAdd(uint64_t rowid, Height);
 	void TipDel(uint64_t rowid, Height);
-	void TipReachableAdd(uint64_t rowid, Height);
-	void TipReachableDel(uint64_t rowid, Height);
+	void TipReachableAdd(uint64_t rowid);
+	void TipReachableDel(uint64_t rowid);
 	void SetNextCount(uint64_t rowid, uint32_t);
 	void SetNextCountFunctional(uint64_t rowid, uint32_t);
-	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
+	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, Difficulty::Raw&, bool);
 	void BuildMmr(uint64_t rowid, uint64_t rowPrev, Height);
 	void put_Cursor(const StateID& sid); // jump
 	void ModifySpendableSafe(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta);
+	void set_ChainWork(uint64_t, const Difficulty::Raw&);
 
 	void TestChanged1Row();
 

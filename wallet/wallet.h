@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include "wallet/wallet_db.h"
@@ -34,9 +48,11 @@ namespace beam
 
 		virtual void subscribe(IWalletObserver* observer) = 0;
 		virtual void unsubscribe(IWalletObserver* observer) = 0;
+
+        virtual void cancel_tx(const TxID& id) = 0;
     };
 
-    struct INetworkIO
+    struct INetworkIO 
     {
         using Ptr = std::shared_ptr<INetworkIO>;
         virtual ~INetworkIO() {}
@@ -125,7 +141,8 @@ namespace beam
 		void unsubscribe(IWalletObserver* observer) override;
 
         void handle_tx_registered(const TxID& txId, bool res);
-        void handle_tx_failed(const TxID& txId);
+
+        void cancel_tx(const TxID& txId) override;
 
     private:
         void remove_peer(const TxID& txId);
@@ -178,10 +195,12 @@ namespace beam
         std::deque<Coin> m_pendingProofs;
         std::vector<Callback> m_pendingEvents;
 
+        bool m_isValidDefinition;
         Merkle::Hash m_Definition;
         Block::SystemState::ID m_knownStateID;
         Block::SystemState::ID m_newStateID;
         std::unique_ptr<StateFinder> m_stateFinder;
+        boost::optional<Merkle::Proof> m_knownStateProof;
 
         int m_syncDone;
         int m_syncTotal;

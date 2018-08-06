@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #define LOG_VERBOSE_ENABLED 0
 
 #include "wallet/wallet_network.h"
@@ -78,10 +92,16 @@ namespace
         std::vector<TxPeer> getPeers() override { return {}; };
         void addPeer(const TxPeer&) override {}
         boost::optional<TxPeer> getPeer(const WalletID&) override { return boost::optional<TxPeer>{}; }
+		void clearPeers() override {}
 
         Height getCurrentHeight() const override
         {
             return 134;
+        }
+
+        uint64_t getKnownStateCount() const override
+        {
+            return 0;
         }
 
         Block::SystemState::ID getKnownStateID(Height height) override
@@ -366,7 +386,7 @@ namespace
                 d.reset(&buf[0], buf.size());
                 Msg msg;
                 d & msg;
-                m_peers[peerId]->handle_tx_message(to, move(msg));
+                m_peers[peerId]->handle_tx_message(move(msg));
             });
             onSent();
         }
@@ -671,7 +691,7 @@ void TestP2PWalletNegotiationST()
     TxPeer receiverPeer = {};
     receiverPeer.m_walletID = uint64_t(12345678912345);
     receiverPeer.m_address = receiver_address.str();
-
+    
     senderKeychain->addPeer(receiverPeer);
 
     TxPeer senderPeer = {};
@@ -746,7 +766,7 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newSenderCoins[3].m_amount == 9);
     WALLET_CHECK(newSenderCoins[3].m_status == Coin::Unspent);
     WALLET_CHECK(newSenderCoins[3].m_key_type == KeyType::Regular);
-
+    
     // Tx history check
     sh = senderKeychain->getTxHistory();
     WALLET_CHECK(sh.size() == 1);
@@ -795,7 +815,7 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
     WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unconfirmed);
     WALLET_CHECK(newReceiverCoins[0].m_key_type == KeyType::Regular);
-
+    
     WALLET_CHECK(newReceiverCoins[1].m_amount == 6);
     WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Unconfirmed);
     WALLET_CHECK(newReceiverCoins[1].m_key_type == KeyType::Regular);
@@ -862,7 +882,7 @@ void TestP2PWalletNegotiationST()
         return true;
     });
 
-    // no coins
+    // no coins 
     WALLET_CHECK(newSenderCoins.size() == 5);
     WALLET_CHECK(newReceiverCoins.size() == 2);
 
@@ -1078,7 +1098,7 @@ void TestP2PWalletNegotiationST()
          return true;
      });
 
-     // no coins
+     // no coins 
      WALLET_CHECK(newSenderCoins.size() == 5);
      WALLET_CHECK(newReceiverCoins.size() == 2);
 
@@ -1196,9 +1216,12 @@ struct MyMmr : public Merkle::Mmr
 
 struct RollbackIO : public TestNetwork
 {
-    RollbackIO(IOLoop& mainLoop, const MyMmr& mmr)
+    RollbackIO(IOLoop& mainLoop, const MyMmr& mmr, Height branch, Height current, unsigned step)
         : TestNetwork(mainLoop)
         , m_mmr(mmr)
+        , m_branch(branch)
+        , m_current(current)
+        , m_step(step)
     {
 
 
@@ -1206,16 +1229,24 @@ struct RollbackIO : public TestNetwork
 
     void InitHdr(proto::Hdr& msg) override
     {
-        msg.m_Description.m_Height = 99;
+        msg.m_Description.m_Height = m_current;
         m_mmr.get_Hash(msg.m_Description.m_Definition);
     }
 
     void send_node_message(beam::proto::GetProofState&& msg) override
     {
-        cout << "Rollback. GetProofState\n";
+        cout << "Rollback. GetProofState Height=" << msg.m_Height << "\n";
         Merkle::Proof proof;
         m_mmr.get_Proof(proof, msg.m_Height);
         enqueueNetworkTask([this, proof]{ m_peers[0]->handle_node_message(proto::Proof{proof}); });
+    }
+
+    void send_node_message(proto::GetMined&& data) override
+    {
+        Height h = m_step > 1 ? m_step * Height((m_branch - 1) / m_step) : m_branch - 1;
+        assert(data.m_HeightMin == Rules::HeightGenesis || data.m_HeightMin == h);
+        WALLET_CHECK(data.m_HeightMin == Rules::HeightGenesis || data.m_HeightMin == h);
+        TestNetwork::send_node_message(move(data));
     }
 
     void close_node_connection() override
@@ -1224,21 +1255,23 @@ struct RollbackIO : public TestNetwork
     }
 
     const MyMmr& m_mmr;
+    Height m_branch;
+    Height m_current;
+    unsigned m_step;
 };
 
-void TestRollback(Height branch, Height current)
+void TestRollback(Height branch, Height current, unsigned step = 1)
 {
-    cout << "\nRollback from " << current << " to " << branch << '\n';
-
+    cout << "\nRollback from " << current << " to " << branch << " step: " << step <<'\n';
     auto db = createSqliteKeychain("wallet.db");
-
+    
     MyMmr mmrNew, mmrOld;
 
     for (Height i = 0; i <= current; ++i)
     {
         Coin coin1 = { 5, Coin::Unspent, 1, 10, KeyType::Regular, i };
         Merkle::Hash hash = {};
-        hash = i + 2;
+        ECC::Hash::Processor() << i >> hash;
         coin1.m_confirmHash = hash;
         mmrOld.Append(hash);
         if (i < branch)
@@ -1247,11 +1280,13 @@ void TestRollback(Height branch, Height current)
         }
         else // change history
         {
-            hash = i + 3;
+            ECC::Hash::Processor() << (i + current + 1) >> hash;
             mmrNew.Append(hash);
         }
-
-        db->store(coin1);
+        if (i % step == 0)
+        {
+            db->store(coin1);
+        }
     }
 
     Merkle::Hash newStateDefinition;
@@ -1264,7 +1299,8 @@ void TestRollback(Height branch, Height current)
 
     beam::Block::SystemState::ID id = {};
     id.m_Height = current;
-    id.m_Hash = unsigned(current + 2);
+    ECC::Hash::Processor() << current >> id.m_Hash;
+
     db->setSystemStateID(id);
 
     for (Height i = branch; i <= current ; ++i)
@@ -1272,7 +1308,7 @@ void TestRollback(Height branch, Height current)
         Merkle::Proof proof;
         mmrNew.get_Proof(proof, i);
         Merkle::Hash hash = {};
-        hash = i + 3;
+        ECC::Hash::Processor() << (i + current + 1) >> hash;
         Merkle::Interpret(hash, proof);
         WALLET_CHECK(hash == newStateDefinition);
     }
@@ -1282,7 +1318,7 @@ void TestRollback(Height branch, Height current)
         Merkle::Proof proof;
         mmrNew.get_Proof(proof, i);
         Merkle::Hash hash = {};
-        hash = i + 2;
+        ECC::Hash::Processor() << i >> hash;
         Merkle::Interpret(hash, proof);
         WALLET_CHECK(hash == newStateDefinition);
     }
@@ -1292,28 +1328,44 @@ void TestRollback(Height branch, Height current)
         Merkle::Proof proof;
         mmrOld.get_Proof(proof, i);
         Merkle::Hash hash = {};
-        hash = i + 2;
+        ECC::Hash::Processor() << i >> hash;
+        
         Merkle::Interpret(hash, proof);
         WALLET_CHECK(hash == oldStateDefinition);
     }
 
     IOLoop mainLoop;
-    auto network = make_shared<RollbackIO>(mainLoop, mmrNew);
+    auto network = make_shared<RollbackIO>(mainLoop, mmrNew, branch, current, step);
 
     Wallet sender(db, network);
-
+    
     network->registerPeer(&sender, true);
-
+    
     mainLoop.run();
 }
 
 void TestRollback()
 {
     cout << "\nTesting wallet rollback...\n";
-    TestRollback(0, 0);
+    Height s = 10;
+    for (Height i = 1; i <= s; ++i)
+    {
+        TestRollback(i, s);
+        TestRollback(i, s, 2);
+    }
+    s = 11;
+    for (Height i = 1; i <= s; ++i)
+    {
+        TestRollback(i, s);
+        TestRollback(i, s, 2);
+    }
+    
     TestRollback(0, 1);
     TestRollback(2, 50);
     TestRollback(2, 51);
+    TestRollback(93, 120);
+    TestRollback(93, 120, 6);
+    TestRollback(93, 120, 7);
     TestRollback(99, 100);
 }
 

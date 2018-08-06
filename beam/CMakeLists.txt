@@ -10,9 +10,15 @@ target_link_libraries(node sqlite core p2p pow)
 
 add_executable(beam beam.cpp)
 
+configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
+target_include_directories(beam PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+
 add_dependencies(beam node wallet)
 
 target_link_libraries(beam node wallet)
 
 add_subdirectory(unittests)
 add_subdirectory(functionaltests)
+
+install(TARGETS beam DESTINATION .)
+install(FILES beam.cfg DESTINATION .)

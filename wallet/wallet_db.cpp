@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "wallet_db.h"
 #include "negotiator.h"
 #include "utility/logger.h"
@@ -125,8 +139,7 @@ namespace beam
 
             }
 
-            const pair<Amount, vector<Coin>>& select(Amount amount
-                                                   , Amount left)
+            const pair<Amount, vector<Coin>>& select(Amount amount, Amount left)
             {
                 if (left < amount || amount == 0)
                 {
@@ -679,7 +692,26 @@ namespace beam
             }
         }
         Amount sum = 0;
+        Coin coin2;
         {
+            // get one coin >= amount
+            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount>=?3 ORDER BY amount ASC LIMIT 1;");
+            stm.bind(1, Coin::Unspent);
+            stm.bind(2, stateID.m_Height);
+            stm.bind(3, amount);
+            if (stm.step())
+            {
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin2);
+                sum = coin2.m_amount;
+            }
+        }
+        if (sum == amount)
+        {
+            coins.push_back(coin2);
+        }
+        else
+        {
+            // select all coins less than needed amount in sorted order
             sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount<?3 ORDER BY amount DESC;");
             stm.bind(1, Coin::Unspent);
             stm.bind(2, stateID.m_Height);
@@ -692,36 +724,31 @@ namespace beam
                 ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
                 smallSum += coin.m_amount;
             }
-            if (smallSum > amount)
+            if (smallSum == amount)
+            {
+                coins.swap(candidats);
+            }
+            else if (smallSum > amount)
             {
                 CoinSelector s{ candidats };
                 auto t = s.select(amount, smallSum);
-                sum = t.first;
-                coins = t.second;
-            }
-            else if (smallSum == amount)
-            {
-                coins.swap(candidats);
-                sum = amount;
-            }
-        }
-        Coin coin2;
-        {
-            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount>=?3 ORDER BY amount ASC LIMIT 1;");
-            stm.bind(1, Coin::Unspent);
-            stm.bind(2, stateID.m_Height);
-            stm.bind(3, amount);
-            if (stm.step())
-            {
-                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin2);
-                if (sum < amount || coin2.m_amount <= sum)
+                
+                if (sum > amount && sum <= t.first)
                 {
-                    coins.clear();
+                    // prefer one coin instead on many
                     coins.push_back(coin2);
                 }
+                else
+                {
+                    coins = t.second;
+                }
+            }
+            else if (sum > amount)
+            {
+                coins.push_back(coin2);
             }
         }
-
+ 
         if (lock)
 		{
 			sqlite::Transaction trans(_db);
@@ -953,13 +980,25 @@ namespace beam
 		return 0;
 	}
 
+    uint64_t Keychain::getKnownStateCount() const
+    {
+        uint64_t count = 0;
+        {
+            sqlite::Statement stm(_db, "SELECT COUNT(DISTINCT confirmHash) FROM " STORAGE_NAME " ;");
+            stm.step();
+            stm.get(0, count);
+        }
+        return count;
+    }
+
     Block::SystemState::ID Keychain::getKnownStateID(Height height)
     {
         Block::SystemState::ID id = {};
-        const char* req = "SELECT confirmHeight, confirmHash FROM " STORAGE_NAME " where confirmHeight=?1 LIMIT 1;";
+        const char* req = "SELECT DISTINCT confirmHeight, confirmHash FROM " STORAGE_NAME " WHERE confirmHeight >= ?2 LIMIT 1 OFFSET ?1;";
 
         sqlite::Statement stm(_db, req);
         stm.bind(1, height);
+        stm.bind(2, Rules::HeightGenesis);
         if (stm.step())
         {
             stm.get(0, id.m_Height);
@@ -1142,6 +1181,12 @@ namespace beam
         }
         return boost::optional<TxPeer>{};
     }
+
+	void Keychain::clearPeers()
+	{
+		sqlite::Statement stm(_db, "DELETE FROM " PEERS_NAME ";");
+		stm.step();
+	}
 
     void Keychain::subscribe(IKeyChainObserver* observer)
 	{
