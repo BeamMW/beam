@@ -100,6 +100,7 @@ namespace beam
             , m_syncHeight{newHeight}
             , m_count{ int64_t(keychain->getKnownStateCount()) }
             , m_step{0}
+            , m_id{}
             , m_keychain{keychain}
         {
 
@@ -141,6 +142,7 @@ namespace beam
         : m_keyChain{ keyChain }
         , m_network{ network }
         , m_tx_completed_action{move(action)}
+        , m_isValidDefinition{false}
         , m_Definition{}
         , m_knownStateID{}
         , m_newStateID{}
@@ -431,6 +433,8 @@ namespace beam
 
         m_pending_reg_requests.clear();
 
+        m_isValidDefinition = false;
+
         return true;
     }
 
@@ -440,6 +444,7 @@ namespace beam
         msg.m_Description.get_ID(newID);
         
         m_Definition = msg.m_Description.m_Definition;
+        m_isValidDefinition = true;
         m_newStateID = newID;
 
         if (newID == m_knownStateID)
@@ -452,12 +457,28 @@ namespace beam
         {
             // cold start
             do_fast_forward();
+            return true;
+        }
+        else if (m_knownStateProof.is_initialized())
+        { 
+            Merkle::Proof proof = move(*m_knownStateProof);
+            m_knownStateProof.reset();
+
+            Merkle::Hash hv = m_knownStateID.m_Hash;
+            Merkle::Interpret(hv, proof);
+
+            if (hv == m_Definition)
+            {
+                do_fast_forward();
+                return exit_sync();
+            }
         }
         else
         {
             enter_sync();
-            m_network->send_node_message(proto::GetProofState{ m_knownStateID.m_Height });
         }
+
+        m_network->send_node_message(proto::GetProofState{ m_knownStateID.m_Height });
 
         return true;
     }
@@ -496,6 +517,12 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::Proof&& msg)
     {
+        if (!m_isValidDefinition)
+        {
+            m_knownStateProof = move(msg.m_Proof);
+            return true;
+        }
+        
         Merkle::Hash hv = m_knownStateID.m_Hash;
         Merkle::Interpret(hv, msg.m_Proof);
 
@@ -512,7 +539,7 @@ namespace beam
                 }
                 else
                 {
-                    LOG_INFO() << "Restarting rollback..."; 
+                    LOG_INFO() << "Restarting rollback...";
                 }
                 m_stateFinder.reset(new StateFinder(m_newStateID.m_Height, m_keyChain));
                 enter_sync();
@@ -566,6 +593,7 @@ namespace beam
         copy(m_reg_requests.begin(), m_reg_requests.end(), back_inserter(m_pending_reg_requests));
         m_reg_requests.clear();
         m_pendingProofs.clear();
+        m_knownStateProof.reset();
 
         notifySyncProgress();
     }
