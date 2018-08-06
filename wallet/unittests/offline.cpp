@@ -70,48 +70,21 @@ WaitHandle run_node(const NodeParams& params) {
             beam::Node node;
 
             node.m_Cfg.m_Listen.port(params.nodeAddress.port());
-                node.m_Cfg.m_Listen.ip(params.nodeAddress.ip());
-                node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<string>();
-                node.m_Cfg.m_MiningThreads = 1;
-                node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
-				node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
-                if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
-                {
-                    LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
-                    return -1;
-                }
-                node.m_Cfg.m_WalletKey = walletSeed;
+            node.m_Cfg.m_Listen.ip(params.nodeAddress.ip());
+            node.m_Cfg.m_MiningThreads = 1;
+            node.m_Cfg.m_MinerID = 0;
+            node.m_Cfg.m_VerificationThreads = 1;
+            node.m_Cfg.m_WalletKey.V = params.walletSeed;
 
+            LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
-				node.m_Cfg.m_HistoryCompression.m_sPathOutput = vm[cli::HISTORY].as<string>();
-				node.m_Cfg.m_HistoryCompression.m_sPathTmp = vm[cli::TEMP].as<string>();
+			ReadTreasury(node.m_Cfg.m_vTreasury, "_sender_");
 
-                LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
+            LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_vTreasury.size();
 
-                if (vm.count(cli::TREASURY_BLOCK))
-                {
-                    string sPath = vm[cli::TREASURY_BLOCK].as<string>();
-					ReadTreasury(node.m_Cfg.m_vTreasury, sPath);
+            node.Initialize();
 
-					if (!node.m_Cfg.m_vTreasury.empty())
-						LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_vTreasury.size();
-                }
-
-				node.Initialize();
-
-				Height hImport = vm[cli::IMPORT].as<Height>();
-				if (hImport)
-					node.ImportMacroblock(hImport);
-
-                io::Timer::Ptr logRotateTimer = io::Timer::create(reactor);
-                logRotateTimer->start(
-                    LOG_ROTATION_PERIOD, true,
-                    []() {
-                        Logger::get()->rotate();
-                    }
-                );
-
-                reactor->run();
+            reactor->run();
         }
     );
 
@@ -148,13 +121,19 @@ int main(int argc, char* argv[]) {
     senderParams.nodeAddress = nodeAddress;
     receiverParams.nodeAddress = nodeAddress;
 
-    // TODO temporary initialization
-    senderParams.keychain = init_keychain("_sender", senderParams.pubKey, senderParams.privKey, true);
-    receiverParams.keychain = init_keychain("_receiver", receiverParams.pubKey, receiverParams.privKey, false);
+    NodeParams nodeParams;
+    nodeParams.nodeAddress = nodeAddress;
 
+    // TODO temporary initialization
+    senderParams.keychain = init_keychain("_sender", senderParams.pubKey, senderParams.privKey, &nodeParams.walletSeed);
+    receiverParams.keychain = init_keychain("_receiver", receiverParams.pubKey, receiverParams.privKey, 0);
+
+    WaitHandle nodeWH = run_node(nodeParams);
     WaitHandle senderWH = run_wallet(senderParams, receiverParams.pubKey);
     WaitHandle receiverWH = run_wallet(receiverParams, PubKey());
 
     senderWH.future.get();
     receiverWH.future.get();
+    nodeWH.reactor->stop();
+    nodeWH.future.get();
 }
