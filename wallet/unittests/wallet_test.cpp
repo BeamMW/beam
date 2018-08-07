@@ -435,7 +435,12 @@ namespace
         void send_node_message(beam::proto::GetProofState &&) override
         {
             cout << "GetProofState\n";
-            enqueueNetworkTask([this] {m_peers[0]->handle_node_message(proto::Proof{}); });
+
+			proto::ProofStateForDummies msg;
+
+            enqueueNetworkTask([this, msg] {
+				m_peers[0]->handle_node_message((proto::ProofStateForDummies&&) msg);
+			});
         }
 
         void close_connection(const beam::WalletID&) override
@@ -527,7 +532,7 @@ enum NodeNetworkMessageCodes : uint8_t
     GetMinedCode = 15,
     MinedCode = 16,
     GetProofStateCode = 8,
-    ProofCode = 11
+    ProofStateCode = 13
 };
 
 class TestNode : public IErrorHandler
@@ -585,7 +590,7 @@ private:
 
     bool on_message(uint64_t connectionId, proto::GetProofState&&)
     {
-        send(connectionId, ProofCode, proto::Proof{});
+        send(connectionId, ProofStateCode, proto::ProofStateForDummies{});
         return true;
     }
 
@@ -1202,9 +1207,11 @@ struct RollbackIO : public TestNetwork
     void send_node_message(beam::proto::GetProofState&& msg) override
     {
         cout << "Rollback. GetProofState Height=" << msg.m_Height << "\n";
-        Merkle::Proof proof;
-        m_mmr.get_Proof(proof, msg.m_Height);
-        enqueueNetworkTask([this, proof]{ m_peers[0]->handle_node_message(proto::Proof{proof}); });
+		proto::ProofStateForDummies msgOut;
+        m_mmr.get_Proof(msgOut.m_Proof, msg.m_Height);
+        enqueueNetworkTask([this, msgOut]{
+			m_peers[0]->handle_node_message((proto::ProofStateForDummies&&) msgOut);
+		});
     }
 
     void send_node_message(proto::GetMined&& data) override
