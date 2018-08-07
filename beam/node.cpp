@@ -1354,24 +1354,27 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 	if (msg.m_Height < Rules::HeightGenesis)
 		ThrowUnexpected();
 
-	proto::Proof msgOut;
+	proto::ProofStateForDummies msgOut;
 
-	const NodeDB::StateID& sid = m_This.m_Processor.m_Cursor.m_Sid;
-	if (sid.m_Row)
+	Processor& p = m_This.m_Processor;
+	const NodeDB::StateID& sid = p.m_Cursor.m_Sid;
+	if (sid.m_Row && (msg.m_Height < sid.m_Height))
 	{
-		if (msg.m_Height < sid.m_Height)
-		{
-			m_This.m_Processor.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height);
+		p.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height);
 
-			msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-			msgOut.m_Proof.back().first = true;
-			m_This.m_Processor.get_ChainWork(msgOut.m_Proof.back().second, false);
+		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+		msgOut.m_Proof.back().first = true;
+		p.get_ChainWork(msgOut.m_Proof.back().second, false);
 
-			msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-			msgOut.m_Proof.back().first = true;
-			m_This.m_Processor.get_CurrentLive(msgOut.m_Proof.back().second);
-		}
+		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+		msgOut.m_Proof.back().first = true;
+		p.get_CurrentLive(msgOut.m_Proof.back().second);
+
+		uint64_t rowid = p.FindActiveAtStrict(msg.m_Height);
+		p.get_DB().get_State(rowid, msgOut.m_Hdr);
 	}
+	else
+		ZeroObject(msgOut.m_Hdr);
 
 	Send(msgOut);
 }

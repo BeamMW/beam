@@ -65,6 +65,10 @@ namespace proto {
 #define BeamNodeMsg_ProofUtxo(macro) \
 	macro(std::vector<Input::Proof>, Proofs)
 
+#define BeamNodeMsg_ProofStateForDummies(macro) \
+	macro(Merkle::Proof, Proof) \
+	macro(Block::SystemState::Full, Hdr)
+
 #define BeamNodeMsg_GetMined(macro) \
 	macro(Height, HeightMin)
 
@@ -154,6 +158,7 @@ namespace proto {
 	macro(10, GetProofUtxo) \
 	macro(11, Proof) /* for states and kernels */ \
 	macro(12, ProofUtxo) \
+	macro(13, ProofStateForDummies) \
 	macro(15, GetMined) \
 	macro(16, Mined) \
 	macro(20, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
