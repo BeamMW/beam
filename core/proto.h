@@ -290,6 +290,7 @@ namespace proto {
 		SerializedMsg m_SerializeCache;
 
 		void TestIoResultAsync(const io::Result& res);
+		void TestInputMsgContext(uint8_t);
 
 		static void OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode);
 		void OnConnectInternal2(io::TcpStream::Ptr&& newStream, io::ErrorCode);
@@ -329,7 +330,7 @@ namespace proto {
 
 		const Connection* get_Connection() { return m_Connection.get(); }
 
-		virtual void OnConnected() {}
+		virtual void OnConnectedSecure() {}
 
 		struct ByeReason
 		{

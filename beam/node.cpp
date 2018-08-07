@@ -758,15 +758,9 @@ void Node::Peer::GenerateSChannelNonce(ECC::Scalar::Native& nonce)
 	nonce.GenerateNonce(m_This.m_Cfg.m_WalletKey.V, hv, NULL);
 }
 
-void Node::Peer::OnConnected()
+void Node::Peer::OnConnectedSecure()
 {
 	LOG_INFO() << "Peer " << m_RemoteAddr << " Connected";
-	SecureConnect();
-}
-
-void Node::Peer::OnMsg(proto::SChannelReady&& msg)
-{
-	proto::NodeConnection::OnMsg(std::move(msg));
 
 	m_bConnected = true;
 
@@ -1632,7 +1626,7 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
         LOG_DEBUG() << "New peer connected: " << newStream->address();
 		Peer* p = get_ParentObj().AllocPeer(newStream->peer_address());
 		p->Accept(std::move(newStream));
-		p->OnConnected();
+		p->SecureConnect();
 	}
 }
 

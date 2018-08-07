@@ -166,7 +166,7 @@ namespace beam
             void connect(NodeConnectCallback&& cb);
         private:
             // NodeConnection
-            void OnConnected() override;
+            void OnConnectedSecure() override;
 			void OnDisconnect(const DisconnectReason&) override;
 			bool OnMsg2(proto::Boolean&& msg) override;
             bool OnMsg2(proto::ProofUtxo&& msg) override;

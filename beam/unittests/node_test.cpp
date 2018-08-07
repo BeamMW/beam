@@ -802,7 +802,7 @@ namespace beam
 				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
 			}
 
-			virtual void OnConnected() override {
+			virtual void OnConnectedSecure() override {
 				OnTimer();
 			}
 
@@ -922,31 +922,13 @@ namespace beam
 				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
 			}
 
-			virtual void OnConnected() override {
-				SetTimer(90*1000);
-				SecureConnect();
-			}
-
-			void GenerateSChannelNonce(ECC::Scalar::Native& nonce) override
+			virtual void OnConnectedSecure() override
 			{
-				ECC::SetRandom(nonce);
-			}
-
-			virtual void OnMsg(proto::SChannelInitiate&& msg) override
-			{
-				proto::NodeConnection::OnMsg(std::move(msg));
-				assert(IsSecureOut());
+				SetTimer(90 * 1000);
 
 				ECC::Scalar::Native sk;
 				DeriveKey(sk, m_Wallet.m_Kdf, 0, KeyType::Identity);
-
 				ProveID(sk, proto::IDType::Owner);
-			}
-
-			virtual void OnMsg(proto::SChannelReady&& msg) override
-			{
-				proto::NodeConnection::OnMsg(std::move(msg));
-				assert(IsSecureIn());
 
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
@@ -1127,7 +1109,7 @@ namespace beam
 		struct MyClient2
 			:public proto::NodeConnection
 		{
-			virtual void OnConnected() override {
+			virtual void OnConnectedSecure() override {
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
 				msgCfg.m_CfgChecksum = Rules::get().Checksum;

@@ -393,7 +393,7 @@ namespace beam {
         }
     }
 
-    void WalletNetworkIO::WalletNodeConnection::OnConnected()
+    void WalletNetworkIO::WalletNodeConnection::OnConnectedSecure()
     {
         LOG_INFO() << "Wallet connected to node";
         m_connecting = false;
