@@ -25,6 +25,8 @@ struct IKeyStore {
     /// Creates a new keypair, returns the public key and stores the private key
     virtual void gen_keypair(PubKey& pubKey, const void* password, size_t passwordLen, bool enable) = 0;
 
+    virtual size_t size() = 0;
+
     /// return public keys for enabled keypairs
     virtual void get_enabled_keys(std::set<PubKey>& enabledKeys) = 0;
 

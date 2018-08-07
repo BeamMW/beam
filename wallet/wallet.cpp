@@ -68,7 +68,7 @@ namespace beam
                 << beams.data();
             return os;
         }
-        
+
         if (amount.m_value >= Rules::Coin)
         {
             os << setw(width - beams.length()) << Amount(amount.m_value / Rules::Coin) << beams.data();
@@ -221,7 +221,7 @@ namespace beam
         }
 
         // m_network->close_connection(tx.m_peerId);
- 
+
         // remove state machine from db
         auto t = m_keyChain->getTx(tx.m_txId);
         if (t.is_initialized())
@@ -229,7 +229,7 @@ namespace beam
             t->m_fsmState.clear();
             m_keyChain->saveTx(*t);
         }
-        
+
 
         if (m_tx_completed_action)
         {
@@ -262,14 +262,14 @@ namespace beam
         send_tx_message(tx, wallet::TxRegistered{ tx.m_peerId, tx.m_txId, true });
     }
 
-    void Wallet::handle_tx_message(const WalletID& myId, Invite&& msg)
+    void Wallet::handle_tx_message(const WalletID& receiver, Invite&& msg)
     {
         auto it = m_negotiators.find(msg.m_txId);
         if (it == m_negotiators.end())
         {
             LOG_VERBOSE() << "Received tx invitation " << msg.m_txId;
             bool sender = !msg.m_send;
-            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, myId, {}, getTimestamp(), sender };
+            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, receiver, {}, getTimestamp(), sender };
             auto r = make_shared<Negotiator>(*this, m_keyChain, tx);
             m_negotiators.emplace(tx.m_txId, r);
             Cleaner c{ m_removedNegotiators };
@@ -299,8 +299,8 @@ namespace beam
             LOG_DEBUG() << ReceiverPrefix << "Unexpected tx invitation " << msg.m_txId;
         }
     }
-    
-    void Wallet::handle_tx_message(ConfirmTransaction&& data)
+
+    void Wallet::handle_tx_message(const WalletID& receiver, ConfirmTransaction&& data)
     {
         LOG_DEBUG() << ReceiverPrefix << "Received sender tx confirmation " << data.m_txId;
         if (!process_event(data.m_txId, events::TxConfirmationCompleted{ data }))
@@ -311,7 +311,7 @@ namespace beam
         }
     }
 
-    void Wallet::handle_tx_message(ConfirmInvitation&& data)
+    void Wallet::handle_tx_message(const WalletID& receiver, ConfirmInvitation&& data)
     {
         LOG_VERBOSE() << SenderPrefix << "Received tx confirmation " << data.m_txId;
         if (!process_event(data.m_txId, events::TxInvitationCompleted{ data }))
@@ -320,12 +320,12 @@ namespace beam
         }
     }
 
-    void Wallet::handle_tx_message(wallet::TxRegistered&& data)
+    void Wallet::handle_tx_message(const WalletID& receiver, wallet::TxRegistered&& data)
     {
         process_event(data.m_txId, events::TxRegistrationCompleted{});
     }
 
-    void Wallet::handle_tx_message(wallet::TxFailed&& data)
+    void Wallet::handle_tx_message(const WalletID& receiver, wallet::TxFailed&& data)
     {
         LOG_DEBUG() << "tx " << data.m_txId << " failed";
         process_event(data.m_txId, events::TxFailed(false));
@@ -437,7 +437,7 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::NewTip&& msg)
     {
-        // TODO: restore from wallet db 
+        // TODO: restore from wallet db
         for (auto& r : m_pending_reg_requests)
         {
             register_tx(r.first, r.second);
@@ -454,7 +454,7 @@ namespace beam
     {
         Block::SystemState::ID newID = {};
         msg.m_Description.get_ID(newID);
-        
+
         m_Definition = msg.m_Description.m_Definition;
         m_isValidDefinition = true;
         m_newStateID = newID;
@@ -472,7 +472,7 @@ namespace beam
             return true;
         }
         else if (m_knownStateProof.is_initialized())
-        { 
+        {
             Merkle::Proof proof = move(*m_knownStateProof);
             m_knownStateProof.reset();
 
@@ -503,7 +503,7 @@ namespace beam
         {
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
-                // coinbase 
+                // coinbase
                 mined.emplace_back(Rules::get().CoinbaseEmission
                                  , Coin::Unconfirmed
                                  , minedCoin.m_ID.m_Height
@@ -534,7 +534,7 @@ namespace beam
             m_knownStateProof = move(msg.m_Proof);
             return true;
         }
-        
+
         Merkle::Hash hv = m_knownStateID.m_Hash;
         Merkle::Interpret(hv, msg.m_Proof);
 
@@ -653,7 +653,7 @@ namespace beam
         }
         ++m_syncTotal;
         report_sync_progress();
-        
+
     }
 
     bool Wallet::exit_sync()

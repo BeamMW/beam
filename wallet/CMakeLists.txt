@@ -6,7 +6,6 @@ set(WALLET_SRC
     negotiator.cpp
     wallet_network.cpp
     wallet_db.cpp
-    bbsutil.cpp
     keystore.cpp
 )
 

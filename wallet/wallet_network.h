@@ -17,7 +17,7 @@
 #include "p2p/protocol.h"
 #include "p2p/connection.h"
 #include "p2p/msg_reader.h"
-#include "bbsutil.h"
+#include "keystore.h"
 #include "utility/bridge.h"
 #include "utility/logger.h"
 #include "core/proto.h"
@@ -38,6 +38,11 @@ namespace beam
         failedCode
     };
 
+    inline uint32_t channel_from_wallet_id(const WalletID& walletID) {
+        // TODO to be reviewed, 32 channels
+        return walletID.m_pData[0] >> 3;
+    }
+
     class WalletNetworkIO : public IErrorHandler
                           , public NetworkIOBase
     {
@@ -47,6 +52,7 @@ namespace beam
 
         WalletNetworkIO(io::Address node_address
                       , IKeyChain::Ptr keychain
+                      , IKeyStore::Ptr keyStore
                       , io::Reactor::Ptr reactor = io::Reactor::Ptr()
                       , unsigned reconnect_ms = 1000 // 1 sec
                       , unsigned sync_period_ms = 60 * 1000  // 1 minute
@@ -60,7 +66,6 @@ namespace beam
 
         // TODO now from add_wallet ???
         void listen_to_bbs_channel(uint32_t channel);
-        void add_key_pair(const util::PubKey& pubKey, const util::PrivKey& privKey);
 
     private:
         // INetworkIO
@@ -98,24 +103,26 @@ namespace beam
         void on_node_connected();
 
         void create_node_connection();
-    private:
+
         template <typename T>
-        void send(const WalletID& walletID, MsgType type, T&& msg)
+        void send(const WalletID& walletID, MsgType type, T&& msg, const WalletID* from=0)
         {
             update_wallets(walletID);
 
-            // send BBS message
+            msg.m_from = from ? *from : *m_myPubKeys.begin();
 
-            //listen_to_bbs_channel(util::channel_from_wallet_id(msg.m_from));
-            uint32_t channel = util::channel_from_wallet_id(walletID);
+            uint32_t channel = channel_from_wallet_id(walletID);
             LOG_DEBUG() << "BBS send message to channel=" << channel << "[" << to_hex(walletID.m_pData, 32) << "]  my pubkey=" << to_hex(msg.m_from.m_pData, 32);
             proto::BbsMsg bbsMsg;
             bbsMsg.m_Channel = channel;
             bbsMsg.m_TimePosted = getTimestamp();
             m_protocol.serialize(m_msgToSend, type, msg);
-            util::encrypt(bbsMsg.m_Message, m_msgToSend, walletID);
 
-            send_to_node(std::move(bbsMsg));
+            if (!m_keystore->encrypt(bbsMsg.m_Message, m_msgToSend, walletID)) {
+                LOG_ERROR() << "Failed to encrypt BBS message";
+            } else {
+                send_to_node(std::move(bbsMsg));
+            }
         }
 
         template<typename T>
@@ -135,9 +142,6 @@ namespace beam
                 m_node_connection->Send(msg);
             }
         }
-
-        //void test_io_result(const io::Result res);
-        //bool is_connected(uint64_t id);
 
         void update_wallets(const WalletID& walletID);
 
@@ -192,10 +196,10 @@ namespace beam
 
         std::vector<ConnectCallback> m_node_connect_callbacks;
 
-        // TODO make persistent
-        uint64_t m_last_bbs_message_time;
-        uint32_t m_bbs_channel;
-        std::set<uint32_t> m_bbs_channels;
-        std::vector<std::pair<util::PubKey, util::PrivKey>> m_bbs_keys;
+        // channel# -> last message time
+        std::map<uint32_t, uint64_t> m_bbs_timestamps;
+        IKeyStore::Ptr m_keystore;
+        std::set<PubKey> m_myPubKeys;
+        const WalletID* m_lastReceiver;
     };
 }

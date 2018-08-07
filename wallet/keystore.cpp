@@ -203,6 +203,10 @@ private:
         }
     }
 
+    size_t size() override {
+        return _keyPairs.size();
+    }
+
     void get_enabled_keys(std::set<PubKey>& enabledKeys) override {
         enabledKeys.clear();
         for (const auto& p : _keyPairs) {
