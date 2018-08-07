@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "node.h"
 #include "../core/serialization_adapters.h"
 #include "../core/proto.h"
@@ -298,7 +312,7 @@ void Node::Processor::OnPeerInsane(const PeerID& peerID)
 	if (pInfo)
 	{
 		if (pInfo->m_pLive)
-			pInfo->m_pLive->DeleteSelf(true, true); // will ban
+			pInfo->m_pLive->DeleteSelf(true, proto::NodeConnection::ByeReason::Ban);
 		else
 			get_ParentObj().m_PeerMan.Ban(*pInfo);
 	}
@@ -314,6 +328,7 @@ void Node::Processor::OnNewState()
 
 	proto::NewTip msg;
 	msgHdr.m_Description.get_ID(msg.m_ID);
+	msg.m_ChainWork = m_Cursor.m_ChainWork;
 
 	LOG_INFO() << "My Tip: " << msg.m_ID;
 
@@ -327,7 +342,7 @@ void Node::Processor::OnNewState()
 	{
 		Peer& peer = *it;
 
-		if (peer.m_bConnected && (peer.m_TipHeight <= msg.m_ID.m_Height))
+		if (peer.m_bConnected && (peer.m_TipWork <= msg.m_ChainWork))
 		{
 			peer.Send(msg);
 
@@ -431,7 +446,7 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 	}
 }
 
-Node::Peer* Node::AllocPeer()
+Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 {
 	Peer* pPeer = new Peer(*this);
 	m_lstPeers.push_back(*pPeer);
@@ -442,7 +457,11 @@ Node::Peer* Node::AllocPeer()
 	pPeer->m_bOwner = false;
 	pPeer->m_Port = 0;
 	pPeer->m_TipHeight = 0;
+	pPeer->m_TipWork = ECC::Zero;
+	pPeer->m_RemoteAddr = addr;
 	ZeroObject(pPeer->m_Config);
+
+	LOG_INFO() << "+Peer " << addr;
 
 	return pPeer;
 }
@@ -634,6 +653,8 @@ void Node::ImportMacroblock(Height h)
 
 Node::~Node()
 {
+	LOG_INFO() << "Node stopping...";
+
 	m_Miner.HardAbortSafe();
 
 	for (size_t i = 0; i < m_Miner.m_vThreads.size(); i++)
@@ -653,7 +674,7 @@ Node::~Node()
 		ZeroObject(it->m_Config); // prevent re-assigning of tasks in the next loop
 
 	while (!m_lstPeers.empty())
-		m_lstPeers.front().DeleteSelf(false, false);
+		m_lstPeers.front().DeleteSelf(false, proto::NodeConnection::ByeReason::Stopping);
 
 	while (!m_lstTasksUnassigned.empty())
 		DeleteUnassignedTask(m_lstTasksUnassigned.front());
@@ -673,6 +694,8 @@ Node::~Node()
 			if (v.m_vThreads[i].joinable())
 				v.m_vThreads[i].join();
 	}
+
+	LOG_INFO() << "Node stopped";
 }
 
 void Node::Peer::SetTimer(uint32_t timeout_ms)
@@ -700,11 +723,11 @@ void Node::Peer::OnTimer()
 		if (m_pInfo)
 			m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::PenaltyTimeout, false); // task (request) wasn't handled in time.
 
-		DeleteSelf(false, false);
+		DeleteSelf(false, ByeReason::Timeout);
 	}
 	else
 		// Connect didn't finish in time
-		DeleteSelf(true, false);
+		DeleteSelf(true, 0);
 }
 
 void Node::Peer::OnResendPeers()
@@ -737,9 +760,7 @@ void Node::Peer::GenerateSChannelNonce(ECC::Scalar::Native& nonce)
 
 void Node::Peer::OnConnected()
 {
-	m_RemoteAddr = get_Connection()->peer_address();
-	LOG_INFO() << "+Peer " << m_RemoteAddr;
-
+	LOG_INFO() << "Peer " << m_RemoteAddr << " Connected";
 	SecureConnect();
 }
 
@@ -748,6 +769,14 @@ void Node::Peer::OnMsg(proto::SChannelReady&& msg)
 	proto::NodeConnection::OnMsg(std::move(msg));
 
 	m_bConnected = true;
+
+	if (m_Port && m_This.m_Cfg.m_Listen.port())
+	{
+		// we've connected to the peer, let it now know our port
+		proto::PeerInfoSelf msgPi;
+		msgPi.m_Port = m_This.m_Cfg.m_Listen.port();
+		Send(msgPi);
+	}
 
 	ECC::Scalar::Native sk = m_This.m_MyPrivateID.V;
 	ProveID(sk, proto::IDType::Node);
@@ -760,18 +789,11 @@ void Node::Peer::OnMsg(proto::SChannelReady&& msg)
 	msgCfg.m_SendPeers = true;
 	Send(msgCfg);
 
-	if (m_Port && m_This.m_Cfg.m_Listen.port())
-	{
-		// we've connected to the peer, let it now know our port
-		proto::PeerInfoSelf msgPi;
-		msgPi.m_Port = m_This.m_Cfg.m_Listen.port();
-		Send(msgPi);
-	}
-
 	if (m_This.m_Processor.m_Cursor.m_Sid.m_Row)
 	{
 		proto::NewTip msg;
 		msg.m_ID = m_This.m_Processor.m_Cursor.m_ID;
+		msg.m_ChainWork = m_This.m_Processor.m_Cursor.m_ChainWork;
 		Send(msg);
 	}
 }
@@ -789,6 +811,9 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 
 	if (m_bPiRcvd || (msg.m_ID == ECC::Zero))
 		ThrowUnexpected();
+
+	if (proto::IDType::Node != msg.m_IDType)
+		return;
 
 	m_bPiRcvd = true;
 	LOG_INFO() << m_RemoteAddr << " received PI";
@@ -825,7 +850,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	if (msg.m_ID == m_This.m_MyPublicID)
 	{
 		LOG_WARNING() << "Loopback connection";
-		DeleteSelf(false, false);
+		DeleteSelf(false, ByeReason::Loopback);
 		return;
 	}
 
@@ -845,17 +870,26 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 
 	if (pPi->m_pLive)
 	{
-		// threre's already another connection open to the same peer!
-		// Currently - just ignore this.
-		LOG_INFO() << "Duplicate connection with the same PI. Ignoring";
-		return;
+		LOG_INFO() << "Duplicate connection with the same PI.";
+		// Duplicate connection. In this case we have to choose wether to terminate this connection, or the previous. The best is to do it asymmetrically.
+		// We decide this based on our Node IDs.
+
+		if (m_This.m_MyPublicID > msg.m_ID)
+		{
+			pPi->m_pLive->DeleteSelf(false, ByeReason::Duplicate);
+			assert(!pPi->m_pLive);
+		}
+		else
+		{
+			DeleteSelf(false, ByeReason::Duplicate);
+			return;
+		}
 	}
 
 	if (!pPi->m_RawRating.m_Value)
 	{
-		// threre's already another connection open to the same peer!
-		// Currently - just ignore this.
 		LOG_INFO() << "Banned PI. Ignoring";
+		DeleteSelf(false, ByeReason::Ban);
 		return;
 	}
 
@@ -871,7 +905,27 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 void Node::Peer::OnDisconnect(const DisconnectReason& dr)
 {
 	LOG_WARNING() << m_RemoteAddr << ": " << dr;
-	DeleteSelf(true, DisconnectReason::Io != dr.m_Type);
+
+	bool bIsErr = true;
+	uint8_t nByeReason = 0;
+
+	switch (dr.m_Type)
+	{
+	default: assert(false);
+
+	case DisconnectReason::Io:
+		break;
+
+	case DisconnectReason::Bye:
+		bIsErr = false;
+		break;
+
+	case DisconnectReason::ProcessingExc:
+		nByeReason = ByeReason::Ban;
+		break;
+	}
+
+	DeleteSelf(bIsErr, nByeReason);
 }
 
 void Node::Peer::ReleaseTasks()
@@ -894,11 +948,19 @@ void Node::Peer::ReleaseTask(Task& t)
 		m_This.DeleteUnassignedTask(t);
 }
 
-void Node::Peer::DeleteSelf(bool bIsError, bool bIsBan)
+void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 {
 	LOG_INFO() << "-Peer " << m_RemoteAddr;
 
+	if (nByeReason && m_bConnected)
+	{
+		proto::Bye msg;
+		msg.m_Reason = nByeReason;
+		Send(msg);
+	}
+
 	m_TipHeight = 0; // prevent reassigning the tasks
+	m_TipWork = ECC::Zero;
 
 	ReleaseTasks();
 	Unsubscribe();
@@ -912,7 +974,7 @@ void Node::Peer::DeleteSelf(bool bIsError, bool bIsBan)
 		m_This.m_PeerMan.OnActive(*m_pInfo, false);
 
 		if (bIsError)
-			m_This.m_PeerMan.OnRemoteError(*m_pInfo, bIsBan);
+			m_This.m_PeerMan.OnRemoteError(*m_pInfo, ByeReason::Ban == nByeReason);
 	}
 
 	m_This.m_lstPeers.erase(PeerList::s_iterator_to(*this));
@@ -951,10 +1013,11 @@ void Node::Peer::OnMsg(proto::Ping&&)
 
 void Node::Peer::OnMsg(proto::NewTip&& msg)
 {
-	if (msg.m_ID.m_Height < m_TipHeight)
+	if (msg.m_ChainWork < m_TipWork)
 		ThrowUnexpected();
 
 	m_TipHeight = msg.m_ID.m_Height;
+	m_TipWork = msg.m_ChainWork;
 	m_setRejected.clear();
 
 	LOG_INFO() << "Peer " << m_RemoteAddr << " Tip: " << msg.m_ID;
@@ -1561,7 +1624,7 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 	if (newStream)
 	{
         LOG_DEBUG() << "New peer connected: " << newStream->address();
-		Peer* p = get_ParentObj().AllocPeer();
+		Peer* p = get_ParentObj().AllocPeer(newStream->peer_address());
 		p->Accept(std::move(newStream));
 		p->OnConnected();
 	}
@@ -1719,7 +1782,7 @@ bool Node::Miner::Restart()
 	Block::SystemState::ID id;
 	pTask->m_Hdr.get_ID(id);
 
-	LOG_INFO() << "Block generated: " << id << ", Fee=" << pTask->m_Fees << ", Difficulty=" << uint32_t(pTask->m_Hdr.m_PoW.m_Difficulty) << ", Size=" << pTask->m_Body.size();
+	LOG_INFO() << "Block generated: " << id << ", Fee=" << pTask->m_Fees << ", Difficulty=" << pTask->m_Hdr.m_PoW.m_Difficulty << ", Size=" << pTask->m_Body.size();
 
 	// let's mine it.
 	std::scoped_lock<std::mutex> scope(m_Mutex);
@@ -2303,7 +2366,7 @@ void Node::PeerMan::ActivatePeer(PeerInfo& pi)
 	if (pip.m_pLive)
 		return; //?
 
-	Peer* p = get_ParentObj().AllocPeer();
+	Peer* p = get_ParentObj().AllocPeer(pip.m_Addr.m_Value);
 	p->m_pInfo = &pip;
 	pip.m_pLive = p;
 
@@ -2317,7 +2380,7 @@ void Node::PeerMan::DeactivatePeer(PeerInfo& pi)
 	if (!pip.m_pLive)
 		return; //?
 
-	pip.m_pLive->DeleteSelf(false, false);
+	pip.m_pLive->DeleteSelf(false, proto::NodeConnection::ByeReason::Other);
 }
 
 proto::PeerManager::PeerInfo* Node::PeerMan::AllocPeer()

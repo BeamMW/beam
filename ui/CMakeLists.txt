@@ -10,7 +10,9 @@ if(WIN32)
 		#set(SYSTEM_TYPE WIN32)
 	endif()
 elseif(APPLE)
-	#set(SYSTEM_TYPE MACOSX_BUNDLE)
+	set(MACOSX_BUNDLE_ICON_FILE beam.icns)
+	set(SYSTEM_TYPE MACOSX_BUNDLE)
+	set_source_files_properties(beam.icns PROPERTIES MACOSX_PACKAGE_LOCATION RESOURCES)
 endif()
 
 find_package(Qt5QuickCompiler)
@@ -43,7 +45,15 @@ if(WIN32)
 	add_definitions(-DWIN32_LEAN_AND_MEAN)
 endif()
 
-add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc)
+add_executable(beam-ui ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE})
+
+
+if(APPLE)
+	set_target_properties(beam-ui PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)
+endif()
+
+configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
+target_include_directories(beam PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 add_dependencies(beam-ui wallet)
 

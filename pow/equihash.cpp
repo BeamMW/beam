@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "core/common.h"
 #include "impl/crypto/equihash.h"
 #include "impl/uint256.h"
@@ -21,38 +35,15 @@ struct Block::PoW::Helper
 		blake2b_update(&m_Blake, nonce.m_pData, sizeof(nonce.m_pData));
 	}
 
-	bool TestDifficulty(const uint8_t* pSol, uint32_t nSol, uint8_t d) const
+	bool TestDifficulty(const uint8_t* pSol, uint32_t nSol, Difficulty d) const
 	{
-		if (d <= 0) // actually it's unsigned
-			return true;
-
-		if (d > Block::PoW::N)
-			return false; //?!
+		ECC::Hash::Value hv;
 
 		blake2b_state b2s = m_Blake;
 		blake2b_update(&b2s, pSol, nSol);
+		blake2b_final(&b2s, hv.m_pData, sizeof(hv.m_pData));
 
-		ECC::uintBig_t<Block::PoW::N> hash;
-		blake2b_final(&b2s, hash.m_pData, sizeof(hash.m_pData));
-
-		for (const uint8_t* pPos = hash.m_pData; d; pPos++)
-		{
-			if (d < 8)
-			{
-				uint8_t msk = ~(0xff >> uint8_t(d));
-				if (msk & *pPos)
-					return false;
-
-				break;
-			}
-
-			if (*pPos)
-				return false;
-			d -= 8;
-
-		}
-
-		return true;
+		return d.IsTargetReached(hv);
 	}
 };
 

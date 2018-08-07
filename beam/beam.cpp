@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "wallet/wallet_network.h"
 #include "core/common.h"
 
@@ -15,6 +29,7 @@
 #include <boost/filesystem.hpp>
 #include <iterator>
 #include <future>
+#include "version.h"
 
 using namespace std;
 using namespace beam;
@@ -313,6 +328,18 @@ int main_impl(int argc, char* argv[])
 			return 0;
 		}
 
+		if (vm.count(cli::VERSION))
+		{
+			cout << PROJECT_VERSION << endl;
+			return 0;
+		}
+
+		if (vm.count(cli::GIT_COMMIT_HASH))
+		{
+			cout << GIT_COMMIT_HASH << endl;
+			return 0;
+		}
+
 		// init logger here to determine node/wallet name
 
 		int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
@@ -346,6 +373,9 @@ int main_impl(int argc, char* argv[])
 			{
 				reactor = io::Reactor::create();
 				io::Reactor::Scope scope(*reactor);
+
+				io::Reactor::GracefulIntHandler gih(*reactor);
+
 				NoLeak<uintBig> walletSeed;
 				walletSeed.V = Zero;
 				if (hasWalletSeed)
@@ -383,10 +413,7 @@ int main_impl(int argc, char* argv[])
 					}
 					node.m_Cfg.m_WalletKey = walletSeed;
 
-					std::vector<std::string> vPeers;
-
-					if (vm.count(cli::NODE_PEER))
-						vPeers = vm[cli::NODE_PEER].as<vector<string> >();
+					std::vector<std::string> vPeers = getCfgPeers(vm);
 
 					node.m_Cfg.m_Connect.resize(vPeers.size());
 

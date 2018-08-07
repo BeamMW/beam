@@ -1,5 +1,22 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <QApplication>
 #include <QtQuick>
+
+#include <QInputDialog>
+#include <QMessageBox>
 
 #include <qqmlcontext.h>
 #include "viewmodel/main.h"
@@ -20,7 +37,9 @@
 
 #include <QtCore/QtPlugin>
 
-#include <boost/filesystem.hpp>
+#include "version.h"
+
+#include "utility/string_helpers.h"
 
 #if defined(BEAM_USE_STATIC)
 
@@ -48,33 +67,23 @@ using namespace beam;
 using namespace std;
 using namespace ECC;
 
-namespace
-{
-	template<typename Out>
-	void split(const string &s, char delim, Out result) {
-		stringstream ss(s);
-		string item;
-		while (getline(ss, item, delim)) {
-			*(result++) = item;
-		}
-	}
-
-	vector<string> split(const string &s, char delim) {
-		vector<string> elems;
-		split(s, delim, back_inserter(elems));
-		return elems;
-	}
-}
-
 int main (int argc, char* argv[])
 {
+	QApplication app(argc, argv);
+
+	QApplication::setApplicationName("Beam");
+	QApplication::setOrganizationName("beam-mw.com");
+
+	QDir appDataDir(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
+
 	try
 	{
 		po::options_description options = createOptionsDescription();
 		po::variables_map vm;
+
 		try
 		{
-			vm = getOptions(argc, argv, "beam.cfg", options);
+			vm = getOptions(argc, argv, "beam-ui.cfg", options);
 		}
 		catch (const po::error& e)
 		{
@@ -91,68 +100,104 @@ int main (int argc, char* argv[])
 			return 0;
 		}
 
+		if (vm.count(cli::VERSION))
+		{
+			cout << PROJECT_VERSION << endl;
+			return 0;
+		}
+
+		if (vm.count(cli::GIT_COMMIT_HASH))
+		{
+			cout << GIT_COMMIT_HASH << endl;
+			return 0;
+		}
+
+		if (vm.count(cli::APPDATA_PATH))
+		{
+			appDataDir = QString::fromStdString(vm[cli::APPDATA_PATH].as<string>());
+		}
+
 		int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
 #if LOG_VERBOSE_ENABLED
 		logLevel = LOG_LEVEL_VERBOSE;
 #endif
 		
-		const auto path = boost::filesystem::system_complete("./logs");
-		auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_", path.string());
+		auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_", appDataDir.filePath("./logs").toStdString());
 
 		try
 		{
-			po::options_description options = createOptionsDescription();
-
-			po::variables_map vm = getOptions(argc, argv, "beam-ui.cfg", options);
-
-			if (vm.count(cli::HELP))
-			{
-				cout << options << std::endl;
-			}
-
-			//if (vm.count(cli::NODE_PEER))
-			//{
-			//	auto peers = vm[cli::NODE_PEER].as<vector<string>>();
-			//}
-
-			QApplication app(argc, argv);
-
-			string pass;
-			if (vm.count(cli::PASS))
-			{
-				pass = vm[cli::PASS].as<string>();
-			}
-			else
-			{
-				LOG_ERROR() << "Please, provide wallet password!";
-				return -1;
-			}
-
-			if (!vm.count(cli::NODE_ADDR))
-			{
-				LOG_ERROR() << "Please, provide node address!";
-				return -1;
-			}
-
-			if (!vm.count(cli::PORT))
-			{
-				LOG_ERROR() << "Please, provide port!";
-				return -1;
-			}
-
 			Rules::get().UpdateChecksum();
 			LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
-			static const char* WALLET_STORAGE = "wallet.db";
-			if (!Keychain::isInitialized(WALLET_STORAGE))
+			auto walletStorage = appDataDir.filePath("wallet.db").toStdString();
+			std::string walletPass;
+
+			if (!Keychain::isInitialized(walletStorage))
 			{
-				LOG_ERROR() << WALLET_STORAGE << " not found!";
-				return -1;
+				bool ok = true;
+				QString seed;
+
+				while (seed.isEmpty() && ok)
+				{
+					seed = QInputDialog::getText(0, "Beam", "wallet.db not found\nPlease, enter a seed to initialize your wallet:", QLineEdit::Normal, nullptr, &ok);
+				}
+
+				if (ok && !seed.isEmpty())
+				{
+					QString pass;
+
+					while (pass.isEmpty() && ok)
+					{
+						pass = QInputDialog::getText(0, "Beam", "Please, enter a password:", QLineEdit::Password, nullptr, &ok);
+					}
+
+					if (ok && !pass.isEmpty()) 
+					{
+						walletPass = pass.toStdString();
+
+						NoLeak<uintBig> walletSeed;
+						walletSeed.V = Zero;
+						{
+							Hash::Value hv;
+							Hash::Processor() << seed.toStdString().c_str() >> hv;
+							walletSeed.V = hv;
+						}
+
+						auto keychain = Keychain::init(walletStorage, walletPass, walletSeed);
+
+						if (keychain)
+						{
+							QMessageBox::information(0, "Beam", "wallet.db successfully created.", QMessageBox::Ok);
+						}
+						else
+						{
+							QMessageBox::critical(0, "Error", "Your wallet isn't created. Something went wrong.", QMessageBox::Ok);
+							return -1;
+						}
+					}
+					else return 0;
+				}
+			}
+			else
+			{
+				bool ok = true;
+				QString pass;
+
+				while (pass.isEmpty() && ok)
+				{
+					pass = QInputDialog::getText(0, "Beam", "Please, enter a password:", QLineEdit::Password, nullptr, &ok);
+				}
+
+				if (ok && !pass.isEmpty())
+				{
+					walletPass = pass.toStdString();
+				}
+				else return 0;
 			}
 
 			{
-				auto keychain = Keychain::open(WALLET_STORAGE, pass);
+				auto keychain = Keychain::open(walletStorage, walletPass);
 
 				if (keychain)
 				{
@@ -165,13 +210,13 @@ int main (int argc, char* argv[])
 
 						for (const auto& uri : uris)
 						{
-							auto vars = split(uri, '&');
+							auto vars = string_helpers::split(uri, '&');
 
 							beam::TxPeer addr;
 
 							for (const auto& var : vars)
 							{
-								auto parts = split(var, '=');
+								auto parts = string_helpers::split(var, '=');
 
 								assert(parts.size() == 2);
 
@@ -194,7 +239,18 @@ int main (int argc, char* argv[])
 						}
 					}
 
-					WalletModel model(keychain, vm[cli::PORT].as<uint16_t>(), vm[cli::NODE_ADDR].as<string>());
+					std::string nodeAddr = "0.0.0.0";
+
+					if (!vm.count(cli::NODE_ADDR))
+					{
+						LOG_ERROR() << "Please, provide node address!";
+					}
+					else
+					{
+						nodeAddr = vm[cli::NODE_ADDR].as<string>();
+					}
+
+					WalletModel model(keychain, vm[cli::PORT].as<uint16_t>(), nodeAddr);
 
 					model.start();
 
@@ -238,6 +294,8 @@ int main (int argc, char* argv[])
 				}
 				else
 				{
+					QMessageBox::critical(0, "Error", "Invalid password or wallet data unreadable.\nRestore wallet.db from latest backup or delete it and reinitialize the wallet.", QMessageBox::Ok);
+
 					LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet.";
 					return -1;
 				}
