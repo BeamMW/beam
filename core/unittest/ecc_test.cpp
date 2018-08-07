@@ -504,6 +504,7 @@ void TestRangeProof()
 	{
 		beam::Output outp;
 		outp.Create(1U, 20300, true);
+		outp.m_Coinbase = true; // others may be disallowed
 		verify_test(outp.IsValid(comm));
 		WriteSizeSerialized("Out-UTXO-Public", outp);
 	}
