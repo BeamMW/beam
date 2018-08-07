@@ -171,11 +171,11 @@ void NodeProcessor::InitCursor()
 			ZeroObject(m_Cursor.m_History);
 
 		m_DB.get_ChainWork(m_Cursor.m_Sid.m_Row, m_Cursor.m_ChainWork);
-		m_Cursor.m_DifficultyNext = get_NextDifficulty();
 	}
 	else
 		ZeroObject(m_Cursor);
 
+	m_Cursor.m_DifficultyNext = get_NextDifficulty();
 	m_Cursor.m_SubsidyOpen = 0 != (m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyOpen, 1));
 }
 
@@ -1155,7 +1155,7 @@ bool NodeProcessor::TxPool::Element::Profit::operator < (const Profit& t) const
 Difficulty NodeProcessor::get_NextDifficulty()
 {
 	if (!m_Cursor.m_Sid.m_Row)
-		return 0; // 1st block difficulty 0
+		return Rules::get().StartDifficulty; // 1st block difficulty 0
 
 	Height dh = m_Cursor.m_Full.m_Height - Rules::HeightGenesis;
 

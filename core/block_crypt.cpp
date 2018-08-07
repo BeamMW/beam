@@ -905,7 +905,11 @@ namespace beam
 			<< MaxDifficultyChange
 			<< TimestampAheadThreshold_s
 			<< WindowForMedian
-			<< uint32_t(1) // increment this whenever we change something in the protocol
+			<< StartDifficulty.m_Packed
+			<< Block::PoW::K
+			<< Block::PoW::N
+			<< Block::PoW::NonceType::nBits
+			<< uint32_t(0) // increment this whenever we change something in the protocol
 			// out
 			>> Checksum;
 	}
