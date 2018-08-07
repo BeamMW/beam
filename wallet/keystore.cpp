@@ -23,12 +23,35 @@ void gen_nonce(Nonce& nonce) {
     nonce.Import(sc);
 }
 
+// TODO ECB mode on non-repeating data still safe??
+void init_aes_enc(AES::Encoder& enc, const void* password, size_t passwordLen) {
+    ECC::NoLeak<ECC::Hash::Processor> hp;
+	ECC::NoLeak<ECC::Hash::Value> key;
+	hp.V.Write(password, passwordLen);
+    hp.V >> key.V;
+    enc.Init(key.V.m_pData);
+}
+
 void aes_decrypt(void* buffer, size_t bufferLen, const void* password, size_t passwordLen) {
-    //TODO
+    AES::Encoder enc;
+    init_aes_enc(enc, password, passwordLen);
+    AES::Decoder dec;
+    dec.Init(enc);
+    uint8_t* p = (uint8_t*)buffer;
+    uint8_t* end = p + bufferLen;
+    for (; p<end; p+=AES::s_BlockSize) {
+        dec.Proceed(p, p);
+    }
 }
 
 void aes_encrypt(void* buffer, size_t bufferLen, const void* password, size_t passwordLen) {
-    //TODO
+    AES::Encoder enc;
+    init_aes_enc(enc, password, passwordLen);
+    uint8_t* p = (uint8_t*)buffer;
+    uint8_t* end = p + bufferLen;
+    for (; p<end; p+=AES::s_BlockSize) {
+        enc.Proceed(p, p);
+    }
 }
 
 struct AutoClose {
@@ -94,6 +117,13 @@ void write_keystore_file(const KeyPairs& in, const std::string& fileName, const 
             return;
 
         void* buffer = alloca(size);
+
+        uint8_t* p = (uint8_t*)buffer;
+        for (const auto& kp : in) {
+            memcpy(p, kp.first.m_pData, 32);
+            memcpy(p + 32, &(kp.second.V), 32);
+            p += 64;
+        }
 
         aes_encrypt(buffer, size, password, passwordLen);
 
