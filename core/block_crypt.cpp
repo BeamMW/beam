@@ -906,8 +906,8 @@ namespace beam
 			<< TimestampAheadThreshold_s
 			<< WindowForMedian
 			<< StartDifficulty.m_Packed
-			<< Block::PoW::K
-			<< Block::PoW::N
+			<< (uint32_t) Block::PoW::K
+			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
 			<< uint32_t(0) // increment this whenever we change something in the protocol
 			// out
