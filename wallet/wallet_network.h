@@ -98,7 +98,6 @@ namespace beam
         void on_node_connected();
 
         void create_node_connection();
-
     private:
         template <typename T>
         void send(const WalletID& walletID, MsgType type, T&& msg)
@@ -106,16 +105,16 @@ namespace beam
             update_wallets(walletID);
 
             // send BBS message
-           
+
             //listen_to_bbs_channel(util::channel_from_wallet_id(msg.m_from));
             uint32_t channel = util::channel_from_wallet_id(walletID);
-            LOG_DEBUG() << "BBS send message to channel=" << channel << " [" << to_string(walletID) << "]  my pubkey=" << to_string(msg.m_from);
+            LOG_DEBUG() << "BBS send message to channel=" << channel << "[" << to_hex(walletID.m_pData, 32) << "]  my pubkey=" << to_hex(msg.m_from.m_pData, 32);
             proto::BbsMsg bbsMsg;
             bbsMsg.m_Channel = channel;
             bbsMsg.m_TimePosted = getTimestamp();
             m_protocol.serialize(m_msgToSend, type, msg);
             util::encrypt(bbsMsg.m_Message, m_msgToSend, walletID);
-            
+
             send_to_node(std::move(bbsMsg));
         }
 
@@ -198,6 +197,5 @@ namespace beam
         uint32_t m_bbs_channel;
         std::set<uint32_t> m_bbs_channels;
         std::vector<std::pair<util::PubKey, util::PrivKey>> m_bbs_keys;
-
     };
 }

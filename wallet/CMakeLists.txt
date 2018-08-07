@@ -7,6 +7,7 @@ set(WALLET_SRC
     wallet_network.cpp
     wallet_db.cpp
     bbsutil.cpp
+    keystore.cpp
 )
 
 add_library(wallet STATIC ${WALLET_SRC})

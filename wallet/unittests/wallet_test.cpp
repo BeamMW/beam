@@ -493,6 +493,10 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
 
     WalletID receiver_id = {};
     receiver_id = unsigned(4);
+
+    WalletID sender_id = {};
+    sender_id = unsigned(5);
+
     IOLoop mainLoop;
     auto network = make_shared<TestNetwork >(mainLoop);
     auto network2 = make_shared<TestNetwork>(mainLoop);
@@ -516,7 +520,7 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
     network2->registerPeer(&receiver, true);
     network2->registerPeer(&sender, false);
 
-    sender.transfer_money(receiver_id, 6, 0, true, {});
+    sender.transfer_money(sender_id, receiver_id, 6, 0, true, {});
     mainLoop.run();
 }
 
@@ -716,7 +720,7 @@ void TestP2PWalletNegotiationST()
     Wallet receiver{ receiverKeychain, receiver_io };
 
     // unknown peer
-    sender.transfer_money(senderPeer.m_walletID, 6);
+    sender.transfer_money(senderPeer.m_walletID, senderPeer.m_walletID, 6);
     main_reactor->run();
     auto sh = senderKeychain->getTxHistory();
     WALLET_CHECK(sh.size() == 1);
@@ -725,7 +729,7 @@ void TestP2PWalletNegotiationST()
 
     sw.start();
 
-    TxID txId = sender.transfer_money(receiverPeer.m_walletID, 4, 2);
+    TxID txId = sender.transfer_money(senderPeer.m_walletID, receiverPeer.m_walletID, 4, 2);
 
     main_reactor->run();
     sw.stop();
@@ -790,7 +794,7 @@ void TestP2PWalletNegotiationST()
 
     // second transfer
     sw.start();
-    txId = sender.transfer_money(receiverPeer.m_walletID, 6);
+    txId = sender.transfer_money(senderPeer.m_walletID, receiverPeer.m_walletID, 6);
     main_reactor->run();
     sw.stop();
     cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -864,7 +868,7 @@ void TestP2PWalletNegotiationST()
 
     // third transfer. no enough money should appear
     sw.start();
-    txId = sender.transfer_money(receiverPeer.m_walletID, 6);
+    txId = sender.transfer_money(senderPeer.m_walletID, receiverPeer.m_walletID, 6);
     main_reactor->run();
     sw.stop();
     cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -942,7 +946,7 @@ void TestP2PWalletNegotiationST()
      Wallet sender{ senderKeychain, sender_io };
      Wallet receiver{ receiverKeychain, receiver_io, [receiver_io](auto) { receiver_io->stop(); } };
 
-     TxID txId = receiver.transfer_money(senderPeer.m_walletID, 4, 2, false);
+     TxID txId = receiver.transfer_money(receiverPeer.m_walletID, senderPeer.m_walletID, 4, 2, false);
 
      main_reactor->run();
      sw.stop();
@@ -1006,7 +1010,7 @@ void TestP2PWalletNegotiationST()
 
      // second transfer
      sw.start();
-     txId = receiver.transfer_money(senderPeer.m_walletID, 6, 0, false);
+     txId = receiver.transfer_money(receiverPeer.m_walletID, senderPeer.m_walletID, 6, 0, false);
      main_reactor->run();
      sw.stop();
      cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -1080,7 +1084,7 @@ void TestP2PWalletNegotiationST()
 
      // third transfer. no enough money should appear
      sw.start();
-     txId = receiver.transfer_money(senderPeer.m_walletID, 6, 0, false);
+     txId = receiver.transfer_money(receiverPeer.m_walletID, senderPeer.m_walletID, 6, 0, false);
      main_reactor->run();
      sw.stop();
      cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -1390,6 +1394,9 @@ void TestOfflineNegotiation()
 
     WalletID receiver_id = {};
     receiver_id = unsigned(4);
+    WalletID sender_id = {};
+    sender_id = unsigned(5);
+
     IOLoop mainLoop;
     auto senderKeychain = createSenderKeychain();
     auto receiverKeychain = createReceiverKeychain();
@@ -1406,7 +1413,7 @@ void TestOfflineNegotiation()
         network2->registerPeer(&receiver, true);
         network2->registerPeer(&sender, false);
 
-        sender.transfer_money(receiver_id, 6, 0, true);
+        sender.transfer_money(receiver_id, sender_id, 6, 0, true);
         mainLoop.step();
 
         network->m_peers.clear();
@@ -1445,16 +1452,16 @@ int main()
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
 
-  //  TestSplitKey();
+    TestSplitKey();
  //   TestOfflineNegotiation();
-  //  TestP2PWalletNegotiationST();
- //   TestP2PWalletReverseNegotiationST();
+    TestP2PWalletNegotiationST();
+    TestP2PWalletReverseNegotiationST();
 
-  //  TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
-  //  TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
-  //  TestFSM();
+    TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
+    TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
+    TestFSM();
     TestSerializeFSM();
-  //  TestRollback();
+    TestRollback();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

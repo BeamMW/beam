@@ -19,6 +19,7 @@
 #include "wallet/wallet.h"
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
+#include "wallet/keystore.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "utility/logger.h"
@@ -477,7 +478,7 @@ int main_impl(int argc, char* argv[])
 
 						assert(vm.count(cli::WALLET_STORAGE) > 0);
 						auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
-
+                        
 						if (!Keychain::isInitialized(walletPath) && command != cli::INIT)
 						{
 							LOG_ERROR() << "Please initialize your wallet first... \nExample: beam wallet --command=init --pass=<password to access wallet> --wallet_seed=<seed to generate secret keys>";
@@ -510,6 +511,21 @@ int main_impl(int argc, char* argv[])
 							if (keychain)
 							{
 								LOG_INFO() << "wallet successfully created...";
+
+                                assert(vm.count(cli::BBS_STORAGE) > 0);
+                                auto bbsKeysPath = vm[cli::BBS_STORAGE].as<string>();
+
+                                IKeyStore::Options options;
+                                options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+                                options.fileName = bbsKeysPath;
+
+                                IKeyStore::Ptr ks = IKeyStore::create(options, pass.c_str(), pass.size());
+
+                                // generate default address
+                                util::PubKey myPubKey;
+                                ks->gen_keypair(myPubKey, pass.c_str(), pass.size(), true);
+                                // store to keychain
+
 								return 0;
 							}
 							else
@@ -626,13 +642,7 @@ int main_impl(int argc, char* argv[])
 
                             ECC::Hash::Value receiverID = from_hex(vm[cli::RECEIVER_ADDR].as<string>());
                             receiverWalletID = receiverID;
-                            //string receiverURI = vm[cli::RECEIVER_ADDR].as<string>();
 
-                            /*if (!receiverAddr.resolve(receiverURI.c_str()))
-						   	{
-								LOG_ERROR() << "unable to resolve receiver address: " << receiverURI;
-								return -1;
-                            }*/
 							auto signedAmount = vm[cli::AMOUNT].as<double>();
 							if (signedAmount < 0)
 							{

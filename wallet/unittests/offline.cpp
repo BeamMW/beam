@@ -21,11 +21,13 @@ struct WalletParams {
 
 WaitHandle run_wallet(const WalletParams& params, const util::PubKey& sendTo) {
     WaitHandle ret;
-    io::Reactor::Ptr reactor;
+    io::Reactor::Ptr reactor = io::Reactor::create();
 
     ret.future = std::async(
         std::launch::async,
         [&params, sendTo, reactor]() {
+            io::Reactor::Scope scope(*reactor);
+
             bool sender = !(sendTo == ECC::Zero);
 
             if (sender) {
@@ -62,11 +64,12 @@ static const uint16_t NODE_PORT=20000;
 
 WaitHandle run_node(const NodeParams& params) {
     WaitHandle ret;
-    io::Reactor::Ptr reactor;
+    io::Reactor::Ptr reactor = io::Reactor::create();
 
     ret.future = std::async(
         std::launch::async,
         [&params, reactor]() {
+            io::Reactor::Scope scope(*reactor);
             beam::Node node;
 
             node.m_Cfg.m_Listen.port(params.nodeAddress.port());
