@@ -12,7 +12,7 @@ Rectangle {
     color: Style.marine
 
 
-    property var contentItems : ["dashboard", "wallet", "notification", "info", "settings"]
+    property var contentItems : ["dashboard", "wallet", "address-book", "notification", "info", "settings"]
     property int selectedItem
 
     Rectangle {
