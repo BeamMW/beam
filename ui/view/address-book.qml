@@ -179,7 +179,20 @@ ColumnLayout {
 							}
 							color: Style.white
 						}
-
+						SFTextInput {
+							Layout.fillWidth: true
+							Layout.fillHeight: true
+							id: categoryAddress
+							font.pixelSize: 12
+							color: Style.white
+							height: 14
+							text: addressBookViewModel.newPeerAddress.category
+						}
+						Binding {
+							target: addressBookViewModel.newPeerAddress
+							property: "category"
+							value: categoryAddress.text
+						}
 						Rectangle {
 							Layout.fillWidth: true
 							height: 1
@@ -215,12 +228,6 @@ ColumnLayout {
 							font.pixelSize: 12
 							text: addressBookViewModel.newOwnAddress.walletID
 						}
-
-						//Binding {
-							//target: addressBookViewModel.newOwnAddress
-							//property: "walletID"
-							//value: ownAddressID.text
-						//}
 					}
 
 					ColumnLayout {
@@ -304,6 +311,20 @@ ColumnLayout {
 							color: Style.white
 						}
 
+						SFTextInput {
+							Layout.fillWidth: true
+							id: categoryOwnAddress
+							font.pixelSize: 12
+							color: Style.white
+							height: 14
+							text: addressBookViewModel.newOwnAddress.category
+						}
+						Binding {
+							target: addressBookViewModel.newOwnAddress
+							property: "category"
+							value: categoryOwnAddress.text
+						}
+
 						Rectangle {
 							Layout.fillWidth: true
 							height: 1
@@ -324,39 +345,61 @@ ColumnLayout {
 						Layout.maximumHeight: 38
 						anchors.centerIn: parent
 						
-						Button {
-							text: qsTr("cancel")
+						Rectangle {
+							radius: 50
+							color: "#33566b"
 							width: 122
 							height: 38
-							background: null
-							Rectangle {
-								radius: 50
-								color: "#33566b"
-								anchors.fill: parent							
+
+							SFText {
+								anchors.verticalCenter: parent.verticalCenter
+								anchors.horizontalCenter: parent.horizontalCenter
+
+								font.pixelSize: 14
+								font.weight: Font.Bold
+
+								color: Style.white
+
+								text: qsTr("cancel")
 							}
-							onClicked: {
-								
-								createAddress.close()
+
+							MouseArea{
+								anchors.fill: parent
+								cursorShape: Qt.PointingHandCursor
+								onClicked: {
+									createAddress.close()
+								}
 							}
 						}
 
-						Button {
-							text: qsTr("create address")
+						Rectangle {
+							radius: 50
+							color: Style.bright_teal
+							Layout.leftMargin: 31
 							width: 166
 							height: 38
-							background: null
-							Rectangle {
-								radius: 50
-								color: Style.bright_teal
-								anchors.fill: parent							
+
+							SFText {
+								anchors.verticalCenter: parent.verticalCenter
+								anchors.horizontalCenter: parent.horizontalCenter
+
+								font.pixelSize: 14
+								font.weight: Font.Bold
+
+								text: qsTr("create address")
 							}
-							onClicked: {
-								if (createAddressLayout.state == "own") {
-									addressBookViewModel.createNewOwnAddress();
-								} else {
-									addressBookViewModel.createNewPeerAddress();
+
+							MouseArea{
+								anchors.fill: parent
+								cursorShape: Qt.PointingHandCursor
+								onClicked: {
+									if (createAddressLayout.state == "own") {
+										addressBookViewModel.createNewOwnAddress();
+									} else {
+										addressBookViewModel.createNewPeerAddress();
+									}
+									createAddress.close();
 								}
-								createAddress.close();
 							}
 						}
 					}
@@ -434,7 +477,6 @@ ColumnLayout {
 					addressBookViewModel.generateNewEmptyAddress()
 					createAddressLayout.state = addressRoot.state
 					createAddress.open();
-                    //addressBookViewModel.createNewAddress();
 				}
             }
         }
