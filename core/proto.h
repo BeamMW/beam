@@ -214,6 +214,7 @@ namespace proto {
 #define THE_MACRO1(code, msg) \
 	struct msg \
 	{ \
+		static const uint8_t s_Code = code; \
 		BeamNodeMsg_##msg(THE_MACRO2) \
 		template <typename Archive> void serialize(Archive& ar) { ar BeamNodeMsg_##msg(THE_MACRO3); } \
 	};

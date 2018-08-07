@@ -520,21 +520,6 @@ void TestFSM()
     WALLET_CHECK(*(s.current_state()) == 3);
 }
 
-enum NodeNetworkMessageCodes : uint8_t
-{
-    NewTipCode = 1,
-    NewTransactionCode = 23,
-    BooleanCode = 5,
-    HdrCode = 3,
-    GetUtxoProofCode = 10,
-    ProofUtxoCode = 12,
-    ConfigCode = 20,
-    GetMinedCode = 15,
-    MinedCode = 16,
-    GetProofStateCode = 8,
-    ProofStateCode = 13
-};
-
 class TestNode : public IErrorHandler
 {
 public:
@@ -545,11 +530,11 @@ public:
         , m_server{io::TcpServer::create(m_reactor, m_address, BIND_THIS_MEMFN(on_stream_accepted))}
         , m_tag{ 0 }
     {
-        m_protocol.add_message_handler<TestNode, proto::NewTransaction, &TestNode::on_message>(NewTransactionCode, this, 1, 2000);
-        m_protocol.add_message_handler<TestNode, proto::GetProofUtxo,   &TestNode::on_message>(GetUtxoProofCode, this, 1, 2000);
-		m_protocol.add_message_handler<TestNode, proto::Config,         &TestNode::on_message>(ConfigCode, this, 1, 2000);
-        m_protocol.add_message_handler<TestNode, proto::GetMined,       &TestNode::on_message>(GetMinedCode, this, 1, 2000);
-        m_protocol.add_message_handler<TestNode, proto::GetProofState,  &TestNode::on_message>(GetProofStateCode, this, 1, 2000);
+        m_protocol.add_message_handler<TestNode, proto::NewTransaction, &TestNode::on_message>(proto::NewTransaction::s_Code, this, 1, 2000);
+        m_protocol.add_message_handler<TestNode, proto::GetProofUtxo,   &TestNode::on_message>(proto::GetProofUtxo::s_Code, this, 1, 2000);
+		m_protocol.add_message_handler<TestNode, proto::Config,         &TestNode::on_message>(proto::Config::s_Code, this, 1, 2000);
+        m_protocol.add_message_handler<TestNode, proto::GetMined,       &TestNode::on_message>(proto::GetMined::s_Code, this, 1, 2000);
+        m_protocol.add_message_handler<TestNode, proto::GetProofState,  &TestNode::on_message>(proto::GetProofState::s_Code, this, 1, 2000);
     }
 
 private:
@@ -563,13 +548,13 @@ private:
     // protocol handler
     bool on_message(uint64_t connectionId, proto::NewTransaction&& /*data*/)
     {
-        send(connectionId, BooleanCode, proto::Boolean{true});
+        send(connectionId, proto::Boolean::s_Code, proto::Boolean{true});
         return true;
     }
 
     bool on_message(uint64_t connectionId, proto::GetProofUtxo&& /*data*/)
     {
-        send(connectionId, ProofUtxoCode, proto::ProofUtxo());
+        send(connectionId, proto::ProofUtxo::s_Code, proto::ProofUtxo());
         return true;
     }
 
@@ -578,19 +563,19 @@ private:
         proto::Hdr msg = {};
 
         msg.m_Description.m_Height = 134;
-        send(connectionId, HdrCode, move(msg));
+        send(connectionId, proto::Hdr::s_Code, move(msg));
 		return true;
 	}
 
     bool on_message(uint64_t connectionId, proto::GetMined&&)
     {
-        send(connectionId, MinedCode, proto::Mined{});
+        send(connectionId, proto::Mined::s_Code, proto::Mined{});
         return true;
     }
 
     bool on_message(uint64_t connectionId, proto::GetProofState&&)
     {
-        send(connectionId, ProofStateCode, proto::ProofStateForDummies{});
+        send(connectionId, proto::ProofStateForDummies::s_Code, proto::ProofStateForDummies{});
         return true;
     }
 
@@ -628,7 +613,7 @@ private:
                     100,
                     std::move(newStream)));
 
-            send(tag, NewTipCode, proto::NewTip{ });
+            send(tag, proto::NewTip::s_Code, proto::NewTip{ });
         }
         else
         {
