@@ -431,6 +431,7 @@ ColumnLayout {
                 anchors.right: parent.right
                 text: "+ create new address"
 				onClicked: {
+					addressBookViewModel.generateNewEmptyAddress()
 					createAddressLayout.state = addressRoot.state
 					createAddress.open();
                     //addressBookViewModel.createNewAddress();

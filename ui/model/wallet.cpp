@@ -10,6 +10,26 @@ using namespace std;
 namespace
 {
     static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
+
+	using Nonce = ECC::Scalar::Native;
+
+	// TODO It's temporary solution
+	static void gen_nonce(Nonce& nonce) {
+		ECC::Scalar sc;
+		uint64_t seed;
+
+		// here we want to read as little as possible from slow sources, TODO: review this
+		ECC::GenRandom(&seed, 8);
+		ECC::Hash::Processor() << seed >> sc.m_Value;
+
+		nonce.Import(sc);
+	}
+
+	void gen_keypair(PeerID& pubKey) {
+		Nonce privKey;
+		gen_nonce(privKey);
+		proto::Sk2Pk(pubKey, privKey);
+	}
 }
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
@@ -92,6 +112,7 @@ WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const string& n
     qRegisterMetaType<Amount>("beam::Amount");
     qRegisterMetaType<vector<Coin>>("std::vector<beam::Coin>");
     qRegisterMetaType<vector<WalletAddress>>("std::vector<beam::WalletAddress>");
+	qRegisterMetaType<WalletID>("beam::WalletID");
 }
 
 WalletModel::~WalletModel() 
@@ -305,7 +326,10 @@ void WalletModel::createNewAddress(WalletAddress&& address)
 
 void WalletModel::generateNewWalletID()
 {
+	WalletID walletID;
+	gen_keypair(walletID);
 
+	emit onGeneratedNewWalletID(walletID);
 }
 
 vector<Coin> WalletModel::getUtxos() const

@@ -61,6 +61,7 @@ signals:
     void onChangeCalculated(beam::Amount change);
     void onUtxoChanged(const std::vector<beam::Coin>& utxos);
 	void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
+	void onGeneratedNewWalletID(const beam::WalletID& walletID);
 
 private:
 	void onKeychainChanged() override;

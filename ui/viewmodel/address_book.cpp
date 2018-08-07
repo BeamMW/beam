@@ -87,6 +87,9 @@ AddressBookViewModel::AddressBookViewModel(WalletModel& model)
     connect(&m_model, SIGNAL(onAdrresses(bool, const std::vector<beam::WalletAddress>&)),
         SLOT(onAdrresses(bool, const std::vector<beam::WalletAddress>&)));
 
+	connect(&m_model, SIGNAL(onGeneratedNewWalletID(const beam::WalletID&)),
+		SLOT(onGeneratedNewWalletID(const beam::WalletID&)));
+
     /*for (int i = 0; i < 100; ++i)
     {
         beam::WalletAddress a = {};
@@ -143,6 +146,11 @@ void AddressBookViewModel::generateNewEmptyAddress()
 {
 	m_ownAddresses = {};
 	m_peerAddresses = {};
+
+	if (m_model.async)
+	{
+		m_model.async->generateNewWalletID();
+	}
 }
 
 void AddressBookViewModel::createNewAddress()
@@ -231,4 +239,11 @@ void AddressBookViewModel::onAdrresses(bool own, const std::vector<WalletAddress
     }
 
     emit addressesChanged();
+}
+
+void AddressBookViewModel::onGeneratedNewWalletID(const beam::WalletID& walletID)
+{
+	m_newOwnAddress.setWalletID(toString(walletID));
+
+	emit newAddressChanged();
 }
