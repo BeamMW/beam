@@ -935,6 +935,7 @@ namespace beam
 			<< m_TimeStamp
 			<< m_Prev
 			<< m_Definition
+			<< m_PoW.m_Difficulty.m_Packed
 			>> out;
 	}
 
