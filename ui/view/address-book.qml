@@ -22,7 +22,7 @@ ColumnLayout {
 	Dialog {
 		id: createAddress
 		modal: true
-		width: 460
+		width: 520
 		height: 454
 		x: (parent.width - width) / 2
 		y: (parent.height - height) / 2
@@ -125,7 +125,7 @@ ColumnLayout {
 							Layout.fillWidth: true
 							height: 1
 
-							color: "#33566b"
+							color: Style.separator_color
 						}
 					}
 
@@ -161,7 +161,7 @@ ColumnLayout {
 							Layout.fillWidth: true
 							height: 1
 
-							color: "#33566b"
+							color: Style.separator_color
 						}
 					}
 
@@ -197,7 +197,7 @@ ColumnLayout {
 							Layout.fillWidth: true
 							height: 1
 
-							color: "#33566b"
+							color: Style.separator_color
 						}
 					}
 				}
@@ -222,10 +222,12 @@ ColumnLayout {
 							color: Style.white
 						}
 
-						SFText {
+						SFTextInput {
 							id: ownAddressID
 							Layout.fillWidth: true
 							font.pixelSize: 12
+							color: Style.disable_text_color
+							readOnly: true
 							text: addressBookViewModel.newOwnAddress.walletID
 						}
 					}
@@ -258,7 +260,7 @@ ColumnLayout {
 						Rectangle {
 							Layout.fillWidth: true
 							height: 1
-							color: "#33566b"
+							color: Style.separator_color
 						}
 					}
 
@@ -329,7 +331,7 @@ ColumnLayout {
 							Layout.fillWidth: true
 							height: 1
 
-							color: "#33566b"
+							color: Style.separator_color
 						}
 					}
 				}
@@ -347,7 +349,7 @@ ColumnLayout {
 						
 						Rectangle {
 							radius: 50
-							color: "#33566b"
+							color: Style.separator_color
 							width: 122
 							height: 38
 
@@ -385,6 +387,7 @@ ColumnLayout {
 
 								font.pixelSize: 14
 								font.weight: Font.Bold
+								color: Style.marine
 
 								text: qsTr("create address")
 							}

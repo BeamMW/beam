@@ -11,7 +11,6 @@ namespace {
 	{
 		assert(str.size() % 2 == 0);
 		vector<uint8_t> res(str.size() >> 1);
-		uint8_t b = 0;
 		for (size_t i = 0; i < str.size(); ++i)
 		{
 			auto c = str[i];
@@ -149,27 +148,6 @@ AddressBookViewModel::AddressBookViewModel(WalletModel& model)
 
 	connect(&m_model, SIGNAL(onGeneratedNewWalletID(const beam::WalletID&)),
 		SLOT(onGeneratedNewWalletID(const beam::WalletID&)));
-
-    /*for (int i = 0; i < 100; ++i)
-    {
-        beam::WalletAddress a = {};
-        a.m_own = false;
-        a.m_label = "Peer address " + to_string(i);
-        ECC::Hash::Processor() << a.m_label.c_str() >> a.m_walletID;
-        a.m_category = "work";
-        m_peerAddresses.push_back(new PeerAddressItem(a));
-    }
-    for (int i = 0; i < 20; ++i)
-    {
-        beam::WalletAddress a = {};
-        a.m_own = true;
-        a.m_label = "My address " + to_string(i);
-        ECC::Hash::Processor() << a.m_label.c_str() >> a.m_walletID;
-        a.m_createTime = beam::getTimestamp();
-        a.m_duration = 1000000;
-        a.m_category = "work";
-        m_ownAddresses.push_back(new OwnAddressItem(a));
-    }*/
 }
 
 QVariant AddressBookViewModel::getPeerAddresses() const
@@ -257,6 +235,7 @@ void AddressBookViewModel::createNewOwnAddress()
 	ownAddress.m_own = true;
 	ownAddress.m_label = m_newOwnAddress.getName().toStdString();
 	ownAddress.m_createTime = beam::getTimestamp();
+	// TODO implement expiration date and duration
 	//ownAddress.m_duration = m_newOwnAddress.getExpirationDate
 	ownAddress.m_category = m_newOwnAddress.getCategory().toStdString();
 
@@ -309,6 +288,4 @@ void AddressBookViewModel::onAdrresses(bool own, const std::vector<WalletAddress
 void AddressBookViewModel::onGeneratedNewWalletID(const beam::WalletID& walletID)
 {
 	m_newOwnAddress.setWalletID(toString(walletID));
-
-	emit newAddressChanged();
 }
