@@ -994,10 +994,11 @@ namespace beam
     Block::SystemState::ID Keychain::getKnownStateID(Height height)
     {
         Block::SystemState::ID id = {};
-        const char* req = "SELECT DISTINCT confirmHeight, confirmHash FROM " STORAGE_NAME " LIMIT 1 OFFSET ?1;";
+        const char* req = "SELECT DISTINCT confirmHeight, confirmHash FROM " STORAGE_NAME " WHERE confirmHeight >= ?2 LIMIT 1 OFFSET ?1;";
 
         sqlite::Statement stm(_db, req);
         stm.bind(1, height);
+        stm.bind(2, Rules::HeightGenesis);
         if (stm.step())
         {
             stm.get(0, id.m_Height);

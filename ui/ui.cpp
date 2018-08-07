@@ -38,6 +38,8 @@
 
 #include "version.h"
 
+#include "utility/string_helpers.h"
+
 #if defined(BEAM_USE_STATIC)
 
 #if defined Q_OS_WIN
@@ -63,24 +65,6 @@ Q_IMPORT_PLUGIN(QtQuickTemplates2Plugin)
 using namespace beam;
 using namespace std;
 using namespace ECC;
-
-namespace
-{
-	template<typename Out>
-	void split(const string &s, char delim, Out result) {
-		stringstream ss(s);
-		string item;
-		while (getline(ss, item, delim)) {
-			*(result++) = item;
-		}
-	}
-
-	vector<string> split(const string &s, char delim) {
-		vector<string> elems;
-		split(s, delim, back_inserter(elems));
-		return elems;
-	}
-}
 
 int main (int argc, char* argv[])
 {
@@ -225,13 +209,13 @@ int main (int argc, char* argv[])
 
 						for (const auto& uri : uris)
 						{
-							auto vars = split(uri, '&');
+							auto vars = string_helpers::split(uri, '&');
 
 							beam::TxPeer addr;
 
 							for (const auto& var : vars)
 							{
-								auto parts = split(var, '=');
+								auto parts = string_helpers::split(var, '=');
 
 								assert(parts.size() == 2);
 

@@ -413,10 +413,7 @@ int main_impl(int argc, char* argv[])
 					}
 					node.m_Cfg.m_WalletKey = walletSeed;
 
-					std::vector<std::string> vPeers;
-
-					if (vm.count(cli::NODE_PEER))
-						vPeers = vm[cli::NODE_PEER].as<vector<string> >();
+					std::vector<std::string> vPeers = getCfgPeers(vm);
 
 					node.m_Cfg.m_Connect.resize(vPeers.size());
 

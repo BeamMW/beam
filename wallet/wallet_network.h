@@ -44,6 +44,7 @@ namespace beam
     {
         struct ConnectionInfo;
         using ConnectCallback = std::function<void(const ConnectionInfo&)>;
+        using NodeConnectCallback = std::function<void()>;
     public:
 
 
@@ -137,12 +138,12 @@ namespace beam
         {
             if (!m_is_node_connected)
             {
-                create_node_connection();
-                m_node_connection->connect([this, msg=std::move(msg)]()
+                auto f = [this, msg = std::move(msg)]()
                 {
-                    m_is_node_connected = true;
                     m_node_connection->Send(msg);
-                });
+                };
+                m_node_connect_callbacks.emplace_back(std::move(f));
+                connect_node();
             }
             else
             {
@@ -289,5 +290,7 @@ namespace beam
         std::unique_ptr<WalletNodeConnection> m_node_connection;
         SerializedMsg m_msgToSend;
         io::Timer::Ptr m_sync_timer;
+
+        std::vector<NodeConnectCallback> m_node_connect_callbacks;
     };
 }

@@ -272,6 +272,13 @@ namespace beam {
     void WalletNetworkIO::on_node_connected()
     {
         m_is_node_connected = true;
+
+        vector<NodeConnectCallback> t;
+        t.swap(m_node_connect_callbacks);
+        for (auto& cb : t)
+        {
+            cb();
+        }
     }
 
     void WalletNetworkIO::on_protocol_error(uint64_t from, ProtocolError error)
