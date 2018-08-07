@@ -26,8 +26,9 @@ ColumnLayout {
 		height: 454
 		x: (parent.width - width) / 2
 		y: (parent.height - height) / 2
+		visible: false
+		focus: true
 		background: null
-		visible: true
 
 		Rectangle {
 			radius: 10
@@ -111,7 +112,13 @@ ColumnLayout {
 							Layout.maximumHeight: 14
 							font.pixelSize: 12
 							color: Style.white
-							text: "test"
+							text: addressBookViewModel.newPeerAddress.walletID
+						}
+
+						Binding {
+							target: addressBookViewModel.newPeerAddress
+							property: "walletID"
+							value: addressID.text
 						}
 
 						Rectangle {
@@ -143,6 +150,12 @@ ColumnLayout {
 							font.pixelSize: 12
 							color: Style.white
 							height: 14
+							text: addressBookViewModel.newPeerAddress.name
+						}
+						Binding {
+							target: addressBookViewModel.newPeerAddress
+							property: "name"
+							value: nameAddress.text
 						}
 						Rectangle {
 							Layout.fillWidth: true
@@ -200,8 +213,14 @@ ColumnLayout {
 							id: ownAddressID
 							Layout.fillWidth: true
 							font.pixelSize: 12
-							text: "test"
+							text: addressBookViewModel.newOwnAddress.walletID
 						}
+
+						//Binding {
+							//target: addressBookViewModel.newOwnAddress
+							//property: "walletID"
+							//value: ownAddressID.text
+						//}
 					}
 
 					ColumnLayout {
@@ -222,6 +241,12 @@ ColumnLayout {
 							font.pixelSize: 12
 							color: Style.white
 							height: 14
+							text: addressBookViewModel.newOwnAddress.name
+						}
+						Binding {
+							target: addressBookViewModel.newOwnAddress
+							property: "name"
+							value: nameOwnAddress.text
 						}
 						Rectangle {
 							Layout.fillWidth: true
@@ -309,6 +334,10 @@ ColumnLayout {
 								color: "#33566b"
 								anchors.fill: parent							
 							}
+							onClicked: {
+								
+								createAddress.close()
+							}
 						}
 
 						Button {
@@ -320,6 +349,14 @@ ColumnLayout {
 								radius: 50
 								color: Style.bright_teal
 								anchors.fill: parent							
+							}
+							onClicked: {
+								if (createAddressLayout.state == "own") {
+									addressBookViewModel.createNewOwnAddress();
+								} else {
+									addressBookViewModel.createNewPeerAddress();
+								}
+								createAddress.close();
 							}
 						}
 					}
@@ -394,7 +431,9 @@ ColumnLayout {
                 anchors.right: parent.right
                 text: "+ create new address"
 				onClicked: {
-                    addressBookViewModel.createNewAddress();
+					createAddressLayout.state = addressRoot.state
+					createAddress.open();
+                    //addressBookViewModel.createNewAddress();
 				}
             }
         }

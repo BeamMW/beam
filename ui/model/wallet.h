@@ -18,6 +18,7 @@ struct IWalletModelAsync
     virtual void getAddresses(bool own) = 0;
     virtual void cancelTx(beam::TxID id) = 0;
     virtual void createNewAddress(beam::WalletAddress&& address) = 0;
+	virtual void generateNewWalletID() = 0;
 
 	virtual ~IWalletModelAsync() {}
 };
@@ -76,6 +77,7 @@ private:
     void getAddresses(bool own) override;
     void cancelTx(beam::TxID id) override;
     void createNewAddress(beam::WalletAddress&& address) override;
+	void generateNewWalletID() override;
 
 	void onStatusChanged();
 	WalletStatus getStatus() const;

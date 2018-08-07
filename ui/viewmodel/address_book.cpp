@@ -5,6 +5,14 @@ using namespace std;
 using namespace beam;
 using namespace beamui;
 
+PeerAddressItem::PeerAddressItem()
+	: m_walletID{}
+	, m_name{}
+	, m_category{}
+{
+
+}
+
 PeerAddressItem::PeerAddressItem(const beam::WalletAddress& address)
     : m_walletID{beamui::toString(address.m_walletID)}
     , m_name{QString::fromStdString(address.m_label)}
@@ -16,6 +24,11 @@ PeerAddressItem::PeerAddressItem(const beam::WalletAddress& address)
 QString PeerAddressItem::getWalletID() const
 {
     return m_walletID;
+}
+
+void PeerAddressItem::setWalletID(const QString& value)
+{
+	m_walletID = value;
 }
 
 QString PeerAddressItem::getName() const
@@ -36,6 +49,14 @@ QString PeerAddressItem::getCategory() const
 void PeerAddressItem::setCategory(const QString& value)
 {
     m_category = value;
+}
+
+OwnAddressItem::OwnAddressItem()
+	: PeerAddressItem{}
+	, m_createDate{}
+	, m_expirationDate{}
+{
+
 }
 
 OwnAddressItem::OwnAddressItem(const beam::WalletAddress& address) 
@@ -98,6 +119,32 @@ QVariant AddressBookViewModel::getOwnAddresses() const
     return QVariant::fromValue(m_ownAddresses);
 }
 
+void AddressBookViewModel::setNewPeerAddress(QVariant addr)
+{
+
+}
+
+void AddressBookViewModel::setNewOwnAddress(QVariant addr)
+{
+
+}
+
+QVariant AddressBookViewModel::getNewPeerAddress()
+{
+	return QVariant::fromValue(&m_newPeerAddress);
+}
+
+QVariant AddressBookViewModel::getNewOwnAddress()
+{
+	return QVariant::fromValue(&m_newOwnAddress);
+}
+
+void AddressBookViewModel::generateNewEmptyAddress()
+{
+	m_ownAddresses = {};
+	m_peerAddresses = {};
+}
+
 void AddressBookViewModel::createNewAddress()
 {
     WalletAddress a = {};
@@ -114,6 +161,38 @@ void AddressBookViewModel::createNewAddress()
         m_model.async->getAddresses(true);
         m_model.async->getAddresses(false);
     }
+}
+
+void AddressBookViewModel::createNewPeerAddress()
+{
+	WalletAddress peerAddress{};
+	peerAddress.m_own = false;
+	peerAddress.m_label = m_newPeerAddress.getName().toStdString();
+	peerAddress.m_createTime = beam::getTimestamp();
+	peerAddress.m_category = m_newPeerAddress.getCategory().toStdString();
+
+	if (m_model.async)
+	{
+		m_model.async->createNewAddress(std::move(peerAddress));
+		m_model.async->getAddresses(false);
+	}
+}
+
+void AddressBookViewModel::createNewOwnAddress()
+{
+	WalletAddress ownAddress{};
+
+	ownAddress.m_own = true;
+	ownAddress.m_label = m_newOwnAddress.getName().toStdString();
+	ownAddress.m_createTime = beam::getTimestamp();
+	//ownAddress.m_duration = m_newOwnAddress.getExpirationDate
+	ownAddress.m_category = m_newOwnAddress.getCategory().toStdString();
+
+	if (m_model.async)
+	{
+		m_model.async->createNewAddress(std::move(ownAddress));
+		m_model.async->getAddresses(true);
+	}
 }
 
 Q_INVOKABLE QVariant AddressBookViewModel::getPeerAddress(int index) const

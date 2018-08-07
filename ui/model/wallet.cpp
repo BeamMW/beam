@@ -71,6 +71,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
             receiver.createNewAddress(move(address));
         });
     }
+
+	void generateNewWalletID() override
+	{
+		tx.send([](BridgeInterface& receiver) mutable
+		{
+			receiver.generateNewWalletID();
+		});
+	}
 };
 
 WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
@@ -293,6 +301,11 @@ void WalletModel::cancelTx(beam::TxID id)
 void WalletModel::createNewAddress(WalletAddress&& address)
 {
     _keychain->saveAddress(address);
+}
+
+void WalletModel::generateNewWalletID()
+{
+
 }
 
 vector<Coin> WalletModel::getUtxos() const
