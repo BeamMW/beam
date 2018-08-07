@@ -82,12 +82,14 @@ namespace beam
         virtual void onAddressChanged() = 0;
 	};
 
+    extern const char[] KEY_STORE_PASS;
+
     struct IKeyChain
     {
         using Ptr = std::shared_ptr<IKeyChain>;
         virtual ~IKeyChain() {}
 
-
+        
         virtual ECC::Scalar::Native calcKey(const beam::Coin& coin) const = 0;
 
         virtual std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) = 0;

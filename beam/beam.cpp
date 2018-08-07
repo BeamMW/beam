@@ -478,6 +478,9 @@ int main_impl(int argc, char* argv[])
 
 						assert(vm.count(cli::WALLET_STORAGE) > 0);
 						auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
+
+                        assert(vm.count(cli::BBS_STORAGE) > 0);
+                        auto bbsKeysPath = vm[cli::BBS_STORAGE].as<string>();
                         
 						if (!Keychain::isInitialized(walletPath) && command != cli::INIT)
 						{
@@ -512,19 +515,25 @@ int main_impl(int argc, char* argv[])
 							{
 								LOG_INFO() << "wallet successfully created...";
 
-                                assert(vm.count(cli::BBS_STORAGE) > 0);
-                                auto bbsKeysPath = vm[cli::BBS_STORAGE].as<string>();
-
                                 IKeyStore::Options options;
                                 options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
                                 options.fileName = bbsKeysPath;
 
-                                IKeyStore::Ptr ks = IKeyStore::create(options, pass.c_str(), pass.size());
+                                // use wallet_seed as pass for now
+                                string keyStorePass = vm[cli::WALLET_SEED].as<string>();
+
+                                IKeyStore::Ptr ks = IKeyStore::create(options, keyStorePass.c_str(), keyStorePass.size());
 
                                 // generate default address
-                                util::PubKey myPubKey;
-                                ks->gen_keypair(myPubKey, pass.c_str(), pass.size(), true);
-                                // store to keychain
+                                WalletAddress defaultAddress = {};
+                                defaultAddress.m_own = true;
+                                defaultAddress.m_label = "default";
+                                defaultAddress.m_createTime = getTimestamp();
+                                defaultAddress.m_duration = numeric_limits<uint64_t>::max();
+                                ks->gen_keypair(defaultAddress.m_walletID, keyStorePass.c_str(), keyStorePass.size(), true);
+                                
+                                keychain->saveAddress(defaultAddress);
+                                keychain->setVarRaw(KEY_STORE_PASS, keyStorePass.data(), keyStorePass.size());
 
 								return 0;
 							}
@@ -535,13 +544,20 @@ int main_impl(int argc, char* argv[])
 							}
 						}
 
-
 						auto keychain = Keychain::open(walletPath, pass);
 						if (!keychain)
 						{
 							LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";
 							return -1;
 						}
+
+                        //IKeyStore::Options options;
+                        //options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+                        //options.fileName = bbsKeysPath;
+                        
+                        //IKeyStore::Ptr ks = IKeyStore::create(options, keyStorePass.c_str(), keyStorePass.size());
+
+                        //auto keystore = 
 
 						LOG_INFO() << "wallet sucessfully opened...";
 
