@@ -24,6 +24,26 @@ using namespace std;
 namespace
 {
     static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
+
+	using Nonce = ECC::Scalar::Native;
+
+	// TODO It's temporary solution
+	static void gen_nonce(Nonce& nonce) {
+		ECC::Scalar sc;
+		uint64_t seed;
+
+		// here we want to read as little as possible from slow sources, TODO: review this
+		ECC::GenRandom(&seed, 8);
+		ECC::Hash::Processor() << seed >> sc.m_Value;
+
+		nonce.Import(sc);
+	}
+
+	void gen_keypair(PeerID& pubKey) {
+		Nonce privKey;
+		gen_nonce(privKey);
+		proto::Sk2Pk(pubKey, privKey);
+	}
 }
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
@@ -62,6 +82,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+	void getAddresses(bool own) override
+	{
+		tx.send([own](BridgeInterface& receiver) mutable
+		{
+			receiver.getAddresses(own);
+		});
+	}
+
     void cancelTx(beam::TxID id) override
     {
         tx.send([id](BridgeInterface& receiver) mutable
@@ -69,6 +97,22 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
             receiver.cancelTx(id);
         });
     }
+
+    void createNewAddress(WalletAddress&& address) override
+    {
+        tx.send([address{ move(address) }](BridgeInterface& receiver) mutable
+        {
+            receiver.createNewAddress(move(address));
+        });
+    }
+
+	void generateNewWalletID() override
+	{
+		tx.send([](BridgeInterface& receiver) mutable
+		{
+			receiver.generateNewWalletID();
+		});
+	}
 };
 
 WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
@@ -81,6 +125,8 @@ WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const string& n
 	qRegisterMetaType<vector<TxPeer>>("std::vector<beam::TxPeer>");
     qRegisterMetaType<Amount>("beam::Amount");
     qRegisterMetaType<vector<Coin>>("std::vector<beam::Coin>");
+    qRegisterMetaType<vector<WalletAddress>>("std::vector<beam::WalletAddress>");
+	qRegisterMetaType<WalletID>("beam::WalletID");
 }
 
 WalletModel::~WalletModel() 
@@ -127,11 +173,32 @@ void WalletModel::run()
 {
 	try
 	{
+		struct WalletSubscriber
+		{
+			WalletSubscriber(IWalletObserver* client, std::shared_ptr<beam::Wallet> wallet)
+				: _client(client)
+				, _wallet(wallet)
+			{
+				_wallet->subscribe(_client);
+			}
+
+			~WalletSubscriber()
+			{
+				_wallet->unsubscribe(_client);
+			}
+		private:
+			IWalletObserver * _client;
+			std::shared_ptr<beam::Wallet> _wallet;
+		};
+
+		std::unique_ptr<WalletSubscriber> subscriber;
+
+		_reactor = Reactor::create();
+		async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), _reactor);
+		
 		emit onStatus(getStatus());
 		emit onTxStatus(_keychain->getTxHistory());
 		emit onTxPeerUpdated(_keychain->getPeers());
-        
-		_reactor = Reactor::create();
 
 		Address node_addr;
 
@@ -154,34 +221,14 @@ void WalletModel::run()
 				}
 			);
 
-			async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), _reactor);
-
-			struct WalletSubscriber
-			{
-				WalletSubscriber(IWalletObserver* client, std::shared_ptr<beam::Wallet> wallet)
-					: _client(client)
-					, _wallet(wallet)
-				{
-					_wallet->subscribe(_client);
-				}
-
-				~WalletSubscriber()
-				{
-					_wallet->unsubscribe(_client);
-				}
-			private:
-				IWalletObserver* _client;
-				std::shared_ptr<beam::Wallet> _wallet;
-			};
-
-			WalletSubscriber subscriber(this, wallet);
-
-			wallet_io->start();
+			subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 		}
 		else
 		{
 			LOG_ERROR() << "unable to resolve node address";
 		}
+		
+		_reactor->run();
 	}
 	catch (const runtime_error& e)
 	{
@@ -217,6 +264,11 @@ void WalletModel::onSystemStateChanged()
 void WalletModel::onTxPeerChanged()
 {
 	emit onTxPeerUpdated(_keychain->getPeers());
+}
+
+void WalletModel::onAddressChanged()
+{
+    
 }
 
 void WalletModel::onSyncProgress(int done, int total)
@@ -267,6 +319,11 @@ void WalletModel::getAvaliableUtxos()
     emit onUtxoChanged(getUtxos());
 }
 
+void WalletModel::getAddresses(bool own)
+{
+	emit onAdrresses(own, _keychain->getAddresses(own));
+}
+
 void WalletModel::cancelTx(beam::TxID id)
 {
     auto w = _wallet.lock();
@@ -274,6 +331,19 @@ void WalletModel::cancelTx(beam::TxID id)
     {
         w->cancel_tx(id);
     }
+}
+
+void WalletModel::createNewAddress(WalletAddress&& address)
+{
+    _keychain->saveAddress(address);
+}
+
+void WalletModel::generateNewWalletID()
+{
+	WalletID walletID;
+	gen_keypair(walletID);
+
+	emit onGeneratedNewWalletID(walletID);
 }
 
 vector<Coin> WalletModel::getUtxos() const

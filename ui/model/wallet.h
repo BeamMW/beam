@@ -29,7 +29,10 @@ struct IWalletModelAsync
 	virtual void syncWithNode() = 0;
     virtual void calcChange(beam::Amount&& amount) = 0;
     virtual void getAvaliableUtxos() = 0;
+    virtual void getAddresses(bool own) = 0;
     virtual void cancelTx(beam::TxID id) = 0;
+    virtual void createNewAddress(beam::WalletAddress&& address) = 0;
+	virtual void generateNewWalletID() = 0;
 
 	virtual ~IWalletModelAsync() {}
 };
@@ -71,19 +74,25 @@ signals:
 	void onSyncProgressUpdated(int done, int total);
     void onChangeCalculated(beam::Amount change);
     void onUtxoChanged(const std::vector<beam::Coin>& utxos);
+	void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
+	void onGeneratedNewWalletID(const beam::WalletID& walletID);
 
 private:
 	void onKeychainChanged() override;
 	void onTransactionChanged() override;
 	void onSystemStateChanged() override;
 	void onTxPeerChanged() override;
+    void onAddressChanged() override;
 	void onSyncProgress(int done, int total) override;
 
     void sendMoney(beam::WalletID receiver, beam::Amount&& amount, beam::Amount&& fee) override;
     void syncWithNode() override;
     void calcChange(beam::Amount&& amount) override;
     void getAvaliableUtxos() override;
+    void getAddresses(bool own) override;
     void cancelTx(beam::TxID id) override;
+    void createNewAddress(beam::WalletAddress&& address) override;
+	void generateNewWalletID() override;
 
 	void onStatusChanged();
 	WalletStatus getStatus() const;

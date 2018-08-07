@@ -34,6 +34,8 @@ set(UI_SRC
 	viewmodel/help.cpp
 	viewmodel/settings.h
 	viewmodel/settings.cpp
+	viewmodel/address_book.cpp
+	viewmodel/ui_helpers.cpp
 
 	model/wallet.h
 	model/wallet.cpp
