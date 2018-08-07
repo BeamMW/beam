@@ -42,6 +42,7 @@ namespace beam {
         , m_sync_period_ms{ sync_period_ms }
         , m_sync_timer{io::Timer::create(m_reactor)}
         , m_keystore(keyStore)
+        , m_lastReceiver(0)
     {
         if (!m_keystore || m_keystore->size() == 0) {
             throw std::runtime_error("WalletNetworkIO: empty keystore");
@@ -143,31 +144,36 @@ namespace beam {
 
     bool WalletNetworkIO::on_message(uint64_t, wallet::Invite&& msg)
     {
-        get_wallet().handle_tx_message(move(msg));
+        assert(m_lastReceiver);
+        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
         return true;
     }
 
     bool WalletNetworkIO::on_message(uint64_t, wallet::ConfirmTransaction&& msg)
     {
-        get_wallet().handle_tx_message(move(msg));
+        assert(m_lastReceiver);
+        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
         return true;
     }
 
     bool WalletNetworkIO::on_message(uint64_t, wallet::ConfirmInvitation&& msg)
     {
-        get_wallet().handle_tx_message(move(msg));
+        assert(m_lastReceiver);
+        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
         return true;
     }
 
     bool WalletNetworkIO::on_message(uint64_t, wallet::TxRegistered&& msg)
     {
-        get_wallet().handle_tx_message(move(msg));
+        assert(m_lastReceiver);
+        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
         return true;
     }
 
     bool WalletNetworkIO::on_message(uint64_t, wallet::TxFailed&& msg)
     {
-        get_wallet().handle_tx_message(move(msg));
+        assert(m_lastReceiver);
+        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
         return true;
     }
 
@@ -251,9 +257,10 @@ namespace beam {
         }
     }
 
-    bool WalletNetworkIO::handle_decrypted_message(const PubKey& sentTo, uint64_t timestamp, const void* buf, size_t size)
+    bool WalletNetworkIO::handle_decrypted_message(uint64_t timestamp, const void* buf, size_t size)
     {
-        m_bbs_timestamps[channel_from_wallet_id(sentTo)] = timestamp;
+        assert(m_lastReceiver);
+        m_bbs_timestamps[channel_from_wallet_id(*m_lastReceiver)] = timestamp;
         m_msgReader.new_data_from_stream(io::EC_OK, buf, size);
         return true;
     }
@@ -286,7 +293,8 @@ namespace beam {
             if (channel != msg.m_Channel) continue;
             if (m_keystore->decrypt(out, size, msg.m_Message, k)) {
                 LOG_DEBUG() << "Succeeded to decrypt BBS message from channel=" << msg.m_Channel;
-                return handle_decrypted_message(k, msg.m_TimePosted, out, size);
+                m_lastReceiver = &k;
+                return handle_decrypted_message(msg.m_TimePosted, out, size);
             } else {
                 LOG_DEBUG() << "failed to decrypt BBS message from channel=" << msg.m_Channel;
             }
