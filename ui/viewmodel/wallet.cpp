@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "wallet.h"
 
 #include <QDateTime>
@@ -76,12 +90,69 @@ QString TxObject::status() const
 	return Names[_tx.m_status];
 }
 
+bool TxObject::canCancel() const
+{
+    return _tx.m_status == beam::TxDescription::InProgress
+        || _tx.m_status == beam::TxDescription::Pending;
+}
+
+
+UtxoItem::UtxoItem(const beam::Coin& coin)
+    : _coin{coin}
+{
+
+}
+
+QString UtxoItem::amount() const
+{
+    return BeamToString(_coin.m_amount) + " BEAM";
+}
+
+QString UtxoItem::height() const
+{
+    return QString::number(_coin.m_createHeight);
+}
+
+QString UtxoItem::maturity() const
+{
+    return QString::number(_coin.m_createHeight);
+}
+
+QString UtxoItem::status() const
+{
+    static const char* Names[] = 
+    {
+        "Unconfirmed",
+        "Unspent",
+        "Locked",
+        "Spent"
+    };
+    return Names[_coin.m_status];
+}
+
+QString UtxoItem::type() const
+{
+    static const char* Names[] = 
+    {
+        "Comission",
+        "Coinbase",
+        "Kernel",
+        "Regular",
+        "Identity",
+        "SChannelNonce"
+    };
+    return Names[static_cast<int>(_coin.m_key_type)];
+}
+
 WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
 	: _model(keychain, port, nodeAddr)
 	, _status{ 0, 0, 0, 0, {0, 0, 0} }
 	, _sendAmount("0")
 	, _sendAmountMils("0")
+    , _feeMils("0")
+    , _change(0)
     , _keychain(keychain)
+    , _loadingUtxo{false}
 {
 	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
@@ -94,7 +165,20 @@ WalletViewModel::WalletViewModel(IKeyChain::Ptr keychain, uint16_t port, const s
 	connect(&_model, SIGNAL(onSyncProgressUpdated(int, int)),
 		SLOT(onSyncProgressUpdated(int, int)));
 
+    connect(&_model, SIGNAL(onChangeCalculated(beam::Amount)),
+        SLOT(onChangeCalculated(beam::Amount)));
+
+    connect(&_model, SIGNAL(onUtxoChanged(const std::vector<beam::Coin>&)),
+        SLOT(onUtxoChanged(const std::vector<beam::Coin>&)));
+
+
 	_model.start();
+}
+
+void WalletViewModel::cancelTx(int index)
+{
+    auto *p = static_cast<TxObject*>(_tx[index]);
+    _model.async->cancelTx(p->_tx.m_txId);
 }
 
 void WalletViewModel::onStatus(const WalletStatus& status)
@@ -138,8 +222,11 @@ void WalletViewModel::onStatus(const WalletStatus& status)
 		changed = true;
 	}
 
-	if(changed)
-		emit stateChanged();
+    if (changed)
+    {
+        _utxos.clear();
+        emit stateChanged();
+    }
 }
 
 void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
@@ -167,6 +254,25 @@ void WalletViewModel::onSyncProgressUpdated(int done, int total)
 	_status.update.total = total;
 
 	emit stateChanged();
+}
+
+void WalletViewModel::onChangeCalculated(beam::Amount change)
+{
+    _change = change;
+    emit actualAvailableChanged();
+    emit changeChanged();
+}
+
+void WalletViewModel::onUtxoChanged(const std::vector<beam::Coin>& utxos)
+{
+    _utxos.clear();
+    for (const auto& utxo : utxos)
+    {
+        _utxos.push_back(new UtxoItem(utxo));
+    }
+    _loadingUtxo = false;
+
+    emit utxoChanged();
 }
 
 QString WalletViewModel::available() const
@@ -199,11 +305,17 @@ QString WalletViewModel::sendAmountMils() const
 	return _sendAmountMils;
 }
 
+QString WalletViewModel::feeMils() const
+{
+    return _feeMils;
+}
+
 void WalletViewModel::setSendAmount(const QString& amount)
 {
 	if (amount != _sendAmount)
 	{
 		_sendAmount = amount;
+        _model.async->calcChange(calcTotalAmount());
 		emit sendAmountChanged();
 		emit actualAvailableChanged();
 	}
@@ -214,9 +326,21 @@ void WalletViewModel::setSendAmountMils(const QString& amount)
 	if (amount != _sendAmountMils)
 	{
 		_sendAmountMils = amount;
+        _model.async->calcChange(calcTotalAmount());
 		emit sendAmountMilsChanged();
 		emit actualAvailableChanged();
 	}
+}
+
+void WalletViewModel::setFeeMils(const QString& amount)
+{
+    if (amount != _feeMils)
+    {
+        _feeMils = amount;
+        _model.async->calcChange(calcTotalAmount());
+        emit feeMilsChanged();
+        emit actualAvailableChanged();
+    }
 }
 
 void WalletViewModel::setSelectedAddr(int index)
@@ -273,10 +397,31 @@ int WalletViewModel::selectedAddr() const
 	return _selectedAddr;
 }
 
+QVariant WalletViewModel::utxos() 
+{
+    if (_utxos.empty() && _loadingUtxo == false && _model.async)
+    {
+        _loadingUtxo = true;
+        _model.async->getAvaliableUtxos();
+    }
+    return QVariant::fromValue(_utxos);
+}
+
 beam::Amount WalletViewModel::calcSendAmount() const
 {
 	return _sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt();
 }
+
+beam::Amount WalletViewModel::calcFeeAmount() const
+{
+    return _feeMils.toInt();
+}
+
+beam::Amount WalletViewModel::calcTotalAmount() const
+{
+    return calcSendAmount() + calcFeeAmount();
+}
+
 
 void WalletViewModel::sendMoney()
 {
@@ -285,7 +430,7 @@ void WalletViewModel::sendMoney()
         auto& addr = _addrList[_selectedAddr];
         // TODO: show 'operation in process' animation here?
 
-        _model.async->sendMoney(addr.m_walletID, std::move(calcSendAmount()));
+        _model.async->sendMoney(addr.m_walletID, calcSendAmount(), calcFeeAmount());
     }
 }
 
@@ -296,5 +441,10 @@ void WalletViewModel::syncWithNode()
 
 QString WalletViewModel::actualAvailable() const
 {
-	return BeamToString(_status.available - calcSendAmount());
+	return BeamToString(_status.available - calcTotalAmount() - _change);
+}
+
+QString WalletViewModel::change() const
+{
+    return BeamToString(_change);
 }

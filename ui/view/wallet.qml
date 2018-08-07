@@ -2,6 +2,7 @@ import QtQuick 2.3
 import QtQuick.Controls 1.2
 import QtQuick.Controls.Styles 1.2
 import QtGraphicalEffects 1.0
+import QtQuick.Layouts 1.3
 import "controls"
 
 Item {
@@ -211,6 +212,7 @@ Item {
                 anchors.bottomMargin: 60
 
                 SFText {
+                    id: amount_text
                     y: 41
 
                     font.pixelSize: 12
@@ -293,34 +295,94 @@ Item {
                     text: "MIL"
                 }
 
-                SFText {
-                    y: 164+30
-                    opacity: 0.5
-                    font.pixelSize: 24
-                    font.weight: Font.ExtraLight
-                    color: Style.white
-                    text: (walletViewModel.sendAmount*1 + walletViewModel.sendAmountMils/1000000) + " USD"
+                /////////////////////////////////////////////////////////////
+                /// Transaction fee /////////////////////////////////////////
+                /////////////////////////////////////////////////////////////
+
+                Column {
+                    id: fee_input
+                    anchors {
+                        top: mils_amount_input.bottom
+                        left: amount_text.left
+                        right: parent.right
+                        topMargin: 20
+                    }
+
+                    SFText {
+
+                        font.pixelSize: 12
+                        font.weight: Font.Bold
+                        color: Style.white
+                        text: "Transaction fee"
+                    }
+
+                    RowLayout {
+                        anchors {
+                            left: parent.left
+                        }
+                        SFTextInput {
+                            id: mils_fee_input
+                            Layout.minimumWidth: 337
+                            Layout.maximumWidth: 337
+
+                            font.pixelSize: 48
+
+                            color: Style.heliotrope
+
+                            text: walletViewModel.feeMils
+
+                            validator: IntValidator{bottom: 0; top: 999999;}
+                        }
+                        SFText {
+                            Layout.alignment: Qt.AlignBottom
+                            Layout.leftMargin: 20
+                            font.pixelSize: 24
+                            color: Style.white
+                            text: "MIL"
+                        }
+                    }
+
+                    Rectangle {
+                        width: 337
+                        height: 1
+
+                        color: "#33566b"
+                    }
+
+                    Binding {
+                        target: walletViewModel
+                        property: "feeMils"
+                        value: mils_fee_input.text
+                    }
+                }
+                Item {
+                    id: total_amount
+                    anchors {
+                        top: fee_input.bottom
+                        left: parent.left
+                        right: parent.right
+                        topMargin: 20
+                        rightMargin: 30
+                    }
+                    height: 40
+
+                    SFText {
+                        opacity: 0.5
+                        font.pixelSize: 24
+                        font.weight: Font.ExtraLight
+                        color: Style.white
+                        text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils*1 + walletViewModel.feeMils*1)/1000000) + " USD"
+                    }
                 }
 
                 AvailablePanel {
-                    y: 243
+                    id:send_available
+                    anchors.top: total_amount.bottom
+                    model: walletViewModel.utxos
                     width: parent.width
                     height: 206
                     value: walletViewModel.actualAvailable
                 }
-
-                // /////////////////////////////////////////////////////////////
-                // /// Transaction fee /////////////////////////////////////////
-                // /////////////////////////////////////////////////////////////
-
-                // SFText {
-                //     y: 243   
-
-                //     font.pixelSize: 12
-                //     font.weight: Font.Bold
-                //     color: Style.white
-                //     text: "Transaction fee"
-                // }
 
                 // Rectangle {
                 //     id: fee_line
@@ -528,6 +590,7 @@ Item {
                 AvailablePanel {
                     width: (parent.width - 30)*500/1220
                     height: parent.height
+                    model: walletViewModel.utxos
                     value: walletViewModel.available
                 }
 
@@ -708,7 +771,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         x: 20
                         source: "qrc:///assets/icon-comment.svg"
-                        visible: styleData.value != null
+                        visible: styleData.value !== null
                     }
                 }
             }
@@ -726,7 +789,7 @@ Item {
 
                     clip:true
 
-                    property bool income: tx_view.model[styleData.row].income
+                    property bool income: (styleData.row >= 0) ? walletViewModel.getTxAt(styleData.row).income : false
 
                     SFText {
                         font.pixelSize: 24
@@ -782,9 +845,9 @@ Item {
                         font.pixelSize: 12
 
                         color: {
-                            if(styleData.value == "sent")
+                            if(styleData.value === "sent")
                                 Style.heliotrope
-                            else if(styleData.value == "received")
+                            else if(styleData.value === "received")
                                 Style.bright_sky_blue
                             else Style.white
                         }
@@ -812,6 +875,17 @@ Item {
                 }
             }
 
+            Menu {
+                id: txContextMenu
+                property int txIndex;
+                MenuItem {
+                    text: qsTr('Cancel')
+                    onTriggered: {
+                       walletViewModel.cancelTx(txContextMenu.txIndex);
+                    }
+                }
+            }
+
             rowDelegate: Item {
                 height: 69
 
@@ -823,6 +897,22 @@ Item {
 
                     color: Style.light_navy
                     visible: styleData.alternate
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    onClicked: {
+                        if (mouse.button === Qt.RightButton && styleData.row !== undefined)
+                        {
+                            txContextMenu.txIndex = styleData.row;
+                            var tx = walletViewModel.getTxAt(styleData.row);
+                            if (tx.canCancel)
+                            {
+                                txContextMenu.popup();
+                            }
+                        }
+                    }
                 }
             }
 

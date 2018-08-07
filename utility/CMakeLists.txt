@@ -4,6 +4,7 @@ set(UTILITY_SRC
     helpers.cpp
     config.cpp
 	options.cpp
+	string_helpers.cpp
 # ~etc
 )
 
@@ -41,10 +42,10 @@ else()
 endif()
 
 if (Boost_FOUND)
-	find_package(Boost COMPONENTS program_options)
-    target_link_libraries(utility Boost::program_options)
+    find_package(Boost COMPONENTS program_options filesystem)
+    target_link_libraries(utility Boost::program_options Boost::filesystem)
 else()
-    target_link_libraries(utility boost_program_options)
+    target_link_libraries(utility boost_program_options boost_filesystem boost_system)
 endif()
 
 add_subdirectory(unittest)

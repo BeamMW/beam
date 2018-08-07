@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "bbs.h"
 #include "p2p/protocol.h"
 #include "p2p/connection.h"
@@ -181,7 +195,7 @@ private:
         message.timestamp = time(0);
         message.bytes = std::move(bytes);
 
-        io::SharedBuffer serialized = _protocol.serialize(MESSAGE_MSG_TYPE, message);
+        io::SharedBuffer serialized = _protocol.serialize(MESSAGE_MSG_TYPE, message, false);
         if (_config.historyDepth > 0) {
             if (_lastTimestamp != message.timestamp) {
                 _lastTimestamp = message.timestamp;

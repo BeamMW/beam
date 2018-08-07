@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "p2p.h"
 #include "utility/config.h"
 #include "utility/logger.h"
@@ -190,7 +204,7 @@ void P2P::on_ping_timer(TimerID) {
     if (_connectedPeers.total_connected() > 0) {
         LOG_DEBUG() << "sending ping to connected peers";
         if (_peerStateUpdated) {
-            _peerStateMsg = _protocol.serialize(PEER_STATE_MSG_TYPE, _peerState);
+            _peerStateMsg = _protocol.serialize(PEER_STATE_MSG_TYPE, _peerState, false);
             _peerStateUpdated = false;
         }
         _connectedPeers.ping(_peerStateMsg);
@@ -214,7 +228,7 @@ bool P2P::on_known_servers_request(uint64_t id, VoidMessage&&) {
     StreamId streamId(id);
     LOG_DEBUG() << "known servers request from " << streamId.address();
     if (_knownServersUpdated) {
-        _knownServersMsg = _protocol.serialize(KNOWN_SERVERS_MSG_TYPE, _knownServers);
+        _knownServersMsg = _protocol.serialize(KNOWN_SERVERS_MSG_TYPE, _knownServers, false);
         _knownServersUpdated = false;
     }
     return bool(_connectedPeers.write_msg(streamId, _knownServersMsg));

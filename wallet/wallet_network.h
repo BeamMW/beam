@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include "p2p/protocol.h"
@@ -96,7 +110,7 @@ namespace beam
 
             //listen_to_bbs_channel(util::channel_from_wallet_id(msg.m_from));
             uint32_t channel = util::channel_from_wallet_id(walletID);
-            LOG_DEBUG() << "BBS send message to channel=" << channel << "[" << to_string(walletID) << "]  my pubkey=" << to_string(m_bbs_keys->first);
+            LOG_DEBUG() << "BBS send message to channel=" << channel << "[" << to_hex(walletID.m_pData, 32) << "]  my pubkey=" << to_hex(m_bbs_keys->first.m_pData, 32);
             proto::BbsMsg bbsMsg;
             bbsMsg.m_Channel = channel;
             bbsMsg.m_TimePosted = getTimestamp();
