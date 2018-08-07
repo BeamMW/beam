@@ -31,7 +31,7 @@ namespace beam
         using Ptr = std::shared_ptr<IWallet>;
         virtual ~IWallet() {}
         // wallet to wallet responses
-        virtual void handle_tx_message(wallet::Invite&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::Invite&&) = 0;
         virtual void handle_tx_message(wallet::ConfirmTransaction&&) = 0;
         virtual void handle_tx_message(wallet::ConfirmInvitation&&) = 0;
         virtual void handle_tx_message(wallet::TxRegistered&&) = 0;
@@ -109,7 +109,7 @@ namespace beam
         Wallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
-        TxID transfer_money(const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, ByteBuffer&& message = {} );
+        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, ByteBuffer&& message = {} );
         void resume_tx(const TxDescription& tx);
         void resume_all_tx();
 
@@ -122,7 +122,7 @@ namespace beam
         void register_tx(const TxDescription& tx, Transaction::Ptr) override;
         void send_tx_registered(const TxDescription& tx) override;
 
-        void handle_tx_message(wallet::Invite&&) override;
+        void handle_tx_message(const WalletID&, wallet::Invite&&) override;
         void handle_tx_message(wallet::ConfirmTransaction&&) override;
         void handle_tx_message(wallet::ConfirmInvitation&&) override;
         void handle_tx_message(wallet::TxRegistered&&) override;
@@ -180,13 +180,19 @@ namespace beam
             return false;
         }
 
+        template<typename Message>
+        void send_tx_message(const TxDescription& txDesc, Message&& msg)
+        {
+            msg.m_from = txDesc.m_myId;
+            m_network->send_tx_message(txDesc.m_peerId, std::move(msg));
+        }
+
     private:
 
         struct StateFinder;
 
         IKeyChain::Ptr m_keyChain;
         INetworkIO::Ptr m_network;
-        std::map<WalletID, wallet::Negotiator::Ptr> m_peers;
         std::map<TxID, wallet::Negotiator::Ptr>   m_negotiators;
         std::vector<wallet::Negotiator::Ptr>      m_removedNegotiators;
         TxCompletedAction m_tx_completed_action;

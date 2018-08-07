@@ -667,7 +667,7 @@ int main_impl(int argc, char* argv[])
 						TxPeer receiverPeer = {};
 						receiverPeer.m_address = receiverAddr.str();
                     
-                        receiverPeer.m_walletID = receiverWalletID;//receiverAddr.u64();
+                        receiverPeer.m_walletID = receiverWalletID;
 						keychain->addPeer(receiverPeer);
 
                         auto wallet_io = make_shared<WalletNetworkIO >( node_addr
@@ -678,9 +678,21 @@ int main_impl(int argc, char* argv[])
 									 , is_server ? Wallet::TxCompletedAction() : [wallet_io](auto) { wallet_io->stop(); } };
 						if (isTxInitiator)
 						{
-                            //wallet.transfer_money(wallet_io->choose_wallet_id(), move(amount), move(fee), command == cli::SEND);
-							wallet.transfer_money(receiverPeer.m_walletID, move(amount), move(fee), command == cli::SEND);
+                            util::PrivKey initiatorPrivKey;
+                            util::PubKey initiatorPubKey;
+                            util::gen_test_keypair(initiatorPrivKey, initiatorPubKey, 123);
+
+                            wallet_io->add_key_pair(initiatorPubKey, initiatorPrivKey);
+
+							wallet.transfer_money(receiverPeer.m_walletID, initiatorPubKey, move(amount), move(fee), command == cli::SEND);
 						}
+                        else
+                        {
+                            util::PrivKey listenerPrivKey;
+                            util::PubKey listenerPubKey;
+                            util::gen_test_keypair(listenerPrivKey, listenerPubKey, 1233);
+                            wallet_io->add_key_pair(listenerPubKey, listenerPrivKey);
+                        }
 						wallet_io->start();
 					}
 					else

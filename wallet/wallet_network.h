@@ -60,6 +60,7 @@ namespace beam
 
         // TODO now from add_wallet ???
         void listen_to_bbs_channel(uint32_t channel);
+        void add_key_pair(const util::PubKey& pubKey, const util::PrivKey& privKey);
 
     private:
         // INetworkIO
@@ -97,8 +98,7 @@ namespace beam
         void on_node_connected();
 
         void create_node_connection();
-    public:
-        WalletID choose_wallet_id();
+
     private:
         template <typename T>
         void send(const WalletID& walletID, MsgType type, T&& msg)
@@ -106,11 +106,10 @@ namespace beam
             update_wallets(walletID);
 
             // send BBS message
-            msg.m_from = choose_wallet_id();
            
             //listen_to_bbs_channel(util::channel_from_wallet_id(msg.m_from));
             uint32_t channel = util::channel_from_wallet_id(walletID);
-            LOG_DEBUG() << "BBS send message to channel=" << channel << "[" << to_string(walletID) << "]  my pubkey=" << to_string(m_bbs_keys->first);
+            LOG_DEBUG() << "BBS send message to channel=" << channel << " [" << to_string(walletID) << "]  my pubkey=" << to_string(msg.m_from);
             proto::BbsMsg bbsMsg;
             bbsMsg.m_Channel = channel;
             bbsMsg.m_TimePosted = getTimestamp();
@@ -198,7 +197,7 @@ namespace beam
         uint64_t m_last_bbs_message_time;
         uint32_t m_bbs_channel;
         std::set<uint32_t> m_bbs_channels;
-        std::unique_ptr<std::pair<util::PubKey, util::PrivKey>> m_bbs_keys;
+        std::vector<std::pair<util::PubKey, util::PrivKey>> m_bbs_keys;
 
     };
 }

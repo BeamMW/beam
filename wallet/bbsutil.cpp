@@ -22,6 +22,13 @@ static void gen_nonce(Nonce& nonce) {
     nonce.Import(sc);
 }
 
+static void gen_test_nonce(Nonce& nonce, uint64_t seed) {
+    ECC::Scalar sc;
+    ECC::Hash::Processor() << seed >> sc.m_Value;
+
+    nonce.Import(sc);
+}
+
 bool encrypt(ByteBuffer& out, const io::SerializedMsg& in, const WalletID& pubKey) {
     Nonce nonce;
     gen_nonce(nonce);
@@ -39,6 +46,12 @@ void gen_keypair(PrivKey& privKey, PubKey& pubKey) {
     gen_nonce(privKey);
     proto::Sk2Pk(pubKey, privKey);
 }
+
+void gen_test_keypair(PrivKey& privKey, PubKey& pubKey, uint64_t seed) {
+    gen_test_nonce(privKey, seed);
+    proto::Sk2Pk(pubKey, privKey);
+}
+
 
 }} //namespaces
 

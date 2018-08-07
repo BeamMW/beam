@@ -162,18 +162,17 @@ namespace beam
     Wallet::~Wallet()
     {
         m_network->set_wallet(nullptr);
-       // assert(m_peers.empty());
         //assert(m_negotiators.empty());
         assert(m_reg_requests.empty());
         assert(m_removedNegotiators.empty());
     }
 
-    TxID Wallet::transfer_money(const WalletID& to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
+    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
     {
         boost::uuids::uuid id = boost::uuids::random_generator()();
         TxID txId{};
         copy(id.begin(), id.end(), txId.begin());
-        TxDescription tx( txId, amount, fee, m_keyChain->getCurrentHeight(), to, move(message), getTimestamp(), sender);
+        TxDescription tx( txId, amount, fee, m_keyChain->getCurrentHeight(), to, from, move(message), getTimestamp(), sender);
         resume_negotiator(tx);
         return txId;
     }
@@ -187,7 +186,6 @@ namespace beam
         auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
 
         m_negotiators.emplace(tx.m_txId, s);
-        m_peers.emplace(tx.m_peerId, s);
     }
 
     void Wallet::resume_all_tx()
@@ -201,12 +199,12 @@ namespace beam
 
     void Wallet::send_tx_invitation(const TxDescription& tx, Invite&& data)
     {
-        m_network->send_tx_message(tx.m_peerId, move(data));
+        send_tx_message(tx, move(data));
     }
 
     void Wallet::send_tx_confirmation(const TxDescription& tx, ConfirmTransaction&& data)
     {
-        m_network->send_tx_message(tx.m_peerId, move(data));
+        send_tx_message(tx, move(data));
     }
 
     void Wallet::on_tx_completed(const TxDescription& tx)
@@ -219,7 +217,6 @@ namespace beam
         }
 
         // m_network->close_connection(tx.m_peerId);
-        m_peers.erase(tx.m_peerId);
  
         // remove state machine from db
         auto t = m_keyChain->getTx(tx.m_txId);
@@ -243,12 +240,12 @@ namespace beam
 
     void Wallet::send_tx_failed(const TxDescription& tx)
     {
-        m_network->send_tx_message(tx.m_peerId, wallet::TxFailed{ tx.m_peerId, tx.m_txId });
+        send_tx_message(tx, wallet::TxFailed{ tx.m_peerId, tx.m_txId });
     }
 
     void Wallet::send_tx_confirmation(const TxDescription& tx, ConfirmInvitation&& data)
     {
-        m_network->send_tx_message(tx.m_peerId, move(data));
+        send_tx_message(tx, move(data));
     }
 
     void Wallet::register_tx(const TxDescription& tx, Transaction::Ptr data)
@@ -258,20 +255,19 @@ namespace beam
 
     void Wallet::send_tx_registered(const TxDescription& tx)
     {
-        m_network->send_tx_message(tx.m_peerId, wallet::TxRegistered{ tx.m_peerId, tx.m_txId, true });
+        send_tx_message(tx, wallet::TxRegistered{ tx.m_peerId, tx.m_txId, true });
     }
 
-    void Wallet::handle_tx_message(Invite&& msg)
+    void Wallet::handle_tx_message(const WalletID& myId, Invite&& msg)
     {
         auto it = m_negotiators.find(msg.m_txId);
         if (it == m_negotiators.end())
         {
             LOG_VERBOSE() << "Received tx invitation " << msg.m_txId;
             bool sender = !msg.m_send;
-            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, {}, getTimestamp(), sender };
+            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, myId, {}, getTimestamp(), sender };
             auto r = make_shared<Negotiator>(*this, m_keyChain, tx);
             m_negotiators.emplace(tx.m_txId, r);
-            m_peers.emplace(tx.m_peerId, r);
             Cleaner c{ m_removedNegotiators };
             if (r->ProcessInvitation(msg))
             {
@@ -724,7 +720,6 @@ namespace beam
         Cleaner c{ m_removedNegotiators };
         auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
         m_negotiators.emplace(tx.m_txId, s);
-        m_peers.emplace(tx.m_peerId, s);
 
         if (m_synchronized)
         {

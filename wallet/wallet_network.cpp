@@ -48,10 +48,6 @@ namespace beam {
         m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmInvitation,  &WalletNetworkIO::on_message>(receiverConfirmationCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::TxRegistered,       &WalletNetworkIO::on_message>(receiverRegisteredCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::TxFailed,           &WalletNetworkIO::on_message>(failedCode, this, 1, 20000);
-
-         auto id = choose_wallet_id();
-         LOG_INFO() << "Pubkey: " << to_string(id);
-         listen_to_bbs_channel(util::channel_from_wallet_id(id));
     }
 
     WalletNetworkIO::~WalletNetworkIO()
@@ -73,6 +69,13 @@ namespace beam {
     void WalletNetworkIO::add_wallet(const WalletID& walletID)
     {
         m_wallets.insert(walletID);
+    }
+
+    void WalletNetworkIO::add_key_pair(const util::PubKey& pubKey, const util::PrivKey& privKey)
+    {
+        m_bbs_keys.push_back(make_pair(pubKey, privKey));
+        LOG_INFO() << "Pubkey: " << to_string(pubKey);
+      //  listen_to_bbs_channel(util::chBnnel_from_wallet_id(pubKey));
     }
 
     void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::Invite&& msg)
@@ -135,7 +138,7 @@ namespace beam {
 
     bool WalletNetworkIO::on_message(uint64_t, wallet::Invite&& msg)
     {
-        get_wallet().handle_tx_message(move(msg));
+        get_wallet().handle_tx_message(m_bbs_keys[0].first, move(msg));
         return true;
     }
 
@@ -195,7 +198,6 @@ namespace beam {
             listen_to_bbs_channel(c);
         }
 
-
         vector<ConnectCallback> t;
         t.swap(m_node_connect_callbacks);
         for (auto& cb : t)
@@ -233,20 +235,6 @@ namespace beam {
     {
         assert(!m_node_connection && !m_is_node_connected);
         m_node_connection = make_unique<WalletNodeConnection>(m_node_address, get_wallet(), m_reactor, m_reconnect_ms, *this);
-    }
-
-    WalletID WalletNetworkIO::choose_wallet_id()
-    {
-        if (m_bbs_keys)
-        {
-            return m_bbs_keys->first;
-        }
-
-        util::PubKey pubKey;
-        util::PrivKey privKey;
-        util::gen_keypair(privKey, pubKey);
-        m_bbs_keys.reset(new pair<util::PubKey, util::PrivKey>(pubKey, privKey));
-        return pubKey;
     }
 
     /*
@@ -291,25 +279,26 @@ namespace beam {
 
     bool WalletNetworkIO::handle_bbs_message(proto::BbsMsg&& msg)
     {
-        // TODO multiple wallet IDs
-        
-        uint32_t channel = util::channel_from_wallet_id(choose_wallet_id());
-
-        LOG_DEBUG() << "BBS message form channel=" << msg.m_Channel << ". Listen channel=" << channel << " pubkey=" << to_string(m_bbs_keys->first);
-
-        uint8_t* out = 0;
-        uint32_t size = 0;
-
-        if (msg.m_Channel == channel)
+        for (const auto& p : m_bbs_keys)
         {
-            if (util::decrypt(out, size, msg.m_Message, m_bbs_keys->second))
+            uint32_t channel = util::channel_from_wallet_id(p.first);
+
+            LOG_DEBUG() << "BBS message form channel=" << msg.m_Channel << ". Listen channel=" << channel << " pubkey=" << to_string(p.first);
+
+            uint8_t* out = 0;
+            uint32_t size = 0;
+
+            if (msg.m_Channel == channel)
             {
-                LOG_DEBUG() << "Succedded to decrypt BBS message form channel=" << msg.m_Channel;
-                return handle_decrypted_message(msg.m_TimePosted, out, size);
-            }
-            else
-            {
-                LOG_DEBUG() << "failed to decrypt BBS message form channel=" << msg.m_Channel;
+                if (util::decrypt(out, size, msg.m_Message, p.second))
+                {
+                    LOG_DEBUG() << "Succedded to decrypt BBS message form channel=" << msg.m_Channel;
+                    return handle_decrypted_message(msg.m_TimePosted, out, size);
+                }
+                else
+                {
+                    LOG_DEBUG() << "failed to decrypt BBS message form channel=" << msg.m_Channel;
+                }
             }
         }
         return true;

@@ -68,6 +68,7 @@ namespace beam
                     , Amount fee
                     , Height minHeight
                     , const WalletID& peerId
+                    , const WalletID& myId
                     , ByteBuffer&& message
                     , Timestamp createTime
                     , bool sender)
@@ -77,6 +78,7 @@ namespace beam
 			, m_change{}
             , m_minHeight{ minHeight }
             , m_peerId{ peerId }
+            , m_myId{myId}
             , m_message{ std::move(message) }
             , m_createTime{ createTime }
             , m_modifyTime{ createTime }
@@ -91,6 +93,7 @@ namespace beam
 		Amount m_change;
         Height m_minHeight;
         WalletID m_peerId;
+        WalletID m_myId;
         ByteBuffer m_message;
         Timestamp m_createTime;
         Timestamp m_modifyTime;
@@ -123,7 +126,7 @@ namespace beam
             std::vector<Input::Ptr> m_inputs;
             std::vector<Output::Ptr> m_outputs;
 
-            Invite() 
+            Invite()
                 : m_amount(0)
                 , m_fee(0)
                 , m_send{true}
@@ -167,7 +170,7 @@ namespace beam
             WalletID m_from;
             TxID m_txId{};
             ECC::Scalar m_peerSignature;
-
+            
             SERIALIZE(m_from, m_txId, m_peerSignature);
         };
 

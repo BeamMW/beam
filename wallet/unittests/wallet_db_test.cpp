@@ -201,11 +201,13 @@ void TestStoreTxRecord()
     tr.m_txId = id;
     tr.m_amount = 34;
     tr.m_peerId = unsigned(23);
+    tr.m_myId = unsigned(42);
     tr.m_createTime = 123456;
     tr.m_minHeight = 134;
     tr.m_sender = true;
     tr.m_status = TxDescription::InProgress;
 	tr.m_change = 5;
+
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
     TxDescription tr2 = tr;
@@ -224,6 +226,7 @@ void TestStoreTxRecord()
     WALLET_CHECK(t[0].m_amount == tr.m_amount);
     WALLET_CHECK(t[0].m_minHeight == tr2.m_minHeight);
     WALLET_CHECK(t[0].m_peerId == tr.m_peerId);
+    WALLET_CHECK(t[0].m_myId == tr.m_myId);
     WALLET_CHECK(t[0].m_createTime == tr.m_createTime);
     WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
     WALLET_CHECK(t[0].m_sender == tr2.m_sender);
@@ -241,6 +244,7 @@ void TestStoreTxRecord()
     WALLET_CHECK(tr3->m_txId == tr2.m_txId);
     WALLET_CHECK(tr3->m_amount == tr2.m_amount);
     WALLET_CHECK(tr3->m_peerId == tr2.m_peerId);
+    WALLET_CHECK(tr3->m_myId == tr2.m_myId);
     WALLET_CHECK(tr3->m_message == tr2.m_message);
     WALLET_CHECK(tr3->m_createTime == tr2.m_createTime);
     WALLET_CHECK(tr3->m_modifyTime == tr2.m_modifyTime);
