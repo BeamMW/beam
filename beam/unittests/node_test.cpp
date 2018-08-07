@@ -130,7 +130,11 @@ namespace beam
 			if (h)
 			{
 				vStates[h - 1].get_Hash(s.m_Prev);
-				cmmr.Append(s.m_Prev);
+
+				Merkle::Hash hvH;
+				vStates[h - 1].get_HashForHist(hvH);
+
+				cmmr.Append(hvH);
 			}
 
 			if (hFork0 == h)
@@ -201,8 +205,10 @@ namespace beam
 
 		verify_test(CountTips(db, true) == 0);
 
+		Merkle::Hash hvH;
+		s.get_HashForHist(hvH);
+		cmmrFork.Append(hvH);
 		s.get_Hash(s.m_Prev);
-		cmmrFork.Append(s.m_Prev);
 		cmmrFork.get_Hash(s.m_Definition);
 		Merkle::Interpret(s.m_Definition, hvZero, true);
 		s.m_Height++;
@@ -268,7 +274,7 @@ namespace beam
 				db.get_Proof(proof, sid2, h);
 
 				Merkle::Hash hv;
-				vStates[h - Rules::HeightGenesis].get_Hash(hv);
+				vStates[h - Rules::HeightGenesis].get_HashForHist(hv);
 				Merkle::Interpret(hv, proof);
 				Merkle::Interpret(hv, hvZero, true);
 
@@ -1038,7 +1044,7 @@ namespace beam
 				if (!m_queProofsStateExpected.empty())
 				{
 					Merkle::Hash hv;
-					m_vStates[m_queProofsStateExpected.front()].get_Hash(hv);
+					m_vStates[m_queProofsStateExpected.front()].get_HashForHist(hv);
 					Merkle::Interpret(hv, msg.m_Proof);
 
 					verify_test(hv == m_vStates.back().m_Definition);

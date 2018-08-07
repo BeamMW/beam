@@ -89,6 +89,7 @@ public:
 			Activate,
 			MmrGet,
 			MmrSet,
+			HashForHist,
 			SpendableAdd,
 			SpendableDel,
 			SpendableModify,

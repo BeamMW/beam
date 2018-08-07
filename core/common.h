@@ -475,6 +475,8 @@ namespace beam
 			// returns false only if cancelled
 			bool Solve(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
 
+			void get_HashForHist(Merkle::Hash& hv, const Merkle::Hash& hvState) const;
+
 		private:
 			struct Helper;
 		};
@@ -510,6 +512,7 @@ namespace beam
 				void Set(Prefix&, const Element&);
 				void get_Hash(Merkle::Hash&) const; // Calculated from all the above
 				void get_ID(ID&) const;
+				void get_HashForHist(Merkle::Hash&) const; // accounts also for PoW, literally for everything in the header
 
 				bool IsSane() const;
 				bool IsValidPoW() const;

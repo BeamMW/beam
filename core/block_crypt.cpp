@@ -969,6 +969,25 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
 	}
 
+	void Block::SystemState::Full::get_HashForHist(Merkle::Hash& hv) const
+	{
+		get_Hash(hv);
+		m_PoW.get_HashForHist(hv, hv);
+	}
+
+	void Block::PoW::get_HashForHist(Merkle::Hash& hv, const Merkle::Hash& hvState) const
+	{
+		ECC::Hash::Processor hp;
+		hp.Write(&m_Indices.at(0), sizeof(m_Indices));
+		hp.Write(m_Nonce.m_pData, sizeof(m_Nonce.m_pData));
+		hp << m_Difficulty.m_Packed;
+
+		Merkle::Hash hvPow;
+		hp >> hvPow;
+
+		Merkle::Interpret(hv, hvState, hvPow);
+	}
+
 	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb, bool bSubsidyOpen)
 	{
 		m_Sigma = -m_Sigma;
