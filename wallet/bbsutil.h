@@ -13,7 +13,7 @@ uint32_t channel_from_wallet_id(const WalletID& walletID);
 
 void gen_keypair(PrivKey& privKey, PubKey& pubKey);
 
-void gen_test_keypair(PrivKey& privKey, PubKey& pubKey, uint64_t seed);
+void gen_test_keypair(PrivKey& privKey, PubKey& pubKey, ECC::uintBig seed);
 
 bool encrypt(ByteBuffer& out, const io::SerializedMsg& in, const WalletID& pubKey);
 

@@ -1167,6 +1167,7 @@ void TestSerializeFSM()
     WALLET_CHECK(*(s2.current_state()) == 0);
     der & s2;
     WALLET_CHECK(*(s2.current_state()) == 2);
+    s2.process_event(wallet::events::TxResumed{});
     s2.process_event(wallet::events::TxInvitationCompleted{ wallet::ConfirmInvitation() });
     WALLET_CHECK(*(s2.current_state()) == 4);
 
@@ -1444,16 +1445,16 @@ int main()
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
 
-    TestSplitKey();
+  //  TestSplitKey();
  //   TestOfflineNegotiation();
-    TestP2PWalletNegotiationST();
-    TestP2PWalletReverseNegotiationST();
+  //  TestP2PWalletNegotiationST();
+ //   TestP2PWalletReverseNegotiationST();
 
-    TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
-    TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
-    TestFSM();
+  //  TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
+  //  TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
+  //  TestFSM();
     TestSerializeFSM();
-    TestRollback();
+  //  TestRollback();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

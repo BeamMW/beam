@@ -22,7 +22,7 @@ static void gen_nonce(Nonce& nonce) {
     nonce.Import(sc);
 }
 
-static void gen_test_nonce(Nonce& nonce, uint64_t seed) {
+static void gen_test_nonce(Nonce& nonce, ECC::uintBig seed) {
     ECC::Scalar sc;
     ECC::Hash::Processor() << seed >> sc.m_Value;
 
@@ -47,7 +47,7 @@ void gen_keypair(PrivKey& privKey, PubKey& pubKey) {
     proto::Sk2Pk(pubKey, privKey);
 }
 
-void gen_test_keypair(PrivKey& privKey, PubKey& pubKey, uint64_t seed) {
+void gen_test_keypair(PrivKey& privKey, PubKey& pubKey, ECC::uintBig seed) {
     gen_test_nonce(privKey, seed);
     proto::Sk2Pk(pubKey, privKey);
 }

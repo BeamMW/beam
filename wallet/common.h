@@ -17,19 +17,6 @@
 #include "core/common.h"
 #include "core/ecc_native.h"
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4127 )
-#endif
-
-#include <boost/msm/back/state_machine.hpp>
-#include <boost/msm/front/state_machine_def.hpp>
-#include <boost/msm/front/functor_row.hpp>
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-
 #include "core/serialization_adapters.h"
 
 namespace beam
@@ -100,14 +87,15 @@ namespace beam
         bool m_sender;
         Status m_status;
         ByteBuffer m_fsmState;
+
+        bool canResume() const
+        {
+            return m_status == Pending || m_status == InProgress;
+        }
     };
 
     namespace wallet
     {
-        namespace msm = boost::msm;
-        namespace msmf = boost::msm::front;
-        namespace mpl = boost::mpl;
-
         std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
 
         // messages

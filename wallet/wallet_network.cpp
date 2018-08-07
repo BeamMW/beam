@@ -75,7 +75,7 @@ namespace beam {
     {
         m_bbs_keys.push_back(make_pair(pubKey, privKey));
         LOG_INFO() << "Pubkey: " << to_string(pubKey);
-      //  listen_to_bbs_channel(util::chBnnel_from_wallet_id(pubKey));
+        listen_to_bbs_channel(util::channel_from_wallet_id(pubKey));
     }
 
     void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::Invite&& msg)

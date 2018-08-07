@@ -20,8 +20,26 @@
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4127 )
+#endif
+
+#include <boost/msm/back/state_machine.hpp>
+#include <boost/msm/front/state_machine_def.hpp>
+#include <boost/msm/front/functor_row.hpp>
+#include <boost/msm/front/internal_row.hpp>
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 namespace beam::wallet
 {
+    namespace msm = boost::msm;
+    namespace msmf = boost::msm::front;
+    namespace mpl = boost::mpl;
+
     namespace events
     {
         struct TxRegistrationCompleted {};
@@ -37,6 +55,7 @@ namespace beam::wallet
         };
 
         struct TxCanceled {};
+        struct TxResumed {};
     }
 
     class Negotiator
@@ -106,47 +125,18 @@ namespace beam::wallet
             };
             struct TxInvitation : public msmf::state<>
             {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm& fsm)
-                {
-                    LOG_VERBOSE() << "TxInvitation state";
-                    fsm.sendInvite();
-                }
             };
             struct TxConfirmation : public msmf::state<>
             {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm& fsm)
-                {
-                    LOG_VERBOSE() << "TxConfirmation state";
-                    fsm.sendConfirmInvitation();
-                }
             };
             struct TxRegistration : public msmf::state<>
             {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm& fsm)
-                {
-                    LOG_VERBOSE() << "TxRegistration state";
-                    fsm.sendNewTransaction();
-                }
             };
             struct TxPeerConfirmation : public msmf::state<>
             {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm& fsm)
-                {
-                    LOG_VERBOSE() << "TxPeerConfirmation state";
-                    fsm.sendConfirmTransaction();
-                }
             };
             struct TxOutputsConfirmation : public msmf::state<>
             {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
-                {
-                    LOG_VERBOSE() << "TxOutputsConfirmation state";
-                }
             };
 
             FSMDefinition(Negotiator& parent);
@@ -179,8 +169,6 @@ namespace beam::wallet
 
             using do_serialize = int;
             typedef int no_message_queue;
-            typedef msm::active_state_switch_after_transition_action active_state_switch_policy;
-
 
             using initial_state = mpl::vector<TxInitial, TxAllOk>;
             using d = FSMDefinition;

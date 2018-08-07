@@ -182,10 +182,14 @@ namespace beam
         //resume_negotiator(tx);
         assert(m_synchronized);
 
-        Cleaner c{ m_removedNegotiators };
-        auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
+        if (tx.canResume() && m_negotiators.find(tx.m_txId) == m_negotiators.end())
+        {
+            Cleaner c{ m_removedNegotiators };
+            auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
 
-        m_negotiators.emplace(tx.m_txId, s);
+            m_negotiators.emplace(tx.m_txId, s);
+            s->process_event(events::TxResumed{});
+        }
     }
 
     void Wallet::resume_all_tx()
@@ -698,7 +702,7 @@ namespace beam
 
     bool Wallet::close_node_connection()
     {
-        if (m_synchronized && m_reg_requests.empty())
+        if (m_synchronized && m_reg_requests.empty() && m_negotiators.empty())
         {
             m_network->close_node_connection();
             return false;

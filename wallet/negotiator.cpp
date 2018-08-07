@@ -35,7 +35,6 @@ namespace beam::wallet
     Negotiator::FSMDefinition::FSMDefinition(Negotiator& parent)
         : m_parent{ parent }
     {
-        update_tx_description(TxDescription::Pending);
         m_blindingExcess = ECC::Zero;
         if (!m_parent.m_txDesc.m_fsmState.empty())
         {
@@ -70,6 +69,7 @@ namespace beam::wallet
         }
 
         update_tx_description(TxDescription::InProgress);
+        sendInvite();
     }
 
     void Negotiator::FSMDefinition::sendInvite() const
@@ -107,6 +107,7 @@ namespace beam::wallet
         }
         m_peerSignature = msg.m_peerSignature;
         update_tx_description(TxDescription::InProgress);
+        sendConfirmTransaction();
 	}
 
     void Negotiator::FSMDefinition::sendConfirmTransaction() const
@@ -143,6 +144,7 @@ namespace beam::wallet
 
         LOG_INFO() << "Invitation accepted";
         update_tx_description(TxDescription::InProgress);
+        sendConfirmInvitation();
     }
 
     void Negotiator::FSMDefinition::sendConfirmInvitation() const
@@ -165,6 +167,7 @@ namespace beam::wallet
             return;
 		}
         update_tx_description(TxDescription::InProgress);
+        sendNewTransaction();
 	}
 
 	bool Negotiator::FSMDefinition::registerTxInternal(const events::TxConfirmationCompleted& event)
