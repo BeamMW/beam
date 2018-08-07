@@ -181,7 +181,7 @@ private:
         message.timestamp = time(0);
         message.bytes = std::move(bytes);
 
-        io::SharedBuffer serialized = _protocol.serialize(MESSAGE_MSG_TYPE, message, false);
+        io::SharedBuffer serialized = _protocol.serialize(MESSAGE_MSG_TYPE, message);
         if (_config.historyDepth > 0) {
             if (_lastTimestamp != message.timestamp) {
                 _lastTimestamp = message.timestamp;

@@ -93,7 +93,7 @@ namespace beam
 
             // send BBS message
             msg.m_from = choose_wallet_id();
-           
+
             //listen_to_bbs_channel(util::channel_from_wallet_id(msg.m_from));
             uint32_t channel = util::channel_from_wallet_id(walletID);
             LOG_DEBUG() << "BBS send message to channel=" << channel << "[" << to_string(walletID) << "]  my pubkey=" << to_string(m_bbs_keys->first);
@@ -102,7 +102,7 @@ namespace beam
             bbsMsg.m_TimePosted = getTimestamp();
             m_protocol.serialize(m_msgToSend, type, msg);
             util::encrypt(bbsMsg.m_Message, m_msgToSend, walletID);
-            
+
             send_to_node(std::move(bbsMsg));
         }
 
