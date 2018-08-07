@@ -251,9 +251,9 @@ namespace beam {
         }
     }
 
-    bool WalletNetworkIO::handle_decrypted_message(uint32_t channel, uint64_t timestamp, const void* buf, size_t size)
+    bool WalletNetworkIO::handle_decrypted_message(const PubKey& sentTo, uint64_t timestamp, const void* buf, size_t size)
     {
-        m_bbs_timestamps[channel] = timestamp;
+        m_bbs_timestamps[channel_from_wallet_id(sentTo)] = timestamp;
         m_msgReader.new_data_from_stream(io::EC_OK, buf, size);
         return true;
     }
@@ -284,22 +284,14 @@ namespace beam {
         for (const auto& k : m_myPubKeys) {
             uint32_t channel = channel_from_wallet_id(k);
             if (channel != msg.m_Channel) continue;
-         //   if (m_keys)
-        }
-
-
-        if (msg.m_Channel == channel)
-        {
-            if (util::decrypt(out, size, msg.m_Message, m_bbs_keys->second))
-            {
-                LOG_DEBUG() << "Succeeded to decrypt BBS message form channel=" << msg.m_Channel;
-                return handle_decrypted_message(msg.m_Channel, msg.m_TimePosted, out, size);
-            }
-            else
-            {
-                LOG_DEBUG() << "failed to decrypt BBS message form channel=" << msg.m_Channel;
+            if (m_keystore->decrypt(out, size, msg.m_Message, k)) {
+                LOG_DEBUG() << "Succeeded to decrypt BBS message from channel=" << msg.m_Channel;
+                return handle_decrypted_message(k, msg.m_TimePosted, out, size);
+            } else {
+                LOG_DEBUG() << "failed to decrypt BBS message from channel=" << msg.m_Channel;
             }
         }
+
         return true;
     }
 

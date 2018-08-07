@@ -1,5 +1,5 @@
 #include "util.h"
-#include "wallet/bbsutil.h"
+#include "wallet/keystore.h"
 #include "wallet/wallet_network.h"
 #include "beam/node.h"
 #include "utility/logger.h"
@@ -99,7 +99,6 @@ WaitHandle run_node(const NodeParams& params) {
 
 int main(int argc, char* argv[]) {
     using namespace beam;
-    using namespace beam::util;
 
     int logLevel = LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
