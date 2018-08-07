@@ -25,14 +25,22 @@ struct IKeyStore {
     /// Creates a new keypair, returns the public key and stores the private key
     virtual void gen_keypair(PubKey& pubKey, const void* password, size_t passwordLen, bool enable) = 0;
 
+    /// return public keys for enabled keypairs
     virtual void get_enabled_keys(std::set<PubKey>& enabledKeys) = 0;
 
+    /// enables given keypairs only
     virtual void enable_keys(const std::set<PubKey>& enableKeys, const void* password, size_t passwordLen) = 0;
 
-    // password is not needed if not erased permanently
-    virtual void disable_key(const PubKey& pubKey, bool erasePermanently=false, const void* password=0, size_t passwordLen=0) = 0;
+    /// disables the keypair but not erases from the storage
+    virtual void disable_key(const PubKey& pubKey) = 0;
 
-    /// Encrypts the message, returns false iff private key os not found for public key given
+    /// disables keypair and erases permanently from the storage
+    virtual void erase_key(const PubKey& pubKey, const void* password, size_t passwordLen) = 0;
+
+    /// Encrypts the message, returns false iff private key not found for public key given
+    virtual bool encrypt(ByteBuffer& out, const void* data, size_t size, const PubKey& pubKey) = 0;
+
+    /// Encrypts the message, returns false iff private key not found for public key given
     virtual bool encrypt(ByteBuffer& out, const io::SerializedMsg& in, const PubKey& pubKey) = 0;
 
     /// In-place decrypts the message given in buffer using private key associated with pubKey.

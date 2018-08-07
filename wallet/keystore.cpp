@@ -127,6 +127,8 @@ void write_keystore_file(const KeyPairs& in, const std::string& fileName, const 
 
         aes_encrypt(buffer, size, password, passwordLen);
 
+        //truncate(a.f);
+
         if (size != fwrite(buffer, 1, size, a.f)) {
             throw std::runtime_error(std::string("keystore: cannot write file ") + newFileName);
         }
@@ -144,18 +146,38 @@ public:
     {
         bool allEnabled = (options.flags & Options::enable_all_keys) != 0;
         if (allEnabled) {
-            read_keystore_file(_keyPairs, _fileName, password, passwordLen);
+            read_keystore_file_and_check(password, passwordLen);
         } else {
             enable_keys_impl(options.enableKeys, password, passwordLen);
         }
     }
 
 private:
+    void read_keystore_file_and_check(const void* password, size_t passwordLen) {
+        read_keystore_file(_keyPairs, _fileName, password, passwordLen);
+        if (_keyPairs.empty()) return;
+        static const char data[] = "xoxoxoxo";
+        ByteBuffer buf;
+        std::string errorMsg(std::string("keystore: file corrupted: ") + _fileName);
+        if (!encrypt(buf, data, sizeof(data), _keyPairs.begin()->first)) {
+            throw std::runtime_error(errorMsg);
+        }
+        uint8_t* out=0;
+        uint32_t size=0;
+        if (
+            !decrypt(out, size, buf, _keyPairs.begin()->first) ||
+            size != sizeof(data) ||
+            memcmp(data, out, size) != 0
+        ) {
+            throw std::runtime_error(errorMsg);
+        }
+    }
+
     void enable_keys_impl(const std::set<PubKey>& enableKeys, const void* password, size_t passwordLen) {
         _keyPairs.clear();
         if (enableKeys.empty())
             return;
-        read_keystore_file(_keyPairs, _fileName, password, passwordLen);
+        read_keystore_file_and_check(password, passwordLen);
         if (_keyPairs.empty())
             return;
         std::set<PubKey> toBeErased;
@@ -192,18 +214,24 @@ private:
         enable_keys_impl(enableKeys, password, passwordLen);
     }
 
-    void disable_key(const PubKey& pubKey, bool erasePermanently, const void* password, size_t passwordLen) override {
+    void disable_key(const PubKey& pubKey) override {
         _keyPairs.erase(pubKey);
-        if (erasePermanently) {
-            write_keystore_file(_keyPairs, _fileName, password, passwordLen);
-        }
+    }
+
+    void erase_key(const PubKey& pubKey, const void* password, size_t passwordLen) override {
+        _keyPairs.erase(pubKey);
+        write_keystore_file(_keyPairs, _fileName, password, passwordLen);
+    }
+
+    bool encrypt(ByteBuffer& out, const void* data, size_t size, const PubKey& pubKey) override {
+        Nonce nonce;
+        gen_nonce(nonce);
+        return proto::BbsEncrypt(out, pubKey, nonce, data, size);
     }
 
     bool encrypt(ByteBuffer& out, const io::SerializedMsg& in, const PubKey& pubKey) override {
-        Nonce nonce;
-        gen_nonce(nonce);
         io::SharedBuffer msg = io::normalize(in, false);
-        return proto::BbsEncrypt(out, pubKey, nonce, msg.data, msg.size);
+        return encrypt(out, msg.data, msg.size, pubKey);
     }
 
     bool decrypt(uint8_t*& out, uint32_t& size, ByteBuffer& buffer, const PubKey& pubKey) override {
