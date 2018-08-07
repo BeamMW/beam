@@ -124,7 +124,7 @@ public:
 	using TxList = QList<QObject*>;
     using UtxoList = QList<QObject*>;
 
-	WalletViewModel(beam::IKeyChain::Ptr keychain, uint16_t port, const std::string& nodeAddr);
+	WalletViewModel(WalletModel& model);
 
 	QString available() const;
 	QString received() const;
@@ -180,7 +180,7 @@ private:
 
 private:
 
-	WalletModel _model;
+	WalletModel& _model;
 
 	WalletStatus _status;
 
@@ -190,8 +190,7 @@ private:
 
     beam::Amount _change;
 
-    beam::IKeyChain::Ptr _keychain;
-	TxList _tx;
+    TxList _tx;
 
     bool _loadingUtxo;
     UtxoList _utxos;

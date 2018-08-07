@@ -408,6 +408,52 @@ void TestPeers()
     WALLET_CHECK(peers[0].m_label == peer.m_label);
 }
 
+void TestAddresses()
+{
+    auto db = createSqliteKeychain();
+    auto addresses = db->getAddresses(true);
+    WALLET_CHECK(addresses.empty());
+    addresses = db->getAddresses(false);
+    WALLET_CHECK(addresses.empty());
+
+    WalletAddress a = {};
+    a.m_walletID = unsigned(9876543);
+    a.m_label = "test label";
+    a.m_category = "test category";
+    a.m_createTime = beam::getTimestamp();
+    a.m_duration = 23;
+    a.m_own = true;
+
+    db->saveAddress(a);
+
+    addresses = db->getAddresses(true);
+    WALLET_CHECK(addresses.size() == 1);
+    WALLET_CHECK(addresses[0].m_walletID == a.m_walletID);
+    WALLET_CHECK(addresses[0].m_label == a.m_label);
+    WALLET_CHECK(addresses[0].m_category == a.m_category);
+    WALLET_CHECK(addresses[0].m_createTime == a.m_createTime);
+    WALLET_CHECK(addresses[0].m_duration == a.m_duration);
+    WALLET_CHECK(addresses[0].m_own == a.m_own);
+
+    a.m_category = "cat2";
+
+    db->saveAddress(a);
+
+    addresses = db->getAddresses(true);
+    WALLET_CHECK(addresses.size() == 1);
+    WALLET_CHECK(addresses[0].m_walletID == a.m_walletID);
+    WALLET_CHECK(addresses[0].m_label == a.m_label);
+    WALLET_CHECK(addresses[0].m_category == a.m_category);
+    WALLET_CHECK(addresses[0].m_createTime == a.m_createTime);
+    WALLET_CHECK(addresses[0].m_duration == a.m_duration);
+    WALLET_CHECK(addresses[0].m_own == a.m_own);
+
+
+    db->deleteAddress(a.m_walletID);
+    WALLET_CHECK(db->getAddresses(true).empty());
+
+}
+
 void TestSelect()
 {
     auto db = createSqliteKeychain();
@@ -603,6 +649,7 @@ int main()
     TestPeers();
     TestSelect();
     TestSelect2();
+    TestAddresses();
 
     return WALLET_CHECK_RESULT;
 }

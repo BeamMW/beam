@@ -66,6 +66,7 @@
 #define VARIABLES_NAME "variables"
 #define HISTORY_NAME "history"
 #define PEERS_NAME "peers"
+#define ADDRESSES_NAME "addresses"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(1, name, sep, TEXT UNIQUE, obj) \
@@ -91,9 +92,20 @@
 #define ENUM_PEER_FIELDS(each, sep, obj) \
     each(1, walletID,    sep, BLOB NOT NULL PRIMARY KEY, obj) \
     each(2, address,     sep, TEXT NOT NULL, obj) \
-    each(3, label,          , TEXT NOT NULL , obj) 
+    each(3, label,          , TEXT NOT NULL , obj)
     
 #define PEER_FIELDS ENUM_PEER_FIELDS(LIST, COMMA, )
+
+
+#define ENUM_ADDRESS_FIELDS(each, sep, obj) \
+    each(1, walletID ,      sep, BLOB NOT NULL PRIMARY KEY, obj) \
+    each(2, label,          sep, TEXT NOT NULL, obj) \
+    each(3, category,       sep, TEXT, obj) \
+    each(4, createTime,     sep, INTEGER, obj) \
+    each(5, duration,       sep, INTEGER, obj) \
+    each(6, own,               , INTEGER NOT NULL, obj) 
+
+#define ADDRESS_FIELDS ENUM_ADDRESS_FIELDS(LIST, COMMA, )
 
 namespace std 
 {
@@ -460,7 +472,7 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 2;
+        const int DbVersion = 3;
     }
 
 	Coin::Coin(const Amount& amount, Status status, const Height& createHeight, const Height& maturity, KeyType keyType, Height confirmHeight, Height lockedHeight)
@@ -524,6 +536,12 @@ namespace beam
             }
             {
                 const char* req = "CREATE TABLE " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
+                int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                throwIfError(ret, keychain->_db);
+            }
+
+            {
+                const char* req = "CREATE TABLE " ADDRESSES_NAME " (" ENUM_ADDRESS_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
                 int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
                 throwIfError(ret, keychain->_db);
             }
@@ -1188,6 +1206,67 @@ namespace beam
 		stm.step();
 	}
 
+    std::vector<WalletAddress> Keychain::getAddresses(bool own)
+    {
+        vector<WalletAddress> res;
+        const char* req = "SELECT * FROM " ADDRESSES_NAME " WHERE own=?1 ORDER BY createTime DESC;";
+
+        sqlite::Statement stm(_db, req);
+        stm.bind(1, own);
+
+        while (stm.step())
+        {
+            auto& a = res.emplace_back();
+            ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, a);
+        }
+        return res;
+    }
+
+    void Keychain::saveAddress(const WalletAddress& address)
+    {
+        sqlite::Transaction trans(_db);
+
+        {
+            const char* selectReq = "SELECT * FROM " ADDRESSES_NAME " WHERE walletID=?1;";
+            sqlite::Statement stm2(_db, selectReq);
+            stm2.bind(1, address.m_walletID);
+
+            if (stm2.step())
+            {
+                const char* updateReq = "UPDATE " ADDRESSES_NAME " SET label=?2, category=?3 WHERE walletID=?1;";
+                sqlite::Statement stm(_db, updateReq);
+
+                stm.bind(1, address.m_walletID);
+                stm.bind(2, address.m_label);
+                stm.bind(3, address.m_category);
+                stm.step();
+            }
+            else
+            {
+                const char* insertReq = "INSERT INTO " ADDRESSES_NAME " (" ENUM_ADDRESS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ADDRESS_FIELDS(BIND_LIST, COMMA, ) ");";
+                sqlite::Statement stm(_db, insertReq);
+                ENUM_ADDRESS_FIELDS(STM_BIND_LIST, NOSEP, address);
+                stm.step();
+            }
+        }
+
+        trans.commit();
+
+        notifyAddressChanged();
+    }
+    
+    void Keychain::deleteAddress(const WalletID& id)
+    {
+        const char* req = "DELETE FROM " ADDRESSES_NAME " WHERE walletID=?1;";
+        sqlite::Statement stm(_db, req);
+
+        stm.bind(1, id);
+
+        stm.step();
+
+        notifyAddressChanged();
+    }
+
     void Keychain::subscribe(IKeyChainObserver* observer)
 	{
 		assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
@@ -1218,6 +1297,11 @@ namespace beam
 	{
 		for (auto sub : m_subscribers) sub->onSystemStateChanged();
 	}
+
+    void Keychain::notifyAddressChanged()
+    {
+        for (auto sub : m_subscribers) sub->onAddressChanged();
+    }
 
 	namespace wallet
 	{

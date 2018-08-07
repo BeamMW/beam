@@ -63,12 +63,23 @@ namespace beam
         std::string m_address;
     };
 
+    struct WalletAddress
+    {
+        WalletID m_walletID;
+        std::string m_label;
+        std::string m_category;
+        Timestamp m_createTime;
+        uint64_t  m_duration; // seconds, 0 - for single use;
+        bool m_own;
+    };
+
 	struct IKeyChainObserver
 	{
 		virtual void onKeychainChanged() = 0;
 		virtual void onTransactionChanged() = 0;
 		virtual void onSystemStateChanged() = 0;
 		virtual void onTxPeerChanged() = 0;
+        virtual void onAddressChanged() = 0;
 	};
 
     struct IKeyChain
@@ -108,6 +119,10 @@ namespace beam
         virtual void addPeer(const TxPeer&) = 0;
         virtual boost::optional<TxPeer> getPeer(const WalletID&) = 0;
 		virtual void clearPeers() = 0;
+
+        virtual std::vector<WalletAddress> getAddresses(bool own) = 0;
+        virtual void saveAddress(const WalletAddress&) = 0;
+        virtual void deleteAddress(const WalletID&) = 0;
 
 		template <typename Var>
 		void setVar(const char* name, const Var& var)
@@ -165,6 +180,10 @@ namespace beam
         boost::optional<TxPeer> getPeer(const WalletID&) override;
 		void clearPeers() override;
 
+        std::vector<WalletAddress> getAddresses(bool own) override;
+        void saveAddress(const WalletAddress&) override;
+        void deleteAddress(const WalletID&) override;
+
         Timestamp getLastUpdateTime() const override;
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override;
@@ -176,6 +195,7 @@ namespace beam
 		void notifyKeychainChanged();
 		void notifyTransactionChanged();
 		void notifySystemStateChanged();
+        void notifyAddressChanged();
     private:
 
         sqlite3* _db;
