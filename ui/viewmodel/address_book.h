@@ -19,12 +19,15 @@ public:
 
     };
 
-    QString getWalletID() const;
+	QString getWalletID() const;
 	void setWalletID(const QString& value);
     QString getName() const;
     void setName(const QString& value);
     QString getCategory() const;
     void setCategory(const QString& value);
+
+	virtual void clean();
+
 signals:
     void onWalletIDChanged();
     void onNameChanged();
@@ -44,9 +47,12 @@ class OwnAddressItem : public PeerAddressItem
 public:
 	OwnAddressItem();
     OwnAddressItem(const beam::WalletAddress&);
-
+	void setExpirationDate(const QString&);
+	void setCreateDate(const QString&);
     QString getExpirationDate() const;
     QString getCreateDate() const;
+
+	void clean() override;
 
 signals:
     void onDateChanged();

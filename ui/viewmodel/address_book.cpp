@@ -5,6 +5,40 @@ using namespace std;
 using namespace beam;
 using namespace beamui;
 
+namespace {
+	// TODO it's temporary solution. delete after merge with bbs2
+	WalletID from_hex(const string& str)
+	{
+		assert(str.size() % 2 == 0);
+		vector<uint8_t> res(str.size() >> 1);
+		uint8_t b = 0;
+		for (size_t i = 0; i < str.size(); ++i)
+		{
+			auto c = str[i];
+			size_t j = i >> 1;
+			res[j] <<= 4;
+			if (c >= '0' && c <= '9')
+			{
+				res[j] += (c - '0');
+			}
+			else if (c >= 'a' && c <= 'f')
+			{
+				res[j] += 10 + (c - 'a');
+			}
+			else if (c >= 'A' && c <= 'F')
+			{
+				res[j] += 10 + (c - 'A');
+			}
+		}
+
+		WalletID tmp;
+
+		std::copy(res.begin(), res.end(), tmp.m_pData);
+
+		return tmp;
+	}
+}
+
 PeerAddressItem::PeerAddressItem()
 	: m_walletID{}
 	, m_name{}
@@ -29,6 +63,7 @@ QString PeerAddressItem::getWalletID() const
 void PeerAddressItem::setWalletID(const QString& value)
 {
 	m_walletID = value;
+	emit onWalletIDChanged();
 }
 
 QString PeerAddressItem::getName() const
@@ -39,6 +74,7 @@ QString PeerAddressItem::getName() const
 void PeerAddressItem::setName(const QString& value)
 {
     m_name = value;
+	emit onNameChanged();
 }
 
 QString PeerAddressItem::getCategory() const
@@ -49,6 +85,14 @@ QString PeerAddressItem::getCategory() const
 void PeerAddressItem::setCategory(const QString& value)
 {
     m_category = value;
+	emit onCategoryChanged();
+}
+
+void PeerAddressItem::clean()
+{
+	setWalletID(QString{});
+	setName(QString{});
+	setCategory(QString{});
 }
 
 OwnAddressItem::OwnAddressItem()
@@ -67,6 +111,16 @@ OwnAddressItem::OwnAddressItem(const beam::WalletAddress& address)
 
 }
 
+void OwnAddressItem::setExpirationDate(const QString& value)
+{
+	m_expirationDate = value;
+}
+
+void OwnAddressItem::setCreateDate(const QString& value)
+{
+	m_createDate = value;
+}
+
 QString OwnAddressItem::getExpirationDate() const
 {
     return m_expirationDate;
@@ -77,6 +131,12 @@ QString OwnAddressItem::getCreateDate() const
     return m_createDate;
 }
 
+void OwnAddressItem::clean()
+{
+	PeerAddressItem::clean();
+	setExpirationDate(QString{});
+	setCreateDate(QString{});
+}
 
 AddressBookViewModel::AddressBookViewModel(WalletModel& model)
     : m_model{model}
@@ -144,9 +204,9 @@ QVariant AddressBookViewModel::getNewOwnAddress()
 
 void AddressBookViewModel::generateNewEmptyAddress()
 {
-	m_ownAddresses = {};
-	m_peerAddresses = {};
-
+	m_newOwnAddress.clean();
+	m_newPeerAddress.clean();
+	
 	if (m_model.async)
 	{
 		m_model.async->generateNewWalletID();
@@ -174,6 +234,8 @@ void AddressBookViewModel::createNewAddress()
 void AddressBookViewModel::createNewPeerAddress()
 {
 	WalletAddress peerAddress{};
+
+	peerAddress.m_walletID = from_hex(m_newPeerAddress.getWalletID().toStdString());
 	peerAddress.m_own = false;
 	peerAddress.m_label = m_newPeerAddress.getName().toStdString();
 	peerAddress.m_createTime = beam::getTimestamp();
@@ -183,6 +245,7 @@ void AddressBookViewModel::createNewPeerAddress()
 	{
 		m_model.async->createNewAddress(std::move(peerAddress));
 		m_model.async->getAddresses(false);
+		m_model.async->getAddresses(true);
 	}
 }
 
@@ -190,6 +253,7 @@ void AddressBookViewModel::createNewOwnAddress()
 {
 	WalletAddress ownAddress{};
 
+	ownAddress.m_walletID = from_hex(m_newOwnAddress.getWalletID().toStdString());
 	ownAddress.m_own = true;
 	ownAddress.m_label = m_newOwnAddress.getName().toStdString();
 	ownAddress.m_createTime = beam::getTimestamp();
@@ -200,6 +264,7 @@ void AddressBookViewModel::createNewOwnAddress()
 	{
 		m_model.async->createNewAddress(std::move(ownAddress));
 		m_model.async->getAddresses(true);
+		m_model.async->getAddresses(false);
 	}
 }
 
