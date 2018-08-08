@@ -207,7 +207,7 @@ namespace beam
 		uint32_t MaxDifficultyChange		= 2; // (x4, same as in bitcoin).
 		uint32_t TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
 		uint32_t WindowForMedian			= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
-		Difficulty StartDifficulty			= Difficulty(3 << Difficulty::s_MantissaBits);
+		Difficulty StartDifficulty			= Difficulty(7 << Difficulty::s_MantissaBits); // fair start for a testnet
 
 		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
