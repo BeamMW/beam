@@ -106,6 +106,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+	void changeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) override
+	{
+		tx.send([senderID, receiverID](BridgeInterface& receiver) mutable
+		{
+			receiver.changeCurrentWalletIDs(senderID, receiverID);
+		});
+	}
+
 	void generateNewWalletID() override
 	{
 		tx.send([](BridgeInterface& receiver) mutable
@@ -337,6 +345,11 @@ void WalletModel::cancelTx(beam::TxID id)
 void WalletModel::createNewAddress(WalletAddress&& address)
 {
     _keychain->saveAddress(address);
+}
+
+void WalletModel::changeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
+{
+	emit onChangeCurrentWalletIDs(senderID, receiverID);
 }
 
 void WalletModel::generateNewWalletID()

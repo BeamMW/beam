@@ -76,7 +76,7 @@ public:
     Q_INVOKABLE void createNewAddress();
 	Q_INVOKABLE void createNewPeerAddress();
 	Q_INVOKABLE void createNewOwnAddress();
-    Q_INVOKABLE QVariant getPeerAddress(int index) const;	
+	Q_INVOKABLE void changeCurrentPeerAddress(int index);
 
 	Q_INVOKABLE void generateNewEmptyAddress();
 
@@ -86,8 +86,6 @@ public:
 
 	QQmlListProperty<PeerAddressItem> getPeerAddresses();
 	QQmlListProperty<OwnAddressItem> getOwnAddresses();
-	void setNewPeerAddress(PeerAddressItem* addr);
-	void setNewOwnAddress(OwnAddressItem* addr);
 	PeerAddressItem* getNewPeerAddress();
 	OwnAddressItem* getNewOwnAddress();
 
