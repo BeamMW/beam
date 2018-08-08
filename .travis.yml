@@ -47,8 +47,9 @@ matrix:
       before_install:
         - sudo add-apt-repository ppa:beineri/opt-qt-5.10.1-trusty -y
         - sudo apt-get update
-        - sudo apt-get install qtdeclarative5-dev qtdeclarative5-qtquick2-plugin libqt5svg5-dev
+        - sudo apt-get install qt510declarative qt510svg
         - eval "CC=gcc-7 && CXX=g++-7"
+        - export PATH=/opt/qt510/bin:$PATH
       env: BUILD_TYPE=Debug
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE . && make -j 4 && ctest --verbose
