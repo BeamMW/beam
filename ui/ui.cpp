@@ -203,7 +203,7 @@ int main (int argc, char* argv[])
                     else
                     {
                         return 0;
-                    }
+					}
 				}
 			}
 			else
@@ -238,6 +238,9 @@ int main (int argc, char* argv[])
 					{
 						nodeAddr = vm[cli::NODE_ADDR].as<string>();
 					}
+
+					qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
+					qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
 
                     IKeyStore::Options options;
                     options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;

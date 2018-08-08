@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QtCore/qvariant.h>
+#include <QQmlListProperty>
 #include "wallet/wallet_db.h"
 #include "model/wallet.h"
 
@@ -61,27 +62,21 @@ private:
     QString m_createDate;
 };
 
-
 class AddressBookViewModel : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(QVariant peerAddresses           READ getPeerAddresses   NOTIFY addressesChanged)
-    Q_PROPERTY(QVariant ownAddresses            READ getOwnAddresses    NOTIFY addressesChanged)
+    Q_PROPERTY(QQmlListProperty<PeerAddressItem> peerAddresses           READ getPeerAddresses   NOTIFY addressesChanged)
+    Q_PROPERTY(QQmlListProperty<OwnAddressItem> ownAddresses            READ getOwnAddresses    NOTIFY addressesChanged)
 
-	Q_PROPERTY(QVariant newPeerAddress READ getNewPeerAddress WRITE setNewPeerAddress NOTIFY newAddressChanged)
-	Q_PROPERTY(QVariant newOwnAddress  READ getNewOwnAddress  WRITE setNewOwnAddress  NOTIFY newAddressChanged)
+	Q_PROPERTY(PeerAddressItem* newPeerAddress READ getNewPeerAddress CONSTANT)
+	Q_PROPERTY(OwnAddressItem* newOwnAddress  READ getNewOwnAddress  CONSTANT)
 
 public:
     Q_INVOKABLE void createNewAddress();
 	Q_INVOKABLE void createNewPeerAddress();
 	Q_INVOKABLE void createNewOwnAddress();
-    Q_INVOKABLE QVariant getPeerAddress(int index) const;
-
-	Q_INVOKABLE void setNewPeerAddress(QVariant addr);
-	Q_INVOKABLE void setNewOwnAddress(QVariant addr);
-	Q_INVOKABLE QVariant getNewPeerAddress();
-	Q_INVOKABLE QVariant getNewOwnAddress();
+    Q_INVOKABLE QVariant getPeerAddress(int index) const;	
 
 	Q_INVOKABLE void generateNewEmptyAddress();
 
@@ -89,10 +84,12 @@ public:
 
     AddressBookViewModel(WalletModel& model);
 
-    QVariant getPeerAddresses() const;
-    QVariant getOwnAddresses() const;
-
-    
+	QQmlListProperty<PeerAddressItem> getPeerAddresses();
+	QQmlListProperty<OwnAddressItem> getOwnAddresses();
+	void setNewPeerAddress(PeerAddressItem* addr);
+	void setNewOwnAddress(OwnAddressItem* addr);
+	PeerAddressItem* getNewPeerAddress();
+	OwnAddressItem* getNewOwnAddress();
 
 public slots:
     void onStatus(const WalletStatus& amount);
@@ -105,8 +102,8 @@ signals:
 
 private:
     WalletModel& m_model;
-    QList<QObject*> m_peerAddresses;
-    QList<QObject*> m_ownAddresses;
+    QList<PeerAddressItem*> m_peerAddresses;
+    QList<OwnAddressItem*> m_ownAddresses;
 
 	OwnAddressItem m_newOwnAddress;
 	PeerAddressItem m_newPeerAddress;

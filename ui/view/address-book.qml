@@ -188,6 +188,7 @@ ColumnLayout {
 							height: 14
 							text: addressBookViewModel.newPeerAddress.category
 						}
+
 						Binding {
 							target: addressBookViewModel.newPeerAddress
 							property: "category"
@@ -252,6 +253,7 @@ ColumnLayout {
 							height: 14
 							text: addressBookViewModel.newOwnAddress.name
 						}
+
 						Binding {
 							target: addressBookViewModel.newOwnAddress
 							property: "name"
@@ -321,6 +323,7 @@ ColumnLayout {
 							height: 14
 							text: addressBookViewModel.newOwnAddress.category
 						}
+
 						Binding {
 							target: addressBookViewModel.newOwnAddress
 							property: "category"
@@ -543,8 +546,9 @@ ColumnLayout {
                 MenuItem {
                     text: qsTr('Send to...')
                     onTriggered: {
-                        var peerAddress = addressBookViewModel.getPeerAddress(peersContextMenu.peerInde);
-                        main.updateItem(1);
+                        //var peerAddress = addressBookViewModel.getPeerAddress(peersContextMenu.peerIndex);
+                        //main.updateItem(1);
+						main.openSendDialog();
                     }
                 }
             }
