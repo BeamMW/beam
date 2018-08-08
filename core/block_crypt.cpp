@@ -909,7 +909,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(0) // increment this whenever we change something in the protocol
+			<< uint32_t(1) // increment this whenever we change something in the protocol
 			// out
 			>> Checksum;
 	}
@@ -1209,7 +1209,6 @@ namespace beam
 
 				if (++order > s_MaxOrder)
 					return;
-				order++;
 			}
 			else
 			{
