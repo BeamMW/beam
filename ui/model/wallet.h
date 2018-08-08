@@ -103,6 +103,7 @@ private:
 	std::string _nodeAddrString;
 
 	beam::IKeyChain::Ptr _keychain;
+    beam::IKeyStore::Ptr _keystore;
     beam::io::Reactor::Ptr _reactor;
     std::weak_ptr<beam::INetworkIO> _wallet_io;
     std::weak_ptr<beam::Wallet> _wallet;

@@ -126,7 +126,7 @@ namespace ECC
             std::copy(bytes.begin(), bytes.end(), m_pData);
         }
 
-        uintBig_t(const std::vector<uint8_t> bytes)
+        uintBig_t(const std::vector<uint8_t>& bytes)
         {
             assert(bytes.size() == size());
             std::copy(bytes.begin(), bytes.end(), m_pData);

@@ -399,10 +399,9 @@ void WalletViewModel::sendMoney()
 {
     if (_selectedAddr > -1)
     {
-        auto& addr = _addrList[_selectedAddr];
+        
         // TODO: show 'operation in process' animation here?
-
-        _model.async->sendMoney(addr.m_walletID, calcSendAmount(), calcFeeAmount());
+        //_model.async->sendMoney(addr.m_walletID, calcSendAmount(), calcFeeAmount());
     }
 }
 

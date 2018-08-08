@@ -205,7 +205,7 @@ void WalletModel::run()
 		if(node_addr.resolve(_nodeAddrString.c_str()))
 		{
 			auto wallet_io = make_shared<WalletNetworkIO>(
-				, node_addr
+				node_addr
 				, _keychain
                 , _keystore
 				, _reactor);
@@ -268,7 +268,8 @@ void WalletModel::onTxPeerChanged()
 
 void WalletModel::onAddressChanged()
 {
-    
+    emit onAdrresses(true, _keychain->getAddresses(true));
+    emit onAdrresses(false, _keychain->getAddresses(false));
 }
 
 void WalletModel::onSyncProgress(int done, int total)
