@@ -150,34 +150,34 @@ AddressBookViewModel::AddressBookViewModel(WalletModel& model)
 		SLOT(onGeneratedNewWalletID(const beam::WalletID&)));
 }
 
-QVariant AddressBookViewModel::getPeerAddresses() const
+QQmlListProperty<PeerAddressItem> AddressBookViewModel::getPeerAddresses()
 {
-    return QVariant::fromValue(m_peerAddresses);
+    return QQmlListProperty<PeerAddressItem>(this, m_peerAddresses);
 }
 
-QVariant AddressBookViewModel::getOwnAddresses() const
+QQmlListProperty<OwnAddressItem> AddressBookViewModel::getOwnAddresses()
 {
-    return QVariant::fromValue(m_ownAddresses);
+    return QQmlListProperty<OwnAddressItem>(this, m_ownAddresses);
 }
 
-void AddressBookViewModel::setNewPeerAddress(QVariant addr)
-{
-
-}
-
-void AddressBookViewModel::setNewOwnAddress(QVariant addr)
+void AddressBookViewModel::setNewPeerAddress(PeerAddressItem* addr)
 {
 
 }
 
-QVariant AddressBookViewModel::getNewPeerAddress()
+void AddressBookViewModel::setNewOwnAddress(OwnAddressItem* addr)
 {
-	return QVariant::fromValue(&m_newPeerAddress);
+
 }
 
-QVariant AddressBookViewModel::getNewOwnAddress()
+PeerAddressItem* AddressBookViewModel::getNewPeerAddress()
 {
-	return QVariant::fromValue(&m_newOwnAddress);
+	return &m_newPeerAddress;
+}
+
+OwnAddressItem* AddressBookViewModel::getNewOwnAddress()
+{
+	return &m_newOwnAddress;
 }
 
 void AddressBookViewModel::generateNewEmptyAddress()

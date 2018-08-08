@@ -33,7 +33,7 @@ Menu {
     background: Rectangle {
         implicitWidth: 200
         implicitHeight: 40
-        color: Styles.white
+        color: Style.white
 		opacity: 0.1
         radius: 10
     }

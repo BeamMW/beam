@@ -250,6 +250,9 @@ int main (int argc, char* argv[])
 						nodeAddr = vm[cli::NODE_ADDR].as<string>();
 					}
 
+					qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
+					qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
+
 					WalletModel model(keychain, vm[cli::PORT].as<uint16_t>(), nodeAddr);
 
 					model.start();
