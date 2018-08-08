@@ -313,9 +313,9 @@ namespace ECC {
 
 	void Hash::Processor::Write(const Scalar::Native& v)
 	{
-		NoLeak<Scalar> s;
-		s.V = v;
-		Write(s.V);
+		NoLeak<Scalar> s_;
+		s_.V = v;
+		Write(s_.V);
 	}
 
 	void Hash::Processor::Write(const Point& v)
@@ -992,8 +992,8 @@ namespace ECC {
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
-			szStr[_countof(STR_GEN_PREFIX) - 1]	= '0' + (i / 10);
-			szStr[_countof(STR_GEN_PREFIX)]		= '0' + (i % 10);
+			szStr[_countof(STR_GEN_PREFIX) - 1]	= '0' + char(i / 10);
+			szStr[_countof(STR_GEN_PREFIX)]		= '0' + char(i % 10);
 
 			for (uint32_t j = 0; j < 2; j++)
 			{
@@ -1291,9 +1291,9 @@ namespace ECC {
 			const ModifierExpanded& m_Mod;
 			const Calculator* m_pCalc; // set if source are already condensed points
 			const int m_j;
-			const int m_iCycleTrg;
+			const unsigned int m_iCycleTrg;
 
-			Aggregator(MultiMac& mm, const ChallengeSet& cs, const ModifierExpanded& mod, int j, int iCycleTrg)
+			Aggregator(MultiMac& mm, const ChallengeSet& cs, const ModifierExpanded& mod, int j, unsigned int iCycleTrg)
 				:m_Mm(mm)
 				,m_cs(cs)
 				,m_Mod(mod)
