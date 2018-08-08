@@ -39,10 +39,10 @@ namespace beam
         // node to wallet responses
         virtual bool handle_node_message(proto::Boolean&&) = 0;
         virtual bool handle_node_message(proto::ProofUtxo&&) = 0;
-        virtual bool handle_node_message(proto::NewTip&&) = 0;
+		virtual bool handle_node_message(proto::ProofStateForDummies&& msg) = 0;
+		virtual bool handle_node_message(proto::NewTip&&) = 0;
         virtual bool handle_node_message(proto::Hdr&&) = 0;
         virtual bool handle_node_message(proto::Mined&& msg) = 0;
-        virtual bool handle_node_message(proto::Proof&& msg) = 0;
 
         virtual void abort_sync() = 0;
 
@@ -126,10 +126,10 @@ namespace beam
 
         bool handle_node_message(proto::Boolean&& res) override;
         bool handle_node_message(proto::ProofUtxo&& proof) override;
-        bool handle_node_message(proto::NewTip&& msg) override;
+		bool handle_node_message(proto::ProofStateForDummies&& msg) override;
+		bool handle_node_message(proto::NewTip&& msg) override;
         bool handle_node_message(proto::Hdr&& msg) override;
         bool handle_node_message(proto::Mined&& msg) override;
-        bool handle_node_message(proto::Proof&& msg) override;
 
         void abort_sync() override;
 
@@ -196,7 +196,9 @@ namespace beam
         Block::SystemState::ID m_knownStateID;
         Block::SystemState::ID m_newStateID;
         std::unique_ptr<StateFinder> m_stateFinder;
-        boost::optional<Merkle::Proof> m_knownStateProof;
+        boost::optional<proto::ProofStateForDummies> m_knownStateProof;
+
+		bool IsKnownStateValid(const proto::ProofStateForDummies&) const;
 
         int m_syncDone;
         int m_syncTotal;

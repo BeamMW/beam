@@ -28,7 +28,7 @@ public:
 	void Check(const Inputs& inputs, Callback callback);
 
 protected:
-	void OnConnected() override;
+	void OnConnectedSecure() override;
 	void OnDisconnect(const DisconnectReason&) override;
 	void OnMsg(beam::proto::Hdr&&) override;
 	void OnMsg(beam::proto::ProofUtxo&&) override;

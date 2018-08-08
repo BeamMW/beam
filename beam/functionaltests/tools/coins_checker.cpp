@@ -48,7 +48,7 @@ void CoinsChecker::InitChecker()
 	ConnectToNode();	
 }
 
-void CoinsChecker::OnConnected()
+void CoinsChecker::OnConnectedSecure()
 {
 	proto::Config msg;
 	msg.m_CfgChecksum = Rules::get().Checksum;

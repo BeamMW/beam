@@ -40,12 +40,16 @@ matrix:
             - ubuntu-toolchain-r-test
           packages:
             - g++-7
-            - cmake-data
-            - cmake
             - libboost-all-dev
             - libssl-dev
       before_install:
+        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
+        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
+        - sudo add-apt-repository ppa:beineri/opt-qt-5.10.1-trusty -y
+        - sudo apt-get update
+        - sudo apt-get install qt510declarative qt510svg libgl1-mesa-dev-lts-xenial
         - eval "CC=gcc-7 && CXX=g++-7"
+        - export PATH=/opt/qt510/bin:$PATH
       env: BUILD_TYPE=Debug
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE . && make -j 4 && ctest --verbose
@@ -57,19 +61,19 @@ matrix:
             - ubuntu-toolchain-r-test
           packages:
             - g++-7
-            - cmake-data
-            - cmake
             - libboost-all-dev
             - libssl-dev
       before_install:
+        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
+        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - eval "CC=gcc-7 && CXX=g++-7"
-        # - git clone https://github.com/nesbox/qt5-static-linux.git ~/qt5-static
+        - git clone https://github.com/nesbox/qt5-static-linux.git /home/travis/qt5-static
       env: 
-        # - QT5_ROOT_DIR="~/qt5-static"
-        # - QML_IMPORT_PATH="~/qt5-static/qml"
+        - QT5_ROOT_DIR="/home/travis/qt5-static"
+        - QML_IMPORT_PATH="/home/travis/qt5-static/qml"
         - BUILD_TYPE=Release
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
       after_success:
         - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
             chmod +x ./deploy.sh;

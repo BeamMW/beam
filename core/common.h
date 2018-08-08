@@ -207,7 +207,9 @@ namespace beam
 		uint32_t MaxDifficultyChange		= 2; // (x4, same as in bitcoin).
 		uint32_t TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
 		uint32_t WindowForMedian			= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
+		Difficulty StartDifficulty			= Difficulty(3 << Difficulty::s_MantissaBits);
 
+		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
 
 		ECC::Hash::Value Checksum;
@@ -449,22 +451,24 @@ namespace beam
 
 		struct PoW
 		{
-			// equihash parameters
+			// equihash parameters. 
+			// Parameters recommended by BTG are 144/5, to make it asic-resistant (~1GB average, spikes about 1.5GB). On CPU solve time about 1 minutes
+			// The following are the parameters for testnet, to make it of similar size, and much faster solve time, to test concurrency and difficulty adjustment
 			static const uint32_t N = 120;
-			static const uint32_t K = 4;
+			static const uint32_t K = 5;
 
-			static const uint32_t nNumIndices		= 1 << K; // 16
-			static const uint32_t nBitsPerIndex		= N / (K + 1) + 1; // 25
+			static const uint32_t nNumIndices		= 1 << K; // 32
+			static const uint32_t nBitsPerIndex		= N / (K + 1) + 1; // 21
 
-			static const uint32_t nSolutionBits		= nNumIndices * nBitsPerIndex; // 400 bits
+			static const uint32_t nSolutionBits		= nNumIndices * nBitsPerIndex; // 672 bits
 
 			static_assert(!(nSolutionBits & 7), "PoW solution should be byte-aligned");
-			static const uint32_t nSolutionBytes	= nSolutionBits >> 3; // 50 bytes
+			static const uint32_t nSolutionBytes	= nSolutionBits >> 3; // 84 bytes
 
 			std::array<uint8_t, nSolutionBytes>	m_Indices;
 
-			typedef ECC::uintBig_t<88> NonceType;
-			NonceType m_Nonce; // 11 bytes. The overall solution size is 64 bytes.
+			typedef ECC::uintBig_t<64> NonceType;
+			NonceType m_Nonce; // 8 bytes. The overall solution size is 96 bytes.
 			Difficulty m_Difficulty;
 
 			bool IsValid(const void* pInput, uint32_t nSizeInput) const;
@@ -473,6 +477,8 @@ namespace beam
 			// Difficulty and Nonce must be initialized. During the solution it's incremented each time by 1.
 			// returns false only if cancelled
 			bool Solve(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
+
+			void get_HashForHist(Merkle::Hash& hv, const Merkle::Hash& hvState) const;
 
 		private:
 			struct Helper;
@@ -509,6 +515,7 @@ namespace beam
 				void Set(Prefix&, const Element&);
 				void get_Hash(Merkle::Hash&) const; // Calculated from all the above
 				void get_ID(ID&) const;
+				void get_HashForHist(Merkle::Hash&) const; // accounts also for PoW, literally for everything in the header
 
 				bool IsSane() const;
 				bool IsValidPoW() const;

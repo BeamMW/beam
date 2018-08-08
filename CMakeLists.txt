@@ -115,10 +115,7 @@ add_subdirectory(wallet)
 add_subdirectory(sqlite)
 add_subdirectory(beam)
 add_subdirectory(bbs)
-
-if(NOT LINUX)
-	add_subdirectory(ui)
-endif()
+add_subdirectory(ui)
 
 ########################################################
 ### PACKAGING ##########################################
@@ -133,11 +130,11 @@ if (WIN32)
 	set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "CreateShortCut \\\"$DESKTOP\\\\Beam.lnk\\\" \\\"$INSTDIR\\\\beam-ui.exe\\\"")
 	set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "Delete \\\"$DESKTOP\\\\Beam.lnk\\\"")
 
-elseif ( ${CMAKE_SYSTEM_NAME} MATCHES "Darwin" )
+elseif (APPLE)
 	set(CPACK_GENERATOR "DragNDrop")
-else ()
-    set(CPACK_GENERATOR "DEB")
-    set(CPACK_SOURCE_GENERATOR "TGZ")
+elseif (LINUX)
+	set(CPACK_GENERATOR "DEB")
+	set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Beam")
 endif ()
 
 
