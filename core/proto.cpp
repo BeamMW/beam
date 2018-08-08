@@ -326,7 +326,7 @@ void NodeConnection::OnConnectInternal2(io::TcpStream::Ptr&& newStream, io::Erro
 		Accept(std::move(newStream));
 
 		try {
-			OnConnected();
+			SecureConnect();
 		}
 		catch (const std::exception& e) {
 			OnExc(e);
@@ -443,6 +443,7 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
 { \
 	try { \
 		/* checkpoint */ \
+		TestInputMsgContext(code); \
         return OnMsg2(std::move(v)); \
 	} catch (const std::exception& e) { \
 		OnExc(e); \
@@ -452,6 +453,23 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
 
 BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
+
+void NodeConnection::TestInputMsgContext(uint8_t code)
+{
+	if (!IsSecureIn())
+	{
+		// currently we demand all the trafic encrypted. The only messages that can be sent over non-secure network is those used to establish it
+		switch (code)
+		{
+		case SChannelInitiate::s_Code:
+		case SChannelReady::s_Code:
+			break;
+
+		default:
+			ThrowUnexpected("non-secure comm");
+		}
+	}
+}
 
 void NodeConnection::GenerateSChannelNonce(ECC::Scalar::Native& sk)
 {
@@ -492,6 +510,8 @@ void NodeConnection::OnMsg(SChannelInitiate&& msg)
 	m_Protocol.InitCipher();
 
 	m_Protocol.m_Mode = ProtocolPlus::Mode::Outgoing;
+
+	OnConnectedSecure();
 }
 
 void NodeConnection::OnMsg(SChannelReady&& msg)

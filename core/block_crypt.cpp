@@ -178,6 +178,9 @@ namespace beam
 		if (!m_pPublic)
 			return false;
 
+		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
+			return false;
+
 		return m_pPublic->IsValid(comm, oracle);
 	}
 
@@ -896,12 +899,17 @@ namespace beam
 			<< MaturityStd
 			<< MaxBodySize
 			<< FakePoW
+			<< AllowPublicUtxos
 			<< DesiredRate_s
 			<< DifficultyReviewCycle
 			<< MaxDifficultyChange
 			<< TimestampAheadThreshold_s
 			<< WindowForMedian
-			<< uint32_t(1) // increment this whenever we change something in the protocol
+			<< StartDifficulty.m_Packed
+			<< (uint32_t) Block::PoW::K
+			<< (uint32_t) Block::PoW::N
+			<< (uint32_t) Block::PoW::NonceType::nBits
+			<< uint32_t(0) // increment this whenever we change something in the protocol
 			// out
 			>> Checksum;
 	}
@@ -931,6 +939,7 @@ namespace beam
 			<< m_TimeStamp
 			<< m_Prev
 			<< m_Definition
+			<< m_PoW.m_Difficulty.m_Packed
 			>> out;
 	}
 
@@ -962,6 +971,25 @@ namespace beam
 		Merkle::Hash hv;
 		get_Hash(hv);
 		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
+	}
+
+	void Block::SystemState::Full::get_HashForHist(Merkle::Hash& hv) const
+	{
+		get_Hash(hv);
+		m_PoW.get_HashForHist(hv, hv);
+	}
+
+	void Block::PoW::get_HashForHist(Merkle::Hash& hv, const Merkle::Hash& hvState) const
+	{
+		ECC::Hash::Processor hp;
+		hp.Write(&m_Indices.at(0), sizeof(m_Indices));
+		hp.Write(m_Nonce.m_pData, sizeof(m_Nonce.m_pData));
+		hp << m_Difficulty.m_Packed;
+
+		Merkle::Hash hvPow;
+		hp >> hvPow;
+
+		Merkle::Interpret(hv, hvState, hvPow);
 	}
 
 	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb, bool bSubsidyOpen)

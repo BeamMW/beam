@@ -393,7 +393,7 @@ namespace beam {
         }
     }
 
-    void WalletNetworkIO::WalletNodeConnection::OnConnected()
+    void WalletNetworkIO::WalletNodeConnection::OnConnectedSecure()
     {
         LOG_INFO() << "Wallet connected to node";
         m_connecting = false;
@@ -443,7 +443,7 @@ namespace beam {
         return m_wallet.handle_node_message(move(msg));
     }
 
-    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Proof&& msg)
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::ProofStateForDummies&& msg)
     {
         return m_wallet.handle_node_message(move(msg));
     }

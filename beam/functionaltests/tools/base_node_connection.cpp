@@ -86,7 +86,7 @@ void BaseTestNode::Run()
 }
 
 
-void BaseTestNode::OnConnected()
+void BaseTestNode::OnConnectedSecure()
 {
 	LOG_INFO() << "connection is succeded";
 

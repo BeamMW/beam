@@ -758,15 +758,9 @@ void Node::Peer::GenerateSChannelNonce(ECC::Scalar::Native& nonce)
 	nonce.GenerateNonce(m_This.m_Cfg.m_WalletKey.V, hv, NULL);
 }
 
-void Node::Peer::OnConnected()
+void Node::Peer::OnConnectedSecure()
 {
 	LOG_INFO() << "Peer " << m_RemoteAddr << " Connected";
-	SecureConnect();
-}
-
-void Node::Peer::OnMsg(proto::SChannelReady&& msg)
-{
-	proto::NodeConnection::OnMsg(std::move(msg));
 
 	m_bConnected = true;
 
@@ -1354,21 +1348,27 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 	if (msg.m_Height < Rules::HeightGenesis)
 		ThrowUnexpected();
 
-	proto::Proof msgOut;
+	proto::ProofStateForDummies msgOut;
 
-	const NodeDB::StateID& sid = m_This.m_Processor.m_Cursor.m_Sid;
-	if (sid.m_Row)
+	Processor& p = m_This.m_Processor;
+	const NodeDB::StateID& sid = p.m_Cursor.m_Sid;
+	if (sid.m_Row && (msg.m_Height < sid.m_Height))
 	{
-		if (msg.m_Height < sid.m_Height)
-		{
-			m_This.m_Processor.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height);
+		p.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height);
 
-			msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+		msgOut.m_Proof.back().first = true;
+		p.get_ChainWork(msgOut.m_Proof.back().second, false);
 
-			msgOut.m_Proof.back().first = true;
-			m_This.m_Processor.get_CurrentLive(msgOut.m_Proof.back().second);
-		}
+		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+		msgOut.m_Proof.back().first = true;
+		p.get_CurrentLive(msgOut.m_Proof.back().second);
+
+		uint64_t rowid = p.FindActiveAtStrict(msg.m_Height);
+		p.get_DB().get_State(rowid, msgOut.m_Hdr);
 	}
+	else
+		ZeroObject(msgOut.m_Hdr);
 
 	Send(msgOut);
 }
@@ -1392,7 +1392,7 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 		msgOut.m_Proof.back().first = false;
-		msgOut.m_Proof.back().second = m_This.m_Processor.m_Cursor.m_History;
+		m_This.m_Processor.get_CurrentPart2(msgOut.m_Proof.back().second, false);
 	}
 }
 
@@ -1402,7 +1402,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	{
 		proto::ProofUtxo m_Msg;
 		UtxoTree* m_pTree;
-		const Merkle::Hash* m_phvHistory;
+		Merkle::Hash m_hvPart2;
 		Merkle::Hash m_hvKernels;
 
 		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
@@ -1426,7 +1426,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 
 			ret.m_Proof.resize(ret.m_Proof.size() + 1);
 			ret.m_Proof.back().first = false;
-			ret.m_Proof.back().second = *m_phvHistory;
+			ret.m_Proof.back().second = m_hvPart2;
 
 			return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
 		}
@@ -1434,7 +1434,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 
 	t.m_pTree = &m_This.m_Processor.get_Utxos();
 	m_This.m_Processor.get_Kernels().get_Hash(t.m_hvKernels);
-	t.m_phvHistory = &m_This.m_Processor.m_Cursor.m_History;
+	m_This.m_Processor.get_CurrentPart2(t.m_hvPart2, false);
 
 	UtxoTree::Cursor cu;
 	t.m_pCu = &cu;
@@ -1626,7 +1626,7 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
         LOG_DEBUG() << "New peer connected: " << newStream->address();
 		Peer* p = get_ParentObj().AllocPeer(newStream->peer_address());
 		p->Accept(std::move(newStream));
-		p->OnConnected();
+		p->SecureConnect();
 	}
 }
 

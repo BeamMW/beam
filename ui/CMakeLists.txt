@@ -133,11 +133,52 @@ if(BEAM_USE_STATIC)
 
 	if(LINUX)
 
-#....
+		target_link_libraries(beam-ui 
+			${CMAKE_PREFIX_PATH}/plugins/platforms/libqxcb.a
+		)
 
-	endif()
+		target_link_libraries(beam-ui 
+			${CMAKE_PREFIX_PATH}/qml/QtQuick.2/libqtquick2plugin.a
+			${CMAKE_PREFIX_PATH}/qml/QtQuick/Window.2/libwindowplugin.a
+			${CMAKE_PREFIX_PATH}/qml/QtQuick/Controls/libqtquickcontrolsplugin.a
+			${CMAKE_PREFIX_PATH}/qml/QtGraphicalEffects/libqtgraphicaleffectsplugin.a
+			${CMAKE_PREFIX_PATH}/qml/QtGraphicalEffects/private/libqtgraphicaleffectsprivate.a
+			${CMAKE_PREFIX_PATH}/qml/QtQuick/Layouts/libqquicklayoutsplugin.a
+			${CMAKE_PREFIX_PATH}/qml/QtQuick/Controls.2/libqtquickcontrols2plugin.a
+			${CMAKE_PREFIX_PATH}/qml/QtQuick/Templates.2/libqtquicktemplates2plugin.a
+
+			${CMAKE_PREFIX_PATH}/plugins/imageformats/libqsvg.a
+		)
+
+		foreach(lib 
+			Qt5Core Qt5XcbQpa clip2tri Qt5Gui Qt5Nfc Qt5Quick Qt5Sensors Qt5UiTools clipper Qt5Designer 
+			Qt5Help Qt5PacketProtocol Qt5QuickControls2 Qt5SerialBus Qt5WebChannel qtharfbuzz 
+			poly2tri Qt5DesignerComponents Qt5InputSupport Qt5Positioning Qt5QuickTemplates2 
+			Qt5SerialPort Qt5WebSockets qtlibpng Qt5AccessibilitySupport Qt5DeviceDiscoverySupport 
+			Qt5KmsSupport Qt5PositioningQuick Qt5QuickTest Qt5ServiceSupport Qt5WebView 
+			qtopenwnn Qt5Bluetooth Qt5EdidSupport Qt5Location Qt5PrintSupport Qt5QuickWidgets 
+			Qt5Sql Qt5Widgets qtpcre2 Qt5Bootstrap Qt5EventDispatcherSupport Qt5Multimedia 
+			Qt5Purchasing Qt5RemoteObjects Qt5Svg Qt5X11Extras qtpinyin Qt5Charts 
+			Qt5FbSupport Qt5MultimediaWidgets Qt5Qml Qt5Script Qt5Test qttcime 
+			Qt5Concurrent Qt5FontDatabaseSupport Qt5Network Qt5QmlDebug Qt5ScriptTools 
+			Qt5TextToSpeech Qt5Xml xcb-static Qt5Gamepad Qt5NetworkAuth Qt5QmlDevTools 
+			Qt5Scxml Qt5ThemeSupport Qt5XmlPatterns Qt5DBus qtfreetype
+		)
+			target_link_libraries(beam-ui ${CMAKE_PREFIX_PATH}/lib/lib${lib}.a)
+		endforeach()
+
+		target_link_libraries(beam-ui -lX11-xcb -lX11 -lxcb -licui18n -licuuc -licudata -lGL)
+
+		set_property(TARGET beam-ui PROPERTY POSITION_INDEPENDENT_CODE ON)
+		
+endif()
 
 endif()
 
-install(TARGETS beam-ui	DESTINATION .)
-install(FILES beam-ui.cfg DESTINATION .)
+if(LINUX)
+	install(TARGETS beam-ui	DESTINATION bin)
+	install(FILES beam-ui.cfg DESTINATION bin)
+else()
+	install(TARGETS beam-ui	DESTINATION .)
+	install(FILES beam-ui.cfg DESTINATION .)
+endif()

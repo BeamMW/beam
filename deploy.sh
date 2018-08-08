@@ -28,15 +28,30 @@ fi
 mkdir -p $OS_FOLDER
 mkdir -p $LATEST_OS_FOLDER
 
-tar -cvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-tar -rvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/ui beam-ui.app beam-ui.cfg
-tar -czvf $OS_FOLDER/$APP.tar.gz --directory=$OS_FOLDER $APP.tar
+if [[ "$OSTYPE" == "linux"* ]]; then
 
-cp -f $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
+	tar -cvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
+	tar -rvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/ui beam-ui beam-ui.cfg
+	tar -czvf $OS_FOLDER/$APP.tar.gz --directory=$OS_FOLDER $APP.tar
 
-git add $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
+	cp -f $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
+	git add $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
+
+	cp -f $HOME/build/beam-mw/beam/Beam-0.0.1-Linux.deb $OS_FOLDER/$APP-setup.deb
+	cp -f $OS_FOLDER/$APP-setup.deb $LATEST_OS_FOLDER/$APP-setup.deb
+	git add $OS_FOLDER/$APP-setup.deb $LATEST_OS_FOLDER/$APP-setup.deb
+
+
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+	tar -cvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
+	tar -rvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/ui beam-ui.app beam-ui.cfg
+	tar -czvf $OS_FOLDER/$APP.tar.gz --directory=$OS_FOLDER $APP.tar
+
+	cp -f $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
+
+	git add $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
+
 	cp -f $HOME/build/beam-mw/beam/Beam-0.0.1-Darwin.dmg $OS_FOLDER/$APP-setup.dmg
 	cp -f $OS_FOLDER/$APP-setup.dmg $LATEST_OS_FOLDER/$APP-setup.dmg
 	git add $OS_FOLDER/$APP-setup.dmg $LATEST_OS_FOLDER/$APP-setup.dmg

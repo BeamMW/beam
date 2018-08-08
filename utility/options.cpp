@@ -132,6 +132,7 @@ namespace beam
 	macro(uint32_t, MaxDifficultyChange, "Max difficulty change after each cycle (each step is roughly x2 complexity)") \
 	macro(uint32_t, TimestampAheadThreshold_s, "Block timestamp tolerance [seconds]") \
 	macro(uint32_t, WindowForMedian, "How many blocks are considered in calculating the timestamp median") \
+	macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
 	macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
 
 #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(Rules::get().name), comment)

@@ -45,6 +45,9 @@ matrix:
             - libboost-all-dev
             - libssl-dev
       before_install:
+        - sudo add-apt-repository ppa:beineri/opt-qt-5.10.1-trusty -y
+        - sudo apt-get update
+        - sudo apt-get install qtdeclarative5-dev qtdeclarative5-qtquick2-plugin libqt5svg5-dev
         - eval "CC=gcc-7 && CXX=g++-7"
       env: BUILD_TYPE=Debug
       script:
@@ -63,13 +66,13 @@ matrix:
             - libssl-dev
       before_install:
         - eval "CC=gcc-7 && CXX=g++-7"
-        # - git clone https://github.com/nesbox/qt5-static-linux.git ~/qt5-static
+        - git clone https://github.com/nesbox/qt5-static-linux.git ~/qt5-static
       env: 
-        # - QT5_ROOT_DIR="~/qt5-static"
-        # - QML_IMPORT_PATH="~/qt5-static/qml"
+        - QT5_ROOT_DIR="~/qt5-static"
+        - QML_IMPORT_PATH="~/qt5-static/qml"
         - BUILD_TYPE=Release
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
       after_success:
         - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
             chmod +x ./deploy.sh;
