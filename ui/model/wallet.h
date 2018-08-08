@@ -25,7 +25,7 @@ struct IWalletModelAsync
 {
 	using Ptr = std::shared_ptr<IWalletModelAsync>;
 
-    virtual void sendMoney(beam::WalletID receiver, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
+    virtual void sendMoney(beam::WalletID sender, beam::WalletID receiver, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
 	virtual void syncWithNode() = 0;
     virtual void calcChange(beam::Amount&& amount) = 0;
     virtual void getAvaliableUtxos() = 0;
@@ -59,7 +59,7 @@ class WalletModel
 {
 	Q_OBJECT
 public:
-	WalletModel(beam::IKeyChain::Ptr keychain, uint16_t port, const std::string& nodeAddr);
+	WalletModel(beam::IKeyChain::Ptr keychain, beam::IKeyStore::Ptr keystore, const std::string& nodeAddr);
 	~WalletModel();
 
 	void run() override;
@@ -85,7 +85,7 @@ private:
     void onAddressChanged() override;
 	void onSyncProgress(int done, int total) override;
 
-    void sendMoney(beam::WalletID receiver, beam::Amount&& amount, beam::Amount&& fee) override;
+    void sendMoney(beam::WalletID sender, beam::WalletID receiver, beam::Amount&& amount, beam::Amount&& fee) override;
     void syncWithNode() override;
     void calcChange(beam::Amount&& amount) override;
     void getAvaliableUtxos() override;

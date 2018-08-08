@@ -55,8 +55,8 @@ namespace beam
                       , IKeyStore::Ptr keyStore
                       , io::Reactor::Ptr reactor = io::Reactor::Ptr()
                       , unsigned reconnect_ms = 1000 // 1 sec
-                      , unsigned sync_period_ms = 60 * 1000  // 1 minute
-                      , uint64_t start_tag = 0);
+                      , unsigned sync_period_ms = 60 * 1000);  // 1 minute
+
         virtual ~WalletNetworkIO();
 
         void start();
@@ -100,6 +100,8 @@ namespace beam
 
         void start_sync_timer();
         void on_sync_timer();
+        void on_close_connection_timer();
+        void postpone_close_timer();
         void on_node_connected();
 
         void create_node_connection();
@@ -190,9 +192,11 @@ namespace beam
         io::Reactor::Scope m_reactor_scope;
         unsigned m_reconnect_ms;
         unsigned m_sync_period_ms;
+        unsigned m_close_timeout_ms;
         std::unique_ptr<WalletNodeConnection> m_node_connection;
         SerializedMsg m_msgToSend;
         io::Timer::Ptr m_sync_timer;
+        io::Timer::Ptr m_close_timer;
 
         std::vector<ConnectCallback> m_node_connect_callbacks;
 

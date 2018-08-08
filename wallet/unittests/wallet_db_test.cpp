@@ -19,7 +19,7 @@
 
 #include "utility/logger.h"
 #include <boost/filesystem.hpp>
-#include <algorithm>
+#include <numeric>
 
 using namespace std;
 using namespace ECC;
