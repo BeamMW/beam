@@ -44,8 +44,8 @@ private:
 
 private:
 	bool m_IsInit;
-	bool m_IsNeedToCheckOut;
-	unsigned int m_Counter;
+	//bool m_IsNeedToCheckOut;
+	//unsigned int m_Counter;
 	Block::SystemState::ID m_ID;
 	TxGenerator m_Generator;
 	CoinsChecker m_CoinsChecker;
@@ -60,8 +60,8 @@ private:
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	: BaseTestNode(argc, argv)
 	, m_IsInit(false)
-	, m_IsNeedToCheckOut(false)
-	, m_Counter(0)
+	//, m_IsNeedToCheckOut(false)
+	//, m_Counter(0)
 	, m_Generator(m_Kdf)
 	, m_CoinsChecker(argc, argv)
 	, m_NewTimer(io::Timer::create(io::Reactor::get_Current().shared_from_this()))
@@ -143,7 +143,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 
 				coin.m_IsProcessChecking = true;				
 				m_CoinsChecker.Check(CoinsChecker::Inputs{ coin.m_Input },
-					[this, &coin](bool isOk, Height maturity)
+					[&coin](bool isOk, Height maturity)
 					{
 						if (isOk)
 						{
