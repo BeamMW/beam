@@ -282,6 +282,26 @@ QString WalletViewModel::feeMils() const
     return _feeMils;
 }
 
+QString WalletViewModel::getReceiverAddr() const
+{
+    return _receiverAddr;
+}
+
+void WalletViewModel::setReceiverAddr(const QString& value)
+{
+    _receiverAddr = value;
+}
+
+QString WalletViewModel::getSenderAddr() const
+{
+    return _senderAddr;
+}
+
+void WalletViewModel::setSenderAddr(const QString& value)
+{
+    _senderAddr = value;
+}
+
 void WalletViewModel::setSendAmount(const QString& amount)
 {
 	if (amount != _sendAmount)
@@ -397,11 +417,12 @@ beam::Amount WalletViewModel::calcTotalAmount() const
 
 void WalletViewModel::sendMoney()
 {
-    if (_selectedAddr > -1)
+    if (!_senderAddr.isEmpty() && !_receiverAddr.isEmpty())
     {
-        
+        WalletID ownAddr = from_hex(getSenderAddr().toStdString());
+        WalletID peerAddr = from_hex(getReceiverAddr().toStdString());
         // TODO: show 'operation in process' animation here?
-        //_model.async->sendMoney(addr.m_walletID, calcSendAmount(), calcFeeAmount());
+        _model.async->sendMoney(ownAddr, peerAddr, calcSendAmount(), calcFeeAmount());
     }
 }
 

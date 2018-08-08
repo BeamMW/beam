@@ -120,7 +120,7 @@ Item {
                     }
 
                     SFTextInput {
-                        // id: receiver_addr
+                        id: receiver_addr
 
                         Layout.fillWidth: true
 						Layout.minimumHeight: 14
@@ -129,9 +129,6 @@ Item {
                         font.pixelSize: 12
 
                         color: Style.white
-
-                        text: walletViewModel.receiverAddr
-
                     }
 
                     Rectangle {
@@ -154,7 +151,7 @@ Item {
                     }
 
                     SFTextInput {
-                        // id: receiver_addr
+                        id: sender_addr
 						Layout.fillWidth: true
 						Layout.minimumHeight: 14
 						Layout.maximumHeight: 14
@@ -162,15 +159,32 @@ Item {
                         font.pixelSize: 12
 
                         color: Style.white
-
-                        text: walletViewModel.receiverAddr
                     }
 
-                    // Binding {
-                    //     target: walletViewModel
-                    //     property: "receiverAddr"
-                    //     value: receiver_addr.text
-                    // }
+                    Binding {
+                         target: walletViewModel
+                         property: "receiverAddr"
+                         value: receiver_addr.text
+                    }
+
+					Binding {
+                         target: receiver_addr
+                         property: "text"
+                         value: walletViewModel.receiverAddr
+                    }
+
+                    Binding {
+                         target: walletViewModel
+                         property: "senderAddr"
+                         value: sender_addr.text
+                    }
+
+					Binding {
+                         target: sender_addr
+                         property: "text"
+                         value: walletViewModel.senderAddr
+                    }
+
 
                     Rectangle {
                         Layout.fillWidth: true
