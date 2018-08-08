@@ -546,8 +546,9 @@ ColumnLayout {
                 MenuItem {
                     text: qsTr('Send to...')
                     onTriggered: {
-                        var peerAddress = addressBookViewModel.getPeerAddress(peersContextMenu.peerIndex);
-                        main.updateItem(1);
+                        //var peerAddress = addressBookViewModel.getPeerAddress(peersContextMenu.peerIndex);
+                        //main.updateItem(1);
+						main.openSendDialog();
                     }
                 }
             }

@@ -110,6 +110,10 @@ Rectangle {
         mainViewModel.update(index)
     }
 
+	function openSendDialog() {
+		content.setSource("qrc:///wallet.qml", {"state": "send"})
+	}
+
     Component.onCompleted:{
         updateItem(1) // load wallet view by default
     }
