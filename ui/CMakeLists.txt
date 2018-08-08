@@ -16,7 +16,11 @@ elseif(APPLE)
 endif()
 
 find_package(Qt5QuickCompiler)
-qtquick_compiler_add_resources(QT_RESOURCES view/qml.qrc)
+if(Qt5QuickCompiler_FOUND)
+	qtquick_compiler_add_resources(QT_RESOURCES view/qml.qrc)
+else()
+    qt5_add_resources(QT_RESOURCES view/qml.qrc)
+endif()
 
 set(UI_SRC
 	ui.cpp
