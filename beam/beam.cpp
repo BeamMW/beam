@@ -519,10 +519,7 @@ int main_impl(int argc, char* argv[])
                                 options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
                                 options.fileName = bbsKeysPath;
 
-                                // use wallet_seed as pass for now
-                                string keyStorePass = vm[cli::WALLET_SEED].as<string>();
-
-                                IKeyStore::Ptr ks = IKeyStore::create(options, keyStorePass.c_str(), keyStorePass.size());
+                                IKeyStore::Ptr ks = IKeyStore::create(options, pass.c_str(), pass.size());
 
                                 // generate default address
                                 WalletAddress defaultAddress = {};
@@ -530,10 +527,9 @@ int main_impl(int argc, char* argv[])
                                 defaultAddress.m_label = "default";
                                 defaultAddress.m_createTime = getTimestamp();
                                 defaultAddress.m_duration = numeric_limits<uint64_t>::max();
-                                ks->gen_keypair(defaultAddress.m_walletID, keyStorePass.c_str(), keyStorePass.size(), true);
+                                ks->gen_keypair(defaultAddress.m_walletID, pass.c_str(), pass.size(), true);
                                 
                                 keychain->saveAddress(defaultAddress);
-                                keychain->setVarRaw(KEY_STORE_PASS, keyStorePass.data(), keyStorePass.size());
 
 								return 0;
 							}
@@ -550,14 +546,6 @@ int main_impl(int argc, char* argv[])
 							LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";
 							return -1;
 						}
-
-                        //IKeyStore::Options options;
-                        //options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-                        //options.fileName = bbsKeysPath;
-                        
-                        //IKeyStore::Ptr ks = IKeyStore::create(options, keyStorePass.c_str(), keyStorePass.size());
-
-                        //auto keystore = 
 
 						LOG_INFO() << "wallet sucessfully opened...";
 
@@ -689,35 +677,26 @@ int main_impl(int argc, char* argv[])
 
 						bool is_server = command == cli::LISTEN;
 
+                        IKeyStore::Options options;
+                        options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+                        options.fileName = bbsKeysPath;
 
-						TxPeer receiverPeer = {};
-						receiverPeer.m_address = receiverAddr.str();
-                    
-                        receiverPeer.m_walletID = receiverWalletID;
-						keychain->addPeer(receiverPeer);
+                        IKeyStore::Ptr keystore = IKeyStore::create(options, pass.c_str(), pass.size());
 
                         auto wallet_io = make_shared<WalletNetworkIO >( node_addr
 						                                              , keychain
+                                                                      , keystore
 							                                          , reactor);
 						Wallet wallet{ keychain
 									 , wallet_io
 									 , is_server ? Wallet::TxCompletedAction() : [wallet_io](auto) { wallet_io->stop(); } };
 
-                        util::PubKey myPubKey;
-                        {
-                            // for test only
-                            ECC::NoLeak<ECC::uintBig> seed;
-                            keychain->getVar("WalletSeed", seed);
-                            util::PrivKey privKey;
-                            
-                            util::gen_test_keypair(privKey, myPubKey, seed.V);
-
-                            wallet_io->add_key_pair(myPubKey, privKey);
-                        }
-
 						if (isTxInitiator)
 						{
-							wallet.transfer_money(myPubKey, receiverPeer.m_walletID, move(amount), move(fee), command == cli::SEND);
+                            // TODO: make db request by 'default' label
+                            auto addresses = keychain->getAddresses(true);
+                            assert(!addresses.empty());
+							wallet.transfer_money(addresses[0].m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
 						}
 
 						wallet_io->start();

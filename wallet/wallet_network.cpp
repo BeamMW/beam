@@ -41,8 +41,8 @@ namespace beam {
         , m_reconnect_ms{ reconnect_ms }
         , m_sync_period_ms{ sync_period_ms }
         , m_sync_timer{io::Timer::create(m_reactor)}
-        , m_last_bbs_message_time(0)
-        , m_bbs_channel(0)
+        , m_keystore(keyStore)
+        , m_lastReceiver(0)
     {
         if (!m_keystore || m_keystore->size() == 0) {
             throw std::runtime_error("WalletNetworkIO: empty keystore");
@@ -58,7 +58,7 @@ namespace beam {
         assert(!m_myPubKeys.empty());
         for (const auto& k : m_myPubKeys) {
             uint32_t channel = channel_from_wallet_id(k);
-            LOG_INFO() << "Pubkey: " << k << " channel:" << channel;
+            LOG_INFO() << "Channel:" << channel << " Pubkey: " << to_string(k);
             listen_to_bbs_channel(channel);
         }
     }
@@ -268,7 +268,10 @@ namespace beam {
     void WalletNetworkIO::listen_to_bbs_channel(uint32_t channel)
     {
         auto it = m_bbs_timestamps.find(channel);
-        if (it == m_bbs_timestamps.end()) it->second = 0;
+        if (it != m_bbs_timestamps.end())
+        {
+            it->second = 0;
+        }
         if (m_is_node_connected)
         {
             LOG_DEBUG() << "Listen BBS channel=" << channel;

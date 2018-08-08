@@ -127,8 +127,6 @@ namespace beam
 {
     using namespace std;
 
-    const char[] KEY_STORE_PASS = "KeyStorePass";
-
 	namespace
 	{
         void throwIfError(int res, sqlite3* db)

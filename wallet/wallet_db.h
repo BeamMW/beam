@@ -82,8 +82,6 @@ namespace beam
         virtual void onAddressChanged() = 0;
 	};
 
-    extern const char[] KEY_STORE_PASS;
-
     struct IKeyChain
     {
         using Ptr = std::shared_ptr<IKeyChain>;
