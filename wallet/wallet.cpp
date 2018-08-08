@@ -461,13 +461,10 @@ namespace beam
         }
         else if (m_knownStateProof.is_initialized())
         { 
-            Merkle::Proof proof = move(*m_knownStateProof);
+			bool b = IsKnownStateValid(*m_knownStateProof);
             m_knownStateProof.reset();
 
-            Merkle::Hash hv = m_knownStateID.m_Hash;
-            Merkle::Interpret(hv, proof);
-
-            if (hv == m_Definition)
+            if (b)
             {
                 do_fast_forward();
                 return exit_sync();
@@ -515,18 +512,36 @@ namespace beam
         return exit_sync();
     }
 
-    bool Wallet::handle_node_message(proto::Proof&& msg)
+	bool Wallet::IsKnownStateValid(const proto::ProofStateForDummies& msg) const
+	{
+		Merkle::Hash hv;
+
+		if (m_knownStateID.m_Hash == ECC::Zero)
+			hv = ECC::Zero; // for test only!
+		else
+		{
+			Block::SystemState::ID id;
+			msg.m_Hdr.get_ID(id);
+
+			if (id != m_knownStateID)
+				return false;
+
+			msg.m_Hdr.get_HashForHist(hv);
+		}
+		Merkle::Interpret(hv, msg.m_Proof);
+
+		return hv == m_Definition;
+	}
+
+    bool Wallet::handle_node_message(proto::ProofStateForDummies&& msg)
     {
         if (!m_isValidDefinition)
         {
-            m_knownStateProof = move(msg.m_Proof);
+            m_knownStateProof = move(msg);
             return true;
         }
-        
-        Merkle::Hash hv = m_knownStateID.m_Hash;
-        Merkle::Interpret(hv, msg.m_Proof);
 
-        if (hv != m_Definition)
+        if (!IsKnownStateValid(msg))
         {
             // rollback
             // search for the latest valid known state

@@ -171,11 +171,11 @@ void NodeProcessor::InitCursor()
 			ZeroObject(m_Cursor.m_History);
 
 		m_DB.get_ChainWork(m_Cursor.m_Sid.m_Row, m_Cursor.m_ChainWork);
-		m_Cursor.m_DifficultyNext = get_NextDifficulty();
 	}
 	else
 		ZeroObject(m_Cursor);
 
+	m_Cursor.m_DifficultyNext = get_NextDifficulty();
 	m_Cursor.m_SubsidyOpen = 0 != (m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyOpen, 1));
 }
 
@@ -367,10 +367,34 @@ void NodeProcessor::get_CurrentLive(Merkle::Hash& hv)
 	Merkle::Interpret(hv, hv2, true);
 }
 
-void NodeProcessor::get_Definition(Merkle::Hash& hv, const Merkle::Hash& hvHist)
+void NodeProcessor::get_ChainWork(Merkle::Hash& hv, bool bForNextState)
+{
+	hv = m_Cursor.m_ChainWork;
+	if (!bForNextState)
+	{
+		// subtract the work of the current header
+		Difficulty::Raw dw;
+		m_Cursor.m_Full.m_PoW.m_Difficulty.Unpack(dw);
+
+		dw.Negate();
+		hv += dw;
+	}
+}
+
+void NodeProcessor::get_CurrentPart2(Merkle::Hash& hv, bool bForNextState)
+{
+	get_ChainWork(hv, bForNextState);
+	Merkle::Interpret(hv, bForNextState ? m_Cursor.m_HistoryNext : m_Cursor.m_History, false);
+}
+
+void NodeProcessor::get_Definition(Merkle::Hash& hv, bool bForNextState)
 {
 	get_CurrentLive(hv);
-	Merkle::Interpret(hv, hvHist, false);
+
+	Merkle::Hash hvPart2;
+	get_CurrentPart2(hvPart2, bForNextState);
+
+	Merkle::Interpret(hv, hvPart2, false);
 }
 
 struct NodeProcessor::RollbackData
@@ -472,7 +496,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	{
 		// check the validity of state description.
 		Merkle::Hash hvDef;
-		get_Definition(hvDef, m_Cursor.m_HistoryNext);
+		get_Definition(hvDef, true);
 
 		if (s.m_Definition != hvDef)
 		{
@@ -1131,7 +1155,7 @@ bool NodeProcessor::TxPool::Element::Profit::operator < (const Profit& t) const
 Difficulty NodeProcessor::get_NextDifficulty()
 {
 	if (!m_Cursor.m_Sid.m_Row)
-		return 0; // 1st block difficulty 0
+		return Rules::get().StartDifficulty; // 1st block difficulty 0
 
 	Height dh = m_Cursor.m_Full.m_Height - Rules::HeightGenesis;
 
@@ -1293,7 +1317,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	if (res.m_SubsidyClosing)
 		OnSubsidyOptionChanged(false);
 
-	get_Definition(s.m_Definition, m_Cursor.m_HistoryNext);
+	get_Definition(s.m_Definition, true);
 
 	if (res.m_SubsidyClosing)
 		OnSubsidyOptionChanged(true);
@@ -1655,7 +1679,7 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 	}
 
 	Merkle::Hash hvDef;
-	get_Definition(hvDef, m_Cursor.m_History);
+	get_Definition(hvDef, false);
 
 	if (s.m_Definition != hvDef)
 	{
