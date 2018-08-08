@@ -133,8 +133,8 @@ if (WIN32)
 elseif (APPLE)
 	set(CPACK_GENERATOR "DragNDrop")
 elseif (LINUX)
-    set(CPACK_GENERATOR "DEB")
-    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Beam")
+	set(CPACK_GENERATOR "DEB")
+	set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Beam")
 endif ()
 
 

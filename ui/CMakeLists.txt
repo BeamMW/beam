@@ -182,6 +182,14 @@ endif()
 if(LINUX)
 	install(TARGETS beam-ui	DESTINATION bin)
 	install(FILES beam-ui.cfg DESTINATION bin)
+
+	SET(BEAM_DESKTOP_DIR     "/usr/share/applications/")
+	SET(BEAM_PIXMAPS_DIR     "/usr/share/icons/")
+
+	install (FILES beam.desktop DESTINATION ${BEAM_DESKTOP_DIR})
+	install (FILES beam.xml DESTINATION ${BEAM_DESKTOP_DIR})
+	install (FILES beam.png DESTINATION ${BEAM_PIXMAPS_DIR})
+
 else()
 	install(TARGETS beam-ui	DESTINATION .)
 	install(FILES beam-ui.cfg DESTINATION .)
