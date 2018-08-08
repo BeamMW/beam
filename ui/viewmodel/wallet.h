@@ -163,6 +163,7 @@ public slots:
 	void onSyncProgressUpdated(int done, int total);
     void onChangeCalculated(beam::Amount change);
     void onUtxoChanged(const std::vector<beam::Coin>& utxos);
+	void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
 
 signals:
 	void stateChanged();

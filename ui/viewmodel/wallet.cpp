@@ -145,6 +145,9 @@ WalletViewModel::WalletViewModel(WalletModel& model)
 
     connect(&_model, SIGNAL(onUtxoChanged(const std::vector<beam::Coin>&)),
         SLOT(onUtxoChanged(const std::vector<beam::Coin>&)));
+
+	connect(&_model, SIGNAL(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
+		SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
 }
 
 void WalletViewModel::cancelTx(int index)
@@ -247,6 +250,12 @@ void WalletViewModel::onUtxoChanged(const std::vector<beam::Coin>& utxos)
     emit utxoChanged();
 }
 
+void WalletViewModel::onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
+{
+	setSenderAddr(toString(senderID));
+	setReceiverAddr(toString(receiverID));
+}
+
 QString WalletViewModel::available() const
 {
 	return BeamToString(_status.available);
@@ -290,6 +299,7 @@ QString WalletViewModel::getReceiverAddr() const
 void WalletViewModel::setReceiverAddr(const QString& value)
 {
     _receiverAddr = value;
+	emit receiverAddrChanged();
 }
 
 QString WalletViewModel::getSenderAddr() const
@@ -300,6 +310,7 @@ QString WalletViewModel::getSenderAddr() const
 void WalletViewModel::setSenderAddr(const QString& value)
 {
     _senderAddr = value;
+	emit senderAddrChanged();
 }
 
 void WalletViewModel::setSendAmount(const QString& amount)
