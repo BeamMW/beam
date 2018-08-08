@@ -40,11 +40,11 @@ matrix:
             - ubuntu-toolchain-r-test
           packages:
             - g++-7
-            - cmake-data
-            - cmake
             - libboost-all-dev
             - libssl-dev
       before_install:
+        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
+        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - sudo add-apt-repository ppa:beineri/opt-qt-5.10.1-trusty -y
         - sudo apt-get update
         - sudo apt-get install qt510declarative qt510svg
@@ -61,11 +61,11 @@ matrix:
             - ubuntu-toolchain-r-test
           packages:
             - g++-7
-            - cmake-data
-            - cmake
             - libboost-all-dev
             - libssl-dev
       before_install:
+        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
+        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - eval "CC=gcc-7 && CXX=g++-7"
         - git clone https://github.com/nesbox/qt5-static-linux.git ~/qt5-static
       env: 
