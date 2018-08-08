@@ -30,6 +30,7 @@
 #include "core/proto.h"
 #include "wallet/wallet_serialization.h"
 #include <boost/filesystem.hpp>
+#include <boost/intrusive/list.hpp>
 
 #include "core/storage.h"
 
@@ -473,7 +474,12 @@ namespace
         void send_node_message(beam::proto::GetProofState &&) override
         {
             cout << "GetProofState\n";
-            enqueueNetworkTask([this] {m_peers[0]->handle_node_message(proto::Proof{}); });
+
+			proto::ProofStateForDummies msg;
+
+            enqueueNetworkTask([this, msg] {
+				m_peers[0]->handle_node_message((proto::ProofStateForDummies&&) msg);
+			});
         }
 
 //         void close_connection(const beam::WalletID&) override
@@ -557,129 +563,96 @@ void TestFSM()
     WALLET_CHECK(*(s.current_state()) == 4);
 }
 
-enum NodeNetworkMessageCodes : uint8_t
-{
-    NewTipCode = 1,
-    NewTransactionCode = 23,
-    BooleanCode = 5,
-    HdrCode = 3,
-    GetUtxoProofCode = 10,
-    ProofUtxoCode = 12,
-    ConfigCode = 20,
-    GetMinedCode = 15,
-    MinedCode = 16,
-    GetProofStateCode = 8,
-    ProofCode = 11
-};
-
-class TestNode : public IErrorHandler
+class TestNode
 {
 public:
-    TestNode(io::Address address, io::Reactor::Ptr reactor = io::Reactor::Ptr())
-        : m_protocol{ 0xAA, 0xBB, 0xCC, 150, *this, 2000}
-        , m_address{ address }
-        , m_reactor{ reactor ? reactor : io::Reactor::create()}
-        , m_server{io::TcpServer::create(m_reactor, m_address, BIND_THIS_MEMFN(on_stream_accepted))}
-        , m_tag{ 0 }
+    TestNode(io::Address address)
     {
-        m_protocol.add_message_handler<TestNode, proto::NewTransaction, &TestNode::on_message>(NewTransactionCode, this, 1, 2000);
-        m_protocol.add_message_handler<TestNode, proto::GetProofUtxo,   &TestNode::on_message>(GetUtxoProofCode, this, 1, 2000);
-		m_protocol.add_message_handler<TestNode, proto::Config,         &TestNode::on_message>(ConfigCode, this, 1, 2000);
-        m_protocol.add_message_handler<TestNode, proto::GetMined,       &TestNode::on_message>(GetMinedCode, this, 1, 2000);
-        m_protocol.add_message_handler<TestNode, proto::GetProofState,  &TestNode::on_message>(GetProofStateCode, this, 1, 2000);
+		m_Server.Listen(address);
     }
+
+	~TestNode() {
+		KillAll();
+	}
+
+	void KillAll()
+	{
+		while (!m_lstClients.empty())
+		{
+			Client& c = m_lstClients.front();
+			m_lstClients.erase(ClientList::s_iterator_to(c));
+			delete &c;
+		}
+	}
 
 private:
 
-    // IErrorHandler
-    void on_protocol_error(uint64_t /*fromStream*/, ProtocolError /*error*/) override
-    {
-        assert(false && "NODE: on_protocol_error");
-    }
-
-    // protocol handler
-    bool on_message(uint64_t connectionId, proto::NewTransaction&& /*data*/)
-    {
-        send(connectionId, BooleanCode, proto::Boolean{true});
-        return true;
-    }
-
-    bool on_message(uint64_t connectionId, proto::GetProofUtxo&& /*data*/)
-    {
-        send(connectionId, ProofUtxoCode, proto::ProofUtxo());
-        return true;
-    }
-
-	bool on_message(uint64_t connectionId, proto::Config&& /*data*/)
+	struct Client
+		:public proto::NodeConnection
+		,public boost::intrusive::list_base_hook<>
 	{
-        proto::Hdr msg = {};
+		// protocol handler
+		void OnMsg(proto::NewTransaction&& /*data*/) override
+		{
+			Send(proto::Boolean{ true });
+		}
 
-        msg.m_Description.m_Height = 134;
-        send(connectionId, HdrCode, move(msg));
-		return true;
-	}
+		void OnMsg(proto::GetProofUtxo&& /*data*/) override
+		{
+			Send(proto::ProofUtxo());
+		}
 
-    bool on_message(uint64_t connectionId, proto::GetMined&&)
-    {
-        send(connectionId, MinedCode, proto::Mined{});
-        return true;
-    }
+		void OnMsg(proto::Config&& /*data*/)
+		{
+			proto::Hdr msg = {};
 
-    bool on_message(uint64_t connectionId, proto::GetProofState&&)
-    {
-        send(connectionId, ProofCode, proto::Proof{});
-        return true;
-    }
+			msg.m_Description.m_Height = 134;
+			Send(move(msg));
+		}
 
-    template <typename T>
-    void send(uint64_t to, MsgType type, T&& data)
-    {
-        auto it = m_connections.find(to);
-        if (it != m_connections.end())
-        {
-            SerializedMsg msgToSend;
-            m_protocol.serialize(msgToSend, type, data);
-            it->second->write_msg(msgToSend);
-        }
-        else
-        {
-            LOG_ERROR() << "No connection";
-            // add some handling
-        }
-    }
+		void OnMsg(proto::GetMined&&)
+		{
+			Send(proto::Mined{});
+		}
 
-    void on_connection_error(uint64_t /*fromStream*/, io::ErrorCode /*errorCode*/) override
-    {
-    }
+		void OnMsg(proto::GetProofState&&)
+		{
+			Send(proto::ProofStateForDummies{});
+		}
 
-    void on_stream_accepted(io::TcpStream::Ptr&& newStream, int errorCode)
-    {
-        if (errorCode == 0)
-        {
-            LOG_DEBUG() << "Stream accepted: " << newStream->peer_address();
-            auto tag = ++m_tag;// id
-            m_connections.emplace(tag, make_unique<Connection>(
-                    m_protocol,
-                    tag,
-                    Connection::inbound,
-                    100,
-                    std::move(newStream)));
+		void OnDisconnect(const DisconnectReason& r) override
+		{
+			switch (r.m_Type)
+			{
+			case DisconnectReason::Protocol:
+			case DisconnectReason::ProcessingExc:
+				LOG_ERROR() << "Disconnect: " << r;
+				g_failureCount++;
+			}
+		}
+	};
 
-            send(tag, NewTipCode, proto::NewTip{ });
-        }
-        else
-        {
-       //     on_connection_error(m_address.packed, errorCode);
-        }
-    }
+	typedef boost::intrusive::list<Client> ClientList;
+	ClientList m_lstClients;
 
-    Protocol m_protocol;
-    io::Address m_address;
-    io::Reactor::Ptr m_reactor;
-    io::TcpServer::Ptr m_server;
+	struct Server
+		:public proto::NodeConnection::Server
+	{
+		IMPLEMENT_GET_PARENT_OBJ(TestNode, m_Server)
 
-    std::map<uint64_t, std::unique_ptr<Connection>> m_connections;
-    uint64_t m_tag;
+		void OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode) override
+		{
+			if (newStream)
+			{
+				Client* p = new Client;
+				get_ParentObj().m_lstClients.push_back(*p);
+
+				p->Accept(std::move(newStream));
+				p->SecureConnect();
+			}
+		}
+
+	} m_Server;
 };
 
 void TestP2PWalletNegotiationST()
@@ -715,7 +688,7 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(receiverKeychain->getTxHistory().empty());
 
     helpers::StopWatch sw;
-    TestNode node{ node_address, main_reactor };
+    TestNode node{ node_address };
     auto sender_io = make_shared<WalletNetworkIO>( sender_address, node_address, false, senderKeychain, main_reactor );
     auto receiver_io = make_shared<WalletNetworkIO>( receiver_address, node_address, true, receiverKeychain, main_reactor, 1000, 5000, 100 );
 
@@ -942,7 +915,7 @@ void TestP2PWalletNegotiationST()
 
      helpers::StopWatch sw;
      sw.start();
-     TestNode node{ node_address, main_reactor };
+     TestNode node{ node_address };
      auto sender_io = make_shared<WalletNetworkIO>(sender_address, node_address, true, receiverKeychain, main_reactor);
      auto receiver_io = make_shared<WalletNetworkIO>(receiver_address, node_address, false, receiverKeychain, main_reactor, 1000, 5000, 100);
 
@@ -1245,9 +1218,11 @@ struct RollbackIO : public TestNetwork
     void send_node_message(beam::proto::GetProofState&& msg) override
     {
         cout << "Rollback. GetProofState Height=" << msg.m_Height << "\n";
-        Merkle::Proof proof;
-        m_mmr.get_Proof(proof, msg.m_Height);
-        enqueueNetworkTask([this, proof]{ m_peers[0]->handle_node_message(proto::Proof{proof}); });
+		proto::ProofStateForDummies msgOut;
+        m_mmr.get_Proof(msgOut.m_Proof, msg.m_Height);
+        enqueueNetworkTask([this, msgOut]{
+			m_peers[0]->handle_node_message((proto::ProofStateForDummies&&) msgOut);
+		});
     }
 
     void send_node_message(proto::GetMined&& data) override

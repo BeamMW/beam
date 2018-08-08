@@ -83,7 +83,7 @@ namespace beam
 				m_bConnected = false;
 			}
 
-			virtual void OnConnected() override {
+			virtual void OnConnectedSecure() override {
 
 				m_bConnected = true;
 
@@ -191,7 +191,7 @@ namespace beam
 				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
 			}
 
-			virtual void OnConnected() override
+			virtual void OnConnectedSecure() override
 			{
 				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
 				OnTimer();
@@ -233,7 +233,7 @@ namespace beam
 				}
 
 				m_Conn2.Accept(std::move(pStream));
-				m_Conn2.OnConnected();
+				m_Conn2.SecureConnect();
 			}
 		};
 

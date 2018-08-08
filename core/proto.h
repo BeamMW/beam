@@ -65,6 +65,10 @@ namespace proto {
 #define BeamNodeMsg_ProofUtxo(macro) \
 	macro(std::vector<Input::Proof>, Proofs)
 
+#define BeamNodeMsg_ProofStateForDummies(macro) \
+	macro(Merkle::Proof, Proof) \
+	macro(Block::SystemState::Full, Hdr)
+
 #define BeamNodeMsg_GetMined(macro) \
 	macro(Height, HeightMin)
 
@@ -154,6 +158,7 @@ namespace proto {
 	macro(10, GetProofUtxo) \
 	macro(11, Proof) /* for states and kernels */ \
 	macro(12, ProofUtxo) \
+	macro(13, ProofStateForDummies) \
 	macro(15, GetMined) \
 	macro(16, Mined) \
 	macro(20, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
@@ -209,6 +214,7 @@ namespace proto {
 #define THE_MACRO1(code, msg) \
 	struct msg \
 	{ \
+		static const uint8_t s_Code = code; \
 		BeamNodeMsg_##msg(THE_MACRO2) \
 		template <typename Archive> void serialize(Archive& ar) { ar BeamNodeMsg_##msg(THE_MACRO3); } \
 	};
@@ -284,6 +290,7 @@ namespace proto {
 		SerializedMsg m_SerializeCache;
 
 		void TestIoResultAsync(const io::Result& res);
+		void TestInputMsgContext(uint8_t);
 
 		static void OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode);
 		void OnConnectInternal2(io::TcpStream::Ptr&& newStream, io::ErrorCode);
@@ -323,7 +330,7 @@ namespace proto {
 
 		const Connection* get_Connection() { return m_Connection.get(); }
 
-		virtual void OnConnected() {}
+		virtual void OnConnectedSecure() {}
 
 		struct ByeReason
 		{

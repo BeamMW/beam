@@ -68,7 +68,7 @@ namespace beam
                 << beams.data();
             return os;
         }
-
+        
         if (amount.m_value >= Rules::Coin)
         {
             os << setw(width - beams.length()) << Amount(amount.m_value / Rules::Coin) << beams.data();
@@ -220,8 +220,6 @@ namespace beam
             m_negotiators.erase(it);
         }
 
-        // m_network->close_connection(tx.m_peerId);
-
         // remove state machine from db
         auto t = m_keyChain->getTx(tx.m_txId);
         if (t.is_initialized())
@@ -229,7 +227,7 @@ namespace beam
             t->m_fsmState.clear();
             m_keyChain->saveTx(*t);
         }
-
+        
 
         if (m_tx_completed_action)
         {
@@ -299,7 +297,7 @@ namespace beam
             LOG_DEBUG() << ReceiverPrefix << "Unexpected tx invitation " << msg.m_txId;
         }
     }
-
+    
     void Wallet::handle_tx_message(const WalletID& receiver, ConfirmTransaction&& data)
     {
         LOG_DEBUG() << ReceiverPrefix << "Received sender tx confirmation " << data.m_txId;
@@ -437,7 +435,7 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::NewTip&& msg)
     {
-        // TODO: restore from wallet db
+        // TODO: restore from wallet db 
         for (auto& r : m_pending_reg_requests)
         {
             register_tx(r.first, r.second);
@@ -454,7 +452,7 @@ namespace beam
     {
         Block::SystemState::ID newID = {};
         msg.m_Description.get_ID(newID);
-
+        
         m_Definition = msg.m_Description.m_Definition;
         m_isValidDefinition = true;
         m_newStateID = newID;
@@ -472,14 +470,11 @@ namespace beam
             return true;
         }
         else if (m_knownStateProof.is_initialized())
-        {
-            Merkle::Proof proof = move(*m_knownStateProof);
+        { 
+			bool b = IsKnownStateValid(*m_knownStateProof);
             m_knownStateProof.reset();
 
-            Merkle::Hash hv = m_knownStateID.m_Hash;
-            Merkle::Interpret(hv, proof);
-
-            if (hv == m_Definition)
+            if (b)
             {
                 do_fast_forward();
                 return exit_sync();
@@ -503,7 +498,7 @@ namespace beam
         {
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
-                // coinbase
+                // coinbase 
                 mined.emplace_back(Rules::get().CoinbaseEmission
                                  , Coin::Unconfirmed
                                  , minedCoin.m_ID.m_Height
@@ -527,18 +522,36 @@ namespace beam
         return exit_sync();
     }
 
-    bool Wallet::handle_node_message(proto::Proof&& msg)
+	bool Wallet::IsKnownStateValid(const proto::ProofStateForDummies& msg) const
+	{
+		Merkle::Hash hv;
+
+		if (m_knownStateID.m_Hash == ECC::Zero)
+			hv = ECC::Zero; // for test only!
+		else
+		{
+			Block::SystemState::ID id;
+			msg.m_Hdr.get_ID(id);
+
+			if (id != m_knownStateID)
+				return false;
+
+			msg.m_Hdr.get_HashForHist(hv);
+		}
+		Merkle::Interpret(hv, msg.m_Proof);
+
+		return hv == m_Definition;
+	}
+
+    bool Wallet::handle_node_message(proto::ProofStateForDummies&& msg)
     {
         if (!m_isValidDefinition)
         {
-            m_knownStateProof = move(msg.m_Proof);
+            m_knownStateProof = move(msg);
             return true;
         }
 
-        Merkle::Hash hv = m_knownStateID.m_Hash;
-        Merkle::Interpret(hv, msg.m_Proof);
-
-        if (hv != m_Definition)
+        if (!IsKnownStateValid(msg))
         {
             // rollback
             // search for the latest valid known state
@@ -653,7 +666,7 @@ namespace beam
         }
         ++m_syncTotal;
         report_sync_progress();
-
+        
     }
 
     bool Wallet::exit_sync()

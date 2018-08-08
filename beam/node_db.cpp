@@ -1345,6 +1345,7 @@ struct NodeDB::Dmmr
 	{}
 
 	void Goto(uint64_t rowid);
+	void get_NodeHashInternal(Merkle::Hash&, Key);
 
 	// DistributedMmr
 	virtual const void* get_NodeData(Key) const override;
@@ -1357,7 +1358,7 @@ void NodeDB::Dmmr::Goto(uint64_t rowid)
 		return;
 	m_RowLast = rowid;
 
-	m_Rs.Reset(Query::MmrGet, "SELECT " TblStates_Mmr "," TblStates_HashPrev " FROM " TblStates " WHERE rowid=?");
+	m_Rs.Reset(Query::MmrGet, "SELECT " TblStates_Mmr " FROM " TblStates " WHERE rowid=?");
 	m_Rs.put(0, rowid);
 	m_Rs.StepStrict();
 }
@@ -1374,9 +1375,27 @@ const void* NodeDB::Dmmr::get_NodeData(Key rowid) const
 
 void NodeDB::Dmmr::get_NodeHash(Merkle::Hash& hv, Key rowid) const
 {
-	Dmmr* pThis = (Dmmr*) this;
-	pThis->Goto(rowid);
-	pThis->m_Rs.get(1, hv);
+	Dmmr* pThis = (Dmmr*)this;
+
+	if (!pThis->m_This.get_Prev(rowid))
+		ThrowInconsistent();
+
+	pThis->get_NodeHashInternal(hv, rowid);
+}
+
+void NodeDB::Dmmr::get_NodeHashInternal(Merkle::Hash& hv, Key rowid)
+{
+	Recordset rs(m_This, Query::HashForHist, "SELECT " TblStates_Hash "," TblStates_PoW " FROM " TblStates " WHERE rowid=?");
+	rs.put(0, rowid);
+
+	rs.StepStrict();
+
+	rs.get(0, hv);
+
+	Block::PoW pow;
+	rs.get(1, pow);
+
+	pow.get_HashForHist(hv, hv);
 }
 
 void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
@@ -1399,7 +1418,7 @@ void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
 	dmmr.m_kLast = rowPrev;
 
 	Merkle::Hash hv;
-	dmmr.m_Rs.get(1, hv);
+	dmmr.get_NodeHashInternal(hv, rowPrev);
 
 	Blob b;
 	b.n = dmmr.get_NodeSize(dmmr.m_Count);
@@ -1432,7 +1451,7 @@ void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
 {
 	Block::SystemState::Full s;
 	get_State(sid.m_Row, s);
-	s.get_Hash(hv);
+	s.get_HashForHist(hv);
 
     Dmmr dmmr(*this);
     dmmr.m_Count = sid.m_Height - Rules::HeightGenesis;

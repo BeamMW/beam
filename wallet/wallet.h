@@ -31,18 +31,18 @@ namespace beam
         using Ptr = std::shared_ptr<IWallet>;
         virtual ~IWallet() {}
         // wallet to wallet responses
-        virtual void handle_tx_message(const WalletID& receiver, wallet::Invite&&) = 0;
-        virtual void handle_tx_message(const WalletID& receiver, wallet::ConfirmTransaction&&) = 0;
-        virtual void handle_tx_message(const WalletID& receiver, wallet::ConfirmInvitation&&) = 0;
-        virtual void handle_tx_message(const WalletID& receiver, wallet::TxRegistered&&) = 0;
-        virtual void handle_tx_message(const WalletID& receiver, wallet::TxFailed&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::Invite&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::ConfirmTransaction&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::ConfirmInvitation&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::TxRegistered&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::TxFailed&&) = 0;
         // node to wallet responses
         virtual bool handle_node_message(proto::Boolean&&) = 0;
         virtual bool handle_node_message(proto::ProofUtxo&&) = 0;
-        virtual bool handle_node_message(proto::NewTip&&) = 0;
+		virtual bool handle_node_message(proto::ProofStateForDummies&& msg) = 0;
+		virtual bool handle_node_message(proto::NewTip&&) = 0;
         virtual bool handle_node_message(proto::Hdr&&) = 0;
         virtual bool handle_node_message(proto::Mined&& msg) = 0;
-        virtual bool handle_node_message(proto::Proof&& msg) = 0;
 
         virtual void abort_sync() = 0;
 
@@ -52,7 +52,7 @@ namespace beam
         virtual void cancel_tx(const TxID& id) = 0;
     };
 
-    struct INetworkIO
+    struct INetworkIO 
     {
         using Ptr = std::shared_ptr<INetworkIO>;
         virtual ~INetworkIO() {}
@@ -122,18 +122,18 @@ namespace beam
         void register_tx(const TxDescription& tx, Transaction::Ptr) override;
         void send_tx_registered(const TxDescription& tx) override;
 
-        void handle_tx_message(const WalletID& receiver, wallet::Invite&&) override;
-        void handle_tx_message(const WalletID& receiver, wallet::ConfirmTransaction&&) override;
-        void handle_tx_message(const WalletID& receiver, wallet::ConfirmInvitation&&) override;
-        void handle_tx_message(const WalletID& receiver, wallet::TxRegistered&&) override;
-        void handle_tx_message(const WalletID& receiver, wallet::TxFailed&&) override;
+        void handle_tx_message(const WalletID&, wallet::Invite&&) override;
+        void handle_tx_message(const WalletID&, wallet::ConfirmTransaction&&) override;
+        void handle_tx_message(const WalletID&, wallet::ConfirmInvitation&&) override;
+        void handle_tx_message(const WalletID&, wallet::TxRegistered&&) override;
+        void handle_tx_message(const WalletID&, wallet::TxFailed&&) override;
 
         bool handle_node_message(proto::Boolean&& res) override;
         bool handle_node_message(proto::ProofUtxo&& proof) override;
-        bool handle_node_message(proto::NewTip&& msg) override;
+		bool handle_node_message(proto::ProofStateForDummies&& msg) override;
+		bool handle_node_message(proto::NewTip&& msg) override;
         bool handle_node_message(proto::Hdr&& msg) override;
         bool handle_node_message(proto::Mined&& msg) override;
-        bool handle_node_message(proto::Proof&& msg) override;
 
         void abort_sync() override;
 
@@ -206,7 +206,9 @@ namespace beam
         Block::SystemState::ID m_knownStateID;
         Block::SystemState::ID m_newStateID;
         std::unique_ptr<StateFinder> m_stateFinder;
-        boost::optional<Merkle::Proof> m_knownStateProof;
+        boost::optional<proto::ProofStateForDummies> m_knownStateProof;
+
+		bool IsKnownStateValid(const proto::ProofStateForDummies&) const;
 
         int m_syncDone;
         int m_syncTotal;
