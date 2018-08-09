@@ -405,7 +405,6 @@ namespace
                 d & msg;
                 m_peers[peerId]->handle_tx_message(to, move(msg));
             });
-            onSent();
         }
 
         virtual void onSent()
@@ -590,7 +589,7 @@ public:
 	void KillAll()
 	{
 		while (!m_lstClients.empty())
-			m_lstClients.front().DeleteSelf();
+			DeleteClient(&m_lstClients.front());
 	}
 
 private:
@@ -599,13 +598,14 @@ private:
 		:public proto::NodeConnection
 		,public boost::intrusive::list_base_hook<>
 	{
-		TestNode& m_This;
-		bool m_Subscribed;
+        TestNode& m_This;
+        bool m_Subscribed;
 
         Client(TestNode& n)
-            :m_This(n)
-			, m_Subscribed(false)
-        {}
+            : m_This(n)
+            , m_Subscribed(false)
+        {
+        }
 
 
 		// protocol handler
@@ -639,24 +639,31 @@ private:
 
         void OnMsg(proto::BbsSubscribe&& msg) override
         {
-			if (m_Subscribed)
-				return;
-			m_Subscribed = true;
+            if (m_Subscribed)
+                return;
+            m_Subscribed = true;
 
-            for (const auto& m : m_This.m_bbs)
-                Send(m);
+			for (const auto& m : m_This.m_bbs)
+			{
+				Send(m);
+			}
         }
 
         void OnMsg(proto::BbsMsg&& msg) override
         {
             m_This.m_bbs.push_back(msg);
 
-			for (ClientList::iterator it = m_This.m_lstClients.begin(); m_This.m_lstClients.end() != it; it++)
-			{
-				Client& c = *it;
-				if (c.m_Subscribed)
-					c.Send(msg);
-			}
+            for (ClientList::iterator it = m_This.m_lstClients.begin(); m_This.m_lstClients.end() != it; it++)
+            {
+                if (it.pointed_node() != this)
+                {
+                    Client& c = *it;
+                    if (c.m_Subscribed)
+                    {
+                        c.Send(msg);
+                    }
+                }
+            }
         }
 
 		void OnDisconnect(const DisconnectReason& r) override
@@ -672,38 +679,38 @@ private:
 				break;
 			}
 
-			DeleteSelf();
-		}
-
-		void DeleteSelf()
-		{
-			m_This.m_lstClients.erase(ClientList::s_iterator_to(*this));
-			delete this;
+            m_This.DeleteClient(this);
 		}
 	};
 
 	typedef boost::intrusive::list<Client> ClientList;
 	ClientList m_lstClients;
 
-	std::vector<proto::BbsMsg> m_bbs;
+    std::vector<proto::BbsMsg> m_bbs;
 
-	struct Server
-		:public proto::NodeConnection::Server
-	{
-		IMPLEMENT_GET_PARENT_OBJ(TestNode, m_Server)
+    void DeleteClient(Client* client)
+    {
+        m_lstClients.erase(ClientList::s_iterator_to(*client));
+        delete client;
+    }
 
-		void OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode) override
-		{
-			if (newStream)
-			{
-				Client* p = new Client(get_ParentObj());
-				get_ParentObj().m_lstClients.push_back(*p);
+    struct Server
+        :public proto::NodeConnection::Server
+    {
+        IMPLEMENT_GET_PARENT_OBJ(TestNode, m_Server)
 
-				p->Accept(std::move(newStream));
-				p->SecureConnect();
-			}
-		}
-	} m_Server;
+        void OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode) override
+        {
+            if (newStream)
+            {
+                Client* p = new Client(get_ParentObj());
+                get_ParentObj().m_lstClients.push_back(*p);
+
+                p->Accept(std::move(newStream));
+                p->SecureConnect();
+            }
+        }
+    } m_Server;
 };
 
 void TestP2PWalletNegotiationST()
@@ -1406,8 +1413,8 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     TestSplitKey();
-    //TestP2PWalletNegotiationST();
-    //TestP2PWalletReverseNegotiationST();
+    TestP2PWalletNegotiationST();
+    TestP2PWalletReverseNegotiationST();
 
     TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
     TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());

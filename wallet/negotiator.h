@@ -58,6 +58,9 @@ namespace beam::wallet
         struct TxResumed {};
     }
 
+    //
+    // State machine for managing per transaction negotiations between wallets
+    // 
     class Negotiator
     {
     public:

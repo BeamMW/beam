@@ -715,10 +715,9 @@ namespace beam
 
     bool Wallet::close_node_connection()
     {
-        if (m_synchronized && m_reg_requests.empty() && m_negotiators.empty())
+        if (m_synchronized && m_reg_requests.empty())
         {
             m_network->close_node_connection();
-            return false;
         }
         return true;
     }

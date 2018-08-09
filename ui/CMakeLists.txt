@@ -191,6 +191,11 @@ if(LINUX)
 	install (FILES beam.png DESTINATION ${BEAM_PIXMAPS_DIR})
 
 else()
+
+	if(WIN32)
+		install(FILES ${CMAKE_PREFIX_PATH}\\\\bin\\\\opengl32sw.dll DESTINATION .)
+	endif()
+
 	install(TARGETS beam-ui	DESTINATION .)
 	install(FILES beam-ui.cfg DESTINATION .)
 endif()
