@@ -15,7 +15,6 @@
 #pragma once
 #include "ecc.h"
 #include <assert.h>
-#include <vector>
 
 #define USE_BASIC_CONFIG
 
@@ -426,7 +425,7 @@ namespace ECC
 	struct InnerProduct::BatchContext
 		:public MultiMac
 	{
-		//static const uint32_t s_CasualCountPerProof = nCycles * 2 + 4; // L[], R[], A, S, T1, T2
+		static const uint32_t s_CasualCountPerProof = nCycles * 2 + 5; // L[], R[], A, S, T1, T2, Commitment
 
 		static const uint32_t s_CountPrepared = InnerProduct::nDim * 2 + 4; // [2][InnerProduct::nDim], m_GenDot_, m_Aux2_, G_, H_
 
@@ -440,13 +439,11 @@ namespace ECC
 			Scalar::Native m_pKPrep[s_CountPrepared];
 		} m_Bufs;
 
-		std::vector<MultiMac::Casual> m_vCasual;
-
-		BatchContext();
 
 		void Reset();
 		void Calculate(Point::Native& res);
 
+		const uint32_t m_CasualTotal;
 		bool m_bEnableBatch;
 		bool m_bDirty;
 		Scalar::Native m_Multiplier; // must be initialized in a non-trivial way
@@ -455,10 +452,26 @@ namespace ECC
 		void AddCasual(const Point::Native& pt, const Scalar::Native& k);
 		void AddPrepared(uint32_t i, const Scalar::Native& k);
 
-		void EquationBegin();
+		bool EquationBegin(uint32_t nCasualNeeded);
 		bool EquationEnd();
 
 		bool Flush();
+
+	protected:
+		BatchContext(uint32_t nCasualTotal);
+	};
+
+	template <uint32_t nBatchSize>
+	struct InnerProduct::BatchContextEx
+		:public BatchContext
+	{
+		uint64_t m_pBuf[(sizeof(MultiMac::Casual) * s_CasualCountPerProof * nBatchSize + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
+
+		BatchContextEx()
+			:BatchContext(nBatchSize * s_CasualCountPerProof)
+		{
+			m_pCasual = (MultiMac::Casual*) m_pBuf;
+		}
 	};
 
 	class Commitment

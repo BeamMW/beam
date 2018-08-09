@@ -421,6 +421,8 @@ namespace ECC
 		bool IsValid(const Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
 
 		struct BatchContext;
+		template <uint32_t nBatchSize> struct BatchContextEx;
+
 		void Create(Oracle&, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
 		bool IsValid(BatchContext&, Oracle&, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
 

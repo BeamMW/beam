@@ -450,7 +450,7 @@ void TestRangeProof()
 		verify_test(bp.IsValid(comm, oracle));
 	}
 
-	InnerProduct::BatchContext bc;
+	InnerProduct::BatchContextEx<2> bc;
 	bc.m_bEnableBatch = true;
 
 	{
@@ -1358,8 +1358,9 @@ void RunBenchmark()
 		BenchmarkMeter bm("BulletProof.Verify x100");
 		bm.N = 10;
 
-		InnerProduct::BatchContext bc;
-		bc.m_bEnableBatch = true;
+		typedef InnerProduct::BatchContextEx<100> MyBatch;
+		std::unique_ptr<MyBatch> p(new MyBatch);
+		p->m_bEnableBatch = true;
 
 		do
 		{
@@ -1368,10 +1369,10 @@ void RunBenchmark()
 				for (int n = 0; n < 100; n++)
 				{
 					Oracle oracle;
-					bp.IsValid(comm, oracle, bc);
+					bp.IsValid(comm, oracle, *p);
 				}
 
-				verify_test(bc.Flush());
+				verify_test(p->Flush());
 			}
 
 		} while (bm.ShouldContinue());

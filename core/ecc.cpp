@@ -1247,8 +1247,9 @@ namespace ECC {
 
 	/////////////////////
 	// InnerProduct
-	InnerProduct::BatchContext::BatchContext()
-		:m_bEnableBatch(false)
+	InnerProduct::BatchContext::BatchContext(uint32_t nCasualTotal)
+		:m_CasualTotal(nCasualTotal)
+		,m_bEnableBatch(false)
 	{
 		m_ppPrepared = m_Bufs.m_ppPrepared;
 		m_pKPrep = m_Bufs.m_pKPrep;
@@ -1268,7 +1269,7 @@ namespace ECC {
 
 	void InnerProduct::BatchContext::Reset()
 	{
-		m_vCasual.clear();
+		m_Casual = 0;
 		ZeroObject(m_Bufs.m_pKPrep);
 		m_bDirty = false;
 	}
@@ -1276,10 +1277,6 @@ namespace ECC {
 	void InnerProduct::BatchContext::Calculate(Point::Native& res)
 	{
 		Mode::Scope scope(Mode::Fast);
-
-		m_Casual = (int)m_vCasual.size();
-		m_pCasual = m_Casual ? &m_vCasual.at(0) : NULL;
-
 		MultiMac::Calculate(res);
 	}
 
@@ -1295,8 +1292,9 @@ namespace ECC {
 
 	void InnerProduct::BatchContext::AddCasual(const Point::Native& pt, const Scalar::Native& k)
 	{
-		m_vCasual.resize(m_vCasual.size() + 1);
-		Casual& c = m_vCasual.back();
+		assert(uint32_t(m_Casual) < m_CasualTotal);
+
+		Casual& c = m_pCasual[m_Casual++];
 
 		c.Init(pt, k);
 		if (m_bEnableBatch)
@@ -1325,9 +1323,23 @@ namespace ECC {
 		return true;
 	}
 
-	void InnerProduct::BatchContext::EquationBegin()
+	bool InnerProduct::BatchContext::EquationBegin(uint32_t nCasualNeeded)
 	{
+		if (nCasualNeeded > m_CasualTotal)
+		{
+			assert(false);
+			return false; // won't fit!
+		}
+
+		nCasualNeeded += m_Casual;
+		if (nCasualNeeded > m_CasualTotal)
+		{
+			if (!Flush())
+				return false;
+		}
+
 		m_bDirty = true;
+		return true;
 	}
 
 	bool InnerProduct::BatchContext::EquationEnd()
@@ -1643,8 +1655,8 @@ namespace ECC {
 
 		Mode::Scope scope(Mode::Fast);
 
-		BatchContext bc;
-		bc.EquationBegin();
+		BatchContextEx<1> bc;
+		verify(bc.EquationBegin(1));
 
 		bc.AddCasual(commAB, 1U);
 
@@ -2044,7 +2056,7 @@ namespace ECC {
 
 	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle) const
 	{
-		InnerProduct::BatchContext bc;
+		InnerProduct::BatchContextEx<1> bc;
 		return
 			IsValid(commitment, oracle, bc) &&
 			bc.Flush();
@@ -2115,7 +2127,8 @@ namespace ECC {
 
 		Point::Native p;
 
-		bc.EquationBegin();
+		if (!bc.EquationBegin(3))
+			return false;
 
 		bc.AddCasual(commitment, -zz);
 		if (!bc.AddCasual(m_Part2.m_T1, -cs.x))
@@ -2138,7 +2151,8 @@ namespace ECC {
 		if (bc.m_bEnableBatch)
 			Oracle() << bc.m_Multiplier >> bc.m_Multiplier;
 
-		bc.EquationBegin();
+		if (!bc.EquationBegin(2))
+			return false;
 
 		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_Aux2, cs.z);
 		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, -Scalar::Native(m_Mu));
