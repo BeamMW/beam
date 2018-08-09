@@ -56,8 +56,8 @@ public:
 #define BRIDGE_FORWARD_IMPL(Func, MessageObject) \
     void Func(uint64_t to, MessageObject&& r) { \
         tx.send( \
-            [to, r{std::move(r)} ](BridgeInterface& receiver) mutable { \
-                receiver.Func(to, std::move(r)); \
+            [to, r{std::move(r)} ](BridgeInterface& receiver_) mutable { \
+                receiver_.Func(to, std::move(r)); \
             } \
         ); \
     }

@@ -23,6 +23,7 @@
 #include "core/serialization_adapters.h"
 #include "utility/logger.h"
 #include "utility/options.h"
+#include "utility/helpers.h"
 #include <iomanip>
 
 #include <boost/program_options.hpp>
@@ -53,8 +54,8 @@ namespace beam
         ss << "]";
         string str = ss.str();
         os << str;
-        int c = 13 - str.length();
-        for (int i = 0; i < c; ++i) os << ' ';
+        size_t c = 13 - str.length();
+        for (size_t i = 0; i < c; ++i) os << ' ';
         return os;
     }
 
@@ -268,7 +269,7 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 {
 	std::vector<Output::Ptr> vOut;
 
-	for (uint32_t i = i0; i < m_Coins.size(); i += m_vThreads.size())
+	for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size())
 	{
 		const Coin& coin = m_Coins[i];
 
@@ -286,7 +287,7 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 	std::unique_lock<std::mutex> scope(m_Mutex);
 
 	uint32_t iOutp = 0;
-	for (uint32_t i = i0; i < m_Coins.size(); i += m_vThreads.size(), iOutp++)
+	for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size(), iOutp++)
 	{
 		Block::Body& block = get_WriteBlock();
 
@@ -570,7 +571,7 @@ int main_impl(int argc, char* argv[])
 									<< "| datetime          | amount, BEAM    | status\t|\n";
 								for (auto& tx : txHistory)
 								{
-									cout << "  " << put_time(localtime((const time_t*)(&tx.m_createTime)), "%D  %T")
+									cout << "  " << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
 										<< setw(17) << PrintableAmount(tx.m_amount, true)
 										<< "  " << getTxStatus(tx) << '\n';
 								}
