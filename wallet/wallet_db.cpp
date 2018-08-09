@@ -114,6 +114,120 @@ namespace beam
 			throw runtime_error(ss.str());
 		}
 
+		struct CoinSelector2
+		{
+			using Result = pair<Amount, vector<Coin>>;
+			CoinSelector2(const vector<Coin>& coins)
+				: m_coins{coins}
+			{
+
+			}
+
+			Result select(Amount amount)
+			{
+				m_amount = amount;
+				m_result.first = 0;
+				m_result.second.clear();
+
+				GenerateCombinations();
+				FindBestResult();
+				SelectCoins();
+				return m_result;
+			}
+
+		private:
+
+			void GenerateCombinations()
+			{
+				for (auto coin = m_coins.begin(); coin != m_coins.end(); ++coin)
+				{
+					if (coin->m_amount > m_amount)
+					{
+						m_Combinations[coin->m_amount] = coin->m_amount;
+						continue;
+					}
+
+					if (coin->m_amount == m_amount)
+					{
+						m_Combinations[coin->m_amount] = coin->m_amount;
+						break;
+					}
+
+					vector<Amount> newCombinations;
+
+					{
+						auto it = m_Combinations.find(coin->m_amount);
+						if (it == m_Combinations.end())
+						{
+							newCombinations.push_back(coin->m_amount);
+						}
+					}
+
+					for (const auto& sum : m_Combinations)
+					{
+						if (sum.first < m_amount)
+							newCombinations.push_back(sum.first + coin->m_amount);
+					}
+					
+					for (const auto& sum : newCombinations)
+					{
+						auto it = m_Combinations.find(sum);
+						if (it == m_Combinations.end())
+						{
+							m_Combinations[sum] = coin->m_amount;
+						}
+					}
+				}
+			}
+
+			void FindBestResult()
+			{
+				auto it = m_Combinations.lower_bound(m_amount);
+
+				if (it == m_Combinations.end())
+				{
+					return;
+				}
+
+				m_result.first = it->first;
+
+				for (; it != m_Combinations.end() && it->second > 0; it = m_Combinations.find(it->first - it->second))
+				{
+					auto i = m_intermediateResult.find(it->second);
+					if (i == m_intermediateResult.end())
+					{
+						m_intermediateResult[it->second] = 1;
+					}
+					else
+					{
+						++m_intermediateResult[it->second];
+					}
+				}
+			}
+
+			void SelectCoins()
+			{
+				for (const auto& p : m_intermediateResult)
+				{
+					auto it = find_if(m_coins.begin(), m_coins.end(), [amount = p.first](const Coin& c)
+					{
+						return c.m_amount == amount;
+					});
+
+					for (Amount i = 0; i < p.second; ++i, ++it)
+					{
+						m_result.second.push_back(*it);
+					}
+				}
+			}
+
+			const vector<Coin>& m_coins;
+			Result m_result;
+			Amount m_amount;
+			map<Amount, Amount> m_Combinations;
+			map<Amount, Amount> m_intermediateResult;
+		};
+
         struct CoinSelector
         {
             CoinSelector(const std::vector<Coin>& coins)
@@ -694,8 +808,10 @@ namespace beam
             }
             if (smallSum > amount)
             {
-                CoinSelector s{ candidats };
-                auto t = s.select(amount, smallSum);
+                /*CoinSelector s{ candidats };
+                auto t = s.select(amount, smallSum);*/
+				CoinSelector2 s{ candidats };
+				auto t = s.select(amount);
                 sum = t.first;
                 coins = t.second;
             }
