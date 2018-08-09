@@ -1314,11 +1314,13 @@ namespace ECC {
 		if (!m_bDirty)
 			return true;
 
-		m_bDirty = false;
-
 		Point::Native pt;
 		Calculate(pt);
-		return (pt == Zero);
+		if (!(pt == Zero))
+			return false;
+
+		Reset();
+		return true;
 	}
 
 	void InnerProduct::BatchContext::EquationBegin()
@@ -2089,48 +2091,33 @@ namespace ECC {
 
 		xx = cs.x * cs.x;
 
-		MultiMac_WithBufs<3, InnerProduct::nDim + 2> mm;
-
-		mm.m_pCasual[mm.m_Casual++].Init(commitment, -zz);
-
 		Point::Native p;
-		if (!p.Import(m_Part2.m_T1))
-			return false;
-		mm.m_pCasual[mm.m_Casual++].Init(p, -cs.x);
 
-		if (!p.Import(m_Part2.m_T2))
+		bc.EquationBegin();
+
+		bc.AddCasual(commitment, -zz);
+		if (!bc.AddCasual(m_Part2.m_T1, -cs.x))
 			return false;
-		mm.m_pCasual[mm.m_Casual++].Init(p, -xx);
+		if (!bc.AddCasual(m_Part2.m_T2, -xx))
+			return false;
 
 		tDot = m_tDot;
 		sumY = tDot;
 		sumY += -delta;
 
-		mm.m_pKPrep[mm.m_Prepared] = m_Part3.m_TauX;
-		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.G_;
+		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part3.m_TauX);
+		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, sumY);
 
-		mm.m_pKPrep[mm.m_Prepared] = sumY;
-		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.H_;
-
-		Point::Native ptVal;
-		mm.Calculate(ptVal);
-
-		if (!(ptVal == Zero))
+		if (!bc.EquationEnd())
 			return false;
-
-		mm.Reset();
 
 		// (P - m_Mu*G) + m_Mu*G =?= m_A + m_S*x - vec(G)*vec(z) + vec(H)*( vec(z) + vec(z^2*2^n*y^-n) )
-		mm.m_pKPrep[mm.m_Prepared] = cs.z;
-		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_Aux2_;
+		bc.EquationBegin();
 
-		mm.m_pKPrep[mm.m_Prepared] = m_Mu;
-		mm.m_pKPrep[mm.m_Prepared] = -mm.m_pKPrep[mm.m_Prepared];
-		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.G_;
-
-		if (!p.Import(m_Part1.m_S))
+		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_Aux2, cs.z);
+		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, -Scalar::Native(m_Mu));
+		if (!bc.AddCasual(m_Part1.m_S, cs.x))
 			return false;
-		mm.m_pCasual[mm.m_Casual++].Init(p, cs.x);
 
 		Scalar::Native yInv, pwr, mul;
 		yInv.SetInv(cs.y);
@@ -2144,25 +2131,18 @@ namespace ECC {
 			sum2 = pwr;
 			sum2 += cs.z;
 
-			mm.m_pKPrep[mm.m_Prepared] = sum2;
-			mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[1][i];
+			bc.AddPrepared(InnerProduct::nDim + i, sum2);
 
 			pwr *= mul;
 		}
 
-		mm.Calculate(ptVal);
+		bc.AddCasual(m_Part1.m_A, 1U);
 
-		if (!p.Import(m_Part1.m_A))
-			return false;
-		ptVal += p;
 
 		// By now the ptVal should be equal to the commAB
 		// finally check the inner product
 		InnerProduct::Modifier mod;
 		mod.m_pMultiplier[1] = &yInv;
-
-		bc.EquationBegin();
-		bc.AddCasual(ptVal, 1U);
 
 		if (!m_P_Tag.IsValid(bc, oracle, tDot, mod))
 			return false;
