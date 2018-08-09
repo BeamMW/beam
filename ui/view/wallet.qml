@@ -147,7 +147,7 @@ Item {
                         font.pixelSize: 12
                         font.weight: Font.Bold
                         color: Style.white
-                        text: "Sender address"
+                        text: "Sending address"
                     }
 
                     SFTextInput {
