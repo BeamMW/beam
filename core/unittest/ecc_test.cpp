@@ -1362,6 +1362,8 @@ void RunBenchmark()
 		std::unique_ptr<MyBatch> p(new MyBatch);
 		p->m_bEnableBatch = true;
 
+		InnerProduct::BatchContext::Scope scope(*p);
+
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
@@ -1369,7 +1371,7 @@ void RunBenchmark()
 				for (int n = 0; n < 100; n++)
 				{
 					Oracle oracle;
-					bp.IsValid(comm, oracle, *p);
+					bp.IsValid(comm, oracle);
 				}
 
 				verify_test(p->Flush());

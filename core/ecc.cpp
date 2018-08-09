@@ -1247,6 +1247,9 @@ namespace ECC {
 
 	/////////////////////
 	// InnerProduct
+
+	thread_local InnerProduct::BatchContext* InnerProduct::BatchContext::s_pInstance = NULL;
+
 	InnerProduct::BatchContext::BatchContext(uint32_t nCasualTotal)
 		:m_CasualTotal(nCasualTotal)
 		,m_bEnableBatch(false)
@@ -1650,20 +1653,30 @@ namespace ECC {
 
 	bool InnerProduct::IsValid(const Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& mod) const
 	{
+		if (BatchContext::s_pInstance)
+			return IsValid(*BatchContext::s_pInstance, commAB, dotAB, mod);
+
+		BatchContextEx<1> bc;
+		return
+			IsValid(bc, commAB, dotAB, mod) &&
+			bc.Flush();
+	}
+
+	bool InnerProduct::IsValid(BatchContext& bc, const Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& mod) const
+	{
+		Mode::Scope scope(Mode::Fast);
+
 		Oracle oracle;
 		oracle << commAB;
 
-		Mode::Scope scope(Mode::Fast);
-
-		BatchContextEx<1> bc;
-		verify(bc.EquationBegin(1));
+		if (!bc.EquationBegin(1))
+			return false;
 
 		bc.AddCasual(commAB, 1U);
 
 		return
 			IsValid(bc, oracle, dotAB, mod) &&
-			bc.EquationEnd() &&
-			bc.Flush();
+			bc.EquationEnd();
 	}
 
 	bool InnerProduct::IsValid(BatchContext& bc, Oracle& oracle, const Scalar::Native& dotAB, const Modifier& mod) const
@@ -2056,7 +2069,12 @@ namespace ECC {
 
 	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle) const
 	{
+		if (InnerProduct::BatchContext::s_pInstance)
+			return IsValid(commitment, oracle, *InnerProduct::BatchContext::s_pInstance);
+
 		InnerProduct::BatchContextEx<1> bc;
+		bc.m_bEnableBatch = true; // why not?
+
 		return
 			IsValid(commitment, oracle, bc) &&
 			bc.Flush();

@@ -425,7 +425,20 @@ namespace ECC
 	struct InnerProduct::BatchContext
 		:public MultiMac
 	{
-		static BatchContext& get();
+		static thread_local BatchContext* s_pInstance;
+
+		struct Scope
+		{
+			BatchContext* m_pPrev;
+
+			Scope(BatchContext& bc) {
+				m_pPrev = s_pInstance;
+				s_pInstance = &bc;
+			}
+			~Scope() {
+				s_pInstance = m_pPrev;
+			}
+		};
 
 		static const uint32_t s_CasualCountPerProof = nCycles * 2 + 5; // L[], R[], A, S, T1, T2, Commitment
 

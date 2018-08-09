@@ -430,6 +430,7 @@ namespace ECC
 		struct Calculator;
 
 		void Create(Oracle&, Point::Native* pAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier&);
+		bool IsValid(BatchContext&, const Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& mod) const;
 	};
 
 	namespace RangeProof
