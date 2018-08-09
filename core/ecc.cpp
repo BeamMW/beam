@@ -2062,7 +2062,7 @@ namespace ECC {
 			{
 				o << m_P_Tag.m_pCondensed[j];
 
-				for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+				for (uint32_t i = 0; i < InnerProduct::nCycles; i++)
 					o << m_P_Tag.m_pLR[i][j];
 			}
 
