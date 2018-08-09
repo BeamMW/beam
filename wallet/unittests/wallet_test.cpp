@@ -603,8 +603,12 @@ private:
 		:public proto::NodeConnection
 		,public boost::intrusive::list_base_hook<>
 	{
-        Client(vector<proto::BbsMsg>& bbs)
-            : m_bbs(bbs)
+		TestNode& m_This;
+		bool m_Subscribed;
+
+        Client(TestNode& n)
+            :m_This(n)
+			, m_Subscribed(false)
         {}
 
 
@@ -639,16 +643,24 @@ private:
 
         void OnMsg(proto::BbsSubscribe&& msg) override
         {
-            for (const auto& m : m_bbs)
-            {
+			if (m_Subscribed)
+				return;
+			m_Subscribed = true;
+
+            for (const auto& m : m_This.m_bbs)
                 Send(m);
-            }
         }
 
         void OnMsg(proto::BbsMsg&& msg) override
         {
-            m_bbs.push_back(msg);
- //           Send(msg);
+            m_This.m_bbs.push_back(msg);
+
+			for (ClientList::iterator it = m_This.m_lstClients.begin(); m_This.m_lstClients.end() != it; it++)
+			{
+				Client& c = *it;
+				if (c.m_Subscribed)
+					c.Send(msg);
+			}
         }
 
 		void OnDisconnect(const DisconnectReason& r) override
@@ -664,12 +676,12 @@ private:
 				break;
 			}
 		}
-
-        std::vector<proto::BbsMsg>& m_bbs;
 	};
 
 	typedef boost::intrusive::list<Client> ClientList;
 	ClientList m_lstClients;
+
+	std::vector<proto::BbsMsg> m_bbs;
 
 	struct Server
 		:public proto::NodeConnection::Server
@@ -680,14 +692,13 @@ private:
 		{
 			if (newStream)
 			{
-				Client* p = new Client(m_bbs);
+				Client* p = new Client(get_ParentObj());
 				get_ParentObj().m_lstClients.push_back(*p);
 
 				p->Accept(std::move(newStream));
 				p->SecureConnect();
 			}
 		}
-        std::vector<proto::BbsMsg> m_bbs;
 	} m_Server;
 };
 
