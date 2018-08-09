@@ -285,14 +285,13 @@ namespace beam {
 
     bool WalletNetworkIO::handle_bbs_message(proto::BbsMsg&& msg)
     {
-//        uint32_t channel = channel_from_wallet_id(msg.m_Channel);
-//       LOG_DEBUG() << "BBS message form channel=" << msg.m_Channel << ". Listen channel=" << channel << " pubkey=" << to_string(m_bbs_keys->first);
         postpone_close_timer();
         uint8_t* out = 0;
         uint32_t size = 0;
 
         for (const auto& k : m_myPubKeys) {
             uint32_t channel = channel_from_wallet_id(k);
+
             if (channel != msg.m_Channel) continue;
             if (m_keystore->decrypt(out, size, msg.m_Message, k)) {
                 LOG_DEBUG() << "Succeeded to decrypt BBS message from channel=" << msg.m_Channel;
