@@ -590,11 +590,7 @@ public:
 	void KillAll()
 	{
 		while (!m_lstClients.empty())
-		{
-			Client& c = m_lstClients.front();
-			m_lstClients.erase(ClientList::s_iterator_to(c));
-			delete &c;
-		}
+			m_lstClients.front().DeleteSelf();
 	}
 
 private:
@@ -675,6 +671,14 @@ private:
 			default: // suppress warning
 				break;
 			}
+
+			DeleteSelf();
+		}
+
+		void DeleteSelf()
+		{
+			m_This.m_lstClients.erase(ClientList::s_iterator_to(*this));
+			delete this;
 		}
 	};
 
