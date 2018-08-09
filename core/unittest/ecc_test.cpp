@@ -452,7 +452,6 @@ void TestRangeProof()
 
 	InnerProduct::BatchContext bc;
 	bc.m_bEnableBatch = true;
-	SetRandom(bc.m_Multiplier);
 
 	{
 		Oracle oracle;
@@ -1361,7 +1360,6 @@ void RunBenchmark()
 
 		InnerProduct::BatchContext bc;
 		bc.m_bEnableBatch = true;
-		SetRandom(bc.m_Multiplier);
 
 		do
 		{

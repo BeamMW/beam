@@ -1327,14 +1327,6 @@ namespace ECC {
 
 	void InnerProduct::BatchContext::EquationBegin()
 	{
-		if (m_bEnableBatch && m_bDirty)
-		{
-			// new multiplier
-			Hash::Value hv;
-			Hash::Processor() << m_Multiplier >> hv;
-			m_Multiplier.GenerateNonce(hv, hv, NULL);
-		}
-
 		m_bDirty = true;
 	}
 
@@ -2062,6 +2054,29 @@ namespace ECC {
 	{
 		Mode::Scope scope(Mode::Fast);
 
+		if (bc.m_bEnableBatch)
+		{
+			Oracle o;
+
+			for (uint32_t j = 0; j < 2; j++)
+			{
+				o << m_P_Tag.m_pCondensed[j];
+
+				for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+					o << m_P_Tag.m_pLR[i][j];
+			}
+
+			o
+				<< m_Part1.m_A
+				<< m_Part1.m_S
+				<< m_Part2.m_T1
+				<< m_Part2.m_T2
+				<< m_Part3.m_TauX
+				<< m_Mu
+				<< m_tDot
+				>> bc.m_Multiplier;
+		}
+
 		ChallengeSet cs;
 		cs.Init(m_Part1, oracle);
 		cs.Init(m_Part2, oracle);
@@ -2119,6 +2134,10 @@ namespace ECC {
 			return false;
 
 		// (P - m_Mu*G) + m_Mu*G =?= m_A + m_S*x - vec(G)*vec(z) + vec(H)*( vec(z) + vec(z^2*2^n*y^-n) )
+
+		if (bc.m_bEnableBatch)
+			Oracle() << bc.m_Multiplier >> bc.m_Multiplier;
+
 		bc.EquationBegin();
 
 		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_Aux2, cs.z);
