@@ -1270,6 +1270,7 @@ namespace ECC {
 	{
 		m_vCasual.clear();
 		ZeroObject(m_Bufs.m_pKPrep);
+		m_bDirty = false;
 	}
 
 	void InnerProduct::BatchContext::Calculate(Point::Native& res)
@@ -1310,23 +1311,37 @@ namespace ECC {
 
 	bool InnerProduct::BatchContext::Flush()
 	{
+		if (!m_bDirty)
+			return true;
+
+		m_bDirty = false;
+
 		Point::Native pt;
 		Calculate(pt);
-		if (!(pt == Zero))
-			return false;
-
-		Reset();
-		return true;
+		return (pt == Zero);
 	}
 
-	bool InnerProduct::BatchContext::NextEquation()
+	void InnerProduct::BatchContext::EquationBegin()
 	{
+		if (m_bEnableBatch && m_bDirty)
+		{
+			// new multiplier
+			Hash::Value hv;
+			Hash::Processor() << m_Multiplier >> hv;
+			m_Multiplier.GenerateNonce(hv, hv, NULL);
+		}
+
+		m_bDirty = true;
+	}
+
+	bool InnerProduct::BatchContext::EquationEnd()
+	{
+		assert(m_bDirty);
+
 		if (!m_bEnableBatch)
 			return Flush();
 
-		Hash::Value hv;
-		Hash::Processor() << m_Multiplier >> hv;
-		m_Multiplier.GenerateNonce(hv, hv, NULL);
+		return true;
 	}
 
 
@@ -1562,17 +1577,16 @@ namespace ECC {
 
 	void InnerProduct::Create(Point::Native& commAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
 	{
-		BatchContext bc;
 		Oracle oracle;
-		Create(bc, oracle, &commAB, dotAB, pA, pB, mod);
+		Create(oracle, &commAB, dotAB, pA, pB, mod);
 	}
 
-	void InnerProduct::Create(BatchContext& bc, Oracle& oracle, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
+	void InnerProduct::Create(Oracle& oracle, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
 	{
-		Create(bc, oracle, NULL, dotAB, pA, pB, mod);
+		Create(oracle, NULL, dotAB, pA, pB, mod);
 	}
 
-	void InnerProduct::Create(BatchContext& bc, Oracle& oracle, Point::Native* pAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
+	void InnerProduct::Create(Oracle& oracle, Point::Native* pAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
 	{
 		Mode::Scope scope(Mode::Fast);
 
@@ -1634,10 +1648,14 @@ namespace ECC {
 		Mode::Scope scope(Mode::Fast);
 
 		BatchContext bc;
+		bc.EquationBegin();
 
 		bc.AddCasual(commAB, 1U);
 
-		return IsValid(bc, oracle, dotAB, mod);
+		return
+			IsValid(bc, oracle, dotAB, mod) &&
+			bc.EquationEnd() &&
+			bc.Flush();
 	}
 
 	bool InnerProduct::IsValid(BatchContext& bc, Oracle& oracle, const Scalar::Native& dotAB, const Modifier& mod) const
@@ -1703,8 +1721,7 @@ namespace ECC {
 
 		bc.AddPrepared(BatchContext::s_Idx_GenDot, k);
 
-		// voila!
-		return bc.NextEquation();
+		return true;
 	}
 
 	struct NonceGenerator
@@ -1940,7 +1957,7 @@ namespace ECC {
 		InnerProduct::Modifier mod;
 		mod.m_pMultiplier[1] = &yPwr;
 
-		m_P_Tag.Create(comm, l0, pS[0], pS[1], mod);
+		m_P_Tag.Create(oracle, l0, pS[0], pS[1], mod);
 
 		return true;
 	}
@@ -2025,6 +2042,14 @@ namespace ECC {
 	}
 
 	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle) const
+	{
+		InnerProduct::BatchContext bc;
+		return
+			IsValid(commitment, oracle, bc) &&
+			bc.Flush();
+	}
+
+	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle, InnerProduct::BatchContext& bc) const
 	{
 		Mode::Scope scope(Mode::Fast);
 
@@ -2135,10 +2160,14 @@ namespace ECC {
 		// finally check the inner product
 		InnerProduct::Modifier mod;
 		mod.m_pMultiplier[1] = &yInv;
-		if (!m_P_Tag.IsValid(ptVal, tDot, mod))
+
+		bc.EquationBegin();
+		bc.AddCasual(ptVal, 1U);
+
+		if (!m_P_Tag.IsValid(bc, oracle, tDot, mod))
 			return false;
 
-		return true;
+		return bc.EquationEnd();
 	}
 
 	int RangeProof::Confidential::cmp(const Confidential& x) const

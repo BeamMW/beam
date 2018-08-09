@@ -448,13 +448,17 @@ namespace ECC
 		void Calculate(Point::Native& res);
 
 		bool m_bEnableBatch;
+		bool m_bDirty;
 		Scalar::Native m_Multiplier; // must be initialized in a non-trivial way
 
 		bool AddCasual(const Point& p, const Scalar::Native& k);
 		void AddCasual(const Point::Native& pt, const Scalar::Native& k);
 		void AddPrepared(uint32_t i, const Scalar::Native& k);
+
+		void EquationBegin();
+		bool EquationEnd();
+
 		bool Flush();
-		bool NextEquation();
 	};
 
 	class Commitment

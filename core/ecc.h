@@ -421,13 +421,13 @@ namespace ECC
 		bool IsValid(const Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
 
 		struct BatchContext;
-		void Create(BatchContext&, Oracle&, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
+		void Create(Oracle&, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
 		bool IsValid(BatchContext&, Oracle&, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
 
 	private:
 		struct Calculator;
 
-		void Create(BatchContext&, Oracle&, Point::Native* pAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier&);
+		void Create(Oracle&, Point::Native* pAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier&);
 	};
 
 	namespace RangeProof
