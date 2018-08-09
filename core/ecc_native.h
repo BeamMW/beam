@@ -425,6 +425,8 @@ namespace ECC
 	struct InnerProduct::BatchContext
 		:public MultiMac
 	{
+		static BatchContext& get();
+
 		static const uint32_t s_CasualCountPerProof = nCycles * 2 + 5; // L[], R[], A, S, T1, T2, Commitment
 
 		static const uint32_t s_CountPrepared = InnerProduct::nDim * 2 + 4; // [2][InnerProduct::nDim], m_GenDot_, m_Aux2_, G_, H_
