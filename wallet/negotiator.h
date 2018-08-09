@@ -20,8 +20,26 @@
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4127 )
+#endif
+
+#include <boost/msm/back/state_machine.hpp>
+#include <boost/msm/front/state_machine_def.hpp>
+#include <boost/msm/front/functor_row.hpp>
+#include <boost/msm/front/internal_row.hpp>
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 namespace beam::wallet
 {
+    namespace msm = boost::msm;
+    namespace msmf = boost::msm::front;
+    namespace mpl = boost::mpl;
+
     namespace events
     {
         struct TxRegistrationCompleted {};
@@ -37,6 +55,7 @@ namespace beam::wallet
         };
 
         struct TxCanceled {};
+        struct TxResumed {};
     }
 
     class Negotiator
@@ -45,16 +64,8 @@ namespace beam::wallet
         using Ptr = std::shared_ptr<Negotiator>;
 
         Negotiator(INegotiatorGateway& gateway
-             , beam::IKeyChain::Ptr keychain
-             , const TxDescription& txDesc )
-            : m_gateway{gateway}
-            , m_keychain{keychain}
-            , m_txDesc{txDesc}
-            , m_fsm{std::ref(*this)}
-        {
-            assert(keychain);
-            m_blindingExcess = ECC::Zero;
-        }
+            , beam::IKeyChain::Ptr keychain
+            , const TxDescription& txDesc);
 
 		bool ProcessInvitation(Invite& inviteMsg);
 
@@ -114,42 +125,21 @@ namespace beam::wallet
             };
             struct TxInvitation : public msmf::state<>
             {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
-                {
-                    LOG_VERBOSE() << "TxInvitation state";
-                }
             };
             struct TxConfirmation : public msmf::state<>
             {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
-                {
-                    LOG_VERBOSE() << "TxConfirmation state";
-                }
             };
             struct TxRegistration : public msmf::state<>
             {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
-                {
-                    LOG_VERBOSE() << "TxRegistration state";
-                }
+            };
+            struct TxPeerConfirmation : public msmf::state<>
+            {
             };
             struct TxOutputsConfirmation : public msmf::state<>
             {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
-                {
-                    LOG_VERBOSE() << "TxOutputsConfirmation state";
-                }
             };
 
-            FSMDefinition(Negotiator& parent)
-                : m_parent{parent}
-            {
-                update_tx_description(TxDescription::Pending);
-            }
+            FSMDefinition(Negotiator& parent);
 
             // transition actions
             void confirmInvitation(const events::TxInvited&);
@@ -165,12 +155,17 @@ namespace beam::wallet
             void rollbackTx();
             void cancelTx(const events::TxCanceled&);
 
+            void sendInvite() const;
+            void sendConfirmInvitation() const;
+            void sendConfirmTransaction() const;
+            void sendNewTransaction() const;
+
+            Amount get_total() const;
+
             void update_tx_description(TxDescription::Status s);
-
-            bool getSenderInputsAndOutputs(const Height& currentHeight, std::vector<Input::Ptr>& inputs, std::vector<Output::Ptr>& outputs);
-
+            bool prepareSenderUtxos(const Height& currentHeight);
 			bool registerTxInternal(const events::TxConfirmationCompleted&);
-			bool confirmPeerInternal(const events::TxInvitationCompleted&);
+
 
             using do_serialize = int;
             typedef int no_message_queue;
@@ -184,11 +179,11 @@ namespace beam::wallet
                 a_row< TxInitial                , events::TxInitiated            , TxInvitation        , &d::invitePeer           >,
                 
                 a_row< TxConfirmation           , events::TxConfirmationCompleted, TxRegistration      , &d::registerTx           >,
-                a_row< TxInvitation             , events::TxInvitationCompleted  , TxRegistration      , &d::confirmPeer          >,
+                a_row< TxInvitation             , events::TxInvitationCompleted  , TxPeerConfirmation  , &d::confirmPeer          >,
 
                 //a_row< TxRegistration         , events::TxRegistrationCompleted , TxOutputsConfirmation , &d::confirmOutputs             >,
                 a_row< TxRegistration           , events::TxRegistrationCompleted, TxTerminal          , &d::completeTx           >,
-
+                a_row< TxPeerConfirmation       , events::TxRegistrationCompleted, TxTerminal          , &d::completeTx           >,
                 //a_row< TxOutputsConfirmation  , events::TxOutputsConfirmed      , TxTerminal            , &d::completeTx                 >,
 
                 a_row< TxAllOk                , events::TxFailed                , TxTerminal            , &d::rollbackTx                 >,
@@ -213,22 +208,37 @@ namespace beam::wallet
             template<typename Archive>
             void serialize(Archive & ar, const unsigned int)
             {
-              //  ar  & m_blindingExcess
-              //      & m_kernel;
+                ar & m_blindingExcess
+                   & m_offset
+                   & m_peerSignature
+                   & m_publicPeerExcess
+                   & m_publicPeerNonce
+                   & m_transaction
+                   & m_kernel;
             }
-            Negotiator& m_parent;
-        };
 
-    private:
-        void createKernel(Amount fee, Height minHeight);
-        Input::Ptr createInput(const Coin& utxo);
-        Output::Ptr createOutput(Amount amount, Height height);
-        ECC::Scalar createSignature();
-        void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce);
-        ECC::Point getPublicExcess();
-        ECC::Point getPublicNonce();
-        bool isValidSignature(const ECC::Scalar& peerSignature);
-        bool isValidSignature(const ECC::Scalar& peerSignature, const ECC::Point& publicPeerNonce, const ECC::Point& publicPeerExcess);
+            void createKernel(Amount fee, Height minHeight);
+            void createOutputUtxo(Amount amount, Height height);
+            ECC::Scalar createSignature() const;
+            ECC::Scalar createSignature();
+            void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce, ECC::Scalar& challenge) const;
+            ECC::Point getPublicExcess() const;
+            ECC::Point getPublicNonce() const;
+            bool isValidSignature(const ECC::Scalar& peerSignature) const;
+            bool isValidSignature(const ECC::Scalar& peerSignature, const ECC::Point& publicPeerNonce, const ECC::Point& publicPeerExcess) const;
+            std::vector<Input::Ptr> getTxInputs(const TxID& txID) const;
+            std::vector<Output::Ptr> getTxOutputs(const TxID& txID) const;
+
+            Negotiator& m_parent;
+
+            ECC::Scalar::Native m_blindingExcess;
+            ECC::Scalar::Native m_offset;
+            ECC::Scalar::Native m_peerSignature;
+            ECC::Point::Native m_publicPeerExcess;
+            ECC::Point::Native m_publicPeerNonce;
+            Transaction::Ptr m_transaction;
+            TxKernel::Ptr m_kernel;
+        };
 
     private:
         using Fsm = msm::back::state_machine<FSMDefinition>;
@@ -238,14 +248,6 @@ namespace beam::wallet
         beam::IKeyChain::Ptr m_keychain;
 
         TxDescription m_txDesc;
-
-        ECC::Scalar::Native m_blindingExcess;
-        ECC::Scalar::Native m_offset;
-        ECC::Scalar::Native m_peerSignature;
-        ECC::Point::Native m_publicPeerExcess;
-        ECC::Point::Native m_publicPeerNonce;
-        Transaction::Ptr m_transaction;
-        TxKernel::Ptr m_kernel;
 
         Fsm m_fsm;
     };

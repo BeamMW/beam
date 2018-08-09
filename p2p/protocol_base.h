@@ -102,7 +102,7 @@ struct IErrorHandler {
     virtual void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) = 0;
 
     /// Per-connection msg type filter fails
-    virtual void on_unexpected_msg(uint64_t fromStream, MsgType type) {
+    virtual void on_unexpected_msg(uint64_t fromStream, MsgType /*type*/ ) {
         // default impl
         on_protocol_error(fromStream, unexpected_msg_type);
     }

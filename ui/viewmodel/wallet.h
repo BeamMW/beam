@@ -100,7 +100,8 @@ class WalletViewModel : public QObject
 
         Q_PROPERTY(QString feeMils READ feeMils WRITE setFeeMils NOTIFY feeMilsChanged)
 
-        Q_PROPERTY(QString receiverAddr READ receiverAddr NOTIFY selectedAddrChanged)
+        Q_PROPERTY(QString receiverAddr READ getReceiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
+        Q_PROPERTY(QString senderAddr READ getSenderAddr WRITE setSenderAddr NOTIFY senderAddrChanged)
         Q_PROPERTY(QVariant tx READ tx NOTIFY txChanged)
         Q_PROPERTY(QVariant addrBook READ addrBook NOTIFY addrBookChanged)
         Q_PROPERTY(int selectedAddr READ selectedAddr WRITE setSelectedAddr NOTIFY selectedAddrChanged)
@@ -143,11 +144,14 @@ public:
     QString change() const;
 	int selectedAddr() const;
     QVariant utxos();
+    QString getReceiverAddr() const;
+    void setReceiverAddr(const QString& value);
+    QString getSenderAddr() const;
+    void setSenderAddr(const QString& value);
 
 	void setSendAmount(const QString& text);
 	void setSendAmountMils(const QString& text);
     void setFeeMils(const QString& text);
-	void setReceiverAddr(const QString& text);
 	void setSelectedAddr(int index);
 
 public slots:
@@ -159,6 +163,7 @@ public slots:
 	void onSyncProgressUpdated(int done, int total);
     void onChangeCalculated(beam::Amount change);
     void onUtxoChanged(const std::vector<beam::Coin>& utxos);
+	void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
 
 signals:
 	void stateChanged();
@@ -172,6 +177,8 @@ signals:
 	void actualAvailableChanged();
     void changeChanged();
     void utxoChanged();
+    void receiverAddrChanged();
+    void senderAddrChanged();
 
 private:
 	beam::Amount calcSendAmount() const;
@@ -196,6 +203,9 @@ private:
     UtxoList _utxos;
 
 	std::vector<beam::TxPeer> _addrList;
+
+    QString _receiverAddr;
+    QString _senderAddr;
 
     int _selectedAddr;
 };

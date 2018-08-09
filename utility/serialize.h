@@ -115,7 +115,7 @@ struct SerializerSizeCounter
 	{
 		size_t m_Value;
 
-		size_t write(const void *ptr, const size_t size)
+		size_t write(const void * /*ptr*/, const size_t size)
 		{
 			m_Value += size;
 			return size;

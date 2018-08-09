@@ -5,39 +5,6 @@ using namespace std;
 using namespace beam;
 using namespace beamui;
 
-namespace {
-	// TODO it's temporary solution. delete after merge with bbs2
-	WalletID from_hex(const string& str)
-	{
-		assert(str.size() % 2 == 0);
-		vector<uint8_t> res(str.size() >> 1);
-		for (size_t i = 0; i < str.size(); ++i)
-		{
-			auto c = str[i];
-			size_t j = i >> 1;
-			res[j] <<= 4;
-			if (c >= '0' && c <= '9')
-			{
-				res[j] += (c - '0');
-			}
-			else if (c >= 'a' && c <= 'f')
-			{
-				res[j] += 10 + (c - 'a');
-			}
-			else if (c >= 'A' && c <= 'F')
-			{
-				res[j] += 10 + (c - 'A');
-			}
-		}
-
-		WalletID tmp;
-
-		std::copy(res.begin(), res.end(), tmp.m_pData);
-
-		return tmp;
-	}
-}
-
 PeerAddressItem::PeerAddressItem()
 	: m_walletID{}
 	, m_name{}
@@ -150,34 +117,24 @@ AddressBookViewModel::AddressBookViewModel(WalletModel& model)
 		SLOT(onGeneratedNewWalletID(const beam::WalletID&)));
 }
 
-QVariant AddressBookViewModel::getPeerAddresses() const
+QQmlListProperty<PeerAddressItem> AddressBookViewModel::getPeerAddresses()
 {
-    return QVariant::fromValue(m_peerAddresses);
+    return QQmlListProperty<PeerAddressItem>(this, m_peerAddresses);
 }
 
-QVariant AddressBookViewModel::getOwnAddresses() const
+QQmlListProperty<OwnAddressItem> AddressBookViewModel::getOwnAddresses()
 {
-    return QVariant::fromValue(m_ownAddresses);
+    return QQmlListProperty<OwnAddressItem>(this, m_ownAddresses);
 }
 
-void AddressBookViewModel::setNewPeerAddress(QVariant addr)
+PeerAddressItem* AddressBookViewModel::getNewPeerAddress()
 {
-
+	return &m_newPeerAddress;
 }
 
-void AddressBookViewModel::setNewOwnAddress(QVariant addr)
+OwnAddressItem* AddressBookViewModel::getNewOwnAddress()
 {
-
-}
-
-QVariant AddressBookViewModel::getNewPeerAddress()
-{
-	return QVariant::fromValue(&m_newPeerAddress);
-}
-
-QVariant AddressBookViewModel::getNewOwnAddress()
-{
-	return QVariant::fromValue(&m_newOwnAddress);
+	return &m_newOwnAddress;
 }
 
 void AddressBookViewModel::generateNewEmptyAddress()
@@ -211,9 +168,10 @@ void AddressBookViewModel::createNewAddress()
 
 void AddressBookViewModel::createNewPeerAddress()
 {
+    WalletID walletID = from_hex(m_newPeerAddress.getWalletID().toStdString());
 	WalletAddress peerAddress{};
 
-	peerAddress.m_walletID = from_hex(m_newPeerAddress.getWalletID().toStdString());
+	peerAddress.m_walletID = walletID;
 	peerAddress.m_own = false;
 	peerAddress.m_label = m_newPeerAddress.getName().toStdString();
 	peerAddress.m_createTime = beam::getTimestamp();
@@ -229,9 +187,10 @@ void AddressBookViewModel::createNewPeerAddress()
 
 void AddressBookViewModel::createNewOwnAddress()
 {
+    WalletID id = from_hex(m_newOwnAddress.getWalletID().toStdString());
 	WalletAddress ownAddress{};
 
-	ownAddress.m_walletID = from_hex(m_newOwnAddress.getWalletID().toStdString());
+	ownAddress.m_walletID = id;
 	ownAddress.m_own = true;
 	ownAddress.m_label = m_newOwnAddress.getName().toStdString();
 	ownAddress.m_createTime = beam::getTimestamp();
@@ -242,14 +201,18 @@ void AddressBookViewModel::createNewOwnAddress()
 	if (m_model.async)
 	{
 		m_model.async->createNewAddress(std::move(ownAddress));
-		m_model.async->getAddresses(true);
-		m_model.async->getAddresses(false);
 	}
 }
 
-Q_INVOKABLE QVariant AddressBookViewModel::getPeerAddress(int index) const
+void AddressBookViewModel::changeCurrentPeerAddress(int index)
 {
-    return QVariant::fromValue(m_peerAddresses[index]);
+	if (m_model.async)
+	{
+		WalletID senderID = from_hex(m_ownAddresses.at(0)->getWalletID().toStdString());
+		WalletID receivedID = from_hex(m_peerAddresses.at(index)->getWalletID().toStdString());
+
+		m_model.async->changeCurrentWalletIDs(senderID, receivedID);
+	}
 }
 
 void AddressBookViewModel::onStatus(const WalletStatus&)

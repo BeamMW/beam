@@ -91,7 +91,7 @@ Item {
 
             Item {
                 anchors.fill: parent
-                anchors.rightMargin: parent.width/2
+                anchors.rightMargin: parent.width/2 + 30
                 anchors.bottomMargin: 60
                 
                 clip: true
@@ -103,15 +103,15 @@ Item {
                     text: "Send BEAM"
                 }
 
-                Item {
+                ColumnLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: parent.width/2
-
+					Layout.rightMargin: 30
                     clip: true
 
                     SFText {
-
-                        y: 41
+						Layout.topMargin: 71
+						Layout.minimumHeight: 14
+						Layout.maximumHeight: 14
 
                         font.pixelSize: 12
                         font.weight: Font.Bold
@@ -120,89 +120,84 @@ Item {
                     }
 
                     SFTextInput {
-                        // id: receiver_addr
+                        id: receiver_addr
 
-                        y: 115-30
-                        width: 300
+                        Layout.fillWidth: true
+						Layout.minimumHeight: 14
+						Layout.maximumHeight: 14
 
                         font.pixelSize: 12
 
                         color: Style.white
-
-                        text: walletViewModel.receiverAddr
-
                     }
 
-                    // Binding {
-                    //     target: walletViewModel
-                    //     property: "receiverAddr"
-                    //     value: receiver_addr.text
-                    // }
-
                     Rectangle {
-                        y: 109
-                        width: 300
+                        Layout.fillWidth: true
+						Layout.minimumHeight: 1
+						Layout.maximumHeight: 1
                         height: 1
 
-                        color: "#33566b"
-                    }                   
-                }
-
-                Item {
-                    anchors.fill: parent
-                    anchors.rightMargin: parent.width/2
-
-                    clip: true
-
-
-                    SFText {
-
-                        y: 41
+                        color: Style.separator_color
+                    }
+					
+					SFText {
+						Layout.minimumHeight: 14
+						Layout.maximumHeight: 14
 
                         font.pixelSize: 12
                         font.weight: Font.Bold
                         color: Style.white
-                        text: "Address book"
+                        text: "Sending address"
                     }
 
-                    ListView {
-                        id:addrBook
+                    SFTextInput {
+                        id: sender_addr
+						Layout.fillWidth: true
+						Layout.minimumHeight: 14
+						Layout.maximumHeight: 14
 
-                        anchors.fill: parent
-                        anchors.topMargin: 60
-                        anchors.rightMargin: 30
+                        font.pixelSize: 12
 
-                        model: walletViewModel.addrBook
+                        color: Style.white
+                    }
 
-                        delegate: Item {
-
-                            height: 60
-                            width: parent.width
-
-                            SFText { 
-                                text: modelData 
-                                color: Style.white
-
-                                anchors.verticalCenter: parent.verticalCenter
-                                x: 10
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: addrBook.currentIndex = index
-                            }
-                        }
-
-                        highlight: Rectangle { color: "#33566b"; radius: 10 }
+                    Binding {
+                         target: walletViewModel
+                         property: "receiverAddr"
+                         value: receiver_addr.text
                     }
 
 					Binding {
-                        target: walletViewModel
-                        property: "selectedAddr"
-                        value: addrBook.currentIndex
+                         target: receiver_addr
+                         property: "text"
+                         value: walletViewModel.receiverAddr
                     }
+
+                    Binding {
+                         target: walletViewModel
+                         property: "senderAddr"
+                         value: sender_addr.text
+                    }
+
+					Binding {
+                         target: sender_addr
+                         property: "text"
+                         value: walletViewModel.senderAddr
+                    }
+
+
+                    Rectangle {
+                        Layout.fillWidth: true
+						Layout.minimumHeight: 1
+						Layout.maximumHeight: 1
+                        height: 1
+
+                        color: Style.separator_color
+                    }
+
+					Item {
+						Layout.fillHeight: true;
+					}
                 }
             }
 
@@ -246,7 +241,7 @@ Item {
                     width: 337
                     height: 1
 
-                    color: "#33566b"
+                    color: Style.separator_color
                 }
 
                 SFText {
@@ -283,7 +278,7 @@ Item {
                     width: 337
                     height: 1
 
-                    color: "#33566b"
+                    color: Style.separator_color
                 }
 
                 SFText {
@@ -346,7 +341,7 @@ Item {
                         width: 337
                         height: 1
 
-                        color: "#33566b"
+                        color: Style.separator_color
                     }
 
                     Binding {
@@ -486,7 +481,7 @@ Item {
                 //     width: 339
                 //     height: 1
 
-                //     color: "#33566b"
+                //     color: Style.separator_color
                 // }
             }
 
@@ -503,7 +498,7 @@ Item {
 
                     radius: 20
 
-                    color: "#33566b"
+                    color: Style.separator_color
 
                     SFText {
                         anchors.horizontalCenter: parent.horizontalCenter

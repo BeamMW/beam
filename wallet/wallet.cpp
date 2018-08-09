@@ -153,30 +153,43 @@ namespace beam
         assert(keyChain);
         m_keyChain->getSystemStateID(m_knownStateID);
         m_network->set_wallet(this);
+        m_pendingEvents.emplace_back([this]()
+        {
+            resume_all_tx();
+        });
     }
 
     Wallet::~Wallet()
     {
         m_network->set_wallet(nullptr);
-       // assert(m_peers.empty());
         //assert(m_negotiators.empty());
         assert(m_reg_requests.empty());
         assert(m_removedNegotiators.empty());
     }
 
-    TxID Wallet::transfer_money(const WalletID& to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
+    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
     {
         boost::uuids::uuid id = boost::uuids::random_generator()();
         TxID txId{};
         copy(id.begin(), id.end(), txId.begin());
-        TxDescription tx( txId, amount, fee, m_keyChain->getCurrentHeight(), to, move(message), getTimestamp(), sender);
+        TxDescription tx( txId, amount, fee, m_keyChain->getCurrentHeight(), to, from, move(message), getTimestamp(), sender);
         resume_negotiator(tx);
         return txId;
     }
 
     void Wallet::resume_tx(const TxDescription& tx)
     {
-        resume_negotiator(tx);
+        //resume_negotiator(tx);
+        assert(m_synchronized);
+
+        if (tx.canResume() && m_negotiators.find(tx.m_txId) == m_negotiators.end())
+        {
+            Cleaner c{ m_removedNegotiators };
+            auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
+
+            m_negotiators.emplace(tx.m_txId, s);
+            s->process_event(events::TxResumed{});
+        }
     }
 
     void Wallet::resume_all_tx()
@@ -190,12 +203,12 @@ namespace beam
 
     void Wallet::send_tx_invitation(const TxDescription& tx, Invite&& data)
     {
-        m_network->send_tx_message(tx.m_peerId, move(data));
+        send_tx_message(tx, move(data));
     }
 
     void Wallet::send_tx_confirmation(const TxDescription& tx, ConfirmTransaction&& data)
     {
-        m_network->send_tx_message(tx.m_peerId, move(data));
+        send_tx_message(tx, move(data));
     }
 
     void Wallet::on_tx_completed(const TxDescription& tx)
@@ -207,9 +220,6 @@ namespace beam
             m_negotiators.erase(it);
         }
 
-        m_network->close_connection(tx.m_peerId);
-        m_peers.erase(tx.m_peerId);
- 
         // remove state machine from db
         auto t = m_keyChain->getTx(tx.m_txId);
         if (t.is_initialized())
@@ -232,12 +242,12 @@ namespace beam
 
     void Wallet::send_tx_failed(const TxDescription& tx)
     {
-        m_network->send_tx_message(tx.m_peerId, wallet::TxFailed{ tx.m_txId });
+        send_tx_message(tx, wallet::TxFailed{ tx.m_peerId, tx.m_txId });
     }
 
     void Wallet::send_tx_confirmation(const TxDescription& tx, ConfirmInvitation&& data)
     {
-        m_network->send_tx_message(tx.m_peerId, move(data));
+        send_tx_message(tx, move(data));
     }
 
     void Wallet::register_tx(const TxDescription& tx, Transaction::Ptr data)
@@ -247,20 +257,19 @@ namespace beam
 
     void Wallet::send_tx_registered(const TxDescription& tx)
     {
-        m_network->send_tx_message(tx.m_peerId, wallet::TxRegistered{ tx.m_txId, true });
+        send_tx_message(tx, wallet::TxRegistered{ tx.m_peerId, tx.m_txId, true });
     }
 
-    void Wallet::handle_tx_message(const WalletID& from, Invite&& msg)
+    void Wallet::handle_tx_message(const WalletID& receiver, Invite&& msg)
     {
         auto it = m_negotiators.find(msg.m_txId);
         if (it == m_negotiators.end())
         {
             LOG_VERBOSE() << "Received tx invitation " << msg.m_txId;
             bool sender = !msg.m_send;
-            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, from, {}, getTimestamp(), sender };
+            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, receiver, {}, getTimestamp(), sender };
             auto r = make_shared<Negotiator>(*this, m_keyChain, tx);
             m_negotiators.emplace(tx.m_txId, r);
-            m_peers.emplace(tx.m_peerId, r);
             Cleaner c{ m_removedNegotiators };
             if (r->ProcessInvitation(msg))
             {
@@ -289,17 +298,18 @@ namespace beam
         }
     }
     
-    void Wallet::handle_tx_message(const WalletID& from, ConfirmTransaction&& data)
+    void Wallet::handle_tx_message(const WalletID& receiver, ConfirmTransaction&& data)
     {
         LOG_DEBUG() << ReceiverPrefix << "Received sender tx confirmation " << data.m_txId;
         if (!process_event(data.m_txId, events::TxConfirmationCompleted{ data }))
         {
             LOG_DEBUG() << ReceiverPrefix << "Unexpected sender tx confirmation " << data.m_txId;
-            m_network->close_connection(from);
+            // TODO state transition
+            // m_network->close_connection(from);
         }
     }
 
-    void Wallet::handle_tx_message(const WalletID& /*from*/, ConfirmInvitation&& data)
+    void Wallet::handle_tx_message(const WalletID& receiver, ConfirmInvitation&& data)
     {
         LOG_VERBOSE() << SenderPrefix << "Received tx confirmation " << data.m_txId;
         if (!process_event(data.m_txId, events::TxInvitationCompleted{ data }))
@@ -308,12 +318,12 @@ namespace beam
         }
     }
 
-    void Wallet::handle_tx_message(const WalletID& from, wallet::TxRegistered&& data)
+    void Wallet::handle_tx_message(const WalletID& receiver, wallet::TxRegistered&& data)
     {
         process_event(data.m_txId, events::TxRegistrationCompleted{});
     }
 
-    void Wallet::handle_tx_message(const WalletID& /*from*/, wallet::TxFailed&& data)
+    void Wallet::handle_tx_message(const WalletID& receiver, wallet::TxFailed&& data)
     {
         LOG_DEBUG() << "tx " << data.m_txId << " failed";
         process_event(data.m_txId, events::TxFailed(false));
@@ -671,7 +681,9 @@ namespace beam
                 m_keyChain->setSystemStateID(m_newStateID);
                 m_knownStateID = m_newStateID;
                 LOG_INFO() << "Current state is " << m_knownStateID;
-
+                m_synchronized = true;
+                m_syncDone = m_syncTotal = 0;
+                notifySyncProgress();
                 if (!m_pendingEvents.empty())
                 {
                     Cleaner c{ m_removedNegotiators };
@@ -681,9 +693,6 @@ namespace beam
                     }
                     m_pendingEvents.clear();
                 }
-                m_synchronized = true;
-                m_syncDone = m_syncTotal = 0;
-                notifySyncProgress();
             }
         }
 
@@ -706,7 +715,7 @@ namespace beam
 
     bool Wallet::close_node_connection()
     {
-        if (m_synchronized && m_reg_requests.empty())
+        if (m_synchronized && m_reg_requests.empty() && m_negotiators.empty())
         {
             m_network->close_node_connection();
             return false;
@@ -728,7 +737,6 @@ namespace beam
         Cleaner c{ m_removedNegotiators };
         auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
         m_negotiators.emplace(tx.m_txId, s);
-        m_peers.emplace(tx.m_peerId, s);
 
         if (m_synchronized)
         {

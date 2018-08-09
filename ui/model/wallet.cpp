@@ -50,11 +50,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 {
     BRIDGE_INIT(WalletModelBridge);
 
-    void sendMoney(beam::WalletID receiverID, Amount&& amount, Amount&& fee) override
+    void sendMoney(beam::WalletID senderID, beam::WalletID receiverID, Amount&& amount, Amount&& fee) override
     {
-        tx.send([receiverID, amount{ move(amount) }, fee{ move(fee) }](BridgeInterface& receiver) mutable
+        tx.send([senderID, receiverID, amount{ move(amount) }, fee{ move(fee) }](BridgeInterface& receiver) mutable
         { 
-            receiver.sendMoney(receiverID, move(amount), move(fee));
+            receiver.sendMoney(senderID, receiverID, move(amount), move(fee));
         }); 
     }
 
@@ -106,6 +106,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+	void changeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) override
+	{
+		tx.send([senderID, receiverID](BridgeInterface& receiver) mutable
+		{
+			receiver.changeCurrentWalletIDs(senderID, receiverID);
+		});
+	}
+
 	void generateNewWalletID() override
 	{
 		tx.send([](BridgeInterface& receiver) mutable
@@ -115,9 +123,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 	}
 };
 
-WalletModel::WalletModel(IKeyChain::Ptr keychain, uint16_t port, const string& nodeAddr)
+WalletModel::WalletModel(IKeyChain::Ptr keychain, IKeyStore::Ptr keystore, const string& nodeAddr)
 	: _keychain(keychain)
-	, _port(port)
+    , _keystore(keystore)
 	, _nodeAddrString(nodeAddr)
 {
 	qRegisterMetaType<WalletStatus>("WalletStatus");
@@ -204,10 +212,10 @@ void WalletModel::run()
 
 		if(node_addr.resolve(_nodeAddrString.c_str()))
 		{
-			auto wallet_io = make_shared<WalletNetworkIO>( Address().ip(INADDR_ANY).port(_port)
-				, node_addr
-				, true
+			auto wallet_io = make_shared<WalletNetworkIO>(
+				node_addr
 				, _keychain
+                , _keystore
 				, _reactor);
             _wallet_io = wallet_io;
             auto wallet = make_shared<Wallet>(_keychain, wallet_io);
@@ -268,7 +276,8 @@ void WalletModel::onTxPeerChanged()
 
 void WalletModel::onAddressChanged()
 {
-    
+    emit onAdrresses(true, _keychain->getAddresses(true));
+    emit onAdrresses(false, _keychain->getAddresses(false));
 }
 
 void WalletModel::onSyncProgress(int done, int total)
@@ -276,13 +285,13 @@ void WalletModel::onSyncProgress(int done, int total)
 	emit onSyncProgressUpdated(done, total);
 }
 
-void WalletModel::sendMoney(beam::WalletID receiver, Amount&& amount, Amount&& fee)
+void WalletModel::sendMoney(beam::WalletID sender, beam::WalletID receiver, Amount&& amount, Amount&& fee)
 {
     assert(!_wallet.expired());
     auto s = _wallet.lock();
     if (s)
     {
-        s->transfer_money(receiver, move(amount), move(fee));
+        s->transfer_money(sender, receiver, move(amount), move(fee));
     }
 }
 
@@ -336,6 +345,11 @@ void WalletModel::cancelTx(beam::TxID id)
 void WalletModel::createNewAddress(WalletAddress&& address)
 {
     _keychain->saveAddress(address);
+}
+
+void WalletModel::changeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
+{
+	emit onChangeCurrentWalletIDs(senderID, receiverID);
 }
 
 void WalletModel::generateNewWalletID()
