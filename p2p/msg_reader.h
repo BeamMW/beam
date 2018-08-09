@@ -45,6 +45,9 @@ public:
     /// Disables all messages
     void disable_all_msg_types();
 
+    /// Resets to initial state
+    void reset();
+
 private:
     /// 2 states of the reader
     enum State { reading_header, reading_message };

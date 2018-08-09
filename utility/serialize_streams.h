@@ -23,9 +23,11 @@ namespace beam { namespace detail {
 // Growing buffer serializer ostream
 struct SerializeOstream {
     size_t write(const void *ptr, const size_t size) {
-        size_t n = m_vec.size();
-        m_vec.resize(n + size);
-        memcpy(&m_vec.at(n), ptr, size);
+        if (size > 0) {
+            size_t n = m_vec.size();
+            m_vec.resize(n + size);
+            memcpy(&m_vec.at(n), ptr, size);
+        }
         return size;
     }
 

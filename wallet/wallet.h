@@ -70,7 +70,7 @@ namespace beam
         virtual void send_node_message(proto::GetMined&&) = 0;
         virtual void send_node_message(proto::GetProofState&&) = 0;
         // connection control
-        virtual void close_connection(const WalletID& id) = 0;
+        //virtual void close_connection(const WalletID& id) = 0;
         virtual void connect_node() = 0;
         virtual void close_node_connection() = 0;
     };
@@ -78,6 +78,10 @@ namespace beam
     class NetworkIOBase : public INetworkIO
     {
     protected:
+        NetworkIOBase() : m_wallet{ nullptr }
+        {
+
+        }
         IWallet& get_wallet() const
         {
             assert(m_wallet);
@@ -105,7 +109,7 @@ namespace beam
         Wallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
-        TxID transfer_money(const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, ByteBuffer&& message = {} );
+        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, ByteBuffer&& message = {} );
         void resume_tx(const TxDescription& tx);
         void resume_all_tx();
 
@@ -176,13 +180,19 @@ namespace beam
             return false;
         }
 
+        template<typename Message>
+        void send_tx_message(const TxDescription& txDesc, Message&& msg)
+        {
+            msg.m_from = txDesc.m_myId;
+            m_network->send_tx_message(txDesc.m_peerId, std::move(msg));
+        }
+
     private:
 
         struct StateFinder;
 
         IKeyChain::Ptr m_keyChain;
         INetworkIO::Ptr m_network;
-        std::map<WalletID, wallet::Negotiator::Ptr> m_peers;
         std::map<TxID, wallet::Negotiator::Ptr>   m_negotiators;
         std::vector<wallet::Negotiator::Ptr>      m_removedNegotiators;
         TxCompletedAction m_tx_completed_action;

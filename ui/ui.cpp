@@ -131,6 +131,7 @@ int main (int argc, char* argv[])
 			LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
 			auto walletStorage = appDataDir.filePath("wallet.db").toStdString();
+            auto bbsStorage = appDataDir.filePath("keys.bbs").toStdString();
 			std::string walletPass;
 
 			if (!Keychain::isInitialized(walletStorage))
@@ -175,8 +176,34 @@ int main (int argc, char* argv[])
 							QMessageBox::critical(0, "Error", "Your wallet isn't created. Something went wrong.", QMessageBox::Ok);
 							return -1;
 						}
+
+                        try
+                        {
+                            IKeyStore::Options options;
+                            options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+                            options.fileName = bbsStorage;
+
+                            IKeyStore::Ptr keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
+
+                            // generate default address
+                            WalletAddress defaultAddress = {};
+                            defaultAddress.m_own = true;
+                            defaultAddress.m_label = "default";
+                            defaultAddress.m_createTime = getTimestamp();
+                            defaultAddress.m_duration = numeric_limits<uint64_t>::max();
+                            keystore->gen_keypair(defaultAddress.m_walletID, walletPass.c_str(), walletPass.size(), true);
+
+                            keychain->saveAddress(defaultAddress);
+                        }
+                        catch (const std::runtime_error& ex)
+                        {
+                            QMessageBox::critical(0, "Error", "Failed to generate default address", QMessageBox::Ok);
+                        }
+                    }
+                    else
+                    {
+                        return 0;
 					}
-					else return 0;
 				}
 			}
 			else
@@ -201,44 +228,6 @@ int main (int argc, char* argv[])
 
 				if (keychain)
 				{
-					// delete old peers before importing new from .cfg
-					keychain->clearPeers();
-
-					if (vm.count(cli::WALLET_ADDR))
-					{
-						auto uris = vm[cli::WALLET_ADDR].as<vector<string>>();
-
-						for (const auto& uri : uris)
-						{
-							auto vars = string_helpers::split(uri, '&');
-
-							beam::TxPeer addr;
-
-							for (const auto& var : vars)
-							{
-								auto parts = string_helpers::split(var, '=');
-
-								assert(parts.size() == 2);
-
-								auto varName = parts[0];
-								auto varValue = parts[1];
-
-								if (varName == "label") addr.m_label = varValue;
-								else if (varName == "ip")
-								{
-									addr.m_address = varValue;
-								}
-								else if (varName == "hash")
-								{
-									ECC::Hash::Processor hp;
-									hp << varValue.c_str() >> addr.m_walletID;
-								}
-								else assert(!"Unknown variable");
-							}
-							keychain->addPeer(addr);
-						}
-					}
-
 					std::string nodeAddr = "0.0.0.0";
 
 					if (!vm.count(cli::NODE_ADDR))
@@ -250,7 +239,16 @@ int main (int argc, char* argv[])
 						nodeAddr = vm[cli::NODE_ADDR].as<string>();
 					}
 
-					WalletModel model(keychain, vm[cli::PORT].as<uint16_t>(), nodeAddr);
+					qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
+					qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
+
+                    IKeyStore::Options options;
+                    options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+                    options.fileName = bbsStorage;
+
+                    IKeyStore::Ptr keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
+
+					WalletModel model(keychain, keystore, nodeAddr);
 
 					model.start();
 

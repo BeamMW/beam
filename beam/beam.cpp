@@ -19,10 +19,12 @@
 #include "wallet/wallet.h"
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
+#include "wallet/keystore.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "utility/logger.h"
 #include "utility/options.h"
+#include "utility/helpers.h"
 #include <iomanip>
 
 #include <boost/program_options.hpp>
@@ -53,8 +55,8 @@ namespace beam
         ss << "]";
         string str = ss.str();
         os << str;
-        int c = 13 - str.length();
-        for (int i = 0; i < c; ++i) os << ' ';
+        size_t c = 13 - str.length();
+        for (size_t i = 0; i < c; ++i) os << ' ';
         return os;
     }
 
@@ -268,7 +270,7 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 {
 	std::vector<Output::Ptr> vOut;
 
-	for (uint32_t i = i0; i < m_Coins.size(); i += m_vThreads.size())
+	for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size())
 	{
 		const Coin& coin = m_Coins[i];
 
@@ -286,7 +288,7 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 	std::unique_lock<std::mutex> scope(m_Mutex);
 
 	uint32_t iOutp = 0;
-	for (uint32_t i = i0; i < m_Coins.size(); i += m_vThreads.size(), iOutp++)
+	for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size(), iOutp++)
 	{
 		Block::Body& block = get_WriteBlock();
 
@@ -478,6 +480,9 @@ int main_impl(int argc, char* argv[])
 						assert(vm.count(cli::WALLET_STORAGE) > 0);
 						auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
 
+                        assert(vm.count(cli::BBS_STORAGE) > 0);
+                        auto bbsKeysPath = vm[cli::BBS_STORAGE].as<string>();
+                        
 						if (!Keychain::isInitialized(walletPath) && command != cli::INIT)
 						{
 							LOG_ERROR() << "Please initialize your wallet first... \nExample: beam wallet --command=init --pass=<password to access wallet> --wallet_seed=<seed to generate secret keys>";
@@ -510,6 +515,23 @@ int main_impl(int argc, char* argv[])
 							if (keychain)
 							{
 								LOG_INFO() << "wallet successfully created...";
+
+                                IKeyStore::Options options;
+                                options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+                                options.fileName = bbsKeysPath;
+
+                                IKeyStore::Ptr ks = IKeyStore::create(options, pass.c_str(), pass.size());
+
+                                // generate default address
+                                WalletAddress defaultAddress = {};
+                                defaultAddress.m_own = true;
+                                defaultAddress.m_label = "default";
+                                defaultAddress.m_createTime = getTimestamp();
+                                defaultAddress.m_duration = numeric_limits<uint64_t>::max();
+                                ks->gen_keypair(defaultAddress.m_walletID, pass.c_str(), pass.size(), true);
+                                
+                                keychain->saveAddress(defaultAddress);
+
 								return 0;
 							}
 							else
@@ -518,7 +540,6 @@ int main_impl(int argc, char* argv[])
 								return -1;
 							}
 						}
-
 
 						auto keychain = Keychain::open(walletPath, pass);
 						if (!keychain)
@@ -570,7 +591,7 @@ int main_impl(int argc, char* argv[])
 									<< "| datetime          | amount, BEAM    | status\t|\n";
 								for (auto& tx : txHistory)
 								{
-									cout << "  " << put_time(localtime((const time_t*)(&tx.m_createTime)), "%D  %T")
+									cout << "  " << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
 										<< setw(17) << PrintableAmount(tx.m_amount, true)
 										<< "  " << getTxStatus(tx) << '\n';
 								}
@@ -609,6 +630,7 @@ int main_impl(int argc, char* argv[])
 						io::Address receiverAddr;
 						Amount amount = 0;
 						Amount fee = 0;
+                        ECC::Hash::Value receiverWalletID;
 						bool isTxInitiator = command == cli::SEND || command == cli::RECEIVE;
 						if (isTxInitiator)
 						{
@@ -622,12 +644,10 @@ int main_impl(int argc, char* argv[])
 								LOG_ERROR() << "amount is missing";
 								return -1;
 							}
-							string receiverURI = vm[cli::RECEIVER_ADDR].as<string>();
-							if (!receiverAddr.resolve(receiverURI.c_str()))
-							{
-								LOG_ERROR() << "unable to resolve receiver address: " << receiverURI;
-								return -1;
-							}
+
+                            ECC::Hash::Value receiverID = from_hex(vm[cli::RECEIVER_ADDR].as<string>());
+                            receiverWalletID = receiverID;
+
 							auto signedAmount = vm[cli::AMOUNT].as<double>();
 							if (signedAmount < 0)
 							{
@@ -658,24 +678,28 @@ int main_impl(int argc, char* argv[])
 
 						bool is_server = command == cli::LISTEN;
 
+                        IKeyStore::Options options;
+                        options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+                        options.fileName = bbsKeysPath;
 
-						TxPeer receiverPeer = {};
-						receiverPeer.m_address = receiverAddr.str();
-						receiverPeer.m_walletID = receiverAddr.u64();
-						keychain->addPeer(receiverPeer);
+                        IKeyStore::Ptr keystore = IKeyStore::create(options, pass.c_str(), pass.size());
 
-						auto wallet_io = make_shared<WalletNetworkIO >(io::Address().ip(INADDR_ANY).port(port)
-							, node_addr
-							, is_server
-							, keychain
-							, reactor);
+                        auto wallet_io = make_shared<WalletNetworkIO >( node_addr
+						                                              , keychain
+                                                                      , keystore
+							                                          , reactor);
 						Wallet wallet{ keychain
 									 , wallet_io
 									 , is_server ? Wallet::TxCompletedAction() : [wallet_io](auto) { wallet_io->stop(); } };
+
 						if (isTxInitiator)
 						{
-							wallet.transfer_money(receiverPeer.m_walletID, move(amount), move(fee), command == cli::SEND);
+                            // TODO: make db request by 'default' label
+                            auto addresses = keychain->getAddresses(true);
+                            assert(!addresses.empty());
+							wallet.transfer_money(addresses[0].m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
 						}
+
 						wallet_io->start();
 					}
 					else

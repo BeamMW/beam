@@ -18,6 +18,7 @@
 #include <string.h> // memcmp
 #include <ostream>
 #include <assert.h>
+#include <vector>
 
 #ifndef _countof
 #	define _countof(_Array) (sizeof(_Array) / sizeof(_Array[0]))
@@ -122,6 +123,12 @@ namespace ECC
 
         uintBig_t(std::initializer_list<uint8_t> bytes)
         {
+            std::copy(bytes.begin(), bytes.end(), m_pData);
+        }
+
+        uintBig_t(const std::vector<uint8_t>& bytes)
+        {
+            assert(bytes.size() == size());
             std::copy(bytes.begin(), bytes.end(), m_pData);
         }
 

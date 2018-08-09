@@ -145,6 +145,9 @@ WalletViewModel::WalletViewModel(WalletModel& model)
 
     connect(&_model, SIGNAL(onUtxoChanged(const std::vector<beam::Coin>&)),
         SLOT(onUtxoChanged(const std::vector<beam::Coin>&)));
+
+	connect(&_model, SIGNAL(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
+		SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
 }
 
 void WalletViewModel::cancelTx(int index)
@@ -247,6 +250,12 @@ void WalletViewModel::onUtxoChanged(const std::vector<beam::Coin>& utxos)
     emit utxoChanged();
 }
 
+void WalletViewModel::onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
+{
+	setSenderAddr(toString(senderID));
+	setReceiverAddr(toString(receiverID));
+}
+
 QString WalletViewModel::available() const
 {
 	return BeamToString(_status.available);
@@ -280,6 +289,28 @@ QString WalletViewModel::sendAmountMils() const
 QString WalletViewModel::feeMils() const
 {
     return _feeMils;
+}
+
+QString WalletViewModel::getReceiverAddr() const
+{
+    return _receiverAddr;
+}
+
+void WalletViewModel::setReceiverAddr(const QString& value)
+{
+    _receiverAddr = value;
+	emit receiverAddrChanged();
+}
+
+QString WalletViewModel::getSenderAddr() const
+{
+    return _senderAddr;
+}
+
+void WalletViewModel::setSenderAddr(const QString& value)
+{
+    _senderAddr = value;
+	emit senderAddrChanged();
 }
 
 void WalletViewModel::setSendAmount(const QString& amount)
@@ -397,12 +428,12 @@ beam::Amount WalletViewModel::calcTotalAmount() const
 
 void WalletViewModel::sendMoney()
 {
-    if (_selectedAddr > -1)
+    if (!_senderAddr.isEmpty() && !_receiverAddr.isEmpty())
     {
-        auto& addr = _addrList[_selectedAddr];
+        WalletID ownAddr = from_hex(getSenderAddr().toStdString());
+        WalletID peerAddr = from_hex(getReceiverAddr().toStdString());
         // TODO: show 'operation in process' animation here?
-
-        _model.async->sendMoney(addr.m_walletID, calcSendAmount(), calcFeeAmount());
+        _model.async->sendMoney(ownAddr, peerAddr, calcSendAmount(), calcFeeAmount());
     }
 }
 

@@ -30,6 +30,7 @@ namespace beam
         extern const char* PORT_FULL;
         extern const char* STORAGE;
         extern const char* WALLET_STORAGE;
+        extern const char* BBS_STORAGE;
         extern const char* HISTORY;
         extern const char* TEMP;
         extern const char* IMPORT;

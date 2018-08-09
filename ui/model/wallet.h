@@ -25,7 +25,7 @@ struct IWalletModelAsync
 {
 	using Ptr = std::shared_ptr<IWalletModelAsync>;
 
-    virtual void sendMoney(beam::WalletID receiver, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
+    virtual void sendMoney(beam::WalletID sender, beam::WalletID receiver, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
 	virtual void syncWithNode() = 0;
     virtual void calcChange(beam::Amount&& amount) = 0;
     virtual void getAvaliableUtxos() = 0;
@@ -33,6 +33,7 @@ struct IWalletModelAsync
     virtual void cancelTx(beam::TxID id) = 0;
     virtual void createNewAddress(beam::WalletAddress&& address) = 0;
 	virtual void generateNewWalletID() = 0;
+	virtual void changeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) = 0;
 
 	virtual ~IWalletModelAsync() {}
 };
@@ -59,7 +60,7 @@ class WalletModel
 {
 	Q_OBJECT
 public:
-	WalletModel(beam::IKeyChain::Ptr keychain, uint16_t port, const std::string& nodeAddr);
+	WalletModel(beam::IKeyChain::Ptr keychain, beam::IKeyStore::Ptr keystore, const std::string& nodeAddr);
 	~WalletModel();
 
 	void run() override;
@@ -76,6 +77,7 @@ signals:
     void onUtxoChanged(const std::vector<beam::Coin>& utxos);
 	void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
 	void onGeneratedNewWalletID(const beam::WalletID& walletID);
+	void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
 
 private:
 	void onKeychainChanged() override;
@@ -85,13 +87,14 @@ private:
     void onAddressChanged() override;
 	void onSyncProgress(int done, int total) override;
 
-    void sendMoney(beam::WalletID receiver, beam::Amount&& amount, beam::Amount&& fee) override;
+    void sendMoney(beam::WalletID sender, beam::WalletID receiver, beam::Amount&& amount, beam::Amount&& fee) override;
     void syncWithNode() override;
     void calcChange(beam::Amount&& amount) override;
     void getAvaliableUtxos() override;
     void getAddresses(bool own) override;
     void cancelTx(beam::TxID id) override;
     void createNewAddress(beam::WalletAddress&& address) override;
+	void changeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) override;
 	void generateNewWalletID() override;
 
 	void onStatusChanged();
@@ -103,6 +106,7 @@ private:
 	std::string _nodeAddrString;
 
 	beam::IKeyChain::Ptr _keychain;
+    beam::IKeyStore::Ptr _keystore;
     beam::io::Reactor::Ptr _reactor;
     std::weak_ptr<beam::INetworkIO> _wallet_io;
     std::weak_ptr<beam::Wallet> _wallet;
