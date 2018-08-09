@@ -1275,6 +1275,8 @@ namespace ECC {
 
 	void InnerProduct::BatchContext::Calculate(Point::Native& res)
 	{
+		Mode::Scope scope(Mode::Fast);
+
 		m_Casual = (int)m_vCasual.size();
 		m_pCasual = m_Casual ? &m_vCasual.at(0) : NULL;
 
@@ -1550,7 +1552,7 @@ namespace ECC {
 					Scalar::Native k2;
 					m_Mod.Set(k2, k, iPos, m_j);
 
-					m_pBatchCtx->AddPrepared(iPos + m_j * InnerProduct::nDim, k2);
+					m_pBatchCtx->m_Bufs.m_pKPrep[iPos + m_j * InnerProduct::nDim] += k2;
 				}
 				else
 				{
@@ -1711,7 +1713,12 @@ namespace ECC {
 			aggr.m_pBatchCtx = &bc;
 
 			k = m_pCondensed[j];
-			aggr.Proceed(0, nCycles, -k);
+			k = -k;
+
+			if (bc.m_bEnableBatch)
+				k *= bc.m_Multiplier;
+
+			aggr.Proceed(0, nCycles, k);
 		}
 
 		// subtract the new (mutated) dot product, add the original (claimed)
