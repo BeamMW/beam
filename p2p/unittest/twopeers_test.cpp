@@ -53,16 +53,19 @@ struct MessageHandler : IErrorHandler {
 
     void on_protocol_error(uint64_t fromStream, ProtocolError error) override {
         cout << __FUNCTION__ << "(" << fromStream << "," << error << ")" << endl;
+		Reactor::get_Current().stop();
     }
 
     void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override {
         cout << __FUNCTION__ << "(" << fromStream << "," << errorCode << ")" << endl;
-    }
+		Reactor::get_Current().stop();
+	}
 
     bool on_some_object(uint64_t fromStream, SomeObject&& msg) {
         cout << __FUNCTION__ << "(" << fromStream << "," << msg.i << ")" << endl;
         receivedObj = msg;
-        return true;
+		Reactor::get_Current().stop();
+		return true;
     }
 
     bool on_response(uint64_t fromStream, Response&& msg) {
@@ -100,6 +103,7 @@ struct Server {
 
         try {
             Reactor::Ptr reactor = Reactor::create();
+			Reactor::Scope scope(*reactor);
 
             TcpServer::Ptr server = TcpServer::create(
                 reactor, Address::localhost().port(g_port), BIND_THIS_MEMFN(on_stream_accepted)
@@ -107,16 +111,18 @@ struct Server {
 
             Timer::Ptr timer = Timer::create(reactor);
             timer->start(
-                1000,
+                10000,
                 false,
-                [&reactor] {
-                    reactor->stop();
+                [] {
+                    Reactor::get_Current().stop();
                 }
             );
 
             cout << "starting reactor..." << endl;
             reactor->run();
             cout << "reactor stopped" << endl;
+
+			connection.reset();
         }
         catch (const std::exception& e) {
             cout << e.what();
@@ -149,8 +155,6 @@ struct Client {
 
     vector<SharedBuffer> serializedMsg;
 
-    Reactor::Ptr reactor;
-
     static constexpr uint64_t streamId = 13;
 
     SomeObject msg;
@@ -175,7 +179,8 @@ struct Client {
         cout << "In client thread" << endl;
 
         try {
-            reactor = Reactor::create();
+			Reactor::Ptr reactor = Reactor::create();
+			Reactor::Scope scope(*reactor);
 
             reactor->tcp_connect
                 (Address::localhost().port(g_port),
@@ -185,10 +190,10 @@ struct Client {
 
             Timer::Ptr timer = Timer::create(reactor);
             timer->start(
-                1000,
+                10000,
                 false,
-                [this] {
-                    reactor->stop();
+                [] {
+                    Reactor::get_Current().stop();
                 }
             );
 
