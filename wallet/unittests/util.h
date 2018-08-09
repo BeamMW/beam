@@ -3,7 +3,7 @@
 
 namespace beam {
 
-IKeyChain::Ptr init_keychain(const std::string& path, const ECC::Hash::Value& pubKey, const ECC::Scalar::Native& privKey, ECC::uintBig* walletSeed);
+IKeyChain::Ptr init_keychain(const std::string& path, ECC::uintBig* walletSeed);
 
 bool ReadTreasury(std::vector<Block::Body>& vBlocks, const std::string& sPath);
 

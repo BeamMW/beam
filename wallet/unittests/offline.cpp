@@ -4,6 +4,7 @@
 #include "beam/node.h"
 #include "utility/logger.h"
 #include <future>
+#include <boost/filesystem.hpp>
 
 namespace beam {
 
@@ -14,21 +15,21 @@ struct WaitHandle {
 
 struct WalletParams {
     IKeyChain::Ptr keychain;
+    IKeyStore::Ptr keystore;
     io::Address nodeAddress;
-    util::PubKey pubKey;
-    util::PrivKey privKey;
+    PubKey sendFrom, sendTo;
 };
 
-WaitHandle run_wallet(const WalletParams& params, const util::PubKey& sendTo) {
+WaitHandle run_wallet(const WalletParams& params) {
     WaitHandle ret;
     io::Reactor::Ptr reactor = io::Reactor::create();
 
     ret.future = std::async(
         std::launch::async,
-        [&params, sendTo, reactor]() {
+        [&params, reactor]() {
             io::Reactor::Scope scope(*reactor);
 
-            bool sender = !(sendTo == ECC::Zero);
+            bool sender = !(params.sendTo == ECC::Zero);
 
             if (sender) {
                 TxPeer receiverPeer = {};
@@ -36,15 +37,14 @@ WaitHandle run_wallet(const WalletParams& params, const util::PubKey& sendTo) {
                 params.keychain->addPeer(receiverPeer);
             }
 
-            auto wallet_io = std::make_shared<WalletNetworkIO>(params.nodeAddress, params.keychain, reactor);
-            wallet_io->listen_to_bbs_channel(util::channel_from_wallet_id(params.pubKey));
+            auto wallet_io = std::make_shared<WalletNetworkIO>(params.nodeAddress, params.keychain, params.keystore, reactor);
 
             Wallet wallet{ params.keychain
                  , wallet_io
                  , [wallet_io](auto) { wallet_io->stop(); } };
 
             if (sender) {
-                wallet.transfer_money(sendTo, 1000000, 100000, true);
+                wallet.transfer_money(params.sendFrom, params.sendTo, 1000000, 100000, true);
             }
 
             wallet_io->start();
@@ -79,6 +79,8 @@ WaitHandle run_node(const NodeParams& params) {
             node.m_Cfg.m_VerificationThreads = 1;
             node.m_Cfg.m_WalletKey.V = params.walletSeed;
 
+            node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 500;
+
             LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
 			ReadTreasury(node.m_Cfg.m_vTreasury, "_sender_");
@@ -100,6 +102,12 @@ WaitHandle run_node(const NodeParams& params) {
 int main(int argc, char* argv[]) {
     using namespace beam;
 
+    boost::filesystem::remove_all("_sender");
+    boost::filesystem::remove_all("_sender_");
+    boost::filesystem::remove_all("_sender_ks");
+    boost::filesystem::remove_all("_receiver");
+    boost::filesystem::remove_all("_receiver_ks");
+
     int logLevel = LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
@@ -117,22 +125,33 @@ int main(int argc, char* argv[]) {
         return 255;
     }
 
+    Rules::get().FakePoW = true;
+
+    NodeParams nodeParams;
     WalletParams senderParams, receiverParams;
-    gen_keypair(senderParams.privKey, senderParams.pubKey);
-    gen_keypair(receiverParams.privKey, receiverParams.pubKey);
+
+    nodeParams.nodeAddress = nodeAddress;
     senderParams.nodeAddress = nodeAddress;
     receiverParams.nodeAddress = nodeAddress;
 
-    NodeParams nodeParams;
-    nodeParams.nodeAddress = nodeAddress;
+    senderParams.keychain = init_keychain("_sender", &nodeParams.walletSeed);
+    receiverParams.keychain = init_keychain("_receiver", 0);
 
-    // TODO temporary initialization
-    senderParams.keychain = init_keychain("_sender", senderParams.pubKey, senderParams.privKey, &nodeParams.walletSeed);
-    receiverParams.keychain = init_keychain("_receiver", receiverParams.pubKey, receiverParams.privKey, 0);
+    static const char KS_PASSWORD[] = "carbophos";
+
+    IKeyStore::Options ksOptions;
+    ksOptions.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+    ksOptions.fileName = "_sender_ks";
+    senderParams.keystore = IKeyStore::create(ksOptions, KS_PASSWORD, sizeof(KS_PASSWORD));
+    ksOptions.fileName = "_receiver_ks";
+    receiverParams.keystore = IKeyStore::create(ksOptions, KS_PASSWORD, sizeof(KS_PASSWORD));
+
+    senderParams.keystore->gen_keypair(senderParams.sendFrom, KS_PASSWORD, sizeof(KS_PASSWORD), true);
+    receiverParams.keystore->gen_keypair(senderParams.sendTo, KS_PASSWORD, sizeof(KS_PASSWORD), true);
 
     WaitHandle nodeWH = run_node(nodeParams);
-    WaitHandle senderWH = run_wallet(senderParams, receiverParams.pubKey);
-    WaitHandle receiverWH = run_wallet(receiverParams, PubKey());
+    WaitHandle senderWH = run_wallet(senderParams);
+    WaitHandle receiverWH = run_wallet(receiverParams);
 
     senderWH.future.get();
     receiverWH.future.get();

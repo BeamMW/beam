@@ -204,7 +204,7 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 }
 
 
-IKeyChain::Ptr init_keychain(const std::string& path, const ECC::Hash::Value& pubKey, const ECC::Scalar::Native& privKey, uintBig* walletSeed) {
+IKeyChain::Ptr init_keychain(const std::string& path, uintBig* walletSeed) {
     static const std::string TEST_PASSWORD("12321");
 
     if (boost::filesystem::exists(path)) boost::filesystem::remove_all(path);
