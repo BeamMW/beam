@@ -1247,6 +1247,89 @@ namespace ECC {
 
 	/////////////////////
 	// InnerProduct
+	InnerProduct::BatchContext::BatchContext()
+		:m_bEnableBatch(false)
+	{
+		m_ppPrepared = m_Bufs.m_ppPrepared;
+		m_pKPrep = m_Bufs.m_pKPrep;
+
+		for (uint32_t j = 0; j < 2; j++)
+			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+				m_ppPrepared[i + j * InnerProduct::nDim] = &Context::get().m_Ipp.m_pGen_[j][i];
+
+		m_ppPrepared[s_Idx_GenDot] = &Context::get().m_Ipp.m_GenDot_;
+		m_ppPrepared[s_Idx_Aux2] = &Context::get().m_Ipp.m_Aux2_;
+		m_ppPrepared[s_Idx_G] = &Context::get().m_Ipp.G_;
+		m_ppPrepared[s_Idx_H] = &Context::get().m_Ipp.H_;
+
+		m_Prepared = s_CountPrepared;
+		Reset();
+	}
+
+	void InnerProduct::BatchContext::Reset()
+	{
+		m_vCasual.clear();
+		ZeroObject(m_Bufs.m_pKPrep);
+	}
+
+	void InnerProduct::BatchContext::Calculate(Point::Native& res)
+	{
+		m_Casual = (int)m_vCasual.size();
+		m_pCasual = m_Casual ? &m_vCasual.at(0) : NULL;
+
+		MultiMac::Calculate(res);
+	}
+
+	bool InnerProduct::BatchContext::AddCasual(const Point& p, const Scalar::Native& k)
+	{
+		Point::Native pt;
+		if (!pt.Import(p))
+			return false;
+
+		AddCasual(pt, k);
+		return true;
+	}
+
+	void InnerProduct::BatchContext::AddCasual(const Point::Native& pt, const Scalar::Native& k)
+	{
+		m_vCasual.resize(m_vCasual.size() + 1);
+		Casual& c = m_vCasual.back();
+
+		c.Init(pt, k);
+		if (m_bEnableBatch)
+			c.m_K *= m_Multiplier;
+	}
+
+	void InnerProduct::BatchContext::AddPrepared(uint32_t i, const Scalar::Native& k)
+	{
+		assert(i < s_CountPrepared);
+		Scalar::Native& trg = m_Bufs.m_pKPrep[i];
+
+		trg += m_bEnableBatch ? (k * m_Multiplier) : k;
+	}
+
+	bool InnerProduct::BatchContext::Flush()
+	{
+		Point::Native pt;
+		Calculate(pt);
+		if (!(pt == Zero))
+			return false;
+
+		Reset();
+		return true;
+	}
+
+	bool InnerProduct::BatchContext::NextEquation()
+	{
+		if (!m_bEnableBatch)
+			return Flush();
+
+		Hash::Value hv;
+		Hash::Processor() << m_Multiplier >> hv;
+		m_Multiplier.GenerateNonce(hv, hv, NULL);
+	}
+
+
 	struct InnerProduct::Calculator
 	{
 		struct ChallengeSet {
@@ -1290,6 +1373,7 @@ namespace ECC {
 			const ChallengeSet& m_cs;
 			const ModifierExpanded& m_Mod;
 			const Calculator* m_pCalc; // set if source are already condensed points
+			InnerProduct::BatchContext* m_pBatchCtx;
 			const int m_j;
 			const unsigned int m_iCycleTrg;
 
@@ -1300,6 +1384,7 @@ namespace ECC {
 				,m_pCalc(NULL)
 				,m_j(j)
 				,m_iCycleTrg(iCycleTrg)
+				, m_pBatchCtx(NULL)
 			{
 			}
 
@@ -1443,8 +1528,18 @@ namespace ECC {
 			{
 				assert(iPos < nDim);
 
-				m_Mod.Set(m_Mm.m_pKPrep[m_Mm.m_Prepared], k, iPos, m_j);
-				m_Mm.m_ppPrepared[m_Mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[m_j][iPos];
+				if (m_pBatchCtx)
+				{
+					Scalar::Native k2;
+					m_Mod.Set(k2, k, iPos, m_j);
+
+					m_pBatchCtx->AddPrepared(iPos + m_j * InnerProduct::nDim, k2);
+				}
+				else
+				{
+					m_Mod.Set(m_Mm.m_pKPrep[m_Mm.m_Prepared], k, iPos, m_j);
+					m_Mm.m_ppPrepared[m_Mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[m_j][iPos];
+				}
 			}
 		}
 	}
@@ -1467,6 +1562,18 @@ namespace ECC {
 
 	void InnerProduct::Create(Point::Native& commAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
 	{
+		BatchContext bc;
+		Oracle oracle;
+		Create(bc, oracle, &commAB, dotAB, pA, pB, mod);
+	}
+
+	void InnerProduct::Create(BatchContext& bc, Oracle& oracle, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
+	{
+		Create(bc, oracle, NULL, dotAB, pA, pB, mod);
+	}
+
+	void InnerProduct::Create(BatchContext& bc, Oracle& oracle, Point::Native* pAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& mod)
+	{
 		Mode::Scope scope(Mode::Fast);
 
 		Calculator c;
@@ -1475,18 +1582,23 @@ namespace ECC {
 		c.m_ppSrc[0] = pA;
 		c.m_ppSrc[1] = pB;
 
-		for (int j = 0; j < 2; j++)
-			for (uint32_t i = 0; i < nDim; i++, c.m_Mm.m_Prepared++)
-			{
-				c.m_Mm.m_ppPrepared[c.m_Mm.m_Prepared] = &Context::get().m_Ipp.m_pGen_[j][i];
-				c.m_Mod.Set(c.m_Mm.m_pKPrep[c.m_Mm.m_Prepared], c.m_ppSrc[j][i], i, j);
-			}
+		if (pAB)
+		{
+			for (int j = 0; j < 2; j++)
+				for (uint32_t i = 0; i < nDim; i++, c.m_Mm.m_Prepared++)
+				{
+					c.m_Mm.m_ppPrepared[c.m_Mm.m_Prepared] = &Context::get().m_Ipp.m_pGen_[j][i];
+					c.m_Mod.Set(c.m_Mm.m_pKPrep[c.m_Mm.m_Prepared], c.m_ppSrc[j][i], i, j);
+				}
+
+			c.m_Mm.Calculate(*pAB);
+
+			oracle << *pAB;
+		}
+
+		oracle << dotAB >> c.m_Cs.m_DotMultiplier;
 
 		Point::Native comm;
-		c.m_Mm.Calculate(commAB);
-
-		Oracle oracle;
-		oracle << commAB << dotAB >> c.m_Cs.m_DotMultiplier;
 
 		for (c.m_iCycle = 0; c.m_iCycle < nCycles; c.m_iCycle++)
 		{
@@ -1516,23 +1628,35 @@ namespace ECC {
 
 	bool InnerProduct::IsValid(const Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& mod) const
 	{
+		Oracle oracle;
+		oracle << commAB;
+
 		Mode::Scope scope(Mode::Fast);
 
-		Oracle oracle;
-		Calculator::ChallengeSet cs;
+		BatchContext bc;
 
-		oracle << commAB << dotAB >> cs.m_DotMultiplier;
+		bc.AddCasual(commAB, 1U);
+
+		return IsValid(bc, oracle, dotAB, mod);
+	}
+
+	bool InnerProduct::IsValid(BatchContext& bc, Oracle& oracle, const Scalar::Native& dotAB, const Modifier& mod) const
+	{
+		Mode::Scope scope(Mode::Fast);
+
+		Calculator::ChallengeSet cs;
+		oracle << dotAB >> cs.m_DotMultiplier;
 
 		// Calculate the aggregated sum, consisting of sum of multiplications at once.
 		// The expression we're calculating is:
 		//
-		// - sum( LR[iCycle][0] * k[iCycle]^2 + LR[iCycle][0] * k[iCycle]^-2 )
+		// sum( LR[iCycle][0] * k[iCycle]^2 + LR[iCycle][0] * k[iCycle]^-2 )
 
 		Calculator::ModifierExpanded modExp;
 		modExp.Init(mod);
 
-		MultiMac_WithBufs<nCycles * 2, nDim * 2 + 1> mm;
 		Point::Native p;
+		Scalar::Native k;
 
 		uint32_t n = nDim;
 		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
@@ -1542,49 +1666,45 @@ namespace ECC {
 			const Point* pLR = m_pLR[iCycle];
 			for (int j = 0; j < 2; j++)
 			{
-				MultiMac::Casual& x = mm.m_pCasual[mm.m_Casual++];
-				if (!p.Import(pLR[j]))
+				k = cs.m_Val[iCycle][j];
+				k *= k;
+				k = k;
+
+				if (!bc.AddCasual(pLR[j], k))
 					return false;
-				x.Init(p);
 
-				x.m_K = cs.m_Val[iCycle][j];
-				x.m_K *= x.m_K;
-				x.m_K = -x.m_K;
+				oracle << pLR[j];
 			}
-
-			oracle << pLR[0] << pLR[1];
 		}
 
 		assert(1 == n);
 
 		// The expression we're calculating is: the transformed generator
 		//
-		// sum( G_Condensed[j] * pCondensed[j] )
+		// -sum( G_Condensed[j] * pCondensed[j] )
 		// whereas G_Condensed[j] = Gen[j] * sum (k[iCycle]^(+/-)2 ), i.e. transformed (condensed) generators
 
 		for (int j = 0; j < 2; j++)
 		{
-			Calculator::Aggregator aggr(mm, cs, modExp, j, 0);
-			aggr.Proceed(0, nCycles, m_pCondensed[j]);
+			MultiMac mmDummy;
+			Calculator::Aggregator aggr(mmDummy, cs, modExp, j, 0);
+			aggr.m_pBatchCtx = &bc;
+
+			k = m_pCondensed[j];
+			aggr.Proceed(0, nCycles, -k);
 		}
 
-		// add the new (mutated) dot product, substract the original (claimed)
-		mm.m_pKPrep[mm.m_Prepared] = m_pCondensed[0];
-		mm.m_pKPrep[mm.m_Prepared] *= m_pCondensed[1];
-		mm.m_pKPrep[mm.m_Prepared] += -dotAB;
-		mm.m_pKPrep[mm.m_Prepared] *= cs.m_DotMultiplier;
+		// subtract the new (mutated) dot product, add the original (claimed)
+		k = m_pCondensed[0];
+		k *= m_pCondensed[1];
+		k = -k;
+		k += dotAB;
+		k *= cs.m_DotMultiplier;
 
-		mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_GenDot_;
+		bc.AddPrepared(BatchContext::s_Idx_GenDot, k);
 
-		// Calculate all at-once
-		Point::Native res;
-		mm.Calculate(res);
-
-		// verify. Should be equal to AB
-		res = -res;
-		res += commAB;
-
-		return res == Zero;
+		// voila!
+		return bc.NextEquation();
 	}
 
 	struct NonceGenerator

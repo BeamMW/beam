@@ -420,8 +420,14 @@ namespace ECC
 		void Create(Point::Native& commAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
 		bool IsValid(const Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
 
+		struct BatchContext;
+		void Create(BatchContext&, Oracle&, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
+		bool IsValid(BatchContext&, Oracle&, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
+
 	private:
 		struct Calculator;
+
+		void Create(BatchContext&, Oracle&, Point::Native* pAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier&);
 	};
 
 	namespace RangeProof
@@ -456,6 +462,7 @@ namespace ECC
 
 			void Create(const Scalar::Native& sk, Amount, Oracle&);
 			bool IsValid(const Point::Native&, Oracle&) const;
+			bool IsValid(const Point::Native&, Oracle&, InnerProduct::BatchContext&) const;
 
 			int cmp(const Confidential&) const;
 			COMPARISON_VIA_CMP(Confidential)

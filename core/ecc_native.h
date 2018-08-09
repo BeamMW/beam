@@ -15,6 +15,7 @@
 #pragma once
 #include "ecc.h"
 #include <assert.h>
+#include <vector>
 
 #define USE_BASIC_CONFIG
 
@@ -420,6 +421,40 @@ namespace ECC
 
 	private:
 		Context() {}
+	};
+
+	struct InnerProduct::BatchContext
+		:public MultiMac
+	{
+		//static const uint32_t s_CasualCountPerProof = nCycles * 2 + 4; // L[], R[], A, S, T1, T2
+
+		static const uint32_t s_CountPrepared = InnerProduct::nDim * 2 + 4; // [2][InnerProduct::nDim], m_GenDot_, m_Aux2_, G_, H_
+
+		static const uint32_t s_Idx_GenDot	= InnerProduct::nDim * 2;
+		static const uint32_t s_Idx_Aux2	= InnerProduct::nDim * 2 + 1;
+		static const uint32_t s_Idx_G		= InnerProduct::nDim * 2 + 2;
+		static const uint32_t s_Idx_H		= InnerProduct::nDim * 2 + 3;
+
+		struct Bufs {
+			const Prepared* m_ppPrepared[s_CountPrepared];
+			Scalar::Native m_pKPrep[s_CountPrepared];
+		} m_Bufs;
+
+		std::vector<MultiMac::Casual> m_vCasual;
+
+		BatchContext();
+
+		void Reset();
+		void Calculate(Point::Native& res);
+
+		bool m_bEnableBatch;
+		Scalar::Native m_Multiplier; // must be initialized in a non-trivial way
+
+		bool AddCasual(const Point& p, const Scalar::Native& k);
+		void AddCasual(const Point::Native& pt, const Scalar::Native& k);
+		void AddPrepared(uint32_t i, const Scalar::Native& k);
+		bool Flush();
+		bool NextEquation();
 	};
 
 	class Commitment
