@@ -79,10 +79,10 @@ std::string to_hex(const void* bytes, size_t size) {
     return std::string(to_hex(buf, bytes, size));
 }
 
-vector<uint8_t> from_hex(const std::string& str)
+std::vector<uint8_t> from_hex(const std::string& str)
 {
     assert(str.size() % 2 == 0);
-    vector<uint8_t> res(str.size() >> 1);
+    std::vector<uint8_t> res(str.size() >> 1);
     uint8_t b = 0;
     for (size_t i = 0; i < str.size(); ++i)
     {
