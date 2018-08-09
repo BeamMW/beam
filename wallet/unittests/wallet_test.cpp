@@ -598,7 +598,7 @@ private:
 			Send(proto::ProofUtxo());
 		}
 
-		void OnMsg(proto::Config&& /*data*/)
+		void OnMsg(proto::Config&& /*data*/) override
 		{
 			proto::Hdr msg = {};
 
@@ -606,12 +606,12 @@ private:
 			Send(move(msg));
 		}
 
-		void OnMsg(proto::GetMined&&)
+		void OnMsg(proto::GetMined&&) override
 		{
 			Send(proto::Mined{});
 		}
 
-		void OnMsg(proto::GetProofState&&)
+		void OnMsg(proto::GetProofState&&) override
 		{
 			Send(proto::ProofStateForDummies{});
 		}
@@ -624,6 +624,9 @@ private:
 			case DisconnectReason::ProcessingExc:
 				LOG_ERROR() << "Disconnect: " << r;
 				g_failureCount++;
+
+			default: // suppress warning
+				break;
 			}
 		}
 	};
