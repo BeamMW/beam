@@ -145,8 +145,8 @@ int main (int argc, char* argv[])
 			auto walletStorage = appDataDir.filePath("wallet.db").toStdString();
             auto bbsStorage = appDataDir.filePath("keys.bbs").toStdString();
 
-			QQuickView startView;
-			startView.setResizeMode(QQuickView::SizeRootObjectToView);
+			QQuickView view;
+			view.setResizeMode(QQuickView::SizeRootObjectToView);
 
 			IKeyStore::Ptr keystore;
 
@@ -170,9 +170,6 @@ int main (int argc, char* argv[])
 			std::unique_ptr<ViewModel> viewModels;
 
 			Translator translator;
-
-			QQuickView view;
-			view.setResizeMode(QQuickView::SizeRootObjectToView);
 
 			StartViewModel startViewModel(walletStorage, [&](IKeyChain::Ptr db, const std::string& walletPass)
 			{
@@ -224,18 +221,15 @@ int main (int argc, char* argv[])
 					ctxt->setContextProperty("addressBookViewModel", &viewModels->addressBook);
 					ctxt->setContextProperty("translator", &translator);
 
-					view.setSource(QUrl("qrc:///main.qml"));
-
-					// TODO: temporary solution, we must use the same view 
-					startView.hide();
-					view.show();
+					view.rootObject()->setProperty("source", "qrc:///main.qml");
 				}
 			});
 
-			startView.rootContext()->setContextProperty("startViewModel", &startViewModel);
+			view.rootContext()->setContextProperty("startViewModel", &startViewModel);
 
-			startView.setSource(QUrl("qrc:///start.qml"));
-			startView.show();
+			view.setSource(QUrl("qrc:///root.qml"));
+
+			view.show();
 
 			return app.exec();
 		}
