@@ -29,7 +29,7 @@ bool StartViewModel::walletExists() const
 	return Keychain::isInitialized(_walletStorage);
 }
 
-void StartViewModel::createWallet(const QString& seed, const QString& pass)
+bool StartViewModel::createWallet(const QString& seed, const QString& pass)
 {
 	NoLeak<uintBig> walletSeed;
 	walletSeed.V = Zero;
@@ -45,8 +45,16 @@ void StartViewModel::createWallet(const QString& seed, const QString& pass)
 	{
 		_done(db, pass.toStdString());
 	}
-	else
+	else return false;
+}
+
+bool StartViewModel::openWallet(const QString& pass)
+{
+	auto db = Keychain::open(_walletStorage, pass.toStdString());
+
+	if (db)
 	{
-		// TODO: error, something went worng, wallet not created :(
+		_done(db, pass.toStdString());
 	}
+	else return false;
 }

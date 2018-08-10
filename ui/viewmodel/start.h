@@ -36,7 +36,8 @@ signals:
 	void walletExistsChanged();
 
 public slots:
-	void createWallet(const QString& seed, const QString& pass);
+	bool createWallet(const QString& seed, const QString& pass);
+	bool openWallet(const QString& pass);
 
 private:
 	std::string _walletStorage;

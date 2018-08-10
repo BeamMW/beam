@@ -110,7 +110,7 @@ Item
             }
 
             SFTextInput {
-
+                id: openPassword
                 width: parent.width
 
                 font.pixelSize: 12
@@ -124,6 +124,12 @@ Item
 
                 color: Style.white
                 opacity: 0.1
+            }
+
+            SFText {
+                id: openPasswordError
+                color: "#ff625c"
+                font.pixelSize: 10
             }
         }
 
@@ -145,7 +151,19 @@ Item
             PrimaryButton {
                 label: "proceed to current wallet"
 
-                onClicked: root.state = "start"
+                onClicked: {
+                    if(openPassword.text.length == 0)
+                    {
+                        openPasswordError.text = "Please, enter password";
+                    }
+                    else
+                    {
+                        if(!startViewModel.openWallet(openPassword.text))
+                        {
+                            openPasswordError.text = "Invalid password or wallet data unreadable.\nRestore wallet.db from latest backup or delete it and reinitialize the wallet.";
+                        }
+                    }
+                }
             }
         }
     }
@@ -351,9 +369,10 @@ Item
                         }
                         else
                         {
-                            passwordError.text = "";
-
-                            startViewModel.createWallet(seed.text, password.text);
+                            if(!startViewModel.createWallet(seed.text, password.text))
+                            {
+                                passwordError.text = "Error, something went worng, wallet not created :(";
+                            }
                         }
                     }
                 }
