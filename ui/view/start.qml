@@ -31,7 +31,7 @@ Item
             anchors.top: parent.top
             source: "qrc:///assets/logo.png"
             width: 242
-            height: 208                
+            height: 208
         }
 
         Row {
@@ -52,7 +52,7 @@ Item
             PrimaryButton {
                 label: "create new wallet"
 
-                onClicked: root.state = "open"
+                onClicked: root.state = "create"
             }
         }
     }
@@ -205,6 +205,8 @@ Item
 
                 SFTextInput {
 
+                    id:seed
+
                     width: parent.width
 
                     font.pixelSize: 12
@@ -233,6 +235,8 @@ Item
                 }
 
                 SFTextInput {
+
+                    id:password
 
                     width: parent.width
 
@@ -298,7 +302,7 @@ Item
                 }
 
                 SFTextInput {
-
+                    id: confirmPassword
                     width: parent.width
 
                     font.pixelSize: 12
@@ -315,7 +319,7 @@ Item
                 }
 
                 SFText {
-                    text: "Passwords do not match"
+                    id: passwordError
                     color: "#ff625c"
                     font.pixelSize: 10
                 }
@@ -329,9 +333,41 @@ Item
             anchors.top: parent.top
             anchors.topMargin: 599
 
-            onClicked: root.state = "start"
+            onClicked: {
+                if(seed.text.length == 0)
+                {
+                    passwordError.text = "Please, enter miner secret";
+                }
+                else
+                {
+                    if(password.text.length == 0)
+                    {
+                        passwordError.text = "Please, enter password";
+                    }
+                    else
+                    {
+                        if(password.text != confirmPassword.text)
+                        {
+                            passwordError.text = "Passwords do not match";
+                        }
+                        else
+                        {
+                            passwordError.text = "";
+
+                            if(viewModel.createWallet(seed, password))
+                            {
+                                console.log("wallet created")
+                            } 
+                        }
+                    }
+                }
+            }
         }
 
+    }
+
+    Component.onCompleted:{
+        root.state = viewModel.walletExists ? "open" : "start"
     }
 
     states: [

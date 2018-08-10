@@ -19,6 +19,7 @@
 #include <QMessageBox>
 
 #include <qqmlcontext.h>
+#include "viewmodel/start.h"
 #include "viewmodel/main.h"
 #include "viewmodel/dashboard.h"
 #include "viewmodel/address_book.h"
@@ -136,6 +137,11 @@ int main (int argc, char* argv[])
 
 			QQuickView view;
 			view.setResizeMode(QQuickView::SizeRootObjectToView);
+
+			StartViewModel startViewModel(walletStorage);
+
+			QQmlContext *ctxt = view.rootContext();
+			ctxt->setContextProperty("viewModel", &startViewModel);
 
 			view.setSource(QUrl("qrc:///start.qml"));
 			view.show();
