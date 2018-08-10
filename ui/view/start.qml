@@ -29,7 +29,9 @@ Item
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.topMargin: 180
             anchors.top: parent.top
-            source: "qrc:///assets/logo.png"        
+            source: "qrc:///assets/logo.png"
+            width: 242
+            height: 208                
         }
 
         Row {
@@ -75,7 +77,9 @@ Item
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.topMargin: 100
             anchors.top: parent.top
-            source: "qrc:///assets/logo.png"        
+            source: "qrc:///assets/logo.png"
+            width: 242
+            height: 208
         }
 
         SFText {
