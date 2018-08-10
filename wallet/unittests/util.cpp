@@ -209,19 +209,22 @@ IKeyChain::Ptr init_keychain(const std::string& path, uintBig* walletSeed) {
 
     if (boost::filesystem::exists(path)) boost::filesystem::remove_all(path);
 
+    std::string password(TEST_PASSWORD);
+    password += path;
+
     NoLeak<uintBig> seed;
     Hash::Value hv;
-    Hash::Processor() << TEST_PASSWORD.c_str() >> hv;
+    Hash::Processor() << password.c_str() >> hv;
     seed.V = hv;
 
-    auto keychain = Keychain::init(path, TEST_PASSWORD, seed);
+    auto keychain = Keychain::init(path, password, seed);
 
     if (walletSeed) {
         TreasuryBlockGenerator tbg;
         tbg.m_sPath = path + "_";
         tbg.m_pKeyChain = keychain.get();
 		Height dh = 1;
-		uint32_t nCount = 100;
+		uint32_t nCount = 10;
         tbg.Generate(nCount, dh);
         *walletSeed = seed.V;
     }

@@ -8,6 +8,28 @@
 
 namespace beam {
 
+struct KeyChainObserver : IKeyChainObserver {
+    void onKeychainChanged() {
+        LOG_INFO() << _who << " " << __FUNCTION__;
+    }
+    void onTransactionChanged()  {
+        LOG_INFO() << _who << " QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ " << __FUNCTION__;
+    }
+    void onSystemStateChanged()  {
+        LOG_INFO() << _who << " " << __FUNCTION__;
+    }
+    void onTxPeerChanged()  {
+        LOG_INFO() << _who << " " << __FUNCTION__;
+    }
+    void onAddressChanged()  {
+        LOG_INFO() << _who << " " << __FUNCTION__;
+    }
+
+    KeyChainObserver(std::string who) : _who(std::move(who)) {}
+
+    std::string _who;
+};
+
 struct WaitHandle {
     io::Reactor::Ptr reactor;
     std::future<void> future;
@@ -79,7 +101,7 @@ WaitHandle run_node(const NodeParams& params) {
             node.m_Cfg.m_VerificationThreads = 1;
             node.m_Cfg.m_WalletKey.V = params.walletSeed;
 
-            node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 500;
+            node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 10000;
 
             LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
@@ -113,6 +135,13 @@ int main(int argc, char* argv[]) {
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
+    logger->set_header_formatter(
+        [](char* buf, size_t maxSize, const char* timestampFormatted, const LogMessageHeader& header) -> size_t {
+            if (header.line)
+                return snprintf(buf, maxSize, "%c %s (%s, %d) ", loglevel_tag(header.level), timestampFormatted, header.func, (int)get_thread_id());
+            return snprintf(buf, maxSize, "%c %s (%d) ", loglevel_tag(header.level), timestampFormatted, (int)get_thread_id());
+        }
+    );
 	ECC::InitializeContext();
 
     io::Address nodeAddress;
@@ -148,6 +177,11 @@ int main(int argc, char* argv[]) {
 
     senderParams.keystore->gen_keypair(senderParams.sendFrom, KS_PASSWORD, sizeof(KS_PASSWORD), true);
     receiverParams.keystore->gen_keypair(senderParams.sendTo, KS_PASSWORD, sizeof(KS_PASSWORD), true);
+
+    KeyChainObserver senderObserver("AAAAAAAAAAAAAAAAAAAAAAA"), receiverObserver("BBBBBBBBBBBBBBBBBBBBBB");
+
+    senderParams.keychain->subscribe(&senderObserver);
+    receiverParams.keychain->subscribe(&receiverObserver);
 
     WaitHandle nodeWH = run_node(nodeParams);
     WaitHandle senderWH = run_wallet(senderParams);

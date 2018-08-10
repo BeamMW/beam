@@ -29,7 +29,7 @@ namespace beam {
                                    , io::Reactor::Ptr reactor
                                    , unsigned reconnect_ms
                                    , unsigned sync_period_ms)
-                                   
+
         : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, 150, *this, 20000 }
         , m_msgReader{ m_protocol, 1, 20000 }
         , m_node_address{node_address}
@@ -345,7 +345,7 @@ namespace beam {
 
     void WalletNetworkIO::WalletNodeConnection::OnDisconnect(const DisconnectReason& r)
     {
-        LOG_INFO() << "Could not connect to node, retrying...";
+        LOG_INFO() << "Could not connect to node, " << r << ", retrying...";
         LOG_VERBOSE() << "Wallet failed to connect to node, error: " << r;
         m_wallet.abort_sync();
         m_timer->start(m_reconnectMsec, false, [this]() {Connect(m_address); });
