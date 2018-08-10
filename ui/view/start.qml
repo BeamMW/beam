@@ -50,7 +50,99 @@ Item
             PrimaryButton {
                 label: "create new wallet"
 
-                onClicked: root.state = "create"
+                onClicked: root.state = "open"
+            }
+        }
+    }
+
+    Rectangle 
+    {
+        id: open
+
+        visible: false
+
+        anchors.fill: parent
+
+        color: Style.marine
+
+        Image {
+            fillMode: Image.PreserveAspectCrop
+            anchors.fill: parent
+            source: "qrc:///assets/bg.png"
+        }
+
+        Image {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.topMargin: 100
+            anchors.top: parent.top
+            source: "qrc:///assets/logo.png"        
+        }
+
+        SFText {
+            text: "Enter your password to access the current wallet"
+            color: Style.white
+            font.pixelSize: 12
+
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            anchors.topMargin: 408
+        }
+
+        Column {
+            width: 400
+
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            anchors.topMargin: 476
+
+            clip: true
+
+            spacing: 10
+
+            SFText {
+                text: "Enter password"
+                color: Style.white
+                font.pixelSize: 12
+                font.weight: Font.Bold
+            }
+
+            SFTextInput {
+
+                width: parent.width
+
+                font.pixelSize: 12
+                color: Style.white
+                echoMode: TextInput.Password
+            }
+
+            Rectangle {
+                width: parent.width
+                height: 1
+
+                color: Style.white
+                opacity: 0.1
+            }
+        }
+
+        Row {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.topMargin: 587
+            anchors.top: parent.top
+
+            spacing: 30
+
+            DefaultButton {
+                label: "restore wallet from file"
+            }
+
+            DefaultButton {
+                label: "restore wallet from blockchain"
+            }
+
+            PrimaryButton {
+                label: "proceed to current wallet"
+
+                onClicked: root.state = "start"
             }
         }
     }
@@ -227,7 +319,7 @@ Item
         }
 
         PrimaryButton {
-            label: "Proceed to your wallet"
+            label: "proceed to your wallet"
 
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
@@ -247,6 +339,12 @@ Item
             name: "create"
             PropertyChanges {target: start; visible: false}
             PropertyChanges {target: create; visible: true}
+        },
+
+        State {
+            name: "open"
+            PropertyChanges {target: start; visible: false}
+            PropertyChanges {target: open; visible: true}
         }
     ]
 }
