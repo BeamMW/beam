@@ -354,10 +354,7 @@ Item
                         {
                             passwordError.text = "";
 
-                            if(viewModel.createWallet(seed, password))
-                            {
-                                console.log("wallet created")
-                            } 
+                            startViewModel.createWallet(seed.text, password.text);
                         }
                     }
                 }
@@ -367,7 +364,7 @@ Item
     }
 
     Component.onCompleted:{
-        root.state = viewModel.walletExists ? "open" : "start"
+        root.state = startViewModel.walletExists ? "open" : "start"
     }
 
     states: [

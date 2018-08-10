@@ -13,13 +13,13 @@
 // limitations under the License.
 
 #include "start.h"
-#include "wallet/wallet_db.h"
 
 using namespace beam;
 using namespace ECC;
 
-StartViewModel::StartViewModel(const std::string& walletStorage)
+StartViewModel::StartViewModel(const std::string& walletStorage, StartViewModel::Done done)
 	: _walletStorage(walletStorage)
+	, _done(done)
 {
 
 }
@@ -29,7 +29,7 @@ bool StartViewModel::walletExists() const
 	return Keychain::isInitialized(_walletStorage);
 }
 
-bool StartViewModel::createWallet(const QString& seed, const QString& pass)
+void StartViewModel::createWallet(const QString& seed, const QString& pass)
 {
 	NoLeak<uintBig> walletSeed;
 	walletSeed.V = Zero;
@@ -41,5 +41,12 @@ bool StartViewModel::createWallet(const QString& seed, const QString& pass)
 
 	auto db = Keychain::init(_walletStorage, pass.toStdString(), walletSeed);
 
-	return db ? true : false;
+	if (db)
+	{
+		_done(db, pass.toStdString());
+	}
+	else
+	{
+		// TODO: error, something went worng, wallet not created :(
+	}
 }

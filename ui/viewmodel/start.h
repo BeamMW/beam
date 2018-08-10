@@ -15,6 +15,9 @@
 #pragma once
 
 #include <QObject>
+#include <functional>
+
+#include "wallet/wallet_db.h"
 
 class StartViewModel : public QObject
 {
@@ -23,7 +26,9 @@ class StartViewModel : public QObject
 	Q_PROPERTY(bool walletExists READ walletExists NOTIFY walletExistsChanged)
 public:
 
-	StartViewModel(const std::string& walletStorage);
+	using Done = std::function<void(beam::IKeyChain::Ptr db, const std::string& walletPass)>;
+
+	StartViewModel(const std::string& walletStorage, Done done);
 
 	bool walletExists() const;
 
@@ -31,8 +36,9 @@ signals:
 	void walletExistsChanged();
 
 public slots:
-	bool createWallet(const QString& seed, const QString& pass);
+	void createWallet(const QString& seed, const QString& pass);
 
 private:
 	std::string _walletStorage;
+	Done _done;
 };
