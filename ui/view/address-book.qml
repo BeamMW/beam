@@ -1,6 +1,6 @@
 import QtQuick 2.3
 import QtQuick.Controls 1.2
-import QtQuick.Controls 2.2
+import QtQuick.Controls 2.3
 import QtQuick.Layouts 1.0
 import QtQuick.Controls.Styles 1.2
 import "controls"
@@ -543,12 +543,31 @@ ColumnLayout {
             ContextMenu {
                 id: peersContextMenu
                 property int peerIndex;
-                MenuItem {
-                    text: qsTr('Send to...')
+
+                Action {
+                    text: qsTr("send money")
                     onTriggered: {
                         addressBookViewModel.changeCurrentPeerAddress(peersContextMenu.peerIndex);
 						main.openSendDialog();
                     }
+					icon.source: "qrc:///assets/icon-send-grey.svg"
+                }
+
+				Action {
+                    text: qsTr("request money")
+					icon.source: "qrc:///assets/icon-recive-grey.svg"
+                }
+				Action {
+                    text: qsTr("transactions list")
+					icon.source: "qrc:///assets/icon-transaction-list.svg"
+                }
+				Action {
+                    text: qsTr("edit address")
+					icon.source: "qrc:///assets/icon-edit.svg"
+                }
+				Action {
+                    text: qsTr("delete address")
+					icon.source: "qrc:///assets/icon-cancel.svg"
                 }
             }
 

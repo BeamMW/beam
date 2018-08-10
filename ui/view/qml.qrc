@@ -1,7 +1,7 @@
 <RCC>
     <qresource prefix="/">
         <file>controls/Style.qml</file>
-        <file>controls/qmldir</file>      
+        <file>controls/qmldir</file>
         <file>controls/SvgImage.qml</file>
         <file>controls/SFText.qml</file>
         <file>controls/SFTextInput.qml</file>
@@ -12,7 +12,6 @@
         <file>controls/CuteButton.qml</file>
         <file>controls/TableItem.qml</file>
         <file>controls/ContextMenu.qml</file>
-
         <file>main.qml</file>
         <file>dashboard.qml</file>
         <file>wallet.qml</file>
@@ -20,33 +19,16 @@
         <file>info.qml</file>
         <file>settings.qml</file>
         <file>address-book.qml</file>
-      
         <file>assets/fonts/SF-Pro-Display-Thin.otf</file>
         <file>assets/fonts/SF-Pro-Display-Bold.otf</file>
         <file>assets/fonts/SF-Pro-Display-Regular.otf</file>
-<!--         <file>assets/fonts/SF-Pro-Display-Black.otf</file>
-        <file>assets/fonts/SF-Pro-Display-MediumItalic.otf</file>
-        <file>assets/fonts/SF-Pro-Display-BlackItalic.otf</file>
-        <file>assets/fonts/SF-Pro-Display-RegularItalic.otf</file>
-        <file>assets/fonts/SF-Pro-Display-BoldItalic.otf</file>
-        <file>assets/fonts/SF-Pro-Display-Semibold.otf</file>
-        <file>assets/fonts/SF-Pro-Display-Heavy.otf</file>
-        <file>assets/fonts/SF-Pro-Display-SemiboldItalic.otf</file>
-        <file>assets/fonts/SF-Pro-Display-HeavyItalic.otf</file>
-        <file>assets/fonts/SF-Pro-Display-Light.otf</file>
-        <file>assets/fonts/SF-Pro-Display-ThinItalic.otf</file>
-        <file>assets/fonts/SF-Pro-Display-LightItalic.otf</file>
-        <file>assets/fonts/SF-Pro-Display-Ultralight.otf</file>
-        <file>assets/fonts/SF-Pro-Display-Medium.otf</file>
-        <file>assets/fonts/SF-Pro-Display-UltralightItalic.otf</file>
- -->
         <file>assets/logo.png</file>
         <file>assets/icon-dashboard.svg</file>
         <file>assets/icon-dashboard-active.svg</file>
         <file>assets/icon-address-book.svg</file>
         <file>assets/icon-address-book-active.svg</file>
         <file>assets/icon-wallet.svg</file>
-        <file>assets/icon-wallet-active.svg</file>     
+        <file>assets/icon-wallet-active.svg</file>
         <file>assets/icon-notification.svg</file>
         <file>assets/icon-notification-active.svg</file>
         <file>assets/icon-info.svg</file>
@@ -56,6 +38,10 @@
         <file>assets/icon-sent.svg</file>
         <file>assets/icon-received.svg</file>
         <file>assets/icon-comment.svg</file>
-
+        <file>assets/icon-send-grey.svg</file>
+        <file>assets/icon-recive-grey.svg</file>
+        <file>assets/icon-transaction-list.svg</file>
+        <file>assets/icon-edit.svg</file>
+        <file>assets/icon-cancel.svg</file>
     </qresource>
 </RCC>
