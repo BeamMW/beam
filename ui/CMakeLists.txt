@@ -26,6 +26,8 @@ set(UI_SRC
 	ui.cpp
 	translator.h
 	translator.cpp
+	viewmodel/start.h
+	viewmodel/start.cpp
 	viewmodel/main.h
 	viewmodel/main.cpp
 	viewmodel/dashboard.h

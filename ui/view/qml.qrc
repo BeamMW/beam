@@ -12,6 +12,10 @@
         <file>controls/CuteButton.qml</file>
         <file>controls/TableItem.qml</file>
         <file>controls/ContextMenu.qml</file>
+        <file>controls/DefaultButton.qml</file>
+        <file>controls/PrimaryButton.qml</file>
+        <file>root.qml</file>
+        <file>start.qml</file>
         <file>main.qml</file>
         <file>dashboard.qml</file>
         <file>wallet.qml</file>
@@ -23,6 +27,7 @@
         <file>assets/fonts/SF-Pro-Display-Bold.otf</file>
         <file>assets/fonts/SF-Pro-Display-Regular.otf</file>
         <file>assets/logo.png</file>
+        <file>assets/bg.png</file>
         <file>assets/icon-dashboard.svg</file>
         <file>assets/icon-dashboard-active.svg</file>
         <file>assets/icon-address-book.svg</file>

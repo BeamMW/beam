@@ -7,10 +7,9 @@ import "controls"
 Rectangle {
     id: main
 
-    width: 1440
-    height: 800
-    color: Style.marine
+    anchors.fill: parent
 
+    color: Style.marine
 
     property var contentItems : ["dashboard", "wallet", "address-book", "notification", "info", "settings"]
     property int selectedItem
