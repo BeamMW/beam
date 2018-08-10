@@ -134,170 +134,178 @@ int main (int argc, char* argv[])
             auto bbsStorage = appDataDir.filePath("keys.bbs").toStdString();
 			std::string walletPass;
 
-			if (!Keychain::isInitialized(walletStorage))
-			{
-				bool ok = true;
-				QString seed;
+			QQuickView view;
+			view.setResizeMode(QQuickView::SizeRootObjectToView);
 
-				while (seed.isEmpty() && ok)
-				{
-					seed = QInputDialog::getText(0, "Beam", "wallet.db not found\nPlease, enter a seed to initialize your wallet:", QLineEdit::Normal, nullptr, &ok);
-				}
+			view.setSource(QUrl("qrc:///start.qml"));
+			view.show();
 
-				if (ok && !seed.isEmpty())
-				{
-					QString pass;
+			return app.exec();
 
-					while (pass.isEmpty() && ok)
-					{
-						pass = QInputDialog::getText(0, "Beam", "Please, enter a password:", QLineEdit::Password, nullptr, &ok);
-					}
+		//	if (!Keychain::isInitialized(walletStorage))
+		//	{
+		//		bool ok = true;
+		//		QString seed;
 
-					if (ok && !pass.isEmpty()) 
-					{
-						walletPass = pass.toStdString();
+		//		while (seed.isEmpty() && ok)
+		//		{
+		//			seed = QInputDialog::getText(0, "Beam", "wallet.db not found\nPlease, enter a seed to initialize your wallet:", QLineEdit::Normal, nullptr, &ok);
+		//		}
 
-						NoLeak<uintBig> walletSeed;
-						walletSeed.V = Zero;
-						{
-							Hash::Value hv;
-							Hash::Processor() << seed.toStdString().c_str() >> hv;
-							walletSeed.V = hv;
-						}
+		//		if (ok && !seed.isEmpty())
+		//		{
+		//			QString pass;
 
-						auto keychain = Keychain::init(walletStorage, walletPass, walletSeed);
+		//			while (pass.isEmpty() && ok)
+		//			{
+		//				pass = QInputDialog::getText(0, "Beam", "Please, enter a password:", QLineEdit::Password, nullptr, &ok);
+		//			}
 
-						if (keychain)
-						{
-							QMessageBox::information(0, "Beam", "wallet.db successfully created.", QMessageBox::Ok);
-						}
-						else
-						{
-							QMessageBox::critical(0, "Error", "Your wallet isn't created. Something went wrong.", QMessageBox::Ok);
-							return -1;
-						}
+		//			if (ok && !pass.isEmpty()) 
+		//			{
+		//				walletPass = pass.toStdString();
 
-                        try
-                        {
-                            IKeyStore::Options options;
-                            options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-                            options.fileName = bbsStorage;
+		//				NoLeak<uintBig> walletSeed;
+		//				walletSeed.V = Zero;
+		//				{
+		//					Hash::Value hv;
+		//					Hash::Processor() << seed.toStdString().c_str() >> hv;
+		//					walletSeed.V = hv;
+		//				}
 
-                            IKeyStore::Ptr keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
+		//				auto keychain = Keychain::init(walletStorage, walletPass, walletSeed);
 
-                            // generate default address
-                            WalletAddress defaultAddress = {};
-                            defaultAddress.m_own = true;
-                            defaultAddress.m_label = "default";
-                            defaultAddress.m_createTime = getTimestamp();
-                            defaultAddress.m_duration = numeric_limits<uint64_t>::max();
-                            keystore->gen_keypair(defaultAddress.m_walletID, walletPass.c_str(), walletPass.size(), true);
+		//				if (keychain)
+		//				{
+		//					QMessageBox::information(0, "Beam", "wallet.db successfully created.", QMessageBox::Ok);
+		//				}
+		//				else
+		//				{
+		//					QMessageBox::critical(0, "Error", "Your wallet isn't created. Something went wrong.", QMessageBox::Ok);
+		//					return -1;
+		//				}
 
-                            keychain->saveAddress(defaultAddress);
-                        }
-                        catch (const std::runtime_error& ex)
-                        {
-                            QMessageBox::critical(0, "Error", "Failed to generate default address", QMessageBox::Ok);
-                        }
-                    }
-                    else
-                    {
-                        return 0;
-					}
-				}
-			}
-			else
-			{
-				bool ok = true;
-				QString pass;
+  //                      try
+  //                      {
+  //                          IKeyStore::Options options;
+  //                          options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+  //                          options.fileName = bbsStorage;
 
-				while (pass.isEmpty() && ok)
-				{
-					pass = QInputDialog::getText(0, "Beam", "Please, enter a password:", QLineEdit::Password, nullptr, &ok);
-				}
+  //                          IKeyStore::Ptr keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
 
-				if (ok && !pass.isEmpty())
-				{
-					walletPass = pass.toStdString();
-				}
-				else return 0;
-			}
+  //                          // generate default address
+  //                          WalletAddress defaultAddress = {};
+  //                          defaultAddress.m_own = true;
+  //                          defaultAddress.m_label = "default";
+  //                          defaultAddress.m_createTime = getTimestamp();
+  //                          defaultAddress.m_duration = numeric_limits<uint64_t>::max();
+  //                          keystore->gen_keypair(defaultAddress.m_walletID, walletPass.c_str(), walletPass.size(), true);
 
-			{
-				auto keychain = Keychain::open(walletStorage, walletPass);
+  //                          keychain->saveAddress(defaultAddress);
+  //                      }
+  //                      catch (const std::runtime_error& ex)
+  //                      {
+  //                          QMessageBox::critical(0, "Error", "Failed to generate default address", QMessageBox::Ok);
+  //                      }
+  //                  }
+  //                  else
+  //                  {
+  //                      return 0;
+		//			}
+		//		}
+		//	}
+		//	else
+		//	{
+		//		bool ok = true;
+		//		QString pass;
 
-				if (keychain)
-				{
-					std::string nodeAddr = "0.0.0.0";
+		//		while (pass.isEmpty() && ok)
+		//		{
+		//			pass = QInputDialog::getText(0, "Beam", "Please, enter a password:", QLineEdit::Password, nullptr, &ok);
+		//		}
 
-					if (!vm.count(cli::NODE_ADDR))
-					{
-						LOG_ERROR() << "Please, provide node address!";
-					}
-					else
-					{
-						nodeAddr = vm[cli::NODE_ADDR].as<string>();
-					}
+		//		if (ok && !pass.isEmpty())
+		//		{
+		//			walletPass = pass.toStdString();
+		//		}
+		//		else return 0;
+		//	}
 
-					qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
-					qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
+		//	{
+		//		auto keychain = Keychain::open(walletStorage, walletPass);
 
-                    IKeyStore::Options options;
-                    options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-                    options.fileName = bbsStorage;
+		//		if (keychain)
+		//		{
+		//			std::string nodeAddr = "0.0.0.0";
 
-                    IKeyStore::Ptr keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
+		//			if (!vm.count(cli::NODE_ADDR))
+		//			{
+		//				LOG_ERROR() << "Please, provide node address!";
+		//			}
+		//			else
+		//			{
+		//				nodeAddr = vm[cli::NODE_ADDR].as<string>();
+		//			}
 
-					WalletModel model(keychain, keystore, nodeAddr);
+		//			qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
+		//			qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
 
-					model.start();
+  //                  IKeyStore::Options options;
+  //                  options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+  //                  options.fileName = bbsStorage;
 
-					struct ViewModel
-					{
-						MainViewModel			main;
-						DashboardViewModel		dashboard;
-						WalletViewModel			wallet;
-                        AddressBookViewModel    addressBook;
-						NotificationsViewModel	notifications;
-						HelpViewModel			help;
-						SettingsViewModel		settings;
+  //                  IKeyStore::Ptr keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
 
-						ViewModel(WalletModel& model)
-							: wallet(model)
-                            , addressBook(model)
-                        {
-                        }
+		//			WalletModel model(keychain, keystore, nodeAddr);
 
-					} viewModel(model);
+		//			model.start();
 
-					Translator translator;
+		//			struct ViewModel
+		//			{
+		//				MainViewModel			main;
+		//				DashboardViewModel		dashboard;
+		//				WalletViewModel			wallet;
+  //                      AddressBookViewModel    addressBook;
+		//				NotificationsViewModel	notifications;
+		//				HelpViewModel			help;
+		//				SettingsViewModel		settings;
 
-					QQuickView view;
-					view.setResizeMode(QQuickView::SizeRootObjectToView);
+		//				ViewModel(WalletModel& model)
+		//					: wallet(model)
+  //                          , addressBook(model)
+  //                      {
+  //                      }
 
-					QQmlContext *ctxt = view.rootContext();
+		//			} viewModel(model);
 
-                    // TODO: try move instantiation of view models to views
-					ctxt->setContextProperty("mainViewModel", &viewModel.main);
+		//			Translator translator;
 
-					ctxt->setContextProperty("walletViewModel", &viewModel.wallet);
-                    ctxt->setContextProperty("addressBookViewModel", &viewModel.addressBook);
+		//			QQuickView view;
+		//			view.setResizeMode(QQuickView::SizeRootObjectToView);
 
-					ctxt->setContextProperty("translator", &translator);
+		//			QQmlContext *ctxt = view.rootContext();
 
-					view.setSource(QUrl("qrc:///main.qml"));
-					view.show();
+  //                  // TODO: try move instantiation of view models to views
+		//			ctxt->setContextProperty("mainViewModel", &viewModel.main);
 
-					return app.exec();
-				}
-				else
-				{
-					QMessageBox::critical(0, "Error", "Invalid password or wallet data unreadable.\nRestore wallet.db from latest backup or delete it and reinitialize the wallet.", QMessageBox::Ok);
+		//			ctxt->setContextProperty("walletViewModel", &viewModel.wallet);
+  //                  ctxt->setContextProperty("addressBookViewModel", &viewModel.addressBook);
 
-					LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet.";
-					return -1;
-				}
-			}
+		//			ctxt->setContextProperty("translator", &translator);
+
+		//			view.setSource(QUrl("qrc:///main.qml"));
+		//			view.show();
+
+		//			return app.exec();
+		//		}
+		//		else
+		//		{
+		//			QMessageBox::critical(0, "Error", "Invalid password or wallet data unreadable.\nRestore wallet.db from latest backup or delete it and reinitialize the wallet.", QMessageBox::Ok);
+
+		//			LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet.";
+		//			return -1;
+		//		}
+		//	}
 
 		}
 		catch (const po::error& e)
