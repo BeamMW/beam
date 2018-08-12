@@ -886,7 +886,7 @@ namespace ECC {
 						continue; // skip zero
 
 					for (; x.m_nPrepared <= nVal; x.m_nPrepared++)
-						if (x.m_nPrepared & (x.m_nPrepared - 1))
+						if (x.m_nPrepared & 1)
 							x.m_pPt[x.m_nPrepared] = x.m_pPt[x.m_nPrepared - 1] + x.m_pPt[1];
 						else
 							x.m_pPt[x.m_nPrepared] = x.m_pPt[x.m_nPrepared >> 1] * Two;
