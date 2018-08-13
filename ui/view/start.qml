@@ -112,7 +112,7 @@ Item
             SFTextInput {
                 id: openPassword
                 width: parent.width
-
+				focus: true
                 font.pixelSize: 12
                 color: Style.white
                 echoMode: TextInput.Password
