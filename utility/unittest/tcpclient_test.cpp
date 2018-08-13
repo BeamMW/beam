@@ -38,6 +38,8 @@ int errorlevel = 0;
 int callbackCount = 3;
 bool g_FirstRcv = true;
 
+static const char DOMAIN_NAME[] = "example.com";
+
 void on_recv(ErrorCode what, void* data, size_t size) {
     if (data && size) {
         LOG_DEBUG() << "RECEIVED " << size << " bytes";
@@ -77,7 +79,7 @@ void tcpclient_test() {
 
         Address a;
         // NOTE that this is blocked resolver, TODO add async resolver to Reactor
-        a.resolve("beam-mw.com");
+        a.resolve(DOMAIN_NAME);
         a.port(80);
 
         if (!reactor->tcp_connect(a, tag_ok, on_connected, 10000)) ++errorlevel;
@@ -126,7 +128,7 @@ void tcpclient_writecancel_test() {
 
         Address a;
         // NOTE that this is blocked resolver, TODO add async resolver to Reactor
-        a.resolve("beam-mw.com");
+        a.resolve(DOMAIN_NAME);
         a.port(80);
 
         if (!reactor->tcp_connect(a, tag_ok, on_connected_writecancel, 10000)) ++errorlevel;
