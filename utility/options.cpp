@@ -66,7 +66,11 @@ namespace beam
         const char* VERSION = "version";
         const char* VERSION_FULL = "version,v";
         const char* GIT_COMMIT_HASH = "git_commit_hash";
-        // ui
+		// treasury
+		const char* TR_BEAMS = "tr_BeamsPerUtxo";
+		const char* TR_DH = "tr_HeightStep";
+		const char* TR_COUNT = "tr_Count";
+		// ui
 		const char* WALLET_ADDR = "addr";
         const char* APPDATA_PATH = "appdata";
     }
@@ -117,7 +121,10 @@ namespace beam
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
             (cli::BBS_STORAGE, po::value<string>()->default_value("bbs_keys.db"), "path to file with bbs keys")
             (cli::TX_HISTORY, "print transacrions' history in info command")
-            (cli::COMMAND, po::value<string>(), "command to execute [send|receive|listen|init|info|treasury]");
+			(cli::TR_COUNT, po::value<uint32_t>(), "treasury UTXO count")
+			(cli::TR_DH, po::value<uint32_t>(), "treasury UTXO height lock step")
+			(cli::TR_BEAMS, po::value<uint32_t>(), "treasury value of each UTXO (in Beams)")
+			(cli::COMMAND, po::value<string>(), "command to execute [send|receive|listen|init|info|treasury]");
 
         po::options_description uioptions("UI options");
         uioptions.add_options()

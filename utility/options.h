@@ -67,6 +67,10 @@ namespace beam
         extern const char* VERSION;
         extern const char* VERSION_FULL;
         extern const char* GIT_COMMIT_HASH;
+ // treasury
+        extern const char* TR_BEAMS;
+        extern const char* TR_DH;
+        extern const char* TR_COUNT;
  // ui
         extern const char* WALLET_ADDR;
 		extern const char* APPDATA_PATH;

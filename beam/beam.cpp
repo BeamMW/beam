@@ -139,12 +139,12 @@ struct TreasuryBlockGenerator
 
 	Block::Body& get_WriteBlock();
 	void FinishLastBlock();
-	int Generate(uint32_t nCount, Height dh);
+	int Generate(uint32_t nCount, Height dh, Amount);
 private:
 	void Proceed(uint32_t i);
 };
 
-int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
+int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 {
 	if (m_sPath.empty())
 	{
@@ -180,7 +180,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 	{
 		Coin& coin = m_Coins[i];
 		coin.m_key_type = KeyType::Regular;
-		coin.m_amount = Rules::Coin * 10;
+		coin.m_amount = v;
 		coin.m_status = Coin::Unconfirmed;
 		coin.m_createHeight = h + Rules::HeightGenesis;
 
@@ -556,11 +556,12 @@ int main_impl(int argc, char* argv[])
 							tbg.m_sPath = vm[cli::TREASURY_BLOCK].as<string>();
 							tbg.m_pKeyChain = keychain.get();
 
-							// TODO: command-line parameter
-							Height dh = 60 * 2; // 2 hours, 12 per day
-							uint32_t nCount = 12 * 30; // 360 total. 1 month roughly
+							Amount v = vm[cli::TR_BEAMS].as<uint32_t>();
+							v *= Rules::Coin;
+							Height dh = vm[cli::TR_DH].as<uint32_t>();
+							uint32_t nCount = vm[cli::TR_COUNT].as<uint32_t>();
 
-							return tbg.Generate(nCount, dh);
+							return tbg.Generate(nCount, dh, v);
 						}
 
 						if (command == cli::INFO)
