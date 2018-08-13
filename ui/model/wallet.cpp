@@ -123,10 +123,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 	}
 };
 
-WalletModel::WalletModel(IKeyChain::Ptr keychain, IKeyStore::Ptr keystore, const string& nodeAddr)
+WalletModel::WalletModel(IKeyChain::Ptr keychain, IKeyStore::Ptr keystore)
 	: _keychain(keychain)
     , _keystore(keystore)
-	, _nodeAddrString(nodeAddr)
 {
 	qRegisterMetaType<WalletStatus>("WalletStatus");
 	qRegisterMetaType<vector<TxDescription>>("std::vector<beam::TxDescription>");
@@ -210,7 +209,7 @@ void WalletModel::run()
 
 		Address node_addr;
 
-		if(node_addr.resolve(_nodeAddrString.c_str()))
+		if(_keychain->getNodeAddr(node_addr))
 		{
 			auto wallet_io = make_shared<WalletNetworkIO>(
 				node_addr

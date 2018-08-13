@@ -214,6 +214,41 @@ Item
                 spacing: 10
 
                 SFText {
+                    text: "Enter node IP address and port"
+                    color: Style.white
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                }
+
+                SFTextInput {
+
+                    id: nodeAddr
+
+                    width: parent.width
+
+                    font.pixelSize: 12
+                    color: Style.white
+
+                    text: "127.0.0.1:5555"
+
+                    focus: true
+                }
+
+                Rectangle {
+                    width: parent.width
+                    height: 1
+
+                    color: Style.white
+                    opacity: 0.1
+                }
+            }
+
+            Column {
+                width: parent.width
+
+                spacing: 10
+
+                SFText {
                     text: "Enter miner secret"
                     color: Style.white
                     font.pixelSize: 12
@@ -351,30 +386,25 @@ Item
             anchors.topMargin: 599
 
             onClicked: {
-                if(seed.text.length == 0)
+                if(nodeAddr.text.length == 0)
+                {
+                    passwordError.text = "Please, enter node IP address and port";
+                }
+                else if(seed.text.length == 0)
                 {
                     passwordError.text = "Please, enter miner secret";
                 }
-                else
+                else if(password.text.length == 0)
                 {
-                    if(password.text.length == 0)
-                    {
-                        passwordError.text = "Please, enter password";
-                    }
-                    else
-                    {
-                        if(password.text != confirmPassword.text)
-                        {
-                            passwordError.text = "Passwords do not match";
-                        }
-                        else
-                        {
-                            if(!startViewModel.createWallet(seed.text, password.text))
-                            {
-                                passwordError.text = "Error, something went worng, wallet not created :(";
-                            }
-                        }
-                    }
+                    passwordError.text = "Please, enter password";
+                }
+                else if(password.text != confirmPassword.text)
+                {
+                    passwordError.text = "Passwords do not match";
+                }
+                else if(!startViewModel.createWallet(seed.text, password.text, nodeAddr.text))
+                {
+                    passwordError.text = "Error, something went worng, wallet not created :(";
                 }
             }
         }
