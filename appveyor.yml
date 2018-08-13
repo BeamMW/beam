@@ -3,8 +3,7 @@ image: Visual Studio 2017
 
 branches:
   only:
-    - master
-    - qt_static
+    - testnet
 
 configuration:
 - Release
@@ -53,7 +52,7 @@ on_success:
 
     set RELEASE_FOLDER=nightly\%DATE%\release\win
 
-    set LATEST_FOLDER=latest\release\win
+    set LATEST_FOLDER=testnet\release\win
 
     if not exist "%RELEASE_FOLDER%" mkdir %RELEASE_FOLDER%
 

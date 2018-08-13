@@ -28,10 +28,8 @@ matrix:
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
       after_success:
-        - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
-            chmod +x ./deploy.sh;
-            ./deploy.sh;
-          fi
+        - chmod +x ./deploy.sh;
+        - ./deploy.sh;
 
     - os: linux
       addons:
@@ -75,10 +73,8 @@ matrix:
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
       after_success:
-        - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
-            chmod +x ./deploy.sh;
-            ./deploy.sh;
-          fi
+        - chmod +x ./deploy.sh;
+        - ./deploy.sh;
 
 notifications:
   email:
