@@ -60,7 +60,7 @@ class WalletModel
 {
 	Q_OBJECT
 public:
-	WalletModel(beam::IKeyChain::Ptr keychain, beam::IKeyStore::Ptr keystore, const std::string& nodeAddr);
+	WalletModel(beam::IKeyChain::Ptr keychain, beam::IKeyStore::Ptr keystore);
 	~WalletModel();
 
 	void run() override;
@@ -103,7 +103,6 @@ private:
 private:
 
 	uint16_t _port;
-	std::string _nodeAddrString;
 
 	beam::IKeyChain::Ptr _keychain;
     beam::IKeyStore::Ptr _keystore;

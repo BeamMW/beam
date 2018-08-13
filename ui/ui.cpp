@@ -118,17 +118,6 @@ int main (int argc, char* argv[])
 			appDataDir = QString::fromStdString(vm[cli::APPDATA_PATH].as<string>());
 		}
 
-		std::string nodeAddr = "0.0.0.0";
-
-		if (!vm.count(cli::NODE_ADDR))
-		{
-			LOG_ERROR() << "Please, provide node address!";
-		}
-		else
-		{
-			nodeAddr = vm[cli::NODE_ADDR].as<string>();
-		}
-
 		int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
 #if LOG_VERBOSE_ENABLED
@@ -207,7 +196,7 @@ int main (int argc, char* argv[])
 
 					keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
 
-					walletModel = std::make_unique<WalletModel>(db, keystore, nodeAddr);
+					walletModel = std::make_unique<WalletModel>(db, keystore);
 
 					walletModel->start();
 
