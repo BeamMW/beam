@@ -482,33 +482,52 @@ ColumnLayout {
             }
 
             ContextMenu {
-                id: peersContextMenu
-                property int peerIndex;
+                id: peerAddressContextMenu
+                property int index;
 
                 Action {
                     text: qsTr("send money")
+					icon.source: "qrc:///assets/icon-send-grey.svg"
                     onTriggered: {
-                        addressBookViewModel.changeCurrentPeerAddress(peersContextMenu.peerIndex);
+                        addressBookViewModel.changeCurrentPeerAddress(peerAddressContextMenu.index);
 						main.openSendDialog();
                     }
-					icon.source: "qrc:///assets/icon-send-grey.svg"
                 }
 
 				Action {
                     text: qsTr("request money")
 					icon.source: "qrc:///assets/icon-recive-grey.svg"
+					enabled: false
                 }
 				Action {
                     text: qsTr("transactions list")
 					icon.source: "qrc:///assets/icon-transaction-list.svg"
+					enabled: false
                 }
 				Action {
                     text: qsTr("edit address")
 					icon.source: "qrc:///assets/icon-edit.svg"
+					enabled: false
                 }
 				Action {
                     text: qsTr("delete address")
 					icon.source: "qrc:///assets/icon-cancel.svg"
+					onTriggered: {
+                        addressBookViewModel.deletePeerAddress(peerAddressContextMenu.index);
+                    }
+                }
+            }
+
+			ContextMenu {
+                id: ownAddressContextMenu
+                property int index;
+
+				Action {
+                    text: qsTr("delete address")
+					icon.source: "qrc:///assets/icon-cancel.svg"
+					onTriggered: {
+                        addressBookViewModel.deleteOwnAddress(ownAddressContextMenu.index);
+                    }
                 }
             }
 
@@ -522,8 +541,8 @@ ColumnLayout {
                 Rectangle {
                     anchors.fill: parent
 
-                    color: Style.light_navy
-                    visible: styleData.alternate
+                    color: styleData.selected ? Style.bright_sky_blue : Style.light_navy
+                    visible: styleData.selected ? true : styleData.alternate
                 }
 
                 MouseArea {
@@ -532,8 +551,8 @@ ColumnLayout {
                     onClicked: {
                         if (mouse.button === Qt.RightButton && styleData.row !== undefined)
                         {
-                            peersContextMenu.peerIndex = styleData.row;
-                            peersContextMenu.popup();
+                            peerAddressContextMenu.index = styleData.row;
+                            peerAddressContextMenu.popup();
                         }
                     }
                 }
@@ -550,7 +569,7 @@ ColumnLayout {
             anchors.fill: parent
 
             frameVisible: false
-            selectionMode: SelectionMode.SingleSelection
+            selectionMode: SelectionMode.NoSelection
             backgroundVisible: false
             model: addressBookViewModel.ownAddresses
 
@@ -615,8 +634,20 @@ ColumnLayout {
                 Rectangle {
                     anchors.fill: parent
 
-                    color: Style.light_navy
-                    visible: styleData.alternate
+                    color: styleData.selected ? Style.bright_sky_blue : Style.light_navy
+                    visible: styleData.selected ? true : styleData.alternate
+                }
+
+				MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.RightButton
+                    onClicked: {
+                        if (mouse.button === Qt.RightButton && styleData.row !== undefined)
+                        {
+                            ownAddressContextMenu.index = styleData.row;
+                            ownAddressContextMenu.popup();
+                        }
+                    }
                 }
             }
 

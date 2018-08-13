@@ -215,6 +215,24 @@ void AddressBookViewModel::changeCurrentPeerAddress(int index)
 	}
 }
 
+void AddressBookViewModel::deletePeerAddress(int index)
+{
+    if (m_model.async)
+    {
+        WalletID peerID = from_hex(m_peerAddresses.at(index)->getWalletID().toStdString());
+        m_model.async->deleteAddress(peerID);
+    }
+}
+
+void AddressBookViewModel::deleteOwnAddress(int index)
+{
+    if (m_model.async)
+    {
+        WalletID peerID = from_hex(m_ownAddresses.at(index)->getWalletID().toStdString());
+        m_model.async->deleteAddress(peerID);
+    }
+}
+
 void AddressBookViewModel::onStatus(const WalletStatus&)
 {
     if (m_model.async)

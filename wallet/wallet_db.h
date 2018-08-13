@@ -139,6 +139,9 @@ namespace beam
 		virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
 		virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
 
+		virtual void setNodeAddr(const io::Address& nodeAddr) = 0;
+		virtual bool getNodeAddr(io::Address& nodeAddr) const = 0;
+
 		virtual void subscribe(IKeyChainObserver* observer) = 0;
 		virtual void unsubscribe(IKeyChainObserver* observer) = 0;
 	};
@@ -187,6 +190,9 @@ namespace beam
         Timestamp getLastUpdateTime() const override;
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;
 		bool getSystemStateID(Block::SystemState::ID& stateID) const override;
+
+		void setNodeAddr(const io::Address& nodeAddr) override;
+		bool getNodeAddr(io::Address& nodeAddr) const override;
 
 		void subscribe(IKeyChainObserver* observer) override;
 		void unsubscribe(IKeyChainObserver* observer) override;
