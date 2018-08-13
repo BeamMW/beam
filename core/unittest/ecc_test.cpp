@@ -1361,7 +1361,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				secp256k1_pedersen_commit(pCtx, &comm, k_.m_Value.m_pData, 78945, secp256k1_generator_h);
+				(void) secp256k1_pedersen_commit(pCtx, &comm, k_.m_Value.m_pData, 78945, secp256k1_generator_h);
 
 		} while (bm.ShouldContinue());
 	}

@@ -659,6 +659,9 @@ private:
 			case DisconnectReason::ProcessingExc:
 				LOG_ERROR() << "Disconnect: " << r;
 				g_failureCount++;
+
+			default: // suppress warning
+				break;
 			}
 		}
 

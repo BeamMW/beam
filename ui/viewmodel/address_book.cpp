@@ -127,16 +127,6 @@ QQmlListProperty<OwnAddressItem> AddressBookViewModel::getOwnAddresses()
     return QQmlListProperty<OwnAddressItem>(this, m_ownAddresses);
 }
 
-void AddressBookViewModel::setNewPeerAddress(PeerAddressItem* addr)
-{
-
-}
-
-void AddressBookViewModel::setNewOwnAddress(OwnAddressItem* addr)
-{
-
-}
-
 PeerAddressItem* AddressBookViewModel::getNewPeerAddress()
 {
 	return &m_newPeerAddress;
@@ -214,9 +204,15 @@ void AddressBookViewModel::createNewOwnAddress()
 	}
 }
 
-Q_INVOKABLE QVariant AddressBookViewModel::getPeerAddress(int index) const
+void AddressBookViewModel::changeCurrentPeerAddress(int index)
 {
-    return QVariant::fromValue(m_peerAddresses[index]);
+	if (m_model.async)
+	{
+		WalletID senderID = from_hex(m_ownAddresses.at(0)->getWalletID().toStdString());
+		WalletID receivedID = from_hex(m_peerAddresses.at(index)->getWalletID().toStdString());
+
+		m_model.async->changeCurrentWalletIDs(senderID, receivedID);
+	}
 }
 
 void AddressBookViewModel::onStatus(const WalletStatus&)

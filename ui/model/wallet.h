@@ -33,6 +33,7 @@ struct IWalletModelAsync
     virtual void cancelTx(beam::TxID id) = 0;
     virtual void createNewAddress(beam::WalletAddress&& address) = 0;
 	virtual void generateNewWalletID() = 0;
+	virtual void changeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) = 0;
 
 	virtual ~IWalletModelAsync() {}
 };
@@ -76,6 +77,7 @@ signals:
     void onUtxoChanged(const std::vector<beam::Coin>& utxos);
 	void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
 	void onGeneratedNewWalletID(const beam::WalletID& walletID);
+	void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
 
 private:
 	void onKeychainChanged() override;
@@ -92,6 +94,7 @@ private:
     void getAddresses(bool own) override;
     void cancelTx(beam::TxID id) override;
     void createNewAddress(beam::WalletAddress&& address) override;
+	void changeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) override;
 	void generateNewWalletID() override;
 
 	void onStatusChanged();

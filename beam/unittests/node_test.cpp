@@ -851,7 +851,7 @@ namespace beam
 
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
-				printf("Tip Height=%u\n", msg.m_ID.m_Height);
+				printf("Tip Height=%u\n", (unsigned int) msg.m_ID.m_Height);
 				verify_test(msg.m_ID.m_Height <= m_HeightMax);
 				if (msg.m_ID.m_Height == m_HeightTrg)
 					io::Reactor::get_Current().stop();
@@ -963,7 +963,7 @@ namespace beam
 
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
-				printf("Tip Height=%u\n", msg.m_ID.m_Height);
+				printf("Tip Height=%u\n", (unsigned int) msg.m_ID.m_Height);
 				verify_test(m_vStates.size() + 1 == msg.m_ID.m_Height);
 
 				if (msg.m_ID.m_Height >= m_HeightTrg)

@@ -14,6 +14,7 @@
 
 #pragma once
 #include <string>
+#include <vector>
 #include <functional>
 #include <thread>
 #include <stdint.h>

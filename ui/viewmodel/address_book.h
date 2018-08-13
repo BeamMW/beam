@@ -33,6 +33,7 @@ signals:
     void onWalletIDChanged();
     void onNameChanged();
     void onCategoryChanged();
+
 private:
     QString m_walletID;
     QString m_name;
@@ -66,17 +67,17 @@ class AddressBookViewModel : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(QQmlListProperty<PeerAddressItem> peerAddresses           READ getPeerAddresses   NOTIFY addressesChanged)
-    Q_PROPERTY(QQmlListProperty<OwnAddressItem> ownAddresses            READ getOwnAddresses    NOTIFY addressesChanged)
+    Q_PROPERTY(QQmlListProperty<PeerAddressItem> peerAddresses   READ getPeerAddresses   NOTIFY addressesChanged)
+    Q_PROPERTY(QQmlListProperty<OwnAddressItem>  ownAddresses    READ getOwnAddresses    NOTIFY addressesChanged)
 
-	Q_PROPERTY(PeerAddressItem* newPeerAddress READ getNewPeerAddress CONSTANT)
-	Q_PROPERTY(OwnAddressItem* newOwnAddress  READ getNewOwnAddress  CONSTANT)
+	Q_PROPERTY(PeerAddressItem*                  newPeerAddress  READ getNewPeerAddress  CONSTANT)
+	Q_PROPERTY(OwnAddressItem*                   newOwnAddress   READ getNewOwnAddress   CONSTANT)
 
 public:
     Q_INVOKABLE void createNewAddress();
 	Q_INVOKABLE void createNewPeerAddress();
 	Q_INVOKABLE void createNewOwnAddress();
-    Q_INVOKABLE QVariant getPeerAddress(int index) const;	
+	Q_INVOKABLE void changeCurrentPeerAddress(int index);
 
 	Q_INVOKABLE void generateNewEmptyAddress();
 
@@ -86,8 +87,6 @@ public:
 
 	QQmlListProperty<PeerAddressItem> getPeerAddresses();
 	QQmlListProperty<OwnAddressItem> getOwnAddresses();
-	void setNewPeerAddress(PeerAddressItem* addr);
-	void setNewOwnAddress(OwnAddressItem* addr);
 	PeerAddressItem* getNewPeerAddress();
 	OwnAddressItem* getNewOwnAddress();
 
@@ -98,7 +97,6 @@ public slots:
 
 signals:
     void addressesChanged();
-	void newAddressChanged();
 
 private:
     WalletModel& m_model;

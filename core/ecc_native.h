@@ -106,8 +106,8 @@ namespace ECC
 		~Native() { SecureErase(*this); }
 
 		Minus	operator - () const { return Minus(*this); }
-		Plus	operator + (const Native& y) const { return Plus(*this, y); }
-		Mul		operator * (const Scalar::Native& y) const { return Mul(*this, y); }
+		Plus	operator + (const Native& y_) const { return Plus(*this, y_); }
+		Mul		operator * (const Scalar::Native& y_) const { return Mul(*this, y_); }
 		Double	operator * (Two_) const { return Double(*this); }
 
 		bool operator == (Zero_) const;

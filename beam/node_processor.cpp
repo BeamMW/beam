@@ -1617,6 +1617,9 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 
 		case DataStatus::Accepted:
 			m_DB.InsertState(s);
+
+		default: // suppress the warning of not handling all the enum values
+			break;
 		}
 
 		s.get_Hash(s.m_Prev);
