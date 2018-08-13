@@ -125,6 +125,7 @@ namespace beam
 
             Invite(Invite&& other)
                 : m_from{other.m_from}
+                , m_message{std::move(m_message)}
                 , m_txId{other.m_txId}
                 , m_amount{ other.m_amount }
                 , m_fee{ other.m_fee }

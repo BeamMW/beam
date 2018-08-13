@@ -111,6 +111,8 @@ private:
 
 		struct Verifier
 		{
+			typedef ECC::InnerProduct::BatchContextEx<100> MyBatch; // seems to be ok, for larger batches difference is marginal
+
 			const TxBase* m_pTx;
 			TxBase::IReader* m_pR;
 			TxBase::Context m_Context;

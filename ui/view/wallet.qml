@@ -1,5 +1,6 @@
 import QtQuick 2.3
 import QtQuick.Controls 1.2
+import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
 import QtGraphicalEffects 1.0
 import QtQuick.Layouts 1.3
@@ -870,14 +871,15 @@ Item {
                 }
             }
 
-            Menu {
+            ContextMenu {
                 id: txContextMenu
                 property int txIndex;
-                MenuItem {
-                    text: qsTr('Cancel')
+                Action {
+                    text: qsTr("cancel")
                     onTriggered: {
                        walletViewModel.cancelTx(txContextMenu.txIndex);
                     }
+					icon.source: "qrc:///assets/icon-cancel.svg"
                 }
             }
 

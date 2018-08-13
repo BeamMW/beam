@@ -422,6 +422,73 @@ namespace ECC
 		Context() {}
 	};
 
+	struct InnerProduct::BatchContext
+		:public MultiMac
+	{
+		static thread_local BatchContext* s_pInstance;
+
+		struct Scope
+		{
+			BatchContext* m_pPrev;
+
+			Scope(BatchContext& bc) {
+				m_pPrev = s_pInstance;
+				s_pInstance = &bc;
+			}
+			~Scope() {
+				s_pInstance = m_pPrev;
+			}
+		};
+
+		static const uint32_t s_CasualCountPerProof = nCycles * 2 + 5; // L[], R[], A, S, T1, T2, Commitment
+
+		static const uint32_t s_CountPrepared = InnerProduct::nDim * 2 + 4; // [2][InnerProduct::nDim], m_GenDot_, m_Aux2_, G_, H_
+
+		static const uint32_t s_Idx_GenDot	= InnerProduct::nDim * 2;
+		static const uint32_t s_Idx_Aux2	= InnerProduct::nDim * 2 + 1;
+		static const uint32_t s_Idx_G		= InnerProduct::nDim * 2 + 2;
+		static const uint32_t s_Idx_H		= InnerProduct::nDim * 2 + 3;
+
+		struct Bufs {
+			const Prepared* m_ppPrepared[s_CountPrepared];
+			Scalar::Native m_pKPrep[s_CountPrepared];
+		} m_Bufs;
+
+
+		void Reset();
+		void Calculate(Point::Native& res);
+
+		const uint32_t m_CasualTotal;
+		bool m_bEnableBatch;
+		bool m_bDirty;
+		Scalar::Native m_Multiplier; // must be initialized in a non-trivial way
+
+		bool AddCasual(const Point& p, const Scalar::Native& k);
+		void AddCasual(const Point::Native& pt, const Scalar::Native& k);
+		void AddPrepared(uint32_t i, const Scalar::Native& k);
+
+		bool EquationBegin(uint32_t nCasualNeeded);
+		bool EquationEnd();
+
+		bool Flush();
+
+	protected:
+		BatchContext(uint32_t nCasualTotal);
+	};
+
+	template <uint32_t nBatchSize>
+	struct InnerProduct::BatchContextEx
+		:public BatchContext
+	{
+		uint64_t m_pBuf[(sizeof(MultiMac::Casual) * s_CasualCountPerProof * nBatchSize + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
+
+		BatchContextEx()
+			:BatchContext(nBatchSize * s_CasualCountPerProof)
+		{
+			m_pCasual = (MultiMac::Casual*) m_pBuf;
+		}
+	};
+
 	class Commitment
 	{
 		const Scalar::Native& k;

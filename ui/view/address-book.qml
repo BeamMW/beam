@@ -1,6 +1,6 @@
 import QtQuick 2.3
 import QtQuick.Controls 1.2
-import QtQuick.Controls 2.2
+import QtQuick.Controls 2.3
 import QtQuick.Layouts 1.0
 import QtQuick.Controls.Styles 1.2
 import "controls"
@@ -266,42 +266,6 @@ ColumnLayout {
 						}
 					}
 
-					RowLayout {
-						Layout.fillWidth: true
-						Layout.topMargin: 30
-						
-						SFText {
-							Layout.leftMargin: 22
-							text: qsTr("Expiration date")
-							font {
-								pixelSize: 12
-								weight: Font.Bold
-							}
-							color: Style.white
-						}
-												
-						SFText {
-							Layout.leftMargin: 61
-							text: "o"
-							font.pixelSize: 9
-						}
-
-
-						SFText {
-							Layout.leftMargin: 13
-							text: qsTr("Single use")
-							font {
-								pixelSize: 12
-								weight: Font.Bold
-							}
-							color: Style.white
-						}
-
-						SFText {
-						
-						}
-					}
-
 					ColumnLayout {
 						Layout.fillWidth: true
 						Layout.topMargin: 30
@@ -350,62 +314,35 @@ ColumnLayout {
 						Layout.maximumHeight: 38
 						anchors.centerIn: parent
 						
-						Rectangle {
-							radius: 50
+						IconButton {
 							color: Style.separator_color
+							textColor: Style.white
 							width: 122
 							height: 38
+							label: qsTr("cancel")
+							iconName: "icon-cancel"
 
-							SFText {
-								anchors.verticalCenter: parent.verticalCenter
-								anchors.horizontalCenter: parent.horizontalCenter
-
-								font.pixelSize: 14
-								font.weight: Font.Bold
-
-								color: Style.white
-
-								text: qsTr("cancel")
-							}
-
-							MouseArea{
-								anchors.fill: parent
-								cursorShape: Qt.PointingHandCursor
-								onClicked: {
-									createAddress.close()
-								}
+							onClicked: {
+								createAddress.close()
 							}
 						}
 
-						Rectangle {
-							radius: 50
+						IconButton {
 							color: Style.bright_teal
 							Layout.leftMargin: 31
 							width: 166
 							height: 38
-
-							SFText {
-								anchors.verticalCenter: parent.verticalCenter
-								anchors.horizontalCenter: parent.horizontalCenter
-
-								font.pixelSize: 14
-								font.weight: Font.Bold
-								color: Style.marine
-
-								text: qsTr("create address")
-							}
-
-							MouseArea{
-								anchors.fill: parent
-								cursorShape: Qt.PointingHandCursor
-								onClicked: {
-									if (createAddressLayout.state == "own") {
-										addressBookViewModel.createNewOwnAddress();
-									} else {
-										addressBookViewModel.createNewPeerAddress();
-									}
-									createAddress.close();
+							label: qsTr("create address")
+							iconName: "icon-done"
+							textColor: Style.marine
+								
+							onClicked: {
+								if (createAddressLayout.state == "own") {
+									addressBookViewModel.createNewOwnAddress();
+								} else {
+									addressBookViewModel.createNewPeerAddress();
 								}
+								createAddress.close();
 							}
 						}
 					}
@@ -475,10 +412,14 @@ ColumnLayout {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Button {
+            IconButton {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.right: parent.right
-                text: "+ create new address"
+                width: 195
+				height: 38
+				label: "create new address"
+				textColor: Style.white
+				iconName: "icon-add"
 				onClicked: {
 					addressBookViewModel.generateNewEmptyAddress()
 					createAddressLayout.state = addressRoot.state
@@ -541,13 +482,51 @@ ColumnLayout {
             }
 
             ContextMenu {
-                id: peersContextMenu
-                property int peerIndex;
-                MenuItem {
-                    text: qsTr('Send to...')
+                id: peerAddressContextMenu
+                property int index;
+
+                Action {
+                    text: qsTr("send money")
+					icon.source: "qrc:///assets/icon-send-grey.svg"
                     onTriggered: {
-                        addressBookViewModel.changeCurrentPeerAddress(peersContextMenu.peerIndex);
+                        addressBookViewModel.changeCurrentPeerAddress(peerAddressContextMenu.index);
 						main.openSendDialog();
+                    }
+                }
+
+				Action {
+                    text: qsTr("request money")
+					icon.source: "qrc:///assets/icon-recive-grey.svg"
+					enabled: false
+                }
+				Action {
+                    text: qsTr("transactions list")
+					icon.source: "qrc:///assets/icon-transaction-list.svg"
+					enabled: false
+                }
+				Action {
+                    text: qsTr("edit address")
+					icon.source: "qrc:///assets/icon-edit.svg"
+					enabled: false
+                }
+				Action {
+                    text: qsTr("delete address")
+					icon.source: "qrc:///assets/icon-cancel.svg"
+					onTriggered: {
+                        addressBookViewModel.deletePeerAddress(peerAddressContextMenu.index);
+                    }
+                }
+            }
+
+			ContextMenu {
+                id: ownAddressContextMenu
+                property int index;
+
+				Action {
+                    text: qsTr("delete address")
+					icon.source: "qrc:///assets/icon-cancel.svg"
+					onTriggered: {
+                        addressBookViewModel.deleteOwnAddress(ownAddressContextMenu.index);
                     }
                 }
             }
@@ -562,8 +541,8 @@ ColumnLayout {
                 Rectangle {
                     anchors.fill: parent
 
-                    color: Style.light_navy
-                    visible: styleData.alternate
+                    color: styleData.selected ? Style.bright_sky_blue : Style.light_navy
+                    visible: styleData.selected ? true : styleData.alternate
                 }
 
                 MouseArea {
@@ -572,8 +551,8 @@ ColumnLayout {
                     onClicked: {
                         if (mouse.button === Qt.RightButton && styleData.row !== undefined)
                         {
-                            peersContextMenu.peerIndex = styleData.row;
-                            peersContextMenu.popup();
+                            peerAddressContextMenu.index = styleData.row;
+                            peerAddressContextMenu.popup();
                         }
                     }
                 }
@@ -590,7 +569,7 @@ ColumnLayout {
             anchors.fill: parent
 
             frameVisible: false
-            selectionMode: SelectionMode.SingleSelection
+            selectionMode: SelectionMode.NoSelection
             backgroundVisible: false
             model: addressBookViewModel.ownAddresses
 
@@ -655,8 +634,20 @@ ColumnLayout {
                 Rectangle {
                     anchors.fill: parent
 
-                    color: Style.light_navy
-                    visible: styleData.alternate
+                    color: styleData.selected ? Style.bright_sky_blue : Style.light_navy
+                    visible: styleData.selected ? true : styleData.alternate
+                }
+
+				MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.RightButton
+                    onClicked: {
+                        if (mouse.button === Qt.RightButton && styleData.row !== undefined)
+                        {
+                            ownAddressContextMenu.index = styleData.row;
+                            ownAddressContextMenu.popup();
+                        }
+                    }
                 }
             }
 

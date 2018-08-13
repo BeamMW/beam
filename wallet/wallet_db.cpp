@@ -472,6 +472,7 @@ namespace beam
         const char* Version = "Version";
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
+		const char* NodeAddrName = "NodeAddr";
         const int BusyTimeoutMs = 1000;
         const int DbVersion = 4;
     }
@@ -987,6 +988,17 @@ namespace beam
 	bool Keychain::getSystemStateID(Block::SystemState::ID& stateID) const
 	{
 		return getVar(SystemStateIDName, stateID);
+	}
+
+	void Keychain::setNodeAddr(const io::Address& nodeAddr)
+	{
+		setVar(NodeAddrName, nodeAddr);
+		notifySystemStateChanged();
+	}
+
+	bool Keychain::getNodeAddr(io::Address& nodeAddr) const
+	{
+		return getVar(NodeAddrName, nodeAddr);
 	}
 
 	Height Keychain::getCurrentHeight() const

@@ -113,6 +113,7 @@ class WalletViewModel : public QObject
         Q_PROPERTY(QString change READ change NOTIFY changeChanged)
 
         Q_PROPERTY(QVariant utxos READ utxos NOTIFY utxoChanged)
+		Q_PROPERTY(QVariant allUtxos READ allUtxos NOTIFY allUtxoChanged)
 public:
         Q_INVOKABLE QVariant getTxAt(int index) const
         {
@@ -144,6 +145,7 @@ public:
     QString change() const;
 	int selectedAddr() const;
     QVariant utxos();
+	QVariant allUtxos();
     QString getReceiverAddr() const;
     void setReceiverAddr(const QString& value);
     QString getSenderAddr() const;
@@ -163,6 +165,7 @@ public slots:
 	void onSyncProgressUpdated(int done, int total);
     void onChangeCalculated(beam::Amount change);
     void onUtxoChanged(const std::vector<beam::Coin>& utxos);
+	void onAllUtxoChanged(const std::vector<beam::Coin>& utxos);
 	void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
 
 signals:
@@ -177,6 +180,7 @@ signals:
 	void actualAvailableChanged();
     void changeChanged();
     void utxoChanged();
+	void allUtxoChanged();
     void receiverAddrChanged();
     void senderAddrChanged();
 
@@ -200,7 +204,9 @@ private:
     TxList _tx;
 
     bool _loadingUtxo;
+	bool _loadingAllUtxo;
     UtxoList _utxos;
+	UtxoList _allUtxos;
 
 	std::vector<beam::TxPeer> _addrList;
 

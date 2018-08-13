@@ -450,6 +450,30 @@ void TestRangeProof()
 		verify_test(bp.IsValid(comm, oracle));
 	}
 
+	InnerProduct::BatchContextEx<2> bc;
+	bc.m_bEnableBatch = true;
+
+	{
+		Oracle oracle;
+		verify_test(bp.IsValid(comm, oracle, bc)); // add to batch
+	}
+
+	SetRandom(sk);
+	v = 7223110;
+	comm = Commitment(sk, v);
+
+	{
+		Oracle oracle;
+		bp.Create(sk, v, oracle);
+	}
+	{
+		Oracle oracle;
+		verify_test(bp.IsValid(comm, oracle, bc)); // add to batch
+	}
+
+	verify_test(bc.Flush()); // verify at once
+
+
 	WriteSizeSerialized("BulletProof", bp);
 
 	{
@@ -1325,6 +1349,32 @@ void RunBenchmark()
 			{
 				Oracle oracle;
 				bp.IsValid(comm, oracle);
+			}
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		BenchmarkMeter bm("BulletProof.Verify x100");
+		bm.N = 10;
+
+		typedef InnerProduct::BatchContextEx<100> MyBatch;
+		std::unique_ptr<MyBatch> p(new MyBatch);
+		p->m_bEnableBatch = true;
+
+		InnerProduct::BatchContext::Scope scope(*p);
+
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+			{
+				for (int n = 0; n < 100; n++)
+				{
+					Oracle oracle;
+					bp.IsValid(comm, oracle);
+				}
+
+				verify_test(p->Flush());
 			}
 
 		} while (bm.ShouldContinue());

@@ -19,6 +19,7 @@
 #include <QMessageBox>
 
 #include <qqmlcontext.h>
+#include "viewmodel/start.h"
 #include "viewmodel/main.h"
 #include "viewmodel/dashboard.h"
 #include "viewmodel/address_book.h"
@@ -132,173 +133,68 @@ int main (int argc, char* argv[])
 
 			auto walletStorage = appDataDir.filePath("wallet.db").toStdString();
             auto bbsStorage = appDataDir.filePath("keys.bbs").toStdString();
-			std::string walletPass;
 
-			if (!Keychain::isInitialized(walletStorage))
+			QQuickView view;
+			view.setResizeMode(QQuickView::SizeRootObjectToView);
+
+			IKeyStore::Ptr keystore;
+
+			std::unique_ptr<WalletModel> walletModel;
+
+			struct ViewModel
 			{
-				bool ok = true;
-				QString seed;
+				MainViewModel			main;
+				DashboardViewModel		dashboard;
+				WalletViewModel			wallet;
+				AddressBookViewModel    addressBook;
+				NotificationsViewModel	notifications;
+				HelpViewModel			help;
+				SettingsViewModel		settings;
 
-				while (seed.isEmpty() && ok)
-				{
-					seed = QInputDialog::getText(0, "Beam", "wallet.db not found\nPlease, enter a seed to initialize your wallet:", QLineEdit::Normal, nullptr, &ok);
-				}
+				ViewModel(WalletModel& model)
+					: wallet(model)
+					, addressBook(model) {}
+			};
 
-				if (ok && !seed.isEmpty())
-				{
-					QString pass;
+			std::unique_ptr<ViewModel> viewModels;
 
-					while (pass.isEmpty() && ok)
-					{
-						pass = QInputDialog::getText(0, "Beam", "Please, enter a password:", QLineEdit::Password, nullptr, &ok);
-					}
+			Translator translator;
 
-					if (ok && !pass.isEmpty()) 
-					{
-						walletPass = pass.toStdString();
-
-						NoLeak<uintBig> walletSeed;
-						walletSeed.V = Zero;
-						{
-							Hash::Value hv;
-							Hash::Processor() << seed.toStdString().c_str() >> hv;
-							walletSeed.V = hv;
-						}
-
-						auto keychain = Keychain::init(walletStorage, walletPass, walletSeed);
-
-						if (keychain)
-						{
-							QMessageBox::information(0, "Beam", "wallet.db successfully created.", QMessageBox::Ok);
-						}
-						else
-						{
-							QMessageBox::critical(0, "Error", "Your wallet isn't created. Something went wrong.", QMessageBox::Ok);
-							return -1;
-						}
-
-                        try
-                        {
-                            IKeyStore::Options options;
-                            options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-                            options.fileName = bbsStorage;
-
-                            IKeyStore::Ptr keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
-
-                            // generate default address
-                            WalletAddress defaultAddress = {};
-                            defaultAddress.m_own = true;
-                            defaultAddress.m_label = "default";
-                            defaultAddress.m_createTime = getTimestamp();
-                            defaultAddress.m_duration = numeric_limits<uint64_t>::max();
-                            keystore->gen_keypair(defaultAddress.m_walletID, walletPass.c_str(), walletPass.size(), true);
-
-                            keychain->saveAddress(defaultAddress);
-                        }
-                        catch (const std::runtime_error& ex)
-                        {
-                            QMessageBox::critical(0, "Error", "Failed to generate default address", QMessageBox::Ok);
-                        }
-                    }
-                    else
-                    {
-                        return 0;
-					}
-				}
-			}
-			else
+			StartViewModel startViewModel(walletStorage, bbsStorage, [&](IKeyChain::Ptr db, const std::string& walletPass)
 			{
-				bool ok = true;
-				QString pass;
+				qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
+				qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
 
-				while (pass.isEmpty() && ok)
-				{
-					pass = QInputDialog::getText(0, "Beam", "Please, enter a password:", QLineEdit::Password, nullptr, &ok);
-				}
+				IKeyStore::Options options;
+				options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+				options.fileName = bbsStorage;
 
-				if (ok && !pass.isEmpty())
-				{
-					walletPass = pass.toStdString();
-				}
-				else return 0;
-			}
+				keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
 
-			{
-				auto keychain = Keychain::open(walletStorage, walletPass);
+					walletModel = std::make_unique<WalletModel>(db, keystore);
 
-				if (keychain)
-				{
-					std::string nodeAddr = "0.0.0.0";
+				walletModel->start();
 
-					if (!vm.count(cli::NODE_ADDR))
-					{
-						LOG_ERROR() << "Please, provide node address!";
-					}
-					else
-					{
-						nodeAddr = vm[cli::NODE_ADDR].as<string>();
-					}
+				viewModels = std::make_unique<ViewModel>(*walletModel);
 
-					qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
-					qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
+				QQmlContext *ctxt = view.rootContext();
 
-                    IKeyStore::Options options;
-                    options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-                    options.fileName = bbsStorage;
+				// TODO: try move instantiation of view models to views
+				ctxt->setContextProperty("mainViewModel", &viewModels->main);
+				ctxt->setContextProperty("walletViewModel", &viewModels->wallet);
+				ctxt->setContextProperty("addressBookViewModel", &viewModels->addressBook);
+				ctxt->setContextProperty("translator", &translator);
 
-                    IKeyStore::Ptr keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
+				view.rootObject()->setProperty("source", "qrc:///main.qml");
+			});
 
-					WalletModel model(keychain, keystore, nodeAddr);
+			view.rootContext()->setContextProperty("startViewModel", &startViewModel);
 
-					model.start();
+			view.setSource(QUrl("qrc:///root.qml"));
 
-					struct ViewModel
-					{
-						MainViewModel			main;
-						DashboardViewModel		dashboard;
-						WalletViewModel			wallet;
-                        AddressBookViewModel    addressBook;
-						NotificationsViewModel	notifications;
-						HelpViewModel			help;
-						SettingsViewModel		settings;
+			view.show();
 
-						ViewModel(WalletModel& model)
-							: wallet(model)
-                            , addressBook(model)
-                        {
-                        }
-
-					} viewModel(model);
-
-					Translator translator;
-
-					QQuickView view;
-					view.setResizeMode(QQuickView::SizeRootObjectToView);
-
-					QQmlContext *ctxt = view.rootContext();
-
-                    // TODO: try move instantiation of view models to views
-					ctxt->setContextProperty("mainViewModel", &viewModel.main);
-
-					ctxt->setContextProperty("walletViewModel", &viewModel.wallet);
-                    ctxt->setContextProperty("addressBookViewModel", &viewModel.addressBook);
-
-					ctxt->setContextProperty("translator", &translator);
-
-					view.setSource(QUrl("qrc:///main.qml"));
-					view.show();
-
-					return app.exec();
-				}
-				else
-				{
-					QMessageBox::critical(0, "Error", "Invalid password or wallet data unreadable.\nRestore wallet.db from latest backup or delete it and reinitialize the wallet.", QMessageBox::Ok);
-
-					LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet.";
-					return -1;
-				}
-			}
-
+			return app.exec();
 		}
 		catch (const po::error& e)
 		{

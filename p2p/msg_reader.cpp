@@ -130,9 +130,13 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
 				return;
 			}
 
-			if (!_protocol.on_new_message(_streamId, header.type, _msgBuffer.data() + MsgHeader::SIZE, header.size - _protocol.get_MacSize()))
-				// at this moment, the *this* may be deleted
-				return;
+            if (!_protocol.on_new_message(_streamId, header.type, _msgBuffer.data() + MsgHeader::SIZE, header.size - _protocol.get_MacSize())) {
+                // at this moment, the *this* may be deleted
+                if (bAlive) {
+                    reset();
+                }
+                return;
+            }
 
 			if (!bAlive)
 				return;

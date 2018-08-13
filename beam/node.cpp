@@ -369,7 +369,15 @@ bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&
 {
 	uint32_t nThreads = get_ParentObj().m_Cfg.m_VerificationThreads;
 	if (!nThreads)
-		return NodeProcessor::VerifyBlock(block, std::move(r), hr);
+	{
+		std::unique_ptr<Verifier::MyBatch> p(new Verifier::MyBatch);
+		p->m_bEnableBatch = true;
+		Verifier::MyBatch::Scope scope(*p);
+
+		return
+			NodeProcessor::VerifyBlock(block, std::move(r), hr) &&
+			p->Flush();
+	}
 
 	Verifier& v = m_Verifier; // alias
 	std::unique_lock<std::mutex> scope(v.m_Mutex);
@@ -403,6 +411,10 @@ bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&
 
 void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 {
+	std::unique_ptr<Verifier::MyBatch> p(new Verifier::MyBatch);
+	p->m_bEnableBatch = true;
+	Verifier::MyBatch::Scope scope(*p);
+
 	for (uint32_t iTask = 1; ; )
 	{
 		{
@@ -417,6 +429,8 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 			iTask = m_iTask;
 		}
 
+		p->Reset();
+
 		assert(m_Remaining);
 
 		TxBase::Context ctx;
@@ -429,7 +443,7 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 		TxBase::IReader::Ptr pR;
 		m_pR->Clone(pR);
 
-		bool bValid = ctx.ValidateAndSummarize(*m_pTx, std::move(*pR));
+		bool bValid = ctx.ValidateAndSummarize(*m_pTx, std::move(*pR)) && p->Flush();
 
 		std::unique_lock<std::mutex> scope(m_Mutex);
 

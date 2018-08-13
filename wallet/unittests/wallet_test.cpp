@@ -81,6 +81,9 @@ namespace
 		void setSystemStateID(const Block::SystemState::ID& ) override {};
 		bool getSystemStateID(Block::SystemState::ID& ) const override { return false; };
 
+		void setNodeAddr(const io::Address& nodeAddr) override {};
+		bool getNodeAddr(io::Address& nodeAddr) const override { return false; };
+
 		void subscribe(IKeyChainObserver* observer) override {}
 		void unsubscribe(IKeyChainObserver* observer) override {}
 
@@ -405,7 +408,6 @@ namespace
                 d & msg;
                 m_peers[peerId]->handle_tx_message(to, move(msg));
             });
-            onSent();
         }
 
         virtual void onSent()
@@ -542,7 +544,7 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
     network2->registerPeer(&receiver, true);
     network2->registerPeer(&sender, false);
 
-    sender.transfer_money(sender_id, receiver_id, 6, 0, true, {});
+    sender.transfer_money(sender_id, receiver_id, 6, 1, true, {});
     mainLoop.run();
 }
 
@@ -590,11 +592,7 @@ public:
 	void KillAll()
 	{
 		while (!m_lstClients.empty())
-		{
-			Client& c = m_lstClients.front();
-			m_lstClients.erase(ClientList::s_iterator_to(c));
-			delete &c;
-		}
+			DeleteClient(&m_lstClients.front());
 	}
 
 private:
@@ -603,9 +601,14 @@ private:
 		:public proto::NodeConnection
 		,public boost::intrusive::list_base_hook<>
 	{
-        Client(vector<proto::BbsMsg>& bbs)
-            : m_bbs(bbs)
-        {}
+        TestNode& m_This;
+        bool m_Subscribed;
+
+        Client(TestNode& n)
+            : m_This(n)
+            , m_Subscribed(false)
+        {
+        }
 
 
 		// protocol handler
@@ -639,16 +642,31 @@ private:
 
         void OnMsg(proto::BbsSubscribe&& msg) override
         {
-            for (const auto& m : m_bbs)
-            {
-                Send(m);
-            }
+            if (m_Subscribed)
+                return;
+            m_Subscribed = true;
+
+			for (const auto& m : m_This.m_bbs)
+			{
+				Send(m);
+			}
         }
 
         void OnMsg(proto::BbsMsg&& msg) override
         {
-            m_bbs.push_back(msg);
- //           Send(msg);
+            m_This.m_bbs.push_back(msg);
+
+            for (ClientList::iterator it = m_This.m_lstClients.begin(); m_This.m_lstClients.end() != it; it++)
+            {
+                if (it.pointed_node() != this)
+                {
+                    Client& c = *it;
+                    if (c.m_Subscribed)
+                    {
+                        c.Send(msg);
+                    }
+                }
+            }
         }
 
 		void OnDisconnect(const DisconnectReason& r) override
@@ -663,32 +681,39 @@ private:
 			default: // suppress warning
 				break;
 			}
-		}
 
-        std::vector<proto::BbsMsg>& m_bbs;
+            m_This.DeleteClient(this);
+		}
 	};
 
 	typedef boost::intrusive::list<Client> ClientList;
 	ClientList m_lstClients;
 
-	struct Server
-		:public proto::NodeConnection::Server
-	{
-		IMPLEMENT_GET_PARENT_OBJ(TestNode, m_Server)
+    std::vector<proto::BbsMsg> m_bbs;
 
-		void OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode) override
-		{
-			if (newStream)
-			{
-				Client* p = new Client(m_bbs);
-				get_ParentObj().m_lstClients.push_back(*p);
+    void DeleteClient(Client* client)
+    {
+        m_lstClients.erase(ClientList::s_iterator_to(*client));
+        delete client;
+    }
 
-				p->Accept(std::move(newStream));
-				p->SecureConnect();
-			}
-		}
-        std::vector<proto::BbsMsg> m_bbs;
-	} m_Server;
+    struct Server
+        :public proto::NodeConnection::Server
+    {
+        IMPLEMENT_GET_PARENT_OBJ(TestNode, m_Server)
+
+        void OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode) override
+        {
+            if (newStream)
+            {
+                Client* p = new Client(get_ParentObj());
+                get_ParentObj().m_lstClients.push_back(*p);
+
+                p->Accept(std::move(newStream));
+                p->SecureConnect();
+            }
+        }
+    } m_Server;
 };
 
 void TestP2PWalletNegotiationST()
@@ -1382,76 +1407,6 @@ void TestRollback()
     TestRollback(99, 100);
 }
 
-
-void TestOfflineNegotiation()
-{
-    cout << "\nOffline negitiation";
-
-    struct OneTimeOfflineIO : public TestNetwork
-    {
-        OneTimeOfflineIO(IOLoop& mainLoop)
-            : TestNetwork(mainLoop)
-        {
-        }
-
-        //void onSent() override
-        //{
-        //    this->m_networkLoop.release();
-        //}
-    };
-
-    WalletID receiver_id = {};
-    receiver_id = unsigned(4);
-    WalletID sender_id = {};
-    sender_id = unsigned(5);
-
-    IOLoop mainLoop;
-    auto senderKeychain = createSenderKeychain();
-    auto receiverKeychain = createReceiverKeychain();
-    auto network = make_shared<OneTimeOfflineIO>(mainLoop);
-    auto network2 = make_shared<OneTimeOfflineIO>(mainLoop);
-
-    {
-        Wallet sender(senderKeychain, network);
-        Wallet receiver(receiverKeychain, network2);
-
-        network->registerPeer(&sender, true);
-        network->registerPeer(&receiver, false);
-
-        network2->registerPeer(&receiver, true);
-        network2->registerPeer(&sender, false);
-
-        sender.transfer_money(receiver_id, sender_id, 6, 0, true);
-        mainLoop.step();
-
-        network->m_peers.clear();
-        network2->m_peers.clear();
-    }
-
-
-    for (int i = 0; i < 10; ++i)
-    {
-        // recreate wallets on each loop
-        // Stages:
-        // 1. Invitation/Confirmation
-        // 2. Registration
-
-        Wallet sender(senderKeychain, network);
-        Wallet receiver(receiverKeychain, network2);
-
-        network->registerPeer(&sender, true);
-        network->registerPeer(&receiver, false);
-
-        network2->registerPeer(&receiver, true);
-        network2->registerPeer(&sender, false);
-
-        mainLoop.step();
-
-        network->m_peers.clear();
-        network2->m_peers.clear();
-    }
-}
-
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -1461,7 +1416,6 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     TestSplitKey();
- //   TestOfflineNegotiation();
     TestP2PWalletNegotiationST();
     TestP2PWalletReverseNegotiationST();
 
