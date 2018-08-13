@@ -24,6 +24,7 @@
         <file>info.qml</file>
         <file>settings.qml</file>
         <file>address-book.qml</file>
+		<file>utxo.qml</file>
         <file>assets/fonts/SF-Pro-Display-Thin.otf</file>
         <file>assets/fonts/SF-Pro-Display-Bold.otf</file>
         <file>assets/fonts/SF-Pro-Display-Regular.otf</file>
@@ -51,5 +52,7 @@
         <file>assets/icon-cancel.svg</file>
 		<file>assets/icon-done.svg</file>
 		<file>assets/icon-add.svg</file>
+		<file>assets/icon-utxo.svg</file>
+		<file>assets/icon-utxo-active.svg</file>
     </qresource>
 </RCC>

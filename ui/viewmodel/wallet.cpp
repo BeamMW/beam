@@ -128,6 +128,7 @@ WalletViewModel::WalletViewModel(WalletModel& model)
     , _feeMils("0")
     , _change(0)
     , _loadingUtxo{false}
+	, _loadingAllUtxo{false}
 {
 	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
@@ -145,6 +146,9 @@ WalletViewModel::WalletViewModel(WalletModel& model)
 
     connect(&_model, SIGNAL(onUtxoChanged(const std::vector<beam::Coin>&)),
         SLOT(onUtxoChanged(const std::vector<beam::Coin>&)));
+
+	connect(&_model, SIGNAL(onAllUtxoChanged(const std::vector<beam::Coin>&)),
+		SLOT(onAllUtxoChanged(const std::vector<beam::Coin>&)));
 
 	connect(&_model, SIGNAL(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
 		SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
@@ -200,6 +204,7 @@ void WalletViewModel::onStatus(const WalletStatus& status)
     if (changed)
     {
         _utxos.clear();
+		_allUtxos.clear();
         emit stateChanged();
     }
 }
@@ -248,6 +253,18 @@ void WalletViewModel::onUtxoChanged(const std::vector<beam::Coin>& utxos)
     _loadingUtxo = false;
 
     emit utxoChanged();
+}
+
+void WalletViewModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxos)
+{
+	_allUtxos.clear();
+	for (const auto& utxo : utxos)
+	{
+		_allUtxos.push_back(new UtxoItem(utxo));
+	}
+	_loadingAllUtxo = false;
+
+	emit allUtxoChanged();
 }
 
 void WalletViewModel::onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
@@ -408,6 +425,16 @@ QVariant WalletViewModel::utxos()
         _model.async->getAvaliableUtxos();
     }
     return QVariant::fromValue(_utxos);
+}
+
+QVariant WalletViewModel::allUtxos()
+{
+	if (_allUtxos.empty() && _loadingAllUtxo == false && _model.async)
+	{
+		_loadingAllUtxo = true;
+		_model.async->getAllUtxos();
+	}
+	return QVariant::fromValue(_allUtxos);
 }
 
 beam::Amount WalletViewModel::calcSendAmount() const

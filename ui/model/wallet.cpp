@@ -82,6 +82,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+	void getAllUtxos() override
+	{
+		tx.send([](BridgeInterface& receiver) mutable
+		{
+			receiver.getAllUtxos();
+		});
+	}
+
 	void getAddresses(bool own) override
 	{
 		tx.send([own](BridgeInterface& receiver) mutable
@@ -328,6 +336,11 @@ void WalletModel::getAvaliableUtxos()
     emit onUtxoChanged(getUtxos());
 }
 
+void WalletModel::getAllUtxos()
+{
+	emit onAllUtxoChanged(getUtxos(true));
+}
+
 void WalletModel::getAddresses(bool own)
 {
 	emit onAdrresses(own, _keychain->getAddresses(own));
@@ -360,13 +373,17 @@ void WalletModel::generateNewWalletID()
 	emit onGeneratedNewWalletID(walletID);
 }
 
-vector<Coin> WalletModel::getUtxos() const
+vector<Coin> WalletModel::getUtxos(bool all) const
 {
     vector<Coin> utxos;
     auto currentHeight = _keychain->getCurrentHeight();
-    Amount total = 0;
-    _keychain->visit([&utxos, &currentHeight](const Coin& c)->bool
+    _keychain->visit([&utxos, &currentHeight, all](const Coin& c)->bool
     {
+		if (all) {
+			utxos.push_back(c);
+			return true;
+		}
+
         Height lockHeight = c.m_maturity;
 
         if (c.m_status == Coin::Unspent

@@ -29,6 +29,7 @@ struct IWalletModelAsync
 	virtual void syncWithNode() = 0;
     virtual void calcChange(beam::Amount&& amount) = 0;
     virtual void getAvaliableUtxos() = 0;
+	virtual void getAllUtxos() = 0;
     virtual void getAddresses(bool own) = 0;
     virtual void cancelTx(beam::TxID id) = 0;
     virtual void createNewAddress(beam::WalletAddress&& address) = 0;
@@ -75,6 +76,7 @@ signals:
 	void onSyncProgressUpdated(int done, int total);
     void onChangeCalculated(beam::Amount change);
     void onUtxoChanged(const std::vector<beam::Coin>& utxos);
+	void onAllUtxoChanged(const std::vector<beam::Coin>& utxos);
 	void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
 	void onGeneratedNewWalletID(const beam::WalletID& walletID);
 	void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
@@ -91,6 +93,7 @@ private:
     void syncWithNode() override;
     void calcChange(beam::Amount&& amount) override;
     void getAvaliableUtxos() override;
+	void getAllUtxos() override;
     void getAddresses(bool own) override;
     void cancelTx(beam::TxID id) override;
     void createNewAddress(beam::WalletAddress&& address) override;
@@ -99,7 +102,7 @@ private:
 
 	void onStatusChanged();
 	WalletStatus getStatus() const;
-    std::vector<beam::Coin> getUtxos() const;
+    std::vector<beam::Coin> getUtxos(bool all = false) const;
 private:
 
 	uint16_t _port;
