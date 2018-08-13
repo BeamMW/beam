@@ -266,42 +266,6 @@ ColumnLayout {
 						}
 					}
 
-					RowLayout {
-						Layout.fillWidth: true
-						Layout.topMargin: 30
-						
-						SFText {
-							Layout.leftMargin: 22
-							text: qsTr("Expiration date")
-							font {
-								pixelSize: 12
-								weight: Font.Bold
-							}
-							color: Style.white
-						}
-												
-						SFText {
-							Layout.leftMargin: 61
-							text: "o"
-							font.pixelSize: 9
-						}
-
-
-						SFText {
-							Layout.leftMargin: 13
-							text: qsTr("Single use")
-							font {
-								pixelSize: 12
-								weight: Font.Bold
-							}
-							color: Style.white
-						}
-
-						SFText {
-						
-						}
-					}
-
 					ColumnLayout {
 						Layout.fillWidth: true
 						Layout.topMargin: 30
@@ -350,62 +314,35 @@ ColumnLayout {
 						Layout.maximumHeight: 38
 						anchors.centerIn: parent
 						
-						Rectangle {
-							radius: 50
+						IconButton {
 							color: Style.separator_color
+							textColor: Style.white
 							width: 122
 							height: 38
+							label: qsTr("cancel")
+							iconName: "icon-cancel"
 
-							SFText {
-								anchors.verticalCenter: parent.verticalCenter
-								anchors.horizontalCenter: parent.horizontalCenter
-
-								font.pixelSize: 14
-								font.weight: Font.Bold
-
-								color: Style.white
-
-								text: qsTr("cancel")
-							}
-
-							MouseArea{
-								anchors.fill: parent
-								cursorShape: Qt.PointingHandCursor
-								onClicked: {
-									createAddress.close()
-								}
+							onClicked: {
+								createAddress.close()
 							}
 						}
 
-						Rectangle {
-							radius: 50
+						IconButton {
 							color: Style.bright_teal
 							Layout.leftMargin: 31
 							width: 166
 							height: 38
-
-							SFText {
-								anchors.verticalCenter: parent.verticalCenter
-								anchors.horizontalCenter: parent.horizontalCenter
-
-								font.pixelSize: 14
-								font.weight: Font.Bold
-								color: Style.marine
-
-								text: qsTr("create address")
-							}
-
-							MouseArea{
-								anchors.fill: parent
-								cursorShape: Qt.PointingHandCursor
-								onClicked: {
-									if (createAddressLayout.state == "own") {
-										addressBookViewModel.createNewOwnAddress();
-									} else {
-										addressBookViewModel.createNewPeerAddress();
-									}
-									createAddress.close();
+							label: qsTr("create address")
+							iconName: "icon-done"
+							textColor: Style.marine
+								
+							onClicked: {
+								if (createAddressLayout.state == "own") {
+									addressBookViewModel.createNewOwnAddress();
+								} else {
+									addressBookViewModel.createNewPeerAddress();
 								}
+								createAddress.close();
 							}
 						}
 					}
@@ -475,10 +412,14 @@ ColumnLayout {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Button {
+            IconButton {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.right: parent.right
-                text: "+ create new address"
+                width: 195
+				height: 38
+				label: "create new address"
+				textColor: Style.white
+				iconName: "icon-add"
 				onClicked: {
 					addressBookViewModel.generateNewEmptyAddress()
 					createAddressLayout.state = addressRoot.state
