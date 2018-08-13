@@ -13,12 +13,16 @@
 // limitations under the License.
 
 #include "start.h"
+#include "wallet\keystore.h"
+#include <QMessageBox>
 
 using namespace beam;
 using namespace ECC;
+using namespace std;
 
-StartViewModel::StartViewModel(const std::string& walletStorage, StartViewModel::Done done)
+StartViewModel::StartViewModel(const string& walletStorage, const string& bbsStorage, StartViewModel::DoneCallback done)
 	: _walletStorage(walletStorage)
+    , _bbsStorage(bbsStorage)
 	, _done(done)
 {
 
@@ -65,11 +69,34 @@ bool StartViewModel::createWallet(const QString& seed, const QString& pass, cons
 		walletSeed.V = hv;
 	}
 
-	auto db = Keychain::init(_walletStorage, pass.toStdString(), walletSeed);
+    string walletPass = pass.toStdString();
+	auto db = Keychain::init(_walletStorage, walletPass, walletSeed);
 
 	if (db)
 	{
-		db->setNodeAddr(nodeAddr);
+        try
+        {
+            IKeyStore::Options options;
+            options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+            options.fileName = _bbsStorage;
+
+            IKeyStore::Ptr keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
+
+            // generate default address
+            WalletAddress defaultAddress = {};
+            defaultAddress.m_own = true;
+            defaultAddress.m_label = "default";
+            defaultAddress.m_createTime = getTimestamp();
+            defaultAddress.m_duration = numeric_limits<uint64_t>::max();
+            keystore->gen_keypair(defaultAddress.m_walletID, walletPass.c_str(), walletPass.size(), true);
+
+            db->saveAddress(defaultAddress);
+        }
+        catch (const std::runtime_error& ex)
+        {
+            QMessageBox::critical(0, "Error", "Failed to generate default address", QMessageBox::Ok);
+        }
+        db->setNodeAddr(nodeAddr);
 		_done(db, pass.toStdString());
 	}
 	else return false;

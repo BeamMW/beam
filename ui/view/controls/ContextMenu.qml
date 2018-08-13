@@ -37,6 +37,7 @@ Menu {
 			text: control.text
 			font: control.font
 			color: Style.white
+			opacity: enabled ? 1.0 : 0.3
 		}
 
 

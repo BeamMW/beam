@@ -160,58 +160,32 @@ int main (int argc, char* argv[])
 
 			Translator translator;
 
-			StartViewModel startViewModel(walletStorage, [&](IKeyChain::Ptr db, const std::string& walletPass)
+			StartViewModel startViewModel(walletStorage, bbsStorage, [&](IKeyChain::Ptr db, const std::string& walletPass)
 			{
-				try
-				{
-					IKeyStore::Options options;
-					options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-					options.fileName = bbsStorage;
+				qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
+				qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
 
-					IKeyStore::Ptr keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
+				IKeyStore::Options options;
+				options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+				options.fileName = bbsStorage;
 
-					// generate default address
-					WalletAddress defaultAddress = {};
-					defaultAddress.m_own = true;
-					defaultAddress.m_label = "default";
-					defaultAddress.m_createTime = getTimestamp();
-					defaultAddress.m_duration = numeric_limits<uint64_t>::max();
-					keystore->gen_keypair(defaultAddress.m_walletID, walletPass.c_str(), walletPass.size(), true);
-
-					db->saveAddress(defaultAddress);
-				}
-				catch (const std::runtime_error& ex)
-				{
-					QMessageBox::critical(0, "Error", "Failed to generate default address", QMessageBox::Ok);
-				}
-
-				{
-
-					qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
-					qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
-
-					IKeyStore::Options options;
-					options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-					options.fileName = bbsStorage;
-
-					keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
+				keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
 
 					walletModel = std::make_unique<WalletModel>(db, keystore);
 
-					walletModel->start();
+				walletModel->start();
 
-					viewModels = std::make_unique<ViewModel>(*walletModel);
+				viewModels = std::make_unique<ViewModel>(*walletModel);
 
-					QQmlContext *ctxt = view.rootContext();
+				QQmlContext *ctxt = view.rootContext();
 
-					// TODO: try move instantiation of view models to views
-					ctxt->setContextProperty("mainViewModel", &viewModels->main);
-					ctxt->setContextProperty("walletViewModel", &viewModels->wallet);
-					ctxt->setContextProperty("addressBookViewModel", &viewModels->addressBook);
-					ctxt->setContextProperty("translator", &translator);
+				// TODO: try move instantiation of view models to views
+				ctxt->setContextProperty("mainViewModel", &viewModels->main);
+				ctxt->setContextProperty("walletViewModel", &viewModels->wallet);
+				ctxt->setContextProperty("addressBookViewModel", &viewModels->addressBook);
+				ctxt->setContextProperty("translator", &translator);
 
-					view.rootObject()->setProperty("source", "qrc:///main.qml");
-				}
+				view.rootObject()->setProperty("source", "qrc:///main.qml");
 			});
 
 			view.rootContext()->setContextProperty("startViewModel", &startViewModel);

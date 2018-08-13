@@ -26,9 +26,9 @@ class StartViewModel : public QObject
 	Q_PROPERTY(bool walletExists READ walletExists NOTIFY walletExistsChanged)
 public:
 
-	using Done = std::function<void(beam::IKeyChain::Ptr db, const std::string& walletPass)>;
+	using DoneCallback = std::function<void(beam::IKeyChain::Ptr db, const std::string& walletPass)>;
 
-	StartViewModel(const std::string& walletStorage, Done done);
+	StartViewModel(const std::string& walletStorage, const std::string& bbsStorage, DoneCallback done);
 
 	bool walletExists() const;
 
@@ -41,5 +41,6 @@ public slots:
 
 private:
 	std::string _walletStorage;
-	Done _done;
+    std::string _bbsStorage;
+	DoneCallback _done;
 };
