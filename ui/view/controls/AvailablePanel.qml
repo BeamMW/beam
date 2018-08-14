@@ -5,6 +5,7 @@ import QtQuick.Layouts 1.0
 import "."
 
 Rectangle {
+	id: panel
     radius: 10
     color: Style.dark_slate_blue
 
@@ -12,6 +13,7 @@ Rectangle {
 
     property string value
     property alias model : utxo_list.model
+	property alias color: panel.color
 
     SFText {
         id: title
