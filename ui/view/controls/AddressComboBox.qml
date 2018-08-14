@@ -3,86 +3,107 @@ import QtQuick.Controls 2.4
 import QtQuick.Controls.impl 2.4
 import QtQuick.Controls.Styles 1.2
 import QtGraphicalEffects 1.0
+import QtQuick.Layouts 1.3
 import "."
 
 ComboBox {
     id: control
     
+    property string color
 	textRole: "walletID"
+    spacing: 4
 
     delegate: ItemDelegate {
+        id: itemDelegate
         width: control.width
-        contentItem: Text {
-            text: modelData.walletID
-            color: "#21be2b"
-            font: control.font
+        contentItem: SFText {
+            text: modelData.name+"(" + modelData.walletID +")"
+            color: control.color
             elide: Text.ElideRight
             verticalAlignment: Text.AlignVCenter
         }
         highlighted: control.highlightedIndex === index
-    }
 
-    indicator: Canvas {
-        id: canvas
-        x: control.width - width - control.rightPadding
-        y: control.topPadding + (control.availableHeight - height) / 2
-        width: 12
-        height: 8
-        contextType: "2d"
-
-        Connections {
-            target: control
-            onPressedChanged: canvas.requestPaint()
-        }
-
-        onPaint: {
-            context.reset();
-            context.moveTo(0, 0);
-            context.lineTo(width, 0);
-            context.lineTo(width / 2, height);
-            context.closePath();
-            context.fillStyle = control.pressed ? "#17a81a" : "#21be2b";
-            context.fill();
+        background: Rectangle {
+            implicitWidth: 100
+            implicitHeight: 40
+            opacity: enabled ? 1 : 0.3
+            color:itemDelegate.highlighted ? Style.bluey_grey : Style.combobox_color
         }
     }
 
-    contentItem: Text {
+    indicator: SvgImage {
+        source: "qrc:///assets/icon-down.svg"
+        anchors.right: control.right
+        anchors.verticalCenter: control.verticalCenter
+    }
+
+    contentItem: SFTextInput {
         leftPadding: 0
         rightPadding: control.indicator.width + control.spacing
-
-        text: control.currentText
-        font: control.font
-        color: control.pressed ? "#17a81a" : "#21be2b"
+        clip: true
+        text: control.editText
+        color: control.color
         verticalAlignment: Text.AlignVCenter
-        elide: Text.ElideRight
     }
 
-    background: Rectangle {
-        implicitWidth: 120
-        implicitHeight: 40
-        border.color: control.pressed ? "#17a81a" : "#21be2b"
-        border.width: control.visualFocus ? 2 : 1
-        radius: 2
+    background: Item {
+        Rectangle {
+            width: control.width
+            height: 1
+            y: control.height - 1
+            color: Style.separator_color
+        }
     }
 
     popup: Popup {
         y: control.height - 1
         width: control.width
-        implicitHeight: contentItem.implicitHeight
         padding: 1
 
-        contentItem: ListView {
-            clip: true
-            implicitHeight: contentHeight
-            model: control.popup.visible ? control.delegateModel : null
-            currentIndex: control.highlightedIndex
+        contentItem: ColumnLayout {
+            SFText {
+                Layout.fillWidth: true
+                Layout.minimumHeight: control.height
+                Layout.leftMargin: 20
+                color: Style.disable_text_color
+                font.pixelSize: 12
+                verticalAlignment: Text.AlignVCenter
 
-            ScrollIndicator.vertical: ScrollIndicator { }
+                text: qsTr("create new address")
+            }
+            Rectangle {
+                Layout.fillWidth: true
+                height: 1
+                color: Style.separator_color
+            }
+            ListView {
+                id: listView
+                Layout.fillWidth: true
+                clip: true
+                implicitHeight: contentHeight
+                model: control.popup.visible ? control.delegateModel : null
+                currentIndex: control.highlightedIndex
+                ScrollIndicator.vertical: ScrollIndicator { }            
+            }
+            Item {
+                Layout.fillWidth: true
+                Layout.minimumHeight:15
+            }
         }
 
-        background: Rectangle {
-            border.color: "#21be2b"
-            radius: 2
+        background: Item {
+            Rectangle {
+                color: Style.combobox_color
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: control.height
+            }
+            Rectangle {
+                anchors.fill: parent
+                color: Style.combobox_color
+                radius: 10
+            }
         }
     }
 }
