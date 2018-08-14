@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "start.h"
-#include "wallet\keystore.h"
+#include "wallet/keystore.h"
 #include <QMessageBox>
 
 using namespace beam;
