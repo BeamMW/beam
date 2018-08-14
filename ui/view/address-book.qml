@@ -601,11 +601,11 @@ ColumnLayout {
                 movable: false
             }
 
-            TableViewColumn {
-                role: "expirationDate"
-                title: qsTr("Expiration date")
-                movable: false
-            }
+//            TableViewColumn {
+//                role: "expirationDate"
+//                title: qsTr("Expiration date")
+//                movable: false
+//            }
 
             TableViewColumn {
                 role: "createDate"

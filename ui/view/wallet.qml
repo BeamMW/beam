@@ -92,8 +92,11 @@ Item {
 
 			RowLayout {
 				Layout.fillWidth: true
-		        Layout.fillHeight: true
-				Layout.minimumHeight: 300
+		        //Layout.fillHeight: true
+				height: 300
+
+				spacing: 30
+
 				Item {
 					Layout.fillWidth: true
 				    Layout.fillHeight: true
@@ -361,8 +364,7 @@ Item {
 
 			RowLayout {
 				Layout.fillWidth: true
-				Layout.fillHeight: true
-				Layout.minimumHeight: 180
+				Layout.minimumHeight: 80
 				Item {
 					Layout.fillWidth: true
 					Layout.fillHeight: true
@@ -379,10 +381,10 @@ Item {
 			
 
             Row {
-				Layout.alignment: Qt.AlignCenter
+				Layout.alignment: Qt.AlignCenter 
 				Layout.fillWidth: false
-		        Layout.fillHeight: true
-				Layout.minimumHeight: 40
+				Layout.fillHeight: true
+				height: 40
 
                 spacing: 30
 
@@ -465,7 +467,7 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
 
-            Row {
+            RowLayout {
 
                 id: wide_panels
 
@@ -476,15 +478,19 @@ Item {
                 spacing: 30
 
                 AvailablePanel {
-                    width: (parent.width - 30)*500/1220
-                    height: parent.height
+                    Layout.maximumWidth: 500
+                    Layout.minimumWidth: 350
+                    Layout.fillHeight: true
+                    Layout.fillWidth: true
+					
                     value: walletViewModel.available
                 }
 
                 SecondaryPanel {
-                    width: (parent.width - 30)*240*3/1220
-                    height: parent.height
-                    title: "Unconfirmed"
+                    Layout.minimumWidth: 350
+                    Layout.fillHeight: true
+					Layout.fillWidth: true
+                    title: qsTr("Unconfirmed")
                     amountColor: Style.white
                     value: walletViewModel.unconfirmed
                 }
