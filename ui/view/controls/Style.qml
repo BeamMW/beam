@@ -17,6 +17,8 @@ QtObject {
 	property color bluey_grey: 		"#8da1ad"
 	property color separator_color: "#33566b"
 	property color disable_text_color: "#889da9"
+    property color combobox_color:  "#0a4b66"
+
 
 	// Asset definitions
 

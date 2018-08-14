@@ -1,4 +1,4 @@
-import QtQuick 2.3
+import QtQuick 2.6
 import QtQuick.Controls 1.2
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
@@ -100,12 +100,12 @@ Item {
                 
 					clip: true
 
-					SFText {
-						font.pixelSize: 18
-						font.weight: Font.Bold
-						color: Style.white
-						text: "Send BEAM"
-					}
+                    SFText {
+                        font.pixelSize: 18
+                        font.weight: Font.Bold
+                        color: Style.white
+                        text: qsTr("Send BEAM")
+                    }
 
 					ColumnLayout {
 						anchors.fill: parent
@@ -117,87 +117,70 @@ Item {
 							Layout.minimumHeight: 14
 							Layout.maximumHeight: 14
 
+                            font.pixelSize: 12
+                            font.weight: Font.Bold
+                            color: Style.white
+                            text: qsTr("Recipient address")
+                        }
+
+					    AddressComboBox {
+						    id: receiverAddrCombo
+						    Layout.fillWidth: true
+						    Layout.minimumHeight: 18
+						    Layout.maximumHeight: 18
+						    editable: true
+						    currentIndex: -1
+						    model: addressBookViewModel.peerAddresses
+                            color: Style.white
 							font.pixelSize: 12
-							font.weight: Font.Bold
-							color: Style.white
-							text: "Recipient address"
-						}
-
-						SFTextInput {
-							id: receiver_addr
-
-							Layout.fillWidth: true
-							Layout.minimumHeight: 14
-							Layout.maximumHeight: 14
-
-							font.pixelSize: 12
-
-							color: Style.white
-						}
-
-						Rectangle {
-							Layout.fillWidth: true
-							Layout.minimumHeight: 1
-							Layout.maximumHeight: 1
-							height: 1
-
-							color: Style.separator_color
-						}
+					    }
 					
 						SFText {
 							Layout.minimumHeight: 14
 							Layout.maximumHeight: 14
+                            Layout.topMargin: 30
 
-							font.pixelSize: 12
-							font.weight: Font.Bold
-							color: Style.white
-							text: "Sending address"
+                            font.pixelSize: 12
+                            font.weight: Font.Bold
+                            color: Style.white
+                            text: qsTr("Sending address")
+                        }                    
+
+					    AddressComboBox {
+						    id: senderAddrCombo
+						    Layout.fillWidth: true
+						    Layout.minimumHeight: 18
+						    Layout.maximumHeight: 18
+						    editable: true
+						    model: addressBookViewModel.ownAddresses
+						    currentIndex: -1
+                            color: Style.white
+						    font.pixelSize: 12
 						}
 
-						SFTextInput {
-							id: sender_addr
-							Layout.fillWidth: true
-							Layout.minimumHeight: 14
-							Layout.maximumHeight: 14
+                        Binding {
+                             target: walletViewModel
+                             property: "senderAddr"
+                             value: senderAddrCombo.editText
+                        }
 
-							font.pixelSize: 12
+					    Binding {
+                             target: senderAddrCombo
+                             property: "editText"
+                             value: walletViewModel.senderAddr
+                        }
 
-							color: Style.white
-						}
+					    Binding {
+                             target: walletViewModel
+                             property: "receiverAddr"
+                             value: receiverAddrCombo.editText
+                        }
 
-						Binding {
-							 target: walletViewModel
-							 property: "receiverAddr"
-							 value: receiver_addr.text
-						}
-
-						Binding {
-							 target: receiver_addr
-							 property: "text"
-							 value: walletViewModel.receiverAddr
-						}
-
-						Binding {
-							 target: walletViewModel
-							 property: "senderAddr"
-							 value: sender_addr.text
-						}
-
-						Binding {
-							 target: sender_addr
-							 property: "text"
-							 value: walletViewModel.senderAddr
-						}
-
-
-						Rectangle {
-							Layout.fillWidth: true
-							Layout.minimumHeight: 1
-							Layout.maximumHeight: 1
-							height: 1
-
-							color: Style.separator_color
-						}
+					    Binding {
+                             target: receiverAddrCombo
+                             property: "editText"
+                             value: walletViewModel.receiverAddr
+                        }
 
 						Item {
 							Layout.fillHeight: true;
