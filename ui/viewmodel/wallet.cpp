@@ -91,6 +91,8 @@ QString UtxoItem::height() const
 
 QString UtxoItem::maturity() const
 {
+    if (_coin.m_maturity == static_cast<Height>(-1))
+        return QString{"-"};
     return QString::number(_coin.m_maturity);
 }
 
@@ -249,6 +251,7 @@ void WalletViewModel::onChangeCalculated(beam::Amount change)
 void WalletViewModel::onUtxoChanged(const std::vector<beam::Coin>& utxos)
 {
     _utxos.clear();
+
     for (const auto& utxo : utxos)
     {
         _utxos.push_back(new UtxoItem(utxo));
@@ -261,7 +264,15 @@ void WalletViewModel::onUtxoChanged(const std::vector<beam::Coin>& utxos)
 void WalletViewModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxos)
 {
 	_allUtxos.clear();
-	for (const auto& utxo : utxos)
+
+    std::vector<beam::Coin> tmp(utxos);
+
+    std::sort(tmp.begin(), tmp.end(), [](const Coin& lf, const Coin& rt)
+    {
+        return lf.m_createHeight > rt.m_createHeight;
+    });
+
+	for (const auto& utxo : tmp)
 	{
 		_allUtxos.push_back(new UtxoItem(utxo));
 	}
