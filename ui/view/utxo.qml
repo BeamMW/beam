@@ -77,18 +77,6 @@ Item {
                 color: Style.light_navy
                 visible: styleData.alternate
             }
-
-            MouseArea {
-                anchors.fill: parent
-                acceptedButtons: Qt.RightButton
-                onClicked: {
-                    if (mouse.button === Qt.RightButton && styleData.row !== undefined)
-                    {
-                        peersContextMenu.peerIndex = styleData.row;
-                        peersContextMenu.popup();
-                    }
-                }
-            }
         }
 
 		itemDelegate: TableItem {
