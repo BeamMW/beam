@@ -14,7 +14,7 @@
         <file>controls/ContextMenu.qml</file>
         <file>controls/DefaultButton.qml</file>
         <file>controls/PrimaryButton.qml</file>
-		<file>controls/IconButton.qml</file>
+        <file>controls/IconButton.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>
         <file>main.qml</file>
@@ -49,7 +49,8 @@
         <file>assets/icon-transaction-list.svg</file>
         <file>assets/icon-edit.svg</file>
         <file>assets/icon-cancel.svg</file>
-		<file>assets/icon-done.svg</file>
-		<file>assets/icon-add.svg</file>
+        <file>assets/icon-done.svg</file>
+        <file>assets/icon-add.svg</file>
+        <file>controls/AddressComboBox.qml</file>
     </qresource>
 </RCC>

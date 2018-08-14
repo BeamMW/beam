@@ -1,4 +1,4 @@
-import QtQuick 2.3
+import QtQuick 2.6
 import QtQuick.Controls 1.2
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
@@ -140,6 +140,16 @@ Item {
 
                         color: Style.separator_color
                     }
+
+					AddressComboBox {
+						id: receiverAddrCombo
+						Layout.fillWidth: true
+						//Layout.minimumHeight: 20
+						//Layout.maximumHeight: 20
+						editable: true
+						currentIndex: -1
+						model: addressBookViewModel.peerAddresses
+					}
 					
 					SFText {
 						Layout.minimumHeight: 14
@@ -162,7 +172,7 @@ Item {
                         color: Style.white
                     }
 
-                    Binding {
+    /*                Binding {
                          target: walletViewModel
                          property: "receiverAddr"
                          value: receiver_addr.text
@@ -184,6 +194,30 @@ Item {
                          target: sender_addr
                          property: "text"
                          value: walletViewModel.senderAddr
+                    }*/
+
+					Binding {
+                         target: walletViewModel
+                         property: "senderAddr"
+                         value: senderAddrCombo.editText
+                    }
+
+					Binding {
+                         target: senderAddrCombo
+                         property: "editText"
+                         value: walletViewModel.senderAddr
+                    }
+
+					Binding {
+                         target: walletViewModel
+                         property: "receiverAddr"
+                         value: receiverAddrCombo.editText
+                    }
+
+					Binding {
+                         target: receiverAddrCombo
+                         property: "editText"
+                         value: walletViewModel.editText
                     }
 
 
@@ -195,6 +229,17 @@ Item {
 
                         color: Style.separator_color
                     }
+
+					AddressComboBox {
+						id: senderAddrCombo
+						Layout.fillWidth: true
+						//Layout.minimumHeight: 20
+						//Layout.maximumHeight: 20
+						editable: true
+						model: addressBookViewModel.ownAddresses
+						currentIndex: 0
+					}
+
 
 					Item {
 						Layout.fillHeight: true;
