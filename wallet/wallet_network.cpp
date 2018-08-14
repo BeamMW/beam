@@ -29,7 +29,7 @@ namespace beam {
                                    , io::Reactor::Ptr reactor
                                    , unsigned reconnect_ms
                                    , unsigned sync_period_ms)
-                                   
+
         : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, 150, *this, 20000 }
         , m_msgReader{ m_protocol, 1, 20000 }
         , m_node_address{node_address}
@@ -59,9 +59,7 @@ namespace beam {
         assert(!m_myPubKeys.empty());
         for (const auto& k : m_myPubKeys)
         {
-            uint32_t channel = channel_from_wallet_id(k);
-            LOG_INFO() << "Channel:" << channel << " Pubkey: " << to_string(k);
-            listen_to_bbs_channel(channel);
+            listen_to_bbs_channel(k);
         }
     }
 
@@ -132,6 +130,17 @@ namespace beam {
     void WalletNetworkIO::send_node_message(proto::GetProofState&& msg)
     {
         send_to_node(move(msg));
+    }
+
+    bool WalletNetworkIO::is_own_address(const WalletID& address) {
+        return m_myPubKeys.count(address) != 0;
+    }
+
+    void WalletNetworkIO::new_own_address(const WalletID& address) {
+        auto p = m_myPubKeys.insert(address);
+        if (p.second) {
+            listen_to_bbs_channel(address);
+        }
     }
 
     void WalletNetworkIO::close_node_connection()
@@ -222,9 +231,9 @@ namespace beam {
     void WalletNetworkIO::on_node_connected()
     {
         m_is_node_connected = true;
-        for (auto k : m_myPubKeys)
+        for (const auto& k : m_myPubKeys)
         {
-            listen_to_bbs_channel(channel_from_wallet_id(k));
+            listen_to_bbs_channel(k);
         }
 
         vector<ConnectCallback> t;
@@ -270,11 +279,12 @@ namespace beam {
         return true;
     }
 
-    void WalletNetworkIO::listen_to_bbs_channel(uint32_t channel)
+    void WalletNetworkIO::listen_to_bbs_channel(const WalletID& walletID)
     {
         if (m_is_node_connected)
         {
-            LOG_DEBUG() << "Listen BBS channel=" << channel;
+            uint32_t channel = channel_from_wallet_id(walletID);
+            LOG_INFO() << "WalletID " << to_string(walletID) << " subscribes to BBS channel " << channel;
             proto::BbsSubscribe msg;
             msg.m_Channel = channel;
             msg.m_TimeFrom = m_bbs_timestamps[channel];

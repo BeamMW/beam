@@ -69,7 +69,7 @@ OwnAddressItem::OwnAddressItem()
 
 }
 
-OwnAddressItem::OwnAddressItem(const beam::WalletAddress& address) 
+OwnAddressItem::OwnAddressItem(const beam::WalletAddress& address)
     : PeerAddressItem{ address }
     , m_createDate{toString(address.m_createTime)}
     , m_expirationDate{toString(address.m_createTime + address.m_duration)}
@@ -141,7 +141,7 @@ void AddressBookViewModel::generateNewEmptyAddress()
 {
 	m_newOwnAddress.clean();
 	m_newPeerAddress.clean();
-	
+
 	if (m_model.async)
 	{
 		m_model.async->generateNewWalletID();
@@ -153,7 +153,7 @@ void AddressBookViewModel::createNewAddress()
     WalletAddress a = {};
     a.m_own = false;
     a.m_label = "My address " + to_string(chrono::system_clock::now().time_since_epoch().count());
-    ECC::Hash::Processor() << a.m_label.c_str() >> a.m_walletID;
+    ECC::Hash::Processor() << a.m_label.c_str() >> a.m_walletID; // XXX!!!!
     a.m_createTime = beam::getTimestamp();
     a.m_duration = 1000000;
     a.m_category = "work";
