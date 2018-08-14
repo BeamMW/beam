@@ -165,6 +165,8 @@ int main (int argc, char* argv[])
 			{
 				qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
 				qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
+				qmlRegisterType<TxObject>("Wallet", 1, 0, "TxObject");
+				qmlRegisterType<UtxoItem>("Wallet", 1, 0, "UtxoItem");
 
 				IKeyStore::Options options;
 				options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;

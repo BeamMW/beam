@@ -6,8 +6,15 @@ import "controls"
 Item {
 	anchors.fill: parent
 
+	SFText {
+        font.pixelSize: 36
+        color: Style.white
+        text: "UTXO"
+    }
+
 	TableView {
 		anchors.fill: parent
+		anchors.topMargin: 55
 		frameVisible: false
         selectionMode: SelectionMode.SingleSelection
         backgroundVisible: false

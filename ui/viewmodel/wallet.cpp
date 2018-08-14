@@ -215,7 +215,7 @@ void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
 
 	for (const auto& item : history)
 	{
-		_tx.append(new TxObject(item));
+		_tx.push_back(new TxObject(item));
 	}
 
 	emit txChanged();
@@ -224,8 +224,6 @@ void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
 void WalletViewModel::onTxPeerUpdated(const std::vector<beam::TxPeer>& peers)
 {
 	_addrList = peers;
-
-	emit addrBookChanged();
 }
 
 void WalletViewModel::onSyncProgressUpdated(int done, int total)
@@ -378,21 +376,9 @@ QString WalletViewModel::receiverAddr() const
 	return QString::fromStdString(str.str());
 }
 
-QVariant WalletViewModel::tx() const
+QQmlListProperty<TxObject> WalletViewModel::tx()
 {
-	return QVariant::fromValue(_tx);
-}
-
-QVariant WalletViewModel::addrBook() const
-{
-	QStringList book;
-
-	for (const auto& item : _addrList)
-	{
-		book.append(QString::fromStdString(item.m_label));
-	}
-
-	return QVariant::fromValue(book);
+	return QQmlListProperty<TxObject>(this, _tx);
 }
 
 QString WalletViewModel::syncTime() const
@@ -417,24 +403,24 @@ int WalletViewModel::selectedAddr() const
 	return _selectedAddr;
 }
 
-QVariant WalletViewModel::utxos() 
+QQmlListProperty<UtxoItem> WalletViewModel::utxos()
 {
     if (_utxos.empty() && _loadingUtxo == false && _model.async)
     {
         _loadingUtxo = true;
         _model.async->getAvaliableUtxos();
     }
-    return QVariant::fromValue(_utxos);
+	return QQmlListProperty<UtxoItem>(this, _utxos);
 }
 
-QVariant WalletViewModel::allUtxos()
+QQmlListProperty<UtxoItem> WalletViewModel::allUtxos()
 {
 	if (_allUtxos.empty() && _loadingAllUtxo == false && _model.async)
 	{
 		_loadingAllUtxo = true;
 		_model.async->getAllUtxos();
 	}
-	return QVariant::fromValue(_allUtxos);
+	return QQmlListProperty<UtxoItem>(this, _allUtxos);
 }
 
 beam::Amount WalletViewModel::calcSendAmount() const

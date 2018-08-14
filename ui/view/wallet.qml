@@ -785,7 +785,7 @@ Item {
 
                     clip:true
 
-                    property bool income: (styleData.row >= 0) ? walletViewModel.getTxAt(styleData.row).income : false
+                    property bool income: (styleData.row >= 0) ? walletViewModel.tx[styleData.row].income : false
 
                     SFText {
                         font.pixelSize: 24
