@@ -254,7 +254,7 @@ Item
                 spacing: 10
 
                 SFText {
-                    text: "Enter miner secret"
+                    text: "Enter secret key"
                     color: Style.white
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -384,7 +384,7 @@ Item
         }
 
         PrimaryButton {
-            label: "proceed to your wallet"
+            label: "create wallet"
 
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top

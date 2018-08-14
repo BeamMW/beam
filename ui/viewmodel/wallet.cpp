@@ -62,7 +62,7 @@ QString TxObject::change() const
 
 QString TxObject::status() const
 {
-	static const char* Names[] = { "Pending", "InProgress", "Cancelled", "Completed", "Failed" };
+	static const char* Names[] = { "Pending", "In Progress", "Cancelled", "Completed", "Failed" };
 	return Names[_tx.m_status];
 }
 
