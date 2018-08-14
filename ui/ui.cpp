@@ -136,6 +136,7 @@ int main (int argc, char* argv[])
 
 			QQuickView view;
 			view.setResizeMode(QQuickView::SizeRootObjectToView);
+            view.setMinimumSize(QSize(800, 700));
 
 			IKeyStore::Ptr keystore;
 
