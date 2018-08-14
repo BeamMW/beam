@@ -91,7 +91,7 @@ QString UtxoItem::height() const
 
 QString UtxoItem::maturity() const
 {
-    return QString::number(_coin.m_createHeight);
+    return QString::number(_coin.m_maturity);
 }
 
 QString UtxoItem::status() const
@@ -152,6 +152,11 @@ WalletViewModel::WalletViewModel(WalletModel& model)
 
 	connect(&_model, SIGNAL(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
 		SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
+}
+
+WalletViewModel::~WalletViewModel()
+{
+
 }
 
 void WalletViewModel::cancelTx(int index)

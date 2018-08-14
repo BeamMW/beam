@@ -1,22 +1,25 @@
 import QtQuick 2.3
 import QtQuick.Controls 1.2
+import QtQuick.Layouts 1.0
 import QtQuick.Controls.Styles 1.2
 import "controls"
 
-Item {
+ColumnLayout {
 	anchors.fill: parent
 
 	SFText {
+        Layout.minimumHeight: 40
+        Layout.maximumHeight: 40
         font.pixelSize: 36
         color: Style.white
-        text: "UTXO"
+        text: qsTr("UTXO")
     }
 
 	TableView {
-		anchors.fill: parent
-		anchors.topMargin: 55
+		Layout.fillWidth: true
+		Layout.fillHeight: true
 		frameVisible: false
-        selectionMode: SelectionMode.SingleSelection
+        selectionMode: SelectionMode.NoSelection
         backgroundVisible: false
 		model: walletViewModel.allUtxos
 
@@ -36,7 +39,7 @@ Item {
 
 		TableViewColumn {
 			role: "maturity"
-			title: qsTr("maturity")
+			title: qsTr("Maturity")
 			width: 100
 			movable: false
 		}
