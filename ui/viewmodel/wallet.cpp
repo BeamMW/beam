@@ -48,13 +48,6 @@ QString TxObject::amount() const
 	return BeamToString(_tx.m_amount);
 }
 
-QString TxObject::amountUsd() const
-{
-	// TODO: don't know how we're going to calc amount USD
-	return BeamToString(_tx.m_amount) + " USD";
-}
-
-
 QString TxObject::change() const
 {
 	return BeamToString(_tx.m_change) + " BEAM";
