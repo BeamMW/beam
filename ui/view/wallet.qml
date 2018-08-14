@@ -274,7 +274,7 @@ Item {
 
 						font.pixelSize: 24
 						color: Style.white
-						text: "MIL"
+						text: qsTr("GROTH")
 					}
 
 					/////////////////////////////////////////////////////////////
@@ -320,7 +320,7 @@ Item {
 								Layout.leftMargin: 0
 								font.pixelSize: 24
 								color: Style.white
-								text: "MIL"
+								text: qsTr("GROTH")
 							}
 						}
 
@@ -353,7 +353,7 @@ Item {
 							font.pixelSize: 24
 							font.weight: Font.ExtraLight
 							color: Style.white
-							text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils*1 + walletViewModel.feeMils*1)/1000000) + " USD"
+							text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils*1 + walletViewModel.feeMils*1)/1000000) + " BEAM"
 						}
 					}
 				}
@@ -478,7 +478,6 @@ Item {
                 AvailablePanel {
                     width: (parent.width - 30)*500/1220
                     height: parent.height
-                    model: walletViewModel.utxos
                     value: walletViewModel.available
                 }
 
@@ -673,14 +672,6 @@ Item {
                         text: "BEAM"
                     }
                 }
-            }
-
-            TableViewColumn {
-                role: "amountUsd"
-                title: "Amount, USD"
-                width: 200*parent.width/1310
-
-                movable: false
             }
 
             TableViewColumn {
