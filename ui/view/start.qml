@@ -113,9 +113,11 @@ Item
                 id: openPassword
                 width: parent.width
 				focus: true
+				activeFocusOnTab: true
                 font.pixelSize: 12
                 color: Style.white
                 echoMode: TextInput.Password
+				onAccepted: btnCurrentWallet.clicked()
             }
 
             Rectangle {
@@ -142,15 +144,18 @@ Item
 
             DefaultButton {
                 label: "restore wallet from file"
+				activeFocusOnTab: true
             }
 
             DefaultButton {
                 label: "restore wallet from blockchain"
+				activeFocusOnTab: true
             }
 
             PrimaryButton {
+				id: btnCurrentWallet
                 label: "proceed to current wallet"
-
+				activeFocusOnTab: true
                 onClicked: {
                     if(openPassword.text.length == 0)
                     {
