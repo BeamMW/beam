@@ -84,7 +84,7 @@ int main (int argc, char* argv[])
 
 		try
 		{
-			vm = getOptions(argc, argv, "beam-ui.cfg", options);
+			vm = getOptions(argc, argv, "beam-wallet.cfg", options);
 		}
 		catch (const po::error& e)
 		{

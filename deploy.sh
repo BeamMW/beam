@@ -31,30 +31,28 @@ mkdir -p $LATEST_OS_FOLDER
 if [[ "$OSTYPE" == "linux"* ]]; then
 
 	tar -cvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-	tar -rvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/ui beam-ui beam-ui.cfg
 	gzip $OS_FOLDER/$APP.tar
 
 	cp -f $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
 
 	git add $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
 
-	cp -f $HOME/build/beam-mw/beam/Beam-0.0.1-Linux.deb $OS_FOLDER/$APP-setup.deb
-	cp -f $OS_FOLDER/$APP-setup.deb $LATEST_OS_FOLDER/$APP-setup.deb
-	git add $OS_FOLDER/$APP-setup.deb $LATEST_OS_FOLDER/$APP-setup.deb
+	cp -f $HOME/build/beam-mw/beam/Beam-0.0.1-Linux.deb $OS_FOLDER/$APP-wallet.deb
+	cp -f $OS_FOLDER/$APP-wallet.deb $LATEST_OS_FOLDER/$APP-wallet.deb
+	git add $OS_FOLDER/$APP-wallet.deb $LATEST_OS_FOLDER/$APP-wallet.deb
 
 
 elif [[ "$OSTYPE" == "darwin"* ]]; then
 	tar -cvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-	tar -rvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/ui beam-ui.app beam-ui.cfg
 	gzip $OS_FOLDER/$APP.tar
 
 	cp -f $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
 
 	git add $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
 
-	cp -f $HOME/build/beam-mw/beam/Beam-0.0.1-Darwin.dmg $OS_FOLDER/$APP-setup.dmg
-	cp -f $OS_FOLDER/$APP-setup.dmg $LATEST_OS_FOLDER/$APP-setup.dmg
-	git add $OS_FOLDER/$APP-setup.dmg $LATEST_OS_FOLDER/$APP-setup.dmg
+	cp -f $HOME/build/beam-mw/beam/Beam-0.0.1-Darwin.dmg $OS_FOLDER/$APP-wallet.dmg
+	cp -f $OS_FOLDER/$APP-wallet.dmg $LATEST_OS_FOLDER/$APP-wallet.dmg
+	git add $OS_FOLDER/$APP-wallet.dmg $LATEST_OS_FOLDER/$APP-wallet.dmg
 fi
 
 git commit -m "Travis build $TRAVIS_BUILD_NUMBER on $OSTYPE"
