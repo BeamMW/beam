@@ -13,9 +13,9 @@ if(Git_FOUND)
 		ERROR_VARIABLE RESULT_STRING
 		OUTPUT_STRIP_TRAILING_WHITESPACE
 	)
-	
+
 	string(LENGTH "${RESULT_STRING}" LENGTH_RESULT_STRING)
-	
+
 	if(${LENGTH_RESULT_STRING} EQUAL 0)
 		execute_process(
 			COMMAND ${GIT_EXECUTABLE} log -1 --format=%H
@@ -89,15 +89,15 @@ if(MSVC)
 	endif()
 
 else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wall -pthread")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=native -Wall -pthread")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -ggdb3")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
-	
+
 	# disable some warnings
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-overloaded-virtual") # appears alot in our macro expansions
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-const-variable") # so what?
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function") # mostly in 3rd-party libs
-	
+
 endif()
 
 if(UNIX OR WIN32)
