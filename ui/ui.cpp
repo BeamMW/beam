@@ -84,7 +84,7 @@ int main (int argc, char* argv[])
 
 		try
 		{
-			vm = getOptions(argc, argv, "beam-ui.cfg", options);
+			vm = getOptions(argc, argv, "beam-wallet.cfg", options);
 		}
 		catch (const po::error& e)
 		{
@@ -136,6 +136,7 @@ int main (int argc, char* argv[])
 
 			QQuickView view;
 			view.setResizeMode(QQuickView::SizeRootObjectToView);
+            view.setMinimumSize(QSize(800, 700));
 
 			IKeyStore::Ptr keystore;
 
@@ -165,6 +166,8 @@ int main (int argc, char* argv[])
                 try {
                     qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
                     qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
+                    qmlRegisterType<TxObject>("Wallet", 1, 0, "TxObject");
+                    qmlRegisterType<UtxoItem>("Wallet", 1, 0, "UtxoItem");
 
                     IKeyStore::Options options;
                     options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;

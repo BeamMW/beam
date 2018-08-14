@@ -40,13 +40,13 @@ Item
 
             spacing: 30
 
-            DefaultButton {
-                label: "restore wallet from file"
-            }
+            // DefaultButton {
+            //     label: "restore wallet from file"
+            // }
 
-            DefaultButton {
-                label: "restore wallet from blockchain"
-            }
+            // DefaultButton {
+            //     label: "restore wallet from blockchain"
+            // }
 
             PrimaryButton {
                 label: "create new wallet"
@@ -142,19 +142,19 @@ Item
 
             spacing: 30
 
-            DefaultButton {
-                label: "restore wallet from file"
-				activeFocusOnTab: true
-            }
+    //         DefaultButton {
+    //             label: "restore wallet from file"
+				// activeFocusOnTab: true
+    //         }
 
-            DefaultButton {
-                label: "restore wallet from blockchain"
-				activeFocusOnTab: true
-            }
+    //         DefaultButton {
+    //             label: "restore wallet from blockchain"
+				// activeFocusOnTab: true
+    //         }
 
             PrimaryButton {
 				id: btnCurrentWallet
-                label: "proceed to current wallet"
+                label: "open wallet"
 				activeFocusOnTab: true
                 onClicked: {
                     if(openPassword.text.length == 0)
@@ -254,7 +254,7 @@ Item
                 spacing: 10
 
                 SFText {
-                    text: "Enter miner secret"
+                    text: "Enter secret key"
                     color: Style.white
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -384,7 +384,7 @@ Item
         }
 
         PrimaryButton {
-            label: "proceed to your wallet"
+            label: "create wallet"
 
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top

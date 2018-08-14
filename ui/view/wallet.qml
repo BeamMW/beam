@@ -1,4 +1,4 @@
-import QtQuick 2.3
+import QtQuick 2.6
 import QtQuick.Controls 1.2
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
@@ -81,7 +81,7 @@ Item {
         radius: 10
         color: Style.dark_slate_blue
 
-        Item {
+        ColumnLayout {
             anchors.fill: parent
             anchors.topMargin: 30
             anchors.bottomMargin: 30
@@ -90,406 +90,301 @@ Item {
 
             clip: true
 
-            Item {
-                anchors.fill: parent
-                anchors.rightMargin: parent.width/2 + 30
-                anchors.bottomMargin: 60
+			RowLayout {
+				Layout.fillWidth: true
+		        //Layout.fillHeight: true
+				height: 300
+
+				spacing: 30
+
+				Item {
+					Layout.fillWidth: true
+				    Layout.fillHeight: true
                 
-                clip: true
-
-                SFText {
-                    font.pixelSize: 18
-                    font.weight: Font.Bold
-                    color: Style.white
-                    text: "Send BEAM"
-                }
-
-                ColumnLayout {
-                    anchors.fill: parent
-					Layout.rightMargin: 30
-                    clip: true
+					clip: true
 
                     SFText {
-						Layout.topMargin: 71
-						Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
-
-                        font.pixelSize: 12
+                        font.pixelSize: 18
                         font.weight: Font.Bold
                         color: Style.white
-                        text: "Recipient address"
+                        text: qsTr("Send BEAM")
                     }
 
-                    SFTextInput {
-                        id: receiver_addr
+					ColumnLayout {
+						anchors.fill: parent
+						Layout.rightMargin: 30
+						clip: true
 
-                        Layout.fillWidth: true
-						Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
+						SFText {
+							Layout.topMargin: 71
+							Layout.minimumHeight: 14
+							Layout.maximumHeight: 14
 
-                        font.pixelSize: 12
-
-                        color: Style.white
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-						Layout.minimumHeight: 1
-						Layout.maximumHeight: 1
-                        height: 1
-
-                        color: Style.separator_color
-                    }
-					
-					SFText {
-						Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
-
-                        font.pixelSize: 12
-                        font.weight: Font.Bold
-                        color: Style.white
-                        text: "Sending address"
-                    }
-
-                    SFTextInput {
-                        id: sender_addr
-						Layout.fillWidth: true
-						Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
-
-                        font.pixelSize: 12
-
-                        color: Style.white
-                    }
-
-                    Binding {
-                         target: walletViewModel
-                         property: "receiverAddr"
-                         value: receiver_addr.text
-                    }
-
-					Binding {
-                         target: receiver_addr
-                         property: "text"
-                         value: walletViewModel.receiverAddr
-                    }
-
-                    Binding {
-                         target: walletViewModel
-                         property: "senderAddr"
-                         value: sender_addr.text
-                    }
-
-					Binding {
-                         target: sender_addr
-                         property: "text"
-                         value: walletViewModel.senderAddr
-                    }
-
-
-                    Rectangle {
-                        Layout.fillWidth: true
-						Layout.minimumHeight: 1
-						Layout.maximumHeight: 1
-                        height: 1
-
-                        color: Style.separator_color
-                    }
-
-					Item {
-						Layout.fillHeight: true;
-					}
-                }
-            }
-
-            Item {
-                anchors.fill: parent
-                anchors.leftMargin: parent.width/2
-                anchors.bottomMargin: 60
-
-                SFText {
-                    id: amount_text
-                    y: 41
-
-                    font.pixelSize: 12
-                    font.weight: Font.Bold
-                    color: Style.white
-                    text: "Transaction amount"
-                }
-
-                SFTextInput {
-                    id: amount_input
-                    y: 93-30
-                    width: 300
-
-                    font.pixelSize: 48
-                    color: Style.heliotrope
-
-                    text: walletViewModel.sendAmount
-
-                    validator: IntValidator{bottom: 0; top: 210000000;}
-                    selectByMouse: true
-                }
-
-                Binding {
-                    target: walletViewModel
-                    property: "sendAmount"
-                    value: amount_input.text
-                }
-
-                Rectangle {
-                    y: 153-30
-                    width: 337
-                    height: 1
-
-                    color: Style.separator_color
-                }
-
-                SFText {
-                    x: 204+157
-                    y: 117-30
-
-                    font.pixelSize: 24
-                    color: Style.white
-                    text: "BEAM"
-                }
-
-                SFTextInput {
-                    id: mils_amount_input
-                    y: 93+30
-                    width: 300
-
-                    font.pixelSize: 48
-
-                    color: Style.heliotrope
-
-                    text: walletViewModel.sendAmountMils
-
-                    validator: IntValidator{bottom: 0; top: 999999;}
-                }
-
-                Binding {
-                    target: walletViewModel
-                    property: "sendAmountMils"
-                    value: mils_amount_input.text
-                }
-
-                Rectangle {
-                    y: 153+30
-                    width: 337
-                    height: 1
-
-                    color: Style.separator_color
-                }
-
-                SFText {
-                    x: 204+157
-                    y: 117+30
-
-                    font.pixelSize: 24
-                    color: Style.white
-                    text: "MIL"
-                }
-
-                /////////////////////////////////////////////////////////////
-                /// Transaction fee /////////////////////////////////////////
-                /////////////////////////////////////////////////////////////
-
-                Column {
-                    id: fee_input
-                    anchors {
-                        top: mils_amount_input.bottom
-                        left: amount_text.left
-                        right: parent.right
-                        topMargin: 20
-                    }
-
-                    SFText {
-
-                        font.pixelSize: 12
-                        font.weight: Font.Bold
-                        color: Style.white
-                        text: "Transaction fee"
-                    }
-
-                    RowLayout {
-                        anchors {
-                            left: parent.left
-                        }
-                        SFTextInput {
-                            id: mils_fee_input
-                            Layout.minimumWidth: 337
-                            Layout.maximumWidth: 337
-
-                            font.pixelSize: 48
-
-                            color: Style.heliotrope
-
-                            text: walletViewModel.feeMils
-
-                            validator: IntValidator{bottom: 0; top: 999999;}
-                        }
-                        SFText {
-                            Layout.alignment: Qt.AlignBottom
-                            Layout.leftMargin: 20
-                            font.pixelSize: 24
+                            font.pixelSize: 12
+                            font.weight: Font.Bold
                             color: Style.white
-                            text: "MIL"
+                            text: qsTr("Recipient address")
                         }
-                    }
 
-                    Rectangle {
-                        width: 337
-                        height: 1
+					    AddressComboBox {
+						    id: receiverAddrCombo
+						    Layout.fillWidth: true
+						    Layout.minimumHeight: 18
+						    Layout.maximumHeight: 18
+						    editable: true
+						    currentIndex: -1
+						    model: addressBookViewModel.peerAddresses
+                            color: Style.white
+							font.pixelSize: 12
+					    }
+					
+						SFText {
+							Layout.minimumHeight: 14
+							Layout.maximumHeight: 14
+                            Layout.topMargin: 30
 
-                        color: Style.separator_color
-                    }
+                            font.pixelSize: 12
+                            font.weight: Font.Bold
+                            color: Style.white
+                            text: qsTr("Sending address")
+                        }                    
 
-                    Binding {
-                        target: walletViewModel
-                        property: "feeMils"
-                        value: mils_fee_input.text
-                    }
-                }
-                Item {
-                    id: total_amount
-                    anchors {
-                        top: fee_input.bottom
-                        left: parent.left
-                        right: parent.right
-                        topMargin: 20
-                        rightMargin: 30
-                    }
-                    height: 40
+					    AddressComboBox {
+						    id: senderAddrCombo
+						    Layout.fillWidth: true
+						    Layout.minimumHeight: 18
+						    Layout.maximumHeight: 18
+						    editable: true
+						    model: addressBookViewModel.ownAddresses
+						    currentIndex: -1
+                            color: Style.white
+						    font.pixelSize: 12
+						}
 
-                    SFText {
-                        opacity: 0.5
-                        font.pixelSize: 24
-                        font.weight: Font.ExtraLight
-                        color: Style.white
-                        text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils*1 + walletViewModel.feeMils*1)/1000000) + " USD"
-                    }
-                }
+                        Binding {
+                             target: walletViewModel
+                             property: "senderAddr"
+                             value: senderAddrCombo.editText
+                        }
 
-                AvailablePanel {
-                    id:send_available
-                    anchors.top: total_amount.bottom
-                    model: walletViewModel.utxos
-                    width: parent.width
-                    height: 206
-                    value: walletViewModel.actualAvailable
-                }
+					    Binding {
+                             target: senderAddrCombo
+                             property: "editText"
+                             value: walletViewModel.senderAddr
+                        }
 
-                // Rectangle {
-                //     id: fee_line
-                //     y: 303
-                //     width: 360
-                //     height: 4
+					    Binding {
+                             target: walletViewModel
+                             property: "receiverAddr"
+                             value: receiverAddrCombo.editText
+                        }
 
-                //     opacity: 0.1
-                //     radius: 2
+					    Binding {
+                             target: receiverAddrCombo
+                             property: "editText"
+                             value: walletViewModel.receiverAddr
+                        }
 
-                //     color: Style.white
-                // }
+						Item {
+							Layout.fillHeight: true;
+						}
+					}
+				}
 
-                // Rectangle {
-                //     id: led
+				Item {
+					id: sendLeftPanel
+					Layout.fillWidth: true
+				    Layout.fillHeight: true
 
-                //     x: 140
-                //     y: 303-8
+					SFText {
+						id: amount_text
+						y: 41
 
-                //     width: 20
-                //     height: 20
+						font.pixelSize: 12
+						font.weight: Font.Bold
+						color: Style.white
+						text: "Transaction amount"
+					}
 
-                //     radius: 10
+					SFTextInput {
+						id: amount_input
+						y: 93-30
+						width: 300
 
-                //     color: Style.bright_teal
+						font.pixelSize: 48
+						color: Style.heliotrope
 
-                //     MouseArea {
-                //         anchors.fill: parent
-                //         cursorShape: Qt.PointingHandCursor
-                //     }
-                // }
+						text: walletViewModel.sendAmount
 
-                // DropShadow {
-                //     anchors.fill: led
-                //     radius: 5
-                //     samples: 9
-                //     color: Style.bright_teal
-                //     source: led
-                // }
+						validator: IntValidator{bottom: 0; top: 210000000;}
+						selectByMouse: true
+					}
 
-                // SFText {
-                //     y: 277
+					Binding {
+						target: walletViewModel
+						property: "sendAmount"
+						value: amount_input.text
+					}
 
-                //     font.pixelSize: 12
-                //     color: Style.bluey_grey
-                //     text: "40h"
-                // }
+					Rectangle {
+						y: 153-30
+						width: 337
+						height: 1
 
-                // SFText {
-                //     y: 277
-                //     anchors.right: fee_line.right
+						color: Style.separator_color
+					}
 
-                //     font.pixelSize: 12
-                //     color: Style.bluey_grey
-                //     text: "20m"
-                // }
+					SFText {
+						x: 204+140
+						y: 117-30
 
-                // SFText {
-                //     y: 319
+						font.pixelSize: 24
+						color: Style.white
+						text: "BEAM"
+					}
 
-                //     font.pixelSize: 12
-                //     color: Style.bluey_grey
-                //     text: "0.0002"
-                // }
+					SFTextInput {
+						id: mils_amount_input
+						y: 93+30
+						width: 300
 
-                // SFText {
-                //     y: 319
-                //     anchors.right: fee_line.right
+						font.pixelSize: 48
 
-                //     font.pixelSize: 12
-                //     color: Style.bluey_grey
-                //     text: "0.01"
-                // }
+						color: Style.heliotrope
 
-                // /////////////////////////////////////////////////////////////
-                // /////////////////////////////////////////////////////////////
-                // /////////////////////////////////////////////////////////////
+						text: walletViewModel.sendAmountMils
 
-                // SFText {
-                //     y: 383-30   
+						validator: IntValidator{bottom: 0; top: 999999;}
+					}
 
-                //     font.pixelSize: 12
-                //     font.weight: Font.Bold
-                //     color: Style.white
-                //     text: "Comment"
-                // }
+					Binding {
+						target: walletViewModel
+						property: "sendAmountMils"
+						value: mils_amount_input.text
+					}
 
-                // SFTextInput {
-                //     y: 427-30
-                //     width: 300
+					Rectangle {
+						y: 153+30
+						width: 337
+						height: 1
 
-                //     font.pixelSize: 12
+						color: Style.separator_color
+					}
 
-                //     color: Style.white
+					SFText {
+						x: 204+140
+						y: 117+30
 
-                //     text: "Thank you for your work!"
-                // }
+						font.pixelSize: 24
+						color: Style.white
+						text: qsTr("GROTH")
+					}
 
-                // Rectangle {
-                //     y: 451-30
-                //     width: 339
-                //     height: 1
+					/////////////////////////////////////////////////////////////
+					/// Transaction fee /////////////////////////////////////////
+					/////////////////////////////////////////////////////////////
 
-                //     color: Style.separator_color
-                // }
-            }
+					Column {
+						id: fee_input
+						anchors {
+							top: mils_amount_input.bottom
+							left: amount_text.left
+							right: parent.right
+							topMargin: 20
+						}
+
+						SFText {
+
+							font.pixelSize: 12
+							font.weight: Font.Bold
+							color: Style.white
+							text: "Transaction fee"
+						}
+
+						RowLayout {
+							anchors {
+								left: parent.left
+							}
+							SFTextInput {
+								id: mils_fee_input
+								Layout.minimumWidth: 337
+								Layout.maximumWidth: 337
+
+								font.pixelSize: 48
+
+								color: Style.heliotrope
+
+								text: walletViewModel.feeMils
+
+								validator: IntValidator{bottom: 0; top: 999999;}
+							}
+							SFText {
+								Layout.alignment: Qt.AlignBottom
+								Layout.leftMargin: 0
+								font.pixelSize: 24
+								color: Style.white
+								text: qsTr("GROTH")
+							}
+						}
+
+						Rectangle {
+							width: 337
+							height: 1
+
+							color: Style.separator_color
+						}
+
+						Binding {
+							target: walletViewModel
+							property: "feeMils"
+							value: mils_fee_input.text
+						}
+					}
+					Item {
+						id: total_amount
+						anchors {
+							top: fee_input.bottom
+							left: parent.left
+							right: parent.right
+							topMargin: 20
+							rightMargin: 30
+						}
+						height: 40
+
+						SFText {
+							opacity: 0.5
+							font.pixelSize: 24
+							font.weight: Font.ExtraLight
+							color: Style.white
+							text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils*1 + walletViewModel.feeMils*1)/1000000) + " BEAM"
+						}
+					}
+				}
+			}
+
+			RowLayout {
+				Layout.fillWidth: true
+				Layout.minimumHeight: 80
+				Item {
+					Layout.fillWidth: true
+					Layout.fillHeight: true
+				}
+				AvailablePanel {
+				    color: "transparent"
+					Layout.fillWidth: true
+					Layout.fillHeight: true
+					Layout.leftMargin:-27
+					Layout.topMargin: -15
+					value: walletViewModel.actualAvailable
+				}
+			}
+			
 
             Row {
-
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottom: parent.bottom
+				Layout.alignment: Qt.AlignCenter 
+				Layout.fillWidth: false
+				Layout.fillHeight: true
+				height: 40
 
                 spacing: 30
 
@@ -545,7 +440,6 @@ Item {
                     }
                 }                
             }
-
         }
 
         visible: false
@@ -573,7 +467,7 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
 
-            Row {
+            RowLayout {
 
                 id: wide_panels
 
@@ -584,32 +478,19 @@ Item {
                 spacing: 30
 
                 AvailablePanel {
-                    width: (parent.width - 30)*500/1220
-                    height: parent.height
-                    model: walletViewModel.utxos
+                    Layout.maximumWidth: 500
+                    Layout.minimumWidth: 350
+                    Layout.fillHeight: true
+                    Layout.fillWidth: true
+					
                     value: walletViewModel.available
                 }
 
-                // SecondaryPanel {
-                //     width: (parent.width - 3*30)*240/1220
-                //     height: parent.height
-                //     title: "Received"
-                //     amountColor: Style.bright_sky_blue
-                //     value: walletViewModel.received
-                // }
-
-                // SecondaryPanel {
-                //     width: (parent.width - 3*30)*240/1220
-                //     height: parent.height
-                //     title: "Sent"
-                //     amountColor: Style.heliotrope
-                //     value: walletViewModel.sent
-                // }
-
                 SecondaryPanel {
-                    width: (parent.width - 30)*240*3/1220
-                    height: parent.height
-                    title: "Unconfirmed"
+                    Layout.minimumWidth: 350
+                    Layout.fillHeight: true
+					Layout.fillWidth: true
+                    title: qsTr("Unconfirmed")
                     amountColor: Style.white
                     value: walletViewModel.unconfirmed
                 }
@@ -618,7 +499,7 @@ Item {
 
         Item
         {
-            y: 353
+            y: 320
 
             anchors.left: parent.left
             anchors.right: parent.right
@@ -636,69 +517,60 @@ Item {
                 text: "Transactions"
             }
 
-            Row {
-
-                anchors.right: parent.right
-                spacing: 20
-                state: "all"
-
-                TxFilter{
-                    id: all
-                    label: "ALL"
-                    onClicked: parent.state = "all"
-                }
-
-                TxFilter{
-                    id: sent
-                    label: "SENT"
-                    onClicked: parent.state = "sent"
-                }
-
-                TxFilter{
-                    id: received
-                    label: "RECEIVED"
-                    onClicked: parent.state = "received"
-                }
-
-                TxFilter{
-                    id: in_progress
-                    label: "IN PROGRESS"
-                    onClicked: parent.state = "in_progress"
-                }
-
-                states: [
-                    State {
-                        name: "all"
-                        PropertyChanges {target: all; state: "active"}
-                    },
-                    State {
-                        name: "sent"
-                        PropertyChanges {target: sent; state: "active"}
-                    },
-                    State {
-                        name: "received"
-                        PropertyChanges {target: received; state: "active"}
-                    },
-                    State {
-                        name: "in_progress"
-                        PropertyChanges {target: in_progress; state: "active"}
-                    }
-                ]
-            }        
+//            Row {
+//
+//                anchors.right: parent.right
+//                spacing: 20
+//                state: "all"
+//
+//                TxFilter{
+//                    id: all
+//                    label: "ALL"
+//                    onClicked: parent.state = "all"
+//                }
+//
+//                TxFilter{
+//                    id: sent
+//                    label: "SENT"
+//                    onClicked: parent.state = "sent"
+//                }
+//
+//                TxFilter{
+//                    id: received
+//                    label: "RECEIVED"
+//                    onClicked: parent.state = "received"
+//                }
+//
+//                TxFilter{
+//                    id: in_progress
+//                    label: "IN PROGRESS"
+//                    onClicked: parent.state = "in_progress"
+//                }
+//
+//                states: [
+//                    State {
+//                        name: "all"
+//                        PropertyChanges {target: all; state: "active"}
+//                    },
+//                    State {
+//                        name: "sent"
+//                        PropertyChanges {target: sent; state: "active"}
+//                    },
+//                    State {
+//                        name: "received"
+//                        PropertyChanges {target: received; state: "active"}
+//                    },
+//                    State {
+//                        name: "in_progress"
+//                        PropertyChanges {target: in_progress; state: "active"}
+//                    }
+//                ]
+//            }
         }
 
-        // Rectangle {
-        //     anchors.fill: parent;
-        //     anchors.topMargin: 394
-
-        //     radius: 10
-
-        //     color: Style.dark_slate_blue
-        // }
-
-        Rectangle {
+	    Rectangle {
             anchors.fill: parent;
-            anchors.topMargin: 394+46
+            anchors.topMargin: 394+46-33
 
             color: "#0a344d"
         }
@@ -708,7 +580,7 @@ Item {
             id: tx_view
 
             anchors.fill: parent;
-            anchors.topMargin: 394
+            anchors.topMargin: 394-33
 
             frameVisible: false
             selectionMode: SelectionMode.NoSelection
@@ -736,7 +608,7 @@ Item {
 
             TableViewColumn {
                 role: "date"
-                title: "Date | time"
+                title: "Date | Time"
                 width: 200*parent.width/1310
 
                 movable: false
@@ -785,7 +657,7 @@ Item {
 
                     clip:true
 
-                    property bool income: (styleData.row >= 0) ? walletViewModel.getTxAt(styleData.row).income : false
+                    property bool income: (styleData.row >= 0) ? walletViewModel.tx[styleData.row].income : false
 
                     SFText {
                         font.pixelSize: 24
@@ -806,14 +678,6 @@ Item {
                         text: "BEAM"
                     }
                 }
-            }
-
-            TableViewColumn {
-                role: "amountUsd"
-                title: "Amount, USD"
-                width: 200*parent.width/1310
-
-                movable: false
             }
 
             TableViewColumn {

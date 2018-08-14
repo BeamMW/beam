@@ -57,18 +57,4 @@ Rectangle {
             anchors.bottomMargin: 3
         }
     }
-    
-
-    SFText {
-        font {
-            weight: Font.ExtraLight
-            pixelSize: 24
-        }
-
-        color: Style.bluey_grey
-
-        x: 30
-        y: 147
-        text: value + " USD"
-    }
 }

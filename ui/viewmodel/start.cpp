@@ -92,14 +92,17 @@ bool StartViewModel::createWallet(const QString& seed, const QString& pass, cons
 
             db->saveAddress(defaultAddress);
         }
-        catch (const std::runtime_error& ex)
+        catch (const std::runtime_error&)
         {
             QMessageBox::critical(0, "Error", "Failed to generate default address", QMessageBox::Ok);
         }
         db->setNodeAddr(nodeAddr);
 		_done(db, pass.toStdString());
+
+		return true;
 	}
-	else return false;
+
+	return false;
 }
 
 bool StartViewModel::openWallet(const QString& pass)
@@ -109,6 +112,9 @@ bool StartViewModel::openWallet(const QString& pass)
 	if (db)
 	{
 		_done(db, pass.toStdString());
+
+		return true;
 	}
-	else return false;
+	
+	return false;
 }
