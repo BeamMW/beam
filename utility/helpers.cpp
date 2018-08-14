@@ -83,7 +83,6 @@ std::vector<uint8_t> from_hex(const std::string& str)
 {
     assert(str.size() % 2 == 0);
     std::vector<uint8_t> res(str.size() >> 1);
-    uint8_t b = 0;
     for (size_t i = 0; i < str.size(); ++i)
     {
         auto c = str[i];
