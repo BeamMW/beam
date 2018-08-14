@@ -84,7 +84,7 @@ int main (int argc, char* argv[])
 
 		try
 		{
-			vm = getOptions(argc, argv, "beam-ui.cfg", options);
+			vm = getOptions(argc, argv, "beam-wallet.cfg", options);
 		}
 		catch (const po::error& e)
 		{
@@ -123,7 +123,7 @@ int main (int argc, char* argv[])
 #if LOG_VERBOSE_ENABLED
 		logLevel = LOG_LEVEL_VERBOSE;
 #endif
-		
+
 		auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_", appDataDir.filePath("./logs").toStdString());
 
 		try
@@ -136,6 +136,7 @@ int main (int argc, char* argv[])
 
 			QQuickView view;
 			view.setResizeMode(QQuickView::SizeRootObjectToView);
+            view.setMinimumSize(QSize(800, 700));
 
 			IKeyStore::Ptr keystore;
 
@@ -162,30 +163,39 @@ int main (int argc, char* argv[])
 
 			StartViewModel startViewModel(walletStorage, bbsStorage, [&](IKeyChain::Ptr db, const std::string& walletPass)
 			{
-				qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
-				qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
+                try {
+                    qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
+                    qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
+                    qmlRegisterType<TxObject>("Wallet", 1, 0, "TxObject");
+                    qmlRegisterType<UtxoItem>("Wallet", 1, 0, "UtxoItem");
 
-				IKeyStore::Options options;
-				options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-				options.fileName = bbsStorage;
+                    IKeyStore::Options options;
+                    options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+                    options.fileName = bbsStorage;
 
-				keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
+                    // TODO -> passwords from UI on every operations with own addresses
+                    static const char ZAGLOOSHKA[] = "ZAGLOOSHKA";
+                    keystore = IKeyStore::create(options, ZAGLOOSHKA, sizeof(ZAGLOOSHKA));
+                    //keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
 
-					walletModel = std::make_unique<WalletModel>(db, keystore);
+                    walletModel = std::make_unique<WalletModel>(db, keystore);
 
-				walletModel->start();
+                    walletModel->start();
 
-				viewModels = std::make_unique<ViewModel>(*walletModel);
+                    viewModels = std::make_unique<ViewModel>(*walletModel);
 
-				QQmlContext *ctxt = view.rootContext();
+                    QQmlContext *ctxt = view.rootContext();
 
-				// TODO: try move instantiation of view models to views
-				ctxt->setContextProperty("mainViewModel", &viewModels->main);
-				ctxt->setContextProperty("walletViewModel", &viewModels->wallet);
-				ctxt->setContextProperty("addressBookViewModel", &viewModels->addressBook);
-				ctxt->setContextProperty("translator", &translator);
+                    // TODO: try move instantiation of view models to views
+                    ctxt->setContextProperty("mainViewModel", &viewModels->main);
+                    ctxt->setContextProperty("walletViewModel", &viewModels->wallet);
+                    ctxt->setContextProperty("addressBookViewModel", &viewModels->addressBook);
+                    ctxt->setContextProperty("translator", &translator);
 
-				view.rootObject()->setProperty("source", "qrc:///main.qml");
+                    view.rootObject()->setProperty("source", "qrc:///main.qml");
+                } catch (...) {
+                    // TODO
+                }
 			});
 
 			view.rootContext()->setContextProperty("startViewModel", &startViewModel);

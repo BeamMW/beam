@@ -15,8 +15,7 @@
 #pragma once
 
 #include <QObject>
-#include <QtCore/qvariant.h>
-
+#include <QQmlListProperty>
 #include "model/wallet.h"
 
 class TxObject : public QObject
@@ -28,12 +27,12 @@ class TxObject : public QObject
 		Q_PROPERTY(QString user			READ user		NOTIFY userChanged)
 		Q_PROPERTY(QString comment		READ comment	NOTIFY commentChanged)
 		Q_PROPERTY(QString amount		READ amount		NOTIFY amountChanged)
-		Q_PROPERTY(QString amountUsd	READ amountUsd	NOTIFY amountUsdChanged)
 		Q_PROPERTY(QString change		READ change		NOTIFY changeChanged)
 		Q_PROPERTY(QString status		READ status		NOTIFY statusChanged)
         Q_PROPERTY(bool canCancel   	READ canCancel	NOTIFY canCancelChanged)
 public:
 
+	TxObject() = default;
 	TxObject(const beam::TxDescription& tx);
 
 	bool income() const;
@@ -41,7 +40,6 @@ public:
 	QString user() const;
 	QString comment() const;
 	QString amount() const;
-	QString amountUsd() const;
 	QString change() const;
 	QString status() const;
     bool canCancel() const;
@@ -52,7 +50,6 @@ signals:
 	void userChanged();
 	void commentChanged();
 	void amountChanged();
-	void amountUsdChanged();
 	void changeChanged();
 	void statusChanged();
     void canCancelChanged();
@@ -71,6 +68,7 @@ class UtxoItem : public QObject
         Q_PROPERTY(QString type         READ type       NOTIFY changed)
 public:
 
+	UtxoItem() = default;
     UtxoItem(const beam::Coin& coin);
 
     QString amount() const;
@@ -102,8 +100,7 @@ class WalletViewModel : public QObject
 
         Q_PROPERTY(QString receiverAddr READ getReceiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
         Q_PROPERTY(QString senderAddr READ getSenderAddr WRITE setSenderAddr NOTIFY senderAddrChanged)
-        Q_PROPERTY(QVariant tx READ tx NOTIFY txChanged)
-        Q_PROPERTY(QVariant addrBook READ addrBook NOTIFY addrBookChanged)
+        Q_PROPERTY(QQmlListProperty<TxObject> tx READ tx NOTIFY txChanged)
         Q_PROPERTY(int selectedAddr READ selectedAddr WRITE setSelectedAddr NOTIFY selectedAddrChanged)
 
         Q_PROPERTY(QString syncTime READ syncTime NOTIFY stateChanged)
@@ -112,40 +109,36 @@ class WalletViewModel : public QObject
         Q_PROPERTY(QString actualAvailable READ actualAvailable NOTIFY actualAvailableChanged)
         Q_PROPERTY(QString change READ change NOTIFY changeChanged)
 
-        Q_PROPERTY(QVariant utxos READ utxos NOTIFY utxoChanged)
-		Q_PROPERTY(QVariant allUtxos READ allUtxos NOTIFY allUtxoChanged)
+        Q_PROPERTY(QQmlListProperty<UtxoItem> utxos READ utxos NOTIFY utxoChanged)
+		Q_PROPERTY(QQmlListProperty<UtxoItem> allUtxos READ allUtxos NOTIFY allUtxoChanged)
 public:
-        Q_INVOKABLE QVariant getTxAt(int index) const
-        {
-            return QVariant::fromValue(_tx[index]);
-        }
 
         Q_INVOKABLE void cancelTx(int index);
 
 public:
-	using TxList = QList<QObject*>;
-    using UtxoList = QList<QObject*>;
+	using TxList = QList<TxObject*>;
+	using UtxoList = QList<UtxoItem*>;
 
 	WalletViewModel(WalletModel& model);
-
+    virtual ~WalletViewModel();
+    
 	QString available() const;
 	QString received() const;
 	QString sent() const;
 	QString unconfirmed() const;
 
-	QVariant tx() const;
+	QQmlListProperty<TxObject> tx();
 	QString sendAmount() const;
 	QString sendAmountMils() const;
     QString feeMils() const;
 	QString receiverAddr() const;
-	QVariant addrBook() const;
 	QString syncTime() const;
 	int syncProgress() const;
 	QString actualAvailable() const;
     QString change() const;
 	int selectedAddr() const;
-    QVariant utxos();
-	QVariant allUtxos();
+	QQmlListProperty<UtxoItem> utxos();
+	QQmlListProperty<UtxoItem> allUtxos();
     QString getReceiverAddr() const;
     void setReceiverAddr(const QString& value);
     QString getSenderAddr() const;
@@ -175,7 +168,6 @@ signals:
 	void sendAmountMilsChanged();
     void feeMilsChanged();
 	void txChanged();
-	void addrBookChanged();
     void selectedAddrChanged();
 	void actualAvailableChanged();
     void changeChanged();

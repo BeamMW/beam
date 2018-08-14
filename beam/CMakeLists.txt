@@ -19,11 +19,3 @@ target_link_libraries(beam node wallet)
 
 add_subdirectory(unittests)
 add_subdirectory(functionaltests)
-
-if(LINUX)
-	install(TARGETS beam DESTINATION bin)
-	install(FILES beam.cfg DESTINATION bin)
-else()
-	install(TARGETS beam DESTINATION .)
-	install(FILES beam.cfg DESTINATION .)
-endif()

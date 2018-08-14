@@ -1,15 +1,25 @@
 import QtQuick 2.3
 import QtQuick.Controls 1.2
+import QtQuick.Layouts 1.0
 import QtQuick.Controls.Styles 1.2
 import "controls"
 
-Item {
+ColumnLayout {
 	anchors.fill: parent
 
+	SFText {
+        Layout.minimumHeight: 40
+        Layout.maximumHeight: 40
+        font.pixelSize: 36
+        color: Style.white
+        text: qsTr("UTXO")
+    }
+
 	TableView {
-		anchors.fill: parent
+		Layout.fillWidth: true
+		Layout.fillHeight: true
 		frameVisible: false
-        selectionMode: SelectionMode.SingleSelection
+        selectionMode: SelectionMode.NoSelection
         backgroundVisible: false
 		model: walletViewModel.allUtxos
 
@@ -29,7 +39,7 @@ Item {
 
 		TableViewColumn {
 			role: "maturity"
-			title: qsTr("maturity")
+			title: qsTr("Maturity")
 			width: 100
 			movable: false
 		}
@@ -76,18 +86,6 @@ Item {
 
                 color: Style.light_navy
                 visible: styleData.alternate
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                acceptedButtons: Qt.RightButton
-                onClicked: {
-                    if (mouse.button === Qt.RightButton && styleData.row !== undefined)
-                    {
-                        peersContextMenu.peerIndex = styleData.row;
-                        peersContextMenu.popup();
-                    }
-                }
             }
         }
 

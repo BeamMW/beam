@@ -223,8 +223,11 @@ private:
     }
 
     void erase_key(const PubKey& pubKey, const void* password, size_t passwordLen) override {
+        size_t s = _keyPairs.size();
         _keyPairs.erase(pubKey);
-        write_keystore_file(_keyPairs, _fileName, password, passwordLen);
+        if (s != _keyPairs.size()) {
+            write_keystore_file(_keyPairs, _fileName, password, passwordLen);
+        }
     }
 
     bool encrypt(ByteBuffer& out, const void* data, size_t size, const PubKey& pubKey) override {

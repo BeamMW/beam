@@ -40,13 +40,13 @@ Item
 
             spacing: 30
 
-            DefaultButton {
-                label: "restore wallet from file"
-            }
+            // DefaultButton {
+            //     label: "restore wallet from file"
+            // }
 
-            DefaultButton {
-                label: "restore wallet from blockchain"
-            }
+            // DefaultButton {
+            //     label: "restore wallet from blockchain"
+            // }
 
             PrimaryButton {
                 label: "create new wallet"
@@ -112,10 +112,12 @@ Item
             SFTextInput {
                 id: openPassword
                 width: parent.width
-
+				focus: true
+				activeFocusOnTab: true
                 font.pixelSize: 12
                 color: Style.white
                 echoMode: TextInput.Password
+				onAccepted: btnCurrentWallet.clicked()
             }
 
             Rectangle {
@@ -140,17 +142,20 @@ Item
 
             spacing: 30
 
-            DefaultButton {
-                label: "restore wallet from file"
-            }
+    //         DefaultButton {
+    //             label: "restore wallet from file"
+				// activeFocusOnTab: true
+    //         }
 
-            DefaultButton {
-                label: "restore wallet from blockchain"
-            }
+    //         DefaultButton {
+    //             label: "restore wallet from blockchain"
+				// activeFocusOnTab: true
+    //         }
 
             PrimaryButton {
-                label: "proceed to current wallet"
-
+				id: btnCurrentWallet
+                label: "open wallet"
+				activeFocusOnTab: true
                 onClicked: {
                     if(openPassword.text.length == 0)
                     {
@@ -249,7 +254,7 @@ Item
                 spacing: 10
 
                 SFText {
-                    text: "Enter miner secret"
+                    text: "Enter secret key"
                     color: Style.white
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -379,7 +384,7 @@ Item
         }
 
         PrimaryButton {
-            label: "proceed to your wallet"
+            label: "create wallet"
 
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top

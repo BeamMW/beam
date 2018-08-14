@@ -150,7 +150,7 @@ if (WIN32)
     set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/ui/icon.ico")
     set(CPACK_NSIS_MUI_UNIICON "${CMAKE_SOURCE_DIR}/ui/icon.ico")
 	set(CPACK_NSIS_INSTALLED_ICON_NAME "${CMAKE_SOURCE_DIR}/ui/icon.ico")
-	set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "CreateShortCut \\\"$DESKTOP\\\\Beam.lnk\\\" \\\"$INSTDIR\\\\beam-ui.exe\\\"")
+	set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "CreateShortCut \\\"$DESKTOP\\\\Beam.lnk\\\" \\\"$INSTDIR\\\\beam-wallet.exe\\\"")
 	set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "Delete \\\"$DESKTOP\\\\Beam.lnk\\\"")
 
 elseif (APPLE)

@@ -59,15 +59,15 @@ on_success:
 
     if not exist "%LATEST_FOLDER%" mkdir %LATEST_FOLDER%
 
-    7z a %RELEASE_FOLDER%/beam.zip c:/projects/beam/beam/Release/beam.exe c:/projects/beam/beam/beam.cfg c:/projects/beam/ui/Release/beam-ui.exe c:/projects/beam/ui/beam-ui.cfg
+    7z a %RELEASE_FOLDER%/beam.zip c:/projects/beam/beam/Release/beam.exe c:/projects/beam/beam/beam.cfg
 
     copy /Y %RELEASE_FOLDER%/beam.zip %LATEST_FOLDER%/beam.zip
 
-    copy /Y c:\projects\beam\Beam-0.0.1-win64.exe %RELEASE_FOLDER%\beam-setup.exe
+    copy /Y c:\projects\beam\Beam-0.0.1-win64.exe %RELEASE_FOLDER%\beam-wallet.exe
 
-    copy /Y c:\projects\beam\Beam-0.0.1-win64.exe %LATEST_FOLDER%\beam-setup.exe
+    copy /Y c:\projects\beam\Beam-0.0.1-win64.exe %LATEST_FOLDER%\beam-wallet.exe
 
-    git add %RELEASE_FOLDER%/beam.zip %RELEASE_FOLDER%/beam-setup.exe %LATEST_FOLDER%/beam.zip %LATEST_FOLDER%/beam-setup.exe 
+    git add %RELEASE_FOLDER%/beam.zip %RELEASE_FOLDER%/beam-wallet.exe %LATEST_FOLDER%/beam.zip %LATEST_FOLDER%/beam-wallet.exe 
 
     git commit -m "AppVeyor build for Windows $env:APPVEYOR_BUILD_NUMBER"
     

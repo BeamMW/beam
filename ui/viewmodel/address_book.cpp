@@ -1,5 +1,7 @@
 #include "address_book.h"
 #include "ui_helpers.h"
+#include <QApplication>
+#include <QClipboard>
 
 using namespace std;
 using namespace beam;
@@ -63,16 +65,16 @@ void PeerAddressItem::clean()
 
 OwnAddressItem::OwnAddressItem()
 	: PeerAddressItem{}
-	, m_createDate{}
 	, m_expirationDate{}
+	, m_createDate{}
 {
 
 }
 
-OwnAddressItem::OwnAddressItem(const beam::WalletAddress& address) 
+OwnAddressItem::OwnAddressItem(const beam::WalletAddress& address)
     : PeerAddressItem{ address }
-    , m_createDate{toString(address.m_createTime)}
     , m_expirationDate{toString(address.m_createTime + address.m_duration)}
+	, m_createDate{ toString(address.m_createTime) }
 {
 
 }
@@ -141,7 +143,7 @@ void AddressBookViewModel::generateNewEmptyAddress()
 {
 	m_newOwnAddress.clean();
 	m_newPeerAddress.clean();
-	
+
 	if (m_model.async)
 	{
 		m_model.async->generateNewWalletID();
@@ -153,7 +155,7 @@ void AddressBookViewModel::createNewAddress()
     WalletAddress a = {};
     a.m_own = false;
     a.m_label = "My address " + to_string(chrono::system_clock::now().time_since_epoch().count());
-    ECC::Hash::Processor() << a.m_label.c_str() >> a.m_walletID;
+    ECC::Hash::Processor() << a.m_label.c_str() >> a.m_walletID; // XXX!!!!
     a.m_createTime = beam::getTimestamp();
     a.m_duration = 1000000;
     a.m_category = "work";
@@ -231,6 +233,11 @@ void AddressBookViewModel::deleteOwnAddress(int index)
         WalletID peerID = from_hex(m_ownAddresses.at(index)->getWalletID().toStdString());
         m_model.async->deleteAddress(peerID);
     }
+}
+
+void AddressBookViewModel::copyAddressToClipboard(int index)
+{
+    QApplication::clipboard()->setText(m_ownAddresses.at(index)->getWalletID());
 }
 
 void AddressBookViewModel::onStatus(const WalletStatus&)
