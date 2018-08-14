@@ -32,7 +32,7 @@ if [[ "$OSTYPE" == "linux"* ]]; then
 
 	tar -cvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
 	tar -rvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/ui beam-ui beam-ui.cfg
-	tar -czvf $OS_FOLDER/$APP.tar.gz --directory=$OS_FOLDER $APP.tar
+	gzip $OS_FOLDER/$APP.tar
 
 	cp -f $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
 
@@ -46,7 +46,7 @@ if [[ "$OSTYPE" == "linux"* ]]; then
 elif [[ "$OSTYPE" == "darwin"* ]]; then
 	tar -cvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
 	tar -rvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/ui beam-ui.app beam-ui.cfg
-	tar -czvf $OS_FOLDER/$APP.tar.gz --directory=$OS_FOLDER $APP.tar
+	gzip $OS_FOLDER/$APP.tar
 
 	cp -f $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
 
