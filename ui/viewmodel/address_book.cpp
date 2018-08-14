@@ -1,5 +1,7 @@
 #include "address_book.h"
 #include "ui_helpers.h"
+#include <QApplication>
+#include <QClipboard>
 
 using namespace std;
 using namespace beam;
@@ -231,6 +233,11 @@ void AddressBookViewModel::deleteOwnAddress(int index)
         WalletID peerID = from_hex(m_ownAddresses.at(index)->getWalletID().toStdString());
         m_model.async->deleteAddress(peerID);
     }
+}
+
+void AddressBookViewModel::copyAddressToClipboard(int index)
+{
+    QApplication::clipboard()->setText(m_ownAddresses.at(index)->getWalletID());
 }
 
 void AddressBookViewModel::onStatus(const WalletStatus&)

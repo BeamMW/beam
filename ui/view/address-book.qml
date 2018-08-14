@@ -521,7 +521,13 @@ ColumnLayout {
 			ContextMenu {
                 id: ownAddressContextMenu
                 property int index;
-
+				Action {
+                    text: qsTr("copy address")
+					icon.source: "qrc:///assets/icon-copy.svg"
+					onTriggered: {
+                        addressBookViewModel.copyAddressToClipboard(ownAddressContextMenu.index);
+                    }
+                }
 				Action {
                     text: qsTr("delete address")
 					icon.source: "qrc:///assets/icon-cancel.svg"

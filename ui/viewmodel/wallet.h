@@ -127,7 +127,8 @@ public:
     using UtxoList = QList<QObject*>;
 
 	WalletViewModel(WalletModel& model);
-
+    virtual ~WalletViewModel();
+    
 	QString available() const;
 	QString received() const;
 	QString sent() const;
