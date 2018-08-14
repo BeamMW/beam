@@ -84,9 +84,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 
 	void getAllUtxos() override
 	{
-		tx.send([](BridgeInterface& receiver) mutable
+		tx.send([](BridgeInterface& receiver_) mutable
 		{
-			receiver.getAllUtxos();
+			receiver_.getAllUtxos();
 		});
 	}
 

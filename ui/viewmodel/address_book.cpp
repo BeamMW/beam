@@ -63,16 +63,16 @@ void PeerAddressItem::clean()
 
 OwnAddressItem::OwnAddressItem()
 	: PeerAddressItem{}
-	, m_createDate{}
 	, m_expirationDate{}
+	, m_createDate{}
 {
 
 }
 
 OwnAddressItem::OwnAddressItem(const beam::WalletAddress& address) 
     : PeerAddressItem{ address }
-    , m_createDate{toString(address.m_createTime)}
     , m_expirationDate{toString(address.m_createTime + address.m_duration)}
+	, m_createDate{ toString(address.m_createTime) }
 {
 
 }
