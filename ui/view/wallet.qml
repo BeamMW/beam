@@ -23,20 +23,20 @@ Item {
     Rectangle {
         id: user_led
         y: 55
-
+		x: 5
         width: 10
         height: 10
 
         radius: 5
 
-        color: Style.bright_teal
+        color: (walletViewModel.isSyncInProgress == false) ? Style.bright_teal : "red"
     }
 
     DropShadow {
         anchors.fill: user_led
         radius: 5
         samples: 9
-        color: Style.bright_teal
+        color: (walletViewModel.isSyncInProgress == false) ? Style.bright_teal : "red"
         source: user_led
     }
 
@@ -57,7 +57,7 @@ Item {
         }
 
         onLinkActivated: {
-			if(link == "update")
+			if(link == qsTr("update"))
 			{
 				walletViewModel.syncWithNode()
 			}
