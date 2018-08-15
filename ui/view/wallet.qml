@@ -238,7 +238,7 @@ Item {
 
                             Layout.topMargin: 41
 
-                            font.pixelSize: 12
+                            font.pixelSize: 14
                             font.weight: Font.Bold
                             color: Style.white
                             text: "Transaction amount"
@@ -324,7 +324,7 @@ Item {
                         }
 
                         SFText {
-                            font.pixelSize: 12
+                            font.pixelSize: 14
                             font.weight: Font.Bold
                             color: Style.white
                             text: "Transaction fee"
