@@ -10,6 +10,8 @@ Item {
     id: root
     anchors.fill: parent
 
+    property bool toSend: false
+
     state: "wallet"
 
     SFText {
@@ -92,8 +94,11 @@ Item {
 
 			RowLayout {
 				Layout.fillWidth: true
-		        Layout.fillHeight: true
-				Layout.minimumHeight: 300
+		        //Layout.fillHeight: true
+				height: 300
+
+				spacing: 30
+
 				Item {
 					Layout.fillWidth: true
 				    Layout.fillHeight: true
@@ -110,40 +115,17 @@ Item {
 					ColumnLayout {
 						anchors.fill: parent
 						Layout.rightMargin: 30
-						clip: true
+						clip: true						                        
 
 						SFText {
-							Layout.topMargin: 71
+                            Layout.topMargin: 71
 							Layout.minimumHeight: 14
-							Layout.maximumHeight: 14
+							Layout.maximumHeight: 14                           
 
                             font.pixelSize: 12
                             font.weight: Font.Bold
                             color: Style.white
-                            text: qsTr("Recipient address")
-                        }
-
-					    AddressComboBox {
-						    id: receiverAddrCombo
-						    Layout.fillWidth: true
-						    Layout.minimumHeight: 18
-						    Layout.maximumHeight: 18
-						    editable: true
-						    currentIndex: -1
-						    model: addressBookViewModel.peerAddresses
-                            color: Style.white
-							font.pixelSize: 12
-					    }
-					
-						SFText {
-							Layout.minimumHeight: 14
-							Layout.maximumHeight: 14
-                            Layout.topMargin: 30
-
-                            font.pixelSize: 12
-                            font.weight: Font.Bold
-                            color: Style.white
-                            text: qsTr("Sending address")
+                            text: qsTr("My address")
                         }                    
 
 					    AddressComboBox {
@@ -156,7 +138,55 @@ Item {
 						    currentIndex: -1
                             color: Style.white
 						    font.pixelSize: 12
-						}
+                            onEditTextChanged: {
+                                console.log(editText)
+                                var i = find(editText);
+                                senderName.text = i >= 0 ? addressBookViewModel.ownAddresses[i].name : "";
+                            }
+						} 
+                        SFText {
+                            Layout.topMargin: 10
+                            id: senderName
+						    Layout.fillWidth: true
+						    Layout.minimumHeight: 18
+                            color: Style.white
+                        }
+                        
+                        SFText {							
+							Layout.minimumHeight: 14
+							Layout.maximumHeight: 14
+                            Layout.topMargin: 30
+
+                            font.pixelSize: 12
+                            font.weight: Font.Bold
+                            color: Style.white
+                            text: qsTr("Peer address")
+                        }
+
+					    AddressComboBox {
+						    id: receiverAddrCombo
+						    Layout.fillWidth: true
+						    Layout.minimumHeight: 18
+						    Layout.maximumHeight: 18
+						    editable: true
+						    currentIndex: -1
+						    model: addressBookViewModel.peerAddresses
+                            color: Style.white
+							font.pixelSize: 12
+                            onEditTextChanged: {
+                                console.log(editText)
+                                var i = find(editText);
+                                receiverName.text = i >= 0 ? addressBookViewModel.peerAddresses[i].name : "";
+                            }
+					    }
+
+                        SFText {
+                            Layout.topMargin: 10
+                            id: receiverName
+						    Layout.fillWidth: true
+						    Layout.minimumHeight: 18
+                            color: Style.white
+                        }
 
                         Binding {
                              target: walletViewModel
@@ -361,8 +391,7 @@ Item {
 
 			RowLayout {
 				Layout.fillWidth: true
-				Layout.fillHeight: true
-				Layout.minimumHeight: 180
+				Layout.minimumHeight: 80
 				Item {
 					Layout.fillWidth: true
 					Layout.fillHeight: true
@@ -379,10 +408,10 @@ Item {
 			
 
             Row {
-				Layout.alignment: Qt.AlignCenter
+				Layout.alignment: Qt.AlignCenter 
 				Layout.fillWidth: false
-		        Layout.fillHeight: true
-				Layout.minimumHeight: 40
+				Layout.fillHeight: true
+				height: 40
 
                 spacing: 30
 
@@ -465,7 +494,7 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
 
-            Row {
+            RowLayout {
 
                 id: wide_panels
 
@@ -476,15 +505,19 @@ Item {
                 spacing: 30
 
                 AvailablePanel {
-                    width: (parent.width - 30)*500/1220
-                    height: parent.height
+                    Layout.maximumWidth: 500
+                    Layout.minimumWidth: 350
+                    Layout.fillHeight: true
+                    Layout.fillWidth: true
+					
                     value: walletViewModel.available
                 }
 
                 SecondaryPanel {
-                    width: (parent.width - 30)*240*3/1220
-                    height: parent.height
-                    title: "Unconfirmed"
+                    Layout.minimumWidth: 350
+                    Layout.fillHeight: true
+					Layout.fillWidth: true
+                    title: qsTr("Unconfirmed")
                     amountColor: Style.white
                     value: walletViewModel.unconfirmed
                 }
@@ -809,7 +842,16 @@ Item {
                 // PropertyChanges {target: medium_panels; visible: true}
             }
         ]
-    }    
+    }
+    
+    Component.onCompleted: {
+        console.log("toSend = " + root.toSend)
+        if (root.toSend) {
+            root.state = "send"
+            root.toSend = false
+        }
+        console.log("toSend = " + root.toSend)
+    }
 
     states: [
         State {
