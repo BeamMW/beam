@@ -448,7 +448,7 @@ ColumnLayout {
             TableViewColumn {
                 role: "walletID"
                 title: qsTr("Address ID")
-                width: 300
+                width: 300 * parent.width / 700
                 elideMode: Text.ElideMiddle
                 movable: false
             }
@@ -456,7 +456,7 @@ ColumnLayout {
             TableViewColumn {
                 role: "name"
                 title: qsTr("Name")
-                width: 200
+                width: 200 * parent.width / 700
                 elideMode: Text.ElideRight
                 movable: false
             }
@@ -465,6 +465,7 @@ ColumnLayout {
                 role: "category"
                 title: qsTr("Category")
                 elideMode: Text.ElideRight
+                width: 200 * parent.width / 700
                 movable: false
             }
 
@@ -586,7 +587,7 @@ ColumnLayout {
             TableViewColumn {
                 role: "walletID"
                 title: qsTr("Address ID")
-                width: 300
+                width: 300 * parent.width / 850
                 elideMode: Text.ElideMiddle
                 movable: false
             }
@@ -594,7 +595,7 @@ ColumnLayout {
             TableViewColumn {
                 role: "name"
                 title: qsTr("Name")
-                width: 200
+                width: 200 * parent.width / 850
                 elideMode: Text.ElideRight
                 movable: false
             }
@@ -603,6 +604,7 @@ ColumnLayout {
                 role: "category"
                 title: qsTr("Category")
                 elideMode: Text.ElideRight
+                width: 200 * parent.width / 850
                 movable: false
             }
 
@@ -616,6 +618,7 @@ ColumnLayout {
                 role: "createDate"
                 title: qsTr("Created")
                 elideMode: Text.ElideRight
+                width: 150 * parent.width / 850
                 movable: false
             }
 
