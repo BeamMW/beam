@@ -61,8 +61,8 @@ ColumnLayout {
 				Item {
 					Layout.topMargin: 30
 					Layout.fillWidth: true
-					Layout.minimumHeight: 14
-					Layout.maximumHeight: 14
+					Layout.minimumHeight: 20
+					Layout.maximumHeight: 20
 
 					RowLayout {
 						anchors.centerIn: parent
