@@ -23,20 +23,20 @@ Item {
     Rectangle {
         id: user_led
         y: 55
-
+		x: 5
         width: 10
         height: 10
 
         radius: 5
 
-        color: Style.bright_teal
+        color: (walletViewModel.isSyncInProgress == false) ? Style.bright_teal : "red"
     }
 
     DropShadow {
         anchors.fill: user_led
         radius: 5
         samples: 9
-        color: Style.bright_teal
+        color: (walletViewModel.isSyncInProgress == false) ? Style.bright_teal : "red"
         source: user_led
     }
 
@@ -122,7 +122,7 @@ Item {
                             Layout.minimumHeight: 14
                             Layout.maximumHeight: 14                           
 
-                            font.pixelSize: 12
+                            font.pixelSize: 14
                             font.weight: Font.Bold
                             color: Style.white
                             text: qsTr("My address")
@@ -137,7 +137,7 @@ Item {
                             model: addressBookViewModel.ownAddresses
                             currentIndex: -1
                             color: Style.white
-                            font.pixelSize: 12
+						    font.pixelSize: 14
                             onEditTextChanged: {
                                 var i = find(editText);
                                 senderName.text = i >= 0 ? addressBookViewModel.ownAddresses[i].name : "";
@@ -149,7 +149,7 @@ Item {
                             Layout.fillWidth: true
                             Layout.minimumHeight: 18
                             color: Style.white
-                            font.pixelSize: 12
+                            font.pixelSize: 14
                             font.weight: Font.Bold
                         }
                         
@@ -158,7 +158,7 @@ Item {
                             Layout.maximumHeight: 14
                             Layout.topMargin: 30
 
-                            font.pixelSize: 12
+                            font.pixelSize: 14
                             font.weight: Font.Bold
                             color: Style.white
                             text: qsTr("Peer address")
@@ -173,7 +173,7 @@ Item {
                             currentIndex: -1
                             model: addressBookViewModel.peerAddresses
                             color: Style.white
-                            font.pixelSize: 12
+							font.pixelSize: 14
                             onEditTextChanged: {
                                 var i = find(editText);
                                 receiverName.text = i >= 0 ? addressBookViewModel.peerAddresses[i].name : "";
@@ -186,7 +186,7 @@ Item {
                             Layout.fillWidth: true
                             Layout.minimumHeight: 18
                             color: Style.white
-                            font.pixelSize: 12
+                            font.pixelSize: 14
                             font.weight: Font.Bold
                         }
 
@@ -492,7 +492,7 @@ Item {
                 spacing: 30
 
                 AvailablePanel {
-                    Layout.maximumWidth: 500
+                    Layout.maximumWidth: 700
                     Layout.minimumWidth: 350
                     Layout.fillHeight: true
                     Layout.fillWidth: true
