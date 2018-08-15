@@ -21,6 +21,11 @@
 
 using namespace std;
 
+namespace
+{
+    const char* BBS_TIMESTAMPS = "BbsTimestamps";
+}
+
 namespace beam {
 
     WalletNetworkIO::WalletNetworkIO(io::Address node_address
@@ -55,6 +60,16 @@ namespace beam {
         m_protocol.add_message_handler<WalletNetworkIO, wallet::TxRegistered,       &WalletNetworkIO::on_message>(receiverRegisteredCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::TxFailed,           &WalletNetworkIO::on_message>(failedCode, this, 1, 20000);
 
+        ByteBuffer buffer;
+        m_keychain->getBlob(BBS_TIMESTAMPS, buffer);
+        if (!buffer.empty())
+        {
+            Deserializer d;
+            d.reset(buffer.data(), buffer.size());
+
+            d & m_bbs_timestamps;
+        }
+
         m_keystore->get_enabled_keys(m_myPubKeys);
         assert(!m_myPubKeys.empty());
         for (const auto& k : m_myPubKeys)
@@ -67,6 +82,19 @@ namespace beam {
 
     WalletNetworkIO::~WalletNetworkIO()
     {
+        try
+        {
+            Serializer s;
+            s & m_bbs_timestamps;
+            ByteBuffer buffer;
+            s.swap_buf(buffer);
+            if (!buffer.empty())
+            {
+                m_keychain->setVarRaw(BBS_TIMESTAMPS, buffer.data(), buffer.size());
+            }
+        }
+        catch(...)
+        { }
     }
 
     void WalletNetworkIO::start()
