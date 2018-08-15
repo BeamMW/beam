@@ -110,40 +110,17 @@ Item {
 					ColumnLayout {
 						anchors.fill: parent
 						Layout.rightMargin: 30
-						clip: true
+						clip: true						                        
 
 						SFText {
-							Layout.topMargin: 71
+                            Layout.topMargin: 71
 							Layout.minimumHeight: 14
-							Layout.maximumHeight: 14
+							Layout.maximumHeight: 14                           
 
                             font.pixelSize: 12
                             font.weight: Font.Bold
                             color: Style.white
-                            text: qsTr("Recipient address")
-                        }
-
-					    AddressComboBox {
-						    id: receiverAddrCombo
-						    Layout.fillWidth: true
-						    Layout.minimumHeight: 18
-						    Layout.maximumHeight: 18
-						    editable: true
-						    currentIndex: -1
-						    model: addressBookViewModel.peerAddresses
-                            color: Style.white
-							font.pixelSize: 12
-					    }
-					
-						SFText {
-							Layout.minimumHeight: 14
-							Layout.maximumHeight: 14
-                            Layout.topMargin: 30
-
-                            font.pixelSize: 12
-                            font.weight: Font.Bold
-                            color: Style.white
-                            text: qsTr("Sending address")
+                            text: qsTr("My address")
                         }                    
 
 					    AddressComboBox {
@@ -156,7 +133,43 @@ Item {
 						    currentIndex: -1
                             color: Style.white
 						    font.pixelSize: 12
-						}
+						} 
+                        
+                        SFText {							
+							Layout.minimumHeight: 14
+							Layout.maximumHeight: 14
+                            Layout.topMargin: 30
+
+                            font.pixelSize: 12
+                            font.weight: Font.Bold
+                            color: Style.white
+                            text: qsTr("Peer address")
+                        }
+
+					    AddressComboBox {
+						    id: receiverAddrCombo
+						    Layout.fillWidth: true
+						    Layout.minimumHeight: 18
+						    Layout.maximumHeight: 18
+						    editable: true
+						    currentIndex: -1
+						    model: addressBookViewModel.peerAddresses
+                            color: Style.white
+							font.pixelSize: 12
+                            onEditTextChanged: {
+                                console.log(editText)
+                                var i = find(editText);
+                                receiverName.text = i >= 0 ? addressBookViewModel.peerAddresses[i].name : "";
+                            }
+					    }
+
+                        SFText {
+                            Layout.topMargin: 10
+                            id: receiverName
+						    Layout.fillWidth: true
+						    Layout.minimumHeight: 18
+                            color: Style.white
+                        }
 
                         Binding {
                              target: walletViewModel
