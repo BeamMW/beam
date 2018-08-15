@@ -792,10 +792,10 @@ Item {
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     onClicked: {
-                        if (mouse.button === Qt.RightButton && styleData.row !== undefined)
+                        if (mouse.button === Qt.RightButton && styleData.row !== undefined && styleData.row >=0)
                         {
                             txContextMenu.txIndex = styleData.row;
-                            var tx = walletViewModel.getTxAt(styleData.row);
+                            var tx = walletViewModel.tx[styleData.row];
                             if (tx.canCancel)
                             {
                                 txContextMenu.popup();
