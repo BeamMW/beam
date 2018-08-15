@@ -188,7 +188,7 @@ namespace beam
             auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
 
             m_negotiators.emplace(tx.m_txId, s);
-            s->process_event(events::TxResumed{});
+          //  s->process_event(events::TxResumed{});
         }
     }
 
