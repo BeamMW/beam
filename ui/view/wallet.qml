@@ -149,6 +149,8 @@ Item {
 						    Layout.fillWidth: true
 						    Layout.minimumHeight: 18
                             color: Style.white
+                            font.pixelSize: 12
+                            font.weight: Font.Bold
                         }
                         
                         SFText {							
@@ -184,6 +186,8 @@ Item {
 						    Layout.fillWidth: true
 						    Layout.minimumHeight: 18
                             color: Style.white
+                            font.pixelSize: 12
+                            font.weight: Font.Bold
                         }
 
                         Binding {
@@ -600,7 +604,7 @@ Item {
             TableViewColumn {
                 role: "income"
                 width: 72*parent.width/1310
-
+                elideMode: Text.ElideRight
                 movable: false
 
                 delegate: Item {
@@ -621,6 +625,7 @@ Item {
                 role: "date"
                 title: "Date | Time"
                 width: 200*parent.width/1310
+                elideMode: Text.ElideRight
 
                 movable: false
             }
@@ -629,6 +634,7 @@ Item {
                 role: "user"
                 title: "Recipient / Sender ID"
                 width: 200*parent.width/1310
+                elideMode: Text.ElideMiddle
 
                 movable: false
             }
@@ -637,7 +643,7 @@ Item {
                 role: "comment"
                 title: "Comment"
                 width: 120*parent.width/1310
-
+                elideMode: Text.ElideRight
                 movable: false
 
                 delegate: Item {
@@ -659,7 +665,7 @@ Item {
                 role: "amount"
                 title: "Amount, BEAM"
                 width: 200*parent.width/1310
-
+                elideMode: Text.ElideRight
                 movable: false
 
                 delegate: Row {
@@ -695,6 +701,7 @@ Item {
                 role: "change"
                 title: "Change, BEAM"
                 width: 200*parent.width/1310
+                elideMode: Text.ElideRight
 
                 movable: false
             }
@@ -703,7 +710,7 @@ Item {
                 role: "status"
                 title: "Status"
                 width: 96*parent.width/1310
-
+                elideMode: Text.ElideRight
                 movable: false
 
                 delegate: Item {
@@ -722,7 +729,7 @@ Item {
                                 Style.bright_sky_blue
                             else Style.white
                         }
-
+                        elide: Text.ElideRight
                         anchors.verticalCenter: parent.verticalCenter
                         text: styleData.value
                     }
@@ -788,22 +795,9 @@ Item {
                 }
             }
 
-            itemDelegate: Item {
-
-                anchors.fill: parent
-
-                SFText {
-                    anchors.verticalCenter: parent.verticalCenter
-
-                    font.pixelSize: 12
-                    color: Style.white
-
-                    font.weight: Font.Normal
-
-                    text: styleData.value
-                }
-
-                clip:true
+            itemDelegate: TableItem {
+                text: styleData.value
+                elide: styleData.elideMode
             }
         }
         

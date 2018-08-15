@@ -61,8 +61,8 @@ ColumnLayout {
 				Item {
 					Layout.topMargin: 30
 					Layout.fillWidth: true
-					Layout.minimumHeight: 14
-					Layout.maximumHeight: 14
+					Layout.minimumHeight: 20
+					Layout.maximumHeight: 20
 
 					RowLayout {
 						anchors.centerIn: parent
@@ -448,22 +448,24 @@ ColumnLayout {
             TableViewColumn {
                 role: "walletID"
                 title: qsTr("Address ID")
-                width: 300
-
+                width: 300 * parent.width / 700
+                elideMode: Text.ElideMiddle
                 movable: false
             }
 
             TableViewColumn {
                 role: "name"
                 title: qsTr("Name")
-                width: 200
-
+                width: 200 * parent.width / 700
+                elideMode: Text.ElideRight
                 movable: false
             }
 
             TableViewColumn {
                 role: "category"
                 title: qsTr("Category")
+                elideMode: Text.ElideRight
+                width: 200 * parent.width / 700
                 movable: false
             }
 
@@ -569,6 +571,7 @@ ColumnLayout {
 
             itemDelegate: TableItem {
                 text: styleData.value
+                elide: styleData.elideMode
             }
         }
 
@@ -584,22 +587,24 @@ ColumnLayout {
             TableViewColumn {
                 role: "walletID"
                 title: qsTr("Address ID")
-                width: 300
-
+                width: 300 * parent.width / 850
+                elideMode: Text.ElideMiddle
                 movable: false
             }
 
             TableViewColumn {
                 role: "name"
                 title: qsTr("Name")
-                width: 200
-
+                width: 200 * parent.width / 850
+                elideMode: Text.ElideRight
                 movable: false
             }
 
             TableViewColumn {
                 role: "category"
                 title: qsTr("Category")
+                elideMode: Text.ElideRight
+                width: 200 * parent.width / 850
                 movable: false
             }
 
@@ -612,6 +617,8 @@ ColumnLayout {
             TableViewColumn {
                 role: "createDate"
                 title: qsTr("Created")
+                elideMode: Text.ElideRight
+                width: 150 * parent.width / 850
                 movable: false
             }
 
@@ -661,6 +668,7 @@ ColumnLayout {
 
             itemDelegate: TableItem {
                 text: styleData.value
+                elide: styleData.elideMode
             }
         }
     }
