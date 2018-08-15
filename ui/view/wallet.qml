@@ -149,6 +149,8 @@ Item {
 						    Layout.fillWidth: true
 						    Layout.minimumHeight: 18
                             color: Style.white
+                            font.pixelSize: 12
+                            font.weight: Font.Bold
                         }
                         
                         SFText {							
@@ -184,6 +186,8 @@ Item {
 						    Layout.fillWidth: true
 						    Layout.minimumHeight: 18
                             color: Style.white
+                            font.pixelSize: 12
+                            font.weight: Font.Bold
                         }
 
                         Binding {
