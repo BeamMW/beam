@@ -231,6 +231,7 @@ namespace beam::wallet
         }
         else
         {
+			update_tx_description(TxDescription::Failed);
             rollbackTx();
             m_parent.m_gateway.send_tx_failed(m_parent.m_txDesc);
         }
