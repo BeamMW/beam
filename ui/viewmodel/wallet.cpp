@@ -477,7 +477,7 @@ void WalletViewModel::sendMoney()
 
 void WalletViewModel::syncWithNode()
 {
-    setIsSyncInProgress(true);
+    //setIsSyncInProgress(true);
 	_model.async->syncWithNode();
 }
 
