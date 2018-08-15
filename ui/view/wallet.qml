@@ -10,6 +10,8 @@ Item {
     id: root
     anchors.fill: parent
 
+    property bool toSend: false
+
     state: "wallet"
 
     SFText {
@@ -136,7 +138,19 @@ Item {
 						    currentIndex: -1
                             color: Style.white
 						    font.pixelSize: 12
+                            onEditTextChanged: {
+                                console.log(editText)
+                                var i = find(editText);
+                                senderName.text = i >= 0 ? addressBookViewModel.ownAddresses[i].name : "";
+                            }
 						} 
+                        SFText {
+                            Layout.topMargin: 10
+                            id: senderName
+						    Layout.fillWidth: true
+						    Layout.minimumHeight: 18
+                            color: Style.white
+                        }
                         
                         SFText {							
 							Layout.minimumHeight: 14
@@ -828,7 +842,16 @@ Item {
                 // PropertyChanges {target: medium_panels; visible: true}
             }
         ]
-    }    
+    }
+    
+    Component.onCompleted: {
+        console.log("toSend = " + root.toSend)
+        if (root.toSend) {
+            root.state = "send"
+            root.toSend = false
+        }
+        console.log("toSend = " + root.toSend)
+    }
 
     states: [
         State {
