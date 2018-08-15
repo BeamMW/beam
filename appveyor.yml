@@ -23,8 +23,8 @@ environment:
   - arch: Win64
 
 before_build:
-  - cmd: git clone https://github.com/beam-mw/libs.git c:/beam-libs
-  - cmd: git clone https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
+  - cmd: git clone --depth=1 https://github.com/beam-mw/libs.git c:/beam-libs
+  - cmd: git clone --depth=1 https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
   - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=Release -DBEAM_LINK_TYPE=Static
 
 test_script:
@@ -47,7 +47,7 @@ on_success:
 
     git config --global user.name "Vadim Grigoruk"
 
-    git clone %REPO%
+    git clone --depth=1 %REPO%
 
     cd beam-builds
 
