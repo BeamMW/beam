@@ -602,7 +602,8 @@ Item {
 
             TableViewColumn {
                 role: "income"
-                width: 72*parent.width/1310
+                //width: 72*parent.width/1310
+                width: 72
                 elideMode: Text.ElideRight
                 movable: false
 
@@ -623,7 +624,7 @@ Item {
             TableViewColumn {
                 role: "date"
                 title: "Date | Time"
-                width: 200*parent.width/1310
+                width: 160 * (parent.width - 72 - 120) / 916
                 elideMode: Text.ElideRight
 
                 movable: false
@@ -632,7 +633,7 @@ Item {
             TableViewColumn {
                 role: "user"
                 title: "Recipient / Sender ID"
-                width: 200*parent.width/1310
+                width: 260 * (parent.width - 72 - 120) / 916
                 elideMode: Text.ElideMiddle
 
                 movable: false
@@ -641,7 +642,8 @@ Item {
             TableViewColumn {
                 role: "comment"
                 title: "Comment"
-                width: 120*parent.width/1310
+                //width: 120*parent.width/1310
+                width: 100
                 elideMode: Text.ElideRight
                 movable: false
 
@@ -663,7 +665,7 @@ Item {
             TableViewColumn {
                 role: "amount"
                 title: "Amount, BEAM"
-                width: 200*parent.width/1310
+                width: 200 * (parent.width - 72 - 120) / 916
                 elideMode: Text.ElideRight
                 movable: false
 
@@ -699,7 +701,7 @@ Item {
             TableViewColumn {
                 role: "change"
                 title: "Change, BEAM"
-                width: 200*parent.width/1310
+                width: 200 * (parent.width - 72 - 120) / 916
                 elideMode: Text.ElideRight
 
                 movable: false
@@ -708,7 +710,7 @@ Item {
             TableViewColumn {
                 role: "status"
                 title: "Status"
-                width: 96*parent.width/1310
+                width: 96 * (parent.width - 72 - 120) / 916
                 elideMode: Text.ElideRight
                 movable: false
 
@@ -720,7 +722,8 @@ Item {
 
                     SFText {
                         font.pixelSize: 12
-
+                        anchors.left: parent.left
+                        anchors.right: parent.right
                         color: {
                             if(styleData.value === "sent")
                                 Style.heliotrope

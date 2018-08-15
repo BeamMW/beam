@@ -880,6 +880,7 @@ namespace beam
             }
 
             trans.commit();
+            notifyKeychainChanged();
         }
     }
 
@@ -1061,6 +1062,7 @@ namespace beam
         }
 
         trans.commit();
+        notifyKeychainChanged();
     }
 
     vector<TxDescription> Keychain::getTxHistory(uint64_t start, int count)
@@ -1167,7 +1169,17 @@ namespace beam
             stm.bind(1, txId);
             stm.step();
         }
+        {
+            const char* req = "DELETE FROM " HISTORY_NAME " WHERE txId=?1;";
+            sqlite::Statement stm(_db, req);
+
+            stm.bind(1, txId);
+
+            stm.step();
+        }
         trans.commit();
+        notifyKeychainChanged();
+        notifyTransactionChanged();
     }
 
     std::vector<TxPeer> Keychain::getPeers()

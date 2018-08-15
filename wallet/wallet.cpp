@@ -262,6 +262,11 @@ namespace beam
 
     void Wallet::handle_tx_message(const WalletID& receiver, Invite&& msg)
     {
+        auto stored = m_keyChain->getTx(msg.m_txId);
+        if (stored.is_initialized() && !stored->canResume())
+        {
+            return;
+        }
         auto it = m_negotiators.find(msg.m_txId);
         if (it == m_negotiators.end())
         {
