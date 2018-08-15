@@ -40,13 +40,13 @@ Item
 
             spacing: 30
 
-            DefaultButton {
-                label: "restore wallet from file"
-            }
+            // DefaultButton {
+            //     label: "restore wallet from file"
+            // }
 
-            DefaultButton {
-                label: "restore wallet from blockchain"
-            }
+            // DefaultButton {
+            //     label: "restore wallet from blockchain"
+            // }
 
             PrimaryButton {
                 label: "create new wallet"
@@ -112,10 +112,12 @@ Item
             SFTextInput {
                 id: openPassword
                 width: parent.width
-
+				focus: true
+				activeFocusOnTab: true
                 font.pixelSize: 12
                 color: Style.white
                 echoMode: TextInput.Password
+				onAccepted: btnCurrentWallet.clicked()
             }
 
             Rectangle {
@@ -140,17 +142,20 @@ Item
 
             spacing: 30
 
-            DefaultButton {
-                label: "restore wallet from file"
-            }
+    //         DefaultButton {
+    //             label: "restore wallet from file"
+				// activeFocusOnTab: true
+    //         }
 
-            DefaultButton {
-                label: "restore wallet from blockchain"
-            }
+    //         DefaultButton {
+    //             label: "restore wallet from blockchain"
+				// activeFocusOnTab: true
+    //         }
 
             PrimaryButton {
-                label: "proceed to current wallet"
-
+				id: btnCurrentWallet
+                label: "open wallet"
+				activeFocusOnTab: true
                 onClicked: {
                     if(openPassword.text.length == 0)
                     {
@@ -214,7 +219,42 @@ Item
                 spacing: 10
 
                 SFText {
-                    text: "Enter miner secret"
+                    text: "Enter node IP address and port"
+                    color: Style.white
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                }
+
+                SFTextInput {
+
+                    id: nodeAddr
+
+                    width: parent.width
+
+                    font.pixelSize: 12
+                    color: Style.white
+
+                    text: "127.0.0.1:5555"
+
+                    focus: true
+                }
+
+                Rectangle {
+                    width: parent.width
+                    height: 1
+
+                    color: Style.white
+                    opacity: 0.1
+                }
+            }
+
+            Column {
+                width: parent.width
+
+                spacing: 10
+
+                SFText {
+                    text: "Enter secret key"
                     color: Style.white
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -344,37 +384,32 @@ Item
         }
 
         PrimaryButton {
-            label: "proceed to your wallet"
+            label: "create wallet"
 
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
             anchors.topMargin: 599
 
             onClicked: {
-                if(seed.text.length == 0)
+                if(nodeAddr.text.length == 0)
+                {
+                    passwordError.text = "Please, enter node IP address and port";
+                }
+                else if(seed.text.length == 0)
                 {
                     passwordError.text = "Please, enter miner secret";
                 }
-                else
+                else if(password.text.length == 0)
                 {
-                    if(password.text.length == 0)
-                    {
-                        passwordError.text = "Please, enter password";
-                    }
-                    else
-                    {
-                        if(password.text != confirmPassword.text)
-                        {
-                            passwordError.text = "Passwords do not match";
-                        }
-                        else
-                        {
-                            if(!startViewModel.createWallet(seed.text, password.text))
-                            {
-                                passwordError.text = "Error, something went worng, wallet not created :(";
-                            }
-                        }
-                    }
+                    passwordError.text = "Please, enter password";
+                }
+                else if(password.text != confirmPassword.text)
+                {
+                    passwordError.text = "Passwords do not match";
+                }
+                else if(!startViewModel.createWallet(seed.text, password.text, nodeAddr.text))
+                {
+                    passwordError.text = "Error, something went worng, wallet not created :(";
                 }
             }
         }

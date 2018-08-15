@@ -23,7 +23,8 @@ Item  {
 
         font.pixelSize: 12
         font.weight: Font.Bold
-        color: "#2c5066"
+        color: Style.white
+        opacity: 0.4
         text: label
 
         MouseArea {
@@ -65,7 +66,7 @@ Item  {
             name: "active"
 
             PropertyChanges {target: led; visible: true}
-            PropertyChanges {target: text_label; color: Style.white}
+            PropertyChanges {target: text_label; opacity: 1.0}
         }
     ]
 }

@@ -1408,9 +1408,9 @@ namespace ECC {
 				,m_cs(cs)
 				,m_Mod(mod)
 				,m_pCalc(NULL)
+				,m_pBatchCtx(NULL)
 				,m_j(j)
-				,m_iCycleTrg(iCycleTrg)
-				, m_pBatchCtx(NULL)
+				,m_iCycleTrg(iCycleTrg)				
 			{
 			}
 

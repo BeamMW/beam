@@ -460,6 +460,7 @@ namespace beam
         if (newID == m_knownStateID)
         {
             // here we may close connection with node
+            m_keyChain->setSystemStateID(newID);
             return close_node_connection();
         }
 
@@ -717,6 +718,7 @@ namespace beam
     {
         if (m_synchronized && m_reg_requests.empty())
         {
+            notifySyncProgress();
             m_network->close_node_connection();
         }
         return true;
