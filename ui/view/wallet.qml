@@ -602,8 +602,7 @@ Item {
 
             TableViewColumn {
                 role: "income"
-                //width: 72*parent.width/1310
-                width: 72
+                width: 40
                 elideMode: Text.ElideRight
                 movable: false
 
@@ -624,7 +623,7 @@ Item {
             TableViewColumn {
                 role: "date"
                 title: "Date | Time"
-                width: 160 * (parent.width - 72 - 120) / 916
+                width: 160 * (parent.width - 40 - 120) / 916
                 elideMode: Text.ElideRight
 
                 movable: false
@@ -633,7 +632,7 @@ Item {
             TableViewColumn {
                 role: "user"
                 title: "Recipient / Sender ID"
-                width: 260 * (parent.width - 72 - 120) / 916
+                width: 260 * (parent.width - 40 - 120) / 916
                 elideMode: Text.ElideMiddle
 
                 movable: false
@@ -642,7 +641,6 @@ Item {
             TableViewColumn {
                 role: "comment"
                 title: "Comment"
-                //width: 120*parent.width/1310
                 width: 100
                 elideMode: Text.ElideRight
                 movable: false
@@ -665,35 +663,24 @@ Item {
             TableViewColumn {
                 role: "amount"
                 title: "Amount, BEAM"
-                width: 200 * (parent.width - 72 - 120) / 916
+                width: 200 * (parent.width - 40 - 120) / 916
                 elideMode: Text.ElideRight
                 movable: false
 
-                delegate: Row {
+                delegate: Item {
                     anchors.fill: parent
-                    spacing: 6
-
-                    clip:true
-
+                    
                     property bool income: (styleData.row >= 0) ? walletViewModel.tx[styleData.row].income : false
 
                     SFText {
-                        font.pixelSize: 24
-
+                        anchors.leftMargin: 20
+                        anchors.right: parent.right
+                        anchors.left: parent.left
                         color: parent.income ? Style.bright_sky_blue : Style.heliotrope
-
+                        elide: Text.ElideRight
                         anchors.verticalCenter: parent.verticalCenter
-                        text: (parent.income ? "+ " : "- ") + styleData.value
-                    }
-
-                    SFText {
-                        font.pixelSize: 12
-
-                        color: parent.income ? Style.bright_sky_blue : Style.heliotrope
-
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.verticalCenterOffset: 4
-                        text: "BEAM"
+                        text: "<font size='6'>" + (parent.income ? "+ " : "- ") + styleData.value + "</font> <font size='3'>BEAM</font>"
+                        textFormat: Text.StyledText
                     }
                 }
             }
@@ -701,7 +688,7 @@ Item {
             TableViewColumn {
                 role: "change"
                 title: "Change, BEAM"
-                width: 200 * (parent.width - 72 - 120) / 916
+                width: 200 * (parent.width - 40 - 120) / 916
                 elideMode: Text.ElideRight
 
                 movable: false
@@ -710,7 +697,7 @@ Item {
             TableViewColumn {
                 role: "status"
                 title: "Status"
-                width: 96 * (parent.width - 72 - 120) / 916
+                width: 96 * (parent.width - 40 - 120) / 916
                 elideMode: Text.ElideRight
                 movable: false
 
@@ -724,6 +711,7 @@ Item {
                         font.pixelSize: 12
                         anchors.left: parent.left
                         anchors.right: parent.right
+                        anchors.leftMargin: 20
                         color: {
                             if(styleData.value === "sent")
                                 Style.heliotrope
@@ -747,7 +735,8 @@ Item {
 
                 SFText {
                     anchors.verticalCenter: parent.verticalCenter
-
+                    anchors.left: parent.left
+                    anchors.leftMargin: 20
                     font.pixelSize: 12
                     color: Style.bluey_grey
 
