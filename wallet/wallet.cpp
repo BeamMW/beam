@@ -173,6 +173,7 @@ namespace beam
         TxID txId{};
         copy(id.begin(), id.end(), txId.begin());
         TxDescription tx( txId, amount, fee, m_keyChain->getCurrentHeight(), to, from, move(message), getTimestamp(), sender);
+        m_keyChain->saveTx(tx);
         resume_negotiator(tx);
         return txId;
     }
@@ -275,6 +276,7 @@ namespace beam
             TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, receiver, {}, getTimestamp(), sender };
             auto r = make_shared<Negotiator>(*this, m_keyChain, tx);
             m_negotiators.emplace(tx.m_txId, r);
+            m_keyChain->saveTx(tx);
             Cleaner c{ m_removedNegotiators };
             if (r->ProcessInvitation(msg))
             {
