@@ -6,7 +6,7 @@ REPO=https://${GITHUB_API_KEY}@github.com/beam-mw/beam-builds
 
 git config --global user.email "vadim@beam-mw.com"
 git config --global user.name "Vadim Grigoruk"
-git clone $REPO
+git clone --depth=1 $REPO
 cd beam-builds
 
 # create folders for the build
