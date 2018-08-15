@@ -27,7 +27,6 @@ class TxObject : public QObject
 		Q_PROPERTY(QString user			READ user		NOTIFY userChanged)
 		Q_PROPERTY(QString comment		READ comment	NOTIFY commentChanged)
 		Q_PROPERTY(QString amount		READ amount		NOTIFY amountChanged)
-		Q_PROPERTY(QString amountUsd	READ amountUsd	NOTIFY amountUsdChanged)
 		Q_PROPERTY(QString change		READ change		NOTIFY changeChanged)
 		Q_PROPERTY(QString status		READ status		NOTIFY statusChanged)
         Q_PROPERTY(bool canCancel   	READ canCancel	NOTIFY canCancelChanged)
@@ -41,7 +40,6 @@ public:
 	QString user() const;
 	QString comment() const;
 	QString amount() const;
-	QString amountUsd() const;
 	QString change() const;
 	QString status() const;
     bool canCancel() const;
@@ -52,7 +50,6 @@ signals:
 	void userChanged();
 	void commentChanged();
 	void amountChanged();
-	void amountUsdChanged();
 	void changeChanged();
 	void statusChanged();
     void canCancelChanged();

@@ -20,9 +20,9 @@ BEGIN
 			VALUE "CompanyName", "Beam"
 			VALUE "FileDescription", "Beam"
 			VALUE "FileVersion", "0.0.1.0"
-			VALUE "InternalName", "beam-ui.exe"
+			VALUE "InternalName", "beam-wallet.exe"
 			VALUE "LegalCopyright", "https://beam-mw.com (C) 2018"
-			VALUE "OriginalFilename", "beam-ui.exe"
+			VALUE "OriginalFilename", "beam-wallet.exe"
 			VALUE "ProductName", "Beam"
 			VALUE "ProductVersion", "0.0.1.0"
 		END

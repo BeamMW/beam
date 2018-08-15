@@ -92,8 +92,11 @@ Item {
 
 			RowLayout {
 				Layout.fillWidth: true
-		        Layout.fillHeight: true
-				Layout.minimumHeight: 300
+		        //Layout.fillHeight: true
+				height: 300
+
+				spacing: 30
+
 				Item {
 					Layout.fillWidth: true
 				    Layout.fillHeight: true
@@ -287,7 +290,7 @@ Item {
 
 						font.pixelSize: 24
 						color: Style.white
-						text: "MIL"
+						text: qsTr("GROTH")
 					}
 
 					/////////////////////////////////////////////////////////////
@@ -333,7 +336,7 @@ Item {
 								Layout.leftMargin: 0
 								font.pixelSize: 24
 								color: Style.white
-								text: "MIL"
+								text: qsTr("GROTH")
 							}
 						}
 
@@ -366,120 +369,15 @@ Item {
 							font.pixelSize: 24
 							font.weight: Font.ExtraLight
 							color: Style.white
-							text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils*1 + walletViewModel.feeMils*1)/1000000) + " USD"
+							text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils*1 + walletViewModel.feeMils*1)/1000000) + " BEAM"
 						}
 					}
-					// Rectangle {
-					//     id: fee_line
-					//     y: 303
-					//     width: 360
-					//     height: 4
-
-					//     opacity: 0.1
-					//     radius: 2
-
-					//     color: Style.white
-					// }
-
-					// Rectangle {
-					//     id: led
-
-					//     x: 140
-					//     y: 303-8
-
-					//     width: 20
-					//     height: 20
-
-					//     radius: 10
-
-					//     color: Style.bright_teal
-
-					//     MouseArea {
-					//         anchors.fill: parent
-					//         cursorShape: Qt.PointingHandCursor
-					//     }
-					// }
-
-					// DropShadow {
-					//     anchors.fill: led
-					//     radius: 5
-					//     samples: 9
-					//     color: Style.bright_teal
-					//     source: led
-					// }
-
-					// SFText {
-					//     y: 277
-
-					//     font.pixelSize: 12
-					//     color: Style.bluey_grey
-					//     text: "40h"
-					// }
-
-					// SFText {
-					//     y: 277
-					//     anchors.right: fee_line.right
-
-					//     font.pixelSize: 12
-					//     color: Style.bluey_grey
-					//     text: "20m"
-					// }
-
-					// SFText {
-					//     y: 319
-
-					//     font.pixelSize: 12
-					//     color: Style.bluey_grey
-					//     text: "0.0002"
-					// }
-
-					// SFText {
-					//     y: 319
-					//     anchors.right: fee_line.right
-
-					//     font.pixelSize: 12
-					//     color: Style.bluey_grey
-					//     text: "0.01"
-					// }
-
-					// /////////////////////////////////////////////////////////////
-					// /////////////////////////////////////////////////////////////
-					// /////////////////////////////////////////////////////////////
-
-					// SFText {
-					//     y: 383-30   
-
-					//     font.pixelSize: 12
-					//     font.weight: Font.Bold
-					//     color: Style.white
-					//     text: "Comment"
-					// }
-
-					// SFTextInput {
-					//     y: 427-30
-					//     width: 300
-
-					//     font.pixelSize: 12
-
-					//     color: Style.white
-
-					//     text: "Thank you for your work!"
-					// }
-
-					// Rectangle {
-					//     y: 451-30
-					//     width: 339
-					//     height: 1
-
-					//     color: Style.separator_color
-					// }
 				}
-
 			}
+
 			RowLayout {
 				Layout.fillWidth: true
-				Layout.fillHeight: true
-				Layout.minimumHeight: 180
+				Layout.minimumHeight: 80
 				Item {
 					Layout.fillWidth: true
 					Layout.fillHeight: true
@@ -496,10 +394,10 @@ Item {
 			
 
             Row {
-				Layout.alignment: Qt.AlignCenter
+				Layout.alignment: Qt.AlignCenter 
 				Layout.fillWidth: false
-		        Layout.fillHeight: true
-				Layout.minimumHeight: 40
+				Layout.fillHeight: true
+				height: 40
 
                 spacing: 30
 
@@ -582,7 +480,7 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
 
-            Row {
+            RowLayout {
 
                 id: wide_panels
 
@@ -593,32 +491,19 @@ Item {
                 spacing: 30
 
                 AvailablePanel {
-                    width: (parent.width - 30)*500/1220
-                    height: parent.height
-                    model: walletViewModel.utxos
+                    Layout.maximumWidth: 500
+                    Layout.minimumWidth: 350
+                    Layout.fillHeight: true
+                    Layout.fillWidth: true
+					
                     value: walletViewModel.available
                 }
 
-                // SecondaryPanel {
-                //     width: (parent.width - 3*30)*240/1220
-                //     height: parent.height
-                //     title: "Received"
-                //     amountColor: Style.bright_sky_blue
-                //     value: walletViewModel.received
-                // }
-
-                // SecondaryPanel {
-                //     width: (parent.width - 3*30)*240/1220
-                //     height: parent.height
-                //     title: "Sent"
-                //     amountColor: Style.heliotrope
-                //     value: walletViewModel.sent
-                // }
-
                 SecondaryPanel {
-                    width: (parent.width - 30)*240*3/1220
-                    height: parent.height
-                    title: "Unconfirmed"
+                    Layout.minimumWidth: 350
+                    Layout.fillHeight: true
+					Layout.fillWidth: true
+                    title: qsTr("Unconfirmed")
                     amountColor: Style.white
                     value: walletViewModel.unconfirmed
                 }
@@ -627,7 +512,7 @@ Item {
 
         Item
         {
-            y: 353
+            y: 320
 
             anchors.left: parent.left
             anchors.right: parent.right
@@ -645,69 +530,60 @@ Item {
                 text: "Transactions"
             }
 
-            Row {
-
-                anchors.right: parent.right
-                spacing: 20
-                state: "all"
-
-                TxFilter{
-                    id: all
-                    label: "ALL"
-                    onClicked: parent.state = "all"
-                }
-
-                TxFilter{
-                    id: sent
-                    label: "SENT"
-                    onClicked: parent.state = "sent"
-                }
-
-                TxFilter{
-                    id: received
-                    label: "RECEIVED"
-                    onClicked: parent.state = "received"
-                }
-
-                TxFilter{
-                    id: in_progress
-                    label: "IN PROGRESS"
-                    onClicked: parent.state = "in_progress"
-                }
-
-                states: [
-                    State {
-                        name: "all"
-                        PropertyChanges {target: all; state: "active"}
-                    },
-                    State {
-                        name: "sent"
-                        PropertyChanges {target: sent; state: "active"}
-                    },
-                    State {
-                        name: "received"
-                        PropertyChanges {target: received; state: "active"}
-                    },
-                    State {
-                        name: "in_progress"
-                        PropertyChanges {target: in_progress; state: "active"}
-                    }
-                ]
-            }        
+//            Row {
+//
+//                anchors.right: parent.right
+//                spacing: 20
+//                state: "all"
+//
+//                TxFilter{
+//                    id: all
+//                    label: "ALL"
+//                    onClicked: parent.state = "all"
+//                }
+//
+//                TxFilter{
+//                    id: sent
+//                    label: "SENT"
+//                    onClicked: parent.state = "sent"
+//                }
+//
+//                TxFilter{
+//                    id: received
+//                    label: "RECEIVED"
+//                    onClicked: parent.state = "received"
+//                }
+//
+//                TxFilter{
+//                    id: in_progress
+//                    label: "IN PROGRESS"
+//                    onClicked: parent.state = "in_progress"
+//                }
+//
+//                states: [
+//                    State {
+//                        name: "all"
+//                        PropertyChanges {target: all; state: "active"}
+//                    },
+//                    State {
+//                        name: "sent"
+//                        PropertyChanges {target: sent; state: "active"}
+//                    },
+//                    State {
+//                        name: "received"
+//                        PropertyChanges {target: received; state: "active"}
+//                    },
+//                    State {
+//                        name: "in_progress"
+//                        PropertyChanges {target: in_progress; state: "active"}
+//                    }
+//                ]
+//            }
         }
 
-        // Rectangle {
-        //     anchors.fill: parent;
-        //     anchors.topMargin: 394
-
-        //     radius: 10
-
-        //     color: Style.dark_slate_blue
-        // }
-
-        Rectangle {
+	    Rectangle {
             anchors.fill: parent;
-            anchors.topMargin: 394+46
+            anchors.topMargin: 394+46-33
 
             color: "#0a344d"
         }
@@ -717,7 +593,7 @@ Item {
             id: tx_view
 
             anchors.fill: parent;
-            anchors.topMargin: 394
+            anchors.topMargin: 394-33
 
             frameVisible: false
             selectionMode: SelectionMode.NoSelection
@@ -745,7 +621,7 @@ Item {
 
             TableViewColumn {
                 role: "date"
-                title: "Date | time"
+                title: "Date | Time"
                 width: 200*parent.width/1310
 
                 movable: false
@@ -815,14 +691,6 @@ Item {
                         text: "BEAM"
                     }
                 }
-            }
-
-            TableViewColumn {
-                role: "amountUsd"
-                title: "Amount, USD"
-                width: 200*parent.width/1310
-
-                movable: false
             }
 
             TableViewColumn {
