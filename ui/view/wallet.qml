@@ -210,14 +210,18 @@ Item {
                              value: walletViewModel.receiverAddr
                         }
 
-						Item {
-							Layout.fillHeight: true;
-						}
+                        AvailablePanel {
+                            color: "transparent"
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            Layout.leftMargin:-27
+                            Layout.topMargin: -15
+                            value: walletViewModel.actualAvailable
+                        }
 					}
 				}
 
 				Item {
-					id: sendLeftPanel
 					Layout.fillWidth: true
 				    Layout.fillHeight: true
 
@@ -386,24 +390,6 @@ Item {
 					}
 				}
 			}
-
-			RowLayout {
-				Layout.fillWidth: true
-				Layout.minimumHeight: 80
-				Item {
-					Layout.fillWidth: true
-					Layout.fillHeight: true
-				}
-				AvailablePanel {
-				    color: "transparent"
-					Layout.fillWidth: true
-					Layout.fillHeight: true
-					Layout.leftMargin:-27
-					Layout.topMargin: -15
-					value: walletViewModel.actualAvailable
-				}
-			}
-			
 
             Row {
 				Layout.alignment: Qt.AlignCenter 
