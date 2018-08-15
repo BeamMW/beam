@@ -19,7 +19,7 @@ ComboBox {
         contentItem: SFText {
             text: modelData.name+"(" + modelData.walletID +")"
             color: control.color
-            elide: Text.ElideRight
+            elide: Text.ElideMiddle
             verticalAlignment: Text.AlignVCenter
         }
         highlighted: control.highlightedIndex === index

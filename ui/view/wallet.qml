@@ -139,7 +139,6 @@ Item {
                             color: Style.white
 						    font.pixelSize: 12
                             onEditTextChanged: {
-                                console.log(editText)
                                 var i = find(editText);
                                 senderName.text = i >= 0 ? addressBookViewModel.ownAddresses[i].name : "";
                             }
@@ -174,7 +173,6 @@ Item {
                             color: Style.white
 							font.pixelSize: 12
                             onEditTextChanged: {
-                                console.log(editText)
                                 var i = find(editText);
                                 receiverName.text = i >= 0 ? addressBookViewModel.peerAddresses[i].name : "";
                             }
@@ -845,12 +843,10 @@ Item {
     }
     
     Component.onCompleted: {
-        console.log("toSend = " + root.toSend)
         if (root.toSend) {
             root.state = "send"
             root.toSend = false
         }
-        console.log("toSend = " + root.toSend)
     }
 
     states: [
