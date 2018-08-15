@@ -31,7 +31,7 @@ mkdir -p $LATEST_OS_FOLDER
 if [[ "$OSTYPE" == "linux"* ]]; then
 
 	tar -cvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-	gzip $OS_FOLDER/$APP.tar
+	gzip -f $OS_FOLDER/$APP.tar
 
 	cp -f $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
 
@@ -44,7 +44,7 @@ if [[ "$OSTYPE" == "linux"* ]]; then
 
 elif [[ "$OSTYPE" == "darwin"* ]]; then
 	tar -cvf $OS_FOLDER/$APP.tar --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-	gzip $OS_FOLDER/$APP.tar
+	gzip -f $OS_FOLDER/$APP.tar
 
 	cp -f $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
 
