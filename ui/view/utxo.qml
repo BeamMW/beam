@@ -26,35 +26,35 @@ ColumnLayout {
 		TableViewColumn {
 			role: "amount"
 			title: qsTr("Amount")
-			width: 100
+			width: 150 * parent.width / 800
 			movable: false
 		}
 
 		TableViewColumn {
 			role: "height"
 			title: qsTr("Height")
-			width: 100
+			width: 150 * parent.width / 800
 			movable: false
 		}
 
 		TableViewColumn {
 			role: "maturity"
 			title: qsTr("Maturity")
-			width: 100
+			width: 150 * parent.width / 800
 			movable: false
 		}
 
 		TableViewColumn {
 			role: "status"
 			title: qsTr("Status")
-			width: 100
+			width: 200 * parent.width / 800
 			movable: false
 		}
 
 		TableViewColumn {
 			role: "type"
 			title: qsTr("Type")
-			width: 100
+			width: 150 * parent.width / 800
 			movable: false
 		}
 
@@ -91,6 +91,7 @@ ColumnLayout {
 
 		itemDelegate: TableItem {
             text: styleData.value
+            elide: Text.ElideRight
         }
 	}
 }

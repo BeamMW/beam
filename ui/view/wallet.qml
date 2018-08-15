@@ -10,6 +10,8 @@ Item {
     id: root
     anchors.fill: parent
 
+    property bool toSend: false
+
     state: "wallet"
 
     SFText {
@@ -21,25 +23,25 @@ Item {
     Rectangle {
         id: user_led
         y: 55
-
+		x: 5
         width: 10
         height: 10
 
         radius: 5
 
-        color: Style.bright_teal
+        color: (walletViewModel.isSyncInProgress == false) ? Style.bright_teal : "red"
     }
 
     DropShadow {
         anchors.fill: user_led
         radius: 5
         samples: 9
-        color: Style.bright_teal
+        color: (walletViewModel.isSyncInProgress == false) ? Style.bright_teal : "red"
         source: user_led
     }
 
     SFText {
-		id: linkBtn
+        id: linkBtn
         x: 20
         y: 53
 
@@ -55,11 +57,11 @@ Item {
         }
 
         onLinkActivated: {
-			if(link == "update")
-			{
-				walletViewModel.syncWithNode()
-			}
-		}
+            if(link == "update")
+            {
+                walletViewModel.syncWithNode()
+            }
+        }
 
         MouseArea {
             anchors.fill: parent
@@ -90,18 +92,18 @@ Item {
 
             clip: true
 
-			RowLayout {
-				Layout.fillWidth: true
-		        //Layout.fillHeight: true
-				height: 300
+            RowLayout {
+                Layout.fillWidth: true
+                //Layout.fillHeight: true
+                height: 300
 
-				spacing: 30
+                spacing: 30
 
-				Item {
-					Layout.fillWidth: true
-				    Layout.fillHeight: true
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
                 
-					clip: true
+                    clip: true
 
                     SFText {
                         font.pixelSize: 18
@@ -110,56 +112,83 @@ Item {
                         text: qsTr("Send BEAM")
                     }
 
-					ColumnLayout {
-						anchors.fill: parent
-						Layout.rightMargin: 30
-						clip: true
+                    ColumnLayout {
+                        anchors.fill: parent
+                        Layout.rightMargin: 30
+                        clip: true                                              
 
-						SFText {
-							Layout.topMargin: 71
-							Layout.minimumHeight: 14
-							Layout.maximumHeight: 14
+                        SFText {
+                            Layout.topMargin: 41
+                            Layout.minimumHeight: 14
+                            Layout.maximumHeight: 14                           
 
-                            font.pixelSize: 12
+                            font.pixelSize: 14
                             font.weight: Font.Bold
                             color: Style.white
-                            text: qsTr("Recipient address")
-                        }
-
-					    AddressComboBox {
-						    id: receiverAddrCombo
-						    Layout.fillWidth: true
-						    Layout.minimumHeight: 18
-						    Layout.maximumHeight: 18
-						    editable: true
-						    currentIndex: -1
-						    model: addressBookViewModel.peerAddresses
-                            color: Style.white
-							font.pixelSize: 12
-					    }
-					
-						SFText {
-							Layout.minimumHeight: 14
-							Layout.maximumHeight: 14
-                            Layout.topMargin: 30
-
-                            font.pixelSize: 12
-                            font.weight: Font.Bold
-                            color: Style.white
-                            text: qsTr("Sending address")
+                            text: qsTr("My address")
                         }                    
 
-					    AddressComboBox {
-						    id: senderAddrCombo
-						    Layout.fillWidth: true
-						    Layout.minimumHeight: 18
-						    Layout.maximumHeight: 18
-						    editable: true
-						    model: addressBookViewModel.ownAddresses
-						    currentIndex: -1
+                        AddressComboBox {
+                            id: senderAddrCombo
+                            Layout.fillWidth: true
+                            Layout.minimumHeight: 18
+                            Layout.maximumHeight: 18
+                            editable: true
+                            model: addressBookViewModel.ownAddresses
+                            currentIndex: -1
                             color: Style.white
-						    font.pixelSize: 12
-						}
+						    font.pixelSize: 14
+                            onEditTextChanged: {
+                                var i = find(editText);
+                                senderName.text = i >= 0 ? addressBookViewModel.ownAddresses[i].name : "";
+                            }
+                        } 
+                        SFText {
+                            Layout.topMargin: 10
+                            id: senderName
+                            Layout.fillWidth: true
+                            Layout.minimumHeight: 18
+                            color: Style.white
+                            font.pixelSize: 14
+                            font.weight: Font.Bold
+                        }
+                        
+                        SFText {                            
+                            Layout.minimumHeight: 14
+                            Layout.maximumHeight: 14
+                            Layout.topMargin: 30
+
+                            font.pixelSize: 14
+                            font.weight: Font.Bold
+                            color: Style.white
+                            text: qsTr("Peer address")
+                        }
+
+                        AddressComboBox {
+                            id: receiverAddrCombo
+                            Layout.fillWidth: true
+                            Layout.minimumHeight: 18
+                            Layout.maximumHeight: 18
+                            editable: true
+                            currentIndex: -1
+                            model: addressBookViewModel.peerAddresses
+                            color: Style.white
+							font.pixelSize: 14
+                            onEditTextChanged: {
+                                var i = find(editText);
+                                receiverName.text = i >= 0 ? addressBookViewModel.peerAddresses[i].name : "";
+                            }
+                        }
+
+                        SFText {
+                            Layout.topMargin: 10
+                            id: receiverName
+                            Layout.fillWidth: true
+                            Layout.minimumHeight: 18
+                            color: Style.white
+                            font.pixelSize: 14
+                            font.weight: Font.Bold
+                        }
 
                         Binding {
                              target: walletViewModel
@@ -167,224 +196,201 @@ Item {
                              value: senderAddrCombo.editText
                         }
 
-					    Binding {
+                        Binding {
                              target: senderAddrCombo
                              property: "editText"
                              value: walletViewModel.senderAddr
                         }
 
-					    Binding {
+                        Binding {
                              target: walletViewModel
                              property: "receiverAddr"
                              value: receiverAddrCombo.editText
                         }
 
-					    Binding {
+                        Binding {
                              target: receiverAddrCombo
                              property: "editText"
                              value: walletViewModel.receiverAddr
                         }
 
-						Item {
-							Layout.fillHeight: true;
-						}
-					}
-				}
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                        }
+                    }
+                }
 
-				Item {
-					id: sendLeftPanel
-					Layout.fillWidth: true
-				    Layout.fillHeight: true
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                
+                    clip: true
 
-					SFText {
-						id: amount_text
-						y: 41
 
-						font.pixelSize: 12
-						font.weight: Font.Bold
-						color: Style.white
-						text: "Transaction amount"
-					}
+                    ColumnLayout {
 
-					SFTextInput {
-						id: amount_input
-						y: 93-30
-						width: 300
+                        anchors.fill: parent
+                        clip: true  
 
-						font.pixelSize: 48
-						color: Style.heliotrope
+                        SFText {
+                            id: amount_text
 
-						text: walletViewModel.sendAmount
+                            Layout.topMargin: 41
 
-						validator: IntValidator{bottom: 0; top: 210000000;}
-						selectByMouse: true
-					}
+                            font.pixelSize: 14
+                            font.weight: Font.Bold
+                            color: Style.white
+                            text: "Transaction amount"
+                        }
 
-					Binding {
-						target: walletViewModel
-						property: "sendAmount"
-						value: amount_input.text
-					}
+                        RowLayout {
+                            Layout.fillWidth: true
 
-					Rectangle {
-						y: 153-30
-						width: 337
-						height: 1
+                            ColumnLayout {
+                                Layout.fillWidth: true
 
-						color: Style.separator_color
-					}
+                                SFTextInput {
+                                    id: amount_input
+                                    Layout.fillWidth: true
 
-					SFText {
-						x: 204+140
-						y: 117-30
+                                    font.pixelSize: 48
+                                    color: Style.heliotrope
 
-						font.pixelSize: 24
-						color: Style.white
-						text: "BEAM"
-					}
+                                    text: walletViewModel.sendAmount
 
-					SFTextInput {
-						id: mils_amount_input
-						y: 93+30
-						width: 300
+                                    validator: IntValidator{bottom: 0; top: 210000000;}
+                                    selectByMouse: true
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    height: 1
 
-						font.pixelSize: 48
+                                    color: Style.separator_color
+                                }                                
+                            }
 
-						color: Style.heliotrope
+                            SFText {
+                                font.pixelSize: 24
+                                color: Style.white
+                                text: "BEAM"
+                            }
 
-						text: walletViewModel.sendAmountMils
+                            Binding {
+                                target: walletViewModel
+                                property: "sendAmount"
+                                value: amount_input.text
+                            }
+                        }
 
-						validator: IntValidator{bottom: 0; top: 999999;}
-					}
+                        RowLayout {
+                            Layout.fillWidth: true
 
-					Binding {
-						target: walletViewModel
-						property: "sendAmountMils"
-						value: mils_amount_input.text
-					}
+                            ColumnLayout {
+                                Layout.fillWidth: true
 
-					Rectangle {
-						y: 153+30
-						width: 337
-						height: 1
+                                SFTextInput {
+                                    id: mils_amount_input
+                                    Layout.fillWidth: true
 
-						color: Style.separator_color
-					}
+                                    font.pixelSize: 48
+                                    color: Style.heliotrope
 
-					SFText {
-						x: 204+140
-						y: 117+30
+                                    text: walletViewModel.sendAmountMils
 
-						font.pixelSize: 24
-						color: Style.white
-						text: qsTr("GROTH")
-					}
+                                    validator: IntValidator{bottom: 0; top: 999999;}
+                                    selectByMouse: true
+                                }
 
-					/////////////////////////////////////////////////////////////
-					/// Transaction fee /////////////////////////////////////////
-					/////////////////////////////////////////////////////////////
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    height: 1
 
-					Column {
-						id: fee_input
-						anchors {
-							top: mils_amount_input.bottom
-							left: amount_text.left
-							right: parent.right
-							topMargin: 20
-						}
+                                    color: Style.separator_color
+                                }                                
+                            }
 
-						SFText {
+                            SFText {
+                                font.pixelSize: 24
+                                color: Style.white
+                                text: "GROTH"
+                            }
 
-							font.pixelSize: 12
-							font.weight: Font.Bold
-							color: Style.white
-							text: "Transaction fee"
-						}
+                            Binding {
+                                target: walletViewModel
+                                property: "sendAmountMils"
+                                value: mils_amount_input.text
+                            }
+                        }
 
-						RowLayout {
-							anchors {
-								left: parent.left
-							}
-							SFTextInput {
-								id: mils_fee_input
-								Layout.minimumWidth: 337
-								Layout.maximumWidth: 337
+                        SFText {
+                            font.pixelSize: 14
+                            font.weight: Font.Bold
+                            color: Style.white
+                            text: "Transaction fee"
+                        }
 
-								font.pixelSize: 48
+                        RowLayout {
+                            Layout.fillWidth: true
 
-								color: Style.heliotrope
+                            ColumnLayout {
+                                Layout.fillWidth: true
 
-								text: walletViewModel.feeMils
+                                SFTextInput {
+                                    id: mils_fee_input
+                                    Layout.fillWidth: true
 
-								validator: IntValidator{bottom: 0; top: 999999;}
-							}
-							SFText {
-								Layout.alignment: Qt.AlignBottom
-								Layout.leftMargin: 0
-								font.pixelSize: 24
-								color: Style.white
-								text: qsTr("GROTH")
-							}
-						}
+                                    font.pixelSize: 48
+                                    color: Style.heliotrope
 
-						Rectangle {
-							width: 337
-							height: 1
+                                    text: walletViewModel.feeMils
 
-							color: Style.separator_color
-						}
+                                    validator: IntValidator{bottom: 0; top: 999999;}
+                                    selectByMouse: true
+                                }
 
-						Binding {
-							target: walletViewModel
-							property: "feeMils"
-							value: mils_fee_input.text
-						}
-					}
-					Item {
-						id: total_amount
-						anchors {
-							top: fee_input.bottom
-							left: parent.left
-							right: parent.right
-							topMargin: 20
-							rightMargin: 30
-						}
-						height: 40
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    height: 1
 
-						SFText {
-							opacity: 0.5
-							font.pixelSize: 24
-							font.weight: Font.ExtraLight
-							color: Style.white
-							text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils*1 + walletViewModel.feeMils*1)/1000000) + " BEAM"
-						}
-					}
-				}
-			}
+                                    color: Style.separator_color
+                                }                                
+                            }
 
-			RowLayout {
-				Layout.fillWidth: true
-				Layout.minimumHeight: 80
-				Item {
-					Layout.fillWidth: true
-					Layout.fillHeight: true
-				}
-				AvailablePanel {
-				    color: "transparent"
-					Layout.fillWidth: true
-					Layout.fillHeight: true
-					Layout.leftMargin:-27
-					Layout.topMargin: -15
-					value: walletViewModel.actualAvailable
-				}
-			}
-			
+                            SFText {
+                                font.pixelSize: 24
+                                color: Style.white
+                                text: "GROTH"
+                            }
+
+                            Binding {
+                                target: walletViewModel
+                                property: "feeMils"
+                                value: mils_fee_input.text
+                            }
+                        }
+                        
+                        SFText {
+                            opacity: 0.5
+                            font.pixelSize: 24
+                            font.weight: Font.ExtraLight
+                            color: Style.white
+                            text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils*1 + walletViewModel.feeMils*1)/1000000) + " BEAM"
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                        }
+                    }
+                }
+            }
 
             Row {
-				Layout.alignment: Qt.AlignCenter 
-				Layout.fillWidth: false
-				Layout.fillHeight: true
-				height: 40
+                Layout.alignment: Qt.AlignCenter 
+                Layout.fillWidth: false
+                Layout.fillHeight: true
+                height: 40
 
                 spacing: 30
 
@@ -442,6 +448,14 @@ Item {
             }
         }
 
+        AvailablePanel {
+            color: "transparent"
+            anchors.fill: parent
+            anchors.topMargin: 300
+            // Layout.leftMargin:-27
+            value: walletViewModel.actualAvailable
+        }
+
         visible: false
     }
 
@@ -478,18 +492,18 @@ Item {
                 spacing: 30
 
                 AvailablePanel {
-                    Layout.maximumWidth: 500
+                    Layout.maximumWidth: 700
                     Layout.minimumWidth: 350
                     Layout.fillHeight: true
                     Layout.fillWidth: true
-					
+                    
                     value: walletViewModel.available
                 }
 
                 SecondaryPanel {
                     Layout.minimumWidth: 350
                     Layout.fillHeight: true
-					Layout.fillWidth: true
+                    Layout.fillWidth: true
                     title: qsTr("Unconfirmed")
                     amountColor: Style.white
                     value: walletViewModel.unconfirmed
@@ -568,7 +582,7 @@ Item {
 //            }
         }
 
-	    Rectangle {
+        Rectangle {
             anchors.fill: parent;
             anchors.topMargin: 394+46-33
 
@@ -589,7 +603,7 @@ Item {
             TableViewColumn {
                 role: "income"
                 width: 72*parent.width/1310
-
+                elideMode: Text.ElideRight
                 movable: false
 
                 delegate: Item {
@@ -610,6 +624,7 @@ Item {
                 role: "date"
                 title: "Date | Time"
                 width: 200*parent.width/1310
+                elideMode: Text.ElideRight
 
                 movable: false
             }
@@ -618,6 +633,7 @@ Item {
                 role: "user"
                 title: "Recipient / Sender ID"
                 width: 200*parent.width/1310
+                elideMode: Text.ElideMiddle
 
                 movable: false
             }
@@ -626,7 +642,7 @@ Item {
                 role: "comment"
                 title: "Comment"
                 width: 120*parent.width/1310
-
+                elideMode: Text.ElideRight
                 movable: false
 
                 delegate: Item {
@@ -648,7 +664,7 @@ Item {
                 role: "amount"
                 title: "Amount, BEAM"
                 width: 200*parent.width/1310
-
+                elideMode: Text.ElideRight
                 movable: false
 
                 delegate: Row {
@@ -684,6 +700,7 @@ Item {
                 role: "change"
                 title: "Change, BEAM"
                 width: 200*parent.width/1310
+                elideMode: Text.ElideRight
 
                 movable: false
             }
@@ -692,7 +709,7 @@ Item {
                 role: "status"
                 title: "Status"
                 width: 96*parent.width/1310
-
+                elideMode: Text.ElideRight
                 movable: false
 
                 delegate: Item {
@@ -711,7 +728,7 @@ Item {
                                 Style.bright_sky_blue
                             else Style.white
                         }
-
+                        elide: Text.ElideRight
                         anchors.verticalCenter: parent.verticalCenter
                         text: styleData.value
                     }
@@ -743,7 +760,7 @@ Item {
                     onTriggered: {
                        walletViewModel.cancelTx(txContextMenu.txIndex);
                     }
-					icon.source: "qrc:///assets/icon-cancel.svg"
+                    icon.source: "qrc:///assets/icon-cancel.svg"
                 }
             }
 
@@ -764,10 +781,10 @@ Item {
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     onClicked: {
-                        if (mouse.button === Qt.RightButton && styleData.row !== undefined)
+                        if (mouse.button === Qt.RightButton && styleData.row !== undefined && styleData.row >=0)
                         {
                             txContextMenu.txIndex = styleData.row;
-                            var tx = walletViewModel.getTxAt(styleData.row);
+                            var tx = walletViewModel.tx[styleData.row];
                             if (tx.canCancel)
                             {
                                 txContextMenu.popup();
@@ -777,22 +794,9 @@ Item {
                 }
             }
 
-            itemDelegate: Item {
-
-                anchors.fill: parent
-
-                SFText {
-                    anchors.verticalCenter: parent.verticalCenter
-
-                    font.pixelSize: 12
-                    color: Style.white
-
-                    font.weight: Font.Normal
-
-                    text: styleData.value
-                }
-
-                clip:true
+            itemDelegate: TableItem {
+                text: styleData.value
+                elide: styleData.elideMode
             }
         }
         
@@ -815,7 +819,14 @@ Item {
                 // PropertyChanges {target: medium_panels; visible: true}
             }
         ]
-    }    
+    }
+    
+    Component.onCompleted: {
+        if (root.toSend) {
+            root.state = "send"
+            root.toSend = false
+        }
+    }
 
     states: [
         State {
