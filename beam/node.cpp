@@ -1408,6 +1408,8 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 		msgOut.m_Proof.back().first = false;
 		m_This.m_Processor.get_CurrentPart2(msgOut.m_Proof.back().second, false);
 	}
+
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
