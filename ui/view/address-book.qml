@@ -423,8 +423,10 @@ ColumnLayout {
 				textColor: Style.white
 				iconName: "icon-add"
 				onClicked: {
-					addressBookViewModel.generateNewEmptyAddress()
-					createAddressLayout.state = addressRoot.state
+					var pwd = "123";
+					addressBookViewModel.generateNewEmptyAddress(pwd);
+					//pwd.clear();
+					createAddressLayout.state = addressRoot.state;
 					createAddress.open();
 				}
             }
@@ -536,7 +538,9 @@ ColumnLayout {
                     text: qsTr("delete address")
 					icon.source: "qrc:///assets/icon-cancel.svg"
 					onTriggered: {
-                        addressBookViewModel.deleteOwnAddress(ownAddressContextMenu.index);
+						var pass = "123";
+                        addressBookViewModel.deleteOwnAddress(ownAddressContextMenu.index, pass);
+						//pass.clear();
                     }
                 }
             }

@@ -24,10 +24,6 @@ using namespace std;
 namespace
 {
     static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
-
-    // TODO -> passwords from UI on every operations with own addresses
-    static const char ZAGLOOSHKA[] = "ZAGLOOSHKA";
-
 }
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
@@ -106,11 +102,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 		});
 	}
 
-	void generateNewWalletID() override
+	void generateNewWalletID(string&& pass) override
 	{
-		tx.send([](BridgeInterface& receiver_) mutable
+		tx.send([pass = move(pass)](BridgeInterface& receiver_) mutable
 		{
-            receiver_.generateNewWalletID();
+            receiver_.generateNewWalletID(move(pass));
 		});
 	}
 
@@ -119,6 +115,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         tx.send([id](BridgeInterface& receiver_) mutable
         {
             receiver_.deleteAddress(id);
+        });
+    }
+
+    void deleteOwnAddress(const beam::WalletID& id, string&& pass) override
+    {
+        tx.send([id, pass = move(pass)](BridgeInterface& receiver_) mutable
+        {
+            receiver_.deleteOwnAddress(id, move(pass));
         });
     }
 };
@@ -355,36 +359,55 @@ void WalletModel::changeCurrentWalletIDs(const beam::WalletID& senderID, const b
 	emit onChangeCurrentWalletIDs(senderID, receiverID);
 }
 
-void WalletModel::generateNewWalletID(/*TODO password here*/)
+void WalletModel::generateNewWalletID(string&& pass)
 {
-    try {
+    try 
+    {
+        if (pass.empty())
+        {
+            emit invalidPasswordProvided();
+            return;
+        }
         WalletID walletID;
-        _keystore->gen_keypair(walletID, ZAGLOOSHKA, sizeof(ZAGLOOSHKA), true);
+        _keystore->gen_keypair(walletID, pass.data(), pass.size(), true);
         auto s = _wallet_io.lock();
-        if (s) {
+        if (s)
+        {
             s->new_own_address(walletID);
         }
         emit onGeneratedNewWalletID(walletID);
-    } catch (...) {
-        // TODO wrong password
+    }
+    catch (...) 
+    {
+        emit invalidPasswordProvided();
     }
 }
 
-void WalletModel::deleteAddress(const beam::WalletID& id /*TODO password here if own address*/)
+void WalletModel::deleteAddress(const beam::WalletID& id)
 {
-    // TODO separate fn for deleting own addresses
-    try {
-        bool isOwn = true;
-        auto s = _wallet_io.lock();
-        if (s) {
-            isOwn = s->is_own_address(id);
-        }
-        if (isOwn) {
-            _keystore->erase_key(id, ZAGLOOSHKA, sizeof(ZAGLOOSHKA));
-        }
+    try
+    {
         _keychain->deleteAddress(id);
-    } catch (...) {
-        // TODO wrong password
+    }
+    catch (...)
+    {
+    }
+}
+
+void WalletModel::deleteOwnAddress(const beam::WalletID& id, string&& pass)
+{
+    try 
+    {
+        if (pass.empty())
+        {
+            emit invalidPasswordProvided();
+            return;
+        }
+        _keystore->erase_key(id, pass.data(), pass.size());
+        _keychain->deleteAddress(id);
+    } catch (...) 
+    {
+        emit invalidPasswordProvided();
     }
 }
 

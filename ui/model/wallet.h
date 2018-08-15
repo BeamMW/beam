@@ -33,11 +33,11 @@ struct IWalletModelAsync
     virtual void getAddresses(bool own) = 0;
     virtual void cancelTx(const beam::TxID& id) = 0;
     virtual void createNewAddress(beam::WalletAddress&& address) = 0;
-	virtual void generateNewWalletID(/*TODO password here*/) = 0;
+	virtual void generateNewWalletID(std::string&& pass) = 0;
 	virtual void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) = 0;
 
-    // TODO separate fn for deleting own addresses
-    virtual void deleteAddress(const beam::WalletID& id /*TODO password here if own address*/) = 0;
+    virtual void deleteAddress(const beam::WalletID& id) = 0;
+    virtual void deleteOwnAddress(const beam::WalletID& id, std::string&& pass) = 0 ;
 
 	virtual ~IWalletModelAsync() {}
 };
@@ -83,6 +83,7 @@ signals:
 	void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
 	void onGeneratedNewWalletID(const beam::WalletID& walletID);
 	void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
+    void invalidPasswordProvided();
 
 private:
 	void onKeychainChanged() override;
@@ -101,8 +102,9 @@ private:
     void cancelTx(const beam::TxID& id) override;
     void createNewAddress(beam::WalletAddress&& address) override;
 	void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override;
-	void generateNewWalletID(/*TODO password here*/) override;
-    void deleteAddress(const beam::WalletID& id /*TODO password here if own address*/) override;
+	void generateNewWalletID(std::string&& pass) override;
+    void deleteAddress(const beam::WalletID& id) override;
+    void deleteOwnAddress(const beam::WalletID& id, std::string&& pass) override;
 
 	void onStatusChanged();
 	WalletStatus getStatus() const;

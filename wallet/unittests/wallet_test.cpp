@@ -505,11 +505,8 @@ namespace
         {
         }
 
-        bool is_own_address(const WalletID&) override {
-            return false;
-        }
-
-        void new_own_address(const WalletID&) override {
+        void new_own_address(const WalletID&) override
+        {
 
         }
     };

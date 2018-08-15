@@ -82,7 +82,6 @@ namespace beam
         void connect_node() override;
         void close_node_connection() override;
 
-        bool is_own_address(const WalletID& address) override;
         void new_own_address(const WalletID& address) override;
 
         // IMsgHandler

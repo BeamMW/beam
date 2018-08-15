@@ -74,7 +74,6 @@ namespace beam
         virtual void connect_node() = 0;
         virtual void close_node_connection() = 0;
 
-        virtual bool is_own_address(const WalletID& address) = 0;
         virtual void new_own_address(const WalletID& address) = 0;
     };
 

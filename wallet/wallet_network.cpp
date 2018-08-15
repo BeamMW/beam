@@ -132,13 +132,11 @@ namespace beam {
         send_to_node(move(msg));
     }
 
-    bool WalletNetworkIO::is_own_address(const WalletID& address) {
-        return m_myPubKeys.count(address) != 0;
-    }
-
-    void WalletNetworkIO::new_own_address(const WalletID& address) {
+    void WalletNetworkIO::new_own_address(const WalletID& address)
+    {
         auto p = m_myPubKeys.insert(address);
-        if (p.second) {
+        if (p.second)
+        {
             listen_to_bbs_channel(address);
         }
     }

@@ -173,10 +173,7 @@ int main (int argc, char* argv[])
                     options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
                     options.fileName = bbsStorage;
 
-                    // TODO -> passwords from UI on every operations with own addresses
-                    static const char ZAGLOOSHKA[] = "ZAGLOOSHKA";
-                    keystore = IKeyStore::create(options, ZAGLOOSHKA, sizeof(ZAGLOOSHKA));
-                    //keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
+                    keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
 
                     walletModel = std::make_unique<WalletModel>(db, keystore);
 
