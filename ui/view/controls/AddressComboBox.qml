@@ -62,7 +62,7 @@ ComboBox {
         padding: 1
 
         contentItem: ColumnLayout {
-            SFText {
+            /*SFText {
                 Layout.fillWidth: true
                 Layout.minimumHeight: control.height
                 Layout.leftMargin: 20
@@ -76,7 +76,7 @@ ComboBox {
                 Layout.fillWidth: true
                 height: 1
                 color: Style.separator_color
-            }
+            }*/
             ListView {
                 id: listView
                 Layout.fillWidth: true
