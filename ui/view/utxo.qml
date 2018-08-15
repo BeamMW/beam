@@ -91,6 +91,7 @@ ColumnLayout {
 
 		itemDelegate: TableItem {
             text: styleData.value
+            elide: Text.ElideRight
         }
 	}
 }

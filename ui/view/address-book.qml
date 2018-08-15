@@ -449,7 +449,7 @@ ColumnLayout {
                 role: "walletID"
                 title: qsTr("Address ID")
                 width: 300
-
+                elideMode: Text.ElideMiddle
                 movable: false
             }
 
@@ -457,13 +457,14 @@ ColumnLayout {
                 role: "name"
                 title: qsTr("Name")
                 width: 200
-
+                elideMode: Text.ElideRight
                 movable: false
             }
 
             TableViewColumn {
                 role: "category"
                 title: qsTr("Category")
+                elideMode: Text.ElideRight
                 movable: false
             }
 
@@ -569,6 +570,7 @@ ColumnLayout {
 
             itemDelegate: TableItem {
                 text: styleData.value
+                elide: styleData.elideMode
             }
         }
 
@@ -585,7 +587,7 @@ ColumnLayout {
                 role: "walletID"
                 title: qsTr("Address ID")
                 width: 300
-
+                elideMode: Text.ElideMiddle
                 movable: false
             }
 
@@ -593,13 +595,14 @@ ColumnLayout {
                 role: "name"
                 title: qsTr("Name")
                 width: 200
-
+                elideMode: Text.ElideRight
                 movable: false
             }
 
             TableViewColumn {
                 role: "category"
                 title: qsTr("Category")
+                elideMode: Text.ElideRight
                 movable: false
             }
 
@@ -612,6 +615,7 @@ ColumnLayout {
             TableViewColumn {
                 role: "createDate"
                 title: qsTr("Created")
+                elideMode: Text.ElideRight
                 movable: false
             }
 
@@ -661,6 +665,7 @@ ColumnLayout {
 
             itemDelegate: TableItem {
                 text: styleData.value
+                elide: styleData.elideMode
             }
         }
     }
