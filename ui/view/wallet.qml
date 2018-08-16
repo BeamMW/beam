@@ -135,9 +135,9 @@ Item {
                             Layout.maximumHeight: 18
                             editable: true
                             model: addressBookViewModel.ownAddresses
-                            currentIndex: -1
+                            editText: walletViewModel.senderAddr
                             color: Style.white
-						    font.pixelSize: 14
+                            font.pixelSize: 14
                             onEditTextChanged: {
                                 var i = find(editText);
                                 senderName.text = i >= 0 ? addressBookViewModel.ownAddresses[i].name : "";
@@ -170,10 +170,10 @@ Item {
                             Layout.minimumHeight: 18
                             Layout.maximumHeight: 18
                             editable: true
-                            currentIndex: -1
+                            editText: walletViewModel.receiverAddr
                             model: addressBookViewModel.peerAddresses
                             color: Style.white
-							font.pixelSize: 14
+                            font.pixelSize: 14
                             onEditTextChanged: {
                                 var i = find(editText);
                                 receiverName.text = i >= 0 ? addressBookViewModel.peerAddresses[i].name : "";
@@ -197,21 +197,9 @@ Item {
                         }
 
                         Binding {
-                             target: senderAddrCombo
-                             property: "editText"
-                             value: walletViewModel.senderAddr
-                        }
-
-                        Binding {
                              target: walletViewModel
                              property: "receiverAddr"
                              value: receiverAddrCombo.editText
-                        }
-
-                        Binding {
-                             target: receiverAddrCombo
-                             property: "editText"
-                             value: walletViewModel.receiverAddr
                         }
 
                         Item {
@@ -829,8 +817,8 @@ Item {
             name: "send"
             PropertyChanges {target: wallet_layout; visible: false}
             PropertyChanges {target: send_layout; visible: true}
-            PropertyChanges {target: senderAddrCombo; editText: ""}
-            PropertyChanges {target: receiverAddrCombo; editText: ""}
+            PropertyChanges {target: senderAddrCombo; currentIndex: -1}
+            PropertyChanges {target: receiverAddrCombo; currentIndex: -1}
             PropertyChanges {target: amount_input; text: ""}
             PropertyChanges {target: mils_amount_input; text: ""}
             PropertyChanges {target: mils_fee_input; text: ""}

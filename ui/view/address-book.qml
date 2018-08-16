@@ -415,15 +415,16 @@ ColumnLayout {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            IconButton {
+            
+            CustomButton {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.right: parent.right
                 width: 195
 				height: 38
-				label: "create new address"
+				text: "create new address"
 				textColor: Style.white
-				iconName: "icon-add"
-				onClicked: {
+				icon.source: "qrc:///assets/icon-add.svg"
+                onClicked: {
 					addressBookViewModel.generateNewEmptyAddress()
 					createAddressLayout.state = addressRoot.state
 					createAddress.open();
