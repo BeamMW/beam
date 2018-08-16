@@ -662,7 +662,7 @@ Item {
 
             TableViewColumn {
                 role: "amount"
-                title: "Amount, BEAM"
+                title: qsTr("Amount")
                 width: 200 * (parent.width - 40 - 120) / 916
                 elideMode: Text.ElideRight
                 movable: false
@@ -687,7 +687,7 @@ Item {
 
             TableViewColumn {
                 role: "change"
-                title: "Change, BEAM"
+                title: qsTr("Change")
                 width: 200 * (parent.width - 40 - 120) / 916
                 elideMode: Text.ElideRight
 
