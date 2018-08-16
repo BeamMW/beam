@@ -829,6 +829,11 @@ Item {
             name: "send"
             PropertyChanges {target: wallet_layout; visible: false}
             PropertyChanges {target: send_layout; visible: true}
+            PropertyChanges {target: senderAddrCombo; editText: ""}
+            PropertyChanges {target: receiverAddrCombo; editText: ""}
+            PropertyChanges {target: amount_input; text: ""}
+            PropertyChanges {target: mils_amount_input; text: ""}
+            PropertyChanges {target: mils_fee_input; text: ""}
         }
     ]
 }
