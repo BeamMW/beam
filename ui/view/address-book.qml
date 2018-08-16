@@ -424,8 +424,8 @@ ColumnLayout {
 				textColor: Style.white
 				iconName: "icon-add"
 				onClicked: {
-					addressBookViewModel.generateNewEmptyAddress()
-					createAddressLayout.state = addressRoot.state
+					addressBookViewModel.generateNewEmptyAddress();
+					createAddressLayout.state = addressRoot.state;
 					createAddress.open();
 				}
             }

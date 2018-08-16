@@ -509,6 +509,11 @@ namespace
         void close_node_connection() override
         {
         }
+
+        void new_own_address(const WalletID&) override
+        {
+
+        }
     };
 }
 
@@ -732,9 +737,9 @@ void TestP2PWalletNegotiationST()
     auto receiverBbsKeys = createBbsKeystore("receiver-bbs", keystorePass);
 
     WalletID senderID = {};
-    senderBbsKeys->gen_keypair(senderID, keystorePass.data(), keystorePass.size(), true);
+    senderBbsKeys->gen_keypair(senderID, true);
     WalletID receiverID = {};
-    receiverBbsKeys->gen_keypair(receiverID, keystorePass.data(), keystorePass.size(), true);
+    receiverBbsKeys->gen_keypair(receiverID, true);
     
     auto senderKeychain = createSenderKeychain();
     auto receiverKeychain = createReceiverKeychain();
@@ -957,9 +962,9 @@ void TestP2PWalletNegotiationST()
      auto receiverBbsKeys = createBbsKeystore("receiver-bbs", keystorePass);
 
      WalletID senderID = {};
-     senderBbsKeys->gen_keypair(senderID, keystorePass.data(), keystorePass.size(), true);
+     senderBbsKeys->gen_keypair(senderID, true);
      WalletID receiverID = {};
-     receiverBbsKeys->gen_keypair(receiverID, keystorePass.data(), keystorePass.size(), true);
+     receiverBbsKeys->gen_keypair(receiverID, true);
 
      auto senderKeychain = createSenderKeychain();
      auto receiverKeychain = createReceiverKeychain();

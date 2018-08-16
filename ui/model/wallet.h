@@ -35,7 +35,9 @@ struct IWalletModelAsync
     virtual void createNewAddress(beam::WalletAddress&& address) = 0;
 	virtual void generateNewWalletID() = 0;
 	virtual void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) = 0;
+
     virtual void deleteAddress(const beam::WalletID& id) = 0;
+    virtual void deleteOwnAddress(const beam::WalletID& id) = 0 ;
 
 	virtual ~IWalletModelAsync() {}
 };
@@ -55,7 +57,7 @@ struct WalletStatus
 	} update;
 };
 
-class WalletModel 
+class WalletModel
 	: public QThread
 	, private beam::IWalletObserver
     , private IWalletModelAsync
@@ -101,6 +103,7 @@ private:
 	void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override;
 	void generateNewWalletID() override;
     void deleteAddress(const beam::WalletID& id) override;
+    void deleteOwnAddress(const beam::WalletID& id) override;
 
 	void onStatusChanged();
 	WalletStatus getStatus() const;

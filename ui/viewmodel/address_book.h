@@ -74,7 +74,7 @@ class AddressBookViewModel : public QObject
 	Q_PROPERTY(OwnAddressItem*                   newOwnAddress   READ getNewOwnAddress   CONSTANT)
 
 public:
-    Q_INVOKABLE void createNewAddress();
+
 	Q_INVOKABLE void createNewPeerAddress();
 	Q_INVOKABLE void createNewOwnAddress();
 	Q_INVOKABLE void changeCurrentPeerAddress(int index);
