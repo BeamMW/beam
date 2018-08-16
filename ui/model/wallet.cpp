@@ -395,6 +395,11 @@ void WalletModel::deleteOwnAddress(const beam::WalletID& id)
     {
         _keystore->erase_key(id);
         _keychain->deleteAddress(id);
+        auto s = _wallet_io.lock();
+        if (s)
+        {
+            s->address_deleted(id);
+        }
     } 
     catch (...) 
     {

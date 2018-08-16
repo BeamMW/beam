@@ -514,6 +514,11 @@ namespace
         {
 
         }
+
+        void address_deleted(const WalletID& address) override
+        {
+
+        }
     };
 }
 

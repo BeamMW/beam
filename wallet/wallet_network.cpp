@@ -169,6 +169,11 @@ namespace beam {
         }
     }
 
+    void WalletNetworkIO::address_deleted(const WalletID& address)
+    {
+        m_myPubKeys.erase(address);
+    }
+
     void WalletNetworkIO::close_node_connection()
     {
         if (m_is_node_connected && !m_close_timer)

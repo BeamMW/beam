@@ -83,6 +83,7 @@ namespace beam
         void close_node_connection() override;
 
         void new_own_address(const WalletID& address) override;
+        void address_deleted(const WalletID& address) override;
 
         // IMsgHandler
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;
