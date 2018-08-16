@@ -102,11 +102,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 		});
 	}
 
-	void generateNewWalletID(string&& pass) override
+	void generateNewWalletID() override
 	{
-		tx.send([pass = move(pass)](BridgeInterface& receiver_) mutable
+		tx.send([](BridgeInterface& receiver_) mutable
 		{
-            receiver_.generateNewWalletID(move(pass));
+            receiver_.generateNewWalletID();
 		});
 	}
 
@@ -118,11 +118,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
-    void deleteOwnAddress(const beam::WalletID& id, string&& pass) override
+    void deleteOwnAddress(const beam::WalletID& id) override
     {
-        tx.send([id, pass = move(pass)](BridgeInterface& receiver_) mutable
+        tx.send([id](BridgeInterface& receiver_) mutable
         {
-            receiver_.deleteOwnAddress(id, move(pass));
+            receiver_.deleteOwnAddress(id);
         });
     }
 };
@@ -359,15 +359,10 @@ void WalletModel::changeCurrentWalletIDs(const beam::WalletID& senderID, const b
 	emit onChangeCurrentWalletIDs(senderID, receiverID);
 }
 
-void WalletModel::generateNewWalletID(string&& pass)
+void WalletModel::generateNewWalletID()
 {
     try 
     {
-        if (pass.empty())
-        {
-            emit invalidPasswordProvided();
-            return;
-        }
         WalletID walletID;
         _keystore->gen_keypair(walletID, pass.data(), pass.size(), true);
         auto s = _wallet_io.lock();
@@ -398,14 +393,10 @@ void WalletModel::deleteOwnAddress(const beam::WalletID& id, string&& pass)
 {
     try 
     {
-        if (pass.empty())
-        {
-            emit invalidPasswordProvided();
-            return;
-        }
         _keystore->erase_key(id, pass.data(), pass.size());
         _keychain->deleteAddress(id);
-    } catch (...) 
+    } 
+    catch (...) 
     {
         emit invalidPasswordProvided();
     }

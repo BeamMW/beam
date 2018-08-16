@@ -163,7 +163,8 @@ int main (int argc, char* argv[])
 
 			StartViewModel startViewModel(walletStorage, bbsStorage, [&](IKeyChain::Ptr db, const std::string& walletPass)
 			{
-                try {
+                try
+                {
                     qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
                     qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
                     qmlRegisterType<TxObject>("Wallet", 1, 0, "TxObject");
@@ -190,8 +191,10 @@ int main (int argc, char* argv[])
                     ctxt->setContextProperty("translator", &translator);
 
                     view.rootObject()->setProperty("source", "qrc:///main.qml");
-                } catch (...) {
-                    // TODO
+                } 
+                catch (const std::runtime_error& ex)
+                {
+                    QMessageBox::critical(0, "Error", ex.what(), QMessageBox::Ok);
                 }
 			});
 
