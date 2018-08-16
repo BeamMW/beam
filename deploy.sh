@@ -37,9 +37,9 @@ if [[ "$OSTYPE" == "linux"* ]]; then
 
 	git add $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
 
-	cp -f $HOME/build/beam-mw/beam/Beam-0.0.1-Linux.deb $OS_FOLDER/$APP-wallet.deb
-	cp -f $OS_FOLDER/$APP-wallet.deb $LATEST_OS_FOLDER/$APP-wallet.deb
-	git add $OS_FOLDER/$APP-wallet.deb $LATEST_OS_FOLDER/$APP-wallet.deb
+	cp -f $HOME/build/beam-mw/beam/Beam-0.0.1-Linux.deb $OS_FOLDER/BeamWallet.deb
+	cp -f $OS_FOLDER/BeamWallet.deb $LATEST_OS_FOLDER/BeamWallet.deb
+	git add $OS_FOLDER/BeamWallet.deb $LATEST_OS_FOLDER/BeamWallet.deb
 
 
 elif [[ "$OSTYPE" == "darwin"* ]]; then
@@ -50,9 +50,9 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 
 	git add $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
 
-	cp -f $HOME/build/beam-mw/beam/Beam-0.0.1-Darwin.dmg $OS_FOLDER/$APP-wallet.dmg
-	cp -f $OS_FOLDER/$APP-wallet.dmg $LATEST_OS_FOLDER/$APP-wallet.dmg
-	git add $OS_FOLDER/$APP-wallet.dmg $LATEST_OS_FOLDER/$APP-wallet.dmg
+	cp -f $HOME/build/beam-mw/beam/Beam-0.0.1-Darwin.dmg $OS_FOLDER/BeamWallet.dmg
+	cp -f $OS_FOLDER/BeamWallet.dmg $LATEST_OS_FOLDER/BeamWallet.dmg
+	git add $OS_FOLDER/BeamWallet.dmg $LATEST_OS_FOLDER/BeamWallet.dmg
 fi
 
 git commit -m "Travis build $TRAVIS_BUILD_NUMBER on $OSTYPE"
