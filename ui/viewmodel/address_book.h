@@ -80,7 +80,7 @@ public:
 	Q_INVOKABLE void changeCurrentPeerAddress(int index);
     Q_INVOKABLE void deletePeerAddress(int index);
     Q_INVOKABLE void deleteOwnAddress(int index);
-    Q_INVOKABLE void copyAddressToClipboard(int index);
+    Q_INVOKABLE void copyToClipboard(const QString& text);
 
 	Q_INVOKABLE void generateNewEmptyAddress();
 

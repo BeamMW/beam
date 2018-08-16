@@ -215,9 +215,9 @@ void AddressBookViewModel::deleteOwnAddress(int index)
     }
 }
 
-void AddressBookViewModel::copyAddressToClipboard(int index)
+void AddressBookViewModel::copyToClipboard(const QString& text)
 {
-    QApplication::clipboard()->setText(m_ownAddresses.at(index)->getWalletID());
+    QApplication::clipboard()->setText(text);
 }
 
 void AddressBookViewModel::onStatus(const WalletStatus&)
