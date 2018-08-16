@@ -139,14 +139,14 @@ OwnAddressItem* AddressBookViewModel::getNewOwnAddress()
 	return &m_newOwnAddress;
 }
 
-void AddressBookViewModel::generateNewEmptyAddress(const QString& pass)
+void AddressBookViewModel::generateNewEmptyAddress()
 {
 	m_newOwnAddress.clean();
 	m_newPeerAddress.clean();
 
 	if (m_model.async)
 	{
-		m_model.async->generateNewWalletID(pass.toStdString());
+		m_model.async->generateNewWalletID();
 	}
 }
 
@@ -206,12 +206,12 @@ void AddressBookViewModel::deletePeerAddress(int index)
     }
 }
 
-void AddressBookViewModel::deleteOwnAddress(int index, const QString& pass)
+void AddressBookViewModel::deleteOwnAddress(int index)
 {
     if (m_model.async)
     {
         WalletID peerID = from_hex(m_ownAddresses.at(index)->getWalletID().toStdString());
-        m_model.async->deleteOwnAddress(peerID, pass.toStdString());
+        m_model.async->deleteOwnAddress(peerID);
     }
 }
 

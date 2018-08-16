@@ -88,7 +88,7 @@ bool StartViewModel::createWallet(const QString& seed, const QString& pass, cons
             defaultAddress.m_label = "default";
             defaultAddress.m_createTime = getTimestamp();
             defaultAddress.m_duration = numeric_limits<uint64_t>::max();
-            keystore->gen_keypair(defaultAddress.m_walletID, walletPass.c_str(), walletPass.size(), true);
+            keystore->gen_keypair(defaultAddress.m_walletID, true);
 
             db->saveAddress(defaultAddress);
         }

@@ -364,7 +364,7 @@ void WalletModel::generateNewWalletID()
     try 
     {
         WalletID walletID;
-        _keystore->gen_keypair(walletID, pass.data(), pass.size(), true);
+        _keystore->gen_keypair(walletID, true);
         auto s = _wallet_io.lock();
         if (s)
         {
@@ -374,7 +374,7 @@ void WalletModel::generateNewWalletID()
     }
     catch (...) 
     {
-        emit invalidPasswordProvided();
+
     }
 }
 
@@ -389,16 +389,16 @@ void WalletModel::deleteAddress(const beam::WalletID& id)
     }
 }
 
-void WalletModel::deleteOwnAddress(const beam::WalletID& id, string&& pass)
+void WalletModel::deleteOwnAddress(const beam::WalletID& id)
 {
     try 
     {
-        _keystore->erase_key(id, pass.data(), pass.size());
+        _keystore->erase_key(id);
         _keychain->deleteAddress(id);
     } 
     catch (...) 
     {
-        emit invalidPasswordProvided();
+
     }
 }
 
