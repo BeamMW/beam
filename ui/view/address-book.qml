@@ -10,7 +10,7 @@ ColumnLayout {
     width: 800
     height: 600
     anchors.fill: parent
-    state: "own"
+    state: "peers"
 	SFText {
         Layout.minimumHeight: 40
         Layout.maximumHeight: 40
@@ -40,7 +40,7 @@ ColumnLayout {
 				id: createAddressLayout
 				anchors.fill: parent
 				anchors.margins: 30
-				state: "own"
+				state: "peers"
 
 				Item {
 					Layout.minimumHeight: 21
@@ -68,18 +68,18 @@ ColumnLayout {
 						anchors.centerIn: parent
 						Layout.minimumHeight: 14
 						Layout.maximumHeight: 14
-					
-						TxFilter{
-							id: ownFilterDlg
-							label: qsTr("OWN ADDRESSES")
-							onClicked: createAddressLayout.state = "own"
-						}
 
 						TxFilter{
 							id: peersFilterDlg
-							Layout.leftMargin: 40
 							label: qsTr("PEERS ADDRESSES")
 							onClicked: createAddressLayout.state = "peers"
+						}
+
+                        TxFilter{
+							id: ownFilterDlg
+                            Layout.leftMargin: 40
+							label: qsTr("OWN ADDRESSES")
+							onClicked: createAddressLayout.state = "own"
 						}
 					}
 				}
@@ -398,17 +398,18 @@ ColumnLayout {
         Layout.minimumHeight: 40
         Layout.maximumHeight: 40
         spacing: 40
-        TxFilter{
-            id: ownFilter
-            Layout.leftMargin: 20
-            label: qsTr("OWN ADDRESSES")
-            onClicked: addressRoot.state = "own"
-        }
 
         TxFilter{
             id: peersFilter
+            Layout.leftMargin: 20
             label: qsTr("PEERS ADDRESSES")
             onClicked: addressRoot.state = "peers"
+        }
+
+        TxFilter{
+            id: ownFilter
+            label: qsTr("OWN ADDRESSES")
+            onClicked: addressRoot.state = "own"
         }
 
         Item {
