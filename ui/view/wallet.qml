@@ -623,7 +623,7 @@ Item {
             TableViewColumn {
                 role: "date"
                 title: "Date | Time"
-                width: 160 * (parent.width - 40 - 120) / 916
+                width: 160 * (parent.width - 40 - 20) / 916
                 elideMode: Text.ElideRight
 
                 movable: false
@@ -632,38 +632,16 @@ Item {
             TableViewColumn {
                 role: "user"
                 title: "Recipient / Sender ID"
-                width: 260 * (parent.width - 40 - 120) / 916
+                width: 260 * (parent.width - 40 - 20) / 916
                 elideMode: Text.ElideMiddle
 
                 movable: false
             }
 
             TableViewColumn {
-                role: "comment"
-                title: "Comment"
-                width: 100
-                elideMode: Text.ElideRight
-                movable: false
-
-                delegate: Item {
-
-                    anchors.fill: parent
-
-                    clip:true
-
-                    SvgImage {
-                        anchors.verticalCenter: parent.verticalCenter
-                        x: 20
-                        source: "qrc:///assets/icon-comment.svg"
-                        visible: styleData.value !== null
-                    }
-                }
-            }
-
-            TableViewColumn {
                 role: "amount"
                 title: qsTr("Amount")
-                width: 200 * (parent.width - 40 - 120) / 916
+                width: 200 * (parent.width - 40 - 20) / 916
                 elideMode: Text.ElideRight
                 movable: false
 
@@ -688,7 +666,7 @@ Item {
             TableViewColumn {
                 role: "change"
                 title: qsTr("Change")
-                width: 200 * (parent.width - 40 - 120) / 916
+                width: 200 * (parent.width - 40 - 20) / 916
                 elideMode: Text.ElideRight
 
                 movable: false
@@ -697,7 +675,7 @@ Item {
             TableViewColumn {
                 role: "status"
                 title: "Status"
-                width: 96 * (parent.width - 40 - 120) / 916
+                width: 96 * (parent.width - 40 - 20) / 916
                 elideMode: Text.ElideRight
                 movable: false
 
