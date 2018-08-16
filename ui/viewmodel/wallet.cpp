@@ -50,7 +50,11 @@ QString TxObject::amount() const
 
 QString TxObject::change() const
 {
-	return BeamToString(_tx.m_change) + " BEAM";
+	if (_tx.m_change)
+	{
+		return BeamToString(_tx.m_change) + " BEAM";
+	}
+	return QString{};
 }
 
 QString TxObject::status() const

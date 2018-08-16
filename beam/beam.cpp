@@ -528,7 +528,7 @@ int main_impl(int argc, char* argv[])
                                 defaultAddress.m_label = "default";
                                 defaultAddress.m_createTime = getTimestamp();
                                 defaultAddress.m_duration = numeric_limits<uint64_t>::max();
-                                ks->gen_keypair(defaultAddress.m_walletID, pass.c_str(), pass.size(), true);
+                                ks->gen_keypair(defaultAddress.m_walletID, true);
                                 
                                 keychain->saveAddress(defaultAddress);
 

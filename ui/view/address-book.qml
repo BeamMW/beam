@@ -425,8 +425,8 @@ ColumnLayout {
 				textColor: Style.white
 				icon.source: "qrc:///assets/icon-add.svg"
                 onClicked: {
-					addressBookViewModel.generateNewEmptyAddress()
-					createAddressLayout.state = addressRoot.state
+					addressBookViewModel.generateNewEmptyAddress();
+					createAddressLayout.state = addressRoot.state;
 					createAddress.open();
 				}
             }
@@ -511,6 +511,17 @@ ColumnLayout {
 					enabled: false
                 }
 				Action {
+                    text: qsTr("copy address")
+					icon.source: "qrc:///assets/icon-copy.svg"
+					onTriggered: {
+						if (peerAddressContextMenu.index >= 0)
+						{
+							var addr = addressBookViewModel.peerAddresses[peerAddressContextMenu.index];
+							addressBookViewModel.copyToClipboard(addr.walletID);
+						}
+                    }
+                }
+				Action {
                     text: qsTr("edit address")
 					icon.source: "qrc:///assets/icon-edit.svg"
 					enabled: false
@@ -531,7 +542,11 @@ ColumnLayout {
                     text: qsTr("copy address")
 					icon.source: "qrc:///assets/icon-copy.svg"
 					onTriggered: {
-                        addressBookViewModel.copyAddressToClipboard(ownAddressContextMenu.index);
+						if (ownAddressContextMenu.index >= 0)
+						{
+							var addr = addressBookViewModel.ownAddresses[ownAddressContextMenu.index];
+							addressBookViewModel.copyToClipboard(addr.walletID);
+						}
                     }
                 }
 				Action {

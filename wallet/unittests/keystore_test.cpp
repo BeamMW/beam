@@ -27,9 +27,9 @@ int keystore_test_normal() {
     IKeyStore::Ptr ks = IKeyStore::create(options, PASSWORD, sizeof(PASSWORD));
 
     PubKey key1, key2, key3;
-    ks->gen_keypair(key1, PASSWORD, sizeof(PASSWORD), true);
-    ks->gen_keypair(key2, PASSWORD, sizeof(PASSWORD), true);
-    ks->gen_keypair(key3, PASSWORD, sizeof(PASSWORD), false);
+    ks->gen_keypair(key1, true);
+    ks->gen_keypair(key2, true);
+    ks->gen_keypair(key3, false);
     LOG_DEBUG() << "generated keypairs, " << key1 << " " << key2 << " " << key3;
 
     std::set<PubKey> enabledKeys;
@@ -76,7 +76,7 @@ int keystore_test_normal() {
     }
 
     enabledKeys.insert(key3);
-    ks->enable_keys(enabledKeys, PASSWORD, sizeof(PASSWORD));
+    ks->enable_keys(enabledKeys);
 
     enabledKeys.clear();
     ks->get_enabled_keys(enabledKeys);
@@ -116,7 +116,7 @@ int keystore_test_normal() {
         return 1;
     }
 
-    ks->erase_key(key2, PASSWORD, sizeof(PASSWORD));
+    ks->erase_key(key2);
     ks.reset();
     ks = IKeyStore::create(options, PASSWORD, sizeof(PASSWORD));
     enabledKeys.clear();

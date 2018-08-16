@@ -74,9 +74,7 @@ namespace beam {
         assert(!m_myPubKeys.empty());
         for (const auto& k : m_myPubKeys)
         {
-            uint32_t channel = channel_from_wallet_id(k);
-            LOG_INFO() << "Channel:" << channel << " Pubkey: " << to_string(k);
-            listen_to_bbs_channel(channel);
+            listen_to_bbs_channel(k);
         }
     }
 
@@ -160,6 +158,20 @@ namespace beam {
     void WalletNetworkIO::send_node_message(proto::GetProofState&& msg)
     {
         send_to_node(move(msg));
+    }
+
+    void WalletNetworkIO::new_own_address(const WalletID& address)
+    {
+        auto p = m_myPubKeys.insert(address);
+        if (p.second)
+        {
+            listen_to_bbs_channel(address);
+        }
+    }
+
+    void WalletNetworkIO::address_deleted(const WalletID& address)
+    {
+        m_myPubKeys.erase(address);
     }
 
     void WalletNetworkIO::close_node_connection()
@@ -250,9 +262,9 @@ namespace beam {
     void WalletNetworkIO::on_node_connected()
     {
         m_is_node_connected = true;
-        for (auto k : m_myPubKeys)
+        for (const auto& k : m_myPubKeys)
         {
-            listen_to_bbs_channel(channel_from_wallet_id(k));
+            listen_to_bbs_channel(k);
         }
 
         vector<ConnectCallback> t;
@@ -261,6 +273,11 @@ namespace beam {
         {
             cb();
         }
+    }
+
+    void WalletNetworkIO::on_node_disconnected()
+    {
+        m_is_node_connected = false;
     }
 
     void WalletNetworkIO::on_protocol_error(uint64_t, ProtocolError error)
@@ -298,11 +315,12 @@ namespace beam {
         return true;
     }
 
-    void WalletNetworkIO::listen_to_bbs_channel(uint32_t channel)
+    void WalletNetworkIO::listen_to_bbs_channel(const WalletID& walletID)
     {
         if (m_is_node_connected)
         {
-            LOG_DEBUG() << "Listen BBS channel=" << channel;
+            uint32_t channel = channel_from_wallet_id(walletID);
+            LOG_INFO() << "WalletID " << to_string(walletID) << " subscribes to BBS channel " << channel;
             proto::BbsSubscribe msg;
             msg.m_Channel = channel;
             msg.m_TimeFrom = m_bbs_timestamps[channel];
@@ -374,6 +392,7 @@ namespace beam {
     {
         LOG_INFO() << "Could not connect to node, retrying...";
         LOG_VERBOSE() << "Wallet failed to connect to node, error: " << r;
+        m_io.on_node_disconnected();
         m_wallet.abort_sync();
         m_timer->start(m_reconnectMsec, false, [this]() {Connect(m_address); });
     }

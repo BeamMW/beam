@@ -52,7 +52,7 @@ namespace beam
         virtual void cancel_tx(const TxID& id) = 0;
     };
 
-    struct INetworkIO 
+    struct INetworkIO
     {
         using Ptr = std::shared_ptr<INetworkIO>;
         virtual ~INetworkIO() {}
@@ -73,6 +73,9 @@ namespace beam
         //virtual void close_connection(const WalletID& id) = 0;
         virtual void connect_node() = 0;
         virtual void close_node_connection() = 0;
+
+        virtual void new_own_address(const WalletID& address) = 0;
+        virtual void address_deleted(const WalletID& address) = 0;
     };
 
     class NetworkIOBase : public INetworkIO
