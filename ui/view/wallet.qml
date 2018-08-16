@@ -51,22 +51,13 @@ Item {
 
         text: {
             if(walletViewModel.syncProgress < 0)
-                "Last update time: " + walletViewModel.syncTime + " (<a href=\"update\">update</a>)"
+			{
+                "Last update time: " + walletViewModel.syncTime
+			}
             else
-                "Updating, please wait... [" + walletViewModel.syncProgress + "%]"
-        }
-
-        onLinkActivated: {
-            if(link == "update")
-            {
-                walletViewModel.syncWithNode()
-            }
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            acceptedButtons: Qt.NoButton
-            cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
+			{
+				"Updating, please wait... [" + walletViewModel.syncProgress + "%]"
+			}
         }
     }
 

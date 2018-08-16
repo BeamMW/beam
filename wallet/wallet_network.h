@@ -55,7 +55,7 @@ namespace beam
                       , IKeyStore::Ptr keyStore
                       , io::Reactor::Ptr reactor = io::Reactor::Ptr()
                       , unsigned reconnect_ms = 1000 // 1 sec
-                      , unsigned sync_period_ms = 60 * 1000);  // 1 minute
+                      , unsigned sync_period_ms = 20 * 1000);  // 20 sec
 
         virtual ~WalletNetworkIO();
 
