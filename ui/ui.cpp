@@ -72,8 +72,7 @@ int main (int argc, char* argv[])
 {
 	QApplication app(argc, argv);
 
-	QApplication::setApplicationName("Beam");
-	QApplication::setOrganizationName("beam-mw.com");
+	QApplication::setApplicationName("Beam Wallet");
 
 	QDir appDataDir(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
 
