@@ -18,11 +18,11 @@ BEGIN
 		BLOCK "040904E4"
 		BEGIN
 			VALUE "CompanyName", "Beam"
-			VALUE "FileDescription", "Beam"
+			VALUE "FileDescription", "Beam Wallet"
 			VALUE "FileVersion", "0.0.1.0"
-			VALUE "InternalName", "beam-wallet.exe"
+			VALUE "InternalName", "Beam Wallet.exe"
 			VALUE "LegalCopyright", "https://beam-mw.com (C) 2018"
-			VALUE "OriginalFilename", "beam-wallet.exe"
+			VALUE "OriginalFilename", "Beam Wallet.exe"
 			VALUE "ProductName", "Beam"
 			VALUE "ProductVersion", "0.0.1.0"
 		END

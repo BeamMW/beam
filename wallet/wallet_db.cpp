@@ -969,6 +969,20 @@ namespace beam
 		return size;
 	}
 
+    bool Keychain::getBlob(const char* name, ByteBuffer& var) const
+    {
+        const char* req = "SELECT value FROM " VARIABLES_NAME " WHERE name=?1;";
+
+        sqlite::Statement stm(_db, req);
+        stm.bind(1, name);
+        if (stm.step())
+        {
+            stm.get(0, var);
+            return true;
+        }
+        return false;
+    }
+
     Timestamp Keychain::getLastUpdateTime() const
     {
         Timestamp timestamp = {};
