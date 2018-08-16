@@ -105,7 +105,6 @@ Rectangle {
     function updateItem(index)
     {
         selectedItem = index
-        //content.source = "qrc:///" + contentItems[index] + ".qml"
         content.setSource("qrc:///" + contentItems[index] + ".qml", {"toSend": false})
         mainViewModel.update(index)
     }

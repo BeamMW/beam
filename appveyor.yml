@@ -62,11 +62,11 @@ on_success:
 
     copy /Y %RELEASE_FOLDER%/beam.zip %LATEST_FOLDER%/beam.zip
 
-    copy /Y c:\projects\beam\Beam Wallet-0.0.1-win64.exe %RELEASE_FOLDER%\Beam Wallet.exe
+    copy /Y "c:\projects\beam\Beam Wallet-0.0.1-win64.exe" "%RELEASE_FOLDER%\Beam Wallet.exe"
 
-    copy /Y c:\projects\beam\Beam Wallet-0.0.1-win64.exe %LATEST_FOLDER%\Beam Wallet.exe
+    copy /Y "c:\projects\beam\Beam Wallet-0.0.1-win64.exe" "%LATEST_FOLDER%\Beam Wallet.exe"
 
-    git add %RELEASE_FOLDER%/beam.zip %RELEASE_FOLDER%/Beam Wallet.exe %LATEST_FOLDER%/beam.zip %LATEST_FOLDER%/Beam Wallet.exe
+    git add %RELEASE_FOLDER%/beam.zip "%RELEASE_FOLDER%/Beam Wallet.exe" %LATEST_FOLDER%/beam.zip "%LATEST_FOLDER%/Beam Wallet.exe"
 
     git commit -m "AppVeyor build for Windows"
     
