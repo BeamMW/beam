@@ -380,6 +380,15 @@ namespace beam
         }
     }
 
+	void Wallet::set_node_address(io::Address node_address)
+	{
+		m_network->set_node_address(node_address);
+
+		m_newStateID = Block::SystemState::ID();
+		m_keyChain->setSystemStateID(m_newStateID);
+		m_knownStateID = m_newStateID;
+	}
+
     bool Wallet::handle_node_message(proto::ProofUtxo&& utxoProof)
     {
         // TODO: handle the maturity of the several proofs (> 1)
