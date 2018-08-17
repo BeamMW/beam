@@ -52,7 +52,7 @@ QString TxObject::change() const
 {
 	if (_tx.m_change)
 	{
-		return BeamToString(_tx.m_change) + " BEAM";
+		return BeamToString(_tx.m_change);
 	}
 	return QString{};
 }
