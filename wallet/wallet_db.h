@@ -102,6 +102,7 @@ namespace beam
 
 		virtual void setVarRaw(const char* name, const void* data, int size) = 0;
 		virtual int getVarRaw(const char* name, void* data) const = 0;
+        virtual bool getBlob(const char* name, ByteBuffer& var) const = 0;
         virtual Height getCurrentHeight() const = 0;
         virtual uint64_t getKnownStateCount() const = 0;
         virtual Block::SystemState::ID getKnownStateID(Height height) = 0;
@@ -135,6 +136,7 @@ namespace beam
 		{
 			return getVarRaw(name, &var) == sizeof(var);
 		}
+
         virtual Timestamp getLastUpdateTime() const = 0;
 		virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
 		virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
@@ -167,6 +169,7 @@ namespace beam
 
 		void setVarRaw(const char* name, const void* data, int size) override;
 		int getVarRaw(const char* name, void* data) const override;
+        bool getBlob(const char* name, ByteBuffer& var) const override;
         Height getCurrentHeight() const override;
         uint64_t getKnownStateCount() const override;
         Block::SystemState::ID getKnownStateID(Height height) override;

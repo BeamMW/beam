@@ -105,6 +105,7 @@ class WalletViewModel : public QObject
 
         Q_PROPERTY(QString syncTime READ syncTime NOTIFY stateChanged)
         Q_PROPERTY(int syncProgress READ syncProgress NOTIFY stateChanged)
+        Q_PROPERTY(bool isSyncInProgress READ getIsSyncInProgress WRITE setIsSyncInProgress NOTIFY isSyncInProgressChanged)
 
         Q_PROPERTY(QString actualAvailable READ actualAvailable NOTIFY actualAvailableChanged)
         Q_PROPERTY(QString change READ change NOTIFY changeChanged)
@@ -134,6 +135,9 @@ public:
 	QString receiverAddr() const;
 	QString syncTime() const;
 	int syncProgress() const;
+    bool getIsSyncInProgress() const;
+    void setIsSyncInProgress(bool value);
+
 	QString actualAvailable() const;
     QString change() const;
 	int selectedAddr() const;
@@ -175,6 +179,7 @@ signals:
 	void allUtxoChanged();
     void receiverAddrChanged();
     void senderAddrChanged();
+    void isSyncInProgressChanged();
 
 private:
 	beam::Amount calcSendAmount() const;
@@ -206,4 +211,5 @@ private:
     QString _senderAddr;
 
     int _selectedAddr;
+    bool _isSyncInProgress;
 };

@@ -21,6 +21,11 @@
 
 using namespace std;
 
+namespace
+{
+    const char* BBS_TIMESTAMPS = "BbsTimestamps";
+}
+
 namespace beam {
 
     WalletNetworkIO::WalletNetworkIO(io::Address node_address
@@ -29,7 +34,7 @@ namespace beam {
                                    , io::Reactor::Ptr reactor
                                    , unsigned reconnect_ms
                                    , unsigned sync_period_ms)
-
+                                   
         : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, 150, *this, 20000 }
         , m_msgReader{ m_protocol, 1, 20000 }
         , m_node_address{node_address}
@@ -40,7 +45,7 @@ namespace beam {
         , m_reactor_scope{*m_reactor }
         , m_reconnect_ms{ reconnect_ms }
         , m_sync_period_ms{ sync_period_ms }
-        , m_close_timeout_ms{5 * 1000}
+        , m_close_timeout_ms{ 3 *1000 }
         , m_sync_timer{io::Timer::create(m_reactor)}
         , m_keystore(keyStore)
         , m_lastReceiver(0)
@@ -55,6 +60,16 @@ namespace beam {
         m_protocol.add_message_handler<WalletNetworkIO, wallet::TxRegistered,       &WalletNetworkIO::on_message>(receiverRegisteredCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::TxFailed,           &WalletNetworkIO::on_message>(failedCode, this, 1, 20000);
 
+        ByteBuffer buffer;
+        m_keychain->getBlob(BBS_TIMESTAMPS, buffer);
+        if (!buffer.empty())
+        {
+            Deserializer d;
+            d.reset(buffer.data(), buffer.size());
+
+            d & m_bbs_timestamps;
+        }
+
         m_keystore->get_enabled_keys(m_myPubKeys);
         assert(!m_myPubKeys.empty());
         for (const auto& k : m_myPubKeys)
@@ -65,6 +80,19 @@ namespace beam {
 
     WalletNetworkIO::~WalletNetworkIO()
     {
+        try
+        {
+            Serializer s;
+            s & m_bbs_timestamps;
+            ByteBuffer buffer;
+            s.swap_buf(buffer);
+            if (!buffer.empty())
+            {
+                m_keychain->setVarRaw(BBS_TIMESTAMPS, buffer.data(), buffer.size());
+            }
+        }
+        catch(...)
+        { }
     }
 
     void WalletNetworkIO::start()
@@ -132,15 +160,18 @@ namespace beam {
         send_to_node(move(msg));
     }
 
-    bool WalletNetworkIO::is_own_address(const WalletID& address) {
-        return m_myPubKeys.count(address) != 0;
-    }
-
-    void WalletNetworkIO::new_own_address(const WalletID& address) {
+    void WalletNetworkIO::new_own_address(const WalletID& address)
+    {
         auto p = m_myPubKeys.insert(address);
-        if (p.second) {
+        if (p.second)
+        {
             listen_to_bbs_channel(address);
         }
+    }
+
+    void WalletNetworkIO::address_deleted(const WalletID& address)
+    {
+        m_myPubKeys.erase(address);
     }
 
     void WalletNetworkIO::close_node_connection()
@@ -242,6 +273,11 @@ namespace beam {
         {
             cb();
         }
+    }
+
+    void WalletNetworkIO::on_node_disconnected()
+    {
+        m_is_node_connected = false;
     }
 
     void WalletNetworkIO::on_protocol_error(uint64_t, ProtocolError error)
@@ -356,6 +392,7 @@ namespace beam {
     {
         LOG_INFO() << "Could not connect to node, retrying...";
         LOG_VERBOSE() << "Wallet failed to connect to node, error: " << r;
+        m_io.on_node_disconnected();
         m_wallet.abort_sync();
         m_timer->start(m_reconnectMsec, false, [this]() {Connect(m_address); });
     }

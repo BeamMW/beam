@@ -81,12 +81,14 @@ std::string to_hex(const void* bytes, size_t size) {
 
 std::vector<uint8_t> from_hex(const std::string& str)
 {
-    assert(str.size() % 2 == 0);
-    std::vector<uint8_t> res(str.size() >> 1);
+    size_t bias = (str.size() % 2) == 0 ? 0 : 1;
+    assert((str.size() + bias) % 2 == 0);
+    std::vector<uint8_t> res((str.size() + bias) >> 1);
+    
     for (size_t i = 0; i < str.size(); ++i)
     {
         auto c = str[i];
-        size_t j = i >> 1;
+        size_t j = (i + bias) >> 1;
         res[j] <<= 4;
         if (c >= '0' && c <= '9')
         {

@@ -74,13 +74,13 @@ class AddressBookViewModel : public QObject
 	Q_PROPERTY(OwnAddressItem*                   newOwnAddress   READ getNewOwnAddress   CONSTANT)
 
 public:
-    Q_INVOKABLE void createNewAddress();
+
 	Q_INVOKABLE void createNewPeerAddress();
 	Q_INVOKABLE void createNewOwnAddress();
 	Q_INVOKABLE void changeCurrentPeerAddress(int index);
     Q_INVOKABLE void deletePeerAddress(int index);
     Q_INVOKABLE void deleteOwnAddress(int index);
-    Q_INVOKABLE void copyAddressToClipboard(int index);
+    Q_INVOKABLE void copyToClipboard(const QString& text);
 
 	Q_INVOKABLE void generateNewEmptyAddress();
 

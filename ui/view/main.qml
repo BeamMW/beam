@@ -105,13 +105,14 @@ Rectangle {
     function updateItem(index)
     {
         selectedItem = index
-        content.source = "qrc:///" + contentItems[index] + ".qml"
+        content.setSource("qrc:///" + contentItems[index] + ".qml", {"toSend": false})
         mainViewModel.update(index)
     }
 
 	function openSendDialog() {
 		selectedItem = 1
-		content.setSource("qrc:///wallet.qml", {"state": "send"})
+		content.setSource("qrc:///wallet.qml", {"toSend": true})
+        
 		mainViewModel.update(selectedItem)
 	}
 

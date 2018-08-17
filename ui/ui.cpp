@@ -72,8 +72,7 @@ int main (int argc, char* argv[])
 {
 	QApplication app(argc, argv);
 
-	QApplication::setApplicationName("Beam");
-	QApplication::setOrganizationName("beam-mw.com");
+	QApplication::setApplicationName("Beam Wallet");
 
 	QDir appDataDir(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
 
@@ -163,7 +162,8 @@ int main (int argc, char* argv[])
 
 			StartViewModel startViewModel(walletStorage, bbsStorage, [&](IKeyChain::Ptr db, const std::string& walletPass)
 			{
-                try {
+                try
+                {
                     qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
                     qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
                     qmlRegisterType<TxObject>("Wallet", 1, 0, "TxObject");
@@ -173,10 +173,7 @@ int main (int argc, char* argv[])
                     options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
                     options.fileName = bbsStorage;
 
-                    // TODO -> passwords from UI on every operations with own addresses
-                    static const char ZAGLOOSHKA[] = "ZAGLOOSHKA";
-                    keystore = IKeyStore::create(options, ZAGLOOSHKA, sizeof(ZAGLOOSHKA));
-                    //keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
+                    keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
 
                     walletModel = std::make_unique<WalletModel>(db, keystore);
 
@@ -193,8 +190,10 @@ int main (int argc, char* argv[])
                     ctxt->setContextProperty("translator", &translator);
 
                     view.rootObject()->setProperty("source", "qrc:///main.qml");
-                } catch (...) {
-                    // TODO
+                } 
+                catch (const std::runtime_error& ex)
+                {
+                    QMessageBox::critical(0, "Error", ex.what(), QMessageBox::Ok);
                 }
 			});
 

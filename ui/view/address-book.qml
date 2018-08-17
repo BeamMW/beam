@@ -10,7 +10,7 @@ ColumnLayout {
     width: 800
     height: 600
     anchors.fill: parent
-    state: "own"
+    state: "peers"
 	SFText {
         Layout.minimumHeight: 40
         Layout.maximumHeight: 40
@@ -40,7 +40,7 @@ ColumnLayout {
 				id: createAddressLayout
 				anchors.fill: parent
 				anchors.margins: 30
-				state: "own"
+				state: "peers"
 
 				Item {
 					Layout.minimumHeight: 21
@@ -61,25 +61,25 @@ ColumnLayout {
 				Item {
 					Layout.topMargin: 30
 					Layout.fillWidth: true
-					Layout.minimumHeight: 14
-					Layout.maximumHeight: 14
+					Layout.minimumHeight: 20
+					Layout.maximumHeight: 20
 
 					RowLayout {
 						anchors.centerIn: parent
 						Layout.minimumHeight: 14
 						Layout.maximumHeight: 14
-					
-						TxFilter{
-							id: ownFilterDlg
-							label: qsTr("OWN ADDRESSES")
-							onClicked: createAddressLayout.state = "own"
-						}
 
 						TxFilter{
 							id: peersFilterDlg
-							Layout.leftMargin: 40
 							label: qsTr("PEERS ADDRESSES")
 							onClicked: createAddressLayout.state = "peers"
+						}
+
+                        TxFilter{
+							id: ownFilterDlg
+                            Layout.leftMargin: 40
+							label: qsTr("OWN ADDRESSES")
+							onClicked: createAddressLayout.state = "own"
 						}
 					}
 				}
@@ -91,115 +91,112 @@ ColumnLayout {
 					Layout.topMargin: 30
 					visible: false
 					
-					ColumnLayout {
+					SFText {
+						text: qsTr("Address ID")
 						Layout.fillWidth: true
-						Layout.fillHeight: true
-
-						SFText {
-							text: qsTr("Address ID")
-							Layout.fillWidth: true
-							font {
-								pixelSize: 12
-								weight: Font.Bold
-							}
-							color: Style.white
+                        Layout.minimumHeight: 14
+						font {
+							pixelSize: 12
+							weight: Font.Bold
 						}
-
-						SFTextInput {
-							id: addressID
-							Layout.fillWidth: true
-							Layout.minimumHeight: 14
-							Layout.maximumHeight: 14
-							font.pixelSize: 12
-							color: Style.white
-							text: addressBookViewModel.newPeerAddress.walletID
-						}
-
-						Binding {
-							target: addressBookViewModel.newPeerAddress
-							property: "walletID"
-							value: addressID.text
-						}
-
-						Rectangle {
-							Layout.fillWidth: true
-							height: 1
-
-							color: Style.separator_color
-						}
+						color: Style.white
 					}
 
-					ColumnLayout {
+					SFTextInput {
+						id: addressID
 						Layout.fillWidth: true
-						Layout.fillHeight: true
-						Layout.topMargin: 30
-						SFText {
-							Layout.fillWidth: true
-							Layout.fillHeight: true
-							text: qsTr("Name")
-							font {
-								pixelSize: 12
-								weight: Font.Bold
-							}
-							color: Style.white
-						}
-						SFTextInput {
-							Layout.fillWidth: true
-							Layout.fillHeight: true
-							id: nameAddress
-							font.pixelSize: 12
-							color: Style.white
-							height: 14
-							text: addressBookViewModel.newPeerAddress.name
-						}
-						Binding {
-							target: addressBookViewModel.newPeerAddress
-							property: "name"
-							value: nameAddress.text
-						}
-						Rectangle {
-							Layout.fillWidth: true
-							height: 1
-
-							color: Style.separator_color
-						}
+						Layout.minimumHeight: 14
+						Layout.maximumHeight: 14
+						font.pixelSize: 12
+						color: Style.white
+						text: addressBookViewModel.newPeerAddress.walletID
 					}
 
-					ColumnLayout {
+					Binding {
+						target: addressBookViewModel.newPeerAddress
+						property: "walletID"
+						value: addressID.text
+					}
+
+					Rectangle {
+						Layout.fillWidth: true
+                        Layout.minimumHeight: 1
+						height: 1
+
+						color: Style.separator_color
+					}
+						
+					SFText {
+                        Layout.topMargin: 30
 						Layout.fillWidth: true
 						Layout.fillHeight: true
-						Layout.topMargin: 30
-						SFText {
-							Layout.fillWidth: true
-							Layout.fillHeight: true
-							text: qsTr("Category")
-							font {
-								pixelSize: 12
-								weight: Font.Bold
-							}
-							color: Style.white
+                        Layout.minimumHeight: 14
+						text: qsTr("Name")
+						font {
+							pixelSize: 12
+							weight: Font.Bold
 						}
-						SFTextInput {
-							Layout.fillWidth: true
-							Layout.fillHeight: true
-							id: categoryAddress
-							font.pixelSize: 12
-							color: Style.white
-							height: 14
-							text: addressBookViewModel.newPeerAddress.category
-						}
+						color: Style.white
+					}
+					SFTextInput {
+						Layout.fillWidth: true
+						Layout.fillHeight: true
+						id: nameAddress
+                        Layout.minimumHeight: 14
+						Layout.maximumHeight: 14
+						font.pixelSize: 12
+						color: Style.white
+						height: 14
+						text: addressBookViewModel.newPeerAddress.name
+					}
+					Binding {
+						target: addressBookViewModel.newPeerAddress
+						property: "name"
+						value: nameAddress.text
+					}
+					Rectangle {
+						Layout.fillWidth: true
+                        Layout.minimumHeight: 1
+						height: 1
 
-						Binding {
-							target: addressBookViewModel.newPeerAddress
-							property: "category"
-							value: categoryAddress.text
+						color: Style.separator_color
+					}
+						
+					SFText {
+                        Layout.topMargin: 30
+						Layout.fillWidth: true
+						Layout.fillHeight: true
+                        Layout.minimumHeight: 14
+						text: qsTr("Category")
+						font {
+							pixelSize: 12
+							weight: Font.Bold
 						}
-						Rectangle {
-							Layout.fillWidth: true
-							height: 1
+						color: Style.white
+					}
+					SFTextInput {
+						Layout.fillWidth: true
+						Layout.fillHeight: true
+                        Layout.minimumHeight: 14
+						Layout.maximumHeight: 14
+						id: categoryAddress
+						font.pixelSize: 12
+						color: Style.white
+						height: 14
+						text: addressBookViewModel.newPeerAddress.category
+					}
 
-							color: Style.separator_color
-						}
+					Binding {
+						target: addressBookViewModel.newPeerAddress
+						property: "category"
+						value: categoryAddress.text
+					}
+					Rectangle {
+						Layout.fillWidth: true
+                        Layout.minimumHeight: 1
+						height: 1
+
+						color: Style.separator_color
 					}
 				}
 
@@ -209,97 +206,104 @@ ColumnLayout {
 					Layout.fillHeight: true
 					Layout.topMargin: 30
 					visible: false
-
-					ColumnLayout {
+					
+					SFText {
+						text: qsTr("Address ID")
 						Layout.fillWidth: true
-
-						SFText {
-							text: qsTr("Address ID")
-							Layout.fillWidth: true
-							font {
-								pixelSize: 12
-								weight: Font.Bold
-							}
-							color: Style.white
+                        Layout.minimumHeight: 14
+						font {
+							pixelSize: 12
+							weight: Font.Bold
 						}
-
-						SFTextInput {
-							id: ownAddressID
-							Layout.fillWidth: true
-							font.pixelSize: 12
-							color: Style.disable_text_color
-							readOnly: true
-							text: addressBookViewModel.newOwnAddress.walletID
-						}
+						color: Style.white
 					}
 
-					ColumnLayout {
+					SFTextInput {
+						id: ownAddressID
 						Layout.fillWidth: true
-						Layout.topMargin: 30
-						SFText {
-							Layout.fillWidth: true
-							text: qsTr("Name")
-							font {
-								pixelSize: 12
-								weight: Font.Bold
-							}
-							color: Style.white
-						}
-						SFTextInput {
-							Layout.fillWidth: true
-							id: nameOwnAddress
-							font.pixelSize: 12
-							color: Style.white
-							height: 14
-							text: addressBookViewModel.newOwnAddress.name
-						}
-
-						Binding {
-							target: addressBookViewModel.newOwnAddress
-							property: "name"
-							value: nameOwnAddress.text
-						}
-						Rectangle {
-							Layout.fillWidth: true
-							height: 1
-							color: Style.separator_color
-						}
+                        Layout.minimumHeight: 14
+						Layout.maximumHeight: 14
+						font.pixelSize: 12
+						color: Style.disable_text_color
+						readOnly: true
+						text: addressBookViewModel.newOwnAddress.walletID
 					}
 
-					ColumnLayout {
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 1
+                    }
+
+					SFText {
+                        Layout.topMargin: 30
 						Layout.fillWidth: true
-						Layout.topMargin: 30
-						SFText {
-							Layout.fillWidth: true
-							text: qsTr("Category")
-							font {
-								pixelSize: 12
-								weight: Font.Bold
-							}
-							color: Style.white
+                        Layout.minimumHeight: 14
+						text: qsTr("Name")
+						font {
+							pixelSize: 12
+							weight: Font.Bold
 						}
+						color: Style.white
+					}
+					SFTextInput {
+						Layout.fillWidth: true
+                        Layout.minimumHeight: 14
+						Layout.maximumHeight: 14
+						id: nameOwnAddress
+						font.pixelSize: 12
+						color: Style.white
+						height: 14
+						text: addressBookViewModel.newOwnAddress.name
+					}
 
-						SFTextInput {
-							Layout.fillWidth: true
-							id: categoryOwnAddress
-							font.pixelSize: 12
-							color: Style.white
-							height: 14
-							text: addressBookViewModel.newOwnAddress.category
+					Binding {
+						target: addressBookViewModel.newOwnAddress
+						property: "name"
+						value: nameOwnAddress.text
+					}
+					Rectangle {
+						Layout.fillWidth: true
+                        Layout.minimumHeight: 1
+						height: 1
+						color: Style.separator_color
+					}
+
+					SFText {
+                        Layout.topMargin: 30
+						Layout.fillWidth: true
+                        Layout.minimumHeight: 14
+						text: qsTr("Category")
+						font {
+							pixelSize: 12
+							weight: Font.Bold
 						}
+						color: Style.white
+					}
 
-						Binding {
-							target: addressBookViewModel.newOwnAddress
-							property: "category"
-							value: categoryOwnAddress.text
-						}
+					SFTextInput {
+						Layout.fillWidth: true
+                        Layout.minimumHeight: 14
+						Layout.maximumHeight: 14
+						id: categoryOwnAddress
+						font.pixelSize: 12
+						color: Style.white
+						height: 14
+						text: addressBookViewModel.newOwnAddress.category
+					}
 
-						Rectangle {
-							Layout.fillWidth: true
-							height: 1
+					Binding {
+						target: addressBookViewModel.newOwnAddress
+						property: "category"
+						value: categoryOwnAddress.text
+					}
 
-							color: Style.separator_color
-						}
+					Rectangle {
+						Layout.fillWidth: true
+                        Layout.minimumHeight: 1
+
+						height: 1
+
+						color: Style.separator_color
 					}
 				}
 
@@ -359,7 +363,6 @@ ColumnLayout {
 
 						PropertyChanges {
 							target: createAddress
-							height: 493
 						}
 
 						PropertyChanges {
@@ -378,7 +381,6 @@ ColumnLayout {
 
 						PropertyChanges {
 							target: createAddress
-							height: 454
 						}
 
 						PropertyChanges {
@@ -396,33 +398,35 @@ ColumnLayout {
         Layout.minimumHeight: 40
         Layout.maximumHeight: 40
         spacing: 40
-        TxFilter{
-            id: ownFilter
-            Layout.leftMargin: 20
-            label: qsTr("OWN ADDRESSES")
-            onClicked: addressRoot.state = "own"
-        }
 
         TxFilter{
             id: peersFilter
+            Layout.leftMargin: 20
             label: qsTr("PEERS ADDRESSES")
             onClicked: addressRoot.state = "peers"
+        }
+
+        TxFilter{
+            id: ownFilter
+            label: qsTr("OWN ADDRESSES")
+            onClicked: addressRoot.state = "own"
         }
 
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            IconButton {
+            
+            CustomButton {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.right: parent.right
                 width: 195
 				height: 38
-				label: "create new address"
+				text: "create new address"
 				textColor: Style.white
-				iconName: "icon-add"
-				onClicked: {
-					addressBookViewModel.generateNewEmptyAddress()
-					createAddressLayout.state = addressRoot.state
+				icon.source: "qrc:///assets/icon-add.svg"
+                onClicked: {
+					addressBookViewModel.generateNewEmptyAddress();
+					createAddressLayout.state = addressRoot.state;
 					createAddress.open();
 				}
             }
@@ -446,22 +450,24 @@ ColumnLayout {
             TableViewColumn {
                 role: "walletID"
                 title: qsTr("Address ID")
-                width: 300
-
+                width: 300 * parent.width / 700
+                elideMode: Text.ElideMiddle
                 movable: false
             }
 
             TableViewColumn {
                 role: "name"
                 title: qsTr("Name")
-                width: 200
-
+                width: 200 * parent.width / 700
+                elideMode: Text.ElideRight
                 movable: false
             }
 
             TableViewColumn {
                 role: "category"
                 title: qsTr("Category")
+                elideMode: Text.ElideRight
+                width: 200 * parent.width / 700
                 movable: false
             }
 
@@ -505,6 +511,17 @@ ColumnLayout {
 					enabled: false
                 }
 				Action {
+                    text: qsTr("copy address")
+					icon.source: "qrc:///assets/icon-copy.svg"
+					onTriggered: {
+						if (peerAddressContextMenu.index >= 0)
+						{
+							var addr = addressBookViewModel.peerAddresses[peerAddressContextMenu.index];
+							addressBookViewModel.copyToClipboard(addr.walletID);
+						}
+                    }
+                }
+				Action {
                     text: qsTr("edit address")
 					icon.source: "qrc:///assets/icon-edit.svg"
 					enabled: false
@@ -525,7 +542,11 @@ ColumnLayout {
                     text: qsTr("copy address")
 					icon.source: "qrc:///assets/icon-copy.svg"
 					onTriggered: {
-                        addressBookViewModel.copyAddressToClipboard(ownAddressContextMenu.index);
+						if (ownAddressContextMenu.index >= 0)
+						{
+							var addr = addressBookViewModel.ownAddresses[ownAddressContextMenu.index];
+							addressBookViewModel.copyToClipboard(addr.walletID);
+						}
                     }
                 }
 				Action {
@@ -567,6 +588,7 @@ ColumnLayout {
 
             itemDelegate: TableItem {
                 text: styleData.value
+                elide: styleData.elideMode
             }
         }
 
@@ -582,22 +604,24 @@ ColumnLayout {
             TableViewColumn {
                 role: "walletID"
                 title: qsTr("Address ID")
-                width: 300
-
+                width: 300 * parent.width / 850
+                elideMode: Text.ElideMiddle
                 movable: false
             }
 
             TableViewColumn {
                 role: "name"
                 title: qsTr("Name")
-                width: 200
-
+                width: 200 * parent.width / 850
+                elideMode: Text.ElideRight
                 movable: false
             }
 
             TableViewColumn {
                 role: "category"
                 title: qsTr("Category")
+                elideMode: Text.ElideRight
+                width: 200 * parent.width / 850
                 movable: false
             }
 
@@ -610,6 +634,8 @@ ColumnLayout {
             TableViewColumn {
                 role: "createDate"
                 title: qsTr("Created")
+                elideMode: Text.ElideRight
+                width: 150 * parent.width / 850
                 movable: false
             }
 
@@ -659,6 +685,7 @@ ColumnLayout {
 
             itemDelegate: TableItem {
                 text: styleData.value
+                elide: styleData.elideMode
             }
         }
     }

@@ -150,24 +150,6 @@ void AddressBookViewModel::generateNewEmptyAddress()
 	}
 }
 
-void AddressBookViewModel::createNewAddress()
-{
-    WalletAddress a = {};
-    a.m_own = false;
-    a.m_label = "My address " + to_string(chrono::system_clock::now().time_since_epoch().count());
-    ECC::Hash::Processor() << a.m_label.c_str() >> a.m_walletID; // XXX!!!!
-    a.m_createTime = beam::getTimestamp();
-    a.m_duration = 1000000;
-    a.m_category = "work";
-
-    if (m_model.async)
-    {
-        m_model.async->createNewAddress(std::move(a));
-        m_model.async->getAddresses(true);
-        m_model.async->getAddresses(false);
-    }
-}
-
 void AddressBookViewModel::createNewPeerAddress()
 {
     WalletID walletID = from_hex(m_newPeerAddress.getWalletID().toStdString());
@@ -182,8 +164,6 @@ void AddressBookViewModel::createNewPeerAddress()
 	if (m_model.async)
 	{
 		m_model.async->createNewAddress(std::move(peerAddress));
-		m_model.async->getAddresses(false);
-		m_model.async->getAddresses(true);
 	}
 }
 
@@ -231,13 +211,13 @@ void AddressBookViewModel::deleteOwnAddress(int index)
     if (m_model.async)
     {
         WalletID peerID = from_hex(m_ownAddresses.at(index)->getWalletID().toStdString());
-        m_model.async->deleteAddress(peerID);
+        m_model.async->deleteOwnAddress(peerID);
     }
 }
 
-void AddressBookViewModel::copyAddressToClipboard(int index)
+void AddressBookViewModel::copyToClipboard(const QString& text)
 {
-    QApplication::clipboard()->setText(m_ownAddresses.at(index)->getWalletID());
+    QApplication::clipboard()->setText(text);
 }
 
 void AddressBookViewModel::onStatus(const WalletStatus&)

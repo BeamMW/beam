@@ -23,8 +23,8 @@ environment:
   - arch: Win64
 
 before_build:
-  - cmd: git clone https://github.com/beam-mw/libs.git c:/beam-libs
-  - cmd: git clone https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
+  - cmd: git clone --depth=1 https://github.com/beam-mw/libs.git c:/beam-libs
+  - cmd: git clone --depth=1 https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
   - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=Release -DBEAM_LINK_TYPE=Static
 
 test_script:
@@ -47,7 +47,7 @@ on_success:
 
     git config --global user.name "Vadim Grigoruk"
 
-    git clone %REPO%
+    git clone --depth=1 %REPO%
 
     cd beam-builds
 
@@ -63,13 +63,13 @@ on_success:
 
     copy /Y %RELEASE_FOLDER%/beam.zip %LATEST_FOLDER%/beam.zip
 
-    copy /Y c:\projects\beam\Beam-0.0.1-win64.exe %RELEASE_FOLDER%\beam-wallet.exe
+    copy /Y "c:\projects\beam\Beam Wallet-0.0.1-win64.exe" "%RELEASE_FOLDER%\Beam Wallet.exe"
 
-    copy /Y c:\projects\beam\Beam-0.0.1-win64.exe %LATEST_FOLDER%\beam-wallet.exe
+    copy /Y "c:\projects\beam\Beam Wallet-0.0.1-win64.exe" "%LATEST_FOLDER%\Beam Wallet.exe"
 
-    git add %RELEASE_FOLDER%/beam.zip %RELEASE_FOLDER%/beam-wallet.exe %LATEST_FOLDER%/beam.zip %LATEST_FOLDER%/beam-wallet.exe 
+    git add %RELEASE_FOLDER%/beam.zip "%RELEASE_FOLDER%/Beam Wallet.exe" %LATEST_FOLDER%/beam.zip "%LATEST_FOLDER%/Beam Wallet.exe"
 
-    git commit -m "AppVeyor build for Windows $env:APPVEYOR_BUILD_NUMBER"
+    git commit -m "AppVeyor build for Windows"
     
     git push %REPO% master
 

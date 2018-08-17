@@ -16,9 +16,9 @@ Menu {
         implicitHeight: 40
 
 		icon.color: Style.white
-		icon.width: 10
-		icon.height: 10
-		font.pixelSize: 12
+		icon.width: 12
+		icon.height: 12
+		font.pixelSize: 14
 		
 		spacing: 14
 

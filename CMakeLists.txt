@@ -162,7 +162,6 @@ elseif (LINUX)
 	set(CPACK_PACKAGE_NAME "BeamWallet")
 endif ()
 
-
 set(CPACK_PACKAGE_VENDOR "Beam Vendor")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Scalable confidential cryptocurrency")
 set(CPACK_PACKAGE_VERSION_MAJOR "0")

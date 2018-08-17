@@ -50,7 +50,11 @@ QString TxObject::amount() const
 
 QString TxObject::change() const
 {
-	return BeamToString(_tx.m_change) + " BEAM";
+	if (_tx.m_change)
+	{
+		return BeamToString(_tx.m_change) + " BEAM";
+	}
+	return QString{};
 }
 
 QString TxObject::status() const
@@ -124,6 +128,7 @@ WalletViewModel::WalletViewModel(WalletModel& model)
     , _change(0)
     , _loadingUtxo{false}
 	, _loadingAllUtxo{false}
+    , _isSyncInProgress{false}
 {
 	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
@@ -230,7 +235,8 @@ void WalletViewModel::onSyncProgressUpdated(int done, int total)
 {
 	_status.update.done = done;
 	_status.update.total = total;
-
+    setIsSyncInProgress(!(done == total));
+    
 	emit stateChanged();
 }
 
@@ -407,6 +413,20 @@ int WalletViewModel::syncProgress() const
 	return -1;
 }
 
+bool WalletViewModel::getIsSyncInProgress() const
+{
+    return _isSyncInProgress;
+}
+
+void WalletViewModel::setIsSyncInProgress(bool value)
+{
+    if (_isSyncInProgress != value)
+    {
+        _isSyncInProgress = value;
+        emit isSyncInProgressChanged();
+    }
+}
+
 int WalletViewModel::selectedAddr() const
 {
 	return _selectedAddr;
@@ -461,6 +481,7 @@ void WalletViewModel::sendMoney()
 
 void WalletViewModel::syncWithNode()
 {
+    //setIsSyncInProgress(true);
 	_model.async->syncWithNode();
 }
 

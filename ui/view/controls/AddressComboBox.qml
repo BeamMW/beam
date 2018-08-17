@@ -17,10 +17,11 @@ ComboBox {
         id: itemDelegate
         width: control.width
         contentItem: SFText {
-            text: modelData.name+"(" + modelData.walletID +")"
+            text: "<b>" + modelData.name+"</b> (" + modelData.walletID +")"
             color: control.color
-            elide: Text.ElideRight
+            elide: Text.ElideMiddle
             verticalAlignment: Text.AlignVCenter
+			font.pixelSize: 14
         }
         highlighted: control.highlightedIndex === index
 
@@ -44,6 +45,7 @@ ComboBox {
         clip: true
         text: control.editText
         color: control.color
+		font.pixelSize: 14
         verticalAlignment: Text.AlignVCenter
     }
 
@@ -62,7 +64,7 @@ ComboBox {
         padding: 1
 
         contentItem: ColumnLayout {
-            SFText {
+            /*SFText {
                 Layout.fillWidth: true
                 Layout.minimumHeight: control.height
                 Layout.leftMargin: 20
@@ -76,7 +78,7 @@ ComboBox {
                 Layout.fillWidth: true
                 height: 1
                 color: Style.separator_color
-            }
+            }*/
             ListView {
                 id: listView
                 Layout.fillWidth: true

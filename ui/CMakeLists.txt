@@ -1,3 +1,5 @@
+set (TARGET_NAME "beam-wallet")
+set (OUTPUT_NAME "Beam Wallet")
 set (CMAKE_PREFIX_PATH $ENV{QT5_ROOT_DIR})
 
 find_package(Qt5 COMPONENTS Qml Quick Svg REQUIRED)
@@ -51,19 +53,19 @@ if(WIN32)
 	add_definitions(-DWIN32_LEAN_AND_MEAN)
 endif()
 
-add_executable(beam-wallet ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE})
-
+add_executable(${TARGET_NAME} ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE})
+set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME ${OUTPUT_NAME})
 
 if(APPLE)
-	set_target_properties(beam-wallet PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)
+	set_target_properties(${TARGET_NAME} PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)
 endif()
 
 configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 target_include_directories(beam PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
-add_dependencies(beam-wallet wallet)
+add_dependencies(${TARGET_NAME} wallet)
 
-target_link_libraries(beam-wallet wallet Qt5::Qml Qt5::Quick Qt5::Svg)
+target_link_libraries(${TARGET_NAME} wallet Qt5::Qml Qt5::Quick Qt5::Svg)
 
 if(BEAM_USE_STATIC)
 
@@ -83,10 +85,10 @@ if(BEAM_USE_STATIC)
 			qml/QtGraphicalEffects/private/qtgraphicaleffectsprivate qml/QtQuick/Layouts/qquicklayoutsplugin qml/QtQuick/Controls.2/qtquickcontrols2plugin 
 			qml/QtQuick/Templates.2/qtquicktemplates2plugin plugins/platforms/qwindows plugins/imageformats/qsvg)
 
-			target_link_libraries(beam-wallet ${CMAKE_PREFIX_PATH}/${lib}.lib)
+			target_link_libraries(${TARGET_NAME} ${CMAKE_PREFIX_PATH}/${lib}.lib)
 		endforeach()
 
-		target_link_libraries(beam-wallet Netapi32.lib version.lib winmm.lib Imm32.lib Dwmapi.lib)
+		target_link_libraries(${TARGET_NAME} Netapi32.lib version.lib winmm.lib Imm32.lib Dwmapi.lib)
 		
 	endif()
 
@@ -112,10 +114,10 @@ if(BEAM_USE_STATIC)
 			qml/QtQuick/Layouts/libqquicklayoutsplugin qml/QtQuick/Controls.2/libqtquickcontrols2plugin qml/QtQuick/Templates.2/libqtquicktemplates2plugin
 			plugins/platforms/libqcocoa plugins/platforms/libqminimal plugins/imageformats/libqsvg)
 
-			target_link_libraries(beam-wallet ${CMAKE_PREFIX_PATH}/${lib}.a)
+			target_link_libraries(${TARGET_NAME} ${CMAKE_PREFIX_PATH}/${lib}.a)
 		endforeach()
 
-		target_link_libraries(beam-wallet
+		target_link_libraries(${TARGET_NAME}
 			"-framework CoreFoundation"
 			"-framework Foundation"
 			"-framework DiskArbitration"
@@ -139,11 +141,11 @@ if(BEAM_USE_STATIC)
 
 	if(LINUX)
 
-		target_link_libraries(beam-wallet 
+		target_link_libraries(${TARGET_NAME} 
 			${CMAKE_PREFIX_PATH}/plugins/platforms/libqxcb.a
 		)
 
-		target_link_libraries(beam-wallet 
+		target_link_libraries(${TARGET_NAME} 
 			${CMAKE_PREFIX_PATH}/qml/QtQuick.2/libqtquick2plugin.a
 			${CMAKE_PREFIX_PATH}/qml/QtQuick/Window.2/libwindowplugin.a
 			${CMAKE_PREFIX_PATH}/qml/QtQuick/Controls/libqtquickcontrolsplugin.a
@@ -170,20 +172,20 @@ if(BEAM_USE_STATIC)
 			Qt5Xml xcb-static Qt5Gamepad Qt5NetworkAuth Qt5QmlDevTools 
 			Qt5Scxml Qt5ThemeSupport Qt5XmlPatterns Qt5DBus qtfreetype
 		)
-			target_link_libraries(beam-wallet ${CMAKE_PREFIX_PATH}/lib/lib${lib}.a)
+			target_link_libraries(${TARGET_NAME} ${CMAKE_PREFIX_PATH}/lib/lib${lib}.a)
 		endforeach()
 
-		target_link_libraries(beam-wallet -lX11-xcb -lX11 -lxcb -licui18n -licuuc -licudata -lGL)
+		target_link_libraries(${TARGET_NAME} -lX11-xcb -lX11 -lxcb -licui18n -licuuc -licudata -lGL)
 
-		set_property(TARGET beam-wallet PROPERTY POSITION_INDEPENDENT_CODE ON)
+		set_property(TARGET ${TARGET_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 		
 endif()
 
 endif()
 
 if(LINUX)
-	install(TARGETS beam-wallet	DESTINATION bin)
-	install(FILES beam-wallet.cfg DESTINATION bin)
+	install(TARGETS ${TARGET_NAME}	DESTINATION bin)
+	install(FILES ${TARGET_NAME}.cfg DESTINATION bin)
 
 	SET(BEAM_DESKTOP_DIR     "/usr/share/applications/")
 	SET(BEAM_PIXMAPS_DIR     "/usr/share/icons/")
@@ -196,8 +198,8 @@ else()
 
 	if(WIN32)
 		install(FILES ${CMAKE_PREFIX_PATH}\\\\bin\\\\opengl32sw.dll DESTINATION .)
-		install(FILES beam-wallet.cfg DESTINATION .)
+		install(FILES ${TARGET_NAME}.cfg DESTINATION .)
 	endif()
 
-	install(TARGETS beam-wallet	DESTINATION .)
+	install(TARGETS ${TARGET_NAME} DESTINATION .)
 endif()

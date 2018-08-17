@@ -173,6 +173,7 @@ namespace beam
         TxID txId{};
         copy(id.begin(), id.end(), txId.begin());
         TxDescription tx( txId, amount, fee, m_keyChain->getCurrentHeight(), to, from, move(message), getTimestamp(), sender);
+        m_keyChain->saveTx(tx);
         resume_negotiator(tx);
         return txId;
     }
@@ -188,7 +189,7 @@ namespace beam
             auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
 
             m_negotiators.emplace(tx.m_txId, s);
-            s->process_event(events::TxResumed{});
+          //  s->process_event(events::TxResumed{});
         }
     }
 
@@ -262,6 +263,11 @@ namespace beam
 
     void Wallet::handle_tx_message(const WalletID& receiver, Invite&& msg)
     {
+        auto stored = m_keyChain->getTx(msg.m_txId);
+        if (stored.is_initialized() && !stored->canResume())
+        {
+            return;
+        }
         auto it = m_negotiators.find(msg.m_txId);
         if (it == m_negotiators.end())
         {
@@ -270,6 +276,7 @@ namespace beam
             TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, receiver, {}, getTimestamp(), sender };
             auto r = make_shared<Negotiator>(*this, m_keyChain, tx);
             m_negotiators.emplace(tx.m_txId, r);
+            m_keyChain->saveTx(tx);
             Cleaner c{ m_removedNegotiators };
             if (r->ProcessInvitation(msg))
             {
@@ -460,6 +467,7 @@ namespace beam
         if (newID == m_knownStateID)
         {
             // here we may close connection with node
+            m_keyChain->setSystemStateID(newID);
             return close_node_connection();
         }
 
@@ -717,6 +725,7 @@ namespace beam
     {
         if (m_synchronized && m_reg_requests.empty())
         {
+            notifySyncProgress();
             m_network->close_node_connection();
         }
         return true;

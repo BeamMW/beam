@@ -82,8 +82,8 @@ namespace beam
         void connect_node() override;
         void close_node_connection() override;
 
-        bool is_own_address(const WalletID& address) override;
         void new_own_address(const WalletID& address) override;
+        void address_deleted(const WalletID& address) override;
 
         // IMsgHandler
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;
@@ -103,6 +103,7 @@ namespace beam
         void on_close_connection_timer();
         void postpone_close_timer();
         void on_node_connected();
+        void on_node_disconnected();
 
         void create_node_connection();
 
@@ -141,6 +142,7 @@ namespace beam
             }
             else
             {
+                postpone_close_timer();
                 m_node_connection->Send(msg);
             }
         }

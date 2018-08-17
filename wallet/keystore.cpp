@@ -143,12 +143,23 @@ class LocalFileKeystore : public IKeyStore {
 public:
     LocalFileKeystore(const IKeyStore::Options& options, const void* password, size_t passwordLen) :
         _fileName(options.fileName)
-    {
+    { 
+        _pass.resize(passwordLen, 0);
+        const uint8_t* p = static_cast<const uint8_t*>(password);
+        std::copy(p, p + passwordLen, _pass.data());
         bool allEnabled = (options.flags & Options::enable_all_keys) != 0;
         if (allEnabled) {
             read_keystore_file_and_check(password, passwordLen);
         } else {
             enable_keys_impl(options.enableKeys, password, passwordLen);
+        }
+    }
+
+    virtual ~LocalFileKeystore()
+    {
+        try {
+            ECC::SecureErase(_pass.data(), _pass.size());
+        } catch (...) {
         }
     }
 
@@ -191,13 +202,13 @@ private:
         }
     }
 
-    void gen_keypair(PubKey& pubKey, const void* password, size_t passwordLen, bool enable) override {
+    void gen_keypair(PubKey& pubKey, bool enable) override {
         if (_keyPairs.count(pubKey)) return;
         ECC::NoLeak<PrivKey> privKey;
         gen_nonce(privKey.V);
         proto::Sk2Pk(pubKey, privKey.V);
         memcpy(&(_keyPairs[pubKey].V), &privKey.V, 32);
-        write_keystore_file(_keyPairs, _fileName, password, passwordLen);
+        write_keystore_file(_keyPairs, _fileName, _pass.data(), _pass.size());
         if (!enable) {
             _keyPairs.erase(pubKey);
         }
@@ -214,19 +225,19 @@ private:
         }
     }
 
-    void enable_keys(const std::set<PubKey>& enableKeys, const void* password, size_t passwordLen) override {
-        enable_keys_impl(enableKeys, password, passwordLen);
+    void enable_keys(const std::set<PubKey>& enableKeys) override {
+        enable_keys_impl(enableKeys, _pass.data(), _pass.size());
     }
 
     void disable_key(const PubKey& pubKey) override {
         _keyPairs.erase(pubKey);
     }
 
-    void erase_key(const PubKey& pubKey, const void* password, size_t passwordLen) override {
+    void erase_key(const PubKey& pubKey) override {
         size_t s = _keyPairs.size();
         _keyPairs.erase(pubKey);
         if (s != _keyPairs.size()) {
-            write_keystore_file(_keyPairs, _fileName, password, passwordLen);
+            write_keystore_file(_keyPairs, _fileName, _pass.data(), _pass.size());
         }
     }
 
@@ -253,6 +264,9 @@ private:
 
     std::string _fileName;
     KeyPairs _keyPairs;
+
+    // TODO: use locked in memory secure buffer 
+    ByteBuffer _pass;
 };
 
 IKeyStore::Ptr IKeyStore::create(const IKeyStore::Options& options, const void* password, size_t passwordLen) {
