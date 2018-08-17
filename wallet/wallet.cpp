@@ -162,7 +162,6 @@ namespace beam
     Wallet::~Wallet()
     {
         m_network->set_wallet(nullptr);
-        //assert(m_negotiators.empty());
         assert(m_reg_requests.empty());
         assert(m_removedNegotiators.empty());
     }
@@ -180,7 +179,6 @@ namespace beam
 
     void Wallet::resume_tx(const TxDescription& tx)
     {
-        //resume_negotiator(tx);
         assert(m_synchronized);
 
         if (tx.canResume() && m_negotiators.find(tx.m_txId) == m_negotiators.end())
@@ -189,7 +187,6 @@ namespace beam
             auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
 
             m_negotiators.emplace(tx.m_txId, s);
-          //  s->process_event(events::TxResumed{});
         }
     }
 
@@ -220,15 +217,7 @@ namespace beam
             m_removedNegotiators.push_back(move(it->second));
             m_negotiators.erase(it);
         }
-
-        // remove state machine from db
-        auto t = m_keyChain->getTx(tx.m_txId);
-        if (t.is_initialized())
-        {
-            t->m_fsmState.clear();
-            m_keyChain->saveTx(*t);
-        }
-        
+ 
 
         if (m_tx_completed_action)
         {
