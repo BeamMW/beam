@@ -19,6 +19,8 @@ environment:
   QML_IMPORT_PATH: c:\beam-libs\qt5-static-win\qml
   GITHUB_API_KEY:
     secure: 3teRuVd1PpR8Y2XJEOWPWo7LYRhEKIZZk3w53nFG7hPsXrONIUb18SNfkVl+SICw
+  BUILD_SERVER_KEY:
+    secure: Wj01nYyGuoDrLZpfFY5odIXraD/AC0KN/iH4mJSM0jojif5tVlQM68DSmnMJBMZc
   matrix:
   - arch: Win64
 
@@ -72,6 +74,8 @@ on_success:
     git commit -m "AppVeyor build for Windows"
     
     git push %REPO% master
+
+    curl --ftp-create-dirs -T "%RELEASE_FOLDER%\Beam Wallet.exe" "ftp://beam:%BUILD_SERVER_KEY%@139.162.189.188/files/master/nightly/%DATE%/win/"
 
 notifications:
   - provider: Email
