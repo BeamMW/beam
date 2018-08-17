@@ -263,6 +263,11 @@ namespace beam {
         }
     }
 
+    void WalletNetworkIO::on_node_disconnected()
+    {
+        m_is_node_connected = false;
+    }
+
     void WalletNetworkIO::on_protocol_error(uint64_t, ProtocolError error)
     {
         LOG_ERROR() << "Wallet protocol error: " << error;
@@ -374,6 +379,7 @@ namespace beam {
     {
         LOG_INFO() << "Could not connect to node, retrying...";
         LOG_VERBOSE() << "Wallet failed to connect to node, error: " << r;
+        m_io.on_node_disconnected();
         m_wallet.abort_sync();
         m_timer->start(m_reconnectMsec, false, [this]() {Connect(m_address); });
     }

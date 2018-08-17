@@ -234,9 +234,9 @@ namespace beam
         {
             m_tx_completed_action(tx.m_txId);
         }
-        if (m_reg_requests.empty() && m_syncDone == m_syncTotal)
+        if (m_syncDone == m_syncTotal)
         {
-            m_network->close_node_connection();
+            close_node_connection();
         }
     }
 
@@ -467,6 +467,7 @@ namespace beam
         if (newID == m_knownStateID)
         {
             // here we may close connection with node
+            LOG_INFO() << "Wallet is up to date";
             m_keyChain->setSystemStateID(newID);
             return close_node_connection();
         }

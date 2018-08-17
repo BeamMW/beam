@@ -103,6 +103,7 @@ namespace beam
         void on_close_connection_timer();
         void postpone_close_timer();
         void on_node_connected();
+        void on_node_disconnected();
 
         void create_node_connection();
 
@@ -141,6 +142,7 @@ namespace beam
             }
             else
             {
+                postpone_close_timer();
                 m_node_connection->Send(msg);
             }
         }
