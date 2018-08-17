@@ -629,7 +629,7 @@ Item {
 
             TableViewColumn {
                 role: "amount"
-                title: qsTr("Amount")
+                title: qsTr("Amount, BEAM")
                 width: 200 * (parent.width - 40 - 20) / 916
                 elideMode: Text.ElideRight
                 movable: false
@@ -646,7 +646,7 @@ Item {
                         color: parent.income ? Style.bright_sky_blue : Style.heliotrope
                         elide: Text.ElideRight
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "<font size='6'>" + (parent.income ? "+ " : "- ") + styleData.value + "</font> <font size='3'>BEAM</font>"
+                        text: "<font size='6'>" + (parent.income ? "+ " : "- ") + styleData.value + "</font>"
                         textFormat: Text.StyledText
                     }
                 }
@@ -654,7 +654,7 @@ Item {
 
             TableViewColumn {
                 role: "change"
-                title: qsTr("Change")
+                title: qsTr("Change, BEAM")
                 width: 200 * (parent.width - 40 - 20) / 916
                 elideMode: Text.ElideRight
 
