@@ -309,36 +309,33 @@ ColumnLayout {
 
 				Item {
 					Layout.fillWidth: true
-					Layout.minimumHeight: 38
-					Layout.maximumHeight: 38
+					Layout.minimumHeight: 48
+					Layout.maximumHeight: 48
 					Layout.topMargin: 30
 
 					RowLayout {
-						Layout.minimumHeight: 38
-						Layout.maximumHeight: 38
 						anchors.centerIn: parent
 						
-						IconButton {
-							color: Style.separator_color
-							textColor: Style.white
-							width: 122
-							height: 38
-							label: qsTr("cancel")
-							iconName: "icon-cancel"
+						CustomButton {
+							palette.buttonText: Style.white
+                            Layout.minimumHeight: 38
+							Layout.minimumWidth: 122
+							text: qsTr("cancel")
+							icon.source: "qrc:///assets/icon-cancel.svg"
 
 							onClicked: {
 								createAddress.close()
 							}
 						}
 
-						IconButton {
-							color: Style.bright_teal
+						CustomButton {
+							palette.button: Style.bright_teal
 							Layout.leftMargin: 31
-							width: 166
-							height: 38
-							label: qsTr("create address")
-							iconName: "icon-done"
-							textColor: Style.marine
+                            Layout.minimumHeight: 38
+                            Layout.minimumWidth: 166
+							text: qsTr("create address")
+							icon.source: "qrc:///assets/icon-done.svg"
+							palette.buttonText: Style.marine
 								
 							onClicked: {
 								if (createAddressLayout.state == "own") {
@@ -358,7 +355,7 @@ ColumnLayout {
 						PropertyChanges {target: ownFilterDlg; state: "active"}
 						PropertyChanges {
 							target: createOwnAddressView
-							visible: true							
+							visible: true
 						}
 
 						PropertyChanges {
@@ -420,9 +417,8 @@ ColumnLayout {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.right: parent.right
                 width: 195
-				height: 38
 				text: "create new address"
-				textColor: Style.white
+				palette.buttonText: Style.white
 				icon.source: "qrc:///assets/icon-add.svg"
                 onClicked: {
 					addressBookViewModel.generateNewEmptyAddress();

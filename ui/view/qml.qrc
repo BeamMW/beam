@@ -14,7 +14,6 @@
         <file>controls/ContextMenu.qml</file>
         <file>controls/DefaultButton.qml</file>
         <file>controls/PrimaryButton.qml</file>
-        <file>controls/IconButton.qml</file>
         <file>controls/CustomButton.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>
