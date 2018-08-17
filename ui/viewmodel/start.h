@@ -36,7 +36,7 @@ signals:
 	void walletExistsChanged();
 
 public slots:
-	bool createWallet(const QString& seed, const QString& pass, const QString& nodeAddr);
+	bool createWallet(const QString& seed, const QString& pass);
 	bool openWallet(const QString& pass);
 
 private:

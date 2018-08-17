@@ -68,6 +68,33 @@ using namespace beam;
 using namespace std;
 using namespace ECC;
 
+namespace
+{
+	const char* Testnet[] =
+	{
+		"45.79.216.245:7101",
+		"45.79.216.245:7102",
+		"69.164.197.237:7201",
+		"69.164.197.237:7202",
+		"69.164.203.140:7301",
+		"69.164.203.140:7302",
+		"172.104.146.73:7401",
+		"172.104.146.73:7402",
+		"173.230.154.68:7501",
+		"173.230.154.68:7502",
+		"85.159.211.40:7601",
+		"85.159.211.40:7602",
+		"213.168.248.160:7701",
+		"213.168.248.160:7702",
+		"172.104.30.189:7801",
+		"172.104.30.189:7802",
+		"172.104.191.23:7901",
+		"172.104.191.23:7902",
+		"172.105.231.90:7001",
+		"172.105.231.90:7002",
+	};
+}
+
 int main (int argc, char* argv[])
 {
 	QApplication app(argc, argv);
@@ -139,7 +166,7 @@ int main (int argc, char* argv[])
 
 			IKeyStore::Ptr keystore;
 
-			std::unique_ptr<WalletModel> walletModel;
+			WalletModel::Ptr walletModel;
 
 			struct ViewModel
 			{
@@ -149,14 +176,14 @@ int main (int argc, char* argv[])
 				AddressBookViewModel    addressBook;
 				NotificationsViewModel	notifications;
 				HelpViewModel			help;
-				SettingsViewModel		settings;
 
-				ViewModel(WalletModel& model)
+				ViewModel(WalletModel& model, const QDir& appDataDir)
 					: wallet(model)
 					, addressBook(model) {}
 			};
 
 			std::unique_ptr<ViewModel> viewModels;
+			SettingsViewModel settingsViewModel(appDataDir.filePath("setting.ini"));
 
 			Translator translator;
 
@@ -173,11 +200,23 @@ int main (int argc, char* argv[])
 
 				keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
 
-					walletModel = std::make_unique<WalletModel>(db, keystore);
+				std::string nodeAddr;
+				if (settingsViewModel.nodeAddress().isEmpty())
+				{
+					srand(time(0));
+					nodeAddr = Testnet[rand() % (sizeof(Testnet) / sizeof(Testnet[0]))];
+				}
+				else
+				{
+					nodeAddr = settingsViewModel.nodeAddress().toStdString();
+				}
+
+				walletModel = std::make_shared<WalletModel>(db, keystore, nodeAddr);
+				settingsViewModel.initModel(walletModel);
 
 				walletModel->start();
 
-				viewModels = std::make_unique<ViewModel>(*walletModel);
+				viewModels = std::make_unique<ViewModel>(*walletModel, appDataDir);
 
 				QQmlContext *ctxt = view.rootContext();
 
@@ -185,6 +224,7 @@ int main (int argc, char* argv[])
 				ctxt->setContextProperty("mainViewModel", &viewModels->main);
 				ctxt->setContextProperty("walletViewModel", &viewModels->wallet);
 				ctxt->setContextProperty("addressBookViewModel", &viewModels->addressBook);
+				ctxt->setContextProperty("settingsViewModel", &settingsViewModel);
 				ctxt->setContextProperty("translator", &translator);
 
 				view.rootObject()->setProperty("source", "qrc:///main.qml");

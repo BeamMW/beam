@@ -50,6 +50,8 @@ namespace beam
 		virtual void unsubscribe(IWalletObserver* observer) = 0;
 
         virtual void cancel_tx(const TxID& id) = 0;
+
+		virtual void set_node_address(io::Address node_address) = 0;
     };
 
     struct INetworkIO 
@@ -73,6 +75,8 @@ namespace beam
         //virtual void close_connection(const WalletID& id) = 0;
         virtual void connect_node() = 0;
         virtual void close_node_connection() = 0;
+
+		virtual void set_node_address(io::Address node_address) = 0;
     };
 
     class NetworkIOBase : public INetworkIO
@@ -143,6 +147,8 @@ namespace beam
         void handle_tx_registered(const TxID& txId, bool res);
 
         void cancel_tx(const TxID& txId) override;
+
+		void set_node_address(io::Address node_address) override;
 
     private:
         void remove_peer(const TxID& txId);
