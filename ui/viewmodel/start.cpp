@@ -88,7 +88,8 @@ bool StartViewModel::createWallet(const QString& seed, const QString& pass, cons
             defaultAddress.m_label = "default";
             defaultAddress.m_createTime = getTimestamp();
             defaultAddress.m_duration = numeric_limits<uint64_t>::max();
-            keystore->gen_keypair(defaultAddress.m_walletID, true);
+            keystore->gen_keypair(defaultAddress.m_walletID);
+            keystore->save_keypair(defaultAddress.m_walletID, true);
 
             db->saveAddress(defaultAddress);
         }
@@ -115,6 +116,6 @@ bool StartViewModel::openWallet(const QString& pass)
 
 		return true;
 	}
-	
+
 	return false;
 }

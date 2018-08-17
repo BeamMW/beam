@@ -351,6 +351,7 @@ void WalletModel::cancelTx(const beam::TxID& id)
 
 void WalletModel::createNewAddress(WalletAddress&& address)
 {
+    _keystore->save_keypair(address.m_walletID, true);
     _keychain->saveAddress(address);
 }
 
@@ -361,10 +362,10 @@ void WalletModel::changeCurrentWalletIDs(const beam::WalletID& senderID, const b
 
 void WalletModel::generateNewWalletID()
 {
-    try 
+    try
     {
         WalletID walletID;
-        _keystore->gen_keypair(walletID, true);
+        _keystore->gen_keypair(walletID);
         auto s = _wallet_io.lock();
         if (s)
         {
@@ -372,7 +373,7 @@ void WalletModel::generateNewWalletID()
         }
         emit onGeneratedNewWalletID(walletID);
     }
-    catch (...) 
+    catch (...)
     {
 
     }
@@ -391,7 +392,7 @@ void WalletModel::deleteAddress(const beam::WalletID& id)
 
 void WalletModel::deleteOwnAddress(const beam::WalletID& id)
 {
-    try 
+    try
     {
         _keystore->erase_key(id);
         _keychain->deleteAddress(id);
@@ -400,8 +401,8 @@ void WalletModel::deleteOwnAddress(const beam::WalletID& id)
         {
             s->address_deleted(id);
         }
-    } 
-    catch (...) 
+    }
+    catch (...)
     {
 
     }

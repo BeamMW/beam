@@ -112,7 +112,7 @@ namespace
 		if (sPath.empty())
 			return false;
 
-		std::FStream f; 
+		std::FStream f;
 		if (!f.Open(sPath.c_str(), true))
 			return false;
 
@@ -482,7 +482,7 @@ int main_impl(int argc, char* argv[])
 
                         assert(vm.count(cli::BBS_STORAGE) > 0);
                         auto bbsKeysPath = vm[cli::BBS_STORAGE].as<string>();
-                        
+
 						if (!Keychain::isInitialized(walletPath) && command != cli::INIT)
 						{
 							LOG_ERROR() << "Please initialize your wallet first... \nExample: beam wallet --command=init --pass=<password to access wallet> --wallet_seed=<seed to generate secret keys>";
@@ -528,8 +528,8 @@ int main_impl(int argc, char* argv[])
                                 defaultAddress.m_label = "default";
                                 defaultAddress.m_createTime = getTimestamp();
                                 defaultAddress.m_duration = numeric_limits<uint64_t>::max();
-                                ks->gen_keypair(defaultAddress.m_walletID, true);
-                                
+                                ks->gen_keypair(defaultAddress.m_walletID);
+                                ks->save_keypair(defaultAddress.m_walletID, true);
                                 keychain->saveAddress(defaultAddress);
 
 								return 0;

@@ -166,8 +166,11 @@ void test_offline(bool twoNodes) {
     ksOptions.fileName = "_receiver_ks";
     receiverParams.keystore = IKeyStore::create(ksOptions, KS_PASSWORD, sizeof(KS_PASSWORD));
 
-    senderParams.keystore->gen_keypair(senderParams.sendFrom, KS_PASSWORD, sizeof(KS_PASSWORD), true);
-    receiverParams.keystore->gen_keypair(senderParams.sendTo, KS_PASSWORD, sizeof(KS_PASSWORD), true);
+    senderParams.keystore->gen_keypair(senderParams.sendFrom);
+    senderParams.keystore->save_keypair(senderParams.sendFrom, true);
+
+    receiverParams.keystore->gen_keypair(senderParams.sendTo);
+    receiverParams.keystore->save_keypair(senderParams.sendTo, true);
 
     KeyChainObserver senderObserver("AAAAAAAAAAAAAAAAAAAAAA"), receiverObserver("BBBBBBBBBBBBBBBBBBBBBB");
 
