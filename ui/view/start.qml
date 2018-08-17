@@ -41,15 +41,15 @@ Item
             spacing: 30
 
             // DefaultButton {
-            //     label: "restore wallet from file"
+            //     text: "restore wallet from file"
             // }
 
             // DefaultButton {
-            //     label: "restore wallet from blockchain"
+            //     text: "restore wallet from blockchain"
             // }
 
             PrimaryButton {
-                label: "create new wallet"
+                text: "create new wallet"
 
                 onClicked: root.state = "create"
             }
@@ -142,19 +142,19 @@ Item
 
             spacing: 30
 
-    //         DefaultButton {
-    //             label: "restore wallet from file"
+            //DefaultButton {
+            //    text: "restore wallet from file"
 				// activeFocusOnTab: true
-    //         }
+            //}
 
     //         DefaultButton {
-    //             label: "restore wallet from blockchain"
+    //             text: "restore wallet from blockchain"
 				// activeFocusOnTab: true
     //         }
 
             PrimaryButton {
 				id: btnCurrentWallet
-                label: "open wallet"
+                text: "open wallet"
 				activeFocusOnTab: true
                 onClicked: {
                     if(openPassword.text.length == 0)
@@ -384,7 +384,7 @@ Item
         }
 
         PrimaryButton {
-            label: "create wallet"
+            text: "create wallet"
 
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top

@@ -453,11 +453,12 @@ Item {
         anchors.fill: parent
         state: "wide"
 
-        CuteButton {
+        CustomButton {
             anchors.top: parent.top
             anchors.right: parent.right
-
-            label: "SEND"
+            palette.button: Style.heliotrope
+            palette.buttonText: Style.marine
+            text: "SEND"
 
             onClicked: root.state = "send"
         }

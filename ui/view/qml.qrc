@@ -9,7 +9,6 @@
         <file>controls/SecondaryPanel.qml</file>
         <file>controls/Led.qml</file>
         <file>controls/TxFilter.qml</file>
-        <file>controls/CuteButton.qml</file>
         <file>controls/TableItem.qml</file>
         <file>controls/ContextMenu.qml</file>
         <file>controls/DefaultButton.qml</file>

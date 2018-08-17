@@ -2,13 +2,14 @@ import QtQuick 2.11
 import QtQuick.Controls 2.4
 import QtQuick.Layouts 1.0
 import QtQuick.Controls.impl 2.4
-import QtGraphicalEffects 1.0
+import QtQuick.Controls.Styles 1.2
 import "."
 
 Button {
     id: control
     
     palette.button: Style.separator_color
+    property alias textOpacity: rect.opacity
 
     FontLoader { id: sf_pro_display; source: "qrc:///assets/fonts/SF-Pro-Display-Regular.otf"; }
     FontLoader { source: "qrc:///assets/fonts/SF-Pro-Display-Bold.otf"; }
@@ -22,17 +23,7 @@ Button {
 
     width: 122
     height: 38
-
-    /*implicitWidth: Math.max(background ? background.implicitWidth : 0,
-                            contentItem.implicitWidth + leftPadding + rightPadding)
-    implicitHeight: Math.max(background ? background.implicitHeight : 0,
-                             contentItem.implicitHeight + topPadding + bottomPadding)
-    baselineOffset: contentItem.y + contentItem.baselineOffset
-
-    padding: 6
-    leftPadding: padding + 2
-    rightPadding: padding + 2*/
-
+    
     activeFocusOnTab: true
 
     spacing: 15
@@ -53,11 +44,10 @@ Button {
     }
 
     background: Rectangle {
+        id: rect
         radius: 50
-	    color: control.palette.button
-        //implicitWidth: 122
-	    //implicitHeight: 38
-
+        color: control.palette.button
+        
         width: control.width
         height: control.height
 
