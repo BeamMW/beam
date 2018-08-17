@@ -37,7 +37,7 @@ if [[ "$OSTYPE" == "linux"* ]]; then
 
 	git add $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
 
-	cp -f "$HOME/build/beam-mw/beam/Beam Wallet-0.0.1-Linux.deb" "$OS_FOLDER/Beam Wallet.deb"
+	cp -f "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Linux.deb" "$OS_FOLDER/Beam Wallet.deb"
 	cp -f "$OS_FOLDER/Beam Wallet.deb" "$LATEST_OS_FOLDER/Beam Wallet.deb"
 	git add "$OS_FOLDER/Beam Wallet.deb" "$LATEST_OS_FOLDER/Beam Wallet.deb"
 
@@ -50,7 +50,7 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 
 	git add $OS_FOLDER/$APP.tar.gz $LATEST_OS_FOLDER/$APP.tar.gz
 
-	cp -f "$HOME/build/beam-mw/beam/Beam Wallet-0.0.1-Darwin.dmg" "$OS_FOLDER/Beam Wallet.dmg"
+	cp -f "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Darwin.dmg" "$OS_FOLDER/Beam Wallet.dmg"
 	cp -f "$OS_FOLDER/Beam Wallet.dmg" "$LATEST_OS_FOLDER/Beam Wallet.dmg"
 	git add "$OS_FOLDER/Beam Wallet.dmg" "$LATEST_OS_FOLDER/Beam Wallet.dmg"
 fi
