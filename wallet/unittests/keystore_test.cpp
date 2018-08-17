@@ -1,4 +1,5 @@
 #include "wallet/keystore.h"
+#include "wallet/secstring.h"
 #include "utility/logger.h"
 #include <boost/filesystem.hpp>
 

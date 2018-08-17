@@ -13,9 +13,9 @@ if(Git_FOUND)
 		ERROR_VARIABLE RESULT_STRING
 		OUTPUT_STRIP_TRAILING_WHITESPACE
 	)
-	
+
 	string(LENGTH "${RESULT_STRING}" LENGTH_RESULT_STRING)
-	
+
 	if(${LENGTH_RESULT_STRING} EQUAL 0)
 		execute_process(
 			COMMAND ${GIT_EXECUTABLE} log -1 --format=%H
@@ -92,12 +92,12 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wall -pthread")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -ggdb3")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
-	
+
 	# disable some warnings
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-overloaded-virtual") # appears alot in our macro expansions
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-const-variable") # so what?
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function") # mostly in 3rd-party libs
-	
+
 endif()
 
 if(UNIX OR WIN32)
@@ -152,16 +152,17 @@ if (WIN32)
 	set(CPACK_NSIS_INSTALLED_ICON_NAME "${CMAKE_SOURCE_DIR}/ui/icon.ico")
 	set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "CreateShortCut \\\"$DESKTOP\\\\Beam.lnk\\\" \\\"$INSTDIR\\\\beam-wallet.exe\\\"")
 	set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "Delete \\\"$DESKTOP\\\\Beam.lnk\\\"")
-
+    set(CPACK_PACKAGE_NAME "Beam Wallet")
 elseif (APPLE)
 	set(CPACK_GENERATOR "DragNDrop")
+	set(CPACK_PACKAGE_NAME "Beam Wallet")
 elseif (LINUX)
 	set(CPACK_GENERATOR "DEB")
 	set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Beam")
+	set(CPACK_PACKAGE_NAME "BeamWallet")
 endif ()
 
 
-set(CPACK_PACKAGE_NAME "Beam")
 set(CPACK_PACKAGE_VENDOR "Beam Vendor")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Scalable confidential cryptocurrency")
 set(CPACK_PACKAGE_VERSION_MAJOR "0")
