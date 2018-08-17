@@ -173,7 +173,7 @@ namespace beam {
 
     void WalletNetworkIO::on_close_connection_timer()
     {
-        LOG_DEBUG() << "Close node connection";
+        LOG_INFO() << "Close node connection";
         m_close_timer.reset();
         m_is_node_connected = false;
         m_node_connection.reset();
@@ -185,6 +185,15 @@ namespace beam {
         if (m_close_timer)
         {
             m_close_timer->restart(m_close_timeout_ms, false);
+        }
+    }
+
+    void WalletNetworkIO::cancel_close_timer()
+    {
+        if (m_close_timer)
+        {
+            m_close_timer->cancel();
+            m_close_timer.reset();
         }
     }
 
@@ -396,11 +405,13 @@ namespace beam {
 
     bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::NewTip&& msg)
 	{
+        m_io.cancel_close_timer();
 		return m_wallet.handle_node_message(move(msg));
 	}
 
     bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Hdr&& msg)
     {
+        m_io.cancel_close_timer();
         return m_wallet.handle_node_message(move(msg));
     }
 

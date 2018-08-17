@@ -102,6 +102,7 @@ namespace beam
         void on_sync_timer();
         void on_close_connection_timer();
         void postpone_close_timer();
+        void cancel_close_timer();
         void on_node_connected();
         void on_node_disconnected();
 
