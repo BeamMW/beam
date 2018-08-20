@@ -125,11 +125,20 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
             receiver_.deleteOwnAddress(id);
         });
     }
+
+	void setNodeAddress(const std::string& addr) override
+	{
+		tx.send([addr](BridgeInterface& receiver_) mutable
+		{
+			receiver_.setNodeAddress(addr);
+		});
+	}
 };
 
-WalletModel::WalletModel(IKeyChain::Ptr keychain, IKeyStore::Ptr keystore)
+WalletModel::WalletModel(IKeyChain::Ptr keychain, IKeyStore::Ptr keystore, const std::string& nodeAddr)
 	: _keychain(keychain)
     , _keystore(keystore)
+	, _nodeAddrStr(nodeAddr)
 {
 	qRegisterMetaType<WalletStatus>("WalletStatus");
 	qRegisterMetaType<vector<TxDescription>>("std::vector<beam::TxDescription>");
@@ -218,24 +227,24 @@ void WalletModel::run()
             Logger::get()->rotate();
         });
 
-
-
-        Address node_addr;
-		if(_keychain->getNodeAddr(node_addr))
-		{
-			auto wallet_io = make_shared<WalletNetworkIO>(
-				node_addr
-				, _keychain
-                , _keystore
-				, _reactor);
-            _wallet_io = wallet_io;
-            auto wallet = make_shared<Wallet>(_keychain, wallet_io);
-            _wallet = wallet;
-            subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
-		}
-		else
-		{
-			LOG_ERROR() << "unable to resolve node address";
+		{			
+			Address node_addr;
+			if (node_addr.resolve(_nodeAddrStr.c_str()))
+			{
+				auto wallet_io = make_shared<WalletNetworkIO>(
+					node_addr
+					, _keychain
+					, _keystore
+					, _reactor);
+				_wallet_io = wallet_io;
+				auto wallet = make_shared<Wallet>(_keychain, wallet_io);
+				_wallet = wallet;
+				subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
+			}
+			else
+			{
+				LOG_ERROR() << "unable to resolve node address";
+			}
 		}
 
 		_reactor->run();
@@ -351,6 +360,7 @@ void WalletModel::cancelTx(const beam::TxID& id)
 
 void WalletModel::createNewAddress(WalletAddress&& address)
 {
+    _keystore->save_keypair(address.m_walletID, true);
     _keychain->saveAddress(address);
 }
 
@@ -361,10 +371,10 @@ void WalletModel::changeCurrentWalletIDs(const beam::WalletID& senderID, const b
 
 void WalletModel::generateNewWalletID()
 {
-    try 
+    try
     {
         WalletID walletID;
-        _keystore->gen_keypair(walletID, true);
+        _keystore->gen_keypair(walletID);
         auto s = _wallet_io.lock();
         if (s)
         {
@@ -372,7 +382,7 @@ void WalletModel::generateNewWalletID()
         }
         emit onGeneratedNewWalletID(walletID);
     }
-    catch (...) 
+    catch (...)
     {
 
     }
@@ -391,7 +401,7 @@ void WalletModel::deleteAddress(const beam::WalletID& id)
 
 void WalletModel::deleteOwnAddress(const beam::WalletID& id)
 {
-    try 
+    try
     {
         _keystore->erase_key(id);
         _keychain->deleteAddress(id);
@@ -400,11 +410,31 @@ void WalletModel::deleteOwnAddress(const beam::WalletID& id)
         {
             s->address_deleted(id);
         }
-    } 
-    catch (...) 
+    }
+    catch (...)
     {
 
     }
+}
+
+void WalletModel::setNodeAddress(const std::string& addr)
+{
+	io::Address nodeAddr;
+
+	if (nodeAddr.resolve(addr.c_str()))
+	{
+		assert(!_wallet.expired());
+		auto s = _wallet.lock();
+		if (s)
+		{
+			s->set_node_address(nodeAddr);
+		}
+	}
+	else
+	{
+		LOG_ERROR() << "Unable to resolve node address: " << addr;
+		assert(false);
+	}
 }
 
 vector<Coin> WalletModel::getUtxos(bool all) const

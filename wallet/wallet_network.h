@@ -78,6 +78,8 @@ namespace beam
         void send_node_message(proto::GetMined&&) override;
         void send_node_message(proto::GetProofState&&) override;
 
+		void set_node_address(io::Address node_address) override;
+
         //void close_connection(const WalletID& id) override;
         void connect_node() override;
         void close_node_connection() override;
@@ -170,7 +172,8 @@ namespace beam
             bool OnMsg2(proto::Hdr&& msg) override;
             bool OnMsg2(proto::Mined&& msg) override;
             bool OnMsg2(proto::BbsMsg&& msg) override;
-        private:
+			bool OnMsg2(proto::Authentication&& msg) override;
+		private:
             io::Address m_address;
             IWallet & m_wallet;
             std::vector<NodeConnectCallback> m_callbacks;

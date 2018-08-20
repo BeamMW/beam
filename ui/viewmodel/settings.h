@@ -15,8 +15,30 @@
 #pragma once
 
 #include <QObject>
+#include <QSettings>
+
+#include "model/wallet.h"
 
 class SettingsViewModel : public QObject
 {
 	Q_OBJECT
+
+	Q_PROPERTY(QString nodeAddress READ nodeAddress NOTIFY nodeAddressChanged)
+public:
+
+	SettingsViewModel(const QString& iniPath);
+
+	QString nodeAddress() const;
+
+	void initModel(WalletModel::Ptr model);
+
+public slots:
+	void applyChanges(const QString& nodeAddr);
+
+signals:
+	void nodeAddressChanged();
+
+private:
+	QSettings _data;
+	WalletModel::Ptr _model;
 };

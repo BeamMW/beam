@@ -122,7 +122,7 @@ int main (int argc, char* argv[])
 #if LOG_VERBOSE_ENABLED
 		logLevel = LOG_LEVEL_VERBOSE;
 #endif
-
+		
 		auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_", appDataDir.filePath("./logs").toStdString());
 
 		try
@@ -135,11 +135,11 @@ int main (int argc, char* argv[])
 
 			QQuickView view;
 			view.setResizeMode(QQuickView::SizeRootObjectToView);
-            view.setMinimumSize(QSize(800, 700));
+            view.setMinimumSize(QSize(860, 700));
 
 			IKeyStore::Ptr keystore;
 
-			std::unique_ptr<WalletModel> walletModel;
+			WalletModel::Ptr walletModel;
 
 			struct ViewModel
 			{
@@ -149,52 +149,69 @@ int main (int argc, char* argv[])
 				AddressBookViewModel    addressBook;
 				NotificationsViewModel	notifications;
 				HelpViewModel			help;
-				SettingsViewModel		settings;
 
-				ViewModel(WalletModel& model)
+				ViewModel(WalletModel& model, const QDir& appDataDir)
 					: wallet(model)
 					, addressBook(model) {}
 			};
 
 			std::unique_ptr<ViewModel> viewModels;
+			SettingsViewModel settingsViewModel(appDataDir.filePath("setting.ini"));
 
 			Translator translator;
 
 			StartViewModel startViewModel(walletStorage, bbsStorage, [&](IKeyChain::Ptr db, const std::string& walletPass)
 			{
+				qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
+				qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
+				qmlRegisterType<TxObject>("Wallet", 1, 0, "TxObject");
+				qmlRegisterType<UtxoItem>("Wallet", 1, 0, "UtxoItem");
+
+				IKeyStore::Options options;
+				options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+				options.fileName = bbsStorage;
+
                 try
                 {
-                    qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
-                    qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
-                    qmlRegisterType<TxObject>("Wallet", 1, 0, "TxObject");
-                    qmlRegisterType<UtxoItem>("Wallet", 1, 0, "UtxoItem");
-
-                    IKeyStore::Options options;
-                    options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-                    options.fileName = bbsStorage;
-
                     keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
-
-                    walletModel = std::make_unique<WalletModel>(db, keystore);
-
-                    walletModel->start();
-
-                    viewModels = std::make_unique<ViewModel>(*walletModel);
-
-                    QQmlContext *ctxt = view.rootContext();
-
-                    // TODO: try move instantiation of view models to views
-                    ctxt->setContextProperty("mainViewModel", &viewModels->main);
-                    ctxt->setContextProperty("walletViewModel", &viewModels->wallet);
-                    ctxt->setContextProperty("addressBookViewModel", &viewModels->addressBook);
-                    ctxt->setContextProperty("translator", &translator);
-
-                    view.rootObject()->setProperty("source", "qrc:///main.qml");
-                } 
-                catch (const std::runtime_error& ex)
-                {
-                    QMessageBox::critical(0, "Error", ex.what(), QMessageBox::Ok);
                 }
+                catch (const beam::KeyStoreException& ex)
+                {
+                    QMessageBox::critical(0, "Error", "Failed to read key store", QMessageBox::Ok);
+                    return false;
+                }
+
+				std::string nodeAddr = "0.0.0.0";
+				if (settingsViewModel.nodeAddress().isEmpty())
+				{
+					if (vm.count(cli::NODE_ADDR))
+					{
+						nodeAddr = vm[cli::NODE_ADDR].as<string>();
+					}
+				}
+				else
+				{
+					nodeAddr = settingsViewModel.nodeAddress().toStdString();
+				}
+
+				walletModel = std::make_shared<WalletModel>(db, keystore, nodeAddr);
+				settingsViewModel.initModel(walletModel);
+
+				walletModel->start();
+
+				viewModels = std::make_unique<ViewModel>(*walletModel, appDataDir);
+
+				QQmlContext *ctxt = view.rootContext();
+
+				// TODO: try move instantiation of view models to views
+				ctxt->setContextProperty("mainViewModel", &viewModels->main);
+				ctxt->setContextProperty("walletViewModel", &viewModels->wallet);
+				ctxt->setContextProperty("addressBookViewModel", &viewModels->addressBook);
+				ctxt->setContextProperty("settingsViewModel", &settingsViewModel);
+				ctxt->setContextProperty("translator", &translator);
+
+				view.rootObject()->setProperty("source", "qrc:///main.qml");
+                return true;
 			});
 
 			view.rootContext()->setContextProperty("startViewModel", &startViewModel);

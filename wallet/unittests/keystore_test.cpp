@@ -1,4 +1,5 @@
 #include "wallet/keystore.h"
+#include "wallet/secstring.h"
 #include "utility/logger.h"
 #include <boost/filesystem.hpp>
 
@@ -27,9 +28,12 @@ int keystore_test_normal() {
     IKeyStore::Ptr ks = IKeyStore::create(options, PASSWORD, sizeof(PASSWORD));
 
     PubKey key1, key2, key3;
-    ks->gen_keypair(key1, true);
-    ks->gen_keypair(key2, true);
-    ks->gen_keypair(key3, false);
+    ks->gen_keypair(key1);
+    ks->save_keypair(key1, true);
+    ks->gen_keypair(key2);
+    ks->save_keypair(key2, true);
+    ks->gen_keypair(key3);
+    ks->save_keypair(key3, false);
     LOG_DEBUG() << "generated keypairs, " << key1 << " " << key2 << " " << key3;
 
     std::set<PubKey> enabledKeys;

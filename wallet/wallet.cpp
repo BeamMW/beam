@@ -369,6 +369,22 @@ namespace beam
         }
     }
 
+	void Wallet::set_node_address(io::Address node_address)
+	{
+		m_network->set_node_address(node_address);
+
+		m_newStateID = Block::SystemState::ID();
+		m_keyChain->setSystemStateID(m_newStateID);
+		m_knownStateID = m_newStateID;
+	}
+
+	bool Wallet::get_IdentityKeyForNode(ECC::Scalar::Native& sk, const PeerID& idNode)
+	{
+		// TODO: Report your identity *only* to the owned nodes, otherwise it's very demasking!
+		m_keyChain->get_IdentityKey(sk);
+		return true;
+	}
+
     bool Wallet::handle_node_message(proto::ProofUtxo&& utxoProof)
     {
         // TODO: handle the maturity of the several proofs (> 1)

@@ -53,8 +53,10 @@ bool ProtocolPlus::VerifyMsg(const uint8_t* p, uint32_t nSize)
 	if (Mode::Duplex != m_Mode)
 		return true;
 
-	if (nSize < sizeof(MacValue))
+	if (nSize < sizeof(MacValue)) {
+        LOG_DEBUG() << __FUNCTION__ << " size error";
 		return false; // could happen on (sort of) overflow attack?
+    }
 
 	ECC::Hash::Mac hm = m_HMac;
 	hm.Write(p, nSize - sizeof(MacValue));
@@ -62,7 +64,11 @@ bool ProtocolPlus::VerifyMsg(const uint8_t* p, uint32_t nSize)
 	MacValue hmac;
 	get_HMac(hm, hmac);
 
-	return !memcmp(p + nSize - sizeof(MacValue), hmac.m_pData, sizeof(MacValue));
+	bool ret = !memcmp(p + nSize - sizeof(MacValue), hmac.m_pData, sizeof(MacValue));
+    if (!ret) {
+        LOG_DEBUG() << __FUNCTION__ << " MAC error";
+    }
+    return ret;
 }
 
 void ProtocolPlus::get_HMac(ECC::Hash::Mac& hm, MacValue& res)
@@ -221,7 +227,7 @@ bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& 
 
 	res.resize(sizeof(myPublic) + sizeof(hvMac) + n);
 	uint8_t* pDst = &res.at(0);
-	
+
 	memcpy(pDst, myPublic.m_pData, sizeof(myPublic));
 	memcpy(pDst + sizeof(myPublic), hvMac.m_pData, sizeof(hvMac));
 	memcpy(pDst + sizeof(myPublic) + sizeof(hvMac), p, n);

@@ -51,6 +51,11 @@ namespace
             return ECC::Scalar::Native();
         }
 
+		void get_IdentityKey(ECC::Scalar::Native& sk) const override
+		{
+			sk = ECC::Zero;
+		}
+
         std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool /*lock*/) override
         {
             std::vector<beam::Coin> res;
@@ -81,9 +86,6 @@ namespace
         Timestamp getLastUpdateTime() const override { return 0; }
 		void setSystemStateID(const Block::SystemState::ID& ) override {};
 		bool getSystemStateID(Block::SystemState::ID& ) const override { return false; };
-
-		void setNodeAddr(const io::Address& nodeAddr) override {};
-		bool getNodeAddr(io::Address& nodeAddr) const override { return false; };
 
 		void subscribe(IKeyChainObserver* observer) override {}
 		void unsubscribe(IKeyChainObserver* observer) override {}
@@ -416,6 +418,8 @@ namespace
 
         }
 
+		void set_node_address(io::Address node_address) override {}
+
         int m_peerCount;
 
         vector<IWallet*> m_peers;
@@ -742,9 +746,11 @@ void TestP2PWalletNegotiationST()
     auto receiverBbsKeys = createBbsKeystore("receiver-bbs", keystorePass);
 
     WalletID senderID = {};
-    senderBbsKeys->gen_keypair(senderID, true);
+    senderBbsKeys->gen_keypair(senderID);
+    senderBbsKeys->save_keypair(senderID, true);
     WalletID receiverID = {};
-    receiverBbsKeys->gen_keypair(receiverID, true);
+    receiverBbsKeys->gen_keypair(receiverID);
+    receiverBbsKeys->save_keypair(receiverID, true);
     
     auto senderKeychain = createSenderKeychain();
     auto receiverKeychain = createReceiverKeychain();
@@ -967,9 +973,11 @@ void TestP2PWalletNegotiationST()
      auto receiverBbsKeys = createBbsKeystore("receiver-bbs", keystorePass);
 
      WalletID senderID = {};
-     senderBbsKeys->gen_keypair(senderID, true);
+     senderBbsKeys->gen_keypair(senderID);
+     senderBbsKeys->save_keypair(senderID, true);
      WalletID receiverID = {};
-     receiverBbsKeys->gen_keypair(receiverID, true);
+     receiverBbsKeys->gen_keypair(receiverID);
+     receiverBbsKeys->save_keypair(receiverID, true);
 
      auto senderKeychain = createSenderKeychain();
      auto receiverKeychain = createReceiverKeychain();

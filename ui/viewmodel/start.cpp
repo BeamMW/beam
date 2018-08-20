@@ -33,34 +33,8 @@ bool StartViewModel::walletExists() const
 	return Keychain::isInitialized(_walletStorage);
 }
 
-#ifdef WIN32
-struct WSAInit {
-	WSAInit() {
-		WSADATA wsaData = {};
-		int errorno = WSAStartup(MAKEWORD(2, 2), &wsaData);
-		if (errorno != 0) {
-			throw std::runtime_error("Failed to init WSA");
-		}
-	}
-	~WSAInit() {
-		WSACleanup();
-	}
-};
-#endif
-
-bool StartViewModel::createWallet(const QString& seed, const QString& pass, const QString& nodeAddrString)
+bool StartViewModel::createWallet(const QString& seed, const QString& pass)
 {
-#ifdef WIN32
-	WSAInit init;
-#endif // !WIN32
-
-	io::Address nodeAddr;
-
-	if (!nodeAddr.resolve(nodeAddrString.toStdString().c_str()))
-	{
-		return false;
-	}
-
 	NoLeak<uintBig> walletSeed;
 	walletSeed.V = Zero;
 	{
@@ -88,7 +62,8 @@ bool StartViewModel::createWallet(const QString& seed, const QString& pass, cons
             defaultAddress.m_label = "default";
             defaultAddress.m_createTime = getTimestamp();
             defaultAddress.m_duration = numeric_limits<uint64_t>::max();
-            keystore->gen_keypair(defaultAddress.m_walletID, true);
+            keystore->gen_keypair(defaultAddress.m_walletID);
+            keystore->save_keypair(defaultAddress.m_walletID, true);
 
             db->saveAddress(defaultAddress);
         }
@@ -96,7 +71,7 @@ bool StartViewModel::createWallet(const QString& seed, const QString& pass, cons
         {
             QMessageBox::critical(0, "Error", "Failed to generate default address", QMessageBox::Ok);
         }
-        db->setNodeAddr(nodeAddr);
+
 		_done(db, pass.toStdString());
 
 		return true;
@@ -111,10 +86,8 @@ bool StartViewModel::openWallet(const QString& pass)
 
 	if (db)
 	{
-		_done(db, pass.toStdString());
-
-		return true;
+		return _done(db, pass.toStdString());
 	}
-	
+
 	return false;
 }

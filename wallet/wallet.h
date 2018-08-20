@@ -50,9 +50,13 @@ namespace beam
 		virtual void unsubscribe(IWalletObserver* observer) = 0;
 
         virtual void cancel_tx(const TxID& id) = 0;
+
+		virtual void set_node_address(io::Address node_address) = 0;
+
+		virtual bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) = 0;
     };
 
-    struct INetworkIO
+    struct INetworkIO 
     {
         using Ptr = std::shared_ptr<INetworkIO>;
         virtual ~INetworkIO() {}
@@ -76,6 +80,8 @@ namespace beam
 
         virtual void new_own_address(const WalletID& address) = 0;
         virtual void address_deleted(const WalletID& address) = 0;
+        
+		virtual void set_node_address(io::Address node_address) = 0;
     };
 
     class NetworkIOBase : public INetworkIO
@@ -146,6 +152,9 @@ namespace beam
         void handle_tx_registered(const TxID& txId, bool res);
 
         void cancel_tx(const TxID& txId) override;
+
+		void set_node_address(io::Address node_address) override;
+		bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode);
 
     private:
         void remove_peer(const TxID& txId);

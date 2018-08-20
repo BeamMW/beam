@@ -472,7 +472,6 @@ namespace beam
         const char* Version = "Version";
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
-		const char* NodeAddrName = "NodeAddr";
         const int BusyTimeoutMs = 1000;
         const int DbVersion = 4;
     }
@@ -690,6 +689,11 @@ namespace beam
 		// For coinbase and free commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
 		DeriveKey(key, m_kdf, coin.m_createHeight, coin.m_key_type, (coin.m_key_type == KeyType::Regular) ? coin.m_id : 0);
 		return key;
+	}
+
+	void Keychain::get_IdentityKey(ECC::Scalar::Native& sk) const
+	{
+		DeriveKey(sk, m_kdf, 0, KeyType::Identity);
 	}
 
 	vector<beam::Coin> Keychain::selectCoins(const Amount& amount, bool lock)
@@ -1003,17 +1007,6 @@ namespace beam
 	bool Keychain::getSystemStateID(Block::SystemState::ID& stateID) const
 	{
 		return getVar(SystemStateIDName, stateID);
-	}
-
-	void Keychain::setNodeAddr(const io::Address& nodeAddr)
-	{
-		setVar(NodeAddrName, nodeAddr);
-		notifySystemStateChanged();
-	}
-
-	bool Keychain::getNodeAddr(io::Address& nodeAddr) const
-	{
-		return getVar(NodeAddrName, nodeAddr);
 	}
 
 	Height Keychain::getCurrentHeight() const

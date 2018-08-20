@@ -6,6 +6,19 @@ namespace beam {
 
 using PubKey = ECC::Hash::Value;
 
+class KeyStoreException : public std::runtime_error {
+public:
+    explicit KeyStoreException(const std::string& msg)
+        : std::runtime_error(msg.c_str())
+    {
+    }
+
+    explicit KeyStoreException(const char *msg)
+        : std::runtime_error(msg)
+    {
+    }
+};
+
 struct IKeyStore {
     using Ptr = std::shared_ptr<IKeyStore>;
 
@@ -22,8 +35,11 @@ struct IKeyStore {
 
     virtual ~IKeyStore() {}
 
-    /// Creates a new keypair, returns the public key and stores the private key
-    virtual void gen_keypair(PubKey& pubKey, bool enable) = 0;
+    /// Creates a new keypair, returns the public key, use save_keypair to save and enable
+    virtual void gen_keypair(PubKey& pubKey) = 0;
+
+    /// Saves unsaved keypair and enables if needed
+    virtual void save_keypair(const PubKey& pubKey, bool enable) = 0;
 
     virtual size_t size() = 0;
 
