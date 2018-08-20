@@ -4,6 +4,7 @@ import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
 import QtGraphicalEffects 1.0
 import QtQuick.Layouts 1.3
+import Wallet 1.0
 import "controls"
 
 Item {
@@ -229,7 +230,7 @@ Item {
                             font.pixelSize: 14
                             font.weight: Font.Bold
                             color: Style.white
-                            text: "Transaction amount"
+                            text: qsTr("Transaction amount")
                         }
 
                         RowLayout {
@@ -261,7 +262,7 @@ Item {
                             SFText {
                                 font.pixelSize: 24
                                 color: Style.white
-                                text: "BEAM"
+                                text: qsTr("BEAM")
                             }
 
                             Binding {
@@ -301,7 +302,7 @@ Item {
                             SFText {
                                 font.pixelSize: 24
                                 color: Style.white
-                                text: "GROTH"
+                                text: qsTr("GROTH")
                             }
 
                             Binding {
@@ -315,7 +316,7 @@ Item {
                             font.pixelSize: 14
                             font.weight: Font.Bold
                             color: Style.white
-                            text: "Transaction fee"
+                            text: qsTr("Transaction fee")
                         }
 
                         RowLayout {
@@ -348,7 +349,7 @@ Item {
                             SFText {
                                 font.pixelSize: 24
                                 color: Style.white
-                                text: "GROTH"
+                                text: qsTr("GROTH")
                             }
 
                             Binding {
@@ -363,7 +364,7 @@ Item {
                             font.pixelSize: 24
                             font.weight: Font.ExtraLight
                             color: Style.white
-                            text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils*1 + walletViewModel.feeMils*1)/1000000) + " BEAM"
+                            text: (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils*1 + walletViewModel.feeMils*1)/1000000) + " " + qsTr("BEAM")
                         }
 
                         Item {
@@ -428,7 +429,7 @@ Item {
             anchors.right: parent.right
             palette.button: Style.heliotrope
             palette.buttonText: Style.marine
-            text: "SEND"
+            text: qsTr("SEND")
 
             onClicked: root.state = "send"
         }
@@ -487,7 +488,7 @@ Item {
 
                 color: Style.white
 
-                text: "Transactions"
+                text: qsTr("Transactions")
             }
 
 //            Row {
@@ -581,7 +582,7 @@ Item {
 
             TableViewColumn {
                 role: "date"
-                title: "Date | Time"
+                title: qsTr("Date | Time")
                 width: 160 * (parent.width - 40 - 20) / 916
                 elideMode: Text.ElideRight
 
@@ -590,7 +591,7 @@ Item {
 
             TableViewColumn {
                 role: "user"
-                title: "Recipient / Sender ID"
+                title: qsTr("Recipient / Sender ID")
                 width: 260 * (parent.width - 40 - 20) / 916
                 elideMode: Text.ElideMiddle
 
@@ -633,7 +634,7 @@ Item {
 
             TableViewColumn {
                 role: "status"
-                title: "Status"
+                title: qsTr("Status")
                 width: 96 * (parent.width - 40 - 20) / 916
                 elideMode: Text.ElideRight
                 movable: false
@@ -683,12 +684,23 @@ Item {
 
             ContextMenu {
                 id: txContextMenu
-                property int txIndex;
-                Action {
+				property TxObject transaction
+				Action {
+                    text: qsTr("copy address")
+					icon.source: "qrc:///assets/icon-copy.svg"
+					onTriggered: {
+						if (!!txContextMenu.transaction)
+						{
+							addressBookViewModel.copyToClipboard(txContextMenu.transaction.user);
+						}
+                    }
+                }
+				Action {
                     text: qsTr("cancel")
                     onTriggered: {
-                       walletViewModel.cancelTx(txContextMenu.txIndex);
+                       walletViewModel.cancelTx(txContextMenu.index);
                     }
+					enabled: !!txContextMenu.transaction && txContextMenu.transaction.canCancel
                     icon.source: "qrc:///assets/icon-cancel.svg"
                 }
             }
@@ -712,12 +724,8 @@ Item {
                     onClicked: {
                         if (mouse.button === Qt.RightButton && styleData.row !== undefined && styleData.row >=0)
                         {
-                            txContextMenu.txIndex = styleData.row;
-                            var tx = walletViewModel.tx[styleData.row];
-                            if (tx.canCancel)
-                            {
-                                txContextMenu.popup();
-                            }
+                            txContextMenu.transaction = walletViewModel.tx[styleData.row];
+                            txContextMenu.popup();
                         }
                     }
                 }
