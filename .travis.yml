@@ -28,6 +28,12 @@ matrix:
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
       after_success:
+        # deploy using ftp server
+        - BUILD_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/mac
+        - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
+        - curl --ftp-create-dirs -T beam.tar.gz $BUILD_SERVER_PATH/
+        - curl --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Darwin.dmg" "$BUILD_SERVER_PATH/Beam Wallet.dmg"
+        # deploy using github
         - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
             chmod +x ./deploy.sh;
             ./deploy.sh;
@@ -63,6 +69,7 @@ matrix:
             - g++-7
             - libboost-all-dev
             - libssl-dev
+            - curl
       before_install:
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
@@ -75,6 +82,12 @@ matrix:
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
       after_success:
+        # deploy using ftp
+        - BUILD_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/linux
+        - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
+        - curl --ftp-create-dirs -T beam.tar.gz $BUILD_SERVER_PATH/
+        - curl --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Linux.deb" "$BUILD_SERVER_PATH/Beam Wallet.deb"
+        # deploy using github
         - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
             chmod +x ./deploy.sh;
             ./deploy.sh;

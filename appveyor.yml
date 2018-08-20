@@ -4,7 +4,8 @@ image: Visual Studio 2017
 branches:
   only:
     - master
-    - qt_static
+    - testnet
+    - deploy
 
 configuration:
 - Release
@@ -19,8 +20,8 @@ environment:
   QML_IMPORT_PATH: c:\beam-libs\qt5-static-win\qml
   GITHUB_API_KEY:
     secure: 3teRuVd1PpR8Y2XJEOWPWo7LYRhEKIZZk3w53nFG7hPsXrONIUb18SNfkVl+SICw
-  BUILD_SERVER_KEY:
-    secure: Wj01nYyGuoDrLZpfFY5odIXraD/AC0KN/iH4mJSM0jojif5tVlQM68DSmnMJBMZc
+  BUILD_SERVER:
+    secure: LPABhHzY41Gvc2a2V6P8sr3ksQ3IiGkSWKMGZ0/7ByRnEvXg2NHKvoSvlw8/cYXtlgHHctTo5pQjpvGshdFwBQ==
   matrix:
   - arch: Win64
 
@@ -42,6 +43,12 @@ on_success:
 - cmd: >-
 
     cpack --verbose -G NSIS
+
+    7z a c:/projects/beam/beam/Release/beam.zip c:/projects/beam/beam/Release/beam.exe c:/projects/beam/beam/beam.cfg
+
+    curl --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam.zip" "%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/win/"
+
+    curl --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/win/Beam Wallet.exe"
 
     set REPO=https://%GITHUB_API_KEY%@github.com/beam-mw/beam-builds
 
@@ -74,8 +81,6 @@ on_success:
     git commit -m "AppVeyor build for Windows"
     
     git push %REPO% master
-
-    curl --ftp-create-dirs -T "%RELEASE_FOLDER%\Beam Wallet.exe" "ftp://beam:%BUILD_SERVER_KEY%@139.162.189.188/files/master/nightly/%DATE%/win/"
 
 notifications:
   - provider: Email
