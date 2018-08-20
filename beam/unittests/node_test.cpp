@@ -484,6 +484,33 @@ namespace beam
 			return &m_MyUtxos.insert(std::make_pair(h, utxo))->second;
 		}
 
+		struct MyKernel
+		{
+			Amount m_Fee;
+			ECC::Scalar::Native m_k;
+
+			void Export(TxKernel& krn) const
+			{
+				krn.m_Fee = m_Fee;
+				krn.m_Excess = ECC::Point::Native(ECC::Context::get().G * m_k);
+
+				ECC::Hash::Value hv;
+				krn.get_HashForSigning(hv);
+				krn.m_Signature.Sign(hv, m_k);
+
+			}
+
+			void Export(TxKernel::Ptr& pKrn) const
+			{
+				pKrn.reset(new TxKernel);
+				Export(*pKrn);
+			}
+		};
+
+		typedef std::vector<MyKernel> KernelList;
+		KernelList m_MyKernels;
+
+
 		bool MakeTx(Transaction::Ptr& pTx, Height h, Height hIncubation)
 		{
 			UtxoQueue::iterator it = m_MyUtxos.begin();
@@ -498,8 +525,9 @@ namespace beam
 			const MyUtxo& utxo = it->second;
 			assert(utxo.m_Value);
 
-			TxKernel::Ptr pKrn(new TxKernel);
-			pKrn->m_Fee = 1090000;
+			m_MyKernels.resize(m_MyKernels.size() + 1);
+			MyKernel& mk = m_MyKernels.back();
+			mk.m_Fee = 1090000;
 
 			Input::Ptr pInp(new Input);
 			pInp->m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
@@ -508,12 +536,12 @@ namespace beam
 			ECC::Scalar::Native kOffset = utxo.m_Key;
 			ECC::Scalar::Native k;
 
-			if (pKrn->m_Fee >= utxo.m_Value)
-				pKrn->m_Fee = utxo.m_Value;
+			if (mk.m_Fee >= utxo.m_Value)
+				mk.m_Fee = utxo.m_Value;
 			else
 			{
 				MyUtxo utxoOut;
-				utxoOut.m_Value = utxo.m_Value - pKrn->m_Fee;
+				utxoOut.m_Value = utxo.m_Value - mk.m_Fee;
 
 				DeriveKey(k, m_Kdf, h, KeyType::Regular);
 				utxoOut.m_Key = k;
@@ -525,16 +553,14 @@ namespace beam
 
 			m_MyUtxos.erase(it);
 
-			DeriveKey(k, m_Kdf, h, KeyType::Kernel, m_nKernelSubIdx++);
-			pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * k);
+			DeriveKey(mk.m_k, m_Kdf, h, KeyType::Kernel, m_nKernelSubIdx++);
 
-			ECC::Hash::Value hv;
-			pKrn->get_HashForSigning(hv);
-			pKrn->m_Signature.Sign(hv, k);
+			TxKernel::Ptr pKrn;
+			mk.Export(pKrn);
 			pTx->m_vKernelsOutput.push_back(std::move(pKrn));
 
 
-			k = -k;
+			k = -mk.m_k;
 			kOffset += k;
 			pTx->m_Offset = kOffset;
 
@@ -917,6 +943,7 @@ namespace beam
 			std::set<ECC::Point> m_UtxosConfirmed;
 			std::list<ECC::Point> m_queProofsExpected;
 			std::list<uint32_t> m_queProofsStateExpected;
+			std::list<uint32_t> m_queProofsKrnExpected;
 
 			MyClient() {
 				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
@@ -967,7 +994,13 @@ namespace beam
 				verify_test(m_vStates.size() + 1 == msg.m_ID.m_Height);
 
 				if (msg.m_ID.m_Height >= m_HeightTrg)
+				{
+					verify_test(m_queProofsExpected.empty());
+					verify_test(m_queProofsKrnExpected.empty());
+					verify_test(m_queProofsStateExpected.empty());
+
 					io::Reactor::get_Current().stop();
+				}
 
 				proto::GetMined msgOut;
 				msgOut.m_HeightMin = 0;
@@ -1008,6 +1041,20 @@ namespace beam
 					Send(msgOut);
 
 					m_queProofsExpected.push_back(msgOut.m_Utxo.m_Commitment);
+				}
+
+				for (uint32_t i = 0; i < m_Wallet.m_MyKernels.size(); i++)
+				{
+					const MiniWallet::MyKernel mk = m_Wallet.m_MyKernels[i];
+
+					TxKernel krn;
+					mk.Export(krn);
+
+					proto::GetProofKernel msgOut;
+					krn.get_HashTotal(msgOut.m_KernelHash);
+					Send(msgOut);
+
+					m_queProofsKrnExpected.push_back(i);
 				}
 
 				proto::NewTransaction msgTx;
@@ -1064,6 +1111,29 @@ namespace beam
 					}
 
 					m_queProofsExpected.pop_front();
+				}
+				else
+					fail_test("unexpected proof");
+			}
+
+			virtual void OnMsg(proto::Proof&& msg) override
+			{
+				if (!m_queProofsKrnExpected.empty())
+				{
+					const MiniWallet::MyKernel& mk = m_Wallet.m_MyKernels[m_queProofsKrnExpected.front()];
+					m_queProofsKrnExpected.pop_front();
+
+					if (!msg.m_Proof.empty())
+					{
+						TxKernel krn;
+						mk.Export(krn);
+
+						Merkle::Hash hv;
+						krn.get_HashTotal(hv);
+						Merkle::Interpret(hv, msg.m_Proof);
+
+						verify_test(hv == m_vStates.back().m_Definition);
+					}
 				}
 				else
 					fail_test("unexpected proof");

@@ -5,14 +5,14 @@ import QtQuick.Layouts 1.0
 import "."
 
 Rectangle {
-	id: panel
+    id: panel
     radius: 10
     color: Style.dark_slate_blue
 
     clip: true
 
     property string value
-	property alias color: panel.color
+    property alias color: panel.color
 
     SFText {
         id: title
@@ -21,37 +21,42 @@ Rectangle {
             weight: Font.Bold
         }
 
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.topMargin: 30
+        anchors.leftMargin: 30
+        
         color: Style.white
-
-        x: 30
-        y: 30
         text: qsTr("Available")
     }
 
     Row
     {
-        x: 30
-        y: 61
+        id: amount
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.left: title.left
+
         spacing: 6
 
         SFText {
-            font.pixelSize: 64
+            id: amount_text
+            font.pixelSize: 36
             font.weight: Font.ExtraLight
             color: Style.bright_teal
 
             text: value
-
             anchors.bottom: parent.bottom
         }
 
         SFText {
-            font.pixelSize: 36
+            id: currency_text
+            font.pixelSize: 24
             font.weight: Font.ExtraLight
             color: Style.bright_teal
 
             text: "BEAM"
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 6
+            anchors.bottomMargin: 3
         }
     }
 }
