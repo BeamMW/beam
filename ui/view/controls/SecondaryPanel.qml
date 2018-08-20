@@ -14,21 +14,24 @@ Rectangle {
     clip: true
 
     SFText {
+        id: title_id
         font {
             pixelSize: 18
             weight: Font.Bold
         }
 
-        color: Style.white
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.topMargin: 30
+        anchors.leftMargin: 30
 
-        x: 30
-        y: 30
+        color: Style.white
         text: title
     }
 
     Row {
-        x: 30
-        y: 88
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.left: title_id.left
         spacing: 6
 
         SFText {
