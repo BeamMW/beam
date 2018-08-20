@@ -551,6 +551,9 @@ ColumnLayout {
 					onTriggered: {
                         addressBookViewModel.deleteOwnAddress(ownAddressContextMenu.index);
                     }
+                    // User shouldn't delete "default" or last own adress
+                    enabled: ((ownAddressesView.rowCount > 1) && 
+                              (addressBookViewModel.ownAddresses[ownAddressContextMenu.index].name !== "default"))
                 }
             }
 
