@@ -28,7 +28,7 @@ protected:
 	void ParseCommandLine(int argc, char* argv[]);
 	void InitKdf();
 
-	void OnMsg(proto::Authentication&&) override;
+	void OnMsg(beam::proto::Authentication&&) override;
 
 protected:
 	ECC::Kdf m_Kdf;
