@@ -30,7 +30,6 @@ ColumnLayout {
 		x: (parent.width - width) / 2
 		y: (parent.height - height) / 2
 		visible: false
-		focus: true
 		
 		background: Rectangle {
 			radius: 10
@@ -52,7 +51,6 @@ ColumnLayout {
         footer: DialogButtonBox {
             alignment: Qt.AlignHCenter
             spacing: 30
-            focus: true
 
             background: Rectangle {
 			    radius: 10
@@ -78,6 +76,10 @@ ColumnLayout {
 				text: qsTr("cancel")
                 DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
 			}
+        }
+
+        onOpened: {
+            cancelButton.forceActiveFocus(Qt.TabFocusReason);
         }
     }
 
