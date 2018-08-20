@@ -287,17 +287,77 @@ void TestRollback()
     auto db = createSqliteKeychain();
     for (uint64_t i = 0; i < 9; ++i)
     {
-        Coin coin1 = { 5, Coin::Unspent, i, i + 10, KeyType::Regular, Height(i) };
+        Coin coin1 = { 5, Coin::Unspent, i, i + 10, KeyType::Regular, Height(i + 1) };
+        coin1.m_confirmHash = unsigned(123);
         db->store(coin1);
     }
 
     for (uint64_t i = 9; i < 10; ++i)
     {
-        Coin coin1 = { 5, Coin::Spent, 0, 0, KeyType::Regular, Height(0), Height(i) };
+        Coin coin1 = { 5, Coin::Spent, 0, 0, KeyType::Regular, Height(1), Height(i + 1) };
         db->store(coin1);
     }
 
-    db->rollbackConfirmedUtxo(5);
+    // was created after branch
+    {
+        Coin coin1 = { 5, Coin::Spent, 7, 7, KeyType::Regular, Height(8) };
+        db->store(coin1);
+    }
+
+
+    // rewards
+    // should be deleted
+    {
+        Coin coin1 = { 5, Coin::Spent, 7, 8, KeyType::Coinbase, Height(8) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Spent, 7, 8, KeyType::Comission, Height(8) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Unspent, 8, 9, KeyType::Coinbase, Height(9) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Unspent, 8, 9, KeyType::Comission, Height(9) };
+        db->store(coin1);
+    }
+    // should be preserved
+    {
+        Coin coin1 = { 5, Coin::Spent, 6, 7, KeyType::Coinbase, Height(7) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Spent, 6, 7, KeyType::Comission, Height(7) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Spent, 4, 5, KeyType::Coinbase, Height(5) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Spent, 4, 5, KeyType::Comission, Height(5) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Unspent, 3, 4, KeyType::Coinbase, Height(4) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Unspent, 3, 4, KeyType::Comission, Height(4) };
+        db->store(coin1);
+    }
+
+    db->rollbackConfirmedUtxo(6);
 
     vector<Coin> coins;
     db->visit([&coins](const auto& c)->bool
@@ -305,6 +365,8 @@ void TestRollback()
         coins.push_back(c);
         return true;
     });
+
+    WALLET_CHECK(coins.size() == 17);
 
     for (int i = 0; i < 5; ++i)
     {
@@ -320,8 +382,40 @@ void TestRollback()
         WALLET_CHECK(c.m_status == Coin::Unconfirmed);
         WALLET_CHECK(c.m_confirmHeight == MaxHeight);
         WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+        WALLET_CHECK(c.m_confirmHash == Zero);
     }
     for (int i = 9; i < 10; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Unspent);
+        WALLET_CHECK(c.m_confirmHeight != MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+    }
+
+    {
+        // for now it is unconfirmed in future we would have to distinguish such coins
+        auto& c = coins[10];
+        WALLET_CHECK(c.m_status == Coin::Unconfirmed);
+        WALLET_CHECK(c.m_confirmHeight == MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+        WALLET_CHECK(c.m_confirmHash == Zero);
+    }
+
+    for (int i = 11; i < 13; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Unconfirmed);
+        WALLET_CHECK(c.m_confirmHeight == MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+    }
+    for (int i = 13; i < 15; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Spent);
+        WALLET_CHECK(c.m_confirmHeight != MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+    }
+    for (int i = 15; i < 17; ++i)
     {
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Unspent);
@@ -652,7 +746,7 @@ int main()
     TestRollback();
     TestPeers();
     TestSelect();
-    TestSelect2();
+   // TestSelect2();
     TestAddresses();
 
     return WALLET_CHECK_RESULT;

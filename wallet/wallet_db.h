@@ -42,6 +42,8 @@ namespace beam
            , Height confirmHeight = MaxHeight
            , Height lockedHeight = MaxHeight);
         Coin();
+        bool isReward() const;
+        bool isValid() const;
 
         uint64_t m_id;
         ECC::Amount m_amount;
