@@ -50,10 +50,6 @@ namespace beam {
         , m_keystore(keyStore)
         , m_lastReceiver(0)
     {
-        if (!m_keystore || m_keystore->size() == 0) {
-            throw std::runtime_error("WalletNetworkIO: empty keystore");
-        }
-
         m_protocol.add_message_handler<WalletNetworkIO, wallet::Invite,             &WalletNetworkIO::on_message>(senderInvitationCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmTransaction, &WalletNetworkIO::on_message>(senderConfirmationCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmInvitation,  &WalletNetworkIO::on_message>(receiverConfirmationCode, this, 1, 20000);
@@ -71,7 +67,6 @@ namespace beam {
         }
 
         m_keystore->get_enabled_keys(m_myPubKeys);
-        assert(!m_myPubKeys.empty());
         for (const auto& k : m_myPubKeys)
         {
             listen_to_bbs_channel(k);

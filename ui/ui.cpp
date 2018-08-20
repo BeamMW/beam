@@ -171,7 +171,15 @@ int main (int argc, char* argv[])
 				options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
 				options.fileName = bbsStorage;
 
-				keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
+                try
+                {
+                    keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
+                }
+                catch (const beam::KeyStoreException& ex)
+                {
+                    QMessageBox::critical(0, "Error", "Failed to read key store", QMessageBox::Ok);
+                    return false;
+                }
 
 				std::string nodeAddr = "0.0.0.0";
 				if (settingsViewModel.nodeAddress().isEmpty())
@@ -203,6 +211,7 @@ int main (int argc, char* argv[])
 				ctxt->setContextProperty("translator", &translator);
 
 				view.rootObject()->setProperty("source", "qrc:///main.qml");
+                return true;
 			});
 
 			view.rootContext()->setContextProperty("startViewModel", &startViewModel);
