@@ -39,6 +39,8 @@ struct IWalletModelAsync
     virtual void deleteAddress(const beam::WalletID& id) = 0;
     virtual void deleteOwnAddress(const beam::WalletID& id) = 0 ;
 
+	virtual void setNodeAddress(const std::string& addr) = 0;
+
 	virtual ~IWalletModelAsync() {}
 };
 
@@ -64,7 +66,10 @@ class WalletModel
 {
 	Q_OBJECT
 public:
-	WalletModel(beam::IKeyChain::Ptr keychain, beam::IKeyStore::Ptr keystore);
+
+	using Ptr = std::shared_ptr<WalletModel>;
+
+	WalletModel(beam::IKeyChain::Ptr keychain, beam::IKeyStore::Ptr keystore, const std::string& nodeAddr);
 	~WalletModel();
 
 	void run() override;
@@ -104,13 +109,12 @@ private:
 	void generateNewWalletID() override;
     void deleteAddress(const beam::WalletID& id) override;
     void deleteOwnAddress(const beam::WalletID& id) override;
+	void setNodeAddress(const std::string& addr) override;
 
 	void onStatusChanged();
 	WalletStatus getStatus() const;
     std::vector<beam::Coin> getUtxos(bool all = false) const;
 private:
-
-	uint16_t _port;
 
 	beam::IKeyChain::Ptr _keychain;
     beam::IKeyStore::Ptr _keystore;
@@ -118,4 +122,6 @@ private:
     std::weak_ptr<beam::INetworkIO> _wallet_io;
     std::weak_ptr<beam::Wallet> _wallet;
     beam::io::Timer::Ptr _logRotateTimer;
+
+	std::string _nodeAddrStr;
 };

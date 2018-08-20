@@ -42,6 +42,10 @@ Button {
         
         color: control.palette.buttonText
     }
+    
+    Keys.onPressed: {
+        if (event.key == Qt.Key_Return || event.key == Qt.Key_Enter) control.clicked();
+    }
 
     background: Rectangle {
         id: rect

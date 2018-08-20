@@ -107,6 +107,7 @@ ColumnLayout {
 						Layout.fillWidth: true
 						Layout.minimumHeight: 14
 						Layout.maximumHeight: 14
+                        focus: true
 						font.pixelSize: 12
 						color: Style.white
 						text: addressBookViewModel.newPeerAddress.walletID
@@ -226,6 +227,7 @@ ColumnLayout {
 						font.pixelSize: 12
 						color: Style.disable_text_color
 						readOnly: true
+                        activeFocusOnTab: false
 						text: addressBookViewModel.newOwnAddress.walletID
 					}
 
@@ -250,6 +252,7 @@ ColumnLayout {
                         Layout.minimumHeight: 14
 						Layout.maximumHeight: 14
 						id: nameOwnAddress
+                        focus: true
 						font.pixelSize: 12
 						color: Style.white
 						height: 14
@@ -353,37 +356,27 @@ ColumnLayout {
 					State {
 						name: "own"
 						PropertyChanges {target: ownFilterDlg; state: "active"}
-						PropertyChanges {
-							target: createOwnAddressView
-							visible: true
-						}
+						PropertyChanges {target: createOwnAddressView; visible: true}
+                        PropertyChanges {target: createPeersAddressView; visible: false}
 
-						PropertyChanges {
-							target: createAddress
-						}
+                        StateChangeScript {
+                            script: {
+                                nameOwnAddress.forceActiveFocus();
+                            }
+                        }
 
-						PropertyChanges {
-							target: createPeersAddressView
-							visible: false
-						}
 					},
 					State {
 						name: "peers"
 						PropertyChanges {target: peersFilterDlg; state: "active"}
+                        PropertyChanges {target: createOwnAddressView; visible: false}
+						PropertyChanges {target: createPeersAddressView; visible: true}
 
-						PropertyChanges {
-							target: createOwnAddressView
-							visible: false
-						}
-
-						PropertyChanges {
-							target: createAddress
-						}
-
-						PropertyChanges {
-							target: createPeersAddressView
-							visible: true
-						}
+                        StateChangeScript {
+                            script: {
+                                addressID.forceActiveFocus();
+                            }
+                        }
 					}
 				]
 			}
