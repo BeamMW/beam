@@ -25,6 +25,9 @@ environment:
   matrix:
   - arch: Win64
 
+init:
+  tzutil /s "Belarus Standard Time"
+
 before_build:
   - cmd: git clone --depth=1 https://github.com/beam-mw/libs.git c:/beam-libs
   - cmd: git clone --depth=1 https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
@@ -40,15 +43,18 @@ build:
 
 on_success:
 - ps: $env:DATE=$(Get-Date -UFormat "%Y.%m.%d")
+- ps: $env:TIME=$(Get-Date -UFormat "%H:%M:%S")
 - cmd: >-
 
     cpack --verbose -G NSIS
 
     7z a c:/projects/beam/beam/Release/beam.zip c:/projects/beam/beam/Release/beam.exe c:/projects/beam/beam/beam.cfg
 
-    curl --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam.zip" "%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/win/"
+    set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/win/%TIME%
 
-    curl --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/win/Beam Wallet.exe"
+    curl --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam.zip" %BUILDS_SERVER_PATH%/
+
+    curl --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILDS_SERVER_PATH%/Beam Wallet.exe"
 
     set REPO=https://%GITHUB_API_KEY%@github.com/beam-mw/beam-builds
 

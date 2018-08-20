@@ -5,6 +5,7 @@ matrix:
     - os: osx
       osx_image: xcode9.3
       before_install: 
+        - export TZ=Etc/GMT-3
         - brew upgrade boost cmake
         - brew install qt5
         - export PATH=/usr/local/opt/qt/bin:$PATH
@@ -17,6 +18,7 @@ matrix:
     - os: osx
       osx_image: xcode9.3
       before_install:
+        - export TZ=Etc/GMT-3
         - brew upgrade openssl boost cmake
         - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
         - export PATH=~/qt5-static/bin:$PATH
@@ -29,10 +31,10 @@ matrix:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
       after_success:
         # deploy using ftp server
-        - BUILD_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/mac
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/mac/$(date +%H:%M:%S)
         - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-        - curl --ftp-create-dirs -T beam.tar.gz $BUILD_SERVER_PATH/
-        - curl --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Darwin.dmg" "$BUILD_SERVER_PATH/Beam Wallet.dmg"
+        - curl --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
+        - curl --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Darwin.dmg" "$BUILDS_SERVER_PATH/Beam Wallet.dmg"
         # deploy using github
         - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
             chmod +x ./deploy.sh;
@@ -49,6 +51,7 @@ matrix:
             - libboost-all-dev
             - libssl-dev
       before_install:
+        - export TZ=Etc/GMT-3
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - sudo add-apt-repository ppa:beineri/opt-qt-5.10.1-trusty -y
@@ -71,6 +74,7 @@ matrix:
             - libssl-dev
             - curl
       before_install:
+        - export TZ=Etc/GMT-3
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - eval "CC=gcc-7 && CXX=g++-7"
@@ -83,10 +87,10 @@ matrix:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
       after_success:
         # deploy using ftp
-        - BUILD_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/linux
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/linux/$(date +%H:%M:%S)
         - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-        - curl --ftp-create-dirs -T beam.tar.gz $BUILD_SERVER_PATH/
-        - curl --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Linux.deb" "$BUILD_SERVER_PATH/Beam Wallet.deb"
+        - curl --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
+        - curl --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Linux.deb" "$BUILDS_SERVER_PATH/Beam Wallet.deb"
         # deploy using github
         - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
             chmod +x ./deploy.sh;
