@@ -19,6 +19,96 @@ ColumnLayout {
         text: qsTr("Address book")
     }
 
+    Dialog {
+		id: confirmationDialog
+        property alias text: messageText.text
+        property bool isOwn
+
+		modal: true
+		width: 520
+		height: 200
+		x: (parent.width - width) / 2
+		y: (parent.height - height) / 2
+		visible: false
+		focus: true
+		//background: null
+        //standardButtons: Dialog.Ok | Dialog.Cancel
+
+		background: Rectangle {
+			radius: 10
+            color: Style.dark_slate_blue
+            anchors.fill: parent            
+        }
+
+        contentItem: Item {
+            ColumnLayout {
+                anchors.fill: parent
+                Item {
+                    Layout.fillWidth: true
+	                Layout.minimumHeight: 48
+	                Layout.maximumHeight: 48
+                    Layout.leftMargin: 10
+                    Layout.rightMargin: 10
+
+                    SFText {
+                        anchors.centerIn: parent
+                        width: parent.width
+                        id: messageText
+                        font.pixelSize: 14
+                        color: Style.white
+                        wrapMode: Text.WordWrap
+                    }
+                }                
+            }
+        }
+
+        footer: DialogButtonBox {
+            alignment: Qt.AlignHCenter
+            spacing: 30
+            focus: true
+
+            background: Rectangle {
+			    radius: 10
+                color: Style.dark_slate_blue
+                anchors.fill: parent            
+            }
+            
+			CustomButton {
+				palette.button: Style.bright_teal
+				height: 38
+                width: 166
+				text: qsTr("delete")
+				palette.buttonText: Style.marine
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+			}
+
+            CustomButton {
+                id: cancelButton
+				palette.buttonText: Style.white
+                height: 38
+				width: 122
+                focus: true
+				text: qsTr("cancel")
+                DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+			}
+        }
+
+        /*onAccepted: {
+            console.log("deleted button")
+			confirmationDialog.close();
+        }*/
+
+        /*onRejected: {
+            console.log("cancel button")
+			confirmationDialog.close()
+        }*/
+
+        onOpened: {
+            console.log("dialog on cpmpleted")
+            cancelButton.forceActiveFocus();
+        }
+    }
+
 	Dialog {
 		id: createAddress
 		modal: true
@@ -519,7 +609,18 @@ ColumnLayout {
                     text: qsTr("delete address")
 					icon.source: "qrc:///assets/icon-cancel.svg"
 					onTriggered: {
-                        addressBookViewModel.deletePeerAddress(peerAddressContextMenu.index);
+                        var message = qsTr("The address %1 will be deleted. This operation can not be undone")
+                        confirmationDialog.text = message.arg(addressBookViewModel.peerAddresses[peerAddressContextMenu.index].walletID)
+                        confirmationDialog.isOwn = false
+                        confirmationDialog.open();
+                        console.log("after close dialog");
+                    }                    
+                }
+                Connections {
+                    target: confirmationDialog
+                    onAccepted: {
+                        if (!confirmationDialog.isOwn)
+                            addressBookViewModel.deletePeerAddress(peerAddressContextMenu.index);
                     }
                 }
             }
@@ -542,9 +643,9 @@ ColumnLayout {
                     text: qsTr("delete address")
 					icon.source: "qrc:///assets/icon-cancel.svg"
 					onTriggered: {
-                        addressBookViewModel.deleteOwnAddress(ownAddressContextMenu.index);
+                        addressBookViewModel.deleteOwnAddress(ownAddressContextMenu.index);                        
                     }
-                }
+                }                
             }
 
             rowDelegate: Item {
