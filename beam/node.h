@@ -39,7 +39,7 @@ struct Node
         ECC::NoLeak<ECC::uintBig> m_WalletKey;
 		NodeProcessor::Horizon m_Horizon;
 
-		bool m_RestrictMinedReportToOwner = false; // TODO: turn this ON once wallet supports this
+		bool m_RestrictMinedReportToOwner = true;
 
 		struct Timeout {
 			uint32_t m_GetState_ms	= 1000 * 5;

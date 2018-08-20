@@ -817,11 +817,11 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 			m_bOwner = true;
 	}
 
-	if (m_bPiRcvd || (msg.m_ID == ECC::Zero))
-		ThrowUnexpected();
-
 	if (proto::IDType::Node != msg.m_IDType)
 		return;
+
+	if (m_bPiRcvd || (msg.m_ID == ECC::Zero))
+		ThrowUnexpected();
 
 	m_bPiRcvd = true;
 	LOG_INFO() << m_RemoteAddr << " received PI";
@@ -1327,32 +1327,29 @@ void Node::Peer::OnMsg(proto::GetTransaction&& msg)
 
 void Node::Peer::OnMsg(proto::GetMined&& msg)
 {
-	if (m_This.m_Cfg.m_RestrictMinedReportToOwner)
-	{
-		// Who's asking?
-		if (!m_bOwner)
-			ThrowUnexpected("Unauthorized Mining report request"); // unauthorized
-	}
-
 	proto::Mined msgOut;
 
-	NodeDB& db = m_This.m_Processor.get_DB();
-	NodeDB::WalkerMined wlk(db);
-	for (db.EnumMined(wlk, msg.m_HeightMin); wlk.MoveNext(); )
+	if (m_bOwner || !m_This.m_Cfg.m_RestrictMinedReportToOwner)
 	{
-		msgOut.m_Entries.resize(msgOut.m_Entries.size() + 1);
-		proto::PerMined& x = msgOut.m_Entries.back();
+		NodeDB& db = m_This.m_Processor.get_DB();
+		NodeDB::WalkerMined wlk(db);
+		for (db.EnumMined(wlk, msg.m_HeightMin); wlk.MoveNext(); )
+		{
+			msgOut.m_Entries.resize(msgOut.m_Entries.size() + 1);
+			proto::PerMined& x = msgOut.m_Entries.back();
 
-		x.m_Fees = wlk.m_Amount;
-		x.m_Active = 0 != (db.GetStateFlags(wlk.m_Sid.m_Row) & NodeDB::StateFlags::Active);
+			x.m_Fees = wlk.m_Amount;
+			x.m_Active = 0 != (db.GetStateFlags(wlk.m_Sid.m_Row) & NodeDB::StateFlags::Active);
 
-		Block::SystemState::Full s;
-		db.get_State(wlk.m_Sid.m_Row, s);
-		s.get_ID(x.m_ID);
+			Block::SystemState::Full s;
+			db.get_State(wlk.m_Sid.m_Row, s);
+			s.get_ID(x.m_ID);
 
-		if (msgOut.m_Entries.size() == proto::PerMined::s_EntriesMax)
-			break;
-	}
+			if (msgOut.m_Entries.size() == proto::PerMined::s_EntriesMax)
+				break;
+		}
+	} else
+		LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Mining report request. Returned empty result.";
 
 	Send(msgOut);
 }
