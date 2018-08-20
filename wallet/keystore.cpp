@@ -68,7 +68,7 @@ void read_keystore_file(KeyPairs& out, const std::string& fileName, const Passwo
 
     a.f = fopen(fileName.c_str(), "a+b");
     if (!a.f) {
-        throw std::runtime_error(std::string("keystore: cannot open file ") + fileName);
+        throw KeyStoreException(std::string("keystore: cannot open file ") + fileName);
     }
 
     fseek(a.f, 0, SEEK_END);
@@ -82,7 +82,7 @@ void read_keystore_file(KeyPairs& out, const std::string& fileName, const Passwo
 
     if ((size % 64) != 0 || size > MAX_FILE_SIZE) {
         fclose(a.f);
-        throw std::runtime_error(std::string("keystore: invalid file size: ") + fileName);
+        throw KeyStoreException(std::string("keystore: invalid file size: ") + fileName);
     }
 
     void* buffer = alloca(size);
@@ -90,7 +90,7 @@ void read_keystore_file(KeyPairs& out, const std::string& fileName, const Passwo
     rewind(a.f);
     auto bytesRead = fread(buffer, 1, size, a.f);
     if (bytesRead != size) {
-        throw std::runtime_error(std::string("keystore: file read error: ") + fileName);
+        throw KeyStoreException(std::string("keystore: file read error: ") + fileName);
     }
 
     aes_decrypt(buffer, size, key);
@@ -115,7 +115,7 @@ void write_keystore_file(const KeyPairs& in, const std::string& fileName, const 
 
         a.f = fopen(newFileName.c_str(), "w+b");
         if (!a.f) {
-            throw std::runtime_error(std::string("keystore: cannot open file ") + newFileName);
+            throw KeyStoreException(std::string("keystore: cannot open file ") + newFileName);
         }
 
         if (size == 0)
@@ -134,7 +134,7 @@ void write_keystore_file(const KeyPairs& in, const std::string& fileName, const 
         aes_encrypt(buffer, size, key);
 
         if (size != fwrite(buffer, 1, size, a.f)) {
-            throw std::runtime_error(std::string("keystore: cannot write file ") + newFileName);
+            throw KeyStoreException(std::string("keystore: cannot write file ") + newFileName);
         }
     }
 
@@ -165,7 +165,7 @@ private:
         ByteBuffer buf;
         std::string errorMsg(std::string("keystore: file corrupted: ") + _fileName);
         if (!encrypt(buf, data, sizeof(data), _keyPairs.begin()->first)) {
-            throw std::runtime_error(errorMsg);
+            throw KeyStoreException(errorMsg);
         }
         uint8_t* out=0;
         uint32_t size=0;
@@ -174,7 +174,7 @@ private:
             size != sizeof(data) ||
             memcmp(data, out, size) != 0
         ) {
-            throw std::runtime_error(errorMsg);
+            throw KeyStoreException(errorMsg);
         }
     }
 
@@ -275,12 +275,12 @@ IKeyStore::Ptr IKeyStore::create(const IKeyStore::Options& options, const void* 
 
     if (options.flags & Options::local_file) {
         if (options.fileName.empty() || passwordLen == 0) {
-            throw std::runtime_error(errMsgPrefix + "empty file name or key");
+            throw KeyStoreException(errMsgPrefix + "empty file name or key");
         }
         ptr = std::make_shared<LocalFileKeystore>(options, password, passwordLen);
 
     } else {
-        throw std::runtime_error(errMsgPrefix + "invalid options");
+        throw KeyStoreException(errMsgPrefix + "invalid options");
     }
 
     return ptr;

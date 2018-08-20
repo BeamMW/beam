@@ -6,6 +6,19 @@ namespace beam {
 
 using PubKey = ECC::Hash::Value;
 
+class KeyStoreException : public std::runtime_error {
+public:
+    explicit KeyStoreException(const std::string& msg)
+        : std::runtime_error(msg.c_str())
+    {
+    }
+
+    explicit KeyStoreException(const char *msg)
+        : std::runtime_error(msg)
+    {
+    }
+};
+
 struct IKeyStore {
     using Ptr = std::shared_ptr<IKeyStore>;
 

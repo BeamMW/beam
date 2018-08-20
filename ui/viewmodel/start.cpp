@@ -86,9 +86,7 @@ bool StartViewModel::openWallet(const QString& pass)
 
 	if (db)
 	{
-		_done(db, pass.toStdString());
-
-		return true;
+		return _done(db, pass.toStdString());
 	}
 
 	return false;
