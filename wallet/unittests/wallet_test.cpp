@@ -77,12 +77,10 @@ namespace
         void visit(std::function<bool(const beam::Coin& coin)> ) override {}
 		void setVarRaw(const char* , const void* , int ) override {}
 		int getVarRaw(const char* , void* ) const override { return 0; }
+        bool getBlob(const char* name, ByteBuffer& var) const { return false; }
         Timestamp getLastUpdateTime() const override { return 0; }
 		void setSystemStateID(const Block::SystemState::ID& ) override {};
 		bool getSystemStateID(Block::SystemState::ID& ) const override { return false; };
-
-		void setNodeAddr(const io::Address& nodeAddr) override {};
-		bool getNodeAddr(io::Address& nodeAddr) const override { return false; };
 
 		void subscribe(IKeyChainObserver* observer) override {}
 		void unsubscribe(IKeyChainObserver* observer) override {}
@@ -415,6 +413,8 @@ namespace
 
         }
 
+		void set_node_address(io::Address node_address) override {}
+
         int m_peerCount;
 
         vector<IWallet*> m_peers;
@@ -507,6 +507,16 @@ namespace
 
         void close_node_connection() override
         {
+        }
+
+        void new_own_address(const WalletID&) override
+        {
+
+        }
+
+        void address_deleted(const WalletID& address) override
+        {
+
         }
     };
 }
@@ -731,9 +741,9 @@ void TestP2PWalletNegotiationST()
     auto receiverBbsKeys = createBbsKeystore("receiver-bbs", keystorePass);
 
     WalletID senderID = {};
-    senderBbsKeys->gen_keypair(senderID, keystorePass.data(), keystorePass.size(), true);
+    senderBbsKeys->gen_keypair(senderID, true);
     WalletID receiverID = {};
-    receiverBbsKeys->gen_keypair(receiverID, keystorePass.data(), keystorePass.size(), true);
+    receiverBbsKeys->gen_keypair(receiverID, true);
     
     auto senderKeychain = createSenderKeychain();
     auto receiverKeychain = createReceiverKeychain();
@@ -956,9 +966,9 @@ void TestP2PWalletNegotiationST()
      auto receiverBbsKeys = createBbsKeystore("receiver-bbs", keystorePass);
 
      WalletID senderID = {};
-     senderBbsKeys->gen_keypair(senderID, keystorePass.data(), keystorePass.size(), true);
+     senderBbsKeys->gen_keypair(senderID, true);
      WalletID receiverID = {};
-     receiverBbsKeys->gen_keypair(receiverID, keystorePass.data(), keystorePass.size(), true);
+     receiverBbsKeys->gen_keypair(receiverID, true);
 
      auto senderKeychain = createSenderKeychain();
      auto receiverKeychain = createReceiverKeychain();

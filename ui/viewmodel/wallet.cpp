@@ -50,7 +50,11 @@ QString TxObject::amount() const
 
 QString TxObject::change() const
 {
-	return BeamToString(_tx.m_change) + " BEAM";
+	if (_tx.m_change)
+	{
+		return BeamToString(_tx.m_change);
+	}
+	return QString{};
 }
 
 QString TxObject::status() const
@@ -477,7 +481,7 @@ void WalletViewModel::sendMoney()
 
 void WalletViewModel::syncWithNode()
 {
-    setIsSyncInProgress(true);
+    //setIsSyncInProgress(true);
 	_model.async->syncWithNode();
 }
 

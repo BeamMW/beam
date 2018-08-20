@@ -72,8 +72,7 @@ int main (int argc, char* argv[])
 {
 	QApplication app(argc, argv);
 
-	QApplication::setApplicationName("Beam");
-	QApplication::setOrganizationName("beam-mw.com");
+	QApplication::setApplicationName("Beam Wallet");
 
 	QDir appDataDir(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
 
@@ -140,7 +139,7 @@ int main (int argc, char* argv[])
 
 			IKeyStore::Ptr keystore;
 
-			std::unique_ptr<WalletModel> walletModel;
+			WalletModel::Ptr walletModel;
 
 			struct ViewModel
 			{
@@ -150,14 +149,14 @@ int main (int argc, char* argv[])
 				AddressBookViewModel    addressBook;
 				NotificationsViewModel	notifications;
 				HelpViewModel			help;
-				SettingsViewModel		settings;
 
-				ViewModel(WalletModel& model)
+				ViewModel(WalletModel& model, const QDir& appDataDir)
 					: wallet(model)
 					, addressBook(model) {}
 			};
 
 			std::unique_ptr<ViewModel> viewModels;
+			SettingsViewModel settingsViewModel(appDataDir.filePath("setting.ini"));
 
 			Translator translator;
 
@@ -174,11 +173,25 @@ int main (int argc, char* argv[])
 
 				keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
 
-					walletModel = std::make_unique<WalletModel>(db, keystore);
+				std::string nodeAddr = "0.0.0.0";
+				if (settingsViewModel.nodeAddress().isEmpty())
+				{
+					if (vm.count(cli::NODE_ADDR))
+					{
+						nodeAddr = vm[cli::NODE_ADDR].as<string>();
+					}
+				}
+				else
+				{
+					nodeAddr = settingsViewModel.nodeAddress().toStdString();
+				}
+
+				walletModel = std::make_shared<WalletModel>(db, keystore, nodeAddr);
+				settingsViewModel.initModel(walletModel);
 
 				walletModel->start();
 
-				viewModels = std::make_unique<ViewModel>(*walletModel);
+				viewModels = std::make_unique<ViewModel>(*walletModel, appDataDir);
 
 				QQmlContext *ctxt = view.rootContext();
 
@@ -186,6 +199,7 @@ int main (int argc, char* argv[])
 				ctxt->setContextProperty("mainViewModel", &viewModels->main);
 				ctxt->setContextProperty("walletViewModel", &viewModels->wallet);
 				ctxt->setContextProperty("addressBookViewModel", &viewModels->addressBook);
+				ctxt->setContextProperty("settingsViewModel", &settingsViewModel);
 				ctxt->setContextProperty("translator", &translator);
 
 				view.rootObject()->setProperty("source", "qrc:///main.qml");

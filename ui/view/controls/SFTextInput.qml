@@ -9,7 +9,7 @@ TextInput {
     font {
         family: sf_pro_display.name
     }
-
+    activeFocusOnTab: true
     selectByMouse: true
 
     MouseArea {

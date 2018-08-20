@@ -98,6 +98,7 @@ Rectangle {
         anchors.rightMargin: 30
         anchors.leftMargin: 100
         anchors.fill: parent
+        focus: true
 
         clip: true
     }
@@ -105,7 +106,6 @@ Rectangle {
     function updateItem(index)
     {
         selectedItem = index
-        //content.source = "qrc:///" + contentItems[index] + ".qml"
         content.setSource("qrc:///" + contentItems[index] + ".qml", {"toSend": false})
         mainViewModel.update(index)
     }

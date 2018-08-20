@@ -9,12 +9,11 @@
         <file>controls/SecondaryPanel.qml</file>
         <file>controls/Led.qml</file>
         <file>controls/TxFilter.qml</file>
-        <file>controls/CuteButton.qml</file>
         <file>controls/TableItem.qml</file>
         <file>controls/ContextMenu.qml</file>
         <file>controls/DefaultButton.qml</file>
         <file>controls/PrimaryButton.qml</file>
-        <file>controls/IconButton.qml</file>
+        <file>controls/CustomButton.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>
         <file>main.qml</file>
@@ -56,6 +55,7 @@
         <file>assets/icon-utxo-active.svg</file>
         <file>assets/icon-copy.svg</file>
         <file>assets/icon-down.svg</file>
+		<file>assets/icon-send.svg</file>
         <file>controls/AddressComboBox.qml</file>
     </qresource>
 </RCC>

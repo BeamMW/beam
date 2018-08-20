@@ -41,15 +41,15 @@ Item
             spacing: 30
 
             // DefaultButton {
-            //     label: "restore wallet from file"
+            //     text: "restore wallet from file"
             // }
 
             // DefaultButton {
-            //     label: "restore wallet from blockchain"
+            //     text: "restore wallet from blockchain"
             // }
 
             PrimaryButton {
-                label: "create new wallet"
+                text: "create new wallet"
 
                 onClicked: root.state = "create"
             }
@@ -142,19 +142,19 @@ Item
 
             spacing: 30
 
-    //         DefaultButton {
-    //             label: "restore wallet from file"
+            //DefaultButton {
+            //    text: "restore wallet from file"
 				// activeFocusOnTab: true
-    //         }
+            //}
 
     //         DefaultButton {
-    //             label: "restore wallet from blockchain"
+    //             text: "restore wallet from blockchain"
 				// activeFocusOnTab: true
     //         }
 
             PrimaryButton {
 				id: btnCurrentWallet
-                label: "open wallet"
+                text: "open wallet"
 				activeFocusOnTab: true
                 onClicked: {
                     if(openPassword.text.length == 0)
@@ -212,41 +212,6 @@ Item
             clip: true
 
             spacing: 30
-
-            Column {
-                width: parent.width
-
-                spacing: 10
-
-                SFText {
-                    text: "Enter node IP address and port"
-                    color: Style.white
-                    font.pixelSize: 12
-                    font.weight: Font.Bold
-                }
-
-                SFTextInput {
-
-                    id: nodeAddr
-
-                    width: parent.width
-
-                    font.pixelSize: 12
-                    color: Style.white
-
-                    text: "127.0.0.1:5555"
-
-                    focus: true
-                }
-
-                Rectangle {
-                    width: parent.width
-                    height: 1
-
-                    color: Style.white
-                    opacity: 0.1
-                }
-            }
 
             Column {
                 width: parent.width
@@ -384,18 +349,14 @@ Item
         }
 
         PrimaryButton {
-            label: "create wallet"
+            text: "create wallet"
 
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
             anchors.topMargin: 599
 
             onClicked: {
-                if(nodeAddr.text.length == 0)
-                {
-                    passwordError.text = "Please, enter node IP address and port";
-                }
-                else if(seed.text.length == 0)
+                if(seed.text.length == 0)
                 {
                     passwordError.text = "Please, enter miner secret";
                 }
@@ -407,7 +368,7 @@ Item
                 {
                     passwordError.text = "Passwords do not match";
                 }
-                else if(!startViewModel.createWallet(seed.text, password.text, nodeAddr.text))
+                else if(!startViewModel.createWallet(seed.text, password.text))
                 {
                     passwordError.text = "Error, something went worng, wallet not created :(";
                 }

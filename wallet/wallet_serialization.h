@@ -138,36 +138,5 @@ namespace yas::detail
             return ar;
         }
     };
-    template<std::size_t F>
-    struct serializer<type_prop::not_a_fundamental
-        , ser_method::use_internal_serializer
-        , F
-        , beam::Coin>
-    {
-        using Type = beam::Coin;
-        template<typename Archive>
-        static Archive& save(Archive& ar, const Type& v)
-        {
-            ar  & v.m_id
-                & v.m_createHeight
-                & v.m_maturity
-                & v.m_key_type
-                & v.m_amount
-                & v.m_status;
-            return ar;
-        }
 
-        template<typename Archive>
-        static Archive& load(Archive& ar, Type& v)
-        {
-            // TODO: store id only
-            ar & v.m_id
-               & v.m_createHeight
-               & v.m_maturity
-               & v.m_key_type
-               & v.m_amount
-               & v.m_status;
-            return ar;
-        }
-    };
 }

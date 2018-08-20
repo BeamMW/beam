@@ -64,9 +64,6 @@ namespace beam
 
         void add_wallet(const WalletID& walletID);
 
-        // TODO now from add_wallet ???
-        void listen_to_bbs_channel(uint32_t channel);
-
     private:
         // INetworkIO
         void send_tx_message(const WalletID& to, wallet::Invite&&) override;
@@ -81,9 +78,14 @@ namespace beam
         void send_node_message(proto::GetMined&&) override;
         void send_node_message(proto::GetProofState&&) override;
 
+		void set_node_address(io::Address node_address) override;
+
         //void close_connection(const WalletID& id) override;
         void connect_node() override;
         void close_node_connection() override;
+
+        void new_own_address(const WalletID& address) override;
+        void address_deleted(const WalletID& address) override;
 
         // IMsgHandler
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;
@@ -103,6 +105,7 @@ namespace beam
         void on_close_connection_timer();
         void postpone_close_timer();
         void on_node_connected();
+        void on_node_disconnected();
 
         void create_node_connection();
 
@@ -141,11 +144,14 @@ namespace beam
             }
             else
             {
+                postpone_close_timer();
                 m_node_connection->Send(msg);
             }
         }
 
         void update_wallets(const WalletID& walletID);
+
+        void listen_to_bbs_channel(const WalletID& walletID);
 
         bool handle_bbs_message(proto::BbsMsg&& msg);
 

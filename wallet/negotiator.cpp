@@ -30,18 +30,41 @@ namespace beam::wallet
         , m_fsm{ std::ref(*this) }
     {
         assert(keychain);
+
+        try
+        {
+            if (!m_txDesc.m_fsmState.empty())
+            {
+                Deserializer d;
+                d.reset(&m_txDesc.m_fsmState[0], m_txDesc.m_fsmState.size());
+                d & *this;
+            }
+        }
+        catch (...)
+        {
+            m_txDesc.m_fsmState.clear();
+        }
+    }
+
+    void Negotiator::saveState()
+    {
+        if (m_txDesc.canResume())
+        {
+            Serializer ser;
+            ser & *this;
+            ser.swap_buf(m_txDesc.m_fsmState);
+        }
+        else
+        {
+            m_txDesc.m_fsmState.clear();
+        }
+        m_keychain->saveTx(m_txDesc);
     }
 
     Negotiator::FSMDefinition::FSMDefinition(Negotiator& parent)
         : m_parent{ parent }
     {
         m_blindingExcess = ECC::Zero;
-        if (!m_parent.m_txDesc.m_fsmState.empty())
-        {
-            Deserializer d;
-            d.reset(&m_parent.m_txDesc.m_fsmState[0], m_parent.m_txDesc.m_fsmState.size());
-            d & *this;
-        }
     }
 
     void Negotiator::FSMDefinition::invitePeer(const events::TxInitiated&)
@@ -231,6 +254,7 @@ namespace beam::wallet
         }
         else
         {
+			update_tx_description(TxDescription::Cancelled);
             rollbackTx();
             m_parent.m_gateway.send_tx_failed(m_parent.m_txDesc);
         }
@@ -269,10 +293,6 @@ namespace beam::wallet
     {
         m_parent.m_txDesc.m_status = s;
         m_parent.m_txDesc.m_modifyTime = getTimestamp();
-        Serializer ser;
-        ser & *this;
-        ser.swap_buf(m_parent.m_txDesc.m_fsmState);
-        m_parent.m_keychain->saveTx(m_parent.m_txDesc);
     }
 
     bool Negotiator::FSMDefinition::prepareSenderUtxos(const Height& currentHeight)

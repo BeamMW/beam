@@ -10,7 +10,7 @@ ColumnLayout {
     width: 800
     height: 600
     anchors.fill: parent
-    state: "own"
+    state: "peers"
 	SFText {
         Layout.minimumHeight: 40
         Layout.maximumHeight: 40
@@ -40,7 +40,7 @@ ColumnLayout {
 				id: createAddressLayout
 				anchors.fill: parent
 				anchors.margins: 30
-				state: "own"
+				state: "peers"
 
 				Item {
 					Layout.minimumHeight: 21
@@ -68,18 +68,18 @@ ColumnLayout {
 						anchors.centerIn: parent
 						Layout.minimumHeight: 14
 						Layout.maximumHeight: 14
-					
-						TxFilter{
-							id: ownFilterDlg
-							label: qsTr("OWN ADDRESSES")
-							onClicked: createAddressLayout.state = "own"
-						}
 
 						TxFilter{
 							id: peersFilterDlg
-							Layout.leftMargin: 40
 							label: qsTr("PEERS ADDRESSES")
 							onClicked: createAddressLayout.state = "peers"
+						}
+
+                        TxFilter{
+							id: ownFilterDlg
+                            Layout.leftMargin: 40
+							label: qsTr("OWN ADDRESSES")
+							onClicked: createAddressLayout.state = "own"
 						}
 					}
 				}
@@ -107,6 +107,7 @@ ColumnLayout {
 						Layout.fillWidth: true
 						Layout.minimumHeight: 14
 						Layout.maximumHeight: 14
+                        focus: true
 						font.pixelSize: 12
 						color: Style.white
 						text: addressBookViewModel.newPeerAddress.walletID
@@ -226,6 +227,7 @@ ColumnLayout {
 						font.pixelSize: 12
 						color: Style.disable_text_color
 						readOnly: true
+                        activeFocusOnTab: false
 						text: addressBookViewModel.newOwnAddress.walletID
 					}
 
@@ -250,6 +252,7 @@ ColumnLayout {
                         Layout.minimumHeight: 14
 						Layout.maximumHeight: 14
 						id: nameOwnAddress
+                        focus: true
 						font.pixelSize: 12
 						color: Style.white
 						height: 14
@@ -309,36 +312,33 @@ ColumnLayout {
 
 				Item {
 					Layout.fillWidth: true
-					Layout.minimumHeight: 38
-					Layout.maximumHeight: 38
+					Layout.minimumHeight: 48
+					Layout.maximumHeight: 48
 					Layout.topMargin: 30
 
 					RowLayout {
-						Layout.minimumHeight: 38
-						Layout.maximumHeight: 38
 						anchors.centerIn: parent
 						
-						IconButton {
-							color: Style.separator_color
-							textColor: Style.white
-							width: 122
-							height: 38
-							label: qsTr("cancel")
-							iconName: "icon-cancel"
+						CustomButton {
+							palette.buttonText: Style.white
+                            Layout.minimumHeight: 38
+							Layout.minimumWidth: 122
+							text: qsTr("cancel")
+							icon.source: "qrc:///assets/icon-cancel.svg"
 
 							onClicked: {
 								createAddress.close()
 							}
 						}
 
-						IconButton {
-							color: Style.bright_teal
+						CustomButton {
+							palette.button: Style.bright_teal
 							Layout.leftMargin: 31
-							width: 166
-							height: 38
-							label: qsTr("create address")
-							iconName: "icon-done"
-							textColor: Style.marine
+                            Layout.minimumHeight: 38
+                            Layout.minimumWidth: 166
+							text: qsTr("create address")
+							icon.source: "qrc:///assets/icon-done.svg"
+							palette.buttonText: Style.marine
 								
 							onClicked: {
 								if (createAddressLayout.state == "own") {
@@ -356,37 +356,27 @@ ColumnLayout {
 					State {
 						name: "own"
 						PropertyChanges {target: ownFilterDlg; state: "active"}
-						PropertyChanges {
-							target: createOwnAddressView
-							visible: true							
-						}
+						PropertyChanges {target: createOwnAddressView; visible: true}
+                        PropertyChanges {target: createPeersAddressView; visible: false}
 
-						PropertyChanges {
-							target: createAddress
-						}
+                        StateChangeScript {
+                            script: {
+                                nameOwnAddress.forceActiveFocus();
+                            }
+                        }
 
-						PropertyChanges {
-							target: createPeersAddressView
-							visible: false
-						}
 					},
 					State {
 						name: "peers"
 						PropertyChanges {target: peersFilterDlg; state: "active"}
+                        PropertyChanges {target: createOwnAddressView; visible: false}
+						PropertyChanges {target: createPeersAddressView; visible: true}
 
-						PropertyChanges {
-							target: createOwnAddressView
-							visible: false
-						}
-
-						PropertyChanges {
-							target: createAddress
-						}
-
-						PropertyChanges {
-							target: createPeersAddressView
-							visible: true
-						}
+                        StateChangeScript {
+                            script: {
+                                addressID.forceActiveFocus();
+                            }
+                        }
 					}
 				]
 			}
@@ -398,33 +388,34 @@ ColumnLayout {
         Layout.minimumHeight: 40
         Layout.maximumHeight: 40
         spacing: 40
-        TxFilter{
-            id: ownFilter
-            Layout.leftMargin: 20
-            label: qsTr("OWN ADDRESSES")
-            onClicked: addressRoot.state = "own"
-        }
 
         TxFilter{
             id: peersFilter
+            Layout.leftMargin: 20
             label: qsTr("PEERS ADDRESSES")
             onClicked: addressRoot.state = "peers"
+        }
+
+        TxFilter{
+            id: ownFilter
+            label: qsTr("OWN ADDRESSES")
+            onClicked: addressRoot.state = "own"
         }
 
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            IconButton {
+            
+            CustomButton {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.right: parent.right
                 width: 195
-				height: 38
-				label: "create new address"
-				textColor: Style.white
-				iconName: "icon-add"
-				onClicked: {
-					addressBookViewModel.generateNewEmptyAddress()
-					createAddressLayout.state = addressRoot.state
+				text: "create new address"
+				palette.buttonText: Style.white
+				icon.source: "qrc:///assets/icon-add.svg"
+                onClicked: {
+					addressBookViewModel.generateNewEmptyAddress();
+					createAddressLayout.state = addressRoot.state;
 					createAddress.open();
 				}
             }
@@ -509,6 +500,17 @@ ColumnLayout {
 					enabled: false
                 }
 				Action {
+                    text: qsTr("copy address")
+					icon.source: "qrc:///assets/icon-copy.svg"
+					onTriggered: {
+						if (peerAddressContextMenu.index >= 0)
+						{
+							var addr = addressBookViewModel.peerAddresses[peerAddressContextMenu.index];
+							addressBookViewModel.copyToClipboard(addr.walletID);
+						}
+                    }
+                }
+				Action {
                     text: qsTr("edit address")
 					icon.source: "qrc:///assets/icon-edit.svg"
 					enabled: false
@@ -529,7 +531,11 @@ ColumnLayout {
                     text: qsTr("copy address")
 					icon.source: "qrc:///assets/icon-copy.svg"
 					onTriggered: {
-                        addressBookViewModel.copyAddressToClipboard(ownAddressContextMenu.index);
+						if (ownAddressContextMenu.index >= 0)
+						{
+							var addr = addressBookViewModel.ownAddresses[ownAddressContextMenu.index];
+							addressBookViewModel.copyToClipboard(addr.walletID);
+						}
                     }
                 }
 				Action {

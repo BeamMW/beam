@@ -17,10 +17,11 @@ ComboBox {
         id: itemDelegate
         width: control.width
         contentItem: SFText {
-            text: modelData.name+"(" + modelData.walletID +")"
+            text: "<b>" + modelData.name+"</b> (" + modelData.walletID +")"
             color: control.color
             elide: Text.ElideMiddle
             verticalAlignment: Text.AlignVCenter
+			font.pixelSize: 14
         }
         highlighted: control.highlightedIndex === index
 
@@ -44,6 +45,7 @@ ComboBox {
         clip: true
         text: control.editText
         color: control.color
+		font.pixelSize: 14
         verticalAlignment: Text.AlignVCenter
     }
 

@@ -472,7 +472,6 @@ namespace beam
         const char* Version = "Version";
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
-		const char* NodeAddrName = "NodeAddr";
         const int BusyTimeoutMs = 1000;
         const int DbVersion = 4;
     }
@@ -880,6 +879,7 @@ namespace beam
             }
 
             trans.commit();
+            notifyKeychainChanged();
         }
     }
 
@@ -968,6 +968,20 @@ namespace beam
 		return size;
 	}
 
+    bool Keychain::getBlob(const char* name, ByteBuffer& var) const
+    {
+        const char* req = "SELECT value FROM " VARIABLES_NAME " WHERE name=?1;";
+
+        sqlite::Statement stm(_db, req);
+        stm.bind(1, name);
+        if (stm.step())
+        {
+            stm.get(0, var);
+            return true;
+        }
+        return false;
+    }
+
     Timestamp Keychain::getLastUpdateTime() const
     {
         Timestamp timestamp = {};
@@ -988,17 +1002,6 @@ namespace beam
 	bool Keychain::getSystemStateID(Block::SystemState::ID& stateID) const
 	{
 		return getVar(SystemStateIDName, stateID);
-	}
-
-	void Keychain::setNodeAddr(const io::Address& nodeAddr)
-	{
-		setVar(NodeAddrName, nodeAddr);
-		notifySystemStateChanged();
-	}
-
-	bool Keychain::getNodeAddr(io::Address& nodeAddr) const
-	{
-		return getVar(NodeAddrName, nodeAddr);
 	}
 
 	Height Keychain::getCurrentHeight() const
@@ -1061,6 +1064,7 @@ namespace beam
         }
 
         trans.commit();
+        notifyKeychainChanged();
     }
 
     vector<TxDescription> Keychain::getTxHistory(uint64_t start, int count)
@@ -1168,6 +1172,7 @@ namespace beam
             stm.step();
         }
         trans.commit();
+        notifyKeychainChanged();
     }
 
     std::vector<TxPeer> Keychain::getPeers()

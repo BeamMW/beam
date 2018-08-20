@@ -162,7 +162,6 @@ namespace beam
     Wallet::~Wallet()
     {
         m_network->set_wallet(nullptr);
-        //assert(m_negotiators.empty());
         assert(m_reg_requests.empty());
         assert(m_removedNegotiators.empty());
     }
@@ -173,13 +172,13 @@ namespace beam
         TxID txId{};
         copy(id.begin(), id.end(), txId.begin());
         TxDescription tx( txId, amount, fee, m_keyChain->getCurrentHeight(), to, from, move(message), getTimestamp(), sender);
+        m_keyChain->saveTx(tx);
         resume_negotiator(tx);
         return txId;
     }
 
     void Wallet::resume_tx(const TxDescription& tx)
     {
-        //resume_negotiator(tx);
         assert(m_synchronized);
 
         if (tx.canResume() && m_negotiators.find(tx.m_txId) == m_negotiators.end())
@@ -188,7 +187,6 @@ namespace beam
             auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
 
             m_negotiators.emplace(tx.m_txId, s);
-            s->process_event(events::TxResumed{});
         }
     }
 
@@ -219,15 +217,7 @@ namespace beam
             m_removedNegotiators.push_back(move(it->second));
             m_negotiators.erase(it);
         }
-
-        // remove state machine from db
-        auto t = m_keyChain->getTx(tx.m_txId);
-        if (t.is_initialized())
-        {
-            t->m_fsmState.clear();
-            m_keyChain->saveTx(*t);
-        }
-        
+ 
 
         if (m_tx_completed_action)
         {
@@ -262,6 +252,11 @@ namespace beam
 
     void Wallet::handle_tx_message(const WalletID& receiver, Invite&& msg)
     {
+        auto stored = m_keyChain->getTx(msg.m_txId);
+        if (stored.is_initialized() && !stored->canResume())
+        {
+            return;
+        }
         auto it = m_negotiators.find(msg.m_txId);
         if (it == m_negotiators.end())
         {
@@ -270,6 +265,7 @@ namespace beam
             TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, receiver, {}, getTimestamp(), sender };
             auto r = make_shared<Negotiator>(*this, m_keyChain, tx);
             m_negotiators.emplace(tx.m_txId, r);
+            m_keyChain->saveTx(tx);
             Cleaner c{ m_removedNegotiators };
             if (r->ProcessInvitation(msg))
             {
@@ -372,6 +368,15 @@ namespace beam
             m_keyChain->deleteTx(txId);
         }
     }
+
+	void Wallet::set_node_address(io::Address node_address)
+	{
+		m_network->set_node_address(node_address);
+
+		m_newStateID = Block::SystemState::ID();
+		m_keyChain->setSystemStateID(m_newStateID);
+		m_knownStateID = m_newStateID;
+	}
 
     bool Wallet::handle_node_message(proto::ProofUtxo&& utxoProof)
     {
