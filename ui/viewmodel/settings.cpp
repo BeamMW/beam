@@ -14,3 +14,38 @@
 
 #include "settings.h"
 
+#include <QtQuick>
+
+namespace
+{
+	const char* NodeAddressName = "node/address";
+}
+
+SettingsViewModel::SettingsViewModel(const QString& iniPath)
+	: _data(iniPath, QSettings::IniFormat)
+{
+
+}
+
+void SettingsViewModel::initModel(WalletModel::Ptr model)
+{
+	_model = model;
+}
+
+QString SettingsViewModel::nodeAddress() const
+{
+	return _data.value(NodeAddressName).toString();
+}
+
+void SettingsViewModel::applyChanges(const QString& addr)
+{
+	if (addr != nodeAddress())
+	{
+		_data.setValue(NodeAddressName, addr);
+
+		if(_model)
+			_model->async->setNodeAddress(addr.toStdString());
+
+		emit nodeAddressChanged();
+	}
+}

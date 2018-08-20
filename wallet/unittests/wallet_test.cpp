@@ -82,9 +82,6 @@ namespace
 		void setSystemStateID(const Block::SystemState::ID& ) override {};
 		bool getSystemStateID(Block::SystemState::ID& ) const override { return false; };
 
-		void setNodeAddr(const io::Address& nodeAddr) override {};
-		bool getNodeAddr(io::Address& nodeAddr) const override { return false; };
-
 		void subscribe(IKeyChainObserver* observer) override {}
 		void unsubscribe(IKeyChainObserver* observer) override {}
 
@@ -415,6 +412,8 @@ namespace
         {
 
         }
+
+		void set_node_address(io::Address node_address) override {}
 
         int m_peerCount;
 
