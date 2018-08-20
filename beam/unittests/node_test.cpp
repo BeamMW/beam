@@ -952,10 +952,6 @@ namespace beam
 			{
 				SetTimer(90 * 1000);
 
-				ECC::Scalar::Native sk;
-				DeriveKey(sk, m_Wallet.m_Kdf, 0, KeyType::Identity);
-				ProveID(sk, proto::IDType::Owner);
-
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
 				msgCfg.m_CfgChecksum = Rules::get().Checksum;
@@ -964,6 +960,18 @@ namespace beam
 
 				Send(proto::GetTime());
 				Send(proto::GetExternalAddr());
+			}
+
+			virtual void OnMsg(proto::Authentication&& msg) override
+			{
+				proto::NodeConnection::OnMsg(std::move(msg));
+
+				if (proto::IDType::Node == msg.m_IDType)
+				{
+					ECC::Scalar::Native sk;
+					DeriveKey(sk, m_Wallet.m_Kdf, 0, KeyType::Identity);
+					ProveID(sk, proto::IDType::Owner);
+				}
 			}
 
 			virtual void OnMsg(proto::Time&& msg) override
