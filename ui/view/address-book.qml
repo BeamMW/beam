@@ -31,9 +31,7 @@ ColumnLayout {
 		y: (parent.height - height) / 2
 		visible: false
 		focus: true
-		//background: null
-        //standardButtons: Dialog.Ok | Dialog.Cancel
-
+		
 		background: Rectangle {
 			radius: 10
             color: Style.dark_slate_blue
@@ -91,21 +89,6 @@ ColumnLayout {
 				text: qsTr("cancel")
                 DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
 			}
-        }
-
-        /*onAccepted: {
-            console.log("deleted button")
-			confirmationDialog.close();
-        }*/
-
-        /*onRejected: {
-            console.log("cancel button")
-			confirmationDialog.close()
-        }*/
-
-        onOpened: {
-            console.log("dialog on cpmpleted")
-            cancelButton.forceActiveFocus();
         }
     }
 
@@ -643,11 +626,21 @@ ColumnLayout {
                     text: qsTr("delete address")
 					icon.source: "qrc:///assets/icon-cancel.svg"
 					onTriggered: {
-                        addressBookViewModel.deleteOwnAddress(ownAddressContextMenu.index);                        
+                        var message = qsTr("The address %1 will be deleted. This operation can not be undone")
+                        confirmationDialog.text = message.arg(addressBookViewModel.ownAddresses[ownAddressContextMenu.index].walletID)
+                        confirmationDialog.isOwn = true
+                        confirmationDialog.open();
                     }
                     // User shouldn't delete "default" or last own adress
                     enabled: ((ownAddressesView.rowCount > 1) && 
                               (addressBookViewModel.ownAddresses[ownAddressContextMenu.index].name !== "default"))
+                }
+                Connections {
+                    target: confirmationDialog
+                    onAccepted: {
+                        if (confirmationDialog.isOwn)
+                            addressBookViewModel.deleteOwnAddress(ownAddressContextMenu.index);
+                    }
                 }
             }
 
