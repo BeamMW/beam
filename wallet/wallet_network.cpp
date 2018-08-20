@@ -432,6 +432,20 @@ namespace beam {
         return m_io.handle_bbs_message(move(msg));
     }
 
+	bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Authentication&& msg)
+	{
+		proto::NodeConnection::OnMsg(std::move(msg));
+
+		if (proto::IDType::Node == msg.m_IDType)
+		{
+			ECC::Scalar::Native sk;
+			if (m_wallet.get_IdentityKeyForNode(sk, msg.m_ID))
+				ProveID(sk, proto::IDType::Owner);
+		}
+
+		return true;
+	}
+
 	void WalletNetworkIO::set_node_address(io::Address node_address)
 	{
 		m_node_address = node_address;

@@ -89,6 +89,7 @@ namespace beam
 
         
         virtual ECC::Scalar::Native calcKey(const beam::Coin& coin) const = 0;
+		virtual void get_IdentityKey(ECC::Scalar::Native&) const = 0;
 
         virtual std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) = 0;
         virtual void store(beam::Coin& coin) = 0;
@@ -155,7 +156,8 @@ namespace beam
         ~Keychain();
 
         ECC::Scalar::Native calcKey(const beam::Coin& coin) const override;
-        std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) override;
+		void get_IdentityKey(ECC::Scalar::Native&) const override;
+		std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) override;
         void store(beam::Coin& coin) override;
         void store(std::vector<beam::Coin>& coins) override;
         void update(const std::vector<beam::Coin>& coins) override;

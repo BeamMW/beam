@@ -691,6 +691,11 @@ namespace beam
 		return key;
 	}
 
+	void Keychain::get_IdentityKey(ECC::Scalar::Native& sk) const
+	{
+		DeriveKey(sk, m_kdf, 0, KeyType::Identity);
+	}
+
 	vector<beam::Coin> Keychain::selectCoins(const Amount& amount, bool lock)
 	{
 		vector<beam::Coin> coins;

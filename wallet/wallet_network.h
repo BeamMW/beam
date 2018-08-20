@@ -172,7 +172,8 @@ namespace beam
             bool OnMsg2(proto::Hdr&& msg) override;
             bool OnMsg2(proto::Mined&& msg) override;
             bool OnMsg2(proto::BbsMsg&& msg) override;
-        private:
+			bool OnMsg2(proto::Authentication&& msg) override;
+		private:
             io::Address m_address;
             IWallet & m_wallet;
             std::vector<NodeConnectCallback> m_callbacks;
