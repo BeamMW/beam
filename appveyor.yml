@@ -25,9 +25,6 @@ environment:
   matrix:
   - arch: Win64
 
-init:
-  tzutil /s "Belarus Standard Time"
-
 before_build:
   - cmd: git clone --depth=1 https://github.com/beam-mw/libs.git c:/beam-libs
   - cmd: git clone --depth=1 https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
@@ -42,8 +39,8 @@ build:
   parallel: true
 
 on_success:
-- ps: $env:DATE=$(Get-Date -UFormat "%Y.%m.%d")
-- ps: $env:TIME=$(Get-Date -UFormat "%H:%M:%S")
+- ps: $env:DATE=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('yyyy.MM.dd')
+- ps: $env:TIME=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('HH:mm:ss')
 - cmd: >-
 
     cpack --verbose -G NSIS
