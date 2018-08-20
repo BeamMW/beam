@@ -45,7 +45,7 @@ on_success:
 
     7z a c:/projects/beam/beam/Release/beam.zip c:/projects/beam/beam/Release/beam.exe c:/projects/beam/beam/beam.cfg
 
-    set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win/%TIME%
+    set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win
 
     curl --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam.zip" %BUILDS_SERVER_PATH%/
 
