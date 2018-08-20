@@ -685,6 +685,7 @@ Item {
             ContextMenu {
                 id: txContextMenu
 				property TxObject transaction
+				property int index;
 				Action {
                     text: qsTr("copy address")
 					icon.source: "qrc:///assets/icon-copy.svg"
@@ -724,6 +725,7 @@ Item {
                     onClicked: {
                         if (mouse.button === Qt.RightButton && styleData.row !== undefined && styleData.row >=0)
                         {
+							txContextMenu.index = styleData.row;
                             txContextMenu.transaction = walletViewModel.tx[styleData.row];
                             txContextMenu.popup();
                         }
