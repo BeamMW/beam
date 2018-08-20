@@ -52,6 +52,8 @@ namespace beam
         virtual void cancel_tx(const TxID& id) = 0;
 
 		virtual void set_node_address(io::Address node_address) = 0;
+
+		virtual bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) = 0;
     };
 
     struct INetworkIO 
@@ -152,6 +154,7 @@ namespace beam
         void cancel_tx(const TxID& txId) override;
 
 		void set_node_address(io::Address node_address) override;
+		bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode);
 
     private:
         void remove_peer(const TxID& txId);
