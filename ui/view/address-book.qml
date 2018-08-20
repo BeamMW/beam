@@ -38,26 +38,15 @@ ColumnLayout {
             anchors.fill: parent            
         }
 
-        contentItem: Item {
-            ColumnLayout {
-                anchors.fill: parent
-                Item {
-                    Layout.fillWidth: true
-	                Layout.minimumHeight: 48
-	                Layout.maximumHeight: 48
-                    Layout.leftMargin: 10
-                    Layout.rightMargin: 10
-
-                    SFText {
-                        anchors.centerIn: parent
-                        width: parent.width
-                        id: messageText
-                        font.pixelSize: 14
-                        color: Style.white
-                        wrapMode: Text.WordWrap
-                    }
-                }                
-            }
+        contentItem: SFText {
+            anchors.centerIn: parent
+            anchors.leftMargin: 10
+            anchors.rightMargin: 10
+            width: parent.width
+            id: messageText
+            font.pixelSize: 14
+            color: Style.white
+            wrapMode: Text.WordWrap
         }
 
         footer: DialogButtonBox {
