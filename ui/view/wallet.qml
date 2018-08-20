@@ -382,57 +382,27 @@ Item {
 
                 spacing: 30
 
-                Rectangle {
-                    width: 130
-                    height: 40
-
-                    radius: 20
-
-                    color: Style.separator_color
-
-                    SFText {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.verticalCenter: parent.verticalCenter
-                        font.pixelSize: 18
-                        font.weight: Font.Bold
-                        color: Style.white
-                        text: "CANCEL"
-
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.state = "wallet"
-                    }
+                CustomButton {
+                    width: 122
+                    text: qsTr("cancel")
+                    palette.buttonText: Style.white
+                    palette.button: Style.white
+                    textOpacity: 0.1
+                    icon.source: "qrc:///assets/icon-cancel.svg"
+                    onClicked: root.state = "wallet"
                 }
 
-                Rectangle {
-                    width: 108
-                    height: 40
-
-                    radius: 20
-
-                    color: Style.heliotrope
-
-                    SFText {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.verticalCenter: parent.verticalCenter
-                        font.pixelSize: 18
-                        font.weight: Font.Bold
-                        color: Style.white
-                        text: "SEND"
+                CustomButton {
+                    width: 149
+                    text: qsTr("send money")
+                    palette.buttonText: Style.marine
+                    palette.button: Style.heliotrope
+                    icon.source: "qrc:///assets/icon-send.svg"
+                    onClicked: {
+                        walletViewModel.sendMoney()
+                        root.state = "wallet"
                     }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            walletViewModel.sendMoney()
-                            root.state = "wallet"
-                        }
-                    }
-                }                
+                }
             }
         }
 
@@ -453,11 +423,12 @@ Item {
         anchors.fill: parent
         state: "wide"
 
-        CuteButton {
+        CustomButton {
             anchors.top: parent.top
             anchors.right: parent.right
-
-            label: "SEND"
+            palette.button: Style.heliotrope
+            palette.buttonText: Style.marine
+            text: "SEND"
 
             onClicked: root.state = "send"
         }
@@ -628,7 +599,7 @@ Item {
 
             TableViewColumn {
                 role: "amount"
-                title: qsTr("Amount")
+                title: qsTr("Amount, BEAM")
                 width: 200 * (parent.width - 40 - 20) / 916
                 elideMode: Text.ElideRight
                 movable: false
@@ -645,7 +616,7 @@ Item {
                         color: parent.income ? Style.bright_sky_blue : Style.heliotrope
                         elide: Text.ElideRight
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "<font size='6'>" + (parent.income ? "+ " : "- ") + styleData.value + "</font> <font size='3'>BEAM</font>"
+                        text: "<font size='6'>" + (parent.income ? "+ " : "- ") + styleData.value + "</font>"
                         textFormat: Text.StyledText
                     }
                 }
@@ -653,7 +624,7 @@ Item {
 
             TableViewColumn {
                 role: "change"
-                title: qsTr("Change")
+                title: qsTr("Change, BEAM")
                 width: 200 * (parent.width - 40 - 20) / 916
                 elideMode: Text.ElideRight
 

@@ -82,9 +82,6 @@ namespace
 		void setSystemStateID(const Block::SystemState::ID& ) override {};
 		bool getSystemStateID(Block::SystemState::ID& ) const override { return false; };
 
-		void setNodeAddr(const io::Address& nodeAddr) override {};
-		bool getNodeAddr(io::Address& nodeAddr) const override { return false; };
-
 		void subscribe(IKeyChainObserver* observer) override {}
 		void unsubscribe(IKeyChainObserver* observer) override {}
 
@@ -160,7 +157,7 @@ namespace
         options.fileName = path;
 
         auto ks = IKeyStore::create(options, pass.c_str(), pass.size());
-
+        
         return ks;
     }
 
@@ -415,6 +412,8 @@ namespace
         {
 
         }
+
+		void set_node_address(io::Address node_address) override {}
 
         int m_peerCount;
 
@@ -747,7 +746,7 @@ void TestP2PWalletNegotiationST()
     WalletID receiverID = {};
     receiverBbsKeys->gen_keypair(receiverID);
     receiverBbsKeys->save_keypair(receiverID, true);
-
+    
     auto senderKeychain = createSenderKeychain();
     auto receiverKeychain = createReceiverKeychain();
 
@@ -816,7 +815,7 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newSenderCoins[3].m_amount == 9);
     WALLET_CHECK(newSenderCoins[3].m_status == Coin::Unspent);
     WALLET_CHECK(newSenderCoins[3].m_key_type == KeyType::Regular);
-
+    
     // Tx history check
     auto sh = senderKeychain->getTxHistory();
     WALLET_CHECK(sh.size() == 1);
@@ -865,7 +864,7 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
     WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unconfirmed);
     WALLET_CHECK(newReceiverCoins[0].m_key_type == KeyType::Regular);
-
+    
     WALLET_CHECK(newReceiverCoins[1].m_amount == 6);
     WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Unconfirmed);
     WALLET_CHECK(newReceiverCoins[1].m_key_type == KeyType::Regular);
@@ -932,7 +931,7 @@ void TestP2PWalletNegotiationST()
         return true;
     });
 
-    // no coins
+    // no coins 
     WALLET_CHECK(newSenderCoins.size() == 5);
     WALLET_CHECK(newReceiverCoins.size() == 2);
 
@@ -1148,7 +1147,7 @@ void TestP2PWalletNegotiationST()
          return true;
      });
 
-     // no coins
+     // no coins 
      WALLET_CHECK(newSenderCoins.size() == 5);
      WALLET_CHECK(newReceiverCoins.size() == 2);
 
@@ -1317,7 +1316,7 @@ void TestRollback(Height branch, Height current, unsigned step = 1)
 {
     cout << "\nRollback from " << current << " to " << branch << " step: " << step <<'\n';
     auto db = createSqliteKeychain("wallet.db");
-
+    
     MyMmr mmrNew, mmrOld;
 
     for (Height i = 0; i <= current; ++i)
@@ -1382,7 +1381,7 @@ void TestRollback(Height branch, Height current, unsigned step = 1)
         mmrOld.get_Proof(proof, i);
         Merkle::Hash hash = {};
         ECC::Hash::Processor() << i >> hash;
-
+        
         Merkle::Interpret(hash, proof);
         WALLET_CHECK(hash == oldStateDefinition);
     }
@@ -1391,9 +1390,9 @@ void TestRollback(Height branch, Height current, unsigned step = 1)
     auto network = make_shared<RollbackIO>(mainLoop, mmrNew, branch, current, step);
 
     Wallet sender(db, network);
-
+    
     network->registerPeer(&sender, true);
-
+    
     mainLoop.run();
 }
 
@@ -1412,7 +1411,7 @@ void TestRollback()
         TestRollback(i, s);
         TestRollback(i, s, 2);
     }
-
+    
     TestRollback(0, 1);
     TestRollback(2, 50);
     TestRollback(2, 51);

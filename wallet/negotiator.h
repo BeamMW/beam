@@ -86,6 +86,10 @@ namespace beam::wallet
         bool process_event(const Event& event)
         {
             auto res = m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
+            if (res)
+            {
+                saveState();
+            }
             return res;
         }
 
@@ -100,6 +104,8 @@ namespace beam::wallet
         {
             return m_fsm.current_state();
         }
+
+        void saveState();
 
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
@@ -163,12 +169,9 @@ namespace beam::wallet
             void sendConfirmTransaction() const;
             void sendNewTransaction() const;
 
-            Amount get_total() const;
-
             void update_tx_description(TxDescription::Status s);
             bool prepareSenderUtxos(const Height& currentHeight);
-			bool registerTxInternal(const events::TxConfirmationCompleted&);
-
+            bool registerTxInternal(const events::TxConfirmationCompleted&);
 
             using do_serialize = int;
             typedef int no_message_queue;

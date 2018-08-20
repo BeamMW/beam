@@ -431,4 +431,9 @@ namespace beam {
     {
         return m_io.handle_bbs_message(move(msg));
     }
+
+	void WalletNetworkIO::set_node_address(io::Address node_address)
+	{
+		m_node_address = node_address;
+	}
 }

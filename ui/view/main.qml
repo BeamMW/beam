@@ -98,6 +98,7 @@ Rectangle {
         anchors.rightMargin: 30
         anchors.leftMargin: 100
         anchors.fill: parent
+        focus: true
 
         clip: true
     }

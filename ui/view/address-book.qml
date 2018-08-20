@@ -107,6 +107,7 @@ ColumnLayout {
 						Layout.fillWidth: true
 						Layout.minimumHeight: 14
 						Layout.maximumHeight: 14
+                        focus: true
 						font.pixelSize: 12
 						color: Style.white
 						text: addressBookViewModel.newPeerAddress.walletID
@@ -226,6 +227,7 @@ ColumnLayout {
 						font.pixelSize: 12
 						color: Style.disable_text_color
 						readOnly: true
+                        activeFocusOnTab: false
 						text: addressBookViewModel.newOwnAddress.walletID
 					}
 
@@ -250,6 +252,7 @@ ColumnLayout {
                         Layout.minimumHeight: 14
 						Layout.maximumHeight: 14
 						id: nameOwnAddress
+                        focus: true
 						font.pixelSize: 12
 						color: Style.white
 						height: 14
@@ -309,36 +312,33 @@ ColumnLayout {
 
 				Item {
 					Layout.fillWidth: true
-					Layout.minimumHeight: 38
-					Layout.maximumHeight: 38
+					Layout.minimumHeight: 48
+					Layout.maximumHeight: 48
 					Layout.topMargin: 30
 
 					RowLayout {
-						Layout.minimumHeight: 38
-						Layout.maximumHeight: 38
 						anchors.centerIn: parent
 						
-						IconButton {
-							color: Style.separator_color
-							textColor: Style.white
-							width: 122
-							height: 38
-							label: qsTr("cancel")
-							iconName: "icon-cancel"
+						CustomButton {
+							palette.buttonText: Style.white
+                            Layout.minimumHeight: 38
+							Layout.minimumWidth: 122
+							text: qsTr("cancel")
+							icon.source: "qrc:///assets/icon-cancel.svg"
 
 							onClicked: {
 								createAddress.close()
 							}
 						}
 
-						IconButton {
-							color: Style.bright_teal
+						CustomButton {
+							palette.button: Style.bright_teal
 							Layout.leftMargin: 31
-							width: 166
-							height: 38
-							label: qsTr("create address")
-							iconName: "icon-done"
-							textColor: Style.marine
+                            Layout.minimumHeight: 38
+                            Layout.minimumWidth: 166
+							text: qsTr("create address")
+							icon.source: "qrc:///assets/icon-done.svg"
+							palette.buttonText: Style.marine
 								
 							onClicked: {
 								if (createAddressLayout.state == "own") {
@@ -356,37 +356,27 @@ ColumnLayout {
 					State {
 						name: "own"
 						PropertyChanges {target: ownFilterDlg; state: "active"}
-						PropertyChanges {
-							target: createOwnAddressView
-							visible: true							
-						}
+						PropertyChanges {target: createOwnAddressView; visible: true}
+                        PropertyChanges {target: createPeersAddressView; visible: false}
 
-						PropertyChanges {
-							target: createAddress
-						}
+                        StateChangeScript {
+                            script: {
+                                nameOwnAddress.forceActiveFocus();
+                            }
+                        }
 
-						PropertyChanges {
-							target: createPeersAddressView
-							visible: false
-						}
 					},
 					State {
 						name: "peers"
 						PropertyChanges {target: peersFilterDlg; state: "active"}
+                        PropertyChanges {target: createOwnAddressView; visible: false}
+						PropertyChanges {target: createPeersAddressView; visible: true}
 
-						PropertyChanges {
-							target: createOwnAddressView
-							visible: false
-						}
-
-						PropertyChanges {
-							target: createAddress
-						}
-
-						PropertyChanges {
-							target: createPeersAddressView
-							visible: true
-						}
+                        StateChangeScript {
+                            script: {
+                                addressID.forceActiveFocus();
+                            }
+                        }
 					}
 				]
 			}
@@ -420,9 +410,8 @@ ColumnLayout {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.right: parent.right
                 width: 195
-				height: 38
 				text: "create new address"
-				textColor: Style.white
+				palette.buttonText: Style.white
 				icon.source: "qrc:///assets/icon-add.svg"
                 onClicked: {
 					addressBookViewModel.generateNewEmptyAddress();
