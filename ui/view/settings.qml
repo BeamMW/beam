@@ -61,7 +61,7 @@ Rectangle {
 
             SFText {
                 id: nodeAddressError
-                color: "#ff625c"
+                color: Style.validator_color
                 font.pixelSize: 10
             }
         }

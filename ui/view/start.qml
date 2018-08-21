@@ -118,6 +118,7 @@ Item
                 color: Style.white
                 echoMode: TextInput.Password
 				onAccepted: btnCurrentWallet.clicked()
+                onTextChanged: if (openPassword.text.length > 0) openPasswordError.text = ""
             }
 
             Rectangle {
@@ -130,7 +131,7 @@ Item
 
             SFText {
                 id: openPasswordError
-                color: "#ff625c"
+                color: Style.validator_color
                 font.pixelSize: 10
             }
         }
@@ -233,6 +234,7 @@ Item
 
                     font.pixelSize: 12
                     color: Style.white
+                    onTextChanged: if (seed.text.length > 0) passwordError.text = ""
                 }
 
                 Rectangle {
@@ -265,6 +267,7 @@ Item
                     font.pixelSize: 12
                     color: Style.white
                     echoMode: TextInput.Password
+                    onTextChanged: if (password.text.length > 0) passwordError.text = ""
                 }
 
                 Rectangle {
@@ -330,6 +333,7 @@ Item
                     font.pixelSize: 12
                     color: Style.white
                     echoMode: TextInput.Password
+                    onTextChanged: if (confirmPassword.text.length > 0) passwordError.text = ""
                 }
 
                 Rectangle {
@@ -342,7 +346,7 @@ Item
 
                 SFText {
                     id: passwordError
-                    color: "#ff625c"
+                    color: Style.validator_color
                     font.pixelSize: 10
                 }
             }

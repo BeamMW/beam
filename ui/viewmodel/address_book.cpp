@@ -153,7 +153,7 @@ void AddressBookViewModel::generateNewEmptyAddress()
 void AddressBookViewModel::createNewPeerAddress()
 {
     auto bytes = from_hex(m_newPeerAddress.getWalletID().toStdString());
-    if (bytes.size() != sizeof(WalletID))
+    if (bytes.size() > sizeof(WalletID))
     {
         return;
     }

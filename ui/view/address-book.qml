@@ -116,6 +116,7 @@ ColumnLayout {
 						font.pixelSize: 12
 						color: Style.white
 						text: addressBookViewModel.newPeerAddress.walletID
+                        validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
 					}
 
 					Binding {
@@ -241,7 +242,7 @@ ColumnLayout {
                         Layout.minimumHeight: 1
                     }
 
-					SFText {
+                    SFText {
                         Layout.topMargin: 30
 						Layout.fillWidth: true
                         Layout.minimumHeight: 14
@@ -353,7 +354,7 @@ ColumnLayout {
 							}
 								
 							onClicked: {
-								if (createAddressLayout.state == "own") {
+                                if (createAddressLayout.state == "own") {
 									addressBookViewModel.createNewOwnAddress();
 								} else {
 									addressBookViewModel.createNewPeerAddress();

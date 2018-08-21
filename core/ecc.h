@@ -128,8 +128,9 @@ namespace ECC
 
         uintBig_t(const std::vector<uint8_t>& bytes)
         {
-            assert(bytes.size() == size());
-            std::copy(bytes.begin(), bytes.end(), m_pData);
+            assert(bytes.size() <= size());
+            memset0(m_pData, size() - bytes.size());
+            std::copy(bytes.begin(), bytes.end(), m_pData + size() - bytes.size());
         }
 
 		static_assert(!(7 & nBits_), "should be byte-aligned");
