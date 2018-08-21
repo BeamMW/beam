@@ -20,8 +20,8 @@ matrix:
         # deploy using ftp server
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/mac
         - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-        - curl --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
-        - curl --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Darwin.dmg" "$BUILDS_SERVER_PATH/Beam Wallet.dmg"
+        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/ -v
+        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Darwin.dmg" "$BUILDS_SERVER_PATH/Beam Wallet.dmg" -v
         # deploy using github
         - chmod +x ./deploy.sh;
         - ./deploy.sh;
@@ -52,8 +52,8 @@ matrix:
         # deploy using ftp
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/linux
         - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-        - curl --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
-        - curl --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Linux.deb" "$BUILDS_SERVER_PATH/Beam Wallet.deb"
+        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/ -v
+        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Linux.deb" "$BUILDS_SERVER_PATH/Beam Wallet.deb" -v
         # deploy using github
         - chmod +x ./deploy.sh;
         - ./deploy.sh;
