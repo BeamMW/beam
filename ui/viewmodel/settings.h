@@ -34,6 +34,7 @@ public:
 
 public slots:
 	void applyChanges(const QString& nodeAddr);
+	void emergencyReset();
 
 signals:
 	void nodeAddressChanged();

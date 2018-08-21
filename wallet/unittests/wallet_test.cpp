@@ -123,6 +123,8 @@ namespace
         void rollbackConfirmedUtxo(Height /*minHeight*/) override
         {}
 
+		void clear() override {}
+
     protected:
         std::vector<beam::Coin> m_coins;
     };

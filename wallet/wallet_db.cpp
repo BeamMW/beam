@@ -938,6 +938,21 @@ namespace beam
 		notifyKeychainChanged();
 	}
 
+	void Keychain::clear()
+	{
+		{
+			sqlite::Statement stm(_db, "DELETE FROM " STORAGE_NAME ";");
+			stm.step();
+			notifyKeychainChanged();
+		}
+
+		{
+			sqlite::Statement stm(_db, "DELETE FROM " HISTORY_NAME ";");
+			stm.step();
+			notifyTransactionChanged();
+		}
+	}
+
 	void Keychain::visit(function<bool(const beam::Coin& coin)> func)
 	{
 		const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME ";";

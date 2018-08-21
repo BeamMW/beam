@@ -52,6 +52,7 @@ namespace beam
         virtual void cancel_tx(const TxID& id) = 0;
 
 		virtual void set_node_address(io::Address node_address) = 0;
+		virtual void emergencyReset() = 0;
 
 		virtual bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) = 0;
     };
@@ -154,6 +155,7 @@ namespace beam
         void cancel_tx(const TxID& txId) override;
 
 		void set_node_address(io::Address node_address) override;
+		void emergencyReset() override;
 		bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode);
 
     private:
@@ -167,6 +169,7 @@ namespace beam
         void register_tx(const TxID& txId, Transaction::Ptr);
         void resume_negotiator(const TxDescription& tx);
 		void notifySyncProgress();
+		void resetSystemState();
 
         struct Cleaner
         {

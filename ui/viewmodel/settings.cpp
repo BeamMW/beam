@@ -49,3 +49,9 @@ void SettingsViewModel::applyChanges(const QString& addr)
 		emit nodeAddressChanged();
 	}
 }
+
+void SettingsViewModel::emergencyReset()
+{
+	if (_model)
+		_model->async->emergencyReset();
+}

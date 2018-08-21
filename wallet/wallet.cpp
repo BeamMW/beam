@@ -372,10 +372,22 @@ namespace beam
 	void Wallet::set_node_address(io::Address node_address)
 	{
 		m_network->set_node_address(node_address);
+		resetSystemState();
+	}
 
+	void Wallet::resetSystemState()
+	{
 		m_newStateID = Block::SystemState::ID();
 		m_keyChain->setSystemStateID(m_newStateID);
 		m_knownStateID = m_newStateID;
+	}
+
+	void Wallet::emergencyReset()
+	{
+		resetSystemState();
+
+		m_keyChain->setSystemStateID(m_newStateID);
+		m_keyChain->clear();
 	}
 
 	bool Wallet::get_IdentityKeyForNode(ECC::Scalar::Native& sk, const PeerID& idNode)
