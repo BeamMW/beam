@@ -486,14 +486,26 @@ namespace beam
         , m_confirmHeight{ confirmHeight }
         , m_lockedHeight{ lockedHeight }
 	{
-
+        assert(isValid());
 	}
 
 	Coin::Coin()
         : Coin(0, Coin::Unspent, 0, MaxHeight, KeyType::Regular, MaxHeight)
 	{
-
+        assert(isValid());
 	}
+
+    bool Coin::isReward() const
+    {
+        return m_key_type == KeyType::Coinbase || m_key_type == KeyType::Comission;
+    }
+
+    bool Coin::isValid() const
+    {
+        return m_createHeight <= m_maturity
+            && m_maturity <= m_lockedHeight
+            && m_createHeight < m_confirmHeight;
+    }
 
 	bool Keychain::isInitialized(const string& path)
 	{
@@ -822,7 +834,7 @@ namespace beam
 
     void Keychain::storeImpl(Coin& coin)
     {
-        assert(coin.m_amount > 0);
+        assert(coin.m_amount > 0 && coin.isValid());
         if (coin.m_key_type == KeyType::Coinbase
             || coin.m_key_type == KeyType::Comission)
         {
@@ -850,7 +862,7 @@ namespace beam
 
 	void Keychain::update(const beam::Coin& coin)
 	{
-        assert(coin.m_amount > 0);
+        assert(coin.m_amount > 0 && coin.m_id > 0 && coin.isValid());
 		sqlite::Transaction trans(_db);
 
 		{
@@ -875,6 +887,7 @@ namespace beam
 
             for (const auto& coin : coins)
             {
+                assert(coin.m_amount > 0 && coin.m_id > 0 && coin.isValid());
                 const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA, ) " WHERE id=?1;";
                 sqlite::Statement stm(_db, req);
 
@@ -1049,9 +1062,18 @@ namespace beam
     void Keychain::rollbackConfirmedUtxo(Height minHeight)
     {
         sqlite::Transaction trans(_db);
+
+        {
+            const char* req = "DELETE FROM " STORAGE_NAME " WHERE createHeight >?1 AND (key_type=?2 OR key_type=?3);";
+            sqlite::Statement stm(_db, req);
+            stm.bind(1, minHeight);
+            stm.bind(2, KeyType::Coinbase);
+            stm.bind(3, KeyType::Comission);
+            stm.step();
+        }
         
         {
-            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, confirmHeight=?2, lockedHeight=?2 WHERE confirmHeight > ?3 ;";
+            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, confirmHeight=?2, lockedHeight=?2, confirmHash=NULL WHERE confirmHeight > ?3 ;";
             sqlite::Statement stm(_db, req);
             stm.bind(1, Coin::Unconfirmed);
             stm.bind(2, MaxHeight);

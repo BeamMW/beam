@@ -39,16 +39,19 @@ build:
   parallel: true
 
 on_success:
-- ps: $env:DATE=$(Get-Date -UFormat "%Y.%m.%d")
+- ps: $env:DATE=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('yyyy.MM.dd')
+- ps: $env:TIME=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('HH:mm:ss')
 - cmd: >-
 
     cpack --verbose -G NSIS
 
     7z a c:/projects/beam/beam/Release/beam.zip c:/projects/beam/beam/Release/beam.exe c:/projects/beam/beam/beam.cfg
 
-    curl --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam.zip" "%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/win/"
+    set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win
 
-    curl --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/win/Beam Wallet.exe"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam.zip" %BUILDS_SERVER_PATH%/ -v
+
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILDS_SERVER_PATH%/Beam Wallet.exe" -v
 
     set REPO=https://%GITHUB_API_KEY%@github.com/beam-mw/beam-builds
 

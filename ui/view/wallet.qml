@@ -15,6 +15,15 @@ Item {
 
     state: "wallet"
 
+    ConfirmationDialog {
+        id: confirmationDialog
+        okButtonText: "send"
+        onAccepted: {
+            walletViewModel.sendMoney()
+            root.state = "wallet"
+        }
+    }
+
     SFText {
         font.pixelSize: 36
         color: Style.white
@@ -139,6 +148,7 @@ Item {
                             editText: walletViewModel.senderAddr
                             color: Style.white
                             font.pixelSize: 14
+                            //focus: true
                             onEditTextChanged: {
                                 var i = find(editText);
                                 senderName.text = i >= 0 ? addressBookViewModel.ownAddresses[i].name : "";
@@ -400,8 +410,11 @@ Item {
                     palette.button: Style.heliotrope
                     icon.source: "qrc:///assets/icon-send.svg"
                     onClicked: {
-                        walletViewModel.sendMoney()
-                        root.state = "wallet"
+                        var message = "You are about to send %1 to address %2";
+                        var beams = (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils*1 + walletViewModel.feeMils*1)/1000000) + " " + qsTr("BEAM");
+
+                        confirmationDialog.text = message.arg(beams).arg(walletViewModel.receiverAddr);
+                        confirmationDialog.open();                        
                     }
                 }
             }
@@ -782,6 +795,9 @@ Item {
             PropertyChanges {target: amount_input; text: ""}
             PropertyChanges {target: mils_amount_input; text: ""}
             PropertyChanges {target: mils_fee_input; text: ""}
+             StateChangeScript {
+                script: senderAddrCombo.forceActiveFocus(Qt.TabFocusReason);
+            }
         }
     ]
 }

@@ -3,6 +3,7 @@ import QtQuick.Controls 2.4
 import QtQuick.Layouts 1.0
 import QtQuick.Controls.impl 2.4
 import QtQuick.Controls.Styles 1.2
+import QtGraphicalEffects 1.0
 import "."
 
 Button {
@@ -55,12 +56,18 @@ Button {
         width: control.width
         height: control.height
 
-        border.color: control.palette.highlight
-        border.width: control.visualFocus ? 2 : 0
         MouseArea{
 		    anchors.fill: parent
 		    cursorShape: Qt.PointingHandCursor
             onClicked: control.clicked()
 	    }
     }
+	DropShadow {
+		anchors.fill: rect
+		radius: 7
+		samples: 9
+		color: "white"//Style.bright_teal
+		source: rect
+		visible: control.visualFocus
+	}
 }
