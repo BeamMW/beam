@@ -21,7 +21,7 @@ environment:
   GITHUB_API_KEY:
     secure: 3teRuVd1PpR8Y2XJEOWPWo7LYRhEKIZZk3w53nFG7hPsXrONIUb18SNfkVl+SICw
   BUILD_SERVER:
-    secure: LPABhHzY41Gvc2a2V6P8sr3ksQ3IiGkSWKMGZ0/7ByRnEvXg2NHKvoSvlw8/cYXtlgHHctTo5pQjpvGshdFwBQ==
+    secure: l9RqB2YbSnNIKZqTwnd67BHAXvbjmpj9zcf+YQPi9zfzsVeSysaoLD7gy4gSMjWurk2JVHjRpviw4bBxUbu2sA==
   matrix:
   - arch: Win64
 
@@ -49,9 +49,9 @@ on_success:
 
     set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam.zip" %BUILDS_SERVER_PATH%/ -v
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam.zip" %BUILDS_SERVER_PATH%/
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILDS_SERVER_PATH%/Beam Wallet.exe" -v
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILDS_SERVER_PATH%/Beam Wallet.exe"
 
     set REPO=https://%GITHUB_API_KEY%@github.com/beam-mw/beam-builds
 

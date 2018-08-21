@@ -18,8 +18,8 @@ matrix:
         # deploy using ftp server
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/mac
         - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/ -v
-        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Darwin.dmg" "$BUILDS_SERVER_PATH/Beam Wallet.dmg" -v
+        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
+        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Darwin.dmg" "$BUILDS_SERVER_PATH/Beam Wallet.dmg"
 
     - os: osx
       osx_image: xcode9.3
@@ -39,8 +39,8 @@ matrix:
         # deploy using ftp server
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/mac
         - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/ -v
-        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Darwin.dmg" "$BUILDS_SERVER_PATH/Beam Wallet.dmg" -v
+        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
+        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Darwin.dmg" "$BUILDS_SERVER_PATH/Beam Wallet.dmg"
         # deploy using github
         - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
             chmod +x ./deploy.sh;
@@ -72,8 +72,8 @@ matrix:
         # deploy using ftp
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/linux
         - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/ -v
-        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Linux.deb" "$BUILDS_SERVER_PATH/Beam Wallet.deb" -v
+        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
+        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Linux.deb" "$BUILDS_SERVER_PATH/Beam Wallet.deb"
 
     - os: linux
       addons:
@@ -101,8 +101,8 @@ matrix:
         # deploy using ftp
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/linux
         - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/ -v
-        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Linux.deb" "$BUILDS_SERVER_PATH/Beam Wallet.deb" -v
+        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
+        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Linux.deb" "$BUILDS_SERVER_PATH/Beam Wallet.deb"
         # deploy using github
         - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
             chmod +x ./deploy.sh;
