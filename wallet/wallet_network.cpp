@@ -389,6 +389,8 @@ namespace beam {
         LOG_VERBOSE() << "Wallet failed to connect to node, error: " << r;
         m_io.on_node_disconnected();
         m_wallet.abort_sync();
+        m_timer->cancel();
+        Reset();
         m_timer->start(m_reconnectMsec, false, [this]() {Connect(m_address); });
     }
 
