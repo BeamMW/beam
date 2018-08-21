@@ -148,6 +148,7 @@ Item {
                             editText: walletViewModel.senderAddr
                             color: Style.white
                             font.pixelSize: 14
+                            //focus: true
                             onEditTextChanged: {
                                 var i = find(editText);
                                 senderName.text = i >= 0 ? addressBookViewModel.ownAddresses[i].name : "";
@@ -793,6 +794,9 @@ Item {
             PropertyChanges {target: amount_input; text: ""}
             PropertyChanges {target: mils_amount_input; text: ""}
             PropertyChanges {target: mils_fee_input; text: ""}
+             StateChangeScript {
+                script: senderAddrCombo.forceActiveFocus(Qt.TabFocusReason);
+            }
         }
     ]
 }
