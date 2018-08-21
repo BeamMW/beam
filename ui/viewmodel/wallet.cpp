@@ -398,9 +398,7 @@ QQmlListProperty<TxObject> WalletViewModel::tx()
 
 QString WalletViewModel::syncTime() const
 {
-	auto time = beam::format_timestamp("%Y.%m.%d %H:%M:%S", _status.update.lastTime * 1000, false);
-
-	return QString::fromStdString(time);
+	return toString(_status.update.lastTime);
 }
 
 int WalletViewModel::syncProgress() const
