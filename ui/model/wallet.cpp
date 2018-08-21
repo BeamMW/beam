@@ -244,7 +244,7 @@ void WalletModel::run()
 				, _keystore
 				, _reactor);
 			_wallet_io = wallet_io;
-			auto wallet = make_shared<Wallet>(_keychain, wallet_io, true);
+			auto wallet = make_shared<Wallet>(_keychain, wallet_io);
 			_wallet = wallet;
 			subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 		}

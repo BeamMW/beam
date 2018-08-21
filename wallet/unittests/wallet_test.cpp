@@ -768,8 +768,8 @@ void TestP2PWalletNegotiationST()
     auto receiver_io = make_shared<WalletNetworkIO>( node_address, receiverKeychain, receiverBbsKeys, main_reactor, 1000, 2000);
 
 
-    Wallet sender{senderKeychain, sender_io, false, [sender_io](auto) { sender_io->stop(); } };
-    Wallet receiver{ receiverKeychain, receiver_io };
+    Wallet sender{senderKeychain, sender_io, true, [sender_io](auto) { sender_io->stop(); } };
+    Wallet receiver{ receiverKeychain, receiver_io, true };
 
     //// send to your peer
     //sender.transfer_money(senderID, senderID, 6);
@@ -1328,7 +1328,7 @@ void TestRollback(Height branch, Height current, unsigned step = 1)
 
     for (Height i = 0; i <= current; ++i)
     {
-        Coin coin1 = { 5, Coin::Unspent, 1, i+2, KeyType::Regular, i+2 };
+        Coin coin1 = { 5, Coin::Unspent, 0, 0, KeyType::Regular, i };
         Merkle::Hash hash = {};
         ECC::Hash::Processor() << i >> hash;
         coin1.m_confirmHash = hash;

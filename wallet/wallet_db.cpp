@@ -504,7 +504,7 @@ namespace beam
     {
         return m_createHeight <= m_maturity
             && m_maturity <= m_lockedHeight
-            && m_createHeight < m_confirmHeight;
+            && m_createHeight <= m_confirmHeight;
     }
 
 	bool Keychain::isInitialized(const string& path)
