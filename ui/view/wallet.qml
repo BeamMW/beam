@@ -15,6 +15,15 @@ Item {
 
     state: "wallet"
 
+    ConfirmationDialog {
+        id: confirmationDialog
+        okButtonText: "send"
+        onAccepted: {
+            walletViewModel.sendMoney()
+            root.state = "wallet"
+        }
+    }
+
     SFText {
         font.pixelSize: 36
         color: Style.white
@@ -400,8 +409,11 @@ Item {
                     palette.button: Style.heliotrope
                     icon.source: "qrc:///assets/icon-send.svg"
                     onClicked: {
-                        walletViewModel.sendMoney()
-                        root.state = "wallet"
+                        var message = "You are about to send %1 to address %2";
+                        var beams = (walletViewModel.sendAmount*1 + (walletViewModel.sendAmountMils*1 + walletViewModel.feeMils*1)/1000000) + " " + qsTr("BEAM");
+
+                        confirmationDialog.text = message.arg(beams).arg(walletViewModel.receiverAddr);
+                        confirmationDialog.open();                        
                     }
                 }
             }

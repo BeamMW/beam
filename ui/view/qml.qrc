@@ -14,6 +14,7 @@
         <file>controls/DefaultButton.qml</file>
         <file>controls/PrimaryButton.qml</file>
         <file>controls/CustomButton.qml</file>
+        <file>controls/ConfirmationDialog.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>
         <file>main.qml</file>
@@ -56,6 +57,6 @@
         <file>assets/icon-copy.svg</file>
         <file>assets/icon-down.svg</file>
 		<file>assets/icon-send.svg</file>
-        <file>controls/AddressComboBox.qml</file>
+        <file>controls/AddressComboBox.qml</file>        
     </qresource>
 </RCC>
