@@ -15,9 +15,10 @@ ColumnLayout {
         text: qsTr("UTXO")
     }
 
-	TableView {
+	CustomTableView {
 		Layout.fillWidth: true
 		Layout.fillHeight: true
+		Layout.bottomMargin: 9
 		frameVisible: false
         selectionMode: SelectionMode.NoSelection
         backgroundVisible: false

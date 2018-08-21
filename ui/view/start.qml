@@ -41,15 +41,15 @@ Item
             spacing: 30
 
             // DefaultButton {
-            //     text: "restore wallet from file"
+            //     text: qsTr("restore wallet from file")
             // }
 
             // DefaultButton {
-            //     text: "restore wallet from blockchain"
+            //     text: qsTr("restore wallet from blockchain")
             // }
 
             PrimaryButton {
-                text: "create new wallet"
+                text: qsTr("create new wallet")
 
                 onClicked: root.state = "create"
             }
@@ -82,7 +82,7 @@ Item
         }
 
         SFText {
-            text: "Enter your password to access the current wallet"
+            text: qsTr("Enter your password to access the current wallet")
             color: Style.white
             font.pixelSize: 12
 
@@ -103,7 +103,7 @@ Item
             spacing: 10
 
             SFText {
-                text: "Enter password"
+                text: qsTr("Enter password")
                 color: Style.white
                 font.pixelSize: 12
                 font.weight: Font.Bold
@@ -143,29 +143,29 @@ Item
             spacing: 30
 
             //DefaultButton {
-            //    text: "restore wallet from file"
+            //    text: qsTr("restore wallet from file")
 				// activeFocusOnTab: true
             //}
 
     //         DefaultButton {
-    //             text: "restore wallet from blockchain"
+    //             text: qsTr("restore wallet from blockchain")
 				// activeFocusOnTab: true
     //         }
 
             PrimaryButton {
 				id: btnCurrentWallet
-                text: "open wallet"
+                text: qsTr("open wallet")
 				activeFocusOnTab: true
                 onClicked: {
                     if(openPassword.text.length == 0)
                     {
-                        openPasswordError.text = "Please, enter password";
+                        openPasswordError.text = qsTr("Please, enter password");
                     }
                     else
                     {
                         if(!startViewModel.openWallet(openPassword.text))
                         {
-                            openPasswordError.text = "Invalid password or wallet data unreadable.\nRestore wallet.db from latest backup or delete it and reinitialize the wallet.";
+                            openPasswordError.text = qsTr("Invalid password or wallet data unreadable.\nRestore wallet.db from latest backup or delete it and reinitialize the wallet.");
                         }
                     }
                 }
@@ -184,7 +184,7 @@ Item
         color: Style.marine
 
         SFText {
-            text: "Create new wallet"
+            text: qsTr("Create new wallet")
             color: Style.white
             font.pixelSize: 36
 
@@ -194,7 +194,7 @@ Item
         }
 
         SFText {
-            text: "Create password to access your wallet"
+            text: qsTr("Create password to access your wallet")
             color: Style.white
             font.pixelSize: 12
 
@@ -219,7 +219,7 @@ Item
                 spacing: 10
 
                 SFText {
-                    text: "Enter secret key"
+                    text: qsTr("Enter secret key")
                     color: Style.white
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -250,7 +250,7 @@ Item
                 spacing: 10
 
                 SFText {
-                    text: "Enter password"
+                    text: qsTr("Enter password")
                     color: Style.white
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -305,7 +305,7 @@ Item
                 }
 
                 SFText {
-                    text: "Medium strength password (add  at least one capital letter and one small letter)"
+                    text: qsTr("Medium strength password (add  at least one capital letter and one small letter)")
                     color: "#84a5b2"
                     font.pixelSize: 10
                 }
@@ -317,7 +317,7 @@ Item
                 spacing: 10
 
                 SFText {
-                    text: "Confirm password"
+                    text: qsTr("Confirm password")
                     color: Style.white
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -349,7 +349,7 @@ Item
         }
 
         PrimaryButton {
-            text: "create wallet"
+            text: qsTr("create wallet")
 
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
@@ -358,19 +358,19 @@ Item
             onClicked: {
                 if(seed.text.length == 0)
                 {
-                    passwordError.text = "Please, enter miner secret";
+                    passwordError.text = qsTr("Please, enter miner secret");
                 }
                 else if(password.text.length == 0)
                 {
-                    passwordError.text = "Please, enter password";
+                    passwordError.text = qsTr("Please, enter password");
                 }
                 else if(password.text != confirmPassword.text)
                 {
-                    passwordError.text = "Passwords do not match";
+                    passwordError.text = qsTr("Passwords do not match");
                 }
                 else if(!startViewModel.createWallet(seed.text, password.text))
                 {
-                    passwordError.text = "Error, something went worng, wallet not created :(";
+                    passwordError.text = qsTr("Error, something went worng, wallet not created :(");
                 }
             }
         }

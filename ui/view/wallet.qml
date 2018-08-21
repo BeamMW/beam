@@ -148,6 +148,7 @@ Item {
                             editText: walletViewModel.senderAddr
                             color: Style.white
                             font.pixelSize: 14
+                            //focus: true
                             onEditTextChanged: {
                                 var i = find(editText);
                                 senderName.text = i >= 0 ? addressBookViewModel.ownAddresses[i].name : "";
@@ -561,12 +562,13 @@ Item {
             color: "#0a344d"
         }
 
-        TableView {
+        CustomTableView {
 
             id: tx_view
 
             anchors.fill: parent;
             anchors.topMargin: 394-33
+			Layout.bottomMargin: 9
 
             frameVisible: false
             selectionMode: SelectionMode.NoSelection
@@ -793,6 +795,9 @@ Item {
             PropertyChanges {target: amount_input; text: ""}
             PropertyChanges {target: mils_amount_input; text: ""}
             PropertyChanges {target: mils_fee_input; text: ""}
+             StateChangeScript {
+                script: senderAddrCombo.forceActiveFocus(Qt.TabFocusReason);
+            }
         }
     ]
 }
