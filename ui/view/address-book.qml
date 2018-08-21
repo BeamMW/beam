@@ -344,6 +344,13 @@ ColumnLayout {
 							text: qsTr("create address")
 							icon.source: "qrc:///assets/icon-done.svg"
 							palette.buttonText: Style.marine
+							enabled: {
+								if (createAddressLayout.state == "own") {
+									return addressBookViewModel.newOwnAddress.walletID != "";
+								} else {
+									return addressBookViewModel.newPeerAddress.walletID != "";
+								}
+							}
 								
 							onClicked: {
 								if (createAddressLayout.state == "own") {

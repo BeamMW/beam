@@ -152,7 +152,12 @@ void AddressBookViewModel::generateNewEmptyAddress()
 
 void AddressBookViewModel::createNewPeerAddress()
 {
-    WalletID walletID = from_hex(m_newPeerAddress.getWalletID().toStdString());
+    auto bytes = from_hex(m_newPeerAddress.getWalletID().toStdString());
+    if (bytes.size() != sizeof(WalletID))
+    {
+        return;
+    }
+    WalletID walletID = bytes;
 	WalletAddress peerAddress{};
 
 	peerAddress.m_walletID = walletID;
@@ -169,7 +174,12 @@ void AddressBookViewModel::createNewPeerAddress()
 
 void AddressBookViewModel::createNewOwnAddress()
 {
-    WalletID id = from_hex(m_newOwnAddress.getWalletID().toStdString());
+    auto bytes = from_hex(m_newOwnAddress.getWalletID().toStdString());
+    if (bytes.size() != sizeof(WalletID))
+    {
+        return;
+    }
+    WalletID id = bytes;
 	WalletAddress ownAddress{};
 
 	ownAddress.m_walletID = id;
