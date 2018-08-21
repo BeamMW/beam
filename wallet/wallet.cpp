@@ -406,6 +406,10 @@ namespace beam
                 coin.m_status = Coin::Spent;
                 m_keyChain->update(coin);
             }
+            else if (coin.m_status == Coin::Unconfirmed && coin.isReward())
+            {
+                m_keyChain->remove(coin);
+            }
         }
         else
         {
@@ -421,10 +425,12 @@ namespace beam
                         coin.m_maturity = proof.m_Maturity;
                         coin.m_confirmHeight = m_newStateID.m_Height;
                         coin.m_confirmHash = m_newStateID.m_Hash;
-                        if (coin.m_key_type == KeyType::Coinbase
-                            || coin.m_key_type == KeyType::Comission)
+                        if (coin.isReward())
                         {
                             LOG_INFO() << "Block reward received: " << PrintableAmount(coin.m_amount);
+                        }
+                        if (coin.m_id == 0)
+                        {
                             m_keyChain->store(coin);
                         }
                         else
