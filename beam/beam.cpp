@@ -691,6 +691,7 @@ int main_impl(int argc, char* argv[])
 							                                          , reactor);
 						Wallet wallet{ keychain
 									 , wallet_io
+                                     , false
 									 , is_server ? Wallet::TxCompletedAction() : [wallet_io](auto) { wallet_io->stop(); } };
 
 						if (isTxInitiator)
