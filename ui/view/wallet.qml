@@ -549,12 +549,13 @@ Item {
             color: "#0a344d"
         }
 
-        TableView {
+        CustomTableView {
 
             id: tx_view
 
             anchors.fill: parent;
             anchors.topMargin: 394-33
+			Layout.bottomMargin: 9
 
             frameVisible: false
             selectionMode: SelectionMode.NoSelection
