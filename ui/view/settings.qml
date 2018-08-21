@@ -29,6 +29,17 @@ Rectangle {
         radius: 10
         color: Style.dark_slate_blue
 
+        SFText {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.topMargin: 30
+            anchors.rightMargin: 30
+
+            font.pixelSize: 14
+            color: Style.white
+            text: "Version: " + settingsViewModel.version
+        }
+
         Column {
             width: 400
 

@@ -24,11 +24,13 @@ class SettingsViewModel : public QObject
 	Q_OBJECT
 
 	Q_PROPERTY(QString nodeAddress READ nodeAddress NOTIFY nodeAddressChanged)
+	Q_PROPERTY(QString version READ version CONSTANT)
 public:
 
 	SettingsViewModel(const QString& iniPath);
 
 	QString nodeAddress() const;
+	QString version() const;
 
 	void initModel(WalletModel::Ptr model);
 
