@@ -227,24 +227,18 @@ void WalletModel::run()
             Logger::get()->rotate();
         });
 
-		{			
+		{
 			Address node_addr;
-			if (node_addr.resolve(_nodeAddrStr.c_str()))
-			{
-				auto wallet_io = make_shared<WalletNetworkIO>(
-					node_addr
-					, _keychain
-					, _keystore
-					, _reactor);
-				_wallet_io = wallet_io;
-				auto wallet = make_shared<Wallet>(_keychain, wallet_io);
-				_wallet = wallet;
-				subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
-			}
-			else
-			{
-				LOG_ERROR() << "unable to resolve node address";
-			}
+			node_addr.resolve(_nodeAddrStr.c_str());
+			auto wallet_io = make_shared<WalletNetworkIO>(
+				node_addr
+				, _keychain
+				, _keystore
+				, _reactor);
+			_wallet_io = wallet_io;
+			auto wallet = make_shared<Wallet>(_keychain, wallet_io);
+			_wallet = wallet;
+			subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 		}
 
 		_reactor->run();

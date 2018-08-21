@@ -232,7 +232,7 @@ namespace beam {
 
     void WalletNetworkIO::connect_node()
     {
-        if (m_is_node_connected == false && !m_node_connection)
+        if (m_is_node_connected == false && !m_node_connection && !m_node_address.empty())
         {
 			m_sync_timer->cancel();
 
@@ -444,5 +444,7 @@ namespace beam {
 	void WalletNetworkIO::set_node_address(io::Address node_address)
 	{
 		m_node_address = node_address;
+
+		connect_node();
 	}
 }

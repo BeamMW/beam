@@ -66,16 +66,24 @@ Rectangle {
             }
         }
 
-		PrimaryButton {
+		Row {
+			anchors.horizontalCenter: parent.horizontalCenter
+			anchors.bottomMargin: 30
+			anchors.bottom: parent.bottom
+			spacing: 30
 
-		    anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottomMargin: 30
-            anchors.bottom: parent.bottom
+			CustomButton {
+				text: "cancel"
+				onClicked: {
+					nodeAddress.text = settingsViewModel.nodeAddress
+				}
+			}
 
-			label: "apply changes"
-			activeFocusOnTab: true
-			visible: {nodeAddress.text != settingsViewModel.nodeAddress}
-			onClicked: settingsViewModel.applyChanges(nodeAddress.text)
+			PrimaryButton {		
+				text: "apply changes"
+				enabled: {nodeAddress.text != settingsViewModel.nodeAddress}
+				onClicked: settingsViewModel.applyChanges(nodeAddress.text)
+			}
 		}
 	}
 

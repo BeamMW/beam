@@ -51,7 +51,7 @@ Button {
     background: Rectangle {
         id: rect
         radius: 50
-        color: control.palette.button
+        color: control.enabled ? control.palette.button : "slategrey"
         
         width: control.width
         height: control.height
@@ -62,11 +62,12 @@ Button {
             onClicked: control.clicked()
 	    }
     }
+
 	DropShadow {
 		anchors.fill: rect
 		radius: 7
 		samples: 9
-		color: "white"//Style.bright_teal
+		color: "white"
 		source: rect
 		visible: control.visualFocus
 	}
