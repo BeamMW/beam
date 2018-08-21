@@ -138,7 +138,7 @@ namespace beam
     };
 
 
-    Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, TxCompletedAction&& action)
+    Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, bool holdNodeConnection, TxCompletedAction&& action)
         : m_keyChain{ keyChain }
         , m_network{ network }
         , m_tx_completed_action{move(action)}
@@ -149,14 +149,12 @@ namespace beam
         , m_syncDone{0}
         , m_syncTotal{0}
         , m_synchronized{false}
+        , m_holdNodeConnection{ holdNodeConnection }
     {
         assert(keyChain);
         m_keyChain->getSystemStateID(m_knownStateID);
         m_network->set_wallet(this);
-        m_pendingEvents.emplace_back([this]()
-        {
-            resume_all_tx();
-        });
+        resume_all_tx();
     }
 
     Wallet::~Wallet()
@@ -179,8 +177,6 @@ namespace beam
 
     void Wallet::resume_tx(const TxDescription& tx)
     {
-        assert(m_synchronized);
-
         if (tx.canResume() && m_negotiators.find(tx.m_txId) == m_negotiators.end())
         {
             Cleaner c{ m_removedNegotiators };
@@ -223,9 +219,9 @@ namespace beam
         {
             m_tx_completed_action(tx.m_txId);
         }
-        if (m_reg_requests.empty() && m_syncDone == m_syncTotal)
+        if (m_syncDone == m_syncTotal)
         {
-            m_network->close_node_connection();
+            close_node_connection();
         }
     }
 
@@ -749,7 +745,10 @@ namespace beam
         if (m_synchronized && m_reg_requests.empty())
         {
             notifySyncProgress();
-            m_network->close_node_connection();
+            if (!m_holdNodeConnection)
+            {
+                m_network->close_node_connection();
+            }
         }
         return true;
     }

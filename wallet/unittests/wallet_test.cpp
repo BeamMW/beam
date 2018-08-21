@@ -552,8 +552,8 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
         }
     };
 
-    Wallet sender(senderKeychain, network, f);
-    Wallet receiver(receiverKeychain, network2, f);
+    Wallet sender(senderKeychain, network, false, f);
+    Wallet receiver(receiverKeychain, network2, false, f);
 
     network->registerPeer(&sender, true);
     network->registerPeer(&receiver, false);
@@ -768,7 +768,7 @@ void TestP2PWalletNegotiationST()
     auto receiver_io = make_shared<WalletNetworkIO>( node_address, receiverKeychain, receiverBbsKeys, main_reactor, 1000, 2000);
 
 
-    Wallet sender{senderKeychain, sender_io, [sender_io](auto) { sender_io->stop(); } };
+    Wallet sender{senderKeychain, sender_io, false, [sender_io](auto) { sender_io->stop(); } };
     Wallet receiver{ receiverKeychain, receiver_io };
 
     //// send to your peer
@@ -996,7 +996,7 @@ void TestP2PWalletNegotiationST()
 
 
      Wallet sender{ senderKeychain, sender_io };
-     Wallet receiver{ receiverKeychain, receiver_io, [receiver_io](auto) { receiver_io->stop(); } };
+     Wallet receiver{ receiverKeychain, receiver_io, false, [receiver_io](auto) { receiver_io->stop(); } };
 
      TxID txId = receiver.transfer_money(receiverID, senderID, 4, 2, false);
 
@@ -1328,7 +1328,7 @@ void TestRollback(Height branch, Height current, unsigned step = 1)
 
     for (Height i = 0; i <= current; ++i)
     {
-        Coin coin1 = { 5, Coin::Unspent, 1, 10, KeyType::Regular, i };
+        Coin coin1 = { 5, Coin::Unspent, 1, i+2, KeyType::Regular, i+2 };
         Merkle::Hash hash = {};
         ECC::Hash::Processor() << i >> hash;
         coin1.m_confirmHash = hash;

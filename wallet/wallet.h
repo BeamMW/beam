@@ -116,7 +116,7 @@ namespace beam
     public:
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
 
-        Wallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, TxCompletedAction&& action = TxCompletedAction());
+        Wallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, bool holdNodeConnection = false, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, ByteBuffer&& message = {} );
@@ -169,7 +169,8 @@ namespace beam
         void register_tx(const TxID& txId, Transaction::Ptr);
         void resume_negotiator(const TxDescription& tx);
 		void notifySyncProgress();
-		void resetSystemState();
+        void resetSystemState();
+        bool IsKnownStateValid(const proto::ProofStateForDummies&) const;
 
         struct Cleaner
         {
@@ -223,11 +224,10 @@ namespace beam
         std::unique_ptr<StateFinder> m_stateFinder;
         boost::optional<proto::ProofStateForDummies> m_knownStateProof;
 
-		bool IsKnownStateValid(const proto::ProofStateForDummies&) const;
-
         int m_syncDone;
         int m_syncTotal;
         bool m_synchronized;
+        bool m_holdNodeConnection;
 
 		std::vector<IWalletObserver*> m_subscribers;
     };
