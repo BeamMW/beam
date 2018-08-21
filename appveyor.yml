@@ -49,9 +49,9 @@ on_success:
 
     set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win
 
-    curl --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam.zip" %BUILDS_SERVER_PATH%/
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam.zip" %BUILDS_SERVER_PATH%/ -v
 
-    curl --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILDS_SERVER_PATH%/Beam Wallet.exe"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILDS_SERVER_PATH%/Beam Wallet.exe" -v
 
     set REPO=https://%GITHUB_API_KEY%@github.com/beam-mw/beam-builds
 
