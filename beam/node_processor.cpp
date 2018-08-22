@@ -841,7 +841,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 	bool bAdd = (bFwd != bIsInput);
 
 	SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-	v.get_HashTotal(skey.m_Key);
+	v.get_ID(skey.m_Key);
 
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = bAdd;
@@ -908,7 +908,7 @@ void NodeProcessor::DereferenceFossilBlock(uint64_t rowid)
 	for (; r.m_pKernelIn; r.NextKernelIn())
 	{
 		SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-		r.m_pKernelIn->get_HashTotal(skey.m_Key);
+		r.m_pKernelIn->get_ID(skey.m_Key);
 
 		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), -1, 0);
 	}
@@ -1283,7 +1283,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kKernel);
 
 		ECC::Hash::Value hv;
-		pKrn->get_HashForSigning(hv);
+		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, kKernel);
 
 		if (!HandleBlockElement(*pKrn, true, false))

@@ -287,7 +287,7 @@ namespace beam
 
 		// Mandatory
 		ECC::Point		m_Excess;
-		ECC::Signature	m_Signature;	// For the whole tx body, including nested kernels, excluding contract signature
+		ECC::Signature	m_Signature;	// For the whole body, including nested kernels
 		uint64_t		m_Multiplier;
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
 		HeightRange		m_Height;
@@ -298,24 +298,12 @@ namespace beam
 		{
 		}
 
-		// Optional
-		struct Contract
-		{
-			ECC::Hash::Value	m_Msg;
-			ECC::Point			m_PublicKey;
-			ECC::Signature		m_Signature;
-
-			int cmp(const Contract&) const;
-			COMPARISON_VIA_CMP(Contract)
-		};
-
 		struct HashLock
 		{
 			ECC::Hash::Value	m_Hash;
 			ECC::uintBig		m_Preimage;
 		};
 
-		std::unique_ptr<Contract> m_pContract;
 		std::unique_ptr<HashLock> m_pHashLock;
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
@@ -327,9 +315,8 @@ namespace beam
 				throw std::runtime_error("recursion too deep");
 		}
 
-		void get_HashForSigning(Merkle::Hash&) const; // Includes the contents, but not the excess and the signature
-		void get_HashForContract(ECC::Hash::Value&, const ECC::Hash::Value& msg) const;
-		void get_HashTotal(Merkle::Hash&) const; // Includes everything. 
+		void get_Hash(Merkle::Hash&) const; // for signature. Contains all except m_Excess (i.e. public key)
+		void get_ID(Merkle::Hash&) const; // unique kernel identifier in the system.
 
 		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
 		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
@@ -340,7 +327,7 @@ namespace beam
 
 	private:
 		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*, const TxKernel* pParent) const;
-		void HashForSigningToTotal(Merkle::Hash& hv) const;
+		void HashToID(Merkle::Hash& hv) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }

@@ -495,7 +495,7 @@ namespace beam
 				krn.m_Excess = ECC::Point::Native(ECC::Context::get().G * m_k);
 
 				ECC::Hash::Value hv;
-				krn.get_HashForSigning(hv);
+				krn.get_Hash(hv);
 				krn.m_Signature.Sign(hv, m_k);
 
 			}
@@ -1078,7 +1078,7 @@ namespace beam
 					mk.Export(krn);
 
 					proto::GetProofKernel msgOut;
-					krn.get_HashTotal(msgOut.m_KernelHash);
+					krn.get_ID(msgOut.m_KernelHash);
 					Send(msgOut);
 
 					m_queProofsKrnExpected.push_back(i);
@@ -1156,7 +1156,7 @@ namespace beam
 						mk.Export(krn);
 
 						Merkle::Hash hv;
-						krn.get_HashTotal(hv);
+						krn.get_ID(hv);
 						Merkle::Interpret(hv, msg.m_Proof);
 
 						verify_test(hv == m_vStates.back().m_Definition);

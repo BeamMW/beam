@@ -259,21 +259,20 @@ namespace beam
 		hp	<< m_Fee
 			<< m_Height.m_Min
 			<< m_Height.m_Max
-			<< (bool) m_pContract
 			<< (bool) m_pHashLock;
-
-		if (m_pContract)
-		{
-			hp	<< m_pContract->m_Msg
-				<< m_pContract->m_PublicKey;
-		}
 
 		if (m_pHashLock)
 			hp << m_pHashLock->m_Hash;
 
 		const TxKernel* p0Krn = NULL;
-		for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
+		for (auto it = m_vNested.begin(); ; it++)
 		{
+			bool bBreak = (m_vNested.end() == it);
+			hp << bBreak;
+
+			if (bBreak)
+				break;
+
 			const TxKernel& v = *(*it);
 			if (p0Krn && (*p0Krn > v))
 				return false;
@@ -282,11 +281,11 @@ namespace beam
 			if (!v.Traverse(hv, pFee, pExcess, this))
 				return false;
 
-			v.HashForSigningToTotal(hv); // The hash of this kernel should account for the signature and the excess of the internal kernels.
-			hp << true << hv;
+			v.HashToID(hv);
+			hp << hv;
 		}
 
-		hp << false >> hv;
+		hp >> hv;
 
 		if (pExcess)
 		{
@@ -307,18 +306,6 @@ namespace beam
 
 			*pExcess += pt;
 
-			if (m_pContract)
-			{
-				ECC::Hash::Value hv2;
-				get_HashForContract(hv2, hv);
-
-				if (!pt.Import(m_pContract->m_PublicKey))
-					return false;
-
-				if (!m_pContract->m_Signature.IsValid(hv2, pt))
-					return false;
-			}
-
 			if (m_pHashLock)
 			{
 				ECC::Hash::Value hv2;
@@ -334,15 +321,7 @@ namespace beam
 		return true;
 	}
 
-	void TxKernel::get_HashForContract(ECC::Hash::Value& out, const ECC::Hash::Value& msg) const
-	{
-		ECC::Hash::Processor()
-			<< msg
-			<< m_Excess
-			>> out;
-	}
-
-	void TxKernel::get_HashForSigning(Merkle::Hash& out) const
+	void TxKernel::get_Hash(Merkle::Hash& out) const
 	{
 		Traverse(out, NULL, NULL, NULL);
 	}
@@ -353,8 +332,9 @@ namespace beam
 		return Traverse(hv, &fee, &exc, NULL);
 	}
 
-	void TxKernel::HashForSigningToTotal(Merkle::Hash& hv) const
+	void TxKernel::HashToID(Merkle::Hash& hv) const
 	{
+		// Account for everything that was not included in the hash for signing
 		ECC::Hash::Processor()
 			<< hv
 			<< m_Excess
@@ -365,32 +345,21 @@ namespace beam
 
 		// Some kernel hash values are reserved for the system usage
 		if (hv == ECC::Zero)
-		{
-			ECC::Hash::Processor() << hv >> hv;
-			assert(!(hv == ECC::Zero));
-		}
+			hv.Inc();
 	}
 
-	void TxKernel::get_HashTotal(Merkle::Hash& hv) const
+	void TxKernel::get_ID(Merkle::Hash& out) const
 	{
-		get_HashForSigning(hv);
-		HashForSigningToTotal(hv);
+		get_Hash(out);
+		HashToID(out);
 	}
 
 	bool TxKernel::IsValidProof(const Merkle::Proof& proof, const Merkle::Hash& root) const
 	{
 		Merkle::Hash hv;
-		get_HashTotal(hv);
+		get_Hash(hv);
 		Merkle::Interpret(hv, proof);
 		return hv == root;
-	}
-
-	int TxKernel::Contract::cmp(const Contract& v) const
-	{
-		CMP_MEMBER_EX(m_Msg)
-		CMP_MEMBER_EX(m_PublicKey)
-		CMP_MEMBER_EX(m_Signature)
-		return 0;
 	}
 
 	int TxKernel::cmp(const TxKernel& v) const
@@ -401,7 +370,6 @@ namespace beam
 		CMP_MEMBER(m_Fee)
 		CMP_MEMBER(m_Height.m_Min)
 		CMP_MEMBER(m_Height.m_Max)
-		CMP_MEMBER_PTR(m_pContract)
 
 		auto it0 = m_vNested.begin();
 		auto it1 = v.m_vNested.begin();
@@ -429,7 +397,6 @@ namespace beam
 		m_Signature = v.m_Signature;
 		m_Fee = v.m_Fee;
 		m_Height = v.m_Height;
-		ClonePtr(m_pContract, v.m_pContract);
 		ClonePtr(m_pHashLock, v.m_pHashLock);
 
 		m_vNested.resize(v.m_vNested.size());
@@ -909,7 +876,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(1) // increment this whenever we change something in the protocol
+			<< uint32_t(2) // increment this whenever we change something in the protocol
 			// out
 			>> Checksum;
 	}

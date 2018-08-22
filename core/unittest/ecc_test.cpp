@@ -615,7 +615,7 @@ struct TransactionMaker
 	void CoSignKernel(beam::TxKernel& krn)
 	{
 		Hash::Value msg;
-		krn.get_HashForSigning(msg);
+		krn.get_Hash(msg);
 
 		// 1st pass. Public excesses and Nonces are summed.
 		Scalar::Native offset(m_Trans.m_Offset);
@@ -666,15 +666,6 @@ struct TransactionMaker
 
 		pKrn->m_vNested.swap(lstNested);
 
-		// contract
-		Scalar::Native skContract;
-		SetRandom(skContract);
-
-		pKrn->m_pContract.reset(new beam::TxKernel::Contract);
-		SetRandom(pKrn->m_pContract->m_Msg);
-
-		pKrn->m_pContract->m_PublicKey = Point::Native(Context::get().G * skContract);
-
 		pKrn->m_pHashLock.reset(new beam::TxKernel::HashLock);
 
 		uintBig hlPreimage;
@@ -684,14 +675,7 @@ struct TransactionMaker
 
 		CoSignKernel(*pKrn);
 
-		// sign contract
-		Hash::Value hv;
-		pKrn->get_HashForSigning(hv);
-		pKrn->get_HashForContract(hv, hv);
-
-		pKrn->m_pContract->m_Signature.Sign(hv, skContract);
-
-		// finit HL: add hash preimage
+		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Preimage = hlPreimage;
 
 		lstTrg.push_back(std::move(pKrn));
@@ -755,7 +739,7 @@ void TestTransactionKernelConsuming()
 		Scalar::Native sk0 = kExc * (mul0 + 1);
 
 		beam::TxKernel::Ptr pKrn(new beam::TxKernel);
-		pKrn->get_HashForSigning(hv);
+		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, sk0);
 		pKrn->m_Excess = p;
 		pKrn->m_Multiplier = mul0;
@@ -768,7 +752,7 @@ void TestTransactionKernelConsuming()
 		Scalar::Native sk1 = kExc * (mul1 + 1);
 
 		pKrn.reset(new beam::TxKernel);
-		pKrn->get_HashForSigning(hv);
+		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, sk1);
 		pKrn->m_Excess = p;
 		pKrn->m_Multiplier = mul1;
