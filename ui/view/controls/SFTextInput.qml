@@ -11,6 +11,7 @@ TextInput {
     }
     activeFocusOnTab: true
     selectByMouse: true
+    clip: true
 
     MouseArea {
         anchors.fill: parent

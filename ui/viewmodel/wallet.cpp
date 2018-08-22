@@ -123,7 +123,6 @@ WalletViewModel::WalletViewModel(WalletModel& model)
 	: _model(model)
 	, _status{ 0, 0, 0, 0, {0, 0, 0} }
 	, _sendAmount("0")
-	, _sendAmountMils("0")
     , _feeMils("0")
     , _change(0)
     , _loadingUtxo{false}
@@ -311,11 +310,6 @@ QString WalletViewModel::sendAmount() const
 	return _sendAmount;
 }
 
-QString WalletViewModel::sendAmountMils() const
-{
-	return _sendAmountMils;
-}
-
 QString WalletViewModel::feeMils() const
 {
     return _feeMils;
@@ -350,17 +344,6 @@ void WalletViewModel::setSendAmount(const QString& amount)
 		_sendAmount = amount;
         _model.async->calcChange(calcTotalAmount());
 		emit sendAmountChanged();
-		emit actualAvailableChanged();
-	}
-}
-
-void WalletViewModel::setSendAmountMils(const QString& amount)
-{
-	if (amount != _sendAmountMils)
-	{
-		_sendAmountMils = amount;
-        _model.async->calcChange(calcTotalAmount());
-		emit sendAmountMilsChanged();
 		emit actualAvailableChanged();
 	}
 }
@@ -452,12 +435,12 @@ QQmlListProperty<UtxoItem> WalletViewModel::allUtxos()
 
 beam::Amount WalletViewModel::calcSendAmount() const
 {
-	return _sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt();
+	return _sendAmount.toDouble() * Rules::Coin;
 }
 
 beam::Amount WalletViewModel::calcFeeAmount() const
 {
-    return _feeMils.toInt();
+    return _feeMils.toDouble() * Rules::Coin;
 }
 
 beam::Amount WalletViewModel::calcTotalAmount() const
