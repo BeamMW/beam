@@ -63,6 +63,7 @@ WaitHandle run_wallet(const WalletParams& params) {
 
             Wallet wallet{ params.keychain
                  , wallet_io
+                 , false
                  , [wallet_io](auto) { wallet_io->stop(); } };
 
             if (sender) {

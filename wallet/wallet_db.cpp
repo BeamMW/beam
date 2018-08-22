@@ -504,7 +504,7 @@ namespace beam
     {
         return m_createHeight <= m_maturity
             && m_maturity <= m_lockedHeight
-            && m_createHeight < m_confirmHeight;
+            && m_createHeight <= m_confirmHeight;
     }
 
 	bool Keychain::isInitialized(const string& path)
@@ -936,6 +936,21 @@ namespace beam
 		trans.commit();
 
 		notifyKeychainChanged();
+	}
+
+	void Keychain::clear()
+	{
+		{
+			sqlite::Statement stm(_db, "DELETE FROM " STORAGE_NAME ";");
+			stm.step();
+			notifyKeychainChanged();
+		}
+
+		{
+			sqlite::Statement stm(_db, "DELETE FROM " HISTORY_NAME ";");
+			stm.step();
+			notifyTransactionChanged();
+		}
 	}
 
 	void Keychain::visit(function<bool(const beam::Coin& coin)> func)

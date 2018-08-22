@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "settings.h"
-
+#include "version.h"
 #include <QtQuick>
 
 namespace
@@ -37,6 +37,11 @@ QString SettingsViewModel::nodeAddress() const
 	return _data.value(NodeAddressName).toString();
 }
 
+QString SettingsViewModel::version() const
+{
+	return QString::fromStdString(PROJECT_VERSION);
+}
+
 void SettingsViewModel::applyChanges(const QString& addr)
 {
 	if (addr != nodeAddress())
@@ -48,4 +53,10 @@ void SettingsViewModel::applyChanges(const QString& addr)
 
 		emit nodeAddressChanged();
 	}
+}
+
+void SettingsViewModel::emergencyReset()
+{
+	if (_model)
+		_model->async->emergencyReset();
 }

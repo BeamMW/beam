@@ -47,6 +47,7 @@ ComboBox {
         color: control.color
 		font.pixelSize: 14
         verticalAlignment: Text.AlignVCenter
+        validator: control.validator
     }
 
     background: Item {

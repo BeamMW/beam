@@ -100,6 +100,7 @@ namespace beam
         virtual void update(const beam::Coin& coin) = 0;
         virtual void remove(const std::vector<beam::Coin>& coins) = 0;
         virtual void remove(const beam::Coin& coin) = 0;
+		virtual void clear() = 0;
 
 		virtual void visit(std::function<bool(const beam::Coin& coin)> func) = 0;
 
@@ -166,6 +167,8 @@ namespace beam
         void update(const beam::Coin& coin) override;
         void remove(const std::vector<beam::Coin>& coins) override;
         void remove(const beam::Coin& coin) override;
+		void clear() override;
+
 		void visit(std::function<bool(const beam::Coin& coin)> func) override;
 
 		void setVarRaw(const char* name, const void* data, int size) override;

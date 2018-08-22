@@ -133,6 +133,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 			receiver_.setNodeAddress(addr);
 		});
 	}
+
+	void emergencyReset() override
+	{
+		tx.send([](BridgeInterface& receiver_) mutable
+		{
+			receiver_.emergencyReset();
+		});
+	}
 };
 
 WalletModel::WalletModel(IKeyChain::Ptr keychain, IKeyStore::Ptr keystore, const std::string& nodeAddr)
@@ -428,6 +436,16 @@ void WalletModel::setNodeAddress(const std::string& addr)
 	{
 		LOG_ERROR() << "Unable to resolve node address: " << addr;
 		assert(false);
+	}
+}
+
+void WalletModel::emergencyReset()
+{
+	assert(!_wallet.expired());
+	auto s = _wallet.lock();
+	if (s)
+	{
+		s->emergencyReset();
 	}
 }
 

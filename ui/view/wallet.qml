@@ -148,6 +148,7 @@ Item {
                             editText: walletViewModel.senderAddr
                             color: Style.white
                             font.pixelSize: 14
+                            validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
                             //focus: true
                             onEditTextChanged: {
                                 var i = find(editText);
@@ -185,6 +186,7 @@ Item {
                             model: addressBookViewModel.peerAddresses
                             color: Style.white
                             font.pixelSize: 14
+                            validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
                             onEditTextChanged: {
                                 var i = find(editText);
                                 receiverName.text = i >= 0 ? addressBookViewModel.peerAddresses[i].name : "";
