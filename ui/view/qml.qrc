@@ -57,7 +57,8 @@
         <file>assets/icon-utxo-active.svg</file>
         <file>assets/icon-copy.svg</file>
         <file>assets/icon-down.svg</file>
-		<file>assets/icon-send.svg</file>
-        <file>controls/AddressComboBox.qml</file>        
+        <file>assets/icon-send.svg</file>
+        <file>controls/AddressComboBox.qml</file>
+        <file>controls/CustomRadioButton.qml</file>
     </qresource>
 </RCC>

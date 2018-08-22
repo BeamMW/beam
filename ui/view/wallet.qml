@@ -263,12 +263,7 @@ Item {
                                     validator: IntValidator{bottom: 0; top: 210000000;}
                                     selectByMouse: true
                                 }
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 1
-
-                                    color: Style.separator_color
-                                }                                
+                          
                             }
 
                             SFText {
@@ -302,13 +297,6 @@ Item {
                                     validator: IntValidator{bottom: 0; top: 999999;}
                                     selectByMouse: true
                                 }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 1
-
-                                    color: Style.separator_color
-                                }                                
                             }
 
                             SFText {
@@ -349,13 +337,6 @@ Item {
                                     validator: IntValidator{bottom: 0; top: 999999;}
                                     selectByMouse: true
                                 }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 1
-
-                                    color: Style.separator_color
-                                }                                
                             }
 
                             SFText {
@@ -399,8 +380,6 @@ Item {
                     width: 122
                     text: qsTr("cancel")
                     palette.buttonText: Style.white
-                    palette.button: Style.white
-                    textOpacity: 0.1
                     icon.source: "qrc:///assets/icon-cancel.svg"
                     onClicked: root.state = "wallet"
                 }

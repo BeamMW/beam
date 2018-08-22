@@ -100,7 +100,7 @@ Rectangle {
         anchors.fill: parent
         focus: true
 
-        clip: true
+//        clip: true
     }
 
     function updateItem(index)

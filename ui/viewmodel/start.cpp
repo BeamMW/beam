@@ -33,6 +33,21 @@ bool StartViewModel::walletExists() const
 	return Keychain::isInitialized(_walletStorage);
 }
 
+void StartViewModel::setupLocalNode(int port, int miningThreads)
+{
+
+}
+
+void StartViewModel::setupRemoteNode(const QString& nodeAddress)
+{
+
+}
+
+void StartViewModel::setupTestnetNode()
+{
+
+}
+
 bool StartViewModel::createWallet(const QString& seed, const QString& pass)
 {
 	NoLeak<uintBig> walletSeed;
