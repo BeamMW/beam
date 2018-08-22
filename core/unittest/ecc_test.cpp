@@ -612,10 +612,10 @@ struct TransactionMaker
 
 	Peer m_pPeers[2]; // actually can be more
 
-	void CoSignKernel(beam::TxKernel& krn)
+	void CoSignKernel(beam::TxKernel& krn, const Hash::Value& hvLockImage)
 	{
 		Hash::Value msg;
-		krn.get_Hash(msg);
+		krn.get_Hash(msg, &hvLockImage);
 
 		// 1st pass. Public excesses and Nonces are summed.
 		Scalar::Native offset(m_Trans.m_Offset);
@@ -671,9 +671,15 @@ struct TransactionMaker
 		uintBig hlPreimage;
 		SetRandom(hlPreimage);
 
-		Hash::Processor() << hlPreimage >> pKrn->m_pHashLock->m_Hash;
+		Hash::Value hvLockImage;
 
-		CoSignKernel(*pKrn);
+		Hash::Processor() << hlPreimage >> hvLockImage;
+
+		CoSignKernel(*pKrn, hvLockImage);
+
+		Point::Native exc;
+		beam::AmountBig fee2;
+		verify_test(!pKrn->IsValid(fee2, exc)); // should not pass validation unless correct hash preimage is specified
 
 		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Preimage = hlPreimage;

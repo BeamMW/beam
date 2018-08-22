@@ -455,7 +455,6 @@ namespace detail
 		static Archive& save(Archive& ar, const beam::TxKernel::HashLock& val)
 		{
 			ar
-				& val.m_Hash
 				& val.m_Preimage
 				;
 
@@ -466,7 +465,6 @@ namespace detail
 		static Archive& load(Archive& ar, beam::TxKernel::HashLock& val)
 		{
 			ar
-				& val.m_Hash
 				& val.m_Preimage
 				;
 

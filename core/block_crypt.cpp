@@ -242,7 +242,7 @@ namespace beam
 
 	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent) const
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const
 	{
 		if (pParent)
 		{
@@ -262,7 +262,15 @@ namespace beam
 			<< (bool) m_pHashLock;
 
 		if (m_pHashLock)
-			hp << m_pHashLock->m_Hash;
+		{
+			if (!pLockImage)
+			{
+				ECC::Hash::Processor() << m_pHashLock->m_Preimage >> hv;
+				pLockImage = &hv;
+			}
+
+			hp << *pLockImage;
+		}
 
 		const TxKernel* p0Krn = NULL;
 		for (auto it = m_vNested.begin(); ; it++)
@@ -278,7 +286,7 @@ namespace beam
 				return false;
 			p0Krn = &v;
 
-			if (!v.Traverse(hv, pFee, pExcess, this))
+			if (!v.Traverse(hv, pFee, pExcess, this, NULL))
 				return false;
 
 			v.HashToID(hv);
@@ -305,14 +313,6 @@ namespace beam
 				return false;
 
 			*pExcess += pt;
-
-			if (m_pHashLock)
-			{
-				ECC::Hash::Value hv2;
-				ECC::Hash::Processor() << m_pHashLock->m_Preimage >> hv2;
-				if (m_pHashLock->m_Hash != hv2)
-					return false;
-			}
 		}
 
 		if (pFee)
@@ -321,15 +321,15 @@ namespace beam
 		return true;
 	}
 
-	void TxKernel::get_Hash(Merkle::Hash& out) const
+	void TxKernel::get_Hash(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
 	{
-		Traverse(out, NULL, NULL, NULL);
+		Traverse(out, NULL, NULL, NULL, pLockImage);
 	}
 
 	bool TxKernel::IsValid(AmountBig& fee, ECC::Point::Native& exc) const
 	{
 		ECC::Hash::Value hv;
-		return Traverse(hv, &fee, &exc, NULL);
+		return Traverse(hv, &fee, &exc, NULL, NULL);
 	}
 
 	void TxKernel::HashToID(Merkle::Hash& hv) const
@@ -348,9 +348,9 @@ namespace beam
 			hv.Inc();
 	}
 
-	void TxKernel::get_ID(Merkle::Hash& out) const
+	void TxKernel::get_ID(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
 	{
-		get_Hash(out);
+		get_Hash(out, pLockImage);
 		HashToID(out);
 	}
 

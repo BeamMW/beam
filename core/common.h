@@ -300,8 +300,7 @@ namespace beam
 
 		struct HashLock
 		{
-			ECC::Hash::Value	m_Hash;
-			ECC::uintBig		m_Preimage;
+			ECC::uintBig m_Preimage;
 		};
 
 		std::unique_ptr<HashLock> m_pHashLock;
@@ -315,8 +314,8 @@ namespace beam
 				throw std::runtime_error("recursion too deep");
 		}
 
-		void get_Hash(Merkle::Hash&) const; // for signature. Contains all except m_Excess (i.e. public key)
-		void get_ID(Merkle::Hash&) const; // unique kernel identifier in the system.
+		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all except m_Excess (i.e. public key)
+		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
 		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
 		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
@@ -326,7 +325,7 @@ namespace beam
 		COMPARISON_VIA_CMP(TxKernel)
 
 	private:
-		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*, const TxKernel* pParent) const;
+		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
 		void HashToID(Merkle::Hash& hv) const;
 	};
 
