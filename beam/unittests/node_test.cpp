@@ -339,7 +339,7 @@ namespace beam
 		// utxos and kernels
 		NodeDB::Blob b0(vStates[0].m_Prev.m_pData, sizeof(vStates[0].m_Prev.m_pData));
 
-		db.AddSpendable(b0, &NodeDB::Blob("hello, world!", 13), 5, 3);
+		db.AddSpendable(b0, NULL, 5, 3);
 
 		NodeDB::WalkerSpendable wsp(db);
 		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
