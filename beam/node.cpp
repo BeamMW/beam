@@ -1386,13 +1386,14 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 
 void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 {
-	proto::Proof msgOut;
+	proto::ProofKernel msgOut;
+	msgOut.m_HashPreimage = ECC::Zero;
 
 	RadixHashOnlyTree& t = m_This.m_Processor.get_Kernels();
 
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = false;
-	if (t.Find(cu, msg.m_KernelHash, bCreate))
+	if (t.Find(cu, msg.m_ID, bCreate))
 	{
 		t.get_Proof(msgOut.m_Proof, cu);
 		msgOut.m_Proof.reserve(msgOut.m_Proof.size() + 2);
@@ -1404,6 +1405,9 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 		msgOut.m_Proof.back().first = false;
 		m_This.m_Processor.get_CurrentPart2(msgOut.m_Proof.back().second, false);
+
+		if (msg.m_RequestHashPreimage)
+			m_This.m_Processor.get_KernelHashPreimage(msg.m_ID, msgOut.m_HashPreimage);
 	}
 
 	Send(msgOut);

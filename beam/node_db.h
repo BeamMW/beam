@@ -94,6 +94,7 @@ public:
 			SpendableDel,
 			SpendableModify,
 			SpendableEnum,
+			SpendableGetBody,
 			StateGetBlock,
 			StateSetBlock,
 			StateDelBlock,
@@ -278,6 +279,7 @@ public:
 
 	void AddSpendable(const Blob& key, const Blob* pBody, uint32_t nRefs, uint32_t nUnspentCount);
 	void ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta); // will delete iff refs=0
+	bool GetSpendableBody(const Blob& key, Blob&);
 
 	void assert_valid(); // diagnostic, for tests only
 

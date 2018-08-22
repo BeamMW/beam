@@ -488,11 +488,18 @@ namespace beam
 		{
 			Amount m_Fee;
 			ECC::Scalar::Native m_k;
+			bool m_bUseHashlock;
 
 			void Export(TxKernel& krn) const
 			{
 				krn.m_Fee = m_Fee;
 				krn.m_Excess = ECC::Point::Native(ECC::Context::get().G * m_k);
+
+				if (m_bUseHashlock)
+				{
+					krn.m_pHashLock.reset(new TxKernel::HashLock); // why not?
+					ECC::Hash::Processor() << m_Fee << m_k >> krn.m_pHashLock->m_Preimage;
+				}
 
 				ECC::Hash::Value hv;
 				krn.get_Hash(hv);
@@ -528,6 +535,7 @@ namespace beam
 			m_MyKernels.resize(m_MyKernels.size() + 1);
 			MyKernel& mk = m_MyKernels.back();
 			mk.m_Fee = 1090000;
+			mk.m_bUseHashlock = 0 != (1 & h);
 
 			Input::Ptr pInp(new Input);
 			pInp->m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
@@ -1062,7 +1070,8 @@ namespace beam
 					mk.Export(krn);
 
 					proto::GetProofKernel msgOut;
-					krn.get_ID(msgOut.m_KernelHash);
+					msgOut.m_RequestHashPreimage = true;
+					krn.get_ID(msgOut.m_ID);
 					Send(msgOut);
 
 					m_queProofsKrnExpected.push_back(i);
@@ -1127,7 +1136,7 @@ namespace beam
 					fail_test("unexpected proof");
 			}
 
-			virtual void OnMsg(proto::Proof&& msg) override
+			virtual void OnMsg(proto::ProofKernel&& msg) override
 			{
 				if (!m_queProofsKrnExpected.empty())
 				{
@@ -1144,6 +1153,11 @@ namespace beam
 						Merkle::Interpret(hv, msg.m_Proof);
 
 						verify_test(hv == m_vStates.back().m_Definition);
+
+						if (krn.m_pHashLock)
+							verify_test(krn.m_pHashLock->m_Preimage == msg.m_HashPreimage);
+						else
+							verify_test(msg.m_HashPreimage == ECC::Zero);
 					}
 				}
 				else

@@ -1619,4 +1619,14 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 	return true;
 }
 
+bool NodeProcessor::get_KernelHashPreimage(const Merkle::Hash& id, ECC::uintBig& val)
+{
+	SpendableKey<Merkle::Hash, DbType::Kernel> skey;
+	skey.m_Key = id;
+
+	NodeDB::Blob blobKey(&skey, sizeof(skey)), blobVal(val.m_pData, sizeof(val.m_pData));
+
+	return m_DB.GetSpendableBody(blobKey, blobVal);
+}
+
 } // namespace beam

@@ -265,7 +265,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 6;
+	const uint64_t nVersion = 7;
 
 	if (bCreate)
 	{
@@ -1515,6 +1515,20 @@ void NodeDB::ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspe
 		rs.put(0, key);
 		rs.Step();
 	}
+}
+
+bool NodeDB::GetSpendableBody(const Blob& key, Blob& out)
+{
+	Recordset rs(*this, Query::SpendableGetBody, "SELECT " TblSpendable_Body " FROM " TblSpendable " WHERE " TblSpendable_Key "=?");
+	rs.put(0, key);
+
+	rs.StepStrict();
+
+	if (rs.IsNull(0))
+		return false;
+
+	memcpy((void*) out.p, rs.get_BlobStrict(0, out.n), out.n);
+	return true;
 }
 
 void NodeDB::SetMined(const StateID& sid, const Amount& v)
