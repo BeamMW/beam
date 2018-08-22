@@ -37,8 +37,8 @@ struct NodeProcessor::UnspentWalker
 {
 	NodeProcessor& m_This;
 
-	UnspentWalker(NodeProcessor& me, bool bWithSignature)
-		:NodeDB::WalkerSpendable(me.m_DB, bWithSignature)
+	UnspentWalker(NodeProcessor& me)
+		:NodeDB::WalkerSpendable(me.m_DB)
 		,m_This(me)
 	{
 	}
@@ -121,7 +121,7 @@ void NodeProcessor::Initialize(const char* szPath)
 		struct Walker
 			:public UnspentWalker
 		{
-			Walker(NodeProcessor& me) :UnspentWalker(me, false) {}
+			Walker(NodeProcessor& me) :UnspentWalker(me) {}
 
 			virtual bool OnUtxo(const UtxoTree::Key& key) override
 			{
@@ -781,26 +781,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 		if (bCreate)
 		{
 			p->m_Value.m_Count = 1;
-
-			Serializer ser;
-
-			{
-				UtxoSig sig;
-				sig.m_Coinbase = v.m_Coinbase;
-				sig.m_Incubation = v.m_Incubation;
-				sig.m_pConfidential.swap(((Output&) v).m_pConfidential);
-				sig.m_pPublic.swap(((Output&)v).m_pPublic);
-
-				ser & sig;
-
-				sig.m_pConfidential.swap(((Output&)v).m_pConfidential);
-				sig.m_pPublic.swap(((Output&)v).m_pPublic);
-			}
-
-
-			SerializeBuffer sb = ser.buffer();
-
-			m_DB.AddSpendable(blob, NodeDB::Blob(sb.first, (uint32_t) sb.second), 1, 1);
+			m_DB.AddSpendable(blob, NULL, 1, 1);
 		}
 		else
 		{
@@ -866,11 +847,14 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 	else
 		if (bFwd)
 		{
-			Serializer ser;
-			ser & v;
-			SerializeBuffer sb = ser.buffer();
+			NodeDB::Blob body;
+			if (v.m_pHashLock)
+			{
+				body.p = v.m_pHashLock->m_Preimage.m_pData;
+				body.n = sizeof(v.m_pHashLock->m_Preimage.m_pData);
+			}
 
-			m_DB.AddSpendable(blob, NodeDB::Blob(sb.first, (uint32_t) sb.second), 1, 1);
+			m_DB.AddSpendable(blob, v.m_pHashLock ? &body : NULL, 1, 1);
 		} else
 			m_DB.ModifySpendable(blob, -1, -1);
 
@@ -1496,85 +1480,6 @@ void NodeProcessor::ExportHdrRange(const HeightRange& hr, Block::SystemState::Se
 				OnCorrupted();
 		}
 	}
-}
-
-void NodeProcessor::ExportMacroBlock(Block::BodyBase::IMacroWriter& w)
-{
-	struct Walker
-		:public UnspentWalker
-	{
-		Walker(NodeProcessor& me) :UnspentWalker(me, true) {}
-
-		TxVectors m_Vec;
-
-		virtual bool OnUtxo(const UtxoTree::Key& key) override
-		{
-			for (Input::Count i = 0; i < m_nUnspentCount; i++)
-			{
-				UtxoSig sig;
-
-				Deserializer der;
-				der.reset(m_Signature.p, m_Signature.n);
-				der & sig;
-
-				UtxoTree::Key::Data d;
-				d = key;
-
-				Output::Ptr pOutp(new Output);
-				pOutp->m_Commitment	= d.m_Commitment;
-				pOutp->m_Maturity	= d.m_Maturity;
-				pOutp->m_Coinbase	= sig.m_Coinbase;
-				pOutp->m_Incubation	= sig.m_Incubation;
-				pOutp->m_pConfidential.swap(sig.m_pConfidential);
-				pOutp->m_pPublic.swap(sig.m_pPublic);
-
-				m_Vec.m_vOutputs.push_back(std::move(pOutp));
-			}
-			return true;
-		}
-
-		virtual bool OnKernel(const Merkle::Hash&) override
-		{
-			assert(1 == m_nUnspentCount);
-
-			TxKernel::Ptr pKrn(new TxKernel);
-
-			Deserializer der;
-			der.reset(m_Signature.p, m_Signature.n);
-			der & *pKrn;
-
-			m_Vec.m_vKernelsOutput.push_back(std::move(pKrn));
-
-			return true;
-		}
-	};
-
-	// Currently we convert it to a block in memory, because we need to sort the data.
-	Walker wlk(*this);
-	wlk.Traverse();
-	wlk.m_Vec.Sort();
-
-	w.Dump(wlk.m_Vec.get_Reader());
-
-	std::vector<Block::SystemState::Sequence::Element> vElem;
-	Block::SystemState::Sequence::Prefix prefix;
-	ExportHdrRange(HeightRange(Rules::HeightGenesis, m_Cursor.m_ID.m_Height), prefix, vElem);
-
-	Block::BodyBase body;
-	NodeDB::Blob blob(body.m_Offset.m_Value.m_pData, sizeof(body.m_Offset.m_Value.m_pData));
-
-	if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
-		body.m_Offset.m_Value = ECC::Zero;
-
-	body.m_Subsidy.Lo = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
-	body.m_Subsidy.Hi = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
-
-	body.m_SubsidyClosing = !m_Cursor.m_SubsidyOpen;
-
-	w.put_Start(body, prefix);
-
-	for (size_t i = 0; i < vElem.size(); i++)
-		w.put_NextHdr(vElem[i]);
 }
 
 bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)

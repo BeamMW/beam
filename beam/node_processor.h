@@ -96,7 +96,6 @@ public:
 	void ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
 	void ExportMacroBlock(Block::BodyBase::IMacroWriter&, const HeightRange&);
 	void ExportHdrRange(const HeightRange&, Block::SystemState::Sequence::Prefix&, std::vector<Block::SystemState::Sequence::Element>&);
-	void ExportMacroBlock(Block::BodyBase::IMacroWriter&);
 	bool ImportMacroBlock(Block::BodyBase::IMacroReader&);
 
 	struct DataStatus {

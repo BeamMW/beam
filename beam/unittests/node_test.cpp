@@ -339,9 +339,9 @@ namespace beam
 		// utxos and kernels
 		NodeDB::Blob b0(vStates[0].m_Prev.m_pData, sizeof(vStates[0].m_Prev.m_pData));
 
-		db.AddSpendable(b0, NodeDB::Blob("hello, world!", 13), 5, 3);
+		db.AddSpendable(b0, &NodeDB::Blob("hello, world!", 13), 5, 3);
 
-		NodeDB::WalkerSpendable wsp(db, false);
+		NodeDB::WalkerSpendable wsp(db);
 		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
 		db.ModifySpendable(b0, 0, -3);
@@ -642,22 +642,6 @@ namespace beam
 
 		Block::BodyBase::RW rwData;
 		rwData.m_sPath = g_sz3;
-
-		{
-			verify_test(rwData.Open(false));
-			np.ExportMacroBlock(rwData); // export current state
-
-			rwData.Close();
-			verify_test(rwData.Open(true));
-
-			NodeProcessor np2;
-			np2.Initialize(g_sz2);
-
-			verify_test(np2.ImportMacroBlock(rwData));
-
-			rwData.Close();
-			rwData.Delete();
-		}
 
 		Height hMid = blockChain.size() / 2 + Rules::HeightGenesis;
 

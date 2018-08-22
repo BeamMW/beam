@@ -335,7 +335,7 @@ void NodeDB::Create()
 
 	ExecQuick("CREATE TABLE [" TblSpendable "] ("
 		"[" TblSpendable_Key		"] BLOB NOT NULL,"
-		"[" TblSpendable_Body		"] BLOB NOT NULL,"
+		"[" TblSpendable_Body		"] BLOB,"
 		"[" TblSpendable_Refs		"] INTEGER NOT NULL,"
 		"[" TblSpendable_Unspent	"] INTEGER NOT NULL,"
 		"PRIMARY KEY (" TblSpendable_Key "))");
@@ -1462,10 +1462,7 @@ void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
 
 void NodeDB::EnumUnpsent(WalkerSpendable& x)
 {
-	if (x.m_bWithSignature)
-		x.m_Rs.Reset(Query::SpendableEnumWithSig, "SELECT " TblSpendable_Key "," TblSpendable_Unspent "," TblSpendable_Body " FROM " TblSpendable " WHERE " TblSpendable_Unspent "!=0");
-	else
-		x.m_Rs.Reset(Query::SpendableEnum, "SELECT " TblSpendable_Key "," TblSpendable_Unspent " FROM " TblSpendable " WHERE " TblSpendable_Unspent "!=0");
+	x.m_Rs.Reset(Query::SpendableEnum, "SELECT " TblSpendable_Key "," TblSpendable_Unspent " FROM " TblSpendable " WHERE " TblSpendable_Unspent "!=0");
 }
 
 bool NodeDB::WalkerSpendable::MoveNext()
@@ -1475,13 +1472,10 @@ bool NodeDB::WalkerSpendable::MoveNext()
 	m_Rs.get(0, m_Key);
 	m_Rs.get(1, m_nUnspentCount);
 
-	if (m_bWithSignature)
-		m_Rs.get(2, m_Signature);
-
 	return true;
 }
 
-void NodeDB::AddSpendable(const Blob& key, const Blob& body, uint32_t nRefs, uint32_t nUnspentCount)
+void NodeDB::AddSpendable(const Blob& key, const Blob* pBody, uint32_t nRefs, uint32_t nUnspentCount)
 {
 	assert(nRefs > 0);
 
@@ -1491,7 +1485,8 @@ void NodeDB::AddSpendable(const Blob& key, const Blob& body, uint32_t nRefs, uin
 	{
 		Recordset rs(*this, Query::SpendableAdd, "INSERT INTO " TblSpendable "(" TblSpendable_Key "," TblSpendable_Body "," TblSpendable_Refs "," TblSpendable_Unspent ") VALUES(?,?,?,?)");
 		rs.put(0, key);
-		rs.put(1, body);
+		if (pBody)
+			rs.put(1, *pBody);
 		rs.put(2, nRefs);
 		rs.put(3, nUnspentCount);
 		rs.Step();
