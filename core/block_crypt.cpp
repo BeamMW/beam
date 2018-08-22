@@ -334,13 +334,11 @@ namespace beam
 
 	void TxKernel::HashToID(Merkle::Hash& hv) const
 	{
-		// Account for everything that was not included in the hash for signing
+		// Account for everything that was not included in the hash for signing, except the signature. We must be able to get the ID of the kernel which isn't signed yet
 		ECC::Hash::Processor()
 			<< hv
 			<< m_Excess
 			<< m_Multiplier
-			<< m_Signature.m_e
-			<< m_Signature.m_k
 			>> hv;
 
 		// Some kernel hash values are reserved for the system usage
@@ -876,7 +874,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(2) // increment this whenever we change something in the protocol
+			<< uint32_t(3) // increment this whenever we change something in the protocol
 			// out
 			>> Checksum;
 	}
