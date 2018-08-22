@@ -211,6 +211,7 @@ void WalletViewModel::onStatus(const WalletStatus& status)
         _utxos.clear();
 		_allUtxos.clear();
         emit stateChanged();
+		emit allUtxoChanged();
     }
 }
 
