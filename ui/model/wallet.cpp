@@ -54,29 +54,21 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
-    void getAvaliableUtxos() override
+    void getAllUtxos() override
     {
         tx.send([](BridgeInterface& receiver_) mutable
         {
-            receiver_.getAvaliableUtxos();
+            receiver_.getAllUtxos();
         });
     }
 
-	void getAllUtxos() override
-	{
-		tx.send([](BridgeInterface& receiver_) mutable
-		{
-			receiver_.getAllUtxos();
-		});
-	}
-
-	void getAddresses(bool own) override
-	{
-		tx.send([own](BridgeInterface& receiver_) mutable
-		{
+    void getAddresses(bool own) override
+    {
+        tx.send([own](BridgeInterface& receiver_) mutable
+        {
             receiver_.getAddresses(own);
-		});
-	}
+        });
+    }
 
     void cancelTx(const beam::TxID& id) override
     {
@@ -94,21 +86,21 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
-	void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override
-	{
-		tx.send([senderID, receiverID](BridgeInterface& receiver_) mutable
-		{
+    void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override
+    {
+        tx.send([senderID, receiverID](BridgeInterface& receiver_) mutable
+        {
             receiver_.changeCurrentWalletIDs(senderID, receiverID);
-		});
-	}
+        });
+    }
 
-	void generateNewWalletID() override
-	{
-		tx.send([](BridgeInterface& receiver_) mutable
-		{
+    void generateNewWalletID() override
+    {
+        tx.send([](BridgeInterface& receiver_) mutable
+        {
             receiver_.generateNewWalletID();
-		});
-	}
+        });
+    }
 
     void deleteAddress(const beam::WalletID& id) override
     {
@@ -126,35 +118,35 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
-	void setNodeAddress(const std::string& addr) override
-	{
-		tx.send([addr](BridgeInterface& receiver_) mutable
-		{
-			receiver_.setNodeAddress(addr);
-		});
-	}
+    void setNodeAddress(const std::string& addr) override
+    {
+        tx.send([addr](BridgeInterface& receiver_) mutable
+        {
+            receiver_.setNodeAddress(addr);
+        });
+    }
 
-	void emergencyReset() override
-	{
-		tx.send([](BridgeInterface& receiver_) mutable
-		{
-			receiver_.emergencyReset();
-		});
-	}
+    void emergencyReset() override
+    {
+        tx.send([](BridgeInterface& receiver_) mutable
+        {
+            receiver_.emergencyReset();
+        });
+    }
 };
 
 WalletModel::WalletModel(IKeyChain::Ptr keychain, IKeyStore::Ptr keystore, const std::string& nodeAddr)
-	: _keychain(keychain)
+    : _keychain(keychain)
     , _keystore(keystore)
-	, _nodeAddrStr(nodeAddr)
+    , _nodeAddrStr(nodeAddr)
 {
-	qRegisterMetaType<WalletStatus>("WalletStatus");
-	qRegisterMetaType<vector<TxDescription>>("std::vector<beam::TxDescription>");
-	qRegisterMetaType<vector<TxPeer>>("std::vector<beam::TxPeer>");
+    qRegisterMetaType<WalletStatus>("WalletStatus");
+    qRegisterMetaType<vector<TxDescription>>("std::vector<beam::TxDescription>");
+    qRegisterMetaType<vector<TxPeer>>("std::vector<beam::TxPeer>");
     qRegisterMetaType<Amount>("beam::Amount");
     qRegisterMetaType<vector<Coin>>("std::vector<beam::Coin>");
     qRegisterMetaType<vector<WalletAddress>>("std::vector<beam::WalletAddress>");
-	qRegisterMetaType<WalletID>("beam::WalletID");
+    qRegisterMetaType<WalletID>("beam::WalletID");
 }
 
 WalletModel::~WalletModel()
@@ -175,58 +167,58 @@ WalletModel::~WalletModel()
 
 WalletStatus WalletModel::getStatus() const
 {
-	WalletStatus status{ wallet::getAvailable(_keychain), 0, 0, 0};
+    WalletStatus status{ wallet::getAvailable(_keychain), 0, 0, 0};
 
-	auto history = _keychain->getTxHistory();
+    auto history = _keychain->getTxHistory();
 
-	for (const auto& item : history)
-	{
-		switch (item.m_status)
-		{
-		case TxDescription::Completed:
-			(item.m_sender ? status.sent : status.received) += item.m_amount;
-			break;
-		default: break;
-		}
-	}
+    for (const auto& item : history)
+    {
+        switch (item.m_status)
+        {
+        case TxDescription::Completed:
+            (item.m_sender ? status.sent : status.received) += item.m_amount;
+            break;
+        default: break;
+        }
+    }
 
-	status.unconfirmed += wallet::getTotal(_keychain, Coin::Unconfirmed);
+    status.unconfirmed += wallet::getTotal(_keychain, Coin::Unconfirmed);
 
-	status.update.lastTime = _keychain->getLastUpdateTime();
+    status.update.lastTime = _keychain->getLastUpdateTime();
 
-	return status;
+    return status;
 }
 
 void WalletModel::run()
 {
-	try
-	{
-		struct WalletSubscriber
-		{
-			WalletSubscriber(IWalletObserver* client, std::shared_ptr<beam::Wallet> wallet)
-				: _client(client)
-				, _wallet(wallet)
-			{
-				_wallet->subscribe(_client);
-			}
+    try
+    {
+        struct WalletSubscriber
+        {
+            WalletSubscriber(IWalletObserver* client, std::shared_ptr<beam::Wallet> wallet)
+                : _client(client)
+                , _wallet(wallet)
+            {
+                _wallet->subscribe(_client);
+            }
 
-			~WalletSubscriber()
-			{
-				_wallet->unsubscribe(_client);
-			}
-		private:
-			IWalletObserver * _client;
-			std::shared_ptr<beam::Wallet> _wallet;
-		};
+            ~WalletSubscriber()
+            {
+                _wallet->unsubscribe(_client);
+            }
+        private:
+            IWalletObserver * _client;
+            std::shared_ptr<beam::Wallet> _wallet;
+        };
 
-		std::unique_ptr<WalletSubscriber> subscriber;
+        std::unique_ptr<WalletSubscriber> subscriber;
 
-		_reactor = Reactor::create();
-		async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), _reactor);
+        _reactor = Reactor::create();
+        async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), _reactor);
 
-		emit onStatus(getStatus());
-		emit onTxStatus(_keychain->getTxHistory());
-		emit onTxPeerUpdated(_keychain->getPeers());
+        emit onStatus(getStatus());
+        emit onTxStatus(_keychain->getTxHistory());
+        emit onTxPeerUpdated(_keychain->getPeers());
 
         _logRotateTimer = io::Timer::create(_reactor);
         _logRotateTimer->start(
@@ -235,56 +227,56 @@ void WalletModel::run()
             Logger::get()->rotate();
         });
 
-		{
-			Address node_addr;
-			node_addr.resolve(_nodeAddrStr.c_str());
-			auto wallet_io = make_shared<WalletNetworkIO>(
-				node_addr
-				, _keychain
-				, _keystore
-				, _reactor);
-			_wallet_io = wallet_io;
-			auto wallet = make_shared<Wallet>(_keychain, wallet_io);
-			_wallet = wallet;
-			subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
-		}
+        {
+            Address node_addr;
+            node_addr.resolve(_nodeAddrStr.c_str());
+            auto wallet_io = make_shared<WalletNetworkIO>(
+                node_addr
+                , _keychain
+                , _keystore
+                , _reactor);
+            _wallet_io = wallet_io;
+            auto wallet = make_shared<Wallet>(_keychain, wallet_io);
+            _wallet = wallet;
+            subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
+        }
 
-		_reactor->run();
-	}
-	catch (const runtime_error& e)
-	{
-		LOG_ERROR() << e.what();
-	}
-	catch (...)
-	{
-		LOG_ERROR() << "Unhandled exception";
-	}
+        _reactor->run();
+    }
+    catch (const runtime_error& e)
+    {
+        LOG_ERROR() << e.what();
+    }
+    catch (...)
+    {
+        LOG_ERROR() << "Unhandled exception";
+    }
 }
 
 void WalletModel::onStatusChanged()
 {
-	emit onStatus(getStatus());
+    emit onStatus(getStatus());
 }
 
 void WalletModel::onKeychainChanged()
 {
-	onStatusChanged();
+    onStatusChanged();
 }
 
 void WalletModel::onTransactionChanged()
 {
-	emit onTxStatus(_keychain->getTxHistory());
-	onStatusChanged();
+    emit onTxStatus(_keychain->getTxHistory());
+    onStatusChanged();
 }
 
 void WalletModel::onSystemStateChanged()
 {
-	onStatusChanged();
+    onStatusChanged();
 }
 
 void WalletModel::onTxPeerChanged()
 {
-	emit onTxPeerUpdated(_keychain->getPeers());
+    emit onTxPeerUpdated(_keychain->getPeers());
 }
 
 void WalletModel::onAddressChanged()
@@ -295,7 +287,7 @@ void WalletModel::onAddressChanged()
 
 void WalletModel::onSyncProgress(int done, int total)
 {
-	emit onSyncProgressUpdated(done, total);
+    emit onSyncProgressUpdated(done, total);
 }
 
 void WalletModel::sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, Amount&& amount, Amount&& fee)
@@ -336,19 +328,14 @@ void WalletModel::calcChange(beam::Amount&& amount)
     }
 }
 
-void WalletModel::getAvaliableUtxos()
-{
-    emit onUtxoChanged(getUtxos());
-}
-
 void WalletModel::getAllUtxos()
 {
-	emit onAllUtxoChanged(getUtxos(true));
+    emit onAllUtxoChanged(getUtxos());
 }
 
 void WalletModel::getAddresses(bool own)
 {
-	emit onAdrresses(own, _keychain->getAddresses(own));
+    emit onAdrresses(own, _keychain->getAddresses(own));
 }
 
 void WalletModel::cancelTx(const beam::TxID& id)
@@ -368,7 +355,7 @@ void WalletModel::createNewAddress(WalletAddress&& address)
 
 void WalletModel::changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID)
 {
-	emit onChangeCurrentWalletIDs(senderID, receiverID);
+    emit onChangeCurrentWalletIDs(senderID, receiverID);
 }
 
 void WalletModel::generateNewWalletID()
@@ -421,52 +408,40 @@ void WalletModel::deleteOwnAddress(const beam::WalletID& id)
 
 void WalletModel::setNodeAddress(const std::string& addr)
 {
-	io::Address nodeAddr;
+    io::Address nodeAddr;
 
-	if (nodeAddr.resolve(addr.c_str()))
-	{
-		assert(!_wallet.expired());
-		auto s = _wallet.lock();
-		if (s)
-		{
-			s->set_node_address(nodeAddr);
-		}
-	}
-	else
-	{
-		LOG_ERROR() << "Unable to resolve node address: " << addr;
-		assert(false);
-	}
+    if (nodeAddr.resolve(addr.c_str()))
+    {
+        assert(!_wallet.expired());
+        auto s = _wallet.lock();
+        if (s)
+        {
+            s->set_node_address(nodeAddr);
+        }
+    }
+    else
+    {
+        LOG_ERROR() << "Unable to resolve node address: " << addr;
+        assert(false);
+    }
 }
 
 void WalletModel::emergencyReset()
 {
-	assert(!_wallet.expired());
-	auto s = _wallet.lock();
-	if (s)
-	{
-		s->emergencyReset();
-	}
+    assert(!_wallet.expired());
+    auto s = _wallet.lock();
+    if (s)
+    {
+        s->emergencyReset();
+    }
 }
 
-vector<Coin> WalletModel::getUtxos(bool all) const
+vector<Coin> WalletModel::getUtxos() const
 {
     vector<Coin> utxos;
-    auto currentHeight = _keychain->getCurrentHeight();
-    _keychain->visit([&utxos, &currentHeight, all](const Coin& c)->bool
+    _keychain->visit([&utxos](const Coin& c)->bool
     {
-		if (all) {
-			utxos.push_back(c);
-			return true;
-		}
-
-        Height lockHeight = c.m_maturity;
-
-        if (c.m_status == Coin::Unspent
-            && lockHeight <= currentHeight)
-        {
-            utxos.push_back(c);
-        }
+        utxos.push_back(c);
         return true;
     });
     return utxos;

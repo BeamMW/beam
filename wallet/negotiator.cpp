@@ -383,7 +383,7 @@ namespace beam::wallet
     void Negotiator::FSMDefinition::createSignature2(Scalar& signature, Point& publicNonce, Scalar& challenge) const
     {
         Hash::Value message;
-        m_kernel->get_HashForSigning(message);
+        m_kernel->get_Hash(message);
 
         Signature::MultiSig msig;
         msig.GenerateNonce(message, m_blindingExcess);
@@ -407,7 +407,7 @@ namespace beam::wallet
     Point Negotiator::FSMDefinition::getPublicNonce() const
     {
         Hash::Value message;
-        m_kernel->get_HashForSigning(message);
+        m_kernel->get_Hash(message);
 
         Signature::MultiSig msig;
         msig.GenerateNonce(message, m_blindingExcess);
@@ -429,7 +429,7 @@ namespace beam::wallet
         }
         Signature::MultiSig msig;
         Hash::Value message;
-        m_kernel->get_HashForSigning(message);
+        m_kernel->get_Hash(message);
 
         msig.GenerateNonce(message, m_blindingExcess);
         Point::Native publicNonce = Context::get().G * msig.m_Nonce;

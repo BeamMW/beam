@@ -51,7 +51,7 @@ Rectangle {
             spacing: 30
 
     		Column {
-                clip: true
+               //clip: true
 
                 spacing: 10
 
@@ -69,15 +69,8 @@ Rectangle {
     				activeFocusOnTab: true
                     font.pixelSize: 12
                     color: Style.white
+                    validator: RegExpValidator { regExp: /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$/ }
     				onAccepted: settingsViewModel.applyChanges(nodeAddress.text)
-                }
-
-                Rectangle {
-                    width: parent.width
-                    height: 1
-
-                    color: Style.white
-                    opacity: 0.1
                 }
 
                 SFText {
@@ -111,7 +104,7 @@ Rectangle {
 
 			PrimaryButton {		
 				text: "apply changes"
-				enabled: {nodeAddress.text != settingsViewModel.nodeAddress}
+				enabled: {nodeAddress.text != settingsViewModel.nodeAddress && nodeAddress.acceptableInput}
 				onClicked: settingsViewModel.applyChanges(nodeAddress.text)
 			}
 		}

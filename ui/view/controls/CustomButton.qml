@@ -55,12 +55,6 @@ Button {
         
         width: control.width
         height: control.height
-
-        MouseArea{
-		    anchors.fill: parent
-		    cursorShape: Qt.PointingHandCursor
-            onClicked: control.clicked()
-	    }
     }
 
 	DropShadow {
@@ -69,6 +63,6 @@ Button {
 		samples: 9
 		color: "white"
 		source: rect
-		visible: control.visualFocus
+		visible: control.visualFocus || control.hovered
 	}
 }

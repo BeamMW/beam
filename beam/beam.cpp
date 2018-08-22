@@ -214,7 +214,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 		pKrn->m_Excess = ECC::Point::Native(Context::get().G * k);
 
 		Merkle::Hash hv;
-		pKrn->get_HashForSigning(hv);
+		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, k);
 
 		get_WriteBlock().m_vKernelsOutput.push_back(std::move(pKrn));
