@@ -944,6 +944,9 @@ namespace beam
 			std::list<uint32_t> m_queProofsStateExpected;
 			std::list<uint32_t> m_queProofsKrnExpected;
 
+			uint32_t m_nBbsMsgsPending = 0;
+
+
 			MyClient() {
 				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
 			}
@@ -989,9 +992,26 @@ namespace beam
 
 			io::Timer::Ptr m_pTimer;
 
+			bool IsHeightReached() const
+			{
+				return !m_vStates.empty() && (m_vStates.back().m_Height >= m_HeightTrg);
+			}
+
+			bool IsAllProofsReceived() const
+			{
+				return
+					m_queProofsExpected.empty() &&
+					m_queProofsKrnExpected.empty() &&
+					m_queProofsStateExpected.empty();
+			}
+
+			bool IsAllBbsReceived() const
+			{
+				return !m_nBbsMsgsPending;
+			}
+
 			void OnTimer() {
 
-				fail_test("Blockchain height didn't reach target");
 				io::Reactor::get_Current().stop();
 			}
 
@@ -999,14 +1019,18 @@ namespace beam
 			{
 				printf("Tip Height=%u\n", (unsigned int) msg.m_ID.m_Height);
 				verify_test(m_vStates.size() + 1 == msg.m_ID.m_Height);
+			}
 
-				if (msg.m_ID.m_Height >= m_HeightTrg)
+			virtual void OnMsg(proto::Hdr&& msg) override
+			{
+				verify_test(m_vStates.size() + 1 == msg.m_Description.m_Height);
+				m_vStates.push_back(msg.m_Description);
+
+				if (IsHeightReached())
 				{
-					verify_test(m_queProofsExpected.empty());
-					verify_test(m_queProofsKrnExpected.empty());
-					verify_test(m_queProofsStateExpected.empty());
-
-					io::Reactor::get_Current().stop();
+					if (IsAllProofsReceived() && IsAllBbsReceived())
+						io::Reactor::get_Current().stop();
+					return;
 				}
 
 				proto::GetMined msgOut;
@@ -1017,14 +1041,10 @@ namespace beam
 				msgBbs.m_Channel = 11;
 				msgBbs.m_TimePosted = getTimestamp();
 				msgBbs.m_Message.resize(1);
-				msgBbs.m_Message[0] = (uint8_t) msg.m_ID.m_Height;
+				msgBbs.m_Message[0] = (uint8_t) msg.m_Description.m_Height;
 				Send(msgBbs);
-			}
 
-			virtual void OnMsg(proto::Hdr&& msg) override
-			{
-				verify_test(m_vStates.size() + 1 == msg.m_Description.m_Height);
-				m_vStates.push_back(msg.m_Description);
+				m_nBbsMsgsPending++;
 
 				// assume we've mined this
 				m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
@@ -1186,6 +1206,8 @@ namespace beam
 		struct MyClient2
 			:public proto::NodeConnection
 		{
+			MyClient* m_pOtherClient;
+
 			virtual void OnConnectedSecure() override {
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
@@ -1220,12 +1242,15 @@ namespace beam
 				verify_test(nMsg == (uint8_t) m_MsgCount + 1);
 				m_MsgCount++;
 
+				verify_test(m_pOtherClient->m_nBbsMsgsPending);
+				m_pOtherClient->m_nBbsMsgsPending--;
 
 				printf("Got BBS msg=%u\n", m_MsgCount);
 			}
 		};
 
 		MyClient2 cl2;
+		cl2.m_pOtherClient = &cl;
 		cl2.Connect(addr);
 
 
@@ -1240,9 +1265,14 @@ namespace beam
 
 		pReactor->run();
 
-		verify_test(cl2.m_MsgCount >= cl.m_HeightTrg - 10); // assume several last msgs may haven't arrived yet
-	}
 
+		if (!cl.IsHeightReached())
+			fail_test("Blockchain height didn't reach target");
+		if (!cl.IsAllProofsReceived())
+			fail_test("some proofs missing");
+		if (!cl.IsAllBbsReceived())
+			fail_test("some BBS messages missing");
+	}
 
 }
 
