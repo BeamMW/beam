@@ -27,6 +27,7 @@
 #include "viewmodel/notifications.h"
 #include "viewmodel/help.h"
 #include "viewmodel/settings.h"
+#include "viewmodel/messages.h"
 
 #include "wallet/wallet_db.h"
 #include "utility/logger.h"
@@ -157,6 +158,7 @@ int main (int argc, char* argv[])
 
 			std::unique_ptr<ViewModel> viewModels;
 			SettingsViewModel settingsViewModel(appDataDir.filePath("setting.ini"));
+            MessagesViewModel messagesViewModel;
 
 			Translator translator;
 
@@ -215,10 +217,11 @@ int main (int argc, char* argv[])
 			});
 
 			view.rootContext()->setContextProperty("startViewModel", &startViewModel);
+            view.rootContext()->setContextProperty("messagesViewModel", &messagesViewModel);
 
 			view.setSource(QUrl("qrc:///root.qml"));
 
-			view.show();
+            view.show();
 
 			return app.exec();
 		}
