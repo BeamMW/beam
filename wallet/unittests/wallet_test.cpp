@@ -528,6 +528,17 @@ namespace
     };
 }
 
+class TestWallet
+	:public Wallet
+{
+	virtual bool IsTestMode() override { return true; }
+public:
+	TestWallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, bool holdNodeConnection = false, TxCompletedAction&& action = TxCompletedAction())
+		:Wallet(keyChain, network, holdNodeConnection, std::move(action))
+	{
+	}
+};
+
 void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receiverKeychain)
 {
     cout << "\nTesting wallets negotiation...\n";
@@ -552,8 +563,8 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
         }
     };
 
-    Wallet sender(senderKeychain, network, false, f);
-    Wallet receiver(receiverKeychain, network2, false, f);
+    TestWallet sender(senderKeychain, network, false, f);
+	TestWallet receiver(receiverKeychain, network2, false, f);
 
     network->registerPeer(&sender, true);
     network->registerPeer(&receiver, false);
@@ -768,8 +779,8 @@ void TestP2PWalletNegotiationST()
     auto receiver_io = make_shared<WalletNetworkIO>( node_address, receiverKeychain, receiverBbsKeys, main_reactor, 1000, 2000);
 
 
-    Wallet sender{senderKeychain, sender_io, true, [sender_io](auto) { sender_io->stop(); } };
-    Wallet receiver{ receiverKeychain, receiver_io, true };
+	TestWallet sender{senderKeychain, sender_io, true, [sender_io](auto) { sender_io->stop(); } };
+	TestWallet receiver{ receiverKeychain, receiver_io, true };
 
     //// send to your peer
     //sender.transfer_money(senderID, senderID, 6);
@@ -995,8 +1006,8 @@ void TestP2PWalletNegotiationST()
      auto receiver_io = make_shared<WalletNetworkIO>(node_address, receiverKeychain, receiverBbsKeys, main_reactor, 1000, 2000);
 
 
-     Wallet sender{ senderKeychain, sender_io };
-     Wallet receiver{ receiverKeychain, receiver_io, false, [receiver_io](auto) { receiver_io->stop(); } };
+	 TestWallet sender{ senderKeychain, sender_io };
+	 TestWallet receiver{ receiverKeychain, receiver_io, false, [receiver_io](auto) { receiver_io->stop(); } };
 
      TxID txId = receiver.transfer_money(receiverID, senderID, 4, 2, false);
 
@@ -1396,7 +1407,7 @@ void TestRollback(Height branch, Height current, unsigned step = 1)
     IOLoop mainLoop;
     auto network = make_shared<RollbackIO>(mainLoop, mmrNew, branch, current, step);
 
-    Wallet sender(db, network);
+	TestWallet sender(db, network);
     
     network->registerPeer(&sender, true);
     

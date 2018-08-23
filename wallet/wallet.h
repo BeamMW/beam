@@ -172,6 +172,8 @@ namespace beam
         void resetSystemState();
         bool IsKnownStateValid(const proto::ProofStateForDummies&) const;
 
+		virtual bool IsTestMode() { return false; }
+
         struct Cleaner
         {
             Cleaner(std::vector<wallet::Negotiator::Ptr>& t) : m_v{ t } {}

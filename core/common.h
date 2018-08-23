@@ -522,6 +522,9 @@ namespace beam
 				bool IsSane() const;
 				bool IsValidPoW() const;
 				bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
+
+				// the most robust proof verification - verifies the whole proof structure
+				bool IsValidProofState(const Full&, const Merkle::Proof&) const;
 			};
 		};
 
