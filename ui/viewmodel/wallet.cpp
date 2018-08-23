@@ -148,12 +148,6 @@ WalletViewModel::WalletViewModel(WalletModel& model, MessagesViewModel& messages
 
     connect(&_model, SIGNAL(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
         SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
-
-    /*_messagesModel.AddMessage(QString{ "wallet1" });
-    _messagesModel.AddMessage(QString{ "wallet2" });
-    _messagesModel.AddMessage(QString{ "wallet3" });
-    _messagesModel.AddMessage(QString{ "wallet4" });
-    _messagesModel.AddMessage(QString{ "wallet5" });*/
 }
 
 WalletViewModel::~WalletViewModel()

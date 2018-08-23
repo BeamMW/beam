@@ -162,7 +162,7 @@ int main (int argc, char* argv[])
 
 			Translator translator;
 
-			StartViewModel startViewModel(walletStorage, bbsStorage, [&](IKeyChain::Ptr db, const std::string& walletPass)
+			StartViewModel startViewModel(messagesViewModel, walletStorage, bbsStorage, [&](IKeyChain::Ptr db, const std::string& walletPass)
 			{
 				qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
 				qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
@@ -179,7 +179,7 @@ int main (int argc, char* argv[])
                 }
                 catch (const beam::KeyStoreException& ex)
                 {
-                    QMessageBox::critical(0, "Error", "Failed to read key store", QMessageBox::Ok);
+                    messagesViewModel.AddMessage("Failed to read key store");
                     return false;
                 }
 

@@ -20,8 +20,9 @@ using namespace beam;
 using namespace ECC;
 using namespace std;
 
-StartViewModel::StartViewModel(const string& walletStorage, const string& bbsStorage, StartViewModel::DoneCallback done)
-	: _walletStorage(walletStorage)
+StartViewModel::StartViewModel(MessagesViewModel& model, const string& walletStorage, const string& bbsStorage, StartViewModel::DoneCallback done)
+	: _messagesModel(model)
+    , _walletStorage(walletStorage)
     , _bbsStorage(bbsStorage)
 	, _done(done)
 {
@@ -84,7 +85,7 @@ bool StartViewModel::createWallet(const QString& seed, const QString& pass)
         }
         catch (const std::runtime_error&)
         {
-            QMessageBox::critical(0, "Error", "Failed to generate default address", QMessageBox::Ok);
+            _messagesModel.AddMessage("Failed to generate default address");
         }
 
 		_done(db, pass.toStdString());

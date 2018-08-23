@@ -102,6 +102,10 @@ signals:
     void addressesChanged();
 
 private:
+
+    void getAddressesFromModel();
+
+private:
     WalletModel& m_model;
     QList<PeerAddressItem*> m_peerAddresses;
     QList<OwnAddressItem*> m_ownAddresses;

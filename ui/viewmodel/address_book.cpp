@@ -117,6 +117,8 @@ AddressBookViewModel::AddressBookViewModel(WalletModel& model)
 
 	connect(&m_model, SIGNAL(onGeneratedNewWalletID(const beam::WalletID&)),
 		SLOT(onGeneratedNewWalletID(const beam::WalletID&)));
+
+    getAddressesFromModel();
 }
 
 QQmlListProperty<PeerAddressItem> AddressBookViewModel::getPeerAddresses()
@@ -232,11 +234,7 @@ void AddressBookViewModel::copyToClipboard(const QString& text)
 
 void AddressBookViewModel::onStatus(const WalletStatus&)
 {
-    if (m_model.async)
-    {
-        m_model.async->getAddresses(true);
-        m_model.async->getAddresses(false);
-    }
+    getAddressesFromModel();
 }
 
 void AddressBookViewModel::onAdrresses(bool own, const std::vector<WalletAddress>& addresses)
@@ -266,4 +264,13 @@ void AddressBookViewModel::onAdrresses(bool own, const std::vector<WalletAddress
 void AddressBookViewModel::onGeneratedNewWalletID(const beam::WalletID& walletID)
 {
 	m_newOwnAddress.setWalletID(toString(walletID));
+}
+
+void AddressBookViewModel::getAddressesFromModel()
+{
+    if (m_model.async)
+    {
+        m_model.async->getAddresses(true);
+        m_model.async->getAddresses(false);
+    }
 }

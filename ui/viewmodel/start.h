@@ -19,6 +19,8 @@
 
 #include "wallet/wallet_db.h"
 
+#include "messages.h"
+
 class StartViewModel : public QObject
 {
 	Q_OBJECT
@@ -28,7 +30,7 @@ public:
 
 	using DoneCallback = std::function<bool (beam::IKeyChain::Ptr db, const std::string& walletPass)>;
 
-	StartViewModel(const std::string& walletStorage, const std::string& bbsStorage, DoneCallback done);
+	StartViewModel(MessagesViewModel& model, const std::string& walletStorage, const std::string& bbsStorage, DoneCallback done);
 
 	bool walletExists() const;
 
@@ -44,6 +46,7 @@ public slots:
 	bool openWallet(const QString& pass);
 
 private:
+    MessagesViewModel& _messagesModel;
 	std::string _walletStorage;
     std::string _bbsStorage;
 	DoneCallback _done;
