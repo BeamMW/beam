@@ -552,7 +552,29 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::ProofStateForDummies&& msg)
     {
-        if (!IsKnownStateValid(msg))
+		Block::SystemState::ID id2;
+		bool bMatch = true;
+
+		bool bTestMode = IsTestMode();
+		if (bTestMode)
+			bMatch = (m_knownStateID.m_Hash == ECC::Zero);
+		else
+		{
+			bool bProofValid = msg.m_Hdr.IsSane() ?
+				m_newState.IsValidProofState(msg.m_Hdr, msg.m_Proof) :
+				msg.m_Proof.empty(); // in case the requested height is too large - empty result is returned, this is valid behavior
+
+			if (!bProofValid)
+			{
+				LOG_WARNING() << "Invalid state proof received.";
+				return false;
+			}
+
+			msg.m_Hdr.get_ID(id2);
+			bMatch = (id2 == m_knownStateID);
+		}
+
+        if (!bMatch)
         {
             // rollback
             // search for the latest valid known state
@@ -573,10 +595,19 @@ namespace beam
                 return exit_sync();
             }
             auto id = m_keyChain->getKnownStateID(m_stateFinder->getSearchOffset());
-            Merkle::Hash hv = id.m_Hash;
             LOG_INFO() << "Check state: " << id;
-            Merkle::Interpret(hv, msg.m_Proof);
-            if (hv == m_newState.m_Definition)
+
+			bool bMatch;
+			if (bTestMode)
+			{
+				Merkle::Hash hv = id.m_Hash;
+				Merkle::Interpret(hv, msg.m_Proof);
+				bMatch = (hv == m_newState.m_Definition);
+			}
+			else
+				bMatch = (id2 == id);
+
+            if (bMatch)
             {
                 m_stateFinder->m_id = id;
                 m_stateFinder->moveForward();
