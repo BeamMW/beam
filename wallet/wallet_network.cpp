@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "wallet_network.h"
 
 // protocol version
@@ -7,40 +21,73 @@
 
 using namespace std;
 
+namespace
+{
+    const char* BBS_TIMESTAMPS = "BbsTimestamps";
+}
+
 namespace beam {
 
-    WalletNetworkIO::WalletNetworkIO(io::Address address
-                                   , io::Address node_address
-                                   , bool is_server
+    WalletNetworkIO::WalletNetworkIO(io::Address node_address
                                    , IKeyChain::Ptr keychain
+                                   , IKeyStore::Ptr keyStore
                                    , io::Reactor::Ptr reactor
                                    , unsigned reconnect_ms
-                                   , unsigned sync_period_ms
-                                   , uint64_t start_tag)
+                                   , unsigned sync_period_ms)
+                                   
         : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, 150, *this, 20000 }
+        , m_msgReader{ m_protocol, 1, 20000 }
         , m_node_address{node_address}
         , m_reactor{ !reactor ? io::Reactor::create() : reactor }
-        , m_server{ is_server ? io::TcpServer::create(m_reactor, address, BIND_THIS_MEMFN(on_stream_accepted)) : io::TcpServer::Ptr() }
         , m_wallet{ nullptr }
         , m_keychain{keychain}
         , m_is_node_connected{false}
-        , m_connection_tag{ start_tag }
         , m_reactor_scope{*m_reactor }
         , m_reconnect_ms{ reconnect_ms }
         , m_sync_period_ms{ sync_period_ms }
+        , m_close_timeout_ms{ 3 *1000 }
         , m_sync_timer{io::Timer::create(m_reactor)}
+        , m_keystore(keyStore)
+        , m_lastReceiver(0)
     {
         m_protocol.add_message_handler<WalletNetworkIO, wallet::Invite,             &WalletNetworkIO::on_message>(senderInvitationCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmTransaction, &WalletNetworkIO::on_message>(senderConfirmationCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmInvitation,  &WalletNetworkIO::on_message>(receiverConfirmationCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::TxRegistered,       &WalletNetworkIO::on_message>(receiverRegisteredCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::TxFailed,           &WalletNetworkIO::on_message>(failedCode, this, 1, 20000);
+
+        ByteBuffer buffer;
+        m_keychain->getBlob(BBS_TIMESTAMPS, buffer);
+        if (!buffer.empty())
+        {
+            Deserializer d;
+            d.reset(buffer.data(), buffer.size());
+
+            d & m_bbs_timestamps;
+        }
+
+        m_keystore->get_enabled_keys(m_myPubKeys);
+        for (const auto& k : m_myPubKeys)
+        {
+            listen_to_bbs_channel(k);
+        }
     }
 
     WalletNetworkIO::~WalletNetworkIO()
     {
-        //assert(m_connections.empty());
-        //assert(m_connectionWalletsIndex.empty());
+        try
+        {
+            Serializer s;
+            s & m_bbs_timestamps;
+            ByteBuffer buffer;
+            s.swap_buf(buffer);
+            if (!buffer.empty())
+            {
+                m_keychain->setVarRaw(BBS_TIMESTAMPS, buffer.data(), buffer.size());
+            }
+        }
+        catch(...)
+        { }
     }
 
     void WalletNetworkIO::start()
@@ -53,20 +100,9 @@ namespace beam {
         m_reactor->stop();
     }
 
-    void WalletNetworkIO::add_wallet(const WalletID& walletID, io::Address address)
+    void WalletNetworkIO::add_wallet(const WalletID& walletID)
     {
-        m_wallets.push_back(make_unique<WalletInfo>(walletID, address));
-        auto& t = m_wallets.back();
-        m_walletsIndex.insert(*t);
-        m_addressIndex.insert(*t);
-    }
-
-    void WalletNetworkIO::connect_wallet(const WalletInfo& wallet, uint64_t tag, ConnectCallback&& callback)
-    {
-        LOG_INFO() << "Establishing secure channel with " << wallet.m_address.str();
-        add_connection(tag, ConnectionInfo{ tag, wallet, move(callback) });
-        auto res = m_reactor->tcp_connect(wallet.m_address, tag, BIND_THIS_MEMFN(on_client_connected));
-        test_io_result(res);
+        m_wallets.insert(walletID);
     }
 
     void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::Invite&& msg)
@@ -119,121 +155,84 @@ namespace beam {
         send_to_node(move(msg));
     }
 
-    void WalletNetworkIO::close_connection(const WalletID& walletID)
+    void WalletNetworkIO::new_own_address(const WalletID& address)
     {
-        if (auto it = m_connectionWalletsIndex.find(walletID, ConnectionWalletIDComparer()); it != m_connectionWalletsIndex.end())
+        auto p = m_myPubKeys.insert(address);
+        if (p.second)
         {
-            auto& ci = *it;
-            if (ci.m_callback)
-            {
-                ci.m_callback = {};
-                m_reactor->cancel_tcp_connect(ci.m_connectionID);
-            }
-            
-            m_connectionWalletsIndex.erase(it);
-            m_connections.erase(ci.m_connectionID);
+            listen_to_bbs_channel(address);
         }
+    }
+
+    void WalletNetworkIO::address_deleted(const WalletID& address)
+    {
+        m_myPubKeys.erase(address);
     }
 
     void WalletNetworkIO::close_node_connection()
     {
+        if (m_is_node_connected && !m_close_timer)
+        {
+            m_close_timer = io::Timer::create(m_reactor);
+            m_close_timer->start(m_close_timeout_ms, false, BIND_THIS_MEMFN(on_close_connection_timer));
+        }
+    }
+
+    void WalletNetworkIO::on_close_connection_timer()
+    {
         LOG_DEBUG() << "Close node connection";
+        m_close_timer.reset();
         m_is_node_connected = false;
         m_node_connection.reset();
         start_sync_timer();
     }
 
-    bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::Invite&& msg)
+    void WalletNetworkIO::postpone_close_timer()
     {
-        get_wallet().handle_tx_message(get_wallet_id(connectionId), move(msg));
-        return is_connected(connectionId);
-    }
-
-    bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::ConfirmTransaction&& msg)
-    {
-        get_wallet().handle_tx_message(get_wallet_id(connectionId), move(msg));
-        return is_connected(connectionId);
-    }
-
-    bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::ConfirmInvitation&& msg)
-    {
-        get_wallet().handle_tx_message(get_wallet_id(connectionId), move(msg));
-        return is_connected(connectionId);
-    }
-
-    bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::TxRegistered&& msg)
-    {
-        get_wallet().handle_tx_message(get_wallet_id(connectionId), move(msg));
-        return is_connected(connectionId);
-    }
-
-    bool WalletNetworkIO::on_message(uint64_t connectionId, wallet::TxFailed&& msg)
-    {
-        get_wallet().handle_tx_message(get_wallet_id(connectionId), move(msg));
-        return is_connected(connectionId);
-    }
-
-    void WalletNetworkIO::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
-    {
-        if (errorCode == 0)
+        if (m_close_timer)
         {
-            io::Address address = newStream->peer_address();
-            LOG_DEBUG() << "Wallet connected: " << address;
-
-            auto it = m_addressIndex.find(address.u64(), AddressComparer());
-            if (it == m_addressIndex.end())
-            {
-                WalletID id = {};
-                id = address.u64();
-                add_wallet(id, address);
-                it = m_addressIndex.find(address.u64(), AddressComparer());
-            }
-
-            auto tag = get_connection_tag();
-
-            ConnectionInfo ci(tag, *it, {});
-            ci.m_connection = make_unique<Connection>(
-                                        m_protocol,
-                                        tag,
-                                        Connection::outbound,
-                                        2000,
-                                        std::move(newStream));
-            add_connection(tag, move(ci));
-        }
-        else
-        {
-            on_connection_error(0, errorCode);
+            m_close_timer->restart(m_close_timeout_ms, false);
         }
     }
 
-    void WalletNetworkIO::on_client_connected(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status)
+    bool WalletNetworkIO::on_message(uint64_t, wallet::Invite&& msg)
     {
-        if (auto it = m_connections.find(tag); it != m_connections.end() && newStream)
-        {
-            ConnectionInfo& ci = it->second;
-            LOG_INFO() << "Connected to remote wallet: " << newStream->peer_address();
-            ci.m_connection = make_unique<Connection>(
-                m_protocol,
-                tag,
-                Connection::outbound,
-                2000,
-                std::move(newStream));
-            if (ci.m_callback)
-            {
-                ConnectCallback callback = ci.m_callback;
-                ci.m_callback = {};
-                callback(ci);
-            }
-        }
-        else
-        {
-            on_connection_error(tag, status);
-        }
+        assert(m_lastReceiver);
+        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
+        return true;
+    }
+
+    bool WalletNetworkIO::on_message(uint64_t, wallet::ConfirmTransaction&& msg)
+    {
+        assert(m_lastReceiver);
+        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
+        return true;
+    }
+
+    bool WalletNetworkIO::on_message(uint64_t, wallet::ConfirmInvitation&& msg)
+    {
+        assert(m_lastReceiver);
+        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
+        return true;
+    }
+
+    bool WalletNetworkIO::on_message(uint64_t, wallet::TxRegistered&& msg)
+    {
+        assert(m_lastReceiver);
+        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
+        return true;
+    }
+
+    bool WalletNetworkIO::on_message(uint64_t, wallet::TxFailed&& msg)
+    {
+        assert(m_lastReceiver);
+        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
+        return true;
     }
 
     void WalletNetworkIO::connect_node()
     {
-        if (m_is_node_connected == false && !m_node_connection)
+        if (m_is_node_connected == false && !m_node_connection && !m_node_address.empty())
         {
 			m_sync_timer->cancel();
 
@@ -258,80 +257,40 @@ namespace beam {
     void WalletNetworkIO::on_node_connected()
     {
         m_is_node_connected = true;
+        for (const auto& k : m_myPubKeys)
+        {
+            listen_to_bbs_channel(k);
+        }
+
+        vector<ConnectCallback> t;
+        t.swap(m_node_connect_callbacks);
+        for (auto& cb : t)
+        {
+            cb();
+        }
     }
 
-    void WalletNetworkIO::on_protocol_error(uint64_t from, ProtocolError error)
+    void WalletNetworkIO::on_node_disconnected()
+    {
+        m_is_node_connected = false;
+    }
+
+    void WalletNetworkIO::on_protocol_error(uint64_t, ProtocolError error)
     {
         LOG_ERROR() << "Wallet protocol error: " << error;
-        //get_wallet().handle_connection_error(from);
-        if (m_connections.empty())
-        {
-            stop();
-            return;
-        }
+        m_msgReader.reset();
     }
 
-    void WalletNetworkIO::on_connection_error(uint64_t from, io::ErrorCode errorCode)
+    void WalletNetworkIO::on_connection_error(uint64_t, io::ErrorCode errorCode)
     {
         LOG_ERROR() << "Wallet connection error: " << io::error_str(errorCode);
-
-        if (m_connections.empty())
-        {
-            stop();
-            return;
-        }
-        //get_wallet().handle_connection_error(from);
-    }
-
-    uint64_t WalletNetworkIO::get_connection_tag()
-    {
-        return ++m_connection_tag;
+        m_msgReader.reset();
     }
 
     void WalletNetworkIO::create_node_connection()
     {
         assert(!m_node_connection && !m_is_node_connected);
-        m_node_connection = make_unique<WalletNodeConnection>(m_node_address, get_wallet(), m_reactor, m_reconnect_ms);
-    }
-
-    void WalletNetworkIO::add_connection(uint64_t tag, ConnectionInfo&& ci)
-    {
-        auto p = m_connections.emplace(tag, move(ci));
-        m_connectionWalletsIndex.insert(p.first->second);
-    }
-
-    void WalletNetworkIO::test_io_result(const io::Result res)
-    {
-        if (!res)
-        {
-            throw runtime_error(io::error_descr(res.error()));
-        }
-    }
-
-    bool WalletNetworkIO::is_connected(uint64_t id)
-    {
-        auto it = m_connections.find(id);
-        return it != m_connections.end() && it->second.m_connection;
-    }
-
-    const WalletID& WalletNetworkIO::get_wallet_id(uint64_t connectionId) const
-    {
-        auto it = m_connections.find(connectionId);
-        if (it == m_connections.end())
-        {
-            throw runtime_error("Unknown connection");
-        }
-        return it->second.m_wallet.m_walletID;
-    }
-
-    uint64_t WalletNetworkIO::get_connection(const WalletID& walletID) const
-    {
-        auto it = m_connectionWalletsIndex.find(walletID, ConnectionWalletIDComparer());
-        if (it == m_connectionWalletsIndex.end())
-        {
-            throw runtime_error("Unknown walletID");
-        }
-        return it->m_connectionID;
+        m_node_connection = make_unique<WalletNodeConnection>(m_node_address, get_wallet(), m_reactor, m_reconnect_ms, *this);
     }
 
     void WalletNetworkIO::update_wallets(const WalletID& walletID)
@@ -339,20 +298,61 @@ namespace beam {
         auto p = m_keychain->getPeer(walletID);
         if (p.is_initialized())
         {
-            io::Address address;
-            if (address.resolve(p->m_address.c_str()))
-            {
-                add_wallet(p->m_walletID, address);
-            }
+            add_wallet(p->m_walletID);
         }
     }
 
-    WalletNetworkIO::WalletNodeConnection::WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec)
+    bool WalletNetworkIO::handle_decrypted_message(uint64_t timestamp, const void* buf, size_t size)
+    {
+        assert(m_lastReceiver);
+        m_bbs_timestamps[channel_from_wallet_id(*m_lastReceiver)] = timestamp;
+        m_msgReader.new_data_from_stream(io::EC_OK, buf, size);
+        return true;
+    }
+
+    void WalletNetworkIO::listen_to_bbs_channel(const WalletID& walletID)
+    {
+        if (m_is_node_connected)
+        {
+            uint32_t channel = channel_from_wallet_id(walletID);
+            LOG_INFO() << "WalletID " << to_string(walletID) << " subscribes to BBS channel " << channel;
+            proto::BbsSubscribe msg;
+            msg.m_Channel = channel;
+            msg.m_TimeFrom = m_bbs_timestamps[channel];
+            msg.m_On = true;
+            send_to_node(move(msg));
+        }
+    }
+
+    bool WalletNetworkIO::handle_bbs_message(proto::BbsMsg&& msg)
+    {
+        postpone_close_timer();
+        uint8_t* out = 0;
+        uint32_t size = 0;
+
+        for (const auto& k : m_myPubKeys) {
+            uint32_t channel = channel_from_wallet_id(k);
+
+            if (channel != msg.m_Channel) continue;
+            if (m_keystore->decrypt(out, size, msg.m_Message, k)) {
+                LOG_DEBUG() << "Succeeded to decrypt BBS message from channel=" << msg.m_Channel;
+                m_lastReceiver = &k;
+                return handle_decrypted_message(msg.m_TimePosted, out, size);
+            } else {
+                LOG_DEBUG() << "failed to decrypt BBS message from channel=" << msg.m_Channel;
+            }
+        }
+
+        return true;
+    }
+
+    WalletNetworkIO::WalletNodeConnection::WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec, WalletNetworkIO& io)
         : m_address{address}
         , m_wallet {wallet}
         , m_connecting{false}
         , m_timer{io::Timer::create(reactor)}
         , m_reconnectMsec{reconnectMsec}
+        , m_io{io}
     {
     }
 
@@ -366,7 +366,7 @@ namespace beam {
         }
     }
 
-    void WalletNetworkIO::WalletNodeConnection::OnConnected()
+    void WalletNetworkIO::WalletNodeConnection::OnConnectedSecure()
     {
         LOG_INFO() << "Wallet connected to node";
         m_connecting = false;
@@ -387,7 +387,10 @@ namespace beam {
     {
         LOG_INFO() << "Could not connect to node, retrying...";
         LOG_VERBOSE() << "Wallet failed to connect to node, error: " << r;
+        m_io.on_node_disconnected();
         m_wallet.abort_sync();
+        m_timer->cancel();
+        Reset();
         m_timer->start(m_reconnectMsec, false, [this]() {Connect(m_address); });
     }
 
@@ -416,8 +419,34 @@ namespace beam {
         return m_wallet.handle_node_message(move(msg));
     }
 
-    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Proof&& msg)
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::ProofStateForDummies&& msg)
     {
         return m_wallet.handle_node_message(move(msg));
     }
+
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::BbsMsg&& msg)
+    {
+        return m_io.handle_bbs_message(move(msg));
+    }
+
+	bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Authentication&& msg)
+	{
+		proto::NodeConnection::OnMsg(std::move(msg));
+
+		if (proto::IDType::Node == msg.m_IDType)
+		{
+			ECC::Scalar::Native sk;
+			if (m_wallet.get_IdentityKeyForNode(sk, msg.m_ID))
+				ProveID(sk, proto::IDType::Owner);
+		}
+
+		return true;
+	}
+
+	void WalletNetworkIO::set_node_address(io::Address node_address)
+	{
+		m_node_address = node_address;
+
+		connect_node();
+	}
 }

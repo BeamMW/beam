@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include "wallet/common.h"
@@ -6,8 +20,26 @@
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4127 )
+#endif
+
+#include <boost/msm/back/state_machine.hpp>
+#include <boost/msm/front/state_machine_def.hpp>
+#include <boost/msm/front/functor_row.hpp>
+#include <boost/msm/front/internal_row.hpp>
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 namespace beam::wallet
 {
+    namespace msm = boost::msm;
+    namespace msmf = boost::msm::front;
+    namespace mpl = boost::mpl;
+
     namespace events
     {
         struct TxRegistrationCompleted {};
@@ -21,8 +53,14 @@ namespace beam::wallet
             bool m_notify;
             TxFailed(bool notify = false) : m_notify{ notify } {}
         };
+
+        struct TxCanceled {};
+        struct TxResumed {};
     }
 
+    //
+    // State machine for managing per transaction negotiations between wallets
+    // 
     class Negotiator
     {
     public:
@@ -48,6 +86,10 @@ namespace beam::wallet
         bool process_event(const Event& event)
         {
             auto res = m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
+            if (res)
+            {
+                saveState();
+            }
             return res;
         }
 
@@ -62,6 +104,8 @@ namespace beam::wallet
         {
             return m_fsm.current_state();
         }
+
+        void saveState();
 
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
@@ -90,47 +134,18 @@ namespace beam::wallet
             };
             struct TxInvitation : public msmf::state<>
             {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm& fsm)
-                {
-                    LOG_VERBOSE() << "TxInvitation state";
-                    fsm.sendInvite();
-                }
             };
             struct TxConfirmation : public msmf::state<>
             {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm& fsm)
-                {
-                    LOG_VERBOSE() << "TxConfirmation state";
-                    fsm.sendConfirmInvitation();
-                }
             };
             struct TxRegistration : public msmf::state<>
             {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm& fsm)
-                {
-                    LOG_VERBOSE() << "TxRegistration state";
-                    fsm.sendNewTransaction();
-                }
             };
             struct TxPeerConfirmation : public msmf::state<>
             {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm& fsm)
-                {
-                    LOG_VERBOSE() << "TxPeerConfirmation state";
-                    fsm.sendConfirmTransaction();
-                }
             };
             struct TxOutputsConfirmation : public msmf::state<>
             {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
-                {
-                    LOG_VERBOSE() << "TxOutputsConfirmation state";
-                }
             };
 
             FSMDefinition(Negotiator& parent);
@@ -147,23 +162,19 @@ namespace beam::wallet
             void rollbackTx(const events::TxFailed& );
             void completeTx();
             void rollbackTx();
+            void cancelTx(const events::TxCanceled&);
 
             void sendInvite() const;
             void sendConfirmInvitation() const;
             void sendConfirmTransaction() const;
             void sendNewTransaction() const;
 
-            Amount get_total() const;
-
             void update_tx_description(TxDescription::Status s);
             bool prepareSenderUtxos(const Height& currentHeight);
-			bool registerTxInternal(const events::TxConfirmationCompleted&);
-
+            bool registerTxInternal(const events::TxConfirmationCompleted&);
 
             using do_serialize = int;
             typedef int no_message_queue;
-            typedef msm::active_state_switch_after_transition_action active_state_switch_policy;
-
 
             using initial_state = mpl::vector<TxInitial, TxAllOk>;
             using d = FSMDefinition;
@@ -181,7 +192,8 @@ namespace beam::wallet
                 a_row< TxPeerConfirmation       , events::TxRegistrationCompleted, TxTerminal          , &d::completeTx           >,
                 //a_row< TxOutputsConfirmation  , events::TxOutputsConfirmed      , TxTerminal            , &d::completeTx                 >,
 
-                a_row< TxAllOk                , events::TxFailed                , TxTerminal            , &d::rollbackTx                 >
+                a_row< TxAllOk                , events::TxFailed                , TxTerminal            , &d::rollbackTx                 >,
+                a_row< TxAllOk                , events::TxCanceled              , TxTerminal            , &d::cancelTx                  >
             > {};
 
 
@@ -195,8 +207,8 @@ namespace beam::wallet
             template <class FSM, class Event>
             void exception_caught(Event const&, FSM& fsm, std::exception& ex)
             {
-                LOG_ERROR() << ex.what();
-                fsm.process_event(events::TxFailed());
+                LOG_INFO() << ex.what();
+                fsm.process_event(events::TxFailed(/*true*/));
             }
 
             template<typename Archive>

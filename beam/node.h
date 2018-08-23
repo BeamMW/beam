@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include "node_processor.h"
@@ -25,7 +39,7 @@ struct Node
         ECC::NoLeak<ECC::uintBig> m_WalletKey;
 		NodeProcessor::Horizon m_Horizon;
 
-		bool m_RestrictMinedReportToOwner = false; // TODO: turn this ON once wallet supports this
+		bool m_RestrictMinedReportToOwner = true;
 
 		struct Timeout {
 			uint32_t m_GetState_ms	= 1000 * 5;
@@ -97,6 +111,8 @@ private:
 
 		struct Verifier
 		{
+			typedef ECC::InnerProduct::BatchContextEx<100> MyBatch; // seems to be ok, for larger batches difference is marginal
+
 			const TxBase* m_pTx;
 			TxBase::IReader* m_pR;
 			TxBase::Context m_Context;
@@ -272,6 +288,8 @@ private:
 		beam::io::Address m_RemoteAddr; // for logging only
 
 		Height m_TipHeight;
+		Difficulty::Raw m_TipWork;
+
 		proto::Config m_Config;
 
 		TaskList m_lstTasks;
@@ -295,7 +313,7 @@ private:
 		void KillTimer();
 		void OnResendPeers();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
-		void DeleteSelf(bool bIsError, bool bIsBan);
+		void DeleteSelf(bool bIsError, uint8_t nByeReason);
 		bool OnNewTransaction(Transaction::Ptr&&);
 
 		Task& get_FirstTask();
@@ -303,11 +321,10 @@ private:
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 
 		// proto::NodeConnection
-		virtual void OnConnected() override;
+		virtual void OnConnectedSecure() override;
 		virtual void OnDisconnect(const DisconnectReason&) override;
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&) override; // Must be overridden to support SChannel
 		// messages
-		virtual void OnMsg(proto::SChannelReady&&) override;
 		virtual void OnMsg(proto::Authentication&&) override;
 		virtual void OnMsg(proto::Config&&) override;
 		virtual void OnMsg(proto::Ping&&) override;
@@ -343,7 +360,7 @@ private:
 	PeerID m_MyPublicID;
 	PeerID m_MyOwnerID;
 
-	Peer* AllocPeer();
+	Peer* AllocPeer(const beam::io::Address&);
 
 	void RefreshCongestions();
 

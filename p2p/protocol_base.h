@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 #include "utility/io/buffer.h"
 #include "utility/io/errorhandling.h"
@@ -88,7 +102,7 @@ struct IErrorHandler {
     virtual void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) = 0;
 
     /// Per-connection msg type filter fails
-    virtual void on_unexpected_msg(uint64_t fromStream, MsgType type) {
+    virtual void on_unexpected_msg(uint64_t fromStream, MsgType /*type*/ ) {
         // default impl
         on_protocol_error(fromStream, unexpected_msg_type);
     }

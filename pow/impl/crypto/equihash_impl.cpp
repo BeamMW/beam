@@ -545,7 +545,7 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
                 }
 
                 // 2c) Calculate tuples (X_i ^ X_j, (i, j))
-                bool checking_for_zero = (i == 0 && Xt[0].IsZero(hashLen));
+                //bool checking_for_zero = (i == 0 && Xt[0].IsZero(hashLen));
                 for (int l = 0; l < j - 1; l++) {
                     for (int m = l + 1; m < j; m++) {
                         // We truncated, so don't check for distinct indices here
@@ -814,7 +814,7 @@ template bool Equihash<48,5>::IsValidSolution(const eh_HashState& base_state, st
 
 // Explicit instantiations with beam parameters
 const int N_Beam = 120;
-const int K_Beam = 4;
+const int K_Beam = 5;
 template int Equihash<N_Beam, K_Beam>::InitialiseState(eh_HashState& base_state);
 #ifdef ENABLE_MINING
 template bool Equihash<N_Beam, K_Beam>::BasicSolve(const eh_HashState& base_state,

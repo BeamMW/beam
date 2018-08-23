@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include "core/ecc_native.h"
@@ -124,36 +138,5 @@ namespace yas::detail
             return ar;
         }
     };
-    template<std::size_t F>
-    struct serializer<type_prop::not_a_fundamental
-        , ser_method::use_internal_serializer
-        , F
-        , beam::Coin>
-    {
-        using Type = beam::Coin;
-        template<typename Archive>
-        static Archive& save(Archive& ar, const Type& v)
-        {
-            ar  & v.m_id
-                & v.m_createHeight
-                & v.m_maturity
-                & v.m_key_type
-                & v.m_amount
-                & v.m_status;
-            return ar;
-        }
 
-        template<typename Archive>
-        static Archive& load(Archive& ar, Type& v)
-        {
-            // TODO: store id only
-            ar & v.m_id
-               & v.m_createHeight
-               & v.m_maturity
-               & v.m_key_type
-               & v.m_amount
-               & v.m_status;
-            return ar;
-        }
-    };
 }

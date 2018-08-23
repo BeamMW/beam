@@ -11,6 +11,6 @@ Rectangle {
         anchors.centerIn: parent
         font.pixelSize: 40
         color: "#ffffff"
-        text: qsTr("Dashboard view")
+        text: "Welcome to Beam Testnet"
     }
 }

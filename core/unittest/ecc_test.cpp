@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <iostream>
 #include "../ecc_native.h"
 #include "../block_crypt.h"
@@ -436,6 +450,30 @@ void TestRangeProof()
 		verify_test(bp.IsValid(comm, oracle));
 	}
 
+	InnerProduct::BatchContextEx<2> bc;
+	bc.m_bEnableBatch = true;
+
+	{
+		Oracle oracle;
+		verify_test(bp.IsValid(comm, oracle, bc)); // add to batch
+	}
+
+	SetRandom(sk);
+	v = 7223110;
+	comm = Commitment(sk, v);
+
+	{
+		Oracle oracle;
+		bp.Create(sk, v, oracle);
+	}
+	{
+		Oracle oracle;
+		verify_test(bp.IsValid(comm, oracle, bc)); // add to batch
+	}
+
+	verify_test(bc.Flush()); // verify at once
+
+
 	WriteSizeSerialized("BulletProof", bp);
 
 	{
@@ -490,6 +528,7 @@ void TestRangeProof()
 	{
 		beam::Output outp;
 		outp.Create(1U, 20300, true);
+		outp.m_Coinbase = true; // others may be disallowed
 		verify_test(outp.IsValid(comm));
 		WriteSizeSerialized("Out-UTXO-Public", outp);
 	}
@@ -573,10 +612,10 @@ struct TransactionMaker
 
 	Peer m_pPeers[2]; // actually can be more
 
-	void CoSignKernel(beam::TxKernel& krn)
+	void CoSignKernel(beam::TxKernel& krn, const Hash::Value& hvLockImage)
 	{
 		Hash::Value msg;
-		krn.get_HashForSigning(msg);
+		krn.get_Hash(msg, &hvLockImage);
 
 		// 1st pass. Public excesses and Nonces are summed.
 		Scalar::Native offset(m_Trans.m_Offset);
@@ -627,32 +666,22 @@ struct TransactionMaker
 
 		pKrn->m_vNested.swap(lstNested);
 
-		// contract
-		Scalar::Native skContract;
-		SetRandom(skContract);
-
-		pKrn->m_pContract.reset(new beam::TxKernel::Contract);
-		SetRandom(pKrn->m_pContract->m_Msg);
-
-		pKrn->m_pContract->m_PublicKey = Point::Native(Context::get().G * skContract);
-
 		pKrn->m_pHashLock.reset(new beam::TxKernel::HashLock);
 
 		uintBig hlPreimage;
 		SetRandom(hlPreimage);
 
-		Hash::Processor() << hlPreimage >> pKrn->m_pHashLock->m_Hash;
+		Hash::Value hvLockImage;
 
-		CoSignKernel(*pKrn);
+		Hash::Processor() << hlPreimage >> hvLockImage;
 
-		// sign contract
-		Hash::Value hv;
-		pKrn->get_HashForSigning(hv);
-		pKrn->get_HashForContract(hv, hv);
+		CoSignKernel(*pKrn, hvLockImage);
 
-		pKrn->m_pContract->m_Signature.Sign(hv, skContract);
+		Point::Native exc;
+		beam::AmountBig fee2;
+		verify_test(!pKrn->IsValid(fee2, exc)); // should not pass validation unless correct hash preimage is specified
 
-		// finit HL: add hash preimage
+		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Preimage = hlPreimage;
 
 		lstTrg.push_back(std::move(pKrn));
@@ -716,7 +745,7 @@ void TestTransactionKernelConsuming()
 		Scalar::Native sk0 = kExc * (mul0 + 1);
 
 		beam::TxKernel::Ptr pKrn(new beam::TxKernel);
-		pKrn->get_HashForSigning(hv);
+		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, sk0);
 		pKrn->m_Excess = p;
 		pKrn->m_Multiplier = mul0;
@@ -729,7 +758,7 @@ void TestTransactionKernelConsuming()
 		Scalar::Native sk1 = kExc * (mul1 + 1);
 
 		pKrn.reset(new beam::TxKernel);
-		pKrn->get_HashForSigning(hv);
+		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, sk1);
 		pKrn->m_Excess = p;
 		pKrn->m_Multiplier = mul1;
@@ -821,6 +850,103 @@ void TestBbs()
 	verify_test(!beam::proto::BbsDecrypt(p, n, privateAddr));
 }
 
+void TestDifficulty()
+{
+	using namespace beam;
+
+	Difficulty::Raw r1, r2;
+	Difficulty(Difficulty::s_Inf).Unpack(r1);
+	Difficulty(Difficulty::s_Inf - 1).Unpack(r2);
+	verify_test(r1 > r2);
+
+	uintBig val;
+	val = Zero;
+
+	verify_test(Difficulty(Difficulty::s_Inf).IsTargetReached(val));
+
+	val.m_pData[0] = 0x80; // msb set
+
+	verify_test(Difficulty(0).IsTargetReached(val));
+	verify_test(Difficulty(1).IsTargetReached(val));
+	verify_test(Difficulty(0xffffff).IsTargetReached(val)); // difficulty almost 2
+	verify_test(!Difficulty(0x1000000).IsTargetReached(val)); // difficulty == 2
+
+	val.m_pData[0] = 0x7f;
+	verify_test(Difficulty(0x1000000).IsTargetReached(val));
+
+	// Adjustments
+	Difficulty d = 0;
+
+	// slight adjustments
+	while (true)
+	{
+		Difficulty d0 = d;
+
+		d.Adjust(790000, 860000, 2);
+		verify_test(d.m_Packed > d0.m_Packed);
+
+		if (d.m_Packed == Difficulty::s_Inf)
+			break;
+	}
+
+	while (true)
+	{
+		Difficulty d0 = d;
+
+		d.Adjust(790000, 760000, 2);
+		verify_test(d.m_Packed < d0.m_Packed);
+
+		if (!d.m_Packed)
+			break;
+	}
+
+	// strong adjustments
+	while (true)
+	{
+		Difficulty d0 = d;
+
+		d.Adjust(790000, 860000*4, 3);
+		verify_test(d.m_Packed > d0.m_Packed);
+
+		if (d.m_Packed == Difficulty::s_Inf)
+			break;
+	}
+
+	while (true)
+	{
+		Difficulty d0 = d;
+
+		d.Adjust(790000, 760000/4, 3);
+		verify_test(d.m_Packed < d0.m_Packed);
+
+		if (!d.m_Packed)
+			break;
+	}
+
+	// extreme adjustments, should be bounded by max order change
+	while (true)
+	{
+		Difficulty d0 = d;
+
+		d.Adjust(1, 1000, 3);
+		verify_test(d.m_Packed > d0.m_Packed);
+
+		if (d.m_Packed == Difficulty::s_Inf)
+			break;
+	}
+
+	while (true)
+	{
+		Difficulty d0 = d;
+
+		d.Adjust(1000, 1, 3);
+		verify_test(d.m_Packed < d0.m_Packed);
+
+		if (!d.m_Packed)
+			break;
+	}
+}
+
 void TestAll()
 {
 	TestUintBig();
@@ -834,6 +960,7 @@ void TestAll()
 	TestTransactionKernelConsuming();
 	TestAES();
 	TestBbs();
+	TestDifficulty();
 
 	uintBig val;
 	for (int i = 0; i < 10; i++)
@@ -1218,6 +1345,32 @@ void RunBenchmark()
 	}
 
 	{
+		BenchmarkMeter bm("BulletProof.Verify x100");
+		bm.N = 10;
+
+		typedef InnerProduct::BatchContextEx<100> MyBatch;
+		std::unique_ptr<MyBatch> p(new MyBatch);
+		p->m_bEnableBatch = true;
+
+		InnerProduct::BatchContext::Scope scope(*p);
+
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+			{
+				for (int n = 0; n < 100; n++)
+				{
+					Oracle oracle;
+					bp.IsValid(comm, oracle);
+				}
+
+				verify_test(p->Flush());
+			}
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
 		AES::Encoder enc;
 		enc.Init(hv.m_pData);
 		AES::StreamCipher asc;
@@ -1248,7 +1401,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				secp256k1_pedersen_commit(pCtx, &comm, k_.m_Value.m_pData, 78945, secp256k1_generator_h);
+				(void) secp256k1_pedersen_commit(pCtx, &comm, k_.m_Value.m_pData, 78945, secp256k1_generator_h);
 
 		} while (bm.ShouldContinue());
 	}

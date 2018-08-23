@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include "common.h"
@@ -436,37 +450,11 @@ namespace detail
             return ar;
         }
 
-        /// beam::TxKernel::Contract serialization
-        template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxKernel::Contract& val)
-        {
-            ar
-                & val.m_Msg
-                & val.m_PublicKey
-                & val.m_Signature
-            ;
-
-            return ar;
-        }
-
-        template<typename Archive>
-        static Archive& load(Archive& ar, beam::TxKernel::Contract& val)
-        {
-            ar
-                & val.m_Msg
-                & val.m_PublicKey
-                & val.m_Signature
-            ;
-
-            return ar;
-        }
-
 		/// beam::TxKernel::HashLock serialization
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::TxKernel::HashLock& val)
 		{
 			ar
-				& val.m_Hash
 				& val.m_Preimage
 				;
 
@@ -477,7 +465,6 @@ namespace detail
 		static Archive& load(Archive& ar, beam::TxKernel::HashLock& val)
 		{
 			ar
-				& val.m_Hash
 				& val.m_Preimage
 				;
 
@@ -493,7 +480,6 @@ namespace detail
 				(val.m_Fee ? 2 : 0) |
 				(val.m_Height.m_Min ? 4 : 0) |
 				((val.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
-				(val.m_pContract ? 0x10 : 0) |
 				(val.m_pHashLock ? 0x20 : 0) |
 				(val.m_vNested.empty() ? 0 : 0x40);
 
@@ -510,8 +496,6 @@ namespace detail
 				ar & val.m_Height.m_Min;
 			if (8 & nFlags)
 				ar & val.m_Height.m_Max;
-			if (0x10 & nFlags)
-				ar & *val.m_pContract;
 			if (0x20 & nFlags)
 				ar & *val.m_pHashLock;
 
@@ -555,12 +539,6 @@ namespace detail
 				ar & val.m_Height.m_Max;
 			else
 				val.m_Height.m_Max = beam::Height(-1);
-
-			if (0x10 & nFlags)
-			{
-				val.m_pContract.reset(new beam::TxKernel::Contract);
-				ar & *val.m_pContract;
-			}
 
 			if (0x20 & nFlags)
 			{
@@ -663,7 +641,7 @@ namespace detail
 		{
 			ar
 				& pow.m_Indices
-				& pow.m_Difficulty
+				& pow.m_Difficulty.m_Packed
 				& pow.m_Nonce;
 
 			return ar;
@@ -674,7 +652,7 @@ namespace detail
 		{
 			ar
 				& pow.m_Indices
-				& pow.m_Difficulty
+				& pow.m_Difficulty.m_Packed
 				& pow.m_Nonce;
 
 			return ar;

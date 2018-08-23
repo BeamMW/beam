@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "beam/node.h"
 #include "utility/logger.h"
 #include "tools/base_node_connection.h"
@@ -25,13 +39,13 @@ private:
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	virtual void GenerateTests() override;
-	virtual void OnMsg(proto::NewTip&&) override;
+	void GenerateTests() override;
+	void OnMsg(proto::NewTip&&) override;
 
 private:
 	bool m_IsInit;
-	bool m_IsNeedToCheckOut;
-	unsigned int m_Counter;
+	//bool m_IsNeedToCheckOut;
+	//unsigned int m_Counter;
 	Block::SystemState::ID m_ID;
 	TxGenerator m_Generator;
 	CoinsChecker m_CoinsChecker;
@@ -46,8 +60,8 @@ private:
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	: BaseTestNode(argc, argv)
 	, m_IsInit(false)
-	, m_IsNeedToCheckOut(false)
-	, m_Counter(0)
+	//, m_IsNeedToCheckOut(false)
+	//, m_Counter(0)
 	, m_Generator(m_Kdf)
 	, m_CoinsChecker(argc, argv)
 	, m_NewTimer(io::Timer::create(io::Reactor::get_Current().shared_from_this()))
@@ -129,7 +143,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 
 				coin.m_IsProcessChecking = true;				
 				m_CoinsChecker.Check(CoinsChecker::Inputs{ coin.m_Input },
-					[this, &coin](bool isOk, Height maturity)
+					[&coin](bool isOk, Height maturity)
 					{
 						if (isOk)
 						{

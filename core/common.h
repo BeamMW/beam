@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include <vector>
@@ -70,7 +84,6 @@ namespace beam
 	typedef uint64_t Timestamp;
 	typedef uint64_t Height;
     const Height MaxHeight = static_cast<Height>(-1);
-	typedef ECC::uintBig_t<256> uint256_t;
 	typedef std::vector<uint8_t> ByteBuffer;
 	typedef ECC::Amount Amount;
 	typedef ECC::Hash::Value PeerID;
@@ -80,6 +93,35 @@ namespace beam
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
+
+	struct Difficulty
+	{
+		uint32_t m_Packed;
+		static const uint32_t s_MantissaBits = 24;
+
+		Difficulty(uint32_t d = 0) :m_Packed(d) {}
+
+		typedef ECC::uintBig Raw;
+
+		// maximum theoretical difficulty value, which corresponds to 'infinite' (only Zero hash value meet the target).
+		// Corresponds to 0xffff...fff raw value.
+		static const uint32_t s_MaxOrder = Raw::nBits - s_MantissaBits - 1;
+		static const uint32_t s_Inf = (s_MaxOrder + 1) << s_MantissaBits;
+
+		bool IsTargetReached(const ECC::uintBig&) const;
+
+		void Unpack(Raw&) const;
+
+		void Unpack(uint32_t& order, uint32_t& mantissa) const;
+		void Pack(uint32_t order, uint32_t mantissa);
+
+		void Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange);
+
+	private:
+		static void Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange, uint32_t& order, uint32_t& mantissa);
+	};
+
+	std::ostream& operator << (std::ostream&, const Difficulty&);
 
 	struct HeightRange
 	{
@@ -161,17 +203,19 @@ namespace beam
 
 		// timestamp & difficulty. Basically very close to those from bitcoin, except the desired rate is 1 minute (instead of 10 minutes)
 		uint32_t DesiredRate_s				= 60; // 1 minute
-		uint32_t DifficultyReviewCycle		= 24 * 60 * 7; // 10,080 blocks, 1 week roughly
-		uint32_t MaxDifficultyChange		= 3; // i.e. x8 roughly. (There's no equivalent to this in bitcoin).
+		uint32_t DifficultyReviewCycle		= 24 * 60; // 1,440 blocks, 1 day roughly
+		uint32_t MaxDifficultyChange		= 2; // (x4, same as in bitcoin).
 		uint32_t TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
 		uint32_t WindowForMedian			= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
+		Difficulty StartDifficulty			= Difficulty(7 << Difficulty::s_MantissaBits); // fair start for a testnet
 
+		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
 
 		ECC::Hash::Value Checksum;
 
 		void UpdateChecksum();
-		void AdjustDifficulty(uint8_t&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const;
+		void AdjustDifficulty(Difficulty&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const;
 	};
 
 	struct Input
@@ -243,7 +287,7 @@ namespace beam
 
 		// Mandatory
 		ECC::Point		m_Excess;
-		ECC::Signature	m_Signature;	// For the whole tx body, including nested kernels, excluding contract signature
+		ECC::Signature	m_Signature;	// For the whole body, including nested kernels
 		uint64_t		m_Multiplier;
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
 		HeightRange		m_Height;
@@ -254,24 +298,11 @@ namespace beam
 		{
 		}
 
-		// Optional
-		struct Contract
-		{
-			ECC::Hash::Value	m_Msg;
-			ECC::Point			m_PublicKey;
-			ECC::Signature		m_Signature;
-
-			int cmp(const Contract&) const;
-			COMPARISON_VIA_CMP(Contract)
-		};
-
 		struct HashLock
 		{
-			ECC::Hash::Value	m_Hash;
-			ECC::uintBig		m_Preimage;
+			ECC::uintBig m_Preimage;
 		};
 
-		std::unique_ptr<Contract> m_pContract;
 		std::unique_ptr<HashLock> m_pHashLock;
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
@@ -283,9 +314,8 @@ namespace beam
 				throw std::runtime_error("recursion too deep");
 		}
 
-		void get_HashForSigning(Merkle::Hash&) const; // Includes the contents, but not the excess and the signature
-		void get_HashForContract(ECC::Hash::Value&, const ECC::Hash::Value& msg) const;
-		void get_HashTotal(Merkle::Hash&) const; // Includes everything. 
+		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all except m_Excess (i.e. public key)
+		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
 		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
 		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
@@ -295,8 +325,8 @@ namespace beam
 		COMPARISON_VIA_CMP(TxKernel)
 
 	private:
-		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*, const TxKernel* pParent) const;
-		void HashForSigningToTotal(Merkle::Hash& hv) const;
+		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
+		void HashToID(Merkle::Hash& hv) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
@@ -407,23 +437,25 @@ namespace beam
 
 		struct PoW
 		{
-			// equihash parameters
+			// equihash parameters. 
+			// Parameters recommended by BTG are 144/5, to make it asic-resistant (~1GB average, spikes about 1.5GB). On CPU solve time about 1 minutes
+			// The following are the parameters for testnet, to make it of similar size, and much faster solve time, to test concurrency and difficulty adjustment
 			static const uint32_t N = 120;
-			static const uint32_t K = 4;
+			static const uint32_t K = 5;
 
-			static const uint32_t nNumIndices		= 1 << K; // 16
-			static const uint32_t nBitsPerIndex		= N / (K + 1) + 1; // 25
+			static const uint32_t nNumIndices		= 1 << K; // 32
+			static const uint32_t nBitsPerIndex		= N / (K + 1) + 1; // 21
 
-			static const uint32_t nSolutionBits		= nNumIndices * nBitsPerIndex; // 400 bits
+			static const uint32_t nSolutionBits		= nNumIndices * nBitsPerIndex; // 672 bits
 
 			static_assert(!(nSolutionBits & 7), "PoW solution should be byte-aligned");
-			static const uint32_t nSolutionBytes	= nSolutionBits >> 3; // 50 bytes
+			static const uint32_t nSolutionBytes	= nSolutionBits >> 3; // 84 bytes
 
 			std::array<uint8_t, nSolutionBytes>	m_Indices;
 
-			typedef ECC::uintBig_t<104> NonceType;
-			NonceType m_Nonce; // 13 bytes. The overall solution size is 64 bytes.
-			uint8_t m_Difficulty;
+			typedef ECC::uintBig_t<64> NonceType;
+			NonceType m_Nonce; // 8 bytes. The overall solution size is 96 bytes.
+			Difficulty m_Difficulty;
 
 			bool IsValid(const void* pInput, uint32_t nSizeInput) const;
 
@@ -431,6 +463,8 @@ namespace beam
 			// Difficulty and Nonce must be initialized. During the solution it's incremented each time by 1.
 			// returns false only if cancelled
 			bool Solve(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
+
+			void get_HashForHist(Merkle::Hash& hv, const Merkle::Hash& hvState) const;
 
 		private:
 			struct Helper;
@@ -467,6 +501,7 @@ namespace beam
 				void Set(Prefix&, const Element&);
 				void get_Hash(Merkle::Hash&) const; // Calculated from all the above
 				void get_ID(ID&) const;
+				void get_HashForHist(Merkle::Hash&) const; // accounts also for PoW, literally for everything in the header
 
 				bool IsSane() const;
 				bool IsValidPoW() const;

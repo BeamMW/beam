@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "../node.h"
 #include "../../core/ecc_native.h"
 
@@ -69,7 +83,7 @@ namespace beam
 				m_bConnected = false;
 			}
 
-			virtual void OnConnected() override {
+			virtual void OnConnectedSecure() override {
 
 				m_bConnected = true;
 
@@ -177,7 +191,7 @@ namespace beam
 				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
 			}
 
-			virtual void OnConnected() override
+			virtual void OnConnectedSecure() override
 			{
 				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
 				OnTimer();
@@ -219,7 +233,7 @@ namespace beam
 				}
 
 				m_Conn2.Accept(std::move(pStream));
-				m_Conn2.OnConnected();
+				m_Conn2.SecureConnect();
 			}
 		};
 

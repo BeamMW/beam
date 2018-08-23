@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 //#include "../node.h"
 
 #include "../node.h"
@@ -116,7 +130,11 @@ namespace beam
 			if (h)
 			{
 				vStates[h - 1].get_Hash(s.m_Prev);
-				cmmr.Append(s.m_Prev);
+
+				Merkle::Hash hvH;
+				vStates[h - 1].get_HashForHist(hvH);
+
+				cmmr.Append(hvH);
 			}
 
 			if (hFork0 == h)
@@ -187,8 +205,10 @@ namespace beam
 
 		verify_test(CountTips(db, true) == 0);
 
+		Merkle::Hash hvH;
+		s.get_HashForHist(hvH);
+		cmmrFork.Append(hvH);
 		s.get_Hash(s.m_Prev);
-		cmmrFork.Append(s.m_Prev);
 		cmmrFork.get_Hash(s.m_Definition);
 		Merkle::Interpret(s.m_Definition, hvZero, true);
 		s.m_Height++;
@@ -254,7 +274,7 @@ namespace beam
 				db.get_Proof(proof, sid2, h);
 
 				Merkle::Hash hv;
-				vStates[h - Rules::HeightGenesis].get_Hash(hv);
+				vStates[h - Rules::HeightGenesis].get_HashForHist(hv);
 				Merkle::Interpret(hv, proof);
 				Merkle::Interpret(hv, hvZero, true);
 
@@ -319,9 +339,9 @@ namespace beam
 		// utxos and kernels
 		NodeDB::Blob b0(vStates[0].m_Prev.m_pData, sizeof(vStates[0].m_Prev.m_pData));
 
-		db.AddSpendable(b0, NodeDB::Blob("hello, world!", 13), 5, 3);
+		db.AddSpendable(b0, NULL, 5, 3);
 
-		NodeDB::WalkerSpendable wsp(db, false);
+		NodeDB::WalkerSpendable wsp(db);
 		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
 		db.ModifySpendable(b0, 0, -3);
@@ -464,6 +484,40 @@ namespace beam
 			return &m_MyUtxos.insert(std::make_pair(h, utxo))->second;
 		}
 
+		struct MyKernel
+		{
+			Amount m_Fee;
+			ECC::Scalar::Native m_k;
+			bool m_bUseHashlock;
+
+			void Export(TxKernel& krn) const
+			{
+				krn.m_Fee = m_Fee;
+				krn.m_Excess = ECC::Point::Native(ECC::Context::get().G * m_k);
+
+				if (m_bUseHashlock)
+				{
+					krn.m_pHashLock.reset(new TxKernel::HashLock); // why not?
+					ECC::Hash::Processor() << m_Fee << m_k >> krn.m_pHashLock->m_Preimage;
+				}
+
+				ECC::Hash::Value hv;
+				krn.get_Hash(hv);
+				krn.m_Signature.Sign(hv, m_k);
+
+			}
+
+			void Export(TxKernel::Ptr& pKrn) const
+			{
+				pKrn.reset(new TxKernel);
+				Export(*pKrn);
+			}
+		};
+
+		typedef std::vector<MyKernel> KernelList;
+		KernelList m_MyKernels;
+
+
 		bool MakeTx(Transaction::Ptr& pTx, Height h, Height hIncubation)
 		{
 			UtxoQueue::iterator it = m_MyUtxos.begin();
@@ -478,8 +532,10 @@ namespace beam
 			const MyUtxo& utxo = it->second;
 			assert(utxo.m_Value);
 
-			TxKernel::Ptr pKrn(new TxKernel);
-			pKrn->m_Fee = 1090000;
+			m_MyKernels.resize(m_MyKernels.size() + 1);
+			MyKernel& mk = m_MyKernels.back();
+			mk.m_Fee = 1090000;
+			mk.m_bUseHashlock = 0 != (1 & h);
 
 			Input::Ptr pInp(new Input);
 			pInp->m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
@@ -488,12 +544,12 @@ namespace beam
 			ECC::Scalar::Native kOffset = utxo.m_Key;
 			ECC::Scalar::Native k;
 
-			if (pKrn->m_Fee >= utxo.m_Value)
-				pKrn->m_Fee = utxo.m_Value;
+			if (mk.m_Fee >= utxo.m_Value)
+				mk.m_Fee = utxo.m_Value;
 			else
 			{
 				MyUtxo utxoOut;
-				utxoOut.m_Value = utxo.m_Value - pKrn->m_Fee;
+				utxoOut.m_Value = utxo.m_Value - mk.m_Fee;
 
 				DeriveKey(k, m_Kdf, h, KeyType::Regular);
 				utxoOut.m_Key = k;
@@ -505,16 +561,14 @@ namespace beam
 
 			m_MyUtxos.erase(it);
 
-			DeriveKey(k, m_Kdf, h, KeyType::Kernel, m_nKernelSubIdx++);
-			pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * k);
+			DeriveKey(mk.m_k, m_Kdf, h, KeyType::Kernel, m_nKernelSubIdx++);
 
-			ECC::Hash::Value hv;
-			pKrn->get_HashForSigning(hv);
-			pKrn->m_Signature.Sign(hv, k);
+			TxKernel::Ptr pKrn;
+			mk.Export(pKrn);
 			pTx->m_vKernelsOutput.push_back(std::move(pKrn));
 
 
-			k = -k;
+			k = -mk.m_k;
 			kOffset += k;
 			pTx->m_Offset = kOffset;
 
@@ -596,22 +650,6 @@ namespace beam
 
 		Block::BodyBase::RW rwData;
 		rwData.m_sPath = g_sz3;
-
-		{
-			verify_test(rwData.Open(false));
-			np.ExportMacroBlock(rwData); // export current state
-
-			rwData.Close();
-			verify_test(rwData.Open(true));
-
-			NodeProcessor np2;
-			np2.Initialize(g_sz2);
-
-			verify_test(np2.ImportMacroBlock(rwData));
-
-			rwData.Close();
-			rwData.Delete();
-		}
 
 		Height hMid = blockChain.size() / 2 + Rules::HeightGenesis;
 
@@ -782,7 +820,7 @@ namespace beam
 				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
 			}
 
-			virtual void OnConnected() override {
+			virtual void OnConnectedSecure() override {
 				OnTimer();
 			}
 
@@ -831,7 +869,7 @@ namespace beam
 
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
-				printf("Tip Height=%u\n", msg.m_ID.m_Height);
+				printf("Tip Height=%u\n", (unsigned int) msg.m_ID.m_Height);
 				verify_test(msg.m_ID.m_Height <= m_HeightMax);
 				if (msg.m_ID.m_Height == m_HeightTrg)
 					io::Reactor::get_Current().stop();
@@ -877,7 +915,6 @@ namespace beam
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
-		node.m_Cfg.m_RestrictMinedReportToOwner = true;
 
 		ECC::SetRandom(node.m_Cfg.m_WalletKey.V);
 
@@ -897,36 +934,18 @@ namespace beam
 			std::set<ECC::Point> m_UtxosConfirmed;
 			std::list<ECC::Point> m_queProofsExpected;
 			std::list<uint32_t> m_queProofsStateExpected;
+			std::list<uint32_t> m_queProofsKrnExpected;
+
+			uint32_t m_nBbsMsgsPending = 0;
+
 
 			MyClient() {
 				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
 			}
 
-			virtual void OnConnected() override {
-				SetTimer(90*1000);
-				SecureConnect();
-			}
-
-			void GenerateSChannelNonce(ECC::Scalar::Native& nonce) override
+			virtual void OnConnectedSecure() override
 			{
-				ECC::SetRandom(nonce);
-			}
-
-			virtual void OnMsg(proto::SChannelInitiate&& msg) override
-			{
-				proto::NodeConnection::OnMsg(std::move(msg));
-				assert(IsSecureOut());
-
-				ECC::Scalar::Native sk;
-				DeriveKey(sk, m_Wallet.m_Kdf, 0, KeyType::Identity);
-
-				ProveID(sk, proto::IDType::Owner);
-			}
-
-			virtual void OnMsg(proto::SChannelReady&& msg) override
-			{
-				proto::NodeConnection::OnMsg(std::move(msg));
-				assert(IsSecureIn());
+				SetTimer(90 * 1000);
 
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
@@ -936,6 +955,18 @@ namespace beam
 
 				Send(proto::GetTime());
 				Send(proto::GetExternalAddr());
+			}
+
+			virtual void OnMsg(proto::Authentication&& msg) override
+			{
+				proto::NodeConnection::OnMsg(std::move(msg));
+
+				if (proto::IDType::Node == msg.m_IDType)
+				{
+					ECC::Scalar::Native sk;
+					DeriveKey(sk, m_Wallet.m_Kdf, 0, KeyType::Identity);
+					ProveID(sk, proto::IDType::Owner);
+				}
 			}
 
 			virtual void OnMsg(proto::Time&& msg) override
@@ -953,19 +984,46 @@ namespace beam
 
 			io::Timer::Ptr m_pTimer;
 
+			bool IsHeightReached() const
+			{
+				return !m_vStates.empty() && (m_vStates.back().m_Height >= m_HeightTrg);
+			}
+
+			bool IsAllProofsReceived() const
+			{
+				return
+					m_queProofsExpected.empty() &&
+					m_queProofsKrnExpected.empty() &&
+					m_queProofsStateExpected.empty();
+			}
+
+			bool IsAllBbsReceived() const
+			{
+				return !m_nBbsMsgsPending;
+			}
+
 			void OnTimer() {
 
-				fail_test("Blockchain height didn't reach target");
 				io::Reactor::get_Current().stop();
 			}
 
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
-				printf("Tip Height=%u\n", msg.m_ID.m_Height);
+				printf("Tip Height=%u\n", (unsigned int) msg.m_ID.m_Height);
 				verify_test(m_vStates.size() + 1 == msg.m_ID.m_Height);
+			}
 
-				if (msg.m_ID.m_Height >= m_HeightTrg)
-					io::Reactor::get_Current().stop();
+			virtual void OnMsg(proto::Hdr&& msg) override
+			{
+				verify_test(m_vStates.size() + 1 == msg.m_Description.m_Height);
+				m_vStates.push_back(msg.m_Description);
+
+				if (IsHeightReached())
+				{
+					if (IsAllProofsReceived() && IsAllBbsReceived())
+						io::Reactor::get_Current().stop();
+					return;
+				}
 
 				proto::GetMined msgOut;
 				msgOut.m_HeightMin = 0;
@@ -975,14 +1033,10 @@ namespace beam
 				msgBbs.m_Channel = 11;
 				msgBbs.m_TimePosted = getTimestamp();
 				msgBbs.m_Message.resize(1);
-				msgBbs.m_Message[0] = (uint8_t) msg.m_ID.m_Height;
+				msgBbs.m_Message[0] = (uint8_t) msg.m_Description.m_Height;
 				Send(msgBbs);
-			}
 
-			virtual void OnMsg(proto::Hdr&& msg) override
-			{
-				verify_test(m_vStates.size() + 1 == msg.m_Description.m_Height);
-				m_vStates.push_back(msg.m_Description);
+				m_nBbsMsgsPending++;
 
 				// assume we've mined this
 				m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
@@ -1008,6 +1062,21 @@ namespace beam
 					m_queProofsExpected.push_back(msgOut.m_Utxo.m_Commitment);
 				}
 
+				for (uint32_t i = 0; i < m_Wallet.m_MyKernels.size(); i++)
+				{
+					const MiniWallet::MyKernel mk = m_Wallet.m_MyKernels[i];
+
+					TxKernel krn;
+					mk.Export(krn);
+
+					proto::GetProofKernel msgOut;
+					msgOut.m_RequestHashPreimage = true;
+					krn.get_ID(msgOut.m_ID);
+					Send(msgOut);
+
+					m_queProofsKrnExpected.push_back(i);
+				}
+
 				proto::NewTransaction msgTx;
 				while (true)
 				{
@@ -1019,12 +1088,17 @@ namespace beam
 				}
 			}
 
-			virtual void OnMsg(proto::Proof&& msg) override
+			virtual void OnMsg(proto::ProofStateForDummies&& msg) override
 			{
 				if (!m_queProofsStateExpected.empty())
 				{
-					Merkle::Hash hv;
-					m_vStates[m_queProofsStateExpected.front()].get_Hash(hv);
+					const Block::SystemState::Full& s = m_vStates[m_queProofsStateExpected.front()];
+
+					Merkle::Hash hv, hv2;
+					s.get_HashForHist(hv);
+					msg.m_Hdr.get_HashForHist(hv2);
+					verify_test(hv == hv2); // i.e. the header is correct
+
 					Merkle::Interpret(hv, msg.m_Proof);
 
 					verify_test(hv == m_vStates.back().m_Definition);
@@ -1057,6 +1131,34 @@ namespace beam
 					}
 
 					m_queProofsExpected.pop_front();
+				}
+				else
+					fail_test("unexpected proof");
+			}
+
+			virtual void OnMsg(proto::ProofKernel&& msg) override
+			{
+				if (!m_queProofsKrnExpected.empty())
+				{
+					const MiniWallet::MyKernel& mk = m_Wallet.m_MyKernels[m_queProofsKrnExpected.front()];
+					m_queProofsKrnExpected.pop_front();
+
+					if (!msg.m_Proof.empty())
+					{
+						TxKernel krn;
+						mk.Export(krn);
+
+						Merkle::Hash hv;
+						krn.get_ID(hv);
+						Merkle::Interpret(hv, msg.m_Proof);
+
+						verify_test(hv == m_vStates.back().m_Definition);
+
+						if (krn.m_pHashLock)
+							verify_test(krn.m_pHashLock->m_Preimage == msg.m_HashPreimage);
+						else
+							verify_test(msg.m_HashPreimage == ECC::Zero);
+					}
 				}
 				else
 					fail_test("unexpected proof");
@@ -1102,7 +1204,9 @@ namespace beam
 		struct MyClient2
 			:public proto::NodeConnection
 		{
-			virtual void OnConnected() override {
+			MyClient* m_pOtherClient;
+
+			virtual void OnConnectedSecure() override {
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
 				msgCfg.m_CfgChecksum = Rules::get().Checksum;
@@ -1136,12 +1240,15 @@ namespace beam
 				verify_test(nMsg == (uint8_t) m_MsgCount + 1);
 				m_MsgCount++;
 
+				verify_test(m_pOtherClient->m_nBbsMsgsPending);
+				m_pOtherClient->m_nBbsMsgsPending--;
 
 				printf("Got BBS msg=%u\n", m_MsgCount);
 			}
 		};
 
 		MyClient2 cl2;
+		cl2.m_pOtherClient = &cl;
 		cl2.Connect(addr);
 
 
@@ -1156,9 +1263,14 @@ namespace beam
 
 		pReactor->run();
 
-		verify_test(cl2.m_MsgCount >= cl.m_HeightTrg - 10); // assume several last msgs may haven't arrived yet
-	}
 
+		if (!cl.IsHeightReached())
+			fail_test("Blockchain height didn't reach target");
+		if (!cl.IsAllProofsReceived())
+			fail_test("some proofs missing");
+		if (!cl.IsAllBbsReceived())
+			fail_test("some BBS messages missing");
+	}
 
 }
 
@@ -1171,6 +1283,7 @@ int main()
 	//	ports, wrong beacon and etc.
 	verify_test(beam::helpers::ProcessWideLock("/tmp/BEAM_node_test_lock"));
 
+	beam::Rules::get().AllowPublicUtxos = true;
 	beam::Rules::get().FakePoW = true;
 	beam::Rules::get().UpdateChecksum();
 

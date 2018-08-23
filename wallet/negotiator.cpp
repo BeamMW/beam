@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "negotiator.h"
 #include "core/block_crypt.h"
 #include "wallet/wallet_serialization.h"
@@ -16,19 +30,41 @@ namespace beam::wallet
         , m_fsm{ std::ref(*this) }
     {
         assert(keychain);
+
+        try
+        {
+            if (!m_txDesc.m_fsmState.empty())
+            {
+                Deserializer d;
+                d.reset(&m_txDesc.m_fsmState[0], m_txDesc.m_fsmState.size());
+                d & *this;
+            }
+        }
+        catch (...)
+        {
+            m_txDesc.m_fsmState.clear();
+        }
+    }
+
+    void Negotiator::saveState()
+    {
+        if (m_txDesc.canResume())
+        {
+            Serializer ser;
+            ser & *this;
+            ser.swap_buf(m_txDesc.m_fsmState);
+        }
+        else
+        {
+            m_txDesc.m_fsmState.clear();
+        }
+        m_keychain->saveTx(m_txDesc);
     }
 
     Negotiator::FSMDefinition::FSMDefinition(Negotiator& parent)
         : m_parent{ parent }
     {
-        update_tx_description(TxDescription::Pending);
         m_blindingExcess = ECC::Zero;
-        if (!m_parent.m_txDesc.m_fsmState.empty())
-        {
-            Deserializer d;
-            d.reset(&m_parent.m_txDesc.m_fsmState[0], m_parent.m_txDesc.m_fsmState.size());
-            d & *this;
-        }
     }
 
     void Negotiator::FSMDefinition::invitePeer(const events::TxInitiated&)
@@ -56,6 +92,7 @@ namespace beam::wallet
         }
 
         update_tx_description(TxDescription::InProgress);
+        sendInvite();
     }
 
     void Negotiator::FSMDefinition::sendInvite() const
@@ -93,6 +130,7 @@ namespace beam::wallet
         }
         m_peerSignature = msg.m_peerSignature;
         update_tx_description(TxDescription::InProgress);
+        sendConfirmTransaction();
 	}
 
     void Negotiator::FSMDefinition::sendConfirmTransaction() const
@@ -127,7 +165,9 @@ namespace beam::wallet
             createOutputUtxo(m_parent.m_txDesc.m_amount, currentHeight);
         }
 
+        LOG_INFO() << "Invitation accepted";
         update_tx_description(TxDescription::InProgress);
+        sendConfirmInvitation();
     }
 
     void Negotiator::FSMDefinition::sendConfirmInvitation() const
@@ -150,6 +190,7 @@ namespace beam::wallet
             return;
 		}
         update_tx_description(TxDescription::InProgress);
+        sendNewTransaction();
 	}
 
 	bool Negotiator::FSMDefinition::registerTxInternal(const events::TxConfirmationCompleted& event)
@@ -205,9 +246,23 @@ namespace beam::wallet
         }
     }
 
+    void Negotiator::FSMDefinition::cancelTx(const events::TxCanceled&)
+    {
+        if (m_parent.m_txDesc.m_status == TxDescription::Pending)
+        {
+            m_parent.m_keychain->deleteTx(m_parent.m_txDesc.m_txId);
+        }
+        else
+        {
+			update_tx_description(TxDescription::Cancelled);
+            rollbackTx();
+            m_parent.m_gateway.send_tx_failed(m_parent.m_txDesc);
+        }
+    }
+
     void Negotiator::FSMDefinition::rollbackTx()
     {
-        LOG_DEBUG() << "Transaction failed. Rollback...";
+        LOG_INFO() << "Transaction failed. Rollback...";
         m_parent.m_keychain->rollbackTx(m_parent.m_txDesc.m_txId);
     }
 
@@ -234,29 +289,10 @@ namespace beam::wallet
         update_tx_description(TxDescription::Completed);
     }
 
-    Amount Negotiator::FSMDefinition::get_total() const
-    {
-        auto currentHeight = m_parent.m_keychain->getCurrentHeight();
-        Amount total = 0;
-        m_parent.m_keychain->visit([&total, &currentHeight](const Coin& c)->bool
-        {
-            if (c.m_status == Coin::Unspent && c.m_maturity <= currentHeight)
-            {
-                total += c.m_amount;
-            }
-            return true;
-        });
-        return total;
-    }
-
     void Negotiator::FSMDefinition::update_tx_description(TxDescription::Status s)
     {
         m_parent.m_txDesc.m_status = s;
         m_parent.m_txDesc.m_modifyTime = getTimestamp();
-        Serializer ser;
-        ser & *this;
-        ser.swap_buf(m_parent.m_txDesc.m_fsmState);
-        m_parent.m_keychain->saveTx(m_parent.m_txDesc);
     }
 
     bool Negotiator::FSMDefinition::prepareSenderUtxos(const Height& currentHeight)
@@ -265,7 +301,7 @@ namespace beam::wallet
         auto coins = m_parent.m_keychain->selectCoins(amountWithFee);
         if (coins.empty())
         {
-            LOG_ERROR() << "You only have " << PrintableAmount(get_total());
+            LOG_ERROR() << "You only have " << PrintableAmount(getAvailable(m_parent.m_keychain));
             return false;
         }
         for (auto& coin : coins)
@@ -347,7 +383,7 @@ namespace beam::wallet
     void Negotiator::FSMDefinition::createSignature2(Scalar& signature, Point& publicNonce, Scalar& challenge) const
     {
         Hash::Value message;
-        m_kernel->get_HashForSigning(message);
+        m_kernel->get_Hash(message);
 
         Signature::MultiSig msig;
         msig.GenerateNonce(message, m_blindingExcess);
@@ -371,7 +407,7 @@ namespace beam::wallet
     Point Negotiator::FSMDefinition::getPublicNonce() const
     {
         Hash::Value message;
-        m_kernel->get_HashForSigning(message);
+        m_kernel->get_Hash(message);
 
         Signature::MultiSig msig;
         msig.GenerateNonce(message, m_blindingExcess);
@@ -393,7 +429,7 @@ namespace beam::wallet
         }
         Signature::MultiSig msig;
         Hash::Value message;
-        m_kernel->get_HashForSigning(message);
+        m_kernel->get_Hash(message);
 
         msig.GenerateNonce(message, m_blindingExcess);
         Point::Native publicNonce = Context::get().G * msig.m_Nonce;

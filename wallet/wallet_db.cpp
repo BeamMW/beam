@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "wallet_db.h"
 #include "negotiator.h"
 #include "utility/logger.h"
@@ -52,6 +66,7 @@
 #define VARIABLES_NAME "variables"
 #define HISTORY_NAME "history"
 #define PEERS_NAME "peers"
+#define ADDRESSES_NAME "addresses"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(1, name, sep, TEXT UNIQUE, obj) \
@@ -65,21 +80,33 @@
     each(3, fee,        sep, INTEGER NOT NULL, obj) \
     each(4, minHeight,  sep, INTEGER NOT NULL, obj) \
     each(5, peerId,     sep, BLOB NOT NULL, obj) \
-    each(6, message,    sep, BLOB, obj) \
-    each(7, createTime, sep, INTEGER NOT NULL, obj) \
-    each(8, modifyTime, sep, INTEGER, obj) \
-    each(9, sender,     sep, INTEGER NOT NULL, obj) \
-    each(10, status,    sep, INTEGER NOT NULL, obj) \
-    each(11, fsmState,  sep, BLOB, obj) \
-	each(12, change,       , INTEGER NOT NULL, obj)
+    each(6, myId,       sep, BLOB NOT NULL, obj) \
+    each(7, message,    sep, BLOB, obj) \
+    each(8, createTime, sep, INTEGER NOT NULL, obj) \
+    each(9, modifyTime, sep, INTEGER, obj) \
+    each(10, sender,    sep, INTEGER NOT NULL, obj) \
+    each(11, status,    sep, INTEGER NOT NULL, obj) \
+    each(12, fsmState,  sep, BLOB, obj) \
+	each(13, change,       , INTEGER NOT NULL, obj)
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
 
 #define ENUM_PEER_FIELDS(each, sep, obj) \
     each(1, walletID,    sep, BLOB NOT NULL PRIMARY KEY, obj) \
     each(2, address,     sep, TEXT NOT NULL, obj) \
-    each(3, label,          , TEXT NOT NULL , obj) 
+    each(3, label,          , TEXT NOT NULL , obj)
     
 #define PEER_FIELDS ENUM_PEER_FIELDS(LIST, COMMA, )
+
+
+#define ENUM_ADDRESS_FIELDS(each, sep, obj) \
+    each(1, walletID ,      sep, BLOB NOT NULL PRIMARY KEY, obj) \
+    each(2, label,          sep, TEXT NOT NULL, obj) \
+    each(3, category,       sep, TEXT, obj) \
+    each(4, createTime,     sep, INTEGER, obj) \
+    each(5, duration,       sep, INTEGER, obj) \
+    each(6, own,               , INTEGER NOT NULL, obj) 
+
+#define ADDRESS_FIELDS ENUM_ADDRESS_FIELDS(LIST, COMMA, )
 
 namespace std 
 {
@@ -239,8 +266,7 @@ namespace beam
 
             }
 
-            const pair<Amount, vector<Coin>>& select(Amount amount
-                                                   , Amount left)
+            const pair<Amount, vector<Coin>>& select(Amount amount, Amount left)
             {
                 if (left < amount || amount == 0)
                 {
@@ -561,7 +587,7 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 2;
+        const int DbVersion = 4;
     }
 
 	Coin::Coin(const Amount& amount, Status status, const Height& createHeight, const Height& maturity, KeyType keyType, Height confirmHeight, Height lockedHeight)
@@ -574,14 +600,26 @@ namespace beam
         , m_confirmHeight{ confirmHeight }
         , m_lockedHeight{ lockedHeight }
 	{
-
+        assert(isValid());
 	}
 
 	Coin::Coin()
         : Coin(0, Coin::Unspent, 0, MaxHeight, KeyType::Regular, MaxHeight)
 	{
-
+        assert(isValid());
 	}
+
+    bool Coin::isReward() const
+    {
+        return m_key_type == KeyType::Coinbase || m_key_type == KeyType::Comission;
+    }
+
+    bool Coin::isValid() const
+    {
+        return m_createHeight <= m_maturity
+            && m_maturity <= m_lockedHeight
+            && m_createHeight <= m_confirmHeight;
+    }
 
 	bool Keychain::isInitialized(const string& path)
 	{
@@ -625,6 +663,12 @@ namespace beam
             }
             {
                 const char* req = "CREATE TABLE " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
+                int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                throwIfError(ret, keychain->_db);
+            }
+
+            {
+                const char* req = "CREATE TABLE " ADDRESSES_NAME " (" ENUM_ADDRESS_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
                 int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
                 throwIfError(ret, keychain->_db);
             }
@@ -773,6 +817,11 @@ namespace beam
 		return key;
 	}
 
+	void Keychain::get_IdentityKey(ECC::Scalar::Native& sk) const
+	{
+		DeriveKey(sk, m_kdf, 0, KeyType::Identity);
+	}
+
 	vector<beam::Coin> Keychain::selectCoins(const Amount& amount, bool lock)
 	{
 		vector<beam::Coin> coins;
@@ -793,7 +842,26 @@ namespace beam
             }
         }
         Amount sum = 0;
+        Coin coin2;
         {
+            // get one coin >= amount
+            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount>=?3 ORDER BY amount ASC LIMIT 1;");
+            stm.bind(1, Coin::Unspent);
+            stm.bind(2, stateID.m_Height);
+            stm.bind(3, amount);
+            if (stm.step())
+            {
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin2);
+                sum = coin2.m_amount;
+            }
+        }
+        if (sum == amount)
+        {
+            coins.push_back(coin2);
+        }
+        else
+        {
+            // select all coins less than needed amount in sorted order
             sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount<?3 ORDER BY amount DESC;");
             stm.bind(1, Coin::Unspent);
             stm.bind(2, stateID.m_Height);
@@ -806,38 +874,31 @@ namespace beam
                 ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
                 smallSum += coin.m_amount;
             }
-            if (smallSum > amount)
-            {
-                /*CoinSelector s{ candidats };
-                auto t = s.select(amount, smallSum);*/
-				CoinSelector2 s{ candidats };
-				auto t = s.select(amount);
-                sum = t.first;
-                coins = t.second;
-            }
-            else if (smallSum == amount)
+            if (smallSum == amount)
             {
                 coins.swap(candidats);
-                sum = amount;
             }
-        }
-        Coin coin2;
-        {
-            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount>=?3 ORDER BY amount ASC LIMIT 1;");
-            stm.bind(1, Coin::Unspent);
-            stm.bind(2, stateID.m_Height);
-            stm.bind(3, amount);
-            if (stm.step())
+            else if (smallSum > amount)
             {
-                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin2);
-                if (sum < amount || coin2.m_amount <= sum)
+                CoinSelector2 s{ candidats };
+                auto t = s.select(amount);
+                
+                if (sum > amount && sum <= t.first)
                 {
-                    coins.clear();
+                    // prefer one coin instead on many
                     coins.push_back(coin2);
                 }
+                else
+                {
+                    coins = t.second;
+                }
+            }
+            else if (sum > amount)
+            {
+                coins.push_back(coin2);
             }
         }
-
+ 
         if (lock)
 		{
 			sqlite::Transaction trans(_db);
@@ -887,7 +948,7 @@ namespace beam
 
     void Keychain::storeImpl(Coin& coin)
     {
-        assert(coin.m_amount > 0);
+        assert(coin.m_amount > 0 && coin.isValid());
         if (coin.m_key_type == KeyType::Coinbase
             || coin.m_key_type == KeyType::Comission)
         {
@@ -915,7 +976,7 @@ namespace beam
 
 	void Keychain::update(const beam::Coin& coin)
 	{
-        assert(coin.m_amount > 0);
+        assert(coin.m_amount > 0 && coin.m_id > 0 && coin.isValid());
 		sqlite::Transaction trans(_db);
 
 		{
@@ -940,6 +1001,7 @@ namespace beam
 
             for (const auto& coin : coins)
             {
+                assert(coin.m_amount > 0 && coin.m_id > 0 && coin.isValid());
                 const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA, ) " WHERE id=?1;";
                 sqlite::Statement stm(_db, req);
 
@@ -949,6 +1011,7 @@ namespace beam
             }
 
             trans.commit();
+            notifyKeychainChanged();
         }
     }
 
@@ -987,6 +1050,21 @@ namespace beam
 		trans.commit();
 
 		notifyKeychainChanged();
+	}
+
+	void Keychain::clear()
+	{
+		{
+			sqlite::Statement stm(_db, "DELETE FROM " STORAGE_NAME ";");
+			stm.step();
+			notifyKeychainChanged();
+		}
+
+		{
+			sqlite::Statement stm(_db, "DELETE FROM " HISTORY_NAME ";");
+			stm.step();
+			notifyTransactionChanged();
+		}
 	}
 
 	void Keychain::visit(function<bool(const beam::Coin& coin)> func)
@@ -1037,6 +1115,20 @@ namespace beam
 		return size;
 	}
 
+    bool Keychain::getBlob(const char* name, ByteBuffer& var) const
+    {
+        const char* req = "SELECT value FROM " VARIABLES_NAME " WHERE name=?1;";
+
+        sqlite::Statement stm(_db, req);
+        stm.bind(1, name);
+        if (stm.step())
+        {
+            stm.get(0, var);
+            return true;
+        }
+        return false;
+    }
+
     Timestamp Keychain::getLastUpdateTime() const
     {
         Timestamp timestamp = {};
@@ -1069,13 +1161,25 @@ namespace beam
 		return 0;
 	}
 
+    uint64_t Keychain::getKnownStateCount() const
+    {
+        uint64_t count = 0;
+        {
+            sqlite::Statement stm(_db, "SELECT COUNT(DISTINCT confirmHash) FROM " STORAGE_NAME " ;");
+            stm.step();
+            stm.get(0, count);
+        }
+        return count;
+    }
+
     Block::SystemState::ID Keychain::getKnownStateID(Height height)
     {
         Block::SystemState::ID id = {};
-        const char* req = "SELECT confirmHeight, confirmHash FROM " STORAGE_NAME " where confirmHeight=?1 LIMIT 1;";
+        const char* req = "SELECT DISTINCT confirmHeight, confirmHash FROM " STORAGE_NAME " WHERE confirmHeight >= ?2 LIMIT 1 OFFSET ?1;";
 
         sqlite::Statement stm(_db, req);
         stm.bind(1, height);
+        stm.bind(2, Rules::HeightGenesis);
         if (stm.step())
         {
             stm.get(0, id.m_Height);
@@ -1087,9 +1191,18 @@ namespace beam
     void Keychain::rollbackConfirmedUtxo(Height minHeight)
     {
         sqlite::Transaction trans(_db);
+
+        {
+            const char* req = "DELETE FROM " STORAGE_NAME " WHERE createHeight >?1 AND (key_type=?2 OR key_type=?3);";
+            sqlite::Statement stm(_db, req);
+            stm.bind(1, minHeight);
+            stm.bind(2, KeyType::Coinbase);
+            stm.bind(3, KeyType::Comission);
+            stm.step();
+        }
         
         {
-            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, confirmHeight=?2, lockedHeight=?2 WHERE confirmHeight > ?3 ;";
+            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, confirmHeight=?2, lockedHeight=?2, confirmHash=NULL WHERE confirmHeight > ?3 ;";
             sqlite::Statement stm(_db, req);
             stm.bind(1, Coin::Unconfirmed);
             stm.bind(2, MaxHeight);
@@ -1107,6 +1220,7 @@ namespace beam
         }
 
         trans.commit();
+        notifyKeychainChanged();
     }
 
     vector<TxDescription> Keychain::getTxHistory(uint64_t start, int count)
@@ -1215,6 +1329,7 @@ namespace beam
             stm.step();
         }
         trans.commit();
+        notifyKeychainChanged();
     }
 
     std::vector<TxPeer> Keychain::getPeers()
@@ -1259,6 +1374,73 @@ namespace beam
         return boost::optional<TxPeer>{};
     }
 
+	void Keychain::clearPeers()
+	{
+		sqlite::Statement stm(_db, "DELETE FROM " PEERS_NAME ";");
+		stm.step();
+	}
+
+    std::vector<WalletAddress> Keychain::getAddresses(bool own)
+    {
+        vector<WalletAddress> res;
+        const char* req = "SELECT * FROM " ADDRESSES_NAME " WHERE own=?1 ORDER BY createTime DESC;";
+
+        sqlite::Statement stm(_db, req);
+        stm.bind(1, own);
+
+        while (stm.step())
+        {
+            auto& a = res.emplace_back();
+            ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, a);
+        }
+        return res;
+    }
+
+    void Keychain::saveAddress(const WalletAddress& address)
+    {
+        sqlite::Transaction trans(_db);
+
+        {
+            const char* selectReq = "SELECT * FROM " ADDRESSES_NAME " WHERE walletID=?1;";
+            sqlite::Statement stm2(_db, selectReq);
+            stm2.bind(1, address.m_walletID);
+
+            if (stm2.step())
+            {
+                const char* updateReq = "UPDATE " ADDRESSES_NAME " SET label=?2, category=?3 WHERE walletID=?1;";
+                sqlite::Statement stm(_db, updateReq);
+
+                stm.bind(1, address.m_walletID);
+                stm.bind(2, address.m_label);
+                stm.bind(3, address.m_category);
+                stm.step();
+            }
+            else
+            {
+                const char* insertReq = "INSERT INTO " ADDRESSES_NAME " (" ENUM_ADDRESS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ADDRESS_FIELDS(BIND_LIST, COMMA, ) ");";
+                sqlite::Statement stm(_db, insertReq);
+                ENUM_ADDRESS_FIELDS(STM_BIND_LIST, NOSEP, address);
+                stm.step();
+            }
+        }
+
+        trans.commit();
+
+        notifyAddressChanged();
+    }
+    
+    void Keychain::deleteAddress(const WalletID& id)
+    {
+        const char* req = "DELETE FROM " ADDRESSES_NAME " WHERE walletID=?1;";
+        sqlite::Statement stm(_db, req);
+
+        stm.bind(1, id);
+
+        stm.step();
+
+        notifyAddressChanged();
+    }
+
     void Keychain::subscribe(IKeyChainObserver* observer)
 	{
 		assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
@@ -1289,6 +1471,11 @@ namespace beam
 	{
 		for (auto sub : m_subscribers) sub->onSystemStateChanged();
 	}
+
+    void Keychain::notifyAddressChanged()
+    {
+        for (auto sub : m_subscribers) sub->onAddressChanged();
+    }
 
 	namespace wallet
 	{

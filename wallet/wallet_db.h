@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include <boost/optional.hpp>
@@ -28,6 +42,8 @@ namespace beam
            , Height confirmHeight = MaxHeight
            , Height lockedHeight = MaxHeight);
         Coin();
+        bool isReward() const;
+        bool isValid() const;
 
         uint64_t m_id;
         ECC::Amount m_amount;
@@ -49,12 +65,23 @@ namespace beam
         std::string m_address;
     };
 
+    struct WalletAddress
+    {
+        WalletID m_walletID;
+        std::string m_label;
+        std::string m_category;
+        Timestamp m_createTime;
+        uint64_t  m_duration; // seconds, 0 - for single use;
+        bool m_own;
+    };
+
 	struct IKeyChainObserver
 	{
 		virtual void onKeychainChanged() = 0;
 		virtual void onTransactionChanged() = 0;
 		virtual void onSystemStateChanged() = 0;
 		virtual void onTxPeerChanged() = 0;
+        virtual void onAddressChanged() = 0;
 	};
 
     struct IKeyChain
@@ -62,8 +89,9 @@ namespace beam
         using Ptr = std::shared_ptr<IKeyChain>;
         virtual ~IKeyChain() {}
 
-
+        
         virtual ECC::Scalar::Native calcKey(const beam::Coin& coin) const = 0;
+		virtual void get_IdentityKey(ECC::Scalar::Native&) const = 0;
 
         virtual std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) = 0;
         virtual void store(beam::Coin& coin) = 0;
@@ -72,12 +100,15 @@ namespace beam
         virtual void update(const beam::Coin& coin) = 0;
         virtual void remove(const std::vector<beam::Coin>& coins) = 0;
         virtual void remove(const beam::Coin& coin) = 0;
+		virtual void clear() = 0;
 
 		virtual void visit(std::function<bool(const beam::Coin& coin)> func) = 0;
 
 		virtual void setVarRaw(const char* name, const void* data, int size) = 0;
 		virtual int getVarRaw(const char* name, void* data) const = 0;
+        virtual bool getBlob(const char* name, ByteBuffer& var) const = 0;
         virtual Height getCurrentHeight() const = 0;
+        virtual uint64_t getKnownStateCount() const = 0;
         virtual Block::SystemState::ID getKnownStateID(Height height) = 0;
         virtual void rollbackConfirmedUtxo(Height minHeight) = 0;
 
@@ -92,6 +123,11 @@ namespace beam
         virtual std::vector<TxPeer> getPeers() = 0;
         virtual void addPeer(const TxPeer&) = 0;
         virtual boost::optional<TxPeer> getPeer(const WalletID&) = 0;
+		virtual void clearPeers() = 0;
+
+        virtual std::vector<WalletAddress> getAddresses(bool own) = 0;
+        virtual void saveAddress(const WalletAddress&) = 0;
+        virtual void deleteAddress(const WalletID&) = 0;
 
 		template <typename Var>
 		void setVar(const char* name, const Var& var)
@@ -104,6 +140,7 @@ namespace beam
 		{
 			return getVarRaw(name, &var) == sizeof(var);
 		}
+
         virtual Timestamp getLastUpdateTime() const = 0;
 		virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
 		virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
@@ -122,18 +159,23 @@ namespace beam
         ~Keychain();
 
         ECC::Scalar::Native calcKey(const beam::Coin& coin) const override;
-        std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) override;
+		void get_IdentityKey(ECC::Scalar::Native&) const override;
+		std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) override;
         void store(beam::Coin& coin) override;
         void store(std::vector<beam::Coin>& coins) override;
         void update(const std::vector<beam::Coin>& coins) override;
         void update(const beam::Coin& coin) override;
         void remove(const std::vector<beam::Coin>& coins) override;
         void remove(const beam::Coin& coin) override;
+		void clear() override;
+
 		void visit(std::function<bool(const beam::Coin& coin)> func) override;
 
 		void setVarRaw(const char* name, const void* data, int size) override;
 		int getVarRaw(const char* name, void* data) const override;
+        bool getBlob(const char* name, ByteBuffer& var) const override;
         Height getCurrentHeight() const override;
+        uint64_t getKnownStateCount() const override;
         Block::SystemState::ID getKnownStateID(Height height) override;
         void rollbackConfirmedUtxo(Height minHeight) override;
 
@@ -146,6 +188,11 @@ namespace beam
         std::vector<TxPeer> getPeers() override;
         void addPeer(const TxPeer&) override;
         boost::optional<TxPeer> getPeer(const WalletID&) override;
+		void clearPeers() override;
+
+        std::vector<WalletAddress> getAddresses(bool own) override;
+        void saveAddress(const WalletAddress&) override;
+        void deleteAddress(const WalletID&) override;
 
         Timestamp getLastUpdateTime() const override;
 		void setSystemStateID(const Block::SystemState::ID& stateID) override;
@@ -158,6 +205,7 @@ namespace beam
 		void notifyKeychainChanged();
 		void notifyTransactionChanged();
 		void notifySystemStateChanged();
+        void notifyAddressChanged();
     private:
 
         sqlite3* _db;

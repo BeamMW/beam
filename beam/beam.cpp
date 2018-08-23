@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "wallet/wallet_network.h"
 #include "core/common.h"
 
@@ -5,16 +19,19 @@
 #include "wallet/wallet.h"
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
+#include "wallet/keystore.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "utility/logger.h"
 #include "utility/options.h"
+#include "utility/helpers.h"
 #include <iomanip>
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <iterator>
 #include <future>
+#include "version.h"
 
 using namespace std;
 using namespace beam;
@@ -38,8 +55,8 @@ namespace beam
         ss << "]";
         string str = ss.str();
         os << str;
-        int c = 13 - str.length();
-        for (int i = 0; i < c; ++i) os << ' ';
+        size_t c = 13 - str.length();
+        for (size_t i = 0; i < c; ++i) os << ' ';
         return os;
     }
 
@@ -95,7 +112,7 @@ namespace
 		if (sPath.empty())
 			return false;
 
-		std::FStream f; 
+		std::FStream f;
 		if (!f.Open(sPath.c_str(), true))
 			return false;
 
@@ -122,12 +139,12 @@ struct TreasuryBlockGenerator
 
 	Block::Body& get_WriteBlock();
 	void FinishLastBlock();
-	int Generate(uint32_t nCount, Height dh);
+	int Generate(uint32_t nCount, Height dh, Amount);
 private:
 	void Proceed(uint32_t i);
 };
 
-int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
+int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 {
 	if (m_sPath.empty())
 	{
@@ -163,7 +180,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 	{
 		Coin& coin = m_Coins[i];
 		coin.m_key_type = KeyType::Regular;
-		coin.m_amount = Rules::Coin * 10;
+		coin.m_amount = v;
 		coin.m_status = Coin::Unconfirmed;
 		coin.m_createHeight = h + Rules::HeightGenesis;
 
@@ -197,7 +214,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 		pKrn->m_Excess = ECC::Point::Native(Context::get().G * k);
 
 		Merkle::Hash hv;
-		pKrn->get_HashForSigning(hv);
+		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, k);
 
 		get_WriteBlock().m_vKernelsOutput.push_back(std::move(pKrn));
@@ -253,7 +270,7 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 {
 	std::vector<Output::Ptr> vOut;
 
-	for (uint32_t i = i0; i < m_Coins.size(); i += m_vThreads.size())
+	for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size())
 	{
 		const Coin& coin = m_Coins[i];
 
@@ -271,7 +288,7 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 	std::unique_lock<std::mutex> scope(m_Mutex);
 
 	uint32_t iOutp = 0;
-	for (uint32_t i = i0; i < m_Coins.size(); i += m_vThreads.size(), iOutp++)
+	for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size(), iOutp++)
 	{
 		Block::Body& block = get_WriteBlock();
 
@@ -289,374 +306,430 @@ static const unsigned LOG_ROTATION_PERIOD = 3*60*60*1000; // 3 hours
 
 int main_impl(int argc, char* argv[])
 {
-    auto options = createOptionsDescription();
-
-    po::variables_map vm = getOptions(argc, argv, "beam.cfg", options);
-
-	if (vm.count(cli::HELP))
-	{
-		printHelp(options);
-
-		return 0;
-	}
-
-	// init logger here to determine node/wallet name
-
-	int logLevel = LOG_LEVEL_DEBUG;
-	int fileLogLevel = LOG_LEVEL_INFO;
-#if LOG_VERBOSE_ENABLED
-	logLevel = LOG_LEVEL_VERBOSE;
-#endif
-	std::string prefix = "beam_";
-	if (vm.count(cli::MODE))
-	{
-		auto mode = vm[cli::MODE].as<string>();
-		if (mode == cli::NODE) prefix += "node_";
-		else if (mode == cli::WALLET) prefix += "wallet_";
-	}
-
-	auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, prefix);
-
 	try
 	{
-        po::notify(vm);
+		auto options = createOptionsDescription();
 
-		Rules::get().UpdateChecksum();
-		LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+		po::variables_map vm;
+		try
+		{
+			vm = getOptions(argc, argv, "beam.cfg", options);
+		}
+		catch (const po::error& e)
+		{
+			cout << e.what() << std::endl;
+			printHelp(options);
 
-        auto port = vm[cli::PORT].as<uint16_t>();
-        auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;
+			return 0;
+		}
 
-        if (vm.count(cli::MODE))
-        {
-            reactor = io::Reactor::create();
-            io::Reactor::Scope scope(*reactor);
-            NoLeak<uintBig> walletSeed;
-            walletSeed.V = Zero;
-            if (hasWalletSeed)
-            {
-                // TODO: use secure string here
-                string seed = vm[cli::WALLET_SEED].as<string>();
-                Hash::Value hv;
-                Hash::Processor() << seed.c_str() >> hv;
-                walletSeed.V = hv;
-            }
+		if (vm.count(cli::HELP))
+		{
+			printHelp(options);
 
-            auto mode = vm[cli::MODE].as<string>();
-            if (mode == cli::NODE)
-            {
-                beam::Node node;
+			return 0;
+		}
 
-                node.m_Cfg.m_Listen.port(port);
-                node.m_Cfg.m_Listen.ip(INADDR_ANY);
-                node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<string>();
-                node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
-                node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
-				node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
-                if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
-                {
-                    LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
-                    return -1;
-                }
-                node.m_Cfg.m_WalletKey = walletSeed;
+		if (vm.count(cli::VERSION))
+		{
+			cout << PROJECT_VERSION << endl;
+			return 0;
+		}
 
-				std::vector<std::string> vPeers;
+		if (vm.count(cli::GIT_COMMIT_HASH))
+		{
+			cout << GIT_COMMIT_HASH << endl;
+			return 0;
+		}
 
-				if (vm.count(cli::NODE_PEER))
-					vPeers = vm[cli::NODE_PEER].as<vector<string> >();
+		// init logger here to determine node/wallet name
 
-				node.m_Cfg.m_Connect.resize(vPeers.size());
+		int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
+		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
 
-				for (size_t i = 0; i < vPeers.size(); i++)
+#if LOG_VERBOSE_ENABLED
+		logLevel = LOG_LEVEL_VERBOSE;
+#endif
+		std::string prefix = "beam_";
+		if (vm.count(cli::MODE))
+		{
+			auto mode = vm[cli::MODE].as<string>();
+			if (mode == cli::NODE) prefix += "node_";
+			else if (mode == cli::WALLET) prefix += "wallet_";
+		}
+
+		const auto path = boost::filesystem::system_complete("./logs");
+		auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, prefix, path.string());
+
+		try
+		{
+			po::notify(vm);
+
+			Rules::get().UpdateChecksum();
+			LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+
+			auto port = vm[cli::PORT].as<uint16_t>();
+			auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;
+
+			if (vm.count(cli::MODE))
+			{
+				reactor = io::Reactor::create();
+				io::Reactor::Scope scope(*reactor);
+
+				io::Reactor::GracefulIntHandler gih(*reactor);
+
+				NoLeak<uintBig> walletSeed;
+				walletSeed.V = Zero;
+				if (hasWalletSeed)
 				{
-					io::Address& addr = node.m_Cfg.m_Connect[i];
-					if (!addr.resolve(vPeers[i].c_str()))
-					{
-						LOG_ERROR() << "unable to resolve: " << vPeers[i];
-						return -1;
-					}
-
-					if (!addr.port())
-					{
-						if (!port)
-						{
-							LOG_ERROR() << "Port must be specified";
-							return -1;
-						}
-						addr.port(port);
-					}
+					// TODO: use secure string here
+					string seed = vm[cli::WALLET_SEED].as<string>();
+					Hash::Value hv;
+					Hash::Processor() << seed.c_str() >> hv;
+					walletSeed.V = hv;
 				}
 
-				node.m_Cfg.m_HistoryCompression.m_sPathOutput = vm[cli::HISTORY].as<string>();
-				node.m_Cfg.m_HistoryCompression.m_sPathTmp = vm[cli::TEMP].as<string>();
+				io::Timer::Ptr logRotateTimer = io::Timer::create(reactor);
+				logRotateTimer->start(
+					LOG_ROTATION_PERIOD, true,
+					[]() {
+						Logger::get()->rotate();
+					}
+				);
 
-                LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
+				auto mode = vm[cli::MODE].as<string>();
+				if (mode == cli::NODE)
+				{
+					beam::Node node;
 
-                if (vm.count(cli::TREASURY_BLOCK))
-                {
-                    string sPath = vm[cli::TREASURY_BLOCK].as<string>();
-					ReadTreasury(node.m_Cfg.m_vTreasury, sPath);
-
-					if (!node.m_Cfg.m_vTreasury.empty())
-						LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_vTreasury.size();
-                }
-
-				node.Initialize();
-
-				Height hImport = vm[cli::IMPORT].as<Height>();
-				if (hImport)
-					node.ImportMacroblock(hImport);
-
-                io::Timer::Ptr logRotateTimer = io::Timer::create(reactor);
-                logRotateTimer->start(
-                    LOG_ROTATION_PERIOD, true,
-                    []() {
-                        Logger::get()->rotate();
-                    }
-                );
-
-                reactor->run();
-            }
-            else if (mode == cli::WALLET)
-            {
-                if (vm.count(cli::COMMAND))
-                {
-                    auto command = vm[cli::COMMAND].as<string>();
-                    if (command != cli::INIT
-                     && command != cli::SEND
-                     && command != cli::RECEIVE
-                     && command != cli::LISTEN
-                     && command != cli::TREASURY
-                     && command != cli::INFO)
-                    {
-                        LOG_ERROR() << "unknown command: \'" << command << "\'";
-                        return -1;
-                    }
-
-                    assert(vm.count(cli::WALLET_STORAGE) > 0);
-                    auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
-
-                    if (!Keychain::isInitialized(walletPath) && command != cli::INIT)
-                    {
-                        LOG_ERROR() << "Please initialize your wallet first... \nExample: beam wallet --command=init --pass=<password to access wallet> --wallet_seed=<seed to generate secret keys>";
-                        return -1;
-                    }
-
-                    LOG_INFO() << "starting a wallet...";
-
-                    // TODO: we should use secure string
-                    string pass;
-                    if (vm.count(cli::PASS))
-                    {
-                        pass = vm[cli::PASS].as<string>();
-                    }
-
-                    if (!pass.size())
-                    {
-                        LOG_ERROR() << "Please, provide password for the wallet.";
-                        return -1;
-                    }
-
-                    if (command == cli::INIT)
-                    {
-                        if (!hasWalletSeed)
-                        {
-                            LOG_ERROR() << "Please, provide seed phrase for the wallet.";
-                            return -1;
-                        }
-                        auto keychain = Keychain::init(walletPath, pass, walletSeed);
-                        if (keychain)
-                        {
-                            LOG_INFO() << "wallet successfully created...";
-                            return 0;
-                        }
-                        else
-                        {
-                            LOG_ERROR() << "something went wrong, wallet not created...";
-                            return -1;
-                        }
-                    }
-
-
-                    auto keychain = Keychain::open(walletPath, pass);
-                    if (!keychain)
-                    {
-                        LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";
-                        return -1;
-                    }
-
-                    LOG_INFO() << "wallet sucessfully opened...";
-
-					if (command == cli::TREASURY)
+					node.m_Cfg.m_Listen.port(port);
+					node.m_Cfg.m_Listen.ip(INADDR_ANY);
+					node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<string>();
+					node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
+					node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
+					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
+					if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
 					{
-						TreasuryBlockGenerator tbg;
-						tbg.m_sPath = vm[cli::TREASURY_BLOCK].as<string>();
-						tbg.m_pKeyChain = keychain.get();
+						LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
+						return -1;
+					}
+					node.m_Cfg.m_WalletKey = walletSeed;
 
-						// TODO: command-line parameter
-						Height dh = 60 * 2; // 2 hours, 12 per day
-						uint32_t nCount = 12 * 30; // 360 total. 1 month roughly
+					std::vector<std::string> vPeers = getCfgPeers(vm);
 
-						return tbg.Generate(nCount, dh);
+					node.m_Cfg.m_Connect.resize(vPeers.size());
+
+					for (size_t i = 0; i < vPeers.size(); i++)
+					{
+						io::Address& addr = node.m_Cfg.m_Connect[i];
+						if (!addr.resolve(vPeers[i].c_str()))
+						{
+							LOG_ERROR() << "unable to resolve: " << vPeers[i];
+							return -1;
+						}
+
+						if (!addr.port())
+						{
+							if (!port)
+							{
+								LOG_ERROR() << "Port must be specified";
+								return -1;
+							}
+							addr.port(port);
+						}
 					}
 
-                    if (command == cli::INFO)
-                    {
-                        Block::SystemState::ID stateID = {};
-                        keychain->getSystemStateID(stateID);
-                        cout << "____Wallet summary____\n\n"
-                            << "Current height............" << stateID.m_Height << '\n'
-                            << "Current state ID.........." << stateID.m_Hash << "\n\n"
-                            << "Available................." << PrintableAmount(wallet::getAvailable(keychain)) << '\n'
-                            << "Unconfirmed..............." << PrintableAmount(wallet::getTotal(keychain, Coin::Unconfirmed)) << '\n'
-                            << "Locked...................." << PrintableAmount(wallet::getTotal(keychain, Coin::Locked)) << '\n'
-                            << "Available coinbase ......." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
-                            << "Total coinbase............" << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
-                            << "Avaliable fee............." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
-                            << "Total fee................." << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
-                            << "Total unspent............." << PrintableAmount(wallet::getTotal(keychain, Coin::Unspent)) << "\n\n";
-                        if (vm.count(cli::TX_HISTORY))
-                        {
-                            auto txHistory = keychain->getTxHistory();
-                            if (txHistory.empty())
-                            {
-                                cout << "No transactions\n";
-                                return 0;
-                            }
+					node.m_Cfg.m_HistoryCompression.m_sPathOutput = vm[cli::HISTORY].as<string>();
+					node.m_Cfg.m_HistoryCompression.m_sPathTmp = vm[cli::TEMP].as<string>();
 
-                            cout << "TRANSACTIONS\n\n"
-                                 << "| datetime          | amount, BEAM    | status\t|\n";
-                            for (auto& tx : txHistory)
-                            {
-                                cout << "  " << put_time(localtime((const time_t*)(&tx.m_createTime)), "%D  %T")
-                                     << setw(17) << PrintableAmount(tx.m_amount, true)
-                                     << "  " << getTxStatus(tx) << '\n';
-                            }
-                            return 0;
-                        }
+					LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
-                        cout << "| id\t| amount(Beam)\t| amount(c)\t| height\t| maturity\t| status \t| key type\t|\n";
-                        keychain->visit([](const Coin& c)->bool
-                        {
-                            cout << setw(8) << c.m_id
-                                 << setw(16) << PrintableAmount(Rules::Coin * ((Amount)(c.m_amount / Rules::Coin)))
-                                 << setw(16) << PrintableAmount(c.m_amount % Rules::Coin)
-                                 << setw(16) << static_cast<int64_t>(c.m_createHeight)
-                                 << setw(16) << static_cast<int64_t>(c.m_maturity)
-                                 << "  " << c.m_status
-                                 << "  " << c.m_key_type << '\n';
-                            return true;
-                        });
-                        return 0;
-                    }
+					if (vm.count(cli::TREASURY_BLOCK))
+					{
+						string sPath = vm[cli::TREASURY_BLOCK].as<string>();
+						ReadTreasury(node.m_Cfg.m_vTreasury, sPath);
 
-                    if (vm.count(cli::NODE_ADDR) == 0)
-                    {
-                        LOG_ERROR() << "node address should be specified";
-                        return -1;
-                    }
+						if (!node.m_Cfg.m_vTreasury.empty())
+							LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_vTreasury.size();
+					}
 
-                    string nodeURI = vm[cli::NODE_ADDR].as<string>();
-                    io::Address node_addr;
-                    if (!node_addr.resolve(nodeURI.c_str()))
-                    {
-                        LOG_ERROR() << "unable to resolve node address: " << nodeURI;
-                        return -1;
-                    }
+					node.Initialize();
 
-                    io::Address receiverAddr;
-                    Amount amount = 0;
-                    Amount fee = 0;
-                    bool isTxInitiator = command == cli::SEND || command == cli::RECEIVE;
-                    if (isTxInitiator)
-                    {
-                        if (vm.count(cli::RECEIVER_ADDR) == 0)
-                        {
-                            LOG_ERROR() << "receiver's address is missing";
-                            return -1;
-                        }
-                        if (vm.count(cli::AMOUNT) == 0)
-                        {
-                            LOG_ERROR() << "amount is missing";
-                            return -1;
-                        }
-                        string receiverURI = vm[cli::RECEIVER_ADDR].as<string>();
-                        if (!receiverAddr.resolve(receiverURI.c_str()))
-                        {
-                            LOG_ERROR() << "unable to resolve receiver address: " << receiverURI;
-                            return -1;
-                        }
-                        auto signedAmount = vm[cli::AMOUNT].as<double>();
-                        if (signedAmount < 0)
-                        {
-                            LOG_ERROR() << "Unable to send negative amount of coins";
-                            return -1;
-                        }
+					Height hImport = vm[cli::IMPORT].as<Height>();
+					if (hImport)
+						node.ImportMacroblock(hImport);
 
-                        signedAmount *= Rules::Coin; // convert beams to coins
+					reactor->run();
+				}
+				else if (mode == cli::WALLET)
+				{
+					if (vm.count(cli::COMMAND))
+					{
+						auto command = vm[cli::COMMAND].as<string>();
+						if (command != cli::INIT
+							&& command != cli::SEND
+							&& command != cli::RECEIVE
+							&& command != cli::LISTEN
+							&& command != cli::TREASURY
+							&& command != cli::INFO)
+						{
+							LOG_ERROR() << "unknown command: \'" << command << "\'";
+							return -1;
+						}
 
-                        amount = static_cast<ECC::Amount>(signedAmount);
-                        if (amount == 0)
-                        {
-                            LOG_ERROR() << "Unable to send zero coins";
-                            return -1;
-                        }
+						assert(vm.count(cli::WALLET_STORAGE) > 0);
+						auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
 
-                        auto signedFee = vm[cli::FEE].as<double>();
-                        if (signedFee < 0)
-                        {
-                            LOG_ERROR() << "Unable to take negative fee";
-                            return -1;
-                        }
+                        assert(vm.count(cli::BBS_STORAGE) > 0);
+                        auto bbsKeysPath = vm[cli::BBS_STORAGE].as<string>();
 
-                        signedFee *= Rules::Coin; // convert beams to coins
+						if (!Keychain::isInitialized(walletPath) && command != cli::INIT)
+						{
+							LOG_ERROR() << "Please initialize your wallet first... \nExample: beam wallet --command=init --pass=<password to access wallet> --wallet_seed=<seed to generate secret keys>";
+							return -1;
+						}
 
-                        fee = static_cast<ECC::Amount>(signedFee);
-                    }
+						LOG_INFO() << "starting a wallet...";
 
-                    bool is_server = command == cli::LISTEN;
+						// TODO: we should use secure string
+						string pass;
+						if (vm.count(cli::PASS))
+						{
+							pass = vm[cli::PASS].as<string>();
+						}
 
+						if (!pass.size())
+						{
+							LOG_ERROR() << "Please, provide password for the wallet.";
+							return -1;
+						}
 
-                    TxPeer receiverPeer = {};
-                    receiverPeer.m_address = receiverAddr.str();
-                    receiverPeer.m_walletID = receiverAddr.u64();
-                    keychain->addPeer(receiverPeer);
+						if (command == cli::INIT)
+						{
+							if (!hasWalletSeed)
+							{
+								LOG_ERROR() << "Please, provide seed phrase for the wallet.";
+								return -1;
+							}
+							auto keychain = Keychain::init(walletPath, pass, walletSeed);
+							if (keychain)
+							{
+								LOG_INFO() << "wallet successfully created...";
 
-                    auto wallet_io = make_shared<WalletNetworkIO >( io::Address().ip(INADDR_ANY).port(port)
-                                                                 , node_addr
-                                                                 , is_server
-                                                                 , keychain
-                                                                 , reactor );
-                    Wallet wallet{ keychain
-                                 , wallet_io
-                                 , is_server ? Wallet::TxCompletedAction() : [wallet_io](auto) { wallet_io->stop(); } };
-                    if (isTxInitiator)
-                    {
-                        wallet.transfer_money(receiverPeer.m_walletID, move(amount), move(fee), command == cli::SEND);
-                    }
-                    wallet_io->start();
-                }
-                else
-                {
-                    LOG_ERROR() << "command parameter not specified.";
-                    printHelp(options);
-                }
-            }
-            else
-            {
-                LOG_ERROR() << "unknown mode \'" << mode << "\'.";
-                printHelp(options);
-            }
-        }
-    }
-    catch(const po::error& e)
-    {
-        LOG_ERROR() << e.what();
-        printHelp(options);
-    }
-	catch (const std::runtime_error& e)
+                                IKeyStore::Options options;
+                                options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+                                options.fileName = bbsKeysPath;
+
+                                IKeyStore::Ptr ks = IKeyStore::create(options, pass.c_str(), pass.size());
+
+                                // generate default address
+                                WalletAddress defaultAddress = {};
+                                defaultAddress.m_own = true;
+                                defaultAddress.m_label = "default";
+                                defaultAddress.m_createTime = getTimestamp();
+                                defaultAddress.m_duration = numeric_limits<uint64_t>::max();
+                                ks->gen_keypair(defaultAddress.m_walletID);
+                                ks->save_keypair(defaultAddress.m_walletID, true);
+                                keychain->saveAddress(defaultAddress);
+
+								return 0;
+							}
+							else
+							{
+								LOG_ERROR() << "something went wrong, wallet not created...";
+								return -1;
+							}
+						}
+
+						auto keychain = Keychain::open(walletPath, pass);
+						if (!keychain)
+						{
+							LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";
+							return -1;
+						}
+
+						LOG_INFO() << "wallet sucessfully opened...";
+
+						if (command == cli::TREASURY)
+						{
+							TreasuryBlockGenerator tbg;
+							tbg.m_sPath = vm[cli::TREASURY_BLOCK].as<string>();
+							tbg.m_pKeyChain = keychain.get();
+
+							Amount v = vm[cli::TR_BEAMS].as<uint32_t>();
+							v *= Rules::Coin;
+							Height dh = vm[cli::TR_DH].as<uint32_t>();
+							uint32_t nCount = vm[cli::TR_COUNT].as<uint32_t>();
+
+							return tbg.Generate(nCount, dh, v);
+						}
+
+						if (command == cli::INFO)
+						{
+							Block::SystemState::ID stateID = {};
+							keychain->getSystemStateID(stateID);
+							cout << "____Wallet summary____\n\n"
+								<< "Current height............" << stateID.m_Height << '\n'
+								<< "Current state ID.........." << stateID.m_Hash << "\n\n"
+								<< "Available................." << PrintableAmount(wallet::getAvailable(keychain)) << '\n'
+								<< "Unconfirmed..............." << PrintableAmount(wallet::getTotal(keychain, Coin::Unconfirmed)) << '\n'
+								<< "Locked...................." << PrintableAmount(wallet::getTotal(keychain, Coin::Locked)) << '\n'
+								<< "Available coinbase ......." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
+								<< "Total coinbase............" << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
+								<< "Avaliable fee............." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
+								<< "Total fee................." << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
+								<< "Total unspent............." << PrintableAmount(wallet::getTotal(keychain, Coin::Unspent)) << "\n\n";
+							if (vm.count(cli::TX_HISTORY))
+							{
+								auto txHistory = keychain->getTxHistory();
+								if (txHistory.empty())
+								{
+									cout << "No transactions\n";
+									return 0;
+								}
+
+								cout << "TRANSACTIONS\n\n"
+									<< "| datetime          | amount, BEAM    | status\t|\n";
+								for (auto& tx : txHistory)
+								{
+									cout << "  " << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
+										<< setw(17) << PrintableAmount(tx.m_amount, true)
+										<< "  " << getTxStatus(tx) << '\n';
+								}
+								return 0;
+							}
+
+							cout << "| id\t| amount(Beam)\t| amount(c)\t| height\t| maturity\t| status \t| key type\t|\n";
+							keychain->visit([](const Coin& c)->bool
+							{
+								cout << setw(8) << c.m_id
+									<< setw(16) << PrintableAmount(Rules::Coin * ((Amount)(c.m_amount / Rules::Coin)))
+									<< setw(16) << PrintableAmount(c.m_amount % Rules::Coin)
+									<< setw(16) << static_cast<int64_t>(c.m_createHeight)
+									<< setw(16) << static_cast<int64_t>(c.m_maturity)
+									<< "  " << c.m_status
+									<< "  " << c.m_key_type << '\n';
+								return true;
+							});
+							return 0;
+						}
+
+						if (vm.count(cli::NODE_ADDR) == 0)
+						{
+							LOG_ERROR() << "node address should be specified";
+							return -1;
+						}
+
+						string nodeURI = vm[cli::NODE_ADDR].as<string>();
+						io::Address node_addr;
+						if (!node_addr.resolve(nodeURI.c_str()))
+						{
+							LOG_ERROR() << "unable to resolve node address: " << nodeURI;
+							return -1;
+						}
+
+						io::Address receiverAddr;
+						Amount amount = 0;
+						Amount fee = 0;
+                        ECC::Hash::Value receiverWalletID;
+						bool isTxInitiator = command == cli::SEND || command == cli::RECEIVE;
+						if (isTxInitiator)
+						{
+							if (vm.count(cli::RECEIVER_ADDR) == 0)
+							{
+								LOG_ERROR() << "receiver's address is missing";
+								return -1;
+							}
+							if (vm.count(cli::AMOUNT) == 0)
+							{
+								LOG_ERROR() << "amount is missing";
+								return -1;
+							}
+
+                            ECC::Hash::Value receiverID = from_hex(vm[cli::RECEIVER_ADDR].as<string>());
+                            receiverWalletID = receiverID;
+
+							auto signedAmount = vm[cli::AMOUNT].as<double>();
+							if (signedAmount < 0)
+							{
+								LOG_ERROR() << "Unable to send negative amount of coins";
+								return -1;
+							}
+
+							signedAmount *= Rules::Coin; // convert beams to coins
+
+							amount = static_cast<ECC::Amount>(signedAmount);
+							if (amount == 0)
+							{
+								LOG_ERROR() << "Unable to send zero coins";
+								return -1;
+							}
+
+							auto signedFee = vm[cli::FEE].as<double>();
+							if (signedFee < 0)
+							{
+								LOG_ERROR() << "Unable to take negative fee";
+								return -1;
+							}
+
+							signedFee *= Rules::Coin; // convert beams to coins
+
+							fee = static_cast<ECC::Amount>(signedFee);
+						}
+
+						bool is_server = command == cli::LISTEN;
+
+                        IKeyStore::Options options;
+                        options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+                        options.fileName = bbsKeysPath;
+
+                        IKeyStore::Ptr keystore = IKeyStore::create(options, pass.c_str(), pass.size());
+
+                        auto wallet_io = make_shared<WalletNetworkIO >( node_addr
+						                                              , keychain
+                                                                      , keystore
+							                                          , reactor);
+						Wallet wallet{ keychain
+									 , wallet_io
+                                     , false
+									 , is_server ? Wallet::TxCompletedAction() : [wallet_io](auto) { wallet_io->stop(); } };
+
+						if (isTxInitiator)
+						{
+                            // TODO: make db request by 'default' label
+                            auto addresses = keychain->getAddresses(true);
+                            assert(!addresses.empty());
+							wallet.transfer_money(addresses[0].m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
+						}
+
+						wallet_io->start();
+					}
+					else
+					{
+						LOG_ERROR() << "command parameter not specified.";
+						printHelp(options);
+					}
+				}
+				else
+				{
+					LOG_ERROR() << "unknown mode \'" << mode << "\'.";
+					printHelp(options);
+				}
+			}
+		}
+		catch (const po::error& e)
+		{
+			LOG_ERROR() << e.what();
+			printHelp(options);
+		}
+		catch (const std::runtime_error& e)
+		{
+			LOG_ERROR() << e.what();
+		}
+	}
+	catch (const std::exception& e)
 	{
-		LOG_ERROR() << e.what();
+		std::cout << e.what() << std::endl;
 	}
 
     return 0;

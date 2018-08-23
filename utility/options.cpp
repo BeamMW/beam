@@ -1,5 +1,20 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "options.h"
 #include "core/common.h"
+#include "utility/string_helpers.h"
 
 using namespace std;
 
@@ -14,6 +29,7 @@ namespace beam
         const char* PORT_FULL = "port,p";
         const char* STORAGE = "storage";
         const char* WALLET_STORAGE = "wallet_path";
+        const char* BBS_STORAGE = "bbs_keystore_path";
         const char* HISTORY = "history_dir";
         const char* TEMP = "temp_dir";
         const char* IMPORT = "import";
@@ -42,8 +58,21 @@ namespace beam
         const char* FEE = "fee";
         const char* FEE_FULL = "fee,f";
         const char* RECEIVE = "receive";
-        // ui
-        const char* WALLET_ADDR = "addr";
+        const char* LOG_LEVEL = "log_level";
+        const char* FILE_LOG_LEVEL = "file_log_level";
+        const char* LOG_INFO = "info";
+        const char* LOG_DEBUG = "debug";
+        const char* LOG_VERBOSE = "verbose";
+        const char* VERSION = "version";
+        const char* VERSION_FULL = "version,v";
+        const char* GIT_COMMIT_HASH = "git_commit_hash";
+		// treasury
+		const char* TR_BEAMS = "tr_BeamsPerUtxo";
+		const char* TR_DH = "tr_HeightStep";
+		const char* TR_COUNT = "tr_Count";
+		// ui
+		const char* WALLET_ADDR = "addr";
+        const char* APPDATA_PATH = "appdata";
     }
 
     po::options_description createOptionsDescription()
@@ -63,7 +92,11 @@ namespace beam
             (cli::HELP_FULL, "list of all options")
             (cli::MODE, po::value<string>()->required(), "mode to execute [node|wallet]")
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
-            (cli::WALLET_SEED, po::value<string>(), "secret key generation seed");
+            (cli::WALLET_SEED, po::value<string>(), "secret key generation seed")
+            (cli::LOG_LEVEL, po::value<string>(), "log level [info|debug|verbose]")
+            (cli::FILE_LOG_LEVEL, po::value<string>(), "file log level [info|debug|verbose]")
+            (cli::VERSION_FULL, "return project version")
+            (cli::GIT_COMMIT_HASH, "return commit hash");
 
         po::options_description node_options("Node options");
         node_options.add_options()
@@ -86,12 +119,18 @@ namespace beam
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
             (cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
+            (cli::BBS_STORAGE, po::value<string>()->default_value("bbs_keys.db"), "path to file with bbs keys")
             (cli::TX_HISTORY, "print transacrions' history in info command")
-            (cli::COMMAND, po::value<string>(), "command to execute [send|receive|listen|init|info|treasury]");
+
+			(cli::TR_COUNT, po::value<uint32_t>()->default_value(30), "treasury UTXO count")
+			(cli::TR_DH, po::value<uint32_t>()->default_value(1440), "treasury UTXO height lock step")
+			(cli::TR_BEAMS, po::value<uint32_t>()->default_value(10), "treasury value of each UTXO (in Beams)")
+			(cli::COMMAND, po::value<string>(), "command to execute [send|receive|listen|init|info|treasury]");
 
         po::options_description uioptions("UI options");
-        wallet_options.add_options()
-            (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken());
+        uioptions.add_options()
+            (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
+			(cli::APPDATA_PATH, po::value<string>());
 
 #define RulesParams(macro) \
 	macro(Amount, CoinbaseEmission, "coinbase emission in a single block") \
@@ -103,6 +142,7 @@ namespace beam
 	macro(uint32_t, MaxDifficultyChange, "Max difficulty change after each cycle (each step is roughly x2 complexity)") \
 	macro(uint32_t, TimestampAheadThreshold_s, "Block timestamp tolerance [seconds]") \
 	macro(uint32_t, WindowForMedian, "How many blocks are considered in calculating the timestamp median") \
+	macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
 	macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
 
 #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(Rules::get().name), comment)
@@ -117,6 +157,7 @@ namespace beam
             .add(general_options)
             .add(node_options)
             .add(wallet_options)
+            .add(uioptions)
             .add(rules_options);
         return options;
     }
@@ -149,4 +190,44 @@ namespace beam
 
         return vm;
     }
+
+    int getLogLevel(const std::string &dstLog, const po::variables_map& vm, int defaultValue)
+    {
+        const map<std::string, int> logLevels
+        {
+            { cli::LOG_DEBUG, LOG_LEVEL_DEBUG },
+            { cli::INFO, LOG_LEVEL_INFO },
+            { cli::LOG_VERBOSE, LOG_LEVEL_VERBOSE }
+        };
+
+        if (vm.count(dstLog))
+        {
+            auto level = vm[dstLog].as<string>();
+            if (auto it = logLevels.find(level); it != logLevels.end())
+            {
+                return it->second;
+            }
+        }
+
+        return defaultValue;
+    }
+
+	vector<string> getCfgPeers(const po::variables_map& vm)
+	{
+		vector<string> peers;
+
+		if (vm.count(cli::NODE_PEER))
+		{
+			auto tempPeers = vm[cli::NODE_PEER].as<vector<string>>();
+
+			for (const auto& peer : tempPeers)
+			{
+				auto csv = string_helpers::split(peer, ',');
+
+				peers.insert(peers.end(), csv.begin(), csv.end());
+			}
+		}
+
+		return peers;
+	}
 }

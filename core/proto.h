@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include "common.h"
@@ -14,7 +28,8 @@ namespace beam {
 namespace proto {
 
 #define BeamNodeMsg_NewTip(macro) \
-	macro(Block::SystemState::ID, ID)
+	macro(Block::SystemState::ID, ID) \
+	macro(Difficulty::Raw, ChainWork)
 
 #define BeamNodeMsg_GetHdr(macro) \
 	macro(Block::SystemState::ID, ID)
@@ -37,18 +52,24 @@ namespace proto {
 	macro(Height, Height)
 
 #define BeamNodeMsg_GetProofKernel(macro) \
-	macro(Merkle::Hash, KernelHash)
+	macro(Merkle::Hash, ID) \
+	macro(bool, RequestHashPreimage)
 
 #define BeamNodeMsg_GetProofUtxo(macro) \
 	macro(Input, Utxo) \
 	macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
 
 
-#define BeamNodeMsg_Proof(macro) \
-	macro(Merkle::Proof, Proof)
+#define BeamNodeMsg_ProofKernel(macro) \
+	macro(Merkle::Proof, Proof) \
+	macro(ECC::uintBig, HashPreimage)
 
 #define BeamNodeMsg_ProofUtxo(macro) \
 	macro(std::vector<Input::Proof>, Proofs)
+
+#define BeamNodeMsg_ProofStateForDummies(macro) \
+	macro(Merkle::Proof, Proof) \
+	macro(Block::SystemState::Full, Hdr)
 
 #define BeamNodeMsg_GetMined(macro) \
 	macro(Height, HeightMin)
@@ -74,6 +95,9 @@ namespace proto {
 
 #define BeamNodeMsg_GetTransaction(macro) \
 	macro(Transaction::KeyType, ID)
+
+#define BeamNodeMsg_Bye(macro) \
+	macro(uint8_t, Reason)
 
 #define BeamNodeMsg_PeerInfoSelf(macro) \
 	macro(uint16_t, Port)
@@ -134,8 +158,9 @@ namespace proto {
 	macro(8, GetProofState) \
 	macro(9, GetProofKernel) \
 	macro(10, GetProofUtxo) \
-	macro(11, Proof) /* for states and kernels */ \
+	macro(11, ProofKernel) \
 	macro(12, ProofUtxo) \
+	macro(13, ProofStateForDummies) \
 	macro(15, GetMined) \
 	macro(16, Mined) \
 	macro(20, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
@@ -144,6 +169,7 @@ namespace proto {
 	macro(23, NewTransaction) \
 	macro(24, HaveTransaction) \
 	macro(25, GetTransaction) \
+	macro(29, Bye) \
 	macro(31, PeerInfoSelf) \
 	macro(32, PeerInfo) \
 	macro(33, GetTime) \
@@ -190,6 +216,7 @@ namespace proto {
 #define THE_MACRO1(code, msg) \
 	struct msg \
 	{ \
+		static const uint8_t s_Code = code; \
 		BeamNodeMsg_##msg(THE_MACRO2) \
 		template <typename Archive> void serialize(Archive& ar) { ar BeamNodeMsg_##msg(THE_MACRO3); } \
 	};
@@ -265,6 +292,7 @@ namespace proto {
 		SerializedMsg m_SerializeCache;
 
 		void TestIoResultAsync(const io::Result& res);
+		void TestInputMsgContext(uint8_t);
 
 		static void OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode);
 		void OnConnectInternal2(io::TcpStream::Ptr&& newStream, io::ErrorCode);
@@ -295,6 +323,7 @@ namespace proto {
 		virtual void OnMsg(SChannelInitiate&&) override;
 		virtual void OnMsg(SChannelReady&&) override;
 		virtual void OnMsg(Authentication&&) override;
+		virtual void OnMsg(Bye&&) override;
 
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
@@ -303,14 +332,25 @@ namespace proto {
 
 		const Connection* get_Connection() { return m_Connection.get(); }
 
-		virtual void OnConnected() {}
+		virtual void OnConnectedSecure() {}
+
+		struct ByeReason
+		{
+			static const uint8_t Stopping	= 's';
+			static const uint8_t Ban		= 'b';
+			static const uint8_t Loopback	= 'L';
+			static const uint8_t Duplicate	= 'd';
+			static const uint8_t Timeout	= 't';
+			static const uint8_t Other		= 'o';
+		};
 
 		struct DisconnectReason
 		{
 			enum Enum {
 				Io,
 				Protocol,
-				ProcessingExc
+				ProcessingExc,
+				Bye,
 			};
 
 			Enum m_Type;
@@ -319,6 +359,7 @@ namespace proto {
 				io::ErrorCode m_IoError;
 				ProtocolError m_eProtoCode;
 				const char* m_szErrorMsg;
+				uint8_t m_ByeReason;
 			};
 		};
 

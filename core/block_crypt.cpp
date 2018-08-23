@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <utility> // std::swap
 #include <algorithm>
 #include <ctime>
@@ -164,6 +178,9 @@ namespace beam
 		if (!m_pPublic)
 			return false;
 
+		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
+			return false;
+
 		return m_pPublic->IsValid(comm, oracle);
 	}
 
@@ -225,7 +242,7 @@ namespace beam
 
 	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent) const
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const
 	{
 		if (pParent)
 		{
@@ -242,34 +259,41 @@ namespace beam
 		hp	<< m_Fee
 			<< m_Height.m_Min
 			<< m_Height.m_Max
-			<< (bool) m_pContract
 			<< (bool) m_pHashLock;
 
-		if (m_pContract)
+		if (m_pHashLock)
 		{
-			hp	<< m_pContract->m_Msg
-				<< m_pContract->m_PublicKey;
+			if (!pLockImage)
+			{
+				ECC::Hash::Processor() << m_pHashLock->m_Preimage >> hv;
+				pLockImage = &hv;
+			}
+
+			hp << *pLockImage;
 		}
 
-		if (m_pHashLock)
-			hp << m_pHashLock->m_Hash;
-
 		const TxKernel* p0Krn = NULL;
-		for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
+		for (auto it = m_vNested.begin(); ; it++)
 		{
+			bool bBreak = (m_vNested.end() == it);
+			hp << bBreak;
+
+			if (bBreak)
+				break;
+
 			const TxKernel& v = *(*it);
 			if (p0Krn && (*p0Krn > v))
 				return false;
 			p0Krn = &v;
 
-			if (!v.Traverse(hv, pFee, pExcess, this))
+			if (!v.Traverse(hv, pFee, pExcess, this, NULL))
 				return false;
 
-			v.HashForSigningToTotal(hv); // The hash of this kernel should account for the signature and the excess of the internal kernels.
-			hp << true << hv;
+			v.HashToID(hv);
+			hp << hv;
 		}
 
-		hp << false >> hv;
+		hp >> hv;
 
 		if (pExcess)
 		{
@@ -289,26 +313,6 @@ namespace beam
 				return false;
 
 			*pExcess += pt;
-
-			if (m_pContract)
-			{
-				ECC::Hash::Value hv2;
-				get_HashForContract(hv2, hv);
-
-				if (!pt.Import(m_pContract->m_PublicKey))
-					return false;
-
-				if (!m_pContract->m_Signature.IsValid(hv2, pt))
-					return false;
-			}
-
-			if (m_pHashLock)
-			{
-				ECC::Hash::Value hv2;
-				ECC::Hash::Processor() << m_pHashLock->m_Preimage >> hv2;
-				if (m_pHashLock->m_Hash != hv2)
-					return false;
-			}
 		}
 
 		if (pFee)
@@ -317,63 +321,43 @@ namespace beam
 		return true;
 	}
 
-	void TxKernel::get_HashForContract(ECC::Hash::Value& out, const ECC::Hash::Value& msg) const
+	void TxKernel::get_Hash(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
 	{
-		ECC::Hash::Processor()
-			<< msg
-			<< m_Excess
-			>> out;
-	}
-
-	void TxKernel::get_HashForSigning(Merkle::Hash& out) const
-	{
-		Traverse(out, NULL, NULL, NULL);
+		Traverse(out, NULL, NULL, NULL, pLockImage);
 	}
 
 	bool TxKernel::IsValid(AmountBig& fee, ECC::Point::Native& exc) const
 	{
 		ECC::Hash::Value hv;
-		return Traverse(hv, &fee, &exc, NULL);
+		return Traverse(hv, &fee, &exc, NULL, NULL);
 	}
 
-	void TxKernel::HashForSigningToTotal(Merkle::Hash& hv) const
+	void TxKernel::HashToID(Merkle::Hash& hv) const
 	{
+		// Account for everything that was not included in the hash for signing, except the signature. We must be able to get the ID of the kernel which isn't signed yet
 		ECC::Hash::Processor()
 			<< hv
 			<< m_Excess
 			<< m_Multiplier
-			<< m_Signature.m_e
-			<< m_Signature.m_k
 			>> hv;
 
 		// Some kernel hash values are reserved for the system usage
 		if (hv == ECC::Zero)
-		{
-			ECC::Hash::Processor() << hv >> hv;
-			assert(!(hv == ECC::Zero));
-		}
+			hv.Inc();
 	}
 
-	void TxKernel::get_HashTotal(Merkle::Hash& hv) const
+	void TxKernel::get_ID(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
 	{
-		get_HashForSigning(hv);
-		HashForSigningToTotal(hv);
+		get_Hash(out, pLockImage);
+		HashToID(out);
 	}
 
 	bool TxKernel::IsValidProof(const Merkle::Proof& proof, const Merkle::Hash& root) const
 	{
 		Merkle::Hash hv;
-		get_HashTotal(hv);
+		get_Hash(hv);
 		Merkle::Interpret(hv, proof);
 		return hv == root;
-	}
-
-	int TxKernel::Contract::cmp(const Contract& v) const
-	{
-		CMP_MEMBER_EX(m_Msg)
-		CMP_MEMBER_EX(m_PublicKey)
-		CMP_MEMBER_EX(m_Signature)
-		return 0;
 	}
 
 	int TxKernel::cmp(const TxKernel& v) const
@@ -384,7 +368,6 @@ namespace beam
 		CMP_MEMBER(m_Fee)
 		CMP_MEMBER(m_Height.m_Min)
 		CMP_MEMBER(m_Height.m_Max)
-		CMP_MEMBER_PTR(m_pContract)
 
 		auto it0 = m_vNested.begin();
 		auto it1 = v.m_vNested.begin();
@@ -412,7 +395,6 @@ namespace beam
 		m_Signature = v.m_Signature;
 		m_Fee = v.m_Fee;
 		m_Height = v.m_Height;
-		ClonePtr(m_pContract, v.m_pContract);
 		ClonePtr(m_pHashLock, v.m_pHashLock);
 
 		m_vNested.resize(v.m_vNested.size());
@@ -882,12 +864,17 @@ namespace beam
 			<< MaturityStd
 			<< MaxBodySize
 			<< FakePoW
+			<< AllowPublicUtxos
 			<< DesiredRate_s
 			<< DifficultyReviewCycle
 			<< MaxDifficultyChange
 			<< TimestampAheadThreshold_s
 			<< WindowForMedian
-			<< uint32_t(0) // increment this whenever we change something in the protocol
+			<< StartDifficulty.m_Packed
+			<< (uint32_t) Block::PoW::K
+			<< (uint32_t) Block::PoW::N
+			<< (uint32_t) Block::PoW::NonceType::nBits
+			<< uint32_t(3) // increment this whenever we change something in the protocol
 			// out
 			>> Checksum;
 	}
@@ -917,6 +904,7 @@ namespace beam
 			<< m_TimeStamp
 			<< m_Prev
 			<< m_Definition
+			<< m_PoW.m_Difficulty.m_Packed
 			>> out;
 	}
 
@@ -948,6 +936,25 @@ namespace beam
 		Merkle::Hash hv;
 		get_Hash(hv);
 		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
+	}
+
+	void Block::SystemState::Full::get_HashForHist(Merkle::Hash& hv) const
+	{
+		get_Hash(hv);
+		m_PoW.get_HashForHist(hv, hv);
+	}
+
+	void Block::PoW::get_HashForHist(Merkle::Hash& hv, const Merkle::Hash& hvState) const
+	{
+		ECC::Hash::Processor hp;
+		hp.Write(&m_Indices.at(0), sizeof(m_Indices));
+		hp.Write(m_Nonce.m_pData, sizeof(m_Nonce.m_pData));
+		hp << m_Difficulty.m_Packed;
+
+		Merkle::Hash hvPow;
+		hp >> hvPow;
+
+		Merkle::Interpret(hv, hvState, hvPow);
 	}
 
 	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb, bool bSubsidyOpen)
@@ -1057,7 +1064,9 @@ namespace beam
 		kOffset = -kOffset;
 	}
 
-	void Rules::AdjustDifficulty(uint8_t& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const
+	/////////////
+	// Difficulty
+	void Rules::AdjustDifficulty(Difficulty& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const
 	{
 		//static_assert(DesiredRate_s * DifficultyReviewCycle < uint32_t(-1), "overflow?");
 		const uint32_t dtTrg_s = DesiredRate_s * DifficultyReviewCycle;
@@ -1071,39 +1080,151 @@ namespace beam
 			dt_s = (tCycleEnd_s < uint32_t(-1)) ? uint32_t(tCycleEnd_s) : uint32_t(-1);
 		}
 
-		// Formula:
-		//		While dt_s is smaller than dtTrg_s / sqrt(2) - raise the difficulty.
-		//		While dt_s is bigger than dtTrg_s * sqrt(2) - lower the difficulty.
-		//		There's a limit for adjustment
-		//
-		// Instead of calculating sqrt(2) we'll square both parameters, and the factor now is 2.
+		d.Adjust(dt_s, dtTrg_s, MaxDifficultyChange);
+	}
 
-		uint64_t src = uint64_t(dt_s) * uint64_t(dt_s);
-		const uint64_t trg = uint64_t(dtTrg_s) * uint64_t(dtTrg_s);
-
-		for (uint32_t i = 0; i < MaxDifficultyChange; i++)
+	void Difficulty::Pack(uint32_t order, uint32_t mantissa)
+	{
+		if (order <= s_MaxOrder)
 		{
-			if (src >= (trg >> 1))
-				break;
+			assert((mantissa >> s_MantissaBits) == 1U);
+			mantissa &= (1U << s_MantissaBits) - 1;
 
-			if (d == uint8_t(-1))
+			m_Packed = mantissa | (order << s_MantissaBits);
+		}
+		else
+			m_Packed = s_Inf;
+	}
+
+	void Difficulty::Unpack(uint32_t& order, uint32_t& mantissa) const
+	{
+		order = (m_Packed >> s_MantissaBits);
+
+		const uint32_t nLeadingBit = 1U << s_MantissaBits;
+		mantissa = nLeadingBit | (m_Packed & (nLeadingBit - 1));
+	}
+
+	bool Difficulty::IsTargetReached(const ECC::uintBig& hv) const
+	{
+		if (m_Packed > s_Inf)
+			return false; // invalid
+
+		// multiply by (raw) difficulty, check if the result fits wrt normalization.
+		Raw val;
+		Unpack(val);
+
+		typedef ECC::uintBig_t<ECC::nBits * 2> uintHuge;
+
+		uintHuge a, b;
+		a = hv;
+		b = val;
+		a = a * b;
+
+		static_assert(!(s_MantissaBits & 7), ""); // fix the following code lines to support non-byte-aligned mantissa size
+
+		return memis0(a.m_pData, sizeof(a.m_pData) / 2 - (s_MantissaBits >> 3));
+	}
+
+	void Difficulty::Unpack(Raw& res) const
+	{
+		res = ECC::Zero;
+		if (m_Packed < s_Inf)
+		{
+			uint32_t order, mantissa;
+			Unpack(order, mantissa);
+			res.AssignSafe(mantissa, order);
+
+		}
+		else
+			res.Inv();
+	}
+
+	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange)
+	{
+		if (!(src || trg))
+			return; // degenerate case
+
+		uint32_t order, mantissa;
+		Unpack(order, mantissa);
+
+		Adjust(src, trg, nMaxOrderChange, order, mantissa);
+
+		if (signed(order) >= 0)
+			Pack(order, mantissa);
+		else
+			m_Packed = 0;
+
+	}
+
+	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange, uint32_t& order, uint32_t& mantissa)
+	{
+		bool bIncrease = (src < trg);
+
+		// order adjustment (rough)
+		for (uint32_t i = 0; ; i++)
+		{
+			if (i == nMaxOrderChange)
 				return;
 
-			d++;
-			src <<= 2;
+			uint32_t srcAdj = src;
+			if (bIncrease)
+			{
+				if ((srcAdj <<= 1) > trg)
+					break;
+
+				if (++order > s_MaxOrder)
+					return;
+			}
+			else
+			{
+				if ((srcAdj >>= 1) < trg)
+					break;
+
+				if (!order--)
+					return;
+			}
+
+			src = srcAdj;
 		}
 
-		for (uint32_t i = 0; i < MaxDifficultyChange; i++)
+		// By now the ratio between src/trg is less than 2. Adjust the mantissa
+		uint64_t val = trg;
+		val *= uint64_t(mantissa);
+		val /= uint64_t(src);
+
+		mantissa = (uint32_t) val;
+
+		uint32_t nLeadingBit = mantissa >> Difficulty::s_MantissaBits;
+
+		if (bIncrease)
 		{
-			if (src <= (trg << 1))
-				break;
+			assert(nLeadingBit && (nLeadingBit <= 2));
 
-			if (d == 0)
-				return;
-
-			d--;
-			src >>= 2;
+			if (nLeadingBit > 1)
+			{
+				order++;
+				mantissa >>= 1;
+			}
 		}
+		else
+		{
+			assert(nLeadingBit <= 1);
+
+			if (!nLeadingBit)
+			{
+				order--;
+				mantissa <<= 1;
+				assert(mantissa >> Difficulty::s_MantissaBits);
+			}
+		}
+	}
+
+	std::ostream& operator << (std::ostream& s, const Difficulty& d)
+	{
+		uint32_t order = d.m_Packed >> Difficulty::s_MantissaBits;
+		uint32_t mantissa = d.m_Packed & ((1U << Difficulty::s_MantissaBits) - 1);
+		s << std::hex << order << '-' << mantissa << std::dec;
+		return s;
 	}
 
 	std::ostream& operator << (std::ostream& s, const Block::SystemState::ID& id)

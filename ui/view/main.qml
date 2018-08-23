@@ -7,12 +7,11 @@ import "controls"
 Rectangle {
     id: main
 
-    width: 1440
-    height: 800
+    anchors.fill: parent
+
     color: Style.marine
 
-
-    property var contentItems : ["dashboard", "wallet", "notification", "info", "settings"]
+    property var contentItems : ["dashboard", "wallet", "address-book", "utxo", "notification", "info", "settings"]
     property int selectedItem
 
     Rectangle {
@@ -99,16 +98,22 @@ Rectangle {
         anchors.rightMargin: 30
         anchors.leftMargin: 100
         anchors.fill: parent
-
-        clip: true
+        focus: true
     }
 
     function updateItem(index)
     {
         selectedItem = index
-        content.source = "qrc:///" + contentItems[index] + ".qml"
+        content.setSource("qrc:///" + contentItems[index] + ".qml", {"toSend": false})
         mainViewModel.update(index)
     }
+
+	function openSendDialog() {
+		selectedItem = 1
+		content.setSource("qrc:///wallet.qml", {"toSend": true})
+        
+		mainViewModel.update(selectedItem)
+	}
 
     Component.onCompleted:{
         updateItem(1) // load wallet view by default

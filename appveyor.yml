@@ -4,6 +4,8 @@ image: Visual Studio 2017
 branches:
   only:
     - master
+    - testnet
+    - deploy
 
 configuration:
 - Release
@@ -13,20 +15,20 @@ platform:
 
 environment:
   BOOST_ROOT: C:\Libraries\boost_1_67_0
-  OPENSSL_ROOT_DIR: C:\OpenSSL-Win64
-  QT5_ROOT_DIR: C:\Qt\5.11\msvc2017_64
-  QML_IMPORT_PATH: C:\Qt\5.11\msvc2017_64\qml
+  OPENSSL_ROOT_DIR: c:\beam-libs\openssl
+  QT5_ROOT_DIR: c:\beam-libs\qt5-static-win
+  QML_IMPORT_PATH: c:\beam-libs\qt5-static-win\qml
   GITHUB_API_KEY:
     secure: 3teRuVd1PpR8Y2XJEOWPWo7LYRhEKIZZk3w53nFG7hPsXrONIUb18SNfkVl+SICw
+  BUILD_SERVER:
+    secure: l9RqB2YbSnNIKZqTwnd67BHAXvbjmpj9zcf+YQPi9zfzsVeSysaoLD7gy4gSMjWurk2JVHjRpviw4bBxUbu2sA==
   matrix:
   - arch: Win64
 
 before_build:
-  # TODO: remove downloading openssl.zip from untrusted source
-  # - appveyor DownloadFile https://github.com/nesbox/openssl-static/raw/master/openssl.zip
-  # - cmd: "7z x -oC: ./openssl.zip"
-  - cmd: set PATH=%BOOST_ROOT%\lib64-msvc-14.1;%PATH%
-  - cmd: cmake -G "Visual Studio 15 2017 Win64"
+  - cmd: git clone --depth=1 https://github.com/beam-mw/libs.git c:/beam-libs
+  - cmd: git clone --depth=1 https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
+  - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=Release -DBEAM_LINK_TYPE=Static
 
 test_script:
   - cmd: ctest -C Release --verbose
@@ -37,8 +39,19 @@ build:
   parallel: true
 
 on_success:
-- ps: $env:DATE=$(Get-Date -UFormat "%Y.%m.%d")
+- ps: $env:DATE=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('yyyy.MM.dd')
+- ps: $env:TIME=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('HH:mm:ss')
 - cmd: >-
+
+    cpack --verbose -G NSIS
+
+    7z a c:/projects/beam/beam/Release/beam.zip c:/projects/beam/beam/Release/beam.exe c:/projects/beam/beam/beam.cfg
+
+    set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win
+
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam.zip" %BUILDS_SERVER_PATH%/
+
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILDS_SERVER_PATH%/Beam Wallet.exe"
 
     set REPO=https://%GITHUB_API_KEY%@github.com/beam-mw/beam-builds
 
@@ -46,22 +59,30 @@ on_success:
 
     git config --global user.name "Vadim Grigoruk"
 
-    git clone %REPO%
+    git clone --depth=1 %REPO%
 
     cd beam-builds
 
     set RELEASE_FOLDER=nightly\%DATE%\release\win
 
-    ECHO %RELEASE_FOLDER%
+    set LATEST_FOLDER=latest\release\win
 
     if not exist "%RELEASE_FOLDER%" mkdir %RELEASE_FOLDER%
 
-    7z a %RELEASE_FOLDER%/beam.zip c:/projects/beam/beam/Release/beam.exe c:/projects/beam/beam/beam.cfg c:/projects/beam/ui/Release/beam-ui.exe c:/projects/beam/ui/beam-ui.cfg
+    if not exist "%LATEST_FOLDER%" mkdir %LATEST_FOLDER%
 
-    git add %RELEASE_FOLDER%/beam.zip
+    7z a %RELEASE_FOLDER%/beam.zip c:/projects/beam/beam/Release/beam.exe c:/projects/beam/beam/beam.cfg
+
+    copy /Y %RELEASE_FOLDER%/beam.zip %LATEST_FOLDER%/beam.zip
+
+    copy /Y "c:\projects\beam\BeamWallet-0.0.1-win64.exe" "%RELEASE_FOLDER%\Beam Wallet.exe"
+
+    copy /Y "c:\projects\beam\BeamWallet-0.0.1-win64.exe" "%LATEST_FOLDER%\Beam Wallet.exe"
+
+    git add %RELEASE_FOLDER%/beam.zip "%RELEASE_FOLDER%/Beam Wallet.exe" %LATEST_FOLDER%/beam.zip "%LATEST_FOLDER%/Beam Wallet.exe"
 
     git commit -m "AppVeyor build for Windows"
-
+    
     git push %REPO% master
 
 notifications:

@@ -1,14 +1,11 @@
 language: cpp
 
-branches:
-  except:
-    - ui
-
 matrix:
   include:
     - os: osx
       osx_image: xcode9.3
       before_install: 
+        - export TZ=Etc/GMT-3
         - brew upgrade boost cmake
         - brew install qt5
         - export PATH=/usr/local/opt/qt/bin:$PATH
@@ -16,20 +13,35 @@ matrix:
         - BUILD_TYPE=Debug
         - OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE . && make -j 4 && ctest --verbose
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE . && make -j 4 && ctest --verbose && cpack;
+      after_success:
+        # deploy using ftp server
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/mac
+        - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
+        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
+        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Darwin.dmg" "$BUILDS_SERVER_PATH/Beam Wallet.dmg"
 
     - os: osx
       osx_image: xcode9.3
       before_install:
+        - export TZ=Etc/GMT-3
         - brew upgrade openssl boost cmake
-        - brew install qt5
-        - export PATH=/usr/local/opt/qt/bin:$PATH
+        - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
+        - export PATH=~/qt5-static/bin:$PATH
       env: 
         - BUILD_TYPE=Release
         - OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
+        - QT5_ROOT_DIR="/usr/local/qt5-static"
+        - QML_IMPORT_PATH="/usr/local/qt5-static/qml"
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE . && make -j 4 && ctest --verbose;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
       after_success:
+        # deploy using ftp server
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/mac
+        - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
+        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
+        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Darwin.dmg" "$BUILDS_SERVER_PATH/Beam Wallet.dmg"
+        # deploy using github
         - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
             chmod +x ./deploy.sh;
             ./deploy.sh;
@@ -42,18 +54,26 @@ matrix:
             - ubuntu-toolchain-r-test
           packages:
             - g++-7
-            - cmake-data
-            - cmake
             - libboost-all-dev
             - libssl-dev
-            # TODO: unfortunately, QT5 is too old on Travis and was temporary disabled
-            # - qtdeclarative5-dev
-            # - qtdeclarative5-qtquick2-plugin
       before_install:
+        - export TZ=Etc/GMT-3
+        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
+        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
+        - sudo add-apt-repository ppa:beineri/opt-qt-5.10.1-trusty -y
+        - sudo apt-get update
+        - sudo apt-get install qt510declarative qt510svg libgl1-mesa-dev-lts-xenial
         - eval "CC=gcc-7 && CXX=g++-7"
+        - export PATH=/opt/qt510/bin:$PATH
       env: BUILD_TYPE=Debug
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE . && make -j 4 && ctest --verbose && cpack;
+      after_success:
+        # deploy using ftp
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/linux
+        - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
+        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
+        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Linux.deb" "$BUILDS_SERVER_PATH/Beam Wallet.deb"
 
     - os: linux
       addons:
@@ -62,19 +82,28 @@ matrix:
             - ubuntu-toolchain-r-test
           packages:
             - g++-7
-            - cmake-data
-            - cmake
             - libboost-all-dev
             - libssl-dev
-            # TODO: unfortunately, QT5 is too old on Travis and was temporary disabled
-            # - qtdeclarative5-dev
-            # - qtdeclarative5-qtquick2-plugin
+            - curl
       before_install:
+        - export TZ=Etc/GMT-3
+        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
+        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - eval "CC=gcc-7 && CXX=g++-7"
-      env: BUILD_TYPE=Release
+        - git clone --depth=1 https://github.com/nesbox/qt5-static-linux.git /home/travis/qt5-static
+      env: 
+        - QT5_ROOT_DIR="/home/travis/qt5-static"
+        - QML_IMPORT_PATH="/home/travis/qt5-static/qml"
+        - BUILD_TYPE=Release
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
       after_success:
+        # deploy using ftp
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/linux
+        - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
+        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
+        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Linux.deb" "$BUILDS_SERVER_PATH/Beam Wallet.deb"
+        # deploy using github
         - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
             chmod +x ./deploy.sh;
             ./deploy.sh;

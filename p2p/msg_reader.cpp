@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "msg_reader.h"
 #include <assert.h>
 #include <algorithm>
@@ -26,6 +40,12 @@ MsgReader::~MsgReader()
 {
 	if (_pAlive)
 		*_pAlive = false;
+}
+
+void MsgReader::reset() {
+    _bytesLeft = MsgHeader::SIZE;
+    _state = reading_header;
+    _cursor = _msgBuffer.data();
 }
 
 void MsgReader::change_id(uint64_t newStreamId) {
@@ -110,9 +130,13 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
 				return;
 			}
 
-			if (!_protocol.on_new_message(_streamId, header.type, _msgBuffer.data() + MsgHeader::SIZE, header.size - _protocol.get_MacSize()))
-				// at this moment, the *this* may be deleted
-				return;
+            if (!_protocol.on_new_message(_streamId, header.type, _msgBuffer.data() + MsgHeader::SIZE, header.size - _protocol.get_MacSize())) {
+                // at this moment, the *this* may be deleted
+                if (bAlive) {
+                    reset();
+                }
+                return;
+            }
 
 			if (!bAlive)
 				return;

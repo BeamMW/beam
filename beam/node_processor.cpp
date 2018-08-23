@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "node_processor.h"
 #include "../core/block_crypt.h"
 #include "../utility/serialize.h"
@@ -23,8 +37,8 @@ struct NodeProcessor::UnspentWalker
 {
 	NodeProcessor& m_This;
 
-	UnspentWalker(NodeProcessor& me, bool bWithSignature)
-		:NodeDB::WalkerSpendable(me.m_DB, bWithSignature)
+	UnspentWalker(NodeProcessor& me)
+		:NodeDB::WalkerSpendable(me.m_DB)
 		,m_This(me)
 	{
 	}
@@ -107,7 +121,7 @@ void NodeProcessor::Initialize(const char* szPath)
 		struct Walker
 			:public UnspentWalker
 		{
-			Walker(NodeProcessor& me) :UnspentWalker(me, false) {}
+			Walker(NodeProcessor& me) :UnspentWalker(me) {}
 
 			virtual bool OnUtxo(const UtxoTree::Key& key) override
 			{
@@ -156,11 +170,12 @@ void NodeProcessor::InitCursor()
 		else
 			ZeroObject(m_Cursor.m_History);
 
-		m_Cursor.m_DifficultyNext = get_NextDifficulty();
+		m_DB.get_ChainWork(m_Cursor.m_Sid.m_Row, m_Cursor.m_ChainWork);
 	}
 	else
 		ZeroObject(m_Cursor);
 
+	m_Cursor.m_DifficultyNext = get_NextDifficulty();
 	m_Cursor.m_SubsidyOpen = 0 != (m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyOpen, 1));
 }
 
@@ -222,6 +237,7 @@ void NodeProcessor::TryGoUp()
 	while (true)
 	{
 		NodeDB::StateID sidTrg;
+		Difficulty::Raw wrkTrg;
 
 		{
 			NodeDB::WalkerState ws(m_DB);
@@ -232,28 +248,37 @@ void NodeProcessor::TryGoUp()
 				assert(!m_Cursor.m_Sid.m_Row);
 				break; // nowhere to go
 			}
-			sidTrg = ws.m_Sid;
-		}
 
-		assert(sidTrg.m_Height >= m_Cursor.m_Sid.m_Height);
-		if (sidTrg.m_Height == m_Cursor.m_Sid.m_Height)
-			break; // already at maximum height (though maybe at different tip)
+			sidTrg = ws.m_Sid;
+			m_DB.get_ChainWork(sidTrg.m_Row, wrkTrg);
+
+			assert(wrkTrg >= m_Cursor.m_ChainWork);
+			if (wrkTrg == m_Cursor.m_ChainWork)
+				break; // already at maximum (though maybe at different tip)
+		}
 
 		// Calculate the path
 		std::vector<uint64_t> vPath;
 		while (sidTrg.m_Row != m_Cursor.m_Sid.m_Row)
 		{
-			assert(sidTrg.m_Row);
-			vPath.push_back(sidTrg.m_Row);
-
-			if (m_Cursor.m_Sid.m_Height == sidTrg.m_Height)
+			if (m_Cursor.m_ChainWork > wrkTrg)
 			{
 				Rollback();
 				bDirty = true;
 			}
+			else
+			{
+				assert(sidTrg.m_Row);
+				vPath.push_back(sidTrg.m_Row);
 
-			if (!m_DB.get_Prev(sidTrg))
-				sidTrg.SetNull();
+				if (m_DB.get_Prev(sidTrg))
+					m_DB.get_ChainWork(sidTrg.m_Row, wrkTrg);
+				else
+				{
+					sidTrg.SetNull();
+					wrkTrg = ECC::Zero;
+				}
+			}
 		}
 
 		bool bPathOk = true;
@@ -342,10 +367,34 @@ void NodeProcessor::get_CurrentLive(Merkle::Hash& hv)
 	Merkle::Interpret(hv, hv2, true);
 }
 
-void NodeProcessor::get_Definition(Merkle::Hash& hv, const Merkle::Hash& hvHist)
+void NodeProcessor::get_ChainWork(Merkle::Hash& hv, bool bForNextState)
+{
+	hv = m_Cursor.m_ChainWork;
+	if (!bForNextState)
+	{
+		// subtract the work of the current header
+		Difficulty::Raw dw;
+		m_Cursor.m_Full.m_PoW.m_Difficulty.Unpack(dw);
+
+		dw.Negate();
+		hv += dw;
+	}
+}
+
+void NodeProcessor::get_CurrentPart2(Merkle::Hash& hv, bool bForNextState)
+{
+	get_ChainWork(hv, bForNextState);
+	Merkle::Interpret(hv, bForNextState ? m_Cursor.m_HistoryNext : m_Cursor.m_History, false);
+}
+
+void NodeProcessor::get_Definition(Merkle::Hash& hv, bool bForNextState)
 {
 	get_CurrentLive(hv);
-	Merkle::Interpret(hv, hvHist, false);
+
+	Merkle::Hash hvPart2;
+	get_CurrentPart2(hvPart2, bForNextState);
+
+	Merkle::Interpret(hv, hvPart2, false);
 }
 
 struct NodeProcessor::RollbackData
@@ -414,9 +463,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				return false;
 			}
 
-			if (m_Cursor.m_DifficultyNext != s.m_PoW.m_Difficulty)
+			if (m_Cursor.m_DifficultyNext.m_Packed != s.m_PoW.m_Difficulty.m_Packed)
 			{
-				LOG_WARNING() << id << " Difficulty expected=" << uint32_t(m_Cursor.m_DifficultyNext) << ", actual=" << uint32_t(s.m_PoW.m_Difficulty);
+				LOG_WARNING() << id << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
 				return false;
 			}
 
@@ -447,7 +496,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	{
 		// check the validity of state description.
 		Merkle::Hash hvDef;
-		get_Definition(hvDef, m_Cursor.m_HistoryNext);
+		get_Definition(hvDef, true);
 
 		if (s.m_Definition != hvDef)
 		{
@@ -483,7 +532,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	if (bOk)
 	{
 		AdjustCumulativeParams(block, bFwd);
-
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
 
@@ -733,26 +781,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 		if (bCreate)
 		{
 			p->m_Value.m_Count = 1;
-
-			Serializer ser;
-
-			{
-				UtxoSig sig;
-				sig.m_Coinbase = v.m_Coinbase;
-				sig.m_Incubation = v.m_Incubation;
-				sig.m_pConfidential.swap(((Output&) v).m_pConfidential);
-				sig.m_pPublic.swap(((Output&)v).m_pPublic);
-
-				ser & sig;
-
-				sig.m_pConfidential.swap(((Output&)v).m_pConfidential);
-				sig.m_pPublic.swap(((Output&)v).m_pPublic);
-			}
-
-
-			SerializeBuffer sb = ser.buffer();
-
-			m_DB.AddSpendable(blob, NodeDB::Blob(sb.first, (uint32_t) sb.second), 1, 1);
+			m_DB.AddSpendable(blob, NULL, 1, 1);
 		}
 		else
 		{
@@ -793,7 +822,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 	bool bAdd = (bFwd != bIsInput);
 
 	SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-	v.get_HashTotal(skey.m_Key);
+	v.get_ID(skey.m_Key);
 
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = bAdd;
@@ -818,11 +847,14 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 	else
 		if (bFwd)
 		{
-			Serializer ser;
-			ser & v;
-			SerializeBuffer sb = ser.buffer();
+			NodeDB::Blob body;
+			if (v.m_pHashLock)
+			{
+				body.p = v.m_pHashLock->m_Preimage.m_pData;
+				body.n = sizeof(v.m_pHashLock->m_Preimage.m_pData);
+			}
 
-			m_DB.AddSpendable(blob, NodeDB::Blob(sb.first, (uint32_t) sb.second), 1, 1);
+			m_DB.AddSpendable(blob, v.m_pHashLock ? &body : NULL, 1, 1);
 		} else
 			m_DB.ModifySpendable(blob, -1, -1);
 
@@ -860,7 +892,7 @@ void NodeProcessor::DereferenceFossilBlock(uint64_t rowid)
 	for (; r.m_pKernelIn; r.NextKernelIn())
 	{
 		SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-		r.m_pKernelIn->get_HashTotal(skey.m_Key);
+		r.m_pKernelIn->get_ID(skey.m_Key);
 
 		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), -1, 0);
 	}
@@ -1104,10 +1136,10 @@ bool NodeProcessor::TxPool::Element::Profit::operator < (const Profit& t) const
 
 /////////////////////////////
 // Block generation
-uint8_t NodeProcessor::get_NextDifficulty()
+Difficulty NodeProcessor::get_NextDifficulty()
 {
 	if (!m_Cursor.m_Sid.m_Row)
-		return 0; // 1st block difficulty 0
+		return Rules::get().StartDifficulty; // 1st block difficulty 0
 
 	Height dh = m_Cursor.m_Full.m_Height - Rules::HeightGenesis;
 
@@ -1120,7 +1152,7 @@ uint8_t NodeProcessor::get_NextDifficulty()
 	Block::SystemState::Full s2;
 	m_DB.get_State(rowid, s2);
 
-	uint8_t ret = m_Cursor.m_Full.m_PoW.m_Difficulty;
+	Difficulty ret = m_Cursor.m_Full.m_PoW.m_Difficulty;
 	Rules::get().AdjustDifficulty(ret, s2.m_TimeStamp, m_Cursor.m_Full.m_TimeStamp);
 	return ret;
 }
@@ -1235,7 +1267,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kKernel);
 
 		ECC::Hash::Value hv;
-		pKrn->get_HashForSigning(hv);
+		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, kKernel);
 
 		if (!HandleBlockElement(*pKrn, true, false))
@@ -1269,7 +1301,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	if (res.m_SubsidyClosing)
 		OnSubsidyOptionChanged(false);
 
-	get_Definition(s.m_Definition, m_Cursor.m_HistoryNext);
+	get_Definition(s.m_Definition, true);
 
 	if (res.m_SubsidyClosing)
 		OnSubsidyOptionChanged(true);
@@ -1450,85 +1482,6 @@ void NodeProcessor::ExportHdrRange(const HeightRange& hr, Block::SystemState::Se
 	}
 }
 
-void NodeProcessor::ExportMacroBlock(Block::BodyBase::IMacroWriter& w)
-{
-	struct Walker
-		:public UnspentWalker
-	{
-		Walker(NodeProcessor& me) :UnspentWalker(me, true) {}
-
-		TxVectors m_Vec;
-
-		virtual bool OnUtxo(const UtxoTree::Key& key) override
-		{
-			for (Input::Count i = 0; i < m_nUnspentCount; i++)
-			{
-				UtxoSig sig;
-
-				Deserializer der;
-				der.reset(m_Signature.p, m_Signature.n);
-				der & sig;
-
-				UtxoTree::Key::Data d;
-				d = key;
-
-				Output::Ptr pOutp(new Output);
-				pOutp->m_Commitment	= d.m_Commitment;
-				pOutp->m_Maturity	= d.m_Maturity;
-				pOutp->m_Coinbase	= sig.m_Coinbase;
-				pOutp->m_Incubation	= sig.m_Incubation;
-				pOutp->m_pConfidential.swap(sig.m_pConfidential);
-				pOutp->m_pPublic.swap(sig.m_pPublic);
-
-				m_Vec.m_vOutputs.push_back(std::move(pOutp));
-			}
-			return true;
-		}
-
-		virtual bool OnKernel(const Merkle::Hash&) override
-		{
-			assert(1 == m_nUnspentCount);
-
-			TxKernel::Ptr pKrn(new TxKernel);
-
-			Deserializer der;
-			der.reset(m_Signature.p, m_Signature.n);
-			der & *pKrn;
-
-			m_Vec.m_vKernelsOutput.push_back(std::move(pKrn));
-
-			return true;
-		}
-	};
-
-	// Currently we convert it to a block in memory, because we need to sort the data.
-	Walker wlk(*this);
-	wlk.Traverse();
-	wlk.m_Vec.Sort();
-
-	w.Dump(wlk.m_Vec.get_Reader());
-
-	std::vector<Block::SystemState::Sequence::Element> vElem;
-	Block::SystemState::Sequence::Prefix prefix;
-	ExportHdrRange(HeightRange(Rules::HeightGenesis, m_Cursor.m_ID.m_Height), prefix, vElem);
-
-	Block::BodyBase body;
-	NodeDB::Blob blob(body.m_Offset.m_Value.m_pData, sizeof(body.m_Offset.m_Value.m_pData));
-
-	if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
-		body.m_Offset.m_Value = ECC::Zero;
-
-	body.m_Subsidy.Lo = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
-	body.m_Subsidy.Hi = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
-
-	body.m_SubsidyClosing = !m_Cursor.m_SubsidyOpen;
-
-	w.put_Start(body, prefix);
-
-	for (size_t i = 0; i < vElem.size(); i++)
-		w.put_NextHdr(vElem[i]);
-}
-
 bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 {
 	Block::BodyBase body;
@@ -1569,6 +1522,9 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 
 		case DataStatus::Accepted:
 			m_DB.InsertState(s);
+
+		default: // suppress the warning of not handling all the enum values
+			break;
 		}
 
 		s.get_Hash(s.m_Prev);
@@ -1631,7 +1587,7 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 	}
 
 	Merkle::Hash hvDef;
-	get_Definition(hvDef, m_Cursor.m_History);
+	get_Definition(hvDef, false);
 
 	if (s.m_Definition != hvDef)
 	{
@@ -1661,6 +1617,16 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 	TryGoUp();
 
 	return true;
+}
+
+bool NodeProcessor::get_KernelHashPreimage(const Merkle::Hash& id, ECC::uintBig& val)
+{
+	SpendableKey<Merkle::Hash, DbType::Kernel> skey;
+	skey.m_Key = id;
+
+	NodeDB::Blob blobKey(&skey, sizeof(skey)), blobVal(val.m_pData, sizeof(val.m_pData));
+
+	return m_DB.GetSpendableBody(blobKey, blobVal);
 }
 
 } // namespace beam

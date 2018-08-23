@@ -1,20 +1,21 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include "core/common.h"
 #include "core/ecc_native.h"
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4127 )
-#endif
-
-#include <boost/msm/back/state_machine.hpp>
-#include <boost/msm/front/state_machine_def.hpp>
-#include <boost/msm/front/functor_row.hpp>
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 #include "core/serialization_adapters.h"
 
@@ -54,6 +55,7 @@ namespace beam
                     , Amount fee
                     , Height minHeight
                     , const WalletID& peerId
+                    , const WalletID& myId
                     , ByteBuffer&& message
                     , Timestamp createTime
                     , bool sender)
@@ -63,6 +65,7 @@ namespace beam
 			, m_change{}
             , m_minHeight{ minHeight }
             , m_peerId{ peerId }
+            , m_myId{myId}
             , m_message{ std::move(message) }
             , m_createTime{ createTime }
             , m_modifyTime{ createTime }
@@ -77,25 +80,29 @@ namespace beam
 		Amount m_change;
         Height m_minHeight;
         WalletID m_peerId;
+        WalletID m_myId;
         ByteBuffer m_message;
         Timestamp m_createTime;
         Timestamp m_modifyTime;
         bool m_sender;
         Status m_status;
         ByteBuffer m_fsmState;
+
+        bool canResume() const
+        {
+            return m_status == Pending || m_status == InProgress;
+        }
     };
 
     namespace wallet
     {
-        namespace msm = boost::msm;
-        namespace msmf = boost::msm::front;
-        namespace mpl = boost::mpl;
-
         std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
 
         // messages
         struct Invite
         {
+            WalletID m_from;
+            std::string m_message;
             TxID m_txId;
             ECC::Amount m_amount;
             ECC::Amount m_fee;
@@ -107,7 +114,7 @@ namespace beam
             std::vector<Input::Ptr> m_inputs;
             std::vector<Output::Ptr> m_outputs;
 
-            Invite() 
+            Invite()
                 : m_amount(0)
                 , m_fee(0)
                 , m_send{true}
@@ -117,7 +124,9 @@ namespace beam
             }
 
             Invite(Invite&& other)
-                : m_txId{other.m_txId}
+                : m_from{other.m_from}
+                , m_message{std::move(other.m_message)}
+                , m_txId{other.m_txId}
                 , m_amount{ other.m_amount }
                 , m_fee{ other.m_fee }
                 , m_height{other.m_height }
@@ -131,7 +140,9 @@ namespace beam
 
             }
 
-            SERIALIZE(m_txId
+            SERIALIZE(m_from
+                    , m_message
+                    , m_txId
                     , m_amount
                     , m_fee
                     , m_height
@@ -145,20 +156,23 @@ namespace beam
 
         struct ConfirmTransaction
         {
+            WalletID m_from;
             TxID m_txId{};
             ECC::Scalar m_peerSignature;
-
-            SERIALIZE(m_txId, m_peerSignature);
+            
+            SERIALIZE(m_from, m_txId, m_peerSignature);
         };
 
         struct ConfirmInvitation
         {
+            WalletID m_from;
             TxID m_txId{};
             ECC::Point m_publicPeerExcess;
             ECC::Point m_publicPeerNonce;
             ECC::Scalar m_peerSignature;
 
-            SERIALIZE(m_txId
+            SERIALIZE(m_from
+                    , m_txId
                     , m_publicPeerExcess
                     , m_publicPeerNonce
                     , m_peerSignature);
@@ -166,15 +180,17 @@ namespace beam
 
         struct TxRegistered
         {
+            WalletID m_from;
             TxID m_txId;
             bool m_value;
-            SERIALIZE(m_txId, m_value);
+            SERIALIZE(m_from, m_txId, m_value);
         };
 
         struct TxFailed
         {
+            WalletID m_from;
             TxID m_txId;
-            SERIALIZE(m_txId);
+            SERIALIZE(m_from, m_txId);
         };
 
         struct INegotiatorGateway

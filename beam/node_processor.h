@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include <boost/intrusive/set.hpp>
@@ -39,9 +53,9 @@ class NodeProcessor
 
 	void InitCursor();
 	static void OnCorrupted();
-	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
+	void get_Definition(Merkle::Hash&, bool bForNextState);
 	bool IsRelevantHeight(Height);
-	uint8_t get_NextDifficulty();
+	Difficulty get_NextDifficulty();
 	Timestamp get_MovingMedian();
 
 	struct UtxoSig;
@@ -68,18 +82,20 @@ public:
 		Block::SystemState::Full m_Full;
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
-		uint8_t m_DifficultyNext;
+		Difficulty::Raw m_ChainWork;
+		Difficulty m_DifficultyNext;
 		bool m_SubsidyOpen;
 
 	} m_Cursor;
 
 	void get_CurrentLive(Merkle::Hash&);
+	void get_CurrentPart2(Merkle::Hash&, bool bForNextState);
+	void get_ChainWork(Merkle::Hash&, bool bForNextState);
 
 	// Export compressed history elements. Suitable only for "small" ranges, otherwise may be both time & memory consumng.
 	void ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
 	void ExportMacroBlock(Block::BodyBase::IMacroWriter&, const HeightRange&);
 	void ExportHdrRange(const HeightRange&, Block::SystemState::Sequence::Prefix&, std::vector<Block::SystemState::Sequence::Element>&);
-	void ExportMacroBlock(Block::BodyBase::IMacroWriter&);
 	bool ImportMacroBlock(Block::BodyBase::IMacroReader&);
 
 	struct DataStatus {
@@ -97,6 +113,8 @@ public:
 	NodeDB& get_DB() { return m_DB; }
 	UtxoTree& get_Utxos() { return m_Utxos; }
 	RadixHashOnlyTree& get_Kernels() { return m_Kernels; }
+
+	bool get_KernelHashPreimage(const Merkle::Hash& id, ECC::uintBig&);
 
 	void EnumCongestions();
 

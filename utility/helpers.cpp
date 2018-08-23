@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "helpers.h"
 #include <chrono>
 #include <stdio.h>
@@ -18,6 +32,8 @@
     #include <pthread.h>
     #include <errno.h>
 #endif
+
+using namespace std;
 
 namespace beam {
 
@@ -62,6 +78,35 @@ std::string to_hex(const void* bytes, size_t size) {
     char* buf = (char*)alloca(2 * size + 1);
     return std::string(to_hex(buf, bytes, size));
 }
+
+std::vector<uint8_t> from_hex(const std::string& str)
+{
+    size_t bias = (str.size() % 2) == 0 ? 0 : 1;
+    assert((str.size() + bias) % 2 == 0);
+    std::vector<uint8_t> res((str.size() + bias) >> 1);
+    
+    for (size_t i = 0; i < str.size(); ++i)
+    {
+        auto c = str[i];
+        size_t j = (i + bias) >> 1;
+        res[j] <<= 4;
+        if (c >= '0' && c <= '9')
+        {
+            res[j] += (c - '0');
+        }
+        else if (c >= 'a' && c <= 'f')
+        {
+            res[j] += 10 + (c - 'a');
+        }
+        else if (c >= 'A' && c <= 'F')
+        {
+            res[j] += 10 + (c - 'A');
+        }
+    }
+
+    return res;
+}
+
 
 uint64_t get_thread_id() {
 #if defined __linux__

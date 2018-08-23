@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "../../utility/serialize.h"
 #include "../../core/serialization_adapters.h"
 #include "../../core/ecc_native.h"
@@ -39,8 +53,10 @@ bool ProtocolPlus::VerifyMsg(const uint8_t* p, uint32_t nSize)
 	if (Mode::Duplex != m_Mode)
 		return true;
 
-	if (nSize < sizeof(MacValue))
+	if (nSize < sizeof(MacValue)) {
+        LOG_DEBUG() << __FUNCTION__ << " size error";
 		return false; // could happen on (sort of) overflow attack?
+    }
 
 	ECC::Hash::Mac hm = m_HMac;
 	hm.Write(p, nSize - sizeof(MacValue));
@@ -48,7 +64,11 @@ bool ProtocolPlus::VerifyMsg(const uint8_t* p, uint32_t nSize)
 	MacValue hmac;
 	get_HMac(hm, hmac);
 
-	return !memcmp(p + nSize - sizeof(MacValue), hmac.m_pData, sizeof(MacValue));
+	bool ret = !memcmp(p + nSize - sizeof(MacValue), hmac.m_pData, sizeof(MacValue));
+    if (!ret) {
+        LOG_DEBUG() << __FUNCTION__ << " MAC error";
+    }
+    return ret;
 }
 
 void ProtocolPlus::get_HMac(ECC::Hash::Mac& hm, MacValue& res)
@@ -207,7 +227,7 @@ bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& 
 
 	res.resize(sizeof(myPublic) + sizeof(hvMac) + n);
 	uint8_t* pDst = &res.at(0);
-	
+
 	memcpy(pDst, myPublic.m_pData, sizeof(myPublic));
 	memcpy(pDst + sizeof(myPublic), hvMac.m_pData, sizeof(hvMac));
 	memcpy(pDst + sizeof(myPublic) + sizeof(hvMac), p, n);
@@ -312,7 +332,7 @@ void NodeConnection::OnConnectInternal2(io::TcpStream::Ptr&& newStream, io::Erro
 		Accept(std::move(newStream));
 
 		try {
-			OnConnected();
+			SecureConnect();
 		}
 		catch (const std::exception& e) {
 			OnExc(e);
@@ -362,6 +382,10 @@ std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReas
 
 	case NodeConnection::DisconnectReason::ProcessingExc:
 		s << r.m_szErrorMsg;
+		break;
+
+	case NodeConnection::DisconnectReason::Bye:
+		s << "Bye " << r.m_ByeReason;
 		break;
 
 	default:
@@ -425,6 +449,7 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
 { \
 	try { \
 		/* checkpoint */ \
+		TestInputMsgContext(code); \
         return OnMsg2(std::move(v)); \
 	} catch (const std::exception& e) { \
 		OnExc(e); \
@@ -434,6 +459,23 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
 
 BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
+
+void NodeConnection::TestInputMsgContext(uint8_t code)
+{
+	if (!IsSecureIn())
+	{
+		// currently we demand all the trafic encrypted. The only messages that can be sent over non-secure network is those used to establish it
+		switch (code)
+		{
+		case SChannelInitiate::s_Code:
+		case SChannelReady::s_Code:
+			break;
+
+		default:
+			ThrowUnexpected("non-secure comm");
+		}
+	}
+}
 
 void NodeConnection::GenerateSChannelNonce(ECC::Scalar::Native& sk)
 {
@@ -474,6 +516,8 @@ void NodeConnection::OnMsg(SChannelInitiate&& msg)
 	m_Protocol.InitCipher();
 
 	m_Protocol.m_Mode = ProtocolPlus::Mode::Outgoing;
+
+	OnConnectedSecure();
 }
 
 void NodeConnection::OnMsg(SChannelReady&& msg)
@@ -532,6 +576,14 @@ void NodeConnection::OnMsg(Authentication&& msg)
 
 	if (!msg.m_Sig.IsValid(hv, p))
 		ThrowUnexpected();
+}
+
+void NodeConnection::OnMsg(Bye&& msg)
+{
+	DisconnectReason r;
+	r.m_Type = DisconnectReason::Bye;
+	r.m_ByeReason = msg.m_Reason;
+	OnDisconnect(r);
 }
 
 /////////////////////////

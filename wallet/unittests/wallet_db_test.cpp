@@ -1,3 +1,17 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "wallet/wallet_db.h"
 #include <assert.h>
 #include "test_helpers.h"
@@ -6,7 +20,7 @@
 
 #include "utility/logger.h"
 #include <boost/filesystem.hpp>
-#include <algorithm>
+#include <numeric>
 
 using namespace std;
 using namespace ECC;
@@ -188,11 +202,13 @@ void TestStoreTxRecord()
     tr.m_txId = id;
     tr.m_amount = 34;
     tr.m_peerId = unsigned(23);
+    tr.m_myId = unsigned(42);
     tr.m_createTime = 123456;
     tr.m_minHeight = 134;
     tr.m_sender = true;
     tr.m_status = TxDescription::InProgress;
 	tr.m_change = 5;
+
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
     TxDescription tr2 = tr;
@@ -211,6 +227,7 @@ void TestStoreTxRecord()
     WALLET_CHECK(t[0].m_amount == tr.m_amount);
     WALLET_CHECK(t[0].m_minHeight == tr2.m_minHeight);
     WALLET_CHECK(t[0].m_peerId == tr.m_peerId);
+    WALLET_CHECK(t[0].m_myId == tr.m_myId);
     WALLET_CHECK(t[0].m_createTime == tr.m_createTime);
     WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
     WALLET_CHECK(t[0].m_sender == tr2.m_sender);
@@ -228,6 +245,7 @@ void TestStoreTxRecord()
     WALLET_CHECK(tr3->m_txId == tr2.m_txId);
     WALLET_CHECK(tr3->m_amount == tr2.m_amount);
     WALLET_CHECK(tr3->m_peerId == tr2.m_peerId);
+    WALLET_CHECK(tr3->m_myId == tr2.m_myId);
     WALLET_CHECK(tr3->m_message == tr2.m_message);
     WALLET_CHECK(tr3->m_createTime == tr2.m_createTime);
     WALLET_CHECK(tr3->m_modifyTime == tr2.m_modifyTime);
@@ -270,17 +288,77 @@ void TestRollback()
     auto db = createSqliteKeychain();
     for (uint64_t i = 0; i < 9; ++i)
     {
-        Coin coin1 = { 5, Coin::Unspent, i, i + 10, KeyType::Regular, Height(i) };
+        Coin coin1 = { 5, Coin::Unspent, i, i + 10, KeyType::Regular, Height(i + 1) };
+        coin1.m_confirmHash = unsigned(123);
         db->store(coin1);
     }
 
     for (uint64_t i = 9; i < 10; ++i)
     {
-        Coin coin1 = { 5, Coin::Spent, 0, 0, KeyType::Regular, Height(0), Height(i) };
+        Coin coin1 = { 5, Coin::Spent, 0, 0, KeyType::Regular, Height(1), Height(i + 1) };
         db->store(coin1);
     }
 
-    db->rollbackConfirmedUtxo(5);
+    // was created after branch
+    {
+        Coin coin1 = { 5, Coin::Spent, 7, 7, KeyType::Regular, Height(8) };
+        db->store(coin1);
+    }
+
+
+    // rewards
+    // should be deleted
+    {
+        Coin coin1 = { 5, Coin::Spent, 7, 8, KeyType::Coinbase, Height(8) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Spent, 7, 8, KeyType::Comission, Height(8) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Unspent, 8, 9, KeyType::Coinbase, Height(9) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Unspent, 8, 9, KeyType::Comission, Height(9) };
+        db->store(coin1);
+    }
+    // should be preserved
+    {
+        Coin coin1 = { 5, Coin::Spent, 6, 7, KeyType::Coinbase, Height(7) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Spent, 6, 7, KeyType::Comission, Height(7) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Spent, 4, 5, KeyType::Coinbase, Height(5) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Spent, 4, 5, KeyType::Comission, Height(5) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Unspent, 3, 4, KeyType::Coinbase, Height(4) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Unspent, 3, 4, KeyType::Comission, Height(4) };
+        db->store(coin1);
+    }
+
+    db->rollbackConfirmedUtxo(6);
 
     vector<Coin> coins;
     db->visit([&coins](const auto& c)->bool
@@ -288,6 +366,8 @@ void TestRollback()
         coins.push_back(c);
         return true;
     });
+
+    WALLET_CHECK(coins.size() == 17);
 
     for (int i = 0; i < 5; ++i)
     {
@@ -303,8 +383,40 @@ void TestRollback()
         WALLET_CHECK(c.m_status == Coin::Unconfirmed);
         WALLET_CHECK(c.m_confirmHeight == MaxHeight);
         WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+        WALLET_CHECK(c.m_confirmHash == Zero);
     }
     for (int i = 9; i < 10; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Unspent);
+        WALLET_CHECK(c.m_confirmHeight != MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+    }
+
+    {
+        // for now it is unconfirmed in future we would have to distinguish such coins
+        auto& c = coins[10];
+        WALLET_CHECK(c.m_status == Coin::Unconfirmed);
+        WALLET_CHECK(c.m_confirmHeight == MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+        WALLET_CHECK(c.m_confirmHash == Zero);
+    }
+
+    for (int i = 11; i < 13; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Unconfirmed);
+        WALLET_CHECK(c.m_confirmHeight == MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+    }
+    for (int i = 13; i < 15; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Spent);
+        WALLET_CHECK(c.m_confirmHeight != MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+    }
+    for (int i = 15; i < 17; ++i)
     {
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Unspent);
@@ -393,6 +505,52 @@ void TestPeers()
     WALLET_CHECK(peers[0].m_address == peer.m_address);
     WALLET_CHECK(peers[0].m_walletID == peer.m_walletID);
     WALLET_CHECK(peers[0].m_label == peer.m_label);
+}
+
+void TestAddresses()
+{
+    auto db = createSqliteKeychain();
+    auto addresses = db->getAddresses(true);
+    WALLET_CHECK(addresses.empty());
+    addresses = db->getAddresses(false);
+    WALLET_CHECK(addresses.empty());
+
+    WalletAddress a = {};
+    a.m_walletID = unsigned(9876543);
+    a.m_label = "test label";
+    a.m_category = "test category";
+    a.m_createTime = beam::getTimestamp();
+    a.m_duration = 23;
+    a.m_own = true;
+
+    db->saveAddress(a);
+
+    addresses = db->getAddresses(true);
+    WALLET_CHECK(addresses.size() == 1);
+    WALLET_CHECK(addresses[0].m_walletID == a.m_walletID);
+    WALLET_CHECK(addresses[0].m_label == a.m_label);
+    WALLET_CHECK(addresses[0].m_category == a.m_category);
+    WALLET_CHECK(addresses[0].m_createTime == a.m_createTime);
+    WALLET_CHECK(addresses[0].m_duration == a.m_duration);
+    WALLET_CHECK(addresses[0].m_own == a.m_own);
+
+    a.m_category = "cat2";
+
+    db->saveAddress(a);
+
+    addresses = db->getAddresses(true);
+    WALLET_CHECK(addresses.size() == 1);
+    WALLET_CHECK(addresses[0].m_walletID == a.m_walletID);
+    WALLET_CHECK(addresses[0].m_label == a.m_label);
+    WALLET_CHECK(addresses[0].m_category == a.m_category);
+    WALLET_CHECK(addresses[0].m_createTime == a.m_createTime);
+    WALLET_CHECK(addresses[0].m_duration == a.m_duration);
+    WALLET_CHECK(addresses[0].m_own == a.m_own);
+
+
+    db->deleteAddress(a.m_walletID);
+    WALLET_CHECK(db->getAddresses(true).empty());
+
 }
 
 void TestSelect()
@@ -594,7 +752,8 @@ int main()
     TestRollback();
     TestPeers();
     TestSelect();
-	TestSelect2();
-	
+    //TestSelect2();
+    TestAddresses();
+
     return WALLET_CHECK_RESULT;
 }
