@@ -25,7 +25,7 @@ TxObject::TxObject(const TxDescription& tx) : _tx(tx) {}
 
 bool TxObject::income() const
 {
-	return _tx.m_sender == false;
+    return _tx.m_sender == false;
 }
 
 QString TxObject::date() const
@@ -35,32 +35,32 @@ QString TxObject::date() const
 
 QString TxObject::user() const
 {
-	return toString(_tx.m_peerId);
+    return toString(_tx.m_peerId);
 }
 
 QString TxObject::comment() const
 {
-	return "";
+    return "";
 }
 
 QString TxObject::amount() const
 {
-	return BeamToString(_tx.m_amount);
+    return BeamToString(_tx.m_amount);
 }
 
 QString TxObject::change() const
 {
-	if (_tx.m_change)
-	{
-		return BeamToString(_tx.m_change);
-	}
-	return QString{};
+    if (_tx.m_change)
+    {
+        return BeamToString(_tx.m_change);
+    }
+    return QString{};
 }
 
 QString TxObject::status() const
 {
-	static const char* Names[] = { "Pending", "In Progress", "Cancelled", "Completed", "Failed" };
-	return Names[_tx.m_status];
+    static const char* Names[] = { "Pending", "In Progress", "Cancelled", "Completed", "Failed" };
+    return Names[_tx.m_status];
 }
 
 bool TxObject::canCancel() const
@@ -120,38 +120,33 @@ QString UtxoItem::type() const
 }
 
 WalletViewModel::WalletViewModel(WalletModel& model)
-	: _model(model)
-	, _status{ 0, 0, 0, 0, {0, 0, 0} }
-	, _sendAmount("0")
-	, _sendAmountMils("0")
+    : _model(model)
+    , _status{ 0, 0, 0, 0, {0, 0, 0} }
+    , _sendAmount("0")
     , _feeMils("0")
     , _change(0)
-    , _loadingUtxo{false}
-	, _loadingAllUtxo{false}
+    , _loadingAllUtxo{false}
     , _isSyncInProgress{false}
 {
-	connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
+    connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
-	connect(&_model, SIGNAL(onTxStatus(const std::vector<beam::TxDescription>&)), 
-		SLOT(onTxStatus(const std::vector<beam::TxDescription>&)));
+    connect(&_model, SIGNAL(onTxStatus(const std::vector<beam::TxDescription>&)), 
+        SLOT(onTxStatus(const std::vector<beam::TxDescription>&)));
 
-	connect(&_model, SIGNAL(onTxPeerUpdated(const std::vector<beam::TxPeer>&)),
-		SLOT(onTxPeerUpdated(const std::vector<beam::TxPeer>&)));
+    connect(&_model, SIGNAL(onTxPeerUpdated(const std::vector<beam::TxPeer>&)),
+        SLOT(onTxPeerUpdated(const std::vector<beam::TxPeer>&)));
 
-	connect(&_model, SIGNAL(onSyncProgressUpdated(int, int)),
-		SLOT(onSyncProgressUpdated(int, int)));
+    connect(&_model, SIGNAL(onSyncProgressUpdated(int, int)),
+        SLOT(onSyncProgressUpdated(int, int)));
 
     connect(&_model, SIGNAL(onChangeCalculated(beam::Amount)),
         SLOT(onChangeCalculated(beam::Amount)));
 
-    connect(&_model, SIGNAL(onUtxoChanged(const std::vector<beam::Coin>&)),
-        SLOT(onUtxoChanged(const std::vector<beam::Coin>&)));
+    connect(&_model, SIGNAL(onAllUtxoChanged(const std::vector<beam::Coin>&)),
+        SLOT(onAllUtxoChanged(const std::vector<beam::Coin>&)));
 
-	connect(&_model, SIGNAL(onAllUtxoChanged(const std::vector<beam::Coin>&)),
-		SLOT(onAllUtxoChanged(const std::vector<beam::Coin>&)));
-
-	connect(&_model, SIGNAL(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
-		SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
+    connect(&_model, SIGNAL(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
+        SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
 }
 
 WalletViewModel::~WalletViewModel()
@@ -167,77 +162,77 @@ void WalletViewModel::cancelTx(int index)
 
 void WalletViewModel::onStatus(const WalletStatus& status)
 {
-	bool changed = false;
+    bool changed = false;
 
-	if (_status.available != status.available)
-	{
-		_status.available = status.available;
+    if (_status.available != status.available)
+    {
+        _status.available = status.available;
 
-		changed = true;
+        changed = true;
 
-		emit actualAvailableChanged();
-	}
+        emit actualAvailableChanged();
+    }
 
-	if (_status.received != status.received)
-	{
-		_status.received = status.received;
+    if (_status.received != status.received)
+    {
+        _status.received = status.received;
 
-		changed = true;
-	}
+        changed = true;
+    }
 
-	if (_status.sent != status.sent)
-	{
-		_status.sent = status.sent;
+    if (_status.sent != status.sent)
+    {
+        _status.sent = status.sent;
 
-		changed = true;
-	}
+        changed = true;
+    }
 
-	if (_status.unconfirmed != status.unconfirmed)
-	{
-		_status.unconfirmed = status.unconfirmed;
+    if (_status.unconfirmed != status.unconfirmed)
+    {
+        _status.unconfirmed = status.unconfirmed;
 
-		changed = true;
-	}
+        changed = true;
+    }
 
-	if (_status.update.lastTime != status.update.lastTime)
-	{
-		_status.update.lastTime = status.update.lastTime;
+    if (_status.update.lastTime != status.update.lastTime)
+    {
+        _status.update.lastTime = status.update.lastTime;
 
-		changed = true;
-	}
+        changed = true;
+    }
 
     if (changed)
     {
-        _utxos.clear();
-		_allUtxos.clear();
+        _allUtxos.clear();
         emit stateChanged();
+        emit allUtxoChanged();
     }
 }
 
 void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
 {
-	_tx.clear();
+    _tx.clear();
 
-	for (const auto& item : history)
-	{
-		_tx.push_back(new TxObject(item));
-	}
+    for (const auto& item : history)
+    {
+        _tx.push_back(new TxObject(item));
+    }
 
-	emit txChanged();
+    emit txChanged();
 }
 
 void WalletViewModel::onTxPeerUpdated(const std::vector<beam::TxPeer>& peers)
 {
-	_addrList = peers;
+    _addrList = peers;
 }
 
 void WalletViewModel::onSyncProgressUpdated(int done, int total)
 {
-	_status.update.done = done;
-	_status.update.total = total;
+    _status.update.done = done;
+    _status.update.total = total;
     setIsSyncInProgress(!(done == total));
     
-	emit stateChanged();
+    emit stateChanged();
 }
 
 void WalletViewModel::onChangeCalculated(beam::Amount change)
@@ -247,22 +242,9 @@ void WalletViewModel::onChangeCalculated(beam::Amount change)
     emit changeChanged();
 }
 
-void WalletViewModel::onUtxoChanged(const std::vector<beam::Coin>& utxos)
-{
-    _utxos.clear();
-
-    for (const auto& utxo : utxos)
-    {
-        _utxos.push_back(new UtxoItem(utxo));
-    }
-    _loadingUtxo = false;
-
-    emit utxoChanged();
-}
-
 void WalletViewModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxos)
 {
-	_allUtxos.clear();
+    _allUtxos.clear();
 
     std::vector<beam::Coin> tmp(utxos);
 
@@ -271,49 +253,44 @@ void WalletViewModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxos)
         return lf.m_createHeight > rt.m_createHeight;
     });
 
-	for (const auto& utxo : tmp)
-	{
-		_allUtxos.push_back(new UtxoItem(utxo));
-	}
-	_loadingAllUtxo = false;
+    for (const auto& utxo : tmp)
+    {
+        _allUtxos.push_back(new UtxoItem(utxo));
+    }
+    _loadingAllUtxo = false;
 
-	emit allUtxoChanged();
+    emit allUtxoChanged();
 }
 
 void WalletViewModel::onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
 {
-	setSenderAddr(toString(senderID));
-	setReceiverAddr(toString(receiverID));
+    setSenderAddr(toString(senderID));
+    setReceiverAddr(toString(receiverID));
 }
 
 QString WalletViewModel::available() const
 {
-	return BeamToString(_status.available);
+    return BeamToString(_status.available);
 }
 
 QString WalletViewModel::received() const
 {
-	return BeamToString(_status.received);
+    return BeamToString(_status.received);
 }
 
 QString WalletViewModel::sent() const
 {
-	return BeamToString(_status.sent);
+    return BeamToString(_status.sent);
 }
 
 QString WalletViewModel::unconfirmed() const
 {
-	return BeamToString(_status.unconfirmed);
+    return BeamToString(_status.unconfirmed);
 }
 
 QString WalletViewModel::sendAmount() const
 {
-	return _sendAmount;
-}
-
-QString WalletViewModel::sendAmountMils() const
-{
-	return _sendAmountMils;
+    return _sendAmount;
 }
 
 QString WalletViewModel::feeMils() const
@@ -329,7 +306,7 @@ QString WalletViewModel::getReceiverAddr() const
 void WalletViewModel::setReceiverAddr(const QString& value)
 {
     _receiverAddr = value;
-	emit receiverAddrChanged();
+    emit receiverAddrChanged();
 }
 
 QString WalletViewModel::getSenderAddr() const
@@ -340,29 +317,18 @@ QString WalletViewModel::getSenderAddr() const
 void WalletViewModel::setSenderAddr(const QString& value)
 {
     _senderAddr = value;
-	emit senderAddrChanged();
+    emit senderAddrChanged();
 }
 
 void WalletViewModel::setSendAmount(const QString& amount)
 {
-	if (amount != _sendAmount)
-	{
-		_sendAmount = amount;
+    if (amount != _sendAmount)
+    {
+        _sendAmount = amount;
         _model.async->calcChange(calcTotalAmount());
-		emit sendAmountChanged();
-		emit actualAvailableChanged();
-	}
-}
-
-void WalletViewModel::setSendAmountMils(const QString& amount)
-{
-	if (amount != _sendAmountMils)
-	{
-		_sendAmountMils = amount;
-        _model.async->calcChange(calcTotalAmount());
-		emit sendAmountMilsChanged();
-		emit actualAvailableChanged();
-	}
+        emit sendAmountChanged();
+        emit actualAvailableChanged();
+    }
 }
 
 void WalletViewModel::setFeeMils(const QString& amount)
@@ -378,37 +344,37 @@ void WalletViewModel::setFeeMils(const QString& amount)
 
 void WalletViewModel::setSelectedAddr(int index)
 {
-	_selectedAddr = index;
-	emit selectedAddrChanged();
+    _selectedAddr = index;
+    emit selectedAddrChanged();
 }
 
 QString WalletViewModel::receiverAddr() const
 {
-	if (_selectedAddr < 0 || _addrList.empty()) return "";
+    if (_selectedAddr < 0 || _addrList.empty()) return "";
 
-	stringstream str;
-	str << _addrList[_selectedAddr].m_walletID;
-	return QString::fromStdString(str.str());
+    stringstream str;
+    str << _addrList[_selectedAddr].m_walletID;
+    return QString::fromStdString(str.str());
 }
 
 QQmlListProperty<TxObject> WalletViewModel::tx()
 {
-	return QQmlListProperty<TxObject>(this, _tx);
+    return QQmlListProperty<TxObject>(this, _tx);
 }
 
 QString WalletViewModel::syncTime() const
 {
-	return toString(_status.update.lastTime);
+    return toString(_status.update.lastTime);
 }
 
 int WalletViewModel::syncProgress() const
 {
-	if (_status.update.total > 0)
-	{
-		return _status.update.done * 100 / _status.update.total;
-	}
+    if (_status.update.total > 0)
+    {
+        return _status.update.done * 100 / _status.update.total;
+    }
 
-	return -1;
+    return -1;
 }
 
 bool WalletViewModel::getIsSyncInProgress() const
@@ -427,37 +393,27 @@ void WalletViewModel::setIsSyncInProgress(bool value)
 
 int WalletViewModel::selectedAddr() const
 {
-	return _selectedAddr;
-}
-
-QQmlListProperty<UtxoItem> WalletViewModel::utxos()
-{
-    if (_utxos.empty() && _loadingUtxo == false && _model.async)
-    {
-        _loadingUtxo = true;
-        _model.async->getAvaliableUtxos();
-    }
-	return QQmlListProperty<UtxoItem>(this, _utxos);
+    return _selectedAddr;
 }
 
 QQmlListProperty<UtxoItem> WalletViewModel::allUtxos()
 {
-	if (_allUtxos.empty() && _loadingAllUtxo == false && _model.async)
-	{
-		_loadingAllUtxo = true;
-		_model.async->getAllUtxos();
-	}
-	return QQmlListProperty<UtxoItem>(this, _allUtxos);
+    if (_allUtxos.empty() && _loadingAllUtxo == false && _model.async)
+    {
+        _loadingAllUtxo = true;
+        _model.async->getAllUtxos();
+    }
+    return QQmlListProperty<UtxoItem>(this, _allUtxos);
 }
 
 beam::Amount WalletViewModel::calcSendAmount() const
 {
-	return _sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt();
+	return _sendAmount.toDouble() * Rules::Coin;
 }
 
 beam::Amount WalletViewModel::calcFeeAmount() const
 {
-    return _feeMils.toInt();
+    return _feeMils.toDouble() * Rules::Coin;
 }
 
 beam::Amount WalletViewModel::calcTotalAmount() const
@@ -480,12 +436,12 @@ void WalletViewModel::sendMoney()
 void WalletViewModel::syncWithNode()
 {
     //setIsSyncInProgress(true);
-	_model.async->syncWithNode();
+    _model.async->syncWithNode();
 }
 
 QString WalletViewModel::actualAvailable() const
 {
-	return BeamToString(_status.available - calcTotalAmount() - _change);
+    return BeamToString(_status.available - calcTotalAmount() - _change);
 }
 
 QString WalletViewModel::change() const

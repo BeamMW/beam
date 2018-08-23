@@ -64,7 +64,7 @@ void TxGenerator::GenerateKernel(Height h, Amount fee, uint32_t ind)
 	pKrn->m_Excess = Point::Native(ECC::Context::get().G * key);
 
 	ECC::Hash::Value hv;
-	pKrn->get_HashForSigning(hv);
+	pKrn->get_Hash(hv);
 	pKrn->m_Signature.Sign(hv, key);
 	m_MsgTx.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
 

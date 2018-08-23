@@ -20,42 +20,42 @@
 
 class TxObject : public QObject
 {
-	Q_OBJECT
+    Q_OBJECT
 
-		Q_PROPERTY(bool income			READ income		NOTIFY incomeChanged)
-		Q_PROPERTY(QString date			READ date		NOTIFY dateChanged)
-		Q_PROPERTY(QString user			READ user		NOTIFY userChanged)
-		Q_PROPERTY(QString comment		READ comment	NOTIFY commentChanged)
-		Q_PROPERTY(QString amount		READ amount		NOTIFY amountChanged)
-		Q_PROPERTY(QString change		READ change		NOTIFY changeChanged)
-		Q_PROPERTY(QString status		READ status		NOTIFY statusChanged)
-        Q_PROPERTY(bool canCancel   	READ canCancel	NOTIFY canCancelChanged)
+        Q_PROPERTY(bool income           READ income       NOTIFY incomeChanged)
+        Q_PROPERTY(QString date          READ date         NOTIFY dateChanged)
+        Q_PROPERTY(QString user          READ user         NOTIFY userChanged)
+        Q_PROPERTY(QString comment       READ comment      NOTIFY commentChanged)
+        Q_PROPERTY(QString amount        READ amount       NOTIFY amountChanged)
+        Q_PROPERTY(QString change        READ change       NOTIFY changeChanged)
+        Q_PROPERTY(QString status        READ status       NOTIFY statusChanged)
+        Q_PROPERTY(bool canCancel        READ canCancel    NOTIFY canCancelChanged)
 public:
 
-	TxObject() = default;
-	TxObject(const beam::TxDescription& tx);
+    TxObject() = default;
+    TxObject(const beam::TxDescription& tx);
 
-	bool income() const;
-	QString date() const;
-	QString user() const;
-	QString comment() const;
-	QString amount() const;
-	QString change() const;
-	QString status() const;
+    bool income() const;
+    QString date() const;
+    QString user() const;
+    QString comment() const;
+    QString amount() const;
+    QString change() const;
+    QString status() const;
     bool canCancel() const;
 
 signals:
-	void incomeChanged();
-	void dateChanged();
-	void userChanged();
-	void commentChanged();
-	void amountChanged();
-	void changeChanged();
-	void statusChanged();
+    void incomeChanged();
+    void dateChanged();
+    void userChanged();
+    void commentChanged();
+    void amountChanged();
+    void changeChanged();
+    void statusChanged();
     void canCancelChanged();
 
 public:
-	beam::TxDescription _tx;
+    beam::TxDescription _tx;
 };
 
 class UtxoItem : public QObject
@@ -68,7 +68,7 @@ class UtxoItem : public QObject
         Q_PROPERTY(QString type         READ type       NOTIFY changed)
 public:
 
-	UtxoItem() = default;
+    UtxoItem() = default;
     UtxoItem(const beam::Coin& coin);
 
     QString amount() const;
@@ -88,13 +88,12 @@ class WalletViewModel : public QObject
 {
     Q_OBJECT
 
-        Q_PROPERTY(QString available 	READ available 		NOTIFY stateChanged)
-        Q_PROPERTY(QString received 	READ received 		NOTIFY stateChanged)
-        Q_PROPERTY(QString sent 		READ sent 			NOTIFY stateChanged)
-        Q_PROPERTY(QString unconfirmed 	READ unconfirmed 	NOTIFY stateChanged)
+        Q_PROPERTY(QString available     READ available       NOTIFY stateChanged)
+        Q_PROPERTY(QString received      READ received        NOTIFY stateChanged)
+        Q_PROPERTY(QString sent          READ sent            NOTIFY stateChanged)
+        Q_PROPERTY(QString unconfirmed   READ unconfirmed     NOTIFY stateChanged)
 
         Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
-        Q_PROPERTY(QString sendAmountMils READ sendAmountMils WRITE setSendAmountMils NOTIFY sendAmountMilsChanged)
 
         Q_PROPERTY(QString feeMils READ feeMils WRITE setFeeMils NOTIFY feeMilsChanged)
 
@@ -110,102 +109,93 @@ class WalletViewModel : public QObject
         Q_PROPERTY(QString actualAvailable READ actualAvailable NOTIFY actualAvailableChanged)
         Q_PROPERTY(QString change READ change NOTIFY changeChanged)
 
-        Q_PROPERTY(QQmlListProperty<UtxoItem> utxos READ utxos NOTIFY utxoChanged)
-		Q_PROPERTY(QQmlListProperty<UtxoItem> allUtxos READ allUtxos NOTIFY allUtxoChanged)
+        Q_PROPERTY(QQmlListProperty<UtxoItem> allUtxos READ allUtxos NOTIFY allUtxoChanged)
 public:
 
         Q_INVOKABLE void cancelTx(int index);
 
 public:
-	using TxList = QList<TxObject*>;
-	using UtxoList = QList<UtxoItem*>;
+    using TxList = QList<TxObject*>;
+    using UtxoList = QList<UtxoItem*>;
 
-	WalletViewModel(WalletModel& model);
+    WalletViewModel(WalletModel& model);
     virtual ~WalletViewModel();
     
-	QString available() const;
-	QString received() const;
-	QString sent() const;
-	QString unconfirmed() const;
+    QString available() const;
+    QString received() const;
+    QString sent() const;
+    QString unconfirmed() const;
 
-	QQmlListProperty<TxObject> tx();
-	QString sendAmount() const;
-	QString sendAmountMils() const;
+    QQmlListProperty<TxObject> tx();
+    QString sendAmount() const;
     QString feeMils() const;
-	QString receiverAddr() const;
-	QString syncTime() const;
-	int syncProgress() const;
+    QString receiverAddr() const;
+    QString syncTime() const;
+    int syncProgress() const;
     bool getIsSyncInProgress() const;
     void setIsSyncInProgress(bool value);
 
-	QString actualAvailable() const;
+    QString actualAvailable() const;
     QString change() const;
-	int selectedAddr() const;
-	QQmlListProperty<UtxoItem> utxos();
-	QQmlListProperty<UtxoItem> allUtxos();
+    int selectedAddr() const;
+    QQmlListProperty<UtxoItem> allUtxos();
     QString getReceiverAddr() const;
     void setReceiverAddr(const QString& value);
     QString getSenderAddr() const;
     void setSenderAddr(const QString& value);
 
-	void setSendAmount(const QString& text);
-	void setSendAmountMils(const QString& text);
+    void setSendAmount(const QString& text);
+    void setSendAmountMils(const QString& text);
     void setFeeMils(const QString& text);
-	void setSelectedAddr(int index);
+    void setSelectedAddr(int index);
 
 public slots:
-	void onStatus(const WalletStatus& amount);
-	void onTxStatus(const std::vector<beam::TxDescription>& history);
-	void sendMoney();
-	void syncWithNode();
-	void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
-	void onSyncProgressUpdated(int done, int total);
+    void onStatus(const WalletStatus& amount);
+    void onTxStatus(const std::vector<beam::TxDescription>& history);
+    void sendMoney();
+    void syncWithNode();
+    void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
+    void onSyncProgressUpdated(int done, int total);
     void onChangeCalculated(beam::Amount change);
-    void onUtxoChanged(const std::vector<beam::Coin>& utxos);
-	void onAllUtxoChanged(const std::vector<beam::Coin>& utxos);
-	void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
+    void onAllUtxoChanged(const std::vector<beam::Coin>& utxos);
+    void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
 
 signals:
-	void stateChanged();
+    void stateChanged();
 
-	void sendAmountChanged();
-	void sendAmountMilsChanged();
+    void sendAmountChanged();
     void feeMilsChanged();
-	void txChanged();
+    void txChanged();
     void selectedAddrChanged();
-	void actualAvailableChanged();
+    void actualAvailableChanged();
     void changeChanged();
-    void utxoChanged();
-	void allUtxoChanged();
+    void allUtxoChanged();
     void receiverAddrChanged();
     void senderAddrChanged();
     void isSyncInProgressChanged();
 
 private:
-	beam::Amount calcSendAmount() const;
+    beam::Amount calcSendAmount() const;
     beam::Amount calcFeeAmount() const;
     beam::Amount calcTotalAmount() const;
 
 private:
 
-	WalletModel& _model;
+    WalletModel& _model;
 
-	WalletStatus _status;
+    WalletStatus _status;
 
-	QString _sendAmount;
-	QString _sendAmountMils;
+    QString _sendAmount;
     QString _feeMils;
 
     beam::Amount _change;
 
     TxList _tx;
 
-    bool _loadingUtxo;
-	bool _loadingAllUtxo;
-    UtxoList _utxos;
-	UtxoList _allUtxos;
+    bool _loadingAllUtxo;
+    UtxoList _allUtxos;
 
-	std::vector<beam::TxPeer> _addrList;
+    std::vector<beam::TxPeer> _addrList;
 
     QString _receiverAddr;
     QString _senderAddr;

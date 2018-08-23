@@ -339,9 +339,9 @@ namespace beam
 		// utxos and kernels
 		NodeDB::Blob b0(vStates[0].m_Prev.m_pData, sizeof(vStates[0].m_Prev.m_pData));
 
-		db.AddSpendable(b0, NodeDB::Blob("hello, world!", 13), 5, 3);
+		db.AddSpendable(b0, NULL, 5, 3);
 
-		NodeDB::WalkerSpendable wsp(db, false);
+		NodeDB::WalkerSpendable wsp(db);
 		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
 			;
 		db.ModifySpendable(b0, 0, -3);
@@ -488,14 +488,21 @@ namespace beam
 		{
 			Amount m_Fee;
 			ECC::Scalar::Native m_k;
+			bool m_bUseHashlock;
 
 			void Export(TxKernel& krn) const
 			{
 				krn.m_Fee = m_Fee;
 				krn.m_Excess = ECC::Point::Native(ECC::Context::get().G * m_k);
 
+				if (m_bUseHashlock)
+				{
+					krn.m_pHashLock.reset(new TxKernel::HashLock); // why not?
+					ECC::Hash::Processor() << m_Fee << m_k >> krn.m_pHashLock->m_Preimage;
+				}
+
 				ECC::Hash::Value hv;
-				krn.get_HashForSigning(hv);
+				krn.get_Hash(hv);
 				krn.m_Signature.Sign(hv, m_k);
 
 			}
@@ -528,6 +535,7 @@ namespace beam
 			m_MyKernels.resize(m_MyKernels.size() + 1);
 			MyKernel& mk = m_MyKernels.back();
 			mk.m_Fee = 1090000;
+			mk.m_bUseHashlock = 0 != (1 & h);
 
 			Input::Ptr pInp(new Input);
 			pInp->m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
@@ -642,22 +650,6 @@ namespace beam
 
 		Block::BodyBase::RW rwData;
 		rwData.m_sPath = g_sz3;
-
-		{
-			verify_test(rwData.Open(false));
-			np.ExportMacroBlock(rwData); // export current state
-
-			rwData.Close();
-			verify_test(rwData.Open(true));
-
-			NodeProcessor np2;
-			np2.Initialize(g_sz2);
-
-			verify_test(np2.ImportMacroBlock(rwData));
-
-			rwData.Close();
-			rwData.Delete();
-		}
 
 		Height hMid = blockChain.size() / 2 + Rules::HeightGenesis;
 
@@ -944,6 +936,9 @@ namespace beam
 			std::list<uint32_t> m_queProofsStateExpected;
 			std::list<uint32_t> m_queProofsKrnExpected;
 
+			uint32_t m_nBbsMsgsPending = 0;
+
+
 			MyClient() {
 				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
 			}
@@ -989,9 +984,26 @@ namespace beam
 
 			io::Timer::Ptr m_pTimer;
 
+			bool IsHeightReached() const
+			{
+				return !m_vStates.empty() && (m_vStates.back().m_Height >= m_HeightTrg);
+			}
+
+			bool IsAllProofsReceived() const
+			{
+				return
+					m_queProofsExpected.empty() &&
+					m_queProofsKrnExpected.empty() &&
+					m_queProofsStateExpected.empty();
+			}
+
+			bool IsAllBbsReceived() const
+			{
+				return !m_nBbsMsgsPending;
+			}
+
 			void OnTimer() {
 
-				fail_test("Blockchain height didn't reach target");
 				io::Reactor::get_Current().stop();
 			}
 
@@ -999,14 +1011,18 @@ namespace beam
 			{
 				printf("Tip Height=%u\n", (unsigned int) msg.m_ID.m_Height);
 				verify_test(m_vStates.size() + 1 == msg.m_ID.m_Height);
+			}
 
-				if (msg.m_ID.m_Height >= m_HeightTrg)
+			virtual void OnMsg(proto::Hdr&& msg) override
+			{
+				verify_test(m_vStates.size() + 1 == msg.m_Description.m_Height);
+				m_vStates.push_back(msg.m_Description);
+
+				if (IsHeightReached())
 				{
-					verify_test(m_queProofsExpected.empty());
-					verify_test(m_queProofsKrnExpected.empty());
-					verify_test(m_queProofsStateExpected.empty());
-
-					io::Reactor::get_Current().stop();
+					if (IsAllProofsReceived() && IsAllBbsReceived())
+						io::Reactor::get_Current().stop();
+					return;
 				}
 
 				proto::GetMined msgOut;
@@ -1017,14 +1033,10 @@ namespace beam
 				msgBbs.m_Channel = 11;
 				msgBbs.m_TimePosted = getTimestamp();
 				msgBbs.m_Message.resize(1);
-				msgBbs.m_Message[0] = (uint8_t) msg.m_ID.m_Height;
+				msgBbs.m_Message[0] = (uint8_t) msg.m_Description.m_Height;
 				Send(msgBbs);
-			}
 
-			virtual void OnMsg(proto::Hdr&& msg) override
-			{
-				verify_test(m_vStates.size() + 1 == msg.m_Description.m_Height);
-				m_vStates.push_back(msg.m_Description);
+				m_nBbsMsgsPending++;
 
 				// assume we've mined this
 				m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
@@ -1058,7 +1070,8 @@ namespace beam
 					mk.Export(krn);
 
 					proto::GetProofKernel msgOut;
-					krn.get_HashTotal(msgOut.m_KernelHash);
+					msgOut.m_RequestHashPreimage = true;
+					krn.get_ID(msgOut.m_ID);
 					Send(msgOut);
 
 					m_queProofsKrnExpected.push_back(i);
@@ -1123,7 +1136,7 @@ namespace beam
 					fail_test("unexpected proof");
 			}
 
-			virtual void OnMsg(proto::Proof&& msg) override
+			virtual void OnMsg(proto::ProofKernel&& msg) override
 			{
 				if (!m_queProofsKrnExpected.empty())
 				{
@@ -1136,10 +1149,15 @@ namespace beam
 						mk.Export(krn);
 
 						Merkle::Hash hv;
-						krn.get_HashTotal(hv);
+						krn.get_ID(hv);
 						Merkle::Interpret(hv, msg.m_Proof);
 
 						verify_test(hv == m_vStates.back().m_Definition);
+
+						if (krn.m_pHashLock)
+							verify_test(krn.m_pHashLock->m_Preimage == msg.m_HashPreimage);
+						else
+							verify_test(msg.m_HashPreimage == ECC::Zero);
 					}
 				}
 				else
@@ -1186,6 +1204,8 @@ namespace beam
 		struct MyClient2
 			:public proto::NodeConnection
 		{
+			MyClient* m_pOtherClient;
+
 			virtual void OnConnectedSecure() override {
 				proto::Config msgCfg;
 				ZeroObject(msgCfg);
@@ -1220,12 +1240,15 @@ namespace beam
 				verify_test(nMsg == (uint8_t) m_MsgCount + 1);
 				m_MsgCount++;
 
+				verify_test(m_pOtherClient->m_nBbsMsgsPending);
+				m_pOtherClient->m_nBbsMsgsPending--;
 
 				printf("Got BBS msg=%u\n", m_MsgCount);
 			}
 		};
 
 		MyClient2 cl2;
+		cl2.m_pOtherClient = &cl;
 		cl2.Connect(addr);
 
 
@@ -1240,9 +1263,14 @@ namespace beam
 
 		pReactor->run();
 
-		verify_test(cl2.m_MsgCount >= cl.m_HeightTrg - 10); // assume several last msgs may haven't arrived yet
-	}
 
+		if (!cl.IsHeightReached())
+			fail_test("Blockchain height didn't reach target");
+		if (!cl.IsAllProofsReceived())
+			fail_test("some proofs missing");
+		if (!cl.IsAllBbsReceived())
+			fail_test("some BBS messages missing");
+	}
 
 }
 

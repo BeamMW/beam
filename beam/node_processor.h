@@ -96,7 +96,6 @@ public:
 	void ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
 	void ExportMacroBlock(Block::BodyBase::IMacroWriter&, const HeightRange&);
 	void ExportHdrRange(const HeightRange&, Block::SystemState::Sequence::Prefix&, std::vector<Block::SystemState::Sequence::Element>&);
-	void ExportMacroBlock(Block::BodyBase::IMacroWriter&);
 	bool ImportMacroBlock(Block::BodyBase::IMacroReader&);
 
 	struct DataStatus {
@@ -114,6 +113,8 @@ public:
 	NodeDB& get_DB() { return m_DB; }
 	UtxoTree& get_Utxos() { return m_Utxos; }
 	RadixHashOnlyTree& get_Kernels() { return m_Kernels; }
+
+	bool get_KernelHashPreimage(const Merkle::Hash& id, ECC::uintBig&);
 
 	void EnumCongestions();
 
