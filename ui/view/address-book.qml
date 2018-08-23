@@ -28,7 +28,7 @@ ColumnLayout {
 		id: createAddress
 		modal: true
 		width: 520
-		height: 454
+		height: 500
 		x: (parent.width - width) / 2
 		y: (parent.height - height) / 2
 		visible: false
@@ -110,8 +110,6 @@ ColumnLayout {
 					SFTextInput {
 						id: addressID
 						Layout.fillWidth: true
-						Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
                         focus: true
 						font.pixelSize: 12
 						color: Style.white
@@ -125,18 +123,9 @@ ColumnLayout {
 						value: addressID.text
 					}
 
-					Rectangle {
-						Layout.fillWidth: true
-                        Layout.minimumHeight: 1
-						height: 1
-
-						color: Style.separator_color
-					}
-						
 					SFText {
                         Layout.topMargin: 30
 						Layout.fillWidth: true
-						Layout.fillHeight: true
                         Layout.minimumHeight: 14
 						text: qsTr("Name")
 						font {
@@ -147,13 +136,9 @@ ColumnLayout {
 					}
 					SFTextInput {
 						Layout.fillWidth: true
-						Layout.fillHeight: true
 						id: nameAddress
-                        Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
 						font.pixelSize: 12
 						color: Style.white
-						height: 14
 						text: addressBookViewModel.newPeerAddress.name
 					}
 					Binding {
@@ -161,18 +146,10 @@ ColumnLayout {
 						property: "name"
 						value: nameAddress.text
 					}
-					Rectangle {
-						Layout.fillWidth: true
-                        Layout.minimumHeight: 1
-						height: 1
-
-						color: Style.separator_color
-					}
 						
 					SFText {
                         Layout.topMargin: 30
 						Layout.fillWidth: true
-						Layout.fillHeight: true
                         Layout.minimumHeight: 14
 						text: qsTr("Category")
 						font {
@@ -183,13 +160,9 @@ ColumnLayout {
 					}
 					SFTextInput {
 						Layout.fillWidth: true
-						Layout.fillHeight: true
-                        Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
 						id: categoryAddress
 						font.pixelSize: 12
 						color: Style.white
-						height: 14
 						text: addressBookViewModel.newPeerAddress.category
 					}
 
@@ -198,13 +171,7 @@ ColumnLayout {
 						property: "category"
 						value: categoryAddress.text
 					}
-					Rectangle {
-						Layout.fillWidth: true
-                        Layout.minimumHeight: 1
-						height: 1
 
-						color: Style.separator_color
-					}
 				}
 
 				ColumnLayout {
@@ -228,19 +195,12 @@ ColumnLayout {
 					SFTextInput {
 						id: ownAddressID
 						Layout.fillWidth: true
-                        Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
 						font.pixelSize: 12
 						color: Style.disable_text_color
 						readOnly: true
                         activeFocusOnTab: false
 						text: addressBookViewModel.newOwnAddress.walletID
 					}
-
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.minimumHeight: 1
-                    }
 
                     SFText {
                         Layout.topMargin: 30
@@ -255,13 +215,10 @@ ColumnLayout {
 					}
 					SFTextInput {
 						Layout.fillWidth: true
-                        Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
 						id: nameOwnAddress
                         focus: true
 						font.pixelSize: 12
 						color: Style.white
-						height: 14
 						text: addressBookViewModel.newOwnAddress.name
 					}
 
@@ -269,12 +226,6 @@ ColumnLayout {
 						target: addressBookViewModel.newOwnAddress
 						property: "name"
 						value: nameOwnAddress.text
-					}
-					Rectangle {
-						Layout.fillWidth: true
-                        Layout.minimumHeight: 1
-						height: 1
-						color: Style.separator_color
 					}
 
 					SFText {
@@ -291,12 +242,9 @@ ColumnLayout {
 
 					SFTextInput {
 						Layout.fillWidth: true
-                        Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
 						id: categoryOwnAddress
 						font.pixelSize: 12
 						color: Style.white
-						height: 14
 						text: addressBookViewModel.newOwnAddress.category
 					}
 
@@ -304,15 +252,6 @@ ColumnLayout {
 						target: addressBookViewModel.newOwnAddress
 						property: "category"
 						value: categoryOwnAddress.text
-					}
-
-					Rectangle {
-						Layout.fillWidth: true
-                        Layout.minimumHeight: 1
-
-						height: 1
-
-						color: Style.separator_color
 					}
 				}
 

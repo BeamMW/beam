@@ -16,6 +16,7 @@
 #include <assert.h>
 #include "test_helpers.h"
 #include "core/storage.h"
+#include "utility/test_helpers.h"
 
 #include "utility/logger.h"
 #include <boost/filesystem.hpp>
@@ -713,7 +714,7 @@ void TestSelect()
 void TestSelect2()
 {
     auto db = createSqliteKeychain();
-    const Amount c = 925;
+    const Amount c = 1000000;
     vector<Coin> t;
     t.reserve(c);
     for (Amount i = 1; i <= c; ++i)
@@ -725,9 +726,14 @@ void TestSelect2()
         Coin c{ 30000000, Coin::Unspent, 1, 10, KeyType::Regular };
         db->store(c);
     }
-     auto coins = db->selectCoins(347000000, false);
-     WALLET_CHECK(coins.size() == 9);
-     WALLET_CHECK(coins[0].m_amount == 30000000);
+	helpers::StopWatch sw;
+
+	sw.start();
+    auto coins = db->selectCoins(347000000, false);
+	sw.stop();
+	cout << "TestSelect2 elapsed time: " << sw.milliseconds() << " ms\n";
+    WALLET_CHECK(coins.size() == 9);
+    WALLET_CHECK(coins[0].m_amount == 30000000);
 }
 
 int main() 
@@ -746,7 +752,7 @@ int main()
     TestRollback();
     TestPeers();
     TestSelect();
-   // TestSelect2();
+    //TestSelect2();
     TestAddresses();
 
     return WALLET_CHECK_RESULT;

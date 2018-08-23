@@ -32,6 +32,10 @@ public:
 
 	bool walletExists() const;
 
+    Q_INVOKABLE void setupLocalNode(int port, int miningThreads);
+    Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
+    Q_INVOKABLE void setupTestnetNode();
+
 signals:
 	void walletExistsChanged();
 

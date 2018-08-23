@@ -110,11 +110,9 @@ namespace beam
         void create_node_connection();
 
         template <typename T>
-        void send(const WalletID& walletID, MsgType type, T&& msg, const WalletID* from=0)
+        void send(const WalletID& walletID, MsgType type, T&& msg)
         {
             update_wallets(walletID);
-
-            msg.m_from = from ? *from : *m_myPubKeys.begin();
 
             uint32_t channel = channel_from_wallet_id(walletID);
             LOG_DEBUG() << "BBS send message to channel=" << channel << "[" << to_hex(walletID.m_pData, 32) << "]  my pubkey=" << to_hex(msg.m_from.m_pData, 32);

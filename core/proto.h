@@ -52,15 +52,17 @@ namespace proto {
 	macro(Height, Height)
 
 #define BeamNodeMsg_GetProofKernel(macro) \
-	macro(Merkle::Hash, KernelHash)
+	macro(Merkle::Hash, ID) \
+	macro(bool, RequestHashPreimage)
 
 #define BeamNodeMsg_GetProofUtxo(macro) \
 	macro(Input, Utxo) \
 	macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
 
 
-#define BeamNodeMsg_Proof(macro) \
-	macro(Merkle::Proof, Proof)
+#define BeamNodeMsg_ProofKernel(macro) \
+	macro(Merkle::Proof, Proof) \
+	macro(ECC::uintBig, HashPreimage)
 
 #define BeamNodeMsg_ProofUtxo(macro) \
 	macro(std::vector<Input::Proof>, Proofs)
@@ -156,7 +158,7 @@ namespace proto {
 	macro(8, GetProofState) \
 	macro(9, GetProofKernel) \
 	macro(10, GetProofUtxo) \
-	macro(11, Proof) /* for states and kernels */ \
+	macro(11, ProofKernel) \
 	macro(12, ProofUtxo) \
 	macro(13, ProofStateForDummies) \
 	macro(15, GetMined) \

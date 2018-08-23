@@ -17,6 +17,7 @@
 #include <QObject>
 #include <QQmlListProperty>
 #include "model/wallet.h"
+#include "messages.h"
 
 class TxObject : public QObject
 {
@@ -106,7 +107,6 @@ class WalletViewModel : public QObject
         Q_PROPERTY(QString unconfirmed   READ unconfirmed     NOTIFY stateChanged)
 
         Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
-        Q_PROPERTY(QString sendAmountMils READ sendAmountMils WRITE setSendAmountMils NOTIFY sendAmountMilsChanged)
 
         Q_PROPERTY(QString feeMils READ feeMils WRITE setFeeMils NOTIFY feeMilsChanged)
 
@@ -131,7 +131,7 @@ public:
     using TxList = QList<TxObject*>;
     using UtxoList = QList<UtxoItem*>;
 
-    WalletViewModel(WalletModel& model);
+    WalletViewModel(WalletModel& model, MessagesViewModel& messagesModel);
     virtual ~WalletViewModel();
     
     QString available() const;
@@ -141,7 +141,6 @@ public:
 
     QQmlListProperty<TxObject> tx();
     QString sendAmount() const;
-    QString sendAmountMils() const;
     QString feeMils() const;
     QString receiverAddr() const;
     QString syncTime() const;
@@ -179,7 +178,6 @@ signals:
     void stateChanged();
 
     void sendAmountChanged();
-    void sendAmountMilsChanged();
     void feeMilsChanged();
     void txChanged();
     void selectedAddrChanged();
@@ -198,11 +196,11 @@ private:
 private:
 
     WalletModel& _model;
+    MessagesViewModel& _messagesModel;
 
     WalletStatus _status;
 
     QString _sendAmount;
-    QString _sendAmountMils;
     QString _feeMils;
 
     beam::Amount _change;

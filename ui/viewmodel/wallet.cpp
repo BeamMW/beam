@@ -144,11 +144,11 @@ QString UtxoItem::type() const
     return Names[static_cast<int>(_coin.m_key_type)];
 }
 
-WalletViewModel::WalletViewModel(WalletModel& model)
+WalletViewModel::WalletViewModel(WalletModel& model, MessagesViewModel& messagesModel)
     : _model(model)
+    , _messagesModel(messagesModel)
     , _status{ 0, 0, 0, 0, {0, 0, 0} }
     , _sendAmount("0")
-    , _sendAmountMils("0")
     , _feeMils("0")
     , _change(0)
     , _loadingAllUtxo{false}
@@ -156,7 +156,7 @@ WalletViewModel::WalletViewModel(WalletModel& model)
 {
     connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
-    connect(&_model, SIGNAL(onTxStatus(const std::vector<beam::TxDescription>&)), 
+    connect(&_model, SIGNAL(onTxStatus(const std::vector<beam::TxDescription>&)),
         SLOT(onTxStatus(const std::vector<beam::TxDescription>&)));
 
     connect(&_model, SIGNAL(onTxPeerUpdated(const std::vector<beam::TxPeer>&)),
@@ -173,6 +173,12 @@ WalletViewModel::WalletViewModel(WalletModel& model)
 
     connect(&_model, SIGNAL(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
         SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
+
+    /*_messagesModel.AddMessage(QString{ "wallet1" });
+    _messagesModel.AddMessage(QString{ "wallet2" });
+    _messagesModel.AddMessage(QString{ "wallet3" });
+    _messagesModel.AddMessage(QString{ "wallet4" });
+    _messagesModel.AddMessage(QString{ "wallet5" });*/
 
     connect(&_model, SIGNAL(onAdrresses(bool, const std::vector<beam::WalletAddress>&)),
         SLOT(onAdrresses(bool, const std::vector<beam::WalletAddress>&)));
@@ -328,11 +334,6 @@ QString WalletViewModel::sendAmount() const
     return _sendAmount;
 }
 
-QString WalletViewModel::sendAmountMils() const
-{
-    return _sendAmountMils;
-}
-
 QString WalletViewModel::feeMils() const
 {
     return _feeMils;
@@ -367,17 +368,6 @@ void WalletViewModel::setSendAmount(const QString& amount)
         _sendAmount = amount;
         _model.async->calcChange(calcTotalAmount());
         emit sendAmountChanged();
-        emit actualAvailableChanged();
-    }
-}
-
-void WalletViewModel::setSendAmountMils(const QString& amount)
-{
-    if (amount != _sendAmountMils)
-    {
-        _sendAmountMils = amount;
-        _model.async->calcChange(calcTotalAmount());
-        emit sendAmountMilsChanged();
         emit actualAvailableChanged();
     }
 }
@@ -459,12 +449,12 @@ QQmlListProperty<UtxoItem> WalletViewModel::allUtxos()
 
 beam::Amount WalletViewModel::calcSendAmount() const
 {
-    return _sendAmount.toInt() * Rules::Coin + _sendAmountMils.toInt();
+	return _sendAmount.toDouble() * Rules::Coin;
 }
 
 beam::Amount WalletViewModel::calcFeeAmount() const
 {
-    return _feeMils.toInt();
+    return _feeMils.toDouble() * Rules::Coin;
 }
 
 beam::Amount WalletViewModel::calcTotalAmount() const
