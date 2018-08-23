@@ -2,11 +2,11 @@ import QtQuick 2.3
 import QtQuick.Controls 2.4
 import QtQuick.Layouts 1.3
 
-Item {
+/*Item {
     width: 1024
-    height: 768
+    height: 768*/
 
-    Popup {
+    /*Popup {
         id: notifications
         closePolicy: Popup.NoAutoClose
 
@@ -37,7 +37,7 @@ Item {
             }
             spacing: 4
         }
-    }
+    }*/
 
     Loader {
 
@@ -46,4 +46,4 @@ Item {
 	    focus: true
         source : "qrc:///start.qml"
     }
-}
+//}

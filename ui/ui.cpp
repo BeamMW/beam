@@ -151,8 +151,8 @@ int main (int argc, char* argv[])
 				NotificationsViewModel	notifications;
 				HelpViewModel			help;
 
-				ViewModel(WalletModel& model, const QDir& appDataDir)
-					: wallet(model)
+				ViewModel(WalletModel& model, MessagesViewModel& messagesModel, const QDir& appDataDir)
+					: wallet(model, messagesModel)
 					, addressBook(model) {}
 			};
 
@@ -201,7 +201,7 @@ int main (int argc, char* argv[])
 
 				walletModel->start();
 
-				viewModels = std::make_unique<ViewModel>(*walletModel, appDataDir);
+				viewModels = std::make_unique<ViewModel>(*walletModel, messagesViewModel, appDataDir);
 
 				QQmlContext *ctxt = view.rootContext();
 

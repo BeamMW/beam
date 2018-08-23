@@ -119,8 +119,9 @@ QString UtxoItem::type() const
     return Names[static_cast<int>(_coin.m_key_type)];
 }
 
-WalletViewModel::WalletViewModel(WalletModel& model)
+WalletViewModel::WalletViewModel(WalletModel& model, MessagesViewModel& messagesModel)
     : _model(model)
+    , _messagesModel(messagesModel)
     , _status{ 0, 0, 0, 0, {0, 0, 0} }
     , _sendAmount("0")
     , _feeMils("0")
@@ -130,7 +131,7 @@ WalletViewModel::WalletViewModel(WalletModel& model)
 {
     connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
-    connect(&_model, SIGNAL(onTxStatus(const std::vector<beam::TxDescription>&)), 
+    connect(&_model, SIGNAL(onTxStatus(const std::vector<beam::TxDescription>&)),
         SLOT(onTxStatus(const std::vector<beam::TxDescription>&)));
 
     connect(&_model, SIGNAL(onTxPeerUpdated(const std::vector<beam::TxPeer>&)),
@@ -147,6 +148,12 @@ WalletViewModel::WalletViewModel(WalletModel& model)
 
     connect(&_model, SIGNAL(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
         SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
+
+    /*_messagesModel.AddMessage(QString{ "wallet1" });
+    _messagesModel.AddMessage(QString{ "wallet2" });
+    _messagesModel.AddMessage(QString{ "wallet3" });
+    _messagesModel.AddMessage(QString{ "wallet4" });
+    _messagesModel.AddMessage(QString{ "wallet5" });*/
 }
 
 WalletViewModel::~WalletViewModel()

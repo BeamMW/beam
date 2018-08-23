@@ -17,6 +17,7 @@
 #include <QObject>
 #include <QQmlListProperty>
 #include "model/wallet.h"
+#include "messages.h"
 
 class TxObject : public QObject
 {
@@ -118,7 +119,7 @@ public:
     using TxList = QList<TxObject*>;
     using UtxoList = QList<UtxoItem*>;
 
-    WalletViewModel(WalletModel& model);
+    WalletViewModel(WalletModel& model, MessagesViewModel& messagesModel);
     virtual ~WalletViewModel();
     
     QString available() const;
@@ -182,6 +183,7 @@ private:
 private:
 
     WalletModel& _model;
+    MessagesViewModel& _messagesModel;
 
     WalletStatus _status;
 
