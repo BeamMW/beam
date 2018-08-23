@@ -287,7 +287,6 @@ Item {
                         FeeSlider {
                             id: feeSlider
                             Layout.fillWidth: true
-                            Layout.rightMargin: 30
 
                             to: 0.000003
                             stepSize: 0.000001
