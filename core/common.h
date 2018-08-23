@@ -224,20 +224,32 @@ namespace beam
 		typedef std::unique_ptr<Input> Ptr;
 		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system
 
-		struct Proof
+		struct State
 		{
 			Height m_Maturity;
 			Input::Count m_Count;
-			Merkle::Proof m_Proof;
 
-			bool IsValid(const Input&, const Merkle::Hash& root) const;
+			void get_ID(Merkle::Hash&, const Input&) const;
 
 			template <typename Archive>
 			void serialize(Archive& ar)
 			{
 				ar
 					& m_Maturity
-					& m_Count
+					& m_Count;
+			}
+		};
+
+		struct Proof
+		{
+			State m_State;
+			Merkle::Proof m_Proof;
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar
+					& m_State
 					& m_Proof;
 			}
 
@@ -318,7 +330,6 @@ namespace beam
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
 		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
-		bool IsValidProof(const Merkle::Proof&, const Merkle::Hash& root) const;
 
 		void operator = (const TxKernel&);
 		int cmp(const TxKernel&) const;
@@ -487,10 +498,15 @@ namespace beam
 					Merkle::Hash	m_Prev;			// explicit referebce to prev
 				};
 
-				struct Element {
-					Merkle::Hash	m_Definition;	// defined as H ( PrevStates | LiveObjects )
+				struct Element
+				{
+					Merkle::Hash	m_Definition; // Defined as Hash[ Hash[History | Chainwork] | Hash[Utxos | Kernels] ]
 					Timestamp		m_TimeStamp;
 					PoW				m_PoW;
+
+					// The following not only interprets the proof, but also verifies the knwon part of its structure.
+					bool IsValidProofUtxo(const Input&, const Input::Proof&) const;
+					bool IsValidProofKernel(const TxKernel&, const Merkle::Proof&) const;
 				};
 			};
 

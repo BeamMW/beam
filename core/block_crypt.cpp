@@ -352,14 +352,6 @@ namespace beam
 		HashToID(out);
 	}
 
-	bool TxKernel::IsValidProof(const Merkle::Proof& proof, const Merkle::Hash& root) const
-	{
-		Merkle::Hash hv;
-		get_Hash(hv);
-		Merkle::Interpret(hv, proof);
-		return hv == root;
-	}
-
 	int TxKernel::cmp(const TxKernel& v) const
 	{
 		CMP_MEMBER_EX(m_Excess)
@@ -942,6 +934,38 @@ namespace beam
 	{
 		get_Hash(hv);
 		m_PoW.get_HashForHist(hv, hv);
+	}
+
+	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const Input& inp, const Input::Proof& p) const
+	{
+		// verify known part. Last node should be at left, earlier should be at right
+		size_t n = p.m_Proof.size();
+		if ((n < 2) ||
+			p.m_Proof[n - 1].first ||
+			!p.m_Proof[n - 2].first)
+			return false;
+
+		Merkle::Hash hv;
+		p.m_State.get_ID(hv, inp);
+
+		Merkle::Interpret(hv, p.m_Proof);
+		return hv == m_Definition;
+	}
+
+	bool Block::SystemState::Sequence::Element::IsValidProofKernel(const TxKernel& krn, const Merkle::Proof& proof) const
+	{
+		// verify known part. Last node should be at left, earlier should be at left
+		size_t n = proof.size();
+		if ((n < 2) ||
+			proof[n - 1].first ||
+			proof[n - 2].first)
+			return false;
+
+		Merkle::Hash hv;
+		krn.get_ID(hv);
+
+		Merkle::Interpret(hv, proof);
+		return hv == m_Definition;
 	}
 
 	void Block::PoW::get_HashForHist(Merkle::Hash& hv, const Merkle::Hash& hvState) const

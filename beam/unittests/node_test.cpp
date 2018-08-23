@@ -1124,7 +1124,7 @@ namespace beam
 					else
 					{
 						for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
-							verify_test(msg.m_Proofs[j].IsValid(inp, m_vStates.back().m_Definition));
+							verify_test(m_vStates.back().IsValidProofUtxo(inp, msg.m_Proofs[j]));
 
 						if (m_UtxosConfirmed.end() == it)
 							m_UtxosConfirmed.insert(inp.m_Commitment);
@@ -1148,11 +1148,7 @@ namespace beam
 						TxKernel krn;
 						mk.Export(krn);
 
-						Merkle::Hash hv;
-						krn.get_ID(hv);
-						Merkle::Interpret(hv, msg.m_Proof);
-
-						verify_test(hv == m_vStates.back().m_Definition);
+						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
 
 						if (krn.m_pHashLock)
 							verify_test(krn.m_pHashLock->m_Preimage == msg.m_HashPreimage);

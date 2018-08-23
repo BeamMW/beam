@@ -421,12 +421,11 @@ namespace beam
             {
                 if (coin.m_status == Coin::Unconfirmed)
                 {
-
-                    if (proof.IsValid(input, m_newState.m_Definition))
+                    if (m_newState.IsValidProofUtxo(input, proof))
                     {
                         LOG_INFO() << "Got proof for: " << input.m_Commitment;
                         coin.m_status = Coin::Unspent;
-                        coin.m_maturity = proof.m_Maturity;
+                        coin.m_maturity = proof.m_State.m_Maturity;
                         coin.m_confirmHeight = m_newState.m_Height;
                         m_newState.get_Hash(coin.m_confirmHash);
                         if (coin.isReward())
