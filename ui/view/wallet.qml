@@ -288,7 +288,7 @@ Item {
                             id: feeSlider
                             Layout.fillWidth: true
 
-                            to: 0.000003
+                            to: 0.000010
                             stepSize: 0.000001
                             value: 0.0
                         }
