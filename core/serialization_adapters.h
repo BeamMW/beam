@@ -683,7 +683,8 @@ namespace detail
 		{
 			ar
 				& v.m_Height
-				& v.m_Prev;
+				& v.m_Prev
+				& v.m_ChainWork;
 
 			return ar;
 		}
@@ -693,7 +694,8 @@ namespace detail
 		{
 			ar
 				& v.m_Height
-				& v.m_Prev;
+				& v.m_Prev
+				& v.m_ChainWork;
 
 			return ar;
 		}

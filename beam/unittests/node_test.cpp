@@ -127,6 +127,8 @@ namespace beam
 			Block::SystemState::Full& s = vStates[h];
 			s.m_Height = h + Rules::HeightGenesis;
 
+			s.m_ChainWork = h; // must be in ascending order
+
 			if (h)
 			{
 				vStates[h - 1].get_Hash(s.m_Prev);
@@ -211,7 +213,9 @@ namespace beam
 		s.get_Hash(s.m_Prev);
 		cmmrFork.get_Hash(s.m_Definition);
 		Merkle::Interpret(s.m_Definition, hvZero, true);
+
 		s.m_Height++;
+		s.m_ChainWork = s.m_Height;
 
 		uint64_t rowLast1 = db.InsertState(s);
 

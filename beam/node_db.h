@@ -71,7 +71,6 @@ public:
 			StateSetFlags,
 			StateGetFlags0,
 			StateGetFlags1,
-			StateSetChainWork,
 			StateGetChainWork,
 			StateGetNextCount,
 			StateSetPeer,
@@ -365,11 +364,10 @@ private:
 	void TipReachableDel(uint64_t rowid);
 	void SetNextCount(uint64_t rowid, uint32_t);
 	void SetNextCountFunctional(uint64_t rowid, uint32_t);
-	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, Difficulty::Raw&, bool);
+	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
 	void BuildMmr(uint64_t rowid, uint64_t rowPrev, Height);
 	void put_Cursor(const StateID& sid); // jump
 	void ModifySpendableSafe(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta);
-	void set_ChainWork(uint64_t, const Difficulty::Raw&);
 
 	void TestChanged1Row();
 

@@ -494,13 +494,14 @@ namespace beam
 			struct Sequence
 			{
 				struct Prefix {
-					Height			m_Height;
-					Merkle::Hash	m_Prev;			// explicit referebce to prev
+					Height				m_Height;
+					Merkle::Hash		m_Prev;			// explicit referebce to prev
+					Difficulty::Raw		m_ChainWork;
 				};
 
 				struct Element
 				{
-					Merkle::Hash	m_Definition; // Defined as Hash[ Hash[History | Chainwork] | Hash[Utxos | Kernels] ]
+					Merkle::Hash	m_Definition; // Defined as Hash[ History | Hash[Utxos | Kernels] ]
 					Timestamp		m_TimeStamp;
 					PoW				m_PoW;
 
@@ -514,7 +515,8 @@ namespace beam
 				:public Sequence::Prefix
 				,public Sequence::Element
 			{
-				void Set(Prefix&, const Element&);
+				void NextPrefix();
+
 				void get_Hash(Merkle::Hash&) const; // Calculated from all the above
 				void get_ID(ID&) const;
 				void get_HashForHist(Merkle::Hash&) const; // accounts also for PoW, literally for everything in the header
