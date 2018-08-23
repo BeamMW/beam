@@ -142,7 +142,6 @@ namespace beam
         : m_keyChain{ keyChain }
         , m_network{ network }
         , m_tx_completed_action{move(action)}
-        , m_isValidDefinition{false}
         , m_Definition{}
         , m_knownStateID{}
         , m_newStateID{}
@@ -469,8 +468,6 @@ namespace beam
 
         m_pending_reg_requests.clear();
 
-        m_isValidDefinition = false;
-
         return true;
     }
 
@@ -480,7 +477,6 @@ namespace beam
         msg.m_Description.get_ID(newID);
         
         m_Definition = msg.m_Description.m_Definition;
-        m_isValidDefinition = true;
         m_newStateID = newID;
 
         if (newID == m_knownStateID)
@@ -495,17 +491,6 @@ namespace beam
             // cold start
             do_fast_forward();
             return true;
-        }
-        else if (m_knownStateProof.is_initialized())
-        { 
-			bool b = IsKnownStateValid(*m_knownStateProof);
-            m_knownStateProof.reset();
-
-            if (b)
-            {
-                do_fast_forward();
-                return exit_sync();
-            }
         }
         else
         {
@@ -572,12 +557,6 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::ProofStateForDummies&& msg)
     {
-        if (!m_isValidDefinition)
-        {
-            m_knownStateProof = move(msg);
-            return true;
-        }
-
         if (!IsKnownStateValid(msg))
         {
             // rollback
@@ -645,7 +624,6 @@ namespace beam
         copy(m_reg_requests.begin(), m_reg_requests.end(), back_inserter(m_pending_reg_requests));
         m_reg_requests.clear();
         m_pendingProofs.clear();
-        m_knownStateProof.reset();
 
         notifySyncProgress();
     }

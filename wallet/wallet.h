@@ -217,12 +217,10 @@ namespace beam
         std::deque<Coin> m_pendingProofs;
         std::vector<Callback> m_pendingEvents;
 
-        bool m_isValidDefinition;
         Merkle::Hash m_Definition;
         Block::SystemState::ID m_knownStateID;
         Block::SystemState::ID m_newStateID;
         std::unique_ptr<StateFinder> m_stateFinder;
-        boost::optional<proto::ProofStateForDummies> m_knownStateProof;
 
         int m_syncDone;
         int m_syncTotal;
