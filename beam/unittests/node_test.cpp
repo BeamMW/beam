@@ -1094,15 +1094,12 @@ namespace beam
 				{
 					const Block::SystemState::Full& s = m_vStates[m_queProofsStateExpected.front()];
 
+					verify_test(m_vStates.back().IsValidProofState(msg.m_Hdr, msg.m_Proof));
+
 					Merkle::Hash hv, hv2;
 					s.get_HashForHist(hv);
 					msg.m_Hdr.get_HashForHist(hv2);
 					verify_test(hv == hv2); // i.e. the header is correct
-
-					Merkle::Interpret(hv, msg.m_Proof);
-
-					verify_test(hv == m_vStates.back().m_Definition);
-					verify_test(!msg.m_Proof.empty() && msg.m_Proof.back().first);
 
 					m_queProofsStateExpected.pop_front();
 				}
@@ -1124,7 +1121,7 @@ namespace beam
 					else
 					{
 						for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
-							verify_test(msg.m_Proofs[j].IsValid(inp, m_vStates.back().m_Definition));
+							verify_test(m_vStates.back().IsValidProofUtxo(inp, msg.m_Proofs[j]));
 
 						if (m_UtxosConfirmed.end() == it)
 							m_UtxosConfirmed.insert(inp.m_Commitment);
@@ -1148,11 +1145,7 @@ namespace beam
 						TxKernel krn;
 						mk.Export(krn);
 
-						Merkle::Hash hv;
-						krn.get_ID(hv);
-						Merkle::Interpret(hv, msg.m_Proof);
-
-						verify_test(hv == m_vStates.back().m_Definition);
+						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
 
 						if (krn.m_pHashLock)
 							verify_test(krn.m_pHashLock->m_Preimage == msg.m_HashPreimage);

@@ -142,10 +142,8 @@ namespace beam
         : m_keyChain{ keyChain }
         , m_network{ network }
         , m_tx_completed_action{move(action)}
-        , m_isValidDefinition{false}
-        , m_Definition{}
+        , m_newState{}
         , m_knownStateID{}
-        , m_newStateID{}
         , m_syncDone{0}
         , m_syncTotal{0}
         , m_synchronized{false}
@@ -373,16 +371,14 @@ namespace beam
 
 	void Wallet::resetSystemState()
 	{
-		m_newStateID = Block::SystemState::ID();
-		m_keyChain->setSystemStateID(m_newStateID);
-		m_knownStateID = m_newStateID;
+		ZeroObject(m_newState);
+		ZeroObject(m_knownStateID);
+		m_keyChain->setSystemStateID(m_knownStateID);
 	}
 
 	void Wallet::emergencyReset()
 	{
 		resetSystemState();
-
-		m_keyChain->setSystemStateID(m_newStateID);
 		m_keyChain->clear();
 	}
 
@@ -425,14 +421,13 @@ namespace beam
             {
                 if (coin.m_status == Coin::Unconfirmed)
                 {
-
-                    if (proof.IsValid(input, m_Definition))
+                    if (m_newState.IsValidProofUtxo(input, proof))
                     {
                         LOG_INFO() << "Got proof for: " << input.m_Commitment;
                         coin.m_status = Coin::Unspent;
-                        coin.m_maturity = proof.m_Maturity;
-                        coin.m_confirmHeight = m_newStateID.m_Height;
-                        coin.m_confirmHash = m_newStateID.m_Hash;
+                        coin.m_maturity = proof.m_State.m_Maturity;
+                        coin.m_confirmHeight = m_newState.m_Height;
+                        m_newState.get_Hash(coin.m_confirmHash);
                         if (coin.isReward())
                         {
                             LOG_INFO() << "Block reward received: " << PrintableAmount(coin.m_amount);
@@ -469,8 +464,6 @@ namespace beam
 
         m_pending_reg_requests.clear();
 
-        m_isValidDefinition = false;
-
         return true;
     }
 
@@ -479,14 +472,12 @@ namespace beam
         Block::SystemState::ID newID = {};
         msg.m_Description.get_ID(newID);
         
-        m_Definition = msg.m_Description.m_Definition;
-        m_isValidDefinition = true;
-        m_newStateID = newID;
+		m_newState = msg.m_Description;
 
         if (newID == m_knownStateID)
         {
             // here we may close connection with node
-            m_keyChain->setSystemStateID(newID);
+            m_keyChain->setSystemStateID(m_knownStateID);
             return close_node_connection();
         }
 
@@ -495,17 +486,6 @@ namespace beam
             // cold start
             do_fast_forward();
             return true;
-        }
-        else if (m_knownStateProof.is_initialized())
-        { 
-			bool b = IsKnownStateValid(*m_knownStateProof);
-            m_knownStateProof.reset();
-
-            if (b)
-            {
-                do_fast_forward();
-                return exit_sync();
-            }
         }
         else
         {
@@ -567,22 +547,38 @@ namespace beam
 		}
 		Merkle::Interpret(hv, msg.m_Proof);
 
-		return hv == m_Definition;
+		return hv == m_newState.m_Definition;
 	}
 
     bool Wallet::handle_node_message(proto::ProofStateForDummies&& msg)
     {
-        if (!m_isValidDefinition)
-        {
-            m_knownStateProof = move(msg);
-            return true;
-        }
+		Block::SystemState::ID id2;
+		bool bMatch = true;
 
-        if (!IsKnownStateValid(msg))
+		bool bTestMode = IsTestMode();
+		if (bTestMode)
+			bMatch = (m_knownStateID.m_Hash == ECC::Zero);
+		else
+		{
+			bool bProofValid = msg.m_Hdr.IsSane() ?
+				m_newState.IsValidProofState(msg.m_Hdr, msg.m_Proof) :
+				msg.m_Proof.empty(); // in case the requested height is too large - empty result is returned, this is valid behavior
+
+			if (!bProofValid)
+			{
+				LOG_WARNING() << "Invalid state proof received.";
+				return false;
+			}
+
+			msg.m_Hdr.get_ID(id2);
+			bMatch = (id2 == m_knownStateID);
+		}
+
+        if (!bMatch)
         {
             // rollback
             // search for the latest valid known state
-            if (!m_stateFinder || m_stateFinder->m_syncHeight < m_newStateID.m_Height)
+            if (!m_stateFinder || m_stateFinder->m_syncHeight < m_newState.m_Height)
             {
                 // restart search
                 if (!m_stateFinder)
@@ -593,16 +589,25 @@ namespace beam
                 {
                     LOG_INFO() << "Restarting rollback...";
                 }
-                m_stateFinder.reset(new StateFinder(m_newStateID.m_Height, m_keyChain));
+                m_stateFinder.reset(new StateFinder(m_newState.m_Height, m_keyChain));
                 enter_sync();
                 m_network->send_node_message(proto::GetProofState{ m_stateFinder->getSearchHeight() });
                 return exit_sync();
             }
             auto id = m_keyChain->getKnownStateID(m_stateFinder->getSearchOffset());
-            Merkle::Hash hv = id.m_Hash;
             LOG_INFO() << "Check state: " << id;
-            Merkle::Interpret(hv, msg.m_Proof);
-            if (hv == m_Definition)
+
+			bool bMatch;
+			if (bTestMode)
+			{
+				Merkle::Hash hv = id.m_Hash;
+				Merkle::Interpret(hv, msg.m_Proof);
+				bMatch = (hv == m_newState.m_Definition);
+			}
+			else
+				bMatch = (id2 == id);
+
+            if (bMatch)
             {
                 m_stateFinder->m_id = id;
                 m_stateFinder->moveForward();
@@ -645,14 +650,15 @@ namespace beam
         copy(m_reg_requests.begin(), m_reg_requests.end(), back_inserter(m_pending_reg_requests));
         m_reg_requests.clear();
         m_pendingProofs.clear();
-        m_knownStateProof.reset();
 
         notifySyncProgress();
     }
 
     void Wallet::do_fast_forward()
     {
-        LOG_INFO() << "Sync up to " << m_newStateID;
+		Block::SystemState::ID id;
+		m_newState.get_ID(id);
+        LOG_INFO() << "Sync up to " << id;
         // fast-forward
         enter_sync(); // Mined
         m_network->send_node_message(proto::GetMined{ m_knownStateID.m_Height });
@@ -705,8 +711,8 @@ namespace beam
             assert(m_syncDone <= m_syncTotal);
             if (m_syncDone == m_syncTotal)
             {
-                m_keyChain->setSystemStateID(m_newStateID);
-                m_knownStateID = m_newStateID;
+				m_newState.get_ID(m_knownStateID);
+                m_keyChain->setSystemStateID(m_knownStateID);
                 LOG_INFO() << "Current state is " << m_knownStateID;
                 m_synchronized = true;
                 m_syncDone = m_syncTotal = 0;

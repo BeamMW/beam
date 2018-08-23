@@ -54,7 +54,6 @@ bool ProtocolPlus::VerifyMsg(const uint8_t* p, uint32_t nSize)
 		return true;
 
 	if (nSize < sizeof(MacValue)) {
-        LOG_DEBUG() << __FUNCTION__ << " size error";
 		return false; // could happen on (sort of) overflow attack?
     }
 

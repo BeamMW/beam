@@ -68,7 +68,7 @@ void CoinsChecker::OnDisconnect(const DisconnectReason& reason)
 
 void CoinsChecker::OnMsg(proto::Hdr&& msg)
 {
-	m_Definition = msg.m_Description.m_Definition;
+	m_Hdr = msg.m_Description;
 	if (!m_IsInitChecker)
 	{
 		m_IsInitChecker = true;
@@ -93,9 +93,9 @@ void CoinsChecker::OnMsg(proto::ProofUtxo&& msg)
 		bool isValid = false;
 		for (const auto& proof : msg.m_Proofs)
 		{
-			if (proof.IsValid(*m_Current, m_Definition))
+			if (m_Hdr.IsValidProofUtxo(*m_Current, proof))
 			{
-				m_Maturity = std::max(m_Maturity, proof.m_Maturity);
+				m_Maturity = std::max(m_Maturity, proof.m_State.m_Maturity);
 				isValid = true;
 				break;
 			}

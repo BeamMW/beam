@@ -38,6 +38,16 @@ QString TxObject::user() const
     return toString(_tx.m_peerId);
 }
 
+QString TxObject::userName() const
+{
+    return _userName;
+}
+
+QString TxObject::displayName() const
+{
+    return _displayName;
+}
+
 QString TxObject::comment() const
 {
     return "";
@@ -67,6 +77,21 @@ bool TxObject::canCancel() const
 {
     return _tx.m_status == beam::TxDescription::InProgress
         || _tx.m_status == beam::TxDescription::Pending;
+}
+
+void TxObject::setUserName(QString name)
+{
+    _userName = name;
+}
+
+void TxObject::setDisplayName(QString name)
+{
+    _displayName = name;
+}
+
+beam::WalletID TxObject::peerId() const
+{
+    return _tx.m_peerId;
 }
 
 
@@ -148,6 +173,9 @@ WalletViewModel::WalletViewModel(WalletModel& model, MessagesViewModel& messages
 
     connect(&_model, SIGNAL(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
         SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
+
+    connect(&_model, SIGNAL(onAdrresses(bool, const std::vector<beam::WalletAddress>&)),
+        SLOT(onAdrresses(bool, const std::vector<beam::WalletAddress>&)));
 }
 
 WalletViewModel::~WalletViewModel()
@@ -220,6 +248,12 @@ void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
     }
 
     emit txChanged();
+
+    // Get info for TxObject::_user_name (get wallets labels)
+    if (_model.async)
+    {
+        _model.async->getAddresses(false);
+    }
 }
 
 void WalletViewModel::onTxPeerUpdated(const std::vector<beam::TxPeer>& peers)
@@ -422,7 +456,6 @@ beam::Amount WalletViewModel::calcTotalAmount() const
     return calcSendAmount() + calcFeeAmount();
 }
 
-
 void WalletViewModel::sendMoney()
 {
     if (!_senderAddr.isEmpty() && !_receiverAddr.isEmpty())
@@ -448,4 +481,32 @@ QString WalletViewModel::actualAvailable() const
 QString WalletViewModel::change() const
 {
     return BeamToString(_change);
+}
+
+void WalletViewModel::onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses)
+{
+    if (own)
+    {
+        return;
+    }
+
+    for (auto* tx : _tx)
+    {
+        auto foundIter = std::find_if(addresses.cbegin(), addresses.cend(), 
+                                      [tx](const auto& address) { return address.m_walletID == tx->peerId(); });
+
+        if (foundIter != addresses.cend())
+        {
+            tx->setUserName(QString::fromStdString(foundIter->m_label));
+        }
+        else if (!tx->userName().isEmpty())
+        {
+            tx->setUserName(QString{});
+        }
+
+        auto displayName = tx->userName().isEmpty() ? tx->user() : tx->userName();
+        tx->setDisplayName(displayName);
+    }
+
+    emit txChanged();
 }

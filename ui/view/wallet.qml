@@ -2,7 +2,6 @@ import QtQuick 2.6
 import QtQuick.Controls 1.2
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
-import QtQuick.Controls 1.4 as QC14
 import QtGraphicalEffects 1.0
 import QtQuick.Layouts 1.3
 import Wallet 1.0
@@ -34,7 +33,7 @@ Item {
     Rectangle {
         id: user_led
         y: 55
-		x: 5
+        x: 5
         width: 10
         height: 10
 
@@ -285,54 +284,13 @@ Item {
                             text: qsTr("Transaction fee")
                         }
 
-                        SFText {
-                            font.pixelSize: 14
-                            font.weight: Font.Bold
-                            color: Style.white
-                            text: feeSlider.value + " BEAM"
-                        }
-
-                        QC14.Slider {
+                        FeeSlider {
                             id: feeSlider
                             Layout.fillWidth: true
 
-                            maximumValue: 0.000002
+                            to: 0.000010
                             stepSize: 0.000001
                             value: 0.0
-                            tickmarksEnabled: true
-
-                            style: SliderStyle {
-
-                                groove: Rectangle {
-                                    implicitWidth: 200
-                                    implicitHeight: 4
-                                    color: "white"
-                                    radius: 10
-                                    opacity: 0.1
-                                }
-
-                                handle: Rectangle {
-                                    anchors.centerIn: parent
-                                    implicitWidth: 20
-                                    implicitHeight: 20
-                                    radius: 10
-
-                                    Rectangle {
-                                        id: shadow
-                                        anchors.fill: parent
-                                        color: Style.bright_teal
-                                        radius: parent.radius
-                                    }
-
-                                    DropShadow {
-                                        anchors.fill: shadow
-                                        radius: 5
-                                        samples: 9
-                                        color: shadow.color
-                                        source: shadow
-                                    }
-                                }
-                            }
                         }
 
                         Binding {
@@ -563,7 +521,7 @@ Item {
 
             anchors.fill: parent;
             anchors.topMargin: 394-33
-			Layout.bottomMargin: 9
+            Layout.bottomMargin: 9
 
             frameVisible: false
             selectionMode: SelectionMode.NoSelection
@@ -599,12 +557,53 @@ Item {
             }
 
             TableViewColumn {
-                role: "user"
+                role: "displayName"
                 title: qsTr("Recipient / Sender ID")
                 width: 260 * (parent.width - 40 - 20) / 916
                 elideMode: Text.ElideMiddle
 
                 movable: false
+                delegate: Item {
+                    anchors.fill: parent
+                    clip:true
+                    property string tooltip_text: (walletViewModel.tx[styleData.row] ? walletViewModel.tx[styleData.row].user : "")
+                    SFText {
+                        font.pixelSize: 12
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.leftMargin: 20
+                        elide: Text.ElideMiddle
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: styleData.value
+                        color: Style.white
+
+                        MouseArea {
+                            id: mouseArea
+                            anchors.fill: parent
+                            acceptedButtons: Qt.NoButton
+                            hoverEnabled: true
+                        }
+
+                        ToolTip {
+                            id: toolTip
+                            visible: mouseArea.containsMouse
+                            delay: 500
+                            timeout: 4000
+                            text: tooltip_text
+
+                            contentItem: Text {
+                                text: toolTip.text
+                                font: toolTip.font
+                                color: Style.white
+                            }
+
+                            background: Rectangle {
+                                border.color: Style.white
+                                opacity: 0
+                            }
+                        }
+                    }
+                }
             }
 
             TableViewColumn {
@@ -693,24 +692,24 @@ Item {
 
             ContextMenu {
                 id: txContextMenu
-				property TxObject transaction
-				property int index;
-				Action {
+                property TxObject transaction
+                property int index;
+                Action {
                     text: qsTr("copy address")
-					icon.source: "qrc:///assets/icon-copy.svg"
-					onTriggered: {
-						if (!!txContextMenu.transaction)
-						{
-							addressBookViewModel.copyToClipboard(txContextMenu.transaction.user);
-						}
+                    icon.source: "qrc:///assets/icon-copy.svg"
+                    onTriggered: {
+                        if (!!txContextMenu.transaction)
+                        {
+                            addressBookViewModel.copyToClipboard(txContextMenu.transaction.user);
+                        }
                     }
                 }
-				Action {
+                Action {
                     text: qsTr("cancel")
                     onTriggered: {
                        walletViewModel.cancelTx(txContextMenu.index);
                     }
-					enabled: !!txContextMenu.transaction && txContextMenu.transaction.canCancel
+                    enabled: !!txContextMenu.transaction && txContextMenu.transaction.canCancel
                     icon.source: "qrc:///assets/icon-cancel.svg"
                 }
             }
@@ -734,7 +733,7 @@ Item {
                     onClicked: {
                         if (mouse.button === Qt.RightButton && styleData.row !== undefined && styleData.row >=0)
                         {
-							txContextMenu.index = styleData.row;
+                            txContextMenu.index = styleData.row;
                             txContextMenu.transaction = walletViewModel.tx[styleData.row];
                             txContextMenu.popup();
                         }

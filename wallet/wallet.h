@@ -172,6 +172,8 @@ namespace beam
         void resetSystemState();
         bool IsKnownStateValid(const proto::ProofStateForDummies&) const;
 
+		virtual bool IsTestMode() { return false; }
+
         struct Cleaner
         {
             Cleaner(std::vector<wallet::Negotiator::Ptr>& t) : m_v{ t } {}
@@ -217,12 +219,9 @@ namespace beam
         std::deque<Coin> m_pendingProofs;
         std::vector<Callback> m_pendingEvents;
 
-        bool m_isValidDefinition;
-        Merkle::Hash m_Definition;
+		Block::SystemState::Full m_newState;
         Block::SystemState::ID m_knownStateID;
-        Block::SystemState::ID m_newStateID;
         std::unique_ptr<StateFinder> m_stateFinder;
-        boost::optional<proto::ProofStateForDummies> m_knownStateProof;
 
         int m_syncDone;
         int m_syncTotal;

@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <ctime>
 #include "block_crypt.h"
+#include "storage.h"
 #include "../utility/serialize.h"
 #include "../core/serialization_adapters.h"
 
@@ -350,14 +351,6 @@ namespace beam
 	{
 		get_Hash(out, pLockImage);
 		HashToID(out);
-	}
-
-	bool TxKernel::IsValidProof(const Merkle::Proof& proof, const Merkle::Hash& root) const
-	{
-		Merkle::Hash hv;
-		get_Hash(hv);
-		Merkle::Interpret(hv, proof);
-		return hv == root;
 	}
 
 	int TxKernel::cmp(const TxKernel& v) const
@@ -942,6 +935,78 @@ namespace beam
 	{
 		get_Hash(hv);
 		m_PoW.get_HashForHist(hv, hv);
+	}
+
+	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const Input& inp, const Input::Proof& p) const
+	{
+		// verify known part. Last node should be at left, earlier should be at right
+		size_t n = p.m_Proof.size();
+		if ((n < 2) ||
+			p.m_Proof[n - 1].first ||
+			!p.m_Proof[n - 2].first)
+			return false;
+
+		Merkle::Hash hv;
+		p.m_State.get_ID(hv, inp);
+
+		Merkle::Interpret(hv, p.m_Proof);
+		return hv == m_Definition;
+	}
+
+	bool Block::SystemState::Sequence::Element::IsValidProofKernel(const TxKernel& krn, const Merkle::Proof& proof) const
+	{
+		// verify known part. Last node should be at left, earlier should be at left
+		size_t n = proof.size();
+		if ((n < 2) ||
+			proof[n - 1].first ||
+			proof[n - 2].first)
+			return false;
+
+		Merkle::Hash hv;
+		krn.get_ID(hv);
+
+		Merkle::Interpret(hv, proof);
+		return hv == m_Definition;
+	}
+
+	bool Block::SystemState::Full::IsValidProofState(const Full& s, const Merkle::Proof& proof) const
+	{
+		// verify the whole proof structure
+		if ((s.m_Height < Rules::HeightGenesis) || (s.m_Height >= m_Height))
+			return false;
+
+		// Construct a "dummy" proof for the expected parent-child state relation, and verify its structure wrt provided.
+		// Can be written more efficiently (avoid allocations), but nevermind
+		struct DummyMmr
+			:public Merkle::Mmr
+		{
+			virtual void LoadElement(Merkle::Hash&, uint64_t nIdx, uint8_t nHeight) const {}
+			virtual void SaveElement(const Merkle::Hash&, uint64_t nIdx, uint8_t nHeight) {}
+
+		} mmr;
+
+		Merkle::Proof dummyProof;
+
+		mmr.m_Count = m_Height - Rules::HeightGenesis;
+		mmr.get_Proof(dummyProof, s.m_Height - Rules::HeightGenesis);
+
+		size_t n = dummyProof.size();
+		if (n + 2 != proof.size())
+			return false;
+
+		for (size_t i = 0; i < n; i++)
+			if (dummyProof[i].first != proof[i].first)
+				return false;
+
+		if (!proof[n].first ||
+			!proof[n + 1].first)
+			return false;
+
+		Merkle::Hash hv;
+		s.get_HashForHist(hv);
+
+		Merkle::Interpret(hv, proof);
+		return hv == m_Definition;
 	}
 
 	void Block::PoW::get_HashForHist(Merkle::Hash& hv, const Merkle::Hash& hvState) const

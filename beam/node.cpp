@@ -1431,8 +1431,8 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 			m_Msg.m_Proofs.resize(m_Msg.m_Proofs.size() + 1);
 			Input::Proof& ret = m_Msg.m_Proofs.back();
 
-			ret.m_Count = v.m_Value.m_Count;
-			ret.m_Maturity = d.m_Maturity;
+			ret.m_State.m_Count = v.m_Value.m_Count;
+			ret.m_State.m_Maturity = d.m_Maturity;
 			m_pTree->get_Proof(ret.m_Proof, *m_pCu);
 
 			ret.m_Proof.reserve(ret.m_Proof.size() + 2);
@@ -1672,7 +1672,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 			>> hv;
 
 		static_assert(sizeof(s.m_PoW.m_Nonce) <= sizeof(hv));
-		LOG_INFO() << "OnRefresh: nonce = " << hv;
+		LOG_INFO() << "Mining nonce = " << hv;
 
 		memcpy(s.m_PoW.m_Nonce.m_pData, hv.m_pData, sizeof(s.m_PoW.m_Nonce.m_pData));
 
