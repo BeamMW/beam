@@ -975,38 +975,53 @@ namespace beam
 		if ((s.m_Height < Rules::HeightGenesis) || (s.m_Height >= m_Height))
 			return false;
 
-		// Construct a "dummy" proof for the expected parent-child state relation, and verify its structure wrt provided.
-		// Can be written more efficiently (avoid allocations), but nevermind
-		struct DummyMmr
+		struct Verifier
 			:public Merkle::Mmr
+			,public Merkle::Mmr::IProofBuilder
 		{
-			virtual void LoadElement(Merkle::Hash&, uint64_t nIdx, uint8_t nHeight) const {}
-			virtual void SaveElement(const Merkle::Hash&, uint64_t nIdx, uint8_t nHeight) {}
+			Merkle::Hash m_hv;
 
-		} mmr;
+			Merkle::Proof::const_iterator m_itPos;
+			Merkle::Proof::const_iterator m_itEnd;
 
-		Merkle::Proof dummyProof;
+			bool InterpretOnce(bool bOnRight)
+			{
+				if (m_itPos == m_itEnd)
+					return false;
 
-		mmr.m_Count = m_Height - Rules::HeightGenesis;
-		mmr.get_Proof(dummyProof, s.m_Height - Rules::HeightGenesis);
+				if (m_itPos->first != bOnRight)
+					return false;
 
-		size_t n = dummyProof.size();
-		if (n + 2 != proof.size())
+				Merkle::Interpret(m_hv, *m_itPos++);
+				return true;
+			}
+
+			virtual bool AppendNode(const Merkle::Node& n) override
+			{
+				return InterpretOnce(n.first);
+			}
+
+			virtual void LoadElement(Merkle::Hash&, uint64_t nIdx, uint8_t nHeight) const override {}
+			virtual void SaveElement(const Merkle::Hash&, uint64_t nIdx, uint8_t nHeight) override {}
+		};
+
+		Verifier vmmr;
+		s.get_HashForHist(vmmr.m_hv);
+		vmmr.m_itPos = proof.begin();
+		vmmr.m_itEnd = proof.end();
+
+		vmmr.m_Count = m_Height - Rules::HeightGenesis;
+		if (!vmmr.get_Proof(vmmr, s.m_Height - Rules::HeightGenesis))
 			return false;
 
-		for (size_t i = 0; i < n; i++)
-			if (dummyProof[i].first != proof[i].first)
-				return false;
-
-		if (!proof[n].first ||
-			!proof[n + 1].first)
+		if (!vmmr.InterpretOnce(true) ||
+			!vmmr.InterpretOnce(true))
+			return false;
+		
+		if (vmmr.m_itPos != vmmr.m_itEnd)
 			return false;
 
-		Merkle::Hash hv;
-		s.get_HashForHist(hv);
-
-		Merkle::Interpret(hv, proof);
-		return hv == m_Definition;
+		return vmmr.m_hv == m_Definition;
 	}
 
 	void Block::PoW::get_HashForHist(Merkle::Hash& hv, const Merkle::Hash& hvState) const
