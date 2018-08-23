@@ -48,6 +48,7 @@ set(UI_SRC
 	viewmodel/settings.cpp
 	viewmodel/address_book.cpp
 	viewmodel/ui_helpers.cpp
+    viewmodel/messages.cpp
 
 	model/wallet.h
 	model/wallet.cpp

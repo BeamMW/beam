@@ -27,6 +27,7 @@
 #include "viewmodel/notifications.h"
 #include "viewmodel/help.h"
 #include "viewmodel/settings.h"
+#include "viewmodel/messages.h"
 
 #include "wallet/wallet_db.h"
 #include "utility/logger.h"
@@ -150,13 +151,14 @@ int main (int argc, char* argv[])
 				NotificationsViewModel	notifications;
 				HelpViewModel			help;
 
-				ViewModel(WalletModel& model, const QDir& appDataDir)
-					: wallet(model)
+				ViewModel(WalletModel& model, MessagesViewModel& messagesModel, const QDir& appDataDir)
+					: wallet(model, messagesModel)
 					, addressBook(model) {}
 			};
 
 			std::unique_ptr<ViewModel> viewModels;
 			SettingsViewModel settingsViewModel(appDataDir.filePath("setting.ini"));
+            MessagesViewModel messagesViewModel;
 
 			Translator translator;
 
@@ -199,7 +201,7 @@ int main (int argc, char* argv[])
 
 				walletModel->start();
 
-				viewModels = std::make_unique<ViewModel>(*walletModel, appDataDir);
+				viewModels = std::make_unique<ViewModel>(*walletModel, messagesViewModel, appDataDir);
 
 				QQmlContext *ctxt = view.rootContext();
 
@@ -215,10 +217,11 @@ int main (int argc, char* argv[])
 			});
 
 			view.rootContext()->setContextProperty("startViewModel", &startViewModel);
+            view.rootContext()->setContextProperty("messagesViewModel", &messagesViewModel);
 
 			view.setSource(QUrl("qrc:///root.qml"));
 
-			view.show();
+            view.show();
 
 			return app.exec();
 		}
