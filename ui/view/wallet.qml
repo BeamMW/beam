@@ -2,7 +2,6 @@ import QtQuick 2.6
 import QtQuick.Controls 1.2
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
-import QtQuick.Controls 1.4 as QC14
 import QtGraphicalEffects 1.0
 import QtQuick.Layouts 1.3
 import Wallet 1.0
@@ -285,54 +284,14 @@ Item {
                             text: qsTr("Transaction fee")
                         }
 
-                        SFText {
-                            font.pixelSize: 14
-                            font.weight: Font.Bold
-                            color: Style.white
-                            text: feeSlider.value + " BEAM"
-                        }
-
-                        QC14.Slider {
+                        FeeSlider {
                             id: feeSlider
                             Layout.fillWidth: true
+                            Layout.rightMargin: 30
 
-                            maximumValue: 0.000002
+                            to: 0.000003
                             stepSize: 0.000001
                             value: 0.0
-                            tickmarksEnabled: true
-
-                            style: SliderStyle {
-
-                                groove: Rectangle {
-                                    implicitWidth: 200
-                                    implicitHeight: 4
-                                    color: "white"
-                                    radius: 10
-                                    opacity: 0.1
-                                }
-
-                                handle: Rectangle {
-                                    anchors.centerIn: parent
-                                    implicitWidth: 20
-                                    implicitHeight: 20
-                                    radius: 10
-
-                                    Rectangle {
-                                        id: shadow
-                                        anchors.fill: parent
-                                        color: Style.bright_teal
-                                        radius: parent.radius
-                                    }
-
-                                    DropShadow {
-                                        anchors.fill: shadow
-                                        radius: 5
-                                        samples: 9
-                                        color: shadow.color
-                                        source: shadow
-                                    }
-                                }
-                            }
                         }
 
                         Binding {

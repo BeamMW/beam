@@ -16,6 +16,7 @@
         <file>controls/CustomButton.qml</file>
         <file>controls/ConfirmationDialog.qml</file>
         <file>controls/CustomTableView.qml</file>
+        <file>controls/FeeSlider.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>
         <file>main.qml</file>
