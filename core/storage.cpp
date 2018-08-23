@@ -695,6 +695,25 @@ bool Merkle::Mmr::get_HashForRange(Hash& hv, uint64_t n0, uint64_t n) const
 
 void Merkle::Mmr::get_Proof(Proof& proof, uint64_t i) const
 {
+	struct Builder
+		:public IProofBuilder
+	{
+		Builder(Proof& res) :m_Res(res) {}
+		Proof& m_Res;
+
+		virtual bool AppendNode(const Node& n) override
+		{
+			m_Res.push_back(n);
+			return true;
+		}
+	};
+
+	Builder bld(proof);
+	verify(get_Proof(bld, i));
+}
+
+bool Merkle::Mmr::get_Proof(IProofBuilder& proof, uint64_t i) const
+{
 	assert(i < m_Count);
 
 	uint64_t n = m_Count;
@@ -722,8 +741,11 @@ void Merkle::Mmr::get_Proof(Proof& proof, uint64_t i) const
 		if (bFullSibling)
 			LoadElement(node.second, nSibling, nHeight);
 
-		proof.push_back(std::move(node)); // TODO: avoid copy?
+		if (!proof.AppendNode(node))
+			return false;
 	}
+
+	return true;
 }
 
 /////////////////////////////
