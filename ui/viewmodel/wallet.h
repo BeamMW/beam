@@ -25,6 +25,8 @@ class TxObject : public QObject
         Q_PROPERTY(bool income           READ income       NOTIFY incomeChanged)
         Q_PROPERTY(QString date          READ date         NOTIFY dateChanged)
         Q_PROPERTY(QString user          READ user         NOTIFY userChanged)
+        Q_PROPERTY(QString userName      READ userName     NOTIFY userChanged)
+		Q_PROPERTY(QString displayName   READ displayName  NOTIFY displayNameChanged)
         Q_PROPERTY(QString comment       READ comment      NOTIFY commentChanged)
         Q_PROPERTY(QString amount        READ amount       NOTIFY amountChanged)
         Q_PROPERTY(QString change        READ change       NOTIFY changeChanged)
@@ -38,16 +40,24 @@ public:
     bool income() const;
     QString date() const;
     QString user() const;
+	QString userName() const;
+	QString displayName() const;
     QString comment() const;
     QString amount() const;
     QString change() const;
     QString status() const;
     bool canCancel() const;
 
+	beam::WalletID peerId() const;
+
+	void setUserName(QString name);
+    void setDisplayName(QString name);
+
 signals:
     void incomeChanged();
     void dateChanged();
     void userChanged();
+	void displayNameChanged();
     void commentChanged();
     void amountChanged();
     void changeChanged();
@@ -56,6 +66,8 @@ signals:
 
 public:
     beam::TxDescription _tx;
+	QString _userName;
+    QString _displayName;
 };
 
 class UtxoItem : public QObject
@@ -161,6 +173,7 @@ public slots:
     void onChangeCalculated(beam::Amount change);
     void onAllUtxoChanged(const std::vector<beam::Coin>& utxos);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
+	void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
 
 signals:
     void stateChanged();

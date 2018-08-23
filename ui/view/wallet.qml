@@ -33,7 +33,7 @@ Item {
     Rectangle {
         id: user_led
         y: 55
-		x: 5
+        x: 5
         width: 10
         height: 10
 
@@ -570,7 +570,7 @@ Item {
 
             anchors.fill: parent;
             anchors.topMargin: 394-33
-			Layout.bottomMargin: 9
+            Layout.bottomMargin: 9
 
             frameVisible: false
             selectionMode: SelectionMode.NoSelection
@@ -606,12 +606,53 @@ Item {
             }
 
             TableViewColumn {
-                role: "user"
+                role: "displayName"
                 title: qsTr("Recipient / Sender ID")
                 width: 260 * (parent.width - 40 - 20) / 916
                 elideMode: Text.ElideMiddle
 
                 movable: false
+                delegate: Item {
+                    anchors.fill: parent
+                    clip:true
+                    property string tooltip_text: (walletViewModel.tx[styleData.row] ? walletViewModel.tx[styleData.row].user : "")
+                    SFText {
+                        font.pixelSize: 12
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.leftMargin: 20
+                        elide: Text.ElideMiddle
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: styleData.value
+                        color: Style.white
+
+                        MouseArea {
+                            id: mouseArea
+                            anchors.fill: parent
+                            acceptedButtons: Qt.NoButton
+                            hoverEnabled: true
+                        }
+
+                        ToolTip {
+                            id: toolTip
+                            visible: mouseArea.containsMouse
+                            delay: 500
+                            timeout: 4000
+                            text: tooltip_text
+
+                            contentItem: Text {
+                                text: toolTip.text
+                                font: toolTip.font
+                                color: Style.white
+                            }
+
+                            background: Rectangle {
+                                border.color: Style.white
+                                opacity: 0
+                            }
+                        }
+                    }
+                }
             }
 
             TableViewColumn {
@@ -700,24 +741,24 @@ Item {
 
             ContextMenu {
                 id: txContextMenu
-				property TxObject transaction
-				property int index;
-				Action {
+                property TxObject transaction
+                property int index;
+                Action {
                     text: qsTr("copy address")
-					icon.source: "qrc:///assets/icon-copy.svg"
-					onTriggered: {
-						if (!!txContextMenu.transaction)
-						{
-							addressBookViewModel.copyToClipboard(txContextMenu.transaction.user);
-						}
+                    icon.source: "qrc:///assets/icon-copy.svg"
+                    onTriggered: {
+                        if (!!txContextMenu.transaction)
+                        {
+                            addressBookViewModel.copyToClipboard(txContextMenu.transaction.user);
+                        }
                     }
                 }
-				Action {
+                Action {
                     text: qsTr("cancel")
                     onTriggered: {
                        walletViewModel.cancelTx(txContextMenu.index);
                     }
-					enabled: !!txContextMenu.transaction && txContextMenu.transaction.canCancel
+                    enabled: !!txContextMenu.transaction && txContextMenu.transaction.canCancel
                     icon.source: "qrc:///assets/icon-cancel.svg"
                 }
             }
@@ -741,7 +782,7 @@ Item {
                     onClicked: {
                         if (mouse.button === Qt.RightButton && styleData.row !== undefined && styleData.row >=0)
                         {
-							txContextMenu.index = styleData.row;
+                            txContextMenu.index = styleData.row;
                             txContextMenu.transaction = walletViewModel.tx[styleData.row];
                             txContextMenu.popup();
                         }
