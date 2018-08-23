@@ -328,7 +328,7 @@ void Node::Processor::OnNewState()
 
 	proto::NewTip msg;
 	msgHdr.m_Description.get_ID(msg.m_ID);
-	msg.m_ChainWork = m_Cursor.m_ChainWork;
+	msg.m_ChainWork = m_Cursor.m_Full.m_ChainWork;
 
 	LOG_INFO() << "My Tip: " << msg.m_ID;
 
@@ -801,7 +801,7 @@ void Node::Peer::OnConnectedSecure()
 	{
 		proto::NewTip msg;
 		msg.m_ID = m_This.m_Processor.m_Cursor.m_ID;
-		msg.m_ChainWork = m_This.m_Processor.m_Cursor.m_ChainWork;
+		msg.m_ChainWork = m_This.m_Processor.m_Cursor.m_Full.m_ChainWork;
 		Send(msg);
 	}
 }
@@ -1369,10 +1369,6 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 		msgOut.m_Proof.back().first = true;
-		p.get_ChainWork(msgOut.m_Proof.back().second, false);
-
-		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-		msgOut.m_Proof.back().first = true;
 		p.get_CurrentLive(msgOut.m_Proof.back().second);
 
 		uint64_t rowid = p.FindActiveAtStrict(msg.m_Height);
@@ -1404,7 +1400,7 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 		msgOut.m_Proof.back().first = false;
-		m_This.m_Processor.get_CurrentPart2(msgOut.m_Proof.back().second, false);
+		msgOut.m_Proof.back().second = m_This.m_Processor.m_Cursor.m_History;
 
 		if (msg.m_RequestHashPreimage)
 			m_This.m_Processor.get_KernelHashPreimage(msg.m_ID, msgOut.m_HashPreimage);
@@ -1419,7 +1415,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	{
 		proto::ProofUtxo m_Msg;
 		UtxoTree* m_pTree;
-		Merkle::Hash m_hvPart2;
+		Merkle::Hash m_hvHistory;
 		Merkle::Hash m_hvKernels;
 
 		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
@@ -1443,7 +1439,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 
 			ret.m_Proof.resize(ret.m_Proof.size() + 1);
 			ret.m_Proof.back().first = false;
-			ret.m_Proof.back().second = m_hvPart2;
+			ret.m_Proof.back().second = m_hvHistory;
 
 			return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
 		}
@@ -1451,7 +1447,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 
 	t.m_pTree = &m_This.m_Processor.get_Utxos();
 	m_This.m_Processor.get_Kernels().get_Hash(t.m_hvKernels);
-	m_This.m_Processor.get_CurrentPart2(t.m_hvPart2, false);
+	t.m_hvHistory = m_This.m_Processor.m_Cursor.m_History;
 
 	UtxoTree::Cursor cu;
 	t.m_pCu = &cu;

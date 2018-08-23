@@ -867,7 +867,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(3) // increment this whenever we change something in the protocol
+			<< uint32_t(4) // increment this whenever we change something in the protocol
 			// out
 			>> Checksum;
 	}
@@ -880,13 +880,14 @@ namespace beam
 		return 0;
 	}
 
-	void Block::SystemState::Full::Set(Prefix& p, const Element& x)
+	void Block::SystemState::Full::NextPrefix()
 	{
-		((Prefix&) *this) = p;
-		((Element&) *this) = x;
-
-		get_Hash(p.m_Prev);
-		p.m_Height++;
+		get_Hash(m_Prev);
+		m_Height++;
+		
+		Difficulty::Raw inc;
+		m_PoW.m_Difficulty.Unpack(inc);
+		m_ChainWork += inc;
 	}
 
 	void Block::SystemState::Full::get_Hash(Merkle::Hash& out) const
@@ -898,6 +899,7 @@ namespace beam
 			<< m_Prev
 			<< m_Definition
 			<< m_PoW.m_Difficulty.m_Packed
+			<< m_ChainWork
 			>> out;
 	}
 
@@ -1014,8 +1016,7 @@ namespace beam
 		if (!vmmr.get_Proof(vmmr, s.m_Height - Rules::HeightGenesis))
 			return false;
 
-		if (!vmmr.InterpretOnce(true) ||
-			!vmmr.InterpretOnce(true))
+		if (!vmmr.InterpretOnce(true))
 			return false;
 		
 		if (vmmr.m_itPos != vmmr.m_itEnd)
