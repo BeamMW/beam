@@ -4,9 +4,13 @@ import QtQuick.Controls 2.3
 import QtQuick.Layouts 1.0
 import QtQuick.Controls.Styles 1.2
 import "controls"
+import Beam.Wallet 1.0
 
 ColumnLayout {
     id: addressRoot
+
+	AddressBookViewModel {id: viewModel}
+
     width: 800
     height: 600
     anchors.fill: parent
@@ -113,12 +117,12 @@ ColumnLayout {
                         focus: true
 						font.pixelSize: 12
 						color: Style.white
-						text: addressBookViewModel.newPeerAddress.walletID
+						text: viewModel.newPeerAddress.walletID
                         validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
 					}
 
 					Binding {
-						target: addressBookViewModel.newPeerAddress
+						target: viewModel.newPeerAddress
 						property: "walletID"
 						value: addressID.text
 					}
@@ -139,10 +143,10 @@ ColumnLayout {
 						id: nameAddress
 						font.pixelSize: 12
 						color: Style.white
-						text: addressBookViewModel.newPeerAddress.name
+						text: viewModel.newPeerAddress.name
 					}
 					Binding {
-						target: addressBookViewModel.newPeerAddress
+						target: viewModel.newPeerAddress
 						property: "name"
 						value: nameAddress.text
 					}
@@ -163,11 +167,11 @@ ColumnLayout {
 						id: categoryAddress
 						font.pixelSize: 12
 						color: Style.white
-						text: addressBookViewModel.newPeerAddress.category
+						text: viewModel.newPeerAddress.category
 					}
 
 					Binding {
-						target: addressBookViewModel.newPeerAddress
+						target: viewModel.newPeerAddress
 						property: "category"
 						value: categoryAddress.text
 					}
@@ -199,7 +203,7 @@ ColumnLayout {
 						color: Style.disable_text_color
 						readOnly: true
                         activeFocusOnTab: false
-						text: addressBookViewModel.newOwnAddress.walletID
+						text: viewModel.newOwnAddress.walletID
 					}
 
                     SFText {
@@ -219,11 +223,11 @@ ColumnLayout {
                         focus: true
 						font.pixelSize: 12
 						color: Style.white
-						text: addressBookViewModel.newOwnAddress.name
+						text: viewModel.newOwnAddress.name
 					}
 
 					Binding {
-						target: addressBookViewModel.newOwnAddress
+						target: viewModel.newOwnAddress
 						property: "name"
 						value: nameOwnAddress.text
 					}
@@ -245,11 +249,11 @@ ColumnLayout {
 						id: categoryOwnAddress
 						font.pixelSize: 12
 						color: Style.white
-						text: addressBookViewModel.newOwnAddress.category
+						text: viewModel.newOwnAddress.category
 					}
 
 					Binding {
-						target: addressBookViewModel.newOwnAddress
+						target: viewModel.newOwnAddress
 						property: "category"
 						value: categoryOwnAddress.text
 					}
@@ -286,17 +290,17 @@ ColumnLayout {
 							palette.buttonText: Style.marine
 							enabled: {
 								if (createAddressLayout.state == "own") {
-									return addressBookViewModel.newOwnAddress.walletID != "";
+									return viewModel.newOwnAddress.walletID != "";
 								} else {
-									return addressBookViewModel.newPeerAddress.walletID != "";
+									return viewModel.newPeerAddress.walletID != "";
 								}
 							}
 								
 							onClicked: {
                                 if (createAddressLayout.state == "own") {
-									addressBookViewModel.createNewOwnAddress();
+									viewModel.createNewOwnAddress();
 								} else {
-									addressBookViewModel.createNewPeerAddress();
+									viewModel.createNewPeerAddress();
 								}
 								createAddress.close();
 							}
@@ -366,7 +370,7 @@ ColumnLayout {
 				palette.buttonText: Style.white
 				icon.source: "qrc:///assets/icon-add.svg"
                 onClicked: {
-					addressBookViewModel.generateNewEmptyAddress();
+					viewModel.generateNewEmptyAddress();
 					createAddressLayout.state = addressRoot.state;
 					createAddress.open();
 				}
@@ -385,7 +389,7 @@ ColumnLayout {
             frameVisible: false
             selectionMode: SelectionMode.SingleSelection
             backgroundVisible: false
-            model: addressBookViewModel.peerAddresses
+            model: viewModel.peerAddresses
             visible: false
 
             TableViewColumn {
@@ -436,7 +440,7 @@ ColumnLayout {
                     text: qsTr("send money")
 					icon.source: "qrc:///assets/icon-send-grey.svg"
                     onTriggered: {
-                        addressBookViewModel.changeCurrentPeerAddress(peerAddressContextMenu.index);
+                        viewModel.changeCurrentPeerAddress(peerAddressContextMenu.index);
 						main.openSendDialog();
                     }
                 }
@@ -457,8 +461,8 @@ ColumnLayout {
 					onTriggered: {
 						if (peerAddressContextMenu.index >= 0)
 						{
-							var addr = addressBookViewModel.peerAddresses[peerAddressContextMenu.index];
-							addressBookViewModel.copyToClipboard(addr.walletID);
+							var addr = viewModel.peerAddresses[peerAddressContextMenu.index];
+							viewModel.copyToClipboard(addr.walletID);
 						}
                     }
                 }
@@ -472,7 +476,7 @@ ColumnLayout {
 					icon.source: "qrc:///assets/icon-cancel.svg"
 					onTriggered: {
                         var message = qsTr("The address %1 will be deleted. This operation can not be undone")
-                        confirmationDialog.text = message.arg(addressBookViewModel.peerAddresses[peerAddressContextMenu.index].walletID)
+                        confirmationDialog.text = message.arg(viewModel.peerAddresses[peerAddressContextMenu.index].walletID)
                         confirmationDialog.isOwn = false
                         confirmationDialog.open();
                     }                    
@@ -481,7 +485,7 @@ ColumnLayout {
                     target: confirmationDialog
                     onAccepted: {
                         if (!confirmationDialog.isOwn)
-                            addressBookViewModel.deletePeerAddress(peerAddressContextMenu.index);
+                            viewModel.deletePeerAddress(peerAddressContextMenu.index);
                     }
                 }
             }
@@ -495,8 +499,8 @@ ColumnLayout {
 					onTriggered: {
 						if (ownAddressContextMenu.index >= 0)
 						{
-							var addr = addressBookViewModel.ownAddresses[ownAddressContextMenu.index];
-							addressBookViewModel.copyToClipboard(addr.walletID);
+							var addr = viewModel.ownAddresses[ownAddressContextMenu.index];
+							viewModel.copyToClipboard(addr.walletID);
 						}
                     }
                 }
@@ -505,19 +509,19 @@ ColumnLayout {
 					icon.source: "qrc:///assets/icon-cancel.svg"
 					onTriggered: {
                         var message = qsTr("The address %1 will be deleted. This operation can not be undone")
-                        confirmationDialog.text = message.arg(addressBookViewModel.ownAddresses[ownAddressContextMenu.index].walletID)
+                        confirmationDialog.text = message.arg(viewModel.ownAddresses[ownAddressContextMenu.index].walletID)
                         confirmationDialog.isOwn = true
                         confirmationDialog.open();
                     }
                     // User shouldn't delete "default" or last own adress
                     enabled: ((ownAddressesView.rowCount > 1) && 
-                              (addressBookViewModel.ownAddresses[ownAddressContextMenu.index].name !== "default"))
+                              (viewModel.ownAddresses[ownAddressContextMenu.index].name !== "default"))
                 }
                 Connections {
                     target: confirmationDialog
                     onAccepted: {
                         if (confirmationDialog.isOwn)
-                            addressBookViewModel.deleteOwnAddress(ownAddressContextMenu.index);
+                            viewModel.deleteOwnAddress(ownAddressContextMenu.index);
                     }
                 }
             }
@@ -563,7 +567,7 @@ ColumnLayout {
             frameVisible: false
             selectionMode: SelectionMode.NoSelection
             backgroundVisible: false
-            model: addressBookViewModel.ownAddresses
+            model: viewModel.ownAddresses
 
             TableViewColumn {
                 role: "walletID"

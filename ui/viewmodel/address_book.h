@@ -86,7 +86,7 @@ public:
 
 public:
 
-    AddressBookViewModel(WalletModel& model);
+    AddressBookViewModel();
 
 	QQmlListProperty<PeerAddressItem> getPeerAddresses();
 	QQmlListProperty<OwnAddressItem> getOwnAddresses();

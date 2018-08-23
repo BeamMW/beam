@@ -15,48 +15,34 @@
 #include "settings.h"
 #include "version.h"
 #include <QtQuick>
+#include "model/app_model.h"
 
-namespace
-{
-	const char* NodeAddressName = "node/address";
-}
+using namespace std;
 
-SettingsViewModel::SettingsViewModel(const QString& iniPath)
-	: _data(iniPath, QSettings::IniFormat)
+SettingsViewModel::SettingsViewModel()
+    : m_settings{AppModel::getInstance()->getSettings()}
 {
 
 }
 
-void SettingsViewModel::initModel(WalletModel::Ptr model)
-{
-	_model = model;
-}
 
-QString SettingsViewModel::nodeAddress() const
+QString SettingsViewModel::getNodeAddress() const
 {
-	return _data.value(NodeAddressName).toString();
+    return m_settings.getNodeAddress();
 }
 
 QString SettingsViewModel::version() const
 {
-	return QString::fromStdString(PROJECT_VERSION);
+    return QString::fromStdString(PROJECT_VERSION);
 }
 
 void SettingsViewModel::applyChanges(const QString& addr)
 {
-	if (addr != nodeAddress())
-	{
-		_data.setValue(NodeAddressName, addr);
-
-		if(_model)
-			_model->async->setNodeAddress(addr.toStdString());
-
-		emit nodeAddressChanged();
-	}
+    m_settings.setNodeAddress(addr);
+    emit nodeAddressChanged();
 }
 
 void SettingsViewModel::emergencyReset()
 {
-	if (_model)
-		_model->async->emergencyReset();
+    m_settings.emergencyReset();
 }

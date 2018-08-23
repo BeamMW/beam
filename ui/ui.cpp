@@ -21,12 +21,14 @@
 #include <qqmlcontext.h>
 #include "viewmodel/start.h"
 #include "viewmodel/main.h"
+#include "viewmodel/utxo.h"
 #include "viewmodel/dashboard.h"
 #include "viewmodel/address_book.h"
 #include "viewmodel/wallet.h"
 #include "viewmodel/notifications.h"
 #include "viewmodel/help.h"
 #include "viewmodel/settings.h"
+#include "model/app_model.h"
 
 #include "wallet/wallet_db.h"
 #include "utility/logger.h"
@@ -70,167 +72,120 @@ using namespace ECC;
 
 int main (int argc, char* argv[])
 {
-	QApplication app(argc, argv);
+    QApplication app(argc, argv);
 
-	QApplication::setApplicationName("Beam Wallet");
+    QApplication::setApplicationName("Beam Wallet");
 
-	QDir appDataDir(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
+    QDir appDataDir(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
 
-	try
-	{
-		po::options_description options = createOptionsDescription();
-		po::variables_map vm;
+    try
+    {
+        po::options_description options = createOptionsDescription();
+        po::variables_map vm;
 
-		try
-		{
-			vm = getOptions(argc, argv, "beam-wallet.cfg", options);
-		}
-		catch (const po::error& e)
-		{
-			cout << e.what() << std::endl;
-			cout << options << std::endl;
+        try
+        {
+            vm = getOptions(argc, argv, "beam-wallet.cfg", options);
+        }
+        catch (const po::error& e)
+        {
+            cout << e.what() << std::endl;
+            cout << options << std::endl;
 
-			return -1;
-		}
+            return -1;
+        }
 
-		if (vm.count(cli::HELP))
-		{
-			cout << options << std::endl;
+        if (vm.count(cli::HELP))
+        {
+            cout << options << std::endl;
 
-			return 0;
-		}
+            return 0;
+        }
 
-		if (vm.count(cli::VERSION))
-		{
-			cout << PROJECT_VERSION << endl;
-			return 0;
-		}
+        if (vm.count(cli::VERSION))
+        {
+            cout << PROJECT_VERSION << endl;
+            return 0;
+        }
 
-		if (vm.count(cli::GIT_COMMIT_HASH))
-		{
-			cout << GIT_COMMIT_HASH << endl;
-			return 0;
-		}
+        if (vm.count(cli::GIT_COMMIT_HASH))
+        {
+            cout << GIT_COMMIT_HASH << endl;
+            return 0;
+        }
 
-		if (vm.count(cli::APPDATA_PATH))
-		{
-			appDataDir = QString::fromStdString(vm[cli::APPDATA_PATH].as<string>());
-		}
+        if (vm.count(cli::APPDATA_PATH))
+        {
+            appDataDir = QString::fromStdString(vm[cli::APPDATA_PATH].as<string>());
+        }
 
-		int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
-		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
+        int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
+        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
 #if LOG_VERBOSE_ENABLED
-		logLevel = LOG_LEVEL_VERBOSE;
+        logLevel = LOG_LEVEL_VERBOSE;
 #endif
-		
-		auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_", appDataDir.filePath("./logs").toStdString());
+        
+        auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_", appDataDir.filePath("./logs").toStdString());
 
-		try
-		{
-			Rules::get().UpdateChecksum();
-			LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+        try
+        {
+            Rules::get().UpdateChecksum();
+            LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
-			auto walletStorage = appDataDir.filePath("wallet.db").toStdString();
+            auto walletStorage = appDataDir.filePath("wallet.db").toStdString();
             auto bbsStorage = appDataDir.filePath("keys.bbs").toStdString();
 
-			QQuickView view;
-			view.setResizeMode(QQuickView::SizeRootObjectToView);
+            QQuickView view;
+            view.setResizeMode(QQuickView::SizeRootObjectToView);
             view.setMinimumSize(QSize(860, 700));
 
-			IKeyStore::Ptr keystore;
+            WalletSettings settings(appDataDir.filePath("setting.ini"));
+            AppModel appModel(settings);
 
-			WalletModel::Ptr walletModel;
+            settings.setWalletStorage(walletStorage);
+            settings.setBbsStorage(bbsStorage);
 
-			struct ViewModel
-			{
-				MainViewModel			main;
-				DashboardViewModel		dashboard;
-				WalletViewModel			wallet;
-				AddressBookViewModel    addressBook;
-				NotificationsViewModel	notifications;
-				HelpViewModel			help;
-
-				ViewModel(WalletModel& model, const QDir& appDataDir)
-					: wallet(model)
-					, addressBook(model) {}
-			};
-
-			std::unique_ptr<ViewModel> viewModels;
-			SettingsViewModel settingsViewModel(appDataDir.filePath("setting.ini"));
-
-			Translator translator;
-
-			StartViewModel startViewModel(walletStorage, bbsStorage, [&](IKeyChain::Ptr db, const std::string& walletPass)
-			{
-				qmlRegisterType<PeerAddressItem>("AddressBook", 1, 0, "PeerAddressItem");
-				qmlRegisterType<OwnAddressItem>("AddressBook", 1, 0, "OwnAddressItem");
-				qmlRegisterType<TxObject>("Wallet", 1, 0, "TxObject");
-				qmlRegisterType<UtxoItem>("Wallet", 1, 0, "UtxoItem");
-
-				IKeyStore::Options options;
-				options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-				options.fileName = bbsStorage;
-
-                try
+            if (settings.getNodeAddress().isEmpty())
+            {
+                if (vm.count(cli::NODE_ADDR))
                 {
-                    keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
+                    string nodeAddr = vm[cli::NODE_ADDR].as<string>();
+                    settings.setNodeAddress(nodeAddr.c_str());
                 }
-                catch (const beam::KeyStoreException& ex)
-                {
-                    QMessageBox::critical(0, "Error", "Failed to read key store", QMessageBox::Ok);
-                    return false;
-                }
+            }
 
-				std::string nodeAddr = "0.0.0.0";
-				if (settingsViewModel.nodeAddress().isEmpty())
-				{
-					if (vm.count(cli::NODE_ADDR))
-					{
-						nodeAddr = vm[cli::NODE_ADDR].as<string>();
-					}
-				}
-				else
-				{
-					nodeAddr = settingsViewModel.nodeAddress().toStdString();
-				}
+            qmlRegisterType<StartViewModel>("Beam.Wallet", 1, 0, "StartViewModel");
+            qmlRegisterType<MainViewModel>("Beam.Wallet", 1, 0, "MainViewModel");
+            qmlRegisterType<DashboardViewModel>("Beam.Wallet", 1, 0, "DashboardViewModel");
+            qmlRegisterType<WalletViewModel>("Beam.Wallet", 1, 0, "WalletViewModel");
+            qmlRegisterType<UtxoViewModel>("Beam.Wallet", 1, 0, "UtxoViewModel");
+            qmlRegisterType<SettingsViewModel>("Beam.Wallet", 1, 0, "SettingsViewModel");
+            qmlRegisterType<AddressBookViewModel>("Beam.Wallet", 1, 0, "AddressBookViewModel");
+            qmlRegisterType<NotificationsViewModel>("Beam.Wallet", 1, 0, "NotificationsViewModel");
+            qmlRegisterType<HelpViewModel>("Beam.Wallet", 1, 0, "HelpViewModel");
 
-				walletModel = std::make_shared<WalletModel>(db, keystore, nodeAddr);
-				settingsViewModel.initModel(walletModel);
+            qmlRegisterType<PeerAddressItem>("Beam.Wallet", 1, 0, "PeerAddressItem");
+            qmlRegisterType<OwnAddressItem>("Beam.Wallet", 1, 0, "OwnAddressItem");
+            qmlRegisterType<TxObject>("Beam.Wallet", 1, 0, "TxObject");
+            qmlRegisterType<UtxoItem>("Beam.Wallet", 1, 0, "UtxoItem");
 
-				walletModel->start();
+            Translator translator;
 
-				viewModels = std::make_unique<ViewModel>(*walletModel, appDataDir);
+            view.setSource(QUrl("qrc:///root.qml"));
 
-				QQmlContext *ctxt = view.rootContext();
+            view.show();
 
-				// TODO: try move instantiation of view models to views
-				ctxt->setContextProperty("mainViewModel", &viewModels->main);
-				ctxt->setContextProperty("walletViewModel", &viewModels->wallet);
-				ctxt->setContextProperty("addressBookViewModel", &viewModels->addressBook);
-				ctxt->setContextProperty("settingsViewModel", &settingsViewModel);
-				ctxt->setContextProperty("translator", &translator);
-
-				view.rootObject()->setProperty("source", "qrc:///main.qml");
-                return true;
-			});
-
-			view.rootContext()->setContextProperty("startViewModel", &startViewModel);
-
-			view.setSource(QUrl("qrc:///root.qml"));
-
-			view.show();
-
-			return app.exec();
-		}
-		catch (const po::error& e)
-		{
-			LOG_ERROR() << e.what();
-			return -1;
-		}
-	}
-	catch (const std::exception& e)
-	{
-		std::cout << e.what() << std::endl;
-		return -1;
-	}
+            return app.exec();
+        }
+        catch (const po::error& e)
+        {
+            LOG_ERROR() << e.what();
+            return -1;
+        }
+    }
+    catch (const std::exception& e)
+    {
+        std::cout << e.what() << std::endl;
+        return -1;
+    }
 }
