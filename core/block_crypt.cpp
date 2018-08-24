@@ -890,17 +890,35 @@ namespace beam
 		m_ChainWork += inc;
 	}
 
-	void Block::SystemState::Full::get_Hash(Merkle::Hash& out) const
+	void Block::SystemState::Full::get_HashInternal(Merkle::Hash& out, bool bTotal) const
 	{
 		// Our formula:
-		ECC::Hash::Processor()
+		ECC::Hash::Processor hp;
+		hp
 			<< m_Height
-			<< m_TimeStamp
 			<< m_Prev
-			<< m_Definition
-			<< m_PoW.m_Difficulty.m_Packed
 			<< m_ChainWork
-			>> out;
+			<< m_Definition
+			<< m_TimeStamp
+			<< m_PoW.m_Difficulty.m_Packed;
+
+		if (bTotal)
+		{
+			hp.Write(&m_PoW.m_Indices.at(0), sizeof(m_PoW.m_Indices));
+			hp.Write(m_PoW.m_Nonce.m_pData, sizeof(m_PoW.m_Nonce.m_pData));
+		}
+
+		hp >> out;
+	}
+
+	void Block::SystemState::Full::get_HashForPoW(Merkle::Hash& hv) const
+	{
+		get_HashInternal(hv, false);
+	}
+
+	void Block::SystemState::Full::get_Hash(Merkle::Hash& hv) const
+	{
+		get_HashInternal(hv, true);
 	}
 
 	bool Block::SystemState::Full::IsSane() const
@@ -922,21 +940,15 @@ namespace beam
 	bool Block::SystemState::Full::IsValidPoW() const
 	{
 		Merkle::Hash hv;
-		get_Hash(hv);
+		get_HashForPoW(hv);
 		return m_PoW.IsValid(hv.m_pData, sizeof(hv.m_pData));
 	}
 
 	bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
 	{
 		Merkle::Hash hv;
-		get_Hash(hv);
+		get_HashForPoW(hv);
 		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
-	}
-
-	void Block::SystemState::Full::get_HashForHist(Merkle::Hash& hv) const
-	{
-		get_Hash(hv);
-		m_PoW.get_HashForHist(hv, hv);
 	}
 
 	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const Input& inp, const Input::Proof& p) const
@@ -1008,7 +1020,7 @@ namespace beam
 		};
 
 		Verifier vmmr;
-		s.get_HashForHist(vmmr.m_hv);
+		s.get_Hash(vmmr.m_hv);
 		vmmr.m_itPos = proof.begin();
 		vmmr.m_itEnd = proof.end();
 
@@ -1023,19 +1035,6 @@ namespace beam
 			return false;
 
 		return vmmr.m_hv == m_Definition;
-	}
-
-	void Block::PoW::get_HashForHist(Merkle::Hash& hv, const Merkle::Hash& hvState) const
-	{
-		ECC::Hash::Processor hp;
-		hp.Write(&m_Indices.at(0), sizeof(m_Indices));
-		hp.Write(m_Nonce.m_pData, sizeof(m_Nonce.m_pData));
-		hp << m_Difficulty.m_Packed;
-
-		Merkle::Hash hvPow;
-		hp >> hvPow;
-
-		Merkle::Interpret(hv, hvState, hvPow);
 	}
 
 	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb, bool bSubsidyOpen)

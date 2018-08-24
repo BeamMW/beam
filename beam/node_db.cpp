@@ -1352,17 +1352,12 @@ void NodeDB::Dmmr::get_NodeHash(Merkle::Hash& hv, Key rowid) const
 
 void NodeDB::Dmmr::get_NodeHashInternal(Merkle::Hash& hv, Key rowid)
 {
-	Recordset rs(m_This, Query::HashForHist, "SELECT " TblStates_Hash "," TblStates_PoW " FROM " TblStates " WHERE rowid=?");
+	Recordset rs(m_This, Query::HashForHist, "SELECT " TblStates_Hash " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 
 	rs.StepStrict();
 
 	rs.get(0, hv);
-
-	Block::PoW pow;
-	rs.get(1, pow);
-
-	pow.get_HashForHist(hv, hv);
 }
 
 void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
@@ -1418,7 +1413,7 @@ void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
 {
 	Block::SystemState::Full s;
 	get_State(sid.m_Row, s);
-	s.get_HashForHist(hv);
+	s.get_Hash(hv);
 
     Dmmr dmmr(*this);
     dmmr.m_Count = sid.m_Height - Rules::HeightGenesis;

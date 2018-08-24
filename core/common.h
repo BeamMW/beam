@@ -475,8 +475,6 @@ namespace beam
 			// returns false only if cancelled
 			bool Solve(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
 
-			void get_HashForHist(Merkle::Hash& hv, const Merkle::Hash& hvState) const;
-
 		private:
 			struct Helper;
 		};
@@ -517,9 +515,10 @@ namespace beam
 			{
 				void NextPrefix();
 
-				void get_Hash(Merkle::Hash&) const; // Calculated from all the above
+				void get_HashForPoW(Merkle::Hash&) const; // all except PoW
+				void get_Hash(Merkle::Hash&) const; // all
+
 				void get_ID(ID&) const;
-				void get_HashForHist(Merkle::Hash&) const; // accounts also for PoW, literally for everything in the header
 
 				bool IsSane() const;
 				bool IsValidPoW() const;
@@ -527,6 +526,9 @@ namespace beam
 
 				// the most robust proof verification - verifies the whole proof structure
 				bool IsValidProofState(const Full&, const Merkle::Proof&) const;
+
+			private:
+				void get_HashInternal(Merkle::Hash&, bool bTotal) const;
 			};
 		};
 

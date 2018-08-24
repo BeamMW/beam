@@ -543,7 +543,7 @@ namespace beam
 			if (id != m_knownStateID)
 				return false;
 
-			msg.m_Hdr.get_HashForHist(hv);
+			hv = id.m_Hash;
 		}
 		Merkle::Interpret(hv, msg.m_Proof);
 
