@@ -351,6 +351,15 @@ void WalletModel::createNewAddress(WalletAddress&& address)
 {
     _keystore->save_keypair(address.m_walletID, true);
     _keychain->saveAddress(address);
+
+    if (address.m_own)
+    {
+        auto s = _wallet_io.lock();
+        if (s)
+        {
+            s->new_own_address(address.m_walletID);
+        }
+    }
 }
 
 void WalletModel::changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID)
@@ -364,11 +373,7 @@ void WalletModel::generateNewWalletID()
     {
         WalletID walletID;
         _keystore->gen_keypair(walletID);
-        auto s = _wallet_io.lock();
-        if (s)
-        {
-            s->new_own_address(walletID);
-        }
+
         emit onGeneratedNewWalletID(walletID);
     }
     catch (...)

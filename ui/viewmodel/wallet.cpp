@@ -16,6 +16,8 @@
 
 #include <iomanip>
 #include "ui_helpers.h"
+#include <QApplication>
+#include <QClipboard>
 #include "model/app_model.h"
 
 using namespace beam;
@@ -122,6 +124,9 @@ WalletViewModel::WalletViewModel()
 
     connect(&_model, SIGNAL(onAdrresses(bool, const std::vector<beam::WalletAddress>&)),
         SLOT(onAdrresses(bool, const std::vector<beam::WalletAddress>&)));
+
+    connect(&_model, SIGNAL(onGeneratedNewWalletID(const beam::WalletID&)),
+        SLOT(onGeneratedNewWalletID(const beam::WalletID&)));
 }
 
 WalletViewModel::~WalletViewModel()
@@ -133,6 +138,39 @@ void WalletViewModel::cancelTx(int index)
 {
     auto *p = static_cast<TxObject*>(_tx[index]);
     _model.async->cancelTx(p->_tx.m_txId);
+}
+
+void WalletViewModel::generateNewAddress()
+{
+    _newReceiverAddr = "";
+    _newReceiverName = "";
+    if (_model.async)
+    {
+        _model.async->generateNewWalletID();
+    }
+}
+
+void WalletViewModel::saveNewAddress()
+{
+    auto bytes = from_hex(_newReceiverAddr.toStdString());
+    if (bytes.size() != sizeof(WalletID))
+    {
+        return;
+    }
+    WalletID id = bytes;
+    WalletAddress ownAddress{};
+
+    ownAddress.m_walletID = id;
+    ownAddress.m_own = true;
+    ownAddress.m_label = _newReceiverName.toStdString();
+    ownAddress.m_createTime = beam::getTimestamp();
+
+    QApplication::clipboard()->setText(_newReceiverAddr);
+
+    if (_model.async)
+    {
+        _model.async->createNewAddress(std::move(ownAddress));
+    }
 }
 
 void WalletViewModel::onStatus(const WalletStatus& status)
@@ -399,6 +437,16 @@ QString WalletViewModel::change() const
     return BeamToString(_change);
 }
 
+QString WalletViewModel::getNewReceiverAddr() const
+{
+    return _newReceiverAddr;
+}
+
+void WalletViewModel::setNewReceiverName(const QString& value)
+{
+    _newReceiverName = value;
+}
+
 void WalletViewModel::onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses)
 {
     if (own)
@@ -425,4 +473,10 @@ void WalletViewModel::onAdrresses(bool own, const std::vector<beam::WalletAddres
     }
 
     emit txChanged();
+}
+
+void WalletViewModel::onGeneratedNewWalletID(const beam::WalletID& walletID)
+{
+    _newReceiverAddr = toString(walletID);
+    emit newReceiverAddrChanged();
 }

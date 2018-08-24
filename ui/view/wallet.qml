@@ -84,6 +84,114 @@ Item {
     }
 
     /////////////////////////////////////////////////////////////
+    /// Receive layout //////////////////////////////////////////
+    /////////////////////////////////////////////////////////////
+
+    Item {
+        id: receive_layout
+        visible: false
+        anchors.fill: parent
+        anchors.topMargin: 73
+        anchors.bottomMargin: 30
+        
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 30
+
+            SFText {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.minimumHeight: 20
+                font.pixelSize: 18
+                font.weight: Font.Bold
+                color: Style.white
+                text: "Receive money"
+            }
+
+            SFText {
+                font.pixelSize: 14
+                Layout.minimumHeight: 16
+                font.weight: Font.Bold
+                color: Style.white
+                text: qsTr("My address")
+            }
+
+            SFTextInput {
+				id: myAddressID
+				Layout.fillWidth: true
+                //width: 315
+				font.pixelSize: 14
+                Layout.minimumHeight: 20
+				color: Style.disable_text_color
+				readOnly: true
+                activeFocusOnTab: false
+				//text: viewModel.newOwnAddress.walletID
+                text: viewModel.newReceiverAddr
+			}
+
+            SFText {
+                font.pixelSize: 14
+                Layout.minimumHeight: 16
+                font.weight: Font.Bold
+                color: Style.white
+                text: qsTr("Name")
+            }
+
+            SFTextInput {
+				id: myAddressName
+				Layout.fillWidth: true
+                //width: 315
+				font.pixelSize: 14
+                Layout.minimumHeight: 20
+                color: Style.white
+				//text: viewModel.newReceiverName
+			}
+
+            Binding {
+                target: viewModel
+                property: "newReceiverName"
+                value: myAddressName.text
+            }
+
+            SFText {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.minimumHeight: 16
+                font.pixelSize: 14
+                font.weight: Font.Bold
+                color: Style.white
+                text: "Send this address to the sender over an external secure channel"
+            }
+
+            Row {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.minimumHeight: 40
+
+                spacing: 19
+
+                CustomButton {
+                    text: "cancel"
+                    height: 38
+                    width: 122
+                    onClicked: root.state = "wallet";
+                }
+
+                CustomButton {
+                    text: "ok"
+                    height: 38
+                    width: 122
+                    onClicked: {
+                        viewModel.saveNewAddress();
+                        root.state = "wallet";
+                    }
+                }
+            }
+
+            Item {
+                Layout.fillHeight: true
+            }
+        }
+    }
+
+    /////////////////////////////////////////////////////////////
     /// Send layout /////////////////////////////////////////////
     /////////////////////////////////////////////////////////////
 
@@ -393,14 +501,41 @@ Item {
         anchors.fill: parent
         state: "wide"
 
-        CustomButton {
+        Row{
             anchors.top: parent.top
             anchors.right: parent.right
-            palette.button: Style.heliotrope
-            palette.buttonText: Style.marine
-            text: qsTr("SEND")
+            spacing: 19
 
-            onClicked: root.state = "send"
+            CustomButton {
+                palette.button: Style.bright_sky_blue
+                palette.buttonText: Style.marine
+                height: 38
+                width: 186
+                icon.source: "qrc:///assets/icon-receive-blue.svg"
+                icon.height: 16
+                icon.width: 16
+                text: qsTr("receive money")
+
+                onClicked: {
+                    viewModel.generateNewAddress();
+                    root.state = "receive"
+                }
+            }
+
+            CustomButton {
+                palette.button: Style.heliotrope
+                palette.buttonText: Style.marine
+                icon.source: "qrc:///assets/icon-send-blue.svg"
+                icon.height: 16
+                icon.width: 16
+                height: 38
+                width: 169
+                text: qsTr("send money")
+
+                onClicked: root.state = "send"
+            }
+
+            
         }
 
         Item {
@@ -790,11 +925,16 @@ Item {
             PropertyChanges {target: senderAddrCombo; currentIndex: -1}
             PropertyChanges {target: receiverAddrCombo; currentIndex: -1}
             PropertyChanges {target: amount_input; text: ""}
-            // PropertyChanges {target: mils_amount_input; text: ""}
-            // PropertyChanges {target: mils_fee_input; text: ""}
              StateChangeScript {
                 script: senderAddrCombo.forceActiveFocus(Qt.TabFocusReason);
             }
+        },
+
+        State {
+            name: "receive"
+            PropertyChanges {target: wallet_layout; visible: false}
+            PropertyChanges {target: receive_layout; visible: true}
+            PropertyChanges {target: myAddressName; text: ""}
         }
     ]
 }

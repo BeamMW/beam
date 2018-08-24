@@ -96,10 +96,15 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString actualAvailable READ actualAvailable NOTIFY actualAvailableChanged)
     Q_PROPERTY(QString change READ change NOTIFY changeChanged)
 
+    Q_PROPERTY(QString newReceiverAddr READ getNewReceiverAddr NOTIFY newReceiverAddrChanged)
+    Q_PROPERTY(QString newReceiverName WRITE setNewReceiverName NOTIFY newReceiverNameChanged)
+
     
 public:
 
     Q_INVOKABLE void cancelTx(int index);
+    Q_INVOKABLE void generateNewAddress();
+    Q_INVOKABLE void saveNewAddress();
 
 public:
     using TxList = QList<TxObject*>;
@@ -123,6 +128,8 @@ public:
 
     QString actualAvailable() const;
     QString change() const;
+    QString getNewReceiverAddr() const;
+    void setNewReceiverName(const QString& value);
     int selectedAddr() const;
     
     QString getReceiverAddr() const;
@@ -145,6 +152,7 @@ public slots:
     void onChangeCalculated(beam::Amount change);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
 	void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
+    void onGeneratedNewWalletID(const beam::WalletID& walletID);
 
 signals:
     void stateChanged();
@@ -158,6 +166,8 @@ signals:
     void receiverAddrChanged();
     void senderAddrChanged();
     void isSyncInProgressChanged();
+    void newReceiverAddrChanged();
+    void newReceiverNameChanged();
 
 private:
     beam::Amount calcSendAmount() const;
@@ -181,6 +191,8 @@ private:
 
     QString _receiverAddr;
     QString _senderAddr;
+    QString _newReceiverAddr;
+    QString _newReceiverName;
 
     int _selectedAddr;
     bool _isSyncInProgress;
