@@ -268,12 +268,12 @@ namespace beam
 
 			for (uint32_t h = Rules::HeightGenesis; h < sid2.m_Height; h++)
 			{
-				Merkle::Proof proof;
-				db.get_Proof(proof, sid2, h);
+				Merkle::ProofBuilderStd bld;
+				db.get_Proof(bld, sid2, h);
 
 				Merkle::Hash hv;
 				vStates[h - Rules::HeightGenesis].get_Hash(hv);
-				Merkle::Interpret(hv, proof);
+				Merkle::Interpret(hv, bld.m_Proof);
 				Merkle::Interpret(hv, hvZero, true);
 
 				verify_test(hvRoot == hv);
@@ -1086,18 +1086,15 @@ namespace beam
 				}
 			}
 
-			virtual void OnMsg(proto::ProofStateForDummies&& msg) override
+			virtual void OnMsg(proto::ProofState&& msg) override
 			{
 				if (!m_queProofsStateExpected.empty())
 				{
 					const Block::SystemState::Full& s = m_vStates[m_queProofsStateExpected.front()];
+					Block::SystemState::ID id;
+					s.get_ID(id);
 
-					verify_test(m_vStates.back().IsValidProofState(msg.m_Hdr, msg.m_Proof));
-
-					Merkle::Hash hv, hv2; // TODO - remove!
-					s.get_Hash(hv);
-					msg.m_Hdr.get_Hash(hv2);
-					verify_test(hv == hv2); // i.e. the header is correct
+					verify_test(m_vStates.back().IsValidProofState(id, msg.m_Proof));
 
 					m_queProofsStateExpected.pop_front();
 				}

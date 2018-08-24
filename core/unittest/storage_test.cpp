@@ -476,11 +476,13 @@ namespace beam
 
 			for (uint32_t j = 0; j <= i; j++)
 			{
-				Merkle::Proof proof, proof2;
+				Merkle::Proof proof;
 				mmr.get_Proof(proof, j);
-				dmmr.get_Proof(proof2, j);
 
-				verify_test(proof == proof2);
+				Merkle::ProofBuilderStd bld;
+				dmmr.get_Proof(bld, j);
+
+				verify_test(proof == bld.m_Proof);
 
 				Merkle::Hash hv2 = vHashes[j];
 				Merkle::Interpret(hv2, proof);

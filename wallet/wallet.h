@@ -39,7 +39,7 @@ namespace beam
         // node to wallet responses
         virtual bool handle_node_message(proto::Boolean&&) = 0;
         virtual bool handle_node_message(proto::ProofUtxo&&) = 0;
-		virtual bool handle_node_message(proto::ProofStateForDummies&& msg) = 0;
+		virtual bool handle_node_message(proto::ProofState&& msg) = 0;
 		virtual bool handle_node_message(proto::NewTip&&) = 0;
         virtual bool handle_node_message(proto::Hdr&&) = 0;
         virtual bool handle_node_message(proto::Mined&& msg) = 0;
@@ -140,7 +140,7 @@ namespace beam
 
         bool handle_node_message(proto::Boolean&& res) override;
         bool handle_node_message(proto::ProofUtxo&& proof) override;
-		bool handle_node_message(proto::ProofStateForDummies&& msg) override;
+		bool handle_node_message(proto::ProofState&& msg) override;
 		bool handle_node_message(proto::NewTip&& msg) override;
         bool handle_node_message(proto::Hdr&& msg) override;
         bool handle_node_message(proto::Mined&& msg) override;
@@ -170,7 +170,6 @@ namespace beam
         void resume_negotiator(const TxDescription& tx);
 		void notifySyncProgress();
         void resetSystemState();
-        bool IsKnownStateValid(const proto::ProofStateForDummies&) const;
 
 		virtual bool IsTestMode() { return false; }
 

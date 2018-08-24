@@ -290,10 +290,6 @@ namespace Merkle
 		void get_Hash(Hash&) const;
 		void get_PredictedHash(Hash&, const Hash& hvAppend) const;
 
-		struct IProofBuilder {
-			virtual bool AppendNode(const Node&) = 0;
-		};
-
 		bool get_Proof(IProofBuilder&, uint64_t i) const;
 		void get_Proof(Proof&, uint64_t i) const;
 
@@ -322,7 +318,7 @@ namespace Merkle
 		void Append(Key, void* pBuf, const Hash&);
 
 		void get_Hash(Hash&) const;
-		void get_Proof(Proof&, uint64_t i) const;
+		void get_Proof(IProofBuilder&, uint64_t i) const;
 		void get_PredictedHash(Hash&, const Hash& hvAppend) const;
 
 	protected:

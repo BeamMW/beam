@@ -169,6 +169,35 @@ namespace beam
 		typedef ECC::Hash::Value Hash;
 		typedef std::pair<bool, Hash>	Node;
 		typedef std::vector<Node>		Proof;
+		typedef std::vector<Hash>		HardProof;
+
+		struct IProofBuilder {
+			virtual bool AppendNode(const Node&) = 0;
+		};
+
+		struct ProofBuilderStd
+			:public IProofBuilder
+		{
+			Proof m_Proof;
+
+			virtual bool AppendNode(const Node& n) override
+			{
+				m_Proof.push_back(n);
+				return true;
+			}
+		};
+
+		struct ProofBuilderHard
+			:public IProofBuilder
+		{
+			HardProof m_Proof;
+
+			virtual bool AppendNode(const Node& n) override
+			{
+				m_Proof.push_back(n.second);
+				return true;
+			}
+		};
 
 		void Interpret(Hash&, const Proof&);
 		void Interpret(Hash&, const Node&);
@@ -525,7 +554,7 @@ namespace beam
 				bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
 
 				// the most robust proof verification - verifies the whole proof structure
-				bool IsValidProofState(const Full&, const Merkle::Proof&) const;
+				bool IsValidProofState(const ID&, const Merkle::HardProof&) const;
 
 			private:
 				void get_HashInternal(Merkle::Hash&, bool bTotal) const;
