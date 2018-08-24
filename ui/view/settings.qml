@@ -2,17 +2,20 @@ import QtQuick 2.3
 import QtQuick.Controls 1.2
 import QtQuick.Controls.Styles 1.2
 import "controls"
+import Beam.Wallet 1.0
 
 Rectangle {
 
     anchors.fill: parent
     color: "#032e48"
 
+	SettingsViewModel {id: viewModel}
+
     ConfirmationDialog {
         id: emergencyConfirmation
         text: "Do you really want to reset your wallet?"
         okButtonText: "reset"
-        onAccepted: settingsViewModel.emergencyReset()
+        onAccepted: viewModel.emergencyReset()
     }
 
 	SFText {
@@ -37,7 +40,7 @@ Rectangle {
 
             font.pixelSize: 14
             color: Style.white
-            text: "Version: " + settingsViewModel.version
+            text: "Version: " + viewModel.version
         }
 
         Column {
@@ -70,7 +73,7 @@ Rectangle {
                     font.pixelSize: 12
                     color: Style.white
                     validator: RegExpValidator { regExp: /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$/ }
-    				onAccepted: settingsViewModel.applyChanges(nodeAddress.text)
+    				onAccepted: viewModel.applyChanges(nodeAddress.text)
                 }
 
                 SFText {
@@ -98,19 +101,19 @@ Rectangle {
 			CustomButton {
 				text: "cancel"
 				onClicked: {
-					nodeAddress.text = settingsViewModel.nodeAddress
+					nodeAddress.text = viewModel.nodeAddress
 				}
 			}
 
 			PrimaryButton {		
 				text: "apply changes"
-				enabled: {nodeAddress.text != settingsViewModel.nodeAddress && nodeAddress.acceptableInput}
-				onClicked: settingsViewModel.applyChanges(nodeAddress.text)
+				enabled: {nodeAddress.text != viewModel.nodeAddress && nodeAddress.acceptableInput}
+				onClicked: viewModel.applyChanges(nodeAddress.text)
 			}
 		}
 	}
 
 	Component.onCompleted: {
-        nodeAddress.text = settingsViewModel.nodeAddress
+        nodeAddress.text = viewModel.nodeAddress
     }
 }

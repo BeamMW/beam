@@ -4,12 +4,15 @@ import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
 import QtGraphicalEffects 1.0
 import QtQuick.Layouts 1.3
-import Wallet 1.0
+import Beam.Wallet 1.0
 import "controls"
 
 Item {
     id: root
     anchors.fill: parent
+
+	WalletViewModel {id: viewModel}
+	AddressBookViewModel {id: addressBookViewModel}
 
     property bool toSend: false
 
@@ -19,7 +22,7 @@ Item {
         id: confirmationDialog
         okButtonText: "send"
         onAccepted: {
-            walletViewModel.sendMoney()
+            viewModel.sendMoney()
             root.state = "wallet"
         }
     }
@@ -33,20 +36,20 @@ Item {
     Rectangle {
         id: user_led
         y: 55
-        x: 5
+		x: 5
         width: 10
         height: 10
 
         radius: 5
 
-        color: (walletViewModel.isSyncInProgress == false) ? Style.bright_teal : "red"
+        color: (viewModel.isSyncInProgress == false) ? Style.bright_teal : "red"
     }
 
     DropShadow {
         anchors.fill: user_led
         radius: 5
         samples: 9
-        color: (walletViewModel.isSyncInProgress == false) ? Style.bright_teal : "red"
+        color: (viewModel.isSyncInProgress == false) ? Style.bright_teal : "red"
         source: user_led
     }
 
@@ -60,16 +63,16 @@ Item {
         linkColor: Style.white
 
         text: {
-            if(walletViewModel.syncProgress < 0)
-                "Last update time: " + walletViewModel.syncTime + " (<a href=\"update\">update</a>)"
+            if(viewModel.syncProgress < 0)
+                "Last update time: " + viewModel.syncTime + " (<a href=\"update\">update</a>)"
             else
-                "Updating, please wait... [" + walletViewModel.syncProgress + "%]"
+                "Updating, please wait... [" + viewModel.syncProgress + "%]"
         }
 
         onLinkActivated: {
             if(link == "update")
             {
-                walletViewModel.syncWithNode()
+                viewModel.syncWithNode()
             }
         }
 
@@ -132,7 +135,7 @@ Item {
                             id: senderAddrCombo
                             editable: true
                             model: addressBookViewModel.ownAddresses
-                            editText: walletViewModel.senderAddr
+                            editText: viewModel.senderAddr
                             color: Style.white
                             font.pixelSize: 14
                             validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
@@ -184,7 +187,7 @@ Item {
                                     font.pixelSize: 36
                                     color: Style.heliotrope
 
-                                    text: walletViewModel.sendAmount
+                                    text: viewModel.sendAmount
 
                                     // TODO: here should be proper validator
                                     // validator: DoubleValidator{bottom: 0; top: 210000000;}
@@ -192,7 +195,7 @@ Item {
                                 }
 
                                 Binding {
-                                    target: walletViewModel
+                                    target: viewModel
                                     property: "sendAmount"
                                     value: amount_input.text
                                 }   
@@ -235,7 +238,7 @@ Item {
 
                             id: receiverAddrCombo
                             editable: true
-                            editText: walletViewModel.receiverAddr
+                            editText: viewModel.receiverAddr
                             model: addressBookViewModel.peerAddresses
                             color: Style.white
                             font.pixelSize: 14
@@ -254,13 +257,13 @@ Item {
                         }
 
                         Binding {
-                            target: walletViewModel
+                            target: viewModel
                             property: "senderAddr"
                             value: senderAddrCombo.editText
                         }
 
                         Binding {
-                            target: walletViewModel
+                            target: viewModel
                             property: "receiverAddr"
                             value: receiverAddrCombo.editText
                         }
@@ -283,7 +286,7 @@ Item {
                             color: Style.white
                             text: qsTr("Transaction fee")
                         }
-
+                        
                         FeeSlider {
                             id: feeSlider
                             Layout.fillWidth: true
@@ -294,7 +297,7 @@ Item {
                         }
 
                         Binding {
-                            target: walletViewModel
+                            target: viewModel
                             property: "feeMils"
                             value: feeSlider.value
                         }
@@ -329,7 +332,7 @@ Item {
                             font.weight: Font.ExtraLight
                             color: Style.bright_teal
 
-                            text: walletViewModel.actualAvailable
+                            text: viewModel.actualAvailable
                         }
 
                         SFText {
@@ -368,9 +371,9 @@ Item {
                     icon.source: "qrc:///assets/icon-send.svg"
                     onClicked: {
                         var message = "You are about to send %1 to address %2";
-                        var beams = (walletViewModel.sendAmount*1 + walletViewModel.feeMils*1) + " " + qsTr("BEAM");
+                        var beams = (viewModel.sendAmount*1 + viewModel.feeMils*1) + " " + qsTr("BEAM");
 
-                        confirmationDialog.text = message.arg(beams).arg(walletViewModel.receiverAddr);
+                        confirmationDialog.text = message.arg(beams).arg(viewModel.receiverAddr);
                         confirmationDialog.open();                        
                     }
                 }
@@ -423,7 +426,7 @@ Item {
                     Layout.fillHeight: true
                     Layout.fillWidth: true
                     
-                    value: walletViewModel.available
+                    value: viewModel.available
                 }
 
                 SecondaryPanel {
@@ -432,7 +435,7 @@ Item {
                     Layout.fillWidth: true
                     title: qsTr("Unconfirmed")
                     amountColor: Style.white
-                    value: walletViewModel.unconfirmed
+                    value: viewModel.unconfirmed
                 }
             }
         }
@@ -521,7 +524,7 @@ Item {
 
             anchors.fill: parent;
             anchors.topMargin: 394-33
-            Layout.bottomMargin: 9
+			Layout.bottomMargin: 9
 
             frameVisible: false
             selectionMode: SelectionMode.NoSelection
@@ -566,7 +569,7 @@ Item {
                 delegate: Item {
                     anchors.fill: parent
                     clip:true
-                    property string tooltip_text: (walletViewModel.tx[styleData.row] ? walletViewModel.tx[styleData.row].user : "")
+                    property string tooltip_text: (viewModel.tx[styleData.row] ? viewModel.tx[styleData.row].user : "")
                     SFText {
                         font.pixelSize: 12
                         anchors.left: parent.left
@@ -616,7 +619,7 @@ Item {
                 delegate: Item {
                     anchors.fill: parent
                     
-                    property bool income: (styleData.row >= 0) ? walletViewModel.tx[styleData.row].income : false
+                    property bool income: (styleData.row >= 0) ? viewModel.tx[styleData.row].income : false
 
                     SFText {
                         anchors.leftMargin: 20
@@ -672,7 +675,7 @@ Item {
                 }
             }
 
-            model: walletViewModel.tx
+            model: viewModel.tx
 
             headerDelegate: Rectangle {
                 height: 46
@@ -692,24 +695,24 @@ Item {
 
             ContextMenu {
                 id: txContextMenu
-                property TxObject transaction
-                property int index;
-                Action {
+				property TxObject transaction
+				property int index;
+				Action {
                     text: qsTr("copy address")
-                    icon.source: "qrc:///assets/icon-copy.svg"
-                    onTriggered: {
-                        if (!!txContextMenu.transaction)
-                        {
-                            addressBookViewModel.copyToClipboard(txContextMenu.transaction.user);
-                        }
+					icon.source: "qrc:///assets/icon-copy.svg"
+					onTriggered: {
+						if (!!txContextMenu.transaction)
+						{
+							addressBookViewModel.copyToClipboard(txContextMenu.transaction.user);
+						}
                     }
                 }
-                Action {
+				Action {
                     text: qsTr("cancel")
                     onTriggered: {
-                       walletViewModel.cancelTx(txContextMenu.index);
+                       viewModel.cancelTx(txContextMenu.index);
                     }
-                    enabled: !!txContextMenu.transaction && txContextMenu.transaction.canCancel
+					enabled: !!txContextMenu.transaction && txContextMenu.transaction.canCancel
                     icon.source: "qrc:///assets/icon-cancel.svg"
                 }
             }
@@ -733,8 +736,8 @@ Item {
                     onClicked: {
                         if (mouse.button === Qt.RightButton && styleData.row !== undefined && styleData.row >=0)
                         {
-                            txContextMenu.index = styleData.row;
-                            txContextMenu.transaction = walletViewModel.tx[styleData.row];
+							txContextMenu.index = styleData.row;
+                            txContextMenu.transaction = viewModel.tx[styleData.row];
                             txContextMenu.popup();
                         }
                     }

@@ -3,9 +3,11 @@ import QtQuick.Controls 1.2
 import QtQuick.Layouts 1.0
 import QtQuick.Controls.Styles 1.2
 import "controls"
+import Beam.Wallet 1.0;
 
 ColumnLayout {
 	anchors.fill: parent
+	UtxoViewModel {id: viewModel}
 
 	SFText {
         Layout.minimumHeight: 40
@@ -22,7 +24,7 @@ ColumnLayout {
 		frameVisible: false
         selectionMode: SelectionMode.NoSelection
         backgroundVisible: false
-		model: walletViewModel.allUtxos
+		model: viewModel.allUtxos
 
 		TableViewColumn {
 			role: "amount"

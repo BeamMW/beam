@@ -17,31 +17,27 @@
 #include <QObject>
 #include <QSettings>
 
-#include "model/wallet.h"
+#include "model/settings.h"
 
 class SettingsViewModel : public QObject
 {
-	Q_OBJECT
+    Q_OBJECT
 
-	Q_PROPERTY(QString nodeAddress READ nodeAddress NOTIFY nodeAddressChanged)
-	Q_PROPERTY(QString version READ version CONSTANT)
+    Q_PROPERTY(QString nodeAddress READ getNodeAddress NOTIFY nodeAddressChanged)
+    Q_PROPERTY(QString version READ version CONSTANT)
 public:
 
-	SettingsViewModel(const QString& iniPath);
+    SettingsViewModel();
 
-	QString nodeAddress() const;
-	QString version() const;
-
-	void initModel(WalletModel::Ptr model);
+    QString getNodeAddress() const;
+    QString version() const;
 
 public slots:
-	void applyChanges(const QString& nodeAddr);
-	void emergencyReset();
+    void applyChanges(const QString& nodeAddr);
+    void emergencyReset();
 
 signals:
-	void nodeAddressChanged();
-
+    void nodeAddressChanged();
 private:
-	QSettings _data;
-	WalletModel::Ptr _model;
+    WalletSettings& m_settings;
 };

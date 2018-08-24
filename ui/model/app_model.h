@@ -14,33 +14,29 @@
 
 #pragma once
 
-#include <QObject>
+#include "wallet.h"
+#include "settings.h"
+#include "messages.h"
 
-
-class MessagesViewModel : public QObject
+class AppModel
 {
-    Q_OBJECT
-
-    Q_PROPERTY(QStringList messages READ getMessages NOTIFY messagesChanged)
-
 public:
 
-    Q_INVOKABLE void deleteMessage(int index);
+    static AppModel* getInstance();
 
-public:
+    AppModel(WalletSettings& settings);
+    ~AppModel();
 
-    MessagesViewModel();
+    WalletModel::Ptr getWallet() const;
+    void setWallet(WalletModel::Ptr wallet);
 
-    void AddMessage(const QString& value);
-
-    QStringList getMessages() const;
-public slots:
-
-    void onNewMessage(const QString& message);
-signals:
-
-    void messagesChanged();
+    WalletSettings& getSettings();
+    MessageManager& getMessages();
 
 private:
-    QStringList m_messages;
+
+    WalletModel::Ptr m_wallet;
+    WalletSettings& m_settings;
+    MessageManager m_messages;
+    static AppModel* s_instance;
 };

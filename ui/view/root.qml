@@ -2,6 +2,7 @@ import QtQuick 2.3
 import QtQuick.Controls 2.4
 import QtQuick.Layouts 1.3
 import "controls"
+import Beam.Wallet 1.0
 
 Item {
     width: 1024
@@ -12,12 +13,13 @@ Item {
         id: notifications
         closePolicy: Popup.NoAutoClose
         palette.window : Style.marine
+		MessagesViewModel {id: viewModel}
 
         parent: Overlay.overlay
         width: parent.width
-        height: Math.min(100, messagesViewModel.messages.length * 30 + 10)
+        height: Math.min(100, viewModel.messages.length * 30 + 10)
         clip: true
-        visible:  messagesViewModel.messages.length > 0
+        visible:  viewModel.messages.length > 0
         background: Rectangle {
             color: "red"
             opacity: 0.4
@@ -30,7 +32,7 @@ Item {
                 anchors.bottomMargin: 5
                 //spacing: 4
                 clip: true
-                model: messagesViewModel.messages
+                model: viewModel.messages
 
                 delegate: RowLayout {
                     width: parent.width
@@ -53,7 +55,7 @@ Item {
                         Layout.rightMargin: 30
                         textOpacity: 0
                         icon.source: "qrc:///assets/icon-cancel.svg"
-                        onClicked: messagesViewModel.deleteMessage(index)
+                        onClicked: viewModel.deleteMessage(index)
                     }
                 }
             }

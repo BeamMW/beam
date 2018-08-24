@@ -13,10 +13,13 @@
 // limitations under the License.
 
 #include "messages.h"
+#include "model/app_model.h"
 
 MessagesViewModel::MessagesViewModel()
 {
-
+    auto& model = AppModel::getInstance()->getMessages();
+    connect(&model, SIGNAL(newMessage(const QString&)),
+        SLOT(onNewMessage(const QString&)));
 }
 
 void MessagesViewModel::deleteMessage(int index)
@@ -34,4 +37,9 @@ void MessagesViewModel::AddMessage(const QString& value)
 QStringList MessagesViewModel::getMessages() const
 {
     return m_messages;
+}
+
+void MessagesViewModel::onNewMessage(const QString& message)
+{
+    AddMessage(message);
 }

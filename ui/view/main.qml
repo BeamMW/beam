@@ -3,11 +3,14 @@ import QtQuick.Controls 1.2
 import QtQuick.Controls.Styles 1.2
 import QtGraphicalEffects 1.0
 import "controls"
+import Beam.Wallet 1.0
 
 Rectangle {
     id: main
 
     anchors.fill: parent
+
+	MainViewModel {id: viewModel}
 
     color: Style.marine
 
@@ -105,14 +108,14 @@ Rectangle {
     {
         selectedItem = index
         content.setSource("qrc:///" + contentItems[index] + ".qml", {"toSend": false})
-        mainViewModel.update(index)
+        viewModel.update(index)
     }
 
 	function openSendDialog() {
 		selectedItem = 1
 		content.setSource("qrc:///wallet.qml", {"toSend": true})
         
-		mainViewModel.update(selectedItem)
+		viewModel.update(selectedItem)
 	}
 
     Component.onCompleted:{

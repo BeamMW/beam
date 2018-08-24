@@ -17,30 +17,13 @@
 #include <QObject>
 
 
-class MessagesViewModel : public QObject
+class MessageManager : public QObject
 {
     Q_OBJECT
-
-    Q_PROPERTY(QStringList messages READ getMessages NOTIFY messagesChanged)
-
 public:
+    MessageManager();
 
-    Q_INVOKABLE void deleteMessage(int index);
-
-public:
-
-    MessagesViewModel();
-
-    void AddMessage(const QString& value);
-
-    QStringList getMessages() const;
-public slots:
-
-    void onNewMessage(const QString& message);
+    void addMessage(const std::string& message);
 signals:
-
-    void messagesChanged();
-
-private:
-    QStringList m_messages;
+    void newMessage(const QString& message);
 };

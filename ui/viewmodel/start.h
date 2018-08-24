@@ -30,7 +30,8 @@ public:
 
 	using DoneCallback = std::function<bool (beam::IKeyChain::Ptr db, const std::string& walletPass)>;
 
-	StartViewModel(MessagesViewModel& model, const std::string& walletStorage, const std::string& bbsStorage, DoneCallback done);
+	StartViewModel();
+    ~StartViewModel();
 
 	bool walletExists() const;
 
@@ -45,9 +46,4 @@ public slots:
 	bool createWallet(const QString& seed, const QString& pass);
 	bool openWallet(const QString& pass);
 
-private:
-    MessagesViewModel& _messagesModel;
-	std::string _walletStorage;
-    std::string _bbsStorage;
-	DoneCallback _done;
 };

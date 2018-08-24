@@ -4,12 +4,15 @@ import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
 import QtGraphicalEffects 1.0
 import "controls"
+import Beam.Wallet 1.0
 
 Item
 {
     id: root
 
     anchors.fill: parent
+
+	StartViewModel { id: viewModel }
 
 
 	StackView {
@@ -236,7 +239,7 @@ Item
 							{
 								passwordError.text = qsTr("Passwords do not match");
 							}
-							else if(!startViewModel.createWallet(seed.text, password.text))
+							else if(!viewModel.createWallet(seed.text, password.text))
 							{
 								passwordError.text = qsTr("Error, something went worng, wallet not created :(");
 							}
@@ -406,7 +409,7 @@ Item
 									miningError.text = qsTr("Please, specify number of mining threads or 0 if you don't want to mine")
 								}
 								if (!portEmpty && !miningEmpty) {
-									startViewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.text));
+									viewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.text));
 								}
 								else {
 									return;
@@ -417,10 +420,10 @@ Item
 									remoteNodeAddrError.text = qsTr("Please, specify address of the remote node");
 									return;
 								}
-								startViewModel.setupRemoteNode(remoteNodeAddrInput.text);
+								viewModel.setupRemoteNode(remoteNodeAddrInput.text);
 							}
 							else if (testnetNodeButton.checked) {
-								startViewModel.setupTestnetNode();
+								viewModel.setupTestnetNode();
 							}
 							startWizzardView.push(create);
 						}
@@ -530,10 +533,14 @@ Item
                     }
                     else
                     {
-                        if(!startViewModel.openWallet(openPassword.text))
+                        if(!viewModel.openWallet(openPassword.text))
                         {
                             openPasswordError.text = qsTr("Invalid password or wallet data unreadable.\nRestore wallet.db from latest backup or delete it and reinitialize the wallet.");
                         }
+						else
+						{
+							 root.parent.source = "qrc:///main.qml";
+						}
                     }
                 }
             }
@@ -541,7 +548,7 @@ Item
     }
 
     Component.onCompleted:{
-        root.state = startViewModel.walletExists ? "open" : "start"
+        root.state = viewModel.walletExists ? "open" : "start"
     }
 
     states: [

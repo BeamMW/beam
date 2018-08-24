@@ -15,23 +15,26 @@
 #include "start.h"
 #include "wallet/keystore.h"
 #include <QMessageBox>
+#include "settings.h"
+#include "model/app_model.h"
 
 using namespace beam;
 using namespace ECC;
 using namespace std;
 
-StartViewModel::StartViewModel(MessagesViewModel& model, const string& walletStorage, const string& bbsStorage, StartViewModel::DoneCallback done)
-	: _messagesModel(model)
-    , _walletStorage(walletStorage)
-    , _bbsStorage(bbsStorage)
-	, _done(done)
+StartViewModel::StartViewModel()
+{
+
+}
+
+StartViewModel::~StartViewModel()
 {
 
 }
 
 bool StartViewModel::walletExists() const
 {
-	return Keychain::isInitialized(_walletStorage);
+    return Keychain::isInitialized(AppModel::getInstance()->getSettings().getWalletStorage());
 }
 
 void StartViewModel::setupLocalNode(int port, int miningThreads)
@@ -51,24 +54,24 @@ void StartViewModel::setupTestnetNode()
 
 bool StartViewModel::createWallet(const QString& seed, const QString& pass)
 {
-	NoLeak<uintBig> walletSeed;
-	walletSeed.V = Zero;
-	{
-		Hash::Value hv;
-		Hash::Processor() << seed.toStdString().c_str() >> hv;
-		walletSeed.V = hv;
-	}
+    NoLeak<uintBig> walletSeed;
+    walletSeed.V = Zero;
+    {
+        Hash::Value hv;
+        Hash::Processor() << seed.toStdString().c_str() >> hv;
+        walletSeed.V = hv;
+    }
 
     string walletPass = pass.toStdString();
-	auto db = Keychain::init(_walletStorage, walletPass, walletSeed);
+    auto db = Keychain::init(AppModel::getInstance()->getSettings().getWalletStorage(), walletPass, walletSeed);
 
-	if (db)
-	{
+    if (db)
+    {
         try
         {
             IKeyStore::Options options;
             options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-            options.fileName = _bbsStorage;
+            options.fileName = AppModel::getInstance()->getSettings().getBbsStorage();
 
             IKeyStore::Ptr keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
 
@@ -85,25 +88,45 @@ bool StartViewModel::createWallet(const QString& seed, const QString& pass)
         }
         catch (const std::runtime_error&)
         {
-            _messagesModel.AddMessage("Failed to generate default address");
+            AppModel::getInstance()->getMessages().newMessage("Failed to generate default address");
         }
 
-		_done(db, pass.toStdString());
+        return true;
+    }
 
-		return true;
-	}
-
-	return false;
+    return false;
 }
 
 bool StartViewModel::openWallet(const QString& pass)
 {
-	auto db = Keychain::open(_walletStorage, pass.toStdString());
+    string walletPassword = pass.toStdString();
+    auto db = Keychain::open(AppModel::getInstance()->getSettings().getWalletStorage(), walletPassword);
 
-	if (db)
-	{
-		return _done(db, pass.toStdString());
-	}
+    if (db)
+    {
+        IKeyStore::Ptr keystore;
+        IKeyStore::Options options;
+        options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+        options.fileName = AppModel::getInstance()->getSettings().getBbsStorage();
 
-	return false;
+        try
+        {
+            keystore = IKeyStore::create(options, walletPassword.c_str(), walletPassword.size());
+        }
+        catch (const beam::KeyStoreException& ex)
+        {
+        
+            return false;
+        }
+
+        auto nodeAddr = AppModel::getInstance()->getSettings().getNodeAddress().toStdString();
+        WalletModel::Ptr walletModel = std::make_shared<WalletModel>(db, keystore, nodeAddr);
+        AppModel::getInstance()->setWallet(walletModel);
+
+        walletModel->start();
+
+        return true;
+    }
+
+    return false;
 }

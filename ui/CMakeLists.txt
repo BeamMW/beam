@@ -34,6 +34,8 @@ set(UI_SRC
 	translator.cpp
 	viewmodel/start.h
 	viewmodel/start.cpp
+	viewmodel/utxo.h
+	viewmodel/utxo.cpp
 	viewmodel/main.h
 	viewmodel/main.cpp
 	viewmodel/dashboard.h
@@ -46,12 +48,20 @@ set(UI_SRC
 	viewmodel/help.cpp
 	viewmodel/settings.h
 	viewmodel/settings.cpp
+	viewmodel/address_book.h
 	viewmodel/address_book.cpp
+	viewmodel/ui_helpers.h
 	viewmodel/ui_helpers.cpp
     viewmodel/messages.cpp
 
 	model/wallet.h
 	model/wallet.cpp
+	model/app_model.h
+	model/app_model.cpp
+	model/settings.h
+	model/settings.cpp
+	model/messages.h
+	model/messages.cpp
 )
 
 if(WIN32)

@@ -12,35 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#include "messages.h"
+#include <QtQuick>
 
-#include <QObject>
+using namespace std;
 
-
-class MessagesViewModel : public QObject
+MessageManager::MessageManager()
 {
-    Q_OBJECT
 
-    Q_PROPERTY(QStringList messages READ getMessages NOTIFY messagesChanged)
+}
 
-public:
-
-    Q_INVOKABLE void deleteMessage(int index);
-
-public:
-
-    MessagesViewModel();
-
-    void AddMessage(const QString& value);
-
-    QStringList getMessages() const;
-public slots:
-
-    void onNewMessage(const QString& message);
-signals:
-
-    void messagesChanged();
-
-private:
-    QStringList m_messages;
-};
+void MessageManager::addMessage(const string& message)
+{
+    emit newMessage(QString(message.c_str()));
+}
