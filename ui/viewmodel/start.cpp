@@ -44,7 +44,7 @@ void StartViewModel::setupLocalNode(int port, int miningThreads)
 
 void StartViewModel::setupRemoteNode(const QString& nodeAddress)
 {
-
+    AppModel::getInstance()->getSettings().setNodeAddress(nodeAddress);
 }
 
 void StartViewModel::setupTestnetNode()
@@ -85,6 +85,12 @@ bool StartViewModel::createWallet(const QString& seed, const QString& pass)
             keystore->save_keypair(defaultAddress.m_walletID, true);
 
             db->saveAddress(defaultAddress);
+
+            auto nodeAddr = AppModel::getInstance()->getSettings().getNodeAddress().toStdString();
+            WalletModel::Ptr walletModel = std::make_shared<WalletModel>(db, keystore, nodeAddr);
+            AppModel::getInstance()->setWallet(walletModel);
+
+            walletModel->start();
         }
         catch (const std::runtime_error&)
         {

@@ -243,6 +243,10 @@ Item
 							{
 								passwordError.text = qsTr("Error, something went worng, wallet not created :(");
 							}
+							else
+							{
+								root.parent.source = "qrc:///main.qml";
+							}
 						}
 					}
 				}

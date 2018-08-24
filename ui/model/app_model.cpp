@@ -42,6 +42,7 @@ WalletModel::Ptr AppModel::getWallet() const
 
 void AppModel::setWallet(WalletModel::Ptr wallet)
 {
+    assert(wallet);
     m_wallet = wallet;
 }
 
