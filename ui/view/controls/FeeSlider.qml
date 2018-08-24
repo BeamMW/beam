@@ -10,7 +10,7 @@ T.Slider {
     implicitWidth: Math.max(background ? background.implicitWidth : 0,
                            (handle ? handle.implicitWidth : 0) + leftPadding + rightPadding)
     implicitHeight: Math.max(background ? background.implicitHeight : 0,
-                            (handle ? handle.implicitHeight : 0) + topPadding + bottomPadding) + 30
+                            (handle ? handle.implicitHeight : 0) + topPadding + bottomPadding) + 40
 
     padding: 0
 
@@ -30,7 +30,7 @@ T.Slider {
                 else (parent.width-width)/2
             }
 
-            y: -20
+            y: -26
             font.pixelSize: 14
             text: control.value.toFixed(6)
             color: Style.bright_teal
@@ -62,21 +62,23 @@ T.Slider {
             radius: 2
         }
 
-        SFText {
+        Item {
+            width: parent.width
             anchors.top: parent.bottom
-            anchors.topMargin: 10
-            font.pixelSize: 14
-            color: Style.bluey_grey
-            text: control.from.toFixed(6)
-        }
+            anchors.topMargin: 14
+            
+            SFText {
+                font.pixelSize: 14
+                color: Style.bluey_grey
+                text: control.from.toFixed(6)
+            }
 
-        SFText {
-            anchors.top: parent.bottom
-            anchors.topMargin: 10
-            anchors.right: parent.right
-            font.pixelSize: 14
-            color: Style.bluey_grey
-            text: control.to.toFixed(6)
+            SFText {
+                anchors.right: parent.right
+                font.pixelSize: 14
+                color: Style.bluey_grey
+                text: control.to.toFixed(6)
+            }            
         }
     }
 }
