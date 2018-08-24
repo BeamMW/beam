@@ -171,8 +171,13 @@ namespace beam
 		typedef std::vector<Node>		Proof;
 		typedef std::vector<Hash>		HardProof;
 
+		struct Position {
+			uint8_t H;
+			uint64_t X;
+		};
+
 		struct IProofBuilder {
-			virtual bool AppendNode(const Node&) = 0;
+			virtual bool AppendNode(const Node&, const Position&) = 0;
 		};
 
 		struct ProofBuilderStd
@@ -180,7 +185,7 @@ namespace beam
 		{
 			Proof m_Proof;
 
-			virtual bool AppendNode(const Node& n) override
+			virtual bool AppendNode(const Node& n, const Position&) override
 			{
 				m_Proof.push_back(n);
 				return true;
@@ -192,7 +197,7 @@ namespace beam
 		{
 			HardProof m_Proof;
 
-			virtual bool AppendNode(const Node& n) override
+			virtual bool AppendNode(const Node& n, const Position&) override
 			{
 				m_Proof.push_back(n.second);
 				return true;

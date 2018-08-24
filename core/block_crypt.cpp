@@ -1007,13 +1007,13 @@ namespace beam
 				return true;
 			}
 
-			virtual bool AppendNode(const Merkle::Node& n) override
+			virtual bool AppendNode(const Merkle::Node& n, const Merkle::Position&) override
 			{
 				return InterpretOnce(n.first);
 			}
 
-			virtual void LoadElement(Merkle::Hash&, uint64_t nIdx, uint8_t nHeight) const override {}
-			virtual void SaveElement(const Merkle::Hash&, uint64_t nIdx, uint8_t nHeight) override {}
+			virtual void LoadElement(Merkle::Hash&, const Merkle::Position&) const override {}
+			virtual void SaveElement(const Merkle::Hash&, const Merkle::Position&) override {}
 		};
 
 		Verifier vmmr;

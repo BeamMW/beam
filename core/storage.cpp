@@ -633,16 +633,18 @@ UtxoTree::Key& UtxoTree::Key::operator = (const Data& d)
 void Merkle::Mmr::Append(const Hash& hv)
 {
 	Hash hv1 = hv;
-	uint64_t n = m_Count;
 
-	for (uint8_t nHeight = 0; ; nHeight++, n >>= 1)
+	Position pos;
+	pos.X = m_Count;
+	for (pos.H = 0; ; pos.H++, pos.X >>= 1)
 	{
-		SaveElement(hv1, n, nHeight);
-		if (!(1 & n))
+		SaveElement(hv1, pos);
+		if (!(1 & pos.X))
 			break;
 
 		Hash hv0;
-		LoadElement(hv0, n ^ 1, nHeight);
+		pos.X ^= 1;
+		LoadElement(hv0, pos);
 
 		Interpret(hv1, hv0, false);
 	}
@@ -653,13 +655,15 @@ void Merkle::Mmr::Append(const Hash& hv)
 void Merkle::Mmr::get_PredictedHash(Hash& hv, const Hash& hvAppend) const
 {
 	hv = hvAppend;
-	uint64_t n = m_Count;
 
-	for (uint8_t nHeight = 0; n; nHeight++, n >>= 1)
-		if (1 & n)
+	Position pos;
+	pos.X = m_Count;
+	for (pos.H = 0; pos.X; pos.H++, pos.X >>= 1)
+		if (1 & pos.X)
 		{
 			Hash hv0;
-			LoadElement(hv0, n ^ 1, nHeight);
+			pos.X ^= 1;
+			LoadElement(hv0, pos);
 
 			Interpret(hv, hv0, false);
 		}
@@ -675,11 +679,13 @@ bool Merkle::Mmr::get_HashForRange(Hash& hv, uint64_t n0, uint64_t n) const
 {
 	bool bEmpty = true;
 
-	for (uint8_t nHeight = 0; n; nHeight++, n >>= 1, n0 >>= 1)
+	Position pos;
+	for (pos.H = 0; n; pos.H++, n >>= 1, n0 >>= 1)
 		if (1 & n)
 		{
 			Hash hv0;
-			LoadElement(hv0, n0 + n ^ 1, nHeight);
+			pos.X = n0 + n ^ 1;
+			LoadElement(hv0, pos);
 
 			if (bEmpty)
 			{
@@ -707,31 +713,32 @@ bool Merkle::Mmr::get_Proof(IProofBuilder& proof, uint64_t i) const
 	assert(i < m_Count);
 
 	uint64_t n = m_Count;
-	for (uint8_t nHeight = 0; n; nHeight++, n >>= 1, i >>= 1)
+	Position pos;
+	for (pos.H = 0; n; pos.H++, n >>= 1, i >>= 1)
 	{
 		Node node;
 		node.first = !(i & 1);
 
-		uint64_t nSibling = i ^ 1;
+		pos.X = i ^ 1;
 		bool bFullSibling = !node.first;
 
 		if (!bFullSibling)
 		{
-			uint64_t n0 = nSibling << nHeight;
+			uint64_t n0 = pos.X << pos.H;
 			if (n0 >= m_Count)
 				continue;
 
 			uint64_t nRemaining = m_Count - n0;
-			if (nRemaining >> nHeight)
+			if (nRemaining >> pos.H)
 				bFullSibling = true;
 			else
 				verify(get_HashForRange(node.second, n0, nRemaining));
 		}
 
 		if (bFullSibling)
-			LoadElement(node.second, nSibling, nHeight);
+			LoadElement(node.second, pos);
 
-		if (!proof.AppendNode(node))
+		if (!proof.AppendNode(node, pos))
 			return false;
 	}
 
@@ -784,8 +791,8 @@ struct Merkle::DistributedMmr::Impl
 	}
 
 	// Mmr
-	virtual void LoadElement(Hash&, uint64_t nIdx, uint8_t nHeight) const override;
-	virtual void SaveElement(const Hash&, uint64_t nIdx, uint8_t nHeight) override;
+	virtual void LoadElement(Hash&, const Position&) const override;
+	virtual void SaveElement(const Hash&, const Position&) override;
 };
 
 uint32_t Merkle::DistributedMmr::get_NodeSize(uint64_t n)
@@ -799,25 +806,25 @@ uint32_t Merkle::DistributedMmr::get_NodeSize(uint64_t n)
 	return nSize;
 }
 
-void Merkle::DistributedMmr::Impl::SaveElement(const Hash& hash, uint64_t nIdx, uint8_t nHeight)
+void Merkle::DistributedMmr::Impl::SaveElement(const Hash& hash, const Position& pos)
 {
-	if (nHeight) // we don't store explicitly the hash of the element itself.
+	if (pos.H) // we don't store explicitly the hash of the element itself.
 	{
-		m_pTrgHash[nHeight - 1] = hash;
+		m_pTrgHash[pos.H - 1] = hash;
 
-		assert(m_pNodes[m_nDepth].m_nIdx == m_Count - (uint64_t(1) << (nHeight - 1)));
-		m_pTrgKey[nHeight - 1] = m_pNodes[m_nDepth].m_Key;
+		assert(m_pNodes[m_nDepth].m_nIdx == m_Count - (uint64_t(1) << (pos.H - 1)));
+		m_pTrgKey[pos.H - 1] = m_pNodes[m_nDepth].m_Key;
 	}
 }
 
-void Merkle::DistributedMmr::Impl::LoadElement(Hash& hash, uint64_t nIdx, uint8_t nHeight) const
+void Merkle::DistributedMmr::Impl::LoadElement(Hash& hash, const Position& pos) const
 {
 	// index of the element that carries the information
-	nIdx = ((nIdx + 1) << nHeight) - 1;
+	uint64_t nIdx = ((pos.X + 1) << pos.H) - 1;
 	Key k = ((Impl*) this)->FindElement(nIdx);
 
-	if (nHeight)
-		hash = ((const Hash*) m_This.get_NodeData(k))[nHeight - 1];
+	if (pos.H)
+		hash = ((const Hash*) m_This.get_NodeData(k))[pos.H - 1];
 	else
 		m_This.get_NodeHash(hash, k);
 }

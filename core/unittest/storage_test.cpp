@@ -372,31 +372,31 @@ namespace beam
 
 		std::vector<HashVectorPtr> m_vec;
 
-		Merkle::Hash& get_At(uint64_t nIdx, uint8_t nHeight)
+		Merkle::Hash& get_At(const Merkle::Position& pos)
 		{
-			if (m_vec.size() <= nHeight)
-				m_vec.resize(nHeight + 1);
+			if (m_vec.size() <= pos.H)
+				m_vec.resize(pos.H + 1);
 
-			HashVectorPtr& ptr = m_vec[nHeight];
+			HashVectorPtr& ptr = m_vec[pos.H];
 			if (!ptr)
 				ptr.reset(new HashVector);
 
 		
 			HashVector& vec = *ptr;
-			if (vec.size() <= size_t(nIdx))
-				vec.resize(size_t(nIdx) + 1);
+			if (vec.size() <= size_t(pos.X))
+				vec.resize(size_t(pos.X) + 1);
 
-			return vec[size_t(nIdx)];
+			return vec[size_t(pos.X)];
 		}
 
-		virtual void LoadElement(Merkle::Hash& hv, uint64_t nIdx, uint8_t nHeight) const override
+		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
 		{
-			hv = ((MyMmr*) this)->get_At(nIdx, nHeight);
+			hv = ((MyMmr*) this)->get_At(pos);
 		}
 
-		virtual void SaveElement(const Merkle::Hash& hv, uint64_t nIdx, uint8_t nHeight) override
+		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override
 		{
-			get_At(nIdx, nHeight) = hv;
+			get_At(pos) = hv;
 		}
 	};
 

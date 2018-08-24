@@ -296,8 +296,8 @@ namespace Merkle
 	protected:
 		bool get_HashForRange(Hash&, uint64_t n0, uint64_t n) const;
 
-		virtual void LoadElement(Hash&, uint64_t nIdx, uint8_t nHeight) const = 0;
-		virtual void SaveElement(const Hash&, uint64_t nIdx, uint8_t nHeight) = 0;
+		virtual void LoadElement(Hash&, const Position&) const = 0;
+		virtual void SaveElement(const Hash&, const Position&) = 0;
 	};
 
 	struct DistributedMmr
