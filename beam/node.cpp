@@ -1359,23 +1359,19 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 	if (msg.m_Height < Rules::HeightGenesis)
 		ThrowUnexpected();
 
-	proto::ProofStateForDummies msgOut;
+	proto::ProofState msgOut;
 
 	Processor& p = m_This.m_Processor;
 	const NodeDB::StateID& sid = p.m_Cursor.m_Sid;
 	if (sid.m_Row && (msg.m_Height < sid.m_Height))
 	{
-		p.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height);
+		Merkle::ProofBuilderHard bld;
+		p.get_DB().get_Proof(bld, sid, msg.m_Height);
+		msgOut.m_Proof.swap(bld.m_Proof);
 
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-		msgOut.m_Proof.back().first = true;
-		p.get_CurrentLive(msgOut.m_Proof.back().second);
-
-		uint64_t rowid = p.FindActiveAtStrict(msg.m_Height);
-		p.get_DB().get_State(rowid, msgOut.m_Hdr);
+		p.get_CurrentLive(msgOut.m_Proof.back());
 	}
-	else
-		ZeroObject(msgOut.m_Hdr);
 
 	Send(msgOut);
 }

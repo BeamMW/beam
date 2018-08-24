@@ -1398,7 +1398,7 @@ void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
 	TestChanged1Row();
 }
 
-void NodeDB::get_Proof(Merkle::Proof& proof, const StateID& sid, Height hPrev)
+void NodeDB::get_Proof(Merkle::IProofBuilder& bld, const StateID& sid, Height hPrev)
 {
 	assert((hPrev >= Rules::HeightGenesis) && (hPrev < sid.m_Height));
 
@@ -1406,7 +1406,7 @@ void NodeDB::get_Proof(Merkle::Proof& proof, const StateID& sid, Height hPrev)
     dmmr.m_Count = sid.m_Height - Rules::HeightGenesis;
     dmmr.m_kLast = sid.m_Row;
 
-    dmmr.get_Proof(proof, hPrev - Rules::HeightGenesis);
+    dmmr.get_Proof(bld, hPrev - Rules::HeightGenesis);
 }
 
 void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)

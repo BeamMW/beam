@@ -254,7 +254,7 @@ public:
 
 	bool get_Cursor(StateID& sid);
 
-    void get_Proof(Merkle::Proof&, const StateID& sid, Height hPrev);
+    void get_Proof(Merkle::IProofBuilder&, const StateID& sid, Height hPrev);
     void get_PredictedStatesHash(Merkle::Hash&, const StateID& sid); // For the next block.
 
 	void get_ChainWork(uint64_t, Difficulty::Raw&);

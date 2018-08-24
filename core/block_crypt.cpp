@@ -983,30 +983,27 @@ namespace beam
 		return hv == m_Definition;
 	}
 
-	bool Block::SystemState::Full::IsValidProofState(const Full& s, const Merkle::Proof& proof) const
+	bool Block::SystemState::Full::IsValidProofState(const ID& id, const Merkle::HardProof& proof) const
 	{
 		// verify the whole proof structure
-		if ((s.m_Height < Rules::HeightGenesis) || (s.m_Height >= m_Height))
+		if ((id.m_Height < Rules::HeightGenesis) || (id.m_Height >= m_Height))
 			return false;
 
 		struct Verifier
 			:public Merkle::Mmr
-			,public Merkle::Mmr::IProofBuilder
+			,public Merkle::IProofBuilder
 		{
 			Merkle::Hash m_hv;
 
-			Merkle::Proof::const_iterator m_itPos;
-			Merkle::Proof::const_iterator m_itEnd;
+			Merkle::HardProof::const_iterator m_itPos;
+			Merkle::HardProof::const_iterator m_itEnd;
 
 			bool InterpretOnce(bool bOnRight)
 			{
 				if (m_itPos == m_itEnd)
 					return false;
 
-				if (m_itPos->first != bOnRight)
-					return false;
-
-				Merkle::Interpret(m_hv, *m_itPos++);
+				Merkle::Interpret(m_hv, *m_itPos++, bOnRight);
 				return true;
 			}
 
@@ -1020,12 +1017,12 @@ namespace beam
 		};
 
 		Verifier vmmr;
-		s.get_Hash(vmmr.m_hv);
+		vmmr.m_hv = id.m_Hash;
 		vmmr.m_itPos = proof.begin();
 		vmmr.m_itEnd = proof.end();
 
 		vmmr.m_Count = m_Height - Rules::HeightGenesis;
-		if (!vmmr.get_Proof(vmmr, s.m_Height - Rules::HeightGenesis))
+		if (!vmmr.get_Proof(vmmr, id.m_Height - Rules::HeightGenesis))
 			return false;
 
 		if (!vmmr.InterpretOnce(true))
