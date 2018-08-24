@@ -39,7 +39,7 @@ namespace
         }
         ECC::NoLeak<ECC::uintBig> seed;
         seed.V = ECC::Zero;
-        auto keychain = Keychain::init(dbName, "pass123", seed);
+        auto keychain = Keychain::init(dbName, string_view("pass123"), seed);
         beam::Block::SystemState::ID id = { };
         id.m_Height = 134;
         keychain->setSystemStateID(id);

@@ -19,6 +19,7 @@
 #include "core/ecc_native.h"
 #include "wallet/common.h"
 #include "utility/io/address.h"
+#include "secstring.h"
 
 struct sqlite3;
 
@@ -152,8 +153,8 @@ namespace beam
     struct Keychain : IKeyChain
     {
         static bool isInitialized(const std::string& path);
-        static Ptr init(const std::string& path, const std::string& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
-        static Ptr open(const std::string& path, const std::string& password);
+        static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
+        static Ptr open(const std::string& path, const SecString& password);
 
         Keychain(const ECC::NoLeak<ECC::uintBig>& secretKey );
         ~Keychain();

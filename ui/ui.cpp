@@ -133,17 +133,11 @@ int main (int argc, char* argv[])
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
-            auto walletStorage = appDataDir.filePath("wallet.db").toStdString();
-            auto bbsStorage = appDataDir.filePath("keys.bbs").toStdString();
-
             QQuickView view;
             view.setResizeMode(QQuickView::SizeRootObjectToView);
             view.setMinimumSize(QSize(860, 700));
-            WalletSettings settings(appDataDir.filePath("setting.ini"));
+            WalletSettings settings(appDataDir);
             AppModel appModel(settings);
-
-            settings.setWalletStorage(walletStorage);
-            settings.setBbsStorage(bbsStorage);
 
             if (settings.getNodeAddress().isEmpty())
             {

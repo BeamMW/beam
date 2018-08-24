@@ -17,6 +17,10 @@
 #include "wallet.h"
 #include "settings.h"
 #include "messages.h"
+#include "node.h"
+#include "wallet/secstring.h"
+#include <memory>
+#include "wallet/keystore.h"
 
 class AppModel
 {
@@ -28,14 +32,19 @@ public:
     ~AppModel();
 
     WalletModel::Ptr getWallet() const;
-    void setWallet(WalletModel::Ptr wallet);
+
+    bool createWallet(const beam::SecString& seed, const beam::SecString& pass);
+    bool openWallet(const beam::SecString& pass);
 
     WalletSettings& getSettings();
     MessageManager& getMessages();
+private:
+    void start(beam::IKeyChain::Ptr db, beam::IKeyStore::Ptr);
 
 private:
 
     WalletModel::Ptr m_wallet;
+    std::unique_ptr<NodeModel> m_node;
     WalletSettings& m_settings;
     MessageManager m_messages;
     static AppModel* s_instance;

@@ -1,19 +1,26 @@
 #pragma once
 #include "core/ecc.h"
+#include <string_view>
 
 namespace beam {
 
-struct SecString {
+class SecString {
     static const size_t MAX_SIZE = 128;
 
-    size_t size=0;
-    char data[MAX_SIZE];
+    size_t _size=0;
+    char _data[MAX_SIZE];
+public:
 
+    SecString() = default;
     SecString(const SecString&) = delete;
     SecString& operator=(const SecString&) = delete;
 
     SecString(SecString&& ss) {
         assign(ss);
+    }
+
+    SecString(const std::string_view& sv) {
+        assign(static_cast<const void*>(sv.data()), sv.size());
     }
 
     SecString& operator=(SecString&& ss) {
@@ -24,25 +31,43 @@ struct SecString {
     ~SecString() { erase(); }
 
     void erase() {
-        if (size > 0) ECC::SecureErase(data, size);
+        if (_size > 0) ECC::SecureErase(_data, _size);
     }
 
     void assign(void* p, size_t s) {
         erase();
-        size = s > MAX_SIZE ? MAX_SIZE : s;
-        if (size > 0) {
-            memcpy(data, p, size);
+        _size = s > MAX_SIZE ? MAX_SIZE : s;
+        if (_size > 0) {
+            memcpy(_data, p, _size);
             ECC::SecureErase(p, s);
+        }
+    }
+
+    void assign(const void* p, size_t s) {
+        erase();
+        _size = s > MAX_SIZE ? MAX_SIZE : s;
+        if (_size > 0) {
+            memcpy(_data, p, _size);
         }
     }
 
     void assign(SecString& ss) {
         erase();
-        size = ss.size;
-        if (size > 0) {
-            memcpy(data, ss.data, size);
+        _size = ss._size;
+        if (_size > 0) {
+            memcpy(_data, ss._data, _size);
             ss.erase();
         }
+    }
+
+    size_t size() const
+    {
+        return _size;
+    }
+
+    const char* data() const
+    {
+        return _data;
     }
 };
 
