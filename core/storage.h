@@ -355,6 +355,14 @@ namespace Merkle
 	struct MultiProof
 	{
 		std::vector<Hash> m_vData; // all together
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_vData;
+		}
+
 		typedef std::vector<Hash>::const_iterator Iterator;
 
 		class Builder

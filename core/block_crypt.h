@@ -147,6 +147,15 @@ namespace beam
 		void Create(ISource&, const SystemState::Full& sRoot);
 		bool IsValid() const;
 
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_vStates
+				& m_Proof
+				& m_hvRootLive;
+		}
+
 	private:
 		struct Sampler;
 	};
