@@ -520,6 +520,7 @@ namespace beam
 					bld.Add(vSet[j]);
 			}
 
+			while (true)
 			{
 				Merkle::MultiProof::Verifier ver(mp, i + 1);
 				ver.m_hvRoot = hvRoot;
@@ -528,8 +529,21 @@ namespace beam
 				{
 					ver.m_hvPos = vHashes[vSet[j]];
 					ver.Process(vSet[j]);
-					verify_test(!ver.m_bFail);
+					verify_test(ver.m_bVerify);
 				}
+
+				// crop
+				vSet.resize(vSet.size() / 2);
+				if (vSet.empty())
+					break;
+
+				Merkle::MultiProof::Verifier crop(mp, i + 1);
+				crop.m_bVerify = false;
+
+				for (uint32_t j = 0; j < vSet.size(); j++)
+					crop.Process(vSet[j]);
+
+				mp.m_vData.resize(crop.get_Pos() - mp.m_vData.begin());
 			}
 
 		}

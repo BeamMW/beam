@@ -967,6 +967,12 @@ void Merkle::CompactMmr::Append(const Hash& hv)
 
 /////////////////////////////
 // Merkle::MultiProof
+Merkle::MultiProof::Builder::Builder(MultiProof& x)
+	:m_This(x)
+	,m_bSkipSibling(false)
+{
+}
+
 bool Merkle::MultiProof::Builder::AppendNode(const Node& n, const Position& pos)
 {
 	for (; !m_vLast.empty(); m_vLast.pop_back())
@@ -998,6 +1004,15 @@ void Merkle::MultiProof::Builder::Add(uint64_t i)
 	m_bSkipSibling = false;
 }
 
+Merkle::MultiProof::Verifier::Verifier(const MultiProof& x, uint64_t nCount)
+	:m_phvSibling(NULL)
+	,m_bVerify(true)
+{
+	m_itPos = x.m_vData.begin();
+	m_itEnd = x.m_vData.end();
+	m_Count = nCount;
+}
+
 bool Merkle::MultiProof::Verifier::AppendNode(const Node& n, const Position& pos)
 {
 	for (; !m_vLast.empty(); m_vLast.pop_back())
@@ -1009,8 +1024,8 @@ bool Merkle::MultiProof::Verifier::AppendNode(const Node& n, const Position& pos
 		if ((mn.m_Pos.H == pos.H) && (mn.m_Pos.X == pos.X))
 		{
 			// the rest of the proof would be the same
-			if (mn.m_hv != m_hvPos)
-				m_bFail = true;
+			if (m_bVerify && (mn.m_hv != m_hvPos))
+				m_bVerify = false;
 			return false;
 		}
 	}
@@ -1030,14 +1045,15 @@ bool Merkle::MultiProof::Verifier::AppendNode(const Node& n, const Position& pos
 	{
 		if (m_itPos == m_itEnd)
 		{
-			m_bFail = true;
+			m_bVerify = false;
 			return false;
 		}
 
 		m_phvSibling = &(*m_itPos++);
 	}
 
-	Interpret(m_hvPos, *m_phvSibling, n.first);
+	if (m_bVerify)
+		Interpret(m_hvPos, *m_phvSibling, n.first);
 	m_phvSibling = NULL;
 
 
@@ -1047,13 +1063,13 @@ bool Merkle::MultiProof::Verifier::AppendNode(const Node& n, const Position& pos
 void Merkle::MultiProof::Verifier::Process(uint64_t i)
 {
 	if (i >= m_Count)
-		m_bFail = true;
+		m_bVerify = false;
 	else
 	{
 		if (Mmr::get_Proof(*this, i))
 			// probably 1st time. Verify the result
-			if (m_hvPos != m_hvRoot)
-				m_bFail = true;
+			if (m_bVerify && (m_hvPos != m_hvRoot))
+				m_bVerify = false;
 
 		for (; !m_vLastRev.empty(); m_vLastRev.pop_back())
 			m_vLast.push_back(m_vLastRev.back());

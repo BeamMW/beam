@@ -350,10 +350,12 @@ namespace Merkle
 	// Structure to effective encode proofs to multiple elements at-once.
 	// The elements must be specified in a sorter order (straight or reverse).
 	// All the proofs are "merged", so that no hash is added twice.
-	// There still exists a better encoding, where some proof elements can be constructed completely from other elements, but it'd be more complex and require more memory during operation
+	// There still exists a better encoding, where some proof elements can be constructed completely from other elements, but it'd be more complex and require more memory during operation.
+	// In addition - this encoding can easily be cropped, if we decide to cut-off the included elements sequence.
 	struct MultiProof
 	{
 		std::vector<Hash> m_vData; // all together
+		typedef std::vector<Hash>::const_iterator Iterator;
 
 		class Builder
 			:private IProofBuilder
@@ -368,12 +370,7 @@ namespace Merkle
 		public:
 			bool m_bSkipSibling;
 
-			Builder(MultiProof& x)
-				:m_This(x)
-				, m_bSkipSibling(false)
-			{
-			}
-
+			Builder(MultiProof& x);
 			void Add(uint64_t i);
 		};
 
@@ -386,8 +383,8 @@ namespace Merkle
 				Position m_Pos;
 			};
 
-			std::vector<Hash>::const_iterator m_itPos;
-			std::vector<Hash>::const_iterator m_itEnd;
+			Iterator m_itPos;
+			Iterator m_itEnd;
 			std::vector<MyNode> m_vLast;
 			std::vector<MyNode> m_vLastRev;
 
@@ -399,18 +396,13 @@ namespace Merkle
 			Hash m_hvRoot;
 			Hash m_hvPos;
 			const Hash* m_phvSibling;
-			bool m_bFail;
+			bool m_bVerify; // in/out. Set to true to verify vs root hash, would be reset to false upon error. Set to false to use in "crop" mode.
 
-			Verifier(const MultiProof& x, uint64_t nCount)
-				:m_phvSibling(NULL)
-				,m_bFail(false)
-			{
-				m_itPos = x.m_vData.begin();
-				m_itEnd = x.m_vData.end();
-				m_Count = nCount;
-			}
-
+			Verifier(const MultiProof& x, uint64_t nCount);
 			void Process(uint64_t i);
+
+			// for cropping
+			Iterator get_Pos() const { return m_itPos; }
 		};
 	};
 }
