@@ -1466,6 +1466,43 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	Send(t.m_Msg);
 }
 
+void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
+{
+	struct Source
+		:public Block::ChainWorkProof::ISource
+	{
+		Processor& m_Proc;
+		Source(Processor& proc) :m_Proc(proc) {}
+
+		virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
+		{
+			uint64_t rowid = m_Proc.get_DB().FindStateWorkGreater(d);
+			m_Proc.get_DB().get_State(rowid, s);
+		}
+
+		virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
+		{
+			const NodeDB::StateID& sid = m_Proc.m_Cursor.m_Sid;
+			m_Proc.get_DB().get_Proof(bld, sid, h);
+		}
+	};
+
+	proto::ProofChainWork msgOut;
+
+	Processor& p = m_This.m_Processor;
+	if (p.m_Cursor.m_Full.m_Height >= Rules::HeightGenesis)
+	{
+		Source src(p);
+
+		msgOut.m_Proof.Create(src, p.m_Cursor.m_Full);
+		p.get_CurrentLive(msgOut.m_Proof.m_hvRootLive);
+	}
+	else
+		ZeroObject(msgOut.m_Proof.m_hvRootLive);
+
+	Send(msgOut);
+}
+
 void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 {
 	m_Port = msg.m_Port;

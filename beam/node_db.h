@@ -62,6 +62,7 @@ public:
 			StateGetHeightAndPrev,
 			StateFind,
 			StateFind2,
+			StateFindWorkGreater,
 			StateUpdPrevRow,
 			StateGetNextFCount,
 			StateSetNextCount,
@@ -339,6 +340,8 @@ public:
 	void BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it)
 	bool BbsFind(WalkerBbs&); // set Key
 	void BbsDelOld(Timestamp tMinToRemain);
+
+	uint64_t FindStateWorkGreater(const Difficulty::Raw&);
 
 private:
 

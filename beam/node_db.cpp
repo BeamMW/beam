@@ -265,7 +265,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 7;
+	const uint64_t nVersion = 8;
 
 	if (bCreate)
 	{
@@ -310,6 +310,8 @@ void NodeDB::Create()
 		"[" TblStates_ChainWork		"] BLOB,"
 		"PRIMARY KEY (" TblStates_Height "," TblStates_Hash "),"
 		"FOREIGN KEY (" TblStates_RowPrev ") REFERENCES " TblStates "(OID))");
+
+	ExecQuick("CREATE INDEX [Idx" TblStates "Wrk] ON [" TblStates "] ([" TblStates_ChainWork "]);");
 
 	ExecQuick("CREATE TABLE [" TblTips "] ("
 		"[" TblTips_Height	"] INTEGER NOT NULL,"
@@ -1645,5 +1647,19 @@ void NodeDB::BbsIns(const WalkerBbs::Data& d)
 	rs.Step();
 	TestChanged1Row();
 }
+
+uint64_t NodeDB::FindStateWorkGreater(const Difficulty::Raw& d)
+{
+	Recordset rs(*this, Query::StateFindWorkGreater, "SELECT rowid FROM " TblStates " WHERE " TblStates_ChainWork ">? AND " TblStates_Flags "& ? != 0 ORDER BY " TblStates_ChainWork " ASC LIMIT 1");
+	rs.put_As(0, d);
+	rs.put(1, StateFlags::Active);
+
+	rs.StepStrict();
+
+	uint64_t res;
+	rs.get(0, res);
+	return res;
+}
+
 
 } // namespace beam

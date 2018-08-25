@@ -933,7 +933,7 @@ namespace beam
 			std::list<ECC::Point> m_queProofsExpected;
 			std::list<uint32_t> m_queProofsStateExpected;
 			std::list<uint32_t> m_queProofsKrnExpected;
-
+			uint32_t m_nChainWorkProofsPending = 0;
 			uint32_t m_nBbsMsgsPending = 0;
 
 
@@ -992,7 +992,8 @@ namespace beam
 				return
 					m_queProofsExpected.empty() &&
 					m_queProofsKrnExpected.empty() &&
-					m_queProofsStateExpected.empty();
+					m_queProofsStateExpected.empty() &&
+					!m_nChainWorkProofsPending;
 			}
 
 			bool IsAllBbsReceived() const
@@ -1075,6 +1076,12 @@ namespace beam
 					m_queProofsKrnExpected.push_back(i);
 				}
 
+				{
+					proto::GetProofChainWork msgOut;
+					Send(msgOut);
+					m_nChainWorkProofsPending++;
+				}
+
 				proto::NewTransaction msgTx;
 				while (true)
 				{
@@ -1151,6 +1158,15 @@ namespace beam
 				else
 					fail_test("unexpected proof");
 			}
+
+			virtual void OnMsg(proto::ProofChainWork&& msg) override
+			{
+				verify_test(m_nChainWorkProofsPending);
+				verify_test(!msg.m_Proof.m_vStates.empty() && !m_vStates.empty() && (msg.m_Proof.m_vStates.back().m_Height == m_vStates.back().m_Height));
+				verify_test(msg.m_Proof.IsValid());
+				m_nChainWorkProofsPending--;
+			}
+
 
 			void SetTimer(uint32_t timeout_ms) {
 				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
