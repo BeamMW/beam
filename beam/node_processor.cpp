@@ -432,8 +432,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 			bFirstTime = true;
 
 			Difficulty::Raw wrk;
-			s.m_PoW.m_Difficulty.Unpack(wrk);
-			wrk += m_Cursor.m_Full.m_ChainWork;
+			s.m_PoW.m_Difficulty.Inc(wrk, m_Cursor.m_Full.m_ChainWork);
 
 			if (wrk != s.m_ChainWork)
 			{
@@ -1294,8 +1293,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	s.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
 	s.m_TimeStamp = getTimestamp();
 
-	s.m_PoW.m_Difficulty.Unpack(s.m_ChainWork);
-	s.m_ChainWork += m_Cursor.m_Full.m_ChainWork;
+	s.m_PoW.m_Difficulty.Inc(s.m_ChainWork, m_Cursor.m_Full.m_ChainWork);
 
 	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
 	Timestamp tm = get_MovingMedian() + 1;
@@ -1504,8 +1502,7 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 			bFirstTime = false;
 
 			Difficulty::Raw wrk;
-			s.m_PoW.m_Difficulty.Unpack(wrk);
-			wrk += m_Cursor.m_Full.m_ChainWork;
+			s.m_PoW.m_Difficulty.Inc(wrk, m_Cursor.m_Full.m_ChainWork);
 
 			if (wrk != s.m_ChainWork)
 			{
@@ -1513,6 +1510,8 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 				return false;
 			}
 		}
+		else
+			s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
 
 		switch (OnStateInternal(s, id))
 		{
@@ -1556,8 +1555,14 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 	LOG_INFO() << "Building auxilliary datas...";
 
 	r.Reset();
-	for (r.get_Start(body, s); r.get_NextHdr(s); s.NextPrefix())
+	r.get_Start(body, s);
+	for (bool bFirstTime = true; r.get_NextHdr(s); s.NextPrefix())
 	{
+		if (bFirstTime)
+			bFirstTime = false;
+		else
+			s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+
 		s.get_ID(id);
 
 		NodeDB::StateID sid;

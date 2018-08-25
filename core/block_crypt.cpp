@@ -884,10 +884,6 @@ namespace beam
 	{
 		get_Hash(m_Prev);
 		m_Height++;
-		
-		Difficulty::Raw inc;
-		m_PoW.m_Difficulty.Unpack(inc);
-		m_ChainWork += inc;
 	}
 
 	void Block::SystemState::Full::get_HashInternal(Merkle::Hash& out, bool bTotal) const
@@ -1214,6 +1210,26 @@ namespace beam
 		}
 		else
 			res.Inv();
+	}
+
+	void Difficulty::Inc(Raw& res, const Raw& base) const
+	{
+		Unpack(res);
+		res += base;
+	}
+
+	void Difficulty::Inc(Raw& res) const
+	{
+		Raw d;
+		Unpack(d);
+		res += d;
+	}
+
+	void Difficulty::Dec(Raw& res, const Raw& base) const
+	{
+		Unpack(res);
+		res.Negate();
+		res += base;
 	}
 
 	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange)

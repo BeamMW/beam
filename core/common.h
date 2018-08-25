@@ -111,6 +111,10 @@ namespace beam
 		bool IsTargetReached(const ECC::uintBig&) const;
 
 		void Unpack(Raw&) const;
+		void Inc(Raw&) const;
+		void Inc(Raw&, const Raw& base) const;
+		void Dec(Raw&, const Raw& base) const;
+
 
 		void Unpack(uint32_t& order, uint32_t& mantissa) const;
 		void Pack(uint32_t order, uint32_t mantissa);
