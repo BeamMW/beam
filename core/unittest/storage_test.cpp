@@ -444,6 +444,8 @@ namespace beam
 		std::vector<Merkle::Hash> vHashes;
 		vHashes.resize(300);
 
+		std::vector<uint32_t> vSet;
+
 		MyMmr mmr;
 		MyDmmr dmmr;
 		Merkle::CompactMmr cmmr;
@@ -474,6 +476,8 @@ namespace beam
 			cmmr.get_Hash(hvRoot);
 			verify_test(hvRoot == hvRoot3);
 
+			vSet.clear();
+
 			for (uint32_t j = 0; j <= i; j++)
 			{
 				Merkle::Proof proof;
@@ -487,7 +491,47 @@ namespace beam
 				Merkle::Hash hv2 = vHashes[j];
 				Merkle::Interpret(hv2, proof);
 				verify_test(hv2 == hvRoot);
+
+				if (rand() & 1)
+					vSet.push_back(j);
 			}
+
+			Merkle::MultiProof mp;
+
+			{
+				struct Builder
+					:public Merkle::MultiProof::Builder
+				{
+					const MyMmr& m_Mmr;
+					Builder(Merkle::MultiProof& x, const MyMmr& mmr)
+						:Merkle::MultiProof::Builder(x)
+						,m_Mmr(mmr)
+					{
+					}
+
+					virtual void get_Proof(Merkle::IProofBuilder& p, uint64_t i) override
+					{
+						m_Mmr.get_Proof(p, i);
+					}
+				};
+
+				Builder bld(mp, mmr);
+				for (uint32_t j = 0; j < vSet.size(); j++)
+					bld.Add(vSet[j]);
+			}
+
+			{
+				Merkle::MultiProof::Verifier ver(mp, i + 1);
+				ver.m_hvRoot = hvRoot;
+
+				for (uint32_t j = 0; j < vSet.size(); j++)
+				{
+					ver.m_hvPos = vHashes[vSet[j]];
+					ver.Process(vSet[j]);
+					verify_test(!ver.m_bFail);
+				}
+			}
+
 		}
 	}
 

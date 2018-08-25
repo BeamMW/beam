@@ -965,8 +965,100 @@ void Merkle::CompactMmr::Append(const Hash& hv)
 	m_Count++;
 }
 
-//void Merkle::CompactMmr::Append(CompactMmr& out, Hash& hv) const
-//{
-//}
+/////////////////////////////
+// Merkle::MultiProof
+bool Merkle::MultiProof::Builder::AppendNode(const Node& n, const Position& pos)
+{
+	for (; !m_vLast.empty(); m_vLast.pop_back())
+	{
+		const Position& pos0 = m_vLast.back();
+		if (pos0.H > pos.H)
+			break;
+
+		if ((pos0.H == pos.H) && (pos0.X == pos.X))
+			return false; // the rest of the proof would be the same
+	}
+
+	if (pos.H)
+		m_vLastRev.push_back(pos);
+
+	if (pos.H || !m_bSkipSibling)
+		m_This.m_vData.push_back(n.second);
+
+	return true;
+}
+
+void Merkle::MultiProof::Builder::Add(uint64_t i)
+{
+	get_Proof(*this, i);
+
+	for ( ; !m_vLastRev.empty(); m_vLastRev.pop_back())
+		m_vLast.push_back(m_vLastRev.back());
+
+	m_bSkipSibling = false;
+}
+
+bool Merkle::MultiProof::Verifier::AppendNode(const Node& n, const Position& pos)
+{
+	for (; !m_vLast.empty(); m_vLast.pop_back())
+	{
+		const MyNode& mn = m_vLast.back();
+		if (mn.m_Pos.H > pos.H)
+			break;
+
+		if ((mn.m_Pos.H == pos.H) && (mn.m_Pos.X == pos.X))
+		{
+			// the rest of the proof would be the same
+			if (mn.m_hv != m_hvPos)
+				m_bFail = true;
+			return false;
+		}
+	}
+
+	if (pos.H)
+	{
+		m_vLastRev.resize(m_vLastRev.size() + 1);
+		m_vLastRev.back().m_Pos = pos;
+		m_vLastRev.back().m_hv = m_hvPos;
+	}
+
+	if (m_phvSibling)
+	{
+		assert(!pos.H);
+	}
+	else
+	{
+		if (m_itPos == m_itEnd)
+		{
+			m_bFail = true;
+			return false;
+		}
+
+		m_phvSibling = &(*m_itPos++);
+	}
+
+	Interpret(m_hvPos, *m_phvSibling, n.first);
+	m_phvSibling = NULL;
+
+
+	return true;
+}
+
+void Merkle::MultiProof::Verifier::Process(uint64_t i)
+{
+	if (i >= m_Count)
+		m_bFail = true;
+	else
+	{
+		if (Mmr::get_Proof(*this, i))
+			// probably 1st time. Verify the result
+			if (m_hvPos != m_hvRoot)
+				m_bFail = true;
+
+		for (; !m_vLastRev.empty(); m_vLastRev.pop_back())
+			m_vLast.push_back(m_vLastRev.back());
+	}
+}
+
 
 } // namespace beam

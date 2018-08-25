@@ -346,6 +346,73 @@ namespace Merkle
 		void get_Hash(Hash&) const;
 		void get_PredictedHash(Hash&, const Hash& hvAppend) const;
 	};
+
+	// Structure to effective encode proofs to multiple elements at-once.
+	// The elements must be specified in a sorter order (straight or reverse).
+	// All the proofs are "merged", so that no hash is added twice.
+	// There still exists a better encoding, where some proof elements can be constructed completely from other elements, but it'd be more complex and require more memory during operation
+	struct MultiProof
+	{
+		std::vector<Hash> m_vData; // all together
+
+		class Builder
+			:private IProofBuilder
+		{
+			MultiProof& m_This;
+			std::vector<Position> m_vLast;
+			std::vector<Position> m_vLastRev;
+
+			virtual bool AppendNode(const Node& n, const Position& pos) override;
+			virtual void get_Proof(IProofBuilder&, uint64_t i) = 0;
+
+		public:
+			bool m_bSkipSibling;
+
+			Builder(MultiProof& x)
+				:m_This(x)
+				, m_bSkipSibling(false)
+			{
+			}
+
+			void Add(uint64_t i);
+		};
+
+		class Verifier
+			:private IProofBuilder
+			,private Mmr
+		{
+			struct MyNode {
+				Hash m_hv; // correct value at this position
+				Position m_Pos;
+			};
+
+			std::vector<Hash>::const_iterator m_itPos;
+			std::vector<Hash>::const_iterator m_itEnd;
+			std::vector<MyNode> m_vLast;
+			std::vector<MyNode> m_vLastRev;
+
+			virtual bool AppendNode(const Node& n, const Position& pos) override;
+			virtual void LoadElement(Hash&, const Position&) const override {}
+			virtual void SaveElement(const Hash&, const Position&) override {}
+
+		public:
+			Hash m_hvRoot;
+			Hash m_hvPos;
+			const Hash* m_phvSibling;
+			bool m_bFail;
+
+			Verifier(const MultiProof& x, uint64_t nCount)
+				:m_phvSibling(NULL)
+				,m_bFail(false)
+			{
+				m_itPos = x.m_vData.begin();
+				m_itEnd = x.m_vData.end();
+				m_Count = nCount;
+			}
+
+			void Process(uint64_t i);
+		};
+	};
 }
 
 } // namespace beam
