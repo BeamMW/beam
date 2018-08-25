@@ -621,6 +621,8 @@ namespace beam
 				return BodyBase::IsValid(hr, bSubsidyOpen, get_Reader());
 			}
 		};
+
+		struct ChainWorkProof;
 	};
 
 	enum struct KeyType
