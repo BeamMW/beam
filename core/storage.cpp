@@ -1068,7 +1068,7 @@ void Merkle::MultiProof::Verifier::Process(uint64_t i)
 	{
 		if (Mmr::get_Proof(*this, i))
 			// probably 1st time. Verify the result
-			if (m_bVerify && (m_hvPos != m_hvRoot))
+			if (m_bVerify && !IsRootValid(m_hvPos))
 				m_bVerify = false;
 
 		for (; !m_vLastRev.empty(); m_vLastRev.pop_back())

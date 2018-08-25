@@ -520,9 +520,19 @@ namespace beam
 					bld.Add(vSet[j]);
 			}
 
+			struct MyVerifier
+				:public Merkle::MultiProof::Verifier
+			{
+				Merkle::Hash m_hvRoot;
+
+				MyVerifier(const Merkle::MultiProof& x, uint64_t nCount) :Verifier(x, nCount) {}
+
+				virtual bool IsRootValid(const Merkle::Hash& hv) override { return hv == m_hvRoot; }
+			};
+
 			while (true)
 			{
-				Merkle::MultiProof::Verifier ver(mp, i + 1);
+				MyVerifier ver(mp, i + 1);
 				ver.m_hvRoot = hvRoot;
 
 				for (uint32_t j = 0; j < vSet.size(); j++)
@@ -537,7 +547,7 @@ namespace beam
 				if (vSet.empty())
 					break;
 
-				Merkle::MultiProof::Verifier crop(mp, i + 1);
+				MyVerifier crop(mp, i + 1);
 				crop.m_bVerify = false;
 
 				for (uint32_t j = 0; j < vSet.size(); j++)

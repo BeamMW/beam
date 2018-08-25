@@ -392,8 +392,9 @@ namespace Merkle
 			virtual void LoadElement(Hash&, const Position&) const override {}
 			virtual void SaveElement(const Hash&, const Position&) override {}
 
+			virtual bool IsRootValid(const Hash&) = 0;
+
 		public:
-			Hash m_hvRoot;
 			Hash m_hvPos;
 			const Hash* m_phvSibling;
 			bool m_bVerify; // in/out. Set to true to verify vs root hash, would be reset to false upon error. Set to false to use in "crop" mode.
