@@ -160,7 +160,8 @@ namespace beam
 			ar
 				& m_vStates
 				& m_Proof
-				& m_hvRootLive;
+				& m_hvRootLive
+				& m_LowerBound;
 		}
 
 	private:
