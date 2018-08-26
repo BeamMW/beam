@@ -22,37 +22,33 @@ using namespace std;
 namespace
 {
     const char* NodeAddressName = "node/address";
+
+    const char* LocalNodeRun = "localnode/run";
+    const char* LocalNodePort = "localnode/port";
+    const char* LocalNodeMiningThreads = "localnode/mining_threads";
+    const char* LocalNodeVerificationThreads = "localnode/verification_threads";
 }
 
-WalletSettings::WalletSettings(const QString& iniPath)
-    : _data{ iniPath, QSettings::IniFormat }
+WalletSettings::WalletSettings(const QDir& appDataDir)
+    : m_data{ appDataDir.filePath("setting.ini"), QSettings::IniFormat }
+    , m_appDataDir{appDataDir}
 {
 
 }
 
-void WalletSettings::setWalletStorage(const string& path)
+string WalletSettings::getWalletStorage() const
 {
-    _walletStorage = path;
+    return m_appDataDir.filePath("wallet.db").toStdString();
 }
 
-const string& WalletSettings::getWalletStorage() const
+string WalletSettings::getBbsStorage() const
 {
-    return _walletStorage;
-}
-
-void WalletSettings::setBbsStorage(const string& path)
-{
-    _bbsStorage = path;
-}
-
-const string& WalletSettings::getBbsStorage() const
-{
-    return _bbsStorage;
+    return m_appDataDir.filePath("keys.bbs").toStdString();
 }
 
 QString WalletSettings::getNodeAddress() const
 {
-    return _data.value(NodeAddressName).toString();
+    return m_data.value(NodeAddressName).toString();
 }
 
 void WalletSettings::setNodeAddress(const QString& addr)
@@ -64,7 +60,7 @@ void WalletSettings::setNodeAddress(const QString& addr)
         {
             walletModel->async->setNodeAddress(addr.toStdString());
         }
-        _data.setValue(NodeAddressName, addr);
+        m_data.setValue(NodeAddressName, addr);
         emit nodeAddressChanged();
     }
     
@@ -78,3 +74,58 @@ void WalletSettings::emergencyReset()
         walletModel->async->emergencyReset();
     }
 }
+
+bool WalletSettings::getRunLocalNode() const
+{
+    return m_data.value(LocalNodeRun, false).toBool();
+}
+
+void WalletSettings::setRunLocalNode(bool value)
+{
+    m_data.setValue(LocalNodeRun, value);
+    emit localNodeRunChanged();
+}
+
+short WalletSettings::getLocalNodePort() const
+{
+    return m_data.value(LocalNodePort, 10000).toInt();
+}
+
+void WalletSettings::setLocalNodePort(short port)
+{
+    m_data.setValue(LocalNodePort, port);
+    emit localNodePortChanged();
+}
+
+int WalletSettings::getLocalNodeMiningThreads() const
+{
+    return m_data.value(LocalNodeMiningThreads, 1).toInt();
+}
+
+void WalletSettings::setLocalNodeMiningThreads(int n)
+{
+    m_data.setValue(LocalNodeMiningThreads, n);
+    emit localNodeMiningThreadsChanged();
+}
+
+int WalletSettings::getLocalNodeVerificationThreads() const
+{
+    return m_data.value(LocalNodeVerificationThreads, 1).toInt();
+}
+
+void WalletSettings::setLocalNodeVerificationThreads(int n)
+{
+    m_data.setValue(LocalNodeVerificationThreads, n);
+    emit localNodeVerificationThreadsChanged();
+}
+
+string WalletSettings::getLocalNodeStorage() const
+{
+    return m_appDataDir.filePath("node.db").toStdString();
+}
+
+string WalletSettings::getTempDir() const
+{
+    return m_appDataDir.filePath("./temp").toStdString();
+}
+

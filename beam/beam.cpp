@@ -20,6 +20,7 @@
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
 #include "wallet/keystore.h"
+#include "wallet/secstring.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "utility/logger.h"
@@ -492,10 +493,10 @@ int main_impl(int argc, char* argv[])
 						LOG_INFO() << "starting a wallet...";
 
 						// TODO: we should use secure string
-						string pass;
+						SecString pass;
 						if (vm.count(cli::PASS))
 						{
-							pass = vm[cli::PASS].as<string>();
+							pass = SecString(string_view(vm[cli::PASS].as<string>()));
 						}
 
 						if (!pass.size())
@@ -520,7 +521,7 @@ int main_impl(int argc, char* argv[])
                                 options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
                                 options.fileName = bbsKeysPath;
 
-                                IKeyStore::Ptr ks = IKeyStore::create(options, pass.c_str(), pass.size());
+                                IKeyStore::Ptr ks = IKeyStore::create(options, pass.data(), pass.size());
 
                                 // generate default address
                                 WalletAddress defaultAddress = {};
@@ -683,7 +684,7 @@ int main_impl(int argc, char* argv[])
                         options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
                         options.fileName = bbsKeysPath;
 
-                        IKeyStore::Ptr keystore = IKeyStore::create(options, pass.c_str(), pass.size());
+                        IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
 
                         auto wallet_io = make_shared<WalletNetworkIO >( node_addr
 						                                              , keychain

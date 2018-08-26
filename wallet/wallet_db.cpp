@@ -626,7 +626,7 @@ namespace beam
 		return boost::filesystem::exists(path);
 	}
 
-	IKeyChain::Ptr Keychain::init(const string& path, const string& password, const ECC::NoLeak<ECC::uintBig>& secretKey)
+	IKeyChain::Ptr Keychain::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey)
 	{
 		if (!boost::filesystem::exists(path))
 		{
@@ -638,7 +638,7 @@ namespace beam
 			}
 
 			{
-				int ret = sqlite3_key(keychain->_db, password.c_str(), password.size());
+				int ret = sqlite3_key(keychain->_db, password.data(), password.size());
 				throwIfError(ret, keychain->_db);
 			}
 
@@ -686,7 +686,7 @@ namespace beam
 		return Ptr();
 	}
 
-	IKeyChain::Ptr Keychain::open(const string& path, const string& password)
+	IKeyChain::Ptr Keychain::open(const string& path, const SecString& password)
 	{
         try
         {
@@ -702,7 +702,7 @@ namespace beam
                 }
 
                 {
-                    int ret = sqlite3_key(keychain->_db, password.c_str(), password.size());
+                    int ret = sqlite3_key(keychain->_db, password.data(), password.size());
                     throwIfError(ret, keychain->_db);
                 }
                 {

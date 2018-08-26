@@ -17,6 +17,7 @@
 #include <QMessageBox>
 #include "settings.h"
 #include "model/app_model.h"
+#include "wallet/secstring.h"
 
 using namespace beam;
 using namespace ECC;
@@ -80,7 +81,12 @@ bool StartViewModel::walletExists() const
 
 void StartViewModel::setupLocalNode(int port, int miningThreads)
 {
-
+    auto& settings = AppModel::getInstance()->getSettings();
+    settings.setLocalNodeMiningThreads(miningThreads);
+    auto localAddress = QString::asprintf("127.0.0.1:%d", port);
+    settings.setNodeAddress(localAddress);
+    settings.setLocalNodePort(port);
+    settings.setRunLocalNode(true);
 }
 
 void StartViewModel::setupRemoteNode(const QString& nodeAddress)
@@ -97,85 +103,20 @@ void StartViewModel::setupTestnetNode()
 
 bool StartViewModel::createWallet(const QString& seed, const QString& pass)
 {
-    NoLeak<uintBig> walletSeed;
-    walletSeed.V = Zero;
-    {
-        Hash::Value hv;
-        Hash::Processor() << seed.toStdString().c_str() >> hv;
-        walletSeed.V = hv;
-    }
+    // TODO make this secure
+    string seedStr = seed.toStdString();
+    string passStr = pass.toStdString();
 
-    string walletPass = pass.toStdString();
-    auto db = Keychain::init(AppModel::getInstance()->getSettings().getWalletStorage(), walletPass, walletSeed);
-
-    if (db)
-    {
-        try
-        {
-            IKeyStore::Options options;
-            options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-            options.fileName = AppModel::getInstance()->getSettings().getBbsStorage();
-
-            IKeyStore::Ptr keystore = IKeyStore::create(options, walletPass.c_str(), walletPass.size());
-
-            // generate default address
-            WalletAddress defaultAddress = {};
-            defaultAddress.m_own = true;
-            defaultAddress.m_label = "default";
-            defaultAddress.m_createTime = getTimestamp();
-            defaultAddress.m_duration = numeric_limits<uint64_t>::max();
-            keystore->gen_keypair(defaultAddress.m_walletID);
-            keystore->save_keypair(defaultAddress.m_walletID, true);
-
-            db->saveAddress(defaultAddress);
-
-            auto nodeAddr = AppModel::getInstance()->getSettings().getNodeAddress().toStdString();
-            WalletModel::Ptr walletModel = std::make_shared<WalletModel>(db, keystore, nodeAddr);
-            AppModel::getInstance()->setWallet(walletModel);
-
-            walletModel->start();
-        }
-        catch (const std::runtime_error&)
-        {
-            AppModel::getInstance()->getMessages().newMessage("Failed to generate default address");
-        }
-
-        return true;
-    }
-
-    return false;
+    SecString secretSeed = string_view(seedStr);
+    SecString sectretPass = string_view(passStr);
+    return AppModel::getInstance()->createWallet(secretSeed, sectretPass);
 }
 
 bool StartViewModel::openWallet(const QString& pass)
 {
-    string walletPassword = pass.toStdString();
-    auto db = Keychain::open(AppModel::getInstance()->getSettings().getWalletStorage(), walletPassword);
+    // TODO make this secure
+    string passStr = pass.toStdString();
 
-    if (db)
-    {
-        IKeyStore::Ptr keystore;
-        IKeyStore::Options options;
-        options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-        options.fileName = AppModel::getInstance()->getSettings().getBbsStorage();
-
-        try
-        {
-            keystore = IKeyStore::create(options, walletPassword.c_str(), walletPassword.size());
-        }
-        catch (const beam::KeyStoreException& ex)
-        {
-        
-            return false;
-        }
-
-        auto nodeAddr = AppModel::getInstance()->getSettings().getNodeAddress().toStdString();
-        WalletModel::Ptr walletModel = std::make_shared<WalletModel>(db, keystore, nodeAddr);
-        AppModel::getInstance()->setWallet(walletModel);
-
-        walletModel->start();
-
-        return true;
-    }
-
-    return false;
+    SecString secretPass = string_view(passStr);
+    return AppModel::getInstance()->openWallet(secretPass);
 }
