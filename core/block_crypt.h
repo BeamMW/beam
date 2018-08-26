@@ -137,6 +137,7 @@ namespace beam
 		std::vector<SystemState::Full> m_vStates;
 		Merkle::MultiProof m_Proof; // compressed proof
 		Merkle::Hash m_hvRootLive; // last node to go from History to Definition.
+		Difficulty::Raw m_LowerBound;
 
 		struct ISource
 		{
@@ -144,8 +145,14 @@ namespace beam
 			virtual void get_Proof(Merkle::IProofBuilder&, Height) = 0;
 		};
 
+		ChainWorkProof()
+		{
+			m_LowerBound = ECC::Zero; // uncroppped by default
+		}
+
 		void Create(ISource&, const SystemState::Full& sRoot);
 		bool IsValid() const;
+		bool Crop(); // according to current bound
 
 		template <typename Archive>
 		void serialize(Archive& ar)
@@ -158,6 +165,7 @@ namespace beam
 
 	private:
 		struct Sampler;
+		bool IsValidInternal(size_t& iState, size_t& iHash) const;
 	};
 
 }

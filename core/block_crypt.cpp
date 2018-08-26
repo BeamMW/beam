@@ -1756,6 +1756,7 @@ namespace beam
 
 		Difficulty::Raw m_Begin;
 		Difficulty::Raw m_End;
+		Difficulty::Raw m_LowerBound;
 
 		Sampler(const SystemState::Full& sTip)
 		{
@@ -1834,13 +1835,15 @@ namespace beam
 
 			out.Negate();
 			out += m_Begin;
-			return true;
+
+			return out >= m_LowerBound;
 		}
 	};
 
 	void Block::ChainWorkProof::Create(ISource& src, const SystemState::Full& sRoot)
 	{
 		Sampler samp(sRoot);
+		samp.m_LowerBound = m_LowerBound;
 
 		struct MyBuilder
 			:public Merkle::MultiProof::Builder
@@ -1882,6 +1885,26 @@ namespace beam
 
 	bool Block::ChainWorkProof::IsValid() const
 	{
+		size_t iState, iHash;
+		return
+			IsValidInternal(iState, iHash) &&
+			(m_vStates.size() == iState) &&
+			(m_Proof.m_vData.size() == iHash);
+	}
+
+	bool Block::ChainWorkProof::Crop()
+	{
+		size_t iState, iHash;
+		if (!IsValidInternal(iState, iHash))
+			return false;
+
+		m_vStates.resize(iState);
+		m_Proof.m_vData.resize(iHash);
+		return true;
+	}
+
+	bool Block::ChainWorkProof::IsValidInternal(size_t& iState, size_t& iHash) const
+	{
 		if (m_vStates.empty())
 			return false;
 
@@ -1915,20 +1938,16 @@ namespace beam
 		if (samp.m_Begin >= samp.m_End) // overflow attack?
 			return false;
 
-		for (size_t i = 1; ; i++)
+		samp.m_LowerBound = m_LowerBound;
+
+		for (iState = 1; ; iState++)
 		{
 			Difficulty::Raw d, d0;
-			bool bStop1 = !samp.SamplePoint(d);
-			bool bStop2 = (i == m_vStates.size());
-
-			if (bStop1 != bStop2)
-				return false; // we don't allow unneeded points in the proof
-
-			if (bStop1)
+			if (!samp.SamplePoint(d))
 				break;
 
-			const SystemState::Full& s0 = m_vStates[i - 1];
-			const SystemState::Full& s = m_vStates[i];
+			const SystemState::Full& s0 = m_vStates[iState - 1];
+			const SystemState::Full& s = m_vStates[iState];
 
 			if (d >= s.m_ChainWork)
 				return false;
@@ -1964,6 +1983,7 @@ namespace beam
 
 		}
 
+		iHash = ver.get_Pos() - m_Proof.m_vData.begin();
 		return true;
 	}
 

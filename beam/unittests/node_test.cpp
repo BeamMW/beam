@@ -1343,7 +1343,7 @@ namespace beam
 		{
 			m_hvLive = ECC::Zero;
 
-			m_vStates.resize(40000);
+			m_vStates.resize(200000);
 			Difficulty d = Rules::get().StartDifficulty;
 
 			for (size_t i = 0; i < m_vStates.size(); i++)
@@ -1366,8 +1366,8 @@ namespace beam
 				s.m_Hdr.m_PoW.m_Difficulty = d;
 				d.Inc(s.m_Hdr.m_ChainWork);
 
-				if (!((i + 1) % 1024))
-					d.Adjust(130, 150, 3); // slightly raise
+				if (!((i + 1) % 8000))
+					d.Adjust(140, 150, 3); // slightly raise
 
 				m_Mmr.get_Hash(s.m_Hdr.m_Definition);
 				Merkle::Interpret(s.m_Hdr.m_Definition, m_hvLive, true);
@@ -1382,14 +1382,28 @@ namespace beam
 	void TestChainworkProof()
 	{
 		ChainContext cc;
+
+		printf("Preparing blockchain ...\n");
 		cc.Init();
 
 		Block::ChainWorkProof cwp;
 		cwp.m_hvRootLive = cc.m_hvLive;
-
 		cwp.Create(cc.m_Source, cc.m_vStates.back().m_Hdr);
 
-		verify_test(cwp.IsValid());
+		uint32_t nStates = (uint32_t) cc.m_vStates.size();
+		for (size_t i0 = 0; ; i0++)
+		{
+			verify_test(cwp.IsValid());
+
+			printf("Blocks = %u. Proof: States = %u, Hashes = %u\n", nStates, uint32_t(cwp.m_vStates.size()), uint32_t(cwp.m_Proof.m_vData.size()));
+
+			nStates >>= 1;
+			if (nStates < 64)
+				break;
+			cwp.m_LowerBound = cc.m_vStates[cc.m_vStates.size() - nStates].m_Hdr.m_ChainWork;
+
+			verify_test(cwp.Crop());
+		}
 	}
 
 }
