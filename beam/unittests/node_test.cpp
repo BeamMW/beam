@@ -1162,7 +1162,7 @@ namespace beam
 			virtual void OnMsg(proto::ProofChainWork&& msg) override
 			{
 				verify_test(m_nChainWorkProofsPending);
-				verify_test(!msg.m_Proof.m_vStates.empty() && !m_vStates.empty() && (msg.m_Proof.m_vStates.back().m_Height == m_vStates.back().m_Height));
+				verify_test(!msg.m_Proof.m_vStates.empty() && !m_vStates.empty() && (msg.m_Proof.m_vStates.front().m_Height == m_vStates.back().m_Height));
 				verify_test(msg.m_Proof.IsValid());
 				m_nChainWorkProofsPending--;
 			}
@@ -1346,8 +1346,6 @@ namespace beam
 			m_vStates.resize(40000);
 			Difficulty d = Rules::get().StartDifficulty;
 
-			Merkle::Hash hvHistLast;
-
 			for (size_t i = 0; i < m_vStates.size(); i++)
 			{
 				State& s = m_vStates[i];
@@ -1372,7 +1370,6 @@ namespace beam
 					d.Adjust(130, 150, 3); // slightly raise
 
 				m_Mmr.get_Hash(s.m_Hdr.m_Definition);
-				hvHistLast = s.m_Hdr.m_Definition;
 				Merkle::Interpret(s.m_Hdr.m_Definition, m_hvLive, true);
 
 				uint32_t nSize = m_Mmr.get_NodeSize(i);
@@ -1401,16 +1398,16 @@ int main()
 {
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 
+	beam::Rules::get().AllowPublicUtxos = true;
+	beam::Rules::get().FakePoW = true;
+	beam::Rules::get().UpdateChecksum();
+
 	beam::TestChainworkProof();
 
 	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
 	//	.db files
 	//	ports, wrong beacon and etc.
 	verify_test(beam::helpers::ProcessWideLock("/tmp/BEAM_node_test_lock"));
-
-	beam::Rules::get().AllowPublicUtxos = true;
-	beam::Rules::get().FakePoW = true;
-	beam::Rules::get().UpdateChecksum();
 
 	DeleteFileA(beam::g_sz);
 	DeleteFileA(beam::g_sz2);

@@ -1732,6 +1732,10 @@ namespace beam
 	// 2. Verify the proof for this point.
 	// 3. Cut-off the range from the beginning to the current point, and continue to (1)
 	//
+	//		*CORRECTION*
+	//		 In the current implementation we actually sample in *reverse* order. I.e. each time we pick a range below the current suffix, 1/N of its length, and sample a point there. We advance downward until we reach (or cross) zero point.
+	//		The reason for this change is that we want to be able to *CROP* the Proof easily (without fully rebuilding it). So that we can prepare the long proof once, and then send each client a truncated proof, according to its state.
+	//
 	// Note that the sampled point falls into a range, that covers more than just a single point. And, naturally, the cut-off includes the whole range. So that the above scheme should typically
 	// converge more rapidly than it may seem, especially toward the end, where difficulties are expected (though not required) to be bigger. Closer to the end, where less than N blocks are remaining to the tip,
 	// it should be like just sequentailly iterating the blocks one after another.
@@ -1759,35 +1763,15 @@ namespace beam
 			sTip.get_Hash(hv);
 			m_Oracle << hv;
 
-			m_Begin = ECC::Zero;
-			sTip.m_PoW.m_Difficulty.Dec(m_End, sTip.m_ChainWork);
+			m_End = sTip.m_ChainWork;
+			sTip.m_PoW.m_Difficulty.Dec(m_Begin, sTip.m_ChainWork);
 		}
 
-		static bool IsSaneOrder(const SystemState::Full& sLo, const SystemState::Full& sHi)
-		{
-			if (sLo.m_Height >= sHi.m_Height)
-				return false;
-
-			Difficulty::Raw d;
-			sHi.m_PoW.m_Difficulty.Dec(d, sHi.m_ChainWork);
-
-			return (sLo.m_Height + 1 == sHi.m_Height) ?
-				(sLo.m_ChainWork == d) :
-				(sLo.m_ChainWork < d);
-		}
-
-		void Cutoff(const SystemState::Full& s)
-		{
-			m_Begin = s.m_ChainWork;
-		}
-
-		void SamplePoint(Difficulty::Raw& out)
+		bool SamplePoint(Difficulty::Raw& out)
 		{
 			Difficulty::Raw range = m_Begin;
 			range.Negate();
 			range += m_End;
-
-			//assert(!(range == ECC::Zero));
 
 			// shift right 7 bits, and find the order of the number (1st nonzero bit)
 			uint8_t carry = 0;
@@ -1841,9 +1825,16 @@ namespace beam
 						break;
 					}
 				}
+
+				out.Inc();
 			}
 
+			if (out > m_Begin)
+				return false;
+
+			out.Negate();
 			out += m_Begin;
+			return true;
 		}
 	};
 
@@ -1868,27 +1859,25 @@ namespace beam
 
 		} bld(*this, src);
 
+		m_vStates.push_back(sRoot);
+
 		while (true)
 		{
 			Difficulty::Raw d;
-			samp.SamplePoint(d);
+			if (!samp.SamplePoint(d))
+				break;
 
 			SystemState::Full s;
 			src.get_StateAt(s, d);
-			assert(s.m_Height <= sRoot.m_Height); // may be root
 
-			if (!m_vStates.empty() && (m_vStates.back().m_Height + 1 != s.m_Height))
-				// add proof for prev
-				bld.Add(m_vStates.back().m_Height - Rules::HeightGenesis);
+			assert(s.m_Height < m_vStates.back().m_Height);
+			if (s.m_Height + 1 != m_vStates.back().m_Height)
+				bld.Add(s.m_Height - Rules::HeightGenesis);
 
 			m_vStates.push_back(s);
 
-			if (s.m_Height == sRoot.m_Height)
-				break;
-
-			samp.m_Begin = s.m_ChainWork;
+			s.m_PoW.m_Difficulty.Dec(samp.m_Begin, s.m_ChainWork);
 		}
-
 	}
 
 	bool Block::ChainWorkProof::IsValid() const
@@ -1898,15 +1887,10 @@ namespace beam
 
 		for (size_t i = 0; i < m_vStates.size(); i++)
 		{
-			if (!m_vStates[i].IsSane())
-				return false;
-
-			if ((i + 1 < m_vStates.size()) && !Sampler::IsSaneOrder(m_vStates[i], m_vStates[i + 1]))
+			const Block::SystemState::Full& s = m_vStates[i];
+			if (!(s.IsSane() && s.IsValidPoW()))
 				return false;
 		}
-
-		const SystemState::Full& sRoot = m_vStates.back();
-		Sampler samp(sRoot);
 
 		struct MyVerifier :public Merkle::MultiProof::Verifier
 		{
@@ -1920,41 +1904,64 @@ namespace beam
 			{
 				Merkle::Hash hvDef;
 				Merkle::Interpret(hvDef, hv, m_This.m_hvRootLive);
-				return hvDef == m_This.m_vStates.back().m_Definition;
+				return hvDef == m_This.m_vStates.front().m_Definition;
 			}
 		};
 
+		const SystemState::Full& sRoot = m_vStates.front();
 		MyVerifier ver(*this, sRoot.m_Height - Rules::HeightGenesis);
 
-		for (size_t i = 0; i + 1 < m_vStates.size(); i++)
+		Sampler samp(sRoot);
+		if (samp.m_Begin >= samp.m_End) // overflow attack?
+			return false;
+
+		for (size_t i = 1; ; i++)
 		{
+			Difficulty::Raw d, d0;
+			bool bStop1 = !samp.SamplePoint(d);
+			bool bStop2 = (i == m_vStates.size());
+
+			if (bStop1 != bStop2)
+				return false; // we don't allow unneeded points in the proof
+
+			if (bStop1)
+				break;
+
+			const SystemState::Full& s0 = m_vStates[i - 1];
 			const SystemState::Full& s = m_vStates[i];
-			s.get_Hash(ver.m_hvPos);
-
-			if (s.m_Height + 1 == m_vStates[i + 1].m_Height)
-			{
-				if (m_vStates[i + 1].m_Prev != ver.m_hvPos)
-					return false;
-			}
-			else
-			{
-				ver.Process(s.m_Height - Rules::HeightGenesis);
-				if (!ver.m_bVerify)
-					return false;
-			}
-
-			Difficulty::Raw d;
-			samp.SamplePoint(d);
 
 			if (d >= s.m_ChainWork)
 				return false;
 
+			d0 = samp.m_Begin;
 			s.m_PoW.m_Difficulty.Dec(samp.m_Begin, s.m_ChainWork);
 
 			if (d < samp.m_Begin)
 				return false;
 
-			samp.m_Begin = s.m_ChainWork;
+			s.get_Hash(ver.m_hvPos);
+
+			if (s.m_Height + 1 == s0.m_Height)
+			{
+				if (s0.m_Prev != ver.m_hvPos)
+					return false;
+
+				if (s.m_ChainWork != d0)
+					return false;
+			}
+			else
+			{
+				if (s.m_Height >= s0.m_Height)
+					return false;
+
+				if (s.m_ChainWork >= d0)
+					return false;
+
+				ver.Process(s.m_Height - Rules::HeightGenesis);
+				if (!ver.m_bVerify)
+					return false;
+			}
+
 		}
 
 		return true;
