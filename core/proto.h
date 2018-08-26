@@ -60,7 +60,8 @@ namespace proto {
 	macro(Input, Utxo) \
 	macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
 
-#define BeamNodeMsg_GetProofChainWork(macro)
+#define BeamNodeMsg_GetProofChainWork(macro) \
+	macro(Difficulty::Raw, LowerBound)
 
 #define BeamNodeMsg_ProofKernel(macro) \
 	macro(Merkle::Proof, Proof) \

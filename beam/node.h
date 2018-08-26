@@ -132,6 +132,9 @@ private:
 			IMPLEMENT_GET_PARENT_OBJ(Processor, m_Verifier)
 		} m_Verifier;
 
+		Block::ChainWorkProof m_Cwp; // cached
+		bool BuildCwp();
+
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
 

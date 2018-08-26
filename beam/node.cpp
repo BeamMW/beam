@@ -320,6 +320,9 @@ void Node::Processor::OnPeerInsane(const PeerID& peerID)
 
 void Node::Processor::OnNewState()
 {
+	m_Cwp.m_vStates.clear();
+	m_Cwp.m_Proof.m_vData.clear();
+
 	if (!m_Cursor.m_Sid.m_Row)
 		return;
 
@@ -1466,8 +1469,14 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	Send(t.m_Msg);
 }
 
-void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
+bool Node::Processor::BuildCwp()
 {
+	if (!m_Cwp.m_vStates.empty())
+		return true; // already built
+
+	if (m_Cursor.m_Full.m_Height < Rules::HeightGenesis)
+		return false;
+
 	struct Source
 		:public Block::ChainWorkProof::ISource
 	{
@@ -1487,17 +1496,28 @@ void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
 		}
 	};
 
+	Source src(*this);
+
+	m_Cwp.Create(src, m_Cursor.m_Full);
+	get_CurrentLive(m_Cwp.m_hvRootLive);
+}
+
+void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
+{
 	proto::ProofChainWork msgOut;
 
 	Processor& p = m_This.m_Processor;
-	if (p.m_Cursor.m_Full.m_Height >= Rules::HeightGenesis)
+	if (p.BuildCwp())
 	{
-		Source src(p);
+		msgOut.m_Proof = p.m_Cwp; // full copy
 
-		msgOut.m_Proof.Create(src, p.m_Cursor.m_Full);
-		p.get_CurrentLive(msgOut.m_Proof.m_hvRootLive);
-	}
-	else
+		if (!(msg.m_LowerBound == ECC::Zero))
+		{
+			msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
+			verify(msgOut.m_Proof.Crop());
+		}
+
+	} else
 		ZeroObject(msgOut.m_Proof.m_hvRootLive);
 
 	Send(msgOut);
