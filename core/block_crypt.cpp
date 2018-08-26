@@ -1724,7 +1724,7 @@ namespace beam
 	// transcripts which is feasible for the attacker to generate. Assuming the attacker may generate 10^9 transcripts, still the probability to bypass it is order of 10^-9.
 	//
 	// Assuming 2/3 power of an attacker, and the needed threshold of 2^-60, the number of minimum sampled points in any sufix should be:
-	// N = 60 * log(2) / [ log(3) - log(2) ] = 40 * 1.71 = 103
+	// N = 60 * log(2) / [ log(3) - log(2) ] = 60 * 1.71 = 103
 	//
 	//
 	// Our sampling strategy is according to the following logic:
