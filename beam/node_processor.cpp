@@ -937,7 +937,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		return DataStatus::Invalid;
 	}
 
-	if (!Rules::get().FakePoW && !s.IsValidPoW())
+	if (!s.IsValidPoW())
 	{
 		LOG_WARNING() << id << " PoW invalid";
 		return DataStatus::Invalid;

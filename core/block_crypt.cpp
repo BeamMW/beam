@@ -935,6 +935,9 @@ namespace beam
 
 	bool Block::SystemState::Full::IsValidPoW() const
 	{
+		if (Rules::get().FakePoW)
+			return true;
+
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
 		return m_PoW.IsValid(hv.m_pData, sizeof(hv.m_pData));
