@@ -33,6 +33,12 @@ matrix:
         - BEAM_WALLET_UI_OUT="Beam Wallet.dmg"
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
+      after_success:
+        # deploy using github
+        - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
+            chmod +x ./deploy.sh;
+            ./deploy.sh;
+          fi
 
     - os: linux
       addons:
@@ -82,6 +88,12 @@ matrix:
         - BEAM_WALLET_UI_OUT="Beam Wallet.deb"
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
+      after_success:
+        # deploy using github
+        - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
+            chmod +x ./deploy.sh;
+            ./deploy.sh;
+          fi
 
 after_success:
   # deploy using ftp server
