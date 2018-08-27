@@ -1,5 +1,5 @@
 import QtQuick 2.3
-import QtQuick.Controls 1.2
+import QtQuick.Controls 1.4
 import QtQuick.Controls 2.3
 import QtQuick.Layouts 1.0
 import QtQuick.Controls.Styles 1.2
@@ -395,26 +395,39 @@ ColumnLayout {
             TableViewColumn {
                 role: "walletID"
                 title: qsTr("Address ID")
-                width: 300 * parent.width / 700
+                width: 300 * (parent.width - actionsColumn.width) / 700
                 elideMode: Text.ElideMiddle
                 movable: false
+				resizable: false
             }
 
             TableViewColumn {
                 role: "name"
                 title: qsTr("Name")
-                width: 200 * parent.width / 700
+                width: 200 * (parent.width - actionsColumn.width) / 700
                 elideMode: Text.ElideRight
                 movable: false
+				resizable: false
             }
 
             TableViewColumn {
                 role: "category"
                 title: qsTr("Category")
                 elideMode: Text.ElideRight
-                width: 200 * parent.width / 700
+                width: 200 * (parent.width - actionsColumn.width) / 700
                 movable: false
+				resizable: false
             }
+
+			TableViewColumn {
+				id: actionsColumn
+				role: "walletID"
+				title: ""
+				width: 150
+				movable: false
+				resizable: false
+				delegate: peerAddressActions
+			}
 
             headerDelegate: Rectangle {
                 height: 46
@@ -473,7 +486,7 @@ ColumnLayout {
                 }
 				Action {
                     text: qsTr("delete address")
-					icon.source: "qrc:///assets/icon-cancel.svg"
+					icon.source: "qrc:///assets/icon-delete.svg"
 					onTriggered: {
                         var message = qsTr("The address %1 will be deleted. This operation can not be undone")
                         confirmationDialog.text = message.arg(viewModel.peerAddresses[peerAddressContextMenu.index].walletID)
@@ -506,7 +519,7 @@ ColumnLayout {
                 }
 				Action {
                     text: qsTr("delete address")
-					icon.source: "qrc:///assets/icon-cancel.svg"
+					icon.source: "qrc:///assets/icon-delete.svg"
 					onTriggered: {
                         var message = qsTr("The address %1 will be deleted. This operation can not be undone")
                         confirmationDialog.text = message.arg(viewModel.ownAddresses[ownAddressContextMenu.index].walletID)
@@ -525,6 +538,80 @@ ColumnLayout {
                     }
                 }
             }
+
+			Component {
+				id: peerAddressActions
+				Item {
+					Row{
+						anchors.right: parent.right
+						anchors.verticalCenter: parent.verticalCenter
+						spacing: 10
+						CustomToolButton {
+							icon.source: "qrc:///assets/icon-delete.svg"
+							ToolTip.text: qsTr("Delete address")
+							onClicked: {
+								var message = qsTr("The address %1 will be deleted. This operation can not be undone");
+								confirmationDialog.text = message.arg(viewModel.peerAddresses[styleData.row].walletID);
+								confirmationDialog.isOwn = false;
+								confirmationDialog.open();
+							}
+						}
+						CustomToolButton {
+							icon.source: "qrc:///assets/icon-copy.svg"
+							ToolTip.text: qsTr("Copy address to clipboard")
+							onClicked: {
+								var addr = viewModel.peerAddresses[styleData.row];
+								viewModel.copyToClipboard(addr.walletID);
+							}
+						}
+						CustomToolButton {
+							icon.source: "qrc:///assets/icon-actions.svg"
+							ToolTip.text: qsTr("Actions")
+							onClicked: {
+								peerAddressContextMenu.index = styleData.row;
+								peerAddressContextMenu.popup();
+							}
+						}
+					}
+				}
+			}
+
+			Component {
+				id: ownAddressActions
+				Item {
+					Row{
+						anchors.right: parent.right
+						anchors.verticalCenter: parent.verticalCenter
+						spacing: 10
+						CustomToolButton {
+							icon.source: "qrc:///assets/icon-delete.svg"
+							ToolTip.text: qsTr("Delete address")
+							onClicked: {
+								var message = qsTr("The address %1 will be deleted. This operation can not be undone");
+								confirmationDialog.text = message.arg(viewModel.ownAddresses[styleData.row].walletID);
+								confirmationDialog.isOwn = true;
+								confirmationDialog.open();
+							}
+						}
+						CustomToolButton {
+							icon.source: "qrc:///assets/icon-copy.svg"
+							ToolTip.text: qsTr("Copy address to clipboard")
+							onClicked: {
+								var addr = viewModel.ownAddresses[styleData.row];
+								viewModel.copyToClipboard(addr.walletID);
+							}
+						}
+						CustomToolButton {
+							icon.source: "qrc:///assets/icon-actions.svg"
+							ToolTip.text: qsTr("Actions")
+							onClicked: {
+								ownAddressContextMenu.index = styleData.row;
+								ownAddressContextMenu.popup();
+							}
+						}
+					}
+				}
+			}
 
             rowDelegate: Item {
 
@@ -572,25 +659,28 @@ ColumnLayout {
             TableViewColumn {
                 role: "walletID"
                 title: qsTr("Address ID")
-                width: 300 * parent.width / 850
+                width: 300 * (parent.width - ownActionsColumn.width)  / 850
                 elideMode: Text.ElideMiddle
                 movable: false
+				resizable: false
             }
 
             TableViewColumn {
                 role: "name"
                 title: qsTr("Name")
-                width: 200 * parent.width / 850
+                width: 200 * (parent.width - ownActionsColumn.width)  / 850
                 elideMode: Text.ElideRight
                 movable: false
+				resizable: false
             }
 
             TableViewColumn {
                 role: "category"
                 title: qsTr("Category")
                 elideMode: Text.ElideRight
-                width: 200 * parent.width / 850
+                width: 200 * (parent.width - ownActionsColumn.width)  / 850
                 movable: false
+				resizable: false
             }
 
 //            TableViewColumn {
@@ -603,9 +693,20 @@ ColumnLayout {
                 role: "createDate"
                 title: qsTr("Created")
                 elideMode: Text.ElideRight
-                width: 150 * parent.width / 850
+                width: 150 * (parent.width - ownActionsColumn.width) / 850
                 movable: false
+				resizable: false
             }
+
+			TableViewColumn {
+				id: ownActionsColumn
+				role: "walletID"
+				title: ""
+				width: 150
+				movable: false
+				resizable: false
+				delegate: ownAddressActions
+			}
 
 
             headerDelegate: Rectangle {

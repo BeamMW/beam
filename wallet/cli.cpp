@@ -15,7 +15,6 @@
 #include "wallet/wallet_network.h"
 #include "core/common.h"
 
-#include "node.h"
 #include "wallet/wallet.h"
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
@@ -314,7 +313,7 @@ int main_impl(int argc, char* argv[])
 		po::variables_map vm;
 		try
 		{
-			vm = getOptions(argc, argv, "beam.cfg", options);
+			vm = getOptions(argc, argv, "beam-wallet.cfg", options);
 		}
 		catch (const po::error& e)
 		{
@@ -343,24 +342,15 @@ int main_impl(int argc, char* argv[])
 			return 0;
 		}
 
-		// init logger here to determine node/wallet name
-
 		int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
 
 #if LOG_VERBOSE_ENABLED
 		logLevel = LOG_LEVEL_VERBOSE;
 #endif
-		std::string prefix = "beam_";
-		if (vm.count(cli::MODE))
-		{
-			auto mode = vm[cli::MODE].as<string>();
-			if (mode == cli::NODE) prefix += "node_";
-			else if (mode == cli::WALLET) prefix += "wallet_";
-		}
 
 		const auto path = boost::filesystem::system_complete("./logs");
-		auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, prefix, path.string());
+		auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "wallet_", path.string());
 
 		try
 		{
@@ -372,7 +362,6 @@ int main_impl(int argc, char* argv[])
 			auto port = vm[cli::PORT].as<uint16_t>();
 			auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;
 
-			if (vm.count(cli::MODE))
 			{
 				reactor = io::Reactor::create();
 				io::Reactor::Scope scope(*reactor);
@@ -398,71 +387,6 @@ int main_impl(int argc, char* argv[])
 					}
 				);
 
-				auto mode = vm[cli::MODE].as<string>();
-				if (mode == cli::NODE)
-				{
-					beam::Node node;
-
-					node.m_Cfg.m_Listen.port(port);
-					node.m_Cfg.m_Listen.ip(INADDR_ANY);
-					node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<string>();
-					node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
-					node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
-					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
-					if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
-					{
-						LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
-						return -1;
-					}
-					node.m_Cfg.m_WalletKey = walletSeed;
-
-					std::vector<std::string> vPeers = getCfgPeers(vm);
-
-					node.m_Cfg.m_Connect.resize(vPeers.size());
-
-					for (size_t i = 0; i < vPeers.size(); i++)
-					{
-						io::Address& addr = node.m_Cfg.m_Connect[i];
-						if (!addr.resolve(vPeers[i].c_str()))
-						{
-							LOG_ERROR() << "unable to resolve: " << vPeers[i];
-							return -1;
-						}
-
-						if (!addr.port())
-						{
-							if (!port)
-							{
-								LOG_ERROR() << "Port must be specified";
-								return -1;
-							}
-							addr.port(port);
-						}
-					}
-
-					node.m_Cfg.m_HistoryCompression.m_sPathOutput = vm[cli::HISTORY].as<string>();
-					node.m_Cfg.m_HistoryCompression.m_sPathTmp = vm[cli::TEMP].as<string>();
-
-					LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
-
-					if (vm.count(cli::TREASURY_BLOCK))
-					{
-						string sPath = vm[cli::TREASURY_BLOCK].as<string>();
-						ReadTreasury(node.m_Cfg.m_vTreasury, sPath);
-
-						if (!node.m_Cfg.m_vTreasury.empty())
-							LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_vTreasury.size();
-					}
-
-					node.Initialize();
-
-					Height hImport = vm[cli::IMPORT].as<Height>();
-					if (hImport)
-						node.ImportMacroblock(hImport);
-
-					reactor->run();
-				}
-				else if (mode == cli::WALLET)
 				{
 					if (vm.count(cli::COMMAND))
 					{
@@ -710,11 +634,6 @@ int main_impl(int argc, char* argv[])
 						LOG_ERROR() << "command parameter not specified.";
 						printHelp(options);
 					}
-				}
-				else
-				{
-					LOG_ERROR() << "unknown mode \'" << mode << "\'.";
-					printHelp(options);
 				}
 			}
 		}

@@ -24,7 +24,6 @@ namespace beam
     {
         const char* HELP = "help";
         const char* HELP_FULL = "help,h";
-        const char* MODE = "mode";
         const char* PORT = "port";
         const char* PORT_FULL = "port,p";
         const char* STORAGE = "storage";
@@ -45,8 +44,6 @@ namespace beam
         const char* NODE_ADDR = "node_addr";
         const char* NODE_ADDR_FULL = "node_addr,n";
         const char* COMMAND = "command";
-        const char* NODE = "node";
-        const char* WALLET = "wallet";
         const char* LISTEN = "listen";
         const char* TREASURY = "treasury";
         const char* TREASURY_BLOCK = "treasury_path";
@@ -90,7 +87,7 @@ namespace beam
         po::options_description general_options("General options");
         general_options.add_options()
             (cli::HELP_FULL, "list of all options")
-            (cli::MODE, po::value<string>()->required(), "mode to execute [node|wallet]")
+            //(cli::MODE, po::value<string>()->required(), "mode to execute [node|wallet]")
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::WALLET_SEED, po::value<string>(), "secret key generation seed")
             (cli::LOG_LEVEL, po::value<string>(), "log level [info|debug|verbose]")
@@ -164,14 +161,10 @@ namespace beam
 
     po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options)
     {
-        po::positional_options_description pos;
-        pos.add(cli::MODE, 1);
-
         po::variables_map vm;
 
         po::store(po::command_line_parser(argc, argv) // value stored first is preferred
             .options(options)
-            .positional(pos)
             .run(), vm);
 
         {

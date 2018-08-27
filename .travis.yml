@@ -12,14 +12,10 @@ matrix:
       env: 
         - BUILD_TYPE=Debug
         - OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
+        - BEAM_WALLET_UI_IN=BeamWallet-0.0.1-Darwin.dmg
+        - BEAM_WALLET_UI_OUT=Beam Wallet.dmg
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE . && make -j 4 && ctest --verbose && cpack;
-      after_success:
-        # deploy using ftp server
-        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/mac
-        - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
-        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Darwin.dmg" "$BUILDS_SERVER_PATH/Beam Wallet.dmg"
 
     - os: osx
       osx_image: xcode9.3
@@ -33,14 +29,11 @@ matrix:
         - OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
         - QT5_ROOT_DIR="/usr/local/qt5-static"
         - QML_IMPORT_PATH="/usr/local/qt5-static/qml"
+        - BEAM_WALLET_UI_IN=BeamWallet-0.0.1-Darwin.dmg
+        - BEAM_WALLET_UI_OUT=Beam Wallet.dmg
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
       after_success:
-        # deploy using ftp server
-        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/mac
-        - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
-        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Darwin.dmg" "$BUILDS_SERVER_PATH/Beam Wallet.dmg"
         # deploy using github
         - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
             chmod +x ./deploy.sh;
@@ -56,6 +49,8 @@ matrix:
             - g++-7
             - libboost-all-dev
             - libssl-dev
+            - BEAM_WALLET_UI_IN=BeamWallet-0.0.1-Linux.deb
+            - BEAM_WALLET_UI_OUT=Beam Wallet.deb
       before_install:
         - export TZ=Etc/GMT-3
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
@@ -68,12 +63,6 @@ matrix:
       env: BUILD_TYPE=Debug
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE . && make -j 4 && ctest --verbose && cpack;
-      after_success:
-        # deploy using ftp
-        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/linux
-        - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
-        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Linux.deb" "$BUILDS_SERVER_PATH/Beam Wallet.deb"
 
     - os: linux
       addons:
@@ -95,19 +84,29 @@ matrix:
         - QT5_ROOT_DIR="/home/travis/qt5-static"
         - QML_IMPORT_PATH="/home/travis/qt5-static/qml"
         - BUILD_TYPE=Release
+        - BEAM_WALLET_UI_IN=BeamWallet-0.0.1-Linux.deb
+        - BEAM_WALLET_UI_OUT=Beam Wallet.deb
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
       after_success:
-        # deploy using ftp
-        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/linux
-        - tar -cvzf beam.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam beam.cfg
-        - curl --retry 3 --ftp-create-dirs -T beam.tar.gz $BUILDS_SERVER_PATH/
-        - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Linux.deb" "$BUILDS_SERVER_PATH/Beam Wallet.deb"
         # deploy using github
         - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
             chmod +x ./deploy.sh;
             ./deploy.sh;
           fi
+
+after_success:
+  # deploy using ftp server
+  - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/mac
+  - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/mac
+  - tar -cvzf beam-node.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam-node beam-node.cfg
+  - tar -cvzf beam-wallet.tar.gz --directory=$HOME/build/beam-mw/beam/wallet beam-wallet beam-wallet.cfg
+  - curl --retry 3 --ftp-create-dirs -T beam-node.tar.gz $BUILDS_SERVER_PATH/
+  - curl --retry 3 --ftp-create-dirs -T beam-wallet.tar.gz $BUILDS_SERVER_PATH/
+  - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/BeamWallet-0.0.1-Darwin.dmg" "$BUILDS_SERVER_PATH/Beam Wallet.dmg"
+  - curl --retry 3 --ftp-create-dirs -T beam-node.tar.gz $BUILDS_SERVER_LATEST_PATH/
+  - curl --retry 3 --ftp-create-dirs -T beam-wallet.tar.gz $BUILDS_SERVER_LATEST_PATH/
+  - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_LATEST_PATH/$BEAM_WALLET_UI_IN"
 
 notifications:
   email:
