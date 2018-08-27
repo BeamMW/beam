@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "options.h"
-#include "core/common.h"
+#include "core/block_crypt.h"
 #include "utility/string_helpers.h"
 
 using namespace std;

@@ -14,8 +14,7 @@
 
 #pragma once
 
-#include "common.h"
-#include "merkle.h"
+#include "block_crypt.h"
 
 namespace beam
 {

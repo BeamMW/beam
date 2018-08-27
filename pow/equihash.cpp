@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "core/common.h"
+#include "core/block_crypt.h"
 #include "impl/crypto/equihash.h"
 #include "impl/uint256.h"
 #include "impl/arith_uint256.h"

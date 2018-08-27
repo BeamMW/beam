@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "core/common.h"
+#include "core/block_crypt.h"
 #include <iostream>
 
 int main()

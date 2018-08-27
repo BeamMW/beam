@@ -15,7 +15,6 @@
 #pragma once
 
 #include <boost/intrusive/set.hpp>
-#include "../core/common.h"
 #include "../core/storage.h"
 #include "node_db.h"
 

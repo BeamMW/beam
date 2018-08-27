@@ -16,7 +16,7 @@
 
 #include <QThread>
 #include <memory>
-#include "core/common.h"
+#include "core/block_crypt.h"
 #include "utility/io/reactor.h"
 
 namespace beam

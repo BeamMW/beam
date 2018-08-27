@@ -13,33 +13,7 @@
 // limitations under the License.
 
 #pragma once
-
-#include <stdint.h>
-#include <string.h> // memcmp
-#include <ostream>
-#include <assert.h>
-#include <vector>
-
-#ifndef _countof
-#	define _countof(_Array) (sizeof(_Array) / sizeof(_Array[0]))
-#endif // _countof
-
-inline void memset0(void* p, size_t n) { memset(p, 0, n); }
-bool memis0(const void* p, size_t n);
-
-template <typename T>
-inline void ZeroObject(T& x)
-{
-	memset0(&x, sizeof(x));
-}
-
-#define COMPARISON_VIA_CMP(class_name) \
-	bool operator < (const class_name& x) const { return cmp(x) < 0; } \
-	bool operator > (const class_name& x) const { return cmp(x) > 0; } \
-	bool operator <= (const class_name& x) const { return cmp(x) <= 0; } \
-	bool operator >= (const class_name& x) const { return cmp(x) >= 0; } \
-	bool operator == (const class_name& x) const { return cmp(x) == 0; } \
-	bool operator != (const class_name& x) const { return cmp(x) != 0; }
+#include "common.h"
 
 namespace ECC
 {
@@ -369,7 +343,7 @@ namespace ECC
 		class Mac;
 	};
 
-	typedef uint64_t Amount;
+	typedef beam::Amount Amount;
 
 	struct Signature
 	{
