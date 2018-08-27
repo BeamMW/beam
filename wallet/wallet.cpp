@@ -38,7 +38,7 @@ namespace std
 {
     string to_string(const beam::WalletID& id)
     {
-        return beam::to_hex(id.m_pData, id.size());
+        return beam::to_hex(id.m_pData, id.nBytes);
     }
 }
 

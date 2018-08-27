@@ -37,7 +37,7 @@ namespace ECC {
 
 	void SetRandom(uintBig& x)
 	{
-		GenerateRandom(x.m_pData, sizeof(x.m_pData));
+		GenerateRandom(x.m_pData, x.nBytes);
 	}
 
 	void SetRandom(Scalar::Native& x)
@@ -163,7 +163,7 @@ namespace beam
 
 		NodeDB::Blob bBody("body", 4);
 		Merkle::Hash peer, peer2;
-		memset(peer.m_pData, 0x66, sizeof(peer.m_pData));
+		memset(peer.m_pData, 0x66, peer.nBytes);
 
 		db.SetStateBlock(pRows[0], bBody);
 		verify_test(!db.get_Peer(pRows[0], peer2));
@@ -335,7 +335,7 @@ namespace beam
 		tr.Start(db);
 
 		// utxos and kernels
-		NodeDB::Blob b0(vStates[0].m_Prev.m_pData, sizeof(vStates[0].m_Prev.m_pData));
+		NodeDB::Blob b0(vStates[0].m_Prev);
 
 		db.AddSpendable(b0, NULL, 5, 3);
 

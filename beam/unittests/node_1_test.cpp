@@ -33,7 +33,7 @@ namespace ECC {
 
 	void SetRandom(uintBig& x)
 	{
-		GenerateRandom(x.m_pData, sizeof(x.m_pData));
+		GenerateRandom(x.m_pData, x.nBytes);
 	}
 
 	void SetRandom(Scalar::Native& x)

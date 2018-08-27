@@ -583,7 +583,7 @@ namespace beam
 			m_Height += ti.m_Height; //?
 		}
 
-		for (size_t i = 0; i < _countof(m_Tag.m_pData); i++)
+		for (size_t i = 0; i < m_Tag.nBytes; i++)
 			m_Tag.m_pData[i] ^= ti.m_Tag.m_pData[i];
 	}
 

@@ -53,21 +53,17 @@ bool ProtocolPlus::VerifyMsg(const uint8_t* p, uint32_t nSize)
 	if (Mode::Duplex != m_Mode)
 		return true;
 
-	if (nSize < sizeof(MacValue)) {
+	MacValue hmac;
+
+	if (nSize < hmac.nBytes)
 		return false; // could happen on (sort of) overflow attack?
-    }
 
 	ECC::Hash::Mac hm = m_HMac;
-	hm.Write(p, nSize - sizeof(MacValue));
+	hm.Write(p, nSize - hmac.nBytes);
 
-	MacValue hmac;
 	get_HMac(hm, hmac);
 
-	bool ret = !memcmp(p + nSize - sizeof(MacValue), hmac.m_pData, sizeof(MacValue));
-    if (!ret) {
-        LOG_DEBUG() << __FUNCTION__ << " MAC error";
-    }
-    return ret;
+	return !memcmp(p + nSize - hmac.nBytes, hmac.m_pData, hmac.nBytes);
 }
 
 void ProtocolPlus::get_HMac(ECC::Hash::Mac& hm, MacValue& res)
@@ -75,8 +71,8 @@ void ProtocolPlus::get_HMac(ECC::Hash::Mac& hm, MacValue& res)
 	ECC::Hash::Value hv;
 	hm >> hv;
 
-	static_assert(sizeof(hv) >= sizeof(MacValue), "");
-	memcpy(res.m_pData, hv.m_pData, sizeof(res.m_pData));
+	static_assert(hv.nBytes >= res.nBytes, "");
+	res = hv;
 }
 
 void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
@@ -102,7 +98,7 @@ void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
 
 		// 3. Calculate
 		ECC::Hash::Mac hm = m_HMac;
-		size_t n2 = n - sizeof(MacValue);
+		size_t n2 = n - MacValue::nBytes;
 
 		for (size_t i = 0; ; i++)
 		{
@@ -126,20 +122,20 @@ void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
 		for (size_t i = 0; i < sm.size(); i++)
 		{
 			io::IOVec& iov = sm[i];
-			uint8_t* dst = (uint8_t*)iov.data;
+			uint8_t* dst = (uint8_t*) iov.data;
 
-			if (n2 <= sizeof(hmac))
-				memcpy(dst, hmac.m_pData + sizeof(hmac) - n2, iov.size);
+			if (n2 <= hmac.nBytes)
+				memcpy(dst, hmac.m_pData + hmac.nBytes - n2, iov.size);
 			else
 			{
-				size_t offs = n2 - sizeof(hmac);
+				size_t offs = n2 - hmac.nBytes;
 				if (offs < iov.size)
 					memcpy(dst + offs, hmac.m_pData, iov.size - offs);
 			}
 
 			n2 -= iov.size;
 
-			m_CipherOut.XCrypt(m_Enc, dst, (uint32_t)iov.size);
+			m_CipherOut.XCrypt(m_Enc, dst, (uint32_t) iov.size);
 		}
 	}
 }
@@ -151,8 +147,8 @@ void InitCipherIV(AES::StreamCipher& c, const ECC::Hash::Value& hvSecret, const 
 
 	hpIV.V << hvSecret << hvParam >> hvIV.V;
 
-	static_assert(sizeof(hvIV.V) >= sizeof(c.m_Counter), "");
-	memcpy(c.m_Counter.m_pData, hvIV.V.m_pData, sizeof(c.m_Counter.m_pData));
+	static_assert(hvIV.V.nBytes >= c.m_Counter.nBytes, "");
+	c.m_Counter = hvIV.V;
 
 	c.m_nBuf = 0;
 }
@@ -174,10 +170,10 @@ bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& re
 	ECC::NoLeak<ECC::Hash::Value> hvSecret;
 	hp.V << ptSecret >> hvSecret.V;
 
-	static_assert(AES::s_KeyBytes == sizeof(hvSecret.V), "");
+	static_assert(AES::s_KeyBytes == hvSecret.V.nBytes, "");
 	enc.Init(hvSecret.V.m_pData);
 
-	hmac.Reset(hvSecret.V.m_pData, sizeof(hvSecret.V.m_pData));
+	hmac.Reset(hvSecret.V.m_pData, hvSecret.V.nBytes);
 
 	if (pCipherOut)
 		InitCipherIV(*pCipherOut, hvSecret.V, remotePublic);
@@ -224,14 +220,14 @@ bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& 
 	ECC::Hash::Value hvMac;
 	hmac >> hvMac;
 
-	res.resize(sizeof(myPublic) + sizeof(hvMac) + n);
+	res.resize(myPublic.nBytes + hvMac.nBytes + n);
 	uint8_t* pDst = &res.at(0);
 
-	memcpy(pDst, myPublic.m_pData, sizeof(myPublic));
-	memcpy(pDst + sizeof(myPublic), hvMac.m_pData, sizeof(hvMac));
-	memcpy(pDst + sizeof(myPublic) + sizeof(hvMac), p, n);
+	memcpy(pDst, myPublic.m_pData, myPublic.nBytes);
+	memcpy(pDst + myPublic.nBytes, hvMac.m_pData, hvMac.nBytes);
+	memcpy(pDst + myPublic.nBytes + hvMac.nBytes, p, n);
 
-	cOut.XCrypt(enc, pDst + sizeof(myPublic), sizeof(hvMac) + n);
+	cOut.XCrypt(enc, pDst + myPublic.nBytes, hvMac.nBytes + n);
 
 	return true;
 }
@@ -241,10 +237,10 @@ bool BbsDecrypt(uint8_t*& p, uint32_t& n, ECC::Scalar::Native& privateAddr)
 	PeerID remotePublic;
 	ECC::Hash::Value hvMac, hvMac2;
 
-	if (n < sizeof(remotePublic) + sizeof(hvMac))
+	if (n < remotePublic.nBytes + hvMac.nBytes)
 		return false;
 
-	memcpy(remotePublic.m_pData, p, sizeof(remotePublic));
+	memcpy(remotePublic.m_pData, p, remotePublic.nBytes);
 
 	AES::Encoder enc;
 	AES::StreamCipher cIn;
@@ -252,12 +248,12 @@ bool BbsDecrypt(uint8_t*& p, uint32_t& n, ECC::Scalar::Native& privateAddr)
 	if (!InitViaDiffieHellman(privateAddr, remotePublic, enc, hmac, NULL, &cIn))
 		return false; // bad address
 
-	cIn.XCrypt(enc, p + sizeof(remotePublic), n - sizeof(remotePublic));
+	cIn.XCrypt(enc, p + remotePublic.nBytes, n - remotePublic.nBytes);
 
-	memcpy(hvMac.m_pData, p + sizeof(remotePublic), sizeof(hvMac));
+	memcpy(hvMac.m_pData, p + remotePublic.nBytes, hvMac.nBytes);
 
-	p += sizeof(remotePublic) + sizeof(hvMac);
-	n -= (sizeof(remotePublic) + sizeof(hvMac));
+	p += remotePublic.nBytes + hvMac.nBytes;
+	n -= (remotePublic.nBytes + hvMac.nBytes);
 
 	hmac.Write(p, n);
 	hmac >> hvMac2;
@@ -479,7 +475,7 @@ void NodeConnection::TestInputMsgContext(uint8_t code)
 void NodeConnection::GenerateSChannelNonce(ECC::Scalar::Native& sk)
 {
 	ECC::NoLeak<ECC::uintBig> secret;
-	ECC::GenRandom(secret.V.m_pData, sizeof(secret.V.m_pData));
+	ECC::GenRandom(secret.V.m_pData, secret.V.nBytes);
 
 	ECC::Hash::Value hv;
 	hv = ECC::Zero;

@@ -331,11 +331,12 @@ namespace ECC
 		void Write(const char*);
 		void Write(bool);
 		void Write(uint8_t);
-		void Write(const uintBig&);
 		void Write(const Scalar&);
 		void Write(const Scalar::Native&);
 		void Write(const Point&);
 		void Write(const Point::Native&);
+		template <uint32_t nBits_>
+		void Write(const uintBig_t<nBits_>& x) { Write(x.m_pData, x.nBytes); }
 
 		template <typename T>
 		void Write(T v)

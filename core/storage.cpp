@@ -596,8 +596,8 @@ int UtxoTree::Key::cmp(const Key& k) const
 
 UtxoTree::Key::Data& UtxoTree::Key::Data::operator = (const Key& key)
 {
-	memcpy(m_Commitment.m_X.m_pData, key.m_pArr, sizeof(m_Commitment.m_X.m_pData));
-	const uint8_t* pKey = key.m_pArr + sizeof(m_Commitment.m_X.m_pData);
+	memcpy(m_Commitment.m_X.m_pData, key.m_pArr, m_Commitment.m_X.nBytes);
+	const uint8_t* pKey = key.m_pArr + m_Commitment.m_X.nBytes;
 
 	m_Commitment.m_Y	= (1 & (pKey[0] >> 7)) != 0;
 
@@ -610,10 +610,10 @@ UtxoTree::Key::Data& UtxoTree::Key::Data::operator = (const Key& key)
 
 UtxoTree::Key& UtxoTree::Key::operator = (const Data& d)
 {
-	memcpy(m_pArr, d.m_Commitment.m_X.m_pData, sizeof(d.m_Commitment.m_X.m_pData));
+	memcpy(m_pArr, d.m_Commitment.m_X.m_pData, d.m_Commitment.m_X.nBytes);
 
-	uint8_t* pKey = m_pArr + sizeof(d.m_Commitment.m_X.m_pData);
-	memset0(pKey, sizeof(m_pArr) - sizeof(d.m_Commitment.m_X.m_pData));
+	uint8_t* pKey = m_pArr + d.m_Commitment.m_X.nBytes;
+	memset0(pKey, sizeof(m_pArr) - d.m_Commitment.m_X.nBytes);
 
 	if (d.m_Commitment.m_Y)
 		pKey[0] |= (1 << 7);

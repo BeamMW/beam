@@ -77,7 +77,7 @@ bool NodeProcessor::UnspentWalker::Traverse()
 
 		case DbType::Kernel:
 		{
-			if (sizeof(Merkle::Hash) != m_Key.n)
+			if (Merkle::Hash::nBytes != m_Key.n)
 				OnCorrupted();
 
 			if (!OnKernel(*(Merkle::Hash*) m_Key.p))
@@ -99,12 +99,11 @@ void NodeProcessor::Initialize(const char* szPath)
 	m_DB.Open(szPath);
 
 	Merkle::Hash hv;
-	NodeDB::Blob blob(hv.m_pData, sizeof(hv.m_pData));
+	NodeDB::Blob blob(hv);
 
 	if (!m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob))
 	{
-		blob.p = &Rules::get().Checksum;
-		blob.n = sizeof(Rules::get().Checksum);
+		blob = NodeDB::Blob(Rules::get().Checksum);
 		m_DB.ParamSet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	}
 	else
@@ -524,7 +523,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 void NodeProcessor::AdjustCumulativeParams(const Block::BodyBase& block, bool bFwd)
 {
 	ECC::Scalar kOffset;
-	NodeDB::Blob blob(kOffset.m_Value.m_pData, sizeof(kOffset.m_Value.m_pData));
+	NodeDB::Blob blob(kOffset.m_Value);
 
 	if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
 		kOffset.m_Value = ECC::Zero;
@@ -832,10 +831,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 		{
 			NodeDB::Blob body;
 			if (v.m_pHashLock)
-			{
-				body.p = v.m_pHashLock->m_Preimage.m_pData;
-				body.n = sizeof(v.m_pHashLock->m_Preimage.m_pData);
-			}
+				body = NodeDB::Blob(v.m_pHashLock->m_Preimage);
 
 			m_DB.AddSpendable(blob, v.m_pHashLock ? &body : NULL, 1, 1);
 		} else
@@ -1625,7 +1621,7 @@ bool NodeProcessor::get_KernelHashPreimage(const Merkle::Hash& id, ECC::uintBig&
 	SpendableKey<Merkle::Hash, DbType::Kernel> skey;
 	skey.m_Key = id;
 
-	NodeDB::Blob blobKey(&skey, sizeof(skey)), blobVal(val.m_pData, sizeof(val.m_pData));
+	NodeDB::Blob blobKey(&skey, sizeof(skey)), blobVal(val);
 
 	return m_DB.GetSpendableBody(blobKey, blobVal);
 }

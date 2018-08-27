@@ -208,7 +208,7 @@ namespace beam
 
 	void SetRandomUtxoKey(UtxoTree::Key::Data& d)
 	{
-		for (size_t i = 0; i < sizeof(d.m_Commitment.m_X.m_pData); i++)
+		for (size_t i = 0; i < d.m_Commitment.m_X.nBytes; i++)
 			d.m_Commitment.m_X.m_pData[i] = (uint8_t) rand();
 
 		d.m_Commitment.m_Y	= (1 & rand()) != 0;
@@ -454,7 +454,7 @@ namespace beam
 		{
 			Merkle::Hash& hv = vHashes[i];
 
-			for (uint32_t j = 0; j < sizeof(hv.m_pData); j++)
+			for (uint32_t j = 0; j < hv.nBytes; j++)
 				hv.m_pData[j] = (uint8_t)rand();
 
 			Merkle::Hash hvRoot, hvRoot2, hvRoot3;

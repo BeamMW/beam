@@ -901,7 +901,7 @@ namespace beam
 		if (bTotal)
 		{
 			hp.Write(&m_PoW.m_Indices.at(0), sizeof(m_PoW.m_Indices));
-			hp.Write(m_PoW.m_Nonce.m_pData, sizeof(m_PoW.m_Nonce.m_pData));
+			hp << m_PoW.m_Nonce;
 		}
 
 		hp >> out;
@@ -940,14 +940,14 @@ namespace beam
 
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
-		return m_PoW.IsValid(hv.m_pData, sizeof(hv.m_pData));
+		return m_PoW.IsValid(hv.m_pData, hv.nBytes);
 	}
 
 	bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
 	{
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
-		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
+		return m_PoW.Solve(hv.m_pData, hv.nBytes, fnCancel);
 	}
 
 	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const Input& inp, const Input::Proof& p) const
@@ -1198,7 +1198,7 @@ namespace beam
 
 		static_assert(!(s_MantissaBits & 7), ""); // fix the following code lines to support non-byte-aligned mantissa size
 
-		return memis0(a.m_pData, sizeof(a.m_pData) / 2 - (s_MantissaBits >> 3));
+		return memis0(a.m_pData, a.nBytes / 2 - (s_MantissaBits >> 3));
 	}
 
 	void Difficulty::Unpack(Raw& res) const
@@ -1773,7 +1773,7 @@ namespace beam
 			// shift right 7 bits, and find the order of the number (1st nonzero bit)
 			uint8_t carry = 0;
 
-			for (uint32_t nByte = 0; nByte < _countof(v.m_pData); nByte++)
+			for (uint32_t nByte = 0; nByte < v.nBytes; nByte++)
 			{
 				uint8_t& x = v.m_pData[nByte];
 
@@ -1789,14 +1789,14 @@ namespace beam
 
 			for (uint32_t nByte = 0; ; nByte++)
 			{
-				if (_countof(v.m_pData) == nByte)
+				if (v.nBytes == nByte)
 					return 0; // the number is zero
 
 				uint8_t x = v.m_pData[nByte];
 				if (!x)
 					continue;
 
-				uint32_t nOrder = ((_countof(v.m_pData) - nByte) << 3) - 7;
+				uint32_t nOrder = ((v.nBytes - nByte) << 3) - 7;
 				for (; x >>= 1; nOrder++)
 					;
 
@@ -1813,7 +1813,7 @@ namespace beam
 
 			// sample random, truncate to the appropriate bits length, and use accept/reject criteria
 			nOrder--;
-			uint32_t nOffs = sizeof(out.m_pData) - 1 - (nOrder >> 3);
+			uint32_t nOffs = out.nBytes - 1 - (nOrder >> 3);
 			uint8_t msk = uint8_t(2 << (7 & nOrder)) - 1;
 			assert(msk);
 
@@ -1823,7 +1823,7 @@ namespace beam
 
 				out.m_pData[nOffs] &= msk;
 
-				if (memcmp(out.m_pData + nOffs, threshold.m_pData + nOffs, sizeof(out.m_pData) - nOffs) < 0)
+				if (memcmp(out.m_pData + nOffs, threshold.m_pData + nOffs, out.nBytes - nOffs) < 0)
 				{
 					// bingo
 					memset0(out.m_pData, nOffs);

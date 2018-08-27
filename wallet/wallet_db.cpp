@@ -374,7 +374,7 @@ namespace beam
 
             void bind(int col, const ECC::Hash::Value& hash)
             {
-                int ret = sqlite3_bind_blob(_stm, col, hash.m_pData, hash.size(), NULL);
+                int ret = sqlite3_bind_blob(_stm, col, hash.m_pData, hash.nBytes, NULL);
                 throwIfError(ret, _db);
             }
 
@@ -478,7 +478,7 @@ namespace beam
 
                     if (data)
                     {
-                        assert(size == hash.size());
+                        assert(size == hash.nBytes);
                         memcpy(hash.m_pData, data, size);
                     }
                 }

@@ -81,7 +81,7 @@ namespace ECC {
 	std::ostream& operator << (std::ostream& s, const uintBig& x)
 	{
 		const int nDigits = 8; // truncated
-		static_assert(nDigits <= _countof(x.m_pData));
+		static_assert(nDigits <= x.nBytes);
 
 		char sz[nDigits * 2 + 1];
 
@@ -299,11 +299,6 @@ namespace ECC {
 	void Hash::Processor::Write(uint8_t n)
 	{
 		Write(&n, sizeof(n));
-	}
-
-	void Hash::Processor::Write(const uintBig& v)
-	{
-		Write(v.m_pData, sizeof(v.m_pData));
 	}
 
 	void Hash::Processor::Write(const Scalar& v)

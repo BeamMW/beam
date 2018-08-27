@@ -489,11 +489,11 @@ void Node::Initialize()
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
     m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
 
-	ECC::GenRandom(m_SChannelSeed.V.m_pData, sizeof(m_SChannelSeed.V.m_pData));
+	ECC::GenRandom(m_SChannelSeed.V.m_pData, m_SChannelSeed.V.nBytes);
 
 	m_MyPrivateID.V.m_Value = ECC::Zero;
 
-	NodeDB::Blob blob(m_MyPrivateID.V.m_Value.m_pData, sizeof(m_MyPrivateID.V.m_Value.m_pData));
+	NodeDB::Blob blob(m_MyPrivateID.V.m_Value);
 	bool bNewID = !m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob);
 
 	if (bNewID)
@@ -1722,10 +1722,10 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 			<< s.m_Height
 			>> hv;
 
-		static_assert(sizeof(s.m_PoW.m_Nonce) <= sizeof(hv));
+		static_assert(s.m_PoW.m_Nonce.nBytes <= hv.nBytes);
 		LOG_INFO() << "Mining nonce = " << hv;
 
-		memcpy(s.m_PoW.m_Nonce.m_pData, hv.m_pData, sizeof(s.m_PoW.m_Nonce.m_pData));
+		s.m_PoW.m_Nonce = hv;
 
 		Block::PoW::Cancel fnCancel = [this, pTask](bool bRetrying)
 		{

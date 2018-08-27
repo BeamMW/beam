@@ -109,39 +109,33 @@ namespace ECC
 	template <uint32_t nBits_>
 	struct uintBig_t
 	{
+		static_assert(!(7 & nBits_), "should be byte-aligned");
+
 		static const uint32_t nBits = nBits_;
+		static const uint32_t nBytes = nBits_ >> 3;
 
         uintBig_t()
         {
             ZeroObject(m_pData);
         }
 
-        uintBig_t(const uint8_t bytes[nBits_ >> 3])
+		uintBig_t(const uint8_t p[nBytes])
+		{
+			memcpy(m_pData, p, nBytes);
+		}
+
+        uintBig_t(const std::initializer_list<uint8_t>& v)
         {
-            memcpy(m_pData, bytes, nBits_ >> 3);
+			FromArray(v.begin(), v.size());
         }
 
-        uintBig_t(std::initializer_list<uint8_t> bytes)
-        {
-            std::copy(bytes.begin(), bytes.end(), m_pData);
-        }
-
-        uintBig_t(const std::vector<uint8_t>& bytes)
-        {
-            assert(bytes.size() <= size());
-            memset0(m_pData, size() - bytes.size());
-            std::copy(bytes.begin(), bytes.end(), m_pData + size() - bytes.size());
-        }
-
-		static_assert(!(7 & nBits_), "should be byte-aligned");
+		uintBig_t(const std::vector<uint8_t>& v)
+		{
+			FromArray(v.empty() ? NULL : &v.at(0), v.size());
+		}
 
 		// in Big-Endian representation
-		uint8_t m_pData[nBits_ >> 3];
-
-		constexpr size_t size() const
-		{
-			return sizeof(m_pData);
-		}
+		uint8_t m_pData[nBytes];
 
 		uintBig_t& operator = (Zero_)
 		{
@@ -152,60 +146,65 @@ namespace ECC
 		template <uint32_t nBitsOther_>
 		uintBig_t& operator = (const uintBig_t<nBitsOther_>& v)
 		{
-			if (sizeof(v.m_pData) >= sizeof(m_pData))
-				memcpy(m_pData, v.m_pData + sizeof(v.m_pData) - sizeof(m_pData), sizeof(m_pData));
+			FromArray(v.m_pData, v.nBytes);
+			return *this;
+		}
+
+		void FromArray(const uint8_t* p, uint32_t nBytes_)
+		{
+			if (nBytes_ >= nBytes)
+				memcpy(m_pData, p + nBytes_ - nBytes, nBytes);
 			else
 			{
-				memset0(m_pData, sizeof(m_pData) - sizeof(v.m_pData));
-				memcpy(m_pData + sizeof(m_pData) - sizeof(v.m_pData), v.m_pData, sizeof(v.m_pData));
+				memset0(m_pData, nBytes - nBytes_);
+				memcpy(m_pData + nBytes - nBytes_, p, nBytes_);
 			}
-			return *this;
 		}
 
 		bool operator == (Zero_) const
 		{
-			return memis0(m_pData, sizeof(m_pData));
+			return memis0(m_pData, nBytes);
 		}
 
 		// from ordinal types (unsigned)
 		template <typename T>
 		uintBig_t& operator = (T x)
 		{
-			memset0(m_pData, sizeof(m_pData) - sizeof(x));
+			memset0(m_pData, nBytes - sizeof(x));
 			AssignRange<T, 0>(x);
 
 			return *this;
 		}
 
 		template <typename T>
-		void AssignRangeAligned(T x, uint32_t nOffsetBytes, uint32_t nBytes)
+		void AssignRangeAligned(T x, uint32_t nOffsetBytes, uint32_t nBytes_)
 		{
-			assert(sizeof(m_pData) >= nBytes + nOffsetBytes);
+			assert(nBytes >= nBytes_ + nOffsetBytes);
 			static_assert(T(-1) > 0, "must be unsigned");
 
-			for (uint32_t i = 0; i < nBytes; i++, x >>= 8)
-				m_pData[_countof(m_pData) - 1 - nOffsetBytes - i] = (uint8_t) x;
+			for (uint32_t i = 0; i < nBytes_; i++, x >>= 8)
+				m_pData[nBytes - 1 - nOffsetBytes - i] = (uint8_t) x;
 		}
 
 		template <typename T, uint32_t nOffset>
 		void AssignRange(T x)
 		{
 			static_assert(!(nOffset & 7), "offset must be on byte boundary");
-			static_assert(sizeof(m_pData) >= sizeof(x) + (nOffset >> 3), "too small");
+			static_assert(nBytes >= sizeof(x) + (nOffset >> 3), "too small");
 
 			AssignRangeAligned<T>(x, nOffset >> 3, sizeof(x));
 		}
 
 		template <typename T>
-		bool AssignRangeAlignedSafe(T x, uint32_t nOffsetBytes, uint32_t nBytes) // returns false if truncated
+		bool AssignRangeAlignedSafe(T x, uint32_t nOffsetBytes, uint32_t nBytes_) // returns false if truncated
 		{
-			if (sizeof(m_pData) < nOffsetBytes)
+			if (nBytes < nOffsetBytes)
 				return false;
 
-			uint32_t n = sizeof(m_pData) - nOffsetBytes;
-			bool b = (nBytes <= n);
+			uint32_t n = nBytes - nOffsetBytes;
+			bool b = (nBytes_ <= n);
 
-			AssignRangeAligned<T>(x, nOffsetBytes, b ? nBytes : n);
+			AssignRangeAligned<T>(x, nOffsetBytes, b ? nBytes_ : n);
 			return b;
 		}
 
@@ -223,11 +222,11 @@ namespace ECC
 			if (nOffset)
 			{
 				nOffsetBytes += sizeof(x);
-				if (_countof(m_pData) - 1 < nOffsetBytes)
+				if (nBytes - 1 < nOffsetBytes)
 					return false;
 
 				uint8_t resid = x >> ((sizeof(x) << 3) - nOffset);
-				m_pData[_countof(m_pData) - 1 - nOffsetBytes] = resid;
+				m_pData[nBytes - 1 - nOffsetBytes] = resid;
 			}
 
 			return true;
@@ -235,7 +234,7 @@ namespace ECC
 
 		void Inc()
 		{
-			for (size_t i = _countof(m_pData); i--; )
+			for (uint32_t i = nBytes; i--; )
 				if (++m_pData[i])
 					break;
 
@@ -247,7 +246,7 @@ namespace ECC
 		void operator += (const uintBig_t& x)
 		{
 			uint16_t carry = 0;
-			for (int i = _countof(m_pData); i--; )
+			for (int i = nBytes; i--; )
 			{
 				carry += m_pData[i];
 				carry += x.m_pData[i];
@@ -262,12 +261,12 @@ namespace ECC
 			uintBig_t res;
 			res = Zero;
 
-			for (size_t j = 0; j < _countof(x.m_pData); j++)
+			for (size_t j = 0; j < nBytes; j++)
 			{
-				uint8_t y = x.m_pData[_countof(x.m_pData) - 1 - j];
+				uint8_t y = x.m_pData[nBytes - 1 - j];
 
 				uint16_t carry = 0;
-				for (size_t i = _countof(m_pData); i-- > j; )
+				for (size_t i = nBytes; i-- > j; )
 				{
 					uint16_t val = m_pData[i];
 					val *= y;
@@ -284,7 +283,7 @@ namespace ECC
 
 		void Inv()
 		{
-			for (int i = _countof(m_pData); i--; )
+			for (int i = nBytes; i--; )
 				m_pData[i] ^= 0xff;
 		}
 
@@ -296,11 +295,11 @@ namespace ECC
 
 		void operator ^= (const uintBig_t& x)
 		{
-			for (int i = _countof(m_pData); i--; )
+			for (unsigned int i = nBytes; i--; )
 				m_pData[i] ^= x.m_pData[i];
 		}
 
-		int cmp(const uintBig_t& x) const { return memcmp(m_pData, x.m_pData, sizeof(m_pData)); }
+		int cmp(const uintBig_t& x) const { return memcmp(m_pData, x.m_pData, nBytes); }
 		COMPARISON_VIA_CMP(uintBig_t)
 	};
 
