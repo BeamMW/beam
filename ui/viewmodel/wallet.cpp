@@ -165,12 +165,15 @@ void WalletViewModel::saveNewAddress()
     ownAddress.m_label = _newReceiverName.toStdString();
     ownAddress.m_createTime = beam::getTimestamp();
 
-    QApplication::clipboard()->setText(_newReceiverAddr);
-
     if (_model.async)
     {
         _model.async->createNewAddress(std::move(ownAddress));
     }
+}
+
+void WalletViewModel::copyToClipboard(const QString& text)
+{
+    QApplication::clipboard()->setText(text);
 }
 
 void WalletViewModel::onStatus(const WalletStatus& status)

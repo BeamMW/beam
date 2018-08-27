@@ -107,6 +107,7 @@ public:
     Q_INVOKABLE void cancelTx(int index);
     Q_INVOKABLE void generateNewAddress();
     Q_INVOKABLE void saveNewAddress();
+    Q_INVOKABLE void copyToClipboard(const QString& text);
 
 public:
     using TxList = QList<TxObject*>;

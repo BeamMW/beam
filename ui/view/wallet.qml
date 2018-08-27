@@ -169,6 +169,7 @@ Item {
                     text: "cancel"
                     height: 38
                     width: 122
+                    palette.buttonText: Style.white
                     onClicked: root.state = "wallet";
                 }
 
@@ -176,9 +177,23 @@ Item {
                     text: "ok"
                     height: 38
                     width: 122
+                    palette.buttonText: Style.white
                     onClicked: {
                         viewModel.saveNewAddress();
                         root.state = "wallet";
+                    }
+                }
+
+                CustomButton {
+                    text: "copy"
+                    height: 38
+                    width: 122
+                    palette.buttonText: Style.white
+                    icon.source: "qrc:///assets/icon-copy.svg"
+                    icon.width: 16
+                    icon.height: 16
+                    onClicked: {
+                        viewModel.copyToClipboard(myAddressID.text);
                     }
                 }
             }
