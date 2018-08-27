@@ -19,8 +19,8 @@ public:
         assign(ss);
     }
 
-    SecString(const std::string_view& sv) {
-        assign(static_cast<const void*>(sv.data()), sv.size());
+    SecString(const std::string& sv) {
+        assign(static_cast<const void*>(sv.data()), sv.size() + 1 );
     }
 
     SecString& operator=(SecString&& ss) {

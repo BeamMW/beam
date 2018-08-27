@@ -261,7 +261,7 @@ void WalletViewModel::onChangeCalculated(beam::Amount change)
 
 void WalletViewModel::onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
 {
-    setSenderAddr(toString(senderID));
+    //setSenderAddr(toString(senderID));
     setReceiverAddr(toString(receiverID));
 }
 
@@ -306,7 +306,7 @@ void WalletViewModel::setReceiverAddr(const QString& value)
     emit receiverAddrChanged();
 }
 
-QString WalletViewModel::getSenderAddr() const
+/*QString WalletViewModel::getSenderAddr() const
 {
     return _senderAddr;
 }
@@ -315,7 +315,7 @@ void WalletViewModel::setSenderAddr(const QString& value)
 {
     _senderAddr = value;
     emit senderAddrChanged();
-}
+}*/
 
 void WalletViewModel::setSendAmount(const QString& amount)
 {
@@ -343,6 +343,11 @@ void WalletViewModel::setSelectedAddr(int index)
 {
     _selectedAddr = index;
     emit selectedAddrChanged();
+}
+
+void WalletViewModel::setComment(const QString& value)
+{
+    _comment = value;
 }
 
 QString WalletViewModel::receiverAddr() const
@@ -412,12 +417,13 @@ beam::Amount WalletViewModel::calcTotalAmount() const
 
 void WalletViewModel::sendMoney()
 {
-    if (!_senderAddr.isEmpty() && !_receiverAddr.isEmpty())
+    if (/*!_senderAddr.isEmpty() && */!_receiverAddr.isEmpty())
     {
-        WalletID ownAddr = from_hex(getSenderAddr().toStdString());
+        //WalletID ownAddr = from_hex(getSenderAddr().toStdString());
         WalletID peerAddr = from_hex(getReceiverAddr().toStdString());
         // TODO: show 'operation in process' animation here?
-        _model.async->sendMoney(ownAddr, peerAddr, calcSendAmount(), calcFeeAmount());
+        //_model.async->sendMoney(ownAddr, peerAddr, calcSendAmount(), calcFeeAmount());
+        _model.async->sendMoney(peerAddr, _comment.toStdString(), calcSendAmount(), calcFeeAmount());
     }
 }
 

@@ -179,7 +179,7 @@ namespace
             boost::filesystem::remove(path);
         }
                
-        auto keychain = Keychain::init(path, string_view("pass123"), seed);
+        auto keychain = Keychain::init(path, string("pass123"), seed);
         beam::Block::SystemState::ID id = {};
         id.m_Height = 134;
         keychain->setSystemStateID(id);

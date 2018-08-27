@@ -85,7 +85,7 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString feeMils READ feeMils WRITE setFeeMils NOTIFY feeMilsChanged)
 
     Q_PROPERTY(QString receiverAddr READ getReceiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
-    Q_PROPERTY(QString senderAddr READ getSenderAddr WRITE setSenderAddr NOTIFY senderAddrChanged)
+    //Q_PROPERTY(QString senderAddr READ getSenderAddr WRITE setSenderAddr NOTIFY senderAddrChanged)
     Q_PROPERTY(QQmlListProperty<TxObject> tx READ tx NOTIFY txChanged)
     Q_PROPERTY(int selectedAddr READ selectedAddr WRITE setSelectedAddr NOTIFY selectedAddrChanged)
 
@@ -98,6 +98,8 @@ class WalletViewModel : public QObject
 
     Q_PROPERTY(QString newReceiverAddr READ getNewReceiverAddr NOTIFY newReceiverAddrChanged)
     Q_PROPERTY(QString newReceiverName WRITE setNewReceiverName NOTIFY newReceiverNameChanged)
+
+    Q_PROPERTY(QString comment WRITE setComment NOTIFY commentedChaned)
 
     
 public:
@@ -134,13 +136,14 @@ public:
     
     QString getReceiverAddr() const;
     void setReceiverAddr(const QString& value);
-    QString getSenderAddr() const;
-    void setSenderAddr(const QString& value);
+    /*QString getSenderAddr() const;
+    void setSenderAddr(const QString& value);*/
 
     void setSendAmount(const QString& text);
     void setSendAmountMils(const QString& text);
     void setFeeMils(const QString& text);
     void setSelectedAddr(int index);
+    void setComment(const QString& value);
 
 public slots:
     void onStatus(const WalletStatus& amount);
@@ -168,6 +171,7 @@ signals:
     void isSyncInProgressChanged();
     void newReceiverAddrChanged();
     void newReceiverNameChanged();
+    void commentedChaned();
 
 private:
     beam::Amount calcSendAmount() const;
@@ -190,9 +194,10 @@ private:
     std::vector<beam::TxPeer> _addrList;
 
     QString _receiverAddr;
-    QString _senderAddr;
+    //QString _senderAddr;
     QString _newReceiverAddr;
     QString _newReceiverName;
+    QString _comment;
 
     int _selectedAddr;
     bool _isSyncInProgress;

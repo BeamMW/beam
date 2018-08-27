@@ -118,7 +118,6 @@ Item {
             SFTextInput {
                 id: myAddressID
                 Layout.fillWidth: true
-                //width: 315
                 font.pixelSize: 14
                 Layout.minimumHeight: 20
                 color: Style.disable_text_color
@@ -139,7 +138,6 @@ Item {
             SFTextInput {
                 id: myAddressName
                 Layout.fillWidth: true
-                //width: 315
                 font.pixelSize: 14
                 Layout.minimumHeight: 20
                 color: Style.white
@@ -234,34 +232,38 @@ Item {
                             font.pixelSize: 14
                             font.weight: Font.Bold
                             color: Style.white
-                            text: qsTr("My address")
+                            text: qsTr("Send To:")
                         }
                         
                         AddressComboBox {
                             Layout.fillWidth: true
 
-                            id: senderAddrCombo
+                            id: receiverAddrCombo
                             editable: true
-                            model: addressBookViewModel.ownAddresses
-                            editText: viewModel.senderAddr
+                            editText: viewModel.receiverAddr
+                            model: addressBookViewModel.peerAddresses
                             color: Style.white
                             font.pixelSize: 14
                             validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
-                            //focus: true
                             onEditTextChanged: {
                                 var i = find(editText);
-                                senderName.text = i >= 0 ? addressBookViewModel.ownAddresses[i].name : "";
+                                receiverName.text = i >= 0 ? addressBookViewModel.peerAddresses[i].name : "";
                             }
-                        } 
+                        }
 
                         SFText {
-                            id: senderName
+                            id: receiverName
                             color: Style.white
                             font.pixelSize: 14
                             font.weight: Font.Bold
-                        }  
-                    }
+                        }
 
+                        Binding {
+                            target: viewModel
+                            property: "receiverAddr"
+                            value: receiverAddrCombo.editText
+                        }
+                    }
                 }
 
                 Item {
@@ -332,49 +334,7 @@ Item {
                     ColumnLayout {
                         width: parent.width
 
-                        spacing: 12
-
-                        SFText {
-                            font.pixelSize: 14
-                            font.weight: Font.Bold
-                            color: Style.white
-                            text: qsTr("Peer address")
-                        }
-                        
-                        AddressComboBox {
-                            Layout.fillWidth: true
-
-                            id: receiverAddrCombo
-                            editable: true
-                            editText: viewModel.receiverAddr
-                            model: addressBookViewModel.peerAddresses
-                            color: Style.white
-                            font.pixelSize: 14
-                            validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
-                            onEditTextChanged: {
-                                var i = find(editText);
-                                receiverName.text = i >= 0 ? addressBookViewModel.peerAddresses[i].name : "";
-                            }
-                        }
-
-                        SFText {
-                            id: receiverName
-                            color: Style.white
-                            font.pixelSize: 14
-                            font.weight: Font.Bold
-                        }
-
-                        Binding {
-                            target: viewModel
-                            property: "senderAddr"
-                            value: senderAddrCombo.editText
-                        }
-
-                        Binding {
-                            target: viewModel
-                            property: "receiverAddr"
-                            value: receiverAddrCombo.editText
-                        }
+                        spacing: 12                        
 
                         SFText {
                             font.pixelSize: 14
@@ -392,6 +352,12 @@ Item {
 
                             // TODO: here should be proper validator (max text length 200)
                             selectByMouse: true
+                        }
+
+                        Binding {
+                            target: viewModel
+                            property: "comment"
+                            value: comment_input.text
                         }
                     }
                 }
@@ -428,107 +394,124 @@ Item {
                             value: feeSlider.value
                         }
 
-                        Rectangle {
-                            Layout.topMargin: 30
+                        Item {
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignTop
-                            height: 96
-                            radius: 10
-                            color: Style.separator_color
+                            Layout.topMargin: 30
+                            Layout.minimumHeight: 96
 
-                            RowLayout {
+                            Rectangle {
                                 anchors.fill: parent
-                                anchors.margins: 20
-                                width: parent.width
-                                spacing: 5
+                                height: 96
+                                radius: 10
+                                color: Style.marine
 
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    Layout.alignment: Qt.AlignTop
-                                    spacing: 10
+                                RowLayout {
+                                    anchors.fill: parent
+                                    readonly property int margin: 15
+                                    anchors.leftMargin: margin
+                                    anchors.rightMargin: margin
+                                    spacing: margin
 
-                                    SFText {
-                                        Layout.minimumHeight: 20 // check
-                                        Layout.alignment: Qt.AlignHCenter
-                                        font.pixelSize: 18
-                                        font.weight: Font.Bold
-                                        color: Style.bluey_grey
-                                        text: qsTr("Remaining")
-                                    }
-
-                                    Row
-                                    {
+                                    Item {
                                         Layout.fillWidth: true
-                                        Layout.alignment: Qt.AlignHCenter
-                                        Layout.minimumHeight: childrenRect.height
-                                        Layout.minimumWidth: childrenRect.width
-                                        spacing: 6
+                                        Layout.alignment: Qt.AlignCenter
+                                        height: childrenRect.height
 
-                                        SFText {
-                                            font.pixelSize: 24
-                                            font.weight: Font.ExtraLight
-                                            color: Style.bluey_grey
-                                            text: viewModel.actualAvailable
-                                        }
+                                        ColumnLayout {
+                                            width: parent.width
+                                            spacing: 10
 
-                                        // TODO(alex.starun): change to BEAM icon
-                                        SFText {                                            
-                                            font.pixelSize: 24
-                                            font.weight: Font.ExtraLight
-                                            color: Style.bluey_grey
-                                            text: "B"
+                                            SFText {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                font.pixelSize: 18
+                                                font.weight: Font.Bold
+                                                color: Style.bluey_grey
+                                                text: qsTr("Remaining")
+                                            }
+
+                                            RowLayout
+                                            {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                spacing: 6
+                                                clip: true
+
+                                                SFText {
+                                                    font.pixelSize: 24
+                                                    font.weight: Font.ExtraLight
+                                                    color: Style.bluey_grey
+                                                    text: viewModel.actualAvailable
+                                                }
+
+                                                // TODO(alex.starun): change to BEAM icon
+                                                SFText {
+                                                    font.pixelSize: 24
+                                                    font.weight: Font.ExtraLight
+                                                    color: Style.bluey_grey
+                                                    text: "B"
+                                                }
+                                            }
                                         }
                                     }
-                                }
 
-                                Rectangle {
-                                    Layout.leftMargin: 15
-                                    Layout.rightMargin: 15
-                                    Layout.fillHeight: true
-                                    width: 1
-                                    color: Style.bluey_grey
-                                }
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    Layout.alignment: Qt.AlignTop
-                                    Layout.minimumWidth: 100
-                                    spacing: 10
-
-                                    SFText {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        font.pixelSize: 18
-                                        font.weight: Font.Bold                       
+                                    Rectangle {
+                                        id: separator
+                                        Layout.fillHeight: true
+                                        Layout.topMargin: 10
+                                        Layout.bottomMargin: 10
+                                        width: 1
                                         color: Style.bluey_grey
-                                        text: qsTr("Change")
                                     }
 
-                                    Row
-                                    {
+                                    Item {
                                         Layout.fillWidth: true
-                                        Layout.alignment: Qt.AlignHCenter
-                                        Layout.minimumHeight: childrenRect.height
-                                        Layout.minimumWidth: childrenRect.width
-                                        spacing: 6
+                                        Layout.alignment: Qt.AlignCenter
+                                        height: childrenRect.height
 
-                                        SFText {
-                                            font.pixelSize: 24
-                                            font.weight: Font.ExtraLight
-                                            color: Style.bluey_grey
-                                            text: viewModel.change
-                                        }
+                                        ColumnLayout {
+                                            width: parent.width
+                                            spacing: 10
 
-                                        // TODO(alex.starun): change to BEAM icon
-                                        SFText {
-                                            font.pixelSize: 24
-                                            font.weight: Font.ExtraLight
-                                            color: Style.bluey_grey
-                                            text: "B"
+                                            SFText {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                font.pixelSize: 18
+                                                font.weight: Font.Bold
+                                                color: Style.bluey_grey
+                                                text: qsTr("Change")
+                                            }
+
+                                            RowLayout
+                                            {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                spacing: 6
+                                                clip: true
+
+                                                SFText {
+                                                    font.pixelSize: 24
+                                                    font.weight: Font.ExtraLight
+                                                    color: Style.bluey_grey
+                                                    text: viewModel.change
+                                                }
+
+                                                // TODO(alex.starun): change to BEAM icon
+                                                SFText {
+                                                    font.pixelSize: 24
+                                                    font.weight: Font.ExtraLight
+                                                    color: Style.bluey_grey
+                                                    text: "B"
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
-                
+                            Rectangle {
+                                anchors.fill: parent
+                                height: 96
+                                radius: 10
+                                color: "white"
+                                opacity: 0.1
+                            }
                         }
                     }
                 }
@@ -999,11 +982,10 @@ Item {
             name: "send"
             PropertyChanges {target: wallet_layout; visible: false}
             PropertyChanges {target: send_layout; visible: true}
-            PropertyChanges {target: senderAddrCombo; currentIndex: -1}
             PropertyChanges {target: receiverAddrCombo; currentIndex: -1}
             PropertyChanges {target: amount_input; text: ""}
              StateChangeScript {
-                script: senderAddrCombo.forceActiveFocus(Qt.TabFocusReason);
+                script: receiverAddrCombo.forceActiveFocus(Qt.TabFocusReason);
             }
         },
 

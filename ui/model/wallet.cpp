@@ -38,6 +38,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+    void sendMoney(const beam::WalletID& receiverID, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee)
+    {
+        tx.send([receiverID, comment, amount{ move(amount) }, fee{ move(fee) }](BridgeInterface& receiver_) mutable
+        {
+            receiver_.sendMoney(receiverID, comment, move(amount), move(fee));
+        });
+    }
+
     void syncWithNode() override
     {
         tx.send([](BridgeInterface& receiver_) mutable
@@ -298,6 +306,35 @@ void WalletModel::sendMoney(const beam::WalletID& sender, const beam::WalletID& 
     {
         s->transfer_money(sender, receiver, move(amount), move(fee));
     }
+}
+
+void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee)
+{
+    try
+    {
+        WalletID sender;
+        _keystore->gen_keypair(sender);
+
+        WalletAddress senderAddress;
+        senderAddress.m_walletID = sender;
+        senderAddress.m_own = true;
+        senderAddress.m_createTime = beam::getTimestamp();
+
+        createNewAddress(std::move(senderAddress));
+
+        ByteBuffer message(comment.begin(), comment.end());
+
+        assert(!_wallet.expired());
+        auto s = _wallet.lock();
+        if (s)
+        {
+            s->transfer_money(sender, receiver, move(amount), move(fee), true, move(message));
+        }
+    }
+    catch (...)
+    {
+
+    }    
 }
 
 void WalletModel::syncWithNode()

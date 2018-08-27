@@ -420,7 +420,7 @@ int main_impl(int argc, char* argv[])
 						SecString pass;
 						if (vm.count(cli::PASS))
 						{
-							pass = SecString(string_view(vm[cli::PASS].as<string>()));
+							pass = SecString(vm[cli::PASS].as<string>());
 						}
 
 						if (!pass.size())
