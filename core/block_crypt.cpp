@@ -1768,75 +1768,102 @@ namespace beam
 			sTip.m_PoW.m_Difficulty.Dec(m_Begin, sTip.m_ChainWork);
 		}
 
-		bool SamplePoint(Difficulty::Raw& out)
+		static void TakeFraction(Difficulty::Raw& v)
 		{
-			Difficulty::Raw range = m_Begin;
-			range.Negate();
-			range += m_End;
-
 			// shift right 7 bits, and find the order of the number (1st nonzero bit)
 			uint8_t carry = 0;
-			uint32_t nOrder = 0;
 
-			for (uint32_t nByte = 0; nByte < _countof(range.m_pData); nByte++)
+			for (uint32_t nByte = 0; nByte < _countof(v.m_pData); nByte++)
 			{
-				uint8_t& x = range.m_pData[nByte];
-
-				if (!(nOrder || x || carry))
-					continue;
+				uint8_t& x = v.m_pData[nByte];
 
 				uint8_t n = x << 1; // next carry
 				x = (x >> 7) | carry;
 				carry = n;
-
-				if (!nOrder)
-				{
-					if (!x)
-						continue;
-
-					nOrder = ((_countof(range.m_pData) - nByte) << 3) - 7;
-					for (n = x; n >>= 1; nOrder++)
-						;
-				}
 			}
+		}
 
+		static uint32_t FindOrderOf(const Difficulty::Raw& v)
+		{
+			uint32_t nOrder;
+
+			for (uint32_t nByte = 0; ; nByte++)
+			{
+				if (_countof(v.m_pData) == nByte)
+					return 0; // the number is zero
+
+				uint8_t x = v.m_pData[nByte];
+				if (!x)
+					continue;
+
+				uint32_t nOrder = ((_countof(v.m_pData) - nByte) << 3) - 7;
+				for (; x >>= 1; nOrder++)
+					;
+
+				return nOrder;
+			}
+		}
+
+		bool UnfiromRandom(Difficulty::Raw& out, const Difficulty::Raw& threshold)
+		{
+			// find the order of the number (1st nonzero bit)
+			uint32_t nOrder = FindOrderOf(threshold);
 			if (!nOrder)
-			{
-				assert(range == ECC::Zero);
-				out = 1U;
-			}
-			else
-			{
-				// select random, truncate to the appropriate bits length, and use accept/reject criteria
-				nOrder--;
-				uint32_t nOffs = sizeof(out.m_pData) - 1 - (nOrder >> 3);
-				uint8_t msk = uint8_t(2 << (7 & nOrder)) - 1;
-				assert(msk);
-
-				while (true)
-				{
-					m_Oracle >> out;
-
-					out.m_pData[nOffs] &= msk;
-
-					if (memcmp(out.m_pData + nOffs, range.m_pData + nOffs, sizeof(out.m_pData) - nOffs) < 0)
-					{
-						// bingo
-						memset0(out.m_pData, nOffs);
-						break;
-					}
-				}
-
-				out.Inc();
-			}
-
-			if (out > m_Begin)
 				return false;
 
-			out.Negate();
-			out += m_Begin;
+			// sample random, truncate to the appropriate bits length, and use accept/reject criteria
+			nOrder--;
+			uint32_t nOffs = sizeof(out.m_pData) - 1 - (nOrder >> 3);
+			uint8_t msk = uint8_t(2 << (7 & nOrder)) - 1;
+			assert(msk);
 
-			return out >= m_LowerBound;
+			while (true)
+			{
+				m_Oracle >> out;
+
+				out.m_pData[nOffs] &= msk;
+
+				if (memcmp(out.m_pData + nOffs, threshold.m_pData + nOffs, sizeof(out.m_pData) - nOffs) < 0)
+				{
+					// bingo
+					memset0(out.m_pData, nOffs);
+					break;
+				}
+			}
+
+			return true;
+		}
+
+		bool SamplePoint(Difficulty::Raw& out)
+		{
+			// range = m_End - m_Begin
+			Difficulty::Raw range = m_Begin;
+			range.Negate();
+			range += m_End;
+
+			TakeFraction(range);
+
+			if (range == ECC::Zero)
+				range = 1U;
+
+			bool bAllCovered = (range >= m_Begin);
+
+			verify(UnfiromRandom(out, range));
+
+			range.Negate(); // convert to -range
+
+			out += m_Begin;
+			out += range; // may overflow, but it's ok
+
+			if ((out < m_LowerBound) || (out >= m_Begin))
+				return false;
+
+			if (bAllCovered)
+				m_Begin = ECC::Zero;
+			else
+				m_Begin += range;
+
+			return true;
 		}
 	};
 
@@ -1879,7 +1906,10 @@ namespace beam
 
 			m_vStates.push_back(s);
 
-			s.m_PoW.m_Difficulty.Dec(samp.m_Begin, s.m_ChainWork);
+			s.m_PoW.m_Difficulty.Dec(d, s.m_ChainWork);
+
+			if (samp.m_Begin > d)
+				samp.m_Begin = d;
 		}
 	}
 
@@ -1940,22 +1970,25 @@ namespace beam
 
 		samp.m_LowerBound = m_LowerBound;
 
+		Difficulty::Raw dLoPrev;
+		sRoot.m_PoW.m_Difficulty.Dec(dLoPrev, sRoot.m_ChainWork);
+
 		for (iState = 1; ; iState++)
 		{
-			Difficulty::Raw d, d0;
-			if (!samp.SamplePoint(d))
+			Difficulty::Raw dSamp;
+			if (!samp.SamplePoint(dSamp))
 				break;
 
 			const SystemState::Full& s0 = m_vStates[iState - 1];
 			const SystemState::Full& s = m_vStates[iState];
 
-			if (d >= s.m_ChainWork)
+			if (dSamp >= s.m_ChainWork)
 				return false;
 
-			d0 = samp.m_Begin;
-			s.m_PoW.m_Difficulty.Dec(samp.m_Begin, s.m_ChainWork);
+			Difficulty::Raw dLo;
+			s.m_PoW.m_Difficulty.Dec(dLo, s.m_ChainWork);
 
-			if (d < samp.m_Begin)
+			if (dSamp < dLo)
 				return false;
 
 			s.get_Hash(ver.m_hvPos);
@@ -1965,7 +1998,7 @@ namespace beam
 				if (s0.m_Prev != ver.m_hvPos)
 					return false;
 
-				if (s.m_ChainWork != d0)
+				if (s.m_ChainWork != dLoPrev)
 					return false;
 			}
 			else
@@ -1973,7 +2006,7 @@ namespace beam
 				if (s.m_Height >= s0.m_Height)
 					return false;
 
-				if (s.m_ChainWork >= d0)
+				if (s.m_ChainWork >= dLoPrev)
 					return false;
 
 				ver.Process(s.m_Height - Rules::HeightGenesis);
@@ -1981,6 +2014,10 @@ namespace beam
 					return false;
 			}
 
+			dLoPrev = dLo;
+
+			if (samp.m_Begin > dLo)
+				samp.m_Begin = dLo;
 		}
 
 		iHash = ver.get_Pos() - m_Proof.m_vData.begin();
