@@ -23,6 +23,8 @@
 #include <memory>
 #include <assert.h>
 #include <functional>
+#include <iostream>
+#include <fstream>
 
 #ifdef WIN32
 #	include <winsock2.h>
@@ -44,8 +46,7 @@
 	}
 
 #include "ecc.h"
-#include <iostream>
-#include <fstream>
+#include "merkle.h"
 
 namespace std
 {
@@ -167,52 +168,6 @@ namespace beam
 		void Export(ECC::uintBig&) const;
 		void AddTo(ECC::Point::Native&) const;
 	};
-
-	namespace Merkle
-	{
-		typedef ECC::Hash::Value Hash;
-		typedef std::pair<bool, Hash>	Node;
-		typedef std::vector<Node>		Proof;
-		typedef std::vector<Hash>		HardProof;
-
-		struct Position {
-			uint8_t H;
-			uint64_t X;
-		};
-
-		struct IProofBuilder {
-			virtual bool AppendNode(const Node&, const Position&) = 0;
-		};
-
-		struct ProofBuilderStd
-			:public IProofBuilder
-		{
-			Proof m_Proof;
-
-			virtual bool AppendNode(const Node& n, const Position&) override
-			{
-				m_Proof.push_back(n);
-				return true;
-			}
-		};
-
-		struct ProofBuilderHard
-			:public IProofBuilder
-		{
-			HardProof m_Proof;
-
-			virtual bool AppendNode(const Node& n, const Position&) override
-			{
-				m_Proof.push_back(n.second);
-				return true;
-			}
-		};
-
-		void Interpret(Hash&, const Proof&);
-		void Interpret(Hash&, const Node&);
-		void Interpret(Hash&, const Hash& hLeft, const Hash& hRight);
-		void Interpret(Hash&, const Hash& hNew, bool bNewOnRight);
-	}
 
 	struct CommitmentAndMaturity
 	{

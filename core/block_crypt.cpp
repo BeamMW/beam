@@ -57,35 +57,6 @@ namespace beam
 		return dh <= (m_Max - m_Min);
 	}
 
-	/////////////
-	// Merkle
-	namespace Merkle
-	{
-		void Interpret(Hash& out, const Hash& hLeft, const Hash& hRight)
-		{
-			ECC::Hash::Processor() << hLeft << hRight >> out;
-		}
-
-		void Interpret(Hash& hOld, const Hash& hNew, bool bNewOnRight)
-		{
-			if (bNewOnRight)
-				Interpret(hOld, hOld, hNew);
-			else
-				Interpret(hOld, hNew, hOld);
-		}
-
-		void Interpret(Hash& hash, const Node& n)
-		{
-			Interpret(hash, n.second, n.first);
-		}
-
-		void Interpret(Hash& hash, const Proof& p)
-		{
-			for (Proof::const_iterator it = p.begin(); p.end() != it; it++)
-				Interpret(hash, *it);
-		}
-	}
-
 #define CMP_SIMPLE(a, b) \
 		if (a < b) \
 			return -1; \

@@ -4,6 +4,7 @@ set(CORE_SRC
     block_crypt.cpp
     navigator.cpp
     storage.cpp
+    merkle.cpp
     proto.cpp
 # ~etc
 )
