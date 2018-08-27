@@ -49,18 +49,26 @@ class UtxoViewModel : public QObject
     Q_OBJECT
 
     Q_PROPERTY(QQmlListProperty<UtxoItem> allUtxos READ getAllUtxos NOTIFY allUtxoChanged)
+    Q_PROPERTY(QString currentHeight READ getCurrentHeight NOTIFY stateChanged)
+    Q_PROPERTY(QString currentStateHash READ getCurrentStateHash NOTIFY stateChanged)
 
 public:
     UtxoViewModel();
     virtual ~UtxoViewModel();
     QQmlListProperty<UtxoItem> getAllUtxos();
+    QString getCurrentHeight() const;
+    QString getCurrentStateHash() const;
 public slots:
     void onAllUtxoChanged(const std::vector<beam::Coin>& utxos);
+    void onStatus(const WalletStatus& status);
 signals:
     void allUtxoChanged();
+    void stateChanged();
 private:
 
     bool _loadingAllUtxo;
     QList<UtxoItem*> _allUtxos;
+    QString _currentHeight;
+    QString _currentStateHash;
     WalletModel& _model;
 };
