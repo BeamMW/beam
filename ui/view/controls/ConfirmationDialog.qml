@@ -21,14 +21,11 @@ Dialog {
     }
 
     contentItem: SFText {
-        anchors.centerIn: parent
-        anchors.leftMargin: 10
-        anchors.rightMargin: 10
-        width: parent.width
         id: messageText
+		padding: 30
         font.pixelSize: 14
         color: Style.white
-        wrapMode: Text.WordWrap
+        wrapMode: Text.Wrap
     }
 
     footer: DialogButtonBox {
