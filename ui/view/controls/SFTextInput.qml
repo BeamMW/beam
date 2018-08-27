@@ -22,12 +22,14 @@ T.TextField {
     }
 
     padding: 6
-    leftPadding: padding + 4
+    leftPadding: 0
 
     color: control.palette.text
     selectionColor: control.palette.highlight
     selectedTextColor: control.palette.highlightedText
     verticalAlignment: TextInput.AlignVCenter
+
+	selectByMouse: true
 	
     PlaceholderText {
         id: placeholder
