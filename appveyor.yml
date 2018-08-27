@@ -41,7 +41,7 @@ on_success:
 
     7z a c:/projects/beam/beam/Release/beam-node.zip c:/projects/beam/beam/Release/beam-node.exe c:/projects/beam/beam/beam-node.cfg
 
-    7z a c:/projects/beam/beam/Release/beam-wallet.zip c:/projects/beam/beam/Release/beam-wallet.exe c:/projects/beam/beam/beam-wallet.cfg
+    7z a c:/projects/beam/beam/Release/beam-wallet.zip c:/projects/beam/wallet/Release/beam-wallet.exe c:/projects/beam/wallet/beam-wallet.cfg
 
     set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win
 
