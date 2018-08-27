@@ -14,6 +14,7 @@ matrix:
         - OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
         - BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
         - BEAM_WALLET_UI_OUT="Beam Wallet.dmg"
+        - OS_FOLDER=mac
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE . && make -j 4 && ctest --verbose && cpack;
 
@@ -31,6 +32,7 @@ matrix:
         - QML_IMPORT_PATH="/usr/local/qt5-static/qml"
         - BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
         - BEAM_WALLET_UI_OUT="Beam Wallet.dmg"
+        - OS_FOLDER=mac
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
 
@@ -57,6 +59,7 @@ matrix:
         - BUILD_TYPE=Debug
         - BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
         - BEAM_WALLET_UI_OUT="Beam Wallet.deb"
+        - OS_FOLDER=linux
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE . && make -j 4 && ctest --verbose && cpack;
 
@@ -82,13 +85,14 @@ matrix:
         - BUILD_TYPE=Release
         - BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
         - BEAM_WALLET_UI_OUT="Beam Wallet.deb"
+        - OS_FOLDER=linux
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
 
 after_success:
   # deploy using ftp server
-  - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/mac
-  - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/mac
+  - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER
+  - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER
   - tar -cvzf beam-node.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam-node beam-node.cfg
   - tar -cvzf beam-wallet.tar.gz --directory=$HOME/build/beam-mw/beam/wallet beam-wallet beam-wallet.cfg
   - curl --retry 3 --ftp-create-dirs -T beam-node.tar.gz $BUILDS_SERVER_PATH/
