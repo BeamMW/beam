@@ -50,7 +50,8 @@ QString UtxoItem::status() const
         "Unconfirmed",
         "Unspent",
         "Locked",
-        "Spent"
+        "Spent",
+        "Draft"
     };
     return Names[_coin.m_status];
 }
