@@ -170,7 +170,7 @@ public:
 
 	MyLeaf* Find(CursorBase& cu, const Merkle::Hash& key, bool& bCreate)
 	{
-		static_assert(key.nBits == ECC::nBits, "");
+		static_assert(Merkle::Hash::nBits == ECC::nBits, "");
 		return (MyLeaf*) RadixTree::Find(cu, key.m_pData, ECC::nBits, bCreate);
 	}
 
