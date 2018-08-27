@@ -62,6 +62,8 @@ set(UI_SRC
 	model/settings.cpp
 	model/messages.h
 	model/messages.cpp
+	model/node.h
+	model/node.cpp
 )
 
 if(WIN32)
@@ -79,6 +81,12 @@ configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/v
 target_include_directories(beam PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 add_dependencies(${TARGET_NAME} wallet)
+
+#if (BEAM_WALLET_WITH_NODE)
+	add_definitions(-DBEAM_WALLET_WITH_NODE)
+	add_dependencies(${TARGET_NAME} node)
+	target_link_libraries(${TARGET_NAME} node)
+#endif()
 
 target_link_libraries(${TARGET_NAME} wallet Qt5::Qml Qt5::Quick Qt5::Svg)
 

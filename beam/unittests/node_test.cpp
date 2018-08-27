@@ -127,14 +127,12 @@ namespace beam
 			Block::SystemState::Full& s = vStates[h];
 			s.m_Height = h + Rules::HeightGenesis;
 
+			s.m_ChainWork = h; // must be in ascending order
+
 			if (h)
 			{
 				vStates[h - 1].get_Hash(s.m_Prev);
-
-				Merkle::Hash hvH;
-				vStates[h - 1].get_HashForHist(hvH);
-
-				cmmr.Append(hvH);
+				cmmr.Append(s.m_Prev);
 			}
 
 			if (hFork0 == h)
@@ -205,13 +203,13 @@ namespace beam
 
 		verify_test(CountTips(db, true) == 0);
 
-		Merkle::Hash hvH;
-		s.get_HashForHist(hvH);
-		cmmrFork.Append(hvH);
 		s.get_Hash(s.m_Prev);
+		cmmrFork.Append(s.m_Prev);
 		cmmrFork.get_Hash(s.m_Definition);
 		Merkle::Interpret(s.m_Definition, hvZero, true);
+
 		s.m_Height++;
+		s.m_ChainWork = s.m_Height;
 
 		uint64_t rowLast1 = db.InsertState(s);
 
@@ -270,12 +268,12 @@ namespace beam
 
 			for (uint32_t h = Rules::HeightGenesis; h < sid2.m_Height; h++)
 			{
-				Merkle::Proof proof;
-				db.get_Proof(proof, sid2, h);
+				Merkle::ProofBuilderStd bld;
+				db.get_Proof(bld, sid2, h);
 
 				Merkle::Hash hv;
-				vStates[h - Rules::HeightGenesis].get_HashForHist(hv);
-				Merkle::Interpret(hv, proof);
+				vStates[h - Rules::HeightGenesis].get_Hash(hv);
+				Merkle::Interpret(hv, bld.m_Proof);
 				Merkle::Interpret(hv, hvZero, true);
 
 				verify_test(hvRoot == hv);
@@ -935,7 +933,7 @@ namespace beam
 			std::list<ECC::Point> m_queProofsExpected;
 			std::list<uint32_t> m_queProofsStateExpected;
 			std::list<uint32_t> m_queProofsKrnExpected;
-
+			uint32_t m_nChainWorkProofsPending = 0;
 			uint32_t m_nBbsMsgsPending = 0;
 
 
@@ -994,7 +992,8 @@ namespace beam
 				return
 					m_queProofsExpected.empty() &&
 					m_queProofsKrnExpected.empty() &&
-					m_queProofsStateExpected.empty();
+					m_queProofsStateExpected.empty() &&
+					!m_nChainWorkProofsPending;
 			}
 
 			bool IsAllBbsReceived() const
@@ -1077,6 +1076,12 @@ namespace beam
 					m_queProofsKrnExpected.push_back(i);
 				}
 
+				{
+					proto::GetProofChainWork msgOut;
+					Send(msgOut);
+					m_nChainWorkProofsPending++;
+				}
+
 				proto::NewTransaction msgTx;
 				while (true)
 				{
@@ -1088,18 +1093,15 @@ namespace beam
 				}
 			}
 
-			virtual void OnMsg(proto::ProofStateForDummies&& msg) override
+			virtual void OnMsg(proto::ProofState&& msg) override
 			{
 				if (!m_queProofsStateExpected.empty())
 				{
 					const Block::SystemState::Full& s = m_vStates[m_queProofsStateExpected.front()];
+					Block::SystemState::ID id;
+					s.get_ID(id);
 
-					verify_test(m_vStates.back().IsValidProofState(msg.m_Hdr, msg.m_Proof));
-
-					Merkle::Hash hv, hv2;
-					s.get_HashForHist(hv);
-					msg.m_Hdr.get_HashForHist(hv2);
-					verify_test(hv == hv2); // i.e. the header is correct
+					verify_test(m_vStates.back().IsValidProofState(id, msg.m_Proof));
 
 					m_queProofsStateExpected.pop_front();
 				}
@@ -1156,6 +1158,15 @@ namespace beam
 				else
 					fail_test("unexpected proof");
 			}
+
+			virtual void OnMsg(proto::ProofChainWork&& msg) override
+			{
+				verify_test(m_nChainWorkProofsPending);
+				verify_test(!msg.m_Proof.m_vStates.empty() && !m_vStates.empty() && (msg.m_Proof.m_vStates.front().m_Height == m_vStates.back().m_Height));
+				verify_test(msg.m_Proof.IsValid());
+				m_nChainWorkProofsPending--;
+			}
+
 
 			void SetTimer(uint32_t timeout_ms) {
 				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
@@ -1265,20 +1276,152 @@ namespace beam
 			fail_test("some BBS messages missing");
 	}
 
+
+	struct ChainContext
+	{
+		struct State
+		{
+			Block::SystemState::Full m_Hdr;
+			std::unique_ptr<uint8_t[]> m_pMmrData;
+		};
+
+		std::vector<State> m_vStates;
+		Merkle::Hash m_hvLive;
+
+		struct DMmr
+			:public Merkle::DistributedMmr
+		{
+			virtual const void* get_NodeData(Key key) const
+			{
+				return ((State*) key)->m_pMmrData.get();
+			}
+
+			virtual void get_NodeHash(Merkle::Hash& hv, Key key) const
+			{
+				((State*)key)->m_Hdr.get_Hash(hv);
+			}
+
+			IMPLEMENT_GET_PARENT_OBJ(ChainContext, m_Mmr)
+		} m_Mmr;
+
+		struct Source
+			:public Block::ChainWorkProof::ISource
+		{
+			virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
+			{
+				// median search. The Hdr.m_ChainWork must be strictly bigger than d. (It's exclusive)
+				typedef std::vector<State>::const_iterator Iterator;
+				Iterator it0 = get_ParentObj().m_vStates.begin();
+				Iterator it1 = get_ParentObj().m_vStates.end();
+
+				while (it0 < it1)
+				{
+					Iterator itMid = it0 + (it1 - it0) / 2;
+					if (itMid->m_Hdr.m_ChainWork <= d)
+						it0 = itMid + 1;
+					else
+						it1 = itMid;
+				}
+
+				s = it0->m_Hdr;
+			}
+
+			virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
+			{
+				assert(h >= Rules::HeightGenesis);
+				h -= Rules::HeightGenesis;
+
+				assert(h < get_ParentObj().m_vStates.size());
+
+				get_ParentObj().m_Mmr.get_Proof(bld, h);
+			}
+
+			IMPLEMENT_GET_PARENT_OBJ(ChainContext, m_Source)
+		} m_Source;
+
+		void Init()
+		{
+			m_hvLive = ECC::Zero;
+
+			m_vStates.resize(200000);
+			Difficulty d = Rules::get().StartDifficulty;
+
+			for (size_t i = 0; i < m_vStates.size(); i++)
+			{
+				State& s = m_vStates[i];
+				if (i)
+				{
+					const State& s0 = m_vStates[i - 1];
+					s.m_Hdr = s0.m_Hdr;
+					s.m_Hdr.NextPrefix();
+
+					m_Mmr.Append(DMmr::Key(&s0), s0.m_pMmrData.get(), s.m_Hdr.m_Prev);
+				}
+				else
+				{
+					ZeroObject(s.m_Hdr);
+					s.m_Hdr.m_Height = Rules::HeightGenesis;
+				}
+
+				s.m_Hdr.m_PoW.m_Difficulty = d;
+				d.Inc(s.m_Hdr.m_ChainWork);
+
+				if (!((i + 1) % 8000))
+					d.Adjust(140, 150, 3); // slightly raise
+
+				m_Mmr.get_Hash(s.m_Hdr.m_Definition);
+				Merkle::Interpret(s.m_Hdr.m_Definition, m_hvLive, true);
+
+				uint32_t nSize = m_Mmr.get_NodeSize(i);
+				s.m_pMmrData.reset(new uint8_t[nSize]);
+			}
+		}
+	};
+
+
+	void TestChainworkProof()
+	{
+		ChainContext cc;
+
+		printf("Preparing blockchain ...\n");
+		cc.Init();
+
+		Block::ChainWorkProof cwp;
+		cwp.m_hvRootLive = cc.m_hvLive;
+		cwp.Create(cc.m_Source, cc.m_vStates.back().m_Hdr);
+
+		uint32_t nStates = (uint32_t) cc.m_vStates.size();
+		for (size_t i0 = 0; ; i0++)
+		{
+			verify_test(cwp.IsValid());
+
+			printf("Blocks = %u. Proof: States = %u, Hashes = %u\n", nStates, uint32_t(cwp.m_vStates.size()), uint32_t(cwp.m_Proof.m_vData.size()));
+
+			nStates >>= 1;
+			if (nStates < 64)
+				break;
+			cwp.m_LowerBound = cc.m_vStates[cc.m_vStates.size() - nStates].m_Hdr.m_ChainWork;
+
+			verify_test(cwp.Crop());
+		}
+	}
+
 }
 
 int main()
 {
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 
+	beam::Rules::get().AllowPublicUtxos = true;
+	beam::Rules::get().FakePoW = true;
+	beam::Rules::get().UpdateChecksum();
+
+	beam::TestChainworkProof();
+
 	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
 	//	.db files
 	//	ports, wrong beacon and etc.
 	verify_test(beam::helpers::ProcessWideLock("/tmp/BEAM_node_test_lock"));
-
-	beam::Rules::get().AllowPublicUtxos = true;
-	beam::Rules::get().FakePoW = true;
-	beam::Rules::get().UpdateChecksum();
 
 	DeleteFileA(beam::g_sz);
 	DeleteFileA(beam::g_sz2);

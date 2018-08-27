@@ -21,6 +21,7 @@
 #include "../p2p/connection.h"
 #include "../utility/io/tcpserver.h"
 #include "aes.h"
+#include "block_crypt.h"
 #include <boost/intrusive/set.hpp>
 #include <boost/intrusive/list.hpp>
 
@@ -59,6 +60,8 @@ namespace proto {
 	macro(Input, Utxo) \
 	macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
 
+#define BeamNodeMsg_GetProofChainWork(macro) \
+	macro(Difficulty::Raw, LowerBound)
 
 #define BeamNodeMsg_ProofKernel(macro) \
 	macro(Merkle::Proof, Proof) \
@@ -67,9 +70,11 @@ namespace proto {
 #define BeamNodeMsg_ProofUtxo(macro) \
 	macro(std::vector<Input::Proof>, Proofs)
 
-#define BeamNodeMsg_ProofStateForDummies(macro) \
-	macro(Merkle::Proof, Proof) \
-	macro(Block::SystemState::Full, Hdr)
+#define BeamNodeMsg_ProofState(macro) \
+	macro(Merkle::HardProof, Proof)
+
+#define BeamNodeMsg_ProofChainWork(macro) \
+	macro(Block::ChainWorkProof, Proof)
 
 #define BeamNodeMsg_GetMined(macro) \
 	macro(Height, HeightMin)
@@ -160,9 +165,11 @@ namespace proto {
 	macro(10, GetProofUtxo) \
 	macro(11, ProofKernel) \
 	macro(12, ProofUtxo) \
-	macro(13, ProofStateForDummies) \
+	macro(13, ProofState) \
 	macro(15, GetMined) \
 	macro(16, Mined) \
+	macro(17, GetProofChainWork) \
+	macro(18, ProofChainWork) \
 	macro(20, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
 	macro(21, Ping) \
 	macro(22, Pong) \

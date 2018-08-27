@@ -320,6 +320,9 @@ void Node::Processor::OnPeerInsane(const PeerID& peerID)
 
 void Node::Processor::OnNewState()
 {
+	m_Cwp.m_vStates.clear();
+	m_Cwp.m_Proof.m_vData.clear();
+
 	if (!m_Cursor.m_Sid.m_Row)
 		return;
 
@@ -328,7 +331,7 @@ void Node::Processor::OnNewState()
 
 	proto::NewTip msg;
 	msgHdr.m_Description.get_ID(msg.m_ID);
-	msg.m_ChainWork = m_Cursor.m_ChainWork;
+	msg.m_ChainWork = m_Cursor.m_Full.m_ChainWork;
 
 	LOG_INFO() << "My Tip: " << msg.m_ID;
 
@@ -801,7 +804,7 @@ void Node::Peer::OnConnectedSecure()
 	{
 		proto::NewTip msg;
 		msg.m_ID = m_This.m_Processor.m_Cursor.m_ID;
-		msg.m_ChainWork = m_This.m_Processor.m_Cursor.m_ChainWork;
+		msg.m_ChainWork = m_This.m_Processor.m_Cursor.m_Full.m_ChainWork;
 		Send(msg);
 	}
 }
@@ -1359,27 +1362,19 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 	if (msg.m_Height < Rules::HeightGenesis)
 		ThrowUnexpected();
 
-	proto::ProofStateForDummies msgOut;
+	proto::ProofState msgOut;
 
 	Processor& p = m_This.m_Processor;
 	const NodeDB::StateID& sid = p.m_Cursor.m_Sid;
 	if (sid.m_Row && (msg.m_Height < sid.m_Height))
 	{
-		p.get_DB().get_Proof(msgOut.m_Proof, sid, msg.m_Height);
+		Merkle::ProofBuilderHard bld;
+		p.get_DB().get_Proof(bld, sid, msg.m_Height);
+		msgOut.m_Proof.swap(bld.m_Proof);
 
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-		msgOut.m_Proof.back().first = true;
-		p.get_ChainWork(msgOut.m_Proof.back().second, false);
-
-		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-		msgOut.m_Proof.back().first = true;
-		p.get_CurrentLive(msgOut.m_Proof.back().second);
-
-		uint64_t rowid = p.FindActiveAtStrict(msg.m_Height);
-		p.get_DB().get_State(rowid, msgOut.m_Hdr);
+		p.get_CurrentLive(msgOut.m_Proof.back());
 	}
-	else
-		ZeroObject(msgOut.m_Hdr);
 
 	Send(msgOut);
 }
@@ -1404,7 +1399,7 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 		msgOut.m_Proof.back().first = false;
-		m_This.m_Processor.get_CurrentPart2(msgOut.m_Proof.back().second, false);
+		msgOut.m_Proof.back().second = m_This.m_Processor.m_Cursor.m_History;
 
 		if (msg.m_RequestHashPreimage)
 			m_This.m_Processor.get_KernelHashPreimage(msg.m_ID, msgOut.m_HashPreimage);
@@ -1419,7 +1414,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	{
 		proto::ProofUtxo m_Msg;
 		UtxoTree* m_pTree;
-		Merkle::Hash m_hvPart2;
+		Merkle::Hash m_hvHistory;
 		Merkle::Hash m_hvKernels;
 
 		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
@@ -1443,7 +1438,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 
 			ret.m_Proof.resize(ret.m_Proof.size() + 1);
 			ret.m_Proof.back().first = false;
-			ret.m_Proof.back().second = m_hvPart2;
+			ret.m_Proof.back().second = m_hvHistory;
 
 			return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
 		}
@@ -1451,7 +1446,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 
 	t.m_pTree = &m_This.m_Processor.get_Utxos();
 	m_This.m_Processor.get_Kernels().get_Hash(t.m_hvKernels);
-	m_This.m_Processor.get_CurrentPart2(t.m_hvPart2, false);
+	t.m_hvHistory = m_This.m_Processor.m_Cursor.m_History;
 
 	UtxoTree::Cursor cu;
 	t.m_pCu = &cu;
@@ -1472,6 +1467,60 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	t.m_pTree->Traverse(t);
 
 	Send(t.m_Msg);
+}
+
+bool Node::Processor::BuildCwp()
+{
+	if (!m_Cwp.m_vStates.empty())
+		return true; // already built
+
+	if (m_Cursor.m_Full.m_Height < Rules::HeightGenesis)
+		return false;
+
+	struct Source
+		:public Block::ChainWorkProof::ISource
+	{
+		Processor& m_Proc;
+		Source(Processor& proc) :m_Proc(proc) {}
+
+		virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
+		{
+			uint64_t rowid = m_Proc.get_DB().FindStateWorkGreater(d);
+			m_Proc.get_DB().get_State(rowid, s);
+		}
+
+		virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
+		{
+			const NodeDB::StateID& sid = m_Proc.m_Cursor.m_Sid;
+			m_Proc.get_DB().get_Proof(bld, sid, h);
+		}
+	};
+
+	Source src(*this);
+
+	m_Cwp.Create(src, m_Cursor.m_Full);
+	get_CurrentLive(m_Cwp.m_hvRootLive);
+}
+
+void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
+{
+	proto::ProofChainWork msgOut;
+
+	Processor& p = m_This.m_Processor;
+	if (p.BuildCwp())
+	{
+		msgOut.m_Proof = p.m_Cwp; // full copy
+
+		if (!(msg.m_LowerBound == ECC::Zero))
+		{
+			msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
+			verify(msgOut.m_Proof.Crop());
+		}
+
+	} else
+		ZeroObject(msgOut.m_Proof.m_hvRootLive);
+
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
@@ -1796,10 +1845,7 @@ bool Node::Miner::Restart()
 		return false;
 	}
 
-	Block::SystemState::ID id;
-	pTask->m_Hdr.get_ID(id);
-
-	LOG_INFO() << "Block generated: " << id << ", Fee=" << pTask->m_Fees << ", Difficulty=" << pTask->m_Hdr.m_PoW.m_Difficulty << ", Size=" << pTask->m_Body.size();
+	LOG_INFO() << "Block generated: Height=" << pTask->m_Hdr.m_Height << ", Fee=" << pTask->m_Fees << ", Difficulty=" << pTask->m_Hdr.m_PoW.m_Difficulty << ", Size=" << pTask->m_Body.size();
 
 	// let's mine it.
 	std::scoped_lock<std::mutex> scope(m_Mutex);

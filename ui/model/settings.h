@@ -16,6 +16,7 @@
 
 #include <QObject>
 #include <QSettings>
+#include <QDir>
 
 #include "model/wallet.h"
 
@@ -23,24 +24,36 @@ class WalletSettings : public QObject
 {
     Q_OBJECT
 public:
-    WalletSettings(const QString& iniPath);
+    WalletSettings(const QDir& appDataDir);
 
     QString getNodeAddress() const;
     void setNodeAddress(const QString& value);
 
     void initModel(WalletModel::Ptr model);
-    void loadSettings(const QString& iniPath);
-    void setWalletStorage(const std::string& path);
-    const std::string& getWalletStorage() const;
-    void setBbsStorage(const std::string& path);
-    const std::string& getBbsStorage() const;
+    std::string getWalletStorage() const;
+    std::string getBbsStorage() const;
     void emergencyReset();
+
+    bool getRunLocalNode() const;
+    void setRunLocalNode(bool value);
+
+    short getLocalNodePort() const;
+    void setLocalNodePort(short port);
+    int getLocalNodeMiningThreads() const;
+    void setLocalNodeMiningThreads(int n);
+    int getLocalNodeVerificationThreads() const;
+    void setLocalNodeVerificationThreads(int n);
+    std::string getLocalNodeStorage() const;
+    std::string getTempDir() const;
 
 signals:
     void nodeAddressChanged();
+    void localNodeRunChanged();
+    void localNodePortChanged();
+    void localNodeMiningThreadsChanged();
+    void localNodeVerificationThreadsChanged();
 
 private:
-    QSettings _data;
-    std::string _walletStorage;
-    std::string _bbsStorage;
+    QSettings m_data;
+    QDir m_appDataDir;
 };

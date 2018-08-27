@@ -11,8 +11,8 @@ Item {
     id: root
     anchors.fill: parent
 
-	WalletViewModel {id: viewModel}
-	AddressBookViewModel {id: addressBookViewModel}
+    WalletViewModel {id: viewModel}
+    AddressBookViewModel {id: addressBookViewModel}
 
     property bool toSend: false
 
@@ -36,7 +36,7 @@ Item {
     Rectangle {
         id: user_led
         y: 55
-		x: 5
+        x: 5
         width: 10
         height: 10
 
@@ -116,15 +116,16 @@ Item {
             }
 
             SFTextInput {
-				id: myAddressID
-				Layout.fillWidth: true
-				font.pixelSize: 14
+                id: myAddressID
+                Layout.fillWidth: true
+                font.pixelSize: 14
                 Layout.minimumHeight: 20
-				color: Style.disable_text_color
-				readOnly: true
+                color: Style.disable_text_color
+                readOnly: true
                 activeFocusOnTab: false
-				text: viewModel.newReceiverAddr
-			}
+                //text: viewModel.newOwnAddress.walletID
+                text: viewModel.newReceiverAddr
+            }
 
             SFText {
                 font.pixelSize: 14
@@ -135,12 +136,13 @@ Item {
             }
 
             SFTextInput {
-				id: myAddressName
-				Layout.fillWidth: true
-				font.pixelSize: 14
+                id: myAddressName
+                Layout.fillWidth: true
+                font.pixelSize: 14
                 Layout.minimumHeight: 20
                 color: Style.white
-			}
+                //text: viewModel.newReceiverName
+            }
 
             Binding {
                 target: viewModel
@@ -329,7 +331,29 @@ Item {
                     Layout.alignment: Qt.AlignTop
                     height: childrenRect.height
 
-                    
+                    ColumnLayout {
+                        width: parent.width
+
+                        spacing: 12                        
+
+                        SFText {
+                            font.pixelSize: 14
+                            font.weight: Font.Bold
+                            color: Style.white
+                            text: qsTr("Comment")
+                        }
+
+                        SFTextInput {
+                            id: comment_input
+                            Layout.fillWidth: true
+
+                            font.pixelSize: 14
+                            color: Style.white
+
+                            // TODO: here should be proper validator (max text length 200)
+                            selectByMouse: true
+                        }
+                    }
                 }
 
                 Item {
@@ -363,52 +387,111 @@ Item {
                             property: "feeMils"
                             value: feeSlider.value
                         }
-                    }
-                }
-            }
 
-            Item {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignTop
-                height: childrenRect.height
+                        Rectangle {
+                            Layout.topMargin: 30
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignTop
+                            height: 96
+                            radius: 10
+                            color: Style.separator_color
 
-                ColumnLayout {
-                    width: parent.width
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: 20
+                                width: parent.width
+                                spacing: 5
 
-                    spacing: 12
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignTop
+                                    spacing: 10
 
-                    SFText {
-                        font.pixelSize: 18
-                        font.weight: Font.Bold
-                       
-                        color: Style.white
-                        text: qsTr("Available")
-                    }
+                                    SFText {
+                                        Layout.minimumHeight: 20 // check
+                                        Layout.alignment: Qt.AlignHCenter
+                                        font.pixelSize: 18
+                                        font.weight: Font.Bold
+                                        color: Style.bluey_grey
+                                        text: qsTr("Remaining")
+                                    }
 
-                    Row
-                    {
-                        spacing: 6
+                                    Row
+                                    {
+                                        Layout.fillWidth: true
+                                        Layout.alignment: Qt.AlignHCenter
+                                        Layout.minimumHeight: childrenRect.height
+                                        Layout.minimumWidth: childrenRect.width
+                                        spacing: 6
 
-                        SFText {
-                            font.pixelSize: 36
-                            font.weight: Font.ExtraLight
-                            color: Style.bright_teal
+                                        SFText {
+                                            font.pixelSize: 24
+                                            font.weight: Font.ExtraLight
+                                            color: Style.bluey_grey
+                                            text: viewModel.actualAvailable
+                                        }
 
-                            text: viewModel.actualAvailable
-                        }
+                                        // TODO(alex.starun): change to BEAM icon
+                                        SFText {                                            
+                                            font.pixelSize: 24
+                                            font.weight: Font.ExtraLight
+                                            color: Style.bluey_grey
+                                            text: "B"
+                                        }
+                                    }
+                                }
 
-                        SFText {
-                            font.pixelSize: 24
-                            font.weight: Font.ExtraLight
-                            color: Style.bright_teal
+                                Rectangle {
+                                    Layout.leftMargin: 15
+                                    Layout.rightMargin: 15
+                                    Layout.fillHeight: true
+                                    width: 1
+                                    color: Style.bluey_grey
+                                }
 
-                            text: "BEAM"
-                            anchors.bottom: parent.bottom
-                            anchors.bottomMargin: 3
-                        }
-                    }
-                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignTop
+                                    Layout.minimumWidth: 100
+                                    spacing: 10
+
+                                    SFText {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        font.pixelSize: 18
+                                        font.weight: Font.Bold                       
+                                        color: Style.bluey_grey
+                                        text: qsTr("Change")
+                                    }
+
+                                    Row
+                                    {
+                                        Layout.fillWidth: true
+                                        Layout.alignment: Qt.AlignHCenter
+                                        Layout.minimumHeight: childrenRect.height
+                                        Layout.minimumWidth: childrenRect.width
+                                        spacing: 6
+
+                                        SFText {
+                                            font.pixelSize: 24
+                                            font.weight: Font.ExtraLight
+                                            color: Style.bluey_grey
+                                            text: viewModel.change
+                                        }
+
+                                        // TODO(alex.starun): change to BEAM icon
+                                        SFText {
+                                            font.pixelSize: 24
+                                            font.weight: Font.ExtraLight
+                                            color: Style.bluey_grey
+                                            text: "B"
+                                        }
+                                    }
+                                }
+                            }
                 
+                        }
+                    }
+                }
             }
 
             Row {
@@ -613,7 +696,7 @@ Item {
 
             anchors.fill: parent;
             anchors.topMargin: 394-33
-			Layout.bottomMargin: 9
+            Layout.bottomMargin: 9
 
             frameVisible: false
             selectionMode: SelectionMode.NoSelection
@@ -784,24 +867,24 @@ Item {
 
             ContextMenu {
                 id: txContextMenu
-				property TxObject transaction
-				property int index;
-				Action {
+                property TxObject transaction
+                property int index;
+                Action {
                     text: qsTr("copy address")
-					icon.source: "qrc:///assets/icon-copy.svg"
-					onTriggered: {
-						if (!!txContextMenu.transaction)
-						{
-							addressBookViewModel.copyToClipboard(txContextMenu.transaction.user);
-						}
+                    icon.source: "qrc:///assets/icon-copy.svg"
+                    onTriggered: {
+                        if (!!txContextMenu.transaction)
+                        {
+                            addressBookViewModel.copyToClipboard(txContextMenu.transaction.user);
+                        }
                     }
                 }
-				Action {
+                Action {
                     text: qsTr("cancel")
                     onTriggered: {
                        viewModel.cancelTx(txContextMenu.index);
                     }
-					enabled: !!txContextMenu.transaction && txContextMenu.transaction.canCancel
+                    enabled: !!txContextMenu.transaction && txContextMenu.transaction.canCancel
                     icon.source: "qrc:///assets/icon-cancel.svg"
                 }
             }
@@ -825,7 +908,7 @@ Item {
                     onClicked: {
                         if (mouse.button === Qt.RightButton && styleData.row !== undefined && styleData.row >=0)
                         {
-							txContextMenu.index = styleData.row;
+                            txContextMenu.index = styleData.row;
                             txContextMenu.transaction = viewModel.tx[styleData.row];
                             txContextMenu.popup();
                         }
@@ -876,11 +959,10 @@ Item {
             name: "send"
             PropertyChanges {target: wallet_layout; visible: false}
             PropertyChanges {target: send_layout; visible: true}
-            PropertyChanges {target: senderAddrCombo; currentIndex: -1}
             PropertyChanges {target: receiverAddrCombo; currentIndex: -1}
             PropertyChanges {target: amount_input; text: ""}
              StateChangeScript {
-                script: senderAddrCombo.forceActiveFocus(Qt.TabFocusReason);
+                script: receiverAddrCombo.forceActiveFocus(Qt.TabFocusReason);
             }
         },
 

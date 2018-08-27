@@ -132,6 +132,9 @@ private:
 			IMPLEMENT_GET_PARENT_OBJ(Processor, m_Verifier)
 		} m_Verifier;
 
+		Block::ChainWorkProof m_Cwp; // cached
+		bool BuildCwp();
+
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
 
@@ -341,6 +344,7 @@ private:
 		virtual void OnMsg(proto::GetProofState&&) override;
 		virtual void OnMsg(proto::GetProofKernel&&) override;
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
+		virtual void OnMsg(proto::GetProofChainWork&&) override;
 		virtual void OnMsg(proto::PeerInfoSelf&&) override;
 		virtual void OnMsg(proto::PeerInfo&&) override;
 		virtual void OnMsg(proto::GetTime&&) override;

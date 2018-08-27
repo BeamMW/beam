@@ -288,14 +288,16 @@ namespace Merkle
 		void Append(const Hash&);
 
 		void get_Hash(Hash&) const;
-		void get_Proof(Proof&, uint64_t i) const;
 		void get_PredictedHash(Hash&, const Hash& hvAppend) const;
+
+		bool get_Proof(IProofBuilder&, uint64_t i) const;
+		void get_Proof(Proof&, uint64_t i) const;
 
 	protected:
 		bool get_HashForRange(Hash&, uint64_t n0, uint64_t n) const;
 
-		virtual void LoadElement(Hash&, uint64_t nIdx, uint8_t nHeight) const = 0;
-		virtual void SaveElement(const Hash&, uint64_t nIdx, uint8_t nHeight) = 0;
+		virtual void LoadElement(Hash&, const Position&) const = 0;
+		virtual void SaveElement(const Hash&, const Position&) = 0;
 	};
 
 	struct DistributedMmr
@@ -316,7 +318,7 @@ namespace Merkle
 		void Append(Key, void* pBuf, const Hash&);
 
 		void get_Hash(Hash&) const;
-		void get_Proof(Proof&, uint64_t i) const;
+		void get_Proof(IProofBuilder&, uint64_t i) const;
 		void get_PredictedHash(Hash&, const Hash& hvAppend) const;
 
 	protected:
@@ -343,6 +345,74 @@ namespace Merkle
 
 		void get_Hash(Hash&) const;
 		void get_PredictedHash(Hash&, const Hash& hvAppend) const;
+	};
+
+	// Structure to effective encode proofs to multiple elements at-once.
+	// The elements must be specified in a sorter order (straight or reverse).
+	// All the proofs are "merged", so that no hash is added twice.
+	// There still exists a better encoding, where some proof elements can be constructed completely from other elements, but it'd be more complex and require more memory during operation.
+	// In addition - this encoding can easily be cropped, if we decide to cut-off the included elements sequence.
+	struct MultiProof
+	{
+		std::vector<Hash> m_vData; // all together
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_vData;
+		}
+
+		typedef std::vector<Hash>::const_iterator Iterator;
+
+		class Builder
+			:private IProofBuilder
+		{
+			MultiProof& m_This;
+			std::vector<Position> m_vLast;
+			std::vector<Position> m_vLastRev;
+
+			virtual bool AppendNode(const Node& n, const Position& pos) override;
+			virtual void get_Proof(IProofBuilder&, uint64_t i) = 0;
+
+		public:
+			bool m_bSkipSibling;
+
+			Builder(MultiProof& x);
+			void Add(uint64_t i);
+		};
+
+		class Verifier
+			:private IProofBuilder
+			,private Mmr
+		{
+			struct MyNode {
+				Hash m_hv; // correct value at this position
+				Position m_Pos;
+			};
+
+			Iterator m_itPos;
+			Iterator m_itEnd;
+			std::vector<MyNode> m_vLast;
+			std::vector<MyNode> m_vLastRev;
+
+			virtual bool AppendNode(const Node& n, const Position& pos) override;
+			virtual void LoadElement(Hash&, const Position&) const override {}
+			virtual void SaveElement(const Hash&, const Position&) override {}
+
+			virtual bool IsRootValid(const Hash&) = 0;
+
+		public:
+			Hash m_hvPos;
+			const Hash* m_phvSibling;
+			bool m_bVerify; // in/out. Set to true to verify vs root hash, would be reset to false upon error. Set to false to use in "crop" mode.
+
+			Verifier(const MultiProof& x, uint64_t nCount);
+			void Process(uint64_t i);
+
+			// for cropping
+			Iterator get_Pos() const { return m_itPos; }
+		};
 	};
 }
 

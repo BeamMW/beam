@@ -15,6 +15,7 @@
 #pragma once
 #include "common.h"
 #include "ecc_native.h"
+#include "storage.h"
 
 namespace beam
 {
@@ -129,6 +130,43 @@ namespace beam
 		// IMacroWriter
 		virtual void put_Start(const BodyBase&, const SystemState::Sequence::Prefix&) override;
 		virtual void put_NextHdr(const SystemState::Sequence::Element&) override;
+	};
+
+	struct Block::ChainWorkProof
+	{
+		std::vector<SystemState::Full> m_vStates;
+		Merkle::MultiProof m_Proof; // compressed proof
+		Merkle::Hash m_hvRootLive; // last node to go from History to Definition.
+		Difficulty::Raw m_LowerBound;
+
+		struct ISource
+		{
+			virtual void get_StateAt(SystemState::Full&, const Difficulty::Raw&) = 0;
+			virtual void get_Proof(Merkle::IProofBuilder&, Height) = 0;
+		};
+
+		ChainWorkProof()
+		{
+			m_LowerBound = ECC::Zero; // uncroppped by default
+		}
+
+		void Create(ISource&, const SystemState::Full& sRoot);
+		bool IsValid() const;
+		bool Crop(); // according to current bound
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_vStates
+				& m_Proof
+				& m_hvRootLive
+				& m_LowerBound;
+		}
+
+	private:
+		struct Sampler;
+		bool IsValidInternal(size_t& iState, size_t& iHash) const;
 	};
 
 }

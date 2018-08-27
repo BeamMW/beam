@@ -419,7 +419,7 @@ namespace beam {
         return m_wallet.handle_node_message(move(msg));
     }
 
-    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::ProofStateForDummies&& msg)
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::ProofState&& msg)
     {
         return m_wallet.handle_node_message(move(msg));
     }

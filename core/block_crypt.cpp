@@ -867,7 +867,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(3) // increment this whenever we change something in the protocol
+			<< uint32_t(4) // increment this whenever we change something in the protocol
 			// out
 			>> Checksum;
 	}
@@ -880,25 +880,41 @@ namespace beam
 		return 0;
 	}
 
-	void Block::SystemState::Full::Set(Prefix& p, const Element& x)
+	void Block::SystemState::Full::NextPrefix()
 	{
-		((Prefix&) *this) = p;
-		((Element&) *this) = x;
-
-		get_Hash(p.m_Prev);
-		p.m_Height++;
+		get_Hash(m_Prev);
+		m_Height++;
 	}
 
-	void Block::SystemState::Full::get_Hash(Merkle::Hash& out) const
+	void Block::SystemState::Full::get_HashInternal(Merkle::Hash& out, bool bTotal) const
 	{
 		// Our formula:
-		ECC::Hash::Processor()
+		ECC::Hash::Processor hp;
+		hp
 			<< m_Height
-			<< m_TimeStamp
 			<< m_Prev
+			<< m_ChainWork
 			<< m_Definition
-			<< m_PoW.m_Difficulty.m_Packed
-			>> out;
+			<< m_TimeStamp
+			<< m_PoW.m_Difficulty.m_Packed;
+
+		if (bTotal)
+		{
+			hp.Write(&m_PoW.m_Indices.at(0), sizeof(m_PoW.m_Indices));
+			hp.Write(m_PoW.m_Nonce.m_pData, sizeof(m_PoW.m_Nonce.m_pData));
+		}
+
+		hp >> out;
+	}
+
+	void Block::SystemState::Full::get_HashForPoW(Merkle::Hash& hv) const
+	{
+		get_HashInternal(hv, false);
+	}
+
+	void Block::SystemState::Full::get_Hash(Merkle::Hash& hv) const
+	{
+		get_HashInternal(hv, true);
 	}
 
 	bool Block::SystemState::Full::IsSane() const
@@ -919,22 +935,19 @@ namespace beam
 
 	bool Block::SystemState::Full::IsValidPoW() const
 	{
+		if (Rules::get().FakePoW)
+			return true;
+
 		Merkle::Hash hv;
-		get_Hash(hv);
+		get_HashForPoW(hv);
 		return m_PoW.IsValid(hv.m_pData, sizeof(hv.m_pData));
 	}
 
 	bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
 	{
 		Merkle::Hash hv;
-		get_Hash(hv);
+		get_HashForPoW(hv);
 		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
-	}
-
-	void Block::SystemState::Full::get_HashForHist(Merkle::Hash& hv) const
-	{
-		get_Hash(hv);
-		m_PoW.get_HashForHist(hv, hv);
 	}
 
 	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const Input& inp, const Input::Proof& p) const
@@ -969,57 +982,55 @@ namespace beam
 		return hv == m_Definition;
 	}
 
-	bool Block::SystemState::Full::IsValidProofState(const Full& s, const Merkle::Proof& proof) const
+	bool Block::SystemState::Full::IsValidProofState(const ID& id, const Merkle::HardProof& proof) const
 	{
 		// verify the whole proof structure
-		if ((s.m_Height < Rules::HeightGenesis) || (s.m_Height >= m_Height))
+		if ((id.m_Height < Rules::HeightGenesis) || (id.m_Height >= m_Height))
 			return false;
 
-		// Construct a "dummy" proof for the expected parent-child state relation, and verify its structure wrt provided.
-		// Can be written more efficiently (avoid allocations), but nevermind
-		struct DummyMmr
+		struct Verifier
 			:public Merkle::Mmr
+			,public Merkle::IProofBuilder
 		{
-			virtual void LoadElement(Merkle::Hash&, uint64_t nIdx, uint8_t nHeight) const {}
-			virtual void SaveElement(const Merkle::Hash&, uint64_t nIdx, uint8_t nHeight) {}
+			Merkle::Hash m_hv;
 
-		} mmr;
+			Merkle::HardProof::const_iterator m_itPos;
+			Merkle::HardProof::const_iterator m_itEnd;
 
-		Merkle::Proof dummyProof;
+			bool InterpretOnce(bool bOnRight)
+			{
+				if (m_itPos == m_itEnd)
+					return false;
 
-		mmr.m_Count = m_Height - Rules::HeightGenesis;
-		mmr.get_Proof(dummyProof, s.m_Height - Rules::HeightGenesis);
+				Merkle::Interpret(m_hv, *m_itPos++, bOnRight);
+				return true;
+			}
 
-		size_t n = dummyProof.size();
-		if (n + 2 != proof.size())
+			virtual bool AppendNode(const Merkle::Node& n, const Merkle::Position&) override
+			{
+				return InterpretOnce(n.first);
+			}
+
+			virtual void LoadElement(Merkle::Hash&, const Merkle::Position&) const override {}
+			virtual void SaveElement(const Merkle::Hash&, const Merkle::Position&) override {}
+		};
+
+		Verifier vmmr;
+		vmmr.m_hv = id.m_Hash;
+		vmmr.m_itPos = proof.begin();
+		vmmr.m_itEnd = proof.end();
+
+		vmmr.m_Count = m_Height - Rules::HeightGenesis;
+		if (!vmmr.get_Proof(vmmr, id.m_Height - Rules::HeightGenesis))
 			return false;
 
-		for (size_t i = 0; i < n; i++)
-			if (dummyProof[i].first != proof[i].first)
-				return false;
-
-		if (!proof[n].first ||
-			!proof[n + 1].first)
+		if (!vmmr.InterpretOnce(true))
+			return false;
+		
+		if (vmmr.m_itPos != vmmr.m_itEnd)
 			return false;
 
-		Merkle::Hash hv;
-		s.get_HashForHist(hv);
-
-		Merkle::Interpret(hv, proof);
-		return hv == m_Definition;
-	}
-
-	void Block::PoW::get_HashForHist(Merkle::Hash& hv, const Merkle::Hash& hvState) const
-	{
-		ECC::Hash::Processor hp;
-		hp.Write(&m_Indices.at(0), sizeof(m_Indices));
-		hp.Write(m_Nonce.m_pData, sizeof(m_Nonce.m_pData));
-		hp << m_Difficulty.m_Packed;
-
-		Merkle::Hash hvPow;
-		hp >> hvPow;
-
-		Merkle::Interpret(hv, hvState, hvPow);
+		return vmmr.m_hv == m_Definition;
 	}
 
 	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb, bool bSubsidyOpen)
@@ -1202,6 +1213,26 @@ namespace beam
 		}
 		else
 			res.Inv();
+	}
+
+	void Difficulty::Inc(Raw& res, const Raw& base) const
+	{
+		Unpack(res);
+		res += base;
+	}
+
+	void Difficulty::Inc(Raw& res) const
+	{
+		Raw d;
+		Unpack(d);
+		res += d;
+	}
+
+	void Difficulty::Dec(Raw& res, const Raw& base) const
+	{
+		Unpack(res);
+		res.Negate();
+		res += base;
 	}
 
 	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange)
@@ -1667,6 +1698,292 @@ namespace beam
 			put_NextHdr(elem);
 		}
 
+		return true;
+	}
+
+	//////////////////////////
+	// ChainWorkProof
+	//
+	// Based on the idea described by Benedikt Bunz.
+	//
+	// Every state header includes (implicitly) the merkle tree hash of all the inherited states, whereas the difficulty and the cumulative chainwork of each header is accounted for in its hash.
+	// So if we consider the "work axis", we have a Merkle tree of committed ranges of proven work, which are supposed to be contiguous and non-overlapping, up to the blockchain tip.
+	// If the Verifier chooses a random point on this axis, the Prover is supposed to present both the range that covers this point with a work proof, as well as the Merkle proof for this range.
+	//
+	// We assume that the attacker has less than 2/3 power of the honest community (40% of overall power).
+	// The goal of the Verifier it to verify that at least 2/3 of the entire chainwork is covered by the proven work ranges.
+	// Moreover, since the attacker may take an existing blockchain and forge only some suffix, the Verifier needs to check that at least 2/3 of the chainwork is covered within *any* suffix.
+	//
+	// To keep the proof compact, the Verifier performs a random sampling of points on the work axis, and verifies the appropriate proofs. So that if there are n points sampled within a specific range,
+	// and the attacker indeed has covered less than 2/3 of the range, the probability to bypass the protocol would be less than (2/3)^n.
+	// The goal of the prover is to reach the specific probability threshold for any given sufix.
+	//
+	// Our current probability threshold: ~10^-18 (1 to quintillion). Or roughly 2^-60.
+	// Seems quite pessimistic, but not to forget we're talking about random oracle model, not the real interaction. The attacker may make subtle changes to the originally presented blockchain tip,
+	// and each time "remine" that top header, to generate different transcript for the protocol. So that the effective probability threshold of this protocol is (roughly) divided by the number of different
+	// transcripts which is feasible for the attacker to generate. Assuming the attacker may generate 10^9 transcripts, still the probability to bypass it is order of 10^-9.
+	//
+	// Assuming 2/3 power of an attacker, and the needed threshold of 2^-60, the number of minimum sampled points in any sufix should be:
+	// N = 60 * log(2) / [ log(3) - log(2) ] = 60 * 1.71 = 103
+	//
+	//
+	// Our sampling strategy is according to the following logic:
+	// 1. Sample a point within the first 1/N of the asserted chainwork range.
+	// 2. Verify the proof for this point.
+	// 3. Cut-off the range from the beginning to the current point, and continue to (1)
+	//
+	//		*CORRECTION*
+	//		 In the current implementation we actually sample in *reverse* order. I.e. each time we pick a range below the current suffix, 1/N of its length, and sample a point there. We advance downward until we reach (or cross) zero point.
+	//		The reason for this change is that we want to be able to *CROP* the Proof easily (without fully rebuilding it). So that we can prepare the long proof once, and then send each client a truncated proof, according to its state.
+	//
+	// Note that the sampled point falls into a range, that covers more than just a single point. And, naturally, the cut-off includes the whole range. So that the above scheme should typically
+	// converge more rapidly than it may seem, especially toward the end, where difficulties are expected (though not required) to be bigger. Closer to the end, where less than N blocks are remaining to the tip,
+	// it should be like just sequentailly iterating the blocks one after another.
+	//
+	// Additional notes:
+	//	- We use "hard" proofs. Unlike regular Merkle proofs, the Verifier is given only the list of hashes, whereas the direction of hashing is deduced from the appropriate height.
+	// In other words the Verifier knows the supposed structure of the tree and of the proofs.
+	// Such proofs are more robust, they won't allow the attacker to include "different versions" of the block for the same height.
+	//	- If there are several consecutively sampled blocks - we include the Merkle proof only for the highest one, since it has a direct reference to those in the range (i.e. it's a Merkle list already).
+	// This should make the proof dramatically smaller, given toward the blockchain end all the blocks are expected to be included one after another.
+	//	- We verify proofs, order of block heights (i.e. heavier block must have bigger height), and that they don't overlap. But no verification of difficulty adjustment wrt rules.
+	//	- For practical reasons, we use N=128, to simplify the division (i.e. just shift). Which gives us slightly higher confidence (in expense of slightly longer proof of course).
+
+	
+	struct Block::ChainWorkProof::Sampler
+	{
+		ECC::Oracle m_Oracle;
+
+		Difficulty::Raw m_Begin;
+		Difficulty::Raw m_End;
+		Difficulty::Raw m_LowerBound;
+
+		Sampler(const SystemState::Full& sTip)
+		{
+			ECC::Hash::Value hv;
+			sTip.get_Hash(hv);
+			m_Oracle << hv;
+
+			m_End = sTip.m_ChainWork;
+			sTip.m_PoW.m_Difficulty.Dec(m_Begin, sTip.m_ChainWork);
+		}
+
+		bool SamplePoint(Difficulty::Raw& out)
+		{
+			Difficulty::Raw range = m_Begin;
+			range.Negate();
+			range += m_End;
+
+			// shift right 7 bits, and find the order of the number (1st nonzero bit)
+			uint8_t carry = 0;
+			uint32_t nOrder = 0;
+
+			for (uint32_t nByte = 0; nByte < _countof(range.m_pData); nByte++)
+			{
+				uint8_t& x = range.m_pData[nByte];
+
+				if (!(nOrder || x || carry))
+					continue;
+
+				uint8_t n = x << 1; // next carry
+				x = (x >> 7) | carry;
+				carry = n;
+
+				if (!nOrder)
+				{
+					if (!x)
+						continue;
+
+					nOrder = ((_countof(range.m_pData) - nByte) << 3) - 7;
+					for (n = x; n >>= 1; nOrder++)
+						;
+				}
+			}
+
+			if (!nOrder)
+			{
+				assert(range == ECC::Zero);
+				out = 1U;
+			}
+			else
+			{
+				// select random, truncate to the appropriate bits length, and use accept/reject criteria
+				nOrder--;
+				uint32_t nOffs = sizeof(out.m_pData) - 1 - (nOrder >> 3);
+				uint8_t msk = uint8_t(2 << (7 & nOrder)) - 1;
+				assert(msk);
+
+				while (true)
+				{
+					m_Oracle >> out;
+
+					out.m_pData[nOffs] &= msk;
+
+					if (memcmp(out.m_pData + nOffs, range.m_pData + nOffs, sizeof(out.m_pData) - nOffs) < 0)
+					{
+						// bingo
+						memset0(out.m_pData, nOffs);
+						break;
+					}
+				}
+
+				out.Inc();
+			}
+
+			if (out > m_Begin)
+				return false;
+
+			out.Negate();
+			out += m_Begin;
+
+			return out >= m_LowerBound;
+		}
+	};
+
+	void Block::ChainWorkProof::Create(ISource& src, const SystemState::Full& sRoot)
+	{
+		Sampler samp(sRoot);
+		samp.m_LowerBound = m_LowerBound;
+
+		struct MyBuilder
+			:public Merkle::MultiProof::Builder
+		{
+			ISource& m_Src;
+			MyBuilder(ChainWorkProof& x, ISource& src)
+				:Merkle::MultiProof::Builder(x.m_Proof)
+				,m_Src(src)
+			{
+			}
+
+			virtual void get_Proof(Merkle::IProofBuilder& bld, uint64_t i) override
+			{
+				m_Src.get_Proof(bld, Rules::HeightGenesis + i);
+			}
+
+		} bld(*this, src);
+
+		m_vStates.push_back(sRoot);
+
+		while (true)
+		{
+			Difficulty::Raw d;
+			if (!samp.SamplePoint(d))
+				break;
+
+			SystemState::Full s;
+			src.get_StateAt(s, d);
+
+			assert(s.m_Height < m_vStates.back().m_Height);
+			if (s.m_Height + 1 != m_vStates.back().m_Height)
+				bld.Add(s.m_Height - Rules::HeightGenesis);
+
+			m_vStates.push_back(s);
+
+			s.m_PoW.m_Difficulty.Dec(samp.m_Begin, s.m_ChainWork);
+		}
+	}
+
+	bool Block::ChainWorkProof::IsValid() const
+	{
+		size_t iState, iHash;
+		return
+			IsValidInternal(iState, iHash) &&
+			(m_vStates.size() == iState) &&
+			(m_Proof.m_vData.size() == iHash);
+	}
+
+	bool Block::ChainWorkProof::Crop()
+	{
+		size_t iState, iHash;
+		if (!IsValidInternal(iState, iHash))
+			return false;
+
+		m_vStates.resize(iState);
+		m_Proof.m_vData.resize(iHash);
+		return true;
+	}
+
+	bool Block::ChainWorkProof::IsValidInternal(size_t& iState, size_t& iHash) const
+	{
+		if (m_vStates.empty())
+			return false;
+
+		for (size_t i = 0; i < m_vStates.size(); i++)
+		{
+			const Block::SystemState::Full& s = m_vStates[i];
+			if (!(s.IsSane() && s.IsValidPoW()))
+				return false;
+		}
+
+		struct MyVerifier :public Merkle::MultiProof::Verifier
+		{
+			const ChainWorkProof& m_This;
+			MyVerifier(const ChainWorkProof& x, uint64_t nCount)
+				:Verifier(x.m_Proof, nCount)
+				,m_This(x)
+			{}
+
+			virtual bool IsRootValid(const Merkle::Hash& hv)
+			{
+				Merkle::Hash hvDef;
+				Merkle::Interpret(hvDef, hv, m_This.m_hvRootLive);
+				return hvDef == m_This.m_vStates.front().m_Definition;
+			}
+		};
+
+		const SystemState::Full& sRoot = m_vStates.front();
+		MyVerifier ver(*this, sRoot.m_Height - Rules::HeightGenesis);
+
+		Sampler samp(sRoot);
+		if (samp.m_Begin >= samp.m_End) // overflow attack?
+			return false;
+
+		samp.m_LowerBound = m_LowerBound;
+
+		for (iState = 1; ; iState++)
+		{
+			Difficulty::Raw d, d0;
+			if (!samp.SamplePoint(d))
+				break;
+
+			const SystemState::Full& s0 = m_vStates[iState - 1];
+			const SystemState::Full& s = m_vStates[iState];
+
+			if (d >= s.m_ChainWork)
+				return false;
+
+			d0 = samp.m_Begin;
+			s.m_PoW.m_Difficulty.Dec(samp.m_Begin, s.m_ChainWork);
+
+			if (d < samp.m_Begin)
+				return false;
+
+			s.get_Hash(ver.m_hvPos);
+
+			if (s.m_Height + 1 == s0.m_Height)
+			{
+				if (s0.m_Prev != ver.m_hvPos)
+					return false;
+
+				if (s.m_ChainWork != d0)
+					return false;
+			}
+			else
+			{
+				if (s.m_Height >= s0.m_Height)
+					return false;
+
+				if (s.m_ChainWork >= d0)
+					return false;
+
+				ver.Process(s.m_Height - Rules::HeightGenesis);
+				if (!ver.m_bVerify)
+					return false;
+			}
+
+		}
+
+		iHash = ver.get_Pos() - m_Proof.m_vData.begin();
 		return true;
 	}
 

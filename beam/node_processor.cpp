@@ -169,8 +169,6 @@ void NodeProcessor::InitCursor()
 			m_DB.get_PredictedStatesHash(m_Cursor.m_History, sid);
 		else
 			ZeroObject(m_Cursor.m_History);
-
-		m_DB.get_ChainWork(m_Cursor.m_Sid.m_Row, m_Cursor.m_ChainWork);
 	}
 	else
 		ZeroObject(m_Cursor);
@@ -252,8 +250,8 @@ void NodeProcessor::TryGoUp()
 			sidTrg = ws.m_Sid;
 			m_DB.get_ChainWork(sidTrg.m_Row, wrkTrg);
 
-			assert(wrkTrg >= m_Cursor.m_ChainWork);
-			if (wrkTrg == m_Cursor.m_ChainWork)
+			assert(wrkTrg >= m_Cursor.m_Full.m_ChainWork);
+			if (wrkTrg == m_Cursor.m_Full.m_ChainWork)
 				break; // already at maximum (though maybe at different tip)
 		}
 
@@ -261,7 +259,7 @@ void NodeProcessor::TryGoUp()
 		std::vector<uint64_t> vPath;
 		while (sidTrg.m_Row != m_Cursor.m_Sid.m_Row)
 		{
-			if (m_Cursor.m_ChainWork > wrkTrg)
+			if (m_Cursor.m_Full.m_ChainWork > wrkTrg)
 			{
 				Rollback();
 				bDirty = true;
@@ -367,34 +365,10 @@ void NodeProcessor::get_CurrentLive(Merkle::Hash& hv)
 	Merkle::Interpret(hv, hv2, true);
 }
 
-void NodeProcessor::get_ChainWork(Merkle::Hash& hv, bool bForNextState)
-{
-	hv = m_Cursor.m_ChainWork;
-	if (!bForNextState)
-	{
-		// subtract the work of the current header
-		Difficulty::Raw dw;
-		m_Cursor.m_Full.m_PoW.m_Difficulty.Unpack(dw);
-
-		dw.Negate();
-		hv += dw;
-	}
-}
-
-void NodeProcessor::get_CurrentPart2(Merkle::Hash& hv, bool bForNextState)
-{
-	get_ChainWork(hv, bForNextState);
-	Merkle::Interpret(hv, bForNextState ? m_Cursor.m_HistoryNext : m_Cursor.m_History, false);
-}
-
 void NodeProcessor::get_Definition(Merkle::Hash& hv, bool bForNextState)
 {
 	get_CurrentLive(hv);
-
-	Merkle::Hash hvPart2;
-	get_CurrentPart2(hvPart2, bForNextState);
-
-	Merkle::Interpret(hv, hvPart2, false);
+	Merkle::Interpret(hv, bForNextState ? m_Cursor.m_HistoryNext : m_Cursor.m_History, false);
 }
 
 struct NodeProcessor::RollbackData
@@ -456,6 +430,15 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		if (rbData.m_Buf.empty())
 		{
 			bFirstTime = true;
+
+			Difficulty::Raw wrk;
+			s.m_PoW.m_Difficulty.Inc(wrk, m_Cursor.m_Full.m_ChainWork);
+
+			if (wrk != s.m_ChainWork)
+			{
+				LOG_WARNING() << id << " Chainwork expected=" << wrk <<", actual=" << s.m_ChainWork;
+				return false;
+			}
 
 			if (!m_Cursor.m_SubsidyOpen && block.m_SubsidyClosing)
 			{
@@ -954,7 +937,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		return DataStatus::Invalid;
 	}
 
-	if (!Rules::get().FakePoW && !s.IsValidPoW())
+	if (!s.IsValidPoW())
 	{
 		LOG_WARNING() << id << " PoW invalid";
 		return DataStatus::Invalid;
@@ -1310,6 +1293,8 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	s.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
 	s.m_TimeStamp = getTimestamp();
 
+	s.m_PoW.m_Difficulty.Inc(s.m_ChainWork, m_Cursor.m_Full.m_ChainWork);
+
 	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
 	Timestamp tm = get_MovingMedian() + 1;
 	s.m_TimeStamp = std::max(s.m_TimeStamp, tm);
@@ -1510,8 +1495,24 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 
 	LOG_INFO() << "Verifying headers...";
 
-	for ( ; r.get_NextHdr(s); )
+	for (bool bFirstTime = true ; r.get_NextHdr(s); s.NextPrefix())
 	{
+		if (bFirstTime)
+		{
+			bFirstTime = false;
+
+			Difficulty::Raw wrk;
+			s.m_PoW.m_Difficulty.Inc(wrk, m_Cursor.m_Full.m_ChainWork);
+
+			if (wrk != s.m_ChainWork)
+			{
+				LOG_WARNING() << id << " Chainwork expected=" << wrk << ", actual=" << s.m_ChainWork;
+				return false;
+			}
+		}
+		else
+			s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+
 		switch (OnStateInternal(s, id))
 		{
 		case DataStatus::Invalid:
@@ -1526,9 +1527,6 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 		default: // suppress the warning of not handling all the enum values
 			break;
 		}
-
-		s.get_Hash(s.m_Prev);
-		s.m_Height++;
 	}
 
 	uint64_t rowid = m_DB.StateFindSafe(id);
@@ -1557,8 +1555,14 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 	LOG_INFO() << "Building auxilliary datas...";
 
 	r.Reset();
-	for (r.get_Start(body, s); r.get_NextHdr(s); )
+	r.get_Start(body, s);
+	for (bool bFirstTime = true; r.get_NextHdr(s); s.NextPrefix())
 	{
+		if (bFirstTime)
+			bFirstTime = false;
+		else
+			s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+
 		s.get_ID(id);
 
 		NodeDB::StateID sid;
@@ -1573,9 +1577,6 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 
 		sid.m_Height = id.m_Height;
 		m_DB.MoveFwd(sid);
-
-		s.get_Hash(s.m_Prev);
-		s.m_Height++;
 	}
 
 	InitCursor();

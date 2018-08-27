@@ -62,6 +62,7 @@ public:
 			StateGetHeightAndPrev,
 			StateFind,
 			StateFind2,
+			StateFindWorkGreater,
 			StateUpdPrevRow,
 			StateGetNextFCount,
 			StateSetNextCount,
@@ -71,7 +72,6 @@ public:
 			StateSetFlags,
 			StateGetFlags0,
 			StateGetFlags1,
-			StateSetChainWork,
 			StateGetChainWork,
 			StateGetNextCount,
 			StateSetPeer,
@@ -255,7 +255,7 @@ public:
 
 	bool get_Cursor(StateID& sid);
 
-    void get_Proof(Merkle::Proof&, const StateID& sid, Height hPrev);
+    void get_Proof(Merkle::IProofBuilder&, const StateID& sid, Height hPrev);
     void get_PredictedStatesHash(Merkle::Hash&, const StateID& sid); // For the next block.
 
 	void get_ChainWork(uint64_t, Difficulty::Raw&);
@@ -341,6 +341,8 @@ public:
 	bool BbsFind(WalkerBbs&); // set Key
 	void BbsDelOld(Timestamp tMinToRemain);
 
+	uint64_t FindStateWorkGreater(const Difficulty::Raw&);
+
 private:
 
 	sqlite3* m_pDb;
@@ -365,11 +367,10 @@ private:
 	void TipReachableDel(uint64_t rowid);
 	void SetNextCount(uint64_t rowid, uint32_t);
 	void SetNextCountFunctional(uint64_t rowid, uint32_t);
-	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, Difficulty::Raw&, bool);
+	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
 	void BuildMmr(uint64_t rowid, uint64_t rowPrev, Height);
 	void put_Cursor(const StateID& sid); // jump
 	void ModifySpendableSafe(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta);
-	void set_ChainWork(uint64_t, const Difficulty::Raw&);
 
 	void TestChanged1Row();
 

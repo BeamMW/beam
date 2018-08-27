@@ -16,7 +16,9 @@
 
 #include "wallet/wallet_network.h"
 #include "wallet/wallet.h"
+#include "wallet/secstring.h"
 #include "utility/test_helpers.h"
+#include <string_view>
 
 #include "test_helpers.h"
 
@@ -176,8 +178,8 @@ namespace
         {
             boost::filesystem::remove(path);
         }
-
-        auto keychain = Keychain::init(path, "pass123", seed);
+               
+        auto keychain = Keychain::init(path, string_view("pass123"), seed);
         beam::Block::SystemState::ID id = {};
         id.m_Height = 134;
         keychain->setSystemStateID(id);
@@ -496,10 +498,10 @@ namespace
         {
             cout << "GetProofState\n";
 
-			proto::ProofStateForDummies msg;
+			proto::ProofState msg;
 
             enqueueNetworkTask([this, msg] {
-				m_peers[0]->handle_node_message((proto::ProofStateForDummies&&) msg);
+				m_peers[0]->handle_node_message((proto::ProofState&&) msg);
 			});
         }
 
@@ -665,7 +667,7 @@ private:
 
 		void OnMsg(proto::GetProofState&&) override
 		{
-			Send(proto::ProofStateForDummies{});
+			Send(proto::ProofState{});
 		}
 
         void OnMsg(proto::BbsSubscribe&& msg) override
@@ -1254,41 +1256,68 @@ struct MyMmr : public Merkle::Mmr
 
     std::vector<HashVectorPtr> m_vec;
 
-    Merkle::Hash& get_At(size_t nIdx, uint8_t nHeight)
+    Merkle::Hash& get_At(const Merkle::Position& pos)
     {
-        if (m_vec.size() <= nHeight)
-            m_vec.resize(nHeight + 1);
+        if (m_vec.size() <= pos.H)
+            m_vec.resize(pos.H + 1);
 
-        HashVectorPtr& ptr = m_vec[nHeight];
+        HashVectorPtr& ptr = m_vec[pos.H];
         if (!ptr)
             ptr.reset(new HashVector);
 
 
         HashVector& vec = *ptr;
-        if (vec.size() <= nIdx)
-            vec.resize(nIdx + 1);
+        if (vec.size() <= pos.X)
+            vec.resize(pos.X + 1);
 
-        return vec[nIdx];
+        return vec[pos.X];
     }
 
-    virtual void LoadElement(Merkle::Hash& hv, uint64_t nIdx, uint8_t nHeight) const override
+    virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
     {
-        hv = ((MyMmr*)this)->get_At(nIdx, nHeight);
+        hv = ((MyMmr*)this)->get_At(pos);
     }
 
-    virtual void SaveElement(const Merkle::Hash& hv, uint64_t nIdx, uint8_t nHeight) override
+    virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override
     {
-        get_At(nIdx, nHeight) = hv;
+        get_At(pos) = hv;
     }
+};
+
+struct MiniChainManager
+{
+	MyMmr m_Mmr;
+
+	Block::SystemState::Full m_Hdr;
+	Merkle::Hash m_hvLive;
+
+	MiniChainManager()
+	{
+		ZeroObject(m_Hdr);
+		ZeroObject(m_hvLive);
+	}
+
+	void Add()
+	{
+		if (m_Hdr.m_Height)
+		{
+			m_Hdr.NextPrefix();
+			m_Mmr.Append(m_Hdr.m_Prev);
+		}
+		else
+			m_Hdr.m_Height = Rules::HeightGenesis;
+
+		m_Mmr.get_Hash(m_Hdr.m_Definition);
+		Merkle::Interpret(m_Hdr.m_Definition, m_hvLive, true);
+	}
 };
 
 struct RollbackIO : public TestNetwork
 {
-    RollbackIO(IOLoop& mainLoop, const MyMmr& mmr, Height branch, Height current, unsigned step)
+    RollbackIO(IOLoop& mainLoop, MiniChainManager& mcm, Height branch, unsigned step)
         : TestNetwork(mainLoop)
-        , m_mmr(mmr)
+        , m_mcm(mcm)
         , m_branch(branch)
-        , m_current(current)
         , m_step(step)
     {
 
@@ -1297,17 +1326,29 @@ struct RollbackIO : public TestNetwork
 
     void InitHdr(proto::Hdr& msg) override
     {
-        msg.m_Description.m_Height = m_current;
-        m_mmr.get_Hash(msg.m_Description.m_Definition);
+		msg.m_Description = m_mcm.m_Hdr;
     }
 
     void send_node_message(beam::proto::GetProofState&& msg) override
     {
         cout << "Rollback. GetProofState Height=" << msg.m_Height << "\n";
-		proto::ProofStateForDummies msgOut;
-        m_mmr.get_Proof(msgOut.m_Proof, msg.m_Height);
+
+		proto::ProofState msgOut;
+
+		assert(msg.m_Height >= Rules::HeightGenesis);
+
+		// TODO: Wallet must not request proofs beyond max height (this doesn't make sense)
+		if (msg.m_Height < m_mcm.m_Hdr.m_Height)
+		{
+			Merkle::ProofBuilderHard bld;
+			m_mcm.m_Mmr.get_Proof(bld, msg.m_Height - Rules::HeightGenesis);
+
+			msgOut.m_Proof.swap(bld.m_Proof);
+			msgOut.m_Proof.push_back(m_mcm.m_hvLive);
+		}
+
         enqueueNetworkTask([this, msgOut]{
-			m_peers[0]->handle_node_message((proto::ProofStateForDummies&&) msgOut);
+			m_peers[0]->handle_node_message((proto::ProofState&&) msgOut);
 		});
     }
 
@@ -1324,9 +1365,8 @@ struct RollbackIO : public TestNetwork
         shutdown();
     }
 
-    const MyMmr& m_mmr;
+    MiniChainManager& m_mcm;
     Height m_branch;
-    Height m_current;
     unsigned m_step;
 };
 
@@ -1335,79 +1375,33 @@ void TestRollback(Height branch, Height current, unsigned step = 1)
     cout << "\nRollback from " << current << " to " << branch << " step: " << step <<'\n';
     auto db = createSqliteKeychain("wallet.db");
     
-    MyMmr mmrNew, mmrOld;
+	MiniChainManager mcmOld, mcmNew;
 
-    for (Height i = 0; i <= current; ++i)
+    for (Height i = Rules::HeightGenesis; i <= current; ++i)
     {
-        Coin coin1 = { 5, Coin::Unspent, 0, 0, KeyType::Regular, i };
-        Merkle::Hash hash = {};
-        ECC::Hash::Processor() << i >> hash;
-        coin1.m_confirmHash = hash;
-        mmrOld.Append(hash);
-        if (i < branch)
+		mcmOld.Add();
+
+		if (i == branch)
+			mcmNew.m_hvLive = 1U; // branching
+		mcmNew.Add();
+
+		if (i % step == 0)
         {
-            mmrNew.Append(hash);
-        }
-        else // change history
-        {
-            ECC::Hash::Processor() << (i + current + 1) >> hash;
-            mmrNew.Append(hash);
-        }
-        if (i % step == 0)
-        {
-            db->store(coin1);
+			Coin coin1 = { 5, Coin::Unspent, 0, 0, KeyType::Regular, i };
+			mcmOld.m_Hdr.get_Hash(coin1.m_confirmHash);
+
+			db->store(coin1);
         }
     }
 
-    Merkle::Hash newStateDefinition;
-    mmrNew.get_Hash(newStateDefinition);
-
-    Merkle::Hash oldStateDefinition;
-    mmrOld.get_Hash(oldStateDefinition);
-
-    WALLET_CHECK(newStateDefinition != oldStateDefinition);
-
-    beam::Block::SystemState::ID id = {};
-    id.m_Height = current;
-    ECC::Hash::Processor() << current >> id.m_Hash;
-
-    db->setSystemStateID(id);
-
-    for (Height i = branch; i <= current ; ++i)
-    {
-        Merkle::Proof proof;
-        mmrNew.get_Proof(proof, i);
-        Merkle::Hash hash = {};
-        ECC::Hash::Processor() << (i + current + 1) >> hash;
-        Merkle::Interpret(hash, proof);
-        WALLET_CHECK(hash == newStateDefinition);
-    }
-
-    for (Height i = 0; i < branch; ++i)
-    {
-        Merkle::Proof proof;
-        mmrNew.get_Proof(proof, i);
-        Merkle::Hash hash = {};
-        ECC::Hash::Processor() << i >> hash;
-        Merkle::Interpret(hash, proof);
-        WALLET_CHECK(hash == newStateDefinition);
-    }
-
-    for (Height i = 0; i < current; ++i)
-    {
-        Merkle::Proof proof;
-        mmrOld.get_Proof(proof, i);
-        Merkle::Hash hash = {};
-        ECC::Hash::Processor() << i >> hash;
-        
-        Merkle::Interpret(hash, proof);
-        WALLET_CHECK(hash == oldStateDefinition);
-    }
+	Block::SystemState::ID id;
+	mcmOld.m_Hdr.get_ID(id);
+	db->setSystemStateID(id);
 
     IOLoop mainLoop;
-    auto network = make_shared<RollbackIO>(mainLoop, mmrNew, branch, current, step);
+    auto network = make_shared<RollbackIO>(mainLoop, mcmNew, branch, step);
 
-	TestWallet sender(db, network);
+	Wallet sender(db, network);
     
     network->registerPeer(&sender, true);
     
@@ -1430,7 +1424,7 @@ void TestRollback()
         TestRollback(i, s, 2);
     }
     
-    TestRollback(0, 1);
+    TestRollback(1, 1);
     TestRollback(2, 50);
     TestRollback(2, 51);
     TestRollback(93, 120);

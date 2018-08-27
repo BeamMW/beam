@@ -265,7 +265,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 7;
+	const uint64_t nVersion = 8;
 
 	if (bCreate)
 	{
@@ -310,6 +310,8 @@ void NodeDB::Create()
 		"[" TblStates_ChainWork		"] BLOB,"
 		"PRIMARY KEY (" TblStates_Height "," TblStates_Hash "),"
 		"FOREIGN KEY (" TblStates_RowPrev ") REFERENCES " TblStates "(OID))");
+
+	ExecQuick("CREATE INDEX [Idx" TblStates "Wrk] ON [" TblStates "] ([" TblStates_ChainWork "]);");
 
 	ExecQuick("CREATE TABLE [" TblTips "] ("
 		"[" TblTips_Height	"] INTEGER NOT NULL,"
@@ -524,6 +526,7 @@ void NodeDB::Transaction::Rollback()
 	macro(HashPrev,		m_Prev) sep \
 	macro(Timestamp,	m_TimeStamp) sep \
 	macro(PoW,			m_PoW) sep \
+	macro(ChainWork,	m_ChainWork) sep \
 	macro(Definition,	m_Definition)
 
 #define THE_MACRO_NOP0
@@ -838,15 +841,7 @@ void NodeDB::SetStateFunctional(uint64_t rowid)
 	SetFlags(rowid, nFlags);
 
 	if (StateFlags::Reachable & nFlags)
-	{
-		Difficulty::Raw wrkPrev;
-		if (h > Rules::HeightGenesis)
-			get_ChainWork(rowPrev, wrkPrev);
-		else
-			wrkPrev = ECC::Zero;
-
-		OnStateReachable(rowid, rowPrev, h, wrkPrev, true);
-	}
+		OnStateReachable(rowid, rowPrev, h, true);
 }
 
 void NodeDB::SetStateNotFunctional(uint64_t rowid)
@@ -902,13 +897,10 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 	SetFlags(rowid, nFlags);
 
 	if (bReachable)
-	{
-		Difficulty::Raw dummy;
-		OnStateReachable(rowid, rowPrev, h, dummy, false);
-	}
+		OnStateReachable(rowid, rowPrev, h, false);
 }
 
-void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, Difficulty::Raw& wrkPrev, bool b)
+void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, bool b)
 {
 	typedef std::pair<uint64_t, uint32_t> RowAndFlags;
 	std::vector<RowAndFlags> rows;
@@ -916,17 +908,7 @@ void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, Diffic
 	while (true)
 	{
 		if (b)
-		{
 			BuildMmr(rowid, rowPrev, h);
-
-			Block::SystemState::Full s;
-			get_State(rowid, s);
-
-			Difficulty::Raw wrk;
-			s.m_PoW.m_Difficulty.Unpack(wrk);
-			wrkPrev += wrk;
-			set_ChainWork(rowid, wrkPrev);
-		}
 
 		rowPrev = rowid;
 
@@ -964,10 +946,7 @@ void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, Diffic
 		h++;
 
 		for (size_t i = 1; i < rows.size(); i++)
-		{
-			Difficulty::Raw wrk = wrkPrev;
-			OnStateReachable(rows[i].first, rowPrev, h, wrk, b);
-		}
+			OnStateReachable(rows[i].first, rowPrev, h, b);
 
 		rows.clear();
 	}
@@ -1059,16 +1038,6 @@ uint32_t NodeDB::GetStateFlags(uint64_t rowid)
 	uint32_t nFlags;
 	rs.get(0, nFlags);
 	return nFlags;
-}
-
-void NodeDB::set_ChainWork(uint64_t rowid, const Difficulty::Raw& wrk)
-{
-	Recordset rs(*this, Query::StateSetChainWork, "UPDATE " TblStates " SET " TblStates_ChainWork "=? WHERE rowid=?");
-	rs.put_As(0, wrk);
-	rs.put(1, rowid);
-
-	rs.Step();
-	TestChanged1Row();
 }
 
 void NodeDB::get_ChainWork(uint64_t rowid, Difficulty::Raw& wrk)
@@ -1385,17 +1354,12 @@ void NodeDB::Dmmr::get_NodeHash(Merkle::Hash& hv, Key rowid) const
 
 void NodeDB::Dmmr::get_NodeHashInternal(Merkle::Hash& hv, Key rowid)
 {
-	Recordset rs(m_This, Query::HashForHist, "SELECT " TblStates_Hash "," TblStates_PoW " FROM " TblStates " WHERE rowid=?");
+	Recordset rs(m_This, Query::HashForHist, "SELECT " TblStates_Hash " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 
 	rs.StepStrict();
 
 	rs.get(0, hv);
-
-	Block::PoW pow;
-	rs.get(1, pow);
-
-	pow.get_HashForHist(hv, hv);
 }
 
 void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
@@ -1436,7 +1400,7 @@ void NodeDB::BuildMmr(uint64_t rowid, uint64_t rowPrev, Height h)
 	TestChanged1Row();
 }
 
-void NodeDB::get_Proof(Merkle::Proof& proof, const StateID& sid, Height hPrev)
+void NodeDB::get_Proof(Merkle::IProofBuilder& bld, const StateID& sid, Height hPrev)
 {
 	assert((hPrev >= Rules::HeightGenesis) && (hPrev < sid.m_Height));
 
@@ -1444,14 +1408,14 @@ void NodeDB::get_Proof(Merkle::Proof& proof, const StateID& sid, Height hPrev)
     dmmr.m_Count = sid.m_Height - Rules::HeightGenesis;
     dmmr.m_kLast = sid.m_Row;
 
-    dmmr.get_Proof(proof, hPrev - Rules::HeightGenesis);
+    dmmr.get_Proof(bld, hPrev - Rules::HeightGenesis);
 }
 
 void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
 {
 	Block::SystemState::Full s;
 	get_State(sid.m_Row, s);
-	s.get_HashForHist(hv);
+	s.get_Hash(hv);
 
     Dmmr dmmr(*this);
     dmmr.m_Count = sid.m_Height - Rules::HeightGenesis;
@@ -1683,5 +1647,19 @@ void NodeDB::BbsIns(const WalkerBbs::Data& d)
 	rs.Step();
 	TestChanged1Row();
 }
+
+uint64_t NodeDB::FindStateWorkGreater(const Difficulty::Raw& d)
+{
+	Recordset rs(*this, Query::StateFindWorkGreater, "SELECT rowid FROM " TblStates " WHERE " TblStates_ChainWork ">? AND " TblStates_Flags "& ? != 0 ORDER BY " TblStates_ChainWork " ASC LIMIT 1");
+	rs.put_As(0, d);
+	rs.put(1, StateFlags::Active);
+
+	rs.StepStrict();
+
+	uint64_t res;
+	rs.get(0, res);
+	return res;
+}
+
 
 } // namespace beam

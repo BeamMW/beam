@@ -111,6 +111,10 @@ namespace beam
 		bool IsTargetReached(const ECC::uintBig&) const;
 
 		void Unpack(Raw&) const;
+		void Inc(Raw&) const;
+		void Inc(Raw&, const Raw& base) const;
+		void Dec(Raw&, const Raw& base) const;
+
 
 		void Unpack(uint32_t& order, uint32_t& mantissa) const;
 		void Pack(uint32_t order, uint32_t mantissa);
@@ -169,6 +173,40 @@ namespace beam
 		typedef ECC::Hash::Value Hash;
 		typedef std::pair<bool, Hash>	Node;
 		typedef std::vector<Node>		Proof;
+		typedef std::vector<Hash>		HardProof;
+
+		struct Position {
+			uint8_t H;
+			uint64_t X;
+		};
+
+		struct IProofBuilder {
+			virtual bool AppendNode(const Node&, const Position&) = 0;
+		};
+
+		struct ProofBuilderStd
+			:public IProofBuilder
+		{
+			Proof m_Proof;
+
+			virtual bool AppendNode(const Node& n, const Position&) override
+			{
+				m_Proof.push_back(n);
+				return true;
+			}
+		};
+
+		struct ProofBuilderHard
+			:public IProofBuilder
+		{
+			HardProof m_Proof;
+
+			virtual bool AppendNode(const Node& n, const Position&) override
+			{
+				m_Proof.push_back(n.second);
+				return true;
+			}
+		};
 
 		void Interpret(Hash&, const Proof&);
 		void Interpret(Hash&, const Node&);
@@ -475,8 +513,6 @@ namespace beam
 			// returns false only if cancelled
 			bool Solve(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
 
-			void get_HashForHist(Merkle::Hash& hv, const Merkle::Hash& hvState) const;
-
 		private:
 			struct Helper;
 		};
@@ -494,13 +530,14 @@ namespace beam
 			struct Sequence
 			{
 				struct Prefix {
-					Height			m_Height;
-					Merkle::Hash	m_Prev;			// explicit referebce to prev
+					Height				m_Height;
+					Merkle::Hash		m_Prev;			// explicit referebce to prev
+					Difficulty::Raw		m_ChainWork;
 				};
 
 				struct Element
 				{
-					Merkle::Hash	m_Definition; // Defined as Hash[ Hash[History | Chainwork] | Hash[Utxos | Kernels] ]
+					Merkle::Hash	m_Definition; // Defined as Hash[ History | Hash[Utxos | Kernels] ]
 					Timestamp		m_TimeStamp;
 					PoW				m_PoW;
 
@@ -514,17 +551,22 @@ namespace beam
 				:public Sequence::Prefix
 				,public Sequence::Element
 			{
-				void Set(Prefix&, const Element&);
-				void get_Hash(Merkle::Hash&) const; // Calculated from all the above
+				void NextPrefix();
+
+				void get_HashForPoW(Merkle::Hash&) const; // all except PoW
+				void get_Hash(Merkle::Hash&) const; // all
+
 				void get_ID(ID&) const;
-				void get_HashForHist(Merkle::Hash&) const; // accounts also for PoW, literally for everything in the header
 
 				bool IsSane() const;
 				bool IsValidPoW() const;
 				bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
 
 				// the most robust proof verification - verifies the whole proof structure
-				bool IsValidProofState(const Full&, const Merkle::Proof&) const;
+				bool IsValidProofState(const ID&, const Merkle::HardProof&) const;
+
+			private:
+				void get_HashInternal(Merkle::Hash&, bool bTotal) const;
 			};
 		};
 
@@ -579,6 +621,8 @@ namespace beam
 				return BodyBase::IsValid(hr, bSubsidyOpen, get_Reader());
 			}
 		};
+
+		struct ChainWorkProof;
 	};
 
 	enum struct KeyType

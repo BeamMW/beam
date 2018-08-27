@@ -82,15 +82,12 @@ public:
 		Block::SystemState::Full m_Full;
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
-		Difficulty::Raw m_ChainWork;
 		Difficulty m_DifficultyNext;
 		bool m_SubsidyOpen;
 
 	} m_Cursor;
 
 	void get_CurrentLive(Merkle::Hash&);
-	void get_CurrentPart2(Merkle::Hash&, bool bForNextState);
-	void get_ChainWork(Merkle::Hash&, bool bForNextState);
 
 	// Export compressed history elements. Suitable only for "small" ranges, otherwise may be both time & memory consumng.
 	void ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
