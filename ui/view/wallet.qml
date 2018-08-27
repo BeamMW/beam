@@ -299,8 +299,7 @@ Item {
 
                                     text: viewModel.sendAmount
 
-                                    // TODO: here should be proper validator
-                                    // validator: DoubleValidator{bottom: 0; top: 210000000;}
+                                    validator: RegExpValidator { regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,5}[1-9])?$/ }
                                     selectByMouse: true
                                 }
 
