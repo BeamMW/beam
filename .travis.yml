@@ -33,6 +33,12 @@ matrix:
         - BEAM_WALLET_UI_OUT="Beam Wallet.dmg"
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
+      after_success:
+        # deploy using github
+        - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
+            chmod +x ./deploy.sh;
+            ./deploy.sh;
+          fi
 
     - os: linux
       addons:
@@ -82,6 +88,12 @@ matrix:
         - BEAM_WALLET_UI_OUT="Beam Wallet.deb"
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static . && make -j 4 && ctest --verbose && cpack;
+      after_success:
+        # deploy using github
+        - if [ $TRAVIS_EVENT_TYPE == "cron" ]; then 
+            chmod +x ./deploy.sh;
+            ./deploy.sh;
+          fi
 
 after_success:
   # deploy using ftp server
@@ -95,6 +107,11 @@ after_success:
   - curl --retry 3 --ftp-create-dirs -T beam-node.tar.gz $BUILDS_SERVER_LATEST_PATH/
   - curl --retry 3 --ftp-create-dirs -T beam-wallet.tar.gz $BUILDS_SERVER_LATEST_PATH/
   - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_LATEST_PATH/$BEAM_WALLET_UI_OUT"
+  # deploy using github
+  - if [ $TRAVIS_EVENT_TYPE == "cron" ] && [ $BUILD_TYPE == "Release" ]; then 
+      chmod +x ./deploy.sh;
+      ./deploy.sh;
+    fi
 
 notifications:
   email:
