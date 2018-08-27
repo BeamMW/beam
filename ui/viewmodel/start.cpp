@@ -104,19 +104,14 @@ void StartViewModel::setupTestnetNode()
 bool StartViewModel::createWallet(const QString& seed, const QString& pass)
 {
     // TODO make this secure
-    string seedStr = seed.toStdString();
-    string passStr = pass.toStdString();
-
-    SecString secretSeed = string_view(seedStr);
-    SecString sectretPass = string_view(passStr);
+    SecString secretSeed = seed.toStdString();
+    SecString sectretPass = pass.toStdString();
     return AppModel::getInstance()->createWallet(secretSeed, sectretPass);
 }
 
 bool StartViewModel::openWallet(const QString& pass)
 {
     // TODO make this secure
-    string passStr = pass.toStdString();
-
-    SecString secretPass = string_view(passStr);
+    SecString secretPass = pass.toStdString();
     return AppModel::getInstance()->openWallet(secretPass);
 }
