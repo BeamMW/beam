@@ -1160,16 +1160,11 @@ namespace beam
 		Raw val;
 		Unpack(val);
 
-		typedef uintBig_t<ECC::nBits * 2> uintHuge;
-
-		uintHuge a, b;
-		a = hv;
-		b = val;
-		a = a * b;
+		auto a = hv * val; // would be 512 bits
 
 		static_assert(!(s_MantissaBits & 7), ""); // fix the following code lines to support non-byte-aligned mantissa size
 
-		return memis0(a.m_pData, a.nBytes / 2 - (s_MantissaBits >> 3));
+		return memis0(a.m_pData, Raw::nBytes - (s_MantissaBits >> 3));
 	}
 
 	void Difficulty::Unpack(Raw& res) const

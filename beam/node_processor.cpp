@@ -1052,7 +1052,7 @@ void NodeProcessor::TxPool::AddValidTx(Transaction::Ptr&& pValue, const Transact
 	p->m_pValue = std::move(pValue);
 	p->m_Threshold.m_Value	= ctx.m_Height.m_Max;
 	p->m_Profit.m_Fee	= ctx.m_Fee.Hi ? Amount(-1) : ctx.m_Fee.Lo; // ignore huge fees (which are  highly unlikely), saturate.
-	p->m_Profit.m_nSize	= ssc.m_Counter.m_Value;
+	p->m_Profit.m_nSize	= (uint32_t) ssc.m_Counter.m_Value;
 	p->m_Tx.m_Key = key;
 
 	m_setThreshold.insert(p->m_Threshold);
@@ -1094,19 +1094,15 @@ void NodeProcessor::TxPool::Clear()
 
 bool NodeProcessor::TxPool::Element::Profit::operator < (const Profit& t) const
 {
-	// handle overflow. To be precise need to use big-int (128-bit) arithmetics
+	// handle overflow. To be precise need to use big-int (96-bit) arithmetics
 	//	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
 
-	uintBig_t<128> f0, s0, f1, s1;
-	f0 = m_Fee;
-	s0 = m_nSize;
-	f1 = t.m_Fee;
-	s1 = t.m_nSize;
+	typedef uintBig_t<(sizeof(m_Fee) << 3)> uintFee;
+	typedef uintBig_t<(sizeof(m_nSize) << 3)> uintSize;
 
-	f0 = f0 * s1;
-	f1 = f1 * s0;
-
-	return f0 > f1;
+	return
+		(uintFee(m_Fee) * uintSize(t.m_nSize)) >
+		(uintFee(t.m_Fee) * uintSize(m_nSize));
 }
 
 /////////////////////////////

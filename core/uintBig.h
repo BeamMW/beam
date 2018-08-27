@@ -76,6 +76,12 @@ namespace beam
 			_Assign(m_pData, nBytes, v.empty() ? NULL : &v.at(0), v.size());
 		}
 
+		template <typename T>
+		uintBig_t(T x)
+		{
+			operator = (x);
+		}
+
 		// in Big-Endian representation
 		uint8_t m_pData[nBytes];
 
@@ -181,9 +187,9 @@ namespace beam
 		}
 
 		template <uint32_t nBitsOther_>
-		uintBig_t operator * (const uintBig_t<nBitsOther_>& x) const
+		uintBig_t<nBits + nBitsOther_> operator * (const uintBig_t<nBitsOther_>& x) const
 		{
-			uintBig_t res;
+			uintBig_t<nBits + nBitsOther_> res;
 			res.AssignMul(*this, x);
 			return res;
 		}

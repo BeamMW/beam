@@ -146,7 +146,7 @@ public:
 				:public boost::intrusive::set_base_hook<>
 			{
 				Amount m_Fee;
-				size_t m_nSize;
+				uint32_t m_nSize;
 
 				bool operator < (const Profit& t) const;
 
