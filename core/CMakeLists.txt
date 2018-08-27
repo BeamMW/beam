@@ -1,6 +1,7 @@
 set(CORE_SRC
     ecc.cpp
     aes.cpp
+    common.cpp
     block_crypt.cpp
     navigator.cpp
     storage.cpp
