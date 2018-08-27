@@ -120,7 +120,7 @@ void AppModel::start(IKeyChain::Ptr db, IKeyStore::Ptr keystore)
     if (m_settings.getRunLocalNode())
     {
         ECC::NoLeak<ECC::uintBig> seed;
-        seed.V = ECC::Zero;
+        seed.V = Zero;
         if (m_settings.getLocalNodeMiningThreads() > 0)
         {
             db->getVar("WalletSeed", seed);

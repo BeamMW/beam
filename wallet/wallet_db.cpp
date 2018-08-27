@@ -694,7 +694,7 @@ namespace beam
             if (boost::filesystem::exists(path))
             {
                 ECC::NoLeak<ECC::uintBig> seed;
-                seed.V = ECC::Zero;
+                seed.V = Zero;
                 auto keychain = make_shared<Keychain>(seed);
 
                 {

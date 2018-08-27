@@ -272,7 +272,7 @@ void NodeProcessor::TryGoUp()
 				else
 				{
 					sidTrg.SetNull();
-					wrkTrg = ECC::Zero;
+					wrkTrg = Zero;
 				}
 			}
 		}
@@ -525,7 +525,7 @@ void NodeProcessor::AdjustCumulativeParams(const Block::BodyBase& block, bool bF
 	NodeDB::Blob blob(kOffset.m_Value);
 
 	if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
-		kOffset.m_Value = ECC::Zero;
+		kOffset.m_Value = Zero;
 
 	ECC::Scalar::Native k(kOffset), k2(block.m_Offset);
 	if (!bFwd)
@@ -786,8 +786,7 @@ void NodeProcessor::OnSubsidyOptionChanged(bool bOpen)
 {
 	bool bAdd = !bOpen;
 
-	Merkle::Hash hv;
-	hv = ECC::Zero;
+	Merkle::Hash hv(Zero);
 
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = true;
@@ -1170,7 +1169,7 @@ void NodeProcessor::DeriveKeys(const ECC::Kdf& kdf, Height h, Amount fees, ECC::
 		kKernel += kFee;
 	}
 	else
-		kFee = ECC::Zero;
+		kFee = Zero;
 
 	kKernel = -kKernel;
 

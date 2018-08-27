@@ -1152,7 +1152,7 @@ namespace beam
 						if (krn.m_pHashLock)
 							verify_test(krn.m_pHashLock->m_Preimage == msg.m_HashPreimage);
 						else
-							verify_test(msg.m_HashPreimage == ECC::Zero);
+							verify_test(msg.m_HashPreimage == Zero);
 					}
 				}
 				else
@@ -1187,7 +1187,7 @@ namespace beam
 		Block::Body& treasury = node.m_Cfg.m_vTreasury[0];
 
 		treasury.ZeroInit();
-		ECC::Scalar::Native offset(ECC::Zero);
+		ECC::Scalar::Native offset(Zero);
 
 		for (int i = 0; i < 10; i++)
 		{
@@ -1341,7 +1341,7 @@ namespace beam
 
 		void Init()
 		{
-			m_hvLive = ECC::Zero;
+			m_hvLive = Zero;
 
 			m_vStates.resize(200000);
 			Difficulty d = Rules::get().StartDifficulty;

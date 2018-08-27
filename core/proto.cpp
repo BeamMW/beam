@@ -82,7 +82,7 @@ void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
 	if (Mode::Plaintext != m_Mode)
 	{
 		// 1. append dummy of the needed size
-		hmac = ECC::Zero;
+		hmac = Zero;
 		ser & hmac;
 	}
 
@@ -190,7 +190,7 @@ bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& re
 
 void ProtocolPlus::InitCipher()
 {
-	assert(!(m_MyNonce == ECC::Zero));
+	assert(!(m_MyNonce == Zero));
 
 	if (!InitViaDiffieHellman(m_MyNonce, m_RemoteNonce, m_Enc, m_HMac, &m_CipherOut, &m_CipherIn))
 		NodeConnection::ThrowUnexpected();
@@ -477,18 +477,18 @@ void NodeConnection::GenerateSChannelNonce(ECC::Scalar::Native& sk)
 	ECC::NoLeak<ECC::uintBig> secret;
 	ECC::GenRandom(secret.V.m_pData, secret.V.nBytes);
 
-	ECC::Hash::Value hv(ECC::Zero);
+	ECC::Hash::Value hv(Zero);
 	sk.GenerateNonce(secret.V, hv, NULL);
 }
 
 void NodeConnection::SecureConnect()
 {
-	if (!(m_Protocol.m_MyNonce == ECC::Zero))
+	if (!(m_Protocol.m_MyNonce == Zero))
 		return; // already sent
 
 	GenerateSChannelNonce(m_Protocol.m_MyNonce);
 
-	if (m_Protocol.m_MyNonce == ECC::Zero)
+	if (m_Protocol.m_MyNonce == Zero)
 		ThrowUnexpected("SChannel not supported");
 
 	SChannelInitiate msg;
@@ -498,7 +498,7 @@ void NodeConnection::SecureConnect()
 
 void NodeConnection::OnMsg(SChannelInitiate&& msg)
 {
-	if ((ProtocolPlus::Mode::Plaintext != m_Protocol.m_Mode) || (msg.m_NoncePub == ECC::Zero))
+	if ((ProtocolPlus::Mode::Plaintext != m_Protocol.m_Mode) || (msg.m_NoncePub == Zero))
 		ThrowUnexpected();
 
 	SecureConnect(); // unless already sent
@@ -745,7 +745,7 @@ PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)
 	PeerInfo* ret = AllocPeer();
 
 	ret->m_ID.m_Key = id;
-	if (!(id == ECC::Zero))
+	if (!(id == Zero))
 		m_IDs.insert(ret->m_ID);
 
 	ret->m_RawRating.m_Value = Rating::Initial;
@@ -869,7 +869,7 @@ void PeerManager::OnRemoteError(PeerInfo& pi, bool bShouldBan)
 
 PeerManager::PeerInfo* PeerManager::OnPeer(const PeerID& id, const io::Address& addr, bool bAddrVerified)
 {
-	if (id == ECC::Zero)
+	if (id == Zero)
 	{
 		if (!bAddrVerified)
 			return NULL;
@@ -901,7 +901,7 @@ void PeerManager::Delete(PeerInfo& pi)
 	if (pi.m_RawRating.m_Value)
 		m_AdjustedRatings.erase(AdjustedRatingSet::s_iterator_to(pi.m_AdjustedRating));
 
-	if (!(pi.m_ID.m_Key == ECC::Zero))
+	if (!(pi.m_ID.m_Key == Zero))
 		m_IDs.erase(PeerIDSet::s_iterator_to(pi.m_ID));
 
 	DeletePeer(pi);

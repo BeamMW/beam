@@ -88,7 +88,7 @@ void Mmr::get_PredictedHash(Hash& hv, const Hash& hvAppend) const
 void Mmr::get_Hash(Hash& hv) const
 {
 	if (!get_HashForRange(hv, 0, m_Count))
-		hv = ECC::Zero;
+		hv = Zero;
 }
 
 bool Mmr::get_HashForRange(Hash& hv, uint64_t n0, uint64_t n) const

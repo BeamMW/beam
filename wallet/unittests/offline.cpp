@@ -51,7 +51,7 @@ WaitHandle run_wallet(const WalletParams& params) {
         [&params, reactor]() {
             io::Reactor::Scope scope(*reactor);
 
-            bool sender = !(params.sendTo == ECC::Zero);
+            bool sender = !(params.sendTo == Zero);
 
             if (sender) {
                 TxPeer receiverPeer = {};

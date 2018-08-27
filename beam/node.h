@@ -86,7 +86,7 @@ struct Node
 
 		Config()
 		{
-			m_WalletKey.V = ECC::Zero;
+			m_WalletKey.V = Zero;
 		}
 
 	} m_Cfg; // must not be changed after initialization

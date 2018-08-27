@@ -38,7 +38,7 @@ namespace
             boost::filesystem::remove(dbName);
         }
         ECC::NoLeak<ECC::uintBig> seed;
-        seed.V = ECC::Zero;
+        seed.V = Zero;
         auto keychain = Keychain::init(dbName, string_view("pass123"), seed);
         beam::Block::SystemState::ID id = { };
         id.m_Height = 134;

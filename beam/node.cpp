@@ -474,7 +474,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 	pPeer->m_bOwner = false;
 	pPeer->m_Port = 0;
 	pPeer->m_TipHeight = 0;
-	pPeer->m_TipWork = ECC::Zero;
+	pPeer->m_TipWork = Zero;
 	pPeer->m_RemoteAddr = addr;
 	ZeroObject(pPeer->m_Config);
 
@@ -491,7 +491,7 @@ void Node::Initialize()
 
 	ECC::GenRandom(m_SChannelSeed.V.m_pData, m_SChannelSeed.V.nBytes);
 
-	m_MyPrivateID.V.m_Value = ECC::Zero;
+	m_MyPrivateID.V.m_Value = Zero;
 
 	NodeDB::Blob blob(m_MyPrivateID.V.m_Value);
 	bool bNewID = !m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob);
@@ -822,7 +822,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	if (proto::IDType::Node != msg.m_IDType)
 		return;
 
-	if (m_bPiRcvd || (msg.m_ID == ECC::Zero))
+	if (m_bPiRcvd || (msg.m_ID == Zero))
 		ThrowUnexpected();
 
 	m_bPiRcvd = true;
@@ -842,7 +842,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 		// detach from it
 		m_pInfo->m_pLive = NULL;
 
-		if (m_pInfo->m_ID.m_Key == ECC::Zero)
+		if (m_pInfo->m_ID.m_Key == Zero)
 		{
 			LOG_INFO() << "deleted anonymous PI";
 			pm.Delete(*m_pInfo); // it's anonymous.
@@ -970,7 +970,7 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 	}
 
 	m_TipHeight = 0; // prevent reassigning the tasks
-	m_TipWork = ECC::Zero;
+	m_TipWork = Zero;
 
 	ReleaseTasks();
 	Unsubscribe();
@@ -1381,7 +1381,7 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 {
 	proto::ProofKernel msgOut;
-	msgOut.m_HashPreimage = ECC::Zero;
+	msgOut.m_HashPreimage = Zero;
 
 	RadixHashOnlyTree& t = m_This.m_Processor.get_Kernels();
 
@@ -1512,7 +1512,7 @@ void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
 	{
 		msgOut.m_Proof = p.m_Cwp; // full copy
 
-		if (!(msg.m_LowerBound == ECC::Zero))
+		if (!(msg.m_LowerBound == Zero))
 		{
 			msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
 			verify(msgOut.m_Proof.Crop());

@@ -55,7 +55,7 @@ namespace
 
 		void get_IdentityKey(ECC::Scalar::Native& sk) const override
 		{
-			sk = ECC::Zero;
+			sk = Zero;
 		}
 
         std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool /*lock*/) override
@@ -173,7 +173,7 @@ namespace
     IKeyChain::Ptr createSqliteKeychain(const string& path)
     {
         ECC::NoLeak<ECC::uintBig> seed;
-        seed.V = ECC::Zero;
+        seed.V = Zero;
         if (boost::filesystem::exists(path))
         {
             boost::filesystem::remove(path);

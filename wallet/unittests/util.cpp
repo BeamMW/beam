@@ -166,7 +166,7 @@ Block::Body& TreasuryBlockGenerator::get_WriteBlock()
 
 		m_vBlocks.resize(m_vBlocks.size() + 1);
 		m_vBlocks.back().ZeroInit();
-		m_Offset = ECC::Zero;
+		m_Offset = Zero;
 	}
 	return m_vBlocks.back();
 }

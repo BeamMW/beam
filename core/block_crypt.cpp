@@ -314,7 +314,7 @@ namespace beam
 			>> hv;
 
 		// Some kernel hash values are reserved for the system usage
-		if (hv == ECC::Zero)
+		if (hv == Zero)
 			hv.Inc();
 	}
 
@@ -371,7 +371,7 @@ namespace beam
 	// Transaction
 	void TxBase::Context::Reset()
 	{
-		m_Sigma = ECC::Zero;
+		m_Sigma = Zero;
 
 		ZeroObject(m_Fee);
 		ZeroObject(m_Coinbase);
@@ -642,7 +642,7 @@ namespace beam
 
 		m_Fee.AddTo(m_Sigma);
 
-		return m_Sigma == ECC::Zero;
+		return m_Sigma == Zero;
 	}
 
 	bool Transaction::IsValid(Context& ctx) const
@@ -676,11 +676,11 @@ namespace beam
 
 	void Transaction::get_Key(KeyType& key) const
 	{
-		if (m_Offset.m_Value == ECC::Zero)
+		if (m_Offset.m_Value == Zero)
 		{
 			// proper transactions must contain non-trivial offset, and this should be enough to identify it with sufficient probability
 			// However in case it's not specified - construct the key from contents
-			key = ECC::Zero;
+			key = Zero;
 
 			for (size_t i = 0; i < m_vInputs.size(); i++)
 				key ^= m_vInputs[i]->m_Commitment.m_X;
@@ -786,7 +786,7 @@ namespace beam
 
 	void AmountBig::Export(ECC::uintBig& x) const
 	{
-		x = ECC::Zero;
+		x = Zero;
 		x.AssignRange<Amount, 0>(Lo);
 		x.AssignRange<Amount, (sizeof(Lo) << 3) >(Hi);
 	}
@@ -892,7 +892,7 @@ namespace beam
 	{
 		if (m_Height < Rules::HeightGenesis)
 			return false;
-		if ((m_Height == Rules::HeightGenesis) && !(m_Prev == ECC::Zero))
+		if ((m_Height == Rules::HeightGenesis) && !(m_Prev == Zero))
 			return false;
 
 		return true;
@@ -1010,7 +1010,7 @@ namespace beam
 
 		bb.m_Subsidy.AddTo(m_Sigma);
 
-		if (!(m_Sigma == ECC::Zero))
+		if (!(m_Sigma == Zero))
 			return false;
 
 		if (bSubsidyOpen)
@@ -1050,7 +1050,7 @@ namespace beam
 				ubSubsidy += ubCoinbase;
 
 			} else
-				ubSubsidy = ECC::Zero;
+				ubSubsidy = Zero;
 		}
 
 		m_Coinbase.Export(ubCoinbase);
@@ -1174,7 +1174,7 @@ namespace beam
 
 	void Difficulty::Unpack(Raw& res) const
 	{
-		res = ECC::Zero;
+		res = Zero;
 		if (m_Packed < s_Inf)
 		{
 			uint32_t order, mantissa;
@@ -1815,7 +1815,7 @@ namespace beam
 
 			TakeFraction(range);
 
-			if (range == ECC::Zero)
+			if (range == Zero)
 				range = 1U;
 
 			bool bAllCovered = (range >= m_Begin);
@@ -1831,7 +1831,7 @@ namespace beam
 				return false;
 
 			if (bAllCovered)
-				m_Begin = ECC::Zero;
+				m_Begin = Zero;
 			else
 				m_Begin += range;
 

@@ -290,7 +290,7 @@ namespace beam
 		}
 
 		t.get_Hash(hv2);
-		verify_test(hv2 == ECC::Zero);
+		verify_test(hv2 == Zero);
 
 		// construct tree in different order
 		for (uint32_t i = (uint32_t) vKeys.size(); i--; )

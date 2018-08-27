@@ -64,7 +64,7 @@ namespace beam::wallet
     Negotiator::FSMDefinition::FSMDefinition(Negotiator& parent)
         : m_parent{ parent }
     {
-        m_blindingExcess = ECC::Zero;
+        m_blindingExcess = Zero;
     }
 
     void Negotiator::FSMDefinition::invitePeer(const events::TxInitiated&)
@@ -356,7 +356,7 @@ namespace beam::wallet
 
         m_fsm.m_offset = inviteMsg.m_offset;
         m_fsm.m_transaction = std::make_shared<Transaction>();
-        m_fsm.m_transaction->m_Offset = ECC::Zero;
+        m_fsm.m_transaction->m_Offset = Zero;
         m_fsm.m_transaction->m_vInputs = move(inviteMsg.m_inputs);
         m_fsm.m_transaction->m_vOutputs = move(inviteMsg.m_outputs);
 

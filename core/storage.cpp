@@ -450,7 +450,7 @@ void RadixHashTree::get_Hash(Merkle::Hash& hv)
 	if (p)
 		hv = get_Hash(*p, hv);
 	else
-		hv = ECC::Zero;
+		hv = Zero;
 }
 
 const Merkle::Hash& RadixHashTree::get_Hash(Node& n, Merkle::Hash& hv)
