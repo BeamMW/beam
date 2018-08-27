@@ -429,7 +429,6 @@ Item {
                         }
 
                         Rectangle {
-                            Layout.topMargin: 30
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignTop
                             height: 96
@@ -438,97 +437,102 @@ Item {
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.margins: 20
-                                width: parent.width
-                                spacing: 5
+                                readonly property int margin: 15
+                                anchors.leftMargin: margin
+                                anchors.rightMargin: margin
+                                spacing: margin
 
-                                ColumnLayout {
+                                Item {
                                     Layout.fillWidth: true
-                                    Layout.alignment: Qt.AlignTop
-                                    spacing: 10
+                                    Layout.alignment: Qt.AlignCenter
+                                    height: childrenRect.height
 
-                                    SFText {
-                                        Layout.minimumHeight: 20 // check
-                                        Layout.alignment: Qt.AlignHCenter
-                                        font.pixelSize: 18
-                                        font.weight: Font.Bold
-                                        color: Style.bluey_grey
-                                        text: qsTr("Remaining")
-                                    }
-
-                                    Row
-                                    {
-                                        Layout.fillWidth: true
-                                        Layout.alignment: Qt.AlignHCenter
-                                        Layout.minimumHeight: childrenRect.height
-                                        Layout.minimumWidth: childrenRect.width
-                                        spacing: 6
+                                    ColumnLayout {
+                                        width: parent.width
+                                        spacing: 10
 
                                         SFText {
-                                            font.pixelSize: 24
-                                            font.weight: Font.ExtraLight
+                                            Layout.alignment: Qt.AlignHCenter
+                                            font.pixelSize: 18
+                                            font.weight: Font.Bold
                                             color: Style.bluey_grey
-                                            text: viewModel.actualAvailable
+                                            text: qsTr("Remaining")
                                         }
 
-                                        // TODO(alex.starun): change to BEAM icon
-                                        SFText {                                            
-                                            font.pixelSize: 24
-                                            font.weight: Font.ExtraLight
-                                            color: Style.bluey_grey
-                                            text: "B"
+                                        RowLayout
+                                        {
+                                            Layout.alignment: Qt.AlignHCenter
+                                            spacing: 6
+                                            clip: true
+
+                                            SFText {
+                                                font.pixelSize: 24
+                                                font.weight: Font.ExtraLight
+                                                color: Style.bluey_grey
+                                                text: viewModel.actualAvailable
+                                            }
+
+                                            // TODO(alex.starun): change to BEAM icon
+                                            SFText {
+                                                font.pixelSize: 24
+                                                font.weight: Font.ExtraLight
+                                                color: Style.bluey_grey
+                                                text: "B"
+                                            }
                                         }
                                     }
                                 }
 
                                 Rectangle {
-                                    Layout.leftMargin: 15
-                                    Layout.rightMargin: 15
+                                    id: separator
                                     Layout.fillHeight: true
+                                    Layout.topMargin: 10
+                                    Layout.bottomMargin: 10
                                     width: 1
                                     color: Style.bluey_grey
                                 }
 
-                                ColumnLayout {
+                                Item {
                                     Layout.fillWidth: true
-                                    Layout.alignment: Qt.AlignTop
-                                    Layout.minimumWidth: 100
-                                    spacing: 10
+                                    Layout.alignment: Qt.AlignCenter
+                                    height: childrenRect.height
 
-                                    SFText {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        font.pixelSize: 18
-                                        font.weight: Font.Bold                       
-                                        color: Style.bluey_grey
-                                        text: qsTr("Change")
-                                    }
-
-                                    Row
-                                    {
-                                        Layout.fillWidth: true
-                                        Layout.alignment: Qt.AlignHCenter
-                                        Layout.minimumHeight: childrenRect.height
-                                        Layout.minimumWidth: childrenRect.width
-                                        spacing: 6
+                                    ColumnLayout {
+                                        width: parent.width
+                                        spacing: 10
 
                                         SFText {
-                                            font.pixelSize: 24
-                                            font.weight: Font.ExtraLight
+                                            Layout.alignment: Qt.AlignHCenter
+                                            font.pixelSize: 18
+                                            font.weight: Font.Bold
                                             color: Style.bluey_grey
-                                            text: viewModel.change
+                                            text: qsTr("Change")
                                         }
 
-                                        // TODO(alex.starun): change to BEAM icon
-                                        SFText {
-                                            font.pixelSize: 24
-                                            font.weight: Font.ExtraLight
-                                            color: Style.bluey_grey
-                                            text: "B"
+                                        RowLayout
+                                        {
+                                            Layout.alignment: Qt.AlignHCenter
+                                            spacing: 6
+                                            clip: true
+
+                                            SFText {
+                                                font.pixelSize: 24
+                                                font.weight: Font.ExtraLight
+                                                color: Style.bluey_grey
+                                                text: viewModel.change
+                                            }
+
+                                            // TODO(alex.starun): change to BEAM icon
+                                            SFText {
+                                                font.pixelSize: 24
+                                                font.weight: Font.ExtraLight
+                                                color: Style.bluey_grey
+                                                text: "B"
+                                            }
                                         }
                                     }
                                 }
                             }
-                
                         }
                     }
                 }
