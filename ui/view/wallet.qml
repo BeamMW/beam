@@ -118,14 +118,12 @@ Item {
             SFTextInput {
 				id: myAddressID
 				Layout.fillWidth: true
-                //width: 315
 				font.pixelSize: 14
                 Layout.minimumHeight: 20
 				color: Style.disable_text_color
 				readOnly: true
                 activeFocusOnTab: false
-				//text: viewModel.newOwnAddress.walletID
-                text: viewModel.newReceiverAddr
+				text: viewModel.newReceiverAddr
 			}
 
             SFText {
@@ -139,11 +137,9 @@ Item {
             SFTextInput {
 				id: myAddressName
 				Layout.fillWidth: true
-                //width: 315
 				font.pixelSize: 14
                 Layout.minimumHeight: 20
                 color: Style.white
-				//text: viewModel.newReceiverName
 			}
 
             Binding {
@@ -234,34 +230,38 @@ Item {
                             font.pixelSize: 14
                             font.weight: Font.Bold
                             color: Style.white
-                            text: qsTr("My address")
+                            text: qsTr("Send To:")
                         }
                         
                         AddressComboBox {
                             Layout.fillWidth: true
 
-                            id: senderAddrCombo
+                            id: receiverAddrCombo
                             editable: true
-                            model: addressBookViewModel.ownAddresses
-                            editText: viewModel.senderAddr
+                            editText: viewModel.receiverAddr
+                            model: addressBookViewModel.peerAddresses
                             color: Style.white
                             font.pixelSize: 14
                             validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
-                            //focus: true
                             onEditTextChanged: {
                                 var i = find(editText);
-                                senderName.text = i >= 0 ? addressBookViewModel.ownAddresses[i].name : "";
+                                receiverName.text = i >= 0 ? addressBookViewModel.peerAddresses[i].name : "";
                             }
-                        } 
+                        }
 
                         SFText {
-                            id: senderName
+                            id: receiverName
                             color: Style.white
                             font.pixelSize: 14
                             font.weight: Font.Bold
-                        }  
-                    }
+                        }
 
+                        Binding {
+                            target: viewModel
+                            property: "receiverAddr"
+                            value: receiverAddrCombo.editText
+                        }
+                    }
                 }
 
                 Item {
@@ -329,53 +329,7 @@ Item {
                     Layout.alignment: Qt.AlignTop
                     height: childrenRect.height
 
-                    ColumnLayout {
-                        width: parent.width
-
-                        spacing: 12
-
-                        SFText {
-                            font.pixelSize: 14
-                            font.weight: Font.Bold
-                            color: Style.white
-                            text: qsTr("Peer address")
-                        }
-                        
-                        AddressComboBox {
-                            Layout.fillWidth: true
-
-                            id: receiverAddrCombo
-                            editable: true
-                            editText: viewModel.receiverAddr
-                            model: addressBookViewModel.peerAddresses
-                            color: Style.white
-                            font.pixelSize: 14
-                            validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
-                            onEditTextChanged: {
-                                var i = find(editText);
-                                receiverName.text = i >= 0 ? addressBookViewModel.peerAddresses[i].name : "";
-                            }
-                        }
-
-                        SFText {
-                            id: receiverName
-                            color: Style.white
-                            font.pixelSize: 14
-                            font.weight: Font.Bold
-                        }
-
-                        Binding {
-                            target: viewModel
-                            property: "senderAddr"
-                            value: senderAddrCombo.editText
-                        }
-
-                        Binding {
-                            target: viewModel
-                            property: "receiverAddr"
-                            value: receiverAddrCombo.editText
-                        }
-                    }
+                    
                 }
 
                 Item {
