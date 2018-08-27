@@ -118,7 +118,6 @@ Item {
             SFTextInput {
                 id: myAddressID
                 Layout.fillWidth: true
-                //width: 315
                 font.pixelSize: 14
                 Layout.minimumHeight: 20
                 color: Style.disable_text_color
@@ -139,7 +138,6 @@ Item {
             SFTextInput {
                 id: myAddressName
                 Layout.fillWidth: true
-                //width: 315
                 font.pixelSize: 14
                 Layout.minimumHeight: 20
                 color: Style.white
@@ -171,6 +169,7 @@ Item {
                     text: "cancel"
                     height: 38
                     width: 122
+                    palette.buttonText: Style.white
                     onClicked: root.state = "wallet";
                 }
 
@@ -178,9 +177,23 @@ Item {
                     text: "ok"
                     height: 38
                     width: 122
+                    palette.buttonText: Style.white
                     onClicked: {
                         viewModel.saveNewAddress();
                         root.state = "wallet";
+                    }
+                }
+
+                CustomButton {
+                    text: "copy"
+                    height: 38
+                    width: 122
+                    palette.buttonText: Style.white
+                    icon.source: "qrc:///assets/icon-copy.svg"
+                    icon.width: 16
+                    icon.height: 16
+                    onClicked: {
+                        viewModel.copyToClipboard(myAddressID.text);
                     }
                 }
             }
@@ -234,34 +247,38 @@ Item {
                             font.pixelSize: 14
                             font.weight: Font.Bold
                             color: Style.white
-                            text: qsTr("My address")
+                            text: qsTr("Send To:")
                         }
                         
                         AddressComboBox {
                             Layout.fillWidth: true
 
-                            id: senderAddrCombo
+                            id: receiverAddrCombo
                             editable: true
-                            model: addressBookViewModel.ownAddresses
-                            editText: viewModel.senderAddr
+                            editText: viewModel.receiverAddr
+                            model: addressBookViewModel.peerAddresses
                             color: Style.white
                             font.pixelSize: 14
                             validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
-                            //focus: true
                             onEditTextChanged: {
                                 var i = find(editText);
-                                senderName.text = i >= 0 ? addressBookViewModel.ownAddresses[i].name : "";
+                                receiverName.text = i >= 0 ? addressBookViewModel.peerAddresses[i].name : "";
                             }
-                        } 
+                        }
 
                         SFText {
-                            id: senderName
+                            id: receiverName
                             color: Style.white
                             font.pixelSize: 14
                             font.weight: Font.Bold
-                        }  
-                    }
+                        }
 
+                        Binding {
+                            target: viewModel
+                            property: "receiverAddr"
+                            value: receiverAddrCombo.editText
+                        }
+                    }
                 }
 
                 Item {
@@ -297,8 +314,7 @@ Item {
 
                                     text: viewModel.sendAmount
 
-                                    // TODO: here should be proper validator
-                                    // validator: DoubleValidator{bottom: 0; top: 210000000;}
+                                    validator: RegExpValidator { regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,5}[1-9])?$/ }
                                     selectByMouse: true
                                 }
 
@@ -332,49 +348,7 @@ Item {
                     ColumnLayout {
                         width: parent.width
 
-                        spacing: 12
-
-                        SFText {
-                            font.pixelSize: 14
-                            font.weight: Font.Bold
-                            color: Style.white
-                            text: qsTr("Peer address")
-                        }
-                        
-                        AddressComboBox {
-                            Layout.fillWidth: true
-
-                            id: receiverAddrCombo
-                            editable: true
-                            editText: viewModel.receiverAddr
-                            model: addressBookViewModel.peerAddresses
-                            color: Style.white
-                            font.pixelSize: 14
-                            validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
-                            onEditTextChanged: {
-                                var i = find(editText);
-                                receiverName.text = i >= 0 ? addressBookViewModel.peerAddresses[i].name : "";
-                            }
-                        }
-
-                        SFText {
-                            id: receiverName
-                            color: Style.white
-                            font.pixelSize: 14
-                            font.weight: Font.Bold
-                        }
-
-                        Binding {
-                            target: viewModel
-                            property: "senderAddr"
-                            value: senderAddrCombo.editText
-                        }
-
-                        Binding {
-                            target: viewModel
-                            property: "receiverAddr"
-                            value: receiverAddrCombo.editText
-                        }
+                        spacing: 12                        
 
                         SFText {
                             font.pixelSize: 14
@@ -392,6 +366,12 @@ Item {
 
                             // TODO: here should be proper validator (max text length 200)
                             selectByMouse: true
+                        }
+
+                        Binding {
+                            target: viewModel
+                            property: "comment"
+                            value: comment_input.text
                         }
                     }
                 }
@@ -1016,11 +996,10 @@ Item {
             name: "send"
             PropertyChanges {target: wallet_layout; visible: false}
             PropertyChanges {target: send_layout; visible: true}
-            PropertyChanges {target: senderAddrCombo; currentIndex: -1}
             PropertyChanges {target: receiverAddrCombo; currentIndex: -1}
             PropertyChanges {target: amount_input; text: ""}
              StateChangeScript {
-                script: senderAddrCombo.forceActiveFocus(Qt.TabFocusReason);
+                script: receiverAddrCombo.forceActiveFocus(Qt.TabFocusReason);
             }
         },
 

@@ -500,6 +500,7 @@ Item
                 echoMode: TextInput.Password
 				onAccepted: btnCurrentWallet.clicked()
                 onTextChanged: if (openPassword.text.length > 0) openPasswordError.text = ""
+
             }
 
             SFText {

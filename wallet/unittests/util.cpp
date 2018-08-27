@@ -217,7 +217,7 @@ IKeyChain::Ptr init_keychain(const std::string& path, uintBig* walletSeed) {
     Hash::Processor() << password.c_str() >> hv;
     seed.V = hv;
 
-    auto keychain = Keychain::init(path, string_view(password), seed);
+    auto keychain = Keychain::init(path, password, seed);
 
     if (walletSeed) {
         TreasuryBlockGenerator tbg;

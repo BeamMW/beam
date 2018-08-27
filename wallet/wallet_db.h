@@ -32,7 +32,8 @@ namespace beam
             Unconfirmed,
             Unspent,
             Locked,
-            Spent
+            Spent,
+            Draft
         };
 
         Coin(const ECC::Amount& amount
@@ -76,14 +77,14 @@ namespace beam
         bool m_own;
     };
 
-	struct IKeyChainObserver
-	{
-		virtual void onKeychainChanged() = 0;
-		virtual void onTransactionChanged() = 0;
-		virtual void onSystemStateChanged() = 0;
-		virtual void onTxPeerChanged() = 0;
+    struct IKeyChainObserver
+    {
+        virtual void onKeychainChanged() = 0;
+        virtual void onTransactionChanged() = 0;
+        virtual void onSystemStateChanged() = 0;
+        virtual void onTxPeerChanged() = 0;
         virtual void onAddressChanged() = 0;
-	};
+    };
 
     struct IKeyChain
     {
@@ -92,21 +93,22 @@ namespace beam
 
         
         virtual ECC::Scalar::Native calcKey(const beam::Coin& coin) const = 0;
-		virtual void get_IdentityKey(ECC::Scalar::Native&) const = 0;
+        virtual void get_IdentityKey(ECC::Scalar::Native&) const = 0;
 
         virtual std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) = 0;
+        virtual std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
         virtual void store(beam::Coin& coin) = 0;
         virtual void store(std::vector<beam::Coin>& coins) = 0;
         virtual void update(const std::vector<beam::Coin>& coins) = 0;
         virtual void update(const beam::Coin& coin) = 0;
         virtual void remove(const std::vector<beam::Coin>& coins) = 0;
         virtual void remove(const beam::Coin& coin) = 0;
-		virtual void clear() = 0;
+        virtual void clear() = 0;
 
-		virtual void visit(std::function<bool(const beam::Coin& coin)> func) = 0;
+        virtual void visit(std::function<bool(const beam::Coin& coin)> func) = 0;
 
-		virtual void setVarRaw(const char* name, const void* data, int size) = 0;
-		virtual int getVarRaw(const char* name, void* data) const = 0;
+        virtual void setVarRaw(const char* name, const void* data, int size) = 0;
+        virtual int getVarRaw(const char* name, void* data) const = 0;
         virtual bool getBlob(const char* name, ByteBuffer& var) const = 0;
         virtual Height getCurrentHeight() const = 0;
         virtual uint64_t getKnownStateCount() const = 0;
@@ -124,31 +126,31 @@ namespace beam
         virtual std::vector<TxPeer> getPeers() = 0;
         virtual void addPeer(const TxPeer&) = 0;
         virtual boost::optional<TxPeer> getPeer(const WalletID&) = 0;
-		virtual void clearPeers() = 0;
+        virtual void clearPeers() = 0;
 
         virtual std::vector<WalletAddress> getAddresses(bool own) = 0;
         virtual void saveAddress(const WalletAddress&) = 0;
         virtual void deleteAddress(const WalletID&) = 0;
 
-		template <typename Var>
-		void setVar(const char* name, const Var& var)
-		{
-			setVarRaw(name, &var, sizeof(var));
-		}
+        template <typename Var>
+        void setVar(const char* name, const Var& var)
+        {
+            setVarRaw(name, &var, sizeof(var));
+        }
 
-		template <typename Var>
-		bool getVar(const char* name, Var& var) const
-		{
-			return getVarRaw(name, &var) == sizeof(var);
-		}
+        template <typename Var>
+        bool getVar(const char* name, Var& var) const
+        {
+            return getVarRaw(name, &var) == sizeof(var);
+        }
 
         virtual Timestamp getLastUpdateTime() const = 0;
-		virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
-		virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
+        virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
+        virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
 
-		virtual void subscribe(IKeyChainObserver* observer) = 0;
-		virtual void unsubscribe(IKeyChainObserver* observer) = 0;
-	};
+        virtual void subscribe(IKeyChainObserver* observer) = 0;
+        virtual void unsubscribe(IKeyChainObserver* observer) = 0;
+    };
 
     struct Keychain : IKeyChain
     {
@@ -160,20 +162,21 @@ namespace beam
         ~Keychain();
 
         ECC::Scalar::Native calcKey(const beam::Coin& coin) const override;
-		void get_IdentityKey(ECC::Scalar::Native&) const override;
-		std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) override;
+        void get_IdentityKey(ECC::Scalar::Native&) const override;
+        std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) override;
+        std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override;
         void store(beam::Coin& coin) override;
         void store(std::vector<beam::Coin>& coins) override;
         void update(const std::vector<beam::Coin>& coins) override;
         void update(const beam::Coin& coin) override;
         void remove(const std::vector<beam::Coin>& coins) override;
         void remove(const beam::Coin& coin) override;
-		void clear() override;
+        void clear() override;
 
-		void visit(std::function<bool(const beam::Coin& coin)> func) override;
+        void visit(std::function<bool(const beam::Coin& coin)> func) override;
 
-		void setVarRaw(const char* name, const void* data, int size) override;
-		int getVarRaw(const char* name, void* data) const override;
+        void setVarRaw(const char* name, const void* data, int size) override;
+        int getVarRaw(const char* name, void* data) const override;
         bool getBlob(const char* name, ByteBuffer& var) const override;
         Height getCurrentHeight() const override;
         uint64_t getKnownStateCount() const override;
@@ -189,37 +192,37 @@ namespace beam
         std::vector<TxPeer> getPeers() override;
         void addPeer(const TxPeer&) override;
         boost::optional<TxPeer> getPeer(const WalletID&) override;
-		void clearPeers() override;
+        void clearPeers() override;
 
         std::vector<WalletAddress> getAddresses(bool own) override;
         void saveAddress(const WalletAddress&) override;
         void deleteAddress(const WalletID&) override;
 
         Timestamp getLastUpdateTime() const override;
-		void setSystemStateID(const Block::SystemState::ID& stateID) override;
-		bool getSystemStateID(Block::SystemState::ID& stateID) const override;
+        void setSystemStateID(const Block::SystemState::ID& stateID) override;
+        bool getSystemStateID(Block::SystemState::ID& stateID) const override;
 
-		void subscribe(IKeyChainObserver* observer) override;
-		void unsubscribe(IKeyChainObserver* observer) override;
+        void subscribe(IKeyChainObserver* observer) override;
+        void unsubscribe(IKeyChainObserver* observer) override;
     private:
         void storeImpl(Coin& coin);
-		void notifyKeychainChanged();
-		void notifyTransactionChanged();
-		void notifySystemStateChanged();
+        void notifyKeychainChanged();
+        void notifyTransactionChanged();
+        void notifySystemStateChanged();
         void notifyAddressChanged();
     private:
 
         sqlite3* _db;
         ECC::Kdf m_kdf;
 
-		std::vector<IKeyChainObserver*> m_subscribers;
+        std::vector<IKeyChainObserver*> m_subscribers;
     };
 
-	namespace wallet
-	{
-		Amount getAvailable(beam::IKeyChain::Ptr keychain);
-		Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType);
-		Amount getTotal(beam::IKeyChain::Ptr keychain, Coin::Status status);
-		Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType);
-	}
+    namespace wallet
+    {
+        Amount getAvailable(beam::IKeyChain::Ptr keychain);
+        Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType);
+        Amount getTotal(beam::IKeyChain::Ptr keychain, Coin::Status status);
+        Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType);
+    }
 }
