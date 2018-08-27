@@ -147,4 +147,27 @@ namespace beam {
 		}
 	}
 
+	int uintBigImpl::_Cmp(const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1)
+	{
+		if (nSrc0 > nSrc1)
+		{
+			uint32_t diff = nSrc0 - nSrc1;
+			if (!memis0(pSrc0, diff))
+				return 1;
+
+			pSrc0 += diff;
+			nSrc0 = nSrc1;
+		} else
+			if (nSrc0 < nSrc1)
+			{
+				uint32_t diff = nSrc1 - nSrc0;
+				if (!memis0(pSrc1, diff))
+					return -1;
+
+				pSrc1 += diff;
+			}
+
+		return memcmp(pSrc0, pSrc1, nSrc0);
+	}
+
 } // namespace beam

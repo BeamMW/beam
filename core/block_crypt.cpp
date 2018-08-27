@@ -784,7 +784,7 @@ namespace beam
 		Hi -= x.Hi;
 	}
 
-	void AmountBig::Export(ECC::uintBig& x) const
+	void AmountBig::Export(uintBig& x) const
 	{
 		x = Zero;
 		x.AssignRange<Amount, 0>(Lo);
@@ -795,8 +795,11 @@ namespace beam
 	{
 		if (Hi)
 		{
+			uintBig val;
+			Export(val);
+
 			ECC::Scalar s;
-			Export(s.m_Value);
+			s.m_Value = val;
 			res += ECC::Context::get().H_Big * s;
 		}
 		else
@@ -1026,33 +1029,30 @@ namespace beam
 		// check the subsidy is within allowed range
 		Height nBlocksInRange = m_Height.m_Max - m_Height.m_Min + 1;
 
-		ECC::uintBig ubSubsidy, ubCoinbase, mul;
+		AmountBig::uintBig ubSubsidy;
 		bb.m_Subsidy.Export(ubSubsidy);
 
-		mul = Rules::get().CoinbaseEmission;
-		ubCoinbase = nBlocksInRange;
-		ubCoinbase = ubCoinbase * mul;
+		auto ubBlockEmission = uintBigFrom(Rules::get().CoinbaseEmission);
 
-		if (ubSubsidy > ubCoinbase)
+		if (ubSubsidy > uintBigFrom(nBlocksInRange) * ubBlockEmission)
 			return false;
 
 		// ensure there's a minimal unspent coinbase UTXOs
 		if (nBlocksInRange > Rules::get().MaturityCoinbase)
 		{
 			// some UTXOs may be spent already. Calculate the minimum remaining
-			nBlocksInRange -= Rules::get().MaturityCoinbase;
-			ubCoinbase = nBlocksInRange;
-			ubCoinbase = ubCoinbase * mul;
+			auto ubCoinbaseMaxSpent = uintBigFrom(nBlocksInRange - Rules::get().MaturityCoinbase) * ubBlockEmission;
 
-			if (ubSubsidy > ubCoinbase)
+			if (ubSubsidy > ubCoinbaseMaxSpent)
 			{
-				ubCoinbase.Negate();
-				ubSubsidy += ubCoinbase;
+				ubCoinbaseMaxSpent.Negate();
+				ubSubsidy += ubCoinbaseMaxSpent;
 
 			} else
 				ubSubsidy = Zero;
 		}
 
+		AmountBig::uintBig ubCoinbase;
 		m_Coinbase.Export(ubCoinbase);
 		return (ubCoinbase >= ubSubsidy);
 	}

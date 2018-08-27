@@ -93,12 +93,14 @@ namespace beam
 		Amount Lo;
 		Amount Hi;
 
+		typedef uintBig_t<(sizeof(Amount) << 4)> uintBig; // 128 bits
+
 		void operator += (const Amount);
 		void operator -= (const Amount);
 		void operator += (const AmountBig&);
 		void operator -= (const AmountBig&);
 
-		void Export(ECC::uintBig&) const;
+		void Export(uintBig&) const;
 		void AddTo(ECC::Point::Native&) const;
 	};
 

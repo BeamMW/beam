@@ -36,8 +36,55 @@ namespace beam
 		static void _Xor(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc);
 
 		static void _Mul(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
-
+		static int _Cmp(const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
 		static void _Print(const uint8_t* pDst, uint32_t nDst, std::ostream&);
+
+		template <typename T>
+		static void _AssignRangeAligned(uint8_t* pDst, uint32_t nDst, T x, uint32_t nOffsetBytes, uint32_t nBytesX)
+		{
+			static_assert(T(-1) > 0, "must be unsigned");
+
+			assert(nDst >= nBytesX + nOffsetBytes);
+			nDst -= (nOffsetBytes + nBytesX);
+
+			for (uint32_t i = nBytesX; i--; x >>= 8)
+				pDst[nDst + i] = (uint8_t) x;
+		}
+
+		template <typename T>
+		static bool _AssignRangeAlignedSafe(uint8_t* pDst, uint32_t nDst, T x, uint32_t nOffsetBytes, uint32_t nBytesX) // returns false if truncated
+		{
+			if (nDst < nOffsetBytes)
+				return false;
+
+			uint32_t n = nDst - nOffsetBytes;
+			bool b = (nBytesX <= n);
+
+			_AssignRangeAligned<T>(pDst, nDst, x, nOffsetBytes, b ? nBytesX : n);
+			return b;
+		}
+
+		template <typename T>
+		static bool _AssignSafe(uint8_t* pDst, uint32_t nDst, T x, uint32_t nOffset) // returns false if truncated
+		{
+			uint32_t nOffsetBytes = nOffset >> 3;
+			nOffset &= 7;
+
+			if (!_AssignRangeAlignedSafe<T>(pDst, nDst, x << nOffset, nOffsetBytes, sizeof(x)))
+				return false;
+
+			if (nOffset)
+			{
+				nOffsetBytes += sizeof(x);
+				if (nDst - 1 < nOffsetBytes)
+					return false;
+
+				uint8_t resid = x >> ((sizeof(x) << 3) - nOffset);
+				pDst[nDst - 1 - nOffsetBytes] = resid;
+			}
+
+			return true;
+		}
 	};
 
 	template <uint32_t nBits_>
@@ -79,7 +126,7 @@ namespace beam
 		template <typename T>
 		uintBig_t(T x)
 		{
-			operator = (x);
+			AssignOrdinal(x);
 		}
 
 		// in Big-Endian representation
@@ -103,24 +150,19 @@ namespace beam
 			return memis0(m_pData, nBytes);
 		}
 
+		template <typename T>
+		void AssignOrdinal(T x)
+		{
+			memset0(m_pData, nBytes - sizeof(x));
+			AssignRange<T, 0>(x);
+		}
+
 		// from ordinal types (unsigned)
 		template <typename T>
 		uintBig_t& operator = (T x)
 		{
-			memset0(m_pData, nBytes - sizeof(x));
-			AssignRange<T, 0>(x);
-
+			AssignOrdinal(x);
 			return *this;
-		}
-
-		template <typename T>
-		void AssignRangeAligned(T x, uint32_t nOffsetBytes, uint32_t nBytes_)
-		{
-			assert(nBytes >= nBytes_ + nOffsetBytes);
-			static_assert(T(-1) > 0, "must be unsigned");
-
-			for (uint32_t i = 0; i < nBytes_; i++, x >>= 8)
-				m_pData[nBytes - 1 - nOffsetBytes - i] = (uint8_t) x;
 		}
 
 		template <typename T, uint32_t nOffset>
@@ -129,44 +171,13 @@ namespace beam
 			static_assert(!(nOffset & 7), "offset must be on byte boundary");
 			static_assert(nBytes >= sizeof(x) + (nOffset >> 3), "too small");
 
-			AssignRangeAligned<T>(x, nOffset >> 3, sizeof(x));
-		}
-
-		template <typename T>
-		bool AssignRangeAlignedSafe(T x, uint32_t nOffsetBytes, uint32_t nBytes_) // returns false if truncated
-		{
-			if (nBytes < nOffsetBytes)
-				return false;
-
-			uint32_t n = nBytes - nOffsetBytes;
-			bool b = (nBytes_ <= n);
-
-			AssignRangeAligned<T>(x, nOffsetBytes, b ? nBytes_ : n);
-			return b;
+			_AssignRangeAligned<T>(m_pData, nBytes, x, nOffset >> 3, sizeof(x));
 		}
 
 		template <typename T>
 		bool AssignSafe(T x, uint32_t nOffset) // returns false if truncated
 		{
-			static_assert(T(-1) > 0, "must be unsigned");
-
-			uint32_t nOffsetBytes = nOffset >> 3;
-			nOffset &= 7;
-
-			if (!AssignRangeAlignedSafe<T>(x << nOffset, nOffsetBytes, sizeof(x)))
-				return false;
-
-			if (nOffset)
-			{
-				nOffsetBytes += sizeof(x);
-				if (nBytes - 1 < nOffsetBytes)
-					return false;
-
-				uint8_t resid = x >> ((sizeof(x) << 3) - nOffset);
-				m_pData[nBytes - 1 - nOffsetBytes] = resid;
-			}
-
-			return true;
+			return _AssignSafe(m_pData, nBytes, x, nOffset);
 		}
 
 		void Inc()
@@ -211,7 +222,11 @@ namespace beam
 			_Xor(m_pData, nBytes, x.m_pData, x.nBytes);
 		}
 
-		int cmp(const uintBig_t& x) const { return memcmp(m_pData, x.m_pData, nBytes); }
+		template <uint32_t nBitsOther_>
+		int cmp(const uintBig_t<nBitsOther_>& x) const
+		{
+			return _Cmp(m_pData, nBytes, x.m_pData, x.nBytes);
+		}
 
 		COMPARISON_VIA_CMP
 
@@ -221,5 +236,15 @@ namespace beam
 			return s;
 		}
 	};
+
+	template <typename T>
+	struct uintBigFor {
+		typedef uintBig_t<(sizeof(T) << 3)> Type;
+	};
+
+	template <typename T>
+	inline typename uintBigFor<T>::Type uintBigFrom(T x) {
+		return typename uintBigFor<T>::Type(x);
+	}
 
 } // namespace beam
