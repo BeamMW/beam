@@ -353,6 +353,12 @@ Item {
                             // TODO: here should be proper validator (max text length 200)
                             selectByMouse: true
                         }
+
+                        Binding {
+                            target: viewModel
+                            property: "comment"
+                            value: comment_input.text
+                        }
                     }
                 }
 
