@@ -42,7 +42,7 @@ Dialog {
             id: okButton
 			palette.button: Style.bright_teal
 			height: 38
-            width: 166
+            width: 122
 			text: qsTr("delete")
 			palette.buttonText: Style.marine
             DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole

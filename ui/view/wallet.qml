@@ -104,7 +104,7 @@ Item {
                 font.pixelSize: 18
                 font.weight: Font.Bold
                 color: Style.white
-                text: "Receive money"
+                text: "Receive Beam"
             }
 
             SFText {
@@ -224,7 +224,7 @@ Item {
                 font.pixelSize: 18
                 font.weight: Font.Bold
                 color: Style.white
-                text: "Send money"
+                text: "Send Beam"
             }
 
             RowLayout {
@@ -546,8 +546,8 @@ Item {
                 }
 
                 CustomButton {
-                    width: 149
-                    text: qsTr("send money")
+                    width: 122
+                    text: qsTr("send")
                     palette.buttonText: Style.marine
                     palette.button: Style.heliotrope
                     icon.source: "qrc:///assets/icon-send.svg"
@@ -584,11 +584,11 @@ Item {
                 palette.button: Style.bright_sky_blue
                 palette.buttonText: Style.marine
                 height: 38
-                width: 186
+                width: 122
                 icon.source: "qrc:///assets/icon-receive-blue.svg"
                 icon.height: 16
                 icon.width: 16
-                text: qsTr("receive money")
+                text: qsTr("receive")
 
                 onClicked: {
                     viewModel.generateNewAddress();
@@ -603,8 +603,8 @@ Item {
                 icon.height: 16
                 icon.width: 16
                 height: 38
-                width: 169
-                text: qsTr("send money")
+                width: 122
+                text: qsTr("send")
 
                 onClicked: root.state = "send"
             }
