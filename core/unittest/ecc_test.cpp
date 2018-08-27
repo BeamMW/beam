@@ -859,8 +859,7 @@ void TestDifficulty()
 	Difficulty(Difficulty::s_Inf - 1).Unpack(r2);
 	verify_test(r1 > r2);
 
-	uintBig val;
-	val = Zero;
+	uintBig val(Zero);
 
 	verify_test(Difficulty(Difficulty::s_Inf).IsTargetReached(val));
 
@@ -961,10 +960,6 @@ void TestAll()
 	TestAES();
 	TestBbs();
 	TestDifficulty();
-
-	uintBig val;
-	for (int i = 0; i < 10; i++)
-		GenRandom(val.m_pData, val.nBytes);
 }
 
 

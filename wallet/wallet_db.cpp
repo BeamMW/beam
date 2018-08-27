@@ -599,6 +599,7 @@ namespace beam
 		, m_key_type{ keyType }
         , m_confirmHeight{ confirmHeight }
         , m_lockedHeight{ lockedHeight }
+		, m_confirmHash(Zero)
 	{
         assert(isValid());
 	}

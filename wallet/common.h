@@ -118,7 +118,7 @@ namespace beam
                 : m_amount(0)
                 , m_fee(0)
                 , m_send{true}
-                
+                , m_from(Zero)
             {
 
             }

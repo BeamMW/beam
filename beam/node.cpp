@@ -533,8 +533,7 @@ void Node::Initialize()
 
 	for (uint32_t i = 0; i < m_Cfg.m_Connect.size(); i++)
 	{
-		PeerID id0;
-		id0 = ECC::Zero;
+		PeerID id0(Zero);
 		m_PeerMan.OnPeer(id0, m_Cfg.m_Connect[i], true);
 	}
 
@@ -1887,7 +1886,7 @@ void Node::Miner::OnMined()
 
 	LOG_INFO() << "New block mined: " << id;
 
-	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, PeerID());
+	NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, get_ParentObj().m_MyPublicID);
 	switch (eStatus)
 	{
 	default:
@@ -1912,7 +1911,7 @@ void Node::Miner::OnMined()
 
 	get_ParentObj().m_Processor.get_DB().SetMined(sid, pTask->m_Fees); // ding!
 
-	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, PeerID()); // will likely trigger OnNewState(), and spread this block to the network
+	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, get_ParentObj().m_MyPublicID); // will likely trigger OnNewState(), and spread this block to the network
 	assert(NodeProcessor::DataStatus::Accepted == eStatus);
 }
 

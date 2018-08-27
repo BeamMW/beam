@@ -477,8 +477,7 @@ void NodeConnection::GenerateSChannelNonce(ECC::Scalar::Native& sk)
 	ECC::NoLeak<ECC::uintBig> secret;
 	ECC::GenRandom(secret.V.m_pData, secret.V.nBytes);
 
-	ECC::Hash::Value hv;
-	hv = ECC::Zero;
+	ECC::Hash::Value hv(ECC::Zero);
 	sk.GenerateNonce(secret.V, hv, NULL);
 }
 

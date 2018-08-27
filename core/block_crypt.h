@@ -657,8 +657,9 @@ namespace beam
 		};
 
 		ChainWorkProof()
+			:m_LowerBound(Zero) // uncroppped by default
+			,m_hvRootLive(Zero)
 		{
-			m_LowerBound = ECC::Zero; // uncroppped by default
 		}
 
 		void Create(ISource&, const SystemState::Full& sRoot);

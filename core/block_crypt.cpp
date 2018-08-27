@@ -1727,9 +1727,10 @@ namespace beam
 
 		Difficulty::Raw m_Begin;
 		Difficulty::Raw m_End;
-		Difficulty::Raw m_LowerBound;
+		const Difficulty::Raw& m_LowerBound;
 
-		Sampler(const SystemState::Full& sTip)
+		Sampler(const SystemState::Full& sTip, const Difficulty::Raw& lowerBound)
+			:m_LowerBound(lowerBound)
 		{
 			ECC::Hash::Value hv;
 			sTip.get_Hash(hv);
@@ -1840,8 +1841,7 @@ namespace beam
 
 	void Block::ChainWorkProof::Create(ISource& src, const SystemState::Full& sRoot)
 	{
-		Sampler samp(sRoot);
-		samp.m_LowerBound = m_LowerBound;
+		Sampler samp(sRoot, m_LowerBound);
 
 		struct MyBuilder
 			:public Merkle::MultiProof::Builder
@@ -1935,11 +1935,9 @@ namespace beam
 		const SystemState::Full& sRoot = m_vStates.front();
 		MyVerifier ver(*this, sRoot.m_Height - Rules::HeightGenesis);
 
-		Sampler samp(sRoot);
+		Sampler samp(sRoot, m_LowerBound);
 		if (samp.m_Begin >= samp.m_End) // overflow attack?
 			return false;
-
-		samp.m_LowerBound = m_LowerBound;
 
 		Difficulty::Raw dLoPrev;
 		sRoot.m_PoW.m_Difficulty.Dec(dLoPrev, sRoot.m_ChainWork);

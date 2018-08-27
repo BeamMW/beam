@@ -30,8 +30,15 @@ namespace beam
 
         uintBig_t()
         {
-            ZeroObject(m_pData);
+#ifdef _DEBUG
+			memset(m_pData, 0xcd, nBytes);
+#endif // _DEBUG
         }
+
+		uintBig_t(Zero_)
+		{
+			ZeroObject(m_pData);
+		}
 
 		uintBig_t(const uint8_t p[nBytes])
 		{
@@ -170,8 +177,7 @@ namespace beam
 
 		uintBig_t operator * (const uintBig_t& x) const
 		{
-			uintBig_t res;
-			res = Zero;
+			uintBig_t res(Zero);
 
 			for (size_t j = 0; j < nBytes; j++)
 			{
