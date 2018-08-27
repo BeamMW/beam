@@ -1500,6 +1500,8 @@ bool Node::Processor::BuildCwp()
 
 	m_Cwp.Create(src, m_Cursor.m_Full);
 	get_CurrentLive(m_Cwp.m_hvRootLive);
+
+	return true;
 }
 
 void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
