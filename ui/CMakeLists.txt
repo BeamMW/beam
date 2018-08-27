@@ -1,4 +1,4 @@
-set (TARGET_NAME "beam-wallet")
+set (TARGET_NAME "beam-wallet-ui")
 if(LINUX)
     set (OUTPUT_NAME "BeamWallet")
 else()
@@ -78,7 +78,6 @@ if(APPLE)
 endif()
 
 configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
-target_include_directories(beam PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 add_dependencies(${TARGET_NAME} wallet)
 
