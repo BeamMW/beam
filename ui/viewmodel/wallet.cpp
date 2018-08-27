@@ -99,7 +99,7 @@ beam::WalletID TxObject::peerId() const
 
 WalletViewModel::WalletViewModel()
     : _model(*AppModel::getInstance()->getWallet())
-    , _status{ 0, 0, 0, 0, {0, 0, 0} }
+    , _status{ 0, 0, 0, 0, {0, 0, 0}, {} }
     , _sendAmount("0")
     , _feeMils("0")
     , _change(0)

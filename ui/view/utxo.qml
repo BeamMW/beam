@@ -17,6 +17,22 @@ ColumnLayout {
         text: qsTr("UTXO")
     }
 
+	SFText {
+        Layout.minimumHeight: 40
+        Layout.maximumHeight: 40
+        font.pixelSize: 14
+        color: Style.white
+        text: qsTr("Current height") + ": " + viewModel.currentHeight
+    }
+
+	SFText {
+        Layout.minimumHeight: 40
+        Layout.maximumHeight: 40
+        font.pixelSize: 14
+        color: Style.white
+        text: qsTr("Current state hash") + ": " + viewModel.currentStateHash
+    }
+
 	CustomTableView {
 		Layout.fillWidth: true
 		Layout.fillHeight: true

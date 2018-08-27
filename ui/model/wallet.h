@@ -51,13 +51,14 @@ struct WalletStatus
     beam::Amount received;
     beam::Amount sent;
     beam::Amount unconfirmed;
-
     struct
     {
         beam::Timestamp lastTime;
         int done;
         int total;
     } update;
+
+    beam::Block::SystemState::ID stateID;
 };
 
 class WalletModel
