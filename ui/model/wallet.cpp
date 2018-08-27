@@ -370,6 +370,7 @@ void WalletModel::calcChange(beam::Amount&& amount)
 void WalletModel::getAllUtxos()
 {
     emit onAllUtxoChanged(getUtxos());
+    onKeychainChanged();
 }
 
 void WalletModel::getAddresses(bool own)
