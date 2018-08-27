@@ -114,7 +114,7 @@ namespace beam
 		const uint32_t nOrd = 3;
 		const uint32_t hFork0 = 70;
 
-		Merkle::Hash hvZero = { 0 };
+		Merkle::Hash hvZero(Zero);
 
 		std::vector<Block::SystemState::Full> vStates;
 		vStates.resize(hMax);

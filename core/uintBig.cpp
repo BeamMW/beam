@@ -22,24 +22,129 @@ namespace beam {
 		return v + ((v < 10) ? '0' : ('a' - 10));
 	}
 
-	std::ostream& operator << (std::ostream& s, const uintBig_t<256>& x)
+	void uintBigImpl::_Print(const uint8_t* pDst, uint32_t nDst, std::ostream& s)
 	{
-		const int nDigits = 8; // truncated
-		//static_assert(nDigits <= x.nBytes);
+		const uint32_t nDigitsMax = 8;
+		if (nDst > nDigitsMax)
+			nDst = nDigitsMax; // truncate
 
-		char sz[nDigits * 2 + 1];
+		char sz[nDigitsMax * 2 + 1];
 
-		for (int i = 0; i < nDigits; i++)
+		for (uint32_t i = 0; i < nDst; i++)
 		{
-			sz[i * 2] = ChFromHex(x.m_pData[i] >> 4);
-			sz[i * 2 + 1] = ChFromHex(x.m_pData[i] & 0xf);
+			sz[i * 2] = ChFromHex(pDst[i] >> 4);
+			sz[i * 2 + 1] = ChFromHex(pDst[i] & 0xf);
 		}
 
-		sz[_countof(sz) - 1] = 0;
+		sz[nDst << 1] = 0;
 		s << sz;
-
-		return s;
 	}
 
+	void uintBigImpl::_Assign(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc)
+	{
+		if (nSrc >= nDst)
+			memcpy(pDst, pSrc + nSrc - nDst, nDst);
+		else
+		{
+			memset0(pDst, nDst - nSrc);
+			memcpy(pDst + nDst - nSrc, pSrc, nSrc);
+		}
+	}
+
+	uint8_t uintBigImpl::_Inc(uint8_t* pDst, uint32_t nDst)
+	{
+		for (uint32_t i = nDst; i--; )
+			if (++pDst[i])
+				return 0;
+
+		return 1;
+	}
+
+	uint8_t uintBigImpl::_Inc(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc)
+	{
+		uint16_t carry = 0;
+		for (uint32_t i = nDst; i--; )
+		{
+			carry += pDst[i];
+			carry += pSrc[i];
+
+			pDst[i] = (uint8_t) carry;
+			carry >>= 8;
+		}
+
+		return (uint8_t) carry;
+	}
+
+	uint8_t uintBigImpl::_Inc(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc)
+	{
+		if (nDst <= nSrc)
+			return _Inc(pDst, nDst, pSrc + nSrc - nDst); // src is at least our size
+
+		if (!_Inc(pDst + nDst - nSrc, nSrc, pSrc))
+			return 0;
+
+		// propagete carry
+		return _Inc(pDst, nDst - nSrc);
+	}
+
+	void uintBigImpl::_Inv(uint8_t* pDst, uint32_t nDst)
+	{
+		for (uint32_t i = nDst; i--; )
+			pDst[i] ^= 0xff;
+	}
+
+	void uintBigImpl::_Xor(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc)
+	{
+		for (uint32_t i = nDst; i--; )
+			pDst[i] ^= pSrc[i];
+	}
+
+	void uintBigImpl::_Xor(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc)
+	{
+		if (nDst <= nSrc)
+			_Xor(pDst, nDst, pSrc + nSrc - nDst); // src is at least our size
+		else
+			_Xor(pDst + nDst - nSrc, nSrc, pSrc);
+	}
+
+	void uintBigImpl::_Mul(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1)
+	{
+		memset0(pDst, nDst);
+
+		if (nSrc0 > nDst)
+		{
+			pSrc0 += nSrc0 - nDst;
+			nSrc0 = nDst;
+		}
+
+		if (nSrc1 > nDst)
+		{
+			pSrc1 += nSrc1 - nDst;
+			nSrc1 = nDst;
+		}
+
+		int32_t nDelta = nSrc0 + nSrc1 - nDst - 1;
+
+		for (uint32_t i0 = nSrc0; i0--; )
+		{
+			uint8_t x0 = pSrc0[i0];
+			uint16_t carry = 0;
+
+			uint32_t iDst = i0 - nDelta; // don't care if overflows
+			uint32_t i1Min = (iDst > nDst) ? (-iDst) : 0;
+			for (uint32_t i1 = nSrc1; i1-- > i1Min; )
+			{
+				uint8_t& dst = pDst[iDst + i1];
+
+				uint16_t x1 = pSrc1[i1];
+				x1 *= x0;
+				carry += x1;
+				carry += dst;
+
+				dst = (uint8_t) carry;
+				carry >>= 8;
+			}
+		}
+	}
 
 } // namespace beam

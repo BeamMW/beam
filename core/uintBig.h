@@ -20,8 +20,29 @@ namespace beam
 	// Syntactic sugar!
 	enum Zero_ { Zero };
 
+	// Simple arithmetics. For casual use only (not performance-critical)
+
+	class uintBigImpl {
+	protected:
+		void _Assign(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc);
+
+		// all those return carry (exceeding byte)
+		static uint8_t _Inc(uint8_t* pDst, uint32_t nDst);
+		static uint8_t _Inc(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc);
+		static uint8_t _Inc(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc);
+
+		static void _Inv(uint8_t* pDst, uint32_t nDst);
+		static void _Xor(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc);
+		static void _Xor(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc);
+
+		static void _Mul(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
+
+		static void _Print(const uint8_t* pDst, uint32_t nDst, std::ostream&);
+	};
+
 	template <uint32_t nBits_>
 	struct uintBig_t
+		:public uintBigImpl
 	{
 		static_assert(!(7 & nBits_), "should be byte-aligned");
 
@@ -47,12 +68,12 @@ namespace beam
 
         uintBig_t(const std::initializer_list<uint8_t>& v)
         {
-			FromArray(v.begin(), v.size());
+			_Assign(m_pData, nBytes, v.begin(), v.size());
         }
 
 		uintBig_t(const std::vector<uint8_t>& v)
 		{
-			FromArray(v.empty() ? NULL : &v.at(0), v.size());
+			_Assign(m_pData, nBytes, v.empty() ? NULL : &v.at(0), v.size());
 		}
 
 		// in Big-Endian representation
@@ -67,19 +88,8 @@ namespace beam
 		template <uint32_t nBitsOther_>
 		uintBig_t& operator = (const uintBig_t<nBitsOther_>& v)
 		{
-			FromArray(v.m_pData, v.nBytes);
+			_Assign(m_pData, nBytes, v.m_pData, v.nBytes);
 			return *this;
-		}
-
-		void FromArray(const uint8_t* p, uint32_t nBytes_)
-		{
-			if (nBytes_ >= nBytes)
-				memcpy(m_pData, p + nBytes_ - nBytes, nBytes);
-			else
-			{
-				memset0(m_pData, nBytes - nBytes_);
-				memcpy(m_pData + nBytes - nBytes_, p, nBytes_);
-			}
 		}
 
 		bool operator == (Zero_) const
@@ -155,54 +165,32 @@ namespace beam
 
 		void Inc()
 		{
-			for (uint32_t i = nBytes; i--; )
-				if (++m_pData[i])
-					break;
-
+			_Inc(m_pData, nBytes);
 		}
 
-		// Simple arithmetics. For casual use only (not performance-critical)
-		void operator += (const uintBig_t& x)
+		template <uint32_t nBitsOther_>
+		void operator += (const uintBig_t<nBitsOther_>& x)
 		{
-			uint16_t carry = 0;
-			for (int i = nBytes; i--; )
-			{
-				carry += m_pData[i];
-				carry += x.m_pData[i];
-
-				m_pData[i] = (uint8_t) carry;
-				carry >>= 8;
-			}
+			_Inc(m_pData, nBytes, x.m_pData, x.nBytes);
 		}
 
-		uintBig_t operator * (const uintBig_t& x) const
+		template <uint32_t nBits0, uint32_t nBits1>
+		void AssignMul(const uintBig_t<nBits0>& x0, const uintBig_t<nBits1> & x1)
 		{
-			uintBig_t res(Zero);
+			_Mul(m_pData, nBytes, x0.m_pData, x0.nBytes, x1.m_pData, x1.nBytes);
+		}
 
-			for (size_t j = 0; j < nBytes; j++)
-			{
-				uint8_t y = x.m_pData[nBytes - 1 - j];
-
-				uint16_t carry = 0;
-				for (size_t i = nBytes; i-- > j; )
-				{
-					uint16_t val = m_pData[i];
-					val *= y;
-					carry += val;
-					carry += res.m_pData[i - j];
-
-					res.m_pData[i - j] = (uint8_t) carry;
-					carry >>= 8;
-				}
-			}
-
+		template <uint32_t nBitsOther_>
+		uintBig_t operator * (const uintBig_t<nBitsOther_>& x) const
+		{
+			uintBig_t res;
+			res.AssignMul(*this, x);
 			return res;
 		}
 
 		void Inv()
 		{
-			for (int i = nBytes; i--; )
-				m_pData[i] ^= 0xff;
+			_Inv(m_pData, nBytes);
 		}
 
 		void Negate()
@@ -211,17 +199,21 @@ namespace beam
 			Inc();
 		}
 
-		void operator ^= (const uintBig_t& x)
+		template <uint32_t nBitsOther_>
+		void operator ^= (const uintBig_t<nBitsOther_>& x)
 		{
-			for (unsigned int i = nBytes; i--; )
-				m_pData[i] ^= x.m_pData[i];
+			_Xor(m_pData, nBytes, x.m_pData, x.nBytes);
 		}
 
 		int cmp(const uintBig_t& x) const { return memcmp(m_pData, x.m_pData, nBytes); }
 		COMPARISON_VIA_CMP(uintBig_t)
 
 
-		friend std::ostream& operator<< (std::ostream& stream, const uintBig_t& matrix);
+		friend std::ostream& operator << (std::ostream& s, const uintBig_t& x)
+		{
+			_Print(x.m_pData, x.nBytes, s);
+			return s;
+		}
 	};
 
 } // namespace beam

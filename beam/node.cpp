@@ -1722,9 +1722,9 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 			>> hv;
 
 		static_assert(s.m_PoW.m_Nonce.nBytes <= hv.nBytes);
-		LOG_INFO() << "Mining nonce = " << hv;
-
 		s.m_PoW.m_Nonce = hv;
+
+		LOG_INFO() << "Mining nonce = " << s.m_PoW.m_Nonce;
 
 		Block::PoW::Cancel fnCancel = [this, pTask](bool bRetrying)
 		{
