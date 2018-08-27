@@ -1098,9 +1098,7 @@ bool NodeProcessor::TxPool::Element::Profit::operator < (const Profit& t) const
 	// handle overflow. To be precise need to use big-int (128-bit) arithmetics
 	//	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
 
-	typedef ECC::uintBig_t<128> uint128;
-
-	uint128 f0, s0, f1, s1;
+	uintBig_t<128> f0, s0, f1, s1;
 	f0 = m_Fee;
 	s0 = m_nSize;
 	f1 = t.m_Fee;

@@ -1160,7 +1160,7 @@ namespace beam
 		Raw val;
 		Unpack(val);
 
-		typedef ECC::uintBig_t<ECC::nBits * 2> uintHuge;
+		typedef uintBig_t<ECC::nBits * 2> uintHuge;
 
 		uintHuge a, b;
 		a = hv;

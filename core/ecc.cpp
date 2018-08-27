@@ -39,15 +39,6 @@
 #	include <fcntl.h>
 #endif // WIN32
 
-// misc
-bool memis0(const void* p, size_t n)
-{
-	for (size_t i = 0; i < n; i++)
-		if (((const uint8_t*)p)[i])
-			return false;
-	return true;
-}
-
 namespace ECC {
 
 	//void* NoErase(void*, size_t) { return NULL; }
@@ -71,30 +62,6 @@ namespace ECC {
 	Mode::Scope::~Scope()
 	{
 		g_Mode = m_PrevMode;
-	}
-
-	char ChFromHex(uint8_t v)
-	{
-		return v + ((v < 10) ? '0' : ('a' - 10));
-	}
-
-	std::ostream& operator << (std::ostream& s, const uintBig& x)
-	{
-		const int nDigits = 8; // truncated
-		static_assert(nDigits <= x.nBytes);
-
-		char sz[nDigits * 2 + 1];
-
-		for (int i = 0; i < nDigits; i++)
-		{
-			sz[i * 2] = ChFromHex(x.m_pData[i] >> 4);
-			sz[i * 2 + 1] = ChFromHex(x.m_pData[i] & 0xf);
-		}
-
-		sz[_countof(sz) - 1] = 0;
-		s << sz;
-
-		return s;
 	}
 
 	std::ostream& operator << (std::ostream& s, const Scalar& x)
@@ -1055,12 +1022,11 @@ namespace ECC {
 
 	/////////////////////
 	// Nonce and key generation
-	template <>
-	void uintBig::GenerateNonce(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
+	void GenerateNonce(uintBig& res, const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
 	{
 		for (uint32_t i = 0; ; i++)
 		{
-			if (!nonce_function_rfc6979(m_pData, msg.m_pData, sk.m_pData, NULL, pMsg2 ? (void*) pMsg2->m_pData : NULL, i))
+			if (!nonce_function_rfc6979(res.m_pData, msg.m_pData, sk.m_pData, NULL, pMsg2 ? (void*) pMsg2->m_pData : NULL, i))
 				continue;
 
 			if (!nAttempt--)
@@ -1074,7 +1040,7 @@ namespace ECC {
 
 		for (uint32_t i = 0; ; i++)
 		{
-			s.V.m_Value.GenerateNonce(sk, msg, pMsg2, i);
+			ECC::GenerateNonce(s.V.m_Value, sk, msg, pMsg2, i);
 			if (Import(s.V))
 				continue;
 

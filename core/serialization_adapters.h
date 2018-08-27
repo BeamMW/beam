@@ -166,14 +166,14 @@ namespace detail
 
         /// ECC::uintBig serialization
         template<typename Archive, uint32_t nBits_>
-        static Archive& save(Archive& ar, const ECC::uintBig_t<nBits_>& val)
+        static Archive& save(Archive& ar, const beam::uintBig_t<nBits_>& val)
         {
             ar & val.m_pData;
             return ar;
         }
 
         template<typename Archive, uint32_t nBits_>
-        static Archive& load(Archive& ar, ECC::uintBig_t<nBits_>& val)
+        static Archive& load(Archive& ar, beam::uintBig_t<nBits_>& val)
         {
             ar & val.m_pData;
             return ar;

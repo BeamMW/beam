@@ -141,7 +141,7 @@ public:
 		Blob(const ByteBuffer& bb);
 
 		template <uint32_t nBits_>
-		Blob(const ECC::uintBig_t<nBits_>& x) :p(x.m_pData), n(x.nBytes) {}
+		Blob(const uintBig_t<nBits_>& x) :p(x.m_pData), n(x.nBytes) {}
 
 		void Export(ByteBuffer&) const;
 	};

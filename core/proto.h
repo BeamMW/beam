@@ -254,7 +254,7 @@ namespace proto {
 
 		Mode::Enum m_Mode;
 
-		typedef ECC::uintBig_t<64> MacValue;
+		typedef uintBig_t<64> MacValue;
 		static void get_HMac(ECC::Hash::Mac&, MacValue&);
 
 		ProtocolPlus(uint8_t v0, uint8_t v1, uint8_t v2, size_t maxMessageTypes, IErrorHandler& errorHandler, size_t serializedFragmentsSize);

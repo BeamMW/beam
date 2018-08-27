@@ -811,7 +811,7 @@ int main(void)
 void AES::StreamCipher::Reset()
 {
 	m_nBuf = 0;
-	m_Counter = ECC::Zero;
+	m_Counter = beam::Zero;
 }
 
 void AES::StreamCipher::PerfXor(uint8_t* pBuf, uint32_t nSize)

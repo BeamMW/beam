@@ -362,7 +362,7 @@ namespace beam
 		bool IsValid(Context&) const; // Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
 
 		static const uint32_t s_KeyBits = ECC::nBits; // key len for map of transactions. Can actually be less than 256 bits.
-		typedef ECC::uintBig_t<s_KeyBits> KeyType;
+		typedef uintBig_t<s_KeyBits> KeyType;
 
 		void get_Key(KeyType&) const;
 	};
@@ -390,7 +390,7 @@ namespace beam
 
 			std::array<uint8_t, nSolutionBytes>	m_Indices;
 
-			typedef ECC::uintBig_t<64> NonceType;
+			typedef uintBig_t<64> NonceType;
 			NonceType m_Nonce; // 8 bytes. The overall solution size is 96 bytes.
 			Difficulty m_Difficulty;
 

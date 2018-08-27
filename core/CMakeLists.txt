@@ -1,4 +1,5 @@
 set(CORE_SRC
+    uintBig.cpp
     ecc.cpp
     aes.cpp
     common.cpp

@@ -14,6 +14,7 @@
 
 #pragma once
 #include "common.h"
+#include "uintBig.h"
 
 namespace ECC
 {
@@ -43,7 +44,8 @@ namespace ECC
 	};
 
 	// Syntactic sugar!
-	enum Zero_ { Zero };
+	using beam::Zero_;
+	using beam::Zero;
 	enum Two_ { Two };
 
 	struct Op
@@ -80,212 +82,15 @@ namespace ECC
 		~NoLeak() { SecureErase(V); }
 	};
 
-	template <uint32_t nBits_>
-	struct uintBig_t
-	{
-		static_assert(!(7 & nBits_), "should be byte-aligned");
-
-		static const uint32_t nBits = nBits_;
-		static const uint32_t nBytes = nBits_ >> 3;
-
-        uintBig_t()
-        {
-            ZeroObject(m_pData);
-        }
-
-		uintBig_t(const uint8_t p[nBytes])
-		{
-			memcpy(m_pData, p, nBytes);
-		}
-
-        uintBig_t(const std::initializer_list<uint8_t>& v)
-        {
-			FromArray(v.begin(), v.size());
-        }
-
-		uintBig_t(const std::vector<uint8_t>& v)
-		{
-			FromArray(v.empty() ? NULL : &v.at(0), v.size());
-		}
-
-		// in Big-Endian representation
-		uint8_t m_pData[nBytes];
-
-		uintBig_t& operator = (Zero_)
-		{
-			ZeroObject(m_pData);
-			return *this;
-		}
-
-		template <uint32_t nBitsOther_>
-		uintBig_t& operator = (const uintBig_t<nBitsOther_>& v)
-		{
-			FromArray(v.m_pData, v.nBytes);
-			return *this;
-		}
-
-		void FromArray(const uint8_t* p, uint32_t nBytes_)
-		{
-			if (nBytes_ >= nBytes)
-				memcpy(m_pData, p + nBytes_ - nBytes, nBytes);
-			else
-			{
-				memset0(m_pData, nBytes - nBytes_);
-				memcpy(m_pData + nBytes - nBytes_, p, nBytes_);
-			}
-		}
-
-		bool operator == (Zero_) const
-		{
-			return memis0(m_pData, nBytes);
-		}
-
-		// from ordinal types (unsigned)
-		template <typename T>
-		uintBig_t& operator = (T x)
-		{
-			memset0(m_pData, nBytes - sizeof(x));
-			AssignRange<T, 0>(x);
-
-			return *this;
-		}
-
-		template <typename T>
-		void AssignRangeAligned(T x, uint32_t nOffsetBytes, uint32_t nBytes_)
-		{
-			assert(nBytes >= nBytes_ + nOffsetBytes);
-			static_assert(T(-1) > 0, "must be unsigned");
-
-			for (uint32_t i = 0; i < nBytes_; i++, x >>= 8)
-				m_pData[nBytes - 1 - nOffsetBytes - i] = (uint8_t) x;
-		}
-
-		template <typename T, uint32_t nOffset>
-		void AssignRange(T x)
-		{
-			static_assert(!(nOffset & 7), "offset must be on byte boundary");
-			static_assert(nBytes >= sizeof(x) + (nOffset >> 3), "too small");
-
-			AssignRangeAligned<T>(x, nOffset >> 3, sizeof(x));
-		}
-
-		template <typename T>
-		bool AssignRangeAlignedSafe(T x, uint32_t nOffsetBytes, uint32_t nBytes_) // returns false if truncated
-		{
-			if (nBytes < nOffsetBytes)
-				return false;
-
-			uint32_t n = nBytes - nOffsetBytes;
-			bool b = (nBytes_ <= n);
-
-			AssignRangeAligned<T>(x, nOffsetBytes, b ? nBytes_ : n);
-			return b;
-		}
-
-		template <typename T>
-		bool AssignSafe(T x, uint32_t nOffset) // returns false if truncated
-		{
-			static_assert(T(-1) > 0, "must be unsigned");
-
-			uint32_t nOffsetBytes = nOffset >> 3;
-			nOffset &= 7;
-
-			if (!AssignRangeAlignedSafe<T>(x << nOffset, nOffsetBytes, sizeof(x)))
-				return false;
-
-			if (nOffset)
-			{
-				nOffsetBytes += sizeof(x);
-				if (nBytes - 1 < nOffsetBytes)
-					return false;
-
-				uint8_t resid = x >> ((sizeof(x) << 3) - nOffset);
-				m_pData[nBytes - 1 - nOffsetBytes] = resid;
-			}
-
-			return true;
-		}
-
-		void Inc()
-		{
-			for (uint32_t i = nBytes; i--; )
-				if (++m_pData[i])
-					break;
-
-		}
-
-		void GenerateNonce(const uintBig_t& sk, const uintBig_t& msg, const uintBig_t* pMsg2, uint32_t nAttempt = 0); // implemented only for nBits_ = 256 bits
-
-		// Simple arithmetics. For casual use only (not performance-critical)
-		void operator += (const uintBig_t& x)
-		{
-			uint16_t carry = 0;
-			for (int i = nBytes; i--; )
-			{
-				carry += m_pData[i];
-				carry += x.m_pData[i];
-
-				m_pData[i] = (uint8_t) carry;
-				carry >>= 8;
-			}
-		}
-
-		uintBig_t operator * (const uintBig_t& x) const
-		{
-			uintBig_t res;
-			res = Zero;
-
-			for (size_t j = 0; j < nBytes; j++)
-			{
-				uint8_t y = x.m_pData[nBytes - 1 - j];
-
-				uint16_t carry = 0;
-				for (size_t i = nBytes; i-- > j; )
-				{
-					uint16_t val = m_pData[i];
-					val *= y;
-					carry += val;
-					carry += res.m_pData[i - j];
-
-					res.m_pData[i - j] = (uint8_t) carry;
-					carry >>= 8;
-				}
-			}
-
-			return res;
-		}
-
-		void Inv()
-		{
-			for (int i = nBytes; i--; )
-				m_pData[i] ^= 0xff;
-		}
-
-		void Negate()
-		{
-			Inv();
-			Inc();
-		}
-
-		void operator ^= (const uintBig_t& x)
-		{
-			for (unsigned int i = nBytes; i--; )
-				m_pData[i] ^= x.m_pData[i];
-		}
-
-		int cmp(const uintBig_t& x) const { return memcmp(m_pData, x.m_pData, nBytes); }
-		COMPARISON_VIA_CMP(uintBig_t)
-	};
-
 	static const uint32_t nBits = 256;
-	typedef uintBig_t<nBits> uintBig;
-
-	std::ostream& operator << (std::ostream&, const uintBig&);
+	typedef beam::uintBig_t<nBits> uintBig;
 
 
 	class Commitment;
 	class Oracle;
 	struct NonceGenerator;
+
+	void GenerateNonce(uintBig&, const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */);
 
 	struct Scalar
 	{
@@ -336,7 +141,7 @@ namespace ECC
 
 	struct Hash
 	{
-		typedef uintBig_t<256> Value;
+		typedef uintBig Value;
 		Value m_Value;
 
 		class Processor;

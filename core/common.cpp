@@ -25,6 +25,15 @@
 #	include <errno.h>
 #endif // WIN32
 
+// misc
+bool memis0(const void* p, size_t n)
+{
+	for (size_t i = 0; i < n; i++)
+		if (((const uint8_t*)p)[i])
+			return false;
+	return true;
+}
+
 namespace std
 {
 	void ThrowIoError()

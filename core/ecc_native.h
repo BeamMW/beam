@@ -336,7 +336,7 @@ namespace ECC
 		void Write(const Point&);
 		void Write(const Point::Native&);
 		template <uint32_t nBits_>
-		void Write(const uintBig_t<nBits_>& x) { Write(x.m_pData, x.nBytes); }
+		void Write(const beam::uintBig_t<nBits_>& x) { Write(x.m_pData, x.nBytes); }
 
 		template <typename T>
 		void Write(T v)
