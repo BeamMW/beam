@@ -61,13 +61,13 @@ inline void ZeroObject(T& x)
 	memset0(&x, sizeof(x));
 }
 
-#define COMPARISON_VIA_CMP(class_name) \
-	bool operator < (const class_name& x) const { return cmp(x) < 0; } \
-	bool operator > (const class_name& x) const { return cmp(x) > 0; } \
-	bool operator <= (const class_name& x) const { return cmp(x) <= 0; } \
-	bool operator >= (const class_name& x) const { return cmp(x) >= 0; } \
-	bool operator == (const class_name& x) const { return cmp(x) == 0; } \
-	bool operator != (const class_name& x) const { return cmp(x) != 0; }
+#define COMPARISON_VIA_CMP \
+	template <typename T> bool operator < (const T& x) const { return cmp(x) < 0; } \
+	template <typename T> bool operator > (const T& x) const { return cmp(x) > 0; } \
+	template <typename T> bool operator <= (const T& x) const { return cmp(x) <= 0; } \
+	template <typename T> bool operator >= (const T& x) const { return cmp(x) >= 0; } \
+	template <typename T> bool operator == (const T& x) const { return cmp(x) == 0; } \
+	template <typename T> bool operator != (const T& x) const { return cmp(x) != 0; }
 
 namespace beam
 {

@@ -111,7 +111,7 @@ namespace beam
 
 		int cmp_CaM(const CommitmentAndMaturity&) const;
 		int cmp(const CommitmentAndMaturity&) const;
-		COMPARISON_VIA_CMP(CommitmentAndMaturity)
+		COMPARISON_VIA_CMP
 	};
 
 	struct Rules
@@ -183,7 +183,7 @@ namespace beam
 		};
 
 		int cmp(const Input&) const;
-		COMPARISON_VIA_CMP(Input)
+		COMPARISON_VIA_CMP
 	};
 
 	inline bool operator < (const Input::Ptr& a, const Input::Ptr& b) { return *a < *b; }
@@ -214,7 +214,7 @@ namespace beam
 
 		void operator = (const Output&);
 		int cmp(const Output&) const;
-		COMPARISON_VIA_CMP(Output)
+		COMPARISON_VIA_CMP
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
@@ -259,7 +259,7 @@ namespace beam
 
 		void operator = (const TxKernel&);
 		int cmp(const TxKernel&) const;
-		COMPARISON_VIA_CMP(TxKernel)
+		COMPARISON_VIA_CMP
 
 	private:
 		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
@@ -357,7 +357,7 @@ namespace beam
 		typedef std::shared_ptr<Transaction> Ptr;
 
 		int cmp(const Transaction&) const;
-		COMPARISON_VIA_CMP(Transaction)
+		COMPARISON_VIA_CMP
 
 		bool IsValid(Context&) const; // Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
 
@@ -412,7 +412,7 @@ namespace beam
 				Height			m_Height;
 
 				int cmp(const ID&) const;
-				COMPARISON_VIA_CMP(ID)
+				COMPARISON_VIA_CMP
 			};
 
 			struct Sequence

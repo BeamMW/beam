@@ -209,7 +209,7 @@ public:
 		Key& operator = (const Data&);
 
 		int cmp(const Key&) const;
-		COMPARISON_VIA_CMP(Key)
+		COMPARISON_VIA_CMP
 
 		uint8_t m_pArr[s_Bytes];
 	};

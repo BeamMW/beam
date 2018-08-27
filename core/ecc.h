@@ -109,7 +109,7 @@ namespace ECC
 		Scalar& operator = (const Zero_&);
 
 		int cmp(const Scalar& x) const { return m_Value.cmp(x.m_Value); }
-		COMPARISON_VIA_CMP(Scalar)
+		COMPARISON_VIA_CMP
 	};
 
 	std::ostream& operator << (std::ostream&, const Scalar&);
@@ -129,7 +129,7 @@ namespace ECC
         Point(const Commitment& t) { *this = t; }
 
 		int cmp(const Point&) const;
-		COMPARISON_VIA_CMP(Point)
+		COMPARISON_VIA_CMP
 
 
 		Point& operator = (const Native&);
@@ -165,7 +165,7 @@ namespace ECC
 		void CoSign(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk, const MultiSig&);
 
 		int cmp(const Signature&) const;
-		COMPARISON_VIA_CMP(Signature)
+		COMPARISON_VIA_CMP
 
 		void get_PublicNonce(Point::Native& pubNonce, const Point::Native& pk) const; // useful for verifications during multi-sig
 		bool IsValidPartial(const Point::Native& pubNonce, const Point::Native& pk) const;
@@ -254,7 +254,7 @@ namespace ECC
 			bool IsValid(const Point::Native&, Oracle&, InnerProduct::BatchContext&) const;
 
 			int cmp(const Confidential&) const;
-			COMPARISON_VIA_CMP(Confidential)
+			COMPARISON_VIA_CMP
 
 			// multisig
 			static void CoSignPart(const Scalar::Native& sk, Amount, Oracle&, Part2&);
@@ -286,7 +286,7 @@ namespace ECC
 			bool IsValid(const Point::Native&, Oracle&) const;
 
 			int cmp(const Public&) const;
-			COMPARISON_VIA_CMP(Public)
+			COMPARISON_VIA_CMP
 		};
 	}
 }

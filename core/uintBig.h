@@ -212,8 +212,8 @@ namespace beam
 		}
 
 		int cmp(const uintBig_t& x) const { return memcmp(m_pData, x.m_pData, nBytes); }
-		COMPARISON_VIA_CMP(uintBig_t)
 
+		COMPARISON_VIA_CMP
 
 		friend std::ostream& operator << (std::ostream& s, const uintBig_t& x)
 		{
