@@ -30,7 +30,7 @@ namespace
 }
 
 WalletSettings::WalletSettings(const QDir& appDataDir)
-    : m_data{ appDataDir.filePath("setting.ini"), QSettings::IniFormat }
+    : m_data{ appDataDir.filePath("settings.ini"), QSettings::IniFormat }
     , m_appDataDir{appDataDir}
 {
 

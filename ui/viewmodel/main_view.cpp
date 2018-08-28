@@ -12,5 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "dashboard.h"
+#include "main_view.h"
 
+void MainViewModel::update(int page)
+{
+	// TODO: update page model or smth...
+}

@@ -29,7 +29,8 @@ struct IWalletModelAsync
     virtual void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
     virtual void syncWithNode() = 0;
     virtual void calcChange(beam::Amount&& amount) = 0;
-    virtual void getAllUtxos() = 0;
+    virtual void getWalletStatus() = 0;
+    virtual void getUtxosStatus() = 0;
     virtual void getAddresses(bool own) = 0;
     virtual void cancelTx(const beam::TxID& id) = 0;
     virtual void createNewAddress(beam::WalletAddress&& address) = 0;
@@ -102,7 +103,8 @@ private:
     void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee) override;
     void syncWithNode() override;
     void calcChange(beam::Amount&& amount) override;
-    void getAllUtxos() override;
+    void getWalletStatus() override;
+    void getUtxosStatus() override;
     void getAddresses(bool own) override;
     void cancelTx(const beam::TxID& id) override;
     void createNewAddress(beam::WalletAddress&& address) override;
