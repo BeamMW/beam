@@ -9,7 +9,7 @@ set(CORE_SRC
     block_validation.cpp
     chainwork.cpp
     navigator.cpp
-    storage.cpp
+    radixtree.cpp
     merkle.cpp
     proto.cpp
 # ~etc

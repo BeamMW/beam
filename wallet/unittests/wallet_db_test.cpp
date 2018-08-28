@@ -15,7 +15,6 @@
 #include "wallet/wallet_db.h"
 #include <assert.h>
 #include "test_helpers.h"
-#include "core/storage.h"
 #include "utility/test_helpers.h"
 
 #include "utility/logger.h"

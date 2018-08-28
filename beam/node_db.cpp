@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "node_db.h"
-#include "../core/storage.h"
 
 namespace beam {
 

@@ -34,8 +34,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/intrusive/list.hpp>
 
-#include "core/storage.h"
-
 using namespace beam;
 using namespace std;
 using namespace ECC;

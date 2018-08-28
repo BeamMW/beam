@@ -15,7 +15,7 @@
 #pragma once
 
 #include <boost/intrusive/set.hpp>
-#include "../core/storage.h"
+#include "../core/radixtree.h"
 #include "node_db.h"
 
 namespace beam {

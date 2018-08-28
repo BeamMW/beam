@@ -21,7 +21,6 @@
 #include "utility/helpers.h"
 #include <algorithm>
 #include <random>
-#include "core/storage.h"
 #include <iomanip>
 
 namespace ECC {
