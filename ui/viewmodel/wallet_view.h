@@ -16,8 +16,8 @@
 
 #include <QObject>
 #include <QQmlListProperty>
-#include "model/wallet.h"
-#include "messages.h"
+#include "model/wallet_model.h"
+#include "messages_view.h"
 
 class TxObject : public QObject
 {

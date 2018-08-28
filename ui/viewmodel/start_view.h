@@ -19,7 +19,7 @@
 
 #include "wallet/wallet_db.h"
 
-#include "messages.h"
+#include "messages_view.h"
 
 class StartViewModel : public QObject
 {

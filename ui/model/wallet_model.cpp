@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet.h"
+#include "wallet_model.h"
 #include "utility/logger.h"
 #include "utility/bridge.h"
 #include "utility/io/asyncevent.h"

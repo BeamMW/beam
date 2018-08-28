@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License
 
-#include "node.h"
+#include "node_model.h"
 #include "app_model.h"
 #include "beam/node.h"
 

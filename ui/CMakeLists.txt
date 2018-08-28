@@ -32,38 +32,39 @@ set(UI_SRC
 	ui.cpp
 	translator.h
 	translator.cpp
-	viewmodel/start.h
-	viewmodel/start.cpp
-	viewmodel/utxo.h
-	viewmodel/utxo.cpp
-	viewmodel/main.h
-	viewmodel/main.cpp
-	viewmodel/dashboard.h
-	viewmodel/dashboard.cpp
-	viewmodel/wallet.h
-	viewmodel/wallet.cpp
-	viewmodel/notifications.h
-	viewmodel/notifications.cpp
-	viewmodel/help.h
-	viewmodel/help.cpp
-	viewmodel/settings.h
-	viewmodel/settings.cpp
-	viewmodel/address_book.h
-	viewmodel/address_book.cpp
+	viewmodel/start_view.h
+	viewmodel/start_view.cpp
+	viewmodel/utxo_view.h
+	viewmodel/utxo_view.cpp
+	viewmodel/main_view.h
+	viewmodel/main_view.cpp
+	viewmodel/dashboard_view.h
+	viewmodel/dashboard_view.cpp
+	viewmodel/wallet_view.h
+	viewmodel/wallet_view.cpp
+	viewmodel/notifications_view.h
+	viewmodel/notifications_view.cpp
+	viewmodel/help_view.h
+	viewmodel/help_view.cpp
+	viewmodel/settings_view.h
+	viewmodel/settings_view.cpp
+	viewmodel/address_book_view.h
+	viewmodel/address_book_view.cpp
 	viewmodel/ui_helpers.h
 	viewmodel/ui_helpers.cpp
-    viewmodel/messages.cpp
+	viewmodel/messages_view.h
+    viewmodel/messages_view.cpp
 
-	model/wallet.h
-	model/wallet.cpp
+	model/wallet_model.h
+	model/wallet_model.cpp
 	model/app_model.h
 	model/app_model.cpp
 	model/settings.h
 	model/settings.cpp
 	model/messages.h
 	model/messages.cpp
-	model/node.h
-	model/node.cpp
+	model/node_model.h
+	model/node_model.cpp
 )
 
 if(WIN32)
