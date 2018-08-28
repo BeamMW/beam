@@ -1160,7 +1160,7 @@ namespace beam
 			virtual void OnMsg(proto::ProofChainWork&& msg) override
 			{
 				verify_test(m_nChainWorkProofsPending);
-				verify_test(!msg.m_Proof.m_vStates.empty() && !m_vStates.empty() && (msg.m_Proof.m_vStates.front().m_Height == m_vStates.back().m_Height));
+				verify_test(!m_vStates.empty() && (msg.m_Proof.m_Heading.m_Prefix.m_Height + msg.m_Proof.m_Heading.m_vElements.size() - 1 == m_vStates.back().m_Height));
 				verify_test(msg.m_Proof.IsValid());
 				m_nChainWorkProofsPending--;
 			}
@@ -1393,7 +1393,13 @@ namespace beam
 		{
 			verify_test(cwp.IsValid());
 
-			printf("Blocks = %u. Proof: States = %u, Hashes = %u\n", nStates, uint32_t(cwp.m_vStates.size()), uint32_t(cwp.m_Proof.m_vData.size()));
+			printf("Blocks = %u. Proof: States = %u/%u, Hashes = %u, Size = %u\n",
+				nStates,
+				uint32_t(cwp.m_Heading.m_vElements.size()),
+				uint32_t(cwp.m_vArbitraryStates.size()),
+				uint32_t(cwp.m_Proof.m_vData.size()),
+				uint32_t(sizeof(Block::SystemState::Sequence::Prefix) + cwp.m_Heading.m_vElements.size() * sizeof(Block::SystemState::Sequence::Element) + cwp.m_vArbitraryStates.size() * sizeof(Block::SystemState::Full) + cwp.m_Proof.m_vData.size() * sizeof(Merkle::Hash))
+				);
 
 			nStates >>= 1;
 			if (nStates < 64)
