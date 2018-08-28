@@ -60,6 +60,8 @@ namespace ECC {
 			pDst[n] = (pDst[n] & mask0) | (pSrc[n] & mask1);
 	}
 
+	template void data_cmov_as<uint32_t>(uint32_t* pDst, const uint32_t* pSrc, int nWords, int flag);
+
 	thread_local Mode::Enum g_Mode = Mode::Secure; // default
 
 	Mode::Scope::Scope(Mode::Enum val)
