@@ -73,6 +73,8 @@ using namespace ECC;
 
 int main (int argc, char* argv[])
 {
+	QGuiApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+
     QApplication app(argc, argv);
 
     QApplication::setApplicationName("Beam Wallet");
