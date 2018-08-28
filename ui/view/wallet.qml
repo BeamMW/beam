@@ -132,7 +132,7 @@ Item {
                 Layout.minimumHeight: 16
                 font.weight: Font.Bold
                 color: Style.white
-                text: qsTr("Name")
+                text: qsTr("Comment")
             }
 
             SFTextInput {
@@ -141,7 +141,7 @@ Item {
                 font.pixelSize: 14
                 Layout.minimumHeight: 20
                 color: Style.white
-                //text: viewModel.newReceiverName
+                text: viewModel.newReceiverName
             }
 
             Binding {
@@ -171,17 +171,6 @@ Item {
                     width: 122
                     palette.buttonText: Style.white
                     onClicked: root.state = "wallet";
-                }
-
-                CustomButton {
-                    text: "ok"
-                    height: 38
-                    width: 122
-                    palette.buttonText: Style.white
-                    onClicked: {
-                        viewModel.saveNewAddress();
-                        root.state = "wallet";
-                    }
                 }
 
                 CustomButton {
@@ -742,12 +731,12 @@ Item {
             backgroundVisible: false
 
             TableViewColumn {
-				id: incomeColumn
+                id: incomeColumn
                 role: "income"
                 width: 40
                 elideMode: Text.ElideRight
                 movable: false
-				resizable: false
+                resizable: false
                 delegate: Item {
 
                     anchors.fill: parent
@@ -765,9 +754,9 @@ Item {
             TableViewColumn {
                 role: "date"
                 title: qsTr("Date | Time")
-                width: 160 * ( parent.width - incomeColumn.width - actionsColumn.width) / 870
+                width: 160 * ( parent.width - incomeColumn.width - actionsColumn.width - commentColumn.width) / 870
                 elideMode: Text.ElideRight
-				resizable: false
+                resizable: false
                 movable: false
             }
 
@@ -776,7 +765,7 @@ Item {
                 title: qsTr("Recipient / Sender ID")
                 width: 260 * ( parent.width - incomeColumn.width - actionsColumn.width) / 870
                 elideMode: Text.ElideMiddle
-				resizable: false
+                resizable: false
                 movable: false
                 delegate: Item {
                     anchors.fill: parent
@@ -821,13 +810,46 @@ Item {
                 }
             }
 
+            
+            TableViewColumn {
+                id: commentColumn
+                role: "comment"
+                title: qsTr("Comment")
+                width: 100
+                elideMode: Text.ElideRight
+                movable: false
+                resizable: false
+                delegate: Item {
+
+                    anchors.fill: parent
+
+                    clip:true
+                    
+                    SvgImage {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        source: "qrc:///assets/icon-comment.svg"
+                        visible: styleData.value !== null && styleData.value !== ""
+                        ToolTip.text: styleData.value
+                        ToolTip.visible: mouseArea.containsMouse
+                        ToolTip.delay: 500
+                        MouseArea {
+                            id: mouseArea
+                            anchors.fill: parent
+                            acceptedButtons: Qt.NoButton
+                            hoverEnabled: true
+                        }
+                    }
+                }
+            }
+
             TableViewColumn {
                 role: "amount"
                 title: qsTr("Amount, BEAM")
-                width: 200 * ( parent.width - incomeColumn.width - actionsColumn.width) / 870
+                width: 200 * ( parent.width - incomeColumn.width - actionsColumn.width - commentColumn.width) / 870
                 elideMode: Text.ElideRight
                 movable: false
-				resizable: false
+                resizable: false
                 delegate: Item {
                     anchors.fill: parent
                     
@@ -849,19 +871,19 @@ Item {
             TableViewColumn {
                 role: "change"
                 title: qsTr("Change, BEAM")
-                width: 140 * ( parent.width - incomeColumn.width - actionsColumn.width) / 870
+                width: 140 * ( parent.width - incomeColumn.width - actionsColumn.width - commentColumn.width) / 870
                 elideMode: Text.ElideRight
-				resizable: false
+                resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "status"
                 title: qsTr("Status")
-                width: 110 * ( parent.width - incomeColumn.width - actionsColumn.width) / 870
+                width: 110 * ( parent.width - incomeColumn.width - actionsColumn.width - commentColumn.width) / 870
                 elideMode: Text.ElideRight
                 movable: false
-				resizable: false
+                resizable: false
                 delegate: Item {
 
                     anchors.fill: parent
@@ -887,46 +909,46 @@ Item {
                 }
             }
 
-			TableViewColumn {
-				id: actionsColumn
-				role: "status"
-				title: ""
-				width: 40
-				movable: false
-				resizable: false
-				delegate: txActions
-			}
+            TableViewColumn {
+                id: actionsColumn
+                role: "status"
+                title: ""
+                width: 40
+                movable: false
+                resizable: false
+                delegate: txActions
+            }
 
             model: viewModel.tx
 
-			Component {
-				id: txActions
-				Item {
-					Row{
-						anchors.right: parent.right
-						anchors.verticalCenter: parent.verticalCenter
-						spacing: 10
-					/*	CustomToolButton {
-							visible: styleData.row >= 0 && viewModel.tx[styleData.row].canCancel
-							icon.source: "qrc:///assets/icon-cancel.svg"
-							ToolTip.text: qsTr("Cancel transaction")
-							onClicked: {
-								viewModel.cancelTx(styleData.row);
-							}
-						}
-						*/
-						CustomToolButton {
-							icon.source: "qrc:///assets/icon-actions.svg"
-							ToolTip.text: qsTr("Actions")
-							onClicked: {
-								txContextMenu.index = styleData.row;
-								txContextMenu.transaction = viewModel.tx[styleData.row];
-								txContextMenu.popup();
-							}
-						}
-					}
-				}
-			}
+            Component {
+                id: txActions
+                Item {
+                    Row{
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 10
+                    /*	CustomToolButton {
+                            visible: styleData.row >= 0 && viewModel.tx[styleData.row].canCancel
+                            icon.source: "qrc:///assets/icon-cancel.svg"
+                            ToolTip.text: qsTr("Cancel transaction")
+                            onClicked: {
+                                viewModel.cancelTx(styleData.row);
+                            }
+                        }
+                        */
+                        CustomToolButton {
+                            icon.source: "qrc:///assets/icon-actions.svg"
+                            ToolTip.text: qsTr("Actions")
+                            onClicked: {
+                                txContextMenu.index = styleData.row;
+                                txContextMenu.transaction = viewModel.tx[styleData.row];
+                                txContextMenu.popup();
+                            }
+                        }
+                    }
+                }
+            }
 
             headerDelegate: Rectangle {
                 height: 46

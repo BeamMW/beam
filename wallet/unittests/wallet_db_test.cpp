@@ -546,10 +546,14 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_duration == a.m_duration);
     WALLET_CHECK(addresses[0].m_own == a.m_own);
 
+    auto a2 = db->getAddress(a.m_walletID);
+    WALLET_CHECK(a2.is_initialized());
 
     db->deleteAddress(a.m_walletID);
     WALLET_CHECK(db->getAddresses(true).empty());
 
+    a2 = db->getAddress(a.m_walletID);
+    WALLET_CHECK(!a2.is_initialized());
 }
 
 void TestSelect()

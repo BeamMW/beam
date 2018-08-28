@@ -97,9 +97,9 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString change READ change NOTIFY changeChanged)
 
     Q_PROPERTY(QString newReceiverAddr READ getNewReceiverAddr NOTIFY newReceiverAddrChanged)
-    Q_PROPERTY(QString newReceiverName WRITE setNewReceiverName NOTIFY newReceiverNameChanged)
+    Q_PROPERTY(QString newReceiverName READ getNewReceiverName WRITE setNewReceiverName NOTIFY newReceiverNameChanged)
 
-    Q_PROPERTY(QString comment WRITE setComment NOTIFY commentedChaned)
+    Q_PROPERTY(QString comment READ getComment WRITE setComment NOTIFY commentChanged)
 
     
 public:
@@ -133,6 +133,7 @@ public:
     QString change() const;
     QString getNewReceiverAddr() const;
     void setNewReceiverName(const QString& value);
+	QString getNewReceiverName() const;
     int selectedAddr() const;
     
     QString getReceiverAddr() const;
@@ -145,6 +146,7 @@ public:
     void setFeeMils(const QString& text);
     void setSelectedAddr(int index);
     void setComment(const QString& value);
+	QString getComment() const;
 
 public slots:
     void onStatus(const WalletStatus& amount);
@@ -172,7 +174,7 @@ signals:
     void isSyncInProgressChanged();
     void newReceiverAddrChanged();
     void newReceiverNameChanged();
-    void commentedChaned();
+    void commentChanged();
 
 private:
     beam::Amount calcSendAmount() const;

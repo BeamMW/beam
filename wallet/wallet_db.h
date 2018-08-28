@@ -130,6 +130,7 @@ namespace beam
 
         virtual std::vector<WalletAddress> getAddresses(bool own) = 0;
         virtual void saveAddress(const WalletAddress&) = 0;
+        virtual boost::optional<WalletAddress> getAddress(const WalletID&) = 0;
         virtual void deleteAddress(const WalletID&) = 0;
 
         template <typename Var>
@@ -196,8 +197,9 @@ namespace beam
 
         std::vector<WalletAddress> getAddresses(bool own) override;
         void saveAddress(const WalletAddress&) override;
+        boost::optional<WalletAddress> getAddress(const WalletID&) override;
         void deleteAddress(const WalletID&) override;
-
+        
         Timestamp getLastUpdateTime() const override;
         void setSystemStateID(const Block::SystemState::ID& stateID) override;
         bool getSystemStateID(Block::SystemState::ID& stateID) const override;

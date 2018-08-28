@@ -104,6 +104,10 @@ namespace
 
         std::vector<WalletAddress> getAddresses(bool own) override { return {}; }
         void saveAddress(const WalletAddress&) override {}
+        boost::optional<WalletAddress> getAddress(const WalletID& id) override
+        {
+            return boost::optional<WalletAddress>{};
+        }
         void deleteAddress(const WalletID&) override {}
 
         Height getCurrentHeight() const override
