@@ -19,16 +19,16 @@
 #include <QMessageBox>
 
 #include <qqmlcontext.h>
-#include "viewmodel/start.h"
-#include "viewmodel/main.h"
-#include "viewmodel/utxo.h"
-#include "viewmodel/dashboard.h"
-#include "viewmodel/address_book.h"
-#include "viewmodel/wallet.h"
-#include "viewmodel/notifications.h"
-#include "viewmodel/help.h"
-#include "viewmodel/settings.h"
-#include "viewmodel/messages.h"
+#include "viewmodel/start_view.h"
+#include "viewmodel/main_view.h"
+#include "viewmodel/utxo_view.h"
+#include "viewmodel/dashboard_view.h"
+#include "viewmodel/address_book_view.h"
+#include "viewmodel/wallet_view.h"
+#include "viewmodel/notifications_view.h"
+#include "viewmodel/help_view.h"
+#include "viewmodel/settings_view.h"
+#include "viewmodel/messages_view.h"
 #include "model/app_model.h"
 
 #include "wallet/wallet_db.h"

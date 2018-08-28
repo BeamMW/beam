@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "address_book.h"
+#include "address_book_view.h"
 #include "ui_helpers.h"
 #include <QApplication>
 #include <QClipboard>

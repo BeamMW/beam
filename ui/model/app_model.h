@@ -14,10 +14,10 @@
 
 #pragma once
 
-#include "wallet.h"
+#include "wallet_model.h"
 #include "settings.h"
 #include "messages.h"
-#include "node.h"
+#include "node_model.h"
 #include "wallet/secstring.h"
 #include <memory>
 #include "wallet/keystore.h"

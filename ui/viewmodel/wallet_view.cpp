@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet.h"
+#include "wallet_view.h"
 
 #include <iomanip>
 #include "ui_helpers.h"

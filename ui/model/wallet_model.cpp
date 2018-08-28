@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet.h"
+#include "wallet_model.h"
 #include "utility/logger.h"
 #include "utility/bridge.h"
 #include "utility/io/asyncevent.h"
@@ -70,11 +70,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
-    void getAllUtxos() override
+    void getUtxosStatus() override
     {
         tx.send([](BridgeInterface& receiver_) mutable
         {
-            receiver_.getAllUtxos();
+            receiver_.getUtxosStatus();
         });
     }
 
@@ -278,6 +278,8 @@ void WalletModel::onStatusChanged()
 
 void WalletModel::onKeychainChanged()
 {
+    emit onAllUtxoChanged(getUtxos());
+    // TODO may be it needs to delete
     onStatusChanged();
 }
 
@@ -377,13 +379,16 @@ void WalletModel::calcChange(beam::Amount&& amount)
 
 void WalletModel::getWalletStatus()
 {
-    onKeychainChanged();
+    emit onStatus(getStatus());
+    emit onTxStatus(_keychain->getTxHistory());
+    emit onTxPeerUpdated(_keychain->getPeers());
+    emit onAdrresses(false, _keychain->getAddresses(false));
 }
 
-void WalletModel::getAllUtxos()
+void WalletModel::getUtxosStatus()
 {
+    emit onStatus(getStatus());
     emit onAllUtxoChanged(getUtxos());
-    onKeychainChanged();
 }
 
 void WalletModel::getAddresses(bool own)

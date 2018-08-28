@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "start.h"
+#include "start_view.h"
 #include "wallet/keystore.h"
 #include <QMessageBox>
-#include "settings.h"
+#include "settings_view.h"
 #include "model/app_model.h"
 #include "wallet/secstring.h"
 

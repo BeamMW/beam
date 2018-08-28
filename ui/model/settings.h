@@ -18,7 +18,7 @@
 #include <QSettings>
 #include <QDir>
 
-#include "model/wallet.h"
+#include "model/wallet_model.h"
 
 class WalletSettings : public QObject
 {
