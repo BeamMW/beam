@@ -1,5 +1,6 @@
-import QtQuick 2.3
-import QtQuick.Controls 1.2
+import QtQuick 2.6
+import QtQuick.Controls 1.4
+import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
 import QtGraphicalEffects 1.0
 import "controls"
@@ -14,7 +15,14 @@ Rectangle {
 
     color: Style.marine
 
-    property var contentItems : ["dashboard", "wallet", "address-book", "utxo", "notification", "info", "settings"]
+    property var contentItems : [
+		//"dashboard",
+		"wallet", 
+		//"address-book", 
+		"utxo",
+		//"notification", 
+		//"info",
+		"settings"]
     property int selectedItem
 
     Rectangle {
@@ -46,12 +54,23 @@ Rectangle {
                     height: parent.width
 
                     SvgImage {
+						id: icon
                         x: 21
                         y: 16
                         width: 28
                         height: 28
                         source: "qrc:///assets/icon-" + modelData + (selectedItem == index ? "-active" : "") + ".svg"
-                    }
+					}
+
+					DropShadow {
+					    id: iconShadow
+						anchors.fill: icon
+						radius: 7
+						samples: 9
+						color: "white"
+						source: icon
+						visible: mouseArea.containsMouse 
+					}
 
                     Item {
                         Rectangle {
@@ -76,8 +95,8 @@ Rectangle {
                     MouseArea {
                         id: mouseArea
                         anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
                         onClicked: updateItem(index)
+						hoverEnabled: true
                     }
                 }
             }
@@ -90,6 +109,15 @@ Rectangle {
             width: 30
             height: 24
             source: Style.logo
+
+			MouseArea {
+                id: mouseArea
+                anchors.fill: parent
+                onClicked: {
+					selectedItem = -1;
+					content.setSource("qrc:///dashboard.qml");
+				}
+            }
         }
 
     }
@@ -112,13 +140,13 @@ Rectangle {
     }
 
 	function openSendDialog() {
-		selectedItem = 1
+		selectedItem = 0
 		content.setSource("qrc:///wallet.qml", {"toSend": true})
         
 		viewModel.update(selectedItem)
 	}
 
     Component.onCompleted:{
-        updateItem(1) // load wallet view by default
+        updateItem(0) // load wallet view by default
     }
 }

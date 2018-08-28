@@ -742,11 +742,12 @@ Item {
             backgroundVisible: false
 
             TableViewColumn {
+				id: incomeColumn
                 role: "income"
                 width: 40
                 elideMode: Text.ElideRight
                 movable: false
-
+				resizable: false
                 delegate: Item {
 
                     anchors.fill: parent
@@ -764,18 +765,18 @@ Item {
             TableViewColumn {
                 role: "date"
                 title: qsTr("Date | Time")
-                width: 160 * (parent.width - 40 - 20) / 916
+                width: 160 * ( parent.width - incomeColumn.width - actionsColumn.width) / 870
                 elideMode: Text.ElideRight
-
+				resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "displayName"
                 title: qsTr("Recipient / Sender ID")
-                width: 260 * (parent.width - 40 - 20) / 916
+                width: 260 * ( parent.width - incomeColumn.width - actionsColumn.width) / 870
                 elideMode: Text.ElideMiddle
-
+				resizable: false
                 movable: false
                 delegate: Item {
                     anchors.fill: parent
@@ -823,10 +824,10 @@ Item {
             TableViewColumn {
                 role: "amount"
                 title: qsTr("Amount, BEAM")
-                width: 200 * (parent.width - 40 - 20) / 916
+                width: 200 * ( parent.width - incomeColumn.width - actionsColumn.width) / 870
                 elideMode: Text.ElideRight
                 movable: false
-
+				resizable: false
                 delegate: Item {
                     anchors.fill: parent
                     
@@ -848,19 +849,19 @@ Item {
             TableViewColumn {
                 role: "change"
                 title: qsTr("Change, BEAM")
-                width: 200 * (parent.width - 40 - 20) / 916
+                width: 140 * ( parent.width - incomeColumn.width - actionsColumn.width) / 870
                 elideMode: Text.ElideRight
-
+				resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "status"
                 title: qsTr("Status")
-                width: 96 * (parent.width - 40 - 20) / 916
+                width: 110 * ( parent.width - incomeColumn.width - actionsColumn.width) / 870
                 elideMode: Text.ElideRight
                 movable: false
-
+				resizable: false
                 delegate: Item {
 
                     anchors.fill: parent
@@ -886,7 +887,46 @@ Item {
                 }
             }
 
+			TableViewColumn {
+				id: actionsColumn
+				role: "status"
+				title: ""
+				width: 40
+				movable: false
+				resizable: false
+				delegate: txActions
+			}
+
             model: viewModel.tx
+
+			Component {
+				id: txActions
+				Item {
+					Row{
+						anchors.right: parent.right
+						anchors.verticalCenter: parent.verticalCenter
+						spacing: 10
+					/*	CustomToolButton {
+							visible: styleData.row >= 0 && viewModel.tx[styleData.row].canCancel
+							icon.source: "qrc:///assets/icon-cancel.svg"
+							ToolTip.text: qsTr("Cancel transaction")
+							onClicked: {
+								viewModel.cancelTx(styleData.row);
+							}
+						}
+						*/
+						CustomToolButton {
+							icon.source: "qrc:///assets/icon-actions.svg"
+							ToolTip.text: qsTr("Actions")
+							onClicked: {
+								txContextMenu.index = styleData.row;
+								txContextMenu.transaction = viewModel.tx[styleData.row];
+								txContextMenu.popup();
+							}
+						}
+					}
+				}
+			}
 
             headerDelegate: Rectangle {
                 height: 46
