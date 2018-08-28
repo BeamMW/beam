@@ -185,15 +185,17 @@ Item {
                 }
 
                 CustomButton {
-                    text: "copy"
+                    text: "Copy && Close"
                     height: 38
-                    width: 122
+                    width: 162
                     palette.buttonText: Style.white
                     icon.source: "qrc:///assets/icon-copy.svg"
                     icon.width: 16
                     icon.height: 16
                     onClicked: {
                         viewModel.copyToClipboard(myAddressID.text);
+                        viewModel.saveNewAddress();
+                        root.state = "wallet";
                     }
                 }
             }
