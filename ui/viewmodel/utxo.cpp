@@ -73,11 +73,15 @@ QString UtxoItem::type() const
 
 UtxoViewModel::UtxoViewModel()
     : _model{*AppModel::getInstance()->getWallet()}
-    , _loadingAllUtxo{ false }
 {
     connect(&_model, SIGNAL(onAllUtxoChanged(const std::vector<beam::Coin>&)),
         SLOT(onAllUtxoChanged(const std::vector<beam::Coin>&)));
     connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
+
+    if (_model.async)
+    {
+        _model.async->getUtxosStatus();
+    }
 }
 
 UtxoViewModel::~UtxoViewModel()
@@ -87,11 +91,6 @@ UtxoViewModel::~UtxoViewModel()
 
 QQmlListProperty<UtxoItem> UtxoViewModel::getAllUtxos()
 {
-    if (_allUtxos.empty() && _loadingAllUtxo == false && _model.async)
-    {
-        _loadingAllUtxo = true;
-        _model.async->getAllUtxos();
-    }
     return QQmlListProperty<UtxoItem>(this, _allUtxos);
 }
 
@@ -120,7 +119,6 @@ void UtxoViewModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxos)
     {
         _allUtxos.push_back(new UtxoItem(utxo));
     }
-    _loadingAllUtxo = false;
 
     emit allUtxoChanged();
 }

@@ -66,7 +66,6 @@ signals:
     void stateChanged();
 private:
 
-    bool _loadingAllUtxo;
     QList<UtxoItem*> _allUtxos;
     QString _currentHeight;
     QString _currentStateHash;
