@@ -3,6 +3,7 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${CMAKE_CURRENT_BINARY_DIR}
 	${ZLIB_INCLUDE_DIRS}
+	${QT_ZLIB_INCLUDE_DIRS}
 )
 
 file(GLOB SRCS "*.c" "*.cpp")

@@ -82,6 +82,11 @@ configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/v
 
 add_dependencies(${TARGET_NAME} wallet)
 
+set(QT_ZLIB_INCLUDE_DIRS ${CMAKE_PREFIX_PATH}/include/QtZlib)
+add_subdirectory(quazip)
+find_package(QuaZip)
+add_dependencies(${TARGET_NAME} quazip_static)
+
 #if (BEAM_WALLET_WITH_NODE)
 	add_definitions(-DBEAM_WALLET_WITH_NODE)
 	add_dependencies(${TARGET_NAME} node)
@@ -202,7 +207,7 @@ if(BEAM_USE_STATIC)
 
 		set_property(TARGET ${TARGET_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-endif()
+	endif()
 
 endif()
 
