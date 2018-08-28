@@ -292,6 +292,9 @@ namespace beam
 			if (!samp.SamplePoint(dSamp))
 				break;
 
+			if (iState >= m_vStates.size())
+				return false;
+
 			const SystemState::Full& s0 = m_vStates[iState - 1];
 			const SystemState::Full& s = m_vStates[iState];
 
