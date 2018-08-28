@@ -5,6 +5,9 @@ set(CORE_SRC
     aes.cpp
     common.cpp
     block_crypt.cpp
+    block_rw.cpp
+    block_validation.cpp
+    chainwork.cpp
     navigator.cpp
     storage.cpp
     merkle.cpp

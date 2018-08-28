@@ -12,13 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <utility> // std::swap
-#include <algorithm>
-#include <ctime>
-#include "block_crypt.h"
-#include "storage.h"
-#include "../utility/serialize.h"
-#include "../core/serialization_adapters.h"
+#include "common.h"
 
 #ifndef WIN32
 #	include <unistd.h>
