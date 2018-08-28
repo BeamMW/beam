@@ -33,6 +33,11 @@
     #pragma warning (pop)
 #endif
 
+#ifndef WIN32
+#    include <unistd.h>
+#    include <fcntl.h>
+#endif // WIN32
+
 namespace ECC {
 
 	//void* NoErase(void*, size_t) { return NULL; }
