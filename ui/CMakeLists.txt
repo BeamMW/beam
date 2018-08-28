@@ -82,10 +82,18 @@ configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/v
 
 add_dependencies(${TARGET_NAME} wallet)
 
-set(QT_ZLIB_INCLUDE_DIRS ${CMAKE_PREFIX_PATH}/include/QtZlib)
-add_subdirectory(quazip)
-find_package(QuaZip)
+# link with QuaZip library
+include_directories(${CMAKE_PREFIX_PATH}/include/QtZlib)
+add_definitions(-DQUAZIP_STATIC)
+file(GLOB QUAZIP_SRCS "quazip/quazip/*.c" "quazip/quazip/*.cpp")
+file(GLOB PUBLIC_HEADERS "quazip/quazip/*.h")
+qt_wrap_cpp(MOC_SRCS ${PUBLIC_HEADERS})
+set(QUAZIP_ALL_SRCS ${QUAZIP_SRCS} ${MOC_SRCS})
+include_directories(${Qt5Core_INCLUDE_DIRS})
+add_library(quazip_static STATIC ${QUAZIP_ALL_SRCS})
+
 add_dependencies(${TARGET_NAME} quazip_static)
+target_link_libraries(${TARGET_NAME} quazip_static)
 
 #if (BEAM_WALLET_WITH_NODE)
 	add_definitions(-DBEAM_WALLET_WITH_NODE)
