@@ -21,9 +21,6 @@ namespace po = boost::program_options;
 using namespace beam;
 using namespace ECC;
 
-
-Initializer g_Initializer;
-
 BaseNodeConnection::BaseNodeConnection(int argc, char* argv[])
 {
 	ParseCommandLine(argc, argv);

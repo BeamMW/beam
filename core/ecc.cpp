@@ -908,6 +908,9 @@ namespace ECC {
 	// Context
 	uint64_t g_pContextBuf[(sizeof(Context) + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
 
+	// Currently - auto-init in global obj c'tor
+	Initializer g_Initializer;
+
 #ifndef NDEBUG
 	bool g_bContextInitialized = false;
 #endif // NDEBUG

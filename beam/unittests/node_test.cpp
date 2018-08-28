@@ -27,8 +27,6 @@
 
 namespace ECC {
 
-	Initializer g_Initializer;
-
 	void GenerateRandom(void* p, uint32_t n)
 	{
 		for (uint32_t i = 0; i < n; i++)

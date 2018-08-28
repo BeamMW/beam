@@ -23,10 +23,6 @@
 #include <random>
 #include <iomanip>
 
-namespace ECC {
-    Initializer g_Initializer;
-}
-
 namespace
 {
     const char* ReceiverPrefix = "[Receiver] ";
