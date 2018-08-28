@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "settings.h"
+#include "settings_view.h"
 #include "version.h"
 #include <QtQuick>
 #include "model/app_model.h"

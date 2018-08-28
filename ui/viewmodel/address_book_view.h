@@ -19,7 +19,7 @@
 #include <QtCore/qvariant.h>
 #include <QQmlListProperty>
 #include "wallet/wallet_db.h"
-#include "model/wallet.h"
+#include "model/wallet_model.h"
 
 class PeerAddressItem : public QObject
 {

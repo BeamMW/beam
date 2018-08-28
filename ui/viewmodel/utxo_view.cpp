@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utxo.h"
+#include "utxo_view.h"
 #include "ui_helpers.h"
 #include "model/app_model.h"
 using namespace beam;

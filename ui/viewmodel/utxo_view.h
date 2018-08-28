@@ -16,7 +16,7 @@
 
 #include <QObject>
 #include <QQmlListProperty>
-#include "model/wallet.h"
+#include "model/wallet_model.h"
 
 class UtxoItem : public QObject
 {
