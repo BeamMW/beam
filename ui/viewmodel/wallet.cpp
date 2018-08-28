@@ -127,6 +127,7 @@ WalletViewModel::WalletViewModel()
 
     connect(&_model, SIGNAL(onGeneratedNewWalletID(const beam::WalletID&)),
         SLOT(onGeneratedNewWalletID(const beam::WalletID&)));
+    _model.async->getWalletStatus();
 }
 
 WalletViewModel::~WalletViewModel()

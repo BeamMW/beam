@@ -62,6 +62,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+    void getWalletStatus() override
+    {
+        tx.send([](BridgeInterface& receiver_) mutable
+        {
+            receiver_.getWalletStatus();
+        });
+    }
+
     void getAllUtxos() override
     {
         tx.send([](BridgeInterface& receiver_) mutable
@@ -365,6 +373,11 @@ void WalletModel::calcChange(beam::Amount&& amount)
     {
         emit onChangeCalculated(sum - amount);
     }
+}
+
+void WalletModel::getWalletStatus()
+{
+    onKeychainChanged();
 }
 
 void WalletModel::getAllUtxos()
