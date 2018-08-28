@@ -1,6 +1,7 @@
 set(CORE_SRC
     uintBig.cpp
     ecc.cpp
+    ecc_bulletproof.cpp
     aes.cpp
     common.cpp
     block_crypt.cpp

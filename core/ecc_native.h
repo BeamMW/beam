@@ -39,6 +39,18 @@
 
 namespace ECC
 {
+	// cmov - conditional mov. Constant memory access and runtime.
+	template <typename T>
+	void data_cmov_as(T* pDst, const T* pSrc, int nWords, int flag);
+
+	template <typename T>
+	inline void object_cmov(T& dst, const T& src, int flag)
+	{
+		typedef uint32_t TOrd;
+		static_assert(sizeof(T) % sizeof(TOrd) == 0, "");
+		data_cmov_as<TOrd>((TOrd*)&dst, (TOrd*)&src, sizeof(T) / sizeof(TOrd), flag);
+	}
+
 
 	class Scalar::Native
 		:private secp256k1_scalar
