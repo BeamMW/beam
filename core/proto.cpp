@@ -71,7 +71,7 @@ void ProtocolPlus::get_HMac(ECC::Hash::Mac& hm, MacValue& res)
 	ECC::Hash::Value hv;
 	hm >> hv;
 
-	static_assert(hv.nBytes >= res.nBytes, "");
+	//static_assert(hv.nBytes >= res.nBytes, "");
 	res = hv;
 }
 
@@ -147,7 +147,7 @@ void InitCipherIV(AES::StreamCipher& c, const ECC::Hash::Value& hvSecret, const 
 
 	hpIV.V << hvSecret << hvParam >> hvIV.V;
 
-	static_assert(hvIV.V.nBytes >= c.m_Counter.nBytes, "");
+	//static_assert(hvIV.V.nBytes >= c.m_Counter.nBytes, "");
 	c.m_Counter = hvIV.V;
 
 	c.m_nBuf = 0;
@@ -170,7 +170,7 @@ bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& re
 	ECC::NoLeak<ECC::Hash::Value> hvSecret;
 	hp.V << ptSecret >> hvSecret.V;
 
-	static_assert(AES::s_KeyBytes == hvSecret.V.nBytes, "");
+	static_assert(AES::s_KeyBytes == ECC::Hash::Value::nBytes, "");
 	enc.Init(hvSecret.V.m_pData);
 
 	hmac.Reset(hvSecret.V.m_pData, hvSecret.V.nBytes);
