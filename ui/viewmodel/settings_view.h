@@ -53,6 +53,7 @@ public slots:
     void applyChanges();
     void undoChanges();
     void emergencyReset();
+	void reportProblem();
 
 signals:
     void nodeAddressChanged();

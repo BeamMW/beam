@@ -647,9 +647,18 @@ namespace beam
 
 	struct Block::ChainWorkProof
 	{
-		std::vector<SystemState::Full> m_vStates;
-		Merkle::MultiProof m_Proof; // compressed proof
-		Merkle::Hash m_hvRootLive; // last node to go from History to Definition.
+		// Compressed consecutive states (likely to appear at the end)
+		struct Heading {
+			SystemState::Sequence::Prefix m_Prefix;
+			std::vector<SystemState::Sequence::Element> m_vElements;
+		} m_Heading;
+		// other states
+		std::vector<SystemState::Full> m_vArbitraryStates;
+		// compressed proof
+		Merkle::MultiProof m_Proof;
+		// last node to go from History to Definition.
+		Merkle::Hash m_hvRootLive;
+		// crop thereshold. Off by default
 		Difficulty::Raw m_LowerBound;
 
 		struct ISource
@@ -659,20 +668,23 @@ namespace beam
 		};
 
 		ChainWorkProof()
-			:m_LowerBound(Zero) // uncroppped by default
-			,m_hvRootLive(Zero)
 		{
+			ZeroInit();
 		}
 
+		void Reset();
 		void Create(ISource&, const SystemState::Full& sRoot);
 		bool IsValid() const;
 		bool Crop(); // according to current bound
+		bool IsEmpty() const { return m_Heading.m_vElements.empty(); }
 
 		template <typename Archive>
 		void serialize(Archive& ar)
 		{
 			ar
-				& m_vStates
+				& m_Heading.m_Prefix
+				& m_Heading.m_vElements
+				& m_vArbitraryStates
 				& m_Proof
 				& m_hvRootLive
 				& m_LowerBound;
@@ -681,6 +693,7 @@ namespace beam
 	private:
 		struct Sampler;
 		bool IsValidInternal(size_t& iState, size_t& iHash) const;
+		void ZeroInit();
 	};
 
 }

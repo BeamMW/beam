@@ -43,7 +43,7 @@ void TestNodeConnection::GenerateTests()
 	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Send DataMissing message";
-		Send(proto::DataMissing());
+		Send(proto::DataMissing(Zero));
 	});
 }
 

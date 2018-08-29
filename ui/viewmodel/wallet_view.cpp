@@ -99,6 +99,33 @@ beam::WalletID TxObject::peerId() const
     return _tx.m_peerId;
 }
 
+QString TxObject::getSendingAddress() const
+{
+    if (_tx.m_sender)
+    {
+        return toString(_tx.m_myId);
+    }
+    return user();
+}
+
+QString TxObject::getReceivingAddress() const
+{
+    if (_tx.m_sender)
+    {
+        return user();
+    }
+    return toString(_tx.m_myId);
+}
+
+QString TxObject::getFee() const
+{
+    if (_tx.m_fee)
+    {
+        return BeamToString(_tx.m_fee);
+    }
+    return QString{};
+}
+
 WalletViewModel::WalletViewModel()
     : _model(*AppModel::getInstance()->getWallet())
     , _status{ 0, 0, 0, 0, {0, 0, 0}, {} }

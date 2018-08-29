@@ -320,8 +320,7 @@ void Node::Processor::OnPeerInsane(const PeerID& peerID)
 
 void Node::Processor::OnNewState()
 {
-	m_Cwp.m_vStates.clear();
-	m_Cwp.m_Proof.m_vData.clear();
+	m_Cwp.Reset();
 
 	if (!m_Cursor.m_Sid.m_Row)
 		return;
@@ -795,7 +794,6 @@ void Node::Peer::OnConnectedSecure()
 	msgCfg.m_CfgChecksum = Rules::get().Checksum;
 	msgCfg.m_SpreadingTransactions = true;
 	msgCfg.m_Bbs = true;
-	msgCfg.m_AutoSendHdr = false;
 	msgCfg.m_SendPeers = true;
 	Send(msgCfg);
 
@@ -1017,7 +1015,7 @@ void Node::Peer::TakeTasks()
 
 void Node::Peer::OnMsg(proto::Ping&&)
 {
-	proto::Pong msg;
+	proto::Pong msg(Zero);
 	Send(msg);
 }
 
@@ -1069,7 +1067,7 @@ void Node::Peer::OnMsg(proto::GetHdr&& msg)
 		Send(msgHdr);
 	} else
 	{
-		proto::DataMissing msgMiss;
+		proto::DataMissing msgMiss(Zero);
 		Send(msgMiss);
 	}
 }
@@ -1110,7 +1108,7 @@ void Node::Peer::OnMsg(proto::GetBody&& msg)
 
 	}
 
-	proto::DataMissing msgMiss;
+	proto::DataMissing msgMiss(Zero);
 	Send(msgMiss);
 }
 
@@ -1381,7 +1379,6 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 {
 	proto::ProofKernel msgOut;
-	msgOut.m_HashPreimage = Zero;
 
 	RadixHashOnlyTree& t = m_This.m_Processor.get_Kernels();
 
@@ -1470,7 +1467,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 
 bool Node::Processor::BuildCwp()
 {
-	if (!m_Cwp.m_vStates.empty())
+	if (!m_Cwp.IsEmpty())
 		return true; // already built
 
 	if (m_Cursor.m_Full.m_Height < Rules::HeightGenesis)
@@ -1518,8 +1515,7 @@ void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
 			verify(msgOut.m_Proof.Crop());
 		}
 
-	} else
-		ZeroObject(msgOut.m_Proof.m_hvRootLive);
+	}
 
 	Send(msgOut);
 }

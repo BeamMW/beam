@@ -82,6 +82,28 @@ configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/v
 
 add_dependencies(${TARGET_NAME} wallet)
 
+if(LINUX)
+	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
+# link with QuaZip library
+include_directories(${CMAKE_PREFIX_PATH}/include/QtZlib)
+include_directories(quazip)
+add_definitions(-DQUAZIP_STATIC)
+file(GLOB QUAZIP_SRCS "quazip/quazip/*.c" "quazip/quazip/*.cpp")
+file(GLOB PUBLIC_HEADERS "quazip/quazip/*.h")
+qt_wrap_cpp(MOC_SRCS ${PUBLIC_HEADERS})
+set(QUAZIP_ALL_SRCS ${QUAZIP_SRCS} ${MOC_SRCS})
+include_directories(${Qt5Core_INCLUDE_DIRS})
+add_library(quazip_static STATIC ${QUAZIP_ALL_SRCS})
+
+if(UNIX)
+	target_link_libraries(quazip_static z)
+endif()
+
+add_dependencies(${TARGET_NAME} quazip_static)
+target_link_libraries(${TARGET_NAME} quazip_static)
+
 #if (BEAM_WALLET_WITH_NODE)
 	add_definitions(-DBEAM_WALLET_WITH_NODE)
 	add_dependencies(${TARGET_NAME} node)
@@ -202,7 +224,7 @@ if(BEAM_USE_STATIC)
 
 		set_property(TARGET ${TARGET_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-endif()
+	endif()
 
 endif()
 

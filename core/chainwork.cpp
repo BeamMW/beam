@@ -62,7 +62,6 @@ namespace beam
 	//	- If there are several consecutively sampled blocks - we include the Merkle proof only for the highest one, since it has a direct reference to those in the range (i.e. it's a Merkle list already).
 	// This should make the proof dramatically smaller, given toward the blockchain end all the blocks are expected to be included one after another.
 	//	- We verify proofs, order of block heights (i.e. heavier block must have bigger height), and that they don't overlap. But no verification of difficulty adjustment wrt rules.
-	//	- For practical reasons, we use N=128, to simplify the division (i.e. just shift). Which gives us slightly higher confidence (in expense of slightly longer proof of course).
 
 	
 	struct Block::ChainWorkProof::Sampler
@@ -86,44 +85,15 @@ namespace beam
 
 		static void TakeFraction(Difficulty::Raw& v)
 		{
-			// shift right 7 bits, and find the order of the number (1st nonzero bit)
-			uint8_t carry = 0;
-
-			for (uint32_t nByte = 0; nByte < v.nBytes; nByte++)
-			{
-				uint8_t& x = v.m_pData[nByte];
-
-				uint8_t n = x << 1; // next carry
-				x = (x >> 7) | carry;
-				carry = n;
-			}
-		}
-
-		static uint32_t FindOrderOf(const Difficulty::Raw& v)
-		{
-			uint32_t nOrder;
-
-			for (uint32_t nByte = 0; ; nByte++)
-			{
-				if (v.nBytes == nByte)
-					return 0; // the number is zero
-
-				uint8_t x = v.m_pData[nByte];
-				if (!x)
-					continue;
-
-				uint32_t nOrder = ((v.nBytes - nByte) << 3) - 7;
-				for (; x >>= 1; nOrder++)
-					;
-
-				return nOrder;
-			}
+			// The fraction is 1/103. Which is roughly 635 / 65536
+			auto val = v * uintBigFrom((uint16_t) 635);
+			memcpy(v.m_pData, val.m_pData, v.nBytes); // i.e. get the upper part of the result
 		}
 
 		bool UnfiromRandom(Difficulty::Raw& out, const Difficulty::Raw& threshold)
 		{
 			// find the order of the number (1st nonzero bit)
-			uint32_t nOrder = FindOrderOf(threshold);
+			uint32_t nOrder = threshold.get_Order();
 			if (!nOrder)
 				return false;
 
@@ -204,22 +174,28 @@ namespace beam
 
 		} bld(*this, src);
 
-		m_vStates.push_back(sRoot);
-
-		while (true)
+		for (SystemState::Full s = sRoot; ; )
 		{
+			if (m_vArbitraryStates.empty())
+			{
+				m_Heading.m_Prefix = s;
+				m_Heading.m_vElements.push_back(s);
+			}
+
 			Difficulty::Raw d;
 			if (!samp.SamplePoint(d))
 				break;
 
-			SystemState::Full s;
+			Height hPrev = s.m_Height;
 			src.get_StateAt(s, d);
 
-			assert(s.m_Height < m_vStates.back().m_Height);
-			if (s.m_Height + 1 != m_vStates.back().m_Height)
+			assert(s.m_Height < hPrev);
+			bool bJump = (s.m_Height + 1 != hPrev);
+			if (bJump)
 				bld.Add(s.m_Height - Rules::HeightGenesis);
 
-			m_vStates.push_back(s);
+			if (bJump || !m_vArbitraryStates.empty())
+				m_vArbitraryStates.push_back(s);
 
 			s.m_PoW.m_Difficulty.Dec(d, s.m_ChainWork);
 
@@ -233,7 +209,7 @@ namespace beam
 		size_t iState, iHash;
 		return
 			IsValidInternal(iState, iHash) &&
-			(m_vStates.size() == iState) &&
+			(m_vArbitraryStates.size() + m_Heading.m_vElements.size() == iState) &&
 			(m_Proof.m_vData.size() == iHash);
 	}
 
@@ -243,19 +219,59 @@ namespace beam
 		if (!IsValidInternal(iState, iHash))
 			return false;
 
-		m_vStates.resize(iState);
+		if (iState >= m_Heading.m_vElements.size())
+			m_vArbitraryStates.resize(iState - m_Heading.m_vElements.size());
+		else
+		{
+			m_vArbitraryStates.clear();
+			assert(iState); // root must remain!
+
+			SystemState::Full s;
+			((SystemState::Sequence::Prefix&) s) = m_Heading.m_Prefix;
+			((SystemState::Sequence::Element&) s) = m_Heading.m_vElements.back();
+
+			while (m_Heading.m_vElements.size() > iState)
+			{
+				m_Heading.m_vElements.pop_back();
+
+				s.NextPrefix();
+				((SystemState::Sequence::Element&) s) = m_Heading.m_vElements.back();
+				s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+
+			}
+
+			m_Heading.m_Prefix = s;
+		}
+
 		m_Proof.m_vData.resize(iHash);
 		return true;
 	}
 
 	bool Block::ChainWorkProof::IsValidInternal(size_t& iState, size_t& iHash) const
 	{
-		if (m_vStates.empty())
+		if (m_Heading.m_vElements.empty())
 			return false;
 
-		for (size_t i = 0; i < m_vStates.size(); i++)
+		SystemState::Full s;
+		((SystemState::Sequence::Prefix&) s) = m_Heading.m_Prefix;
+		((SystemState::Sequence::Element&) s) = m_Heading.m_vElements.back();
+
+		for (size_t i = m_Heading.m_vElements.size() - 1; ; )
 		{
-			const Block::SystemState::Full& s = m_vStates[i];
+			if (!(s.IsSane() && s.IsValidPoW()))
+				return false;
+
+			if (!i--)
+				break;
+
+			s.NextPrefix();
+			((SystemState::Sequence::Element&) s) = m_Heading.m_vElements[i];
+			s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+		}
+
+		for (size_t i = 0; i < m_vArbitraryStates.size(); i++)
+		{
+			const Block::SystemState::Full& s = m_vArbitraryStates[i];
 			if (!(s.IsSane() && s.IsValidPoW()))
 				return false;
 		}
@@ -263,6 +279,7 @@ namespace beam
 		struct MyVerifier :public Merkle::MultiProof::Verifier
 		{
 			const ChainWorkProof& m_This;
+			Merkle::Hash m_hvRootDefinition;
 			MyVerifier(const ChainWorkProof& x, uint64_t nCount)
 				:Verifier(x.m_Proof, nCount)
 				,m_This(x)
@@ -272,19 +289,19 @@ namespace beam
 			{
 				Merkle::Hash hvDef;
 				Merkle::Interpret(hvDef, hv, m_This.m_hvRootLive);
-				return hvDef == m_This.m_vStates.front().m_Definition;
+				return hvDef == m_hvRootDefinition;
 			}
 		};
 
-		const SystemState::Full& sRoot = m_vStates.front();
-		MyVerifier ver(*this, sRoot.m_Height - Rules::HeightGenesis);
+		MyVerifier ver(*this, s.m_Height - Rules::HeightGenesis);
+		ver.m_hvRootDefinition = s.m_Definition;
 
-		Sampler samp(sRoot, m_LowerBound);
+		Sampler samp(s, m_LowerBound);
 		if (samp.m_Begin >= samp.m_End) // overflow attack?
 			return false;
 
 		Difficulty::Raw dLoPrev;
-		sRoot.m_PoW.m_Difficulty.Dec(dLoPrev, sRoot.m_ChainWork);
+		s.m_PoW.m_Difficulty.Dec(dLoPrev, s.m_ChainWork);
 
 		for (iState = 1; ; iState++)
 		{
@@ -292,8 +309,24 @@ namespace beam
 			if (!samp.SamplePoint(dSamp))
 				break;
 
-			const SystemState::Full& s0 = m_vStates[iState - 1];
-			const SystemState::Full& s = m_vStates[iState];
+			SystemState::Full s0 = s;
+
+			bool bContiguousRange = (iState < m_Heading.m_vElements.size());
+
+			if (bContiguousRange)
+			{
+				// still within contiguous range. Update only some params
+				s.m_Height--;
+				s.m_ChainWork = dLoPrev;
+				s.m_PoW.m_Difficulty = m_Heading.m_vElements[iState].m_PoW.m_Difficulty;
+			}
+			else
+			{
+				if (m_vArbitraryStates.size() <= iState - m_Heading.m_vElements.size())
+					return false;
+
+				s = m_vArbitraryStates[iState - m_Heading.m_vElements.size()];
+			}
 
 			if (dSamp >= s.m_ChainWork)
 				return false;
@@ -304,27 +337,30 @@ namespace beam
 			if (dSamp < dLo)
 				return false;
 
-			s.get_Hash(ver.m_hvPos);
-
-			if (s.m_Height + 1 == s0.m_Height)
+			if (!bContiguousRange)
 			{
-				if (s0.m_Prev != ver.m_hvPos)
-					return false;
+				s.get_Hash(ver.m_hvPos);
 
-				if (s.m_ChainWork != dLoPrev)
-					return false;
-			}
-			else
-			{
-				if (s.m_Height >= s0.m_Height)
-					return false;
+				if (s.m_Height + 1 == s0.m_Height)
+				{
+					if (s0.m_Prev != ver.m_hvPos)
+						return false;
 
-				if (s.m_ChainWork >= dLoPrev)
-					return false;
+					if (s.m_ChainWork != dLoPrev)
+						return false;
+				}
+				else
+				{
+					if (s.m_Height >= s0.m_Height)
+						return false;
 
-				ver.Process(s.m_Height - Rules::HeightGenesis);
-				if (!ver.m_bVerify)
-					return false;
+					if (s.m_ChainWork >= dLoPrev)
+						return false;
+
+					ver.Process(s.m_Height - Rules::HeightGenesis);
+					if (!ver.m_bVerify)
+						return false;
+				}
 			}
 
 			dLoPrev = dLo;
@@ -335,6 +371,21 @@ namespace beam
 
 		iHash = ver.get_Pos() - m_Proof.m_vData.begin();
 		return true;
+	}
+
+	void Block::ChainWorkProof::ZeroInit()
+	{
+		ZeroObject(m_Heading.m_Prefix);
+		m_hvRootLive = Zero;
+		m_LowerBound = Zero;
+	}
+
+	void Block::ChainWorkProof::Reset()
+	{
+		ZeroInit();
+		m_Heading.m_vElements.clear();
+		m_vArbitraryStates.clear();
+		m_Proof.m_vData.clear();
 	}
 
 } // namespace beam
