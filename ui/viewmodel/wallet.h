@@ -16,6 +16,7 @@
 
 #include <QObject>
 #include <QQmlListProperty>
+
 #include "model/wallet.h"
 #include "messages.h"
 
@@ -89,8 +90,11 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QQmlListProperty<TxObject> tx READ tx NOTIFY txChanged)
     Q_PROPERTY(int selectedAddr READ selectedAddr WRITE setSelectedAddr NOTIFY selectedAddrChanged)
 
+    Q_PROPERTY(QString walletStatusErrorMsg READ getWalletStatusErrorMsg NOTIFY stateChanged)
+    Q_PROPERTY(bool isOfflineStatus READ getIsOfflineStatus WRITE setIsOfflineStatus NOTIFY isOfflineStatusChanged)
+    Q_PROPERTY(bool isFailedStatus READ getIsFailedStatus WRITE setIsFailedStatus NOTIFY isFailedStatusChanged)
+
     Q_PROPERTY(QString syncTime READ syncTime NOTIFY stateChanged)
-    Q_PROPERTY(int syncProgress READ syncProgress NOTIFY stateChanged)
     Q_PROPERTY(bool isSyncInProgress READ getIsSyncInProgress WRITE setIsSyncInProgress NOTIFY isSyncInProgressChanged)
 
     Q_PROPERTY(QString actualAvailable READ actualAvailable NOTIFY actualAvailableChanged)
@@ -125,9 +129,13 @@ public:
     QString feeMils() const;
     QString receiverAddr() const;
     QString syncTime() const;
-    int syncProgress() const;
     bool getIsSyncInProgress() const;
     void setIsSyncInProgress(bool value);
+    bool getIsOfflineStatus() const;
+    bool getIsFailedStatus() const;
+    void setIsOfflineStatus(bool value);
+    void setIsFailedStatus(bool value);
+    QString getWalletStatusErrorMsg() const;
 
     QString actualAvailable() const;
     QString change() const;
@@ -174,6 +182,8 @@ signals:
     void newReceiverNameChanged();
     void commentedChaned();
 
+    void isOfflineStatusChanged();
+    void isFailedStatusChanged();
 private:
     beam::Amount calcSendAmount() const;
     beam::Amount calcFeeAmount() const;
@@ -202,4 +212,6 @@ private:
 
     int _selectedAddr;
     bool _isSyncInProgress;
+    bool _isOfflineStatus;
+    bool _isFailedStatus;
 };

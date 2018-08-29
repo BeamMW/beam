@@ -104,6 +104,8 @@ WalletViewModel::WalletViewModel()
     , _feeMils("0")
     , _change(0)
     , _isSyncInProgress{false}
+    , _isOfflineStatus{false}
+    , _isFailedStatus{false}
 {
     connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
@@ -372,14 +374,27 @@ QString WalletViewModel::syncTime() const
     return toString(_status.update.lastTime);
 }
 
-int WalletViewModel::syncProgress() const
+bool WalletViewModel::getIsOfflineStatus() const
 {
-    if (_status.update.total > 0)
-    {
-        return _status.update.done * 100 / _status.update.total;
-    }
+    return _isOfflineStatus;
+}
 
-    return -1;
+bool WalletViewModel::getIsFailedStatus() const
+{
+    return _isFailedStatus;
+}
+
+void WalletViewModel::setIsOfflineStatus(bool value)
+{
+}
+
+void WalletViewModel::setIsFailedStatus(bool value)
+{
+}
+
+QString WalletViewModel::getWalletStatusErrorMsg() const
+{
+    return QString{};
 }
 
 bool WalletViewModel::getIsSyncInProgress() const

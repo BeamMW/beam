@@ -33,54 +33,169 @@ Item {
         text: "Wallet"
     }
 
-    Rectangle {
-        id: user_led
-        y: 55
+    Item {
+        id: status_bar
         x: 5
-        width: 10
-        height: 10
-
-        radius: 5
-
-        color: (viewModel.isSyncInProgress == false) ? Style.bright_teal : "red"
-    }
-
-    DropShadow {
-        anchors.fill: user_led
-        radius: 5
-        samples: 9
-        color: (viewModel.isSyncInProgress == false) ? Style.bright_teal : "red"
-        source: user_led
-    }
-
-    SFText {
-        id: linkBtn
-        x: 20
         y: 53
-
-        font.pixelSize: 12
-        color: Style.bluey_grey
-        linkColor: Style.white
-
-        text: {
-            if(viewModel.syncProgress < 0)
-                "Last update time: " + viewModel.syncTime + " (<a href=\"update\">update</a>)"
-            else
-                "Updating, please wait... [" + viewModel.syncProgress + "%]"
+        property string status: {
+             if (viewModel.isisFailedStatus)
+                "error"
+             else if (viewModel.isOfflineStatus)
+                "offline"
+             else if(viewModel.isSyncInProgress)
+                "updating"
+             else
+                "online"
         }
 
-        onLinkActivated: {
-            if(link == "update")
-            {
-                viewModel.syncWithNode()
+        state: "offline"
+        
+        property int indicator_radius: 5
+        property Item indicator: online_indicator
+        property string error_msg: viewModel.walletStatusErrorMsg
+
+        Item {
+            id: online_indicator
+            anchors.top: parent.top
+            anchors.left: parent.left
+            width: childrenRect.width
+
+            property color color: Style.bright_teal
+            property int radius: status_bar.indicator_radius
+
+            Rectangle {
+                id: online_rect
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.leftMargin: 0
+                anchors.topMargin: 2
+
+                width: status_bar.indicator_radius * 2
+                height: status_bar.indicator_radius * 2
+                radius: status_bar.indicator_radius
+                color: parent.color
+            }
+
+            DropShadow {
+                anchors.fill: online_rect
+                radius: 5
+                samples: 9
+                source: online_rect
+                color: parent.color
             }
         }
 
-        MouseArea {
-            anchors.fill: parent
-            acceptedButtons: Qt.NoButton
-            cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
+        Item {
+            id: offline_indicator
+            anchors.top: parent.top
+            anchors.left: parent.left
+            width: childrenRect.width
+
+            property color color: Style.bluey_grey
+            property int radius: status_bar.indicator_radius
+
+
+            Rectangle {
+                id: offline_rect
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.leftMargin: 0
+                anchors.topMargin: 2
+
+                color: "transparent"
+                width: parent.radius * 2
+                height: parent.radius * 2
+                radius: parent.radius
+                border.color: parent.color
+                border.width: 1
+            }
         }
+
+        Item {
+            id: update_indicator
+            anchors.top: parent.top
+            anchors.left: parent.left
+            visible: false
+
+            property color color: Style.bright_teal
+            property int circle_line_width: 2
+            property int animation_duration: 2000
+
+            width: 2 * status_bar.indicator_radius + circle_line_width
+            height: 2 * status_bar.indicator_radius + circle_line_width
+
+            Canvas {
+                id: canvas_
+                anchors.fill: parent
+                onPaint: {
+                    var context = getContext("2d");
+                    context.arc(width/2, height/2, width/2 - parent.circle_line_width, 0, 1.6 * Math.PI);
+                    context.strokeStyle = parent.color;
+                    context.lineWidth = parent.circle_line_width;
+                    context.stroke();
+                }
+            }
+
+            RotationAnimator {
+                target: update_indicator
+                from: 0
+                to: 360
+                duration: update_indicator.animation_duration
+                running: update_indicator.visible
+                loops: Animation.Infinite
+            }
+        }
+
+        SFText {
+            id: status_text
+            anchors.top: parent.top
+            anchors.left: parent.indicator.right
+            anchors.leftMargin: 5
+            anchors.topMargin: 0
+            color: Style.bluey_grey
+        }
+
+        states: [ 
+            State {
+                name: "online"
+                when: (status_bar.status === "online")
+                PropertyChanges {target: status_text; text: qsTr("online")}
+                PropertyChanges {target: status_bar; indicator: online_indicator}
+                PropertyChanges {target: online_indicator; visible: true}
+                PropertyChanges {target: offline_indicator; visible: false}
+                PropertyChanges {target: update_indicator; visible: false}
+            },
+            State {
+                name: "offline"
+                when: (status_bar.status === "offline")
+                PropertyChanges {target: status_text; text: qsTr("offline")}
+                PropertyChanges {target: status_bar; indicator: offline_indicator}
+                PropertyChanges {target: online_indicator; visible: false}
+                PropertyChanges {target: offline_indicator; visible: true}
+                PropertyChanges {target: update_indicator; visible: false}
+            },
+            State {
+                name: "updating"
+                when: (status_bar.status === "updating")
+                PropertyChanges {target: status_text; text: qsTr("updating...")}
+                PropertyChanges {target: status_bar; indicator: update_indicator}
+                PropertyChanges {target: online_indicator; color: "red"}
+                PropertyChanges {target: online_indicator; visible: false}
+                PropertyChanges {target: offline_indicator; visible: false}
+                PropertyChanges {target: update_indicator; visible: true}
+            },
+            State {
+                name: "error"
+                when: (status_bar.status === "error")
+                PropertyChanges {target: status_bar; indicator: online_indicator}
+                PropertyChanges {target: status_text; text: status_bar.error_msg}
+                PropertyChanges {target: status_text; color: "red"}
+                PropertyChanges {target: online_indicator; color: "red"}
+                PropertyChanges {target: online_indicator; visible: true}
+                PropertyChanges {target: offline_indicator; visible: false}
+                PropertyChanges {target: update_indicator; visible: false}
+            }
+        ]
     }
 
     /////////////////////////////////////////////////////////////
@@ -412,13 +527,10 @@ Item {
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignTop
                             Layout.topMargin: 30
-                            Layout.minimumHeight: 96
+                            height: 96
 
-                            Rectangle {
+                            Item {
                                 anchors.fill: parent
-                                height: 96
-                                radius: 10
-                                color: Style.marine
 
                                 RowLayout {
                                     anchors.fill: parent
@@ -521,9 +633,8 @@ Item {
                             }
                             Rectangle {
                                 anchors.fill: parent
-                                height: 96
                                 radius: 10
-                                color: "white"
+                                color: Style.white
                                 opacity: 0.1
                             }
                         }
