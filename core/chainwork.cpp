@@ -62,7 +62,6 @@ namespace beam
 	//	- If there are several consecutively sampled blocks - we include the Merkle proof only for the highest one, since it has a direct reference to those in the range (i.e. it's a Merkle list already).
 	// This should make the proof dramatically smaller, given toward the blockchain end all the blocks are expected to be included one after another.
 	//	- We verify proofs, order of block heights (i.e. heavier block must have bigger height), and that they don't overlap. But no verification of difficulty adjustment wrt rules.
-	//	- For practical reasons, we use N=128, to simplify the division (i.e. just shift). Which gives us slightly higher confidence (in expense of slightly longer proof of course).
 
 	
 	struct Block::ChainWorkProof::Sampler
@@ -86,17 +85,9 @@ namespace beam
 
 		static void TakeFraction(Difficulty::Raw& v)
 		{
-			// shift right 7 bits, and find the order of the number (1st nonzero bit)
-			uint8_t carry = 0;
-
-			for (uint32_t nByte = 0; nByte < v.nBytes; nByte++)
-			{
-				uint8_t& x = v.m_pData[nByte];
-
-				uint8_t n = x << 1; // next carry
-				x = (x >> 7) | carry;
-				carry = n;
-			}
+			// The fraction is 1/103. Which is roughly 635 / 65536
+			auto val = v * uintBigFrom((uint16_t) 635);
+			memcpy(v.m_pData, val.m_pData, v.nBytes); // i.e. get the upper part of the result
 		}
 
 		bool UnfiromRandom(Difficulty::Raw& out, const Difficulty::Raw& threshold)
