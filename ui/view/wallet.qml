@@ -796,7 +796,7 @@ Item {
                                 acceptedButtons: Qt.NoButton
                                 hoverEnabled: true
                             }
-)
+
                             ToolTip {
                                 id: toolTip
                                 visible: mouseArea.containsMouse
