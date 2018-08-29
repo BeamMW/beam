@@ -46,3 +46,8 @@ void SettingsViewModel::emergencyReset()
 {
     m_settings.emergencyReset();
 }
+
+void SettingsViewModel::reportProblem()
+{
+	m_settings.reportProblem();
+}

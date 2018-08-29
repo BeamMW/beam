@@ -14,8 +14,14 @@
 
 #include "settings.h"
 #include <QtQuick>
+#include <QFileDialog>
 
 #include "app_model.h"
+
+#include "version.h"
+
+#include "quazip/quazip.h"
+#include "quazip/quazipfile.h"
 
 using namespace std;
 
@@ -129,3 +135,44 @@ string WalletSettings::getTempDir() const
     return m_appDataDir.filePath("./temp").toStdString();
 }
 
+void WalletSettings::reportProblem()
+{
+	QFile zipFile = m_appDataDir.filePath("beam v" + QString::fromStdString(PROJECT_VERSION) 
+		+ " " + QSysInfo::productType().toLower() + " report.zip");
+
+	QuaZip zip(zipFile.fileName());
+	zip.open(QuaZip::mdCreate);
+
+	QDirIterator it(m_appDataDir.filePath("logs"));
+
+	while (it.hasNext())
+	{
+		QFile file(it.next());
+		if (file.open(QIODevice::ReadOnly))
+		{
+			QuaZipFile zipFile(&zip);
+
+			zipFile.open(QIODevice::WriteOnly, QuaZipNewInfo(QFileInfo(file).fileName(), file.fileName()));
+			zipFile.write(file.readAll());
+			file.close();
+			zipFile.close();
+		}
+	}
+
+	zip.close();
+
+	QString path = QFileDialog::getSaveFileName(nullptr, "Save problem report", 
+		QDir(QStandardPaths::writableLocation(QStandardPaths::DesktopLocation)).filePath(QFileInfo(zipFile).fileName()),
+		"Archives (*.zip)");
+
+	if (!path.isEmpty())
+	{
+		{
+			QFile file(path);
+			if(file.exists())
+				file.remove();
+		}
+
+		zipFile.rename(path);
+	}
+}
