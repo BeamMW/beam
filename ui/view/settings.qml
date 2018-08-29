@@ -89,7 +89,14 @@ Rectangle {
                 palette.buttonText : "white"
 
                 onClicked: emergencyConfirmation.open();
-            }        
+            }
+			
+			PrimaryButton {
+                text: "REPORT PROBLEM"
+                palette.buttonText : "white"
+
+                onClicked: viewModel.reportProblem()
+            } 
         }
 
 		Row {
