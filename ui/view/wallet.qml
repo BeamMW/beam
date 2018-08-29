@@ -949,9 +949,24 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             source: "qrc:///assets/icon-comment.svg"
                             visible: styleData.value !== null && styleData.value !== ""
-                            ToolTip.text: styleData.value
-                            ToolTip.visible: mouseArea.containsMouse
-                            ToolTip.delay: 500
+                            ToolTip {
+                                id: comment_tooltip
+                                visible: mouseArea.containsMouse
+                                delay: 500
+                                timeout: 4000
+                                text: styleData.value
+
+                                contentItem: Text {
+                                    text: comment_tooltip.text
+                                    font: comment_tooltip.font
+                                    color: Style.white
+                                }
+
+                                background: Rectangle {
+                                    border.color: Style.white
+                                    opacity: 0
+                                }
+                            }
                             MouseArea {
                                 id: mouseArea
                                 anchors.fill: parent
