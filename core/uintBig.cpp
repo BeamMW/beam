@@ -144,6 +144,16 @@ namespace beam {
 				dst = (uint8_t) carry;
 				carry >>= 8;
 			}
+
+			if (iDst <= nDst)
+				while (carry && iDst--)
+				{
+					uint8_t& dst = pDst[iDst];
+					carry += dst;
+
+					dst = (uint8_t) carry;
+					carry >>= 8;
+				}
 		}
 	}
 
