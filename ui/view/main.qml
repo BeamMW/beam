@@ -61,17 +61,6 @@ Rectangle {
                         height: 28
                         source: "qrc:///assets/icon-" + modelData + (selectedItem == index ? "-active" : "") + ".svg"
 					}
-
-					DropShadow {
-					    id: iconShadow
-						anchors.fill: icon
-						radius: 7
-						samples: 9
-						color: "white"
-						source: icon
-						visible: mouseArea.containsMouse 
-					}
-
                     Item {
                         Rectangle {
                             id: indicator
