@@ -734,6 +734,8 @@ Item {
             selectionMode: SelectionMode.NoSelection
             backgroundVisible: false
 
+            property int resizableWidth: parent.width - incomeColumn.width - actionsColumn.width - commentColumn.width
+
             TableViewColumn {
                 id: incomeColumn
                 role: "income"
@@ -761,7 +763,7 @@ Item {
             TableViewColumn {
                 role: "date"
                 title: qsTr("Date | Time")
-                width: 160 * ( parent.width - incomeColumn.width - actionsColumn.width - commentColumn.width) / 870
+                width: 160 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
                 resizable: false
                 movable: false
@@ -770,7 +772,7 @@ Item {
             TableViewColumn {
                 role: "displayName"
                 title: qsTr("Recipient / Sender ID")
-                width: 260 * ( parent.width - incomeColumn.width - actionsColumn.width) / 870
+                width: 260 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideMiddle
                 resizable: false
                 movable: false
@@ -857,7 +859,7 @@ Item {
             TableViewColumn {
                 role: "amount"
                 title: qsTr("Amount, BEAM")
-                width: 200 * ( parent.width - incomeColumn.width - actionsColumn.width - commentColumn.width) / 870
+                width: 200 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
                 movable: false
                 resizable: false
@@ -883,7 +885,7 @@ Item {
             TableViewColumn {
                 role: "change"
                 title: qsTr("Change, BEAM")
-                width: 140 * ( parent.width - incomeColumn.width - actionsColumn.width - commentColumn.width) / 870
+                width: 140 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
                 resizable: false
                 movable: false
@@ -892,7 +894,7 @@ Item {
             TableViewColumn {
                 role: "status"
                 title: qsTr("Status")
-                width: 110 * ( parent.width - incomeColumn.width - actionsColumn.width - commentColumn.width) / 870
+                width: 110 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
                 movable: false
                 resizable: false
@@ -944,6 +946,7 @@ Item {
 
                         Row{
                             anchors.right: parent.right
+                            anchors.rightMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 10
                         /*	CustomToolButton {
