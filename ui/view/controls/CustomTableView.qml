@@ -16,4 +16,5 @@ TableView {
 			opacity: 0.1
 		}
 	}
+    horizontalScrollBarPolicy: Qt.ScrollBarAlwaysOff
 }

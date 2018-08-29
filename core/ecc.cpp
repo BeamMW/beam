@@ -802,7 +802,7 @@ namespace ECC {
 
 	unsigned int GetPortion(const Scalar::Native& k, unsigned int iWord, unsigned int iBitInWord, unsigned int nBitsWnd)
 	{
-		const const Scalar::Native::uint& n = k.get().d[iWord];
+		const Scalar::Native::uint& n = k.get().d[iWord];
 
 		return (n >> (iBitInWord & ~(nBitsWnd - 1))) & ((1 << nBitsWnd) - 1);
 	}

@@ -93,10 +93,10 @@ Rectangle {
 
         Image {
             id: image
-            x: 20
             y: 50
-            width: 30
-            height: 24
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: 40
+            height: 28
             source: Style.logo
 
 			MouseArea {

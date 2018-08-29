@@ -31,6 +31,7 @@
         <file>assets/fonts/SF-Pro-Display-Bold.otf</file>
         <file>assets/fonts/SF-Pro-Display-Regular.otf</file>
         <file>assets/logo.png</file>
+        <file>assets/start_logo.png</file>
         <file>assets/icon.png</file>
         <file>assets/bg.png</file>
         <file>assets/icon-dashboard.svg</file>
@@ -68,5 +69,6 @@
         <file>assets/icon-actions.svg</file>
         <file>assets/icon-delete.svg</file>
         <file>controls/CustomToolButton.qml</file>
+        <file>controls/CustomSwitch.qml</file>
     </qresource>
 </RCC>
