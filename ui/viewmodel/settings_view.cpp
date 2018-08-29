@@ -17,8 +17,6 @@
 #include <QtQuick>
 #include "model/app_model.h"
 
-#include "../quazip/quazip/quazip.h"
-
 using namespace std;
 
 SettingsViewModel::SettingsViewModel()
@@ -51,6 +49,5 @@ void SettingsViewModel::emergencyReset()
 
 void SettingsViewModel::reportProblem()
 {
-	QuaZip zip("zipFile.zip");
-	zip.open(QuaZip::mdUnzip);
+	m_settings.reportProblem();
 }

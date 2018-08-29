@@ -33,6 +33,7 @@ public:
     std::string getWalletStorage() const;
     std::string getBbsStorage() const;
     void emergencyReset();
+	void reportProblem();
 
     bool getRunLocalNode() const;
     void setRunLocalNode(bool value);

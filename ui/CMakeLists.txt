@@ -85,6 +85,7 @@ add_dependencies(${TARGET_NAME} wallet)
 
 # link with QuaZip library
 include_directories(${CMAKE_PREFIX_PATH}/include/QtZlib)
+include_directories(quazip)
 add_definitions(-DQUAZIP_STATIC)
 file(GLOB QUAZIP_SRCS "quazip/quazip/*.c" "quazip/quazip/*.cpp")
 file(GLOB PUBLIC_HEADERS "quazip/quazip/*.h")
