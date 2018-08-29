@@ -944,7 +944,6 @@ namespace beam
 				SetTimer(90 * 1000);
 
 				proto::Config msgCfg;
-				ZeroObject(msgCfg);
 				msgCfg.m_CfgChecksum = Rules::get().Checksum;
 				msgCfg.m_AutoSendHdr = true;
 				Send(msgCfg);
@@ -1023,7 +1022,6 @@ namespace beam
 				}
 
 				proto::GetMined msgOut;
-				msgOut.m_HeightMin = 0;
 				Send(msgOut);
 
 				proto::BbsMsg msgBbs;
@@ -1052,7 +1050,6 @@ namespace beam
 					const MiniWallet::MyUtxo& utxo = it->second;
 
 					proto::GetProofUtxo msgOut;
-					msgOut.m_MaturityMin = 0;
 					msgOut.m_Utxo.m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
 					Send(msgOut);
 
@@ -1210,7 +1207,6 @@ namespace beam
 
 			virtual void OnConnectedSecure() override {
 				proto::Config msgCfg;
-				ZeroObject(msgCfg);
 				msgCfg.m_CfgChecksum = Rules::get().Checksum;
 				msgCfg.m_SendPeers = true; // just for fun
 				Send(msgCfg);
@@ -1226,7 +1222,6 @@ namespace beam
 					proto::BbsSubscribe msgOut;
 					msgOut.m_Channel = 11;
 					msgOut.m_On = true;
-					msgOut.m_TimeFrom = 0;
 
 					Send(msgOut);
 				}

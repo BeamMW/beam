@@ -794,7 +794,6 @@ void Node::Peer::OnConnectedSecure()
 	msgCfg.m_CfgChecksum = Rules::get().Checksum;
 	msgCfg.m_SpreadingTransactions = true;
 	msgCfg.m_Bbs = true;
-	msgCfg.m_AutoSendHdr = false;
 	msgCfg.m_SendPeers = true;
 	Send(msgCfg);
 
@@ -1380,7 +1379,6 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 {
 	proto::ProofKernel msgOut;
-	msgOut.m_HashPreimage = Zero;
 
 	RadixHashOnlyTree& t = m_This.m_Processor.get_Kernels();
 
@@ -1517,8 +1515,7 @@ void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
 			verify(msgOut.m_Proof.Crop());
 		}
 
-	} else
-		ZeroObject(msgOut.m_Proof.m_hvRootLive);
+	}
 
 	Send(msgOut);
 }
