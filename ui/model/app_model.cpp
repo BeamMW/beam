@@ -99,7 +99,7 @@ bool AppModel::openWallet(const beam::SecString& pass)
         {
             keystore = IKeyStore::create(options, pass.data(), pass.size());
         }
-        catch (const beam::KeyStoreException& ex)
+        catch (const beam::KeyStoreException& )
         {
             return false;
         }

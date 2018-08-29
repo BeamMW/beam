@@ -133,9 +133,9 @@ void SettingsViewModel::undoChanges()
 {
     setNodeAddress(m_settings.getNodeAddress());
     setLocalNodeRun(m_settings.getRunLocalNode());
-    setLocalNodePort(static_cast<uint>(m_settings.getLocalNodePort()));
-    setLocalNodeMiningThreads(static_cast<uint>(m_settings.getLocalNodeMiningThreads()));
-    setLocalNodeVerificationThreads(static_cast<uint>(m_settings.getLocalNodeVerificationThreads()));
+    setLocalNodePort(m_settings.getLocalNodePort());
+    setLocalNodeMiningThreads(m_settings.getLocalNodeMiningThreads());
+    setLocalNodeVerificationThreads(m_settings.getLocalNodeVerificationThreads());
 }
 
 void SettingsViewModel::emergencyReset()

@@ -92,34 +92,34 @@ void WalletSettings::setRunLocalNode(bool value)
     emit localNodeRunChanged();
 }
 
-uint16_t WalletSettings::getLocalNodePort() const
+uint WalletSettings::getLocalNodePort() const
 {
     return m_data.value(LocalNodePort, 10000).toUInt();
 }
 
-void WalletSettings::setLocalNodePort(uint16_t port)
+void WalletSettings::setLocalNodePort(uint port)
 {
     m_data.setValue(LocalNodePort, port);
     emit localNodePortChanged();
 }
 
-std::size_t WalletSettings::getLocalNodeMiningThreads() const
+uint WalletSettings::getLocalNodeMiningThreads() const
 {
     return m_data.value(LocalNodeMiningThreads, 1).toUInt();
 }
 
-void WalletSettings::setLocalNodeMiningThreads(std::size_t n)
+void WalletSettings::setLocalNodeMiningThreads(uint n)
 {
     m_data.setValue(LocalNodeMiningThreads, n);
     emit localNodeMiningThreadsChanged();
 }
 
-std::size_t WalletSettings::getLocalNodeVerificationThreads() const
+uint WalletSettings::getLocalNodeVerificationThreads() const
 {
     return m_data.value(LocalNodeVerificationThreads, 1).toUInt();
 }
 
-void WalletSettings::setLocalNodeVerificationThreads(std::size_t n)
+void WalletSettings::setLocalNodeVerificationThreads(uint n)
 {
     m_data.setValue(LocalNodeVerificationThreads, n);
     emit localNodeVerificationThreadsChanged();
