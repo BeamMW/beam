@@ -556,12 +556,10 @@ Item {
                                                     text: viewModel.actualAvailable
                                                 }
 
-                                                // TODO(alex.starun): change to BEAM icon
-                                                SFText {
-                                                    font.pixelSize: 24
-                                                    font.weight: Font.ExtraLight
-                                                    color: Style.bluey_grey
-                                                    text: "B"
+                                                SvgImage {
+                                                    Layout.topMargin: 4
+                                                    sourceSize: Qt.size(16, 24)
+                                                    source: "qrc:///assets/b-grey.svg"
                                                 }
                                             }
                                         }
@@ -606,12 +604,10 @@ Item {
                                                     text: viewModel.change
                                                 }
 
-                                                // TODO(alex.starun): change to BEAM icon
-                                                SFText {
-                                                    font.pixelSize: 24
-                                                    font.weight: Font.ExtraLight
-                                                    color: Style.bluey_grey
-                                                    text: "B"
+                                                SvgImage {
+                                                    Layout.topMargin: 4
+                                                    sourceSize: Qt.size(16, 24)
+                                                    source: "qrc:///assets/b-grey.svg"
                                                 }
                                             }
                                         }
