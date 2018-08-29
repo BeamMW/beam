@@ -180,4 +180,24 @@ namespace beam {
 		return memcmp(pSrc0, pSrc1, nSrc0);
 	}
 
+	uint32_t uintBigImpl::_GetOrder(const uint8_t* pDst, uint32_t nDst)
+	{
+		for (uint32_t nByte = 0; ; nByte++)
+		{
+			if (nDst == nByte)
+				return 0; // the number is zero
+
+			uint8_t x = pDst[nByte];
+			if (!x)
+				continue;
+
+			uint32_t nOrder = ((nDst - nByte) << 3) - 7;
+			while (x >>= 1)
+				nOrder++;
+
+			return nOrder;
+		}
+
+	}
+
 } // namespace beam

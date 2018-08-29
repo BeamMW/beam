@@ -99,31 +99,10 @@ namespace beam
 			}
 		}
 
-		static uint32_t FindOrderOf(const Difficulty::Raw& v)
-		{
-			uint32_t nOrder;
-
-			for (uint32_t nByte = 0; ; nByte++)
-			{
-				if (v.nBytes == nByte)
-					return 0; // the number is zero
-
-				uint8_t x = v.m_pData[nByte];
-				if (!x)
-					continue;
-
-				uint32_t nOrder = ((v.nBytes - nByte) << 3) - 7;
-				for (; x >>= 1; nOrder++)
-					;
-
-				return nOrder;
-			}
-		}
-
 		bool UnfiromRandom(Difficulty::Raw& out, const Difficulty::Raw& threshold)
 		{
 			// find the order of the number (1st nonzero bit)
-			uint32_t nOrder = FindOrderOf(threshold);
+			uint32_t nOrder = threshold.get_Order();
 			if (!nOrder)
 				return false;
 
