@@ -251,7 +251,14 @@ namespace beam
         {
             LOG_VERBOSE() << "Received tx invitation " << msg.m_txId;
             bool sender = !msg.m_send;
-            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, receiver, {}, getTimestamp(), sender };
+
+            ByteBuffer messageBuffer;
+            auto receiverAddress = m_keyChain->getAddress(receiver);
+            if (receiverAddress.is_initialized())
+            {
+                messageBuffer.assign(receiverAddress->m_label.begin(), receiverAddress->m_label.end());
+            }
+            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, receiver, move(messageBuffer), getTimestamp(), sender };
             auto r = make_shared<Negotiator>(*this, m_keyChain, tx);
             m_negotiators.emplace(tx.m_txId, r);
             m_keyChain->saveTx(tx);

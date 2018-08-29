@@ -1446,6 +1446,22 @@ namespace beam
 
         notifyAddressChanged();
     }
+
+    boost::optional<WalletAddress> Keychain::getAddress(const WalletID& id)
+    {
+        const char* req = "SELECT * FROM " ADDRESSES_NAME " WHERE walletID=?1;";
+        sqlite::Statement stm(_db, req);
+
+        stm.bind(1, id);
+
+        if (stm.step())
+        {
+            WalletAddress address = {};
+            ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, address);
+            return address;
+        }
+        return boost::optional<WalletAddress>{};
+    }
     
     void Keychain::deleteAddress(const WalletID& id)
     {

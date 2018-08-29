@@ -53,7 +53,9 @@ QString TxObject::displayName() const
 
 QString TxObject::comment() const
 {
-    return "";
+    string str{ _tx.m_message.begin(), _tx.m_message.end() };
+
+    return QString(str.c_str()).trimmed();
 }
 
 QString TxObject::amount() const
@@ -352,6 +354,12 @@ void WalletViewModel::setSelectedAddr(int index)
 void WalletViewModel::setComment(const QString& value)
 {
     _comment = value;
+	emit commentChanged();
+}
+
+QString WalletViewModel::getComment() const
+{
+	return _comment;
 }
 
 QString WalletViewModel::receiverAddr() const
@@ -455,6 +463,12 @@ QString WalletViewModel::getNewReceiverAddr() const
 void WalletViewModel::setNewReceiverName(const QString& value)
 {
     _newReceiverName = value;
+    emit newReceiverNameChanged();
+}
+
+QString WalletViewModel::getNewReceiverName() const
+{
+	return _newReceiverName;
 }
 
 void WalletViewModel::onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses)

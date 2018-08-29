@@ -38,7 +38,7 @@ namespace beam {
         : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, 150, *this, 20000 }
         , m_msgReader{ m_protocol, 1, 20000 }
         , m_node_address{node_address}
-		, m_walletID(Zero)
+        , m_walletID(Zero)
         , m_reactor{ !reactor ? io::Reactor::create() : reactor }
         , m_wallet{ nullptr }
         , m_keychain{keychain}
@@ -141,10 +141,10 @@ namespace beam {
         send_to_node(move(msg));
     }
 
-	void WalletNetworkIO::send_node_message(proto::GetHdr&& msg)
-	{
-		send_to_node(move(msg));
-	}
+    void WalletNetworkIO::send_node_message(proto::GetHdr&& msg)
+    {
+        send_to_node(move(msg));
+    }
 
     void WalletNetworkIO::send_node_message(proto::GetMined&& msg)
     {
@@ -235,7 +235,7 @@ namespace beam {
     {
         if (m_is_node_connected == false && !m_node_connection && !m_node_address.empty())
         {
-			m_sync_timer->cancel();
+            m_sync_timer->cancel();
 
             create_node_connection();
             m_node_connection->connect(BIND_THIS_MEMFN(on_node_connected));
@@ -331,15 +331,19 @@ namespace beam {
         uint8_t* out = 0;
         uint32_t size = 0;
 
-        for (const auto& k : m_myPubKeys) {
+        for (const auto& k : m_myPubKeys)
+        {
             uint32_t channel = channel_from_wallet_id(k);
 
             if (channel != msg.m_Channel) continue;
-            if (m_keystore->decrypt(out, size, msg.m_Message, k)) {
+            if (m_keystore->decrypt(out, size, msg.m_Message, k))
+            {
                 LOG_DEBUG() << "Succeeded to decrypt BBS message from channel=" << msg.m_Channel;
                 m_lastReceiver = &k;
                 return handle_decrypted_message(msg.m_TimePosted, out, size);
-            } else {
+            }
+            else
+            {
                 LOG_DEBUG() << "failed to decrypt BBS message from channel=" << msg.m_Channel;
             }
         }
@@ -372,10 +376,10 @@ namespace beam {
         LOG_INFO() << "Wallet connected to node";
         m_connecting = false;
         proto::Config msgCfg;
-		ZeroObject(msgCfg);
-		msgCfg.m_CfgChecksum = Rules::get().Checksum;
-		msgCfg.m_AutoSendHdr = true;
-		Send(msgCfg);
+        ZeroObject(msgCfg);
+        msgCfg.m_CfgChecksum = Rules::get().Checksum;
+        msgCfg.m_AutoSendHdr = true;
+        Send(msgCfg);
 
         for (auto& cb : m_callbacks)
         {
@@ -406,9 +410,9 @@ namespace beam {
     }
 
     bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::NewTip&& msg)
-	{
-		return m_wallet.handle_node_message(move(msg));
-	}
+    {
+        return m_wallet.handle_node_message(move(msg));
+    }
 
     bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Hdr&& msg)
     {
@@ -430,24 +434,26 @@ namespace beam {
         return m_io.handle_bbs_message(move(msg));
     }
 
-	bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Authentication&& msg)
-	{
-		proto::NodeConnection::OnMsg(std::move(msg));
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Authentication&& msg)
+    {
+        proto::NodeConnection::OnMsg(std::move(msg));
 
-		if (proto::IDType::Node == msg.m_IDType)
-		{
-			ECC::Scalar::Native sk;
-			if (m_wallet.get_IdentityKeyForNode(sk, msg.m_ID))
-				ProveID(sk, proto::IDType::Owner);
-		}
+        if (proto::IDType::Node == msg.m_IDType)
+        {
+            ECC::Scalar::Native sk;
+            if (m_wallet.get_IdentityKeyForNode(sk, msg.m_ID))
+            {
+                ProveID(sk, proto::IDType::Owner);
+            }
+        }
 
-		return true;
-	}
+        return true;
+    }
 
-	void WalletNetworkIO::set_node_address(io::Address node_address)
-	{
-		m_node_address = node_address;
+    void WalletNetworkIO::set_node_address(io::Address node_address)
+    {
+        m_node_address = node_address;
 
-		connect_node();
-	}
+        connect_node();
+    }
 }
