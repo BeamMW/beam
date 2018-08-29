@@ -33,6 +33,10 @@ class TxObject : public QObject
         Q_PROPERTY(QString change        READ change       NOTIFY changeChanged)
         Q_PROPERTY(QString status        READ status       NOTIFY statusChanged)
         Q_PROPERTY(bool canCancel        READ canCancel    NOTIFY canCancelChanged)
+        Q_PROPERTY(QString sendingAddress READ getSendingAddress CONSTANT)
+        Q_PROPERTY(QString receivingAddress READ getReceivingAddress CONSTANT)
+        Q_PROPERTY(QString fee           READ getFee CONSTANT)
+
 public:
 
     TxObject() = default;
@@ -48,7 +52,9 @@ public:
     QString change() const;
     QString status() const;
     bool canCancel() const;
-
+    QString getSendingAddress() const;
+    QString getReceivingAddress() const;
+    QString getFee() const;
 	beam::WalletID peerId() const;
 
 	void setUserName(QString name);

@@ -990,6 +990,8 @@ Item {
 
             ContextMenu {
                 id: txContextMenu
+                modal: true
+                dim: false
                 property TxObject transaction
                 property int index;
                 Action {
@@ -1013,19 +1015,130 @@ Item {
             }
 
             rowDelegate: Item {
-                height: transactionsView.rowHeight
-
+                height: rowColumn.height
+                id: rowItem
                 property bool collapsed: true
 
-                anchors.left: parent.left
-                anchors.right: parent.right
-
-                Rectangle {
+                width: parent.width
+                                
+                Column {
+                    id: rowColumn
                     width: parent.width
-                    height: transactionsView.rowHeight
-                    color: Style.light_navy
-                    visible: styleData.alternate
+                    Rectangle {
+                        height: transactionsView.rowHeight    
+                        width: parent.width
+                        color: styleData.alternate ? "transparent" : Style.light_navy
+                    }
+                    Item {
+                        visible: !rowItem.collapsed
+                        width: parent.width
+                        height: 200
+                        Rectangle {
+                            anchors.fill: parent
+                            color: Style.bright_sky_blue
+                            opacity: 0.1
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            
+                            GridLayout {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                Layout.margins: 30
+                                columns: 2
+                                columnSpacing: 44
+                                rowSpacing: 14
+                                
+                                SFText {
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                    text: qsTr("General transaction info")
+                                    font.bold: true
+                                    Layout.columnSpan: 2
+                                }
+
+                                SFText {
+                                    Layout.row: 1
+                                    font.pixelSize: 14
+                                    color: Style.bluey_grey
+                                    text: qsTr("Sending address:")
+                                }
+                                SFText {
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                    text: {
+                                        if(!!viewModel.tx[styleData.row])
+                                        {
+                                            return viewModel.tx[styleData.row].sendingAddress;
+                                        }
+                                        return "";
+                                    }
+                                }
+
+                                SFText {
+                                    Layout.row: 2
+                                    font.pixelSize: 14
+                                    color: Style.bluey_grey
+                                    text: qsTr("Receiving address:")
+                                }
+                                SFText {
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                    text: {
+                                        if(!!viewModel.tx[styleData.row])
+                                        {
+                                            return viewModel.tx[styleData.row].receivingAddress;
+                                        }
+                                        return "";
+                                    }
+                                }
+
+                                SFText {
+                                    Layout.row: 3
+                                    font.pixelSize: 14
+                                    color: Style.bluey_grey
+                                    text: qsTr("Transaction fee:")
+                                }
+                                SFText {
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                    text:{
+                                        if(!!viewModel.tx[styleData.row])
+                                        {
+                                            return viewModel.tx[styleData.row].fee;
+                                        }
+                                        return "";
+                                    }
+                                }
+
+                                SFText {
+                                   Layout.row: 4
+                                    font.pixelSize: 14
+                                    color: Style.bluey_grey
+                                    text: qsTr("Comment:")
+                                }
+                                SFText {
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                    text: {
+                                        if(!!viewModel.tx[styleData.row])
+                                        {
+                                            return viewModel.tx[styleData.row].comment;
+                                        }
+                                        return "";
+                                    }
+                                    font.italic: true
+                                }
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                            }
+                        }
+                    }
                 }
+                
 
                 MouseArea {
                     anchors.fill: parent
@@ -1039,8 +1152,7 @@ Item {
                         }
                         else if (mouse.button === Qt.LeftButton)
                         {
-                            parent.collapsed = ! parent.collapsed;
-                            parent.height = (parent.collapsed) ? transactionsView.rowHeight : 320;
+                            parent.collapsed = !parent.collapsed;
                         }
                     }
                 }
