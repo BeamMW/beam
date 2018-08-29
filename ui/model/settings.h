@@ -18,7 +18,7 @@
 #include <QSettings>
 #include <QDir>
 
-#include "model/wallet.h"
+#include "model/wallet_model.h"
 
 class WalletSettings : public QObject
 {
@@ -33,6 +33,7 @@ public:
     std::string getWalletStorage() const;
     std::string getBbsStorage() const;
     void emergencyReset();
+	void reportProblem();
 
     bool getRunLocalNode() const;
     void setRunLocalNode(bool value);

@@ -247,7 +247,7 @@ Item {
                 Layout.minimumHeight: 16
                 font.weight: Font.Bold
                 color: Style.white
-                text: qsTr("Name")
+                text: qsTr("Comment")
             }
 
             SFTextInput {
@@ -256,7 +256,7 @@ Item {
                 font.pixelSize: 14
                 Layout.minimumHeight: 20
                 color: Style.white
-                //text: viewModel.newReceiverName
+                text: viewModel.newReceiverName
             }
 
             Binding {
@@ -289,26 +289,17 @@ Item {
                 }
 
                 CustomButton {
-                    text: "ok"
+                    text: "Copy && Close"
                     height: 38
-                    width: 122
-                    palette.buttonText: Style.white
-                    onClicked: {
-                        viewModel.saveNewAddress();
-                        root.state = "wallet";
-                    }
-                }
-
-                CustomButton {
-                    text: "copy"
-                    height: 38
-                    width: 122
+                    width: 162
                     palette.buttonText: Style.white
                     icon.source: "qrc:///assets/icon-copy.svg"
                     icon.width: 16
                     icon.height: 16
                     onClicked: {
                         viewModel.copyToClipboard(myAddressID.text);
+                        viewModel.saveNewAddress();
+                        root.state = "wallet";
                     }
                 }
             }
@@ -838,34 +829,44 @@ Item {
             color: "#0a344d"
         }
 
+        
+
         CustomTableView {
 
-            id: tx_view
+            id: transactionsView
 
             anchors.fill: parent;
             anchors.topMargin: 394-33
             Layout.bottomMargin: 9
 
+            property int rowHeight: 69
+
             frameVisible: false
             selectionMode: SelectionMode.NoSelection
             backgroundVisible: false
 
+            property int resizableWidth: parent.width - incomeColumn.width - actionsColumn.width - commentColumn.width
+
             TableViewColumn {
+                id: incomeColumn
                 role: "income"
                 width: 40
                 elideMode: Text.ElideRight
                 movable: false
-
+                resizable: false
                 delegate: Item {
 
-                    anchors.fill: parent
+                    Item {
+                        width: parent.width
+                        height: transactionsView.rowHeight
 
-                    clip:true
+                        clip:true
 
-                    SvgImage {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        source: styleData.value ? "qrc:///assets/icon-received.svg" : "qrc:///assets/icon-sent.svg"
+                        SvgImage {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            source: styleData.value ? "qrc:///assets/icon-received.svg" : "qrc:///assets/icon-sent.svg"
+                        }
                     }
                 }
             }
@@ -873,56 +874,93 @@ Item {
             TableViewColumn {
                 role: "date"
                 title: qsTr("Date | Time")
-                width: 160 * (parent.width - 40 - 20) / 916
+                width: 160 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
-
+                resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "displayName"
                 title: qsTr("Recipient / Sender ID")
-                width: 260 * (parent.width - 40 - 20) / 916
+                width: 260 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideMiddle
-
+                resizable: false
                 movable: false
                 delegate: Item {
-                    anchors.fill: parent
-                    clip:true
-                    property string tooltip_text: (viewModel.tx[styleData.row] ? viewModel.tx[styleData.row].user : "")
-                    SFText {
-                        font.pixelSize: 12
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.leftMargin: 20
-                        elide: Text.ElideMiddle
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: styleData.value
-                        color: Style.white
+                    Item {
+                        width: parent.width
+                        height: transactionsView.rowHeight
+                        clip:true
+                        
+                        SFText {
+                            font.pixelSize: 12
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.leftMargin: 20
+                            elide: Text.ElideMiddle
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: styleData.value
+                            color: Style.white
 
-                        MouseArea {
-                            id: mouseArea
-                            anchors.fill: parent
-                            acceptedButtons: Qt.NoButton
-                            hoverEnabled: true
-                        }
-
-                        ToolTip {
-                            id: toolTip
-                            visible: mouseArea.containsMouse
-                            delay: 500
-                            timeout: 4000
-                            text: tooltip_text
-
-                            contentItem: Text {
-                                text: toolTip.text
-                                font: toolTip.font
-                                color: Style.white
+                            MouseArea {
+                                id: mouseArea
+                                anchors.fill: parent
+                                acceptedButtons: Qt.NoButton
+                                hoverEnabled: true
                             }
 
-                            background: Rectangle {
-                                border.color: Style.white
-                                opacity: 0
+                            ToolTip {
+                                id: toolTip
+                                visible: mouseArea.containsMouse
+                                delay: 500
+                                timeout: 4000
+                                text: (viewModel.tx[styleData.row] ? viewModel.tx[styleData.row].user : "")
+
+                                contentItem: Text {
+                                    text: toolTip.text
+                                    font: toolTip.font
+                                    color: Style.white
+                                }
+
+                                background: Rectangle {
+                                    border.color: Style.white
+                                    opacity: 0
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            
+            TableViewColumn {
+                id: commentColumn
+                role: "comment"
+                title: qsTr("Comment")
+                width: 100
+                elideMode: Text.ElideRight
+                movable: false
+                resizable: false
+                delegate: Item {
+                    Item {
+                        width: parent.width
+                        height: transactionsView.rowHeight
+                        clip:true
+                    
+                        SvgImage {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            source: "qrc:///assets/icon-comment.svg"
+                            visible: styleData.value !== null && styleData.value !== ""
+                            ToolTip.text: styleData.value
+                            ToolTip.visible: mouseArea.containsMouse
+                            ToolTip.delay: 500
+                            MouseArea {
+                                id: mouseArea
+                                anchors.fill: parent
+                                acceptedButtons: Qt.NoButton
+                                hoverEnabled: true
                             }
                         }
                     }
@@ -932,24 +970,25 @@ Item {
             TableViewColumn {
                 role: "amount"
                 title: qsTr("Amount, BEAM")
-                width: 200 * (parent.width - 40 - 20) / 916
+                width: 200 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
                 movable: false
-
+                resizable: false
                 delegate: Item {
-                    anchors.fill: parent
-                    
-                    property bool income: (styleData.row >= 0) ? viewModel.tx[styleData.row].income : false
-
-                    SFText {
-                        anchors.leftMargin: 20
-                        anchors.right: parent.right
-                        anchors.left: parent.left
-                        color: parent.income ? Style.bright_sky_blue : Style.heliotrope
-                        elide: Text.ElideRight
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "<font size='6'>" + (parent.income ? "+ " : "- ") + styleData.value + "</font>"
-                        textFormat: Text.StyledText
+                    Item {
+                        width: parent.width
+                        height: transactionsView.rowHeight
+                        property bool income: (styleData.row >= 0) ? viewModel.tx[styleData.row].income : false
+                        SFText {
+                            anchors.leftMargin: 20
+                            anchors.right: parent.right
+                            anchors.left: parent.left
+                            color: parent.income ? Style.bright_sky_blue : Style.heliotrope
+                            elide: Text.ElideRight
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "<font size='6'>" + (parent.income ? "+ " : "- ") + styleData.value + "</font>"
+                            textFormat: Text.StyledText
+                        }
                     }
                 }
             }
@@ -957,45 +996,92 @@ Item {
             TableViewColumn {
                 role: "change"
                 title: qsTr("Change, BEAM")
-                width: 200 * (parent.width - 40 - 20) / 916
+                width: 140 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
-
+                resizable: false
                 movable: false
             }
 
             TableViewColumn {
                 role: "status"
                 title: qsTr("Status")
-                width: 96 * (parent.width - 40 - 20) / 916
+                width: 110 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
                 movable: false
-
+                resizable: false
                 delegate: Item {
+                    Item {
+                        width: parent.width
+                        height: transactionsView.rowHeight
 
-                    anchors.fill: parent
+                        clip:true
 
-                    clip:true
-
-                    SFText {
-                        font.pixelSize: 12
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.leftMargin: 20
-                        color: {
-                            if(styleData.value === "sent")
-                                Style.heliotrope
-                            else if(styleData.value === "received")
-                                Style.bright_sky_blue
-                            else Style.white
+                        SFText {
+                            font.pixelSize: 12
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.leftMargin: 20
+                            color: {
+                                if(styleData.value === "sent")
+                                    Style.heliotrope
+                                else if(styleData.value === "received")
+                                    Style.bright_sky_blue
+                                else Style.white
+                            }
+                            elide: Text.ElideRight
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: styleData.value
                         }
-                        elide: Text.ElideRight
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: styleData.value
                     }
                 }
             }
 
+            TableViewColumn {
+                id: actionsColumn
+                role: "status"
+                title: ""
+                width: 40
+                movable: false
+                resizable: false
+                delegate: txActions
+            }
+
             model: viewModel.tx
+
+            Component {
+                id: txActions
+                Item {
+                    Item {
+                        width: parent.width
+                        height: transactionsView.rowHeight
+
+                        Row{
+                            anchors.right: parent.right
+                            anchors.rightMargin: 12
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 10
+                        /*	CustomToolButton {
+                                visible: styleData.row >= 0 && viewModel.tx[styleData.row].canCancel
+                                icon.source: "qrc:///assets/icon-cancel.svg"
+                                ToolTip.text: qsTr("Cancel transaction")
+                                onClicked: {
+                                    viewModel.cancelTx(styleData.row);
+                                }
+                            }
+                            */
+                            CustomToolButton {
+                                icon.source: "qrc:///assets/icon-actions.svg"
+                                ToolTip.text: qsTr("Actions")
+                                onClicked: {
+                                    txContextMenu.index = styleData.row;
+                                    txContextMenu.transaction = viewModel.tx[styleData.row];
+                                    txContextMenu.popup();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             headerDelegate: Rectangle {
                 height: 46
@@ -1015,6 +1101,8 @@ Item {
 
             ContextMenu {
                 id: txContextMenu
+                modal: true
+                dim: false
                 property TxObject transaction
                 property int index;
                 Action {
@@ -1038,17 +1126,130 @@ Item {
             }
 
             rowDelegate: Item {
-                height: 69
+                height: transactionsView.rowHeight
+                id: rowItem
+                property bool collapsed: true
 
-                anchors.left: parent.left
-                anchors.right: parent.right
+                width: parent.width
+       
+                Column {
+                    id: rowColumn
+                    width: parent.width
+                    Rectangle {
+                        height: transactionsView.rowHeight    
+                        width: parent.width
+                        color: styleData.alternate ? "transparent" : Style.light_navy
+                    }
+                    Item {
+                        visible: !rowItem.collapsed
+                        width: parent.width
+                        height: 200
+                        Rectangle {
+                            anchors.fill: parent
+                            color: Style.bright_sky_blue
+                            opacity: 0.1
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            
+                            GridLayout {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                Layout.margins: 30
+                                columns: 2
+                                columnSpacing: 44
+                                rowSpacing: 14
+                                
+                                SFText {
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                    text: qsTr("General transaction info")
+                                    font.bold: true
+                                    Layout.columnSpan: 2
+                                }
 
-                Rectangle {
-                    anchors.fill: parent
+                                SFText {
+                                    Layout.row: 1
+                                    font.pixelSize: 14
+                                    color: Style.bluey_grey
+                                    text: qsTr("Sending address:")
+                                }
+                                SFText {
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                    text: {
+                                        if(!!viewModel.tx[styleData.row])
+                                        {
+                                            return viewModel.tx[styleData.row].sendingAddress;
+                                        }
+                                        return "";
+                                    }
+                                }
 
-                    color: Style.light_navy
-                    visible: styleData.alternate
+                                SFText {
+                                    Layout.row: 2
+                                    font.pixelSize: 14
+                                    color: Style.bluey_grey
+                                    text: qsTr("Receiving address:")
+                                }
+                                SFText {
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                    text: {
+                                        if(!!viewModel.tx[styleData.row])
+                                        {
+                                            return viewModel.tx[styleData.row].receivingAddress;
+                                        }
+                                        return "";
+                                    }
+                                }
+
+                                SFText {
+                                    Layout.row: 3
+                                    font.pixelSize: 14
+                                    color: Style.bluey_grey
+                                    text: qsTr("Transaction fee:")
+                                }
+                                SFText {
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                    text:{
+                                        if(!!viewModel.tx[styleData.row])
+                                        {
+                                            return viewModel.tx[styleData.row].fee;
+                                        }
+                                        return "";
+                                    }
+                                }
+
+                                SFText {
+                                   Layout.row: 4
+                                    font.pixelSize: 14
+                                    color: Style.bluey_grey
+                                    text: qsTr("Comment:")
+                                }
+                                SFText {
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                    text: {
+                                        if(!!viewModel.tx[styleData.row])
+                                        {
+                                            return viewModel.tx[styleData.row].comment;
+                                        }
+                                        return "";
+                                    }
+                                    font.italic: true
+                                }
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                            }
+                        }
+                    }
                 }
+                
 
                 MouseArea {
                     anchors.fill: parent
@@ -1060,13 +1261,24 @@ Item {
                             txContextMenu.transaction = viewModel.tx[styleData.row];
                             txContextMenu.popup();
                         }
+                        else if (mouse.button === Qt.LeftButton)
+                        {
+                            parent.collapsed = !parent.collapsed;
+                            parent.height = parent.collapsed? transactionsView.rowHeight : transactionsView.rowHeight + 200;
+                        }
                     }
                 }
             }
 
-            itemDelegate: TableItem {
-                text: styleData.value
-                elide: styleData.elideMode
+            itemDelegate: Item {
+                Item {
+                    width: parent.width
+                    height: transactionsView.rowHeight
+                    TableItem {
+                        text: styleData.value
+                        elide: styleData.elideMode
+                    }
+                }
             }
         }
         

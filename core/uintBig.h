@@ -39,6 +39,8 @@ namespace beam
 		static int _Cmp(const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
 		static void _Print(const uint8_t* pDst, uint32_t nDst, std::ostream&);
 
+		static uint32_t _GetOrder(const uint8_t* pDst, uint32_t nDst);
+
 		template <typename T>
 		static void _AssignRangeAligned(uint8_t* pDst, uint32_t nDst, T x, uint32_t nOffsetBytes, uint32_t nBytesX)
 		{
@@ -226,6 +228,13 @@ namespace beam
 		int cmp(const uintBig_t<nBitsOther_>& x) const
 		{
 			return _Cmp(m_pData, nBytes, x.m_pData, x.nBytes);
+		}
+
+		uint32_t get_Order() const
+		{
+			// how much the number should be shifted to reach zero.
+			// returns 0 iff the number is already zero.
+			return _GetOrder(m_pData, nBytes);
 		}
 
 		COMPARISON_VIA_CMP

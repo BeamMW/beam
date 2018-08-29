@@ -444,6 +444,7 @@ namespace ECC {
 		MultiMac::Casual mc;
 		mc.Init(v.x, v.y);
 
+		uint8_t aux;
 		MultiMac mm;
 		mm.m_pCasual = &mc;
 		mm.m_Casual = 1;
@@ -696,18 +697,13 @@ namespace ECC {
 
 	void MultiMac::Prepared::Initialize(Point::Native& val, Hash::Processor& hp)
 	{
-		Generator::FromPt(m_Fast.m_pPt[0], val);
-		Point::Native npos, nums = val;
+		Point::Native npos = val, nums = val * Two;
 
-		for (size_t i = 1; i < _countof(m_Fast.m_pPt); i++)
+		for (unsigned int i = 0; i < _countof(m_Fast.m_pPt); i++)
 		{
-			if (i & (i + 1))
-				npos += val;
-			else
-			{
-				nums = nums * Two;
-				npos = nums;
-			}
+			if (i)
+				npos += nums;
+
 			Generator::FromPt(m_Fast.m_pPt[i], npos);
 		}
 
@@ -746,6 +742,8 @@ namespace ECC {
 			const Prepared* ppPrep[] = { this };
 			mm.m_ppPrepared = ppPrep;
 			mm.m_pKPrep = &m_Secure.m_Scalar;
+			Prepared::Aux aux;
+			mm.m_pAuxPrepared = &aux;
 			mm.m_Prepared = 1;
 
 			mm.Calculate(npos);
@@ -774,7 +772,7 @@ namespace ECC {
 	{
 		if (Mode::Fast == g_Mode)
 		{
-			m_nPrepared = 2;
+			m_nPrepared = 1;
 			m_pPt[1] = p;
 		}
 		else
@@ -782,13 +780,11 @@ namespace ECC {
 			secp256k1_ge ge;
 			Generator::ToPt(m_pPt[0], ge, Context::get().m_Casual.m_Nums, true);
 
-			for (size_t i = 1; i < _countof(m_pPt); i++)
+			for (unsigned int i = 1; i < _countof(m_pPt); i++)
 			{
 				m_pPt[i] = m_pPt[i - 1];
 				m_pPt[i] += p;
 			}
-
-			m_nPrepared = _countof(m_pPt);
 		}
 	}
 
@@ -804,9 +800,28 @@ namespace ECC {
 		m_Prepared = 0;
 	}
 
+	unsigned int GetPortion(const Scalar::Native& k, unsigned int iWord, unsigned int iBitInWord, unsigned int nBitsWnd)
+	{
+		const Scalar::Native::uint& n = k.get().d[iWord];
+
+		return (n >> (iBitInWord & ~(nBitsWnd - 1))) & ((1 << nBitsWnd) - 1);
+	}
+
+	bool GetOddAndShift(const Scalar::Native& k, unsigned int iWord, unsigned int iBitInWord, unsigned int nBitsWnd, unsigned int& nOdd, unsigned int& nShift)
+	{
+		nOdd = GetPortion(k, iWord, iBitInWord, nBitsWnd);
+		if (!nOdd)
+			return false;
+
+		for (nShift = 0; !(1 & nOdd); nOdd >>= 1)
+			nShift++;
+
+		return true;
+	}
+
 	void MultiMac::Calculate(Point::Native& res) const
 	{
-		const int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
+		const unsigned int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
 
 		static_assert(Casual::nBits <= Prepared::Fast::nBits, "");
 		static_assert(Casual::nBits <= Prepared::Secure::nBits, "");
@@ -816,6 +831,18 @@ namespace ECC {
 
 		res = Zero;
 
+		Casual* ppTblCasual[Casual::nBits];
+		Prepared::Aux* ppTblPrepared[Prepared::Fast::nBits];
+
+		if (Mode::Fast == g_Mode)
+		{
+			ZeroObject(ppTblCasual);
+			ZeroObject(ppTblPrepared);
+
+			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+				m_pAuxPrepared[iEntry].m_nThisIndex = iEntry;
+		}
+
 		NoLeak<secp256k1_ge> ge;
 		NoLeak<CompactPoint> ge_s;
 
@@ -823,64 +850,88 @@ namespace ECC {
 			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
 				m_pKPrep[iEntry] += m_ppPrepared[iEntry]->m_Secure.m_Scalar;
 
-		for (int iWord = _countof(Scalar::Native().get().d); iWord--; )
+		for (unsigned int iBit = ECC::nBits; iBit--; )
 		{
-			for (int iLayer = nBitsPerWord / Casual::nBits; iLayer--; )
+			if (!(res == Zero))
+				res = res * Two;
+
+			unsigned int iWord = iBit / nBitsPerWord;
+			unsigned int iBitInWord = iBit & (nBitsPerWord - 1);
+
+			if (Mode::Fast == g_Mode)
 			{
-				if (!(res == Zero))
-					for (int i = 0; i < Casual::nBits; i++)
-						res = res * Two;
-
-				for (int iEntry = 0; iEntry < m_Casual; iEntry++)
+				unsigned int nShiftCasual = iBit & (Casual::nBits - 1);
+				if (nShiftCasual == Casual::nBits - 1)
 				{
-					Casual& x = m_pCasual[iEntry];
-					const Scalar::Native::uint n = x.m_K.get().d[iWord];
-
-					int nVal = (n >> (iLayer * Casual::nBits)) & (_countof(x.m_pPt) - 1);
-					if (!nVal && (Mode::Fast == g_Mode))
-						continue; // skip zero
-
-					for (; x.m_nPrepared <= nVal; x.m_nPrepared++)
-						if (x.m_nPrepared & 1)
-							x.m_pPt[x.m_nPrepared] = x.m_pPt[x.m_nPrepared - 1] + x.m_pPt[1];
-						else
-							x.m_pPt[x.m_nPrepared] = x.m_pPt[x.m_nPrepared >> 1] * Two;
-
-					res += x.m_pPt[nVal];
-				}
-
-				if (Mode::Fast == g_Mode)
-				{
-					if (iLayer & (Prepared::Fast::nBits / Casual::nBits - 1))
-						continue;
-
-					int iLayerPrep = iLayer / (Prepared::Fast::nBits / Casual::nBits);
-
-					for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+					for (int iEntry = 0; iEntry < m_Casual; iEntry++)
 					{
-						const Prepared::Fast& x = m_ppPrepared[iEntry]->m_Fast;
-						const Scalar::Native::uint n = m_pKPrep[iEntry].get().d[iWord];
+						Casual& x = m_pCasual[iEntry];
 
-						int nVal = (n >> (iLayerPrep * Prepared::Fast::nBits)) & ((1 << Prepared::Fast::nBits) - 1);
-						if (nVal--)
-							Generator::ToPt(res, ge.V, x.m_pPt[nVal], false);
+						unsigned int iIdx;
+						if (!GetOddAndShift(x.m_K, iWord, iBitInWord, Casual::nBits, x.m_nItemSel, iIdx))
+							continue;
+
+						x.m_pLstNext = ppTblCasual[iIdx];
+						ppTblCasual[iIdx] = &x;
+
+						for (; x.m_nPrepared < x.m_nItemSel; x.m_nPrepared += 2)
+						{
+							if (1 == x.m_nPrepared)
+								x.m_pPt[2] = x.m_pPt[1] * Two;
+
+							x.m_pPt[x.m_nPrepared + 2] = x.m_pPt[x.m_nPrepared] + x.m_pPt[2];
+						}
 					}
 				}
-				else
+
+				for (Casual*& pAux = ppTblCasual[nShiftCasual]; pAux; pAux = pAux->m_pLstNext)
+					res += pAux->m_pPt[pAux->m_nItemSel];
+
+				unsigned int nShiftPrepared = iBit & (Prepared::Fast::nBits - 1);
+				if (nShiftPrepared == Prepared::Fast::nBits - 1)
 				{
-					if (iLayer & (Prepared::Secure::nBits / Casual::nBits - 1))
-						continue;
+					for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+					{
 
-					int iLayerPrep = iLayer / (Prepared::Secure::nBits / Casual::nBits);
+						Prepared::Aux& x = m_pAuxPrepared[iEntry];
 
+						unsigned int iIdx;
+						if (!GetOddAndShift(m_pKPrep[iEntry], iWord, iBitInWord, Prepared::Fast::nBits, x.m_nItemSel, iIdx))
+							continue;
+
+						
+						x.m_pLstNext = ppTblPrepared[iIdx];
+						ppTblPrepared[iIdx] = &x;
+					}
+				}
+
+				for (Prepared::Aux*& pAux = ppTblPrepared[nShiftPrepared]; pAux; pAux = pAux->m_pLstNext)
+					Generator::ToPt(res, ge.V, m_ppPrepared[pAux->m_nThisIndex]->m_Fast.m_pPt[pAux->m_nItemSel >> 1], false);
+			}
+			else
+			{
+				// secure mode
+				if (!(iBit & (Casual::nBits - 1)))
+				{
+					for (int iEntry = 0; iEntry < m_Casual; iEntry++)
+					{
+						Casual& x = m_pCasual[iEntry];
+
+						unsigned int nVal = GetPortion(x.m_K, iWord, iBitInWord, Casual::nBits);
+
+						res += x.m_pPt[nVal]; // cmov seems not needed, since the table is relatively small, and not in global mem (less predicatble addresses)
+					}
+				}
+
+				if (!(iBit & (Prepared::Secure::nBits - 1)))
+				{
 					for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
 					{
 						const Prepared::Secure& x = m_ppPrepared[iEntry]->m_Secure;
-						const Scalar::Native::uint n = m_pKPrep[iEntry].get().d[iWord];
 
-						size_t nVal = (n >> (iLayerPrep * Prepared::Secure::nBits)) & ((1 << Prepared::Secure::nBits) - 1);
+						unsigned int nVal = GetPortion(m_pKPrep[iEntry], iWord, iBitInWord, Prepared::Secure::nBits);
 
-						for (size_t i = 0; i < _countof(x.m_pPt); i++)
+						for (unsigned int i = 0; i < _countof(x.m_pPt); i++)
 							object_cmov(ge_s.V, x.m_pPt[i], i == nVal);
 
 						Generator::ToPt(res, ge.V, ge_s.V, false);

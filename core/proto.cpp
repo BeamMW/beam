@@ -267,7 +267,9 @@ NodeConnection::NodeConnection()
 	:m_Protocol(0xAA, 0xBB, 0xCC, 100, *this, 20000)
 	,m_ConnectPending(false)
 {
-#define THE_MACRO(code, msg) m_Protocol.add_message_handler<NodeConnection, msg, &NodeConnection::OnMsgInternal>(uint8_t(code), this, 0, 2000000);
+#define THE_MACRO(code, msg) \
+	m_Protocol.add_message_handler<NodeConnection, msg##_NoInit, &NodeConnection::OnMsgInternal>(uint8_t(code), this, 0, 2000000);
+
 	BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 }
@@ -440,7 +442,7 @@ void NodeConnection::Send(const msg& v) \
 	TestIoResultAsync(res); \
 } \
 \
-bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
+bool NodeConnection::OnMsgInternal(uint64_t, msg##_NoInit&& v) \
 { \
 	try { \
 		/* checkpoint */ \
@@ -503,7 +505,7 @@ void NodeConnection::OnMsg(SChannelInitiate&& msg)
 
 	SecureConnect(); // unless already sent
 
-	SChannelReady msgOut;
+	SChannelReady msgOut(Zero);
 	Send(msgOut); // activating new cipher.
 
 	m_Protocol.m_RemoteNonce = msg.m_NoncePub;

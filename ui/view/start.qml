@@ -36,7 +36,7 @@ Item
 					anchors.horizontalCenter: parent.horizontalCenter
 					anchors.topMargin: 180
 					anchors.top: parent.top
-					source: "qrc:///assets/logo.png"
+					source: "qrc:///assets/start_logo.png"
 					width: 242
 					height: 208
 				}
@@ -147,41 +147,6 @@ Item
 							color: Style.white
 							echoMode: TextInput.Password
 							onTextChanged: if (password.text.length > 0) passwordError.text = ""
-						}
-
-						Row {
-							width: parent.width
-							spacing: 8
-
-							Repeater {
-								model: 3
-
-								Rectangle {
-									width: 60
-									height: 4
-									radius: 10
-									color: "#f4ce4a"
-								}
-							}
-
-							Repeater {
-								model: 3
-
-								Rectangle {
-									width: 60
-									height: 4
-									radius: 10
-									color: Style.marine
-									border.width: 1
-									border.color: Style.dark_slate_blue
-								}
-							}
-						}
-
-						SFText {
-							text: qsTr("Medium strength password (add  at least one capital letter and one small letter)")
-							color: "#84a5b2"
-							font.pixelSize: 10
 						}
 					}
 
@@ -457,7 +422,7 @@ Item
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.topMargin: 100
             anchors.top: parent.top
-            source: "qrc:///assets/logo.png"
+            source: "qrc:///assets/start_logo.png"
             width: 242
             height: 208
         }
