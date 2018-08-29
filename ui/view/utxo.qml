@@ -9,28 +9,103 @@ ColumnLayout {
 	anchors.fill: parent
 	UtxoViewModel {id: viewModel}
 
-	SFText {
-        Layout.minimumHeight: 40
-        Layout.maximumHeight: 40
-        font.pixelSize: 36
-        color: Style.white
-        text: qsTr("UTXO")
-    }
+    RowLayout {
+        Layout.fillWidth: true
+        Layout.alignment: Qt.AlignTop
+        Layout.bottomMargin: 10
 
-	SFText {
-        Layout.minimumHeight: 40
-        Layout.maximumHeight: 40
-        font.pixelSize: 14
-        color: Style.white
-        text: qsTr("Current height") + ": " + viewModel.currentHeight
-    }
+        height: 80
 
-	SFText {
-        Layout.minimumHeight: 40
-        Layout.maximumHeight: 40
-        font.pixelSize: 14
-        color: Style.white
-        text: qsTr("Current state hash") + ": " + viewModel.currentStateHash
+	    SFText {
+            Layout.alignment: Qt.AlignTop
+            Layout.minimumHeight: 40
+            Layout.maximumHeight: 40
+            font.pixelSize: 36
+            color: Style.white
+            text: qsTr("UTXO")
+        }
+
+        Item {
+            Layout.fillWidth: true
+        }
+
+        Item {
+            Layout.fillWidth: true
+            height: parent.height
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 20
+                anchors.topMargin: 10
+                anchors.bottomMargin: 20
+                spacing: 5
+
+                SFText {
+                    Layout.minimumHeight: 20
+                    Layout.maximumHeight: 20
+                    font.pixelSize: 18
+                    font.weight: Font.Bold
+                    color: Style.white
+                    text: qsTr("Height")
+                }
+
+	            SFText {
+                    Layout.minimumHeight: 20
+                    Layout.maximumHeight: 20
+                    font.pixelSize: 16
+                    color: Style.bright_teal
+                    text: viewModel.currentHeight
+                }
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 10
+                color: Style.white
+                opacity: 0.1
+            }
+        }
+
+        Item {
+            Layout.fillWidth: true
+            height: parent.height
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 20
+                anchors.rightMargin: 20
+                anchors.topMargin: 10
+                anchors.bottomMargin: 20
+                spacing: 5
+
+	            SFText {
+                    Layout.fillWidth: true
+                    Layout.minimumHeight: 20
+                    Layout.maximumHeight: 20
+                    font.pixelSize: 18
+                    font.weight: Font.Bold
+                    color: Style.white
+                    text: qsTr("Hash")
+                }
+
+	            SFText {
+                    Layout.fillWidth: true
+                    Layout.minimumHeight: 20
+                    Layout.maximumHeight: 20
+                    font.pixelSize: 16
+                    color: Style.bright_teal
+                    text: viewModel.currentStateHash
+                    elide: text.ElideRight
+                }
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 10
+                color: Style.white
+                opacity: 0.1
+            }
+        }
     }
 
 	CustomTableView {
