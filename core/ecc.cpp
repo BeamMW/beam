@@ -447,7 +447,6 @@ namespace ECC {
 		uint8_t aux;
 		MultiMac mm;
 		mm.m_pCasual = &mc;
-		mm.m_pAuxCasual = &aux;
 		mm.m_Casual = 1;
 		mm.Calculate(*this);
 
@@ -743,7 +742,7 @@ namespace ECC {
 			const Prepared* ppPrep[] = { this };
 			mm.m_ppPrepared = ppPrep;
 			mm.m_pKPrep = &m_Secure.m_Scalar;
-			uint8_t aux;
+			Prepared::Aux aux;
 			mm.m_pAuxPrepared = &aux;
 			mm.m_Prepared = 1;
 
@@ -801,34 +800,23 @@ namespace ECC {
 		m_Prepared = 0;
 	}
 
-	__forceinline unsigned int GetPortion(const Scalar::Native& k, unsigned int iWord, unsigned int iBitInWord, unsigned int nBitsWnd)
+	unsigned int GetPortion(const Scalar::Native& k, unsigned int iWord, unsigned int iBitInWord, unsigned int nBitsWnd)
 	{
 		const const Scalar::Native::uint& n = k.get().d[iWord];
 
 		return (n >> (iBitInWord & ~(nBitsWnd - 1))) & ((1 << nBitsWnd) - 1);
 	}
 
-	__forceinline bool GetValueForShift(const Scalar::Native& k, unsigned int iWord, unsigned int iBitInWord, unsigned int nBitsWnd, unsigned int& nVal, uint8_t& aux)
+	bool GetOddAndShift(const Scalar::Native& k, unsigned int iWord, unsigned int iBitInWord, unsigned int nBitsWnd, unsigned int& nOdd, unsigned int& nShift)
 	{
-		unsigned int nShift = iBitInWord & (nBitsWnd - 1);
-
-		if (nShift == nBitsWnd - 1)
-		{
-			nVal = GetPortion(k, iWord, iBitInWord, nBitsWnd);
-
-			if (!nVal)
-				aux = -1;
-			else
-				for (aux = 0; !(1 & nVal); aux++)
-					nVal >>= 1;
-		}
-
-		if (nShift != aux)
+		nOdd = GetPortion(k, iWord, iBitInWord, nBitsWnd);
+		if (!nOdd)
 			return false;
 
-		nVal = GetPortion(k, iWord, iBitInWord, nBitsWnd) >> aux;
-		return true;
+		for (nShift = 0; !(1 & nOdd); nOdd >>= 1)
+			nShift++;
 
+		return true;
 	}
 
 	void MultiMac::Calculate(Point::Native& res) const
@@ -842,6 +830,18 @@ namespace ECC {
 		static_assert(!(nBitsPerWord % Prepared::Secure::nBits), "");
 
 		res = Zero;
+
+		Casual* ppTblCasual[Casual::nBits];
+		Prepared::Aux* ppTblPrepared[Prepared::Fast::nBits];
+
+		if (Mode::Fast == g_Mode)
+		{
+			ZeroObject(ppTblCasual);
+			ZeroObject(ppTblPrepared);
+
+			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+				m_pAuxPrepared[iEntry].m_nThisIndex = iEntry;
+		}
 
 		NoLeak<secp256k1_ge> ge;
 		NoLeak<CompactPoint> ge_s;
@@ -857,51 +857,72 @@ namespace ECC {
 
 			unsigned int iWord = iBit / nBitsPerWord;
 			unsigned int iBitInWord = iBit & (nBitsPerWord - 1);
-			unsigned int nShift = iBit & (Casual::nBits - 1);
 
-			if ((Mode::Fast == g_Mode) || !nShift)
+			if (Mode::Fast == g_Mode)
 			{
-				for (int iEntry = 0; iEntry < m_Casual; iEntry++)
+				unsigned int nShiftCasual = iBit & (Casual::nBits - 1);
+				if (nShiftCasual == Casual::nBits - 1)
 				{
-					Casual& x = m_pCasual[iEntry];
-
-					unsigned int nVal;
-
-					if (Mode::Fast == g_Mode)
+					for (int iEntry = 0; iEntry < m_Casual; iEntry++)
 					{
-						if (!GetValueForShift(x.m_K, iWord, iBitInWord, Casual::nBits, nVal, m_pAuxCasual[iEntry]))
+						Casual& x = m_pCasual[iEntry];
+
+						unsigned int iIdx;
+						if (!GetOddAndShift(x.m_K, iWord, iBitInWord, Casual::nBits, x.m_nItemSel, iIdx))
 							continue;
 
-						for (; x.m_nPrepared < nVal; x.m_nPrepared += 2)
+						x.m_pLstNext = ppTblCasual[iIdx];
+						ppTblCasual[iIdx] = &x;
+
+						for (; x.m_nPrepared < x.m_nItemSel; x.m_nPrepared += 2)
 						{
 							if (1 == x.m_nPrepared)
 								x.m_pPt[2] = x.m_pPt[1] * Two;
 
 							x.m_pPt[x.m_nPrepared + 2] = x.m_pPt[x.m_nPrepared] + x.m_pPt[2];
 						}
-
-					} else
-						nVal = GetPortion(x.m_K, iWord, iBitInWord, Casual::nBits);
-
-					res += x.m_pPt[nVal];
+					}
 				}
-			}
 
-			if (Mode::Fast == g_Mode)
-			{
-				for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+				for (Casual*& pAux = ppTblCasual[nShiftCasual]; pAux; pAux = pAux->m_pLstNext)
+					res += pAux->m_pPt[pAux->m_nItemSel];
+
+				unsigned int nShiftPrepared = iBit & (Prepared::Fast::nBits - 1);
+				if (nShiftPrepared == Prepared::Fast::nBits - 1)
 				{
-					unsigned int nVal;
-					if (!GetValueForShift(m_pKPrep[iEntry], iWord, iBitInWord, Prepared::Fast::nBits, nVal, m_pAuxPrepared[iEntry]))
-						continue;
+					for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+					{
 
-					const Prepared::Fast& x = m_ppPrepared[iEntry]->m_Fast;
+						Prepared::Aux& x = m_pAuxPrepared[iEntry];
 
-					Generator::ToPt(res, ge.V, x.m_pPt[nVal >> 1], false);
+						unsigned int iIdx;
+						if (!GetOddAndShift(m_pKPrep[iEntry], iWord, iBitInWord, Prepared::Fast::nBits, x.m_nItemSel, iIdx))
+							continue;
+
+						
+						x.m_pLstNext = ppTblPrepared[iIdx];
+						ppTblPrepared[iIdx] = &x;
+					}
 				}
+
+				for (Prepared::Aux*& pAux = ppTblPrepared[nShiftPrepared]; pAux; pAux = pAux->m_pLstNext)
+					Generator::ToPt(res, ge.V, m_ppPrepared[pAux->m_nThisIndex]->m_Fast.m_pPt[pAux->m_nItemSel >> 1], false);
 			}
 			else
 			{
+				// secure mode
+				if (!(iBit & (Casual::nBits - 1)))
+				{
+					for (int iEntry = 0; iEntry < m_Casual; iEntry++)
+					{
+						Casual& x = m_pCasual[iEntry];
+
+						unsigned int nVal = GetPortion(x.m_K, iWord, iBitInWord, Casual::nBits);
+
+						res += x.m_pPt[nVal]; // cmov seems not needed, since the table is relatively small, and not in global mem (less predicatble addresses)
+					}
+				}
+
 				if (!(iBit & (Prepared::Secure::nBits - 1)))
 				{
 					for (int iEntry = 0; iEntry < m_Prepared; iEntry++)

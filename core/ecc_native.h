@@ -175,6 +175,10 @@ namespace ECC
 			Scalar::Native m_K;
 			unsigned int m_nPrepared;
 
+			// used in fast mode
+			Casual* m_pLstNext;
+			unsigned int m_nItemSel;
+
 			void Init(const Point::Native&);
 			void Init(const Point::Native&, const Scalar::Native&);
 		};
@@ -185,6 +189,12 @@ namespace ECC
 				static const int nBits = 8;
 				CompactPoint m_pPt[1 << (nBits - 1)]; // odd powers
 			} m_Fast;
+
+			struct Aux {
+				Aux* m_pLstNext;
+				unsigned int m_nThisIndex;
+				unsigned int m_nItemSel;
+			};
 
 			struct Secure {
 				// A variant of Generator::Obscured. Much less space & init time. Slower for single multiplication, nearly equal in MultiMac.
@@ -201,8 +211,7 @@ namespace ECC
 		Casual* m_pCasual;
 		const Prepared** m_ppPrepared;
 		Scalar::Native* m_pKPrep;
-		uint8_t* m_pAuxCasual;
-		uint8_t* m_pAuxPrepared;
+		Prepared::Aux* m_pAuxPrepared;
 
 		int m_Casual;
 		int m_Prepared;
@@ -221,8 +230,7 @@ namespace ECC
 			Casual m_pCasual[nMaxCasual];
 			const Prepared* m_ppPrepared[nMaxPrepared];
 			Scalar::Native m_pKPrep[nMaxPrepared];
-			uint8_t m_pAuxCasual[nMaxCasual];
-			uint8_t m_pAuxPrepared[nMaxPrepared];
+			Prepared::Aux m_pAuxPrepared[nMaxPrepared];
 		} m_Bufs;
 
 		MultiMac_WithBufs()
@@ -230,7 +238,6 @@ namespace ECC
 			m_pCasual		= m_Bufs.m_pCasual;
 			m_ppPrepared	= m_Bufs.m_ppPrepared;
 			m_pKPrep		= m_Bufs.m_pKPrep;
-			m_pAuxCasual	= m_Bufs.m_pAuxCasual;
 			m_pAuxPrepared	= m_Bufs.m_pAuxPrepared;
 		}
 
@@ -470,7 +477,7 @@ namespace ECC
 		struct Bufs {
 			const Prepared* m_ppPrepared[s_CountPrepared];
 			Scalar::Native m_pKPrep[s_CountPrepared];
-			uint8_t m_pAuxPrepared[s_CountPrepared];
+			Prepared::Aux m_pAuxPrepared[s_CountPrepared];
 		} m_Bufs;
 
 
@@ -500,13 +507,11 @@ namespace ECC
 		:public BatchContext
 	{
 		uint64_t m_pBuf[(sizeof(MultiMac::Casual) * s_CasualCountPerProof * nBatchSize + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
-		uint8_t m_pBufAuxCasual[s_CasualCountPerProof * nBatchSize];
 
 		BatchContextEx()
 			:BatchContext(nBatchSize * s_CasualCountPerProof)
 		{
 			m_pCasual = (MultiMac::Casual*) m_pBuf;
-			m_pAuxCasual = m_pBufAuxCasual;
 		}
 	};
 
