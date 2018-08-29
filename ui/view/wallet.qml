@@ -355,21 +355,17 @@ Item {
                             color: Style.white
                             text: qsTr("Send To:")
                         }
-                        
-                        AddressComboBox {
+
+                        SFTextInput {
                             Layout.fillWidth: true
 
-                            id: receiverAddrCombo
-                            editable: true
-                            editText: viewModel.receiverAddr
-                            model: addressBookViewModel.peerAddresses
-                            color: Style.white
+                            id: receiverAddrInput
                             font.pixelSize: 14
+                            color: Style.white
+                            text: viewModel.receiverAddr
+
                             validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
-                            onEditTextChanged: {
-                                var i = find(editText);
-                                receiverName.text = i >= 0 ? addressBookViewModel.peerAddresses[i].name : "";
-                            }
+                            selectByMouse: true
                         }
 
                         SFText {
@@ -382,7 +378,7 @@ Item {
                         Binding {
                             target: viewModel
                             property: "receiverAddr"
-                            value: receiverAddrCombo.editText
+                            value: receiverAddrInput.text
                         }
                     }
                 }
@@ -1319,10 +1315,9 @@ Item {
             name: "send"
             PropertyChanges {target: wallet_layout; visible: false}
             PropertyChanges {target: send_layout; visible: true}
-            PropertyChanges {target: receiverAddrCombo; currentIndex: -1}
             PropertyChanges {target: amount_input; text: ""}
              StateChangeScript {
-                script: receiverAddrCombo.forceActiveFocus(Qt.TabFocusReason);
+                script: receiverAddrInput.forceActiveFocus(Qt.TabFocusReason);
             }
         },
 
