@@ -93,7 +93,6 @@ Rectangle {
 
         Image {
             id: image
-            //x: 20
             y: 50
             anchors.horizontalCenter: parent.horizontalCenter
             width: 40

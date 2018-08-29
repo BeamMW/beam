@@ -1015,12 +1015,12 @@ Item {
             }
 
             rowDelegate: Item {
-                height: rowColumn.height
+                height: transactionsView.rowHeight
                 id: rowItem
                 property bool collapsed: true
 
                 width: parent.width
-                                
+       
                 Column {
                     id: rowColumn
                     width: parent.width
@@ -1153,6 +1153,7 @@ Item {
                         else if (mouse.button === Qt.LeftButton)
                         {
                             parent.collapsed = !parent.collapsed;
+                            parent.height = parent.collapsed? transactionsView.rowHeight : transactionsView.rowHeight + 200;
                         }
                     }
                 }
