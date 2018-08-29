@@ -949,8 +949,8 @@ namespace beam
 				msgCfg.m_AutoSendHdr = true;
 				Send(msgCfg);
 
-				Send(proto::GetTime());
-				Send(proto::GetExternalAddr());
+				Send(proto::GetTime(Zero));
+				Send(proto::GetExternalAddr(Zero));
 			}
 
 			virtual void OnMsg(proto::Authentication&& msg) override

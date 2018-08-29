@@ -1016,7 +1016,7 @@ void Node::Peer::TakeTasks()
 
 void Node::Peer::OnMsg(proto::Ping&&)
 {
-	proto::Pong msg;
+	proto::Pong msg(Zero);
 	Send(msg);
 }
 
@@ -1068,7 +1068,7 @@ void Node::Peer::OnMsg(proto::GetHdr&& msg)
 		Send(msgHdr);
 	} else
 	{
-		proto::DataMissing msgMiss;
+		proto::DataMissing msgMiss(Zero);
 		Send(msgMiss);
 	}
 }
@@ -1109,7 +1109,7 @@ void Node::Peer::OnMsg(proto::GetBody&& msg)
 
 	}
 
-	proto::DataMissing msgMiss;
+	proto::DataMissing msgMiss(Zero);
 	Send(msgMiss);
 }
 
