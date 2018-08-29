@@ -16,19 +16,29 @@
 #include "version.h"
 #include <QtQuick>
 #include "model/app_model.h"
+#include <thread>
 
 using namespace std;
 
 SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance()->getSettings()}
 {
-
+    undoChanges();
 }
-
 
 QString SettingsViewModel::getNodeAddress() const
 {
-    return m_settings.getNodeAddress();
+    return m_nodeAddress;
+}
+
+void SettingsViewModel::setNodeAddress(const QString& value)
+{
+    if (value != m_nodeAddress)
+    {
+        m_nodeAddress = value;
+        emit nodeAddressChanged();
+        emit propertiesChanged();
+    }
 }
 
 QString SettingsViewModel::version() const
@@ -36,10 +46,96 @@ QString SettingsViewModel::version() const
     return QString::fromStdString(PROJECT_VERSION);
 }
 
-void SettingsViewModel::applyChanges(const QString& addr)
+bool SettingsViewModel::getLocalNodeRun() const
 {
-    m_settings.setNodeAddress(addr);
-    emit nodeAddressChanged();
+    return m_localNodeRun;
+}
+
+void SettingsViewModel::setLocalNodeRun(bool value)
+{
+    if (value != m_localNodeRun)
+    {
+        m_localNodeRun = value;
+        emit localNodeRunChanged();
+        emit propertiesChanged();
+    }
+}
+
+uint SettingsViewModel::getLocalNodePort() const
+{
+    return m_localNodePort;
+}
+
+void SettingsViewModel::setLocalNodePort(uint value)
+{
+    if (value != m_localNodePort)
+    {
+        m_localNodePort = value;
+        emit localNodePortChanged();
+        emit propertiesChanged();
+    }
+}
+
+uint SettingsViewModel::getLocalNodeMiningThreads() const
+{
+    return m_localNodeMiningThreads;
+}
+
+void SettingsViewModel::setLocalNodeMiningThreads(uint value)
+{
+    if (value != m_localNodeMiningThreads)
+    {
+        m_localNodeMiningThreads = value;
+        emit localNodeMiningThreadsChanged();
+        emit propertiesChanged();
+    }
+}
+
+uint SettingsViewModel::getLocalNodeVerificationThreads() const
+{
+    return m_localNodeVerificationThreads;
+}
+
+void SettingsViewModel::setLocalNodeVerificationThreads(uint value)
+{
+    if (value != m_localNodeVerificationThreads)
+    {
+        m_localNodeVerificationThreads = value;
+        emit localNodeVerificationThreadsChanged();
+        emit propertiesChanged();
+    }
+}
+
+uint SettingsViewModel::coreAmount() const
+{
+    return std::thread::hardware_concurrency();
+}
+
+bool SettingsViewModel::isChanged() const
+{
+    return m_nodeAddress != m_settings.getNodeAddress()
+        || m_localNodeRun != m_settings.getRunLocalNode()
+        || m_localNodePort != m_settings.getLocalNodePort()
+        || m_localNodeMiningThreads != m_settings.getLocalNodeMiningThreads()
+        || m_localNodeVerificationThreads != m_settings.getLocalNodeVerificationThreads();
+}
+
+void SettingsViewModel::applyChanges()
+{
+    m_settings.setNodeAddress(m_nodeAddress);
+    m_settings.setRunLocalNode(m_localNodeRun);
+    m_settings.setLocalNodePort(m_localNodePort);
+    m_settings.setLocalNodeMiningThreads(m_localNodeMiningThreads);
+    m_settings.setLocalNodeVerificationThreads(m_localNodeVerificationThreads);
+}
+
+void SettingsViewModel::undoChanges()
+{
+    setNodeAddress(m_settings.getNodeAddress());
+    setLocalNodeRun(m_settings.getRunLocalNode());
+    setLocalNodePort(static_cast<uint>(m_settings.getLocalNodePort()));
+    setLocalNodeMiningThreads(static_cast<uint>(m_settings.getLocalNodeMiningThreads()));
+    setLocalNodeVerificationThreads(static_cast<uint>(m_settings.getLocalNodeVerificationThreads()));
 }
 
 void SettingsViewModel::emergencyReset()

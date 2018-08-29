@@ -23,21 +23,50 @@ class SettingsViewModel : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(QString nodeAddress READ getNodeAddress NOTIFY nodeAddressChanged)
+    Q_PROPERTY(QString nodeAddress READ getNodeAddress WRITE setNodeAddress NOTIFY nodeAddressChanged)
     Q_PROPERTY(QString version READ version CONSTANT)
+    Q_PROPERTY(bool localNodeRun READ getLocalNodeRun WRITE setLocalNodeRun NOTIFY localNodeRunChanged)
+    Q_PROPERTY(uint localNodePort READ getLocalNodePort WRITE setLocalNodePort NOTIFY localNodePortChanged)
+    Q_PROPERTY(uint localNodeMiningThreads READ getLocalNodeMiningThreads WRITE setLocalNodeMiningThreads NOTIFY localNodeMiningThreadsChanged)
+    Q_PROPERTY(uint localNodeVerificationThreads READ getLocalNodeVerificationThreads WRITE setLocalNodeVerificationThreads NOTIFY localNodeVerificationThreadsChanged)
+    Q_PROPERTY(bool isChanged READ isChanged NOTIFY propertiesChanged)
 public:
 
     SettingsViewModel();
 
     QString getNodeAddress() const;
+    void setNodeAddress(const QString& value);
     QString version() const;
+    bool getLocalNodeRun() const;
+    void setLocalNodeRun(bool value);
+    uint getLocalNodePort() const;
+    void setLocalNodePort(uint value);
+    uint getLocalNodeMiningThreads() const;
+    void setLocalNodeMiningThreads(uint value);
+    uint getLocalNodeVerificationThreads() const;
+    void setLocalNodeVerificationThreads(uint value);
+    bool isChanged() const;
+
+    Q_INVOKABLE uint coreAmount() const;
 
 public slots:
-    void applyChanges(const QString& nodeAddr);
+    void applyChanges();
+    void undoChanges();
     void emergencyReset();
 
 signals:
     void nodeAddressChanged();
+    void localNodeRunChanged();
+    void localNodePortChanged();
+    void localNodeMiningThreadsChanged();
+    void localNodeVerificationThreadsChanged();
+    void propertiesChanged();
 private:
     WalletSettings& m_settings;
+
+    QString m_nodeAddress;
+    bool m_localNodeRun;
+    uint m_localNodePort;
+    uint m_localNodeMiningThreads;
+    uint m_localNodeVerificationThreads;
 };

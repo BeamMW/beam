@@ -1,5 +1,6 @@
 import QtQuick 2.3
 import QtQuick.Controls 1.2
+import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
 import "controls"
 import Beam.Wallet 1.0
@@ -54,12 +55,11 @@ Rectangle {
             spacing: 30
 
     		Column {
-               //clip: true
-
+                width: parent.width
                 spacing: 10
 
                 SFText {
-                    text: "Node IP address and port"
+                    text: qsTr("Node IP address and port")
                     color: Style.white
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -71,15 +71,114 @@ Rectangle {
     				focus: true
     				activeFocusOnTab: true
                     font.pixelSize: 12
-                    color: Style.white
+                    color: readOnly ? Style.disable_text_color : Style.white
+                    readOnly: localNodeRun.checked
                     validator: RegExpValidator { regExp: /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$/ }
-    				onAccepted: viewModel.applyChanges(nodeAddress.text)
+    				text: viewModel.nodeAddress
+                    Binding {
+                        target: viewModel
+                        property: "nodeAddress"
+                        value: nodeAddress.text
+                    }
                 }
 
                 SFText {
                     id: nodeAddressError
                     color: Style.validator_color
                     font.pixelSize: 10
+                    visible: !nodeAddress.acceptableInput
+                    text: "Invalid address"
+                }
+
+                CustomSwitch {
+                    id: localNodeRun
+                    text: qsTr("Local node run")
+                    font.pixelSize: 12
+                    width: parent.width
+                    checked: viewModel.localNodeRun
+                    Binding {
+                        target: viewModel
+                        property: "localNodeRun"
+                        value: localNodeRun.checked
+                    }
+                }
+
+                SFText {
+                    text: qsTr("Local node port")
+                    color: Style.white
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                }
+
+                SFTextInput {
+                    id: localNodePort
+                    width: parent.width
+    			    activeFocusOnTab: true
+                    font.pixelSize: 12
+                    color: readOnly ? Style.disable_text_color : Style.white
+                    readOnly: !localNodeRun.checked
+                    text: viewModel.localNodePort
+                    validator: IntValidator {
+                        bottom: 0
+                        top: 65535
+                    }
+                    Binding {
+                        target: viewModel
+                        property: "localNodePort"
+                        value: localNodePort.text
+                    }
+                }
+
+                SFText {
+                    text: qsTr("Mining threads")
+                    color: Style.white
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                }
+
+                SFTextInput {
+                    id: localNodeMiningThreads
+                    width: parent.width
+    			    activeFocusOnTab: true
+                    font.pixelSize: 12
+                    color: readOnly ? Style.disable_text_color : Style.white
+                    readOnly: !localNodeRun.checked
+                    text: viewModel.localNodeMiningThreads
+                    validator: IntValidator {
+                        bottom: 0
+                        top: viewModel.coreAmount()
+                    }
+                    Binding {
+                        target: viewModel
+                        property: "localNodeMiningThreads"
+                        value: localNodeMiningThreads.text
+                    }
+                }
+
+                SFText {
+                    text: qsTr("Verification threads")
+                    color: Style.white
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                }
+
+                SFTextInput {
+                    id: localNodeVerificationThreads
+                    width: parent.width
+    			    activeFocusOnTab: true
+                    font.pixelSize: 12
+                    color: readOnly ? Style.disable_text_color : Style.white
+                    readOnly: !localNodeRun.checked
+                    text: viewModel.localNodeVerificationThreads
+                    validator: IntValidator {
+                        bottom: 0
+                        top: viewModel.coreAmount()
+                    }
+                    Binding {
+                        target: viewModel
+                        property: "localNodeVerificationThreads"
+                        value: localNodeVerificationThreads.text
+                    }
                 }
             }  
 
@@ -89,7 +188,8 @@ Rectangle {
                 palette.buttonText : "white"
 
                 onClicked: emergencyConfirmation.open();
-            }        
+            }
+            
         }
 
 		Row {
@@ -99,21 +199,20 @@ Rectangle {
 			spacing: 30
 
 			CustomButton {
-				text: "cancel"
-				onClicked: {
-					nodeAddress.text = viewModel.nodeAddress
-				}
+				text: qsTr("undo changes")
+				onClicked: viewModel.undoChanges()
 			}
 
 			PrimaryButton {		
-				text: "apply changes"
-				enabled: {nodeAddress.text != viewModel.nodeAddress && nodeAddress.acceptableInput}
-				onClicked: viewModel.applyChanges(nodeAddress.text)
+				text: qsTr("apply changes")
+				enabled: {
+                    viewModel.isChanged 
+                    && nodeAddress.acceptableInput
+                    && localNodePort.acceptableInput
+                    && localNodeMiningThreads.acceptableInput
+                    && localNodeVerificationThreads.acceptableInput}
+				onClicked: viewModel.applyChanges()
 			}
 		}
 	}
-
-	Component.onCompleted: {
-        nodeAddress.text = viewModel.nodeAddress
-    }
 }
