@@ -77,6 +77,8 @@ int main (int argc, char* argv[])
 
     QApplication app(argc, argv);
 
+	app.setWindowIcon(QIcon(":/assets/icon.png"));
+
     QApplication::setApplicationName("Beam Wallet");
 
     QDir appDataDir(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
