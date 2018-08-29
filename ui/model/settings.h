@@ -38,12 +38,12 @@ public:
     bool getRunLocalNode() const;
     void setRunLocalNode(bool value);
 
-    short getLocalNodePort() const;
-    void setLocalNodePort(short port);
-    int getLocalNodeMiningThreads() const;
-    void setLocalNodeMiningThreads(int n);
-    int getLocalNodeVerificationThreads() const;
-    void setLocalNodeVerificationThreads(int n);
+    uint getLocalNodePort() const;
+    void setLocalNodePort(uint port);
+    uint getLocalNodeMiningThreads() const;
+    void setLocalNodeMiningThreads(uint n);
+    uint getLocalNodeVerificationThreads() const;
+    void setLocalNodeVerificationThreads(uint n);
     std::string getLocalNodeStorage() const;
     std::string getTempDir() const;
 

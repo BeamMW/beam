@@ -1257,7 +1257,7 @@ Item {
                             txContextMenu.transaction = viewModel.tx[styleData.row];
                             txContextMenu.popup();
                         }
-                        else if (mouse.button === Qt.LeftButton)
+                        else if (mouse.button === Qt.LeftButton && !!viewModel.tx[styleData.row])
                         {
                             parent.collapsed = !parent.collapsed;
                             parent.height = parent.collapsed? transactionsView.rowHeight : transactionsView.rowHeight + 200;
