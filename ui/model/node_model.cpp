@@ -69,9 +69,6 @@ void NodeModel::run()
     node.m_Cfg.m_HistoryCompression.m_sPathOutput = settings.getTempDir();
     node.m_Cfg.m_HistoryCompression.m_sPathTmp = settings.getTempDir();
 
-    node.m_Cfg.m_vTreasury.resize(1);
-    node.m_Cfg.m_vTreasury[0].ZeroInit();
-
     LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
     node.Initialize();
