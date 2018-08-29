@@ -76,12 +76,15 @@ set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME ${OUTPUT_NAME})
 
 if(APPLE)
 	set_target_properties(${TARGET_NAME} PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)
-	target_link_libraries(${TARGET_NAME} z)
 endif()
 
 configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
 add_dependencies(${TARGET_NAME} wallet)
+
+if(LINUX)
+	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
 
 # link with QuaZip library
 include_directories(${CMAKE_PREFIX_PATH}/include/QtZlib)
@@ -93,6 +96,10 @@ qt_wrap_cpp(MOC_SRCS ${PUBLIC_HEADERS})
 set(QUAZIP_ALL_SRCS ${QUAZIP_SRCS} ${MOC_SRCS})
 include_directories(${Qt5Core_INCLUDE_DIRS})
 add_library(quazip_static STATIC ${QUAZIP_ALL_SRCS})
+
+if(UNIX)
+	target_link_libraries(quazip_static z)
+endif()
 
 add_dependencies(${TARGET_NAME} quazip_static)
 target_link_libraries(${TARGET_NAME} quazip_static)
