@@ -444,8 +444,10 @@ namespace ECC {
 		MultiMac::Casual mc;
 		mc.Init(v.x, v.y);
 
+		uint8_t aux;
 		MultiMac mm;
 		mm.m_pCasual = &mc;
+		mm.m_pAuxCasual = &aux;
 		mm.m_Casual = 1;
 		mm.Calculate(*this);
 
@@ -696,18 +698,13 @@ namespace ECC {
 
 	void MultiMac::Prepared::Initialize(Point::Native& val, Hash::Processor& hp)
 	{
-		Generator::FromPt(m_Fast.m_pPt[0], val);
-		Point::Native npos, nums = val;
+		Point::Native npos = val, nums = val * Two;
 
-		for (size_t i = 1; i < _countof(m_Fast.m_pPt); i++)
+		for (unsigned int i = 0; i < _countof(m_Fast.m_pPt); i++)
 		{
-			if (i & (i + 1))
-				npos += val;
-			else
-			{
-				nums = nums * Two;
-				npos = nums;
-			}
+			if (i)
+				npos += nums;
+
 			Generator::FromPt(m_Fast.m_pPt[i], npos);
 		}
 
@@ -746,6 +743,8 @@ namespace ECC {
 			const Prepared* ppPrep[] = { this };
 			mm.m_ppPrepared = ppPrep;
 			mm.m_pKPrep = &m_Secure.m_Scalar;
+			uint8_t aux;
+			mm.m_pAuxPrepared = &aux;
 			mm.m_Prepared = 1;
 
 			mm.Calculate(npos);
@@ -774,7 +773,7 @@ namespace ECC {
 	{
 		if (Mode::Fast == g_Mode)
 		{
-			m_nPrepared = 2;
+			m_nPrepared = 1;
 			m_pPt[1] = p;
 		}
 		else
@@ -782,13 +781,11 @@ namespace ECC {
 			secp256k1_ge ge;
 			Generator::ToPt(m_pPt[0], ge, Context::get().m_Casual.m_Nums, true);
 
-			for (size_t i = 1; i < _countof(m_pPt); i++)
+			for (unsigned int i = 1; i < _countof(m_pPt); i++)
 			{
 				m_pPt[i] = m_pPt[i - 1];
 				m_pPt[i] += p;
 			}
-
-			m_nPrepared = _countof(m_pPt);
 		}
 	}
 
@@ -804,9 +801,39 @@ namespace ECC {
 		m_Prepared = 0;
 	}
 
+	__forceinline unsigned int GetPortion(const Scalar::Native& k, unsigned int iWord, unsigned int iBitInWord, unsigned int nBitsWnd)
+	{
+		const const Scalar::Native::uint& n = k.get().d[iWord];
+
+		return (n >> (iBitInWord & ~(nBitsWnd - 1))) & ((1 << nBitsWnd) - 1);
+	}
+
+	__forceinline bool GetValueForShift(const Scalar::Native& k, unsigned int iWord, unsigned int iBitInWord, unsigned int nBitsWnd, unsigned int& nVal, uint8_t& aux)
+	{
+		unsigned int nShift = iBitInWord & (nBitsWnd - 1);
+
+		if (nShift == nBitsWnd - 1)
+		{
+			nVal = GetPortion(k, iWord, iBitInWord, nBitsWnd);
+
+			if (!nVal)
+				aux = -1;
+			else
+				for (aux = 0; !(1 & nVal); aux++)
+					nVal >>= 1;
+		}
+
+		if (nShift != aux)
+			return false;
+
+		nVal = GetPortion(k, iWord, iBitInWord, nBitsWnd) >> aux;
+		return true;
+
+	}
+
 	void MultiMac::Calculate(Point::Native& res) const
 	{
-		const int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
+		const unsigned int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
 
 		static_assert(Casual::nBits <= Prepared::Fast::nBits, "");
 		static_assert(Casual::nBits <= Prepared::Secure::nBits, "");
@@ -823,64 +850,67 @@ namespace ECC {
 			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
 				m_pKPrep[iEntry] += m_ppPrepared[iEntry]->m_Secure.m_Scalar;
 
-		for (int iWord = _countof(Scalar::Native().get().d); iWord--; )
+		for (unsigned int iBit = ECC::nBits; iBit--; )
 		{
-			for (int iLayer = nBitsPerWord / Casual::nBits; iLayer--; )
-			{
-				if (!(res == Zero))
-					for (int i = 0; i < Casual::nBits; i++)
-						res = res * Two;
+			if (!(res == Zero))
+				res = res * Two;
 
+			unsigned int iWord = iBit / nBitsPerWord;
+			unsigned int iBitInWord = iBit & (nBitsPerWord - 1);
+			unsigned int nShift = iBit & (Casual::nBits - 1);
+
+			if ((Mode::Fast == g_Mode) || !nShift)
+			{
 				for (int iEntry = 0; iEntry < m_Casual; iEntry++)
 				{
 					Casual& x = m_pCasual[iEntry];
-					const Scalar::Native::uint n = x.m_K.get().d[iWord];
 
-					int nVal = (n >> (iLayer * Casual::nBits)) & (_countof(x.m_pPt) - 1);
-					if (!nVal && (Mode::Fast == g_Mode))
-						continue; // skip zero
+					unsigned int nVal;
 
-					for (; x.m_nPrepared <= nVal; x.m_nPrepared++)
-						if (x.m_nPrepared & 1)
-							x.m_pPt[x.m_nPrepared] = x.m_pPt[x.m_nPrepared - 1] + x.m_pPt[1];
-						else
-							x.m_pPt[x.m_nPrepared] = x.m_pPt[x.m_nPrepared >> 1] * Two;
+					if (Mode::Fast == g_Mode)
+					{
+						if (!GetValueForShift(x.m_K, iWord, iBitInWord, Casual::nBits, nVal, m_pAuxCasual[iEntry]))
+							continue;
+
+						for (; x.m_nPrepared < nVal; x.m_nPrepared += 2)
+						{
+							if (1 == x.m_nPrepared)
+								x.m_pPt[2] = x.m_pPt[1] * Two;
+
+							x.m_pPt[x.m_nPrepared + 2] = x.m_pPt[x.m_nPrepared] + x.m_pPt[2];
+						}
+
+					} else
+						nVal = GetPortion(x.m_K, iWord, iBitInWord, Casual::nBits);
 
 					res += x.m_pPt[nVal];
 				}
+			}
 
-				if (Mode::Fast == g_Mode)
+			if (Mode::Fast == g_Mode)
+			{
+				for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
 				{
-					if (iLayer & (Prepared::Fast::nBits / Casual::nBits - 1))
+					unsigned int nVal;
+					if (!GetValueForShift(m_pKPrep[iEntry], iWord, iBitInWord, Prepared::Fast::nBits, nVal, m_pAuxPrepared[iEntry]))
 						continue;
 
-					int iLayerPrep = iLayer / (Prepared::Fast::nBits / Casual::nBits);
+					const Prepared::Fast& x = m_ppPrepared[iEntry]->m_Fast;
 
-					for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
-					{
-						const Prepared::Fast& x = m_ppPrepared[iEntry]->m_Fast;
-						const Scalar::Native::uint n = m_pKPrep[iEntry].get().d[iWord];
-
-						int nVal = (n >> (iLayerPrep * Prepared::Fast::nBits)) & ((1 << Prepared::Fast::nBits) - 1);
-						if (nVal--)
-							Generator::ToPt(res, ge.V, x.m_pPt[nVal], false);
-					}
+					Generator::ToPt(res, ge.V, x.m_pPt[nVal >> 1], false);
 				}
-				else
+			}
+			else
+			{
+				if (!(iBit & (Prepared::Secure::nBits - 1)))
 				{
-					if (iLayer & (Prepared::Secure::nBits / Casual::nBits - 1))
-						continue;
-
-					int iLayerPrep = iLayer / (Prepared::Secure::nBits / Casual::nBits);
-
 					for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
 					{
 						const Prepared::Secure& x = m_ppPrepared[iEntry]->m_Secure;
-						const Scalar::Native::uint n = m_pKPrep[iEntry].get().d[iWord];
 
-						size_t nVal = (n >> (iLayerPrep * Prepared::Secure::nBits)) & ((1 << Prepared::Secure::nBits) - 1);
+						unsigned int nVal = GetPortion(m_pKPrep[iEntry], iWord, iBitInWord, Prepared::Secure::nBits);
 
-						for (size_t i = 0; i < _countof(x.m_pPt); i++)
+						for (unsigned int i = 0; i < _countof(x.m_pPt); i++)
 							object_cmov(ge_s.V, x.m_pPt[i], i == nVal);
 
 						Generator::ToPt(res, ge.V, ge_s.V, false);
