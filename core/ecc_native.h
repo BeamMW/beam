@@ -164,20 +164,34 @@ namespace ECC
 
 	struct MultiMac
 	{
+		struct FastAux {
+			unsigned int m_nNextItem;
+			unsigned int m_nOdd;
+		};
+
 		struct Casual
 		{
-			static const int nBits = 4;
+			struct Secure {
+				// In secure mode: all the values are precalculated from the beginning, with the "nums" added (for futher obscuring)
+				static const int nBits = 4;
+				static const int nCount = 1 << nBits;
+			};
 
-			// In secure mode: all the values are precalculated from the beginning, with the "nums" added (for futher obscuring)
-			// In fast mode: [1] is assigned from the beginning, then on-demand calculated [2] and then only odd multiples.
-			Point::Native m_pPt[(1 << nBits)];
+			struct Fast
+			{
+				// In fast mode: x1 is assigned from the beginning, then on-demand calculated x2 and then only odd multiples.
+				static const int nMaxOdd = (1 << 5) - 1; // 31
+				static const int nCount = (nMaxOdd >> 1) + 2; // we need a single even: x2
+			};
+
+
+			Point::Native m_pPt[(Secure::nCount > Fast::nCount) ? Secure::nCount : Fast::nCount];
 
 			Scalar::Native m_K;
-			unsigned int m_nPrepared;
 
 			// used in fast mode
-			Casual* m_pLstNext;
-			unsigned int m_nItemSel;
+			unsigned int m_nPrepared;
+			FastAux m_Aux;
 
 			void Init(const Point::Native&);
 			void Init(const Point::Native&, const Scalar::Native&);
@@ -186,15 +200,14 @@ namespace ECC
 		struct Prepared
 		{
 			struct Fast {
-				static const int nBits = 8;
-				CompactPoint m_pPt[1 << (nBits - 1)]; // odd powers
+				static const int nMaxOdd = 0xff; // 255
+				// Currently we precalculate odd power up to 255.
+				// For 511 precalculated odds nearly x2 global data increase (2.5MB instead of 1.3MB). For single bulletproof verification the performance gain is ~8%.
+				// For 127 precalculated odds single bulletproof verfication is slower by about 6%.
+				// The difference deminishes for batch verifications (performance is dominated by non-prepared point multiplication).
+				static const int nCount = (nMaxOdd >> 1) + 1;
+				CompactPoint m_pPt[nCount]; // odd powers
 			} m_Fast;
-
-			struct Aux {
-				Aux* m_pLstNext;
-				unsigned int m_nThisIndex;
-				unsigned int m_nItemSel;
-			};
 
 			struct Secure {
 				// A variant of Generator::Obscured. Much less space & init time. Slower for single multiplication, nearly equal in MultiMac.
@@ -211,7 +224,7 @@ namespace ECC
 		Casual* m_pCasual;
 		const Prepared** m_ppPrepared;
 		Scalar::Native* m_pKPrep;
-		Prepared::Aux* m_pAuxPrepared;
+		FastAux* m_pAuxPrepared;
 
 		int m_Casual;
 		int m_Prepared;
@@ -230,7 +243,7 @@ namespace ECC
 			Casual m_pCasual[nMaxCasual];
 			const Prepared* m_ppPrepared[nMaxPrepared];
 			Scalar::Native m_pKPrep[nMaxPrepared];
-			Prepared::Aux m_pAuxPrepared[nMaxPrepared];
+			FastAux m_pAuxPrepared[nMaxPrepared];
 		} m_Bufs;
 
 		MultiMac_WithBufs()
@@ -477,7 +490,7 @@ namespace ECC
 		struct Bufs {
 			const Prepared* m_ppPrepared[s_CountPrepared];
 			Scalar::Native m_pKPrep[s_CountPrepared];
-			Prepared::Aux m_pAuxPrepared[s_CountPrepared];
+			FastAux m_pAuxPrepared[s_CountPrepared];
 		} m_Bufs;
 
 

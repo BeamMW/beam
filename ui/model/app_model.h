@@ -36,10 +36,14 @@ public:
     bool createWallet(const beam::SecString& seed, const beam::SecString& pass);
     bool openWallet(const beam::SecString& pass);
 
+    void applySettingsChanges();
+
     WalletSettings& getSettings();
     MessageManager& getMessages();
 private:
-    void start(beam::IKeyChain::Ptr db, beam::IKeyStore::Ptr);
+    void start(beam::IKeyStore::Ptr);
+
+    void startNode();
 
 private:
 
@@ -47,5 +51,6 @@ private:
     std::unique_ptr<NodeModel> m_node;
     WalletSettings& m_settings;
     MessageManager m_messages;
+    beam::IKeyChain::Ptr m_db;
     static AppModel* s_instance;
 };

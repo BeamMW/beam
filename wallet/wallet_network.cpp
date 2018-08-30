@@ -182,9 +182,8 @@ namespace beam {
     void WalletNetworkIO::on_close_connection_timer()
     {
         LOG_DEBUG() << "Close node connection";
-        m_close_timer.reset();
-        m_is_node_connected = false;
-        m_node_connection.reset();
+
+        reset_connection();
         start_sync_timer();
     }
 
@@ -351,6 +350,24 @@ namespace beam {
         return true;
     }
 
+    void WalletNetworkIO::set_node_address(io::Address node_address)
+    {
+        reset_connection();
+
+        m_node_address = node_address;
+
+        connect_node();
+    }
+
+    void WalletNetworkIO::reset_connection()
+    {
+        get_wallet().abort_sync();
+
+        m_close_timer.reset();
+        m_is_node_connected = false;
+        m_node_connection.reset();
+    }
+
     WalletNetworkIO::WalletNodeConnection::WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec, WalletNetworkIO& io)
         : m_address{address}
         , m_wallet {wallet}
@@ -450,10 +467,4 @@ namespace beam {
         return true;
     }
 
-    void WalletNetworkIO::set_node_address(io::Address node_address)
-    {
-        m_node_address = node_address;
-
-        connect_node();
-    }
 }

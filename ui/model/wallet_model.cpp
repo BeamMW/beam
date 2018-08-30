@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "wallet_model.h"
+#include "app_model.h"
 #include "utility/logger.h"
 #include "utility/bridge.h"
 #include "utility/io/asyncevent.h"
@@ -201,7 +202,7 @@ WalletStatus WalletModel::getStatus() const
     status.unconfirmed += wallet::getTotal(_keychain, Coin::Unconfirmed);
 
     status.update.lastTime = _keychain->getLastUpdateTime();
-    
+    ZeroObject(status.stateID);
     _keychain->getSystemStateID(status.stateID);
 
     return status;
@@ -261,9 +262,10 @@ void WalletModel::run()
 
         _reactor->run();
     }
-    catch (const runtime_error& e)
+    catch (const runtime_error& ex)
     {
-        LOG_ERROR() << e.what();
+        LOG_ERROR() << ex.what();
+        AppModel::getInstance()->getMessages().addMessage(tr("Failed to start wallet. Please check your wallet data location"));
     }
     catch (...)
     {

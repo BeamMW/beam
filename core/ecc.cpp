@@ -444,7 +444,6 @@ namespace ECC {
 		MultiMac::Casual mc;
 		mc.Init(v.x, v.y);
 
-		uint8_t aux;
 		MultiMac mm;
 		mm.m_pCasual = &mc;
 		mm.m_Casual = 1;
@@ -742,7 +741,7 @@ namespace ECC {
 			const Prepared* ppPrep[] = { this };
 			mm.m_ppPrepared = ppPrep;
 			mm.m_pKPrep = &m_Secure.m_Scalar;
-			Prepared::Aux aux;
+			FastAux aux;
 			mm.m_pAuxPrepared = &aux;
 			mm.m_Prepared = 1;
 
@@ -780,7 +779,7 @@ namespace ECC {
 			secp256k1_ge ge;
 			Generator::ToPt(m_pPt[0], ge, Context::get().m_Casual.m_Nums, true);
 
-			for (unsigned int i = 1; i < _countof(m_pPt); i++)
+			for (unsigned int i = 1; i < Secure::nCount; i++)
 			{
 				m_pPt[i] = m_pPt[i - 1];
 				m_pPt[i] += p;
@@ -807,40 +806,73 @@ namespace ECC {
 		return (n >> (iBitInWord & ~(nBitsWnd - 1))) & ((1 << nBitsWnd) - 1);
 	}
 
-	bool GetOddAndShift(const Scalar::Native& k, unsigned int iWord, unsigned int iBitInWord, unsigned int nBitsWnd, unsigned int& nOdd, unsigned int& nShift)
+
+	bool GetOddAndShift(const Scalar::Native& k, unsigned int iBitsRemaining, unsigned int nMaxOdd, unsigned int& nOdd, unsigned int& nBitTrg)
 	{
-		nOdd = GetPortion(k, iWord, iBitInWord, nBitsWnd);
-		if (!nOdd)
-			return false;
+		const Scalar::Native::uint* p = k.get().d;
+		const uint32_t nWordBits = sizeof(*p) << 3;
 
-		for (nShift = 0; !(1 & nOdd); nOdd >>= 1)
-			nShift++;
+		assert(1 & nMaxOdd); // must be odd
+		unsigned int nVal = 0;
 
-		return true;
+		while (iBitsRemaining--)
+		{
+			nVal <<= 1;
+			if (nVal > nMaxOdd)
+				return true;
+
+			uint32_t n = p[iBitsRemaining / nWordBits] >> (iBitsRemaining & (nWordBits - 1));
+
+			if (1 & n)
+			{
+				nVal |= 1;
+				nOdd = nVal;
+				nBitTrg = iBitsRemaining;
+			}
+		}
+
+		return nVal > 0;
 	}
 
 	void MultiMac::Calculate(Point::Native& res) const
 	{
 		const unsigned int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
 
-		static_assert(Casual::nBits <= Prepared::Fast::nBits, "");
-		static_assert(Casual::nBits <= Prepared::Secure::nBits, "");
-		static_assert(!(nBitsPerWord % Casual::nBits), "");
-		static_assert(!(nBitsPerWord % Prepared::Fast::nBits), "");
+		static_assert(!(nBitsPerWord % Casual::Secure::nBits), "");
 		static_assert(!(nBitsPerWord % Prepared::Secure::nBits), "");
 
 		res = Zero;
 
-		Casual* ppTblCasual[Casual::nBits];
-		Prepared::Aux* ppTblPrepared[Prepared::Fast::nBits];
+		unsigned int pTblCasual[nBits];
+		unsigned int pTblPrepared[nBits];
 
 		if (Mode::Fast == g_Mode)
 		{
-			ZeroObject(ppTblCasual);
-			ZeroObject(ppTblPrepared);
+			ZeroObject(pTblCasual);
+			ZeroObject(pTblPrepared);
 
 			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
-				m_pAuxPrepared[iEntry].m_nThisIndex = iEntry;
+			{
+				FastAux& x = m_pAuxPrepared[iEntry];
+				unsigned int iBit;
+				if (GetOddAndShift(m_pKPrep[iEntry], nBits, Prepared::Fast::nMaxOdd, x.m_nOdd, iBit))
+				{
+					x.m_nNextItem = pTblPrepared[iBit];
+					pTblPrepared[iBit] = iEntry + 1;
+				}
+			}
+
+			for (int iEntry = 0; iEntry < m_Casual; iEntry++)
+			{
+				Casual& x = m_pCasual[iEntry];
+				unsigned int iBit;
+				if (GetOddAndShift(x.m_K, nBits, Casual::Fast::nMaxOdd, x.m_Aux.m_nOdd, iBit))
+				{
+					x.m_Aux.m_nNextItem = pTblCasual[iBit];
+					pTblCasual[iBit] = iEntry + 1;
+				}
+			}
+
 		}
 
 		NoLeak<secp256k1_ge> ge;
@@ -860,64 +892,69 @@ namespace ECC {
 
 			if (Mode::Fast == g_Mode)
 			{
-				unsigned int nShiftCasual = iBit & (Casual::nBits - 1);
-				if (nShiftCasual == Casual::nBits - 1)
+				while (pTblCasual[iBit])
 				{
-					for (int iEntry = 0; iEntry < m_Casual; iEntry++)
+					unsigned int iEntry = pTblCasual[iBit];
+					Casual& x = m_pCasual[iEntry - 1];
+					pTblCasual[iBit] = x.m_Aux.m_nNextItem;
+
+					assert(1 & x.m_Aux.m_nOdd);
+					unsigned int nElem = (x.m_Aux.m_nOdd >> 1) + 1;
+					assert(nElem < Casual::Fast::nCount);
+
+					for (; x.m_nPrepared < nElem; x.m_nPrepared++)
 					{
-						Casual& x = m_pCasual[iEntry];
+						if (1 == x.m_nPrepared)
+							x.m_pPt[0] = x.m_pPt[1] * Two;
 
-						unsigned int iIdx;
-						if (!GetOddAndShift(x.m_K, iWord, iBitInWord, Casual::nBits, x.m_nItemSel, iIdx))
-							continue;
+						x.m_pPt[x.m_nPrepared + 1] = x.m_pPt[x.m_nPrepared] + x.m_pPt[0];
+					}
 
-						x.m_pLstNext = ppTblCasual[iIdx];
-						ppTblCasual[iIdx] = &x;
+					res += x.m_pPt[nElem];
 
-						for (; x.m_nPrepared < x.m_nItemSel; x.m_nPrepared += 2)
-						{
-							if (1 == x.m_nPrepared)
-								x.m_pPt[2] = x.m_pPt[1] * Two;
+					unsigned int iBit2;
+					if (GetOddAndShift(x.m_K, iBit, Casual::Fast::nMaxOdd, x.m_Aux.m_nOdd, iBit2))
+					{
+						assert(iBit2 < iBit);
 
-							x.m_pPt[x.m_nPrepared + 2] = x.m_pPt[x.m_nPrepared] + x.m_pPt[2];
-						}
+						x.m_Aux.m_nNextItem = pTblCasual[iBit2];
+						pTblCasual[iBit2] = iEntry;
 					}
 				}
 
-				for (Casual*& pAux = ppTblCasual[nShiftCasual]; pAux; pAux = pAux->m_pLstNext)
-					res += pAux->m_pPt[pAux->m_nItemSel];
 
-				unsigned int nShiftPrepared = iBit & (Prepared::Fast::nBits - 1);
-				if (nShiftPrepared == Prepared::Fast::nBits - 1)
+				while (pTblPrepared[iBit])
 				{
-					for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+					unsigned int iEntry = pTblPrepared[iBit];
+					FastAux& x = m_pAuxPrepared[iEntry - 1];
+					pTblPrepared[iBit] = x.m_nNextItem;
+
+					assert(1 & x.m_nOdd);
+					unsigned int nElem = (x.m_nOdd >> 1);
+					assert(nElem < Prepared::Fast::nCount);
+
+					Generator::ToPt(res, ge.V, m_ppPrepared[iEntry - 1]->m_Fast.m_pPt[nElem], false);
+
+					unsigned int iBit2;
+					if (GetOddAndShift(m_pKPrep[iEntry - 1], iBit, Prepared::Fast::nMaxOdd, x.m_nOdd, iBit2))
 					{
+						assert(iBit2 < iBit);
 
-						Prepared::Aux& x = m_pAuxPrepared[iEntry];
-
-						unsigned int iIdx;
-						if (!GetOddAndShift(m_pKPrep[iEntry], iWord, iBitInWord, Prepared::Fast::nBits, x.m_nItemSel, iIdx))
-							continue;
-
-						
-						x.m_pLstNext = ppTblPrepared[iIdx];
-						ppTblPrepared[iIdx] = &x;
+						x.m_nNextItem = pTblPrepared[iBit2];
+						pTblPrepared[iBit2] = iEntry;
 					}
 				}
-
-				for (Prepared::Aux*& pAux = ppTblPrepared[nShiftPrepared]; pAux; pAux = pAux->m_pLstNext)
-					Generator::ToPt(res, ge.V, m_ppPrepared[pAux->m_nThisIndex]->m_Fast.m_pPt[pAux->m_nItemSel >> 1], false);
 			}
 			else
 			{
 				// secure mode
-				if (!(iBit & (Casual::nBits - 1)))
+				if (!(iBit & (Casual::Secure::nBits - 1)))
 				{
 					for (int iEntry = 0; iEntry < m_Casual; iEntry++)
 					{
 						Casual& x = m_pCasual[iEntry];
 
-						unsigned int nVal = GetPortion(x.m_K, iWord, iBitInWord, Casual::nBits);
+						unsigned int nVal = GetPortion(x.m_K, iWord, iBitInWord, Casual::Secure::nBits);
 
 						res += x.m_pPt[nVal]; // cmov seems not needed, since the table is relatively small, and not in global mem (less predicatble addresses)
 					}
@@ -1037,7 +1074,7 @@ namespace ECC {
 			for (int i = ECC::nBits; i--; )
 			{
 				k = k + k;
-				if (!(i % MultiMac::Casual::nBits))
+				if (!(i % MultiMac::Casual::Secure::nBits))
 					k = k + 1U;
 			}
 

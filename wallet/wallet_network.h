@@ -55,7 +55,7 @@ namespace beam
                       , IKeyStore::Ptr keyStore
                       , io::Reactor::Ptr reactor = io::Reactor::Ptr()
                       , unsigned reconnect_ms = 1000 // 1 sec
-                      , unsigned sync_period_ms = 60 * 1000);  // 1 minute
+                      , unsigned sync_period_ms = 20 * 1000);  // 20 sec
 
         virtual ~WalletNetworkIO();
 
@@ -152,6 +152,8 @@ namespace beam
         void listen_to_bbs_channel(const WalletID& walletID);
 
         bool handle_bbs_message(proto::BbsMsg&& msg);
+
+        void reset_connection();
 
         class WalletNodeConnection : public proto::NodeConnection
         {

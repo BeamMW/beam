@@ -33,6 +33,8 @@ namespace
     const char* LocalNodePort = "localnode/port";
     const char* LocalNodeMiningThreads = "localnode/mining_threads";
     const char* LocalNodeVerificationThreads = "localnode/verification_threads";
+    const char* LocalNodeGenerateGenesys = "localnode/generate_genesys";
+    
     const char* SettingsIni = "settings.ini";
     const char* LocalNodePeers = "localnode/peers";
 }
@@ -83,6 +85,20 @@ void WalletSettings::emergencyReset()
     if (walletModel)
     {
         walletModel->async->emergencyReset();
+    }
+}
+
+bool WalletSettings::getGenerateGenesys() const
+{
+    return m_data.value(LocalNodeGenerateGenesys, false).toBool();
+}
+
+void WalletSettings::setGenerateGenesys(bool value)
+{
+    if (getGenerateGenesys() != value)
+    {
+        m_data.setValue(LocalNodeGenerateGenesys, value);
+        emit localNodeGenerateGenesysChanged();
     }
 }
 
@@ -215,4 +231,9 @@ void WalletSettings::reportProblem()
 
 		zipFile.rename(path);
 	}
+}
+
+void WalletSettings::applyChanges()
+{
+    AppModel::getInstance()->applySettingsChanges();
 }

@@ -142,6 +142,7 @@ void SettingsViewModel::applyChanges()
     m_settings.setLocalNodeMiningThreads(m_localNodeMiningThreads);
     m_settings.setLocalNodeVerificationThreads(m_localNodeVerificationThreads);
     m_settings.setLocalNodePeers(m_localNodePeers);
+    m_settings.applyChanges();
 }
 
 QStringList SettingsViewModel::getLocalNodePeers() const
