@@ -15,7 +15,7 @@
 #pragma once
 
 #include "../core/common.h"
-#include "../core/storage.h"
+#include "../core/block_crypt.h"
 #include "../sqlite/sqlite3.h"
 
 namespace beam {
@@ -62,6 +62,7 @@ public:
 			StateGetHeightAndPrev,
 			StateFind,
 			StateFind2,
+			StateFindWorkGreater,
 			StateUpdPrevRow,
 			StateGetNextFCount,
 			StateSetNextCount,
@@ -71,7 +72,6 @@ public:
 			StateSetFlags,
 			StateGetFlags0,
 			StateGetFlags1,
-			StateSetChainWork,
 			StateGetChainWork,
 			StateGetNextCount,
 			StateSetPeer,
@@ -94,7 +94,7 @@ public:
 			SpendableDel,
 			SpendableModify,
 			SpendableEnum,
-			SpendableEnumWithSig,
+			SpendableGetBody,
 			StateGetBlock,
 			StateSetBlock,
 			StateDelBlock,
@@ -139,6 +139,9 @@ public:
 		Blob() {}
 		Blob(const void* p_, uint32_t n_) :p(p_) ,n(n_) {}
 		Blob(const ByteBuffer& bb);
+
+		template <uint32_t nBits_>
+		Blob(const uintBig_t<nBits_>& x) :p(x.m_pData), n(x.nBytes) {}
 
 		void Export(ByteBuffer&) const;
 	};
@@ -255,7 +258,7 @@ public:
 
 	bool get_Cursor(StateID& sid);
 
-    void get_Proof(Merkle::Proof&, const StateID& sid, Height hPrev);
+    void get_Proof(Merkle::IProofBuilder&, const StateID& sid, Height hPrev);
     void get_PredictedStatesHash(Merkle::Hash&, const StateID& sid); // For the next block.
 
 	void get_ChainWork(uint64_t, Difficulty::Raw&);
@@ -267,25 +270,19 @@ public:
 	// Utxos & kernels
 	struct WalkerSpendable
 	{
-		const bool m_bWithSignature;
-
 		Recordset m_Rs;
 		Blob m_Key;
-		Blob m_Signature;
 		uint32_t m_nUnspentCount;
 
-		WalkerSpendable(NodeDB& db, bool bWithSignature)
-			:m_bWithSignature(bWithSignature)
-			,m_Rs(db)
-		{
-		}
+		WalkerSpendable(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
 	void EnumUnpsent(WalkerSpendable&);
 
-	void AddSpendable(const Blob& key, const Blob& body, uint32_t nRefs, uint32_t nUnspentCount);
+	void AddSpendable(const Blob& key, const Blob* pBody, uint32_t nRefs, uint32_t nUnspentCount);
 	void ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta); // will delete iff refs=0
+	bool GetSpendableBody(const Blob& key, Blob&);
 
 	void assert_valid(); // diagnostic, for tests only
 
@@ -347,6 +344,8 @@ public:
 	bool BbsFind(WalkerBbs&); // set Key
 	void BbsDelOld(Timestamp tMinToRemain);
 
+	uint64_t FindStateWorkGreater(const Difficulty::Raw&);
+
 private:
 
 	sqlite3* m_pDb;
@@ -371,11 +370,10 @@ private:
 	void TipReachableDel(uint64_t rowid);
 	void SetNextCount(uint64_t rowid, uint32_t);
 	void SetNextCountFunctional(uint64_t rowid, uint32_t);
-	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, Difficulty::Raw&, bool);
+	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
 	void BuildMmr(uint64_t rowid, uint64_t rowPrev, Height);
 	void put_Cursor(const StateID& sid); // jump
 	void ModifySpendableSafe(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta);
-	void set_ChainWork(uint64_t, const Difficulty::Raw&);
 
 	void TestChanged1Row();
 

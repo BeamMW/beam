@@ -39,6 +39,18 @@
 
 namespace ECC
 {
+	// cmov - conditional mov. Constant memory access and runtime.
+	template <typename T>
+	void data_cmov_as(T* pDst, const T* pSrc, int nWords, int flag);
+
+	template <typename T>
+	inline void object_cmov(T& dst, const T& src, int flag)
+	{
+		typedef uint32_t TOrd;
+		static_assert(sizeof(T) % sizeof(TOrd) == 0, "");
+		data_cmov_as<TOrd>((TOrd*)&dst, (TOrd*)&src, sizeof(T) / sizeof(TOrd), flag);
+	}
+
 
 	class Scalar::Native
 		:private secp256k1_scalar
@@ -118,8 +130,6 @@ namespace ECC
 		Native& operator = (Double);
 		Native& operator += (const Native& v) { return *this = *this + v; }
 
-		// non-secure implementation, suitable for casual use (such as signature verification), otherwise should use generators.
-		// Optimized for small scalars
 		Native& operator = (Mul);
 		Native& operator += (Mul);
 
@@ -136,19 +146,17 @@ namespace ECC
 
 #ifdef ECC_COMPACT_GEN
 
-	// Generator tables are stored in compact structs (x,y in canonical form). Memory footprint: ~2.5MB. Slightly faster (probably due to better cache)
-	// Disadvantage: slow initialization, because needs "normalizing". For all the generators takes ~1sec in release, 4-5 seconds in debug.
-	//
-	// Currently *disabled* to prevent app startup lag.
+	// Generator tables are stored in compact structs (x,y in canonical form). Memory footprint: ~1.3MB. Slightly faster (probably due to better cache)
+	// Disadvantage: slower initialization, because needs "normalizing". Insignificant in release build, ~1sec in debug.
 
 	typedef secp256k1_ge_storage CompactPoint;
 
 #else // ECC_COMPACT_GEN
 
-	// Generator tables are stored in "jacobian" form. Memory footprint ~4.7MB. Slightly slower (probably due to increased mem)
+	// Generator tables are stored in "jacobian" form. Memory footprint ~2.6. Slightly slower (probably due to increased mem)
 	// Initialization is fast
 	//
-	// Currently used.
+	// Currently used in debug to speed-up initialization.
 
 	typedef secp256k1_gej CompactPoint;
 
@@ -156,13 +164,34 @@ namespace ECC
 
 	struct MultiMac
 	{
+		struct FastAux {
+			unsigned int m_nNextItem;
+			unsigned int m_nOdd;
+		};
+
 		struct Casual
 		{
-			static const int nBits = 4;
+			struct Secure {
+				// In secure mode: all the values are precalculated from the beginning, with the "nums" added (for futher obscuring)
+				static const int nBits = 4;
+				static const int nCount = 1 << nBits;
+			};
 
-			Point::Native m_pPt[(1 << nBits)];
+			struct Fast
+			{
+				// In fast mode: x1 is assigned from the beginning, then on-demand calculated x2 and then only odd multiples.
+				static const int nMaxOdd = (1 << 5) - 1; // 31
+				static const int nCount = (nMaxOdd >> 1) + 2; // we need a single even: x2
+			};
+
+
+			Point::Native m_pPt[(Secure::nCount > Fast::nCount) ? Secure::nCount : Fast::nCount];
+
 			Scalar::Native m_K;
-			int m_nPrepared;
+
+			// used in fast mode
+			unsigned int m_nPrepared;
+			FastAux m_Aux;
 
 			void Init(const Point::Native&);
 			void Init(const Point::Native&, const Scalar::Native&);
@@ -171,8 +200,13 @@ namespace ECC
 		struct Prepared
 		{
 			struct Fast {
-				static const int nBits = 8;
-				CompactPoint m_pPt[(1 << nBits) - 1]; // skip zero
+				static const int nMaxOdd = 0xff; // 255
+				// Currently we precalculate odd power up to 255.
+				// For 511 precalculated odds nearly x2 global data increase (2.5MB instead of 1.3MB). For single bulletproof verification the performance gain is ~8%.
+				// For 127 precalculated odds single bulletproof verfication is slower by about 6%.
+				// The difference deminishes for batch verifications (performance is dominated by non-prepared point multiplication).
+				static const int nCount = (nMaxOdd >> 1) + 1;
+				CompactPoint m_pPt[nCount]; // odd powers
 			} m_Fast;
 
 			struct Secure {
@@ -190,6 +224,7 @@ namespace ECC
 		Casual* m_pCasual;
 		const Prepared** m_ppPrepared;
 		Scalar::Native* m_pKPrep;
+		FastAux* m_pAuxPrepared;
 
 		int m_Casual;
 		int m_Prepared;
@@ -208,6 +243,7 @@ namespace ECC
 			Casual m_pCasual[nMaxCasual];
 			const Prepared* m_ppPrepared[nMaxPrepared];
 			Scalar::Native m_pKPrep[nMaxPrepared];
+			FastAux m_pAuxPrepared[nMaxPrepared];
 		} m_Bufs;
 
 		MultiMac_WithBufs()
@@ -215,6 +251,7 @@ namespace ECC
 			m_pCasual		= m_Bufs.m_pCasual;
 			m_ppPrepared	= m_Bufs.m_ppPrepared;
 			m_pKPrep		= m_Bufs.m_pKPrep;
+			m_pAuxPrepared	= m_Bufs.m_pAuxPrepared;
 		}
 
 		void Calculate(Point::Native& res)
@@ -331,11 +368,12 @@ namespace ECC
 		void Write(const char*);
 		void Write(bool);
 		void Write(uint8_t);
-		void Write(const uintBig&);
 		void Write(const Scalar&);
 		void Write(const Scalar::Native&);
 		void Write(const Point&);
 		void Write(const Point::Native&);
+		template <uint32_t nBits_>
+		void Write(const beam::uintBig_t<nBits_>& x) { Write(x.m_pData, x.nBytes); }
 
 		template <typename T>
 		void Write(T v)
@@ -452,6 +490,7 @@ namespace ECC
 		struct Bufs {
 			const Prepared* m_ppPrepared[s_CountPrepared];
 			Scalar::Native m_pKPrep[s_CountPrepared];
+			FastAux m_pAuxPrepared[s_CountPrepared];
 		} m_Bufs;
 
 

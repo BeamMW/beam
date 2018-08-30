@@ -1,0 +1,73 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#pragma once
+
+#include <QObject>
+#include <QSettings>
+
+#include "model/settings.h"
+
+class SettingsViewModel : public QObject
+{
+    Q_OBJECT
+
+    Q_PROPERTY(QString nodeAddress READ getNodeAddress WRITE setNodeAddress NOTIFY nodeAddressChanged)
+    Q_PROPERTY(QString version READ version CONSTANT)
+    Q_PROPERTY(bool localNodeRun READ getLocalNodeRun WRITE setLocalNodeRun NOTIFY localNodeRunChanged)
+    Q_PROPERTY(uint localNodePort READ getLocalNodePort WRITE setLocalNodePort NOTIFY localNodePortChanged)
+    Q_PROPERTY(uint localNodeMiningThreads READ getLocalNodeMiningThreads WRITE setLocalNodeMiningThreads NOTIFY localNodeMiningThreadsChanged)
+    Q_PROPERTY(uint localNodeVerificationThreads READ getLocalNodeVerificationThreads WRITE setLocalNodeVerificationThreads NOTIFY localNodeVerificationThreadsChanged)
+    Q_PROPERTY(bool isChanged READ isChanged NOTIFY propertiesChanged)
+public:
+
+    SettingsViewModel();
+
+    QString getNodeAddress() const;
+    void setNodeAddress(const QString& value);
+    QString version() const;
+    bool getLocalNodeRun() const;
+    void setLocalNodeRun(bool value);
+    uint getLocalNodePort() const;
+    void setLocalNodePort(uint value);
+    uint getLocalNodeMiningThreads() const;
+    void setLocalNodeMiningThreads(uint value);
+    uint getLocalNodeVerificationThreads() const;
+    void setLocalNodeVerificationThreads(uint value);
+    bool isChanged() const;
+
+    Q_INVOKABLE uint coreAmount() const;
+
+public slots:
+    void applyChanges();
+    void undoChanges();
+    void emergencyReset();
+	void reportProblem();
+
+signals:
+    void nodeAddressChanged();
+    void localNodeRunChanged();
+    void localNodePortChanged();
+    void localNodeMiningThreadsChanged();
+    void localNodeVerificationThreadsChanged();
+    void propertiesChanged();
+private:
+    WalletSettings& m_settings;
+
+    QString m_nodeAddress;
+    bool m_localNodeRun;
+    uint m_localNodePort;
+    uint m_localNodeMiningThreads;
+    uint m_localNodeVerificationThreads;
+};

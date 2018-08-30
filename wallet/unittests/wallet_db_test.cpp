@@ -15,7 +15,7 @@
 #include "wallet/wallet_db.h"
 #include <assert.h>
 #include "test_helpers.h"
-#include "core/storage.h"
+#include "utility/test_helpers.h"
 
 #include "utility/logger.h"
 #include <boost/filesystem.hpp>
@@ -37,8 +37,8 @@ namespace
             boost::filesystem::remove(dbName);
         }
         ECC::NoLeak<ECC::uintBig> seed;
-        seed.V = ECC::Zero;
-        auto keychain = Keychain::init(dbName, "pass123", seed);
+        seed.V = Zero;
+        auto keychain = Keychain::init(dbName, string("pass123"), seed);
         beam::Block::SystemState::ID id = { };
         id.m_Height = 134;
         keychain->setSystemStateID(id);
@@ -287,17 +287,77 @@ void TestRollback()
     auto db = createSqliteKeychain();
     for (uint64_t i = 0; i < 9; ++i)
     {
-        Coin coin1 = { 5, Coin::Unspent, i, i + 10, KeyType::Regular, Height(i) };
+        Coin coin1 = { 5, Coin::Unspent, i, i + 10, KeyType::Regular, Height(i + 1) };
+        coin1.m_confirmHash = unsigned(123);
         db->store(coin1);
     }
 
     for (uint64_t i = 9; i < 10; ++i)
     {
-        Coin coin1 = { 5, Coin::Spent, 0, 0, KeyType::Regular, Height(0), Height(i) };
+        Coin coin1 = { 5, Coin::Spent, 0, 0, KeyType::Regular, Height(1), Height(i + 1) };
         db->store(coin1);
     }
 
-    db->rollbackConfirmedUtxo(5);
+    // was created after branch
+    {
+        Coin coin1 = { 5, Coin::Spent, 7, 7, KeyType::Regular, Height(8) };
+        db->store(coin1);
+    }
+
+
+    // rewards
+    // should be deleted
+    {
+        Coin coin1 = { 5, Coin::Spent, 7, 8, KeyType::Coinbase, Height(8) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Spent, 7, 8, KeyType::Comission, Height(8) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Unspent, 8, 9, KeyType::Coinbase, Height(9) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Unspent, 8, 9, KeyType::Comission, Height(9) };
+        db->store(coin1);
+    }
+    // should be preserved
+    {
+        Coin coin1 = { 5, Coin::Spent, 6, 7, KeyType::Coinbase, Height(7) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Spent, 6, 7, KeyType::Comission, Height(7) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Spent, 4, 5, KeyType::Coinbase, Height(5) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Spent, 4, 5, KeyType::Comission, Height(5) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Unspent, 3, 4, KeyType::Coinbase, Height(4) };
+        db->store(coin1);
+    }
+
+    {
+        Coin coin1 = { 5, Coin::Unspent, 3, 4, KeyType::Comission, Height(4) };
+        db->store(coin1);
+    }
+
+    db->rollbackConfirmedUtxo(6);
 
     vector<Coin> coins;
     db->visit([&coins](const auto& c)->bool
@@ -305,6 +365,8 @@ void TestRollback()
         coins.push_back(c);
         return true;
     });
+
+    WALLET_CHECK(coins.size() == 17);
 
     for (int i = 0; i < 5; ++i)
     {
@@ -320,8 +382,40 @@ void TestRollback()
         WALLET_CHECK(c.m_status == Coin::Unconfirmed);
         WALLET_CHECK(c.m_confirmHeight == MaxHeight);
         WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+        WALLET_CHECK(c.m_confirmHash == Zero);
     }
     for (int i = 9; i < 10; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Unspent);
+        WALLET_CHECK(c.m_confirmHeight != MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+    }
+
+    {
+        // for now it is unconfirmed in future we would have to distinguish such coins
+        auto& c = coins[10];
+        WALLET_CHECK(c.m_status == Coin::Unconfirmed);
+        WALLET_CHECK(c.m_confirmHeight == MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+        WALLET_CHECK(c.m_confirmHash == Zero);
+    }
+
+    for (int i = 11; i < 13; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Unconfirmed);
+        WALLET_CHECK(c.m_confirmHeight == MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+    }
+    for (int i = 13; i < 15; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Spent);
+        WALLET_CHECK(c.m_confirmHeight != MaxHeight);
+        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
+    }
+    for (int i = 15; i < 17; ++i)
     {
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Unspent);
@@ -452,10 +546,14 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_duration == a.m_duration);
     WALLET_CHECK(addresses[0].m_own == a.m_own);
 
+    auto a2 = db->getAddress(a.m_walletID);
+    WALLET_CHECK(a2.is_initialized());
 
     db->deleteAddress(a.m_walletID);
     WALLET_CHECK(db->getAddresses(true).empty());
 
+    a2 = db->getAddress(a.m_walletID);
+    WALLET_CHECK(!a2.is_initialized());
 }
 
 void TestSelect()
@@ -619,7 +717,7 @@ void TestSelect()
 void TestSelect2()
 {
     auto db = createSqliteKeychain();
-    const Amount c = 925;
+    const Amount c = 1000000;
     vector<Coin> t;
     t.reserve(c);
     for (Amount i = 1; i <= c; ++i)
@@ -631,9 +729,14 @@ void TestSelect2()
         Coin c{ 30000000, Coin::Unspent, 1, 10, KeyType::Regular };
         db->store(c);
     }
-     auto coins = db->selectCoins(347000000, false);
-     WALLET_CHECK(coins.size() == 9);
-     WALLET_CHECK(coins[0].m_amount == 30000000);
+	helpers::StopWatch sw;
+
+	sw.start();
+    auto coins = db->selectCoins(347000000, false);
+	sw.stop();
+	cout << "TestSelect2 elapsed time: " << sw.milliseconds() << " ms\n";
+    WALLET_CHECK(coins.size() == 9);
+    WALLET_CHECK(coins[0].m_amount == 30000000);
 }
 
 int main() 
@@ -652,7 +755,7 @@ int main()
     TestRollback();
     TestPeers();
     TestSelect();
-    TestSelect2();
+    //TestSelect2();
     TestAddresses();
 
     return WALLET_CHECK_RESULT;

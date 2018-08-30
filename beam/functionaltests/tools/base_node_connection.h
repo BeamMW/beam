@@ -28,6 +28,8 @@ protected:
 	void ParseCommandLine(int argc, char* argv[]);
 	void InitKdf();
 
+	void OnMsg(beam::proto::Authentication&&) override;
+
 protected:
 	ECC::Kdf m_Kdf;
 	boost::program_options::variables_map m_VM;

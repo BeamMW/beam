@@ -39,7 +39,7 @@ struct Node
         ECC::NoLeak<ECC::uintBig> m_WalletKey;
 		NodeProcessor::Horizon m_Horizon;
 
-		bool m_RestrictMinedReportToOwner = false; // TODO: turn this ON once wallet supports this
+		bool m_RestrictMinedReportToOwner = true;
 
 		struct Timeout {
 			uint32_t m_GetState_ms	= 1000 * 5;
@@ -86,7 +86,7 @@ struct Node
 
 		Config()
 		{
-			m_WalletKey.V = ECC::Zero;
+			m_WalletKey.V = Zero;
 		}
 
 	} m_Cfg; // must not be changed after initialization
@@ -131,6 +131,9 @@ private:
 
 			IMPLEMENT_GET_PARENT_OBJ(Processor, m_Verifier)
 		} m_Verifier;
+
+		Block::ChainWorkProof m_Cwp; // cached
+		bool BuildCwp();
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
@@ -341,6 +344,7 @@ private:
 		virtual void OnMsg(proto::GetProofState&&) override;
 		virtual void OnMsg(proto::GetProofKernel&&) override;
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
+		virtual void OnMsg(proto::GetProofChainWork&&) override;
 		virtual void OnMsg(proto::PeerInfoSelf&&) override;
 		virtual void OnMsg(proto::PeerInfo&&) override;
 		virtual void OnMsg(proto::GetTime&&) override;

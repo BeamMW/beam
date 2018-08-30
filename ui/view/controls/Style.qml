@@ -18,6 +18,7 @@ QtObject {
 	property color separator_color: "#33566b"
 	property color disable_text_color: "#889da9"
     property color combobox_color:  "#0a4b66"
+    property color validator_color: "#ff625c"
 
 
 	// Asset definitions

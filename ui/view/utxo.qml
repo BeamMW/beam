@@ -3,25 +3,120 @@ import QtQuick.Controls 1.2
 import QtQuick.Layouts 1.0
 import QtQuick.Controls.Styles 1.2
 import "controls"
+import Beam.Wallet 1.0;
 
 ColumnLayout {
 	anchors.fill: parent
+	UtxoViewModel {id: viewModel}
 
-	SFText {
-        Layout.minimumHeight: 40
-        Layout.maximumHeight: 40
-        font.pixelSize: 36
-        color: Style.white
-        text: qsTr("UTXO")
+    RowLayout {
+        Layout.fillWidth: true
+        Layout.alignment: Qt.AlignTop
+        Layout.bottomMargin: 10
+
+        height: 80
+        spacing: 10
+
+	    SFText {
+            Layout.alignment: Qt.AlignTop
+            Layout.minimumHeight: 40
+            Layout.maximumHeight: 40
+            font.pixelSize: 36
+            color: Style.white
+            text: qsTr("UTXO")
+        }
+
+        Item {
+            Layout.fillWidth: true
+        }
+
+        Item {
+            Layout.fillWidth: true
+            height: parent.height
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 20
+                anchors.topMargin: 10
+                anchors.bottomMargin: 20
+                spacing: 5
+
+                SFText {
+                    Layout.minimumHeight: 20
+                    Layout.maximumHeight: 20
+                    font.pixelSize: 18
+                    font.weight: Font.Bold
+                    color: Style.white
+                    text: qsTr("Height")
+                }
+
+	            SFText {
+                    Layout.minimumHeight: 20
+                    Layout.maximumHeight: 20
+                    font.pixelSize: 16
+                    color: Style.bright_teal
+                    text: viewModel.currentHeight
+                }
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 10
+                color: Style.white
+                opacity: 0.1
+            }
+        }
+
+        Item {
+            Layout.fillWidth: true
+            height: parent.height
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 20
+                anchors.rightMargin: 20
+                anchors.topMargin: 10
+                anchors.bottomMargin: 20
+                spacing: 5
+
+	            SFText {
+                    Layout.fillWidth: true
+                    Layout.minimumHeight: 20
+                    Layout.maximumHeight: 20
+                    font.pixelSize: 18
+                    font.weight: Font.Bold
+                    color: Style.white
+                    text: qsTr("Hash")
+                }
+
+	            SFText {
+                    Layout.fillWidth: true
+                    Layout.minimumHeight: 20
+                    Layout.maximumHeight: 20
+                    font.pixelSize: 16
+                    color: Style.bright_teal
+                    text: viewModel.currentStateHash
+                    elide: Text.ElideRight
+                }
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 10
+                color: Style.white
+                opacity: 0.1
+            }
+        }
     }
 
-	TableView {
+	CustomTableView {
 		Layout.fillWidth: true
 		Layout.fillHeight: true
+		Layout.bottomMargin: 9
 		frameVisible: false
         selectionMode: SelectionMode.NoSelection
         backgroundVisible: false
-		model: walletViewModel.allUtxos
+		model: viewModel.allUtxos
 
 		TableViewColumn {
 			role: "amount"

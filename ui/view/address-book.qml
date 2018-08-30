@@ -1,12 +1,16 @@
 import QtQuick 2.3
-import QtQuick.Controls 1.2
+import QtQuick.Controls 1.4
 import QtQuick.Controls 2.3
 import QtQuick.Layouts 1.0
 import QtQuick.Controls.Styles 1.2
 import "controls"
+import Beam.Wallet 1.0
 
 ColumnLayout {
     id: addressRoot
+
+	AddressBookViewModel {id: viewModel}
+
     width: 800
     height: 600
     anchors.fill: parent
@@ -19,11 +23,16 @@ ColumnLayout {
         text: qsTr("Address book")
     }
 
+    ConfirmationDialog {
+		id: confirmationDialog
+        property bool isOwn
+    }
+
 	Dialog {
 		id: createAddress
 		modal: true
 		width: 520
-		height: 454
+		height: 500
 		x: (parent.width - width) / 2
 		y: (parent.height - height) / 2
 		visible: false
@@ -105,31 +114,22 @@ ColumnLayout {
 					SFTextInput {
 						id: addressID
 						Layout.fillWidth: true
-						Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
+                        focus: true
 						font.pixelSize: 12
 						color: Style.white
-						text: addressBookViewModel.newPeerAddress.walletID
+						text: viewModel.newPeerAddress.walletID
+                        validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
 					}
 
 					Binding {
-						target: addressBookViewModel.newPeerAddress
+						target: viewModel.newPeerAddress
 						property: "walletID"
 						value: addressID.text
 					}
 
-					Rectangle {
-						Layout.fillWidth: true
-                        Layout.minimumHeight: 1
-						height: 1
-
-						color: Style.separator_color
-					}
-						
 					SFText {
                         Layout.topMargin: 30
 						Layout.fillWidth: true
-						Layout.fillHeight: true
                         Layout.minimumHeight: 14
 						text: qsTr("Name")
 						font {
@@ -140,32 +140,20 @@ ColumnLayout {
 					}
 					SFTextInput {
 						Layout.fillWidth: true
-						Layout.fillHeight: true
 						id: nameAddress
-                        Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
 						font.pixelSize: 12
 						color: Style.white
-						height: 14
-						text: addressBookViewModel.newPeerAddress.name
+						text: viewModel.newPeerAddress.name
 					}
 					Binding {
-						target: addressBookViewModel.newPeerAddress
+						target: viewModel.newPeerAddress
 						property: "name"
 						value: nameAddress.text
-					}
-					Rectangle {
-						Layout.fillWidth: true
-                        Layout.minimumHeight: 1
-						height: 1
-
-						color: Style.separator_color
 					}
 						
 					SFText {
                         Layout.topMargin: 30
 						Layout.fillWidth: true
-						Layout.fillHeight: true
                         Layout.minimumHeight: 14
 						text: qsTr("Category")
 						font {
@@ -176,28 +164,18 @@ ColumnLayout {
 					}
 					SFTextInput {
 						Layout.fillWidth: true
-						Layout.fillHeight: true
-                        Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
 						id: categoryAddress
 						font.pixelSize: 12
 						color: Style.white
-						height: 14
-						text: addressBookViewModel.newPeerAddress.category
+						text: viewModel.newPeerAddress.category
 					}
 
 					Binding {
-						target: addressBookViewModel.newPeerAddress
+						target: viewModel.newPeerAddress
 						property: "category"
 						value: categoryAddress.text
 					}
-					Rectangle {
-						Layout.fillWidth: true
-                        Layout.minimumHeight: 1
-						height: 1
 
-						color: Style.separator_color
-					}
 				}
 
 				ColumnLayout {
@@ -221,20 +199,14 @@ ColumnLayout {
 					SFTextInput {
 						id: ownAddressID
 						Layout.fillWidth: true
-                        Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
 						font.pixelSize: 12
 						color: Style.disable_text_color
 						readOnly: true
-						text: addressBookViewModel.newOwnAddress.walletID
+                        activeFocusOnTab: false
+						text: viewModel.newOwnAddress.walletID
 					}
 
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.minimumHeight: 1
-                    }
-
-					SFText {
+                    SFText {
                         Layout.topMargin: 30
 						Layout.fillWidth: true
                         Layout.minimumHeight: 14
@@ -247,25 +219,17 @@ ColumnLayout {
 					}
 					SFTextInput {
 						Layout.fillWidth: true
-                        Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
 						id: nameOwnAddress
+                        focus: true
 						font.pixelSize: 12
 						color: Style.white
-						height: 14
-						text: addressBookViewModel.newOwnAddress.name
+						text: viewModel.newOwnAddress.name
 					}
 
 					Binding {
-						target: addressBookViewModel.newOwnAddress
+						target: viewModel.newOwnAddress
 						property: "name"
 						value: nameOwnAddress.text
-					}
-					Rectangle {
-						Layout.fillWidth: true
-                        Layout.minimumHeight: 1
-						height: 1
-						color: Style.separator_color
 					}
 
 					SFText {
@@ -282,69 +246,61 @@ ColumnLayout {
 
 					SFTextInput {
 						Layout.fillWidth: true
-                        Layout.minimumHeight: 14
-						Layout.maximumHeight: 14
 						id: categoryOwnAddress
 						font.pixelSize: 12
 						color: Style.white
-						height: 14
-						text: addressBookViewModel.newOwnAddress.category
+						text: viewModel.newOwnAddress.category
 					}
 
 					Binding {
-						target: addressBookViewModel.newOwnAddress
+						target: viewModel.newOwnAddress
 						property: "category"
 						value: categoryOwnAddress.text
-					}
-
-					Rectangle {
-						Layout.fillWidth: true
-                        Layout.minimumHeight: 1
-
-						height: 1
-
-						color: Style.separator_color
 					}
 				}
 
 				Item {
 					Layout.fillWidth: true
-					Layout.minimumHeight: 38
-					Layout.maximumHeight: 38
+					Layout.minimumHeight: 48
+					Layout.maximumHeight: 48
 					Layout.topMargin: 30
 
 					RowLayout {
-						Layout.minimumHeight: 38
-						Layout.maximumHeight: 38
 						anchors.centerIn: parent
 						
-						IconButton {
-							color: Style.separator_color
-							textColor: Style.white
-							width: 122
-							height: 38
-							label: qsTr("cancel")
-							iconName: "icon-cancel"
+						CustomButton {
+							palette.buttonText: Style.white
+                            Layout.minimumHeight: 38
+							Layout.minimumWidth: 122
+							text: qsTr("cancel")
+							icon.source: "qrc:///assets/icon-cancel.svg"
 
 							onClicked: {
 								createAddress.close()
 							}
 						}
 
-						IconButton {
-							color: Style.bright_teal
+						CustomButton {
+							palette.button: Style.bright_teal
 							Layout.leftMargin: 31
-							width: 166
-							height: 38
-							label: qsTr("create address")
-							iconName: "icon-done"
-							textColor: Style.marine
+                            Layout.minimumHeight: 38
+                            Layout.minimumWidth: 166
+							text: qsTr("create address")
+							icon.source: "qrc:///assets/icon-done.svg"
+							palette.buttonText: Style.marine
+							enabled: {
+								if (createAddressLayout.state == "own") {
+									return viewModel.newOwnAddress.walletID != "";
+								} else {
+									return viewModel.newPeerAddress.walletID != "";
+								}
+							}
 								
 							onClicked: {
-								if (createAddressLayout.state == "own") {
-									addressBookViewModel.createNewOwnAddress();
+                                if (createAddressLayout.state == "own") {
+									viewModel.createNewOwnAddress();
 								} else {
-									addressBookViewModel.createNewPeerAddress();
+									viewModel.createNewPeerAddress();
 								}
 								createAddress.close();
 							}
@@ -356,37 +312,27 @@ ColumnLayout {
 					State {
 						name: "own"
 						PropertyChanges {target: ownFilterDlg; state: "active"}
-						PropertyChanges {
-							target: createOwnAddressView
-							visible: true							
-						}
+						PropertyChanges {target: createOwnAddressView; visible: true}
+                        PropertyChanges {target: createPeersAddressView; visible: false}
 
-						PropertyChanges {
-							target: createAddress
-						}
+                        StateChangeScript {
+                            script: {
+                                nameOwnAddress.forceActiveFocus();
+                            }
+                        }
 
-						PropertyChanges {
-							target: createPeersAddressView
-							visible: false
-						}
 					},
 					State {
 						name: "peers"
 						PropertyChanges {target: peersFilterDlg; state: "active"}
+                        PropertyChanges {target: createOwnAddressView; visible: false}
+						PropertyChanges {target: createPeersAddressView; visible: true}
 
-						PropertyChanges {
-							target: createOwnAddressView
-							visible: false
-						}
-
-						PropertyChanges {
-							target: createAddress
-						}
-
-						PropertyChanges {
-							target: createPeersAddressView
-							visible: true
-						}
+                        StateChangeScript {
+                            script: {
+                                addressID.forceActiveFocus();
+                            }
+                        }
 					}
 				]
 			}
@@ -415,17 +361,17 @@ ColumnLayout {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            IconButton {
+            
+            CustomButton {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.right: parent.right
                 width: 195
-				height: 38
-				label: "create new address"
-				textColor: Style.white
-				iconName: "icon-add"
-				onClicked: {
-					addressBookViewModel.generateNewEmptyAddress()
-					createAddressLayout.state = addressRoot.state
+				text: "create new address"
+				palette.buttonText: Style.white
+				icon.source: "qrc:///assets/icon-add.svg"
+                onClicked: {
+					viewModel.generateNewEmptyAddress();
+					createAddressLayout.state = addressRoot.state;
 					createAddress.open();
 				}
             }
@@ -443,32 +389,45 @@ ColumnLayout {
             frameVisible: false
             selectionMode: SelectionMode.SingleSelection
             backgroundVisible: false
-            model: addressBookViewModel.peerAddresses
+            model: viewModel.peerAddresses
             visible: false
 
             TableViewColumn {
                 role: "walletID"
                 title: qsTr("Address ID")
-                width: 300 * parent.width / 700
+                width: 300 * (parent.width - actionsColumn.width) / 700
                 elideMode: Text.ElideMiddle
                 movable: false
+				resizable: false
             }
 
             TableViewColumn {
                 role: "name"
                 title: qsTr("Name")
-                width: 200 * parent.width / 700
+                width: 200 * (parent.width - actionsColumn.width) / 700
                 elideMode: Text.ElideRight
                 movable: false
+				resizable: false
             }
 
             TableViewColumn {
                 role: "category"
                 title: qsTr("Category")
                 elideMode: Text.ElideRight
-                width: 200 * parent.width / 700
+                width: 200 * (parent.width - actionsColumn.width) / 700
                 movable: false
+				resizable: false
             }
+
+			TableViewColumn {
+				id: actionsColumn
+				role: "walletID"
+				title: ""
+				width: 150
+				movable: false
+				resizable: false
+				delegate: peerAddressActions
+			}
 
             headerDelegate: Rectangle {
                 height: 46
@@ -494,7 +453,7 @@ ColumnLayout {
                     text: qsTr("send money")
 					icon.source: "qrc:///assets/icon-send-grey.svg"
                     onTriggered: {
-                        addressBookViewModel.changeCurrentPeerAddress(peerAddressContextMenu.index);
+                        viewModel.changeCurrentPeerAddress(peerAddressContextMenu.index);
 						main.openSendDialog();
                     }
                 }
@@ -510,15 +469,36 @@ ColumnLayout {
 					enabled: false
                 }
 				Action {
+                    text: qsTr("copy address")
+					icon.source: "qrc:///assets/icon-copy.svg"
+					onTriggered: {
+						if (peerAddressContextMenu.index >= 0)
+						{
+							var addr = viewModel.peerAddresses[peerAddressContextMenu.index];
+							viewModel.copyToClipboard(addr.walletID);
+						}
+                    }
+                }
+				Action {
                     text: qsTr("edit address")
 					icon.source: "qrc:///assets/icon-edit.svg"
 					enabled: false
                 }
 				Action {
                     text: qsTr("delete address")
-					icon.source: "qrc:///assets/icon-cancel.svg"
+					icon.source: "qrc:///assets/icon-delete.svg"
 					onTriggered: {
-                        addressBookViewModel.deletePeerAddress(peerAddressContextMenu.index);
+                        var message = qsTr("The address %1 will be deleted. This operation can not be undone")
+                        confirmationDialog.text = message.arg(viewModel.peerAddresses[peerAddressContextMenu.index].walletID)
+                        confirmationDialog.isOwn = false
+                        confirmationDialog.open();
+                    }                    
+                }
+                Connections {
+                    target: confirmationDialog
+                    onAccepted: {
+                        if (!confirmationDialog.isOwn)
+                            viewModel.deletePeerAddress(peerAddressContextMenu.index);
                     }
                 }
             }
@@ -530,17 +510,108 @@ ColumnLayout {
                     text: qsTr("copy address")
 					icon.source: "qrc:///assets/icon-copy.svg"
 					onTriggered: {
-                        addressBookViewModel.copyAddressToClipboard(ownAddressContextMenu.index);
+						if (ownAddressContextMenu.index >= 0)
+						{
+							var addr = viewModel.ownAddresses[ownAddressContextMenu.index];
+							viewModel.copyToClipboard(addr.walletID);
+						}
                     }
                 }
 				Action {
                     text: qsTr("delete address")
-					icon.source: "qrc:///assets/icon-cancel.svg"
+					icon.source: "qrc:///assets/icon-delete.svg"
 					onTriggered: {
-                        addressBookViewModel.deleteOwnAddress(ownAddressContextMenu.index);
+                        var message = qsTr("The address %1 will be deleted. This operation can not be undone")
+                        confirmationDialog.text = message.arg(viewModel.ownAddresses[ownAddressContextMenu.index].walletID)
+                        confirmationDialog.isOwn = true
+                        confirmationDialog.open();
+                    }
+                    // User shouldn't delete "default" or last own adress
+                    enabled: ((ownAddressesView.rowCount > 1) && 
+                              (viewModel.ownAddresses[ownAddressContextMenu.index].name !== "default"))
+                }
+                Connections {
+                    target: confirmationDialog
+                    onAccepted: {
+                        if (confirmationDialog.isOwn)
+                            viewModel.deleteOwnAddress(ownAddressContextMenu.index);
                     }
                 }
             }
+
+			Component {
+				id: peerAddressActions
+				Item {
+					Row{
+						anchors.right: parent.right
+						anchors.verticalCenter: parent.verticalCenter
+						spacing: 10
+						CustomToolButton {
+							icon.source: "qrc:///assets/icon-delete.svg"
+							ToolTip.text: qsTr("Delete address")
+							onClicked: {
+								var message = qsTr("The address %1 will be deleted. This operation can not be undone");
+								confirmationDialog.text = message.arg(viewModel.peerAddresses[styleData.row].walletID);
+								confirmationDialog.isOwn = false;
+								confirmationDialog.open();
+							}
+						}
+						CustomToolButton {
+							icon.source: "qrc:///assets/icon-copy.svg"
+							ToolTip.text: qsTr("Copy address to clipboard")
+							onClicked: {
+								var addr = viewModel.peerAddresses[styleData.row];
+								viewModel.copyToClipboard(addr.walletID);
+							}
+						}
+						CustomToolButton {
+							icon.source: "qrc:///assets/icon-actions.svg"
+							ToolTip.text: qsTr("Actions")
+							onClicked: {
+								peerAddressContextMenu.index = styleData.row;
+								peerAddressContextMenu.popup();
+							}
+						}
+					}
+				}
+			}
+
+			Component {
+				id: ownAddressActions
+				Item {
+					Row{
+						anchors.right: parent.right
+						anchors.verticalCenter: parent.verticalCenter
+						spacing: 10
+						CustomToolButton {
+							icon.source: "qrc:///assets/icon-delete.svg"
+							ToolTip.text: qsTr("Delete address")
+							onClicked: {
+								var message = qsTr("The address %1 will be deleted. This operation can not be undone");
+								confirmationDialog.text = message.arg(viewModel.ownAddresses[styleData.row].walletID);
+								confirmationDialog.isOwn = true;
+								confirmationDialog.open();
+							}
+						}
+						CustomToolButton {
+							icon.source: "qrc:///assets/icon-copy.svg"
+							ToolTip.text: qsTr("Copy address to clipboard")
+							onClicked: {
+								var addr = viewModel.ownAddresses[styleData.row];
+								viewModel.copyToClipboard(addr.walletID);
+							}
+						}
+						CustomToolButton {
+							icon.source: "qrc:///assets/icon-actions.svg"
+							ToolTip.text: qsTr("Actions")
+							onClicked: {
+								ownAddressContextMenu.index = styleData.row;
+								ownAddressContextMenu.popup();
+							}
+						}
+					}
+				}
+			}
 
             rowDelegate: Item {
 
@@ -583,30 +654,33 @@ ColumnLayout {
             frameVisible: false
             selectionMode: SelectionMode.NoSelection
             backgroundVisible: false
-            model: addressBookViewModel.ownAddresses
+            model: viewModel.ownAddresses
 
             TableViewColumn {
                 role: "walletID"
                 title: qsTr("Address ID")
-                width: 300 * parent.width / 850
+                width: 300 * (parent.width - ownActionsColumn.width)  / 850
                 elideMode: Text.ElideMiddle
                 movable: false
+				resizable: false
             }
 
             TableViewColumn {
                 role: "name"
                 title: qsTr("Name")
-                width: 200 * parent.width / 850
+                width: 200 * (parent.width - ownActionsColumn.width)  / 850
                 elideMode: Text.ElideRight
                 movable: false
+				resizable: false
             }
 
             TableViewColumn {
                 role: "category"
                 title: qsTr("Category")
                 elideMode: Text.ElideRight
-                width: 200 * parent.width / 850
+                width: 200 * (parent.width - ownActionsColumn.width)  / 850
                 movable: false
+				resizable: false
             }
 
 //            TableViewColumn {
@@ -619,9 +693,20 @@ ColumnLayout {
                 role: "createDate"
                 title: qsTr("Created")
                 elideMode: Text.ElideRight
-                width: 150 * parent.width / 850
+                width: 150 * (parent.width - ownActionsColumn.width) / 850
                 movable: false
+				resizable: false
             }
+
+			TableViewColumn {
+				id: ownActionsColumn
+				role: "walletID"
+				title: ""
+				width: 150
+				movable: false
+				resizable: false
+				delegate: ownAddressActions
+			}
 
 
             headerDelegate: Rectangle {

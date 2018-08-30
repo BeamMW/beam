@@ -33,7 +33,7 @@ void GenerateRandom(void* p, uint32_t n)
 
 void SetRandom(uintBig& x)
 {
-	GenerateRandom(x.m_pData, sizeof(x.m_pData));
+	GenerateRandom(x.m_pData, x.nBytes);
 }
 
 void SetRandom(Scalar::Native& x)

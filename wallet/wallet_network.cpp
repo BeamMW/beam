@@ -38,6 +38,7 @@ namespace beam {
         : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, 150, *this, 20000 }
         , m_msgReader{ m_protocol, 1, 20000 }
         , m_node_address{node_address}
+        , m_walletID(Zero)
         , m_reactor{ !reactor ? io::Reactor::create() : reactor }
         , m_wallet{ nullptr }
         , m_keychain{keychain}
@@ -50,10 +51,6 @@ namespace beam {
         , m_keystore(keyStore)
         , m_lastReceiver(0)
     {
-        if (!m_keystore || m_keystore->size() == 0) {
-            throw std::runtime_error("WalletNetworkIO: empty keystore");
-        }
-
         m_protocol.add_message_handler<WalletNetworkIO, wallet::Invite,             &WalletNetworkIO::on_message>(senderInvitationCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmTransaction, &WalletNetworkIO::on_message>(senderConfirmationCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmInvitation,  &WalletNetworkIO::on_message>(receiverConfirmationCode, this, 1, 20000);
@@ -71,12 +68,9 @@ namespace beam {
         }
 
         m_keystore->get_enabled_keys(m_myPubKeys);
-        assert(!m_myPubKeys.empty());
         for (const auto& k : m_myPubKeys)
         {
-            uint32_t channel = channel_from_wallet_id(k);
-            LOG_INFO() << "Channel:" << channel << " Pubkey: " << to_string(k);
-            listen_to_bbs_channel(channel);
+            listen_to_bbs_channel(k);
         }
     }
 
@@ -147,10 +141,10 @@ namespace beam {
         send_to_node(move(msg));
     }
 
-	void WalletNetworkIO::send_node_message(proto::GetHdr&& msg)
-	{
-		send_to_node(move(msg));
-	}
+    void WalletNetworkIO::send_node_message(proto::GetHdr&& msg)
+    {
+        send_to_node(move(msg));
+    }
 
     void WalletNetworkIO::send_node_message(proto::GetMined&& msg)
     {
@@ -160,6 +154,20 @@ namespace beam {
     void WalletNetworkIO::send_node_message(proto::GetProofState&& msg)
     {
         send_to_node(move(msg));
+    }
+
+    void WalletNetworkIO::new_own_address(const WalletID& address)
+    {
+        auto p = m_myPubKeys.insert(address);
+        if (p.second)
+        {
+            listen_to_bbs_channel(address);
+        }
+    }
+
+    void WalletNetworkIO::address_deleted(const WalletID& address)
+    {
+        m_myPubKeys.erase(address);
     }
 
     void WalletNetworkIO::close_node_connection()
@@ -173,10 +181,9 @@ namespace beam {
 
     void WalletNetworkIO::on_close_connection_timer()
     {
-        LOG_INFO() << "Close node connection";
-        m_close_timer.reset();
-        m_is_node_connected = false;
-        m_node_connection.reset();
+        LOG_DEBUG() << "Close node connection";
+
+        reset_connection();
         start_sync_timer();
     }
 
@@ -185,15 +192,6 @@ namespace beam {
         if (m_close_timer)
         {
             m_close_timer->restart(m_close_timeout_ms, false);
-        }
-    }
-
-    void WalletNetworkIO::cancel_close_timer()
-    {
-        if (m_close_timer)
-        {
-            m_close_timer->cancel();
-            m_close_timer.reset();
         }
     }
 
@@ -234,9 +232,9 @@ namespace beam {
 
     void WalletNetworkIO::connect_node()
     {
-        if (m_is_node_connected == false && !m_node_connection)
+        if (m_is_node_connected == false && !m_node_connection && !m_node_address.empty())
         {
-			m_sync_timer->cancel();
+            m_sync_timer->cancel();
 
             create_node_connection();
             m_node_connection->connect(BIND_THIS_MEMFN(on_node_connected));
@@ -259,9 +257,9 @@ namespace beam {
     void WalletNetworkIO::on_node_connected()
     {
         m_is_node_connected = true;
-        for (auto k : m_myPubKeys)
+        for (const auto& k : m_myPubKeys)
         {
-            listen_to_bbs_channel(channel_from_wallet_id(k));
+            listen_to_bbs_channel(k);
         }
 
         vector<ConnectCallback> t;
@@ -312,11 +310,12 @@ namespace beam {
         return true;
     }
 
-    void WalletNetworkIO::listen_to_bbs_channel(uint32_t channel)
+    void WalletNetworkIO::listen_to_bbs_channel(const WalletID& walletID)
     {
         if (m_is_node_connected)
         {
-            LOG_DEBUG() << "Listen BBS channel=" << channel;
+            uint32_t channel = channel_from_wallet_id(walletID);
+            LOG_INFO() << "WalletID " << to_string(walletID) << " subscribes to BBS channel " << channel;
             proto::BbsSubscribe msg;
             msg.m_Channel = channel;
             msg.m_TimeFrom = m_bbs_timestamps[channel];
@@ -331,20 +330,42 @@ namespace beam {
         uint8_t* out = 0;
         uint32_t size = 0;
 
-        for (const auto& k : m_myPubKeys) {
+        for (const auto& k : m_myPubKeys)
+        {
             uint32_t channel = channel_from_wallet_id(k);
 
             if (channel != msg.m_Channel) continue;
-            if (m_keystore->decrypt(out, size, msg.m_Message, k)) {
+            if (m_keystore->decrypt(out, size, msg.m_Message, k))
+            {
                 LOG_DEBUG() << "Succeeded to decrypt BBS message from channel=" << msg.m_Channel;
                 m_lastReceiver = &k;
                 return handle_decrypted_message(msg.m_TimePosted, out, size);
-            } else {
+            }
+            else
+            {
                 LOG_DEBUG() << "failed to decrypt BBS message from channel=" << msg.m_Channel;
             }
         }
 
         return true;
+    }
+
+    void WalletNetworkIO::set_node_address(io::Address node_address)
+    {
+        reset_connection();
+
+        m_node_address = node_address;
+
+        connect_node();
+    }
+
+    void WalletNetworkIO::reset_connection()
+    {
+        get_wallet().abort_sync();
+
+        m_close_timer.reset();
+        m_is_node_connected = false;
+        m_node_connection.reset();
     }
 
     WalletNetworkIO::WalletNodeConnection::WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec, WalletNetworkIO& io)
@@ -372,10 +393,10 @@ namespace beam {
         LOG_INFO() << "Wallet connected to node";
         m_connecting = false;
         proto::Config msgCfg;
-		ZeroObject(msgCfg);
-		msgCfg.m_CfgChecksum = Rules::get().Checksum;
-		msgCfg.m_AutoSendHdr = true;
-		Send(msgCfg);
+        ZeroObject(msgCfg);
+        msgCfg.m_CfgChecksum = Rules::get().Checksum;
+        msgCfg.m_AutoSendHdr = true;
+        Send(msgCfg);
 
         for (auto& cb : m_callbacks)
         {
@@ -390,6 +411,8 @@ namespace beam {
         LOG_VERBOSE() << "Wallet failed to connect to node, error: " << r;
         m_io.on_node_disconnected();
         m_wallet.abort_sync();
+        m_timer->cancel();
+        Reset();
         m_timer->start(m_reconnectMsec, false, [this]() {Connect(m_address); });
     }
 
@@ -404,14 +427,12 @@ namespace beam {
     }
 
     bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::NewTip&& msg)
-	{
-        m_io.cancel_close_timer();
-		return m_wallet.handle_node_message(move(msg));
-	}
+    {
+        return m_wallet.handle_node_message(move(msg));
+    }
 
     bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Hdr&& msg)
     {
-        m_io.cancel_close_timer();
         return m_wallet.handle_node_message(move(msg));
     }
 
@@ -420,7 +441,7 @@ namespace beam {
         return m_wallet.handle_node_message(move(msg));
     }
 
-    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::ProofStateForDummies&& msg)
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::ProofState&& msg)
     {
         return m_wallet.handle_node_message(move(msg));
     }
@@ -430,8 +451,20 @@ namespace beam {
         return m_io.handle_bbs_message(move(msg));
     }
 
-	void WalletNetworkIO::set_node_address(io::Address node_address)
-	{
-		m_node_address = node_address;
-	}
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Authentication&& msg)
+    {
+        proto::NodeConnection::OnMsg(std::move(msg));
+
+        if (proto::IDType::Node == msg.m_IDType)
+        {
+            ECC::Scalar::Native sk;
+            if (m_wallet.get_IdentityKeyForNode(sk, msg.m_ID))
+            {
+                ProveID(sk, proto::IDType::Owner);
+            }
+        }
+
+        return true;
+    }
+
 }

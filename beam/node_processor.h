@@ -15,8 +15,7 @@
 #pragma once
 
 #include <boost/intrusive/set.hpp>
-#include "../core/common.h"
-#include "../core/storage.h"
+#include "../core/radixtree.h"
 #include "node_db.h"
 
 namespace beam {
@@ -82,21 +81,17 @@ public:
 		Block::SystemState::Full m_Full;
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
-		Difficulty::Raw m_ChainWork;
 		Difficulty m_DifficultyNext;
 		bool m_SubsidyOpen;
 
 	} m_Cursor;
 
 	void get_CurrentLive(Merkle::Hash&);
-	void get_CurrentPart2(Merkle::Hash&, bool bForNextState);
-	void get_ChainWork(Merkle::Hash&, bool bForNextState);
 
 	// Export compressed history elements. Suitable only for "small" ranges, otherwise may be both time & memory consumng.
 	void ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
 	void ExportMacroBlock(Block::BodyBase::IMacroWriter&, const HeightRange&);
 	void ExportHdrRange(const HeightRange&, Block::SystemState::Sequence::Prefix&, std::vector<Block::SystemState::Sequence::Element>&);
-	void ExportMacroBlock(Block::BodyBase::IMacroWriter&);
 	bool ImportMacroBlock(Block::BodyBase::IMacroReader&);
 
 	struct DataStatus {
@@ -114,6 +109,8 @@ public:
 	NodeDB& get_DB() { return m_DB; }
 	UtxoTree& get_Utxos() { return m_Utxos; }
 	RadixHashOnlyTree& get_Kernels() { return m_Kernels; }
+
+	bool get_KernelHashPreimage(const Merkle::Hash& id, ECC::uintBig&);
 
 	void EnumCongestions();
 
@@ -149,7 +146,7 @@ public:
 				:public boost::intrusive::set_base_hook<>
 			{
 				Amount m_Fee;
-				size_t m_nSize;
+				uint32_t m_nSize;
 
 				bool operator < (const Profit& t) const;
 

@@ -21,6 +21,7 @@
 #include "../p2p/connection.h"
 #include "../utility/io/tcpserver.h"
 #include "aes.h"
+#include "block_crypt.h"
 #include <boost/intrusive/set.hpp>
 #include <boost/intrusive/list.hpp>
 
@@ -52,22 +53,28 @@ namespace proto {
 	macro(Height, Height)
 
 #define BeamNodeMsg_GetProofKernel(macro) \
-	macro(Merkle::Hash, KernelHash)
+	macro(Merkle::Hash, ID) \
+	macro(bool, RequestHashPreimage)
 
 #define BeamNodeMsg_GetProofUtxo(macro) \
 	macro(Input, Utxo) \
 	macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
 
+#define BeamNodeMsg_GetProofChainWork(macro) \
+	macro(Difficulty::Raw, LowerBound)
 
-#define BeamNodeMsg_Proof(macro) \
-	macro(Merkle::Proof, Proof)
+#define BeamNodeMsg_ProofKernel(macro) \
+	macro(Merkle::Proof, Proof) \
+	macro(ECC::uintBig, HashPreimage)
 
 #define BeamNodeMsg_ProofUtxo(macro) \
 	macro(std::vector<Input::Proof>, Proofs)
 
-#define BeamNodeMsg_ProofStateForDummies(macro) \
-	macro(Merkle::Proof, Proof) \
-	macro(Block::SystemState::Full, Hdr)
+#define BeamNodeMsg_ProofState(macro) \
+	macro(Merkle::HardProof, Proof)
+
+#define BeamNodeMsg_ProofChainWork(macro) \
+	macro(Block::ChainWorkProof, Proof)
 
 #define BeamNodeMsg_GetMined(macro) \
 	macro(Height, HeightMin)
@@ -156,11 +163,13 @@ namespace proto {
 	macro(8, GetProofState) \
 	macro(9, GetProofKernel) \
 	macro(10, GetProofUtxo) \
-	macro(11, Proof) /* for states and kernels */ \
+	macro(11, ProofKernel) \
 	macro(12, ProofUtxo) \
-	macro(13, ProofStateForDummies) \
+	macro(13, ProofState) \
 	macro(15, GetMined) \
 	macro(16, Mined) \
+	macro(17, GetProofChainWork) \
+	macro(18, ProofChainWork) \
 	macro(20, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
 	macro(21, Ping) \
 	macro(22, Pong) \
@@ -209,6 +218,31 @@ namespace proto {
 		static const uint8_t Owner		= 'O';
 	};
 
+	enum Unused_ { Unused };
+	enum Uninitialized_ { Uninitialized };
+
+	template <typename T>
+	inline void ZeroInit(T& x) { x = 0; }
+	template <typename T>
+	inline void ZeroInit(std::vector<T>&) { }
+	template <typename T>
+	inline void ZeroInit(std::shared_ptr<T>&) { }
+	template <typename T>
+	inline void ZeroInit(std::unique_ptr<T>&) { }
+	template <uint32_t nBits_>
+	inline void ZeroInit(uintBig_t<nBits_>& x) { x = ECC::Zero; }
+	inline void ZeroInit(io::Address& x) { }
+	inline void ZeroInit(ByteBuffer&) { }
+	inline void ZeroInit(Block::SystemState::ID& x) { ZeroObject(x); }
+	inline void ZeroInit(Block::SystemState::Full& x) { ZeroObject(x); }
+	inline void ZeroInit(Block::ChainWorkProof& x) {}
+	inline void ZeroInit(Input& x) { ZeroObject(x); }
+	inline void ZeroInit(ECC::Signature& x) { ZeroObject(x); }
+
+
+#define THE_MACRO6(type, name) m_##name = name;
+#define THE_MACRO5(type, name) const type& name,
+#define THE_MACRO4(type, name) ZeroInit(m_##name);
 #define THE_MACRO3(type, name) & m_##name
 #define THE_MACRO2(type, name) type m_##name;
 #define THE_MACRO1(code, msg) \
@@ -217,12 +251,21 @@ namespace proto {
 		static const uint8_t s_Code = code; \
 		BeamNodeMsg_##msg(THE_MACRO2) \
 		template <typename Archive> void serialize(Archive& ar) { ar BeamNodeMsg_##msg(THE_MACRO3); } \
-	};
+		msg(Zero_ = Zero) { BeamNodeMsg_##msg(THE_MACRO4) } /* default c'tor, zero-init everything */ \
+		msg(Uninitialized_) { } /* don't init members */ \
+		msg(BeamNodeMsg_##msg(THE_MACRO5) Unused_ = Unused) { BeamNodeMsg_##msg(THE_MACRO6) } /* explicit init */ \
+	}; \
+	struct msg##_NoInit :public msg { \
+		msg##_NoInit() :msg(Uninitialized) {} \
+	}; \
 
 	BeamNodeMsgsAll(THE_MACRO1)
 #undef THE_MACRO1
 #undef THE_MACRO2
 #undef THE_MACRO3
+#undef THE_MACRO4
+#undef THE_MACRO5
+#undef THE_MACRO6
 
 	struct ProtocolPlus
 		:public Protocol
@@ -245,7 +288,7 @@ namespace proto {
 
 		Mode::Enum m_Mode;
 
-		typedef ECC::uintBig_t<64> MacValue;
+		typedef uintBig_t<64> MacValue;
 		static void get_HMac(ECC::Hash::Mac&, MacValue&);
 
 		ProtocolPlus(uint8_t v0, uint8_t v1, uint8_t v2, size_t maxMessageTypes, IErrorHandler& errorHandler, size_t serializedFragmentsSize);
@@ -298,7 +341,7 @@ namespace proto {
 		virtual void on_protocol_error(uint64_t, ProtocolError error) override;
 		virtual void on_connection_error(uint64_t, io::ErrorCode errorCode) override;
 
-#define THE_MACRO(code, msg) bool OnMsgInternal(uint64_t, msg&& v);
+#define THE_MACRO(code, msg) bool OnMsgInternal(uint64_t, msg##_NoInit&& v);
 		BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 

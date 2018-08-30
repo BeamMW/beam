@@ -11,6 +11,7 @@ namespace {
 using PrivKey = ECC::Scalar::Native;
 using KeyPairs = std::map<PubKey, ECC::NoLeak<PrivKey>>;
 using Nonce = ECC::Scalar::Native;
+using PasswordHash = ECC::NoLeak<ECC::Hash::Value>;
 
 void gen_nonce(Nonce& nonce) {
     ECC::Scalar sc;
@@ -23,18 +24,15 @@ void gen_nonce(Nonce& nonce) {
     nonce.Import(sc);
 }
 
-// TODO ECB mode on non-repeating data still safe??
-void init_aes_enc(AES::Encoder& enc, const void* password, size_t passwordLen) {
+void hash_from_password(PasswordHash& out, const void* password, size_t passwordLen) {
     ECC::NoLeak<ECC::Hash::Processor> hp;
-	ECC::NoLeak<ECC::Hash::Value> key;
 	hp.V.Write(password, passwordLen);
-    hp.V >> key.V;
-    enc.Init(key.V.m_pData);
+    hp.V >> out.V;
 }
 
-void aes_decrypt(void* buffer, size_t bufferLen, const void* password, size_t passwordLen) {
+void aes_decrypt(void* buffer, size_t bufferLen, const PasswordHash& key) {
     AES::Encoder enc;
-    init_aes_enc(enc, password, passwordLen);
+    enc.Init(key.V.m_pData);
     AES::Decoder dec;
     dec.Init(enc);
     uint8_t* p = (uint8_t*)buffer;
@@ -44,9 +42,9 @@ void aes_decrypt(void* buffer, size_t bufferLen, const void* password, size_t pa
     }
 }
 
-void aes_encrypt(void* buffer, size_t bufferLen, const void* password, size_t passwordLen) {
+void aes_encrypt(void* buffer, size_t bufferLen, const PasswordHash& key) {
     AES::Encoder enc;
-    init_aes_enc(enc, password, passwordLen);
+    enc.Init(key.V.m_pData);
     uint8_t* p = (uint8_t*)buffer;
     uint8_t* end = p + bufferLen;
     for (; p<end; p+=AES::s_BlockSize) {
@@ -59,12 +57,18 @@ struct AutoClose {
     ~AutoClose() { if(f) fclose(f); }
 };
 
-void read_keystore_file(KeyPairs& out, const std::string& fileName, const void* password, size_t passwordLen) {
+void xor_32_bytes(uint8_t* out, const uint8_t* mask) {
+    for (int i=0; i<32; ++i) {
+        *(out++) ^= *(mask++);
+    }
+}
+
+void read_keystore_file(KeyPairs& out, const std::string& fileName, const PasswordHash& key) {
     AutoClose a;
 
     a.f = fopen(fileName.c_str(), "a+b");
     if (!a.f) {
-        throw std::runtime_error(std::string("keystore: cannot open file ") + fileName);
+        throw KeyStoreException(std::string("keystore: cannot open file ") + fileName);
     }
 
     fseek(a.f, 0, SEEK_END);
@@ -78,7 +82,7 @@ void read_keystore_file(KeyPairs& out, const std::string& fileName, const void* 
 
     if ((size % 64) != 0 || size > MAX_FILE_SIZE) {
         fclose(a.f);
-        throw std::runtime_error(std::string("keystore: invalid file size: ") + fileName);
+        throw KeyStoreException(std::string("keystore: invalid file size: ") + fileName);
     }
 
     void* buffer = alloca(size);
@@ -86,21 +90,22 @@ void read_keystore_file(KeyPairs& out, const std::string& fileName, const void* 
     rewind(a.f);
     auto bytesRead = fread(buffer, 1, size, a.f);
     if (bytesRead != size) {
-        throw std::runtime_error(std::string("keystore: file read error: ") + fileName);
+        throw KeyStoreException(std::string("keystore: file read error: ") + fileName);
     }
 
-    aes_decrypt(buffer, size, password, passwordLen);
+    aes_decrypt(buffer, size, key);
 
-    const uint8_t* p = (const uint8_t*)buffer;
+    uint8_t* p = (uint8_t*)buffer;
     const uint8_t* end = p + size;
     PubKey pubKey;
     for (; p<end; p += 64) {
+        xor_32_bytes(p, p + 32);
         memcpy(pubKey.m_pData, p, 32);
         memcpy(&(out[pubKey].V), p+32, 32);
     }
 }
 
-void write_keystore_file(const KeyPairs& in, const std::string& fileName, const void* password, size_t passwordLen) {
+void write_keystore_file(const KeyPairs& in, const std::string& fileName, const PasswordHash& key) {
     std::string newFileName = fileName + ".new";
 
     size_t size = in.size() * 64;
@@ -110,7 +115,7 @@ void write_keystore_file(const KeyPairs& in, const std::string& fileName, const 
 
         a.f = fopen(newFileName.c_str(), "w+b");
         if (!a.f) {
-            throw std::runtime_error(std::string("keystore: cannot open file ") + newFileName);
+            throw KeyStoreException(std::string("keystore: cannot open file ") + newFileName);
         }
 
         if (size == 0)
@@ -122,15 +127,14 @@ void write_keystore_file(const KeyPairs& in, const std::string& fileName, const 
         for (const auto& kp : in) {
             memcpy(p, kp.first.m_pData, 32);
             memcpy(p + 32, &(kp.second.V), 32);
+            xor_32_bytes(p, p + 32);
             p += 64;
         }
 
-        aes_encrypt(buffer, size, password, passwordLen);
-
-        //truncate(a.f);
+        aes_encrypt(buffer, size, key);
 
         if (size != fwrite(buffer, 1, size, a.f)) {
-            throw std::runtime_error(std::string("keystore: cannot write file ") + newFileName);
+            throw KeyStoreException(std::string("keystore: cannot write file ") + newFileName);
         }
     }
 
@@ -144,23 +148,24 @@ public:
     LocalFileKeystore(const IKeyStore::Options& options, const void* password, size_t passwordLen) :
         _fileName(options.fileName)
     {
+        hash_from_password(_pass, password, passwordLen);
         bool allEnabled = (options.flags & Options::enable_all_keys) != 0;
         if (allEnabled) {
-            read_keystore_file_and_check(password, passwordLen);
+            read_keystore_file_and_check();
         } else {
-            enable_keys_impl(options.enableKeys, password, passwordLen);
+            enable_keys(options.enableKeys);
         }
     }
 
 private:
-    void read_keystore_file_and_check(const void* password, size_t passwordLen) {
-        read_keystore_file(_keyPairs, _fileName, password, passwordLen);
+    void read_keystore_file_and_check() {
+        read_keystore_file(_keyPairs, _fileName, _pass);
         if (_keyPairs.empty()) return;
         static const char data[] = "xoxoxoxo";
         ByteBuffer buf;
         std::string errorMsg(std::string("keystore: file corrupted: ") + _fileName);
         if (!encrypt(buf, data, sizeof(data), _keyPairs.begin()->first)) {
-            throw std::runtime_error(errorMsg);
+            throw KeyStoreException(errorMsg);
         }
         uint8_t* out=0;
         uint32_t size=0;
@@ -169,38 +174,28 @@ private:
             size != sizeof(data) ||
             memcmp(data, out, size) != 0
         ) {
-            throw std::runtime_error(errorMsg);
+            throw KeyStoreException(errorMsg);
         }
     }
 
-    void enable_keys_impl(const std::set<PubKey>& enableKeys, const void* password, size_t passwordLen) {
-        _keyPairs.clear();
-        if (enableKeys.empty())
-            return;
-        read_keystore_file_and_check(password, passwordLen);
-        if (_keyPairs.empty())
-            return;
-        std::set<PubKey> toBeErased;
-        for (const auto& p : _keyPairs) {
-            if (enableKeys.count(p.first) == 0) {
-                toBeErased.insert(p.first);
-            }
-        }
-        for (const auto& k : toBeErased) {
-            _keyPairs.erase(k);
-        }
-    }
-
-    void gen_keypair(PubKey& pubKey, const void* password, size_t passwordLen, bool enable) override {
-        if (_keyPairs.count(pubKey)) return;
+    void gen_keypair(PubKey& pubKey) override {
         ECC::NoLeak<PrivKey> privKey;
         gen_nonce(privKey.V);
         proto::Sk2Pk(pubKey, privKey.V);
-        memcpy(&(_keyPairs[pubKey].V), &privKey.V, 32);
-        write_keystore_file(_keyPairs, _fileName, password, passwordLen);
+        memcpy(&(_unsaved[pubKey].V), &privKey.V, 32);
+    }
+
+    void save_keypair(const PubKey& pubKey, bool enable) override {
+        auto it = _unsaved.find(pubKey);
+        if (it == _unsaved.end()) {
+            return;
+        }
+        memcpy(&(_keyPairs[pubKey].V), &(it->second.V), 32);
+        write_keystore_file(_keyPairs, _fileName, _pass);
         if (!enable) {
             _keyPairs.erase(pubKey);
         }
+        _unsaved.erase(it);
     }
 
     size_t size() override {
@@ -214,17 +209,34 @@ private:
         }
     }
 
-    void enable_keys(const std::set<PubKey>& enableKeys, const void* password, size_t passwordLen) override {
-        enable_keys_impl(enableKeys, password, passwordLen);
+    void enable_keys(const std::set<PubKey>& enableKeys) override {
+        _keyPairs.clear();
+        if (enableKeys.empty())
+            return;
+        read_keystore_file_and_check();
+        if (_keyPairs.empty())
+            return;
+        std::set<PubKey> toBeErased;
+        for (const auto& p : _keyPairs) {
+            if (enableKeys.count(p.first) == 0) {
+                toBeErased.insert(p.first);
+            }
+        }
+        for (const auto& k : toBeErased) {
+            _keyPairs.erase(k);
+        }
     }
 
     void disable_key(const PubKey& pubKey) override {
         _keyPairs.erase(pubKey);
     }
 
-    void erase_key(const PubKey& pubKey, const void* password, size_t passwordLen) override {
+    void erase_key(const PubKey& pubKey) override {
+        size_t s = _keyPairs.size();
         _keyPairs.erase(pubKey);
-        write_keystore_file(_keyPairs, _fileName, password, passwordLen);
+        if (s != _keyPairs.size()) {
+            write_keystore_file(_keyPairs, _fileName, _pass);
+        }
     }
 
     bool encrypt(ByteBuffer& out, const void* data, size_t size, const PubKey& pubKey) override {
@@ -250,6 +262,10 @@ private:
 
     std::string _fileName;
     KeyPairs _keyPairs;
+    KeyPairs _unsaved;
+
+    // TODO: use locked in memory secure buffer
+    PasswordHash _pass;
 };
 
 IKeyStore::Ptr IKeyStore::create(const IKeyStore::Options& options, const void* password, size_t passwordLen) {
@@ -259,12 +275,12 @@ IKeyStore::Ptr IKeyStore::create(const IKeyStore::Options& options, const void* 
 
     if (options.flags & Options::local_file) {
         if (options.fileName.empty() || passwordLen == 0) {
-            throw std::runtime_error(errMsgPrefix + "empty file name or key");
+            throw KeyStoreException(errMsgPrefix + "empty file name or key");
         }
         ptr = std::make_shared<LocalFileKeystore>(options, password, passwordLen);
 
     } else {
-        throw std::runtime_error(errMsgPrefix + "invalid options");
+        throw KeyStoreException(errMsgPrefix + "invalid options");
     }
 
     return ptr;

@@ -21,12 +21,7 @@
 #include "utility/helpers.h"
 #include <algorithm>
 #include <random>
-#include "core/storage.h"
 #include <iomanip>
-
-namespace ECC {
-    Initializer g_Initializer;
-}
 
 namespace
 {
@@ -38,7 +33,7 @@ namespace std
 {
     string to_string(const beam::WalletID& id)
     {
-        return beam::to_hex(id.m_pData, id.size());
+        return beam::to_hex(id.m_pData, id.nBytes);
     }
 }
 
@@ -138,25 +133,21 @@ namespace beam
     };
 
 
-    Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, TxCompletedAction&& action)
+    Wallet::Wallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, bool holdNodeConnection, TxCompletedAction&& action)
         : m_keyChain{ keyChain }
         , m_network{ network }
         , m_tx_completed_action{move(action)}
-        , m_isValidDefinition{false}
-        , m_Definition{}
+        , m_newState{}
         , m_knownStateID{}
-        , m_newStateID{}
         , m_syncDone{0}
         , m_syncTotal{0}
         , m_synchronized{false}
+        , m_holdNodeConnection{ holdNodeConnection }
     {
         assert(keyChain);
         m_keyChain->getSystemStateID(m_knownStateID);
         m_network->set_wallet(this);
-        m_pendingEvents.emplace_back([this]()
-        {
-            resume_all_tx();
-        });
+        resume_all_tx();
     }
 
     Wallet::~Wallet()
@@ -179,8 +170,6 @@ namespace beam
 
     void Wallet::resume_tx(const TxDescription& tx)
     {
-        assert(m_synchronized);
-
         if (tx.canResume() && m_negotiators.find(tx.m_txId) == m_negotiators.end())
         {
             Cleaner c{ m_removedNegotiators };
@@ -262,7 +251,14 @@ namespace beam
         {
             LOG_VERBOSE() << "Received tx invitation " << msg.m_txId;
             bool sender = !msg.m_send;
-            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, receiver, {}, getTimestamp(), sender };
+
+            ByteBuffer messageBuffer;
+            auto receiverAddress = m_keyChain->getAddress(receiver);
+            if (receiverAddress.is_initialized())
+            {
+                messageBuffer.assign(receiverAddress->m_label.begin(), receiverAddress->m_label.end());
+            }
+            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, receiver, move(messageBuffer), getTimestamp(), sender };
             auto r = make_shared<Negotiator>(*this, m_keyChain, tx);
             m_negotiators.emplace(tx.m_txId, r);
             m_keyChain->saveTx(tx);
@@ -369,14 +365,33 @@ namespace beam
         }
     }
 
-	void Wallet::set_node_address(io::Address node_address)
-	{
-		m_network->set_node_address(node_address);
+    void Wallet::set_node_address(io::Address node_address)
+    {
+        m_network->set_node_address(node_address);
+        resetSystemState();
+    }
 
-		m_newStateID = Block::SystemState::ID();
-		m_keyChain->setSystemStateID(m_newStateID);
-		m_knownStateID = m_newStateID;
-	}
+    void Wallet::resetSystemState()
+    {
+        ZeroObject(m_newState);
+        ZeroObject(m_knownStateID);
+        m_keyChain->setSystemStateID(m_knownStateID);
+    }
+
+    void Wallet::emergencyReset()
+    {
+        resetSystemState();
+        m_keyChain->clear();
+        m_network->close_node_connection();
+        m_network->connect_node();
+    }
+
+    bool Wallet::get_IdentityKeyForNode(ECC::Scalar::Native& sk, const PeerID& idNode)
+    {
+        // TODO: Report your identity *only* to the owned nodes, otherwise it's very demasking!
+        m_keyChain->get_IdentityKey(sk);
+        return true;
+    }
 
     bool Wallet::handle_node_message(proto::ProofUtxo&& utxoProof)
     {
@@ -399,6 +414,10 @@ namespace beam
                 coin.m_status = Coin::Spent;
                 m_keyChain->update(coin);
             }
+            else if (coin.m_status == Coin::Unconfirmed && coin.isReward())
+            {
+                m_keyChain->remove(coin);
+            }
         }
         else
         {
@@ -406,18 +425,19 @@ namespace beam
             {
                 if (coin.m_status == Coin::Unconfirmed)
                 {
-
-                    if (proof.IsValid(input, m_Definition))
+                    if (m_newState.IsValidProofUtxo(input, proof))
                     {
                         LOG_INFO() << "Got proof for: " << input.m_Commitment;
                         coin.m_status = Coin::Unspent;
-                        coin.m_maturity = proof.m_Maturity;
-                        coin.m_confirmHeight = m_newStateID.m_Height;
-                        coin.m_confirmHash = m_newStateID.m_Hash;
-                        if (coin.m_key_type == KeyType::Coinbase
-                            || coin.m_key_type == KeyType::Comission)
+                        coin.m_maturity = proof.m_State.m_Maturity;
+                        coin.m_confirmHeight = m_newState.m_Height;
+                        m_newState.get_Hash(coin.m_confirmHash);
+                        if (coin.isReward())
                         {
                             LOG_INFO() << "Block reward received: " << PrintableAmount(coin.m_amount);
+                        }
+                        if (coin.m_id == 0)
+                        {
                             m_keyChain->store(coin);
                         }
                         else
@@ -448,8 +468,6 @@ namespace beam
 
         m_pending_reg_requests.clear();
 
-        m_isValidDefinition = false;
-
         return true;
     }
 
@@ -458,15 +476,12 @@ namespace beam
         Block::SystemState::ID newID = {};
         msg.m_Description.get_ID(newID);
         
-        m_Definition = msg.m_Description.m_Definition;
-        m_isValidDefinition = true;
-        m_newStateID = newID;
+        m_newState = msg.m_Description;
 
         if (newID == m_knownStateID)
         {
             // here we may close connection with node
-            LOG_INFO() << "Wallet is up to date";
-            m_keyChain->setSystemStateID(newID);
+            m_keyChain->setSystemStateID(m_knownStateID);
             return close_node_connection();
         }
 
@@ -475,17 +490,6 @@ namespace beam
             // cold start
             do_fast_forward();
             return true;
-        }
-        else if (m_knownStateProof.is_initialized())
-        { 
-			bool b = IsKnownStateValid(*m_knownStateProof);
-            m_knownStateProof.reset();
-
-            if (b)
-            {
-                do_fast_forward();
-                return exit_sync();
-            }
         }
         else
         {
@@ -529,40 +533,13 @@ namespace beam
         return exit_sync();
     }
 
-	bool Wallet::IsKnownStateValid(const proto::ProofStateForDummies& msg) const
-	{
-		Merkle::Hash hv;
-
-		if (m_knownStateID.m_Hash == ECC::Zero)
-			hv = ECC::Zero; // for test only!
-		else
-		{
-			Block::SystemState::ID id;
-			msg.m_Hdr.get_ID(id);
-
-			if (id != m_knownStateID)
-				return false;
-
-			msg.m_Hdr.get_HashForHist(hv);
-		}
-		Merkle::Interpret(hv, msg.m_Proof);
-
-		return hv == m_Definition;
-	}
-
-    bool Wallet::handle_node_message(proto::ProofStateForDummies&& msg)
+    bool Wallet::handle_node_message(proto::ProofState&& msg)
     {
-        if (!m_isValidDefinition)
-        {
-            m_knownStateProof = move(msg);
-            return true;
-        }
-
-        if (!IsKnownStateValid(msg))
+        if (!IsTestMode() && !m_newState.IsValidProofState(m_knownStateID, msg.m_Proof))
         {
             // rollback
             // search for the latest valid known state
-            if (!m_stateFinder || m_stateFinder->m_syncHeight < m_newStateID.m_Height)
+            if (!m_stateFinder || m_stateFinder->m_syncHeight < m_newState.m_Height)
             {
                 // restart search
                 if (!m_stateFinder)
@@ -573,16 +550,15 @@ namespace beam
                 {
                     LOG_INFO() << "Restarting rollback...";
                 }
-                m_stateFinder.reset(new StateFinder(m_newStateID.m_Height, m_keyChain));
+                m_stateFinder.reset(new StateFinder(m_newState.m_Height, m_keyChain));
                 enter_sync();
                 m_network->send_node_message(proto::GetProofState{ m_stateFinder->getSearchHeight() });
                 return exit_sync();
             }
             auto id = m_keyChain->getKnownStateID(m_stateFinder->getSearchOffset());
-            Merkle::Hash hv = id.m_Hash;
             LOG_INFO() << "Check state: " << id;
-            Merkle::Interpret(hv, msg.m_Proof);
-            if (hv == m_Definition)
+
+            if (m_newState.IsValidProofState(id, msg.m_Proof))
             {
                 m_stateFinder->m_id = id;
                 m_stateFinder->moveForward();
@@ -625,14 +601,15 @@ namespace beam
         copy(m_reg_requests.begin(), m_reg_requests.end(), back_inserter(m_pending_reg_requests));
         m_reg_requests.clear();
         m_pendingProofs.clear();
-        m_knownStateProof.reset();
 
         notifySyncProgress();
     }
 
     void Wallet::do_fast_forward()
     {
-        LOG_INFO() << "Sync up to " << m_newStateID;
+        Block::SystemState::ID id;
+        m_newState.get_ID(id);
+        LOG_INFO() << "Sync up to " << id;
         // fast-forward
         enter_sync(); // Mined
         m_network->send_node_message(proto::GetMined{ m_knownStateID.m_Height });
@@ -685,8 +662,8 @@ namespace beam
             assert(m_syncDone <= m_syncTotal);
             if (m_syncDone == m_syncTotal)
             {
-                m_keyChain->setSystemStateID(m_newStateID);
-                m_knownStateID = m_newStateID;
+                m_newState.get_ID(m_knownStateID);
+                m_keyChain->setSystemStateID(m_knownStateID);
                 LOG_INFO() << "Current state is " << m_knownStateID;
                 m_synchronized = true;
                 m_syncDone = m_syncTotal = 0;
@@ -725,7 +702,10 @@ namespace beam
         if (m_synchronized && m_reg_requests.empty())
         {
             notifySyncProgress();
-            m_network->close_node_connection();
+            if (!m_holdNodeConnection)
+            {
+                m_network->close_node_connection();
+            }
         }
         return true;
     }

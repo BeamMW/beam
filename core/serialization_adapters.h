@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "common.h"
+#include "block_crypt.h"
 #include "../utility/serialize.h"
 
 namespace yas
@@ -166,14 +166,14 @@ namespace detail
 
         /// ECC::uintBig serialization
         template<typename Archive, uint32_t nBits_>
-        static Archive& save(Archive& ar, const ECC::uintBig_t<nBits_>& val)
+        static Archive& save(Archive& ar, const beam::uintBig_t<nBits_>& val)
         {
             ar & val.m_pData;
             return ar;
         }
 
         template<typename Archive, uint32_t nBits_>
-        static Archive& load(Archive& ar, ECC::uintBig_t<nBits_>& val)
+        static Archive& load(Archive& ar, beam::uintBig_t<nBits_>& val)
         {
             ar & val.m_pData;
             return ar;
@@ -450,37 +450,11 @@ namespace detail
             return ar;
         }
 
-        /// beam::TxKernel::Contract serialization
-        template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxKernel::Contract& val)
-        {
-            ar
-                & val.m_Msg
-                & val.m_PublicKey
-                & val.m_Signature
-            ;
-
-            return ar;
-        }
-
-        template<typename Archive>
-        static Archive& load(Archive& ar, beam::TxKernel::Contract& val)
-        {
-            ar
-                & val.m_Msg
-                & val.m_PublicKey
-                & val.m_Signature
-            ;
-
-            return ar;
-        }
-
 		/// beam::TxKernel::HashLock serialization
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::TxKernel::HashLock& val)
 		{
 			ar
-				& val.m_Hash
 				& val.m_Preimage
 				;
 
@@ -491,7 +465,6 @@ namespace detail
 		static Archive& load(Archive& ar, beam::TxKernel::HashLock& val)
 		{
 			ar
-				& val.m_Hash
 				& val.m_Preimage
 				;
 
@@ -507,7 +480,6 @@ namespace detail
 				(val.m_Fee ? 2 : 0) |
 				(val.m_Height.m_Min ? 4 : 0) |
 				((val.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
-				(val.m_pContract ? 0x10 : 0) |
 				(val.m_pHashLock ? 0x20 : 0) |
 				(val.m_vNested.empty() ? 0 : 0x40);
 
@@ -524,8 +496,6 @@ namespace detail
 				ar & val.m_Height.m_Min;
 			if (8 & nFlags)
 				ar & val.m_Height.m_Max;
-			if (0x10 & nFlags)
-				ar & *val.m_pContract;
 			if (0x20 & nFlags)
 				ar & *val.m_pHashLock;
 
@@ -569,12 +539,6 @@ namespace detail
 				ar & val.m_Height.m_Max;
 			else
 				val.m_Height.m_Max = beam::Height(-1);
-
-			if (0x10 & nFlags)
-			{
-				val.m_pContract.reset(new beam::TxKernel::Contract);
-				ar & *val.m_pContract;
-			}
 
 			if (0x20 & nFlags)
 			{
@@ -719,7 +683,8 @@ namespace detail
 		{
 			ar
 				& v.m_Height
-				& v.m_Prev;
+				& v.m_Prev
+				& v.m_ChainWork;
 
 			return ar;
 		}
@@ -729,7 +694,8 @@ namespace detail
 		{
 			ar
 				& v.m_Height
-				& v.m_Prev;
+				& v.m_Prev
+				& v.m_ChainWork;
 
 			return ar;
 		}

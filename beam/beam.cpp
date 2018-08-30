@@ -20,6 +20,7 @@
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
 #include "wallet/keystore.h"
+#include "wallet/secstring.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "utility/logger.h"
@@ -112,7 +113,7 @@ namespace
 		if (sPath.empty())
 			return false;
 
-		std::FStream f; 
+		std::FStream f;
 		if (!f.Open(sPath.c_str(), true))
 			return false;
 
@@ -214,7 +215,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 		pKrn->m_Excess = ECC::Point::Native(Context::get().G * k);
 
 		Merkle::Hash hv;
-		pKrn->get_HashForSigning(hv);
+		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, k);
 
 		get_WriteBlock().m_vKernelsOutput.push_back(std::move(pKrn));
@@ -261,7 +262,7 @@ Block::Body& TreasuryBlockGenerator::get_WriteBlock()
 
 		m_vBlocks.resize(m_vBlocks.size() + 1);
 		m_vBlocks.back().ZeroInit();
-		m_Offset = ECC::Zero;
+		m_Offset = Zero;
 	}
 	return m_vBlocks.back();
 }
@@ -482,7 +483,7 @@ int main_impl(int argc, char* argv[])
 
                         assert(vm.count(cli::BBS_STORAGE) > 0);
                         auto bbsKeysPath = vm[cli::BBS_STORAGE].as<string>();
-                        
+
 						if (!Keychain::isInitialized(walletPath) && command != cli::INIT)
 						{
 							LOG_ERROR() << "Please initialize your wallet first... \nExample: beam wallet --command=init --pass=<password to access wallet> --wallet_seed=<seed to generate secret keys>";
@@ -492,10 +493,10 @@ int main_impl(int argc, char* argv[])
 						LOG_INFO() << "starting a wallet...";
 
 						// TODO: we should use secure string
-						string pass;
+						SecString pass;
 						if (vm.count(cli::PASS))
 						{
-							pass = vm[cli::PASS].as<string>();
+							pass = SecString(string_view(vm[cli::PASS].as<string>()));
 						}
 
 						if (!pass.size())
@@ -520,7 +521,7 @@ int main_impl(int argc, char* argv[])
                                 options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
                                 options.fileName = bbsKeysPath;
 
-                                IKeyStore::Ptr ks = IKeyStore::create(options, pass.c_str(), pass.size());
+                                IKeyStore::Ptr ks = IKeyStore::create(options, pass.data(), pass.size());
 
                                 // generate default address
                                 WalletAddress defaultAddress = {};
@@ -528,8 +529,8 @@ int main_impl(int argc, char* argv[])
                                 defaultAddress.m_label = "default";
                                 defaultAddress.m_createTime = getTimestamp();
                                 defaultAddress.m_duration = numeric_limits<uint64_t>::max();
-                                ks->gen_keypair(defaultAddress.m_walletID, pass.c_str(), pass.size(), true);
-                                
+                                ks->gen_keypair(defaultAddress.m_walletID);
+                                ks->save_keypair(defaultAddress.m_walletID, true);
                                 keychain->saveAddress(defaultAddress);
 
 								return 0;
@@ -683,7 +684,7 @@ int main_impl(int argc, char* argv[])
                         options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
                         options.fileName = bbsKeysPath;
 
-                        IKeyStore::Ptr keystore = IKeyStore::create(options, pass.c_str(), pass.size());
+                        IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
 
                         auto wallet_io = make_shared<WalletNetworkIO >( node_addr
 						                                              , keychain
@@ -691,6 +692,7 @@ int main_impl(int argc, char* argv[])
 							                                          , reactor);
 						Wallet wallet{ keychain
 									 , wallet_io
+                                     , false
 									 , is_server ? Wallet::TxCompletedAction() : [wallet_io](auto) { wallet_io->stop(); } };
 
 						if (isTxInitiator)

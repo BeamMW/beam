@@ -1,17 +1,28 @@
-import QtQuick 2.3
-import QtQuick.Controls 1.2
+import QtQuick 2.6
+import QtQuick.Controls 1.4
+import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
 import QtGraphicalEffects 1.0
 import "controls"
+import Beam.Wallet 1.0
 
 Rectangle {
     id: main
 
     anchors.fill: parent
 
+	MainViewModel {id: viewModel}
+
     color: Style.marine
 
-    property var contentItems : ["dashboard", "wallet", "address-book", "utxo", /*"notification", "info",*/ "settings"]
+    property var contentItems : [
+		//"dashboard",
+		"wallet", 
+		//"address-book", 
+		"utxo",
+		//"notification", 
+		//"info",
+		"settings"]
     property int selectedItem
 
     Rectangle {
@@ -43,13 +54,13 @@ Rectangle {
                     height: parent.width
 
                     SvgImage {
+						id: icon
                         x: 21
                         y: 16
                         width: 28
                         height: 28
                         source: "qrc:///assets/icon-" + modelData + (selectedItem == index ? "-active" : "") + ".svg"
-                    }
-
+					}
                     Item {
                         Rectangle {
                             id: indicator
@@ -73,8 +84,8 @@ Rectangle {
                     MouseArea {
                         id: mouseArea
                         anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
                         onClicked: updateItem(index)
+						hoverEnabled: true
                     }
                 }
             }
@@ -82,11 +93,20 @@ Rectangle {
 
         Image {
             id: image
-            x: 20
             y: 50
-            width: 30
-            height: 24
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: 40
+            height: 28
             source: Style.logo
+
+			MouseArea {
+                id: mouseArea
+                anchors.fill: parent
+                onClicked: {
+					selectedItem = -1;
+					content.setSource("qrc:///dashboard.qml");
+				}
+            }
         }
 
     }
@@ -98,25 +118,24 @@ Rectangle {
         anchors.rightMargin: 30
         anchors.leftMargin: 100
         anchors.fill: parent
-
-        clip: true
+        focus: true
     }
 
     function updateItem(index)
     {
         selectedItem = index
         content.setSource("qrc:///" + contentItems[index] + ".qml", {"toSend": false})
-        mainViewModel.update(index)
+        viewModel.update(index)
     }
 
 	function openSendDialog() {
-		selectedItem = 1
+		selectedItem = 0
 		content.setSource("qrc:///wallet.qml", {"toSend": true})
         
-		mainViewModel.update(selectedItem)
+		viewModel.update(selectedItem)
 	}
 
     Component.onCompleted:{
-        updateItem(1) // load wallet view by default
+        updateItem(0) // load wallet view by default
     }
 }

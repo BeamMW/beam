@@ -21,9 +21,6 @@ namespace po = boost::program_options;
 using namespace beam;
 using namespace ECC;
 
-
-Initializer g_Initializer;
-
 BaseNodeConnection::BaseNodeConnection(int argc, char* argv[])
 {
 	ParseCommandLine(argc, argv);
@@ -61,6 +58,18 @@ void BaseNodeConnection::InitKdf()
 	walletSeed.V = hv;
 
 	m_Kdf.m_Secret = walletSeed;
+}
+
+void BaseNodeConnection::OnMsg(proto::Authentication&& msg)
+{
+	proto::NodeConnection::OnMsg(std::move(msg));
+
+	if (proto::IDType::Node == msg.m_IDType)
+	{
+		ECC::Scalar::Native sk;
+		DeriveKey(sk, m_Kdf, 0, KeyType::Identity);
+		ProveID(sk, proto::IDType::Owner);
+	}
 }
 
 BaseTestNode::BaseTestNode(int argc, char* argv[])

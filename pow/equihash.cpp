@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "core/common.h"
+#include "core/block_crypt.h"
 #include "impl/crypto/equihash.h"
 #include "impl/uint256.h"
 #include "impl/arith_uint256.h"
@@ -32,7 +32,7 @@ struct Block::PoW::Helper
 
 		// H(I||...
 		blake2b_update(&m_Blake, (uint8_t*) pInput, nSizeInput);
-		blake2b_update(&m_Blake, nonce.m_pData, sizeof(nonce.m_pData));
+		blake2b_update(&m_Blake, nonce.m_pData, nonce.nBytes);
 	}
 
 	bool TestDifficulty(const uint8_t* pSol, uint32_t nSol, Difficulty d) const
@@ -41,7 +41,7 @@ struct Block::PoW::Helper
 
 		blake2b_state b2s = m_Blake;
 		blake2b_update(&b2s, pSol, nSol);
-		blake2b_final(&b2s, hv.m_pData, sizeof(hv.m_pData));
+		blake2b_final(&b2s, hv.m_pData, hv.nBytes);
 
 		return d.IsTargetReached(hv);
 	}

@@ -12,17 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <utility> // std::swap
-#include <algorithm>
 #include <ctime>
+#include <chrono>
 #include "block_crypt.h"
-#include "../utility/serialize.h"
-#include "../core/serialization_adapters.h"
-
-#ifndef WIN32
-#	include <unistd.h>
-#	include <errno.h>
-#endif // WIN32
 
 namespace beam
 {
@@ -54,35 +46,6 @@ namespace beam
 	bool HeightRange::IsInRangeRelative(Height dh) const
 	{
 		return dh <= (m_Max - m_Min);
-	}
-
-	/////////////
-	// Merkle
-	namespace Merkle
-	{
-		void Interpret(Hash& out, const Hash& hLeft, const Hash& hRight)
-		{
-			ECC::Hash::Processor() << hLeft << hRight >> out;
-		}
-
-		void Interpret(Hash& hOld, const Hash& hNew, bool bNewOnRight)
-		{
-			if (bNewOnRight)
-				Interpret(hOld, hOld, hNew);
-			else
-				Interpret(hOld, hNew, hOld);
-		}
-
-		void Interpret(Hash& hash, const Node& n)
-		{
-			Interpret(hash, n.second, n.first);
-		}
-
-		void Interpret(Hash& hash, const Proof& p)
-		{
-			for (Proof::const_iterator it = p.begin(); p.end() != it; it++)
-				Interpret(hash, *it);
-		}
 	}
 
 #define CMP_SIMPLE(a, b) \
@@ -242,7 +205,7 @@ namespace beam
 
 	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent) const
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const
 	{
 		if (pParent)
 		{
@@ -259,34 +222,41 @@ namespace beam
 		hp	<< m_Fee
 			<< m_Height.m_Min
 			<< m_Height.m_Max
-			<< (bool) m_pContract
 			<< (bool) m_pHashLock;
 
-		if (m_pContract)
+		if (m_pHashLock)
 		{
-			hp	<< m_pContract->m_Msg
-				<< m_pContract->m_PublicKey;
+			if (!pLockImage)
+			{
+				ECC::Hash::Processor() << m_pHashLock->m_Preimage >> hv;
+				pLockImage = &hv;
+			}
+
+			hp << *pLockImage;
 		}
 
-		if (m_pHashLock)
-			hp << m_pHashLock->m_Hash;
-
 		const TxKernel* p0Krn = NULL;
-		for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
+		for (auto it = m_vNested.begin(); ; it++)
 		{
+			bool bBreak = (m_vNested.end() == it);
+			hp << bBreak;
+
+			if (bBreak)
+				break;
+
 			const TxKernel& v = *(*it);
 			if (p0Krn && (*p0Krn > v))
 				return false;
 			p0Krn = &v;
 
-			if (!v.Traverse(hv, pFee, pExcess, this))
+			if (!v.Traverse(hv, pFee, pExcess, this, NULL))
 				return false;
 
-			v.HashForSigningToTotal(hv); // The hash of this kernel should account for the signature and the excess of the internal kernels.
-			hp << true << hv;
+			v.HashToID(hv);
+			hp << hv;
 		}
 
-		hp << false >> hv;
+		hp >> hv;
 
 		if (pExcess)
 		{
@@ -306,26 +276,6 @@ namespace beam
 				return false;
 
 			*pExcess += pt;
-
-			if (m_pContract)
-			{
-				ECC::Hash::Value hv2;
-				get_HashForContract(hv2, hv);
-
-				if (!pt.Import(m_pContract->m_PublicKey))
-					return false;
-
-				if (!m_pContract->m_Signature.IsValid(hv2, pt))
-					return false;
-			}
-
-			if (m_pHashLock)
-			{
-				ECC::Hash::Value hv2;
-				ECC::Hash::Processor() << m_pHashLock->m_Preimage >> hv2;
-				if (m_pHashLock->m_Hash != hv2)
-					return false;
-			}
 		}
 
 		if (pFee)
@@ -334,63 +284,35 @@ namespace beam
 		return true;
 	}
 
-	void TxKernel::get_HashForContract(ECC::Hash::Value& out, const ECC::Hash::Value& msg) const
+	void TxKernel::get_Hash(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
 	{
-		ECC::Hash::Processor()
-			<< msg
-			<< m_Excess
-			>> out;
-	}
-
-	void TxKernel::get_HashForSigning(Merkle::Hash& out) const
-	{
-		Traverse(out, NULL, NULL, NULL);
+		Traverse(out, NULL, NULL, NULL, pLockImage);
 	}
 
 	bool TxKernel::IsValid(AmountBig& fee, ECC::Point::Native& exc) const
 	{
 		ECC::Hash::Value hv;
-		return Traverse(hv, &fee, &exc, NULL);
+		return Traverse(hv, &fee, &exc, NULL, NULL);
 	}
 
-	void TxKernel::HashForSigningToTotal(Merkle::Hash& hv) const
+	void TxKernel::HashToID(Merkle::Hash& hv) const
 	{
+		// Account for everything that was not included in the hash for signing, except the signature. We must be able to get the ID of the kernel which isn't signed yet
 		ECC::Hash::Processor()
 			<< hv
 			<< m_Excess
 			<< m_Multiplier
-			<< m_Signature.m_e
-			<< m_Signature.m_k
 			>> hv;
 
 		// Some kernel hash values are reserved for the system usage
-		if (hv == ECC::Zero)
-		{
-			ECC::Hash::Processor() << hv >> hv;
-			assert(!(hv == ECC::Zero));
-		}
+		if (hv == Zero)
+			hv.Inc();
 	}
 
-	void TxKernel::get_HashTotal(Merkle::Hash& hv) const
+	void TxKernel::get_ID(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
 	{
-		get_HashForSigning(hv);
-		HashForSigningToTotal(hv);
-	}
-
-	bool TxKernel::IsValidProof(const Merkle::Proof& proof, const Merkle::Hash& root) const
-	{
-		Merkle::Hash hv;
-		get_HashTotal(hv);
-		Merkle::Interpret(hv, proof);
-		return hv == root;
-	}
-
-	int TxKernel::Contract::cmp(const Contract& v) const
-	{
-		CMP_MEMBER_EX(m_Msg)
-		CMP_MEMBER_EX(m_PublicKey)
-		CMP_MEMBER_EX(m_Signature)
-		return 0;
+		get_Hash(out, pLockImage);
+		HashToID(out);
 	}
 
 	int TxKernel::cmp(const TxKernel& v) const
@@ -401,7 +323,6 @@ namespace beam
 		CMP_MEMBER(m_Fee)
 		CMP_MEMBER(m_Height.m_Min)
 		CMP_MEMBER(m_Height.m_Max)
-		CMP_MEMBER_PTR(m_pContract)
 
 		auto it0 = m_vNested.begin();
 		auto it1 = v.m_vNested.begin();
@@ -429,7 +350,6 @@ namespace beam
 		m_Signature = v.m_Signature;
 		m_Fee = v.m_Fee;
 		m_Height = v.m_Height;
-		ClonePtr(m_pContract, v.m_pContract);
 		ClonePtr(m_pHashLock, v.m_pHashLock);
 
 		m_vNested.resize(v.m_vNested.size());
@@ -440,186 +360,6 @@ namespace beam
 
 	/////////////
 	// Transaction
-	void TxBase::Context::Reset()
-	{
-		m_Sigma = ECC::Zero;
-
-		ZeroObject(m_Fee);
-		ZeroObject(m_Coinbase);
-		m_Height.Reset();
-		m_bBlockMode = false;
-		m_nVerifiers = 1;
-		m_iVerifier = 0;
-		m_pAbort = NULL;
-	}
-
-	bool TxBase::Context::ShouldVerify(uint32_t& iV) const
-	{
-		if (iV)
-		{
-			iV--;
-			return false;
-		}
-
-		iV = m_nVerifiers - 1;
-		return true;
-	}
-
-	bool TxBase::Context::ShouldAbort() const
-	{
-		return m_pAbort && *m_pAbort;
-	}
-
-	bool TxBase::Context::HandleElementHeight(const HeightRange& hr)
-	{
-		HeightRange r = m_Height;
-		r.Intersect(hr);
-		if (r.IsEmpty())
-			return false;
-
-		if (!m_bBlockMode)
-			m_Height = r; // shrink permitted range
-
-		return true;
-	}
-
-	bool TxBase::Context::Merge(const Context& x)
-	{
-		assert(m_bBlockMode == x.m_bBlockMode);
-
-		if (!HandleElementHeight(x.m_Height))
-			return false;
-
-		m_Sigma += x.m_Sigma;
-		m_Fee += x.m_Fee;
-		m_Coinbase += x.m_Coinbase;
-		return true;
-	}
-
-	bool TxBase::Context::ValidateAndSummarize(const TxBase& txb, IReader&& r)
-	{
-		if (m_Height.IsEmpty())
-			return false;
-
-		m_Sigma = -m_Sigma;
-		AmountBig feeInp; // dummy var
-
-		assert(m_nVerifiers);
-		uint32_t iV = m_iVerifier;
-
-		// Inputs
-		r.Reset();
-
-		ECC::Point::Native pt;
-
-		for (const Input* pPrev = NULL; r.m_pUtxoIn; pPrev = r.m_pUtxoIn, r.NextUtxoIn())
-		{
-			if (ShouldAbort())
-				return false;
-
-			if (ShouldVerify(iV))
-			{
-				if (pPrev && (*pPrev > *r.m_pUtxoIn))
-					return false;
-
-				if (!pt.Import(r.m_pUtxoIn->m_Commitment))
-					return false;
-
-				m_Sigma += pt;
-			}
-		}
-
-		for (const TxKernel* pPrev = NULL; r.m_pKernelIn; pPrev = r.m_pKernelIn, r.NextKernelIn())
-		{
-			if (ShouldAbort())
-				return false;
-
-			// locate the corresponding output kernel. Use the fact that kernels are sorted by excess, and then by multiplier
-			// Do it regardless to the milti-verifier logic, to ensure we're not confused (muliple identical inputs, less outputs, and etc.)
-			while (true)
-			{
-				if (!r.m_pKernelOut)
-					return false;
-
-				const TxKernel& vOut = *r.m_pKernelOut;
-				r.NextKernelOut();
-
-				if (vOut.m_Excess > r.m_pKernelIn->m_Excess)
-					return false;
-
-				if (vOut.m_Excess == r.m_pKernelIn->m_Excess)
-				{
-					if (vOut.m_Multiplier <= r.m_pKernelIn->m_Multiplier)
-						return false;
-					break; // ok
-				}
-			}
-
-			if (ShouldVerify(iV))
-			{
-				if (pPrev && (*pPrev > *r.m_pKernelIn))
-					return false;
-
-				if (!r.m_pKernelIn->IsValid(feeInp, m_Sigma))
-					return false;
-			}
-		}
-
-		m_Sigma = -m_Sigma;
-
-		// Outputs
-		r.Reset();
-
-		for (const Output* pPrev = NULL; r.m_pUtxoOut; pPrev = r.m_pUtxoOut, r.NextUtxoOut())
-		{
-			if (ShouldAbort())
-				return false;
-
-			if (ShouldVerify(iV))
-			{
-				if (pPrev && (*pPrev > *r.m_pUtxoOut))
-					return false;
-
-				if (!r.m_pUtxoOut->IsValid(pt))
-					return false;
-
-				m_Sigma += pt;
-
-				if (r.m_pUtxoOut->m_Coinbase)
-				{
-					if (!m_bBlockMode)
-						return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
-
-					assert(r.m_pUtxoOut->m_pPublic); // must have already been checked
-					m_Coinbase += r.m_pUtxoOut->m_pPublic->m_Value;
-				}
-			}
-		}
-
-		for (const TxKernel* pPrev = NULL; r.m_pKernelOut; pPrev = r.m_pKernelOut, r.NextKernelOut())
-		{
-			if (ShouldAbort())
-				return false;
-
-			if (ShouldVerify(iV))
-			{
-				if (pPrev && (*pPrev > *r.m_pKernelOut))
-					return false;
-
-				if (!r.m_pKernelOut->IsValid(m_Fee, m_Sigma))
-					return false;
-
-				if (!HandleElementHeight(r.m_pKernelOut->m_Height))
-					return false;
-			}
-		}
-
-		if (ShouldVerify(iV))
-			m_Sigma += ECC::Context::get().G * txb.m_Offset;
-
-		assert(!m_Height.IsEmpty());
-		return true;
-	}
 
 	void TxVectors::Sort()
 	{
@@ -707,15 +447,6 @@ namespace beam
 		return 0;
 	}
 
-	bool TxBase::Context::IsValidTransaction()
-	{
-		assert(!(m_Coinbase.Lo || m_Coinbase.Hi)); // must have already been checked
-
-		m_Fee.AddTo(m_Sigma);
-
-		return m_Sigma == ECC::Zero;
-	}
-
 	bool Transaction::IsValid(Context& ctx) const
 	{
 		return
@@ -747,11 +478,11 @@ namespace beam
 
 	void Transaction::get_Key(KeyType& key) const
 	{
-		if (m_Offset.m_Value == ECC::Zero)
+		if (m_Offset.m_Value == Zero)
 		{
 			// proper transactions must contain non-trivial offset, and this should be enough to identify it with sufficient probability
 			// However in case it's not specified - construct the key from contents
-			key = ECC::Zero;
+			key = Zero;
 
 			for (size_t i = 0; i < m_vInputs.size(); i++)
 				key ^= m_vInputs[i]->m_Commitment.m_X;
@@ -855,9 +586,9 @@ namespace beam
 		Hi -= x.Hi;
 	}
 
-	void AmountBig::Export(ECC::uintBig& x) const
+	void AmountBig::Export(uintBig& x) const
 	{
-		x = ECC::Zero;
+		x = Zero;
 		x.AssignRange<Amount, 0>(Lo);
 		x.AssignRange<Amount, (sizeof(Lo) << 3) >(Hi);
 	}
@@ -866,8 +597,11 @@ namespace beam
 	{
 		if (Hi)
 		{
+			uintBig val;
+			Export(val);
+
 			ECC::Scalar s;
-			Export(s.m_Value);
+			s.m_Value = val;
 			res += ECC::Context::get().H_Big * s;
 		}
 		else
@@ -909,7 +643,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(1) // increment this whenever we change something in the protocol
+			<< uint32_t(4) // increment this whenever we change something in the protocol
 			// out
 			>> Checksum;
 	}
@@ -922,32 +656,48 @@ namespace beam
 		return 0;
 	}
 
-	void Block::SystemState::Full::Set(Prefix& p, const Element& x)
+	void Block::SystemState::Full::NextPrefix()
 	{
-		((Prefix&) *this) = p;
-		((Element&) *this) = x;
-
-		get_Hash(p.m_Prev);
-		p.m_Height++;
+		get_Hash(m_Prev);
+		m_Height++;
 	}
 
-	void Block::SystemState::Full::get_Hash(Merkle::Hash& out) const
+	void Block::SystemState::Full::get_HashInternal(Merkle::Hash& out, bool bTotal) const
 	{
 		// Our formula:
-		ECC::Hash::Processor()
+		ECC::Hash::Processor hp;
+		hp
 			<< m_Height
-			<< m_TimeStamp
 			<< m_Prev
+			<< m_ChainWork
 			<< m_Definition
-			<< m_PoW.m_Difficulty.m_Packed
-			>> out;
+			<< m_TimeStamp
+			<< m_PoW.m_Difficulty.m_Packed;
+
+		if (bTotal)
+		{
+			hp.Write(&m_PoW.m_Indices.at(0), sizeof(m_PoW.m_Indices));
+			hp << m_PoW.m_Nonce;
+		}
+
+		hp >> out;
+	}
+
+	void Block::SystemState::Full::get_HashForPoW(Merkle::Hash& hv) const
+	{
+		get_HashInternal(hv, false);
+	}
+
+	void Block::SystemState::Full::get_Hash(Merkle::Hash& hv) const
+	{
+		get_HashInternal(hv, true);
 	}
 
 	bool Block::SystemState::Full::IsSane() const
 	{
 		if (m_Height < Rules::HeightGenesis)
 			return false;
-		if ((m_Height == Rules::HeightGenesis) && !(m_Prev == ECC::Zero))
+		if ((m_Height == Rules::HeightGenesis) && !(m_Prev == Zero))
 			return false;
 
 		return true;
@@ -961,88 +711,102 @@ namespace beam
 
 	bool Block::SystemState::Full::IsValidPoW() const
 	{
+		if (Rules::get().FakePoW)
+			return true;
+
 		Merkle::Hash hv;
-		get_Hash(hv);
-		return m_PoW.IsValid(hv.m_pData, sizeof(hv.m_pData));
+		get_HashForPoW(hv);
+		return m_PoW.IsValid(hv.m_pData, hv.nBytes);
 	}
 
 	bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
 	{
 		Merkle::Hash hv;
-		get_Hash(hv);
-		return m_PoW.Solve(hv.m_pData, sizeof(hv.m_pData), fnCancel);
+		get_HashForPoW(hv);
+		return m_PoW.Solve(hv.m_pData, hv.nBytes, fnCancel);
 	}
 
-	void Block::SystemState::Full::get_HashForHist(Merkle::Hash& hv) const
+	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const Input& inp, const Input::Proof& p) const
 	{
-		get_Hash(hv);
-		m_PoW.get_HashForHist(hv, hv);
-	}
-
-	void Block::PoW::get_HashForHist(Merkle::Hash& hv, const Merkle::Hash& hvState) const
-	{
-		ECC::Hash::Processor hp;
-		hp.Write(&m_Indices.at(0), sizeof(m_Indices));
-		hp.Write(m_Nonce.m_pData, sizeof(m_Nonce.m_pData));
-		hp << m_Difficulty.m_Packed;
-
-		Merkle::Hash hvPow;
-		hp >> hvPow;
-
-		Merkle::Interpret(hv, hvState, hvPow);
-	}
-
-	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb, bool bSubsidyOpen)
-	{
-		m_Sigma = -m_Sigma;
-
-		bb.m_Subsidy.AddTo(m_Sigma);
-
-		if (!(m_Sigma == ECC::Zero))
+		// verify known part. Last node should be at left, earlier should be at right
+		size_t n = p.m_Proof.size();
+		if ((n < 2) ||
+			p.m_Proof[n - 1].first ||
+			!p.m_Proof[n - 2].first)
 			return false;
 
-		if (bSubsidyOpen)
-			return true;
+		Merkle::Hash hv;
+		p.m_State.get_ID(hv, inp);
 
-		if (bb.m_SubsidyClosing)
-			return false; // already closed
+		Merkle::Interpret(hv, p.m_Proof);
+		return hv == m_Definition;
+	}
 
-		// For non-genesis blocks we have the following restrictions:
-		// Subsidy is bounded by num of blocks multiplied by coinbase emission
-		// There must at least some unspent coinbase UTXOs wrt maturity settings
-
-		// check the subsidy is within allowed range
-		Height nBlocksInRange = m_Height.m_Max - m_Height.m_Min + 1;
-
-		ECC::uintBig ubSubsidy, ubCoinbase, mul;
-		bb.m_Subsidy.Export(ubSubsidy);
-
-		mul = Rules::get().CoinbaseEmission;
-		ubCoinbase = nBlocksInRange;
-		ubCoinbase = ubCoinbase * mul;
-
-		if (ubSubsidy > ubCoinbase)
+	bool Block::SystemState::Sequence::Element::IsValidProofKernel(const TxKernel& krn, const Merkle::Proof& proof) const
+	{
+		// verify known part. Last node should be at left, earlier should be at left
+		size_t n = proof.size();
+		if ((n < 2) ||
+			proof[n - 1].first ||
+			proof[n - 2].first)
 			return false;
 
-		// ensure there's a minimal unspent coinbase UTXOs
-		if (nBlocksInRange > Rules::get().MaturityCoinbase)
+		Merkle::Hash hv;
+		krn.get_ID(hv);
+
+		Merkle::Interpret(hv, proof);
+		return hv == m_Definition;
+	}
+
+	bool Block::SystemState::Full::IsValidProofState(const ID& id, const Merkle::HardProof& proof) const
+	{
+		// verify the whole proof structure
+		if ((id.m_Height < Rules::HeightGenesis) || (id.m_Height >= m_Height))
+			return false;
+
+		struct Verifier
+			:public Merkle::Mmr
+			,public Merkle::IProofBuilder
 		{
-			// some UTXOs may be spent already. Calculate the minimum remaining
-			nBlocksInRange -= Rules::get().MaturityCoinbase;
-			ubCoinbase = nBlocksInRange;
-			ubCoinbase = ubCoinbase * mul;
+			Merkle::Hash m_hv;
 
-			if (ubSubsidy > ubCoinbase)
+			Merkle::HardProof::const_iterator m_itPos;
+			Merkle::HardProof::const_iterator m_itEnd;
+
+			bool InterpretOnce(bool bOnRight)
 			{
-				ubCoinbase.Negate();
-				ubSubsidy += ubCoinbase;
+				if (m_itPos == m_itEnd)
+					return false;
 
-			} else
-				ubSubsidy = ECC::Zero;
-		}
+				Merkle::Interpret(m_hv, *m_itPos++, bOnRight);
+				return true;
+			}
 
-		m_Coinbase.Export(ubCoinbase);
-		return (ubCoinbase >= ubSubsidy);
+			virtual bool AppendNode(const Merkle::Node& n, const Merkle::Position&) override
+			{
+				return InterpretOnce(n.first);
+			}
+
+			virtual void LoadElement(Merkle::Hash&, const Merkle::Position&) const override {}
+			virtual void SaveElement(const Merkle::Hash&, const Merkle::Position&) override {}
+		};
+
+		Verifier vmmr;
+		vmmr.m_hv = id.m_Hash;
+		vmmr.m_itPos = proof.begin();
+		vmmr.m_itEnd = proof.end();
+
+		vmmr.m_Count = m_Height - Rules::HeightGenesis;
+		if (!vmmr.get_Proof(vmmr, id.m_Height - Rules::HeightGenesis))
+			return false;
+
+		if (!vmmr.InterpretOnce(true))
+			return false;
+		
+		if (vmmr.m_itPos != vmmr.m_itEnd)
+			return false;
+
+		return vmmr.m_hv == m_Definition;
 	}
 
 	void Block::BodyBase::ZeroInit()
@@ -1148,21 +912,16 @@ namespace beam
 		Raw val;
 		Unpack(val);
 
-		typedef ECC::uintBig_t<ECC::nBits * 2> uintHuge;
-
-		uintHuge a, b;
-		a = hv;
-		b = val;
-		a = a * b;
+		auto a = hv * val; // would be 512 bits
 
 		static_assert(!(s_MantissaBits & 7), ""); // fix the following code lines to support non-byte-aligned mantissa size
 
-		return memis0(a.m_pData, sizeof(a.m_pData) / 2 - (s_MantissaBits >> 3));
+		return memis0(a.m_pData, Raw::nBytes - (s_MantissaBits >> 3));
 	}
 
 	void Difficulty::Unpack(Raw& res) const
 	{
-		res = ECC::Zero;
+		res = Zero;
 		if (m_Packed < s_Inf)
 		{
 			uint32_t order, mantissa;
@@ -1172,6 +931,26 @@ namespace beam
 		}
 		else
 			res.Inv();
+	}
+
+	void Difficulty::Inc(Raw& res, const Raw& base) const
+	{
+		Unpack(res);
+		res += base;
+	}
+
+	void Difficulty::Inc(Raw& res) const
+	{
+		Raw d;
+		Unpack(d);
+		res += d;
+	}
+
+	void Difficulty::Dec(Raw& res, const Raw& base) const
+	{
+		Unpack(res);
+		res.Negate();
+		res += base;
 	}
 
 	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange)
@@ -1269,378 +1048,6 @@ namespace beam
 	}
 
 	/////////////
-	// RW
-	void Block::BodyBase::RW::GetPathes(std::string* pArr) const
-	{
-		pArr[0] = m_sPath + "ui";
-		pArr[1] = m_sPath + "uo";
-		pArr[2] = m_sPath + "ki";
-		pArr[3] = m_sPath + "ko";
-		pArr[4] = m_sPath + "hd";
-
-		static_assert(5 == s_Datas, "");
-	}
-
-	bool Block::BodyBase::RW::Open(bool bRead)
-	{
-		using namespace std;
-
-		m_bRead = bRead;
-
-		std::string pArr[s_Datas];
-		GetPathes(pArr);
-
-		for (size_t i = 0; i < _countof(m_pS); i++)
-			if (!m_pS[i].Open(pArr[i].c_str(), bRead))
-				return false;
-
-		return true;
-	}
-
-	void Block::BodyBase::RW::Delete()
-	{
-		std::string pArr[s_Datas];
-		GetPathes(pArr);
-
-		for (size_t i = 0; i < _countof(m_pS); i++)
-		{
-			const std::string& sPath = pArr[i];
-#ifdef WIN32
-			DeleteFileA(sPath.c_str());
-#else // WIN32
-			unlink(sPath.c_str());
-#endif // WIN32
-		}
-	}
-
-	void Block::BodyBase::RW::Close()
-	{
-		for (size_t i = 0; i < _countof(m_pS); i++)
-			m_pS[i].Close();
-	}
-
-	Block::BodyBase::RW::~RW()
-	{
-		if (m_bAutoDelete)
-		{
-			Close();
-			Delete();
-		}
-	}
-
-	void Block::BodyBase::RW::Reset()
-	{
-		for (size_t i = 0; i < _countof(m_pS); i++)
-			m_pS[i].Restart();
-
-		// preload
-		LoadInternal(m_pUtxoIn, m_pS[0], m_pGuardUtxoIn);
-		LoadInternal(m_pUtxoOut, m_pS[1], m_pGuardUtxoOut);
-		LoadInternal(m_pKernelIn, m_pS[2], m_pGuardKernelIn);
-		LoadInternal(m_pKernelOut, m_pS[3], m_pGuardKernelOut);
-	}
-
-	void Block::BodyBase::RW::Flush()
-	{
-		for (size_t i = 0; i < _countof(m_pS); i++)
-			m_pS[i].Flush();
-	}
-
-	void Block::BodyBase::RW::Clone(Ptr& pOut)
-	{
-		RW* pRet = new RW;
-		pOut.reset(pRet);
-
-		pRet->m_sPath = m_sPath;
-		pRet->Open(m_bRead);
-	}
-
-	void Block::BodyBase::RW::NextUtxoIn()
-	{
-		LoadInternal(m_pUtxoIn, m_pS[0], m_pGuardUtxoIn);
-	}
-
-	void Block::BodyBase::RW::NextUtxoOut()
-	{
-		LoadInternal(m_pUtxoOut, m_pS[1], m_pGuardUtxoOut);
-	}
-
-	void Block::BodyBase::RW::NextKernelIn()
-	{
-		LoadInternal(m_pKernelIn, m_pS[2], m_pGuardKernelIn);
-	}
-
-	void Block::BodyBase::RW::NextKernelOut()
-	{
-		LoadInternal(m_pKernelOut, m_pS[3], m_pGuardKernelOut);
-	}
-
-	void Block::BodyBase::RW::get_Start(BodyBase& body, SystemState::Sequence::Prefix& prefix)
-	{
-		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[4]);
-
-		ECC::Hash::Value hv;
-		arc & hv;
-
-		if (hv != Rules::get().Checksum)
-			throw std::runtime_error("Block rules mismatch");
-
-		arc & body;
-		arc & prefix;
-	}
-
-	bool Block::BodyBase::RW::get_NextHdr(SystemState::Sequence::Element& elem)
-	{
-		std::FStream& s = m_pS[4];
-		if (!s.IsDataRemaining())
-			return false;
-
-		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
-		arc & elem;
-
-		return true;
-	}
-
-	void Block::BodyBase::RW::WriteIn(const Input& v)
-	{
-		WriteInternal(v, m_pS[0]);
-	}
-
-	void Block::BodyBase::RW::WriteIn(const TxKernel& v)
-	{
-		WriteInternal(v, m_pS[2]);
-	}
-
-	void Block::BodyBase::RW::WriteOut(const Output& v)
-	{
-		WriteInternal(v, m_pS[1]);
-	}
-
-	void Block::BodyBase::RW::WriteOut(const TxKernel& v)
-	{
-		WriteInternal(v, m_pS[3]);
-	}
-
-	void Block::BodyBase::RW::put_Start(const BodyBase& body, const SystemState::Sequence::Prefix& prefix)
-	{
-		WriteInternal(Rules::get().Checksum, m_pS[4]);
-		WriteInternal(body, m_pS[4]);
-		WriteInternal(prefix, m_pS[4]);
-	}
-
-	void Block::BodyBase::RW::put_NextHdr(const SystemState::Sequence::Element& elem)
-	{
-		WriteInternal(elem, m_pS[4]);
-	}
-
-	template <typename T>
-	void Block::BodyBase::RW::LoadInternal(const T*& pPtr, std::FStream& s, typename T::Ptr* ppGuard)
-	{
-		if (s.IsDataRemaining())
-		{
-			ppGuard[0].swap(ppGuard[1]);
-			//if (!ppGuard[0])
-				ppGuard[0].reset(new T);
-
-			yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
-			arc & *ppGuard[0];
-
-			pPtr = ppGuard[0].get();
-		}
-		else
-			pPtr = NULL;
-	}
-
-	template <typename T>
-	void Block::BodyBase::RW::WriteInternal(const T& v, std::FStream& s)
-	{
-		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
-		arc & v;
-	}
-
-	void TxBase::IWriter::Dump(IReader&& r)
-	{
-		r.Reset();
-
-		for (; r.m_pUtxoIn; r.NextUtxoIn())
-			WriteIn(*r.m_pUtxoIn);
-		for (; r.m_pUtxoOut; r.NextUtxoOut())
-			WriteOut(*r.m_pUtxoOut);
-		for (; r.m_pKernelIn; r.NextKernelIn())
-			WriteIn(*r.m_pKernelIn);
-		for (; r.m_pKernelOut; r.NextKernelOut())
-			WriteOut(*r.m_pKernelOut);
-	}
-
-	bool TxBase::IWriter::Combine(IReader&& r0, IReader&& r1, const volatile bool& bStop)
-	{
-		IReader* ppR[] = { &r0, &r1 };
-		return Combine(ppR, _countof(ppR), bStop);
-	}
-
-	bool TxBase::IWriter::Combine(IReader** ppR, int nR, const volatile bool& bStop)
-	{
-		for (int i = 0; i < nR; i++)
-			ppR[i]->Reset();
-
-		// Utxo
-		while (true)
-		{
-			if (bStop)
-				return false;
-
-			const Input* pInp = NULL;
-			const Output* pOut = NULL;
-			int iInp, iOut;
-
-			for (int i = 0; i < nR; i++)
-			{
-				const Input* pi = ppR[i]->m_pUtxoIn;
-				if (pi && (!pInp || (*pInp > *pi)))
-				{
-					pInp = pi;
-					iInp = i;
-				}
-
-				const Output* po = ppR[i]->m_pUtxoOut;
-				if (po && (!pOut || (*pOut > *po)))
-				{
-					pOut = po;
-					iOut = i;
-				}
-			}
-
-			if (pInp)
-			{
-				if (pOut)
-				{
-					int n = pInp->cmp_CaM(*pOut);
-					if (n > 0)
-						pInp = NULL;
-					else
-						if (!n)
-						{
-							// skip both
-							ppR[iInp]->NextUtxoIn();
-							ppR[iOut]->NextUtxoOut();
-							continue;
-						}
-				}
-			}
-			else
-				if (!pOut)
-					break;
-
-
-			if (pInp)
-			{
-				WriteIn(*pInp);
-				ppR[iInp]->NextUtxoIn();
-			}
-			else
-			{
-				WriteOut(*pOut);
-				ppR[iOut]->NextUtxoOut();
-			}
-		}
-
-
-		// Kernels
-		while (true)
-		{
-			if (bStop)
-				return false;
-
-			const TxKernel* pInp = NULL;
-			const TxKernel* pOut = NULL;
-			int iInp, iOut;
-
-			for (int i = 0; i < nR; i++)
-			{
-				const TxKernel* pi = ppR[i]->m_pKernelIn;
-				if (pi && (!pInp || (*pInp > *pi)))
-				{
-					pInp = pi;
-					iInp = i;
-				}
-
-				const TxKernel* po = ppR[i]->m_pKernelOut;
-				if (po && (!pOut || (*pOut > *po)))
-				{
-					pOut = po;
-					iOut = i;
-				}
-			}
-
-			if (pInp)
-			{
-				if (pOut)
-				{
-					int n = pInp->cmp(*pOut);
-					if (n > 0)
-						pInp = NULL;
-					else
-						if (!n)
-						{
-							// skip both
-							ppR[iInp]->NextUtxoIn();
-							ppR[iOut]->NextUtxoOut();
-							continue;
-						}
-				}
-			}
-			else
-				if (!pOut)
-					break;
-
-
-			if (pInp)
-			{
-				WriteIn(*pInp);
-				ppR[iInp]->NextKernelIn();
-			}
-			else
-			{
-				WriteOut(*pOut);
-				ppR[iOut]->NextKernelOut();
-			}
-		}
-
-		return true;
-	}
-
-	bool Block::BodyBase::IMacroWriter::CombineHdr(IMacroReader&& r0, IMacroReader&& r1, const volatile bool& bStop)
-	{
-		Block::BodyBase body0, body1;
-		Block::SystemState::Sequence::Prefix prefix0, prefix1;
-		Block::SystemState::Sequence::Element elem;
-
-		r0.Reset();
-		r0.get_Start(body0, prefix0);
-		r1.Reset();
-		r1.get_Start(body1, prefix1);
-
-		body0.Merge(body1);
-		put_Start(body0, prefix0);
-
-		while (r0.get_NextHdr(elem))
-		{
-			if (bStop)
-				return false;
-			put_NextHdr(elem);
-		}
-
-		while (r1.get_NextHdr(elem))
-		{
-			if (bStop)
-				return false;
-			put_NextHdr(elem);
-		}
-
-		return true;
-	}
-
-	/////////////
 	// Misc
 	Timestamp getTimestamp()
 	{
@@ -1665,114 +1072,3 @@ namespace beam
 	}
 
 } // namespace beam
-
-namespace std
-{
-	void ThrowIoError()
-	{
-#ifdef WIN32
-		int nErrorCode = GetLastError();
-#else // WIN32
-		int nErrorCode = errno;
-#endif // WIN32
-
-		char sz[0x20];
-		snprintf(sz, _countof(sz), "I/O Error=%d", nErrorCode);
-		throw runtime_error(sz);
-	}
-
-	void TestNoError(const ios& obj)
-	{
-		if (obj.fail())
-			ThrowIoError();
-	}
-
-	bool FStream::Open(const char* sz, bool bRead, bool bStrict /* = false */)
-	{
-		int mode = ios_base::binary;
-		mode |= (bRead ? (ios_base::in | ios_base::ate) : (ios_base::out | ios_base::trunc));
-
-		m_F.open(sz, (ios_base::openmode) mode);
-		if (m_F.fail())
-		{
-			if (bStrict)
-				ThrowIoError();
-			return false;
-		}
-
-		if (bRead)
-		{
-			m_Remaining = m_F.tellg();
-			m_F.seekg(0);
-		}
-
-		return true;
-	}
-
-	void FStream::Close()
-	{
-		if (m_F.is_open())
-			m_F.close();
-	}
-
-	bool FStream::IsDataRemaining() const
-	{
-		return m_Remaining > 0;
-	}
-
-	void FStream::Restart()
-	{
-		m_Remaining += m_F.tellg();
-		m_F.seekg(0);
-	}
-
-	void FStream::NotImpl()
-	{
-		throw runtime_error("not impl");
-	}
-
-	size_t FStream::read(void* pPtr, size_t nSize)
-	{
-		m_F.read((char*)pPtr, nSize);
-		size_t ret = m_F.gcount();
-		m_Remaining -= ret;
-
-		if (ret != nSize)
-			throw runtime_error("underflow");
-
-		return ret;
-	}
-
-	size_t FStream::write(const void* pPtr, size_t nSize)
-	{
-		m_F.write((char*) pPtr, nSize);
-		TestNoError(m_F);
-
-		return nSize;
-	}
-
-	char FStream::getch()
-	{
-		char ch;
-		read(&ch, 1);
-		return ch;
-	}
-
-	char FStream::peekch() const
-	{
-		NotImpl();
-		return 0;
-	}
-
-	void FStream::ungetch(char)
-	{
-		NotImpl();
-	}
-
-	void FStream::Flush()
-	{
-		m_F.flush();
-		TestNoError(m_F);
-	}
-
-} // namespace std

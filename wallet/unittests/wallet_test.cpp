@@ -16,7 +16,9 @@
 
 #include "wallet/wallet_network.h"
 #include "wallet/wallet.h"
+#include "wallet/secstring.h"
 #include "utility/test_helpers.h"
+#include <string_view>
 
 #include "test_helpers.h"
 
@@ -31,8 +33,6 @@
 #include "wallet/wallet_serialization.h"
 #include <boost/filesystem.hpp>
 #include <boost/intrusive/list.hpp>
-
-#include "core/storage.h"
 
 using namespace beam;
 using namespace std;
@@ -51,6 +51,11 @@ namespace
             return ECC::Scalar::Native();
         }
 
+		void get_IdentityKey(ECC::Scalar::Native& sk) const override
+		{
+			sk = Zero;
+		}
+
         std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool /*lock*/) override
         {
             std::vector<beam::Coin> res;
@@ -68,6 +73,7 @@ namespace
             return res;
         }
 
+        virtual std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override { return {}; };
         void store(beam::Coin& ) override {}
         void store(std::vector<beam::Coin>& ) override {}
         void update(const vector<beam::Coin>& coins) override {}
@@ -75,15 +81,15 @@ namespace
         void remove(const std::vector<beam::Coin>& ) override {}
         void remove(const beam::Coin& ) override {}
         void visit(std::function<bool(const beam::Coin& coin)> ) override {}
-		void setVarRaw(const char* , const void* , int ) override {}
-		int getVarRaw(const char* , void* ) const override { return 0; }
+        void setVarRaw(const char* , const void* , int ) override {}
+        int getVarRaw(const char* , void* ) const override { return 0; }
         bool getBlob(const char* name, ByteBuffer& var) const { return false; }
         Timestamp getLastUpdateTime() const override { return 0; }
-		void setSystemStateID(const Block::SystemState::ID& ) override {};
-		bool getSystemStateID(Block::SystemState::ID& ) const override { return false; };
+        void setSystemStateID(const Block::SystemState::ID& ) override {};
+        bool getSystemStateID(Block::SystemState::ID& ) const override { return false; };
 
-		void subscribe(IKeyChainObserver* observer) override {}
-		void unsubscribe(IKeyChainObserver* observer) override {}
+        void subscribe(IKeyChainObserver* observer) override {}
+        void unsubscribe(IKeyChainObserver* observer) override {}
 
         std::vector<TxDescription> getTxHistory(uint64_t , int ) override { return {}; };
         boost::optional<TxDescription> getTx(const TxID& ) override { return boost::optional<TxDescription>{}; };
@@ -94,10 +100,14 @@ namespace
         std::vector<TxPeer> getPeers() override { return {}; };
         void addPeer(const TxPeer&) override {}
         boost::optional<TxPeer> getPeer(const WalletID&) override { return boost::optional<TxPeer>{}; }
-		void clearPeers() override {}
+        void clearPeers() override {}
 
         std::vector<WalletAddress> getAddresses(bool own) override { return {}; }
         void saveAddress(const WalletAddress&) override {}
+        boost::optional<WalletAddress> getAddress(const WalletID& id) override
+        {
+            return boost::optional<WalletAddress>{};
+        }
         void deleteAddress(const WalletID&) override {}
 
         Height getCurrentHeight() const override
@@ -117,6 +127,8 @@ namespace
 
         void rollbackConfirmedUtxo(Height /*minHeight*/) override
         {}
+
+        void clear() override {}
 
     protected:
         std::vector<beam::Coin> m_coins;
@@ -164,13 +176,13 @@ namespace
     IKeyChain::Ptr createSqliteKeychain(const string& path)
     {
         ECC::NoLeak<ECC::uintBig> seed;
-        seed.V = ECC::Zero;
+        seed.V = Zero;
         if (boost::filesystem::exists(path))
         {
             boost::filesystem::remove(path);
         }
-
-        auto keychain = Keychain::init(path, "pass123", seed);
+               
+        auto keychain = Keychain::init(path, string("pass123"), seed);
         beam::Block::SystemState::ID id = {};
         id.m_Height = 134;
         keychain->setSystemStateID(id);
@@ -413,7 +425,7 @@ namespace
 
         }
 
-		void set_node_address(io::Address node_address) override {}
+        void set_node_address(io::Address node_address) override {}
 
         int m_peerCount;
 
@@ -489,11 +501,11 @@ namespace
         {
             cout << "GetProofState\n";
 
-			proto::ProofStateForDummies msg;
+            proto::ProofState msg;
 
             enqueueNetworkTask([this, msg] {
-				m_peers[0]->handle_node_message((proto::ProofStateForDummies&&) msg);
-			});
+                m_peers[0]->handle_node_message((proto::ProofState&&) msg);
+            });
         }
 
 //         void close_connection(const beam::WalletID&) override
@@ -508,8 +520,29 @@ namespace
         void close_node_connection() override
         {
         }
+
+        void new_own_address(const WalletID&) override
+        {
+
+        }
+
+        void address_deleted(const WalletID& address) override
+        {
+
+        }
     };
 }
+
+class TestWallet
+    :public Wallet
+{
+    virtual bool IsTestMode() override { return true; }
+public:
+    TestWallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, bool holdNodeConnection = false, TxCompletedAction&& action = TxCompletedAction())
+        :Wallet(keyChain, network, holdNodeConnection, std::move(action))
+    {
+    }
+};
 
 void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receiverKeychain)
 {
@@ -535,8 +568,8 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
         }
     };
 
-    Wallet sender(senderKeychain, network, f);
-    Wallet receiver(receiverKeychain, network2, f);
+    TestWallet sender(senderKeychain, network, false, f);
+    TestWallet receiver(receiverKeychain, network2, false, f);
 
     network->registerPeer(&sender, true);
     network->registerPeer(&receiver, false);
@@ -582,25 +615,25 @@ class TestNode
 public:
     TestNode(io::Address address)
     {
-		m_Server.Listen(address);
+        m_Server.Listen(address);
     }
 
-	~TestNode() {
-		KillAll();
-	}
+    ~TestNode() {
+        KillAll();
+    }
 
-	void KillAll()
-	{
-		while (!m_lstClients.empty())
-			DeleteClient(&m_lstClients.front());
-	}
+    void KillAll()
+    {
+        while (!m_lstClients.empty())
+            DeleteClient(&m_lstClients.front());
+    }
 
 private:
 
-	struct Client
-		:public proto::NodeConnection
-		,public boost::intrusive::list_base_hook<>
-	{
+    struct Client
+        :public proto::NodeConnection
+        ,public boost::intrusive::list_base_hook<>
+    {
         TestNode& m_This;
         bool m_Subscribed;
 
@@ -611,34 +644,34 @@ private:
         }
 
 
-		// protocol handler
-		void OnMsg(proto::NewTransaction&& /*data*/) override
-		{
-			Send(proto::Boolean{ true });
-		}
+        // protocol handler
+        void OnMsg(proto::NewTransaction&& /*data*/) override
+        {
+            Send(proto::Boolean{ true });
+        }
 
-		void OnMsg(proto::GetProofUtxo&& /*data*/) override
-		{
-			Send(proto::ProofUtxo());
-		}
+        void OnMsg(proto::GetProofUtxo&& /*data*/) override
+        {
+            Send(proto::ProofUtxo());
+        }
 
-		void OnMsg(proto::Config&& /*data*/) override
-		{
-			proto::Hdr msg = {};
+        void OnMsg(proto::Config&& /*data*/) override
+        {
+            proto::Hdr msg = {};
 
-			msg.m_Description.m_Height = 134;
-			Send(move(msg));
-		}
+            msg.m_Description.m_Height = 134;
+            Send(move(msg));
+        }
 
-		void OnMsg(proto::GetMined&&) override
-		{
-			Send(proto::Mined{});
-		}
+        void OnMsg(proto::GetMined&&) override
+        {
+            Send(proto::Mined{});
+        }
 
-		void OnMsg(proto::GetProofState&&) override
-		{
-			Send(proto::ProofStateForDummies{});
-		}
+        void OnMsg(proto::GetProofState&&) override
+        {
+            Send(proto::ProofState{});
+        }
 
         void OnMsg(proto::BbsSubscribe&& msg) override
         {
@@ -646,10 +679,10 @@ private:
                 return;
             m_Subscribed = true;
 
-			for (const auto& m : m_This.m_bbs)
-			{
-				Send(m);
-			}
+            for (const auto& m : m_This.m_bbs)
+            {
+                Send(m);
+            }
         }
 
         void OnMsg(proto::BbsMsg&& msg) override
@@ -669,25 +702,25 @@ private:
             }
         }
 
-		void OnDisconnect(const DisconnectReason& r) override
-		{
-			switch (r.m_Type)
-			{
-			case DisconnectReason::Protocol:
-			case DisconnectReason::ProcessingExc:
-				LOG_ERROR() << "Disconnect: " << r;
-				g_failureCount++;
+        void OnDisconnect(const DisconnectReason& r) override
+        {
+            switch (r.m_Type)
+            {
+            case DisconnectReason::Protocol:
+            case DisconnectReason::ProcessingExc:
+                LOG_ERROR() << "Disconnect: " << r;
+                g_failureCount++;
 
-			default: // suppress warning
-				break;
-			}
+            default: // suppress warning
+                break;
+            }
 
             m_This.DeleteClient(this);
-		}
-	};
+        }
+    };
 
-	typedef boost::intrusive::list<Client> ClientList;
-	ClientList m_lstClients;
+    typedef boost::intrusive::list<Client> ClientList;
+    ClientList m_lstClients;
 
     std::vector<proto::BbsMsg> m_bbs;
 
@@ -731,9 +764,11 @@ void TestP2PWalletNegotiationST()
     auto receiverBbsKeys = createBbsKeystore("receiver-bbs", keystorePass);
 
     WalletID senderID = {};
-    senderBbsKeys->gen_keypair(senderID, keystorePass.data(), keystorePass.size(), true);
+    senderBbsKeys->gen_keypair(senderID);
+    senderBbsKeys->save_keypair(senderID, true);
     WalletID receiverID = {};
-    receiverBbsKeys->gen_keypair(receiverID, keystorePass.data(), keystorePass.size(), true);
+    receiverBbsKeys->gen_keypair(receiverID);
+    receiverBbsKeys->save_keypair(receiverID, true);
     
     auto senderKeychain = createSenderKeychain();
     auto receiverKeychain = createReceiverKeychain();
@@ -749,8 +784,8 @@ void TestP2PWalletNegotiationST()
     auto receiver_io = make_shared<WalletNetworkIO>( node_address, receiverKeychain, receiverBbsKeys, main_reactor, 1000, 2000);
 
 
-    Wallet sender{senderKeychain, sender_io, [sender_io](auto) { sender_io->stop(); } };
-    Wallet receiver{ receiverKeychain, receiver_io };
+    TestWallet sender{senderKeychain, sender_io, true, [sender_io](auto) { sender_io->stop(); } };
+    TestWallet receiver{ receiverKeychain, receiver_io, true };
 
     //// send to your peer
     //sender.transfer_money(senderID, senderID, 6);
@@ -956,9 +991,11 @@ void TestP2PWalletNegotiationST()
      auto receiverBbsKeys = createBbsKeystore("receiver-bbs", keystorePass);
 
      WalletID senderID = {};
-     senderBbsKeys->gen_keypair(senderID, keystorePass.data(), keystorePass.size(), true);
+     senderBbsKeys->gen_keypair(senderID);
+     senderBbsKeys->save_keypair(senderID, true);
      WalletID receiverID = {};
-     receiverBbsKeys->gen_keypair(receiverID, keystorePass.data(), keystorePass.size(), true);
+     receiverBbsKeys->gen_keypair(receiverID);
+     receiverBbsKeys->save_keypair(receiverID, true);
 
      auto senderKeychain = createSenderKeychain();
      auto receiverKeychain = createReceiverKeychain();
@@ -974,8 +1011,8 @@ void TestP2PWalletNegotiationST()
      auto receiver_io = make_shared<WalletNetworkIO>(node_address, receiverKeychain, receiverBbsKeys, main_reactor, 1000, 2000);
 
 
-     Wallet sender{ senderKeychain, sender_io };
-     Wallet receiver{ receiverKeychain, receiver_io, [receiver_io](auto) { receiver_io->stop(); } };
+     TestWallet sender{ senderKeychain, sender_io };
+     TestWallet receiver{ receiverKeychain, receiver_io, false, [receiver_io](auto) { receiver_io->stop(); } };
 
      TxID txId = receiver.transfer_money(receiverID, senderID, 4, 2, false);
 
@@ -1161,8 +1198,8 @@ void TestP2PWalletNegotiationST()
 
 void TestSplitKey()
 {
-	Scalar::Native nonce;
-	nonce = (uint64_t) 0xa231234f92381353UL;
+    Scalar::Native nonce;
+    nonce = (uint64_t) 0xa231234f92381353UL;
 
     auto res1 = beam::wallet::splitKey(nonce, 123456789);
     auto res2 = beam::wallet::splitKey(nonce, 123456789);
@@ -1222,41 +1259,68 @@ struct MyMmr : public Merkle::Mmr
 
     std::vector<HashVectorPtr> m_vec;
 
-    Merkle::Hash& get_At(size_t nIdx, uint8_t nHeight)
+    Merkle::Hash& get_At(const Merkle::Position& pos)
     {
-        if (m_vec.size() <= nHeight)
-            m_vec.resize(nHeight + 1);
+        if (m_vec.size() <= pos.H)
+            m_vec.resize(pos.H + 1);
 
-        HashVectorPtr& ptr = m_vec[nHeight];
+        HashVectorPtr& ptr = m_vec[pos.H];
         if (!ptr)
             ptr.reset(new HashVector);
 
 
         HashVector& vec = *ptr;
-        if (vec.size() <= nIdx)
-            vec.resize(nIdx + 1);
+        if (vec.size() <= pos.X)
+            vec.resize(pos.X + 1);
 
-        return vec[nIdx];
+        return vec[pos.X];
     }
 
-    virtual void LoadElement(Merkle::Hash& hv, uint64_t nIdx, uint8_t nHeight) const override
+    virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
     {
-        hv = ((MyMmr*)this)->get_At(nIdx, nHeight);
+        hv = ((MyMmr*)this)->get_At(pos);
     }
 
-    virtual void SaveElement(const Merkle::Hash& hv, uint64_t nIdx, uint8_t nHeight) override
+    virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override
     {
-        get_At(nIdx, nHeight) = hv;
+        get_At(pos) = hv;
+    }
+};
+
+struct MiniChainManager
+{
+    MyMmr m_Mmr;
+
+    Block::SystemState::Full m_Hdr;
+    Merkle::Hash m_hvLive;
+
+    MiniChainManager()
+    {
+        ZeroObject(m_Hdr);
+        ZeroObject(m_hvLive);
+    }
+
+    void Add()
+    {
+        if (m_Hdr.m_Height)
+        {
+            m_Hdr.NextPrefix();
+            m_Mmr.Append(m_Hdr.m_Prev);
+        }
+        else
+            m_Hdr.m_Height = Rules::HeightGenesis;
+
+        m_Mmr.get_Hash(m_Hdr.m_Definition);
+        Merkle::Interpret(m_Hdr.m_Definition, m_hvLive, true);
     }
 };
 
 struct RollbackIO : public TestNetwork
 {
-    RollbackIO(IOLoop& mainLoop, const MyMmr& mmr, Height branch, Height current, unsigned step)
+    RollbackIO(IOLoop& mainLoop, MiniChainManager& mcm, Height branch, unsigned step)
         : TestNetwork(mainLoop)
-        , m_mmr(mmr)
+        , m_mcm(mcm)
         , m_branch(branch)
-        , m_current(current)
         , m_step(step)
     {
 
@@ -1265,18 +1329,30 @@ struct RollbackIO : public TestNetwork
 
     void InitHdr(proto::Hdr& msg) override
     {
-        msg.m_Description.m_Height = m_current;
-        m_mmr.get_Hash(msg.m_Description.m_Definition);
+        msg.m_Description = m_mcm.m_Hdr;
     }
 
     void send_node_message(beam::proto::GetProofState&& msg) override
     {
         cout << "Rollback. GetProofState Height=" << msg.m_Height << "\n";
-		proto::ProofStateForDummies msgOut;
-        m_mmr.get_Proof(msgOut.m_Proof, msg.m_Height);
+
+        proto::ProofState msgOut;
+
+        assert(msg.m_Height >= Rules::HeightGenesis);
+
+        // TODO: Wallet must not request proofs beyond max height (this doesn't make sense)
+        if (msg.m_Height < m_mcm.m_Hdr.m_Height)
+        {
+            Merkle::ProofBuilderHard bld;
+            m_mcm.m_Mmr.get_Proof(bld, msg.m_Height - Rules::HeightGenesis);
+
+            msgOut.m_Proof.swap(bld.m_Proof);
+            msgOut.m_Proof.push_back(m_mcm.m_hvLive);
+        }
+
         enqueueNetworkTask([this, msgOut]{
-			m_peers[0]->handle_node_message((proto::ProofStateForDummies&&) msgOut);
-		});
+            m_peers[0]->handle_node_message((proto::ProofState&&) msgOut);
+        });
     }
 
     void send_node_message(proto::GetMined&& data) override
@@ -1292,9 +1368,8 @@ struct RollbackIO : public TestNetwork
         shutdown();
     }
 
-    const MyMmr& m_mmr;
+    MiniChainManager& m_mcm;
     Height m_branch;
-    Height m_current;
     unsigned m_step;
 };
 
@@ -1303,77 +1378,31 @@ void TestRollback(Height branch, Height current, unsigned step = 1)
     cout << "\nRollback from " << current << " to " << branch << " step: " << step <<'\n';
     auto db = createSqliteKeychain("wallet.db");
     
-    MyMmr mmrNew, mmrOld;
+    MiniChainManager mcmOld, mcmNew;
 
-    for (Height i = 0; i <= current; ++i)
+    for (Height i = Rules::HeightGenesis; i <= current; ++i)
     {
-        Coin coin1 = { 5, Coin::Unspent, 1, 10, KeyType::Regular, i };
-        Merkle::Hash hash = {};
-        ECC::Hash::Processor() << i >> hash;
-        coin1.m_confirmHash = hash;
-        mmrOld.Append(hash);
-        if (i < branch)
-        {
-            mmrNew.Append(hash);
-        }
-        else // change history
-        {
-            ECC::Hash::Processor() << (i + current + 1) >> hash;
-            mmrNew.Append(hash);
-        }
+        mcmOld.Add();
+
+        if (i == branch)
+            mcmNew.m_hvLive = 1U; // branching
+        mcmNew.Add();
+
         if (i % step == 0)
         {
+            Coin coin1 = { 5, Coin::Unspent, 0, 0, KeyType::Regular, i };
+            mcmOld.m_Hdr.get_Hash(coin1.m_confirmHash);
+
             db->store(coin1);
         }
     }
 
-    Merkle::Hash newStateDefinition;
-    mmrNew.get_Hash(newStateDefinition);
-
-    Merkle::Hash oldStateDefinition;
-    mmrOld.get_Hash(oldStateDefinition);
-
-    WALLET_CHECK(newStateDefinition != oldStateDefinition);
-
-    beam::Block::SystemState::ID id = {};
-    id.m_Height = current;
-    ECC::Hash::Processor() << current >> id.m_Hash;
-
+    Block::SystemState::ID id;
+    mcmOld.m_Hdr.get_ID(id);
     db->setSystemStateID(id);
 
-    for (Height i = branch; i <= current ; ++i)
-    {
-        Merkle::Proof proof;
-        mmrNew.get_Proof(proof, i);
-        Merkle::Hash hash = {};
-        ECC::Hash::Processor() << (i + current + 1) >> hash;
-        Merkle::Interpret(hash, proof);
-        WALLET_CHECK(hash == newStateDefinition);
-    }
-
-    for (Height i = 0; i < branch; ++i)
-    {
-        Merkle::Proof proof;
-        mmrNew.get_Proof(proof, i);
-        Merkle::Hash hash = {};
-        ECC::Hash::Processor() << i >> hash;
-        Merkle::Interpret(hash, proof);
-        WALLET_CHECK(hash == newStateDefinition);
-    }
-
-    for (Height i = 0; i < current; ++i)
-    {
-        Merkle::Proof proof;
-        mmrOld.get_Proof(proof, i);
-        Merkle::Hash hash = {};
-        ECC::Hash::Processor() << i >> hash;
-        
-        Merkle::Interpret(hash, proof);
-        WALLET_CHECK(hash == oldStateDefinition);
-    }
-
     IOLoop mainLoop;
-    auto network = make_shared<RollbackIO>(mainLoop, mmrNew, branch, current, step);
+    auto network = make_shared<RollbackIO>(mainLoop, mcmNew, branch, step);
 
     Wallet sender(db, network);
     
@@ -1398,7 +1427,7 @@ void TestRollback()
         TestRollback(i, s, 2);
     }
     
-    TestRollback(0, 1);
+    TestRollback(1, 1);
     TestRollback(2, 50);
     TestRollback(2, 51);
     TestRollback(93, 120);

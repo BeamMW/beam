@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include <iostream>
-#include "../storage.h"
+#include "../radixtree.h"
 #include "../navigator.h"
 #include "../../utility/serialize.h"
 
@@ -208,7 +208,7 @@ namespace beam
 
 	void SetRandomUtxoKey(UtxoTree::Key::Data& d)
 	{
-		for (size_t i = 0; i < sizeof(d.m_Commitment.m_X.m_pData); i++)
+		for (size_t i = 0; i < d.m_Commitment.m_X.nBytes; i++)
 			d.m_Commitment.m_X.m_pData[i] = (uint8_t) rand();
 
 		d.m_Commitment.m_Y	= (1 & rand()) != 0;
@@ -290,7 +290,7 @@ namespace beam
 		}
 
 		t.get_Hash(hv2);
-		verify_test(hv2 == ECC::Zero);
+		verify_test(hv2 == Zero);
 
 		// construct tree in different order
 		for (uint32_t i = (uint32_t) vKeys.size(); i--; )
@@ -372,31 +372,31 @@ namespace beam
 
 		std::vector<HashVectorPtr> m_vec;
 
-		Merkle::Hash& get_At(uint64_t nIdx, uint8_t nHeight)
+		Merkle::Hash& get_At(const Merkle::Position& pos)
 		{
-			if (m_vec.size() <= nHeight)
-				m_vec.resize(nHeight + 1);
+			if (m_vec.size() <= pos.H)
+				m_vec.resize(pos.H + 1);
 
-			HashVectorPtr& ptr = m_vec[nHeight];
+			HashVectorPtr& ptr = m_vec[pos.H];
 			if (!ptr)
 				ptr.reset(new HashVector);
 
 		
 			HashVector& vec = *ptr;
-			if (vec.size() <= size_t(nIdx))
-				vec.resize(size_t(nIdx) + 1);
+			if (vec.size() <= size_t(pos.X))
+				vec.resize(size_t(pos.X) + 1);
 
-			return vec[size_t(nIdx)];
+			return vec[size_t(pos.X)];
 		}
 
-		virtual void LoadElement(Merkle::Hash& hv, uint64_t nIdx, uint8_t nHeight) const override
+		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
 		{
-			hv = ((MyMmr*) this)->get_At(nIdx, nHeight);
+			hv = ((MyMmr*) this)->get_At(pos);
 		}
 
-		virtual void SaveElement(const Merkle::Hash& hv, uint64_t nIdx, uint8_t nHeight) override
+		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override
 		{
-			get_At(nIdx, nHeight) = hv;
+			get_At(pos) = hv;
 		}
 	};
 
@@ -444,6 +444,8 @@ namespace beam
 		std::vector<Merkle::Hash> vHashes;
 		vHashes.resize(300);
 
+		std::vector<uint32_t> vSet;
+
 		MyMmr mmr;
 		MyDmmr dmmr;
 		Merkle::CompactMmr cmmr;
@@ -452,7 +454,7 @@ namespace beam
 		{
 			Merkle::Hash& hv = vHashes[i];
 
-			for (uint32_t j = 0; j < sizeof(hv.m_pData); j++)
+			for (uint32_t j = 0; j < hv.nBytes; j++)
 				hv.m_pData[j] = (uint8_t)rand();
 
 			Merkle::Hash hvRoot, hvRoot2, hvRoot3;
@@ -474,18 +476,86 @@ namespace beam
 			cmmr.get_Hash(hvRoot);
 			verify_test(hvRoot == hvRoot3);
 
+			vSet.clear();
+
 			for (uint32_t j = 0; j <= i; j++)
 			{
-				Merkle::Proof proof, proof2;
+				Merkle::Proof proof;
 				mmr.get_Proof(proof, j);
-				dmmr.get_Proof(proof2, j);
 
-				verify_test(proof == proof2);
+				Merkle::ProofBuilderStd bld;
+				dmmr.get_Proof(bld, j);
+
+				verify_test(proof == bld.m_Proof);
 
 				Merkle::Hash hv2 = vHashes[j];
 				Merkle::Interpret(hv2, proof);
 				verify_test(hv2 == hvRoot);
+
+				if (rand() & 1)
+					vSet.push_back(j);
 			}
+
+			Merkle::MultiProof mp;
+
+			{
+				struct Builder
+					:public Merkle::MultiProof::Builder
+				{
+					const MyMmr& m_Mmr;
+					Builder(Merkle::MultiProof& x, const MyMmr& mmr)
+						:Merkle::MultiProof::Builder(x)
+						,m_Mmr(mmr)
+					{
+					}
+
+					virtual void get_Proof(Merkle::IProofBuilder& p, uint64_t i) override
+					{
+						m_Mmr.get_Proof(p, i);
+					}
+				};
+
+				Builder bld(mp, mmr);
+				for (uint32_t j = 0; j < vSet.size(); j++)
+					bld.Add(vSet[j]);
+			}
+
+			struct MyVerifier
+				:public Merkle::MultiProof::Verifier
+			{
+				Merkle::Hash m_hvRoot;
+
+				MyVerifier(const Merkle::MultiProof& x, uint64_t nCount) :Verifier(x, nCount) {}
+
+				virtual bool IsRootValid(const Merkle::Hash& hv) override { return hv == m_hvRoot; }
+			};
+
+			while (true)
+			{
+				MyVerifier ver(mp, i + 1);
+				ver.m_hvRoot = hvRoot;
+
+				for (uint32_t j = 0; j < vSet.size(); j++)
+				{
+					ver.m_hvPos = vHashes[vSet[j]];
+					ver.Process(vSet[j]);
+					verify_test(ver.m_bVerify);
+				}
+
+				// crop
+				vSet.resize(vSet.size() / 2);
+				if (vSet.empty())
+					break;
+
+				MyVerifier crop(mp, i + 1);
+				crop.m_bVerify = false;
+
+				for (uint32_t j = 0; j < vSet.size(); j++)
+					crop.Process(vSet[j]);
+
+				mp.m_vData.resize(crop.get_Pos() - mp.m_vData.begin());
+			}
+
 		}
 	}
 

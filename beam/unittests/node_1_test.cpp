@@ -23,8 +23,6 @@ int g_Ret = 0;
 
 namespace ECC {
 
-	Initializer g_Initializer;
-
 	void GenerateRandom(void* p, uint32_t n)
 	{
 		for (uint32_t i = 0; i < n; i++)
@@ -33,7 +31,7 @@ namespace ECC {
 
 	void SetRandom(uintBig& x)
 	{
-		GenerateRandom(x.m_pData, sizeof(x.m_pData));
+		GenerateRandom(x.m_pData, x.nBytes);
 	}
 
 	void SetRandom(Scalar::Native& x)

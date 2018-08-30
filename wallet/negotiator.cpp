@@ -64,7 +64,7 @@ namespace beam::wallet
     Negotiator::FSMDefinition::FSMDefinition(Negotiator& parent)
         : m_parent{ parent }
     {
-        m_blindingExcess = ECC::Zero;
+        m_blindingExcess = Zero;
     }
 
     void Negotiator::FSMDefinition::invitePeer(const events::TxInitiated&)
@@ -116,8 +116,8 @@ namespace beam::wallet
         m_parent.m_gateway.send_tx_invitation(m_parent.m_txDesc, move(inviteMsg));
     }
 
-	void Negotiator::FSMDefinition::confirmPeer(const events::TxInvitationCompleted& event)
-	{
+    void Negotiator::FSMDefinition::confirmPeer(const events::TxInvitationCompleted& event)
+    {
         auto& msg = event.data;
 
         if (!isValidSignature(msg.m_peerSignature, msg.m_publicPeerNonce, msg.m_publicPeerExcess)
@@ -131,7 +131,7 @@ namespace beam::wallet
         m_peerSignature = msg.m_peerSignature;
         update_tx_description(TxDescription::InProgress);
         sendConfirmTransaction();
-	}
+    }
 
     void Negotiator::FSMDefinition::sendConfirmTransaction() const
     {
@@ -181,22 +181,22 @@ namespace beam::wallet
         m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmMsg));
     }
 
-	void Negotiator::FSMDefinition::registerTx(const events::TxConfirmationCompleted& event)
-	{
-		if (!registerTxInternal(event))
-		{
-			Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
-			fsm.process_event(events::TxFailed{ true });
+    void Negotiator::FSMDefinition::registerTx(const events::TxConfirmationCompleted& event)
+    {
+        if (!registerTxInternal(event))
+        {
+            Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
+            fsm.process_event(events::TxFailed{ true });
             return;
-		}
+        }
         update_tx_description(TxDescription::InProgress);
         sendNewTransaction();
-	}
+    }
 
-	bool Negotiator::FSMDefinition::registerTxInternal(const events::TxConfirmationCompleted& event)
-	{
-		if (!isValidSignature(event.data.m_peerSignature))
-			return false;
+    bool Negotiator::FSMDefinition::registerTxInternal(const events::TxConfirmationCompleted& event)
+    {
+        if (!isValidSignature(event.data.m_peerSignature))
+            return false;
 
         // Calculate final signature
         Scalar::Native senderSignature;
@@ -205,9 +205,9 @@ namespace beam::wallet
         Scalar::Native finialSignature = senderSignature + receiverSignature;
 
         // Calculate public key for excess
-		Point::Native x;
-		if (!x.Import(getPublicExcess()))
-			return false;
+        Point::Native x;
+        if (!x.Import(getPublicExcess()))
+            return false;
         x += m_publicPeerExcess;
 
         // Create transaction kernel and transaction
@@ -254,7 +254,7 @@ namespace beam::wallet
         }
         else
         {
-			update_tx_description(TxDescription::Cancelled);
+            update_tx_description(TxDescription::Cancelled);
             rollbackTx();
             m_parent.m_gateway.send_tx_failed(m_parent.m_txDesc);
         }
@@ -276,6 +276,14 @@ namespace beam::wallet
         LOG_INFO() << "Transaction registered";
         update_tx_description(TxDescription::Completed);
         m_parent.m_gateway.send_tx_registered(m_parent.m_txDesc);
+
+        auto coins = m_parent.m_keychain->getCoinsCreatedByTx(m_parent.m_txDesc.m_txId);
+
+        for (auto& coin : coins)
+        {
+            coin.m_status = Coin::Unconfirmed;
+        }
+        m_parent.m_keychain->update(coins);
     }
     
     void Negotiator::FSMDefinition::completeTx(const events::TxOutputsConfirmed&)
@@ -287,6 +295,14 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "Transaction completed";
         update_tx_description(TxDescription::Completed);
+
+        auto coins = m_parent.m_keychain->getCoinsCreatedByTx(m_parent.m_txDesc.m_txId);
+
+        for (auto& coin : coins)
+        {
+            coin.m_status = Coin::Unconfirmed;
+        }
+        m_parent.m_keychain->update(coins);
     }
 
     void Negotiator::FSMDefinition::update_tx_description(TxDescription::Status s)
@@ -336,7 +352,7 @@ namespace beam::wallet
 
     void Negotiator::FSMDefinition::createOutputUtxo(Amount amount, Height height)
     {
-        Coin newUtxo{ amount, Coin::Unconfirmed, height };
+        Coin newUtxo{ amount, Coin::Draft, height };
         newUtxo.m_createTxId = m_parent.m_txDesc.m_txId;
         m_parent.m_keychain->store(newUtxo);
 
@@ -348,20 +364,20 @@ namespace beam::wallet
         m_offset += offset;
     }
 
-	bool Negotiator::ProcessInvitation(Invite& inviteMsg)
-	{
-		if (!m_fsm.m_publicPeerExcess.Import(inviteMsg.m_publicPeerExcess) ||
-			!m_fsm.m_publicPeerNonce.Import(inviteMsg.m_publicPeerNonce))
-			return false;
+    bool Negotiator::ProcessInvitation(Invite& inviteMsg)
+    {
+        if (!m_fsm.m_publicPeerExcess.Import(inviteMsg.m_publicPeerExcess) ||
+            !m_fsm.m_publicPeerNonce.Import(inviteMsg.m_publicPeerNonce))
+            return false;
 
         m_fsm.m_offset = inviteMsg.m_offset;
         m_fsm.m_transaction = std::make_shared<Transaction>();
-        m_fsm.m_transaction->m_Offset = ECC::Zero;
+        m_fsm.m_transaction->m_Offset = Zero;
         m_fsm.m_transaction->m_vInputs = move(inviteMsg.m_inputs);
         m_fsm.m_transaction->m_vOutputs = move(inviteMsg.m_outputs);
 
-		return true;
-	}
+        return true;
+    }
 
     Scalar Negotiator::FSMDefinition::createSignature() const
     {
@@ -383,13 +399,13 @@ namespace beam::wallet
     void Negotiator::FSMDefinition::createSignature2(Scalar& signature, Point& publicNonce, Scalar& challenge) const
     {
         Hash::Value message;
-        m_kernel->get_HashForSigning(message);
+        m_kernel->get_Hash(message);
 
         Signature::MultiSig msig;
         msig.GenerateNonce(message, m_blindingExcess);
 
-		Point::Native pt = Context::get().G * msig.m_Nonce;
-		publicNonce = pt;
+        Point::Native pt = Context::get().G * msig.m_Nonce;
+        publicNonce = pt;
         msig.m_NoncePub = m_publicPeerNonce + pt;
 
         Scalar::Native partialSignature;
@@ -407,7 +423,7 @@ namespace beam::wallet
     Point Negotiator::FSMDefinition::getPublicNonce() const
     {
         Hash::Value message;
-        m_kernel->get_HashForSigning(message);
+        m_kernel->get_Hash(message);
 
         Signature::MultiSig msig;
         msig.GenerateNonce(message, m_blindingExcess);
@@ -429,15 +445,15 @@ namespace beam::wallet
         }
         Signature::MultiSig msig;
         Hash::Value message;
-        m_kernel->get_HashForSigning(message);
+        m_kernel->get_Hash(message);
 
         msig.GenerateNonce(message, m_blindingExcess);
         Point::Native publicNonce = Context::get().G * msig.m_Nonce;
 
-		Point::Native pkPeer, xcPeer;
-		if (!pkPeer.Import(publicPeerNonce) ||
-			!xcPeer.Import(publicPeerExcess))
-			return false;
+        Point::Native pkPeer, xcPeer;
+        if (!pkPeer.Import(publicPeerNonce) ||
+            !xcPeer.Import(publicPeerExcess))
+            return false;
 
         msig.m_NoncePub = publicNonce + pkPeer;
 
@@ -473,7 +489,7 @@ namespace beam::wallet
         vector<Output::Ptr> outputs;
         m_parent.m_keychain->visit([this, &txID, &outputs](const Coin& c)->bool
         {
-            if (c.m_createTxId == txID && c.m_status == Coin::Unconfirmed)
+            if (c.m_createTxId == txID && c.m_status == Coin::Draft)
             {
                 Output::Ptr output = make_unique<Output>();
                 output->m_Coinbase = false;

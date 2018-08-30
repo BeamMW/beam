@@ -64,9 +64,6 @@ namespace beam
 
         void add_wallet(const WalletID& walletID);
 
-        // TODO now from add_wallet ???
-        void listen_to_bbs_channel(uint32_t channel);
-
     private:
         // INetworkIO
         void send_tx_message(const WalletID& to, wallet::Invite&&) override;
@@ -87,6 +84,9 @@ namespace beam
         void connect_node() override;
         void close_node_connection() override;
 
+        void new_own_address(const WalletID& address) override;
+        void address_deleted(const WalletID& address) override;
+
         // IMsgHandler
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;
         void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override;
@@ -104,18 +104,15 @@ namespace beam
         void on_sync_timer();
         void on_close_connection_timer();
         void postpone_close_timer();
-        void cancel_close_timer();
         void on_node_connected();
         void on_node_disconnected();
 
         void create_node_connection();
 
         template <typename T>
-        void send(const WalletID& walletID, MsgType type, T&& msg, const WalletID* from=0)
+        void send(const WalletID& walletID, MsgType type, T&& msg)
         {
             update_wallets(walletID);
-
-            msg.m_from = from ? *from : *m_myPubKeys.begin();
 
             uint32_t channel = channel_from_wallet_id(walletID);
             LOG_DEBUG() << "BBS send message to channel=" << channel << "[" << to_hex(walletID.m_pData, 32) << "]  my pubkey=" << to_hex(msg.m_from.m_pData, 32);
@@ -152,7 +149,11 @@ namespace beam
 
         void update_wallets(const WalletID& walletID);
 
+        void listen_to_bbs_channel(const WalletID& walletID);
+
         bool handle_bbs_message(proto::BbsMsg&& msg);
+
+        void reset_connection();
 
         class WalletNodeConnection : public proto::NodeConnection
         {
@@ -166,12 +167,13 @@ namespace beam
 			void OnDisconnect(const DisconnectReason&) override;
 			bool OnMsg2(proto::Boolean&& msg) override;
             bool OnMsg2(proto::ProofUtxo&& msg) override;
-			bool OnMsg2(proto::ProofStateForDummies&& msg) override;
+			bool OnMsg2(proto::ProofState&& msg) override;
 			bool OnMsg2(proto::NewTip&& msg) override;
             bool OnMsg2(proto::Hdr&& msg) override;
             bool OnMsg2(proto::Mined&& msg) override;
             bool OnMsg2(proto::BbsMsg&& msg) override;
-        private:
+			bool OnMsg2(proto::Authentication&& msg) override;
+		private:
             io::Address m_address;
             IWallet & m_wallet;
             std::vector<NodeConnectCallback> m_callbacks;

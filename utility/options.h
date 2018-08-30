@@ -76,7 +76,17 @@ namespace beam
 		extern const char* APPDATA_PATH;
     }
 
-    po::options_description createOptionsDescription();
+    enum OptionsFlag : int
+    {
+        GENERAL_OPTIONS = 1 << 0,
+        NODE_OPTIONS    = 1 << 1,
+        WALLET_OPTIONS  = 1 << 2,
+        UI_OPTIONS      = 1 << 3,
+
+        ALL_OPTIONS     = GENERAL_OPTIONS | NODE_OPTIONS | WALLET_OPTIONS | UI_OPTIONS
+    };
+
+    po::options_description createOptionsDescription(int flags = ALL_OPTIONS);
 
     po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options);
 

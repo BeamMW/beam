@@ -35,6 +35,5 @@ namespace beamui
 
         return datetime.toString(Qt::SystemLocaleShortDate);
     }
-
     
 }

@@ -39,7 +39,7 @@ namespace beam
         // node to wallet responses
         virtual bool handle_node_message(proto::Boolean&&) = 0;
         virtual bool handle_node_message(proto::ProofUtxo&&) = 0;
-		virtual bool handle_node_message(proto::ProofStateForDummies&& msg) = 0;
+		virtual bool handle_node_message(proto::ProofState&& msg) = 0;
 		virtual bool handle_node_message(proto::NewTip&&) = 0;
         virtual bool handle_node_message(proto::Hdr&&) = 0;
         virtual bool handle_node_message(proto::Mined&& msg) = 0;
@@ -52,6 +52,9 @@ namespace beam
         virtual void cancel_tx(const TxID& id) = 0;
 
 		virtual void set_node_address(io::Address node_address) = 0;
+		virtual void emergencyReset() = 0;
+
+		virtual bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) = 0;
     };
 
     struct INetworkIO 
@@ -76,6 +79,9 @@ namespace beam
         virtual void connect_node() = 0;
         virtual void close_node_connection() = 0;
 
+        virtual void new_own_address(const WalletID& address) = 0;
+        virtual void address_deleted(const WalletID& address) = 0;
+        
 		virtual void set_node_address(io::Address node_address) = 0;
     };
 
@@ -110,7 +116,7 @@ namespace beam
     public:
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
 
-        Wallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, TxCompletedAction&& action = TxCompletedAction());
+        Wallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, bool holdNodeConnection = false, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, ByteBuffer&& message = {} );
@@ -134,7 +140,7 @@ namespace beam
 
         bool handle_node_message(proto::Boolean&& res) override;
         bool handle_node_message(proto::ProofUtxo&& proof) override;
-		bool handle_node_message(proto::ProofStateForDummies&& msg) override;
+		bool handle_node_message(proto::ProofState&& msg) override;
 		bool handle_node_message(proto::NewTip&& msg) override;
         bool handle_node_message(proto::Hdr&& msg) override;
         bool handle_node_message(proto::Mined&& msg) override;
@@ -149,6 +155,8 @@ namespace beam
         void cancel_tx(const TxID& txId) override;
 
 		void set_node_address(io::Address node_address) override;
+		void emergencyReset() override;
+		bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode);
 
     private:
         void remove_peer(const TxID& txId);
@@ -161,6 +169,9 @@ namespace beam
         void register_tx(const TxID& txId, Transaction::Ptr);
         void resume_negotiator(const TxDescription& tx);
 		void notifySyncProgress();
+        void resetSystemState();
+
+		virtual bool IsTestMode() { return false; }
 
         struct Cleaner
         {
@@ -207,18 +218,14 @@ namespace beam
         std::deque<Coin> m_pendingProofs;
         std::vector<Callback> m_pendingEvents;
 
-        bool m_isValidDefinition;
-        Merkle::Hash m_Definition;
+		Block::SystemState::Full m_newState;
         Block::SystemState::ID m_knownStateID;
-        Block::SystemState::ID m_newStateID;
         std::unique_ptr<StateFinder> m_stateFinder;
-        boost::optional<proto::ProofStateForDummies> m_knownStateProof;
-
-		bool IsKnownStateValid(const proto::ProofStateForDummies&) const;
 
         int m_syncDone;
         int m_syncTotal;
         bool m_synchronized;
+        bool m_holdNodeConnection;
 
 		std::vector<IWalletObserver*> m_subscribers;
     };

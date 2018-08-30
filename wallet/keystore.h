@@ -6,6 +6,19 @@ namespace beam {
 
 using PubKey = ECC::Hash::Value;
 
+class KeyStoreException : public std::runtime_error {
+public:
+    explicit KeyStoreException(const std::string& msg)
+        : std::runtime_error(msg.c_str())
+    {
+    }
+
+    explicit KeyStoreException(const char *msg)
+        : std::runtime_error(msg)
+    {
+    }
+};
+
 struct IKeyStore {
     using Ptr = std::shared_ptr<IKeyStore>;
 
@@ -22,8 +35,11 @@ struct IKeyStore {
 
     virtual ~IKeyStore() {}
 
-    /// Creates a new keypair, returns the public key and stores the private key
-    virtual void gen_keypair(PubKey& pubKey, const void* password, size_t passwordLen, bool enable) = 0;
+    /// Creates a new keypair, returns the public key, use save_keypair to save and enable
+    virtual void gen_keypair(PubKey& pubKey) = 0;
+
+    /// Saves unsaved keypair and enables if needed
+    virtual void save_keypair(const PubKey& pubKey, bool enable) = 0;
 
     virtual size_t size() = 0;
 
@@ -31,13 +47,13 @@ struct IKeyStore {
     virtual void get_enabled_keys(std::set<PubKey>& enabledKeys) = 0;
 
     /// enables given keypairs only
-    virtual void enable_keys(const std::set<PubKey>& enableKeys, const void* password, size_t passwordLen) = 0;
+    virtual void enable_keys(const std::set<PubKey>& enableKeys) = 0;
 
     /// disables the keypair but not erases from the storage
     virtual void disable_key(const PubKey& pubKey) = 0;
 
     /// disables keypair and erases permanently from the storage
-    virtual void erase_key(const PubKey& pubKey, const void* password, size_t passwordLen) = 0;
+    virtual void erase_key(const PubKey& pubKey) = 0;
 
     /// Encrypts the message, returns false iff private key not found for public key given
     virtual bool encrypt(ByteBuffer& out, const void* data, size_t size, const PubKey& pubKey) = 0;
