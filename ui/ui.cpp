@@ -85,7 +85,7 @@ int main (int argc, char* argv[])
 
     try
     {
-        po::options_description options = createOptionsDescription();
+        po::options_description options = createOptionsDescription(GENERAL_OPTIONS | UI_OPTIONS | WALLET_OPTIONS);
         po::variables_map vm;
 
         try
