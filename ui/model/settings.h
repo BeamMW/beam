@@ -47,6 +47,8 @@ public:
     std::string getLocalNodeStorage() const;
     std::string getTempDir() const;
 
+    void applyChanges();
+
 signals:
     void nodeAddressChanged();
     void localNodeRunChanged();
