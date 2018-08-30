@@ -30,6 +30,8 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(uint localNodeMiningThreads READ getLocalNodeMiningThreads WRITE setLocalNodeMiningThreads NOTIFY localNodeMiningThreadsChanged)
     Q_PROPERTY(uint localNodeVerificationThreads READ getLocalNodeVerificationThreads WRITE setLocalNodeVerificationThreads NOTIFY localNodeVerificationThreadsChanged)
     Q_PROPERTY(bool isChanged READ isChanged NOTIFY propertiesChanged)
+    Q_PROPERTY(QStringList localNodePeers READ getLocalNodePeers NOTIFY localNodePeersChanged)
+
 public:
 
     SettingsViewModel();
@@ -45,9 +47,15 @@ public:
     void setLocalNodeMiningThreads(uint value);
     uint getLocalNodeVerificationThreads() const;
     void setLocalNodeVerificationThreads(uint value);
+
+    QStringList getLocalNodePeers() const;
+    void setLocalNodePeers(const QStringList& localNodePeers);
+
     bool isChanged() const;
 
     Q_INVOKABLE uint coreAmount() const;
+    Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
+    Q_INVOKABLE void deleteLocalNodePeer(int index);
 
 public slots:
     void applyChanges();
@@ -61,6 +69,7 @@ signals:
     void localNodePortChanged();
     void localNodeMiningThreadsChanged();
     void localNodeVerificationThreadsChanged();
+    void localNodePeersChanged();
     void propertiesChanged();
 private:
     WalletSettings& m_settings;
@@ -70,4 +79,5 @@ private:
     uint m_localNodePort;
     uint m_localNodeMiningThreads;
     uint m_localNodeVerificationThreads;
+    QStringList m_localNodePeers;
 };

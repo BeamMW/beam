@@ -127,7 +127,6 @@ Rectangle {
                     ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: 20
-                        spacing: 10
 
                         SFText {
                             text: qsTr("Local node")
@@ -136,94 +135,178 @@ Rectangle {
                             font.weight: Font.Bold
                         }
 
-                        CustomSwitch {
-                            id: localNodeRun
-                            text: qsTr("Run local node")
-                            font.pixelSize: 12
-                            width: parent.width
-                            checked: viewModel.localNodeRun
-                            Binding {
-                                target: viewModel
-                                property: "localNodeRun"
-                                value: localNodeRun.checked
-                            }
-                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignTop
+                            spacing: 30
 
-                        SFText {
-                            text: qsTr("Local node port")
-                            color: Style.white
-                            font.pixelSize: 12
-                            font.weight: Font.Bold
-                        }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.alignment: Qt.AlignTop
+                                spacing: 10
 
-                        SFTextInput {
-                            id: localNodePort
-                            width: parent.width
-                            activeFocusOnTab: true
-                            font.pixelSize: 12
-                            color: readOnly ? Style.disable_text_color : Style.white
-                            readOnly: !localNodeRun.checked
-                            text: viewModel.localNodePort
-                            validator: IntValidator {
-                                bottom: 0
-                                top: 65535
-                            }
-                            Binding {
-                                target: viewModel
-                                property: "localNodePort"
-                                value: localNodePort.text
-                            }
-                        }
+                                CustomSwitch {
+                                    id: localNodeRun
+                                    text: qsTr("Run local node")
+                                    font.pixelSize: 12
+                                    width: parent.width
+                                    checked: viewModel.localNodeRun
+                                    Binding {
+                                        target: viewModel
+                                        property: "localNodeRun"
+                                        value: localNodeRun.checked
+                                    }
+                                }
 
-                        SFText {
-                            text: qsTr("Mining threads")
-                            color: Style.white
-                            font.pixelSize: 12
-                            font.weight: Font.Bold
-                        }
+                                SFText {
+                                    text: qsTr("Local node port")
+                                    color: Style.white
+                                    font.pixelSize: 12
+                                    font.weight: Font.Bold
+                                }
 
-                        SFTextInput {
-                            id: localNodeMiningThreads
-                            width: parent.width
-                            activeFocusOnTab: true
-                            font.pixelSize: 12
-                            color: readOnly ? Style.disable_text_color : Style.white
-                            readOnly: !localNodeRun.checked
-                            text: viewModel.localNodeMiningThreads
-                            validator: IntValidator {
-                                bottom: 0
-                                top: viewModel.coreAmount()
-                            }
-                            Binding {
-                                target: viewModel
-                                property: "localNodeMiningThreads"
-                                value: localNodeMiningThreads.text
-                            }
-                        }
+                                SFTextInput {
+                                    id: localNodePort
+                                    width: parent.width
+                                    activeFocusOnTab: true
+                                    font.pixelSize: 12
+                                    color: readOnly ? Style.disable_text_color : Style.white
+                                    readOnly: !localNodeRun.checked
+                                    text: viewModel.localNodePort
+                                    validator: IntValidator {
+                                        bottom: 0
+                                        top: 65535
+                                    }
+                                    Binding {
+                                        target: viewModel
+                                        property: "localNodePort"
+                                        value: localNodePort.text
+                                    }
+                                }
 
-                        SFText {
-                            text: qsTr("Verification threads")
-                            color: Style.white
-                            font.pixelSize: 12
-                            font.weight: Font.Bold
-                        }
+                                SFText {
+                                    text: qsTr("Mining threads")
+                                    color: Style.white
+                                    font.pixelSize: 12
+                                    font.weight: Font.Bold
+                                }
 
-                        SFTextInput {
-                            id: localNodeVerificationThreads
-                            width: parent.width
-                            activeFocusOnTab: true
-                            font.pixelSize: 12
-                            color: readOnly ? Style.disable_text_color : Style.white
-                            readOnly: !localNodeRun.checked
-                            text: viewModel.localNodeVerificationThreads
-                            validator: IntValidator {
-                                bottom: 0
-                                top: viewModel.coreAmount()
+                                SFTextInput {
+                                    id: localNodeMiningThreads
+                                    width: parent.width
+                                    activeFocusOnTab: true
+                                    font.pixelSize: 12
+                                    color: readOnly ? Style.disable_text_color : Style.white
+                                    readOnly: !localNodeRun.checked
+                                    text: viewModel.localNodeMiningThreads
+                                    validator: IntValidator {
+                                        bottom: 0
+                                        top: viewModel.coreAmount()
+                                    }
+                                    Binding {
+                                        target: viewModel
+                                        property: "localNodeMiningThreads"
+                                        value: localNodeMiningThreads.text
+                                    }
+                                }
+
+                                SFText {
+                                    text: qsTr("Verification threads")
+                                    color: Style.white
+                                    font.pixelSize: 12
+                                    font.weight: Font.Bold
+                                }
+
+                                SFTextInput {
+                                    id: localNodeVerificationThreads
+                                    width: parent.width
+                                    activeFocusOnTab: true
+                                    font.pixelSize: 12
+                                    color: readOnly ? Style.disable_text_color : Style.white
+                                    readOnly: !localNodeRun.checked
+                                    text: viewModel.localNodeVerificationThreads
+                                    validator: IntValidator {
+                                        bottom: 0
+                                        top: viewModel.coreAmount()
+                                    }
+                                    Binding {
+                                        target: viewModel
+                                        property: "localNodeVerificationThreads"
+                                        value: localNodeVerificationThreads.text
+                                    }
+                                }
                             }
-                            Binding {
-                                target: viewModel
-                                property: "localNodeVerificationThreads"
-                                value: localNodeVerificationThreads.text
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.alignment: Qt.AlignTop
+                                spacing: 10
+
+                                SFText {
+                                    text: qsTr("Peers")
+                                    color: Style.white
+                                    font.pixelSize: 12
+                                    font.weight: Font.Bold
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+
+                                    SFTextInput {
+                                        Layout.fillWidth: true
+                                        id: newLocalNodePeer
+                                        width: parent.width
+                                        activeFocusOnTab: true
+                                        font.pixelSize: 12
+                                        color: readOnly ? Style.disable_text_color : Style.white
+                                        readOnly: !localNodeRun.checked
+                                        validator: RegExpValidator { regExp: /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$/ }
+                                    }
+
+                                    CustomButton {
+                                        Layout.fillWidth: true
+                                        Layout.minimumHeight: 20
+                                        //Layout.minimumWidth: 120
+				                        text: "Add peer"
+                                        palette.button: "#708090"
+                                        palette.buttonText : "white"
+				                        icon.source: "qrc:///assets/icon-add.svg"
+                                        enabled: newLocalNodePeer.acceptableInput
+                                        onClicked: viewModel.addLocalNodePeer(newLocalNodePeer.text);
+                                    }
+                                }
+
+                                ListView {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    model: viewModel.localNodePeers
+                                    clip: true
+                                    delegate: RowLayout {
+                                        Layout.fillWidth: true
+                                        height: 30
+                                        SFText {
+                                            Layout.fillWidth: true
+                                            Layout.alignment: Qt.AlignVCenter
+                                            text: modelData
+                                            font.pixelSize: 12
+                                            color: Style.white
+                                            height: 16
+                                            elide: Text.ElideRight
+                                        }
+                                        Item {
+                                            Layout.fillWidth: true
+                                        }
+                                        CustomButton {
+                                            Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                                            Layout.minimumHeight: 20
+                                            Layout.minimumWidth: 20
+                                            textOpacity: 0
+                                            icon.source: "qrc:///assets/icon-delete.svg"
+                                            enabled: localNodeRun.checked
+                                            onClicked: viewModel.deleteLocalNodePeer(index)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

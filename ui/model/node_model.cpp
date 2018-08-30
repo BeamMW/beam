@@ -69,6 +69,17 @@ void NodeModel::run()
     node.m_Cfg.m_HistoryCompression.m_sPathOutput = settings.getTempDir();
     node.m_Cfg.m_HistoryCompression.m_sPathTmp = settings.getTempDir();
 
+    auto qPeers = settings.getLocalNodePeers();
+
+    for (const auto& qPeer : qPeers)
+    {
+        Address peer_addr;
+        if (peer_addr.resolve(qPeer.toStdString().c_str()))
+        {
+            node.m_Cfg.m_Connect.emplace_back(peer_addr);
+        }
+    }
+
     LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
     node.Initialize();

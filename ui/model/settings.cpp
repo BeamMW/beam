@@ -33,7 +33,8 @@ namespace
     const char* LocalNodePort = "localnode/port";
     const char* LocalNodeMiningThreads = "localnode/mining_threads";
     const char* LocalNodeVerificationThreads = "localnode/verification_threads";
-	const char* SettingsIni = "settings.ini";
+    const char* SettingsIni = "settings.ini";
+    const char* LocalNodePeers = "localnode/peers";
 }
 
 const char* WalletSettings::WalletCfg = "beam-wallet.cfg";
@@ -151,6 +152,17 @@ static void zipLocalFile(QuaZip& zip, const QString& path, const QString& folder
 		file.close();
 		zipFile.close();
 	}
+}
+
+QStringList WalletSettings::getLocalNodePeers() const
+{
+    return m_data.value(LocalNodePeers).value<QStringList>();
+}
+
+void WalletSettings::setLocalNodePeers(const QStringList& qPeers)
+{
+    m_data.setValue(LocalNodePeers, QVariant::fromValue(qPeers));
+    emit localNodePeersChanged();
 }
 
 void WalletSettings::reportProblem()
