@@ -66,7 +66,7 @@ int main_impl(int argc, char* argv[])
 {
 	try
 	{
-		auto options = createOptionsDescription();
+		auto options = createOptionsDescription(GENERAL_OPTIONS | NODE_OPTIONS);
 
 		po::variables_map vm;
 		try
