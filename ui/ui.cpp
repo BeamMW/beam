@@ -90,7 +90,7 @@ int main (int argc, char* argv[])
 
         try
         {
-            vm = getOptions(argc, argv, "beam-wallet.cfg", options);
+            vm = getOptions(argc, argv, WalletSettings::WalletCfg, options);
         }
         catch (const po::error& e)
         {
@@ -130,7 +130,8 @@ int main (int argc, char* argv[])
         logLevel = LOG_LEVEL_VERBOSE;
 #endif
         
-        auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_", appDataDir.filePath("./logs").toStdString());
+        auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_", 
+			appDataDir.filePath(WalletSettings::LogsFolder).toStdString());
 
         try
         {

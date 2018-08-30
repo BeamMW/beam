@@ -33,10 +33,14 @@ namespace
     const char* LocalNodePort = "localnode/port";
     const char* LocalNodeMiningThreads = "localnode/mining_threads";
     const char* LocalNodeVerificationThreads = "localnode/verification_threads";
+	const char* SettingsIni = "settings.ini";
 }
 
+const char* WalletSettings::WalletCfg = "beam-wallet.cfg";
+const char* WalletSettings::LogsFolder = "logs";
+
 WalletSettings::WalletSettings(const QDir& appDataDir)
-    : m_data{ appDataDir.filePath("settings.ini"), QSettings::IniFormat }
+    : m_data{ appDataDir.filePath(SettingsIni), QSettings::IniFormat }
     , m_appDataDir{appDataDir}
 {
 
@@ -135,28 +139,48 @@ string WalletSettings::getTempDir() const
     return m_appDataDir.filePath("./temp").toStdString();
 }
 
+static void zipLocalFile(QuaZip& zip, const QString& path, const QString& folder = QString())
+{
+	QFile file(path);
+	if (file.open(QIODevice::ReadOnly))
+	{
+		QuaZipFile zipFile(&zip);
+
+		zipFile.open(QIODevice::WriteOnly, QuaZipNewInfo((folder.isEmpty() ? "" : folder) + QFileInfo(file).fileName(), file.fileName()));
+		zipFile.write(file.readAll());
+		file.close();
+		zipFile.close();
+	}
+}
+
 void WalletSettings::reportProblem()
 {
+	auto logsFolder = QString::fromStdString(LogsFolder) + "/";
+
 	QFile zipFile = m_appDataDir.filePath("beam v" + QString::fromStdString(PROJECT_VERSION) 
 		+ " " + QSysInfo::productType().toLower() + " report.zip");
 
 	QuaZip zip(zipFile.fileName());
 	zip.open(QuaZip::mdCreate);
 
-	QDirIterator it(m_appDataDir.filePath("logs"));
+	// save settings.ini
+	zipLocalFile(zip, m_appDataDir.filePath(SettingsIni));
+
+	// save .cfg
+	zipLocalFile(zip, QDir(QDir::currentPath()).filePath(WalletCfg));
+
+	// create 'logs' folder
+	{
+		QuaZipFile zipFile(&zip);
+		zipFile.open(QIODevice::WriteOnly, QuaZipNewInfo(logsFolder, logsFolder));
+		zipFile.close();
+	}
+
+	QDirIterator it(m_appDataDir.filePath(LogsFolder));
 
 	while (it.hasNext())
 	{
-		QFile file(it.next());
-		if (file.open(QIODevice::ReadOnly))
-		{
-			QuaZipFile zipFile(&zip);
-
-			zipFile.open(QIODevice::WriteOnly, QuaZipNewInfo(QFileInfo(file).fileName(), file.fileName()));
-			zipFile.write(file.readAll());
-			file.close();
-			zipFile.close();
-		}
+		zipLocalFile(zip, it.next(), logsFolder);
 	}
 
 	zip.close();
@@ -165,7 +189,11 @@ void WalletSettings::reportProblem()
 		QDir(QStandardPaths::writableLocation(QStandardPaths::DesktopLocation)).filePath(QFileInfo(zipFile).fileName()),
 		"Archives (*.zip)");
 
-	if (!path.isEmpty())
+	if (path.isEmpty())
+	{
+		zipFile.remove();
+	}
+	else
 	{
 		{
 			QFile file(path);
