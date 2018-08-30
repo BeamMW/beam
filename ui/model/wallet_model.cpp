@@ -202,7 +202,7 @@ WalletStatus WalletModel::getStatus() const
     status.unconfirmed += wallet::getTotal(_keychain, Coin::Unconfirmed);
 
     status.update.lastTime = _keychain->getLastUpdateTime();
-    
+    ZeroObject(status.stateID);
     _keychain->getSystemStateID(status.stateID);
 
     return status;
@@ -265,7 +265,7 @@ void WalletModel::run()
     catch (const runtime_error& ex)
     {
         LOG_ERROR() << ex.what();
-        AppModel::getInstance()->getMessages().addMessage("Failed to start wallet. Please check your wallet data location");
+        AppModel::getInstance()->getMessages().addMessage(tr("Failed to start wallet. Please check your wallet data location"));
     }
     catch (...)
     {

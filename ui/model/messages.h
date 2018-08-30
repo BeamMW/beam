@@ -23,7 +23,7 @@ class MessageManager : public QObject
 public:
     MessageManager();
 
-    void addMessage(const std::string& message);
+    void addMessage(const QString& message);
 signals:
     void newMessage(const QString& message);
 };

@@ -73,6 +73,12 @@ void NodeModel::run()
 
         LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
+        if (settings.getGenerateGenesys())
+        {
+            node.m_Cfg.m_vTreasury.resize(1);
+            node.m_Cfg.m_vTreasury[0].ZeroInit();
+        }
+
         node.Initialize();
 
         reactor->run();
@@ -80,7 +86,7 @@ void NodeModel::run()
     catch (const runtime_error& ex)
     {
         LOG_ERROR() << ex.what();
-        AppModel::getInstance()->getMessages().addMessage("Failed to start node. Please check your node configuration");
+        AppModel::getInstance()->getMessages().addMessage(tr("Failed to start node. Please check your node configuration"));
     }
     catch (...)
     {

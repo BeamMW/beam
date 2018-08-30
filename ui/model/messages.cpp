@@ -22,7 +22,7 @@ MessageManager::MessageManager()
 
 }
 
-void MessageManager::addMessage(const string& message)
+void MessageManager::addMessage(const QString& message)
 {
-    emit newMessage(QString(message.c_str()));
+    emit newMessage(message);
 }

@@ -72,5 +72,6 @@
         <file>assets/icon-reset.svg</file>
         <file>controls/CustomToolButton.qml</file>
         <file>controls/CustomSwitch.qml</file>
+        <file>controls/CustomCheckBox.qml</file>
     </qresource>
 </RCC>
