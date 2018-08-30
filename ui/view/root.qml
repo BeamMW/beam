@@ -20,11 +20,13 @@ Item {
         height: Math.min(100, viewModel.messages.length * 30 + 10)
         clip: true
         visible:  viewModel.messages.length > 0
-        background: Rectangle {
-            color: "red"
-            opacity: 0.4
+        background: Item {
             anchors.fill: parent
-            
+            Rectangle {
+                color: "red"
+                opacity: 0.4
+                anchors.fill: parent
+            }
             ListView {
                 id: sampleListView
                 anchors.fill: parent
@@ -48,17 +50,16 @@ Item {
                         color: Style.white
                         height: 16
                     }
-                    CustomButton {
+                    CustomToolButton {
                         Layout.alignment: Qt.AlignVCenter
                         Layout.minimumHeight: 20
                         Layout.minimumWidth: 20
                         Layout.rightMargin: 30
-                        textOpacity: 0
                         icon.source: "qrc:///assets/icon-cancel.svg"
                         onClicked: viewModel.deleteMessage(index)
                     }
                 }
-            }
+            }            
         }
     }
 

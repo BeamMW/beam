@@ -35,6 +35,9 @@ public:
     void emergencyReset();
 	void reportProblem();
 
+    bool getGenerateGenesys() const;
+    void setGenerateGenesys(bool value);
+
     bool getRunLocalNode() const;
     void setRunLocalNode(bool value);
 
@@ -50,12 +53,15 @@ public:
 	static const char* WalletCfg;
 	static const char* LogsFolder;
 
+    void applyChanges();
+
 signals:
     void nodeAddressChanged();
     void localNodeRunChanged();
     void localNodePortChanged();
     void localNodeMiningThreadsChanged();
     void localNodeVerificationThreadsChanged();
+    void localNodeGenerateGenesysChanged();
 
 private:
     QSettings m_data;

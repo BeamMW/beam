@@ -23,27 +23,27 @@
 
 class StartViewModel : public QObject
 {
-	Q_OBJECT
+    Q_OBJECT
 
-	Q_PROPERTY(bool walletExists READ walletExists NOTIFY walletExistsChanged)
+    Q_PROPERTY(bool walletExists READ walletExists NOTIFY walletExistsChanged)
 public:
 
-	using DoneCallback = std::function<bool (beam::IKeyChain::Ptr db, const std::string& walletPass)>;
+    using DoneCallback = std::function<bool (beam::IKeyChain::Ptr db, const std::string& walletPass)>;
 
-	StartViewModel();
+    StartViewModel();
     ~StartViewModel();
 
-	bool walletExists() const;
+    bool walletExists() const;
 
-    Q_INVOKABLE void setupLocalNode(int port, int miningThreads);
+    Q_INVOKABLE void setupLocalNode(int port, int miningThreads, bool generateGenesys);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
     Q_INVOKABLE void setupTestnetNode();
 
 signals:
-	void walletExistsChanged();
+    void walletExistsChanged();
+    void generateGenesysyBlockChanged();
 
 public slots:
-	bool createWallet(const QString& seed, const QString& pass);
-	bool openWallet(const QString& pass);
-
+    bool createWallet(const QString& seed, const QString& pass);
+    bool openWallet(const QString& pass);
 };

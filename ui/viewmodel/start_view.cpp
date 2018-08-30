@@ -79,7 +79,7 @@ bool StartViewModel::walletExists() const
     return Keychain::isInitialized(AppModel::getInstance()->getSettings().getWalletStorage());
 }
 
-void StartViewModel::setupLocalNode(int port, int miningThreads)
+void StartViewModel::setupLocalNode(int port, int miningThreads, bool generateGenesys)
 {
     auto& settings = AppModel::getInstance()->getSettings();
     settings.setLocalNodeMiningThreads(miningThreads);
@@ -87,6 +87,7 @@ void StartViewModel::setupLocalNode(int port, int miningThreads)
     settings.setNodeAddress(localAddress);
     settings.setLocalNodePort(port);
     settings.setRunLocalNode(true);
+    settings.setGenerateGenesys(generateGenesys);
 }
 
 void StartViewModel::setupRemoteNode(const QString& nodeAddress)

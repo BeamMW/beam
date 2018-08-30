@@ -48,9 +48,9 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
         walletSeed.V = hv;
     }
 
-    auto db = Keychain::init(m_settings.getWalletStorage(), pass, walletSeed);
+    m_db = Keychain::init(m_settings.getWalletStorage(), pass, walletSeed);
 
-    if (db)
+    if (m_db)
     {
         try
         {
@@ -69,9 +69,9 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
             keystore->gen_keypair(defaultAddress.m_walletID);
             keystore->save_keypair(defaultAddress.m_walletID, true);
 
-            db->saveAddress(defaultAddress);
+            m_db->saveAddress(defaultAddress);
 
-            start(db, keystore);
+            start(keystore);
         }
         catch (const std::runtime_error&)
         {
@@ -86,9 +86,9 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
 
 bool AppModel::openWallet(const beam::SecString& pass)
 {
-    auto db = Keychain::open(m_settings.getWalletStorage(), pass);
+    m_db = Keychain::open(m_settings.getWalletStorage(), pass);
 
-    if (db)
+    if (m_db)
     {
 		Hash::Processor() << pass.data() >> m_passwordHash;
 
@@ -106,31 +106,67 @@ bool AppModel::openWallet(const beam::SecString& pass)
             return false;
         }
 
-        start(db, keystore);
+        start(keystore);
         return true;
     }
     return false;
 }
 
-void AppModel::start(IKeyChain::Ptr db, IKeyStore::Ptr keystore)
+void AppModel::applySettingsChanges()
 {
-    auto nodeAddr = m_settings.getNodeAddress().toStdString();
-    m_wallet = std::make_shared<WalletModel>(db, keystore, nodeAddr);
+    if (m_node)
+    {
+        m_node.reset();
+    }
 
-    m_wallet->start();
-   
     if (m_settings.getRunLocalNode())
     {
-        ECC::NoLeak<ECC::uintBig> seed;
-        seed.V = Zero;
-        if (m_settings.getLocalNodeMiningThreads() > 0)
-        {
-            db->getVar("WalletSeed", seed);
-        }
-        
-        m_node = make_unique<NodeModel>(seed);
-        m_node->start();
+        startNode();
+
+        io::Address nodeAddr = io::Address::LOCALHOST;
+        nodeAddr.port(m_settings.getLocalNodePort());
+
+        m_wallet->async->setNodeAddress(nodeAddr.str());
     }
+    else
+    {
+        auto nodeAddr = m_settings.getNodeAddress().toStdString();
+        m_wallet->async->setNodeAddress(nodeAddr);
+    }
+}
+
+void AppModel::start(IKeyStore::Ptr keystore)
+{
+    if (m_settings.getRunLocalNode())
+    {
+        startNode();
+
+        io::Address nodeAddr = io::Address::LOCALHOST;
+        nodeAddr.port(m_settings.getLocalNodePort());
+        m_wallet = std::make_shared<WalletModel>(m_db, keystore, nodeAddr.str());
+
+        m_wallet->start();
+    }
+    else
+    {
+        auto nodeAddr = m_settings.getNodeAddress().toStdString();
+        m_wallet = std::make_shared<WalletModel>(m_db, keystore, nodeAddr);
+
+        m_wallet->start();
+    }
+}
+
+void AppModel::startNode()
+{
+    ECC::NoLeak<ECC::uintBig> seed;
+    seed.V = Zero;
+    if (m_settings.getLocalNodeMiningThreads() > 0)
+    {
+        m_db->getVar("WalletSeed", seed);
+    }
+
+    m_node = make_unique<NodeModel>(seed);
+    m_node->start();
 }
 
 WalletModel::Ptr AppModel::getWallet() const

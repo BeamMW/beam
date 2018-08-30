@@ -38,10 +38,14 @@ public:
 	bool checkWalletPassword(const beam::SecString& pass) const;
     void changeWalletPassword(const std::string& pass);
 
+    void applySettingsChanges();
+
     WalletSettings& getSettings();
     MessageManager& getMessages();
 private:
-    void start(beam::IKeyChain::Ptr db, beam::IKeyStore::Ptr);
+    void start(beam::IKeyStore::Ptr);
+
+    void startNode();
 
 private:
 
@@ -50,5 +54,6 @@ private:
     WalletSettings& m_settings;
     MessageManager m_messages;
 	ECC::Hash::Value m_passwordHash;
+    beam::IKeyChain::Ptr m_db;
     static AppModel* s_instance;
 };
