@@ -77,13 +77,13 @@ on_success:
 
     if not exist "%LATEST_FOLDER%" mkdir %LATEST_FOLDER%  
 
-    copy /Y c:/projects/beam/beam/Release/beam-node.zip %RELEASE_FOLDER%/beam-node.zip
+    copy /Y "c:\projects\beam\beam\Release\beam-node.zip" "%RELEASE_FOLDER%\beam-node.zip"
 
-    copy /Y c:/projects/beam/beam/Release/beam-wallet.zip %RELEASE_FOLDER%/beam-wallet.zip
+    copy /Y "c:\projects\beam\beam\Release\beam-wallet.zip" "%RELEASE_FOLDER%\beam-wallet.zip"
     
-    copy /Y %RELEASE_FOLDER%/beam-node.zip %LATEST_FOLDER%/beam-node.zip
+    copy /Y "%RELEASE_FOLDER%\beam-node.zip" "%LATEST_FOLDER%\beam-node.zip"
 
-    copy /Y %RELEASE_FOLDER%/beam-wallet.zip %LATEST_FOLDER%/beam-wallet.zip
+    copy /Y "%RELEASE_FOLDER%\beam-wallet.zip" "%LATEST_FOLDER%\beam-wallet.zip"
 
     copy /Y "c:\projects\beam\BeamWallet-0.0.1-win64.exe" "%RELEASE_FOLDER%\Beam Wallet.exe"
 
