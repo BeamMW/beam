@@ -130,6 +130,8 @@ namespace
 
         void clear() override {}
 
+		void changePassword(const SecString& password) override {}
+
     protected:
         std::vector<beam::Coin> m_coins;
     };

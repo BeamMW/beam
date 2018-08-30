@@ -43,6 +43,9 @@ struct IWalletModelAsync
     virtual void setNodeAddress(const std::string& addr) = 0;
     virtual void emergencyReset() = 0;
 
+	// TODO: change "std::string& pass" to "const SecString& password"
+    virtual void changeWalletPassword(const std::string& pass) = 0;
+
     virtual ~IWalletModelAsync() {}
 };
 
@@ -114,6 +117,7 @@ private:
     void deleteOwnAddress(const beam::WalletID& id) override;
     void setNodeAddress(const std::string& addr) override;
     void emergencyReset() override;
+    void changeWalletPassword(const std::string& pass) override;
 
     void onStatusChanged();
     WalletStatus getStatus() const;

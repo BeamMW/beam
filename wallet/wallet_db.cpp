@@ -1491,6 +1491,12 @@ namespace beam
         m_subscribers.erase(it);
     }
 
+	void Keychain::changePassword(const SecString& password)
+	{
+		int ret = sqlite3_rekey(_db, password.data(), password.size());
+		throwIfError(ret, _db);
+	}
+
     void Keychain::notifyKeychainChanged()
     {
         for (auto sub : m_subscribers) sub->onKeychainChanged();
