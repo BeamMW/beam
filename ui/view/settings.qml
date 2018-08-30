@@ -59,7 +59,7 @@ Rectangle {
                 spacing: 10
 
                 SFText {
-                    text: qsTr("Node IP address and port")
+                    text: qsTr("Connect to node (ip:port)")
                     color: Style.white
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -92,7 +92,7 @@ Rectangle {
 
                 CustomSwitch {
                     id: localNodeRun
-                    text: qsTr("Local node run")
+                    text: qsTr("Run local node")
                     font.pixelSize: 12
                     width: parent.width
                     checked: viewModel.localNodeRun
@@ -183,17 +183,21 @@ Rectangle {
             }  
 
             PrimaryButton {
-                text: "EMERGENCY RESET"
-                palette.button : "red"
+                text: "emergency reset"
+                //palette.button : Style.dark_slate_blue
+                width: 198
+                palette.button: "red"
                 palette.buttonText : "white"
-
+                icon.source: "qrc:///assets/icon-reset.svg"
+                icon.width: 16
+                icon.height: 16
                 onClicked: emergencyConfirmation.open();
             }
 			
 			PrimaryButton {
-                text: "REPORT PROBLEM"
+                text: "report problem"
                 palette.buttonText : "white"
-
+                //palette.button : Style.dark_slate_blue
                 onClicked: viewModel.reportProblem()
             } 
         }

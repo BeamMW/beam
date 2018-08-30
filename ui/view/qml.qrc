@@ -69,6 +69,7 @@
         <file>controls/CustomRadioButton.qml</file>
         <file>assets/icon-actions.svg</file>
         <file>assets/icon-delete.svg</file>
+        <file>assets/icon-reset.svg</file>
         <file>controls/CustomToolButton.qml</file>
         <file>controls/CustomSwitch.qml</file>
     </qresource>
