@@ -35,6 +35,8 @@ public:
 
     bool createWallet(const beam::SecString& seed, const beam::SecString& pass);
     bool openWallet(const beam::SecString& pass);
+	bool checkWalletPassword(const beam::SecString& pass) const;
+    void changeWalletPassword(const std::string& pass);
 
     WalletSettings& getSettings();
     MessageManager& getMessages();
@@ -47,5 +49,6 @@ private:
     std::unique_ptr<NodeModel> m_node;
     WalletSettings& m_settings;
     MessageManager m_messages;
+	ECC::Hash::Value m_passwordHash;
     static AppModel* s_instance;
 };

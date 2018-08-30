@@ -149,6 +149,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
             receiver_.emergencyReset();
         });
     }
+
+    void changeWalletPassword(const std::string& pass) override
+    {
+        tx.send([pass](BridgeInterface& receiver_) mutable
+        {
+            receiver_.changeWalletPassword(pass);
+        });
+    }
 };
 
 WalletModel::WalletModel(IKeyChain::Ptr keychain, IKeyStore::Ptr keystore, const std::string& nodeAddr)
@@ -508,4 +516,12 @@ vector<Coin> WalletModel::getUtxos() const
         return true;
     });
     return utxos;
+}
+
+void WalletModel::changeWalletPassword(const std::string& pass)
+{
+	_keychain->changePassword(pass);
+
+	// TODO: add changePassword to the keystore
+	// _keystore->changePassword(pass);
 }

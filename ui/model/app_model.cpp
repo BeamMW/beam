@@ -90,6 +90,8 @@ bool AppModel::openWallet(const beam::SecString& pass)
 
     if (db)
     {
+		Hash::Processor() << pass.data() >> m_passwordHash;
+
         IKeyStore::Ptr keystore;
         IKeyStore::Options options;
         options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
@@ -144,4 +146,19 @@ WalletSettings& AppModel::getSettings()
 MessageManager& AppModel::getMessages()
 {
     return m_messages;
+}
+
+bool AppModel::checkWalletPassword(const beam::SecString& pass) const
+{
+    Hash::Value passwordHash;
+    Hash::Processor() << pass.data() >> passwordHash;
+
+    return passwordHash == m_passwordHash;
+}
+
+void AppModel::changeWalletPassword(const std::string& pass)
+{
+	Hash::Processor() << pass.data() >> m_passwordHash;
+
+    m_wallet->async->changeWalletPassword(pass);
 }

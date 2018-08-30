@@ -17,7 +17,10 @@
 #include <QtQuick>
 #include "model/app_model.h"
 #include <thread>
+#include "wallet/secstring.h"
 
+using namespace beam;
+using namespace ECC;
 using namespace std;
 
 SettingsViewModel::SettingsViewModel()
@@ -146,4 +149,15 @@ void SettingsViewModel::emergencyReset()
 void SettingsViewModel::reportProblem()
 {
 	m_settings.reportProblem();
+}
+
+bool SettingsViewModel::checkWalletPassword(const QString& oldPass) const
+{
+	SecString secretPass = oldPass.toStdString();
+	return AppModel::getInstance()->checkWalletPassword(secretPass);
+}
+
+void SettingsViewModel::changeWalletPassword(const QString& pass)
+{
+    AppModel::getInstance()->changeWalletPassword(pass.toStdString());
 }

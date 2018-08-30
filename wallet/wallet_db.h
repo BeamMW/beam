@@ -151,6 +151,8 @@ namespace beam
 
         virtual void subscribe(IKeyChainObserver* observer) = 0;
         virtual void unsubscribe(IKeyChainObserver* observer) = 0;
+
+		virtual void changePassword(const SecString& password) = 0;
     };
 
     struct Keychain : IKeyChain
@@ -206,6 +208,8 @@ namespace beam
 
         void subscribe(IKeyChainObserver* observer) override;
         void unsubscribe(IKeyChainObserver* observer) override;
+
+		void changePassword(const SecString& password) override;
     private:
         void storeImpl(Coin& coin);
         void notifyKeychainChanged();

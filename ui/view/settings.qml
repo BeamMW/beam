@@ -20,6 +20,12 @@ Rectangle {
         onAccepted: viewModel.emergencyReset()
     }
 
+    ChangePasswordDialog {
+        id: changePasswordDialog
+
+        
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.bottomMargin: 30
@@ -309,6 +315,48 @@ Rectangle {
                             palette.buttonText : "white"
                             palette.button: "#708090"
                             onClicked: viewModel.reportProblem()
+                        }
+                    }
+
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    radius: 10
+                    color: Style.dark_slate_blue
+                    height: childrenRect.height + 40
+
+                    Column {
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.margins: 20
+                        spacing: 20
+
+                        SFText {
+                            text: qsTr("Change wallet password")
+                            color: Style.white
+                            font.pixelSize: 18
+                            font.weight: Font.Bold
+                        }
+
+                        SFText {
+                            text: qsTr("Add explanation to the password section!")
+                            color: Style.white
+                            font.pixelSize: 12
+                            font.weight: Font.Bold
+                        }
+
+                        CustomButton {
+                            width: 244
+
+                            text: "change wallet password"
+                            palette.buttonText : "white"
+                            palette.button: "#708090"
+                            icon.source: "qrc:///assets/icon-password.svg"
+                            icon.width: 16
+                            icon.height: 16
+                            onClicked: changePasswordDialog.open()
                         }
                     }
                 }

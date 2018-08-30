@@ -54,6 +54,8 @@ public slots:
     void undoChanges();
     void emergencyReset();
 	void reportProblem();
+    bool checkWalletPassword(const QString& oldPass) const;
+    void changeWalletPassword(const QString& pass);
 
 signals:
     void nodeAddressChanged();
