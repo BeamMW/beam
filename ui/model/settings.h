@@ -46,6 +46,9 @@ public:
     void setLocalNodeVerificationThreads(uint n);
     std::string getLocalNodeStorage() const;
     std::string getTempDir() const;
+public:
+	static const char* WalletCfg;
+	static const char* LogsFolder;
 
     void applyChanges();
 

@@ -365,31 +365,33 @@ namespace beam
         }
     }
 
-	void Wallet::set_node_address(io::Address node_address)
-	{
-		m_network->set_node_address(node_address);
-		resetSystemState();
-	}
+    void Wallet::set_node_address(io::Address node_address)
+    {
+        m_network->set_node_address(node_address);
+        resetSystemState();
+    }
 
-	void Wallet::resetSystemState()
-	{
-		ZeroObject(m_newState);
-		ZeroObject(m_knownStateID);
-		m_keyChain->setSystemStateID(m_knownStateID);
-	}
+    void Wallet::resetSystemState()
+    {
+        ZeroObject(m_newState);
+        ZeroObject(m_knownStateID);
+        m_keyChain->setSystemStateID(m_knownStateID);
+    }
 
-	void Wallet::emergencyReset()
-	{
-		resetSystemState();
-		m_keyChain->clear();
-	}
+    void Wallet::emergencyReset()
+    {
+        resetSystemState();
+        m_keyChain->clear();
+        m_network->close_node_connection();
+        m_network->connect_node();
+    }
 
-	bool Wallet::get_IdentityKeyForNode(ECC::Scalar::Native& sk, const PeerID& idNode)
-	{
-		// TODO: Report your identity *only* to the owned nodes, otherwise it's very demasking!
-		m_keyChain->get_IdentityKey(sk);
-		return true;
-	}
+    bool Wallet::get_IdentityKeyForNode(ECC::Scalar::Native& sk, const PeerID& idNode)
+    {
+        // TODO: Report your identity *only* to the owned nodes, otherwise it's very demasking!
+        m_keyChain->get_IdentityKey(sk);
+        return true;
+    }
 
     bool Wallet::handle_node_message(proto::ProofUtxo&& utxoProof)
     {
@@ -474,7 +476,7 @@ namespace beam
         Block::SystemState::ID newID = {};
         msg.m_Description.get_ID(newID);
         
-		m_newState = msg.m_Description;
+        m_newState = msg.m_Description;
 
         if (newID == m_knownStateID)
         {
@@ -605,8 +607,8 @@ namespace beam
 
     void Wallet::do_fast_forward()
     {
-		Block::SystemState::ID id;
-		m_newState.get_ID(id);
+        Block::SystemState::ID id;
+        m_newState.get_ID(id);
         LOG_INFO() << "Sync up to " << id;
         // fast-forward
         enter_sync(); // Mined
@@ -660,7 +662,7 @@ namespace beam
             assert(m_syncDone <= m_syncTotal);
             if (m_syncDone == m_syncTotal)
             {
-				m_newState.get_ID(m_knownStateID);
+                m_newState.get_ID(m_knownStateID);
                 m_keyChain->setSystemStateID(m_knownStateID);
                 LOG_INFO() << "Current state is " << m_knownStateID;
                 m_synchronized = true;

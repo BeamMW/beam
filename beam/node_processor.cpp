@@ -107,7 +107,11 @@ void NodeProcessor::Initialize(const char* szPath)
 	}
 	else
 		if (hv != Rules::get().Checksum)
-			OnCorrupted();
+		{
+			std::ostringstream os;
+			os << "Data configuration is incompatible: " << hv << ". Current configuration: " << Rules::get().Checksum;
+			throw std::runtime_error(os.str());
+		}
 
 	InitCursor();
 

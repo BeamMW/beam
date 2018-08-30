@@ -15,6 +15,7 @@ ColumnLayout {
         Layout.bottomMargin: 10
 
         height: 80
+        spacing: 10
 
 	    SFText {
             Layout.alignment: Qt.AlignTop
@@ -95,7 +96,7 @@ ColumnLayout {
                     font.pixelSize: 16
                     color: Style.bright_teal
                     text: viewModel.currentStateHash
-                    elide: text.ElideRight
+                    elide: Text.ElideRight
                 }
             }
 

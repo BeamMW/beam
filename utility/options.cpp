@@ -72,7 +72,7 @@ namespace beam
         const char* APPDATA_PATH = "appdata";
     }
 
-    po::options_description createOptionsDescription()
+    po::options_description createOptionsDescription(int flags)
     {
 #ifdef WIN32
         char szLocalDir[] = ".\\";
@@ -150,12 +150,24 @@ namespace beam
 #undef THE_MACRO
 
         po::options_description options{ "Allowed options" };
-        options
-            .add(general_options)
-            .add(node_options)
-            .add(wallet_options)
-            .add(uioptions)
-            .add(rules_options);
+        if (flags & GENERAL_OPTIONS)
+        {
+            options.add(general_options);
+        }
+        if (flags & NODE_OPTIONS)
+        {
+            options.add(node_options);
+        }
+        if (flags & WALLET_OPTIONS)
+        {
+            options.add(wallet_options);
+        }
+        if (flags & UI_OPTIONS)
+        {
+            options.add(uioptions);
+        }
+
+        options.add(rules_options);
         return options;
     }
 
