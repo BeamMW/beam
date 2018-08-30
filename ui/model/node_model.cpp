@@ -49,30 +49,41 @@ NodeModel::~NodeModel()
 
 void NodeModel::run()
 {
-    auto reactor = io::Reactor::create();
-    m_reactor = reactor;// store weak ref
-    io::Reactor::Scope scope(*reactor);
-    
-    auto& settings = AppModel::getInstance()->getSettings();
+    try
+    {
+        auto reactor = io::Reactor::create();
+        m_reactor = reactor;// store weak ref
+        io::Reactor::Scope scope(*reactor);
 
-    Node node;
-    node.m_Cfg.m_Listen.port(settings.getLocalNodePort());
-    node.m_Cfg.m_Listen.ip(INADDR_ANY);
-    node.m_Cfg.m_sPathLocal = settings.getLocalNodeStorage();
-    node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
-   
-    node.m_Cfg.m_VerificationThreads = settings.getLocalNodeVerificationThreads();
+        auto& settings = AppModel::getInstance()->getSettings();
 
-    node.m_Cfg.m_WalletKey = m_seed;
+        Node node;
+        node.m_Cfg.m_Listen.port(settings.getLocalNodePort());
+        node.m_Cfg.m_Listen.ip(INADDR_ANY);
+        node.m_Cfg.m_sPathLocal = settings.getLocalNodeStorage();
+        node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
+
+        node.m_Cfg.m_VerificationThreads = settings.getLocalNodeVerificationThreads();
+
+        node.m_Cfg.m_WalletKey = m_seed;
 
 
-    node.m_Cfg.m_HistoryCompression.m_sPathOutput = settings.getTempDir();
-    node.m_Cfg.m_HistoryCompression.m_sPathTmp = settings.getTempDir();
+        node.m_Cfg.m_HistoryCompression.m_sPathOutput = settings.getTempDir();
+        node.m_Cfg.m_HistoryCompression.m_sPathTmp = settings.getTempDir();
 
-    LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
+        LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
-    node.Initialize();
+        node.Initialize();
 
-    reactor->run();
-
+        reactor->run();
+    }
+    catch (const runtime_error& ex)
+    {
+        LOG_ERROR() << ex.what();
+        AppModel::getInstance()->getMessages().addMessage("Failed to start node. Please check your node configuration");
+    }
+    catch (...)
+    {
+        LOG_ERROR() << "Unhandled exception";
+    }
 }

@@ -15,7 +15,6 @@ ToolButton {
 	palette.buttonText: Style.white
 	palette.highlight: Style.white
 	palette.button: "transparent"
-	ToolTip.visible: control.hovered
     padding: 8
     spacing: 8
 
