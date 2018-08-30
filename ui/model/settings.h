@@ -50,6 +50,8 @@ public:
 	static const char* WalletCfg;
 	static const char* LogsFolder;
 
+    void applyChanges();
+
 signals:
     void nodeAddressChanged();
     void localNodeRunChanged();

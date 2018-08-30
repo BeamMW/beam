@@ -153,6 +153,8 @@ namespace beam
 
         bool handle_bbs_message(proto::BbsMsg&& msg);
 
+        void reset_connection();
+
         class WalletNodeConnection : public proto::NodeConnection
         {
         public:

@@ -204,3 +204,8 @@ void WalletSettings::reportProblem()
 		zipFile.rename(path);
 	}
 }
+
+void WalletSettings::applyChanges()
+{
+    AppModel::getInstance()->applySettingsChanges();
+}

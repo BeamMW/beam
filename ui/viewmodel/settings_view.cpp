@@ -127,6 +127,8 @@ void SettingsViewModel::applyChanges()
     m_settings.setLocalNodePort(m_localNodePort);
     m_settings.setLocalNodeMiningThreads(m_localNodeMiningThreads);
     m_settings.setLocalNodeVerificationThreads(m_localNodeVerificationThreads);
+
+    m_settings.applyChanges();
 }
 
 void SettingsViewModel::undoChanges()
