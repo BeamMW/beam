@@ -348,7 +348,7 @@ Rectangle {
                         }
 
                         SFText {
-                            text: qsTr("Add explanation to the reset sections!")
+                            text: qsTr("Clears history and UTXO database.")
                             color: Style.white
                             font.pixelSize: 12
                             font.weight: Font.Bold
@@ -387,10 +387,12 @@ Rectangle {
                         }
 
                         SFText {
-                            text: qsTr("Add explanation to the report sections!")
+                            Layout.fillWidth: true
+                            text: qsTr("Consolidates all the logs and config files into a zip archive to be sent to the team for a technical investigation.")
                             color: Style.white
                             font.pixelSize: 12
                             font.weight: Font.Bold
+                            wrapMode: Text.WordWrap
                         }
 
                         CustomButton {
@@ -410,7 +412,7 @@ Rectangle {
                     Layout.fillWidth: true
                     radius: 10
                     color: Style.dark_slate_blue
-                    height: childrenRect.height + 40
+                    height: childrenRect.height + 37
 
                     Column {
                         anchors.top: parent.top
