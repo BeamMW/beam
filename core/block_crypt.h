@@ -123,7 +123,7 @@ namespace beam
 		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
 		static const Amount Coin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
 
-		Amount CoinbaseEmission	= Coin * 40; // the maximum allowed coinbase in a single block
+		Amount CoinbaseEmission	= Coin * 80; // the maximum allowed coinbase in a single block
 		Height MaturityCoinbase = 60; // 1 hour
 		Height MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
 
