@@ -1,5 +1,5 @@
-[![Build Status](https://travis-ci.com/beam-mw/beam.svg?token=9GsAxqTGpjsBMMHVvgzz&branch=master)](https://travis-ci.com/beam-mw/beam)
-[![Build Status](https://ci.appveyor.com/api/projects/status/voh9d2q7i5oj20rr/branch/master?svg=true)](https://ci.appveyor.com/project/beam-mw/beam/branch/master)
+[![Build Status](https://travis-ci.org/beam-mw/beam.svg?branch=master)](https://travis-ci.org/beam-mw/beam)
+[![Build status](https://ci.appveyor.com/api/projects/status/i2vuy3bvjf31ocr2/branch/master?svg=true)](https://ci.appveyor.com/project/beam-mw/beam/branch/master)
 
 # Beam
 
