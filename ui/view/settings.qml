@@ -15,7 +15,7 @@ Rectangle {
 
     ConfirmationDialog {
         id: emergencyConfirmation
-        text: "Do you really want to reset your wallet?"
+        text: "Transaction history will be deleted. This operation can not be undone"
         okButtonText: "reset"
         onAccepted: viewModel.emergencyReset()
     }
@@ -67,7 +67,7 @@ Rectangle {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 160
+                    height: 150
 
                     radius: 10
                     color: Style.dark_slate_blue
@@ -112,13 +112,16 @@ Rectangle {
                             }
                         }
 
-                        SFText {
-                            Layout.alignment: Qt.AlignTop
-                            id: nodeAddressError
-                            color: Style.validator_color
-                            font.pixelSize: 10
-                            visible: !nodeAddress.acceptableInput
-                            text: "Invalid address"
+                        Item {
+                            Layout.minimumHeight: 12
+                            SFText {
+                                Layout.alignment: Qt.AlignTop
+                                id: nodeAddressError
+                                color: Style.validator_color
+                                font.pixelSize: 10
+                                visible: !nodeAddress.acceptableInput
+                                text: "Invalid address"
+                            }
                         }
                     }
                 }
@@ -126,7 +129,7 @@ Rectangle {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignTop
-                    height: 320
+                    height: 350
                     radius: 10
                     color: Style.dark_slate_blue
 
@@ -330,7 +333,7 @@ Rectangle {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 160
+                    height: 150
 
                     radius: 10
                     color: Style.dark_slate_blue
@@ -348,16 +351,18 @@ Rectangle {
                         }
 
                         SFText {
-                            text: qsTr("Clears history and UTXO database.")
+                            Layout.fillWidth: true
+                            text: qsTr("Clear all local data and retrieve most updated information from blockchain. Transaction history will be deleted.")
                             color: Style.white
                             font.pixelSize: 12
                             font.weight: Font.Bold
+                            wrapMode: Text.WordWrap
                         }
 
                         PrimaryButton {
                             Layout.minimumHeight: 38
                             Layout.minimumWidth: 198
-                            text: "emergency reset"
+                            text: "reset local data"
                             palette.button: "#708090"
                             palette.buttonText : "white"
                             icon.source: "qrc:///assets/icon-reset.svg"
@@ -370,7 +375,7 @@ Rectangle {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 160
+                    height: 210
                     radius: 10
                     color: Style.dark_slate_blue
 
@@ -386,20 +391,53 @@ Rectangle {
                             font.weight: Font.Bold
                         }
 
-                        SFText {
-                            Layout.fillWidth: true
-                            text: qsTr("Consolidates all the logs and config files into a zip archive to be sent to the team for a technical investigation.")
-                            color: Style.white
-                            font.pixelSize: 12
-                            font.weight: Font.Bold
-                            wrapMode: Text.WordWrap
-                        }
+                        ColumnLayout {
+                            SFText {
+                                Layout.fillWidth: true
+                                text: qsTr("To report a problem:")
+                                color: Style.white
+                                font.pixelSize: 12
+                                font.weight: Font.Bold
+                                wrapMode: Text.WordWrap
+                            }
+
+                            SFText {
+                                Layout.fillWidth: true
+                                text: qsTr("1. Click 'Save wallet logs' and choose a destination folder for log archive")
+                                color: Style.white
+                                font.pixelSize: 12
+                                font.weight: Font.Bold
+                                wrapMode: Text.WordWrap
+                            }
+
+                            SFText {
+                                Layout.fillWidth: true
+                                text: qsTr("2. Send email to 'testnet@beam-mw.com' or open a ticket in <a href='https://github.com/beam-mw/beam'>github</a>")
+                                color: Style.white
+                                textFormat: Text.RichText
+                                font.pixelSize: 12
+                                font.weight: Font.Bold
+                                wrapMode: Text.WordWrap
+                                onLinkActivated: {
+                                    viewModel.openUrl(link)
+                                }
+                            }
+
+                            SFText {
+                                Layout.fillWidth: true
+                                text: qsTr("3. Don't forget to attach logs archive")
+                                color: Style.white
+                                font.pixelSize: 12
+                                font.weight: Font.Bold
+                                wrapMode: Text.WordWrap
+                            }
+                        }                        
 
                         CustomButton {
                             Layout.minimumHeight: 38
                             Layout.minimumWidth: 150
 
-                            text: "report problem"
+                            text: "save wallet logs"
                             palette.buttonText : "white"
                             palette.button: "#708090"
                             onClicked: viewModel.reportProblem()
@@ -419,7 +457,7 @@ Rectangle {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.margins: 20
-                        spacing: 20
+                        spacing: 10
 
                         SFText {
                             text: qsTr("Change wallet password")
@@ -459,8 +497,14 @@ Rectangle {
             Layout.alignment: Qt.AlignHCenter
             spacing: 30
 
-            CustomButton {
+            PrimaryButton {
                 text: qsTr("undo changes")
+                enabled: {
+                    viewModel.isChanged 
+                    && nodeAddress.acceptableInput
+                    && localNodePort.acceptableInput
+                    && localNodeMiningThreads.acceptableInput
+                    && localNodeVerificationThreads.acceptableInput}
                 onClicked: viewModel.undoChanges()
             }
 

@@ -151,11 +151,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
-    void changeWalletPassword(const std::string& pass) override
+    void changeWalletPassword(const SecString& pass) override
     {
-        tx.send([pass](BridgeInterface& receiver_) mutable
+		// TODO: should be investigated, don't know how to "move" SecString into lambda
+		std::string passStr(pass.data());
+
+		tx.send([passStr](BridgeInterface& receiver_) mutable
         {
-            receiver_.changeWalletPassword(pass);
+            receiver_.changeWalletPassword(passStr);
         });
     }
 };
@@ -520,10 +523,8 @@ vector<Coin> WalletModel::getUtxos() const
     return utxos;
 }
 
-void WalletModel::changeWalletPassword(const std::string& pass)
+void WalletModel::changeWalletPassword(const SecString& pass)
 {
 	_keychain->changePassword(pass);
-
-	// TODO: add changePassword to the keystore
-	// _keystore->changePassword(pass);
+	_keystore->change_password(pass.data(), pass.size());
 }
