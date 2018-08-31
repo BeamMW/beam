@@ -412,14 +412,18 @@ Rectangle {
 
                             SFText {
                                 Layout.fillWidth: true
-                                text: qsTr("2. Send email to 'testnet@beam-mw.com' or open a ticket in <a href='https://github.com/beam-mw/beam'>github</a>")
+                                text: qsTr("<style>a:link {color: '#00f6d2'}</style>2. Send email to <a href='mailto:testnet@beam-mw.com'>testnet@beam-mw.com</a> or open a ticket in <a href='https://github.com/beam-mw/beam'>github</a>")
                                 color: Style.white
                                 textFormat: Text.RichText
                                 font.pixelSize: 12
                                 font.weight: Font.Bold
                                 wrapMode: Text.WordWrap
-                                onLinkActivated: {
-                                    viewModel.openUrl(link)
+                                onLinkActivated: Qt.openUrlExternally(link)
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    acceptedButtons: Qt.NoButton
+                                    cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
                                 }
                             }
 
