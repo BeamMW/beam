@@ -56,11 +56,19 @@ namespace
 		return true;
     }
 
-    bool read_wallet_seed(NoLeak<uintBig>& walletSeed) {
+    bool read_wallet_seed(NoLeak<uintBig>& walletSeed, po::variables_map& vm) {
         static const size_t MAX_SEED_LEN = 2000;
         char buf[MAX_SEED_LEN];
         size_t len = MAX_SEED_LEN;
-        read_password("Enter seed: ", buf, len);
+
+        if (vm.count(cli::WALLET_SEED)) {
+            const std::string& s = vm[cli::WALLET_SEED].as<std::string>();
+            len = s.size();
+            if (len > MAX_SEED_LEN) len = MAX_SEED_LEN;
+            memcpy(buf, s.data(), len);
+        } else {
+            read_password("Enter seed: ", buf, len);
+        }
 
         if (len == 0) {
             return false;
@@ -167,7 +175,7 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
 					if (node.m_Cfg.m_MiningThreads > 0)
 					{
-                        if (!read_wallet_seed(node.m_Cfg.m_WalletKey)) {
+                        if (!read_wallet_seed(node.m_Cfg.m_WalletKey, vm)) {
                             LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
                             return -1;
                         }

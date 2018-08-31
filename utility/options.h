@@ -38,7 +38,7 @@ namespace beam
         extern const char* VERIFICATION_THREADS;
         extern const char* MINER_ID;
         extern const char* NODE_PEER;
-        //extern const char* PASS;
+        extern const char* PASS;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
         extern const char* RECEIVER_ADDR;
@@ -55,7 +55,7 @@ namespace beam
         extern const char* SEND;
         extern const char* INFO;
         extern const char* TX_HISTORY;
-        //extern const char* WALLET_SEED;
+        extern const char* WALLET_SEED;
         extern const char* FEE;
         extern const char* FEE_FULL;
         extern const char* RECEIVE;
