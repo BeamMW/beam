@@ -15,7 +15,7 @@ Rectangle {
 
     ConfirmationDialog {
         id: emergencyConfirmation
-        text: "Do you really want to reset your wallet?"
+        text: "Transaction history will be deleted. This operation can not be undone"
         okButtonText: "reset"
         onAccepted: viewModel.emergencyReset()
     }
@@ -67,7 +67,7 @@ Rectangle {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 130
+                    height: 150
 
                     radius: 10
                     color: Style.dark_slate_blue
@@ -129,7 +129,7 @@ Rectangle {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignTop
-                    height: 350
+                    height: 330
                     radius: 10
                     color: Style.dark_slate_blue
 
@@ -333,7 +333,7 @@ Rectangle {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 130
+                    height: 150
 
                     radius: 10
                     color: Style.dark_slate_blue
@@ -351,16 +351,18 @@ Rectangle {
                         }
 
                         SFText {
-                            text: qsTr("Clears history and UTXO database.")
+                            Layout.fillWidth: true
+                            text: qsTr("Clear all local data and retrieve most updated information from blockchain. Transaction history will be deleted.")
                             color: Style.white
                             font.pixelSize: 12
                             font.weight: Font.Bold
+                            wrapMode: Text.WordWrap
                         }
 
                         PrimaryButton {
                             Layout.minimumHeight: 38
                             Layout.minimumWidth: 198
-                            text: "emergency reset"
+                            text: "reset local data"
                             palette.button: "#708090"
                             palette.buttonText : "white"
                             icon.source: "qrc:///assets/icon-reset.svg"
@@ -396,7 +398,7 @@ Rectangle {
                                 color: Style.white
                                 font.pixelSize: 12
                                 font.weight: Font.Bold
-                                wrapMode: Text.WordWrap                                
+                                wrapMode: Text.WordWrap
                             }
 
                             SFText {
@@ -455,7 +457,7 @@ Rectangle {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.margins: 20
-                        spacing: 20
+                        spacing: 10
 
                         SFText {
                             text: qsTr("Change wallet password")
