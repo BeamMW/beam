@@ -952,6 +952,12 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		}
 	}
 
+	if (!ApproveState(id))
+	{
+		LOG_WARNING() << "State " << id << " not approved";
+		return DataStatus::Invalid;
+	}
+
 	if (!IsRelevantHeight(s.m_Height))
 		return DataStatus::Rejected;
 

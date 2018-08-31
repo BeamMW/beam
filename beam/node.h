@@ -84,9 +84,12 @@ struct Node
 
 		std::vector<Block::Body> m_vTreasury;
 
+		Block::SystemState::ID m_ControlState;
+
 		Config()
 		{
 			m_WalletKey.V = Zero;
+			m_ControlState.m_Height = Rules::HeightGenesis - 1; // disabled
 		}
 
 	} m_Cfg; // must not be changed after initialization
@@ -108,6 +111,7 @@ private:
 		virtual void OnNewState() override;
 		virtual void OnRolledBack() override;
 		virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&) override;
+		virtual bool ApproveState(const Block::SystemState::ID&) override;
 
 		struct Verifier
 		{

@@ -462,6 +462,14 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 	}
 }
 
+bool Node::Processor::ApproveState(const Block::SystemState::ID& id)
+{
+	const Block::SystemState::ID& idCtl = get_ParentObj().m_Cfg.m_ControlState;
+	return
+		(idCtl.m_Height != id.m_Height) ||
+		(idCtl.m_Hash == id.m_Hash);
+}
+
 Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 {
 	Peer* pPeer = new Peer(*this);
