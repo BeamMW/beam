@@ -89,7 +89,7 @@ Rectangle {
                         SFText {
                             Layout.alignment: Qt.AlignTop
                             text: qsTr("ip:port")
-                            color: Style.white
+                            color: localNodeRun.checked ? Style.disable_text_color : Style.white
                             font.pixelSize: 12
                             font.weight: Font.Bold
                         }
@@ -166,7 +166,7 @@ Rectangle {
 
                                 SFText {
                                     text: qsTr("Local node port")
-                                    color: Style.white
+                                    color: localNodeRun.checked ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
                                     font.weight: Font.Bold
                                 }
@@ -192,7 +192,7 @@ Rectangle {
 
                                 SFText {
                                     text: qsTr("Mining threads")
-                                    color: Style.white
+                                    color: localNodeRun.checked ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
                                     font.weight: Font.Bold
                                 }
@@ -218,7 +218,7 @@ Rectangle {
 
                                 SFText {
                                     text: qsTr("Verification threads")
-                                    color: Style.white
+                                    color: localNodeRun.checked ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
                                     font.weight: Font.Bold
                                 }
@@ -249,7 +249,7 @@ Rectangle {
 
                                 SFText {
                                     text: qsTr("Peers")
-                                    color: Style.white
+                                    color: localNodeRun.checked ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
                                     font.weight: Font.Bold
                                 }
@@ -268,17 +268,20 @@ Rectangle {
                                         readOnly: !localNodeRun.checked
                                         validator: RegExpValidator { regExp: /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$/ }
                                     }
-
+                                    
                                     CustomButton {
                                         Layout.fillWidth: true
                                         Layout.minimumHeight: 20
                                         //Layout.minimumWidth: 120
 				                        text: "Add peer"
                                         palette.button: "#708090"
-                                        palette.buttonText : "white"
+                                        palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
 				                        icon.source: "qrc:///assets/icon-add.svg"
-                                        enabled: newLocalNodePeer.acceptableInput
-                                        onClicked: viewModel.addLocalNodePeer(newLocalNodePeer.text);
+                                        enabled: newLocalNodePeer.acceptableInput && localNodeRun.checked
+                                        onClicked: {
+                                            viewModel.addLocalNodePeer(newLocalNodePeer.text);
+                                            newLocalNodePeer.clear();
+                                        }
                                     }
                                 }
 
@@ -345,7 +348,7 @@ Rectangle {
                         }
 
                         SFText {
-                            text: qsTr("Add explanation to the reset sections!")
+                            text: qsTr("Clears history and UTXO database.")
                             color: Style.white
                             font.pixelSize: 12
                             font.weight: Font.Bold
@@ -384,10 +387,12 @@ Rectangle {
                         }
 
                         SFText {
-                            text: qsTr("Add explanation to the report sections!")
+                            Layout.fillWidth: true
+                            text: qsTr("Consolidates all the logs and config files into a zip archive to be sent to the team for a technical investigation.")
                             color: Style.white
                             font.pixelSize: 12
                             font.weight: Font.Bold
+                            wrapMode: Text.WordWrap
                         }
 
                         CustomButton {
@@ -407,7 +412,7 @@ Rectangle {
                     Layout.fillWidth: true
                     radius: 10
                     color: Style.dark_slate_blue
-                    height: childrenRect.height + 40
+                    height: childrenRect.height + 37
 
                     Column {
                         anchors.top: parent.top
