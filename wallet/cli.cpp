@@ -299,6 +299,41 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
     }
 }
 
+namespace {
+    bool read_wallet_seed(NoLeak<uintBig>& walletSeed) {
+        static const size_t MAX_SEED_LEN = 2000;
+        char buf[MAX_SEED_LEN];
+        size_t len = MAX_SEED_LEN;
+        read_password("Enter seed: ", buf, len);
+
+        if (len == 0) {
+            return false;
+        }
+
+        Hash::Processor hp;
+        hp.Write(buf, (uint32_t)len);
+        hp >> walletSeed.V;
+
+        SecureErase(buf, MAX_SEED_LEN);
+
+        return true;
+    }
+
+    bool read_wallet_pass(SecString& pass) {
+        char buf[SecString::MAX_SIZE];
+        size_t len = SecString::MAX_SIZE;
+        read_password("Enter password: ", buf, len);
+
+        if (len == 0) {
+            return false;
+        }
+
+        pass.assign(buf, len);
+        SecureErase(buf, len);
+        return true;
+    }
+}
+
 #define LOG_VERBOSE_ENABLED 0
 
 io::Reactor::Ptr reactor;
@@ -360,8 +395,7 @@ int main_impl(int argc, char* argv[])
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
-            auto port = vm[cli::PORT].as<uint16_t>();
-            auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;
+            // TODO later auto port = vm[cli::PORT].as<uint16_t>();
 
             {
                 reactor = io::Reactor::create();
@@ -371,14 +405,6 @@ int main_impl(int argc, char* argv[])
 
                 NoLeak<uintBig> walletSeed;
                 walletSeed.V = Zero;
-                if (hasWalletSeed)
-                {
-                    // TODO: use secure string here
-                    string seed = vm[cli::WALLET_SEED].as<string>();
-                    Hash::Value hv;
-                    Hash::Processor() << seed.c_str() >> hv;
-                    walletSeed.V = hv;
-                }
 
                 io::Timer::Ptr logRotateTimer = io::Timer::create(reactor);
                 logRotateTimer->start(
@@ -411,7 +437,7 @@ int main_impl(int argc, char* argv[])
 
                         if (!Keychain::isInitialized(walletPath) && command != cli::INIT)
                         {
-                            LOG_ERROR() << "Please initialize your wallet first... \nExample: beam wallet --command=init --pass=<password to access wallet> --wallet_seed=<seed to generate secret keys>";
+                            LOG_ERROR() << "Please initialize your wallet first... \nExample: beam-wallet --command=init";
                             return -1;
                         }
 
@@ -419,12 +445,8 @@ int main_impl(int argc, char* argv[])
 
                         // TODO: we should use secure string
                         SecString pass;
-                        if (vm.count(cli::PASS))
-                        {
-                            pass = SecString(vm[cli::PASS].as<string>());
-                        }
 
-                        if (!pass.size())
+                        if (!read_wallet_pass(pass))
                         {
                             LOG_ERROR() << "Please, provide password for the wallet.";
                             return -1;
@@ -432,7 +454,7 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::INIT)
                         {
-                            if (!hasWalletSeed)
+                            if (!read_wallet_seed(walletSeed))
                             {
                                 LOG_ERROR() << "Please, provide seed phrase for the wallet.";
                                 return -1;

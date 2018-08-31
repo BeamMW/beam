@@ -5,8 +5,9 @@
 namespace beam {
 
 class SecString {
+public:
     static const size_t MAX_SIZE = 128;
-
+private:
     size_t _size=0;
     char _data[MAX_SIZE];
 public:

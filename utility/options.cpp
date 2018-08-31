@@ -36,7 +36,7 @@ namespace beam
         const char* VERIFICATION_THREADS = "verification_threads";
         const char* MINER_ID = "miner_id";
         const char* NODE_PEER = "peer";
-        const char* PASS = "pass";
+        //const char* PASS = "pass";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
@@ -51,7 +51,7 @@ namespace beam
         const char* SEND = "send";
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
-        const char* WALLET_SEED = "wallet_seed";
+        //const char* WALLET_SEED = "wallet_seed";
         const char* FEE = "fee";
         const char* FEE_FULL = "fee,f";
         const char* RECEIVE = "receive";
@@ -89,7 +89,7 @@ namespace beam
             (cli::HELP_FULL, "list of all options")
             //(cli::MODE, po::value<string>()->required(), "mode to execute [node|wallet]")
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
-            (cli::WALLET_SEED, po::value<string>(), "secret key generation seed")
+            //(cli::WALLET_SEED, po::value<string>(), "secret key generation seed")
             (cli::LOG_LEVEL, po::value<string>(), "log level [info|debug|verbose]")
             (cli::FILE_LOG_LEVEL, po::value<string>(), "file log level [info|debug|verbose]")
             (cli::VERSION_FULL, "return project version")
@@ -109,7 +109,7 @@ namespace beam
 
         po::options_description wallet_options("Wallet options");
         wallet_options.add_options()
-            (cli::PASS, po::value<string>()->default_value(""), "password for the wallet")
+            //(cli::PASS, po::value<string>()->default_value(""), "password for the wallet")
             (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 1000000 chattle)")
             (cli::FEE_FULL, po::value<double>()->default_value(0), "fee (in Beams, 1 Beam = 1000000 chattle)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")

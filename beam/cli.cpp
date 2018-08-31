@@ -17,6 +17,7 @@
 
 #include "node.h"
 #include "core/ecc_native.h"
+#include "core/ecc.h"
 #include "core/serialization_adapters.h"
 #include "utility/logger.h"
 #include "utility/options.h"
@@ -53,6 +54,25 @@ namespace
         arc & vBlocks;
 
 		return true;
+    }
+
+    bool read_wallet_seed(NoLeak<uintBig>& walletSeed) {
+        static const size_t MAX_SEED_LEN = 2000;
+        char buf[MAX_SEED_LEN];
+        size_t len = MAX_SEED_LEN;
+        read_password("Enter seed: ", buf, len);
+
+        if (len == 0) {
+            return false;
+        }
+
+        Hash::Processor hp;
+        hp.Write(buf, (uint32_t)len);
+        hp >> walletSeed.V;
+
+        SecureErase(buf, MAX_SEED_LEN);
+
+        return true;
     }
 }
 
@@ -118,7 +138,6 @@ int main_impl(int argc, char* argv[])
 			LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
 			auto port = vm[cli::PORT].as<uint16_t>();
-			auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;
 
 			{
 				reactor = io::Reactor::create();
@@ -128,14 +147,6 @@ int main_impl(int argc, char* argv[])
 
 				NoLeak<uintBig> walletSeed;
 				walletSeed.V = Zero;
-				if (hasWalletSeed)
-				{
-					// TODO: use secure string here
-					string seed = vm[cli::WALLET_SEED].as<string>();
-					Hash::Value hv;
-					Hash::Processor() << seed.c_str() >> hv;
-					walletSeed.V = hv;
-				}
 
 				io::Timer::Ptr logRotateTimer = io::Timer::create(reactor);
 				logRotateTimer->start(
@@ -154,12 +165,13 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
 					node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
-					if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
+					if (node.m_Cfg.m_MiningThreads > 0)
 					{
-						LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
-						return -1;
+                        if (!read_wallet_seed(node.m_Cfg.m_WalletKey)) {
+                            LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
+                            return -1;
+                        }
 					}
-					node.m_Cfg.m_WalletKey = walletSeed;
 
 					std::vector<std::string> vPeers = getCfgPeers(vm);
 

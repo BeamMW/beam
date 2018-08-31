@@ -79,7 +79,17 @@ void test_ndc_2(bool exc)
     }
 }
 
+void test_read_password() {
+    char buf[100];
+    size_t len=100;
+    read_password("Enter seed: ", buf, len);
+    std::cout << "seed == " << std::string(buf, len) << '\n';
+}
+
 int main() {
+#if 0
+    test_read_password();
+#else
     test_logger_1();
     test_ndc_1();
     test_ndc_2(false);
@@ -87,4 +97,5 @@ int main() {
         test_ndc_2(true);
     }
     catch(...) {}
+#endif
 }

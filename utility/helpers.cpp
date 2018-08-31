@@ -14,12 +14,14 @@
 
 #include "helpers.h"
 #include <chrono>
+#include <iostream>
 #include <stdio.h>
 #include <time.h>
 #include <atomic>
 
 #if defined __linux__
     #include <unistd.h>
+    #include <termios.h>
     #include <sys/types.h>
     #include <sys/syscall.h>
     #include <sys/signal.h>
@@ -31,6 +33,8 @@
     #include <signal.h>
     #include <pthread.h>
     #include <errno.h>
+    #include <unistd.h>
+    #include <termios.h>
 #endif
 
 using namespace std;
@@ -84,7 +88,7 @@ std::vector<uint8_t> from_hex(const std::string& str)
     size_t bias = (str.size() % 2) == 0 ? 0 : 1;
     assert((str.size() + bias) % 2 == 0);
     std::vector<uint8_t> res((str.size() + bias) >> 1);
-    
+
     for (size_t i = 0; i < str.size(); ++i)
     {
         auto c = str[i];
@@ -189,5 +193,86 @@ void wait_for_termination(int nSec) {
 }
 
 #endif //_WIN32
+
+#ifndef WIN32
+
+namespace {
+
+int getch() {
+    int ch;
+    struct termios t_old, t_new;
+
+    tcgetattr(STDIN_FILENO, &t_old);
+    t_new = t_old;
+    t_new.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &t_new);
+
+    ch = getchar();
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &t_old);
+    return ch;
+}
+
+} //namespace
+
+#endif
+
+void read_password(const char* prompt, char* out, size_t& len) {
+    std::cout << prompt;
+
+    size_t maxLen = len-1;
+    unsigned char ch=0;
+    len = 0;
+
+#ifdef WIN32
+
+    static const char BACKSPACE=8;
+    static const char RETURN=13;
+
+
+    DWORD con_mode;
+    DWORD dwRead;
+    HANDLE hIn=GetStdHandle(STD_INPUT_HANDLE);
+
+    GetConsoleMode( hIn, &con_mode );
+    SetConsoleMode( hIn, con_mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT) );
+
+    while(ReadConsoleA( hIn, &ch, 1, &dwRead, NULL) && ch !=RETURN && len < maxLen) {
+        if(ch==BACKSPACE) {
+            if(len > 0) {
+                std::cout <<"\b \b";
+                --len;
+            }
+        } else {
+            out[len++] = (char)ch;
+            std::cout << '*';
+        }
+    }
+
+    GetConsoleMode( hIn, &con_mode );
+    SetConsoleMode( hIn, con_mode | (ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT) );
+
+#else
+    static const char BACKSPACE=127;
+    static const char RETURN=10;
+
+    while((ch=getch())!=RETURN && len < maxLen)
+    {
+        if(ch==BACKSPACE) {
+            if(len > 0) {
+                std::cout <<"\b \b";
+                --len;
+            }
+        } else {
+            out[len++] = (char)ch;
+            std::cout << '*';
+        }
+    }
+
+#endif
+
+    out[len] = '\0';
+    std::cout << std::endl;
+}
 
 } //namespace
