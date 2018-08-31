@@ -129,7 +129,7 @@ Rectangle {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignTop
-                    height: 330
+                    height: 350
                     radius: 10
                     color: Style.dark_slate_blue
 
@@ -375,7 +375,7 @@ Rectangle {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 190
+                    height: 210
                     radius: 10
                     color: Style.dark_slate_blue
 
