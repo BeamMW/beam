@@ -67,7 +67,7 @@ Rectangle {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 160
+                    height: 130
 
                     radius: 10
                     color: Style.dark_slate_blue
@@ -129,7 +129,7 @@ Rectangle {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignTop
-                    height: 320
+                    height: 350
                     radius: 10
                     color: Style.dark_slate_blue
 
@@ -333,7 +333,7 @@ Rectangle {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 160
+                    height: 130
 
                     radius: 10
                     color: Style.dark_slate_blue
@@ -373,7 +373,7 @@ Rectangle {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 160
+                    height: 190
                     radius: 10
                     color: Style.dark_slate_blue
 
@@ -389,20 +389,53 @@ Rectangle {
                             font.weight: Font.Bold
                         }
 
-                        SFText {
-                            Layout.fillWidth: true
-                            text: qsTr("Consolidates all the logs and config files into a zip archive to be sent to the team for a technical investigation.")
-                            color: Style.white
-                            font.pixelSize: 12
-                            font.weight: Font.Bold
-                            wrapMode: Text.WordWrap
-                        }
+                        ColumnLayout {
+                            SFText {
+                                Layout.fillWidth: true
+                                text: qsTr("To report a problem:")
+                                color: Style.white
+                                font.pixelSize: 12
+                                font.weight: Font.Bold
+                                wrapMode: Text.WordWrap                                
+                            }
+
+                            SFText {
+                                Layout.fillWidth: true
+                                text: qsTr("1. Click 'Save wallet logs' and choose a destination folder for log archive")
+                                color: Style.white
+                                font.pixelSize: 12
+                                font.weight: Font.Bold
+                                wrapMode: Text.WordWrap
+                            }
+
+                            SFText {
+                                Layout.fillWidth: true
+                                text: qsTr("2. Send email to 'testnet@beam-mw.com' or open a ticket in <a href='https://github.com/beam-mw/beam'>github</a>")
+                                color: Style.white
+                                textFormat: Text.RichText
+                                font.pixelSize: 12
+                                font.weight: Font.Bold
+                                wrapMode: Text.WordWrap
+                                onLinkActivated: {
+                                    viewModel.openUrl(link)
+                                }
+                            }
+
+                            SFText {
+                                Layout.fillWidth: true
+                                text: qsTr("3. Don't forget to attach logs archive")
+                                color: Style.white
+                                font.pixelSize: 12
+                                font.weight: Font.Bold
+                                wrapMode: Text.WordWrap
+                            }
+                        }                        
 
                         CustomButton {
                             Layout.minimumHeight: 38
                             Layout.minimumWidth: 150
 
-                            text: "report problem"
+                            text: "save wallet logs"
                             palette.buttonText : "white"
                             palette.button: "#708090"
                             onClicked: viewModel.reportProblem()

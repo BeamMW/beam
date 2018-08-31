@@ -127,6 +127,10 @@ void SettingsViewModel::deleteLocalNodePeer(int index)
     emit localNodePeersChanged();
 }
 
+void SettingsViewModel::openUrl(const QString& url)
+{
+    QDesktopServices::openUrl(QUrl(url));
+}
 
 bool SettingsViewModel::isChanged() const
 {

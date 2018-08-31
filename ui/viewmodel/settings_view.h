@@ -56,6 +56,7 @@ public:
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
     Q_INVOKABLE void deleteLocalNodePeer(int index);
+    Q_INVOKABLE void openUrl(const QString& url);
 
 public slots:
     void applyChanges();
