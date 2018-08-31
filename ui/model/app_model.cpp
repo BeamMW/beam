@@ -54,6 +54,8 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
     {
         try
         {
+            Hash::Processor() << pass.data() >> m_passwordHash;
+
             IKeyStore::Options options;
             options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
             options.fileName = m_settings.getBbsStorage();
