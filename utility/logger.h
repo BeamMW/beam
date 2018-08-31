@@ -25,10 +25,14 @@
 #endif
 
 #ifndef LOG_DEBUG_ENABLED
-    #ifndef NDEBUG
+    #ifdef DEBUG_MESSAGES_IN_RELEASE_MODE
         #define LOG_DEBUG_ENABLED 1
     #else
-        #define LOG_DEBUG_ENABLED 0
+        #ifndef NDEBUG
+            #define LOG_DEBUG_ENABLED 1
+        #else
+            #define LOG_DEBUG_ENABLED 0
+        #endif
     #endif
 #endif
 
