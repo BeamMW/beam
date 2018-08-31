@@ -125,6 +125,7 @@ void SettingsViewModel::deleteLocalNodePeer(int index)
 {
     m_localNodePeers.removeAt(index);
     emit localNodePeersChanged();
+    emit propertiesChanged();
 }
 
 
@@ -134,7 +135,8 @@ bool SettingsViewModel::isChanged() const
         || m_localNodeRun != m_settings.getRunLocalNode()
         || m_localNodePort != m_settings.getLocalNodePort()
         || m_localNodeMiningThreads != m_settings.getLocalNodeMiningThreads()
-        || m_localNodeVerificationThreads != m_settings.getLocalNodeVerificationThreads();
+        || m_localNodeVerificationThreads != m_settings.getLocalNodeVerificationThreads()
+        || m_localNodePeers != m_settings.getLocalNodePeers();
 }
 
 void SettingsViewModel::applyChanges()
@@ -146,6 +148,7 @@ void SettingsViewModel::applyChanges()
     m_settings.setLocalNodeVerificationThreads(m_localNodeVerificationThreads);
     m_settings.setLocalNodePeers(m_localNodePeers);
     m_settings.applyChanges();
+    emit propertiesChanged();
 }
 
 QStringList SettingsViewModel::getLocalNodePeers() const
