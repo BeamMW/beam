@@ -894,32 +894,6 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             text: styleData.value
                             color: Style.white
-
-                            MouseArea {
-                                id: mouseArea
-                                anchors.fill: parent
-                                acceptedButtons: Qt.NoButton
-                                hoverEnabled: true
-                            }
-
-                            ToolTip {
-                                id: toolTip
-                                visible: mouseArea.containsMouse
-                                delay: 500
-                                timeout: 4000
-                                text: (viewModel.tx[styleData.row] ? viewModel.tx[styleData.row].user : "")
-
-                                contentItem: Text {
-                                    text: toolTip.text
-                                    font: toolTip.font
-                                    color: Style.white
-                                }
-
-                                background: Rectangle {
-                                    border.color: Style.white
-                                    opacity: 0
-                                }
-                            }
                         }
                     }
                 }

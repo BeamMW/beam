@@ -495,8 +495,14 @@ Rectangle {
             Layout.alignment: Qt.AlignHCenter
             spacing: 30
 
-            CustomButton {
+            PrimaryButton {
                 text: qsTr("undo changes")
+                enabled: {
+                    viewModel.isChanged 
+                    && nodeAddress.acceptableInput
+                    && localNodePort.acceptableInput
+                    && localNodeMiningThreads.acceptableInput
+                    && localNodeVerificationThreads.acceptableInput}
                 onClicked: viewModel.undoChanges()
             }
 
