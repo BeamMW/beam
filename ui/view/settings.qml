@@ -112,13 +112,16 @@ Rectangle {
                             }
                         }
 
-                        SFText {
-                            Layout.alignment: Qt.AlignTop
-                            id: nodeAddressError
-                            color: Style.validator_color
-                            font.pixelSize: 10
-                            visible: !nodeAddress.acceptableInput
-                            text: "Invalid address"
+                        Item {
+                            Layout.minimumHeight: 12
+                            SFText {
+                                Layout.alignment: Qt.AlignTop
+                                id: nodeAddressError
+                                color: Style.validator_color
+                                font.pixelSize: 10
+                                visible: !nodeAddress.acceptableInput
+                                text: "Invalid address"
+                            }
                         }
                     }
                 }
