@@ -49,6 +49,10 @@ public:
     void setLocalNodeVerificationThreads(uint n);
     std::string getLocalNodeStorage() const;
     std::string getTempDir() const;
+
+    QStringList getLocalNodePeers() const;
+    void setLocalNodePeers(const QStringList& qPeers);
+
 public:
 	static const char* WalletCfg;
 	static const char* LogsFolder;
@@ -62,6 +66,7 @@ signals:
     void localNodeMiningThreadsChanged();
     void localNodeVerificationThreadsChanged();
     void localNodeGenerateGenesysChanged();
+    void localNodePeersChanged();
 
 private:
     QSettings m_data;

@@ -202,6 +202,13 @@ private:
         return _keyPairs.size();
     }
 
+    void change_password(const void* password, size_t passwordLen) override {
+        KeyPairs savedKeys;
+        read_keystore_file(savedKeys, _fileName, _pass);
+        hash_from_password(_pass, password, passwordLen);
+        write_keystore_file(savedKeys, _fileName, _pass);
+    }
+
     void get_enabled_keys(std::set<PubKey>& enabledKeys) override {
         enabledKeys.clear();
         for (const auto& p : _keyPairs) {

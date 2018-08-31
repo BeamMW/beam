@@ -17,7 +17,10 @@
 #include <QtQuick>
 #include "model/app_model.h"
 #include <thread>
+#include "wallet/secstring.h"
 
+using namespace beam;
+using namespace ECC;
 using namespace std;
 
 SettingsViewModel::SettingsViewModel()
@@ -111,13 +114,33 @@ uint SettingsViewModel::coreAmount() const
     return std::thread::hardware_concurrency();
 }
 
+void SettingsViewModel::addLocalNodePeer(const QString& localNodePeer)
+{
+    m_localNodePeers.push_back(localNodePeer);
+    emit localNodePeersChanged();
+    emit propertiesChanged();
+}
+
+void SettingsViewModel::deleteLocalNodePeer(int index)
+{
+    m_localNodePeers.removeAt(index);
+    emit localNodePeersChanged();
+    emit propertiesChanged();
+}
+
+void SettingsViewModel::openUrl(const QString& url)
+{
+    QDesktopServices::openUrl(QUrl(url));
+}
+
 bool SettingsViewModel::isChanged() const
 {
     return m_nodeAddress != m_settings.getNodeAddress()
         || m_localNodeRun != m_settings.getRunLocalNode()
         || m_localNodePort != m_settings.getLocalNodePort()
         || m_localNodeMiningThreads != m_settings.getLocalNodeMiningThreads()
-        || m_localNodeVerificationThreads != m_settings.getLocalNodeVerificationThreads();
+        || m_localNodeVerificationThreads != m_settings.getLocalNodeVerificationThreads()
+        || m_localNodePeers != m_settings.getLocalNodePeers();
 }
 
 void SettingsViewModel::applyChanges()
@@ -127,8 +150,21 @@ void SettingsViewModel::applyChanges()
     m_settings.setLocalNodePort(m_localNodePort);
     m_settings.setLocalNodeMiningThreads(m_localNodeMiningThreads);
     m_settings.setLocalNodeVerificationThreads(m_localNodeVerificationThreads);
-
+    m_settings.setLocalNodePeers(m_localNodePeers);
     m_settings.applyChanges();
+    emit propertiesChanged();
+}
+
+QStringList SettingsViewModel::getLocalNodePeers() const
+{
+    return m_localNodePeers;
+}
+
+void SettingsViewModel::setLocalNodePeers(const QStringList& localNodePeers)
+{
+    m_localNodePeers = localNodePeers;
+    emit localNodePeersChanged();
+    emit propertiesChanged();
 }
 
 void SettingsViewModel::undoChanges()
@@ -138,6 +174,7 @@ void SettingsViewModel::undoChanges()
     setLocalNodePort(m_settings.getLocalNodePort());
     setLocalNodeMiningThreads(m_settings.getLocalNodeMiningThreads());
     setLocalNodeVerificationThreads(m_settings.getLocalNodeVerificationThreads());
+    setLocalNodePeers(m_settings.getLocalNodePeers());
 }
 
 void SettingsViewModel::emergencyReset()
@@ -148,4 +185,15 @@ void SettingsViewModel::emergencyReset()
 void SettingsViewModel::reportProblem()
 {
 	m_settings.reportProblem();
+}
+
+bool SettingsViewModel::checkWalletPassword(const QString& oldPass) const
+{
+	SecString secretPass = oldPass.toStdString();
+	return AppModel::getInstance()->checkWalletPassword(secretPass);
+}
+
+void SettingsViewModel::changeWalletPassword(const QString& pass)
+{
+    AppModel::getInstance()->changeWalletPassword(pass.toStdString());
 }
