@@ -419,6 +419,12 @@ Rectangle {
                                 font.weight: Font.Bold
                                 wrapMode: Text.WordWrap
                                 onLinkActivated: Qt.openUrlExternally(link)
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    acceptedButtons: Qt.NoButton
+                                    cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                }
                             }
 
                             SFText {
