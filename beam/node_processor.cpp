@@ -770,7 +770,12 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 		}
 		else
 		{
-			p->m_Value.m_Count++;
+			// protect again overflow attacks, though it's highly unlikely (Input::Count is currently limited to 32 bits, it'd take millions of blocks)
+			Input::Count nCountInc = p->m_Value.m_Count + 1;
+			if (!nCountInc)
+				return false;
+
+			p->m_Value.m_Count = nCountInc;
 			m_DB.ModifySpendable(blob, 1, 1);
 		}
 	} else
