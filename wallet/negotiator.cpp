@@ -128,6 +128,11 @@ namespace beam::wallet
             fsm.process_event(events::TxFailed{ true });
             return;
         }
+
+		Point::Native pt = Context::get().G * m_blindingExcess;
+		pt += m_publicPeerExcess;
+		m_kernel->m_Excess = pt;
+
         m_peerSignature = msg.m_peerSignature;
         update_tx_description(TxDescription::InProgress);
         sendConfirmTransaction();
@@ -204,14 +209,7 @@ namespace beam::wallet
         Scalar::Native receiverSignature = createSignature();
         Scalar::Native finialSignature = senderSignature + receiverSignature;
 
-        // Calculate public key for excess
-        Point::Native x;
-        if (!x.Import(getPublicExcess()))
-            return false;
-        x += m_publicPeerExcess;
-
         // Create transaction kernel and transaction
-        m_kernel->m_Excess = x;
         m_kernel->m_Signature.m_k = finialSignature;
         m_transaction->m_vKernelsOutput.push_back(move(m_kernel));
         m_transaction->m_Offset = m_offset;
@@ -348,6 +346,7 @@ namespace beam::wallet
         m_kernel->m_Fee = fee;
         m_kernel->m_Height.m_Min = minHeight;
         m_kernel->m_Height.m_Max = MaxHeight;
+		m_kernel->m_Excess = Zero;
     }
 
     void Negotiator::FSMDefinition::createOutputUtxo(Amount amount, Height height)
@@ -396,17 +395,33 @@ namespace beam::wallet
         return partialSignature;
     }
 
+	void Negotiator::FSMDefinition::get_NonceInternal(ECC::Signature::MultiSig& out) const
+	{
+		Point pt = m_kernel->m_Excess;
+		m_kernel->m_Excess = Zero;
+
+		Hash::Value hv;
+		m_kernel->get_Hash(hv);
+
+		m_kernel->m_Excess = pt;
+
+		out.GenerateNonce(hv, m_blindingExcess);
+	}
+
     void Negotiator::FSMDefinition::createSignature2(Scalar& signature, Point& publicNonce, Scalar& challenge) const
     {
-        Hash::Value message;
-        m_kernel->get_Hash(message);
-
         Signature::MultiSig msig;
-        msig.GenerateNonce(message, m_blindingExcess);
+		get_NonceInternal(msig);
 
         Point::Native pt = Context::get().G * msig.m_Nonce;
         publicNonce = pt;
         msig.m_NoncePub = m_publicPeerNonce + pt;
+
+		pt = Context::get().G * m_blindingExcess;
+		pt += m_publicPeerExcess;
+		m_kernel->m_Excess = pt;
+		Hash::Value message;
+		m_kernel->get_Hash(message);
 
         Scalar::Native partialSignature;
         Signature sig;
@@ -422,11 +437,8 @@ namespace beam::wallet
 
     Point Negotiator::FSMDefinition::getPublicNonce() const
     {
-        Hash::Value message;
-        m_kernel->get_Hash(message);
-
         Signature::MultiSig msig;
-        msig.GenerateNonce(message, m_blindingExcess);
+		get_NonceInternal(msig);
 
         return Point(Context::get().G * msig.m_Nonce);
     }
@@ -440,14 +452,11 @@ namespace beam::wallet
     {
         //assert(m_kernel);
         if (!m_kernel)
-        {
             return false;
-        }
-        Signature::MultiSig msig;
-        Hash::Value message;
-        m_kernel->get_Hash(message);
 
-        msig.GenerateNonce(message, m_blindingExcess);
+        Signature::MultiSig msig;
+		get_NonceInternal(msig);
+
         Point::Native publicNonce = Context::get().G * msig.m_Nonce;
 
         Point::Native pkPeer, xcPeer;
@@ -456,6 +465,13 @@ namespace beam::wallet
             return false;
 
         msig.m_NoncePub = publicNonce + pkPeer;
+
+		Point::Native pt = Context::get().G * m_blindingExcess;
+		pt += xcPeer;
+		m_kernel->m_Excess = pt;
+
+		Hash::Value message;
+		m_kernel->get_Hash(message);
 
         // temp signature to calc challenge
         Scalar::Native mySig;
