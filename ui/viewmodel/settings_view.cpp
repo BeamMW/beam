@@ -109,6 +109,21 @@ void SettingsViewModel::setLocalNodeVerificationThreads(uint value)
     }
 }
 
+int SettingsViewModel::getLockTimeout() const
+{
+    return m_lockTimeout;
+}
+
+void SettingsViewModel::setLockTimeout(int value)
+{
+    if (value != m_lockTimeout)
+    {
+        m_lockTimeout = value;
+        emit lockTimeoutChanged();
+        emit propertiesChanged();
+    }
+}
+
 uint SettingsViewModel::coreAmount() const
 {
     return std::thread::hardware_concurrency();
@@ -140,7 +155,8 @@ bool SettingsViewModel::isChanged() const
         || m_localNodePort != m_settings.getLocalNodePort()
         || m_localNodeMiningThreads != m_settings.getLocalNodeMiningThreads()
         || m_localNodeVerificationThreads != m_settings.getLocalNodeVerificationThreads()
-        || m_localNodePeers != m_settings.getLocalNodePeers();
+        || m_localNodePeers != m_settings.getLocalNodePeers()
+        || m_lockTimeout != m_settings.getLockTimeout();
 }
 
 void SettingsViewModel::applyChanges()
@@ -151,6 +167,7 @@ void SettingsViewModel::applyChanges()
     m_settings.setLocalNodeMiningThreads(m_localNodeMiningThreads);
     m_settings.setLocalNodeVerificationThreads(m_localNodeVerificationThreads);
     m_settings.setLocalNodePeers(m_localNodePeers);
+    m_settings.setLockTimeout(m_lockTimeout);
     m_settings.applyChanges();
     emit propertiesChanged();
 }
@@ -174,6 +191,7 @@ void SettingsViewModel::undoChanges()
     setLocalNodePort(m_settings.getLocalNodePort());
     setLocalNodeMiningThreads(m_settings.getLocalNodeMiningThreads());
     setLocalNodeVerificationThreads(m_settings.getLocalNodeVerificationThreads());
+    setLockTimeout(m_settings.getLockTimeout());
     setLocalNodePeers(m_settings.getLocalNodePeers());
 }
 

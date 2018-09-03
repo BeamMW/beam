@@ -80,7 +80,7 @@ Rectangle {
                         SFText {
                             Layout.alignment: Qt.AlignTop
                             Layout.bottomMargin: 15
-                            text: qsTr("Connect to node")
+                            text: qsTr("Remote node")
                             color: Style.white
                             font.pixelSize: 18
                             font.weight: Font.Bold
@@ -454,7 +454,7 @@ Rectangle {
                     Layout.fillWidth: true
                     radius: 10
                     color: Style.dark_slate_blue
-                    height: childrenRect.height + 37
+                    height: childrenRect.height + 40
 
                     Column {
                         anchors.top: parent.top
@@ -464,18 +464,42 @@ Rectangle {
                         spacing: 10
 
                         SFText {
-                            text: qsTr("Change wallet password")
+                            text: qsTr("General settings")
                             color: Style.white
                             font.pixelSize: 18
                             font.weight: Font.Bold
                         }
 
-                        SFText {
-                            text: qsTr("Add explanation to the password section!")
-                            color: Style.white
-                            font.pixelSize: 12
-                            font.weight: Font.Bold
+                        Row {
+                            width: parent.width
+
+                            spacing: 10
+
+                            SFText {
+                                text: qsTr("Lock screen in")
+                                color: Style.white
+                                font.pixelSize: 12
+                            }
+
+                            CustomComboBox {
+                                id: lockTimeoutControl
+                                width: 100
+                                height: 20
+                                anchors.top: parent.top
+                                anchors.topMargin: -3
+
+                                currentIndex: viewModel.lockTimeout
+
+                                Binding {
+                                    target: viewModel
+                                    property: "lockTimeout"
+                                    value: lockTimeoutControl.currentIndex
+                                }
+
+                                model: ["never", "1 minute", "5 minutes", "15 minutes", "30 minutes", "1 hour"]
+                            }                            
                         }
+
 
                         CustomButton {
                             width: 244

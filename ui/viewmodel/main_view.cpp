@@ -13,8 +13,55 @@
 // limitations under the License.
 
 #include "main_view.h"
+#include "model/app_model.h"
+
+namespace
+{
+    const int msInMinute = 60 * 1000;
+    const int LockTimeouts[] = 
+    { 
+        0 * msInMinute, 
+        1 * msInMinute,
+        5 * msInMinute,
+        15 * msInMinute,
+        30 * msInMinute,
+        60 * msInMinute,
+    };
+}
+
+MainViewModel::MainViewModel()
+    : m_timer(this)
+    , m_settings{AppModel::getInstance()->getSettings()}
+{
+    m_timer.setSingleShot(true);
+    connect(&m_timer, SIGNAL(timeout()), this, SLOT(lockWallet()));
+    connect(&m_settings, SIGNAL(lockTimeoutChanged()), this, SLOT(onLockTimeoutChanged()));
+
+    onLockTimeoutChanged();
+}
 
 void MainViewModel::update(int page)
 {
 	// TODO: update page model or smth...
+}
+
+void MainViewModel::lockWallet()
+{
+    emit gotoStartScreen();
+}
+
+void MainViewModel::onLockTimeoutChanged()
+{
+    int index = m_settings.getLockTimeout();
+
+    assert(index < sizeof LockTimeouts / sizeof LockTimeouts[0]);
+
+    if (index > 0)
+    {
+        m_timer.start(LockTimeouts[index]);
+    }
+    else
+    {
+        m_timer.stop();
+    }
 }

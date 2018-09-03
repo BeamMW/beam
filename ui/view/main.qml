@@ -135,6 +135,13 @@ Rectangle {
 		viewModel.update(selectedItem)
 	}
 
+    Connections {
+        target: viewModel
+        onGotoStartScreen: { 
+            main.parent.source = "qrc:///start.qml"
+        }
+    }
+
     Component.onCompleted:{
         updateItem(0) // load wallet view by default
     }
