@@ -75,5 +75,6 @@
         <file>controls/CustomToolButton.qml</file>
         <file>controls/CustomSwitch.qml</file>
         <file>controls/CustomCheckBox.qml</file>
+        <file>controls/CustomComboBox.qml</file>
     </qresource>
 </RCC>
