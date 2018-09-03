@@ -1,7 +1,10 @@
 [![Build Status](https://travis-ci.org/beam-mw/beam.svg?branch=master)](https://travis-ci.org/beam-mw/beam)
 [![Build status](https://ci.appveyor.com/api/projects/status/i2vuy3bvjf31ocr2/branch/master?svg=true)](https://ci.appveyor.com/project/beam-mw/beam/branch/master)
 
-# Beam
+# Beam. 
+
+## Scalable Confidential Cryptocurrency
+## A Mimblewimble Implementation
 
 # How to build
 

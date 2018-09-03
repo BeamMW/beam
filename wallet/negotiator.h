@@ -234,6 +234,7 @@ namespace beam::wallet
             bool isValidSignature(const ECC::Scalar& peerSignature, const ECC::Point& publicPeerNonce, const ECC::Point& publicPeerExcess) const;
             std::vector<Input::Ptr> getTxInputs(const TxID& txID) const;
             std::vector<Output::Ptr> getTxOutputs(const TxID& txID) const;
+			void get_NonceInternal(ECC::Signature::MultiSig&) const;
 
             Negotiator& m_parent;
 
