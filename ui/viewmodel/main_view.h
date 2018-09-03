@@ -15,11 +15,25 @@
 #pragma once
 
 #include <QObject>
+#include <QTimer>
+
+#include "model/settings.h"
 
 class MainViewModel : public QObject
 {
 	Q_OBJECT
+public:
+    MainViewModel();
+
+signals:
+    void gotoStartScreen();
 
 public slots:
 	void update(int page);
+    void lockWallet();
+    void onLockTimeoutChanged();
+
+private:
+    WalletSettings& m_settings;
+    QTimer m_timer;
 };

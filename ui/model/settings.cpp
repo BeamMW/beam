@@ -28,6 +28,7 @@ using namespace std;
 namespace
 {
     const char* NodeAddressName = "node/address";
+    const char* LockTimeoutName = "general/lock_timeout";
 
     const char* LocalNodeRun = "localnode/run";
     const char* LocalNodePort = "localnode/port";
@@ -77,6 +78,20 @@ void WalletSettings::setNodeAddress(const QString& addr)
         emit nodeAddressChanged();
     }
     
+}
+
+int WalletSettings::getLockTimeout() const
+{
+    return m_data.value(LockTimeoutName, 0).toInt();
+}
+
+void WalletSettings::setLockTimeout(int value)
+{
+    if (value != getLockTimeout())
+    {
+        m_data.setValue(LockTimeoutName, value);
+        emit lockTimeoutChanged();
+    }
 }
 
 void WalletSettings::emergencyReset()

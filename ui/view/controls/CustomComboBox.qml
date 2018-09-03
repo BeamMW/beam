@@ -11,13 +11,11 @@ ComboBox {
     
     spacing: 4
 
-    textRole: "text"
-
     delegate: ItemDelegate {
         id: itemDelegate
         width: control.width
         contentItem: SFText {
-            text: model.text
+            text: modelData
             color: Style.white
             elide: Text.ElideMiddle
             verticalAlignment: Text.AlignVCenter
