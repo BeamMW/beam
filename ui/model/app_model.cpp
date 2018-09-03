@@ -43,9 +43,13 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
     NoLeak<uintBig> walletSeed;
     walletSeed.V = Zero;
     {
-        Hash::Value hv;
-        Hash::Processor() << seed.data() >> hv;
-        walletSeed.V = hv;
+        //Hash::Value hv;
+        //Hash::Processor() << seed.data() >> hv;
+        //walletSeed.V = hv;
+
+        Hash::Processor hp;
+        hp.Write(seed.data(), (uint32_t)seed.size());
+        hp >> walletSeed.V;
     }
 
     m_db = Keychain::init(m_settings.getWalletStorage(), pass, walletSeed);
@@ -54,7 +58,11 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
     {
         try
         {
-            Hash::Processor() << pass.data() >> m_passwordHash;
+            Hash::Processor hp;
+            hp.Write(pass.data(), (uint32_t)pass.size());
+            hp >> m_passwordHash;
+
+            //Hash::Processor() << pass.data() >> m_passwordHash;
 
             IKeyStore::Options options;
             options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
