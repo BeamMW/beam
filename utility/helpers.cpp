@@ -217,7 +217,7 @@ int getch() {
 
 #endif
 
-void read_password(const char* prompt, char* out, size_t& len) {
+void read_password(const char* prompt, char* out, size_t& len, bool includeTerminatingZero) {
     std::cout << prompt;
 
     size_t maxLen = len-1;
@@ -272,6 +272,7 @@ void read_password(const char* prompt, char* out, size_t& len) {
 #endif
 
     out[len] = '\0';
+    if (includeTerminatingZero) ++len;
     std::cout << std::endl;
 }
 

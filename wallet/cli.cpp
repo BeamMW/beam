@@ -336,12 +336,11 @@ namespace {
 
         if (vm.count(cli::PASS)) {
             const std::string& s = vm[cli::PASS].as<std::string>();
-            LOG_INFO() << "Oooooo " << s;
             len = s.size();
             if (len > SecString::MAX_SIZE) len = SecString::MAX_SIZE;
             memcpy(buf, s.data(), len);
         } else {
-            read_password("Enter password: ", buf, len);
+            read_password("Enter password: ", buf, len, false);
         }
 
         if (len == 0) {

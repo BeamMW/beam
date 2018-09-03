@@ -93,7 +93,7 @@ void block_signals_in_this_thread();
 void wait_for_termination(int nSec);
 
 /// reads sensible strings from console input
-void read_password(const char* prompt, char* out, size_t& len);
+void read_password(const char* prompt, char* out, size_t& len, bool includeTerminatingZero=true);
 
 } //namespace
 
