@@ -77,7 +77,7 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
         }
         catch (const std::runtime_error&)
         {
-            m_messages.newMessage("Failed to generate default address");
+            m_messages.addMessage("Failed to generate default address");
         }
 
         return true;
