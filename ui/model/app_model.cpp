@@ -47,8 +47,14 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
         //Hash::Processor() << seed.data() >> hv;
         //walletSeed.V = hv;
 
+        // TODO to test all these ... LOG_WARNING() << "OOOOOOOOOOOOOOOOOO " << std::string(seed.data(), seed.size()) << " " << seed.size();
+        // Need to decide about trailing zeros
+
+        uint32_t s = (uint32_t)seed.size();
+        if (s > 0 && seed.data()[s-1] == '\0') s--;
+
         Hash::Processor hp;
-        hp.Write(seed.data(), (uint32_t)seed.size());
+        hp.Write(seed.data(), s);
         hp >> walletSeed.V;
     }
 
@@ -100,7 +106,9 @@ bool AppModel::openWallet(const beam::SecString& pass)
 
     if (m_db)
     {
-		Hash::Processor() << pass.data() >> m_passwordHash;
+		Hash::Processor hp;
+        hp.Write(pass.data(), (uint32_t)pass.size());
+        hp >> m_passwordHash;
 
         IKeyStore::Ptr keystore;
         IKeyStore::Options options;
@@ -197,14 +205,18 @@ MessageManager& AppModel::getMessages()
 bool AppModel::checkWalletPassword(const beam::SecString& pass) const
 {
     Hash::Value passwordHash;
-    Hash::Processor() << pass.data() >> passwordHash;
+    Hash::Processor hp;
+    hp.Write(pass.data(), (uint32_t)pass.size());
+    hp >> passwordHash;
 
     return passwordHash == m_passwordHash;
 }
 
 void AppModel::changeWalletPassword(const std::string& pass)
 {
-	Hash::Processor() << pass.data() >> m_passwordHash;
+	Hash::Processor hp;
+    hp.Write(pass.data(), (uint32_t)pass.size());
+    hp >> m_passwordHash;
 
     m_wallet->async->changeWalletPassword(pass);
 }
