@@ -2,8 +2,8 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/i2vuy3bvjf31ocr2/branch/master?svg=true)](https://ci.appveyor.com/project/beam-mw/beam/branch/master)
 
 # Beam. 
-Scalable Confidential Cryptocurrency
-A Mimblewimble Implementation
+###Scalable Confidential Cryptocurrency
+###A Mimblewimble Implementation
 
 BEAM is a next generation confidential cryptocurrency based on an elegant and innovative [Mimblewimble protocol](https://www.scribd.com/document/382681522/The-Mimblewimble-white-papers).
 
@@ -28,10 +28,10 @@ years.
 
 # Roadmap
 
-March 2018     : Project started
-Jun 2018       : Internal POC featuring fully functional node and CLI wallet
-September 2018 : Testnet 1 and Graphical Wallet
-December 2018  : Mainnet launch
+- March 2018     : Project started
+- Jun 2018       : Internal POC featuring fully functional node and CLI wallet
+- September 2018 : Testnet 1 and Graphical Wallet
+- December 2018  : Mainnet launch
 
 # Current status
 
