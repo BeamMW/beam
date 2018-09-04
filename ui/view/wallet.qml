@@ -368,6 +368,19 @@ Item {
                             selectByMouse: true
                         }
 
+                        Item {
+                            Layout.minimumHeight: 16
+                            Layout.fillWidth: true
+                                    
+                            SFText {
+                                text: "Please specify contact"
+                                color: Style.validator_color
+                                font.pixelSize: 14
+                                font.italic: true
+                                visible: !receiverAddrInput.acceptableInput
+                            }
+                        }
+
                         SFText {
                             id: receiverName
                             color: Style.white
@@ -418,6 +431,19 @@ Item {
 
                                     validator: RegExpValidator { regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,5}[1-9])?$/ }
                                     selectByMouse: true
+                                }
+
+                                Item {
+                                    Layout.minimumHeight: 16
+                                    Layout.fillWidth: true
+                                    
+                                    SFText {
+                                        text: "Maximum available amount is " + viewModel.available + "B"
+                                        color: Style.validator_color
+                                        font.pixelSize: 14
+                                        font.italic: true
+                                        visible: viewModel.actualAvailable < 0
+                                    }
                                 }
 
                                 Binding {
@@ -645,6 +671,7 @@ Item {
                     palette.buttonText: Style.marine
                     palette.button: Style.heliotrope
                     icon.source: "qrc:///assets/icon-send.svg"
+                    enabled: {viewModel.actualAvailable >= 0 && amount_input.acceptableInput && receiverAddrInput.acceptableInput}
                     onClicked: {
                         var message = "You are about to send %1 to address %2";
                         var beams = (viewModel.sendAmount*1 + viewModel.feeMils*1) + " " + qsTr("BEAM");
