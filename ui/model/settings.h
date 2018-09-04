@@ -29,6 +29,9 @@ public:
     QString getNodeAddress() const;
     void setNodeAddress(const QString& value);
 
+    int getLockTimeout() const;
+    void setLockTimeout(int value);
+
     void initModel(WalletModel::Ptr model);
     std::string getWalletStorage() const;
     std::string getBbsStorage() const;
@@ -61,6 +64,7 @@ public:
 
 signals:
     void nodeAddressChanged();
+    void lockTimeoutChanged();
     void localNodeRunChanged();
     void localNodePortChanged();
     void localNodeMiningThreadsChanged();
