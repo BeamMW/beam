@@ -49,6 +49,8 @@ void TestNodeConnection::GenerateTests()
 			// Kernels
 			gen.GenerateKernel(4);
 
+            LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+
 			Send(gen.GetTransaction());
 		});
 		m_Results.push_back(true);

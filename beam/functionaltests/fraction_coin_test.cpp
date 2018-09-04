@@ -39,7 +39,7 @@ private:
 	Input m_Input;
 	CoinsChecker m_CoinsChecker;
 
-	const Amount m_SpentAmount = 6000;
+	const Amount m_SpentAmount = 1000;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
@@ -50,7 +50,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	, m_Generator(m_Kdf)
 	, m_CoinsChecker(argc, argv)
 {
-	m_Timeout = 5 * 60 * 1000;
+	m_Timeout = 15 * 60 * 1000;
 }
 
 void TestNodeConnection::GenerateTests()
@@ -71,9 +71,9 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		m_IsInit = true;
 
 		m_Generator.GenerateInputInTx(m_ID.m_Height - 70, Rules::get().CoinbaseEmission);
-		for (Amount i = 0; i < m_SpentAmount; ++i)
+        for (Amount i = 0; i < m_SpentAmount; ++i)
 		{
-			m_Generator.GenerateOutputInTx(m_ID.m_Height - 70, 1);
+            m_Generator.GenerateOutputInTx(m_ID.m_Height - 70, 1);
 		}
 		m_Generator.GenerateKernel(m_ID.m_Height - 70, Rules::get().CoinbaseEmission - m_SpentAmount);
 
