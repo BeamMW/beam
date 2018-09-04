@@ -3,7 +3,7 @@
 
 BEAM is a next generation scalable, confidential cryptocurrency based on an elegant and innovative [Mimblewimble protocol](https://www.scribd.com/document/382681522/The-Mimblewimble-white-papers).
 
-[twitter](https://twitter.com/beamprivacy) | [medium](https://medium.com/beam-mw) | [reddit](https://www.reddit.com/r/beamprivacy/) | [beam forum](http://forum.beam-mw.com) | [gitter](https://gitter.im/beamprivacy/Lobby) | [telegram](https://t.me/BeamPrivacy) | [bitcointalk](https://bitcointalk.org/index.php?topic=4969510) | [youtube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?)
+[twitter](https://twitter.com/beamprivacy) | [medium](https://medium.com/beam-mw) | [reddit](https://www.reddit.com/r/beamprivacy/) | [beam forum](http://forum.beam-mw.com) | [gitter](https://gitter.im/beamprivacy/Lobby) | [telegram](https://t.me/BeamPrivacy) | [bitcointalk](https://bitcointalk.org/index.php?topic=4969510) | [youtube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?) | [facebook](https://www.facebook.com/Beamprivacy)
 
 
 [Read our position paper](https://www.scribd.com/document/382680718/BEAM-Position-Paper-V-0-1)
