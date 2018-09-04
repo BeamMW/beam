@@ -107,7 +107,7 @@ Item
                         spacing: 10
 
                         SFText {
-                            text: qsTr("Enter secret key")
+                            text: qsTr("Enter secret key (seed)")
                             color: Style.white
                             font.pixelSize: 12
                             font.weight: Font.Bold
@@ -121,6 +121,7 @@ Item
 
                             font.pixelSize: 12
                             color: Style.white
+                            echoMode: TextInput.Password
                             onTextChanged: if (seed.text.length > 0) passwordError.text = ""
                         }
                     }
@@ -194,7 +195,7 @@ Item
                         onClicked: {
                             if(seed.text.length == 0)
                             {
-                                 passwordError.text = qsTr("Please, enter miner secret");
+                                 passwordError.text = qsTr("Please, enter secret key (seed)");
                             }
                             else if(password.text.length == 0)
                             {
