@@ -1,10 +1,9 @@
 
-# Beam
-### Scalable Confidential Cryptocurrency
-### A Mimblewimble Implementation
+![alt text](https://discourse-cdn-sjc2.com/standard10/uploads/beam_mw/original/1X/0f94951ab46108cff3d1da875bdb44de3ff8bf72.jpeg "Beam Logo")
 
+BEAM is a next generation scalable, confidential cryptocurrency based on an elegant and innovative [Mimblewimble protocol](https://www.scribd.com/document/382681522/The-Mimblewimble-white-papers).
 
-BEAM is a next generation confidential cryptocurrency based on an elegant and innovative [Mimblewimble protocol](https://www.scribd.com/document/382681522/The-Mimblewimble-white-papers).
+[twitter](https://twitter.com/beamprivacy) | [medium](https://medium.com/beam-mw) | [reddit](https://www.reddit.com/r/beamprivacy/) | [beam forum](http://forum.beam-mw.com) | [gitter](https://gitter.im/beamprivacy/Lobby) | [telegram](https://t.me/BeamPrivacy) | [bitcointalk](https://bitcointalk.org/index.php?topic=4969510) | [youtube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?) | [facebook](https://www.facebook.com/Beamprivacy)
 
 
 [Read our position paper](https://www.scribd.com/document/382680718/BEAM-Position-Paper-V-0-1)
@@ -25,12 +24,12 @@ blockchain implementation.
 transactions, atomic swaps and more.
 * No premine. No ICO. Backed by a treasury, emitted from every block during the first five
 years.
-* Implemented from scratch in C++ by a team of professional developers.
+* Implemented from scratch in C++.
 
 # Roadmap
 
 - March 2018     : Project started
-- Jun 2018       : Internal POC featuring fully functional node and CLI wallet
+- June 2018       : Internal POC featuring fully functional node and CLI wallet
 - September 2018 : Testnet 1 and Graphical Wallet
 - December 2018  : Mainnet launch
 
