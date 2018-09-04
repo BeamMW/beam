@@ -1,7 +1,7 @@
 [![Build Status](https://travis-ci.org/beam-mw/beam.svg?branch=master)](https://travis-ci.org/beam-mw/beam)
 [![Build status](https://ci.appveyor.com/api/projects/status/i2vuy3bvjf31ocr2/branch/master?svg=true)](https://ci.appveyor.com/project/beam-mw/beam/branch/master)
 
-![alt text](https://forum.beam-mw.com/uploads/beam_mw/optimized/1X/29fb34fbe2ead4de19fb5fff37faeb1fbb2b0932_1_499x499.png "Beam")
+![alt text](https://forum.beam-mw.com/uploads/beam_mw/optimized/1X/29fb34fbe2ead4de19fb5fff37faeb1fbb2b0932_1_499x499.png | width=100 "Beam")
 # Beam
 ### Scalable Confidential Cryptocurrency
 ### A Mimblewimble Implementation
