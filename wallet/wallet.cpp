@@ -376,6 +376,7 @@ namespace beam
         ZeroObject(m_newState);
         ZeroObject(m_knownStateID);
         m_keyChain->setSystemStateID(m_knownStateID);
+        m_keyChain->rollbackConfirmedUtxo(0);
     }
 
     void Wallet::emergencyReset()
