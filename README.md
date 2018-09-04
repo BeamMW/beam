@@ -24,12 +24,12 @@ blockchain implementation.
 transactions, atomic swaps and more.
 * No premine. No ICO. Backed by a treasury, emitted from every block during the first five
 years.
-* Implemented from scratch in C++ by a team of professional developers.
+* Implemented from scratch in C++.
 
 # Roadmap
 
 - March 2018     : Project started
-- Jun 2018       : Internal POC featuring fully functional node and CLI wallet
+- June 2018       : Internal POC featuring fully functional node and CLI wallet
 - September 2018 : Testnet 1 and Graphical Wallet
 - December 2018  : Mainnet launch
 
