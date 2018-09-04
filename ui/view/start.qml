@@ -194,7 +194,7 @@ Item
                         onClicked: {
                             if(seed.text.length == 0)
                             {
-                                passwordError.text = qsTr("Please, enter miner secret");
+                                 passwordError.text = qsTr("Please, enter miner secret");
                             }
                             else if(password.text.length == 0)
                             {
@@ -311,11 +311,6 @@ Item
                             color: Style.validator_color
                             font.pixelSize: 10
                         }
-                        CustomCheckBox {
-                            id: generateGenesysyBlockCheck
-                            text: qsTr("Generate genesys block")
-                            checkState: Qt.Unchecked
-                        }
                     }
                     CustomRadioButton {
                         id: remoteNodeButton
@@ -383,7 +378,7 @@ Item
                                     miningError.text = qsTr("Please, specify number of mining threads or 0 if you don't want to mine")
                                 }
                                 if (!portEmpty && !miningEmpty) {
-                                    viewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.text), generateGenesysyBlockCheck.checkState === Qt.Checked);
+                                    viewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.text));
                                 }
                                 else {
                                     return;

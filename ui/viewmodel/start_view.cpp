@@ -62,6 +62,12 @@ namespace
 #endif
     };
 
+    QString chooseRandomNode()
+    {
+        srand(time(0));
+        return QString(Testnet[rand() % (sizeof(Testnet) / sizeof(Testnet[0]))]);
+    }
+
 }
 
 StartViewModel::StartViewModel()
@@ -88,6 +94,9 @@ void StartViewModel::setupLocalNode(int port, int miningThreads, bool generateGe
     settings.setLocalNodePort(port);
     settings.setRunLocalNode(true);
     settings.setGenerateGenesys(generateGenesys);
+    QStringList peers;
+    peers.push_back(chooseRandomNode());
+    settings.setLocalNodePeers(peers);
 }
 
 void StartViewModel::setupRemoteNode(const QString& nodeAddress)
@@ -97,9 +106,7 @@ void StartViewModel::setupRemoteNode(const QString& nodeAddress)
 
 void StartViewModel::setupTestnetNode()
 {
-    srand(time(0));
-    auto nodeAddr = Testnet[rand() % (sizeof(Testnet) / sizeof(Testnet[0]))];
-    AppModel::getInstance()->getSettings().setNodeAddress(nodeAddr);
+    AppModel::getInstance()->getSettings().setNodeAddress(chooseRandomNode());
 }
 
 bool StartViewModel::createWallet(const QString& seed, const QString& pass)
