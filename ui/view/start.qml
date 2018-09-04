@@ -259,7 +259,7 @@ Item
                     }
                     CustomRadioButton {
                         id: localNodeButton
-                        text: qsTr("Run local node")
+                        text: qsTr("Run local testnet node")
                         ButtonGroup.group: nodePreferencesGroup
                     }
                     Column {
