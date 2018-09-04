@@ -1,4 +1,7 @@
 
+![alt text](https://discourse-cdn-sjc2.com/standard10/uploads/beam_mw/original/1X/0f94951ab46108cff3d1da875bdb44de3ff8bf72.jpeg "Logo Title Text 1")
+
+
 # Beam
 ### Scalable Confidential Cryptocurrency
 ### A Mimblewimble Implementation
