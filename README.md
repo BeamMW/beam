@@ -1,7 +1,7 @@
 
 ![alt text](https://discourse-cdn-sjc2.com/standard10/uploads/beam_mw/original/1X/0f94951ab46108cff3d1da875bdb44de3ff8bf72.jpeg "Logo Title Text 1")
 
-### BEAM: Scalable Confidential Cryptocurrency. A Mimblewimble Implementation.
+<p style="text-align: center;">### BEAM: Scalable Confidential Cryptocurrency. A Mimblewimble Implementation.</p>
 
 BEAM is a next generation confidential cryptocurrency based on an elegant and innovative [Mimblewimble protocol](https://www.scribd.com/document/382681522/The-Mimblewimble-white-papers).
 
