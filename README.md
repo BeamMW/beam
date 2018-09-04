@@ -1,13 +1,16 @@
 [![Build Status](https://travis-ci.org/beam-mw/beam.svg?branch=master)](https://travis-ci.org/beam-mw/beam)
 [![Build status](https://ci.appveyor.com/api/projects/status/i2vuy3bvjf31ocr2/branch/master?svg=true)](https://ci.appveyor.com/project/beam-mw/beam/branch/master)
 
-# Beam. 
+# Beam
 ### Scalable Confidential Cryptocurrency
 ### A Mimblewimble Implementation
 
+
 BEAM is a next generation confidential cryptocurrency based on an elegant and innovative [Mimblewimble protocol](https://www.scribd.com/document/382681522/The-Mimblewimble-white-papers).
 
+
 [Read our position paper](https://www.scribd.com/document/382680718/BEAM-Position-Paper-V-0-1)
+
 
 Things that make BEAM special include:
 
