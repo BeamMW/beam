@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <atomic>
+#include "wallet/secstring.h"
 
 #if defined __linux__
     #include <unistd.h>
@@ -217,12 +218,11 @@ int getch() {
 
 #endif
 
-void read_password(const char* prompt, char* out, size_t& len, bool includeTerminatingZero) {
+void read_password(const char* prompt, SecString& out, bool includeTerminatingZero) {
     std::cout << prompt;
 
-    size_t maxLen = len-1;
+    size_t maxLen = SecString::MAX_SIZE-1;
     unsigned char ch=0;
-    len = 0;
 
 #ifdef WIN32
 
@@ -237,14 +237,14 @@ void read_password(const char* prompt, char* out, size_t& len, bool includeTermi
     GetConsoleMode( hIn, &con_mode );
     SetConsoleMode( hIn, con_mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT) );
 
-    while(ReadConsoleA( hIn, &ch, 1, &dwRead, NULL) && ch !=RETURN && len < maxLen) {
+    while(ReadConsoleA( hIn, &ch, 1, &dwRead, NULL) && ch !=RETURN && out.size() < maxLen) {
         if(ch==BACKSPACE) {
-            if(len > 0) {
+            if(out.size() > 0) {
                 std::cout <<"\b \b";
-                --len;
+                out.pop_back();
             }
         } else {
-            out[len++] = (char)ch;
+            out.push_back((char)ch);
             std::cout << '*';
         }
     }
@@ -256,23 +256,24 @@ void read_password(const char* prompt, char* out, size_t& len, bool includeTermi
     static const char BACKSPACE=127;
     static const char RETURN=10;
 
-    while((ch=getch())!=RETURN && len < maxLen)
+    while((ch=getch())!=RETURN && out.size() < maxLen)
     {
         if(ch==BACKSPACE) {
-            if(len > 0) {
+            if(out.size() > 0) {
                 std::cout <<"\b \b";
-                --len;
+                out.pop_back();
             }
         } else {
-            out[len++] = (char)ch;
+            out.push_back((char)ch);
             std::cout << '*';
         }
     }
 
 #endif
 
-    out[len] = '\0';
-    if (includeTerminatingZero) ++len;
+    if (includeTerminatingZero) {
+        out.push_back('\0');
+    }
     std::cout << std::endl;
 }
 
