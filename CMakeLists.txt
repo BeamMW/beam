@@ -4,7 +4,6 @@ set(VERSION_MAJOR 1)
 set(VERSION_MINOR 0)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
-set(BRANCH_NAME "")
 
 find_package(Git)
 if(Git_FOUND)
@@ -34,11 +33,7 @@ if(Git_FOUND)
 		set(APPVEYOR_REPO_BRANCH_EXISTS $ENV{APPVEYOR_REPO_BRANCH})
 		set(TRAVIS_BRANCH_EXISTS $ENV{TRAVIS_BRANCH})
 
-        if(${APPVEYOR_REPO_BRANCH_EXISTS})
-            set(BRANCH_NAME $ENV{APPVEYOR_REPO_BRANCH})
-        elseif(${TRAVIS_BRANCH_EXISTS})
-            set(BRANCH_NAME $ENV{TRAVIS_BRANCH})
-        else()
+        if(NOT DEFINED BRANCH_NAME)
             execute_process(
                 COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
                 WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -47,9 +42,12 @@ if(Git_FOUND)
             )
         endif()
 
-        message("BRANCH_NAME: ${BRANCH_NAME}")
     endif()
+else()
+	set(BRANCH_NAME "")
 endif()
+
+message("BRANCH_NAME: ${BRANCH_NAME}")
 
 project(beam VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_REVISION})
 
