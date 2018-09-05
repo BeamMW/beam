@@ -19,6 +19,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include "model/app_model.h"
+#include "version.h"
 
 using namespace beam;
 using namespace std;
@@ -389,6 +390,14 @@ void WalletViewModel::setComment(const QString& value)
 QString WalletViewModel::getComment() const
 {
 	return _comment;
+}
+
+QString WalletViewModel::getBranchName() const
+{
+    if (BRANCH_NAME.empty())
+        return QString();
+
+    return QString::fromStdString(" (" + BRANCH_NAME + ")");
 }
 
 QString WalletViewModel::receiverAddr() const

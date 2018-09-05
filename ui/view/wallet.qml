@@ -159,7 +159,7 @@ Item {
             State {
                 name: "online"
                 when: (status_bar.status === "online")
-                PropertyChanges {target: status_text; text: qsTr("online")}
+                PropertyChanges {target: status_text; text: qsTr("online") + viewModel.branchName}
                 PropertyChanges {target: status_bar; indicator: online_indicator}
                 PropertyChanges {target: online_indicator; visible: true}
                 PropertyChanges {target: offline_indicator; visible: false}
@@ -168,7 +168,7 @@ Item {
             State {
                 name: "offline"
                 when: (status_bar.status === "offline")
-                PropertyChanges {target: status_text; text: qsTr("offline")}
+                PropertyChanges {target: status_text; text: qsTr("offline") + viewModel.branchName}
                 PropertyChanges {target: status_bar; indicator: offline_indicator}
                 PropertyChanges {target: online_indicator; visible: false}
                 PropertyChanges {target: offline_indicator; visible: true}
@@ -177,7 +177,7 @@ Item {
             State {
                 name: "updating"
                 when: (status_bar.status === "updating")
-                PropertyChanges {target: status_text; text: qsTr("updating...")}
+                PropertyChanges {target: status_text; text: qsTr("updating...") + viewModel.branchName}
                 PropertyChanges {target: status_bar; indicator: update_indicator}
                 PropertyChanges {target: online_indicator; color: "red"}
                 PropertyChanges {target: online_indicator; visible: false}
@@ -188,7 +188,7 @@ Item {
                 name: "error"
                 when: (status_bar.status === "error")
                 PropertyChanges {target: status_bar; indicator: online_indicator}
-                PropertyChanges {target: status_text; text: status_bar.error_msg}
+                PropertyChanges {target: status_text; text: status_bar.error_msg + viewModel.branchName}
                 PropertyChanges {target: status_text; color: "red"}
                 PropertyChanges {target: online_indicator; color: "red"}
                 PropertyChanges {target: online_indicator; visible: true}
