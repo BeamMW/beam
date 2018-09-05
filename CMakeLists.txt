@@ -30,12 +30,24 @@ if(Git_FOUND)
 			OUTPUT_VARIABLE VERSION_REVISION
 			OUTPUT_STRIP_TRAILING_WHITESPACE
 		)
-        execute_process(
-            COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-            OUTPUT_VARIABLE BRANCH_NAME
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
+
+		set(APPVEYOR_REPO_BRANCH_EXISTS $ENV{APPVEYOR_REPO_BRANCH})
+		set(TRAVIS_BRANCH_EXISTS $ENV{TRAVIS_BRANCH})
+
+        if(${APPVEYOR_REPO_BRANCH_EXISTS})
+            set(BRANCH_NAME $ENV{APPVEYOR_REPO_BRANCH})
+        elseif(${TRAVIS_BRANCH_EXISTS})
+            set(BRANCH_NAME $ENV{TRAVIS_BRANCH})
+        else()
+            execute_process(
+                COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
+                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                OUTPUT_VARIABLE BRANCH_NAME
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+            )
+        endif()
+
+        message("BRANCH_NAME: ${BRANCH_NAME}")
     endif()
 endif()
 
