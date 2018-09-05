@@ -9,6 +9,8 @@ T.Slider {
 
     property int precision: 6
 
+    property bool showTicks: false
+
     implicitWidth: Math.max(background ? background.implicitWidth : 0,
                            (handle ? handle.implicitWidth : 0) + leftPadding + rightPadding)
     implicitHeight: Math.max(background ? background.implicitHeight : 0,
@@ -62,6 +64,20 @@ T.Slider {
             color: Style.white
             opacity: 0.1
             radius: 2
+        }
+
+        Repeater {
+            anchors.fill: parent
+            Rectangle {
+                y: (handle.width / 2) + 4
+                x: (handle.width / 2) + ((control.availableWidth - handle.width) / control.to) * index
+                width: 1
+                height: 4
+                color: Style.bluey_grey
+                visible: control.showTicks
+            }
+            model: control.to + 1
+           
         }
 
         Item {

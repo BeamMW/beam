@@ -302,6 +302,7 @@ Item
                         FeeSlider {
                             id: miningInput
                             precision: 0
+                            showTicks: true
                             width: parent.width
                             value: 0
                             to: {viewModel.coreAmount()}
