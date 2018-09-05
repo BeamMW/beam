@@ -4,6 +4,7 @@ set(VERSION_MAJOR 1)
 set(VERSION_MINOR 0)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
+set(BRANCH_NAME "")
 
 find_package(Git)
 if(Git_FOUND)
@@ -29,7 +30,13 @@ if(Git_FOUND)
 			OUTPUT_VARIABLE VERSION_REVISION
 			OUTPUT_STRIP_TRAILING_WHITESPACE
 		)
-	endif()
+        execute_process(
+            COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            OUTPUT_VARIABLE BRANCH_NAME
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+    endif()
 endif()
 
 project(beam VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_REVISION})
