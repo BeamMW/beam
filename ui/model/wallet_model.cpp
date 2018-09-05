@@ -154,7 +154,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     void changeWalletPassword(const SecString& pass) override
     {
 		// TODO: should be investigated, don't know how to "move" SecString into lambda
-		std::string passStr(pass.data());
+		std::string passStr(pass.data(), pass.size());
 
 		tx.send([passStr](BridgeInterface& receiver_) mutable
         {
@@ -359,7 +359,7 @@ void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& c
     catch (...)
     {
 
-    }    
+    }
 }
 
 void WalletModel::syncWithNode()
