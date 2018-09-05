@@ -8,7 +8,7 @@ class SecString {
     static const size_t MAX_SIZE = 128;
 
     size_t _size=0;
-    char _data[MAX_SIZE];
+    char _data[MAX_SIZE] = {0};
 public:
 
     SecString() = default;
