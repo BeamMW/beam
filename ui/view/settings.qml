@@ -200,22 +200,18 @@ Rectangle {
                                     font.weight: Font.Bold
                                 }
 
-                                SFTextInput {
+                                FeeSlider {
                                     id: localNodeMiningThreads
+                                    precision: 0
                                     width: parent.width
-                                    activeFocusOnTab: true
-                                    font.pixelSize: 12
-                                    color: readOnly ? Style.disable_text_color : Style.white
-                                    readOnly: !localNodeRun.checked
-                                    text: viewModel.localNodeMiningThreads
-                                    validator: IntValidator {
-                                        bottom: 0
-                                        top: viewModel.coreAmount()
-                                    }
+                                    value: viewModel.localNodeMiningThreads
+                                    to: {viewModel.coreAmount()}
+                                    stepSize: 1
+                                    enabled: localNodeRun.checked
                                     Binding {
                                         target: viewModel
                                         property: "localNodeMiningThreads"
-                                        value: localNodeMiningThreads.text
+                                        value: localNodeMiningThreads.value
                                     }
                                 }
 
@@ -226,22 +222,18 @@ Rectangle {
                                     font.weight: Font.Bold
                                 }
 
-                                SFTextInput {
+                                FeeSlider {
                                     id: localNodeVerificationThreads
+                                    precision: 0
                                     width: parent.width
-                                    activeFocusOnTab: true
-                                    font.pixelSize: 12
-                                    color: readOnly ? Style.disable_text_color : Style.white
-                                    readOnly: !localNodeRun.checked
-                                    text: viewModel.localNodeVerificationThreads
-                                    validator: IntValidator {
-                                        bottom: 0
-                                        top: viewModel.coreAmount()
-                                    }
+                                    value: viewModel.localNodeVerificationThreads
+                                    to: {viewModel.coreAmount()}
+                                    stepSize: 1
+                                    enabled: localNodeRun.checked
                                     Binding {
                                         target: viewModel
                                         property: "localNodeVerificationThreads"
-                                        value: localNodeVerificationThreads.text
+                                        value: localNodeVerificationThreads.value
                                     }
                                 }
                             }
@@ -531,8 +523,8 @@ Rectangle {
                     viewModel.isChanged 
                     && nodeAddress.acceptableInput
                     && localNodePort.acceptableInput
-                    && localNodeMiningThreads.acceptableInput
-                    && localNodeVerificationThreads.acceptableInput}
+                    /*&& localNodeMiningThreads.acceptableInput
+                    && localNodeVerificationThreads.acceptableInput*/}
                 onClicked: viewModel.undoChanges()
             }
 
@@ -542,8 +534,8 @@ Rectangle {
                     viewModel.isChanged 
                     && nodeAddress.acceptableInput
                     && localNodePort.acceptableInput
-                    && localNodeMiningThreads.acceptableInput
-                    && localNodeVerificationThreads.acceptableInput}
+                    /*&& localNodeMiningThreads.acceptableInput
+                    && localNodeVerificationThreads.acceptableInput*/}
                 onClicked: viewModel.applyChanges()
             }
         }

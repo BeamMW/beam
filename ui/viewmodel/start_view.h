@@ -38,6 +38,7 @@ public:
     Q_INVOKABLE void setupLocalNode(int port, int miningThreads, bool generateGenesys = false);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
     Q_INVOKABLE void setupTestnetNode();
+    Q_INVOKABLE uint coreAmount() const;
 
 signals:
     void walletExistsChanged();

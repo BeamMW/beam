@@ -18,6 +18,7 @@
 #include "settings_view.h"
 #include "model/app_model.h"
 #include "wallet/secstring.h"
+#include <thread>
 
 using namespace beam;
 using namespace ECC;
@@ -107,6 +108,11 @@ void StartViewModel::setupRemoteNode(const QString& nodeAddress)
 void StartViewModel::setupTestnetNode()
 {
     AppModel::getInstance()->getSettings().setNodeAddress(chooseRandomNode());
+}
+
+uint StartViewModel::coreAmount() const
+{
+    return std::thread::hardware_concurrency();
 }
 
 bool StartViewModel::createWallet(const QString& seed, const QString& pass)
