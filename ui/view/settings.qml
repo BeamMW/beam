@@ -129,7 +129,7 @@ Rectangle {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignTop
-                    height: 350
+                    height: 360
                     radius: 10
                     color: Style.dark_slate_blue
 
@@ -203,6 +203,7 @@ Rectangle {
                                 FeeSlider {
                                     id: localNodeMiningThreads
                                     precision: 0
+                                    showTicks: true
                                     width: parent.width
                                     value: viewModel.localNodeMiningThreads
                                     to: {viewModel.coreAmount()}
@@ -225,6 +226,7 @@ Rectangle {
                                 FeeSlider {
                                     id: localNodeVerificationThreads
                                     precision: 0
+                                    showTicks: true
                                     width: parent.width
                                     value: viewModel.localNodeVerificationThreads
                                     to: {viewModel.coreAmount()}
