@@ -32,7 +32,7 @@ if(Git_FOUND)
 		)
         execute_process(
             COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
-            WORKING_DIRECTORY "c:\\projects\\beam-mw"
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
             OUTPUT_VARIABLE BRANCH_NAME
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
