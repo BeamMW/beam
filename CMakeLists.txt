@@ -30,12 +30,19 @@ if(Git_FOUND)
 			OUTPUT_VARIABLE VERSION_REVISION
 			OUTPUT_STRIP_TRAILING_WHITESPACE
 		)
-        execute_process(
-            COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-            OUTPUT_VARIABLE BRANCH_NAME
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
+
+        if(DEFINED $ENV{APPVEYOR_REPO_BRANCH})
+            set(BRANCH_NAME $ENV{APPVEYOR_REPO_BRANCH})
+        elseif(DEFINED $ENV{TRAVIS_BRANCH})
+            set(BRANCH_NAME $ENV{TRAVIS_BRANCH})
+        else()
+            execute_process(
+                COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
+                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                OUTPUT_VARIABLE BRANCH_NAME
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+            )
+        endif()
     endif()
 endif()
 
