@@ -1,15 +1,18 @@
 #pragma once
-#include "core/ecc.h"
-#include <string_view>
+#include <stddef.h>
+#include <string>
 
 namespace beam {
 
 class SecString {
 public:
-    static const size_t MAX_SIZE = 128;
+    static const size_t MAX_SIZE = 4096;
 private:
     size_t _size=0;
-    char _data[MAX_SIZE];
+    char* _data=0;
+
+    void alloc();
+    void dealloc();
 public:
 
     SecString() = default;
@@ -29,37 +32,18 @@ public:
         return *this;
     }
 
-    ~SecString() { erase(); }
-
-    void erase() {
-        if (_size > 0) ECC::SecureErase(_data, _size);
-    }
-
-    void assign(void* p, size_t s) {
+    ~SecString() {
         erase();
-        _size = s > MAX_SIZE ? MAX_SIZE : s;
-        if (_size > 0) {
-            memcpy(_data, p, _size);
-            ECC::SecureErase(p, s);
-        }
+        dealloc();
     }
 
-    void assign(const void* p, size_t s) {
-        erase();
-        _size = s > MAX_SIZE ? MAX_SIZE : s;
-        if (_size > 0) {
-            memcpy(_data, p, _size);
-        }
-    }
+    void erase();
 
-    void assign(SecString& ss) {
-        erase();
-        _size = ss._size;
-        if (_size > 0) {
-            memcpy(_data, ss._data, _size);
-            ss.erase();
-        }
-    }
+    void assign(void* p, size_t s);
+
+    void assign(const void* p, size_t s);
+
+    void assign(SecString& ss);
 
     size_t size() const
     {
