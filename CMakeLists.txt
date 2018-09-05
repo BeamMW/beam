@@ -31,9 +31,12 @@ if(Git_FOUND)
 			OUTPUT_STRIP_TRAILING_WHITESPACE
 		)
 
-        if(DEFINED $ENV{APPVEYOR_REPO_BRANCH})
+		set(APPVEYOR_REPO_BRANCH_EXISTS $ENV{APPVEYOR_REPO_BRANCH})
+		set(TRAVIS_BRANCH_EXISTS $ENV{TRAVIS_BRANCH})
+
+        if(${APPVEYOR_REPO_BRANCH_EXISTS})
             set(BRANCH_NAME $ENV{APPVEYOR_REPO_BRANCH})
-        elseif(DEFINED $ENV{TRAVIS_BRANCH})
+        elseif(${TRAVIS_BRANCH_EXISTS})
             set(BRANCH_NAME $ENV{TRAVIS_BRANCH})
         else()
             execute_process(
@@ -43,6 +46,8 @@ if(Git_FOUND)
                 OUTPUT_STRIP_TRAILING_WHITESPACE
             )
         endif()
+
+        message("BRANCH_NAME: ${BRANCH_NAME}")
     endif()
 endif()
 
