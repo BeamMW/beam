@@ -5,6 +5,8 @@
     #include <windows.h>
 #else
     #include <sys/mman.h>
+    #include <unistd.h>
+    #include <stdlib.h>
 #endif
 
 namespace beam {
@@ -54,11 +56,24 @@ void SecString::alloc() {
     if (!_data) throw std::runtime_error("SecString: VirtualAlloc failed");
     if (!VirtualLock(_data, MAX_SIZE)) {
         VirtualFree(_data, MEM_RELEASE);
+        _data = 0;
         throw std::runtime_error("SecString: VirtualLock failed");
     }
 #else
-    _data = (char*)mmap(NULL, MAX_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_LOCKED, -1, 0);
-    if (_data == MAP_FAILED) throw std::runtime_error("SecString: mmap failed");
+    //_data = (char*)mmap(NULL, MAX_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_LOCKED, -1, 0);
+    //if (_data == MAP_FAILED) throw std::runtime_error("SecString: mmap failed");
+
+    int ret = posix_memalign((void**)&_data, (size_t)sysconf(_SC_PAGESIZE), MAX_SIZE);
+    if (ret != 0 || !_data) {
+        throw std::runtime_error("SecString: posix_memalign failed");
+    }
+
+    if (mlock(_data, MAX_SIZE) != 0) {
+        free(_data);
+        _data = 0;
+        throw std::runtime_error("SecString: mlock failed");
+    }
+
 #endif
 }
 
@@ -70,7 +85,11 @@ void SecString::dealloc() {
     VirtualUnlock(_data, MAX_SIZE);
     VirtualFree(_data, MEM_RELEASE);
 #else
-    munmap(_data, MAX_SIZE);
+    //munmap(_data, MAX_SIZE);
+
+    munlock(_data, MAX_SIZE);
+    free(_data);
+
 #endif
 
     _data = 0;
