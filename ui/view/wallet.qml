@@ -438,7 +438,7 @@ Item {
                                     Layout.fillWidth: true
                                     
                                     SFText {
-                                        text: "Maximum available amount is " + viewModel.available + "B"
+                                        text: "Maximum available amount is " + viewModel.available + " B"
                                         color: Style.validator_color
                                         font.pixelSize: 14
                                         font.italic: true
