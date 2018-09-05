@@ -299,18 +299,14 @@ Item
                             font.weight: Font.Bold
                         }
 
-                        SFTextInput {
-                            id:miningInput
+                        FeeSlider {
+                            id: miningInput
+                            precision: 0
+                            showTicks: true
                             width: parent.width
-                            text: "0"
-                            font.pixelSize: 12
-                            color: Style.white
-                            onTextChanged: if (miningInput.text.length > 0) miningError.text = ""
-                        }
-                        SFText {
-                            id: miningError
-                            color: Style.validator_color
-                            font.pixelSize: 10
+                            value: 0
+                            to: {viewModel.coreAmount()}
+                            stepSize: 1
                         }
                     }
                     CustomRadioButton {
@@ -371,15 +367,11 @@ Item
                         onClicked:{ 
                             if (localNodeButton.checked) {
                                 var portEmpty = portInput.text.trim().length === 0;
-                                var miningEmpty = miningInput.text.trim().length === 0;
                                 if (portEmpty) {
                                     portError.text = qsTr("Please, specify port to listen ");
                                 }
-                                if (miningEmpty) {
-                                    miningError.text = qsTr("Please, specify number of mining threads or 0 if you don't want to mine")
-                                }
-                                if (!portEmpty && !miningEmpty) {
-                                    viewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.text));
+                                if (!portEmpty) {
+                                    viewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.value));
                                 }
                                 else {
                                     return;

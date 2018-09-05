@@ -7,6 +7,10 @@ import QtGraphicalEffects 1.0
 T.Slider {
     id: control
 
+    property int precision: 6
+
+    property bool showTicks: false
+
     implicitWidth: Math.max(background ? background.implicitWidth : 0,
                            (handle ? handle.implicitWidth : 0) + leftPadding + rightPadding)
     implicitHeight: Math.max(background ? background.implicitHeight : 0,
@@ -20,7 +24,7 @@ T.Slider {
         implicitWidth: 20
         implicitHeight: 20
         radius: width / 2
-        color: Style.bright_teal
+        color: control.enabled ? Style.bright_teal : Style.disable_text_color
 
         SFText {
 
@@ -32,8 +36,8 @@ T.Slider {
 
             y: -26
             font.pixelSize: 14
-            text: control.value.toFixed(6)
-            color: Style.bright_teal
+            text: control.value.toFixed(control.precision)
+            color: control.enabled ? Style.bright_teal : Style.disable_text_color
         }
     }
 
@@ -62,6 +66,20 @@ T.Slider {
             radius: 2
         }
 
+        Repeater {
+            anchors.fill: parent
+            Rectangle {
+                y: (handle.width / 2) + 4
+                x: (handle.width / 2) + ((control.availableWidth - handle.width) / control.to) * index
+                width: 1
+                height: 4
+                color: Style.bluey_grey
+                visible: control.showTicks
+            }
+            model: control.to + 1
+           
+        }
+
         Item {
             width: parent.width
             anchors.top: parent.bottom
@@ -70,14 +88,14 @@ T.Slider {
             SFText {
                 font.pixelSize: 14
                 color: Style.bluey_grey
-                text: control.from.toFixed(6)
+                text: control.from.toFixed(control.precision)
             }
 
             SFText {
                 anchors.right: parent.right
                 font.pixelSize: 14
                 color: Style.bluey_grey
-                text: control.to.toFixed(6)
+                text: control.to.toFixed(control.precision)
             }            
         }
     }
