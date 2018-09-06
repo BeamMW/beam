@@ -46,7 +46,7 @@ namespace beam {
         , m_reactor_scope{*m_reactor }
         , m_reconnect_ms{ reconnect_ms }
         , m_sync_period_ms{ sync_period_ms }
-        , m_close_timeout_ms{ 3 *1000 }
+        , m_close_timeout_ms{ 10 *1000 }
         , m_sync_timer{io::Timer::create(m_reactor)}
         , m_keystore(keyStore)
         , m_lastReceiver(0)
