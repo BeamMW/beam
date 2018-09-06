@@ -153,11 +153,9 @@ void AppModel::start(IKeyStore::Ptr keystore)
 void AppModel::startNode()
 {
     ECC::NoLeak<ECC::uintBig> seed;
-    seed.V = Zero;
-    if (m_settings.getLocalNodeMiningThreads() > 0)
-    {
-        m_db->getVar("WalletSeed", seed);
-    }
+    bool isSeedValid = m_db->getVar("WalletSeed", seed);
+
+    assert(isSeedValid);
 
     m_node = make_unique<NodeModel>(seed);
     m_node->start();
