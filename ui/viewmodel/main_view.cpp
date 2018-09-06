@@ -18,9 +18,9 @@
 namespace
 {
     const int msInMinute = 60 * 1000;
-    const int LockTimeouts[] = 
-    { 
-        0 * msInMinute, 
+    const int LockTimeouts[] =
+    {
+        0 * msInMinute,
         1 * msInMinute,
         5 * msInMinute,
         15 * msInMinute,
@@ -30,8 +30,8 @@ namespace
 }
 
 MainViewModel::MainViewModel()
-    : m_timer(this)
-    , m_settings{AppModel::getInstance()->getSettings()}
+    : m_settings{AppModel::getInstance()->getSettings()}
+    , m_timer(this)
 {
     m_timer.setSingleShot(true);
     connect(&m_timer, SIGNAL(timeout()), this, SLOT(lockWallet()));

@@ -27,6 +27,11 @@ Item {
         }
     }
 
+    ConfirmationDialog {
+        id: invalidAddressDialog
+        okButtonText: "got it"
+    }
+
     SFText {
         font.pixelSize: 36
         color: Style.white
@@ -49,7 +54,7 @@ Item {
         }
 
         state: "offline"
-        
+
         property int indicator_radius: 5
         property Item indicator: online_indicator
         property string error_msg: viewModel.walletStatusErrorMsg
@@ -155,7 +160,7 @@ Item {
             color: Style.bluey_grey
         }
 
-        states: [ 
+        states: [
             State {
                 name: "online"
                 when: (status_bar.status === "online")
@@ -208,7 +213,7 @@ Item {
         anchors.fill: parent
         anchors.topMargin: 73
         anchors.bottomMargin: 30
-        
+
         ColumnLayout {
             anchors.fill: parent
             spacing: 30
@@ -366,6 +371,19 @@ Item {
 
                             validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
                             selectByMouse: true
+
+                            onTextChanged : {
+                                receiverAddressError.visible = !viewModel.isValidReceiverAddress(receiverAddrInput.text)
+                            }
+                        }
+
+                        SFText {
+                            Layout.alignment: Qt.AlignTop
+                            id: receiverAddressError
+                            color: Style.validator_color
+                            font.pixelSize: 10
+                            //visible: !viewModel.validReceiverAddress
+                            text: "Invalid address"
                         }
 
                         SFText {
@@ -399,7 +417,7 @@ Item {
                             color: Style.white
                             text: qsTr("Transaction amount")
                         }
-                        
+
                         RowLayout {
                             Layout.fillWidth: true
 
@@ -424,7 +442,7 @@ Item {
                                     target: viewModel
                                     property: "sendAmount"
                                     value: amount_input.text
-                                }   
+                                }
                             }
 
                             SFText {
@@ -432,7 +450,7 @@ Item {
                                 color: Style.white
                                 text: qsTr("BEAM")
                             }
-                        } 
+                        }
                     }
                 }
             }
@@ -450,7 +468,7 @@ Item {
                     ColumnLayout {
                         width: parent.width
 
-                        spacing: 12                        
+                        spacing: 12
 
                         SFText {
                             font.pixelSize: 14
@@ -494,7 +512,7 @@ Item {
                             color: Style.white
                             text: qsTr("Transaction fee")
                         }
-                        
+
                         FeeSlider {
                             id: feeSlider
                             Layout.fillWidth: true
@@ -646,11 +664,18 @@ Item {
                     palette.button: Style.heliotrope
                     icon.source: "qrc:///assets/icon-send.svg"
                     onClicked: {
-                        var message = "You are about to send %1 to address %2";
-                        var beams = (viewModel.sendAmount*1 + viewModel.feeMils*1) + " " + qsTr("BEAM");
+                        if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
+                            var message = "You are about to send %1 to address %2";
+                            var beams = (viewModel.sendAmount*1 + viewModel.feeMils*1) + " " + qsTr("BEAM");
 
-                        confirmationDialog.text = message.arg(beams).arg(viewModel.receiverAddr);
-                        confirmationDialog.open();                        
+                            confirmationDialog.text = message.arg(beams).arg(viewModel.receiverAddr);
+                            confirmationDialog.open();
+                        } else {
+                            var message = "Address %1 is invalid";
+                            invalidAddressDialog.text = message.arg(viewModel.receiverAddr);
+                            invalidAddressDialog.open();
+                        }
+
                     }
                 }
             }
@@ -703,7 +728,7 @@ Item {
                 onClicked: root.state = "send"
             }
 
-            
+
         }
 
         Item {
@@ -728,7 +753,7 @@ Item {
                     Layout.minimumWidth: 350
                     Layout.fillHeight: true
                     Layout.fillWidth: true
-                    
+
                     value: viewModel.available
                 }
 
@@ -821,7 +846,7 @@ Item {
             color: "#0a344d"
         }
 
-        
+
 
         CustomTableView {
 
@@ -884,7 +909,7 @@ Item {
                         width: parent.width
                         height: transactionsView.rowHeight
                         clip:true
-                        
+
                         SFText {
                             font.pixelSize: 12
                             anchors.left: parent.left
@@ -899,7 +924,7 @@ Item {
                 }
             }
 
-            
+
             TableViewColumn {
                 id: commentColumn
                 role: "comment"
@@ -913,7 +938,7 @@ Item {
                         width: parent.width
                         height: transactionsView.rowHeight
                         clip:true
-                    
+
                         SvgImage {
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.horizontalCenter: parent.horizontalCenter
@@ -1112,12 +1137,12 @@ Item {
                 property bool collapsed: true
 
                 width: parent.width
-       
+
                 Column {
                     id: rowColumn
                     width: parent.width
                     Rectangle {
-                        height: transactionsView.rowHeight    
+                        height: transactionsView.rowHeight
                         width: parent.width
                         color: styleData.alternate ? "transparent" : Style.light_navy
                     }
@@ -1133,7 +1158,7 @@ Item {
                         RowLayout {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
-                            
+
                             GridLayout {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
@@ -1141,7 +1166,7 @@ Item {
                                 columns: 2
                                 columnSpacing: 44
                                 rowSpacing: 14
-                                
+
                                 SFText {
                                     font.pixelSize: 14
                                     color: Style.white
@@ -1230,7 +1255,7 @@ Item {
                         }
                     }
                 }
-                
+
 
                 MouseArea {
                     anchors.fill: parent
@@ -1262,7 +1287,7 @@ Item {
                 }
             }
         }
-        
+
         states: [
             State {
                 name: "wide"
@@ -1283,7 +1308,7 @@ Item {
             }
         ]
     }
-    
+
     Component.onCompleted: {
         if (root.toSend) {
             root.state = "send"

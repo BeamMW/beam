@@ -34,11 +34,11 @@ namespace beam {
                                    , io::Reactor::Ptr reactor
                                    , unsigned reconnect_ms
                                    , unsigned sync_period_ms)
-                                   
+
         : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, 150, *this, 20000 }
         , m_msgReader{ m_protocol, 1, 20000 }
-        , m_node_address{node_address}
         , m_walletID(Zero)
+        , m_node_address{node_address}
         , m_reactor{ !reactor ? io::Reactor::create() : reactor }
         , m_wallet{ nullptr }
         , m_keychain{keychain}

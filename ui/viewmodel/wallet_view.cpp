@@ -138,7 +138,7 @@ WalletViewModel::WalletViewModel()
 {
     connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
-    connect(&_model, SIGNAL(onTxStatus(const std::vector<beam::TxDescription>&)), 
+    connect(&_model, SIGNAL(onTxStatus(const std::vector<beam::TxDescription>&)),
         SLOT(onTxStatus(const std::vector<beam::TxDescription>&)));
 
     connect(&_model, SIGNAL(onTxPeerUpdated(const std::vector<beam::TxPeer>&)),
@@ -283,7 +283,7 @@ void WalletViewModel::onSyncProgressUpdated(int done, int total)
     _status.update.done = done;
     _status.update.total = total;
     setIsSyncInProgress(!(done == total));
-    
+
     emit stateChanged();
 }
 
@@ -338,7 +338,12 @@ QString WalletViewModel::getReceiverAddr() const
 void WalletViewModel::setReceiverAddr(const QString& value)
 {
     _receiverAddr = value;
+    //_isValidReceiverAddress = _model.check_receiver_address(value.toStdString());
     emit receiverAddrChanged();
+}
+
+bool WalletViewModel::isValidReceiverAddress(const QString& value) {
+    return _model.check_receiver_address(value.toStdString());
 }
 
 /*QString WalletViewModel::getSenderAddr() const
@@ -471,7 +476,7 @@ beam::Amount WalletViewModel::calcTotalAmount() const
 
 void WalletViewModel::sendMoney()
 {
-    if (/*!_senderAddr.isEmpty() && */!_receiverAddr.isEmpty())
+    if (/*!_senderAddr.isEmpty() && */isValidReceiverAddress(getReceiverAddr()))
     {
         //WalletID ownAddr = from_hex(getSenderAddr().toStdString());
         WalletID peerAddr = from_hex(getReceiverAddr().toStdString());
@@ -522,7 +527,7 @@ void WalletViewModel::onAdrresses(bool own, const std::vector<beam::WalletAddres
 
     for (auto* tx : _tx)
     {
-        auto foundIter = std::find_if(addresses.cbegin(), addresses.cend(), 
+        auto foundIter = std::find_if(addresses.cbegin(), addresses.cend(),
                                       [tx](const auto& address) { return address.m_walletID == tx->peerId(); });
 
         if (foundIter != addresses.cend())

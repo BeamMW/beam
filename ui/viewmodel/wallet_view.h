@@ -91,6 +91,7 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString feeMils READ feeMils WRITE setFeeMils NOTIFY feeMilsChanged)
 
     Q_PROPERTY(QString receiverAddr READ getReceiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
+    //Q_PROPERTY(bool validReceiverAddress   READ isValidReceiverAddress CONSTANT)
     //Q_PROPERTY(QString senderAddr READ getSenderAddr WRITE setSenderAddr NOTIFY senderAddrChanged)
     Q_PROPERTY(QQmlListProperty<TxObject> tx READ tx NOTIFY txChanged)
     Q_PROPERTY(int selectedAddr READ selectedAddr WRITE setSelectedAddr NOTIFY selectedAddrChanged)
@@ -110,20 +111,21 @@ class WalletViewModel : public QObject
 
     Q_PROPERTY(QString comment READ getComment WRITE setComment NOTIFY commentChanged)
 
-    
+
 public:
 
     Q_INVOKABLE void cancelTx(int index);
     Q_INVOKABLE void generateNewAddress();
     Q_INVOKABLE void saveNewAddress();
     Q_INVOKABLE void copyToClipboard(const QString& text);
+    Q_INVOKABLE bool isValidReceiverAddress(const QString& value);
 
 public:
     using TxList = QList<TxObject*>;
-    
+
     WalletViewModel();
     virtual ~WalletViewModel();
-    
+
     QString available() const;
     QString received() const;
     QString sent() const;
@@ -148,9 +150,10 @@ public:
     void setNewReceiverName(const QString& value);
 	QString getNewReceiverName() const;
     int selectedAddr() const;
-    
+
     QString getReceiverAddr() const;
     void setReceiverAddr(const QString& value);
+
     /*QString getSenderAddr() const;
     void setSenderAddr(const QString& value);*/
 
