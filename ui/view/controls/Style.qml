@@ -20,8 +20,4 @@ QtObject {
     property color combobox_color:  "#0a4b66"
     property color validator_color: "#ff625c"
 
-
-	// Asset definitions
-
-	property string logo: "qrc:///assets/logo.png"
 }
