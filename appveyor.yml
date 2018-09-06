@@ -37,25 +37,25 @@ on_success:
 
     cpack --verbose -G NSIS
 
-    7z a c:/projects/beam/beam/Release/beam-node.zip c:/projects/beam/beam/Release/beam-node.exe c:/projects/beam/beam/beam-node.cfg
+    7z a c:/projects/beam/beam/Release/beam-node-cli.zip c:/projects/beam/beam/Release/beam-node.exe c:/projects/beam/beam/beam-node.cfg
 
-    7z a c:/projects/beam/beam/Release/beam-wallet.zip c:/projects/beam/wallet/Release/beam-wallet.exe c:/projects/beam/wallet/beam-wallet.cfg
+    7z a c:/projects/beam/beam/Release/beam-wallet-cli.zip c:/projects/beam/wallet/Release/beam-wallet.exe c:/projects/beam/wallet/beam-wallet.cfg
 
     set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win
 
     set BUILDS_SERVER_LATEST_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/latest/Release/win
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam-node.zip" %BUILDS_SERVER_PATH%/
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam-node-cli.zip" %BUILDS_SERVER_PATH%/
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam-wallet.zip" %BUILDS_SERVER_PATH%/
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam-wallet-cli.zip" %BUILDS_SERVER_PATH%/
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILDS_SERVER_PATH%/Beam Wallet.exe"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILDS_SERVER_PATH%/Beam-Wallet.exe"
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam-node.zip" %BUILDS_SERVER_LATEST_PATH%/
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam-node-cli.zip" %BUILDS_SERVER_LATEST_PATH%/
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam-wallet.zip" %BUILDS_SERVER_LATEST_PATH%/
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam-wallet-cli.zip" %BUILDS_SERVER_LATEST_PATH%/
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILDS_SERVER_LATEST_PATH%/Beam Wallet.exe"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILDS_SERVER_LATEST_PATH%/Beam-Wallet.exe"
 
 notifications:
   - provider: Email
