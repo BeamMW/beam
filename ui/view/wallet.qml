@@ -151,8 +151,9 @@ Item {
             anchors.top: parent.top
             anchors.left: parent.indicator.right
             anchors.leftMargin: 5
-            anchors.topMargin: 0
+            anchors.topMargin: -3
             color: Style.bluey_grey
+            font.pixelSize: 14
         }
 
         states: [ 
