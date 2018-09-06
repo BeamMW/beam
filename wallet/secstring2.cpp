@@ -1,6 +1,6 @@
 #include "secstring2.h"
 #include "core/ecc.h"
-#ifdef WIN23
+#ifdef WIN32
     #define WIN32_LEAN_AND_MEAN
     #include <windows.h>
 #else
