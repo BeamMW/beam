@@ -97,7 +97,7 @@ Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             width: 40
             height: 28
-            source: Style.logo
+            source: "qrc:///assets/logo.svg"
 
 			MouseArea {
                 id: mouseArea

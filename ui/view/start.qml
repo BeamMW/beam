@@ -36,9 +36,9 @@ Item
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.topMargin: 180
                     anchors.top: parent.top
-                    source: "qrc:///assets/start_logo.png"
+                    source: "qrc:///assets/start-logo.svg"
                     width: 242
-                    height: 208
+                    height: 170
                 }
 
                 Row {
@@ -415,9 +415,9 @@ Item
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.topMargin: 100
             anchors.top: parent.top
-            source: "qrc:///assets/start_logo.png"
+            source: "qrc:///assets/start-logo.svg"
             width: 242
-            height: 208
+            height: 170
         }
 
         SFText {
