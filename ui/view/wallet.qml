@@ -902,7 +902,7 @@ Item {
             TableViewColumn {
                 role: "displayName"
                 title: qsTr("Recipient / Sender ID")
-                width: 260 * transactionsView.resizableWidth / 870
+                width: 400 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideMiddle
                 resizable: false
                 movable: false
@@ -999,15 +999,6 @@ Item {
                         }
                     }
                 }
-            }
-
-            TableViewColumn {
-                role: "change"
-                title: qsTr("Change, BEAM")
-                width: 140 * transactionsView.resizableWidth / 870
-                elideMode: Text.ElideRight
-                resizable: false
-                movable: false
             }
 
             TableViewColumn {
