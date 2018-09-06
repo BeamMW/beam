@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="784px" height="548px" viewBox="0 0 196 137" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 50.2 (55047) - http://www.bohemiancoding.com/sketch -->
+    <title>Group</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <linearGradient x1="2.04081633%" y1="54.9989178%" x2="60.0511944%" y2="56.5431324%" id="linearGradient-1">
+            <stop stop-color="#FFFFFF" stop-opacity="0" offset="0%"></stop>
+            <stop stop-color="#FFFFFF" offset="100%"></stop>
+        </linearGradient>
+        <linearGradient x1="0%" y1="50%" x2="66.0419289%" y2="61.4250474%" id="linearGradient-2">
+            <stop stop-color="#FD76FD" stop-opacity="0" offset="0%"></stop>
+            <stop stop-color="#FF51FF" offset="100%"></stop>
+        </linearGradient>
+        <linearGradient x1="1.02040816%" y1="63.7091076%" x2="55.4699717%" y2="50%" id="linearGradient-3">
+            <stop stop-color="#5300FF" stop-opacity="0" offset="0%"></stop>
+            <stop stop-color="#9D6EFF" offset="100%"></stop>
+        </linearGradient>
+        <linearGradient x1="0%" y1="54.4601084%" x2="57.7231318%" y2="61.3802381%" id="linearGradient-4">
+            <stop stop-color="#AE60D6" stop-opacity="0" offset="0%"></stop>
+            <stop stop-color="#AB38E6" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="Page-2" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Group">
+            <path d="M98.0025399,114.129052 L138.823779,114.129052 L98.0152146,43.0657511 L98.010431,43.0740812 L98.0152146,0 L178,137 L98,137 L98.0025399,114.129052 Z" id="Combined-Shape" fill="#0B76FF"></path>
+            <path d="M18.0025399,114.129052 L58.8237786,114.129052 L18.0152146,43.0657511 L18.010431,43.0740812 L18.0152146,0 L98,137 L18,137 L18.0025399,114.129052 Z" id="Combined-Shape" fill="#24C1FF" transform="translate(58.000000, 68.500000) scale(-1, 1) translate(-58.000000, -68.500000) "></path>
+            <polygon id="Triangle-5" fill="#39FFF2" points="98 61 98 106.949385 73 107"></polygon>
+            <polygon id="Triangle-5" fill="#00E2C2" transform="translate(110.500000, 84.000000) scale(-1, 1) translate(-110.500000, -84.000000) " points="123 61 123 106.949385 98 107"></polygon>
+            <polygon id="Rectangle-5" fill="url(#linearGradient-1)" points="0 46 98 88.3604493 98 93 0 68.2631579"></polygon>
+            <polygon id="Rectangle-5" fill="url(#linearGradient-2)" transform="translate(147.000000, 60.000000) scale(-1, 1) translate(-147.000000, -60.000000) " points="98 30 196 88.360539 196 90 98 48.9074635"></polygon>
+            <polygon id="Rectangle-5" fill="url(#linearGradient-3)" transform="translate(147.000000, 80.000000) scale(-1, -1) translate(-147.000000, -80.000000) " points="98 74.3116141 196 67 196 68.6240657 98 93"></polygon>
+            <polygon id="Rectangle-5" fill="url(#linearGradient-4)" transform="translate(147.000000, 70.500000) scale(-1, 1) translate(-147.000000, -70.500000) " points="98 49 196 89.5192308 196 92 98 66.3653846"></polygon>
+        </g>
+    </g>
+</svg>

@@ -15,6 +15,7 @@
 #include "logger_checkpoints.h"
 #include "helpers.h"
 #include <thread>
+#include "wallet/secstring.h"
 
 using namespace beam;
 
@@ -80,10 +81,9 @@ void test_ndc_2(bool exc)
 }
 
 void test_read_password() {
-    char buf[100];
-    size_t len=100;
-    read_password("Enter seed: ", buf, len);
-    std::cout << "seed == " << std::string(buf, len) << '\n';
+    SecString buf;
+    read_password("Enter seed: ", buf);
+    std::cout << "seed == " << std::string(buf.data(), buf.size()) << '\n';
 }
 
 int main() {

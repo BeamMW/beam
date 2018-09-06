@@ -22,6 +22,8 @@
 
 namespace beam {
 
+    class SecString;
+
 // returns local timestamp in millisecond since the Epoch
 uint64_t local_timestamp_msec();
 
@@ -93,7 +95,7 @@ void block_signals_in_this_thread();
 void wait_for_termination(int nSec);
 
 /// reads sensible strings from console input
-void read_password(const char* prompt, char* out, size_t& len, bool includeTerminatingZero=false);
+void read_password(const char* prompt, SecString& out, bool includeTerminatingZero=false);
 
 } //namespace
 

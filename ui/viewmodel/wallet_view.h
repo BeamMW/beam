@@ -110,6 +110,7 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString newReceiverName READ getNewReceiverName WRITE setNewReceiverName NOTIFY newReceiverNameChanged)
 
     Q_PROPERTY(QString comment READ getComment WRITE setComment NOTIFY commentChanged)
+    Q_PROPERTY(QString branchName READ getBranchName CONSTANT)
 
 
 public:
@@ -163,6 +164,7 @@ public:
     void setSelectedAddr(int index);
     void setComment(const QString& value);
 	QString getComment() const;
+    QString getBranchName() const;
 
 public slots:
     void onStatus(const WalletStatus& amount);

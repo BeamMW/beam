@@ -40,35 +40,13 @@ AppModel::~AppModel()
 
 bool AppModel::createWallet(const SecString& seed, const SecString& pass)
 {
-    NoLeak<uintBig> walletSeed;
-    walletSeed.V = Zero;
-    {
-        //Hash::Value hv;
-        //Hash::Processor() << seed.data() >> hv;
-        //walletSeed.V = hv;
-
-        // TODO to test all these ... LOG_WARNING() << "OOOOOOOOOOOOOOOOOO " << std::string(seed.data(), seed.size()) << " " << seed.size();
-        // Need to decide about trailing zeros
-
-        uint32_t s = (uint32_t)seed.size();
-        if (s > 0 && seed.data()[s-1] == '\0') s--;
-
-        Hash::Processor hp;
-        hp.Write(seed.data(), s);
-        hp >> walletSeed.V;
-    }
-
-    m_db = Keychain::init(m_settings.getWalletStorage(), pass, walletSeed);
+    m_db = Keychain::init(m_settings.getWalletStorage(), pass, seed.hash());
 
     if (m_db)
     {
         try
         {
-            Hash::Processor hp;
-            hp.Write(pass.data(), (uint32_t)pass.size());
-            hp >> m_passwordHash;
-
-            //Hash::Processor() << pass.data() >> m_passwordHash;
+            m_passwordHash = pass.hash();
 
             IKeyStore::Options options;
             options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
@@ -106,9 +84,7 @@ bool AppModel::openWallet(const beam::SecString& pass)
 
     if (m_db)
     {
-		Hash::Processor hp;
-        hp.Write(pass.data(), (uint32_t)pass.size());
-        hp >> m_passwordHash;
+		m_passwordHash = pass.hash();
 
         IKeyStore::Ptr keystore;
         IKeyStore::Options options;
@@ -177,11 +153,9 @@ void AppModel::start(IKeyStore::Ptr keystore)
 void AppModel::startNode()
 {
     ECC::NoLeak<ECC::uintBig> seed;
-    seed.V = Zero;
-    if (m_settings.getLocalNodeMiningThreads() > 0)
-    {
-        m_db->getVar("WalletSeed", seed);
-    }
+    bool isSeedValid = m_db->getVar("WalletSeed", seed);
+
+    assert(isSeedValid);
 
     m_node = make_unique<NodeModel>(seed);
     m_node->start();
@@ -204,19 +178,15 @@ MessageManager& AppModel::getMessages()
 
 bool AppModel::checkWalletPassword(const beam::SecString& pass) const
 {
-    Hash::Value passwordHash;
-    Hash::Processor hp;
-    hp.Write(pass.data(), (uint32_t)pass.size());
-    hp >> passwordHash;
+    auto passwordHash = pass.hash();
 
-    return passwordHash == m_passwordHash;
+    return passwordHash.V == m_passwordHash.V;
 }
 
 void AppModel::changeWalletPassword(const std::string& pass)
 {
-	Hash::Processor hp;
-    hp.Write(pass.data(), (uint32_t)pass.size());
-    hp >> m_passwordHash;
+    beam::SecString t = pass;
+    m_passwordHash.V = t.hash().V;
 
     m_wallet->async->changeWalletPassword(pass);
 }

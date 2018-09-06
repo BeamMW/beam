@@ -1,4 +1,4 @@
-#include "secstring.h"
+#include "secstring2.h"
 #include "core/ecc.h"
 #ifdef WIN23
     #define WIN32_LEAN_AND_MEAN

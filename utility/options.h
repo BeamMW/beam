@@ -15,7 +15,7 @@
 #pragma once
 
 #include <boost/program_options.hpp>
-
+#include "core/ecc.h"
 #include "logger.h"
 
 namespace beam
@@ -93,4 +93,10 @@ namespace beam
     int getLogLevel(const std::string &dstLog, const po::variables_map& vm, int defaultValue = LOG_LEVEL_DEBUG);
 
 	std::vector<std::string> getCfgPeers(const po::variables_map& vm);
+
+    class SecString;
+
+    bool read_wallet_seed(ECC::NoLeak<ECC::uintBig>& walletSeed, po::variables_map& vm);
+
+    bool read_wallet_pass(SecString& pass, po::variables_map& vm);
 }

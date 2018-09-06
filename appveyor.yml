@@ -12,8 +12,6 @@ environment:
   OPENSSL_ROOT_DIR: c:\beam-libs\openssl
   QT5_ROOT_DIR: c:\beam-libs\qt5-static-win
   QML_IMPORT_PATH: c:\beam-libs\qt5-static-win\qml
-  GITHUB_API_KEY:
-    secure: 3teRuVd1PpR8Y2XJEOWPWo7LYRhEKIZZk3w53nFG7hPsXrONIUb18SNfkVl+SICw
   BUILD_SERVER:
     secure: l9RqB2YbSnNIKZqTwnd67BHAXvbjmpj9zcf+YQPi9zfzsVeSysaoLD7gy4gSMjWurk2JVHjRpviw4bBxUbu2sA==
   matrix:
@@ -22,7 +20,7 @@ environment:
 before_build:
   - cmd: git clone --depth=1 https://github.com/beam-mw/libs.git c:/beam-libs
   - cmd: git clone --depth=1 https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
-  - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=Release -DBEAM_LINK_TYPE=Static
+  - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=Release -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=%APPVEYOR_REPO_BRANCH%
 
 test_script:
   - cmd: ctest -C Release --verbose
@@ -41,7 +39,7 @@ on_success:
 
     7z a c:/projects/beam/beam/Release/beam-node.zip c:/projects/beam/beam/Release/beam-node.exe c:/projects/beam/beam/beam-node.cfg
 
-    7z a c:/projects/beam/beam/Release/beam-wallet.zip c:/projects/beam/wallet/Release/beam-wallet.exe c:/projects/beam/wallet/beam-wallet.cfg
+    7z a c:/projects/beam/beam/Release/beam-wallet-cli.zip c:/projects/beam/wallet/Release/beam-wallet.exe c:/projects/beam/wallet/beam-wallet.cfg
 
     set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win
 
@@ -49,53 +47,15 @@ on_success:
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam-node.zip" %BUILDS_SERVER_PATH%/
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam-wallet.zip" %BUILDS_SERVER_PATH%/
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam-wallet-cli.zip" %BUILDS_SERVER_PATH%/
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILDS_SERVER_PATH%/Beam Wallet.exe"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILDS_SERVER_PATH%/Beam-Wallet.exe"
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam-node.zip" %BUILDS_SERVER_LATEST_PATH%/
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam-wallet.zip" %BUILDS_SERVER_LATEST_PATH%/
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/Release/beam-wallet-cli.zip" %BUILDS_SERVER_LATEST_PATH%/
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILDS_SERVER_LATEST_PATH%/Beam Wallet.exe"
-
-    set REPO=https://%GITHUB_API_KEY%@github.com/beam-mw/beam-builds
-
-    git config --global user.email "vadim@beam-mw.com"
-
-    git config --global user.name "Vadim Grigoruk"
-
-    git clone --depth=1 %REPO%
-
-    cd beam-builds
-
-    set RELEASE_FOLDER=nightly\%DATE%\release\win
-
-    set LATEST_FOLDER=latest\release\win
-
-    if not exist "%RELEASE_FOLDER%" mkdir %RELEASE_FOLDER%
-
-    if not exist "%LATEST_FOLDER%" mkdir %LATEST_FOLDER%  
-
-    copy /Y "c:\projects\beam\beam\Release\beam-node.zip" "%RELEASE_FOLDER%\beam-node.zip"
-
-    copy /Y "c:\projects\beam\beam\Release\beam-wallet.zip" "%RELEASE_FOLDER%\beam-wallet.zip"
-    
-    copy /Y "%RELEASE_FOLDER%\beam-node.zip" "%LATEST_FOLDER%\beam-node.zip"
-
-    copy /Y "%RELEASE_FOLDER%\beam-wallet.zip" "%LATEST_FOLDER%\beam-wallet.zip"
-
-    copy /Y "c:\projects\beam\BeamWallet-0.0.1-win64.exe" "%RELEASE_FOLDER%\Beam Wallet.exe"
-
-    copy /Y "c:\projects\beam\BeamWallet-0.0.1-win64.exe" "%LATEST_FOLDER%\Beam Wallet.exe"
-
-    git add %RELEASE_FOLDER%/beam-node.zip %RELEASE_FOLDER%/beam-wallet.zip "%RELEASE_FOLDER%/Beam Wallet.exe" 
-
-    git add %LATEST_FOLDER%/beam-node.zip %LATEST_FOLDER%/beam-wallet.zip "%LATEST_FOLDER%/Beam Wallet.exe"
-
-    git commit -m "AppVeyor build for Windows"
-    
-    git push %REPO% master
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-0.0.1-win64.exe" "%BUILDS_SERVER_LATEST_PATH%/Beam-Wallet.exe"
 
 notifications:
   - provider: Email

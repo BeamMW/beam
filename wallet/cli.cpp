@@ -302,57 +302,6 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
     }
 }
 
-namespace {
-    bool read_wallet_seed(NoLeak<uintBig>& walletSeed, po::variables_map& vm) {
-        static const size_t MAX_SEED_LEN = 2000;
-        char buf[MAX_SEED_LEN];
-        size_t len = MAX_SEED_LEN;
-
-        if (vm.count(cli::WALLET_SEED)) {
-            const std::string& s = vm[cli::WALLET_SEED].as<std::string>();
-            len = s.size();
-            if (len > MAX_SEED_LEN) len = MAX_SEED_LEN;
-            memcpy(buf, s.data(), len);
-        } else {
-            read_password("Enter seed: ", buf, len);
-        }
-
-        if (len == 0) {
-            return false;
-        }
-
-        Hash::Processor hp;
-        hp.Write(buf, (uint32_t)len);
-        hp >> walletSeed.V;
-
-        SecureErase(buf, MAX_SEED_LEN);
-
-        return true;
-    }
-
-    bool read_wallet_pass(SecString& pass, po::variables_map& vm) {
-        char buf[SecString::MAX_SIZE];
-        size_t len = SecString::MAX_SIZE;
-
-        if (vm.count(cli::PASS)) {
-            const std::string& s = vm[cli::PASS].as<std::string>();
-            len = s.size();
-            if (len > SecString::MAX_SIZE) len = SecString::MAX_SIZE;
-            memcpy(buf, s.data(), len);
-        } else {
-            read_password("Enter password: ", buf, len, false);
-        }
-
-        if (len == 0) {
-            return false;
-        }
-
-        pass.assign(buf, len);
-        SecureErase(buf, len);
-        return true;
-    }
-}
-
 io::Reactor::Ptr reactor;
 
 static const unsigned LOG_ROTATION_PERIOD = 3*60*60*1000; // 3 hours
@@ -460,10 +409,8 @@ int main_impl(int argc, char* argv[])
 
                         LOG_INFO() << "starting a wallet...";
 
-                        // TODO: we should use secure string
                         SecString pass;
-
-                        if (!read_wallet_pass(pass, vm))
+                        if (!beam::read_wallet_pass(pass, vm))
                         {
                             LOG_ERROR() << "Please, provide password for the wallet.";
                             return -1;
@@ -471,7 +418,7 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::INIT)
                         {
-                            if (!read_wallet_seed(walletSeed, vm))
+                            if (!beam::read_wallet_seed(walletSeed, vm))
                             {
                                 LOG_ERROR() << "Please, provide seed phrase for the wallet.";
                                 return -1;

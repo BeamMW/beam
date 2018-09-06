@@ -29,8 +29,25 @@ if(Git_FOUND)
 			OUTPUT_VARIABLE VERSION_REVISION
 			OUTPUT_STRIP_TRAILING_WHITESPACE
 		)
-	endif()
+
+		set(APPVEYOR_REPO_BRANCH_EXISTS $ENV{APPVEYOR_REPO_BRANCH})
+		set(TRAVIS_BRANCH_EXISTS $ENV{TRAVIS_BRANCH})
+
+        if(NOT DEFINED BRANCH_NAME)
+            execute_process(
+                COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
+                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                OUTPUT_VARIABLE BRANCH_NAME
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+            )
+        endif()
+
+    endif()
+else()
+	set(BRANCH_NAME "")
 endif()
+
+message("BRANCH_NAME: ${BRANCH_NAME}")
 
 project(beam VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_REVISION})
 

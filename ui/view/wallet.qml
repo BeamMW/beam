@@ -156,15 +156,16 @@ Item {
             anchors.top: parent.top
             anchors.left: parent.indicator.right
             anchors.leftMargin: 5
-            anchors.topMargin: 0
+            anchors.topMargin: -3
             color: Style.bluey_grey
+            font.pixelSize: 14
         }
 
         states: [
             State {
                 name: "online"
                 when: (status_bar.status === "online")
-                PropertyChanges {target: status_text; text: qsTr("online")}
+                PropertyChanges {target: status_text; text: qsTr("online") + viewModel.branchName}
                 PropertyChanges {target: status_bar; indicator: online_indicator}
                 PropertyChanges {target: online_indicator; visible: true}
                 PropertyChanges {target: offline_indicator; visible: false}
@@ -173,7 +174,7 @@ Item {
             State {
                 name: "offline"
                 when: (status_bar.status === "offline")
-                PropertyChanges {target: status_text; text: qsTr("offline")}
+                PropertyChanges {target: status_text; text: qsTr("offline") + viewModel.branchName}
                 PropertyChanges {target: status_bar; indicator: offline_indicator}
                 PropertyChanges {target: online_indicator; visible: false}
                 PropertyChanges {target: offline_indicator; visible: true}
@@ -182,7 +183,7 @@ Item {
             State {
                 name: "updating"
                 when: (status_bar.status === "updating")
-                PropertyChanges {target: status_text; text: qsTr("updating...")}
+                PropertyChanges {target: status_text; text: qsTr("updating...") + viewModel.branchName}
                 PropertyChanges {target: status_bar; indicator: update_indicator}
                 PropertyChanges {target: online_indicator; color: "red"}
                 PropertyChanges {target: online_indicator; visible: false}
@@ -193,7 +194,7 @@ Item {
                 name: "error"
                 when: (status_bar.status === "error")
                 PropertyChanges {target: status_bar; indicator: online_indicator}
-                PropertyChanges {target: status_text; text: status_bar.error_msg}
+                PropertyChanges {target: status_text; text: status_bar.error_msg + viewModel.branchName}
                 PropertyChanges {target: status_text; color: "red"}
                 PropertyChanges {target: online_indicator; color: "red"}
                 PropertyChanges {target: online_indicator; visible: true}
@@ -386,6 +387,19 @@ Item {
                             text: "Invalid address"
                         }
 
+                        Item {
+                            Layout.minimumHeight: 16
+                            Layout.fillWidth: true
+
+                            SFText {
+                                text: "Please specify contact"
+                                color: Style.validator_color
+                                font.pixelSize: 14
+                                font.italic: true
+                                visible: !receiverAddrInput.acceptableInput
+                            }
+                        }
+
                         SFText {
                             id: receiverName
                             color: Style.white
@@ -436,6 +450,19 @@ Item {
 
                                     validator: RegExpValidator { regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,5}[1-9])?$/ }
                                     selectByMouse: true
+                                }
+
+                                Item {
+                                    Layout.minimumHeight: 16
+                                    Layout.fillWidth: true
+
+                                    SFText {
+                                        text: "Maximum available amount is " + viewModel.available + " B"
+                                        color: Style.validator_color
+                                        font.pixelSize: 14
+                                        font.italic: true
+                                        visible: viewModel.actualAvailable < 0
+                                    }
                                 }
 
                                 Binding {
@@ -663,6 +690,9 @@ Item {
                     palette.buttonText: Style.marine
                     palette.button: Style.heliotrope
                     icon.source: "qrc:///assets/icon-send.svg"
+                    // TODO actualAvailable is string
+                    //enabled: {viewModel.actualAvailable >= 0 && amount_input.acceptableInput && receiverAddrInput.acceptableInput}
+                    enabled: {amount_input.acceptableInput && receiverAddrInput.acceptableInput }
                     onClicked: {
                         if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
                             var message = "You are about to send %1 to address %2";
@@ -900,7 +930,7 @@ Item {
             TableViewColumn {
                 role: "displayName"
                 title: qsTr("Recipient / Sender ID")
-                width: 260 * transactionsView.resizableWidth / 870
+                width: 400 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideMiddle
                 resizable: false
                 movable: false
@@ -997,15 +1027,6 @@ Item {
                         }
                     }
                 }
-            }
-
-            TableViewColumn {
-                role: "change"
-                title: qsTr("Change, BEAM")
-                width: 140 * transactionsView.resizableWidth / 870
-                elideMode: Text.ElideRight
-                resizable: false
-                movable: false
             }
 
             TableViewColumn {
