@@ -84,11 +84,13 @@ std::string to_hex(const void* bytes, size_t size) {
     return std::string(to_hex(buf, bytes, size));
 }
 
-std::vector<uint8_t> from_hex(const std::string& str)
+std::vector<uint8_t> from_hex(const std::string& str, bool* wholeStringIsNumber)
 {
     size_t bias = (str.size() % 2) == 0 ? 0 : 1;
     assert((str.size() + bias) % 2 == 0);
     std::vector<uint8_t> res((str.size() + bias) >> 1);
+
+    if (wholeStringIsNumber) *wholeStringIsNumber = true;
 
     for (size_t i = 0; i < str.size(); ++i)
     {
@@ -106,6 +108,10 @@ std::vector<uint8_t> from_hex(const std::string& str)
         else if (c >= 'A' && c <= 'F')
         {
             res[j] += 10 + (c - 'A');
+        }
+        else {
+            if (wholeStringIsNumber) *wholeStringIsNumber = false;
+            break;
         }
     }
 

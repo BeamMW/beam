@@ -530,8 +530,11 @@ void WalletModel::changeWalletPassword(const SecString& pass)
 }
 
 bool WalletModel::check_receiver_address(const std::string& addr) {
-    if (addr.size() != 64) return false;
-    WalletID peerAddr = from_hex(addr);
+    size_t sz = addr.size();
+    if (sz == 0 || sz > 64) return false;
+    bool wholeStringIsNumber = false;
+    WalletID peerAddr = from_hex(addr, &wholeStringIsNumber);
+    if (!wholeStringIsNumber) return false;
     ByteBuffer buff;
     return _keystore->encrypt(buff, "whatever", 8, peerAddr);
 }
