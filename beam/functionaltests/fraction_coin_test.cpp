@@ -71,9 +71,9 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		m_IsInit = true;
 
 		m_Generator.GenerateInputInTx(m_ID.m_Height - 70, Rules::get().CoinbaseEmission);
-		for (Amount i = 0; i < m_SpentAmount; ++i)
+        for (Amount i = 0; i < m_SpentAmount; ++i)
 		{
-			m_Generator.GenerateOutputInTx(m_ID.m_Height - 70, 1);
+            m_Generator.GenerateOutputInTx(m_ID.m_Height - 70, 1);
 		}
 		m_Generator.GenerateKernel(m_ID.m_Height - 70, Rules::get().CoinbaseEmission - m_SpentAmount);
 
@@ -89,7 +89,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		if (++m_Counter >= 2)
 		{
 			m_CoinsChecker.Check(m_Generator.GenerateInputsFromOutputs(),
-				[](bool isOk, Height) 
+				[](bool isOk, Height)
 					{
 						if (isOk)
 						{

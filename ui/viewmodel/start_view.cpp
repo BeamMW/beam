@@ -24,8 +24,6 @@ using namespace beam;
 using namespace ECC;
 using namespace std;
 
-#define BEAM_TESTNET
-
 namespace
 {
     const char* Testnet[] =

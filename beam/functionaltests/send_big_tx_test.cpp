@@ -29,7 +29,7 @@ class TestNodeConnection : public BaseTestNode
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	
+
 	void OnDisconnect(const DisconnectReason& ) override;
 	void GenerateTests() override;
 };
@@ -69,7 +69,7 @@ void TestNodeConnection::GenerateTests()
 
 		gen.Sort();
 
-		Send(gen.GetTransaction());
+        Send(gen.GetTransaction());
 	});
 }
 
@@ -85,5 +85,5 @@ int main(int argc, char* argv[])
 
 	connection.Run();
 
-	return connection.CheckOnFailed();	
+	return connection.CheckOnFailed();
 }

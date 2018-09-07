@@ -271,7 +271,8 @@ void Reactor::shutdown_tcpstream(Object* o, BufferChain&& unsent) {
             }
             Reactor* self = reinterpret_cast<Reactor*>(req->data);
             if (self) {
-                self->async_close((uv_handle_t*&)(req->handle));
+                uv_handle_t* req_handle = (uv_handle_t*)req->handle;
+                self->async_close(req_handle);
                 self->_shutdownRequests.erase(req);
                 self->_shutdownRequestsPool.release(req);
                 self->_unsent.erase(req);

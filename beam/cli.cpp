@@ -148,7 +148,7 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
 					if (node.m_Cfg.m_MiningThreads > 0)
 					{
-                        if (!beam::read_wallet_seed(node.m_Cfg.m_WalletKey, vm)) {
+						if (!beam::read_wallet_seed(node.m_Cfg.m_WalletKey, vm)) {
                             LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
                             return -1;
                         }
@@ -192,13 +192,13 @@ int main_impl(int argc, char* argv[])
 							LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_vTreasury.size();
 					}
 
-					node.m_Cfg.m_ControlState.m_Height = Rules::HeightGenesis;
+#ifdef BEAM_TESTNET
+                    node.m_Cfg.m_ControlState.m_Height = Rules::HeightGenesis;
 					node.m_Cfg.m_ControlState.m_Hash = {
 						0xf6, 0xf9, 0x01, 0x39, 0x3a, 0x10, 0x30, 0x80, 0x86, 0x4f, 0x75, 0xb6, 0x6b, 0x78, 0xa9, 0x6e,
 						0x6d, 0xf0, 0x10, 0xb5, 0x3f, 0x9a, 0xaf, 0x32, 0xe3, 0xcb, 0xc7, 0x5f, 0xa3, 0x6a, 0x21, 0x97
 					};
-
-
+#endif
 					node.Initialize();
 
 					Height hImport = vm[cli::IMPORT].as<Height>();

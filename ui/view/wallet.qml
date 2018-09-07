@@ -383,7 +383,6 @@ Item {
                             id: receiverAddressError
                             color: Style.validator_color
                             font.pixelSize: 10
-                            //visible: !viewModel.validReceiverAddress
                             text: "Invalid address"
                         }
 
@@ -705,7 +704,6 @@ Item {
                             invalidAddressDialog.text = message.arg(viewModel.receiverAddr);
                             invalidAddressDialog.open();
                         }
-
                     }
                 }
             }

@@ -41,7 +41,7 @@ void TestNodeConnection::GenerateTests()
 		m_Tests.push_back([this, i]()
 		{
 			TxGenerator gen(m_Kdf);
-			
+
 			// Inputs
 			gen.GenerateInputInTx(i, 1);
 			// Outputs

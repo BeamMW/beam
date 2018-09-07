@@ -22,7 +22,7 @@ Item
 
         Component {
             id: start
-            Rectangle 
+            Rectangle
             {
                 color: Style.marine
 
@@ -67,7 +67,7 @@ Item
 
         Component {
             id: create
-            Rectangle 
+            Rectangle
             {
                 color: Style.marine
 
@@ -222,7 +222,7 @@ Item
         Component {
             id: nodeSetup
 
-            Rectangle 
+            Rectangle
             {
                 color: Style.marine
 
@@ -260,7 +260,7 @@ Item
                     }
                     CustomRadioButton {
                         id: localNodeButton
-                        text: qsTr("Run local testnet node")
+                        text: qsTr("Run node locally (") + viewModel.branchName + qsTr(")")
                         ButtonGroup.group: nodePreferencesGroup
                     }
                     Column {
@@ -364,7 +364,7 @@ Item
                     PrimaryButton {
                         text: qsTr("next");
                         enabled: nodePreferencesGroup.checkState != Qt.Unchecked
-                        onClicked:{ 
+                        onClicked:{
                             if (localNodeButton.checked) {
                                 var portEmpty = portInput.text.trim().length === 0;
                                 if (portEmpty) {
@@ -395,7 +395,7 @@ Item
         }
     }
 
-    Rectangle 
+    Rectangle
     {
         id: open
 
@@ -526,3 +526,4 @@ Item
         }
     ]
 }
+
