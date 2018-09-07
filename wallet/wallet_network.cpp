@@ -335,7 +335,8 @@ namespace beam {
             uint32_t channel = channel_from_wallet_id(k);
 
             if (channel != msg.m_Channel) continue;
-            if (m_keystore->decrypt(out, size, msg.m_Message, k))
+            ByteBuffer decryptBuffer(msg.m_Message); // we have to allocate memory for decrypted message
+            if (m_keystore->decrypt(out, size, decryptBuffer, k))
             {
                 LOG_DEBUG() << "Succeeded to decrypt BBS message from channel=" << msg.m_Channel;
                 m_lastReceiver = &k;
