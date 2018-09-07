@@ -163,9 +163,12 @@ WalletViewModel::WalletViewModel()
     connect(&_model, SIGNAL(onGeneratedNewWalletID(const beam::WalletID&)),
         SLOT(onGeneratedNewWalletID(const beam::WalletID&)));
 
-    connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
-        SLOT(onNodeSyncProgressUpdated(int, int)));
-
+    if (AppModel::getInstance()->getSettings().getRunLocalNode())
+    {
+        connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
+            SLOT(onNodeSyncProgressUpdated(int, int)));
+    }
+    
     _model.async->getWalletStatus();
 }
 
