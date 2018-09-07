@@ -222,6 +222,8 @@ namespace beam
 		hp	<< m_Fee
 			<< m_Height.m_Min
 			<< m_Height.m_Max
+			<< m_Excess
+			<< m_Multiplier
 			<< (bool) m_pHashLock;
 
 		if (m_pHashLock)
@@ -297,13 +299,6 @@ namespace beam
 
 	void TxKernel::HashToID(Merkle::Hash& hv) const
 	{
-		// Account for everything that was not included in the hash for signing, except the signature. We must be able to get the ID of the kernel which isn't signed yet
-		ECC::Hash::Processor()
-			<< hv
-			<< m_Excess
-			<< m_Multiplier
-			>> hv;
-
 		// Some kernel hash values are reserved for the system usage
 		if (hv == Zero)
 			hv.Inc();
@@ -643,7 +638,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(4) // increment this whenever we change something in the protocol
+			<< uint32_t(5) // increment this whenever we change something in the protocol
 			// out
 			>> Checksum;
 	}

@@ -81,6 +81,14 @@ if(DEBUG_MESSAGES_IN_RELEASE_MODE)
     add_definitions(-DDEBUG_MESSAGES_IN_RELEASE_MODE)
 endif()
 
+if(BRANCH_NAME MATCHES "testnet")
+    add_definitions(-DBEAM_TESTNET)
+endif()
+
+if(BEAM_TESTNET)
+    add_definitions(-DBEAM_TESTNET)
+endif()
+
 if(MSVC)
     if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
 		string(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")

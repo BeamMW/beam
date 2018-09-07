@@ -40,21 +40,13 @@ AppModel::~AppModel()
 
 bool AppModel::createWallet(const SecString& seed, const SecString& pass)
 {
-    NoLeak<uintBig> walletSeed;
-    walletSeed.V = Zero;
-    {
-        Hash::Value hv;
-        Hash::Processor() << seed.data() >> hv;
-        walletSeed.V = hv;
-    }
-
-    m_db = Keychain::init(m_settings.getWalletStorage(), pass, walletSeed);
+    m_db = Keychain::init(m_settings.getWalletStorage(), pass, seed.hash());
 
     if (m_db)
     {
         try
         {
-            Hash::Processor() << pass.data() >> m_passwordHash;
+            m_passwordHash = pass.hash();
 
             IKeyStore::Options options;
             options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
@@ -92,7 +84,7 @@ bool AppModel::openWallet(const beam::SecString& pass)
 
     if (m_db)
     {
-		Hash::Processor() << pass.data() >> m_passwordHash;
+		m_passwordHash = pass.hash();
 
         IKeyStore::Ptr keystore;
         IKeyStore::Options options;
@@ -186,15 +178,15 @@ MessageManager& AppModel::getMessages()
 
 bool AppModel::checkWalletPassword(const beam::SecString& pass) const
 {
-    Hash::Value passwordHash;
-    Hash::Processor() << pass.data() >> passwordHash;
+    auto passwordHash = pass.hash();
 
-    return passwordHash == m_passwordHash;
+    return passwordHash.V == m_passwordHash.V;
 }
 
 void AppModel::changeWalletPassword(const std::string& pass)
 {
-	Hash::Processor() << pass.data() >> m_passwordHash;
+    beam::SecString t = pass;
+    m_passwordHash.V = t.hash().V;
 
     m_wallet->async->changeWalletPassword(pass);
 }

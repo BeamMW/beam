@@ -195,7 +195,7 @@ public:
 
 	struct Key
 	{
-		static const uint32_t s_BitsCommitment = sizeof(ECC::uintBig) * 8 + 1; // curve point
+		static const uint32_t s_BitsCommitment = ECC::uintBig::nBits + 1; // curve point
 
 		struct Data {
 			ECC::Point m_Commitment;

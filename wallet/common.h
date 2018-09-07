@@ -36,7 +36,7 @@ namespace beam
     std::ostream& operator<<(std::ostream& os, const TxID& uuid);
 
     struct Coin;
-    
+
     struct TxDescription
     {
         enum Status
@@ -115,10 +115,11 @@ namespace beam
             std::vector<Output::Ptr> m_outputs;
 
             Invite()
-                : m_amount(0)
+                : m_from(Zero)
+                , m_amount(0)
                 , m_fee(0)
                 , m_send{true}
-                , m_from(Zero)
+
             {
 
             }
@@ -159,7 +160,7 @@ namespace beam
             WalletID m_from;
             TxID m_txId{};
             ECC::Scalar m_peerSignature;
-            
+
             SERIALIZE(m_from, m_txId, m_peerSignature);
         };
 

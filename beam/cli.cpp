@@ -17,6 +17,7 @@
 
 #include "node.h"
 #include "core/ecc_native.h"
+#include "core/ecc.h"
 #include "core/serialization_adapters.h"
 #include "utility/logger.h"
 #include "utility/options.h"
@@ -118,7 +119,6 @@ int main_impl(int argc, char* argv[])
 			LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
 			auto port = vm[cli::PORT].as<uint16_t>();
-			auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;
 
 			{
 				reactor = io::Reactor::create();
@@ -128,14 +128,6 @@ int main_impl(int argc, char* argv[])
 
 				NoLeak<uintBig> walletSeed;
 				walletSeed.V = Zero;
-				if (hasWalletSeed)
-				{
-					// TODO: use secure string here
-					string seed = vm[cli::WALLET_SEED].as<string>();
-					Hash::Value hv;
-					Hash::Processor() << seed.c_str() >> hv;
-					walletSeed.V = hv;
-				}
 
 				io::Timer::Ptr logRotateTimer = io::Timer::create(reactor);
 				logRotateTimer->start(
@@ -154,12 +146,13 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
 					node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
-					if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
+					if (node.m_Cfg.m_MiningThreads > 0)
 					{
-						LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
-						return -1;
+						if (!beam::read_wallet_seed(node.m_Cfg.m_WalletKey, vm)) {
+                            LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
+                            return -1;
+                        }
 					}
-					node.m_Cfg.m_WalletKey = walletSeed;
 
 					std::vector<std::string> vPeers = getCfgPeers(vm);
 
@@ -199,6 +192,13 @@ int main_impl(int argc, char* argv[])
 							LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_vTreasury.size();
 					}
 
+#ifdef BEAM_TESTNET
+                    node.m_Cfg.m_ControlState.m_Height = Rules::HeightGenesis;
+					node.m_Cfg.m_ControlState.m_Hash = {
+						0xf6, 0xf9, 0x01, 0x39, 0x3a, 0x10, 0x30, 0x80, 0x86, 0x4f, 0x75, 0xb6, 0x6b, 0x78, 0xa9, 0x6e,
+						0x6d, 0xf0, 0x10, 0xb5, 0x3f, 0x9a, 0xaf, 0x32, 0xe3, 0xcb, 0xc7, 0x5f, 0xa3, 0x6a, 0x21, 0x97
+					};
+#endif
 					node.Initialize();
 
 					Height hImport = vm[cli::IMPORT].as<Height>();

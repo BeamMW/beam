@@ -82,6 +82,8 @@ public:
 public:
     IWalletModelAsync::Ptr async;
 
+    bool check_receiver_address(const std::string& addr);
+
 signals:
     void onStatus(const WalletStatus& status);
     void onTxStatus(const std::vector<beam::TxDescription>& history);

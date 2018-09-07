@@ -111,20 +111,21 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString comment READ getComment WRITE setComment NOTIFY commentChanged)
     Q_PROPERTY(QString branchName READ getBranchName CONSTANT)
 
-    
+
 public:
 
     Q_INVOKABLE void cancelTx(int index);
     Q_INVOKABLE void generateNewAddress();
     Q_INVOKABLE void saveNewAddress();
     Q_INVOKABLE void copyToClipboard(const QString& text);
+    Q_INVOKABLE bool isValidReceiverAddress(const QString& value);
 
 public:
     using TxList = QList<TxObject*>;
-    
+
     WalletViewModel();
     virtual ~WalletViewModel();
-    
+
     QString available() const;
     QString received() const;
     QString sent() const;
@@ -149,7 +150,7 @@ public:
     void setNewReceiverName(const QString& value);
 	QString getNewReceiverName() const;
     int selectedAddr() const;
-    
+
     QString getReceiverAddr() const;
     void setReceiverAddr(const QString& value);
     /*QString getSenderAddr() const;

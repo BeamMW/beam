@@ -254,7 +254,7 @@ namespace beam
 				throw std::runtime_error("recursion too deep");
 		}
 
-		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all except m_Excess (i.e. public key)
+		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Excess and m_Multiplier (i.e. the public key)
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
 		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;

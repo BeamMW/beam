@@ -22,6 +22,8 @@
 #include "wallet/secstring.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
+
+#define LOG_VERBOSE_ENABLED 0
 #include "utility/logger.h"
 #include "utility/options.h"
 #include "utility/helpers.h"
@@ -360,8 +362,7 @@ int main_impl(int argc, char* argv[])
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
-            auto port = vm[cli::PORT].as<uint16_t>();
-            auto hasWalletSeed = vm.count(cli::WALLET_SEED) > 0;
+            // TODO later auto port = vm[cli::PORT].as<uint16_t>();
 
             {
                 reactor = io::Reactor::create();
@@ -371,14 +372,6 @@ int main_impl(int argc, char* argv[])
 
                 NoLeak<uintBig> walletSeed;
                 walletSeed.V = Zero;
-                if (hasWalletSeed)
-                {
-                    // TODO: use secure string here
-                    string seed = vm[cli::WALLET_SEED].as<string>();
-                    Hash::Value hv;
-                    Hash::Processor() << seed.c_str() >> hv;
-                    walletSeed.V = hv;
-                }
 
                 io::Timer::Ptr logRotateTimer = io::Timer::create(reactor);
                 logRotateTimer->start(
@@ -411,20 +404,14 @@ int main_impl(int argc, char* argv[])
 
                         if (!Keychain::isInitialized(walletPath) && command != cli::INIT)
                         {
-                            LOG_ERROR() << "Please initialize your wallet first... \nExample: beam wallet --command=init --pass=<password to access wallet> --wallet_seed=<seed to generate secret keys>";
+                            LOG_ERROR() << "Please initialize your wallet first... \nExample: beam-wallet --command=init";
                             return -1;
                         }
 
                         LOG_INFO() << "starting a wallet...";
 
-                        // TODO: we should use secure string
                         SecString pass;
-                        if (vm.count(cli::PASS))
-                        {
-                            pass = SecString(vm[cli::PASS].as<string>());
-                        }
-
-                        if (!pass.size())
+                        if (!beam::read_wallet_pass(pass, vm))
                         {
                             LOG_ERROR() << "Please, provide password for the wallet.";
                             return -1;
@@ -432,7 +419,7 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::INIT)
                         {
-                            if (!hasWalletSeed)
+                            if (!beam::read_wallet_seed(walletSeed, vm))
                             {
                                 LOG_ERROR() << "Please, provide seed phrase for the wallet.";
                                 return -1;

@@ -94,7 +94,7 @@
     each(1, walletID,    sep, BLOB NOT NULL PRIMARY KEY, obj) \
     each(2, address,     sep, TEXT NOT NULL, obj) \
     each(3, label,          , TEXT NOT NULL , obj)
-    
+
 #define PEER_FIELDS ENUM_PEER_FIELDS(LIST, COMMA, )
 
 
@@ -104,19 +104,19 @@
     each(3, category,       sep, TEXT, obj) \
     each(4, createTime,     sep, INTEGER, obj) \
     each(5, duration,       sep, INTEGER, obj) \
-    each(6, own,               , INTEGER NOT NULL, obj) 
+    each(6, own,               , INTEGER NOT NULL, obj)
 
 #define ADDRESS_FIELDS ENUM_ADDRESS_FIELDS(LIST, COMMA, )
 
-namespace std 
+namespace std
 {
-    template<> 
+    template<>
     struct hash<pair<beam::Amount, beam::Amount>>
     {
         typedef pair<beam::Amount, beam::Amount> argument_type;
         typedef std::size_t result_type;
 
-        result_type operator()(const argument_type& a) const noexcept 
+        result_type operator()(const argument_type& a) const noexcept
         {
             return boost::hash<argument_type>()(a);
         }
@@ -195,7 +195,7 @@ namespace beam
                         if (sum.first < m_amount)
                             newCombinations.push_back(sum.first + coin->m_amount);
                     }
-                    
+
                     for (const auto& sum : newCombinations)
                     {
                         auto it = m_Combinations.find(sum);
@@ -318,7 +318,7 @@ namespace beam
             pair<Amount, vector<Coin>> m_empty;
         };
     }
-    
+
     namespace sqlite
     {
         struct Statement
@@ -598,8 +598,8 @@ namespace beam
         , m_maturity{ maturity }
         , m_key_type{ keyType }
         , m_confirmHeight{ confirmHeight }
+        , m_confirmHash(Zero)
         , m_lockedHeight{ lockedHeight }
-		, m_confirmHash(Zero)
 	{
         assert(isValid());
     }
@@ -635,7 +635,7 @@ namespace beam
 
             {
                 int ret = sqlite3_open_v2(path.c_str(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
-                throwIfError(ret, keychain->_db);                
+                throwIfError(ret, keychain->_db);
             }
 
             {
@@ -883,7 +883,7 @@ namespace beam
             {
                 CoinSelector2 s{ candidats };
                 auto t = s.select(amount);
-                
+
                 if (sum > amount && sum <= t.first)
                 {
                     // prefer one coin instead on many
@@ -899,7 +899,7 @@ namespace beam
                 coins.push_back(coin2);
             }
         }
- 
+
         if (lock)
         {
             sqlite::Transaction trans(_db);
@@ -1218,7 +1218,7 @@ namespace beam
             stm.bind(3, KeyType::Comission);
             stm.step();
         }
-        
+
         {
             const char* req = "UPDATE " STORAGE_NAME " SET status=?1, confirmHeight=?2, lockedHeight=?2, confirmHash=NULL WHERE confirmHeight > ?3 ;";
             sqlite::Statement stm(_db, req);
@@ -1365,7 +1365,7 @@ namespace beam
     void Keychain::addPeer(const TxPeer& peer)
     {
         sqlite::Transaction trans(_db);
-        
+
         sqlite::Statement stm2(_db, "SELECT * FROM " PEERS_NAME " WHERE walletID=?1;");
         stm2.bind(1, peer.m_walletID);
 
@@ -1462,7 +1462,7 @@ namespace beam
         }
         return boost::optional<WalletAddress>{};
     }
-    
+
     void Keychain::deleteAddress(const WalletID& id)
     {
         const char* req = "DELETE FROM " ADDRESSES_NAME " WHERE walletID=?1;";

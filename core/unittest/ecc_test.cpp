@@ -612,8 +612,10 @@ struct TransactionMaker
 
 	void CoSignKernel(beam::TxKernel& krn, const Hash::Value& hvLockImage)
 	{
-		Hash::Value msg;
-		krn.get_Hash(msg, &hvLockImage);
+		Hash::Value msg0;
+		krn.m_Excess = Zero;
+		krn.get_ID(msg0, &hvLockImage); // not a real ID, since we added excess to it now, which is not known yet.
+		// But it's ok, it's used only for nonce generation
 
 		// 1st pass. Public excesses and Nonces are summed.
 		Scalar::Native offset(m_Trans.m_Offset);
@@ -626,13 +628,16 @@ struct TransactionMaker
 			p.FinalizeExcess(xG, offset);
 
 			Signature::MultiSig msig;
-			msig.GenerateNonce(msg, p.m_k);
+			msig.GenerateNonce(msg0, p.m_k);
 
 			kG += Context::get().G * msig.m_Nonce;
 		}
 
 		m_Trans.m_Offset = offset;
 		krn.m_Excess = xG;
+
+		Hash::Value msg1;
+		krn.get_ID(msg1, &hvLockImage);
 
 		// 2nd pass. Signing. Total excess is the signature public key.
 		Scalar::Native kSig = Zero;
@@ -642,11 +647,11 @@ struct TransactionMaker
 			Peer& p = m_pPeers[i];
 
 			Signature::MultiSig msig;
-			msig.GenerateNonce(msg, p.m_k);
+			msig.GenerateNonce(msg0, p.m_k);
 			msig.m_NoncePub = kG;
 
 			Scalar::Native k;
-			krn.m_Signature.CoSign(k, msg, p.m_k, msig);
+			krn.m_Signature.CoSign(k, msg1, p.m_k, msig);
 
 			kSig += k;
 
@@ -654,7 +659,6 @@ struct TransactionMaker
 		}
 
 		krn.m_Signature.m_k = kSig;
-
 	}
 
 	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested)
@@ -743,10 +747,10 @@ void TestTransactionKernelConsuming()
 		Scalar::Native sk0 = kExc * (mul0 + 1);
 
 		beam::TxKernel::Ptr pKrn(new beam::TxKernel);
-		pKrn->get_Hash(hv);
-		pKrn->m_Signature.Sign(hv, sk0);
 		pKrn->m_Excess = p;
 		pKrn->m_Multiplier = mul0;
+		pKrn->get_ID(hv);
+		pKrn->m_Signature.Sign(hv, sk0);
 
 		t.m_vKernelsInput.push_back(std::move(pKrn));
 
@@ -756,10 +760,10 @@ void TestTransactionKernelConsuming()
 		Scalar::Native sk1 = kExc * (mul1 + 1);
 
 		pKrn.reset(new beam::TxKernel);
-		pKrn->get_Hash(hv);
-		pKrn->m_Signature.Sign(hv, sk1);
 		pKrn->m_Excess = p;
 		pKrn->m_Multiplier = mul1;
+		pKrn->get_ID(hv);
+		pKrn->m_Signature.Sign(hv, sk1);
 
 		t.m_vKernelsOutput.push_back(std::move(pKrn));
 

@@ -29,7 +29,7 @@ class TestNodeConnection : public BaseTestNode
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	
+
 	void OnDisconnect(const DisconnectReason& ) override;
 	void GenerateTests() override;
 };
@@ -50,7 +50,7 @@ void TestNodeConnection::GenerateTests()
 {
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Generate transaction";
+		LOG_INFO() << "Send big transaction";
 		TxGenerator gen(m_Kdf);
 
 		Amount amount = 20000;
@@ -61,7 +61,7 @@ void TestNodeConnection::GenerateTests()
 		// Outputs
 		for (Amount i = 0; i < amount; ++i)
 		{
-			gen.GenerateOutputInTx(1, 1, beam::KeyType::Regular, true);
+			gen.GenerateOutputInTx(1, 1);
 		}
 
 		// Kernels
@@ -69,8 +69,7 @@ void TestNodeConnection::GenerateTests()
 
 		gen.Sort();
 
-        LOG_INFO() << "Send big transaction";
-		Send(gen.GetTransaction());
+        Send(gen.GetTransaction());
 	});
 }
 
@@ -86,5 +85,5 @@ int main(int argc, char* argv[])
 
 	connection.Run();
 
-	return connection.CheckOnFailed();	
+	return connection.CheckOnFailed();
 }

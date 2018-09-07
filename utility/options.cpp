@@ -14,9 +14,13 @@
 
 #include "options.h"
 #include "core/block_crypt.h"
+#include "core/ecc.h"
 #include "utility/string_helpers.h"
+#include "utility/helpers.h"
+#include "wallet/secstring.h"
 
 using namespace std;
+using namespace ECC;
 
 namespace beam
 {
@@ -63,12 +67,12 @@ namespace beam
         const char* VERSION = "version";
         const char* VERSION_FULL = "version,v";
         const char* GIT_COMMIT_HASH = "git_commit_hash";
-		// treasury
-		const char* TR_BEAMS = "tr_BeamsPerUtxo";
-		const char* TR_DH = "tr_HeightStep";
-		const char* TR_COUNT = "tr_Count";
-		// ui
-		const char* WALLET_ADDR = "addr";
+        // treasury
+        const char* TR_BEAMS = "tr_BeamsPerUtxo";
+        const char* TR_DH = "tr_HeightStep";
+        const char* TR_COUNT = "tr_Count";
+        // ui
+        const char* WALLET_ADDR = "addr";
         const char* APPDATA_PATH = "appdata";
     }
 
@@ -100,8 +104,8 @@ namespace beam
             (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
             (cli::HISTORY, po::value<string>()->default_value(szLocalDir), "directory for compressed history")
             (cli::TEMP, po::value<string>()->default_value(szTempDir), "temp directory for compressed history, must be on the same volume")
-			(cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block pack to import treasury from")
-			(cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
+            (cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block pack to import treasury from")
+            (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
             (cli::MINER_ID, po::value<uint32_t>()->default_value(0), "seed for miner nonce generation")
             (cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
@@ -110,7 +114,7 @@ namespace beam
 
         po::options_description wallet_options("Wallet options");
         wallet_options.add_options()
-            (cli::PASS, po::value<string>()->default_value(""), "password for the wallet")
+            (cli::PASS, po::value<string>(), "password for the wallet")
             (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 1000000 chattle)")
             (cli::FEE_FULL, po::value<double>()->default_value(0), "fee (in Beams, 1 Beam = 1000000 chattle)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
@@ -120,28 +124,28 @@ namespace beam
             (cli::BBS_STORAGE, po::value<string>()->default_value("bbs_keys.db"), "path to file with bbs keys")
             (cli::TX_HISTORY, "print transacrions' history in info command")
 
-			(cli::TR_COUNT, po::value<uint32_t>()->default_value(30), "treasury UTXO count")
-			(cli::TR_DH, po::value<uint32_t>()->default_value(1440), "treasury UTXO height lock step")
-			(cli::TR_BEAMS, po::value<uint32_t>()->default_value(10), "treasury value of each UTXO (in Beams)")
-			(cli::COMMAND, po::value<string>(), "command to execute [send|receive|listen|init|info|treasury]");
+            (cli::TR_COUNT, po::value<uint32_t>()->default_value(30), "treasury UTXO count")
+            (cli::TR_DH, po::value<uint32_t>()->default_value(1440), "treasury UTXO height lock step")
+            (cli::TR_BEAMS, po::value<uint32_t>()->default_value(10), "treasury value of each UTXO (in Beams)")
+            (cli::COMMAND, po::value<string>(), "command to execute [send|receive|listen|init|info|treasury]");
 
         po::options_description uioptions("UI options");
         uioptions.add_options()
             (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
-			(cli::APPDATA_PATH, po::value<string>());
+            (cli::APPDATA_PATH, po::value<string>());
 
 #define RulesParams(macro) \
-	macro(Amount, CoinbaseEmission, "coinbase emission in a single block") \
-	macro(Height, MaturityCoinbase, "num of blocks before coinbase UTXO can be spent") \
-	macro(Height, MaturityStd, "num of blocks before non-coinbase UTXO can be spent") \
-	macro(size_t, MaxBodySize, "Max block body size [bytes]") \
-	macro(uint32_t, DesiredRate_s, "Desired rate of generated blocks [seconds]") \
-	macro(uint32_t, DifficultyReviewCycle, "num of blocks after which the mining difficulty can be adjusted") \
-	macro(uint32_t, MaxDifficultyChange, "Max difficulty change after each cycle (each step is roughly x2 complexity)") \
-	macro(uint32_t, TimestampAheadThreshold_s, "Block timestamp tolerance [seconds]") \
-	macro(uint32_t, WindowForMedian, "How many blocks are considered in calculating the timestamp median") \
-	macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
-	macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
+    macro(Amount, CoinbaseEmission, "coinbase emission in a single block") \
+    macro(Height, MaturityCoinbase, "num of blocks before coinbase UTXO can be spent") \
+    macro(Height, MaturityStd, "num of blocks before non-coinbase UTXO can be spent") \
+    macro(size_t, MaxBodySize, "Max block body size [bytes]") \
+    macro(uint32_t, DesiredRate_s, "Desired rate of generated blocks [seconds]") \
+    macro(uint32_t, DifficultyReviewCycle, "num of blocks after which the mining difficulty can be adjusted") \
+    macro(uint32_t, MaxDifficultyChange, "Max difficulty change after each cycle (each step is roughly x2 complexity)") \
+    macro(uint32_t, TimestampAheadThreshold_s, "Block timestamp tolerance [seconds]") \
+    macro(uint32_t, WindowForMedian, "How many blocks are considered in calculating the timestamp median") \
+    macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
+    macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
 
 #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(Rules::get().name), comment)
 
@@ -218,22 +222,61 @@ namespace beam
         return defaultValue;
     }
 
-	vector<string> getCfgPeers(const po::variables_map& vm)
-	{
-		vector<string> peers;
+    vector<string> getCfgPeers(const po::variables_map& vm)
+    {
+        vector<string> peers;
 
-		if (vm.count(cli::NODE_PEER))
-		{
-			auto tempPeers = vm[cli::NODE_PEER].as<vector<string>>();
+        if (vm.count(cli::NODE_PEER))
+        {
+            auto tempPeers = vm[cli::NODE_PEER].as<vector<string>>();
 
-			for (const auto& peer : tempPeers)
-			{
-				auto csv = string_helpers::split(peer, ',');
+            for (const auto& peer : tempPeers)
+            {
+                auto csv = string_helpers::split(peer, ',');
 
-				peers.insert(peers.end(), csv.begin(), csv.end());
-			}
-		}
+                peers.insert(peers.end(), csv.begin(), csv.end());
+            }
+        }
 
-		return peers;
-	}
+        return peers;
+    }
+
+    namespace
+    {
+        bool read_secret_impl(SecString& pass, const char* prompt, const char* optionName, po::variables_map& vm)
+        {
+            if (vm.count(optionName)) {
+                const std::string& s = vm[optionName].as<std::string>();
+                size_t len = s.size();
+                if (len > SecString::MAX_SIZE) len = SecString::MAX_SIZE;
+                pass.assign(s.data(), len);
+            }
+            else {
+                read_password(prompt, pass, false);
+            }
+
+            if (pass.empty()) {
+                return false;
+            }
+            return true;
+        }
+    }
+
+
+    bool read_wallet_seed(NoLeak<uintBig>& walletSeed, po::variables_map& vm)
+    {
+        SecString seed;
+        if (!read_secret_impl(seed, "Enter seed: ", cli::WALLET_SEED, vm))
+        {
+            return false;
+        }
+
+        walletSeed.V = seed.hash().V;
+        return true;
+    }
+
+    bool read_wallet_pass(SecString& pass, po::variables_map& vm)
+    {
+        return read_secret_impl(pass, "Enter password: ", cli::PASS, vm);
+    }
 }

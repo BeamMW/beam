@@ -39,7 +39,7 @@ private:
 	Input m_Input;
 	CoinsChecker m_CoinsChecker;
 
-	const Amount m_SpentAmount = 1000;
+	const Amount m_SpentAmount = 6000;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
@@ -50,7 +50,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	, m_Generator(m_Kdf)
 	, m_CoinsChecker(argc, argv)
 {
-	m_Timeout = 15 * 60 * 1000;
+	m_Timeout = 5 * 60 * 1000;
 }
 
 void TestNodeConnection::GenerateTests()
@@ -89,7 +89,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		if (++m_Counter >= 2)
 		{
 			m_CoinsChecker.Check(m_Generator.GenerateInputsFromOutputs(),
-				[](bool isOk, Height) 
+				[](bool isOk, Height)
 					{
 						if (isOk)
 						{

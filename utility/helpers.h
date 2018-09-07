@@ -22,6 +22,8 @@
 
 namespace beam {
 
+    class SecString;
+
 // returns local timestamp in millisecond since the Epoch
 uint64_t local_timestamp_msec();
 
@@ -43,8 +45,8 @@ char* to_hex(char* dst, const void* bytes, size_t size);
 // Converts bytes to base16 string.
 std::string to_hex(const void* bytes, size_t size);
 
-// Converts hexdec string to vector of bytes
-std::vector<uint8_t> from_hex(const std::string& str);
+// Converts hexdec string to vector of bytes, if wholeStringIsNumber!=0 it will contain true if the whole string is base16
+std::vector<uint8_t> from_hex(const std::string& str, bool* wholeStringIsNumber=0);
 
 /// Wraps member fn into std::function via lambda
 template <typename R, typename ...Args, typename T> std::function<R(Args...)> bind_memfn(T* object, R(T::*fn)(Args...)) {
@@ -91,6 +93,9 @@ void block_signals_in_this_thread();
 /// 1/ no more than nSec seconds if nSec > 0
 /// 2/ until signal arrives otherwise
 void wait_for_termination(int nSec);
+
+/// reads sensible strings from console input
+void read_password(const char* prompt, SecString& out, bool includeTerminatingZero=false);
 
 } //namespace
 

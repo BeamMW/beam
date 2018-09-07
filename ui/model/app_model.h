@@ -53,7 +53,7 @@ private:
     std::unique_ptr<NodeModel> m_node;
     WalletSettings& m_settings;
     MessageManager m_messages;
-	ECC::Hash::Value m_passwordHash;
+	ECC::NoLeak<ECC::uintBig> m_passwordHash;
     beam::IKeyChain::Ptr m_db;
     static AppModel* s_instance;
 };
