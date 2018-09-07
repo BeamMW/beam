@@ -160,6 +160,17 @@ Item {
             color: Style.bluey_grey
             font.pixelSize: 14
         }
+        SFText {
+            id: progressText
+            anchors.top: parent.top
+            anchors.left: status_text.right
+            anchors.leftMargin: 5
+            anchors.topMargin: -3
+            color: Style.bluey_grey
+            font.pixelSize: 14
+            text: "(" + viewModel.nodeSyncProgress + "%)"
+            visible: viewModel.nodeSyncProgress > 0 && update_indicator.visible
+        }
 
         states: [
             State {

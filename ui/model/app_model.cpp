@@ -176,6 +176,12 @@ MessageManager& AppModel::getMessages()
     return m_messages;
 }
 
+NodeModel& AppModel::getNode()
+{
+    assert(m_node);
+    return *m_node;
+}
+
 bool AppModel::checkWalletPassword(const beam::SecString& pass) const
 {
     auto passwordHash = pass.hash();

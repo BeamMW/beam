@@ -120,6 +120,8 @@ public:
 	virtual void OnRolledBack() {}
 	virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 	virtual bool ApproveState(const Block::SystemState::ID&) { return true; }
+	virtual void OnStateData() {}
+	virtual void OnBlockData() {}
 
 	bool IsStateNeeded(const Block::SystemState::ID&);
 	uint64_t FindActiveAtStrict(Height);

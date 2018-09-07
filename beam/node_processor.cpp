@@ -986,12 +986,13 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 
 		LOG_INFO() << id << " Header accepted";
 	}
-
+	OnStateData();
 	return ret;
 }
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob& block, const PeerID& peer)
 {
+	OnBlockData();
 	if (block.n > Rules::get().MaxBodySize)
 	{
 		LOG_WARNING() << id << " Block too large: " << block.n;

@@ -300,6 +300,12 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 
 		get_ParentObj().TryAssignTask(*pTask, pPreferredPeer);
 
+
+		int diff = static_cast<int>(id.m_Height - m_Cursor.m_ID.m_Height);
+		m_RequestedCount = std::max(m_RequestedCount, diff);
+	
+		ReportProgress();
+
 	} else
 		it->m_bRelevant = true;
 }
@@ -470,6 +476,37 @@ bool Node::Processor::ApproveState(const Block::SystemState::ID& id)
 		(idCtl.m_Hash == id.m_Hash);
 }
 
+void Node::Processor::OnStateData()
+{
+	++m_DownloadedHeaders;
+	ReportProgress();
+}
+
+void Node::Processor::OnBlockData()
+{
+	++m_DownloadedBlocks;
+	ReportProgress();
+}
+
+void Node::Processor::ReportProgress()
+{
+	auto observer = get_ParentObj().m_Cfg.m_Observer;
+	if (observer)
+	{
+		int total = m_RequestedCount * 2;
+		int done = m_DownloadedHeaders + m_DownloadedBlocks;
+		if (total >= done)
+		{
+			observer->OnSyncProgress(done, total);
+		}
+		
+		if (done >= total)
+		{
+			m_RequestedCount = m_DownloadedHeaders = m_DownloadedBlocks;
+		}
+	}
+}
+
 Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 {
 	Peer* pPeer = new Peer(*this);
@@ -494,7 +531,7 @@ void Node::Initialize()
 {
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
-    m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
+	m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
 
 	ECC::GenRandom(m_SChannelSeed.V.m_pData, m_SChannelSeed.V.nBytes);
 
@@ -1694,7 +1731,7 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
 	{
-        LOG_DEBUG() << "New peer connected: " << newStream->address();
+		LOG_DEBUG() << "New peer connected: " << newStream->address();
 		Peer* p = get_ParentObj().AllocPeer(newStream->peer_address());
 		p->Accept(std::move(newStream));
 		p->SecureConnect();

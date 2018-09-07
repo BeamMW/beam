@@ -17,20 +17,21 @@
 #include <QThread>
 #include <memory>
 #include "core/block_crypt.h"
+#include "beam/node.h"
 #include "utility/io/reactor.h"
 
-namespace beam
-{
-    struct Node;
-}
-
 class NodeModel : public QThread
+                , public beam::INodeObserver
 {
+    Q_OBJECT
 public:
     NodeModel(const ECC::NoLeak<ECC::uintBig>& seed);
     ~NodeModel();
 private:
     void run() override;
+    void OnSyncProgress(int done, int total) override;
+signals:
+    void syncProgressUpdated(int done, int total);
 private: 
     std::weak_ptr<beam::io::Reactor> m_reactor;
     ECC::NoLeak<ECC::uintBig> m_seed;

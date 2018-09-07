@@ -17,6 +17,7 @@
 #include <QObject>
 #include <QSettings>
 #include <QDir>
+#include <mutex>
 
 #include "model/wallet_model.h"
 
@@ -56,6 +57,9 @@ public:
     QStringList getLocalNodePeers() const;
     void setLocalNodePeers(const QStringList& qPeers);
 
+    bool getLocalNodeSynchronized() const;
+    void setLocalNodeSynchronized(bool value);
+
 public:
 	static const char* WalletCfg;
 	static const char* LogsFolder;
@@ -71,8 +75,11 @@ signals:
     void localNodeVerificationThreadsChanged();
     void localNodeGenerateGenesysChanged();
     void localNodePeersChanged();
+    void localNodeSynchronizedChanged();
 
 private:
     QSettings m_data;
     QDir m_appDataDir;
+    mutable std::mutex m_mutex;
+    using Lock = std::unique_lock<std::mutex>;
 };

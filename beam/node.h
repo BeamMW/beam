@@ -24,6 +24,11 @@
 
 namespace beam
 {
+	struct INodeObserver
+	{
+		virtual void OnSyncProgress(int done, int total) = 0;
+	};
+
 struct Node
 {
 	static const uint16_t s_PortDefault = 31744; // whatever
@@ -36,7 +41,7 @@ struct Node
 		std::vector<io::Address> m_Connect;
 
 		std::string m_sPathLocal;
-        ECC::NoLeak<ECC::uintBig> m_WalletKey;
+		ECC::NoLeak<ECC::uintBig> m_WalletKey;
 		NodeProcessor::Horizon m_Horizon;
 
 		bool m_RestrictMinedReportToOwner = true;
@@ -92,6 +97,8 @@ struct Node
 			m_ControlState.m_Height = Rules::HeightGenesis - 1; // disabled
 		}
 
+		INodeObserver* m_Observer = nullptr;
+
 	} m_Cfg; // must not be changed after initialization
 
 	~Node();
@@ -106,12 +113,16 @@ private:
 		:public NodeProcessor
 	{
 		// NodeProcessor
-		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override;
-		virtual void OnPeerInsane(const PeerID&) override;
-		virtual void OnNewState() override;
-		virtual void OnRolledBack() override;
-		virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&) override;
-		virtual bool ApproveState(const Block::SystemState::ID&) override;
+		void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override;
+		void OnPeerInsane(const PeerID&) override;
+		void OnNewState() override;
+		void OnRolledBack() override;
+		bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&) override;
+		bool ApproveState(const Block::SystemState::ID&) override;
+		void OnStateData() override;
+		void OnBlockData() override;
+
+		void ReportProgress();
 
 		struct Verifier
 		{
@@ -138,6 +149,10 @@ private:
 
 		Block::ChainWorkProof m_Cwp; // cached
 		bool BuildCwp();
+
+		int m_RequestedCount = 0;
+		int m_DownloadedHeaders = 0;
+		int m_DownloadedBlocks = 0;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
