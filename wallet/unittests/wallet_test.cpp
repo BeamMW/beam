@@ -751,6 +751,93 @@ private:
     } m_Server;
 };
 
+void TestTxToHimself()
+{
+    cout << "\nTesting Tx to himself...\n";
+
+    io::Reactor::Ptr main_reactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*main_reactor);
+
+    string keystorePass = "123";
+    auto senderBbsKeys = createBbsKeystore("sender-bbs", keystorePass);
+
+    WalletID senderID = {};
+    senderBbsKeys->gen_keypair(senderID);
+    WalletID receiverID = {};
+    senderBbsKeys->gen_keypair(receiverID);
+
+    auto senderKeychain = createSqliteKeychain("sender_wallet.db");
+
+    // add own address
+    WalletAddress own_address = {};
+    own_address.m_walletID = receiverID;
+    own_address.m_label = "test label";
+    own_address.m_category = "test category";
+    own_address.m_createTime = beam::getTimestamp();
+    own_address.m_duration = 23;
+    own_address.m_own = true;
+
+    senderKeychain->saveAddress(own_address);
+
+    // add coin with keyType - Coinbase
+    beam::Amount coin_amount = 40;
+    Coin coin(coin_amount);
+    coin.m_maturity = 0;
+    coin.m_status = Coin::Unspent;
+    coin.m_key_type = KeyType::Coinbase;
+    senderKeychain->store(coin);
+
+    auto coins = senderKeychain->selectCoins(24, false);
+    WALLET_CHECK(coins.size() == 1);
+    WALLET_CHECK(coins[0].m_key_type == KeyType::Coinbase);
+    WALLET_CHECK(coins[0].m_status == Coin::Unspent);
+    WALLET_CHECK(senderKeychain->getTxHistory().empty());
+
+    auto node_address = io::Address::localhost().port(32125);
+    TestNode node{ node_address };
+    auto sender_io = make_shared<WalletNetworkIO>(node_address, senderKeychain, senderBbsKeys, main_reactor, 1000, 2000);
+    TestWallet sender{ senderKeychain, sender_io, true, [sender_io](auto) { sender_io->stop(); } };
+    helpers::StopWatch sw;
+
+    sw.start();
+    TxID txId = sender.transfer_money(senderID, receiverID, 24, 2);
+    main_reactor->run();
+    sw.stop();
+
+    cout << "Transfer elapsed time: " << sw.milliseconds() << " ms\n";
+
+    // check Tx
+    auto txHistory = senderKeychain->getTxHistory();
+    WALLET_CHECK(txHistory.size() == 1);
+    WALLET_CHECK(txHistory[0].m_txId == txId);
+    WALLET_CHECK(txHistory[0].m_amount == 24);
+    WALLET_CHECK(txHistory[0].m_change == 14);
+    WALLET_CHECK(txHistory[0].m_fee == 2);
+    WALLET_CHECK(txHistory[0].m_status == TxDescription::Completed);
+
+    // check coins
+    vector<Coin> newSenderCoins;
+    senderKeychain->visit([&newSenderCoins](const Coin& c)->bool
+    {
+        newSenderCoins.push_back(c);
+        return true;
+    });
+
+    WALLET_CHECK(newSenderCoins.size() == 3);
+    WALLET_CHECK(newSenderCoins[0].m_key_type == KeyType::Coinbase);
+    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Locked);
+
+    WALLET_CHECK(newSenderCoins[1].m_key_type == KeyType::Regular);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unconfirmed);
+    WALLET_CHECK(newSenderCoins[1].m_amount == 14);
+
+    WALLET_CHECK(newSenderCoins[2].m_key_type == KeyType::Regular);
+    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Unconfirmed);
+    WALLET_CHECK(newSenderCoins[2].m_amount == 24);
+
+    cout << "\nFinish of testing Tx to himself...\n";
+}
+
 void TestP2PWalletNegotiationST()
 {
     cout << "\nTesting p2p wallets negotiation single thread...\n";
@@ -1455,6 +1542,7 @@ int main()
     TestFSM();
     TestSerializeFSM();
     TestRollback();
+    TestTxToHimself();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
