@@ -42,6 +42,7 @@ public:
 
     WalletSettings& getSettings();
     MessageManager& getMessages();
+    NodeModel& getNode();
 private:
     void start(beam::IKeyStore::Ptr);
 

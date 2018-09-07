@@ -102,6 +102,7 @@ class WalletViewModel : public QObject
 
     Q_PROPERTY(QString syncTime READ syncTime NOTIFY stateChanged)
     Q_PROPERTY(bool isSyncInProgress READ getIsSyncInProgress WRITE setIsSyncInProgress NOTIFY isSyncInProgressChanged)
+    Q_PROPERTY(int nodeSyncProgress READ getNodeSyncProgress WRITE setNodeSyncProgress NOTIFY nodeSyncProgressChanged)
 
     Q_PROPERTY(QString actualAvailable READ actualAvailable NOTIFY actualAvailableChanged)
     Q_PROPERTY(QString change READ change NOTIFY changeChanged)
@@ -145,6 +146,9 @@ public:
     void setIsFailedStatus(bool value);
     QString getWalletStatusErrorMsg() const;
 
+    int getNodeSyncProgress() const;
+    void setNodeSyncProgress(int value);
+
     QString actualAvailable() const;
     QString change() const;
     QString getNewReceiverAddr() const;
@@ -173,6 +177,7 @@ public slots:
     void syncWithNode();
     void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
     void onSyncProgressUpdated(int done, int total);
+    void onNodeSyncProgressUpdated(int done, int total);
     void onChangeCalculated(beam::Amount change);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
 	void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
@@ -190,6 +195,7 @@ signals:
     void receiverAddrChanged();
     void senderAddrChanged();
     void isSyncInProgressChanged();
+    void nodeSyncProgressChanged();
     void newReceiverAddrChanged();
     void newReceiverNameChanged();
     void commentChanged();
@@ -226,4 +232,7 @@ private:
     bool _isSyncInProgress;
     bool _isOfflineStatus;
     bool _isFailedStatus;
+    int _nodeDone;
+    int _nodeTotal;
+    int _nodeSyncProgress;
 };

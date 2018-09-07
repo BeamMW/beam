@@ -61,9 +61,15 @@ void NodeModel::run()
         node.m_Cfg.m_Listen.port(settings.getLocalNodePort());
         node.m_Cfg.m_Listen.ip(INADDR_ANY);
         node.m_Cfg.m_sPathLocal = settings.getLocalNodeStorage();
-        node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
-
-        node.m_Cfg.m_VerificationThreads = settings.getLocalNodeVerificationThreads();
+        if (settings.getLocalNodeSynchronized())
+        {
+            node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
+            node.m_Cfg.m_VerificationThreads = settings.getLocalNodeVerificationThreads();
+        }
+        else
+        {
+            node.m_Cfg.m_MiningThreads = node.m_Cfg.m_VerificationThreads = 0;
+        }
 
         node.m_Cfg.m_WalletKey = m_seed;
 
@@ -90,6 +96,8 @@ void NodeModel::run()
             node.m_Cfg.m_vTreasury[0].ZeroInit();
         }
 
+        node.m_Cfg.m_Observer = this;
+
         node.Initialize();
 
         reactor->run();
@@ -103,4 +111,9 @@ void NodeModel::run()
     {
         LOG_ERROR() << "Unhandled exception";
     }
+}
+
+void NodeModel::OnSyncProgress(int done, int total)
+{
+    emit syncProgressUpdated(done, total);
 }
