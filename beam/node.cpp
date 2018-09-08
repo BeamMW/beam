@@ -974,6 +974,7 @@ void Node::Peer::OnDisconnect(const DisconnectReason& dr)
 		break;
 
 	case DisconnectReason::ProcessingExc:
+	case DisconnectReason::Protocol:
 		nByeReason = ByeReason::Ban;
 		break;
 	}
