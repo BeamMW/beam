@@ -2313,19 +2313,15 @@ struct Node::Beacon::OutCtx
 };
 
 Node::Beacon::Beacon()
+	:m_pUdp(NULL)
+	,m_pOut(NULL)
 {
-	m_bShouldClose = false;
-	m_bRcv = false;
-	m_pOut = NULL;
 }
 
 Node::Beacon::~Beacon()
 {
-	if (m_bRcv)
-		uv_udp_recv_stop(&m_Udp);
-
-	if (m_bShouldClose)
-		uv_close((uv_handle_t*) &m_Udp, NULL);
+	if (m_pUdp)
+		uv_close((uv_handle_t*) m_pUdp, OnClosed);
 
 	if (m_pOut)
 		m_pOut->Release();
@@ -2339,10 +2335,11 @@ uint16_t Node::Beacon::get_Port()
 
 void Node::Beacon::Start()
 {
-	assert(!m_bRcv);
+	assert(!m_pUdp);
+	m_pUdp = new uv_udp_t;
 
-	uv_udp_init(&io::Reactor::get_Current().get_UvLoop(), &m_Udp);
-	m_Udp.data = this;
+	uv_udp_init(&io::Reactor::get_Current().get_UvLoop(), m_pUdp);
+	m_pUdp->data = this;
 
 	m_BufRcv.resize(sizeof(OutCtx::Message));
 
@@ -2352,17 +2349,13 @@ void Node::Beacon::Start()
 	sockaddr_in sa;
 	addr.fill_sockaddr_in(sa);
 
-	m_bShouldClose = true;
-
-	if (uv_udp_bind(&m_Udp, (sockaddr*)&sa, UV_UDP_REUSEADDR)) // should allow multiple nodes on the same machine (for testing)
+	if (uv_udp_bind(m_pUdp, (sockaddr*)&sa, UV_UDP_REUSEADDR)) // should allow multiple nodes on the same machine (for testing)
 		std::ThrowIoError();
 
-	if (uv_udp_recv_start(&m_Udp, AllocBuf, OnRcv))
+	if (uv_udp_recv_start(m_pUdp, AllocBuf, OnRcv))
 		std::ThrowIoError();
 
-	m_bRcv = true;
-
-	if (uv_udp_set_broadcast(&m_Udp, 1))
+	if (uv_udp_set_broadcast(m_pUdp, 1))
 		std::ThrowIoError();
 
 	m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
@@ -2397,7 +2390,7 @@ void Node::Beacon::OnTimer()
 
 	m_pOut->m_Refs++;
 
-	int nErr = uv_udp_send(&m_pOut->m_Request, &m_Udp, &m_pOut->m_BufDescr, 1, (sockaddr*) &sa, OutCtx::OnDone);
+	int nErr = uv_udp_send(&m_pOut->m_Request, m_pUdp, &m_pOut->m_BufDescr, 1, (sockaddr*) &sa, OutCtx::OnDone);
 	if (nErr)
 		m_pOut->Release();
 }
@@ -2439,6 +2432,12 @@ void Node::Beacon::AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t
 
 	buf->base = (char*) &pThis->m_BufRcv.at(0);
 	buf->len = sizeof(OutCtx::Message);
+}
+
+void Node::Beacon::OnClosed(uv_handle_t* p)
+{
+	assert(p);
+	delete (uv_udp_t*) p;
 }
 
 void Node::PeerMan::OnFlush()
