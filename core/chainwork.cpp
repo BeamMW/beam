@@ -90,7 +90,7 @@ namespace beam
 			memcpy(v.m_pData, val.m_pData, v.nBytes); // i.e. get the upper part of the result
 		}
 
-		bool UnfiromRandom(Difficulty::Raw& out, const Difficulty::Raw& threshold)
+		bool UniformRandom(Difficulty::Raw& out, const Difficulty::Raw& threshold)
 		{
 			// find the order of the number (1st nonzero bit)
 			uint32_t nOrder = threshold.get_Order();
@@ -134,7 +134,7 @@ namespace beam
 
 			bool bAllCovered = (range >= m_Begin);
 
-			verify(UnfiromRandom(out, range));
+			verify(UniformRandom(out, range));
 
 			range.Negate(); // convert to -range
 
