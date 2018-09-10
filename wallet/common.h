@@ -75,17 +75,17 @@ namespace beam
         {}
 
         TxID m_txId;
-        Amount m_amount;
-        Amount m_fee;
-		Amount m_change;
-        Height m_minHeight;
+        Amount m_amount=0;
+        Amount m_fee=0;
+		Amount m_change=0;
+        Height m_minHeight=0;
         WalletID m_peerId;
         WalletID m_myId;
         ByteBuffer m_message;
-        Timestamp m_createTime;
-        Timestamp m_modifyTime;
-        bool m_sender;
-        Status m_status;
+        Timestamp m_createTime=0;
+        Timestamp m_modifyTime=0;
+        bool m_sender=false;
+        Status m_status=Failed;
         ByteBuffer m_fsmState;
 
         bool canResume() const
