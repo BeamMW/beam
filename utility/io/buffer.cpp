@@ -13,6 +13,8 @@
 // limitations under the License.
 
 #include "buffer.h"
+#include <string>
+#include <stdexcept>
 
 #ifdef WIN32
     #define WIN32_LEAN_AND_MEAN
@@ -111,7 +113,7 @@ struct ReadOnlyMappedFile : AllocatedMemory {
         }
         size = sb.st_size;
         if (size > 0) {
-            data = mmap64(0, size, PROT_READ, MAP_PRIVATE, fd, 0);
+            data = mmap(0, size, PROT_READ, MAP_PRIVATE, fd, 0);
             if (data == MAP_FAILED) {
                 close(fd);
                 fd = -1;

@@ -41,11 +41,12 @@ size_t MsgSerializeOstream::write(const void *ptr, size_t size) {
     return size;
 }
 
-void MsgSerializeOstream::finalize(SerializedMsg& fragments) {
+void MsgSerializeOstream::finalize(SerializedMsg& fragments, size_t externalTailSize) {
     assert(_currentHeaderPtr != 0);
     _writer.finalize();
     assert(_currentMsgSize >= MsgHeader::SIZE);
-    _currentHeader.size = uint32_t(_currentMsgSize - MsgHeader::SIZE);
+    assert(externalTailSize <= 0xFFFFFFFF - uint32_t(_currentMsgSize - MsgHeader::SIZE));
+    _currentHeader.size = uint32_t(_currentMsgSize - MsgHeader::SIZE + externalTailSize);
     _currentHeader.write(_currentHeaderPtr);
     fragments.swap(_fragments);
     clear();

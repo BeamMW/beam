@@ -52,10 +52,10 @@ void SecString::alloc() {
     _size = 0;
 
 #ifdef WIN32
-    _data = VirtualAlloc(0, MAX_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    _data = (char*)VirtualAlloc(0, MAX_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     if (!_data) throw std::runtime_error("SecString: VirtualAlloc failed");
     if (!VirtualLock(_data, MAX_SIZE)) {
-        VirtualFree(_data, MEM_RELEASE);
+        VirtualFree(_data, MAX_SIZE, MEM_RELEASE);
         _data = 0;
         throw std::runtime_error("SecString: VirtualLock failed");
     }
