@@ -83,7 +83,7 @@ void SecString::dealloc() {
 
 #ifdef WIN32
     VirtualUnlock(_data, MAX_SIZE);
-    VirtualFree(_data, MEM_RELEASE);
+    VirtualFree(_data, MAX_SIZE, MEM_RELEASE);
 #else
     //munmap(_data, MAX_SIZE);
 
