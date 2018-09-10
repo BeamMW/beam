@@ -92,7 +92,52 @@ namespace beam::wallet
         }
 
         update_tx_description(TxDescription::InProgress);
+
+        if (sender)
+        {
+            auto address = m_parent.m_keychain->getAddress(m_parent.m_txDesc.m_peerId);
+
+            if (address.is_initialized() && address->m_own)
+            {
+                sendSelfTx();
+                return;
+            }
+        }
+
         sendInvite();
+    }
+
+    void Negotiator::FSMDefinition::sendSelfTx()
+    {
+        // Create output UTXOs for main amount
+        createOutputUtxo(m_parent.m_txDesc.m_amount, m_parent.m_txDesc.m_minHeight);
+
+        // Create empty transaction
+        m_transaction = std::make_shared<Transaction>();
+        m_transaction->m_Offset = Zero;
+
+        // Calculate public key for excess
+        Point::Native excess;
+        if (!excess.Import(getPublicExcess()))
+        {
+            Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
+            fsm.process_event(events::TxFailed{ true });
+            return;
+        }
+        
+        // Calculate signature
+        Scalar::Native signature = createSignature();
+
+        // Construct and verify transaction
+        if (!constructTxInternal(signature))
+        {
+            Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
+            fsm.process_event(events::TxFailed{ true });
+            return;
+        }
+
+        update_tx_description(TxDescription::InProgress);
+        sendNewTransaction();
     }
 
     void Negotiator::FSMDefinition::sendInvite() const
@@ -208,9 +253,13 @@ namespace beam::wallet
         senderSignature = event.data.m_peerSignature;
         Scalar::Native receiverSignature = createSignature();
         Scalar::Native finialSignature = senderSignature + receiverSignature;
+        return constructTxInternal(finialSignature);
+    }
 
+    bool Negotiator::FSMDefinition::constructTxInternal(const Scalar::Native& signature)
+    {
         // Create transaction kernel and transaction
-        m_kernel->m_Signature.m_k = finialSignature;
+        m_kernel->m_Signature.m_k = signature;
         m_transaction->m_vKernelsOutput.push_back(move(m_kernel));
         m_transaction->m_Offset = m_offset;
 

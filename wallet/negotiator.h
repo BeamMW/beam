@@ -168,10 +168,12 @@ namespace beam::wallet
             void sendConfirmInvitation() const;
             void sendConfirmTransaction() const;
             void sendNewTransaction() const;
+            void sendSelfTx();
 
             void update_tx_description(TxDescription::Status s);
             bool prepareSenderUtxos(const Height& currentHeight);
             bool registerTxInternal(const events::TxConfirmationCompleted&);
+            bool constructTxInternal(const ECC::Scalar::Native& signature);
 
             using do_serialize = int;
             typedef int no_message_queue;
@@ -191,6 +193,8 @@ namespace beam::wallet
                 a_row< TxRegistration           , events::TxRegistrationCompleted, TxTerminal          , &d::completeTx           >,
                 a_row< TxPeerConfirmation       , events::TxRegistrationCompleted, TxTerminal          , &d::completeTx           >,
                 //a_row< TxOutputsConfirmation  , events::TxOutputsConfirmed      , TxTerminal            , &d::completeTx                 >,
+
+                a_row< TxInvitation             , events::TxRegistrationCompleted, TxTerminal           , &d::completeTx           >,
 
                 a_row< TxAllOk                , events::TxFailed                , TxTerminal            , &d::rollbackTx                 >,
                 a_row< TxAllOk                , events::TxCanceled              , TxTerminal            , &d::cancelTx                  >
