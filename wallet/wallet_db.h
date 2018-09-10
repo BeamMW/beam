@@ -53,7 +53,7 @@ namespace beam
         Height m_createHeight;  // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
         Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
         KeyType m_key_type;
-        Height m_confirmHeight; 
+        Height m_confirmHeight;
         Merkle::Hash m_confirmHash;
         Height m_lockedHeight;
         boost::optional<TxID> m_createTxId;
@@ -75,6 +75,8 @@ namespace beam
         Timestamp m_createTime;
         uint64_t  m_duration; // seconds, 0 - for single use;
         bool m_own;
+
+        WalletAddress() : m_createTime(0), m_duration(0), m_own(false) {}
     };
 
     struct IKeyChainObserver
@@ -91,7 +93,7 @@ namespace beam
         using Ptr = std::shared_ptr<IKeyChain>;
         virtual ~IKeyChain() {}
 
-        
+
         virtual ECC::Scalar::Native calcKey(const beam::Coin& coin) const = 0;
         virtual void get_IdentityKey(ECC::Scalar::Native&) const = 0;
 
@@ -201,7 +203,7 @@ namespace beam
         void saveAddress(const WalletAddress&) override;
         boost::optional<WalletAddress> getAddress(const WalletID&) override;
         void deleteAddress(const WalletID&) override;
-        
+
         Timestamp getLastUpdateTime() const override;
         void setSystemStateID(const Block::SystemState::ID& stateID) override;
         bool getSystemStateID(Block::SystemState::ID& stateID) const override;
