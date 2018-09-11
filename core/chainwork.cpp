@@ -208,46 +208,72 @@ namespace beam
 	{
 		size_t iState, iHash;
 		return
-			IsValidInternal(iState, iHash) &&
+			IsValidInternal(iState, iHash, m_LowerBound) &&
 			(m_vArbitraryStates.size() + m_Heading.m_vElements.size() == iState) &&
 			(m_Proof.m_vData.size() == iHash);
 	}
 
-	bool Block::ChainWorkProof::Crop()
+	template <typename T> void CopyCroppedVector(std::vector<T>& dst, const std::vector<T>& src)
+	{
+		std::copy(src.cbegin(), src.cbegin() + dst.size(), dst.begin());
+	}
+
+	bool Block::ChainWorkProof::Crop(const ChainWorkProof& src)
 	{
 		size_t iState, iHash;
-		if (!IsValidInternal(iState, iHash))
+		if (!src.IsValidInternal(iState, iHash, m_LowerBound))
 			return false;
 
-		if (iState >= m_Heading.m_vElements.size())
-			m_vArbitraryStates.resize(iState - m_Heading.m_vElements.size());
+		bool bInPlace = (&src == this);
+
+		if (iState >= src.m_Heading.m_vElements.size())
+		{
+			m_vArbitraryStates.resize(iState - src.m_Heading.m_vElements.size());
+
+			if (!bInPlace)
+			{
+				m_Heading.m_Prefix = src.m_Heading.m_Prefix;
+				m_Heading.m_vElements.resize(src.m_Heading.m_vElements.size());
+			}
+		}
 		else
 		{
 			m_vArbitraryStates.clear();
 			assert(iState); // root must remain!
 
 			SystemState::Full s;
-			((SystemState::Sequence::Prefix&) s) = m_Heading.m_Prefix;
-			((SystemState::Sequence::Element&) s) = m_Heading.m_vElements.back();
+			((SystemState::Sequence::Prefix&) s) = src.m_Heading.m_Prefix;
+			((SystemState::Sequence::Element&) s) = src.m_Heading.m_vElements.back();
 
-			while (m_Heading.m_vElements.size() > iState)
+			for (size_t i = src.m_Heading.m_vElements.size(); i > iState; )
 			{
-				m_Heading.m_vElements.pop_back();
-
 				s.NextPrefix();
-				((SystemState::Sequence::Element&) s) = m_Heading.m_vElements.back();
+				((SystemState::Sequence::Element&) s) = src.m_Heading.m_vElements[--i];
 				s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
-
 			}
 
 			m_Heading.m_Prefix = s;
+			m_Heading.m_vElements.resize(iState);
 		}
 
 		m_Proof.m_vData.resize(iHash);
+
+		if (!bInPlace)
+		{
+			CopyCroppedVector(m_vArbitraryStates, src.m_vArbitraryStates);
+			CopyCroppedVector(m_Heading.m_vElements, src.m_Heading.m_vElements);
+			CopyCroppedVector(m_Proof.m_vData, src.m_Proof.m_vData);
+		}
+
 		return true;
 	}
 
-	bool Block::ChainWorkProof::IsValidInternal(size_t& iState, size_t& iHash) const
+	bool Block::ChainWorkProof::Crop()
+	{
+		return Crop(*this);
+	}
+
+	bool Block::ChainWorkProof::IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound) const
 	{
 		if (m_Heading.m_vElements.empty())
 			return false;
@@ -296,7 +322,7 @@ namespace beam
 		MyVerifier ver(*this, s.m_Height - Rules::HeightGenesis);
 		ver.m_hvRootDefinition = s.m_Definition;
 
-		Sampler samp(s, m_LowerBound);
+		Sampler samp(s, lowerBound);
 		if (samp.m_Begin >= samp.m_End) // overflow attack?
 			return false;
 

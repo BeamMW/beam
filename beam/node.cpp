@@ -1633,14 +1633,8 @@ void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
 	Processor& p = m_This.m_Processor;
 	if (p.BuildCwp())
 	{
-		msgOut.m_Proof = p.m_Cwp; // full copy
-
-		if (!(msg.m_LowerBound == Zero))
-		{
-			msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
-			verify(msgOut.m_Proof.Crop());
-		}
-
+		msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
+		verify(msgOut.m_Proof.Crop(p.m_Cwp));
 	}
 
 	Send(msgOut);
