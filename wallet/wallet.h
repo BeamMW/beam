@@ -51,6 +51,7 @@ namespace beam
 		virtual void unsubscribe(IWalletObserver* observer) = 0;
 
         virtual void cancel_tx(const TxID& id) = 0;
+        virtual void delete_tx(const TxID& id) = 0;
 
 		virtual void set_node_address(io::Address node_address) = 0;
 		virtual void emergencyReset() = 0;
@@ -157,6 +158,7 @@ namespace beam
         void handle_tx_registered(const TxID& txId, bool res);
 
         void cancel_tx(const TxID& txId) override;
+        void delete_tx(const TxID& txId) override;
 
 		void set_node_address(io::Address node_address) override;
 		void emergencyReset() override;
