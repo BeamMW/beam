@@ -431,7 +431,7 @@ void NodeConnection::Accept(io::TcpStream::Ptr&& newStream)
 #define THE_MACRO(code, msg) \
 void NodeConnection::Send(const msg& v) \
 { \
-	if (m_pAsyncFail) \
+	if (m_pAsyncFail || !m_Connection) \
 		return; \
 	m_SerializeCache.clear(); \
 	MsgSerializer& ser = m_Protocol.serializeNoFinalize(m_SerializeCache, uint8_t(code), v); \

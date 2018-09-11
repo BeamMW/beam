@@ -969,8 +969,6 @@ namespace ECC {
 
 		bc.AddCasual(m_Part1.m_A, 1U);
 
-
-		// By now the ptVal should be equal to the commAB
 		// finally check the inner product
 		InnerProduct::Modifier mod;
 		mod.m_pMultiplier[1] = &yInv;

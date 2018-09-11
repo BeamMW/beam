@@ -71,8 +71,9 @@ void FragmentWriter::call() {
 
 void FragmentWriter::new_fragment() {
     call();
-    _fragment.reset(malloc(_fragmentSize), [](void* p) { free(p); });
-    _msgBase = _cursor = (char*)_fragment.get();
+    auto p = io::alloc_heap(_fragmentSize);
+    _fragment = std::move(p.second);
+    _msgBase = _cursor = (char*)p.first;
     _remaining = _fragmentSize;
 }
 

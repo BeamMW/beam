@@ -33,7 +33,8 @@ public:
     size_t write(const void *ptr, size_t size);
 
     /// Called by msg serializer on finalizing msg
-    void finalize(SerializedMsg& fragments);
+    /// If externalTailSize > 0 then serialized msg must be followed by raw buffer of thet size
+    void finalize(SerializedMsg& fragments, size_t externalTailSize=0);
 
     /// Resets state
     void clear();
@@ -75,8 +76,9 @@ public:
     }
 
     /// Finalizes current message serialization. Returns serialized data in fragments
-    void finalize(SerializedMsg& fragments) {
-        _os.finalize(fragments);
+    /// If externalTailSize > 0 then serialized msg must be followed by raw buffer of thet size
+    void finalize(SerializedMsg& fragments, size_t externalTailSize=0) {
+        _os.finalize(fragments, externalTailSize);
     }
 
 private:

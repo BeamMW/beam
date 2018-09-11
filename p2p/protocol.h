@@ -94,9 +94,11 @@ public:
         );
     }
 
-    template <typename MsgObject> void serialize(SerializedMsg& out, MsgType type, const MsgObject& obj) {
+    /// If externalTailSize > 0 then serialized msg must be followed by raw buffer of thet size
+    template <typename MsgObject> void serialize(SerializedMsg& out, MsgType type, const MsgObject& obj, size_t externalTailSize=0) {
 		serializeNoFinalize(out, type, obj);
-        _ser.finalize(out);
+        if (externalTailSize > 0) _ser & externalTailSize;
+        _ser.finalize(out, externalTailSize);
     }
 
 	template <typename MsgObject> MsgSerializer& serializeNoFinalize(SerializedMsg& out, MsgType type, const MsgObject& obj) {
@@ -105,9 +107,12 @@ public:
 		return _ser;
 	}
 
-    template <typename MsgObject> io::SharedBuffer serialize(MsgType type, const MsgObject& obj, bool makeUnique) {
+	/// If externalTailSize > 0 then serialized msg must be followed by raw buffer of thet size
+    template <typename MsgObject> io::SharedBuffer serialize(
+        MsgType type, const MsgObject& obj, bool makeUnique, size_t externalTailSize=0
+    ) {
         SerializedMsg fragments;
-        serialize(fragments, type, obj);
+        serialize(fragments, type, obj, externalTailSize);
         return io::normalize(fragments, makeUnique);
     }
 

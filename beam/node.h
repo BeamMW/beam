@@ -400,9 +400,7 @@ private:
 	{
 		struct OutCtx;
 
-		uv_udp_t m_Udp;
-		bool m_bShouldClose;
-		bool m_bRcv;
+		uv_udp_t* m_pUdp;
 		OutCtx* m_pOut;
 		std::vector<uint8_t> m_BufRcv;
 
@@ -415,6 +413,7 @@ private:
 		void Start();
 		uint16_t get_Port();
 
+		static void OnClosed(uv_handle_t*);
 		static void OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags);
 		static void AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
 

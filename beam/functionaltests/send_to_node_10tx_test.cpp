@@ -41,13 +41,15 @@ void TestNodeConnection::GenerateTests()
 		m_Tests.push_back([this, i]()
 		{
 			TxGenerator gen(m_Kdf);
-
+			
 			// Inputs
 			gen.GenerateInputInTx(i, 1);
 			// Outputs
 			gen.GenerateOutputInTx(i, 1);
 			// Kernels
 			gen.GenerateKernel(4);
+
+            LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 			Send(gen.GetTransaction());
 		});

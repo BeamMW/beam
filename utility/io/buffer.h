@@ -81,8 +81,10 @@ struct IOVec {
 };
 
 /// Allows for sharing const memory regions
-/// TODO use structure to unify mmap references etc
-using SharedMem = std::shared_ptr<void>;
+using SharedMem = std::shared_ptr<struct AllocatedMemory>;
+
+/// Allocs shared memory from heap, throws on error
+std::pair<uint8_t*, SharedMem> alloc_heap(size_t size);
 
 struct SharedBuffer : IOVec {
     SharedMem guard;
@@ -98,8 +100,13 @@ struct SharedBuffer : IOVec {
     void assign(const void* _data, size_t _size) {
         clear();
         if (_size) {
-            void* d = alloc_data(_size);
-            memcpy(d, _data, _size);
+            auto p = alloc_heap(_size);
+            memcpy(p.first, _data, _size);
+            data = p.first;
+            size = _size;
+            guard = std::move(p.second);
+            //void* d = alloc_data(_size);
+            //memcpy(d, _data, _size);
         }
     }
 
@@ -133,12 +140,19 @@ struct SharedBuffer : IOVec {
         size_t sz=0;
         a & sz;
         if (sz) {
-            void* d = alloc_data(sz);
-            a.read(d, sz);
+            auto p = alloc_heap(sz);
+            a.read(p.first, sz);
+            data = p.first;
+            size = sz;
+            guard = std::move(p.second);
+
+            //void* d = alloc_data(sz);
+            //a.read(d, sz);
         }
     }
 
 private:
+    /*
     void* alloc_data(size_t _size) {
         void* d = malloc(_size);
         if (d==0) throw std::runtime_error("out of memory");
@@ -147,6 +161,7 @@ private:
         guard.reset(d, [](void* p) { free(p); });
         return d;
     }
+    */
 };
 
 /// May have fragments...
@@ -155,5 +170,8 @@ using SerializedMsg = std::vector<SharedBuffer>;
 /// Normalizes to 1 fragment and copies data.
 /// This needed to detach some small and long-term message from large fragment (if makeUnique)
 SharedBuffer normalize(const SerializedMsg& msg, bool makeUnique=false);
+
+/// Maps whole file into memory, throws on errors
+SharedBuffer map_file_read_only(const char* fileName);
 
 }} //namespaces

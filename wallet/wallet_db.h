@@ -124,6 +124,7 @@ namespace beam
 
         // Rolls back coin changes in db concerning given tx
         virtual void rollbackTx(const TxID& txId) = 0;
+        virtual void completeTx(const TxID& txID) = 0;
 
         virtual std::vector<TxPeer> getPeers() = 0;
         virtual void addPeer(const TxPeer&) = 0;
@@ -193,6 +194,7 @@ namespace beam
         void saveTx(const TxDescription& p) override;
         void deleteTx(const TxID& txId) override;
         void rollbackTx(const TxID& txId) override;
+        void completeTx(const TxID& txId) override;
 
         std::vector<TxPeer> getPeers() override;
         void addPeer(const TxPeer&) override;
