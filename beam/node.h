@@ -353,7 +353,9 @@ private:
 		virtual void OnMsg(proto::NewTip&&) override;
 		virtual void OnMsg(proto::DataMissing&&) override;
 		virtual void OnMsg(proto::GetHdr&&) override;
+		virtual void OnMsg(proto::GetHdrPack&&) override;
 		virtual void OnMsg(proto::Hdr&&) override;
+		virtual void OnMsg(proto::HdrPack&&) override;
 		virtual void OnMsg(proto::GetBody&&) override;
 		virtual void OnMsg(proto::Body&&) override;
 		virtual void OnMsg(proto::NewTransaction&&) override;

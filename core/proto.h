@@ -38,6 +38,14 @@ namespace proto {
 #define BeamNodeMsg_Hdr(macro) \
 	macro(Block::SystemState::Full, Description)
 
+#define BeamNodeMsg_GetHdrPack(macro) \
+	macro(Block::SystemState::ID, Top) \
+	macro(uint32_t, Count)
+
+#define BeamNodeMsg_HdrPack(macro) \
+	macro(Block::SystemState::Sequence::Prefix, Prefix) \
+	macro(std::vector<Block::SystemState::Sequence::Element>, vElements)
+
 #define BeamNodeMsg_DataMissing(macro)
 
 #define BeamNodeMsg_Boolean(macro) \
@@ -156,6 +164,8 @@ namespace proto {
 	macro(1, NewTip) /* Also the first message sent by the node */ \
 	macro(2, GetHdr) \
 	macro(3, Hdr) \
+	macro(14, GetHdrPack) \
+	macro(19, HdrPack) \
 	macro(4, DataMissing) \
 	macro(5, Boolean) \
 	macro(6, GetBody) \
@@ -218,6 +228,8 @@ namespace proto {
 		static const uint8_t Owner		= 'O';
 	};
 
+	static const uint32_t g_HdrPackMaxSize = 128;
+
 	enum Unused_ { Unused };
 	enum Uninitialized_ { Uninitialized };
 
@@ -235,6 +247,7 @@ namespace proto {
 	inline void ZeroInit(ByteBuffer&) { }
 	inline void ZeroInit(Block::SystemState::ID& x) { ZeroObject(x); }
 	inline void ZeroInit(Block::SystemState::Full& x) { ZeroObject(x); }
+	inline void ZeroInit(Block::SystemState::Sequence::Prefix& x) { ZeroObject(x); }
 	inline void ZeroInit(Block::ChainWorkProof& x) {}
 	inline void ZeroInit(Input& x) { ZeroObject(x); }
 	inline void ZeroInit(ECC::Signature& x) { ZeroObject(x); }

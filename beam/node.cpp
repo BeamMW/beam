@@ -1137,6 +1137,86 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	OnFirstTaskDone(eStatus);
 }
 
+void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
+{
+	proto::HdrPack msgOut;
+
+	if (msg.m_Count)
+	{
+		if (msg.m_Count > proto::g_HdrPackMaxSize)
+			ThrowUnexpected();
+
+		NodeDB& db = m_This.m_Processor.get_DB();
+		uint64_t rowid = db.StateFindSafe(msg.m_Top);
+		if (rowid)
+		{
+			msgOut.m_vElements.reserve(msg.m_Count);
+
+			Block::SystemState::Full s;
+			for (uint32_t n = 0; ; )
+			{
+				db.get_State(rowid, s);
+				msgOut.m_vElements.push_back(s);
+
+				if (++n == msg.m_Count)
+					break;
+
+				if (!db.get_Prev(rowid))
+					break;
+			}
+
+			msgOut.m_Prefix = s;
+		}
+	}
+
+	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::HdrPack&& msg)
+{
+	if (msg.m_vElements.empty())
+		return;
+
+	if (msg.m_vElements.size() > proto::g_HdrPackMaxSize)
+		ThrowUnexpected();
+
+	Block::SystemState::Full s;
+	((Block::SystemState::Sequence::Prefix&) s) = msg.m_Prefix;
+	((Block::SystemState::Sequence::Element&) s) = msg.m_vElements.back();
+
+	bool bAccepted = false, bInvalid = false;
+
+	for (size_t i = msg.m_vElements.size(); ; )
+	{
+		NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnState(s, m_pInfo->m_ID.m_Key);
+		switch (eStatus)
+		{
+		case NodeProcessor::DataStatus::Invalid:
+			bInvalid = true;
+			break;
+
+		case NodeProcessor::DataStatus::Accepted:
+			bAccepted = true;
+
+		default:
+			break; // suppress warning
+		}
+
+		if (! --i)
+			break;
+
+		s.NextPrefix();
+		((Block::SystemState::Sequence::Element&) s) = msg.m_vElements[i];
+		s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+	}
+
+	if (bAccepted)
+		m_This.RefreshCongestions();
+
+	if (bInvalid)
+		ThrowUnexpected();
+}
+
 void Node::Peer::OnMsg(proto::GetBody&& msg)
 {
 	uint64_t rowid = m_This.m_Processor.get_DB().StateFindSafe(msg.m_ID);
