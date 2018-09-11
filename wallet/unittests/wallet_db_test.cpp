@@ -481,6 +481,44 @@ void TestTxRollback()
     WALLET_CHECK(coins[1].m_spentTxId.is_initialized() == false);
 }
 
+void TestTxComplete()
+{
+    auto db = createSqliteKeychain();
+    TxID id = { { 1, 3, 4, 5 ,65 } };
+
+    vector<Coin> coins;
+
+    {
+        Coin coin = { 5, Coin::Locked, 1, 10, KeyType::Coinbase };
+        coin.m_spentTxId = id;
+        coins.push_back(coin);
+    }
+    {
+        Coin coin = { 5, Coin::Unconfirmed, 1, 10, KeyType::Regular };
+        coin.m_createTxId = id;
+        coins.push_back(coin);
+    }
+    {
+        Coin coin = { 5, Coin::Locked, 1, 10, KeyType::Regular };
+        coin.m_spentTxId = id;
+        coins.push_back(coin);
+    }
+    db->store(coins);
+    db->completeTx(id);
+
+    coins.clear();
+    db->visit([&coins](const Coin& coin)
+    {
+        coins.push_back(coin);
+        return true;
+    });
+
+    WALLET_CHECK(coins.size() == 3);
+    WALLET_CHECK(coins[0].m_status == Coin::Spent);
+    WALLET_CHECK(coins[1].m_status == Coin::Unspent);
+    WALLET_CHECK(coins[2].m_status == Coin::Spent);
+}
+
 void TestPeers()
 {
     auto db = createSqliteKeychain();
@@ -752,6 +790,7 @@ int main()
     TestStoreCoins();
     TestStoreTxRecord();
     TestTxRollback();
+    TestTxComplete();
     TestRollback();
     TestPeers();
     TestSelect();

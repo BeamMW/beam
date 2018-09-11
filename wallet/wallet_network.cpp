@@ -156,6 +156,11 @@ namespace beam {
         send_to_node(move(msg));
     }
 
+    void WalletNetworkIO::send_node_message(proto::GetProofKernel&& msg)
+    {
+        send_to_node(move(msg));
+    }
+
     void WalletNetworkIO::new_own_address(const WalletID& address)
     {
         auto p = m_myPubKeys.insert(address);
@@ -423,6 +428,11 @@ namespace beam {
     }
 
     bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::ProofUtxo&& msg)
+    {
+        return m_wallet.handle_node_message(move(msg));
+    }
+
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::ProofKernel&& msg)
     {
         return m_wallet.handle_node_message(move(msg));
     }

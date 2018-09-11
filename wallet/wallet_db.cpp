@@ -1350,6 +1350,31 @@ namespace beam
         notifyKeychainChanged();
     }
 
+    void Keychain::completeTx(const TxID& txId)
+    {
+        sqlite::Transaction trans(_db);
+
+        {
+            const char* req = "UPDATE " STORAGE_NAME " SET status=?3 WHERE spentTxId=?1 AND status=?2;";
+            sqlite::Statement stm(_db, req);
+            stm.bind(1, txId);
+            stm.bind(2, Coin::Locked);
+            stm.bind(3, Coin::Spent);
+            stm.step();
+        }
+        {
+            const char* req = "UPDATE " STORAGE_NAME " SET status=?3 WHERE createTxId=?1 AND status=?2;";
+            sqlite::Statement stm(_db, req);
+            stm.bind(1, txId);
+            stm.bind(2, Coin::Unconfirmed);
+            stm.bind(3, Coin::Unspent);
+            stm.step();
+        }
+        
+        trans.commit();
+        notifyKeychainChanged();
+    }
+
     std::vector<TxPeer> Keychain::getPeers()
     {
         std::vector<TxPeer> peers;
