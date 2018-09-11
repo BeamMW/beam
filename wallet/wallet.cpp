@@ -207,7 +207,6 @@ namespace beam
             m_negotiators.erase(it);
         }
  
-
         if (m_tx_completed_action)
         {
             m_tx_completed_action(tx.m_txId);
@@ -661,6 +660,23 @@ namespace beam
             kernelMsg.m_RequestHashPreimage = true;
             enter_sync();
             m_network->send_node_message(move(kernelMsg));
+        }
+        else // we lost kernel for some reason
+        {
+            const auto& txID = n->getTxID();
+            vector<Coin> unconfirmed;
+            m_keyChain->visit([&](const Coin& coin)
+            {
+                if (coin.m_createTxId == txID && coin.m_status == Coin::Unconfirmed
+                 || coin.m_spentTxId == txID && coin.m_status == Coin::Locked)
+                {
+                    unconfirmed.emplace_back(coin);
+                }
+
+                return true;
+            });
+
+            getUtxoProofs(unconfirmed);
         }
     }
 

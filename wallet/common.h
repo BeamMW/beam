@@ -91,7 +91,7 @@ namespace beam
 
         bool canResume() const
         {
-            return m_status == Pending || m_status == InProgress;
+            return m_status == Pending || m_status == InProgress || m_status == Registered;
         }
     };
 
