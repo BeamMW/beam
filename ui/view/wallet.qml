@@ -32,6 +32,11 @@ Item {
         okButtonText: "got it"
     }
 
+    ConfirmationDialog {
+        id: deleteTransactionDialog
+        okButtonText: "delete"
+    }
+
     SFText {
         font.pixelSize: 36
         color: Style.white
@@ -1023,7 +1028,7 @@ Item {
                     Item {
                         width: parent.width
                         height: transactionsView.rowHeight
-                        property bool income: (styleData.row >= 0) ? viewModel.tx[styleData.row].income : false
+                        property bool income: (styleData.row >= 0) ? viewModel.transactions[styleData.row].income : false
                         SFText {
                             anchors.leftMargin: 20
                             anchors.right: parent.right
@@ -1082,7 +1087,7 @@ Item {
                 delegate: txActions
             }
 
-            model: viewModel.tx
+            model: viewModel.transactions
 
             Component {
                 id: txActions
@@ -1097,7 +1102,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 10
                         /*	CustomToolButton {
-                                visible: styleData.row >= 0 && viewModel.tx[styleData.row].canCancel
+                                visible: styleData.row >= 0 && viewModel.transactions[styleData.row].canCancel
                                 icon.source: "qrc:///assets/icon-cancel.svg"
                                 ToolTip.text: qsTr("Cancel transaction")
                                 onClicked: {
@@ -1110,7 +1115,7 @@ Item {
                                 ToolTip.text: qsTr("Actions")
                                 onClicked: {
                                     txContextMenu.index = styleData.row;
-                                    txContextMenu.transaction = viewModel.tx[styleData.row];
+                                    txContextMenu.transaction = viewModel.transactions[styleData.row];
                                     txContextMenu.popup();
                                 }
                             }
@@ -1158,6 +1163,21 @@ Item {
                     }
                     enabled: !!txContextMenu.transaction && txContextMenu.transaction.canCancel
                     icon.source: "qrc:///assets/icon-cancel.svg"
+                }
+                Action {
+                    text: qsTr("delete")
+                    icon.source: "qrc:///assets/icon-delete.svg"
+                    onTriggered: {
+                        deleteTransactionDialog.text = qsTr("The transaction will be deleted. This operation can not be undone");
+                        deleteTransactionDialog.open();
+                    }
+                }
+                Connections {
+                    target: deleteTransactionDialog
+                    enabled: !!txContextMenu.transaction && !txContextMenu.transaction.canCancel
+                    onAccepted: {
+                        viewModel.deleteTx(txContextMenu.index);
+                    }
                 }
             }
 
@@ -1215,9 +1235,9 @@ Item {
                                     font.pixelSize: 14
                                     color: Style.white
                                     text: {
-                                        if(!!viewModel.tx[styleData.row])
+                                        if(!!viewModel.transactions[styleData.row])
                                         {
-                                            return viewModel.tx[styleData.row].sendingAddress;
+                                            return viewModel.transactions[styleData.row].sendingAddress;
                                         }
                                         return "";
                                     }
@@ -1233,9 +1253,9 @@ Item {
                                     font.pixelSize: 14
                                     color: Style.white
                                     text: {
-                                        if(!!viewModel.tx[styleData.row])
+                                        if(!!viewModel.transactions[styleData.row])
                                         {
-                                            return viewModel.tx[styleData.row].receivingAddress;
+                                            return viewModel.transactions[styleData.row].receivingAddress;
                                         }
                                         return "";
                                     }
@@ -1251,9 +1271,9 @@ Item {
                                     font.pixelSize: 14
                                     color: Style.white
                                     text:{
-                                        if(!!viewModel.tx[styleData.row])
+                                        if(!!viewModel.transactions[styleData.row])
                                         {
-                                            return viewModel.tx[styleData.row].fee;
+                                            return viewModel.transactions[styleData.row].fee;
                                         }
                                         return "";
                                     }
@@ -1269,9 +1289,9 @@ Item {
                                     font.pixelSize: 14
                                     color: Style.white
                                     text: {
-                                        if(!!viewModel.tx[styleData.row])
+                                        if(!!viewModel.transactions[styleData.row])
                                         {
-                                            return viewModel.tx[styleData.row].comment;
+                                            return viewModel.transactions[styleData.row].comment;
                                         }
                                         return "";
                                     }
@@ -1294,10 +1314,10 @@ Item {
                         if (mouse.button === Qt.RightButton && styleData.row !== undefined && styleData.row >=0)
                         {
                             txContextMenu.index = styleData.row;
-                            txContextMenu.transaction = viewModel.tx[styleData.row];
+                            txContextMenu.transaction = viewModel.transactions[styleData.row];
                             txContextMenu.popup();
                         }
-                        else if (mouse.button === Qt.LeftButton && !!viewModel.tx[styleData.row])
+                        else if (mouse.button === Qt.LeftButton && !!viewModel.transactions[styleData.row])
                         {
                             parent.collapsed = !parent.collapsed;
                             parent.height = parent.collapsed? transactionsView.rowHeight : transactionsView.rowHeight + 200;
