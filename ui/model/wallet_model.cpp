@@ -95,6 +95,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+    void deleteTx(const beam::TxID& id) override
+    {
+        tx.send([id](BridgeInterface& receiver_) mutable
+        {
+            receiver_.deleteTx(id);
+        });
+    }
+
     void createNewAddress(WalletAddress&& address) override
     {
         tx.send([address{ move(address) }](BridgeInterface& receiver_) mutable
@@ -415,6 +423,15 @@ void WalletModel::cancelTx(const beam::TxID& id)
     if (w)
     {
         w->cancel_tx(id);
+    }
+}
+
+void WalletModel::deleteTx(const beam::TxID& id)
+{
+    auto w = _wallet.lock();
+    if (w)
+    {
+        w->delete_tx(id);
     }
 }
 

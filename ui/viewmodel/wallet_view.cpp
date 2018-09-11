@@ -87,12 +87,20 @@ bool TxObject::canCancel() const
 
 void TxObject::setUserName(QString name)
 {
-    _userName = name;
+    if (_userName != name)
+    {
+        _userName = name;
+        emit displayNameChanged();
+    }
 }
 
 void TxObject::setDisplayName(QString name)
 {
-    _displayName = name;
+    if (_displayName != name)
+    {
+        _displayName = name;
+        emit displayNameChanged();
+    }
 }
 
 beam::WalletID TxObject::peerId() const
@@ -181,6 +189,12 @@ void WalletViewModel::cancelTx(int index)
 {
     auto *p = static_cast<TxObject*>(_tx[index]);
     _model.async->cancelTx(p->_tx.m_txId);
+}
+
+void WalletViewModel::deleteTx(int index)
+{
+    auto *p = static_cast<TxObject*>(_tx[index]);
+    _model.async->deleteTx(p->_tx.m_txId);
 }
 
 void WalletViewModel::generateNewAddress()
@@ -275,7 +289,7 @@ void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
         _tx.push_back(new TxObject(item));
     }
 
-    emit txChanged();
+    emit transactionsChanged();
 
     // Get info for TxObject::_user_name (get wallets labels)
     if (_model.async)
@@ -443,7 +457,7 @@ QString WalletViewModel::receiverAddr() const
     return QString::fromStdString(str.str());
 }
 
-QQmlListProperty<TxObject> WalletViewModel::tx()
+QQmlListProperty<TxObject> WalletViewModel::getTransactions()
 {
     return QQmlListProperty<TxObject>(this, _tx);
 }
@@ -593,8 +607,6 @@ void WalletViewModel::onAdrresses(bool own, const std::vector<beam::WalletAddres
         auto displayName = tx->userName().isEmpty() ? tx->user() : tx->userName();
         tx->setDisplayName(displayName);
     }
-
-    emit txChanged();
 }
 
 void WalletViewModel::onGeneratedNewWalletID(const beam::WalletID& walletID)

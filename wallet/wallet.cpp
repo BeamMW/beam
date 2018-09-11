@@ -372,6 +372,19 @@ namespace beam
         }
     }
 
+    void Wallet::delete_tx(const TxID& txId)
+    {
+        LOG_INFO() << "deleting tx " << txId;
+        if (auto it = m_negotiators.find(txId); it == m_negotiators.end())
+        {
+            m_keyChain->deleteTx(txId);
+        }
+        else
+        {
+            LOG_WARNING() << "Cannot delete running transaction";
+        }
+    }
+
     void Wallet::set_node_address(io::Address node_address)
     {
         m_network->set_node_address(node_address);
