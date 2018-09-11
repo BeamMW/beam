@@ -83,7 +83,7 @@ namespace beam::wallet
         }
 
         template<typename Event>
-        bool process_event(const Event& event)
+        bool processEvent(const Event& event)
         {
             auto res = m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
             if (res)
@@ -100,13 +100,17 @@ namespace beam::wallet
         }
 
         // for test only
-        const int* current_state() const
+        const int* currentState() const
         {
             return m_fsm.current_state();
         }
 
         void saveState();
 
+        TxKernel* getKernel() const;
+
+        const TxID& getTxID() const;
+        
         struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
         {
             // states
@@ -155,8 +159,8 @@ namespace beam::wallet
             void invitePeer(const events::TxInitiated&);
             void registerTx(const events::TxConfirmationCompleted&);
             void confirmPeer(const events::TxInvitationCompleted&);
-            void completeTx(const events::TxRegistrationCompleted&);
             void confirmOutputs(const events::TxRegistrationCompleted&);
+            void confirmOutputs2(const events::TxRegistrationCompleted&);
             void completeTx(const events::TxOutputsConfirmed&);
 
             void rollbackTx(const events::TxFailed& );
@@ -172,7 +176,7 @@ namespace beam::wallet
 
             void update_tx_description(TxDescription::Status s);
             bool prepareSenderUtxos(const Height& currentHeight);
-            bool registerTxInternal(const events::TxConfirmationCompleted&);
+            bool registerTxInternal(const ECC::Scalar& peerSignature);
             bool constructTxInternal(const ECC::Scalar::Native& signature);
 
             using do_serialize = int;
@@ -189,15 +193,14 @@ namespace beam::wallet
                 a_row< TxConfirmation           , events::TxConfirmationCompleted, TxRegistration      , &d::registerTx           >,
                 a_row< TxInvitation             , events::TxInvitationCompleted  , TxPeerConfirmation  , &d::confirmPeer          >,
 
-                //a_row< TxRegistration         , events::TxRegistrationCompleted , TxOutputsConfirmation , &d::confirmOutputs             >,
-                a_row< TxRegistration           , events::TxRegistrationCompleted, TxTerminal          , &d::completeTx           >,
-                a_row< TxPeerConfirmation       , events::TxRegistrationCompleted, TxTerminal          , &d::completeTx           >,
-                //a_row< TxOutputsConfirmation  , events::TxOutputsConfirmed      , TxTerminal            , &d::completeTx                 >,
+                a_row< TxRegistration           , events::TxRegistrationCompleted , TxOutputsConfirmation , &d::confirmOutputs    >,
+                a_row< TxPeerConfirmation       , events::TxRegistrationCompleted , TxOutputsConfirmation , &d::confirmOutputs2   >,
+                a_row< TxOutputsConfirmation    , events::TxOutputsConfirmed      , TxTerminal            , &d::completeTx        >,
 
-                a_row< TxInvitation             , events::TxRegistrationCompleted, TxTerminal           , &d::completeTx           >,
+                a_row< TxInvitation             , events::TxRegistrationCompleted , TxOutputsConfirmation, &d::confirmOutputs      >,
 
-                a_row< TxAllOk                , events::TxFailed                , TxTerminal            , &d::rollbackTx                 >,
-                a_row< TxAllOk                , events::TxCanceled              , TxTerminal            , &d::cancelTx                  >
+                a_row< TxAllOk                  , events::TxFailed                , TxTerminal            , &d::rollbackTx          >,
+                a_row< TxAllOk                  , events::TxCanceled              , TxTerminal            , &d::cancelTx            >
             > {};
 
 

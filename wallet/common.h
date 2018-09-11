@@ -45,7 +45,8 @@ namespace beam
             InProgress,
             Cancelled,
             Completed,
-            Failed
+            Failed,
+            Registered
         };
 
         TxDescription() = default;
@@ -205,6 +206,7 @@ namespace beam
             virtual void send_tx_confirmation(const TxDescription&, ConfirmInvitation&&) = 0;
             virtual void register_tx(const TxDescription&, Transaction::Ptr) = 0;
             virtual void send_tx_registered(const TxDescription&) = 0;
+            virtual void confirm_outputs(const TxDescription&) = 0;
         };
     }
 }
