@@ -96,7 +96,6 @@ namespace
         void saveTx(const TxDescription &) override {};
         void deleteTx(const TxID& ) override {};
         void rollbackTx(const TxID&) override {}
-        void completeTx(const TxID&) override {}
 
         std::vector<TxPeer> getPeers() override { return {}; };
         void addPeer(const TxPeer&) override {}
@@ -662,14 +661,31 @@ private:
 
 
         // protocol handler
-        void OnMsg(proto::NewTransaction&& /*data*/) override
+        void OnMsg(proto::NewTransaction&& data) override
         {
+            for (const auto& input : data.m_Transaction->m_vInputs)
+            {
+                m_This.RemoveCommitment(input->m_Commitment);
+            }
+            for (const auto& output : data.m_Transaction->m_vOutputs)
+            {
+                m_This.AddCommitment(output->m_Commitment);
+            }
             Send(proto::Boolean{ true });
         }
 
-        void OnMsg(proto::GetProofUtxo&& /*data*/) override
+        void OnMsg(proto::GetProofUtxo&& data) override
         {
-            Send(proto::ProofUtxo());
+            if (m_This.HasCommitment(data.m_Utxo.m_Commitment))
+            {
+                Input::Proof proof = {};
+                proof.m_State.m_Maturity = 134 + 60;
+                Send(proto::ProofUtxo{ {proof} });
+            }
+            else
+            {
+                Send(proto::ProofUtxo{});
+            }
         }
 
         void OnMsg(proto::GetProofKernel&& /*data*/) override
@@ -750,6 +766,23 @@ private:
     {
         m_lstClients.erase(ClientList::s_iterator_to(*client));
         delete client;
+    }
+
+    set<ECC::Point> m_Commitments;
+
+    void AddCommitment(const ECC::Point& c)
+    {
+        m_Commitments.insert(c);
+    }
+
+    void RemoveCommitment(const ECC::Point& c)
+    {
+        m_Commitments.erase(c);
+    }
+
+    bool HasCommitment(const ECC::Point& c)
+    {
+        return m_Commitments.find(c) != m_Commitments.end();
     }
 
     struct Server

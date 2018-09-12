@@ -446,7 +446,7 @@ namespace beam
             {
                 if (coin.m_status == Coin::Unconfirmed)
                 {
-                    if (m_newState.IsValidProofUtxo(input, proof))
+                    if (IsTestMode() || m_newState.IsValidProofUtxo(input, proof))
                     {
                         LOG_INFO() << "Got proof for: " << input.m_Commitment;
                         coin.m_status = Coin::Unspent;
@@ -630,8 +630,11 @@ namespace beam
         if (IsTestMode() || m_newState.IsValidProofKernel(*kernel, msg.m_Proof))
         {
             LOG_INFO() << "Got proof for tx: " << n->getTxID();
-            Cleaner cs{ m_removedNegotiators };
-            n->processEvent(events::TxOutputsConfirmed{});
+            m_pendingEvents.emplace_back([n]()
+            {
+                n->processEvent(events::TxOutputsConfirmed{});
+            });
+            get_kernel_utxo_proofs(n);
         }
 
         return exit_sync();
@@ -676,21 +679,26 @@ namespace beam
         }
         else // we lost kernel for some reason
         {
-            const auto& txID = n->getTxID();
-            vector<Coin> unconfirmed;
-            m_keyChain->visit([&](const Coin& coin)
-            {
-                if (coin.m_createTxId == txID && coin.m_status == Coin::Unconfirmed
-                 || coin.m_spentTxId == txID && coin.m_status == Coin::Locked)
-                {
-                    unconfirmed.emplace_back(coin);
-                }
-
-                return true;
-            });
-
-            getUtxoProofs(unconfirmed);
+            get_kernel_utxo_proofs(n);
         }
+    }
+
+    void Wallet::get_kernel_utxo_proofs(Negotiator::Ptr n)
+    {
+        const auto& txID = n->getTxID();
+        vector<Coin> unconfirmed;
+        m_keyChain->visit([&](const Coin& coin)
+        {
+            if (coin.m_createTxId == txID && coin.m_status == Coin::Unconfirmed
+                || coin.m_spentTxId == txID && coin.m_status == Coin::Locked)
+            {
+                unconfirmed.emplace_back(coin);
+            }
+
+            return true;
+        });
+
+        getUtxoProofs(unconfirmed);
     }
 
     void Wallet::getUtxoProofs(const vector<Coin>& coins)

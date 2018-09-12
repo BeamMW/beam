@@ -366,8 +366,6 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "Transaction completed";
         update_tx_description(TxDescription::Completed);
-
-        m_parent.m_keychain->completeTx(m_parent.m_txDesc.m_txId);
     }
 
     void Negotiator::FSMDefinition::update_tx_description(TxDescription::Status s)
