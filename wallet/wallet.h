@@ -40,6 +40,7 @@ namespace beam
         virtual bool handle_node_message(proto::Boolean&&) = 0;
         virtual bool handle_node_message(proto::ProofUtxo&&) = 0;
 		virtual bool handle_node_message(proto::ProofState&& msg) = 0;
+        virtual bool handle_node_message(proto::ProofKernel&& msg) = 0;
 		virtual bool handle_node_message(proto::NewTip&&) = 0;
         virtual bool handle_node_message(proto::Hdr&&) = 0;
         virtual bool handle_node_message(proto::Mined&& msg) = 0;
@@ -50,6 +51,7 @@ namespace beam
 		virtual void unsubscribe(IWalletObserver* observer) = 0;
 
         virtual void cancel_tx(const TxID& id) = 0;
+        virtual void delete_tx(const TxID& id) = 0;
 
 		virtual void set_node_address(io::Address node_address) = 0;
 		virtual void emergencyReset() = 0;
@@ -74,6 +76,7 @@ namespace beam
 		virtual void send_node_message(proto::GetHdr&&) = 0;
         virtual void send_node_message(proto::GetMined&&) = 0;
         virtual void send_node_message(proto::GetProofState&&) = 0;
+        virtual void send_node_message(proto::GetProofKernel&&) = 0;
         // connection control
         //virtual void close_connection(const WalletID& id) = 0;
         virtual void connect_node() = 0;
@@ -131,6 +134,7 @@ namespace beam
         void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmInvitation&&) override;
         void register_tx(const TxDescription& tx, Transaction::Ptr) override;
         void send_tx_registered(const TxDescription& tx) override;
+        void confirm_outputs(const TxDescription&) override;
 
         void handle_tx_message(const WalletID&, wallet::Invite&&) override;
         void handle_tx_message(const WalletID&, wallet::ConfirmTransaction&&) override;
@@ -141,6 +145,7 @@ namespace beam
         bool handle_node_message(proto::Boolean&& res) override;
         bool handle_node_message(proto::ProofUtxo&& proof) override;
 		bool handle_node_message(proto::ProofState&& msg) override;
+        bool handle_node_message(proto::ProofKernel&& msg) override;
 		bool handle_node_message(proto::NewTip&& msg) override;
         bool handle_node_message(proto::Hdr&& msg) override;
         bool handle_node_message(proto::Mined&& msg) override;
@@ -153,15 +158,18 @@ namespace beam
         void handle_tx_registered(const TxID& txId, bool res);
 
         void cancel_tx(const TxID& txId) override;
+        void delete_tx(const TxID& txId) override;
 
 		void set_node_address(io::Address node_address) override;
 		void emergencyReset() override;
-		bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode);
+		bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) override;
 
     private:
         void remove_peer(const TxID& txId);
         void getUtxoProofs(const std::vector<Coin>& coins);
         void do_fast_forward();
+        void get_kernel_proof(wallet::Negotiator::Ptr n);
+        void get_kernel_utxo_proofs(wallet::Negotiator::Ptr n);
         void enter_sync();
         bool exit_sync();
         void report_sync_progress();
@@ -192,7 +200,7 @@ namespace beam
             Cleaner cs{ m_removedNegotiators };
             if (auto it = m_negotiators.find(txId); it != m_negotiators.end())
             {
-                return it->second->process_event(event);
+                return it->second->processEvent(event);
             }
             return false;
         }
@@ -215,7 +223,8 @@ namespace beam
         TxCompletedAction m_tx_completed_action;
         std::deque<std::pair<TxID, Transaction::Ptr>> m_reg_requests;
         std::vector<std::pair<TxID, Transaction::Ptr>> m_pending_reg_requests;
-        std::deque<Coin> m_pendingProofs;
+        std::deque<Coin> m_pendingUtxoProofs;
+        std::deque<wallet::Negotiator::Ptr> m_pendingKernelProofs;
         std::vector<Callback> m_pendingEvents;
 
 		Block::SystemState::Full m_newState;

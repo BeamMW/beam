@@ -14,6 +14,13 @@
 
 #include "wallet.h"
 #include <boost/uuid/uuid.hpp>
+
+// TODO: getrandom not available until API 28 in the Android NDK 17b
+// https://github.com/boostorg/uuid/issues/76
+#if defined(__ANDROID__)
+#define BOOST_UUID_RANDOM_PROVIDER_DISABLE_GETRANDOM 1
+#endif
+
 #include <boost/uuid/uuid_generators.hpp>
 #include "core/ecc_native.h"
 #include "core/block_crypt.h"
@@ -207,7 +214,6 @@ namespace beam
             m_negotiators.erase(it);
         }
  
-
         if (m_tx_completed_action)
         {
             m_tx_completed_action(tx.m_txId);
@@ -239,6 +245,14 @@ namespace beam
         send_tx_message(tx, wallet::TxRegistered{ tx.m_peerId, tx.m_txId, true });
     }
 
+    void Wallet::confirm_outputs(const TxDescription& tx)
+    {
+        if (auto it = m_negotiators.find(tx.m_txId); it != m_negotiators.end())
+        {
+            get_kernel_proof(it->second);
+        }
+    }
+
     void Wallet::handle_tx_message(const WalletID& receiver, Invite&& msg)
     {
         auto stored = m_keyChain->getTx(msg.m_txId);
@@ -268,20 +282,20 @@ namespace beam
                 if (m_synchronized)
                 {
                     r->start();
-                    r->process_event(events::TxInvited{});
+                    r->processEvent(events::TxInvited{});
                 }
                 else
                 {
                     m_pendingEvents.emplace_back([r]()
                     {
                         r->start();
-                        r->process_event(events::TxInvited{});
+                        r->processEvent(events::TxInvited{});
                     });
                 }
             }
             else
             {
-                r->process_event(events::TxFailed{ true });
+                r->processEvent(events::TxFailed{ true });
             }
         }
         else
@@ -357,11 +371,24 @@ namespace beam
         Cleaner cs{ m_removedNegotiators };
         if (auto it = m_negotiators.find(txId); it != m_negotiators.end())
         {
-            it->second->process_event(events::TxCanceled{});
+            it->second->processEvent(events::TxCanceled{});
         }
         else
         {
             m_keyChain->deleteTx(txId);
+        }
+    }
+
+    void Wallet::delete_tx(const TxID& txId)
+    {
+        LOG_INFO() << "deleting tx " << txId;
+        if (auto it = m_negotiators.find(txId); it == m_negotiators.end())
+        {
+            m_keyChain->deleteTx(txId);
+        }
+        else
+        {
+            LOG_WARNING() << "Cannot delete running transaction";
         }
     }
 
@@ -397,13 +424,13 @@ namespace beam
     bool Wallet::handle_node_message(proto::ProofUtxo&& utxoProof)
     {
         // TODO: handle the maturity of the several proofs (> 1)
-        if (m_pendingProofs.empty())
+        if (m_pendingUtxoProofs.empty())
         {
             LOG_WARNING() << "Unexpected UTXO proof";
             return exit_sync();
         }
 
-        Coin& coin = m_pendingProofs.front();
+        Coin& coin = m_pendingUtxoProofs.front();
         Input input;
         input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
         if (utxoProof.m_Proofs.empty())
@@ -426,7 +453,7 @@ namespace beam
             {
                 if (coin.m_status == Coin::Unconfirmed)
                 {
-                    if (m_newState.IsValidProofUtxo(input, proof))
+                    if (IsTestMode() || m_newState.IsValidProofUtxo(input, proof))
                     {
                         LOG_INFO() << "Got proof for: " << input.m_Commitment;
                         coin.m_status = Coin::Unspent;
@@ -454,7 +481,7 @@ namespace beam
             }
         }
 
-        m_pendingProofs.pop_front();
+        m_pendingUtxoProofs.pop_front();
 
         return exit_sync();
     }
@@ -596,12 +623,36 @@ namespace beam
         return exit_sync();
     }
 
+    bool Wallet::handle_node_message(proto::ProofKernel&& msg)
+    {
+        if (m_pendingKernelProofs.empty())
+        {
+            LOG_WARNING() << "Unexpected Kernel proof";
+            return exit_sync();
+        }
+        auto n = m_pendingKernelProofs.front();
+        m_pendingKernelProofs.pop_front();
+        auto kernel = n->getKernel();
+        assert(kernel);
+        if (IsTestMode() || m_newState.IsValidProofKernel(*kernel, msg.m_Proof))
+        {
+            LOG_INFO() << "Got proof for tx: " << n->getTxID();
+            m_pendingEvents.emplace_back([n]()
+            {
+                n->processEvent(events::TxOutputsConfirmed{});
+            });
+            get_kernel_utxo_proofs(n);
+        }
+
+        return exit_sync();
+    }
+
     void Wallet::abort_sync()
     {
         m_syncDone = m_syncTotal = 0;
         copy(m_reg_requests.begin(), m_reg_requests.end(), back_inserter(m_pending_reg_requests));
         m_reg_requests.clear();
-        m_pendingProofs.clear();
+        m_pendingUtxoProofs.clear();
 
         notifySyncProgress();
     }
@@ -615,11 +666,38 @@ namespace beam
         enter_sync(); // Mined
         m_network->send_node_message(proto::GetMined{ m_knownStateID.m_Height });
 
+        for (auto p : m_negotiators)
+        {
+            get_kernel_proof(p.second);
+        }
+    }
+
+    void Wallet::get_kernel_proof(Negotiator::Ptr n)
+    {
+        TxKernel* kernel = n->getKernel();
+        if (kernel)
+        {
+            proto::GetProofKernel kernelMsg = {};
+            kernel->get_ID(kernelMsg.m_ID);
+            m_pendingKernelProofs.push_back(n);
+            kernelMsg.m_RequestHashPreimage = true;
+            enter_sync();
+            m_network->send_node_message(move(kernelMsg));
+        }
+        else // we lost kernel for some reason
+        {
+            get_kernel_utxo_proofs(n);
+        }
+    }
+
+    void Wallet::get_kernel_utxo_proofs(Negotiator::Ptr n)
+    {
+        const auto& txID = n->getTxID();
         vector<Coin> unconfirmed;
         m_keyChain->visit([&](const Coin& coin)
         {
-            if (coin.m_status == Coin::Unconfirmed
-                || coin.m_status == Coin::Locked)
+            if (coin.m_createTxId == txID && coin.m_status == Coin::Unconfirmed
+                || coin.m_spentTxId == txID && coin.m_status == Coin::Locked)
             {
                 unconfirmed.emplace_back(coin);
             }
@@ -635,7 +713,7 @@ namespace beam
         for (auto& coin : coins)
         {
             enter_sync();
-            m_pendingProofs.push_back(coin);
+            m_pendingUtxoProofs.push_back(coin);
             Input input;
             input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
             LOG_DEBUG() << "Get proof: " << input.m_Commitment;
@@ -729,14 +807,14 @@ namespace beam
         if (m_synchronized)
         {
             s->start();
-            s->process_event(events::TxInitiated{});
+            s->processEvent(events::TxInitiated{});
         }
         else
         {
             m_pendingEvents.emplace_back([s]()
             {
                 s->start();
-                s->process_event(events::TxInitiated{});
+                s->processEvent(events::TxInitiated{});
             });
         }
     }
