@@ -260,7 +260,7 @@ Item
                     }
                     CustomRadioButton {
                         id: localNodeButton
-                        text: qsTr("Run node locally (") + viewModel.branchName + qsTr(")")
+                        text: qsTr("Run local testnet node")
                         ButtonGroup.group: nodePreferencesGroup
                     }
                     Column {
