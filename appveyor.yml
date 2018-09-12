@@ -37,6 +37,12 @@ on_success:
 
     cpack --verbose -G NSIS
 
+    git rev-list HEAD --count > BEAM_VERSION_REVISION
+
+    set /p BEAM_VERSION_REVISION=<BEAM_VERSION_REVISION
+
+    set BEAM_VERSION=1.0.%BEAM_VERSION_REVISION%
+
     7z a c:/projects/beam/beam/Release/beam-node-%BEAM_VERSION%.zip c:/projects/beam/beam/Release/beam-node.exe c:/projects/beam/beam/beam-node.cfg
 
     7z a c:/projects/beam/beam/Release/beam-wallet-cli-%BEAM_VERSION%.zip c:/projects/beam/wallet/Release/beam-wallet.exe c:/projects/beam/wallet/beam-wallet.cfg

@@ -1,5 +1,12 @@
 language: cpp
 
+git:
+  depth: false
+
+# TODO: version detection should be in one place
+before_install:
+  - BEAM_VERSION="1.0.$(git rev-list HEAD --count)"
+
 matrix:
   include:
     - os: osx
