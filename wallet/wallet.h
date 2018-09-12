@@ -169,6 +169,7 @@ namespace beam
         void getUtxoProofs(const std::vector<Coin>& coins);
         void do_fast_forward();
         void get_kernel_proof(wallet::Negotiator::Ptr n);
+        void get_kernel_utxo_proofs(wallet::Negotiator::Ptr n);
         void enter_sync();
         bool exit_sync();
         void report_sync_progress();
