@@ -93,7 +93,7 @@ matrix:
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
 
 # TODO: version detection should be in one place
-before_install:
+before_script:
   - BEAM_VERSION="1.0.$(git rev-list HEAD --count)"
 
 after_success:
