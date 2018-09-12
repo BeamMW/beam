@@ -1,5 +1,8 @@
 language: cpp
 
+git:
+  depth: false
+
 matrix:
   include:
     - os: osx
@@ -9,14 +12,14 @@ matrix:
         - brew upgrade boost cmake
         - brew install qt5
         - export PATH=/usr/local/opt/qt/bin:$PATH
+        - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
+        - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
       env: 
         - BUILD_TYPE=Debug
-        - OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
-        - BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
-        - BEAM_WALLET_UI_OUT="Beam-Wallet.dmg"
         - OS_FOLDER=mac
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
 
     - os: osx
       osx_image: xcode9.3
@@ -25,16 +28,16 @@ matrix:
         - brew upgrade openssl boost cmake
         - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
         - export PATH=~/qt5-static/bin:$PATH
+        - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
+        - export QT5_ROOT_DIR="/usr/local/qt5-static"
+        - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
+        - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
       env: 
         - BUILD_TYPE=Release
-        - OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
-        - QT5_ROOT_DIR="/usr/local/qt5-static"
-        - QML_IMPORT_PATH="/usr/local/qt5-static/qml"
-        - BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
-        - BEAM_WALLET_UI_OUT="Beam-Wallet.dmg"
         - OS_FOLDER=mac
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
 
     - os: linux
       addons:
@@ -55,13 +58,13 @@ matrix:
         - sudo apt-get install qt510declarative qt510svg libgl1-mesa-dev-lts-xenial
         - eval "CC=gcc-7 && CXX=g++-7"
         - export PATH=/opt/qt510/bin:$PATH
+        - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
       env: 
         - BUILD_TYPE=Debug
-        - BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
-        - BEAM_WALLET_UI_OUT="Beam-Wallet.deb"
         - OS_FOLDER=linux
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
 
     - os: linux
       addons:
@@ -79,27 +82,31 @@ matrix:
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - eval "CC=gcc-7 && CXX=g++-7"
         - git clone --depth=1 https://github.com/nesbox/qt5-static-linux.git /home/travis/qt5-static
+        - export QT5_ROOT_DIR="/home/travis/qt5-static"
+        - export QML_IMPORT_PATH="/home/travis/qt5-static/qml"
+        - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
       env: 
-        - QT5_ROOT_DIR="/home/travis/qt5-static"
-        - QML_IMPORT_PATH="/home/travis/qt5-static/qml"
         - BUILD_TYPE=Release
-        - BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
-        - BEAM_WALLET_UI_OUT="Beam-Wallet.deb"
         - OS_FOLDER=linux
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static  -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
+
+# TODO: version detection should be in one place
+before_script:
+  - BEAM_VERSION="1.0.$(git rev-list HEAD --count)"
 
 after_success:
   # deploy using ftp server
   - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER
   - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER
-  - tar -cvzf beam-node.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam-node beam-node.cfg
-  - tar -cvzf beam-wallet-cli.tar.gz --directory=$HOME/build/beam-mw/beam/wallet beam-wallet beam-wallet.cfg
-  - curl --retry 3 --ftp-create-dirs -T beam-node.tar.gz $BUILDS_SERVER_PATH/
-  - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli.tar.gz $BUILDS_SERVER_PATH/
+  - tar -cvzf beam-node-$BEAM_VERSION.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam-node beam-node.cfg
+  - tar -cvzf beam-wallet-cli-$BEAM_VERSION.tar.gz --directory=$HOME/build/beam-mw/beam/wallet beam-wallet beam-wallet.cfg
+  - curl --retry 3 --ftp-create-dirs -T beam-node-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_PATH/$BEAM_WALLET_UI_OUT"
-  - curl --retry 3 --ftp-create-dirs -T beam-node.tar.gz $BUILDS_SERVER_LATEST_PATH/
-  - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli.tar.gz $BUILDS_SERVER_LATEST_PATH/
+  - curl --retry 3 --ftp-create-dirs -T beam-node-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/
+  - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/
   - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_LATEST_PATH/$BEAM_WALLET_UI_OUT"
 
 notifications:
