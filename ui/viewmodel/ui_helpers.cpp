@@ -1,5 +1,7 @@
 #include "ui_helpers.h"
+
 #include <QDateTime>
+#include <QLocale>
 
 using namespace std;
 using namespace beam;
@@ -15,12 +17,11 @@ namespace beamui
 
     QString BeamToString(const Amount& value)
     {
-        auto str = std::to_string(double(int64_t(value)) / Rules::Coin);
+        constexpr int kMaxNumberOfSignificantDigits = 12;
 
-        str.erase(str.find_last_not_of('0') + 1, std::string::npos);
-        str.erase(str.find_last_not_of('.') + 1, std::string::npos);
-
-        return QString::fromStdString(str);
+        auto real_amount = double(int64_t(value)) / Rules::Coin;
+        QString qstr = QLocale().toString(real_amount, 'g', kMaxNumberOfSignificantDigits);
+        return qstr;
     }
 
     inline void ltrim(std::string &s, char sym)
