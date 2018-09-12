@@ -188,7 +188,11 @@ WalletViewModel::~WalletViewModel()
 void WalletViewModel::cancelTx(int index)
 {
     auto *p = static_cast<TxObject*>(_tx[index]);
-    _model.async->cancelTx(p->_tx.m_txId);
+    // TODO: temporary fix
+    if (p->canCancel())
+    {
+        _model.async->cancelTx(p->_tx.m_txId);
+    }
 }
 
 void WalletViewModel::deleteTx(int index)
