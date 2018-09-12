@@ -676,6 +676,7 @@ namespace beam
 		void Create(ISource&, const SystemState::Full& sRoot);
 		bool IsValid() const;
 		bool Crop(); // according to current bound
+		bool Crop(const ChainWorkProof& src);
 		bool IsEmpty() const { return m_Heading.m_vElements.empty(); }
 
 		template <typename Archive>
@@ -692,7 +693,7 @@ namespace beam
 
 	private:
 		struct Sampler;
-		bool IsValidInternal(size_t& iState, size_t& iHash) const;
+		bool IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound) const;
 		void ZeroInit();
 	};
 

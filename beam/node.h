@@ -168,6 +168,7 @@ private:
 		typedef std::pair<Block::SystemState::ID, bool> Key;
 		Key m_Key;
 
+		bool m_bPack;
 		bool m_bRelevant;
 		Peer* m_pOwner;
 
@@ -176,6 +177,9 @@ private:
 
 	typedef boost::intrusive::list<Task> TaskList;
 	typedef boost::intrusive::multiset<Task> TaskSet;
+
+	uint32_t m_nTasksPackHdr = 0;
+	uint32_t m_nTasksPackBody = 0;
 
 	TaskList m_lstTasksUnassigned;
 	TaskSet m_setTasks;
@@ -353,7 +357,9 @@ private:
 		virtual void OnMsg(proto::NewTip&&) override;
 		virtual void OnMsg(proto::DataMissing&&) override;
 		virtual void OnMsg(proto::GetHdr&&) override;
+		virtual void OnMsg(proto::GetHdrPack&&) override;
 		virtual void OnMsg(proto::Hdr&&) override;
+		virtual void OnMsg(proto::HdrPack&&) override;
 		virtual void OnMsg(proto::GetBody&&) override;
 		virtual void OnMsg(proto::Body&&) override;
 		virtual void OnMsg(proto::NewTransaction&&) override;

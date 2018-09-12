@@ -43,7 +43,7 @@ void Node::RefreshCongestions()
 
 void Node::DeleteUnassignedTask(Task& t)
 {
-	assert(!t.m_pOwner);
+	assert(!t.m_pOwner && !t.m_bPack);
 	m_lstTasksUnassigned.erase(TaskList::s_iterator_to(t));
 	m_setTasks.erase(TaskSet::s_iterator_to(t));
 	delete &t;
@@ -229,6 +229,21 @@ void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 
 void Node::AssignTask(Task& t, Peer& p)
 {
+	uint32_t nPackSize = 0;
+	if (t.m_Key.first.m_Height > m_Processor.m_Cursor.m_ID.m_Height)
+	{
+		Height dh = t.m_Key.first.m_Height - m_Processor.m_Cursor.m_ID.m_Height;
+
+		const uint32_t nThreshold = 5;
+
+		if (dh >= nThreshold)
+		{
+			nPackSize = proto::g_HdrPackMaxSize;
+			if (nPackSize > dh)
+				nPackSize = (uint32_t) dh;
+		}
+	}
+
 	if (t.m_Key.second)
 	{
 		proto::GetBody msg;
@@ -237,9 +252,22 @@ void Node::AssignTask(Task& t, Peer& p)
 	}
 	else
 	{
-		proto::GetHdr msg;
-		msg.m_ID = t.m_Key.first;
-		p.Send(msg);
+		if (!m_nTasksPackHdr && nPackSize)
+		{
+			proto::GetHdrPack msg;
+			msg.m_Top = t.m_Key.first;
+			msg.m_Count = nPackSize;
+			p.Send(msg);
+
+			t.m_bPack = true;
+			m_nTasksPackHdr++;
+		}
+		else
+		{
+			proto::GetHdr msg;
+			msg.m_ID = t.m_Key.first;
+			p.Send(msg);
+		}
 	}
 
 	bool bEmpty = p.m_lstTasks.empty();
@@ -293,6 +321,7 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 		Task* pTask = new Task;
 		pTask->m_Key = tKey.m_Key;
 		pTask->m_bRelevant = true;
+		pTask->m_bPack = false;
 		pTask->m_pOwner = NULL;
 
 		get_ParentObj().m_setTasks.insert(*pTask);
@@ -993,6 +1022,15 @@ void Node::Peer::ReleaseTask(Task& t)
 	assert(this == t.m_pOwner);
 	t.m_pOwner = NULL;
 
+	if (t.m_bPack)
+	{
+		uint32_t& nCounter = t.m_Key.second ? m_This.m_nTasksPackBody : m_This.m_nTasksPackHdr;
+		assert(nCounter);
+
+		nCounter--;
+		t.m_bPack = false;
+	}
+
 	m_lstTasks.erase(TaskList::s_iterator_to(t));
 	m_This.m_lstTasksUnassigned.push_back(t);
 
@@ -1122,7 +1160,7 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 {
 	Task& t = get_FirstTask();
 
-	if (t.m_Key.second)
+	if (t.m_Key.second || t.m_bPack)
 		ThrowUnexpected();
 
 	Block::SystemState::ID id;
@@ -1135,6 +1173,106 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 
 	NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnState(msg.m_Description, m_pInfo->m_ID.m_Key);
 	OnFirstTaskDone(eStatus);
+}
+
+void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
+{
+	proto::HdrPack msgOut;
+
+	if (msg.m_Count)
+	{
+		if (msg.m_Count > proto::g_HdrPackMaxSize)
+			ThrowUnexpected();
+
+		NodeDB& db = m_This.m_Processor.get_DB();
+		uint64_t rowid = db.StateFindSafe(msg.m_Top);
+		if (rowid)
+		{
+			msgOut.m_vElements.reserve(msg.m_Count);
+
+			Block::SystemState::Full s;
+			for (uint32_t n = 0; ; )
+			{
+				db.get_State(rowid, s);
+				msgOut.m_vElements.push_back(s);
+
+				if (++n == msg.m_Count)
+					break;
+
+				if (!db.get_Prev(rowid))
+					break;
+			}
+
+			msgOut.m_Prefix = s;
+		}
+	}
+
+	if (msgOut.m_vElements.empty())
+		Send(proto::DataMissing(Zero));
+	else
+		Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::HdrPack&& msg)
+{
+	Task& t = get_FirstTask();
+
+	if (t.m_Key.second || !t.m_bPack)
+		ThrowUnexpected();
+
+	if (msg.m_vElements.empty() || (msg.m_vElements.size() > proto::g_HdrPackMaxSize))
+		ThrowUnexpected();
+
+	Block::SystemState::Full s;
+	((Block::SystemState::Sequence::Prefix&) s) = msg.m_Prefix;
+	((Block::SystemState::Sequence::Element&) s) = msg.m_vElements.back();
+
+	uint32_t nAccepted = 0;
+	bool bInvalid = false;
+
+	for (size_t i = msg.m_vElements.size(); ; )
+	{
+		NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnState(s, m_pInfo->m_ID.m_Key);
+		switch (eStatus)
+		{
+		case NodeProcessor::DataStatus::Invalid:
+			bInvalid = true;
+			break;
+
+		case NodeProcessor::DataStatus::Accepted:
+			nAccepted++;
+
+		default:
+			break; // suppress warning
+		}
+
+		if (! --i)
+			break;
+
+		s.NextPrefix();
+		((Block::SystemState::Sequence::Element&) s) = msg.m_vElements[i - 1];
+		s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+	}
+
+	// just to be pedantic
+	Block::SystemState::ID id;
+	s.get_ID(id);
+	if (id != t.m_Key.first)
+		bInvalid = true;
+
+	OnFirstTaskDone();
+
+	if (nAccepted)
+	{
+		m_This.RefreshCongestions();
+
+		assert(m_bPiRcvd && m_pInfo);
+		m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader * nAccepted, true);
+	}
+
+	if (bInvalid)
+		ThrowUnexpected();
+
 }
 
 void Node::Peer::OnMsg(proto::GetBody&& msg)
@@ -1162,7 +1300,7 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 {
 	Task& t = get_FirstTask();
 
-	if (!t.m_Key.second)
+	if (!t.m_Key.second || t.m_bPack)
 		ThrowUnexpected();
 
 	assert(m_bPiRcvd && m_pInfo);
@@ -1553,14 +1691,8 @@ void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
 	Processor& p = m_This.m_Processor;
 	if (p.BuildCwp())
 	{
-		msgOut.m_Proof = p.m_Cwp; // full copy
-
-		if (!(msg.m_LowerBound == Zero))
-		{
-			msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
-			verify(msgOut.m_Proof.Crop());
-		}
-
+		msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
+		verify(msgOut.m_Proof.Crop(p.m_Cwp));
 	}
 
 	Send(msgOut);
