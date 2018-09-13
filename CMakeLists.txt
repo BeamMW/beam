@@ -53,7 +53,7 @@ project(beam VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_REVISION})
 
 message("BEAM_VERSION: ${PROJECT_VERSION}")
 
-if(UNIX AND NOT APPLE AND NOT ANDROID)
+if(UNIX AND NOT APPLE)
 	set(LINUX TRUE)
 endif()
 
@@ -120,11 +120,7 @@ if(MSVC)
 	endif()
 
 else()
-	if(NOT ANDROID)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
-	endif()
-    
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pthread")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wall -pthread")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -ggdb3")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
@@ -140,20 +136,16 @@ if(UNIX OR WIN32)
     add_definitions(-DUV_INTERNAL)
 endif()
 
-if(ANDROID)
-    include_directories($ENV{BOOST_ROOT_ANDROID}/include/boost-1_68)
-else()
-    if(BEAM_USE_STATIC)
+if(BEAM_USE_STATIC)
 	include(FindBoost)
 
 	set(Boost_USE_MULTITHREADED ON)
 	set(Boost_USE_STATIC_LIBS ON)
 	set(Boost_USE_STATIC_RUNTIME ON)
-    else()
+else()
 	if (WIN32)
 		add_definitions( -DBOOST_ALL_DYN_LINK )
 	endif()
-    endif()
 endif()
 
 if (WIN32)
@@ -177,11 +169,7 @@ add_subdirectory(wallet)
 add_subdirectory(sqlite)
 add_subdirectory(beam)
 add_subdirectory(bbs)
-
-# TODO: uncomment this later
-if(NOT ANDROID)
-	add_subdirectory(ui)
-endif()
+add_subdirectory(ui)
 
 ########################################################
 ### PACKAGING ##########################################

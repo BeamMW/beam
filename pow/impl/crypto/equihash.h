@@ -9,7 +9,7 @@
 #include "crypto/sha256.h"
 #include "utilstrencodings.h"
 
-#include "blake/ref/blake2.h"
+#include "blake/blake2.h"
 
 #include <cstring>
 #include <exception>
