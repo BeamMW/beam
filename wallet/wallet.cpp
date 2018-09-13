@@ -526,6 +526,7 @@ namespace beam
     {
         vector<Coin> mined;
         auto currentHeight = m_keyChain->getCurrentHeight();
+        beam:Height lastKnownCoinHeight = currentHeight;
         for (auto& minedCoin : msg.m_Entries)
         {
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
@@ -544,6 +545,7 @@ namespace beam
                                      , MaxHeight
                                      , KeyType::Comission);
                 }
+                lastKnownCoinHeight = minedCoin.m_ID.m_Height;
             }
         }
 
@@ -551,6 +553,13 @@ namespace beam
         {
             getUtxoProofs(mined);
         }
+
+        if (msg.m_Entries.size() == proto::PerMined::s_EntriesMax)
+        {
+            enter_sync();
+            m_network->send_node_message(proto::GetMined{ lastKnownCoinHeight });
+        }
+
         return exit_sync();
     }
 
