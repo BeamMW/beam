@@ -17,6 +17,8 @@
 
 #include <boost/program_options.hpp>
 
+#include "wallet/secstring.h"
+
 namespace po = boost::program_options;
 using namespace beam;
 using namespace ECC;
@@ -52,24 +54,11 @@ void BaseNodeConnection::ParseCommandLine(int argc, char* argv[])
 void BaseNodeConnection::InitKdf()
 {
 	NoLeak<uintBig> walletSeed;
-	Hash::Value hv;
+	SecString seed(m_VM["wallet_seed"].as<std::string>());
 
-	Hash::Processor() << m_VM["wallet_seed"].as<std::string>().c_str() >> hv;
-	walletSeed.V = hv;
+	walletSeed.V = seed.hash().V;
 
 	m_Kdf.m_Secret = walletSeed;
-}
-
-void BaseNodeConnection::OnMsg(proto::Authentication&& msg)
-{
-	proto::NodeConnection::OnMsg(std::move(msg));
-
-	if (proto::IDType::Node == msg.m_IDType)
-	{
-		ECC::Scalar::Native sk;
-		DeriveKey(sk, m_Kdf, 0, KeyType::Identity);
-		ProveID(sk, proto::IDType::Owner);
-	}
 }
 
 BaseTestNode::BaseTestNode(int argc, char* argv[])
@@ -98,20 +87,6 @@ void BaseTestNode::Run()
 void BaseTestNode::OnConnectedSecure()
 {
 	LOG_INFO() << "connection is succeded";
-
-	if (m_Timeout > 0)
-	{
-		m_Timer->start(m_Timeout, false, [this]()
-		{
-			LOG_INFO() << "Timeout";
-			io::Reactor::get_Current().stop();
-			m_Failed = true;
-		});
-	}
-
-	GenerateTests();
-	m_Index = 0;
-	RunTest();
 }
 
 void BaseTestNode::OnDisconnect(const DisconnectReason& reason)
@@ -119,6 +94,33 @@ void BaseTestNode::OnDisconnect(const DisconnectReason& reason)
 	LOG_ERROR() << "problem with connecting to node: code = " << reason;
 	m_Failed = true;
 	io::Reactor::get_Current().stop();
+}
+
+void BaseTestNode::OnMsg(proto::Authentication&& msg)
+{
+    LOG_INFO() << "proto::Authentication";
+    proto::NodeConnection::OnMsg(std::move(msg));
+
+    if (proto::IDType::Node == msg.m_IDType)
+    {
+        ECC::Scalar::Native sk;
+        DeriveKey(sk, m_Kdf, 0, KeyType::Identity);
+        ProveID(sk, proto::IDType::Owner);
+    }
+
+    if (m_Timeout > 0)
+    {
+        m_Timer->start(m_Timeout, false, [this]()
+        {
+            LOG_INFO() << "Timeout";
+            io::Reactor::get_Current().stop();
+            m_Failed = true;
+        });
+    }
+
+    GenerateTests();
+    m_Index = 0;
+    RunTest();
 }
 
 void BaseTestNode::RunTest()

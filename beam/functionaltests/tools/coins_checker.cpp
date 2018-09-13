@@ -45,7 +45,7 @@ void CoinsChecker::StartChecking()
 
 void CoinsChecker::InitChecker()
 {
-	ConnectToNode();	
+	ConnectToNode();
 }
 
 void CoinsChecker::OnConnectedSecure()
@@ -54,6 +54,18 @@ void CoinsChecker::OnConnectedSecure()
 	msg.m_CfgChecksum = Rules::get().Checksum;
 	msg.m_AutoSendHdr = true;
 	Send(msg);
+}
+
+void CoinsChecker::OnMsg(proto::Authentication&& msg)
+{
+    proto::NodeConnection::OnMsg(std::move(msg));
+
+    if (proto::IDType::Node == msg.m_IDType)
+    {
+        ECC::Scalar::Native sk;
+        DeriveKey(sk, m_Kdf, 0, KeyType::Identity);
+        ProveID(sk, proto::IDType::Owner);
+    }
 }
 
 void CoinsChecker::OnDisconnect(const DisconnectReason& reason)
