@@ -34,11 +34,34 @@ int Equihash<N,K>::InitialiseState(eh_HashState& base_state)
 {
     uint32_t le_N = htole32(N);
     uint32_t le_K = htole32(K);
+
     unsigned char personalization[BLAKE2B_PERSONALBYTES] = {};
     memcpy(personalization, "ZcashPoW", 8);
     memcpy(personalization+8,  &le_N, 4);
     memcpy(personalization+12, &le_K, 4);
-    return blake2b_init_personal(&base_state, (512/N)*N/8, personalization);
+
+    const uint8_t outlen = (512 / N)*N / 8;
+
+    if ((!outlen) || (outlen > BLAKE2B_OUTBYTES))  return -1;
+
+    blake2b_param param =
+    {
+        outlen,
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        { 0 },
+        { 0 },
+        { 0 }
+    };
+
+    memcpy(&param.personal, personalization, BLAKE2B_PERSONALBYTES);
+
+    return blake2b_init_param(&base_state, &param);
 }
 
 void GenerateHash(const eh_HashState& base_state, eh_index g,

@@ -9,7 +9,11 @@
 #include "crypto/sha256.h"
 #include "utilstrencodings.h"
 
-#include "blake/blake2.h"
+#if defined(__ANDROID__)
+#include "blake/ref/blake2.h"
+#else
+#include "blake/sse/blake2.h"
+#endif
 
 #include <cstring>
 #include <exception>
