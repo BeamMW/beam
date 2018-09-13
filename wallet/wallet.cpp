@@ -489,12 +489,7 @@ namespace beam
 
         m_pending_reg_requests.clear();
 
-        return true;
-    }
-
-    bool Wallet::handle_node_message(proto::Hdr&& msg)
-    {
-        Block::SystemState::ID newID = {};
+        Block::SystemState::ID newID;
         msg.m_Description.get_ID(newID);
         
         m_newState = msg.m_Description;

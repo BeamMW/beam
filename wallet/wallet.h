@@ -42,7 +42,6 @@ namespace beam
 		virtual bool handle_node_message(proto::ProofState&& msg) = 0;
         virtual bool handle_node_message(proto::ProofKernel&& msg) = 0;
 		virtual bool handle_node_message(proto::NewTip&&) = 0;
-        virtual bool handle_node_message(proto::Hdr&&) = 0;
         virtual bool handle_node_message(proto::Mined&& msg) = 0;
 
         virtual void abort_sync() = 0;
@@ -147,7 +146,6 @@ namespace beam
 		bool handle_node_message(proto::ProofState&& msg) override;
         bool handle_node_message(proto::ProofKernel&& msg) override;
 		bool handle_node_message(proto::NewTip&& msg) override;
-        bool handle_node_message(proto::Hdr&& msg) override;
         bool handle_node_message(proto::Mined&& msg) override;
 
         void abort_sync() override;

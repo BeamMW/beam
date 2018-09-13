@@ -45,16 +45,19 @@ bool TestNodeConnection::OnMsg2(proto::Boolean&& msg)
 
 bool TestNodeConnection::OnMsg2(proto::NewTip&& msg)
 {
-	LOG_INFO() << "NewTip: " << msg.m_ID;
+	Block::SystemState::ID id;
+	msg.m_Description.get_ID(id);
+
+	LOG_INFO() << "NewTip: " << id;
 
 	if (m_Height == 0)
 	{
-		LOG_INFO() << "Send NewTip with height = " << msg.m_ID.m_Height + 5;
+		LOG_INFO() << "Send NewTip with height = " << msg.m_Description.m_Height + 5;
 		proto::NewTip newMsg;
 
-		newMsg.m_ID = msg.m_ID;
-		newMsg.m_ID.m_Height += 5;
-		m_Height = newMsg.m_ID.m_Height;
+		newMsg.m_Description = msg.m_Description;
+		newMsg.m_Description.m_Height += 5;
+		m_Height = newMsg.m_Description.m_Height;
 
 		Send(newMsg);
 
@@ -66,7 +69,7 @@ bool TestNodeConnection::OnMsg2(proto::NewTip&& msg)
 	}
 	else
 	{
-		if (msg.m_ID.m_Height == m_Height)
+		if (msg.m_Description.m_Height == m_Height)
 		{
 			LOG_INFO() << "Ok";
 		}

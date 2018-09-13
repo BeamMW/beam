@@ -389,15 +389,13 @@ namespace
 
             if (main)
             {
-                walletPeer->handle_node_message(proto::NewTip{});
-
-                proto::Hdr msg = {};
+                proto::NewTip msg;
                 InitHdr(msg);
                 walletPeer->handle_node_message(move(msg));
             }
         }
 
-        virtual void InitHdr(proto::Hdr& msg)
+        virtual void InitHdr(proto::NewTip& msg)
         {
             msg.m_Description.m_Height = 134;
         }
@@ -695,7 +693,7 @@ private:
 
         void OnMsg(proto::Config&& /*data*/) override
         {
-            proto::Hdr msg = {};
+            proto::NewTip msg;
 
             msg.m_Description.m_Height = 134;
             Send(move(msg));
@@ -1490,7 +1488,7 @@ struct RollbackIO : public TestNetwork
 
     }
 
-    void InitHdr(proto::Hdr& msg) override
+    void InitHdr(proto::NewTip& msg) override
     {
         msg.m_Description = m_mcm.m_Hdr;
     }

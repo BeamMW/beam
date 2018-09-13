@@ -313,9 +313,7 @@ private:
 		uint16_t m_Port; // to connect to
 		beam::io::Address m_RemoteAddr; // for logging only
 
-		Height m_TipHeight;
-		Difficulty::Raw m_TipWork;
-
+		Block::SystemState::Full m_Tip;
 		proto::Config m_Config;
 
 		TaskList m_lstTasks;

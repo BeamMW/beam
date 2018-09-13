@@ -292,8 +292,17 @@ void Node::Peer::SetTimerWrtFirstTask()
 
 bool Node::ShouldAssignTask(Task& t, Peer& p)
 {
-	if (p.m_TipHeight < t.m_Key.first.m_Height)
+	if (p.m_Tip.m_Height < t.m_Key.first.m_Height)
 		return false;
+
+	if (p.m_Tip.m_Height == t.m_Key.first.m_Height)
+	{
+		Merkle::Hash hv;
+		p.m_Tip.get_Hash(hv);
+
+		if (hv != t.m_Key.first.m_Hash)
+			return false;
+	}
 
 	// Current design: don't ask anything from non-authenticated peers
 	if (!(p.m_bPiRcvd && p.m_pInfo))
@@ -360,32 +369,31 @@ void Node::Processor::OnNewState()
 	if (!m_Cursor.m_Sid.m_Row)
 		return;
 
-	proto::Hdr msgHdr;
-	msgHdr.m_Description = m_Cursor.m_Full;
+	LOG_INFO() << "My Tip: " << m_Cursor.m_ID;
 
-	proto::NewTip msg;
-	msgHdr.m_Description.get_ID(msg.m_ID);
-	msg.m_ChainWork = m_Cursor.m_Full.m_ChainWork;
-
-	LOG_INFO() << "My Tip: " << msg.m_ID;
-
-	get_ParentObj().m_TxPool.DeleteOutOfBound(msg.m_ID.m_Height + 1);
+	get_ParentObj().m_TxPool.DeleteOutOfBound(m_Cursor.m_Sid.m_Height + 1);
 
 	get_ParentObj().m_Miner.HardAbortSafe();
 
 	get_ParentObj().m_Miner.SetTimer(0, true); // don't start mined block construction, because we're called in the context of NodeProcessor, which holds the DB transaction.
 
+	proto::NewTip msg;
+	msg.m_Description = m_Cursor.m_Full;
+
 	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
 	{
 		Peer& peer = *it;
+		if (!peer.m_bConnected)
+			continue;
 
-		if (peer.m_bConnected && (peer.m_TipWork <= msg.m_ChainWork))
-		{
-			peer.Send(msg);
+		int n = peer.m_Tip.m_ChainWork.cmp(msg.m_Description.m_ChainWork);
+		if (n > 0)
+			continue; // higher
 
-			if (peer.m_Config.m_AutoSendHdr)
-				peer.Send(msgHdr);
-		}
+		if (!n && (peer.m_Tip.m_Definition == msg.m_Description.m_Definition))
+			continue; // same tip
+
+		peer.Send(msg);
 	}
 
 	if (get_ParentObj().m_Compressor.m_bEnabled)
@@ -546,8 +554,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 	pPeer->m_bPiRcvd = false;
 	pPeer->m_bOwner = false;
 	pPeer->m_Port = 0;
-	pPeer->m_TipHeight = 0;
-	pPeer->m_TipWork = Zero;
+	ZeroObject(pPeer->m_Tip);
 	pPeer->m_RemoteAddr = addr;
 	ZeroObject(pPeer->m_Config);
 
@@ -874,8 +881,7 @@ void Node::Peer::OnConnectedSecure()
 	if (m_This.m_Processor.m_Cursor.m_Sid.m_Row)
 	{
 		proto::NewTip msg;
-		msg.m_ID = m_This.m_Processor.m_Cursor.m_ID;
-		msg.m_ChainWork = m_This.m_Processor.m_Cursor.m_Full.m_ChainWork;
+		msg.m_Description = m_This.m_Processor.m_Cursor.m_Full;
 		Send(msg);
 	}
 }
@@ -1051,8 +1057,7 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 		Send(msg);
 	}
 
-	m_TipHeight = 0; // prevent reassigning the tasks
-	m_TipWork = Zero;
+	ZeroObject(m_Tip); // prevent reassigning the tasks
 
 	ReleaseTasks();
 	Unsubscribe();
@@ -1105,19 +1110,33 @@ void Node::Peer::OnMsg(proto::Ping&&)
 
 void Node::Peer::OnMsg(proto::NewTip&& msg)
 {
-	if (msg.m_ChainWork < m_TipWork)
+	if (msg.m_Description.m_ChainWork < m_Tip.m_ChainWork)
 		ThrowUnexpected();
 
-	m_TipHeight = msg.m_ID.m_Height;
-	m_TipWork = msg.m_ChainWork;
+	m_Tip = msg.m_Description;
 	m_setRejected.clear();
 
-	LOG_INFO() << "Peer " << m_RemoteAddr << " Tip: " << msg.m_ID;
+	Block::SystemState::ID id;
+	m_Tip.get_ID(id);
+
+	LOG_INFO() << "Peer " << m_RemoteAddr << " Tip: " << id;
+
+	if (m_pInfo && m_This.m_Processor.IsStateNeeded(id))
+	{
+		NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnState(msg.m_Description, m_pInfo->m_ID.m_Key);
+
+		if (NodeProcessor::DataStatus::Invalid == eStatus)
+			ThrowUnexpected();
+
+		if (NodeProcessor::DataStatus::Accepted == eStatus)
+		{
+			m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true);
+			m_This.RefreshCongestions(); // NOTE! Can call OnPeerInsane()
+			return;
+		}
+	}
 
 	TakeTasks();
-
-	if (m_This.m_Processor.IsStateNeeded(msg.m_ID))
-		m_This.m_Processor.RequestData(msg.m_ID, false, m_pInfo ? &m_pInfo->m_ID.m_Key : NULL);
 }
 
 Node::Task& Node::Peer::get_FirstTask()
@@ -1413,13 +1432,6 @@ void Node::Peer::OnMsg(proto::Config&& msg)
 {
 	if (msg.m_CfgChecksum != Rules::get().Checksum)
 		ThrowUnexpected("Incompatible peer cfg!");
-
-	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr && m_This.m_Processor.m_Cursor.m_Sid.m_Row)
-	{
-		proto::Hdr msgHdr;
-		msgHdr.m_Description = m_This.m_Processor.m_Cursor.m_Full;
-		Send(msgHdr);
-	}
 
 	if (!m_Config.m_SpreadingTransactions && msg.m_SpreadingTransactions)
 	{

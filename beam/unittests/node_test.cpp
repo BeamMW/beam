@@ -865,9 +865,9 @@ namespace beam
 
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
-				printf("Tip Height=%u\n", (unsigned int) msg.m_ID.m_Height);
-				verify_test(msg.m_ID.m_Height <= m_HeightMax);
-				if (msg.m_ID.m_Height == m_HeightTrg)
+				printf("Tip Height=%u\n", (unsigned int) msg.m_Description.m_Height);
+				verify_test(msg.m_Description.m_Height <= m_HeightMax);
+				if (msg.m_Description.m_Height == m_HeightTrg)
 					io::Reactor::get_Current().stop();
 			}
 
@@ -945,7 +945,6 @@ namespace beam
 
 				proto::Config msgCfg;
 				msgCfg.m_CfgChecksum = Rules::get().Checksum;
-				msgCfg.m_AutoSendHdr = true;
 				Send(msgCfg);
 
 				Send(proto::GetTime(Zero));
@@ -1005,13 +1004,9 @@ namespace beam
 
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
-				printf("Tip Height=%u\n", (unsigned int) msg.m_ID.m_Height);
-				verify_test(m_vStates.size() + 1 == msg.m_ID.m_Height);
-			}
-
-			virtual void OnMsg(proto::Hdr&& msg) override
-			{
+				printf("Tip Height=%u\n", (unsigned int) msg.m_Description.m_Height);
 				verify_test(m_vStates.size() + 1 == msg.m_Description.m_Height);
+
 				m_vStates.push_back(msg.m_Description);
 
 				if (IsHeightReached())
@@ -1217,7 +1212,7 @@ namespace beam
 			}
 
 			virtual void OnMsg(proto::NewTip&& msg) override {
-				if (msg.m_ID.m_Height == 10)
+				if (msg.m_Description.m_Height == 10)
 				{
 					proto::BbsSubscribe msgOut;
 					msgOut.m_Channel = 11;

@@ -29,8 +29,7 @@ namespace beam {
 namespace proto {
 
 #define BeamNodeMsg_NewTip(macro) \
-	macro(Block::SystemState::ID, ID) \
-	macro(Difficulty::Raw, ChainWork)
+	macro(Block::SystemState::Full, Description)
 
 #define BeamNodeMsg_GetHdr(macro) \
 	macro(Block::SystemState::ID, ID)
@@ -94,8 +93,7 @@ namespace proto {
 	macro(ECC::Hash::Value, CfgChecksum) \
 	macro(bool, SpreadingTransactions) \
 	macro(bool, Bbs) \
-	macro(bool, SendPeers) \
-	macro(bool, AutoSendHdr) /* prefer the header in addition to the NewTip message */
+	macro(bool, SendPeers)
 
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)
