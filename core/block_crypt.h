@@ -139,6 +139,7 @@ namespace beam
 
 		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
+		uint32_t MaxRollbackHeight = 1440; // 1 day roughly
 
 		ECC::Hash::Value Checksum;
 

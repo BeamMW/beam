@@ -36,7 +36,9 @@ class NodeProcessor
 	bool GoForward(uint64_t);
 	void Rollback();
 	void PruneOld();
+	void PruneAt(Height, bool bDeleteBody);
 	void DereferenceFossilBlock(uint64_t);
+	Height get_LoHorizon();
 
 	struct RollbackData;
 
@@ -53,7 +55,6 @@ class NodeProcessor
 	void InitCursor();
 	static void OnCorrupted();
 	void get_Definition(Merkle::Hash&, bool bForNextState);
-	bool IsRelevantHeight(Height);
 	Difficulty get_NextDifficulty();
 	Timestamp get_MovingMedian();
 
