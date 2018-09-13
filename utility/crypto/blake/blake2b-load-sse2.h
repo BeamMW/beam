@@ -1,19 +1,18 @@
 /*
    BLAKE2 reference source code package - optimized C implementations
 
-   Copyright 2012, Samuel Neves <sneves@dei.uc.pt>.  You may use this under the
-   terms of the CC0, the OpenSSL Licence, or the Apache Public License 2.0, at
-   your option.  The terms of these licenses can be found at:
+   Written in 2012 by Samuel Neves <sneves@dei.uc.pt>
 
-   - CC0 1.0 Universal : http://creativecommons.org/publicdomain/zero/1.0
-   - OpenSSL license   : https://www.openssl.org/source/license.html
-   - Apache 2.0        : http://www.apache.org/licenses/LICENSE-2.0
+   To the extent possible under law, the author(s) have dedicated all copyright
+   and related and neighboring rights to this software to the public domain
+   worldwide. This software is distributed without any warranty.
 
-   More information about the BLAKE2 hash function can be found at
-   https://blake2.net.
+   You should have received a copy of the CC0 Public Domain Dedication along with
+   this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
 */
-#ifndef BLAKE2B_LOAD_SSE2_H
-#define BLAKE2B_LOAD_SSE2_H
+#pragma once
+#ifndef __BLAKE2B_LOAD_SSE2_H__
+#define __BLAKE2B_LOAD_SSE2_H__
 
 #define LOAD_MSG_0_1(b0, b1) b0 = _mm_set_epi64x(m2, m0); b1 = _mm_set_epi64x(m6, m4)
 #define LOAD_MSG_0_2(b0, b1) b0 = _mm_set_epi64x(m3, m1); b1 = _mm_set_epi64x(m7, m5)
@@ -66,3 +65,4 @@
 
 
 #endif
+

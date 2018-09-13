@@ -162,7 +162,7 @@ namespace beam
 
 		void set_node_address(io::Address node_address) override;
 		void emergencyReset() override;
-		bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) override;
+		bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode);
 
     private:
         void remove_peer(const TxID& txId);

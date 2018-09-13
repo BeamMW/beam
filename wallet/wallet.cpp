@@ -14,13 +14,6 @@
 
 #include "wallet.h"
 #include <boost/uuid/uuid.hpp>
-
-// TODO: getrandom not available until API 28 in the Android NDK 17b
-// https://github.com/boostorg/uuid/issues/76
-#if defined(__ANDROID__)
-#define BOOST_UUID_RANDOM_PROVIDER_DISABLE_GETRANDOM 1
-#endif
-
 #include <boost/uuid/uuid_generators.hpp>
 #include "core/ecc_native.h"
 #include "core/block_crypt.h"
@@ -533,6 +526,7 @@ namespace beam
     {
         vector<Coin> mined;
         auto currentHeight = m_keyChain->getCurrentHeight();
+        beam:Height lastKnownCoinHeight = currentHeight;
         for (auto& minedCoin : msg.m_Entries)
         {
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
@@ -551,6 +545,7 @@ namespace beam
                                      , MaxHeight
                                      , KeyType::Comission);
                 }
+                lastKnownCoinHeight = minedCoin.m_ID.m_Height;
             }
         }
 
@@ -558,6 +553,13 @@ namespace beam
         {
             getUtxoProofs(mined);
         }
+
+        if (msg.m_Entries.size() == proto::PerMined::s_EntriesMax)
+        {
+            enter_sync();
+            m_network->send_node_message(proto::GetMined{ lastKnownCoinHeight });
+        }
+
         return exit_sync();
     }
 

@@ -23,15 +23,14 @@ set(IO_SRC
 # ~etc
 )
 
-if (MSVC)
+IF (MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX")
-elseif(ANDROID)
-else()
+ELSE()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
-endif()
+ENDIF()
 
 add_library(utility STATIC ${UTILITY_SRC} ${IO_SRC})
-add_library(crypto STATIC crypto/blake/ref/blake2b-ref.c)
+add_library(crypto STATIC crypto/blake/blake2b.cpp)
 include_directories(${PROJECT_SOURCE_DIR}/utility)
 
 if (UV_INTERNAL)
@@ -42,19 +41,11 @@ else()
     target_link_libraries(utility uv)
 endif()
 
-if(ANDROID)
-    target_link_libraries(utility 
-        $ENV{BOOST_ROOT_ANDROID}/lib/libboost_program_options-clang-mt-a32-1_68.a 
-        $ENV{BOOST_ROOT_ANDROID}/lib/libboost_filesystem-clang-mt-a32-1_68.a
-        $ENV{BOOST_ROOT_ANDROID}/lib/libboost_system-clang-mt-a32-1_68.a)
-
+if (Boost_FOUND)
+    find_package(Boost COMPONENTS program_options filesystem)
+    target_link_libraries(utility Boost::program_options Boost::filesystem)
 else()
-    if (Boost_FOUND)
-        find_package(Boost COMPONENTS program_options filesystem)
-        target_link_libraries(utility Boost::program_options Boost::filesystem)
-    else()
-        target_link_libraries(utility boost_program_options boost_filesystem boost_system)
-    endif()
+    target_link_libraries(utility boost_program_options boost_filesystem boost_system)
 endif()
 
 add_subdirectory(unittest)
