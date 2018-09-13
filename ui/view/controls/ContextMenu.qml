@@ -46,7 +46,7 @@ Menu {
             implicitWidth: 200
             implicitHeight: 40
             opacity: enabled ? 1 : 0.3
-            color: control.highlighted ? Style.bright_sky_blue : "transparent"
+            color: control.hovered ? Style.bright_sky_blue : "transparent"
         }
     }
 

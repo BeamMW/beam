@@ -1399,9 +1399,16 @@ namespace beam
 			nStates >>= 1;
 			if (nStates < 64)
 				break;
-			cwp.m_LowerBound = cc.m_vStates[cc.m_vStates.size() - nStates].m_Hdr.m_ChainWork;
 
+			Block::ChainWorkProof cwp2;
+			cwp2.m_LowerBound = cc.m_vStates[cc.m_vStates.size() - nStates].m_Hdr.m_ChainWork;
+			verify_test(cwp2.Crop(cwp));
+
+			cwp.m_LowerBound = cwp2.m_LowerBound;
 			verify_test(cwp.Crop());
+
+			verify_test(cwp2.IsValid());
+			verify_test(cwp.IsValid());
 		}
 	}
 

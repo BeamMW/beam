@@ -2,6 +2,7 @@ import QtQuick 2.11
 import QtQuick.Controls 2.4
 import QtQuick.Controls.impl 2.4
 import QtQuick.Templates 2.4 as T
+import "."
 
 T.TextField {
     id: control
@@ -54,5 +55,44 @@ T.TextField {
         height: control.activeFocus || control.hovered ? 2 : 1
         color: Style.white
 		opacity: (control.activeFocus || control.hovered)? 0.3 : 0.1
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.RightButton
+        hoverEnabled: true
+
+        onClicked: {
+            var selectStart = control.selectionStart
+            var selectEnd = control.selectionEnd
+            var curPos = control.cursorPosition
+            contextMenu.x = mouse.x
+            contextMenu.y = mouse.y
+            contextMenu.open()
+            control.cursorPosition = curPos
+            control.select(selectStart, selectEnd)
+        }
+    }
+
+    ContextMenu {
+        id: contextMenu
+        modal: true
+        dim: false
+        Action {
+            text: qsTr("copy")
+            icon.source: "qrc:///assets/icon-copy.svg"
+            enabled: control.enabled && (control.selectedText.length > 0) && (control.echoMode === TextInput.Normal)
+            onTriggered: {
+                control.copy()
+            }
+        }
+        Action {
+            text: qsTr("paste")
+            icon.source: "qrc:///assets/icon-edit.svg"
+            enabled: control.canPaste
+            onTriggered: {
+                control.paste()
+            }
+        }
     }
 }
