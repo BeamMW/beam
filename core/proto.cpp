@@ -261,10 +261,17 @@ bool BbsDecrypt(uint8_t*& p, uint32_t& n, ECC::Scalar::Native& privateAddr)
 	return (hvMac == hvMac2);
 }
 
+union HighestMsgCode
+{
+#define THE_MACRO(code, msg) uint8_t m_pBuf_##msg[code + 1];
+	BeamNodeMsgsAll(THE_MACRO)
+#undef THE_MACRO
+};
+
 /////////////////////////
 // NodeConnection
 NodeConnection::NodeConnection()
-	:m_Protocol(0xAA, 0xBB, 0xCC, 100, *this, 20000)
+	:m_Protocol('B', 'm', 1, sizeof(HighestMsgCode), *this, 20000)
 	,m_ConnectPending(false)
 {
 #define THE_MACRO(code, msg) \
