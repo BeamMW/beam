@@ -2188,11 +2188,13 @@ void Node::Compressor::OnNewState()
 	const Config::HistoryCompression& cfg = get_ParentObj().m_Cfg.m_HistoryCompression;
 	Processor& p = get_ParentObj().m_Processor;
 
-	if (p.m_Cursor.m_ID.m_Height - Rules::HeightGenesis + 1 <= cfg.m_Threshold)
+	const uint32_t nThreshold = Rules::get().MaxRollbackHeight;
+
+	if (p.m_Cursor.m_ID.m_Height - Rules::HeightGenesis + 1 <= nThreshold)
 		return;
 
 	HeightRange hr;
-	hr.m_Max = p.m_Cursor.m_ID.m_Height - cfg.m_Threshold;
+	hr.m_Max = p.m_Cursor.m_ID.m_Height - nThreshold;
 
 	// last macroblock
 	NodeDB::WalkerState ws(p.get_DB());
