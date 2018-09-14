@@ -99,7 +99,8 @@ public:
 		enum Enum {
 			Accepted,
 			Rejected, // duplicated or irrelevant
-			Invalid
+			Invalid,
+			Unreachable // beyond lo horizon
 		};
 	};
 
@@ -114,6 +115,7 @@ public:
 	bool get_KernelHashPreimage(const Merkle::Hash& id, ECC::uintBig&);
 
 	void EnumCongestions();
+	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 
 	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) {}
 	virtual void OnPeerInsane(const PeerID&) {}
@@ -124,7 +126,6 @@ public:
 	virtual void OnStateData() {}
 	virtual void OnBlockData() {}
 
-	bool IsStateNeeded(const Block::SystemState::ID&);
 	uint64_t FindActiveAtStrict(Height);
 
 	ECC::Kdf m_Kdf;

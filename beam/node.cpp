@@ -386,12 +386,8 @@ void Node::Processor::OnNewState()
 		if (!(Peer::Flags::Connected & peer.m_Flags))
 			continue;
 
-		int n = peer.m_Tip.m_ChainWork.cmp(msg.m_Description.m_ChainWork);
-		if (n > 0)
-			continue; // higher
-
-		if (!n && (peer.m_Tip.m_Definition == msg.m_Description.m_Definition))
-			continue; // same tip
+		if (!NodeProcessor::IsRemoteTipNeeded(msg.m_Description, peer.m_Tip))
+			continue;
 
 		peer.Send(msg);
 	}
@@ -1119,19 +1115,32 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
 	LOG_INFO() << "Peer " << m_RemoteAddr << " Tip: " << id;
 
-	if (m_pInfo && m_This.m_Processor.IsStateNeeded(id))
+	Processor& p = m_This.m_Processor;
+
+	if (m_pInfo && NodeProcessor::IsRemoteTipNeeded(m_Tip, p.m_Cursor.m_Full))
 	{
-		NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnState(msg.m_Description, m_pInfo->m_ID.m_Key);
+		if ((m_Tip.m_Height > p.m_Cursor.m_ID.m_Height + Rules::get().MaxRollbackHeight))
+			LOG_WARNING() << "Height drop is too big, maybe unreachable";
 
-		if (NodeProcessor::DataStatus::Invalid == eStatus)
-			ThrowUnexpected();
-
-		if (NodeProcessor::DataStatus::Accepted == eStatus)
+		switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
 		{
+		case NodeProcessor::DataStatus::Invalid:
+			ThrowUnexpected();
+			// no break;
+
+		case NodeProcessor::DataStatus::Accepted:
 			m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true);
 			m_This.RefreshCongestions(); // NOTE! Can call OnPeerInsane()
 			return;
+
+		case NodeProcessor::DataStatus::Unreachable:
+			LOG_WARNING() << id << " Tip unreachable!";
+			break;
+
+		default:
+			break; // suppress warning
 		}
+
 	}
 
 	TakeTasks();
@@ -1281,14 +1290,13 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 
 	if (nAccepted)
 	{
-		m_This.RefreshCongestions();
-
 		assert((Flags::PiRcvd & m_Flags) && m_pInfo);
 		m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader * nAccepted, true);
-	}
 
-	if (bInvalid)
-		ThrowUnexpected();
+		m_This.RefreshCongestions(); // may delete us
+	} else
+		if (bInvalid)
+			ThrowUnexpected();
 
 }
 

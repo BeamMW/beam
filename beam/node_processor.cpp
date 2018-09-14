@@ -194,7 +194,10 @@ void NodeProcessor::EnumCongestions()
 		if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row))
 			continue;
 
-		if (sid.m_Height < m_Cursor.m_Sid.m_Height)
+		Difficulty::Raw wrk;
+		m_DB.get_ChainWork(sid.m_Row, wrk);
+
+		if (wrk < m_Cursor.m_Full.m_ChainWork)
 			continue; // not interested in tips behind the current cursor
 
 		bool bBlock = true;
@@ -234,6 +237,12 @@ void NodeProcessor::EnumCongestions()
 			bool bPeer = m_DB.get_Peer(sid.m_Row, peer);
 
 			RequestData(id, bBlock, bPeer ? &peer : NULL);
+		}
+		else
+		{
+			m_DB.get_State(ws.m_Sid.m_Row, s);
+			s.get_ID(id);
+			LOG_WARNING() << id << " State unreachable!"; // probably will pollute the log, but it's a critical situation anyway
 		}
 	}
 }
@@ -998,7 +1007,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 	}
 
 	if (s.m_Height < get_LoHorizon())
-		return DataStatus::Rejected;
+		return DataStatus::Unreachable;
 
 	if (m_DB.StateFindSafe(id))
 		return DataStatus::Rejected;
@@ -1046,6 +1055,9 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 		return DataStatus::Rejected;
 	}
 
+	if (id.m_Height < get_LoHorizon())
+		return DataStatus::Unreachable;
+
 	LOG_INFO() << id << " Block received";
 
 	NodeDB::Transaction t(m_DB);
@@ -1062,9 +1074,15 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 	return DataStatus::Accepted;
 }
 
-bool NodeProcessor::IsStateNeeded(const Block::SystemState::ID& id)
+bool NodeProcessor::IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy)
 {
-	return (id.m_Height >= get_LoHorizon()) && !m_DB.StateFindSafe(id);
+	int n = sTipMy.m_ChainWork.cmp(sTipRemote.m_ChainWork);
+	if (n > 0)
+		return false;
+	if (n < 0)
+		return true;
+
+	return sTipMy.m_Definition != sTipRemote.m_Definition;
 }
 
 uint64_t NodeProcessor::FindActiveAtStrict(Height h)
