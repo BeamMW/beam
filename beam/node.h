@@ -307,9 +307,14 @@ private:
 
 		PeerMan::PeerInfoPlus* m_pInfo;
 
-		bool m_bConnected;
-		bool m_bPiRcvd; // peers should send PeerInfoSelf only once
-		bool m_bOwner;
+		struct Flags
+		{
+			static const uint8_t Connected	= 0x01;
+			static const uint8_t PiRcvd		= 0x02;
+			static const uint8_t Owner		= 0x04;
+		};
+
+		uint8_t m_Flags;
 		uint16_t m_Port; // to connect to
 		beam::io::Address m_RemoteAddr; // for logging only
 

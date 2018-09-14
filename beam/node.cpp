@@ -198,7 +198,7 @@ void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 			bool bCreate = false;
 			PeerMan::PeerInfoPlus* pInfo = (PeerMan::PeerInfoPlus*) m_PeerMan.Find(*pPeerID, bCreate);
 
-			if (pInfo && pInfo->m_pLive && pInfo->m_pLive->m_bPiRcvd)
+			if (pInfo && pInfo->m_pLive && (Peer::Flags::PiRcvd & pInfo->m_pLive->m_Flags))
 				pSel = pInfo->m_pLive;
 		}
 
@@ -305,7 +305,7 @@ bool Node::ShouldAssignTask(Task& t, Peer& p)
 	}
 
 	// Current design: don't ask anything from non-authenticated peers
-	if (!(p.m_bPiRcvd && p.m_pInfo))
+	if (!((Peer::Flags::PiRcvd & p.m_Flags) && p.m_pInfo))
 		return false;
 
 	// check if the peer currently transfers a block
@@ -383,7 +383,7 @@ void Node::Processor::OnNewState()
 	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
 	{
 		Peer& peer = *it;
-		if (!peer.m_bConnected)
+		if (!(Peer::Flags::Connected & peer.m_Flags))
 			continue;
 
 		int n = peer.m_Tip.m_ChainWork.cmp(msg.m_Description.m_ChainWork);
@@ -550,9 +550,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 	m_lstPeers.push_back(*pPeer);
 
 	pPeer->m_pInfo = NULL;
-	pPeer->m_bConnected = false;
-	pPeer->m_bPiRcvd = false;
-	pPeer->m_bOwner = false;
+	pPeer->m_Flags = 0;
 	pPeer->m_Port = 0;
 	ZeroObject(pPeer->m_Tip);
 	pPeer->m_RemoteAddr = addr;
@@ -810,7 +808,7 @@ void Node::Peer::KillTimer()
 
 void Node::Peer::OnTimer()
 {
-	if (m_bConnected)
+	if (Flags::Connected & m_Flags)
 	{
 		assert(!m_lstTasks.empty());
 
@@ -835,7 +833,7 @@ void Node::Peer::OnResendPeers()
 	for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); nRemaining && (rs.end() != it); it++)
 	{
 		const PeerMan::PeerInfo& pi = it->get_ParentObj();
-		if (m_bPiRcvd && (&pi == m_pInfo))
+		if ((Flags::PiRcvd & m_Flags) && (&pi == m_pInfo))
 			continue; // skip
 
 		proto::PeerInfo msg;
@@ -858,7 +856,7 @@ void Node::Peer::OnConnectedSecure()
 {
 	LOG_INFO() << "Peer " << m_RemoteAddr << " Connected";
 
-	m_bConnected = true;
+	m_Flags |= Flags::Connected;
 
 	if (m_Port && m_This.m_Cfg.m_Listen.port())
 	{
@@ -894,16 +892,16 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	if (proto::IDType::Owner == msg.m_IDType)
 	{
 		if (msg.m_ID == m_This.m_MyOwnerID)
-			m_bOwner = true;
+			m_Flags |= Flags::Owner;
 	}
 
 	if (proto::IDType::Node != msg.m_IDType)
 		return;
 
-	if (m_bPiRcvd || (msg.m_ID == Zero))
+	if ((Flags::PiRcvd & m_Flags) || (msg.m_ID == Zero))
 		ThrowUnexpected();
 
-	m_bPiRcvd = true;
+	m_Flags |= Flags::PiRcvd;
 	LOG_INFO() << m_RemoteAddr << " received PI";
 
 	PeerMan& pm = m_This.m_PeerMan; // alias
@@ -1050,7 +1048,7 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 {
 	LOG_INFO() << "-Peer " << m_RemoteAddr;
 
-	if (nByeReason && m_bConnected)
+	if (nByeReason && (Flags::Connected & m_Flags))
 	{
 		proto::Bye msg;
 		msg.m_Reason = nByeReason;
@@ -1187,7 +1185,7 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	if (id != t.m_Key.first)
 		ThrowUnexpected();
 
-	assert(m_bPiRcvd && m_pInfo);
+	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
 	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true);
 
 	NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnState(msg.m_Description, m_pInfo->m_ID.m_Key);
@@ -1285,7 +1283,7 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 	{
 		m_This.RefreshCongestions();
 
-		assert(m_bPiRcvd && m_pInfo);
+		assert((Flags::PiRcvd & m_Flags) && m_pInfo);
 		m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader * nAccepted, true);
 	}
 
@@ -1322,7 +1320,7 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	if (!t.m_Key.second || t.m_bPack)
 		ThrowUnexpected();
 
-	assert(m_bPiRcvd && m_pInfo);
+	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
 	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
 
 	const Block::SystemState::ID& id = t.m_Key.first;
@@ -1525,7 +1523,7 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 {
 	proto::Mined msgOut;
 
-	if (m_bOwner || !m_This.m_Cfg.m_RestrictMinedReportToOwner)
+	if ((Flags::Owner & m_Flags) || !m_This.m_Cfg.m_RestrictMinedReportToOwner)
 	{
 		NodeDB& db = m_This.m_Processor.get_DB();
 		NodeDB::WalkerMined wlk(db);
