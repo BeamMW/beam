@@ -54,14 +54,7 @@ namespace beam
 		GetPathes(pArr);
 
 		for (size_t i = 0; i < _countof(m_pS); i++)
-		{
-			const std::string& sPath = pArr[i];
-#ifdef WIN32
-			DeleteFileA(sPath.c_str());
-#else // WIN32
-			unlink(sPath.c_str());
-#endif // WIN32
-		}
+			DeleteFile(pArr[i].c_str());
 	}
 
 	void Block::BodyBase::RW::Close()

@@ -133,13 +133,6 @@ namespace beam
 	};
 
 
-#ifndef WIN32
-	void DeleteFileA(const char* szPath)
-	{
-		unlink(szPath);
-	}
-#endif // WIN32
-
 	void TestNavigator()
 	{
 #ifdef WIN32
@@ -148,7 +141,7 @@ namespace beam
 		const char* sz = "/tmp/mytest.bin";
 #endif // WIN32
 
-		DeleteFileA(sz);
+		DeleteFile(sz);
 
 		BlockChainClient bcc;
 

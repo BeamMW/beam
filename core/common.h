@@ -75,6 +75,12 @@ namespace beam
 	typedef uint64_t Height;
 	typedef uint64_t Amount;
 	typedef std::vector<uint8_t> ByteBuffer;
+
+#ifdef WIN32
+	std::wstring Utf8toUtf16(const char*);
+#endif // WIN32
+
+	bool DeleteFile(const char*);
 }
 
 namespace std

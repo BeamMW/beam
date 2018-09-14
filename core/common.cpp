@@ -28,6 +28,42 @@ bool memis0(const void* p, size_t n)
 	return true;
 }
 
+namespace beam
+{
+
+#ifdef WIN32
+
+	std::wstring Utf8toUtf16(const char* sz)
+	{
+		std::wstring sRet;
+
+		INT_PTR nVal = MultiByteToWideChar(CP_UTF8, 0, sz, -1, NULL, 0);
+		if (nVal > 1)
+		{
+			sRet.resize(nVal - 1);
+			MultiByteToWideChar(CP_UTF8, 0, sz, -1, sRet.data(), nVal);
+		}
+
+		return sRet;
+	}
+
+	bool DeleteFile(const char* sz)
+	{
+		return ::DeleteFileW(Utf8toUtf16(sz).c_str()) != FALSE;
+	}
+
+#else // WIN32
+
+	bool DeleteFile(const char* sz)
+	{
+		return !unlink(sz);
+	}
+
+
+#endif // WIN32
+
+}
+
 namespace std
 {
 	void ThrowIoError()
@@ -54,7 +90,14 @@ namespace std
 		int mode = ios_base::binary;
 		mode |= (bRead ? (ios_base::in | ios_base::ate) : (ios_base::out | ios_base::trunc));
 
-		m_F.open(sz, (ios_base::openmode) mode);
+#ifdef WIN32
+		std::wstring sPathArg = beam::Utf8toUtf16(sz);
+#else // WIN32
+		const char* sPathArg = sz;
+#endif // WIN32
+
+		m_F.open(sPathArg, (ios_base::openmode) mode);
+
 		if (m_F.fail())
 		{
 			if (bStrict)

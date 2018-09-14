@@ -63,13 +63,6 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 	fflush(stdout);
 }
 
-#ifndef WIN32
-void DeleteFileA(const char* szPath)
-{
-	unlink(szPath);
-}
-#endif // WIN32
-
 #define verify_test(x) \
 	do { \
 		if (!(x)) \
@@ -650,7 +643,7 @@ namespace beam
 		Height hMid = blockChain.size() / 2 + Rules::HeightGenesis;
 
 		{
-			DeleteFileA(g_sz2);
+			DeleteFile(g_sz2);
 
 			NodeProcessor np2;
 			np2.Initialize(g_sz2);
@@ -1424,14 +1417,14 @@ int main()
 	//	ports, wrong beacon and etc.
 	verify_test(beam::helpers::ProcessWideLock("/tmp/BEAM_node_test_lock"));
 
-	DeleteFileA(beam::g_sz);
-	DeleteFileA(beam::g_sz2);
+	beam::DeleteFile(beam::g_sz);
+	beam::DeleteFile(beam::g_sz2);
 
 	printf("NodeDB test...\n");
 	fflush(stdout);
 
 	beam::TestNodeDB();
-	DeleteFileA(beam::g_sz);
+	beam::DeleteFile(beam::g_sz);
 
 	{
 		printf("NodeProcessor test1...\n");
@@ -1440,29 +1433,29 @@ int main()
 
 		std::vector<beam::BlockPlus::Ptr> blockChain;
 		beam::TestNodeProcessor1(blockChain);
-		DeleteFileA(beam::g_sz);
-		DeleteFileA(beam::g_sz2);
+		beam::DeleteFile(beam::g_sz);
+		beam::DeleteFile(beam::g_sz2);
 
 		printf("NodeProcessor test2...\n");
 		fflush(stdout);
 
 		beam::TestNodeProcessor2(blockChain);
-		DeleteFileA(beam::g_sz);
+		beam::DeleteFile(beam::g_sz);
 	}
 
 	printf("NodeX2 concurrent test...\n");
 	fflush(stdout);
 
 	beam::TestNodeConversation();
-	DeleteFileA(beam::g_sz);
-	DeleteFileA(beam::g_sz2);
+	beam::DeleteFile(beam::g_sz);
+	beam::DeleteFile(beam::g_sz2);
 
 	printf("Node <---> Client test (with proofs)...\n");
 	fflush(stdout);
 
 	beam::TestNodeClientProto();
-	DeleteFileA(beam::g_sz);
-	DeleteFileA(beam::g_sz2);
+	beam::DeleteFile(beam::g_sz);
+	beam::DeleteFile(beam::g_sz2);
 
 	return g_TestsFailed ? -1 : 0;
 }

@@ -2262,7 +2262,7 @@ void Node::Compressor::OnNotify()
 			for (int i = 0; i < Block::Body::RW::s_Datas; i++)
 			{
 #ifdef WIN32
-				bool bOk = (FALSE != MoveFileExA(pSrc[i].c_str(), pTrg[i].c_str(), MOVEFILE_REPLACE_EXISTING));
+				bool bOk = (FALSE != MoveFileExW(Utf8toUtf16(pSrc[i].c_str()).c_str(), Utf8toUtf16(pTrg[i].c_str()).c_str(), MOVEFILE_REPLACE_EXISTING));
 #else // WIN32
 				bool bOk = !rename(pSrc[i].c_str(), pTrg[i].c_str());
 #endif // WIN32
