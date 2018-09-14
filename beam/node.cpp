@@ -2273,9 +2273,13 @@ void Node::Compressor::OnNotify()
 				rwTrg.GetPath(sTrg, i);
 
 #ifdef WIN32
-				bool bOk = (FALSE != MoveFileExW(Utf8toUtf16(sSrc.c_str()).c_str(), Utf8toUtf16(sTrg.c_str()).c_str(), MOVEFILE_REPLACE_EXISTING));
+				bool bOk =
+					MoveFileExW(Utf8toUtf16(sSrc.c_str()).c_str(), Utf8toUtf16(sTrg.c_str()).c_str(), MOVEFILE_REPLACE_EXISTING) ||
+					(GetLastError() == ERROR_FILE_NOT_FOUND);
 #else // WIN32
-				bool bOk = !rename(pSrc[i].c_str(), pTrg[i].c_str());
+				bool bOk =
+					!rename(pSrc[i].c_str(), pTrg[i].c_str()) ||
+					(ENOENT == errno);
 #endif // WIN32
 
 				if (!bOk)
