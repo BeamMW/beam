@@ -2280,7 +2280,7 @@ void Node::Compressor::OnNotify()
 					(GetLastError() == ERROR_FILE_NOT_FOUND);
 #else // WIN32
 				bool bOk =
-					!rename(pSrc[i].c_str(), pTrg[i].c_str()) ||
+					!rename(sSrc.c_str(), sTrg.c_str()) ||
 					(ENOENT == errno);
 #endif // WIN32
 
