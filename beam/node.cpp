@@ -731,8 +731,7 @@ void Node::ImportMacroblock(Height h)
 
 	Block::BodyBase::RW rw;
 	m_Compressor.FmtPath(rw, h, NULL);
-	if (!rw.Open(true))
-		std::ThrowIoError();
+	rw.Open(true);
 
 	if (!m_Processor.ImportMacroBlock(rw))
 		throw std::runtime_error("import failed");
@@ -2127,16 +2126,29 @@ void Node::Compressor::Cleanup()
 	NodeDB::WalkerState ws(p.get_DB());
 	for (p.get_DB().EnumMacroblocks(ws); ws.MoveNext(); )
 	{
-		Block::BodyBase::RW rw;
-		FmtPath(rw, ws.m_Sid.m_Height, NULL);
-
-		if (nBacklog && rw.Open(true))
-			nBacklog--; // ok
-		else
+		if (nBacklog)
 		{
-			LOG_WARNING() << "History at height " << ws.m_Sid.m_Height << " not found";
-			Delete(ws.m_Sid);
+			// check if it's valid
+			try {
+
+				Block::BodyBase::RW rw;
+				FmtPath(rw, ws.m_Sid.m_Height, NULL);
+				rw.Open(true);
+
+				Block::BodyBase body;
+				Block::SystemState::Sequence::Prefix prf;
+				rw.get_Start(body, prf);
+
+				// ok
+				nBacklog--;
+				continue;
+
+			} catch (const std::exception& e) {
+				LOG_WARNING() << "History at height " << ws.m_Sid.m_Height << " corrupted: " << e.what();
+			}
 		}
+
+		Delete(ws.m_Sid);
 	}
 }
 
@@ -2226,8 +2238,7 @@ void Node::Compressor::OnNotify()
 		{
 			Block::Body::RW rw;
 			FmtPath(rw, m_hrInplaceRequest.m_Max, &m_hrInplaceRequest.m_Min);
-			if (!rw.Open(false))
-				std::ThrowIoError();
+			rw.Open(false);
 
 			get_ParentObj().m_Processor.ExportMacroBlock(rw, m_hrInplaceRequest);
 		}
@@ -2250,19 +2261,19 @@ void Node::Compressor::OnNotify()
 
 		if (m_bSuccess)
 		{
-			std::string pSrc[Block::Body::RW::s_Datas];
-			std::string pTrg[Block::Body::RW::s_Datas];
-
 			Block::Body::RW rwSrc, rwTrg;
 			FmtPath(rwSrc, h, &Rules::HeightGenesis);
 			FmtPath(rwTrg, h, NULL);
-			rwSrc.GetPathes(pSrc);
-			rwTrg.GetPathes(pTrg);
 
 			for (int i = 0; i < Block::Body::RW::s_Datas; i++)
 			{
+				std::string sSrc;
+				std::string sTrg;
+				rwSrc.GetPath(sSrc, i);
+				rwTrg.GetPath(sTrg, i);
+
 #ifdef WIN32
-				bool bOk = (FALSE != MoveFileExW(Utf8toUtf16(pSrc[i].c_str()).c_str(), Utf8toUtf16(pTrg[i].c_str()).c_str(), MOVEFILE_REPLACE_EXISTING));
+				bool bOk = (FALSE != MoveFileExW(Utf8toUtf16(sSrc.c_str()).c_str(), Utf8toUtf16(sTrg.c_str()).c_str(), MOVEFILE_REPLACE_EXISTING));
 #else // WIN32
 				bool bOk = !rename(pSrc[i].c_str(), pTrg[i].c_str());
 #endif // WIN32
@@ -2414,10 +2425,9 @@ bool Node::Compressor::SquashOnce(std::vector<HeightRange>& v)
 
 bool Node::Compressor::SquashOnce(Block::BodyBase::RW& rw, Block::BodyBase::RW& rwSrc0, Block::BodyBase::RW& rwSrc1)
 {
-	if (!rw.Open(false) ||
-		!rwSrc0.Open(true) ||
-		!rwSrc1.Open(true))
-		std::ThrowIoError();
+	rw.Open(false);
+	rwSrc0.Open(true);
+	rwSrc1.Open(true);
 
 	if (!rw.CombineHdr(std::move(rwSrc0), std::move(rwSrc1), m_bStop))
 		return false;

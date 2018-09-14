@@ -593,6 +593,7 @@ namespace beam
 	public:
 
 		static const int s_Datas = 5;
+		static const char* const s_pszSufix[s_Datas];
 
 	private:
 
@@ -604,10 +605,12 @@ namespace beam
 		TxKernel::Ptr m_pGuardKernelOut[2];
 
 		template <typename T>
-		static void LoadInternal(const T*& pPtr, std::FStream&, typename T::Ptr* ppGuard);
+		void LoadInternal(const T*& pPtr, int, typename T::Ptr* ppGuard);
 
 		template <typename T>
-		static void WriteInternal(const T&, std::FStream&);
+		void WriteInternal(const T&, int);
+
+		bool OpenInternal(int iData);
 
 	public:
 
@@ -619,9 +622,9 @@ namespace beam
 		bool m_bAutoDelete;
 		std::string m_sPath;
 
-		void GetPathes(std::string* pArr) const;
+		void GetPath(std::string&, int iData) const;
 
-		bool Open(bool bRead);
+		void Open(bool bRead);
 		void Flush();
 		void Close();
 		void Delete(); // must be closed

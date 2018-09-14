@@ -21,40 +21,46 @@ namespace beam
 {
 	/////////////
 	// RW
-	void Block::BodyBase::RW::GetPathes(std::string* pArr) const
-	{
-		pArr[0] = m_sPath + "ui";
-		pArr[1] = m_sPath + "uo";
-		pArr[2] = m_sPath + "ki";
-		pArr[3] = m_sPath + "ko";
-		pArr[4] = m_sPath + "hd";
+	const char* const Block::BodyBase::RW::s_pszSufix[s_Datas] = {
+		"ui",
+		"uo",
+		"ki",
+		"ko",
+		"hd",
+	};
 
-		static_assert(5 == s_Datas, "");
+	void Block::BodyBase::RW::GetPath(std::string& s, int iData) const
+	{
+		assert(iData < s_Datas);
+		s = m_sPath + s_pszSufix[iData];
 	}
 
-	bool Block::BodyBase::RW::Open(bool bRead)
+	void Block::BodyBase::RW::Open(bool bRead)
 	{
 		using namespace std;
 
 		m_bRead = bRead;
 
-		std::string pArr[s_Datas];
-		GetPathes(pArr);
+		if (bRead)
+			for (int i = 0; i < _countof(m_pS); i++)
+				OpenInternal(i);
+	}
 
-		for (size_t i = 0; i < _countof(m_pS); i++)
-			if (!m_pS[i].Open(pArr[i].c_str(), bRead))
-				return false;
-
-		return true;
+	bool Block::BodyBase::RW::OpenInternal(int iData)
+	{
+		std::string s;
+		GetPath(s, iData);
+		return m_pS[iData].Open(s.c_str(), m_bRead);
 	}
 
 	void Block::BodyBase::RW::Delete()
 	{
-		std::string pArr[s_Datas];
-		GetPathes(pArr);
-
-		for (size_t i = 0; i < _countof(m_pS); i++)
-			DeleteFile(pArr[i].c_str());
+		for (int i = 0; i < _countof(m_pS); i++)
+		{
+			std::string s;
+			GetPath(s, i);
+			DeleteFile(s.c_str());
+		}
 	}
 
 	void Block::BodyBase::RW::Close()
@@ -75,19 +81,21 @@ namespace beam
 	void Block::BodyBase::RW::Reset()
 	{
 		for (size_t i = 0; i < _countof(m_pS); i++)
-			m_pS[i].Restart();
+			if (m_pS[i].IsOpen())
+				m_pS[i].Restart();
 
 		// preload
-		LoadInternal(m_pUtxoIn, m_pS[0], m_pGuardUtxoIn);
-		LoadInternal(m_pUtxoOut, m_pS[1], m_pGuardUtxoOut);
-		LoadInternal(m_pKernelIn, m_pS[2], m_pGuardKernelIn);
-		LoadInternal(m_pKernelOut, m_pS[3], m_pGuardKernelOut);
+		LoadInternal(m_pUtxoIn, 0, m_pGuardUtxoIn);
+		LoadInternal(m_pUtxoOut, 1, m_pGuardUtxoOut);
+		LoadInternal(m_pKernelIn, 2, m_pGuardKernelIn);
+		LoadInternal(m_pKernelOut, 3, m_pGuardKernelOut);
 	}
 
 	void Block::BodyBase::RW::Flush()
 	{
 		for (size_t i = 0; i < _countof(m_pS); i++)
-			m_pS[i].Flush();
+			if (m_pS[i].IsOpen())
+				m_pS[i].Flush();
 	}
 
 	void Block::BodyBase::RW::Clone(Ptr& pOut)
@@ -101,26 +109,28 @@ namespace beam
 
 	void Block::BodyBase::RW::NextUtxoIn()
 	{
-		LoadInternal(m_pUtxoIn, m_pS[0], m_pGuardUtxoIn);
+		LoadInternal(m_pUtxoIn, 0, m_pGuardUtxoIn);
 	}
 
 	void Block::BodyBase::RW::NextUtxoOut()
 	{
-		LoadInternal(m_pUtxoOut, m_pS[1], m_pGuardUtxoOut);
+		LoadInternal(m_pUtxoOut, 1, m_pGuardUtxoOut);
 	}
 
 	void Block::BodyBase::RW::NextKernelIn()
 	{
-		LoadInternal(m_pKernelIn, m_pS[2], m_pGuardKernelIn);
+		LoadInternal(m_pKernelIn, 2, m_pGuardKernelIn);
 	}
 
 	void Block::BodyBase::RW::NextKernelOut()
 	{
-		LoadInternal(m_pKernelOut, m_pS[3], m_pGuardKernelOut);
+		LoadInternal(m_pKernelOut, 3, m_pGuardKernelOut);
 	}
 
 	void Block::BodyBase::RW::get_Start(BodyBase& body, SystemState::Sequence::Prefix& prefix)
 	{
+		if (!m_pS[4].IsOpen())
+			std::ThrowIoError();
 		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[4]);
 
 		ECC::Hash::Value hv;
@@ -147,40 +157,42 @@ namespace beam
 
 	void Block::BodyBase::RW::WriteIn(const Input& v)
 	{
-		WriteInternal(v, m_pS[0]);
+		WriteInternal(v, 0);
 	}
 
 	void Block::BodyBase::RW::WriteIn(const TxKernel& v)
 	{
-		WriteInternal(v, m_pS[2]);
+		WriteInternal(v, 2);
 	}
 
 	void Block::BodyBase::RW::WriteOut(const Output& v)
 	{
-		WriteInternal(v, m_pS[1]);
+		WriteInternal(v, 1);
 	}
 
 	void Block::BodyBase::RW::WriteOut(const TxKernel& v)
 	{
-		WriteInternal(v, m_pS[3]);
+		WriteInternal(v, 3);
 	}
 
 	void Block::BodyBase::RW::put_Start(const BodyBase& body, const SystemState::Sequence::Prefix& prefix)
 	{
-		WriteInternal(Rules::get().Checksum, m_pS[4]);
-		WriteInternal(body, m_pS[4]);
-		WriteInternal(prefix, m_pS[4]);
+		WriteInternal(Rules::get().Checksum, 4);
+		WriteInternal(body, 4);
+		WriteInternal(prefix, 4);
 	}
 
 	void Block::BodyBase::RW::put_NextHdr(const SystemState::Sequence::Element& elem)
 	{
-		WriteInternal(elem, m_pS[4]);
+		WriteInternal(elem, 4);
 	}
 
 	template <typename T>
-	void Block::BodyBase::RW::LoadInternal(const T*& pPtr, std::FStream& s, typename T::Ptr* ppGuard)
+	void Block::BodyBase::RW::LoadInternal(const T*& pPtr, int iData, typename T::Ptr* ppGuard)
 	{
-		if (s.IsDataRemaining())
+		std::FStream& s = m_pS[iData];
+
+		if (s.IsOpen() && s.IsDataRemaining())
 		{
 			ppGuard[0].swap(ppGuard[1]);
 			//if (!ppGuard[0])
@@ -196,8 +208,12 @@ namespace beam
 	}
 
 	template <typename T>
-	void Block::BodyBase::RW::WriteInternal(const T& v, std::FStream& s)
+	void Block::BodyBase::RW::WriteInternal(const T& v, int iData)
 	{
+		std::FStream& s = m_pS[iData];
+		if (!s.IsOpen() && !OpenInternal(iData))
+			std::ThrowIoError();
+
 		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
 		arc & v;
 	}
