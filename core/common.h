@@ -98,7 +98,7 @@ namespace std
 
 	public:
 
-		bool Open(const char*, bool bRead, bool bStrict = false); // strict - throw exc if error
+		bool Open(const char*, bool bRead, bool bStrict = false, bool bAppend = false); // strict - throw exc if error
 		bool IsOpen() const { return m_F.is_open(); }
 		void Close();
 		uint64_t get_Remaining() const { return m_Remaining; }

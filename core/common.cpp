@@ -85,10 +85,11 @@ namespace std
 			ThrowIoError();
 	}
 
-	bool FStream::Open(const char* sz, bool bRead, bool bStrict /* = false */)
+	bool FStream::Open(const char* sz, bool bRead, bool bStrict /* = false */, bool bAppend /* = false */)
 	{
 		int mode = ios_base::binary;
-		mode |= (bRead ? (ios_base::in | ios_base::ate) : (ios_base::out | ios_base::trunc));
+		mode |= (bRead || bAppend) ? ios_base::ate : ios_base::trunc;
+		mode |= bRead ? ios_base::in : ios_base::out;
 
 #ifdef WIN32
 		std::wstring sPathArg = beam::Utf8toUtf16(sz);
