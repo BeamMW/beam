@@ -204,11 +204,11 @@ namespace beam
 		}
 	}
 
-	bool Block::ChainWorkProof::IsValid() const
+	bool Block::ChainWorkProof::IsValid(Block::SystemState::Full* pTip /* = NULL */) const
 	{
 		size_t iState, iHash;
 		return
-			IsValidInternal(iState, iHash, m_LowerBound) &&
+			IsValidInternal(iState, iHash, m_LowerBound, pTip) &&
 			(m_vArbitraryStates.size() + m_Heading.m_vElements.size() == iState) &&
 			(m_Proof.m_vData.size() == iHash);
 	}
@@ -221,7 +221,7 @@ namespace beam
 	bool Block::ChainWorkProof::Crop(const ChainWorkProof& src)
 	{
 		size_t iState, iHash;
-		if (!src.IsValidInternal(iState, iHash, m_LowerBound))
+		if (!src.IsValidInternal(iState, iHash, m_LowerBound, NULL))
 			return false;
 
 		bool bInPlace = (&src == this);
@@ -273,7 +273,7 @@ namespace beam
 		return Crop(*this);
 	}
 
-	bool Block::ChainWorkProof::IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound) const
+	bool Block::ChainWorkProof::IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound, Block::SystemState::Full* pTip) const
 	{
 		if (m_Heading.m_vElements.empty())
 			return false;
@@ -325,6 +325,9 @@ namespace beam
 		Sampler samp(s, lowerBound);
 		if (samp.m_Begin >= samp.m_End) // overflow attack?
 			return false;
+
+		if (pTip)
+			*pTip = s;
 
 		Difficulty::Raw dLoPrev;
 		s.m_PoW.m_Difficulty.Dec(dLoPrev, s.m_ChainWork);
