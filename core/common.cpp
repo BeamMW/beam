@@ -88,7 +88,7 @@ namespace std
 	bool FStream::Open(const char* sz, bool bRead, bool bStrict /* = false */, bool bAppend /* = false */)
 	{
 		int mode = ios_base::binary;
-		mode |= (bRead || bAppend) ? ios_base::ate : ios_base::trunc;
+		mode |= bRead ? ios_base::ate : bAppend ? ios_base::app : ios_base::trunc;
 		mode |= bRead ? ios_base::in : ios_base::out;
 
 #ifdef WIN32
