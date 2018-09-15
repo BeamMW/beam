@@ -2251,13 +2251,14 @@ void Node::Compressor::OnNewState()
 
 	HeightRange hr;
 	hr.m_Max = p.m_Cursor.m_ID.m_Height - nThreshold;
+	hr.m_Max -= ((hr.m_Max - Rules::HeightGenesis + 1) % Rules::get().MacroblockGranularity);
 
 	// last macroblock
 	NodeDB::WalkerState ws(p.get_DB());
 	p.get_DB().EnumMacroblocks(ws);
 	hr.m_Min = ws.MoveNext() ? ws.m_Sid.m_Height : 0;
 
-	if (hr.m_Min + cfg.m_MinAggregate > hr.m_Max)
+	if (hr.m_Min >= hr.m_Max)
 		return;
 
 	LOG_INFO() << "History generation started up to height " << hr.m_Max;

@@ -140,6 +140,7 @@ namespace beam
 		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
 		uint32_t MaxRollbackHeight = 1440; // 1 day roughly
+		uint32_t MacroblockGranularity = 720; // i.e. should be created for heights that are multiples of this. This should make it more likely for different nodes to have the same macroblocks
 
 		ECC::Hash::Value Checksum;
 

@@ -75,7 +75,6 @@ struct Node
 			std::string m_sPathOutput;
 			std::string m_sPathTmp;
 
-			Height m_MinAggregate = 60 * 24;	// how many new blocks should produce new file
 			uint32_t m_Naggling = 32;			// combine up to 32 blocks in memory, before involving file system
 			uint32_t m_MaxBacklog = 7;
 
