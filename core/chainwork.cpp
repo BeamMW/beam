@@ -263,6 +263,7 @@ namespace beam
 			CopyCroppedVector(m_vArbitraryStates, src.m_vArbitraryStates);
 			CopyCroppedVector(m_Heading.m_vElements, src.m_Heading.m_vElements);
 			CopyCroppedVector(m_Proof.m_vData, src.m_Proof.m_vData);
+			m_hvRootLive = src.m_hvRootLive;
 		}
 
 		return true;

@@ -1322,7 +1322,7 @@ namespace beam
 
 		void Init()
 		{
-			m_hvLive = Zero;
+			m_hvLive = 55U;
 
 			m_vStates.resize(200000);
 			Difficulty d = Rules::get().StartDifficulty;
