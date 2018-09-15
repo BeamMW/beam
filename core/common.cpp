@@ -120,15 +120,17 @@ namespace std
 			m_F.close();
 	}
 
-	bool FStream::IsDataRemaining() const
-	{
-		return m_Remaining > 0;
-	}
-
 	void FStream::Restart()
 	{
 		m_Remaining += m_F.tellg();
 		m_F.seekg(0);
+	}
+
+	void FStream::Seek(uint64_t n)
+	{
+		m_Remaining += m_F.tellg();
+		m_F.seekg(n);
+		m_Remaining -= m_F.tellg();
 	}
 
 	void FStream::NotImpl()

@@ -101,8 +101,10 @@ namespace std
 		bool Open(const char*, bool bRead, bool bStrict = false); // strict - throw exc if error
 		bool IsOpen() const { return m_F.is_open(); }
 		void Close();
-		bool IsDataRemaining() const;
+		uint64_t get_Remaining() const { return m_Remaining; }
+
 		void Restart(); // for read-stream - jump to the beginning of the file
+		void Seek(uint64_t);
 
 		// read/write always return the size requested. Exception is thrown if underflow or error
 		size_t read(void* pPtr, size_t nSize);

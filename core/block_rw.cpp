@@ -146,7 +146,7 @@ namespace beam
 	bool Block::BodyBase::RW::get_NextHdr(SystemState::Sequence::Element& elem)
 	{
 		std::FStream& s = m_pS[4];
-		if (!s.IsDataRemaining())
+		if (!s.get_Remaining())
 			return false;
 
 		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
@@ -192,7 +192,7 @@ namespace beam
 	{
 		std::FStream& s = m_pS[iData];
 
-		if (s.IsOpen() && s.IsDataRemaining())
+		if (s.IsOpen() && s.get_Remaining())
 		{
 			ppGuard[0].swap(ppGuard[1]);
 			//if (!ppGuard[0])
