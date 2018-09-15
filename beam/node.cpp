@@ -1877,6 +1877,62 @@ void Node::Peer::OnMsg(proto::BbsPickChannel&& msg)
 	Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
+{
+	if (msg.m_Data >= Block::BodyBase::RW::s_Datas)
+		ThrowUnexpected();
+
+	proto::Macroblock msgOut;
+
+	if (m_This.m_Cfg.m_HistoryCompression.m_UploadPortion)
+	{
+		Processor& p = m_This.m_Processor;
+		NodeDB::WalkerState ws(p.get_DB());
+		for (p.get_DB().EnumMacroblocks(ws); ws.MoveNext(); )
+		{
+			Block::SystemState::Full s;
+			p.get_DB().get_State(ws.m_Sid.m_Row, s);
+
+			Block::SystemState::ID id;
+			s.get_ID(id);
+
+			if (msg.m_ID.m_Height)
+			{
+				if (msg.m_ID.m_Height < ws.m_Sid.m_Height)
+					continue;
+
+				if (id != msg.m_ID)
+					break;
+			}
+
+			// don't care if exc
+			std::string sPath;
+			m_This.m_Compressor.FmtPath(sPath, ws.m_Sid.m_Height, NULL);
+
+			std::FStream fs;
+			if (fs.Open(sPath.c_str(), true) && (fs.get_Remaining() > msg.m_Offset))
+			{
+				uint64_t nDelta = fs.get_Remaining() - msg.m_Offset;
+
+				uint32_t nPortion = m_This.m_Cfg.m_HistoryCompression.m_UploadPortion;
+				if (nPortion > nDelta)
+					nPortion = (uint32_t)nDelta;
+
+				fs.Seek(msg.m_Offset);
+
+				msgOut.m_Portion.resize(nPortion);
+				fs.read(&msgOut.m_Portion.at(0), nPortion);
+			}
+
+			msgOut.m_ID = id;
+
+			break;
+		}
+	}
+
+	Send(msgOut);
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
@@ -2219,6 +2275,11 @@ void Node::Compressor::OnNewState()
 
 void Node::Compressor::FmtPath(Block::BodyBase::RW& rw, Height h, const Height* pH0)
 {
+	FmtPath(rw.m_sPath, h, pH0);
+}
+
+void Node::Compressor::FmtPath(std::string& out, Height h, const Height* pH0)
+{
 	std::stringstream str;
 	if (!pH0)
 		str << get_ParentObj().m_Cfg.m_HistoryCompression.m_sPathOutput << "mb_";
@@ -2226,7 +2287,7 @@ void Node::Compressor::FmtPath(Block::BodyBase::RW& rw, Height h, const Height* 
 		str << get_ParentObj().m_Cfg.m_HistoryCompression.m_sPathTmp << "tmp_" << *pH0 << "_";
 
 	str << h;
-	rw.m_sPath = str.str();
+	out = str.str();
 }
 
 void Node::Compressor::OnNotify()

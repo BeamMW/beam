@@ -78,6 +78,9 @@ struct Node
 			Height m_MinAggregate = 60 * 24;	// how many new blocks should produce new file
 			uint32_t m_Naggling = 32;			// combine up to 32 blocks in memory, before involving file system
 			uint32_t m_MaxBacklog = 7;
+
+			uint32_t m_UploadPortion = 5 * 1024 * 1024; // set to 0 to disable upload
+
 		} m_HistoryCompression;
 
 		struct TestMode {
@@ -381,6 +384,7 @@ private:
 		virtual void OnMsg(proto::BbsGetMsg&&) override;
 		virtual void OnMsg(proto::BbsSubscribe&&) override;
 		virtual void OnMsg(proto::BbsPickChannel&&) override;
+		virtual void OnMsg(proto::MacroblockGet&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
@@ -477,6 +481,7 @@ private:
 		void Cleanup();
 		void Delete(const NodeDB::StateID&);
 		void OnNewState();
+		void FmtPath(std::string&, Height, const Height* pH0);
 		void FmtPath(Block::BodyBase::RW&, Height, const Height* pH0);
 		void StopCurrent();
 

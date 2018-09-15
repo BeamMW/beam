@@ -158,6 +158,15 @@ namespace proto {
 	macro(uint8_t, IDType) \
 	macro(ECC::Signature, Sig)
 
+#define BeamNodeMsg_MacroblockGet(macro) \
+	macro(Block::SystemState::ID, ID) \
+	macro(uint8_t, Data) \
+	macro(uint64_t, Offset)
+
+#define BeamNodeMsg_Macroblock(macro) \
+	macro(Block::SystemState::ID, ID) \
+	macro(ByteBuffer, Portion)
+
 #define BeamNodeMsgsAll(macro) \
 	macro(1, NewTip) /* Also the first message sent by the node */ \
 	macro(2, GetHdr) \
@@ -197,6 +206,8 @@ namespace proto {
 	macro(43, BbsSubscribe) \
 	macro(44, BbsPickChannel) \
 	macro(45, BbsPickChannelRes) \
+	macro(50, MacroblockGet) \
+	macro(51, Macroblock) \
 	macro(61, SChannelInitiate) \
 	macro(62, SChannelReady) \
 	macro(63, Authentication) \
