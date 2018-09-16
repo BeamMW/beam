@@ -275,7 +275,7 @@ NodeConnection::NodeConnection()
 	,m_ConnectPending(false)
 {
 #define THE_MACRO(code, msg) \
-	m_Protocol.add_message_handler<NodeConnection, msg##_NoInit, &NodeConnection::OnMsgInternal>(uint8_t(code), this, 0, 2000000);
+	m_Protocol.add_message_handler<NodeConnection, msg##_NoInit, &NodeConnection::OnMsgInternal>(uint8_t(code), this, 0, 1024*1024*10);
 
 	BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
