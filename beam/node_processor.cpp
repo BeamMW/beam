@@ -218,15 +218,15 @@ void NodeProcessor::EnumCongestions()
 			}
 		}
 
-		Block::SystemState::Full s;
-		m_DB.get_State(sid.m_Row, s);
-
 		Block::SystemState::ID id;
 
 		if (bBlock)
-			s.get_ID(id);
+			m_DB.get_StateID(sid, id);
 		else
 		{
+			Block::SystemState::Full s;
+			m_DB.get_State(sid.m_Row, s);
+
 			id.m_Height = s.m_Height - 1;
 			id.m_Hash = s.m_Prev;
 		}
@@ -240,8 +240,6 @@ void NodeProcessor::EnumCongestions()
 		}
 		else
 		{
-			m_DB.get_State(ws.m_Sid.m_Row, s);
-			s.get_ID(id);
 			LOG_WARNING() << id << " State unreachable!"; // probably will pollute the log, but it's a critical situation anyway
 		}
 	}
@@ -1585,11 +1583,6 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 			break;
 		}
 	}
-
-	uint64_t rowid = m_DB.StateFindSafe(id);
-	if (!rowid)
-		OnCorrupted();
-	m_DB.get_State(rowid, s);
 
 	LOG_INFO() << "Context-free validation...";
 

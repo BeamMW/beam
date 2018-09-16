@@ -1808,9 +1808,7 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 			x.m_Fees = wlk.m_Amount;
 			x.m_Active = 0 != (db.GetStateFlags(wlk.m_Sid.m_Row) & NodeDB::StateFlags::Active);
 
-			Block::SystemState::Full s;
-			db.get_State(wlk.m_Sid.m_Row, s);
-			s.get_ID(x.m_ID);
+			db.get_StateID(wlk.m_Sid, x.m_ID);
 
 			if (msgOut.m_Entries.size() == proto::PerMined::s_EntriesMax)
 				break;
@@ -2156,11 +2154,8 @@ void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
 		NodeDB::WalkerState ws(p.get_DB());
 		for (p.get_DB().EnumMacroblocks(ws); ws.MoveNext(); )
 		{
-			Block::SystemState::Full s;
-			p.get_DB().get_State(ws.m_Sid.m_Row, s);
-
 			Block::SystemState::ID id;
-			s.get_ID(id);
+			p.get_DB().get_StateID(ws.m_Sid, id);
 
 			if (msg.m_ID.m_Height)
 			{

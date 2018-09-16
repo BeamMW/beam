@@ -633,6 +633,22 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 	return rowid;
 }
 
+void NodeDB::get_StateHash(uint64_t rowid, Merkle::Hash& hv)
+{
+	Recordset rs(*this, Query::StateGetHash, "SELECT " TblStates_Hash " FROM " TblStates " WHERE rowid=?");
+	rs.put(0, rowid);
+
+	rs.StepStrict();
+
+	rs.get(0, hv);
+}
+
+void NodeDB::get_StateID(const StateID& sid, Block::SystemState::ID& id)
+{
+	get_StateHash(sid.m_Row, id.m_Hash);
+	id.m_Height = sid.m_Height;
+}
+
 bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 {
 	Recordset rs(*this, Query::StateGetHeightAndPrev, "SELECT "
@@ -1412,9 +1428,7 @@ void NodeDB::get_Proof(Merkle::IProofBuilder& bld, const StateID& sid, Height hP
 
 void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
 {
-	Block::SystemState::Full s;
-	get_State(sid.m_Row, s);
-	s.get_Hash(hv);
+	get_StateHash(sid.m_Row, hv);
 
     Dmmr dmmr(*this);
     dmmr.m_Count = sid.m_Height - Rules::HeightGenesis;
