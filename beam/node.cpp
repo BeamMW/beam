@@ -28,6 +28,9 @@ namespace beam {
 
 void Node::RefreshCongestions()
 {
+	if (m_pSync)
+		return;
+
 	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
 		it->m_bRelevant = false;
 
@@ -611,6 +614,37 @@ void Node::Initialize()
 		m_Cfg.m_VerificationThreads = (numCores > m_Cfg.m_MiningThreads + 1) ? (numCores - m_Cfg.m_MiningThreads) : 0;
 	}
 
+	if (!m_Processor.m_Cursor.m_ID.m_Height)
+	{
+		if (!m_Cfg.m_vTreasury.empty())
+		{
+			LOG_INFO() << "Creating new blockchain from treasury";
+		}
+		else
+			if (m_Cfg.m_Sync.m_SrcPeers)
+			{
+				LOG_INFO() << "Sync mode";
+
+				m_pSync.reset(new FirstTimeSync);
+				ZeroObject(m_pSync->m_Trg);
+				ZeroObject(m_pSync->m_Best);
+
+				NodeDB::Blob blob = m_pSync->m_Trg.m_Hash;
+				m_Processor.get_DB().ParamGet(NodeDB::ParamID::SyncTarget, &m_pSync->m_Trg.m_Height, &blob);
+
+				m_pSync->m_bDetecting = !m_pSync->m_Trg.m_Height;
+
+				if (m_pSync->m_Trg.m_Height)
+				{
+					LOG_INFO() << "Resuming sync up to " << m_pSync->m_Trg;
+				}
+				else
+				{
+					LOG_INFO() << "Searching for the best peer...";
+				}
+			}
+	}
+
 	RefreshCongestions();
 
 	if (m_Cfg.m_Listen.port())
@@ -741,9 +775,6 @@ void Node::Bbs::MaybeCleanup()
 
 void Node::ImportMacroblock(Height h)
 {
-	if (!m_Compressor.m_bEnabled)
-		throw std::runtime_error("History path not specified");
-
 	Block::BodyBase::RW rw;
 	m_Compressor.FmtPath(rw, h, NULL);
 	rw.Open(true);
@@ -776,6 +807,8 @@ Node::~Node()
 
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
 		ZeroObject(it->m_Config); // prevent re-assigning of tasks in the next loop
+
+	m_pSync = NULL; // prevent reassign sync
 
 	while (!m_lstPeers.empty())
 		m_lstPeers.front().DeleteSelf(false, proto::NodeConnection::ByeReason::Stopping);
@@ -1082,6 +1115,16 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 			m_This.m_PeerMan.OnRemoteError(*m_pInfo, ByeReason::Ban == nByeReason);
 	}
 
+	if (m_This.m_pSync && (Flags::SyncPending & m_Flags))
+	{
+		assert(m_This.m_pSync && m_This.m_pSync->m_RequestsPending);
+		m_Flags &= ~Flags::SyncPending;
+		m_Flags |= Flags::DontSync;
+		m_This.m_pSync->m_RequestsPending--;
+
+		m_This.SyncCycle();
+	}
+
 	m_This.m_lstPeers.erase(PeerList::s_iterator_to(*this));
 	delete this;
 }
@@ -1129,11 +1172,15 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
 	LOG_INFO() << "Peer " << m_RemoteAddr << " Tip: " << id;
 
+	if (!m_pInfo)
+		return;
+
+	bool bSyncMode = (bool) m_This.m_pSync;
 	Processor& p = m_This.m_Processor;
 
-	if (m_pInfo && NodeProcessor::IsRemoteTipNeeded(m_Tip, p.m_Cursor.m_Full))
+	if (NodeProcessor::IsRemoteTipNeeded(m_Tip, p.m_Cursor.m_Full))
 	{
-		if ((m_Tip.m_Height > p.m_Cursor.m_ID.m_Height + Rules::get().MaxRollbackHeight))
+		if (!bSyncMode && (m_Tip.m_Height > p.m_Cursor.m_ID.m_Height + Rules::get().MaxRollbackHeight + Rules::get().MacroblockGranularity * 2))
 			LOG_WARNING() << "Height drop is too big, maybe unreachable";
 
 		switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
@@ -1144,6 +1191,10 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
 		case NodeProcessor::DataStatus::Accepted:
 			m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true);
+
+			if (bSyncMode)
+				break;
+
 			m_This.RefreshCongestions(); // NOTE! Can call OnPeerInsane()
 			return;
 
@@ -1157,7 +1208,207 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
 	}
 
-	TakeTasks();
+	if (!bSyncMode)
+	{
+		TakeTasks();
+		return;
+	}
+
+	uint8_t nProvenWork = Flags::ProvenWorkReq & m_Flags;
+	if (!nProvenWork)
+	{
+		m_Flags |= Flags::ProvenWorkReq;
+		// maybe take it
+		Send(proto::GetProofChainWork());
+	}
+
+	if (m_This.m_pSync->m_bDetecting)
+	{
+		if (!nProvenWork/* && (m_This.m_pSync->m_Best <= m_Tip.m_ChainWork)*/)
+			// maybe take it
+			Send(proto::MacroblockGet());
+	}
+	else
+		if (!(Flags::DontSync & m_Flags) && !m_This.m_pSync->m_RequestsPending && nProvenWork)
+			m_This.SyncCycle(*this);
+
+}
+
+void Node::Peer::OnMsg(proto::ProofChainWork&& msg)
+{
+	Block::SystemState::Full s;
+	if (!msg.m_Proof.IsValid(&s))
+		ThrowUnexpected();
+
+	if (s.m_ChainWork != m_Tip.m_ChainWork)
+		ThrowUnexpected(); // should correspond to the tip, but we're interested only in the asserted work
+
+	LOG_WARNING() << "Peer " << m_RemoteAddr << " Chainwork ok";
+
+	m_Flags |= Flags::ProvenWork;
+
+	if (m_This.m_pSync && !m_This.m_pSync->m_bDetecting)
+		m_This.SyncCycle();
+}
+
+void Node::Peer::OnMsg(proto::Macroblock&& msg)
+{
+	if (!m_This.m_pSync)
+		return;
+
+	if (!(Flags::ProvenWork & m_Flags))
+		ThrowUnexpected();
+
+	if (Flags::SyncPending & m_Flags)
+	{
+		assert(m_This.m_pSync->m_RequestsPending);
+		m_Flags &= ~Flags::SyncPending;
+		m_This.m_pSync->m_RequestsPending--;
+
+		if (msg.m_ID == m_This.m_pSync->m_Trg)
+		{
+			LOG_INFO() << "Peer " << m_RemoteAddr << " DL Macroblock portion";
+			m_This.SyncCycle(*this, msg.m_Portion);
+		}
+		else
+		{
+			m_Flags |= Flags::DontSync;
+			m_This.SyncCycle();
+		}
+	}
+	else
+	{
+		if (!m_This.m_pSync->m_bDetecting)
+			return;
+
+		// still in 1st phase. Check if it's better
+		int nCmp = m_This.m_pSync->m_Best.cmp(m_Tip.m_ChainWork);
+		if ((nCmp < 0) || (!nCmp && (m_This.m_pSync->m_Trg.m_Height < msg.m_ID.m_Height)))
+		{
+			LOG_INFO() << "Sync target so far: " << msg.m_ID << ", best Peer " << m_RemoteAddr;
+
+			m_This.m_pSync->m_Trg = msg.m_ID;
+			m_This.m_pSync->m_Best = m_Tip.m_ChainWork;
+
+			if (!m_This.m_pSync->m_pTimer)
+			{
+				m_This.m_pSync->m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+
+				Node* pThis = &m_This;
+				m_This.m_pSync->m_pTimer->start(m_This.m_Cfg.m_Sync.m_Timeout_ms, false, [pThis]() { pThis->OnSyncTimer(); });
+			}
+
+		}
+
+		if (++m_This.m_pSync->m_RequestsPending >= m_This.m_Cfg.m_Sync.m_SrcPeers)
+			m_This.OnSyncTimer();
+	}
+}
+
+void Node::OnSyncTimer()
+{
+	assert(m_pSync && m_pSync->m_bDetecting);
+
+	if (m_pSync->m_Trg.m_Height)
+	{
+		m_pSync->m_pTimer = NULL;
+
+		LOG_INFO() << "Sync target final: " << m_pSync->m_Trg;
+
+		NodeDB::Blob blob = m_pSync->m_Trg.m_Hash;
+		m_Processor.get_DB().ParamSet(NodeDB::ParamID::SyncTarget, &m_pSync->m_Trg.m_Height, &blob);
+
+		m_pSync->m_bDetecting = false;
+		m_pSync->m_RequestsPending = 0;
+
+		SyncCycle();
+	}
+	else
+	{
+		m_pSync = NULL;
+		LOG_INFO() << "Switching to standard sync";
+		RefreshCongestions();
+	}
+}
+
+void Node::SyncCycle()
+{
+	assert(m_pSync && !m_pSync->m_bDetecting && !m_pSync->m_RequestsPending);
+
+	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+		if (SyncCycle(*it))
+			break;
+}
+
+bool Node::SyncCycle(Peer& p)
+{
+	assert(m_pSync && !m_pSync->m_bDetecting && !m_pSync->m_RequestsPending);
+	assert(!(Peer::Flags::SyncPending & p.m_Flags));
+
+	if (Peer::Flags::DontSync & p.m_Flags)
+		return false;
+
+	if (p.m_Tip.m_Height < m_pSync->m_Trg.m_Height + Rules::get().MaxRollbackHeight)
+		return false;
+
+	proto::MacroblockGet msg;
+	msg.m_ID = m_pSync->m_Trg;
+	msg.m_Data = m_pSync->m_iData;
+
+	assert(m_pSync->m_iData < Block::Body::RW::s_Datas);
+
+	Block::Body::RW rw;
+	m_Compressor.FmtPath(rw, m_pSync->m_Trg.m_Height, NULL);
+
+	std::string sPath;
+	rw.GetPath(sPath, m_pSync->m_iData);
+
+	std::FStream fs;
+	if (fs.Open(sPath.c_str(), true))
+		msg.m_Offset = fs.get_Remaining();
+
+	p.Send(msg);
+	p.m_Flags |= Peer::Flags::SyncPending;
+	m_pSync->m_RequestsPending++;
+
+	return true;
+}
+
+void Node::SyncCycle(Peer& p, const ByteBuffer& buf)
+{
+	assert(m_pSync && !m_pSync->m_bDetecting && !m_pSync->m_RequestsPending);
+	assert(m_pSync->m_iData < Block::Body::RW::s_Datas);
+
+	if (buf.empty())
+	{
+		if (++m_pSync->m_iData == Block::Body::RW::s_Datas)
+		{
+			Height h = m_pSync->m_Trg.m_Height;
+			m_pSync = NULL;
+
+			LOG_INFO() << "Sync DL complete";
+
+			ImportMacroblock(h);
+			RefreshCongestions();
+
+			return;
+		}
+	}
+	else
+	{
+		Block::Body::RW rw;
+		m_Compressor.FmtPath(rw, m_pSync->m_Trg.m_Height, NULL);
+
+		std::string sPath;
+		rw.GetPath(sPath, m_pSync->m_iData);
+
+		std::FStream fs;
+		fs.Open(sPath.c_str(), false, true, true);
+
+		fs.write(&buf.at(0), buf.size());
+	}
+
+	SyncCycle(p);
 }
 
 Node::Task& Node::Peer::get_FirstTask()
@@ -1918,25 +2169,28 @@ void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
 
 				if (id != msg.m_ID)
 					break;
-			}
 
-			// don't care if exc
-			std::string sPath;
-			m_This.m_Compressor.FmtPath(sPath, ws.m_Sid.m_Height, NULL);
+				// don't care if exc
+				Block::Body::RW rw;
+				m_This.m_Compressor.FmtPath(rw, ws.m_Sid.m_Height, NULL);
 
-			std::FStream fs;
-			if (fs.Open(sPath.c_str(), true) && (fs.get_Remaining() > msg.m_Offset))
-			{
-				uint64_t nDelta = fs.get_Remaining() - msg.m_Offset;
+				std::string sPath;
+				rw.GetPath(sPath, msg.m_Data);
 
-				uint32_t nPortion = m_This.m_Cfg.m_HistoryCompression.m_UploadPortion;
-				if (nPortion > nDelta)
-					nPortion = (uint32_t)nDelta;
+				std::FStream fs;
+				if (fs.Open(sPath.c_str(), true) && (fs.get_Remaining() > msg.m_Offset))
+				{
+					uint64_t nDelta = fs.get_Remaining() - msg.m_Offset;
 
-				fs.Seek(msg.m_Offset);
+					uint32_t nPortion = m_This.m_Cfg.m_HistoryCompression.m_UploadPortion;
+					if (nPortion > nDelta)
+						nPortion = (uint32_t)nDelta;
 
-				msgOut.m_Portion.resize(nPortion);
-				fs.read(&msgOut.m_Portion.at(0), nPortion);
+					fs.Seek(msg.m_Offset);
+
+					msgOut.m_Portion.resize(nPortion);
+					fs.read(&msgOut.m_Portion.at(0), nPortion);
+				}
 			}
 
 			msgOut.m_ID = id;

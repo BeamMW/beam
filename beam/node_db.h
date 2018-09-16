@@ -42,6 +42,7 @@ public:
 			SubsidyOpen,
 			CfgChecksum,
 			MyID,
+			SyncTarget,
 		};
 	};
 

@@ -92,6 +92,13 @@ struct Node
 
 		Block::SystemState::ID m_ControlState;
 
+		struct Sync {
+			// during sync phase we try to pick the best peer to sync from.
+			// Our logic: decide when either examined enough peers, or timeout expires
+			uint32_t m_SrcPeers = 5;
+			uint32_t m_Timeout_ms = 10000;
+		} m_Sync;
+
 		Config()
 		{
 			m_WalletKey.V = Zero;
@@ -185,6 +192,29 @@ private:
 
 	TaskList m_lstTasksUnassigned;
 	TaskSet m_setTasks;
+
+	struct FirstTimeSync
+	{
+		// there are 2 phases:
+		//	1. Detection, pick the best peer to sync from
+		//	2. Sync phase
+		bool m_bDetecting;
+
+		io::Timer::Ptr m_pTimer; // set during the 1st phase
+		Difficulty::Raw m_Best;
+
+		Block::SystemState::ID m_Trg;
+
+		uint32_t m_RequestsPending = 0;
+		uint32_t m_iData = 0;
+	};
+
+	void OnSyncTimer();
+	void SyncCycle();
+	bool SyncCycle(Peer&);
+	void SyncCycle(Peer&, const ByteBuffer&);
+
+	std::unique_ptr<FirstTimeSync> m_pSync;
 
 	void TryAssignTask(Task&, const PeerID*);
 	bool ShouldAssignTask(Task&, Peer&);
@@ -311,9 +341,13 @@ private:
 
 		struct Flags
 		{
-			static const uint8_t Connected	= 0x01;
-			static const uint8_t PiRcvd		= 0x02;
-			static const uint8_t Owner		= 0x04;
+			static const uint8_t Connected		= 0x01;
+			static const uint8_t PiRcvd			= 0x02;
+			static const uint8_t Owner			= 0x04;
+			static const uint8_t ProvenWorkReq	= 0x08;
+			static const uint8_t ProvenWork		= 0x10;
+			static const uint8_t SyncPending	= 0x20;
+			static const uint8_t DontSync		= 0x40;
 		};
 
 		uint8_t m_Flags;
@@ -385,6 +419,8 @@ private:
 		virtual void OnMsg(proto::BbsSubscribe&&) override;
 		virtual void OnMsg(proto::BbsPickChannel&&) override;
 		virtual void OnMsg(proto::MacroblockGet&&) override;
+		virtual void OnMsg(proto::Macroblock&&) override;
+		virtual void OnMsg(proto::ProofChainWork&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;

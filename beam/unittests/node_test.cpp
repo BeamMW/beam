@@ -778,6 +778,7 @@ namespace beam
 		node.m_Cfg.m_sPathLocal = g_sz;
 		node.m_Cfg.m_Listen.port(g_Port);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
+		node.m_Cfg.m_Sync.m_SrcPeers = 0;
 
 		node.m_Cfg.m_Timeout.m_GetBlock_ms = 1000 * 60;
 		node.m_Cfg.m_Timeout.m_GetState_ms = 1000 * 60;
@@ -786,6 +787,7 @@ namespace beam
 		node2.m_Cfg.m_Listen.port(g_Port + 1);
 		node2.m_Cfg.m_Listen.ip(INADDR_ANY);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
+		node2.m_Cfg.m_Sync.m_SrcPeers = 0;
 
 		node2.m_Cfg.m_BeaconPort = g_Port;
 
@@ -1243,6 +1245,8 @@ namespace beam
 		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
 		node2.m_Cfg.m_Connect[0].port(g_Port);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
+
+		node2.m_Cfg.m_Sync.m_Timeout_ms = 0; // sync immediately after seeing 1st peer
 
 		node2.Initialize();
 
