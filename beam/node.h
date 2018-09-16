@@ -307,14 +307,24 @@ private:
 
 		void AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);
 		void Delete(Element&);
+		void DeleteRaw(Element&);
 		void Clear();
+
+		Element* get_NextTimeout(uint32_t& nTimeout_ms);
+		void SetTimer(uint32_t nTimeout_ms);
+		void KillTimer();
+
+		io::Timer::Ptr m_pTimer; // set during the 1st phase
+		void OnTimer();
 
 		~Dandelion() { Clear(); }
 
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Dandelion)
+
 	} m_Dandelion;
 
-	bool OnTransaction(Transaction::Ptr&&, bool bFluff, const Peer&);
-	bool ValidateAndLogTx(Transaction::Context&, const Transaction&, const Transaction::KeyType&, const Peer&);
+	bool OnTransaction(Transaction::Ptr&&, bool bFluff, const Peer*);
+	bool ValidateAndLogTx(Transaction::Context&, const Transaction&, const Transaction::KeyType&, const Peer*);
 
 	struct Bbs
 	{

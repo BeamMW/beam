@@ -1621,11 +1621,11 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 	// However the transaction body must have already been checked for NULLs
 
 	proto::Boolean msgOut;
-	msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), msg.m_Fluff, *this);
+	msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), msg.m_Fluff, this);
 	Send(msgOut);
 }
 
-bool Node::ValidateAndLogTx(Transaction::Context& ctx, const Transaction& tx, const Transaction::KeyType& key, const Peer& p)
+bool Node::ValidateAndLogTx(Transaction::Context& ctx, const Transaction& tx, const Transaction::KeyType& key, const Peer* pPeer)
 {
 	bool bValid = !tx.m_vInputs.empty() && !tx.m_vKernelsOutput.empty();
 	if (bValid)
@@ -1635,7 +1635,9 @@ bool Node::ValidateAndLogTx(Transaction::Context& ctx, const Transaction& tx, co
 		// Log it
 		std::ostringstream os;
 
-		os << "Tx " << key << " from " << p.m_RemoteAddr;
+		os << "Tx " << key;
+		if (pPeer)
+			os << " from " << pPeer->m_RemoteAddr;
 
 		for (size_t i = 0; i < tx.m_vInputs.size(); i++)
 			os << "\n\tI: " << tx.m_vInputs[i]->m_Commitment;
@@ -1685,7 +1687,7 @@ uint32_t RandomUInt32(uint32_t threshold, ECC::uintBig& hvRnd)
 	return threshold;
 }
 
-bool Node::OnTransaction(Transaction::Ptr&& ptx, bool bFluff, const Peer& p)
+bool Node::OnTransaction(Transaction::Ptr&& ptx, bool bFluff, const Peer* pPeer)
 {
 	ECC::uintBig& hvRnd = m_SChannelSeed.V;
 	uint32_t nStemPeers;
@@ -1730,7 +1732,7 @@ bool Node::OnTransaction(Transaction::Ptr&& ptx, bool bFluff, const Peer& p)
 		}
 		else
 		{
-			if (!ValidateAndLogTx(ctx, tx, key0.m_Key, p))
+			if (!ValidateAndLogTx(ctx, tx, key0.m_Key, pPeer))
 				return false;
 
 			pVal = new Dandelion::Element;
@@ -1744,7 +1746,9 @@ bool Node::OnTransaction(Transaction::Ptr&& ptx, bool bFluff, const Peer& p)
 		pVal->m_Time.m_Value = GetTime_ms() + m_Cfg.m_Dandelion.m_TimeoutMin_ms + RandomUInt32(m_Cfg.m_Dandelion.m_TimeoutMax_ms - m_Cfg.m_Dandelion.m_TimeoutMin_ms, hvRnd);
 		m_Dandelion.m_setTime.insert(pVal->m_Time);
 
-		//m_Dandelion.SetTimer(x.m_Time);
+		uint32_t nVal_ms;
+		if (m_Dandelion.get_NextTimeout(nVal_ms) == pVal)
+			m_Dandelion.SetTimer(nVal_ms);
 
 		// broadcast to random peer
 		assert(nStemPeers);
@@ -1776,7 +1780,7 @@ bool Node::OnTransaction(Transaction::Ptr&& ptx, bool bFluff, const Peer& p)
 
 	// new transaction
 
-	if (/*!bValid && */!ValidateAndLogTx(ctx, tx, key.m_Key, p)) // we need the fee
+	if (/*!bValid && */!ValidateAndLogTx(ctx, tx, key.m_Key, pPeer)) // we need the fee
 		return false;
 
 	proto::HaveTransaction msgOut;
@@ -1785,7 +1789,7 @@ bool Node::OnTransaction(Transaction::Ptr&& ptx, bool bFluff, const Peer& p)
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
 	{
 		Peer& peer = *it;
-		if (&p == &peer)
+		if (&peer == pPeer)
 			continue;
 		if (!peer.m_Config.m_SpreadingTransactions)
 			continue;
@@ -1802,17 +1806,93 @@ bool Node::OnTransaction(Transaction::Ptr&& ptx, bool bFluff, const Peer& p)
 
 void Node::Dandelion::Delete(Element& x)
 {
+	uint32_t n_ms;
+	bool bResetTimer = (get_NextTimeout(n_ms) == &x);
+
+	DeleteRaw(x);
+
+	if (bResetTimer)
+		if (get_NextTimeout(n_ms))
+			SetTimer(n_ms);
+		else
+			KillTimer();
+}
+
+void Node::Dandelion::DeleteRaw(Element& x)
+{
 	m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
 	m_setTime.erase(TimeSet::s_iterator_to(x.m_Time));
 	delete &x;
-
-	// timer?
 }
 
 void Node::Dandelion::Clear()
 {
 	while (!m_setTime.empty())
-		Delete(m_setTime.begin()->get_ParentObj());
+		DeleteRaw(m_setTime.begin()->get_ParentObj());
+
+	KillTimer();
+}
+
+void Node::Dandelion::SetTimer(uint32_t nTimeout_ms)
+{
+	if (!m_pTimer)
+		m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+
+
+	m_pTimer->start(nTimeout_ms, false, [this]() { OnTimer(); });
+}
+
+void Node::Dandelion::KillTimer()
+{
+	if (m_pTimer)
+		m_pTimer->cancel();
+}
+
+void Node::Dandelion::OnTimer()
+{
+	while (true)
+	{
+		uint32_t nTimeout_ms;
+		Element* pElem = get_NextTimeout(nTimeout_ms);
+		if (!pElem)
+		{
+			KillTimer();
+			break;
+		}
+
+		if (nTimeout_ms > 0)
+		{
+			SetTimer(nTimeout_ms);
+			break;
+		}
+
+		Transaction::Ptr ptx;
+		pElem->m_pValue.swap(ptx);
+		DeleteRaw(*pElem);
+
+		get_ParentObj().OnTransaction(std::move(ptx), true, NULL);
+	}
+}
+
+Node::Dandelion::Element* Node::Dandelion::get_NextTimeout(uint32_t& nTimeout_ms)
+{
+	if (m_setTime.empty())
+		return NULL;
+
+	uint32_t now_ms = GetTime_ms();
+	Element::Time tmPrev;
+	tmPrev.m_Value = now_ms - (uint32_t(-1) >> 1);
+
+	TimeSet::iterator it = m_setTime.lower_bound(tmPrev);
+	if (m_setTime.end() == it)
+		it = m_setTime.begin();
+
+	Element& ret = it->get_ParentObj();
+
+	bool bLate = ((ret.m_Time.m_Value >= tmPrev.m_Value) == (now_ms >= ret.m_Time.m_Value)) == (now_ms > tmPrev.m_Value);
+
+	nTimeout_ms = bLate ? 0 : (ret.m_Time.m_Value - now_ms);
+	return &ret;
 }
 
 void Node::Peer::OnMsg(proto::Config&& msg)
