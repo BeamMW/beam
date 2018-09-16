@@ -509,6 +509,21 @@ bool Node::Processor::ApproveState(const Block::SystemState::ID& id)
 		(idCtl.m_Hash == id.m_Hash);
 }
 
+void Node::Processor::AdjustFossilEnd(Height& h)
+{
+	if (get_ParentObj().m_Compressor.m_bEnabled)
+	{
+		// last macroblock
+		NodeDB::WalkerState ws(get_DB());
+		get_DB().EnumMacroblocks(ws);
+
+		Height h1 = ws.MoveNext() ? ws.m_Sid.m_Height : 0;
+		if (h > h1)
+			h = h1;
+
+	}
+}
+
 void Node::Processor::OnStateData()
 {
 	++m_DownloadedHeaders;

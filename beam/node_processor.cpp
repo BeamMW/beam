@@ -354,17 +354,21 @@ void NodeProcessor::PruneOld()
 		} while (rowid);
 	}
 
-	if (m_Horizon.m_Schwarzschild <= m_Horizon.m_Branching)
-		return;
-
-	Height hExtra = m_Horizon.m_Schwarzschild - m_Horizon.m_Branching;
-	if (h <= hExtra)
-		return;
-	h -= hExtra;
-
-	for (Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1); hFossil < h; )
+	if (m_Horizon.m_Schwarzschild > m_Horizon.m_Branching)
 	{
-		++hFossil;
+		Height hExtra = m_Horizon.m_Schwarzschild - m_Horizon.m_Branching;
+		if (h <= hExtra)
+			return;
+		h -= hExtra;
+	}
+
+	AdjustFossilEnd(h);
+
+	for (Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1); ; )
+	{
+		if (++hFossil >= h)
+			break;
+
 		PruneAt(hFossil, true);
 		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
 	}

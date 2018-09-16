@@ -120,6 +120,7 @@ private:
 		void OnRolledBack() override;
 		bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&) override;
 		bool ApproveState(const Block::SystemState::ID&) override;
+		void AdjustFossilEnd(Height&) override;
 		void OnStateData() override;
 		void OnBlockData() override;
 
