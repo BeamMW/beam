@@ -200,4 +200,23 @@ namespace beam {
 
 	}
 
+	bool uintBigImpl::_Accept(uint8_t* pDst, const uint8_t* pThr, uint32_t nDst, uint32_t nThrOrder)
+	{
+		if (!nThrOrder)
+			return false;
+
+		nThrOrder--;
+		uint32_t nOffs = nDst - 1 - (nThrOrder >> 3);
+		uint8_t msk = uint8_t(2 << (7 & nThrOrder)) - 1;
+		assert(msk);
+
+		pDst[nOffs] &= msk;
+
+		if (memcmp(pDst + nOffs, pThr + nOffs, nDst - nOffs) >= 0)
+			return false;
+
+		memset0(pDst, nOffs);
+		return true;
+	}
+
 } // namespace beam

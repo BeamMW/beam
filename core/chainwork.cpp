@@ -92,30 +92,14 @@ namespace beam
 
 		bool UniformRandom(Difficulty::Raw& out, const Difficulty::Raw& threshold)
 		{
-			// find the order of the number (1st nonzero bit)
-			uint32_t nOrder = threshold.get_Order();
-			if (!nOrder)
+			Difficulty::Raw::Threshold thrSel(threshold);
+			if (!thrSel)
 				return false;
 
 			// sample random, truncate to the appropriate bits length, and use accept/reject criteria
-			nOrder--;
-			uint32_t nOffs = out.nBytes - 1 - (nOrder >> 3);
-			uint8_t msk = uint8_t(2 << (7 & nOrder)) - 1;
-			assert(msk);
-
-			while (true)
-			{
+			do
 				m_Oracle >> out;
-
-				out.m_pData[nOffs] &= msk;
-
-				if (memcmp(out.m_pData + nOffs, threshold.m_pData + nOffs, out.nBytes - nOffs) < 0)
-				{
-					// bingo
-					memset0(out.m_pData, nOffs);
-					break;
-				}
-			}
+			while (!thrSel.Accept(out));
 
 			return true;
 		}
