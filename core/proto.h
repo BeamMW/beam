@@ -99,7 +99,8 @@ namespace proto {
 #define BeamNodeMsg_Pong(macro)
 
 #define BeamNodeMsg_NewTransaction(macro) \
-	macro(Transaction::Ptr, Transaction)
+	macro(Transaction::Ptr, Transaction) \
+	macro(bool, Fluff)
 
 #define BeamNodeMsg_HaveTransaction(macro) \
 	macro(Transaction::KeyType, ID)

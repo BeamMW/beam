@@ -1621,34 +1621,21 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 	// However the transaction body must have already been checked for NULLs
 
 	proto::Boolean msgOut;
-	msgOut.m_Value = OnNewTransaction(std::move(msg.m_Transaction));
+	msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), msg.m_Fluff, *this);
 	Send(msgOut);
 }
 
-bool Node::Peer::OnNewTransaction(Transaction::Ptr&& ptx)
+bool Node::ValidateAndLogTx(Transaction::Context& ctx, const Transaction& tx, const Transaction::KeyType& key, const Peer& p)
 {
-	NodeProcessor::TxPool::Element::Tx key;
-	ptx->get_Key(key.m_Key);
-
-	NodeProcessor::TxPool::TxSet::iterator it = m_This.m_TxPool.m_setTxs.find(key);
-	if (m_This.m_TxPool.m_setTxs.end() != it)
-		return true;
-
-	m_This.m_Wtx.Delete(key.m_Key);
-
-	// new transaction
-	const Transaction& tx = *ptx;
-	Transaction::Context ctx;
-
 	bool bValid = !tx.m_vInputs.empty() && !tx.m_vKernelsOutput.empty();
 	if (bValid)
-		bValid = m_This.m_Processor.ValidateTx(tx, ctx);
+		bValid = m_Processor.ValidateTx(tx, ctx);
 
 	{
 		// Log it
 		std::ostringstream os;
 
-		os << "Tx " << key.m_Key << " from " << m_RemoteAddr;
+		os << "Tx " << key << " from " << p.m_RemoteAddr;
 
 		for (size_t i = 0; i < tx.m_vInputs.size(); i++)
 			os << "\n\tI: " << tx.m_vInputs[i]->m_Commitment;
@@ -1675,16 +1662,130 @@ bool Node::Peer::OnNewTransaction(Transaction::Ptr&& ptx)
 		LOG_INFO() << os.str();
 	}
 
-	if (!bValid)
+	return bValid;
+}
+
+uint32_t RandomUInt32(uint32_t threshold, ECC::uintBig& hvRnd)
+{
+	if (threshold)
+	{
+		typedef uintBigFor<uint32_t>::Type Type;
+
+		Type thr(threshold), val;
+		Type::Threshold thrSel(thr);
+
+		do
+		{
+			ECC::Hash::Processor() << hvRnd >> hvRnd;
+			val = hvRnd;
+		} while (!thrSel.Accept(val));
+
+		val.Export(threshold);
+	}
+	return threshold;
+}
+
+bool Node::OnTransaction(Transaction::Ptr&& ptx, bool bFluff, const Peer& p)
+{
+	ECC::uintBig& hvRnd = m_SChannelSeed.V;
+	uint32_t nStemPeers;
+
+	if (!bFluff)
+	{
+		// must have at least 1 peer to continue the stem phase
+		nStemPeers = 0;
+
+		for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+			if (it->m_Config.m_SpreadingTransactions)
+				nStemPeers++;
+
+		bFluff = true;
+
+		if (nStemPeers)
+		{
+			auto thr = uintBigFrom(m_Cfg.m_Dandelion.m_FluffProbability);
+			ECC::Hash::Processor() << hvRnd >> hvRnd;
+
+			if (memcmp(thr.m_pData, hvRnd.m_pData, thr.nBytes) < 0)
+				bFluff = false; // should remain in stem phase
+		}
+	}
+
+	Dandelion::Element::Tx key0;
+	ptx->get_Key(key0.m_Key);
+
+	Dandelion::TxSet::iterator it0 = m_Dandelion.m_setTxs.find(key0);
+
+	const Transaction& tx = *ptx;
+	Transaction::Context ctx;
+
+	if (!bFluff)
+	{
+		Dandelion::Element* pVal;
+
+		if (m_Dandelion.m_setTxs.end() != it0)
+		{
+			pVal = &it0->get_ParentObj();
+			m_Dandelion.m_setTime.erase(Dandelion::TimeSet::s_iterator_to(pVal->m_Time));
+		}
+		else
+		{
+			if (!ValidateAndLogTx(ctx, tx, key0.m_Key, p))
+				return false;
+
+			pVal = new Dandelion::Element;
+			pVal->m_Tx.m_Key = key0.m_Key;
+			m_Dandelion.m_setTxs.insert(pVal->m_Tx);
+
+			pVal->m_pValue.swap(ptx);
+		}
+
+		// set random timer
+		pVal->m_Time.m_Value = GetTime_ms() + m_Cfg.m_Dandelion.m_TimeoutMin_ms + RandomUInt32(m_Cfg.m_Dandelion.m_TimeoutMax_ms - m_Cfg.m_Dandelion.m_TimeoutMin_ms, hvRnd);
+		m_Dandelion.m_setTime.insert(pVal->m_Time);
+
+		//m_Dandelion.SetTimer(x.m_Time);
+
+		// broadcast to random peer
+		assert(nStemPeers);
+		nStemPeers = RandomUInt32(nStemPeers, hvRnd);
+
+		for (PeerList::iterator it = m_lstPeers.begin(); ; it++)
+			if (it->m_Config.m_SpreadingTransactions && !nStemPeers--)
+			{
+				it->SendTxGuard(pVal->m_pValue, false);
+				break;
+			}
+
+		return true;
+	}
+
+	if (m_Dandelion.m_setTxs.end() != it0)
+		m_Dandelion.Delete(it0->get_ParentObj());
+
+
+
+	NodeProcessor::TxPool::Element::Tx key;
+	key.m_Key = key0.m_Key;
+
+	NodeProcessor::TxPool::TxSet::iterator it = m_TxPool.m_setTxs.find(key);
+	if (m_TxPool.m_setTxs.end() != it)
+		return true;
+
+	m_Wtx.Delete(key.m_Key);
+
+	// new transaction
+
+	if (/*!bValid && */!ValidateAndLogTx(ctx, tx, key.m_Key, p)) // we need the fee
 		return false;
 
 	proto::HaveTransaction msgOut;
 	msgOut.m_ID = key.m_Key;
 
-	for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; it++)
+	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
 	{
 		Peer& peer = *it;
-		if (this == &peer)
+		if (&p == &peer)
 			continue;
 		if (!peer.m_Config.m_SpreadingTransactions)
 			continue;
@@ -1692,11 +1793,26 @@ bool Node::Peer::OnNewTransaction(Transaction::Ptr&& ptx)
 		peer.Send(msgOut);
 	}
 
-	m_This.m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
-	m_This.m_TxPool.ShrinkUpTo(m_This.m_Cfg.m_MaxPoolTransactions);
-	m_This.m_Miner.SetTimer(m_This.m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
+	m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
+	m_TxPool.ShrinkUpTo(m_Cfg.m_MaxPoolTransactions);
+	m_Miner.SetTimer(m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
 
 	return true;
+}
+
+void Node::Dandelion::Delete(Element& x)
+{
+	m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
+	m_setTime.erase(TimeSet::s_iterator_to(x.m_Time));
+	delete &x;
+
+	// timer?
+}
+
+void Node::Dandelion::Clear()
+{
+	while (!m_setTime.empty())
+		Delete(m_setTime.begin()->get_ParentObj());
 }
 
 void Node::Peer::OnMsg(proto::Config&& msg)
@@ -1774,6 +1890,11 @@ void Node::Peer::OnMsg(proto::GetTransaction&& msg)
 	if (m_This.m_TxPool.m_setTxs.end() == it)
 		return; // don't have it
 
+	SendTxGuard(it->get_ParentObj().m_pValue, true);
+}
+
+void Node::Peer::SendTxGuard(Transaction::Ptr& ptx, bool bFluff)
+{
 	// temporarily move the transaction to the Msg object, but make sure it'll be restored back, even in case of the exception.
 	struct Guard
 	{
@@ -1786,8 +1907,9 @@ void Node::Peer::OnMsg(proto::GetTransaction&& msg)
 	};
 
 	Guard g;
-	g.m_ppVal = &it->get_ParentObj().m_pValue;
+	g.m_ppVal = &ptx;
 	g.Swap();
+	g.m_Msg.m_Fluff = bFluff;
 
 	Send(g.m_Msg);
 }

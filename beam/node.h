@@ -99,6 +99,14 @@ struct Node
 			uint32_t m_Timeout_ms = 10000;
 		} m_Sync;
 
+		struct Dandelion
+		{
+			uint16_t m_FluffProbability = 0x1999; // normalized wrt 16 bit. Equals to 0.1
+			uint32_t m_TimeoutMin_ms = 20000;
+			uint32_t m_TimeoutMax_ms = 50000;
+
+		} m_Dandelion;
+
 		Config()
 		{
 			m_WalletKey.V = Zero;
@@ -265,6 +273,49 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Wtx)
 	} m_Wtx;
 
+	struct Dandelion
+	{
+		struct Element
+		{
+			Transaction::Ptr m_pValue;
+
+			struct Tx
+				:public boost::intrusive::set_base_hook<>
+			{
+				Transaction::KeyType m_Key;
+
+				bool operator < (const Tx& t) const { return m_Key < t.m_Key; }
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Tx)
+			} m_Tx;
+
+			struct Time
+				:public boost::intrusive::set_base_hook<>
+			{
+				uint32_t m_Value;
+
+				bool operator < (const Time& t) const { return m_Value < t.m_Value; }
+
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Time)
+			} m_Time;
+		};
+
+		typedef boost::intrusive::multiset<Element::Tx> TxSet;
+		typedef boost::intrusive::multiset<Element::Time> TimeSet;
+
+		TxSet m_setTxs;
+		TimeSet m_setTime;
+
+		void AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);
+		void Delete(Element&);
+		void Clear();
+
+		~Dandelion() { Clear(); }
+
+	} m_Dandelion;
+
+	bool OnTransaction(Transaction::Ptr&&, bool bFluff, const Peer&);
+	bool ValidateAndLogTx(Transaction::Context&, const Transaction&, const Transaction::KeyType&, const Peer&);
+
 	struct Bbs
 	{
 		struct WantedMsg :public Wanted {
@@ -379,11 +430,12 @@ private:
 		void OnResendPeers();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
-		bool OnNewTransaction(Transaction::Ptr&&);
 
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
+
+		void SendTxGuard(Transaction::Ptr& ptx, bool bFluff);
 
 		// proto::NodeConnection
 		virtual void OnConnectedSecure() override;
