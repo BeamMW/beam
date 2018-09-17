@@ -1089,7 +1089,7 @@ Item {
                             anchors.rightMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 10
-                        /*	CustomToolButton {
+                        /*    CustomToolButton {
                                 visible: styleData.row >= 0 && viewModel.transactions[styleData.row].canCancel
                                 icon.source: "qrc:///assets/icon-cancel.svg"
                                 ToolTip.text: qsTr("Cancel transaction")
@@ -1185,9 +1185,14 @@ Item {
                         color: styleData.alternate ? "transparent" : Style.light_navy
                     }
                     Item {
-                        visible: !rowItem.collapsed
+                        id: txDetails
+                        height: 0
+                        visible: height > 0
                         width: parent.width
-                        height: 200
+                        clip: true
+
+                        property int maximumHeight: 200
+
                         Rectangle {
                             anchors.fill: parent
                             color: Style.bright_sky_blue
@@ -1313,9 +1318,62 @@ Item {
                         }
                         else if (mouse.button === Qt.LeftButton && !!viewModel.transactions[styleData.row])
                         {
+                            if (parent.collapsed)
+                            {
+                                expand.start()
+                            }
+                            else 
+                            {
+                                collapse.start()
+                            }
                             parent.collapsed = !parent.collapsed;
-                            parent.height = parent.collapsed? transactionsView.rowHeight : transactionsView.rowHeight + 200;
                         }
+                    }
+                }
+
+                ParallelAnimation {
+                    id: expand
+                    running: false
+
+                    property int expandDuration: 200
+
+                    NumberAnimation {
+                        target: rowItem
+                        easing.type: Easing.Linear
+                        property: "height"
+                        to: transactionsView.rowHeight + txDetails.maximumHeight
+                        duration: expand.expandDuration
+                    }
+
+                    NumberAnimation {
+                        target: txDetails
+                        easing.type: Easing.Linear
+                        property: "height"
+                        to: txDetails.maximumHeight
+                        duration: expand.expandDuration
+                    }
+                }
+
+                ParallelAnimation {
+                    id: collapse
+                    running: false
+
+                    property int collapseDuration: 200
+
+                    NumberAnimation {
+                        target: rowItem
+                        easing.type: Easing.Linear
+                        property: "height"
+                        to: transactionsView.rowHeight
+                        duration: collapse.collapseDuration
+                    }
+
+                    NumberAnimation {
+                        target: txDetails
+                        easing.type: Easing.Linear
+                        property: "height"
+                        to: 0
+                        duration: collapse.collapseDuration
                     }
                 }
             }
