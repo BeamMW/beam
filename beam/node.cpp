@@ -1348,7 +1348,7 @@ bool Node::SyncCycle(Peer& p)
 	if (Peer::Flags::DontSync & p.m_Flags)
 		return false;
 
-	if (p.m_Tip.m_Height < m_pSync->m_Trg.m_Height + Rules::get().MaxRollbackHeight)
+	if (p.m_Tip.m_Height < m_pSync->m_Trg.m_Height/* + Rules::get().MaxRollbackHeight*/)
 		return false;
 
 	proto::MacroblockGet msg;
