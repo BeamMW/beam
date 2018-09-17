@@ -1304,7 +1304,13 @@ Item {
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     onClicked: {
-                        if (mouse.button === Qt.RightButton && styleData.row !== undefined && styleData.row >=0)
+                        if (styleData.row === undefined 
+                         || styleData.row < 0
+                         || styleData.row >= viewModel.transactions.length)
+                        {
+                            return;
+                        }
+                        if (mouse.button === Qt.RightButton )
                         {
                             txContextMenu.index = styleData.row;
                             txContextMenu.transaction = viewModel.transactions[styleData.row];

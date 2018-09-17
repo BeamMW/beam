@@ -2,7 +2,7 @@
 Version=0.1
 Name=Beam Wallet
 Comment=Scalable confidential cryptocurrency
-Exec="/usr/bin/Beam Wallet" %U
+Exec="/usr/bin/BeamWallet" %U
 Icon=beam
 Terminal=false
 Type=Application

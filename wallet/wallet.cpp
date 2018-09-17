@@ -52,7 +52,7 @@ namespace beam
     std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount)
     {
         const string_view beams{" beams " };
-        const string_view chattles{ " mils " };
+        const string_view chattles{ " groth " };
         auto width = os.width();
 
         if (amount.m_showPoint)
