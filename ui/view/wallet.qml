@@ -389,8 +389,10 @@ Item {
                             validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
                             selectByMouse: true
 
+                            placeholderText: qsTr("Please specify contact")
+
                             onTextChanged : {
-                                receiverAddressError.visible = !viewModel.isValidReceiverAddress(receiverAddrInput.text)
+                                receiverAddressError.visible = receiverAddrInput.text.length > 0 && !viewModel.isValidReceiverAddress(receiverAddrInput.text)
                             }
                         }
 
@@ -399,20 +401,8 @@ Item {
                             id: receiverAddressError
                             color: Style.validator_color
                             font.pixelSize: 10
-                            text: "Invalid address"
-                        }
-
-                        Item {
-                            Layout.minimumHeight: 16
-                            Layout.fillWidth: true
-
-                            SFText {
-                                text: "Please specify contact"
-                                color: Style.validator_color
-                                font.pixelSize: 14
-                                font.italic: true
-                                visible: !receiverAddrInput.acceptableInput
-                            }
+                            text: qsTr("Invalid address")
+                            visible: false
                         }
 
                         SFText {
