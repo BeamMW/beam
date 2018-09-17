@@ -1019,7 +1019,7 @@ Item {
 
             TableViewColumn {
                 role: "amount"
-                title: qsTr("Amount, BEAM")
+                title: qsTr("Amount")
                 width: 200 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
                 movable: false
