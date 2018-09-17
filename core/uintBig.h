@@ -40,6 +40,7 @@ namespace beam
 		static void _Print(const uint8_t* pDst, uint32_t nDst, std::ostream&);
 
 		static uint32_t _GetOrder(const uint8_t* pDst, uint32_t nDst);
+		static bool _Accept(uint8_t* pDst, const uint8_t* pThr, uint32_t nDst, uint32_t nThrOrder);
 
 		template <typename T>
 		static void _AssignRangeAligned(uint8_t* pDst, uint32_t nDst, T x, uint32_t nOffsetBytes, uint32_t nBytesX)
@@ -87,6 +88,17 @@ namespace beam
 
 			return true;
 		}
+
+		template <typename T>
+		static void _ExportAligned(T& out, uint8_t* pDst, uint32_t nDst)
+		{
+			static_assert(T(-1) > 0, "must be unsigned");
+
+			out = pDst[0];
+			for (uint32_t i = 1; i < nDst; i++)
+				out = (out << 8) | pDst[i];
+		}
+
 	};
 
 	template <uint32_t nBits_>
@@ -167,6 +179,12 @@ namespace beam
 			return *this;
 		}
 
+		template <typename T>
+		void Export(T& x)
+		{
+			_ExportAligned(x, m_pData, nBytes);
+		}
+
 		template <typename T, uint32_t nOffset>
 		void AssignRange(T x)
 		{
@@ -236,6 +254,26 @@ namespace beam
 			// returns 0 iff the number is already zero.
 			return _GetOrder(m_pData, nBytes);
 		}
+
+		// helper, for uniform random generation within specific bounds
+		struct Threshold
+		{
+			const uintBig_t& m_Val;
+			uint32_t m_Order;
+
+			Threshold(const uintBig_t& val)
+				:m_Val(val)
+			{
+				m_Order = val.get_Order();
+			}
+
+			operator bool() const { return m_Order > 0; }
+
+			bool Accept(uintBig_t& dst) const
+			{
+				return _Accept(dst.m_pData, m_Val.m_pData, nBytes, m_Order);
+			}
+		};
 
 		COMPARISON_VIA_CMP
 

@@ -58,15 +58,18 @@ void TestNodeConnection::GenerateTests()
 
 void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 {
-	LOG_INFO() << "NewTip: " << msg.m_ID;
+	Block::SystemState::ID id;
+	msg.m_Description.get_ID(id);
+
+	LOG_INFO() << "NewTip: " << id;
 
 	if (!m_IsInit)
 	{
 		m_IsInit = true;
 
-		m_Generator.GenerateInputInTx(msg.m_ID.m_Height - 70, Rules::get().CoinbaseEmission, KeyType::Coinbase);
-		m_Generator.GenerateOutputInTx(msg.m_ID.m_Height - 70, Rules::get().CoinbaseEmission, KeyType::Coinbase);
-		m_Generator.GenerateKernel(msg.m_ID.m_Height - 70);
+		m_Generator.GenerateInputInTx(msg.m_Description.m_Height - 70, Rules::get().CoinbaseEmission, KeyType::Coinbase);
+		m_Generator.GenerateOutputInTx(msg.m_Description.m_Height - 70, Rules::get().CoinbaseEmission, KeyType::Coinbase);
+		m_Generator.GenerateKernel(msg.m_Description.m_Height - 70);
 		m_Generator.Sort();
 		Send(m_Generator.GetTransaction());
 	}

@@ -103,12 +103,12 @@ Rectangle {
                             font.pixelSize: 12
                             color: readOnly ? Style.disable_text_color : Style.white
                             readOnly: localNodeRun.checked
-                            validator: RegExpValidator { regExp: /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$/ }
+                            validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                             text: viewModel.nodeAddress
                             Binding {
                                 target: viewModel
                                 property: "nodeAddress"
-                                value: nodeAddress.text
+                                value: nodeAddress.text.trim()
                             }
                         }
 
@@ -263,7 +263,7 @@ Rectangle {
                                         font.pixelSize: 12
                                         color: readOnly ? Style.disable_text_color : Style.white
                                         readOnly: !localNodeRun.checked
-                                        validator: RegExpValidator { regExp: /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$/ }
+                                        validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                     }
                                     
                                     PrimaryButton {
@@ -275,7 +275,7 @@ Rectangle {
                                         palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
                                         enabled: newLocalNodePeer.acceptableInput && localNodeRun.checked
                                         onClicked: {
-                                            viewModel.addLocalNodePeer(newLocalNodePeer.text);
+                                            viewModel.addLocalNodePeer(newLocalNodePeer.text.trim());
                                             newLocalNodePeer.clear();
                                         }
                                     }

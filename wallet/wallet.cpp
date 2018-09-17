@@ -489,12 +489,7 @@ namespace beam
 
         m_pending_reg_requests.clear();
 
-        return true;
-    }
-
-    bool Wallet::handle_node_message(proto::Hdr&& msg)
-    {
-        Block::SystemState::ID newID = {};
+        Block::SystemState::ID newID;
         msg.m_Description.get_ID(newID);
         
         m_newState = msg.m_Description;
@@ -797,7 +792,7 @@ namespace beam
         TxBase::Context ctx;
         assert(data->IsValid(ctx));
         m_reg_requests.push_back(make_pair(txId, data));
-        m_network->send_node_message(proto::NewTransaction{ data });
+        m_network->send_node_message(proto::NewTransaction{ data, false });
     }
 
     void Wallet::resume_negotiator(const TxDescription& tx)

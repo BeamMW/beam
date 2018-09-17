@@ -216,7 +216,7 @@ namespace beam
 		}
 
 #ifdef WIN32
-		m_hFile = CreateFileA(sz, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, 0, NULL);
+		m_hFile = CreateFileW(Utf8toUtf16(sz).c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, 0, NULL);
 		test_SysRet(INVALID_HANDLE_VALUE == m_hFile, "CreateFile");
 #else // WIN32
 		m_hFile = open(sz, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP);

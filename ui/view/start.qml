@@ -334,7 +334,7 @@ Item
                             font.pixelSize: 12
                             color: Style.white
                             text: "127.0.0.1:10000"
-                            validator: RegExpValidator { regExp: /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$/ }
+                            validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                             onTextChanged: if (remoteNodeAddrInput.text.length > 0) remoteNodeAddrError.text = ""
                         }
                         SFText {
@@ -382,7 +382,7 @@ Item
                                     remoteNodeAddrError.text = qsTr("Please, specify address of the remote node");
                                     return;
                                 }
-                                viewModel.setupRemoteNode(remoteNodeAddrInput.text);
+                                viewModel.setupRemoteNode(remoteNodeAddrInput.text.trim());
                             }
                             else if (testnetNodeButton.checked) {
                                 viewModel.setupTestnetNode();

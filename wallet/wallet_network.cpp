@@ -399,9 +399,7 @@ namespace beam {
         LOG_INFO() << "Wallet connected to node";
         m_connecting = false;
         proto::Config msgCfg;
-        ZeroObject(msgCfg);
         msgCfg.m_CfgChecksum = Rules::get().Checksum;
-        msgCfg.m_AutoSendHdr = true;
         Send(msgCfg);
 
         for (auto& cb : m_callbacks)
@@ -438,11 +436,6 @@ namespace beam {
     }
 
     bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::NewTip&& msg)
-    {
-        return m_wallet.handle_node_message(move(msg));
-    }
-
-    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Hdr&& msg)
     {
         return m_wallet.handle_node_message(move(msg));
     }

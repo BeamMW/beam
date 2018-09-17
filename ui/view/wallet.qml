@@ -389,8 +389,10 @@ Item {
                             validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
                             selectByMouse: true
 
+                            placeholderText: qsTr("Please specify contact")
+
                             onTextChanged : {
-                                receiverAddressError.visible = !viewModel.isValidReceiverAddress(receiverAddrInput.text)
+                                receiverAddressError.visible = receiverAddrInput.text.length > 0 && !viewModel.isValidReceiverAddress(receiverAddrInput.text)
                             }
                         }
 
@@ -399,20 +401,8 @@ Item {
                             id: receiverAddressError
                             color: Style.validator_color
                             font.pixelSize: 10
-                            text: "Invalid address"
-                        }
-
-                        Item {
-                            Layout.minimumHeight: 16
-                            Layout.fillWidth: true
-
-                            SFText {
-                                text: "Please specify contact"
-                                color: Style.validator_color
-                                font.pixelSize: 14
-                                font.italic: true
-                                visible: !receiverAddrInput.acceptableInput
-                            }
+                            text: qsTr("Invalid address")
+                            visible: false
                         }
 
                         SFText {
@@ -476,7 +466,7 @@ Item {
                                         color: Style.validator_color
                                         font.pixelSize: 14
                                         font.italic: true
-                                        visible: viewModel.actualAvailable < 0
+                                        visible: !viewModel.isEnoughMoney
                                     }
                                 }
 
@@ -705,9 +695,7 @@ Item {
                     palette.buttonText: Style.marine
                     palette.button: Style.heliotrope
                     icon.source: "qrc:///assets/icon-send.svg"
-                    // TODO actualAvailable is string
-                    //enabled: {viewModel.actualAvailable >= 0 && amount_input.acceptableInput && receiverAddrInput.acceptableInput}
-                    enabled: {amount_input.acceptableInput && receiverAddrInput.acceptableInput }
+                    enabled: {viewModel.isEnoughMoney && amount_input.acceptableInput && receiverAddrInput.acceptableInput }
                     onClicked: {
                         if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
                             var message = "You are about to send %1 to address %2";
@@ -1019,7 +1007,7 @@ Item {
 
             TableViewColumn {
                 role: "amount"
-                title: qsTr("Amount, BEAM")
+                title: qsTr("Amount")
                 width: 200 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
                 movable: false
@@ -1167,6 +1155,7 @@ Item {
                 Action {
                     text: qsTr("delete")
                     icon.source: "qrc:///assets/icon-delete.svg"
+                    enabled: !!txContextMenu.transaction && txContextMenu.transaction.canDelete
                     onTriggered: {
                         deleteTransactionDialog.text = qsTr("The transaction will be deleted. This operation can not be undone");
                         deleteTransactionDialog.open();
@@ -1174,7 +1163,6 @@ Item {
                 }
                 Connections {
                     target: deleteTransactionDialog
-                    enabled: !!txContextMenu.transaction && !txContextMenu.transaction.canCancel
                     onAccepted: {
                         viewModel.deleteTx(txContextMenu.index);
                     }

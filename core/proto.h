@@ -29,8 +29,7 @@ namespace beam {
 namespace proto {
 
 #define BeamNodeMsg_NewTip(macro) \
-	macro(Block::SystemState::ID, ID) \
-	macro(Difficulty::Raw, ChainWork)
+	macro(Block::SystemState::Full, Description)
 
 #define BeamNodeMsg_GetHdr(macro) \
 	macro(Block::SystemState::ID, ID)
@@ -94,14 +93,14 @@ namespace proto {
 	macro(ECC::Hash::Value, CfgChecksum) \
 	macro(bool, SpreadingTransactions) \
 	macro(bool, Bbs) \
-	macro(bool, SendPeers) \
-	macro(bool, AutoSendHdr) /* prefer the header in addition to the NewTip message */
+	macro(bool, SendPeers)
 
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)
 
 #define BeamNodeMsg_NewTransaction(macro) \
-	macro(Transaction::Ptr, Transaction)
+	macro(Transaction::Ptr, Transaction) \
+	macro(bool, Fluff)
 
 #define BeamNodeMsg_HaveTransaction(macro) \
 	macro(Transaction::KeyType, ID)
@@ -160,6 +159,15 @@ namespace proto {
 	macro(uint8_t, IDType) \
 	macro(ECC::Signature, Sig)
 
+#define BeamNodeMsg_MacroblockGet(macro) \
+	macro(Block::SystemState::ID, ID) \
+	macro(uint8_t, Data) \
+	macro(uint64_t, Offset)
+
+#define BeamNodeMsg_Macroblock(macro) \
+	macro(Block::SystemState::ID, ID) \
+	macro(ByteBuffer, Portion)
+
 #define BeamNodeMsgsAll(macro) \
 	macro(1, NewTip) /* Also the first message sent by the node */ \
 	macro(2, GetHdr) \
@@ -199,6 +207,8 @@ namespace proto {
 	macro(43, BbsSubscribe) \
 	macro(44, BbsPickChannel) \
 	macro(45, BbsPickChannelRes) \
+	macro(50, MacroblockGet) \
+	macro(51, Macroblock) \
 	macro(61, SChannelInitiate) \
 	macro(62, SChannelReady) \
 	macro(63, Authentication) \

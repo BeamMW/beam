@@ -54,12 +54,15 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 {
 	if (!m_IsInit)
 	{
-		LOG_INFO() << "NewTip: " << msg.m_ID;
+		Block::SystemState::ID id;
+		msg.m_Description.get_ID(id);
+
+		LOG_INFO() << "NewTip: " << id;
 
 		m_IsInit = true;		
 
 		LOG_INFO() << "Send GetMined message";
-		Send(proto::GetMined{ msg.m_ID.m_Height - 1000 });
+		Send(proto::GetMined{ msg.m_Description.m_Height - 1000 });
 	}
 }
 

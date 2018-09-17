@@ -63,13 +63,6 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 	fflush(stdout);
 }
 
-#ifndef WIN32
-void DeleteFileA(const char* szPath)
-{
-	unlink(szPath);
-}
-#endif // WIN32
-
 #define verify_test(x) \
 	do { \
 		if (!(x)) \
@@ -650,24 +643,24 @@ namespace beam
 		Height hMid = blockChain.size() / 2 + Rules::HeightGenesis;
 
 		{
-			DeleteFileA(g_sz2);
+			DeleteFile(g_sz2);
 
 			NodeProcessor np2;
 			np2.Initialize(g_sz2);
 
-			verify_test(rwData.Open(false));
+			rwData.Open(false);
 			np.ExportMacroBlock(rwData, HeightRange(Rules::HeightGenesis, hMid)); // first half
 			rwData.Close();
 
-			verify_test(rwData.Open(true));
+			rwData.Open(true);
 			verify_test(np2.ImportMacroBlock(rwData));
 			rwData.Close();
 
-			verify_test(rwData.Open(false));
+			rwData.Open(false);
 			np.ExportMacroBlock(rwData, HeightRange(hMid + 1, Rules::HeightGenesis + blockChain.size() - 1)); // second half
 			rwData.Close();
 
-			verify_test(rwData.Open(true));
+			rwData.Open(true);
 			verify_test(np2.ImportMacroBlock(rwData));
 			rwData.Close();
 
@@ -785,6 +778,7 @@ namespace beam
 		node.m_Cfg.m_sPathLocal = g_sz;
 		node.m_Cfg.m_Listen.port(g_Port);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
+		node.m_Cfg.m_Sync.m_SrcPeers = 0;
 
 		node.m_Cfg.m_Timeout.m_GetBlock_ms = 1000 * 60;
 		node.m_Cfg.m_Timeout.m_GetState_ms = 1000 * 60;
@@ -793,6 +787,7 @@ namespace beam
 		node2.m_Cfg.m_Listen.port(g_Port + 1);
 		node2.m_Cfg.m_Listen.ip(INADDR_ANY);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
+		node2.m_Cfg.m_Sync.m_SrcPeers = 0;
 
 		node2.m_Cfg.m_BeaconPort = g_Port;
 
@@ -865,9 +860,9 @@ namespace beam
 
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
-				printf("Tip Height=%u\n", (unsigned int) msg.m_ID.m_Height);
-				verify_test(msg.m_ID.m_Height <= m_HeightMax);
-				if (msg.m_ID.m_Height == m_HeightTrg)
+				printf("Tip Height=%u\n", (unsigned int) msg.m_Description.m_Height);
+				verify_test(msg.m_Description.m_Height <= m_HeightMax);
+				if (msg.m_Description.m_Height == m_HeightTrg)
 					io::Reactor::get_Current().stop();
 			}
 
@@ -945,7 +940,6 @@ namespace beam
 
 				proto::Config msgCfg;
 				msgCfg.m_CfgChecksum = Rules::get().Checksum;
-				msgCfg.m_AutoSendHdr = true;
 				Send(msgCfg);
 
 				Send(proto::GetTime(Zero));
@@ -1005,13 +999,9 @@ namespace beam
 
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
-				printf("Tip Height=%u\n", (unsigned int) msg.m_ID.m_Height);
-				verify_test(m_vStates.size() + 1 == msg.m_ID.m_Height);
-			}
-
-			virtual void OnMsg(proto::Hdr&& msg) override
-			{
+				printf("Tip Height=%u\n", (unsigned int) msg.m_Description.m_Height);
 				verify_test(m_vStates.size() + 1 == msg.m_Description.m_Height);
+
 				m_vStates.push_back(msg.m_Description);
 
 				if (IsHeightReached())
@@ -1217,7 +1207,7 @@ namespace beam
 			}
 
 			virtual void OnMsg(proto::NewTip&& msg) override {
-				if (msg.m_ID.m_Height == 10)
+				if (msg.m_Description.m_Height == 10)
 				{
 					proto::BbsSubscribe msgOut;
 					msgOut.m_Channel = 11;
@@ -1255,6 +1245,8 @@ namespace beam
 		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
 		node2.m_Cfg.m_Connect[0].port(g_Port);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
+
+		node2.m_Cfg.m_Sync.m_Timeout_ms = 0; // sync immediately after seeing 1st peer
 
 		node2.Initialize();
 
@@ -1334,7 +1326,7 @@ namespace beam
 
 		void Init()
 		{
-			m_hvLive = Zero;
+			m_hvLive = 55U;
 
 			m_vStates.resize(200000);
 			Difficulty d = Rules::get().StartDifficulty;
@@ -1429,14 +1421,14 @@ int main()
 	//	ports, wrong beacon and etc.
 	verify_test(beam::helpers::ProcessWideLock("/tmp/BEAM_node_test_lock"));
 
-	DeleteFileA(beam::g_sz);
-	DeleteFileA(beam::g_sz2);
+	beam::DeleteFile(beam::g_sz);
+	beam::DeleteFile(beam::g_sz2);
 
 	printf("NodeDB test...\n");
 	fflush(stdout);
 
 	beam::TestNodeDB();
-	DeleteFileA(beam::g_sz);
+	beam::DeleteFile(beam::g_sz);
 
 	{
 		printf("NodeProcessor test1...\n");
@@ -1445,29 +1437,29 @@ int main()
 
 		std::vector<beam::BlockPlus::Ptr> blockChain;
 		beam::TestNodeProcessor1(blockChain);
-		DeleteFileA(beam::g_sz);
-		DeleteFileA(beam::g_sz2);
+		beam::DeleteFile(beam::g_sz);
+		beam::DeleteFile(beam::g_sz2);
 
 		printf("NodeProcessor test2...\n");
 		fflush(stdout);
 
 		beam::TestNodeProcessor2(blockChain);
-		DeleteFileA(beam::g_sz);
+		beam::DeleteFile(beam::g_sz);
 	}
 
 	printf("NodeX2 concurrent test...\n");
 	fflush(stdout);
 
 	beam::TestNodeConversation();
-	DeleteFileA(beam::g_sz);
-	DeleteFileA(beam::g_sz2);
+	beam::DeleteFile(beam::g_sz);
+	beam::DeleteFile(beam::g_sz2);
 
 	printf("Node <---> Client test (with proofs)...\n");
 	fflush(stdout);
 
 	beam::TestNodeClientProto();
-	DeleteFileA(beam::g_sz);
-	DeleteFileA(beam::g_sz2);
+	beam::DeleteFile(beam::g_sz);
+	beam::DeleteFile(beam::g_sz2);
 
 	return g_TestsFailed ? -1 : 0;
 }

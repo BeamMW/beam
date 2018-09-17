@@ -33,6 +33,7 @@ class TxObject : public QObject
         Q_PROPERTY(QString change        READ change       NOTIFY changeChanged)
         Q_PROPERTY(QString status        READ status       NOTIFY statusChanged)
         Q_PROPERTY(bool canCancel        READ canCancel    NOTIFY canCancelChanged)
+        Q_PROPERTY(bool canDelete        READ canDelete    NOTIFY canDeleteChanged)
         Q_PROPERTY(QString sendingAddress READ getSendingAddress CONSTANT)
         Q_PROPERTY(QString receivingAddress READ getReceivingAddress CONSTANT)
         Q_PROPERTY(QString fee           READ getFee CONSTANT)
@@ -52,6 +53,7 @@ public:
     QString change() const;
     QString status() const;
     bool canCancel() const;
+    bool canDelete() const;
     QString getSendingAddress() const;
     QString getReceivingAddress() const;
     QString getFee() const;
@@ -70,6 +72,7 @@ signals:
     void changeChanged();
     void statusChanged();
     void canCancelChanged();
+    void canDeleteChanged();
 
 public:
     beam::TxDescription _tx;
@@ -105,6 +108,7 @@ class WalletViewModel : public QObject
     Q_PROPERTY(int nodeSyncProgress READ getNodeSyncProgress WRITE setNodeSyncProgress NOTIFY nodeSyncProgressChanged)
 
     Q_PROPERTY(QString actualAvailable READ actualAvailable NOTIFY actualAvailableChanged)
+    Q_PROPERTY(bool isEnoughMoney READ isEnoughMoney NOTIFY actualAvailableChanged)
     Q_PROPERTY(QString change READ change NOTIFY changeChanged)
 
     Q_PROPERTY(QString newReceiverAddr READ getNewReceiverAddr NOTIFY newReceiverAddrChanged)
@@ -151,6 +155,7 @@ public:
     void setNodeSyncProgress(int value);
 
     QString actualAvailable() const;
+    bool isEnoughMoney() const;
     QString change() const;
     QString getNewReceiverAddr() const;
     void setNewReceiverName(const QString& value);

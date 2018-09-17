@@ -59,11 +59,14 @@ void TestNodeConnection::GenerateTests()
 
 void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 {
-	LOG_INFO() << "NewTip: " << msg.m_ID;
+	Block::SystemState::ID id;
+	msg.m_Description.get_ID(id);
+
+	LOG_INFO() << "NewTip: " << id;
 
 	if (!m_IsInit)
 	{
-		m_ID = msg.m_ID;
+		m_ID = id;
 		m_IsInit = true;
 
 		m_Generator.GenerateInputInTx(m_ID.m_Height - 70, Rules::get().CoinbaseEmission);
