@@ -171,7 +171,6 @@ namespace beam
 			bool OnMsg2(proto::ProofState&& msg) override;
             bool OnMsg2(proto::ProofKernel&& msg) override;
 			bool OnMsg2(proto::NewTip&& msg) override;
-            bool OnMsg2(proto::Hdr&& msg) override;
             bool OnMsg2(proto::Mined&& msg) override;
             bool OnMsg2(proto::BbsMsg&& msg) override;
 			bool OnMsg2(proto::Authentication&& msg) override;

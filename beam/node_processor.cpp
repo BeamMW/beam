@@ -152,6 +152,9 @@ void NodeProcessor::Initialize(const char* szPath)
 		wlk.Traverse();
 	}
 
+	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, m_Horizon.m_Branching);
+	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height) Rules::get().MaxRollbackHeight);
+
 	NodeDB::Transaction t(m_DB);
 	TryGoUp();
 	t.Commit();
@@ -181,6 +184,8 @@ void NodeProcessor::InitCursor()
 
 void NodeProcessor::EnumCongestions()
 {
+	Height hThreshold = get_LoHorizon();
+
 	// request all potentially missing data
 	NodeDB::WalkerState ws(m_DB);
 	for (m_DB.EnumTips(ws); ws.MoveNext(); )
@@ -189,7 +194,10 @@ void NodeProcessor::EnumCongestions()
 		if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row))
 			continue;
 
-		if (sid.m_Height < m_Cursor.m_Sid.m_Height)
+		Difficulty::Raw wrk;
+		m_DB.get_ChainWork(sid.m_Row, wrk);
+
+		if (wrk < m_Cursor.m_Full.m_ChainWork)
 			continue; // not interested in tips behind the current cursor
 
 		bool bBlock = true;
@@ -210,23 +218,30 @@ void NodeProcessor::EnumCongestions()
 			}
 		}
 
-		Block::SystemState::Full s;
-		m_DB.get_State(sid.m_Row, s);
-
 		Block::SystemState::ID id;
 
 		if (bBlock)
-			s.get_ID(id);
+			m_DB.get_StateID(sid, id);
 		else
 		{
+			Block::SystemState::Full s;
+			m_DB.get_State(sid.m_Row, s);
+
 			id.m_Height = s.m_Height - 1;
 			id.m_Hash = s.m_Prev;
 		}
 
-		PeerID peer;
-		bool bPeer = m_DB.get_Peer(sid.m_Row, peer);
+		if (id.m_Height >= hThreshold)
+		{
+			PeerID peer;
+			bool bPeer = m_DB.get_Peer(sid.m_Row, peer);
 
-		RequestData(id, bBlock, bPeer ? &peer : NULL);
+			RequestData(id, bBlock, bPeer ? &peer : NULL);
+		}
+		else
+		{
+			LOG_WARNING() << id << " State unreachable!"; // probably will pollute the log, but it's a critical situation anyway
+		}
 	}
 }
 
@@ -256,6 +271,8 @@ void NodeProcessor::TryGoUp()
 			if (wrkTrg == m_Cursor.m_Full.m_ChainWork)
 				break; // already at maximum (though maybe at different tip)
 		}
+
+		Height h0 = get_LoHorizon() + Rules::HeightGenesis;
 
 		// Calculate the path
 		std::vector<uint64_t> vPath;
@@ -291,6 +308,9 @@ void NodeProcessor::TryGoUp()
 				bPathOk = false;
 				break;
 			}
+
+			if (m_Cursor.m_Sid.m_Height > h0)
+				PruneAt(m_Cursor.m_Sid.m_Height - Rules::get().MaxRollbackHeight, false);
 		}
 
 		if (bPathOk)
@@ -332,28 +352,44 @@ void NodeProcessor::PruneOld()
 		} while (rowid);
 	}
 
-	if (m_Horizon.m_Schwarzschild <= m_Horizon.m_Branching)
-		return;
-
-	Height hExtra = m_Horizon.m_Schwarzschild - m_Horizon.m_Branching;
-	if (h <= hExtra)
-		return;
-	h -= hExtra;
-
-	for (Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight); hFossil < h; )
+	if (m_Horizon.m_Schwarzschild > m_Horizon.m_Branching)
 	{
-		uint64_t rowid = FindActiveAtStrict(hFossil + Rules::HeightGenesis);
+		Height hExtra = m_Horizon.m_Schwarzschild - m_Horizon.m_Branching;
+		if (h <= hExtra)
+			return;
+		h -= hExtra;
+	}
 
-		if (1 != m_DB.GetStateNextCount(rowid))
+	AdjustFossilEnd(h);
+
+	for (Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1); ; )
+	{
+		if (++hFossil >= h)
 			break;
 
-		DereferenceFossilBlock(rowid);
-
-		m_DB.DelStateBlock(rowid);
-		m_DB.set_Peer(rowid, NULL);
-
-		++hFossil;
+		PruneAt(hFossil, true);
 		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
+	}
+}
+
+void NodeProcessor::PruneAt(Height h, bool bDeleteBody)
+{
+	NodeDB::WalkerState ws(m_DB);
+	;
+	for (m_DB.EnumStatesAt(ws, h); ws.MoveNext(); )
+	{
+		if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
+		{
+			if (bDeleteBody)
+				DereferenceFossilBlock(ws.m_Sid.m_Row);
+		} else
+			m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
+
+		if (bDeleteBody)
+		{
+			m_DB.DelStateBlock(ws.m_Sid.m_Row);
+			m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
+		}
 	}
 }
 
@@ -924,10 +960,19 @@ void NodeProcessor::Rollback()
 	OnRolledBack();
 }
 
-bool NodeProcessor::IsRelevantHeight(Height h)
+Height NodeProcessor::get_LoHorizon()
 {
-	uint64_t hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight);
-	return h >= hFossil + Rules::HeightGenesis;
+	// Minimum height of a state that may be interesting
+	Height hRet = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1) + 1;
+
+	if (m_Cursor.m_Sid.m_Height >= Rules::get().MaxRollbackHeight + Rules::HeightGenesis)
+	{
+		Height h = m_Cursor.m_Sid.m_Height - Rules::get().MaxRollbackHeight + 1;
+		if (hRet < h)
+			hRet = h;
+	}
+
+	return hRet;
 }
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id)
@@ -963,8 +1008,8 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		return DataStatus::Invalid;
 	}
 
-	if (!IsRelevantHeight(s.m_Height))
-		return DataStatus::Rejected;
+	if (s.m_Height < get_LoHorizon())
+		return DataStatus::Unreachable;
 
 	if (m_DB.StateFindSafe(id))
 		return DataStatus::Rejected;
@@ -1012,6 +1057,9 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 		return DataStatus::Rejected;
 	}
 
+	if (id.m_Height < get_LoHorizon())
+		return DataStatus::Unreachable;
+
 	LOG_INFO() << id << " Block received";
 
 	NodeDB::Transaction t(m_DB);
@@ -1028,9 +1076,15 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 	return DataStatus::Accepted;
 }
 
-bool NodeProcessor::IsStateNeeded(const Block::SystemState::ID& id)
+bool NodeProcessor::IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy)
 {
-	return IsRelevantHeight(id.m_Height) && !m_DB.StateFindSafe(id);
+	int n = sTipMy.m_ChainWork.cmp(sTipRemote.m_ChainWork);
+	if (n > 0)
+		return false;
+	if (n < 0)
+		return true;
+
+	return sTipMy.m_Definition != sTipRemote.m_Definition;
 }
 
 uint64_t NodeProcessor::FindActiveAtStrict(Height h)
@@ -1529,11 +1583,6 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 			break;
 		}
 	}
-
-	uint64_t rowid = m_DB.StateFindSafe(id);
-	if (!rowid)
-		OnCorrupted();
-	m_DB.get_State(rowid, s);
 
 	LOG_INFO() << "Context-free validation...";
 

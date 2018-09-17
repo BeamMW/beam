@@ -52,7 +52,6 @@ void CoinsChecker::OnConnectedSecure()
 {
 	proto::Config msg;
 	msg.m_CfgChecksum = Rules::get().Checksum;
-	msg.m_AutoSendHdr = true;
 	Send(msg);
 }
 
@@ -78,7 +77,7 @@ void CoinsChecker::OnDisconnect(const DisconnectReason& reason)
 	m_Queue.clear();
 }
 
-void CoinsChecker::OnMsg(proto::Hdr&& msg)
+void CoinsChecker::OnMsg(proto::NewTip&& msg)
 {
 	m_Hdr = msg.m_Description;
 	if (!m_IsInitChecker)

@@ -49,10 +49,10 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 
 	if (!m_IsInit)
 	{
-		LOG_INFO() << "NewTip: " << msg.m_ID;
-
-		m_ID = msg.m_ID;
+		msg.m_Description.get_ID(m_ID);
 		m_IsInit = true;
+
+		LOG_INFO() << "NewTip: " << m_ID;
 
 		m_IsSendWrongMsg = true;
 

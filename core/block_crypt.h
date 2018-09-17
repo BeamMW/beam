@@ -139,6 +139,8 @@ namespace beam
 
 		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
+		uint32_t MaxRollbackHeight = 1440; // 1 day roughly
+		uint32_t MacroblockGranularity = 720; // i.e. should be created for heights that are multiples of this. This should make it more likely for different nodes to have the same macroblocks
 
 		ECC::Hash::Value Checksum;
 
@@ -592,6 +594,7 @@ namespace beam
 	public:
 
 		static const int s_Datas = 5;
+		static const char* const s_pszSufix[s_Datas];
 
 	private:
 
@@ -603,10 +606,12 @@ namespace beam
 		TxKernel::Ptr m_pGuardKernelOut[2];
 
 		template <typename T>
-		static void LoadInternal(const T*& pPtr, std::FStream&, typename T::Ptr* ppGuard);
+		void LoadInternal(const T*& pPtr, int, typename T::Ptr* ppGuard);
 
 		template <typename T>
-		static void WriteInternal(const T&, std::FStream&);
+		void WriteInternal(const T&, int);
+
+		bool OpenInternal(int iData);
 
 	public:
 
@@ -618,9 +623,9 @@ namespace beam
 		bool m_bAutoDelete;
 		std::string m_sPath;
 
-		void GetPathes(std::string* pArr) const;
+		void GetPath(std::string&, int iData) const;
 
-		bool Open(bool bRead);
+		void Open(bool bRead);
 		void Flush();
 		void Close();
 		void Delete(); // must be closed
@@ -674,7 +679,7 @@ namespace beam
 
 		void Reset();
 		void Create(ISource&, const SystemState::Full& sRoot);
-		bool IsValid() const;
+		bool IsValid(Block::SystemState::Full* pTip = NULL) const;
 		bool Crop(); // according to current bound
 		bool Crop(const ChainWorkProof& src);
 		bool IsEmpty() const { return m_Heading.m_vElements.empty(); }
@@ -693,7 +698,7 @@ namespace beam
 
 	private:
 		struct Sampler;
-		bool IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound) const;
+		bool IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound, Block::SystemState::Full* pTip) const;
 		void ZeroInit();
 	};
 
