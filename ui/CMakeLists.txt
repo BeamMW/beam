@@ -187,6 +187,8 @@ if(BEAM_USE_STATIC)
 
 	if(LINUX)
 
+		target_link_libraries(${TARGET_NAME} -static-libstdc++ -static-libgcc)
+
 		target_link_libraries(${TARGET_NAME}
 			${CMAKE_PREFIX_PATH}/plugins/platforms/libqxcb.a
 		)
