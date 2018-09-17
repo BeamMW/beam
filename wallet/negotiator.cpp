@@ -202,14 +202,17 @@ namespace beam::wallet
 
         m_peerSignature = msg.m_peerSignature;
         update_tx_description(TxDescription::InProgress);
-        sendConfirmTransaction();
+        auto s = createSignature();
+        Scalar::Native sn = s;
+        m_kernel->m_Signature.m_k = sn + m_peerSignature;
+        sendConfirmTransaction(s);
     }
 
-    void Negotiator::FSMDefinition::sendConfirmTransaction() const
+    void Negotiator::FSMDefinition::sendConfirmTransaction(const Scalar& peerSignature) const
     {
         ConfirmTransaction confirmMsg;
         confirmMsg.m_txId = m_parent.m_txDesc.m_txId;
-        confirmMsg.m_peerSignature = createSignature();
+        confirmMsg.m_peerSignature = peerSignature;
 
         m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmMsg));
     }
@@ -441,15 +444,6 @@ namespace beam::wallet
         m_fsm.m_transaction->m_vOutputs = move(inviteMsg.m_outputs);
 
         return true;
-    }
-
-    Scalar Negotiator::FSMDefinition::createSignature() const
-    {
-        NoLeak<Point> publicNonce;
-        Scalar partialSignature;
-        NoLeak<Scalar> challenge;
-        createSignature2(partialSignature, publicNonce.V, challenge.V);
-        return partialSignature;
     }
 
     Scalar Negotiator::FSMDefinition::createSignature()
