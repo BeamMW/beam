@@ -19,7 +19,7 @@
 #include <iostream>
 #include <assert.h>
 
-#define LOG_VERBOSE_ENABLED 0
+#define LOG_VERBOSE_ENABLED 1
 #include "utility/logger.h"
 
 using namespace beam;
@@ -35,8 +35,20 @@ uint64_t tag_cancelled = 102;
 uint64_t tag_timedout = 103;
 
 int errorlevel = 0;
-int callbackCount = 3;
+int callbackCount = 0;
+int writecancelInProgress=0;
 bool g_FirstRcv = true;
+
+int calc_errors() {
+    int retCode=errorlevel + callbackCount + writecancelInProgress;
+    if (retCode != 0) {
+        LOG_ERROR() << TRACE(errorlevel) << TRACE(callbackCount) << TRACE(writecancelInProgress);
+        errorlevel=0;
+        callbackCount=0;
+        writecancelInProgress=0;
+    }
+    return retCode;
+}
 
 static const char DOMAIN_NAME[] = "example.com";
 
@@ -70,7 +82,8 @@ void on_connected (uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode st
     }
 };
 
-void tcpclient_test() {
+int tcpclient_test() {
+    callbackCount = 3;
     Config config;
     config.set<Config::Int>("io.connect_timer_resolution", 1);
     reset_global_config(std::move(config));
@@ -100,13 +113,15 @@ void tcpclient_test() {
         LOG_DEBUG() << "starting reactor...";
         reactor->run();
         LOG_DEBUG() << "reactor stopped";
+
+        reactor.reset();
     }
     catch (const Exception& e) {
         LOG_ERROR() << e.what();
     }
-}
 
-int writecancelInProgress=1;
+    return calc_errors();
+}
 
 void on_connected_writecancel(uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
     if (newStream) {
@@ -122,8 +137,9 @@ void on_connected_writecancel(uint64_t tag, unique_ptr<TcpStream>&& newStream, E
     }
 };
 
-void tcpclient_writecancel_test() {
+int tcpclient_writecancel_test() {
     try {
+        writecancelInProgress=1;
         reactor = Reactor::create();
 
         Address a;
@@ -144,10 +160,49 @@ void tcpclient_writecancel_test() {
         LOG_DEBUG() << "starting reactor...";
         reactor->run();
         LOG_DEBUG() << "reactor stopped";
+
+        reactor.reset();
     }
     catch (const Exception& e) {
         LOG_ERROR() << e.what();
     }
+
+    return calc_errors();
+}
+
+int tcpclient_unclosed_test() {
+    try {
+        reactor = Reactor::create();
+
+        //Address a = Address::localhost().port(80);
+        Address a;
+        // NOTE that this is blocked resolver, TODO add async resolver to Reactor
+        a.resolve(DOMAIN_NAME);
+        a.port(80);
+
+
+        for (uint64_t i=0; i<100; ++i) {
+            if (!reactor->tcp_connect(a, i, on_connected_writecancel, 10000)) ++errorlevel;
+        }
+
+
+        Timer::Ptr timer = Timer::create(reactor);
+        timer->start(600, false, []{
+            reactor->stop();
+        });
+
+
+        LOG_DEBUG() << "starting reactor...";
+        reactor->run();
+        LOG_DEBUG() << "reactor stopped";
+
+        reactor.reset();
+    }
+    catch (const Exception& e) {
+        LOG_ERROR() << e.what();
+    }
+
+    return calc_errors();
 }
 
 int main() {
@@ -156,12 +211,9 @@ int main() {
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
-    tcpclient_test();
-    tcpclient_writecancel_test();
-    int retCode=errorlevel + callbackCount + writecancelInProgress;
-    if (retCode != 0) {
-        LOG_ERROR() << TRACE(errorlevel) << TRACE(callbackCount) << TRACE(writecancelInProgress);
-    }
+    int retCode = tcpclient_test();
+    retCode += tcpclient_writecancel_test();
+    retCode += tcpclient_unclosed_test();
     return retCode;
 }
 

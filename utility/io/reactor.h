@@ -27,6 +27,8 @@ namespace beam { namespace io {
 class TcpStream;
 class CoarseTimer;
 
+class TcpConnectors;
+
 class Reactor : public std::enable_shared_from_this<Reactor> {
 public:
     Reactor(const Reactor&) = delete;
@@ -129,18 +131,6 @@ private:
         uv_handle_t* _handle=0;
     };
 
-    struct ConnectContext {
-        uint64_t tag;
-        ConnectCallback callback;
-        uv_connect_t* request;
-    };
-
-    void connect_callback(ConnectContext* ctx, ErrorCode errorCode);
-
-    void connect_timeout_callback(uint64_t tag);
-
-    void cancel_tcp_connect_impl(std::unordered_map<uint64_t, ConnectContext>::iterator& it);
-
     ErrorCode init_asyncevent(Object* o, uv_async_cb cb);
 
     ErrorCode init_timer(Object* o);
@@ -150,6 +140,7 @@ private:
     ErrorCode init_tcpserver(Object* o, Address bindAddress, uv_connection_cb cb);
     ErrorCode init_tcpstream(Object* o);
     ErrorCode accept_tcpstream(Object* acceptor, Object* newConnection);
+    TcpStream* stream_connected(uv_handle_t* h);
     void shutdown_tcpstream(Object* o, BufferChain&& unsent);
 
     ErrorCode init_object(ErrorCode errorCode, Object* o, uv_handle_t* h);
@@ -172,16 +163,15 @@ private:
     uv_loop_t _loop;
     uv_async_t _stopEvent;
     MemPool<uv_handle_t, sizeof(Handles)> _handlePool;
-    MemPool<uv_connect_t, sizeof(uv_connect_t)> _connectRequestsPool;
     MemPool<WriteRequest, sizeof(WriteRequest)> _writeRequestsPool;
     MemPool<uv_shutdown_t, sizeof(uv_shutdown_t)> _shutdownRequestsPool;
-    std::unordered_map<uint64_t, ConnectContext> _connectRequests;
     std::unordered_set<uv_shutdown_t*> _shutdownRequests;
     std::unordered_map<uv_shutdown_t*, BufferChain> _unsent;
-    std::unordered_set<uv_connect_t*> _cancelledConnectRequests;
-    std::unique_ptr<CoarseTimer> _connectTimer;
     bool _creatingInternalObjects=false;
 
+    std::unique_ptr<TcpConnectors> _tcpConnectors;
+
+    friend class TcpConnectors;
     friend class AsyncEvent;
     friend class Timer;
     friend class TcpServer;
