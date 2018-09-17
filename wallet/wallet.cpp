@@ -792,7 +792,7 @@ namespace beam
         TxBase::Context ctx;
         assert(data->IsValid(ctx));
         m_reg_requests.push_back(make_pair(txId, data));
-        m_network->send_node_message(proto::NewTransaction{ data });
+        m_network->send_node_message(proto::NewTransaction{ data, false });
     }
 
     void Wallet::resume_negotiator(const TxDescription& tx)
