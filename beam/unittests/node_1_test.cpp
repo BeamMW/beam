@@ -77,7 +77,7 @@ namespace beam
 			MyClient(unsigned interval, unsigned reconnects):
                 mTimerInterval(interval), mReconnects(reconnects)
 			{
-				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+				m_pTimer = io::Timer::create(io::Reactor::get_Current());
 				m_bConnected = false;
 			}
 
@@ -191,7 +191,7 @@ namespace beam
 
 			virtual void OnConnectedSecure() override
 			{
-				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+				m_pTimer = io::Timer::create(io::Reactor::get_Current());
 				OnTimer();
 			}
 

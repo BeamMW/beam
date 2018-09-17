@@ -315,7 +315,7 @@ void NodeConnection::TestIoResultAsync(const io::Result& res)
 		OnIoErr(err);
 	};
 
-	m_pAsyncFail = io::AsyncEvent::create(io::Reactor::get_Current().shared_from_this(), std::move(cb));
+	m_pAsyncFail = io::AsyncEvent::create(io::Reactor::get_Current(), std::move(cb));
 	m_pAsyncFail->get_trigger()();
 }
 
@@ -593,7 +593,7 @@ void NodeConnection::OnMsg(Bye&& msg)
 // NodeConnection::Server
 void NodeConnection::Server::Listen(const io::Address& addr)
 {
-	m_pServer = io::TcpServer::create(io::Reactor::get_Current().shared_from_this(), addr, BIND_THIS_MEMFN(OnAccepted));
+	m_pServer = io::TcpServer::create(io::Reactor::get_Current(), addr, BIND_THIS_MEMFN(OnAccepted));
 }
 
 /////////////////////////

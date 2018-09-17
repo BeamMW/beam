@@ -112,7 +112,7 @@ public:
     using Callback = std::function<void(T&& message)>;
 
     /// Ctor called by receiver side
-    explicit RX(const io::Reactor::Ptr& reactor, Callback&& callback) :
+    explicit RX(io::Reactor& reactor, Callback&& callback) :
         _queue(std::make_shared<MessageQueue<T>>()),
         _asyncEvent(io::AsyncEvent::create(reactor, [this]() { on_receive(); } )),
         _callback(std::move(callback))

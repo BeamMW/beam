@@ -28,7 +28,7 @@ public:
     using BridgeInterface = Interface;
 
     /// Sets up the channel
-    Bridge(Interface& _forwardTo, const io::Reactor::Ptr& _reactor) :
+    Bridge(Interface& _forwardTo, io::Reactor& _reactor) :
         receiver(_forwardTo),
         rx(_reactor, BIND_THIS_MEMFN(on_rx)),
         tx(rx.get_tx())
@@ -41,7 +41,7 @@ public:
 
 // Default initialization for derived classes
 #define BRIDGE_INIT(DerivedClassName) \
-    DerivedClassName(BridgeInterface& _forwardTo, const io::Reactor::Ptr& _reactor) : \
+    DerivedClassName(BridgeInterface& _forwardTo, io::Reactor& _reactor) : \
         Bridge<BridgeInterface>(_forwardTo, _reactor) \
     {}
 

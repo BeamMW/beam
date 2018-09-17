@@ -50,7 +50,7 @@ int calc_errors() {
     return retCode;
 }
 
-static const char DOMAIN_NAME[] = "example.com";
+static const char DOMAIN_NAME[] = "beam-mw.com";
 
 void on_recv(ErrorCode what, void* data, size_t size) {
     if (data && size) {
@@ -102,7 +102,7 @@ int tcpclient_test() {
 
         reactor->cancel_tcp_connect(tag_cancelled);
 
-        Timer::Ptr timer = Timer::create(reactor);
+        Timer::Ptr timer = Timer::create(*reactor);
         int x = 15;
         timer->start(200, true, [&x]{
             if (--x == 0 || callbackCount == 0) {
@@ -124,6 +124,7 @@ int tcpclient_test() {
 }
 
 void on_connected_writecancel(uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
+    LOG_DEBUG() << "on_connected_writecancel: " << error_str(status);
     if (newStream) {
         assert(status == EC_OK);
         if (tag != tag_ok) ++errorlevel;
@@ -149,7 +150,7 @@ int tcpclient_writecancel_test() {
 
         if (!reactor->tcp_connect(a, tag_ok, on_connected_writecancel, 10000)) ++errorlevel;
 
-        Timer::Ptr timer = Timer::create(reactor);
+        Timer::Ptr timer = Timer::create(*reactor);
         int x = 15;
         timer->start(200, true, [&x]{
             if (--x == 0 || !writecancelInProgress) {
@@ -181,13 +182,17 @@ int tcpclient_unclosed_test() {
         a.port(80);
 
 
-        for (uint64_t i=0; i<100; ++i) {
-            if (!reactor->tcp_connect(a, i, on_connected_writecancel, 10000)) ++errorlevel;
+        for (uint64_t i=0; i<4; ++i) {
+            auto result = reactor->tcp_connect(a, i, on_connected_writecancel, 10000);
+            if (!result) {
+                LOG_ERROR() << error_descr(result.error());
+                ++errorlevel;
+            }
         }
 
 
-        Timer::Ptr timer = Timer::create(reactor);
-        timer->start(600, false, []{
+        Timer::Ptr timer = Timer::create(*reactor);
+        timer->start(6, false, []{
             reactor->stop();
         });
 
@@ -211,7 +216,8 @@ int main() {
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
-    int retCode = tcpclient_test();
+    int retCode = 0;
+    retCode += tcpclient_test();
     retCode += tcpclient_writecancel_test();
     retCode += tcpclient_unclosed_test();
     return retCode;

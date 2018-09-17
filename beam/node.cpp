@@ -165,7 +165,7 @@ void Node::Wanted::SetTimer()
 	else
 	{
 		if (!m_pTimer)
-			m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+			m_pTimer = io::Timer::create(io::Reactor::get_Current());
 
 		uint32_t dt = GetTime_ms() - m_lst.front().m_Advertised_ms;
 		const uint32_t timeout_ms = get_Timeout_ms();
@@ -344,7 +344,7 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 
 		int diff = static_cast<int>(id.m_Height - m_Cursor.m_ID.m_Height);
 		m_RequestedCount = std::max(m_RequestedCount, diff);
-	
+
 		ReportProgress();
 
 	} else
@@ -547,7 +547,7 @@ void Node::Processor::ReportProgress()
 		{
 			observer->OnSyncProgress(done, total);
 		}
-		
+
 		if (done >= total)
 		{
 			m_RequestedCount = m_DownloadedHeaders = m_DownloadedBlocks;
@@ -658,10 +658,10 @@ void Node::Initialize()
 	}
 
 	// peers
-	m_PeerMan.m_pTimerUpd = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+	m_PeerMan.m_pTimerUpd = io::Timer::create(io::Reactor::get_Current());
 	m_PeerMan.m_pTimerUpd->start(m_Cfg.m_Timeout.m_PeersUpdate_ms, true, [this]() { m_PeerMan.Update(); });
 
-	m_PeerMan.m_pTimerFlush = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+	m_PeerMan.m_pTimerFlush = io::Timer::create(io::Reactor::get_Current());
 	m_PeerMan.m_pTimerFlush->start(m_Cfg.m_Timeout.m_PeersDbFlush_ms, true, [this]() { m_PeerMan.OnFlush(); });
 
 	{
@@ -691,14 +691,14 @@ void Node::Initialize()
 
 	if (m_Cfg.m_MiningThreads)
 	{
-		m_Miner.m_pEvtMined = io::AsyncEvent::create(io::Reactor::get_Current().shared_from_this(), [this]() { m_Miner.OnMined(); });
+		m_Miner.m_pEvtMined = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { m_Miner.OnMined(); });
 
 		m_Miner.m_vThreads.resize(m_Cfg.m_MiningThreads);
 		for (uint32_t i = 0; i < m_Cfg.m_MiningThreads; i++)
 		{
 			PerThread& pt = m_Miner.m_vThreads[i];
 			pt.m_pReactor = io::Reactor::create();
-			pt.m_pEvt = io::AsyncEvent::create(pt.m_pReactor, [this, i]() { m_Miner.OnRefresh(i); });
+			pt.m_pEvt = io::AsyncEvent::create(*pt.m_pReactor, [this, i]() { m_Miner.OnRefresh(i); });
 			pt.m_Thread = std::thread(&io::Reactor::run, pt.m_pReactor);
 		}
 
@@ -835,7 +835,7 @@ Node::~Node()
 void Node::Peer::SetTimer(uint32_t timeout_ms)
 {
 	if (!m_pTimer)
-		m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+		m_pTimer = io::Timer::create(io::Reactor::get_Current());
 
 	m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
 }
@@ -989,7 +989,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 		addr.port(m_Port);
 	} else
 		LOG_INFO() << "No PI port"; // doesn't accept incoming connections?
-		
+
 
 	PeerMan::PeerInfoPlus* pPi = (PeerMan::PeerInfoPlus*) pm.OnPeer(msg.m_ID, addr, bAddrValid);
 	assert(pPi);
@@ -1289,7 +1289,7 @@ void Node::Peer::OnMsg(proto::Macroblock&& msg)
 
 			if (!m_This.m_pSync->m_pTimer)
 			{
-				m_This.m_pSync->m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+				m_This.m_pSync->m_pTimer = io::Timer::create(io::Reactor::get_Current());
 
 				Node* pThis = &m_This;
 				m_This.m_pSync->m_pTimer->start(m_This.m_Cfg.m_Sync.m_Timeout_ms, false, [pThis]() { pThis->OnSyncTimer(); });
@@ -1833,7 +1833,7 @@ void Node::Dandelion::Clear()
 void Node::Dandelion::SetTimer(uint32_t nTimeout_ms)
 {
 	if (!m_pTimer)
-		m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+		m_pTimer = io::Timer::create(io::Reactor::get_Current());
 
 
 	m_pTimer->start(nTimeout_ms, false, [this]() { OnTimer(); });
@@ -1913,7 +1913,7 @@ void Node::Peer::OnMsg(proto::Config&& msg)
 		if (msg.m_SendPeers)
 		{
 			if (!m_pTimerPeers)
-				m_pTimerPeers = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+				m_pTimerPeers = io::Timer::create(io::Reactor::get_Current());
 
 			m_pTimerPeers->start(m_This.m_Cfg.m_Timeout.m_TopPeersUpd_ms, true, [this]() { OnResendPeers(); });
 
@@ -2511,7 +2511,7 @@ void Node::Miner::HardAbortSafe()
 void Node::Miner::SetTimer(uint32_t timeout_ms, bool bHard)
 {
 	if (!m_pTimer)
-		m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+		m_pTimer = io::Timer::create(io::Reactor::get_Current());
 	else
 		if (m_bTimerPending && !bHard)
 			return;
@@ -2613,7 +2613,7 @@ void Node::Miner::OnMined()
 	case NodeProcessor::DataStatus::Accepted:
 		break; // ok
 	}
-	assert(NodeProcessor::DataStatus::Accepted == eStatus); 
+	assert(NodeProcessor::DataStatus::Accepted == eStatus);
 
 	NodeDB::StateID sid;
 	verify(sid.m_Row = get_ParentObj().m_Processor.get_DB().StateFindSafe(id));
@@ -2733,7 +2733,7 @@ void Node::Compressor::OnNewState()
 	ZeroObject(m_hrInplaceRequest);
 
 	m_Link.m_pReactor = io::Reactor::get_Current().shared_from_this();
-	m_Link.m_pEvt = io::AsyncEvent::create(m_Link.m_pReactor, [this]() { OnNotify(); });;
+	m_Link.m_pEvt = io::AsyncEvent::create(*m_Link.m_pReactor, [this]() { OnNotify(); });;
 	m_Link.m_Thread = std::thread(&Compressor::Proceed, this);
 }
 
@@ -3049,7 +3049,7 @@ void Node::Beacon::Start()
 	if (uv_udp_set_broadcast(m_pUdp, 1))
 		std::ThrowIoError();
 
-	m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+	m_pTimer = io::Timer::create(io::Reactor::get_Current());
 	m_pTimer->start(get_ParentObj().m_Cfg.m_BeaconPeriod_ms, true, [this]() { OnTimer(); }); // periodic timer
 	OnTimer();
 }

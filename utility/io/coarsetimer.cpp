@@ -21,12 +21,11 @@
 
 namespace beam { namespace io {
 
-CoarseTimer::Ptr CoarseTimer::create(const Reactor::Ptr& reactor, unsigned resolutionMsec, const Callback& cb) {
-    assert(reactor);
+CoarseTimer::Ptr CoarseTimer::create(Reactor& reactor, unsigned resolutionMsec, const Callback& cb) {
     assert(cb);
     assert(resolutionMsec > 0);
 
-    if (!reactor || !cb || !resolutionMsec) IO_EXCEPTION(EC_EINVAL);
+    if (!cb || !resolutionMsec) IO_EXCEPTION(EC_EINVAL);
 
     return CoarseTimer::Ptr(new CoarseTimer(resolutionMsec, cb, Timer::create(reactor)));
 }

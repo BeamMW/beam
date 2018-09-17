@@ -69,7 +69,7 @@ private:
 
     void on_start_server(TimerID) {
         try {
-            _thisServer = io::TcpServer::create(_reactor, _config.serverAddress, BIND_THIS_MEMFN(on_stream_accepted));
+            _thisServer = io::TcpServer::create(*_reactor, _config.serverAddress, BIND_THIS_MEMFN(on_stream_accepted));
         } catch (const io::Exception& e) {
             LOG_ERROR() << "tcp server error " << io::error_str(e.errorCode) << ", restarting in 1 second";
         }

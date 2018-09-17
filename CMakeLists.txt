@@ -83,6 +83,10 @@ if(DEBUG_MESSAGES_IN_RELEASE_MODE)
     add_definitions(-DDEBUG_MESSAGES_IN_RELEASE_MODE)
 endif()
 
+if(SHOW_CODE_LOCATION)
+    add_definitions(-DSHOW_CODE_LOCATION=1)
+endif()
+
 if(BRANCH_NAME MATCHES "testnet")
     add_definitions(-DBEAM_TESTNET)
 endif()

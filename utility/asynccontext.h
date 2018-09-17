@@ -66,7 +66,7 @@ public:
 
     /// periodic timer
     io::Timer::Ptr set_timer(unsigned periodMsec, io::Timer::Callback&& onTimer) {
-        io::Timer::Ptr timer(io::Timer::create(_reactor));
+        io::Timer::Ptr timer(io::Timer::create(*_reactor));
         timer->start(periodMsec, true, std::move(onTimer));
         return timer;
     }

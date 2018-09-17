@@ -372,7 +372,7 @@ int main_impl(int argc, char* argv[])
                 NoLeak<uintBig> walletSeed;
                 walletSeed.V = Zero;
 
-                io::Timer::Ptr logRotateTimer = io::Timer::create(reactor);
+                io::Timer::Ptr logRotateTimer = io::Timer::create(*reactor);
                 logRotateTimer->start(
                     LOG_ROTATION_PERIOD, true,
                     []() {

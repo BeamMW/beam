@@ -31,77 +31,82 @@ namespace beam { namespace io {
 
 class TcpConnectors {
 public:
-    explicit TcpConnectors(const Reactor::Ptr& r) :
-        _reactor(*r),
+    using Callback = Reactor::ConnectCallback;
+
+    explicit TcpConnectors(Reactor& r) :
+        _reactor(r),
         _connectRequestsPool(config().get_int("io.connect_pool_size", 16, 0, 512))
-    {
-        _connectTimer = CoarseTimer::create(
-            r,
-            config().get_int("io.connect_timer_resolution", 1000, 1, 60000),
-            BIND_THIS_MEMFN(connect_timeout_callback)
-        );
-    }
+    {}
 
     ~TcpConnectors() {
         if (!_connectRequests.empty()) {
             LOG_ERROR() << "connect requests were not cancelled";
         }
-        if (!_connectRequests.empty()) {
-            LOG_ERROR() << "connect requests were not cancelled";
+        if (!_cancelledConnectRequests.empty()) {
+            LOG_ERROR() << "callbacks on cancelled requests were not called";
         }
     }
 
     void cancel_all() {
-        for (auto& cr : _connectRequests) {
-            uv_handle_t* h = (uv_handle_t*)(cr.second.request->handle);
+        for (auto& p : _connectRequests) {
+            uv_handle_t* h = (uv_handle_t*)(p.second->handle);
             _reactor.async_close(h);
         }
+        _connectTimer.reset();
     }
 
     bool is_tag_free(uint64_t tag) {
         return _connectRequests.count(tag) == 0;
     }
 
-    Result tcp_connect(uv_tcp_t* h, Address address, uint64_t tag, const Reactor::ConnectCallback& callback, int timeoutMsec) {
+    Result tcp_connect(uv_tcp_t* handle, Address address, uint64_t tag, const Callback& callback, int timeoutMsec) {
         assert(is_tag_free(tag));
 
-        h->data = this;
+        if (timeoutMsec >= 0) {
+            if (!_connectTimer) {
+                try {
+                    _connectTimer = CoarseTimer::create(
+                        _reactor,
+                        config().get_int("io.connect_timer_resolution", 1000, 1, 60000),
+                        BIND_THIS_MEMFN(connect_timeout_callback)
+                    );
+                } catch (const Exception& e) {
+                    return make_unexpected(e.errorCode);
+                }
+            }
+            auto result = _connectTimer->set_timer(timeoutMsec, tag);
+            if (!result) return result;
+        }
 
-        ConnectContext& ctx = _connectRequests[tag];
-        ctx.tag = tag;
-        ctx.callback = callback;
-        ctx.request = _connectRequestsPool.alloc();
-        ctx.request->data = &ctx;
+        handle->data = 0;
+        ConnectRequest* cr = _connectRequestsPool.alloc();
+        cr->data = this;
+        cr->tag = tag;
+        new(&cr->callback) Callback(callback);
+
+        _connectRequests[tag] = cr;
 
         sockaddr_in addr;
         address.fill_sockaddr_in(addr);
 
         auto errorCode = (ErrorCode)uv_tcp_connect(
-            ctx.request,
-            h,
+            cr,
+            handle,
             (const sockaddr*)&addr,
             [](uv_connect_t* request, int errorCode) {
-                LOG_VERBOSE() << TRACE(request->handle) << TRACE(request->handle->data);
                 assert(request);
+                assert(request->data);
+                TcpConnectors* tcpConnectors = reinterpret_cast<TcpConnectors*>(request->data);
+                ConnectRequest* cr = static_cast<ConnectRequest*>(request);
                 if (errorCode == UV_ECANCELED) {
-                    LOG_VERBOSE() << "callback on cancelled connect request=" << request;
-                   // tcpConnectors->_cancelledConnectRequests.erase(request);
+                    tcpConnectors->_cancelledConnectRequests.erase(static_cast<ConnectRequest*>(request));
                 } else {
-                    assert(request->data);
-                    assert(request->handle);
-                    assert(request->handle->data);
-                    TcpConnectors* tcpConnectors = reinterpret_cast<TcpConnectors*>(request->handle->data);
-                    ConnectContext* ctx = reinterpret_cast<ConnectContext*>(request->data);
-                    tcpConnectors->connect_callback(ctx->tag, (uv_handle_t*)request->handle, ctx->callback, (ErrorCode)errorCode);
+                    tcpConnectors->connect_callback(cr->tag, (uv_handle_t*)request->handle, cr->callback, (ErrorCode)errorCode);
                 }
-                // TODO tcpConnectors->_connectRequestsPool.release(request);
+                cr->callback.~Callback();
+                tcpConnectors->_connectRequestsPool.release(cr);
             }
         );
-
-        if (errorCode == 0 && timeoutMsec >= 0) {
-            auto result = _connectTimer->set_timer(timeoutMsec, tag);
-            if (!result) errorCode = result.error();
-        }
 
         if (errorCode) {
             _connectRequests.erase(tag);
@@ -116,18 +121,17 @@ public:
         auto it = _connectRequests.find(tag);
         if (it != _connectRequests.end()) {
             cancel_tcp_connect_impl(it);
-            _connectTimer->cancel(tag);
+            if (_connectTimer) _connectTimer->cancel(tag);
         }
     }
 
 private:
-    struct ConnectContext {
+    struct ConnectRequest : uv_connect_s {
         uint64_t tag;
-        Reactor::ConnectCallback callback;
-        uv_connect_t* request;
+        Callback callback;
     };
 
-    void connect_callback(uint64_t tag, uv_handle_t* h, const Reactor::ConnectCallback& callback, ErrorCode errorCode) {
+    void connect_callback(uint64_t tag, uv_handle_t* h, const Callback& callback, ErrorCode errorCode) {
         if (_connectRequests.count(tag) == 0) {
             _reactor.async_close(h);
             return;
@@ -141,7 +145,7 @@ private:
         }
 
         _connectRequests.erase(tag);
-        _connectTimer->cancel(tag);
+        if (_connectTimer) _connectTimer->cancel(tag);
 
         callback(tag, std::move(stream), errorCode);
     }
@@ -150,24 +154,24 @@ private:
         LOG_VERBOSE() << TRACE(tag);
         auto it = _connectRequests.find(tag);
         if (it != _connectRequests.end()) {
-            Reactor::ConnectCallback cb = it->second.callback;
+            Reactor::ConnectCallback cb = it->second->callback;
             cancel_tcp_connect_impl(it);
             cb(tag, TcpStream::Ptr(), EC_ETIMEDOUT);
         }
     }
 
-    void cancel_tcp_connect_impl(std::unordered_map<uint64_t, ConnectContext>::iterator& it) {
-        uv_connect_t* request = it->second.request;
-        uv_handle_t* h = (uv_handle_t*)request->handle;
+    void cancel_tcp_connect_impl(std::unordered_map<uint64_t, ConnectRequest*>::iterator& it) {
+        ConnectRequest* cr = it->second;
+        uv_handle_t* h = (uv_handle_t*)cr->handle;
         _reactor.async_close(h);
-        _cancelledConnectRequests.insert(request);
+        _cancelledConnectRequests.insert(cr);
         _connectRequests.erase(it);
     }
 
     Reactor& _reactor;
-    MemPool<uv_connect_t, sizeof(uv_connect_t)> _connectRequestsPool;
-    std::unordered_map<uint64_t, ConnectContext> _connectRequests;
-    std::unordered_set<uv_connect_t*> _cancelledConnectRequests;
+    MemPool<ConnectRequest, sizeof(ConnectRequest)> _connectRequestsPool;
+    std::unordered_map<uint64_t, ConnectRequest*> _connectRequests;
+    std::unordered_set<ConnectRequest*> _cancelledConnectRequests;
     std::unique_ptr<CoarseTimer> _connectTimer;
 };
 
@@ -207,15 +211,13 @@ ErrorCode Reactor::initialize() {
     }
     _stopEvent.data = this;
 
-    _tcpConnectors = std::make_unique<TcpConnectors>(shared_from_this());
+    _tcpConnectors = std::make_unique<TcpConnectors>(*this);
 
     _creatingInternalObjects=false;
     return EC_OK;
 }
 
 Reactor::~Reactor() {
-    LOG_VERBOSE() << "~Reactor";
-
     if (!_loop.data) {
         LOG_DEBUG() << "loop wasn't initialized";
         return;
@@ -240,6 +242,7 @@ Reactor::~Reactor() {
             &_loop,
             [](uv_handle_t* handle, void*) {
                 if (!uv_is_closing(handle)) {
+                    LOG_DEBUG() << uv_handle_type_name(uv_handle_get_type(handle)) << " " << handle;
                     handle->data = 0;
                     uv_close(handle, 0);
                 }

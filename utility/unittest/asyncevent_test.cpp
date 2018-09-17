@@ -23,7 +23,7 @@ void asyncevent_test() {
     Reactor::Ptr reactor = Reactor::create();
 
     AsyncEvent::Ptr e = AsyncEvent::create(
-        reactor,
+        *reactor,
         []() {
             cout << "event triggered in reactor thread" << endl;
         }

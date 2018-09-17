@@ -319,7 +319,7 @@ namespace beam
 			verify_test(db.DeleteState(rowLast1, rowLast1));
 			db.assert_valid();
 		}
-		
+
 		verify_test(!h);
 
 		tr.Commit();
@@ -808,7 +808,7 @@ namespace beam
 			const Height m_HeightTrg = 70;
 
 			MyClient() {
-				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+				m_pTimer = io::Timer::create(io::Reactor::get_Current());
 			}
 
 			virtual void OnConnectedSecure() override {
@@ -931,7 +931,7 @@ namespace beam
 
 
 			MyClient() {
-				m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+				m_pTimer = io::Timer::create(io::Reactor::get_Current());
 			}
 
 			virtual void OnConnectedSecure() override

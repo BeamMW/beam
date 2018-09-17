@@ -99,7 +99,7 @@ void P2P::cleanup_connection(StreamId streamId) {
 void P2P::on_start_server(TimerID) {
     io::Address listenTo(_settings.bindToIp, _settings.listenToPort);
     try {
-        _thisServer = io::TcpServer::create(_reactor, listenTo, BIND_THIS_MEMFN(on_stream_accepted));
+        _thisServer = io::TcpServer::create(*_reactor, listenTo, BIND_THIS_MEMFN(on_stream_accepted));
     } catch (const io::Exception e) {
         LOG_ERROR() << "tcp server error " << io::error_str(e.errorCode) << ", restarting in 1 second";
     }

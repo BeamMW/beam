@@ -26,7 +26,7 @@ public:
     using Callback = std::function<void(TcpStream::Ptr&& newStream, ErrorCode status)>;
 
     // TODO simplified API, will add more as soon as needed
-    static Ptr create(const Reactor::Ptr& reactor, Address bindAddress, Callback&& callback);
+    static Ptr create(Reactor& reactor, Address bindAddress, Callback&& callback);
 
 private:
     TcpServer(Callback&& callback);

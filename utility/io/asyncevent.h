@@ -24,7 +24,7 @@ public:
     using Callback = std::function<void()>;
 
     /// Creates async event object, throws on errors
-    static Ptr create(const Reactor::Ptr& reactor, Callback&& callback);
+    static Ptr create(Reactor& reactor, Callback&& callback);
 
     /// Posts the event. Can be triggered from any thread
     Result post();

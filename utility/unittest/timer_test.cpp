@@ -26,7 +26,7 @@ Reactor::Ptr reactor;
 
 void timer_test() {
     reactor = Reactor::create();
-    Timer::Ptr timer = Timer::create(reactor);
+    Timer::Ptr timer = Timer::create(*reactor);
     int countdown = 5;
 
     LOG_DEBUG() << "setting up one-shot timer";
@@ -79,7 +79,7 @@ void on_coarse_timer(uint64_t id) {
 void coarsetimer_test() {
     reactor = Reactor::create();
     ctimer = CoarseTimer::create(
-        reactor,
+        *reactor,
         50, //msec
         on_coarse_timer
     );

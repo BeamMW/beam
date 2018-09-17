@@ -46,7 +46,7 @@ void tcpserver_test() {
     try {
         reactor = Reactor::create();
         TcpServer::Ptr server = TcpServer::create(
-            reactor,
+            *reactor,
             Address(serverIp, serverPort),
             [](TcpStream::Ptr&& newStream, int errorCode) {
                 if (errorCode == 0) {
@@ -60,7 +60,7 @@ void tcpserver_test() {
             }
         );
 
-        timer = Timer::create(reactor);
+        timer = Timer::create(*reactor);
         timer->start(
             200,
             true,//false,

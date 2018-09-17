@@ -252,13 +252,13 @@ void WalletModel::run()
         std::unique_ptr<WalletSubscriber> subscriber;
 
         _reactor = Reactor::create();
-        async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), _reactor);
+        async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *_reactor);
 
         emit onStatus(getStatus());
         emit onTxStatus(_keychain->getTxHistory());
         emit onTxPeerUpdated(_keychain->getPeers());
 
-        _logRotateTimer = io::Timer::create(_reactor);
+        _logRotateTimer = io::Timer::create(*_reactor);
         _logRotateTimer->start(
             LOG_ROTATION_PERIOD, true,
             []() {

@@ -64,7 +64,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	//, m_Counter(0)
 	, m_Generator(m_Kdf)
 	, m_CoinsChecker(argc, argv)
-	, m_NewTimer(io::Timer::create(io::Reactor::get_Current().shared_from_this()))
+	, m_NewTimer(io::Timer::create(io::Reactor::get_Current()))
 {
 	m_Timeout = 0;
 }
@@ -106,8 +106,8 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 			for (auto& coin : m_Coins)
 			{
 				if (coin.m_IsValid && coin.m_Maturity < m_ID.m_Height)
-				{					
-					TxGenerator gen(m_Kdf);					
+				{
+					TxGenerator gen(m_Kdf);
 
 					LOG_INFO() << "Send coin #" << coin.m_Ind << "; input = " << coin.m_Input.m_Commitment << "; h = " << coin.m_Height << "; m_ID.m_Height = " << m_ID.m_Height;
 
@@ -140,7 +140,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 			{
 				LOG_INFO() << "Add to check commitment = " << coin.m_Input.m_Commitment;
 
-				coin.m_IsProcessChecking = true;				
+				coin.m_IsProcessChecking = true;
 				m_CoinsChecker.Check(CoinsChecker::Inputs{ coin.m_Input },
 					[&coin](bool isOk, Height maturity)
 					{

@@ -6,6 +6,7 @@ set(UV_SOURCES
     ${UV_SRC_DIR}/inet.c
     ${UV_SRC_DIR}/threadpool.c
     ${UV_SRC_DIR}/uv-common.c
+    ${UV_SRC_DIR}/uv-data-getter-setters.c
     ${UV_SRC_DIR}/version.c)
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
