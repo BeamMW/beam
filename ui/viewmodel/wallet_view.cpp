@@ -566,6 +566,11 @@ QString WalletViewModel::actualAvailable() const
     return BeamToString(_status.available - calcTotalAmount() - _change);
 }
 
+bool WalletViewModel::isEnoughMoney() const
+{
+    return _status.available >= calcTotalAmount() + _change;
+}
+
 QString WalletViewModel::change() const
 {
     return BeamToString(_change);
