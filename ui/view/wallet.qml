@@ -1167,6 +1167,7 @@ Item {
                 Action {
                     text: qsTr("delete")
                     icon.source: "qrc:///assets/icon-delete.svg"
+                    enabled: !!txContextMenu.transaction && txContextMenu.transaction.canDelete
                     onTriggered: {
                         deleteTransactionDialog.text = qsTr("The transaction will be deleted. This operation can not be undone");
                         deleteTransactionDialog.open();
@@ -1174,7 +1175,6 @@ Item {
                 }
                 Connections {
                     target: deleteTransactionDialog
-                    enabled: !!txContextMenu.transaction && !txContextMenu.transaction.canCancel
                     onAccepted: {
                         viewModel.deleteTx(txContextMenu.index);
                     }

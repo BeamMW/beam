@@ -85,6 +85,13 @@ bool TxObject::canCancel() const
         || _tx.m_status == beam::TxDescription::Pending;
 }
 
+bool TxObject::canDelete() const
+{
+    return _tx.m_status == beam::TxDescription::Failed
+        || _tx.m_status == beam::TxDescription::Completed
+        || _tx.m_status == beam::TxDescription::Cancelled;
+}
+
 void TxObject::setUserName(QString name)
 {
     if (_userName != name)
@@ -198,7 +205,10 @@ void WalletViewModel::cancelTx(int index)
 void WalletViewModel::deleteTx(int index)
 {
     auto *p = static_cast<TxObject*>(_tx[index]);
-    _model.async->deleteTx(p->_tx.m_txId);
+    if (p->canDelete())
+    {
+        _model.async->deleteTx(p->_tx.m_txId);
+    }
 }
 
 void WalletViewModel::generateNewAddress()
