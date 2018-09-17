@@ -108,6 +108,7 @@ class WalletViewModel : public QObject
     Q_PROPERTY(int nodeSyncProgress READ getNodeSyncProgress WRITE setNodeSyncProgress NOTIFY nodeSyncProgressChanged)
 
     Q_PROPERTY(QString actualAvailable READ actualAvailable NOTIFY actualAvailableChanged)
+    Q_PROPERTY(bool isEnoughMoney READ isEnoughMoney NOTIFY actualAvailableChanged)
     Q_PROPERTY(QString change READ change NOTIFY changeChanged)
 
     Q_PROPERTY(QString newReceiverAddr READ getNewReceiverAddr NOTIFY newReceiverAddrChanged)
@@ -154,6 +155,7 @@ public:
     void setNodeSyncProgress(int value);
 
     QString actualAvailable() const;
+    bool isEnoughMoney() const;
     QString change() const;
     QString getNewReceiverAddr() const;
     void setNewReceiverName(const QString& value);
