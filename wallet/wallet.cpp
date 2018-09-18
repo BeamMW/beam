@@ -287,7 +287,7 @@ namespace beam
         }
         else
         {
-            LOG_WARNING() << msg.m_txId << " Unexpected tx invitation ";
+            process_event(msg.m_txId, events::TxInvited{});
         }
     }
     
