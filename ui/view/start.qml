@@ -76,6 +76,8 @@ Item
             {
                 color: Style.marine
 
+                property Item defaultFocusItem: seed
+
                 SFText {
                     text: qsTr("Create new wallet")
                     color: Style.white
@@ -230,6 +232,8 @@ Item
             Rectangle
             {
                 color: Style.marine
+
+                property Item defaultFocusItem: localNodeButton
 
                 SFText {
                     text: qsTr("Setup node")
@@ -528,6 +532,9 @@ Item
             name: "open"
             PropertyChanges {target: startWizzardView; visible: false}
             PropertyChanges {target: open; visible: true}
+            StateChangeScript {
+                script: openPassword.forceActiveFocus(Qt.TabFocusReason);
+            }
         }
     ]
 }
