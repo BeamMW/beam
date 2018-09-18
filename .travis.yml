@@ -9,8 +9,6 @@ matrix:
       osx_image: xcode9.3
       before_install: 
         - export TZ=Etc/GMT-3
-        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
-        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - brew install boost qt5
         - export PATH=/usr/local/opt/qt/bin:$PATH
         - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
@@ -26,8 +24,6 @@ matrix:
       osx_image: xcode9.3
       before_install:
         - export TZ=Etc/GMT-3
-        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
-        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - brew install boost
         - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
         - export PATH=~/qt5-static/bin:$PATH
