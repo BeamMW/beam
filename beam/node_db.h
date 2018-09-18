@@ -43,6 +43,7 @@ public:
 			CfgChecksum,
 			MyID,
 			SyncTarget,
+			LoHorizon,
 		};
 	};
 

@@ -38,7 +38,6 @@ class NodeProcessor
 	void PruneOld();
 	void PruneAt(Height, bool bDeleteBody);
 	void DereferenceFossilBlock(uint64_t);
-	Height get_LoHorizon();
 
 	struct RollbackData;
 
@@ -84,6 +83,7 @@ public:
 		Merkle::Hash m_HistoryNext;
 		Difficulty m_DifficultyNext;
 		bool m_SubsidyOpen;
+		Height m_LoHorizon; // lowest accessible height
 
 	} m_Cursor;
 

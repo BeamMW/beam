@@ -103,7 +103,7 @@ Rectangle {
                             font.pixelSize: 12
                             color: readOnly ? Style.disable_text_color : Style.white
                             readOnly: localNodeRun.checked
-                            validator: RegExpValidator { regExp: /^(\s)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s)*$/ }
+                            validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                             text: viewModel.nodeAddress
                             Binding {
                                 target: viewModel
@@ -204,7 +204,7 @@ Rectangle {
                                     id: localNodeMiningThreads
                                     precision: 0
                                     showTicks: true
-                                    width: parent.width
+                                    Layout.fillWidth: true
                                     value: viewModel.localNodeMiningThreads
                                     to: {viewModel.coreAmount()}
                                     stepSize: 1
@@ -227,7 +227,7 @@ Rectangle {
                                     id: localNodeVerificationThreads
                                     precision: 0
                                     showTicks: true
-                                    width: parent.width
+                                    Layout.fillWidth: true
                                     value: viewModel.localNodeVerificationThreads
                                     to: {viewModel.coreAmount()}
                                     stepSize: 1
@@ -263,17 +263,16 @@ Rectangle {
                                         font.pixelSize: 12
                                         color: readOnly ? Style.disable_text_color : Style.white
                                         readOnly: !localNodeRun.checked
-                                        validator: RegExpValidator { regExp: /^(\s)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s)*$/ }
+                                        validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                     }
                                     
-                                    CustomButton {
+                                    PrimaryButton {
                                         Layout.fillWidth: true
                                         Layout.minimumHeight: 20
-                                        //Layout.minimumWidth: 120
-				                        text: "Add peer"
+                                        Layout.minimumWidth: 60
+				                        text: "Add"
                                         palette.button: "#708090"
                                         palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
-				                        icon.source: "qrc:///assets/icon-add.svg"
                                         enabled: newLocalNodePeer.acceptableInput && localNodeRun.checked
                                         onClicked: {
                                             viewModel.addLocalNodePeer(newLocalNodePeer.text.trim());
@@ -285,6 +284,7 @@ Rectangle {
                                 ListView {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
+                                    Layout.minimumWidth: 140
                                     model: viewModel.localNodePeers
                                     clip: true
                                     delegate: RowLayout {

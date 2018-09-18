@@ -174,6 +174,8 @@ void NodeProcessor::InitCursor()
 			m_DB.get_PredictedStatesHash(m_Cursor.m_History, sid);
 		else
 			ZeroObject(m_Cursor.m_History);
+
+		m_Cursor.m_LoHorizon = m_DB.ParamIntGetDef(NodeDB::ParamID::LoHorizon);
 	}
 	else
 		ZeroObject(m_Cursor);
@@ -184,8 +186,6 @@ void NodeProcessor::InitCursor()
 
 void NodeProcessor::EnumCongestions()
 {
-	Height hThreshold = get_LoHorizon();
-
 	// request all potentially missing data
 	NodeDB::WalkerState ws(m_DB);
 	for (m_DB.EnumTips(ws); ws.MoveNext(); )
@@ -231,7 +231,7 @@ void NodeProcessor::EnumCongestions()
 			id.m_Hash = s.m_Prev;
 		}
 
-		if (id.m_Height >= hThreshold)
+		if (id.m_Height >= m_Cursor.m_LoHorizon)
 		{
 			PeerID peer;
 			bool bPeer = m_DB.get_Peer(sid.m_Row, peer);
@@ -272,8 +272,6 @@ void NodeProcessor::TryGoUp()
 				break; // already at maximum (though maybe at different tip)
 		}
 
-		Height h0 = get_LoHorizon() + Rules::HeightGenesis;
-
 		// Calculate the path
 		std::vector<uint64_t> vPath;
 		while (sidTrg.m_Row != m_Cursor.m_Sid.m_Row)
@@ -308,9 +306,6 @@ void NodeProcessor::TryGoUp()
 				bPathOk = false;
 				break;
 			}
-
-			if (m_Cursor.m_Sid.m_Height > h0)
-				PruneAt(m_Cursor.m_Sid.m_Height - Rules::get().MaxRollbackHeight, false);
 		}
 
 		if (bPathOk)
@@ -326,49 +321,49 @@ void NodeProcessor::TryGoUp()
 
 void NodeProcessor::PruneOld()
 {
-	Height h = m_Cursor.m_Sid.m_Height;
-	if (h <= m_Horizon.m_Branching)
-		return;
-	h -= m_Horizon.m_Branching;
-
-	while (true)
+	if (m_Cursor.m_Sid.m_Height > m_Horizon.m_Branching + Rules::HeightGenesis - 1)
 	{
-		uint64_t rowid;
-		{
-			NodeDB::WalkerState ws(m_DB);
-			m_DB.EnumTips(ws);
-			if (!ws.MoveNext())
-				break;
-			if (ws.m_Sid.m_Height >= h)
-				break;
+		Height h = m_Cursor.m_Sid.m_Height - m_Horizon.m_Branching;
 
-			rowid = ws.m_Sid.m_Row;
+		while (true)
+		{
+			uint64_t rowid;
+			{
+				NodeDB::WalkerState ws(m_DB);
+				m_DB.EnumTips(ws);
+				if (!ws.MoveNext())
+					break;
+				if (ws.m_Sid.m_Height >= h)
+					break;
+
+				rowid = ws.m_Sid.m_Row;
+			}
+
+			do
+			{
+				if (!m_DB.DeleteState(rowid, rowid))
+					break;
+			} while (rowid);
 		}
+	}
 
-		do
+	if (m_Cursor.m_Sid.m_Height > m_Horizon.m_Schwarzschild + Rules::HeightGenesis - 1)
+	{
+		Height h = m_Cursor.m_Sid.m_Height - m_Horizon.m_Schwarzschild;
+
+		if (h > m_Cursor.m_LoHorizon)
+			h = m_Cursor.m_LoHorizon;
+
+		AdjustFossilEnd(h);
+
+		for (Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1); ; )
 		{
-			if (!m_DB.DeleteState(rowid, rowid))
+			if (++hFossil >= h)
 				break;
-		} while (rowid);
-	}
 
-	if (m_Horizon.m_Schwarzschild > m_Horizon.m_Branching)
-	{
-		Height hExtra = m_Horizon.m_Schwarzschild - m_Horizon.m_Branching;
-		if (h <= hExtra)
-			return;
-		h -= hExtra;
-	}
-
-	AdjustFossilEnd(h);
-
-	for (Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1); ; )
-	{
-		if (++hFossil >= h)
-			break;
-
-		PruneAt(hFossil, true);
-		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
+			PruneAt(hFossil, true);
+			m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
+		}
 	}
 }
 
@@ -536,6 +531,14 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				m_DB.SetStateRollback(sid.m_Row, NodeDB::Blob(&zero, 1));
 
 			}
+
+			assert(m_Cursor.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
+			if (m_Cursor.m_Sid.m_Height - m_Cursor.m_LoHorizon > Rules::get().MaxRollbackHeight)
+			{
+				m_Cursor.m_LoHorizon = m_Cursor.m_Sid.m_Height - Rules::get().MaxRollbackHeight;
+				m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Cursor.m_LoHorizon, NULL);
+			}
+
 		}
 		else
 		{
@@ -960,21 +963,6 @@ void NodeProcessor::Rollback()
 	OnRolledBack();
 }
 
-Height NodeProcessor::get_LoHorizon()
-{
-	// Minimum height of a state that may be interesting
-	Height hRet = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1) + 1;
-
-	if (m_Cursor.m_Sid.m_Height >= Rules::get().MaxRollbackHeight + Rules::HeightGenesis)
-	{
-		Height h = m_Cursor.m_Sid.m_Height - Rules::get().MaxRollbackHeight + 1;
-		if (hRet < h)
-			hRet = h;
-	}
-
-	return hRet;
-}
-
 NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id)
 {
 	s.get_ID(id);
@@ -1008,7 +996,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		return DataStatus::Invalid;
 	}
 
-	if (s.m_Height < get_LoHorizon())
+	if (s.m_Height < m_Cursor.m_LoHorizon)
 		return DataStatus::Unreachable;
 
 	if (m_DB.StateFindSafe(id))
@@ -1057,7 +1045,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 		return DataStatus::Rejected;
 	}
 
-	if (id.m_Height < get_LoHorizon())
+	if (id.m_Height < m_Cursor.m_LoHorizon)
 		return DataStatus::Unreachable;
 
 	LOG_INFO() << id << " Block received";
@@ -1629,6 +1617,7 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 		m_DB.MoveFwd(sid);
 	}
 
+	m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &id.m_Height, NULL);
 	InitCursor();
 
 	if (body.m_SubsidyClosing)

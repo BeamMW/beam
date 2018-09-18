@@ -516,14 +516,11 @@ void Node::Processor::AdjustFossilEnd(Height& h)
 {
 	if (get_ParentObj().m_Compressor.m_bEnabled)
 	{
-		// last macroblock
+		// blocks above the oldest macroblock should be accessuble
 		NodeDB::WalkerState ws(get_DB());
-		get_DB().EnumMacroblocks(ws);
-
-		Height h1 = ws.MoveNext() ? ws.m_Sid.m_Height : 0;
-		if (h > h1)
-			h = h1;
-
+		for (get_DB().EnumMacroblocks(ws); ws.MoveNext(); )
+			if (h > ws.m_Sid.m_Height)
+				h = ws.m_Sid.m_Height;
 	}
 }
 
@@ -1348,7 +1345,7 @@ bool Node::SyncCycle(Peer& p)
 	if (Peer::Flags::DontSync & p.m_Flags)
 		return false;
 
-	if (p.m_Tip.m_Height < m_pSync->m_Trg.m_Height + Rules::get().MaxRollbackHeight)
+	if (p.m_Tip.m_Height < m_pSync->m_Trg.m_Height/* + Rules::get().MaxRollbackHeight*/)
 		return false;
 
 	proto::MacroblockGet msg;

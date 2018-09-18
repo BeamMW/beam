@@ -30,12 +30,6 @@
 #include <random>
 #include <iomanip>
 
-namespace
-{
-    const char* ReceiverPrefix = "[Receiver] ";
-    const char* SenderPrefix = "[Sender] ";
-}
-
 namespace std
 {
     string to_string(const beam::WalletID& id)
@@ -59,7 +53,7 @@ namespace beam
     std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount)
     {
         const string_view beams{" beams " };
-        const string_view chattles{ " mils " };
+        const string_view chattles{ " groth " };
         auto width = os.width();
 
         if (amount.m_showPoint)
@@ -263,7 +257,7 @@ namespace beam
         auto it = m_negotiators.find(msg.m_txId);
         if (it == m_negotiators.end())
         {
-            LOG_VERBOSE() << "Received tx invitation " << msg.m_txId;
+            LOG_INFO() << msg.m_txId << " Received tx invitation ";
             bool sender = !msg.m_send;
 
             ByteBuffer messageBuffer;
@@ -295,33 +289,26 @@ namespace beam
             }
             else
             {
+                LOG_ERROR() << msg.m_txId << " Failed to process invitation";
                 r->processEvent(events::TxFailed{ true });
             }
         }
         else
         {
-            LOG_DEBUG() << ReceiverPrefix << "Unexpected tx invitation " << msg.m_txId;
+            process_event(msg.m_txId, events::TxInvited{});
         }
     }
     
     void Wallet::handle_tx_message(const WalletID& receiver, ConfirmTransaction&& data)
     {
-        LOG_DEBUG() << ReceiverPrefix << "Received sender tx confirmation " << data.m_txId;
-        if (!process_event(data.m_txId, events::TxConfirmationCompleted{ data }))
-        {
-            LOG_DEBUG() << ReceiverPrefix << "Unexpected sender tx confirmation " << data.m_txId;
-            // TODO state transition
-            // m_network->close_connection(from);
-        }
+        LOG_DEBUG() << data.m_txId << " Received sender tx confirmation";
+        process_event(data.m_txId, events::TxConfirmationCompleted{ data });
     }
 
     void Wallet::handle_tx_message(const WalletID& receiver, ConfirmInvitation&& data)
     {
-        LOG_VERBOSE() << SenderPrefix << "Received tx confirmation " << data.m_txId;
-        if (!process_event(data.m_txId, events::TxInvitationCompleted{ data }))
-        {
-            LOG_DEBUG() << SenderPrefix << "Unexpected tx confirmation " << data.m_txId;
-        }
+        LOG_DEBUG() << data.m_txId << " Received tx confirmation";
+        process_event(data.m_txId, events::TxInvitationCompleted{ data });
     }
 
     void Wallet::handle_tx_message(const WalletID& receiver, wallet::TxRegistered&& data)
@@ -528,7 +515,7 @@ namespace beam
     {
         vector<Coin> mined;
         auto currentHeight = m_keyChain->getCurrentHeight();
-        beam:Height lastKnownCoinHeight = currentHeight;
+        Height lastKnownCoinHeight = currentHeight;
         for (auto& minedCoin : msg.m_Entries)
         {
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
@@ -795,7 +782,7 @@ namespace beam
 
     void Wallet::register_tx(const TxID& txId, Transaction::Ptr data)
     {
-        LOG_VERBOSE() << ReceiverPrefix << "sending tx for registration";
+        LOG_VERBOSE() << txId << " sending tx for registration";
         TxBase::Context ctx;
         assert(data->IsValid(ctx));
         m_reg_requests.push_back(make_pair(txId, data));

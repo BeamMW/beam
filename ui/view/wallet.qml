@@ -389,8 +389,10 @@ Item {
                             validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
                             selectByMouse: true
 
+                            placeholderText: qsTr("Please specify contact")
+
                             onTextChanged : {
-                                receiverAddressError.visible = !viewModel.isValidReceiverAddress(receiverAddrInput.text)
+                                receiverAddressError.visible = receiverAddrInput.text.length > 0 && !viewModel.isValidReceiverAddress(receiverAddrInput.text)
                             }
                         }
 
@@ -399,20 +401,8 @@ Item {
                             id: receiverAddressError
                             color: Style.validator_color
                             font.pixelSize: 10
-                            text: "Invalid address"
-                        }
-
-                        Item {
-                            Layout.minimumHeight: 16
-                            Layout.fillWidth: true
-
-                            SFText {
-                                text: "Please specify contact"
-                                color: Style.validator_color
-                                font.pixelSize: 14
-                                font.italic: true
-                                visible: !receiverAddrInput.acceptableInput
-                            }
+                            text: qsTr("Invalid address")
+                            visible: false
                         }
 
                         SFText {
@@ -476,7 +466,7 @@ Item {
                                         color: Style.validator_color
                                         font.pixelSize: 14
                                         font.italic: true
-                                        visible: viewModel.actualAvailable < 0
+                                        visible: !viewModel.isEnoughMoney
                                     }
                                 }
 
@@ -705,9 +695,7 @@ Item {
                     palette.buttonText: Style.marine
                     palette.button: Style.heliotrope
                     icon.source: "qrc:///assets/icon-send.svg"
-                    // TODO actualAvailable is string
-                    //enabled: {viewModel.actualAvailable >= 0 && amount_input.acceptableInput && receiverAddrInput.acceptableInput}
-                    enabled: {amount_input.acceptableInput && receiverAddrInput.acceptableInput }
+                    enabled: {viewModel.isEnoughMoney && amount_input.acceptableInput && receiverAddrInput.acceptableInput }
                     onClicked: {
                         if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
                             var message = "You are about to send %1 to address %2";
@@ -1019,7 +1007,7 @@ Item {
 
             TableViewColumn {
                 role: "amount"
-                title: qsTr("Amount, BEAM")
+                title: qsTr("Amount")
                 width: 200 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
                 movable: false
@@ -1101,7 +1089,7 @@ Item {
                             anchors.rightMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 10
-                        /*	CustomToolButton {
+                        /*    CustomToolButton {
                                 visible: styleData.row >= 0 && viewModel.transactions[styleData.row].canCancel
                                 icon.source: "qrc:///assets/icon-cancel.svg"
                                 ToolTip.text: qsTr("Cancel transaction")
@@ -1167,6 +1155,7 @@ Item {
                 Action {
                     text: qsTr("delete")
                     icon.source: "qrc:///assets/icon-delete.svg"
+                    enabled: !!txContextMenu.transaction && txContextMenu.transaction.canDelete
                     onTriggered: {
                         deleteTransactionDialog.text = qsTr("The transaction will be deleted. This operation can not be undone");
                         deleteTransactionDialog.open();
@@ -1174,7 +1163,6 @@ Item {
                 }
                 Connections {
                     target: deleteTransactionDialog
-                    enabled: !!txContextMenu.transaction && !txContextMenu.transaction.canCancel
                     onAccepted: {
                         viewModel.deleteTx(txContextMenu.index);
                     }
@@ -1197,9 +1185,14 @@ Item {
                         color: styleData.alternate ? "transparent" : Style.light_navy
                     }
                     Item {
-                        visible: !rowItem.collapsed
+                        id: txDetails
+                        height: 0
+                        visible: height > 0
                         width: parent.width
-                        height: 200
+                        clip: true
+
+                        property int maximumHeight: 200
+
                         Rectangle {
                             anchors.fill: parent
                             color: Style.bright_sky_blue
@@ -1311,7 +1304,13 @@ Item {
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     onClicked: {
-                        if (mouse.button === Qt.RightButton && styleData.row !== undefined && styleData.row >=0)
+                        if (styleData.row === undefined 
+                         || styleData.row < 0
+                         || styleData.row >= viewModel.transactions.length)
+                        {
+                            return;
+                        }
+                        if (mouse.button === Qt.RightButton )
                         {
                             txContextMenu.index = styleData.row;
                             txContextMenu.transaction = viewModel.transactions[styleData.row];
@@ -1319,9 +1318,62 @@ Item {
                         }
                         else if (mouse.button === Qt.LeftButton && !!viewModel.transactions[styleData.row])
                         {
+                            if (parent.collapsed)
+                            {
+                                expand.start()
+                            }
+                            else 
+                            {
+                                collapse.start()
+                            }
                             parent.collapsed = !parent.collapsed;
-                            parent.height = parent.collapsed? transactionsView.rowHeight : transactionsView.rowHeight + 200;
                         }
+                    }
+                }
+
+                ParallelAnimation {
+                    id: expand
+                    running: false
+
+                    property int expandDuration: 200
+
+                    NumberAnimation {
+                        target: rowItem
+                        easing.type: Easing.Linear
+                        property: "height"
+                        to: transactionsView.rowHeight + txDetails.maximumHeight
+                        duration: expand.expandDuration
+                    }
+
+                    NumberAnimation {
+                        target: txDetails
+                        easing.type: Easing.Linear
+                        property: "height"
+                        to: txDetails.maximumHeight
+                        duration: expand.expandDuration
+                    }
+                }
+
+                ParallelAnimation {
+                    id: collapse
+                    running: false
+
+                    property int collapseDuration: 200
+
+                    NumberAnimation {
+                        target: rowItem
+                        easing.type: Easing.Linear
+                        property: "height"
+                        to: transactionsView.rowHeight
+                        duration: collapse.collapseDuration
+                    }
+
+                    NumberAnimation {
+                        target: txDetails
+                        easing.type: Easing.Linear
+                        property: "height"
+                        to: 0
+                        duration: collapse.collapseDuration
                     }
                 }
             }
