@@ -19,7 +19,7 @@
 #include <iostream>
 #include <assert.h>
 
-#define LOG_VERBOSE_ENABLED 1
+#define LOG_VERBOSE_ENABLED 0
 #include "utility/logger.h"
 
 using namespace beam;
@@ -50,7 +50,7 @@ int calc_errors() {
     return retCode;
 }
 
-static const char DOMAIN_NAME[] = "beam-mw.com";
+static const char DOMAIN_NAME[] = "example.com";
 
 void on_recv(ErrorCode what, void* data, size_t size) {
     if (data && size) {
@@ -115,6 +115,7 @@ int tcpclient_test() {
         LOG_DEBUG() << "reactor stopped";
 
         reactor.reset();
+        theStream.reset();
     }
     catch (const Exception& e) {
         LOG_ERROR() << e.what();
@@ -163,6 +164,7 @@ int tcpclient_writecancel_test() {
         LOG_DEBUG() << "reactor stopped";
 
         reactor.reset();
+        theStream.reset();
     }
     catch (const Exception& e) {
         LOG_ERROR() << e.what();
@@ -170,6 +172,10 @@ int tcpclient_writecancel_test() {
 
     return calc_errors();
 }
+
+void on_connected_dummy(uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
+    LOG_DEBUG() << "on_connected_dummy: " << error_str(status);
+};
 
 int tcpclient_unclosed_test() {
     try {
@@ -183,7 +189,7 @@ int tcpclient_unclosed_test() {
 
 
         for (uint64_t i=0; i<4; ++i) {
-            auto result = reactor->tcp_connect(a, i, on_connected_writecancel, 10000);
+            auto result = reactor->tcp_connect(a, i, on_connected_dummy, 10000);
             if (!result) {
                 LOG_ERROR() << error_descr(result.error());
                 ++errorlevel;
@@ -202,6 +208,7 @@ int tcpclient_unclosed_test() {
         LOG_DEBUG() << "reactor stopped";
 
         reactor.reset();
+        theStream.reset();
     }
     catch (const Exception& e) {
         LOG_ERROR() << e.what();
