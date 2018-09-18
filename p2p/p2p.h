@@ -39,8 +39,8 @@ public:
     bool send_message(StreamId peer, const SerializedMsg& msg);
 
     void update_tip(uint32_t newTip);
-    void ban_peer(StreamId id, Timestamp until);
-    void ban_ip(uint32_t ip, Timestamp until);
+    void ban_peer(StreamId id, Timestamp32 until);
+    void ban_ip(uint32_t ip, Timestamp32 until);
 
 private:
     // IErrorHandler overrides

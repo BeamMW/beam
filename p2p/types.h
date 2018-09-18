@@ -24,7 +24,7 @@ namespace beam {
 using PeerId = uint64_t;
 
 /// Seconds since the epoch
-using Timestamp = uint32_t;
+using Timestamp32 = uint32_t;
 
 /// ID of connected stream, consists of address and state
 struct StreamId {

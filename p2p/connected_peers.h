@@ -46,7 +46,7 @@ private:
     struct Info {
         Connection::Ptr conn;
         PeerState ps;
-        Timestamp lastUpdated=0;
+        Timestamp32 lastUpdated=0;
         bool knownServersChanged=false;
     };
 
