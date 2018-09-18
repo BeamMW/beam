@@ -278,6 +278,7 @@ Item {
                 font.pixelSize: 14
                 Layout.minimumHeight: 20
                 color: Style.white
+                focus: true
                 text: viewModel.newReceiverName
             }
 
@@ -1380,6 +1381,9 @@ Item {
             PropertyChanges {target: wallet_layout; visible: false}
             PropertyChanges {target: receive_layout; visible: true}
             PropertyChanges {target: myAddressName; text: ""}
+            StateChangeScript {
+                script: myAddressName.forceActiveFocus(Qt.TabFocusReason);
+            }
         }
     ]
 }
