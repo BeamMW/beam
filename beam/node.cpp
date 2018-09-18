@@ -1114,7 +1114,7 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 
 	if (m_This.m_pSync && (Flags::SyncPending & m_Flags))
 	{
-		assert(m_This.m_pSync && m_This.m_pSync->m_RequestsPending);
+		assert(m_This.m_pSync->m_RequestsPending);
 		m_Flags &= ~Flags::SyncPending;
 		m_Flags |= Flags::DontSync;
 		m_This.m_pSync->m_RequestsPending--;
@@ -1226,9 +1226,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 			Send(proto::MacroblockGet());
 	}
 	else
-		if (!(Flags::DontSync & m_Flags) && !m_This.m_pSync->m_RequestsPending && nProvenWork)
-			m_This.SyncCycle(*this);
-
+		m_This.SyncCycle(*this);
 }
 
 void Node::Peer::OnMsg(proto::ProofChainWork&& msg)
@@ -1244,7 +1242,7 @@ void Node::Peer::OnMsg(proto::ProofChainWork&& msg)
 
 	m_Flags |= Flags::ProvenWork;
 
-	if (m_This.m_pSync && !m_This.m_pSync->m_bDetecting && !m_This.m_pSync->m_RequestsPending)
+	if (m_This.m_pSync)
 		m_This.SyncCycle();
 }
 
@@ -1330,7 +1328,9 @@ void Node::OnSyncTimer()
 
 void Node::SyncCycle()
 {
-	assert(m_pSync && !m_pSync->m_bDetecting && !m_pSync->m_RequestsPending);
+	assert(m_pSync);
+	if (m_pSync->m_bDetecting || m_pSync->m_RequestsPending)
+		return;
 
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
 		if (SyncCycle(*it))
@@ -1339,9 +1339,11 @@ void Node::SyncCycle()
 
 bool Node::SyncCycle(Peer& p)
 {
-	assert(m_pSync && !m_pSync->m_bDetecting && !m_pSync->m_RequestsPending);
-	assert(!(Peer::Flags::SyncPending & p.m_Flags));
+	assert(m_pSync);
+	if (m_pSync->m_bDetecting || m_pSync->m_RequestsPending)
+		return false;
 
+	assert(!(Peer::Flags::SyncPending & p.m_Flags));
 	if (Peer::Flags::DontSync & p.m_Flags)
 		return false;
 
