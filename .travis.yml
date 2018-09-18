@@ -9,7 +9,8 @@ matrix:
       osx_image: xcode9.3
       before_install: 
         - export TZ=Etc/GMT-3
-        - brew install boost qt5
+        - brew upgrade boost cmake
+        - brew install qt5
         - export PATH=/usr/local/opt/qt/bin:$PATH
         - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
@@ -24,7 +25,7 @@ matrix:
       osx_image: xcode9.3
       before_install:
         - export TZ=Etc/GMT-3
-        - brew install boost
+        - brew upgrade boost cmake
         - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
         - export PATH=~/qt5-static/bin:$PATH
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
