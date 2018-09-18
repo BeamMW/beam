@@ -1428,7 +1428,7 @@ Item {
             PropertyChanges {target: wallet_layout; visible: false}
             PropertyChanges {target: send_layout; visible: true}
             PropertyChanges {target: amount_input; text: ""}
-             StateChangeScript {
+            StateChangeScript {
                 script: receiverAddrInput.forceActiveFocus(Qt.TabFocusReason);
             }
         },

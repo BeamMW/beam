@@ -63,6 +63,8 @@ Button {
 		samples: 9
 		color: "white"
 		source: rect
-		visible: control.visualFocus || control.hovered
+        // TODO (roman.strilets) maybe should using control.focus property
+        // look at https://doc.qt.io/qt-5.9/qml-qtquick-controls2-control.html#visualFocus-prop
+		visible: /*control.visualFocus*/control.activeFocus || control.hovered
 	}
 }
