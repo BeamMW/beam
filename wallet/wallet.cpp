@@ -250,7 +250,7 @@ namespace beam
         auto it = m_negotiators.find(msg.m_txId);
         if (it == m_negotiators.end())
         {
-            LOG_VERBOSE() << "Received tx invitation " << msg.m_txId;
+            LOG_INFO() << msg.m_txId << " Received tx invitation ";
             bool sender = !msg.m_send;
 
             ByteBuffer messageBuffer;
@@ -282,12 +282,13 @@ namespace beam
             }
             else
             {
+                LOG_ERROR() << msg.m_txId << " Failed to process invitation";
                 r->processEvent(events::TxFailed{ true });
             }
         }
         else
         {
-            LOG_WARNING() << msg.m_txId << " Unexpected tx invitation ";
+            process_event(msg.m_txId, events::TxInvited{});
         }
     }
     
