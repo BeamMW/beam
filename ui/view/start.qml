@@ -14,12 +14,16 @@ Item
 
     StartViewModel { id: viewModel }
 
-
     StackView {
         id: startWizzardView
         anchors.fill: parent
         initialItem: start
-
+        focus: true
+        onCurrentItemChanged: {
+            if (currentItem && currentItem.defaultFocusItem) {
+                currentItem.defaultFocusItem.focus = true;
+            }
+        }
         Component {
             id: start
             Rectangle
@@ -31,6 +35,8 @@ Item
                     anchors.fill: parent
                     source: "qrc:///assets/bg.png"
                 }
+
+                property Item defaultFocusItem: createNewWallet
 
                 Image {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -47,7 +53,6 @@ Item
                     anchors.top: parent.top
 
                     spacing: 30
-
                     // DefaultButton {
                     //     text: qsTr("restore wallet from file")
                     // }
@@ -57,8 +62,8 @@ Item
                     // }
 
                     PrimaryButton {
+                        id: createNewWallet
                         text: qsTr("create new wallet")
-
                         onClicked: startWizzardView.push(nodeSetup);
                     }
                 }
