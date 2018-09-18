@@ -1244,7 +1244,7 @@ void Node::Peer::OnMsg(proto::ProofChainWork&& msg)
 
 	m_Flags |= Flags::ProvenWork;
 
-	if (m_This.m_pSync && !m_This.m_pSync->m_bDetecting)
+	if (m_This.m_pSync && !m_This.m_pSync->m_bDetecting && !m_This.m_pSync->m_RequestsPending)
 		m_This.SyncCycle();
 }
 
