@@ -26,8 +26,7 @@ using namespace beam;
 using namespace beam::io;
 using namespace std;
 
-Reactor::Ptr reactor;
-TcpStream::Ptr theStream;
+std::vector<TcpStream::Ptr> streams;
 
 uint64_t tag_ok = 100;
 uint64_t tag_refused = 101;
@@ -70,10 +69,11 @@ void on_connected (uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode st
     if (newStream) {
         assert(status == EC_OK);
         if (tag != tag_ok) ++errorlevel;
-        theStream = move(newStream);
-        theStream->enable_read(on_recv);
+        newStream->enable_read(on_recv);
         static const char* request = "GET / HTTP/1.0\r\n\r\n";
-        theStream->write(request, strlen(request));
+        newStream->write(request, strlen(request));
+        streams.emplace_back(move(newStream));
+
     } else {
         LOG_DEBUG() << "ERROR: " << error_str(status);
         if (status == EC_ECONNREFUSED && tag != tag_refused) ++errorlevel;
@@ -88,7 +88,7 @@ int tcpclient_test() {
     config.set<Config::Int>("io.connect_timer_resolution", 1);
     reset_global_config(std::move(config));
     try {
-        reactor = Reactor::create();
+        Reactor::Ptr reactor = Reactor::create();
 
         Address a;
         // NOTE that this is blocked resolver, TODO add async resolver to Reactor
@@ -104,7 +104,7 @@ int tcpclient_test() {
 
         Timer::Ptr timer = Timer::create(*reactor);
         int x = 15;
-        timer->start(200, true, [&x]{
+        timer->start(200, true, [&x, &reactor]{
             if (--x == 0 || callbackCount == 0) {
                 reactor->stop();
             }
@@ -114,8 +114,8 @@ int tcpclient_test() {
         reactor->run();
         LOG_DEBUG() << "reactor stopped";
 
-        reactor.reset();
-        theStream.reset();
+        streams.clear();
+        LOG_DEBUG() << TRACE(reactor.use_count());
     }
     catch (const Exception& e) {
         LOG_ERROR() << e.what();
@@ -129,10 +129,8 @@ void on_connected_writecancel(uint64_t tag, unique_ptr<TcpStream>&& newStream, E
     if (newStream) {
         assert(status == EC_OK);
         if (tag != tag_ok) ++errorlevel;
-        theStream = move(newStream);
         static const char* request = "GET / HTTP/1.0\r\n\r\n";
-        theStream->write(request, strlen(request));
-        theStream.reset();
+        newStream->write(request, strlen(request));
         writecancelInProgress=0;
     } else {
         LOG_DEBUG() << "ERROR: " << error_str(status);
@@ -142,7 +140,7 @@ void on_connected_writecancel(uint64_t tag, unique_ptr<TcpStream>&& newStream, E
 int tcpclient_writecancel_test() {
     try {
         writecancelInProgress=1;
-        reactor = Reactor::create();
+        Reactor::Ptr reactor = Reactor::create();
 
         Address a;
         // NOTE that this is blocked resolver, TODO add async resolver to Reactor
@@ -153,7 +151,7 @@ int tcpclient_writecancel_test() {
 
         Timer::Ptr timer = Timer::create(*reactor);
         int x = 15;
-        timer->start(200, true, [&x]{
+        timer->start(200, true, [&x, &reactor]{
             if (--x == 0 || !writecancelInProgress) {
                 reactor->stop();
             }
@@ -163,8 +161,9 @@ int tcpclient_writecancel_test() {
         reactor->run();
         LOG_DEBUG() << "reactor stopped";
 
+        LOG_DEBUG() << TRACE(reactor.use_count());
         reactor.reset();
-        theStream.reset();
+        streams.clear();
     }
     catch (const Exception& e) {
         LOG_ERROR() << e.what();
@@ -179,7 +178,7 @@ void on_connected_dummy(uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCo
 
 int tcpclient_unclosed_test() {
     try {
-        reactor = Reactor::create();
+        Reactor::Ptr reactor = Reactor::create();
 
         //Address a = Address::localhost().port(80);
         Address a;
@@ -188,7 +187,7 @@ int tcpclient_unclosed_test() {
         a.port(80);
 
 
-        for (uint64_t i=0; i<4; ++i) {
+        for (uint64_t i=0; i<9; ++i) {
             auto result = reactor->tcp_connect(a, i, on_connected_dummy, 10000);
             if (!result) {
                 LOG_ERROR() << error_descr(result.error());
@@ -198,7 +197,7 @@ int tcpclient_unclosed_test() {
 
 
         Timer::Ptr timer = Timer::create(*reactor);
-        timer->start(6, false, []{
+        timer->start(6, false, [&reactor]{
             reactor->stop();
         });
 
@@ -207,8 +206,7 @@ int tcpclient_unclosed_test() {
         reactor->run();
         LOG_DEBUG() << "reactor stopped";
 
-        reactor.reset();
-        theStream.reset();
+        streams.clear();
     }
     catch (const Exception& e) {
         LOG_ERROR() << e.what();
@@ -224,8 +222,8 @@ int main() {
 #endif
     auto logger = Logger::create(logLevel, logLevel);
     int retCode = 0;
-    retCode += tcpclient_test();
-    retCode += tcpclient_writecancel_test();
+    //retCode += tcpclient_test();
+    //retCode += tcpclient_writecancel_test();
     retCode += tcpclient_unclosed_test();
     return retCode;
 }

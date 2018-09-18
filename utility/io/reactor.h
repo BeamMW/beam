@@ -26,8 +26,8 @@ namespace beam { namespace io {
 
 class TcpStream;
 class CoarseTimer;
-
 class TcpConnectors;
+class TcpShutdowns;
 
 class Reactor : public std::enable_shared_from_this<Reactor> {
 public:
@@ -85,9 +85,6 @@ public:
 private:
     /// Ctor. private and called by create()
     Reactor();
-
-    // called by create()returns error code
-    ErrorCode initialize();
 
     /// Pollable objects' base
     struct Object {
@@ -164,14 +161,13 @@ private:
     uv_async_t _stopEvent;
     MemPool<uv_handle_t, sizeof(Handles)> _handlePool;
     MemPool<WriteRequest, sizeof(WriteRequest)> _writeRequestsPool;
-    MemPool<uv_shutdown_t, sizeof(uv_shutdown_t)> _shutdownRequestsPool;
-    std::unordered_set<uv_shutdown_t*> _shutdownRequests;
-    std::unordered_map<uv_shutdown_t*, BufferChain> _unsent;
     bool _creatingInternalObjects=false;
 
     std::unique_ptr<TcpConnectors> _tcpConnectors;
+    std::unique_ptr<TcpShutdowns> _tcpShutdowns;
 
     friend class TcpConnectors;
+    friend class TcpShutdowns;
     friend class AsyncEvent;
     friend class Timer;
     friend class TcpServer;

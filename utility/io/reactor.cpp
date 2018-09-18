@@ -99,7 +99,7 @@ public:
                 TcpConnectors* tcpConnectors = reinterpret_cast<TcpConnectors*>(request->data);
                 ConnectRequest* cr = static_cast<ConnectRequest*>(request);
                 if (errorCode == UV_ECANCELED) {
-                    tcpConnectors->_cancelledConnectRequests.erase(static_cast<ConnectRequest*>(request));
+                    tcpConnectors->_cancelledConnectRequests.erase(cr);
                 } else {
                     tcpConnectors->connect_callback(cr->tag, (uv_handle_t*)request->handle, cr->callback, (ErrorCode)errorCode);
                 }
@@ -109,6 +109,8 @@ public:
         );
 
         if (errorCode) {
+            _connectRequestsPool.release(cr);
+            if (_connectTimer) _connectTimer->cancel(tag);
             _connectRequests.erase(tag);
             return make_unexpected(errorCode);
         }
@@ -175,30 +177,75 @@ private:
     std::unique_ptr<CoarseTimer> _connectTimer;
 };
 
+class TcpShutdowns {
+public:
+    explicit TcpShutdowns(Reactor& r) :
+        _reactor(r),
+        _shutdownRequestsPool(config().get_int("io.shutdown_pool_size", 16, 0, 512))
+    {}
+
+    void cancel_all() {
+        for (uv_shutdown_t* sr : _shutdownRequests) {
+            uv_handle_t* h = (uv_handle_t*)(sr->handle);
+            _reactor.async_close(h);
+        }
+    }
+
+    void shutdown_tcpstream(Reactor::Object* o, BufferChain&& unsent) {
+        o->_handle->data = 0;
+
+        uv_shutdown_t* req = _shutdownRequestsPool.alloc();
+        req->data = this;
+
+        _unsent[req] = std::move(unsent);
+
+        uv_shutdown(
+            req,
+            (uv_stream_t*)o->_handle,
+            [](uv_shutdown_t* req, int status) {
+                if (status != 0 && status != UV_ECANCELED) {
+                    LOG_DEBUG() << "stream shutdown failed, code=" << error_str((ErrorCode)status);
+                }
+                TcpShutdowns* self = reinterpret_cast<TcpShutdowns*>(req->data);
+                if (self) {
+                    uv_handle_t* req_handle = (uv_handle_t*)req->handle;
+                    self->_reactor.async_close(req_handle);
+                    self->_shutdownRequests.erase(req);
+                    self->_shutdownRequestsPool.release(req);
+                    self->_unsent.erase(req);
+                }
+            }
+        );
+
+        o->_handle = 0;
+        o->_reactor.reset();
+    }
+
+private:
+    Reactor& _reactor;
+    MemPool<uv_shutdown_t, sizeof(uv_shutdown_t)> _shutdownRequestsPool;
+    std::unordered_set<uv_shutdown_t*> _shutdownRequests;
+    std::unordered_map<uv_shutdown_t*, BufferChain> _unsent;
+};
+
 Reactor::Ptr Reactor::create() {
     struct make_shared_enabler : public Reactor {};
-    Reactor::Ptr ptr = std::make_shared<make_shared_enabler>();
-    ErrorCode errorCode = ptr->initialize();
-    IO_EXCEPTION_IF(errorCode);
-    return ptr;
+    return std::make_shared<make_shared_enabler>();
 }
 
 Reactor::Reactor() :
     _handlePool(config().get_int("io.handle_pool_size", 256, 0, 65536)),
-    _writeRequestsPool(config().get_int("io.write_pool_size", 256, 0, 65536)),
-    _shutdownRequestsPool(config().get_int("io.shutdown_pool_size", 16, 0, 512))
+    _writeRequestsPool(config().get_int("io.write_pool_size", 256, 0, 65536))
 {
     memset(&_loop,0,sizeof(uv_loop_t));
     memset(&_stopEvent, 0, sizeof(uv_async_t));
-}
 
-ErrorCode Reactor::initialize() {
     _creatingInternalObjects=true;
 
-    ErrorCode errorCode = (ErrorCode)uv_loop_init(&_loop);
+    auto errorCode = (ErrorCode)uv_loop_init(&_loop);
     if (errorCode != 0) {
         LOG_ERROR() << "cannot initialize uv loop, error=" << errorCode;
-        return errorCode;
+        IO_EXCEPTION(errorCode);
     }
 
     _loop.data = this;
@@ -207,14 +254,14 @@ ErrorCode Reactor::initialize() {
     if (errorCode != 0) {
         uv_loop_close(&_loop);
         LOG_ERROR() << "cannot initialize loop stop event, error=" << errorCode;
-        return errorCode;
+        IO_EXCEPTION(errorCode);
     }
     _stopEvent.data = this;
 
     _tcpConnectors = std::make_unique<TcpConnectors>(*this);
+    _tcpShutdowns = std::make_unique<TcpShutdowns>(*this);
 
     _creatingInternalObjects=false;
-    return EC_OK;
 }
 
 Reactor::~Reactor() {
@@ -227,11 +274,7 @@ Reactor::~Reactor() {
         uv_close((uv_handle_t*)&_stopEvent, 0);
 
     _tcpConnectors->cancel_all();
-
-    for (uv_shutdown_t* sr : _shutdownRequests) {
-        uv_handle_t* h = (uv_handle_t*)(sr->handle);
-        async_close(h);
-    }
+    _tcpShutdowns->cancel_all();
 
     // run one cycle to release all closing handles
     uv_run(&_loop, UV_RUN_NOWAIT);
@@ -400,30 +443,9 @@ void Reactor::shutdown_tcpstream(Object* o, BufferChain&& unsent) {
         // already closed
         return;
     }
-    h->data = 0;
     assert(o->_reactor.get() == this);
-    uv_shutdown_t* req = _shutdownRequestsPool.alloc();
-    req->data = this;
-    _unsent[req] = std::move(unsent);
-    uv_shutdown(
-        req,
-        (uv_stream_t*)h,
-        [](uv_shutdown_t* req, int status) {
-            if (status != 0 && status != UV_ECANCELED) {
-                LOG_DEBUG() << "stream shutdown failed, code=" << error_str((ErrorCode)status);
-            }
-            Reactor* self = reinterpret_cast<Reactor*>(req->data);
-            if (self) {
-                uv_handle_t* req_handle = (uv_handle_t*)req->handle;
-                self->async_close(req_handle);
-                self->_shutdownRequests.erase(req);
-                self->_shutdownRequestsPool.release(req);
-                self->_unsent.erase(req);
-            }
-        }
-    );
-    o->_handle = 0;
-    o->_reactor.reset();
+
+    _tcpShutdowns->shutdown_tcpstream(o, std::move(unsent));
 }
 
 Reactor::WriteRequest* Reactor::alloc_write_request() {
