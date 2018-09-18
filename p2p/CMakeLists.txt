@@ -11,7 +11,7 @@ set(P2P_SRC
     rnd_gen.cpp
     connect_pool.cpp
     picohttpparser/picohttpparser.c
-)
+    http_msg_reader.cpp)
 
 add_library(p2p STATIC ${P2P_SRC})
 add_dependencies(p2p utility)
