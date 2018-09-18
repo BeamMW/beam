@@ -213,7 +213,7 @@ namespace beam
             }
             else
             {
-                m_pendingEvents.emplace_back(move(f));
+                m_pendingEvents.emplace_back(std::move(f));
             }
         }
 
