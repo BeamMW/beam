@@ -16,7 +16,7 @@ CustomButton {
         anchors.horizontalCenter: parent.horizontalCenter
 
         font.pixelSize: 12
-        font.weight: Font.Bold
+        font.styleName: "Bold"
 
         color: Style.white
 

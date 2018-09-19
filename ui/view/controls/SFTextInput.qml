@@ -14,12 +14,9 @@ T.TextField {
                              background ? background.implicitHeight : 0,
                              placeholder.implicitHeight + topPadding + bottomPadding)
 
-    FontLoader { id: sf_pro_display; source: "qrc:///assets/fonts/SF-Pro-Display-Regular.otf"; }
-    FontLoader { source: "qrc:///assets/fonts/SF-Pro-Display-Bold.otf"; }
-    FontLoader { source: "qrc:///assets/fonts/SF-Pro-Display-Thin.otf"; }
-
-    font {
-        family: sf_pro_display.name
+    font { 
+        family: "SF Pro Display"
+        styleName: "Regular"
     }
 
     padding: 6
