@@ -1020,7 +1020,7 @@ Item {
                         height: transactionsView.rowHeight
                         property bool income: (styleData.row >= 0) ? viewModel.transactions[styleData.row].income : false
                         SFText {
-                            anchors.leftMargin: 24
+                            anchors.leftMargin: 20
                             anchors.right: parent.right
                             anchors.left: parent.left
                             color: parent.income ? Style.bright_sky_blue : Style.heliotrope
@@ -1028,7 +1028,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             text: "<font size='6'>" + (parent.income ? "+ " : "- ") + styleData.value + "</font>"
                             textFormat: Text.StyledText
-                            font.styleName: "Light"; font.weight: Font.Light
+                            font.styleName: "Light"; font.weight: Font.Thin
                         }
                     }
                 }
