@@ -37,7 +37,7 @@ Button {
         text: control.text
         font: control.font
         
-        color: control.palette.buttonText
+        color: control.enabled ? control.palette.buttonText : Style.disable_text_color
     }
     
     Keys.onPressed: {
