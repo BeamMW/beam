@@ -19,6 +19,8 @@
 #include <string.h>
 #include <assert.h>
 
+#include "utility/logger.h"
+
 namespace beam {
 
 namespace {
@@ -94,18 +96,19 @@ struct HeadersParserStuff {
         if (sz < maxBytes) maxBytes = sz;
         memcpy(headers_buffer + headers_cursor, p, maxBytes);
 
+        num_headers = MAX_HEADERS_NUMBER;
         if (parseResponse) {
             result = phr_parse_response(headers_buffer, headers_cursor + maxBytes,
                                         &minor_http_version, &response_status,
                                         &response_msg, &response_msg_len,
                                         headers, &num_headers,
-                                          headers_cursor );
+                                        headers_cursor );
         } else {
-            result = phr_parse_request(headers_buffer, headers_cursor + maxBytes,
-                                       &method, &method_len,
-                                       &path, &path_len,
-                                       &minor_http_version,
-                                       headers, &num_headers, headers_cursor);
+             result = phr_parse_request(headers_buffer, headers_cursor + maxBytes,
+                                        &method, &method_len,
+                                        &path, &path_len,
+                                        &minor_http_version,
+                                        headers, &num_headers, headers_cursor);
         }
 
         if (result >= 0) {
@@ -117,6 +120,7 @@ struct HeadersParserStuff {
         }
 
         if (result == -1) {
+            //LOG_DEBUG() << "Corrupted " << std::string(headers_buffer, headers_cursor + maxBytes);
             error = HttpMsgReader::message_corrupted;
             return false;
         }
@@ -127,6 +131,8 @@ struct HeadersParserStuff {
         if ( headers_cursor == MAX_HEADERS_BUFSIZE) {
             error = HttpMsgReader::too_long;
         }
+
+        //LOG_DEBUG() << "incompleted: " << std::string(headers_buffer, headers_cursor);
 
         consumed = maxBytes;
         return false;
@@ -174,7 +180,7 @@ private:
     }
 
     const void* get_body(size_t& size) const override {
-        if (headers_state == incompleted || _bodyCursor != _body.size()) {
+        if (_body.empty() || headers_state == incompleted || _bodyCursor != _body.size()) {
             size = 0;
             return 0;
         }
