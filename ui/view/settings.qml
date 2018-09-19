@@ -89,7 +89,7 @@ Rectangle {
                         SFText {
                             Layout.alignment: Qt.AlignTop
                             text: qsTr("ip:port")
-                            color: localNodeRun.checked ? Style.disable_text_color : Style.white
+                            color: viewModel.localNodeRun ? Style.disable_text_color : Style.white
                             font.pixelSize: 12
                             font.styleName: "Bold"
                         }
@@ -102,7 +102,7 @@ Rectangle {
                             activeFocusOnTab: true
                             font.pixelSize: 12
                             color: readOnly ? Style.disable_text_color : Style.white
-                            readOnly: localNodeRun.checked
+                            readOnly: viewModel.localNodeRun
                             validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                             text: viewModel.nodeAddress
                             Binding {
@@ -136,10 +136,11 @@ Rectangle {
                     ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: 20
+                        enabled: viewModel.localNodeRun
 
                         SFText {
                             text: qsTr("Local node")
-                            color: Style.white
+                            color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                             font.pixelSize: 18
                             font.styleName: "Bold"
                         }
@@ -153,8 +154,9 @@ Rectangle {
                                 Layout.fillWidth: true
                                 Layout.alignment: Qt.AlignTop
                                 spacing: 10
+                                
 
-                                CustomSwitch {
+                              /*  CustomSwitch {
                                     id: localNodeRun
                                     text: qsTr("Run local node")
                                     font.pixelSize: 12
@@ -166,10 +168,11 @@ Rectangle {
                                         value: localNodeRun.checked
                                     }
                                 }
+                        */
 
                                 SFText {
                                     text: qsTr("Local node port")
-                                    color: localNodeRun.checked ? Style.white : Style.disable_text_color
+                                    color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
                                     font.styleName: "Bold"
                                 }
@@ -180,7 +183,7 @@ Rectangle {
                                     activeFocusOnTab: true
                                     font.pixelSize: 12
                                     color: readOnly ? Style.disable_text_color : Style.white
-                                    readOnly: !localNodeRun.checked
+                                    readOnly: !viewModel.localNodeRun
                                     text: viewModel.localNodePort
                                     validator: IntValidator {
                                         bottom: 0
@@ -195,7 +198,7 @@ Rectangle {
 
                                 SFText {
                                     text: qsTr("Mining threads")
-                                    color: localNodeRun.checked ? Style.white : Style.disable_text_color
+                                    color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
                                     font.styleName: "Bold"
                                 }
@@ -208,7 +211,7 @@ Rectangle {
                                     value: viewModel.localNodeMiningThreads
                                     to: {viewModel.coreAmount()}
                                     stepSize: 1
-                                    enabled: localNodeRun.checked
+                                    enabled: viewModel.localNodeRun
                                     Binding {
                                         target: viewModel
                                         property: "localNodeMiningThreads"
@@ -218,7 +221,7 @@ Rectangle {
 
                                 SFText {
                                     text: qsTr("Verification threads")
-                                    color: localNodeRun.checked ? Style.white : Style.disable_text_color
+                                    color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
                                     font.styleName: "Bold"
                                 }
@@ -231,7 +234,7 @@ Rectangle {
                                     value: viewModel.localNodeVerificationThreads
                                     to: {viewModel.coreAmount()}
                                     stepSize: 1
-                                    enabled: localNodeRun.checked
+                                    enabled: viewModel.localNodeRun
                                     Binding {
                                         target: viewModel
                                         property: "localNodeVerificationThreads"
@@ -246,7 +249,7 @@ Rectangle {
 
                                 SFText {
                                     text: qsTr("Peers")
-                                    color: localNodeRun.checked ? Style.white : Style.disable_text_color
+                                    color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
                                     font.styleName: "Bold"
                                 }
@@ -262,7 +265,7 @@ Rectangle {
                                         activeFocusOnTab: true
                                         font.pixelSize: 12
                                         color: readOnly ? Style.disable_text_color : Style.white
-                                        readOnly: !localNodeRun.checked
+                                        readOnly: !viewModel.localNodeRun
                                         validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                     }
                                     
@@ -272,8 +275,8 @@ Rectangle {
                                         Layout.minimumWidth: 60
 				                        text: "Add"
                                         palette.button: "#708090"
-                                        palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
-                                        enabled: newLocalNodePeer.acceptableInput && localNodeRun.checked
+                                        palette.buttonText : viewModel.localNodeRun ? Style.white : Style.disable_text_color
+                                        enabled: newLocalNodePeer.acceptableInput && viewModel.localNodeRun
                                         onClicked: {
                                             viewModel.addLocalNodePeer(newLocalNodePeer.text.trim());
                                             newLocalNodePeer.clear();
@@ -295,7 +298,7 @@ Rectangle {
                                             Layout.alignment: Qt.AlignVCenter
                                             text: modelData
                                             font.pixelSize: 12
-                                            color: Style.white
+                                            color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                                             height: 16
                                             elide: Text.ElideRight
                                         }
@@ -308,7 +311,7 @@ Rectangle {
                                             Layout.minimumWidth: 20
                                             textOpacity: 0
                                             icon.source: "qrc:///assets/icon-delete.svg"
-                                            enabled: localNodeRun.checked
+                                            enabled: viewModel.localNodeRun
                                             onClicked: viewModel.deleteLocalNodePeer(index)
                                         }
                                     }
