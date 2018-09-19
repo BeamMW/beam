@@ -6,5 +6,6 @@ Text {
 	font { 
 		family: "SF Pro Display"
 		styleName: "Regular"
+		weight: Font.Normal
 	}
 }

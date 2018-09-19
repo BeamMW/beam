@@ -15,7 +15,7 @@ Button {
     font { 
         family: "SF Pro Display"
         pixelSize: 14
-        styleName: "Bold"
+        styleName: "Bold"; weight: Font.Bold
     }
 
     width: 122

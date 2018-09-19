@@ -239,7 +239,7 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.minimumHeight: 20
                 font.pixelSize: 18
-                font.styleName: "Bold"
+                font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
                 text: "Receive Beam"
             }
@@ -247,7 +247,7 @@ Item {
             SFText {
                 font.pixelSize: 14
                 Layout.minimumHeight: 16
-                font.styleName: "Bold"
+                font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
                 text: qsTr("My address")
             }
@@ -267,7 +267,7 @@ Item {
             SFText {
                 font.pixelSize: 14
                 Layout.minimumHeight: 16
-                font.styleName: "Bold"
+                font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
                 text: qsTr("Comment")
             }
@@ -292,7 +292,7 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.minimumHeight: 16
                 font.pixelSize: 14
-                font.styleName: "Bold"
+                font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
                 text: "Send this address to the sender over an external secure channel"
             }
@@ -351,7 +351,7 @@ Item {
             SFText {
                 Layout.alignment: Qt.AlignHCenter
                 font.pixelSize: 18
-                font.styleName: "Bold"
+                font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
                 text: "Send Beam"
             }
@@ -374,7 +374,7 @@ Item {
 
                         SFText {
                             font.pixelSize: 14
-                            font.styleName: "Bold"
+                            font.styleName: "Bold"; font.weight: Font.Bold
                             color: Style.white
                             text: qsTr("Send To:")
                         }
@@ -410,7 +410,7 @@ Item {
                             id: receiverName
                             color: Style.white
                             font.pixelSize: 14
-                            font.styleName: "Bold"
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         Binding {
@@ -433,7 +433,7 @@ Item {
 
                         SFText {
                             font.pixelSize: 14
-                            font.styleName: "Bold"
+                            font.styleName: "Bold"; font.weight: Font.Bold
                             color: Style.white
                             text: qsTr("Transaction amount")
                         }
@@ -450,7 +450,7 @@ Item {
                                     id: amount_input
 
                                     font.pixelSize: 36
-                                    font.styleName: "Light"
+                                    font.styleName: "Light"; font.weight: Font.Light
                                     color: Style.heliotrope
 
                                     text: viewModel.sendAmount
@@ -506,7 +506,7 @@ Item {
 
                         SFText {
                             font.pixelSize: 14
-                            font.styleName: "Bold"
+                            font.styleName: "Bold"; font.weight: Font.Bold
                             color: Style.white
                             text: qsTr("Comment")
                         }
@@ -542,7 +542,7 @@ Item {
 
                         SFText {
                             font.pixelSize: 14
-                            font.styleName: "Bold"
+                            font.styleName: "Bold"; font.weight: Font.Bold
                             color: Style.white
                             text: qsTr("Transaction fee")
                         }
@@ -590,7 +590,7 @@ Item {
                                             SFText {
                                                 Layout.alignment: Qt.AlignHCenter
                                                 font.pixelSize: 18
-                                                font.styleName: "Bold"
+                                                font.styleName: "Bold"; font.weight: Font.Bold
                                                 color: Style.bluey_grey
                                                 text: qsTr("Remaining")
                                             }
@@ -603,7 +603,7 @@ Item {
 
                                                 SFText {
                                                     font.pixelSize: 24
-                                                    font.styleName: "Light"
+                                                    font.styleName: "Light"; font.weight: Font.Light
                                                     color: Style.bluey_grey
                                                     text: viewModel.actualAvailable
                                                 }
@@ -638,7 +638,7 @@ Item {
                                             SFText {
                                                 Layout.alignment: Qt.AlignHCenter
                                                 font.pixelSize: 18
-                                                font.styleName: "Bold"
+                                                font.styleName: "Bold"; font.weight: Font.Bold
                                                 color: Style.bluey_grey
                                                 text: qsTr("Change")
                                             }
@@ -651,7 +651,7 @@ Item {
 
                                                 SFText {
                                                     font.pixelSize: 24
-                                                    font.styleName: "Light"
+                                                    font.styleName: "Light"; font.weight: Font.Light
                                                     color: Style.bluey_grey
                                                     text: viewModel.change
                                                 }
@@ -814,7 +814,7 @@ Item {
 
                 font {
                     pixelSize: 18
-                    styleName: "Bold"
+                    styleName: "Bold"; weight: Font.Bold
                 }
 
                 color: Style.white
@@ -1028,7 +1028,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             text: "<font size='6'>" + (parent.income ? "+ " : "- ") + styleData.value + "</font>"
                             textFormat: Text.StyledText
-                            font.styleName: "Light"
+                            font.styleName: "Light"; font.weight: Font.Light
                         }
                     }
                 }
@@ -1217,7 +1217,7 @@ Item {
                                     font.pixelSize: 14
                                     color: Style.white
                                     text: qsTr("General transaction info")
-                                    font.styleName: "Bold"
+                                    font.styleName: "Bold"; font.weight: Font.Bold
                                     Layout.columnSpan: 2
                                 }
 
