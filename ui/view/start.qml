@@ -117,7 +117,7 @@ Item
                             text: qsTr("Enter secret key (seed)")
                             color: Style.white
                             font.pixelSize: 12
-                            font.styleName: "Bold"
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         SFTextInput {
@@ -142,7 +142,7 @@ Item
                             text: qsTr("Enter password")
                             color: Style.white
                             font.pixelSize: 12
-                            font.styleName: "Bold"
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         SFTextInput {
@@ -167,7 +167,7 @@ Item
                             text: qsTr("Confirm password")
                             color: Style.white
                             font.pixelSize: 12
-                            font.styleName: "Bold"
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         SFTextInput {
@@ -283,7 +283,7 @@ Item
                             text: qsTr("Enter port to listen")
                             color: Style.white
                             font.pixelSize: 12
-                            font.styleName: "Bold"
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         SFTextInput {
@@ -305,7 +305,7 @@ Item
                             text: qsTr("Enter mining threads (0 - no mining)")
                             color: Style.white
                             font.pixelSize: 12
-                            font.styleName: "Bold"
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         FeeSlider {
@@ -334,7 +334,7 @@ Item
                             text: qsTr("Enter remote node address")
                             color: Style.white
                             font.pixelSize: 12
-                            font.styleName: "Bold"
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         SFTextInput {
@@ -454,7 +454,7 @@ Item
                 text: qsTr("Enter password")
                 color: Style.white
                 font.pixelSize: 12
-                font.styleName: "Bold"
+                font.styleName: "Bold"; font.weight: Font.Bold
             }
 
             SFTextInput {
