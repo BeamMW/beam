@@ -367,7 +367,8 @@ Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback
 }
 
 void Reactor::connect_callback(Reactor::ConnectContext* ctx, ErrorCode errorCode) {
-    assert(_connectRequests.count(ctx->tag)==1);
+    // TODO situation fixed in upcoming merges - related to exit logic
+    if (!_connectRequests.count(ctx->tag)) return;
     uint64_t tag = ctx->tag;
 
     ConnectCallback callback = std::move(ctx->callback);
