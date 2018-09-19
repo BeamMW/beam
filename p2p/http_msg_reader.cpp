@@ -16,6 +16,7 @@
 #include "picohttpparser/picohttpparser.h"
 #include <map>
 #include <algorithm>
+#include <string.h>
 #include <assert.h>
 
 namespace beam {
@@ -33,32 +34,40 @@ inline bool equal_ci(const char* a, const char* b, size_t sz) {
     return true;
 }
 
-struct ParserStuff {
-    bool ready;
+struct HeadersParserStuff {
+    enum State { incompleted, request_parsed, response_parsed };
+
+    State headers_state;
     int minor_http_version;
+    int response_status;
     const char* method;
     size_t method_len;
     const char* path;
     size_t path_len;
-    size_t buf_len;
-    size_t prev_buf_len;
+    const char* response_msg;
+    size_t response_msg_len;
+    size_t headers_cursor;
     mutable size_t num_headers;
     mutable struct phr_header headers[MAX_HEADERS_NUMBER];
     char headers_buffer[MAX_HEADERS_BUFSIZE];
 
     void reset_headers() {
-        ready = false;
+        headers_state = incompleted;
         minor_http_version = -1;
+        response_status = -1;
         method = 0;
         method_len = 0;
         path = 0;
         path_len = 0;
-        buf_len = MAX_HEADERS_BUFSIZE;
-        prev_buf_len = 0;
+        response_msg = 0;
+        response_msg_len = 0;
+        headers_cursor = 0;
         num_headers = MAX_HEADERS_NUMBER;
     }
 
     std::string find_header(const std::string& lowerCaseHeader) const {
+        // TODO multiline headers not supported yet
+
         std::string value;
         size_t sz = lowerCaseHeader.size();
         for (size_t i = 0; i != num_headers; ++i) {
@@ -69,8 +78,58 @@ struct ParserStuff {
                 headers[i] = headers[num_headers-1];
             }
             --num_headers;
+            break;
         }
         return value;
+    }
+
+    // returns true iff parsing completed
+    bool parse_headers(bool parseResponse, const void* p, size_t sz, size_t& consumed, HttpMsgReader::ParseError& error) {
+        int result=0;
+        error = HttpMsgReader::ok;
+        consumed = 0;
+        if (sz == 0) return false;
+
+        size_t maxBytes = MAX_HEADERS_BUFSIZE - headers_cursor;
+        if (sz < maxBytes) maxBytes = sz;
+        memcpy(headers_buffer + headers_cursor, p, maxBytes);
+
+        if (parseResponse) {
+            result = phr_parse_response(headers_buffer, headers_cursor + maxBytes,
+                                        &minor_http_version, &response_status,
+                                        &response_msg, &response_msg_len,
+                                        headers, &num_headers,
+                                          headers_cursor );
+        } else {
+            result = phr_parse_request(headers_buffer, headers_cursor + maxBytes,
+                                       &method, &method_len,
+                                       &path, &path_len,
+                                       &minor_http_version,
+                                       headers, &num_headers, headers_cursor);
+        }
+
+        if (result >= 0) {
+            size_t totalLength = size_t(result);
+            assert(totalLength >= headers_cursor);
+            consumed = totalLength - headers_cursor;
+            headers_state = parseResponse ? response_parsed : request_parsed;
+            return true;
+        }
+
+        if (result == -1) {
+            error = HttpMsgReader::message_corrupted;
+            return false;
+        }
+
+        assert(result == -2);
+
+        headers_cursor += maxBytes;
+        if ( headers_cursor == MAX_HEADERS_BUFSIZE) {
+            error = HttpMsgReader::too_long;
+        }
+
+        consumed = maxBytes;
+        return false;
     }
 };
 
@@ -78,7 +137,7 @@ static const std::string dummyStr;
 
 } //namespace
 
-class HttpMessageImpl : public HttpMessage, public ParserStuff {
+class HttpMessageImpl : public HttpMessage, public HeadersParserStuff {
 public:
     HttpMessageImpl() {
         reset_headers();
@@ -88,7 +147,7 @@ public:
 
 private:
     const std::string& get_method() const override {
-        if (!ready) return dummyStr;
+        if (headers_state != request_parsed) return dummyStr;
         if (_methodCached.empty()) {
             _methodCached.assign(method, method_len);
         }
@@ -96,7 +155,7 @@ private:
     }
 
     const std::string& get_path() const override {
-        if (!ready) return dummyStr;
+        if (headers_state != request_parsed) return dummyStr;
         if (_pathCached.empty()) {
             _pathCached.assign(path, path_len);
         }
@@ -104,7 +163,7 @@ private:
     }
 
     const std::string& get_header(const std::string& headerName) const override {
-        if (!ready || headerName.empty()) return dummyStr;
+        if (headers_state == incompleted || headerName.empty()) return dummyStr;
         std::string lowerCaseHeader(headerName);
         std::transform(lowerCaseHeader.begin(), lowerCaseHeader.end(), lowerCaseHeader.begin(), tolower);
         std::map<std::string, std::string>::iterator it = _headersCached.find(lowerCaseHeader);
@@ -115,30 +174,70 @@ private:
     }
 
     const void* get_body(size_t& size) const override {
-        if (!ready) {
+        if (headers_state == incompleted || _bodyCursor != _body.size()) {
             size = 0;
             return 0;
         }
-        size = _body.size();
+        size = _bodyCursor;
         return _body.data();
     }
 
 public:
     std::vector<uint8_t> _body;
-
-    /// Cursor inside body
-    uint8_t* _cursor=0;
+    size_t _bodyCursor=0;
 
     void reset(size_t bodySizeThreshold) {
         reset_headers();
         if (_body.size() > bodySizeThreshold) {
             std::vector<uint8_t> newBody;
             std::swap(_body, newBody);
+        } else {
+            _body.clear();
         }
-        _cursor = 0;
+        _bodyCursor = 0;
         _methodCached.clear();
         _pathCached.clear();
         _headersCached.clear();
+    }
+
+    size_t parse_content_length(size_t maxLength, HttpMsgReader::ParseError& error) {
+        error = HttpMsgReader::ok;
+        size_t ret = 0;
+        if (headers_state != incompleted) {
+            static const std::string contentLength("content-length");
+            std::string lenStr = find_header(contentLength);
+            if (!lenStr.empty()) {
+                char* end = 0;
+                ret = strtoul(lenStr.c_str(), &end, 10);
+                if (end != lenStr.c_str() + lenStr.size()) {
+                    error = HttpMsgReader::message_corrupted;
+                    return size_t(-1);
+                }
+                if (ret > maxLength) {
+                    error = HttpMsgReader::too_long;
+                    return size_t(-1);
+                }
+                _body.resize(ret);
+                _bodyCursor = 0;
+            }
+        }
+        return ret;
+    }
+
+    size_t feed_body(const uint8_t* p, size_t sz, bool& completed) {
+        assert(_bodyCursor <= _body.size());
+        size_t maxBytes = _body.size() - _bodyCursor;
+        if (sz < maxBytes) {
+            maxBytes = sz;
+            completed = false;
+        } else {
+            completed = true;
+        }
+        if (maxBytes > 0) {
+            memcpy(_body.data() + _bodyCursor, p, maxBytes);
+            _bodyCursor += maxBytes;
+        }
+        return maxBytes;
     }
 
 private:
@@ -158,12 +257,15 @@ HttpMsgReader::HttpMsgReader(
     _streamId(streamId),
     _maxBodySize(maxBodySize),
     _bodySizeThreshold(bodySizeThreshold),
-    _bytesLeft(0),
     _state(reading_header),
     _mode(mode),
-    _msg(std::make_unique<HttpMessageImpl>())
+    _msg(new HttpMessageImpl())
 {
     assert(_callback);
+}
+
+HttpMsgReader::~HttpMsgReader() {
+    delete _msg;
 }
 
 void HttpMsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void* data, size_t size) {
@@ -180,7 +282,7 @@ void HttpMsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const v
     size_t sz = size;
     size_t consumed = 0;
     while (sz > 0) {
-        consumed = feed_data(p, sz);
+        consumed = _state == reading_header ? feed_header(p, sz) : feed_body(p, sz);
         if (consumed == 0) {
             // error occured, no more reads from this stream
             // at this moment, the *this* may be deleted
@@ -192,61 +294,57 @@ void HttpMsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const v
     }
 }
 
-size_t HttpMsgReader::feed_data(const uint8_t* p, size_t sz) {
-    size_t consumed = std::min(sz, _bytesLeft);
-
-    /*
-    memcpy(_cursor, p, consumed);
-    if (_state == reading_header) {
-        if (consumed == _bytesLeft) {
-            // whole header has been read
-            MsgHeader header(_msgBuffer.data());
-            if (!_protocol.approve_msg_header(_streamId, header)) {
-                // at this moment, the *this* may be deleted
+size_t HttpMsgReader::feed_header(const uint8_t* p, size_t sz) {
+    size_t consumed = 0;
+    ParseError error = ok;
+    bool headers_completed = _msg->parse_headers(_mode == client, p, sz, consumed, error);
+    if (headers_completed) {
+        size_t contentLength = _msg->parse_content_length(_maxBodySize, error);
+        if (contentLength == 0) {
+            // message w/o body, completed
+            bool proceed = _callback(_streamId, Message(_msg));
+            if (proceed) {
+                _msg->reset(_bodySizeThreshold);
+                return consumed;
+            } else {
+                // the object may be deleted here
                 return 0;
             }
-
-            if (!_expectedMsgTypes.test(header.type)) {
-                _protocol.on_unexpected_msg(_streamId, header.type);
-                // at this moment, the *this* may be deleted
-                return 0;
-            }
-
-            // header deserialized successfully
-            _msgBuffer.resize(header.size);
-            _type = header.type;
-            _cursor = _msgBuffer.data();
-            _bytesLeft = header.size;
-            _state = reading_message;
+        } else if (error == ok) {
+            _state = reading_body;
         } else {
-            _cursor += consumed;
-            _bytesLeft -= consumed;
+            _callback(_streamId, Message(error));
+            // the object may be deleted here
+            return 0;
         }
-    } else {
-        if (consumed == _bytesLeft) {
-            // whole message has been read
-            if (!_protocol.on_new_message(_streamId, _type, _msgBuffer.data(), _msgBuffer.size())) {
-                // at this moment, the *this* may be deleted
-                return 0;
-            }
-            if (_msgBuffer.size() > 2*_defaultSize) {
-                {
-                    std::vector<uint8_t> newBuffer;
-                    _msgBuffer.swap(newBuffer);
-                }
-                // preventing from excessive memory consumption per individual stream
-                _msgBuffer.resize(_defaultSize);
-            }
-            _cursor = _msgBuffer.data();
-            _bytesLeft = MsgHeader::SIZE;
+    } else if (error != ok) {
+        _callback(_streamId, Message(error));
+        // the object may be deleted here
+        return 0;
+    }
+    return consumed;
+}
+
+size_t HttpMsgReader::feed_body(const uint8_t* p, size_t sz) {
+    bool completed = false;
+    size_t consumed = _msg->feed_body(p, sz, completed);
+    if (completed) {
+        _state = reading_header;
+        bool proceed = _callback(_streamId, Message(_msg));
+        if (proceed) {
+            _msg->reset(_bodySizeThreshold);
             _state = reading_header;
         } else {
-            _cursor += consumed;
-            _bytesLeft -= consumed;
+            // the object may be deleted here
+            return 0;
         }
     }
-    */
     return consumed;
+}
+
+void HttpMsgReader::reset() {
+    _msg->reset(_bodySizeThreshold);
+    _state = reading_header;
 }
 
 } //namespace

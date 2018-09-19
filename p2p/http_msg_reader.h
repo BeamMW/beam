@@ -30,8 +30,6 @@ public:
     virtual const void* get_body(size_t& size) const = 0;
 };
 
-class HttpMessageImpl;
-
 /// Extracts individual http messages from stream, performs header/size validation
 class HttpMsgReader {
 public:
@@ -59,6 +57,10 @@ public:
     /// Ctor sets initial statr (reading_header)
     HttpMsgReader(Mode mode, uint64_t streamId, Callback callback, size_t maxBodySize, size_t bodySizeThreshold);
 
+    ~HttpMsgReader();
+    HttpMsgReader(const HttpMsgReader&) = delete;
+    HttpMsgReader& operator=(const HttpMsgReader&) = delete;
+
     uint64_t id() const { return _streamId; }
     void change_id(uint64_t newStreamId) { _streamId = newStreamId; }
 
@@ -70,7 +72,8 @@ public:
     void reset();
 
 private:
-    size_t feed_data(const uint8_t* p, size_t sz);
+    size_t feed_header(const uint8_t* p, size_t sz);
+    size_t feed_body(const uint8_t* p, size_t sz);
 
     /// 2 states of the reader
     enum State { reading_header, reading_body };
@@ -87,16 +90,14 @@ private:
     /// Body buffer size threshold
     const size_t _bodySizeThreshold;
 
-    /// Bytes left to read before completing header or message
-    size_t _bytesLeft;
-
     /// Current state
     State _state;
 
     /// Server or client
     Mode _mode;
 
-    std::unique_ptr<HttpMessageImpl> _msg;
+    /// Message being parsed
+    class HttpMessageImpl* _msg;
 };
 
 } //namespace
