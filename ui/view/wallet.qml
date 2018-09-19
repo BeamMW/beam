@@ -20,7 +20,7 @@ Item {
 
     ConfirmationDialog {
         id: confirmationDialog
-        okButtonText: "send"
+        okButtonText: qsTr("send")
         onAccepted: {
             viewModel.sendMoney()
             root.state = "wallet"
@@ -29,18 +29,18 @@ Item {
 
     ConfirmationDialog {
         id: invalidAddressDialog
-        okButtonText: "got it"
+        okButtonText: qsTr("got it")
     }
 
     ConfirmationDialog {
         id: deleteTransactionDialog
-        okButtonText: "delete"
+        okButtonText: qsTr("delete")
     }
 
     SFText {
         font.pixelSize: 36
         color: Style.white
-        text: "Wallet"
+        text: qsTr("Wallet")
     }
 
     Item {
@@ -49,13 +49,13 @@ Item {
         y: 53
         property string status: {
              if (viewModel.isisFailedStatus)
-                "error"
+                qsTr("error")
              else if (viewModel.isOfflineStatus)
-                "offline"
+                qsTr("offline")
              else if(viewModel.isSyncInProgress)
-                "updating"
+                qsTr("updating")
              else
-                "online"
+                qsTr("online")
         }
 
         state: "offline"
@@ -241,7 +241,7 @@ Item {
                 font.pixelSize: 18
                 font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
-                text: "Receive Beam"
+                text: qsTr("Receive Beam")
             }
 
             SFText {
@@ -260,7 +260,6 @@ Item {
                 color: Style.disable_text_color
                 readOnly: true
                 activeFocusOnTab: false
-                //text: viewModel.newOwnAddress.walletID
                 text: viewModel.newReceiverAddr
             }
 
@@ -294,7 +293,7 @@ Item {
                 font.pixelSize: 14
                 font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
-                text: "Send this address to the sender over an external secure channel"
+                text: qsTr("Send this address to the sender over an external secure channel")
             }
 
             Row {
@@ -304,7 +303,7 @@ Item {
                 spacing: 19
 
                 CustomButton {
-                    text: "cancel"
+                    text: qsTr("cancel")
                     height: 38
                     width: 122
                     palette.buttonText: Style.white
@@ -312,7 +311,7 @@ Item {
                 }
 
                 CustomButton {
-                    text: "Copy && Close"
+                    text: qsTr("Copy && Close")
                     height: 38
                     width: 162
                     palette.buttonText: Style.white
@@ -353,7 +352,7 @@ Item {
                 font.pixelSize: 18
                 font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
-                text: "Send Beam"
+                text: qsTr("Send Beam")
             }
 
             RowLayout {
@@ -1431,6 +1430,7 @@ Item {
             PropertyChanges {target: wallet_layout; visible: false}
             PropertyChanges {target: send_layout; visible: true}
             PropertyChanges {target: amount_input; text: ""}
+            PropertyChanges {target: receiverAddrInput; text: ""}
             StateChangeScript {
                 script: receiverAddrInput.forceActiveFocus(Qt.TabFocusReason);
             }
