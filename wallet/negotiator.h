@@ -200,7 +200,9 @@ namespace beam::wallet
                 a_row< TxInvitation             , events::TxRegistrationCompleted , TxOutputsConfirmation, &d::confirmOutputs      >,
 
                 a_row< TxAllOk                  , events::TxFailed                , TxTerminal            , &d::rollbackTx          >,
-                a_row< TxAllOk                  , events::TxCanceled              , TxTerminal            , &d::cancelTx            >
+                a_row< TxInitial                , events::TxCanceled              , TxTerminal            , &d::cancelTx            >,
+                a_row< TxConfirmation           , events::TxCanceled              , TxTerminal            , &d::cancelTx            >,
+                a_row< TxInvitation             , events::TxCanceled              , TxTerminal            , &d::cancelTx            >
             > {};
 
 
