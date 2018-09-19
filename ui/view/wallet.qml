@@ -518,7 +518,7 @@ Item {
                             font.pixelSize: 14
                             color: Style.white
 
-                            // TODO: here should be proper validator (max text length 200)
+                            maximumLength: 200
                             selectByMouse: true
                         }
 

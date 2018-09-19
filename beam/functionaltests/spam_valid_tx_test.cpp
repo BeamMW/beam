@@ -79,9 +79,8 @@ void TestNodeConnection::GenerateTests()
 
 void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 {
-	LOG_INFO() << "NewTip: " << msg.m_ID;
-
-	m_ID = msg.m_ID;
+	msg.m_Description.get_ID(m_ID);
+	LOG_INFO() << "NewTip: " << m_ID;
 
 	if (!m_IsInit)
 	{

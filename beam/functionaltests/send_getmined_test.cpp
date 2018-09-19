@@ -30,24 +30,29 @@ private:
 	bool m_IsInit;
 	Block::SystemState::ID m_ID;
 	bool m_IsSendWrongMsg;
+    unsigned m_Counter;
 };
 
 TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	: BaseTestNode(argc, argv)
 	, m_IsInit(false)
 	, m_IsSendWrongMsg(false)
+    , m_Counter(0)
 {
-	m_Timeout = 10 * 1000;
+	m_Timeout = 30 * 1000;
 }
 
 void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 {
+    if (++m_Counter < 2)
+        return;
+
 	if (!m_IsInit)
 	{
-		LOG_INFO() << "NewTip: " << msg.m_ID;
-
-		m_ID = msg.m_ID;
+		msg.m_Description.get_ID(m_ID);
 		m_IsInit = true;
+
+		LOG_INFO() << "NewTip: " << m_ID;
 
 		m_IsSendWrongMsg = true;
 
@@ -76,7 +81,9 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 		m_IsSendWrongMsg = false;
 
 		LOG_INFO() << "Send GetMined message";
-		Send(proto::GetMined{ m_ID.m_Height });
+        proto::GetMined msgOut;
+        msgOut.m_HeightMin = m_ID.m_Height - 1000;
+		Send(msgOut);
 
 		return;
 	}

@@ -42,6 +42,8 @@ public:
 			SubsidyOpen,
 			CfgChecksum,
 			MyID,
+			SyncTarget,
+			LoHorizon,
 		};
 	};
 
@@ -59,6 +61,7 @@ public:
 			StateIns,
 			StateDel,
 			StateGet,
+			StateGetHash,
 			StateGetHeightAndPrev,
 			StateFind,
 			StateFind2,
@@ -215,6 +218,7 @@ public:
 
 	uint64_t StateFindSafe(const Block::SystemState::ID&);
 	void get_State(uint64_t rowid, Block::SystemState::Full&);
+	void get_StateHash(uint64_t rowid, Merkle::Hash&);
 
 	bool DeleteState(uint64_t rowid, uint64_t& rowPrev); // State must exist. Returns false if there are ancestors.
 
@@ -239,6 +243,7 @@ public:
 		void SetNull();
 	};
 
+	void get_StateID(const StateID&, Block::SystemState::ID&);
 
 	struct WalkerState {
 		Recordset m_Rs;

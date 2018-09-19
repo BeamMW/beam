@@ -152,6 +152,9 @@ void NodeProcessor::Initialize(const char* szPath)
 		wlk.Traverse();
 	}
 
+	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, m_Horizon.m_Branching);
+	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height) Rules::get().MaxRollbackHeight);
+
 	NodeDB::Transaction t(m_DB);
 	TryGoUp();
 	t.Commit();
@@ -171,6 +174,8 @@ void NodeProcessor::InitCursor()
 			m_DB.get_PredictedStatesHash(m_Cursor.m_History, sid);
 		else
 			ZeroObject(m_Cursor.m_History);
+
+		m_Cursor.m_LoHorizon = m_DB.ParamIntGetDef(NodeDB::ParamID::LoHorizon);
 	}
 	else
 		ZeroObject(m_Cursor);
@@ -189,7 +194,10 @@ void NodeProcessor::EnumCongestions()
 		if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row))
 			continue;
 
-		if (sid.m_Height < m_Cursor.m_Sid.m_Height)
+		Difficulty::Raw wrk;
+		m_DB.get_ChainWork(sid.m_Row, wrk);
+
+		if (wrk < m_Cursor.m_Full.m_ChainWork)
 			continue; // not interested in tips behind the current cursor
 
 		bool bBlock = true;
@@ -210,23 +218,30 @@ void NodeProcessor::EnumCongestions()
 			}
 		}
 
-		Block::SystemState::Full s;
-		m_DB.get_State(sid.m_Row, s);
-
 		Block::SystemState::ID id;
 
 		if (bBlock)
-			s.get_ID(id);
+			m_DB.get_StateID(sid, id);
 		else
 		{
+			Block::SystemState::Full s;
+			m_DB.get_State(sid.m_Row, s);
+
 			id.m_Height = s.m_Height - 1;
 			id.m_Hash = s.m_Prev;
 		}
 
-		PeerID peer;
-		bool bPeer = m_DB.get_Peer(sid.m_Row, peer);
+		if (id.m_Height >= m_Cursor.m_LoHorizon)
+		{
+			PeerID peer;
+			bool bPeer = m_DB.get_Peer(sid.m_Row, peer);
 
-		RequestData(id, bBlock, bPeer ? &peer : NULL);
+			RequestData(id, bBlock, bPeer ? &peer : NULL);
+		}
+		else
+		{
+			LOG_WARNING() << id << " State unreachable!"; // probably will pollute the log, but it's a critical situation anyway
+		}
 	}
 }
 
@@ -306,54 +321,70 @@ void NodeProcessor::TryGoUp()
 
 void NodeProcessor::PruneOld()
 {
-	Height h = m_Cursor.m_Sid.m_Height;
-	if (h <= m_Horizon.m_Branching)
-		return;
-	h -= m_Horizon.m_Branching;
-
-	while (true)
+	if (m_Cursor.m_Sid.m_Height > m_Horizon.m_Branching + Rules::HeightGenesis - 1)
 	{
-		uint64_t rowid;
-		{
-			NodeDB::WalkerState ws(m_DB);
-			m_DB.EnumTips(ws);
-			if (!ws.MoveNext())
-				break;
-			if (ws.m_Sid.m_Height >= h)
-				break;
+		Height h = m_Cursor.m_Sid.m_Height - m_Horizon.m_Branching;
 
-			rowid = ws.m_Sid.m_Row;
+		while (true)
+		{
+			uint64_t rowid;
+			{
+				NodeDB::WalkerState ws(m_DB);
+				m_DB.EnumTips(ws);
+				if (!ws.MoveNext())
+					break;
+				if (ws.m_Sid.m_Height >= h)
+					break;
+
+				rowid = ws.m_Sid.m_Row;
+			}
+
+			do
+			{
+				if (!m_DB.DeleteState(rowid, rowid))
+					break;
+			} while (rowid);
 		}
-
-		do
-		{
-			if (!m_DB.DeleteState(rowid, rowid))
-				break;
-		} while (rowid);
 	}
 
-	if (m_Horizon.m_Schwarzschild <= m_Horizon.m_Branching)
-		return;
-
-	Height hExtra = m_Horizon.m_Schwarzschild - m_Horizon.m_Branching;
-	if (h <= hExtra)
-		return;
-	h -= hExtra;
-
-	for (Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight); hFossil < h; )
+	if (m_Cursor.m_Sid.m_Height > m_Horizon.m_Schwarzschild + Rules::HeightGenesis - 1)
 	{
-		uint64_t rowid = FindActiveAtStrict(hFossil + Rules::HeightGenesis);
+		Height h = m_Cursor.m_Sid.m_Height - m_Horizon.m_Schwarzschild;
 
-		if (1 != m_DB.GetStateNextCount(rowid))
-			break;
+		if (h > m_Cursor.m_LoHorizon)
+			h = m_Cursor.m_LoHorizon;
 
-		DereferenceFossilBlock(rowid);
+		AdjustFossilEnd(h);
 
-		m_DB.DelStateBlock(rowid);
-		m_DB.set_Peer(rowid, NULL);
+		for (Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1); ; )
+		{
+			if (++hFossil >= h)
+				break;
 
-		++hFossil;
-		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
+			PruneAt(hFossil, true);
+			m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
+		}
+	}
+}
+
+void NodeProcessor::PruneAt(Height h, bool bDeleteBody)
+{
+	NodeDB::WalkerState ws(m_DB);
+	;
+	for (m_DB.EnumStatesAt(ws, h); ws.MoveNext(); )
+	{
+		if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
+		{
+			if (bDeleteBody)
+				DereferenceFossilBlock(ws.m_Sid.m_Row);
+		} else
+			m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
+
+		if (bDeleteBody)
+		{
+			m_DB.DelStateBlock(ws.m_Sid.m_Row);
+			m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
+		}
 	}
 }
 
@@ -500,6 +531,14 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				m_DB.SetStateRollback(sid.m_Row, NodeDB::Blob(&zero, 1));
 
 			}
+
+			assert(m_Cursor.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
+			if (m_Cursor.m_Sid.m_Height - m_Cursor.m_LoHorizon > Rules::get().MaxRollbackHeight)
+			{
+				m_Cursor.m_LoHorizon = m_Cursor.m_Sid.m_Height - Rules::get().MaxRollbackHeight;
+				m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Cursor.m_LoHorizon, NULL);
+			}
+
 		}
 		else
 		{
@@ -924,12 +963,6 @@ void NodeProcessor::Rollback()
 	OnRolledBack();
 }
 
-bool NodeProcessor::IsRelevantHeight(Height h)
-{
-	uint64_t hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight);
-	return h >= hFossil + Rules::HeightGenesis;
-}
-
 NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id)
 {
 	s.get_ID(id);
@@ -963,8 +996,8 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		return DataStatus::Invalid;
 	}
 
-	if (!IsRelevantHeight(s.m_Height))
-		return DataStatus::Rejected;
+	if (s.m_Height < m_Cursor.m_LoHorizon)
+		return DataStatus::Unreachable;
 
 	if (m_DB.StateFindSafe(id))
 		return DataStatus::Rejected;
@@ -1012,6 +1045,9 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 		return DataStatus::Rejected;
 	}
 
+	if (id.m_Height < m_Cursor.m_LoHorizon)
+		return DataStatus::Unreachable;
+
 	LOG_INFO() << id << " Block received";
 
 	NodeDB::Transaction t(m_DB);
@@ -1028,9 +1064,15 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 	return DataStatus::Accepted;
 }
 
-bool NodeProcessor::IsStateNeeded(const Block::SystemState::ID& id)
+bool NodeProcessor::IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy)
 {
-	return IsRelevantHeight(id.m_Height) && !m_DB.StateFindSafe(id);
+	int n = sTipMy.m_ChainWork.cmp(sTipRemote.m_ChainWork);
+	if (n > 0)
+		return false;
+	if (n < 0)
+		return true;
+
+	return sTipMy.m_Definition != sTipRemote.m_Definition;
 }
 
 uint64_t NodeProcessor::FindActiveAtStrict(Height h)
@@ -1530,11 +1572,6 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 		}
 	}
 
-	uint64_t rowid = m_DB.StateFindSafe(id);
-	if (!rowid)
-		OnCorrupted();
-	m_DB.get_State(rowid, s);
-
 	LOG_INFO() << "Context-free validation...";
 
 	if (!VerifyBlock(body, std::move(r), HeightRange(cu.m_ID.m_Height + 1, id.m_Height)))
@@ -1580,6 +1617,7 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 		m_DB.MoveFwd(sid);
 	}
 
+	m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &id.m_Height, NULL);
 	InitCursor();
 
 	if (body.m_SubsidyClosing)

@@ -635,6 +635,8 @@ namespace beam
 			<< TimestampAheadThreshold_s
 			<< WindowForMedian
 			<< StartDifficulty.m_Packed
+			// << MaxRollbackHeight - TODO uncomment this when compatibility can be broken
+			// << MacroblockGranularity
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits

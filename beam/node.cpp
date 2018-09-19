@@ -28,6 +28,9 @@ namespace beam {
 
 void Node::RefreshCongestions()
 {
+	if (m_pSync)
+		return;
+
 	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
 		it->m_bRelevant = false;
 
@@ -43,7 +46,7 @@ void Node::RefreshCongestions()
 
 void Node::DeleteUnassignedTask(Task& t)
 {
-	assert(!t.m_pOwner);
+	assert(!t.m_pOwner && !t.m_bPack);
 	m_lstTasksUnassigned.erase(TaskList::s_iterator_to(t));
 	m_setTasks.erase(TaskSet::s_iterator_to(t));
 	delete &t;
@@ -198,7 +201,7 @@ void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 			bool bCreate = false;
 			PeerMan::PeerInfoPlus* pInfo = (PeerMan::PeerInfoPlus*) m_PeerMan.Find(*pPeerID, bCreate);
 
-			if (pInfo && pInfo->m_pLive && pInfo->m_pLive->m_bPiRcvd)
+			if (pInfo && pInfo->m_pLive && (Peer::Flags::PiRcvd & pInfo->m_pLive->m_Flags))
 				pSel = pInfo->m_pLive;
 		}
 
@@ -229,6 +232,21 @@ void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 
 void Node::AssignTask(Task& t, Peer& p)
 {
+	uint32_t nPackSize = 0;
+	if (t.m_Key.first.m_Height > m_Processor.m_Cursor.m_ID.m_Height)
+	{
+		Height dh = t.m_Key.first.m_Height - m_Processor.m_Cursor.m_ID.m_Height;
+
+		const uint32_t nThreshold = 5;
+
+		if (dh >= nThreshold)
+		{
+			nPackSize = proto::g_HdrPackMaxSize;
+			if (nPackSize > dh)
+				nPackSize = (uint32_t) dh;
+		}
+	}
+
 	if (t.m_Key.second)
 	{
 		proto::GetBody msg;
@@ -237,9 +255,22 @@ void Node::AssignTask(Task& t, Peer& p)
 	}
 	else
 	{
-		proto::GetHdr msg;
-		msg.m_ID = t.m_Key.first;
-		p.Send(msg);
+		if (!m_nTasksPackHdr && nPackSize)
+		{
+			proto::GetHdrPack msg;
+			msg.m_Top = t.m_Key.first;
+			msg.m_Count = nPackSize;
+			p.Send(msg);
+
+			t.m_bPack = true;
+			m_nTasksPackHdr++;
+		}
+		else
+		{
+			proto::GetHdr msg;
+			msg.m_ID = t.m_Key.first;
+			p.Send(msg);
+		}
 	}
 
 	bool bEmpty = p.m_lstTasks.empty();
@@ -264,11 +295,20 @@ void Node::Peer::SetTimerWrtFirstTask()
 
 bool Node::ShouldAssignTask(Task& t, Peer& p)
 {
-	if (p.m_TipHeight < t.m_Key.first.m_Height)
+	if (p.m_Tip.m_Height < t.m_Key.first.m_Height)
 		return false;
 
+	if (p.m_Tip.m_Height == t.m_Key.first.m_Height)
+	{
+		Merkle::Hash hv;
+		p.m_Tip.get_Hash(hv);
+
+		if (hv != t.m_Key.first.m_Hash)
+			return false;
+	}
+
 	// Current design: don't ask anything from non-authenticated peers
-	if (!(p.m_bPiRcvd && p.m_pInfo))
+	if (!((Peer::Flags::PiRcvd & p.m_Flags) && p.m_pInfo))
 		return false;
 
 	// check if the peer currently transfers a block
@@ -293,6 +333,7 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 		Task* pTask = new Task;
 		pTask->m_Key = tKey.m_Key;
 		pTask->m_bRelevant = true;
+		pTask->m_bPack = false;
 		pTask->m_pOwner = NULL;
 
 		get_ParentObj().m_setTasks.insert(*pTask);
@@ -331,32 +372,27 @@ void Node::Processor::OnNewState()
 	if (!m_Cursor.m_Sid.m_Row)
 		return;
 
-	proto::Hdr msgHdr;
-	msgHdr.m_Description = m_Cursor.m_Full;
+	LOG_INFO() << "My Tip: " << m_Cursor.m_ID;
 
-	proto::NewTip msg;
-	msgHdr.m_Description.get_ID(msg.m_ID);
-	msg.m_ChainWork = m_Cursor.m_Full.m_ChainWork;
-
-	LOG_INFO() << "My Tip: " << msg.m_ID;
-
-	get_ParentObj().m_TxPool.DeleteOutOfBound(msg.m_ID.m_Height + 1);
+	get_ParentObj().m_TxPool.DeleteOutOfBound(m_Cursor.m_Sid.m_Height + 1);
 
 	get_ParentObj().m_Miner.HardAbortSafe();
 
 	get_ParentObj().m_Miner.SetTimer(0, true); // don't start mined block construction, because we're called in the context of NodeProcessor, which holds the DB transaction.
 
+	proto::NewTip msg;
+	msg.m_Description = m_Cursor.m_Full;
+
 	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
 	{
 		Peer& peer = *it;
+		if (!(Peer::Flags::Connected & peer.m_Flags))
+			continue;
 
-		if (peer.m_bConnected && (peer.m_TipWork <= msg.m_ChainWork))
-		{
-			peer.Send(msg);
+		if (!NodeProcessor::IsRemoteTipNeeded(msg.m_Description, peer.m_Tip))
+			continue;
 
-			if (peer.m_Config.m_AutoSendHdr)
-				peer.Send(msgHdr);
-		}
+		peer.Send(msg);
 	}
 
 	if (get_ParentObj().m_Compressor.m_bEnabled)
@@ -476,6 +512,18 @@ bool Node::Processor::ApproveState(const Block::SystemState::ID& id)
 		(idCtl.m_Hash == id.m_Hash);
 }
 
+void Node::Processor::AdjustFossilEnd(Height& h)
+{
+	if (get_ParentObj().m_Compressor.m_bEnabled)
+	{
+		// blocks above the oldest macroblock should be accessuble
+		NodeDB::WalkerState ws(get_DB());
+		for (get_DB().EnumMacroblocks(ws); ws.MoveNext(); )
+			if (h > ws.m_Sid.m_Height)
+				h = ws.m_Sid.m_Height;
+	}
+}
+
 void Node::Processor::OnStateData()
 {
 	++m_DownloadedHeaders;
@@ -513,12 +561,9 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 	m_lstPeers.push_back(*pPeer);
 
 	pPeer->m_pInfo = NULL;
-	pPeer->m_bConnected = false;
-	pPeer->m_bPiRcvd = false;
-	pPeer->m_bOwner = false;
+	pPeer->m_Flags = 0;
 	pPeer->m_Port = 0;
-	pPeer->m_TipHeight = 0;
-	pPeer->m_TipWork = Zero;
+	ZeroObject(pPeer->m_Tip);
 	pPeer->m_RemoteAddr = addr;
 	ZeroObject(pPeer->m_Config);
 
@@ -564,6 +609,37 @@ void Node::Initialize()
 	{
 		uint32_t numCores = std::thread::hardware_concurrency();
 		m_Cfg.m_VerificationThreads = (numCores > m_Cfg.m_MiningThreads + 1) ? (numCores - m_Cfg.m_MiningThreads) : 0;
+	}
+
+	if (!m_Processor.m_Cursor.m_ID.m_Height)
+	{
+		if (!m_Cfg.m_vTreasury.empty())
+		{
+			LOG_INFO() << "Creating new blockchain from treasury";
+		}
+		else
+			if (m_Cfg.m_Sync.m_SrcPeers)
+			{
+				LOG_INFO() << "Sync mode";
+
+				m_pSync.reset(new FirstTimeSync);
+				ZeroObject(m_pSync->m_Trg);
+				ZeroObject(m_pSync->m_Best);
+
+				NodeDB::Blob blob = m_pSync->m_Trg.m_Hash;
+				m_Processor.get_DB().ParamGet(NodeDB::ParamID::SyncTarget, &m_pSync->m_Trg.m_Height, &blob);
+
+				m_pSync->m_bDetecting = !m_pSync->m_Trg.m_Height;
+
+				if (m_pSync->m_Trg.m_Height)
+				{
+					LOG_INFO() << "Resuming sync up to " << m_pSync->m_Trg;
+				}
+				else
+				{
+					LOG_INFO() << "Searching for the best peer...";
+				}
+			}
 	}
 
 	RefreshCongestions();
@@ -696,13 +772,9 @@ void Node::Bbs::MaybeCleanup()
 
 void Node::ImportMacroblock(Height h)
 {
-	if (!m_Compressor.m_bEnabled)
-		throw std::runtime_error("History path not specified");
-
 	Block::BodyBase::RW rw;
 	m_Compressor.FmtPath(rw, h, NULL);
-	if (!rw.Open(true))
-		std::ThrowIoError();
+	rw.Open(true);
 
 	if (!m_Processor.ImportMacroBlock(rw))
 		throw std::runtime_error("import failed");
@@ -732,6 +804,8 @@ Node::~Node()
 
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
 		ZeroObject(it->m_Config); // prevent re-assigning of tasks in the next loop
+
+	m_pSync = NULL; // prevent reassign sync
 
 	while (!m_lstPeers.empty())
 		m_lstPeers.front().DeleteSelf(false, proto::NodeConnection::ByeReason::Stopping);
@@ -774,7 +848,7 @@ void Node::Peer::KillTimer()
 
 void Node::Peer::OnTimer()
 {
-	if (m_bConnected)
+	if (Flags::Connected & m_Flags)
 	{
 		assert(!m_lstTasks.empty());
 
@@ -799,7 +873,7 @@ void Node::Peer::OnResendPeers()
 	for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); nRemaining && (rs.end() != it); it++)
 	{
 		const PeerMan::PeerInfo& pi = it->get_ParentObj();
-		if (m_bPiRcvd && (&pi == m_pInfo))
+		if ((Flags::PiRcvd & m_Flags) && (&pi == m_pInfo))
 			continue; // skip
 
 		proto::PeerInfo msg;
@@ -822,7 +896,7 @@ void Node::Peer::OnConnectedSecure()
 {
 	LOG_INFO() << "Peer " << m_RemoteAddr << " Connected";
 
-	m_bConnected = true;
+	m_Flags |= Flags::Connected;
 
 	if (m_Port && m_This.m_Cfg.m_Listen.port())
 	{
@@ -845,8 +919,7 @@ void Node::Peer::OnConnectedSecure()
 	if (m_This.m_Processor.m_Cursor.m_Sid.m_Row)
 	{
 		proto::NewTip msg;
-		msg.m_ID = m_This.m_Processor.m_Cursor.m_ID;
-		msg.m_ChainWork = m_This.m_Processor.m_Cursor.m_Full.m_ChainWork;
+		msg.m_Description = m_This.m_Processor.m_Cursor.m_Full;
 		Send(msg);
 	}
 }
@@ -859,16 +932,16 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	if (proto::IDType::Owner == msg.m_IDType)
 	{
 		if (msg.m_ID == m_This.m_MyOwnerID)
-			m_bOwner = true;
+			m_Flags |= Flags::Owner;
 	}
 
 	if (proto::IDType::Node != msg.m_IDType)
 		return;
 
-	if (m_bPiRcvd || (msg.m_ID == Zero))
+	if ((Flags::PiRcvd & m_Flags) || (msg.m_ID == Zero))
 		ThrowUnexpected();
 
-	m_bPiRcvd = true;
+	m_Flags |= Flags::PiRcvd;
 	LOG_INFO() << m_RemoteAddr << " received PI";
 
 	PeerMan& pm = m_This.m_PeerMan; // alias
@@ -993,6 +1066,15 @@ void Node::Peer::ReleaseTask(Task& t)
 	assert(this == t.m_pOwner);
 	t.m_pOwner = NULL;
 
+	if (t.m_bPack)
+	{
+		uint32_t& nCounter = t.m_Key.second ? m_This.m_nTasksPackBody : m_This.m_nTasksPackHdr;
+		assert(nCounter);
+
+		nCounter--;
+		t.m_bPack = false;
+	}
+
 	m_lstTasks.erase(TaskList::s_iterator_to(t));
 	m_This.m_lstTasksUnassigned.push_back(t);
 
@@ -1006,15 +1088,14 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 {
 	LOG_INFO() << "-Peer " << m_RemoteAddr;
 
-	if (nByeReason && m_bConnected)
+	if (nByeReason && (Flags::Connected & m_Flags))
 	{
 		proto::Bye msg;
 		msg.m_Reason = nByeReason;
 		Send(msg);
 	}
 
-	m_TipHeight = 0; // prevent reassigning the tasks
-	m_TipWork = Zero;
+	ZeroObject(m_Tip); // prevent reassigning the tasks
 
 	ReleaseTasks();
 	Unsubscribe();
@@ -1029,6 +1110,16 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 
 		if (bIsError)
 			m_This.m_PeerMan.OnRemoteError(*m_pInfo, ByeReason::Ban == nByeReason);
+	}
+
+	if (m_This.m_pSync && (Flags::SyncPending & m_Flags))
+	{
+		assert(m_This.m_pSync->m_RequestsPending);
+		m_Flags &= ~Flags::SyncPending;
+		m_Flags |= Flags::DontSync;
+		m_This.m_pSync->m_RequestsPending--;
+
+		m_This.SyncCycle();
 	}
 
 	m_This.m_lstPeers.erase(PeerList::s_iterator_to(*this));
@@ -1067,19 +1158,256 @@ void Node::Peer::OnMsg(proto::Ping&&)
 
 void Node::Peer::OnMsg(proto::NewTip&& msg)
 {
-	if (msg.m_ChainWork < m_TipWork)
+	if (msg.m_Description.m_ChainWork < m_Tip.m_ChainWork)
 		ThrowUnexpected();
 
-	m_TipHeight = msg.m_ID.m_Height;
-	m_TipWork = msg.m_ChainWork;
+	m_Tip = msg.m_Description;
 	m_setRejected.clear();
 
-	LOG_INFO() << "Peer " << m_RemoteAddr << " Tip: " << msg.m_ID;
+	Block::SystemState::ID id;
+	m_Tip.get_ID(id);
 
-	TakeTasks();
+	LOG_INFO() << "Peer " << m_RemoteAddr << " Tip: " << id;
 
-	if (m_This.m_Processor.IsStateNeeded(msg.m_ID))
-		m_This.m_Processor.RequestData(msg.m_ID, false, m_pInfo ? &m_pInfo->m_ID.m_Key : NULL);
+	if (!m_pInfo)
+		return;
+
+	bool bSyncMode = (bool) m_This.m_pSync;
+	Processor& p = m_This.m_Processor;
+
+	if (NodeProcessor::IsRemoteTipNeeded(m_Tip, p.m_Cursor.m_Full))
+	{
+		if (!bSyncMode && (m_Tip.m_Height > p.m_Cursor.m_ID.m_Height + Rules::get().MaxRollbackHeight + Rules::get().MacroblockGranularity * 2))
+			LOG_WARNING() << "Height drop is too big, maybe unreachable";
+
+		switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
+		{
+		case NodeProcessor::DataStatus::Invalid:
+			ThrowUnexpected();
+			// no break;
+
+		case NodeProcessor::DataStatus::Accepted:
+			m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true);
+
+			if (bSyncMode)
+				break;
+
+			m_This.RefreshCongestions(); // NOTE! Can call OnPeerInsane()
+			return;
+
+		case NodeProcessor::DataStatus::Unreachable:
+			LOG_WARNING() << id << " Tip unreachable!";
+			break;
+
+		default:
+			break; // suppress warning
+		}
+
+	}
+
+	if (!bSyncMode)
+	{
+		TakeTasks();
+		return;
+	}
+
+	uint8_t nProvenWork = Flags::ProvenWorkReq & m_Flags;
+	if (!nProvenWork)
+	{
+		m_Flags |= Flags::ProvenWorkReq;
+		// maybe take it
+		Send(proto::GetProofChainWork());
+	}
+
+	if (m_This.m_pSync->m_bDetecting)
+	{
+		if (!nProvenWork/* && (m_This.m_pSync->m_Best <= m_Tip.m_ChainWork)*/)
+			// maybe take it
+			Send(proto::MacroblockGet());
+	}
+	else
+		m_This.SyncCycle(*this);
+}
+
+void Node::Peer::OnMsg(proto::ProofChainWork&& msg)
+{
+	Block::SystemState::Full s;
+	if (!msg.m_Proof.IsValid(&s))
+		ThrowUnexpected();
+
+	if (s.m_ChainWork != m_Tip.m_ChainWork)
+		ThrowUnexpected(); // should correspond to the tip, but we're interested only in the asserted work
+
+	LOG_WARNING() << "Peer " << m_RemoteAddr << " Chainwork ok";
+
+	m_Flags |= Flags::ProvenWork;
+
+	if (m_This.m_pSync)
+		m_This.SyncCycle();
+}
+
+void Node::Peer::OnMsg(proto::Macroblock&& msg)
+{
+	if (!m_This.m_pSync)
+		return;
+
+	if (!(Flags::ProvenWork & m_Flags))
+		ThrowUnexpected();
+
+	if (Flags::SyncPending & m_Flags)
+	{
+		assert(m_This.m_pSync->m_RequestsPending);
+		m_Flags &= ~Flags::SyncPending;
+		m_This.m_pSync->m_RequestsPending--;
+
+		if (msg.m_ID == m_This.m_pSync->m_Trg)
+		{
+			LOG_INFO() << "Peer " << m_RemoteAddr << " DL Macroblock portion";
+			m_This.SyncCycle(*this, msg.m_Portion);
+		}
+		else
+		{
+			m_Flags |= Flags::DontSync;
+			m_This.SyncCycle();
+		}
+	}
+	else
+	{
+		if (!m_This.m_pSync->m_bDetecting)
+			return;
+
+		// still in 1st phase. Check if it's better
+		int nCmp = m_This.m_pSync->m_Best.cmp(m_Tip.m_ChainWork);
+		if ((nCmp < 0) || (!nCmp && (m_This.m_pSync->m_Trg.m_Height < msg.m_ID.m_Height)))
+		{
+			LOG_INFO() << "Sync target so far: " << msg.m_ID << ", best Peer " << m_RemoteAddr;
+
+			m_This.m_pSync->m_Trg = msg.m_ID;
+			m_This.m_pSync->m_Best = m_Tip.m_ChainWork;
+
+			if (!m_This.m_pSync->m_pTimer)
+			{
+				m_This.m_pSync->m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+
+				Node* pThis = &m_This;
+				m_This.m_pSync->m_pTimer->start(m_This.m_Cfg.m_Sync.m_Timeout_ms, false, [pThis]() { pThis->OnSyncTimer(); });
+			}
+
+		}
+
+		if (++m_This.m_pSync->m_RequestsPending >= m_This.m_Cfg.m_Sync.m_SrcPeers)
+			m_This.OnSyncTimer();
+	}
+}
+
+void Node::OnSyncTimer()
+{
+	assert(m_pSync && m_pSync->m_bDetecting);
+
+	if (m_pSync->m_Trg.m_Height)
+	{
+		m_pSync->m_pTimer = NULL;
+
+		LOG_INFO() << "Sync target final: " << m_pSync->m_Trg;
+
+		NodeDB::Blob blob = m_pSync->m_Trg.m_Hash;
+		m_Processor.get_DB().ParamSet(NodeDB::ParamID::SyncTarget, &m_pSync->m_Trg.m_Height, &blob);
+
+		m_pSync->m_bDetecting = false;
+		m_pSync->m_RequestsPending = 0;
+
+		SyncCycle();
+	}
+	else
+	{
+		m_pSync = NULL;
+		LOG_INFO() << "Switching to standard sync";
+		RefreshCongestions();
+	}
+}
+
+void Node::SyncCycle()
+{
+	assert(m_pSync);
+	if (m_pSync->m_bDetecting || m_pSync->m_RequestsPending)
+		return;
+
+	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+		if (SyncCycle(*it))
+			break;
+}
+
+bool Node::SyncCycle(Peer& p)
+{
+	assert(m_pSync);
+	if (m_pSync->m_bDetecting || m_pSync->m_RequestsPending)
+		return false;
+
+	assert(!(Peer::Flags::SyncPending & p.m_Flags));
+	if (Peer::Flags::DontSync & p.m_Flags)
+		return false;
+
+	if (p.m_Tip.m_Height < m_pSync->m_Trg.m_Height/* + Rules::get().MaxRollbackHeight*/)
+		return false;
+
+	proto::MacroblockGet msg;
+	msg.m_ID = m_pSync->m_Trg;
+	msg.m_Data = m_pSync->m_iData;
+
+	assert(m_pSync->m_iData < Block::Body::RW::s_Datas);
+
+	Block::Body::RW rw;
+	m_Compressor.FmtPath(rw, m_pSync->m_Trg.m_Height, NULL);
+
+	std::string sPath;
+	rw.GetPath(sPath, m_pSync->m_iData);
+
+	std::FStream fs;
+	if (fs.Open(sPath.c_str(), true))
+		msg.m_Offset = fs.get_Remaining();
+
+	p.Send(msg);
+	p.m_Flags |= Peer::Flags::SyncPending;
+	m_pSync->m_RequestsPending++;
+
+	return true;
+}
+
+void Node::SyncCycle(Peer& p, const ByteBuffer& buf)
+{
+	assert(m_pSync && !m_pSync->m_bDetecting && !m_pSync->m_RequestsPending);
+	assert(m_pSync->m_iData < Block::Body::RW::s_Datas);
+
+	if (buf.empty())
+	{
+		if (++m_pSync->m_iData == Block::Body::RW::s_Datas)
+		{
+			Height h = m_pSync->m_Trg.m_Height;
+			m_pSync = NULL;
+
+			LOG_INFO() << "Sync DL complete";
+
+			ImportMacroblock(h);
+			RefreshCongestions();
+
+			return;
+		}
+	}
+	else
+	{
+		Block::Body::RW rw;
+		m_Compressor.FmtPath(rw, m_pSync->m_Trg.m_Height, NULL);
+
+		std::string sPath;
+		rw.GetPath(sPath, m_pSync->m_iData);
+
+		std::FStream fs;
+		fs.Open(sPath.c_str(), false, true, true);
+
+		fs.write(&buf.at(0), buf.size());
+	}
+
+	SyncCycle(p);
 }
 
 Node::Task& Node::Peer::get_FirstTask()
@@ -1122,7 +1450,7 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 {
 	Task& t = get_FirstTask();
 
-	if (t.m_Key.second)
+	if (t.m_Key.second || t.m_bPack)
 		ThrowUnexpected();
 
 	Block::SystemState::ID id;
@@ -1130,11 +1458,110 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 	if (id != t.m_Key.first)
 		ThrowUnexpected();
 
-	assert(m_bPiRcvd && m_pInfo);
+	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
 	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true);
 
 	NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnState(msg.m_Description, m_pInfo->m_ID.m_Key);
 	OnFirstTaskDone(eStatus);
+}
+
+void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
+{
+	proto::HdrPack msgOut;
+
+	if (msg.m_Count)
+	{
+		if (msg.m_Count > proto::g_HdrPackMaxSize)
+			ThrowUnexpected();
+
+		NodeDB& db = m_This.m_Processor.get_DB();
+		uint64_t rowid = db.StateFindSafe(msg.m_Top);
+		if (rowid)
+		{
+			msgOut.m_vElements.reserve(msg.m_Count);
+
+			Block::SystemState::Full s;
+			for (uint32_t n = 0; ; )
+			{
+				db.get_State(rowid, s);
+				msgOut.m_vElements.push_back(s);
+
+				if (++n == msg.m_Count)
+					break;
+
+				if (!db.get_Prev(rowid))
+					break;
+			}
+
+			msgOut.m_Prefix = s;
+		}
+	}
+
+	if (msgOut.m_vElements.empty())
+		Send(proto::DataMissing(Zero));
+	else
+		Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::HdrPack&& msg)
+{
+	Task& t = get_FirstTask();
+
+	if (t.m_Key.second || !t.m_bPack)
+		ThrowUnexpected();
+
+	if (msg.m_vElements.empty() || (msg.m_vElements.size() > proto::g_HdrPackMaxSize))
+		ThrowUnexpected();
+
+	Block::SystemState::Full s;
+	((Block::SystemState::Sequence::Prefix&) s) = msg.m_Prefix;
+	((Block::SystemState::Sequence::Element&) s) = msg.m_vElements.back();
+
+	uint32_t nAccepted = 0;
+	bool bInvalid = false;
+
+	for (size_t i = msg.m_vElements.size(); ; )
+	{
+		NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnState(s, m_pInfo->m_ID.m_Key);
+		switch (eStatus)
+		{
+		case NodeProcessor::DataStatus::Invalid:
+			bInvalid = true;
+			break;
+
+		case NodeProcessor::DataStatus::Accepted:
+			nAccepted++;
+
+		default:
+			break; // suppress warning
+		}
+
+		if (! --i)
+			break;
+
+		s.NextPrefix();
+		((Block::SystemState::Sequence::Element&) s) = msg.m_vElements[i - 1];
+		s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+	}
+
+	// just to be pedantic
+	Block::SystemState::ID id;
+	s.get_ID(id);
+	if (id != t.m_Key.first)
+		bInvalid = true;
+
+	OnFirstTaskDone();
+
+	if (nAccepted)
+	{
+		assert((Flags::PiRcvd & m_Flags) && m_pInfo);
+		m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader * nAccepted, true);
+
+		m_This.RefreshCongestions(); // may delete us
+	} else
+		if (bInvalid)
+			ThrowUnexpected();
+
 }
 
 void Node::Peer::OnMsg(proto::GetBody&& msg)
@@ -1162,10 +1589,10 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 {
 	Task& t = get_FirstTask();
 
-	if (!t.m_Key.second)
+	if (!t.m_Key.second || t.m_bPack)
 		ThrowUnexpected();
 
-	assert(m_bPiRcvd && m_pInfo);
+	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
 	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
 
 	const Block::SystemState::ID& id = t.m_Key.first;
@@ -1193,34 +1620,23 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 	// However the transaction body must have already been checked for NULLs
 
 	proto::Boolean msgOut;
-	msgOut.m_Value = OnNewTransaction(std::move(msg.m_Transaction));
+	msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), msg.m_Fluff, this);
 	Send(msgOut);
 }
 
-bool Node::Peer::OnNewTransaction(Transaction::Ptr&& ptx)
+bool Node::ValidateAndLogTx(Transaction::Context& ctx, const Transaction& tx, const Transaction::KeyType& key, const Peer* pPeer)
 {
-	NodeProcessor::TxPool::Element::Tx key;
-	ptx->get_Key(key.m_Key);
-
-	NodeProcessor::TxPool::TxSet::iterator it = m_This.m_TxPool.m_setTxs.find(key);
-	if (m_This.m_TxPool.m_setTxs.end() != it)
-		return true;
-
-	m_This.m_Wtx.Delete(key.m_Key);
-
-	// new transaction
-	const Transaction& tx = *ptx;
-	Transaction::Context ctx;
-
 	bool bValid = !tx.m_vInputs.empty() && !tx.m_vKernelsOutput.empty();
 	if (bValid)
-		bValid = m_This.m_Processor.ValidateTx(tx, ctx);
+		bValid = m_Processor.ValidateTx(tx, ctx);
 
 	{
 		// Log it
 		std::ostringstream os;
 
-		os << "Tx " << key.m_Key << " from " << m_RemoteAddr;
+		os << "Tx " << key;
+		if (pPeer)
+			os << " from " << pPeer->m_RemoteAddr;
 
 		for (size_t i = 0; i < tx.m_vInputs.size(); i++)
 			os << "\n\tI: " << tx.m_vInputs[i]->m_Commitment;
@@ -1247,16 +1663,132 @@ bool Node::Peer::OnNewTransaction(Transaction::Ptr&& ptx)
 		LOG_INFO() << os.str();
 	}
 
-	if (!bValid)
+	return bValid;
+}
+
+uint32_t RandomUInt32(uint32_t threshold, ECC::uintBig& hvRnd)
+{
+	if (threshold)
+	{
+		typedef uintBigFor<uint32_t>::Type Type;
+
+		Type thr(threshold), val;
+		Type::Threshold thrSel(thr);
+
+		do
+		{
+			ECC::Hash::Processor() << hvRnd >> hvRnd;
+			val = hvRnd;
+		} while (!thrSel.Accept(val));
+
+		val.Export(threshold);
+	}
+	return threshold;
+}
+
+bool Node::OnTransaction(Transaction::Ptr&& ptx, bool bFluff, const Peer* pPeer)
+{
+	ECC::uintBig& hvRnd = m_SChannelSeed.V;
+	uint32_t nStemPeers;
+
+	if (!bFluff)
+	{
+		// must have at least 1 peer to continue the stem phase
+		nStemPeers = 0;
+
+		for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+			if (it->m_Config.m_SpreadingTransactions)
+				nStemPeers++;
+
+		bFluff = true;
+
+		if (nStemPeers)
+		{
+			auto thr = uintBigFrom(m_Cfg.m_Dandelion.m_FluffProbability);
+			ECC::Hash::Processor() << hvRnd >> hvRnd;
+
+			if (memcmp(thr.m_pData, hvRnd.m_pData, thr.nBytes) < 0)
+				bFluff = false; // should remain in stem phase
+		}
+	}
+
+	Dandelion::Element::Tx key0;
+	ptx->get_Key(key0.m_Key);
+
+	Dandelion::TxSet::iterator it0 = m_Dandelion.m_setTxs.find(key0);
+
+	const Transaction& tx = *ptx;
+	Transaction::Context ctx;
+
+	if (!bFluff)
+	{
+		Dandelion::Element* pVal;
+
+		if (m_Dandelion.m_setTxs.end() != it0)
+		{
+			pVal = &it0->get_ParentObj();
+			m_Dandelion.m_setTime.erase(Dandelion::TimeSet::s_iterator_to(pVal->m_Time));
+		}
+		else
+		{
+			if (!ValidateAndLogTx(ctx, tx, key0.m_Key, pPeer))
+				return false;
+
+			pVal = new Dandelion::Element;
+			pVal->m_Tx.m_Key = key0.m_Key;
+			m_Dandelion.m_setTxs.insert(pVal->m_Tx);
+
+			pVal->m_pValue.swap(ptx);
+		}
+
+		// set random timer
+		pVal->m_Time.m_Value = GetTime_ms() + m_Cfg.m_Dandelion.m_TimeoutMin_ms + RandomUInt32(m_Cfg.m_Dandelion.m_TimeoutMax_ms - m_Cfg.m_Dandelion.m_TimeoutMin_ms, hvRnd);
+		m_Dandelion.m_setTime.insert(pVal->m_Time);
+
+		uint32_t nVal_ms;
+		if (m_Dandelion.get_NextTimeout(nVal_ms) == pVal)
+			m_Dandelion.SetTimer(nVal_ms);
+
+		// broadcast to random peer
+		assert(nStemPeers);
+		nStemPeers = RandomUInt32(nStemPeers, hvRnd);
+
+		for (PeerList::iterator it = m_lstPeers.begin(); ; it++)
+			if (it->m_Config.m_SpreadingTransactions && !nStemPeers--)
+			{
+				it->SendTxGuard(pVal->m_pValue, false);
+				break;
+			}
+
+		return true;
+	}
+
+	if (m_Dandelion.m_setTxs.end() != it0)
+		m_Dandelion.Delete(it0->get_ParentObj());
+
+
+
+	NodeProcessor::TxPool::Element::Tx key;
+	key.m_Key = key0.m_Key;
+
+	NodeProcessor::TxPool::TxSet::iterator it = m_TxPool.m_setTxs.find(key);
+	if (m_TxPool.m_setTxs.end() != it)
+		return true;
+
+	m_Wtx.Delete(key.m_Key);
+
+	// new transaction
+
+	if (/*!bValid && */!ValidateAndLogTx(ctx, tx, key.m_Key, pPeer)) // we need the fee
 		return false;
 
 	proto::HaveTransaction msgOut;
 	msgOut.m_ID = key.m_Key;
 
-	for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; it++)
+	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
 	{
 		Peer& peer = *it;
-		if (this == &peer)
+		if (&peer == pPeer)
 			continue;
 		if (!peer.m_Config.m_SpreadingTransactions)
 			continue;
@@ -1264,24 +1796,108 @@ bool Node::Peer::OnNewTransaction(Transaction::Ptr&& ptx)
 		peer.Send(msgOut);
 	}
 
-	m_This.m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
-	m_This.m_TxPool.ShrinkUpTo(m_This.m_Cfg.m_MaxPoolTransactions);
-	m_This.m_Miner.SetTimer(m_This.m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
+	m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
+	m_TxPool.ShrinkUpTo(m_Cfg.m_MaxPoolTransactions);
+	m_Miner.SetTimer(m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
 
 	return true;
+}
+
+void Node::Dandelion::Delete(Element& x)
+{
+	uint32_t n_ms;
+	bool bResetTimer = (get_NextTimeout(n_ms) == &x);
+
+	DeleteRaw(x);
+
+	if (bResetTimer)
+		if (get_NextTimeout(n_ms))
+			SetTimer(n_ms);
+		else
+			KillTimer();
+}
+
+void Node::Dandelion::DeleteRaw(Element& x)
+{
+	m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
+	m_setTime.erase(TimeSet::s_iterator_to(x.m_Time));
+	delete &x;
+}
+
+void Node::Dandelion::Clear()
+{
+	while (!m_setTime.empty())
+		DeleteRaw(m_setTime.begin()->get_ParentObj());
+
+	KillTimer();
+}
+
+void Node::Dandelion::SetTimer(uint32_t nTimeout_ms)
+{
+	if (!m_pTimer)
+		m_pTimer = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+
+
+	m_pTimer->start(nTimeout_ms, false, [this]() { OnTimer(); });
+}
+
+void Node::Dandelion::KillTimer()
+{
+	if (m_pTimer)
+		m_pTimer->cancel();
+}
+
+void Node::Dandelion::OnTimer()
+{
+	while (true)
+	{
+		uint32_t nTimeout_ms;
+		Element* pElem = get_NextTimeout(nTimeout_ms);
+		if (!pElem)
+		{
+			KillTimer();
+			break;
+		}
+
+		if (nTimeout_ms > 0)
+		{
+			SetTimer(nTimeout_ms);
+			break;
+		}
+
+		Transaction::Ptr ptx;
+		pElem->m_pValue.swap(ptx);
+		DeleteRaw(*pElem);
+
+		get_ParentObj().OnTransaction(std::move(ptx), true, NULL);
+	}
+}
+
+Node::Dandelion::Element* Node::Dandelion::get_NextTimeout(uint32_t& nTimeout_ms)
+{
+	if (m_setTime.empty())
+		return NULL;
+
+	uint32_t now_ms = GetTime_ms();
+	Element::Time tmPrev;
+	tmPrev.m_Value = now_ms - (uint32_t(-1) >> 1);
+
+	TimeSet::iterator it = m_setTime.lower_bound(tmPrev);
+	if (m_setTime.end() == it)
+		it = m_setTime.begin();
+
+	Element& ret = it->get_ParentObj();
+
+	bool bLate = ((ret.m_Time.m_Value >= tmPrev.m_Value) == (now_ms >= ret.m_Time.m_Value)) == (now_ms > tmPrev.m_Value);
+
+	nTimeout_ms = bLate ? 0 : (ret.m_Time.m_Value - now_ms);
+	return &ret;
 }
 
 void Node::Peer::OnMsg(proto::Config&& msg)
 {
 	if (msg.m_CfgChecksum != Rules::get().Checksum)
 		ThrowUnexpected("Incompatible peer cfg!");
-
-	if (!m_Config.m_AutoSendHdr && msg.m_AutoSendHdr && m_This.m_Processor.m_Cursor.m_Sid.m_Row)
-	{
-		proto::Hdr msgHdr;
-		msgHdr.m_Description = m_This.m_Processor.m_Cursor.m_Full;
-		Send(msgHdr);
-	}
 
 	if (!m_Config.m_SpreadingTransactions && msg.m_SpreadingTransactions)
 	{
@@ -1353,6 +1969,11 @@ void Node::Peer::OnMsg(proto::GetTransaction&& msg)
 	if (m_This.m_TxPool.m_setTxs.end() == it)
 		return; // don't have it
 
+	SendTxGuard(it->get_ParentObj().m_pValue, true);
+}
+
+void Node::Peer::SendTxGuard(Transaction::Ptr& ptx, bool bFluff)
+{
 	// temporarily move the transaction to the Msg object, but make sure it'll be restored back, even in case of the exception.
 	struct Guard
 	{
@@ -1365,8 +1986,9 @@ void Node::Peer::OnMsg(proto::GetTransaction&& msg)
 	};
 
 	Guard g;
-	g.m_ppVal = &it->get_ParentObj().m_pValue;
+	g.m_ppVal = &ptx;
 	g.Swap();
+	g.m_Msg.m_Fluff = bFluff;
 
 	Send(g.m_Msg);
 }
@@ -1375,7 +1997,7 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 {
 	proto::Mined msgOut;
 
-	if (m_bOwner || !m_This.m_Cfg.m_RestrictMinedReportToOwner)
+	if ((Flags::Owner & m_Flags) || !m_This.m_Cfg.m_RestrictMinedReportToOwner)
 	{
 		NodeDB& db = m_This.m_Processor.get_DB();
 		NodeDB::WalkerMined wlk(db);
@@ -1387,9 +2009,7 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 			x.m_Fees = wlk.m_Amount;
 			x.m_Active = 0 != (db.GetStateFlags(wlk.m_Sid.m_Row) & NodeDB::StateFlags::Active);
 
-			Block::SystemState::Full s;
-			db.get_State(wlk.m_Sid.m_Row, s);
-			s.get_ID(x.m_ID);
+			db.get_StateID(wlk.m_Sid, x.m_ID);
 
 			if (msgOut.m_Entries.size() == proto::PerMined::s_EntriesMax)
 				break;
@@ -1553,14 +2173,8 @@ void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
 	Processor& p = m_This.m_Processor;
 	if (p.BuildCwp())
 	{
-		msgOut.m_Proof = p.m_Cwp; // full copy
-
-		if (!(msg.m_LowerBound == Zero))
-		{
-			msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
-			verify(msgOut.m_Proof.Crop());
-		}
-
+		msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
+		verify(msgOut.m_Proof.Crop(p.m_Cwp));
 	}
 
 	Send(msgOut);
@@ -1725,6 +2339,62 @@ void Node::Peer::OnMsg(proto::BbsPickChannel&& msg)
 {
 	proto::BbsPickChannelRes msgOut;
 	msgOut.m_Channel = m_This.m_Bbs.m_RecommendedChannel;
+	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
+{
+	if (msg.m_Data >= Block::BodyBase::RW::s_Datas)
+		ThrowUnexpected();
+
+	proto::Macroblock msgOut;
+
+	if (m_This.m_Cfg.m_HistoryCompression.m_UploadPortion)
+	{
+		Processor& p = m_This.m_Processor;
+		NodeDB::WalkerState ws(p.get_DB());
+		for (p.get_DB().EnumMacroblocks(ws); ws.MoveNext(); )
+		{
+			Block::SystemState::ID id;
+			p.get_DB().get_StateID(ws.m_Sid, id);
+
+			if (msg.m_ID.m_Height)
+			{
+				if (msg.m_ID.m_Height < ws.m_Sid.m_Height)
+					continue;
+
+				if (id != msg.m_ID)
+					break;
+
+				// don't care if exc
+				Block::Body::RW rw;
+				m_This.m_Compressor.FmtPath(rw, ws.m_Sid.m_Height, NULL);
+
+				std::string sPath;
+				rw.GetPath(sPath, msg.m_Data);
+
+				std::FStream fs;
+				if (fs.Open(sPath.c_str(), true) && (fs.get_Remaining() > msg.m_Offset))
+				{
+					uint64_t nDelta = fs.get_Remaining() - msg.m_Offset;
+
+					uint32_t nPortion = m_This.m_Cfg.m_HistoryCompression.m_UploadPortion;
+					if (nPortion > nDelta)
+						nPortion = (uint32_t)nDelta;
+
+					fs.Seek(msg.m_Offset);
+
+					msgOut.m_Portion.resize(nPortion);
+					fs.read(&msgOut.m_Portion.at(0), nPortion);
+				}
+			}
+
+			msgOut.m_ID = id;
+
+			break;
+		}
+	}
+
 	Send(msgOut);
 }
 
@@ -1977,16 +2647,29 @@ void Node::Compressor::Cleanup()
 	NodeDB::WalkerState ws(p.get_DB());
 	for (p.get_DB().EnumMacroblocks(ws); ws.MoveNext(); )
 	{
-		Block::BodyBase::RW rw;
-		FmtPath(rw, ws.m_Sid.m_Height, NULL);
-
-		if (nBacklog && rw.Open(true))
-			nBacklog--; // ok
-		else
+		if (nBacklog)
 		{
-			LOG_WARNING() << "History at height " << ws.m_Sid.m_Height << " not found";
-			Delete(ws.m_Sid);
+			// check if it's valid
+			try {
+
+				Block::BodyBase::RW rw;
+				FmtPath(rw, ws.m_Sid.m_Height, NULL);
+				rw.Open(true);
+
+				Block::BodyBase body;
+				Block::SystemState::Sequence::Prefix prf;
+				rw.get_Start(body, prf);
+
+				// ok
+				nBacklog--;
+				continue;
+
+			} catch (const std::exception& e) {
+				LOG_WARNING() << "History at height " << ws.m_Sid.m_Height << " corrupted: " << e.what();
+			}
 		}
+
+		Delete(ws.m_Sid);
 	}
 }
 
@@ -2026,18 +2709,21 @@ void Node::Compressor::OnNewState()
 	const Config::HistoryCompression& cfg = get_ParentObj().m_Cfg.m_HistoryCompression;
 	Processor& p = get_ParentObj().m_Processor;
 
-	if (p.m_Cursor.m_ID.m_Height - Rules::HeightGenesis + 1 <= cfg.m_Threshold)
+	const uint32_t nThreshold = Rules::get().MaxRollbackHeight;
+
+	if (p.m_Cursor.m_ID.m_Height - Rules::HeightGenesis + 1 <= nThreshold)
 		return;
 
 	HeightRange hr;
-	hr.m_Max = p.m_Cursor.m_ID.m_Height - cfg.m_Threshold;
+	hr.m_Max = p.m_Cursor.m_ID.m_Height - nThreshold;
+	hr.m_Max -= ((hr.m_Max - Rules::HeightGenesis + 1) % Rules::get().MacroblockGranularity);
 
 	// last macroblock
 	NodeDB::WalkerState ws(p.get_DB());
 	p.get_DB().EnumMacroblocks(ws);
 	hr.m_Min = ws.MoveNext() ? ws.m_Sid.m_Height : 0;
 
-	if (hr.m_Min + cfg.m_MinAggregate > hr.m_Max)
+	if (hr.m_Min >= hr.m_Max)
 		return;
 
 	LOG_INFO() << "History generation started up to height " << hr.m_Max;
@@ -2055,6 +2741,11 @@ void Node::Compressor::OnNewState()
 
 void Node::Compressor::FmtPath(Block::BodyBase::RW& rw, Height h, const Height* pH0)
 {
+	FmtPath(rw.m_sPath, h, pH0);
+}
+
+void Node::Compressor::FmtPath(std::string& out, Height h, const Height* pH0)
+{
 	std::stringstream str;
 	if (!pH0)
 		str << get_ParentObj().m_Cfg.m_HistoryCompression.m_sPathOutput << "mb_";
@@ -2062,7 +2753,7 @@ void Node::Compressor::FmtPath(Block::BodyBase::RW& rw, Height h, const Height* 
 		str << get_ParentObj().m_Cfg.m_HistoryCompression.m_sPathTmp << "tmp_" << *pH0 << "_";
 
 	str << h;
-	rw.m_sPath = str.str();
+	out = str.str();
 }
 
 void Node::Compressor::OnNotify()
@@ -2076,8 +2767,7 @@ void Node::Compressor::OnNotify()
 		{
 			Block::Body::RW rw;
 			FmtPath(rw, m_hrInplaceRequest.m_Max, &m_hrInplaceRequest.m_Min);
-			if (!rw.Open(false))
-				std::ThrowIoError();
+			rw.Open(false);
 
 			get_ParentObj().m_Processor.ExportMacroBlock(rw, m_hrInplaceRequest);
 		}
@@ -2100,21 +2790,25 @@ void Node::Compressor::OnNotify()
 
 		if (m_bSuccess)
 		{
-			std::string pSrc[Block::Body::RW::s_Datas];
-			std::string pTrg[Block::Body::RW::s_Datas];
-
 			Block::Body::RW rwSrc, rwTrg;
 			FmtPath(rwSrc, h, &Rules::HeightGenesis);
 			FmtPath(rwTrg, h, NULL);
-			rwSrc.GetPathes(pSrc);
-			rwTrg.GetPathes(pTrg);
 
 			for (int i = 0; i < Block::Body::RW::s_Datas; i++)
 			{
+				std::string sSrc;
+				std::string sTrg;
+				rwSrc.GetPath(sSrc, i);
+				rwTrg.GetPath(sTrg, i);
+
 #ifdef WIN32
-				bool bOk = (FALSE != MoveFileExA(pSrc[i].c_str(), pTrg[i].c_str(), MOVEFILE_REPLACE_EXISTING));
+				bool bOk =
+					MoveFileExW(Utf8toUtf16(sSrc.c_str()).c_str(), Utf8toUtf16(sTrg.c_str()).c_str(), MOVEFILE_REPLACE_EXISTING) ||
+					(GetLastError() == ERROR_FILE_NOT_FOUND);
 #else // WIN32
-				bool bOk = !rename(pSrc[i].c_str(), pTrg[i].c_str());
+				bool bOk =
+					!rename(sSrc.c_str(), sTrg.c_str()) ||
+					(ENOENT == errno);
 #endif // WIN32
 
 				if (!bOk)
@@ -2264,10 +2958,9 @@ bool Node::Compressor::SquashOnce(std::vector<HeightRange>& v)
 
 bool Node::Compressor::SquashOnce(Block::BodyBase::RW& rw, Block::BodyBase::RW& rwSrc0, Block::BodyBase::RW& rwSrc1)
 {
-	if (!rw.Open(false) ||
-		!rwSrc0.Open(true) ||
-		!rwSrc1.Open(true))
-		std::ThrowIoError();
+	rw.Open(false);
+	rwSrc0.Open(true);
+	rwSrc1.Open(true);
 
 	if (!rw.CombineHdr(std::move(rwSrc0), std::move(rwSrc1), m_bStop))
 		return false;

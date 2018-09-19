@@ -28,8 +28,6 @@ protected:
 	void ParseCommandLine(int argc, char* argv[]);
 	void InitKdf();
 
-	void OnMsg(beam::proto::Authentication&&) override;
-
 protected:
 	ECC::Kdf m_Kdf;
 	boost::program_options::variables_map m_VM;
@@ -45,6 +43,7 @@ public:
 protected:
 	void OnConnectedSecure() override;
 	void OnDisconnect(const DisconnectReason&) override;
+    void OnMsg(beam::proto::Authentication&&) override;
 
 	virtual void GenerateTests();
 

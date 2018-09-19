@@ -75,10 +75,11 @@ struct Node
 			std::string m_sPathOutput;
 			std::string m_sPathTmp;
 
-			Height m_Threshold = 60 * 24;		// 1 day roughly. Newer blocks should not be aggregated (not mature enough)
-			Height m_MinAggregate = 60 * 24;	// how many new blocks should produce new file
 			uint32_t m_Naggling = 32;			// combine up to 32 blocks in memory, before involving file system
 			uint32_t m_MaxBacklog = 7;
+
+			uint32_t m_UploadPortion = 5 * 1024 * 1024; // set to 0 to disable upload
+
 		} m_HistoryCompression;
 
 		struct TestMode {
@@ -90,6 +91,21 @@ struct Node
 		std::vector<Block::Body> m_vTreasury;
 
 		Block::SystemState::ID m_ControlState;
+
+		struct Sync {
+			// during sync phase we try to pick the best peer to sync from.
+			// Our logic: decide when either examined enough peers, or timeout expires
+			uint32_t m_SrcPeers = 5;
+			uint32_t m_Timeout_ms = 10000;
+		} m_Sync;
+
+		struct Dandelion
+		{
+			uint16_t m_FluffProbability = 0x1999; // normalized wrt 16 bit. Equals to 0.1
+			uint32_t m_TimeoutMin_ms = 20000;
+			uint32_t m_TimeoutMax_ms = 50000;
+
+		} m_Dandelion;
 
 		Config()
 		{
@@ -119,6 +135,7 @@ private:
 		void OnRolledBack() override;
 		bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&) override;
 		bool ApproveState(const Block::SystemState::ID&) override;
+		void AdjustFossilEnd(Height&) override;
 		void OnStateData() override;
 		void OnBlockData() override;
 
@@ -168,6 +185,7 @@ private:
 		typedef std::pair<Block::SystemState::ID, bool> Key;
 		Key m_Key;
 
+		bool m_bPack;
 		bool m_bRelevant;
 		Peer* m_pOwner;
 
@@ -177,8 +195,34 @@ private:
 	typedef boost::intrusive::list<Task> TaskList;
 	typedef boost::intrusive::multiset<Task> TaskSet;
 
+	uint32_t m_nTasksPackHdr = 0;
+	uint32_t m_nTasksPackBody = 0;
+
 	TaskList m_lstTasksUnassigned;
 	TaskSet m_setTasks;
+
+	struct FirstTimeSync
+	{
+		// there are 2 phases:
+		//	1. Detection, pick the best peer to sync from
+		//	2. Sync phase
+		bool m_bDetecting;
+
+		io::Timer::Ptr m_pTimer; // set during the 1st phase
+		Difficulty::Raw m_Best;
+
+		Block::SystemState::ID m_Trg;
+
+		uint32_t m_RequestsPending = 0;
+		uint32_t m_iData = 0;
+	};
+
+	void OnSyncTimer();
+	void SyncCycle();
+	bool SyncCycle(Peer&);
+	void SyncCycle(Peer&, const ByteBuffer&);
+
+	std::unique_ptr<FirstTimeSync> m_pSync;
 
 	void TryAssignTask(Task&, const PeerID*);
 	bool ShouldAssignTask(Task&, Peer&);
@@ -228,6 +272,59 @@ private:
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Wtx)
 	} m_Wtx;
+
+	struct Dandelion
+	{
+		struct Element
+		{
+			Transaction::Ptr m_pValue;
+
+			struct Tx
+				:public boost::intrusive::set_base_hook<>
+			{
+				Transaction::KeyType m_Key;
+
+				bool operator < (const Tx& t) const { return m_Key < t.m_Key; }
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Tx)
+			} m_Tx;
+
+			struct Time
+				:public boost::intrusive::set_base_hook<>
+			{
+				uint32_t m_Value;
+
+				bool operator < (const Time& t) const { return m_Value < t.m_Value; }
+
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Time)
+			} m_Time;
+		};
+
+		typedef boost::intrusive::multiset<Element::Tx> TxSet;
+		typedef boost::intrusive::multiset<Element::Time> TimeSet;
+
+		TxSet m_setTxs;
+		TimeSet m_setTime;
+
+		void AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);
+		void Delete(Element&);
+		void DeleteRaw(Element&);
+		void Clear();
+
+		Element* get_NextTimeout(uint32_t& nTimeout_ms);
+		void SetTimer(uint32_t nTimeout_ms);
+		void KillTimer();
+
+		io::Timer::Ptr m_pTimer; // set during the 1st phase
+		void OnTimer();
+
+		~Dandelion() { Clear(); }
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Dandelion)
+
+	} m_Dandelion;
+
+	bool OnTransaction(Transaction::Ptr&&, bool bFluff, const Peer*);
+	bool ValidateAndLogTx(Transaction::Context&, const Transaction&, const Transaction::KeyType&, const Peer*);
 
 	struct Bbs
 	{
@@ -303,15 +400,22 @@ private:
 
 		PeerMan::PeerInfoPlus* m_pInfo;
 
-		bool m_bConnected;
-		bool m_bPiRcvd; // peers should send PeerInfoSelf only once
-		bool m_bOwner;
+		struct Flags
+		{
+			static const uint8_t Connected		= 0x01;
+			static const uint8_t PiRcvd			= 0x02;
+			static const uint8_t Owner			= 0x04;
+			static const uint8_t ProvenWorkReq	= 0x08;
+			static const uint8_t ProvenWork		= 0x10;
+			static const uint8_t SyncPending	= 0x20;
+			static const uint8_t DontSync		= 0x40;
+		};
+
+		uint8_t m_Flags;
 		uint16_t m_Port; // to connect to
 		beam::io::Address m_RemoteAddr; // for logging only
 
-		Height m_TipHeight;
-		Difficulty::Raw m_TipWork;
-
+		Block::SystemState::Full m_Tip;
 		proto::Config m_Config;
 
 		TaskList m_lstTasks;
@@ -336,11 +440,12 @@ private:
 		void OnResendPeers();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
-		bool OnNewTransaction(Transaction::Ptr&&);
 
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
+
+		void SendTxGuard(Transaction::Ptr& ptx, bool bFluff);
 
 		// proto::NodeConnection
 		virtual void OnConnectedSecure() override;
@@ -353,7 +458,9 @@ private:
 		virtual void OnMsg(proto::NewTip&&) override;
 		virtual void OnMsg(proto::DataMissing&&) override;
 		virtual void OnMsg(proto::GetHdr&&) override;
+		virtual void OnMsg(proto::GetHdrPack&&) override;
 		virtual void OnMsg(proto::Hdr&&) override;
+		virtual void OnMsg(proto::HdrPack&&) override;
 		virtual void OnMsg(proto::GetBody&&) override;
 		virtual void OnMsg(proto::Body&&) override;
 		virtual void OnMsg(proto::NewTransaction&&) override;
@@ -373,6 +480,9 @@ private:
 		virtual void OnMsg(proto::BbsGetMsg&&) override;
 		virtual void OnMsg(proto::BbsSubscribe&&) override;
 		virtual void OnMsg(proto::BbsPickChannel&&) override;
+		virtual void OnMsg(proto::MacroblockGet&&) override;
+		virtual void OnMsg(proto::Macroblock&&) override;
+		virtual void OnMsg(proto::ProofChainWork&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
@@ -469,6 +579,7 @@ private:
 		void Cleanup();
 		void Delete(const NodeDB::StateID&);
 		void OnNewState();
+		void FmtPath(std::string&, Height, const Height* pH0);
 		void FmtPath(Block::BodyBase::RW&, Height, const Height* pH0);
 		void StopCurrent();
 

@@ -29,8 +29,9 @@ public:
 
 protected:
 	void OnConnectedSecure() override;
+    void OnMsg(beam::proto::Authentication&&) override;
 	void OnDisconnect(const DisconnectReason&) override;
-	void OnMsg(beam::proto::Hdr&&) override;
+	void OnMsg(beam::proto::NewTip&&) override;
 	void OnMsg(beam::proto::ProofUtxo&&) override;
 
 	void StartChecking();

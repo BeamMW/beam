@@ -75,6 +75,12 @@ namespace beam
 	typedef uint64_t Height;
 	typedef uint64_t Amount;
 	typedef std::vector<uint8_t> ByteBuffer;
+
+#ifdef WIN32
+	std::wstring Utf8toUtf16(const char*);
+#endif // WIN32
+
+	bool DeleteFile(const char*);
 }
 
 namespace std
@@ -92,10 +98,13 @@ namespace std
 
 	public:
 
-		bool Open(const char*, bool bRead, bool bStrict = false); // strict - throw exc if error
+		bool Open(const char*, bool bRead, bool bStrict = false, bool bAppend = false); // strict - throw exc if error
+		bool IsOpen() const { return m_F.is_open(); }
 		void Close();
-		bool IsDataRemaining() const;
+		uint64_t get_Remaining() const { return m_Remaining; }
+
 		void Restart(); // for read-stream - jump to the beginning of the file
+		void Seek(uint64_t);
 
 		// read/write always return the size requested. Exception is thrown if underflow or error
 		size_t read(void* pPtr, size_t nSize);

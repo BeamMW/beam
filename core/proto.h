@@ -29,14 +29,21 @@ namespace beam {
 namespace proto {
 
 #define BeamNodeMsg_NewTip(macro) \
-	macro(Block::SystemState::ID, ID) \
-	macro(Difficulty::Raw, ChainWork)
+	macro(Block::SystemState::Full, Description)
 
 #define BeamNodeMsg_GetHdr(macro) \
 	macro(Block::SystemState::ID, ID)
 
 #define BeamNodeMsg_Hdr(macro) \
 	macro(Block::SystemState::Full, Description)
+
+#define BeamNodeMsg_GetHdrPack(macro) \
+	macro(Block::SystemState::ID, Top) \
+	macro(uint32_t, Count)
+
+#define BeamNodeMsg_HdrPack(macro) \
+	macro(Block::SystemState::Sequence::Prefix, Prefix) \
+	macro(std::vector<Block::SystemState::Sequence::Element>, vElements)
 
 #define BeamNodeMsg_DataMissing(macro)
 
@@ -86,14 +93,14 @@ namespace proto {
 	macro(ECC::Hash::Value, CfgChecksum) \
 	macro(bool, SpreadingTransactions) \
 	macro(bool, Bbs) \
-	macro(bool, SendPeers) \
-	macro(bool, AutoSendHdr) /* prefer the header in addition to the NewTip message */
+	macro(bool, SendPeers)
 
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)
 
 #define BeamNodeMsg_NewTransaction(macro) \
-	macro(Transaction::Ptr, Transaction)
+	macro(Transaction::Ptr, Transaction) \
+	macro(bool, Fluff)
 
 #define BeamNodeMsg_HaveTransaction(macro) \
 	macro(Transaction::KeyType, ID)
@@ -152,10 +159,21 @@ namespace proto {
 	macro(uint8_t, IDType) \
 	macro(ECC::Signature, Sig)
 
+#define BeamNodeMsg_MacroblockGet(macro) \
+	macro(Block::SystemState::ID, ID) \
+	macro(uint8_t, Data) \
+	macro(uint64_t, Offset)
+
+#define BeamNodeMsg_Macroblock(macro) \
+	macro(Block::SystemState::ID, ID) \
+	macro(ByteBuffer, Portion)
+
 #define BeamNodeMsgsAll(macro) \
 	macro(1, NewTip) /* Also the first message sent by the node */ \
 	macro(2, GetHdr) \
 	macro(3, Hdr) \
+	macro(14, GetHdrPack) \
+	macro(19, HdrPack) \
 	macro(4, DataMissing) \
 	macro(5, Boolean) \
 	macro(6, GetBody) \
@@ -189,6 +207,8 @@ namespace proto {
 	macro(43, BbsSubscribe) \
 	macro(44, BbsPickChannel) \
 	macro(45, BbsPickChannelRes) \
+	macro(50, MacroblockGet) \
+	macro(51, Macroblock) \
 	macro(61, SChannelInitiate) \
 	macro(62, SChannelReady) \
 	macro(63, Authentication) \
@@ -218,6 +238,8 @@ namespace proto {
 		static const uint8_t Owner		= 'O';
 	};
 
+	static const uint32_t g_HdrPackMaxSize = 128;
+
 	enum Unused_ { Unused };
 	enum Uninitialized_ { Uninitialized };
 
@@ -235,6 +257,7 @@ namespace proto {
 	inline void ZeroInit(ByteBuffer&) { }
 	inline void ZeroInit(Block::SystemState::ID& x) { ZeroObject(x); }
 	inline void ZeroInit(Block::SystemState::Full& x) { ZeroObject(x); }
+	inline void ZeroInit(Block::SystemState::Sequence::Prefix& x) { ZeroObject(x); }
 	inline void ZeroInit(Block::ChainWorkProof& x) {}
 	inline void ZeroInit(Input& x) { ZeroObject(x); }
 	inline void ZeroInit(ECC::Signature& x) { ZeroObject(x); }
