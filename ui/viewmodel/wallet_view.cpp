@@ -92,7 +92,7 @@ bool TxObject::canDelete() const
         || _tx.m_status == beam::TxDescription::Cancelled;
 }
 
-void TxObject::setUserName(QString name)
+void TxObject::setUserName(const QString& name)
 {
     if (_userName != name)
     {
@@ -101,7 +101,7 @@ void TxObject::setUserName(QString name)
     }
 }
 
-void TxObject::setDisplayName(QString name)
+void TxObject::setDisplayName(const QString& name)
 {
     if (_displayName != name)
     {
@@ -396,8 +396,12 @@ QString WalletViewModel::getReceiverAddr() const
 
 void WalletViewModel::setReceiverAddr(const QString& value)
 {
-    _receiverAddr = value;
-    //_isValidReceiverAddress = _model.check_receiver_address(value.toStdString());    emit receiverAddrChanged();
+    auto trimmedValue = value.trimmed();
+    if (_receiverAddr != trimmedValue)
+    {
+        _receiverAddr = trimmedValue;
+        emit receiverAddrChanged();
+    }
 }
 
 bool WalletViewModel::isValidReceiverAddress(const QString& value) {
@@ -415,22 +419,24 @@ void WalletViewModel::setSenderAddr(const QString& value)
     emit senderAddrChanged();
 }*/
 
-void WalletViewModel::setSendAmount(const QString& amount)
+void WalletViewModel::setSendAmount(const QString& value)
 {
-    if (amount != _sendAmount)
+    auto trimmedValue = value.trimmed();
+    if (trimmedValue != _sendAmount)
     {
-        _sendAmount = amount;
+        _sendAmount = trimmedValue;
         _model.async->calcChange(calcTotalAmount());
         emit sendAmountChanged();
         emit actualAvailableChanged();
     }
 }
 
-void WalletViewModel::setFeeMils(const QString& amount)
+void WalletViewModel::setFeeMils(const QString& value)
 {
-    if (amount != _feeMils)
+    auto trimmedValue = value.trimmed();
+    if (trimmedValue != _feeMils)
     {
-        _feeMils = amount;
+        _feeMils = trimmedValue;
         _model.async->calcChange(calcTotalAmount());
         emit feeMilsChanged();
         emit actualAvailableChanged();
@@ -439,14 +445,20 @@ void WalletViewModel::setFeeMils(const QString& amount)
 
 void WalletViewModel::setSelectedAddr(int index)
 {
-    _selectedAddr = index;
-    emit selectedAddrChanged();
+    if (_selectedAddr != index)
+    {
+        _selectedAddr = index;
+        emit selectedAddrChanged();
+    }
 }
 
 void WalletViewModel::setComment(const QString& value)
 {
-    _comment = value;
-	emit commentChanged();
+    if (_comment != value)
+    {
+        _comment = value;
+        emit commentChanged();
+    }
 }
 
 QString WalletViewModel::getComment() const
@@ -593,8 +605,12 @@ QString WalletViewModel::getNewReceiverAddr() const
 
 void WalletViewModel::setNewReceiverName(const QString& value)
 {
-    _newReceiverName = value;
-    emit newReceiverNameChanged();
+    auto trimmedValue = value.trimmed();
+    if (_newReceiverName != trimmedValue)
+    {
+        _newReceiverName = trimmedValue;
+        emit newReceiverNameChanged();
+    }
 }
 
 QString WalletViewModel::getNewReceiverName() const

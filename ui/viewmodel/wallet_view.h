@@ -59,8 +59,8 @@ public:
     QString getFee() const;
 	beam::WalletID peerId() const;
 
-	void setUserName(QString name);
-    void setDisplayName(QString name);
+	void setUserName(const QString& name);
+    void setDisplayName(const QString& name);
 
 signals:
     void incomeChanged();
