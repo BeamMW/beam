@@ -239,7 +239,7 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.minimumHeight: 20
                 font.pixelSize: 18
-                font.weight: Font.Bold
+                font.styleName: "Bold"
                 color: Style.white
                 text: "Receive Beam"
             }
@@ -247,7 +247,7 @@ Item {
             SFText {
                 font.pixelSize: 14
                 Layout.minimumHeight: 16
-                font.weight: Font.Bold
+                font.styleName: "Bold"
                 color: Style.white
                 text: qsTr("My address")
             }
@@ -267,7 +267,7 @@ Item {
             SFText {
                 font.pixelSize: 14
                 Layout.minimumHeight: 16
-                font.weight: Font.Bold
+                font.styleName: "Bold"
                 color: Style.white
                 text: qsTr("Comment")
             }
@@ -292,7 +292,7 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.minimumHeight: 16
                 font.pixelSize: 14
-                font.weight: Font.Bold
+                font.styleName: "Bold"
                 color: Style.white
                 text: "Send this address to the sender over an external secure channel"
             }
@@ -351,7 +351,7 @@ Item {
             SFText {
                 Layout.alignment: Qt.AlignHCenter
                 font.pixelSize: 18
-                font.weight: Font.Bold
+                font.styleName: "Bold"
                 color: Style.white
                 text: "Send Beam"
             }
@@ -374,7 +374,7 @@ Item {
 
                         SFText {
                             font.pixelSize: 14
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"
                             color: Style.white
                             text: qsTr("Send To:")
                         }
@@ -410,7 +410,7 @@ Item {
                             id: receiverName
                             color: Style.white
                             font.pixelSize: 14
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"
                         }
 
                         Binding {
@@ -433,7 +433,7 @@ Item {
 
                         SFText {
                             font.pixelSize: 14
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"
                             color: Style.white
                             text: qsTr("Transaction amount")
                         }
@@ -450,6 +450,7 @@ Item {
                                     id: amount_input
 
                                     font.pixelSize: 36
+                                    font.styleName: "Light"
                                     color: Style.heliotrope
 
                                     text: viewModel.sendAmount
@@ -466,7 +467,7 @@ Item {
                                         text: "Maximum available amount is " + viewModel.available + " B"
                                         color: Style.validator_color
                                         font.pixelSize: 14
-                                        font.italic: true
+                                        font.styleName: "Italic"
                                         visible: !viewModel.isEnoughMoney
                                     }
                                 }
@@ -505,7 +506,7 @@ Item {
 
                         SFText {
                             font.pixelSize: 14
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"
                             color: Style.white
                             text: qsTr("Comment")
                         }
@@ -541,7 +542,7 @@ Item {
 
                         SFText {
                             font.pixelSize: 14
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"
                             color: Style.white
                             text: qsTr("Transaction fee")
                         }
@@ -589,7 +590,7 @@ Item {
                                             SFText {
                                                 Layout.alignment: Qt.AlignHCenter
                                                 font.pixelSize: 18
-                                                font.weight: Font.Bold
+                                                font.styleName: "Bold"
                                                 color: Style.bluey_grey
                                                 text: qsTr("Remaining")
                                             }
@@ -602,7 +603,7 @@ Item {
 
                                                 SFText {
                                                     font.pixelSize: 24
-                                                    font.weight: Font.ExtraLight
+                                                    font.styleName: "Light"
                                                     color: Style.bluey_grey
                                                     text: viewModel.actualAvailable
                                                 }
@@ -637,7 +638,7 @@ Item {
                                             SFText {
                                                 Layout.alignment: Qt.AlignHCenter
                                                 font.pixelSize: 18
-                                                font.weight: Font.Bold
+                                                font.styleName: "Bold"
                                                 color: Style.bluey_grey
                                                 text: qsTr("Change")
                                             }
@@ -650,7 +651,7 @@ Item {
 
                                                 SFText {
                                                     font.pixelSize: 24
-                                                    font.weight: Font.ExtraLight
+                                                    font.styleName: "Light"
                                                     color: Style.bluey_grey
                                                     text: viewModel.change
                                                 }
@@ -813,7 +814,7 @@ Item {
 
                 font {
                     pixelSize: 18
-                    weight: Font.Bold
+                    styleName: "Bold"
                 }
 
                 color: Style.white
@@ -944,7 +945,7 @@ Item {
                         clip:true
 
                         SFText {
-                            font.pixelSize: 12
+                            font.pixelSize: 14
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.leftMargin: 20
@@ -1019,7 +1020,7 @@ Item {
                         height: transactionsView.rowHeight
                         property bool income: (styleData.row >= 0) ? viewModel.transactions[styleData.row].income : false
                         SFText {
-                            anchors.leftMargin: 20
+                            anchors.leftMargin: 24
                             anchors.right: parent.right
                             anchors.left: parent.left
                             color: parent.income ? Style.bright_sky_blue : Style.heliotrope
@@ -1027,6 +1028,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             text: "<font size='6'>" + (parent.income ? "+ " : "- ") + styleData.value + "</font>"
                             textFormat: Text.StyledText
+                            font.styleName: "Light"
                         }
                     }
                 }
@@ -1047,7 +1049,7 @@ Item {
                         clip:true
 
                         SFText {
-                            font.pixelSize: 12
+                            font.pixelSize: 14
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.leftMargin: 20
@@ -1122,7 +1124,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
                     anchors.leftMargin: 20
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     color: Style.bluey_grey
 
                     text: styleData.value
@@ -1215,7 +1217,7 @@ Item {
                                     font.pixelSize: 14
                                     color: Style.white
                                     text: qsTr("General transaction info")
-                                    font.bold: true
+                                    font.styleName: "Bold"
                                     Layout.columnSpan: 2
                                 }
 
@@ -1289,7 +1291,7 @@ Item {
                                         }
                                         return "";
                                     }
-                                    font.italic: true
+                                    font.styleName: "Italic"
                                 }
                             }
                             ColumnLayout {

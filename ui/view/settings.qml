@@ -83,7 +83,7 @@ Rectangle {
                             text: qsTr("Remote node")
                             color: Style.white
                             font.pixelSize: 18
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"
                         }
 
                         SFText {
@@ -91,7 +91,7 @@ Rectangle {
                             text: qsTr("ip:port")
                             color: viewModel.localNodeRun ? Style.disable_text_color : Style.white
                             font.pixelSize: 12
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"
                         }
 
                         SFTextInput {
@@ -142,7 +142,7 @@ Rectangle {
                             text: qsTr("Local node")
                             color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                             font.pixelSize: 18
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"
                         }
 
                         RowLayout {
@@ -174,7 +174,7 @@ Rectangle {
                                     text: qsTr("Local node port")
                                     color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
-                                    font.weight: Font.Bold
+                                    font.styleName: "Bold"
                                 }
 
                                 SFTextInput {
@@ -200,7 +200,7 @@ Rectangle {
                                     text: qsTr("Mining threads")
                                     color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
-                                    font.weight: Font.Bold
+                                    font.styleName: "Bold"
                                 }
 
                                 FeeSlider {
@@ -223,7 +223,7 @@ Rectangle {
                                     text: qsTr("Verification threads")
                                     color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
-                                    font.weight: Font.Bold
+                                    font.styleName: "Bold"
                                 }
 
                                 FeeSlider {
@@ -251,7 +251,7 @@ Rectangle {
                                     text: qsTr("Peers")
                                     color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
-                                    font.weight: Font.Bold
+                                    font.styleName: "Bold"
                                 }
 
                                 RowLayout {
@@ -344,7 +344,7 @@ Rectangle {
                             text: qsTr("Reset wallet data")
                             color: Style.white
                             font.pixelSize: 18
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"
                         }
 
                         SFText {
@@ -352,7 +352,7 @@ Rectangle {
                             text: qsTr("Clear all local data and retrieve most updated information from blockchain. Transaction history will be deleted.")
                             color: Style.white
                             font.pixelSize: 12
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"
                             wrapMode: Text.WordWrap
                         }
 
@@ -385,7 +385,7 @@ Rectangle {
                             text: qsTr("Report problem")
                             color: Style.white
                             font.pixelSize: 18
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"
                         }
 
                         ColumnLayout {
@@ -394,7 +394,7 @@ Rectangle {
                                 text: qsTr("To report a problem:")
                                 color: Style.white
                                 font.pixelSize: 12
-                                font.weight: Font.Bold
+                                font.styleName: "Bold"
                                 wrapMode: Text.WordWrap
                             }
 
@@ -403,7 +403,7 @@ Rectangle {
                                 text: qsTr("1. Click 'Save wallet logs' and choose a destination folder for log archive")
                                 color: Style.white
                                 font.pixelSize: 12
-                                font.weight: Font.Bold
+                                font.styleName: "Bold"
                                 wrapMode: Text.WordWrap
                             }
 
@@ -413,7 +413,7 @@ Rectangle {
                                 color: Style.white
                                 textFormat: Text.RichText
                                 font.pixelSize: 12
-                                font.weight: Font.Bold
+                                font.styleName: "Bold"
                                 wrapMode: Text.WordWrap
                                 onLinkActivated: Qt.openUrlExternally(link)
 
@@ -429,7 +429,7 @@ Rectangle {
                                 text: qsTr("3. Don't forget to attach logs archive")
                                 color: Style.white
                                 font.pixelSize: 12
-                                font.weight: Font.Bold
+                                font.styleName: "Bold"
                                 wrapMode: Text.WordWrap
                             }
                         }                        
@@ -464,7 +464,7 @@ Rectangle {
                             text: qsTr("General settings")
                             color: Style.white
                             font.pixelSize: 18
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"
                         }
 
                         Row {

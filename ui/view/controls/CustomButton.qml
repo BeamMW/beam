@@ -12,14 +12,10 @@ Button {
     palette.button: Style.separator_color
     property alias textOpacity: rect.opacity
 
-    FontLoader { id: sf_pro_display; source: "qrc:///assets/fonts/SF-Pro-Display-Regular.otf"; }
-    FontLoader { source: "qrc:///assets/fonts/SF-Pro-Display-Bold.otf"; }
-    FontLoader { source: "qrc:///assets/fonts/SF-Pro-Display-Thin.otf"; }
-
-    font {
-        family: sf_pro_display.name
+    font { 
+        family: "SF Pro Display"
         pixelSize: 14
-        weight: Font.Bold
+        styleName: "Bold"
     }
 
     width: 122

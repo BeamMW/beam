@@ -17,7 +17,7 @@ Rectangle {
         id: title_id
         font {
             pixelSize: 18
-            weight: Font.Bold
+            styleName: "Bold"
         }
 
         anchors.left: parent.left
@@ -36,7 +36,7 @@ Rectangle {
 
         SFText {
             font {
-                weight: Font.ExtraLight
+                styleName: "Thin"
                 pixelSize: 36
             }
 
@@ -50,7 +50,7 @@ Rectangle {
         SFText {
             font {
                 pixelSize: 24
-                weight: Font.ExtraLight
+                styleName: "Thin"
             }
 
             color: amountColor

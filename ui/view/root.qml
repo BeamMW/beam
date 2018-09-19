@@ -9,6 +9,8 @@ Item {
     height: 768
     property alias source: rootLoader.source
 
+    SFFontLoader {}
+    
     Popup {
         id: notifications
         closePolicy: Popup.NoAutoClose
