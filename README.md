@@ -9,6 +9,10 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 [Read our position paper](https://www.scribd.com/document/382680718/BEAM-Position-Paper-V-0-1)
 
 
+**TESTNET IS LAUNCHED!** 
+http://beam-mw.com/downloads
+
+
 Things that make BEAM special include:
 
 * Users have complete control over privacy - a user decides which information will be available and to which parties, having complete control over his personal data in accordance to his will and applicable laws.
