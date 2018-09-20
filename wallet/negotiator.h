@@ -34,7 +34,7 @@
 #pragma warning(pop)
 #endif
 
-namespace beam::wallet
+namespace beam { namespace wallet
 {
     namespace msm = boost::msm;
     namespace msmf = boost::msm::front;
@@ -266,4 +266,4 @@ namespace beam::wallet
 
         Fsm m_fsm;
     };
-}
+}}

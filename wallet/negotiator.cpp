@@ -16,7 +16,7 @@
 #include "core/block_crypt.h"
 #include "wallet/wallet_serialization.h"
 
-namespace beam::wallet
+namespace beam { namespace wallet
 {
     using namespace ECC;
     using namespace std;
@@ -580,4 +580,4 @@ namespace beam::wallet
         });
         return outputs;
     }
-}
+}}
