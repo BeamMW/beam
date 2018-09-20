@@ -146,7 +146,7 @@ Result TcpStream::send_write_request() {
         Reactor::WriteRequest* wr = _reactor->alloc_write_request();
         wr->n = _writeBuffer.size();
         ErrorCode errorCode = (ErrorCode)uv_write((uv_write_t*)wr, (uv_stream_t*)_handle,
-            (uv_buf_t*)_writeBuffer.fragments(), _writeBuffer.num_fragments(), write_cb
+            (uv_buf_t*)_writeBuffer.fragments(), static_cast<unsigned int>(_writeBuffer.num_fragments()), write_cb
         );
 
         _state.unsent += wr->n;

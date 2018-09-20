@@ -363,7 +363,7 @@ bool Equihash<N,K>::BasicSolve(const eh_HashState& base_state,
         GenerateHash(base_state, g, tmpHash, HashOutput);
         for (eh_index i = 0; i < IndicesPerHashOutput && X.size() < init_size; i++) {
             X.emplace_back(tmpHash+(i*N/8), N/8, HashLength,
-                           CollisionBitLength, (g*IndicesPerHashOutput)+i);
+                           CollisionBitLength, static_cast<int>(g*IndicesPerHashOutput)+i);
         }
         if (cancelled(ListGeneration)) throw solver_cancelled;
     }
@@ -542,7 +542,7 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
             GenerateHash(base_state, g, tmpHash, HashOutput);
             for (eh_index i = 0; i < IndicesPerHashOutput && Xt.size() < init_size; i++) {
                 Xt.emplace_back(tmpHash+(i*N/8), N/8, HashLength, CollisionBitLength,
-                                (g*IndicesPerHashOutput)+i, CollisionBitLength + 1);
+                    static_cast<eh_index>(g*IndicesPerHashOutput)+i, static_cast<unsigned int>(CollisionBitLength + 1));
             }
             if (cancelled(ListGeneration)) throw solver_cancelled;
         }

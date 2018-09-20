@@ -37,7 +37,7 @@ namespace beam
 	{
 		std::wstring sRet;
 
-		INT_PTR nVal = MultiByteToWideChar(CP_UTF8, 0, sz, -1, NULL, 0);
+		int nVal = MultiByteToWideChar(CP_UTF8, 0, sz, -1, NULL, 0);
 		if (nVal > 1)
 		{
 			sRet.resize(nVal - 1);
@@ -56,7 +56,7 @@ namespace beam
 
 	bool DeleteFile(const char* sz)
 	{
-		return !unlink(sz);
+		return !_unlink(sz);
 	}
 
 

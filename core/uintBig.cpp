@@ -131,7 +131,7 @@ namespace beam {
 			uint16_t carry = 0;
 
 			uint32_t iDst = i0 - nDelta; // don't care if overflows
-			uint32_t i1Min = (iDst > nDst) ? (-iDst) : 0;
+			uint32_t i1Min = (iDst > nDst) ? (-static_cast<int32_t>(iDst)) : 0;
 			for (uint32_t i1 = nSrc1; i1-- > i1Min; )
 			{
 				uint8_t& dst = pDst[iDst + i1];
