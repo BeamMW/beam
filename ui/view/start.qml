@@ -14,12 +14,16 @@ Item
 
     StartViewModel { id: viewModel }
 
-
     StackView {
         id: startWizzardView
         anchors.fill: parent
         initialItem: start
-
+        focus: true
+        onCurrentItemChanged: {
+            if (currentItem && currentItem.defaultFocusItem) {
+                currentItem.defaultFocusItem.focus = true;
+            }
+        }
         Component {
             id: start
             Rectangle
@@ -31,6 +35,8 @@ Item
                     anchors.fill: parent
                     source: "qrc:///assets/bg.png"
                 }
+
+                property Item defaultFocusItem: createNewWallet
 
                 Image {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -47,7 +53,6 @@ Item
                     anchors.top: parent.top
 
                     spacing: 30
-
                     // DefaultButton {
                     //     text: qsTr("restore wallet from file")
                     // }
@@ -57,8 +62,8 @@ Item
                     // }
 
                     PrimaryButton {
+                        id: createNewWallet
                         text: qsTr("create new wallet")
-
                         onClicked: startWizzardView.push(nodeSetup);
                     }
                 }
@@ -70,6 +75,8 @@ Item
             Rectangle
             {
                 color: Style.marine
+
+                property Item defaultFocusItem: seed
 
                 SFText {
                     text: qsTr("Create new wallet")
@@ -110,7 +117,7 @@ Item
                             text: qsTr("Enter secret key (seed)")
                             color: Style.white
                             font.pixelSize: 12
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         SFTextInput {
@@ -135,7 +142,7 @@ Item
                             text: qsTr("Enter password")
                             color: Style.white
                             font.pixelSize: 12
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         SFTextInput {
@@ -160,7 +167,7 @@ Item
                             text: qsTr("Confirm password")
                             color: Style.white
                             font.pixelSize: 12
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         SFTextInput {
@@ -226,6 +233,8 @@ Item
             {
                 color: Style.marine
 
+                property Item defaultFocusItem: localNodeButton
+
                 SFText {
                     text: qsTr("Setup node")
                     color: Style.white
@@ -274,7 +283,7 @@ Item
                             text: qsTr("Enter port to listen")
                             color: Style.white
                             font.pixelSize: 12
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         SFTextInput {
@@ -296,7 +305,7 @@ Item
                             text: qsTr("Enter mining threads (0 - no mining)")
                             color: Style.white
                             font.pixelSize: 12
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         FeeSlider {
@@ -325,7 +334,7 @@ Item
                             text: qsTr("Enter remote node address")
                             color: Style.white
                             font.pixelSize: 12
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         SFTextInput {
@@ -445,7 +454,7 @@ Item
                 text: qsTr("Enter password")
                 color: Style.white
                 font.pixelSize: 12
-                font.weight: Font.Bold
+                font.styleName: "Bold"; font.weight: Font.Bold
             }
 
             SFTextInput {
@@ -523,6 +532,9 @@ Item
             name: "open"
             PropertyChanges {target: startWizzardView; visible: false}
             PropertyChanges {target: open; visible: true}
+            StateChangeScript {
+                script: openPassword.forceActiveFocus(Qt.TabFocusReason);
+            }
         }
     ]
 }

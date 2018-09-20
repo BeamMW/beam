@@ -12,14 +12,10 @@ Button {
     palette.button: Style.separator_color
     property alias textOpacity: rect.opacity
 
-    FontLoader { id: sf_pro_display; source: "qrc:///assets/fonts/SF-Pro-Display-Regular.otf"; }
-    FontLoader { source: "qrc:///assets/fonts/SF-Pro-Display-Bold.otf"; }
-    FontLoader { source: "qrc:///assets/fonts/SF-Pro-Display-Thin.otf"; }
-
-    font {
-        family: sf_pro_display.name
+    font { 
+        family: "SF Pro Display"
         pixelSize: 14
-        weight: Font.Bold
+        styleName: "Bold"; weight: Font.Bold
     }
 
     width: 122
@@ -41,7 +37,7 @@ Button {
         text: control.text
         font: control.font
         
-        color: control.palette.buttonText
+        color: control.enabled ? control.palette.buttonText : Style.disable_text_color
     }
     
     Keys.onPressed: {
@@ -63,6 +59,8 @@ Button {
 		samples: 9
 		color: "white"
 		source: rect
-		visible: control.visualFocus || control.hovered
+        // TODO (roman.strilets) maybe should using control.focus property
+        // look at https://doc.qt.io/qt-5.9/qml-qtquick-controls2-control.html#visualFocus-prop
+		visible: /*control.visualFocus*/control.activeFocus || control.hovered
 	}
 }

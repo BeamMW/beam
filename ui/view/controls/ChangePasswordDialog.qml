@@ -33,7 +33,7 @@ Dialog {
 			text: qsTr("Change wallet password")
 			color: Style.white
 			font.pixelSize: 24
-			font.weight: Font.Bold
+			font.styleName: "Bold"; font.weight: Font.Bold
 		}
 
     	Column
@@ -44,7 +44,7 @@ Dialog {
 				text: qsTr("Enter old password")
 				color: Style.white
 				font.pixelSize: 12
-				font.weight: Font.Bold
+				font.styleName: "Bold"; font.weight: Font.Bold
 			}
 
 			SFTextInput {
@@ -66,7 +66,7 @@ Dialog {
 				text: qsTr("Enter new password")
 				color: Style.white
 				font.pixelSize: 12
-				font.weight: Font.Bold
+				font.styleName: "Bold"; font.weight: Font.Bold
 			}
 
 			SFTextInput {
@@ -88,7 +88,7 @@ Dialog {
 				text: qsTr("Confirm new password")
 				color: Style.white
 				font.pixelSize: 12
-				font.weight: Font.Bold
+				font.styleName: "Bold"; font.weight: Font.Bold
 			}
 
 			SFTextInput {

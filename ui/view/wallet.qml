@@ -20,7 +20,7 @@ Item {
 
     ConfirmationDialog {
         id: confirmationDialog
-        okButtonText: "send"
+        okButtonText: qsTr("send")
         onAccepted: {
             viewModel.sendMoney()
             root.state = "wallet"
@@ -29,18 +29,18 @@ Item {
 
     ConfirmationDialog {
         id: invalidAddressDialog
-        okButtonText: "got it"
+        okButtonText: qsTr("got it")
     }
 
     ConfirmationDialog {
         id: deleteTransactionDialog
-        okButtonText: "delete"
+        okButtonText: qsTr("delete")
     }
 
     SFText {
         font.pixelSize: 36
         color: Style.white
-        text: "Wallet"
+        text: qsTr("Wallet")
     }
 
     Item {
@@ -49,13 +49,13 @@ Item {
         y: 53
         property string status: {
              if (viewModel.isisFailedStatus)
-                "error"
+                qsTr("error")
              else if (viewModel.isOfflineStatus)
-                "offline"
+                qsTr("offline")
              else if(viewModel.isSyncInProgress)
-                "updating"
+                qsTr("updating")
              else
-                "online"
+                qsTr("online")
         }
 
         state: "offline"
@@ -239,15 +239,15 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.minimumHeight: 20
                 font.pixelSize: 18
-                font.weight: Font.Bold
+                font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
-                text: "Receive Beam"
+                text: qsTr("Receive Beam")
             }
 
             SFText {
                 font.pixelSize: 14
                 Layout.minimumHeight: 16
-                font.weight: Font.Bold
+                font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
                 text: qsTr("My address")
             }
@@ -260,14 +260,13 @@ Item {
                 color: Style.disable_text_color
                 readOnly: true
                 activeFocusOnTab: false
-                //text: viewModel.newOwnAddress.walletID
                 text: viewModel.newReceiverAddr
             }
 
             SFText {
                 font.pixelSize: 14
                 Layout.minimumHeight: 16
-                font.weight: Font.Bold
+                font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
                 text: qsTr("Comment")
             }
@@ -278,6 +277,7 @@ Item {
                 font.pixelSize: 14
                 Layout.minimumHeight: 20
                 color: Style.white
+                focus: true
                 text: viewModel.newReceiverName
             }
 
@@ -291,9 +291,9 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.minimumHeight: 16
                 font.pixelSize: 14
-                font.weight: Font.Bold
+                font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
-                text: "Send this address to the sender over an external secure channel"
+                text: qsTr("Send this address to the sender over an external secure channel")
             }
 
             Row {
@@ -303,7 +303,7 @@ Item {
                 spacing: 19
 
                 CustomButton {
-                    text: "cancel"
+                    text: qsTr("cancel")
                     height: 38
                     width: 122
                     palette.buttonText: Style.white
@@ -311,7 +311,7 @@ Item {
                 }
 
                 CustomButton {
-                    text: "Copy && Close"
+                    text: qsTr("Copy && Close")
                     height: 38
                     width: 162
                     palette.buttonText: Style.white
@@ -350,9 +350,9 @@ Item {
             SFText {
                 Layout.alignment: Qt.AlignHCenter
                 font.pixelSize: 18
-                font.weight: Font.Bold
+                font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
-                text: "Send Beam"
+                text: qsTr("Send Beam")
             }
 
             RowLayout {
@@ -373,7 +373,7 @@ Item {
 
                         SFText {
                             font.pixelSize: 14
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                             color: Style.white
                             text: qsTr("Send To:")
                         }
@@ -409,7 +409,7 @@ Item {
                             id: receiverName
                             color: Style.white
                             font.pixelSize: 14
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         Binding {
@@ -432,7 +432,7 @@ Item {
 
                         SFText {
                             font.pixelSize: 14
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                             color: Style.white
                             text: qsTr("Transaction amount")
                         }
@@ -449,6 +449,7 @@ Item {
                                     id: amount_input
 
                                     font.pixelSize: 36
+                                    font.styleName: "Light"; font.weight: Font.Light
                                     color: Style.heliotrope
 
                                     text: viewModel.sendAmount
@@ -465,7 +466,7 @@ Item {
                                         text: "Maximum available amount is " + viewModel.available + " B"
                                         color: Style.validator_color
                                         font.pixelSize: 14
-                                        font.italic: true
+                                        font.styleName: "Italic"
                                         visible: !viewModel.isEnoughMoney
                                     }
                                 }
@@ -504,7 +505,7 @@ Item {
 
                         SFText {
                             font.pixelSize: 14
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                             color: Style.white
                             text: qsTr("Comment")
                         }
@@ -540,7 +541,7 @@ Item {
 
                         SFText {
                             font.pixelSize: 14
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                             color: Style.white
                             text: qsTr("Transaction fee")
                         }
@@ -588,7 +589,7 @@ Item {
                                             SFText {
                                                 Layout.alignment: Qt.AlignHCenter
                                                 font.pixelSize: 18
-                                                font.weight: Font.Bold
+                                                font.styleName: "Bold"; font.weight: Font.Bold
                                                 color: Style.bluey_grey
                                                 text: qsTr("Remaining")
                                             }
@@ -601,7 +602,7 @@ Item {
 
                                                 SFText {
                                                     font.pixelSize: 24
-                                                    font.weight: Font.ExtraLight
+                                                    font.styleName: "Light"; font.weight: Font.Light
                                                     color: Style.bluey_grey
                                                     text: viewModel.actualAvailable
                                                 }
@@ -636,7 +637,7 @@ Item {
                                             SFText {
                                                 Layout.alignment: Qt.AlignHCenter
                                                 font.pixelSize: 18
-                                                font.weight: Font.Bold
+                                                font.styleName: "Bold"; font.weight: Font.Bold
                                                 color: Style.bluey_grey
                                                 text: qsTr("Change")
                                             }
@@ -649,7 +650,7 @@ Item {
 
                                                 SFText {
                                                     font.pixelSize: 24
-                                                    font.weight: Font.ExtraLight
+                                                    font.styleName: "Light"; font.weight: Font.Light
                                                     color: Style.bluey_grey
                                                     text: viewModel.change
                                                 }
@@ -812,7 +813,7 @@ Item {
 
                 font {
                     pixelSize: 18
-                    weight: Font.Bold
+                    styleName: "Bold"; weight: Font.Bold
                 }
 
                 color: Style.white
@@ -943,7 +944,7 @@ Item {
                         clip:true
 
                         SFText {
-                            font.pixelSize: 12
+                            font.pixelSize: 14
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.leftMargin: 20
@@ -1026,6 +1027,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             text: "<font size='6'>" + (parent.income ? "+ " : "- ") + styleData.value + "</font>"
                             textFormat: Text.StyledText
+                            font.styleName: "Light"; font.weight: Font.Thin
                         }
                     }
                 }
@@ -1046,7 +1048,7 @@ Item {
                         clip:true
 
                         SFText {
-                            font.pixelSize: 12
+                            font.pixelSize: 14
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.leftMargin: 20
@@ -1121,7 +1123,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
                     anchors.leftMargin: 20
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                     color: Style.bluey_grey
 
                     text: styleData.value
@@ -1214,7 +1216,7 @@ Item {
                                     font.pixelSize: 14
                                     color: Style.white
                                     text: qsTr("General transaction info")
-                                    font.bold: true
+                                    font.styleName: "Bold"; font.weight: Font.Bold
                                     Layout.columnSpan: 2
                                 }
 
@@ -1288,7 +1290,7 @@ Item {
                                         }
                                         return "";
                                     }
-                                    font.italic: true
+                                    font.styleName: "Italic"
                                 }
                             }
                             ColumnLayout {
@@ -1428,7 +1430,8 @@ Item {
             PropertyChanges {target: wallet_layout; visible: false}
             PropertyChanges {target: send_layout; visible: true}
             PropertyChanges {target: amount_input; text: ""}
-             StateChangeScript {
+            PropertyChanges {target: receiverAddrInput; text: ""}
+            StateChangeScript {
                 script: receiverAddrInput.forceActiveFocus(Qt.TabFocusReason);
             }
         },
@@ -1438,6 +1441,9 @@ Item {
             PropertyChanges {target: wallet_layout; visible: false}
             PropertyChanges {target: receive_layout; visible: true}
             PropertyChanges {target: myAddressName; text: ""}
+            StateChangeScript {
+                script: myAddressName.forceActiveFocus(Qt.TabFocusReason);
+            }
         }
     ]
 }

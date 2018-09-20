@@ -83,15 +83,15 @@ Rectangle {
                             text: qsTr("Remote node")
                             color: Style.white
                             font.pixelSize: 18
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         SFText {
                             Layout.alignment: Qt.AlignTop
                             text: qsTr("ip:port")
-                            color: localNodeRun.checked ? Style.disable_text_color : Style.white
+                            color: viewModel.localNodeRun ? Style.disable_text_color : Style.white
                             font.pixelSize: 12
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         SFTextInput {
@@ -102,7 +102,7 @@ Rectangle {
                             activeFocusOnTab: true
                             font.pixelSize: 12
                             color: readOnly ? Style.disable_text_color : Style.white
-                            readOnly: localNodeRun.checked
+                            readOnly: viewModel.localNodeRun
                             validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                             text: viewModel.nodeAddress
                             Binding {
@@ -136,12 +136,13 @@ Rectangle {
                     ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: 20
+                        enabled: viewModel.localNodeRun
 
                         SFText {
                             text: qsTr("Local node")
-                            color: Style.white
+                            color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                             font.pixelSize: 18
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         RowLayout {
@@ -153,8 +154,9 @@ Rectangle {
                                 Layout.fillWidth: true
                                 Layout.alignment: Qt.AlignTop
                                 spacing: 10
+                                
 
-                                CustomSwitch {
+                              /*  CustomSwitch {
                                     id: localNodeRun
                                     text: qsTr("Run local node")
                                     font.pixelSize: 12
@@ -166,12 +168,13 @@ Rectangle {
                                         value: localNodeRun.checked
                                     }
                                 }
+                        */
 
                                 SFText {
                                     text: qsTr("Local node port")
-                                    color: localNodeRun.checked ? Style.white : Style.disable_text_color
+                                    color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
-                                    font.weight: Font.Bold
+                                    font.styleName: "Bold"; font.weight: Font.Bold
                                 }
 
                                 SFTextInput {
@@ -180,7 +183,7 @@ Rectangle {
                                     activeFocusOnTab: true
                                     font.pixelSize: 12
                                     color: readOnly ? Style.disable_text_color : Style.white
-                                    readOnly: !localNodeRun.checked
+                                    readOnly: !viewModel.localNodeRun
                                     text: viewModel.localNodePort
                                     validator: IntValidator {
                                         bottom: 0
@@ -195,9 +198,9 @@ Rectangle {
 
                                 SFText {
                                     text: qsTr("Mining threads")
-                                    color: localNodeRun.checked ? Style.white : Style.disable_text_color
+                                    color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
-                                    font.weight: Font.Bold
+                                    font.styleName: "Bold"; font.weight: Font.Bold
                                 }
 
                                 FeeSlider {
@@ -208,7 +211,7 @@ Rectangle {
                                     value: viewModel.localNodeMiningThreads
                                     to: {viewModel.coreAmount()}
                                     stepSize: 1
-                                    enabled: localNodeRun.checked
+                                    enabled: viewModel.localNodeRun
                                     Binding {
                                         target: viewModel
                                         property: "localNodeMiningThreads"
@@ -218,9 +221,9 @@ Rectangle {
 
                                 SFText {
                                     text: qsTr("Verification threads")
-                                    color: localNodeRun.checked ? Style.white : Style.disable_text_color
+                                    color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
-                                    font.weight: Font.Bold
+                                    font.styleName: "Bold"; font.weight: Font.Bold
                                 }
 
                                 FeeSlider {
@@ -231,7 +234,7 @@ Rectangle {
                                     value: viewModel.localNodeVerificationThreads
                                     to: {viewModel.coreAmount()}
                                     stepSize: 1
-                                    enabled: localNodeRun.checked
+                                    enabled: viewModel.localNodeRun
                                     Binding {
                                         target: viewModel
                                         property: "localNodeVerificationThreads"
@@ -246,9 +249,9 @@ Rectangle {
 
                                 SFText {
                                     text: qsTr("Peers")
-                                    color: localNodeRun.checked ? Style.white : Style.disable_text_color
+                                    color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                                     font.pixelSize: 12
-                                    font.weight: Font.Bold
+                                    font.styleName: "Bold"; font.weight: Font.Bold
                                 }
 
                                 RowLayout {
@@ -262,7 +265,7 @@ Rectangle {
                                         activeFocusOnTab: true
                                         font.pixelSize: 12
                                         color: readOnly ? Style.disable_text_color : Style.white
-                                        readOnly: !localNodeRun.checked
+                                        readOnly: !viewModel.localNodeRun
                                         validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                     }
                                     
@@ -272,8 +275,8 @@ Rectangle {
                                         Layout.minimumWidth: 60
 				                        text: "Add"
                                         palette.button: "#708090"
-                                        palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
-                                        enabled: newLocalNodePeer.acceptableInput && localNodeRun.checked
+                                        palette.buttonText : viewModel.localNodeRun ? Style.white : Style.disable_text_color
+                                        enabled: newLocalNodePeer.acceptableInput && viewModel.localNodeRun
                                         onClicked: {
                                             viewModel.addLocalNodePeer(newLocalNodePeer.text.trim());
                                             newLocalNodePeer.clear();
@@ -295,7 +298,7 @@ Rectangle {
                                             Layout.alignment: Qt.AlignVCenter
                                             text: modelData
                                             font.pixelSize: 12
-                                            color: Style.white
+                                            color: viewModel.localNodeRun ? Style.white : Style.disable_text_color
                                             height: 16
                                             elide: Text.ElideRight
                                         }
@@ -308,7 +311,7 @@ Rectangle {
                                             Layout.minimumWidth: 20
                                             textOpacity: 0
                                             icon.source: "qrc:///assets/icon-delete.svg"
-                                            enabled: localNodeRun.checked
+                                            enabled: viewModel.localNodeRun
                                             onClicked: viewModel.deleteLocalNodePeer(index)
                                         }
                                     }
@@ -341,7 +344,7 @@ Rectangle {
                             text: qsTr("Reset wallet data")
                             color: Style.white
                             font.pixelSize: 18
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         SFText {
@@ -349,7 +352,7 @@ Rectangle {
                             text: qsTr("Clear all local data and retrieve most updated information from blockchain. Transaction history will be deleted.")
                             color: Style.white
                             font.pixelSize: 12
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                             wrapMode: Text.WordWrap
                         }
 
@@ -382,7 +385,7 @@ Rectangle {
                             text: qsTr("Report problem")
                             color: Style.white
                             font.pixelSize: 18
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         ColumnLayout {
@@ -391,7 +394,7 @@ Rectangle {
                                 text: qsTr("To report a problem:")
                                 color: Style.white
                                 font.pixelSize: 12
-                                font.weight: Font.Bold
+                                font.styleName: "Bold"; font.weight: Font.Bold
                                 wrapMode: Text.WordWrap
                             }
 
@@ -400,7 +403,7 @@ Rectangle {
                                 text: qsTr("1. Click 'Save wallet logs' and choose a destination folder for log archive")
                                 color: Style.white
                                 font.pixelSize: 12
-                                font.weight: Font.Bold
+                                font.styleName: "Bold"; font.weight: Font.Bold
                                 wrapMode: Text.WordWrap
                             }
 
@@ -410,7 +413,7 @@ Rectangle {
                                 color: Style.white
                                 textFormat: Text.RichText
                                 font.pixelSize: 12
-                                font.weight: Font.Bold
+                                font.styleName: "Bold"; font.weight: Font.Bold
                                 wrapMode: Text.WordWrap
                                 onLinkActivated: Qt.openUrlExternally(link)
 
@@ -426,7 +429,7 @@ Rectangle {
                                 text: qsTr("3. Don't forget to attach logs archive")
                                 color: Style.white
                                 font.pixelSize: 12
-                                font.weight: Font.Bold
+                                font.styleName: "Bold"; font.weight: Font.Bold
                                 wrapMode: Text.WordWrap
                             }
                         }                        
@@ -461,7 +464,7 @@ Rectangle {
                             text: qsTr("General settings")
                             color: Style.white
                             font.pixelSize: 18
-                            font.weight: Font.Bold
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
                         Row {

@@ -120,11 +120,13 @@ void StartViewModel::setupLocalNode(int port, int miningThreads, bool generateGe
 
 void StartViewModel::setupRemoteNode(const QString& nodeAddress)
 {
+    AppModel::getInstance()->getSettings().setRunLocalNode(false);
     AppModel::getInstance()->getSettings().setNodeAddress(nodeAddress);
 }
 
 void StartViewModel::setupTestnetNode()
 {
+    AppModel::getInstance()->getSettings().setRunLocalNode(false);
     AppModel::getInstance()->getSettings().setNodeAddress(chooseRandomNode());
 }
 

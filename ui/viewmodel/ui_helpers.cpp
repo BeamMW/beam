@@ -17,10 +17,9 @@ namespace beamui
 
     QString BeamToString(const Amount& value)
     {
-        constexpr int kMaxNumberOfSignificantDigits = 12;
-
         auto real_amount = double(int64_t(value)) / Rules::Coin;
-        QString qstr = QLocale().toString(real_amount, 'g', kMaxNumberOfSignificantDigits);
+        QString qstr = QLocale().toString(real_amount, 'f', QLocale::FloatingPointShortest);
+
         return qstr;
     }
 

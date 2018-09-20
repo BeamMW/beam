@@ -45,7 +45,7 @@ ColumnLayout {
                     Layout.minimumHeight: 20
                     Layout.maximumHeight: 20
                     font.pixelSize: 18
-                    font.weight: Font.Bold
+                    font.styleName: "Bold"; font.weight: Font.Bold
                     color: Style.white
                     text: qsTr("Height")
                 }
@@ -84,7 +84,7 @@ ColumnLayout {
                     Layout.minimumHeight: 20
                     Layout.maximumHeight: 20
                     font.pixelSize: 18
-                    font.weight: Font.Bold
+                    font.styleName: "Bold"; font.weight: Font.Bold
                     color: Style.white
                     text: qsTr("Hash")
                 }

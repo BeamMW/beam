@@ -60,7 +60,7 @@ ColumnLayout {
 						anchors.centerIn: parent
 						font {
 							pixelSize: 18
-							weight: Font.Bold
+							styleName: "Bold"; weight: Font.Bold
 						}
 						color: Style.white
 						text: qsTr("Create new address")
@@ -106,7 +106,7 @@ ColumnLayout {
                         Layout.minimumHeight: 14
 						font {
 							pixelSize: 12
-							weight: Font.Bold
+							styleName: "Bold"; weight: Font.Bold
 						}
 						color: Style.white
 					}
@@ -134,7 +134,7 @@ ColumnLayout {
 						text: qsTr("Name")
 						font {
 							pixelSize: 12
-							weight: Font.Bold
+							styleName: "Bold"; weight: Font.Bold
 						}
 						color: Style.white
 					}
@@ -158,7 +158,7 @@ ColumnLayout {
 						text: qsTr("Category")
 						font {
 							pixelSize: 12
-							weight: Font.Bold
+							styleName: "Bold"; weight: Font.Bold
 						}
 						color: Style.white
 					}
@@ -191,7 +191,7 @@ ColumnLayout {
                         Layout.minimumHeight: 14
 						font {
 							pixelSize: 12
-							weight: Font.Bold
+							styleName: "Bold"; weight: Font.Bold
 						}
 						color: Style.white
 					}
@@ -213,7 +213,7 @@ ColumnLayout {
 						text: qsTr("Name")
 						font {
 							pixelSize: 12
-							weight: Font.Bold
+							styleName: "Bold"; weight: Font.Bold
 						}
 						color: Style.white
 					}
@@ -239,7 +239,7 @@ ColumnLayout {
 						text: qsTr("Category")
 						font {
 							pixelSize: 12
-							weight: Font.Bold
+							styleName: "Bold"; weight: Font.Bold
 						}
 						color: Style.white
 					}
