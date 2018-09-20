@@ -39,6 +39,10 @@ if(BEAM_USE_STATIC)
 
 	target_link_libraries(sqlite ${STATIC_OPENSSL})
 else()
+	if(ANDROID)
+		include_directories($ENV{OPENSSL_ROOT_DIR_ANDROID}/include)
+		target_link_libraries(sqlite $ENV{OPENSSL_ROOT_DIR_ANDROID}/lib/libcrypto.a)
+	else()
 	find_package(OpenSSL REQUIRED)
 
 	if( OpenSSL_FOUND )
@@ -51,8 +55,9 @@ else()
 	endif()
 
 	target_link_libraries(sqlite OpenSSL::Crypto)
+	endif()
 endif()
 
-if(UNIX)
+if(UNIX AND NOT ANDROID)
     target_link_libraries(sqlite dl pthread)
 endif()
