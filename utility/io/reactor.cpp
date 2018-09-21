@@ -509,8 +509,10 @@ void Reactor::GracefulIntHandler::SetHandler(bool bSet)
 
 void Reactor::GracefulIntHandler::Handler(int sig)
 {
-	assert(s_pAppReactor);
-	s_pAppReactor->stop();
+	if (sig != SIGPIPE) {
+        assert(s_pAppReactor);
+        s_pAppReactor->stop();
+    }
 }
 
 #endif // WIN32
