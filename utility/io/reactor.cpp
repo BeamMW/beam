@@ -21,7 +21,7 @@
 #include <stdlib.h>
 
 #ifndef WIN32
-#	include <signal.h>
+#include <signal.h>
 #endif // WIN32
 
 #define LOG_VERBOSE_ENABLED 1
@@ -126,7 +126,6 @@ void Reactor::run() {
         LOG_DEBUG() << "loop wasn't initialized";
         return;
     }
-
     // NOTE: blocks
     uv_run(&_loop, UV_RUN_DEFAULT);
 }
@@ -367,7 +366,8 @@ Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback
 }
 
 void Reactor::connect_callback(Reactor::ConnectContext* ctx, ErrorCode errorCode) {
-    assert(_connectRequests.count(ctx->tag)==1);
+    // TODO situation fixed in upcoming merges - related to exit logic
+    if (!_connectRequests.count(ctx->tag)) return;
     uint64_t tag = ctx->tag;
 
     ConnectCallback callback = std::move(ctx->callback);
@@ -508,8 +508,10 @@ void Reactor::GracefulIntHandler::SetHandler(bool bSet)
 
 void Reactor::GracefulIntHandler::Handler(int sig)
 {
-	assert(s_pAppReactor);
-	s_pAppReactor->stop();
+	if (sig != SIGPIPE) {
+        assert(s_pAppReactor);
+        s_pAppReactor->stop();
+    }
 }
 
 #endif // WIN32
