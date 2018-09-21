@@ -127,6 +127,10 @@ void Reactor::run() {
         return;
     }
 
+#ifndef WIN32
+    signal(SIGPIPE, SIG_IGN);
+#endif
+
     // NOTE: blocks
     uv_run(&_loop, UV_RUN_DEFAULT);
 }
