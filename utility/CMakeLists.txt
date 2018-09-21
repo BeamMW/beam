@@ -20,6 +20,7 @@ set(IO_SRC
     io/errorhandling.cpp
     io/coarsetimer.cpp
     asynccontext.cpp
+    ../core/common.cpp
 # ~etc
 )
 
