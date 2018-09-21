@@ -66,7 +66,12 @@ void xor_32_bytes(uint8_t* out, const uint8_t* mask) {
 void read_keystore_file(KeyPairs& out, const std::string& fileName, const PasswordHash& key) {
     AutoClose a;
 
+#ifdef WIN32
+    a.f = _wfopen(Utf8toUtf16(fileName.c_str()).c_str(), L"a+b");
+#else
     a.f = fopen(fileName.c_str(), "a+b");
+#endif
+
     if (!a.f) {
         throw KeyStoreException(std::string("keystore: cannot open file ") + fileName);
     }
@@ -112,8 +117,11 @@ void write_keystore_file(const KeyPairs& in, const std::string& fileName, const 
 
     {
         AutoClose a;
-
+#ifdef WIN32
+        a.f = _wfopen(Utf8toUtf16(newFileName.c_str()).c_str(), L"w+b");
+#else
         a.f = fopen(newFileName.c_str(), "w+b");
+#endif
         if (!a.f) {
             throw KeyStoreException(std::string("keystore: cannot open file ") + newFileName);
         }
@@ -138,7 +146,11 @@ void write_keystore_file(const KeyPairs& in, const std::string& fileName, const 
         }
     }
 
+#ifdef WIN32
+    boost::filesystem::rename(Utf8toUtf16(newFileName.c_str()), Utf8toUtf16(fileName.c_str()));
+#else
     boost::filesystem::rename(newFileName, fileName);
+#endif
 }
 
 } //namespace

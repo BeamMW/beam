@@ -624,12 +624,16 @@ namespace beam
 
     bool Keychain::isInitialized(const string& path)
     {
+#ifdef WIN32
+        return boost::filesystem::exists(Utf8toUtf16(path.c_str()));
+#else
         return boost::filesystem::exists(path);
+#endif
     }
 
     IKeyChain::Ptr Keychain::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey)
     {
-        if (!boost::filesystem::exists(path))
+        if (!isInitialized(path))
         {
             auto keychain = make_shared<Keychain>(secretKey);
 
@@ -691,7 +695,7 @@ namespace beam
     {
         try
         {
-            if (boost::filesystem::exists(path))
+            if (isInitialized(path))
             {
                 ECC::NoLeak<ECC::uintBig> seed;
                 seed.V = Zero;
