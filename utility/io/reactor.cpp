@@ -21,7 +21,7 @@
 #include <stdlib.h>
 
 #ifndef WIN32
-#	include <signal.h>
+#include <signal.h>
 #endif // WIN32
 
 #define LOG_VERBOSE_ENABLED 1
@@ -126,11 +126,7 @@ void Reactor::run() {
         LOG_DEBUG() << "loop wasn't initialized";
         return;
     }
-
-#ifndef WIN32
-    signal(SIGPIPE, SIG_IGN);
-#endif
-
+kill(0, SIGPIPE);
     // NOTE: blocks
     uv_run(&_loop, UV_RUN_DEFAULT);
 }

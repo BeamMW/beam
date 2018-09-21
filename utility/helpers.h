@@ -89,6 +89,9 @@ uint64_t get_thread_id();
 /// blocks all signals in calling thread
 void block_signals_in_this_thread();
 
+/// blocks sigpipe signals
+void block_sigpipe();
+
 /// waits for app termination
 /// 1/ no more than nSec seconds if nSec > 0
 /// 2/ until signal arrives otherwise
