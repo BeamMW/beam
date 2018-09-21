@@ -197,7 +197,7 @@ public:
 
 public slots:
     void onStatus(const WalletStatus& amount);
-    void onTxStatus(const std::vector<beam::TxDescription>& history);
+    void onTxStatus(beam::ChangeAction action, const std::vector<beam::TxDescription>& items);
     void sendMoney();
     void syncWithNode();
     void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);

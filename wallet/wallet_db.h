@@ -79,10 +79,19 @@ namespace beam
         WalletAddress() : m_createTime(0), m_duration(0), m_own(false) {}
     };
 
+    enum class ChangeAction
+    {
+        Added,
+        Removed,
+        Updated,
+        Reset
+    };
+
     struct IKeyChainObserver
     {
+        
         virtual void onKeychainChanged() = 0;
-        virtual void onTransactionChanged() = 0;
+        virtual void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) = 0;
         virtual void onSystemStateChanged() = 0;
         virtual void onTxPeerChanged() = 0;
         virtual void onAddressChanged() = 0;
@@ -215,7 +224,7 @@ namespace beam
     private:
         void storeImpl(Coin& coin);
         void notifyKeychainChanged();
-        void notifyTransactionChanged();
+        void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();
         void notifyAddressChanged();
     private:

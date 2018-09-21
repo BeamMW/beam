@@ -173,8 +173,8 @@ WalletViewModel::WalletViewModel()
 {
     connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
-    connect(&_model, SIGNAL(onTxStatus(const std::vector<beam::TxDescription>&)), 
-        SLOT(onTxStatus(const std::vector<beam::TxDescription>&)));
+    connect(&_model, SIGNAL(onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>&)),
+        SLOT(onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>&)));
 
     connect(&_model, SIGNAL(onTxPeerUpdated(const std::vector<beam::TxPeer>&)),
         SLOT(onTxPeerUpdated(const std::vector<beam::TxPeer>&)));
@@ -310,11 +310,11 @@ void WalletViewModel::onStatus(const WalletStatus& status)
     }
 }
 
-void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
+void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<TxDescription>& items)
 {
     _tx.clear();
 
-    for (const auto& item : history)
+    for (const auto& item : items)
     {
         _tx.push_back(new TxObject(item));
     }

@@ -87,7 +87,7 @@ public:
 
 signals:
     void onStatus(const WalletStatus& status);
-    void onTxStatus(const std::vector<beam::TxDescription>& history);
+    void onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>& items);
     void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
     void onSyncProgressUpdated(int done, int total);
     void onChangeCalculated(beam::Amount change);
@@ -98,7 +98,7 @@ signals:
 
 private:
     void onKeychainChanged() override;
-    void onTransactionChanged() override;
+    void onTransactionChanged(beam::ChangeAction action, std::vector<beam::TxDescription>&& items) override;
     void onSystemStateChanged() override;
     void onTxPeerChanged() override;
     void onAddressChanged() override;

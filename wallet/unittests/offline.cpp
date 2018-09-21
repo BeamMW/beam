@@ -12,7 +12,7 @@ struct KeyChainObserver : IKeyChainObserver {
     void onKeychainChanged() {
         LOG_DEBUG() << _who << " " << __FUNCTION__;
     }
-    void onTransactionChanged()  {
+    void onTransactionChanged(ChangeAction, std::vector<TxDescription>&& )  {
         LOG_INFO() << _who << " QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ " << __FUNCTION__;
     }
     void onSystemStateChanged()  {

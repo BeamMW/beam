@@ -1085,7 +1085,7 @@ namespace beam
         {
             sqlite::Statement stm(_db, "DELETE FROM " HISTORY_NAME ";");
             stm.step();
-            notifyTransactionChanged();
+            notifyTransactionChanged(ChangeAction::Reset, {});
         }
     }
 
@@ -1280,6 +1280,7 @@ namespace beam
 
     void Keychain::saveTx(const TxDescription& p)
     {
+        ChangeAction action = ChangeAction::Added;
         sqlite::Transaction trans(_db);
 
         {
@@ -1299,6 +1300,7 @@ namespace beam
                 stm.bind(5, p.m_minHeight);
                 stm.bind(6, p.m_change);
                 stm.step();
+                action = ChangeAction::Updated;
             }
             else
             {
@@ -1311,13 +1313,13 @@ namespace beam
 
         trans.commit();
 
-        notifyTransactionChanged();
+        notifyTransactionChanged(action, {p});
     }
 
     void Keychain::deleteTx(const TxID& txId)
     {
-        sqlite::Transaction trans(_db);
-
+        auto tx = getTx(txId);
+        if (tx.is_initialized())
         {
             const char* req = "DELETE FROM " HISTORY_NAME " WHERE txId=?1;";
             sqlite::Statement stm(_db, req);
@@ -1325,11 +1327,8 @@ namespace beam
             stm.bind(1, txId);
 
             stm.step();
+            notifyTransactionChanged(ChangeAction::Removed, { *tx });
         }
-
-        trans.commit();
-
-        notifyTransactionChanged();
     }
 
     void Keychain::rollbackTx(const TxID& txId)
@@ -1506,9 +1505,12 @@ namespace beam
         for (auto sub : m_subscribers) sub->onKeychainChanged();
     }
 
-    void Keychain::notifyTransactionChanged()
+    void Keychain::notifyTransactionChanged(ChangeAction action, vector<TxDescription>&& items)
     {
-        for (auto sub : m_subscribers) sub->onTransactionChanged();
+        for (auto sub : m_subscribers)
+        {
+            sub->onTransactionChanged(action, move(items));
+        }
     }
 
     void Keychain::notifySystemStateChanged()

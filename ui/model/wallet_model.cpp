@@ -177,6 +177,7 @@ WalletModel::WalletModel(IKeyChain::Ptr keychain, IKeyStore::Ptr keystore, const
     , _nodeAddrStr(nodeAddr)
 {
     qRegisterMetaType<WalletStatus>("WalletStatus");
+    qRegisterMetaType<ChangeAction>("beam::ChangeAction");
     qRegisterMetaType<vector<TxDescription>>("std::vector<beam::TxDescription>");
     qRegisterMetaType<vector<TxPeer>>("std::vector<beam::TxPeer>");
     qRegisterMetaType<Amount>("beam::Amount");
@@ -257,7 +258,7 @@ void WalletModel::run()
         async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), _reactor);
 
         emit onStatus(getStatus());
-        emit onTxStatus(_keychain->getTxHistory());
+        emit onTxStatus(beam::ChangeAction::Reset, _keychain->getTxHistory());
         emit onTxPeerUpdated(_keychain->getPeers());
 
         _logRotateTimer = io::Timer::create(_reactor);
@@ -306,9 +307,9 @@ void WalletModel::onKeychainChanged()
     onStatusChanged();
 }
 
-void WalletModel::onTransactionChanged()
+void WalletModel::onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items)
 {
-    emit onTxStatus(_keychain->getTxHistory());
+    emit onTxStatus(action, _keychain->getTxHistory());
     onStatusChanged();
 }
 
@@ -403,7 +404,7 @@ void WalletModel::calcChange(beam::Amount&& amount)
 void WalletModel::getWalletStatus()
 {
     emit onStatus(getStatus());
-    emit onTxStatus(_keychain->getTxHistory());
+    emit onTxStatus(beam::ChangeAction::Reset, _keychain->getTxHistory());
     emit onTxPeerUpdated(_keychain->getPeers());
     emit onAdrresses(false, _keychain->getAddresses(false));
 }

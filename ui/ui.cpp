@@ -175,7 +175,7 @@ int main (int argc, char* argv[])
             qmlRegisterType<UtxoItem>("Beam.Wallet", 1, 0, "UtxoItem");
 
             Translator translator;
-            view.setSource(QUrl("qrc:///root.qml"));
+            view.setSource(QUrl("qrc:/root.qml"));
 
             view.show();
 
