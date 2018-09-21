@@ -1222,8 +1222,12 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 	if (m_This.m_pSync->m_bDetecting)
 	{
 		if (!nProvenWork/* && (m_This.m_pSync->m_Best <= m_Tip.m_ChainWork)*/)
+		{
 			// maybe take it
 			Send(proto::MacroblockGet());
+
+			LOG_INFO() << " Sending MacroblockGet/query to " << m_RemoteAddr;
+		}
 	}
 	else
 		m_This.SyncCycle(*this);
@@ -1248,6 +1252,8 @@ void Node::Peer::OnMsg(proto::ProofChainWork&& msg)
 
 void Node::Peer::OnMsg(proto::Macroblock&& msg)
 {
+	LOG_INFO() << " Got Macroblock from " << m_RemoteAddr << ". Portion=" << msg.m_Portion.size();
+
 	if (!m_This.m_pSync)
 		return;
 
@@ -1267,6 +1273,8 @@ void Node::Peer::OnMsg(proto::Macroblock&& msg)
 		}
 		else
 		{
+			LOG_INFO() << "Peer incompatible";
+
 			m_Flags |= Flags::DontSync;
 			m_This.SyncCycle();
 		}
@@ -1370,6 +1378,8 @@ bool Node::SyncCycle(Peer& p)
 	p.m_Flags |= Peer::Flags::SyncPending;
 	m_pSync->m_RequestsPending++;
 
+	LOG_INFO() << " Sending MacroblockGet/request to " << p.m_RemoteAddr << ". Idx=" << uint32_t(msg.m_Data) << ", Offset=" << msg.m_Offset;
+
 	return true;
 }
 
@@ -1380,6 +1390,8 @@ void Node::SyncCycle(Peer& p, const ByteBuffer& buf)
 
 	if (buf.empty())
 	{
+		LOG_INFO() << "Sync cycle complete for Idx=" << m_pSync->m_iData;
+
 		if (++m_pSync->m_iData == Block::Body::RW::s_Datas)
 		{
 			Height h = m_pSync->m_Trg.m_Height;
@@ -1405,6 +1417,8 @@ void Node::SyncCycle(Peer& p, const ByteBuffer& buf)
 		fs.Open(sPath.c_str(), false, true, true);
 
 		fs.write(&buf.at(0), buf.size());
+
+		LOG_INFO() << "Portion appended";
 	}
 
 	SyncCycle(p);
