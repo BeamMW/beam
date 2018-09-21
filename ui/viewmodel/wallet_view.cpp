@@ -158,6 +158,20 @@ const beam::TxDescription& TxObject::getTxDescription() const
     return _tx;
 }
 
+void TxObject::setStatus(beam::TxDescription::Status status)
+{
+    if (_tx.m_status != status)
+    {
+        _tx.m_status = status;
+        emit statusChanged();
+    }
+}
+
+void TxObject::update(const beam::TxDescription& tx)
+{
+    setStatus(tx.m_status);
+}
+
 WalletViewModel::WalletViewModel()
     : _model(*AppModel::getInstance()->getWallet())
     , _status{ 0, 0, 0, 0, {0, 0, 0}, {} }
@@ -210,7 +224,7 @@ WalletViewModel::~WalletViewModel()
 
 void WalletViewModel::cancelTx(int index)
 {
-    auto *p = static_cast<TxObject*>(_tx[index]);
+    auto *p = static_cast<TxObject*>(_txList[index]);
     // TODO: temporary fix
     if (p->canCancel())
     {
@@ -220,7 +234,7 @@ void WalletViewModel::cancelTx(int index)
 
 void WalletViewModel::deleteTx(int index)
 {
-    auto *p = static_cast<TxObject*>(_tx[index]);
+    auto *p = static_cast<TxObject*>(_txList[index]);
     if (p->canDelete())
     {
         _model.async->deleteTx(p->_tx.m_txId);
@@ -312,11 +326,46 @@ void WalletViewModel::onStatus(const WalletStatus& status)
 
 void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<TxDescription>& items)
 {
-    _tx.clear();
-
-    for (const auto& item : items)
+    if (action == beam::ChangeAction::Reset)
     {
-        _tx.push_back(new TxObject(item));
+        _txList.clear();
+        for (const auto& item : items)
+        {
+            _txList.push_back(new TxObject(item));
+        }
+    }
+    else if (action == beam::ChangeAction::Removed)
+    {
+        for (const auto& item : items)
+        {
+            auto it = find_if(_txList.begin(), _txList.end(), [&item](const auto& tx) {return item.m_txId == tx->_tx.m_txId; });
+            if (it != _txList.end())
+            {
+                _txList.erase(it);
+            }
+        }
+    }
+    else if (action == beam::ChangeAction::Updated)
+    {
+        auto txIt = _txList.begin();
+        auto txEnd = _txList.end();
+        for (const auto& item : items)
+        {
+            txIt = find_if(txIt, txEnd, [&item](const auto& tx) {return item.m_txId == tx->_tx.m_txId; });
+            if (txIt == txEnd)
+            {
+                break;
+            }
+            (*txIt)->update(item);
+        }
+    }
+    else if (action == beam::ChangeAction::Added)
+    {
+        // TODO in sort order
+        for (const auto& item : items)
+        {
+            _txList.insert(0, new TxObject(item));
+        }
     }
 
     emit transactionsChanged();
@@ -552,7 +601,7 @@ QString WalletViewModel::receiverAddr() const
 
 QQmlListProperty<TxObject> WalletViewModel::getTransactions()
 {
-    return QQmlListProperty<TxObject>(this, _tx);
+    return QQmlListProperty<TxObject>(this, _txList);
 }
 
 QString WalletViewModel::syncTime() const
@@ -733,7 +782,7 @@ void WalletViewModel::onAdrresses(bool own, const std::vector<beam::WalletAddres
         return;
     }
 
-    for (auto* tx : _tx)
+    for (auto* tx : _txList)
     {
         auto foundIter = std::find_if(addresses.cbegin(), addresses.cend(),
                                       [tx](const auto& address) { return address.m_walletID == tx->peerId(); });

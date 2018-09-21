@@ -1166,8 +1166,7 @@ Item {
                 Connections {
                     target: deleteTransactionDialog
                     onAccepted: {
-                        viewModel.transactions.remove(txContextMenu.index);
-                        //viewModel.deleteTx(txContextMenu.index);
+                        viewModel.deleteTx(txContextMenu.index);
                     }
                 }
             }
@@ -1379,6 +1378,27 @@ Item {
                         duration: collapse.collapseDuration
                     }
                 }
+            }
+
+            Transition {
+                id: addAnim
+                PropertyAction { target: rowItem; property: "height"; value: 0 }
+                NumberAnimation { target: rowItem; property: "height"; to: 80; duration: 250; easing.type: Easing.InOutQuad }
+            }
+
+            Transition {
+                id: removeAnim
+                PropertyAction { target: rowItem; property: "ListView.delayRemove"; value: true }
+                NumberAnimation { target: rowItem; property: "height"; to: 0; duration: 250; easing.type: Easing.InOutQuad }
+
+                // Make sure delayRemove is set back to false so that the item can be destroyed
+                PropertyAction { target: rowItem; property: "ListView.delayRemove"; value: false }
+            }
+
+            Component.onCompleted: {
+               // this.__listView.populate = addAnim
+                this.__listView.add = addAnim
+                this.__listView.remove = removeAnim
             }
 
             itemDelegate: Item {

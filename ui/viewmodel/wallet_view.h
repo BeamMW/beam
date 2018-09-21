@@ -23,20 +23,20 @@ class TxObject : public QObject
 {
     Q_OBJECT
 
-        Q_PROPERTY(bool income           READ income       NOTIFY incomeChanged)
-        Q_PROPERTY(QString date          READ date         NOTIFY dateChanged)
-        Q_PROPERTY(QString user          READ user         NOTIFY userChanged)
-        Q_PROPERTY(QString userName      READ userName     NOTIFY userChanged)
-		Q_PROPERTY(QString displayName   READ displayName  NOTIFY displayNameChanged)
-        Q_PROPERTY(QString comment       READ comment      NOTIFY commentChanged)
-        Q_PROPERTY(QString amount        READ amount       NOTIFY amountChanged)
-        Q_PROPERTY(QString change        READ change       NOTIFY changeChanged)
-        Q_PROPERTY(QString status        READ status       NOTIFY statusChanged)
-        Q_PROPERTY(bool canCancel        READ canCancel    NOTIFY canCancelChanged)
-        Q_PROPERTY(bool canDelete        READ canDelete    NOTIFY canDeleteChanged)
-        Q_PROPERTY(QString sendingAddress READ getSendingAddress CONSTANT)
-        Q_PROPERTY(QString receivingAddress READ getReceivingAddress CONSTANT)
-        Q_PROPERTY(QString fee           READ getFee CONSTANT)
+    Q_PROPERTY(bool income           READ income       NOTIFY incomeChanged)
+    Q_PROPERTY(QString date          READ date         NOTIFY dateChanged)
+    Q_PROPERTY(QString user          READ user         NOTIFY userChanged)
+    Q_PROPERTY(QString userName      READ userName     NOTIFY userChanged)
+	Q_PROPERTY(QString displayName   READ displayName  NOTIFY displayNameChanged)
+    Q_PROPERTY(QString comment       READ comment      NOTIFY commentChanged)
+    Q_PROPERTY(QString amount        READ amount       NOTIFY amountChanged)
+    Q_PROPERTY(QString change        READ change       NOTIFY changeChanged)
+    Q_PROPERTY(QString status        READ status       NOTIFY statusChanged)
+    Q_PROPERTY(bool canCancel        READ canCancel    NOTIFY canCancelChanged)
+    Q_PROPERTY(bool canDelete        READ canDelete    NOTIFY canDeleteChanged)
+    Q_PROPERTY(QString sendingAddress READ getSendingAddress CONSTANT)
+    Q_PROPERTY(QString receivingAddress READ getReceivingAddress CONSTANT)
+    Q_PROPERTY(QString fee           READ getFee CONSTANT)
 
 public:
 
@@ -61,6 +61,9 @@ public:
 
 	void setUserName(const QString& name);
     void setDisplayName(const QString& name);
+    void setStatus(beam::TxDescription::Status status);
+
+    void update(const beam::TxDescription& tx);
 
     const beam::TxDescription& getTxDescription() const;
 
@@ -247,7 +250,7 @@ private:
 
     beam::Amount _change;
 
-    TxList _tx;
+    TxList _txList;
 
     std::vector<beam::TxPeer> _addrList;
 

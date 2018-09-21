@@ -309,7 +309,7 @@ void WalletModel::onKeychainChanged()
 
 void WalletModel::onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items)
 {
-    emit onTxStatus(action, _keychain->getTxHistory());
+    emit onTxStatus(action, move(items));
     onStatusChanged();
 }
 
