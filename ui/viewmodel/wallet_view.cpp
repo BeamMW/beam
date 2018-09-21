@@ -25,6 +25,17 @@ using namespace beam;
 using namespace std;
 using namespace beamui;
 
+namespace
+{
+template<typename T>
+bool compareTx(const T& lf, const T& rt, Qt::SortOrder sortOrder)
+{
+    if (sortOrder == Qt::DescendingOrder)
+        return lf > rt;
+    return lf < rt;
+}
+}
+
 TxObject::TxObject(const TxDescription& tx) : _tx(tx) {}
 
 bool TxObject::income() const
@@ -140,6 +151,11 @@ QString TxObject::getFee() const
         return BeamToString(_tx.m_fee);
     }
     return QString{};
+}
+
+const beam::TxDescription& TxObject::getTxDescription() const
+{
+    return _tx;
 }
 
 WalletViewModel::WalletViewModel()
@@ -474,6 +490,57 @@ QString WalletViewModel::getBranchName() const
     return QString::fromStdString(" (" + BRANCH_NAME + ")");
 }
 
+QString WalletViewModel::sortRole() const
+{
+    return _sortRole;
+}
+
+void WalletViewModel::setSortRole(const QString& value)
+{
+    if (value != getIncomeRole() && value != getDateRole() && value != getAmountRole() &&
+        value != getStatusRole())
+        return;
+
+    _sortRole = value;
+    sortTx();
+}
+
+Qt::SortOrder WalletViewModel::sortOrder() const
+{
+    return _sortOrder;
+}
+
+void WalletViewModel::setSortOrder(Qt::SortOrder value)
+{
+    _sortOrder = value;
+    sortTx();
+}
+
+QString WalletViewModel::getIncomeRole() const
+{
+    return "income";
+}
+
+QString WalletViewModel::getDateRole() const
+{
+    return "date";
+}
+
+QString WalletViewModel::getDisplayNameRole() const
+{
+    return "displayName";
+}
+
+QString WalletViewModel::getAmountRole() const
+{
+    return "amount";
+}
+
+QString WalletViewModel::getStatusRole() const
+{
+    return "status";
+}
+
 QString WalletViewModel::receiverAddr() const
 {
     if (_selectedAddr < 0 || _addrList.empty()) return "";
@@ -563,6 +630,47 @@ beam::Amount WalletViewModel::calcFeeAmount() const
 beam::Amount WalletViewModel::calcTotalAmount() const
 {
     return calcSendAmount() + calcFeeAmount();
+}
+
+void WalletViewModel::sortTx()
+{
+    auto cmp = generateComparer();
+    std::sort(_tx.begin(), _tx.end(), cmp);
+
+    emit transactionsChanged();
+}
+
+std::function<bool(const TxObject*, const TxObject*)> WalletViewModel::generateComparer()
+{
+    if (_sortRole == getIncomeRole())
+        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
+    {
+        return compareTx(lf->getTxDescription().m_sender, rt->getTxDescription().m_sender, sortOrder);
+    };
+
+    if (_sortRole == getDisplayNameRole())
+        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
+    {
+        return compareTx(lf->displayName(), rt->displayName(), sortOrder);
+    };
+
+    if (_sortRole == getAmountRole())
+        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
+    {
+        return compareTx(lf->getTxDescription().m_amount, rt->getTxDescription().m_amount, sortOrder);
+    };
+
+    if (_sortRole == getStatusRole())
+        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
+    {
+        return compareTx(lf->status(), rt->status(), sortOrder);
+    };
+
+    // defult for dateRole
+    return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
+    {
+        return compareTx(lf->getTxDescription().m_createTime, rt->getTxDescription().m_createTime, sortOrder);
+    };
 }
 
 void WalletViewModel::sendMoney()

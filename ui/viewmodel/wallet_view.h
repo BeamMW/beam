@@ -62,6 +62,8 @@ public:
 	void setUserName(const QString& name);
     void setDisplayName(const QString& name);
 
+    const beam::TxDescription& getTxDescription() const;
+
 signals:
     void incomeChanged();
     void dateChanged();
@@ -117,6 +119,14 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString comment READ getComment WRITE setComment NOTIFY commentChanged)
     Q_PROPERTY(QString branchName READ getBranchName CONSTANT)
 
+    Q_PROPERTY(QString sortRole READ sortRole WRITE setSortRole)
+    Q_PROPERTY(Qt::SortOrder sortOrder READ sortOrder WRITE setSortOrder)
+
+    Q_PROPERTY(QString incomeRole READ getIncomeRole CONSTANT)
+    Q_PROPERTY(QString dateRole READ getDateRole CONSTANT)
+    Q_PROPERTY(QString displayNameRole READ getDisplayNameRole CONSTANT)
+    Q_PROPERTY(QString amountRole READ getAmountRole CONSTANT)
+    Q_PROPERTY(QString statusRole READ getStatusRole CONSTANT)
 
 public:
 
@@ -175,6 +185,15 @@ public:
     void setComment(const QString& value);
 	QString getComment() const;
     QString getBranchName() const;
+    QString sortRole() const;
+    void setSortRole(const QString&);
+    Qt::SortOrder sortOrder() const;
+    void setSortOrder(Qt::SortOrder);
+    QString getIncomeRole() const;
+    QString getDateRole() const;
+    QString getDisplayNameRole() const;
+    QString getAmountRole() const;
+    QString getStatusRole() const;
 
 public slots:
     void onStatus(const WalletStatus& amount);
@@ -213,6 +232,10 @@ private:
     beam::Amount calcFeeAmount() const;
     beam::Amount calcTotalAmount() const;
 
+    void sortTx();
+
+    std::function<bool(const TxObject*, const TxObject*)> generateComparer();
+
 private:
 
     WalletModel& _model;
@@ -241,4 +264,6 @@ private:
     int _nodeDone;
     int _nodeTotal;
     int _nodeSyncProgress;
+    Qt::SortOrder _sortOrder;
+    QString _sortRole;
 };

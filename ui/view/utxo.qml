@@ -110,6 +110,7 @@ ColumnLayout {
     }
 
 	CustomTableView {
+        id: tableView
 		Layout.fillWidth: true
 		Layout.fillHeight: true
 		Layout.bottomMargin: 9
@@ -117,57 +118,56 @@ ColumnLayout {
         selectionMode: SelectionMode.NoSelection
         backgroundVisible: false
 		model: viewModel.allUtxos
+        sortIndicatorVisible: true
+        sortIndicatorColumn: 1
+        sortIndicatorOrder: Qt.DescendingOrder
+
+        Binding{
+            target: viewModel
+            property: "sortRole"
+            value: tableView.getColumn(tableView.sortIndicatorColumn).role
+        }
+
+        Binding{
+            target: viewModel
+            property: "sortOrder"
+            value: tableView.sortIndicatorOrder
+        }
 
 		TableViewColumn {
-			role: "amount"
+			role: viewModel.amountRole
 			title: qsTr("Amount")
 			width: 150 * parent.width / 800
 			movable: false
 		}
 
 		TableViewColumn {
-			role: "height"
+			role: viewModel.heightRole
 			title: qsTr("Height")
 			width: 150 * parent.width / 800
 			movable: false
 		}
 
 		TableViewColumn {
-			role: "maturity"
+			role: viewModel.maturityRole
 			title: qsTr("Maturity")
 			width: 150 * parent.width / 800
 			movable: false
 		}
 
 		TableViewColumn {
-			role: "status"
+			role: viewModel.statusRole
 			title: qsTr("Status")
 			width: 200 * parent.width / 800
 			movable: false
 		}
 
 		TableViewColumn {
-			role: "type"
+			role: viewModel.typeRole
 			title: qsTr("Type")
 			width: 150 * parent.width / 800
 			movable: false
 		}
-
-		headerDelegate: Rectangle {
-            height: 46
-
-            color: Style.dark_slate_blue
-
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-				anchors.left: parent.left
-                anchors.leftMargin: 20
-                font.pixelSize: 12
-                color: Style.bluey_grey
-
-                text: styleData.value
-            }
-        }
 
 		rowDelegate: Item {
 

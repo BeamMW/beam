@@ -19,6 +19,16 @@ using namespace beam;
 using namespace std;
 using namespace beamui;
 
+namespace
+{
+template<typename T>
+bool compareUtxo(const T& lf, const T& rt, Qt::SortOrder sortOrder)
+{
+    if (sortOrder == Qt::DescendingOrder)
+        return lf > rt;
+    return lf < rt;
+}
+}
 
 UtxoItem::UtxoItem(const beam::Coin& coin)
     : _coin{ coin }
@@ -70,9 +80,25 @@ QString UtxoItem::type() const
     return Names[static_cast<int>(_coin.m_key_type)];
 }
 
+beam::Amount UtxoItem::rawAmount() const
+{
+    return _coin.m_amount;
+}
+
+beam::Height UtxoItem::rawHeight() const
+{
+    return _coin.m_createHeight;
+}
+
+beam::Height UtxoItem::rawMaturity() const
+{
+    return _coin.m_maturity;
+}
+
 
 UtxoViewModel::UtxoViewModel()
     : _model{*AppModel::getInstance()->getWallet()}
+    , _sortOrder(Qt::DescendingOrder)
 {
     connect(&_model, SIGNAL(onAllUtxoChanged(const std::vector<beam::Coin>&)),
         SLOT(onAllUtxoChanged(const std::vector<beam::Coin>&)));
@@ -104,23 +130,38 @@ QString UtxoViewModel::getCurrentStateHash() const
     return _currentStateHash;
 }
 
+QString UtxoViewModel::sortRole() const
+{
+    return _sortRole;
+}
+
+void UtxoViewModel::setSortRole(const QString& value)
+{
+    _sortRole = value;
+    sortUtxos();
+}
+
+Qt::SortOrder UtxoViewModel::sortOrder() const
+{
+    return _sortOrder;
+}
+
+void UtxoViewModel::setSortOrder(Qt::SortOrder value)
+{
+    _sortOrder = value;
+    sortUtxos();
+}
+
 void UtxoViewModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxos)
 {
     _allUtxos.clear();
 
-    std::vector<beam::Coin> tmp(utxos);
-
-    std::sort(tmp.begin(), tmp.end(), [](const Coin& lf, const Coin& rt)
-    {
-        return lf.m_createHeight > rt.m_createHeight;
-    });
-
-    for (const auto& utxo : tmp)
+    for (const auto& utxo : utxos)
     {
         _allUtxos.push_back(new UtxoItem(utxo));
     }
 
-    emit allUtxoChanged();
+    sortUtxos();
 }
 
 void UtxoViewModel::onStatus(const WalletStatus& status)
@@ -130,3 +171,68 @@ void UtxoViewModel::onStatus(const WalletStatus& status)
     emit stateChanged();
 }
 
+void UtxoViewModel::sortUtxos()
+{
+    auto cmp = generateComparer();
+    std::sort(_allUtxos.begin(), _allUtxos.end(), cmp);
+
+    emit allUtxoChanged();
+}
+
+QString UtxoViewModel::amountRole() const
+{
+    return "amount";
+}
+
+QString UtxoViewModel::heightRole() const
+{
+    return "height";
+}
+
+QString UtxoViewModel::maturityRole() const
+{
+    return "maturity";
+}
+
+QString UtxoViewModel::statusRole() const
+{
+    return "status";
+}
+
+QString UtxoViewModel::typeRole() const
+{
+    return "type";
+}
+
+std::function<bool(const UtxoItem*, const UtxoItem*)> UtxoViewModel::generateComparer()
+{
+    if (_sortRole == amountRole())
+        return [sortOrder = _sortOrder](const UtxoItem* lf, const UtxoItem* rt)
+    {
+        return compareUtxo(lf->rawAmount(), rt->rawAmount(), sortOrder);
+    };
+
+    if (_sortRole == maturityRole())
+        return [sortOrder = _sortOrder](const UtxoItem* lf, const UtxoItem* rt)
+    {
+        return compareUtxo(lf->rawMaturity(), rt->rawMaturity(), sortOrder);
+    };
+
+    if (_sortRole == statusRole())
+        return [sortOrder = _sortOrder](const UtxoItem* lf, const UtxoItem* rt)
+    {
+        return compareUtxo(lf->status(), rt->status(), sortOrder);
+    };
+
+    if (_sortRole == typeRole())
+        return [sortOrder = _sortOrder](const UtxoItem* lf, const UtxoItem* rt)
+    {
+        return compareUtxo(lf->type(), rt->type(), sortOrder);
+    };
+
+    // defult for heightRole
+    return [sortOrder = _sortOrder](const UtxoItem* lf, const UtxoItem* rt)
+    {
+        return compareUtxo(lf->rawHeight(), rt->rawHeight(), sortOrder);
+    };
+}

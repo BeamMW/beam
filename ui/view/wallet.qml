@@ -895,11 +895,27 @@ Item {
             selectionMode: SelectionMode.NoSelection
             backgroundVisible: false
 
+            sortIndicatorVisible: true
+            sortIndicatorColumn: 1
+            sortIndicatorOrder: Qt.DescendingOrder
+
+            Binding{
+                target: viewModel
+                property: "sortRole"
+                value: transactionsView.getColumn(transactionsView.sortIndicatorColumn).role
+            }
+
+            Binding{
+                target: viewModel
+                property: "sortOrder"
+                value: transactionsView.sortIndicatorOrder
+            }
+
             property int resizableWidth: parent.width - incomeColumn.width - actionsColumn.width - commentColumn.width
 
             TableViewColumn {
                 id: incomeColumn
-                role: "income"
+                role: viewModel.incomeRole
                 width: 40
                 elideMode: Text.ElideRight
                 movable: false
@@ -922,7 +938,7 @@ Item {
             }
 
             TableViewColumn {
-                role: "date"
+                role: viewModel.dateRole
                 title: qsTr("Date | Time")
                 width: 160 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
@@ -931,7 +947,7 @@ Item {
             }
 
             TableViewColumn {
-                role: "displayName"
+                role: viewModel.displayNameRole
                 title: qsTr("Recipient / Sender ID")
                 width: 400 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideMiddle
@@ -1007,7 +1023,7 @@ Item {
             }
 
             TableViewColumn {
-                role: "amount"
+                role: viewModel.amountRole
                 title: qsTr("Amount")
                 width: 200 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
@@ -1034,7 +1050,7 @@ Item {
             }
 
             TableViewColumn {
-                role: "status"
+                role: viewModel.statusRole
                 title: qsTr("Status")
                 width: 110 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
@@ -1111,22 +1127,6 @@ Item {
                             }
                         }
                     }
-                }
-            }
-
-            headerDelegate: Rectangle {
-                height: 46
-
-                color: Style.dark_slate_blue
-
-                SFText {
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.left: parent.left
-                    anchors.leftMargin: 20
-                    font.pixelSize: 14
-                    color: Style.bluey_grey
-
-                    text: styleData.value
                 }
             }
 

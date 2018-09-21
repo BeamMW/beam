@@ -17,4 +17,20 @@ TableView {
 		}
 	}
     horizontalScrollBarPolicy: Qt.ScrollBarAlwaysOff
+
+    headerDelegate: Rectangle {
+        height: 46
+
+        color: Style.dark_slate_blue
+
+        SFText {
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.leftMargin: 20
+            font.pixelSize: 14
+            color: Style.bluey_grey
+
+            text: styleData.value
+        }
+    }
 }
