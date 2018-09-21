@@ -34,7 +34,7 @@ ComboBox {
     }
 
     indicator: SvgImage {
-        source: "qrc:///assets/icon-down.svg"
+        source: "qrc:/assets/icon-down.svg"
         anchors.right: control.right
         anchors.verticalCenter: control.verticalCenter
     }

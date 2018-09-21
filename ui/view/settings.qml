@@ -310,7 +310,7 @@ Rectangle {
                                             Layout.minimumHeight: 20
                                             Layout.minimumWidth: 20
                                             textOpacity: 0
-                                            icon.source: "qrc:///assets/icon-delete.svg"
+                                            icon.source: "qrc:/assets/icon-delete.svg"
                                             enabled: viewModel.localNodeRun
                                             onClicked: viewModel.deleteLocalNodePeer(index)
                                         }
@@ -362,7 +362,7 @@ Rectangle {
                             text: "reset local data"
                             palette.button: "#708090"
                             palette.buttonText : "white"
-                            icon.source: "qrc:///assets/icon-reset.svg"
+                            icon.source: "qrc:/assets/icon-reset.svg"
                             icon.width: 16
                             icon.height: 16
                             onClicked: emergencyConfirmation.open();
@@ -504,7 +504,7 @@ Rectangle {
                             text: "change wallet password"
                             palette.buttonText : "white"
                             palette.button: "#708090"
-                            icon.source: "qrc:///assets/icon-password.svg"
+                            icon.source: "qrc:/assets/icon-password.svg"
                             icon.width: 16
                             icon.height: 16
                             onClicked: changePasswordDialog.open()

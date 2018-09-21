@@ -33,7 +33,7 @@ Item
                 Image {
                     fillMode: Image.PreserveAspectCrop
                     anchors.fill: parent
-                    source: "qrc:///assets/bg.png"
+                    source: "qrc:/assets/bg.png"
                 }
 
                 property Item defaultFocusItem: createNewWallet
@@ -42,7 +42,7 @@ Item
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.topMargin: 180
                     anchors.top: parent.top
-                    source: "qrc:///assets/start-logo.svg"
+                    source: "qrc:/assets/start-logo.svg"
                     width: 242
                     height: 170
                 }
@@ -218,7 +218,7 @@ Item
                             }
                             else
                             {
-                                root.parent.source = "qrc:///main.qml";
+                                root.parent.source = "qrc:/main.qml";
                             }
                         }
                     }
@@ -417,14 +417,14 @@ Item
         Image {
             fillMode: Image.PreserveAspectCrop
             anchors.fill: parent
-            source: "qrc:///assets/bg.png"
+            source: "qrc:/assets/bg.png"
         }
 
         Image {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.topMargin: 100
             anchors.top: parent.top
-            source: "qrc:///assets/start-logo.svg"
+            source: "qrc:/assets/start-logo.svg"
             width: 242
             height: 170
         }
@@ -511,7 +511,7 @@ Item
                         }
                         else
                         {
-                             root.parent.source = "qrc:///main.qml";
+                             root.parent.source = "qrc:/main.qml";
                         }
                     }
                 }
