@@ -1224,6 +1224,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 		if (!nProvenWork/* && (m_This.m_pSync->m_Best <= m_Tip.m_ChainWork)*/)
 		{
 			// maybe take it
+			m_Flags |= Flags::DontSync;
 			Send(proto::MacroblockGet());
 
 			LOG_INFO() << " Sending MacroblockGet/query to " << m_RemoteAddr;
@@ -1281,6 +1282,8 @@ void Node::Peer::OnMsg(proto::Macroblock&& msg)
 	}
 	else
 	{
+		m_Flags &= ~Flags::DontSync;
+
 		if (!m_This.m_pSync->m_bDetecting)
 			return;
 
