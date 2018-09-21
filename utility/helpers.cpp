@@ -201,6 +201,19 @@ void wait_for_termination(int nSec) {
 
 #endif //_WIN32
 
+void block_sigpipe() {
+#ifndef WIN32
+    sigset_t sigpipe_mask;
+    sigemptyset(&sigpipe_mask);
+    sigaddset(&sigpipe_mask, SIGPIPE);
+    sigset_t saved_mask;
+    if (pthread_sigmask(SIG_BLOCK, &sigpipe_mask, &saved_mask) == -1) {
+        cerr << "pthread_sigmask failed\n";
+        exit(1);
+    }
+#endif
+}
+
 #ifndef WIN32
 
 namespace {

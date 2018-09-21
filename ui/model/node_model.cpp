@@ -37,7 +37,7 @@ NodeModel::~NodeModel()
                 return;
             }
             r->stop();
-            
+
         }
         wait();
     }

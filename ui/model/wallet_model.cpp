@@ -252,6 +252,8 @@ void WalletModel::run()
         std::unique_ptr<WalletSubscriber> subscriber;
 
         _reactor = Reactor::create();
+        io::Reactor::GracefulIntHandler gih(*_reactor);
+
         async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), _reactor);
 
         emit onStatus(getStatus());

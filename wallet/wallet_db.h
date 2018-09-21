@@ -93,7 +93,7 @@ namespace beam
         using Ptr = std::shared_ptr<IKeyChain>;
         virtual ~IKeyChain() {}
 
-        
+
         virtual ECC::Scalar::Native calcKey(const beam::Coin& coin) const = 0;
         virtual void get_IdentityKey(ECC::Scalar::Native&) const = 0;
 
@@ -203,7 +203,7 @@ namespace beam
         void saveAddress(const WalletAddress&) override;
         boost::optional<WalletAddress> getAddress(const WalletID&) override;
         void deleteAddress(const WalletID&) override;
-        
+
         Timestamp getLastUpdateTime() const override;
         void setSystemStateID(const Block::SystemState::ID& stateID) override;
         bool getSystemStateID(Block::SystemState::ID& stateID) const override;
