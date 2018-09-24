@@ -1380,7 +1380,7 @@ Item {
                 }
             }
 
-            Transition {
+/*            Transition {
                 id: addAnim
                 PropertyAction { target: rowItem; property: "height"; value: 0 }
                 NumberAnimation { target: rowItem; property: "height"; to: 80; duration: 250; easing.type: Easing.InOutQuad }
@@ -1400,7 +1400,7 @@ Item {
                 this.__listView.add = addAnim
                 this.__listView.remove = removeAnim
             }
-
+            */
             itemDelegate: Item {
                 Item {
                     width: parent.width
