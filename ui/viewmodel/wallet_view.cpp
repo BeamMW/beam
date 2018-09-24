@@ -684,7 +684,7 @@ beam::Amount WalletViewModel::calcTotalAmount() const
 void WalletViewModel::sortTx()
 {
     auto cmp = generateComparer();
-    std::sort(_tx.begin(), _tx.end(), cmp);
+    std::sort(_txList.begin(), _txList.end(), cmp);
 
     emit transactionsChanged();
 }
