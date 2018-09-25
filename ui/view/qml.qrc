@@ -58,6 +58,7 @@
         <file>assets/icon-address-book-active.svg</file>
         <file>assets/icon-wallet.svg</file>
         <file>assets/icon-wallet-active.svg</file>
+        <file>assets/icon-wallet-small.svg</file>
         <file>assets/icon-notification.svg</file>
         <file>assets/icon-notification-active.svg</file>
         <file>assets/icon-info.svg</file>
@@ -74,6 +75,7 @@
         <file>assets/icon-cancel.svg</file>
         <file>assets/icon-done.svg</file>
         <file>assets/icon-add.svg</file>
+        <file>assets/icon-add-blue.svg</file>
         <file>assets/icon-utxo.svg</file>
         <file>assets/icon-utxo-active.svg</file>
         <file>assets/icon-copy.svg</file>
