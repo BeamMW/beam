@@ -25,7 +25,7 @@ using namespace std;
 
 void load_config() {
     static const std::string fileName("/tmp/xoxoxo");
-    _unlink(fileName.c_str());
+    unlink(fileName.c_str());
 
     std::ofstream file(fileName);
     file << R"({
