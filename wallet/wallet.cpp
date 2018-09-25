@@ -38,6 +38,20 @@ namespace std
     }
 }
 
+namespace
+{
+    template <typename T>
+    beam::ByteBuffer toByteBuffer(const T& v)
+    {
+        beam::Serializer s;
+        s & v;
+        beam::ByteBuffer b;
+        s.swap_buf(b);
+        
+        return b;
+    }
+}
+
 namespace beam
 {
     using namespace wallet;
@@ -165,7 +179,23 @@ namespace beam
         copy(id.begin(), id.end(), txId.begin());
         TxDescription tx( txId, amount, fee, m_keyChain->getCurrentHeight(), to, from, move(message), getTimestamp(), sender);
         m_keyChain->saveTx(tx);
-        resume_negotiator(tx);
+        
+        Cleaner c{ m_removedNegotiators };
+        ITransaction::Ptr s = make_shared<SendTransaction>(*this, m_keyChain, tx);
+        m_negotiators.emplace(tx.m_txId, s);
+
+        if (m_synchronized)
+        {
+            s->update();
+        }
+        else
+        {
+            m_pendingEvents.emplace_back([s]()
+            {
+                s->update();
+            });
+        }
+
         return txId;
     }
 
@@ -174,9 +204,9 @@ namespace beam
         if (tx.canResume() && m_negotiators.find(tx.m_txId) == m_negotiators.end())
         {
             Cleaner c{ m_removedNegotiators };
-            auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
+ //           auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
 
-            m_negotiators.emplace(tx.m_txId, s);
+ //           m_negotiators.emplace(tx.m_txId, s);
         }
     }
 
@@ -267,59 +297,69 @@ namespace beam
                 messageBuffer.assign(receiverAddress->m_label.begin(), receiverAddress->m_label.end());
             }
             TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, receiver, move(messageBuffer), getTimestamp(), sender };
-            auto r = make_shared<Negotiator>(*this, m_keyChain, tx);
+            ITransaction::Ptr r = make_shared<ReceiveTransaction>(*this, m_keyChain, tx);
             m_negotiators.emplace(tx.m_txId, r);
             m_keyChain->saveTx(tx);
             Cleaner c{ m_removedNegotiators };
-            if (r->ProcessInvitation(msg))
+            m_keyChain->setTxParameter(msg.m_txId, TxParams::PublicPeerNonce, toByteBuffer(msg.m_publicPeerNonce));
+            m_keyChain->setTxParameter(msg.m_txId, TxParams::PublicPeerExcess, toByteBuffer(msg.m_publicPeerExcess));
+            m_keyChain->setTxParameter(msg.m_txId, TxParams::PeerOffset, toByteBuffer(msg.m_offset));
+            m_keyChain->setTxParameter(msg.m_txId, TxParams::PeerInputs, toByteBuffer(msg.m_inputs));
+            m_keyChain->setTxParameter(msg.m_txId, TxParams::PeerOutputs, toByteBuffer(msg.m_outputs));
+
+            //if (r->ProcessInvitation(msg))
             {
                 if (m_synchronized)
                 {
-                    r->start();
-                    r->processEvent(events::TxInvited{});
+                    r->update();
                 }
                 else
                 {
                     m_pendingEvents.emplace_back([r]()
                     {
-                        r->start();
-                        r->processEvent(events::TxInvited{});
+                        r->update();
                     });
                 }
             }
-            else
-            {
-                LOG_ERROR() << msg.m_txId << " Failed to process invitation";
-                r->processEvent(events::TxFailed{ true });
-            }
+           // else
+            //{
+           //     LOG_ERROR() << msg.m_txId << " Failed to process invitation";
+               // r->processEvent(events::TxFailed{ true });
+            //}
         }
         else
         {
-            process_event(msg.m_txId, events::TxInvited{});
+            //process_event(msg.m_txId, events::TxInvited{});
         }
     }
     
     void Wallet::handle_tx_message(const WalletID& receiver, ConfirmTransaction&& data)
     {
         LOG_DEBUG() << data.m_txId << " Received sender tx confirmation";
-        process_event(data.m_txId, events::TxConfirmationCompleted{ data });
+        m_keyChain->setTxParameter(data.m_txId, TxParams::PeerSignature, toByteBuffer(data.m_peerSignature));
+        updateTransaction(data.m_txId);
     }
 
     void Wallet::handle_tx_message(const WalletID& receiver, ConfirmInvitation&& data)
     {
         LOG_DEBUG() << data.m_txId << " Received tx confirmation";
-        process_event(data.m_txId, events::TxInvitationCompleted{ data });
+        m_keyChain->setTxParameter(data.m_txId, TxParams::PeerSignature, toByteBuffer(data.m_peerSignature));
+        m_keyChain->setTxParameter(data.m_txId, TxParams::PublicPeerExcess, toByteBuffer(data.m_publicPeerExcess));
+        m_keyChain->setTxParameter(data.m_txId, TxParams::PublicPeerNonce, toByteBuffer(data.m_publicPeerNonce));
+        updateTransaction(data.m_txId);
     }
 
     void Wallet::handle_tx_message(const WalletID& receiver, wallet::TxRegistered&& data)
     {
-        process_event(data.m_txId, events::TxRegistrationCompleted{});
+        m_keyChain->setTxParameter(data.m_txId, TxParams::TransactionRegistered, toByteBuffer(data.m_value));
+        updateTransaction(data.m_txId);
     }
 
     void Wallet::handle_tx_message(const WalletID& receiver, wallet::TxFailed&& data)
     {
         LOG_DEBUG() << "tx " << data.m_txId << " failed";
-        process_event(data.m_txId, events::TxFailed(false));
+        updateTransaction(data.m_txId);
+  //      process_event(data.m_txId, events::TxFailed(false));
     }
 
     bool Wallet::handle_node_message(proto::Boolean&& res)
@@ -343,11 +383,11 @@ namespace beam
         LOG_DEBUG() << "tx " << txId << (res ? " has registered" : " has failed to register");
         if (res)
         {
-            process_event(txId, events::TxRegistrationCompleted{ });
+            //process_event(txId, events::TxRegistrationCompleted{ });
         }
         else
         {
-            process_event(txId, events::TxFailed(true));
+         //   process_event(txId, events::TxFailed(true));
         }
     }
 
@@ -358,7 +398,7 @@ namespace beam
         Cleaner cs{ m_removedNegotiators };
         if (auto it = m_negotiators.find(txId); it != m_negotiators.end())
         {
-            it->second->processEvent(events::TxCanceled{});
+          //  it->second->processEvent(events::TxCanceled{});
         }
         else
         {
@@ -399,6 +439,19 @@ namespace beam
         m_keyChain->clear();
         m_network->close_node_connection();
         m_network->connect_node();
+    }
+
+    void Wallet::updateTransaction(const TxID& txID)
+    {
+        auto it = m_negotiators.find(txID);
+        if (it != m_negotiators.end())
+        {
+            it->second->update();
+        }
+        else
+        {
+            LOG_DEBUG() << txID << " Unexpected event";
+        }
     }
 
     bool Wallet::get_IdentityKeyForNode(ECC::Scalar::Native& sk, const PeerID& idNode)
@@ -621,19 +674,19 @@ namespace beam
             LOG_WARNING() << "Unexpected Kernel proof";
             return exit_sync();
         }
-        auto n = m_pendingKernelProofs.front();
-        m_pendingKernelProofs.pop_front();
-        auto kernel = n->getKernel();
-        assert(kernel);
-        if (IsTestMode() || m_newState.IsValidProofKernel(*kernel, msg.m_Proof))
-        {
-            LOG_INFO() << "Got proof for tx: " << n->getTxID();
-            m_pendingEvents.emplace_back([n]()
-            {
-                n->processEvent(events::TxOutputsConfirmed{});
-            });
-            get_kernel_utxo_proofs(n);
-        }
+   //     auto n = m_pendingKernelProofs.front();
+   //     m_pendingKernelProofs.pop_front();
+     //   auto kernel = n->getKernel();
+  //      assert(kernel);
+  //      if (IsTestMode() || m_newState.IsValidProofKernel(*kernel, msg.m_Proof))
+   //     {
+      //      LOG_INFO() << "Got proof for tx: " << n->getTxID();
+    //        m_pendingEvents.emplace_back([n]()
+    //        {
+       //         n->processEvent(events::TxOutputsConfirmed{});
+    //        });
+    //        get_kernel_utxo_proofs(n);
+        //}
 
         return exit_sync();
     }
@@ -663,27 +716,27 @@ namespace beam
         }
     }
 
-    void Wallet::get_kernel_proof(Negotiator::Ptr n)
+    void Wallet::get_kernel_proof(ITransaction::Ptr n)
     {
-        TxKernel* kernel = n->getKernel();
-        if (kernel)
-        {
-            proto::GetProofKernel kernelMsg = {};
-            kernel->get_ID(kernelMsg.m_ID);
-            m_pendingKernelProofs.push_back(n);
-            kernelMsg.m_RequestHashPreimage = true;
-            enter_sync();
-            m_network->send_node_message(move(kernelMsg));
-        }
-        else // we lost kernel for some reason
-        {
-            get_kernel_utxo_proofs(n);
-        }
+        //TxKernel* kernel = n->getKernel();
+        //if (kernel)
+        //{
+        //    proto::GetProofKernel kernelMsg = {};
+        //    kernel->get_ID(kernelMsg.m_ID);
+        //    m_pendingKernelProofs.push_back(n);
+        //    kernelMsg.m_RequestHashPreimage = true;
+        //    enter_sync();
+        //    m_network->send_node_message(move(kernelMsg));
+        //}
+        //else // we lost kernel for some reason
+        //{
+        //    get_kernel_utxo_proofs(n);
+        //}
     }
 
-    void Wallet::get_kernel_utxo_proofs(Negotiator::Ptr n)
+    void Wallet::get_kernel_utxo_proofs(ITransaction::Ptr n)
     {
-        const auto& txID = n->getTxID();
+        /*const auto& txID = n->getTxID();
         vector<Coin> unconfirmed;
         m_keyChain->visit([&](const Coin& coin)
         {
@@ -696,7 +749,7 @@ namespace beam
             return true;
         });
 
-        getUtxoProofs(unconfirmed);
+        getUtxoProofs(unconfirmed);*/
     }
 
     void Wallet::getUtxoProofs(const vector<Coin>& coins)
@@ -791,23 +844,7 @@ namespace beam
 
     void Wallet::resume_negotiator(const TxDescription& tx)
     {
-        Cleaner c{ m_removedNegotiators };
-        auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
-        m_negotiators.emplace(tx.m_txId, s);
-
-        if (m_synchronized)
-        {
-            s->start();
-            s->processEvent(events::TxInitiated{});
-        }
-        else
-        {
-            m_pendingEvents.emplace_back([s]()
-            {
-                s->start();
-                s->processEvent(events::TxInitiated{});
-            });
-        }
+        
     }
 
     void Wallet::subscribe(IWalletObserver* observer)

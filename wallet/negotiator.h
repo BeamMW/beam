@@ -20,250 +20,125 @@
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4127 )
-#endif
-
-#include <boost/msm/back/state_machine.hpp>
-#include <boost/msm/front/state_machine_def.hpp>
-#include <boost/msm/front/functor_row.hpp>
-#include <boost/msm/front/internal_row.hpp>
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-
 namespace beam { namespace wallet
 {
-    namespace msm = boost::msm;
-    namespace msmf = boost::msm::front;
-    namespace mpl = boost::mpl;
-
-    namespace events
+    struct ITransaction
     {
-        struct TxRegistrationCompleted {};
-        struct TxInvited {};
-        struct TxInitiated {};
-        struct TxConfirmationCompleted { ConfirmTransaction data; };
-        struct TxInvitationCompleted { ConfirmInvitation data; };
-        struct TxOutputsConfirmed {};
-        struct TxFailed
-        {
-            bool m_notify;
-            TxFailed(bool notify = false) : m_notify{ notify } {}
-        };
+        using Ptr = std::shared_ptr<ITransaction>;
+        virtual void update() = 0;
+        //virtual void abort() = 0;
+    };
 
-        struct TxCanceled {};
-        struct TxResumed {};
-    }
+    enum TxParams : uint32_t 
+    {
+        PeerSignature,
+        PublicPeerNonce,
+        PublicPeerExcess,
+        PeerOffset,
+        PeerInputs,
+        PeerOutputs,
+        TransactionRegistered
+    };
 
     //
     // State machine for managing per transaction negotiations between wallets
     // 
-    class Negotiator
+    class BaseTransaction : public ITransaction
     {
     public:
-        using Ptr = std::shared_ptr<Negotiator>;
-
-        Negotiator(INegotiatorGateway& gateway
+        BaseTransaction(INegotiatorGateway& gateway
             , beam::IKeyChain::Ptr keychain
             , const TxDescription& txDesc);
 
-		bool ProcessInvitation(Invite& inviteMsg);
+        bool ProcessInvitation(Invite& inviteMsg);
 
-        void start()
-        {
-            m_fsm.start();
-        }
-
-        void stop()
-        {
-            m_fsm.stop();
-        }
-
-        template<typename Event>
-        bool processEvent(const Event& event)
-        {
-            auto res = m_fsm.process_event(event) == msm::back::HANDLED_TRUE;
-            if (res)
-            {
-                saveState();
-            }
-            return res;
-        }
-
-        template<class Archive>
-        void serialize(Archive & ar, const unsigned int)
-        {
-            m_fsm.serialize(ar, 0);
-        }
-
-        // for test only
-        const int* currentState() const
-        {
-            return m_fsm.current_state();
-        }
-
-        void saveState();
+        //void saveState();
 
         TxKernel* getKernel() const;
 
         const TxID& getTxID() const;
-        
-        struct FSMDefinition : public msmf::state_machine_def<FSMDefinition>
+    protected:
+        void sendNewTransaction() const;
+        void updateTxDescription(TxDescription::Status s);
+        bool prepareSenderUtxos(const Height& currentHeight);
+        bool registerTxInternal(const ECC::Scalar& peerSignature);
+        bool constructTxInternal(const ECC::Scalar::Native& signature);
+        void createKernel(Amount fee, Height minHeight);
+        void createOutputUtxo(Amount amount, Height height);
+        ECC::Scalar createSignature();
+        void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce, ECC::Scalar& challenge) const;
+        ECC::Point getPublicExcess() const;
+        ECC::Point getPublicNonce() const;
+        bool isValidSignature(const ECC::Scalar& peerSignature) const;
+        bool isValidSignature(const ECC::Scalar& peerSignature, const ECC::Point& publicPeerNonce, const ECC::Point& publicPeerExcess) const;
+        std::vector<Input::Ptr> getTxInputs(const TxID& txID) const;
+        std::vector<Output::Ptr> getTxOutputs(const TxID& txID) const;
+		void get_NonceInternal(ECC::Signature::MultiSig&) const;
+
+        template <typename T>
+        bool getParameter(uint32_t paramID, T& value)
         {
-            // states
-            struct TxAllOk : public msmf::state<>
+            ByteBuffer b;
+            if (m_keychain->getTxParameter(m_txDesc.m_txId, paramID, b))
             {
-
-            };
-
-            struct TxInitial : public msmf::state<>
-            {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm&)
-                {
-                    LOG_VERBOSE() << "TxInitial state";
-                }
-            };
-            struct TxTerminal : public msmf::terminate_state<>
-            {
-                template <class Event, class Fsm>
-                void on_entry(Event const&, Fsm& fsm)
-                {
-                    LOG_VERBOSE() << "TxTerminal state";
-                    fsm.m_parent.m_gateway.on_tx_completed(fsm.m_parent.m_txDesc);
-                }
-            };
-            struct TxInvitation : public msmf::state<>
-            {
-            };
-            struct TxConfirmation : public msmf::state<>
-            {
-            };
-            struct TxRegistration : public msmf::state<>
-            {
-            };
-            struct TxPeerConfirmation : public msmf::state<>
-            {
-            };
-            struct TxOutputsConfirmation : public msmf::state<>
-            {
-            };
-
-            FSMDefinition(Negotiator& parent);
-
-            // transition actions
-            void confirmInvitation(const events::TxInvited&);
-            void invitePeer(const events::TxInitiated&);
-            void registerTx(const events::TxConfirmationCompleted&);
-            void confirmPeer(const events::TxInvitationCompleted&);
-            void confirmOutputs(const events::TxRegistrationCompleted&);
-            void confirmOutputs2(const events::TxRegistrationCompleted&);
-            void completeTx(const events::TxOutputsConfirmed&);
-
-            void rollbackTx(const events::TxFailed& );
-            void completeTx();
-            void rollbackTx();
-            void cancelTx(const events::TxCanceled&);
-
-            void sendInvite() const;
-            void sendConfirmInvitation() const;
-            void sendConfirmTransaction(const ECC::Scalar& peerSignature) const;
-            void sendNewTransaction() const;
-            void sendSelfTx();
-
-            void update_tx_description(TxDescription::Status s);
-            bool prepareSenderUtxos(const Height& currentHeight);
-            bool registerTxInternal(const ECC::Scalar& peerSignature);
-            bool constructTxInternal(const ECC::Scalar::Native& signature);
-
-            using do_serialize = int;
-            typedef int no_message_queue;
-
-            using initial_state = mpl::vector<TxInitial, TxAllOk>;
-            using d = FSMDefinition;
-
-            struct transition_table : mpl::vector<
-                //   Start                      Event                             Next                  Action                     
-                a_row< TxInitial                , events::TxInvited              , TxConfirmation      , &d::confirmInvitation    >,
-                a_row< TxInitial                , events::TxInitiated            , TxInvitation        , &d::invitePeer           >,
-                
-                a_row< TxConfirmation           , events::TxConfirmationCompleted, TxRegistration      , &d::registerTx           >,
-                a_row< TxInvitation             , events::TxInvitationCompleted  , TxPeerConfirmation  , &d::confirmPeer          >,
-
-                a_row< TxRegistration           , events::TxRegistrationCompleted , TxOutputsConfirmation , &d::confirmOutputs    >,
-                a_row< TxPeerConfirmation       , events::TxRegistrationCompleted , TxOutputsConfirmation , &d::confirmOutputs2   >,
-                a_row< TxOutputsConfirmation    , events::TxOutputsConfirmed      , TxTerminal            , &d::completeTx        >,
-
-                a_row< TxInvitation             , events::TxRegistrationCompleted , TxOutputsConfirmation, &d::confirmOutputs      >,
-
-                a_row< TxAllOk                  , events::TxFailed                , TxTerminal            , &d::rollbackTx          >,
-                a_row< TxInitial                , events::TxCanceled              , TxTerminal            , &d::cancelTx            >,
-                a_row< TxConfirmation           , events::TxCanceled              , TxTerminal            , &d::cancelTx            >,
-                a_row< TxInvitation             , events::TxCanceled              , TxTerminal            , &d::cancelTx            >
-            > {};
-
-
-            template <class FSM, class Event>
-            void no_transition(Event const& e, FSM& , int state)
-            {
-                LOG_WARNING() << m_parent.m_txDesc.m_txId << " no transition from state " << state
-                                                          << " on event " << typeid(e).name();
+                Deserializer d;
+                d.reset(b.data(), b.size());
+                d & value;
+                return true;
             }
+            return false;
+        }
 
-            template <class FSM, class Event>
-            void exception_caught(Event const&, FSM& fsm, std::exception& ex)
-            {
-                LOG_INFO() << m_parent.m_txDesc.m_txId << ex.what();
-                fsm.process_event(events::TxFailed(/*true*/));
-            }
+        template <typename T>
+        void setParameter(uint32_t paramID, T& value)
+        {
+            const auto* p = &value;
+            m_keychain->setTxParameter(m_txDesc.m_txId, paramID, ByteBuffer(p, p + sizeof(T)));
+        }
 
-            template<typename Archive>
-            void serialize(Archive & ar, const unsigned int)
-            {
-                ar & m_blindingExcess
-                   & m_offset
-                   & m_peerSignature
-                   & m_publicPeerExcess
-                   & m_publicPeerNonce
-                   & m_transaction
-                   & m_kernel;
-            }
+        void onFailed(bool notify = false);
 
-            void createKernel(Amount fee, Height minHeight);
-            void createOutputUtxo(Amount amount, Height height);
-            ECC::Scalar createSignature();
-            void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce, ECC::Scalar& challenge) const;
-            ECC::Point getPublicExcess() const;
-            ECC::Point getPublicNonce() const;
-            bool isValidSignature(const ECC::Scalar& peerSignature) const;
-            bool isValidSignature(const ECC::Scalar& peerSignature, const ECC::Point& publicPeerNonce, const ECC::Point& publicPeerExcess) const;
-            std::vector<Input::Ptr> getTxInputs(const TxID& txID) const;
-            std::vector<Output::Ptr> getTxOutputs(const TxID& txID) const;
-			void get_NonceInternal(ECC::Signature::MultiSig&) const;
+    protected:
 
-            Negotiator& m_parent;
+        ECC::Scalar::Native m_blindingExcess;
+        ECC::Scalar::Native m_offset;
+        ECC::Scalar::Native m_peerSignature;
+        ECC::Point::Native m_publicPeerExcess;
+        ECC::Point::Native m_publicPeerNonce;
+        Transaction::Ptr m_transaction;
+        TxKernel::Ptr m_kernel;
 
-            ECC::Scalar::Native m_blindingExcess;
-            ECC::Scalar::Native m_offset;
-            ECC::Scalar::Native m_peerSignature;
-            ECC::Point::Native m_publicPeerExcess;
-            ECC::Point::Native m_publicPeerNonce;
-            Transaction::Ptr m_transaction;
-            TxKernel::Ptr m_kernel;
-        };
-
-    private:
-        using Fsm = msm::back::state_machine<FSMDefinition>;
-        friend Fsm;
-        
         INegotiatorGateway& m_gateway;
         beam::IKeyChain::Ptr m_keychain;
 
         TxDescription m_txDesc;
+    };
 
-        Fsm m_fsm;
+    class SendTransaction : public BaseTransaction
+    {
+    public:
+        SendTransaction(INegotiatorGateway& gateway
+            , beam::IKeyChain::Ptr keychain
+            , const TxDescription& txDesc);
+    private:
+        void update() override;
+        void invitePeer();
+        void sendSelfTx();
+        void sendInvite() const;
+        bool confirmPeer();
+        void sendConfirmTransaction(const ECC::Scalar& peerSignature) const;
+    };
+
+    class ReceiveTransaction : public BaseTransaction
+    {
+    public:
+        ReceiveTransaction(INegotiatorGateway& gateway
+            , beam::IKeyChain::Ptr keychain
+            , const TxDescription& txDesc);
+    private:
+        void update() override;
+        void confirmInvitation();
+        void sendConfirmInvitation() const;
+        void registerTx();
     };
 }}

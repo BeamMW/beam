@@ -30,7 +30,6 @@
 #include <condition_variable>
 
 #include "core/proto.h"
-#include "wallet/wallet_serialization.h"
 #include <boost/filesystem.hpp>
 #include <boost/intrusive/list.hpp>
 
@@ -131,6 +130,9 @@ namespace
         void clear() override {}
 
 		void changePassword(const SecString& password) override {}
+
+        void setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob) override {}
+        bool getTxParameter(const TxID& txID, int paramID, ByteBuffer& blob) override { return false; }
 
     protected:
         std::vector<beam::Coin> m_coins;
@@ -593,35 +595,6 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
 
     sender.transfer_money(sender_id, receiver_id, 6, 1, true, {});
     mainLoop.run();
-}
-
-void TestFSM()
-{
-    cout << "\nTesting wallet's fsm...\nsender\n";
-    TestGateway gateway;
-
-    TxDescription stx = {};
-    stx.m_amount = 6;
-    wallet::Negotiator s{ gateway, createKeychain<TestKeyChain>(), stx};
-    s.processEvent(wallet::events::TxInitiated());
-    WALLET_CHECK(*(s.currentState()) == 2);
-    s.start();
-    WALLET_CHECK(*(s.currentState()) == 0);
-    s.processEvent(wallet::events::TxInitiated());
-    WALLET_CHECK(*(s.currentState()) == 2);
-    s.stop();
-    WALLET_CHECK(*(s.currentState()) == 2);
-    s.start();
-    WALLET_CHECK(*(s.currentState()) == 0);
-
-    s.processEvent(wallet::events::TxInitiated());
-    WALLET_CHECK(*(s.currentState()) == 2);
-    s.processEvent(wallet::events::TxInitiated());
-    WALLET_CHECK(*(s.currentState()) == 2);
-    s.processEvent(wallet::events::TxInvitationCompleted{});
-    WALLET_CHECK(*(s.currentState()) == 4);
-    s.processEvent(wallet::events::TxConfirmationCompleted{});
-    WALLET_CHECK(*(s.currentState()) == 4);
 }
 
 class TestNode
@@ -1373,46 +1346,6 @@ void TestSplitKey()
     WALLET_CHECK(s1 == nonce);
 }
 
-void TestSerializeFSM()
-{
-    cout << "\nTesting wallet's fsm serialization...\nsender\n";
-    TestGateway gateway;
-
-    beam::TxID id = { 3, 65, 70 };
-    TxDescription tx = {};
-    tx.m_txId = id;
-    tx.m_amount = 6;
-    wallet::Negotiator s{ gateway, createKeychain<TestKeyChain>(), tx};
-    WALLET_CHECK(*(s.currentState()) == 0);
-    s.start();
-    s.processEvent(wallet::events::TxInitiated{});
-    WALLET_CHECK(*(s.currentState()) == 2);
-
-    Serializer ser;
-    ser & s;
-
-    auto buffer = ser.buffer();
-
-    Deserializer der;
-    der.reset(buffer.first, buffer.second);
-
-    wallet::Negotiator s2{ gateway, createKeychain<TestKeyChain>(), {} };
-    WALLET_CHECK(*(s2.currentState()) == 0);
-    der & s2;
-    WALLET_CHECK(*(s2.currentState()) == 2);
-    s2.processEvent(wallet::events::TxResumed{});
-    s2.processEvent(wallet::events::TxInvitationCompleted{ wallet::ConfirmInvitation() });
-    WALLET_CHECK(*(s2.currentState()) == 4);
-
-    ser.reset();
-    ser & s2;
-
-    buffer = ser.buffer();
-    der.reset(buffer.first, buffer.second);
-    der & s;
-    WALLET_CHECK(*(s.currentState()) == 4);
-}
-
 struct MyMmr : public Merkle::Mmr
 {
     typedef std::vector<Merkle::Hash> HashVector;
@@ -1614,8 +1547,6 @@ int main()
 
     TestTxToHimself();
 
-    TestFSM();
-    TestSerializeFSM();
     TestRollback();
 
     assert(g_failureCount == 0);

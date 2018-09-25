@@ -79,6 +79,13 @@ namespace beam
         WalletAddress() : m_createTime(0), m_duration(0), m_own(false) {}
     };
 
+    struct TxParameter
+    {
+        TxID m_txID;
+        int m_paramID;
+        ByteBuffer m_value;
+    };
+
     enum class ChangeAction
     {
         Added,
@@ -163,7 +170,10 @@ namespace beam
         virtual void subscribe(IKeyChainObserver* observer) = 0;
         virtual void unsubscribe(IKeyChainObserver* observer) = 0;
 
-		virtual void changePassword(const SecString& password) = 0;
+        virtual void changePassword(const SecString& password) = 0;
+
+        virtual void setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob) = 0;
+        virtual bool getTxParameter(const TxID& txID, int paramID, ByteBuffer& blob) = 0;
     };
 
     struct Keychain : IKeyChain
@@ -220,7 +230,10 @@ namespace beam
         void subscribe(IKeyChainObserver* observer) override;
         void unsubscribe(IKeyChainObserver* observer) override;
 
-		void changePassword(const SecString& password) override;
+        void changePassword(const SecString& password) override;
+
+        void setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob) override;
+        bool getTxParameter(const TxID& txID, int paramID, ByteBuffer& blob) override;
     private:
         void storeImpl(Coin& coin);
         void notifyKeychainChanged();

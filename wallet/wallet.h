@@ -21,10 +21,10 @@
 
 namespace beam
 {
-	struct IWalletObserver : IKeyChainObserver
-	{
-		virtual void onSyncProgress(int done, int total) = 0;
-	};
+    struct IWalletObserver : IKeyChainObserver
+    {
+        virtual void onSyncProgress(int done, int total) = 0;
+    };
 
     struct IWallet
     {
@@ -39,23 +39,23 @@ namespace beam
         // node to wallet responses
         virtual bool handle_node_message(proto::Boolean&&) = 0;
         virtual bool handle_node_message(proto::ProofUtxo&&) = 0;
-		virtual bool handle_node_message(proto::ProofState&& msg) = 0;
+        virtual bool handle_node_message(proto::ProofState&& msg) = 0;
         virtual bool handle_node_message(proto::ProofKernel&& msg) = 0;
-		virtual bool handle_node_message(proto::NewTip&&) = 0;
+        virtual bool handle_node_message(proto::NewTip&&) = 0;
         virtual bool handle_node_message(proto::Mined&& msg) = 0;
 
         virtual void abort_sync() = 0;
 
-		virtual void subscribe(IWalletObserver* observer) = 0;
-		virtual void unsubscribe(IWalletObserver* observer) = 0;
+        virtual void subscribe(IWalletObserver* observer) = 0;
+        virtual void unsubscribe(IWalletObserver* observer) = 0;
 
         virtual void cancel_tx(const TxID& id) = 0;
         virtual void delete_tx(const TxID& id) = 0;
 
-		virtual void set_node_address(io::Address node_address) = 0;
-		virtual void emergencyReset() = 0;
+        virtual void set_node_address(io::Address node_address) = 0;
+        virtual void emergencyReset() = 0;
 
-		virtual bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) = 0;
+        virtual bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) = 0;
     };
 
     struct INetworkIO 
@@ -72,7 +72,7 @@ namespace beam
         // wallet to node requests
         virtual void send_node_message(proto::NewTransaction&&) = 0;
         virtual void send_node_message(proto::GetProofUtxo&&) = 0;
-		virtual void send_node_message(proto::GetHdr&&) = 0;
+        virtual void send_node_message(proto::GetHdr&&) = 0;
         virtual void send_node_message(proto::GetMined&&) = 0;
         virtual void send_node_message(proto::GetProofState&&) = 0;
         virtual void send_node_message(proto::GetProofKernel&&) = 0;
@@ -84,7 +84,7 @@ namespace beam
         virtual void new_own_address(const WalletID& address) = 0;
         virtual void address_deleted(const WalletID& address) = 0;
         
-		virtual void set_node_address(io::Address node_address) = 0;
+        virtual void set_node_address(io::Address node_address) = 0;
     };
 
     class NetworkIOBase : public INetworkIO
@@ -143,45 +143,46 @@ namespace beam
 
         bool handle_node_message(proto::Boolean&& res) override;
         bool handle_node_message(proto::ProofUtxo&& proof) override;
-		bool handle_node_message(proto::ProofState&& msg) override;
+        bool handle_node_message(proto::ProofState&& msg) override;
         bool handle_node_message(proto::ProofKernel&& msg) override;
-		bool handle_node_message(proto::NewTip&& msg) override;
+        bool handle_node_message(proto::NewTip&& msg) override;
         bool handle_node_message(proto::Mined&& msg) override;
 
         void abort_sync() override;
 
-		void subscribe(IWalletObserver* observer) override;
-		void unsubscribe(IWalletObserver* observer) override;
+        void subscribe(IWalletObserver* observer) override;
+        void unsubscribe(IWalletObserver* observer) override;
 
         void handle_tx_registered(const TxID& txId, bool res);
 
         void cancel_tx(const TxID& txId) override;
         void delete_tx(const TxID& txId) override;
 
-		void set_node_address(io::Address node_address) override;
-		void emergencyReset() override;
-		bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) override;
+        void set_node_address(io::Address node_address) override;
+        void emergencyReset() override;
+        bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) override;
 
     private:
         void remove_peer(const TxID& txId);
         void getUtxoProofs(const std::vector<Coin>& coins);
         void do_fast_forward();
-        void get_kernel_proof(wallet::Negotiator::Ptr n);
-        void get_kernel_utxo_proofs(wallet::Negotiator::Ptr n);
+        void get_kernel_proof(wallet::ITransaction::Ptr n);
+        void get_kernel_utxo_proofs(wallet::ITransaction::Ptr n);
         void enter_sync();
         bool exit_sync();
         void report_sync_progress();
         bool close_node_connection();
         void register_tx(const TxID& txId, Transaction::Ptr);
         void resume_negotiator(const TxDescription& tx);
-		void notifySyncProgress();
+        void notifySyncProgress();
         void resetSystemState();
+        void updateTransaction(const TxID& txID);
 
-		virtual bool IsTestMode() { return false; }
+        virtual bool IsTestMode() { return false; }
 
         struct Cleaner
         {
-            Cleaner(std::vector<wallet::Negotiator::Ptr>& t) : m_v{ t } {}
+            Cleaner(std::vector<wallet::ITransaction::Ptr>& t) : m_v{ t } {}
             ~Cleaner()
             {
                 if (!m_v.empty())
@@ -189,7 +190,7 @@ namespace beam
                     m_v.clear();
                 }
             }
-            std::vector<wallet::Negotiator::Ptr>& m_v;
+            std::vector<wallet::ITransaction::Ptr>& m_v;
         };
 
         template<typename Event>
@@ -230,16 +231,16 @@ namespace beam
 
         IKeyChain::Ptr m_keyChain;
         INetworkIO::Ptr m_network;
-        std::map<TxID, wallet::Negotiator::Ptr>   m_negotiators;
-        std::vector<wallet::Negotiator::Ptr>      m_removedNegotiators;
+        std::map<TxID, wallet::ITransaction::Ptr>   m_negotiators;
+        std::vector<wallet::ITransaction::Ptr>      m_removedNegotiators;
         TxCompletedAction m_tx_completed_action;
         std::deque<std::pair<TxID, Transaction::Ptr>> m_reg_requests;
         std::vector<std::pair<TxID, Transaction::Ptr>> m_pending_reg_requests;
         std::deque<Coin> m_pendingUtxoProofs;
-        std::deque<wallet::Negotiator::Ptr> m_pendingKernelProofs;
+        std::deque<wallet::ITransaction::Ptr> m_pendingKernelProofs;
         std::vector<Callback> m_pendingEvents;
 
-		Block::SystemState::Full m_newState;
+        Block::SystemState::Full m_newState;
         Block::SystemState::ID m_knownStateID;
         std::unique_ptr<StateFinder> m_stateFinder;
 
@@ -248,6 +249,6 @@ namespace beam
         bool m_synchronized;
         bool m_holdNodeConnection;
 
-		std::vector<IWalletObserver*> m_subscribers;
+        std::vector<IWalletObserver*> m_subscribers;
     };
 }

@@ -67,6 +67,7 @@
 #define HISTORY_NAME "history"
 #define PEERS_NAME "peers"
 #define ADDRESSES_NAME "addresses"
+#define TX_PARAMS_NAME "txparams"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(1, name, sep, TEXT UNIQUE, obj) \
@@ -107,6 +108,13 @@
     each(6, own,               , INTEGER NOT NULL, obj)
 
 #define ADDRESS_FIELDS ENUM_ADDRESS_FIELDS(LIST, COMMA, )
+
+#define ENUM_TX_PARAMS_FIELDS(each, sep, obj) \
+    each(1, txID ,          sep, BLOB NOT NULL , obj) \
+    each(2, paramID,        sep, INTEGER NOT NULL , obj) \
+    each(3, value,             , BLOB, obj) \
+
+#define TX_PARAMS_FIELDS ENUM_TX_PARAMS_FIELDS(LIST, COMMA, )
 
 namespace std
 {
@@ -587,7 +595,7 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 4;
+        const int DbVersion = 5;
     }
 
     Coin::Coin(const Amount& amount, Status status, const Height& createHeight, const Height& maturity, KeyType keyType, Height confirmHeight, Height lockedHeight)
@@ -600,7 +608,7 @@ namespace beam
         , m_confirmHeight{ confirmHeight }
         , m_confirmHash(Zero)
         , m_lockedHeight{ lockedHeight }
-	{
+    {
         assert(isValid());
     }
 
@@ -674,6 +682,12 @@ namespace beam
 
             {
                 const char* req = "CREATE TABLE " ADDRESSES_NAME " (" ENUM_ADDRESS_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
+                int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                throwIfError(ret, keychain->_db);
+            }
+
+            {
+                const char* req = "CREATE TABLE " TX_PARAMS_NAME " (" ENUM_TX_PARAMS_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (txID, paramID)) WITHOUT ROWID;";
                 int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
                 throwIfError(ret, keychain->_db);
             }
@@ -1494,11 +1508,50 @@ namespace beam
         m_subscribers.erase(it);
     }
 
-	void Keychain::changePassword(const SecString& password)
-	{
-		int ret = sqlite3_rekey(_db, password.data(), password.size());
-		throwIfError(ret, _db);
-	}
+    void Keychain::changePassword(const SecString& password)
+    {
+        int ret = sqlite3_rekey(_db, password.data(), password.size());
+        throwIfError(ret, _db);
+    }
+
+    void Keychain::setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob)
+    {
+        {
+            sqlite::Statement stm(_db, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID=?2;");
+
+            stm.bind(1, txID);
+            stm.bind(2, paramID);
+            if (stm.step())
+            {
+                return;
+            }
+        }
+        
+        sqlite::Statement stm(_db, "INSERT INTO " TX_PARAMS_NAME " (" ENUM_TX_PARAMS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_TX_PARAMS_FIELDS(BIND_LIST, COMMA, ) ");");
+        TxParameter parameter;
+        parameter.m_txID = txID;
+        parameter.m_paramID = paramID;
+        parameter.m_value = blob;
+        ENUM_TX_PARAMS_FIELDS(STM_BIND_LIST, NOSEP, parameter);
+        stm.step();
+    }
+
+    bool Keychain::getTxParameter(const TxID& txID, int paramID, ByteBuffer& blob)
+    {
+        sqlite::Statement stm(_db, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID=?2;");
+
+        stm.bind(1, txID);
+        stm.bind(2, paramID);
+
+        if (stm.step())
+        {
+            TxParameter parameter = {};
+            ENUM_TX_PARAMS_FIELDS(STM_GET_LIST, NOSEP, parameter);
+            blob = move(parameter.m_value);
+            return true;
+        }
+        return false;
+    }
 
     void Keychain::notifyKeychainChanged()
     {
