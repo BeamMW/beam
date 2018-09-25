@@ -56,7 +56,7 @@ namespace beam
 
 	bool DeleteFile(const char* sz)
 	{
-		return !_unlink(sz);
+		return !unlink(sz);
 	}
 
 
