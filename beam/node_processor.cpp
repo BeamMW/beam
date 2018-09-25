@@ -432,6 +432,8 @@ struct NodeProcessor::RollbackData
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 {
+	assert(!m_bShallowTx);
+
 	ByteBuffer bb;
 	RollbackData rbData;
 	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf);
@@ -751,7 +753,9 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		}
 	}
 
-	m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), 0, bFwd ? -1 : 1);
+	if (!m_bShallowTx)
+		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), 0, bFwd ? -1 : 1);
+
 	return true;
 }
 
@@ -805,7 +809,8 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 		if (bCreate)
 		{
 			p->m_Value.m_Count = 1;
-			m_DB.AddSpendable(blob, NULL, 1, 1);
+			if (!m_bShallowTx)
+				m_DB.AddSpendable(blob, NULL, 1, 1);
 		}
 		else
 		{
@@ -815,7 +820,8 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 				return false;
 
 			p->m_Value.m_Count = nCountInc;
-			m_DB.ModifySpendable(blob, 1, 1);
+			if (!m_bShallowTx)
+				m_DB.ModifySpendable(blob, 1, 1);
 		}
 	} else
 	{
@@ -824,7 +830,8 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 		else
 			p->m_Value.m_Count--;
 
-		m_DB.ModifySpendable(blob, -1, -1);
+		if (!m_bShallowTx)
+			m_DB.ModifySpendable(blob, -1, -1);
 	}
 
 	return true;
@@ -870,18 +877,22 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 
 	NodeDB::Blob blob(&skey, sizeof(skey));
 
-	if (bIsInput)
-		m_DB.ModifySpendable(blob, 0, bFwd ? -1 : 1);
-	else
-		if (bFwd)
-		{
-			NodeDB::Blob body;
-			if (v.m_pHashLock)
-				body = NodeDB::Blob(v.m_pHashLock->m_Preimage);
+	if (!m_bShallowTx)
+	{
+		if (bIsInput)
+			m_DB.ModifySpendable(blob, 0, bFwd ? -1 : 1);
+		else
+			if (bFwd)
+			{
+				NodeDB::Blob body;
+				if (v.m_pHashLock)
+					body = NodeDB::Blob(v.m_pHashLock->m_Preimage);
 
-			m_DB.AddSpendable(blob, v.m_pHashLock ? &body : NULL, 1, 1);
-		} else
-			m_DB.ModifySpendable(blob, -1, -1);
+				m_DB.AddSpendable(blob, v.m_pHashLock ? &body : NULL, 1, 1);
+			}
+			else
+				m_DB.ModifySpendable(blob, -1, -1);
+	}
 
 	return true;
 }
@@ -1232,6 +1243,8 @@ void NodeProcessor::DeriveKeys(const ECC::Kdf& kdf, Height h, Amount fees, ECC::
 
 bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
 {
+	assert(m_bShallowTx);
+
 	fees = 0;
 	size_t nBlockSize = 0;
 	size_t nAmount = 0;
@@ -1362,6 +1375,8 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res, bool bInitiallyEmpty)
 {
+	ShallowTx stx(*this);
+
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 
 	if (!bInitiallyEmpty && !VerifyBlock(res, res.get_Reader(), h))
@@ -1512,6 +1527,8 @@ void NodeProcessor::ExportHdrRange(const HeightRange& hr, Block::SystemState::Se
 
 bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 {
+	assert(!m_bShallowTx);
+
 	Block::BodyBase body;
 	Block::SystemState::Full s;
 	Block::SystemState::ID id;
