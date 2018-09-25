@@ -29,8 +29,14 @@ namespace beam { namespace wallet
         virtual void cancel() = 0;
     };
 
-    enum TxParams : uint32_t 
+    enum class TxParams : uint32_t 
     {
+        Amount,
+        Fee,
+        MinHeight,
+        Inputs,
+        Outputs,
+        BlindingExcess,
         PeerSignature,
         PublicPeerNonce,
         PublicPeerExcess,
@@ -51,8 +57,6 @@ namespace beam { namespace wallet
         BaseTransaction(INegotiatorGateway& gateway
             , beam::IKeyChain::Ptr keychain
             , const TxDescription& txDesc);
-
-        bool ProcessInvitation(Invite& inviteMsg);
 
         //void saveState();
 
@@ -76,17 +80,17 @@ namespace beam { namespace wallet
         void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce, ECC::Scalar& challenge) const;
         ECC::Point getPublicExcess() const;
         ECC::Point getPublicNonce() const;
-        bool isValidSignature(const ECC::Scalar& peerSignature) const;
-        bool isValidSignature(const ECC::Scalar& peerSignature, const ECC::Point& publicPeerNonce, const ECC::Point& publicPeerExcess) const;
+        bool isValidSignature(const ECC::Scalar::Native& peerSignature) const;
+        bool isValidSignature(const ECC::Scalar::Native& peerSignature, const ECC::Point::Native& publicPeerNonce, const ECC::Point::Native& publicPeerExcess) const;
         std::vector<Input::Ptr> getTxInputs(const TxID& txID) const;
         std::vector<Output::Ptr> getTxOutputs(const TxID& txID) const;
 		void get_NonceInternal(ECC::Signature::MultiSig&) const;
 
         template <typename T>
-        bool getParameter(uint32_t paramID, T& value)
+        bool getParameter(TxParams paramID, T& value)
         {
             ByteBuffer b;
-            if (m_keychain->getTxParameter(m_txDesc.m_txId, paramID, b))
+            if (m_keychain->getTxParameter(m_txDesc.m_txId, static_cast<uint32_t>(paramID), b))
             {
                 Deserializer d;
                 d.reset(b.data(), b.size());
@@ -97,11 +101,21 @@ namespace beam { namespace wallet
         }
 
         template <typename T>
-        void setParameter(uint32_t paramID, T& value)
+        void setParameter(TxParams paramID, const T& value)
         {
-            const auto* p = &value;
-            m_keychain->setTxParameter(m_txDesc.m_txId, paramID, ByteBuffer(p, p + sizeof(T)));
+            Serializer s;
+            s & value;
+            ByteBuffer b;
+            s.swap_buf(b);
+            m_keychain->setTxParameter(m_txDesc.m_txId, static_cast<uint32_t>(paramID), std::move(b));
         }
+
+
+        bool getParameter(TxParams paramID, ECC::Point::Native& value);
+        bool getParameter(TxParams paramID, ECC::Scalar::Native& value);
+
+        void setParameter(TxParams paramID, const ECC::Point::Native& value);
+        void setParameter(TxParams paramID, const ECC::Scalar::Native& value);
 
         void onFailed(bool notify = false);
 
@@ -129,10 +143,8 @@ namespace beam { namespace wallet
             , const TxDescription& txDesc);
         void update() override;
     private:
-        void invitePeer();
         void sendSelfTx();
         void sendInvite() const;
-        bool confirmPeer();
         void sendConfirmTransaction(const ECC::Scalar& peerSignature) const;
     };
 
@@ -144,8 +156,6 @@ namespace beam { namespace wallet
             , const TxDescription& txDesc);
         void update() override;
     private:
-        void confirmInvitation();
         void sendConfirmInvitation() const;
-        void registerTx();
     };
 }}

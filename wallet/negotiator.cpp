@@ -45,6 +45,44 @@ namespace beam { namespace wallet
     //    m_keychain->saveTx(m_txDesc);
     //}
 
+
+    bool BaseTransaction::getParameter(TxParams paramID, ECC::Point::Native& value)
+    {
+        ECC::Point pt;
+        if (getParameter(paramID, pt))
+        {
+            return value.Import(pt);
+        }
+        return false;
+    }
+
+    bool BaseTransaction::getParameter(TxParams paramID, ECC::Scalar::Native& value)
+    {
+        ECC::Scalar s;
+        if (getParameter(paramID, s))
+        {
+             value.Import(s);
+             return true;
+        }
+        return false;
+    }
+
+    void BaseTransaction::setParameter(TxParams paramID, const ECC::Point::Native& value)
+    {
+        ECC::Point pt;
+        if (value.Export(pt))
+        {
+            setParameter(paramID, pt);
+        }
+    }
+
+    void BaseTransaction::setParameter(TxParams paramID, const ECC::Scalar::Native& value)
+    {
+        ECC::Scalar s;
+        value.Export(s);
+        setParameter(paramID, s);
+    }
+
     TxKernel* BaseTransaction::getKernel() const
     {
         if (m_txDesc.m_status == TxDescription::Registered)
@@ -91,19 +129,54 @@ namespace beam { namespace wallet
 
     void SendTransaction::update()
     {
+        Scalar::Native offset;
         if (getTxInputs(m_txDesc.m_txId).empty())
         {
             LOG_INFO() << m_txDesc.m_txId << " Sending " << PrintableAmount(m_txDesc.m_amount) << " (fee: " << PrintableAmount(m_txDesc.m_fee) << ")";
             Height currentHeight = m_keychain->getCurrentHeight();
 
-            createKernel(m_txDesc.m_fee, currentHeight);
             m_txDesc.m_minHeight = currentHeight;
 
-            if (!prepareSenderUtxos(currentHeight))
+            Amount amountWithFee = m_txDesc.m_amount + m_txDesc.m_fee;
+            auto coins = m_keychain->selectCoins(amountWithFee);
+            if (coins.empty())
             {
+                LOG_ERROR() << "You only have " << PrintableAmount(getAvailable(m_keychain));
                 onFailed();
                 return;
             }
+
+            Scalar::Native blindingExcess;
+            for (auto& coin : coins)
+            {
+                blindingExcess += m_keychain->calcKey(coin);
+                coin.m_spentTxId = m_txDesc.m_txId;
+            }
+            m_keychain->update(coins);
+
+            // calculate change amount and create corresponding output if needed
+            Amount change = 0;
+            for (const auto &coin : coins)
+            {
+                change += coin.m_amount;
+            }
+            change -= amountWithFee;
+            if (change > 0)
+            {
+                Coin newUtxo{ change, Coin::Draft, currentHeight };
+                newUtxo.m_createTxId = m_txDesc.m_txId;
+                m_keychain->store(newUtxo);
+
+                Scalar::Native blindingFactor = m_keychain->calcKey(newUtxo);
+                auto[privateExcess, newOffset] = splitKey(blindingFactor, newUtxo.m_id);
+
+                blindingFactor = -privateExcess;
+                blindingExcess += blindingFactor;
+                offset += newOffset;
+                m_txDesc.m_change = change;
+            }
+
+            setParameter(TxParams::BlindingExcess, blindingExcess);
 
             updateTxDescription(TxDescription::InProgress);
         }
@@ -116,36 +189,78 @@ namespace beam { namespace wallet
             return;
         }
 
-        Scalar peerSignature;
-        Point publicPeerNonce, publicPeerExcess;
-        if (!getParameter(TxParams::PeerSignature, peerSignature)
-            || !getParameter(TxParams::PublicPeerNonce, publicPeerNonce)
-            || !getParameter(TxParams::PublicPeerExcess, publicPeerExcess))
-        {
-            sendInvite();
-            return;
-        }
-
-        if (!isValidSignature(peerSignature, publicPeerNonce, publicPeerExcess)
-            || !m_publicPeerExcess.Import(publicPeerExcess)
-            || !m_publicPeerNonce.Import(publicPeerNonce))
+        Scalar::Native blindingExcess;
+        if (!getParameter(TxParams::BlindingExcess, blindingExcess))
         {
             onFailed(true);
             return;
         }
 
+        auto kernel = make_unique<TxKernel>();
+        kernel->m_Fee = m_txDesc.m_fee;
+        kernel->m_Height.m_Min = m_txDesc.m_minHeight;
+        kernel->m_Height.m_Max = MaxHeight;
+
+        Signature::MultiSig msig;
+        Hash::Value hv;
+        kernel->get_Hash(hv);
+
+        msig.GenerateNonce(hv, blindingExcess);
+
+        Point::Native publicNonce = Context::get().G * msig.m_Nonce;
+        Point::Native publicExcess = Context::get().G * blindingExcess;
+
+        Scalar::Native peerSignature;
+        Point::Native publicPeerNonce, publicPeerExcess;
+        if (!getParameter(TxParams::PeerSignature, peerSignature)
+            || !getParameter(TxParams::PublicPeerNonce, publicPeerNonce)
+            || !getParameter(TxParams::PublicPeerExcess, publicPeerExcess))
+        {
+            const TxID& txID = m_txDesc.m_txId;
+
+            Invite inviteMsg;
+            inviteMsg.m_txId = txID;
+            inviteMsg.m_amount = m_txDesc.m_amount;
+            inviteMsg.m_fee = m_txDesc.m_fee;
+            inviteMsg.m_height = m_txDesc.m_minHeight;
+            inviteMsg.m_send = m_txDesc.m_sender;
+            inviteMsg.m_inputs = getTxInputs(txID);
+            inviteMsg.m_outputs = getTxOutputs(txID);
+            inviteMsg.m_publicPeerExcess = publicExcess;
+            inviteMsg.m_publicPeerNonce = publicNonce;
+            inviteMsg.m_offset = offset;
+
+            m_gateway.send_tx_invitation(m_txDesc, move(inviteMsg));
+            return;
+        }
+
+        msig.m_NoncePub = publicNonce + publicPeerNonce;
+        publicExcess += publicPeerExcess;
+        
+        
+        kernel->m_Excess = publicExcess;
+
+        Hash::Value message;
+        kernel->get_Hash(message);
+
+        Scalar::Native partialSignature;
+        Signature peerSig;
+        peerSig.CoSign(partialSignature, message, blindingExcess, msig);
+        peerSig.m_k = peerSignature;
+        if (peerSig.IsValidPartial(publicPeerNonce, publicPeerExcess))
+        {
+            onFailed(true);
+            return;
+        }
+
+        kernel->m_Signature.m_k = partialSignature + peerSignature;
+
         bool isRegistered = false;
         if (!getParameter(TxParams::TransactionRegistered, isRegistered))
         {
-            Point::Native pt = Context::get().G * m_blindingExcess;
-            pt += m_publicPeerExcess;
-            m_kernel->m_Excess = pt;
-
-            m_peerSignature = peerSignature;
             updateTxDescription(TxDescription::InProgress);
-            auto s = createSignature();
-            Scalar::Native sn = s;
-            m_kernel->m_Signature.m_k = sn + m_peerSignature;
+            Scalar s;
+            partialSignature.Export(s);
             sendConfirmTransaction(s);
             return;
         }
@@ -160,75 +275,36 @@ namespace beam { namespace wallet
         completeTx();
     }
 
-    void SendTransaction::invitePeer()
-    {
-        bool sender = m_txDesc.m_sender;
-        LOG_INFO() << m_txDesc.m_txId << (sender ? " Sending " : " Receiving ") << PrintableAmount(m_txDesc.m_amount) << " (fee: " << PrintableAmount(m_txDesc.m_fee) << ")";
-
-
-        Height currentHeight = m_keychain->getCurrentHeight();
-
-        createKernel(m_txDesc.m_fee, currentHeight);
-        m_txDesc.m_minHeight = currentHeight;
-
-        if (sender)
-        {
-            if (!prepareSenderUtxos(currentHeight))
-            {
-                onFailed();
-                return;
-            }
-        }
-        else
-        {
-            createOutputUtxo(m_txDesc.m_amount, currentHeight);
-        }
-
-        updateTxDescription(TxDescription::InProgress);
-
-        if (sender)
-        {
-            auto address = m_keychain->getAddress(m_txDesc.m_peerId);
-
-            if (address.is_initialized() && address->m_own)
-            {
-                sendSelfTx();
-                return;
-            }
-        }
-
-        sendInvite();
-    }
 
     void SendTransaction::sendSelfTx()
     {
-        // Create output UTXOs for main amount
-        createOutputUtxo(m_txDesc.m_amount, m_txDesc.m_minHeight);
+        //// Create output UTXOs for main amount
+        //createOutputUtxo(m_txDesc.m_amount, m_txDesc.m_minHeight);
 
-        // Create empty transaction
-        m_transaction = std::make_shared<Transaction>();
-        m_transaction->m_Offset = Zero;
+        //// Create empty transaction
+        //m_transaction = std::make_shared<Transaction>();
+        //m_transaction->m_Offset = Zero;
 
-        // Calculate public key for excess
-        Point::Native excess;
-        if (!excess.Import(getPublicExcess()))
-        {
-            //onFailed(true);
-            return;
-        }
+        //// Calculate public key for excess
+        //Point::Native excess;
+        //if (!excess.Import(getPublicExcess()))
+        //{
+        //    //onFailed(true);
+        //    return;
+        //}
 
-        // Calculate signature
-        Scalar::Native signature = createSignature();
+        //// Calculate signature
+        //Scalar::Native signature = createSignature();
 
-        // Construct and verify transaction
-        if (!constructTxInternal(signature))
-        {
-            //onFailed(true);
-            return;
-        }
+        //// Construct and verify transaction
+        //if (!constructTxInternal(signature))
+        //{
+        //    //onFailed(true);
+        //    return;
+        //}
 
-        updateTxDescription(TxDescription::InProgress);
-        sendNewTransaction();
+        //updateTxDescription(TxDescription::InProgress);
+        //sendNewTransaction();
     }
 
     void SendTransaction::sendInvite() const
@@ -252,38 +328,6 @@ namespace beam { namespace wallet
         m_gateway.send_tx_invitation(m_txDesc, move(inviteMsg));
     }
 
-    bool SendTransaction::confirmPeer()
-    {
-        Scalar peerSignature;
-        Point publicPeerNonce, publicPeerExcess;
-        if (!getParameter(TxParams::PeerSignature, peerSignature)
-         || !getParameter(TxParams::PublicPeerNonce, publicPeerNonce)
-         || !getParameter(TxParams::PublicPeerExcess, publicPeerExcess))
-        {
-            return false;
-        }
-
-        if (!isValidSignature(peerSignature, publicPeerNonce, publicPeerExcess)
-            || !m_publicPeerExcess.Import(publicPeerExcess)
-            || !m_publicPeerNonce.Import(publicPeerNonce))
-        {
-            onFailed(true);
-            return false;
-        }
-
-        Point::Native pt = Context::get().G * m_blindingExcess;
-        pt += m_publicPeerExcess;
-        m_kernel->m_Excess = pt;
-
-        m_peerSignature = peerSignature;
-        updateTxDescription(TxDescription::InProgress);
-        auto s = createSignature();
-        Scalar::Native sn = s;
-        m_kernel->m_Signature.m_k = sn + m_peerSignature;
-        sendConfirmTransaction(s);
-        return true;
-    }
-
     void SendTransaction::sendConfirmTransaction(const Scalar& peerSignature) const
     {
         ConfirmTransaction confirmMsg;
@@ -304,46 +348,122 @@ namespace beam { namespace wallet
 
     void ReceiveTransaction::update()
     {
-        if (getTxOutputs(m_txDesc.m_txId).empty())
+        Scalar::Native blindingExcess, offset;
+        Point::Native publicPeerNonce, publicPeerExcess;
+
+        if (!getParameter(TxParams::PeerOffset, offset)
+            || !getParameter(TxParams::PublicPeerNonce, publicPeerNonce)
+            || !getParameter(TxParams::PublicPeerExcess, publicPeerExcess))
+        {
+            onFailed(true);
+            return;
+        }
+
+        vector<Output::Ptr> outputs;
+        if (!getParameter(TxParams::Outputs, outputs))
         {
             LOG_INFO() << m_txDesc.m_txId << " Receiving " << PrintableAmount(m_txDesc.m_amount) << " (fee: " << PrintableAmount(m_txDesc.m_fee) << ")";
 
-            Scalar offset;
-            Point publicPeerNonce, publicPeerExcess;
-            if (!getParameter(TxParams::PeerOffset, offset)
-                || !getParameter(TxParams::PublicPeerNonce, publicPeerNonce)
-                || !getParameter(TxParams::PublicPeerExcess, publicPeerExcess)
-                || m_offset.Import(offset)
-                || !m_publicPeerNonce.Import(publicPeerNonce)
-                || !m_publicPeerExcess.Import(publicPeerExcess))
-            {
-                onFailed(true);
-                return;
-            }
+            Coin newUtxo{ m_txDesc.m_amount, Coin::Draft, m_txDesc.m_minHeight };
+            newUtxo.m_createTxId = m_txDesc.m_txId;
+            m_keychain->store(newUtxo);
 
-            Height currentHeight = m_keychain->getCurrentHeight();
-            createKernel(m_txDesc.m_fee, m_txDesc.m_minHeight);
-            createOutputUtxo(m_txDesc.m_amount, currentHeight);
+            Scalar::Native blindingFactor = m_keychain->calcKey(newUtxo);
+            auto[privateExcess, newOffset] = splitKey(blindingFactor, newUtxo.m_id);
+
+            blindingFactor = -privateExcess;
+            blindingExcess += blindingFactor;
+            offset += newOffset;
+
+            setParameter(TxParams::Outputs, getTxOutputs(getTxID()));
+            setParameter(TxParams::BlindingExcess, blindingExcess);
             LOG_INFO() << m_txDesc.m_txId << " Invitation accepted";
             updateTxDescription(TxDescription::InProgress);
         }
-        Scalar peerSignature;
-        if (!getParameter(TxParams::PeerSignature, peerSignature))
+
+        if (!getParameter(TxParams::BlindingExcess, blindingExcess))
         {
-            sendConfirmInvitation();
+            onFailed(true);
             return;
         }
+
+        Point::Native publicExcess = Context::get().G * blindingExcess;
+        Point::Native totalPublicExcess = publicExcess;
+        totalPublicExcess += publicPeerExcess;
+
+        auto kernel = make_unique<TxKernel>();
+        kernel->m_Height.m_Min = m_txDesc.m_minHeight;
+        kernel->m_Height.m_Max = MaxHeight;
+
+        Signature::MultiSig msig;
+        Hash::Value hv;
+        kernel->get_Hash(hv);
+        //get_NonceInternal(msig);
+
+        kernel->m_Excess = totalPublicExcess;
+
+        Point::Native publicNonce = Context::get().G * msig.m_Nonce;
+        msig.m_NoncePub = publicNonce + publicPeerNonce;
+
+        Hash::Value message;
+        kernel->get_Hash(message);
+
+        Scalar::Native partialSignature;
+        Signature sig;
+        sig.CoSign(partialSignature, message, blindingExcess, msig);
+
+        Scalar::Native peerSignature;
+        if (!getParameter(TxParams::PeerSignature, peerSignature))
+        {
+            //sendConfirmInvitation();
+
+            ConfirmInvitation confirmMsg;
+            confirmMsg.m_txId = m_txDesc.m_txId;
+            confirmMsg.m_publicPeerExcess = publicExcess;
+            confirmMsg.m_peerSignature = partialSignature;
+            confirmMsg.m_publicPeerNonce = publicNonce;
+            
+            m_gateway.send_tx_confirmation(m_txDesc, move(confirmMsg));
+
+            return;
+        }
+
+        sig.m_k = peerSignature;
+        if (!sig.IsValidPartial(publicPeerNonce, publicPeerExcess))
+        {
+            onFailed(true);
+            return;
+        }
+
+        kernel->m_Signature.m_k = peerSignature + partialSignature;
+        
 
         bool isRegistered = false;
         if (!getParameter(TxParams::TransactionRegistered, isRegistered))
         {
-            if (!registerTxInternal(peerSignature))
+            auto transaction = make_shared<Transaction>();
+            transaction->m_vKernelsOutput.push_back(move(kernel));
+            transaction->m_Offset = offset;
+            getParameter(TxParams::PeerInputs, transaction->m_vInputs);
+            getParameter(TxParams::PeerOutputs, transaction->m_vOutputs);
+
+            {
+                auto inputs = getTxInputs(m_txDesc.m_txId);
+                move(inputs.begin(), inputs.end(), back_inserter(transaction->m_vInputs));
+
+                auto outputs = getTxOutputs(m_txDesc.m_txId);
+                move(outputs.begin(), outputs.end(), back_inserter(transaction->m_vOutputs));
+            }
+
+            transaction->Sort();
+
+            // Verify final transaction
+            TxBase::Context ctx;
+            if (!transaction->IsValid(ctx))
             {
                 onFailed(true);
-                return;
             }
-            updateTxDescription(TxDescription::InProgress);
-            sendNewTransaction();
+            m_gateway.register_tx(m_txDesc, transaction);
             return;
         }
 
@@ -364,33 +484,6 @@ namespace beam { namespace wallet
         completeTx();
     }
 
-    void ReceiveTransaction::confirmInvitation()
-    {
-        updateTxDescription(TxDescription::Pending);
-        bool sender = m_txDesc.m_sender;
-        LOG_INFO() << m_txDesc.m_txId << (sender ? " Sending " : " Receiving ") << PrintableAmount(m_txDesc.m_amount) << " (fee: " << PrintableAmount(m_txDesc.m_fee) << ")";
-        Height currentHeight = m_keychain->getCurrentHeight();
-
-        createKernel(m_txDesc.m_fee, m_txDesc.m_minHeight);
-
-        if (sender)
-        {
-            if (!prepareSenderUtxos(currentHeight))
-            {
-                onFailed(true);
-                return;
-            }
-        }
-        else
-        {
-            createOutputUtxo(m_txDesc.m_amount, currentHeight);
-        }
-
-        LOG_INFO() << m_txDesc.m_txId << " Invitation accepted";
-        updateTxDescription(TxDescription::InProgress);
-        sendConfirmInvitation();
-    }
-
     void ReceiveTransaction::sendConfirmInvitation() const
     {
         ConfirmInvitation confirmMsg;
@@ -400,23 +493,6 @@ namespace beam { namespace wallet
         createSignature2(confirmMsg.m_peerSignature, confirmMsg.m_publicPeerNonce, t.V);
 
         m_gateway.send_tx_confirmation(m_txDesc, move(confirmMsg));
-    }
-
-    void ReceiveTransaction::registerTx()
-    {
-        Scalar peerSignature;
-        if (!getParameter(TxParams::PeerSignature, peerSignature))
-        {
-            return;
-        }
-
-        if (!registerTxInternal(peerSignature))
-        {
-            onFailed(true);
-            return;
-        }
-        updateTxDescription(TxDescription::InProgress);
-        sendNewTransaction();
     }
 
     bool BaseTransaction::registerTxInternal(const ECC::Scalar& peerSignature)
@@ -462,30 +538,6 @@ namespace beam { namespace wallet
         m_gateway.register_tx(m_txDesc, m_transaction);
     }
 
-    //void Negotiator::FSMDefinition::rollbackTx(const events::TxFailed& event)
-    //{
-    //    updateTxDescription(TxDescription::Failed);
-    //    rollbackTx();
-    //    if (event.m_notify)
-    //    {
-    //        m_parent.m_gateway.send_tx_failed(m_parent.m_txDesc);
-    //    }
-    //}
-
-    //void Negotiator::FSMDefinition::cancelTx(const events::TxCanceled&)
-    //{
-    //    if (m_parent.m_txDesc.m_status == TxDescription::Pending)
-    //    {
-    //        m_parent.m_keychain->deleteTx(m_parent.m_txDesc.m_txId);
-    //    }
-    //    else
-    //    {
-    //        updateTxDescription(TxDescription::Cancelled);
-    //        rollbackTx();
-    //        m_parent.m_gateway.send_tx_failed(m_parent.m_txDesc);
-    //    }
-    //}
-
     void BaseTransaction::rollbackTx()
     {
         LOG_INFO() << m_txDesc.m_txId << " Transaction failed. Rollback...";
@@ -529,13 +581,15 @@ namespace beam { namespace wallet
             LOG_ERROR() << "You only have " << PrintableAmount(getAvailable(m_keychain));
             return false;
         }
+        Scalar::Native blindingFactor;
         for (auto& coin : coins)
         {
-            Scalar::Native blindingFactor = m_keychain->calcKey(coin);
-            m_blindingExcess += blindingFactor;
+            blindingFactor += m_keychain->calcKey(coin);
             coin.m_spentTxId = m_txDesc.m_txId;
         }
         m_keychain->update(coins);
+        
+
         // calculate change amount and create corresponding output if needed
         Amount change = 0;
         for (const auto &coin : coins)
@@ -548,6 +602,8 @@ namespace beam { namespace wallet
             createOutputUtxo(change, currentHeight);
             m_txDesc.m_change = change;
         }
+
+        setParameter(TxParams::BlindingExcess, blindingFactor);
         return true;
     }
 
@@ -572,21 +628,6 @@ namespace beam { namespace wallet
         blindingFactor = -privateExcess;
         m_blindingExcess += blindingFactor;
         m_offset += offset;
-    }
-
-    bool BaseTransaction::ProcessInvitation(Invite& inviteMsg)
-    {
-        if (!m_publicPeerExcess.Import(inviteMsg.m_publicPeerExcess) ||
-            !m_publicPeerNonce.Import(inviteMsg.m_publicPeerNonce))
-            return false;
-
-        m_offset = inviteMsg.m_offset;
-        m_transaction = std::make_shared<Transaction>();
-        m_transaction->m_Offset = Zero;
-        m_transaction->m_vInputs = move(inviteMsg.m_inputs);
-        m_transaction->m_vOutputs = move(inviteMsg.m_outputs);
-
-        return true;
     }
 
     Scalar BaseTransaction::createSignature()
@@ -656,12 +697,12 @@ namespace beam { namespace wallet
         return Point(Context::get().G * msig.m_Nonce);
     }
 
-    bool BaseTransaction::isValidSignature(const Scalar& peerSignature) const
+    bool BaseTransaction::isValidSignature(const Scalar::Native& peerSignature) const
     {
         return isValidSignature(peerSignature, m_publicPeerNonce, m_publicPeerExcess);
     }
 
-    bool BaseTransaction::isValidSignature(const Scalar& peerSignature, const Point& publicPeerNonce, const Point& publicPeerExcess) const
+    bool BaseTransaction::isValidSignature(const Scalar::Native& peerSignature, const Point::Native& publicPeerNonce, const Point::Native& publicPeerExcess) const
     {
         //assert(m_kernel);
         if (!m_kernel)
@@ -672,15 +713,10 @@ namespace beam { namespace wallet
 
         Point::Native publicNonce = Context::get().G * msig.m_Nonce;
 
-        Point::Native pkPeer, xcPeer;
-        if (!pkPeer.Import(publicPeerNonce) ||
-            !xcPeer.Import(publicPeerExcess))
-            return false;
-
-        msig.m_NoncePub = publicNonce + pkPeer;
+        msig.m_NoncePub = publicNonce + publicPeerNonce;
 
         Point::Native pt = Context::get().G * m_blindingExcess;
-        pt += xcPeer;
+        pt += publicPeerExcess;
         m_kernel->m_Excess = pt;
 
         Hash::Value message;
@@ -691,7 +727,7 @@ namespace beam { namespace wallet
         Signature peerSig;
         peerSig.CoSign(mySig, message, m_blindingExcess, msig);
         peerSig.m_k = peerSignature;
-        return peerSig.IsValidPartial(pkPeer, xcPeer);
+        return peerSig.IsValidPartial(publicPeerNonce, publicPeerExcess);
     }
 
     vector<Input::Ptr> BaseTransaction::getTxInputs(const TxID& txID) const

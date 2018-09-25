@@ -163,7 +163,7 @@ namespace beam
         bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) override;
 
     private:
-        void remove_peer(const TxID& txId);
+
         void getUtxoProofs(const std::vector<Coin>& coins);
         void do_fast_forward();
         void get_kernel_proof(wallet::BaseTransaction::Ptr n);
@@ -180,11 +180,21 @@ namespace beam
 
         virtual bool IsTestMode() { return false; }
 
-        template<typename Message>
+        template <typename Message>
         void send_tx_message(const TxDescription& txDesc, Message&& msg)
         {
             msg.m_from = txDesc.m_myId;
             m_network->send_tx_message(txDesc.m_peerId, std::move(msg));
+        }
+
+        template <typename T>
+        void setTxParameter(const TxID& txID, wallet::TxParams paramID, const T& value)
+        {
+            Serializer s;
+            s & value;
+            ByteBuffer b;
+            s.swap_buf(b);
+            m_keyChain->setTxParameter(txID, static_cast<uint32_t>(paramID), std::move(b));
         }
 
     private:

@@ -38,20 +38,6 @@ namespace std
     }
 }
 
-namespace
-{
-    template <typename T>
-    beam::ByteBuffer toByteBuffer(const T& v)
-    {
-        beam::Serializer s;
-        s & v;
-        beam::ByteBuffer b;
-        s.swap_buf(b);
-        
-        return b;
-    }
-}
-
 namespace beam
 {
     using namespace wallet;
@@ -296,11 +282,11 @@ namespace beam
             BaseTransaction::Ptr r = make_shared<ReceiveTransaction>(*this, m_keyChain, tx);
             m_transactions.emplace(tx.m_txId, r);
             m_keyChain->saveTx(tx);
-            m_keyChain->setTxParameter(msg.m_txId, TxParams::PublicPeerNonce, toByteBuffer(msg.m_publicPeerNonce));
-            m_keyChain->setTxParameter(msg.m_txId, TxParams::PublicPeerExcess, toByteBuffer(msg.m_publicPeerExcess));
-            m_keyChain->setTxParameter(msg.m_txId, TxParams::PeerOffset, toByteBuffer(msg.m_offset));
-            m_keyChain->setTxParameter(msg.m_txId, TxParams::PeerInputs, toByteBuffer(msg.m_inputs));
-            m_keyChain->setTxParameter(msg.m_txId, TxParams::PeerOutputs, toByteBuffer(msg.m_outputs));
+            setTxParameter(msg.m_txId, TxParams::PublicPeerNonce, msg.m_publicPeerNonce);
+            setTxParameter(msg.m_txId, TxParams::PublicPeerExcess, msg.m_publicPeerExcess);
+            setTxParameter(msg.m_txId, TxParams::PeerOffset, msg.m_offset);
+            setTxParameter(msg.m_txId, TxParams::PeerInputs, msg.m_inputs);
+            setTxParameter(msg.m_txId, TxParams::PeerOutputs, msg.m_outputs);
 
             //if (r->ProcessInvitation(msg))
             {
@@ -331,22 +317,22 @@ namespace beam
     void Wallet::handle_tx_message(const WalletID& receiver, ConfirmTransaction&& data)
     {
         LOG_DEBUG() << data.m_txId << " Received sender tx confirmation";
-        m_keyChain->setTxParameter(data.m_txId, TxParams::PeerSignature, toByteBuffer(data.m_peerSignature));
+        setTxParameter(data.m_txId, TxParams::PeerSignature, data.m_peerSignature);
         updateTransaction(data.m_txId);
     }
 
     void Wallet::handle_tx_message(const WalletID& receiver, ConfirmInvitation&& data)
     {
         LOG_DEBUG() << data.m_txId << " Received tx confirmation";
-        m_keyChain->setTxParameter(data.m_txId, TxParams::PeerSignature, toByteBuffer(data.m_peerSignature));
-        m_keyChain->setTxParameter(data.m_txId, TxParams::PublicPeerExcess, toByteBuffer(data.m_publicPeerExcess));
-        m_keyChain->setTxParameter(data.m_txId, TxParams::PublicPeerNonce, toByteBuffer(data.m_publicPeerNonce));
+        setTxParameter(data.m_txId, TxParams::PeerSignature, data.m_peerSignature);
+        setTxParameter(data.m_txId, TxParams::PublicPeerExcess, data.m_publicPeerExcess);
+        setTxParameter(data.m_txId, TxParams::PublicPeerNonce, data.m_publicPeerNonce);
         updateTransaction(data.m_txId);
     }
 
     void Wallet::handle_tx_message(const WalletID& receiver, wallet::TxRegistered&& data)
     {
-        m_keyChain->setTxParameter(data.m_txId, TxParams::TransactionRegistered, toByteBuffer(data.m_value));
+        setTxParameter(data.m_txId, TxParams::TransactionRegistered, data.m_value);
         updateTransaction(data.m_txId);
     }
 
@@ -378,7 +364,7 @@ namespace beam
         LOG_DEBUG() << "tx " << txId << (res ? " has registered" : " has failed to register");
         if (res)
         {
-            m_keyChain->setTxParameter(txId, TxParams::TransactionRegistered, toByteBuffer(res));
+            setTxParameter(txId, TxParams::TransactionRegistered, res);
         }
         else
         {
@@ -686,7 +672,7 @@ namespace beam
         assert(kernel);
         if (IsTestMode() || m_newState.IsValidProofKernel(*kernel, msg.m_Proof))
         {
-            m_keyChain->setTxParameter(n->getTxID(), TxParams::TransactionConfirmed, toByteBuffer(true));
+            setTxParameter(n->getTxID(), TxParams::TransactionConfirmed, true);
             LOG_INFO() << "Got proof for tx: " << n->getTxID();
             m_pendingEvents.emplace_back([n]()
             {
