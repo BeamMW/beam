@@ -84,7 +84,7 @@ namespace beam {
             s.swap_buf(buffer);
             if (!buffer.empty())
             {
-                m_keychain->setVarRaw(BBS_TIMESTAMPS, buffer.data(), buffer.size());
+                m_keychain->setVarRaw(BBS_TIMESTAMPS, buffer.data(), static_cast<int>(buffer.size()));
             }
         }
         catch(...)

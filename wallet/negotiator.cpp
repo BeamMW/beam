@@ -50,14 +50,14 @@ namespace beam { namespace wallet
         if (m_txDesc.m_status == TxDescription::Registered)
         {
             // TODO: what should we do in case when we have more than one kernel
-           /* if (m_fsm.m_kernel)
+            if (m_kernel)
             {
-                return m_fsm.m_kernel.get();
+                return m_kernel.get();
             }
-            else if (m_fsm.m_transaction && !m_fsm.m_transaction->m_vKernelsOutput.empty())
+            else if (m_transaction && !m_transaction->m_vKernelsOutput.empty())
             {
-                return m_fsm.m_transaction->m_vKernelsOutput[0].get();
-            }*/
+                return m_transaction->m_vKernelsOutput[0].get();
+            }
         }
         return nullptr;
     }
@@ -65,6 +65,20 @@ namespace beam { namespace wallet
     const TxID& BaseTransaction::getTxID() const
     {
         return m_txDesc.m_txId;
+    }
+
+    void BaseTransaction::cancel()
+    {
+        if (m_txDesc.m_status == TxDescription::Pending)
+        {
+            m_keychain->deleteTx(m_txDesc.m_txId);
+        }
+        else
+        {
+            updateTxDescription(TxDescription::Cancelled);
+            rollbackTx();
+            m_gateway.send_tx_failed(m_txDesc);
+        }
     }
 
     SendTransaction::SendTransaction(INegotiatorGateway& gateway
@@ -120,16 +134,30 @@ namespace beam { namespace wallet
             return;
         }
 
-        Point::Native pt = Context::get().G * m_blindingExcess;
-        pt += m_publicPeerExcess;
-        m_kernel->m_Excess = pt;
+        bool isRegistered = false;
+        if (!getParameter(TxParams::TransactionRegistered, isRegistered))
+        {
+            Point::Native pt = Context::get().G * m_blindingExcess;
+            pt += m_publicPeerExcess;
+            m_kernel->m_Excess = pt;
 
-        m_peerSignature = peerSignature;
-        updateTxDescription(TxDescription::InProgress);
-        auto s = createSignature();
-        Scalar::Native sn = s;
-        m_kernel->m_Signature.m_k = sn + m_peerSignature;
-        sendConfirmTransaction(s);
+            m_peerSignature = peerSignature;
+            updateTxDescription(TxDescription::InProgress);
+            auto s = createSignature();
+            Scalar::Native sn = s;
+            m_kernel->m_Signature.m_k = sn + m_peerSignature;
+            sendConfirmTransaction(s);
+            return;
+        }
+        
+        bool isConfirmed = false;
+        if (!getParameter(TxParams::TransactionConfirmed, isConfirmed))
+        {
+            confirmOutputs();
+            return;
+        }
+
+        completeTx();
     }
 
     void SendTransaction::invitePeer()
@@ -276,7 +304,6 @@ namespace beam { namespace wallet
 
     void ReceiveTransaction::update()
     {
-
         if (getTxOutputs(m_txDesc.m_txId).empty())
         {
             LOG_INFO() << m_txDesc.m_txId << " Receiving " << PrintableAmount(m_txDesc.m_amount) << " (fee: " << PrintableAmount(m_txDesc.m_fee) << ")";
@@ -307,15 +334,35 @@ namespace beam { namespace wallet
             return;
         }
 
-        if (!registerTxInternal(peerSignature))
+        bool isRegistered = false;
+        if (!getParameter(TxParams::TransactionRegistered, isRegistered))
+        {
+            if (!registerTxInternal(peerSignature))
+            {
+                onFailed(true);
+                return;
+            }
+            updateTxDescription(TxDescription::InProgress);
+            sendNewTransaction();
+            return;
+        }
+
+        if (!isRegistered)
         {
             onFailed(true);
             return;
         }
-        updateTxDescription(TxDescription::InProgress);
-        sendNewTransaction();
-    }
+        
+        bool isConfirmed = false;
+        if (!getParameter(TxParams::TransactionConfirmed, isConfirmed))
+        {
+            m_gateway.send_tx_registered(m_txDesc);
+            confirmOutputs();
+            return;
+        }
 
+        completeTx();
+    }
 
     void ReceiveTransaction::confirmInvitation()
     {
@@ -439,44 +486,33 @@ namespace beam { namespace wallet
     //    }
     //}
 
-    //void Negotiator::FSMDefinition::rollbackTx()
-    //{
-    //    LOG_INFO() << m_parent.m_txDesc.m_txId << " Transaction failed. Rollback...";
-    //    m_parent.m_keychain->rollbackTx(m_parent.m_txDesc.m_txId);
-    //}
+    void BaseTransaction::rollbackTx()
+    {
+        LOG_INFO() << m_txDesc.m_txId << " Transaction failed. Rollback...";
+        m_keychain->rollbackTx(m_txDesc.m_txId);
+    }
 
-    //void Negotiator::FSMDefinition::confirmOutputs(const events::TxRegistrationCompleted& event)
-    //{
-    //    m_parent.m_gateway.send_tx_registered(m_parent.m_txDesc);
-    //    confirmOutputs2(event);
-    //}
+    void BaseTransaction::confirmOutputs()
+    {
+        LOG_INFO() << m_txDesc.m_txId << " Transaction registered";
+        updateTxDescription(TxDescription::Registered);
 
-    //void Negotiator::FSMDefinition::confirmOutputs2(const events::TxRegistrationCompleted&)
-    //{
-    //    LOG_INFO() << m_parent.m_txDesc.m_txId << " Transaction registered";
-    //    updateTxDescription(TxDescription::Registered);
+        auto coins = m_keychain->getCoinsCreatedByTx(m_txDesc.m_txId);
 
-    //    auto coins = m_parent.m_keychain->getCoinsCreatedByTx(m_parent.m_txDesc.m_txId);
+        for (auto& coin : coins)
+        {
+            coin.m_status = Coin::Unconfirmed;
+        }
+        m_keychain->update(coins);
 
-    //    for (auto& coin : coins)
-    //    {
-    //        coin.m_status = Coin::Unconfirmed;
-    //    }
-    //    m_parent.m_keychain->update(coins);
+        m_gateway.confirm_outputs(m_txDesc);
+    }
 
-    //    m_parent.m_gateway.confirm_outputs(m_parent.m_txDesc);
-    //}
-
-    //void Negotiator::FSMDefinition::completeTx(const events::TxOutputsConfirmed&)
-    //{
-    //    completeTx();
-    //}
-
-    //void Negotiator::FSMDefinition::completeTx()
-    //{
-    //    LOG_INFO() << m_parent.m_txDesc.m_txId << " Transaction completed";
-    //    updateTxDescription(TxDescription::Completed);
-    //}
+    void BaseTransaction::completeTx()
+    {
+        LOG_INFO() << m_txDesc.m_txId << " Transaction completed";
+        updateTxDescription(TxDescription::Completed);
+    }
 
     void BaseTransaction::updateTxDescription(TxDescription::Status s)
     {
@@ -576,6 +612,12 @@ namespace beam { namespace wallet
 
     void BaseTransaction::onFailed(bool notify)
     {
+        updateTxDescription(TxDescription::Failed);
+        rollbackTx();
+        if (notify)
+        {
+            m_gateway.send_tx_failed(m_txDesc);
+        }
         m_gateway.on_tx_completed(m_txDesc);
     }
 

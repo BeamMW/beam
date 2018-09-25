@@ -26,7 +26,7 @@ namespace beam { namespace wallet
     {
         using Ptr = std::shared_ptr<ITransaction>;
         virtual void update() = 0;
-        //virtual void abort() = 0;
+        virtual void cancel() = 0;
     };
 
     enum TxParams : uint32_t 
@@ -37,7 +37,8 @@ namespace beam { namespace wallet
         PeerOffset,
         PeerInputs,
         PeerOutputs,
-        TransactionRegistered
+        TransactionRegistered,
+        TransactionConfirmed
     };
 
     //
@@ -46,6 +47,7 @@ namespace beam { namespace wallet
     class BaseTransaction : public ITransaction
     {
     public:
+        using Ptr = std::shared_ptr<BaseTransaction>;
         BaseTransaction(INegotiatorGateway& gateway
             , beam::IKeyChain::Ptr keychain
             , const TxDescription& txDesc);
@@ -57,8 +59,13 @@ namespace beam { namespace wallet
         TxKernel* getKernel() const;
 
         const TxID& getTxID() const;
+        void cancel() override;
     protected:
+ 
         void sendNewTransaction() const;
+        void confirmOutputs();
+        void completeTx();
+        void rollbackTx();
         void updateTxDescription(TxDescription::Status s);
         bool prepareSenderUtxos(const Height& currentHeight);
         bool registerTxInternal(const ECC::Scalar& peerSignature);
@@ -120,8 +127,8 @@ namespace beam { namespace wallet
         SendTransaction(INegotiatorGateway& gateway
             , beam::IKeyChain::Ptr keychain
             , const TxDescription& txDesc);
-    private:
         void update() override;
+    private:
         void invitePeer();
         void sendSelfTx();
         void sendInvite() const;
@@ -135,8 +142,8 @@ namespace beam { namespace wallet
         ReceiveTransaction(INegotiatorGateway& gateway
             , beam::IKeyChain::Ptr keychain
             , const TxDescription& txDesc);
-    private:
         void update() override;
+    private:
         void confirmInvitation();
         void sendConfirmInvitation() const;
         void registerTx();

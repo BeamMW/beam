@@ -166,8 +166,8 @@ namespace beam
         void remove_peer(const TxID& txId);
         void getUtxoProofs(const std::vector<Coin>& coins);
         void do_fast_forward();
-        void get_kernel_proof(wallet::ITransaction::Ptr n);
-        void get_kernel_utxo_proofs(wallet::ITransaction::Ptr n);
+        void get_kernel_proof(wallet::BaseTransaction::Ptr n);
+        void get_kernel_utxo_proofs(wallet::BaseTransaction::Ptr n);
         void enter_sync();
         bool exit_sync();
         void report_sync_progress();
@@ -179,44 +179,6 @@ namespace beam
         void updateTransaction(const TxID& txID);
 
         virtual bool IsTestMode() { return false; }
-
-        struct Cleaner
-        {
-            Cleaner(std::vector<wallet::ITransaction::Ptr>& t) : m_v{ t } {}
-            ~Cleaner()
-            {
-                if (!m_v.empty())
-                {
-                    m_v.clear();
-                }
-            }
-            std::vector<wallet::ITransaction::Ptr>& m_v;
-        };
-
-        template<typename Event>
-        void process_event(const TxID& txId, Event&& event)
-        {
-            auto f = [txId, event = std::move(event), this]()
-            {
-                Cleaner cs{ m_removedNegotiators };
-                if (auto it = m_negotiators.find(txId); it != m_negotiators.end())
-                {
-                    if (it->second->processEvent(event))
-                    {
-                        return;
-                    }
-                }
-                LOG_DEBUG() << txId << " Unexpected event";
-            };
-            if (m_synchronized)
-            {
-                f();
-            }
-            else
-            {
-                m_pendingEvents.emplace_back(std::move(f));
-            }
-        }
 
         template<typename Message>
         void send_tx_message(const TxDescription& txDesc, Message&& msg)
@@ -231,13 +193,12 @@ namespace beam
 
         IKeyChain::Ptr m_keyChain;
         INetworkIO::Ptr m_network;
-        std::map<TxID, wallet::ITransaction::Ptr>   m_negotiators;
-        std::vector<wallet::ITransaction::Ptr>      m_removedNegotiators;
+        std::map<TxID, wallet::BaseTransaction::Ptr>   m_transactions;
         TxCompletedAction m_tx_completed_action;
         std::deque<std::pair<TxID, Transaction::Ptr>> m_reg_requests;
         std::vector<std::pair<TxID, Transaction::Ptr>> m_pending_reg_requests;
         std::deque<Coin> m_pendingUtxoProofs;
-        std::deque<wallet::ITransaction::Ptr> m_pendingKernelProofs;
+        std::deque<wallet::BaseTransaction::Ptr> m_pendingKernelProofs;
         std::vector<Callback> m_pendingEvents;
 
         Block::SystemState::Full m_newState;
