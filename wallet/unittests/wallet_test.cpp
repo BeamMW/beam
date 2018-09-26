@@ -131,11 +131,25 @@ namespace
 
 		void changePassword(const SecString& password) override {}
 
-        void setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob) override {}
-        bool getTxParameter(const TxID& txID, int paramID, ByteBuffer& blob) override { return false; }
+        void setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob) override
+        {
+            auto p = m_params.emplace(paramID, blob);
+            assert(p.second);
+        }
+        bool getTxParameter(const TxID& txID, int paramID, ByteBuffer& blob) override 
+        {
+            auto it = m_params.find(paramID);
+            if (it != m_params.end())
+            {
+                blob = it->second;
+                return true;
+            }
+            return false;
+        }
 
     protected:
         std::vector<beam::Coin> m_coins;
+        std::map<int, ByteBuffer> m_params;
     };
 
     class TestKeyChain : public BaseTestKeyChain
@@ -1559,7 +1573,7 @@ int main()
 
     TestSplitKey();
     TestP2PWalletNegotiationST();
-   // TestP2PWalletReverseNegotiationST();
+    TestP2PWalletReverseNegotiationST();
 
     TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
     TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());

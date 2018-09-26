@@ -45,7 +45,8 @@ namespace beam { namespace wallet
         PeerInputs,
         PeerOutputs,
         TransactionRegistered,
-        KernelProof
+        KernelProof,
+        FailureReason
     };
 
     //
@@ -76,7 +77,9 @@ namespace beam { namespace wallet
         bool prepareSenderUtxos(const Height& currentHeight);
         bool registerTxInternal(const ECC::Scalar& peerSignature);
         bool constructTxInternal(const ECC::Scalar::Native& signature);
-        void createKernel(Amount fee, Height minHeight);
+        TxKernel::Ptr createKernel(Amount fee, Height minHeight) const;
+        ECC::Signature::MultiSig createMultiSig(const TxKernel& kernel, const ECC::Scalar::Native& blindingExcess) const;
+        //ECC::Scalar::Native createSignature(const TxKernel& kernel, const ECC::Scalar::Native& blindingExcess, ECC::Signature::MultiSig& msig) const;
         void createOutputUtxo(Amount amount, Height height);
         ECC::Scalar createSignature();
         void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce, ECC::Scalar& challenge) const;

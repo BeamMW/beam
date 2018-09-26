@@ -303,7 +303,7 @@ namespace beam
                 messageBuffer.assign(receiverAddress->m_label.begin(), receiverAddress->m_label.end());
             }
             TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, receiver, move(messageBuffer), getTimestamp(), sender };
-            BaseTransaction::Ptr r = make_shared<ReceiveTransaction>(*this, m_keyChain, tx);
+            BaseTransaction::Ptr r = make_shared<SendTransaction>(*this, m_keyChain, tx);
             m_transactions.emplace(tx.m_txId, r);
             m_keyChain->saveTx(tx);
             setTxParameter(msg.m_txId, TxParams::PublicPeerNonce, msg.m_publicPeerNonce);
@@ -312,25 +312,17 @@ namespace beam
             setTxParameter(msg.m_txId, TxParams::PeerInputs, msg.m_inputs);
             setTxParameter(msg.m_txId, TxParams::PeerOutputs, msg.m_outputs);
 
-            //if (r->ProcessInvitation(msg))
+            if (m_synchronized)
             {
-                if (m_synchronized)
+                r->update();
+            }
+            else
+            {
+                m_pendingEvents.emplace_back([r]()
                 {
                     r->update();
-                }
-                else
-                {
-                    m_pendingEvents.emplace_back([r]()
-                    {
-                        r->update();
-                    });
-                }
+                });
             }
-           // else
-            //{
-           //     LOG_ERROR() << msg.m_txId << " Failed to process invitation";
-               // r->processEvent(events::TxFailed{ true });
-            //}
         }
         else
         {
@@ -363,8 +355,8 @@ namespace beam
     void Wallet::handle_tx_message(const WalletID& receiver, wallet::TxFailed&& data)
     {
         LOG_DEBUG() << "tx " << data.m_txId << " failed";
+        setTxParameter(data.m_txId, TxParams::FailureReason, 1);
         updateTransaction(data.m_txId);
-  //      process_event(data.m_txId, events::TxFailed(false));
     }
 
     bool Wallet::handle_node_message(proto::Boolean&& res)
