@@ -18,6 +18,7 @@
 #include "core/ecc_native.h"
 
 #include "core/serialization_adapters.h"
+#include "core/proto.h"
 
 namespace beam
 {
@@ -207,6 +208,9 @@ namespace beam
             virtual void register_tx(const TxDescription&, Transaction::Ptr) = 0;
             virtual void send_tx_registered(const TxDescription&) = 0;
             virtual void confirm_outputs(const TxDescription&) = 0;
+            virtual void confirm_kernel(const TxDescription&, const TxKernel&) = 0;
+            virtual bool get_tip(Block::SystemState::Full& state) const = 0;
+            virtual bool isTestMode() const = 0;
         };
     }
 }

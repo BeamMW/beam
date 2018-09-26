@@ -30,22 +30,6 @@ namespace beam { namespace wallet
         assert(keychain);
     }
 
-    //void Negotiator::saveState()
-    //{
-    //    if (m_txDesc.canResume())
-    //    {
-    //        Serializer ser;
-    //        ser & *this;
-    //        ser.swap_buf(m_txDesc.m_fsmState);
-    //    }
-    //    else
-    //    {
-    //        m_txDesc.m_fsmState.clear();
-    //    }
-    //    m_keychain->saveTx(m_txDesc);
-    //}
-
-
     bool BaseTransaction::getParameter(TxParams paramID, ECC::Point::Native& value)
     {
         ECC::Point pt;
@@ -100,6 +84,11 @@ namespace beam { namespace wallet
         return nullptr;
     }
 
+    bool BaseTransaction::getTip(Block::SystemState::Full& state) const
+    {
+        return m_gateway.get_tip(state);
+    }
+
     const TxID& BaseTransaction::getTxID() const
     {
         return m_txDesc.m_txId;
@@ -130,7 +119,8 @@ namespace beam { namespace wallet
     void SendTransaction::update()
     {
         Scalar::Native offset;
-        if (getTxInputs(m_txDesc.m_txId).empty())
+        Scalar::Native blindingExcess;
+        if (!getParameter(TxParams::BlindingExcess, blindingExcess))
         {
             LOG_INFO() << m_txDesc.m_txId << " Sending " << PrintableAmount(m_txDesc.m_amount) << " (fee: " << PrintableAmount(m_txDesc.m_fee) << ")";
             Height currentHeight = m_keychain->getCurrentHeight();
@@ -146,7 +136,6 @@ namespace beam { namespace wallet
                 return;
             }
 
-            Scalar::Native blindingExcess;
             for (auto& coin : coins)
             {
                 blindingExcess += m_keychain->calcKey(coin);
@@ -189,17 +178,11 @@ namespace beam { namespace wallet
             return;
         }
 
-        Scalar::Native blindingExcess;
-        if (!getParameter(TxParams::BlindingExcess, blindingExcess))
-        {
-            onFailed(true);
-            return;
-        }
-
         auto kernel = make_unique<TxKernel>();
         kernel->m_Fee = m_txDesc.m_fee;
         kernel->m_Height.m_Min = m_txDesc.m_minHeight;
         kernel->m_Height.m_Max = MaxHeight;
+        kernel->m_Excess = Zero;
 
         Signature::MultiSig msig;
         Hash::Value hv;
@@ -235,19 +218,23 @@ namespace beam { namespace wallet
         }
 
         msig.m_NoncePub = publicNonce + publicPeerNonce;
-        publicExcess += publicPeerExcess;
+        Point::Native totalPublicExcess = publicExcess;
+        totalPublicExcess += publicPeerExcess;
         
-        
-        kernel->m_Excess = publicExcess;
+        kernel->m_Excess = totalPublicExcess;
 
         Hash::Value message;
         kernel->get_Hash(message);
 
+      //  LOG_DEBUG() << "Public excess: " << totalPublicExcess << " Message: " << message << " pubNonce: " << msig.m_NoncePub;
+
         Scalar::Native partialSignature;
+        kernel->m_Signature.CoSign(partialSignature, message, blindingExcess, msig);
+
         Signature peerSig;
-        peerSig.CoSign(partialSignature, message, blindingExcess, msig);
+        peerSig.m_e = kernel->m_Signature.m_e;
         peerSig.m_k = peerSignature;
-        if (peerSig.IsValidPartial(publicPeerNonce, publicPeerExcess))
+        if (!peerSig.IsValidPartial(publicPeerNonce, publicPeerExcess))
         {
             onFailed(true);
             return;
@@ -265,12 +252,23 @@ namespace beam { namespace wallet
             return;
         }
         
-        bool isConfirmed = false;
-        if (!getParameter(TxParams::TransactionConfirmed, isConfirmed))
+        Merkle::Proof kernelProof;
+        if (!getParameter(TxParams::KernelProof, kernelProof))
         {
-            confirmOutputs();
+            confirmKernel(*kernel);
             return;
         }
+
+        Block::SystemState::Full state;
+        if (!getTip(state) || !state.IsValidProofKernel(*kernel, kernelProof))
+        {
+            if (!m_gateway.isTestMode())
+            {
+                return;
+            }
+        }
+
+      //  confirmOutputs();
 
         completeTx();
     }
@@ -348,10 +346,10 @@ namespace beam { namespace wallet
 
     void ReceiveTransaction::update()
     {
-        Scalar::Native blindingExcess, offset;
+        Scalar::Native blindingExcess, peerOffset;
         Point::Native publicPeerNonce, publicPeerExcess;
 
-        if (!getParameter(TxParams::PeerOffset, offset)
+        if (!getParameter(TxParams::PeerOffset, peerOffset)
             || !getParameter(TxParams::PublicPeerNonce, publicPeerNonce)
             || !getParameter(TxParams::PublicPeerExcess, publicPeerExcess))
         {
@@ -373,15 +371,17 @@ namespace beam { namespace wallet
 
             blindingFactor = -privateExcess;
             blindingExcess += blindingFactor;
-            offset += newOffset;
-
+            
             setParameter(TxParams::Outputs, getTxOutputs(getTxID()));
             setParameter(TxParams::BlindingExcess, blindingExcess);
+            setParameter(TxParams::Offset, newOffset);
             LOG_INFO() << m_txDesc.m_txId << " Invitation accepted";
             updateTxDescription(TxDescription::InProgress);
         }
 
-        if (!getParameter(TxParams::BlindingExcess, blindingExcess))
+        Scalar::Native offset;
+        if (!getParameter(TxParams::BlindingExcess, blindingExcess)
+            || !getParameter(TxParams::Offset, offset))
         {
             onFailed(true);
             return;
@@ -392,13 +392,14 @@ namespace beam { namespace wallet
         totalPublicExcess += publicPeerExcess;
 
         auto kernel = make_unique<TxKernel>();
+        kernel->m_Fee = m_txDesc.m_fee;
         kernel->m_Height.m_Min = m_txDesc.m_minHeight;
         kernel->m_Height.m_Max = MaxHeight;
+        kernel->m_Excess = Zero;
 
         Signature::MultiSig msig;
         Hash::Value hv;
         kernel->get_Hash(hv);
-        //get_NonceInternal(msig);
 
         kernel->m_Excess = totalPublicExcess;
 
@@ -408,9 +409,10 @@ namespace beam { namespace wallet
         Hash::Value message;
         kernel->get_Hash(message);
 
+       // LOG_DEBUG() << "Public excess: " << totalPublicExcess << " Message: " << message << " pubNonce: " << msig.m_NoncePub;
+
         Scalar::Native partialSignature;
-        Signature sig;
-        sig.CoSign(partialSignature, message, blindingExcess, msig);
+        kernel->m_Signature.CoSign(partialSignature, message, blindingExcess, msig);
 
         Scalar::Native peerSignature;
         if (!getParameter(TxParams::PeerSignature, peerSignature))
@@ -427,9 +429,10 @@ namespace beam { namespace wallet
 
             return;
         }
-
-        sig.m_k = peerSignature;
-        if (!sig.IsValidPartial(publicPeerNonce, publicPeerExcess))
+        Signature peerSig;
+        peerSig.m_e = kernel->m_Signature.m_e;
+        peerSig.m_k = peerSignature;
+        if (!peerSig.IsValidPartial(publicPeerNonce, publicPeerExcess))
         {
             onFailed(true);
             return;
@@ -443,7 +446,7 @@ namespace beam { namespace wallet
         {
             auto transaction = make_shared<Transaction>();
             transaction->m_vKernelsOutput.push_back(move(kernel));
-            transaction->m_Offset = offset;
+            transaction->m_Offset = peerOffset + offset;
             getParameter(TxParams::PeerInputs, transaction->m_vInputs);
             getParameter(TxParams::PeerOutputs, transaction->m_vOutputs);
 
@@ -462,6 +465,7 @@ namespace beam { namespace wallet
             if (!transaction->IsValid(ctx))
             {
                 onFailed(true);
+                return;
             }
             m_gateway.register_tx(m_txDesc, transaction);
             return;
@@ -472,15 +476,25 @@ namespace beam { namespace wallet
             onFailed(true);
             return;
         }
-        
-        bool isConfirmed = false;
-        if (!getParameter(TxParams::TransactionConfirmed, isConfirmed))
+
+        Merkle::Proof kernelProof;
+        if (!getParameter(TxParams::KernelProof, kernelProof))
         {
             m_gateway.send_tx_registered(m_txDesc);
-            confirmOutputs();
+            confirmKernel(*kernel);
             return;
         }
 
+        Block::SystemState::Full state;
+        if (!getTip(state) || !state.IsValidProofKernel(*kernel, kernelProof))
+        {
+            if (!m_gateway.isTestMode())
+            {
+                return;
+            }
+        }
+
+   //     confirmOutputs();
         completeTx();
     }
 
@@ -544,7 +558,7 @@ namespace beam { namespace wallet
         m_keychain->rollbackTx(m_txDesc.m_txId);
     }
 
-    void BaseTransaction::confirmOutputs()
+    void BaseTransaction::confirmKernel(const TxKernel& kernel)
     {
         LOG_INFO() << m_txDesc.m_txId << " Transaction registered";
         updateTxDescription(TxDescription::Registered);
@@ -557,6 +571,11 @@ namespace beam { namespace wallet
         }
         m_keychain->update(coins);
 
+        m_gateway.confirm_kernel(m_txDesc, kernel);
+    }
+
+    void BaseTransaction::confirmOutputs()
+    {
         m_gateway.confirm_outputs(m_txDesc);
     }
 
@@ -564,12 +583,14 @@ namespace beam { namespace wallet
     {
         LOG_INFO() << m_txDesc.m_txId << " Transaction completed";
         updateTxDescription(TxDescription::Completed);
+        m_gateway.on_tx_completed(m_txDesc);
     }
 
     void BaseTransaction::updateTxDescription(TxDescription::Status s)
     {
         m_txDesc.m_status = s;
         m_txDesc.m_modifyTime = getTimestamp();
+        m_keychain->saveTx(m_txDesc);
     }
 
     bool BaseTransaction::prepareSenderUtxos(const Height& currentHeight)

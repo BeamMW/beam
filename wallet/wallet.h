@@ -134,6 +134,9 @@ namespace beam
         void register_tx(const TxDescription& tx, Transaction::Ptr) override;
         void send_tx_registered(const TxDescription& tx) override;
         void confirm_outputs(const TxDescription&) override;
+        void confirm_kernel(const TxDescription&, const TxKernel&) override;
+        bool get_tip(Block::SystemState::Full& state) const override;
+        bool isTestMode() const override;
 
         void handle_tx_message(const WalletID&, wallet::Invite&&) override;
         void handle_tx_message(const WalletID&, wallet::ConfirmTransaction&&) override;
@@ -178,7 +181,7 @@ namespace beam
         void resetSystemState();
         void updateTransaction(const TxID& txID);
 
-        virtual bool IsTestMode() { return false; }
+        virtual bool IsTestMode() const { return false; }
 
         template <typename Message>
         void send_tx_message(const TxDescription& txDesc, Message&& msg)

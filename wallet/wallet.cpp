@@ -255,8 +255,32 @@ namespace beam
     {
         if (auto it = m_transactions.find(tx.m_txId); it != m_transactions.end())
         {
-            get_kernel_proof(it->second);
+            get_kernel_utxo_proofs(it->second);
         }
+    }
+
+    void Wallet::confirm_kernel(const TxDescription& tx, const TxKernel& kernel)
+    {
+        if (auto it = m_transactions.find(tx.m_txId); it != m_transactions.end())
+        {
+            //get_kernel_proof(it->second);
+            proto::GetProofKernel kernelMsg = {};
+            kernel.get_ID(kernelMsg.m_ID);
+            m_pendingKernelProofs.push_back(it->second);
+            enter_sync();
+            m_network->send_node_message(move(kernelMsg));
+        }
+    }
+
+    bool Wallet::get_tip(Block::SystemState::Full& state) const
+    {
+        state = m_newState;
+        return true;
+    }
+
+    bool Wallet::isTestMode() const
+    {
+        return IsTestMode();
     }
 
     void Wallet::handle_tx_message(const WalletID& receiver, Invite&& msg)
@@ -668,18 +692,26 @@ namespace beam
         }
         auto n = m_pendingKernelProofs.front();
         m_pendingKernelProofs.pop_front();
-        auto kernel = n->getKernel();
+
+        setTxParameter(n->getTxID(), TxParams::KernelProof, msg.m_Proof);
+        m_pendingEvents.emplace_back([n]()
+        {
+            n->update();
+        });
+        get_kernel_utxo_proofs(n);
+
+        /*auto kernel = n->getKernel();
         assert(kernel);
         if (IsTestMode() || m_newState.IsValidProofKernel(*kernel, msg.m_Proof))
         {
-            setTxParameter(n->getTxID(), TxParams::TransactionConfirmed, true);
+            
             LOG_INFO() << "Got proof for tx: " << n->getTxID();
             m_pendingEvents.emplace_back([n]()
             {
                 n->update();
             });
             get_kernel_utxo_proofs(n);
-        }
+        }*/
 
         return exit_sync();
     }

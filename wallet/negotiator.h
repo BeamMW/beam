@@ -34,6 +34,7 @@ namespace beam { namespace wallet
         Amount,
         Fee,
         MinHeight,
+        Offset,
         Inputs,
         Outputs,
         BlindingExcess,
@@ -44,7 +45,7 @@ namespace beam { namespace wallet
         PeerInputs,
         PeerOutputs,
         TransactionRegistered,
-        TransactionConfirmed
+        KernelProof
     };
 
     //
@@ -67,6 +68,7 @@ namespace beam { namespace wallet
     protected:
  
         void sendNewTransaction() const;
+        void confirmKernel(const TxKernel& kernel);
         void confirmOutputs();
         void completeTx();
         void rollbackTx();
@@ -118,6 +120,8 @@ namespace beam { namespace wallet
         void setParameter(TxParams paramID, const ECC::Scalar::Native& value);
 
         void onFailed(bool notify = false);
+
+        bool getTip(Block::SystemState::Full& state) const;
 
     protected:
 
