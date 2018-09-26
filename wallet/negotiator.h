@@ -34,7 +34,7 @@
 #pragma warning(pop)
 #endif
 
-namespace beam::wallet
+namespace beam { namespace wallet
 {
     namespace msm = boost::msm;
     namespace msmf = boost::msm::front;
@@ -170,7 +170,7 @@ namespace beam::wallet
 
             void sendInvite() const;
             void sendConfirmInvitation() const;
-            void sendConfirmTransaction() const;
+            void sendConfirmTransaction(const ECC::Scalar& peerSignature) const;
             void sendNewTransaction() const;
             void sendSelfTx();
 
@@ -200,21 +200,23 @@ namespace beam::wallet
                 a_row< TxInvitation             , events::TxRegistrationCompleted , TxOutputsConfirmation, &d::confirmOutputs      >,
 
                 a_row< TxAllOk                  , events::TxFailed                , TxTerminal            , &d::rollbackTx          >,
-                a_row< TxAllOk                  , events::TxCanceled              , TxTerminal            , &d::cancelTx            >
+                a_row< TxInitial                , events::TxCanceled              , TxTerminal            , &d::cancelTx            >,
+                a_row< TxConfirmation           , events::TxCanceled              , TxTerminal            , &d::cancelTx            >,
+                a_row< TxInvitation             , events::TxCanceled              , TxTerminal            , &d::cancelTx            >
             > {};
 
 
             template <class FSM, class Event>
             void no_transition(Event const& e, FSM& , int state)
             {
-                LOG_DEBUG() << "[Sender] no transition from state " << state
-                            << " on event " << typeid(e).name();
+                LOG_WARNING() << m_parent.m_txDesc.m_txId << " no transition from state " << state
+                                                          << " on event " << typeid(e).name();
             }
 
             template <class FSM, class Event>
             void exception_caught(Event const&, FSM& fsm, std::exception& ex)
             {
-                LOG_INFO() << ex.what();
+                LOG_INFO() << m_parent.m_txDesc.m_txId << ex.what();
                 fsm.process_event(events::TxFailed(/*true*/));
             }
 
@@ -232,7 +234,6 @@ namespace beam::wallet
 
             void createKernel(Amount fee, Height minHeight);
             void createOutputUtxo(Amount amount, Height height);
-            ECC::Scalar createSignature() const;
             ECC::Scalar createSignature();
             void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce, ECC::Scalar& challenge) const;
             ECC::Point getPublicExcess() const;
@@ -265,4 +266,4 @@ namespace beam::wallet
 
         Fsm m_fsm;
     };
-}
+}}

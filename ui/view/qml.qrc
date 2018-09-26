@@ -18,6 +18,7 @@
         <file>controls/ChangePasswordDialog.qml</file>
         <file>controls/CustomTableView.qml</file>
         <file>controls/FeeSlider.qml</file>
+        <file>controls/SFFontLoader.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>
         <file>main.qml</file>
@@ -28,13 +29,28 @@
         <file>settings.qml</file>
         <file>address-book.qml</file>
         <file>utxo.qml</file>
-        <file>assets/fonts/SF-Pro-Display-Thin.otf</file>
+        <file>assets/fonts/SF-Pro-Display-Black.otf</file>
+        <file>assets/fonts/SF-Pro-Display-Light.otf</file>
+        <file>assets/fonts/SF-Pro-Display-Semibold.otf</file>
+        <file>assets/fonts/SF-Pro-Display-BlackItalic.otf</file>
+        <file>assets/fonts/SF-Pro-Display-LightItalic.otf</file>
+        <file>assets/fonts/SF-Pro-Display-SemiboldItalic.otf</file>
         <file>assets/fonts/SF-Pro-Display-Bold.otf</file>
+        <file>assets/fonts/SF-Pro-Display-Medium.otf</file>
+        <file>assets/fonts/SF-Pro-Display-Thin.otf</file>
+        <file>assets/fonts/SF-Pro-Display-BoldItalic.otf</file>
+        <file>assets/fonts/SF-Pro-Display-MediumItalic.otf</file>
+        <file>assets/fonts/SF-Pro-Display-ThinItalic.otf</file>
+        <file>assets/fonts/SF-Pro-Display-Heavy.otf</file>
         <file>assets/fonts/SF-Pro-Display-Regular.otf</file>
+        <file>assets/fonts/SF-Pro-Display-Ultralight.otf</file>
+        <file>assets/fonts/SF-Pro-Display-HeavyItalic.otf</file>
+        <file>assets/fonts/SF-Pro-Display-RegularItalic.otf</file>
+        <file>assets/fonts/SF-Pro-Display-UltralightItalic.otf</file>
         <file>assets/logo.svg</file>
         <file>assets/start-logo.svg</file>
         <file>assets/icon.png</file>
-        <file>assets/bg.png</file>
+        <file>assets/bg.svg</file>
         <file>assets/b-grey.svg</file>
         <file>assets/icon-dashboard.svg</file>
         <file>assets/icon-dashboard-active.svg</file>
@@ -42,6 +58,7 @@
         <file>assets/icon-address-book-active.svg</file>
         <file>assets/icon-wallet.svg</file>
         <file>assets/icon-wallet-active.svg</file>
+        <file>assets/icon-wallet-small.svg</file>
         <file>assets/icon-notification.svg</file>
         <file>assets/icon-notification-active.svg</file>
         <file>assets/icon-info.svg</file>
@@ -58,6 +75,7 @@
         <file>assets/icon-cancel.svg</file>
         <file>assets/icon-done.svg</file>
         <file>assets/icon-add.svg</file>
+        <file>assets/icon-add-blue.svg</file>
         <file>assets/icon-utxo.svg</file>
         <file>assets/icon-utxo-active.svg</file>
         <file>assets/icon-copy.svg</file>

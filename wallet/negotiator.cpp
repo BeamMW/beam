@@ -16,14 +16,14 @@
 #include "core/block_crypt.h"
 #include "wallet/wallet_serialization.h"
 
-namespace beam::wallet
+namespace beam { namespace wallet
 {
     using namespace ECC;
     using namespace std;
 
     Negotiator::Negotiator(INegotiatorGateway& gateway
-                         , beam::IKeyChain::Ptr keychain
-                         , const TxDescription& txDesc)
+        , beam::IKeyChain::Ptr keychain
+        , const TxDescription& txDesc)
         : m_gateway{ gateway }
         , m_keychain{ keychain }
         , m_txDesc{ txDesc }
@@ -92,8 +92,9 @@ namespace beam::wallet
     void Negotiator::FSMDefinition::invitePeer(const events::TxInitiated&)
     {
         bool sender = m_parent.m_txDesc.m_sender;
-        LOG_INFO() << ( sender ? "Sending " : "Receiving ") << PrintableAmount(m_parent.m_txDesc.m_amount) << " (fee: " << PrintableAmount(m_parent.m_txDesc.m_fee) << ")";
-        
+        LOG_INFO() << m_parent.m_txDesc.m_txId << (sender ? " Sending " : " Receiving ") << PrintableAmount(m_parent.m_txDesc.m_amount) << " (fee: " << PrintableAmount(m_parent.m_txDesc.m_fee) << ")";
+
+
         Height currentHeight = m_parent.m_keychain->getCurrentHeight();
 
         createKernel(m_parent.m_txDesc.m_fee, currentHeight);
@@ -146,7 +147,7 @@ namespace beam::wallet
             fsm.process_event(events::TxFailed{ true });
             return;
         }
-        
+
         // Calculate signature
         Scalar::Native signature = createSignature();
 
@@ -188,8 +189,8 @@ namespace beam::wallet
         auto& msg = event.data;
 
         if (!isValidSignature(msg.m_peerSignature, msg.m_publicPeerNonce, msg.m_publicPeerExcess)
-         || !m_publicPeerExcess.Import(msg.m_publicPeerExcess)
-         || !m_publicPeerNonce.Import(msg.m_publicPeerNonce))
+            || !m_publicPeerExcess.Import(msg.m_publicPeerExcess)
+            || !m_publicPeerNonce.Import(msg.m_publicPeerNonce))
         {
             Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
             fsm.process_event(events::TxFailed{ true });
@@ -202,14 +203,17 @@ namespace beam::wallet
 
         m_peerSignature = msg.m_peerSignature;
         update_tx_description(TxDescription::InProgress);
-        sendConfirmTransaction();
+        auto s = createSignature();
+        Scalar::Native sn = s;
+        m_kernel->m_Signature.m_k = sn + m_peerSignature;
+        sendConfirmTransaction(s);
     }
 
-    void Negotiator::FSMDefinition::sendConfirmTransaction() const
+    void Negotiator::FSMDefinition::sendConfirmTransaction(const Scalar& peerSignature) const
     {
         ConfirmTransaction confirmMsg;
         confirmMsg.m_txId = m_parent.m_txDesc.m_txId;
-        confirmMsg.m_peerSignature = createSignature();
+        confirmMsg.m_peerSignature = peerSignature;
 
         m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmMsg));
     }
@@ -218,17 +222,18 @@ namespace beam::wallet
     {
         update_tx_description(TxDescription::Pending);
         bool sender = m_parent.m_txDesc.m_sender;
-        LOG_INFO() << (sender ? "Sending " : "Receiving ") << PrintableAmount(m_parent.m_txDesc.m_amount) << " (fee: " << PrintableAmount(m_parent.m_txDesc.m_fee) << ")";
+        LOG_INFO() << m_parent.m_txDesc.m_txId << (sender ? " Sending " : " Receiving ") << PrintableAmount(m_parent.m_txDesc.m_amount) << " (fee: " << PrintableAmount(m_parent.m_txDesc.m_fee) << ")";
         Height currentHeight = m_parent.m_keychain->getCurrentHeight();
 
         createKernel(m_parent.m_txDesc.m_fee, m_parent.m_txDesc.m_minHeight);
-        
+
+
         if (sender)
         {
             if (!prepareSenderUtxos(currentHeight))
             {
                 Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
-                fsm.process_event(events::TxFailed{true});
+                fsm.process_event(events::TxFailed{ true });
                 return;
             }
         }
@@ -237,7 +242,7 @@ namespace beam::wallet
             createOutputUtxo(m_parent.m_txDesc.m_amount, currentHeight);
         }
 
-        LOG_INFO() << "Invitation accepted";
+        LOG_INFO() << m_parent.m_txDesc.m_txId << " Invitation accepted";
         update_tx_description(TxDescription::InProgress);
         sendConfirmInvitation();
     }
@@ -292,7 +297,7 @@ namespace beam::wallet
             auto outputs = getTxOutputs(m_parent.m_txDesc.m_txId);
             move(outputs.begin(), outputs.end(), back_inserter(m_transaction->m_vOutputs));
         }
-        
+
         m_transaction->Sort();
 
         // Verify final transaction
@@ -331,7 +336,7 @@ namespace beam::wallet
 
     void Negotiator::FSMDefinition::rollbackTx()
     {
-        LOG_INFO() << "Transaction failed. Rollback...";
+        LOG_INFO() << m_parent.m_txDesc.m_txId << " Transaction failed. Rollback...";
         m_parent.m_keychain->rollbackTx(m_parent.m_txDesc.m_txId);
     }
 
@@ -343,7 +348,7 @@ namespace beam::wallet
 
     void Negotiator::FSMDefinition::confirmOutputs2(const events::TxRegistrationCompleted&)
     {
-        LOG_INFO() << "Transaction registered";
+        LOG_INFO() << m_parent.m_txDesc.m_txId << " Transaction registered";
         update_tx_description(TxDescription::Registered);
 
         auto coins = m_parent.m_keychain->getCoinsCreatedByTx(m_parent.m_txDesc.m_txId);
@@ -356,7 +361,7 @@ namespace beam::wallet
 
         m_parent.m_gateway.confirm_outputs(m_parent.m_txDesc);
     }
-    
+
     void Negotiator::FSMDefinition::completeTx(const events::TxOutputsConfirmed&)
     {
         completeTx();
@@ -364,7 +369,7 @@ namespace beam::wallet
 
     void Negotiator::FSMDefinition::completeTx()
     {
-        LOG_DEBUG() << "Transaction completed";
+        LOG_INFO() << m_parent.m_txDesc.m_txId << " Transaction completed";
         update_tx_description(TxDescription::Completed);
     }
 
@@ -441,15 +446,6 @@ namespace beam::wallet
         m_fsm.m_transaction->m_vOutputs = move(inviteMsg.m_outputs);
 
         return true;
-    }
-
-    Scalar Negotiator::FSMDefinition::createSignature() const
-    {
-        NoLeak<Point> publicNonce;
-        Scalar partialSignature;
-        NoLeak<Scalar> challenge;
-        createSignature2(partialSignature, publicNonce.V, challenge.V);
-        return partialSignature;
     }
 
     Scalar Negotiator::FSMDefinition::createSignature()
@@ -584,4 +580,4 @@ namespace beam::wallet
         });
         return outputs;
     }
-}
+}}

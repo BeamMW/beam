@@ -25,6 +25,17 @@ using namespace beam;
 using namespace std;
 using namespace beamui;
 
+namespace
+{
+template<typename T>
+bool compareTx(const T& lf, const T& rt, Qt::SortOrder sortOrder)
+{
+    if (sortOrder == Qt::DescendingOrder)
+        return lf > rt;
+    return lf < rt;
+}
+}
+
 TxObject::TxObject(const TxDescription& tx) : _tx(tx) {}
 
 bool TxObject::income() const
@@ -92,7 +103,7 @@ bool TxObject::canDelete() const
         || _tx.m_status == beam::TxDescription::Cancelled;
 }
 
-void TxObject::setUserName(QString name)
+void TxObject::setUserName(const QString& name)
 {
     if (_userName != name)
     {
@@ -101,7 +112,7 @@ void TxObject::setUserName(QString name)
     }
 }
 
-void TxObject::setDisplayName(QString name)
+void TxObject::setDisplayName(const QString& name)
 {
     if (_displayName != name)
     {
@@ -142,6 +153,25 @@ QString TxObject::getFee() const
     return QString{};
 }
 
+const beam::TxDescription& TxObject::getTxDescription() const
+{
+    return _tx;
+}
+
+void TxObject::setStatus(beam::TxDescription::Status status)
+{
+    if (_tx.m_status != status)
+    {
+        _tx.m_status = status;
+        emit statusChanged();
+    }
+}
+
+void TxObject::update(const beam::TxDescription& tx)
+{
+    setStatus(tx.m_status);
+}
+
 WalletViewModel::WalletViewModel()
     : _model(*AppModel::getInstance()->getWallet())
     , _status{ 0, 0, 0, 0, {0, 0, 0}, {} }
@@ -157,8 +187,8 @@ WalletViewModel::WalletViewModel()
 {
     connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
-    connect(&_model, SIGNAL(onTxStatus(const std::vector<beam::TxDescription>&)), 
-        SLOT(onTxStatus(const std::vector<beam::TxDescription>&)));
+    connect(&_model, SIGNAL(onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>&)),
+        SLOT(onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>&)));
 
     connect(&_model, SIGNAL(onTxPeerUpdated(const std::vector<beam::TxPeer>&)),
         SLOT(onTxPeerUpdated(const std::vector<beam::TxPeer>&)));
@@ -194,7 +224,7 @@ WalletViewModel::~WalletViewModel()
 
 void WalletViewModel::cancelTx(int index)
 {
-    auto *p = static_cast<TxObject*>(_tx[index]);
+    auto *p = static_cast<TxObject*>(_txList[index]);
     // TODO: temporary fix
     if (p->canCancel())
     {
@@ -204,7 +234,7 @@ void WalletViewModel::cancelTx(int index)
 
 void WalletViewModel::deleteTx(int index)
 {
-    auto *p = static_cast<TxObject*>(_tx[index]);
+    auto *p = static_cast<TxObject*>(_txList[index]);
     if (p->canDelete())
     {
         _model.async->deleteTx(p->_tx.m_txId);
@@ -294,13 +324,48 @@ void WalletViewModel::onStatus(const WalletStatus& status)
     }
 }
 
-void WalletViewModel::onTxStatus(const std::vector<TxDescription>& history)
+void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<TxDescription>& items)
 {
-    _tx.clear();
-
-    for (const auto& item : history)
+    if (action == beam::ChangeAction::Reset)
     {
-        _tx.push_back(new TxObject(item));
+        _txList.clear();
+        for (const auto& item : items)
+        {
+            _txList.push_back(new TxObject(item));
+        }
+    }
+    else if (action == beam::ChangeAction::Removed)
+    {
+        for (const auto& item : items)
+        {
+            auto it = find_if(_txList.begin(), _txList.end(), [&item](const auto& tx) {return item.m_txId == tx->_tx.m_txId; });
+            if (it != _txList.end())
+            {
+                _txList.erase(it);
+            }
+        }
+    }
+    else if (action == beam::ChangeAction::Updated)
+    {
+        auto txIt = _txList.begin();
+        auto txEnd = _txList.end();
+        for (const auto& item : items)
+        {
+            txIt = find_if(txIt, txEnd, [&item](const auto& tx) {return item.m_txId == tx->_tx.m_txId; });
+            if (txIt == txEnd)
+            {
+                break;
+            }
+            (*txIt)->update(item);
+        }
+    }
+    else if (action == beam::ChangeAction::Added)
+    {
+        // TODO in sort order
+        for (const auto& item : items)
+        {
+            _txList.insert(0, new TxObject(item));
+        }
     }
 
     emit transactionsChanged();
@@ -396,8 +461,12 @@ QString WalletViewModel::getReceiverAddr() const
 
 void WalletViewModel::setReceiverAddr(const QString& value)
 {
-    _receiverAddr = value;
-    //_isValidReceiverAddress = _model.check_receiver_address(value.toStdString());    emit receiverAddrChanged();
+    auto trimmedValue = value.trimmed();
+    if (_receiverAddr != trimmedValue)
+    {
+        _receiverAddr = trimmedValue;
+        emit receiverAddrChanged();
+    }
 }
 
 bool WalletViewModel::isValidReceiverAddress(const QString& value) {
@@ -415,22 +484,24 @@ void WalletViewModel::setSenderAddr(const QString& value)
     emit senderAddrChanged();
 }*/
 
-void WalletViewModel::setSendAmount(const QString& amount)
+void WalletViewModel::setSendAmount(const QString& value)
 {
-    if (amount != _sendAmount)
+    auto trimmedValue = value.trimmed();
+    if (trimmedValue != _sendAmount)
     {
-        _sendAmount = amount;
+        _sendAmount = trimmedValue;
         _model.async->calcChange(calcTotalAmount());
         emit sendAmountChanged();
         emit actualAvailableChanged();
     }
 }
 
-void WalletViewModel::setFeeMils(const QString& amount)
+void WalletViewModel::setFeeMils(const QString& value)
 {
-    if (amount != _feeMils)
+    auto trimmedValue = value.trimmed();
+    if (trimmedValue != _feeMils)
     {
-        _feeMils = amount;
+        _feeMils = trimmedValue;
         _model.async->calcChange(calcTotalAmount());
         emit feeMilsChanged();
         emit actualAvailableChanged();
@@ -439,14 +510,20 @@ void WalletViewModel::setFeeMils(const QString& amount)
 
 void WalletViewModel::setSelectedAddr(int index)
 {
-    _selectedAddr = index;
-    emit selectedAddrChanged();
+    if (_selectedAddr != index)
+    {
+        _selectedAddr = index;
+        emit selectedAddrChanged();
+    }
 }
 
 void WalletViewModel::setComment(const QString& value)
 {
-    _comment = value;
-	emit commentChanged();
+    if (_comment != value)
+    {
+        _comment = value;
+        emit commentChanged();
+    }
 }
 
 QString WalletViewModel::getComment() const
@@ -462,6 +539,57 @@ QString WalletViewModel::getBranchName() const
     return QString::fromStdString(" (" + BRANCH_NAME + ")");
 }
 
+QString WalletViewModel::sortRole() const
+{
+    return _sortRole;
+}
+
+void WalletViewModel::setSortRole(const QString& value)
+{
+    if (value != getIncomeRole() && value != getDateRole() && value != getAmountRole() &&
+        value != getStatusRole())
+        return;
+
+    _sortRole = value;
+    sortTx();
+}
+
+Qt::SortOrder WalletViewModel::sortOrder() const
+{
+    return _sortOrder;
+}
+
+void WalletViewModel::setSortOrder(Qt::SortOrder value)
+{
+    _sortOrder = value;
+    sortTx();
+}
+
+QString WalletViewModel::getIncomeRole() const
+{
+    return "income";
+}
+
+QString WalletViewModel::getDateRole() const
+{
+    return "date";
+}
+
+QString WalletViewModel::getDisplayNameRole() const
+{
+    return "displayName";
+}
+
+QString WalletViewModel::getAmountRole() const
+{
+    return "amount";
+}
+
+QString WalletViewModel::getStatusRole() const
+{
+    return "status";
+}
+
 QString WalletViewModel::receiverAddr() const
 {
     if (_selectedAddr < 0 || _addrList.empty()) return "";
@@ -473,7 +601,7 @@ QString WalletViewModel::receiverAddr() const
 
 QQmlListProperty<TxObject> WalletViewModel::getTransactions()
 {
-    return QQmlListProperty<TxObject>(this, _tx);
+    return QQmlListProperty<TxObject>(this, _txList);
 }
 
 QString WalletViewModel::syncTime() const
@@ -553,6 +681,47 @@ beam::Amount WalletViewModel::calcTotalAmount() const
     return calcSendAmount() + calcFeeAmount();
 }
 
+void WalletViewModel::sortTx()
+{
+    auto cmp = generateComparer();
+    std::sort(_txList.begin(), _txList.end(), cmp);
+
+    emit transactionsChanged();
+}
+
+std::function<bool(const TxObject*, const TxObject*)> WalletViewModel::generateComparer()
+{
+    if (_sortRole == getIncomeRole())
+        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
+    {
+        return compareTx(lf->getTxDescription().m_sender, rt->getTxDescription().m_sender, sortOrder);
+    };
+
+    if (_sortRole == getDisplayNameRole())
+        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
+    {
+        return compareTx(lf->displayName(), rt->displayName(), sortOrder);
+    };
+
+    if (_sortRole == getAmountRole())
+        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
+    {
+        return compareTx(lf->getTxDescription().m_amount, rt->getTxDescription().m_amount, sortOrder);
+    };
+
+    if (_sortRole == getStatusRole())
+        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
+    {
+        return compareTx(lf->status(), rt->status(), sortOrder);
+    };
+
+    // defult for dateRole
+    return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
+    {
+        return compareTx(lf->getTxDescription().m_createTime, rt->getTxDescription().m_createTime, sortOrder);
+    };
+}
+
 void WalletViewModel::sendMoney()
 {
     if (/*!_senderAddr.isEmpty() && */isValidReceiverAddress(getReceiverAddr()))
@@ -593,8 +762,12 @@ QString WalletViewModel::getNewReceiverAddr() const
 
 void WalletViewModel::setNewReceiverName(const QString& value)
 {
-    _newReceiverName = value;
-    emit newReceiverNameChanged();
+    auto trimmedValue = value.trimmed();
+    if (_newReceiverName != trimmedValue)
+    {
+        _newReceiverName = trimmedValue;
+        emit newReceiverNameChanged();
+    }
 }
 
 QString WalletViewModel::getNewReceiverName() const
@@ -609,7 +782,7 @@ void WalletViewModel::onAdrresses(bool own, const std::vector<beam::WalletAddres
         return;
     }
 
-    for (auto* tx : _tx)
+    for (auto* tx : _txList)
     {
         auto foundIter = std::find_if(addresses.cbegin(), addresses.cend(),
                                       [tx](const auto& address) { return address.m_walletID == tx->peerId(); });

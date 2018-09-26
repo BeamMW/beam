@@ -21,10 +21,10 @@
 #include <stdlib.h>
 
 #ifndef WIN32
-#	include <signal.h>
+#include <signal.h>
 #endif // WIN32
 
-#define LOG_VERBOSE_ENABLED 1
+#define LOG_VERBOSE_ENABLED 0
 #include "utility/logger.h"
 
 namespace beam { namespace io {
@@ -304,7 +304,6 @@ void Reactor::run() {
         LOG_DEBUG() << "loop wasn't initialized";
         return;
     }
-
     // NOTE: blocks
     uv_run(&_loop, UV_RUN_DEFAULT);
 }
@@ -589,8 +588,10 @@ void Reactor::GracefulIntHandler::SetHandler(bool bSet)
 
 void Reactor::GracefulIntHandler::Handler(int sig)
 {
-	assert(s_pAppReactor);
-	s_pAppReactor->stop();
+	if (sig != SIGPIPE) {
+        assert(s_pAppReactor);
+        s_pAppReactor->stop();
+    }
 }
 
 #endif // WIN32

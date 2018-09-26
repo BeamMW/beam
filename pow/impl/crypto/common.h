@@ -12,13 +12,9 @@
 #include <stdint.h>
 #include <assert.h>
 
-#if defined(_MSC_VER) || defined(__APPLE__)
+#if defined(_MSC_VER) || defined(__APPLE__) || defined(__ANDROID__)
 #include "compat/endian.h"
 #endif
-
-//#if defined(NDEBUG)
-//# error "Zcash cannot be compiled without assertions."
-//#endif
 
 uint16_t static inline ReadLE16(const unsigned char* ptr)
 {

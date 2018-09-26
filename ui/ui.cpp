@@ -44,6 +44,7 @@
 #include "version.h"
 
 #include "utility/string_helpers.h"
+#include "utility/helpers.h"
 
 #if defined(BEAM_USE_STATIC)
 
@@ -76,6 +77,7 @@ int main (int argc, char* argv[])
 #if defined Q_OS_WIN
 	QGuiApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
+    block_sigpipe();
 
     QApplication app(argc, argv);
 
@@ -131,8 +133,8 @@ int main (int argc, char* argv[])
 #if LOG_VERBOSE_ENABLED
         logLevel = LOG_LEVEL_VERBOSE;
 #endif
-        
-        auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_", 
+
+        auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_",
 			appDataDir.filePath(WalletSettings::LogsFolder).toStdString());
 
         try
@@ -173,7 +175,7 @@ int main (int argc, char* argv[])
             qmlRegisterType<UtxoItem>("Beam.Wallet", 1, 0, "UtxoItem");
 
             Translator translator;
-            view.setSource(QUrl("qrc:///root.qml"));
+            view.setSource(QUrl("qrc:/root.qml"));
 
             view.show();
 

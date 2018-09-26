@@ -34,11 +34,34 @@ int Equihash<N,K>::InitialiseState(eh_HashState& base_state)
 {
     uint32_t le_N = htole32(N);
     uint32_t le_K = htole32(K);
+
     unsigned char personalization[BLAKE2B_PERSONALBYTES] = {};
     memcpy(personalization, "ZcashPoW", 8);
     memcpy(personalization+8,  &le_N, 4);
     memcpy(personalization+12, &le_K, 4);
-    return blake2b_init_personal(&base_state, (512/N)*N/8, personalization);
+
+    const uint8_t outlen = (512 / N)*N / 8;
+
+    if ((!outlen) || (outlen > BLAKE2B_OUTBYTES))  return -1;
+
+    blake2b_param param =
+    {
+        outlen,
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        { 0 },
+        { 0 },
+        { 0 }
+    };
+
+    memcpy(&param.personal, personalization, BLAKE2B_PERSONALBYTES);
+
+    return blake2b_init_param(&base_state, &param);
 }
 
 void GenerateHash(const eh_HashState& base_state, eh_index g,
@@ -340,7 +363,7 @@ bool Equihash<N,K>::BasicSolve(const eh_HashState& base_state,
         GenerateHash(base_state, g, tmpHash, HashOutput);
         for (eh_index i = 0; i < IndicesPerHashOutput && X.size() < init_size; i++) {
             X.emplace_back(tmpHash+(i*N/8), N/8, HashLength,
-                           CollisionBitLength, (g*IndicesPerHashOutput)+i);
+                           CollisionBitLength, static_cast<int>(g*IndicesPerHashOutput)+i);
         }
         if (cancelled(ListGeneration)) throw solver_cancelled;
     }
@@ -519,7 +542,7 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
             GenerateHash(base_state, g, tmpHash, HashOutput);
             for (eh_index i = 0; i < IndicesPerHashOutput && Xt.size() < init_size; i++) {
                 Xt.emplace_back(tmpHash+(i*N/8), N/8, HashLength, CollisionBitLength,
-                                (g*IndicesPerHashOutput)+i, CollisionBitLength + 1);
+                    static_cast<eh_index>(g*IndicesPerHashOutput)+i, static_cast<unsigned int>(CollisionBitLength + 1));
             }
             if (cancelled(ListGeneration)) throw solver_cancelled;
         }

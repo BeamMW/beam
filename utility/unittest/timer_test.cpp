@@ -107,4 +107,3 @@ int main() {
     coarsetimer_test();
 }
 
-

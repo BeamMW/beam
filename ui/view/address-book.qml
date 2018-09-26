@@ -60,7 +60,7 @@ ColumnLayout {
 						anchors.centerIn: parent
 						font {
 							pixelSize: 18
-							weight: Font.Bold
+							styleName: "Bold"; weight: Font.Bold
 						}
 						color: Style.white
 						text: qsTr("Create new address")
@@ -106,7 +106,7 @@ ColumnLayout {
                         Layout.minimumHeight: 14
 						font {
 							pixelSize: 12
-							weight: Font.Bold
+							styleName: "Bold"; weight: Font.Bold
 						}
 						color: Style.white
 					}
@@ -134,7 +134,7 @@ ColumnLayout {
 						text: qsTr("Name")
 						font {
 							pixelSize: 12
-							weight: Font.Bold
+							styleName: "Bold"; weight: Font.Bold
 						}
 						color: Style.white
 					}
@@ -158,7 +158,7 @@ ColumnLayout {
 						text: qsTr("Category")
 						font {
 							pixelSize: 12
-							weight: Font.Bold
+							styleName: "Bold"; weight: Font.Bold
 						}
 						color: Style.white
 					}
@@ -191,7 +191,7 @@ ColumnLayout {
                         Layout.minimumHeight: 14
 						font {
 							pixelSize: 12
-							weight: Font.Bold
+							styleName: "Bold"; weight: Font.Bold
 						}
 						color: Style.white
 					}
@@ -213,7 +213,7 @@ ColumnLayout {
 						text: qsTr("Name")
 						font {
 							pixelSize: 12
-							weight: Font.Bold
+							styleName: "Bold"; weight: Font.Bold
 						}
 						color: Style.white
 					}
@@ -239,7 +239,7 @@ ColumnLayout {
 						text: qsTr("Category")
 						font {
 							pixelSize: 12
-							weight: Font.Bold
+							styleName: "Bold"; weight: Font.Bold
 						}
 						color: Style.white
 					}
@@ -273,7 +273,7 @@ ColumnLayout {
                             Layout.minimumHeight: 38
 							Layout.minimumWidth: 122
 							text: qsTr("cancel")
-							icon.source: "qrc:///assets/icon-cancel.svg"
+							icon.source: "qrc:/assets/icon-cancel.svg"
 
 							onClicked: {
 								createAddress.close()
@@ -286,7 +286,7 @@ ColumnLayout {
                             Layout.minimumHeight: 38
                             Layout.minimumWidth: 166
 							text: qsTr("create address")
-							icon.source: "qrc:///assets/icon-done.svg"
+							icon.source: "qrc:/assets/icon-done.svg"
 							palette.buttonText: Style.marine
 							enabled: {
 								if (createAddressLayout.state == "own") {
@@ -368,7 +368,7 @@ ColumnLayout {
                 width: 195
 				text: "create new address"
 				palette.buttonText: Style.white
-				icon.source: "qrc:///assets/icon-add.svg"
+				icon.source: "qrc:/assets/icon-add.svg"
                 onClicked: {
 					viewModel.generateNewEmptyAddress();
 					createAddressLayout.state = addressRoot.state;
@@ -451,7 +451,7 @@ ColumnLayout {
 
                 Action {
                     text: qsTr("send money")
-					icon.source: "qrc:///assets/icon-send-grey.svg"
+					icon.source: "qrc:/assets/icon-send-grey.svg"
                     onTriggered: {
                         viewModel.changeCurrentPeerAddress(peerAddressContextMenu.index);
 						main.openSendDialog();
@@ -460,17 +460,17 @@ ColumnLayout {
 
 				Action {
                     text: qsTr("request money")
-					icon.source: "qrc:///assets/icon-recive-grey.svg"
+					icon.source: "qrc:/assets/icon-recive-grey.svg"
 					enabled: false
                 }
 				Action {
                     text: qsTr("transactions list")
-					icon.source: "qrc:///assets/icon-transaction-list.svg"
+					icon.source: "qrc:/assets/icon-transaction-list.svg"
 					enabled: false
                 }
 				Action {
                     text: qsTr("copy address")
-					icon.source: "qrc:///assets/icon-copy.svg"
+					icon.source: "qrc:/assets/icon-copy.svg"
 					onTriggered: {
 						if (peerAddressContextMenu.index >= 0)
 						{
@@ -481,12 +481,12 @@ ColumnLayout {
                 }
 				Action {
                     text: qsTr("edit address")
-					icon.source: "qrc:///assets/icon-edit.svg"
+					icon.source: "qrc:/assets/icon-edit.svg"
 					enabled: false
                 }
 				Action {
                     text: qsTr("delete address")
-					icon.source: "qrc:///assets/icon-delete.svg"
+					icon.source: "qrc:/assets/icon-delete.svg"
 					onTriggered: {
                         var message = qsTr("The address %1 will be deleted. This operation can not be undone")
                         confirmationDialog.text = message.arg(viewModel.peerAddresses[peerAddressContextMenu.index].walletID)
@@ -508,7 +508,7 @@ ColumnLayout {
                 property int index;
 				Action {
                     text: qsTr("copy address")
-					icon.source: "qrc:///assets/icon-copy.svg"
+					icon.source: "qrc:/assets/icon-copy.svg"
 					onTriggered: {
 						if (ownAddressContextMenu.index >= 0)
 						{
@@ -519,7 +519,7 @@ ColumnLayout {
                 }
 				Action {
                     text: qsTr("delete address")
-					icon.source: "qrc:///assets/icon-delete.svg"
+					icon.source: "qrc:/assets/icon-delete.svg"
 					onTriggered: {
                         var message = qsTr("The address %1 will be deleted. This operation can not be undone")
                         confirmationDialog.text = message.arg(viewModel.ownAddresses[ownAddressContextMenu.index].walletID)
@@ -547,7 +547,7 @@ ColumnLayout {
 						anchors.verticalCenter: parent.verticalCenter
 						spacing: 10
 						CustomToolButton {
-							icon.source: "qrc:///assets/icon-delete.svg"
+							icon.source: "qrc:/assets/icon-delete.svg"
 							ToolTip.text: qsTr("Delete address")
 							onClicked: {
 								var message = qsTr("The address %1 will be deleted. This operation can not be undone");
@@ -557,7 +557,7 @@ ColumnLayout {
 							}
 						}
 						CustomToolButton {
-							icon.source: "qrc:///assets/icon-copy.svg"
+							icon.source: "qrc:/assets/icon-copy.svg"
 							ToolTip.text: qsTr("Copy address to clipboard")
 							onClicked: {
 								var addr = viewModel.peerAddresses[styleData.row];
@@ -565,7 +565,7 @@ ColumnLayout {
 							}
 						}
 						CustomToolButton {
-							icon.source: "qrc:///assets/icon-actions.svg"
+							icon.source: "qrc:/assets/icon-actions.svg"
 							ToolTip.text: qsTr("Actions")
 							onClicked: {
 								peerAddressContextMenu.index = styleData.row;
@@ -584,7 +584,7 @@ ColumnLayout {
 						anchors.verticalCenter: parent.verticalCenter
 						spacing: 10
 						CustomToolButton {
-							icon.source: "qrc:///assets/icon-delete.svg"
+							icon.source: "qrc:/assets/icon-delete.svg"
 							ToolTip.text: qsTr("Delete address")
 							onClicked: {
 								var message = qsTr("The address %1 will be deleted. This operation can not be undone");
@@ -594,7 +594,7 @@ ColumnLayout {
 							}
 						}
 						CustomToolButton {
-							icon.source: "qrc:///assets/icon-copy.svg"
+							icon.source: "qrc:/assets/icon-copy.svg"
 							ToolTip.text: qsTr("Copy address to clipboard")
 							onClicked: {
 								var addr = viewModel.ownAddresses[styleData.row];
@@ -602,7 +602,7 @@ ColumnLayout {
 							}
 						}
 						CustomToolButton {
-							icon.source: "qrc:///assets/icon-actions.svg"
+							icon.source: "qrc:/assets/icon-actions.svg"
 							ToolTip.text: qsTr("Actions")
 							onClicked: {
 								ownAddressContextMenu.index = styleData.row;

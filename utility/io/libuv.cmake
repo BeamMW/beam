@@ -42,7 +42,11 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
         set(UV_LDFLAGS advapi32 iphlpapi psapi userenv shell32 ws2_32)
 else()
-    set(UV_FLAGS -Wall -Wextra -Wno-unused-parameter -pedantic -march=native)
+    set(UV_FLAGS -Wall -Wextra -Wno-unused-parameter -pedantic)
+
+    if(NOT ANDROID)
+        list(APPEND UV_FLAGS -march=native)
+    endif()
 
     if(CMAKE_BUILD_TYPE MATCHES "Debug")
         list(APPEND UV_FLAGS -O0 -ggdb3)
@@ -75,7 +79,7 @@ else()
         ${UV_SRC_DIR}/unix/tty.c
         ${UV_SRC_DIR}/unix/udp.c
         ${UV_SRC_DIR}/unix/proctitle.c)
-    if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    if(LINUX OR ANDROID)
         set(UV_COMPILE_DEFS ${UV_COMPILE_DEFS} _GNU_SOURCE)
         set(UV_SOURCES ${UV_SOURCES}
             ${UV_SRC_DIR}/unix/linux-core.c
@@ -85,7 +89,7 @@ else()
             ${UV_SRC_DIR}/unix/proctitle.c
             ${UV_SRC_DIR}/unix/sysinfo-loadavg.c
             ${UV_SRC_DIR}/unix/sysinfo-memory.c)
-    elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+    elseif(APPLE)
         set(UV_COMPILE_DEFS ${UV_COMPILE_DEFS} _DARWIN_USE_64_BIT_INODE=1 _DARWIN_UNLIMITED_SELECT=1)
         set(UV_SOURCES ${UV_SOURCES}
             ${UV_SRC_DIR}/unix/darwin.c
@@ -94,6 +98,12 @@ else()
             ${UV_SRC_DIR}/unix/kqueue.c
             ${UV_SRC_DIR}/unix/proctitle.c)
     endif()
+
+    if(ANDROID)
+        set(UV_SOURCES ${UV_SOURCES}
+            ${UV_SRC_DIR}/unix/pthread-fixes.c)
+    endif()
+
 endif()
 
 add_library(uvinternal STATIC ${UV_SOURCES})

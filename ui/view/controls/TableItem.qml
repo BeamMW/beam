@@ -15,10 +15,8 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.leftMargin: 20
-        font.pixelSize: 12
+        font.pixelSize: 14
         color: Style.white
-
-        font.weight: Font.Normal
     }
 
     clip:true

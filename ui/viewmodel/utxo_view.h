@@ -37,6 +37,10 @@ public:
     QString status() const;
     QString type() const;
 
+    beam::Amount rawAmount() const;
+    beam::Height rawHeight() const;
+    beam::Height rawMaturity() const;
+
 signals:
     void changed();
 
@@ -52,12 +56,25 @@ class UtxoViewModel : public QObject
     Q_PROPERTY(QString currentHeight READ getCurrentHeight NOTIFY stateChanged)
     Q_PROPERTY(QString currentStateHash READ getCurrentStateHash NOTIFY stateChanged)
 
+    Q_PROPERTY(QString sortRole READ sortRole WRITE setSortRole)
+    Q_PROPERTY(Qt::SortOrder sortOrder READ sortOrder WRITE setSortOrder)
+
+    Q_PROPERTY(QString amountRole READ amountRole CONSTANT)
+    Q_PROPERTY(QString heightRole READ heightRole CONSTANT)
+    Q_PROPERTY(QString maturityRole READ maturityRole CONSTANT)
+    Q_PROPERTY(QString statusRole READ statusRole CONSTANT)
+    Q_PROPERTY(QString typeRole READ typeRole CONSTANT)
+
 public:
     UtxoViewModel();
     virtual ~UtxoViewModel();
     QQmlListProperty<UtxoItem> getAllUtxos();
     QString getCurrentHeight() const;
     QString getCurrentStateHash() const;
+    QString sortRole() const;
+    void setSortRole(const QString&);
+    Qt::SortOrder sortOrder() const;
+    void setSortOrder(Qt::SortOrder);
 public slots:
     void onAllUtxoChanged(const std::vector<beam::Coin>& utxos);
     void onStatus(const WalletStatus& status);
@@ -66,8 +83,20 @@ signals:
     void stateChanged();
 private:
 
+    void sortUtxos();
+
+    QString amountRole() const;
+    QString heightRole() const;
+    QString maturityRole() const;
+    QString statusRole() const;
+    QString typeRole() const;
+
+    std::function<bool(const UtxoItem*, const UtxoItem*)> generateComparer();
+
     QList<UtxoItem*> _allUtxos;
     QString _currentHeight;
     QString _currentStateHash;
     WalletModel& _model;
+    Qt::SortOrder _sortOrder;
+    QString _sortRole;
 };

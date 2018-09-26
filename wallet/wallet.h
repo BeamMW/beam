@@ -160,7 +160,7 @@ namespace beam
 
 		void set_node_address(io::Address node_address) override;
 		void emergencyReset() override;
-		bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode);
+		bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) override;
 
     private:
         void remove_peer(const TxID& txId);
@@ -193,14 +193,28 @@ namespace beam
         };
 
         template<typename Event>
-        bool process_event(const TxID& txId, Event&& event)
+        void process_event(const TxID& txId, Event&& event)
         {
-            Cleaner cs{ m_removedNegotiators };
-            if (auto it = m_negotiators.find(txId); it != m_negotiators.end())
+            auto f = [txId, event = std::move(event), this]()
             {
-                return it->second->processEvent(event);
+                Cleaner cs{ m_removedNegotiators };
+                if (auto it = m_negotiators.find(txId); it != m_negotiators.end())
+                {
+                    if (it->second->processEvent(event))
+                    {
+                        return;
+                    }
+                }
+                LOG_DEBUG() << txId << " Unexpected event";
+            };
+            if (m_synchronized)
+            {
+                f();
             }
-            return false;
+            else
+            {
+                m_pendingEvents.emplace_back(std::move(f));
+            }
         }
 
         template<typename Message>

@@ -23,20 +23,20 @@ class TxObject : public QObject
 {
     Q_OBJECT
 
-        Q_PROPERTY(bool income           READ income       NOTIFY incomeChanged)
-        Q_PROPERTY(QString date          READ date         NOTIFY dateChanged)
-        Q_PROPERTY(QString user          READ user         NOTIFY userChanged)
-        Q_PROPERTY(QString userName      READ userName     NOTIFY userChanged)
-		Q_PROPERTY(QString displayName   READ displayName  NOTIFY displayNameChanged)
-        Q_PROPERTY(QString comment       READ comment      NOTIFY commentChanged)
-        Q_PROPERTY(QString amount        READ amount       NOTIFY amountChanged)
-        Q_PROPERTY(QString change        READ change       NOTIFY changeChanged)
-        Q_PROPERTY(QString status        READ status       NOTIFY statusChanged)
-        Q_PROPERTY(bool canCancel        READ canCancel    NOTIFY canCancelChanged)
-        Q_PROPERTY(bool canDelete        READ canDelete    NOTIFY canDeleteChanged)
-        Q_PROPERTY(QString sendingAddress READ getSendingAddress CONSTANT)
-        Q_PROPERTY(QString receivingAddress READ getReceivingAddress CONSTANT)
-        Q_PROPERTY(QString fee           READ getFee CONSTANT)
+    Q_PROPERTY(bool income           READ income       NOTIFY incomeChanged)
+    Q_PROPERTY(QString date          READ date         NOTIFY dateChanged)
+    Q_PROPERTY(QString user          READ user         NOTIFY userChanged)
+    Q_PROPERTY(QString userName      READ userName     NOTIFY userChanged)
+	Q_PROPERTY(QString displayName   READ displayName  NOTIFY displayNameChanged)
+    Q_PROPERTY(QString comment       READ comment      NOTIFY commentChanged)
+    Q_PROPERTY(QString amount        READ amount       NOTIFY amountChanged)
+    Q_PROPERTY(QString change        READ change       NOTIFY changeChanged)
+    Q_PROPERTY(QString status        READ status       NOTIFY statusChanged)
+    Q_PROPERTY(bool canCancel        READ canCancel    NOTIFY canCancelChanged)
+    Q_PROPERTY(bool canDelete        READ canDelete    NOTIFY canDeleteChanged)
+    Q_PROPERTY(QString sendingAddress READ getSendingAddress CONSTANT)
+    Q_PROPERTY(QString receivingAddress READ getReceivingAddress CONSTANT)
+    Q_PROPERTY(QString fee           READ getFee CONSTANT)
 
 public:
 
@@ -59,8 +59,13 @@ public:
     QString getFee() const;
 	beam::WalletID peerId() const;
 
-	void setUserName(QString name);
-    void setDisplayName(QString name);
+	void setUserName(const QString& name);
+    void setDisplayName(const QString& name);
+    void setStatus(beam::TxDescription::Status status);
+
+    void update(const beam::TxDescription& tx);
+
+    const beam::TxDescription& getTxDescription() const;
 
 signals:
     void incomeChanged();
@@ -117,6 +122,14 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString comment READ getComment WRITE setComment NOTIFY commentChanged)
     Q_PROPERTY(QString branchName READ getBranchName CONSTANT)
 
+    Q_PROPERTY(QString sortRole READ sortRole WRITE setSortRole)
+    Q_PROPERTY(Qt::SortOrder sortOrder READ sortOrder WRITE setSortOrder)
+
+    Q_PROPERTY(QString incomeRole READ getIncomeRole CONSTANT)
+    Q_PROPERTY(QString dateRole READ getDateRole CONSTANT)
+    Q_PROPERTY(QString displayNameRole READ getDisplayNameRole CONSTANT)
+    Q_PROPERTY(QString amountRole READ getAmountRole CONSTANT)
+    Q_PROPERTY(QString statusRole READ getStatusRole CONSTANT)
 
 public:
 
@@ -175,10 +188,19 @@ public:
     void setComment(const QString& value);
 	QString getComment() const;
     QString getBranchName() const;
+    QString sortRole() const;
+    void setSortRole(const QString&);
+    Qt::SortOrder sortOrder() const;
+    void setSortOrder(Qt::SortOrder);
+    QString getIncomeRole() const;
+    QString getDateRole() const;
+    QString getDisplayNameRole() const;
+    QString getAmountRole() const;
+    QString getStatusRole() const;
 
 public slots:
     void onStatus(const WalletStatus& amount);
-    void onTxStatus(const std::vector<beam::TxDescription>& history);
+    void onTxStatus(beam::ChangeAction action, const std::vector<beam::TxDescription>& items);
     void sendMoney();
     void syncWithNode();
     void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
@@ -213,6 +235,10 @@ private:
     beam::Amount calcFeeAmount() const;
     beam::Amount calcTotalAmount() const;
 
+    void sortTx();
+
+    std::function<bool(const TxObject*, const TxObject*)> generateComparer();
+
 private:
 
     WalletModel& _model;
@@ -224,7 +250,7 @@ private:
 
     beam::Amount _change;
 
-    TxList _tx;
+    TxList _txList;
 
     std::vector<beam::TxPeer> _addrList;
 
@@ -241,4 +267,6 @@ private:
     int _nodeDone;
     int _nodeTotal;
     int _nodeSyncProgress;
+    Qt::SortOrder _sortOrder;
+    QString _sortRole;
 };

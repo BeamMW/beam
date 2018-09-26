@@ -67,9 +67,10 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
 
             start(keystore);
         }
-        catch (const std::runtime_error&)
+        catch (const beam::KeyStoreException&)
         {
             m_messages.addMessage("Failed to generate default address");
+            return false;
         }
 
         return true;

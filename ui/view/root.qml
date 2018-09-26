@@ -9,6 +9,8 @@ Item {
     height: 768
     property alias source: rootLoader.source
 
+    SFFontLoader {}
+    
     Popup {
         id: notifications
         closePolicy: Popup.NoAutoClose
@@ -55,7 +57,7 @@ Item {
                         Layout.minimumHeight: 20
                         Layout.minimumWidth: 20
                         Layout.rightMargin: 30
-                        icon.source: "qrc:///assets/icon-cancel.svg"
+                        icon.source: "qrc:/assets/icon-cancel.svg"
                         onClicked: viewModel.deleteMessage(index)
                     }
                 }
@@ -68,6 +70,6 @@ Item {
         width: parent.width
         height: parent.height
 	    focus: true
-        source : "qrc:///start.qml"
+        source : "qrc:/start.qml"
     }
 }

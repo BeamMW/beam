@@ -59,7 +59,7 @@ Rectangle {
                         y: 16
                         width: 28
                         height: 28
-                        source: "qrc:///assets/icon-" + modelData + (selectedItem == index ? "-active" : "") + ".svg"
+                        source: "qrc:/assets/icon-" + modelData + (selectedItem == index ? "-active" : "") + ".svg"
 					}
                     Item {
                         Rectangle {
@@ -97,14 +97,14 @@ Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             width: 40
             height: 28
-            source: "qrc:///assets/logo.svg"
+            source: "qrc:/assets/logo.svg"
 
 			MouseArea {
                 id: mouseArea
                 anchors.fill: parent
                 onClicked: {
 					selectedItem = -1;
-					content.setSource("qrc:///dashboard.qml");
+					content.setSource("qrc:/dashboard.qml");
 				}
             }
         }
@@ -124,13 +124,13 @@ Rectangle {
     function updateItem(index)
     {
         selectedItem = index
-        content.setSource("qrc:///" + contentItems[index] + ".qml", {"toSend": false})
+        content.setSource("qrc:/" + contentItems[index] + ".qml", {"toSend": false})
         viewModel.update(index)
     }
 
 	function openSendDialog() {
 		selectedItem = 0
-		content.setSource("qrc:///wallet.qml", {"toSend": true})
+		content.setSource("qrc:/wallet.qml", {"toSend": true})
         
 		viewModel.update(selectedItem)
 	}
@@ -138,7 +138,7 @@ Rectangle {
     Connections {
         target: viewModel
         onGotoStartScreen: { 
-            main.parent.source = "qrc:///start.qml"
+            main.parent.source = "qrc:/start.qml"
         }
     }
 

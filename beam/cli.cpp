@@ -231,6 +231,7 @@ int main(int argc, char* argv[]) {
 #ifdef _WIN32
     return main_impl(argc, argv);
 #else
+    block_sigpipe();
     auto f = std::async(
         std::launch::async,
         [argc, argv]() -> int {

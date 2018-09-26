@@ -14,6 +14,7 @@
 
 #include "logger_checkpoints.h"
 #include "helpers.h"
+#include "core/common.h"
 #include <boost/filesystem.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
@@ -135,9 +136,14 @@ private:
         string fileName(_fileNamePrefix);
         fileName += format_timestamp("%y_%m_%d_%H_%M_%S", local_timestamp_msec(), false);
         fileName += ".log";
+
         if (!_dstPath.empty())
         {
-            boost::filesystem::path path{ _dstPath };
+#ifdef WIN32
+            boost::filesystem::path path{ Utf8toUtf16(_dstPath.c_str()) };
+#else
+            boost::filesystem::path path{ _dstPath.c_str() };
+#endif
 
             if (!boost::filesystem::exists(path))
             {
@@ -145,12 +151,17 @@ private:
             }
 
             path /= fileName;
+#ifdef WIN32
+            _sink = _wfopen(path.wstring().c_str(), L"ab");
+#else
             _sink = fopen(path.string().c_str(), "ab");
+#endif
         }
         else
         {
             _sink = fopen(fileName.c_str(), "ab");
         }
+
         if (!_sink) throw runtime_error(string("cannot open file ") + fileName);
     }
 

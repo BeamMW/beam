@@ -52,7 +52,9 @@ T.RadioButton {
 		samples: 9
 		color: "white"
 		source: indicatorRect
-		visible: control.visualFocus
+        // TODO (roman.strilets) maybe should using control.focus property
+        // look at https://doc.qt.io/qt-5.9/qml-qtquick-controls2-control.html#visualFocus-prop
+		visible: /*control.visualFocus*/control.activeFocus
 	}
 
     contentItem: CheckLabel {

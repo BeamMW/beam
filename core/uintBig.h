@@ -129,12 +129,12 @@ namespace beam
 
         uintBig_t(const std::initializer_list<uint8_t>& v)
         {
-			_Assign(m_pData, nBytes, v.begin(), v.size());
+			_Assign(m_pData, nBytes, v.begin(), static_cast<uint32_t>(v.size()));
         }
 
 		uintBig_t(const std::vector<uint8_t>& v)
 		{
-			_Assign(m_pData, nBytes, v.empty() ? NULL : &v.at(0), v.size());
+			_Assign(m_pData, nBytes, v.empty() ? NULL : &v.at(0), static_cast<uint32_t>(v.size()));
 		}
 
 		template <typename T>
