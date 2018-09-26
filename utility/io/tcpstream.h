@@ -55,7 +55,7 @@ public:
     Result write(const SharedBuffer& buf);
 
     /// Writes raw data, returns status code
-    Result write(const std::vector<SharedBuffer>& fragments);
+    Result write(const SerializedMsg& fragments);
 
     /// Writes raw data, returns status code
     Result write(const BufferChain& buf);

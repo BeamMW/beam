@@ -14,19 +14,32 @@
 
 #pragma once
 #include "base_connection.h"
-#include "msg_reader.h"
+#include "http_msg_reader.h"
 
 namespace beam {
 
-/// Reads-writes messages from-to connected stream
-class Connection : public BaseConnection {
+/// Reads-writes http messages from-to connected stream
+class HttpConnection : public BaseConnection {
 public:
-    using Ptr = std::unique_ptr<Connection>;
+    using Ptr = std::unique_ptr<HttpConnection>;
 
     /// Attaches connected tcp stream to protocol
-    Connection(ProtocolBase& protocol, uint64_t peerId, Direction d, size_t defaultMsgSize, io::TcpStream::Ptr&& stream) :
+    HttpConnection(
+        uint64_t peerId,
+        Direction d,
+        HttpMsgReader::Callback callback,
+        size_t maxBodySize,
+        size_t bodySizeThreshold,
+        io::TcpStream::Ptr&& stream
+    ) :
         BaseConnection(d, std::move(stream)),
-        _msgReader(protocol, peerId, defaultMsgSize)
+        _msgReader(
+            d == BaseConnection::inbound ? HttpMsgReader::server : HttpMsgReader::client,
+            peerId,
+            std::move(callback),
+            maxBodySize,
+            bodySizeThreshold
+        )
     {
         _stream->enable_read([this](io::ErrorCode what, void* data, size_t size){ _msgReader.new_data_from_stream(what, data, size); });
     }
@@ -34,20 +47,8 @@ public:
     uint64_t id() const override { return _msgReader.id(); }
     void change_id(uint64_t newId) override { _msgReader.change_id(newId); }
 
-    /// Allows receiving messages of given type
-    void enable_msg_type(MsgType type) { _msgReader.enable_msg_type(type); }
-
-    /// Allows receiving of all msg types
-    void enable_all_msg_types() { _msgReader.enable_all_msg_types(); }
-
-    /// Disables receiving messages of given type
-    void disable_msg_type(MsgType type) { _msgReader.disable_msg_type(type); }
-
-    /// Disables all messages
-    void disable_all_msg_types() { _msgReader.disable_all_msg_types(); }
-
 private:
-    MsgReader _msgReader;
+    HttpMsgReader _msgReader;
 };
 
 } //namespace

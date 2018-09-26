@@ -30,7 +30,14 @@ public:
     Result post();
 
     struct Trigger {
+        Trigger() = default;
+
         Trigger(const AsyncEvent::Ptr& ae) : _event(ae) {}
+
+        Trigger& operator=(const AsyncEvent::Ptr& ae) {
+            _event = ae;
+            return *this;
+        }
 
         Result operator()() {
             auto e = _event.lock();

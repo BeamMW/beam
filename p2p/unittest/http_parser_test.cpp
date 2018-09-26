@@ -110,7 +110,7 @@ int test_multiple() {
     const char* input10 = "GET /zzz HTTP/1.1\r\nHost: example.com\r\nxxx: yyy\r\nContent-Length: 10\r\n\r\n0123456789";
     std::string stream;
 
-    for (int i=0; i<100; ++i) {
+    for (int i=0; i<1234; ++i) {
         if (i % 3 == 0) stream += input0;
         else stream += input10;
     }
