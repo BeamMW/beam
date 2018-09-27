@@ -23,7 +23,7 @@ class HttpMsgCreator;
 namespace stratum {
 
 #define STRATUM_METHODS(macro) \
-    macro(0, null_method, Error) \
+    macro(0, null_method, Dummy) \
     macro(1, login, Login) \
     macro(2, status, Status)
 
@@ -93,9 +93,26 @@ struct Response : Message {
     Response() = default;
 };
 
+struct DummyRequest {};
+struct DummyResponse {};
+struct LoginRequest : Message {};
+struct LoginResponse : Response {};
+struct StatusRequest : Message {};
+struct StatusResponse : Response {};
+
 struct ParserCallback {
     virtual ~ParserCallback() = default;
 
+    virtual void on_error(ErrorCode code) {}
+    virtual void on_unsupported_method(Method method, bool isRequest) { on_error(unknown_method); }
+
+#define DEF_HANDLER(code, label, prefix) \
+    virtual void on_message(const prefix ## Request & r) { on_unsupported_method(label, true); } \
+    virtual void on_message(const prefix ## Response & r) { on_unsupported_method(label, false); }
+
+    STRATUM_METHODS(DEF_HANDLER)
+
+#undef DEF_HANDLER
 
 };
 
