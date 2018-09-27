@@ -15,6 +15,7 @@
 #include "http_msg_reader.h"
 #include "picohttpparser/picohttpparser.h"
 #include <map>
+#include <vector>
 #include <algorithm>
 #include <string.h>
 #include <assert.h>

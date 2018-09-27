@@ -34,11 +34,10 @@ bool write_fmt(FragmentWriter& fw, const char* fmt, ...) {
 }
 
 bool create_message(
-    io::SerializedMsg& out,
     FragmentWriter& fw,
     const HeaderPair* headers, size_t num_headers,
     const char* content_type,
-    const io::SharedBuffer& body
+    size_t bodySize
 ) {
     for (size_t i=0; i<num_headers; ++i) {
         const HeaderPair& p = headers[i];
@@ -51,17 +50,14 @@ bool create_message(
         }
     }
 
-    if (body.size > 0) {
+    if (bodySize > 0) {
         assert(content_type != nullptr);
         if (!write_fmt(fw, "%s: %s\r\n", "Content-Type", content_type)) return false;
-        if (!write_fmt(fw, "%s: %lu\r\n", "Content-Length", (unsigned long)body.size)) return false;
-        fw.write("\r\n", 2);
-        fw.finalize();
-        out.push_back(body);
-    } else {
-        fw.write("\r\n", 2);
-        fw.finalize();
+        if (!write_fmt(fw, "%s: %lu\r\n", "Content-Length", (unsigned long)bodySize)) return false;
     }
+
+    fw.write("\r\n", 2);
+    fw.finalize();
 
     return true;
 }
@@ -75,7 +71,7 @@ bool HttpMsgCreator::create_request(
     const HeaderPair* headers, size_t num_headers,
     int http_minor_version,
     const char* content_type,
-    const io::SharedBuffer& body
+    size_t bodySize
 ) {
     CurrentOutput co(out, &_currentMsg);
 
@@ -83,7 +79,7 @@ bool HttpMsgCreator::create_request(
     assert(path != nullptr);
     if (!write_fmt(_fragmentWriter, "%s %s HTTP/1.%d\r\n", method, path, http_minor_version)) return false;
 
-    return create_message(out, _fragmentWriter, headers, num_headers, content_type, body);
+    return create_message(_fragmentWriter, headers, num_headers, content_type, bodySize);
 }
 
 bool HttpMsgCreator::create_response(
@@ -93,14 +89,14 @@ bool HttpMsgCreator::create_response(
     const HeaderPair* headers, size_t num_headers,
     int http_minor_version,
     const char* content_type,
-    const io::SharedBuffer& body
+    size_t bodySize
 ) {
     CurrentOutput co(out, &_currentMsg);
 
     assert(message != nullptr);
     if (!write_fmt(_fragmentWriter, "HTTP/1.%d %d %s\r\n", http_minor_version, code, message)) return false;
 
-    return create_message(out, _fragmentWriter, headers, num_headers, content_type, body);
+    return create_message(_fragmentWriter, headers, num_headers, content_type, bodySize);
 }
 
 } //namepsace

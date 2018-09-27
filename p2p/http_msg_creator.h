@@ -40,7 +40,7 @@ public:
         const HeaderPair* headers, size_t num_headers,
         int http_minor_version = 1,
         const char* content_type = "",
-        const io::SharedBuffer& body = io::SharedBuffer()
+        size_t bodySize = 0
     );
 
     bool create_response(
@@ -50,8 +50,18 @@ public:
         const HeaderPair* headers, size_t num_headers,
         int http_minor_version = 1,
         const char* content_type = 0,
-        const io::SharedBuffer& body = io::SharedBuffer()
+        size_t bodySize = 0
     );
+
+    // for external body serializations (json etc)
+    FragmentWriter& acquire_writer(io::SerializedMsg& out) {
+        _currentMsg = &out;
+        return _fragmentWriter;
+    }
+
+    void release_writer() {
+        _currentMsg = 0;
+    }
 
 private:
     FragmentWriter _fragmentWriter;

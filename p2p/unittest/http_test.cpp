@@ -94,8 +94,9 @@ private:
             sizeof(headers) / sizeof(HeaderPair),
             1,
             "text/plain",
-            body
+            body.size
         )) {
+            if (!body.empty()) _serialized.push_back(body);
             _theConnection->write_msg(_serialized);
             _theConnection->shutdown();
         } else {
