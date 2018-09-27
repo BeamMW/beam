@@ -1578,7 +1578,7 @@ int main()
     TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
     TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
 
-   // TestTxToHimself();
+    TestTxToHimself();
 
     TestRollback();
 

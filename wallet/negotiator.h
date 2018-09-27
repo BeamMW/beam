@@ -39,6 +39,9 @@ namespace beam { namespace wallet
         Outputs,
         BlindingExcess,
         PeerSignature,
+
+        PublicFirstParam = 1 << 16,
+
         PublicPeerNonce,
         PublicPeerExcess,
         PeerOffset,
@@ -60,36 +63,19 @@ namespace beam { namespace wallet
             , beam::IKeyChain::Ptr keychain
             , const TxDescription& txDesc);
 
-        //void saveState();
-
-        TxKernel* getKernel() const;
-
         const TxID& getTxID() const;
         void cancel() override;
     protected:
  
-        void sendNewTransaction() const;
         void confirmKernel(const TxKernel& kernel);
         void confirmOutputs();
         void completeTx();
         void rollbackTx();
         void updateTxDescription(TxDescription::Status s);
-        bool prepareSenderUtxos(const Height& currentHeight);
-        bool registerTxInternal(const ECC::Scalar& peerSignature);
-        bool constructTxInternal(const ECC::Scalar::Native& signature);
         TxKernel::Ptr createKernel(Amount fee, Height minHeight) const;
         ECC::Signature::MultiSig createMultiSig(const TxKernel& kernel, const ECC::Scalar::Native& blindingExcess) const;
-        //ECC::Scalar::Native createSignature(const TxKernel& kernel, const ECC::Scalar::Native& blindingExcess, ECC::Signature::MultiSig& msig) const;
-        void createOutputUtxo(Amount amount, Height height);
-        ECC::Scalar createSignature();
-        void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce, ECC::Scalar& challenge) const;
-        ECC::Point getPublicExcess() const;
-        ECC::Point getPublicNonce() const;
-        bool isValidSignature(const ECC::Scalar::Native& peerSignature) const;
-        bool isValidSignature(const ECC::Scalar::Native& peerSignature, const ECC::Point::Native& publicPeerNonce, const ECC::Point::Native& publicPeerExcess) const;
         std::vector<Input::Ptr> getTxInputs(const TxID& txID) const;
         std::vector<Output::Ptr> getTxOutputs(const TxID& txID) const;
-		void get_NonceInternal(ECC::Signature::MultiSig&) const;
 
         template <typename T>
         bool getParameter(TxParams paramID, T& value)
@@ -128,41 +114,21 @@ namespace beam { namespace wallet
 
     protected:
 
-        ECC::Scalar::Native m_blindingExcess;
-        ECC::Scalar::Native m_offset;
-        ECC::Scalar::Native m_peerSignature;
-        ECC::Point::Native m_publicPeerExcess;
-        ECC::Point::Native m_publicPeerNonce;
-        Transaction::Ptr m_transaction;
-        TxKernel::Ptr m_kernel;
-
         INegotiatorGateway& m_gateway;
         beam::IKeyChain::Ptr m_keychain;
 
         TxDescription m_txDesc;
     };
 
-    class SendTransaction : public BaseTransaction
+    class SimpleTransaction : public BaseTransaction
     {
     public:
-        SendTransaction(INegotiatorGateway& gateway
+        SimpleTransaction(INegotiatorGateway& gateway
             , beam::IKeyChain::Ptr keychain
             , const TxDescription& txDesc);
         void update() override;
     private:
-        void sendSelfTx();
-        void sendInvite() const;
         void sendConfirmTransaction(const ECC::Scalar& peerSignature) const;
-    };
-
-    class ReceiveTransaction : public BaseTransaction
-    {
-    public:
-        ReceiveTransaction(INegotiatorGateway& gateway
-            , beam::IKeyChain::Ptr keychain
-            , const TxDescription& txDesc);
-        void update() override;
-    private:
-        void sendConfirmInvitation() const;
+        void sendConfirmInvitation(const ECC::Point::Native& publicExcess, const ECC::Point::Native& publicNonce, const ECC::Scalar::Native& partialSignature) const;
     };
 }}

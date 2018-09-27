@@ -165,7 +165,7 @@ namespace beam
         TxDescription tx( txId, amount, fee, m_keyChain->getCurrentHeight(), to, from, move(message), getTimestamp(), sender);
         m_keyChain->saveTx(tx);
 
-        BaseTransaction::Ptr s = make_shared<SendTransaction>(*this, m_keyChain, tx);
+        BaseTransaction::Ptr s = make_shared<SimpleTransaction>(*this, m_keyChain, tx);
         m_transactions.emplace(tx.m_txId, s);
 
         if (m_synchronized)
@@ -263,7 +263,6 @@ namespace beam
     {
         if (auto it = m_transactions.find(tx.m_txId); it != m_transactions.end())
         {
-            //get_kernel_proof(it->second);
             proto::GetProofKernel kernelMsg = {};
             kernel.get_ID(kernelMsg.m_ID);
             m_pendingKernelProofs.push_back(it->second);
@@ -303,7 +302,7 @@ namespace beam
                 messageBuffer.assign(receiverAddress->m_label.begin(), receiverAddress->m_label.end());
             }
             TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, receiver, move(messageBuffer), getTimestamp(), sender };
-            BaseTransaction::Ptr r = make_shared<SendTransaction>(*this, m_keyChain, tx);
+            BaseTransaction::Ptr r = make_shared<SimpleTransaction>(*this, m_keyChain, tx);
             m_transactions.emplace(tx.m_txId, r);
             m_keyChain->saveTx(tx);
             setTxParameter(msg.m_txId, TxParams::PublicPeerNonce, msg.m_publicPeerNonce);
@@ -692,19 +691,6 @@ namespace beam
         });
         get_kernel_utxo_proofs(n);
 
-        /*auto kernel = n->getKernel();
-        assert(kernel);
-        if (IsTestMode() || m_newState.IsValidProofKernel(*kernel, msg.m_Proof))
-        {
-            
-            LOG_INFO() << "Got proof for tx: " << n->getTxID();
-            m_pendingEvents.emplace_back([n]()
-            {
-                n->update();
-            });
-            get_kernel_utxo_proofs(n);
-        }*/
-
         return exit_sync();
     }
 
@@ -726,29 +712,6 @@ namespace beam
         // fast-forward
         enter_sync(); // Mined
         m_network->send_node_message(proto::GetMined{ m_knownStateID.m_Height });
-
-        for (auto p : m_transactions)
-        {
-            get_kernel_proof(p.second);
-        }
-    }
-
-    void Wallet::get_kernel_proof(BaseTransaction::Ptr n)
-    {
-        TxKernel* kernel = n->getKernel();
-        if (kernel)
-        {
-            proto::GetProofKernel kernelMsg = {};
-            kernel->get_ID(kernelMsg.m_ID);
-            m_pendingKernelProofs.push_back(n);
-            kernelMsg.m_RequestHashPreimage = true;
-            enter_sync();
-            m_network->send_node_message(move(kernelMsg));
-        }
-        else // we lost kernel for some reason
-        {
-            get_kernel_utxo_proofs(n);
-        }
     }
 
     void Wallet::get_kernel_utxo_proofs(BaseTransaction::Ptr n)
