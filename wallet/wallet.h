@@ -15,7 +15,7 @@
 #pragma once
 
 #include "wallet/wallet_db.h"
-#include "wallet/negotiator.h"
+#include "wallet/wallet_transaction.h"
 #include <deque>
 #include "core/proto.h"
 

@@ -5,7 +5,7 @@ add_definitions( -DSQLITE_HAS_CODEC )
 set(WALLET_SRC
     wallet.h
     wallet.cpp
-    negotiator.cpp
+    wallet_transaction.cpp
     wallet_network.cpp
     wallet_db.cpp
     keystore.cpp
