@@ -15,6 +15,45 @@ Item
 
     StartViewModel { id: viewModel }
 
+    Component
+    {
+        id: logoComponent
+
+        Column
+        {
+            spacing: 20
+
+            Image {
+                anchors.horizontalCenter: parent.horizontalCenter
+
+                source: "qrc:/assets/start-logo.svg"
+                width: 242
+                height: 170
+            }
+
+            SFText {
+                anchors.horizontalCenter: parent.horizontalCenter
+
+                text: qsTr("BEAM")
+                color: "#25c1ff"
+                font.pixelSize: 32
+                font.styleName: "Bold"; font.weight: Font.Bold
+                font.letterSpacing: 20
+            }
+
+            SFText {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.topMargin: 20
+
+                text: qsTr("Scalable confidential cryptocurrency")
+
+                color: "#25c1ff"
+                font.pixelSize: 18
+                font.styleName: "Bold"; font.weight: Font.Bold
+            }
+        }                    
+    }
+
     StackView {
         id: startWizzardView
         anchors.fill: parent
@@ -39,13 +78,12 @@ Item
 
                 property Item defaultFocusItem: createNewWallet
 
-                Image {
+                Loader { 
+                    sourceComponent: logoComponent 
+
                     anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.topMargin: 180
                     anchors.top: parent.top
-                    source: "qrc:/assets/start-logo.svg"
-                    width: 242
-                    height: 170
+                    anchors.topMargin: 140
                 }
 
                 Row {
@@ -62,10 +100,17 @@ Item
                     //     text: qsTr("restore wallet from blockchain")
                     // }
 
-                    PrimaryButton {
-                        id: createNewWallet
+                    CustomButton {
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        width: 202
                         text: qsTr("create new wallet")
+                        palette.buttonText: Style.marine
+                        icon.source: "qrc:/assets/icon-add-blue.svg"
                         onClicked: startWizzardView.push(nodeSetup);
+                        palette.button: Style.bright_teal
+                        icon.width: 16
+                        icon.height: 16
                     }
                 }
             }
@@ -472,103 +517,109 @@ Item
             source: "qrc:/assets/bg.svg"
         }
 
-        Image {
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.topMargin: 100
-            anchors.top: parent.top
-            source: "qrc:/assets/start-logo.svg"
-            width: 242
-            height: 170
-        }
-
-        SFText {
-            text: qsTr("Enter your password to access the current wallet")
-            color: Style.white
-            font.pixelSize: 14
-
+        Loader { 
+            sourceComponent: logoComponent 
+            
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
-            anchors.topMargin: 408
+            anchors.topMargin: 140
         }
+
 
         Column {
-            width: 400
-
+            
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
-            anchors.topMargin: 476
+            anchors.topMargin: 439
 
-            //clip: true
-
-            spacing: 10
+            spacing: 50
 
             SFText {
-                text: qsTr("Enter password")
+                text: qsTr("Enter your password to access the current wallet")
                 color: Style.white
                 font.pixelSize: 14
-                font.styleName: "Bold"; font.weight: Font.Bold
+
+                anchors.horizontalCenter: parent.horizontalCenter
             }
 
-            SFTextInput {
-                id: openPassword
-                width: parent.width
-                focus: true
-                activeFocusOnTab: true
-                font.pixelSize: 14
-                color: Style.white
-                echoMode: TextInput.Password
-                onAccepted: btnCurrentWallet.clicked()
-                onTextChanged: if (openPassword.text.length > 0) openPasswordError.text = ""
+            Column {
+                width: 400
 
+                spacing: 10
+
+                SFText {
+                    text: qsTr("Enter password")
+                    color: Style.white
+                    font.pixelSize: 14
+                    font.styleName: "Bold"; font.weight: Font.Bold
+                }
+
+                SFTextInput {
+                    id: openPassword
+                    width: parent.width
+                    focus: true
+                    activeFocusOnTab: true
+                    font.pixelSize: 14
+                    color: Style.white
+                    echoMode: TextInput.Password
+                    onAccepted: btnCurrentWallet.clicked()
+                    onTextChanged: if (openPassword.text.length > 0) openPasswordError.text = ""
+
+                }
+
+                SFText {
+                    id: openPasswordError
+                    color: Style.validator_color
+                    font.pixelSize: 14
+                }
             }
 
-            SFText {
-                id: openPasswordError
-                color: Style.validator_color
-                font.pixelSize: 14
-            }
-        }
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
 
-        Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.topMargin: 587
-            anchors.top: parent.top
+                spacing: 30
 
-            spacing: 30
+                //DefaultButton {
+                //    text: qsTr("restore wallet from file")
+                    // activeFocusOnTab: true
+                //}
 
-            //DefaultButton {
-            //    text: qsTr("restore wallet from file")
-                // activeFocusOnTab: true
-            //}
+        //         DefaultButton {
+        //             text: qsTr("restore wallet from blockchain")
+                    // activeFocusOnTab: true
+        //         }
 
-    //         DefaultButton {
-    //             text: qsTr("restore wallet from blockchain")
-                // activeFocusOnTab: true
-    //         }
+                CustomButton {
+                    anchors.verticalCenter: parent.verticalCenter
 
-            PrimaryButton {
-                id: btnCurrentWallet
-                text: qsTr("open wallet")
-                activeFocusOnTab: true
-                onClicked: {
-                    if(openPassword.text.length == 0)
-                    {
-                        openPasswordError.text = qsTr("Please, enter password");
-                    }
-                    else
-                    {
-                        if(!viewModel.openWallet(openPassword.text))
+                    width: 188
+                    text: qsTr("show my wallet")
+                    palette.buttonText: Style.marine
+                    icon.source: "qrc:/assets/icon-wallet-small.svg"
+                    palette.button: Style.bright_teal
+                    icon.width: 16
+                    icon.height: 16
+                    onClicked: {
+                        if(openPassword.text.length == 0)
                         {
-                            openPasswordError.text = qsTr("Invalid password or wallet data unreadable.\nRestore wallet.db from latest backup or delete it and reinitialize the wallet.");
+                            openPasswordError.text = qsTr("Please, enter password");
                         }
                         else
                         {
-                             root.parent.source = "qrc:/main.qml";
+                            if(!viewModel.openWallet(openPassword.text))
+                            {
+                                openPasswordError.text = qsTr("Invalid password or wallet data unreadable.\nRestore wallet.db from latest backup or delete it and reinitialize the wallet.");
+                            }
+                            else
+                            {
+                                 root.parent.source = "qrc:/main.qml";
+                            }
                         }
                     }
                 }
             }
         }
+
     }
 
     Component.onCompleted:{
