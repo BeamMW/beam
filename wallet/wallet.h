@@ -133,7 +133,7 @@ namespace beam
         void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmInvitation&&) override;
         void register_tx(const TxDescription& tx, Transaction::Ptr) override;
         void send_tx_registered(const TxDescription& tx) override;
-        void confirm_outputs(const TxDescription&) override;
+        void confirm_outputs(const std::vector<Coin>&) override;
         void confirm_kernel(const TxDescription&, const TxKernel&) override;
         bool get_tip(Block::SystemState::Full& state) const override;
         bool isTestMode() const override;
@@ -169,7 +169,6 @@ namespace beam
 
         void getUtxoProofs(const std::vector<Coin>& coins);
         void do_fast_forward();
-        void get_kernel_utxo_proofs(wallet::BaseTransaction::Ptr n);
         void enter_sync();
         bool exit_sync();
         void report_sync_progress();
@@ -205,7 +204,8 @@ namespace beam
 
         IKeyChain::Ptr m_keyChain;
         INetworkIO::Ptr m_network;
-        std::map<TxID, wallet::BaseTransaction::Ptr>   m_transactions;
+        std::map<TxID, wallet::BaseTransaction::Ptr> m_transactions;
+        std::set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
         TxCompletedAction m_tx_completed_action;
         std::deque<std::pair<TxID, Transaction::Ptr>> m_reg_requests;
         std::vector<std::pair<TxID, Transaction::Ptr>> m_pending_reg_requests;

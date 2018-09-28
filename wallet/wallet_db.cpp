@@ -730,7 +730,7 @@ namespace beam
                 }
                 {
                     int version = 0;
-                    if (!keychain->getVar(Version, version) || version != DbVersion)
+                    if (!keychain->getVar(Version, version) || version > DbVersion)
                     {
                         LOG_DEBUG() << "Invalid DB version: " << version << ". Expected: " << DbVersion;
                         return Ptr();
@@ -774,6 +774,12 @@ namespace beam
                         LOG_ERROR() << "Invalid DB format :(";
                         return Ptr();
                     }
+                }
+
+                {
+                    const char* req = "CREATE TABLE IF NOT EXISTS " TX_PARAMS_NAME " (" ENUM_TX_PARAMS_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (txID, paramID)) WITHOUT ROWID;";
+                    int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                    throwIfError(ret, keychain->_db);
                 }
 
                 if (keychain->getVar(WalletSeed, seed))

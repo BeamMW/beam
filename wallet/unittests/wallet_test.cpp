@@ -261,7 +261,7 @@ namespace
             cout << "sent tx registration completed \n";
         }
 
-        void confirm_outputs(const TxDescription&) override
+        void confirm_outputs(const vector<Coin>&) override
         {
             cout << "confirm outputs\n";
         }
@@ -512,7 +512,34 @@ namespace
         void send_node_message(proto::NewTransaction&& data) override
         {
             cout << "NewTransaction\n";
+
+            for (const auto& input : data.m_Transaction->m_vInputs)
+            {
+                RemoveCommitment(input->m_Commitment);
+            }
+            for (const auto& output : data.m_Transaction->m_vOutputs)
+            {
+                AddCommitment(output->m_Commitment);
+            }
+
             enqueueNetworkTask([this, data] {m_peers[0]->handle_node_message(proto::Boolean{ true }); });
+        }
+
+        set<ECC::Point> m_Commitments;
+
+        void AddCommitment(const ECC::Point& c)
+        {
+            m_Commitments.insert(c);
+        }
+
+        void RemoveCommitment(const ECC::Point& c)
+        {
+            m_Commitments.erase(c);
+        }
+
+        bool HasCommitment(const ECC::Point& c)
+        {
+            return m_Commitments.find(c) != m_Commitments.end();
         }
 
         void send_node_message(proto::GetMined&& data) override
@@ -521,11 +548,20 @@ namespace
             enqueueNetworkTask([this] {m_peers[0]->handle_node_message(proto::Mined{ }); });
         }
 
-        void send_node_message(proto::GetProofUtxo&&) override
+        void send_node_message(proto::GetProofUtxo&& msg) override
         {
             cout << "GetProofUtxo\n";
 
-            enqueueNetworkTask([this] {m_peers[0]->handle_node_message(proto::ProofUtxo()); });
+            Input::Proof proof = {};
+            if (HasCommitment(msg.m_Utxo.m_Commitment))
+            {
+                proof.m_State.m_Maturity = 134 + 60;
+                enqueueNetworkTask([this, proof = move(proof)]() {m_peers[0]->handle_node_message(proto::ProofUtxo({ proof })); });
+            }
+            else
+            {
+                enqueueNetworkTask([this, proof = move(proof)]() {m_peers[0]->handle_node_message(proto::ProofUtxo()); });
+            }
         }
 
         void send_node_message(proto::GetHdr&&) override
@@ -606,7 +642,7 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
     int count = 0;
     auto f = [&count, network, network2](const auto& /*id*/)
     {
-        if (++count >= (network->m_peerCount + network2->m_peerCount))
+        if (++count >= 2)
         {
             network->shutdown();
             network2->shutdown();

@@ -146,6 +146,7 @@ namespace beam
         , m_holdNodeConnection{ holdNodeConnection }
     {
         assert(keyChain);
+        ZeroObject(m_newState);
         m_keyChain->getSystemStateID(m_knownStateID);
         m_network->set_wallet(this);
         resume_all_tx();
@@ -168,17 +169,7 @@ namespace beam
         BaseTransaction::Ptr s = make_shared<SimpleTransaction>(*this, m_keyChain, tx);
         m_transactions.emplace(tx.m_txId, s);
 
-        if (m_synchronized)
-        {
-            s->update();
-        }
-        else
-        {
-            m_pendingEvents.emplace_back([s]()
-            {
-                s->update();
-            });
-        }
+        updateTransaction(tx.m_txId);
 
         return txId;
     }
@@ -187,9 +178,9 @@ namespace beam
     {
         if (tx.canResume() && m_transactions.find(tx.m_txId) == m_transactions.end())
         {
- //           auto s = make_shared<Negotiator>(*this, m_keyChain, tx);
+            auto s = make_shared<SimpleTransaction>(*this, m_keyChain, tx);
 
- //           m_transactions.emplace(tx.m_txId, s);
+            m_transactions.emplace(tx.m_txId, s);
         }
     }
 
@@ -251,12 +242,9 @@ namespace beam
         send_tx_message(tx, wallet::TxRegistered{ tx.m_peerId, tx.m_txId, true });
     }
 
-    void Wallet::confirm_outputs(const TxDescription& tx)
+    void Wallet::confirm_outputs(const vector<Coin>& coins)
     {
-        if (auto it = m_transactions.find(tx.m_txId); it != m_transactions.end())
-        {
-            get_kernel_utxo_proofs(it->second);
-        }
+        getUtxoProofs(coins);
     }
 
     void Wallet::confirm_kernel(const TxDescription& tx, const TxKernel& kernel)
@@ -273,8 +261,12 @@ namespace beam
 
     bool Wallet::get_tip(Block::SystemState::Full& state) const
     {
-        state = m_newState;
-        return true;
+        if (m_newState.IsSane())
+        {
+            state = m_newState;
+            return true;
+        }
+        return false;
     }
 
     bool Wallet::isTestMode() const
@@ -311,17 +303,7 @@ namespace beam
             setTxParameter(msg.m_txId, TxParams::PeerInputs, msg.m_inputs);
             setTxParameter(msg.m_txId, TxParams::PeerOutputs, msg.m_outputs);
 
-            if (m_synchronized)
-            {
-                r->update();
-            }
-            else
-            {
-                m_pendingEvents.emplace_back([r]()
-                {
-                    r->update();
-                });
-            }
+            updateTransaction(tx.m_txId);
         }
         else
         {
@@ -439,25 +421,31 @@ namespace beam
 
     void Wallet::updateTransaction(const TxID& txID)
     {
-        auto f = [txID, this]()
+        auto f = [&]()
         {
-            auto it = m_transactions.find(txID);
-            if (it != m_transactions.end())
+            for (auto t : m_TransactionsToUpdate)
             {
-                it->second->update();
+                t->update();
+            }
+            m_TransactionsToUpdate.clear();
+        };
+
+        auto it = m_transactions.find(txID);
+        if (it != m_transactions.end())
+        {
+            m_TransactionsToUpdate.insert(it->second);
+            if (m_synchronized)
+            {
+                f();
             }
             else
             {
-                LOG_DEBUG() << txID << " Unexpected event";
+                m_pendingEvents.emplace_back(std::move(f));
             }
-        };
-        if (m_synchronized)
-        {
-            f();
         }
         else
         {
-            m_pendingEvents.emplace_back(std::move(f));
+            LOG_DEBUG() << txID << " Unexpected event";
         }
     }
 
@@ -488,6 +476,8 @@ namespace beam
             {
                 coin.m_status = Coin::Spent;
                 m_keyChain->update(coin);
+                assert(coin.m_spentTxId.is_initialized());
+                updateTransaction(*(coin.m_spentTxId));
             }
             else if (coin.m_status == Coin::Unconfirmed && coin.isReward())
             {
@@ -519,6 +509,8 @@ namespace beam
                         {
                             m_keyChain->update(coin);
                         }
+                        assert(coin.m_createTxId.is_initialized());
+                        updateTransaction(*(coin.m_createTxId));
                     }
                     else
                     {
@@ -684,12 +676,11 @@ namespace beam
         auto n = m_pendingKernelProofs.front();
         m_pendingKernelProofs.pop_front();
 
-        setTxParameter(n->getTxID(), TxParams::KernelProof, msg.m_Proof);
-        m_pendingEvents.emplace_back([n]()
+        if (!msg.m_Proof.empty() || IsTestMode())
         {
+            setTxParameter(n->getTxID(), TxParams::KernelProof, msg.m_Proof);
             n->update();
-        });
-        get_kernel_utxo_proofs(n);
+        }
 
         return exit_sync();
     }
@@ -712,16 +703,19 @@ namespace beam
         // fast-forward
         enter_sync(); // Mined
         m_network->send_node_message(proto::GetMined{ m_knownStateID.m_Height });
-    }
 
-    void Wallet::get_kernel_utxo_proofs(BaseTransaction::Ptr n)
-    {
-        const auto& txID = n->getTxID();
-        vector<Coin> unconfirmed;
-        m_keyChain->visit([&](const Coin& coin)
+        auto t = m_transactions;
+        for (auto& p : t)
         {
-            if (coin.m_createTxId == txID && coin.m_status == Coin::Unconfirmed
-                || coin.m_spentTxId == txID && coin.m_status == Coin::Locked)
+            p.second->update();
+        }
+
+        vector<Coin> unconfirmed;
+        m_keyChain->visit([&, this](const Coin& coin)
+        {
+            if (coin.m_status == Coin::Unconfirmed 
+                && coin.m_createTxId.is_initialized()
+                && m_transactions.find(*(coin.m_createTxId)) == m_transactions.end())
             {
                 unconfirmed.emplace_back(coin);
             }
