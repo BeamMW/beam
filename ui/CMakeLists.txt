@@ -16,6 +16,9 @@ if(MSVC)
 	else()
 		set(SYSTEM_TYPE WIN32)
 	endif()
+
+    set_source_files_properties(ui.cpp PROPERTIES COMPILE_FLAGS "/wd4127") # QtCore/qvarlengtharray.h(274): warning C4127: conditional expression is constant
+
 elseif(APPLE)
 	set(MACOSX_BUNDLE_ICON_FILE beam.icns)
 	set(SYSTEM_TYPE MACOSX_BUNDLE)

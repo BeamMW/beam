@@ -270,9 +270,9 @@ void WalletSettings::reportProblem()
 
 	// create 'logs' folder
 	{
-		QuaZipFile zipFile(&zip);
-		zipFile.open(QIODevice::WriteOnly, QuaZipNewInfo(logsFolder, logsFolder));
-		zipFile.close();
+		QuaZipFile zipLogsFile(&zip);
+        zipLogsFile.open(QIODevice::WriteOnly, QuaZipNewInfo(logsFolder, logsFolder));
+        zipLogsFile.close();
 	}
 
 	QDirIterator it(m_appDataDir.filePath(LogsFolder));
