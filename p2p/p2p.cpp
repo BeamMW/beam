@@ -173,7 +173,7 @@ void P2P::on_peer_handshaked(Connection::Ptr&& conn, bool isServer) {
         io::Address addr = StreamId(conn->id()).address();
         auto p = _knownServers.insert(addr);
         if (p.second) {
-            _peerState.knownServersCount = _knownServers.size();
+            _peerState.knownServersCount = static_cast<uint32_t>(_knownServers.size());
             _peerStateUpdated = true;
             _knownServersUpdated = true;
         }
