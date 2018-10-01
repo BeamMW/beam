@@ -152,14 +152,24 @@ private:
 
             path /= fileName;
 #ifdef WIN32
-            _sink = _wfopen(path.wstring().c_str(), L"ab");
+            if (_wfopen_s(&_sink, path.wstring().c_str(), L"ab") != 0)
+            {
+                _sink = nullptr;
+            }
 #else
             _sink = fopen(path.string().c_str(), "ab");
 #endif
         }
         else
         {
+#ifdef WIN32
+            if (fopen_s(&_sink, fileName.c_str(), "ab") != 0)
+            {
+                _sink = nullptr;
+            }
+#else
             _sink = fopen(fileName.c_str(), "ab");
+#endif
         }
 
         if (!_sink) throw runtime_error(string("cannot open file ") + fileName);

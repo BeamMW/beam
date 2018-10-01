@@ -79,7 +79,7 @@ void Checkpoint::flush_from_here() {
 }
 
 Checkpoint::~Checkpoint() {
-    if (_maxItems != 0 && std::uncaught_exception()) {
+    if (_maxItems != 0 && std::uncaught_exceptions()) {
         flush_all_checkpoints(0);
     }
     assert(currentCheckpoint == this);
