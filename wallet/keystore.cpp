@@ -26,7 +26,7 @@ void gen_nonce(Nonce& nonce) {
 
 void hash_from_password(PasswordHash& out, const void* password, size_t passwordLen) {
     ECC::NoLeak<ECC::Hash::Processor> hp;
-	hp.V.Write(password, passwordLen);
+	hp.V.Write(password, static_cast<uint32_t>(passwordLen));
     hp.V >> out.V;
 }
 
@@ -63,18 +63,27 @@ void xor_32_bytes(uint8_t* out, const uint8_t* mask) {
     }
 }
 
-void read_keystore_file(KeyPairs& out, const std::string& fileName, const PasswordHash& key) {
-    AutoClose a;
-
+FILE* open_file(const std::string& fileName)
+{
+    FILE* f = nullptr;
 #ifdef WIN32
-    a.f = _wfopen(Utf8toUtf16(fileName.c_str()).c_str(), L"a+b");
+    if (_wfopen_s(&f, Utf8toUtf16(fileName.c_str()).c_str(), L"a+b") != 0)
+    {
+        f = nullptr;
+    }
 #else
-    a.f = fopen(fileName.c_str(), "a+b");
+    f = fopen(fileName.c_str(), "a+b");
 #endif
 
-    if (!a.f) {
+    if (!f) {
         throw KeyStoreException(std::string("keystore: cannot open file ") + fileName);
     }
+    return f;
+}
+
+void read_keystore_file(KeyPairs& out, const std::string& fileName, const PasswordHash& key) {
+    AutoClose a;
+    a.f = open_file(fileName);
 
     fseek(a.f, 0, SEEK_END);
     size_t size = ftell(a.f);
@@ -117,14 +126,7 @@ void write_keystore_file(const KeyPairs& in, const std::string& fileName, const 
 
     {
         AutoClose a;
-#ifdef WIN32
-        a.f = _wfopen(Utf8toUtf16(newFileName.c_str()).c_str(), L"w+b");
-#else
-        a.f = fopen(newFileName.c_str(), "w+b");
-#endif
-        if (!a.f) {
-            throw KeyStoreException(std::string("keystore: cannot open file ") + newFileName);
-        }
+        a.f = open_file(fileName);
 
         if (size == 0)
             return;
@@ -261,7 +263,7 @@ private:
     bool encrypt(ByteBuffer& out, const void* data, size_t size, const PubKey& pubKey) override {
         Nonce nonce;
         gen_nonce(nonce);
-        return proto::BbsEncrypt(out, pubKey, nonce, data, size);
+        return proto::BbsEncrypt(out, pubKey, nonce, data, static_cast<uint32_t>(size));
     }
 
     bool encrypt(ByteBuffer& out, const io::SerializedMsg& in, const PubKey& pubKey) override {
@@ -275,7 +277,7 @@ private:
             return false;
         }
         out = &buffer.at(0);
-        size = buffer.size();
+        size = static_cast<uint32_t>(buffer.size());
         return proto::BbsDecrypt(out, size, (PrivKey&)it->second.V);
     }
 

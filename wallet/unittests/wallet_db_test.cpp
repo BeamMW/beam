@@ -562,8 +562,8 @@ void TestSelect()
     const Amount c = 10;
     for (Amount i = 1; i <= c; ++i)
     {
-        Coin c{ i, Coin::Unspent, 1, 10, KeyType::Regular };
-        db->store(c);
+        Coin coin{ i, Coin::Unspent, 1, 10, KeyType::Regular };
+        db->store(coin);
     }
     for (Amount i = 1; i <= c; ++i)
     {
@@ -591,8 +591,8 @@ void TestSelect()
     // double coins
     for (Amount i = 1; i <= c; ++i)
     {
-        Coin c{ i, Coin::Unspent, 1, 10, KeyType::Regular };
-        db->store(c);
+        Coin coin{ i, Coin::Unspent, 1, 10, KeyType::Regular };
+        db->store(coin);
     }
     for (Amount i = 1; i <= c; ++i)
     {
@@ -726,8 +726,8 @@ void TestSelect2()
     }
     db->store(t);
     {
-        Coin c{ 30000000, Coin::Unspent, 1, 10, KeyType::Regular };
-        db->store(c);
+        Coin coin{ 30000000, Coin::Unspent, 1, 10, KeyType::Regular };
+        db->store(coin);
     }
 	helpers::StopWatch sw;
 
