@@ -76,7 +76,7 @@ void aes_gen_tables(void)
 	for (i = 0, x = 1; i < 256; i++, x ^= XTIME(x))
 	{
 		pow[i] = x;
-		log[x] = i;
+		log[x] = static_cast<uint8_t>(i);
 	}
 
 	/* calculate the round constants */

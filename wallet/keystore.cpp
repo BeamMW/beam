@@ -63,16 +63,16 @@ void xor_32_bytes(uint8_t* out, const uint8_t* mask) {
     }
 }
 
-FILE* open_file(const std::string& fileName)
+FILE* open_file(const std::string& fileName, bool newFile)
 {
     FILE* f = nullptr;
 #ifdef WIN32
-    if (_wfopen_s(&f, Utf8toUtf16(fileName.c_str()).c_str(), L"a+b") != 0)
+    if (_wfopen_s(&f, Utf8toUtf16(fileName.c_str()).c_str(), newFile ? L"w+b" : L"a+b") != 0)
     {
         f = nullptr;
     }
 #else
-    f = fopen(fileName.c_str(), "a+b");
+    f = fopen(fileName.c_str(), newFile ? "w+b" : "a+b");
 #endif
 
     if (!f) {
@@ -83,7 +83,7 @@ FILE* open_file(const std::string& fileName)
 
 void read_keystore_file(KeyPairs& out, const std::string& fileName, const PasswordHash& key) {
     AutoClose a;
-    a.f = open_file(fileName);
+    a.f = open_file(fileName, false);
 
     fseek(a.f, 0, SEEK_END);
     size_t size = ftell(a.f);
@@ -126,7 +126,7 @@ void write_keystore_file(const KeyPairs& in, const std::string& fileName, const 
 
     {
         AutoClose a;
-        a.f = open_file(fileName);
+        a.f = open_file(newFileName, true);
 
         if (size == 0)
             return;
