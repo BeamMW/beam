@@ -40,7 +40,6 @@ namespace beam {
         , m_walletID(Zero)
         , m_node_address{node_address}
         , m_reactor{ !reactor ? io::Reactor::create() : reactor }
-        , m_wallet{ nullptr }
         , m_keychain{keychain}
         , m_is_node_connected{false}
         , m_reactor_scope{*m_reactor }
