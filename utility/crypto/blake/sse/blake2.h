@@ -45,7 +45,9 @@ extern "C" {
     BLAKE2B_PERSONALBYTES = 16
   };
 
-#pragma warning (disable: 4324) // structure was padded due to alignment specifier
+#ifdef _MSC_VER
+#	pragma warning (disable: 4324) // structure was padded due to alignment specifier
+#endif // _MSC_VER
 #pragma pack(push, 1)
   typedef struct __blake2s_param
   {
@@ -113,7 +115,9 @@ extern "C" {
     size_t  buflen;
   } blake2bp_state;
 #pragma pack(pop)
-#pragma warning (default: 4324)
+#ifdef _MSC_VER
+#	pragma warning (default: 4324)
+#endif // _MSC_VER
 
   // Streaming API
   int blake2s_init( blake2s_state *S, const uint8_t outlen );
