@@ -1163,7 +1163,7 @@ namespace ECC {
 
 	/////////////////////
 	// Signature
-	void Signature::get_Challenge(Scalar::Native& out, const Point::Native& pt, const Hash::Value& msg)
+	void Signature::get_Challenge(Scalar::Native& out, const Point& pt, const Hash::Value& msg)
 	{
 		Oracle() << pt << msg >> out;
 	}
@@ -1174,62 +1174,56 @@ namespace ECC {
 		sk_.V = sk;
 
 		m_Nonce.GenerateNonce(sk_.V.m_Value, msg, NULL);
+		m_NoncePub = Context::get().G * m_Nonce;
 	}
 
 	void Signature::CoSign(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk, const MultiSig& msig)
 	{
-		get_Challenge(k, msig.m_NoncePub, msg);
-		m_e = k;
+		m_NoncePub = msig.m_NoncePub;
+		get_Challenge(k, m_NoncePub, msg);
 
 		k *= sk;
-		k = -k;
 		k += msig.m_Nonce;
+		k = -k;
 	}
 
 	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
 	{
 		MultiSig msig;
 		msig.GenerateNonce(msg, sk);
-		msig.m_NoncePub = Context::get().G * msig.m_Nonce;
 
 		Scalar::Native k;
 		CoSign(k, msg, sk, msig);
 		m_k = k;
 	}
 
-	void Signature::get_PublicNonce(Point::Native& pubNonce, const Point::Native& pk) const
+	bool Signature::IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk) const
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		pubNonce = Context::get().G * m_k;
-		pubNonce += pk * m_e;
-	}
+		Point::Native pt = Context::get().G * m_k;
 
-	bool Signature::IsValidPartial(const Point::Native& pubNonce, const Point::Native& pk) const
-	{
-		Point::Native pubN;
-		get_PublicNonce(pubN, pk);
+		Scalar::Native e;
+		get_Challenge(e, m_NoncePub, msg);
 
-		pubN = -pubN;
-		pubN += pubNonce;
-		return pubN == Zero;
+		pt += pk * e;
+		pt += pubNonce;
+
+		return pt == Zero;
 	}
 
 	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
 	{
 		Point::Native pubNonce;
-		get_PublicNonce(pubNonce, pk);
+		if (!pubNonce.Import(m_NoncePub))
+			return false;
 
-		Scalar::Native e2;
-
-		get_Challenge(e2, pubNonce, msg);
-
-		return m_e == Scalar(e2);
+		return IsValidPartial(msg, pubNonce, pk);
 	}
 
 	int Signature::cmp(const Signature& x) const
 	{
-		int n = m_e.cmp(x.m_e);
+		int n = m_NoncePub.cmp(x.m_NoncePub);
 		if (n)
 			return n;
 

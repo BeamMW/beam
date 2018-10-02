@@ -171,13 +171,11 @@ namespace beam
             WalletID m_from;
             TxID m_txId{};
             ECC::Point m_publicPeerExcess;
-            ECC::Point m_publicPeerNonce;
-            ECC::Scalar m_peerSignature;
+            ECC::Signature m_peerSignature;
 
             SERIALIZE(m_from
                     , m_txId
                     , m_publicPeerExcess
-                    , m_publicPeerNonce
                     , m_peerSignature);
         };
 

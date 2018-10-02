@@ -202,7 +202,7 @@ namespace detail
         static Archive& save(Archive& ar, const ECC::Signature& val)
         {
             ar
-                & val.m_e
+                & val.m_NoncePub
                 & val.m_k
             ;
 
@@ -213,7 +213,7 @@ namespace detail
         static Archive& load(Archive& ar, ECC::Signature& val)
         {
             ar
-                & val.m_e
+                & val.m_NoncePub
                 & val.m_k
             ;
 
@@ -480,13 +480,15 @@ namespace detail
 				(val.m_Fee ? 2 : 0) |
 				(val.m_Height.m_Min ? 4 : 0) |
 				((val.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
+				(val.m_Signature.m_NoncePub.m_Y ? 0x10 : 0) |
 				(val.m_pHashLock ? 0x20 : 0) |
 				(val.m_vNested.empty() ? 0 : 0x40);
 
 			ar
 				& nFlags
 				& val.m_Excess
-				& val.m_Signature;
+				& val.m_Signature.m_NoncePub.m_X
+				&val.m_Signature.m_k;
 
 			if (1 & nFlags)
 				ar & val.m_Multiplier;
@@ -518,7 +520,8 @@ namespace detail
 			ar
 				& nFlags
 				& val.m_Excess
-				& val.m_Signature;
+				& val.m_Signature.m_NoncePub.m_X
+				& val.m_Signature.m_k;
 
 			if (1 & nFlags)
 				ar & val.m_Multiplier;
@@ -539,6 +542,8 @@ namespace detail
 				ar & val.m_Height.m_Max;
 			else
 				val.m_Height.m_Max = beam::Height(-1);
+
+			val.m_Signature.m_NoncePub.m_Y = ((0x10 & nFlags) != 0);
 
 			if (0x20 & nFlags)
 			{

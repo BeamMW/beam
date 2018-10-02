@@ -344,7 +344,7 @@ void TestSigning()
 
 		// tamper signature
 		mysig2 = mysig;
-		SetRandom(mysig2.m_e.m_Value);
+		mysig2.m_NoncePub.m_Y = !mysig2.m_NoncePub.m_Y;
 		verify_test(!mysig2.IsValid(msg, pk));
 
 		mysig2 = mysig;

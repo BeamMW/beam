@@ -235,9 +235,9 @@ namespace beam { namespace wallet
             void createKernel(Amount fee, Height minHeight);
             void createOutputUtxo(Amount amount, Height height);
             ECC::Scalar createSignature();
-            void createSignature2(ECC::Scalar& partialSignature, ECC::Point& publicNonce, ECC::Scalar& challenge) const;
-            ECC::Point getPublicExcess() const;
-            ECC::Point getPublicNonce() const;
+            void createSignature2(ECC::Signature& sigPartial, ECC::Point* pNoncePubTotal) const;
+			ECC::Point::Native getPublicExcess() const;
+			ECC::Point getPublicNonce() const;
             bool isValidSignature(const ECC::Scalar& peerSignature) const;
             bool isValidSignature(const ECC::Scalar& peerSignature, const ECC::Point& publicPeerNonce, const ECC::Point& publicPeerExcess) const;
             std::vector<Input::Ptr> getTxInputs(const TxID& txID) const;
