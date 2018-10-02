@@ -80,8 +80,8 @@ namespace beam
         Amount m_fee=0;
 		Amount m_change=0;
         Height m_minHeight=0;
-        WalletID m_peerId;
-        WalletID m_myId;
+        WalletID m_peerId = {};
+        WalletID m_myId = {};
         ByteBuffer m_message;
         Timestamp m_createTime=0;
         Timestamp m_modifyTime=0;

@@ -856,7 +856,7 @@ namespace ECC {
 			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
 			{
 				FastAux& x = m_pAuxPrepared[iEntry];
-				unsigned int iBit;
+				unsigned int iBit = 0;
 				if (GetOddAndShift(m_pKPrep[iEntry], nBits, Prepared::Fast::nMaxOdd, x.m_nOdd, iBit))
 				{
 					x.m_nNextItem = pTblPrepared[iBit];
@@ -867,7 +867,7 @@ namespace ECC {
 			for (int iEntry = 0; iEntry < m_Casual; iEntry++)
 			{
 				Casual& x = m_pCasual[iEntry];
-				unsigned int iBit;
+				unsigned int iBit = 0;
 				if (GetOddAndShift(x.m_K, nBits, Casual::Fast::nMaxOdd, x.m_Aux.m_nOdd, iBit))
 				{
 					x.m_Aux.m_nNextItem = pTblCasual[iBit];
@@ -914,7 +914,7 @@ namespace ECC {
 
 					res += x.m_pPt[nElem];
 
-					unsigned int iBit2;
+					unsigned int iBit2 = 0;
 					if (GetOddAndShift(x.m_K, iBit, Casual::Fast::nMaxOdd, x.m_Aux.m_nOdd, iBit2))
 					{
 						assert(iBit2 < iBit);
@@ -937,7 +937,7 @@ namespace ECC {
 
 					Generator::ToPt(res, ge.V, m_ppPrepared[iEntry - 1]->m_Fast.m_pPt[nElem], false);
 
-					unsigned int iBit2;
+					unsigned int iBit2 = 0;
 					if (GetOddAndShift(m_pKPrep[iEntry - 1], iBit, Prepared::Fast::nMaxOdd, x.m_nOdd, iBit2))
 					{
 						assert(iBit2 < iBit);
