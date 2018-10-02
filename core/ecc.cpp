@@ -1005,15 +1005,20 @@ namespace ECC {
 	bool g_bContextInitialized = false;
 #endif // NDEBUG
 
+    static Context& ctx_from_buf() {
+        static Context* ptr = reinterpret_cast<Context*>(g_pContextBuf);
+        return *ptr;
+    }
+
 	const Context& Context::get()
 	{
 		assert(g_bContextInitialized);
-		return *(Context*) g_pContextBuf;
+		return ctx_from_buf();
 	}
 
 	void InitializeContext()
 	{
-		Context& ctx = *(Context*) g_pContextBuf;
+		Context& ctx = ctx_from_buf();
 
 		Mode::Scope scope(Mode::Fast);
 
