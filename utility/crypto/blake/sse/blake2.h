@@ -45,6 +45,7 @@ extern "C" {
     BLAKE2B_PERSONALBYTES = 16
   };
 
+#pragma warning (disable: 4324) // structure was padded due to alignment specifier
 #pragma pack(push, 1)
   typedef struct __blake2s_param
   {
@@ -112,6 +113,7 @@ extern "C" {
     size_t  buflen;
   } blake2bp_state;
 #pragma pack(pop)
+#pragma warning (default: 4324)
 
   // Streaming API
   int blake2s_init( blake2s_state *S, const uint8_t outlen );
@@ -140,7 +142,7 @@ extern "C" {
   // Simple API
   int blake2s( uint8_t *out, const void *in, const void *key, const uint8_t outlen, const uint64_t inlen, uint8_t keylen );
   int blake2b( uint8_t *out, const void *in, const void *key, const uint8_t outlen, const uint64_t inlen, uint8_t keylen );
-  int blake2b_long(uint8_t *out, const void *in, const uint32_t outlen, const uint64_t inlen);
+  //int blake2b_long(uint8_t *out, const void *in, const uint32_t outlen, const uint64_t inlen);
 
   int blake2sp( uint8_t *out, const void *in, const void *key, const uint8_t outlen, const uint64_t inlen, uint8_t keylen );
   int blake2bp( uint8_t *out, const void *in, const void *key, const uint8_t outlen, const uint64_t inlen, uint8_t keylen );

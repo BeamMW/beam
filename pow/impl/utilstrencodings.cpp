@@ -3,6 +3,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#pragma warning (disable: 4244 4267) // conversion to a smaller type
+#pragma warning (disable: 4127) // conditional expression is constant (so what?)
+#pragma warning (disable: 4702) // unreachable code
+
 #include "utilstrencodings.h"
 
 #include "tinyformat.h"

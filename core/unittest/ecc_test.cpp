@@ -20,7 +20,23 @@
 #include "../aes.h"
 #include "../proto.h"
 
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Wunused-function"
+#else
+#	pragma warning (push, 0) // suppress warnings from secp256k1
+#	pragma warning (disable: 4706 4701)
+#endif
+
 #include "secp256k1-zkp/include/secp256k1_rangeproof.h" // For benchmark comparison with secp256k1
+
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#	pragma GCC diagnostic pop
+#else
+#	pragma warning (default: 4706 4701)
+#	pragma warning (pop)
+#endif
+
 void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a);
 
 int g_TestsFailed = 0;

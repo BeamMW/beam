@@ -18,6 +18,8 @@
 #define LOG_VERBOSE_ENABLED 0
 #include "utility/logger.h"
 
+#pragma warning (disable: 4702) // unreachable code
+
 namespace beam {
 
 struct TestP2PNotifications : P2PNotifications {

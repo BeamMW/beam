@@ -19,18 +19,20 @@
 #define ENABLE_MODULE_RANGEPROOF
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wunused-function"
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Wunused-function"
 #else
-    #pragma warning (push, 0) // suppress warnings from secp256k1
+#	pragma warning (push, 0) // suppress warnings from secp256k1
+#	pragma warning (disable: 4706 4701) // assignment within conditional expression
 #endif
 
 #include "../secp256k1-zkp/src/secp256k1.c"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-    #pragma GCC diagnostic pop
+#	pragma GCC diagnostic pop
 #else
-    #pragma warning (pop)
+#	pragma warning (default: 4706 4701)
+#	pragma warning (pop)
 #endif
 
 #ifndef WIN32
