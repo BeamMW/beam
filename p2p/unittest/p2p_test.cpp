@@ -18,8 +18,6 @@
 #define LOG_VERBOSE_ENABLED 0
 #include "utility/logger.h"
 
-#pragma warning (disable: 4702) // unreachable code
-
 namespace beam {
 
 struct TestP2PNotifications : P2PNotifications {
@@ -71,7 +69,7 @@ int p2ptest(int numNodes, int runTime) {
 #ifndef __linux__
     LOG_WARNING() << "This test runs on linux only";
     return 0;
-#endif
+#else
     srand((unsigned int) time(0));
 
     static const uint32_t LOCALHOST_BASE = 0x7F000001;
@@ -115,6 +113,7 @@ int p2ptest(int numNodes, int runTime) {
         LOG_INFO() << c.peer << " was connected to " << c.wasConnectedTo.size() << " peers";
     }
     return 0;
+#endif
 }
 
 int p2ptest_1(io::Address seedAddr, uint16_t port) {

@@ -10,8 +10,6 @@ set(POW_SRC
     impl/utilstrencodings.cpp
 )
 
-set_source_files_properties(impl/crypto/equihash_impl.cpp PROPERTIES COMPILE_FLAGS -w)
-
 if(UNIX)
     set_source_files_properties(impl/crypto/equihash_impl.cpp PROPERTIES COMPILE_FLAGS -O2)
 endif()
