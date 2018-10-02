@@ -38,6 +38,7 @@
 #endif
 
 void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a);
+secp256k1_context* g_psecp256k1 = NULL;
 
 int g_TestsFailed = 0;
 
@@ -289,6 +290,15 @@ void TestPoints()
 		Mode::Scope scope2(Mode::Secure);
 		p1 = g * s1;
 	}
+
+	p1 = -p1;
+	p1 += p0;
+	verify_test(p1 == Zero);
+
+	// Make sure we use the same G-generator as in secp256k1
+	SetRandom(s0);
+	secp256k1_ecmult_gen(g_psecp256k1, &p0.get_Raw(), &s0.get());
+	p1 = Context::get().G * s0;
 
 	p1 = -p1;
 	p1 += p0;
@@ -1405,8 +1415,6 @@ void RunBenchmark()
 	}
 
 
-	secp256k1_context* pCtx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
-
 	{
 		secp256k1_pedersen_commitment comm2;
 
@@ -1414,7 +1422,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				(void) secp256k1_pedersen_commit(pCtx, &comm2, k_.m_Value.m_pData, 78945, secp256k1_generator_h);
+				(void) secp256k1_pedersen_commit(g_psecp256k1, &comm2, k_.m_Value.m_pData, 78945, secp256k1_generator_h);
 
 		} while (bm.ShouldContinue());
 	}
@@ -1424,12 +1432,11 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				secp256k1_ecmult_gen(pCtx, &p0.get_Raw(), &k1.get());
+				secp256k1_ecmult_gen(g_psecp256k1, &p0.get_Raw(), &k1.get());
 
 		} while (bm.ShouldContinue());
 	}
 
-	secp256k1_context_destroy(pCtx);
 }
 
 
@@ -1437,8 +1444,12 @@ void RunBenchmark()
 
 int main()
 {
+	g_psecp256k1 = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+
 	ECC::TestAll();
 	ECC::RunBenchmark();
+
+	secp256k1_context_destroy(g_psecp256k1);
 
     return g_TestsFailed ? -1 : 0;
 }

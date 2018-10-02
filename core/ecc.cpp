@@ -1021,7 +1021,9 @@ namespace ECC {
 
 		// make sure we get the same G,H for different generator kinds
 		Point::Native G_raw, H_raw;
-		Generator::CreatePointNnzFromSeed(G_raw, "G-gen", hp);
+
+		secp256k1_gej_set_ge(&G_raw.get_Raw(), &secp256k1_ge_const_g);
+
 		Generator::CreatePointNnzFromSeed(H_raw, "H-gen", hp);
 
 
