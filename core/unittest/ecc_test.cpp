@@ -270,7 +270,7 @@ void TestPoints()
 	p0 = g * s1;
 
 	{
-		Mode::Scope scope(Mode::Secure);
+		Mode::Scope scope2(Mode::Secure);
 		p1 = g * s1;
 	}
 
@@ -1202,12 +1202,12 @@ void RunBenchmark()
 	{
 		k1 = uint64_t(-1);
 
-		Point p_;
-		p_.m_X = Zero;
-		p_.m_Y = false;
+		Point p2;
+		p2.m_X = Zero;
+		p2.m_Y = false;
 
-		while (!p0.Import(p_))
-			p_.m_X.Inc();
+		while (!p0.Import(p2))
+			p2.m_X.Inc();
 
 		BenchmarkMeter bm("G.Multiply");
 		do
@@ -1392,13 +1392,13 @@ void RunBenchmark()
 	secp256k1_context* pCtx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 
 	{
-		secp256k1_pedersen_commitment comm;
+		secp256k1_pedersen_commitment comm2;
 
 		BenchmarkMeter bm("secp256k1.Commit");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				(void) secp256k1_pedersen_commit(pCtx, &comm, k_.m_Value.m_pData, 78945, secp256k1_generator_h);
+				(void) secp256k1_pedersen_commit(pCtx, &comm2, k_.m_Value.m_pData, 78945, secp256k1_generator_h);
 
 		} while (bm.ShouldContinue());
 	}

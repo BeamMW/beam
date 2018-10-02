@@ -462,10 +462,10 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 	for (uint32_t iTask = 1; ; )
 	{
 		{
-			std::unique_lock<std::mutex> scope(m_Mutex);
+			std::unique_lock<std::mutex> scope2(m_Mutex);
 
 			while (m_iTask == iTask)
-				m_TaskNew.wait(scope);
+				m_TaskNew.wait(scope2);
 
 			if (!m_iTask)
 				return;
@@ -489,7 +489,7 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 
 		bool bValid = ctx.ValidateAndSummarize(*m_pTx, std::move(*pR)) && p->Flush();
 
-		std::unique_lock<std::mutex> scope(m_Mutex);
+		std::unique_lock<std::mutex> scope2(m_Mutex);
 
 		verify(m_Remaining--);
 
@@ -626,8 +626,8 @@ void Node::Initialize()
 				ZeroObject(m_pSync->m_Trg);
 				ZeroObject(m_pSync->m_Best);
 
-				NodeDB::Blob blob = m_pSync->m_Trg.m_Hash;
-				m_Processor.get_DB().ParamGet(NodeDB::ParamID::SyncTarget, &m_pSync->m_Trg.m_Height, &blob);
+				NodeDB::Blob blobTrg = m_pSync->m_Trg.m_Hash;
+				m_Processor.get_DB().ParamGet(NodeDB::ParamID::SyncTarget, &m_pSync->m_Trg.m_Height, &blobTrg);
 
 				m_pSync->m_bDetecting = !m_pSync->m_Trg.m_Height;
 
@@ -1707,7 +1707,7 @@ uint32_t RandomUInt32(uint32_t threshold, ECC::uintBig& hvRnd)
 bool Node::OnTransaction(Transaction::Ptr&& ptx, bool bFluff, const Peer* pPeer)
 {
 	ECC::uintBig& hvRnd = m_SChannelSeed.V;
-	uint32_t nStemPeers;
+	uint32_t nStemPeers = 0; // initialized to supporess warning
 
 	if (!bFluff)
 	{
@@ -1803,9 +1803,9 @@ bool Node::OnTransaction(Transaction::Ptr&& ptx, bool bFluff, const Peer* pPeer)
 	proto::HaveTransaction msgOut;
 	msgOut.m_ID = key.m_Key;
 
-	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+	for (PeerList::iterator it2 = m_lstPeers.begin(); m_lstPeers.end() != it2; it2++)
 	{
-		Peer& peer = *it;
+		Peer& peer = *it2;
 		if (&peer == pPeer)
 			continue;
 		if (!peer.m_Config.m_SpreadingTransactions)
@@ -2636,7 +2636,8 @@ void Node::Miner::OnMined()
 	assert(NodeProcessor::DataStatus::Accepted == eStatus); 
 
 	NodeDB::StateID sid;
-	verify(sid.m_Row = get_ParentObj().m_Processor.get_DB().StateFindSafe(id));
+	sid.m_Row = get_ParentObj().m_Processor.get_DB().StateFindSafe(id);
+	assert(sid.m_Row);
 	sid.m_Height = id.m_Height;
 
 	get_ParentObj().m_Processor.get_DB().SetMined(sid, pTask->m_Fees); // ding!
@@ -2724,7 +2725,6 @@ void Node::Compressor::OnNewState()
 	if (m_hrNew.m_Max)
 		return; // alreaddy in progress
 
-	const Config::HistoryCompression& cfg = get_ParentObj().m_Cfg.m_HistoryCompression;
 	Processor& p = get_ParentObj().m_Processor;
 
 	const uint32_t nThreshold = Rules::get().MaxRollbackHeight;

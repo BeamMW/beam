@@ -237,14 +237,14 @@ void QuaZipFile::setFileName(const QString& fileName, QuaZip::CaseSensitivity cs
   p->caseSensitivity=cs;
 }
 
-void QuaZipFilePrivate::setZipError(int zipError) const
+void QuaZipFilePrivate::setZipError(int zipError_) const
 {
   QuaZipFilePrivate *fakeThis = const_cast<QuaZipFilePrivate*>(this); // non-const
-  fakeThis->zipError=zipError;
-  if(zipError==UNZ_OK)
+  fakeThis->zipError=zipError_;
+  if(zipError_==UNZ_OK)
     q->setErrorString(QString());
   else
-    q->setErrorString(QuaZipFile::tr("ZIP/UNZIP API error %1").arg(zipError));
+    q->setErrorString(QuaZipFile::tr("ZIP/UNZIP API error %1").arg(zipError_));
 }
 
 bool QuaZipFile::open(OpenMode mode)

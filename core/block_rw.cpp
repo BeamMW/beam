@@ -251,7 +251,7 @@ namespace beam
 
 			const Input* pInp = NULL;
 			const Output* pOut = NULL;
-			int iInp, iOut;
+			int iInp = 0, iOut = 0; // initialized just to suppress the warning, not really needed
 
 			for (int i = 0; i < nR; i++)
 			{
@@ -313,7 +313,7 @@ namespace beam
 
 			const TxKernel* pInp = NULL;
 			const TxKernel* pOut = NULL;
-			int iInp, iOut;
+			int iInp = 0, iOut = 0; // initialized just to suppress the warning, not really needed
 
 			for (int i = 0; i < nR; i++)
 			{

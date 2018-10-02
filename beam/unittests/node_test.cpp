@@ -1028,9 +1028,9 @@ namespace beam
 
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
-					proto::GetProofState msgOut;
-					msgOut.m_Height = i + Rules::HeightGenesis;
-					Send(msgOut);
+					proto::GetProofState msgOut2;
+					msgOut2.m_Height = i + Rules::HeightGenesis;
+					Send(msgOut2);
 
 					m_queProofsStateExpected.push_back((uint32_t) i);
 				}
@@ -1039,11 +1039,11 @@ namespace beam
 				{
 					const MiniWallet::MyUtxo& utxo = it->second;
 
-					proto::GetProofUtxo msgOut;
-					msgOut.m_Utxo.m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
-					Send(msgOut);
+					proto::GetProofUtxo msgOut2;
+					msgOut2.m_Utxo.m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
+					Send(msgOut2);
 
-					m_queProofsExpected.push_back(msgOut.m_Utxo.m_Commitment);
+					m_queProofsExpected.push_back(msgOut2.m_Utxo.m_Commitment);
 				}
 
 				for (uint32_t i = 0; i < m_Wallet.m_MyKernels.size(); i++)
@@ -1053,17 +1053,17 @@ namespace beam
 					TxKernel krn;
 					mk.Export(krn);
 
-					proto::GetProofKernel msgOut;
-					msgOut.m_RequestHashPreimage = true;
-					krn.get_ID(msgOut.m_ID);
-					Send(msgOut);
+					proto::GetProofKernel msgOut2;
+					msgOut2.m_RequestHashPreimage = true;
+					krn.get_ID(msgOut2.m_ID);
+					Send(msgOut2);
 
 					m_queProofsKrnExpected.push_back(i);
 				}
 
 				{
-					proto::GetProofChainWork msgOut;
-					Send(msgOut);
+					proto::GetProofChainWork msgOut2;
+					Send(msgOut2);
 					m_nChainWorkProofsPending++;
 				}
 

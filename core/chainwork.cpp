@@ -282,8 +282,8 @@ namespace beam
 
 		for (size_t i = 0; i < m_vArbitraryStates.size(); i++)
 		{
-			const Block::SystemState::Full& s = m_vArbitraryStates[i];
-			if (!(s.IsSane() && s.IsValidPoW()))
+			const Block::SystemState::Full& s2 = m_vArbitraryStates[i];
+			if (!(s2.IsSane() && s2.IsValidPoW()))
 				return false;
 		}
 

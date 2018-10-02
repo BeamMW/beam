@@ -274,10 +274,10 @@ void RadixTree::Delete(CursorBase& cu)
 		for (size_t i = 0; ; i++)
 		{
 			assert(i < _countof(pPrev->m_ppC));
-			Node* p = pPrev->m_ppC[i];
-			if (p)
+			Node* pN = pPrev->m_ppC[i];
+			if (pN)
 			{
-				const uint8_t* pKey1 = get_NodeKey(*p);
+				const uint8_t* pKey1 = get_NodeKey(*pN);
 				assert(pKey1 != pKeyDead);
 
 				for (uint16_t j = cu.m_nPtrs; j--; )
@@ -289,8 +289,8 @@ void RadixTree::Delete(CursorBase& cu)
 					pPrev2->m_pKeyPtr = pKey1;
 				}
 
-				p->m_Bits += pPrev->m_Bits + 1;
-				ReplaceTip(cu, p);
+				pN->m_Bits += pPrev->m_Bits + 1;
+				ReplaceTip(cu, pN);
 
 				DeleteJoint(pPrev);
 
@@ -317,11 +317,11 @@ bool RadixTree::Traverse(const Node& n, ITraveler& t) const
 			if (!pB)
 				continue;
 
-			int n = Cmp(pK, pB, t.m_pCu->m_nBits, nBits);
-			if (!n)
+			int nCmp = Cmp(pK, pB, t.m_pCu->m_nBits, nBits);
+			if (!nCmp)
 				continue;
 
-			if ((n < 0) == !iBound)
+			if ((nCmp < 0) == !iBound)
 				return true;
 
 			pB = NULL;
@@ -358,11 +358,11 @@ bool RadixTree::Traverse(const Node& n, ITraveler& t) const
 			if (!pB)
 				continue;
 
-			int n = Cmp1(i, pB, t.m_pCu->m_nBits);
-			if (!n)
+			int nCmp = Cmp1(i, pB, t.m_pCu->m_nBits);
+			if (!nCmp)
 				continue;
 
-			if ((n < 0) == !iBound)
+			if ((nCmp < 0) == !iBound)
 			{
 				bSkip = true;
 				break;
@@ -468,8 +468,8 @@ const Merkle::Hash& RadixHashTree::get_Hash(Node& n, Merkle::Hash& hv)
 
 		for (size_t i = 0; i < _countof(x.m_ppC); i++)
 		{
-			ECC::Hash::Value hv;
-			hp << get_Hash(*x.m_ppC[i], hv);
+			ECC::Hash::Value hvPlaceholder;
+			hp << get_Hash(*x.m_ppC[i], hvPlaceholder);
 		}
 
 		hp >> x.m_Hash;
