@@ -166,7 +166,7 @@ void UtxoViewModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxos)
 
 void UtxoViewModel::onStatus(const WalletStatus& status)
 {
-    _currentHeight = QString::asprintf("%ld", status.stateID.m_Height);
+    _currentHeight = QString::fromStdString(to_string(status.stateID.m_Height));
     _currentStateHash = QString(beam::to_hex(status.stateID.m_Hash.m_pData, 10).c_str());
     emit stateChanged();
 }

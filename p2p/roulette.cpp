@@ -43,6 +43,11 @@ void Roulette::push(Roulette::ID id, uint32_t weight) {
     _totalItems++;
 }
 
+#ifdef __GNUC__
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
+
 Roulette::ID Roulette::pull() {
     ID id = INVALID_ID;
 
@@ -86,6 +91,10 @@ Roulette::ID Roulette::pull() {
 
     return id;
 }
+
+#ifdef __GNUC__
+    #pragma GCC diagnostic pop
+#endif
 
 // returns index of nonempty bucket with weight range which contains x
 uint32_t Roulette::find_bucket(uint32_t x, uint32_t i, uint32_t j) {

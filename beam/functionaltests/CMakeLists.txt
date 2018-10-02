@@ -9,11 +9,13 @@ set(TEST_TOOLS_SRC
 	tools/tx_generator.cpp
 )
 
+add_library(test_tools STATIC ${TEST_TOOLS_SRC})
+add_dependencies(test_tools node)
+
 function(add_functional_test_snippet EXE_NAME LIB_NAME)
-    add_executable(${EXE_NAME} ${EXE_NAME}.cpp ${TEST_TOOLS_SRC})
-    add_dependencies(${EXE_NAME} ${LIB_NAME})
-    target_link_libraries(${EXE_NAME} ${LIB_NAME})
-	target_link_libraries(${EXE_NAME} utility)
+    add_executable(${EXE_NAME} ${EXE_NAME}.cpp)
+    add_dependencies(${EXE_NAME} test_tools ${LIB_NAME} utility)
+    target_link_libraries(${EXE_NAME} test_tools ${LIB_NAME} utility)
 endfunction()
 
 add_functional_test_snippet(send_to_node_10tx_test node)

@@ -1008,7 +1008,7 @@ namespace ECC {
 	const Context& Context::get()
 	{
 		assert(g_bContextInitialized);
-		return *(Context*) g_pContextBuf;
+		return *reinterpret_cast<Context*>(g_pContextBuf);
 	}
 
 	void InitializeContext()

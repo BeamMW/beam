@@ -21,6 +21,10 @@
 #include "../proto.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#pragma GCC diagnostic ignored "-Wunused-result"
+#endif
+
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
 #	pragma GCC diagnostic ignored "-Wunused-function"
 #else

@@ -602,7 +602,7 @@ namespace beam
                 }
                 else
                 {
-                    m_knownStateID = {};
+                    ZeroObject(m_knownStateID);
                 }
                 m_stateFinder.reset();
                 LOG_INFO() << "Rolled back to " << m_knownStateID;

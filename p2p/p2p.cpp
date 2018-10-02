@@ -34,7 +34,7 @@ P2P::P2P(P2PNotifications& notifications, P2PSettings settings) :
     _connectedPeers(_notifications, _protocol, BIND_THIS_MEMFN(on_peer_removed))
 {
     if (_settings.peerId == 0) {
-        _settings.peerId = _rdGen.rnd<uint64_t>();
+        _settings.peerId = _rdGen.rnd<uint64_t>(0, 0xFFFFFFFFFFFFFFFF);
         LOG_INFO() << "initializing this peer id: " << std::hex << _settings.peerId << std::dec;
         // TODO save settings
     }

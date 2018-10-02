@@ -1263,7 +1263,7 @@ namespace beam
 
         while (stm.step())
         {
-            auto& tx = res.emplace_back(TxDescription{});
+            auto& tx = res.emplace_back();
             ENUM_HISTORY_FIELDS(STM_GET_LIST, NOSEP, tx);
         }
         return res;

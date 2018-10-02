@@ -414,7 +414,7 @@ namespace beam
 	{
 		Offset x = m_Mapping.get_Offset(&node);
 
-		for (int i = 0; i < _countof(node.m_Links.p); i++)
+		for (int i = 0; i < static_cast<int>(_countof(node.m_Links.p)); i++)
 			ListOperateDir(node, x, i, bAdd, pE, nE);
 	}
 
