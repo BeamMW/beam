@@ -42,7 +42,7 @@ int Equihash<N,K>::InitialiseState(eh_HashState& base_state)
 
     const uint8_t outlen = (512 / N)*N / 8;
 
-    if ((!outlen) || (outlen > BLAKE2B_OUTBYTES))  return -1;
+    static_assert(!((!outlen) || (outlen > BLAKE2B_OUTBYTES)));
 
     blake2b_param param =
     {
@@ -72,7 +72,7 @@ void GenerateHash(const eh_HashState& base_state, eh_index g,
     eh_index lei = htole32(g);
     blake2b_update(&state, (const unsigned char*) &lei,
                                       sizeof(eh_index));
-    blake2b_final(&state, hash, hLen);
+    blake2b_final(&state, hash, static_cast<uint8_t>(hLen));
 }
 
 void ExpandArray(const unsigned char* in, size_t in_len,
@@ -246,7 +246,7 @@ FullStepRow<WIDTH>::FullStepRow(const unsigned char* hashIn, size_t hInLen,
 }
 
 template<size_t WIDTH> template<size_t W>
-FullStepRow<WIDTH>::FullStepRow(const FullStepRow<W>& a, const FullStepRow<W>& b, size_t len, size_t lenIndices, int trim) :
+FullStepRow<WIDTH>::FullStepRow(const FullStepRow<W>& a, const FullStepRow<W>& b, size_t len, size_t lenIndices, size_t trim) :
         StepRow<WIDTH> {a}
 {
     assert(len+lenIndices <= W);
@@ -293,10 +293,10 @@ std::vector<unsigned char> FullStepRow<WIDTH>::GetIndices(size_t len, size_t len
 }
 
 template<size_t WIDTH>
-bool HasCollision(StepRow<WIDTH>& a, StepRow<WIDTH>& b, int l)
+bool HasCollision(StepRow<WIDTH>& a, StepRow<WIDTH>& b, size_t l)
 {
     // This doesn't need to be constant time.
-    for (int j = 0; j < l; j++) {
+    for (size_t j = 0; j < l; j++) {
         if (a.hash[j] != b.hash[j])
             return false;
     }
@@ -690,7 +690,7 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
                         ic->insert(ic->end(), X[r]->begin(), X[r]->end());
                         std::sort(ic->begin(), ic->end(), CompareSR(hashLen));
                         if (cancelled(PartialSorting)) throw solver_cancelled;
-                        size_t lti = rti-(1<<r);
+                        size_t lti = rti-(static_cast<size_t>(1)<<r);
                         CollideBranches(*ic, hashLen, lenIndices,
                                         CollisionByteLength,
                                         CollisionBitLength + 1,

@@ -89,7 +89,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 
 		for (Amount i = 0; i < m_Amount; ++i)
 		{
-			m_Generator.GenerateOutputInTx(m_ID.m_Height, 1, KeyType::Regular, false, i);
+			m_Generator.GenerateOutputInTx(m_ID.m_Height, 1, KeyType::Regular, false, static_cast<uint32_t>(i));
 			const Output::Ptr& output = m_Generator.GetTransaction().m_Transaction->m_vOutputs.back();
 			Input input;
 			input.m_Commitment = output->m_Commitment;

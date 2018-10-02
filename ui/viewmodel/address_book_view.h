@@ -60,7 +60,6 @@ class OwnAddressItem : public PeerAddressItem
     Q_OBJECT
     Q_PROPERTY(QString expirationDate      READ getExpirationDate         NOTIFY onDateChanged)
     Q_PROPERTY(QString createDate          READ getCreateDate             NOTIFY onDateChanged)
-	Q_PROPERTY(QString walletID            READ getWalletID               NOTIFY onWalletIDChanged)
 public:
 	OwnAddressItem();
     OwnAddressItem(const beam::WalletAddress&);
