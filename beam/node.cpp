@@ -1829,10 +1829,16 @@ void Node::Dandelion::Delete(Element& x)
 	DeleteRaw(x);
 
 	if (bResetTimer)
+	{
 		if (get_NextTimeout(n_ms))
+		{
 			SetTimer(n_ms);
+		}	
 		else
+		{
 			KillTimer();
+		}
+	}
 }
 
 void Node::Dandelion::DeleteRaw(Element& x)

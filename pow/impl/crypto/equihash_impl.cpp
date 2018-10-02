@@ -199,7 +199,7 @@ std::vector<eh_index> GetIndicesFromMinimal(std::vector<unsigned char> minimal,
     ExpandArray(minimal.data(), minimal.size(),
                 array.data(), lenIndices, cBitLen+1, bytePad);
     std::vector<eh_index> ret;
-    for (int i = 0; i < lenIndices; i += sizeof(eh_index)) {
+    for (size_t i = 0; i < lenIndices; i += sizeof(eh_index)) {
         ret.push_back(ArrayToEhIndex(array.data()+i));
     }
     return ret;
@@ -213,7 +213,7 @@ std::vector<unsigned char> GetMinimalFromIndices(std::vector<eh_index> indices,
     size_t minLen { (cBitLen+1)*lenIndices/(8*sizeof(eh_index)) };
     size_t bytePad { sizeof(eh_index) - ((cBitLen+1)+7)/8 };
     std::vector<unsigned char> array(lenIndices);
-    for (int i = 0; i < indices.size(); i++) {
+    for (size_t i = 0; i < indices.size(); i++) {
         EhIndexToArray(indices[i], array.data()+(i*sizeof(eh_index)));
     }
     std::vector<unsigned char> ret(minLen);
@@ -251,7 +251,7 @@ FullStepRow<WIDTH>::FullStepRow(const FullStepRow<W>& a, const FullStepRow<W>& b
 {
     assert(len+lenIndices <= W);
     assert(len-trim+(2*lenIndices) <= WIDTH);
-    for (int i = trim; i < len; i++)
+    for (size_t i = trim; i < len; i++)
         hash[i-trim] = a.hash[i] ^ b.hash[i];
     if (a.IndicesBefore(b, len, lenIndices)) {
         std::copy(a.hash+len, a.hash+len+lenIndices, hash+len-trim);
@@ -273,7 +273,7 @@ template<size_t WIDTH>
 bool StepRow<WIDTH>::IsZero(size_t len)
 {
     // This doesn't need to be constant time.
-    for (int i = 0; i < len; i++) {
+    for (size_t i = 0; i < len; i++) {
         if (hash[i] != 0)
             return false;
     }
@@ -318,7 +318,7 @@ TruncatedStepRow<WIDTH>::TruncatedStepRow(const TruncatedStepRow<W>& a, const Tr
 {
     assert(len+lenIndices <= W);
     assert(len-trim+(2*lenIndices) <= WIDTH);
-    for (int i = trim; i < len; i++)
+    for (size_t i = static_cast<size_t>(trim); i < len; i++)
         hash[i-trim] = a.hash[i] ^ b.hash[i];
     if (a.IndicesBefore(b, len, lenIndices)) {
         std::copy(a.hash+len, a.hash+len+lenIndices, hash+len-trim);
@@ -369,7 +369,7 @@ bool Equihash<N,K>::BasicSolve(const eh_HashState& base_state,
     }
 
     // 3) Repeat step 2 until 2n/(k+1) bits remain
-    for (int r = 1; r < K && X.size() > 0; r++) {
+    for (unsigned int r = 1; r < K && X.size() > 0; r++) {
         LogPrint("pow", "Round %d:\n", r);
         // 2a) Sort the list
         LogPrint("pow", "- Sorting list\n");
@@ -377,20 +377,20 @@ bool Equihash<N,K>::BasicSolve(const eh_HashState& base_state,
         if (cancelled(ListSorting)) throw solver_cancelled;
 
         LogPrint("pow", "- Finding collisions\n");
-        int i = 0;
-        int posFree = 0;
+        size_t i = 0;
+        size_t posFree = 0;
         std::vector<FullStepRow<FullWidth>> Xc;
         while (i < X.size() - 1) {
             // 2b) Find next set of unordered pairs with collisions on the next n/(k+1) bits
-            int j = 1;
+            size_t j = 1;
             while (i+j < X.size() &&
                     HasCollision(X[i], X[i+j], CollisionByteLength)) {
                 j++;
             }
 
             // 2c) Calculate tuples (X_i ^ X_j, (i, j))
-            for (int l = 0; l < j - 1; l++) {
-                for (int m = l + 1; m < j; m++) {
+            for (size_t l = 0; l < j - 1; l++) {
+                for (size_t m = l + 1; m < j; m++) {
                     if (DistinctIndices(X[i+l], X[i+m], hashLen, lenIndices)) {
                         Xc.emplace_back(X[i+l], X[i+m], hashLen, lenIndices, CollisionByteLength);
                     }
@@ -434,16 +434,16 @@ bool Equihash<N,K>::BasicSolve(const eh_HashState& base_state,
         std::sort(X.begin(), X.end(), CompareSR(hashLen));
         if (cancelled(FinalSorting)) throw solver_cancelled;
         LogPrint("pow", "- Finding collisions\n");
-        int i = 0;
+        size_t i = 0;
         while (i < X.size() - 1) {
-            int j = 1;
+            size_t j = 1;
             while (i+j < X.size() &&
                     HasCollision(X[i], X[i+j], hashLen)) {
                 j++;
             }
 
-            for (int l = 0; l < j - 1; l++) {
-                for (int m = l + 1; m < j; m++) {
+            for (size_t l = 0; l < j - 1; l++) {
+                for (size_t m = l + 1; m < j; m++) {
                     FullStepRow<FinalFullWidth> res(X[i+l], X[i+m], hashLen, lenIndices, 0);
                     if (DistinctIndices(X[i+l], X[i+m], hashLen, lenIndices)) {
                         auto soln = res.GetIndices(hashLen, 2*lenIndices, CollisionBitLength);
@@ -467,20 +467,21 @@ bool Equihash<N,K>::BasicSolve(const eh_HashState& base_state,
 template<size_t WIDTH>
 void CollideBranches(std::vector<FullStepRow<WIDTH>>& X, const size_t hlen, const size_t lenIndices, const unsigned int clen, const unsigned int ilen, const eh_trunc lt, const eh_trunc rt)
 {
-    int i = 0;
-    int posFree = 0;
+    size_t i = 0;
+    size_t posFree = 0;
+    assert(X.size() > 0);
     std::vector<FullStepRow<WIDTH>> Xc;
     while (i < X.size() - 1) {
         // 2b) Find next set of unordered pairs with collisions on the next n/(k+1) bits
-        int j = 1;
+        size_t j = 1;
         while (i+j < X.size() &&
                 HasCollision(X[i], X[i+j], clen)) {
             j++;
         }
 
         // 2c) Calculate tuples (X_i ^ X_j, (i, j))
-        for (int l = 0; l < j - 1; l++) {
-            for (int m = l + 1; m < j; m++) {
+        for (size_t l = 0; l < j - 1; l++) {
+            for (size_t m = l + 1; m < j; m++) {
                 if (DistinctIndices(X[i+l], X[i+m], hlen, lenIndices)) {
                     if (IsValidBranch(X[i+l], hlen, ilen, lt) && IsValidBranch(X[i+m], hlen, ilen, rt)) {
                         Xc.emplace_back(X[i+l], X[i+m], hlen, lenIndices, clen);
@@ -548,7 +549,7 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
         }
 
         // 3) Repeat step 2 until 2n/(k+1) bits remain
-        for (int r = 1; r < K && Xt.size() > 0; r++) {
+        for (unsigned int r = 1; r < K && Xt.size() > 0; r++) {
             LogPrint("pow", "Round %d:\n", r);
             // 2a) Sort the list
             LogPrint("pow", "- Sorting list\n");
@@ -556,12 +557,12 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
             if (cancelled(ListSorting)) throw solver_cancelled;
 
             LogPrint("pow", "- Finding collisions\n");
-            int i = 0;
-            int posFree = 0;
+            size_t i = 0;
+            size_t posFree = 0;
             std::vector<TruncatedStepRow<TruncatedWidth>> Xc;
             while (i < Xt.size() - 1) {
                 // 2b) Find next set of unordered pairs with collisions on the next n/(k+1) bits
-                int j = 1;
+                size_t j = 1;
                 while (i+j < Xt.size() &&
                         HasCollision(Xt[i], Xt[i+j], CollisionByteLength)) {
                     j++;
@@ -569,8 +570,8 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
 
                 // 2c) Calculate tuples (X_i ^ X_j, (i, j))
                 //bool checking_for_zero = (i == 0 && Xt[0].IsZero(hashLen));
-                for (int l = 0; l < j - 1; l++) {
-                    for (int m = l + 1; m < j; m++) {
+                for (size_t l = 0; l < j - 1; l++) {
+                    for (size_t m = l + 1; m < j; m++) {
                         // We truncated, so don't check for distinct indices here
                         TruncatedStepRow<TruncatedWidth> Xi {Xt[i+l], Xt[i+m],
                                                              hashLen, lenIndices,
@@ -620,16 +621,16 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
             std::sort(Xt.begin(), Xt.end(), CompareSR(hashLen));
             if (cancelled(FinalSorting)) throw solver_cancelled;
             LogPrint("pow", "- Finding collisions\n");
-            int i = 0;
+            size_t i = 0;
             while (i < Xt.size() - 1) {
-                int j = 1;
+                size_t j = 1;
                 while (i+j < Xt.size() &&
                         HasCollision(Xt[i], Xt[i+j], hashLen)) {
                     j++;
                 }
 
-                for (int l = 0; l < j - 1; l++) {
-                    for (int m = l + 1; m < j; m++) {
+                for (size_t l = 0; l < j - 1; l++) {
+                    for (size_t m = l + 1; m < j; m++) {
                         TruncatedStepRow<FinalTruncatedWidth> res(Xt[i+l], Xt[i+m],
                                                                   hashLen, lenIndices, 0);
                         auto soln = res.GetTruncatedIndices(hashLen, 2*lenIndices);
@@ -761,7 +762,7 @@ bool Equihash<N,K>::IsValidSolution(const eh_HashState& base_state, std::vector<
     size_t lenIndices = sizeof(eh_index);
     while (X.size() > 1) {
         std::vector<FullStepRow<FinalFullWidth>> Xc;
-        for (int i = 0; i < X.size(); i += 2) {
+        for (size_t i = 0; i < X.size(); i += 2) {
             if (!HasCollision(X[i], X[i+1], CollisionByteLength)) {
                 LogPrint("pow", "Invalid solution: invalid collision length between StepRows\n");
                 LogPrint("pow", "X[i]   = %s\n", X[i].GetHex(hashLen));
