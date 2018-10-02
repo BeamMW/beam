@@ -169,9 +169,9 @@ namespace std
 	char FStream::peekch() const
 	{
 		NotImpl();
-#ifdef _DEBUG
-		return 0;
-#endif // _DEBUG
+#if !(defined(_MSC_VER) && defined(NDEBUG))
+        return 0;
+#endif
 	}
 
 	void FStream::ungetch(char)
