@@ -1043,7 +1043,7 @@ namespace ECC {
 
 			for (uint32_t j = 0; j < 2; j++)
 			{
-				szStr[_countof(STR_GEN_PREFIX) + 1] = '0' + j;
+				szStr[_countof(STR_GEN_PREFIX) + 1] = '0' + char(j);
 				ctx.m_Ipp.m_pGen_[j][i].Initialize(szStr, hp);
 
 				secp256k1_ge ge;

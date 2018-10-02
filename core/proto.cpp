@@ -106,11 +106,11 @@ void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
 			io::IOVec& iov = sm[i];
 			if (iov.size >= n2)
 			{
-				hm.Write(iov.data, n2);
+				hm.Write(iov.data, (uint32_t) n2);
 				break;
 			}
 
-			hm.Write(iov.data, iov.size);
+			hm.Write(iov.data, (uint32_t)iov.size);
 			n2 -= iov.size;
 		}
 

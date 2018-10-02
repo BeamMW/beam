@@ -70,7 +70,7 @@ int p2ptest(int numNodes, int runTime) {
     LOG_WARNING() << "This test runs on linux only";
     return 0;
 #endif
-    srand(time(0));
+    srand((unsigned int) time(0));
 
     static const uint32_t LOCALHOST_BASE = 0x7F000001;
     static const uint16_t PORT_BASE = 20000;
@@ -90,7 +90,7 @@ int p2ptest(int numNodes, int runTime) {
         //settings.peerId = i+1;
         settings.bindToIp = LOCALHOST_BASE + i;
         // not all nodes listen
-        settings.listenToPort = ( (i+1)%3 == 0 ) ? 0 : PORT_BASE + i;
+        settings.listenToPort = ( (i+1)%3 == 0 ) ? 0 : uint16_t(PORT_BASE + i);
         // ~ etc
 
         callbacks.emplace_back(io::Address(settings.bindToIp, settings.listenToPort));
@@ -124,7 +124,7 @@ int p2ptest_1(io::Address seedAddr, int port) {
     P2PSettings settings;
 
     // seed initial server address
-    settings.priorityPeers.emplace_back(seedAddr.port(port));
+    settings.priorityPeers.emplace_back(seedAddr.port((uint16_t) port));
 
     node = std::make_unique<P2P>(callbacks, settings);
 

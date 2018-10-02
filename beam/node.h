@@ -214,7 +214,7 @@ private:
 		Block::SystemState::ID m_Trg;
 
 		uint32_t m_RequestsPending = 0;
-		uint32_t m_iData = 0;
+		uint8_t m_iData = 0;
 	};
 
 	void OnSyncTimer();
@@ -338,7 +338,7 @@ private:
 
 		static void CalcMsgKey(NodeDB::WalkerBbs::Data&);
 		uint32_t m_LastCleanup_ms = 0;
-		uint32_t m_RecommendedChannel = 0;
+		BbsChannel m_RecommendedChannel = 0;
 		void Cleanup();
 		void FindRecommendedChannel();
 		void MaybeCleanup();

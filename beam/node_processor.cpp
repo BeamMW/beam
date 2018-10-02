@@ -26,8 +26,8 @@ void NodeProcessor::OnCorrupted()
 }
 
 NodeProcessor::Horizon::Horizon()
-	:m_Branching(-1)
-	,m_Schwarzschild(-1)
+	:m_Branching(Height(-1))
+	,m_Schwarzschild(Height(-1))
 {
 }
 

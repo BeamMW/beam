@@ -82,7 +82,7 @@ namespace beam
 				if (nDst - 1 < nOffsetBytes)
 					return false;
 
-				uint8_t resid = x >> ((sizeof(x) << 3) - nOffset);
+				uint8_t resid = uint8_t(x >> ((sizeof(x) << 3) - nOffset));
 				pDst[nDst - 1 - nOffsetBytes] = resid;
 			}
 

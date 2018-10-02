@@ -839,7 +839,7 @@ void TestBbs()
 	verify_test(beam::proto::BbsEncrypt(buf, publicAddr, nonce, szMsg, sizeof(szMsg)));
 
 	uint8_t* p = &buf.at(0);
-	uint32_t n = buf.size();
+	uint32_t n = (uint32_t) buf.size();
 
 	verify_test(beam::proto::BbsDecrypt(p, n, privateAddr));
 	verify_test(n == sizeof(szMsg));
@@ -847,7 +847,7 @@ void TestBbs()
 
 	SetRandom(privateAddr);
 	p = &buf.at(0);
-	n = buf.size();
+	n = (uint32_t) buf.size();
 
 	verify_test(!beam::proto::BbsDecrypt(p, n, privateAddr));
 }

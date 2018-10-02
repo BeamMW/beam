@@ -257,7 +257,7 @@ namespace beam
 
 			const Merkle::Hash& hvRoot = vStates[(size_t) sid2.m_Height - Rules::HeightGenesis].m_Definition;
 
-			for (uint32_t h = Rules::HeightGenesis; h < sid2.m_Height; h++)
+			for (Height h = Rules::HeightGenesis; h < sid2.m_Height; h++)
 			{
 				Merkle::ProofBuilderStd bld;
 				db.get_Proof(bld, sid2, h);

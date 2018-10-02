@@ -726,7 +726,8 @@ void Node::Bbs::FindRecommendedChannel()
 {
 	NodeDB& db = get_ParentObj().m_Processor.get_DB(); // alias
 
-	uint32_t nChannel = 0, nCount = 0, nCountFound;
+	BbsChannel nChannel = 0;
+	uint32_t nCount = 0, nCountFound = 0;
 	bool bFound = false;
 
 	NodeDB::WalkerBbs wlk(db);
