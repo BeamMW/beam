@@ -125,6 +125,15 @@ namespace
 
         return true;
     }
+
+    IKeyStore::Ptr createKeyStore(const string& path, const SecString& pass)
+    {
+        IKeyStore::Options options;
+        options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+        options.fileName = path;
+
+        return IKeyStore::create(options, pass.data(), pass.size());
+    }
 }
 
 struct TreasuryBlockGenerator
@@ -428,11 +437,7 @@ int main_impl(int argc, char* argv[])
                             {
                                 LOG_INFO() << "wallet successfully created...";
 
-                                IKeyStore::Options options;
-                                options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-                                options.fileName = bbsKeysPath;
-
-                                IKeyStore::Ptr ks = IKeyStore::create(options, pass.data(), pass.size());
+                                IKeyStore::Ptr ks = createKeyStore(bbsKeysPath, pass);
 
                                 // generate default address
                                 WalletAddress defaultAddress = {};
@@ -592,11 +597,7 @@ int main_impl(int argc, char* argv[])
 
                         bool is_server = command == cli::LISTEN;
 
-                        IKeyStore::Options options;
-                        options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-                        options.fileName = bbsKeysPath;
-
-                        IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
+                        IKeyStore::Ptr keystore = createKeyStore(bbsKeysPath, pass);
 
                         auto wallet_io = make_shared<WalletNetworkIO >( node_addr
                                                                       , keychain

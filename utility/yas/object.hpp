@@ -215,7 +215,7 @@ struct ctmap<std::tuple<KVI>> {
 template<>
 struct ctmap<std::tuple<>> {
     optional_t find(std::uint32_t /*k*/) const {
-        return {false, 0};
+        return {false, static_cast<uint8_t>(0)};
     }
 };
 

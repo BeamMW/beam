@@ -12,7 +12,7 @@
 namespace beam {
 
 void SecString::erase() {
-    if (_size > 0) ECC::SecureErase(_data, _size);
+    if (_size > 0) ECC::SecureErase(_data, static_cast<uint32_t>(_size));
 }
 
 void SecString::assign(void* p, size_t s) {
@@ -22,7 +22,7 @@ void SecString::assign(void* p, size_t s) {
         alloc();
         memcpy(_data, p, newSize);
         _size = newSize;
-        ECC::SecureErase(p, s);
+        ECC::SecureErase(p, static_cast<uint32_t>(s));
     } else {
         dealloc();
     }

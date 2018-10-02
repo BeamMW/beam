@@ -25,7 +25,12 @@ using namespace std;
 
 void load_config() {
     static const std::string fileName("/tmp/xoxoxo");
+
+#ifdef WIN32
+    _unlink(fileName.c_str());
+#else
     unlink(fileName.c_str());
+#endif // WIN32
 
     std::ofstream file(fileName);
     file << R"({

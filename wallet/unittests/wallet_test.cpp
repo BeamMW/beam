@@ -81,7 +81,7 @@ namespace
         void remove(const std::vector<beam::Coin>& ) override {}
         void remove(const beam::Coin& ) override {}
         void visit(std::function<bool(const beam::Coin& coin)> ) override {}
-        void setVarRaw(const char* , const void* , int ) override {}
+        void setVarRaw(const char* , const void* , size_t ) override {}
         int getVarRaw(const char* , void* ) const override { return 0; }
         bool getBlob(const char* name, ByteBuffer& var) const { return false; }
         Timestamp getLastUpdateTime() const override { return 0; }

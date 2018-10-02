@@ -26,6 +26,7 @@ set(IO_SRC
 
 if (MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX")
+    set_source_files_properties(logger.cpp PROPERTIES COMPILE_FLAGS "/wd4996") # 'std::fpos<_Mbstatet>::seekpos': warning STL4019: The member std::fpos::seekpos() is non-Standard
 elseif(ANDROID)
 else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
