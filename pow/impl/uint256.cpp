@@ -3,6 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "uint256.h"
 
 #include "utilstrencodings.h"
@@ -22,7 +24,7 @@ std::string base_blob<BITS>::GetHex() const
 {
     char psz[sizeof(data) * 2 + 1];
     for (unsigned int i = 0; i < sizeof(data); i++)
-        snprintf(psz + i * 2, _countof(psz) - (i*2), "%02x", data[sizeof(data) - i - 1]);
+        sprintf(psz + i * 2, "%02x", data[sizeof(data) - i - 1]);
     return std::string(psz, psz + sizeof(data) * 2);
 }
 
