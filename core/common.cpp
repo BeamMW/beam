@@ -169,7 +169,9 @@ namespace std
 	char FStream::peekch() const
 	{
 		NotImpl();
-		return 0;
+#ifndef NDEBUG
+        return 0;
+#endif
 	}
 
 	void FStream::ungetch(char)
