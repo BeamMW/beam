@@ -687,8 +687,8 @@ namespace beam
         vector<Coin> unconfirmed;
         m_keyChain->visit([&](const Coin& coin)
         {
-            if (coin.m_createTxId == txID && coin.m_status == Coin::Unconfirmed
-                || coin.m_spentTxId == txID && coin.m_status == Coin::Locked)
+            if ((coin.m_createTxId == txID && coin.m_status == Coin::Unconfirmed)
+                || (coin.m_spentTxId == txID && coin.m_status == Coin::Locked))
             {
                 unconfirmed.emplace_back(coin);
             }
