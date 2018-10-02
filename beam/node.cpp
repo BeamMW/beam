@@ -578,6 +578,36 @@ void Node::Initialize()
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
 	m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
 
+	if (m_Cfg.m_VerificationThreads < 0)
+	{
+		uint32_t numCores = std::thread::hardware_concurrency();
+		m_Cfg.m_VerificationThreads = (numCores > m_Cfg.m_MiningThreads + 1) ? (numCores - m_Cfg.m_MiningThreads) : 0;
+	}
+
+	InitIDs();
+
+	LOG_INFO() << "Node ID=" << m_MyPublicID << ", Owner=" << m_MyOwnerID;
+	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
+
+	InitMode();
+
+	RefreshCongestions();
+
+	if (m_Cfg.m_Listen.port())
+	{
+		m_Server.Listen(m_Cfg.m_Listen);
+		if (m_Cfg.m_BeaconPeriod_ms)
+			m_Beacon.Start();
+	}
+
+	m_PeerMan.Initialize();
+	m_Miner.Initialize();
+	m_Compressor.Init();
+	m_Bbs.Cleanup();
+}
+
+void Node::InitIDs()
+{
 	ECC::GenRandom(m_SChannelSeed.V.m_pData, m_SChannelSeed.V.nBytes);
 
 	m_MyPrivateID.V.m_Value = Zero;
@@ -597,121 +627,43 @@ void Node::Initialize()
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, NULL, &blob);
 	}
 
-	ECC::Kdf& kdf = m_Processor.m_Kdf;
-
-	DeriveKey(sk, kdf, 0, KeyType::Identity);
+	DeriveKey(sk, m_Processor.m_Kdf, 0, KeyType::Identity);
 	proto::Sk2Pk(m_MyOwnerID, sk);
+}
 
-	LOG_INFO() << "Node ID=" << m_MyPublicID << ", Owner=" << m_MyOwnerID;
-	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
+void Node::InitMode()
+{
+	if (m_Processor.m_Cursor.m_ID.m_Height)
+		return;
 
-	if (m_Cfg.m_VerificationThreads < 0)
+	if (!m_Cfg.m_vTreasury.empty())
 	{
-		uint32_t numCores = std::thread::hardware_concurrency();
-		m_Cfg.m_VerificationThreads = (numCores > m_Cfg.m_MiningThreads + 1) ? (numCores - m_Cfg.m_MiningThreads) : 0;
+		LOG_INFO() << "Creating new blockchain from treasury";
+		return;
 	}
 
-	if (!m_Processor.m_Cursor.m_ID.m_Height)
+	if (!m_Cfg.m_Sync.m_SrcPeers)
+		return;
+
+	LOG_INFO() << "Sync mode";
+
+	m_pSync.reset(new FirstTimeSync);
+	ZeroObject(m_pSync->m_Trg);
+	ZeroObject(m_pSync->m_Best);
+
+	NodeDB::Blob blobTrg = m_pSync->m_Trg.m_Hash;
+	m_Processor.get_DB().ParamGet(NodeDB::ParamID::SyncTarget, &m_pSync->m_Trg.m_Height, &blobTrg);
+
+	m_pSync->m_bDetecting = !m_pSync->m_Trg.m_Height;
+
+	if (m_pSync->m_Trg.m_Height)
 	{
-		if (!m_Cfg.m_vTreasury.empty())
-		{
-			LOG_INFO() << "Creating new blockchain from treasury";
-		}
-		else
-			if (m_Cfg.m_Sync.m_SrcPeers)
-			{
-				LOG_INFO() << "Sync mode";
-
-				m_pSync.reset(new FirstTimeSync);
-				ZeroObject(m_pSync->m_Trg);
-				ZeroObject(m_pSync->m_Best);
-
-				NodeDB::Blob blobTrg = m_pSync->m_Trg.m_Hash;
-				m_Processor.get_DB().ParamGet(NodeDB::ParamID::SyncTarget, &m_pSync->m_Trg.m_Height, &blobTrg);
-
-				m_pSync->m_bDetecting = !m_pSync->m_Trg.m_Height;
-
-				if (m_pSync->m_Trg.m_Height)
-				{
-					LOG_INFO() << "Resuming sync up to " << m_pSync->m_Trg;
-				}
-				else
-				{
-					LOG_INFO() << "Searching for the best peer...";
-				}
-			}
+		LOG_INFO() << "Resuming sync up to " << m_pSync->m_Trg;
 	}
-
-	RefreshCongestions();
-
-	if (m_Cfg.m_Listen.port())
+	else
 	{
-		m_Server.Listen(m_Cfg.m_Listen);
-		if (m_Cfg.m_BeaconPeriod_ms)
-			m_Beacon.Start();
+		LOG_INFO() << "Searching for the best peer...";
 	}
-
-	for (uint32_t i = 0; i < m_Cfg.m_Connect.size(); i++)
-	{
-		PeerID id0(Zero);
-		m_PeerMan.OnPeer(id0, m_Cfg.m_Connect[i], true);
-	}
-
-	// peers
-	m_PeerMan.m_pTimerUpd = io::Timer::create(io::Reactor::get_Current().shared_from_this());
-	m_PeerMan.m_pTimerUpd->start(m_Cfg.m_Timeout.m_PeersUpdate_ms, true, [this]() { m_PeerMan.Update(); });
-
-	m_PeerMan.m_pTimerFlush = io::Timer::create(io::Reactor::get_Current().shared_from_this());
-	m_PeerMan.m_pTimerFlush->start(m_Cfg.m_Timeout.m_PeersDbFlush_ms, true, [this]() { m_PeerMan.OnFlush(); });
-
-	{
-		NodeDB::WalkerPeer wlk(m_Processor.get_DB());
-		for (m_Processor.get_DB().EnumPeers(wlk); wlk.MoveNext(); )
-		{
-			if (wlk.m_Data.m_ID == m_MyPublicID)
-				continue; // could be left from previous run?
-
-			PeerMan::PeerInfo* pPi = m_PeerMan.OnPeer(wlk.m_Data.m_ID, io::Address::from_u64(wlk.m_Data.m_Address), false);
-			if (!pPi)
-				continue;
-
-			// set rating (akward, TODO - fix this)
-			uint32_t r = wlk.m_Data.m_Rating;
-			if (!r)
-				m_PeerMan.Ban(*pPi);
-			else
-				if (r > pPi->m_RawRating.m_Value)
-					m_PeerMan.ModifyRating(*pPi, r - pPi->m_RawRating.m_Value, true);
-				else
-					m_PeerMan.ModifyRating(*pPi, pPi->m_RawRating.m_Value - r, false);
-
-			pPi->m_LastSeen = wlk.m_Data.m_LastSeen;
-		}
-	}
-
-	if (m_Cfg.m_MiningThreads)
-	{
-		m_Miner.m_pEvtMined = io::AsyncEvent::create(io::Reactor::get_Current().shared_from_this(), [this]() { m_Miner.OnMined(); });
-
-		m_Miner.m_vThreads.resize(m_Cfg.m_MiningThreads);
-		for (uint32_t i = 0; i < m_Cfg.m_MiningThreads; i++)
-		{
-			PerThread& pt = m_Miner.m_vThreads[i];
-			pt.m_pReactor = io::Reactor::create();
-			pt.m_pEvt = io::AsyncEvent::create(pt.m_pReactor, [this, i]() { m_Miner.OnRefresh(i); });
-			pt.m_Thread = std::thread(&io::Reactor::run, pt.m_pReactor);
-		}
-
-		m_Miner.SetTimer(0, true); // async start mining, since this method may be followed by ImportMacroblock.
-	}
-
-	ZeroObject(m_Compressor.m_hrNew);
-	m_Compressor.m_bEnabled = !m_Cfg.m_HistoryCompression.m_sPathOutput.empty();
-
-	if (m_Compressor.m_bEnabled)
-		m_Compressor.Init();
-
-	m_Bbs.Cleanup();
 }
 
 void Node::Bbs::Cleanup()
@@ -2433,6 +2385,26 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 	}
 }
 
+void Node::Miner::Initialize()
+{
+	const Config& cfg = get_ParentObj().m_Cfg;
+	if (!cfg.m_MiningThreads)
+		return;
+
+	m_pEvtMined = io::AsyncEvent::create(io::Reactor::get_Current().shared_from_this(), [this]() { OnMined(); });
+
+	m_vThreads.resize(cfg.m_MiningThreads);
+	for (uint32_t i = 0; i < cfg.m_MiningThreads; i++)
+	{
+		PerThread& pt = m_vThreads[i];
+		pt.m_pReactor = io::Reactor::create();
+		pt.m_pEvt = io::AsyncEvent::create(pt.m_pReactor, [this, i]() { OnRefresh(i); });
+		pt.m_Thread = std::thread(&io::Reactor::run, pt.m_pReactor);
+	}
+
+	SetTimer(0, true); // async start mining, since this method may be followed by ImportMacroblock.
+}
+
 void Node::Miner::OnRefresh(uint32_t iIdx)
 {
 	while (true)
@@ -2654,12 +2626,17 @@ void Node::Miner::OnMined()
 
 void Node::Compressor::Init()
 {
+	ZeroObject(m_hrNew);
 	m_bStop = true;
+	m_bEnabled = !get_ParentObj().m_Cfg.m_HistoryCompression.m_sPathOutput.empty();
 
-	OnRolledBack(); // delete potentially ahead-of-time macroblocks
-	Cleanup(); // delete exceeding backlog, broken files
+	if (m_bEnabled)
+	{
+		OnRolledBack(); // delete potentially ahead-of-time macroblocks
+		Cleanup(); // delete exceeding backlog, broken files
 
-	OnNewState();
+		OnNewState();
+	}
 }
 
 void Node::Compressor::Cleanup()
@@ -3155,6 +3132,49 @@ void Node::Beacon::OnClosed(uv_handle_t* p)
 {
 	assert(p);
 	delete (uv_udp_t*) p;
+}
+
+void Node::PeerMan::Initialize()
+{
+	const Config& cfg = get_ParentObj().m_Cfg;
+
+	for (uint32_t i = 0; i < cfg.m_Connect.size(); i++)
+	{
+		PeerID id0(Zero);
+		OnPeer(id0, cfg.m_Connect[i], true);
+	}
+
+	// peers
+	m_pTimerUpd = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+	m_pTimerUpd->start(cfg.m_Timeout.m_PeersUpdate_ms, true, [this]() { Update(); });
+
+	m_pTimerFlush = io::Timer::create(io::Reactor::get_Current().shared_from_this());
+	m_pTimerFlush->start(cfg.m_Timeout.m_PeersDbFlush_ms, true, [this]() { OnFlush(); });
+
+	{
+		NodeDB::WalkerPeer wlk(get_ParentObj().m_Processor.get_DB());
+		for (get_ParentObj().m_Processor.get_DB().EnumPeers(wlk); wlk.MoveNext(); )
+		{
+			if (wlk.m_Data.m_ID == get_ParentObj().m_MyPublicID)
+				continue; // could be left from previous run?
+
+			PeerMan::PeerInfo* pPi = OnPeer(wlk.m_Data.m_ID, io::Address::from_u64(wlk.m_Data.m_Address), false);
+			if (!pPi)
+				continue;
+
+			// set rating (akward, TODO - fix this)
+			uint32_t r = wlk.m_Data.m_Rating;
+			if (!r)
+				Ban(*pPi);
+			else
+				if (r > pPi->m_RawRating.m_Value)
+					ModifyRating(*pPi, r - pPi->m_RawRating.m_Value, true);
+				else
+					ModifyRating(*pPi, pPi->m_RawRating.m_Value - r, false);
+
+			pPi->m_LastSeen = wlk.m_Data.m_LastSeen;
+		}
+	}
 }
 
 void Node::PeerMan::OnFlush()

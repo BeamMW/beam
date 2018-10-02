@@ -229,6 +229,9 @@ private:
 	void AssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
 
+	void InitIDs();
+	void InitMode();
+
 	struct Wanted
 	{
 		typedef ECC::Hash::Value KeyType;
@@ -373,6 +376,8 @@ private:
 	{
 		io::Timer::Ptr m_pTimerUpd;
 		io::Timer::Ptr m_pTimerFlush;
+
+		void Initialize();
 		void OnFlush();
 
 		struct PeerInfoPlus
@@ -555,6 +560,7 @@ private:
 			std::shared_ptr<volatile bool> m_pStop;
 		};
 
+		void Initialize();
 		void OnRefresh(uint32_t iIdx);
 		void OnMined();
 
