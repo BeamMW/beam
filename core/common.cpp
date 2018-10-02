@@ -169,7 +169,7 @@ namespace std
 	char FStream::peekch() const
 	{
 		NotImpl();
-#ifndef NDEBUG
+#if !(defined(_MSC_VER) && defined(NDEBUG))
         return 0;
 #endif
 	}

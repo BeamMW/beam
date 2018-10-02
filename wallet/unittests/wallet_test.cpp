@@ -1378,7 +1378,7 @@ void TestSerializeFSM()
     cout << "\nTesting wallet's fsm serialization...\nsender\n";
     TestGateway gateway;
 
-    beam::TxID id = { 3, 65, 70 };
+    beam::TxID id({ 3, 65, 70 });
     TxDescription tx = {};
     tx.m_txId = id;
     tx.m_amount = 6;
