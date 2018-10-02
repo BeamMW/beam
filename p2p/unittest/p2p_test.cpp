@@ -117,7 +117,7 @@ int p2ptest(int numNodes, int runTime) {
     return 0;
 }
 
-int p2ptest_1(io::Address seedAddr, int port) {
+int p2ptest_1(io::Address seedAddr, uint16_t port) {
     std::unique_ptr<P2P> node;
 
     LOG_INFO() << "Creating node";
@@ -191,7 +191,7 @@ int main(int argc, char* argv[]) {
         if (isUnittest)
             return p2ptest(numNodes, runTimeOrPort);
         else
-            return p2ptest_1(seedAddr, runTimeOrPort);
+            return p2ptest_1(seedAddr, static_cast<uint16_t>(runTimeOrPort));
     } catch (const std::exception& e) {
         LOG_ERROR() << "Exception: " << e.what();
     } catch (...) {
