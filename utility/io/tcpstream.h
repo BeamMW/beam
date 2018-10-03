@@ -34,7 +34,7 @@ public:
     struct State {
         uint64_t received=0;
         uint64_t sent=0;
-        size_t unsent=0; // == _writeBuffer.size()
+        size_t unsent=0;
     };
 
     virtual ~TcpStream();

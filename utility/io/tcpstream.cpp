@@ -17,7 +17,7 @@
 #include "utility/helpers.h"
 #include <assert.h>
 
-#define LOG_VERBOSE_ENABLED 0
+#define LOG_DEBUG_ENABLED 0
 #include "utility/logger.h"
 
 namespace beam { namespace io {
@@ -121,20 +121,20 @@ void TcpStream::shutdown() {
 }
 
 Result TcpStream::do_write(bool flush) {
-    _state.unsent += _writeBuffer.size();
-    if (flush && !_writeBuffer.empty()) {
+    size_t nBytes = _writeBuffer.size();
+    if (flush && nBytes > 0) {
         ErrorCode ec = _reactor->async_write(this, _writeBuffer, _onDataWritten);
         if (ec != EC_OK) {
+            LOG_DEBUG() << __FUNCTION__ << " " << error_str(ec);
             return make_unexpected(ec);
         }
+        _state.unsent += nBytes;
     }
     if (flush) assert(_writeBuffer.empty());
     return Ok();
 }
 
 void TcpStream::on_data_written(ErrorCode errorCode, size_t n) {
-    LOG_VERBOSE() << TRACE(_handle) << TRACE(errorCode) << TRACE(n) << TRACE(_state.unsent) << TRACE(_state.sent) << TRACE(_state.received);
-
     if (errorCode != EC_OK) {
         if (_callback) _callback(errorCode, 0, 0);
     } else {
@@ -142,6 +142,7 @@ void TcpStream::on_data_written(ErrorCode errorCode, size_t n) {
         assert(_state.unsent >= n);
         _state.unsent -= n;
     }
+    LOG_DEBUG() << __FUNCTION__ << TRACE(n) << TRACE(_state.unsent) << TRACE(_state.sent) << TRACE(_state.received);
 }
 
 bool TcpStream::is_connected() const {
@@ -165,8 +166,6 @@ Address TcpStream::peer_address() const {
 }
 
 void TcpStream::read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
-    LOG_VERBOSE() << TRACE(handle) << TRACE(nread) << TRACE(handle->data);
-
     TcpStream* self = reinterpret_cast<TcpStream*>(handle->data);
 
     // self becomes null after async close
@@ -179,6 +178,7 @@ void TcpStream::read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf)
 void TcpStream::on_read(ErrorCode errorCode, void* data, size_t size) {
     if (_callback) {
         _state.received += size;
+        LOG_DEBUG() << __FUNCTION__ << TRACE(size) << TRACE(_state.unsent) << TRACE(_state.sent) << TRACE(_state.received);
         _callback(errorCode, data, size);
     }
 }

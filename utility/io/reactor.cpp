@@ -245,7 +245,6 @@ public:
 
         size_t nBytes = unsent.size();
         auto p = _data.insert({ req, Ctx{ this, std::move(unsent), cb, nBytes } });
-        unsent.clear();
 
         assert (p.second);
         Ctx* ctx = &p.first->second;
@@ -274,6 +273,8 @@ public:
 
         if (ec != EC_OK) {
             release_request(req);
+        } else {
+            unsent.clear();
         }
 
         return ec;
@@ -376,6 +377,7 @@ void Reactor::run() {
         LOG_DEBUG() << "loop wasn't initialized";
         return;
     }
+    block_sigpipe();
     // NOTE: blocks
     uv_run(&_loop, UV_RUN_DEFAULT);
 }
