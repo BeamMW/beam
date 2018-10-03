@@ -1,6 +1,5 @@
 set(P2P_SRC
     msg_reader.cpp
-    fragment_writer.cpp
     msg_serializer.cpp
     protocol_base.cpp
     connected_peers.cpp
@@ -12,7 +11,10 @@ set(P2P_SRC
     picohttpparser/picohttpparser.c
     http_msg_reader.cpp
     http_msg_creator.cpp
-    stratum.cpp)
+    stratum.cpp
+    status_server.cpp
+    status_server_json.cpp
+    )
 
 add_library(p2p STATIC ${P2P_SRC})
 add_dependencies(p2p utility)

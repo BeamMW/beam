@@ -15,7 +15,7 @@
 #include "fragment_writer.h"
 #include <assert.h>
 
-namespace beam {
+namespace beam { namespace io {
 
 FragmentWriter::FragmentWriter(size_t fragmentSize, size_t headerSize, const OnNewFragment& callback) :
     _fragmentSize(fragmentSize),
@@ -77,4 +77,4 @@ void FragmentWriter::new_fragment() {
     _remaining = _fragmentSize;
 }
 
-} //namespace
+}} //namespaces

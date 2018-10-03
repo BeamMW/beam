@@ -28,7 +28,7 @@ AsyncContext* ctx() { return tls_ctx; }
 
 AsyncContext::AsyncContext(unsigned coarseTimerResolutionMsec) :
     _reactor(io::Reactor::create()),
-    _timer(io::CoarseTimer::create(*_reactor, coarseTimerResolutionMsec, BIND_THIS_MEMFN(on_coarse_timer))),
+    _timers(*_reactor, coarseTimerResolutionMsec),
     _started(false)
 {
     attach_to_thread();
@@ -97,27 +97,11 @@ void AsyncContext::wait() {
 }
 
 io::Result AsyncContext::set_coarse_timer(AsyncContext::TimerID id, unsigned intervalMsec, AsyncContext::TimerCallback&& callback) {
-    if (_timerCallbacks.count(id) || !callback) return make_unexpected(io::EC_EINVAL);
-    io::Result res = _timer->set_timer(intervalMsec, id);
-    if (res) {
-        _timerCallbacks.insert( { id, std::move(callback) } );
-    }
-    return res;
-}
-
-void AsyncContext::on_coarse_timer(AsyncContext::TimerID id) {
-    auto it = _timerCallbacks.find(id);
-    if (it != _timerCallbacks.end()) {
-        TimerCallback cb = it->second;
-        _timerCallbacks.erase(it);
-        cb(id);
-    }
+    return _timers.set_timer(id, intervalMsec, std::move(callback));
 }
 
 void AsyncContext::cancel_coarse_timer(AsyncContext::TimerID id) {
-    if (_timerCallbacks.erase(id) != 0) {
-        _timer->cancel(id);
-    }
+    _timers.cancel(id);
 }
 
 } //namespace

@@ -14,7 +14,7 @@
 
 #pragma once
 #include "utility/io/buffer.h"
-#include <string>
+#include "nlohmann/json_fwd.hpp"
 
 namespace beam {
 
@@ -125,5 +125,7 @@ template<> io::SharedBuffer create_json_msg(HttpMsgCreator& packer, const Respon
 template<typename M> int parse_json_msg(const void* buf, size_t bufSize, M& m);
 
 template<> int parse_json_msg(const void* buf, size_t bufSize, Response& m);
+
+io::SharedBuffer dump(HttpMsgCreator& packer, const nlohmann::json& o);
 
 }} //namespaces

@@ -16,19 +16,14 @@
 #include "utility/config.h"
 #include <assert.h>
 
-#define LOG_VERBOSE_ENABLED 1
+#define LOG_VERBOSE_ENABLED 0
 #include "utility/logger.h"
 
 namespace beam { namespace io {
 
 TcpStream::~TcpStream() {
-    LOG_VERBOSE() << __FUNCTION__ << TRACE(this);
     disable_read();
-
-    if (_handle)
-		_handle->data = NULL;
-
-    LOG_VERBOSE() << ".";
+    if (_handle) _handle->data = 0;
 }
 
 void TcpStream::alloc_read_buffer() {
@@ -66,7 +61,7 @@ Result TcpStream::enable_read(const TcpStream::Callback& callback) {
         }
     };
 
-    ErrorCode errorCode = (ErrorCode)uv_read_start((uv_stream_t*)_handle, read_alloc_cb, on_read);
+    ErrorCode errorCode = (ErrorCode)uv_read_start((uv_stream_t*)_handle, read_alloc_cb, read_cb);
     if (errorCode != 0) {
         _callback = Callback();
         free_read_buffer();
@@ -112,6 +107,14 @@ Result TcpStream::write(const std::vector<SharedBuffer>& fragments) {
     return Ok();
 }
 
+Result TcpStream::write(const BufferChain& fragments) {
+    if (fragments.empty()) return Ok();
+    if (!is_connected()) return make_unexpected(EC_ENOTCONN);
+    _writeBuffer.append(fragments);
+    _state.unsent = _writeBuffer.size();
+    return send_write_request();
+}
+
 void TcpStream::shutdown() {
     if (is_connected()) {
         disable_read();
@@ -143,16 +146,18 @@ Result TcpStream::send_write_request() {
     };
 
     if (!_writeRequestSent) {
-        Reactor::WriteRequest* wr = _reactor->alloc_write_request();
-        wr->n = _writeBuffer.size();
-        ErrorCode errorCode = (ErrorCode)uv_write((uv_write_t*)wr, (uv_stream_t*)_handle,
-            (uv_buf_t*)_writeBuffer.fragments(), static_cast<unsigned int>(_writeBuffer.num_fragments()), write_cb
-        );
+        if (!_writeBuffer.empty()) {
+            Reactor::WriteRequest* wr = _reactor->alloc_write_request();
+            wr->n = _writeBuffer.size();
+            ErrorCode errorCode = (ErrorCode)uv_write((uv_write_t*)wr, (uv_stream_t*)_handle,
+                (uv_buf_t*)_writeBuffer.fragments(), static_cast<unsigned int>(_writeBuffer.num_fragments()), write_cb
+            );
 
-        _state.unsent += wr->n;
+            _state.unsent += wr->n;
 
-        if (errorCode != 0) {
-            return make_unexpected(errorCode);
+            if (errorCode != 0) {
+                return make_unexpected(errorCode);
+            }
         }
         _writeRequestSent = true;
     }
@@ -197,20 +202,22 @@ Address TcpStream::peer_address() const {
     return Address(sa);
 }
 
-void TcpStream::on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
+void TcpStream::read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
     LOG_VERBOSE() << TRACE(handle) << TRACE(nread) << TRACE(handle->data);
 
     TcpStream* self = reinterpret_cast<TcpStream*>(handle->data);
 
     // self becomes null after async close
+    if (self) {
+        if (nread > 0) self->on_read(EC_OK, buf->base, size_t(nread));
+        else if (nread < 0) self->on_read(ErrorCode(nread), 0, 0);
+    }
+}
 
-    if (self && self->_callback) {
-        if (nread > 0) {
-            self->_state.received += nread;
-            self->_callback(EC_OK, buf->base, (size_t)nread);
-        } else if (nread < 0) {
-            self->_callback((ErrorCode)nread, 0, 0);
-        }
+void TcpStream::on_read(ErrorCode errorCode, void* data, size_t size) {
+    if (_callback) {
+        _state.received += size;
+        _callback(errorCode, data, size);
     }
 }
 

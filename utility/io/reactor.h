@@ -106,7 +106,7 @@ private:
             return *this;
         }
 
-        ~Object() {
+        virtual ~Object() {
             async_close();
         }
 
@@ -171,6 +171,7 @@ private:
     friend class AsyncEvent;
     friend class Timer;
     friend class TcpServer;
+    friend class SslServer;
     friend class TcpStream;
 };
 

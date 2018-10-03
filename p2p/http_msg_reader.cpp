@@ -24,6 +24,99 @@
 
 namespace beam {
 
+using std::string_view;
+
+namespace {
+
+int find_dir(const std::map<string_view, int>& dirs, const string_view& str) {
+    int ret = -1;
+    auto it = dirs.find(str);
+    if (it != dirs.end()) ret = it->second;
+    return ret;
+}
+
+void split(string_view& a, char delim, string_view& b) {
+    auto pos = a.find(delim, 0);
+    if (pos == string_view::npos) {
+        b = string_view("");
+    } else {
+        b = a.substr(pos + 1);
+        a = a.substr(0, pos);
+    }
+}
+
+} //namespace
+
+bool HttpUrl::parse(const std::string& url, const std::map<std::string_view, int>& dirs) {
+    reset();
+    if (url.empty() || url[0] != '/') return false;
+    string_view s(url.c_str() + 1, url.size() - 1);
+    if (s.empty()) {
+        dir = find_dir(dirs, "");
+        return (dir >= 0);
+    }
+
+    split(s, '#', fragment);
+    string_view query;
+    split(s, '?', query);
+
+    string_view tail;
+    split(s, '/', tail);
+    dir = find_dir(dirs, s);
+    if (dir < 0) {
+        return false;
+    }
+    for (unsigned i=0; i<MAX_PATH_ELEMENTS; ++i) {
+        s = tail;
+        split(s, '/', tail);
+        if (s.empty())
+            break;
+        path[i] = s;
+        ++nPathElements;
+        if (tail.empty())
+            break;
+    }
+    if (!tail.empty())
+        return false;
+
+    string_view value;
+    while (!query.empty()) {
+        split(query, '&', tail);
+        split(query, '=', value);
+        if (!query.empty()) {
+            args[query] = value;
+        }
+        query = tail;
+    }
+
+    return true;
+}
+
+int64_t HttpUrl::get_int_arg(const std::string_view& name, int64_t defValue) const {
+    auto it = args.find(name);
+    if (it == args.end()) return defValue;
+    const auto& val = it->second;
+    if (val.empty()) return defValue;
+    char* e = 0;
+    int64_t ret = strtol(val.data(), &e, 10);
+    if (size_t(e - val.data()) != val.size()) return defValue;
+    return ret;
+}
+
+std::string HttpMsgReader::Message::error_str() const {
+    switch (what) {
+        case HttpMsgReader::connection_error:
+            return io::error_descr(connectionError);
+        case HttpMsgReader::message_corrupted:
+            return "message corrupted";
+        case HttpMsgReader::message_too_long:
+            return "message too long";
+        default:
+            break;
+    }
+    return "ok";
+}
+
 namespace {
 
 static const size_t MAX_HEADERS_NUMBER = 100;
@@ -87,9 +180,9 @@ struct HeadersParserStuff {
     }
 
     // returns true iff parsing completed
-    bool parse_headers(bool parseResponse, const void* p, size_t sz, size_t& consumed, HttpMsgReader::ParseError& error) {
+    bool parse_headers(bool parseResponse, const void* p, size_t sz, size_t& consumed, HttpMsgReader::What& error) {
         int result=0;
-        error = HttpMsgReader::ok;
+        error = HttpMsgReader::nothing;
         consumed = 0;
         if (sz == 0) return false;
 
@@ -130,7 +223,7 @@ struct HeadersParserStuff {
 
         headers_cursor += maxBytes;
         if ( headers_cursor == MAX_HEADERS_BUFSIZE) {
-            error = HttpMsgReader::too_long;
+            error = HttpMsgReader::message_too_long;
         }
 
         //LOG_DEBUG() << "incompleted: " << std::string(headers_buffer, headers_cursor);
@@ -207,8 +300,8 @@ public:
         _headersCached.clear();
     }
 
-    size_t parse_content_length(size_t maxLength, HttpMsgReader::ParseError& error) {
-        error = HttpMsgReader::ok;
+    size_t parse_content_length(size_t maxLength, HttpMsgReader::What& error) {
+        error = HttpMsgReader::nothing;
         size_t ret = 0;
         if (headers_state != incompleted) {
             static const std::string contentLength("content-length");
@@ -221,7 +314,7 @@ public:
                     return size_t(-1);
                 }
                 if (ret > maxLength) {
-                    error = HttpMsgReader::too_long;
+                    error = HttpMsgReader::message_too_long;
                     return size_t(-1);
                 }
                 _body.resize(ret);
@@ -303,7 +396,7 @@ void HttpMsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const v
 
 size_t HttpMsgReader::feed_header(const uint8_t* p, size_t sz) {
     size_t consumed = 0;
-    ParseError error = ok;
+    What error = nothing;
     bool headers_completed = _msg->parse_headers(_mode == client, p, sz, consumed, error);
     if (headers_completed) {
         size_t contentLength = _msg->parse_content_length(_maxBodySize, error);
@@ -317,14 +410,14 @@ size_t HttpMsgReader::feed_header(const uint8_t* p, size_t sz) {
                 // the object may be deleted here
                 return 0;
             }
-        } else if (error == ok) {
+        } else if (error == nothing) {
             _state = reading_body;
         } else {
             _callback(_streamId, Message(error));
             // the object may be deleted here
             return 0;
         }
-    } else if (error != ok) {
+    } else if (error != nothing) {
         _callback(_streamId, Message(error));
         // the object may be deleted here
         return 0;

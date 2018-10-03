@@ -19,7 +19,7 @@ struct CurrentOutput {
     io::SerializedMsg** _currentMsg;
 };
 
-bool write_fmt(FragmentWriter& fw, const char* fmt, ...) {
+bool write_fmt(io::FragmentWriter& fw, const char* fmt, ...) {
     static const int MAX_BUFSIZE = 4096;
     char buf[MAX_BUFSIZE];
     va_list ap;
@@ -34,7 +34,7 @@ bool write_fmt(FragmentWriter& fw, const char* fmt, ...) {
 }
 
 bool create_message(
-    FragmentWriter& fw,
+    io::FragmentWriter& fw,
     const HeaderPair* headers, size_t num_headers,
     const char* content_type,
     size_t bodySize

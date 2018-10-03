@@ -54,7 +54,7 @@ std::string get_error_msg(int code) {
 namespace {
 
 struct JsonOutputAdapter : nlohmann::detail::output_adapter_protocol<char> {
-    JsonOutputAdapter(FragmentWriter& _fw) : fw(_fw) {}
+    JsonOutputAdapter(io::FragmentWriter& _fw) : fw(_fw) {}
 
     void write_character(char c) override {
         fw.write(&c, 1);
@@ -64,28 +64,8 @@ struct JsonOutputAdapter : nlohmann::detail::output_adapter_protocol<char> {
         fw.write(s, length);
     }
 
-    FragmentWriter& fw;
+    io::FragmentWriter& fw;
 };
-
-io::SharedBuffer dump(HttpMsgCreator& packer, const json& o) {
-    io::SharedBuffer result;
-    try {
-        // TODO make stateful object out of these fns if performance issues occur
-
-        io::SerializedMsg sm;
-        FragmentWriter& fw = packer.acquire_writer(sm);
-        nlohmann::detail::serializer<json> s(std::make_shared<JsonOutputAdapter>(fw), ' ');
-        s.dump(o, false, false, 0);
-        fw.finalize();
-        result = io::normalize(sm, false);
-
-    } catch (const std::exception& e) {
-        LOG_ERROR() << "dump json: " << e.what();
-    }
-
-    packer.release_writer();
-    return result;
-}
 
 #define DEF_LABEL(label) static const std::string l_##label (#label)
     DEF_LABEL(jsonrpc);
@@ -149,6 +129,26 @@ template<> int parse_json_msg(const void* buf, size_t bufSize, Response& m) {
     int err = parse_message(o, m);
     if (err != 0) return err;
     return parse_error(o, m.error);
+}
+
+io::SharedBuffer dump(HttpMsgCreator& packer, const json& o) {
+    io::SharedBuffer result;
+    try {
+        // TODO make stateful object out of these fns if performance issues occur
+
+        io::SerializedMsg sm;
+        io::FragmentWriter& fw = packer.acquire_writer(sm);
+        nlohmann::detail::serializer<json> s(std::make_shared<JsonOutputAdapter>(fw), ' ');
+        s.dump(o, false, false, 0);
+        fw.finalize();
+        result = io::normalize(sm, false);
+
+    } catch (const std::exception& e) {
+        LOG_ERROR() << "dump json: " << e.what();
+    }
+
+    packer.release_writer();
+    return result;
 }
 
 } //namespaces

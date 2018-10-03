@@ -73,4 +73,25 @@ private:
     Timer::Ptr _timer;
 };
 
+/// Multiple timers across one coarse timer
+class MultipleTimers {
+public:
+    MultipleTimers(Reactor& reactor, unsigned resolutionMsec);
+
+    /// Sets one-shot coarse timer
+    io::Result set_timer(CoarseTimer::ID id, unsigned intervalMsec, Timer::Callback&& callback);
+
+    /// Cancels one-shot timer
+    void cancel(CoarseTimer::ID id);
+
+    /// Cancels all timers
+    void cancel_all();
+
+private:
+    void on_timer(CoarseTimer::ID id);
+
+    std::map<CoarseTimer::ID, Timer::Callback> _timerCallbacks;
+    io::CoarseTimer::Ptr _timer;
+};
+
 }} //namespaces

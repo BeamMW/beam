@@ -13,30 +13,25 @@
 // limitations under the License.
 
 #pragma once
-#include "tcpstream.h"
-#include "address.h"
+#include "tcpserver.h"
+#include "sslio.h"
 
 namespace beam { namespace io {
 
-class TcpServer : protected Reactor::Object {
+class SslServer : public TcpServer {
 public:
-    using Ptr = std::unique_ptr<TcpServer>;
-
-    /// Either newStream is accepted or status != 0
-    using Callback = std::function<void(TcpStream::Ptr&& newStream, ErrorCode status)>;
-
     /// Creates the server and starts listening
-    static Ptr create(Reactor& reactor, Address bindAddress, Callback&& callback);
+    static Ptr create(Reactor& reactor, Address bindAddress, Callback&& callback,
+                      const char* certFileName, const char* privKeyFileName);
 
-    virtual ~TcpServer() = default;
+    ~SslServer() = default;
 
-protected:
-    TcpServer(Callback&& callback, Reactor& reactor, Address bindAddress);
+private:
+    SslServer(Callback&& callback, Reactor& reactor, Address bindAddress, SSLContext::Ptr&& ctx);
 
-    virtual void on_accept(ErrorCode errorCode);
+    void on_accept(ErrorCode errorCode) override;
 
-    Callback _callback;
+    SSLContext::Ptr _ctx;
 };
 
 }} //namespaces
-

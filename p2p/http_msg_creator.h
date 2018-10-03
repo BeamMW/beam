@@ -1,5 +1,5 @@
 #pragma once
-#include "fragment_writer.h"
+#include "utility/io/fragment_writer.h"
 
 namespace beam {
 
@@ -54,7 +54,7 @@ public:
     );
 
     // for external body serializations (json etc)
-    FragmentWriter& acquire_writer(io::SerializedMsg& out) {
+    io::FragmentWriter& acquire_writer(io::SerializedMsg& out) {
         _currentMsg = &out;
         return _fragmentWriter;
     }
@@ -64,7 +64,7 @@ public:
     }
 
 private:
-    FragmentWriter _fragmentWriter;
+    io::FragmentWriter _fragmentWriter;
     io::SerializedMsg* _currentMsg;
 };
 

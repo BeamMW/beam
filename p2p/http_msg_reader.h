@@ -15,10 +15,34 @@
 #pragma once
 #include "utility/io/errorhandling.h"
 #include <functional>
-#include <string>
+#include <string_view>
 #include <memory>
+#include <map>
+#include <set>
 
 namespace beam {
+
+/// Http url parsed into string_views
+struct HttpUrl {
+    static const size_t MAX_PATH_ELEMENTS = 10;
+
+    int dir=-1;
+    unsigned nPathElements = 0;
+    std::string_view path[MAX_PATH_ELEMENTS];
+    std::map<std::string_view, std::string_view> args;
+    std::string_view fragment;
+
+    void reset() {
+        dir = -1;
+        nPathElements = 0;
+        args.clear();
+    }
+
+    int64_t get_int_arg(const std::string_view& name, int64_t defValue) const;
+
+    /// Parses path string, dirs contain 1st words in path. If dir is not found, all the rest is not parsed
+    bool parse(const std::string& url, const std::map<std::string_view, int>& dirs);
+};
 
 /// Http message passed through callbacks
 class HttpMessage {
@@ -33,21 +57,21 @@ public:
 /// Extracts individual http messages from stream, performs header/size validation
 class HttpMsgReader {
 public:
-    enum What { nothing, http_message, connection_error, parse_error };
-    enum ParseError { ok, message_corrupted, too_long };
+    enum What { nothing, http_message, connection_error, message_corrupted, message_too_long };
 
     struct Message {
         What what;
         union {
             const HttpMessage* msg;
             io::ErrorCode connectionError;
-            ParseError parseError;
         };
+
+        std::string error_str() const;
 
         Message() : what(nothing), msg(0) {}
         Message(const HttpMessage* m) : what(http_message), msg(m) {}
         Message(io::ErrorCode e) : what(connection_error), connectionError(e) {}
-        Message(ParseError e) : what(parse_error), parseError(e) {}
+        Message(What w) : what(w), msg(0) {}
     };
 
     using Callback = std::function<bool(uint64_t streamId, const Message& msg)>;

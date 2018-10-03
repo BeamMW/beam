@@ -36,6 +36,19 @@ void BufferChain::append(const void* data, size_t len, SharedMem guard, bool try
     _guards.push_back(std::move(guard));
 }
 
+void BufferChain::append(const BufferChain& bc) {
+    if (bc.empty()) return;
+    size_t n = bc.num_fragments();
+    assert(n >= 1);
+    const IOVec* frs = bc.iovecs();
+    const SharedMem* gds = bc.guards();
+    append(frs->data, frs->size, *gds, true);
+    for (size_t i=1; i<n; ++i) {
+        ++frs; ++gds;
+        append(frs->data, frs->size, *gds, false);
+    }
+}
+
 void BufferChain::advance(size_t nBytes) {
     if (nBytes == 0 || _totalSize == 0) return;
     if (nBytes >= _totalSize) {

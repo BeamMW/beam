@@ -47,10 +47,10 @@ private:
     void on_protocol_error(uint64_t id, ProtocolError error) override;
     void on_connection_error(uint64_t id, io::ErrorCode errorCode) override;
 
-    void on_start_server(TimerID);
+    void on_start_server();
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
 
-    void on_connect_to_peers(TimerID);
+    void on_connect_to_peers();
     void on_stream_connected(uint64_t id, io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
 
     // Handshakes callbacks
@@ -61,8 +61,8 @@ private:
 
     void cleanup_connection(StreamId streamId);
 
-    void on_ping_timer(TimerID);
-    void on_known_servers_timer(TimerID);
+    void on_ping_timer();
+    void on_known_servers_timer();
 
     bool on_peer_state(uint64_t id, PeerState&& state);
     bool on_known_servers_request(uint64_t id, VoidMessage&&);

@@ -21,6 +21,7 @@ const char* error_str(ErrorCode errorCode) {
     switch (errorCode) {
         case EC_OK: return "0";
         case EC_WRITE_BUFFER_OVERFLOW: return "EC_WRITE_BUFFER_OVERFLOW";
+        case EC_SSL_ERROR: return "EC_SSL_ERROR";
 #define XX(code, _) case EC_ ## code: return "EC_" # code;
     UV_ERRNO_MAP(XX)
 #undef XX
@@ -32,6 +33,7 @@ const char* error_descr(beam::io::ErrorCode errorCode) {
     switch (errorCode) {
         case EC_OK: return "OK";
         case EC_WRITE_BUFFER_OVERFLOW: return "stream write buffer overflow";
+        case EC_SSL_ERROR: return "SSL error";
 #define XX(code, descr) case EC_ ## code: return descr;
     UV_ERRNO_MAP(XX)
 #undef XX

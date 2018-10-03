@@ -164,6 +164,71 @@ int test_multiple() {
     return REPORT(errors);
 }
 
+int compare(const HttpUrl& a, const HttpUrl& b) {
+    int nErrors=0;
+    if (a.dir != b.dir) ++nErrors;
+    if (a.nPathElements != b.nPathElements) {
+        ++nErrors;
+    } else {
+        for (unsigned i=0; i<a.nPathElements; ++i) {
+            if (a.path[i] != b.path[i]) ++nErrors;
+        }
+    }
+    if (a.args != b.args) ++nErrors;
+    if (a.fragment != b.fragment) ++nErrors;
+    return nErrors;
+}
+
+int test_query_strings() {
+#define COMPARE(a, b, shouldBeValid) do { \
+    int n = 0; \
+    if (!a.parse(q, dirs)) ++n; \
+    else n = compare(a,b); \
+    if ((n>0 && shouldBeValid) || (n==0 && !shouldBeValid)) { \
+        LOG_ERROR() << "compare failed, n=" << n << " " << __LINE__; errors += n; \
+    }} while(0)
+
+    int errors = 0;
+
+    std::string q("/xxx/yyy/zzz?a=1111&b=22kkkk&cccc&dddd=qqqq#cbcbcb");
+
+    static const std::map<std::string_view, int> dirs {
+        { "xxx", 1 }, { "aaaaaaaa", 2 }
+    };
+
+    HttpUrl parsed;
+    HttpUrl expected;
+    expected.dir = 1;
+    expected.nPathElements =2;
+    expected.path[0] = "yyy";
+    expected.path[1] = "zzz";
+    expected.args = { {"a", "1111"}, {"b", "22kkkk"}, {"cccc", ""}, {"dddd", "qqqq"}};
+    expected.fragment = "cbcbcb";
+
+    COMPARE(parsed, expected, true);
+
+    q = "/aaaaaaaa/yyy/zzz?a=1111&b=22kkkk&cccc&dddd=qqqq#cbcbcb";
+    expected.dir = 2;
+    COMPARE(parsed, expected, true);
+
+    q = "aksjcak";
+    COMPARE(parsed, expected, false);
+
+    q = "/xxx/1/2/3/4/5/6/7/8/9/0/1/2/3/4/5/6/7?a=1111&b=22kkkk&cccc&dddd=qqqq#cbcbcb";
+    static_assert(HttpUrl::MAX_PATH_ELEMENTS <= 15);
+    if (parsed.parse(q, dirs)) {
+        LOG_ERROR() <<
+        ++errors;
+    }
+
+    q = "/aaaaaaaa/yyy/zzz/?a=1111&b=22kkkk&cccc&dddd=qqqq#cbcbcb";
+    expected.dir = 2;
+    COMPARE(parsed, expected, true);
+
+    // ~etc
+
+    return errors;
+}
 
 } //namespace
 
@@ -178,6 +243,7 @@ int main() {
         retCode += test_bodyless_request();
         retCode += test_request_with_body();
         retCode += test_multiple();
+        retCode += test_query_strings();
     } catch (const exception& e) {
         LOG_ERROR() << e.what();
         retCode = 255;

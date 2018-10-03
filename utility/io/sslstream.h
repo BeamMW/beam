@@ -14,28 +14,30 @@
 
 #pragma once
 #include "tcpstream.h"
-#include "address.h"
+#include "sslio.h"
 
 namespace beam { namespace io {
 
-class TcpServer : protected Reactor::Object {
+class SslStream : public TcpStream {
 public:
-    using Ptr = std::unique_ptr<TcpServer>;
+    ~SslStream();
 
-    /// Either newStream is accepted or status != 0
-    using Callback = std::function<void(TcpStream::Ptr&& newStream, ErrorCode status)>;
+    /// Writes raw data, returns status code
+    Result write(const SharedBuffer& buf) override;
 
-    /// Creates the server and starts listening
-    static Ptr create(Reactor& reactor, Address bindAddress, Callback&& callback);
+    /// Writes raw data, returns status code
+    Result write(const SerializedMsg& fragments) override;
 
-    virtual ~TcpServer() = default;
+private:
+    friend class SslServer;
+    friend class Reactor;
 
-protected:
-    TcpServer(Callback&& callback, Reactor& reactor, Address bindAddress);
+    SslStream(const SSLContext::Ptr& ctx);
 
-    virtual void on_accept(ErrorCode errorCode);
+    void on_decrypted_data(io::ErrorCode ec, void* data, size_t size);
+    Result on_encrypted_data(SerializedMsg& data);
 
-    Callback _callback;
+    SSLIO _ssl;
 };
 
 }} //namespaces
