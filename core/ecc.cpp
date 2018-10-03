@@ -996,7 +996,7 @@ namespace ECC {
 
 	/////////////////////
 	// Context
-	uint64_t g_pContextBuf[(sizeof(Context) + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
+	alignas(32) char g_pContextBuf[sizeof(Context)];
 
 	// Currently - auto-init in global obj c'tor
 	Initializer g_Initializer;
@@ -1013,7 +1013,7 @@ namespace ECC {
 
 	void InitializeContext()
 	{
-		Context& ctx = *(Context*) g_pContextBuf;
+		Context& ctx = *reinterpret_cast<Context*>(g_pContextBuf);
 
 		Mode::Scope scope(Mode::Fast);
 
