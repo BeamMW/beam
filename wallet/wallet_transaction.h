@@ -29,29 +29,6 @@ namespace beam { namespace wallet
         virtual void cancel() = 0;
     };
 
-    enum class TxParams : uint32_t 
-    {
-        Amount,
-        Fee,
-        MinHeight,
-        Offset,
-        Inputs,
-        Outputs,
-        BlindingExcess,
-        PeerSignature,
-
-        PublicFirstParam = 1 << 16,
-
-        PublicPeerNonce,
-        PublicPeerExcess,
-        PeerOffset,
-        PeerInputs,
-        PeerOutputs,
-        TransactionRegistered,
-        KernelProof,
-        FailureReason
-    };
-
     //
     // State machine for managing per transaction negotiations between wallets
     // 
@@ -78,7 +55,7 @@ namespace beam { namespace wallet
         std::vector<Coin> getUnconfirmedOutputs() const;
 
         template <typename T>
-        bool getParameter(TxParams paramID, T& value)
+        bool getParameter(TxParameterID paramID, T& value)
         {
             ByteBuffer b;
             if (m_keychain->getTxParameter(m_txDesc.m_txId, static_cast<uint32_t>(paramID), b))
@@ -92,7 +69,7 @@ namespace beam { namespace wallet
         }
 
         template <typename T>
-        void setParameter(TxParams paramID, const T& value)
+        void setParameter(TxParameterID paramID, const T& value)
         {
             Serializer s;
             s & value;
@@ -102,11 +79,11 @@ namespace beam { namespace wallet
         }
 
 
-        bool getParameter(TxParams paramID, ECC::Point::Native& value);
-        bool getParameter(TxParams paramID, ECC::Scalar::Native& value);
+        bool getParameter(TxParameterID paramID, ECC::Point::Native& value);
+        bool getParameter(TxParameterID paramID, ECC::Scalar::Native& value);
 
-        void setParameter(TxParams paramID, const ECC::Point::Native& value);
-        void setParameter(TxParams paramID, const ECC::Scalar::Native& value);
+        void setParameter(TxParameterID paramID, const ECC::Point::Native& value);
+        void setParameter(TxParameterID paramID, const ECC::Scalar::Native& value);
 
         void onFailed(bool notify = false);
 

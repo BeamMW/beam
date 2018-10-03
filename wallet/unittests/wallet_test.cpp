@@ -509,6 +509,12 @@ namespace
             send(1, to, move(data));
         }
 
+        void send_tx_message(const WalletID& to, beam::wallet::SetTxParameter&& data) override
+        {
+            cout << "SetTxParameter\n";
+            send(1, to, move(data));
+        }
+
         void send_node_message(proto::NewTransaction&& data) override
         {
             cout << "NewTransaction\n";

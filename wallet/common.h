@@ -100,6 +100,30 @@ namespace beam
     {
         std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
 
+        enum class TxParameterID : uint32_t
+        {
+            TransactionType,
+            Amount,
+            Fee,
+            MinHeight,
+            Offset,
+            Inputs,
+            Outputs,
+            BlindingExcess,
+            PeerSignature,
+
+            PublicFirstParam = 1 << 16,
+
+            PublicPeerNonce,
+            PublicPeerExcess,
+            PeerOffset,
+            PeerInputs,
+            PeerOutputs,
+            TransactionRegistered,
+            KernelProof,
+            FailureReason
+        };
+
         // messages
         struct Invite
         {
@@ -195,6 +219,25 @@ namespace beam
             WalletID m_from;
             TxID m_txId;
             SERIALIZE(m_from, m_txId);
+        };
+
+        enum class TxType : uint8_t
+        {
+            SimpleTransaction,
+            AtomicSwapTransaction
+        };
+
+        struct SetTxParameter
+        {
+            WalletID m_from;
+            TxID m_txId;
+
+            TxType m_Type;
+
+            std::vector<std::pair<TxParameterID, ByteBuffer>> m_Parameters;
+
+            SERIALIZE(m_from, m_txId, m_Type, m_Parameters);
+            static const size_t MaxParams = 10;
         };
 
         struct INegotiatorGateway

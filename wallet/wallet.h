@@ -36,6 +36,8 @@ namespace beam
         virtual void handle_tx_message(const WalletID&, wallet::ConfirmInvitation&&) = 0;
         virtual void handle_tx_message(const WalletID&, wallet::TxRegistered&&) = 0;
         virtual void handle_tx_message(const WalletID&, wallet::TxFailed&&) = 0;
+        virtual void handle_tx_message(const WalletID&, wallet::SetTxParameter&&) = 0;
+
         // node to wallet responses
         virtual bool handle_node_message(proto::Boolean&&) = 0;
         virtual bool handle_node_message(proto::ProofUtxo&&) = 0;
@@ -69,6 +71,8 @@ namespace beam
         virtual void send_tx_message(const WalletID& to, wallet::ConfirmInvitation&&) = 0;
         virtual void send_tx_message(const WalletID& to, wallet::TxRegistered&&) = 0 ;
         virtual void send_tx_message(const WalletID& to, wallet::TxFailed&&) = 0;
+        virtual void send_tx_message(const WalletID& to, wallet::SetTxParameter&&) = 0;
+
         // wallet to node requests
         virtual void send_node_message(proto::NewTransaction&&) = 0;
         virtual void send_node_message(proto::GetProofUtxo&&) = 0;
@@ -143,6 +147,7 @@ namespace beam
         void handle_tx_message(const WalletID&, wallet::ConfirmInvitation&&) override;
         void handle_tx_message(const WalletID&, wallet::TxRegistered&&) override;
         void handle_tx_message(const WalletID&, wallet::TxFailed&&) override;
+        void handle_tx_message(const WalletID&, wallet::SetTxParameter&&) override;
 
         bool handle_node_message(proto::Boolean&& res) override;
         bool handle_node_message(proto::ProofUtxo&& proof) override;
@@ -189,7 +194,7 @@ namespace beam
         }
 
         template <typename T>
-        void setTxParameter(const TxID& txID, wallet::TxParams paramID, const T& value)
+        void setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const T& value)
         {
             Serializer s;
             s & value;
@@ -197,6 +202,8 @@ namespace beam
             s.swap_buf(b);
             m_keyChain->setTxParameter(txID, static_cast<uint32_t>(paramID), std::move(b));
         }
+        wallet::BaseTransaction::Ptr getTransaction(const TxID& id, wallet::TxType type);
+        wallet::BaseTransaction::Ptr constructTransaction(const TxID& id, wallet::TxType type) const;
 
     private:
 

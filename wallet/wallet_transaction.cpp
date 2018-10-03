@@ -30,7 +30,7 @@ namespace beam { namespace wallet
         assert(keychain);
     }
 
-    bool BaseTransaction::getParameter(TxParams paramID, ECC::Point::Native& value)
+    bool BaseTransaction::getParameter(TxParameterID paramID, ECC::Point::Native& value)
     {
         ECC::Point pt;
         if (getParameter(paramID, pt))
@@ -40,7 +40,7 @@ namespace beam { namespace wallet
         return false;
     }
 
-    bool BaseTransaction::getParameter(TxParams paramID, ECC::Scalar::Native& value)
+    bool BaseTransaction::getParameter(TxParameterID paramID, ECC::Scalar::Native& value)
     {
         ECC::Scalar s;
         if (getParameter(paramID, s))
@@ -51,7 +51,7 @@ namespace beam { namespace wallet
         return false;
     }
 
-    void BaseTransaction::setParameter(TxParams paramID, const ECC::Point::Native& value)
+    void BaseTransaction::setParameter(TxParameterID paramID, const ECC::Point::Native& value)
     {
         ECC::Point pt;
         if (value.Export(pt))
@@ -60,7 +60,7 @@ namespace beam { namespace wallet
         }
     }
 
-    void BaseTransaction::setParameter(TxParams paramID, const ECC::Scalar::Native& value)
+    void BaseTransaction::setParameter(TxParameterID paramID, const ECC::Scalar::Native& value)
     {
         ECC::Scalar s;
         value.Export(s);
@@ -89,273 +89,6 @@ namespace beam { namespace wallet
             rollbackTx();
             m_gateway.send_tx_failed(m_txDesc);
         }
-    }
-
-    SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
-                                    , beam::IKeyChain::Ptr keychain
-                                    , const TxDescription& txDesc)
-        : BaseTransaction{ gateway, keychain, txDesc }
-    {
-
-    }
-
-    void SimpleTransaction::update()
-    {
-        int reason = 0;
-        if (getParameter(TxParams::FailureReason, reason))
-        {
-            onFailed();
-            return;
-        }
-
-        bool sender = m_txDesc.m_sender;
-        Scalar::Native peerOffset;
-        bool initiator = !getParameter(TxParams::PeerOffset, peerOffset);
-
-        auto address = m_keychain->getAddress(m_txDesc.m_peerId);
-        bool isSelfTx = address.is_initialized() && address->m_own;
-        
-        Scalar::Native offset;
-        Scalar::Native blindingExcess;
-        if (!getParameter(TxParams::BlindingExcess, blindingExcess)
-         || !getParameter(TxParams::Offset, offset))
-        {
-            LOG_INFO() << m_txDesc.m_txId << (sender ? " Sending " : " Receiving ") << PrintableAmount(m_txDesc.m_amount) << " (fee: " << PrintableAmount(m_txDesc.m_fee) << ")";
-            Height currentHeight = m_keychain->getCurrentHeight();
-            m_txDesc.m_minHeight = currentHeight;
-
-            if (sender)
-            {
-                // select and lock input utxos
-                Amount amountWithFee = m_txDesc.m_amount + m_txDesc.m_fee;
-                auto coins = m_keychain->selectCoins(amountWithFee);
-                if (coins.empty())
-                {
-                    LOG_ERROR() << "You only have " << PrintableAmount(getAvailable(m_keychain));
-                    onFailed(!initiator);
-                    return;
-                }
-
-                for (auto& coin : coins)
-                {
-                    blindingExcess += m_keychain->calcKey(coin);
-                    coin.m_spentTxId = m_txDesc.m_txId;
-                }
-                m_keychain->update(coins);
-
-                // calculate change amount and create corresponding output if needed
-                Amount change = 0;
-                for (const auto &coin : coins)
-                {
-                    change += coin.m_amount;
-                }
-                change -= amountWithFee;
-                m_txDesc.m_change = change;
-
-                Amount newUtxoAmount = isSelfTx ? m_txDesc.m_amount : change;
-
-                if (change > 0)
-                {
-                    // create output utxo for change
-                    Coin newUtxo{ change, Coin::Draft, m_txDesc.m_minHeight };
-                    newUtxo.m_createTxId = m_txDesc.m_txId;
-                    m_keychain->store(newUtxo);
-
-                    Scalar::Native blindingFactor = m_keychain->calcKey(newUtxo);
-                    auto[privateExcess, newOffset] = splitKey(blindingFactor, newUtxo.m_id);
-
-                    blindingFactor = -privateExcess;
-                    blindingExcess += blindingFactor;
-                    offset += newOffset;
-                }
-            }
-            if (isSelfTx || !sender)
-            {
-                // create receiver utxo
-                Coin newUtxo{ m_txDesc.m_amount, Coin::Draft, m_txDesc.m_minHeight };
-                newUtxo.m_createTxId = m_txDesc.m_txId;
-                m_keychain->store(newUtxo);
-
-                Scalar::Native blindingFactor = m_keychain->calcKey(newUtxo);
-                auto[privateExcess, newOffset] = splitKey(blindingFactor, newUtxo.m_id);
-
-                blindingFactor = -privateExcess;
-                blindingExcess += blindingFactor;
-                offset += newOffset;
-
-                LOG_INFO() << m_txDesc.m_txId << " Invitation accepted";
-            }
-
-            setParameter(TxParams::BlindingExcess, blindingExcess);
-            setParameter(TxParams::Offset, offset);
-
-            updateTxDescription(TxDescription::InProgress);
-        }
-
-        auto kernel = createKernel(m_txDesc.m_fee, m_txDesc.m_minHeight);
-        auto msig = createMultiSig(*kernel, blindingExcess);
-
-        Point::Native publicNonce = Context::get().G * msig.m_Nonce;
-        Point::Native publicExcess = Context::get().G * blindingExcess;
-
-        Point::Native publicPeerNonce, publicPeerExcess;
-
-        if (!isSelfTx && (!getParameter(TxParams::PublicPeerNonce, publicPeerNonce)
-            || !getParameter(TxParams::PublicPeerExcess, publicPeerExcess)))
-        {
-            assert(initiator);
-            const TxID& txID = m_txDesc.m_txId;
-
-            Invite inviteMsg;
-            inviteMsg.m_txId = txID;
-            inviteMsg.m_amount = m_txDesc.m_amount;
-            inviteMsg.m_fee = m_txDesc.m_fee;
-            inviteMsg.m_height = m_txDesc.m_minHeight;
-            inviteMsg.m_send = m_txDesc.m_sender;
-            inviteMsg.m_inputs = getTxInputs(txID);
-            inviteMsg.m_outputs = getTxOutputs(txID);
-            inviteMsg.m_publicPeerExcess = publicExcess;
-            inviteMsg.m_publicPeerNonce = publicNonce;
-            inviteMsg.m_offset = offset;
-
-            m_gateway.send_tx_invitation(m_txDesc, move(inviteMsg));
-            return;
-        }
-
-        msig.m_NoncePub = publicNonce + publicPeerNonce;
-
-        Point::Native totalPublicExcess = publicExcess;
-        totalPublicExcess += publicPeerExcess;
-        kernel->m_Excess = totalPublicExcess;
-
-        // create my part of signature
-        Hash::Value message;
-        kernel->get_Hash(message);
-        Scalar::Native partialSignature;
-        kernel->m_Signature.CoSign(partialSignature, message, blindingExcess, msig);
-
-        Scalar::Native peerSignature;
-        if (!isSelfTx && !getParameter(TxParams::PeerSignature, peerSignature))
-        {
-            // invited participant
-            assert(!initiator);
-            sendConfirmInvitation(publicExcess, publicNonce, partialSignature);
-            return;
-        }
-
-        // verify peer's signature
-        Signature peerSig;
-        peerSig.m_e = kernel->m_Signature.m_e;
-        peerSig.m_k = peerSignature;
-        if (!peerSig.IsValidPartial(publicPeerNonce, publicPeerExcess))
-        {
-            onFailed(true);
-            return;
-        }
-
-        // final signature
-        kernel->m_Signature.m_k = partialSignature + peerSignature;
-
-        bool isRegistered = false;
-        if (!getParameter(TxParams::TransactionRegistered, isRegistered))
-        {
-            LOG_INFO() << m_txDesc.m_txId << " Transaction registered";
-            vector<Input::Ptr> inputs;
-            vector<Output::Ptr> outputs;
-            if (!isSelfTx && (!getParameter(TxParams::PeerInputs, inputs)
-                || !getParameter(TxParams::PeerOutputs, outputs)))
-            {
-                // initiator 
-                assert(initiator);
-                Scalar s;
-                partialSignature.Export(s);
-                sendConfirmTransaction(s);
-            }
-            else
-            {
-                // Construct and verify transaction
-                auto transaction = make_shared<Transaction>();
-                transaction->m_vKernelsOutput.push_back(move(kernel));
-                transaction->m_Offset = peerOffset + offset;
-                transaction->m_vInputs = move(inputs);
-                transaction->m_vOutputs = move(outputs);
-
-                {
-                    auto inputs = getTxInputs(m_txDesc.m_txId);
-                    move(inputs.begin(), inputs.end(), back_inserter(transaction->m_vInputs));
-
-                    auto outputs = getTxOutputs(m_txDesc.m_txId);
-                    move(outputs.begin(), outputs.end(), back_inserter(transaction->m_vOutputs));
-                }
-
-                transaction->Sort();
-
-                // Verify final transaction
-                TxBase::Context ctx;
-                if (!transaction->IsValid(ctx))
-                {
-                    onFailed(true);
-                    return;
-                }
-                m_gateway.register_tx(m_txDesc, transaction);
-            }
-            return;
-        }
-
-        if (!isRegistered)
-        {
-            onFailed(true);
-            return;
-        }
-
-        Merkle::Proof kernelProof;
-        if (!getParameter(TxParams::KernelProof, kernelProof))
-        {
-            if (!initiator)
-            {
-                m_gateway.send_tx_registered(m_txDesc);
-            }
-            confirmKernel(*kernel);
-            return;
-        }
-
-        Block::SystemState::Full state;
-        if (!getTip(state) || !state.IsValidProofKernel(*kernel, kernelProof))
-        {
-            if (!m_gateway.isTestMode())
-            {
-                return;
-            }
-        }
-
-        vector<Coin> unconfirmed = getUnconfirmedOutputs();
-        if (!unconfirmed.empty())
-        {
-            m_gateway.confirm_outputs(unconfirmed);
-            return;
-        }
-
-        completeTx();
-    }
-
-    void SimpleTransaction::sendConfirmTransaction(const Scalar& peerSignature) const
-    {
-        ConfirmTransaction confirmMsg;
-        confirmMsg.m_txId = m_txDesc.m_txId;
-        confirmMsg.m_peerSignature = peerSignature;
-
-        m_gateway.send_tx_confirmation(m_txDesc, move(confirmMsg));
-    }
- 
-    void SimpleTransaction::sendConfirmInvitation(const Point::Native& publicExcess, const Point::Native& publicNonce, const Scalar::Native& partialSignature) const
-    {
-        ConfirmInvitation confirmMsg;
-        confirmMsg.m_txId = m_txDesc.m_txId;
-        confirmMsg.m_publicPeerExcess = publicExcess;
-        confirmMsg.m_peerSignature = partialSignature;
-        confirmMsg.m_publicPeerNonce = publicNonce;
-
-        m_gateway.send_tx_confirmation(m_txDesc, move(confirmMsg));
     }
 
     void BaseTransaction::rollbackTx()
@@ -477,5 +210,272 @@ namespace beam { namespace wallet
             return true;
         });
         return outputs;
+    }
+
+    SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
+        , beam::IKeyChain::Ptr keychain
+        , const TxDescription& txDesc)
+        : BaseTransaction{ gateway, keychain, txDesc }
+    {
+
+    }
+
+    void SimpleTransaction::update()
+    {
+        int reason = 0;
+        if (getParameter(TxParameterID::FailureReason, reason))
+        {
+            onFailed();
+            return;
+        }
+
+        bool sender = m_txDesc.m_sender;
+        Scalar::Native peerOffset;
+        bool initiator = !getParameter(TxParameterID::PeerOffset, peerOffset);
+
+        auto address = m_keychain->getAddress(m_txDesc.m_peerId);
+        bool isSelfTx = address.is_initialized() && address->m_own;
+
+        Scalar::Native offset;
+        Scalar::Native blindingExcess;
+        if (!getParameter(TxParameterID::BlindingExcess, blindingExcess)
+            || !getParameter(TxParameterID::Offset, offset))
+        {
+            LOG_INFO() << m_txDesc.m_txId << (sender ? " Sending " : " Receiving ") << PrintableAmount(m_txDesc.m_amount) << " (fee: " << PrintableAmount(m_txDesc.m_fee) << ")";
+            Height currentHeight = m_keychain->getCurrentHeight();
+            m_txDesc.m_minHeight = currentHeight;
+
+            if (sender)
+            {
+                // select and lock input utxos
+                Amount amountWithFee = m_txDesc.m_amount + m_txDesc.m_fee;
+                auto coins = m_keychain->selectCoins(amountWithFee);
+                if (coins.empty())
+                {
+                    LOG_ERROR() << "You only have " << PrintableAmount(getAvailable(m_keychain));
+                    onFailed(!initiator);
+                    return;
+                }
+
+                for (auto& coin : coins)
+                {
+                    blindingExcess += m_keychain->calcKey(coin);
+                    coin.m_spentTxId = m_txDesc.m_txId;
+                }
+                m_keychain->update(coins);
+
+                // calculate change amount and create corresponding output if needed
+                Amount change = 0;
+                for (const auto &coin : coins)
+                {
+                    change += coin.m_amount;
+                }
+                change -= amountWithFee;
+                m_txDesc.m_change = change;
+
+                Amount newUtxoAmount = isSelfTx ? m_txDesc.m_amount : change;
+
+                if (change > 0)
+                {
+                    // create output utxo for change
+                    Coin newUtxo{ change, Coin::Draft, m_txDesc.m_minHeight };
+                    newUtxo.m_createTxId = m_txDesc.m_txId;
+                    m_keychain->store(newUtxo);
+
+                    Scalar::Native blindingFactor = m_keychain->calcKey(newUtxo);
+                    auto[privateExcess, newOffset] = splitKey(blindingFactor, newUtxo.m_id);
+
+                    blindingFactor = -privateExcess;
+                    blindingExcess += blindingFactor;
+                    offset += newOffset;
+                }
+            }
+            if (isSelfTx || !sender)
+            {
+                // create receiver utxo
+                Coin newUtxo{ m_txDesc.m_amount, Coin::Draft, m_txDesc.m_minHeight };
+                newUtxo.m_createTxId = m_txDesc.m_txId;
+                m_keychain->store(newUtxo);
+
+                Scalar::Native blindingFactor = m_keychain->calcKey(newUtxo);
+                auto[privateExcess, newOffset] = splitKey(blindingFactor, newUtxo.m_id);
+
+                blindingFactor = -privateExcess;
+                blindingExcess += blindingFactor;
+                offset += newOffset;
+
+                LOG_INFO() << m_txDesc.m_txId << " Invitation accepted";
+            }
+
+            setParameter(TxParameterID::BlindingExcess, blindingExcess);
+            setParameter(TxParameterID::Offset, offset);
+
+            updateTxDescription(TxDescription::InProgress);
+        }
+
+        auto kernel = createKernel(m_txDesc.m_fee, m_txDesc.m_minHeight);
+        auto msig = createMultiSig(*kernel, blindingExcess);
+
+        Point::Native publicNonce = Context::get().G * msig.m_Nonce;
+        Point::Native publicExcess = Context::get().G * blindingExcess;
+
+        Point::Native publicPeerNonce, publicPeerExcess;
+
+        if (!isSelfTx && (!getParameter(TxParameterID::PublicPeerNonce, publicPeerNonce)
+            || !getParameter(TxParameterID::PublicPeerExcess, publicPeerExcess)))
+        {
+            assert(initiator);
+            const TxID& txID = m_txDesc.m_txId;
+
+            Invite inviteMsg;
+            inviteMsg.m_txId = txID;
+            inviteMsg.m_amount = m_txDesc.m_amount;
+            inviteMsg.m_fee = m_txDesc.m_fee;
+            inviteMsg.m_height = m_txDesc.m_minHeight;
+            inviteMsg.m_send = m_txDesc.m_sender;
+            inviteMsg.m_inputs = getTxInputs(txID);
+            inviteMsg.m_outputs = getTxOutputs(txID);
+            inviteMsg.m_publicPeerExcess = publicExcess;
+            inviteMsg.m_publicPeerNonce = publicNonce;
+            inviteMsg.m_offset = offset;
+
+            m_gateway.send_tx_invitation(m_txDesc, move(inviteMsg));
+            return;
+        }
+
+        msig.m_NoncePub = publicNonce + publicPeerNonce;
+
+        Point::Native totalPublicExcess = publicExcess;
+        totalPublicExcess += publicPeerExcess;
+        kernel->m_Excess = totalPublicExcess;
+
+        // create my part of signature
+        Hash::Value message;
+        kernel->get_Hash(message);
+        Scalar::Native partialSignature;
+        kernel->m_Signature.CoSign(partialSignature, message, blindingExcess, msig);
+
+        Scalar::Native peerSignature;
+        if (!isSelfTx && !getParameter(TxParameterID::PeerSignature, peerSignature))
+        {
+            // invited participant
+            assert(!initiator);
+            sendConfirmInvitation(publicExcess, publicNonce, partialSignature);
+            return;
+        }
+
+        // verify peer's signature
+        Signature peerSig;
+        peerSig.m_e = kernel->m_Signature.m_e;
+        peerSig.m_k = peerSignature;
+        if (!peerSig.IsValidPartial(publicPeerNonce, publicPeerExcess))
+        {
+            onFailed(true);
+            return;
+        }
+
+        // final signature
+        kernel->m_Signature.m_k = partialSignature + peerSignature;
+
+        bool isRegistered = false;
+        if (!getParameter(TxParameterID::TransactionRegistered, isRegistered))
+        {
+            LOG_INFO() << m_txDesc.m_txId << " Transaction registered";
+            vector<Input::Ptr> inputs;
+            vector<Output::Ptr> outputs;
+            if (!isSelfTx && (!getParameter(TxParameterID::PeerInputs, inputs)
+                || !getParameter(TxParameterID::PeerOutputs, outputs)))
+            {
+                // initiator 
+                assert(initiator);
+                Scalar s;
+                partialSignature.Export(s);
+                sendConfirmTransaction(s);
+            }
+            else
+            {
+                // Construct and verify transaction
+                auto transaction = make_shared<Transaction>();
+                transaction->m_vKernelsOutput.push_back(move(kernel));
+                transaction->m_Offset = peerOffset + offset;
+                transaction->m_vInputs = move(inputs);
+                transaction->m_vOutputs = move(outputs);
+
+                {
+                    auto inputs = getTxInputs(m_txDesc.m_txId);
+                    move(inputs.begin(), inputs.end(), back_inserter(transaction->m_vInputs));
+
+                    auto outputs = getTxOutputs(m_txDesc.m_txId);
+                    move(outputs.begin(), outputs.end(), back_inserter(transaction->m_vOutputs));
+                }
+
+                transaction->Sort();
+
+                // Verify final transaction
+                TxBase::Context ctx;
+                if (!transaction->IsValid(ctx))
+                {
+                    onFailed(true);
+                    return;
+                }
+                m_gateway.register_tx(m_txDesc, transaction);
+            }
+            return;
+        }
+
+        if (!isRegistered)
+        {
+            onFailed(true);
+            return;
+        }
+
+        Merkle::Proof kernelProof;
+        if (!getParameter(TxParameterID::KernelProof, kernelProof))
+        {
+            if (!initiator)
+            {
+                m_gateway.send_tx_registered(m_txDesc);
+            }
+            confirmKernel(*kernel);
+            return;
+        }
+
+        Block::SystemState::Full state;
+        if (!getTip(state) || !state.IsValidProofKernel(*kernel, kernelProof))
+        {
+            if (!m_gateway.isTestMode())
+            {
+                return;
+            }
+        }
+
+        vector<Coin> unconfirmed = getUnconfirmedOutputs();
+        if (!unconfirmed.empty())
+        {
+            m_gateway.confirm_outputs(unconfirmed);
+            return;
+        }
+
+        completeTx();
+    }
+
+    void SimpleTransaction::sendConfirmTransaction(const Scalar& peerSignature) const
+    {
+        ConfirmTransaction confirmMsg;
+        confirmMsg.m_txId = m_txDesc.m_txId;
+        confirmMsg.m_peerSignature = peerSignature;
+
+        m_gateway.send_tx_confirmation(m_txDesc, move(confirmMsg));
+    }
+
+    void SimpleTransaction::sendConfirmInvitation(const Point::Native& publicExcess, const Point::Native& publicNonce, const Scalar::Native& partialSignature) const
+    {
+        ConfirmInvitation confirmMsg;
+        confirmMsg.m_txId = m_txDesc.m_txId;
+        confirmMsg.m_publicPeerExcess = publicExcess;
+        confirmMsg.m_peerSignature = partialSignature;
+        confirmMsg.m_publicPeerNonce = publicNonce;
+
+        m_gateway.send_tx_confirmation(m_txDesc, move(confirmMsg));
     }
 }}
