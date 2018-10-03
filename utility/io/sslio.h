@@ -16,7 +16,11 @@
 #include "errorhandling.h"
 #include "buffer.h"
 #include <memory>
-#include <openssl/ossl_typ.h>
+#include <openssl/err.h>
+#include <openssl/dh.h>
+#include <openssl/ssl.h>
+#include <openssl/conf.h>
+#include <openssl/engine.h>
 
 namespace beam { namespace io {
 

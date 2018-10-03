@@ -13,11 +13,6 @@
 // limitations under the License.
 
 #include "sslio.h"
-#include <openssl/err.h>
-#include <openssl/dh.h>
-#include <openssl/ssl.h>
-#include <openssl/conf.h>
-#include <openssl/engine.h>
 #include <assert.h>
 
 #include "utility/logger.h"
