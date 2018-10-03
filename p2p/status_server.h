@@ -52,7 +52,7 @@ private:
     HttpUrl _currentUrl;
 
     //TODO
-    DummyBlock db;
+    //DummyBlock db;
     io::SharedBuffer _statusBody;
 };
 

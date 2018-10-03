@@ -1,4 +1,5 @@
 set(UTILITY_SRC
+    common.cpp
     logger.cpp
     logger_checkpoints.cpp
     helpers.cpp

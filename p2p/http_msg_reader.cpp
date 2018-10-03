@@ -265,7 +265,7 @@ private:
     const std::string& get_header(const std::string& headerName) const override {
         if (headers_state == incompleted || headerName.empty()) return dummyStr;
         std::string lowerCaseHeader(headerName);
-        std::transform(lowerCaseHeader.begin(), lowerCaseHeader.end(), lowerCaseHeader.begin(), tolower);
+        std::transform(lowerCaseHeader.begin(), lowerCaseHeader.end(), lowerCaseHeader.begin(), [](char c)->char { return (char)tolower(c);} );
         std::map<std::string, std::string>::iterator it = _headersCached.find(lowerCaseHeader);
         if (it == _headersCached.end()) {
             it = _headersCached.insert({ lowerCaseHeader, find_header(lowerCaseHeader) }).first;
