@@ -56,7 +56,7 @@ namespace beam
 
 	bool DeleteFile(const char* sz)
 	{
-		return !_unlink(sz);
+		return !unlink(sz);
 	}
 
 
@@ -169,7 +169,9 @@ namespace std
 	char FStream::peekch() const
 	{
 		NotImpl();
-		return 0;
+#if !(defined(_MSC_VER) && defined(NDEBUG))
+        return 0;
+#endif
 	}
 
 	void FStream::ungetch(char)

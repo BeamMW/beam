@@ -42,7 +42,7 @@ namespace beam
 		m_bRead = bRead;
 
 		if (bRead)
-			for (int i = 0; i < _countof(m_pS); i++)
+			for (int i = 0; i < static_cast<int>(_countof(m_pS)); i++)
 				OpenInternal(i);
 	}
 
@@ -55,7 +55,7 @@ namespace beam
 
 	void Block::BodyBase::RW::Delete()
 	{
-		for (int i = 0; i < _countof(m_pS); i++)
+		for (int i = 0; i < static_cast<int>(_countof(m_pS)); i++)
 		{
 			std::string s;
 			GetPath(s, i);
@@ -251,7 +251,7 @@ namespace beam
 
 			const Input* pInp = NULL;
 			const Output* pOut = NULL;
-			int iInp, iOut;
+			int iInp = 0, iOut = 0; // initialized just to suppress the warning, not really needed
 
 			for (int i = 0; i < nR; i++)
 			{
@@ -313,7 +313,7 @@ namespace beam
 
 			const TxKernel* pInp = NULL;
 			const TxKernel* pOut = NULL;
-			int iInp, iOut;
+			int iInp = 0, iOut = 0; // initialized just to suppress the warning, not really needed
 
 			for (int i = 0; i < nR; i++)
 			{

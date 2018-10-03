@@ -157,6 +157,11 @@ void AppModel::startNode()
     bool isSeedValid = m_db->getVar("WalletSeed", seed);
 
     assert(isSeedValid);
+    if (!isSeedValid)
+    {
+        getMessages().addMessage(QObject::tr("You have no seed for key generation"));
+        return;
+    }
 
     m_node = make_unique<NodeModel>(seed);
     m_node->start();

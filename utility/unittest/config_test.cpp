@@ -23,9 +23,26 @@
 using namespace beam;
 using namespace std;
 
+static int error_count = 0;
+
+#define CHECK(s) \
+do {\
+    assert(s);\
+    if (!(s)) {\
+        ++error_count;\
+    }\
+} while(false)\
+
+
+
 void load_config() {
     static const std::string fileName("/tmp/xoxoxo");
+
+#ifdef WIN32
     _unlink(fileName.c_str());
+#else
+    unlink(fileName.c_str());
+#endif // WIN32
 
     std::ofstream file(fileName);
     file << R"({
@@ -57,18 +74,18 @@ void test_config() {
     } catch (...) {
     }
 
-    assert(!config().has_key("slon"));
-    assert(!config().has_key("nullvalue"));
-    assert(config().has_key("schnaps.ooo"));
+    CHECK(!config().has_key("slon"));
+    CHECK(!config().has_key("nullvalue"));
+    CHECK(config().has_key("schnaps.ooo"));
     auto s = config().get_string("schnaps.keks");
-    assert(s == "sex");
+    CHECK(s == "sex");
     auto i = config().get_int("schnaps.zzz", 0);
-    assert(i == -404040);
+    CHECK(i == -404040);
     auto v = config().get_int_list("ports");
-    assert(v.size() == 8 && v[4] == 6);
+    CHECK(v.size() == 8 && v[4] == 6);
     i = config().get_int("sos");
-    assert(i == 222);
-    assert(config().get_bool_list("schnaps.dadanetda") == std::vector<bool>({true,true,false,true}));
+    CHECK(i == 222);
+    CHECK(config().get_bool_list("schnaps.dadanetda") == std::vector<bool>({true,true,false,true}));
 }
 
 int main() {
@@ -81,5 +98,6 @@ int main() {
     catch(...) {
         cout << "Non-std exception\n";
     }
+    return error_count;
 }
 

@@ -149,6 +149,17 @@ namespace beam
             throw runtime_error(ss.str());
         }
 
+
+        void enterKey(sqlite3 * db, const SecString& password)
+        {
+            if (password.size() > numeric_limits<int>::max())
+            {
+                throwIfError(SQLITE_TOOBIG, db);
+            }
+            int ret = sqlite3_key(db, password.data(), static_cast<int>(password.size()));
+            throwIfError(ret, db);
+        }
+
         struct CoinSelector2
         {
             using Result = pair<Amount, vector<Coin>>;
@@ -335,7 +346,7 @@ namespace beam
                 : _db(db)
                 , _stm(nullptr)
             {
-                int ret = sqlite3_prepare_v2(_db, sql, -1, &_stm, NULL);
+                int ret = sqlite3_prepare_v2(_db, sql, -1, &_stm, nullptr);
                 throwIfError(ret, _db);
             }
 
@@ -382,8 +393,7 @@ namespace beam
 
             void bind(int col, const ECC::Hash::Value& hash)
             {
-                int ret = sqlite3_bind_blob(_stm, col, hash.m_pData, hash.nBytes, NULL);
-                throwIfError(ret, _db);
+                bind(col, hash.m_pData, hash.nBytes);
             }
 
             void bind(int col, const io::Address& address)
@@ -393,25 +403,28 @@ namespace beam
 
             void bind(int col, const ByteBuffer& m)
             {
-                int ret = sqlite3_bind_blob(_stm, col, m.data(), m.size(), NULL);
-                throwIfError(ret, _db);
+                bind(col, m.data(), m.size());
             }
 
-            void bind(int col, const void* blob, int size)
+            void bind(int col, const void* blob, size_t size)
             {
-                int ret = sqlite3_bind_blob(_stm, col, blob, size, NULL);
+                if (size > numeric_limits<int32_t>::max())// 0x7fffffff
+                {
+                    throwIfError(SQLITE_TOOBIG, _db);
+                }
+                int ret = sqlite3_bind_blob(_stm, col, blob, static_cast<int>(size), nullptr);
                 throwIfError(ret, _db);
             }
 
             void bind(int col, const char* val)
             {
-                int ret = sqlite3_bind_text(_stm, col, val, -1, NULL);
+                int ret = sqlite3_bind_text(_stm, col, val, -1, nullptr);
                 throwIfError(ret, _db);
             }
 
             void bind(int col, const string& val) // utf-8
             {
-                int ret = sqlite3_bind_text(_stm, col, val.data(), -1, NULL);
+                int ret = sqlite3_bind_text(_stm, col, val.data(), -1, nullptr);
                 throwIfError(ret, _db);
             }
 
@@ -562,13 +575,13 @@ namespace beam
 
             void begin()
             {
-                int ret = sqlite3_exec(_db, "BEGIN;", NULL, NULL, NULL);
+                int ret = sqlite3_exec(_db, "BEGIN;", nullptr, nullptr, nullptr);
                 throwIfError(ret, _db);
             }
 
             bool commit()
             {
-                int ret = sqlite3_exec(_db, "COMMIT;", NULL, NULL, NULL);
+                int ret = sqlite3_exec(_db, "COMMIT;", nullptr, nullptr, nullptr);
 
                 _commited = (ret == SQLITE_OK);
                 return _commited;
@@ -576,7 +589,7 @@ namespace beam
 
             void rollback()
             {
-                int ret = sqlite3_exec(_db, "ROLLBACK;", NULL, NULL, NULL);
+                int ret = sqlite3_exec(_db, "ROLLBACK;", nullptr, nullptr, nullptr);
                 throwIfError(ret, _db);
 
                 _rollbacked = true;
@@ -608,7 +621,7 @@ namespace beam
         , m_confirmHeight{ confirmHeight }
         , m_confirmHash(Zero)
         , m_lockedHeight{ lockedHeight }
-    {
+	{
         assert(isValid());
     }
 
@@ -646,49 +659,46 @@ namespace beam
             auto keychain = make_shared<Keychain>(secretKey);
 
             {
-                int ret = sqlite3_open_v2(path.c_str(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL);
+                int ret = sqlite3_open_v2(path.c_str(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, nullptr);
                 throwIfError(ret, keychain->_db);
             }
 
-            {
-                int ret = sqlite3_key(keychain->_db, password.data(), password.size());
-                throwIfError(ret, keychain->_db);
-            }
+            enterKey(keychain->_db, password);
 
             {
                 const char* req = "CREATE TABLE " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST_WITH_TYPES, COMMA,) ");"
                                   "CREATE INDEX ConfirmIndex ON " STORAGE_NAME"(confirmHeight);"
                                   "CREATE INDEX SpentIndex ON " STORAGE_NAME"(lockedHeight);";
-                int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                int ret = sqlite3_exec(keychain->_db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, keychain->_db);
             }
 
             {
                 const char* req = "CREATE TABLE " VARIABLES_NAME " (" ENUM_VARIABLES_FIELDS(LIST_WITH_TYPES, COMMA,) ");";
-                int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                int ret = sqlite3_exec(keychain->_db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, keychain->_db);
             }
 
             {
                 const char* req = "CREATE TABLE " HISTORY_NAME " (" ENUM_HISTORY_FIELDS(LIST_WITH_TYPES, COMMA,) ") WITHOUT ROWID;";
-                int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                int ret = sqlite3_exec(keychain->_db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, keychain->_db);
             }
             {
                 const char* req = "CREATE TABLE " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
-                int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                int ret = sqlite3_exec(keychain->_db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, keychain->_db);
             }
 
             {
                 const char* req = "CREATE TABLE " ADDRESSES_NAME " (" ENUM_ADDRESS_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
-                int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                int ret = sqlite3_exec(keychain->_db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, keychain->_db);
             }
 
             {
                 const char* req = "CREATE TABLE " TX_PARAMS_NAME " (" ENUM_TX_PARAMS_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (txID, paramID)) WITHOUT ROWID;";
-                int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                int ret = sqlite3_exec(keychain->_db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, keychain->_db);
             }
 
@@ -716,14 +726,11 @@ namespace beam
                 auto keychain = make_shared<Keychain>(seed);
 
                 {
-                    int ret = sqlite3_open_v2(path.c_str(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
+                    int ret = sqlite3_open_v2(path.c_str(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, nullptr);
                     throwIfError(ret, keychain->_db);
                 }
 
-                {
-                    int ret = sqlite3_key(keychain->_db, password.data(), password.size());
-                    throwIfError(ret, keychain->_db);
-                }
+                enterKey(keychain->_db, password);
                 {
                     int ret = sqlite3_busy_timeout(keychain->_db, BusyTimeoutMs);
                     throwIfError(ret, keychain->_db);
@@ -738,7 +745,7 @@ namespace beam
                 }
                 {
                     const char* req = "SELECT name FROM sqlite_master WHERE type='table' AND name='" STORAGE_NAME "';";
-                    int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                    int ret = sqlite3_exec(keychain->_db, req, nullptr, nullptr, nullptr);
                     if (ret != SQLITE_OK)
                     {
                         LOG_ERROR() << "Invalid DB or wrong password :(";
@@ -748,7 +755,7 @@ namespace beam
 
                 {
                     const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME ";";
-                    int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                    int ret = sqlite3_exec(keychain->_db, req, nullptr, nullptr, nullptr);
                     if (ret != SQLITE_OK)
                     {
                         LOG_ERROR() << "Invalid DB format :(";
@@ -758,7 +765,7 @@ namespace beam
 
                 {
                     const char* req = "SELECT " VARIABLES_FIELDS " FROM " VARIABLES_NAME ";";
-                    int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                    int ret = sqlite3_exec(keychain->_db, req, nullptr, nullptr, nullptr);
                     if (ret != SQLITE_OK)
                     {
                         LOG_ERROR() << "Invalid DB format :(";
@@ -768,7 +775,7 @@ namespace beam
 
                 {
                     const char* req = "SELECT " HISTORY_FIELDS " FROM " HISTORY_NAME ";";
-                    int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                    int ret = sqlite3_exec(keychain->_db, req, nullptr, nullptr, nullptr);
                     if (ret != SQLITE_OK)
                     {
                         LOG_ERROR() << "Invalid DB format :(";
@@ -838,7 +845,7 @@ namespace beam
         assert(coin.m_key_type != KeyType::Regular || coin.m_id > 0);
         ECC::Scalar::Native key;
         // For coinbase and free commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
-        DeriveKey(key, m_kdf, coin.m_createHeight, coin.m_key_type, (coin.m_key_type == KeyType::Regular) ? coin.m_id : 0);
+        DeriveKey(key, m_kdf, coin.m_createHeight, coin.m_key_type, (coin.m_key_type == KeyType::Regular) ? static_cast<uint32_t>(coin.m_id) : 0); 
         return key;
     }
 
@@ -1125,7 +1132,7 @@ namespace beam
         }
     }
 
-    void Keychain::setVarRaw(const char* name, const void* data, int size)
+    void Keychain::setVarRaw(const char* name, const void* data, size_t size)
     {
         sqlite::Transaction trans(_db);
 
@@ -1276,7 +1283,7 @@ namespace beam
 
         while (stm.step())
         {
-            auto& tx = res.emplace_back(TxDescription{});
+            auto& tx = res.emplace_back();
             ENUM_HISTORY_FIELDS(STM_GET_LIST, NOSEP, tx);
         }
         return res;
@@ -1514,11 +1521,11 @@ namespace beam
         m_subscribers.erase(it);
     }
 
-    void Keychain::changePassword(const SecString& password)
-    {
-        int ret = sqlite3_rekey(_db, password.data(), password.size());
-        throwIfError(ret, _db);
-    }
+	void Keychain::changePassword(const SecString& password)
+	{
+		int ret = sqlite3_rekey(_db, password.data(), static_cast<int>(password.size()));
+		throwIfError(ret, _db);
+	}
 
     void Keychain::setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob)
     {

@@ -194,7 +194,6 @@ namespace beam
         WalletID m_walletID;
         io::Address m_node_address;
         io::Reactor::Ptr m_reactor;
-        IWallet* m_wallet;
         IKeyChain::Ptr m_keychain;
 
         std::set<WalletID> m_wallets;

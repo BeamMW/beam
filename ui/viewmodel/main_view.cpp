@@ -54,7 +54,7 @@ void MainViewModel::onLockTimeoutChanged()
 {
     int index = m_settings.getLockTimeout();
 
-    assert(index < sizeof LockTimeouts / sizeof LockTimeouts[0]);
+    assert(static_cast<size_t>(index) < sizeof(LockTimeouts) / sizeof(LockTimeouts[0]));
 
     if (index > 0)
     {

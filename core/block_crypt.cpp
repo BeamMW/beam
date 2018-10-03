@@ -158,9 +158,11 @@ namespace beam
 
 	int Output::cmp(const Output& v) const
 	{
-		int n = cmp_CaM(v);
-		if (n)
-			return n;
+		{
+			int n = cmp_CaM(v);
+			if (n)
+				return n;
+		}
 
 		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER(m_Incubation)

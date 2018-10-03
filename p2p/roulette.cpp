@@ -43,6 +43,12 @@ void Roulette::push(Roulette::ID id, uint32_t weight) {
     _totalItems++;
 }
 
+// #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+//     #pragma GCC diagnostic push
+//     // stringop-overflow false-positive
+//     #pragma GCC diagnostic ignored "-Wall"
+// #endif
+
 Roulette::ID Roulette::pull() {
     ID id = INVALID_ID;
 
@@ -67,7 +73,7 @@ Roulette::ID Roulette::pull() {
     if (itemIdx < s-1) {
         bucket.items[itemIdx] = bucket.items[s-1];
     }
-    bucket.items.resize(s-1);
+    bucket.items.pop_back();
 
     // update total weight and partial weights
     uint32_t weight = bucketIdx;
@@ -86,6 +92,10 @@ Roulette::ID Roulette::pull() {
 
     return id;
 }
+
+// #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+//     #pragma GCC diagnostic pop
+// #endif
 
 // returns index of nonempty bucket with weight range which contains x
 uint32_t Roulette::find_bucket(uint32_t x, uint32_t i, uint32_t j) {

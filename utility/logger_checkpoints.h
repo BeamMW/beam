@@ -97,7 +97,8 @@ public:
             _ptr->data.ptr = value;
         } else if constexpr (std::is_arithmetic<T>::value) {
             _ptr->fn = detail::flush_value<T>;
-            (T&)(_ptr->data.value) = value;
+            T* pvalue = reinterpret_cast<T*>(&(_ptr->data.value));
+            *pvalue = value;
         } else {
             assert(false && "Non-supported type in checkpoint, use pointers");
         }

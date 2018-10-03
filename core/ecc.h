@@ -152,10 +152,11 @@ namespace ECC
 
 	struct Signature
 	{
-		Scalar m_e;
+		Point m_NoncePub;
 		Scalar m_k;
 
 		bool IsValid(const Hash::Value& msg, const Point::Native& pk) const;
+		bool IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk) const;
 
 		// simple signature
 		void Sign(const Hash::Value& msg, const Scalar::Native& sk);
@@ -167,11 +168,8 @@ namespace ECC
 		int cmp(const Signature&) const;
 		COMPARISON_VIA_CMP
 
-		void get_PublicNonce(Point::Native& pubNonce, const Point::Native& pk) const; // useful for verifications during multi-sig
-		bool IsValidPartial(const Point::Native& pubNonce, const Point::Native& pk) const;
-
 	private:
-		static void get_Challenge(Scalar::Native&, const Point::Native&, const Hash::Value& msg);
+		static void get_Challenge(Scalar::Native&, const Point&, const Hash::Value& msg);
 	};
 
 	struct Kdf

@@ -24,11 +24,11 @@ namespace beam {
 using PeerId = uint64_t;
 
 /// Seconds since the epoch
-using Timestamp = uint32_t;
+using Timestamp = uint64_t;
 
 /// ID of connected stream, consists of address and state
 struct StreamId {
-    enum Flags {
+    enum Flags : uint16_t {
         handshaking = 8, active = 4, inbound = 2, outbound = 1
     };
 

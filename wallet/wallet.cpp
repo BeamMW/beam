@@ -304,9 +304,9 @@ namespace beam
             setTxParameter(msg.m_txId, TxParameterID::PeerOutputs, msg.m_outputs);
 
             updateTransaction(tx.m_txId);
-        }
-        else
-        {
+            }
+            else
+            {
             //process_event(msg.m_txId, events::TxInvited{});
         }
     }
@@ -675,7 +675,7 @@ namespace beam
                 }
                 else
                 {
-                    m_knownStateID = {};
+                    ZeroObject(m_knownStateID);
                 }
                 m_stateFinder.reset();
                 LOG_INFO() << "Rolled back to " << m_knownStateID;
