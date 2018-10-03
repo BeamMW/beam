@@ -1154,13 +1154,12 @@ namespace ECC {
 		m_NoncePub = Context::get().G * m_Nonce;
 	}
 
-	void Signature::CoSign(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk, const MultiSig& msig)
+	void Signature::MultiSig::SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const
 	{
-		m_NoncePub = msig.m_NoncePub;
 		get_Challenge(k, m_NoncePub, msg);
 
 		k *= sk;
-		k += msig.m_Nonce;
+		k += m_Nonce;
 		k = -k;
 	}
 
@@ -1170,7 +1169,9 @@ namespace ECC {
 		msig.GenerateNonce(msg, sk);
 
 		Scalar::Native k;
-		CoSign(k, msg, sk, msig);
+		msig.SignPartial(k, msg, sk);
+
+		m_NoncePub = msig.m_NoncePub;
 		m_k = k;
 	}
 

@@ -363,6 +363,7 @@ namespace ECC
 		Point::Native	m_NoncePub;	// sum of all co-signers
 
 		void GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk);
+		void SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const;
 	};
 
 
