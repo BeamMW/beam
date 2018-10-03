@@ -159,9 +159,15 @@ namespace beam { namespace wallet
 	bool Negotiator::FSMDefinition::AllInOne2(Stage::Enum e)
 	{
 		assert(m_kernel);
+		m_kernel->m_Excess = Zero; // Kernel hash depends on the Excess (this is the intended behavior). However the Nonce should depend on the kernel, but NOT on the Nonce, since it's not known yet
+		// (otherwise we'd have an additional iteration only for this)
+
+		Hash::Value message;
+		m_kernel->get_Hash(message);
 
 		Signature::MultiSig msig;
-		get_NonceInternal(msig);
+		msig.GenerateNonce(message, m_blindingExcess);
+
 
 		Point::Native pubExcess = Context::get().G * m_blindingExcess;
 
@@ -200,8 +206,7 @@ namespace beam { namespace wallet
 		pubExcess += pubPeerExc;
 		m_kernel->m_Excess = pubExcess;
 
-		Hash::Value message;
-		m_kernel->get_Hash(message);
+		m_kernel->get_Hash(message); // update the kernel hash, after the correct Excess was specified
 
 		Scalar::Native kSig;
 		msig.SignPartial(kSig, message, m_blindingExcess);
@@ -449,16 +454,6 @@ namespace beam { namespace wallet
         m_fsm.m_transaction->m_Offset = Zero;
         m_fsm.m_transaction->m_vInputs = move(inviteMsg.m_inputs);
         m_fsm.m_transaction->m_vOutputs = move(inviteMsg.m_outputs);
-    }
-
-    void Negotiator::FSMDefinition::get_NonceInternal(ECC::Signature::MultiSig& out) const
-    {
-        m_kernel->m_Excess = Zero;
-
-        Hash::Value hv;
-        m_kernel->get_Hash(hv);
-
-        out.GenerateNonce(hv, m_blindingExcess);
     }
 
     vector<Input::Ptr> Negotiator::FSMDefinition::getTxInputs(const TxID& txID) const

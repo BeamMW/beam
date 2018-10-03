@@ -230,7 +230,6 @@ namespace beam { namespace wallet
 
 			std::vector<Input::Ptr> getTxInputs(const TxID& txID) const;
             std::vector<Output::Ptr> getTxOutputs(const TxID& txID) const;
-			void get_NonceInternal(ECC::Signature::MultiSig&) const;
 
 			struct Stage {
 				enum Enum {
