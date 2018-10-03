@@ -56,7 +56,7 @@ void ConnectedPeers::update_peer_state(StreamId streamId, PeerState&& newState) 
             }
             it->second.ps = std::move(newState);
         }
-        it->second.lastUpdated = time(0);
+        it->second.lastUpdated = Timestamp32(time(0));
     }
     if (changed) _notifications.on_peer_state_updated(streamId, it->second.ps);
 }
