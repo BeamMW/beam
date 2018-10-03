@@ -47,18 +47,18 @@ public:
     void disable_read();
 
     /// Writes raw data, returns status code
-    Result write(const void* data, size_t size) {
-        return write(SharedBuffer(data, size));
+    Result write(const void* data, size_t size, bool flush=true) {
+        return write(SharedBuffer(data, size), flush);
     }
 
     /// Writes raw data, returns status code
-    virtual Result write(const SharedBuffer& buf);
+    virtual Result write(const SharedBuffer& buf, bool flush=true);
 
     /// Writes raw data, returns status code
-    virtual Result write(const SerializedMsg& fragments);
+    virtual Result write(const SerializedMsg& fragments, bool flush=true);
 
     /// Writes raw data, returns status code
-    virtual Result write(const BufferChain& fragments);
+    virtual Result write(const BufferChain& fragments, bool flush=true);
 
     /// Shutdowns write side, waits for pending write requests to complete, but on reactor's side
     virtual void shutdown();
@@ -78,7 +78,7 @@ public:
     Address peer_address() const;
 
 protected:
-    TcpStream() = default;
+    TcpStream();
 
     virtual void on_read(ErrorCode errorCode, void* data, size_t size);
 
@@ -92,8 +92,8 @@ private:
     void alloc_read_buffer();
     void free_read_buffer();
 
-    // sends async write request
-    Result send_write_request();
+    // sends async write request if flush == true
+    Result do_write(bool flush);
 
     // callback from write request
     void on_data_written(ErrorCode errorCode, size_t n);
@@ -102,7 +102,7 @@ private:
     BufferChain _writeBuffer;
     Callback _callback;
     State _state;
-    bool _writeRequestSent=false;
+    Reactor::OnDataWritten _onDataWritten;
 };
 
 }} //namespaces

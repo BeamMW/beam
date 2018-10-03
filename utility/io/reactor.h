@@ -28,6 +28,7 @@ class TcpStream;
 class CoarseTimer;
 class TcpConnectors;
 class TcpShutdowns;
+class PendingWrites;
 
 class Reactor : public std::enable_shared_from_this<Reactor> {
 public:
@@ -138,18 +139,13 @@ private:
     ErrorCode init_tcpstream(Object* o);
     ErrorCode accept_tcpstream(Object* acceptor, Object* newConnection);
     TcpStream* stream_connected(uv_handle_t* h);
-    void shutdown_tcpstream(Object* o, BufferChain&& unsent);
+    void shutdown_tcpstream(Object* o);
+
+    using OnDataWritten = std::function<void(ErrorCode, size_t)>;
+    ErrorCode async_write(Reactor::Object* o, BufferChain& unsent, const OnDataWritten& cb);
 
     ErrorCode init_object(ErrorCode errorCode, Object* o, uv_handle_t* h);
     void async_close(uv_handle_t*& handle);
-
-    struct WriteRequest {
-        uv_write_t req;
-        size_t n;
-    };
-
-    WriteRequest* alloc_write_request();
-    void release_write_request(WriteRequest*& req);
 
     union Handles {
         uv_timer_t timer;
@@ -160,14 +156,15 @@ private:
     uv_loop_t _loop;
     uv_async_t _stopEvent;
     MemPool<uv_handle_t, sizeof(Handles)> _handlePool;
-    MemPool<WriteRequest, sizeof(WriteRequest)> _writeRequestsPool;
     bool _creatingInternalObjects=false;
 
+    std::unique_ptr<PendingWrites> _pendingWrites;
     std::unique_ptr<TcpConnectors> _tcpConnectors;
     std::unique_ptr<TcpShutdowns> _tcpShutdowns;
 
     friend class TcpConnectors;
     friend class TcpShutdowns;
+    friend class PendingWrites;
     friend class AsyncEvent;
     friend class Timer;
     friend class TcpServer;

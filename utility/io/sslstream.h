@@ -23,10 +23,10 @@ public:
     ~SslStream();
 
     /// Writes raw data, returns status code
-    Result write(const SharedBuffer& buf) override;
+    Result write(const SharedBuffer& buf, bool flush=true) override;
 
     /// Writes raw data, returns status code
-    Result write(const SerializedMsg& fragments) override;
+    Result write(const SerializedMsg& fragments, bool flush=true) override;
 
 private:
     friend class SslServer;

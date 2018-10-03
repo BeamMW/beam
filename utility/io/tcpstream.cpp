@@ -14,12 +14,17 @@
 
 #include "tcpstream.h"
 #include "utility/config.h"
+#include "utility/helpers.h"
 #include <assert.h>
 
 #define LOG_VERBOSE_ENABLED 0
 #include "utility/logger.h"
 
 namespace beam { namespace io {
+
+TcpStream::TcpStream() :
+    _onDataWritten(BIND_THIS_MEMFN(on_data_written))
+{}
 
 TcpStream::~TcpStream() {
     disable_read();
@@ -83,102 +88,59 @@ void TcpStream::disable_read() {
     free_read_buffer();
 }
 
-Result TcpStream::write(const SharedBuffer& buf) {
-    if (!buf.empty()) {
-        if (!is_connected()) return make_unexpected(EC_ENOTCONN);
-        _writeBuffer.append(buf);
-        _state.unsent = _writeBuffer.size();
-        return send_write_request();
-    }
-    return Ok();
+Result TcpStream::write(const SharedBuffer& buf, bool flush) {
+    if (!is_connected()) return make_unexpected(EC_ENOTCONN);
+    _writeBuffer.append(buf);
+    return do_write(flush);
 }
 
-Result TcpStream::write(const std::vector<SharedBuffer>& fragments) {
-    size_t n = fragments.size();
-    if (n != 0) {
-        if (n == 1) return write(fragments[0]);
-        if (!is_connected()) return make_unexpected(EC_ENOTCONN);
+Result TcpStream::write(const std::vector<SharedBuffer>& fragments, bool flush) {
+    if (!is_connected()) return make_unexpected(EC_ENOTCONN);
+    if (!fragments.empty()) {
         for (const auto& f : fragments) {
             _writeBuffer.append(f);
         }
-        _state.unsent = _writeBuffer.size();
-        return send_write_request();
     }
-    return Ok();
+    return do_write(flush);
 }
 
-Result TcpStream::write(const BufferChain& fragments) {
-    if (fragments.empty()) return Ok();
+Result TcpStream::write(const BufferChain& fragments, bool flush) {
     if (!is_connected()) return make_unexpected(EC_ENOTCONN);
     _writeBuffer.append(fragments);
-    _state.unsent = _writeBuffer.size();
-    return send_write_request();
+    return do_write(flush);
 }
 
 void TcpStream::shutdown() {
     if (is_connected()) {
         disable_read();
-        send_write_request();
-        _reactor->shutdown_tcpstream(this, std::move(_writeBuffer));
+        do_write(true);
+        _reactor->shutdown_tcpstream(this);
         assert(!_callback);
         assert(!is_connected());
     }
 }
 
-Result TcpStream::send_write_request() {
-    static uv_write_cb write_cb = [](uv_write_t* req, int errorCode) {
-        LOG_VERBOSE() << TRACE(errorCode);
-
-        Reactor::WriteRequest* wr = reinterpret_cast<Reactor::WriteRequest*>(req);
-        if (errorCode != UV_ECANCELED) {
-            // object may be no longer alive if UV_CANCELED
-
-            assert(wr->req.handle);
-
-            TcpStream* self = reinterpret_cast<TcpStream*>(wr->req.handle->data);
-            if (self) {
-                self->on_data_written(ErrorCode(errorCode), wr->n);
-            }
+Result TcpStream::do_write(bool flush) {
+    _state.unsent += _writeBuffer.size();
+    if (flush && !_writeBuffer.empty()) {
+        ErrorCode ec = _reactor->async_write(this, _writeBuffer, _onDataWritten);
+        if (ec != EC_OK) {
+            return make_unexpected(ec);
         }
-        assert(req->data);
-        Reactor* reactor = reinterpret_cast<Reactor*>(req->data);
-        reactor->release_write_request(wr);
-    };
-
-    if (!_writeRequestSent) {
-        if (!_writeBuffer.empty()) {
-            Reactor::WriteRequest* wr = _reactor->alloc_write_request();
-            wr->n = _writeBuffer.size();
-            ErrorCode errorCode = (ErrorCode)uv_write((uv_write_t*)wr, (uv_stream_t*)_handle,
-                (uv_buf_t*)_writeBuffer.fragments(), static_cast<unsigned int>(_writeBuffer.num_fragments()), write_cb
-            );
-
-            _state.unsent += wr->n;
-
-            if (errorCode != 0) {
-                return make_unexpected(errorCode);
-            }
-        }
-        _writeRequestSent = true;
     }
-
+    if (flush) assert(_writeBuffer.empty());
     return Ok();
 }
 
 void TcpStream::on_data_written(ErrorCode errorCode, size_t n) {
     LOG_VERBOSE() << TRACE(_handle) << TRACE(errorCode) << TRACE(n) << TRACE(_state.unsent) << TRACE(_state.sent) << TRACE(_state.received);
 
-    if (errorCode != 0) {
+    if (errorCode != EC_OK) {
         if (_callback) _callback(errorCode, 0, 0);
     } else {
-        _writeBuffer.advance(n);
         _state.sent += n;
         assert(_state.unsent >= n);
         _state.unsent -= n;
-        _writeRequestSent = false;
-        if (!_writeBuffer.empty()) {
-            send_write_request();
-        }
     }
 }
 

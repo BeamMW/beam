@@ -21,16 +21,16 @@ SslStream::SslStream(const SSLContext::Ptr& ctx) :
     _ssl(ctx, BIND_THIS_MEMFN(on_decrypted_data), BIND_THIS_MEMFN(on_encrypted_data))
 {}
 
-Result SslStream::write(const SharedBuffer& buf) {
+Result SslStream::write(const SharedBuffer& buf, bool flush) {
     _ssl.enqueue(buf);
-    return _ssl.flush_write_buffer();
+    return flush ? _ssl.flush_write_buffer() : Ok();
 }
 
-Result SslStream::write(const SerializedMsg& fragments) {
+Result beam::io::SslStream::write(const SerializedMsg& fragments, bool flush) {
     for (const auto& buf : fragments) {
         _ssl.enqueue(buf);
     }
-    return _ssl.flush_write_buffer();
+    return flush ? _ssl.flush_write_buffer() : Ok();
 }
 
 void SslStream::on_decrypted_data(io::ErrorCode ec, void* data, size_t size) {

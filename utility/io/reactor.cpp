@@ -191,13 +191,13 @@ public:
         }
     }
 
-    void shutdown_tcpstream(Reactor::Object* o, BufferChain&& unsent) {
+    void shutdown_tcpstream(Reactor::Object* o) {
         o->_handle->data = 0;
 
         uv_shutdown_t* req = _shutdownRequestsPool.alloc();
         req->data = this;
 
-        _unsent[req] = std::move(unsent);
+        _shutdownRequests.insert(req);
 
         uv_shutdown(
             req,
@@ -212,7 +212,6 @@ public:
                     self->_reactor.async_close(req_handle);
                     self->_shutdownRequests.erase(req);
                     self->_shutdownRequestsPool.release(req);
-                    self->_unsent.erase(req);
                 }
             }
         );
@@ -225,7 +224,79 @@ private:
     Reactor& _reactor;
     MemPool<uv_shutdown_t, sizeof(uv_shutdown_t)> _shutdownRequestsPool;
     std::unordered_set<uv_shutdown_t*> _shutdownRequests;
-    std::unordered_map<uv_shutdown_t*, BufferChain> _unsent;
+};
+
+class PendingWrites {
+public:
+    explicit PendingWrites(Reactor& r) :
+        _reactor(r),
+        _writeRequestsPool(config().get_int("io.write_pool_size", 256, 0, 65536))
+    {}
+
+    void cancel_all() {
+        for (uv_write_t* wr : _writeRequests) {
+            uv_handle_t* h = (uv_handle_t*)(wr->handle);
+            _reactor.async_close(h);
+        }
+    }
+
+    ErrorCode async_write(Reactor::Object* o, BufferChain& unsent, const Reactor::OnDataWritten& cb) {
+        uv_write_t* req = _writeRequestsPool.alloc();
+
+        size_t nBytes = unsent.size();
+        auto p = _data.insert({ req, Ctx{ this, std::move(unsent), cb, nBytes } });
+        unsent.clear();
+
+        assert (p.second);
+        Ctx* ctx = &p.first->second;
+        req->data = ctx;
+
+        _writeRequests.insert(req);
+
+        auto ec = (ErrorCode)uv_write(
+            req,
+            (uv_stream_t*)o->_handle,
+            (uv_buf_t*)ctx->unsent.fragments(),
+            static_cast<unsigned>(ctx->unsent.num_fragments()),
+            [](uv_write_t* req, int errorCode) {
+                assert(req);
+                assert(req->data);
+                Ctx* ctx = reinterpret_cast<Ctx*>(req->data);
+                assert(ctx->self);
+                if (errorCode != UV_ECANCELED && req->handle != 0) {
+                    // object may be no longer alive if UV_CANCELED
+                    assert(ctx->cb);
+                    ctx->cb(ErrorCode(errorCode), errorCode == EC_OK ? ctx->nBytes : 0);
+                }
+                ctx->self->release_request(req);
+            }
+        );
+
+        if (ec != EC_OK) {
+            release_request(req);
+        }
+
+        return ec;
+    }
+
+private:
+    struct Ctx {
+        PendingWrites* self = 0;
+        BufferChain unsent;
+        Reactor::OnDataWritten cb;
+        size_t nBytes = 0;
+    };
+
+    void release_request(uv_write_t* req) {
+        _data.erase(req);
+        _writeRequests.erase(req);
+        _writeRequestsPool.release(req);
+    }
+
+    Reactor& _reactor;
+    MemPool<uv_write_t, sizeof(uv_write_t)> _writeRequestsPool;
+    std::unordered_set<uv_write_t*> _writeRequests;
+    std::unordered_map<uv_write_t*, Ctx> _data;
 };
 
 Reactor::Ptr Reactor::create() {
@@ -234,8 +305,7 @@ Reactor::Ptr Reactor::create() {
 }
 
 Reactor::Reactor() :
-    _handlePool(config().get_int("io.handle_pool_size", 256, 0, 65536)),
-    _writeRequestsPool(config().get_int("io.write_pool_size", 256, 0, 65536))
+    _handlePool(config().get_int("io.handle_pool_size", 256, 0, 65536))
 {
     memset(&_loop,0,sizeof(uv_loop_t));
     memset(&_stopEvent, 0, sizeof(uv_async_t));
@@ -258,6 +328,7 @@ Reactor::Reactor() :
     }
     _stopEvent.data = this;
 
+    _pendingWrites = std::make_unique<PendingWrites>(*this);
     _tcpConnectors = std::make_unique<TcpConnectors>(*this);
     _tcpShutdowns = std::make_unique<TcpShutdowns>(*this);
 
@@ -274,6 +345,7 @@ Reactor::~Reactor() {
         uv_close((uv_handle_t*)&_stopEvent, 0);
 
     _tcpConnectors->cancel_all();
+    _pendingWrites->cancel_all();
     _tcpShutdowns->cancel_all();
 
     // run one cycle to release all closing handles
@@ -435,7 +507,7 @@ ErrorCode Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     return errorCode;
 }
 
-void Reactor::shutdown_tcpstream(Object* o, BufferChain&& unsent) {
+void Reactor::shutdown_tcpstream(Object* o) {
     assert(o);
     uv_handle_t* h = o->_handle;
     if (!h) {
@@ -444,18 +516,11 @@ void Reactor::shutdown_tcpstream(Object* o, BufferChain&& unsent) {
     }
     assert(o->_reactor.get() == this);
 
-    _tcpShutdowns->shutdown_tcpstream(o, std::move(unsent));
+    _tcpShutdowns->shutdown_tcpstream(o);
 }
 
-Reactor::WriteRequest* Reactor::alloc_write_request() {
-    WriteRequest* wr = _writeRequestsPool.alloc();
-    wr->req.data = this;
-    return wr;
-}
-
-void Reactor::release_write_request(Reactor::WriteRequest*& wr) {
-    _writeRequestsPool.release(wr);
-    wr = 0;
+ErrorCode Reactor::async_write(Reactor::Object* o, BufferChain& unsent, const Reactor::OnDataWritten& cb) {
+    return _pendingWrites->async_write(o, unsent, cb);
 }
 
 Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec, Address bindTo) {
