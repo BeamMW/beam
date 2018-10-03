@@ -84,8 +84,8 @@ void coarsetimer_test() {
         on_coarse_timer
     );
 
-    for (uint64_t i=1; i<111; ++i) {
-        ctimer->set_timer(200 + i*3, unsigned(i));
+    for (unsigned i=1; i<111; ++i) {
+        ctimer->set_timer(200 + i*3, i);
     }
 
     for (uint64_t i=0; i<111; i+=3) {

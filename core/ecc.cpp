@@ -836,7 +836,7 @@ namespace ECC {
 		return nVal > 0;
 	}
 
-#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#if defined(__GNUC__)
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
@@ -999,7 +999,7 @@ namespace ECC {
 		}
 	}
 
-#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#if defined(__GNUC__)
     #pragma GCC diagnostic pop
 #endif
 	/////////////////////
