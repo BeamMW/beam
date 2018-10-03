@@ -45,7 +45,9 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 {
     if (++m_Counter < 2)
-        return;
+	{
+		return;
+	}
 
 	if (!m_IsInit)
 	{

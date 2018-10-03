@@ -19,18 +19,20 @@
 #define ENABLE_MODULE_RANGEPROOF
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wunused-function"
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Wunused-function"
 #else
-    #pragma warning (push, 0) // suppress warnings from secp256k1
+#	pragma warning (push, 0) // suppress warnings from secp256k1
+#	pragma warning (disable: 4706 4701) // assignment within conditional expression
 #endif
 
 #include "../secp256k1-zkp/src/secp256k1.c"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-    #pragma GCC diagnostic pop
+#	pragma GCC diagnostic pop
 #else
-    #pragma warning (pop)
+#	pragma warning (default: 4706 4701)
+#	pragma warning (pop)
 #endif
 
 #ifndef WIN32
@@ -834,6 +836,11 @@ namespace ECC {
 		return nVal > 0;
 	}
 
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+
 	void MultiMac::Calculate(Point::Native& res) const
 	{
 		const unsigned int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
@@ -992,9 +999,16 @@ namespace ECC {
 		}
 	}
 
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+    #pragma GCC diagnostic pop
+#endif
 	/////////////////////
 	// Context
-	uint64_t g_pContextBuf[(sizeof(Context) + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
+	// TODO
+	struct alignas(32) ContextBuf {
+        uint8_t x[32];
+    };
+    ContextBuf g_pContextBuf[(sizeof(Context) + 31) / 32];
 
 	// Currently - auto-init in global obj c'tor
 	Initializer g_Initializer;
@@ -1006,7 +1020,7 @@ namespace ECC {
 	const Context& Context::get()
 	{
 		assert(g_bContextInitialized);
-		return *(Context*) g_pContextBuf;
+		return *reinterpret_cast<Context*>(g_pContextBuf);
 	}
 
 	void InitializeContext()
@@ -1019,7 +1033,9 @@ namespace ECC {
 
 		// make sure we get the same G,H for different generator kinds
 		Point::Native G_raw, H_raw;
-		Generator::CreatePointNnzFromSeed(G_raw, "G-gen", hp);
+
+		secp256k1_gej_set_ge(&G_raw.get_Raw(), &secp256k1_ge_const_g);
+
 		Generator::CreatePointNnzFromSeed(H_raw, "H-gen", hp);
 
 
@@ -1043,7 +1059,7 @@ namespace ECC {
 
 			for (uint32_t j = 0; j < 2; j++)
 			{
-				szStr[_countof(STR_GEN_PREFIX) + 1] = '0' + j;
+				szStr[_countof(STR_GEN_PREFIX) + 1] = '0' + char(j);
 				ctx.m_Ipp.m_pGen_[j][i].Initialize(szStr, hp);
 
 				secp256k1_ge ge;
@@ -1159,7 +1175,7 @@ namespace ECC {
 
 	/////////////////////
 	// Signature
-	void Signature::get_Challenge(Scalar::Native& out, const Point::Native& pt, const Hash::Value& msg)
+	void Signature::get_Challenge(Scalar::Native& out, const Point& pt, const Hash::Value& msg)
 	{
 		Oracle() << pt << msg >> out;
 	}
@@ -1170,62 +1186,56 @@ namespace ECC {
 		sk_.V = sk;
 
 		m_Nonce.GenerateNonce(sk_.V.m_Value, msg, NULL);
+		m_NoncePub = Context::get().G * m_Nonce;
 	}
 
 	void Signature::CoSign(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk, const MultiSig& msig)
 	{
-		get_Challenge(k, msig.m_NoncePub, msg);
-		m_e = k;
+		m_NoncePub = msig.m_NoncePub;
+		get_Challenge(k, m_NoncePub, msg);
 
 		k *= sk;
-		k = -k;
 		k += msig.m_Nonce;
+		k = -k;
 	}
 
 	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
 	{
 		MultiSig msig;
 		msig.GenerateNonce(msg, sk);
-		msig.m_NoncePub = Context::get().G * msig.m_Nonce;
 
 		Scalar::Native k;
 		CoSign(k, msg, sk, msig);
 		m_k = k;
 	}
 
-	void Signature::get_PublicNonce(Point::Native& pubNonce, const Point::Native& pk) const
+	bool Signature::IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk) const
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		pubNonce = Context::get().G * m_k;
-		pubNonce += pk * m_e;
-	}
+		Point::Native pt = Context::get().G * m_k;
 
-	bool Signature::IsValidPartial(const Point::Native& pubNonce, const Point::Native& pk) const
-	{
-		Point::Native pubN;
-		get_PublicNonce(pubN, pk);
+		Scalar::Native e;
+		get_Challenge(e, m_NoncePub, msg);
 
-		pubN = -pubN;
-		pubN += pubNonce;
-		return pubN == Zero;
+		pt += pk * e;
+		pt += pubNonce;
+
+		return pt == Zero;
 	}
 
 	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
 	{
 		Point::Native pubNonce;
-		get_PublicNonce(pubNonce, pk);
+		if (!pubNonce.Import(m_NoncePub))
+			return false;
 
-		Scalar::Native e2;
-
-		get_Challenge(e2, pubNonce, msg);
-
-		return m_e == Scalar(e2);
+		return IsValidPartial(msg, pubNonce, pk);
 	}
 
 	int Signature::cmp(const Signature& x) const
 	{
-		int n = m_e.cmp(x.m_e);
+		int n = m_NoncePub.cmp(x.m_NoncePub);
 		if (n)
 			return n;
 

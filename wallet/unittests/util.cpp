@@ -175,7 +175,7 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 {
 	std::vector<Output::Ptr> vOut;
 
-	for (uint32_t i = i0; i < m_Coins.size(); i += m_vThreads.size())
+	for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size())
 	{
 		const Coin& coin = m_Coins[i];
 
@@ -192,8 +192,8 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 
 	std::unique_lock<std::mutex> scope(m_Mutex);
 
-	uint32_t iOutp = 0;
-	for (uint32_t i = i0; i < m_Coins.size(); i += m_vThreads.size(), iOutp++)
+	size_t iOutp = 0;
+	for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size(), iOutp++)
 	{
 		Block::Body& block = get_WriteBlock();
 

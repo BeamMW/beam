@@ -69,8 +69,8 @@ int p2ptest(int numNodes, int runTime) {
 #ifndef __linux__
     LOG_WARNING() << "This test runs on linux only";
     return 0;
-#endif
-    srand(time(0));
+#else
+    srand((unsigned int) time(0));
 
     static const uint32_t LOCALHOST_BASE = 0x7F000001;
     static const uint16_t PORT_BASE = 20000;
@@ -90,7 +90,7 @@ int p2ptest(int numNodes, int runTime) {
         //settings.peerId = i+1;
         settings.bindToIp = LOCALHOST_BASE + i;
         // not all nodes listen
-        settings.listenToPort = ( (i+1)%3 == 0 ) ? 0 : PORT_BASE + i;
+        settings.listenToPort = ( (i+1)%3 == 0 ) ? 0 : uint16_t(PORT_BASE + i);
         // ~ etc
 
         callbacks.emplace_back(io::Address(settings.bindToIp, settings.listenToPort));
@@ -113,9 +113,10 @@ int p2ptest(int numNodes, int runTime) {
         LOG_INFO() << c.peer << " was connected to " << c.wasConnectedTo.size() << " peers";
     }
     return 0;
+#endif
 }
 
-int p2ptest_1(io::Address seedAddr, int port) {
+int p2ptest_1(io::Address seedAddr, uint16_t port) {
     std::unique_ptr<P2P> node;
 
     LOG_INFO() << "Creating node";
@@ -124,7 +125,7 @@ int p2ptest_1(io::Address seedAddr, int port) {
     P2PSettings settings;
 
     // seed initial server address
-    settings.priorityPeers.emplace_back(seedAddr.port(port));
+    settings.priorityPeers.emplace_back(seedAddr.port((uint16_t) port));
 
     node = std::make_unique<P2P>(callbacks, settings);
 
@@ -189,7 +190,7 @@ int main(int argc, char* argv[]) {
         if (isUnittest)
             return p2ptest(numNodes, runTimeOrPort);
         else
-            return p2ptest_1(seedAddr, runTimeOrPort);
+            return p2ptest_1(seedAddr, static_cast<uint16_t>(runTimeOrPort));
     } catch (const std::exception& e) {
         LOG_ERROR() << "Exception: " << e.what();
     } catch (...) {

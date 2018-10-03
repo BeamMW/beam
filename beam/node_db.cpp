@@ -224,7 +224,7 @@ void NodeDB::Recordset::get(int col, ByteBuffer& x)
 
 NodeDB::Blob::Blob(const ByteBuffer& bb)
 {
-	if ((n = (uint32_t)bb.size()))
+	if ((n = (uint32_t) bb.size()) != 0)
 		p = &bb.at(0);
 }
 
@@ -557,8 +557,9 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 	rs.put(0, s.m_Height - 1);
 	rs.put(1, s.m_Prev);
 
-	uint32_t nPrevCountNext, nCountNextF;
+	uint32_t nPrevCountNext = 0, nCountNextF = 0; // initialized to suppress warning, not really needed
 	uint64_t rowPrev;
+
 	if (rs.Step())
 	{
 		rs.get(0, rowPrev);
@@ -1267,7 +1268,8 @@ bool NodeDB::get_Prev(StateID& sid)
 
 bool NodeDB::get_Cursor(StateID& sid)
 {
-	if (!(sid.m_Row = ParamIntGetDef(ParamID::CursorRow)))
+	sid.m_Row = ParamIntGetDef(ParamID::CursorRow);
+	if (!sid.m_Row)
 	{
 		sid.m_Height = Rules::HeightGenesis - 1;
 		return false;

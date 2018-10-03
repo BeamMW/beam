@@ -20,8 +20,29 @@
 #include "../aes.h"
 #include "../proto.h"
 
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#pragma GCC diagnostic ignored "-Wunused-result"
+#endif
+
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Wunused-function"
+#else
+#	pragma warning (push, 0) // suppress warnings from secp256k1
+#	pragma warning (disable: 4706 4701)
+#endif
+
 #include "secp256k1-zkp/include/secp256k1_rangeproof.h" // For benchmark comparison with secp256k1
+
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#	pragma GCC diagnostic pop
+#else
+#	pragma warning (default: 4706 4701)
+#	pragma warning (pop)
+#endif
+
 void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a);
+secp256k1_context* g_psecp256k1 = NULL;
 
 int g_TestsFailed = 0;
 
@@ -270,9 +291,18 @@ void TestPoints()
 	p0 = g * s1;
 
 	{
-		Mode::Scope scope(Mode::Secure);
+		Mode::Scope scope2(Mode::Secure);
 		p1 = g * s1;
 	}
+
+	p1 = -p1;
+	p1 += p0;
+	verify_test(p1 == Zero);
+
+	// Make sure we use the same G-generator as in secp256k1
+	SetRandom(s0);
+	secp256k1_ecmult_gen(g_psecp256k1, &p0.get_Raw(), &s0.get());
+	p1 = Context::get().G * s0;
 
 	p1 = -p1;
 	p1 += p0;
@@ -314,7 +344,7 @@ void TestSigning()
 
 		// tamper signature
 		mysig2 = mysig;
-		SetRandom(mysig2.m_e.m_Value);
+		mysig2.m_NoncePub.m_Y = !mysig2.m_NoncePub.m_Y;
 		verify_test(!mysig2.IsValid(msg, pk));
 
 		mysig2 = mysig;
@@ -839,7 +869,7 @@ void TestBbs()
 	verify_test(beam::proto::BbsEncrypt(buf, publicAddr, nonce, szMsg, sizeof(szMsg)));
 
 	uint8_t* p = &buf.at(0);
-	uint32_t n = buf.size();
+	uint32_t n = (uint32_t) buf.size();
 
 	verify_test(beam::proto::BbsDecrypt(p, n, privateAddr));
 	verify_test(n == sizeof(szMsg));
@@ -847,7 +877,7 @@ void TestBbs()
 
 	SetRandom(privateAddr);
 	p = &buf.at(0);
-	n = buf.size();
+	n = (uint32_t) buf.size();
 
 	verify_test(!beam::proto::BbsDecrypt(p, n, privateAddr));
 }
@@ -1202,12 +1232,12 @@ void RunBenchmark()
 	{
 		k1 = uint64_t(-1);
 
-		Point p_;
-		p_.m_X = Zero;
-		p_.m_Y = false;
+		Point p2;
+		p2.m_X = Zero;
+		p2.m_Y = false;
 
-		while (!p0.Import(p_))
-			p_.m_X.Inc();
+		while (!p0.Import(p2))
+			p2.m_X.Inc();
 
 		BenchmarkMeter bm("G.Multiply");
 		do
@@ -1389,16 +1419,14 @@ void RunBenchmark()
 	}
 
 
-	secp256k1_context* pCtx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
-
 	{
-		secp256k1_pedersen_commitment comm;
+		secp256k1_pedersen_commitment comm2;
 
 		BenchmarkMeter bm("secp256k1.Commit");
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				(void) secp256k1_pedersen_commit(pCtx, &comm, k_.m_Value.m_pData, 78945, secp256k1_generator_h);
+				(void) secp256k1_pedersen_commit(g_psecp256k1, &comm2, k_.m_Value.m_pData, 78945, secp256k1_generator_h);
 
 		} while (bm.ShouldContinue());
 	}
@@ -1408,12 +1436,11 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				secp256k1_ecmult_gen(pCtx, &p0.get_Raw(), &k1.get());
+				secp256k1_ecmult_gen(g_psecp256k1, &p0.get_Raw(), &k1.get());
 
 		} while (bm.ShouldContinue());
 	}
 
-	secp256k1_context_destroy(pCtx);
 }
 
 
@@ -1421,8 +1448,12 @@ void RunBenchmark()
 
 int main()
 {
+	g_psecp256k1 = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+
 	ECC::TestAll();
 	ECC::RunBenchmark();
+
+	secp256k1_context_destroy(g_psecp256k1);
 
     return g_TestsFailed ? -1 : 0;
 }

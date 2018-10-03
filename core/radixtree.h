@@ -63,13 +63,13 @@ public:
 	class CursorBase
 	{
 	protected:
-		uint32_t m_nBits;
-		uint32_t m_nPtrs;
-		uint32_t m_nPosInLastNode;
+		uint16_t m_nBits;
+		uint16_t m_nPtrs;
+		uint16_t m_nPosInLastNode;
 
 		Node** const m_pp;
 
-		static uint8_t get_BitRawStat(const uint8_t* p0, uint32_t nBit);
+		static uint8_t get_BitRawStat(const uint8_t* p0, uint16_t nBit);
 
 		uint8_t get_BitRaw(const uint8_t* p0) const;
 		uint8_t get_Bit(const uint8_t* p0) const;
@@ -83,10 +83,10 @@ public:
 		void Invalidate();
 
 		Node** get_pp() const { return m_pp; }
-		uint32_t get_Depth() const { return m_nPtrs; }
+		uint16_t get_Depth() const { return m_nPtrs; }
 	};
 
-	template <uint32_t nKeyBits>
+	template <uint16_t nKeyBits>
 	class Cursor_T :public CursorBase
 	{
 		Node* m_ppBuf[nKeyBits + 1];
@@ -94,9 +94,9 @@ public:
 		Cursor_T() :CursorBase(m_ppBuf) {}
 	};
 
-	bool Goto(CursorBase& cu, const uint8_t* pKey, uint32_t nBits) const;
+	bool Goto(CursorBase& cu, const uint8_t* pKey, uint16_t nBits) const;
 
-	Leaf* Find(CursorBase& cu, const uint8_t* pKey, uint32_t nBits, bool& bCreate);
+	Leaf* Find(CursorBase& cu, const uint8_t* pKey, uint16_t nBits, bool& bCreate);
 
 	void Delete(CursorBase& cu);
 
@@ -128,8 +128,8 @@ private:
 	void ReplaceTip(CursorBase& cu, Node* pNew);
 	bool Traverse(const Node&, ITraveler&) const;
 
-	static int Cmp(const uint8_t* pKey, const uint8_t* pThreshold, uint32_t n0, uint32_t dn);
-	static int Cmp1(uint8_t, const uint8_t* pThreshold, uint32_t n0);
+	static int Cmp(const uint8_t* pKey, const uint8_t* pThreshold, uint16_t n0, uint16_t dn);
+	static int Cmp1(uint8_t, const uint8_t* pThreshold, uint16_t n0);
 };
 
 class RadixHashTree
@@ -195,7 +195,7 @@ public:
 
 	struct Key
 	{
-		static const uint32_t s_BitsCommitment = ECC::uintBig::nBits + 1; // curve point
+		static const uint16_t s_BitsCommitment = ECC::uintBig::nBits + 1; // curve point
 
 		struct Data {
 			ECC::Point m_Commitment;
@@ -203,8 +203,8 @@ public:
 			Data& operator = (const Key&);
 		};
 
-		static const uint32_t s_Bits = s_BitsCommitment + sizeof(Height) * 8; // maturity
-		static const uint32_t s_Bytes = (s_Bits + 7) >> 3;
+		static const uint16_t s_Bits = s_BitsCommitment + sizeof(Height) * 8; // maturity
+		static const uint16_t s_Bytes = (s_Bits + 7) >> 3;
 
 		Key& operator = (const Data&);
 

@@ -16,6 +16,9 @@ if(MSVC)
 	else()
 		set(SYSTEM_TYPE WIN32)
 	endif()
+
+    set_source_files_properties(ui.cpp PROPERTIES COMPILE_FLAGS "/wd4127") # QtCore/qvarlengtharray.h(274): warning C4127: conditional expression is constant
+
 elseif(APPLE)
 	set(MACOSX_BUNDLE_ICON_FILE beam.icns)
 	set(SYSTEM_TYPE MACOSX_BUNDLE)
@@ -98,6 +101,11 @@ set(QUAZIP_ALL_SRCS ${QUAZIP_SRCS} ${MOC_SRCS})
 include_directories(${Qt5Core_INCLUDE_DIRS})
 add_library(quazip_static STATIC ${QUAZIP_ALL_SRCS})
 
+if(MSVC)
+    target_compile_options(quazip_static PRIVATE "/wd4456")
+    target_compile_options(quazip_static PRIVATE "/wd4131")
+    target_compile_options(quazip_static PRIVATE "/wd4244")
+endif()
 if(UNIX)
 	target_link_libraries(quazip_static z)
 endif()

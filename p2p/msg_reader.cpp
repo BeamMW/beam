@@ -124,7 +124,7 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
 		else
 		{
 			// whole message has been read
-			if (!_protocol.VerifyMsg(_msgBuffer.data(), _msgBuffer.size()))
+			if (!_protocol.VerifyMsg(_msgBuffer.data(), static_cast<uint32_t>(_msgBuffer.size())))
 			{
 				_protocol.on_corrupt_msg(_streamId);
 				return;

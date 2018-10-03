@@ -28,7 +28,7 @@ using Timestamp32 = uint32_t;
 
 /// ID of connected stream, consists of address and state
 struct StreamId {
-    enum Flags {
+    enum Flags : uint16_t {
         handshaking = 8, active = 4, inbound = 2, outbound = 1
     };
 

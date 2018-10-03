@@ -140,13 +140,7 @@ namespace beam { namespace wallet
         m_transaction->m_Offset = Zero;
 
         // Calculate public key for excess
-        Point::Native excess;
-        if (!excess.Import(getPublicExcess()))
-        {
-            Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
-            fsm.process_event(events::TxFailed{ true });
-            return;
-        }
+        Point::Native excess = getPublicExcess();
 
         // Calculate signature
         Scalar::Native signature = createSignature();
@@ -188,9 +182,9 @@ namespace beam { namespace wallet
     {
         auto& msg = event.data;
 
-        if (!isValidSignature(msg.m_peerSignature, msg.m_publicPeerNonce, msg.m_publicPeerExcess)
+        if (!isValidSignature(msg.m_peerSignature.m_k, msg.m_peerSignature.m_NoncePub, msg.m_publicPeerExcess)
             || !m_publicPeerExcess.Import(msg.m_publicPeerExcess)
-            || !m_publicPeerNonce.Import(msg.m_publicPeerNonce))
+            || !m_publicPeerNonce.Import(msg.m_peerSignature.m_NoncePub))
         {
             Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
             fsm.process_event(events::TxFailed{ true });
@@ -201,7 +195,7 @@ namespace beam { namespace wallet
         pt += m_publicPeerExcess;
         m_kernel->m_Excess = pt;
 
-        m_peerSignature = msg.m_peerSignature;
+        m_peerSignature = msg.m_peerSignature.m_k;
         update_tx_description(TxDescription::InProgress);
         auto s = createSignature();
         Scalar::Native sn = s;
@@ -252,8 +246,7 @@ namespace beam { namespace wallet
         ConfirmInvitation confirmMsg;
         confirmMsg.m_txId = m_parent.m_txDesc.m_txId;
         confirmMsg.m_publicPeerExcess = getPublicExcess();
-        NoLeak<Scalar> t;
-        createSignature2(confirmMsg.m_peerSignature, confirmMsg.m_publicPeerNonce, t.V);
+        createSignature2(confirmMsg.m_peerSignature, NULL);
 
         m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmMsg));
     }
@@ -450,10 +443,9 @@ namespace beam { namespace wallet
 
     Scalar Negotiator::FSMDefinition::createSignature()
     {
-        Point publicNonce;
-        Scalar partialSignature;
-        createSignature2(partialSignature, publicNonce, m_kernel->m_Signature.m_e);
-        return partialSignature;
+		ECC::Signature sig;
+        createSignature2(sig, &m_kernel->m_Signature.m_NoncePub);
+        return sig.m_k;
     }
 
     void Negotiator::FSMDefinition::get_NonceInternal(ECC::Signature::MultiSig& out) const
@@ -469,39 +461,40 @@ namespace beam { namespace wallet
         out.GenerateNonce(hv, m_blindingExcess);
     }
 
-    void Negotiator::FSMDefinition::createSignature2(Scalar& signature, Point& publicNonce, Scalar& challenge) const
+    void Negotiator::FSMDefinition::createSignature2(ECC::Signature& sig, ECC::Point* pNoncePubTotal) const
     {
         Signature::MultiSig msig;
         get_NonceInternal(msig);
 
-        Point::Native pt = Context::get().G * msig.m_Nonce;
-        publicNonce = pt;
-        msig.m_NoncePub = m_publicPeerNonce + pt;
+        sig.m_NoncePub = msig.m_NoncePub;
+        msig.m_NoncePub += m_publicPeerNonce;
 
-        pt = Context::get().G * m_blindingExcess;
+		Point::Native pt = Context::get().G * m_blindingExcess;
         pt += m_publicPeerExcess;
         m_kernel->m_Excess = pt;
         Hash::Value message;
         m_kernel->get_Hash(message);
 
         Scalar::Native partialSignature;
-        Signature sig;
-        sig.CoSign(partialSignature, message, m_blindingExcess, msig);
-        challenge = sig.m_e;
-        signature = partialSignature;
+        Signature sigFull;
+		sigFull.CoSign(partialSignature, message, m_blindingExcess, msig);
+
+		sig.m_k = partialSignature;
+		if (pNoncePubTotal)
+			*pNoncePubTotal = sigFull.m_NoncePub;
     }
 
-    Point Negotiator::FSMDefinition::getPublicExcess() const
-    {
-        return Point(Context::get().G * m_blindingExcess);
-    }
+	Point Negotiator::FSMDefinition::getPublicNonce() const
+	{
+		Signature::MultiSig msig;
+		get_NonceInternal(msig);
 
-    Point Negotiator::FSMDefinition::getPublicNonce() const
-    {
-        Signature::MultiSig msig;
-        get_NonceInternal(msig);
+		return Point(msig.m_NoncePub);
+	}
 
-        return Point(Context::get().G * msig.m_Nonce);
+    Point::Native Negotiator::FSMDefinition::getPublicExcess() const
+    {
+        return Context::get().G * m_blindingExcess;
     }
 
     bool Negotiator::FSMDefinition::isValidSignature(const Scalar& peerSignature) const
@@ -518,14 +511,12 @@ namespace beam { namespace wallet
         Signature::MultiSig msig;
         get_NonceInternal(msig);
 
-        Point::Native publicNonce = Context::get().G * msig.m_Nonce;
-
         Point::Native pkPeer, xcPeer;
         if (!pkPeer.Import(publicPeerNonce) ||
             !xcPeer.Import(publicPeerExcess))
             return false;
 
-        msig.m_NoncePub = publicNonce + pkPeer;
+        msig.m_NoncePub += pkPeer;
 
         Point::Native pt = Context::get().G * m_blindingExcess;
         pt += xcPeer;
@@ -539,7 +530,7 @@ namespace beam { namespace wallet
         Signature peerSig;
         peerSig.CoSign(mySig, message, m_blindingExcess, msig);
         peerSig.m_k = peerSignature;
-        return peerSig.IsValidPartial(pkPeer, xcPeer);
+        return peerSig.IsValidPartial(message, pkPeer, xcPeer);
     }
 
     vector<Input::Ptr> Negotiator::FSMDefinition::getTxInputs(const TxID& txID) const

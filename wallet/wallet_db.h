@@ -118,7 +118,7 @@ namespace beam
 
         virtual void visit(std::function<bool(const beam::Coin& coin)> func) = 0;
 
-        virtual void setVarRaw(const char* name, const void* data, int size) = 0;
+        virtual void setVarRaw(const char* name, const void* data, size_t size) = 0;
         virtual int getVarRaw(const char* name, void* data) const = 0;
         virtual bool getBlob(const char* name, ByteBuffer& var) const = 0;
         virtual Height getCurrentHeight() const = 0;
@@ -189,7 +189,7 @@ namespace beam
 
         void visit(std::function<bool(const beam::Coin& coin)> func) override;
 
-        void setVarRaw(const char* name, const void* data, int size) override;
+        void setVarRaw(const char* name, const void* data, size_t size) override;
         int getVarRaw(const char* name, void* data) const override;
         bool getBlob(const char* name, ByteBuffer& var) const override;
         Height getCurrentHeight() const override;

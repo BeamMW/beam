@@ -214,7 +214,7 @@ private:
 		Block::SystemState::ID m_Trg;
 
 		uint32_t m_RequestsPending = 0;
-		uint32_t m_iData = 0;
+		uint8_t m_iData = 0;
 	};
 
 	void OnSyncTimer();
@@ -228,6 +228,9 @@ private:
 	bool ShouldAssignTask(Task&, Peer&);
 	void AssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
+
+	void InitIDs();
+	void InitMode();
 
 	struct Wanted
 	{
@@ -338,7 +341,7 @@ private:
 
 		static void CalcMsgKey(NodeDB::WalkerBbs::Data&);
 		uint32_t m_LastCleanup_ms = 0;
-		uint32_t m_RecommendedChannel = 0;
+		BbsChannel m_RecommendedChannel = 0;
 		void Cleanup();
 		void FindRecommendedChannel();
 		void MaybeCleanup();
@@ -373,6 +376,8 @@ private:
 	{
 		io::Timer::Ptr m_pTimerUpd;
 		io::Timer::Ptr m_pTimerFlush;
+
+		void Initialize();
 		void OnFlush();
 
 		struct PeerInfoPlus
@@ -555,6 +560,7 @@ private:
 			std::shared_ptr<volatile bool> m_pStop;
 		};
 
+		void Initialize();
 		void OnRefresh(uint32_t iIdx);
 		void OnMined();
 

@@ -100,7 +100,7 @@ bool Mmr::get_HashForRange(Hash& hv, uint64_t n0, uint64_t n) const
 		if (1 & n)
 		{
 			Hash hv0;
-			pos.X = n0 + n ^ 1;
+			pos.X = (n0 + n) ^ 1;
 			LoadElement(hv0, pos);
 
 			if (bEmpty)

@@ -80,8 +80,8 @@ namespace beam
         Amount m_fee=0;
 		Amount m_change=0;
         Height m_minHeight=0;
-        WalletID m_peerId;
-        WalletID m_myId;
+        WalletID m_peerId = {0};
+        WalletID m_myId = {0};
         ByteBuffer m_message;
         Timestamp m_createTime=0;
         Timestamp m_modifyTime=0;
@@ -171,13 +171,11 @@ namespace beam
             WalletID m_from;
             TxID m_txId{};
             ECC::Point m_publicPeerExcess;
-            ECC::Point m_publicPeerNonce;
-            ECC::Scalar m_peerSignature;
+            ECC::Signature m_peerSignature;
 
             SERIALIZE(m_from
                     , m_txId
                     , m_publicPeerExcess
-                    , m_publicPeerNonce
                     , m_peerSignature);
         };
 
