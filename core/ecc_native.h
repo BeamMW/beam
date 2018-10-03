@@ -169,6 +169,8 @@ namespace ECC
 		struct FastAux {
 			unsigned int m_nNextItem;
 			unsigned int m_nOdd;
+
+			void Schedule(const Scalar::Native& k, unsigned int iBitsRemaining, unsigned int nMaxOdd, unsigned int* pTbl, unsigned int iThisEntry);
 		};
 
 		struct Casual

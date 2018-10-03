@@ -809,31 +809,35 @@ namespace ECC {
 	}
 
 
-	bool GetOddAndShift(const Scalar::Native& k, unsigned int iBitsRemaining, unsigned int nMaxOdd, unsigned int& nOdd, unsigned int& nBitTrg)
+	void MultiMac::FastAux::Schedule(const Scalar::Native& k, unsigned int iBitsRemaining, unsigned int nMaxOdd, unsigned int* pTbl, unsigned int iThisEntry)
 	{
 		const Scalar::Native::uint* p = k.get().d;
 		const uint32_t nWordBits = sizeof(*p) << 3;
 
 		assert(1 & nMaxOdd); // must be odd
-		unsigned int nVal = 0;
+		unsigned int nVal = 0, nBitTrg = 0;
 
 		while (iBitsRemaining--)
 		{
 			nVal <<= 1;
 			if (nVal > nMaxOdd)
-				return true;
+				break;
 
 			uint32_t n = p[iBitsRemaining / nWordBits] >> (iBitsRemaining & (nWordBits - 1));
 
 			if (1 & n)
 			{
 				nVal |= 1;
-				nOdd = nVal;
+				m_nOdd = nVal;
 				nBitTrg = iBitsRemaining;
 			}
 		}
 
-		return nVal > 0;
+		if (nVal > 0)
+		{
+			m_nNextItem = pTbl[nBitTrg];
+			pTbl[nBitTrg] = iThisEntry;
+		}
 	}
 
 	void MultiMac::Calculate(Point::Native& res) const
@@ -854,25 +858,12 @@ namespace ECC {
 			ZeroObject(pTblPrepared);
 
 			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
-			{
-				FastAux& x = m_pAuxPrepared[iEntry];
-				unsigned int iBit;
-				if (GetOddAndShift(m_pKPrep[iEntry], nBits, Prepared::Fast::nMaxOdd, x.m_nOdd, iBit))
-				{
-					x.m_nNextItem = pTblPrepared[iBit];
-					pTblPrepared[iBit] = iEntry + 1;
-				}
-			}
+				m_pAuxPrepared[iEntry].Schedule(m_pKPrep[iEntry], nBits, Prepared::Fast::nMaxOdd, pTblPrepared, iEntry + 1);
 
 			for (int iEntry = 0; iEntry < m_Casual; iEntry++)
 			{
 				Casual& x = m_pCasual[iEntry];
-				unsigned int iBit;
-				if (GetOddAndShift(x.m_K, nBits, Casual::Fast::nMaxOdd, x.m_Aux.m_nOdd, iBit))
-				{
-					x.m_Aux.m_nNextItem = pTblCasual[iBit];
-					pTblCasual[iBit] = iEntry + 1;
-				}
+				x.m_Aux.Schedule(x.m_K, nBits, Casual::Fast::nMaxOdd, pTblCasual, iEntry + 1);
 			}
 
 		}
@@ -914,14 +905,7 @@ namespace ECC {
 
 					res += x.m_pPt[nElem];
 
-					unsigned int iBit2;
-					if (GetOddAndShift(x.m_K, iBit, Casual::Fast::nMaxOdd, x.m_Aux.m_nOdd, iBit2))
-					{
-						assert(iBit2 < iBit);
-
-						x.m_Aux.m_nNextItem = pTblCasual[iBit2];
-						pTblCasual[iBit2] = iEntry;
-					}
+					x.m_Aux.Schedule(x.m_K, iBit, Casual::Fast::nMaxOdd, pTblCasual, iEntry);
 				}
 
 
@@ -937,14 +921,7 @@ namespace ECC {
 
 					Generator::ToPt(res, ge.V, m_ppPrepared[iEntry - 1]->m_Fast.m_pPt[nElem], false);
 
-					unsigned int iBit2;
-					if (GetOddAndShift(m_pKPrep[iEntry - 1], iBit, Prepared::Fast::nMaxOdd, x.m_nOdd, iBit2))
-					{
-						assert(iBit2 < iBit);
-
-						x.m_nNextItem = pTblPrepared[iBit2];
-						pTblPrepared[iBit2] = iEntry;
-					}
+					x.Schedule(m_pKPrep[iEntry - 1], iBit, Prepared::Fast::nMaxOdd, pTblPrepared, iEntry);
 				}
 			}
 			else
