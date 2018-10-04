@@ -32,7 +32,7 @@
 
 #include <boost/msm/back/state_machine.hpp>
 
-#if defined(clang)
+#if defined(__clang__)
 #  pragma clang diagnostic pop
 #endif
 
