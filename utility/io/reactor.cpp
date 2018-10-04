@@ -262,7 +262,7 @@ public:
                 assert(req->data);
                 Ctx* ctx = reinterpret_cast<Ctx*>(req->data);
                 assert(ctx->self);
-                if (errorCode != UV_ECANCELED && req->handle != 0) {
+                if (errorCode != UV_ECANCELED && req->handle != 0 && req->handle->data != 0) {
                     // object may be no longer alive if UV_CANCELED
                     assert(ctx->cb);
                     ctx->cb(ErrorCode(errorCode), errorCode == EC_OK ? ctx->nBytes : 0);
