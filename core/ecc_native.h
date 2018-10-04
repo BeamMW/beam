@@ -169,6 +169,8 @@ namespace ECC
 		struct FastAux {
 			unsigned int m_nNextItem;
 			unsigned int m_nOdd;
+
+			void Schedule(const Scalar::Native& k, unsigned int iBitsRemaining, unsigned int nMaxOdd, unsigned int* pTbl, unsigned int iThisEntry);
 		};
 
 		struct Casual
@@ -361,6 +363,7 @@ namespace ECC
 		Point::Native	m_NoncePub;	// sum of all co-signers
 
 		void GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk);
+		void SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const;
 	};
 
 

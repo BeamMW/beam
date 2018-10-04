@@ -681,13 +681,14 @@ struct TransactionMaker
 			msig.m_NoncePub = kG;
 
 			Scalar::Native k;
-			krn.m_Signature.CoSign(k, msg1, p.m_k, msig);
+			msig.SignPartial(k, msg1, p.m_k);
 
 			kSig += k;
 
 			p.m_k = Zero; // signed, prepare for next tx
 		}
 
+		krn.m_Signature.m_NoncePub = kG;
 		krn.m_Signature.m_k = kSig;
 	}
 

@@ -163,7 +163,6 @@ namespace ECC
 
 		// multi-signature
 		struct MultiSig;
-		void CoSign(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk, const MultiSig&);
 
 		int cmp(const Signature&) const;
 		COMPARISON_VIA_CMP
