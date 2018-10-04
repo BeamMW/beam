@@ -359,7 +359,7 @@ namespace beam { namespace wallet
         Hash::Value message;
         kernel->get_Hash(message);
         Scalar::Native partialSignature;
-        kernel->m_Signature.CoSign(partialSignature, message, blindingExcess, msig);
+        msig.SignPartial(partialSignature, message, blindingExcess);
 
         Scalar::Native peerSignature;
         if (!isSelfTx && !getParameter(TxParameterID::PeerSignature, peerSignature))
@@ -388,6 +388,7 @@ namespace beam { namespace wallet
 
         // final signature
         kernel->m_Signature.m_k = partialSignature + peerSignature;
+        kernel->m_Signature.m_NoncePub = msig.m_NoncePub;
 
         bool isRegistered = false;
         if (!getParameter(TxParameterID::TransactionRegistered, isRegistered))
