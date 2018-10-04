@@ -25,7 +25,17 @@
 #pragma warning(disable: 4127 )
 #endif
 
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wunused-variable"
+#endif
+
 #include <boost/msm/back/state_machine.hpp>
+
+#if defined(clang)
+#  pragma clang diagnostic pop
+#endif
+
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
 #include <boost/msm/front/internal_row.hpp>
