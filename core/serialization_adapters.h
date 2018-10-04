@@ -488,7 +488,7 @@ namespace detail
 				& nFlags
 				& val.m_Excess
 				& val.m_Signature.m_NoncePub.m_X
-				&val.m_Signature.m_k;
+				& val.m_Signature.m_k;
 
 			if (1 & nFlags)
 				ar & val.m_Multiplier;

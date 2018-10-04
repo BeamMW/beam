@@ -87,6 +87,9 @@ namespace beam { namespace wallet
         : m_parent{ parent }
     {
         m_blindingExcess = Zero;
+		m_offset = Zero;
+		ZeroObject(m_sigPeer);
+		m_publicPeerExcess = Zero;
     }
 
     void Negotiator::FSMDefinition::invitePeer(const events::TxInitiated&)
@@ -429,6 +432,8 @@ namespace beam { namespace wallet
         m_kernel->m_Fee = fee;
         m_kernel->m_Height.m_Min = minHeight;
         m_kernel->m_Height.m_Max = MaxHeight;
+		m_kernel->m_Excess = Zero;
+		ZeroObject(m_kernel->m_Signature);
     }
 
     void Negotiator::FSMDefinition::createOutputUtxo(Amount amount, Height height)
