@@ -102,26 +102,36 @@ namespace beam
 
         enum class TxParameterID : uint32_t
         {
-            TransactionType,
+            // public parameters
+            TransactionType = 0,
+            IsSender,
             Amount,
             Fee,
             MinHeight,
-            Offset,
+            Message,
+            MyID,
+            PeerID,
             Inputs,
             Outputs,
-            BlindingExcess,
+
+            PeerPublicNonce,
+            PeerPublicExcess,
             PeerSignature,
-
-            PublicFirstParam = 1 << 16,
-
-            PublicPeerNonce,
-            PublicPeerExcess,
             PeerOffset,
             PeerInputs,
             PeerOutputs,
+
             TransactionRegistered,
             KernelProof,
-            FailureReason
+            FailureReason,
+
+            // private parameters
+            PrivateFirstParam = 1 << 16,
+
+            Timestamp,
+            BlindingExcess,
+            Offset,
+            Change
         };
 
         // messages
@@ -241,17 +251,18 @@ namespace beam
         struct INegotiatorGateway
         {
             virtual ~INegotiatorGateway() {}
-            virtual void on_tx_completed(const TxDescription& ) = 0;
+            virtual void on_tx_completed(const TxID& ) = 0;
             virtual void send_tx_failed(const TxDescription& ) = 0;
             virtual void send_tx_invitation(const TxDescription&, Invite&&) = 0;
             virtual void send_tx_confirmation(const TxDescription&, ConfirmTransaction&&) = 0;
             virtual void send_tx_confirmation(const TxDescription&, ConfirmInvitation&&) = 0;
-            virtual void register_tx(const TxDescription&, Transaction::Ptr) = 0;
+            virtual void register_tx(const TxID&, Transaction::Ptr) = 0;
             virtual void send_tx_registered(const TxDescription&) = 0;
             virtual void confirm_outputs(const std::vector<Coin>&) = 0;
-            virtual void confirm_kernel(const TxDescription&, const TxKernel&) = 0;
+            virtual void confirm_kernel(const TxID&, const TxKernel&) = 0;
             virtual bool get_tip(Block::SystemState::Full& state) const = 0;
             virtual bool isTestMode() const = 0;
+            virtual void send_tx_params(const WalletID& peerID, SetTxParameter&&) = 0;
         };
     }
 }

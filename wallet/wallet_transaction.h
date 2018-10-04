@@ -25,6 +25,7 @@ namespace beam { namespace wallet
     struct ITransaction
     {
         using Ptr = std::shared_ptr<ITransaction>;
+        virtual TxType getType() const = 0;
         virtual void update() = 0;
         virtual void cancel() = 0;
     };
@@ -38,10 +39,46 @@ namespace beam { namespace wallet
         using Ptr = std::shared_ptr<BaseTransaction>;
         BaseTransaction(INegotiatorGateway& gateway
             , beam::IKeyChain::Ptr keychain
-            , const TxDescription& txDesc);
+            , const TxID& txID);
 
         const TxID& getTxID() const;
         void cancel() override;
+
+        template <typename T>
+        bool getParameter(TxParameterID paramID, T& value) const
+        {
+            ByteBuffer b;
+            if (m_keychain->getTxParameter(getTxID(), static_cast<uint32_t>(paramID), b))
+            {
+                if (!b.empty())
+                {
+                    Deserializer d;
+                    d.reset(b.data(), b.size());
+                    d & value;
+                }
+                else
+                {
+                    ZeroObject(value);
+                }
+                return true;
+            }
+            return false;
+        }
+
+        template <typename T>
+        bool setParameter(TxParameterID paramID, const T& value)
+        {
+            return m_keychain->setTxParameter(getTxID(), static_cast<uint32_t>(paramID), toByteBuffer(value));
+        }
+        
+        bool getParameter(TxParameterID paramID, ECC::Point::Native& value) const;
+        bool getParameter(TxParameterID paramID, ECC::Scalar::Native& value) const;
+
+        bool setParameter(TxParameterID paramID, const ECC::Point::Native& value);
+        bool setParameter(TxParameterID paramID, const ECC::Scalar::Native& value);
+
+        bool setParameter(TxParameterID paramID, const ByteBuffer& value);
+
     protected:
  
         void confirmKernel(const TxKernel& kernel);
@@ -54,46 +91,37 @@ namespace beam { namespace wallet
         std::vector<Output::Ptr> getTxOutputs(const TxID& txID) const;
         std::vector<Coin> getUnconfirmedOutputs() const;
 
-        template <typename T>
-        bool getParameter(TxParameterID paramID, T& value)
-        {
-            ByteBuffer b;
-            if (m_keychain->getTxParameter(m_txDesc.m_txId, static_cast<uint32_t>(paramID), b))
-            {
-                Deserializer d;
-                d.reset(b.data(), b.size());
-                d & value;
-                return true;
-            }
-            return false;
-        }
+        void onFailed(bool notify = false);
+
+        bool getTip(Block::SystemState::Full& state) const;
 
         template <typename T>
-        void setParameter(TxParameterID paramID, const T& value)
+        ByteBuffer toByteBuffer(const T& value) const
         {
             Serializer s;
             s & value;
             ByteBuffer b;
             s.swap_buf(b);
-            m_keychain->setTxParameter(m_txDesc.m_txId, static_cast<uint32_t>(paramID), std::move(b));
+            return b;
         }
 
+        ByteBuffer toByteBuffer(const ECC::Point::Native& value) const;
+        ByteBuffer toByteBuffer(const ECC::Scalar::Native& value) const;
 
-        bool getParameter(TxParameterID paramID, ECC::Point::Native& value);
-        bool getParameter(TxParameterID paramID, ECC::Scalar::Native& value);
+        template <typename T>
+        void addParameter(SetTxParameter& msg, TxParameterID paramID, T&& value) const
+        {
+            msg.m_Parameters.emplace_back(paramID, toByteBuffer(value));
+        }
 
-        void setParameter(TxParameterID paramID, const ECC::Point::Native& value);
-        void setParameter(TxParameterID paramID, const ECC::Scalar::Native& value);
-
-        void onFailed(bool notify = false);
-
-        bool getTip(Block::SystemState::Full& state) const;
+        bool sendTxParameters(SetTxParameter&& msg) const;
 
     protected:
 
         INegotiatorGateway& m_gateway;
         beam::IKeyChain::Ptr m_keychain;
 
+        TxID m_txID;
         TxDescription m_txDesc;
     };
 
@@ -102,10 +130,12 @@ namespace beam { namespace wallet
     public:
         SimpleTransaction(INegotiatorGateway& gateway
             , beam::IKeyChain::Ptr keychain
-            , const TxDescription& txDesc);
+            , const TxID& txID);
         void update() override;
     private:
+        TxType getType() const override;
+
         void sendConfirmTransaction(const ECC::Scalar& peerSignature) const;
-        void sendConfirmInvitation(const ECC::Point::Native& publicExcess, const ECC::Point::Native& publicNonce, const ECC::Scalar::Native& partialSignature) const;
+        void sendConfirmInvitation(const ECC::Point::Native& publicExcess, const ECC::Signature& partialSignature) const;
     };
 }}

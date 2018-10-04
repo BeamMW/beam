@@ -172,7 +172,7 @@ namespace beam
 
         virtual void changePassword(const SecString& password) = 0;
 
-        virtual void setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob) = 0;
+        virtual bool setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob) = 0;
         virtual bool getTxParameter(const TxID& txID, int paramID, ByteBuffer& blob) = 0;
     };
 
@@ -232,7 +232,7 @@ namespace beam
 
         void changePassword(const SecString& password) override;
 
-        void setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob) override;
+        bool setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob) override;
         bool getTxParameter(const TxID& txID, int paramID, ByteBuffer& blob) override;
     private:
         void storeImpl(Coin& coin);

@@ -163,13 +163,21 @@ namespace beam
         boost::uuids::uuid id = boost::uuids::random_generator()();
         TxID txId{};
         copy(id.begin(), id.end(), txId.begin());
-        TxDescription tx( txId, amount, fee, m_keyChain->getCurrentHeight(), to, from, move(message), getTimestamp(), sender);
-        m_keyChain->saveTx(tx);
 
-        BaseTransaction::Ptr s = make_shared<SimpleTransaction>(*this, m_keyChain, tx);
-        m_transactions.emplace(tx.m_txId, s);
+        auto tx = constructTransaction(txId, TxType::SimpleTransaction);
 
-        updateTransaction(tx.m_txId);
+        tx->setParameter(TxParameterID::Amount, amount);
+        tx->setParameter(TxParameterID::Fee, fee);
+        tx->setParameter(TxParameterID::MinHeight, m_keyChain->getCurrentHeight());
+        tx->setParameter(TxParameterID::PeerID, to);
+        tx->setParameter(TxParameterID::MyID, from);
+        tx->setParameter(TxParameterID::Message, move(message));
+        tx->setParameter(TxParameterID::Timestamp, getTimestamp());
+        tx->setParameter(TxParameterID::IsSender, sender);
+
+        m_transactions.emplace(txId, tx);
+
+        updateTransaction(txId);
 
         return txId;
     }
@@ -178,9 +186,9 @@ namespace beam
     {
         if (tx.canResume() && m_transactions.find(tx.m_txId) == m_transactions.end())
         {
-            auto s = make_shared<SimpleTransaction>(*this, m_keyChain, tx);
+            auto t = constructTransaction(tx.m_txId, TxType::SimpleTransaction);
 
-            m_transactions.emplace(tx.m_txId, s);
+            m_transactions.emplace(tx.m_txId, t);
         }
     }
 
@@ -203,9 +211,9 @@ namespace beam
         send_tx_message(tx, move(data));
     }
 
-    void Wallet::on_tx_completed(const TxDescription& tx)
+    void Wallet::on_tx_completed(const TxID& txID)
     {
-        auto it = m_transactions.find(tx.m_txId);
+        auto it = m_transactions.find(txID);
         if (it != m_transactions.end())
         {
             m_transactions.erase(it);
@@ -213,7 +221,7 @@ namespace beam
  
         if (m_tx_completed_action)
         {
-            m_tx_completed_action(tx.m_txId);
+            m_tx_completed_action(txID);
         }
         if (m_syncDone == m_syncTotal)
         {
@@ -232,11 +240,6 @@ namespace beam
         send_tx_message(tx, move(data));
     }
 
-    void Wallet::register_tx(const TxDescription& tx, Transaction::Ptr data)
-    {
-        register_tx(tx.m_txId, data);
-    }
-
     void Wallet::send_tx_registered(const TxDescription& tx)
     {
         send_tx_message(tx, wallet::TxRegistered{ tx.m_peerId, tx.m_txId, true });
@@ -247,9 +250,9 @@ namespace beam
         getUtxoProofs(coins);
     }
 
-    void Wallet::confirm_kernel(const TxDescription& tx, const TxKernel& kernel)
+    void Wallet::confirm_kernel(const TxID& txID, const TxKernel& kernel)
     {
-        if (auto it = m_transactions.find(tx.m_txId); it != m_transactions.end())
+        if (auto it = m_transactions.find(txID); it != m_transactions.end())
         {
             proto::GetProofKernel kernelMsg = {};
             kernel.get_ID(kernelMsg.m_ID);
@@ -274,6 +277,11 @@ namespace beam
         return IsTestMode();
     }
 
+    void Wallet::send_tx_params(const WalletID& peerID, SetTxParameter&& msg)
+    {
+        m_network->send_tx_message(peerID, std::move(msg));
+    }
+
     void Wallet::handle_tx_message(const WalletID& receiver, Invite&& msg)
     {
         auto stored = m_keyChain->getTx(msg.m_txId);
@@ -285,7 +293,7 @@ namespace beam
         if (it == m_transactions.end())
         {
             LOG_INFO() << msg.m_txId << " Received tx invitation ";
-            bool sender = !msg.m_send;
+            //bool sender = !msg.m_send;
 
             ByteBuffer messageBuffer;
             auto receiverAddress = m_keyChain->getAddress(receiver);
@@ -293,71 +301,74 @@ namespace beam
             {
                 messageBuffer.assign(receiverAddress->m_label.begin(), receiverAddress->m_label.end());
             }
-            TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, receiver, move(messageBuffer), getTimestamp(), sender };
+            /*TxDescription tx{ msg.m_txId, msg.m_amount, msg.m_fee, msg.m_height, msg.m_from, receiver, move(messageBuffer), getTimestamp(), sender };
             BaseTransaction::Ptr r = make_shared<SimpleTransaction>(*this, m_keyChain, tx);
             m_transactions.emplace(tx.m_txId, r);
             m_keyChain->saveTx(tx);
-            setTxParameter(msg.m_txId, TxParameterID::PublicPeerNonce, msg.m_publicPeerNonce);
-            setTxParameter(msg.m_txId, TxParameterID::PublicPeerExcess, msg.m_publicPeerExcess);
+            setTxParameter(msg.m_txId, TxParameterID::PeerPublicNonce, msg.m_publicPeerNonce);
+            setTxParameter(msg.m_txId, TxParameterID::PeerPublicExcess, msg.m_publicPeerExcess);
             setTxParameter(msg.m_txId, TxParameterID::PeerOffset, msg.m_offset);
             setTxParameter(msg.m_txId, TxParameterID::PeerInputs, msg.m_inputs);
             setTxParameter(msg.m_txId, TxParameterID::PeerOutputs, msg.m_outputs);
 
-            updateTransaction(tx.m_txId);
-            }
-            else
-            {
-            //process_event(msg.m_txId, events::TxInvited{});
+            updateTransaction(tx.m_txId);*/
+        }
+        else
+        {
+        //process_event(msg.m_txId, events::TxInvited{});
         }
     }
     
     void Wallet::handle_tx_message(const WalletID& receiver, ConfirmTransaction&& data)
     {
         LOG_DEBUG() << data.m_txId << " Received sender tx confirmation";
-        setTxParameter(data.m_txId, TxParameterID::PeerSignature, data.m_peerSignature);
+        //setTxParameter(data.m_txId, TxParameterID::PeerSignature, data.m_peerSignature);
         updateTransaction(data.m_txId);
     }
 
     void Wallet::handle_tx_message(const WalletID& receiver, ConfirmInvitation&& data)
     {
         LOG_DEBUG() << data.m_txId << " Received tx confirmation";
-        setTxParameter(data.m_txId, TxParameterID::PeerSignature, data.m_peerSignature);
-        setTxParameter(data.m_txId, TxParameterID::PublicPeerExcess, data.m_publicPeerExcess);
-        setTxParameter(data.m_txId, TxParameterID::PublicPeerNonce, data.m_publicPeerNonce);
+        //setTxParameter(data.m_txId, TxParameterID::PeerSignature, data.m_peerSignature);
+        //setTxParameter(data.m_txId, TxParameterID::PeerPublicExcess, data.m_publicPeerExcess);
         updateTransaction(data.m_txId);
     }
 
     void Wallet::handle_tx_message(const WalletID& receiver, wallet::TxRegistered&& data)
     {
-        setTxParameter(data.m_txId, TxParameterID::TransactionRegistered, data.m_value);
+        //setTxParameter(data.m_txId, TxParameterID::TransactionRegistered, data.m_value);
         updateTransaction(data.m_txId);
     }
 
     void Wallet::handle_tx_message(const WalletID& receiver, wallet::TxFailed&& data)
     {
         LOG_DEBUG() << "tx " << data.m_txId << " failed";
-        setTxParameter(data.m_txId, TxParameterID::FailureReason, 1);
+        //setTxParameter(data.m_txId, TxParameterID::FailureReason, 1);
         updateTransaction(data.m_txId);
     }
 
-    void Wallet::handle_tx_message(const WalletID&, wallet::SetTxParameter&& msg)
+    void Wallet::handle_tx_message(const WalletID& myID, wallet::SetTxParameter&& msg)
     {
-        auto t = getTransaction(msg.m_txId, msg.m_Type);
+        auto t = getTransaction(myID, msg);
         if (!t)
         {
             return;
         }
+        bool txChanged = false;
         for (const auto& p : msg.m_Parameters)
         {
-            if (p.first > TxParameterID::PublicFirstParam)
+            if (p.first < TxParameterID::PrivateFirstParam)
             {
-                setTxParameter(msg.m_txId, p.first, p.second);
-                updateTransaction(msg.m_txId);
+                txChanged |= t->setParameter(p.first, p.second);
             }
             else
             {
-                LOG_WARNING() << "Uttempt to set private tx parameter";
+                LOG_WARNING() << "Attempt to set private tx parameter";
             }
+        }
+        if (txChanged)
+        {
+            updateTransaction(msg.m_txId);
         }
     }
 
@@ -379,15 +390,14 @@ namespace beam
 
     void Wallet::handle_tx_registered(const TxID& txId, bool res)
     {
-        LOG_DEBUG() << "tx " << txId << (res ? " has registered" : " has failed to register");
-        if (res)
+        LOG_DEBUG() << txId << (res ? " has registered" : " has failed to register");
+        
+        auto it = m_transactions.find(txId);
+        if (it != m_transactions.end())
         {
-            setTxParameter(txId, TxParameterID::TransactionRegistered, res);
+            it->second->setParameter(TxParameterID::TransactionRegistered, res);
         }
-        else
-        {
-         //   process_event(txId, events::TxFailed(true));
-        }
+
         updateTransaction(txId);
     }
 
@@ -549,10 +559,10 @@ namespace beam
     bool Wallet::handle_node_message(proto::NewTip&& msg)
     {
         // TODO: restore from wallet db 
-        for (auto& r : m_pending_reg_requests)
-        {
-            register_tx(r.first, r.second);
-        }
+        //for (auto& r : m_pending_reg_requests)
+        //{
+        //    register_tx(r.first, r.second);
+        //}
 
         m_pending_reg_requests.clear();
 
@@ -694,13 +704,15 @@ namespace beam
             LOG_WARNING() << "Unexpected Kernel proof";
             return exit_sync();
         }
-        auto n = m_pendingKernelProofs.front();
+        auto tx = m_pendingKernelProofs.front();
         m_pendingKernelProofs.pop_front();
 
         if (!msg.m_Proof.empty() || IsTestMode())
         {
-            setTxParameter(n->getTxID(), TxParameterID::KernelProof, msg.m_Proof);
-            n->update();
+            if (tx->setParameter(TxParameterID::KernelProof, msg.m_Proof))
+            {
+                tx->update();
+            }
         }
 
         return exit_sync();
@@ -861,36 +873,35 @@ namespace beam
         m_keyChain->unsubscribe(observer);
     }
 
-    wallet::BaseTransaction::Ptr Wallet::getTransaction(const TxID& id, TxType type)
+    wallet::BaseTransaction::Ptr Wallet::getTransaction(const WalletID& myID, const wallet::SetTxParameter& msg)
     {
-        auto it = m_transactions.find(id);
+        auto it = m_transactions.find(msg.m_txId);
         if (it != m_transactions.end())
         {
-            if (it->second->getType() != type)
+            if (it->second->getType() != msg.m_Type)
             {
-                LOG_WARNING() << id << " Parameters for invalid tx type";
+                LOG_WARNING() << msg.m_txId << " Parameters for invalid tx type";
             }
             return it->second;
         }
-        setTxParameter(id, TxParameterID::TransactionType, type);
 
-        auto t = constructTransaction(id, type);
+        auto t = constructTransaction(msg.m_txId, msg.m_Type);
 
-        TxDescription tx(txId, amount, fee, m_keyChain->getCurrentHeight(), to, from, move(message), getTimestamp(), sender);
-        m_keyChain->saveTx(tx);
-
-        BaseTransaction::Ptr t = make_shared<SimpleTransaction>(*this, m_keyChain, tx);
-        m_transactions.emplace(tx.m_txId, t);
+        t->setParameter(TxParameterID::TransactionType, msg.m_Type);
+        t->setParameter(TxParameterID::Timestamp, getTimestamp());
+        t->setParameter(TxParameterID::MyID, myID);
+        t->setParameter(TxParameterID::PeerID, msg.m_from);
+        m_transactions.emplace(msg.m_txId, t);
         return t;
     }
 
-    wallet::BaseTransaction::Ptr Wallet::constructTransaction(const TxID& id, TxType type) const
+    wallet::BaseTransaction::Ptr Wallet::constructTransaction(const TxID& id, TxType type)
     {
-        setTxParameter(id, TxParameterID::TransactionType, type);
         switch (type)
         {
         case TxType::SimpleTransaction:
-                return make_shared<SimpleTransaction>(*this, m_keyChain, tx);
+                return make_shared<SimpleTransaction>(*this, m_keyChain, id);
         }
+        return wallet::BaseTransaction::Ptr();
     }
 }

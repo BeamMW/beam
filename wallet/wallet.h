@@ -131,16 +131,16 @@ namespace beam
 
         void send_tx_invitation(const TxDescription& tx, wallet::Invite&&) override;
         void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmTransaction&&) override;
-        void on_tx_completed(const TxDescription& tx) override;
+        void on_tx_completed(const TxID& txID) override;
         void send_tx_failed(const TxDescription& tx) override;
 
         void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmInvitation&&) override;
-        void register_tx(const TxDescription& tx, Transaction::Ptr) override;
         void send_tx_registered(const TxDescription& tx) override;
         void confirm_outputs(const std::vector<Coin>&) override;
-        void confirm_kernel(const TxDescription&, const TxKernel&) override;
+        void confirm_kernel(const TxID&, const TxKernel&) override;
         bool get_tip(Block::SystemState::Full& state) const override;
         bool isTestMode() const override;
+        void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override;
 
         void handle_tx_message(const WalletID&, wallet::Invite&&) override;
         void handle_tx_message(const WalletID&, wallet::ConfirmTransaction&&) override;
@@ -193,17 +193,8 @@ namespace beam
             m_network->send_tx_message(txDesc.m_peerId, std::move(msg));
         }
 
-        template <typename T>
-        void setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const T& value)
-        {
-            Serializer s;
-            s & value;
-            ByteBuffer b;
-            s.swap_buf(b);
-            m_keyChain->setTxParameter(txID, static_cast<uint32_t>(paramID), std::move(b));
-        }
-        wallet::BaseTransaction::Ptr getTransaction(const TxID& id, wallet::TxType type);
-        wallet::BaseTransaction::Ptr constructTransaction(const TxID& id, wallet::TxType type) const;
+        wallet::BaseTransaction::Ptr getTransaction(const WalletID& myID, const wallet::SetTxParameter& msg);
+        wallet::BaseTransaction::Ptr constructTransaction(const TxID& id, wallet::TxType type);
 
     private:
 

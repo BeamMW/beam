@@ -1527,7 +1527,7 @@ namespace beam
 		throwIfError(ret, _db);
 	}
 
-    void Keychain::setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob)
+    bool Keychain::setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob)
     {
         {
             sqlite::Statement stm(_db, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID=?2;");
@@ -1536,7 +1536,8 @@ namespace beam
             stm.bind(2, paramID);
             if (stm.step())
             {
-                return;
+                // already set
+                return false;
             }
         }
         
@@ -1547,6 +1548,7 @@ namespace beam
         parameter.m_value = blob;
         ENUM_TX_PARAMS_FIELDS(STM_BIND_LIST, NOSEP, parameter);
         stm.step();
+        return true;
     }
 
     bool Keychain::getTxParameter(const TxID& txID, int paramID, ByteBuffer& blob)
