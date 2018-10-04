@@ -131,12 +131,12 @@ namespace
 
 		void changePassword(const SecString& password) override {}
 
-        bool setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob) override
+        bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) override
         {
             auto p = m_params.emplace(paramID, blob);
             return p.second;
         }
-        bool getTxParameter(const TxID& txID, int paramID, ByteBuffer& blob) override 
+        bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) override
         {
             auto it = m_params.find(paramID);
             if (it != m_params.end())
@@ -149,7 +149,7 @@ namespace
 
     protected:
         std::vector<beam::Coin> m_coins;
-        std::map<int, ByteBuffer> m_params;
+        std::map<wallet::TxParameterID, ByteBuffer> m_params;
     };
 
     class TestKeyChain : public BaseTestKeyChain
@@ -226,39 +226,14 @@ namespace
 
     struct TestGateway : wallet::INegotiatorGateway
     {
-        void send_tx_invitation(const TxDescription& , wallet::Invite&&) override
-        {
-            cout << "sent tx initiation message\n";
-        }
-
-        void send_tx_confirmation(const TxDescription& , wallet::ConfirmTransaction&&) override
-        {
-            cout << "sent senders's tx confirmation message\n";
-        }
-
-        void send_tx_failed(const TxDescription&) override
-        {
-
-        }
-
         void on_tx_completed(const TxID&) override
         {
             cout << __FUNCTION__ << "\n";
         }
 
-        void send_tx_confirmation(const TxDescription& , wallet::ConfirmInvitation&&) override
-        {
-            cout << "sent recever's tx confirmation message\n";
-        }
-
         void register_tx(const TxID& , Transaction::Ptr) override
         {
             cout << "sent tx registration request\n";
-        }
-
-        void send_tx_registered(const TxDescription& ) override
-        {
-            cout << "sent tx registration completed \n";
         }
 
         void confirm_outputs(const vector<Coin>&) override
@@ -476,39 +451,6 @@ namespace
         TestNetwork(IOLoop& mainLoop) : TestNetworkBase{ mainLoop }
         {}
 
-        void send_tx_message(const WalletID& to, wallet::Invite&& data) override
-        {
-            cout << "[Sender] send_tx_invitation\n";
-            ++m_peerCount;
-            WALLET_CHECK(data.m_amount == 6);
-            send(1, to, move(data));
-        }
-
-        void send_tx_message(const WalletID& to, wallet::ConfirmTransaction&& data) override
-        {
-            cout << "[Sender] send_tx_confirmation\n";
-            send(1, to, move(data));
-        }
-
-        void send_tx_message(const WalletID& to, wallet::ConfirmInvitation&& data) override
-        {
-            cout << "[Receiver] send_tx_confirmation\n";
-            ++m_peerCount;
-            send(1, to, move(data));
-        }
-
-        void send_tx_message(const WalletID& to, wallet::TxRegistered&& data) override
-        {
-            cout << "[Receiver] send_tx_registered\n";
-            send(1, to, move(data));
-        }
-
-        void send_tx_message(const WalletID& to, beam::wallet::TxFailed&& data) override
-        {
-            cout << "TxFailed\n";
-            send(1, to, move(data));
-        }
-
         void send_tx_message(const WalletID& to, beam::wallet::SetTxParameter&& data) override
         {
             cout << "SetTxParameter\n";
@@ -593,11 +535,6 @@ namespace
                 m_peers[0]->handle_node_message(proto::ProofKernel{});
             });
         }
-
-
-//         void close_connection(const beam::WalletID&) override
-//         {
-//         }
 
         void connect_node() override
         {

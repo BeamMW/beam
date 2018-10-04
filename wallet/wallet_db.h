@@ -172,8 +172,8 @@ namespace beam
 
         virtual void changePassword(const SecString& password) = 0;
 
-        virtual bool setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob) = 0;
-        virtual bool getTxParameter(const TxID& txID, int paramID, ByteBuffer& blob) = 0;
+        virtual bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) = 0;
+        virtual bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) = 0;
     };
 
     struct Keychain : IKeyChain
@@ -232,8 +232,8 @@ namespace beam
 
         void changePassword(const SecString& password) override;
 
-        bool setTxParameter(const TxID& txID, int paramID, const ByteBuffer& blob) override;
-        bool getTxParameter(const TxID& txID, int paramID, ByteBuffer& blob) override;
+        bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) override;
+        bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) override;
     private:
         void storeImpl(Coin& coin);
         void notifyKeychainChanged();
@@ -250,6 +250,54 @@ namespace beam
 
     namespace wallet
     {
+        template <typename T>
+        ByteBuffer toByteBuffer(const T& value)
+        {
+            Serializer s;
+            s & value;
+            ByteBuffer b;
+            s.swap_buf(b);
+            return b;
+        }
+
+        ByteBuffer toByteBuffer(const ECC::Point::Native& value);
+        ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
+
+        template <typename T>
+        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, wallet::TxParameterID paramID, T& value)
+        {
+            ByteBuffer b;
+            if (db->getTxParameter(txID, paramID, b))
+            {
+                if (!b.empty())
+                {
+                    Deserializer d;
+                    d.reset(b.data(), b.size());
+                    d & value;
+                }
+                else
+                {
+                    ZeroObject(value);
+                }
+                return true;
+            }
+            return false;
+        }
+
+        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value);
+        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Scalar::Native& value);
+        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, ByteBuffer& value);
+
+        template <typename T>
+        bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const T& value)
+        {
+            return db->setTxParameter(txID, paramID, toByteBuffer(value));
+        }
+
+        bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Point::Native& value);
+        bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Scalar::Native& value);
+        bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value);
+
         Amount getAvailable(beam::IKeyChain::Ptr keychain);
         Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType);
         Amount getTotal(beam::IKeyChain::Ptr keychain, Coin::Status status);

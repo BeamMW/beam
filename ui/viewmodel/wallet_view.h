@@ -61,7 +61,7 @@ public:
 
 	void setUserName(const QString& name);
     void setDisplayName(const QString& name);
-    void setStatus(beam::TxDescription::Status status);
+    void setStatus(beam::TxStatus status);
 
     void update(const beam::TxDescription& tx);
 

@@ -212,7 +212,7 @@ WalletStatus WalletModel::getStatus() const
     {
         switch (item.m_status)
         {
-        case TxDescription::Completed:
+        case TxStatus::Completed:
             (item.m_sender ? status.sent : status.received) += item.m_amount;
             break;
         default: break;

@@ -31,11 +31,6 @@ namespace beam
         using Ptr = std::shared_ptr<IWallet>;
         virtual ~IWallet() {}
         // wallet to wallet responses
-        virtual void handle_tx_message(const WalletID&, wallet::Invite&&) = 0;
-        virtual void handle_tx_message(const WalletID&, wallet::ConfirmTransaction&&) = 0;
-        virtual void handle_tx_message(const WalletID&, wallet::ConfirmInvitation&&) = 0;
-        virtual void handle_tx_message(const WalletID&, wallet::TxRegistered&&) = 0;
-        virtual void handle_tx_message(const WalletID&, wallet::TxFailed&&) = 0;
         virtual void handle_tx_message(const WalletID&, wallet::SetTxParameter&&) = 0;
 
         // node to wallet responses
@@ -66,11 +61,6 @@ namespace beam
         virtual ~INetworkIO() {}
         virtual void set_wallet(IWallet*) = 0;
         // wallet to wallet requests
-        virtual void send_tx_message(const WalletID& to, wallet::Invite&&) = 0;
-        virtual void send_tx_message(const WalletID& to, wallet::ConfirmTransaction&&) = 0;
-        virtual void send_tx_message(const WalletID& to, wallet::ConfirmInvitation&&) = 0;
-        virtual void send_tx_message(const WalletID& to, wallet::TxRegistered&&) = 0 ;
-        virtual void send_tx_message(const WalletID& to, wallet::TxFailed&&) = 0;
         virtual void send_tx_message(const WalletID& to, wallet::SetTxParameter&&) = 0;
 
         // wallet to node requests
@@ -129,24 +119,14 @@ namespace beam
         void resume_tx(const TxDescription& tx);
         void resume_all_tx();
 
-        void send_tx_invitation(const TxDescription& tx, wallet::Invite&&) override;
-        void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmTransaction&&) override;
         void on_tx_completed(const TxID& txID) override;
-        void send_tx_failed(const TxDescription& tx) override;
 
-        void send_tx_confirmation(const TxDescription& tx, wallet::ConfirmInvitation&&) override;
-        void send_tx_registered(const TxDescription& tx) override;
         void confirm_outputs(const std::vector<Coin>&) override;
         void confirm_kernel(const TxID&, const TxKernel&) override;
         bool get_tip(Block::SystemState::Full& state) const override;
         bool isTestMode() const override;
         void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override;
 
-        void handle_tx_message(const WalletID&, wallet::Invite&&) override;
-        void handle_tx_message(const WalletID&, wallet::ConfirmTransaction&&) override;
-        void handle_tx_message(const WalletID&, wallet::ConfirmInvitation&&) override;
-        void handle_tx_message(const WalletID&, wallet::TxRegistered&&) override;
-        void handle_tx_message(const WalletID&, wallet::TxFailed&&) override;
         void handle_tx_message(const WalletID&, wallet::SetTxParameter&&) override;
 
         bool handle_node_message(proto::Boolean&& res) override;
@@ -179,7 +159,6 @@ namespace beam
         void report_sync_progress();
         bool close_node_connection();
         void register_tx(const TxID& txId, Transaction::Ptr);
-        void resume_negotiator(const TxDescription& tx);
         void notifySyncProgress();
         void resetSystemState();
         void updateTransaction(const TxID& txID);

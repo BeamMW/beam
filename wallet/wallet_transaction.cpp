@@ -30,66 +30,6 @@ namespace beam { namespace wallet
         assert(keychain);
     }
 
-    bool BaseTransaction::getParameter(TxParameterID paramID, ECC::Point::Native& value) const
-    {
-        ECC::Point pt;
-        if (getParameter(paramID, pt))
-        {
-            return value.Import(pt);
-        }
-        return false;
-    }
-
-    bool BaseTransaction::getParameter(TxParameterID paramID, ECC::Scalar::Native& value) const
-    {
-        ECC::Scalar s;
-        if (getParameter(paramID, s))
-        {
-             value.Import(s);
-             return true;
-        }
-        return false;
-    }
-
-    bool BaseTransaction::setParameter(TxParameterID paramID, const ECC::Point::Native& value)
-    {
-        ECC::Point pt;
-        if (value.Export(pt))
-        {
-            return setParameter(paramID, pt);
-        }
-        return false;
-    }
-
-    bool BaseTransaction::setParameter(TxParameterID paramID, const ECC::Scalar::Native& value)
-    {
-        ECC::Scalar s;
-        value.Export(s);
-        return setParameter(paramID, s);
-    }
-
-    bool BaseTransaction::setParameter(TxParameterID paramID, const ByteBuffer& value)
-    {
-        return m_keychain->setTxParameter(m_txID, static_cast<uint32_t>(paramID), value);
-    }
-    
-    ByteBuffer BaseTransaction::toByteBuffer(const ECC::Point::Native& value) const
-    {
-        ECC::Point pt;
-        if (value.Export(pt))
-        {
-            return toByteBuffer(pt);
-        }
-        return ByteBuffer();
-    }
-
-    ByteBuffer BaseTransaction::toByteBuffer(const ECC::Scalar::Native& value) const
-    {
-        ECC::Scalar s;
-        value.Export(s);
-        return toByteBuffer(s);
-    }
-
     bool BaseTransaction::getTip(Block::SystemState::Full& state) const
     {
         return m_gateway.get_tip(state);
@@ -102,15 +42,19 @@ namespace beam { namespace wallet
 
     void BaseTransaction::cancel()
     {
-     //   if (m_txDesc.m_status == TxDescription::Pending)
+        TxStatus s = TxStatus::Failed;
+        getParameter(TxParameterID::Status, s);
+        if (s == TxStatus::Pending)
         {
             m_keychain->deleteTx(getTxID());
         }
-     //   else
+        else
         {
-            updateTxDescription(TxDescription::Cancelled);
+            updateTxDescription(TxStatus::Cancelled);
             rollbackTx();
-       //     m_gateway.send_tx_failed(m_txDesc);
+            SetTxParameter msg;
+            addParameter(msg, TxParameterID::FailureReason, 0);
+            sendTxParameters(move(msg));
         }
     }
 
@@ -122,7 +66,7 @@ namespace beam { namespace wallet
 
     void BaseTransaction::confirmKernel(const TxKernel& kernel)
     {
-        updateTxDescription(TxDescription::Registered);
+        updateTxDescription(TxStatus::Registered);
 
         auto coins = m_keychain->getCoinsCreatedByTx(getTxID());
 
@@ -138,11 +82,11 @@ namespace beam { namespace wallet
     void BaseTransaction::completeTx()
     {
         LOG_INFO() << getTxID() << " Transaction completed";
-        updateTxDescription(TxDescription::Completed);
+        updateTxDescription(TxStatus::Completed);
         m_gateway.on_tx_completed(getTxID());
     }
 
-    void BaseTransaction::updateTxDescription(TxDescription::Status s)
+    void BaseTransaction::updateTxDescription(TxStatus s)
     {
         m_txDesc.m_status = s;
         m_txDesc.m_modifyTime = getTimestamp();
@@ -171,7 +115,7 @@ namespace beam { namespace wallet
 
     void BaseTransaction::onFailed(bool notify)
     {
-        updateTxDescription(TxDescription::Failed);
+        updateTxDescription(TxStatus::Failed);
         rollbackTx();
         if (notify)
         {
@@ -363,7 +307,7 @@ namespace beam { namespace wallet
             setParameter(TxParameterID::BlindingExcess, blindingExcess);
             setParameter(TxParameterID::Offset, offset);
 
-            updateTxDescription(TxDescription::InProgress);
+            updateTxDescription(TxStatus::InProgress);
         }
 
         Height minHeight = 0;
@@ -537,35 +481,4 @@ namespace beam { namespace wallet
         completeTx();
     }
 
-    void SimpleTransaction::sendConfirmTransaction(const Scalar& peerSignature) const
-    {
-        ConfirmTransaction confirmMsg;
-        confirmMsg.m_txId = getTxID();
-        confirmMsg.m_peerSignature = peerSignature;
-
-        //m_gateway.send_tx_confirmation(m_txDesc, move(confirmMsg));
-
-        SetTxParameter msg;
-
-        addParameter(msg, TxParameterID::PeerSignature, peerSignature);
-
-        if (!sendTxParameters(move(msg)))
-        {
-            //onFailed(false);
-        }
-
-    }
-
-    void SimpleTransaction::sendConfirmInvitation(const Point::Native& publicExcess, const Signature& partialSignature) const
-    {
-        SetTxParameter msg;
-        
-        addParameter(msg, TxParameterID::PeerPublicExcess, publicExcess);
-        addParameter(msg, TxParameterID::PeerSignature, partialSignature);
-
-        if (!sendTxParameters(move(msg)))
-        {
-            //onFailed(false);
-        }
-    }
 }}

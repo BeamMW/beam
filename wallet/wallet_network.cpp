@@ -50,11 +50,6 @@ namespace beam {
         , m_keystore(keyStore)
         , m_lastReceiver(0)
     {
-        m_protocol.add_message_handler<WalletNetworkIO, wallet::Invite,             &WalletNetworkIO::on_message>(senderInvitationCode, this, 1, 20000);
-        m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmTransaction, &WalletNetworkIO::on_message>(senderConfirmationCode, this, 1, 20000);
-        m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmInvitation,  &WalletNetworkIO::on_message>(receiverConfirmationCode, this, 1, 20000);
-        m_protocol.add_message_handler<WalletNetworkIO, wallet::TxRegistered,       &WalletNetworkIO::on_message>(receiverRegisteredCode, this, 1, 20000);
-        m_protocol.add_message_handler<WalletNetworkIO, wallet::TxFailed,           &WalletNetworkIO::on_message>(failedCode, this, 1, 20000);
         m_protocol.add_message_handler<WalletNetworkIO, wallet::SetTxParameter,     &WalletNetworkIO::on_message>(setTxParameterCode, this, 1, 20000);
 
         ByteBuffer buffer;
@@ -104,31 +99,6 @@ namespace beam {
     void WalletNetworkIO::add_wallet(const WalletID& walletID)
     {
         m_wallets.insert(walletID);
-    }
-
-    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::Invite&& msg)
-    {
-        send(to, senderInvitationCode, move(msg));
-    }
-
-    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::ConfirmTransaction&& msg)
-    {
-        send(to, senderConfirmationCode, move(msg));
-    }
-
-    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::ConfirmInvitation&& msg)
-    {
-        send(to, receiverConfirmationCode, move(msg));
-    }
-
-    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::TxRegistered&& msg)
-    {
-        send(to, receiverRegisteredCode, move(msg));
-    }
-
-    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::TxFailed&& msg)
-    {
-        send(to, failedCode, move(msg));
     }
 
     void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::SetTxParameter&& msg)
@@ -203,41 +173,6 @@ namespace beam {
         {
             m_close_timer->restart(m_close_timeout_ms, false);
         }
-    }
-
-    bool WalletNetworkIO::on_message(uint64_t, wallet::Invite&& msg)
-    {
-        assert(m_lastReceiver);
-        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
-        return true;
-    }
-
-    bool WalletNetworkIO::on_message(uint64_t, wallet::ConfirmTransaction&& msg)
-    {
-        assert(m_lastReceiver);
-        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
-        return true;
-    }
-
-    bool WalletNetworkIO::on_message(uint64_t, wallet::ConfirmInvitation&& msg)
-    {
-        assert(m_lastReceiver);
-        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
-        return true;
-    }
-
-    bool WalletNetworkIO::on_message(uint64_t, wallet::TxRegistered&& msg)
-    {
-        assert(m_lastReceiver);
-        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
-        return true;
-    }
-
-    bool WalletNetworkIO::on_message(uint64_t, wallet::TxFailed&& msg)
-    {
-        assert(m_lastReceiver);
-        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
-        return true;
     }
 
     bool WalletNetworkIO::on_message(uint64_t, wallet::SetTxParameter&& msg)
