@@ -106,7 +106,8 @@ struct Node
 			uint32_t m_TimeoutMax_ms = 50000;
 
 			uint32_t m_AggregationTime_ms = 30000;
-			uint32_t m_ExpectedOutputs = 5;
+			uint32_t m_OutputsMin = 5; // must be aggregated
+			uint32_t m_OutputsMax = 40; // may be aggregated
 
 		} m_Dandelion;
 
@@ -325,6 +326,13 @@ private:
 		void Delete(Element&);
 		void DeleteRaw(Element&);
 		void Clear();
+		void InsertKrn(Element&);
+		void DeleteKrn(Element&);
+		void InsertAggr(Element&);
+		void DeleteAggr(Element&);
+		void DeleteTimer(Element&);
+
+		bool TryMerge(Element& trg, Element& src);
 
 		Element* get_NextTimeout(uint32_t& nTimeout_ms);
 		void SetTimer(uint32_t nTimeout_ms, Element&);
@@ -342,7 +350,7 @@ private:
 
 	bool OnTransactionStem(Transaction::Ptr&&, const Peer*);
 	void OnTransactionAggregated(Dandelion::Element&);
-	void OnTransactionTimer(Dandelion::Element&);
+	void PerformAggregation(Dandelion::Element&);
 	bool OnTransactionFluff(Transaction::Ptr&&, const Peer*, Dandelion::Element*);
 
 	bool ValidateTx(Transaction::Context&, const Transaction&); // complete validation

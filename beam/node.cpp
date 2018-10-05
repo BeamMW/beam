@@ -1716,32 +1716,22 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 		pGuard->m_Time.m_Value = 0;
 		pGuard->m_Profit.SetFee(ctx);
 		pGuard->m_Profit.SetSize(*ptx);
-
-		pGuard->m_vKrn.resize(ptx->m_vKernelsOutput.size());
-
-		for (size_t i = 0; i < ptx->m_vKernelsOutput.size(); i++)
-		{
-			Dandelion::Element::Kernel& x = pGuard->m_vKrn[i];
-			ptx->m_vKernelsOutput[i]->get_ID(x.m_hv);
-			m_Dandelion.m_setKrns.insert(x);
-			x.m_pThis = pGuard.get();
-		}
-
 		pGuard->m_pValue.swap(ptx);
+
+		m_Dandelion.InsertKrn(*pGuard);
 
 		pDup = pGuard.release();
 	}
 
 	assert(!pDup->m_bAggregating);
 
-	if (pDup->m_pValue->m_vOutputs.size() < m_Cfg.m_Dandelion.m_ExpectedOutputs)
-	{
-		pDup->m_bAggregating = true;
-		m_Dandelion.m_setProfit.insert(pDup->m_Profit);
-		m_Dandelion.SetTimer(m_Cfg.m_Dandelion.m_AggregationTime_ms, *pDup);
-	}
-	else
+	if (pDup->m_pValue->m_vOutputs.size() > m_Cfg.m_Dandelion.m_OutputsMax)
 		OnTransactionAggregated(*pDup);
+	else
+	{
+		m_Dandelion.InsertAggr(*pDup);
+		PerformAggregation(*pDup);
+	}
 
 	return true;
 }
@@ -1786,20 +1776,88 @@ void Node::OnTransactionAggregated(Dandelion::Element& x)
 	OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
 }
 
-void Node::OnTransactionTimer(Dandelion::Element& x)
+bool Node::Dandelion::TryMerge(Element& trg, Element& src)
 {
-	if (x.m_bAggregating)
+	assert(trg.m_bAggregating && src.m_bAggregating);
+
+	Transaction txNew;
+	Transaction::Writer wtx(txNew);
+
+	volatile bool bStop = false;
+	wtx.Combine(trg.m_pValue->get_Reader(), src.m_pValue->get_Reader(), bStop);
+
+	txNew.m_Offset = ECC::Scalar::Native(trg.m_pValue->m_Offset) + ECC::Scalar::Native(src.m_pValue->m_Offset);
+
+#ifdef _DEBUG
+	Transaction::Context ctx;
+	assert(txNew.IsValid(ctx));
+#endif // _DEBUG
+
+	if (!get_ParentObj().m_Processor.ValidateTxContext(txNew))
+		return false; // conflicting txs, can't merge
+
+	trg.m_Profit.m_Fee += src.m_Profit.m_Fee;
+	if (trg.m_Profit.m_Fee < src.m_Profit.m_Fee)
+		trg.m_Profit.m_Fee = Amount(-1); // overflow, set max
+
+	trg.m_Profit.SetSize(txNew);
+
+	Delete(src);
+	DeleteKrn(trg);
+
+	trg.m_pValue->m_vInputs.swap(txNew.m_vInputs);
+	trg.m_pValue->m_vOutputs.swap(txNew.m_vOutputs);
+	trg.m_pValue->m_vKernelsInput.swap(txNew.m_vKernelsInput);
+	trg.m_pValue->m_vKernelsOutput.swap(txNew.m_vKernelsOutput);
+	trg.m_pValue->m_Offset = txNew.m_Offset;
+
+	InsertKrn(trg);
+
+	return true;
+}
+
+void Node::PerformAggregation(Dandelion::Element& x)
+{
+	assert(x.m_bAggregating);
+
+	// Aggregation policiy: first select those with worse profit, than those with better
+	Dandelion::ProfitSet::iterator it = Dandelion::ProfitSet::s_iterator_to(x.m_Profit);
+	++it;
+
+	while (x.m_pValue->m_vOutputs.size() <= m_Cfg.m_Dandelion.m_OutputsMax)
 	{
-		x.m_bAggregating = false;
-		m_Dandelion.m_setProfit.erase(Dandelion::ProfitSet::s_iterator_to(x.m_Profit));
+		if (m_Dandelion.m_setProfit.end() == it)
+			break;
 
-		// ...
+		Dandelion::Element& src = it->get_ParentObj();
+		++it;
 
-		OnTransactionAggregated(x);
+		m_Dandelion.TryMerge(x, src);
 	}
-	else
-		// timed-out, probably lost during the Dandelion
-		OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
+
+	it = Dandelion::ProfitSet::s_iterator_to(x.m_Profit);
+	if (m_Dandelion.m_setProfit.begin() != it)
+	{
+		--it;
+		while (x.m_pValue->m_vOutputs.size() <= m_Cfg.m_Dandelion.m_OutputsMax)
+		{
+			Dandelion::Element& src = it->get_ParentObj();
+			bool bEnd = (m_Dandelion.m_setProfit.begin() == it);
+
+			m_Dandelion.TryMerge(x, src);
+
+			if (bEnd)
+				break;
+			--it;
+		}
+	}
+
+	if (x.m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMin)
+	{
+		m_Dandelion.DeleteAggr(x);
+		OnTransactionAggregated(x);
+	} else
+		m_Dandelion.SetTimer(m_Cfg.m_Dandelion.m_AggregationTime_ms, x);
 }
 
 bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, Dandelion::Element* pElem)
@@ -1839,14 +1897,11 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, Dand
 	m_Wtx.Delete(key.m_Key);
 
 	// new transaction
-	if (!pElem)
-	{
-		bool bValid = tx.IsValid(ctx);
-		LogTx(tx, bValid, key.m_Key);
+	bool bValid = pElem ? true : tx.IsValid(ctx);
+	LogTx(tx, bValid, key.m_Key);
 
-		if (!bValid)
-			return false;
-	}
+	if (!bValid)
+		return false;
 
 	proto::HaveTransaction msgOut;
 	msgOut.m_ID = key.m_Key;
@@ -1887,22 +1942,65 @@ void Node::Dandelion::Delete(Element& x)
 
 void Node::Dandelion::DeleteRaw(Element& x)
 {
-	if (x.m_Time.m_Value)
-		m_setTime.erase(TimeSet::s_iterator_to(x.m_Time));
-
-	if (x.m_bAggregating)
-		m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
-
-	for (size_t i = 0; i < x.m_vKrn.size(); i++)
-		m_setKrns.erase(KrnSet::s_iterator_to(x.m_vKrn[i]));
+	DeleteTimer(x);
+	DeleteAggr(x);
+	DeleteKrn(x);
 
 	delete &x;
 }
 
+void Node::Dandelion::DeleteKrn(Element& x)
+{
+	for (size_t i = 0; i < x.m_vKrn.size(); i++)
+		m_setKrns.erase(KrnSet::s_iterator_to(x.m_vKrn[i]));
+	x.m_vKrn.clear();
+}
+
+void Node::Dandelion::InsertAggr(Element& x)
+{
+	if (!x.m_bAggregating)
+	{
+		x.m_bAggregating = true;
+		m_setProfit.insert(x.m_Profit);
+	}
+}
+
+void Node::Dandelion::DeleteAggr(Element& x)
+{
+	if (x.m_bAggregating)
+	{
+		m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
+		x.m_bAggregating = false;
+	}
+}
+
+void Node::Dandelion::DeleteTimer(Element& x)
+{
+	if (x.m_Time.m_Value)
+	{
+		m_setTime.erase(TimeSet::s_iterator_to(x.m_Time));
+		x.m_Time.m_Value = 0;
+	}
+}
+
+void Node::Dandelion::InsertKrn(Element& x)
+{
+	const Transaction& tx = *x.m_pValue;
+	x.m_vKrn.resize(tx.m_vKernelsOutput.size());
+
+	for (size_t i = 0; i < x.m_vKrn.size(); i++)
+	{
+		Dandelion::Element::Kernel& n = x.m_vKrn[i];
+		tx.m_vKernelsOutput[i]->get_ID(n.m_hv);
+		m_setKrns.insert(n);
+		n.m_pThis = &x;
+	}
+}
+
 void Node::Dandelion::Clear()
 {
-	while (!m_setTime.empty())
-		DeleteRaw(m_setTime.begin()->get_ParentObj());
+	while (!m_setKrns.empty())
+		DeleteRaw(*m_setKrns.begin()->m_pThis);
 
 	KillTimer();
 }
@@ -1924,8 +2022,7 @@ void Node::Dandelion::KillTimer()
 
 void Node::Dandelion::SetTimer(uint32_t nTimeout_ms, Element& x)
 {
-	if (x.m_Time.m_Value)
-		m_setTime.erase((TimeSet::s_iterator_to(x.m_Time)));
+	DeleteTimer(x);
 
 	x.m_Time.m_Value = GetTime_ms() + nTimeout_ms;
 	if (!x.m_Time.m_Value)
@@ -1956,10 +2053,15 @@ void Node::Dandelion::OnTimer()
 			break;
 		}
 
-		pElem->m_Time.m_Value = 0;
-		m_setTime.erase(TimeSet::s_iterator_to(pElem->m_Time));
+		DeleteTimer(*pElem);
 
-		get_ParentObj().OnTransactionTimer(*pElem);
+		//if (pElem->m_bAggregating)
+		//	get_ParentObj().PerformAggregation(*pElem);
+		//else
+		{
+			// timed-out, probably lost during the Dandelion
+			get_ParentObj().OnTransactionFluff(std::move(pElem->m_pValue), NULL, pElem);
+		}
 	}
 }
 

@@ -914,7 +914,7 @@ namespace beam
 		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
 		node.m_Cfg.m_VerificationThreads = -1;
 
-		node.m_Cfg.m_Dandelion.m_ExpectedOutputs = 0; // disable aggregation
+		node.m_Cfg.m_Dandelion.m_OutputsMin = 0; // disable aggregation
 
 		struct MyClient
 			:public proto::NodeConnection
@@ -1250,7 +1250,7 @@ namespace beam
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
 
 		node2.m_Cfg.m_Sync.m_Timeout_ms = 0; // sync immediately after seeing 1st peer
-		node2.m_Cfg.m_Dandelion.m_ExpectedOutputs = 0;
+		node2.m_Cfg.m_Dandelion.m_OutputsMin = 0;
 
 		node2.Initialize();
 
