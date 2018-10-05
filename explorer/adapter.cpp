@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "status_server_json.h"
-#include "stratum.h"
+#include "adapter.h"
+#include "p2p/stratum.h"
 #include "utility/nlohmann/json.hpp"
 
 namespace beam {

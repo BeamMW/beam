@@ -6,6 +6,5 @@ add_test_snippet(p2p_test p2p)
 add_test_snippet(http_parser_test p2p)
 add_test_snippet(http_test p2p)
 add_test_snippet(stratum_test p2p)
-add_test_snippet(status_server_test p2p)
 
 # ~ etc

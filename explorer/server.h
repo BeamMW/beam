@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "status_server_json.h"
+#include "adapter.h"
 #include "p2p/http_connection.h"
 #include "p2p/http_msg_creator.h"
 #include "utility/io/tcpserver.h"

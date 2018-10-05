@@ -1,4 +1,4 @@
-#include "status_server.h"
+#include "server.h"
 #include "utility/logger.h"
 
 namespace beam {
