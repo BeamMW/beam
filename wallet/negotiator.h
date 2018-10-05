@@ -25,7 +25,17 @@
 #pragma warning(disable: 4127 )
 #endif
 
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wunused-variable"
+#endif
+
 #include <boost/msm/back/state_machine.hpp>
+
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#endif
+
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
 #include <boost/msm/front/internal_row.hpp>
@@ -70,7 +80,7 @@ namespace beam { namespace wallet
             , beam::IKeyChain::Ptr keychain
             , const TxDescription& txDesc);
 
-		bool ProcessInvitation(Invite& inviteMsg);
+		void ProcessInvitation(Invite& inviteMsg);
 
         void start()
         {
@@ -168,16 +178,10 @@ namespace beam { namespace wallet
             void rollbackTx();
             void cancelTx(const events::TxCanceled&);
 
-            void sendInvite() const;
-            void sendConfirmInvitation() const;
-            void sendConfirmTransaction(const ECC::Scalar& peerSignature) const;
-            void sendNewTransaction() const;
             void sendSelfTx();
 
             void update_tx_description(TxDescription::Status s);
             bool prepareSenderUtxos(const Height& currentHeight);
-            bool registerTxInternal(const ECC::Scalar& peerSignature);
-            bool constructTxInternal(const ECC::Scalar::Native& signature);
 
             using do_serialize = int;
             typedef int no_message_queue;
@@ -225,32 +229,36 @@ namespace beam { namespace wallet
             {
                 ar & m_blindingExcess
                    & m_offset
-                   & m_peerSignature
+                   & m_sigPeer
                    & m_publicPeerExcess
-                   & m_publicPeerNonce
                    & m_transaction
                    & m_kernel;
             }
 
             void createKernel(Amount fee, Height minHeight);
             void createOutputUtxo(Amount amount, Height height);
-            ECC::Scalar createSignature();
-            void createSignature2(ECC::Signature& sigPartial, ECC::Point* pNoncePubTotal) const;
-			ECC::Point::Native getPublicExcess() const;
-			ECC::Point getPublicNonce() const;
-            bool isValidSignature(const ECC::Scalar& peerSignature) const;
-            bool isValidSignature(const ECC::Scalar& peerSignature, const ECC::Point& publicPeerNonce, const ECC::Point& publicPeerExcess) const;
-            std::vector<Input::Ptr> getTxInputs(const TxID& txID) const;
+
+			std::vector<Input::Ptr> getTxInputs(const TxID& txID) const;
             std::vector<Output::Ptr> getTxOutputs(const TxID& txID) const;
-			void get_NonceInternal(ECC::Signature::MultiSig&) const;
+
+			struct Stage {
+				enum Enum {
+					SendInvite,
+					SendConfirmInvite,
+					SendConfirmTx,
+					SendNewTx,
+				};
+			};
+
+			bool AllInOne(Stage::Enum e);
+			bool AllInOne2(Stage::Enum e);
 
             Negotiator& m_parent;
 
             ECC::Scalar::Native m_blindingExcess;
             ECC::Scalar::Native m_offset;
-            ECC::Scalar::Native m_peerSignature;
-            ECC::Point::Native m_publicPeerExcess;
-            ECC::Point::Native m_publicPeerNonce;
+			ECC::Signature m_sigPeer;
+            ECC::Point m_publicPeerExcess;
             Transaction::Ptr m_transaction;
             TxKernel::Ptr m_kernel;
         };

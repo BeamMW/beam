@@ -17,7 +17,19 @@
 #include "core/common.h"
 #include <boost/filesystem.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
+
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wunknown-warning-option"
+#  pragma clang diagnostic ignored "-Wtautological-constant-compare"
+#endif
+
 #include <boost/iostreams/filtering_stream.hpp>
+
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#endif
+
 #include <stdexcept>
 #include <iostream>
 #include <fstream>

@@ -87,6 +87,9 @@ namespace beam { namespace wallet
         : m_parent{ parent }
     {
         m_blindingExcess = Zero;
+		m_offset = Zero;
+		ZeroObject(m_sigPeer);
+		m_publicPeerExcess = Zero;
     }
 
     void Negotiator::FSMDefinition::invitePeer(const events::TxInitiated&)
@@ -127,89 +130,162 @@ namespace beam { namespace wallet
             }
         }
 
-        sendInvite();
+		AllInOne(Stage::SendInvite);
     }
 
     void Negotiator::FSMDefinition::sendSelfTx()
     {
-        // Create output UTXOs for main amount
+		// Create output UTXOs for main amount
         createOutputUtxo(m_parent.m_txDesc.m_amount, m_parent.m_txDesc.m_minHeight);
 
         // Create empty transaction
         m_transaction = std::make_shared<Transaction>();
-        m_transaction->m_Offset = Zero;
 
-        // Calculate public key for excess
-        Point::Native excess = getPublicExcess();
+		m_publicPeerExcess = Zero;
+		ZeroObject(m_sigPeer);
 
-        // Calculate signature
-        Scalar::Native signature = createSignature();
-
-        // Construct and verify transaction
-        if (!constructTxInternal(signature))
-        {
-            Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
-            fsm.process_event(events::TxFailed{ true });
-            return;
-        }
-
-        update_tx_description(TxDescription::InProgress);
-        sendNewTransaction();
+		update_tx_description(TxDescription::InProgress);
+		AllInOne(Stage::SendNewTx);
     }
 
-    void Negotiator::FSMDefinition::sendInvite() const
-    {
-        bool sender = m_parent.m_txDesc.m_sender;
-        Height currentHeight = m_parent.m_txDesc.m_minHeight;
-        const TxID& txID = m_parent.m_txDesc.m_txId;
+	bool Negotiator::FSMDefinition::AllInOne(Stage::Enum e)
+	{
+		if (AllInOne2(e))
+			return true;
 
-        Invite inviteMsg;
-        inviteMsg.m_txId = txID;
-        inviteMsg.m_amount = m_parent.m_txDesc.m_amount;
-        inviteMsg.m_fee = m_parent.m_txDesc.m_fee;
-        inviteMsg.m_height = currentHeight;
-        inviteMsg.m_send = sender;
-        inviteMsg.m_inputs = getTxInputs(txID);
-        inviteMsg.m_outputs = getTxOutputs(txID);
-        inviteMsg.m_publicPeerExcess = getPublicExcess();
-        inviteMsg.m_publicPeerNonce = getPublicNonce();
-        inviteMsg.m_offset = m_offset;
+		Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
+		fsm.process_event(events::TxFailed{ true });
 
-        m_parent.m_gateway.send_tx_invitation(m_parent.m_txDesc, move(inviteMsg));
-    }
+		return false;
+	}
+
+	bool Negotiator::FSMDefinition::AllInOne2(Stage::Enum e)
+	{
+		assert(m_kernel);
+		m_kernel->m_Excess = Zero; // Kernel hash depends on the Excess (this is the intended behavior). However the Nonce should depend on the kernel, but NOT on the Nonce, since it's not known yet
+		// (otherwise we'd have an additional iteration only for this)
+
+		Hash::Value message;
+		m_kernel->get_Hash(message);
+
+		Signature::MultiSig msig;
+		msig.GenerateNonce(message, m_blindingExcess);
+
+
+		Point::Native pubExcess = Context::get().G * m_blindingExcess;
+
+		if (Stage::SendInvite == e)
+		{
+			const TxID& txID = m_parent.m_txDesc.m_txId;
+
+			Invite inviteMsg;
+			inviteMsg.m_txId = txID;
+			inviteMsg.m_amount = m_parent.m_txDesc.m_amount;
+			inviteMsg.m_fee = m_parent.m_txDesc.m_fee;
+			inviteMsg.m_height = m_parent.m_txDesc.m_minHeight;
+			inviteMsg.m_send = m_parent.m_txDesc.m_sender;
+			inviteMsg.m_inputs = getTxInputs(txID);
+			inviteMsg.m_outputs = getTxOutputs(txID);
+			inviteMsg.m_publicPeerExcess = pubExcess;
+			inviteMsg.m_publicPeerNonce = msig.m_NoncePub;
+			inviteMsg.m_offset = m_offset;
+
+			m_parent.m_gateway.send_tx_invitation(m_parent.m_txDesc, move(inviteMsg));
+			return true;
+		}
+
+		// peer Nonce and public excess must have already been received
+		Point::Native pubPeerNonce, pubPeerExc;
+		if (!pubPeerNonce.Import(m_sigPeer.m_NoncePub) ||
+			!pubPeerExc.Import(m_publicPeerExcess))
+			return false;
+
+		// create our partial signature
+		ECC::Point::Native pubNonceMy = msig.m_NoncePub;
+		ECC::Point::Native pubExcMy = pubExcess;
+
+		msig.m_NoncePub += pubPeerNonce;
+
+		pubExcess += pubPeerExc;
+		m_kernel->m_Excess = pubExcess;
+
+		m_kernel->get_Hash(message); // update the kernel hash, after the correct Excess was specified
+
+		Scalar::Native kSig;
+		msig.SignPartial(kSig, message, m_blindingExcess);
+
+		if (Stage::SendConfirmInvite == e)
+		{
+			ConfirmInvitation confirmMsg;
+			confirmMsg.m_txId = m_parent.m_txDesc.m_txId;
+			confirmMsg.m_publicPeerExcess = pubExcMy;
+			confirmMsg.m_peerSignature.m_NoncePub = pubNonceMy;
+			confirmMsg.m_peerSignature.m_k = kSig;
+
+			m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmMsg));
+			return true;
+		}
+
+		// complete signature
+		Signature& sig = m_kernel->m_Signature;
+		sig.m_NoncePub = msig.m_NoncePub;
+
+		Scalar::Native kSigTotal = m_sigPeer.m_k;
+		kSigTotal += kSig;
+		sig.m_k = kSigTotal;
+
+		if (!sig.IsValidPartial(message, msig.m_NoncePub, pubExcess))
+			return false;
+
+		if (Stage::SendConfirmTx == e)
+		{
+			ConfirmTransaction confirmMsg;
+			confirmMsg.m_txId = m_parent.m_txDesc.m_txId;
+			confirmMsg.m_peerSignature = kSig;
+
+			m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmMsg));
+			return true;
+		}
+
+		sig.m_NoncePub = msig.m_NoncePub; // sig complete
+		assert(sig.IsValid(message, pubExcess));
+
+		assert(Stage::SendNewTx == e);
+
+
+		// Create transaction kernel and transaction
+		m_transaction->m_vKernelsOutput.push_back(move(m_kernel));
+		m_transaction->m_Offset = m_offset;
+
+		{
+			auto inputs = getTxInputs(m_parent.m_txDesc.m_txId);
+			move(inputs.begin(), inputs.end(), back_inserter(m_transaction->m_vInputs));
+
+			auto outputs = getTxOutputs(m_parent.m_txDesc.m_txId);
+			move(outputs.begin(), outputs.end(), back_inserter(m_transaction->m_vOutputs));
+		}
+
+		m_transaction->Sort();
+
+		// Verify final transaction
+		TxBase::Context ctx;
+		if (!m_transaction->IsValid(ctx))
+			return false;
+
+		m_parent.m_gateway.register_tx(m_parent.m_txDesc, m_transaction);
+		return true;
+	}
 
     void Negotiator::FSMDefinition::confirmPeer(const events::TxInvitationCompleted& event)
     {
         auto& msg = event.data;
 
-        if (!isValidSignature(msg.m_peerSignature.m_k, msg.m_peerSignature.m_NoncePub, msg.m_publicPeerExcess)
-            || !m_publicPeerExcess.Import(msg.m_publicPeerExcess)
-            || !m_publicPeerNonce.Import(msg.m_peerSignature.m_NoncePub))
-        {
-            Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
-            fsm.process_event(events::TxFailed{ true });
-            return;
-        }
+		m_sigPeer = msg.m_peerSignature;
+		m_publicPeerExcess = msg.m_publicPeerExcess;
 
-        Point::Native pt = Context::get().G * m_blindingExcess;
-        pt += m_publicPeerExcess;
-        m_kernel->m_Excess = pt;
-
-        m_peerSignature = msg.m_peerSignature.m_k;
         update_tx_description(TxDescription::InProgress);
-        auto s = createSignature();
-        Scalar::Native sn = s;
-        m_kernel->m_Signature.m_k = sn + m_peerSignature;
-        sendConfirmTransaction(s);
-    }
 
-    void Negotiator::FSMDefinition::sendConfirmTransaction(const Scalar& peerSignature) const
-    {
-        ConfirmTransaction confirmMsg;
-        confirmMsg.m_txId = m_parent.m_txDesc.m_txId;
-        confirmMsg.m_peerSignature = peerSignature;
-
-        m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmMsg));
+		AllInOne(Stage::SendConfirmTx);
     }
 
     void Negotiator::FSMDefinition::confirmInvitation(const events::TxInvited&)
@@ -238,69 +314,16 @@ namespace beam { namespace wallet
 
         LOG_INFO() << m_parent.m_txDesc.m_txId << " Invitation accepted";
         update_tx_description(TxDescription::InProgress);
-        sendConfirmInvitation();
-    }
 
-    void Negotiator::FSMDefinition::sendConfirmInvitation() const
-    {
-        ConfirmInvitation confirmMsg;
-        confirmMsg.m_txId = m_parent.m_txDesc.m_txId;
-        confirmMsg.m_publicPeerExcess = getPublicExcess();
-        createSignature2(confirmMsg.m_peerSignature, NULL);
-
-        m_parent.m_gateway.send_tx_confirmation(m_parent.m_txDesc, move(confirmMsg));
+		AllInOne(Stage::SendConfirmInvite);
     }
 
     void Negotiator::FSMDefinition::registerTx(const events::TxConfirmationCompleted& event)
     {
-        if (!registerTxInternal(event.data.m_peerSignature))
-        {
-            Negotiator::Fsm &fsm = static_cast<Negotiator::Fsm&>(*this);
-            fsm.process_event(events::TxFailed{ true });
-            return;
-        }
-        update_tx_description(TxDescription::InProgress);
-        sendNewTransaction();
-    }
+		update_tx_description(TxDescription::InProgress);
 
-    bool Negotiator::FSMDefinition::registerTxInternal(const ECC::Scalar& peerSignature)
-    {
-        if (!isValidSignature(peerSignature))
-            return false;
-
-        // Calculate final signature
-        Scalar::Native senderSignature;
-        senderSignature = peerSignature;
-        Scalar::Native receiverSignature = createSignature();
-        Scalar::Native finialSignature = senderSignature + receiverSignature;
-        return constructTxInternal(finialSignature);
-    }
-
-    bool Negotiator::FSMDefinition::constructTxInternal(const Scalar::Native& signature)
-    {
-        // Create transaction kernel and transaction
-        m_kernel->m_Signature.m_k = signature;
-        m_transaction->m_vKernelsOutput.push_back(move(m_kernel));
-        m_transaction->m_Offset = m_offset;
-
-        {
-            auto inputs = getTxInputs(m_parent.m_txDesc.m_txId);
-            move(inputs.begin(), inputs.end(), back_inserter(m_transaction->m_vInputs));
-
-            auto outputs = getTxOutputs(m_parent.m_txDesc.m_txId);
-            move(outputs.begin(), outputs.end(), back_inserter(m_transaction->m_vOutputs));
-        }
-
-        m_transaction->Sort();
-
-        // Verify final transaction
-        TxBase::Context ctx;
-        return m_transaction->IsValid(ctx);
-    }
-
-    void Negotiator::FSMDefinition::sendNewTransaction() const
-    {
-        m_parent.m_gateway.register_tx(m_parent.m_txDesc, m_transaction);
+		m_sigPeer.m_k = event.data.m_peerSignature;
+		AllInOne(Stage::SendNewTx);
     }
 
     void Negotiator::FSMDefinition::rollbackTx(const events::TxFailed& event)
@@ -409,7 +432,8 @@ namespace beam { namespace wallet
         m_kernel->m_Fee = fee;
         m_kernel->m_Height.m_Min = minHeight;
         m_kernel->m_Height.m_Max = MaxHeight;
-        m_kernel->m_Excess = Zero;
+		m_kernel->m_Excess = Zero;
+		ZeroObject(m_kernel->m_Signature);
     }
 
     void Negotiator::FSMDefinition::createOutputUtxo(Amount amount, Height height)
@@ -426,111 +450,15 @@ namespace beam { namespace wallet
         m_offset += offset;
     }
 
-    bool Negotiator::ProcessInvitation(Invite& inviteMsg)
+    void Negotiator::ProcessInvitation(Invite& inviteMsg)
     {
-        if (!m_fsm.m_publicPeerExcess.Import(inviteMsg.m_publicPeerExcess) ||
-            !m_fsm.m_publicPeerNonce.Import(inviteMsg.m_publicPeerNonce))
-            return false;
-
+		m_fsm.m_publicPeerExcess = inviteMsg.m_publicPeerExcess;
+		m_fsm.m_sigPeer.m_NoncePub = inviteMsg.m_publicPeerNonce;
         m_fsm.m_offset = inviteMsg.m_offset;
         m_fsm.m_transaction = std::make_shared<Transaction>();
         m_fsm.m_transaction->m_Offset = Zero;
         m_fsm.m_transaction->m_vInputs = move(inviteMsg.m_inputs);
         m_fsm.m_transaction->m_vOutputs = move(inviteMsg.m_outputs);
-
-        return true;
-    }
-
-    Scalar Negotiator::FSMDefinition::createSignature()
-    {
-		ECC::Signature sig;
-        createSignature2(sig, &m_kernel->m_Signature.m_NoncePub);
-        return sig.m_k;
-    }
-
-    void Negotiator::FSMDefinition::get_NonceInternal(ECC::Signature::MultiSig& out) const
-    {
-        Point pt = m_kernel->m_Excess;
-        m_kernel->m_Excess = Zero;
-
-        Hash::Value hv;
-        m_kernel->get_Hash(hv);
-
-        m_kernel->m_Excess = pt;
-
-        out.GenerateNonce(hv, m_blindingExcess);
-    }
-
-    void Negotiator::FSMDefinition::createSignature2(ECC::Signature& sig, ECC::Point* pNoncePubTotal) const
-    {
-        Signature::MultiSig msig;
-        get_NonceInternal(msig);
-
-        sig.m_NoncePub = msig.m_NoncePub;
-        msig.m_NoncePub += m_publicPeerNonce;
-
-		Point::Native pt = Context::get().G * m_blindingExcess;
-        pt += m_publicPeerExcess;
-        m_kernel->m_Excess = pt;
-        Hash::Value message;
-        m_kernel->get_Hash(message);
-
-        Scalar::Native partialSignature;
-        Signature sigFull;
-		sigFull.CoSign(partialSignature, message, m_blindingExcess, msig);
-
-		sig.m_k = partialSignature;
-		if (pNoncePubTotal)
-			*pNoncePubTotal = sigFull.m_NoncePub;
-    }
-
-	Point Negotiator::FSMDefinition::getPublicNonce() const
-	{
-		Signature::MultiSig msig;
-		get_NonceInternal(msig);
-
-		return Point(msig.m_NoncePub);
-	}
-
-    Point::Native Negotiator::FSMDefinition::getPublicExcess() const
-    {
-        return Context::get().G * m_blindingExcess;
-    }
-
-    bool Negotiator::FSMDefinition::isValidSignature(const Scalar& peerSignature) const
-    {
-        return isValidSignature(peerSignature, m_publicPeerNonce, m_publicPeerExcess);
-    }
-
-    bool Negotiator::FSMDefinition::isValidSignature(const Scalar& peerSignature, const Point& publicPeerNonce, const Point& publicPeerExcess) const
-    {
-        //assert(m_kernel);
-        if (!m_kernel)
-            return false;
-
-        Signature::MultiSig msig;
-        get_NonceInternal(msig);
-
-        Point::Native pkPeer, xcPeer;
-        if (!pkPeer.Import(publicPeerNonce) ||
-            !xcPeer.Import(publicPeerExcess))
-            return false;
-
-        msig.m_NoncePub += pkPeer;
-
-        Point::Native pt = Context::get().G * m_blindingExcess;
-        pt += xcPeer;
-        m_kernel->m_Excess = pt;
-
-        Hash::Value message;
-        m_kernel->get_Hash(message);
-
-        // temp signature to calc challenge
-        Scalar::Native mySig;
-        Signature peerSig;
-        peerSig.CoSign(mySig, message, m_blindingExcess, msig);
-        peerSig.m_k = peerSignature;
-        return peerSig.IsValidPartial(message, pkPeer, xcPeer);
     }
 
     vector<Input::Ptr> Negotiator::FSMDefinition::getTxInputs(const TxID& txID) const

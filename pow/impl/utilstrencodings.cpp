@@ -464,6 +464,8 @@ static bool ParsePrechecks(const std::string& str)
     return true;
 }
 
+#if !defined(__clang__)
+
 bool ParseInt32(const std::string& str, int32_t *out)
 {
     if (!ParsePrechecks(str))
@@ -494,6 +496,8 @@ bool ParseInt64(const std::string& str, int64_t *out)
         n >= std::numeric_limits<int64_t>::min() &&
         n <= std::numeric_limits<int64_t>::max();
 }
+
+#endif
 
 bool ParseDouble(const std::string& str, double *out)
 {

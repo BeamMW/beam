@@ -44,20 +44,10 @@ int Equihash<N,K>::InitialiseState(eh_HashState& base_state)
 
     static_assert(!((!outlen) || (outlen > BLAKE2B_OUTBYTES)));
 
-    blake2b_param param =
-    {
-        outlen,
-        0,
-        1,
-        1,
-        0,
-        0,
-        0,
-        0,
-        { 0 },
-        { 0 },
-        { 0 }
-    };
+    blake2b_param param = {0};
+    param.digest_length = outlen;
+    param.fanout = 1;
+    param.depth = 1;
 
     memcpy(&param.personal, personalization, BLAKE2B_PERSONALBYTES);
 

@@ -101,6 +101,7 @@ Item
                     // }
 
                     CustomButton {
+                        id: createNewWallet
                         anchors.verticalCenter: parent.verticalCenter
 
                         width: 202
