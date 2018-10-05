@@ -126,6 +126,7 @@ namespace beam
         bool get_tip(Block::SystemState::Full& state) const override;
         bool isTestMode() const override;
         void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override;
+        void register_tx(const TxID& txId, Transaction::Ptr) override;
 
         void handle_tx_message(const WalletID&, wallet::SetTxParameter&&) override;
 
@@ -158,7 +159,6 @@ namespace beam
         bool exit_sync();
         void report_sync_progress();
         bool close_node_connection();
-        void register_tx(const TxID& txId, Transaction::Ptr);
         void notifySyncProgress();
         void resetSystemState();
         void updateTransaction(const TxID& txID);
