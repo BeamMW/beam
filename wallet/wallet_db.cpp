@@ -1259,7 +1259,7 @@ namespace beam
     vector<TxDescription> Keychain::getTxHistory(uint64_t start, int count)
     {
         // TODO this is temporary solution
-        size_t txCount = 0;
+        int txCount = 0;
         {
             sqlite::Statement stm(_db, "SELECT COUNT(DISTINCT txID) FROM " TX_PARAMS_NAME " ;");
             stm.step();
@@ -1269,7 +1269,7 @@ namespace beam
         vector<TxDescription> res;
         if (txCount > 0)
         {
-            res.reserve(min(txCount, static_cast<size_t>(count)));
+            res.reserve(static_cast<size_t>(min(txCount, count)));
             const char* req = "SELECT DISTINCT txID FROM " TX_PARAMS_NAME " LIMIT ?1 OFFSET ?2 ;";
 
             sqlite::Statement stm(_db, req);
@@ -1278,7 +1278,7 @@ namespace beam
 
             while (stm.step())
             {
-                TxID txID = { 0 };
+                TxID txID;
                 stm.get(0, txID);
                 res.emplace_back(*getTx(txID));
             }
