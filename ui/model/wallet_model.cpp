@@ -255,13 +255,13 @@ void WalletModel::run()
         _reactor = Reactor::create();
         io::Reactor::GracefulIntHandler gih(*_reactor);
 
-        async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), _reactor);
+        async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *_reactor);
 
         emit onStatus(getStatus());
         emit onTxStatus(beam::ChangeAction::Reset, _keychain->getTxHistory());
         emit onTxPeerUpdated(_keychain->getPeers());
 
-        _logRotateTimer = io::Timer::create(_reactor);
+        _logRotateTimer = io::Timer::create(*_reactor);
         _logRotateTimer->start(
             LOG_ROTATION_PERIOD, true,
             []() {

@@ -24,36 +24,299 @@
 #include <signal.h>
 #endif // WIN32
 
-#define LOG_VERBOSE_ENABLED 1
+#define LOG_VERBOSE_ENABLED 0
 #include "utility/logger.h"
 
 namespace beam { namespace io {
 
+class TcpConnectors {
+public:
+    using Callback = Reactor::ConnectCallback;
+
+    explicit TcpConnectors(Reactor& r) :
+        _reactor(r),
+        _connectRequestsPool(config().get_int("io.connect_pool_size", 16, 0, 512))
+    {}
+
+    ~TcpConnectors() {
+        if (!_connectRequests.empty()) {
+            LOG_ERROR() << "connect requests were not cancelled";
+        }
+        if (!_cancelledConnectRequests.empty()) {
+            LOG_ERROR() << "callbacks on cancelled requests were not called";
+        }
+    }
+
+    void cancel_all() {
+        for (auto& p : _connectRequests) {
+            uv_handle_t* h = (uv_handle_t*)(p.second->handle);
+            _reactor.async_close(h);
+        }
+        _connectTimer.reset();
+    }
+
+    bool is_tag_free(uint64_t tag) {
+        return _connectRequests.count(tag) == 0;
+    }
+
+    Result tcp_connect(uv_tcp_t* handle, Address address, uint64_t tag, const Callback& callback, int timeoutMsec) {
+        assert(is_tag_free(tag));
+
+        if (timeoutMsec >= 0) {
+            if (!_connectTimer) {
+                try {
+                    _connectTimer = CoarseTimer::create(
+                        _reactor,
+                        config().get_int("io.connect_timer_resolution", 1000, 1, 60000),
+                        BIND_THIS_MEMFN(connect_timeout_callback)
+                    );
+                } catch (const Exception& e) {
+                    return make_unexpected(e.errorCode);
+                }
+            }
+            auto result = _connectTimer->set_timer(timeoutMsec, tag);
+            if (!result) return result;
+        }
+
+        handle->data = 0;
+        ConnectRequest* cr = _connectRequestsPool.alloc();
+        cr->data = this;
+        cr->tag = tag;
+        new(&cr->callback) Callback(callback);
+
+        _connectRequests[tag] = cr;
+
+        sockaddr_in addr;
+        address.fill_sockaddr_in(addr);
+
+        auto errorCode = (ErrorCode)uv_tcp_connect(
+            cr,
+            handle,
+            (const sockaddr*)&addr,
+            [](uv_connect_t* request, int errorCode) {
+                assert(request);
+                assert(request->data);
+                TcpConnectors* tcpConnectors = reinterpret_cast<TcpConnectors*>(request->data);
+                ConnectRequest* cr = static_cast<ConnectRequest*>(request);
+                if (errorCode == UV_ECANCELED) {
+                    tcpConnectors->_cancelledConnectRequests.erase(cr);
+                } else {
+                    tcpConnectors->connect_callback(cr->tag, (uv_handle_t*)request->handle, cr->callback, (ErrorCode)errorCode);
+                }
+                cr->callback.~Callback();
+                tcpConnectors->_connectRequestsPool.release(cr);
+            }
+        );
+
+        if (errorCode) {
+            _connectRequestsPool.release(cr);
+            if (_connectTimer) _connectTimer->cancel(tag);
+            _connectRequests.erase(tag);
+            return make_unexpected(errorCode);
+        }
+
+        return Ok();
+    }
+
+    void cancel_tcp_connect(uint64_t tag) {
+        LOG_VERBOSE() << TRACE(tag);
+        auto it = _connectRequests.find(tag);
+        if (it != _connectRequests.end()) {
+            cancel_tcp_connect_impl(it);
+            if (_connectTimer) _connectTimer->cancel(tag);
+        }
+    }
+
+private:
+    struct ConnectRequest : uv_connect_s {
+        uint64_t tag;
+        Callback callback;
+    };
+
+    void connect_callback(uint64_t tag, uv_handle_t* h, const Callback& callback, ErrorCode errorCode) {
+        if (_connectRequests.count(tag) == 0) {
+            _reactor.async_close(h);
+            return;
+        }
+
+        TcpStream::Ptr stream;
+        if (errorCode == 0) {
+            stream.reset(_reactor.stream_connected(h));
+        } else {
+            _reactor.async_close(h);
+        }
+
+        _connectRequests.erase(tag);
+        if (_connectTimer) _connectTimer->cancel(tag);
+
+        callback(tag, std::move(stream), errorCode);
+    }
+
+    void connect_timeout_callback(uint64_t tag) {
+        LOG_VERBOSE() << TRACE(tag);
+        auto it = _connectRequests.find(tag);
+        if (it != _connectRequests.end()) {
+            Reactor::ConnectCallback cb = it->second->callback;
+            cancel_tcp_connect_impl(it);
+            cb(tag, TcpStream::Ptr(), EC_ETIMEDOUT);
+        }
+    }
+
+    void cancel_tcp_connect_impl(std::unordered_map<uint64_t, ConnectRequest*>::iterator& it) {
+        ConnectRequest* cr = it->second;
+        uv_handle_t* h = (uv_handle_t*)cr->handle;
+        _reactor.async_close(h);
+        _cancelledConnectRequests.insert(cr);
+        _connectRequests.erase(it);
+    }
+
+    Reactor& _reactor;
+    MemPool<ConnectRequest, sizeof(ConnectRequest)> _connectRequestsPool;
+    std::unordered_map<uint64_t, ConnectRequest*> _connectRequests;
+    std::unordered_set<ConnectRequest*> _cancelledConnectRequests;
+    std::unique_ptr<CoarseTimer> _connectTimer;
+};
+
+class TcpShutdowns {
+public:
+    explicit TcpShutdowns(Reactor& r) :
+        _reactor(r),
+        _shutdownRequestsPool(config().get_int("io.shutdown_pool_size", 16, 0, 512))
+    {}
+
+    void cancel_all() {
+        for (uv_shutdown_t* sr : _shutdownRequests) {
+            uv_handle_t* h = (uv_handle_t*)(sr->handle);
+            _reactor.async_close(h);
+        }
+    }
+
+    void shutdown_tcpstream(Reactor::Object* o) {
+        o->_handle->data = 0;
+
+        uv_shutdown_t* req = _shutdownRequestsPool.alloc();
+        req->data = this;
+
+        _shutdownRequests.insert(req);
+
+        uv_shutdown(
+            req,
+            (uv_stream_t*)o->_handle,
+            [](uv_shutdown_t* req, int status) {
+                if (status != 0 && status != UV_ECANCELED) {
+                    LOG_DEBUG() << "stream shutdown failed, code=" << error_str((ErrorCode)status);
+                }
+                TcpShutdowns* self = reinterpret_cast<TcpShutdowns*>(req->data);
+                if (self) {
+                    uv_handle_t* req_handle = (uv_handle_t*)req->handle;
+                    self->_reactor.async_close(req_handle);
+                    self->_shutdownRequests.erase(req);
+                    self->_shutdownRequestsPool.release(req);
+                }
+            }
+        );
+
+        o->_handle = 0;
+        o->_reactor.reset();
+    }
+
+private:
+    Reactor& _reactor;
+    MemPool<uv_shutdown_t, sizeof(uv_shutdown_t)> _shutdownRequestsPool;
+    std::unordered_set<uv_shutdown_t*> _shutdownRequests;
+};
+
+class PendingWrites {
+public:
+    explicit PendingWrites(Reactor& r) :
+        _reactor(r),
+        _writeRequestsPool(config().get_int("io.write_pool_size", 256, 0, 65536))
+    {}
+
+    void cancel_all() {
+        for (uv_write_t* wr : _writeRequests) {
+            uv_handle_t* h = (uv_handle_t*)(wr->handle);
+            _reactor.async_close(h);
+        }
+    }
+
+    ErrorCode async_write(Reactor::Object* o, BufferChain& unsent, const Reactor::OnDataWritten& cb) {
+        uv_write_t* req = _writeRequestsPool.alloc();
+
+        size_t nBytes = unsent.size();
+        auto p = _data.insert({ req, Ctx{ this, std::move(unsent), cb, nBytes } });
+
+        assert (p.second);
+        Ctx* ctx = &p.first->second;
+        req->data = ctx;
+
+        _writeRequests.insert(req);
+
+        auto ec = (ErrorCode)uv_write(
+            req,
+            (uv_stream_t*)o->_handle,
+            (uv_buf_t*)ctx->unsent.fragments(),
+            static_cast<unsigned>(ctx->unsent.num_fragments()),
+            [](uv_write_t* req, int errorCode) {
+                assert(req);
+                assert(req->data);
+                Ctx* ctx = reinterpret_cast<Ctx*>(req->data);
+                assert(ctx->self);
+                if (errorCode != UV_ECANCELED && req->handle != 0 && req->handle->data != 0) {
+                    // object may be no longer alive if UV_CANCELED
+                    assert(ctx->cb);
+                    ctx->cb(ErrorCode(errorCode), errorCode == EC_OK ? ctx->nBytes : 0);
+                }
+                ctx->self->release_request(req);
+            }
+        );
+
+        if (ec != EC_OK) {
+            release_request(req);
+        } else {
+            unsent.clear();
+        }
+
+        return ec;
+    }
+
+private:
+    struct Ctx {
+        PendingWrites* self = 0;
+        BufferChain unsent;
+        Reactor::OnDataWritten cb;
+        size_t nBytes = 0;
+    };
+
+    void release_request(uv_write_t* req) {
+        _data.erase(req);
+        _writeRequests.erase(req);
+        _writeRequestsPool.release(req);
+    }
+
+    Reactor& _reactor;
+    MemPool<uv_write_t, sizeof(uv_write_t)> _writeRequestsPool;
+    std::unordered_set<uv_write_t*> _writeRequests;
+    std::unordered_map<uv_write_t*, Ctx> _data;
+};
+
 Reactor::Ptr Reactor::create() {
     struct make_shared_enabler : public Reactor {};
-    Reactor::Ptr ptr = std::make_shared<make_shared_enabler>();
-    ErrorCode errorCode = ptr->initialize();
-    IO_EXCEPTION_IF(errorCode);
-    return ptr;
+    return std::make_shared<make_shared_enabler>();
 }
 
 Reactor::Reactor() :
-    _handlePool(config().get_int("io.handle_pool_size", 256, 0, 65536)),
-    _connectRequestsPool(config().get_int("io.connect_pool_size", 16, 0, 512)),
-    _writeRequestsPool(config().get_int("io.write_pool_size", 256, 0, 65536)),
-    _shutdownRequestsPool(config().get_int("io.shutdown_pool_size", 16, 0, 512))
+    _handlePool(config().get_int("io.handle_pool_size", 256, 0, 65536))
 {
     memset(&_loop,0,sizeof(uv_loop_t));
     memset(&_stopEvent, 0, sizeof(uv_async_t));
-}
 
-ErrorCode Reactor::initialize() {
     _creatingInternalObjects=true;
 
-    ErrorCode errorCode = (ErrorCode)uv_loop_init(&_loop);
+    auto errorCode = (ErrorCode)uv_loop_init(&_loop);
     if (errorCode != 0) {
         LOG_ERROR() << "cannot initialize uv loop, error=" << errorCode;
-        return errorCode;
+        IO_EXCEPTION(errorCode);
     }
 
     _loop.data = this;
@@ -62,23 +325,18 @@ ErrorCode Reactor::initialize() {
     if (errorCode != 0) {
         uv_loop_close(&_loop);
         LOG_ERROR() << "cannot initialize loop stop event, error=" << errorCode;
-        return errorCode;
+        IO_EXCEPTION(errorCode);
     }
     _stopEvent.data = this;
 
-    _connectTimer = CoarseTimer::create(
-        shared_from_this(),
-        config().get_int("io.connect_timer_resolution", 1000, 1, 60000),
-        BIND_THIS_MEMFN(connect_timeout_callback)
-    );
+    _pendingWrites = std::make_unique<PendingWrites>(*this);
+    _tcpConnectors = std::make_unique<TcpConnectors>(*this);
+    _tcpShutdowns = std::make_unique<TcpShutdowns>(*this);
 
     _creatingInternalObjects=false;
-    return EC_OK;
 }
 
 Reactor::~Reactor() {
-    LOG_VERBOSE() << ".";
-
     if (!_loop.data) {
         LOG_DEBUG() << "loop wasn't initialized";
         return;
@@ -87,17 +345,9 @@ Reactor::~Reactor() {
     if (_stopEvent.data)
         uv_close((uv_handle_t*)&_stopEvent, 0);
 
-    _connectTimer.reset();
-
-    for (auto& cr : _connectRequests) {
-        uv_handle_t* h = (uv_handle_t*)(cr.second.request->handle);
-        async_close(h);
-    }
-
-    for (uv_shutdown_t* sr : _shutdownRequests) {
-        uv_handle_t* h = (uv_handle_t*)(sr->handle);
-        async_close(h);
-    }
+    _tcpConnectors->cancel_all();
+    _pendingWrites->cancel_all();
+    _tcpShutdowns->cancel_all();
 
     // run one cycle to release all closing handles
     uv_run(&_loop, UV_RUN_NOWAIT);
@@ -108,6 +358,7 @@ Reactor::~Reactor() {
             &_loop,
             [](uv_handle_t* handle, void*) {
                 if (!uv_is_closing(handle)) {
+                    LOG_DEBUG() << uv_handle_type_name(uv_handle_get_type(handle)) << " " << handle;
                     handle->data = 0;
                     uv_close(handle, 0);
                 }
@@ -126,6 +377,7 @@ void Reactor::run() {
         LOG_DEBUG() << "loop wasn't initialized";
         return;
     }
+    block_sigpipe();
     // NOTE: blocks
     uv_run(&_loop, UV_RUN_DEFAULT);
 }
@@ -233,6 +485,14 @@ ErrorCode Reactor::init_tcpstream(Object* o) {
     return init_object(errorCode, o, h);
 }
 
+TcpStream* Reactor::stream_connected(uv_handle_t* h) {
+    TcpStream* stream = new TcpStream();
+    stream->_handle = h;
+    stream->_handle->data = stream;
+    stream->_reactor = shared_from_this();
+    return stream;
+}
+
 ErrorCode Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     assert(acceptor->_handle);
 
@@ -249,56 +509,28 @@ ErrorCode Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     return errorCode;
 }
 
-void Reactor::shutdown_tcpstream(Object* o, BufferChain&& unsent) {
+void Reactor::shutdown_tcpstream(Object* o) {
     assert(o);
     uv_handle_t* h = o->_handle;
     if (!h) {
         // already closed
         return;
     }
-    h->data = 0;
     assert(o->_reactor.get() == this);
-    uv_shutdown_t* req = _shutdownRequestsPool.alloc();
-    req->data = this;
-    _unsent[req] = std::move(unsent);
-    uv_shutdown(
-        req,
-        (uv_stream_t*)h,
-        [](uv_shutdown_t* req, int status) {
-            if (status != 0 && status != UV_ECANCELED) {
-                LOG_DEBUG() << "stream shutdown failed, code=" << error_str((ErrorCode)status);
-            }
-            Reactor* self = reinterpret_cast<Reactor*>(req->data);
-            if (self) {
-                uv_handle_t* req_handle = (uv_handle_t*)req->handle;
-                self->async_close(req_handle);
-                self->_shutdownRequests.erase(req);
-                self->_shutdownRequestsPool.release(req);
-                self->_unsent.erase(req);
-            }
-        }
-    );
-    o->_handle = 0;
-    o->_reactor.reset();
+
+    _tcpShutdowns->shutdown_tcpstream(o);
 }
 
-Reactor::WriteRequest* Reactor::alloc_write_request() {
-    WriteRequest* wr = _writeRequestsPool.alloc();
-    wr->req.data = this;
-    return wr;
-}
-
-void Reactor::release_write_request(Reactor::WriteRequest*& wr) {
-    _writeRequestsPool.release(wr);
-    wr = 0;
+ErrorCode Reactor::async_write(Reactor::Object* o, BufferChain& unsent, const Reactor::OnDataWritten& cb) {
+    return _pendingWrites->async_write(o, unsent, cb);
 }
 
 Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec, Address bindTo) {
     assert(callback);
     assert(!address.empty());
-    assert(_connectRequests.count(tag) == 0);
+    assert(_tcpConnectors->is_tag_free(tag));
 
-    if (!callback || address.empty() || _connectRequests.count(tag) > 0) {
+    if (!callback || address.empty() || !_tcpConnectors->is_tag_free(tag)) {
         return make_unexpected(EC_EINVAL);
     }
 
@@ -315,111 +547,26 @@ Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback
 
         errorCode = (ErrorCode)uv_tcp_bind((uv_tcp_t*)h, (const sockaddr*)&bindAddr, 0);
         if (errorCode != 0) {
+            async_close(h);
             return make_unexpected(errorCode);
         }
     }
-    h->data = this;
 
-    ConnectContext& ctx = _connectRequests[tag];
-    ctx.tag = tag;
-    ctx.callback = callback;
-    ctx.request = _connectRequestsPool.alloc();
-    ctx.request->data = &ctx;
+    Result res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, address, tag, callback, timeoutMsec);
 
-    sockaddr_in addr;
-    address.fill_sockaddr_in(addr);
-
-    errorCode = (ErrorCode)uv_tcp_connect(
-        ctx.request,
-        (uv_tcp_t*)h,
-        (const sockaddr*)&addr,
-        [](uv_connect_t* request, int errorCode) {
-            assert(request);
-            assert(request->data);
-            assert(request->handle);
-            assert(request->handle->loop);
-            assert(request->handle->loop->data);
-            Reactor* reactor = reinterpret_cast<Reactor*>(request->handle->loop->data);
-            if (errorCode == UV_ECANCELED) {
-                LOG_VERBOSE() << "callback on cancelled connect request=" << request;
-                reactor->_cancelledConnectRequests.erase(request);
-                reactor->_connectRequestsPool.release(request);
-            } else {
-                ConnectContext* ctx = reinterpret_cast<ConnectContext*>(request->data);
-                reactor->connect_callback(ctx, (ErrorCode)errorCode);
-            }
-        }
-    );
-
-    if (!errorCode && timeoutMsec >= 0) {
-        auto result = _connectTimer->set_timer(timeoutMsec, tag);
-        if (!result) errorCode = result.error();
-    }
-
-    if (errorCode) {
-        async_close(h);
-        _connectRequests.erase(tag);
-        return make_unexpected(errorCode);
-    }
-
-    return Ok();
-}
-
-void Reactor::connect_callback(Reactor::ConnectContext* ctx, ErrorCode errorCode) {
-    // TODO situation fixed in upcoming merges - related to exit logic
-    if (!_connectRequests.count(ctx->tag)) return;
-    uint64_t tag = ctx->tag;
-
-    ConnectCallback callback = std::move(ctx->callback);
-    uv_handle_t* h = (uv_handle_t*)ctx->request->handle;
-
-    _connectRequestsPool.release(ctx->request);
-
-    TcpStream::Ptr stream;
-    if (errorCode == 0) {
-        stream.reset(new TcpStream());
-        stream->_handle = h;
-        stream->_handle->data = stream.get();
-        stream->_reactor = shared_from_this();
-    } else {
+    if (!res) {
         async_close(h);
     }
 
-    _connectRequests.erase(tag);
-    _connectTimer->cancel(tag);
-
-    callback(tag, std::move(stream), errorCode);
-}
-
-void Reactor::connect_timeout_callback(uint64_t tag) {
-    LOG_VERBOSE() << TRACE(tag);
-    auto it = _connectRequests.find(tag);
-    if (it != _connectRequests.end()) {
-        ConnectCallback cb = it->second.callback;
-        cancel_tcp_connect_impl(it);
-        cb(tag, TcpStream::Ptr(), EC_ETIMEDOUT);
-    }
+    return res;
 }
 
 void Reactor::cancel_tcp_connect(uint64_t tag) {
-    LOG_VERBOSE() << TRACE(tag);
-    auto it = _connectRequests.find(tag);
-    if (it != _connectRequests.end()) {
-        cancel_tcp_connect_impl(it);
-        _connectTimer->cancel(tag);
-    }
-}
-
-void Reactor::cancel_tcp_connect_impl(std::unordered_map<uint64_t, ConnectContext>::iterator& it) {
-    uv_connect_t* request = it->second.request;
-    uv_handle_t* h = (uv_handle_t*)request->handle;
-    async_close(h);
-    _cancelledConnectRequests.insert(request);
-    _connectRequests.erase(it);
+    _tcpConnectors->cancel_tcp_connect(tag);
 }
 
 void Reactor::async_close(uv_handle_t*& handle) {
-    LOG_VERBOSE() << TRACE(handle);
+    LOG_VERBOSE() << "async_close " << TRACE(handle);
 
     if (!handle) return;
     handle->data = 0;

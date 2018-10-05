@@ -26,7 +26,7 @@ using namespace ECC;
 BaseNodeConnection::BaseNodeConnection(int argc, char* argv[])
 {
 	ParseCommandLine(argc, argv);
-	InitKdf();	
+	InitKdf();
 }
 
 void BaseNodeConnection::ConnectToNode()
@@ -65,10 +65,10 @@ BaseTestNode::BaseTestNode(int argc, char* argv[])
 	: BaseNodeConnection(argc, argv)
 	, m_Reactor(io::Reactor::create())
 	, m_Scope(*m_Reactor)
-	, m_Timer(io::Timer::create(io::Reactor::get_Current().shared_from_this()))
+	, m_Timer(io::Timer::create(io::Reactor::get_Current()))
 	, m_Failed(false)
 	, m_Timeout(5 * 1000)
-{	
+{
 }
 
 int BaseTestNode::CheckOnFailed()
@@ -130,5 +130,5 @@ void BaseTestNode::RunTest()
 }
 
 void BaseTestNode::GenerateTests()
-{	
+{
 }

@@ -10,6 +10,7 @@ set(WALLET_SRC
     wallet_db.cpp
     keystore.cpp
     secstring2.cpp
+    unittests/util.cpp
 )
 
 add_library(wallet STATIC ${WALLET_SRC})

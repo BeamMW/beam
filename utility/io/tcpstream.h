@@ -34,10 +34,10 @@ public:
     struct State {
         uint64_t received=0;
         uint64_t sent=0;
-        size_t unsent=0; // == _writeBuffer.size()
+        size_t unsent=0;
     };
 
-    ~TcpStream();
+    virtual ~TcpStream();
 
     // Sets callback and enables reading from the stream if callback is not empty
     // returns false if stream disconnected
@@ -47,21 +47,21 @@ public:
     void disable_read();
 
     /// Writes raw data, returns status code
-    Result write(const void* data, size_t size) {
-        return write(SharedBuffer(data, size));
+    Result write(const void* data, size_t size, bool flush=true) {
+        return write(SharedBuffer(data, size), flush);
     }
 
     /// Writes raw data, returns status code
-    Result write(const SharedBuffer& buf);
+    virtual Result write(const SharedBuffer& buf, bool flush=true);
 
     /// Writes raw data, returns status code
-    Result write(const std::vector<SharedBuffer>& fragments);
+    virtual Result write(const SerializedMsg& fragments, bool flush=true);
 
     /// Writes raw data, returns status code
-    Result write(const BufferChain& buf);
+    virtual Result write(const BufferChain& fragments, bool flush=true);
 
     /// Shutdowns write side, waits for pending write requests to complete, but on reactor's side
-    void shutdown();
+    virtual void shutdown();
 
     bool is_connected() const;
 
@@ -77,33 +77,32 @@ public:
     /// Returns peer address (non-null if connected)
     Address peer_address() const;
 
+protected:
+    TcpStream();
+
+    virtual void on_read(ErrorCode errorCode, void* data, size_t size);
+
 private:
-    static void on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf);
+    static void read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf);
 
     friend class TcpServer;
+    friend class SslServer;
     friend class Reactor;
-
-    TcpStream() = default;
 
     void alloc_read_buffer();
     void free_read_buffer();
 
-    // sends async write request
-    Result send_write_request();
+    // sends async write request if flush == true
+    Result do_write(bool flush);
 
     // callback from write request
     void on_data_written(ErrorCode errorCode, size_t n);
-
-    // stream accepted from server
-    ErrorCode accepted(uv_handle_t* acceptor);
-
-    void connected(uv_stream_t* handle);
 
     uv_buf_t _readBuffer={0, 0};
     BufferChain _writeBuffer;
     Callback _callback;
     State _state;
-    bool _writeRequestSent=false;
+    Reactor::OnDataWritten _onDataWritten;
 };
 
 }} //namespaces

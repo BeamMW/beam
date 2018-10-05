@@ -1,19 +1,17 @@
 set(P2P_SRC
     msg_reader.cpp
-    fragment_writer.cpp
     msg_serializer.cpp
     protocol_base.cpp
-#    common_messages.cpp
-    connection.cpp
     connected_peers.cpp
     roulette.cpp
-#    peer_storage.cpp
     p2p.cpp
-#    servers.cpp
     handshake.cpp
-#    ip_access_control.cpp
     rnd_gen.cpp
     connect_pool.cpp
+    picohttpparser/picohttpparser.c
+    http_msg_reader.cpp
+    http_msg_creator.cpp
+    stratum.cpp
 )
 
 add_library(p2p STATIC ${P2P_SRC})

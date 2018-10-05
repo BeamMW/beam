@@ -26,8 +26,7 @@ using namespace beam;
 using namespace beam::io;
 using namespace std;
 
-Reactor::Ptr reactor;
-TcpStream::Ptr theStream;
+std::vector<TcpStream::Ptr> streams;
 
 uint64_t tag_ok = 100;
 uint64_t tag_refused = 101;
@@ -35,8 +34,20 @@ uint64_t tag_cancelled = 102;
 uint64_t tag_timedout = 103;
 
 int errorlevel = 0;
-int callbackCount = 3;
+int callbackCount = 0;
+int writecancelInProgress=0;
 bool g_FirstRcv = true;
+
+int calc_errors() {
+    int retCode=errorlevel + callbackCount + writecancelInProgress;
+    if (retCode != 0) {
+        LOG_ERROR() << TRACE(errorlevel) << TRACE(callbackCount) << TRACE(writecancelInProgress);
+        errorlevel=0;
+        callbackCount=0;
+        writecancelInProgress=0;
+    }
+    return retCode;
+}
 
 static const char DOMAIN_NAME[] = "example.com";
 
@@ -58,10 +69,11 @@ void on_connected (uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode st
     if (newStream) {
         assert(status == EC_OK);
         if (tag != tag_ok) ++errorlevel;
-        theStream = move(newStream);
-        theStream->enable_read(on_recv);
+        newStream->enable_read(on_recv);
         static const char* request = "GET / HTTP/1.0\r\n\r\n";
-        theStream->write(request, strlen(request));
+        newStream->write(request, strlen(request));
+        streams.emplace_back(move(newStream));
+
     } else {
         LOG_DEBUG() << "ERROR: " << error_str(status);
         if (status == EC_ECONNREFUSED && tag != tag_refused) ++errorlevel;
@@ -70,12 +82,13 @@ void on_connected (uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode st
     }
 };
 
-void tcpclient_test() {
+int tcpclient_test() {
+    callbackCount = 3;
     Config config;
     config.set<Config::Int>("io.connect_timer_resolution", 1);
     reset_global_config(std::move(config));
     try {
-        reactor = Reactor::create();
+        Reactor::Ptr reactor = Reactor::create();
 
         Address a;
         // NOTE that this is blocked resolver, TODO add async resolver to Reactor
@@ -89,9 +102,9 @@ void tcpclient_test() {
 
         reactor->cancel_tcp_connect(tag_cancelled);
 
-        Timer::Ptr timer = Timer::create(reactor);
+        Timer::Ptr timer = Timer::create(*reactor);
         int x = 15;
-        timer->start(200, true, [&x]{
+        timer->start(200, true, [&x, &reactor]{
             if (--x == 0 || callbackCount == 0) {
                 reactor->stop();
             }
@@ -100,31 +113,34 @@ void tcpclient_test() {
         LOG_DEBUG() << "starting reactor...";
         reactor->run();
         LOG_DEBUG() << "reactor stopped";
+
+        streams.clear();
+        LOG_DEBUG() << TRACE(reactor.use_count());
     }
     catch (const Exception& e) {
         LOG_ERROR() << e.what();
     }
+
+    return calc_errors();
 }
 
-int writecancelInProgress=1;
-
 void on_connected_writecancel(uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
+    LOG_DEBUG() << "on_connected_writecancel: " << error_str(status);
     if (newStream) {
         assert(status == EC_OK);
         if (tag != tag_ok) ++errorlevel;
-        theStream = move(newStream);
         static const char* request = "GET / HTTP/1.0\r\n\r\n";
-        theStream->write(request, strlen(request));
-        theStream.reset();
+        newStream->write(request, strlen(request));
         writecancelInProgress=0;
     } else {
         LOG_DEBUG() << "ERROR: " << error_str(status);
     }
 };
 
-void tcpclient_writecancel_test() {
+int tcpclient_writecancel_test() {
     try {
-        reactor = Reactor::create();
+        writecancelInProgress=1;
+        Reactor::Ptr reactor = Reactor::create();
 
         Address a;
         // NOTE that this is blocked resolver, TODO add async resolver to Reactor
@@ -133,9 +149,9 @@ void tcpclient_writecancel_test() {
 
         if (!reactor->tcp_connect(a, tag_ok, on_connected_writecancel, 10000)) ++errorlevel;
 
-        Timer::Ptr timer = Timer::create(reactor);
+        Timer::Ptr timer = Timer::create(*reactor);
         int x = 15;
-        timer->start(200, true, [&x]{
+        timer->start(200, true, [&x, &reactor]{
             if (--x == 0 || !writecancelInProgress) {
                 reactor->stop();
             }
@@ -144,10 +160,59 @@ void tcpclient_writecancel_test() {
         LOG_DEBUG() << "starting reactor...";
         reactor->run();
         LOG_DEBUG() << "reactor stopped";
+
+        LOG_DEBUG() << TRACE(reactor.use_count());
+        reactor.reset();
+        streams.clear();
     }
     catch (const Exception& e) {
         LOG_ERROR() << e.what();
     }
+
+    return calc_errors();
+}
+
+void on_connected_dummy(uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
+    LOG_DEBUG() << "on_connected_dummy: " << error_str(status);
+};
+
+int tcpclient_unclosed_test() {
+    try {
+        Reactor::Ptr reactor = Reactor::create();
+
+        //Address a = Address::localhost().port(80);
+        Address a;
+        // NOTE that this is blocked resolver, TODO add async resolver to Reactor
+        a.resolve(DOMAIN_NAME);
+        a.port(80);
+
+
+        for (uint64_t i=0; i<9; ++i) {
+            auto result = reactor->tcp_connect(a, i, on_connected_dummy, 10000);
+            if (!result) {
+                LOG_ERROR() << error_descr(result.error());
+                ++errorlevel;
+            }
+        }
+
+
+        Timer::Ptr timer = Timer::create(*reactor);
+        timer->start(6, false, [&reactor]{
+            reactor->stop();
+        });
+
+
+        LOG_DEBUG() << "starting reactor...";
+        reactor->run();
+        LOG_DEBUG() << "reactor stopped";
+
+        streams.clear();
+    }
+    catch (const Exception& e) {
+        LOG_ERROR() << e.what();
+    }
+
+    return calc_errors();
 }
 
 int main() {
@@ -156,12 +221,10 @@ int main() {
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
-    tcpclient_test();
-    tcpclient_writecancel_test();
-    int retCode=errorlevel + callbackCount + writecancelInProgress;
-    if (retCode != 0) {
-        LOG_ERROR() << TRACE(errorlevel) << TRACE(callbackCount) << TRACE(writecancelInProgress);
-    }
+    int retCode = 0;
+    //retCode += tcpclient_test();
+    //retCode += tcpclient_writecancel_test();
+    retCode += tcpclient_unclosed_test();
     return retCode;
 }
 

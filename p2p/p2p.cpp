@@ -96,10 +96,10 @@ void P2P::cleanup_connection(StreamId streamId) {
     }
 }
 
-void P2P::on_start_server(TimerID) {
+void P2P::on_start_server() {
     io::Address listenTo(_settings.bindToIp, _settings.listenToPort);
     try {
-        _thisServer = io::TcpServer::create(_reactor, listenTo, BIND_THIS_MEMFN(on_stream_accepted));
+        _thisServer = io::TcpServer::create(*_reactor, listenTo, BIND_THIS_MEMFN(on_stream_accepted));
     } catch (const io::Exception e) {
         LOG_ERROR() << "tcp server error " << io::error_str(e.errorCode) << ", restarting in 1 second";
     }
@@ -131,7 +131,7 @@ void P2P::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode error
     );
 }
 
-void P2P::on_connect_to_peers(TimerID) {
+void P2P::on_connect_to_peers() {
     auto connectTo = _connectPool.get_connect_candidates();
 
     if (!connectTo.empty()) {
@@ -200,7 +200,7 @@ void P2P::on_peer_removed(StreamId streamId) {
     _peerStateUpdated = true;
 }
 
-void P2P::on_ping_timer(TimerID) {
+void P2P::on_ping_timer() {
     if (_connectedPeers.total_connected() > 0) {
         LOG_DEBUG() << "sending ping to connected peers";
         if (_peerStateUpdated) {
@@ -219,7 +219,7 @@ bool P2P::on_peer_state(uint64_t id, PeerState&& state) {
     return true;
 }
 
-void P2P::on_known_servers_timer(TimerID) {
+void P2P::on_known_servers_timer() {
     _connectedPeers.query_known_servers();
     set_coarse_timer(QUERY_KNOWN_SERVERS_TIMER, _settings.pulsePeriodMsec * 2, BIND_THIS_MEMFN(on_known_servers_timer));
 }

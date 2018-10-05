@@ -25,7 +25,7 @@ using namespace std;
 void fragment_writer_test() {
     std::vector<io::SharedBuffer> fragments;
     size_t totalSize=0;
-    FragmentWriter w(79, 11,
+    io::FragmentWriter w(79, 11,
         [&fragments,&totalSize](io::SharedBuffer&& f) {
             totalSize += f.size;
             cout << "OnNewFragment(" << f.size << " of " << totalSize << ")\n";

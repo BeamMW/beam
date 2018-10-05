@@ -14,7 +14,7 @@
 
 #pragma once
 #include "protocol_base.h"
-#include "fragment_writer.h"
+#include "utility/io/fragment_writer.h"
 #include "utility/serialize.h"
 
 namespace beam {
@@ -41,7 +41,7 @@ public:
 
 private:
     /// Fragments creator/data writer
-    FragmentWriter _writer;
+    io::FragmentWriter _writer;
 
     /// Fragments of current message
     SerializedMsg _fragments;

@@ -17,15 +17,14 @@
 
 namespace beam { namespace io {
 
-AsyncEvent::Ptr AsyncEvent::create(const Reactor::Ptr& reactor, AsyncEvent::Callback&& callback) {
-    assert(reactor);
+AsyncEvent::Ptr AsyncEvent::create(Reactor& reactor, AsyncEvent::Callback&& callback) {
     assert(callback);
 
-    if (!reactor || !callback)
+    if (!callback)
         IO_EXCEPTION(EC_EINVAL);
 
     Ptr event(new AsyncEvent(std::move(callback)));
-    ErrorCode errorCode = reactor->init_asyncevent(
+    ErrorCode errorCode = reactor.init_asyncevent(
         event.get(),
         [](uv_async_t* handle) {
             assert(handle);

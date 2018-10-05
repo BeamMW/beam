@@ -31,17 +31,19 @@ public:
 
     void append(const void* data, size_t len, SharedMem guard, bool tryToJoin=true);
 
+    void append(const BufferChain& bc);
+
     size_t num_fragments() const {
         return _iovecs.size() - _index;
     }
 
 #ifdef WIN32
     const WSABUF* fragments() const {
-        return (const WSABUF*)_iovecs.data() + _index;
+        return (const WSABUF*)iovecs();
     }
 #else
     const iovec* fragments() const {
-        return (const iovec*)_iovecs.data() + _index;
+        return (const iovec*)iovecs();
     }
 #endif
 
@@ -59,6 +61,14 @@ public:
 
 private:
     static const size_t REBASE_THRESHOLD = 128;
+
+    const IOVec* iovecs() const {
+        return _iovecs.data() + _index;
+    }
+
+    const SharedMem* guards() const {
+        return _guards.data() + _index;
+    }
 
     void rebase();
 
