@@ -86,7 +86,6 @@ namespace beam { namespace wallet
         beam::IKeyChain::Ptr m_keychain;
 
         TxID m_txID;
-        TxDescription m_txDesc;
     };
 
     class SimpleTransaction : public BaseTransaction

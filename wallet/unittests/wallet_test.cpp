@@ -832,21 +832,20 @@ void TestTxToHimself()
     helpers::StopWatch sw;
 
     sw.start();
-   // TxID txId = 
-    //sender.transfer_money(senderID, receiverID, 24, 2);
+    TxID txId = sender.transfer_money(senderID, receiverID, 24, 2);
     main_reactor->run();
     sw.stop();
 
     cout << "Transfer elapsed time: " << sw.milliseconds() << " ms\n";
 
     // check Tx
-    //auto txHistory = senderKeychain->getTxHistory();
-    //WALLET_CHECK(txHistory.size() == 1);
-    //WALLET_CHECK(txHistory[0].m_txId == txId);
-    //WALLET_CHECK(txHistory[0].m_amount == 24);
-    //WALLET_CHECK(txHistory[0].m_change == 14);
-    //WALLET_CHECK(txHistory[0].m_fee == 2);
-    //WALLET_CHECK(txHistory[0].m_status == TxDescription::Completed);
+    auto txHistory = senderKeychain->getTxHistory();
+    WALLET_CHECK(txHistory.size() == 1);
+    WALLET_CHECK(txHistory[0].m_txId == txId);
+    WALLET_CHECK(txHistory[0].m_amount == 24);
+    WALLET_CHECK(txHistory[0].m_change == 14);
+    WALLET_CHECK(txHistory[0].m_fee == 2);
+    WALLET_CHECK(txHistory[0].m_status == TxStatus::Completed);
 
     // check coins
     vector<Coin> newSenderCoins;
@@ -923,7 +922,7 @@ void TestP2PWalletNegotiationST()
     //main_reactor->run();
     //auto sh = senderKeychain->getTxHistory();
     //WALLET_CHECK(sh.size() == 1);
-    //WALLET_CHECK(sh[0].m_status == TxDescription::Failed);
+    //WALLET_CHECK(sh[0].m_status == TxStatus::Failed);
     //senderKeychain->deleteTx(sh[0].m_txId);
 
     sw.start();
@@ -971,26 +970,26 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newSenderCoins[3].m_key_type == KeyType::Regular);
 
     // Tx history check
-    //auto sh = senderKeychain->getTxHistory();
-    //WALLET_CHECK(sh.size() == 1);
-    //auto rh = receiverKeychain->getTxHistory();
-    //WALLET_CHECK(rh.size() == 1);
-    //auto stx = senderKeychain->getTx(txId);
-    //WALLET_CHECK(stx.is_initialized());
-    //auto rtx = receiverKeychain->getTx(txId);
-    //WALLET_CHECK(rtx.is_initialized());
+    auto sh = senderKeychain->getTxHistory();
+    WALLET_CHECK(sh.size() == 1);
+    auto rh = receiverKeychain->getTxHistory();
+    WALLET_CHECK(rh.size() == 1);
+    auto stx = senderKeychain->getTx(txId);
+    WALLET_CHECK(stx.is_initialized());
+    auto rtx = receiverKeychain->getTx(txId);
+    WALLET_CHECK(rtx.is_initialized());
 
-    //WALLET_CHECK(stx->m_txId == rtx->m_txId);
-    //WALLET_CHECK(stx->m_amount == rtx->m_amount);
-    //WALLET_CHECK(stx->m_status == TxDescription::Completed);
-    //WALLET_CHECK(stx->m_fee == rtx->m_fee);
-    //WALLET_CHECK(stx->m_message == rtx->m_message);
-    //WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
-    //WALLET_CHECK(stx->m_status == rtx->m_status);
-    //WALLET_CHECK(stx->m_fsmState.empty());
-    //WALLET_CHECK(rtx->m_fsmState.empty());
-    //WALLET_CHECK(stx->m_sender == true);
-    //WALLET_CHECK(rtx->m_sender == false);
+    WALLET_CHECK(stx->m_txId == rtx->m_txId);
+    WALLET_CHECK(stx->m_amount == rtx->m_amount);
+    WALLET_CHECK(stx->m_status == TxStatus::Completed);
+    WALLET_CHECK(stx->m_fee == rtx->m_fee);
+    WALLET_CHECK(stx->m_message == rtx->m_message);
+    WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
+    WALLET_CHECK(stx->m_status == rtx->m_status);
+    WALLET_CHECK(stx->m_fsmState.empty());
+    WALLET_CHECK(rtx->m_fsmState.empty());
+    WALLET_CHECK(stx->m_sender == true);
+    WALLET_CHECK(rtx->m_sender == false);
 
     // second transfer
     sw.start();
@@ -1046,25 +1045,25 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newSenderCoins[4].m_key_type == KeyType::Regular);
 
     // Tx history check
-    //sh = senderKeychain->getTxHistory();
-    //WALLET_CHECK(sh.size() == 2);
-    //rh = receiverKeychain->getTxHistory();
-    //WALLET_CHECK(rh.size() == 2);
-    //stx = senderKeychain->getTx(txId);
-    //WALLET_CHECK(stx.is_initialized());
-    //rtx = receiverKeychain->getTx(txId);
-    //WALLET_CHECK(rtx.is_initialized());
+    sh = senderKeychain->getTxHistory();
+    WALLET_CHECK(sh.size() == 2);
+    rh = receiverKeychain->getTxHistory();
+    WALLET_CHECK(rh.size() == 2);
+    stx = senderKeychain->getTx(txId);
+    WALLET_CHECK(stx.is_initialized());
+    rtx = receiverKeychain->getTx(txId);
+    WALLET_CHECK(rtx.is_initialized());
 
-    //WALLET_CHECK(stx->m_txId == rtx->m_txId);
-    //WALLET_CHECK(stx->m_amount == rtx->m_amount);
-    //WALLET_CHECK(stx->m_status == TxDescription::Completed);
-    //WALLET_CHECK(stx->m_message == rtx->m_message);
-    //WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
-    //WALLET_CHECK(stx->m_status == rtx->m_status);
-    //WALLET_CHECK(stx->m_fsmState.empty());
-    //WALLET_CHECK(rtx->m_fsmState.empty());
-    //WALLET_CHECK(stx->m_sender == true);
-    //WALLET_CHECK(rtx->m_sender == false);
+    WALLET_CHECK(stx->m_txId == rtx->m_txId);
+    WALLET_CHECK(stx->m_amount == rtx->m_amount);
+    WALLET_CHECK(stx->m_status == TxStatus::Completed);
+    WALLET_CHECK(stx->m_message == rtx->m_message);
+    WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
+    WALLET_CHECK(stx->m_status == rtx->m_status);
+    WALLET_CHECK(stx->m_fsmState.empty());
+    WALLET_CHECK(rtx->m_fsmState.empty());
+    WALLET_CHECK(stx->m_sender == true);
+    WALLET_CHECK(rtx->m_sender == false);
 
 
     // third transfer. no enough money should appear
@@ -1093,19 +1092,19 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newReceiverCoins.size() == 2);
 
     // Tx history check. New failed tx should be added to sender
-    //sh = senderKeychain->getTxHistory();
-    //WALLET_CHECK(sh.size() == 3);
-    //rh = receiverKeychain->getTxHistory();
-    //WALLET_CHECK(rh.size() == 2);
-    //stx = senderKeychain->getTx(txId);
-    //WALLET_CHECK(stx.is_initialized());
-    //rtx = receiverKeychain->getTx(txId);
-    //WALLET_CHECK(!rtx.is_initialized());
+    sh = senderKeychain->getTxHistory();
+    WALLET_CHECK(sh.size() == 3);
+    rh = receiverKeychain->getTxHistory();
+    WALLET_CHECK(rh.size() == 2);
+    stx = senderKeychain->getTx(txId);
+    WALLET_CHECK(stx.is_initialized());
+    rtx = receiverKeychain->getTx(txId);
+    WALLET_CHECK(!rtx.is_initialized());
 
-    //WALLET_CHECK(stx->m_amount == 6);
-    //WALLET_CHECK(stx->m_status == TxDescription::Failed);
-    //WALLET_CHECK(stx->m_fsmState.empty());
-    //WALLET_CHECK(stx->m_sender == true);
+    WALLET_CHECK(stx->m_amount == 6);
+    WALLET_CHECK(stx->m_status == TxStatus::Failed);
+    WALLET_CHECK(stx->m_fsmState.empty());
+    WALLET_CHECK(stx->m_sender == true);
 }
 
 void TestP2PWalletReverseNegotiationST()
@@ -1200,26 +1199,26 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(newSenderCoins[3].m_key_type == KeyType::Regular);
 
     // Tx history check
-    //auto sh = senderKeychain->getTxHistory();
-    //WALLET_CHECK(sh.size() == 1);
-    //auto rh = receiverKeychain->getTxHistory();
-    //WALLET_CHECK(rh.size() == 1);
-    //auto stx = senderKeychain->getTx(txId);
-    //WALLET_CHECK(stx.is_initialized());
-    //auto rtx = receiverKeychain->getTx(txId);
-    //WALLET_CHECK(rtx.is_initialized());
+    auto sh = senderKeychain->getTxHistory();
+    WALLET_CHECK(sh.size() == 1);
+    auto rh = receiverKeychain->getTxHistory();
+    WALLET_CHECK(rh.size() == 1);
+    auto stx = senderKeychain->getTx(txId);
+    WALLET_CHECK(stx.is_initialized());
+    auto rtx = receiverKeychain->getTx(txId);
+    WALLET_CHECK(rtx.is_initialized());
 
-    //WALLET_CHECK(stx->m_txId == rtx->m_txId);
-    //WALLET_CHECK(stx->m_amount == rtx->m_amount);
-    //WALLET_CHECK(stx->m_status == TxDescription::Completed);
-    //WALLET_CHECK(stx->m_fee == rtx->m_fee);
-    //WALLET_CHECK(stx->m_message == rtx->m_message);
-    //WALLET_CHECK(stx->m_createTime >= rtx->m_createTime);
-    //WALLET_CHECK(stx->m_status == rtx->m_status);
-    //WALLET_CHECK(stx->m_fsmState.empty());
-    //WALLET_CHECK(rtx->m_fsmState.empty());
-    //WALLET_CHECK(stx->m_sender == true);
-    //WALLET_CHECK(rtx->m_sender == false);
+    WALLET_CHECK(stx->m_txId == rtx->m_txId);
+    WALLET_CHECK(stx->m_amount == rtx->m_amount);
+    WALLET_CHECK(stx->m_status == TxStatus::Completed);
+    WALLET_CHECK(stx->m_fee == rtx->m_fee);
+    WALLET_CHECK(stx->m_message == rtx->m_message);
+    WALLET_CHECK(stx->m_createTime >= rtx->m_createTime);
+    WALLET_CHECK(stx->m_status == rtx->m_status);
+    WALLET_CHECK(stx->m_fsmState.empty());
+    WALLET_CHECK(rtx->m_fsmState.empty());
+    WALLET_CHECK(stx->m_sender == true);
+    WALLET_CHECK(rtx->m_sender == false);
 
     // second transfer
     sw.start();
@@ -1275,25 +1274,25 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(newSenderCoins[4].m_key_type == KeyType::Regular);
 
     // Tx history check
-    //sh = senderKeychain->getTxHistory();
-    //WALLET_CHECK(sh.size() == 2);
-    //rh = receiverKeychain->getTxHistory();
-    //WALLET_CHECK(rh.size() == 2);
-    //stx = senderKeychain->getTx(txId);
-    //WALLET_CHECK(stx.is_initialized());
-    //rtx = receiverKeychain->getTx(txId);
-    //WALLET_CHECK(rtx.is_initialized());
+    sh = senderKeychain->getTxHistory();
+    WALLET_CHECK(sh.size() == 2);
+    rh = receiverKeychain->getTxHistory();
+    WALLET_CHECK(rh.size() == 2);
+    stx = senderKeychain->getTx(txId);
+    WALLET_CHECK(stx.is_initialized());
+    rtx = receiverKeychain->getTx(txId);
+    WALLET_CHECK(rtx.is_initialized());
 
-    //WALLET_CHECK(stx->m_txId == rtx->m_txId);
-    //WALLET_CHECK(stx->m_amount == rtx->m_amount);
-    //WALLET_CHECK(stx->m_status == TxDescription::Completed);
-    //WALLET_CHECK(stx->m_message == rtx->m_message);
-    //WALLET_CHECK(stx->m_createTime >= rtx->m_createTime);
-    //WALLET_CHECK(stx->m_status == rtx->m_status);
-    //WALLET_CHECK(stx->m_fsmState.empty());
-    //WALLET_CHECK(rtx->m_fsmState.empty());
-    //WALLET_CHECK(stx->m_sender == true);
-    //WALLET_CHECK(rtx->m_sender == false);
+    WALLET_CHECK(stx->m_txId == rtx->m_txId);
+    WALLET_CHECK(stx->m_amount == rtx->m_amount);
+    WALLET_CHECK(stx->m_status == TxStatus::Completed);
+    WALLET_CHECK(stx->m_message == rtx->m_message);
+    WALLET_CHECK(stx->m_createTime >= rtx->m_createTime);
+    WALLET_CHECK(stx->m_status == rtx->m_status);
+    WALLET_CHECK(stx->m_fsmState.empty());
+    WALLET_CHECK(rtx->m_fsmState.empty());
+    WALLET_CHECK(stx->m_sender == true);
+    WALLET_CHECK(rtx->m_sender == false);
 
 
     // third transfer. no enough money should appear
@@ -1322,25 +1321,25 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(newReceiverCoins.size() == 2);
 
     // Tx history check. New failed tx should be added to sender and receiver
-    //sh = senderKeychain->getTxHistory();
-    //WALLET_CHECK(sh.size() == 3);
-    //rh = receiverKeychain->getTxHistory();
-    //WALLET_CHECK(rh.size() == 3);
-    //stx = senderKeychain->getTx(txId);
-    //WALLET_CHECK(stx.is_initialized());
-    //rtx = receiverKeychain->getTx(txId);
-    //WALLET_CHECK(rtx.is_initialized());
+    sh = senderKeychain->getTxHistory();
+    WALLET_CHECK(sh.size() == 3);
+    rh = receiverKeychain->getTxHistory();
+    WALLET_CHECK(rh.size() == 3);
+    stx = senderKeychain->getTx(txId);
+    WALLET_CHECK(stx.is_initialized());
+    rtx = receiverKeychain->getTx(txId);
+    WALLET_CHECK(rtx.is_initialized());
 
-    //WALLET_CHECK(rtx->m_amount == 6);
-    //WALLET_CHECK(rtx->m_status == TxDescription::Failed);
-    //WALLET_CHECK(rtx->m_fsmState.empty());
-    //WALLET_CHECK(rtx->m_sender == false);
+    WALLET_CHECK(rtx->m_amount == 6);
+    WALLET_CHECK(rtx->m_status == TxStatus::Failed);
+    WALLET_CHECK(rtx->m_fsmState.empty());
+    WALLET_CHECK(rtx->m_sender == false);
 
 
-    //WALLET_CHECK(stx->m_amount == 6);
-    //WALLET_CHECK(stx->m_status == TxDescription::Failed);
-    //WALLET_CHECK(stx->m_fsmState.empty());
-    //WALLET_CHECK(stx->m_sender == true);
+    WALLET_CHECK(stx->m_amount == 6);
+    WALLET_CHECK(stx->m_status == TxStatus::Failed);
+    WALLET_CHECK(stx->m_fsmState.empty());
+    WALLET_CHECK(stx->m_sender == true);
 }
 
 void TestSplitKey()

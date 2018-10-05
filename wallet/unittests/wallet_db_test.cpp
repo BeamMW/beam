@@ -224,14 +224,14 @@ void TestStoreTxRecord()
     WALLET_CHECK(t.size() == 1);
     WALLET_CHECK(t[0].m_txId == tr.m_txId);
     WALLET_CHECK(t[0].m_amount == tr.m_amount);
-    WALLET_CHECK(t[0].m_minHeight == tr2.m_minHeight);
+    WALLET_CHECK(t[0].m_minHeight == tr.m_minHeight);
     WALLET_CHECK(t[0].m_peerId == tr.m_peerId);
     WALLET_CHECK(t[0].m_myId == tr.m_myId);
     WALLET_CHECK(t[0].m_createTime == tr.m_createTime);
     WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
-    WALLET_CHECK(t[0].m_sender == tr2.m_sender);
+    WALLET_CHECK(t[0].m_sender == tr.m_sender);
     WALLET_CHECK(t[0].m_status == tr2.m_status);
-    WALLET_CHECK(t[0].m_change == tr2.m_change);
+    WALLET_CHECK(t[0].m_change == tr.m_change);
     TxID id2 = {{ 3,4,5 }};
     WALLET_CHECK_NO_THROW(keychain->deleteTx(id2));
     WALLET_CHECK_NO_THROW(keychain->deleteTx(id));

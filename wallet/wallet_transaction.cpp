@@ -88,9 +88,8 @@ namespace beam { namespace wallet
 
     void BaseTransaction::updateTxDescription(TxStatus s)
     {
-        m_txDesc.m_status = s;
-        m_txDesc.m_modifyTime = getTimestamp();
-        m_keychain->saveTx(m_txDesc);
+        setParameter(TxParameterID::Status, s);
+        setParameter(TxParameterID::ModifyTime, getTimestamp());
     }
 
     TxKernel::Ptr BaseTransaction::createKernel(Amount fee, Height minHeight) const

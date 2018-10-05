@@ -115,6 +115,7 @@ namespace beam
             PeerID,
             Inputs,
             Outputs,
+            CreateTime,
 
             PeerPublicNonce,
             PeerPublicExcess,
@@ -130,7 +131,7 @@ namespace beam
             // private parameters
             PrivateFirstParam = 1 << 16,
 
-            Timestamp,
+            ModifyTime,
             BlindingExcess,
             Offset,
             Change,

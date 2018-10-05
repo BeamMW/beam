@@ -176,8 +176,9 @@ namespace beam
         virtual bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) = 0;
     };
 
-    struct Keychain : IKeyChain
+    class Keychain : public IKeyChain, public std::enable_shared_from_this<Keychain>
     {
+    public:
         static bool isInitialized(const std::string& path);
         static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
         static Ptr open(const std::string& path, const SecString& password);
@@ -264,7 +265,7 @@ namespace beam
         ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
 
         template <typename T>
-        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, wallet::TxParameterID paramID, T& value)
+        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, T& value)
         {
             ByteBuffer b;
             if (db->getTxParameter(txID, paramID, b))

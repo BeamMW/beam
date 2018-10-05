@@ -172,7 +172,6 @@ namespace beam
         tx->setParameter(TxParameterID::PeerID, to);
         tx->setParameter(TxParameterID::MyID, from);
         tx->setParameter(TxParameterID::Message, move(message));
-        tx->setParameter(TxParameterID::Timestamp, getTimestamp());
         tx->setParameter(TxParameterID::IsSender, sender);
 
         m_transactions.emplace(txId, tx);
@@ -795,7 +794,7 @@ namespace beam
         auto t = constructTransaction(msg.m_txId, msg.m_Type);
 
         t->setParameter(TxParameterID::TransactionType, msg.m_Type);
-        t->setParameter(TxParameterID::Timestamp, getTimestamp());
+        t->setParameter(TxParameterID::CreateTime, getTimestamp());
         t->setParameter(TxParameterID::MyID, myID);
         t->setParameter(TxParameterID::PeerID, msg.m_from);
         m_transactions.emplace(msg.m_txId, t);
