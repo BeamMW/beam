@@ -230,7 +230,7 @@ namespace beam { namespace wallet
         Scalar::Native peerOffset;
         bool initiator = !getParameter(TxParameterID::PeerOffset, peerOffset);
 
-        WalletID peerID = { 0 }, myID = {0};
+        WalletID peerID = { 0 };
         getParameter(TxParameterID::PeerID, peerID);
         auto address = m_keychain->getAddress(peerID);
         bool isSelfTx = address.is_initialized() && address->m_own;

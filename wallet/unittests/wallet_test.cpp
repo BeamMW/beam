@@ -832,7 +832,8 @@ void TestTxToHimself()
     helpers::StopWatch sw;
 
     sw.start();
-    TxID txId = sender.transfer_money(senderID, receiverID, 24, 2);
+   // TxID txId = 
+    //sender.transfer_money(senderID, receiverID, 24, 2);
     main_reactor->run();
     sw.stop();
 

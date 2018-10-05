@@ -808,6 +808,8 @@ namespace beam
         {
         case TxType::SimpleTransaction:
                 return make_shared<SimpleTransaction>(*this, m_keyChain, id);
+        case TxType::AtomicSwapTransaction:
+            return wallet::BaseTransaction::Ptr();
         }
         return wallet::BaseTransaction::Ptr();
     }
