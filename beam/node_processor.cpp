@@ -1102,26 +1102,27 @@ uint64_t NodeProcessor::FindActiveAtStrict(Height h)
 
 /////////////////////////////
 // TxPool
-bool NodeProcessor::ValidateTx(const Transaction& tx, Transaction::Context& ctx)
+void NodeProcessor::TxPool::ProfitBase::SetSize(const Transaction& tx)
 {
-	if (!tx.IsValid(ctx))
-		return false;
+	SerializerSizeCounter ssc;
+	ssc & tx;
+	m_nSize = (uint32_t) ssc.m_Counter.m_Value;
+}
 
-	return ctx.m_Height.IsInRange(m_Cursor.m_Sid.m_Height + 1);
+void NodeProcessor::TxPool::ProfitBase::SetFee(const Transaction::Context& ctx)
+{
+	m_Fee = ctx.m_Fee.Hi ? Amount(-1) : ctx.m_Fee.Lo; // ignore huge fees (which are  highly unlikely), saturate.
 }
 
 void NodeProcessor::TxPool::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key)
 {
 	assert(pValue);
 
-	SerializerSizeCounter ssc;
-	ssc & pValue;
-
 	Element* p = new Element;
 	p->m_pValue = std::move(pValue);
 	p->m_Threshold.m_Value	= ctx.m_Height.m_Max;
-	p->m_Profit.m_Fee	= ctx.m_Fee.Hi ? Amount(-1) : ctx.m_Fee.Lo; // ignore huge fees (which are  highly unlikely), saturate.
-	p->m_Profit.m_nSize	= (uint32_t) ssc.m_Counter.m_Value;
+	p->m_Profit.SetFee(ctx);
+	p->m_Profit.SetSize(*p->m_pValue);
 	p->m_Tx.m_Key = key;
 
 	m_setThreshold.insert(p->m_Threshold);
@@ -1161,7 +1162,7 @@ void NodeProcessor::TxPool::Clear()
 		Delete(m_setThreshold.begin()->get_ParentObj());
 }
 
-bool NodeProcessor::TxPool::Element::Profit::operator < (const Profit& t) const
+bool NodeProcessor::TxPool::ProfitBase::operator < (const ProfitBase& t) const
 {
 	// handle overflow. To be precise need to use big-int (96-bit) arithmetics
 	//	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
@@ -1241,6 +1242,32 @@ void NodeProcessor::DeriveKeys(const ECC::Kdf& kdf, Height h, Amount fees, ECC::
 	kOffset += k2;
 }
 
+bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, Height h)
+{
+	for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
+		if (!tx.m_vKernelsOutput[i]->m_Height.IsInRange(h))
+			return false;
+
+	return true;
+}
+
+bool NodeProcessor::ValidateTxContext(const Transaction& tx)
+{
+	Height h = m_Cursor.m_Sid.m_Height + 1;
+	if (!ValidateTxWrtHeight(tx, h))
+		return false;
+
+	ShallowTx stx(*this);
+
+	RollbackData rbData;
+	if (!HandleValidatedTx(tx.get_Reader(), h, true, rbData))
+		return false;
+
+	rbData.m_Inputs = 0;
+	verify(HandleValidatedTx(tx.get_Reader(), h, false, rbData));
+	return true;
+}
+
 bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
 {
 	assert(m_bShallowTx);
@@ -1272,7 +1299,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 		Transaction& tx = *x.m_pValue;
 
-		if (HandleValidatedTx(tx.get_Reader(), h, true, rbData))
+		if (ValidateTxWrtHeight(tx, h) && HandleValidatedTx(tx.get_Reader(), h, true, rbData))
 		{
 			Block::Body::Writer(res).Dump(tx.get_Reader());
 

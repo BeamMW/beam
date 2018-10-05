@@ -105,6 +105,9 @@ struct Node
 			uint32_t m_TimeoutMin_ms = 20000;
 			uint32_t m_TimeoutMax_ms = 50000;
 
+			uint32_t m_AggregationTime_ms = 30000;
+			uint32_t m_ExpectedOutputs = 5;
+
 		} m_Dandelion;
 
 		Config()
@@ -281,15 +284,7 @@ private:
 		struct Element
 		{
 			Transaction::Ptr m_pValue;
-
-			struct Tx
-				:public boost::intrusive::set_base_hook<>
-			{
-				Transaction::KeyType m_Key;
-
-				bool operator < (const Tx& t) const { return m_Key < t.m_Key; }
-				IMPLEMENT_GET_PARENT_OBJ(Element, m_Tx)
-			} m_Tx;
+			bool m_bAggregating; // if set - the tx isn't broadcasted yet, and inserted in the 'Profit' set
 
 			struct Time
 				:public boost::intrusive::set_base_hook<>
@@ -300,13 +295,31 @@ private:
 
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Time)
 			} m_Time;
+
+			struct Profit
+				:public NodeProcessor::TxPool::ProfitBase
+			{
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Profit)
+			} m_Profit;
+
+			struct Kernel
+				:public boost::intrusive::set_base_hook<>
+			{
+				Element* m_pThis;
+				Merkle::Hash m_hv;
+				bool operator < (const Kernel& t) const { return m_hv < t.m_hv; }
+			};
+
+			std::vector<Kernel> m_vKrn;
 		};
 
-		typedef boost::intrusive::multiset<Element::Tx> TxSet;
+		typedef boost::intrusive::multiset<Element::Kernel> KrnSet;
 		typedef boost::intrusive::multiset<Element::Time> TimeSet;
+		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
 
-		TxSet m_setTxs;
+		KrnSet m_setKrns;
 		TimeSet m_setTime;
+		ProfitSet m_setProfit;
 
 		void AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);
 		void Delete(Element&);
@@ -314,7 +327,8 @@ private:
 		void Clear();
 
 		Element* get_NextTimeout(uint32_t& nTimeout_ms);
-		void SetTimer(uint32_t nTimeout_ms);
+		void SetTimer(uint32_t nTimeout_ms, Element&);
+		void SetTimerRaw(uint32_t nTimeout_ms);
 		void KillTimer();
 
 		io::Timer::Ptr m_pTimer; // set during the 1st phase
@@ -326,8 +340,13 @@ private:
 
 	} m_Dandelion;
 
-	bool OnTransaction(Transaction::Ptr&&, bool bFluff, const Peer*);
-	bool ValidateAndLogTx(Transaction::Context&, const Transaction&, const Transaction::KeyType&, const Peer*);
+	bool OnTransactionStem(Transaction::Ptr&&, const Peer*);
+	void OnTransactionAggregated(Dandelion::Element&);
+	void OnTransactionTimer(Dandelion::Element&);
+	bool OnTransactionFluff(Transaction::Ptr&&, const Peer*, Dandelion::Element*);
+
+	bool ValidateTx(Transaction::Context&, const Transaction&); // complete validation
+	void LogTx(const Transaction&, bool bValid, const Transaction::KeyType&);
 
 	struct Bbs
 	{

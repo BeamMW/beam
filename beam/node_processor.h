@@ -156,6 +156,18 @@ public:
 
 	struct TxPool
 	{
+		struct ProfitBase
+			:public boost::intrusive::set_base_hook<>
+		{
+			Amount m_Fee;
+			uint32_t m_nSize;
+
+			void SetFee(const Transaction::Context&);
+			void SetSize(const Transaction&);
+
+			bool operator < (const ProfitBase& t) const;
+		};
+
 		struct Element
 		{
 			Transaction::Ptr m_pValue;
@@ -170,13 +182,8 @@ public:
 			} m_Tx;
 
 			struct Profit
-				:public boost::intrusive::set_base_hook<>
+				:public ProfitBase
 			{
-				Amount m_Fee;
-				uint32_t m_nSize;
-
-				bool operator < (const Profit& t) const;
-
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Profit)
 			} m_Profit;
 
@@ -210,7 +217,8 @@ public:
 
 	};
 
-	bool ValidateTx(const Transaction&, Transaction::Context&); // wrt height of the next block
+	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
+	static bool ValidateTxWrtHeight(const Transaction&, Height);
 
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body& blockInOut);
 	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees);
