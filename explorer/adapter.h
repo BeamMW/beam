@@ -16,7 +16,7 @@
 
 namespace beam {
 
-class Node;
+struct Node;
 class HttpMsgCreator;
 
 namespace explorer {
