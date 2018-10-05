@@ -251,7 +251,7 @@ namespace
             return true;
         }
 
-        bool isTestMode() const
+        bool isTestMode() const override
         {
             return true;
         }
