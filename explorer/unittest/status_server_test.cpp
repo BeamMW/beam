@@ -13,12 +13,32 @@
 // limitations under the License.
 
 #include "explorer/server.h"
+#include "explorer/adapter.h"
+#include "p2p/stratum.h"
+#include "utility/nlohmann/json.hpp"
 #include "utility/helpers.h"
 #include "utility/logger.h"
 
 using namespace beam;
+using namespace beam::explorer;
+using nlohmann::json;
 
 namespace {
+
+struct DummyStatus {
+    uint64_t timestamp;
+    uint64_t height;
+};
+
+struct DummyBlock {
+    uint64_t height;
+};
+
+io::SharedBuffer dump_to_json(HttpMsgCreator& packer, const DummyStatus& ds) {
+    return stratum::dump(packer, json{ {"timestamp", ds.timestamp }, { "height", ds.height }} );
+}
+
+using nlohmann::json;
 
 const uint16_t PORT = 8000;
 io::AsyncEvent::Trigger g_stopEvent;
@@ -147,7 +167,7 @@ int http_server_test() {
 
 int status_server_test() {
     io::Reactor::Ptr reactor = io::Reactor::create();
-    StatusServer ss(*reactor, io::Address::localhost().port(PORT), [](DummyBlock& b) -> bool { b.height = 666; return true; });
+    //Server s(*reactor, io::Address::localhost().port(PORT), [](DummyBlock& b) -> bool { b.height = 666; return true; });
     reactor->run();
     return 0;
 }

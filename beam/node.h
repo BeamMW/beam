@@ -27,6 +27,7 @@ namespace beam
 	struct INodeObserver
 	{
 		virtual void OnSyncProgress(int done, int total) = 0;
+        virtual void OnStateChanged() {}
 	};
 
 struct Node
@@ -67,7 +68,7 @@ struct Node
 
 		// Number of verification threads for CPU-hungry cryptography. Currently used for block validation only.
 		// 0: single threaded
-		// negative: number of cores minus number of mining threads. 
+		// negative: number of cores minus number of mining threads.
 		int m_VerificationThreads = 0;
 
 		struct HistoryCompression
@@ -140,6 +141,7 @@ private:
 		void OnBlockData() override;
 
 		void ReportProgress();
+        void ReportNewState();
 
 		struct Verifier
 		{

@@ -399,6 +399,8 @@ void Node::Processor::OnNewState()
 		get_ParentObj().m_Compressor.OnNewState();
 
 	get_ParentObj().RefreshCongestions();
+
+    ReportNewState();
 }
 
 void Node::Processor::OnRolledBack()
@@ -553,6 +555,15 @@ void Node::Processor::ReportProgress()
 			m_RequestedCount = m_DownloadedHeaders = m_DownloadedBlocks;
 		}
 	}
+}
+
+void Node::Processor::ReportNewState()
+{
+    auto observer = get_ParentObj().m_Cfg.m_Observer;
+	if (observer)
+    {
+        observer->OnStateChanged();
+    }
 }
 
 Node::Peer* Node::AllocPeer(const beam::io::Address& addr)

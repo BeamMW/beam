@@ -12,25 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
-#include "utility/nlohmann/json_fwd.hpp"
 #include "utility/io/buffer.h"
 
 namespace beam {
 
-using nlohmann::json;
-
+class Node;
 class HttpMsgCreator;
 
-struct DummyStatus {
-    uint64_t timestamp;
-    uint64_t height;
+namespace explorer {
+
+/// node->explorer adapter interface
+struct IAdapter {
+    using Ptr = std::unique_ptr<IAdapter>;
+
+    virtual ~IAdapter() = default;
+
+    /// Returns body for /status request
+    virtual const io::SharedBuffer& get_status(HttpMsgCreator& packer) = 0;
+
+    virtual const io::SharedBuffer& get_block(HttpMsgCreator& packer, uint64_t height) = 0;
+
+    virtual void get_blocks(HttpMsgCreator& packer, io::SerializedMsg& out, uint64_t startHeight, uint64_t endHeight) = 0;
 };
 
-struct DummyBlock {
-    uint64_t height;
-};
+IAdapter::Ptr create_adapter(Node& node);
 
-io::SharedBuffer dump_to_json(HttpMsgCreator& packer, const DummyStatus& ds);
-
-} //namespace
+}} //namespaces

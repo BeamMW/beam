@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "adapter.h"
 #include "p2p/http_connection.h"
 #include "p2p/http_msg_creator.h"
 #include "utility/io/tcpserver.h"
@@ -20,15 +19,13 @@
 #include "utility/io/coarsetimer.h"
 #include "utility/helpers.h"
 
-namespace beam {
+namespace beam { namespace explorer {
 
-class StatusServer {
+struct IAdapter;
+
+class Server {
 public:
-    using BlockCallback = std::function<bool(DummyBlock&)>;
-
-    StatusServer(io::Reactor& reactor, io::Address bindAddress, BlockCallback blockCallback);
-
-    void update_status(const DummyStatus& ds);
+    Server(IAdapter& adapter, io::Reactor& reactor, io::Address bindAddress);
 
 private:
     void start_server();
@@ -43,17 +40,13 @@ private:
 
     HttpMsgCreator _msgCreator;
     io::SerializedMsg _serialized;
+    IAdapter& _backend;
     io::Reactor& _reactor;
     io::MultipleTimers _timers;
     io::Address _bindAddress;
-    BlockCallback _blockCallback;
     io::TcpServer::Ptr _server;
     std::map<uint64_t, HttpConnection::Ptr> _connections;
     HttpUrl _currentUrl;
-
-    //TODO
-    //DummyBlock db;
-    io::SharedBuffer _statusBody;
 };
 
-} //namespace
+}} //namespaces
