@@ -1679,21 +1679,21 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 
 	Transaction::Context ctx;
 	bool bTested = false;
-	Dandelion::Element* pDup = NULL;
+	TxPool::Stem::Element* pDup = NULL;
 
 	// find match by kernels
 	for (size_t i = 0; i < ptx->m_vKernelsOutput.size(); i++)
 	{
 		const TxKernel& krn = *ptx->m_vKernelsOutput[i];
 
-		Dandelion::Element::Kernel key;
+		TxPool::Stem::Element::Kernel key;
 		krn.get_ID(key.m_hv);
 
-		Dandelion::KrnSet::iterator it = m_Dandelion.m_setKrns.find(key);
+		TxPool::Stem::KrnSet::iterator it = m_Dandelion.m_setKrns.find(key);
 		if (m_Dandelion.m_setKrns.end() == it)
 			continue;
 
-		Dandelion::Element* pElem = it->m_pThis;
+		TxPool::Stem::Element* pElem = it->m_pThis;
 		bool bElemCovers = true, bNewCovers = true;
 		pElem->m_pValue->get_Reader().Compare(std::move(ptx->get_Reader()), bElemCovers, bNewCovers);
 
@@ -1722,7 +1722,7 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 		if (!bTested && !ValidateTx(ctx, *ptx))
 			return false;
 
-		std::unique_ptr<Dandelion::Element> pGuard(new Dandelion::Element);
+		std::unique_ptr<TxPool::Stem::Element> pGuard(new TxPool::Stem::Element);
 		pGuard->m_bAggregating = false;
 		pGuard->m_Time.m_Value = 0;
 		pGuard->m_Profit.SetFee(ctx);
@@ -1747,7 +1747,7 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 	return true;
 }
 
-void Node::OnTransactionAggregated(Dandelion::Element& x)
+void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
 {
 	// must have at least 1 peer to continue the stem phase
 	uint32_t nStemPeers = 0;
@@ -1787,52 +1787,12 @@ void Node::OnTransactionAggregated(Dandelion::Element& x)
 	OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
 }
 
-bool Node::Dandelion::TryMerge(Element& trg, Element& src)
-{
-	assert(trg.m_bAggregating && src.m_bAggregating);
-
-	Transaction txNew;
-	Transaction::Writer wtx(txNew);
-
-	volatile bool bStop = false;
-	wtx.Combine(trg.m_pValue->get_Reader(), src.m_pValue->get_Reader(), bStop);
-
-	txNew.m_Offset = ECC::Scalar::Native(trg.m_pValue->m_Offset) + ECC::Scalar::Native(src.m_pValue->m_Offset);
-
-#ifdef _DEBUG
-	Transaction::Context ctx;
-	assert(txNew.IsValid(ctx));
-#endif // _DEBUG
-
-	if (!get_ParentObj().m_Processor.ValidateTxContext(txNew))
-		return false; // conflicting txs, can't merge
-
-	trg.m_Profit.m_Fee += src.m_Profit.m_Fee;
-	if (trg.m_Profit.m_Fee < src.m_Profit.m_Fee)
-		trg.m_Profit.m_Fee = Amount(-1); // overflow, set max
-
-	trg.m_Profit.SetSize(txNew);
-
-	Delete(src);
-	DeleteKrn(trg);
-
-	trg.m_pValue->m_vInputs.swap(txNew.m_vInputs);
-	trg.m_pValue->m_vOutputs.swap(txNew.m_vOutputs);
-	trg.m_pValue->m_vKernelsInput.swap(txNew.m_vKernelsInput);
-	trg.m_pValue->m_vKernelsOutput.swap(txNew.m_vKernelsOutput);
-	trg.m_pValue->m_Offset = txNew.m_Offset;
-
-	InsertKrn(trg);
-
-	return true;
-}
-
-void Node::PerformAggregation(Dandelion::Element& x)
+void Node::PerformAggregation(TxPool::Stem::Element& x)
 {
 	assert(x.m_bAggregating);
 
 	// Aggregation policiy: first select those with worse profit, than those with better
-	Dandelion::ProfitSet::iterator it = Dandelion::ProfitSet::s_iterator_to(x.m_Profit);
+	TxPool::Stem::ProfitSet::iterator it = TxPool::Stem::ProfitSet::s_iterator_to(x.m_Profit);
 	++it;
 
 	while (x.m_pValue->m_vOutputs.size() <= m_Cfg.m_Dandelion.m_OutputsMax)
@@ -1840,19 +1800,19 @@ void Node::PerformAggregation(Dandelion::Element& x)
 		if (m_Dandelion.m_setProfit.end() == it)
 			break;
 
-		Dandelion::Element& src = it->get_ParentObj();
+		TxPool::Stem::Element& src = it->get_ParentObj();
 		++it;
 
 		m_Dandelion.TryMerge(x, src);
 	}
 
-	it = Dandelion::ProfitSet::s_iterator_to(x.m_Profit);
+	it = TxPool::Stem::ProfitSet::s_iterator_to(x.m_Profit);
 	if (m_Dandelion.m_setProfit.begin() != it)
 	{
 		--it;
 		while (x.m_pValue->m_vOutputs.size() <= m_Cfg.m_Dandelion.m_OutputsMax)
 		{
-			Dandelion::Element& src = it->get_ParentObj();
+			TxPool::Stem::Element& src = it->get_ParentObj();
 			bool bEnd = (m_Dandelion.m_setProfit.begin() == it);
 
 			m_Dandelion.TryMerge(x, src);
@@ -1871,7 +1831,7 @@ void Node::PerformAggregation(Dandelion::Element& x)
 		m_Dandelion.SetTimer(m_Cfg.m_Dandelion.m_AggregationTime_ms, x);
 }
 
-bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, Dandelion::Element* pElem)
+bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPool::Stem::Element* pElem)
 {
 	Transaction::Ptr ptx;
 	ptx.swap(ptxArg);
@@ -1886,20 +1846,20 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, Dand
 	{
 		for (size_t i = 0; i < ptx->m_vKernelsOutput.size(); i++)
 		{
-			Dandelion::Element::Kernel key;
+			TxPool::Stem::Element::Kernel key;
 			ptx->m_vKernelsOutput[i]->get_ID(key.m_hv);
 
-			Dandelion::KrnSet::iterator it = m_Dandelion.m_setKrns.find(key);
+			TxPool::Stem::KrnSet::iterator it = m_Dandelion.m_setKrns.find(key);
 			if (m_Dandelion.m_setKrns.end() != it)
 				m_Dandelion.Delete(*it->m_pThis);
 		}
 
 	}
 
-	NodeProcessor::TxPool::Element::Tx key;
+	TxPool::Fluff::Element::Tx key;
 	ptx->get_Key(key.m_Key);
 
-	NodeProcessor::TxPool::TxSet::iterator it = m_TxPool.m_setTxs.find(key);
+	TxPool::Fluff::TxSet::iterator it = m_TxPool.m_setTxs.find(key);
 	if (m_TxPool.m_setTxs.end() != it)
 		return true;
 
@@ -1935,166 +1895,14 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, Dand
 	return true;
 }
 
-void Node::Dandelion::Delete(Element& x)
+void Node::Dandelion::OnTimedOut(Element& x)
 {
-	uint32_t n_ms;
-	bool bResetTimer = (x.m_Time.m_Value && (get_NextTimeout(n_ms) == &x));
-
-	DeleteRaw(x);
-
-	if (bResetTimer)
-	{
-		if (get_NextTimeout(n_ms))
-			SetTimerRaw(n_ms);
-		else
-			KillTimer();
-	}
+	get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
 }
 
-void Node::Dandelion::DeleteRaw(Element& x)
+bool Node::Dandelion::ValidateTxContext(const Transaction& tx)
 {
-	DeleteTimer(x);
-	DeleteAggr(x);
-	DeleteKrn(x);
-
-	delete &x;
-}
-
-void Node::Dandelion::DeleteKrn(Element& x)
-{
-	for (size_t i = 0; i < x.m_vKrn.size(); i++)
-		m_setKrns.erase(KrnSet::s_iterator_to(x.m_vKrn[i]));
-	x.m_vKrn.clear();
-}
-
-void Node::Dandelion::InsertAggr(Element& x)
-{
-	if (!x.m_bAggregating)
-	{
-		x.m_bAggregating = true;
-		m_setProfit.insert(x.m_Profit);
-	}
-}
-
-void Node::Dandelion::DeleteAggr(Element& x)
-{
-	if (x.m_bAggregating)
-	{
-		m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
-		x.m_bAggregating = false;
-	}
-}
-
-void Node::Dandelion::DeleteTimer(Element& x)
-{
-	if (x.m_Time.m_Value)
-	{
-		m_setTime.erase(TimeSet::s_iterator_to(x.m_Time));
-		x.m_Time.m_Value = 0;
-	}
-}
-
-void Node::Dandelion::InsertKrn(Element& x)
-{
-	const Transaction& tx = *x.m_pValue;
-	x.m_vKrn.resize(tx.m_vKernelsOutput.size());
-
-	for (size_t i = 0; i < x.m_vKrn.size(); i++)
-	{
-		Dandelion::Element::Kernel& n = x.m_vKrn[i];
-		tx.m_vKernelsOutput[i]->get_ID(n.m_hv);
-		m_setKrns.insert(n);
-		n.m_pThis = &x;
-	}
-}
-
-void Node::Dandelion::Clear()
-{
-	while (!m_setKrns.empty())
-		DeleteRaw(*m_setKrns.begin()->m_pThis);
-
-	KillTimer();
-}
-
-void Node::Dandelion::SetTimerRaw(uint32_t nTimeout_ms)
-{
-	if (!m_pTimer)
-		m_pTimer = io::Timer::create(io::Reactor::get_Current());
-
-
-	m_pTimer->start(nTimeout_ms, false, [this]() { OnTimer(); });
-}
-
-void Node::Dandelion::KillTimer()
-{
-	if (m_pTimer)
-		m_pTimer->cancel();
-}
-
-void Node::Dandelion::SetTimer(uint32_t nTimeout_ms, Element& x)
-{
-	DeleteTimer(x);
-
-	x.m_Time.m_Value = GetTime_ms() + nTimeout_ms;
-	if (!x.m_Time.m_Value)
-		x.m_Time.m_Value = 1;
-
-	m_setTime.insert(x.m_Time);
-	
-	uint32_t nVal_ms;
-	if (get_NextTimeout(nVal_ms) == &x)
-		SetTimerRaw(nVal_ms);
-}
-
-void Node::Dandelion::OnTimer()
-{
-	while (true)
-	{
-		uint32_t nTimeout_ms;
-		Element* pElem = get_NextTimeout(nTimeout_ms);
-		if (!pElem)
-		{
-			KillTimer();
-			break;
-		}
-
-		if (nTimeout_ms > 0)
-		{
-			SetTimerRaw(nTimeout_ms);
-			break;
-		}
-
-		DeleteTimer(*pElem);
-
-		//if (pElem->m_bAggregating)
-		//	get_ParentObj().PerformAggregation(*pElem);
-		//else
-		{
-			// timed-out, probably lost during the Dandelion
-			get_ParentObj().OnTransactionFluff(std::move(pElem->m_pValue), NULL, pElem);
-		}
-	}
-}
-
-Node::Dandelion::Element* Node::Dandelion::get_NextTimeout(uint32_t& nTimeout_ms)
-{
-	if (m_setTime.empty())
-		return NULL;
-
-	uint32_t now_ms = GetTime_ms();
-	Element::Time tmPrev;
-	tmPrev.m_Value = now_ms - (uint32_t(-1) >> 1);
-
-	TimeSet::iterator it = m_setTime.lower_bound(tmPrev);
-	if (m_setTime.end() == it)
-		it = m_setTime.begin();
-
-	Element& ret = it->get_ParentObj();
-
-	bool bLate = ((ret.m_Time.m_Value >= tmPrev.m_Value) == (now_ms >= ret.m_Time.m_Value)) == (now_ms > tmPrev.m_Value);
-
-	nTimeout_ms = bLate ? 0 : (ret.m_Time.m_Value - now_ms);
-	return &ret;
+	return get_ParentObj().m_Processor.ValidateTxContext(tx);
 }
 
 void Node::Peer::OnMsg(proto::Config&& msg)
@@ -2106,7 +1914,7 @@ void Node::Peer::OnMsg(proto::Config&& msg)
 	{
 		proto::HaveTransaction msgOut;
 
-		for (NodeProcessor::TxPool::TxSet::iterator it = m_This.m_TxPool.m_setTxs.begin(); m_This.m_TxPool.m_setTxs.end() != it; it++)
+		for (TxPool::Fluff::TxSet::iterator it = m_This.m_TxPool.m_setTxs.begin(); m_This.m_TxPool.m_setTxs.end() != it; it++)
 		{
 			msgOut.m_ID = it->m_Key;
 			Send(msgOut);
@@ -2148,10 +1956,10 @@ void Node::Peer::OnMsg(proto::Config&& msg)
 
 void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
 {
-	NodeProcessor::TxPool::Element::Tx key;
+	TxPool::Fluff::Element::Tx key;
 	key.m_Key = msg.m_ID;
 
-	NodeProcessor::TxPool::TxSet::iterator it = m_This.m_TxPool.m_setTxs.find(key);
+	TxPool::Fluff::TxSet::iterator it = m_This.m_TxPool.m_setTxs.find(key);
 	if (m_This.m_TxPool.m_setTxs.end() != it)
 		return; // already have it
 
@@ -2165,10 +1973,10 @@ void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
 
 void Node::Peer::OnMsg(proto::GetTransaction&& msg)
 {
-	NodeProcessor::TxPool::Element::Tx key;
+	TxPool::Fluff::Element::Tx key;
 	key.m_Key = msg.m_ID;
 
-	NodeProcessor::TxPool::TxSet::iterator it = m_This.m_TxPool.m_setTxs.find(key);
+	TxPool::Fluff::TxSet::iterator it = m_This.m_TxPool.m_setTxs.find(key);
 	if (m_This.m_TxPool.m_setTxs.end() == it)
 		return; // don't have it
 

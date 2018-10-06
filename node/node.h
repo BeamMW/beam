@@ -180,7 +180,7 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
 
-	NodeProcessor::TxPool m_TxPool;
+	TxPool::Fluff m_TxPool;
 
 	struct Peer;
 
@@ -283,71 +283,13 @@ private:
 	} m_Wtx;
 
 	struct Dandelion
+		:public TxPool::Stem
 	{
-		struct Element
-		{
-			Transaction::Ptr m_pValue;
-			bool m_bAggregating; // if set - the tx isn't broadcasted yet, and inserted in the 'Profit' set
-
-			struct Time
-				:public boost::intrusive::set_base_hook<>
-			{
-				uint32_t m_Value;
-
-				bool operator < (const Time& t) const { return m_Value < t.m_Value; }
-
-				IMPLEMENT_GET_PARENT_OBJ(Element, m_Time)
-			} m_Time;
-
-			struct Profit
-				:public NodeProcessor::TxPool::ProfitBase
-			{
-				IMPLEMENT_GET_PARENT_OBJ(Element, m_Profit)
-			} m_Profit;
-
-			struct Kernel
-				:public boost::intrusive::set_base_hook<>
-			{
-				Element* m_pThis;
-				Merkle::Hash m_hv;
-				bool operator < (const Kernel& t) const { return m_hv < t.m_hv; }
-			};
-
-			std::vector<Kernel> m_vKrn;
-		};
-
-		typedef boost::intrusive::multiset<Element::Kernel> KrnSet;
-		typedef boost::intrusive::multiset<Element::Time> TimeSet;
-		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
-
-		KrnSet m_setKrns;
-		TimeSet m_setTime;
-		ProfitSet m_setProfit;
-
-		void AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);
-		void Delete(Element&);
-		void DeleteRaw(Element&);
-		void Clear();
-		void InsertKrn(Element&);
-		void DeleteKrn(Element&);
-		void InsertAggr(Element&);
-		void DeleteAggr(Element&);
-		void DeleteTimer(Element&);
-
-		bool TryMerge(Element& trg, Element& src);
-
-		Element* get_NextTimeout(uint32_t& nTimeout_ms);
-		void SetTimer(uint32_t nTimeout_ms, Element&);
-		void SetTimerRaw(uint32_t nTimeout_ms);
-		void KillTimer();
-
-		io::Timer::Ptr m_pTimer; // set during the 1st phase
-		void OnTimer();
-
-		~Dandelion() { Clear(); }
+		// TxPool::Stem
+		virtual bool ValidateTxContext(const Transaction&) override;
+		virtual void OnTimedOut(Element&) override;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Dandelion)
-
 	} m_Dandelion;
 
 	bool OnTransactionStem(Transaction::Ptr&&, const Peer*);

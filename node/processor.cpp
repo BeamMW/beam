@@ -759,25 +759,6 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 	return true;
 }
 
-struct NodeProcessor::UtxoSig
-{
-	bool	m_Coinbase;
-	Height	m_Incubation; // # of blocks before it's mature
-
-	std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
-	std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
-
-	template <typename Archive>
-	void serialize(Archive& ar)
-	{
-		ar
-			& m_Coinbase
-			& m_Incubation
-			& m_pConfidential
-			& m_pPublic;
-	}
-};
-
 bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* pHMax, bool bFwd)
 {
 	UtxoTree::Key::Data d;
@@ -1101,78 +1082,6 @@ uint64_t NodeProcessor::FindActiveAtStrict(Height h)
 }
 
 /////////////////////////////
-// TxPool
-void NodeProcessor::TxPool::ProfitBase::SetSize(const Transaction& tx)
-{
-	SerializerSizeCounter ssc;
-	ssc & tx;
-	m_nSize = (uint32_t) ssc.m_Counter.m_Value;
-}
-
-void NodeProcessor::TxPool::ProfitBase::SetFee(const Transaction::Context& ctx)
-{
-	m_Fee = ctx.m_Fee.Hi ? Amount(-1) : ctx.m_Fee.Lo; // ignore huge fees (which are  highly unlikely), saturate.
-}
-
-void NodeProcessor::TxPool::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key)
-{
-	assert(pValue);
-
-	Element* p = new Element;
-	p->m_pValue = std::move(pValue);
-	p->m_Threshold.m_Value	= ctx.m_Height.m_Max;
-	p->m_Profit.SetFee(ctx);
-	p->m_Profit.SetSize(*p->m_pValue);
-	p->m_Tx.m_Key = key;
-
-	m_setThreshold.insert(p->m_Threshold);
-	m_setProfit.insert(p->m_Profit);
-	m_setTxs.insert(p->m_Tx);
-}
-
-void NodeProcessor::TxPool::Delete(Element& x)
-{
-	m_setThreshold.erase(ThresholdSet::s_iterator_to(x.m_Threshold));
-	m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
-	m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
-	delete &x;
-}
-
-void NodeProcessor::TxPool::DeleteOutOfBound(Height h)
-{
-	while (!m_setThreshold.empty())
-	{
-		Element::Threshold& t = *m_setThreshold.begin();
-		if (t.m_Value >= h)
-			break;
-
-		Delete(t.get_ParentObj());
-	}
-}
-
-void NodeProcessor::TxPool::ShrinkUpTo(uint32_t nCount)
-{
-	while (m_setProfit.size() > nCount)
-		Delete(m_setProfit.rbegin()->get_ParentObj());
-}
-
-void NodeProcessor::TxPool::Clear()
-{
-	while (!m_setThreshold.empty())
-		Delete(m_setThreshold.begin()->get_ParentObj());
-}
-
-bool NodeProcessor::TxPool::ProfitBase::operator < (const ProfitBase& t) const
-{
-	// handle overflow. To be precise need to use big-int (96-bit) arithmetics
-	//	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
-
-	return
-		(uintBigFrom(m_Fee) * uintBigFrom(t.m_nSize)) >
-		(uintBigFrom(t.m_Fee) * uintBigFrom(m_nSize));
-}
-
-/////////////////////////////
 // Block generation
 Difficulty NodeProcessor::get_NextDifficulty()
 {
@@ -1268,7 +1177,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 	return true;
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
+bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
 {
 	assert(m_bShallowTx);
 
@@ -1282,9 +1191,9 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 
 	ECC::Scalar::Native offset = res.m_Offset;
 
-	for (TxPool::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
+	for (TxPool::Fluff::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
 	{
-		TxPool::Element& x = (it++)->get_ParentObj();
+		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
 
 		if (x.m_Profit.m_nSize > nSizeThreshold)
 		{
@@ -1387,7 +1296,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	return true;
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
+bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
 {
 	Block::Body block;
 	block.ZeroInit();
@@ -1395,12 +1304,12 @@ bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, B
 	return GenerateNewBlock(txp, s, bbBlock, fees, block, true);
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res)
+bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res)
 {
 	return GenerateNewBlock(txp, s, bbBlock, fees, res, false);
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res, bool bInitiallyEmpty)
+bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res, bool bInitiallyEmpty)
 {
 	ShallowTx stx(*this);
 

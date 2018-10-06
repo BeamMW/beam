@@ -2,6 +2,7 @@ set(NODE_SRC
     node.cpp
     db.cpp
     processor.cpp
+    txpool.cpp
 )
 
 add_library(node STATIC ${NODE_SRC})

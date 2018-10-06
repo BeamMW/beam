@@ -14,9 +14,9 @@
 
 #pragma once
 
-#include <boost/intrusive/set.hpp>
 #include "../core/radixtree.h"
 #include "db.h"
+#include "txpool.h"
 
 namespace beam {
 
@@ -154,78 +154,15 @@ public:
 
 	static void DeriveKeys(const ECC::Kdf&, Height, Amount fees, ECC::Scalar::Native& kCoinbase, ECC::Scalar::Native& kFee, ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset);
 
-	struct TxPool
-	{
-		struct ProfitBase
-			:public boost::intrusive::set_base_hook<>
-		{
-			Amount m_Fee;
-			uint32_t m_nSize;
-
-			void SetFee(const Transaction::Context&);
-			void SetSize(const Transaction&);
-
-			bool operator < (const ProfitBase& t) const;
-		};
-
-		struct Element
-		{
-			Transaction::Ptr m_pValue;
-
-			struct Tx
-				:public boost::intrusive::set_base_hook<>
-			{
-				Transaction::KeyType m_Key;
-
-				bool operator < (const Tx& t) const { return m_Key < t.m_Key; }
-				IMPLEMENT_GET_PARENT_OBJ(Element, m_Tx)
-			} m_Tx;
-
-			struct Profit
-				:public ProfitBase
-			{
-				IMPLEMENT_GET_PARENT_OBJ(Element, m_Profit)
-			} m_Profit;
-
-			struct Threshold
-				:public boost::intrusive::set_base_hook<>
-			{
-				Height m_Value;
-
-				bool operator < (const Threshold& t) const { return m_Value < t.m_Value; }
-
-				IMPLEMENT_GET_PARENT_OBJ(Element, m_Threshold)
-			} m_Threshold;
-		};
-
-		typedef boost::intrusive::multiset<Element::Tx> TxSet;
-		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
-		typedef boost::intrusive::multiset<Element::Threshold> ThresholdSet;
-
-		TxSet m_setTxs;
-		ProfitSet m_setProfit;
-		ThresholdSet m_setThreshold;
-
-		void AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);
-		void Delete(Element&);
-		void Clear();
-
-		void DeleteOutOfBound(Height);
-		void ShrinkUpTo(uint32_t nCount);
-
-		~TxPool() { Clear(); }
-
-	};
-
 	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
 	static bool ValidateTxWrtHeight(const Transaction&, Height);
 
-	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body& blockInOut);
-	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees);
+	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body& blockInOut);
+	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, ByteBuffer&, Amount& fees);
 
 private:
-	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, Block::Body& block, Amount& fees, Height, RollbackData&);
-	bool GenerateNewBlock(TxPool&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body&, bool bInitiallyEmpty);
+	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, Block::Body& block, Amount& fees, Height, RollbackData&);
+	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body&, bool bInitiallyEmpty);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&);
 };
 

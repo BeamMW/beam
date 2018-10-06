@@ -574,7 +574,7 @@ namespace beam
 	{
 	public:
 
-		TxPool m_TxPool;
+		TxPool::Fluff m_TxPool;
 		MiniWallet m_Wallet;
 
 		MyNodeProcessor1()
@@ -830,7 +830,7 @@ namespace beam
 					Block::SystemState::Full s;
 					ByteBuffer body, pow;
 
-					NodeProcessor::TxPool txPool; // empty, no transactions
+					TxPool::Fluff txPool; // empty, no transactions
 
 					Node& n = *m_ppNode[m_iNode];
 					Amount fees = 0;
