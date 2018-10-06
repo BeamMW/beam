@@ -13,10 +13,9 @@
 // limitations under the License.
 
 #include "adapter.h"
-#include "beam/node.h"
+#include "node/node.h"
 #include "p2p/stratum.h"
 #include "p2p/http_msg_creator.h"
-#include "beam/node.h"
 #include "utility/nlohmann/json.hpp"
 #include "utility/logger.h"
 

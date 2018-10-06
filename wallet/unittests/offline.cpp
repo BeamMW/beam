@@ -16,7 +16,7 @@
 #include "util.h"
 #include "wallet/keystore.h"
 #include "wallet/wallet_network.h"
-#include "beam/node.h"
+#include "node/node.h"
 #include "utility/logger.h"
 #include <future>
 #include <boost/filesystem.hpp>
