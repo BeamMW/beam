@@ -1,7 +1,7 @@
 set(NODE_SRC
     node.cpp
-    node_db.cpp
-    node_processor.cpp
+    db.cpp
+    processor.cpp
 )
 
 add_library(node STATIC ${NODE_SRC})

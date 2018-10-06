@@ -16,7 +16,7 @@
 
 #include <boost/intrusive/set.hpp>
 #include "../core/radixtree.h"
-#include "node_db.h"
+#include "db.h"
 
 namespace beam {
 

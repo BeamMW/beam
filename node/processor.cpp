@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "node_processor.h"
+#include "processor.h"
 #include "../utility/serialize.h"
 #include "../core/serialization_adapters.h"
 #include "../utility/logger.h"

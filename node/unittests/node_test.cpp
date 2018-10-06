@@ -15,8 +15,8 @@
 //#include "../node.h"
 
 #include "../node.h"
-#include "../node_db.h"
-#include "../node_processor.h"
+#include "../db.h"
+#include "../processor.h"
 #include "../../core/block_crypt.h"
 #include "../../utility/serialize.h"
 #include "../../utility/test_helpers.h"
