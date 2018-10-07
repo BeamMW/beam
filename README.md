@@ -45,7 +45,7 @@ years.
 - Batch Bulletproofs, the efficient non-interactive zero knowledge range proofs now in batch mode
 - Graphical Wallet Application for Linux, Mac and Windows platforms
 - Offline transactions using Secure BBS system
-- ChainWork - sublinear blockchain validation, based on Benedikt Bünz FlyClient idea
+- ChainWork - sublinear blockchain validation, based on FlyClient idea by Loi Luu, Benedikt Bünz, Mahdi Zamani
 - Compact history using cut through
 
 
