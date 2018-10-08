@@ -25,9 +25,9 @@ namespace beam { namespace wallet
     struct ITransaction
     {
         using Ptr = std::shared_ptr<ITransaction>;
-        virtual TxType getType() const = 0;
-        virtual void update() = 0;
-        virtual void cancel() = 0;
+        virtual TxType GetType() const = 0;
+        virtual void Update() = 0;
+        virtual void Cancel() = 0;
     };
 
     //
@@ -41,51 +41,52 @@ namespace beam { namespace wallet
                       , beam::IKeyChain::Ptr keychain
                       , const TxID& txID);
 
-        const TxID& getTxID() const;
-        void cancel() override;
+        const TxID& GetTxID() const;
+        void Update() override;
+        void Cancel() override;
 
         template <typename T>
-        bool getParameter(TxParameterID paramID, T& value) const
+        bool GetParameter(TxParameterID paramID, T& value) const
         {
-            return getTxParameter(m_keychain, getTxID(), paramID, value);
+            return getTxParameter(m_Keychain, GetTxID(), paramID, value);
         }
 
         template <typename T>
-        bool setParameter(TxParameterID paramID, const T& value)
+        bool SetParameter(TxParameterID paramID, const T& value)
         {
-            return setTxParameter(m_keychain, getTxID(), paramID, value);
+            return setTxParameter(m_Keychain, GetTxID(), paramID, value);
         }
 
     protected:
- 
-        void confirmKernel(const TxKernel& kernel);
-        void completeTx();
-        void rollbackTx();
-        void updateTxDescription(TxStatus s);
-        TxKernel::Ptr createKernel(Amount fee, Height minHeight) const;
-        ECC::Signature::MultiSig createMultiSig(const TxKernel& kernel, const ECC::Scalar::Native& blindingExcess) const;
-        std::vector<Input::Ptr> getTxInputs(const TxID& txID) const;
-        std::vector<Output::Ptr> getTxOutputs(const TxID& txID) const;
-        std::vector<Coin> getUnconfirmedOutputs() const;
+        
+        void ConfirmKernel(const TxKernel& kernel);
+        void CompleteTx();
+        void RollbackTx();
+        void UpdateTxDescription(TxStatus s);
+        TxKernel::Ptr CreateKernel(Amount fee, Height minHeight) const;
+        ECC::Signature::MultiSig CreateMultiSig(const TxKernel& kernel, const ECC::Scalar::Native& blindingExcess) const;
+        std::vector<Input::Ptr> GetTxInputs(const TxID& txID) const;
+        std::vector<Output::Ptr> GetTxOutputs(const TxID& txID) const;
+        std::vector<Coin> GetUnconfirmedOutputs() const;
 
-        void onFailed(bool notify = false);
+        void OnFailed(bool notify = false);
 
-        bool getTip(Block::SystemState::Full& state) const;
+        bool GetTip(Block::SystemState::Full& state) const;
 
         template <typename T>
-        void addParameter(SetTxParameter& msg, TxParameterID paramID, T&& value) const
+        void AddParameter(SetTxParameter& msg, TxParameterID paramID, T&& value) const
         {
             msg.m_Parameters.emplace_back(paramID, toByteBuffer(value));
         }
 
-        bool sendTxParameters(SetTxParameter&& msg) const;
-
+        bool SendTxParameters(SetTxParameter&& msg) const;
+        virtual void UpdateImpl() = 0;
     protected:
 
-        INegotiatorGateway& m_gateway;
-        beam::IKeyChain::Ptr m_keychain;
+        INegotiatorGateway& m_Gateway;
+        beam::IKeyChain::Ptr m_Keychain;
 
-        TxID m_txID;
+        TxID m_ID;
     };
 
     class SimpleTransaction : public BaseTransaction
@@ -94,8 +95,8 @@ namespace beam { namespace wallet
         SimpleTransaction(INegotiatorGateway& gateway
                         , beam::IKeyChain::Ptr keychain
                         , const TxID& txID);
-        void update() override;
     private:
-        TxType getType() const override;
+        TxType GetType() const override;
+        void UpdateImpl() override;
     };
 }}

@@ -117,6 +117,9 @@ namespace beam
             Outputs,
             CreateTime,
 
+            AtomicSwapCoin,
+            AtomicSwapAmount,
+
             PeerPublicNonce,
             PeerPublicExcess,
             PeerSignature,
@@ -138,11 +141,15 @@ namespace beam
             Status
         };
 
-
         enum class TxType : uint8_t
         {
-            SimpleTransaction,
-            AtomicSwapTransaction
+            Simple,
+            AtomicSwap
+        };
+
+        enum class AtomicSwapCoin
+        {
+            Bitcoin
         };
 
         // messages

@@ -8,6 +8,7 @@ set(WALLET_SRC
     wallet_transaction.cpp
     wallet_network.cpp
     wallet_db.cpp
+    swap_transaction.cpp
     keystore.cpp
     secstring2.cpp
     unittests/util.cpp

@@ -26,6 +26,7 @@
 #include "core/block_crypt.h"
 #include "utility/logger.h"
 #include "utility/helpers.h"
+#include "swap_transaction.h"
 #include <algorithm>
 #include <random>
 #include <iomanip>
@@ -43,6 +44,17 @@ namespace beam
     using namespace wallet;
     using namespace std;
     using namespace ECC;
+
+    namespace
+    {
+        TxID GenerateTxID()
+        {
+            boost::uuids::uuid id = boost::uuids::random_generator()();
+            TxID txID{};
+            copy(id.begin(), id.end(), txID.begin());
+            return txID;
+        }
+    }
 
     std::ostream& operator<<(std::ostream& os, const TxID& uuid)
     {
@@ -160,32 +172,50 @@ namespace beam
 
     TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
     {
-        boost::uuids::uuid id = boost::uuids::random_generator()();
-        TxID txId{};
-        copy(id.begin(), id.end(), txId.begin());
+        auto txID = GenerateTxID();
+        auto tx = constructTransaction(txID, TxType::Simple);
 
-        auto tx = constructTransaction(txId, TxType::SimpleTransaction);
+        tx->SetParameter(TxParameterID::Amount, amount);
+        tx->SetParameter(TxParameterID::Fee, fee);
+        tx->SetParameter(TxParameterID::MinHeight, m_keyChain->getCurrentHeight());
+        tx->SetParameter(TxParameterID::PeerID, to);
+        tx->SetParameter(TxParameterID::MyID, from);
+        tx->SetParameter(TxParameterID::Message, move(message));
+        tx->SetParameter(TxParameterID::IsSender, sender);
 
-        tx->setParameter(TxParameterID::Amount, amount);
-        tx->setParameter(TxParameterID::Fee, fee);
-        tx->setParameter(TxParameterID::MinHeight, m_keyChain->getCurrentHeight());
-        tx->setParameter(TxParameterID::PeerID, to);
-        tx->setParameter(TxParameterID::MyID, from);
-        tx->setParameter(TxParameterID::Message, move(message));
-        tx->setParameter(TxParameterID::IsSender, sender);
+        m_transactions.emplace(txID, tx);
 
-        m_transactions.emplace(txId, tx);
+        updateTransaction(txID);
 
-        updateTransaction(txId);
+        return txID;
+    }
 
-        return txId;
+    TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount)
+    {
+        auto txID = GenerateTxID();
+        auto tx = constructTransaction(txID, TxType::AtomicSwap);
+
+        tx->SetParameter(TxParameterID::Amount, amount);
+        tx->SetParameter(TxParameterID::Fee, fee);
+        tx->SetParameter(TxParameterID::MinHeight, m_keyChain->getCurrentHeight());
+        tx->SetParameter(TxParameterID::PeerID, to);
+        tx->SetParameter(TxParameterID::MyID, from);
+
+        tx->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin);
+        tx->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount);
+
+        m_transactions.emplace(txID, tx);
+
+        updateTransaction(txID);
+
+        return txID;
     }
 
     void Wallet::resume_tx(const TxDescription& tx)
     {
         if (tx.canResume() && m_transactions.find(tx.m_txId) == m_transactions.end())
         {
-            auto t = constructTransaction(tx.m_txId, TxType::SimpleTransaction);
+            auto t = constructTransaction(tx.m_txId, TxType::Simple);
 
             m_transactions.emplace(tx.m_txId, t);
         }
@@ -267,7 +297,7 @@ namespace beam
         {
             if (p.first < TxParameterID::PrivateFirstParam)
             {
-                txChanged |= t->setParameter(p.first, p.second);
+                txChanged |= t->SetParameter(p.first, p.second);
             }
             else
             {
@@ -303,7 +333,7 @@ namespace beam
         auto it = m_transactions.find(txId);
         if (it != m_transactions.end())
         {
-            it->second->setParameter(TxParameterID::TransactionRegistered, res);
+            it->second->SetParameter(TxParameterID::TransactionRegistered, res);
         }
 
         updateTransaction(txId);
@@ -315,7 +345,7 @@ namespace beam
 
         if (auto it = m_transactions.find(txId); it != m_transactions.end())
         {
-            it->second->cancel();
+            it->second->Cancel();
         }
         else
         {
@@ -364,7 +394,7 @@ namespace beam
         {
             for (auto t : m_TransactionsToUpdate)
             {
-                t->update();
+                t->Update();
             }
             m_TransactionsToUpdate.clear();
         };
@@ -617,9 +647,9 @@ namespace beam
 
         if (!msg.m_Proof.empty() || IsTestMode())
         {
-            if (tx->setParameter(TxParameterID::KernelProof, msg.m_Proof))
+            if (tx->SetParameter(TxParameterID::KernelProof, msg.m_Proof))
             {
-                tx->update();
+                tx->Update();
             }
         }
 
@@ -648,7 +678,7 @@ namespace beam
         auto t = m_transactions;
         for (auto& p : t)
         {
-            p.second->update();
+            p.second->Update();
         }
 
         vector<Coin> unconfirmed;
@@ -784,7 +814,7 @@ namespace beam
         auto it = m_transactions.find(msg.m_txId);
         if (it != m_transactions.end())
         {
-            if (it->second->getType() != msg.m_Type)
+            if (it->second->GetType() != msg.m_Type)
             {
                 LOG_WARNING() << msg.m_txId << " Parameters for invalid tx type";
             }
@@ -793,10 +823,10 @@ namespace beam
 
         auto t = constructTransaction(msg.m_txId, msg.m_Type);
 
-        t->setParameter(TxParameterID::TransactionType, msg.m_Type);
-        t->setParameter(TxParameterID::CreateTime, getTimestamp());
-        t->setParameter(TxParameterID::MyID, myID);
-        t->setParameter(TxParameterID::PeerID, msg.m_from);
+        t->SetParameter(TxParameterID::TransactionType, msg.m_Type);
+        t->SetParameter(TxParameterID::CreateTime, getTimestamp());
+        t->SetParameter(TxParameterID::MyID, myID);
+        t->SetParameter(TxParameterID::PeerID, msg.m_from);
         m_transactions.emplace(msg.m_txId, t);
         return t;
     }
@@ -805,10 +835,10 @@ namespace beam
     {
         switch (type)
         {
-        case TxType::SimpleTransaction:
+        case TxType::Simple:
                 return make_shared<SimpleTransaction>(*this, m_keyChain, id);
-        case TxType::AtomicSwapTransaction:
-            return wallet::BaseTransaction::Ptr();
+        case TxType::AtomicSwap:
+            return make_shared<AtomicSwapTransaction>(*this, m_keyChain, id);
         }
         return wallet::BaseTransaction::Ptr();
     }
