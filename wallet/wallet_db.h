@@ -79,6 +79,13 @@ namespace beam
         WalletAddress() : m_createTime(0), m_duration(0), m_own(false) {}
     };
 
+    struct TxParameter
+    {
+        TxID m_txID;
+        int m_paramID;
+        ByteBuffer m_value;
+    };
+
     enum class ChangeAction
     {
         Added,
@@ -163,11 +170,15 @@ namespace beam
         virtual void subscribe(IKeyChainObserver* observer) = 0;
         virtual void unsubscribe(IKeyChainObserver* observer) = 0;
 
-		virtual void changePassword(const SecString& password) = 0;
+        virtual void changePassword(const SecString& password) = 0;
+
+        virtual bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) = 0;
+        virtual bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) = 0;
     };
 
-    struct Keychain : IKeyChain
+    class Keychain : public IKeyChain, public std::enable_shared_from_this<Keychain>
     {
+    public:
         static bool isInitialized(const std::string& path);
         static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
         static Ptr open(const std::string& path, const SecString& password);
@@ -220,7 +231,10 @@ namespace beam
         void subscribe(IKeyChainObserver* observer) override;
         void unsubscribe(IKeyChainObserver* observer) override;
 
-		void changePassword(const SecString& password) override;
+        void changePassword(const SecString& password) override;
+
+        bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) override;
+        bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) override;
     private:
         void storeImpl(Coin& coin);
         void notifyKeychainChanged();
@@ -237,6 +251,54 @@ namespace beam
 
     namespace wallet
     {
+        template <typename T>
+        ByteBuffer toByteBuffer(const T& value)
+        {
+            Serializer s;
+            s & value;
+            ByteBuffer b;
+            s.swap_buf(b);
+            return b;
+        }
+
+        ByteBuffer toByteBuffer(const ECC::Point::Native& value);
+        ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
+
+        template <typename T>
+        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, T& value)
+        {
+            ByteBuffer b;
+            if (db->getTxParameter(txID, paramID, b))
+            {
+                if (!b.empty())
+                {
+                    Deserializer d;
+                    d.reset(b.data(), b.size());
+                    d & value;
+                }
+                else
+                {
+                    ZeroObject(value);
+                }
+                return true;
+            }
+            return false;
+        }
+
+        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value);
+        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Scalar::Native& value);
+        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, ByteBuffer& value);
+
+        template <typename T>
+        bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const T& value)
+        {
+            return db->setTxParameter(txID, paramID, toByteBuffer(value));
+        }
+
+        bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Point::Native& value);
+        bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Scalar::Native& value);
+        bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value);
+
         Amount getAvailable(beam::IKeyChain::Ptr keychain);
         Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType);
         Amount getTotal(beam::IKeyChain::Ptr keychain, Coin::Status status);
