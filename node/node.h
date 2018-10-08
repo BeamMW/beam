@@ -106,8 +106,8 @@ struct Node
 			uint32_t m_TimeoutMin_ms = 20000;
 			uint32_t m_TimeoutMax_ms = 50000;
 
-			uint32_t m_AggregationTime_ms = 30000;
-			uint32_t m_OutputsMin = 5; // must be aggregated
+			uint32_t m_AggregationTime_ms = 10000;
+			uint32_t m_OutputsMin = 0; // must be aggregated. Currently disabled (until dummy-UTXO logic is implemented)
 			uint32_t m_OutputsMax = 40; // may be aggregated
 
 		} m_Dandelion;
