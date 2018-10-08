@@ -182,6 +182,7 @@ add_subdirectory(pow)
 add_subdirectory(p2p)
 add_subdirectory(wallet)
 add_subdirectory(sqlite)
+add_subdirectory(node)
 add_subdirectory(beam)
 add_subdirectory(explorer)
 

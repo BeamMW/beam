@@ -48,58 +48,58 @@ namespace
 
 void TestKeychain()
 {
-	auto keychain = createSqliteKeychain();
+    auto keychain = createSqliteKeychain();
 
-	Coin coin1(5, Coin::Unspent, 0, 10);
-	keychain->store(coin1);
+    Coin coin1(5, Coin::Unspent, 0, 10);
+    keychain->store(coin1);
 
     WALLET_CHECK(coin1.m_id == 1);
 
-	Coin coin2(2, Coin::Unspent, 0, 10);
-	keychain->store(coin2);
+    Coin coin2(2, Coin::Unspent, 0, 10);
+    keychain->store(coin2);
 
     WALLET_CHECK(coin2.m_id == 2);
     
     {
-	    auto coins = keychain->selectCoins(7);
+        auto coins = keychain->selectCoins(7);
         WALLET_CHECK(coins.size() == 2);
 
-	
-		vector<Coin> localCoins;
-		localCoins.push_back(coin2);
-		localCoins.push_back(coin1);
+    
+        vector<Coin> localCoins;
+        localCoins.push_back(coin2);
+        localCoins.push_back(coin1);
 
-		for (size_t i = 0; i < coins.size(); ++i)
-		{
+        for (size_t i = 0; i < coins.size(); ++i)
+        {
             WALLET_CHECK(localCoins[i].m_id == coins[i].m_id);
             WALLET_CHECK(localCoins[i].m_amount == coins[i].m_amount);
             WALLET_CHECK(coins[i].m_status == Coin::Locked);
-		}
-	}
+        }
+    }
 
-	{
-		coin2.m_status = Coin::Spent;
-		
+    {
+        coin2.m_status = Coin::Spent;
+        
 
-		keychain->update(coin2);
+        keychain->update(coin2);
 
         WALLET_CHECK(keychain->selectCoins(5).size() == 0);
-	}
+    }
 
-	{
-		Block::SystemState::ID a;
-		Hash::Processor() << static_cast<uint32_t>(rand()) >> a.m_Hash;
-		a.m_Height = rand();
+    {
+        Block::SystemState::ID a;
+        Hash::Processor() << static_cast<uint32_t>(rand()) >> a.m_Hash;
+        a.m_Height = rand();
 
-		const char* name = "SystemStateID";
-		keychain->setVar(name, "dummy");
-		keychain->setVar(name, a);
+        const char* name = "SystemStateID";
+        keychain->setVar(name, "dummy");
+        keychain->setVar(name, a);
 
-		Block::SystemState::ID b;
+        Block::SystemState::ID b;
         WALLET_CHECK(keychain->getVar(name, b));
 
-		WALLET_CHECK(a == b);
-	}
+        WALLET_CHECK(a == b);
+    }
 }
 
 void TestStoreCoins()
@@ -205,8 +205,8 @@ void TestStoreTxRecord()
     tr.m_createTime = 123456;
     tr.m_minHeight = 134;
     tr.m_sender = true;
-    tr.m_status = TxDescription::InProgress;
-	tr.m_change = 5;
+    tr.m_status = TxStatus::InProgress;
+    tr.m_change = 5;
 
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
@@ -216,22 +216,22 @@ void TestStoreTxRecord()
     tr2.m_minHeight = 234;
     tr2.m_createTime = 1234564;
     tr2.m_modifyTime = 12345644;
-    tr2.m_status = TxDescription::Completed;
-	tr2.m_change = 5;
+    tr2.m_status = TxStatus::Completed;
+    tr2.m_change = 5;
     WALLET_CHECK_NO_THROW(keychain->saveTx(tr2));
     
     auto t = keychain->getTxHistory();
     WALLET_CHECK(t.size() == 1);
     WALLET_CHECK(t[0].m_txId == tr.m_txId);
     WALLET_CHECK(t[0].m_amount == tr.m_amount);
-    WALLET_CHECK(t[0].m_minHeight == tr2.m_minHeight);
+    WALLET_CHECK(t[0].m_minHeight == tr.m_minHeight);
     WALLET_CHECK(t[0].m_peerId == tr.m_peerId);
     WALLET_CHECK(t[0].m_myId == tr.m_myId);
     WALLET_CHECK(t[0].m_createTime == tr.m_createTime);
     WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
-    WALLET_CHECK(t[0].m_sender == tr2.m_sender);
-	WALLET_CHECK(t[0].m_status == tr2.m_status);
-    WALLET_CHECK(t[0].m_change == tr2.m_change);
+    WALLET_CHECK(t[0].m_sender == tr.m_sender);
+    WALLET_CHECK(t[0].m_status == tr2.m_status);
+    WALLET_CHECK(t[0].m_change == tr.m_change);
     TxID id2 = {{ 3,4,5 }};
     WALLET_CHECK_NO_THROW(keychain->deleteTx(id2));
     WALLET_CHECK_NO_THROW(keychain->deleteTx(id));
@@ -729,14 +729,64 @@ void TestSelect2()
         Coin coin{ 30000000, Coin::Unspent, 1, 10, KeyType::Regular };
         db->store(coin);
     }
-	helpers::StopWatch sw;
+    helpers::StopWatch sw;
 
-	sw.start();
+    sw.start();
     auto coins = db->selectCoins(347000000, false);
-	sw.stop();
-	cout << "TestSelect2 elapsed time: " << sw.milliseconds() << " ms\n";
+    sw.stop();
+    cout << "TestSelect2 elapsed time: " << sw.milliseconds() << " ms\n";
     WALLET_CHECK(coins.size() == 9);
     WALLET_CHECK(coins[0].m_amount == 30000000);
+}
+
+void TestTxParameters()
+{
+    auto db = createSqliteKeychain();
+    TxID txID = { {1, 3, 5} };
+    // public parameter cannot be overriten
+    Amount amount = 0;
+    WALLET_CHECK(!wallet::getTxParameter(db, txID, TxParameterID::Amount, amount));
+    WALLET_CHECK(amount == 0);
+    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::Amount, 8765));
+    WALLET_CHECK(wallet::getTxParameter(db, txID, TxParameterID::Amount, amount));
+    WALLET_CHECK(amount == 8765);
+    WALLET_CHECK(!wallet::setTxParameter(db, txID, TxParameterID::Amount, 786));
+    WALLET_CHECK(wallet::getTxParameter(db, txID, TxParameterID::Amount, amount));
+    WALLET_CHECK(amount == 8765);
+
+    // private parameter can be overriten
+    TxStatus status = TxStatus::Pending;
+    WALLET_CHECK(!wallet::getTxParameter(db, txID, TxParameterID::Status, status));
+    WALLET_CHECK(status == TxStatus::Pending);
+    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::Status, TxStatus::Completed));
+    WALLET_CHECK(wallet::getTxParameter(db, txID, TxParameterID::Status, status));
+    WALLET_CHECK(status == TxStatus::Completed);
+    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::Status, TxStatus::InProgress));
+    WALLET_CHECK(wallet::getTxParameter(db, txID, TxParameterID::Status, status));
+    WALLET_CHECK(status == TxStatus::InProgress);
+
+    // check different types
+
+    ByteBuffer b = { 1, 2, 3 };
+    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::Status, b));
+    ByteBuffer b2;
+    WALLET_CHECK(wallet::getTxParameter(db, txID, TxParameterID::Status, b2));
+    WALLET_CHECK(equal(b.begin(), b.end(), b2.begin(), b2.end()));
+
+    ECC::Scalar::Native s, s2;
+    s.GenerateNonce(unsigned(123), unsigned(321), nullptr);
+    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::BlindingExcess, s));
+    WALLET_CHECK(wallet::getTxParameter(db, txID, TxParameterID::BlindingExcess, s2));
+    WALLET_CHECK(s == s2);
+
+    ECC::Point p;
+    p.m_X = unsigned(143521);
+    p.m_Y = false;
+    ECC::Point::Native pt, pt2;
+    pt.Import(p);
+    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::PeerPublicNonce, pt));
+    WALLET_CHECK(wallet::getTxParameter(db, txID, TxParameterID::PeerPublicNonce, pt2));
+    WALLET_CHECK(p == pt2);
 }
 
 int main() 
@@ -746,9 +796,9 @@ int main()
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
-	ECC::InitializeContext();
+    ECC::InitializeContext();
 
-	TestKeychain();
+    TestKeychain();
     TestStoreCoins();
     TestStoreTxRecord();
     TestTxRollback();
@@ -757,6 +807,8 @@ int main()
     TestSelect();
     //TestSelect2();
     TestAddresses();
+
+    TestTxParameters();
 
     return WALLET_CHECK_RESULT;
 }

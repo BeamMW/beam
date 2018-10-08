@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "wallet_db.h"
-#include "negotiator.h"
+#include "wallet_transaction.h"
 #include "utility/logger.h"
 #include "sqlite/sqlite3.h"
 #include <sstream>
@@ -64,9 +64,9 @@
 #define STORAGE_FIELDS ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, )
 #define STORAGE_NAME "storage"
 #define VARIABLES_NAME "variables"
-#define HISTORY_NAME "history"
 #define PEERS_NAME "peers"
 #define ADDRESSES_NAME "addresses"
+#define TX_PARAMS_NAME "txparams"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(1, name, sep, TEXT UNIQUE, obj) \
@@ -107,6 +107,13 @@
     each(6, own,               , INTEGER NOT NULL, obj)
 
 #define ADDRESS_FIELDS ENUM_ADDRESS_FIELDS(LIST, COMMA, )
+
+#define ENUM_TX_PARAMS_FIELDS(each, sep, obj) \
+    each(1, txID ,          sep, BLOB NOT NULL , obj) \
+    each(2, paramID,        sep, INTEGER NOT NULL , obj) \
+    each(3, value,             , BLOB, obj) \
+
+#define TX_PARAMS_FIELDS ENUM_TX_PARAMS_FIELDS(LIST, COMMA, )
 
 namespace std
 {
@@ -354,7 +361,7 @@ namespace beam
                 throwIfError(ret, _db);
             }
 
-            void bind(int col, TxDescription::Status val)
+            void bind(int col, TxStatus val)
             {
                 int ret = sqlite3_bind_int(_stm, col, static_cast<int>(val));
                 throwIfError(ret, _db);
@@ -448,9 +455,9 @@ namespace beam
                 status = static_cast<Coin::Status>(sqlite3_column_int(_stm, col));
             }
 
-            void get(int col, TxDescription::Status& status)
+            void get(int col, TxStatus& status)
             {
-                status = static_cast<TxDescription::Status>(sqlite3_column_int(_stm, col));
+                status = static_cast<TxStatus>(sqlite3_column_int(_stm, col));
             }
 
             void get(int col, bool& val)
@@ -600,7 +607,7 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 4;
+        const int DbVersion = 5;
     }
 
     Coin::Coin(const Amount& amount, Status status, const Height& createHeight, const Height& maturity, KeyType keyType, Height confirmHeight, Height lockedHeight)
@@ -672,11 +679,6 @@ namespace beam
             }
 
             {
-                const char* req = "CREATE TABLE " HISTORY_NAME " (" ENUM_HISTORY_FIELDS(LIST_WITH_TYPES, COMMA,) ") WITHOUT ROWID;";
-                int ret = sqlite3_exec(keychain->_db, req, nullptr, nullptr, nullptr);
-                throwIfError(ret, keychain->_db);
-            }
-            {
                 const char* req = "CREATE TABLE " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
                 int ret = sqlite3_exec(keychain->_db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, keychain->_db);
@@ -684,6 +686,12 @@ namespace beam
 
             {
                 const char* req = "CREATE TABLE " ADDRESSES_NAME " (" ENUM_ADDRESS_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
+                int ret = sqlite3_exec(keychain->_db, req, nullptr, nullptr, nullptr);
+                throwIfError(ret, keychain->_db);
+            }
+
+            {
+                const char* req = "CREATE TABLE " TX_PARAMS_NAME " (" ENUM_TX_PARAMS_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (txID, paramID)) WITHOUT ROWID;";
                 int ret = sqlite3_exec(keychain->_db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, keychain->_db);
             }
@@ -723,7 +731,7 @@ namespace beam
                 }
                 {
                     int version = 0;
-                    if (!keychain->getVar(Version, version) || version != DbVersion)
+                    if (!keychain->getVar(Version, version) || version > DbVersion)
                     {
                         LOG_DEBUG() << "Invalid DB version: " << version << ". Expected: " << DbVersion;
                         return Ptr();
@@ -760,13 +768,9 @@ namespace beam
                 }
 
                 {
-                    const char* req = "SELECT " HISTORY_FIELDS " FROM " HISTORY_NAME ";";
-                    int ret = sqlite3_exec(keychain->_db, req, nullptr, nullptr, nullptr);
-                    if (ret != SQLITE_OK)
-                    {
-                        LOG_ERROR() << "Invalid DB format :(";
-                        return Ptr();
-                    }
+                    const char* req = "CREATE TABLE IF NOT EXISTS " TX_PARAMS_NAME " (" ENUM_TX_PARAMS_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (txID, paramID)) WITHOUT ROWID;";
+                    int ret = sqlite3_exec(keychain->_db, req, NULL, NULL, NULL);
+                    throwIfError(ret, keychain->_db);
                 }
 
                 if (keychain->getVar(WalletSeed, seed))
@@ -1090,7 +1094,7 @@ namespace beam
         }
 
         {
-            sqlite::Statement stm(_db, "DELETE FROM " HISTORY_NAME ";");
+            sqlite::Statement stm(_db, "DELETE FROM " TX_PARAMS_NAME ";");
             stm.step();
             notifyTransactionChanged(ChangeAction::Reset, {});
         }
@@ -1254,31 +1258,58 @@ namespace beam
 
     vector<TxDescription> Keychain::getTxHistory(uint64_t start, int count)
     {
-        vector<TxDescription> res;
-        const char* req = "SELECT * FROM " HISTORY_NAME " ORDER BY createTime DESC LIMIT ?1 OFFSET ?2 ;";
-
-        sqlite::Statement stm(_db, req);
-        stm.bind(1, count);
-        stm.bind(2, start);
-
-        while (stm.step())
+        // TODO this is temporary solution
+        int txCount = 0;
         {
-            auto& tx = res.emplace_back();
-            ENUM_HISTORY_FIELDS(STM_GET_LIST, NOSEP, tx);
+            sqlite::Statement stm(_db, "SELECT COUNT(DISTINCT txID) FROM " TX_PARAMS_NAME " ;");
+            stm.step();
+            stm.get(0, txCount);
         }
+        
+        vector<TxDescription> res;
+        if (txCount > 0)
+        {
+            res.reserve(static_cast<size_t>(min(txCount, count)));
+            const char* req = "SELECT DISTINCT txID FROM " TX_PARAMS_NAME " LIMIT ?1 OFFSET ?2 ;";
+
+            sqlite::Statement stm(_db, req);
+            stm.bind(1, count);
+            stm.bind(2, start);
+
+            while (stm.step())
+            {
+                TxID txID;
+                stm.get(0, txID);
+                res.emplace_back(*getTx(txID));
+            }
+        }
+
         return res;
     }
 
     boost::optional<TxDescription> Keychain::getTx(const TxID& txId)
     {
-        const char* req = "SELECT * FROM " HISTORY_NAME " WHERE txId=?1 ;";
+        const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 ;";
         sqlite::Statement stm(_db, req);
         stm.bind(1, txId);
 
         if (stm.step())
         {
+            auto thisPtr = shared_from_this();
             TxDescription tx;
-            ENUM_HISTORY_FIELDS(STM_GET_LIST, NOSEP, tx);
+            tx.m_txId = txId;
+            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Amount, tx.m_amount);
+            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Fee, tx.m_fee);
+            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Change, tx.m_change);
+            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::MinHeight, tx.m_minHeight);
+            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::PeerID, tx.m_peerId);
+            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::MyID, tx.m_myId);
+            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Message, tx.m_message);
+            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::CreateTime, tx.m_createTime);
+            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::ModifyTime, tx.m_modifyTime);
+            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::IsSender, tx.m_sender);
+            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Status, tx.m_status);
+
             return tx;
         }
 
@@ -1289,34 +1320,20 @@ namespace beam
     {
         ChangeAction action = ChangeAction::Added;
         sqlite::Transaction trans(_db);
+        
+        auto thisPtr = shared_from_this();
 
-        {
-            const char* selectReq = "SELECT * FROM " HISTORY_NAME " WHERE txId=?1;";
-            sqlite::Statement stm2(_db, selectReq);
-            stm2.bind(1, p.m_txId);
-
-            if (stm2.step())
-            {
-                const char* updateReq = "UPDATE " HISTORY_NAME " SET modifyTime=?2, status=?3, fsmState=?4, minHeight=?5, change=?6 WHERE txId=?1;";
-                sqlite::Statement stm(_db, updateReq);
-
-                stm.bind(1, p.m_txId);
-                stm.bind(2, p.m_modifyTime);
-                stm.bind(3, p.m_status);
-                stm.bind(4, p.m_fsmState);
-                stm.bind(5, p.m_minHeight);
-                stm.bind(6, p.m_change);
-                stm.step();
-                action = ChangeAction::Updated;
-            }
-            else
-            {
-                const char* insertReq = "INSERT INTO " HISTORY_NAME " (" ENUM_HISTORY_FIELDS(LIST, COMMA,) ") VALUES(" ENUM_HISTORY_FIELDS(BIND_LIST, COMMA,) ");";
-                sqlite::Statement stm(_db, insertReq);
-                ENUM_HISTORY_FIELDS(STM_BIND_LIST, NOSEP, p);
-                stm.step();
-            }
-        }
+        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::Amount, p.m_amount);
+        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::Fee, p.m_fee);
+        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::Change, p.m_change);
+        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::MinHeight, p.m_minHeight);
+        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::PeerID, p.m_peerId);
+        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::MyID, p.m_myId);
+        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::Message, p.m_message);
+        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::CreateTime, p.m_createTime);
+        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::ModifyTime, p.m_modifyTime);
+        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::IsSender, p.m_sender);
+        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::Status, p.m_status);
 
         trans.commit();
 
@@ -1328,7 +1345,7 @@ namespace beam
         auto tx = getTx(txId);
         if (tx.is_initialized())
         {
-            const char* req = "DELETE FROM " HISTORY_NAME " WHERE txId=?1;";
+            const char* req = "DELETE FROM " TX_PARAMS_NAME " WHERE txID=?1;";
             sqlite::Statement stm(_db, req);
 
             stm.bind(1, txId);
@@ -1507,6 +1524,57 @@ namespace beam
 		throwIfError(ret, _db);
 	}
 
+    bool Keychain::setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob)
+    {
+        {
+            sqlite::Statement stm(_db, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID=?2;");
+
+            stm.bind(1, txID);
+            stm.bind(2, static_cast<int>(paramID));
+            if (stm.step())
+            {
+                // already set
+                if (paramID < wallet::TxParameterID::PrivateFirstParam)
+                {
+                    return false;
+                }
+
+                sqlite::Statement stm2(_db, "UPDATE " TX_PARAMS_NAME  " SET value = ?3 WHERE txID = ?1 AND paramID = ?2;");
+                stm2.bind(1, txID);
+                stm2.bind(2, static_cast<int>(paramID));
+                stm2.bind(3, blob);
+                stm2.step();
+                return true;
+            }
+        }
+        
+        sqlite::Statement stm(_db, "INSERT INTO " TX_PARAMS_NAME " (" ENUM_TX_PARAMS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_TX_PARAMS_FIELDS(BIND_LIST, COMMA, ) ");");
+        TxParameter parameter;
+        parameter.m_txID = txID;
+        parameter.m_paramID = static_cast<int>(paramID);
+        parameter.m_value = blob;
+        ENUM_TX_PARAMS_FIELDS(STM_BIND_LIST, NOSEP, parameter);
+        stm.step();
+        return true;
+    }
+
+    bool Keychain::getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob)
+    {
+        sqlite::Statement stm(_db, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID=?2;");
+
+        stm.bind(1, txID);
+        stm.bind(2, static_cast<int>(paramID));
+
+        if (stm.step())
+        {
+            TxParameter parameter = {};
+            ENUM_TX_PARAMS_FIELDS(STM_GET_LIST, NOSEP, parameter);
+            blob = move(parameter.m_value);
+            return true;
+        }
+        return false;
+    }
+
     void Keychain::notifyKeychainChanged()
     {
         for (auto sub : m_subscribers) sub->onKeychainChanged();
@@ -1532,6 +1600,71 @@ namespace beam
 
     namespace wallet
     {
+        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value)
+        {
+            ECC::Point pt;
+            if (getTxParameter(db, txID, paramID, pt))
+            {
+                return value.Import(pt);
+            }
+            return false;
+        }
+
+        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Scalar::Native& value)
+        {
+            ECC::Scalar s;
+            if (getTxParameter(db, txID, paramID, s))
+            {
+                value.Import(s);
+                return true;
+            }
+            return false;
+        }
+
+        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, ByteBuffer& value)
+        {
+            return db->getTxParameter(txID, paramID, value);
+        }
+
+        bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Point::Native& value)
+        {
+            ECC::Point pt;
+            if (value.Export(pt))
+            {
+                return setTxParameter(db, txID, paramID, pt);
+            }
+            return false;
+        }
+
+        bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Scalar::Native& value)
+        {
+            ECC::Scalar s;
+            value.Export(s);
+            return setTxParameter(db, txID, paramID, s);
+        }
+
+        bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value)
+        {
+            return db->setTxParameter(txID, paramID, value);
+        }
+
+        ByteBuffer toByteBuffer(const ECC::Point::Native& value)
+        {
+            ECC::Point pt;
+            if (value.Export(pt))
+            {
+                return toByteBuffer(pt);
+            }
+            return ByteBuffer();
+        }
+
+        ByteBuffer toByteBuffer(const ECC::Scalar::Native& value)
+        {
+            ECC::Scalar s;
+            value.Export(s);
+            return toByteBuffer(s);
+        }
+
         Amount getAvailable(beam::IKeyChain::Ptr keychain)
         {
             auto currentHeight = keychain->getCurrentHeight();

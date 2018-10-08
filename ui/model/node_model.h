@@ -17,7 +17,7 @@
 #include <QThread>
 #include <memory>
 #include "core/block_crypt.h"
-#include "beam/node.h"
+#include "node/node.h"
 #include "utility/io/reactor.h"
 
 class NodeModel : public QThread

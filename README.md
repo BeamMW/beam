@@ -45,7 +45,7 @@ years.
 - Batch Bulletproofs, the efficient non-interactive zero knowledge range proofs now in batch mode
 - Graphical Wallet Application for Linux, Mac and Windows platforms
 - Offline transactions using Secure BBS system
-- ChainWork - sublinear blockchain validation, based on Benedikt Bünz FlyClient idea
+- ChainWork - sublinear blockchain validation, based on FlyClient idea by Loi Luu, Benedikt Bünz, Mahdi Zamani
 - Compact history using cut through
 
 
@@ -72,7 +72,7 @@ years.
 ## Mac
 1. Install Brew Package Manager.
 1. Installed necessary packages using `brew install openssl boost cmake qt5` command.
-1. Add `OPENSSL_ROOT_DIR="/usr/local/opt/openssl"` and `export PATH=/usr/local/opt/qt/bin:$PATH` to the _Environment Variables_.
+1. Add `export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"` and `export PATH=/usr/local/opt/qt/bin:$PATH` to the _Environment Variables_.
 1. Go to Beam project folder and call `cmake -DCMAKE_BUILD_TYPE=Release . && make -j4`.
 1. You'll find _Beam_ binary in `bin` folder, `beam-wallet` in `ui` subfolder.
 

@@ -92,11 +92,11 @@ namespace beam
 
         switch (tx.m_status)
         {
-        case TxDescription::Pending: return Pending;
-        case TxDescription::InProgress: return tx.m_sender ? Sending : Receiving;
-        case TxDescription::Cancelled: return Cancelled;
-        case TxDescription::Completed: return tx.m_sender ? Sent : Received;
-        case TxDescription::Failed: return Failed;
+        case TxStatus::Pending: return Pending;
+        case TxStatus::InProgress: return tx.m_sender ? Sending : Receiving;
+        case TxStatus::Cancelled: return Cancelled;
+        case TxStatus::Completed: return tx.m_sender ? Sent : Received;
+        case TxStatus::Failed: return Failed;
         default:
             assert(false && "Unknown key type");
         }

@@ -500,6 +500,42 @@ namespace beam
 		return (idx >= v.size()) ? NULL : v[idx].get();
 	}
 
+	void TxBase::IReader::Compare(IReader&& rOther, bool& bICover, bool& bOtherCovers)
+	{
+		bICover = bOtherCovers = true;
+		Reset();
+		rOther.Reset();
+
+#define COMPARE_TYPE(var, fnNext) \
+		while (var) \
+		{ \
+			if (!rOther.var) \
+			{ \
+				bOtherCovers = false; \
+				break; \
+			} \
+ \
+			int n = var->cmp(*rOther.var); \
+			if (n < 0) \
+				bOtherCovers = false; \
+			if (n > 0) \
+				bICover = false; \
+			if (n <= 0) \
+				fnNext(); \
+			if (n >= 0) \
+				rOther.fnNext(); \
+		} \
+ \
+		if (rOther.var) \
+			bICover = false;
+
+		COMPARE_TYPE(m_pUtxoIn, NextUtxoIn)
+		COMPARE_TYPE(m_pUtxoOut, NextUtxoOut)
+		COMPARE_TYPE(m_pKernelIn, NextKernelIn)
+		COMPARE_TYPE(m_pKernelOut, NextKernelOut)
+	}
+
+
 	void TxVectors::Reader::Clone(Ptr& pOut)
 	{
 		pOut.reset(new Reader(m_Txv));

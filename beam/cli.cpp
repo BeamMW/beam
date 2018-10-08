@@ -15,7 +15,7 @@
 #include "wallet/wallet_network.h"
 #include "core/common.h"
 
-#include "node.h"
+#include "node/node.h"
 #include "core/ecc_native.h"
 #include "core/ecc.h"
 #include "core/serialization_adapters.h"
