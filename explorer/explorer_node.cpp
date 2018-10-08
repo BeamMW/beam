@@ -1,12 +1,15 @@
 #include "server.h"
 #include "adapter.h"
-#include "beam/node.h"
+#include "node/node.h"
 #include "utility/logger.h"
 #include "utility/helpers.h"
 
 using namespace beam;
 
+#define FILES_PREFIX "explorer-node_"
+
 struct Options {
+    std::string nodeDbFilename;
     io::Address nodeConnectTo;
     io::Address nodeListenTo;
     io::Address explorerListenTo;
@@ -22,7 +25,7 @@ int main(int argc, char* argv[]) {
     if (!parse_cmdline(argc, argv, options)) {
         return 1;
     }
-    auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, "explorer-node_");
+    auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, FILES_PREFIX);
     int retCode = 0;
     try {
         io::Reactor::Ptr reactor = io::Reactor::create();
@@ -59,6 +62,8 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
     o.logLevel = LOG_LEVEL_DEBUG;
 #endif
 
+    o.nodeDbFilename = FILES_PREFIX "db";
+
     o.nodeConnectTo.resolve("172.104.249.212:8101");
     o.nodeListenTo.port(10000);
     o.explorerListenTo.port(8888);
@@ -67,6 +72,10 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
 }
 
 void setup_node(Node& node, const Options& o) {
+    Rules::get().UpdateChecksum();
+    LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+
+    node.m_Cfg.m_sPathLocal = o.nodeDbFilename;
     node.m_Cfg.m_Listen.port(o.nodeListenTo.port());
     node.m_Cfg.m_Listen.ip(o.nodeListenTo.ip());
     node.m_Cfg.m_MiningThreads = 0;

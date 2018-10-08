@@ -133,11 +133,12 @@ template<> int parse_json_msg(const void* buf, size_t bufSize, Response& m) {
 
 io::SharedBuffer dump(HttpMsgCreator& packer, const json& o) {
     io::SharedBuffer result;
+    io::SerializedMsg sm;
+    io::FragmentWriter& fw = packer.acquire_writer(sm);
     try {
         // TODO make stateful object out of these fns if performance issues occur
 
-        io::SerializedMsg sm;
-        io::FragmentWriter& fw = packer.acquire_writer(sm);
+
         nlohmann::detail::serializer<json> s(std::make_shared<JsonOutputAdapter>(fw), ' ');
         s.dump(o, false, false, 0);
         fw.finalize();
@@ -145,6 +146,7 @@ io::SharedBuffer dump(HttpMsgCreator& packer, const json& o) {
 
     } catch (const std::exception& e) {
         LOG_ERROR() << "dump json: " << e.what();
+        fw.finalize();
     }
 
     packer.release_writer();

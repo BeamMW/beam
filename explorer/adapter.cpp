@@ -17,11 +17,18 @@
 #include "p2p/stratum.h"
 #include "p2p/http_msg_creator.h"
 #include "utility/nlohmann/json.hpp"
+#include "utility/helpers.h"
 #include "utility/logger.h"
 
 namespace beam { namespace explorer {
 
 namespace {
+
+const char* hash_to_hex(char* buf, const Merkle::Hash& hash) {
+    return to_hex(buf, hash.m_pData, 32);
+}
+
+using nlohmann::json;
 
 io::SharedBuffer get_status_impl(NodeProcessor& np, HttpMsgCreator& packer, bool isSyncing, Height& currentHeight) {
     const auto& cursor = np.m_Cursor;
@@ -30,7 +37,24 @@ io::SharedBuffer get_status_impl(NodeProcessor& np, HttpMsgCreator& packer, bool
 
     LOG_DEBUG() << TRACE(currentHeight) << TRACE(cursor.m_Sid.m_Row) << TRACE(isSyncing);
 
-    return io::SharedBuffer();
+    uint32_t packed = cursor.m_Full.m_PoW.m_Difficulty.m_Packed;
+    uint32_t difficultyOrder = packed >> Difficulty::s_MantissaBits;
+    uint32_t difficultyMantissa = packed & ((1U << Difficulty::s_MantissaBits) - 1);
+
+    char buf[80];
+
+    return stratum::dump(
+        packer,
+        json{
+            { "is_syncing", isSyncing },
+            { "timestamp", cursor.m_Full.m_TimeStamp },
+            { "height", currentHeight },
+            { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
+            { "prev", hash_to_hex(buf, cursor.m_Full.m_Prev) },
+            { "difficulty_order", difficultyOrder },
+            { "difficulty_mantissa", difficultyMantissa }
+        }
+    );
 }
 
 } //namespace
@@ -40,7 +64,8 @@ class Adapter : public INodeObserver, public IAdapter {
 public:
     Adapter(Node& node) :
         _nodeBackend(node.get_Processor()),
-        _statusDirty(true)
+        _statusDirty(true),
+        _nodeIsSyncing(true)
     {
         init_helper_fragments();
         _hook = &node.m_Cfg.m_Observer;
@@ -59,17 +84,21 @@ private:
 
     /// Returns body for /status request
     void OnSyncProgress(int done, int total) override {
-        _nodeIsSyncing = (done != total);
+        bool isSyncing = (done != total);
+        if (isSyncing != _nodeIsSyncing) {
+            _statusDirty = true;
+            _nodeIsSyncing = isSyncing;
+        }
         if (_nextHook) _nextHook->OnSyncProgress(done, total);
     }
 
     void OnStateChanged() override {
-        // TODO
-
         const auto& cursor = _nodeBackend.m_Cursor;
         _currentHeight = cursor.m_ID.m_Height;
+        _lowHorizon = cursor.m_LoHorizon;
+        _statusDirty = true;
 
-
+        /*
         LOG_INFO() << TRACE(_currentHeight)
             << "\n" << TRACE(cursor.m_ID)
             << "\n" << TRACE(cursor.m_Full.m_Height)
@@ -80,8 +109,8 @@ private:
             << "\n" << TRACE(cursor.m_Full.m_PoW.m_Nonce)
             << "\n" << TRACE(cursor.m_Full.m_PoW.m_Difficulty)
         ;
+         */
 
-        _statusDirty = true;
         if (_nextHook) _nextHook->OnStateChanged();
     }
 
@@ -122,7 +151,8 @@ private:
     INodeObserver** _hook;
     INodeObserver* _nextHook;
 
-    Height _currentHeight;
+    Height _currentHeight=0;
+    Height _lowHorizon=0;
 };
 
 IAdapter::Ptr create_adapter(Node& node) {
