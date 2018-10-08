@@ -18,6 +18,7 @@
 #include "core/ecc_native.h"
 
 #include "core/serialization_adapters.h"
+#include "core/proto.h"
 
 namespace beam
 {
@@ -37,18 +38,18 @@ namespace beam
 
     struct Coin;
 
+    enum class TxStatus : uint32_t
+    {
+        Pending,
+        InProgress,
+        Cancelled,
+        Completed,
+        Failed,
+        Registered
+    };
+
     struct TxDescription
     {
-        enum Status
-        {
-            Pending,
-            InProgress,
-            Cancelled,
-            Completed,
-            Failed,
-            Registered
-        };
-
         TxDescription() = default;
 
         TxDescription(const TxID& txId
@@ -71,7 +72,7 @@ namespace beam
             , m_createTime{ createTime }
             , m_modifyTime{ createTime }
             , m_sender{ sender }
-            , m_status{ Pending }
+            , m_status{ TxStatus::Pending }
             , m_fsmState{}
         {}
 
@@ -86,12 +87,14 @@ namespace beam
         Timestamp m_createTime=0;
         Timestamp m_modifyTime=0;
         bool m_sender=false;
-        Status m_status=Failed;
+        TxStatus m_status=TxStatus::Failed;
         ByteBuffer m_fsmState;
 
         bool canResume() const
         {
-            return m_status == Pending || m_status == InProgress || m_status == Registered;
+            return m_status == TxStatus::Pending 
+                || m_status == TxStatus::InProgress 
+                || m_status == TxStatus::Registered;
         }
     };
 
@@ -99,112 +102,73 @@ namespace beam
     {
         std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
 
+        enum class TxParameterID : uint32_t
+        {
+            // public parameters
+            TransactionType = 0,
+            IsSender,
+            Amount,
+            Fee,
+            MinHeight,
+            Message,
+            MyID,
+            PeerID,
+            Inputs,
+            Outputs,
+            CreateTime,
+
+            PeerPublicNonce,
+            PeerPublicExcess,
+            PeerSignature,
+            PeerOffset,
+            PeerInputs,
+            PeerOutputs,
+
+            TransactionRegistered,
+            KernelProof,
+            FailureReason,
+
+            // private parameters
+            PrivateFirstParam = 1 << 16,
+
+            ModifyTime,
+            BlindingExcess,
+            Offset,
+            Change,
+            Status
+        };
+
+
+        enum class TxType : uint8_t
+        {
+            SimpleTransaction,
+            AtomicSwapTransaction
+        };
+
         // messages
-        struct Invite
-        {
-            WalletID m_from;
-            std::string m_message;
-            TxID m_txId;
-            ECC::Amount m_amount;
-            ECC::Amount m_fee;
-            Height m_height;
-            bool m_send;
-            ECC::Point m_publicPeerExcess;
-            ECC::Scalar m_offset;
-            ECC::Point m_publicPeerNonce;
-            std::vector<Input::Ptr> m_inputs;
-            std::vector<Output::Ptr> m_outputs;
-
-            Invite()
-                : m_from(Zero)
-                , m_amount(0)
-                , m_fee(0)
-                , m_height(0)
-                , m_send{true}
-
-            {
-
-            }
-
-            Invite(Invite&& other)
-                : m_from{other.m_from}
-                , m_message{std::move(other.m_message)}
-                , m_txId{other.m_txId}
-                , m_amount{ other.m_amount }
-                , m_fee{ other.m_fee }
-                , m_height{other.m_height }
-                , m_send{other.m_send}
-                , m_publicPeerExcess{other.m_publicPeerExcess}
-                , m_offset{other.m_offset}
-                , m_publicPeerNonce{other.m_publicPeerNonce}
-                , m_inputs{std::move(other.m_inputs)}
-                , m_outputs{std::move(other.m_outputs)}
-            {
-
-            }
-
-            SERIALIZE(m_from
-                    , m_message
-                    , m_txId
-                    , m_amount
-                    , m_fee
-                    , m_height
-                    , m_send
-                    , m_publicPeerExcess
-                    , m_offset
-                    , m_publicPeerNonce
-                    , m_inputs
-                    , m_outputs);
-        };
-
-        struct ConfirmTransaction
-        {
-            WalletID m_from;
-            TxID m_txId{};
-            ECC::Scalar m_peerSignature;
-
-            SERIALIZE(m_from, m_txId, m_peerSignature);
-        };
-
-        struct ConfirmInvitation
-        {
-            WalletID m_from;
-            TxID m_txId{};
-            ECC::Point m_publicPeerExcess;
-            ECC::Signature m_peerSignature;
-
-            SERIALIZE(m_from
-                    , m_txId
-                    , m_publicPeerExcess
-                    , m_peerSignature);
-        };
-
-        struct TxRegistered
+        struct SetTxParameter
         {
             WalletID m_from;
             TxID m_txId;
-            bool m_value;
-            SERIALIZE(m_from, m_txId, m_value);
-        };
 
-        struct TxFailed
-        {
-            WalletID m_from;
-            TxID m_txId;
-            SERIALIZE(m_from, m_txId);
+            TxType m_Type;
+
+            std::vector<std::pair<TxParameterID, ByteBuffer>> m_Parameters;
+
+            SERIALIZE(m_from, m_txId, m_Type, m_Parameters);
+            static const size_t MaxParams = 20;
         };
 
         struct INegotiatorGateway
         {
             virtual ~INegotiatorGateway() {}
-            virtual void on_tx_completed(const TxDescription& ) = 0;
-            virtual void send_tx_failed(const TxDescription& ) = 0;
-            virtual void send_tx_invitation(const TxDescription&, Invite&&) = 0;
-            virtual void send_tx_confirmation(const TxDescription&, ConfirmTransaction&&) = 0;
-            virtual void send_tx_confirmation(const TxDescription&, ConfirmInvitation&&) = 0;
-            virtual void register_tx(const TxDescription&, Transaction::Ptr) = 0;
-            virtual void send_tx_registered(const TxDescription&) = 0;
-            virtual void confirm_outputs(const TxDescription&) = 0;
+            virtual void on_tx_completed(const TxID& ) = 0;
+            virtual void register_tx(const TxID&, Transaction::Ptr) = 0;
+            virtual void confirm_outputs(const std::vector<Coin>&) = 0;
+            virtual void confirm_kernel(const TxID&, const TxKernel&) = 0;
+            virtual bool get_tip(Block::SystemState::Full& state) const = 0;
+            virtual bool isTestMode() const = 0;
+            virtual void send_tx_params(const WalletID& peerID, SetTxParameter&&) = 0;
         };
     }
 }

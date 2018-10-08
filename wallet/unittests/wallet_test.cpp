@@ -30,7 +30,6 @@
 #include <condition_variable>
 
 #include "core/proto.h"
-#include "wallet/wallet_serialization.h"
 #include <boost/filesystem.hpp>
 #include <boost/intrusive/list.hpp>
 
@@ -132,8 +131,25 @@ namespace
 
 		void changePassword(const SecString& password) override {}
 
+        bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) override
+        {
+            auto p = m_params.emplace(paramID, blob);
+            return p.second;
+        }
+        bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) override
+        {
+            auto it = m_params.find(paramID);
+            if (it != m_params.end())
+            {
+                blob = it->second;
+                return true;
+            }
+            return false;
+        }
+
     protected:
         std::vector<beam::Coin> m_coins;
+        std::map<wallet::TxParameterID, ByteBuffer> m_params;
     };
 
     class TestKeyChain : public BaseTestKeyChain
@@ -210,44 +226,34 @@ namespace
 
     struct TestGateway : wallet::INegotiatorGateway
     {
-        void send_tx_invitation(const TxDescription& , wallet::Invite&&) override
-        {
-            cout << "sent tx initiation message\n";
-        }
-
-        void send_tx_confirmation(const TxDescription& , wallet::ConfirmTransaction&&) override
-        {
-            cout << "sent senders's tx confirmation message\n";
-        }
-
-        void send_tx_failed(const TxDescription&) override
-        {
-
-        }
-
-        void on_tx_completed(const TxDescription&) override
+        void on_tx_completed(const TxID&) override
         {
             cout << __FUNCTION__ << "\n";
         }
 
-        void send_tx_confirmation(const TxDescription& , wallet::ConfirmInvitation&&) override
-        {
-            cout << "sent recever's tx confirmation message\n";
-        }
-
-        void register_tx(const TxDescription& , Transaction::Ptr) override
+        void register_tx(const TxID& , Transaction::Ptr) override
         {
             cout << "sent tx registration request\n";
         }
 
-        void send_tx_registered(const TxDescription& ) override
-        {
-            cout << "sent tx registration completed \n";
-        }
-
-        void confirm_outputs(const TxDescription&) override
+        void confirm_outputs(const vector<Coin>&) override
         {
             cout << "confirm outputs\n";
+        }
+
+        void confirm_kernel(const TxID&, const TxKernel&) override
+        {
+            cout << "confirm kernel\n";
+        }
+
+        bool get_tip(Block::SystemState::Full& state) const override
+        {
+            return true;
+        }
+
+        bool isTestMode() const override
+        {
+            return true;
         }
     };
 
@@ -445,43 +451,43 @@ namespace
         TestNetwork(IOLoop& mainLoop) : TestNetworkBase{ mainLoop }
         {}
 
-        void send_tx_message(const WalletID& to, wallet::Invite&& data) override
+        void send_tx_message(const WalletID& to, beam::wallet::SetTxParameter&& data) override
         {
-            cout << "[Sender] send_tx_invitation\n";
-            ++m_peerCount;
-            WALLET_CHECK(data.m_amount == 6);
-            send(1, to, move(data));
-        }
-
-        void send_tx_message(const WalletID& to, wallet::ConfirmTransaction&& data) override
-        {
-            cout << "[Sender] send_tx_confirmation\n";
-            send(1, to, move(data));
-        }
-
-        void send_tx_message(const WalletID& to, wallet::ConfirmInvitation&& data) override
-        {
-            cout << "[Receiver] send_tx_confirmation\n";
-            ++m_peerCount;
-            send(1, to, move(data));
-        }
-
-        void send_tx_message(const WalletID& to, wallet::TxRegistered&& data) override
-        {
-            cout << "[Receiver] send_tx_registered\n";
-            send(1, to, move(data));
-        }
-
-        void send_tx_message(const WalletID& to, beam::wallet::TxFailed&& data) override
-        {
-            cout << "TxFailed\n";
+            cout << "SetTxParameter\n";
             send(1, to, move(data));
         }
 
         void send_node_message(proto::NewTransaction&& data) override
         {
             cout << "NewTransaction\n";
+
+            for (const auto& input : data.m_Transaction->m_vInputs)
+            {
+                RemoveCommitment(input->m_Commitment);
+            }
+            for (const auto& output : data.m_Transaction->m_vOutputs)
+            {
+                AddCommitment(output->m_Commitment);
+            }
+
             enqueueNetworkTask([this, data] {m_peers[0]->handle_node_message(proto::Boolean{ true }); });
+        }
+
+        set<ECC::Point> m_Commitments;
+
+        void AddCommitment(const ECC::Point& c)
+        {
+            m_Commitments.insert(c);
+        }
+
+        void RemoveCommitment(const ECC::Point& c)
+        {
+            m_Commitments.erase(c);
+        }
+
+        bool HasCommitment(const ECC::Point& c)
+        {
+            return m_Commitments.find(c) != m_Commitments.end();
         }
 
         void send_node_message(proto::GetMined&& data) override
@@ -490,11 +496,20 @@ namespace
             enqueueNetworkTask([this] {m_peers[0]->handle_node_message(proto::Mined{ }); });
         }
 
-        void send_node_message(proto::GetProofUtxo&&) override
+        void send_node_message(proto::GetProofUtxo&& msg) override
         {
             cout << "GetProofUtxo\n";
 
-            enqueueNetworkTask([this] {m_peers[0]->handle_node_message(proto::ProofUtxo()); });
+            Input::Proof proof = {};
+            if (HasCommitment(msg.m_Utxo.m_Commitment))
+            {
+                proof.m_State.m_Maturity = 134 + 60;
+                enqueueNetworkTask([this, proof = move(proof)]() {m_peers[0]->handle_node_message(proto::ProofUtxo({ proof })); });
+            }
+            else
+            {
+                enqueueNetworkTask([this, proof = move(proof)]() {m_peers[0]->handle_node_message(proto::ProofUtxo()); });
+            }
         }
 
         void send_node_message(proto::GetHdr&&) override
@@ -521,11 +536,6 @@ namespace
             });
         }
 
-
-//         void close_connection(const beam::WalletID&) override
-//         {
-//         }
-
         void connect_node() override
         {
 
@@ -550,7 +560,7 @@ namespace
 class TestWallet
     :public Wallet
 {
-    bool IsTestMode() override { return true; }
+    bool IsTestMode() const override { return true; }
 public:
     TestWallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, bool holdNodeConnection = false, TxCompletedAction&& action = TxCompletedAction())
         :Wallet(keyChain, network, holdNodeConnection, std::move(action))
@@ -575,7 +585,7 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
     int count = 0;
     auto f = [&count, network, network2](const auto& /*id*/)
     {
-        if (++count >= (network->m_peerCount + network2->m_peerCount))
+        if (++count >= 2)
         {
             network->shutdown();
             network2->shutdown();
@@ -593,35 +603,6 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
 
     sender.transfer_money(sender_id, receiver_id, 6, 1, true, {});
     mainLoop.run();
-}
-
-void TestFSM()
-{
-    cout << "\nTesting wallet's fsm...\nsender\n";
-    TestGateway gateway;
-
-    TxDescription stx = {};
-    stx.m_amount = 6;
-    wallet::Negotiator s{ gateway, createKeychain<TestKeyChain>(), stx};
-    s.processEvent(wallet::events::TxInitiated());
-    WALLET_CHECK(*(s.currentState()) == 2);
-    s.start();
-    WALLET_CHECK(*(s.currentState()) == 0);
-    s.processEvent(wallet::events::TxInitiated());
-    WALLET_CHECK(*(s.currentState()) == 2);
-    s.stop();
-    WALLET_CHECK(*(s.currentState()) == 2);
-    s.start();
-    WALLET_CHECK(*(s.currentState()) == 0);
-
-    s.processEvent(wallet::events::TxInitiated());
-    WALLET_CHECK(*(s.currentState()) == 2);
-    s.processEvent(wallet::events::TxInitiated());
-    WALLET_CHECK(*(s.currentState()) == 2);
-    s.processEvent(wallet::events::TxInvitationCompleted{});
-    WALLET_CHECK(*(s.currentState()) == 4);
-    s.processEvent(wallet::events::TxConfirmationCompleted{});
-    WALLET_CHECK(*(s.currentState()) == 4);
 }
 
 class TestNode
@@ -864,7 +845,7 @@ void TestTxToHimself()
     WALLET_CHECK(txHistory[0].m_amount == 24);
     WALLET_CHECK(txHistory[0].m_change == 14);
     WALLET_CHECK(txHistory[0].m_fee == 2);
-    WALLET_CHECK(txHistory[0].m_status == TxDescription::Completed);
+    WALLET_CHECK(txHistory[0].m_status == TxStatus::Completed);
 
     // check coins
     vector<Coin> newSenderCoins;
@@ -941,7 +922,7 @@ void TestP2PWalletNegotiationST()
     //main_reactor->run();
     //auto sh = senderKeychain->getTxHistory();
     //WALLET_CHECK(sh.size() == 1);
-    //WALLET_CHECK(sh[0].m_status == TxDescription::Failed);
+    //WALLET_CHECK(sh[0].m_status == TxStatus::Failed);
     //senderKeychain->deleteTx(sh[0].m_txId);
 
     sw.start();
@@ -1000,6 +981,7 @@ void TestP2PWalletNegotiationST()
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
     WALLET_CHECK(stx->m_amount == rtx->m_amount);
+    WALLET_CHECK(stx->m_status == TxStatus::Completed);
     WALLET_CHECK(stx->m_fee == rtx->m_fee);
     WALLET_CHECK(stx->m_message == rtx->m_message);
     WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
@@ -1074,6 +1056,7 @@ void TestP2PWalletNegotiationST()
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
     WALLET_CHECK(stx->m_amount == rtx->m_amount);
+    WALLET_CHECK(stx->m_status == TxStatus::Completed);
     WALLET_CHECK(stx->m_message == rtx->m_message);
     WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
     WALLET_CHECK(stx->m_status == rtx->m_status);
@@ -1119,7 +1102,7 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(!rtx.is_initialized());
 
     WALLET_CHECK(stx->m_amount == 6);
-    WALLET_CHECK(stx->m_status == TxDescription::Failed);
+    WALLET_CHECK(stx->m_status == TxStatus::Failed);
     WALLET_CHECK(stx->m_fsmState.empty());
     WALLET_CHECK(stx->m_sender == true);
 }
@@ -1227,6 +1210,7 @@ void TestP2PWalletReverseNegotiationST()
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
     WALLET_CHECK(stx->m_amount == rtx->m_amount);
+    WALLET_CHECK(stx->m_status == TxStatus::Completed);
     WALLET_CHECK(stx->m_fee == rtx->m_fee);
     WALLET_CHECK(stx->m_message == rtx->m_message);
     WALLET_CHECK(stx->m_createTime >= rtx->m_createTime);
@@ -1301,6 +1285,7 @@ void TestP2PWalletReverseNegotiationST()
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
     WALLET_CHECK(stx->m_amount == rtx->m_amount);
+    WALLET_CHECK(stx->m_status == TxStatus::Completed);
     WALLET_CHECK(stx->m_message == rtx->m_message);
     WALLET_CHECK(stx->m_createTime >= rtx->m_createTime);
     WALLET_CHECK(stx->m_status == rtx->m_status);
@@ -1346,13 +1331,13 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(rtx->m_amount == 6);
-    WALLET_CHECK(rtx->m_status == TxDescription::Failed);
+    WALLET_CHECK(rtx->m_status == TxStatus::Failed);
     WALLET_CHECK(rtx->m_fsmState.empty());
     WALLET_CHECK(rtx->m_sender == false);
 
 
     WALLET_CHECK(stx->m_amount == 6);
-    WALLET_CHECK(stx->m_status == TxDescription::Failed);
+    WALLET_CHECK(stx->m_status == TxStatus::Failed);
     WALLET_CHECK(stx->m_fsmState.empty());
     WALLET_CHECK(stx->m_sender == true);
 }
@@ -1371,46 +1356,6 @@ void TestSplitKey()
     s2 = -s2;
     Scalar::Native s1 = res1.first+s2;
     WALLET_CHECK(s1 == nonce);
-}
-
-void TestSerializeFSM()
-{
-    cout << "\nTesting wallet's fsm serialization...\nsender\n";
-    TestGateway gateway;
-
-    beam::TxID id = { { 3, 65, 70 } };
-    TxDescription tx = {};
-    tx.m_txId = id;
-    tx.m_amount = 6;
-    wallet::Negotiator s{ gateway, createKeychain<TestKeyChain>(), tx};
-    WALLET_CHECK(*(s.currentState()) == 0);
-    s.start();
-    s.processEvent(wallet::events::TxInitiated{});
-    WALLET_CHECK(*(s.currentState()) == 2);
-
-    Serializer ser;
-    ser & s;
-
-    auto buffer = ser.buffer();
-
-    Deserializer der;
-    der.reset(buffer.first, buffer.second);
-
-    wallet::Negotiator s2{ gateway, createKeychain<TestKeyChain>(), {} };
-    WALLET_CHECK(*(s2.currentState()) == 0);
-    der & s2;
-    WALLET_CHECK(*(s2.currentState()) == 2);
-    s2.processEvent(wallet::events::TxResumed{});
-    s2.processEvent(wallet::events::TxInvitationCompleted{ wallet::ConfirmInvitation() });
-    WALLET_CHECK(*(s2.currentState()) == 4);
-
-    ser.reset();
-    ser & s2;
-
-    buffer = ser.buffer();
-    der.reset(buffer.first, buffer.second);
-    der & s;
-    WALLET_CHECK(*(s.currentState()) == 4);
 }
 
 struct MyMmr : public Merkle::Mmr
@@ -1614,8 +1559,6 @@ int main()
 
     TestTxToHimself();
 
-    TestFSM();
-    TestSerializeFSM();
     TestRollback();
 
     assert(g_failureCount == 0);

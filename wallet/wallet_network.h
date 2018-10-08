@@ -35,7 +35,8 @@ namespace beam
         senderConfirmationCode   ,
         receiverConfirmationCode ,
         receiverRegisteredCode   ,
-        failedCode
+        failedCode,
+        setTxParameterCode
     };
 
     inline uint32_t channel_from_wallet_id(const WalletID& walletID) {
@@ -66,11 +67,7 @@ namespace beam
 
     private:
         // INetworkIO
-        void send_tx_message(const WalletID& to, wallet::Invite&&) override;
-        void send_tx_message(const WalletID& to, wallet::ConfirmTransaction&&) override;
-        void send_tx_message(const WalletID& to, wallet::ConfirmInvitation&&) override;
-        void send_tx_message(const WalletID& to, wallet::TxRegistered&&) override;
-        void send_tx_message(const WalletID& to, wallet::TxFailed&&) override;
+        void send_tx_message(const WalletID& to, wallet::SetTxParameter&&) override;
 
         void send_node_message(proto::NewTransaction&&) override;
         void send_node_message(proto::GetProofUtxo&&) override;
@@ -95,11 +92,7 @@ namespace beam
         bool handle_decrypted_message(uint64_t timestamp, const void* buf, size_t size);
 
         // handlers for the protocol messages
-        bool on_message(uint64_t, wallet::Invite&& msg);
-        bool on_message(uint64_t, wallet::ConfirmTransaction&& msg);
-        bool on_message(uint64_t, wallet::ConfirmInvitation&& msg);
-        bool on_message(uint64_t, wallet::TxRegistered&& msg);
-        bool on_message(uint64_t, wallet::TxFailed&& msg);
+        bool on_message(uint64_t, wallet::SetTxParameter&& msg);
 
         void start_sync_timer();
         void on_sync_timer();

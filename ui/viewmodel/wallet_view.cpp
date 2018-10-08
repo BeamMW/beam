@@ -87,20 +87,20 @@ QString TxObject::change() const
 QString TxObject::status() const
 {
     static QString Names[] = { tr("Pending"), tr("In Progress"), tr("Cancelled"), tr("Completed"), tr("Failed"), tr("Confirming") };
-    return Names[_tx.m_status];
+    return Names[static_cast<uint32_t>(_tx.m_status)];
 }
 
 bool TxObject::canCancel() const
 {
-    return _tx.m_status == beam::TxDescription::InProgress
-        || _tx.m_status == beam::TxDescription::Pending;
+    return _tx.m_status == beam::TxStatus::InProgress
+        || _tx.m_status == beam::TxStatus::Pending;
 }
 
 bool TxObject::canDelete() const
 {
-    return _tx.m_status == beam::TxDescription::Failed
-        || _tx.m_status == beam::TxDescription::Completed
-        || _tx.m_status == beam::TxDescription::Cancelled;
+    return _tx.m_status == beam::TxStatus::Failed
+        || _tx.m_status == beam::TxStatus::Completed
+        || _tx.m_status == beam::TxStatus::Cancelled;
 }
 
 void TxObject::setUserName(const QString& name)
@@ -158,7 +158,7 @@ const beam::TxDescription& TxObject::getTxDescription() const
     return _tx;
 }
 
-void TxObject::setStatus(beam::TxDescription::Status status)
+void TxObject::setStatus(beam::TxStatus status)
 {
     if (_tx.m_status != status)
     {
