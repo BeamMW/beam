@@ -46,7 +46,7 @@ namespace beam {
         , m_reconnect_ms{ reconnect_ms }
         , m_sync_period_ms{ sync_period_ms }
         , m_close_timeout_ms{ 10 *1000 }
-        , m_sync_timer{io::Timer::create(m_reactor)}
+        , m_sync_timer{io::Timer::create(*m_reactor)}
         , m_keystore(keyStore)
         , m_lastReceiver(0)
     {
@@ -154,7 +154,7 @@ namespace beam {
     {
         if (m_is_node_connected && !m_close_timer)
         {
-            m_close_timer = io::Timer::create(m_reactor);
+            m_close_timer = io::Timer::create(*m_reactor);
             m_close_timer->start(m_close_timeout_ms, false, BIND_THIS_MEMFN(on_close_connection_timer));
         }
     }
@@ -325,7 +325,7 @@ namespace beam {
         : m_address{address}
         , m_wallet {wallet}
         , m_connecting{false}
-        , m_timer{io::Timer::create(reactor)}
+        , m_timer{io::Timer::create(*reactor)}
         , m_reconnectMsec{reconnectMsec}
         , m_io{io}
     {

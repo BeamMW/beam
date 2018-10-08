@@ -37,7 +37,7 @@ class AsyncContext {
 public:
     // TODO: unify IDs
     using TimerID = io::CoarseTimer::ID;
-    using TimerCallback = io::CoarseTimer::Callback;
+    using TimerCallback = io::Timer::Callback;
 
     explicit AsyncContext(unsigned coarseTimerResolutionMsec=100);
 
@@ -66,7 +66,7 @@ public:
 
     /// periodic timer
     io::Timer::Ptr set_timer(unsigned periodMsec, io::Timer::Callback&& onTimer) {
-        io::Timer::Ptr timer(io::Timer::create(_reactor));
+        io::Timer::Ptr timer(io::Timer::create(*_reactor));
         timer->start(periodMsec, true, std::move(onTimer));
         return timer;
     }
@@ -86,8 +86,7 @@ protected:
     io::Reactor::Ptr _reactor;
 
 private:
-    std::unordered_map<TimerID, TimerCallback> _timerCallbacks;
-    io::CoarseTimer::Ptr _timer;
+    io::MultipleTimers _timers;
     Thread _thread;
     AsyncContext* _prevInThread=0;
     std::atomic<bool> _started;

@@ -106,7 +106,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
         proxy(_proxy),
         address(_address),
         thisIsServer(_thisIsServer),
-        bridge(*this, _reactor)
+        bridge(*this, *_reactor)
     {
         // TODO can be wrapped into macros
         protocol.add_message_handler<NetworkSide, Request, &NetworkSide::on_request>(requestCode, this, 1, 2000000);
@@ -122,7 +122,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
         // Only event handling matters
         if (thisIsServer) {
             // TODO error handling here
-            server = io::TcpServer::create(_reactor, address, BIND_THIS_MEMFN(on_stream_accepted));
+            server = io::TcpServer::create(*_reactor, address, BIND_THIS_MEMFN(on_stream_accepted));
         } else {
             _reactor->tcp_connect(
                 address,
@@ -241,7 +241,7 @@ struct AppSideAsyncContext : public AsyncContext {
     NetworkToLogicBridge bridge;
 
     AppSideAsyncContext(INetworkToLogic& logicCallbacks) :
-        bridge(logicCallbacks, _reactor)
+        bridge(logicCallbacks, *_reactor)
     {}
 
     INetworkToLogic& get_proxy() {

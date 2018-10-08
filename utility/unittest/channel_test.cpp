@@ -53,7 +53,7 @@ struct RXThread : SomeAsyncObject {
 
     RXThread() :
         rx(
-            reactor,
+            *reactor,
             [this](Message&& msg) {
                 if (msg.n == 0) {
                     reactor->stop();

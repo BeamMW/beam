@@ -293,6 +293,8 @@ namespace beam
 			virtual void NextUtxoOut() = 0;
 			virtual void NextKernelIn() = 0;
 			virtual void NextKernelOut() = 0;
+
+			void Compare(IReader&& rOther, bool& bICover, bool& bOtherCovers);
 		};
 
 		struct IWriter

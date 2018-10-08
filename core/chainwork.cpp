@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+﻿// Copyright 2018 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ namespace beam
 	//////////////////////////
 	// ChainWorkProof
 	//
-	// Based on the idea described by Benedikt Bunz.
+	// Based on FlyClient idea by Loi Luu, Benedikt Bünz, Mahdi Zamani
 	//
 	// Every state header includes (implicitly) the merkle tree hash of all the inherited states, whereas the difficulty and the cumulative chainwork of each header is accounted for in its hash.
 	// So if we consider the "work axis", we have a Merkle tree of committed ranges of proven work, which are supposed to be contiguous and non-overlapping, up to the blockchain tip.

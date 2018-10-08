@@ -16,17 +16,16 @@
 #include "utility/helpers.h"
 #include <assert.h>
 
-#define LOG_VERBOSE_ENABLED 1
+#define LOG_VERBOSE_ENABLED 0
 #include "utility/logger.h"
 
 namespace beam { namespace io {
 
-CoarseTimer::Ptr CoarseTimer::create(const Reactor::Ptr& reactor, unsigned resolutionMsec, const Callback& cb) {
-    assert(reactor);
+CoarseTimer::Ptr CoarseTimer::create(Reactor& reactor, unsigned resolutionMsec, const Callback& cb) {
     assert(cb);
     assert(resolutionMsec > 0);
 
-    if (!reactor || !cb || !resolutionMsec) IO_EXCEPTION(EC_EINVAL);
+    if (!cb || !resolutionMsec) IO_EXCEPTION(EC_EINVAL);
 
     return CoarseTimer::Ptr(new CoarseTimer(resolutionMsec, cb, Timer::create(reactor)));
 }
@@ -135,6 +134,49 @@ void CoarseTimer::on_timer() {
         } else {
             _timerSetTo = now + intervalMsec;
         }
+    }
+}
+
+MultipleTimers::MultipleTimers(Reactor& reactor, unsigned resolutionMsec) :
+    _timer(CoarseTimer::create(reactor, resolutionMsec, BIND_THIS_MEMFN(on_timer)))
+{}
+
+io::Result MultipleTimers::set_timer(CoarseTimer::ID id, unsigned intervalMsec, Timer::Callback&& callback) {
+    if (!callback) return make_unexpected(io::EC_EINVAL);
+
+    auto it = _timerCallbacks.find(id);
+    if (it != _timerCallbacks.end()) {
+        _timer->cancel(id);
+        it->second = std::move(callback);
+    } else {
+        _timerCallbacks.insert( { id, std::move(callback) } );
+    }
+
+    io::Result res = _timer->set_timer(intervalMsec, id);
+    if (!res) {
+        _timerCallbacks.erase(id);
+    }
+
+    return res;
+}
+
+void MultipleTimers::cancel(CoarseTimer::ID id) {
+    if (_timerCallbacks.erase(id) != 0) {
+        _timer->cancel(id);
+    }
+}
+
+void MultipleTimers::cancel_all() {
+    _timer->cancel_all();
+    _timerCallbacks.clear();
+}
+
+void MultipleTimers::on_timer(CoarseTimer::ID id) {
+    auto it = _timerCallbacks.find(id);
+    if (it != _timerCallbacks.end()) {
+        Timer::Callback cb = std::move(it->second);
+        _timerCallbacks.erase(it);
+        cb();
     }
 }
 

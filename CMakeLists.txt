@@ -83,6 +83,10 @@ if(DEBUG_MESSAGES_IN_RELEASE_MODE)
     add_definitions(-DDEBUG_MESSAGES_IN_RELEASE_MODE)
 endif()
 
+if(SHOW_CODE_LOCATION)
+    add_definitions(-DSHOW_CODE_LOCATION=1)
+endif()
+
 if(BRANCH_NAME MATCHES "testnet")
     add_definitions(-DBEAM_TESTNET)
 endif()
@@ -133,7 +137,7 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-overloaded-virtual") # appears alot in our macro expansions
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-const-variable") # so what?
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function") # mostly in 3rd-party libs
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value") # proto.h 
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value") # proto.h
 
 
 endif()
@@ -178,7 +182,9 @@ add_subdirectory(pow)
 add_subdirectory(p2p)
 add_subdirectory(wallet)
 add_subdirectory(sqlite)
+add_subdirectory(node)
 add_subdirectory(beam)
+add_subdirectory(explorer)
 
 # TODO: uncomment this later
 if(NOT ANDROID)

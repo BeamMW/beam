@@ -82,7 +82,7 @@ struct RemoteThreadLogicExample {
     RemoteThreadLogicExample() :
         reactor(io::Reactor::create()),
         handler(reactor),
-        bridge(handler, reactor)
+        bridge(handler, *reactor)
     {}
 
     void start() {

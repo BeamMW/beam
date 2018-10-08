@@ -17,16 +17,18 @@
 
 namespace beam { namespace io {
 
-TcpServer::Ptr TcpServer::create(const Reactor::Ptr& reactor, Address bindAddress, Callback&& callback) {
-    assert(reactor);
+TcpServer::Ptr TcpServer::create(Reactor& reactor, Address bindAddress, Callback&& callback) {
     assert(callback);
-
-    if (!reactor || !callback)
+    if (!callback)
         IO_EXCEPTION(EC_EINVAL);
+    return Ptr(new TcpServer(std::move(callback), reactor, bindAddress));
+}
 
-    Ptr server(new TcpServer(std::move(callback)));
-    ErrorCode errorCode = reactor->init_tcpserver(
-        server.get(),
+TcpServer::TcpServer(Callback&& callback, Reactor& reactor, Address bindAddress) :
+    _callback(std::move(callback))
+{
+    ErrorCode errorCode = reactor.init_tcpserver(
+        this,
         bindAddress,
         [](uv_stream_t* handle, int errorCode) {
             assert(handle);
@@ -35,15 +37,10 @@ TcpServer::Ptr TcpServer::create(const Reactor::Ptr& reactor, Address bindAddres
         }
     );
     IO_EXCEPTION_IF(errorCode);
-    return server;
 }
 
-TcpServer::TcpServer(Callback&& callback) :
-    _callback(std::move(callback))
-{}
-
 void TcpServer::on_accept(ErrorCode errorCode) {
-    if (errorCode != 0) {
+    if (errorCode != EC_OK) {
         _callback(TcpStream::Ptr(), errorCode);
         return;
     }

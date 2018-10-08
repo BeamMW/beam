@@ -20,4 +20,8 @@
 namespace string_helpers
 {
 	std::vector<std::string> split(const std::string& s, char delim);
+
+#ifdef WIN32
+	std::wstring Utf8toUtf16(const char*);
+#endif // WIN32
 }

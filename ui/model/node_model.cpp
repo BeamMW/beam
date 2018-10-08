@@ -14,7 +14,7 @@
 
 #include "node_model.h"
 #include "app_model.h"
-#include "beam/node.h"
+#include "node/node.h"
 
 using namespace beam;
 using namespace beam::io;

@@ -106,10 +106,10 @@ struct Server {
 			Reactor::Scope scope(*reactor);
 
             TcpServer::Ptr server = TcpServer::create(
-                reactor, Address::localhost().port(g_port), BIND_THIS_MEMFN(on_stream_accepted)
+                *reactor, Address::localhost().port(g_port), BIND_THIS_MEMFN(on_stream_accepted)
             );
 
-            Timer::Ptr timer = Timer::create(reactor);
+            Timer::Ptr timer = Timer::create(*reactor);
             timer->start(
                 10000,
                 false,
@@ -188,7 +188,7 @@ struct Client {
                 BIND_THIS_MEMFN(on_client_connected)
             );
 
-            Timer::Ptr timer = Timer::create(reactor);
+            Timer::Ptr timer = Timer::create(*reactor);
             timer->start(
                 10000,
                 false,

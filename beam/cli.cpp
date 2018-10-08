@@ -15,7 +15,7 @@
 #include "wallet/wallet_network.h"
 #include "core/common.h"
 
-#include "node.h"
+#include "node/node.h"
 #include "core/ecc_native.h"
 #include "core/ecc.h"
 #include "core/serialization_adapters.h"
@@ -129,7 +129,7 @@ int main_impl(int argc, char* argv[])
 				NoLeak<uintBig> walletSeed;
 				walletSeed.V = Zero;
 
-				io::Timer::Ptr logRotateTimer = io::Timer::create(reactor);
+				io::Timer::Ptr logRotateTimer = io::Timer::create(*reactor);
 				logRotateTimer->start(
 					LOG_ROTATION_PERIOD, true,
 					[]() {
