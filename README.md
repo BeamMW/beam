@@ -72,7 +72,7 @@ years.
 ## Mac
 1. Install Brew Package Manager.
 1. Installed necessary packages using `brew install openssl boost cmake qt5` command.
-1. Add `OPENSSL_ROOT_DIR="/usr/local/opt/openssl"` and `export PATH=/usr/local/opt/qt/bin:$PATH` to the _Environment Variables_.
+1. Add `export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"` and `export PATH=/usr/local/opt/qt/bin:$PATH` to the _Environment Variables_.
 1. Go to Beam project folder and call `cmake -DCMAKE_BUILD_TYPE=Release . && make -j4`.
 1. You'll find _Beam_ binary in `bin` folder, `beam-wallet` in `ui` subfolder.
 
