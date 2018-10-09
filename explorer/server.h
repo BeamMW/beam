@@ -15,9 +15,9 @@
 #include "p2p/http_connection.h"
 #include "p2p/http_msg_creator.h"
 #include "utility/io/tcpserver.h"
-#include "utility/io/asyncevent.h"
 #include "utility/io/coarsetimer.h"
 #include "utility/helpers.h"
+#include <string_view>
 
 namespace beam { namespace explorer {
 
@@ -25,10 +25,24 @@ struct IAdapter;
 
 class Server {
 public:
-    Server(IAdapter& adapter, io::Reactor& reactor, io::Address bindAddress);
+    Server(IAdapter& adapter, io::Reactor& reactor, io::Address bindAddress, const std::string& keysFileName);
 
 private:
+    class AccessControl {
+    public:
+        explicit AccessControl(const std::string& keysFileName);
+
+        bool check(const std::string_view& mask, const std::string_view& nonce, const std::string_view& hash);
+
+        void refresh();
+    private:
+        std::string _keysFileName;
+        time_t _lastModified;
+        std::map<std::string, std::string> _keys;
+    };
+
     void start_server();
+    void refresh_acl();
 
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
 
@@ -48,6 +62,7 @@ private:
     HttpUrl _currentUrl;
     io::SerializedMsg _headers;
     io::SerializedMsg _body;
+    AccessControl _acl;
 };
 
 }} //namespaces

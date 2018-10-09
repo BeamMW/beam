@@ -10,6 +10,7 @@ using namespace beam;
 
 struct Options {
     std::string nodeDbFilename;
+    std::string accessControlFile;
     io::Address nodeConnectTo;
     io::Address nodeListenTo;
     io::Address explorerListenTo;
@@ -39,7 +40,7 @@ int main(int argc, char* argv[]) {
         setup_node(node, options);
         explorer::IAdapter::Ptr adapter = explorer::create_adapter(node);
         node.Initialize();
-        explorer::Server server(*adapter, *reactor, options.explorerListenTo);
+        explorer::Server server(*adapter, *reactor, options.explorerListenTo, options.accessControlFile);
         LOG_INFO() << "Node listens to " << options.nodeListenTo << ", explorer listens to " << options.explorerListenTo;
         reactor->run();
         LOG_INFO() << "Done";
@@ -63,6 +64,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
 #endif
 
     o.nodeDbFilename = FILES_PREFIX "db";
+    o.accessControlFile = "api.keys";
 
     o.nodeConnectTo.resolve("172.104.249.212:8101");
     o.nodeListenTo.port(10000);

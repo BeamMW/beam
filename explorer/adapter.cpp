@@ -321,7 +321,7 @@ private:
                 blockAvailable = false;
             } else {
                 _sm.clear();
-                if (stratum::append_json_msg(out, _packer, j)) {
+                if (stratum::append_json_msg(_sm, _packer, j)) {
                     body = io::normalize(_sm, false);
                     _cache.put_block(height, body);
                 } else {
