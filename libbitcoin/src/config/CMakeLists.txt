@@ -1,0 +1,6 @@
+file(GLOB CONFIG_SOURCES "*.cpp")
+file(GLOB CONFIG_HEADERS "${LIBBITCOIN_INCLUDE_DIR}/config/*.hpp")
+#ADD_LIBRARY(config OBJECT
+#	${SOURCES}
+#	${HEADERS}
+#	)

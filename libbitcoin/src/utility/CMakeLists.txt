@@ -1,0 +1,7 @@
+file(GLOB UTILITY_SOURCES "*.cpp")
+file(GLOB UTILITY_HEADERS "${LIBBITCOIN_INCLUDE_DIR}/utility/*.hpp")
+
+#ADD_LIBRARY(utility OBJECT
+#	${SOURCES}
+#	${HEADERS}
+#	)

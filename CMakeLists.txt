@@ -111,6 +111,8 @@ if(MSVC)
     SET(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /OPT:REF /INCREMENTAL:NO")
     SET(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "${CMAKE_EXE_LINKER_FLAGS_MINSIZEREL} /OPT:REF /INCREMENTAL:NO")
 
+    add_definitions(-D_WIN32_WINNT=0x0600)
+
     if(BEAM_USE_STATIC)
         # use static runtime
         foreach(flag_var CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
@@ -176,7 +178,10 @@ add_definitions(-DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 
 include_directories(${PROJECT_SOURCE_DIR}/utility) # TODO  move to ./3rdparty all that stuff that requires to add this line
 
+add_definitions(-DBC_STATIC)
+
 add_subdirectory(secp256k1-zkp)
+add_subdirectory(libbitcoin)
 add_subdirectory(utility)
 add_subdirectory(core)
 add_subdirectory(pow)

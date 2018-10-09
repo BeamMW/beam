@@ -1,0 +1,6 @@
+file(GLOB MESSAGE_SOURCES "*.cpp")
+file(GLOB MESSAGE_HEADERS "${LIBBITCOIN_INCLUDE_DIR}/message/*.hpp")
+#ADD_LIBRARY(message OBJECT
+#	${SOURCES}
+#	${HEADERS}
+#	)

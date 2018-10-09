@@ -1,0 +1,6 @@
+file(GLOB MACHINE_SOURCES "*.cpp")
+file(GLOB MACHINE_HEADERS "${LIBBITCOIN_INCLUDE_DIR}/machine/*.hpp")
+#ADD_LIBRARY(machine OBJECT
+#	${SOURCES}
+#	${MACHINE}
+#	)

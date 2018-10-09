@@ -1,0 +1,6 @@
+file(GLOB CHAIN_SOURCES "*.cpp")
+file(GLOB CHAIN_HEADERS "${LIBBITCOIN_INCLUDE_DIR}/chain/*.hpp")
+#ADD_LIBRARY(chain OBJECT
+#	${SOURCES}
+#	${HEADERS}
+#	)
