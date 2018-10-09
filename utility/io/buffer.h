@@ -121,6 +121,14 @@ struct SharedBuffer : IOVec {
         guard = std::move(_guard);
     }
 
+    void unique() {
+        if (empty()) return;
+        auto p = alloc_heap(size);
+        memcpy(p.first, data, size);
+        data = p.first;
+        guard = std::move(p.second);
+    }
+
     void clear() {
         IOVec::clear();
         guard.reset();

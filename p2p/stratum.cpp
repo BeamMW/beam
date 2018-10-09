@@ -99,7 +99,7 @@ int parse_error(const json& o, Error& e) {
 
 } //namespace
 
-template<> io::SharedBuffer create_json_msg(HttpMsgCreator& packer, const Response& m) {
+template<> bool append_json_msg(io::SerializedMsg& out, HttpMsgCreator& packer, const Response& m) {
     json o;
     o[l_jsonrpc] = "2.0";
     o[l_id] = m.id;
@@ -113,7 +113,7 @@ template<> io::SharedBuffer create_json_msg(HttpMsgCreator& packer, const Respon
         o[l_error] = nullptr;
     }
 
-    return dump(packer, o);
+    return append_json_msg(out, packer, o);
 }
 
 template<> int parse_json_msg(const void* buf, size_t bufSize, Response& m) {
@@ -131,24 +131,21 @@ template<> int parse_json_msg(const void* buf, size_t bufSize, Response& m) {
     return parse_error(o, m.error);
 }
 
-io::SharedBuffer dump(HttpMsgCreator& packer, const json& o) {
-    io::SharedBuffer result;
-    io::SerializedMsg sm;
-    io::FragmentWriter& fw = packer.acquire_writer(sm);
+bool append_json_msg(io::SerializedMsg& out, HttpMsgCreator& packer, const json& o) {
+    bool result = true;
+    size_t initialFragments = out.size();
+    io::FragmentWriter& fw = packer.acquire_writer(out);
     try {
         // TODO make stateful object out of these fns if performance issues occur
-
-
         nlohmann::detail::serializer<json> s(std::make_shared<JsonOutputAdapter>(fw), ' ');
         s.dump(o, false, false, 0);
-        fw.finalize();
-        result = io::normalize(sm, false);
-
     } catch (const std::exception& e) {
         LOG_ERROR() << "dump json: " << e.what();
-        fw.finalize();
+        result = false;
     }
 
+    fw.finalize();
+    if (!result) out.resize(initialFragments);
     packer.release_writer();
     return result;
 }

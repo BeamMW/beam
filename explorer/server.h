@@ -34,12 +34,11 @@ private:
 
     bool on_request(uint64_t id, const HttpMsgReader::Message& msg);
     bool send_status(const HttpConnection::Ptr& conn);
+    bool send_block(const HttpConnection::Ptr& conn);
     bool send_blocks(const HttpConnection::Ptr& conn);
-    bool send_404(const HttpConnection::Ptr& conn);
-    bool send(const HttpConnection::Ptr& conn, int code, const char* message, const io::SharedBuffer* body);
+    bool send(const HttpConnection::Ptr& conn, int code, const char* message);
 
     HttpMsgCreator _msgCreator;
-    io::SerializedMsg _serialized;
     IAdapter& _backend;
     io::Reactor& _reactor;
     io::MultipleTimers _timers;
@@ -47,6 +46,8 @@ private:
     io::TcpServer::Ptr _server;
     std::map<uint64_t, HttpConnection::Ptr> _connections;
     HttpUrl _currentUrl;
+    io::SerializedMsg _headers;
+    io::SerializedMsg _body;
 };
 
 }} //namespaces

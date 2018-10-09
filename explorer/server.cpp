@@ -14,7 +14,7 @@ static const size_t MAX_REQUEST_BODY_SIZE = 0;
 static const size_t REQUEST_BODY_SIZE_THRESHOLD = 0;
 
 enum Dirs {
-    DIR_STATUS, DIR_BLOCKS
+    DIR_STATUS, DIR_BLOCK, DIR_BLOCKS
     // etc
 };
 
@@ -75,7 +75,7 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
     const std::string& path = msg.msg->get_path();
 
     static const std::map<std::string_view, int> dirs {
-        { "status", DIR_STATUS }, { "blocks", DIR_BLOCKS }
+        { "status", DIR_STATUS }, { "block", DIR_BLOCK }, { "blocks", DIR_BLOCKS }
     };
 
     bool ret = false;
@@ -86,6 +86,9 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
             case DIR_STATUS:
                 ret = send_status(conn);
                 break;
+            case DIR_BLOCK:
+                ret = send_block(conn);
+                break;
             case DIR_BLOCKS:
                 ret = send_blocks(conn);
                 break;
@@ -95,7 +98,7 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
     }
 
     if (!ret) {
-        send_404(conn);
+        send(conn, 404, "Not Found");
         conn->shutdown();
         _connections.erase(it);
     }
@@ -104,68 +107,60 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
 }
 
 bool Server::send_status(const HttpConnection::Ptr& conn) {
-    return send(conn, 200, "OK", &_backend.get_status(_msgCreator));
+    _body.clear();
+    if (_backend.get_status(_body)) {
+        return send(conn, 500, "Internal error #1");
+    }
+    return send(conn, 200, "OK");
+}
+
+bool Server::send_block(const HttpConnection::Ptr &conn) {
+    auto height = _currentUrl.get_int_arg("height", 0);
+    if (!_backend.get_block(_body, height)) {
+        return send(conn, 500, "Internal error #2");
+    }
+    return send(conn, 200, "OK");
 }
 
 bool Server::send_blocks(const HttpConnection::Ptr& conn) {
-    auto start = _currentUrl.get_int_arg("start", -1);
-    auto end = _currentUrl.get_int_arg("end", -1);
-    if (start < 0 || end < 0 || end < start || end - start > 100) {
-        return send_404(conn);
+    auto start = _currentUrl.get_int_arg("start", 0);
+    auto end = _currentUrl.get_int_arg("end", 0);
+    if (!_backend.get_blocks(_body, start, end)) {
+        return send(conn, 500, "Internal error #3");
     }
-/*
-    io::SharedBuffer body;
-        int code = 200;
-        const char* message = "OK";
-        bool stop = (path == "/stop");
-        if (!stop && path != "/") {
-            try {
-                body = io::map_file_read_only(path.c_str());
-            } catch (const std::exception& e) {
-                LOG_DEBUG() << e.what();
-                code = 404;
-                message = "Not found";
-            }
-        }
-
-        static const HeaderPair headers[] = {
-            {"Server", "DummyHttpServer"},
-            {"Host", msg.msg->get_header("host").c_str() }
-        };
-
-    */
-
-return false;
+    return send(conn, 200, "OK");
 }
 
-bool Server::send_404(const HttpConnection::Ptr& conn) {
-    return send(conn, 404, "Not Found", 0);
-}
-
-bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message, const io::SharedBuffer* body) {
+bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message) {
     assert(conn);
 
+    size_t bodySize = 0;
+    for (const auto& f : _body) { bodySize += f.size; }
+
     bool ok = _msgCreator.create_response(
-        _serialized,
+        _headers,
         code,
         message,
         0, //headers,
         0, //sizeof(headers) / sizeof(HeaderPair),
         1,
         "application/json",
-        body ? body->size : 0
+        bodySize
     );
 
     if (ok) {
-        if (body && !body->empty()) _serialized.push_back(*body);
-        conn->write_msg(_serialized);
-
+        auto result = conn->write_msg(_headers);
+        if (result && bodySize > 0) {
+            result = conn->write_msg(_body);
+        }
+        if (!result) ok = false;
     } else {
         LOG_ERROR() << STS << "cannot create response";
-        return false;
     }
 
-    return (code == 200);
+    _headers.clear();
+    _body.clear();
+    return (ok && code == 200);
 }
 
 }} //namespaces
