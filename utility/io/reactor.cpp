@@ -657,18 +657,19 @@ void Reactor::GracefulIntHandler::SetHandler(bool bSet)
 	sa.sa_flags = 0;
 
 	sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGHUP, &sa, NULL);
+    sigaction(SIGPIPE, &sa, NULL);
 }
 
 void Reactor::GracefulIntHandler::Handler(int sig)
 {
-	if (sig != SIGPIPE) {
+	if (sig != SIGPIPE && sig != SIGHUP) {
         assert(s_pAppReactor);
         s_pAppReactor->stop();
     }
 }
 
 #endif // WIN32
-
-
 
 }} //namespaces
