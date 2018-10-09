@@ -34,9 +34,7 @@ struct DummyBlock {
     uint64_t height;
 };
 
-io::SharedBuffer dump_to_json(HttpMsgCreator& packer, const DummyStatus& ds) {
-    return stratum::dump(packer, json{ {"timestamp", ds.timestamp }, { "height", ds.height }} );
-}
+
 
 using nlohmann::json;
 
