@@ -406,6 +406,40 @@ namespace beam
 		for (db.EnumAllBbs(wlkbbs); wlkbbs.MoveNext(); )
 			;
 
+		Merkle::Hash hv;
+		b0 = NodeDB::Blob(hv);
+		hv = 345U;
+
+		db.InsertDummy(176, b0);
+
+		hv = 346U;
+		db.InsertDummy(568, b0);
+
+		Height h1;
+
+		uint64_t rowid = db.FindDummy(h1, b0);
+		verify_test(rowid);
+		verify_test(h1 == 176);
+		verify_test(hv == Merkle::Hash(345U));
+
+		db.SetDummyHeight(rowid, 1055);
+
+		rowid = db.FindDummy(h1, b0);
+		verify_test(rowid);
+		verify_test(h1 == 568);
+		verify_test(hv == Merkle::Hash(346U));
+		
+		db.DeleteDummy(rowid);
+
+		rowid = db.FindDummy(h1, b0);
+		verify_test(rowid);
+		verify_test(h1 == 1055);
+		verify_test(hv == Merkle::Hash(345U));
+
+		db.DeleteDummy(rowid);
+
+		verify_test(!db.FindDummy(h1, b0));
+
 		tr.Commit();
 	}
 
@@ -914,7 +948,10 @@ namespace beam
 		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
 		node.m_Cfg.m_VerificationThreads = -1;
 
-		node.m_Cfg.m_Dandelion.m_OutputsMin = 0; // disable aggregation
+		node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
+		node.m_Cfg.m_Dandelion.m_OutputsMin = 3;
+		node.m_Cfg.m_Dandelion.m_DummyLifetimeLo = 5;
+		node.m_Cfg.m_Dandelion.m_DummyLifetimeHi = 10;
 
 		struct MyClient
 			:public proto::NodeConnection
@@ -1250,7 +1287,7 @@ namespace beam
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
 
 		node2.m_Cfg.m_Sync.m_Timeout_ms = 0; // sync immediately after seeing 1st peer
-		node2.m_Cfg.m_Dandelion.m_OutputsMin = 0;
+		node2.m_Cfg.m_Dandelion = node.m_Cfg.m_Dandelion;
 
 		node2.Initialize();
 
