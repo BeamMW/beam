@@ -406,6 +406,40 @@ namespace beam
 		for (db.EnumAllBbs(wlkbbs); wlkbbs.MoveNext(); )
 			;
 
+		Merkle::Hash hv;
+		b0 = NodeDB::Blob(hv);
+		hv = 345U;
+
+		db.InsertDummy(176, b0);
+
+		hv = 346U;
+		db.InsertDummy(568, b0);
+
+		Height h1;
+
+		uint64_t rowid = db.FindDummy(h1, b0);
+		verify_test(rowid);
+		verify_test(h1 == 176);
+		verify_test(hv == Merkle::Hash(345U));
+
+		db.SetDummyHeight(rowid, 1055);
+
+		rowid = db.FindDummy(h1, b0);
+		verify_test(rowid);
+		verify_test(h1 == 568);
+		verify_test(hv == Merkle::Hash(346U));
+		
+		db.DeleteDummy(rowid);
+
+		rowid = db.FindDummy(h1, b0);
+		verify_test(rowid);
+		verify_test(h1 == 1055);
+		verify_test(hv == Merkle::Hash(345U));
+
+		db.DeleteDummy(rowid);
+
+		verify_test(!db.FindDummy(h1, b0));
+
 		tr.Commit();
 	}
 
