@@ -107,8 +107,12 @@ struct Node
 			uint32_t m_TimeoutMax_ms = 50000;
 
 			uint32_t m_AggregationTime_ms = 10000;
-			uint32_t m_OutputsMin = 0; // must be aggregated. Currently disabled (until dummy-UTXO logic is implemented)
+			uint32_t m_OutputsMin = 5; // must be aggregated. Currently disabled (until dummy-UTXO logic is implemented)
 			uint32_t m_OutputsMax = 40; // may be aggregated
+
+			// dummy creation strategy
+			uint32_t m_DummyLifetimeLo = 720;
+			uint32_t m_DummyLifetimeHi = 1440 * 7; // set to 0 to disable
 
 		} m_Dandelion;
 
@@ -295,6 +299,8 @@ private:
 	bool OnTransactionStem(Transaction::Ptr&&, const Peer*);
 	void OnTransactionAggregated(Dandelion::Element&);
 	void PerformAggregation(Dandelion::Element&);
+	void AddDummyInputs(Transaction&);
+	void AddDummyOutputs(Transaction&);
 	bool OnTransactionFluff(Transaction::Ptr&&, const Peer*, Dandelion::Element*);
 
 	bool ValidateTx(Transaction::Context&, const Transaction&); // complete validation
