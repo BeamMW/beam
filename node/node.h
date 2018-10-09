@@ -464,7 +464,12 @@ private:
 	typedef boost::intrusive::list<Peer> PeerList;
 	PeerList m_lstPeers;
 
-	ECC::NoLeak<ECC::uintBig> m_SChannelSeed;
+	ECC::NoLeak<ECC::uintBig> m_NonceLast;
+	const ECC::uintBig& NextNonce();
+	void NextNonce(ECC::Scalar::Native&);
+
+	uint32_t RandomUInt32(uint32_t threshold);
+
 	ECC::NoLeak<ECC::Scalar> m_MyPrivateID;
 	PeerID m_MyPublicID;
 	PeerID m_MyOwnerID;

@@ -616,7 +616,7 @@ void Node::Initialize()
 
 void Node::InitIDs()
 {
-	ECC::GenRandom(m_SChannelSeed.V.m_pData, m_SChannelSeed.V.nBytes);
+	ECC::GenRandom(m_NonceLast.V.m_pData, m_NonceLast.V.nBytes);
 
 	m_MyPrivateID.V.m_Value = Zero;
 
@@ -624,7 +624,11 @@ void Node::InitIDs()
 	bool bNewID = !m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob);
 
 	if (bNewID)
-		ECC::Hash::Processor() << "myid" << m_SChannelSeed.V >> m_MyPrivateID.V.m_Value;
+	{
+		ECC::Scalar::Native sk;
+		NextNonce(sk);
+		m_MyPrivateID.V = sk;
+	}
 
 	ECC::Scalar::Native sk = m_MyPrivateID.V;
 	proto::Sk2Pk(m_MyPublicID, sk);
@@ -846,11 +850,7 @@ void Node::Peer::OnResendPeers()
 
 void Node::Peer::GenerateSChannelNonce(ECC::Scalar::Native& nonce)
 {
-	ECC::uintBig& hv = m_This.m_SChannelSeed.V; // alias
-
-	ECC::Hash::Processor() << "sch.nonce" << hv << GetTime_ms() >> hv;
-
-	nonce.GenerateNonce(m_This.m_Cfg.m_WalletKey.V, hv, NULL);
+	m_This.NextNonce(nonce);
 }
 
 void Node::Peer::OnConnectedSecure()
@@ -1645,7 +1645,18 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
 	LOG_INFO() << os.str();
 }
 
-uint32_t RandomUInt32(uint32_t threshold, ECC::uintBig& hvRnd)
+const ECC::uintBig& Node::NextNonce()
+{
+	ECC::GenerateNonce(m_NonceLast.V, m_Processor.m_Kdf.m_Secret.V, m_NonceLast.V, NULL, 0);
+	return m_NonceLast.V;
+}
+
+void Node::NextNonce(ECC::Scalar::Native& sk)
+{
+	sk.GenerateNonce(m_Cfg.m_WalletKey.V, NextNonce(), NULL);
+}
+
+uint32_t Node::RandomUInt32(uint32_t threshold)
 {
 	if (threshold)
 	{
@@ -1656,8 +1667,7 @@ uint32_t RandomUInt32(uint32_t threshold, ECC::uintBig& hvRnd)
 
 		do
 		{
-			ECC::Hash::Processor() << hvRnd >> hvRnd;
-			val = hvRnd;
+			val = NextNonce();
 		} while (!thrSel.Accept(val));
 
 		val.Export(threshold);
@@ -1755,16 +1765,13 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
 
 	if (nStemPeers)
 	{
-		ECC::uintBig& hvRnd = m_SChannelSeed.V;
-
 		auto thr = uintBigFrom(m_Cfg.m_Dandelion.m_FluffProbability);
-		ECC::Hash::Processor() << hvRnd >> hvRnd;
 
-		if (memcmp(thr.m_pData, hvRnd.m_pData, thr.nBytes) < 0)
+		if (memcmp(thr.m_pData, NextNonce().m_pData, thr.nBytes) < 0)
 		{
 			// broadcast to random peer
 			assert(nStemPeers);
-			nStemPeers = RandomUInt32(nStemPeers, hvRnd);
+			nStemPeers = RandomUInt32(nStemPeers);
 
 			for (PeerList::iterator it = m_lstPeers.begin(); ; it++)
 				if (it->m_Config.m_SpreadingTransactions && !nStemPeers--)
@@ -1774,7 +1781,7 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
 				}
 
 			// set random timer
-			uint32_t nTimeout_ms = m_Cfg.m_Dandelion.m_TimeoutMin_ms + RandomUInt32(m_Cfg.m_Dandelion.m_TimeoutMax_ms - m_Cfg.m_Dandelion.m_TimeoutMin_ms, hvRnd);
+			uint32_t nTimeout_ms = m_Cfg.m_Dandelion.m_TimeoutMin_ms + RandomUInt32(m_Cfg.m_Dandelion.m_TimeoutMax_ms - m_Cfg.m_Dandelion.m_TimeoutMin_ms);
 			m_Dandelion.SetTimer(nTimeout_ms, x);
 
 			return;
