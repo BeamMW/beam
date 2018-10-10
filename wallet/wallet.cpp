@@ -468,10 +468,6 @@ namespace beam
                         coin.m_maturity = proof.m_State.m_Maturity;
                         coin.m_confirmHeight = m_newState.m_Height;
                         m_newState.get_Hash(coin.m_confirmHash);
-                        if (coin.isReward())
-                        {
-                            LOG_INFO() << "Block reward received: " << PrintableAmount(coin.m_amount);
-                        }
                         if (coin.m_id == 0)
                         {
                             m_keyChain->store(coin);
@@ -480,8 +476,15 @@ namespace beam
                         {
                             m_keyChain->update(coin);
                         }
-                        assert(coin.m_createTxId.is_initialized());
-                        updateTransaction(*(coin.m_createTxId));
+                        if (coin.isReward())
+                        {
+                            LOG_INFO() << "Block reward received: " << PrintableAmount(coin.m_amount);
+                        }
+                        else
+                        {
+                            assert(coin.m_createTxId.is_initialized());
+                            updateTransaction(*(coin.m_createTxId));
+                        }
                     }
                     else
                     {
