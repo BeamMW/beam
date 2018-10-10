@@ -117,6 +117,10 @@ public:
 			BbsFind,
 			BbsDelOld,
 			BbsIns,
+			DummyIns,
+			DummyFind,
+			DummyUpdHeight,
+			DummyDel,
 
 			Dbg0,
 			Dbg1,
@@ -348,6 +352,11 @@ public:
 	void BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it)
 	bool BbsFind(WalkerBbs&); // set Key
 	void BbsDelOld(Timestamp tMinToRemain);
+
+	void InsertDummy(Height h, const Blob&);
+	uint64_t FindDummy(Height& h, Blob&);
+	void DeleteDummy(uint64_t);
+	void SetDummyHeight(uint64_t, Height);
 
 	uint64_t FindStateWorkGreater(const Difficulty::Raw&);
 

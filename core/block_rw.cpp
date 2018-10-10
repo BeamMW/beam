@@ -42,8 +42,12 @@ namespace beam
 		m_bRead = bRead;
 
 		if (bRead)
+		{
 			for (int i = 0; i < static_cast<int>(_countof(m_pS)); i++)
 				OpenInternal(i);
+		}
+		else
+			Delete();
 	}
 
 	bool Block::BodyBase::RW::OpenInternal(int iData)
