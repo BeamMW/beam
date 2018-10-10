@@ -30,6 +30,7 @@ namespace beam {namespace wallet
 
     void AtomicSwapTransaction::UpdateImpl()
     {
+
         CompleteTx();
     }
 

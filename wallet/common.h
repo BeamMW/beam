@@ -116,11 +116,12 @@ namespace beam
             Inputs,
             Outputs,
             CreateTime,
+            IsInitiator,
 
-            AtomicSwapCoin,
+            AtomicSwapCoin = 100,
             AtomicSwapAmount,
 
-            PeerPublicNonce,
+            PeerPublicNonce = 1000,
             PeerPublicExcess,
             PeerSignature,
             PeerOffset,

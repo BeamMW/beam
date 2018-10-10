@@ -30,6 +30,15 @@ namespace beam { namespace wallet
         virtual void Cancel() = 0;
     };
 
+    class TransactionFailedException : public std::runtime_error
+    {
+    public:
+        TransactionFailedException(bool notify, const char* message = "");
+        bool ShouldNofify() const;
+    private:
+        bool m_Notify;
+    };
+
     //
     // State machine for managing per transaction negotiations between wallets
     // 
@@ -52,13 +61,24 @@ namespace beam { namespace wallet
         }
 
         template <typename T>
+        void GetMandatoryParameter(TxParameterID paramID, T& value) const
+        {
+            if (!getTxParameter(m_Keychain, GetTxID(), paramID, value))
+            {
+                std::stringstream ss;
+                //ss <<  " Failed to get parameter: " << paramID;
+                throw TransactionFailedException(true, ss.str().c_str());
+            }
+        }
+
+        template <typename T>
         bool SetParameter(TxParameterID paramID, const T& value)
         {
             return setTxParameter(m_Keychain, GetTxID(), paramID, value);
         }
 
     protected:
-        
+        bool IsInitiator() const;
         void ConfirmKernel(const TxKernel& kernel);
         void CompleteTx();
         void RollbackTx();
@@ -68,6 +88,8 @@ namespace beam { namespace wallet
         std::vector<Input::Ptr> GetTxInputs(const TxID& txID) const;
         std::vector<Output::Ptr> GetTxOutputs(const TxID& txID) const;
         std::vector<Coin> GetUnconfirmedOutputs() const;
+        void CreateOutput(Amount amount, Height currentHeight);
+        void PrepareSenderUTXOs(Amount amount, Height currentHeight);
 
         void OnFailed(bool notify = false);
 
@@ -87,6 +109,8 @@ namespace beam { namespace wallet
         beam::IKeyChain::Ptr m_Keychain;
 
         TxID m_ID;
+        mutable boost::optional<bool> m_IsInitiator;
+
     };
 
     class SimpleTransaction : public BaseTransaction

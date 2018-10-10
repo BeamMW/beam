@@ -182,6 +182,7 @@ namespace beam
         tx->SetParameter(TxParameterID::MyID, from);
         tx->SetParameter(TxParameterID::Message, move(message));
         tx->SetParameter(TxParameterID::IsSender, sender);
+        tx->SetParameter(TxParameterID::IsInitiator, true);
 
         m_transactions.emplace(txID, tx);
 
@@ -200,6 +201,7 @@ namespace beam
         tx->SetParameter(TxParameterID::MinHeight, m_keyChain->getCurrentHeight());
         tx->SetParameter(TxParameterID::PeerID, to);
         tx->SetParameter(TxParameterID::MyID, from);
+        tx->SetParameter(TxParameterID::IsInitiator, true);
 
         tx->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin);
         tx->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount);
@@ -827,6 +829,8 @@ namespace beam
         t->SetParameter(TxParameterID::CreateTime, getTimestamp());
         t->SetParameter(TxParameterID::MyID, myID);
         t->SetParameter(TxParameterID::PeerID, msg.m_from);
+        t->SetParameter(TxParameterID::IsInitiator, false);
+
         m_transactions.emplace(msg.m_txId, t);
         return t;
     }
