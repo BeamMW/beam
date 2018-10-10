@@ -1,6 +1,2 @@
 file(GLOB UNICODE_SOURCES "*.cpp")
 file(GLOB UNICODE_HEADERS "${LIBBITCOIN_INCLUDE_DIR}/unicode/*.hpp")
-#ADD_LIBRARY(unicode OBJECT
-#	${SOURCES}
-#	${HEADERS}
-#	)

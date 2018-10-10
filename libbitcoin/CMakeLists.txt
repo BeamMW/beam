@@ -1,6 +1,3 @@
-#cmake_minimum_required(VERSION 3.5)
-
-#project(libbitcoin LANGUAGES C CXX)
 set(TARGET_NAME libbitcoin)
 
 set(LIBBITCOIN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/bitcoin/bitcoin)

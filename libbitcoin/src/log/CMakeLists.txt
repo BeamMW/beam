@@ -1,6 +1,2 @@
 file(GLOB LOG_SOURCES "*.cpp")
 file(GLOB LOG_HEADERS "${LIBBITCOIN_INCLUDE_DIR}/log/*.hpp")
-#ADD_LIBRARY(log OBJECT
-#	${SOURCES}
-#	${HEADERS}
-#	)
