@@ -22,14 +22,14 @@ namespace beam { namespace io {
 namespace {
 
 SSL_CTX* init_ctx(bool isServer) {
-    static const char* cipher_list = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
+    static const char* cipher_settings = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
     static const char* srtp_settings = "SRTP_AES128_CM_SHA1_80";
 
     SSL_CTX* ctx = SSL_CTX_new(isServer ? TLS_server_method() : TLS_client_method());
     if (!ctx) {
         throw std::runtime_error("SSL_CTX_new failed");
     }
-    if (SSL_CTX_set_cipher_list(ctx, cipher_list) != 1) {
+    if (SSL_CTX_set_cipher_list(ctx, cipher_settings) != 1) {
         throw std::runtime_error("SSL_CTX_set_cipher_list failed");
     }
     // TODO ???

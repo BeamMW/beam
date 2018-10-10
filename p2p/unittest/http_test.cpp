@@ -222,20 +222,27 @@ void get_this_path() {
 int http_server_test() {
     int nErrors = 0;
 
+    io::Reactor::Ptr reactor;
+
     try {
         get_this_path();
-        io::Reactor::Ptr reactor = io::Reactor::create();
-        io::AsyncEvent::Ptr stopEvent = io::AsyncEvent::create(*reactor, [&reactor]() {reactor->stop();});
+        reactor = io::Reactor::create();
+        io::Reactor& r = *reactor;
+        LOG_DEBUG() << reactor.use_count();
+        io::AsyncEvent::Ptr stopEvent = io::AsyncEvent::create(r, [&r]() {r.stop();});
+        LOG_DEBUG() << reactor.use_count();
         g_stopEvent = stopEvent;
-        DummyHttpServer server(*reactor);
-        DummyHttpClient client(*reactor);
+        DummyHttpServer server(r);
+        DummyHttpClient client(r);
         reactor->run();
         nErrors = client.uncompleted;
+        LOG_DEBUG() << reactor.use_count();
     } catch (const std::exception& e) {
         LOG_ERROR() << e.what();
         nErrors = 255;
     }
 
+    LOG_DEBUG() << reactor.use_count();
     return nErrors;
 }
 
