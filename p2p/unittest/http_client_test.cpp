@@ -53,7 +53,7 @@ namespace {
                         }
                         if (msg.what == HttpMsgReader::http_message) {
                             size_t sz=0;
-                            const void* body = msg.msg->get_body(sz);
+                            /*const void* body =*/ msg.msg->get_body(sz);
                             LOG_DEBUG() << "received " << sz << " bytes";
                             //if (body) {
                             //    LOG_DEBUG() << std::string((const char*)body, sz);
