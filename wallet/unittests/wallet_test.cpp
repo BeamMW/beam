@@ -174,12 +174,12 @@ namespace
     };
 
     template<typename KeychainImpl>
-    IKeyChain::Ptr createKeychain()
+    IKeyChain::Ptr CreateKeychain()
     {
         return std::static_pointer_cast<IKeyChain>(std::make_shared<KeychainImpl>());
     }
 
-    IKeyStore::Ptr createBbsKeystore(const string& path, const string& pass)
+    IKeyStore::Ptr CreateBbsKeystore(const string& path, const string& pass, WalletID& outWalletID)
     {
         boost::filesystem::remove_all(path);
         IKeyStore::Options options;
@@ -187,7 +187,9 @@ namespace
         options.fileName = path;
 
         auto ks = IKeyStore::create(options, pass.c_str(), pass.size());
-        
+        WalletID senderID = {};
+        ks->gen_keypair(outWalletID);
+        ks->save_keypair(outWalletID, true);
         return ks;
     }
 
@@ -436,7 +438,7 @@ namespace
 
         }
 
-        void set_node_address(io::Address node_address) override {}
+        void set_node_address(io::Address nodeAddress) override {}
 
         int m_peerCount;
 
@@ -566,6 +568,27 @@ public:
         :Wallet(keyChain, network, holdNodeConnection, std::move(action))
     {
     }
+};
+
+struct TestWalletRig
+{
+    TestWalletRig(const string& name, IKeyChain::Ptr keychain, io::Reactor::Ptr reactor, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction())
+        : m_NodeAddress{ io::Address::localhost().port(32125) }
+        , m_Keychain{keychain}
+        , m_BBSKeystore{ CreateBbsKeystore(name + "-bbs", "123", m_WalletID) }
+        , m_WalletIO{make_shared<WalletNetworkIO>(m_NodeAddress, m_Keychain, m_BBSKeystore, reactor, 1000, 2000)}
+        , m_Wallet{m_Keychain, m_WalletIO, true, move(action) }
+    {
+        
+    }
+
+    io::Address m_NodeAddress;
+    WalletID m_WalletID;
+    IKeyChain::Ptr m_Keychain;
+    IKeyStore::Ptr m_BBSKeystore;
+    shared_ptr<WalletNetworkIO> m_WalletIO;
+    int m_CompletedCount{1};
+    TestWallet m_Wallet;
 };
 
 void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receiverKeychain)
@@ -787,14 +810,13 @@ void TestTxToHimself()
 {
     cout << "\nTesting Tx to himself...\n";
 
-    io::Reactor::Ptr main_reactor{ io::Reactor::create() };
-    io::Reactor::Scope scope(*main_reactor);
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
 
     string keystorePass = "123";
-    auto senderBbsKeys = createBbsKeystore("sender-bbs", keystorePass);
-
     WalletID senderID = {};
-    senderBbsKeys->gen_keypair(senderID);
+    auto senderBbsKeys = CreateBbsKeystore("sender-bbs", keystorePass, senderID);
+
     WalletID receiverID = {};
     senderBbsKeys->gen_keypair(receiverID);
 
@@ -825,15 +847,15 @@ void TestTxToHimself()
     WALLET_CHECK(coins[0].m_status == Coin::Unspent);
     WALLET_CHECK(senderKeychain->getTxHistory().empty());
 
-    auto node_address = io::Address::localhost().port(32125);
-    TestNode node{ node_address };
-    auto sender_io = make_shared<WalletNetworkIO>(node_address, senderKeychain, senderBbsKeys, main_reactor, 1000, 2000);
+    auto nodeAddress = io::Address::localhost().port(32125);
+    TestNode node{ nodeAddress };
+    auto sender_io = make_shared<WalletNetworkIO>(nodeAddress, senderKeychain, senderBbsKeys, mainReactor, 1000, 2000);
     TestWallet sender{ senderKeychain, sender_io, true, [sender_io](auto) { sender_io->stop(); } };
     helpers::StopWatch sw;
 
     sw.start();
     TxID txId = sender.transfer_money(senderID, receiverID, 24, 2);
-    main_reactor->run();
+    mainReactor->run();
     sw.stop();
 
     cout << "Transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -874,74 +896,48 @@ void TestP2PWalletNegotiationST()
 {
     cout << "\nTesting p2p wallets negotiation single thread...\n";
 
-    auto node_address = io::Address::localhost().port(32125);
+    auto nodeAddress = io::Address::localhost().port(32125);
 
-    io::Reactor::Ptr main_reactor{ io::Reactor::create() };
-    io::Reactor::Scope scope(*main_reactor);
-
-    string keystorePass = "123";
-
-    auto senderBbsKeys = createBbsKeystore("sender-bbs", keystorePass);
-    auto receiverBbsKeys = createBbsKeystore("receiver-bbs", keystorePass);
-
-    WalletID senderID = {};
-    senderBbsKeys->gen_keypair(senderID);
-    senderBbsKeys->save_keypair(senderID, true);
-    WalletID receiverID = {};
-    receiverBbsKeys->gen_keypair(receiverID);
-    receiverBbsKeys->save_keypair(receiverID, true);
-
-    auto senderKeychain = createSenderKeychain();
-    auto receiverKeychain = createReceiverKeychain();
-
-    WALLET_CHECK(senderKeychain->selectCoins(6, false).size() == 2);
-    WALLET_CHECK(senderKeychain->getTxHistory().empty());
-    WALLET_CHECK(receiverKeychain->getTxHistory().empty());
-
-    helpers::StopWatch sw;
-    TestNode node{ node_address };
-    auto sender_io = make_shared<WalletNetworkIO>(node_address, senderKeychain, senderBbsKeys, main_reactor, 1000, 2000);
-    auto receiver_io = make_shared<WalletNetworkIO>(node_address, receiverKeychain, receiverBbsKeys, main_reactor, 1000, 2000);
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
 
     int completedCount = 2;
-    auto f = [&completedCount, main_reactor](auto)
+    auto f = [&completedCount, mainReactor](auto)
     {
         --completedCount;
         if (completedCount == 0)
         {
-            main_reactor->stop();
+            mainReactor->stop();
             completedCount = 2;
         }
     };
 
-    TestWallet sender{ senderKeychain, sender_io, true, f };
-    TestWallet receiver{ receiverKeychain, receiver_io, true , f };
+    TestWalletRig sender("sender", createSenderKeychain(), mainReactor, f);
+    TestWalletRig receiver("receiver", createReceiverKeychain(), mainReactor, f);
 
-    //// send to your peer
-    //sender.transfer_money(senderID, senderID, 6);
-    //main_reactor->run();
-    //auto sh = senderKeychain->getTxHistory();
-    //WALLET_CHECK(sh.size() == 1);
-    //WALLET_CHECK(sh[0].m_status == TxStatus::Failed);
-    //senderKeychain->deleteTx(sh[0].m_txId);
+    WALLET_CHECK(sender.m_Keychain->selectCoins(6, false).size() == 2);
+    WALLET_CHECK(sender.m_Keychain->getTxHistory().empty());
+    WALLET_CHECK(receiver.m_Keychain->getTxHistory().empty());
 
+    helpers::StopWatch sw;
+    TestNode node{ nodeAddress };
     sw.start();
 
-    TxID txId = sender.transfer_money(senderID, receiverID, 4, 2);
+    TxID txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2);
 
-    main_reactor->run();
+    mainReactor->run();
     sw.stop();
     cout << "First transfer elapsed time: " << sw.milliseconds() << " ms\n";
 
     // check coins
     vector<Coin> newSenderCoins;
-    senderKeychain->visit([&newSenderCoins](const Coin& c)->bool
+    sender.m_Keychain->visit([&newSenderCoins](const Coin& c)->bool
     {
         newSenderCoins.push_back(c);
         return true;
     });
     vector<Coin> newReceiverCoins;
-    receiverKeychain->visit([&newReceiverCoins](const Coin& c)->bool
+    receiver.m_Keychain->visit([&newReceiverCoins](const Coin& c)->bool
     {
         newReceiverCoins.push_back(c);
         return true;
@@ -970,13 +966,13 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newSenderCoins[3].m_key_type == KeyType::Regular);
 
     // Tx history check
-    auto sh = senderKeychain->getTxHistory();
+    auto sh = sender.m_Keychain->getTxHistory();
     WALLET_CHECK(sh.size() == 1);
-    auto rh = receiverKeychain->getTxHistory();
+    auto rh = receiver.m_Keychain->getTxHistory();
     WALLET_CHECK(rh.size() == 1);
-    auto stx = senderKeychain->getTx(txId);
+    auto stx = sender.m_Keychain->getTx(txId);
     WALLET_CHECK(stx.is_initialized());
-    auto rtx = receiverKeychain->getTx(txId);
+    auto rtx = receiver.m_Keychain->getTx(txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -993,20 +989,20 @@ void TestP2PWalletNegotiationST()
 
     // second transfer
     sw.start();
-    txId = sender.transfer_money(senderID, receiverID, 6);
-    main_reactor->run();
+    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6);
+    mainReactor->run();
     sw.stop();
     cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
 
     // check coins
     newSenderCoins.clear();
-    senderKeychain->visit([&newSenderCoins](const Coin& c)->bool
+    sender.m_Keychain->visit([&newSenderCoins](const Coin& c)->bool
     {
         newSenderCoins.push_back(c);
         return true;
     });
     newReceiverCoins.clear();
-    receiverKeychain->visit([&newReceiverCoins](const Coin& c)->bool
+    receiver.m_Keychain->visit([&newReceiverCoins](const Coin& c)->bool
     {
         newReceiverCoins.push_back(c);
         return true;
@@ -1045,13 +1041,13 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newSenderCoins[4].m_key_type == KeyType::Regular);
 
     // Tx history check
-    sh = senderKeychain->getTxHistory();
+    sh = sender.m_Keychain->getTxHistory();
     WALLET_CHECK(sh.size() == 2);
-    rh = receiverKeychain->getTxHistory();
+    rh = receiver.m_Keychain->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
-    stx = senderKeychain->getTx(txId);
+    stx = sender.m_Keychain->getTx(txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiverKeychain->getTx(txId);
+    rtx = receiver.m_Keychain->getTx(txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -1069,19 +1065,19 @@ void TestP2PWalletNegotiationST()
     // third transfer. no enough money should appear
     sw.start();
     completedCount = 1;// only one wallet takes part in tx
-    txId = sender.transfer_money(senderID, receiverID, 6);
-    main_reactor->run();
+    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6);
+    mainReactor->run();
     sw.stop();
     cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
     // check coins
     newSenderCoins.clear();
-    senderKeychain->visit([&newSenderCoins](const Coin& c)->bool
+    sender.m_Keychain->visit([&newSenderCoins](const Coin& c)->bool
     {
         newSenderCoins.push_back(c);
         return true;
     });
     newReceiverCoins.clear();
-    receiverKeychain->visit([&newReceiverCoins](const Coin& c)->bool
+    receiver.m_Keychain->visit([&newReceiverCoins](const Coin& c)->bool
     {
         newReceiverCoins.push_back(c);
         return true;
@@ -1092,13 +1088,13 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newReceiverCoins.size() == 2);
 
     // Tx history check. New failed tx should be added to sender
-    sh = senderKeychain->getTxHistory();
+    sh = sender.m_Keychain->getTxHistory();
     WALLET_CHECK(sh.size() == 3);
-    rh = receiverKeychain->getTxHistory();
+    rh = receiver.m_Keychain->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
-    stx = senderKeychain->getTx(txId);
+    stx = sender.m_Keychain->getTx(txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiverKeychain->getTx(txId);
+    rtx = receiver.m_Keychain->getTx(txId);
     WALLET_CHECK(!rtx.is_initialized());
 
     WALLET_CHECK(stx->m_amount == 6);
@@ -1111,66 +1107,48 @@ void TestP2PWalletReverseNegotiationST()
 {
     cout << "\nTesting p2p wallets negotiation (reverse version)...\n";
 
-    auto node_address = io::Address::localhost().port(32125);
+    auto nodeAddress = io::Address::localhost().port(32125);
 
-    io::Reactor::Ptr main_reactor{ io::Reactor::create() };
-    io::Reactor::Scope scope(*main_reactor);
-
-    string keystorePass = "123";
-
-    auto senderBbsKeys = createBbsKeystore("sender-bbs", keystorePass);
-    auto receiverBbsKeys = createBbsKeystore("receiver-bbs", keystorePass);
-
-    WalletID senderID = {};
-    senderBbsKeys->gen_keypair(senderID);
-    senderBbsKeys->save_keypair(senderID, true);
-    WalletID receiverID = {};
-    receiverBbsKeys->gen_keypair(receiverID);
-    receiverBbsKeys->save_keypair(receiverID, true);
-
-    auto senderKeychain = createSenderKeychain();
-    auto receiverKeychain = createReceiverKeychain();
-
-    WALLET_CHECK(senderKeychain->selectCoins(6, false).size() == 2);
-    WALLET_CHECK(senderKeychain->getTxHistory().empty());
-    WALLET_CHECK(receiverKeychain->getTxHistory().empty());
-
-    helpers::StopWatch sw;
-    sw.start();
-    TestNode node{ node_address };
-    auto sender_io = make_shared<WalletNetworkIO>(node_address, senderKeychain, senderBbsKeys, main_reactor, 1000, 2000);
-    auto receiver_io = make_shared<WalletNetworkIO>(node_address, receiverKeychain, receiverBbsKeys, main_reactor, 1000, 2000);
-
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
 
     int completedCount = 2;
-    auto f = [&completedCount, main_reactor](auto)
+    auto f = [&completedCount, mainReactor](auto)
     {
         --completedCount;
         if (completedCount == 0)
         {
-            main_reactor->stop();
+            mainReactor->stop();
             completedCount = 2;
         }
     };
 
-    TestWallet sender{ senderKeychain, sender_io, true, f };
-    TestWallet receiver{ receiverKeychain, receiver_io, true , f };
+    TestWalletRig sender("sender", createSenderKeychain(), mainReactor, f);
+    TestWalletRig receiver("receiver", createReceiverKeychain(), mainReactor, f);
+  
+    WALLET_CHECK(sender.m_Keychain->selectCoins(6, false).size() == 2);
+    WALLET_CHECK(sender.m_Keychain->getTxHistory().empty());
+    WALLET_CHECK(receiver.m_Keychain->getTxHistory().empty());
 
-    TxID txId = receiver.transfer_money(receiverID, senderID, 4, 2, false);
+    helpers::StopWatch sw;
+    sw.start();
+    TestNode node{ nodeAddress };
 
-    main_reactor->run();
+    TxID txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 4, 2, false);
+
+    mainReactor->run();
     sw.stop();
     cout << "First transfer elapsed time: " << sw.milliseconds() << " ms\n";
 
     // check coins
     vector<Coin> newSenderCoins;
-    senderKeychain->visit([&newSenderCoins](const Coin& c)->bool
+    sender.m_Keychain->visit([&newSenderCoins](const Coin& c)->bool
     {
         newSenderCoins.push_back(c);
         return true;
     });
     vector<Coin> newReceiverCoins;
-    receiverKeychain->visit([&newReceiverCoins](const Coin& c)->bool
+    receiver.m_Keychain->visit([&newReceiverCoins](const Coin& c)->bool
     {
         newReceiverCoins.push_back(c);
         return true;
@@ -1199,13 +1177,13 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(newSenderCoins[3].m_key_type == KeyType::Regular);
 
     // Tx history check
-    auto sh = senderKeychain->getTxHistory();
+    auto sh = sender.m_Keychain->getTxHistory();
     WALLET_CHECK(sh.size() == 1);
-    auto rh = receiverKeychain->getTxHistory();
+    auto rh = receiver.m_Keychain->getTxHistory();
     WALLET_CHECK(rh.size() == 1);
-    auto stx = senderKeychain->getTx(txId);
+    auto stx = sender.m_Keychain->getTx(txId);
     WALLET_CHECK(stx.is_initialized());
-    auto rtx = receiverKeychain->getTx(txId);
+    auto rtx = receiver.m_Keychain->getTx(txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -1222,20 +1200,20 @@ void TestP2PWalletReverseNegotiationST()
 
     // second transfer
     sw.start();
-    txId = receiver.transfer_money(receiverID, senderID, 6, 0, false);
-    main_reactor->run();
+    txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 6, 0, false);
+    mainReactor->run();
     sw.stop();
     cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
 
     // check coins
     newSenderCoins.clear();
-    senderKeychain->visit([&newSenderCoins](const Coin& c)->bool
+    sender.m_Keychain->visit([&newSenderCoins](const Coin& c)->bool
     {
         newSenderCoins.push_back(c);
         return true;
     });
     newReceiverCoins.clear();
-    receiverKeychain->visit([&newReceiverCoins](const Coin& c)->bool
+    receiver.m_Keychain->visit([&newReceiverCoins](const Coin& c)->bool
     {
         newReceiverCoins.push_back(c);
         return true;
@@ -1274,13 +1252,13 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(newSenderCoins[4].m_key_type == KeyType::Regular);
 
     // Tx history check
-    sh = senderKeychain->getTxHistory();
+    sh = sender.m_Keychain->getTxHistory();
     WALLET_CHECK(sh.size() == 2);
-    rh = receiverKeychain->getTxHistory();
+    rh = receiver.m_Keychain->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
-    stx = senderKeychain->getTx(txId);
+    stx = sender.m_Keychain->getTx(txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiverKeychain->getTx(txId);
+    rtx = receiver.m_Keychain->getTx(txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -1298,19 +1276,19 @@ void TestP2PWalletReverseNegotiationST()
     // third transfer. no enough money should appear
     sw.start();
 
-    txId = receiver.transfer_money(receiverID, senderID, 6, 0, false);
-    main_reactor->run();
+    txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 6, 0, false);
+    mainReactor->run();
     sw.stop();
     cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
     // check coins
     newSenderCoins.clear();
-    senderKeychain->visit([&newSenderCoins](const Coin& c)->bool
+    sender.m_Keychain->visit([&newSenderCoins](const Coin& c)->bool
     {
         newSenderCoins.push_back(c);
         return true;
     });
     newReceiverCoins.clear();
-    receiverKeychain->visit([&newReceiverCoins](const Coin& c)->bool
+    receiver.m_Keychain->visit([&newReceiverCoins](const Coin& c)->bool
     {
         newReceiverCoins.push_back(c);
         return true;
@@ -1321,13 +1299,13 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(newReceiverCoins.size() == 2);
 
     // Tx history check. New failed tx should be added to sender and receiver
-    sh = senderKeychain->getTxHistory();
+    sh = sender.m_Keychain->getTxHistory();
     WALLET_CHECK(sh.size() == 3);
-    rh = receiverKeychain->getTxHistory();
+    rh = receiver.m_Keychain->getTxHistory();
     WALLET_CHECK(rh.size() == 3);
-    stx = senderKeychain->getTx(txId);
+    stx = sender.m_Keychain->getTx(txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiverKeychain->getTx(txId);
+    rtx = receiver.m_Keychain->getTx(txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(rtx->m_amount == 6);
@@ -1340,6 +1318,32 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(stx->m_status == TxStatus::Failed);
     WALLET_CHECK(stx->m_fsmState.empty());
     WALLET_CHECK(stx->m_sender == true);
+}
+
+void TestSwapTransaction()
+{
+    cout << "\nTesting atomic swap transaction...\n";
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    int completedCount = 2;
+    auto f = [&completedCount, mainReactor](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+            completedCount = 2;
+        }
+    };
+    TestWalletRig sender("sender", createSenderKeychain(), mainReactor, f);
+    TestWalletRig receiver("receiver", createReceiverKeychain(), mainReactor, f);
+    TestNode node{ sender.m_NodeAddress };
+
+    TxID txID = sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, 4, 1, wallet::AtomicSwapCoin::Bitcoin, 2);
+
+    mainReactor->run();
 }
 
 void TestSplitKey()
@@ -1554,8 +1558,10 @@ int main()
     TestP2PWalletNegotiationST();
     TestP2PWalletReverseNegotiationST();
 
-    TestWalletNegotiation(createKeychain<TestKeyChain>(), createKeychain<TestKeyChain2>());
+    TestWalletNegotiation(CreateKeychain<TestKeyChain>(), CreateKeychain<TestKeyChain2>());
     TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
+
+    TestSwapTransaction();
 
     TestTxToHimself();
 
