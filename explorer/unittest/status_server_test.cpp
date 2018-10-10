@@ -39,7 +39,7 @@ struct DummyBlock {
 using nlohmann::json;
 
 const uint16_t PORT = 8000;
-io::AsyncEvent::Trigger g_stopEvent;
+//io::AsyncEvent::Trigger g_stopEvent;
 
 /*
 class StatusClient {

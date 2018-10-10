@@ -18,6 +18,7 @@
 #include "utility/io/coarsetimer.h"
 #include "utility/helpers.h"
 #include <string_view>
+#include <set>
 
 namespace beam { namespace explorer {
 
@@ -28,6 +29,7 @@ public:
     Server(IAdapter& adapter, io::Reactor& reactor, io::Address bindAddress, const std::string& keysFileName);
 
 private:
+    /*
     class AccessControl {
     public:
         explicit AccessControl(const std::string& keysFileName);
@@ -36,9 +38,25 @@ private:
 
         void refresh();
     private:
+        bool _enabled;
         std::string _keysFileName;
         time_t _lastModified;
         std::map<std::string, std::string> _keys;
+    };
+     */
+
+    class IPAccessControl {
+    public:
+        explicit IPAccessControl(const std::string& ipsFileName);
+
+        bool check(io::Address peerAddress);
+
+        void refresh();
+    private:
+        bool _enabled;
+        std::string _ipsFileName;
+        time_t _lastModified;
+        std::set<uint32_t> _ips;
     };
 
     void start_server();
@@ -62,7 +80,8 @@ private:
     HttpUrl _currentUrl;
     io::SerializedMsg _headers;
     io::SerializedMsg _body;
-    AccessControl _acl;
+    //AccessControl _acl;
+    IPAccessControl _acl;
 };
 
 }} //namespaces

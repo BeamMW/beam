@@ -30,7 +30,7 @@ Server::Server(IAdapter& adapter, io::Reactor& reactor, io::Address bindAddress,
     _reactor(reactor),
     _timers(reactor, 100),
     _bindAddress(bindAddress),
-    _acl(keysFileName)
+    _acl(keysFileName) //TODO
 {
     _timers.set_timer(SERVER_RESTART_TIMER, 0, BIND_THIS_MEMFN(start_server));
     _timers.set_timer(ACL_REFRESH_TIMER, ACL_REFRESH_INTERVAL, BIND_THIS_MEMFN(refresh_acl));
@@ -112,7 +112,8 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
     bool keepalive = false;
 
     if (func) {
-        bool validKey = _acl.check(_currentUrl.args["m"], _currentUrl.args["n"], _currentUrl.args["h"]);
+        //bool validKey = _acl.check(_currentUrl.args["m"], _currentUrl.args["n"], _currentUrl.args["h"]);
+        bool validKey = _acl.check(conn->peer_address());
         if (!validKey) {
             send(conn, 403, "Forbidden");
         } else {
@@ -200,7 +201,49 @@ void sha(const std::string_view& left, const std::string_view& right, char* outB
 
 } //namespace
 
+Server::IPAccessControl::IPAccessControl(const std::string &ipsFileName) :
+    _enabled(!ipsFileName.empty()),
+    _ipsFileName(ipsFileName),
+    _lastModified(0)
+{
+    refresh();
+}
+
+void Server::IPAccessControl::refresh() {
+    using namespace boost::filesystem;
+
+    if (!_enabled) return;
+
+    try {
+        path p(_ipsFileName);
+        auto t = last_write_time(p);
+        if (t <= _lastModified) {
+            return;
+        }
+        _lastModified = t;
+        std::ifstream file(_ipsFileName);
+        std::string line;
+        while (std::getline(file, line)) {
+            boost::algorithm::trim(line);
+            if (line.size() < 7) continue;
+            io::Address a;
+            if (a.resolve(line.c_str()))
+                _ips.insert(a.ip());
+        }
+    } catch (std::exception &e) {
+        LOG_ERROR() << e.what();
+    }
+}
+
+bool Server::IPAccessControl::check(io::Address peerAddress) {
+    static const uint32_t localhostIP = io::Address::localhost().ip();
+    if (!_enabled || peerAddress.ip() == localhostIP) return true;
+    return _ips.count(peerAddress.ip());
+}
+
+/*
 Server::AccessControl::AccessControl(const std::string &keysFileName) :
+    _enabled(!keysFileName.empty()),
     _keysFileName(keysFileName),
     _lastModified(0)
 {
@@ -209,6 +252,8 @@ Server::AccessControl::AccessControl(const std::string &keysFileName) :
 
 void Server::AccessControl::refresh() {
     using namespace boost::filesystem;
+
+    if (!_enabled) return;
 
     try {
         path p(_keysFileName);
@@ -234,6 +279,8 @@ void Server::AccessControl::refresh() {
 bool Server::AccessControl::check(
     const std::string_view& mask, const std::string_view& nonce, const std::string_view& hash
 ) {
+    if (!_enabled) return true;
+
     if (mask.size() != 64 || hash.size() != 64 || nonce.empty()) {
         return false;
     }
@@ -244,5 +291,6 @@ bool Server::AccessControl::check(
     sha(it->second, nonce, buf);
     return memcmp(hash.data(), buf, 64) == 0;
 }
+*/
 
 }} //namespaces
