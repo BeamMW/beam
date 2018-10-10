@@ -101,7 +101,7 @@ namespace beam
     namespace wallet
     {
         std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
-
+        const uint32_t MaxSignatures = 10;
         enum class TxParameterID : uint32_t
         {
             // public parameters
@@ -121,9 +121,11 @@ namespace beam
             AtomicSwapCoin = 100,
             AtomicSwapAmount,
 
+            // signature parameters
+
             PeerPublicNonce = 1000,
-            PeerPublicExcess,
-            PeerSignature,
+            PeerPublicExcess = PeerPublicNonce + MaxSignatures,
+            PeerSignature = PeerPublicExcess + MaxSignatures,
             PeerOffset,
             PeerInputs,
             PeerOutputs,
@@ -136,8 +138,8 @@ namespace beam
             PrivateFirstParam = 1 << 16,
 
             ModifyTime,
-            BlindingExcess,
-            Offset,
+            BlindingExcess = ModifyTime + MaxSignatures,
+            Offset         = BlindingExcess + MaxSignatures,
             Change,
             Status
         };
@@ -162,6 +164,13 @@ namespace beam
             TxType m_Type;
 
             std::vector<std::pair<TxParameterID, ByteBuffer>> m_Parameters;
+
+            template <typename T>
+            SetTxParameter& AddParameter(TxParameterID paramID, T&& value)
+            {
+                m_Parameters.emplace_back(paramID, toByteBuffer(value));
+                return *this;
+            }
 
             SERIALIZE(m_from, m_txId, m_Type, m_Parameters);
             static const size_t MaxParams = 20;

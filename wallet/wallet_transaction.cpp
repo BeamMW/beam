@@ -99,7 +99,7 @@ namespace beam { namespace wallet
             UpdateTxDescription(TxStatus::Cancelled);
             RollbackTx();
             SetTxParameter msg;
-            AddParameter(msg, TxParameterID::FailureReason, 0);
+            msg.AddParameter(TxParameterID::FailureReason, 0);
             SendTxParameters(move(msg));
         }
     }
@@ -138,26 +138,6 @@ namespace beam { namespace wallet
         SetParameter(TxParameterID::ModifyTime, getTimestamp());
     }
 
-    TxKernel::Ptr BaseTransaction::CreateKernel(Amount fee, Height minHeight) const
-    {
-        auto kernel = make_unique<TxKernel>();
-        kernel->m_Fee = fee;
-        kernel->m_Height.m_Min = minHeight;
-        kernel->m_Height.m_Max = MaxHeight;
-        kernel->m_Excess = Zero;
-        return kernel;
-    }
-
-    Signature::MultiSig BaseTransaction::CreateMultiSig(const TxKernel& kernel, const Scalar::Native& blindingExcess) const
-    {
-        Signature::MultiSig msig;
-        Hash::Value hv;
-        kernel.get_Hash(hv);
-
-        msig.GenerateNonce(hv, blindingExcess);
-        return msig;
-    }
-
     void BaseTransaction::OnFailed(bool notify)
     {
         UpdateTxDescription(TxStatus::Failed);
@@ -165,7 +145,7 @@ namespace beam { namespace wallet
         if (notify)
         {
             SetTxParameter msg;
-            AddParameter(msg, TxParameterID::FailureReason, 0);
+            msg.AddParameter(TxParameterID::FailureReason, 0);
             SendTxParameters(move(msg));
         }
         m_Gateway.on_tx_completed(GetTxID());
@@ -299,84 +279,6 @@ namespace beam { namespace wallet
         return false;
     }
 
-    struct UtxoProcessor
-    {
-
-    };
-
-    struct SignatureBuilder
-    {
-        bool Update(BaseTransaction& tx)
-        {
-            Scalar::Native blindingExcess, offset;
-            if (!tx.GetParameter(TxParameterID::BlindingExcess, blindingExcess)
-                || !tx.GetParameter(TxParameterID::Offset, offset))
-            {
-                return false;
-            }
-
-            Height minHeight = 0;
-            tx.GetMandatoryParameter(TxParameterID::MinHeight, minHeight);
-            Amount fee = 0;
-            tx.GetMandatoryParameter(TxParameterID::Fee, fee);
-
-            auto kernel = make_unique<TxKernel>();
-            kernel->m_Fee = fee;
-            kernel->m_Height.m_Min = minHeight;
-            kernel->m_Height.m_Max = MaxHeight;
-            kernel->m_Excess = Zero;
-
-            Signature::MultiSig msig;
-            Hash::Value hv;
-            kernel->get_Hash(hv);
-
-            msig.GenerateNonce(hv, blindingExcess);
-
-            Point::Native publicNonce = Context::get().G * msig.m_Nonce;
-            Point::Native publicExcess = Context::get().G * blindingExcess;
-
-            Point::Native publicPeerNonce, publicPeerExcess;
-            if (!tx.GetParameter(TxParameterID::PeerPublicNonce, publicPeerNonce)
-                || !tx.GetParameter(TxParameterID::PeerPublicExcess, publicPeerExcess))
-            {
-                return false;
-            }
-
-            msig.m_NoncePub = publicNonce + publicPeerNonce;
-
-            Point::Native totalPublicExcess = publicExcess;
-            totalPublicExcess += publicPeerExcess;
-            kernel->m_Excess = totalPublicExcess;
-
-            // create my part of signature
-            Hash::Value message;
-            kernel->get_Hash(message);
-            Scalar::Native partialSignature;
-            msig.SignPartial(partialSignature, message, blindingExcess);
-
-            Scalar::Native peerSignature;
-            if (!tx.GetParameter(TxParameterID::PeerSignature, peerSignature))
-            {
-                return false;
-            }
-
-            // verify peer's signature
-            Signature peerSig;
-            peerSig.m_NoncePub = msig.m_NoncePub;
-            peerSig.m_k = peerSignature;
-            if (!peerSig.IsValidPartial(message, publicPeerNonce, publicPeerExcess))
-            {
-                return false;
-            }
-
-            // final signature
-            kernel->m_Signature.m_k = partialSignature + peerSignature;
-            kernel->m_Signature.m_NoncePub = msig.m_NoncePub;
-
-            return true;
-        }
-    };
-
     SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
         , beam::IKeyChain::Ptr keychain
         , const TxID& txID)
@@ -403,25 +305,28 @@ namespace beam { namespace wallet
         auto address = m_Keychain->getAddress(peerID);
         bool isSelfTx = address.is_initialized() && address->m_own;
 
+        SignatureBuilder sb{*this};
+        Height minHeight = 0;
         Scalar::Native offset;
         Scalar::Native blindingExcess;
         if (!GetParameter(TxParameterID::BlindingExcess, blindingExcess)
-            || !GetParameter(TxParameterID::Offset, offset))
+            || !GetParameter(TxParameterID::Offset, offset)
+            || !GetParameter(TxParameterID::MinHeight, minHeight))
         {
             LOG_INFO() << GetTxID() << (sender ? " Sending " : " Receiving ") << PrintableAmount(amount) << " (fee: " << PrintableAmount(fee) << ")";
-            Height currentHeight = m_Keychain->getCurrentHeight();
-            SetParameter(TxParameterID::MinHeight, currentHeight);
+            minHeight = m_Keychain->getCurrentHeight();
+            SetParameter(TxParameterID::MinHeight, minHeight);
 
             if (sender)
             {
                 // select and lock input utxos
                 Amount amountWithFee = amount + fee;
-                PrepareSenderUTXOs(amountWithFee, currentHeight);
+                PrepareSenderUTXOs(amountWithFee, minHeight);
             }
             if (isSelfTx || !sender)
             {
                 // create receiver utxo
-                CreateOutput(amount, currentHeight);
+                CreateOutput(amount, minHeight);
 
                 LOG_INFO() << GetTxID() << " Invitation accepted";
             }
@@ -429,35 +334,25 @@ namespace beam { namespace wallet
             UpdateTxDescription(TxStatus::InProgress);
         }
 
-        Height minHeight = 0;
-        GetMandatoryParameter(TxParameterID::MinHeight, minHeight);
-        GetMandatoryParameter(TxParameterID::BlindingExcess, blindingExcess);
         GetMandatoryParameter(TxParameterID::Offset, offset);
 
-        auto kernel = CreateKernel(fee, minHeight);
-        auto msig = CreateMultiSig(*kernel, blindingExcess);
+        sb.CreateKernel(fee, minHeight);
+        sb.ApplyBlindingExcess();
 
-        Point::Native publicNonce = Context::get().G * msig.m_Nonce;
-        Point::Native publicExcess = Context::get().G * blindingExcess;
-
-        Point::Native publicPeerNonce, publicPeerExcess;
-
-        if (!isSelfTx && (!GetParameter(TxParameterID::PeerPublicNonce, publicPeerNonce)
-            || !GetParameter(TxParameterID::PeerPublicExcess, publicPeerExcess)))
+        if (!isSelfTx && (!sb.ApplyPublicPeerNonce() || !sb.ApplyPublicPeerExcess()))
         {
             assert(IsInitiator());
 
             SetTxParameter msg;
-
-            AddParameter(msg, TxParameterID::Amount, amount);
-            AddParameter(msg, TxParameterID::Fee, fee);
-            AddParameter(msg, TxParameterID::MinHeight, minHeight);
-            AddParameter(msg, TxParameterID::IsSender, !sender);
-            AddParameter(msg, TxParameterID::PeerInputs, GetTxInputs(GetTxID()));
-            AddParameter(msg, TxParameterID::PeerOutputs, GetTxOutputs(GetTxID()));
-            AddParameter(msg, TxParameterID::PeerPublicExcess, publicExcess);
-            AddParameter(msg, TxParameterID::PeerPublicNonce, publicNonce);
-            AddParameter(msg, TxParameterID::PeerOffset, offset);
+            msg.AddParameter(TxParameterID::Amount, amount)
+               .AddParameter(TxParameterID::Fee, fee)
+               .AddParameter(TxParameterID::MinHeight, minHeight)
+               .AddParameter(TxParameterID::IsSender, !sender)
+               .AddParameter(TxParameterID::PeerInputs, GetTxInputs(GetTxID()))
+               .AddParameter(TxParameterID::PeerOutputs, GetTxOutputs(GetTxID()))
+               .AddParameter(TxParameterID::PeerPublicExcess, sb.m_PublicExcess)
+               .AddParameter(TxParameterID::PeerPublicNonce, sb.m_PublicNonce)
+               .AddParameter(TxParameterID::PeerOffset, offset);
 
             if (!SendTxParameters(move(msg)))
             {
@@ -466,46 +361,30 @@ namespace beam { namespace wallet
             return;
         }
 
-        msig.m_NoncePub = publicNonce + publicPeerNonce;
+        sb.SignPartial();
 
-        Point::Native totalPublicExcess = publicExcess;
-        totalPublicExcess += publicPeerExcess;
-        kernel->m_Excess = totalPublicExcess;
-
-        // create my part of signature
-        Hash::Value message;
-        kernel->get_Hash(message);
-        Scalar::Native partialSignature;
-        msig.SignPartial(partialSignature, message, blindingExcess);
-
-        Scalar::Native peerSignature;
-        if (!isSelfTx && !GetParameter(TxParameterID::PeerSignature, peerSignature))
+        if (!isSelfTx && !sb.ApplyPeerSignature())
         {
             // invited participant
             assert(!IsInitiator());
             // Confirm invitation
             SetTxParameter msg;
-            AddParameter(msg, TxParameterID::PeerPublicExcess, publicExcess);
-            AddParameter(msg, TxParameterID::PeerSignature, partialSignature);
-            AddParameter(msg, TxParameterID::PeerPublicNonce, publicNonce);
+            msg.AddParameter(TxParameterID::PeerPublicExcess, sb.m_PublicExcess)
+               .AddParameter(TxParameterID::PeerSignature, sb.m_PartialSignature)
+               .AddParameter(TxParameterID::PeerPublicNonce, sb.m_PublicNonce);
 
             SendTxParameters(move(msg));
             return;
         }
 
         // verify peer's signature
-        Signature peerSig;
-        peerSig.m_NoncePub = msig.m_NoncePub;
-        peerSig.m_k = peerSignature;
-        if (!peerSig.IsValidPartial(message, publicPeerNonce, publicPeerExcess))
+        if (!sb.IsValidPeerSignature())
         {
             OnFailed(true);
             return;
         }
 
-        // final signature
-        kernel->m_Signature.m_k = partialSignature + peerSignature;
-        kernel->m_Signature.m_NoncePub = msig.m_NoncePub;
+        sb.FinalizeSignature();
 
         bool isRegistered = false;
         if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered))
@@ -519,11 +398,11 @@ namespace beam { namespace wallet
                 // initiator 
                 assert(IsInitiator());
                 Scalar s;
-                partialSignature.Export(s);
+                sb.m_PartialSignature.Export(s);
 
                 // Confirm transaction
                 SetTxParameter msg;
-                AddParameter(msg, TxParameterID::PeerSignature, s);
+                msg.AddParameter(TxParameterID::PeerSignature, s);
                 
                 SendTxParameters(move(msg));
             }
@@ -534,7 +413,7 @@ namespace beam { namespace wallet
                 GetParameter(TxParameterID::PeerOffset, peerOffset);
 
                 auto transaction = make_shared<Transaction>();
-                transaction->m_vKernelsOutput.push_back(move(kernel));
+                transaction->m_vKernelsOutput.push_back(move(sb.m_Kernel));
                 transaction->m_Offset = peerOffset + offset;
                 transaction->m_vInputs = move(inputs);
                 transaction->m_vOutputs = move(outputs);
@@ -574,15 +453,15 @@ namespace beam { namespace wallet
             {
                 // notify peer that transaction has been registered
                 SetTxParameter msg;
-                AddParameter(msg, TxParameterID::TransactionRegistered, true);
+                msg.AddParameter(TxParameterID::TransactionRegistered, true);
                 SendTxParameters(move(msg));
             }
-            ConfirmKernel(*kernel);
+            ConfirmKernel(*sb.m_Kernel);
             return;
         }
 
         Block::SystemState::Full state;
-        if (!GetTip(state) || !state.IsValidProofKernel(*kernel, kernelProof))
+        if (!GetTip(state) || !state.IsValidProofKernel(*sb.m_Kernel, kernelProof))
         {
             if (!m_Gateway.isTestMode())
             {
@@ -598,5 +477,99 @@ namespace beam { namespace wallet
         }
 
         CompleteTx();
+    }
+
+    SignatureBuilder::SignatureBuilder(BaseTransaction& tx) : m_Tx{ tx }
+    {
+
+    }
+
+    void SignatureBuilder::CreateKernel(Amount fee, Height minHeight)
+    {
+        assert(!m_Kernel);
+        m_Kernel = make_unique<TxKernel>();
+        m_Kernel->m_Fee = fee;
+        m_Kernel->m_Height.m_Min = minHeight;
+        m_Kernel->m_Height.m_Max = MaxHeight;
+        m_Kernel->m_Excess = Zero;
+    }
+
+    void SignatureBuilder::SetBlindingExcess(const Scalar::Native& blindingExcess)
+    {
+        assert(m_Kernel);
+        Hash::Value hv;
+        // Excess should be zero
+        m_Kernel->get_Hash(hv);
+
+        m_MultiSig.GenerateNonce(hv, blindingExcess);
+
+        m_PublicNonce = Context::get().G * m_MultiSig.m_Nonce;
+        m_PublicExcess = Context::get().G * blindingExcess;
+    }
+
+    bool SignatureBuilder::ApplyBlindingExcess()
+    {
+        assert(m_Kernel);
+        m_Tx.GetMandatoryParameter(TxParameterID::BlindingExcess, m_BlindingExcess);
+        Hash::Value hv;
+        m_Kernel->get_Hash(hv);
+
+        m_MultiSig.GenerateNonce(hv, m_BlindingExcess);
+
+        m_PublicNonce = Context::get().G * m_MultiSig.m_Nonce;
+        m_PublicExcess = Context::get().G * m_BlindingExcess;
+
+        return true;
+    }
+
+    bool SignatureBuilder::ApplyPublicPeerNonce()
+    {
+        if (!m_Tx.GetParameter(TxParameterID::PeerPublicNonce, m_PublicPeerNonce))
+        {
+            return false;
+        }
+        m_MultiSig.m_NoncePub = m_PublicNonce + m_PublicPeerNonce;
+        return true;
+    }
+
+    bool SignatureBuilder::ApplyPublicPeerExcess()
+    {
+        if (!m_Tx.GetParameter(TxParameterID::PeerPublicExcess, m_PublicPeerExcess))
+        {
+            return false;
+        }
+        return true;
+    }
+
+    void SignatureBuilder::SignPartial()
+    {
+        Point::Native totalPublicExcess = m_PublicExcess;
+        totalPublicExcess += m_PublicPeerExcess;
+        m_Kernel->m_Excess = totalPublicExcess;
+        m_Kernel->get_Hash(m_Message);
+        m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
+    }
+
+    bool SignatureBuilder::ApplyPeerSignature()
+    {
+        if (!m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature))
+        {
+            return false;
+        }
+        return true;
+    }
+
+    bool SignatureBuilder::IsValidPeerSignature() const
+    {
+        Signature peerSig;
+        peerSig.m_NoncePub = m_MultiSig.m_NoncePub;
+        peerSig.m_k = m_PeerSignature;
+        return peerSig.IsValidPartial(m_Message, m_PublicPeerNonce, m_PublicPeerExcess);
+    }
+
+    void SignatureBuilder::FinalizeSignature()
+    {
+        m_Kernel->m_Signature.m_k = m_PartialSignature + m_PeerSignature;
+        m_Kernel->m_Signature.m_NoncePub = m_MultiSig.m_NoncePub;
     }
 }}

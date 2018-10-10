@@ -83,8 +83,7 @@ namespace beam { namespace wallet
         void CompleteTx();
         void RollbackTx();
         void UpdateTxDescription(TxStatus s);
-        TxKernel::Ptr CreateKernel(Amount fee, Height minHeight) const;
-        ECC::Signature::MultiSig CreateMultiSig(const TxKernel& kernel, const ECC::Scalar::Native& blindingExcess) const;
+
         std::vector<Input::Ptr> GetTxInputs(const TxID& txID) const;
         std::vector<Output::Ptr> GetTxOutputs(const TxID& txID) const;
         std::vector<Coin> GetUnconfirmedOutputs() const;
@@ -94,12 +93,6 @@ namespace beam { namespace wallet
         void OnFailed(bool notify = false);
 
         bool GetTip(Block::SystemState::Full& state) const;
-
-        template <typename T>
-        void AddParameter(SetTxParameter& msg, TxParameterID paramID, T&& value) const
-        {
-            msg.m_Parameters.emplace_back(paramID, toByteBuffer(value));
-        }
 
         bool SendTxParameters(SetTxParameter&& msg) const;
         virtual void UpdateImpl() = 0;
@@ -122,5 +115,33 @@ namespace beam { namespace wallet
     private:
         TxType GetType() const override;
         void UpdateImpl() override;
+    };
+
+    struct SignatureBuilder
+    {
+        BaseTransaction& m_Tx;
+        TxKernel::Ptr m_Kernel;
+
+        ECC::Scalar::Native m_BlindingExcess;
+        ECC::Scalar::Native m_PeerSignature;
+        ECC::Scalar::Native m_PartialSignature;
+        ECC::Point::Native m_PublicPeerNonce;
+        ECC::Point::Native m_PublicPeerExcess;
+        ECC::Point::Native m_PublicNonce;
+        ECC::Point::Native m_PublicExcess;
+        ECC::Hash::Value m_Message;
+        ECC::Signature::MultiSig m_MultiSig;
+
+        SignatureBuilder(BaseTransaction& tx);
+
+        void CreateKernel(Amount fee, Height minHeight);
+        void SetBlindingExcess(const ECC::Scalar::Native& blindingExcess);
+        bool ApplyBlindingExcess();
+        bool ApplyPublicPeerNonce();
+        bool ApplyPublicPeerExcess();
+        void SignPartial();
+        bool ApplyPeerSignature();
+        bool IsValidPeerSignature() const;
+        void FinalizeSignature();
     };
 }}
