@@ -1,7 +1,7 @@
 #include "server.h"
 #include "adapter.h"
 #include "utility/logger.h"
-#include "secp256k1-zkp/src/hash_impl.h"
+// TODO suppress warnings #include "secp256k1-zkp/src/hash_impl.h"
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <fstream>
@@ -188,6 +188,7 @@ bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message
 }
 
 namespace {
+    /*
 
 void sha(const std::string_view& left, const std::string_view& right, char* outBase16) {
     secp256k1_sha256_t ctx;
@@ -198,7 +199,7 @@ void sha(const std::string_view& left, const std::string_view& right, char* outB
     secp256k1_sha256_finalize(&ctx, out32);
     to_hex(outBase16, out32, 32);
 }
-
+*/
 } //namespace
 
 Server::IPAccessControl::IPAccessControl(const std::string &ipsFileName) :
