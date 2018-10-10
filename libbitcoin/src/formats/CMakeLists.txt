@@ -1,7 +1,4 @@
-file(GLOB FORMATS_SOURCES "*.cpp")
-file(GLOB FORMATS_HEADERS "${LIBBITCOIN_INCLUDE_DIR}/formats/*.hpp")
+file(GLOB SOURCES "*.cpp")
+file(GLOB HEADERS "${LIBBITCOIN_INCLUDE_DIR}/formats/*.hpp")
 
-#ADD_LIBRARY(formats OBJECT
-#	${SOURCES}
-#	${HEADERS}
-#	)
+add_library(libbitcoin_formats OBJECT ${SOURCES} ${HEADERS})

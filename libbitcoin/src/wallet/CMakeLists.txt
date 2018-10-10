@@ -1,3 +1,11 @@
-file(GLOB WALLET_SOURCES "*.cpp")
+file(GLOB SOURCES "*.cpp")
 file(GLOB PARSE_ENCRYPTED_SOURCES "parse_encrypted_keys/*.cpp")
-file(GLOB WALLET_HEADERS "${LIBBITCOIN_INCLUDE_DIR}/wallet/*.hpp")
+file(GLOB HEADERS "${LIBBITCOIN_INCLUDE_DIR}/wallet/*.hpp")
+
+add_library(libbitcoin_wallet OBJECT ${SOURCES} ${PARSE_ENCRYPTED_SOURCES} ${HEADERS})
+
+if(MSVC)
+    target_compile_options(libbitcoin_wallet PRIVATE "/wd4245")
+    target_compile_options(libbitcoin_wallet PRIVATE "/wd4505")
+    target_compile_options(libbitcoin_wallet PRIVATE "/wd4458")
+endif()
