@@ -10,4 +10,5 @@ target_include_directories(${TARGET_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/libbitcoi
 if(MSVC)
     target_compile_options(${TARGET_NAME} PRIVATE "/wd4245")
     target_compile_options(${TARGET_NAME} PRIVATE "/wd4505")
+    target_compile_options(${TARGET_NAME} PRIVATE "/wd4996")
 endif()

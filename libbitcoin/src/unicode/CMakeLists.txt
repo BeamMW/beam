@@ -5,4 +5,5 @@ add_library(libbitcoin_unicode OBJECT ${SOURCES} ${HEADERS})
 
 if(MSVC)
     target_compile_options(libbitcoin_unicode PRIVATE "/wd4389")
+    target_compile_options(libbitcoin_unicode PRIVATE "/wd4996")
 endif()
