@@ -187,7 +187,7 @@ namespace
         options.fileName = path;
 
         auto ks = IKeyStore::create(options, pass.c_str(), pass.size());
-        WalletID senderID = {};
+        //WalletID senderID = {};
         ks->gen_keypair(outWalletID);
         ks->save_keypair(outWalletID, true);
         return ks;
@@ -1341,7 +1341,7 @@ void TestSwapTransaction()
     TestWalletRig receiver("receiver", createReceiverKeychain(), mainReactor, f);
     TestNode node{ sender.m_NodeAddress };
 
-    TxID txID = sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, 4, 1, wallet::AtomicSwapCoin::Bitcoin, 2);
+    /*TxID txID =*/ sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, 4, 1, wallet::AtomicSwapCoin::Bitcoin, 2);
 
     mainReactor->run();
 }

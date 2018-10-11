@@ -252,19 +252,6 @@ namespace beam
     namespace wallet
     {
         template <typename T>
-        ByteBuffer toByteBuffer(const T& value)
-        {
-            Serializer s;
-            s & value;
-            ByteBuffer b;
-            s.swap_buf(b);
-            return b;
-        }
-
-        ByteBuffer toByteBuffer(const ECC::Point::Native& value);
-        ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
-
-        template <typename T>
         bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, T& value)
         {
             ByteBuffer b;

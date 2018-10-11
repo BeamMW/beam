@@ -100,6 +100,19 @@ namespace beam
 
     namespace wallet
     {
+        template <typename T>
+        ByteBuffer toByteBuffer(const T& value)
+        {
+            Serializer s;
+            s & value;
+            ByteBuffer b;
+            s.swap_buf(b);
+            return b;
+        }
+
+        ByteBuffer toByteBuffer(const ECC::Point::Native& value);
+        ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
+
         std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
         const uint32_t MaxSignatures = 10;
         enum class TxParameterID : uint32_t
