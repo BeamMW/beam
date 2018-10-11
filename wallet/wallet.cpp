@@ -175,6 +175,8 @@ namespace beam
         auto txID = GenerateTxID();
         auto tx = constructTransaction(txID, TxType::Simple);
 
+        tx->SetParameter(TxParameterID::TransactionType, TxType::Simple);
+        tx->SetParameter(TxParameterID::CreateTime, getTimestamp());
         tx->SetParameter(TxParameterID::Amount, amount);
         tx->SetParameter(TxParameterID::Fee, fee);
         tx->SetParameter(TxParameterID::MinHeight, m_keyChain->getCurrentHeight());
@@ -183,6 +185,7 @@ namespace beam
         tx->SetParameter(TxParameterID::Message, move(message));
         tx->SetParameter(TxParameterID::IsSender, sender);
         tx->SetParameter(TxParameterID::IsInitiator, true);
+        tx->SetParameter(TxParameterID::Status, TxStatus::Pending);
 
         m_transactions.emplace(txID, tx);
 
@@ -196,12 +199,15 @@ namespace beam
         auto txID = GenerateTxID();
         auto tx = constructTransaction(txID, TxType::AtomicSwap);
 
+        tx->SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
+        tx->SetParameter(TxParameterID::CreateTime, getTimestamp());
         tx->SetParameter(TxParameterID::Amount, amount);
         tx->SetParameter(TxParameterID::Fee, fee);
         tx->SetParameter(TxParameterID::MinHeight, m_keyChain->getCurrentHeight());
         tx->SetParameter(TxParameterID::PeerID, to);
         tx->SetParameter(TxParameterID::MyID, from);
         tx->SetParameter(TxParameterID::IsInitiator, true);
+        tx->SetParameter(TxParameterID::Status, TxStatus::Pending);
 
         tx->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin);
         tx->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount);
@@ -826,6 +832,12 @@ namespace beam
             return it->second;
         }
 
+        TxType type = TxType::Simple;
+        if (wallet::getTxParameter(m_keyChain, msg.m_txId, TxParameterID::TransactionType, type))
+        {
+            // we return only active transactions
+            return BaseTransaction::Ptr();
+        }
         auto t = constructTransaction(msg.m_txId, msg.m_Type);
 
         t->SetParameter(TxParameterID::TransactionType, msg.m_Type);
@@ -833,6 +845,7 @@ namespace beam
         t->SetParameter(TxParameterID::MyID, myID);
         t->SetParameter(TxParameterID::PeerID, msg.m_from);
         t->SetParameter(TxParameterID::IsInitiator, false);
+        t->SetParameter(TxParameterID::Status, TxStatus::Pending);
 
         m_transactions.emplace(msg.m_txId, t);
         return t;
