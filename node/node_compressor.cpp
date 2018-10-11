@@ -111,7 +111,7 @@ void Node::Compressor::OnNewState()
 
 	const uint32_t nThreshold = Rules::get().MaxRollbackHeight;
 
-	if (p.m_Cursor.m_ID.m_Height - Rules::HeightGenesis + 1 <= nThreshold)
+	if (p.m_Cursor.m_ID.m_Height - Rules::HeightGenesis + 1 < nThreshold)
 		return;
 
 	HeightRange hr;
