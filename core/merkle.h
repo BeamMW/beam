@@ -110,15 +110,13 @@ namespace Merkle {
 		struct Impl;
 	};
 
-	class CompactMmr
+	struct CompactMmr
 	{
 		// Only used to recalculate the new root hash after appending the element
 		// Can't generate proofs.
 
 		uint64_t m_Count;
 		std::vector<Hash> m_vNodes; // rightmost branch, in top-down order
-
-	public:
 
 		CompactMmr() :m_Count(0) {}
 

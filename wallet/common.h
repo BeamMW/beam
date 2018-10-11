@@ -100,8 +100,21 @@ namespace beam
 
     namespace wallet
     {
-        std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
+        template <typename T>
+        ByteBuffer toByteBuffer(const T& value)
+        {
+            Serializer s;
+            s & value;
+            ByteBuffer b;
+            s.swap_buf(b);
+            return b;
+        }
 
+        ByteBuffer toByteBuffer(const ECC::Point::Native& value);
+        ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
+
+        std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
+        const uint32_t MaxSignatures = 10;
         enum class TxParameterID : uint32_t
         {
             // public parameters
@@ -116,10 +129,16 @@ namespace beam
             Inputs,
             Outputs,
             CreateTime,
+            IsInitiator,
 
-            PeerPublicNonce,
-            PeerPublicExcess,
-            PeerSignature,
+            AtomicSwapCoin = 100,
+            AtomicSwapAmount,
+
+            // signature parameters
+
+            PeerPublicNonce = 1000,
+            PeerPublicExcess = PeerPublicNonce + MaxSignatures,
+            PeerSignature = PeerPublicExcess + MaxSignatures,
             PeerOffset,
             PeerInputs,
             PeerOutputs,
@@ -132,17 +151,21 @@ namespace beam
             PrivateFirstParam = 1 << 16,
 
             ModifyTime,
-            BlindingExcess,
-            Offset,
+            BlindingExcess = ModifyTime + MaxSignatures,
+            Offset         = BlindingExcess + MaxSignatures,
             Change,
             Status
         };
 
-
         enum class TxType : uint8_t
         {
-            SimpleTransaction,
-            AtomicSwapTransaction
+            Simple,
+            AtomicSwap
+        };
+
+        enum class AtomicSwapCoin
+        {
+            Bitcoin
         };
 
         // messages
@@ -154,6 +177,13 @@ namespace beam
             TxType m_Type;
 
             std::vector<std::pair<TxParameterID, ByteBuffer>> m_Parameters;
+
+            template <typename T>
+            SetTxParameter& AddParameter(TxParameterID paramID, T&& value)
+            {
+                m_Parameters.emplace_back(paramID, toByteBuffer(value));
+                return *this;
+            }
 
             SERIALIZE(m_from, m_txId, m_Type, m_Parameters);
             static const size_t MaxParams = 20;

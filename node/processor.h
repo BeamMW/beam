@@ -70,11 +70,14 @@ class NodeProcessor
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
 	void OnSubsidyOptionChanged(bool);
 
+	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
+
 	static void SquashOnce(std::vector<Block::Body>&);
 
 	void InitCursor();
 	static void OnCorrupted();
 	void get_Definition(Merkle::Hash&, bool bForNextState);
+	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
 	Difficulty get_NextDifficulty();
 	Timestamp get_MovingMedian();
 

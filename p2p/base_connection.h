@@ -26,13 +26,13 @@ public:
     virtual void change_id(uint64_t newId) = 0;
 
     /// Writes fragments to stream
-    io::Result write_msg(const io::SerializedMsg& fragments)  {
-        return _stream->write(fragments);
+    io::Result write_msg(const io::SerializedMsg& fragments, bool flush=true)  {
+        return _stream->write(fragments, flush);
     }
 
     /// Writes single msg to stream
-    io::Result write_msg(const io::SharedBuffer& msg)  {
-        return _stream->write(msg);
+    io::Result write_msg(const io::SharedBuffer& msg, bool flush=true)  {
+        return _stream->write(msg, flush);
     }
 
     /// Shutdowns write side, waits for pending write requests to complete, but on reactor's side

@@ -616,7 +616,7 @@ void Node::Initialize()
 
 void Node::InitIDs()
 {
-	ECC::GenRandom(m_SChannelSeed.V.m_pData, m_SChannelSeed.V.nBytes);
+	ECC::GenRandom(m_NonceLast.V.m_pData, m_NonceLast.V.nBytes);
 
 	m_MyPrivateID.V.m_Value = Zero;
 
@@ -624,7 +624,11 @@ void Node::InitIDs()
 	bool bNewID = !m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob);
 
 	if (bNewID)
-		ECC::Hash::Processor() << "myid" << m_SChannelSeed.V >> m_MyPrivateID.V.m_Value;
+	{
+		ECC::Scalar::Native sk;
+		NextNonce(sk);
+		m_MyPrivateID.V = sk;
+	}
 
 	ECC::Scalar::Native sk = m_MyPrivateID.V;
 	proto::Sk2Pk(m_MyPublicID, sk);
@@ -846,11 +850,7 @@ void Node::Peer::OnResendPeers()
 
 void Node::Peer::GenerateSChannelNonce(ECC::Scalar::Native& nonce)
 {
-	ECC::uintBig& hv = m_This.m_SChannelSeed.V; // alias
-
-	ECC::Hash::Processor() << "sch.nonce" << hv << GetTime_ms() >> hv;
-
-	nonce.GenerateNonce(m_This.m_Cfg.m_WalletKey.V, hv, NULL);
+	m_This.NextNonce(nonce);
 }
 
 void Node::Peer::OnConnectedSecure()
@@ -1645,7 +1645,18 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
 	LOG_INFO() << os.str();
 }
 
-uint32_t RandomUInt32(uint32_t threshold, ECC::uintBig& hvRnd)
+const ECC::uintBig& Node::NextNonce()
+{
+	ECC::GenerateNonce(m_NonceLast.V, m_Processor.m_Kdf.m_Secret.V, m_NonceLast.V, NULL, 0);
+	return m_NonceLast.V;
+}
+
+void Node::NextNonce(ECC::Scalar::Native& sk)
+{
+	sk.GenerateNonce(m_Cfg.m_WalletKey.V, NextNonce(), NULL);
+}
+
+uint32_t Node::RandomUInt32(uint32_t threshold)
 {
 	if (threshold)
 	{
@@ -1656,8 +1667,7 @@ uint32_t RandomUInt32(uint32_t threshold, ECC::uintBig& hvRnd)
 
 		do
 		{
-			ECC::Hash::Processor() << hvRnd >> hvRnd;
-			val = hvRnd;
+			val = NextNonce();
 		} while (!thrSel.Accept(val));
 
 		val.Export(threshold);
@@ -1719,6 +1729,8 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 		if (!bTested && !ValidateTx(ctx, *ptx))
 			return false;
 
+		AddDummyInputs(*ptx);
+
 		std::unique_ptr<TxPool::Stem::Element> pGuard(new TxPool::Stem::Element);
 		pGuard->m_bAggregating = false;
 		pGuard->m_Time.m_Value = 0;
@@ -1755,16 +1767,13 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
 
 	if (nStemPeers)
 	{
-		ECC::uintBig& hvRnd = m_SChannelSeed.V;
-
 		auto thr = uintBigFrom(m_Cfg.m_Dandelion.m_FluffProbability);
-		ECC::Hash::Processor() << hvRnd >> hvRnd;
 
-		if (memcmp(thr.m_pData, hvRnd.m_pData, thr.nBytes) < 0)
+		if (memcmp(thr.m_pData, NextNonce().m_pData, thr.nBytes) < 0)
 		{
 			// broadcast to random peer
 			assert(nStemPeers);
-			nStemPeers = RandomUInt32(nStemPeers, hvRnd);
+			nStemPeers = RandomUInt32(nStemPeers);
 
 			for (PeerList::iterator it = m_lstPeers.begin(); ; it++)
 				if (it->m_Config.m_SpreadingTransactions && !nStemPeers--)
@@ -1774,7 +1783,7 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
 				}
 
 			// set random timer
-			uint32_t nTimeout_ms = m_Cfg.m_Dandelion.m_TimeoutMin_ms + RandomUInt32(m_Cfg.m_Dandelion.m_TimeoutMax_ms - m_Cfg.m_Dandelion.m_TimeoutMin_ms, hvRnd);
+			uint32_t nTimeout_ms = m_Cfg.m_Dandelion.m_TimeoutMin_ms + RandomUInt32(m_Cfg.m_Dandelion.m_TimeoutMax_ms - m_Cfg.m_Dandelion.m_TimeoutMin_ms);
 			m_Dandelion.SetTimer(nTimeout_ms, x);
 
 			return;
@@ -1826,6 +1835,124 @@ void Node::PerformAggregation(TxPool::Stem::Element& x)
 		OnTransactionAggregated(x);
 	} else
 		m_Dandelion.SetTimer(m_Cfg.m_Dandelion.m_AggregationTime_ms, x);
+}
+
+void Node::AddDummyInputs(Transaction& tx)
+{
+	NodeDB::Transaction txScope;
+	bool bModified = false;
+
+	while (tx.m_vInputs.size() < m_Cfg.m_Dandelion.m_OutputsMax)
+	{
+		Height h;
+		ECC::Scalar sk;
+		NodeDB::Blob blob(sk.m_Value);
+
+		uint64_t rowid = m_Processor.get_DB().FindDummy(h, blob);
+		if (!rowid || (h > m_Processor.m_Cursor.m_ID.m_Height + 1))
+			break;
+
+		if (!bModified)
+		{
+			bModified = true;
+			txScope.Start(m_Processor.get_DB());
+		}
+
+		ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+		// bounds
+		UtxoTree::Key kMin, kMax;
+
+		UtxoTree::Key::Data d;
+		d.m_Commitment = ECC::Context::get().G * sk;
+		d.m_Maturity = 0;
+		kMin = d;
+
+		d.m_Maturity = m_Processor.m_Cursor.m_ID.m_Height + 1;
+		kMax = d;
+
+		// check if it's still unspent
+		struct Traveler :public UtxoTree::ITraveler {
+			virtual bool OnLeaf(const RadixTree::Leaf& x) override {
+				return false;
+			}
+		} t;
+
+		UtxoTree::Cursor cu;
+		t.m_pCu = &cu;
+		t.m_pBound[0] = kMin.m_pArr;
+		t.m_pBound[1] = kMax.m_pArr;
+
+		if (m_Processor.get_Utxos().Traverse(t))
+		{
+			// spent
+			m_Processor.get_DB().DeleteDummy(rowid);
+		}
+		else
+		{
+			// unspent
+			Input::Ptr pInp(new Input);
+			pInp->m_Commitment = d.m_Commitment;
+
+			tx.m_vInputs.push_back(std::move(pInp));
+			tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + ECC::Scalar::Native(sk);
+
+			/// in the (unlikely) case the tx will be lost - we'll retry spending this UTXO after the following num of blocks
+			m_Processor.get_DB().SetDummyHeight(rowid, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
+		}
+
+	}
+
+	if (bModified)
+	{
+		txScope.Commit();
+		tx.Sort();
+	}
+}
+
+void Node::AddDummyOutputs(Transaction& tx)
+{
+	if (!m_Cfg.m_Dandelion.m_DummyLifetimeHi)
+		return;
+
+	// add dummy outputs
+	NodeDB::Transaction txScope;
+	bool bModified = false;
+
+	NodeDB& db = m_Processor.get_DB();
+
+	while (tx.m_vOutputs.size() < m_Cfg.m_Dandelion.m_OutputsMin)
+	{
+		ECC::Scalar::Native sk;
+		NextNonce(sk);
+
+		if (!bModified)
+		{
+			bModified = true;
+			txScope.Start(db);
+		}
+
+		Output::Ptr pOutput(new Output);
+		pOutput->Create(sk, 0);
+
+		Height h = m_Processor.m_Cursor.m_ID.m_Height + 1 + m_Cfg.m_Dandelion.m_DummyLifetimeLo;
+		if (m_Cfg.m_Dandelion.m_DummyLifetimeHi > m_Cfg.m_Dandelion.m_DummyLifetimeLo)
+			h += RandomUInt32(m_Cfg.m_Dandelion.m_DummyLifetimeHi - m_Cfg.m_Dandelion.m_DummyLifetimeLo);
+
+		ECC::Scalar sk_(sk); // not so secret
+		db.InsertDummy(h, NodeDB::Blob(sk_.m_Value));
+
+		tx.m_vOutputs.push_back(std::move(pOutput));
+
+		sk = -sk;
+		tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + sk;
+	}
+
+	if (bModified)
+	{
+		txScope.Commit();
+		tx.Sort();
+	}
 }
 
 bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPool::Stem::Element* pElem)
@@ -1894,6 +2021,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 
 void Node::Dandelion::OnTimedOut(Element& x)
 {
+	get_ParentObj().AddDummyOutputs(*x.m_pValue);
 	get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
 }
 

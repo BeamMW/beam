@@ -72,6 +72,10 @@ namespace beam {
 #define TblBbs_Time				"Time"
 #define TblBbs_Msg				"Message"
 
+#define TblDummy				"Dummies"
+#define TblDummy_Key			"Key"
+#define TblDummy_SpendHeight	"SpendHeight"
+
 NodeDB::NodeDB()
 	:m_pDb(NULL)
 {
@@ -264,7 +268,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 8;
+	const uint64_t nVersion = 9;
 
 	if (bCreate)
 	{
@@ -361,6 +365,12 @@ void NodeDB::Create()
 
 	ExecQuick("CREATE INDEX [Idx" TblBbs "CT] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_Time "]);"); // fetch messages for specific channel within time range, ordered by time
 	ExecQuick("CREATE INDEX [Idx" TblBbs "T] ON [" TblBbs "] ([" TblBbs_Time "]);"); // delete old messages
+
+	ExecQuick("CREATE TABLE [" TblDummy "] ("
+		"[" TblDummy_Key			"] BLOB NOT NULL,"
+		"[" TblDummy_SpendHeight	"] INTEGER NOT NULL)");
+
+	ExecQuick("CREATE INDEX [Idx" TblDummy "H] ON [" TblDummy "] ([" TblDummy_SpendHeight "]);");
 }
 
 void NodeDB::ExecQuick(const char* szSql)
@@ -1676,5 +1686,44 @@ uint64_t NodeDB::FindStateWorkGreater(const Difficulty::Raw& d)
 	return res;
 }
 
+void NodeDB::InsertDummy(Height h, const Blob& key)
+{
+	Recordset rs(*this, Query::DummyIns, "INSERT INTO " TblDummy "(" TblDummy_Key "," TblDummy_SpendHeight ") VALUES(?,?)");
+	rs.put(0, key);
+	rs.put(1, h);
+	rs.Step();
+	TestChanged1Row();
+}
+
+uint64_t NodeDB::FindDummy(Height& h, Blob& key)
+{
+	Recordset rs(*this, Query::DummyFind, "SELECT rowid," TblDummy_Key "," TblDummy_SpendHeight " FROM " TblDummy " ORDER BY " TblDummy_SpendHeight " ASC LIMIT 1");
+	if (!rs.Step())
+		return 0;
+
+	uint64_t res;
+	rs.get(0, res);
+	memcpy((void*) key.p, rs.get_BlobStrict(1, key.n), key.n);
+	rs.get(2, h);
+
+	return res;
+}
+
+void NodeDB::DeleteDummy(uint64_t rowid)
+{
+	Recordset rs(*this, Query::DummyDel, "DELETE FROM " TblDummy " WHERE rowid=?");
+	rs.put(0, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::SetDummyHeight(uint64_t rowid, Height h)
+{
+	Recordset rs(*this, Query::DummyUpdHeight, "UPDATE " TblDummy " SET " TblDummy_SpendHeight "=? WHERE rowid=?");
+	rs.put(0, h);
+	rs.put(1, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
 
 } // namespace beam

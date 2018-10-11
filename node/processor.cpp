@@ -398,10 +398,15 @@ void NodeProcessor::get_CurrentLive(Merkle::Hash& hv)
 	Merkle::Interpret(hv, hv2, true);
 }
 
-void NodeProcessor::get_Definition(Merkle::Hash& hv, bool bForNextState)
+void NodeProcessor::get_Definition(Merkle::Hash& hv, const Merkle::Hash& hvHist)
 {
 	get_CurrentLive(hv);
-	Merkle::Interpret(hv, bForNextState ? m_Cursor.m_HistoryNext : m_Cursor.m_History, false);
+	Merkle::Interpret(hv, hvHist, false);
+}
+
+void NodeProcessor::get_Definition(Merkle::Hash& hv, bool bForNextState)
+{
+	get_Definition(hv, bForNextState ? m_Cursor.m_HistoryNext : m_Cursor.m_History);
 }
 
 struct NodeProcessor::RollbackData
@@ -1463,6 +1468,20 @@ void NodeProcessor::ExportHdrRange(const HeightRange& hr, Block::SystemState::Se
 
 bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 {
+	NodeDB::Transaction t(m_DB);
+
+	bool b = ImportMacroBlockInternal(r);
+
+	t.Commit(); // regardless to if succeeded or not
+	if (!b)
+		return false;
+
+	TryGoUp();
+	return true;
+}
+
+bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
+{
 	assert(!m_bShallowTx);
 
 	Block::BodyBase body;
@@ -1472,27 +1491,40 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 	r.Reset();
 	r.get_Start(body, s);
 
-	Cursor cu = m_Cursor;
-	if ((cu.m_ID.m_Height + 1 != s.m_Height) || (cu.m_ID.m_Hash != s.m_Prev))
+	id.m_Height = s.m_Height - 1;
+	id.m_Hash = s.m_Prev;
+
+	if ((m_Cursor.m_ID.m_Height + 1 != s.m_Height) || (m_Cursor.m_ID.m_Hash != s.m_Prev))
 	{
-		id.m_Height = s.m_Height - 1;
-		id.m_Hash = s.m_Prev;
-		LOG_WARNING() << "Incompatible state for import. My Tip: " << cu.m_ID << ", Macroblock starts at " << id;
+		LOG_WARNING() << "Incompatible state for import. My Tip: " << m_Cursor.m_ID << ", Macroblock starts at " << id;
 		return false; // incompatible beginning state
 	}
 
-	if (!cu.m_SubsidyOpen && body.m_SubsidyClosing)
+	if (!m_Cursor.m_SubsidyOpen && body.m_SubsidyClosing)
 	{
 		LOG_WARNING() << "Invald subsidy-close flag";
 		return false;
 	}
 
-	NodeDB::Transaction t(m_DB);
+	Merkle::CompactMmr cmmr;
+	if (m_Cursor.m_ID.m_Height > Rules::HeightGenesis)
+	{
+		Merkle::ProofBuilderHard bld;
+		m_DB.get_Proof(bld, m_Cursor.m_Sid, m_Cursor.m_Sid.m_Height - 1);
+
+		cmmr.m_vNodes.swap(bld.m_Proof);
+		std::reverse(cmmr.m_vNodes.begin(), cmmr.m_vNodes.end());
+		cmmr.m_Count = m_Cursor.m_Sid.m_Height - 1 - Rules::HeightGenesis;
+
+		cmmr.Append(m_Cursor.m_Full.m_Prev);
+	}
 
 	LOG_INFO() << "Verifying headers...";
 
 	for (bool bFirstTime = true ; r.get_NextHdr(s); s.NextPrefix())
 	{
+		// Difficulty check?!
+
 		if (bFirstTime)
 		{
 			bFirstTime = false;
@@ -1508,6 +1540,9 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 		}
 		else
 			s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+
+		if (id.m_Height >= Rules::HeightGenesis)
+			cmmr.Append(id.m_Hash);
 
 		switch (OnStateInternal(s, id))
 		{
@@ -1527,7 +1562,7 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 
 	LOG_INFO() << "Context-free validation...";
 
-	if (!VerifyBlock(body, std::move(r), HeightRange(cu.m_ID.m_Height + 1, id.m_Height)))
+	if (!VerifyBlock(body, std::move(r), HeightRange(m_Cursor.m_ID.m_Height + 1, id.m_Height)))
 	{
 		LOG_WARNING() << "Context-free verification failed";
 		return false;
@@ -1536,9 +1571,30 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 	LOG_INFO() << "Applying macroblock...";
 
 	RollbackData rbData;
-	if (!HandleValidatedTx(std::move(r), cu.m_ID.m_Height + 1, true, rbData, &id.m_Height))
+	if (!HandleValidatedTx(std::move(r), m_Cursor.m_ID.m_Height + 1, true, rbData, &id.m_Height))
 	{
 		LOG_WARNING() << "Invalid in its context";
+		return false;
+	}
+
+	if (body.m_SubsidyClosing)
+		OnSubsidyOptionChanged(false);
+
+	// evaluate the Definition
+	Merkle::Hash hvDef, hv;
+	cmmr.get_Hash(hv);
+	get_Definition(hvDef, hv);
+
+	if (s.m_Definition != hvDef)
+	{
+		LOG_WARNING() << "Definition mismatch";
+
+		if (body.m_SubsidyClosing)
+			OnSubsidyOptionChanged(true);
+
+		rbData.m_Inputs = 0;
+		verify(HandleValidatedTx(std::move(r), m_Cursor.m_ID.m_Height + 1, false, rbData, &id.m_Height));
+
 		return false;
 	}
 
@@ -1571,43 +1627,12 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 	}
 
 	m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &id.m_Height, NULL);
-	InitCursor();
-
-	if (body.m_SubsidyClosing)
-	{
-		m_Cursor.m_SubsidyOpen = false;
-		OnSubsidyOptionChanged(m_Cursor.m_SubsidyOpen);
-	}
-
-	Merkle::Hash hvDef;
-	get_Definition(hvDef, false);
-
-	if (s.m_Definition != hvDef)
-	{
-		LOG_WARNING() << "Definition mismatch";
-
-		if (m_Cursor.m_SubsidyOpen != cu.m_SubsidyOpen)
-			OnSubsidyOptionChanged(cu.m_SubsidyOpen);
-
-		rbData.m_Inputs = 0;
-		verify(HandleValidatedTx(std::move(r), cu.m_ID.m_Height + 1, false, rbData, &id.m_Height));
-
-		// DB changes are not reverted explicitly, but they will be reverted by DB transaction rollback.
-
-		m_Cursor = cu;
-
-		return false;
-	}
-
+	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
 	AdjustCumulativeParams(body, true);
 
-	// everything's fine
-	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
-	t.Commit();
+	InitCursor();
 
 	LOG_INFO() << "Macroblock import succeeded";
-
-	TryGoUp();
 
 	return true;
 }

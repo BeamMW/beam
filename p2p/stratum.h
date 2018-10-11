@@ -117,15 +117,15 @@ struct ParserCallback {
 };
 
 // returns empty buffer if m fields contain unexpected chars (i.e. non-utf8)
-template<typename M> io::SharedBuffer create_json_msg(HttpMsgCreator& packer, const M& m);
+template<typename M> bool append_json_msg(io::SerializedMsg& out, HttpMsgCreator& packer, const M& m);
 
-template<> io::SharedBuffer create_json_msg(HttpMsgCreator& packer, const Response& m);
+template<> bool append_json_msg(io::SerializedMsg& out, HttpMsgCreator& packer, const Response& m);
 
 // returns 0 or error code from STRATUM_ERRORS
 template<typename M> int parse_json_msg(const void* buf, size_t bufSize, M& m);
 
 template<> int parse_json_msg(const void* buf, size_t bufSize, Response& m);
 
-io::SharedBuffer dump(HttpMsgCreator& packer, const nlohmann::json& o);
+bool append_json_msg(io::SerializedMsg& out, HttpMsgCreator& packer, const nlohmann::json& o);
 
 }} //namespaces

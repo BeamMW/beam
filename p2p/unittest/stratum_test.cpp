@@ -34,7 +34,9 @@ int json_creation_test() {
     try {
         HttpMsgCreator packer(400);
         Response r(333, login, Error(message_corrupted));
-        auto buf = create_json_msg(packer, r);
+        io::SerializedMsg m;
+        append_json_msg(m, packer, r);
+        io::SharedBuffer buf = io::normalize(m);
         LOG_DEBUG() << to_string(buf);
         Response x;
         int code = parse_json_msg(buf.data, buf.size, x);
