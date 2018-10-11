@@ -138,8 +138,6 @@ public:
 	UtxoTree& get_Utxos() { return m_Utxos; }
 	RadixHashOnlyTree& get_Kernels() { return m_Kernels; }
 
-	bool get_KernelHashPreimage(const Merkle::Hash& id, ECC::uintBig&);
-
 	void EnumCongestions();
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 

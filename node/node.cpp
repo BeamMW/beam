@@ -2208,9 +2208,6 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 		msgOut.m_Proof.back().first = false;
 		msgOut.m_Proof.back().second = m_This.m_Processor.m_Cursor.m_History;
-
-		if (msg.m_RequestHashPreimage)
-			m_This.m_Processor.get_KernelHashPreimage(msg.m_ID, msgOut.m_HashPreimage);
 	}
 
 	Send(msgOut);

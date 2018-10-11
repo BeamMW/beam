@@ -1096,7 +1096,6 @@ namespace beam
 					mk.Export(krn);
 
 					proto::GetProofKernel msgOut2;
-					msgOut2.m_RequestHashPreimage = true;
 					krn.get_ID(msgOut2.m_ID);
 					Send(msgOut2);
 
@@ -1175,11 +1174,6 @@ namespace beam
 						mk.Export(krn);
 
 						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
-
-						if (krn.m_pHashLock)
-							verify_test(krn.m_pHashLock->m_Preimage == msg.m_HashPreimage);
-						else
-							verify_test(msg.m_HashPreimage == Zero);
 					}
 				}
 				else

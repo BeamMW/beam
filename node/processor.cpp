@@ -1665,16 +1665,6 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	return true;
 }
 
-bool NodeProcessor::get_KernelHashPreimage(const Merkle::Hash& id, ECC::uintBig& val)
-{
-	SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-	skey.m_Key = id;
-
-	NodeDB::Blob blobKey(&skey, sizeof(skey)), blobVal(val);
-
-	return m_DB.GetSpendableBody(blobKey, blobVal);
-}
-
 void NodeProcessor::InitializeFromBlocks()
 {
 	if (m_Cursor.m_ID.m_Height < Rules::HeightGenesis)

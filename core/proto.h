@@ -60,8 +60,7 @@ namespace proto {
 	macro(Height, Height)
 
 #define BeamNodeMsg_GetProofKernel(macro) \
-	macro(Merkle::Hash, ID) \
-	macro(bool, RequestHashPreimage)
+	macro(Merkle::Hash, ID)
 
 #define BeamNodeMsg_GetProofUtxo(macro) \
 	macro(Input, Utxo) \
@@ -71,8 +70,7 @@ namespace proto {
 	macro(Difficulty::Raw, LowerBound)
 
 #define BeamNodeMsg_ProofKernel(macro) \
-	macro(Merkle::Proof, Proof) \
-	macro(ECC::uintBig, HashPreimage)
+	macro(Merkle::Proof, Proof)
 
 #define BeamNodeMsg_ProofUtxo(macro) \
 	macro(std::vector<Input::Proof>, Proofs)
