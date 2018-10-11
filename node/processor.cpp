@@ -31,68 +31,6 @@ NodeProcessor::Horizon::Horizon()
 {
 }
 
-struct NodeProcessor::UnspentWalker
-	:public NodeDB::WalkerSpendable
-{
-	NodeProcessor& m_This;
-
-	UnspentWalker(NodeProcessor& me)
-		:NodeDB::WalkerSpendable(me.m_DB)
-		,m_This(me)
-	{
-	}
-
-	bool Traverse();
-
-	virtual bool OnUtxo(const UtxoTree::Key&) = 0;
-	virtual bool OnKernel(const Merkle::Hash&) = 0;
-};
-
-bool NodeProcessor::UnspentWalker::Traverse()
-{
-	for (m_Rs.m_DB.EnumUnpsent(*this); MoveNext(); )
-	{
-		assert(m_nUnspentCount);
-		if (!m_Key.n)
-			OnCorrupted();
-
-		uint8_t nType = *(uint8_t*) m_Key.p;
-		((uint8_t*&) m_Key.p)++;
-		m_Key.n--;
-
-		switch (nType)
-		{
-		case DbType::Utxo:
-		{
-			if (UtxoTree::Key::s_Bytes != m_Key.n)
-				OnCorrupted();
-
-			static_assert(sizeof(UtxoTree::Key) == UtxoTree::Key::s_Bytes, "");
-
-			if (!OnUtxo(*(UtxoTree::Key*) m_Key.p))
-				return false;
-		}
-		break;
-
-		case DbType::Kernel:
-		{
-			if (Merkle::Hash::nBytes != m_Key.n)
-				OnCorrupted();
-
-			if (!OnKernel(*(Merkle::Hash*) m_Key.p))
-				return false;
-
-		}
-		break;
-
-		default:
-			OnCorrupted();
-		}
-	}
-
-	return true;
-}
-
 void NodeProcessor::Initialize(const char* szPath)
 {
 	m_DB.Open(szPath);
@@ -338,11 +276,7 @@ void NodeProcessor::PruneAt(Height h, bool bDeleteBody)
 	;
 	for (m_DB.EnumStatesAt(ws, h); ws.MoveNext(); )
 	{
-		if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
-		{
-			if (bDeleteBody)
-				DereferenceFossilBlock(ws.m_Sid.m_Row);
-		} else
+		if (!(NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row)))
 			m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
 
 		if (bDeleteBody)
@@ -402,8 +336,6 @@ struct NodeProcessor::RollbackData
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 {
-	assert(!m_bShallowTx);
-
 	ByteBuffer bb;
 	RollbackData rbData;
 	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf);
@@ -636,23 +568,8 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 	return false;
 }
 
-template <typename T, uint8_t nType>
-struct SpendableKey
-{
-	uint8_t m_Type;
-	T m_Key;
-
-	SpendableKey()
-		:m_Type(nType)
-	{
-		static_assert(sizeof(*this) == sizeof(m_Type) + sizeof(m_Key), "");
-	}
-};
-
 bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* pHMax, bool bFwd, RollbackData& rbData)
 {
-	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
-
 	UtxoTree::Cursor cu;
 	UtxoTree::MyLeaf* p;
 	UtxoTree::Key::Data d;
@@ -692,8 +609,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 
 		p = &(UtxoTree::MyLeaf&) cu.get_Leaf();
 
-		skey.m_Key = p->m_Key;
-		d = skey.m_Key;
+		d = p->m_Key;
 		assert(d.m_Commitment == v.m_Commitment);
 		assert(d.m_Maturity <= (pHMax ? *pHMax : h));
 
@@ -709,10 +625,12 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 	} else
 	{
 		d.m_Maturity = rbData.NextInput(false).m_Maturity;
-		skey.m_Key = d;
 
 		bool bCreate = true;
-		p = m_Utxos.Find(cu, skey.m_Key, bCreate);
+		UtxoTree::Key key;
+		key = d;
+
+		p = m_Utxos.Find(cu, key, bCreate);
 
 		if (bCreate)
 			p->m_Value.m_Count = 1;
@@ -722,9 +640,6 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 			cu.Invalidate();
 		}
 	}
-
-	if (!m_bShallowTx)
-		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), 0, bFwd ? -1 : 1);
 
 	return true;
 }
@@ -745,24 +660,19 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 		d.m_Maturity = v.m_Maturity;
 	}
 
-	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
-	skey.m_Key = d;
-	NodeDB::Blob blob(&skey, sizeof(skey));
+	UtxoTree::Key key;
+	key = d;
 
 	UtxoTree::Cursor cu;
 	bool bCreate = true;
-	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, skey.m_Key, bCreate);
+	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
 
 	cu.Invalidate();
 
 	if (bFwd)
 	{
 		if (bCreate)
-		{
 			p->m_Value.m_Count = 1;
-			if (!m_bShallowTx)
-				m_DB.AddSpendable(blob, NULL, 1, 1);
-		}
 		else
 		{
 			// protect again overflow attacks, though it's highly unlikely (Input::Count is currently limited to 32 bits, it'd take millions of blocks)
@@ -771,8 +681,6 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 				return false;
 
 			p->m_Value.m_Count = nCountInc;
-			if (!m_bShallowTx)
-				m_DB.ModifySpendable(blob, 1, 1);
 		}
 	} else
 	{
@@ -780,9 +688,6 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 			m_Utxos.Delete(cu);
 		else
 			p->m_Value.m_Count--;
-
-		if (!m_bShallowTx)
-			m_DB.ModifySpendable(blob, -1, -1);
 	}
 
 	return true;
@@ -807,12 +712,12 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 {
 	bool bAdd = (bFwd != bIsInput);
 
-	SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-	v.get_ID(skey.m_Key);
+	Merkle::Hash key;
+	v.get_ID(key);
 
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = bAdd;
-	RadixHashOnlyTree::MyLeaf* p = m_Kernels.Find(cu, skey.m_Key, bCreate);
+	RadixHashOnlyTree::MyLeaf* p = m_Kernels.Find(cu, key, bCreate);
 
 	if (bAdd)
 	{
@@ -826,63 +731,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 		m_Kernels.Delete(cu);
 	}
 
-	NodeDB::Blob blob(&skey, sizeof(skey));
-
-	if (!m_bShallowTx)
-	{
-		if (bIsInput)
-			m_DB.ModifySpendable(blob, 0, bFwd ? -1 : 1);
-		else
-			if (bFwd)
-			{
-				NodeDB::Blob body;
-				if (v.m_pHashLock)
-					body = NodeDB::Blob(v.m_pHashLock->m_Preimage);
-
-				m_DB.AddSpendable(blob, v.m_pHashLock ? &body : NULL, 1, 1);
-			}
-			else
-				m_DB.ModifySpendable(blob, -1, -1);
-	}
-
 	return true;
-}
-
-void NodeProcessor::DereferenceFossilBlock(uint64_t rowid)
-{
-	ByteBuffer bbBlock;
-	RollbackData rbData;
-
-	m_DB.GetStateBlock(rowid, bbBlock, rbData.m_Buf);
-
-	Block::Body block;
-
-	Deserializer der;
-	der.reset(&bbBlock.at(0), bbBlock.size());
-	der & block;
-
-	Block::Body::Reader r = block.get_Reader();
-	r.Reset();
-
-	for (; r.m_pUtxoIn; r.NextUtxoIn())
-	{
-		UtxoTree::Key::Data d;
-		d.m_Commitment = r.m_pUtxoIn->m_Commitment;
-		d.m_Maturity = rbData.NextInput(false).m_Maturity;
-
-		SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
-		skey.m_Key = d;
-
-		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), -1, 0);
-	}
-
-	for (; r.m_pKernelIn; r.NextKernelIn())
-	{
-		SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-		r.m_pKernelIn->get_ID(skey.m_Key);
-
-		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), -1, 0);
-	}
 }
 
 bool NodeProcessor::GoForward(uint64_t row)
@@ -1212,8 +1061,6 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 
 bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
 {
-	assert(m_bShallowTx);
-
 	fees = 0;
 	size_t nBlockSize = 0;
 	size_t nAmount = 0;
@@ -1344,8 +1191,6 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 
 bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res, bool bInitiallyEmpty)
 {
-	ShallowTx stx(*this);
-
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 
 	if (!bInitiallyEmpty && !VerifyBlock(res, res.get_Reader(), h))
@@ -1510,8 +1355,6 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 
 bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 {
-	assert(!m_bShallowTx);
-
 	Block::BodyBase body;
 	Block::SystemState::Full s;
 	Block::SystemState::ID id;
@@ -1669,8 +1512,6 @@ void NodeProcessor::InitializeFromBlocks()
 {
 	if (m_Cursor.m_ID.m_Height < Rules::HeightGenesis)
 		return;
-
-	ShallowTx stx(*this);
 
 	NodeDB::WalkerState ws(m_DB);
 	Height h = 0;

@@ -325,26 +325,6 @@ namespace beam
 		tr.Commit();
 		tr.Start(db);
 
-		// utxos and kernels
-		NodeDB::Blob b0(vStates[0].m_Prev);
-
-		db.AddSpendable(b0, NULL, 5, 3);
-
-		NodeDB::WalkerSpendable wsp(db);
-		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
-			;
-		db.ModifySpendable(b0, 0, -3);
-		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
-			;
-
-		db.ModifySpendable(b0, 0, 2);
-		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
-			;
-
-		db.ModifySpendable(b0, -5, -4);
-		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
-			;
-
 		for (int i = 0; i < 20; i++)
 		{
 			NodeDB::WalkerPeer::Data d;
@@ -407,7 +387,7 @@ namespace beam
 			;
 
 		Merkle::Hash hv;
-		b0 = NodeDB::Blob(hv);
+		NodeDB::Blob b0(hv);
 		hv = 345U;
 
 		db.InsertDummy(176, b0);

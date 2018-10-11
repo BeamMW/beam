@@ -26,39 +26,12 @@ class NodeProcessor
 	UtxoTree m_Utxos;
 	RadixHashOnlyTree m_Kernels;
 
-	bool m_bShallowTx = false;
-
-	struct ShallowTx
-	{
-		bool* m_pDst;
-
-		ShallowTx(NodeProcessor& p)
-		{
-			if (p.m_bShallowTx)
-				m_pDst = NULL;
-			else
-				m_pDst = &(p.m_bShallowTx = true);
-		}
-
-		~ShallowTx()
-		{
-			if (m_pDst)
-				*m_pDst = false;
-		}
-	};
-
-	struct DbType {
-		static const uint8_t Utxo	= 0;
-		static const uint8_t Kernel	= 1;
-	};
-
 	void TryGoUp();
 
 	bool GoForward(uint64_t);
 	void Rollback();
 	void PruneOld();
 	void PruneAt(Height, bool bDeleteBody);
-	void DereferenceFossilBlock(uint64_t);
 	void InitializeFromBlocks();
 
 	struct RollbackData;
