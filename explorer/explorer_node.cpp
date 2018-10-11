@@ -64,7 +64,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
 #endif
 
     o.nodeDbFilename = FILES_PREFIX "db";
-    o.accessControlFile = "api.keys";
+    //o.accessControlFile = "api.keys";
 
     o.nodeConnectTo.resolve("172.104.249.212:8101");
     o.nodeListenTo.port(10000);
