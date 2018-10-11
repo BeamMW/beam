@@ -535,6 +535,12 @@ void Node::Processor::OnBlockData()
 	ReportProgress();
 }
 
+bool Node::Processor::OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID& sid)
+{
+	get_ParentObj().m_Compressor.FmtPath(rw, sid.m_Height, NULL);
+	return true;
+}
+
 void Node::Processor::ReportProgress()
 {
 	auto observer = get_ParentObj().m_Cfg.m_Observer;

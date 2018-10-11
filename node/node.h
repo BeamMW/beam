@@ -147,6 +147,7 @@ private:
 		void AdjustFossilEnd(Height&) override;
 		void OnStateData() override;
 		void OnBlockData() override;
+		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
 
 		void ReportProgress();
         void ReportNewState();

@@ -59,6 +59,7 @@ class NodeProcessor
 	void PruneOld();
 	void PruneAt(Height, bool bDeleteBody);
 	void DereferenceFossilBlock(uint64_t);
+	void InitializeFromBlocks();
 
 	struct RollbackData;
 
@@ -151,6 +152,7 @@ public:
 	virtual void AdjustFossilEnd(Height&) {}
 	virtual void OnStateData() {}
 	virtual void OnBlockData() {}
+	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
 
 	uint64_t FindActiveAtStrict(Height);
 

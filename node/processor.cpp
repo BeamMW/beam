@@ -115,42 +115,7 @@ void NodeProcessor::Initialize(const char* szPath)
 
 	InitCursor();
 
-	if (!m_Cursor.m_SubsidyOpen)
-		OnSubsidyOptionChanged(m_Cursor.m_SubsidyOpen);
-
-	// Load all the 'live' data
-	{
-		struct Walker
-			:public UnspentWalker
-		{
-			Walker(NodeProcessor& me) :UnspentWalker(me) {}
-
-			virtual bool OnUtxo(const UtxoTree::Key& key) override
-			{
-				UtxoTree::Cursor cu;
-				bool bCreate = true;
-
-				m_This.m_Utxos.Find(cu, key, bCreate)->m_Value.m_Count = m_nUnspentCount;
-				assert(bCreate);
-
-				return true;
-			}
-
-			virtual bool OnKernel(const Merkle::Hash& key) override
-			{
-				RadixHashOnlyTree::Cursor cu;
-				bool bCreate = true;
-
-				m_This.m_Kernels.Find(cu, key, bCreate);
-				assert(bCreate);
-
-				return true;
-			}
-		};
-
-		Walker wlk(*this);
-		wlk.Traverse();
-	}
+	InitializeFromBlocks();
 
 	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, m_Horizon.m_Branching);
 	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height) Rules::get().MaxRollbackHeight);
@@ -1708,6 +1673,104 @@ bool NodeProcessor::get_KernelHashPreimage(const Merkle::Hash& id, ECC::uintBig&
 	NodeDB::Blob blobKey(&skey, sizeof(skey)), blobVal(val);
 
 	return m_DB.GetSpendableBody(blobKey, blobVal);
+}
+
+void NodeProcessor::InitializeFromBlocks()
+{
+	if (m_Cursor.m_ID.m_Height < Rules::HeightGenesis)
+		return;
+
+	ShallowTx stx(*this);
+
+	NodeDB::WalkerState ws(m_DB);
+	Height h = 0;
+	bool bSubsidyOpen = true;
+
+	for (m_DB.EnumMacroblocks(ws); ws.MoveNext(); )
+	{
+		Block::Body::RW rw;
+		if (!OpenMacroblock(rw, ws.m_Sid))
+			continue;
+
+		if (ws.m_Sid.m_Height > m_Cursor.m_ID.m_Height)
+
+		LOG_INFO() << "Interpreting MB up to " << ws.m_Sid.m_Height << "...";
+
+		Block::BodyBase body;
+		Block::SystemState::Sequence::Prefix prefix;
+
+		rw.Reset();
+		rw.get_Start(body, prefix);
+
+		if (body.m_SubsidyClosing)
+		{
+			bSubsidyOpen = false;
+			OnSubsidyOptionChanged(false);
+		}
+
+		RollbackData rbData;
+		if (!HandleValidatedTx(std::move(rw), Rules::HeightGenesis, true, rbData, &ws.m_Sid.m_Height))
+			OnCorrupted();
+
+		h = ws.m_Sid.m_Height;
+		break;
+	}
+
+	LOG_INFO() << "Interpreting blocks up to " << m_Cursor.m_ID.m_Height << "...";
+
+	std::vector<uint64_t> vPath;
+	vPath.reserve(m_Cursor.m_ID.m_Height - h);
+
+	for (Height h1 = h; h1 < m_Cursor.m_ID.m_Height; h1++)
+	{
+		uint64_t rowid;
+		if (vPath.empty())
+			rowid = FindActiveAtStrict(m_Cursor.m_ID.m_Height);
+		else
+		{
+			rowid = vPath.back();
+			if (!m_DB.get_Prev(rowid))
+				OnCorrupted();
+		}
+
+		vPath.push_back(rowid);
+	}
+
+	ByteBuffer bb;
+	RollbackData rbData;
+	for (; !vPath.empty(); vPath.pop_back())
+	{
+		bb.clear();
+		rbData.m_Buf.clear();
+		rbData.m_Inputs = 0;
+
+		m_DB.GetStateBlock(vPath.back(), bb, rbData.m_Buf);
+
+		if (bb.empty())
+			OnCorrupted();
+
+		Block::Body block;
+
+		Deserializer der;
+		der.reset(&bb.at(0), bb.size());
+		der & block;
+
+		if (block.m_SubsidyClosing)
+		{
+			if (!bSubsidyOpen)
+				OnCorrupted();
+			OnSubsidyOptionChanged(false);
+		}
+
+		if (!HandleValidatedTx(block.get_Reader(), ++h, true, rbData))
+			OnCorrupted();
+	}
+
+	// final check
+	Merkle::Hash hv;
+	get_Definition(hv, false);
+	if (m_Cursor.m_Full.m_Definition != hv)
+		OnCorrupted();
 }
 
 } // namespace beam
