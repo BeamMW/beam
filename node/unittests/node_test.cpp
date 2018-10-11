@@ -683,19 +683,21 @@ namespace beam
 			NodeProcessor np2;
 			np2.Initialize(g_sz2);
 
-			rwData.Open(false);
+			rwData.m_hvContentTag = Zero;
+			rwData.WCreate();
 			np.ExportMacroBlock(rwData, HeightRange(Rules::HeightGenesis, hMid)); // first half
 			rwData.Close();
 
-			rwData.Open(true);
+			rwData.ROpen();
 			verify_test(np2.ImportMacroBlock(rwData));
 			rwData.Close();
 
-			rwData.Open(false);
+			rwData.m_hvContentTag.Inc();
+			rwData.WCreate();
 			np.ExportMacroBlock(rwData, HeightRange(hMid + 1, Rules::HeightGenesis + blockChain.size() - 1)); // second half
 			rwData.Close();
 
-			rwData.Open(true);
+			rwData.ROpen();
 			verify_test(np2.ImportMacroBlock(rwData));
 			rwData.Close();
 

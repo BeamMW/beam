@@ -739,7 +739,7 @@ void Node::ImportMacroblock(Height h)
 {
 	Block::BodyBase::RW rw;
 	m_Compressor.FmtPath(rw, h, NULL);
-	rw.Open(true);
+	rw.ROpen();
 
 	if (!m_Processor.ImportMacroBlock(rw))
 		throw std::runtime_error("import failed");
@@ -1326,7 +1326,7 @@ bool Node::SyncCycle(Peer& p)
 	msg.m_ID = m_pSync->m_Trg;
 	msg.m_Data = m_pSync->m_iData;
 
-	assert(m_pSync->m_iData < Block::Body::RW::s_Datas);
+	assert(m_pSync->m_iData < Block::Body::RW::Type::count);
 
 	Block::Body::RW rw;
 	m_Compressor.FmtPath(rw, m_pSync->m_Trg.m_Height, NULL);
@@ -1350,13 +1350,13 @@ bool Node::SyncCycle(Peer& p)
 void Node::SyncCycle(Peer& p, const ByteBuffer& buf)
 {
 	assert(m_pSync && !m_pSync->m_bDetecting && !m_pSync->m_RequestsPending);
-	assert(m_pSync->m_iData < Block::Body::RW::s_Datas);
+	assert(m_pSync->m_iData < Block::Body::RW::Type::count);
 
 	if (buf.empty())
 	{
 		LOG_INFO() << "Sync cycle complete for Idx=" << m_pSync->m_iData;
 
-		if (++m_pSync->m_iData == Block::Body::RW::s_Datas)
+		if (++m_pSync->m_iData == Block::Body::RW::Type::count)
 		{
 			Height h = m_pSync->m_Trg.m_Height;
 			m_pSync = NULL;
@@ -2480,7 +2480,7 @@ void Node::Peer::OnMsg(proto::BbsPickChannel&& msg)
 
 void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
 {
-	if (msg.m_Data >= Block::BodyBase::RW::s_Datas)
+	if (msg.m_Data >= Block::BodyBase::RW::Type::count)
 		ThrowUnexpected();
 
 	proto::Macroblock msgOut;

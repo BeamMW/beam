@@ -588,6 +588,7 @@ private:
 		// current data exchanged
 		HeightRange m_hrNew; // requested range. If min is non-zero - should be merged with previously-generated
 		HeightRange m_hrInplaceRequest;
+		Merkle::Hash m_hvTag;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Compressor)
 	} m_Compressor;
