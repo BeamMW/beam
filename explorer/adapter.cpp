@@ -25,14 +25,19 @@ namespace beam { namespace explorer {
 
 namespace {
 
+static const size_t PACKER_FRAGMENTS_SIZE = 4096;
+static const size_t CACHE_DEPTH = 100000;
+
 const char* hash_to_hex(char* buf, const Merkle::Hash& hash) {
     return to_hex(buf, hash.m_pData, 32);
 }
 
 const char* uint256_to_hex(char* buf, const ECC::uintBig& n) {
-    const char* p = to_hex(buf, n.m_pData, 32);
+    char* p = to_hex(buf + 2, n.m_pData, 32);
     while (p && *p == '0') ++p;
     if (*p == '\0') --p;
+    *--p = 'x';
+    *--p = '0';
     return p;
 }
 
@@ -91,11 +96,11 @@ using nlohmann::json;
 class Adapter : public INodeObserver, public IAdapter {
 public:
     Adapter(Node& node) :
-        _packer(4096),
+        _packer(PACKER_FRAGMENTS_SIZE),
         _nodeBackend(node.get_Processor()),
         _statusDirty(true),
         _nodeIsSyncing(true),
-        _cache(2000)
+        _cache(CACHE_DEPTH)
     {
         init_helper_fragments();
         _hook = &node.m_Cfg.m_Observer;
@@ -146,9 +151,9 @@ private:
             _cache.currentHeight = cursor.m_Sid.m_Height;
             _cache.lowHorizon = cursor.m_LoHorizon;
 
-            uint32_t packed = cursor.m_Full.m_PoW.m_Difficulty.m_Packed;
-            uint32_t difficultyOrder = packed >> Difficulty::s_MantissaBits;
-            uint32_t difficultyMantissa = packed & ((1U << Difficulty::s_MantissaBits) - 1);
+            AmountBig subsidy;
+            subsidy.Lo = _nodeBackend.get_DB().ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
+            subsidy.Hi = _nodeBackend.get_DB().ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
 
             char buf[80];
 
@@ -160,10 +165,11 @@ private:
                     { "is_syncing", _nodeIsSyncing },
                     { "timestamp", cursor.m_Full.m_TimeStamp },
                     { "height", _cache.currentHeight },
+                    { "low_horizon", cursor.m_LoHorizon },
                     { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
-                    { "prev", hash_to_hex(buf, cursor.m_Full.m_Prev) },
-                    { "difficulty_order", difficultyOrder },
-                    { "difficulty_mantissa", difficultyMantissa }
+                    { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) },
+                    { "subsidy",  subsidy.Lo },
+                    { "subsidy_hi",  subsidy.Hi }
                 }
             )) {
                 return false;
@@ -222,7 +228,7 @@ private:
                 ok = false;
             }
             if (!rollbackBuf.empty()) {
-                //LOG_WARNING() << "Rollback data not empty at " << blockState.m_Height;
+                LOG_DEBUG() << to_hex(rollbackBuf.data(), rollbackBuf.size());
             }
         }
 

@@ -77,6 +77,9 @@ public:
     /// Returns peer address (non-null if connected)
     Address peer_address() const;
 
+    /// Enables tcp keep-alive
+    void enable_keepalive(unsigned initialDelaySecs);
+
 protected:
     TcpStream();
 

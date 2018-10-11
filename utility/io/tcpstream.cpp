@@ -120,6 +120,12 @@ void TcpStream::shutdown() {
     }
 }
 
+void TcpStream::enable_keepalive(unsigned initialDelaySecs) {
+    if (_handle) {
+        uv_tcp_keepalive((uv_tcp_t*)_handle, 1, initialDelaySecs);
+    }
+}
+
 Result TcpStream::do_write(bool flush) {
     size_t nBytes = _writeBuffer.size();
     if (flush && nBytes > 0) {

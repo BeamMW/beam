@@ -57,6 +57,7 @@ void Server::refresh_acl() {
 
 void Server::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode) {
     if (errorCode == 0) {
+        newStream->enable_keepalive(1);
         auto peer = newStream->peer_address();
         LOG_DEBUG() << STS << "+peer " << peer;
         _connections[peer.u64()] = std::make_unique<HttpConnection>(
@@ -239,7 +240,7 @@ void Server::IPAccessControl::refresh() {
 bool Server::IPAccessControl::check(io::Address peerAddress) {
     static const uint32_t localhostIP = io::Address::localhost().ip();
     if (!_enabled || peerAddress.ip() == localhostIP) return true;
-    return _ips.count(peerAddress.ip());
+    return _ips.count(peerAddress.ip()) > 0;
 }
 
 /*
