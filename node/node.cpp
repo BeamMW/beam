@@ -1992,7 +1992,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 	m_Wtx.Delete(key.m_Key);
 
 	// new transaction
-	bool bValid = pElem ? true : tx.IsValid(ctx);
+	bool bValid = pElem ? true: ValidateTx(ctx, tx);
 	LogTx(tx, bValid, key.m_Key);
 
 	if (!bValid)
