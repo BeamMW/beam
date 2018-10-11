@@ -132,7 +132,7 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
 
 bool Server::send_status(const HttpConnection::Ptr& conn) {
     _body.clear();
-    if (_backend.get_status(_body)) {
+    if (!_backend.get_status(_body)) {
         return send(conn, 500, "Internal error #1");
     }
     return send(conn, 200, "OK");

@@ -74,8 +74,7 @@ struct ResponseCache {
     }
 
     void put_block(Height h, const io::SharedBuffer& body) {
-        Height horizon = currentHeight - _depth;
-        if (h < horizon) return;
+        if (currentHeight - h > _depth) return;
         compact();
         blocks[h] = body;
     }
