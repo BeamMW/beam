@@ -19,6 +19,7 @@ set(IO_SRC
     io/address.cpp
     io/tcpserver.cpp
     #io/sslserver.cpp
+    #io/sslio.cpp
     io/tcpstream.cpp
     #io/sslstream.cpp
     io/errorhandling.cpp

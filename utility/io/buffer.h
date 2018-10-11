@@ -105,8 +105,6 @@ struct SharedBuffer : IOVec {
             data = p.first;
             size = _size;
             guard = std::move(p.second);
-            //void* d = alloc_data(_size);
-            //memcpy(d, _data, _size);
         }
     }
 
@@ -121,6 +119,14 @@ struct SharedBuffer : IOVec {
         data = (const uint8_t*)_data;
         size = _size;
         guard = std::move(_guard);
+    }
+
+    void unique() {
+        if (empty()) return;
+        auto p = alloc_heap(size);
+        memcpy(p.first, data, size);
+        data = p.first;
+        guard = std::move(p.second);
     }
 
     void clear() {
@@ -145,23 +151,8 @@ struct SharedBuffer : IOVec {
             data = p.first;
             size = sz;
             guard = std::move(p.second);
-
-            //void* d = alloc_data(sz);
-            //a.read(d, sz);
         }
     }
-
-private:
-    /*
-    void* alloc_data(size_t _size) {
-        void* d = malloc(_size);
-        if (d==0) throw std::runtime_error("out of memory");
-        data = (uint8_t*)d;
-        size = _size;
-        guard.reset(d, [](void* p) { free(p); });
-        return d;
-    }
-    */
 };
 
 /// May have fragments...

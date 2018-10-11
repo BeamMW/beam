@@ -12,7 +12,7 @@ set(P2P_SRC
     http_msg_reader.cpp
     http_msg_creator.cpp
     stratum.cpp
-)
+    http_client.cpp)
 
 add_library(p2p STATIC ${P2P_SRC})
 add_dependencies(p2p utility)

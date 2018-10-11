@@ -337,6 +337,8 @@ Reactor::Reactor() :
 }
 
 Reactor::~Reactor() {
+    LOG_DEBUG() << __FUNCTION__;
+
     if (!_loop.data) {
         LOG_DEBUG() << "loop wasn't initialized";
         return;
@@ -345,9 +347,9 @@ Reactor::~Reactor() {
     if (_stopEvent.data)
         uv_close((uv_handle_t*)&_stopEvent, 0);
 
-    _tcpConnectors->cancel_all();
-    _pendingWrites->cancel_all();
-    _tcpShutdowns->cancel_all();
+//    _tcpConnectors->cancel_all();
+//    _pendingWrites->cancel_all();
+//    _tcpShutdowns->cancel_all();
 
     // run one cycle to release all closing handles
     uv_run(&_loop, UV_RUN_NOWAIT);
@@ -380,6 +382,10 @@ void Reactor::run() {
     block_sigpipe();
     // NOTE: blocks
     uv_run(&_loop, UV_RUN_DEFAULT);
+
+    _tcpConnectors->cancel_all();
+    _pendingWrites->cancel_all();
+    _tcpShutdowns->cancel_all();
 }
 
 void Reactor::stop() {
@@ -651,18 +657,19 @@ void Reactor::GracefulIntHandler::SetHandler(bool bSet)
 	sa.sa_flags = 0;
 
 	sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGHUP, &sa, NULL);
+    sigaction(SIGPIPE, &sa, NULL);
 }
 
 void Reactor::GracefulIntHandler::Handler(int sig)
 {
-	if (sig != SIGPIPE) {
+	if (sig != SIGPIPE && sig != SIGHUP) {
         assert(s_pAppReactor);
         s_pAppReactor->stop();
     }
 }
 
 #endif // WIN32
-
-
 
 }} //namespaces

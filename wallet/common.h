@@ -100,49 +100,72 @@ namespace beam
 
     namespace wallet
     {
-        std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
+        template <typename T>
+        ByteBuffer toByteBuffer(const T& value)
+        {
+            Serializer s;
+            s & value;
+            ByteBuffer b;
+            s.swap_buf(b);
+            return b;
+        }
 
-        enum class TxParameterID : uint32_t
+        ByteBuffer toByteBuffer(const ECC::Point::Native& value);
+        ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
+
+        std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
+        const uint32_t MaxSignatures = 10;
+        enum class TxParameterID : uint8_t
         {
             // public parameters
             TransactionType = 0,
-            IsSender,
-            Amount,
-            Fee,
-            MinHeight,
-            Message,
-            MyID,
-            PeerID,
-            Inputs,
-            Outputs,
-            CreateTime,
+            IsSender = 1,
+            Amount = 2,
+            Fee = 3,
+            MinHeight = 4,
+            Message = 5,
+            MyID = 6,
+            PeerID = 7,
+            Inputs = 8,
+            Outputs = 9,
+            CreateTime = 10,
+            IsInitiator = 11,
 
-            PeerPublicNonce,
-            PeerPublicExcess,
-            PeerSignature,
-            PeerOffset,
-            PeerInputs,
-            PeerOutputs,
+            AtomicSwapCoin = 20,
+            AtomicSwapAmount = 21,
 
-            TransactionRegistered,
-            KernelProof,
-            FailureReason,
+            // signature parameters
+
+            PeerPublicNonce = 40,
+            PeerPublicExcess = 50,
+            PeerSignature = 60,
+            PeerOffset = 70,
+            PeerInputs = 80,
+            PeerOutputs = 81,
+
+            TransactionRegistered = 90,
+            KernelProof = 91,
+            FailureReason = 92,
 
             // private parameters
-            PrivateFirstParam = 1 << 16,
+            PrivateFirstParam = 128,
 
-            ModifyTime,
-            BlindingExcess,
-            Offset,
-            Change,
-            Status
+            ModifyTime = 128,
+            BlindingExcess = 130, // + MaxSignatures,
+            Offset = 140, // + MaxSignatures reserved
+            Change = 150,
+            Status = 151
         };
-
 
         enum class TxType : uint8_t
         {
-            SimpleTransaction,
-            AtomicSwapTransaction
+            Simple,
+            AtomicSwap
+        };
+
+        enum class AtomicSwapCoin
+        {
+            Bitcoin
         };
 
         // messages
@@ -154,6 +177,13 @@ namespace beam
             TxType m_Type;
 
             std::vector<std::pair<TxParameterID, ByteBuffer>> m_Parameters;
+
+            template <typename T>
+            SetTxParameter& AddParameter(TxParameterID paramID, T&& value)
+            {
+                m_Parameters.emplace_back(paramID, toByteBuffer(value));
+                return *this;
+            }
 
             SERIALIZE(m_from, m_txId, m_Type, m_Parameters);
             static const size_t MaxParams = 20;

@@ -17,7 +17,6 @@
 namespace beam {
 
 struct Node;
-class HttpMsgCreator;
 
 namespace explorer {
 
@@ -28,11 +27,11 @@ struct IAdapter {
     virtual ~IAdapter() = default;
 
     /// Returns body for /status request
-    virtual const io::SharedBuffer& get_status(HttpMsgCreator& packer) = 0;
+    virtual bool get_status(io::SerializedMsg& out) = 0;
 
-    virtual const io::SharedBuffer& get_block(HttpMsgCreator& packer, uint64_t height) = 0;
+    virtual bool get_block(io::SerializedMsg& out, uint64_t height) = 0;
 
-    virtual void get_blocks(HttpMsgCreator& packer, io::SerializedMsg& out, uint64_t startHeight, uint64_t endHeight) = 0;
+    virtual bool get_blocks(io::SerializedMsg& out, uint64_t startHeight, uint64_t endHeight) = 0;
 };
 
 IAdapter::Ptr create_adapter(Node& node);
