@@ -449,7 +449,7 @@ bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&
 	while (v.m_Remaining)
 		v.m_TaskFinished.wait(scope);
 
-	return !v.m_bFail && v.m_Context.IsValidBlock(block, m_Cursor.m_SubsidyOpen);
+	return !v.m_bFail && v.m_Context.IsValidBlock(block, m_Extra.m_SubsidyOpen);
 }
 
 void Node::Processor::Verifier::Thread(uint32_t iVerifier)
@@ -2698,7 +2698,7 @@ bool Node::Miner::Restart()
 
 	Block::Body* pTreasury = NULL;
 
-	if (get_ParentObj().m_Processor.m_Cursor.m_SubsidyOpen)
+	if (get_ParentObj().m_Processor.m_Extra.m_SubsidyOpen)
 	{
 		Height dh = get_ParentObj().m_Processor.m_Cursor.m_Sid.m_Height + 1 - Rules::HeightGenesis;
 		std::vector<Block::Body>& vTreasury = get_ParentObj().m_Cfg.m_vTreasury;

@@ -38,11 +38,11 @@ class NodeProcessor
 
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
 	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, RollbackData&, const Height* = NULL);
-	void AdjustCumulativeParams(const Block::BodyBase&, bool bFwd);
+	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, RollbackData&, const Height* = NULL);
 	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd, RollbackData&);
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
-	void OnSubsidyOptionChanged(bool);
+	void ToggleSubsidyOpened();
 	bool ValidateTxContextKernels(const std::vector<TxKernel::Ptr>&, bool bInp);
 
 	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
@@ -81,10 +81,17 @@ public:
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
 		Difficulty m_DifficultyNext;
-		bool m_SubsidyOpen;
 		Height m_LoHorizon; // lowest accessible height
 
 	} m_Cursor;
+
+	struct Extra
+	{
+		bool m_SubsidyOpen;
+		AmountBig m_Subsidy; // total system value
+		ECC::Scalar::Native m_Offset; // not really necessary, but using it it's possible to assemble the whole macroblock from the live objects.
+
+	} m_Extra;
 
 	void get_CurrentLive(Merkle::Hash&);
 

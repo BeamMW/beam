@@ -51,6 +51,9 @@ void NodeProcessor::Initialize(const char* szPath)
 			throw std::runtime_error(os.str());
 		}
 
+	ZeroObject(m_Extra);
+	m_Extra.m_SubsidyOpen = true;
+
 	InitCursor();
 
 	InitializeFromBlocks();
@@ -84,7 +87,6 @@ void NodeProcessor::InitCursor()
 		ZeroObject(m_Cursor);
 
 	m_Cursor.m_DifficultyNext = get_NextDifficulty();
-	m_Cursor.m_SubsidyOpen = 0 != (m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyOpen, 1));
 }
 
 void NodeProcessor::EnumCongestions()
@@ -377,12 +379,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				return false;
 			}
 
-			if (!m_Cursor.m_SubsidyOpen && block.m_SubsidyClosing)
-			{
-				LOG_WARNING() << id << " illegal subsidy-close flag";
-				return false;
-			}
-
 			if (m_Cursor.m_DifficultyNext.m_Packed != s.m_PoW.m_Difficulty.m_Packed)
 			{
 				LOG_WARNING() << id << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
@@ -405,12 +401,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		assert(!rbData.m_Buf.empty());
 
 
-	bool bOk = HandleValidatedTx(block.get_Reader(), sid.m_Height, bFwd, rbData);
+	bool bOk = HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, bFwd, rbData);
 	if (!bOk)
 		LOG_WARNING() << id << " invalid in its context";
-
-	if (block.m_SubsidyClosing)
-		OnSubsidyOptionChanged(!bFwd);
 
 	if (bFirstTime && bOk)
 	{
@@ -446,60 +439,17 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		}
 		else
 		{
-			if (block.m_SubsidyClosing)
-			{
-				assert(bFwd);
-				OnSubsidyOptionChanged(bFwd);
-			}
-
 			rbData.m_Inputs = 0;
-			verify(HandleValidatedTx(block.get_Reader(), sid.m_Height, false, rbData));
+			verify(HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, false, rbData));
 		}
 	}
 
 	if (bOk)
 	{
-		AdjustCumulativeParams(block, bFwd);
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
 
 	return bOk;
-}
-
-void NodeProcessor::AdjustCumulativeParams(const Block::BodyBase& block, bool bFwd)
-{
-	ECC::Scalar kOffset;
-	NodeDB::Blob blob(kOffset.m_Value);
-
-	if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
-		kOffset.m_Value = Zero;
-
-	ECC::Scalar::Native k(kOffset), k2(block.m_Offset);
-	if (!bFwd)
-		k2 = -k2;
-
-	k += k2;
-	kOffset = k;
-
-	m_DB.ParamSet(NodeDB::ParamID::StateExtra, NULL, &blob);
-
-	AmountBig subsidy;
-	subsidy.Lo = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
-	subsidy.Hi = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
-
-	if (bFwd)
-		subsidy += block.m_Subsidy;
-	else
-		subsidy -= block.m_Subsidy;
-
-	m_DB.ParamSet(NodeDB::ParamID::SubsidyLo, &subsidy.Lo, NULL);
-	m_DB.ParamSet(NodeDB::ParamID::SubsidyHi, &subsidy.Hi, NULL);
-
-	if (block.m_SubsidyClosing)
-	{
-		uint64_t nVal = !bFwd;
-		m_DB.ParamSet(NodeDB::ParamID::SubsidyOpen, &nVal, NULL);
-	}
 }
 
 bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, RollbackData& rbData, const Height* pHMax)
@@ -566,6 +516,32 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 	rbData.m_Inputs = n;
 
 	return false;
+}
+
+bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyBase& body, Height h, bool bFwd, RollbackData& rbData, const Height* pHMax)
+{
+	if (body.m_SubsidyClosing && (m_Extra.m_SubsidyOpen != bFwd))
+		return false; // invalid subsidy close flag
+
+	if (!HandleValidatedTx(std::move(r), h, bFwd, rbData, pHMax))
+		return false;
+
+	if (body.m_SubsidyClosing)
+		ToggleSubsidyOpened();
+
+	ECC::Scalar::Native kOffset = body.m_Offset;
+
+	if (bFwd)
+		m_Extra.m_Subsidy += body.m_Subsidy;
+	else
+	{
+		m_Extra.m_Subsidy -= body.m_Subsidy;
+		kOffset = -kOffset;
+	}
+
+	m_Extra.m_Offset += kOffset;
+
+	return true;
 }
 
 bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* pHMax, bool bFwd, RollbackData& rbData)
@@ -693,18 +669,18 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	return true;
 }
 
-void NodeProcessor::OnSubsidyOptionChanged(bool bOpen)
+void NodeProcessor::ToggleSubsidyOpened()
 {
-	bool bAdd = !bOpen;
-
 	Merkle::Hash hv(Zero);
 
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = true;
 	m_Kernels.Find(cu, hv, bCreate);
 
-	assert(bAdd == bCreate);
-	if (!bAdd)
+	assert(m_Extra.m_SubsidyOpen == bCreate);
+	m_Extra.m_SubsidyOpen = !bCreate;
+
+	if (!bCreate)
 		m_Kernels.Delete(cu);
 }
 
@@ -1150,16 +1126,16 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 	else
 		ZeroObject(s.m_Prev);
 
-	if (!m_Cursor.m_SubsidyOpen)
+	if (!m_Extra.m_SubsidyOpen)
 		res.m_SubsidyClosing = false;
 
 	if (res.m_SubsidyClosing)
-		OnSubsidyOptionChanged(false);
+		ToggleSubsidyOpened();
 
 	get_Definition(s.m_Definition, true);
 
 	if (res.m_SubsidyClosing)
-		OnSubsidyOptionChanged(true);
+		ToggleSubsidyOpened();
 
 	s.m_Height = h;
 	s.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
@@ -1230,7 +1206,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 
 bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
 {
-	return block.IsValid(hr, m_Cursor.m_SubsidyOpen, std::move(r));
+	return block.IsValid(hr, m_Extra.m_SubsidyOpen, std::move(r));
 }
 
 void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)
@@ -1371,12 +1347,6 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		return false; // incompatible beginning state
 	}
 
-	if (!m_Cursor.m_SubsidyOpen && body.m_SubsidyClosing)
-	{
-		LOG_WARNING() << "Invald subsidy-close flag";
-		return false;
-	}
-
 	Merkle::CompactMmr cmmr;
 	if (m_Cursor.m_ID.m_Height > Rules::HeightGenesis)
 	{
@@ -1442,14 +1412,11 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	LOG_INFO() << "Applying macroblock...";
 
 	RollbackData rbData;
-	if (!HandleValidatedTx(std::move(r), m_Cursor.m_ID.m_Height + 1, true, rbData, &id.m_Height))
+	if (!HandleValidatedBlock(std::move(r), body, m_Cursor.m_ID.m_Height + 1, true, rbData, &id.m_Height))
 	{
 		LOG_WARNING() << "Invalid in its context";
 		return false;
 	}
-
-	if (body.m_SubsidyClosing)
-		OnSubsidyOptionChanged(false);
 
 	// evaluate the Definition
 	Merkle::Hash hvDef, hv;
@@ -1460,11 +1427,8 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	{
 		LOG_WARNING() << "Definition mismatch";
 
-		if (body.m_SubsidyClosing)
-			OnSubsidyOptionChanged(true);
-
 		rbData.m_Inputs = 0;
-		verify(HandleValidatedTx(std::move(r), m_Cursor.m_ID.m_Height + 1, false, rbData, &id.m_Height));
+		verify(HandleValidatedBlock(std::move(r), body, m_Cursor.m_ID.m_Height + 1, false, rbData, &id.m_Height));
 
 		return false;
 	}
@@ -1499,7 +1463,6 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 
 	m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &id.m_Height, NULL);
 	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
-	AdjustCumulativeParams(body, true);
 
 	InitCursor();
 
@@ -1515,7 +1478,6 @@ void NodeProcessor::InitializeFromBlocks()
 
 	NodeDB::WalkerState ws(m_DB);
 	Height h = 0;
-	bool bSubsidyOpen = true;
 
 	for (m_DB.EnumMacroblocks(ws); ws.MoveNext(); )
 	{
@@ -1533,14 +1495,8 @@ void NodeProcessor::InitializeFromBlocks()
 		rw.Reset();
 		rw.get_Start(body, prefix);
 
-		if (body.m_SubsidyClosing)
-		{
-			bSubsidyOpen = false;
-			OnSubsidyOptionChanged(false);
-		}
-
 		RollbackData rbData;
-		if (!HandleValidatedTx(std::move(rw), Rules::HeightGenesis, true, rbData, &ws.m_Sid.m_Height))
+		if (!HandleValidatedBlock(std::move(rw), body, Rules::HeightGenesis, true, rbData, &ws.m_Sid.m_Height))
 			OnCorrupted();
 
 		h = ws.m_Sid.m_Height;
@@ -1586,14 +1542,7 @@ void NodeProcessor::InitializeFromBlocks()
 		der.reset(&bb.at(0), bb.size());
 		der & block;
 
-		if (block.m_SubsidyClosing)
-		{
-			if (!bSubsidyOpen)
-				OnCorrupted();
-			OnSubsidyOptionChanged(false);
-		}
-
-		if (!HandleValidatedTx(block.get_Reader(), ++h, true, rbData))
+		if (!HandleValidatedBlock(block.get_Reader(), block, ++h, true, rbData))
 			OnCorrupted();
 	}
 
