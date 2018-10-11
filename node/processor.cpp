@@ -1165,21 +1165,84 @@ bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, Height h)
 	return true;
 }
 
+bool NodeProcessor::ValidateTxContextKernels(const std::vector<TxKernel::Ptr>& vec, bool bInp)
+{
+	Merkle::Hash phv[2];
+	phv[1] = Zero; // forbidden value for kernel ID
+
+	for (size_t i = 0; i < vec.size(); i++)
+	{
+		const TxKernel& v = *vec[i];
+		v.get_ID(phv[1 & i]);
+
+		if (phv[0] == phv[1])
+			return false; // consequent kernels have the same ID
+		// We don't check if non-consequent kernels have the same ID. Too low probability, and this is supposed to be a fast verification
+
+		RadixHashOnlyTree::Cursor cu;
+		bool bCreate = false;
+		RadixHashOnlyTree::MyLeaf* p = m_Kernels.Find(cu, phv[1 & i], bCreate);
+
+		if (bInp != (NULL != p))
+			return false;
+	}
+
+	return true;
+}
+
 bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 	if (!ValidateTxWrtHeight(tx, h))
 		return false;
 
-	ShallowTx stx(*this);
+	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
+	// Ensure input UTXOs are present
+	for (size_t i = 0; i < tx.m_vInputs.size(); i++)
+	{
+		struct Traveler :public UtxoTree::ITraveler
+		{
+			uint32_t m_Count;
+			virtual bool OnLeaf(const RadixTree::Leaf& x) override
+			{
+				const UtxoTree::MyLeaf& n = (UtxoTree::MyLeaf&) x;
+				assert(m_Count && n.m_Value.m_Count);
+				if (m_Count <= n.m_Value.m_Count)
+					return false; // stop iteration
 
-	RollbackData rbData;
-	if (!HandleValidatedTx(tx.get_Reader(), h, true, rbData))
-		return false;
+				m_Count -= n.m_Value.m_Count;
+				return true;
+			}
+		} t;
+		t.m_Count = 1;
+		const Input& v = *tx.m_vInputs[i];
 
-	rbData.m_Inputs = 0;
-	verify(HandleValidatedTx(tx.get_Reader(), h, false, rbData));
-	return true;
+		for (; i + 1 < tx.m_vInputs.size(); i++, t.m_Count++)
+			if (tx.m_vInputs[i + 1]->m_Commitment != v.m_Commitment)
+				break;
+
+		UtxoTree::Key kMin, kMax;
+
+		UtxoTree::Key::Data d;
+		d.m_Commitment = v.m_Commitment;
+		d.m_Maturity = 0;
+		kMin = d;
+		d.m_Maturity = h;
+		kMax = d;
+
+		UtxoTree::Cursor cu;
+		t.m_pCu = &cu;
+		t.m_pBound[0] = kMin.m_pArr;
+		t.m_pBound[1] = kMax.m_pArr;
+
+		if (m_Utxos.Traverse(t))
+			return false; // some input UTXOs are missing
+	}
+
+	// kernels
+	return
+		ValidateTxContextKernels(tx.m_vKernelsOutput, false) &&
+		ValidateTxContextKernels(tx.m_vKernelsInput, false);
 }
 
 bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
