@@ -2021,8 +2021,12 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 
 void Node::Dandelion::OnTimedOut(Element& x)
 {
-	get_ParentObj().AddDummyOutputs(*x.m_pValue);
-	get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
+	if (x.m_bAggregating)
+	{
+		get_ParentObj().AddDummyOutputs(*x.m_pValue);
+		get_ParentObj().OnTransactionAggregated(x);
+	} else
+		get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
 }
 
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx)
