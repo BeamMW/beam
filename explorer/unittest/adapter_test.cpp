@@ -48,7 +48,6 @@ WaitHandle run_node(const NodeParams& params) {
             node.m_Cfg.m_Listen.port(params.nodeAddress.port());
             node.m_Cfg.m_Listen.ip(params.nodeAddress.ip());
             node.m_Cfg.m_MiningThreads = 1;
-            node.m_Cfg.m_MinerID = 44;
             node.m_Cfg.m_VerificationThreads = 1;
             node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 500;
             node.m_Cfg.m_WalletKey.V = params.walletSeed;

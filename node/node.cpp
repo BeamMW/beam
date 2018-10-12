@@ -2590,8 +2590,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 
 		ECC::Hash::Value hv; // pick pseudo-random initial nonce for mining.
 		ECC::Hash::Processor()
-			<< get_ParentObj().m_Cfg.m_MinerID
-			<< get_ParentObj().m_Processor.m_Kdf.m_Secret.V
+			<< get_ParentObj().m_MyPublicID
 			<< iIdx
 			<< s.m_Height
 			>> hv;
