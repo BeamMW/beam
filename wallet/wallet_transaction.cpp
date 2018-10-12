@@ -280,6 +280,7 @@ namespace beam { namespace wallet
         return false;
     }
 
+
     SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
         , beam::IKeyChain::Ptr keychain
         , const TxID& txID)
@@ -338,9 +339,9 @@ namespace beam { namespace wallet
         GetMandatoryParameter(TxParameterID::Offset, offset);
 
         sb.CreateKernel(fee, minHeight);
-        sb.ApplyBlindingExcess();
+        sb.ApplyBlindingExcess(TxParameterID::BlindingExcess);
 
-        if (!isSelfTx && (!sb.ApplyPublicPeerNonce() || !sb.ApplyPublicPeerExcess()))
+        if (!isSelfTx && (!sb.ApplyPublicPeerNonce(TxParameterID::PeerPublicNonce) || !sb.ApplyPublicPeerExcess(TxParameterID::PeerPublicExcess)))
         {
             assert(IsInitiator());
 
@@ -364,7 +365,7 @@ namespace beam { namespace wallet
 
         sb.SignPartial();
 
-        if (!isSelfTx && !sb.ApplyPeerSignature())
+        if (!isSelfTx && !sb.ApplyPeerSignature(TxParameterID::PeerSignature))
         {
             // invited participant
             assert(!IsInitiator());
@@ -480,7 +481,8 @@ namespace beam { namespace wallet
         CompleteTx();
     }
 
-    SignatureBuilder::SignatureBuilder(BaseTransaction& tx) : m_Tx{ tx }
+    SignatureBuilder::SignatureBuilder(BaseTransaction& tx)
+        : m_Tx{ tx }
     {
 
     }
@@ -495,23 +497,10 @@ namespace beam { namespace wallet
         m_Kernel->m_Excess = Zero;
     }
 
-    void SignatureBuilder::SetBlindingExcess(const Scalar::Native& blindingExcess)
+    bool SignatureBuilder::ApplyBlindingExcess(TxParameterID paramID)
     {
         assert(m_Kernel);
-        Hash::Value hv;
-        // Excess should be zero
-        m_Kernel->get_Hash(hv);
-
-        m_MultiSig.GenerateNonce(hv, blindingExcess);
-
-        m_PublicNonce = Context::get().G * m_MultiSig.m_Nonce;
-        m_PublicExcess = Context::get().G * blindingExcess;
-    }
-
-    bool SignatureBuilder::ApplyBlindingExcess()
-    {
-        assert(m_Kernel);
-        m_Tx.GetMandatoryParameter(TxParameterID::BlindingExcess, m_BlindingExcess);
+        m_Tx.GetMandatoryParameter(paramID, m_BlindingExcess);
         Hash::Value hv;
         m_Kernel->get_Hash(hv);
 
@@ -523,23 +512,20 @@ namespace beam { namespace wallet
         return true;
     }
 
-    bool SignatureBuilder::ApplyPublicPeerNonce()
+    bool SignatureBuilder::ApplyPublicPeerNonce(TxParameterID paramID)
     {
-        if (!m_Tx.GetParameter(TxParameterID::PeerPublicNonce, m_PublicPeerNonce))
+        if (!m_Tx.GetParameter(paramID, m_PublicPeerNonce))
         {
             return false;
         }
         m_MultiSig.m_NoncePub = m_PublicNonce + m_PublicPeerNonce;
+
         return true;
     }
 
-    bool SignatureBuilder::ApplyPublicPeerExcess()
+    bool SignatureBuilder::ApplyPublicPeerExcess(TxParameterID paramID)
     {
-        if (!m_Tx.GetParameter(TxParameterID::PeerPublicExcess, m_PublicPeerExcess))
-        {
-            return false;
-        }
-        return true;
+        return m_Tx.GetParameter(paramID, m_PublicPeerExcess);
     }
 
     void SignatureBuilder::SignPartial()
@@ -551,13 +537,9 @@ namespace beam { namespace wallet
         m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
     }
 
-    bool SignatureBuilder::ApplyPeerSignature()
+    bool SignatureBuilder::ApplyPeerSignature(TxParameterID paramID)
     {
-        if (!m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature))
-        {
-            return false;
-        }
-        return true;
+        return m_Tx.GetParameter(paramID, m_PeerSignature);
     }
 
     bool SignatureBuilder::IsValidPeerSignature() const

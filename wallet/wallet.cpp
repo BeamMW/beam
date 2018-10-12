@@ -206,6 +206,7 @@ namespace beam
         tx->SetParameter(TxParameterID::MinHeight, m_keyChain->getCurrentHeight());
         tx->SetParameter(TxParameterID::PeerID, to);
         tx->SetParameter(TxParameterID::MyID, from);
+        tx->SetParameter(TxParameterID::IsSender, true);
         tx->SetParameter(TxParameterID::IsInitiator, true);
         tx->SetParameter(TxParameterID::Status, TxStatus::Pending);
 

@@ -135,13 +135,14 @@ namespace beam { namespace wallet
         SignatureBuilder(BaseTransaction& tx);
 
         void CreateKernel(Amount fee, Height minHeight);
-        void SetBlindingExcess(const ECC::Scalar::Native& blindingExcess);
-        bool ApplyBlindingExcess();
-        bool ApplyPublicPeerNonce();
-        bool ApplyPublicPeerExcess();
+        bool ApplyBlindingExcess(TxParameterID paramID);
+        bool ApplyPublicPeerNonce(TxParameterID paramID);
+        bool ApplyPublicPeerExcess(TxParameterID paramID);
         void SignPartial();
-        bool ApplyPeerSignature();
+        bool ApplyPeerSignature(TxParameterID paramID);
         bool IsValidPeerSignature() const;
         void FinalizeSignature();
+    private:
     };
+
 }}
