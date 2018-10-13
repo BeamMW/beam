@@ -116,14 +116,14 @@ void TestUintBig()
 
 void TestHash()
 {
-	Hash::Processor hp;
+	Oracle oracle;
 	Hash::Value hv;
-	hp >> hv;
+	oracle >> hv;
 
 	for (int i = 0; i < 10; i++)
 	{
 		Hash::Value hv2 = hv;
-		hp >> hv;
+		oracle >> hv;
 
 		// hash values must change, even if no explicit input was fed.
 		verify_test(!(hv == hv2));
