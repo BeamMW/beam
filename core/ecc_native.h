@@ -370,6 +370,8 @@ namespace ECC
 	class Hash::Processor
 		:private secp256k1_sha256_t
 	{
+		bool m_bInitialized;
+
 		void Write(const char*);
 		void Write(bool);
 		void Write(uint8_t);
@@ -398,6 +400,7 @@ namespace ECC
 
 	public:
 		Processor();
+		~Processor();
 
 		void Reset();
 
@@ -552,6 +555,6 @@ namespace ECC
 		Oracle& operator << (const T& t) { m_hp << t; return *this; }
 
 		void operator >> (Scalar::Native&);
-		void operator >> (Hash::Value& hv) { m_hp >> hv; }
+		void operator >> (Hash::Value&);
 	};
 }

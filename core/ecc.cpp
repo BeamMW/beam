@@ -249,20 +249,30 @@ namespace ECC {
 		Reset();
 	}
 
+	Hash::Processor::~Processor()
+	{
+		if (m_bInitialized)
+			SecureErase(*this);
+	}
+
 	void Hash::Processor::Reset()
 	{
 		secp256k1_sha256_initialize(this);
+		m_bInitialized = true;
 	}
 
 	void Hash::Processor::Write(const void* p, uint32_t n)
 	{
+		assert(m_bInitialized);
 		secp256k1_sha256_write(this, (const uint8_t*) p, n);
 	}
 
 	void Hash::Processor::Finalize(Value& v)
 	{
+		assert(m_bInitialized);
 		secp256k1_sha256_finalize(this, v.m_pData);
-		*this << v;
+		
+		m_bInitialized = false;
 	}
 
 	void Hash::Processor::Write(const char* sz)
@@ -1127,12 +1137,18 @@ namespace ECC {
 		m_hp.Reset();
 	}
 
+	void Oracle::operator >> (Hash::Value& out)
+	{
+		Hash::Processor(m_hp) >> out;
+		operator << (out);
+	}
+
 	void Oracle::operator >> (Scalar::Native& out)
 	{
 		Scalar s; // not secret
 
 		do
-			m_hp >> s.m_Value;
+			operator >> (s.m_Value);
 		while (out.Import(s));
 	}
 
