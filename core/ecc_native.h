@@ -424,14 +424,6 @@ namespace ECC
 		void Reset(const void* pSecret, uint32_t nSecret);
 		void Write(const void*, uint32_t);
 
-		template <typename T>
-		Mac& operator << (const T& t)
-		{
-			static_assert(sizeof(Processor) == sizeof(inner));
-			((Processor&)inner) << t;
-			return *this;
-		}
-
 		void operator >> (Value& hv) { Finalize(hv); }
 	};
 
