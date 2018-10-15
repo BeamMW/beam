@@ -76,6 +76,6 @@ int main()
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
 
-    testWithBitcoinD();
+    //testWithBitcoinD();
     return 0;
 }
