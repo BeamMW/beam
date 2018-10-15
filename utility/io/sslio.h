@@ -52,7 +52,7 @@ public:
     using OnDecryptedData = std::function<void(io::ErrorCode, void* data, size_t size)>;
 
     /// Encrypted data to be queued to stream
-    using OnEncryptedData = std::function<Result(SerializedMsg& data)>;
+    using OnEncryptedData = std::function<Result(BufferChain& data)>;
 
     explicit SSLIO(
         const SSLContext::Ptr& ctx,
@@ -69,6 +69,12 @@ public:
 
     Result flush_write_buffer();
 private:
+    enum IOState { io_ok, io_handshaking, io_error };
+    IOState get_iostate(int retCode);
+
+    IOState do_handshake();
+
+    void flush_internal();
 
     OnDecryptedData _onDecryptedData;
     OnEncryptedData _onEncryptedData;
@@ -76,7 +82,9 @@ private:
     BufferChain _writeBuffer;
 
     /// Output message, encrypted
-    SerializedMsg _outMsg;
+    BufferChain _outMsg;
+
+    //SerializedMsg _unread;
 
     /// ssl ctx
     SSLContext::Ptr _ctx;
