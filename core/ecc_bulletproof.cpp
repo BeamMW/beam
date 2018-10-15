@@ -525,13 +525,13 @@ namespace ECC {
 
 	struct NonceGenerator
 	{
-		NoLeak<Oracle> m_Oracle;
+		Oracle m_Oracle;
 		NoLeak<Scalar> m_sk;
 
 		void operator >> (Scalar::Native& k)
 		{
 			NoLeak<Hash::Value> hv;
-			m_Oracle.V >> hv.V;
+			m_Oracle >> hv.V;
 
 			k.GenerateNonce(m_sk.V.m_Value, hv.V, NULL);
 		}
@@ -567,7 +567,7 @@ namespace ECC {
 	{
 		NonceGenerator nonceGen;
 		nonceGen.m_sk.V = sk;
-		nonceGen.m_Oracle.V << v;
+		nonceGen.m_Oracle << v;
 
 		// A = G*alpha + vec(aL)*vec(G) + vec(aR)*vec(H)
 		Scalar::Native alpha;
@@ -765,7 +765,7 @@ namespace ECC {
 	{
 		NonceGenerator nonceGen;
 		nonceGen.m_sk.V = sk;
-		nonceGen.m_Oracle.V << v;
+		nonceGen.m_Oracle << v;
 
 		Init(nonceGen);
 	}

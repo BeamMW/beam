@@ -25,9 +25,9 @@ void gen_nonce(Nonce& nonce) {
 }
 
 void hash_from_password(PasswordHash& out, const void* password, size_t passwordLen) {
-    ECC::NoLeak<ECC::Hash::Processor> hp;
-	hp.V.Write(password, static_cast<uint32_t>(passwordLen));
-    hp.V >> out.V;
+    ECC::Hash::Processor hp;
+	hp.Write(password, static_cast<uint32_t>(passwordLen));
+    hp >> out.V;
 }
 
 void aes_decrypt(void* buffer, size_t bufferLen, const PasswordHash& key) {

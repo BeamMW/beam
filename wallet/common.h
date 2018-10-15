@@ -115,46 +115,46 @@ namespace beam
 
         std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
         const uint32_t MaxSignatures = 10;
-        enum class TxParameterID : uint32_t
+        enum class TxParameterID : uint8_t
         {
             // public parameters
             TransactionType = 0,
-            IsSender,
-            Amount,
-            Fee,
-            MinHeight,
-            Message,
-            MyID,
-            PeerID,
-            Inputs,
-            Outputs,
-            CreateTime,
-            IsInitiator,
+            IsSender = 1,
+            Amount = 2,
+            Fee = 3,
+            MinHeight = 4,
+            Message = 5,
+            MyID = 6,
+            PeerID = 7,
+            Inputs = 8,
+            Outputs = 9,
+            CreateTime = 10,
+            IsInitiator = 11,
 
-            AtomicSwapCoin = 100,
-            AtomicSwapAmount,
+            AtomicSwapCoin = 20,
+            AtomicSwapAmount = 21,
 
             // signature parameters
 
-            PeerPublicNonce = 1000,
-            PeerPublicExcess = PeerPublicNonce + MaxSignatures,
-            PeerSignature = PeerPublicExcess + MaxSignatures,
-            PeerOffset,
-            PeerInputs,
-            PeerOutputs,
+            PeerPublicNonce = 40,
+            PeerPublicExcess = 50,
+            PeerSignature = 60,
+            PeerOffset = 70,
+            PeerInputs = 80,
+            PeerOutputs = 81,
 
-            TransactionRegistered,
-            KernelProof,
-            FailureReason,
+            TransactionRegistered = 90,
+            KernelProof = 91,
+            FailureReason = 92,
 
             // private parameters
-            PrivateFirstParam = 1 << 16,
+            PrivateFirstParam = 128,
 
-            ModifyTime,
-            BlindingExcess = ModifyTime + MaxSignatures,
-            Offset         = BlindingExcess + MaxSignatures,
-            Change,
-            Status
+            ModifyTime = 128,
+            BlindingExcess = 130, // + MaxSignatures,
+            Offset = 140, // + MaxSignatures reserved
+            Change = 150,
+            Status = 151
         };
 
         enum class TxType : uint8_t

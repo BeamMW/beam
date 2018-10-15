@@ -595,12 +595,28 @@ namespace beam
 
 	public:
 
-		static const int s_Datas = 5;
-		static const char* const s_pszSufix[s_Datas];
+#define MBLOCK_DATA_Types(macro) \
+		macro(hd) \
+		macro(ui) \
+		macro(uo) \
+		macro(ki) \
+		macro(ko)
+
+		struct Type
+		{
+			enum Enum {
+#define THE_MACRO(x) x,
+				MBLOCK_DATA_Types(THE_MACRO)
+#undef THE_MACRO
+				count
+			};
+		};
+
+		static const char* const s_pszSufix[Type::count];
 
 	private:
 
-		std::FStream m_pS[s_Datas];
+		std::FStream m_pS[Type::count];
 
 		Input::Ptr m_pGuardUtxoIn[2];
 		Output::Ptr m_pGuardUtxoOut[2];
@@ -614,6 +630,8 @@ namespace beam
 		void WriteInternal(const T&, int);
 
 		bool OpenInternal(int iData);
+		void PostOpen(int iData);
+		void Open(bool bRead);
 
 	public:
 
@@ -624,10 +642,13 @@ namespace beam
 		bool m_bRead;
 		bool m_bAutoDelete;
 		std::string m_sPath;
+		Merkle::Hash m_hvContentTag; // needed to make sure all the files indeed belong to the same data set
 
 		void GetPath(std::string&, int iData) const;
 
-		void Open(bool bRead);
+		void ROpen();
+		void WCreate();
+
 		void Flush();
 		void Close();
 		void Delete(); // must be closed

@@ -449,7 +449,7 @@ bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&
 	while (v.m_Remaining)
 		v.m_TaskFinished.wait(scope);
 
-	return !v.m_bFail && v.m_Context.IsValidBlock(block, m_Cursor.m_SubsidyOpen);
+	return !v.m_bFail && v.m_Context.IsValidBlock(block, m_Extra.m_SubsidyOpen);
 }
 
 void Node::Processor::Verifier::Thread(uint32_t iVerifier)
@@ -533,6 +533,12 @@ void Node::Processor::OnBlockData()
 {
 	++m_DownloadedBlocks;
 	ReportProgress();
+}
+
+bool Node::Processor::OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID& sid)
+{
+	get_ParentObj().m_Compressor.FmtPath(rw, sid.m_Height, NULL);
+	return true;
 }
 
 void Node::Processor::ReportProgress()
@@ -739,7 +745,7 @@ void Node::ImportMacroblock(Height h)
 {
 	Block::BodyBase::RW rw;
 	m_Compressor.FmtPath(rw, h, NULL);
-	rw.Open(true);
+	rw.ROpen();
 
 	if (!m_Processor.ImportMacroBlock(rw))
 		throw std::runtime_error("import failed");
@@ -1326,7 +1332,7 @@ bool Node::SyncCycle(Peer& p)
 	msg.m_ID = m_pSync->m_Trg;
 	msg.m_Data = m_pSync->m_iData;
 
-	assert(m_pSync->m_iData < Block::Body::RW::s_Datas);
+	assert(m_pSync->m_iData < Block::Body::RW::Type::count);
 
 	Block::Body::RW rw;
 	m_Compressor.FmtPath(rw, m_pSync->m_Trg.m_Height, NULL);
@@ -1350,13 +1356,13 @@ bool Node::SyncCycle(Peer& p)
 void Node::SyncCycle(Peer& p, const ByteBuffer& buf)
 {
 	assert(m_pSync && !m_pSync->m_bDetecting && !m_pSync->m_RequestsPending);
-	assert(m_pSync->m_iData < Block::Body::RW::s_Datas);
+	assert(m_pSync->m_iData < Block::Body::RW::Type::count);
 
 	if (buf.empty())
 	{
 		LOG_INFO() << "Sync cycle complete for Idx=" << m_pSync->m_iData;
 
-		if (++m_pSync->m_iData == Block::Body::RW::s_Datas)
+		if (++m_pSync->m_iData == Block::Body::RW::Type::count)
 		{
 			Height h = m_pSync->m_Trg.m_Height;
 			m_pSync = NULL;
@@ -1992,7 +1998,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 	m_Wtx.Delete(key.m_Key);
 
 	// new transaction
-	bool bValid = pElem ? true : tx.IsValid(ctx);
+	bool bValid = pElem ? true: ValidateTx(ctx, tx);
 	LogTx(tx, bValid, key.m_Key);
 
 	if (!bValid)
@@ -2021,8 +2027,12 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 
 void Node::Dandelion::OnTimedOut(Element& x)
 {
-	get_ParentObj().AddDummyOutputs(*x.m_pValue);
-	get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
+	if (x.m_bAggregating)
+	{
+		get_ParentObj().AddDummyOutputs(*x.m_pValue);
+		get_ParentObj().OnTransactionAggregated(x);
+	} else
+		get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
 }
 
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx)
@@ -2198,9 +2208,6 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 		msgOut.m_Proof.back().first = false;
 		msgOut.m_Proof.back().second = m_This.m_Processor.m_Cursor.m_History;
-
-		if (msg.m_RequestHashPreimage)
-			m_This.m_Processor.get_KernelHashPreimage(msg.m_ID, msgOut.m_HashPreimage);
 	}
 
 	Send(msgOut);
@@ -2480,7 +2487,7 @@ void Node::Peer::OnMsg(proto::BbsPickChannel&& msg)
 
 void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
 {
-	if (msg.m_Data >= Block::BodyBase::RW::s_Datas)
+	if (msg.m_Data >= Block::BodyBase::RW::Type::count)
 		ThrowUnexpected();
 
 	proto::Macroblock msgOut;
@@ -2583,8 +2590,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 
 		ECC::Hash::Value hv; // pick pseudo-random initial nonce for mining.
 		ECC::Hash::Processor()
-			<< get_ParentObj().m_Cfg.m_MinerID
-			<< get_ParentObj().m_Processor.m_Kdf.m_Secret.V
+			<< get_ParentObj().m_MyPublicID
 			<< iIdx
 			<< s.m_Height
 			>> hv;
@@ -2691,7 +2697,7 @@ bool Node::Miner::Restart()
 
 	Block::Body* pTreasury = NULL;
 
-	if (get_ParentObj().m_Processor.m_Cursor.m_SubsidyOpen)
+	if (get_ParentObj().m_Processor.m_Extra.m_SubsidyOpen)
 	{
 		Height dh = get_ParentObj().m_Processor.m_Cursor.m_Sid.m_Height + 1 - Rules::HeightGenesis;
 		std::vector<Block::Body>& vTreasury = get_ParentObj().m_Cfg.m_vTreasury;

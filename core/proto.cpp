@@ -142,10 +142,8 @@ void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
 
 void InitCipherIV(AES::StreamCipher& c, const ECC::Hash::Value& hvSecret, const ECC::Hash::Value& hvParam)
 {
-	ECC::NoLeak<ECC::Hash::Processor> hpIV;
 	ECC::NoLeak<ECC::Hash::Value> hvIV;
-
-	hpIV.V << hvSecret << hvParam >> hvIV.V;
+	ECC::Hash::Processor() << hvSecret << hvParam >> hvIV.V;
 
 	//static_assert(hvIV.V.nBytes >= c.m_Counter.nBytes, "");
 	c.m_Counter = hvIV.V;
@@ -166,9 +164,8 @@ bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& re
 
 	ECC::Point::Native ptSecret = p * myPrivate;
 
-	ECC::NoLeak<ECC::Hash::Processor> hp;
 	ECC::NoLeak<ECC::Hash::Value> hvSecret;
-	hp.V << ptSecret >> hvSecret.V;
+	ECC::Hash::Processor() << ptSecret >> hvSecret.V;
 
 	static_assert(AES::s_KeyBytes == ECC::Hash::Value::nBytes, "");
 	enc.Init(hvSecret.V.m_pData);
@@ -271,7 +268,7 @@ union HighestMsgCode
 /////////////////////////
 // NodeConnection
 NodeConnection::NodeConnection()
-	:m_Protocol('B', 'm', 3, sizeof(HighestMsgCode), *this, 20000)
+	:m_Protocol('B', 'm', 4, sizeof(HighestMsgCode), *this, 20000)
 	,m_ConnectPending(false)
 {
 #define THE_MACRO(code, msg) \

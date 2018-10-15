@@ -32,8 +32,8 @@ class TxObject : public QObject
     Q_PROPERTY(QString amount        READ amount       NOTIFY amountChanged)
     Q_PROPERTY(QString change        READ change       NOTIFY changeChanged)
     Q_PROPERTY(QString status        READ status       NOTIFY statusChanged)
-    Q_PROPERTY(bool canCancel        READ canCancel    NOTIFY canCancelChanged)
-    Q_PROPERTY(bool canDelete        READ canDelete    NOTIFY canDeleteChanged)
+    Q_PROPERTY(bool canCancel        READ canCancel    NOTIFY statusChanged)
+    Q_PROPERTY(bool canDelete        READ canDelete    NOTIFY statusChanged)
     Q_PROPERTY(QString sendingAddress READ getSendingAddress CONSTANT)
     Q_PROPERTY(QString receivingAddress READ getReceivingAddress CONSTANT)
     Q_PROPERTY(QString fee           READ getFee CONSTANT)
@@ -76,8 +76,6 @@ signals:
     void amountChanged();
     void changeChanged();
     void statusChanged();
-    void canCancelChanged();
-    void canDeleteChanged();
 
 public:
     beam::TxDescription _tx;

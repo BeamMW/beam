@@ -325,26 +325,6 @@ namespace beam
 		tr.Commit();
 		tr.Start(db);
 
-		// utxos and kernels
-		NodeDB::Blob b0(vStates[0].m_Prev);
-
-		db.AddSpendable(b0, NULL, 5, 3);
-
-		NodeDB::WalkerSpendable wsp(db);
-		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
-			;
-		db.ModifySpendable(b0, 0, -3);
-		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
-			;
-
-		db.ModifySpendable(b0, 0, 2);
-		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
-			;
-
-		db.ModifySpendable(b0, -5, -4);
-		for (db.EnumUnpsent(wsp); wsp.MoveNext(); )
-			;
-
 		for (int i = 0; i < 20; i++)
 		{
 			NodeDB::WalkerPeer::Data d;
@@ -407,7 +387,7 @@ namespace beam
 			;
 
 		Merkle::Hash hv;
-		b0 = NodeDB::Blob(hv);
+		NodeDB::Blob b0(hv);
 		hv = 345U;
 
 		db.InsertDummy(176, b0);
@@ -683,19 +663,21 @@ namespace beam
 			NodeProcessor np2;
 			np2.Initialize(g_sz2);
 
-			rwData.Open(false);
+			rwData.m_hvContentTag = Zero;
+			rwData.WCreate();
 			np.ExportMacroBlock(rwData, HeightRange(Rules::HeightGenesis, hMid)); // first half
 			rwData.Close();
 
-			rwData.Open(true);
+			rwData.ROpen();
 			verify_test(np2.ImportMacroBlock(rwData));
 			rwData.Close();
 
-			rwData.Open(false);
+			rwData.m_hvContentTag.Inc();
+			rwData.WCreate();
 			np.ExportMacroBlock(rwData, HeightRange(hMid + 1, Rules::HeightGenesis + blockChain.size() - 1)); // second half
 			rwData.Close();
 
-			rwData.Open(true);
+			rwData.ROpen();
 			verify_test(np2.ImportMacroBlock(rwData));
 			rwData.Close();
 
@@ -1094,7 +1076,6 @@ namespace beam
 					mk.Export(krn);
 
 					proto::GetProofKernel msgOut2;
-					msgOut2.m_RequestHashPreimage = true;
 					krn.get_ID(msgOut2.m_ID);
 					Send(msgOut2);
 
@@ -1173,11 +1154,6 @@ namespace beam
 						mk.Export(krn);
 
 						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
-
-						if (krn.m_pHashLock)
-							verify_test(krn.m_pHashLock->m_Preimage == msg.m_HashPreimage);
-						else
-							verify_test(msg.m_HashPreimage == Zero);
 					}
 				}
 				else

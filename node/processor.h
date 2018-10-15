@@ -26,49 +26,24 @@ class NodeProcessor
 	UtxoTree m_Utxos;
 	RadixHashOnlyTree m_Kernels;
 
-	bool m_bShallowTx = false;
-
-	struct ShallowTx
-	{
-		bool* m_pDst;
-
-		ShallowTx(NodeProcessor& p)
-		{
-			if (p.m_bShallowTx)
-				m_pDst = NULL;
-			else
-				m_pDst = &(p.m_bShallowTx = true);
-		}
-
-		~ShallowTx()
-		{
-			if (m_pDst)
-				*m_pDst = false;
-		}
-	};
-
-	struct DbType {
-		static const uint8_t Utxo	= 0;
-		static const uint8_t Kernel	= 1;
-	};
-
 	void TryGoUp();
 
 	bool GoForward(uint64_t);
 	void Rollback();
 	void PruneOld();
 	void PruneAt(Height, bool bDeleteBody);
-	void DereferenceFossilBlock(uint64_t);
+	void InitializeFromBlocks();
 
 	struct RollbackData;
 
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
 	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, RollbackData&, const Height* = NULL);
-	void AdjustCumulativeParams(const Block::BodyBase&, bool bFwd);
+	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, RollbackData&, const Height* = NULL);
 	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd, RollbackData&);
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
-	void OnSubsidyOptionChanged(bool);
+	void ToggleSubsidyOpened();
+	bool ValidateTxContextKernels(const std::vector<TxKernel::Ptr>&, bool bInp);
 
 	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
 
@@ -106,10 +81,17 @@ public:
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
 		Difficulty m_DifficultyNext;
-		bool m_SubsidyOpen;
 		Height m_LoHorizon; // lowest accessible height
 
 	} m_Cursor;
+
+	struct Extra
+	{
+		bool m_SubsidyOpen;
+		AmountBig m_Subsidy; // total system value
+		ECC::Scalar::Native m_Offset; // not really necessary, but using it it's possible to assemble the whole macroblock from the live objects.
+
+	} m_Extra;
 
 	void get_CurrentLive(Merkle::Hash&);
 
@@ -136,8 +118,6 @@ public:
 	UtxoTree& get_Utxos() { return m_Utxos; }
 	RadixHashOnlyTree& get_Kernels() { return m_Kernels; }
 
-	bool get_KernelHashPreimage(const Merkle::Hash& id, ECC::uintBig&);
-
 	void EnumCongestions();
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 
@@ -150,6 +130,7 @@ public:
 	virtual void AdjustFossilEnd(Height&) {}
 	virtual void OnStateData() {}
 	virtual void OnBlockData() {}
+	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
 
 	uint64_t FindActiveAtStrict(Height);
 

@@ -221,8 +221,8 @@ namespace ECC
 				Scalar::Native m_Scalar;
 			} m_Secure;
 
-			void Initialize(const char* szSeed, Hash::Processor& hp);
-			void Initialize(Point::Native&, Hash::Processor&);
+			void Initialize(const char* szSeed, Oracle&);
+			void Initialize(Point::Native&, Oracle&);
 		};
 
 		Casual* m_pCasual;
@@ -283,7 +283,7 @@ namespace ECC
 			CompactPoint m_pPts[nLevels * nPointsPerLevel];
 		};
 
-		void GeneratePts(const Point::Native&, Hash::Processor&, CompactPoint* pPts, uint32_t nLevels);
+		void GeneratePts(const Point::Native&, Oracle&, CompactPoint* pPts, uint32_t nLevels);
 		void SetMul(Point::Native& res, bool bSet, const CompactPoint* pPts, const Scalar::Native::uint* p, int nWords);
 
 		template <uint32_t nBits_>
@@ -321,9 +321,9 @@ namespace ECC
 			};
 
 		public:
-			void Initialize(const Point::Native& p, Hash::Processor& hp)
+			void Initialize(const Point::Native& p, Oracle& oracle)
 			{
-				GeneratePts(p, hp, Base<nBits_>::m_pPts, Base<nBits_>::nLevels);
+				GeneratePts(p, oracle, Base<nBits_>::m_pPts, Base<nBits_>::nLevels);
 			}
 
 			template <typename TScalar>
@@ -349,7 +349,7 @@ namespace ECC
 			void AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native&) const;
 
 		public:
-			void Initialize(const Point::Native&, Hash::Processor& hp);
+			void Initialize(const Point::Native&, Oracle&);
 
 			template <typename TScalar>
 			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
@@ -370,6 +370,8 @@ namespace ECC
 	class Hash::Processor
 		:private secp256k1_sha256_t
 	{
+		bool m_bInitialized;
+
 		void Write(const char*);
 		void Write(bool);
 		void Write(uint8_t);
@@ -398,6 +400,7 @@ namespace ECC
 
 	public:
 		Processor();
+		~Processor();
 
 		void Reset();
 
@@ -420,14 +423,6 @@ namespace ECC
 
 		void Reset(const void* pSecret, uint32_t nSecret);
 		void Write(const void*, uint32_t);
-
-		template <typename T>
-		Mac& operator << (const T& t)
-		{
-			static_assert(sizeof(Processor) == sizeof(inner));
-			((Processor&)inner) << t;
-			return *this;
-		}
 
 		void operator >> (Value& hv) { Finalize(hv); }
 	};
@@ -552,6 +547,6 @@ namespace ECC
 		Oracle& operator << (const T& t) { m_hp << t; return *this; }
 
 		void operator >> (Scalar::Native&);
-		void operator >> (Hash::Value& hv) { m_hp >> hv; }
+		void operator >> (Hash::Value&);
 	};
 }

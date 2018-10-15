@@ -249,20 +249,30 @@ namespace ECC {
 		Reset();
 	}
 
+	Hash::Processor::~Processor()
+	{
+		if (m_bInitialized)
+			SecureErase(*this);
+	}
+
 	void Hash::Processor::Reset()
 	{
 		secp256k1_sha256_initialize(this);
+		m_bInitialized = true;
 	}
 
 	void Hash::Processor::Write(const void* p, uint32_t n)
 	{
+		assert(m_bInitialized);
 		secp256k1_sha256_write(this, (const uint8_t*) p, n);
 	}
 
 	void Hash::Processor::Finalize(Value& v)
 	{
+		assert(m_bInitialized);
 		secp256k1_sha256_finalize(this, v.m_pData);
-		*this << v;
+		
+		m_bInitialized = false;
 	}
 
 	void Hash::Processor::Write(const char* sz)
@@ -506,26 +516,26 @@ namespace ECC {
 			return out.Import(pt) && !(out == Zero);
 		}
 
-		bool CreatePointNnz(Point::Native& out, Hash::Processor& hp)
+		bool CreatePointNnz(Point::Native& out, Oracle& oracle)
 		{
 			Hash::Value hv;
-			hp >> hv;
+			oracle >> hv;
 			return CreatePointNnz(out, hv);
 		}
 
-		void CreatePointNnzFromSeed(Point::Native& out, const char* szSeed, Hash::Processor& hp)
+		void CreatePointNnzFromSeed(Point::Native& out, const char* szSeed, Oracle& oracle)
 		{
-			for (hp << szSeed; ; )
-				if (CreatePointNnz(out, hp))
+			for (oracle << szSeed; ; )
+				if (CreatePointNnz(out, oracle))
 					break;
 		}
 
-		bool CreatePts(CompactPoint* pPts, Point::Native& gpos, uint32_t nLevels, Hash::Processor& hp)
+		bool CreatePts(CompactPoint* pPts, Point::Native& gpos, uint32_t nLevels, Oracle& oracle)
 		{
 			Point::Native nums, npos, pt;
 
-			hp << "nums";
-			if (!CreatePointNnz(nums, hp))
+			oracle << "nums";
+			if (!CreatePointNnz(nums, oracle))
 				return false;
 
 			nums += gpos;
@@ -617,27 +627,26 @@ namespace ECC {
 			SetMul(res, bSet, pPts, k.get().d, _countof(k.get().d));
 		}
 
-		void GeneratePts(const Point::Native& pt, Hash::Processor& hp, CompactPoint* pPts, uint32_t nLevels)
+		void GeneratePts(const Point::Native& pt, Oracle& oracle, CompactPoint* pPts, uint32_t nLevels)
 		{
 			while (true)
 			{
 				Point::Native pt2 = pt;
-				if (CreatePts(pPts, pt2, nLevels, hp))
+				if (CreatePts(pPts, pt2, nLevels, oracle))
 					break;
 			}
 		}
 
-		void Obscured::Initialize(const Point::Native& pt, Hash::Processor& hp)
+		void Obscured::Initialize(const Point::Native& pt, Oracle& oracle)
 		{
 			while (true)
 			{
 				Point::Native pt2 = pt;
-				if (!CreatePts(m_pPts, pt2, nLevels, hp))
+				if (!CreatePts(m_pPts, pt2, nLevels, oracle))
 					continue;
 
-				hp << "blind-scalar";
 				Scalar s0;
-				hp >> s0.m_Value;
+				oracle << "blind-scalar" >> s0.m_Value;
 				if (m_AddScalar.Import(s0))
 					continue;
 
@@ -684,19 +693,19 @@ namespace ECC {
 
 	/////////////////////
 	// MultiMac
-	void MultiMac::Prepared::Initialize(const char* szSeed, Hash::Processor& hp)
+	void MultiMac::Prepared::Initialize(const char* szSeed, Oracle& oracle)
 	{
 		Point::Native val;
 
-		for (hp << szSeed; ; )
-			if (Generator::CreatePointNnz(val, hp))
+		for (oracle << szSeed; ; )
+			if (Generator::CreatePointNnz(val, oracle))
 			{
-				Initialize(val, hp);
+				Initialize(val, oracle);
 				break;
 			}
 	}
 
-	void MultiMac::Prepared::Initialize(Point::Native& val, Hash::Processor& hp)
+	void MultiMac::Prepared::Initialize(Point::Native& val, Oracle& oracle)
 	{
 		Point::Native npos = val, nums = val * Two;
 
@@ -711,14 +720,13 @@ namespace ECC {
 		while (true)
 		{
 			Hash::Value hv;
-			hp << "nums" >> hv;
+			oracle << "nums" >> hv;
 
-			if (!Generator::CreatePointNnz(nums, hp))
+			if (!Generator::CreatePointNnz(nums, oracle))
 				continue;
 
-			hp << "blind-scalar";
 			Scalar s0;
-			hp >> s0.m_Value;
+			oracle << "blind-scalar" >> s0.m_Value;
 			if (m_Secure.m_Scalar.Import(s0))
 				continue;
 
@@ -994,24 +1002,24 @@ namespace ECC {
 
 		Mode::Scope scope(Mode::Fast);
 
-		Hash::Processor hp;
+		Oracle oracle;
 
 		// make sure we get the same G,H for different generator kinds
 		Point::Native G_raw, H_raw;
 
 		secp256k1_gej_set_ge(&G_raw.get_Raw(), &secp256k1_ge_const_g);
 
-		Generator::CreatePointNnzFromSeed(H_raw, "H-gen", hp);
+		Generator::CreatePointNnzFromSeed(H_raw, "H-gen", oracle);
 
 
-		ctx.G.Initialize(G_raw, hp);
-		ctx.H.Initialize(H_raw, hp);
-		ctx.H_Big.Initialize(H_raw, hp);
+		ctx.G.Initialize(G_raw, oracle);
+		ctx.H.Initialize(H_raw, oracle);
+		ctx.H_Big.Initialize(H_raw, oracle);
 
 		Point::Native pt, ptAux2(Zero);
 
-		ctx.m_Ipp.G_.Initialize(G_raw, hp);
-		ctx.m_Ipp.H_.Initialize(H_raw, hp);
+		ctx.m_Ipp.G_.Initialize(G_raw, oracle);
+		ctx.m_Ipp.H_.Initialize(H_raw, oracle);
 
 #define STR_GEN_PREFIX "ip-"
 		char szStr[0x20] = STR_GEN_PREFIX;
@@ -1025,7 +1033,7 @@ namespace ECC {
 			for (uint32_t j = 0; j < 2; j++)
 			{
 				szStr[_countof(STR_GEN_PREFIX) + 1] = '0' + char(j);
-				ctx.m_Ipp.m_pGen_[j][i].Initialize(szStr, hp);
+				ctx.m_Ipp.m_pGen_[j][i].Initialize(szStr, oracle);
 
 				secp256k1_ge ge;
 
@@ -1040,10 +1048,10 @@ namespace ECC {
 		}
 
 		ptAux2 = -ptAux2;
-		hp << "aux2";
-		ctx.m_Ipp.m_Aux2_.Initialize(ptAux2, hp);
+		oracle << "aux2";
+		ctx.m_Ipp.m_Aux2_.Initialize(ptAux2, oracle);
 
-		ctx.m_Ipp.m_GenDot_.Initialize("ip-dot", hp);
+		ctx.m_Ipp.m_GenDot_.Initialize("ip-dot", oracle);
 
 		const MultiMac::Prepared& genericNums = ctx.m_Ipp.m_GenDot_;
 		ctx.m_Casual.m_Nums = genericNums.m_Fast.m_pPt[0]; // whatever
@@ -1068,9 +1076,9 @@ namespace ECC {
 			Generator::FromPt(ctx.m_Casual.m_Compensation, pt);
 		}
 
-		hp << uint32_t(0); // increment this each time we change signature formula (rangeproof and etc.)
+		oracle << uint32_t(0); // increment this each time we change signature formula (rangeproof and etc.)
 
-		hp >> ctx.m_hvChecksum;
+		oracle >> ctx.m_hvChecksum;
 
 #ifndef NDEBUG
 		g_bContextInitialized = true;
@@ -1129,12 +1137,18 @@ namespace ECC {
 		m_hp.Reset();
 	}
 
+	void Oracle::operator >> (Hash::Value& out)
+	{
+		Hash::Processor(m_hp) >> out;
+		operator << (out);
+	}
+
 	void Oracle::operator >> (Scalar::Native& out)
 	{
 		Scalar s; // not secret
 
 		do
-			m_hp >> s.m_Value;
+			operator >> (s.m_Value);
 		while (out.Import(s));
 	}
 

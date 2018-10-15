@@ -101,6 +101,7 @@ namespace beam { namespace wallet
             SetTxParameter msg;
             msg.AddParameter(TxParameterID::FailureReason, 0);
             SendTxParameters(move(msg));
+            m_Gateway.on_tx_completed(GetTxID());
         }
     }
 

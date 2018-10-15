@@ -592,7 +592,7 @@ Item
 
                 CustomButton {
                     anchors.verticalCenter: parent.verticalCenter
-
+                    id: btnCurrentWallet
                     width: 188
                     text: qsTr("show my wallet")
                     palette.buttonText: Style.marine

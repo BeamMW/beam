@@ -35,11 +35,7 @@ public:
 			DbVer,
 			CursorRow,
 			CursorHeight,
-			StateExtra,
 			FossilHeight,
-			SubsidyLo,
-			SubsidyHi,
-			SubsidyOpen,
 			CfgChecksum,
 			MyID,
 			SyncTarget,
@@ -93,11 +89,6 @@ public:
 			MmrGet,
 			MmrSet,
 			HashForHist,
-			SpendableAdd,
-			SpendableDel,
-			SpendableModify,
-			SpendableEnum,
-			SpendableGetBody,
 			StateGetBlock,
 			StateSetBlock,
 			StateDelBlock,
@@ -276,23 +267,6 @@ public:
 	void MoveBack(StateID&);
 	void MoveFwd(const StateID&);
 
-	// Utxos & kernels
-	struct WalkerSpendable
-	{
-		Recordset m_Rs;
-		Blob m_Key;
-		uint32_t m_nUnspentCount;
-
-		WalkerSpendable(NodeDB& db) :m_Rs(db) {}
-		bool MoveNext();
-	};
-
-	void EnumUnpsent(WalkerSpendable&);
-
-	void AddSpendable(const Blob& key, const Blob* pBody, uint32_t nRefs, uint32_t nUnspentCount);
-	void ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta); // will delete iff refs=0
-	bool GetSpendableBody(const Blob& key, Blob&);
-
 	void assert_valid(); // diagnostic, for tests only
 
 	void SetMined(const StateID&, const Amount&);
@@ -387,7 +361,6 @@ private:
 	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
 	void BuildMmr(uint64_t rowid, uint64_t rowPrev, Height);
 	void put_Cursor(const StateID& sid); // jump
-	void ModifySpendableSafe(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta);
 
 	void TestChanged1Row();
 
