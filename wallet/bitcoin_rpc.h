@@ -27,12 +27,28 @@ namespace beam
         BitcoinRPC(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address);
 
         void getBlockchainInfo(OnResponse callback);
+        void dumpPrivKey(const std::string& btcAddress, OnResponse callback);
+        void fundRawTransaction(const std::string& rawTx, OnResponse callback);
+        void signRawTransaction(OnResponse callback);
+        void sendRawTransaction(const std::string& rawTx, OnResponse callback);
+        void getNetworkInfo(OnResponse callback);
+        void getWalletInfo(OnResponse callback);
+        void estimateFee(int blocks, OnResponse callback);
+        void getRawChangeAddress(OnResponse callback);
+        void createRawTransaction(OnResponse callback);
+        void getRawTransaction(const std::string& txid, OnResponse callback);
+        void getBalance(OnResponse callback);
+
+    private:
+
+        void sendRequest(const std::string& method, const std::string& params, OnResponse callback);
 
     private:
         HttpClient m_httpClient;
-        std::string m_userName;
-        std::string m_pass;
+        //std::string m_userName;
+        //std::string m_pass;
         io::Address m_address;
+        std::string m_authorization;
         //const HeaderPair m_headers[];
     };
 }

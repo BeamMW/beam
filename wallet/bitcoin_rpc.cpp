@@ -12,31 +12,121 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "utility/logger.h"
 #include "bitcoin_rpc.h"
 #include "bitcoin/bitcoin.hpp"
 
 namespace beam
 {
+    namespace
+    {
+        std::string generateAuthorization(const std::string& userName, const std::string& pass)
+        {
+            std::string userWithPass(userName + ":" + pass);
+            libbitcoin::data_chunk t(userWithPass.begin(), userWithPass.end());
+            return std::string("Basic " + libbitcoin::encode_base64(t));
+        }
+    }
+
     BitcoinRPC::BitcoinRPC(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address)
         : m_httpClient(reactor)
-        , m_userName(userName)
-        , m_pass(pass)
         , m_address(address)
-        //, m_headers{ {"Host", "127.0.0.1" }, {"Connection", "close"}, {"Authorization", "basi"} }
-    {
-
+        , m_authorization(generateAuthorization(userName, pass))
+    {        
     }
 
     void BitcoinRPC::getBlockchainInfo(OnResponse callback)
     {
-        /*std::string userWithPass("test:123");
-        libbitcoin::data_chunk t(userWithPass.begin(), userWithPass.end());
-        std::string auth("Basic " + libbitcoin::encode_base64(t));
+        sendRequest("getblockchaininfo", "", callback);
+    }
 
+    void BitcoinRPC::dumpPrivKey(const std::string& btcAddress, OnResponse callback)
+    {
+        sendRequest("dumpprivkey", "\"" + btcAddress + "\"", callback);
+    }
+
+    void BitcoinRPC::fundRawTransaction(const std::string& rawTx, OnResponse callback)
+    {
+        sendRequest("fundrawtransaction", "\"" + rawTx + "\"", callback);
+    }
+
+    void BitcoinRPC::signRawTransaction(OnResponse callback)
+    {
+        //sendRequest("fundrawtransaction", "\"" + rawTx + "\"", callback);
+    }
+
+    void BitcoinRPC::sendRawTransaction(const std::string& rawTx, OnResponse callback)
+    {
+        sendRequest("sendrawtransaction", "\"" + rawTx + "\"", callback);
+    }
+
+    void BitcoinRPC::getNetworkInfo(OnResponse callback)
+    {
+        sendRequest("getnetworkinfo", "", callback);
+    }
+
+    void BitcoinRPC::getWalletInfo(OnResponse callback)
+    {
+        sendRequest("getwalletinfo", "", callback);
+    }
+
+    void BitcoinRPC::estimateFee(int blocks, OnResponse callback)
+    {
+        sendRequest("estimatefee", "\"" + std::to_string(blocks) + "\"", callback);
+    }
+
+    void BitcoinRPC::getRawChangeAddress(OnResponse callback)
+    {
+        sendRequest("getrawchangeaddress", "", callback);
+    }
+
+    void BitcoinRPC::createRawTransaction(OnResponse callback)
+    {
+        //sendRequest("getrawchangeaddress", "", callback);
+    }
+
+    void BitcoinRPC::getRawTransaction(const std::string& txid, OnResponse callback)
+    {
+        sendRequest("getrawtransaction", "\"" + txid + "\"", callback);
+    }
+
+    void BitcoinRPC::getBalance(OnResponse callback)
+    {
+        sendRequest("getbalance", "", callback);
+    }
+
+    void BitcoinRPC::sendRequest(const std::string& method, const std::string& params, OnResponse callback)
+    {
+        const std::string content(R"({"method":")" + method + R"(","params":[)" + params + "]}");
         const HeaderPair headers[] = {
-            {"Host", "127.0.0.1" },
-            {"Connection", "close"},
-            {"Authorization", auth.data()}
-        };*/
+            {"Authorization", m_authorization.data()}
+        };
+        HttpClient::Request request;
+        
+        LOG_INFO() << content;
+
+        request.address(m_address)
+               .connectTimeoutMsec(2000)
+               .pathAndQuery("/")
+               .headers(headers)
+               .numHeaders(1)
+               .method("POST")
+               .body(content.c_str(), content.size());
+
+        request.callback([callback](uint64_t id, const HttpMsgReader::Message& msg) -> bool {
+            size_t sz = 0;
+            const void* body = msg.msg->get_body(sz);
+            if (sz > 0 && body)
+            {
+                callback(std::string(static_cast<const char*>(body), sz));
+            }
+            else
+            {
+                callback("");
+            }
+            return false;
+        });
+
+        m_httpClient.send_request(request);
     }
 }
