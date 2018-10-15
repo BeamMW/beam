@@ -220,22 +220,6 @@ void NodeDB::Recordset::get(int col, ByteBuffer& x)
 	b.Export(x);
 }
 
-NodeDB::Blob::Blob(const ByteBuffer& bb)
-{
-	if ((n = (uint32_t) bb.size()) != 0)
-		p = &bb.at(0);
-}
-
-void NodeDB::Blob::Export(ByteBuffer& x) const
-{
-	if (n)
-	{
-		x.resize(n);
-		memcpy(&x.at(0), p, n);
-	} else
-		x.clear();
-}
-
 const void* NodeDB::Recordset::get_BlobStrict(int col, uint32_t n)
 {
 	Blob x;

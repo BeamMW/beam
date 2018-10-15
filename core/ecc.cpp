@@ -275,6 +275,11 @@ namespace ECC {
 		m_bInitialized = false;
 	}
 
+	void Hash::Processor::Write(const beam::Blob& v)
+	{
+		Write(v.p, v.n);
+	}
+
 	void Hash::Processor::Write(const char* sz)
 	{
 		Write(sz, (uint32_t) (strlen(sz) + 1));

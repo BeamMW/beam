@@ -711,8 +711,9 @@ namespace beam
 
 		if (bTotal)
 		{
-			hp.Write(&m_PoW.m_Indices.at(0), sizeof(m_PoW.m_Indices));
-			hp << m_PoW.m_Nonce;
+			hp
+				<< Blob(&m_PoW.m_Indices.at(0), sizeof(m_PoW.m_Indices))
+				<< m_PoW.m_Nonce;
 		}
 
 		hp >> out;

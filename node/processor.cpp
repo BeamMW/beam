@@ -36,11 +36,11 @@ void NodeProcessor::Initialize(const char* szPath)
 	m_DB.Open(szPath);
 
 	Merkle::Hash hv;
-	NodeDB::Blob blob(hv);
+	Blob blob(hv);
 
 	if (!m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob))
 	{
-		blob = NodeDB::Blob(Rules::get().Checksum);
+		blob = Blob(Rules::get().Checksum);
 		m_DB.ParamSet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	}
 	else
@@ -420,12 +420,12 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		if (bOk)
 		{
 			if (rbData.m_Inputs)
-				m_DB.SetStateRollback(sid.m_Row, NodeDB::Blob(&rbData.m_Buf.at(0), sizeof(RollbackData::Utxo) * rbData.m_Inputs));
+				m_DB.SetStateRollback(sid.m_Row, Blob(&rbData.m_Buf.at(0), sizeof(RollbackData::Utxo) * rbData.m_Inputs));
 			else
 			{
 				// make sure it's not empty, even if there were no inputs, this is how we distinguish processed blocks.
 				uint8_t zero = 0;
-				m_DB.SetStateRollback(sid.m_Row, NodeDB::Blob(&zero, 1));
+				m_DB.SetStateRollback(sid.m_Row, Blob(&zero, 1));
 
 			}
 
@@ -810,7 +810,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 	return ret;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob& block, const PeerID& peer)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const Blob& block, const PeerID& peer)
 {
 	OnBlockData();
 	if (block.n > Rules::get().MaxBodySize)

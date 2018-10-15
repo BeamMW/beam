@@ -1270,9 +1270,9 @@ void RunBenchmark()
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
 			{
-				Hash::Processor hp;
-				hp.Write(pBuf, sizeof(pBuf));
-				hp >> hv;
+				Hash::Processor()
+					<< beam::Blob(pBuf, sizeof(pBuf))
+					>> hv;
 			}
 
 		} while (bm.ShouldContinue());

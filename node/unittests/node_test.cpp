@@ -152,7 +152,7 @@ namespace beam
 			}
 		}
 
-		NodeDB::Blob bBody("body", 4);
+		Blob bBody("body", 4);
 		Merkle::Hash peer, peer2;
 		memset(peer.m_pData, 0x66, peer.nBytes);
 
@@ -387,7 +387,7 @@ namespace beam
 			;
 
 		Merkle::Hash hv;
-		NodeDB::Blob b0(hv);
+		Blob b0(hv);
 		hv = 345U;
 
 		db.InsertDummy(176, b0);

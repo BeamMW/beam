@@ -72,9 +72,10 @@ void Node::WantedTx::OnExpired(const KeyType& key)
 
 void Node::Bbs::CalcMsgKey(NodeDB::WalkerBbs::Data& d)
 {
-	ECC::Hash::Processor hp;
-	hp.Write(d.m_Message.p, d.m_Message.n);
-	hp << d.m_Channel >> d.m_Key;
+	ECC::Hash::Processor()
+		<< d.m_Message
+		<< d.m_Channel
+		>> d.m_Key;
 }
 
 uint32_t Node::Bbs::WantedMsg::get_Timeout_ms()
@@ -626,7 +627,7 @@ void Node::InitIDs()
 
 	m_MyPrivateID.V.m_Value = Zero;
 
-	NodeDB::Blob blob(m_MyPrivateID.V.m_Value);
+	Blob blob(m_MyPrivateID.V.m_Value);
 	bool bNewID = !m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob);
 
 	if (bNewID)
@@ -669,7 +670,7 @@ void Node::InitMode()
 	ZeroObject(m_pSync->m_Trg);
 	ZeroObject(m_pSync->m_Best);
 
-	NodeDB::Blob blobTrg = m_pSync->m_Trg.m_Hash;
+	Blob blobTrg(m_pSync->m_Trg.m_Hash);
 	m_Processor.get_DB().ParamGet(NodeDB::ParamID::SyncTarget, &m_pSync->m_Trg.m_Height, &blobTrg);
 
 	m_pSync->m_bDetecting = !m_pSync->m_Trg.m_Height;
@@ -1288,7 +1289,7 @@ void Node::OnSyncTimer()
 
 		LOG_INFO() << "Sync target final: " << m_pSync->m_Trg;
 
-		NodeDB::Blob blob = m_pSync->m_Trg.m_Hash;
+		Blob blob(m_pSync->m_Trg.m_Hash);
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::SyncTarget, &m_pSync->m_Trg.m_Height, &blob);
 
 		m_pSync->m_bDetecting = false;
@@ -1852,7 +1853,7 @@ void Node::AddDummyInputs(Transaction& tx)
 	{
 		Height h;
 		ECC::Scalar sk;
-		NodeDB::Blob blob(sk.m_Value);
+		Blob blob(sk.m_Value);
 
 		uint64_t rowid = m_Processor.get_DB().FindDummy(h, blob);
 		if (!rowid || (h > m_Processor.m_Cursor.m_ID.m_Height + 1))
@@ -1946,7 +1947,7 @@ void Node::AddDummyOutputs(Transaction& tx)
 			h += RandomUInt32(m_Cfg.m_Dandelion.m_DummyLifetimeHi - m_Cfg.m_Dandelion.m_DummyLifetimeLo);
 
 		ECC::Scalar sk_(sk); // not so secret
-		db.InsertDummy(h, NodeDB::Blob(sk_.m_Value));
+		db.InsertDummy(h, Blob(sk_.m_Value));
 
 		tx.m_vOutputs.push_back(std::move(pOutput));
 
@@ -2362,7 +2363,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
 	wlk.m_Data.m_Channel = msg.m_Channel;
 	wlk.m_Data.m_TimePosted = msg.m_TimePosted;
-	wlk.m_Data.m_Message = NodeDB::Blob(msg.m_Message);
+	wlk.m_Data.m_Message = Blob(msg.m_Message);
 
 	Bbs::CalcMsgKey(wlk.m_Data);
 

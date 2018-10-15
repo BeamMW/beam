@@ -86,9 +86,9 @@ int test_adapter(int seconds) {
     nodeParams.nodeAddress = io::Address::localhost().port(NODE_PORT);
     nodeParams.treasuryPath = FILENAME "_";
 
-    ECC::Hash::Processor hp;
-    hp.Write("xxx", 3);
-    hp >> nodeParams.walletSeed;
+    ECC::Hash::Processor()
+		<< Blob("xxx", 3)
+		>> nodeParams.walletSeed;
 
     IKeyChain::Ptr kc = init_keychain(FILENAME, &nodeParams.walletSeed);
 

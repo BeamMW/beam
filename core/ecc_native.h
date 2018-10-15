@@ -372,6 +372,7 @@ namespace ECC
 	{
 		bool m_bInitialized;
 
+		void Write(const void*, uint32_t);
 		void Write(const char*);
 		void Write(bool);
 		void Write(uint8_t);
@@ -379,6 +380,7 @@ namespace ECC
 		void Write(const Scalar::Native&);
 		void Write(const Point&);
 		void Write(const Point::Native&);
+		void Write(const beam::Blob&);
 		template <uint32_t nBits_>
 		void Write(const beam::uintBig_t<nBits_>& x) { Write(x.m_pData, x.nBytes); }
 
@@ -403,8 +405,6 @@ namespace ECC
 		~Processor();
 
 		void Reset();
-
-		void Write(const void*, uint32_t);
 
 		template <typename T>
 		Processor& operator << (const T& t) { Write(t); return *this; }

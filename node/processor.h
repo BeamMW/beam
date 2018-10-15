@@ -111,7 +111,7 @@ public:
 	};
 
 	DataStatus::Enum OnState(const Block::SystemState::Full&, const PeerID&);
-	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&);
+	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const Blob& block, const PeerID&);
 
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
