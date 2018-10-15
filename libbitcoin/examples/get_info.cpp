@@ -48,11 +48,11 @@ int main() {
             std::string auth("Basic " + libbitcoin::encode_base64(t));
             std::string_view authView(auth);
             static const HeaderPair headers[] = {
-                {"Host", "127.0.0.1" },
-                {"Connection", "close"},
+                //{"Host", "127.0.0.1" },
+                //{"Connection", "close"},
                 {"Authorization", authView.data()}
             };
-            const char *data = "{\"method\":\"getblockchaininfo\",\"params\":[],\"id\":1}\n";
+            const char *data = "{\"method\":\"getblockchaininfo\",\"params\":[]}\n";
 
             HttpClient::Request request;
             io::Address a(io::Address::localhost(), PORT);
@@ -61,7 +61,7 @@ int main() {
             request.connectTimeoutMsec(2000);
             request.pathAndQuery("/");
             request.headers(headers);
-            request.numHeaders(3);
+            request.numHeaders(1);
             request.method("POST");
             request.body(data, strlen(data));
 
