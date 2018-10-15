@@ -357,7 +357,7 @@ namespace beam { namespace wallet
 
             if (!SendTxParameters(move(msg)))
             {
-                OnFailed(false);
+                OnFailed("SendTxParameters failed", false);
             }
             return;
         }
