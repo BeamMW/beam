@@ -77,8 +77,7 @@ namespace beam { namespace wallet
         }
         catch (const TransactionFailedException& ex)
         {
-            LOG_ERROR() << GetTxID() << " exception: " << ex.what();
-            OnFailed(ex.ShouldNofify());
+            OnFailed(ex.what(), ex.ShouldNofify());
         }
         catch (const exception& ex)
         {
@@ -101,6 +100,7 @@ namespace beam { namespace wallet
             SetTxParameter msg;
             msg.AddParameter(TxParameterID::FailureReason, 0);
             SendTxParameters(move(msg));
+            m_Gateway.on_tx_completed(GetTxID());
         }
     }
 
@@ -138,8 +138,9 @@ namespace beam { namespace wallet
         SetParameter(TxParameterID::ModifyTime, getTimestamp());
     }
 
-    void BaseTransaction::OnFailed(bool notify)
+    void BaseTransaction::OnFailed(const string& message, bool notify)
     {
+        LOG_ERROR() << GetTxID() << " Failed. " << message;
         UpdateTxDescription(TxStatus::Failed);
         RollbackTx();
         if (notify)
@@ -380,7 +381,7 @@ namespace beam { namespace wallet
         // verify peer's signature
         if (!sb.IsValidPeerSignature())
         {
-            OnFailed(true);
+            OnFailed("Peer signature in not valid ", true);
             return;
         }
 
@@ -432,7 +433,7 @@ namespace beam { namespace wallet
                 TxBase::Context ctx;
                 if (!transaction->IsValid(ctx))
                 {
-                    OnFailed(true);
+                    OnFailed("tx is not valid", true);
                     return;
                 }
                 m_Gateway.register_tx(GetTxID(), transaction);
@@ -442,7 +443,7 @@ namespace beam { namespace wallet
 
         if (!isRegistered)
         {
-            OnFailed(true);
+            OnFailed("not registered", true);
             return;
         }
 

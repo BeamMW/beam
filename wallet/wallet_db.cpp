@@ -1280,7 +1280,11 @@ namespace beam
             {
                 TxID txID;
                 stm.get(0, txID);
-                res.emplace_back(*getTx(txID));
+                auto t = getTx(txID);
+                if (t.is_initialized())
+                {
+                    res.emplace_back(*t);
+                }
             }
         }
 
@@ -1298,19 +1302,21 @@ namespace beam
             auto thisPtr = shared_from_this();
             TxDescription tx;
             tx.m_txId = txId;
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Amount, tx.m_amount);
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Fee, tx.m_fee);
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Change, tx.m_change);
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::MinHeight, tx.m_minHeight);
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::PeerID, tx.m_peerId);
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::MyID, tx.m_myId);
+            bool hasMandatory = wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Amount, tx.m_amount)
+            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Fee, tx.m_fee)
+            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::MinHeight, tx.m_minHeight)
+            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::PeerID, tx.m_peerId)
+            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::MyID, tx.m_myId)
+            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::CreateTime, tx.m_createTime)
+            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::IsSender, tx.m_sender);
             wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Message, tx.m_message);
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::CreateTime, tx.m_createTime);
+            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Change, tx.m_change);
             wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::ModifyTime, tx.m_modifyTime);
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::IsSender, tx.m_sender);
             wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Status, tx.m_status);
-
-            return tx;
+            if (hasMandatory)
+            {
+                return tx;
+            }
         }
 
         return boost::optional<TxDescription>{};
@@ -1526,6 +1532,7 @@ namespace beam
 
     bool Keychain::setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob)
     {
+        bool hasTx = getTx(txID).is_initialized();
         {
             sqlite::Statement stm(_db, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID=?2;");
 
@@ -1544,6 +1551,12 @@ namespace beam
                 stm2.bind(2, static_cast<int>(paramID));
                 stm2.bind(3, blob);
                 stm2.step();
+                auto tx = getTx(txID);
+                if (tx.is_initialized())
+                {
+                    notifyTransactionChanged(ChangeAction::Updated, {*tx});
+                }
+                
                 return true;
             }
         }
@@ -1555,6 +1568,11 @@ namespace beam
         parameter.m_value = blob;
         ENUM_TX_PARAMS_FIELDS(STM_BIND_LIST, NOSEP, parameter);
         stm.step();
+        auto tx = getTx(txID);
+        if (tx.is_initialized())
+        {
+            notifyTransactionChanged(hasTx ? ChangeAction::Updated : ChangeAction::Added, { *tx });
+        }
         return true;
     }
 

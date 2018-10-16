@@ -36,7 +36,6 @@ namespace beam
         extern const char* IMPORT;
         extern const char* MINING_THREADS;
         extern const char* VERIFICATION_THREADS;
-        extern const char* MINER_ID;
         extern const char* NODE_PEER;
         extern const char* PASS;
         extern const char* AMOUNT;

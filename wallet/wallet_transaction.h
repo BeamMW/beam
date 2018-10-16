@@ -66,7 +66,7 @@ namespace beam { namespace wallet
             if (!getTxParameter(m_Keychain, GetTxID(), paramID, value))
             {
                 std::stringstream ss;
-                //ss <<  " Failed to get parameter: " << paramID;
+                ss << " Failed to get parameter: " << static_cast<uint8_t>(paramID);
                 throw TransactionFailedException(true, ss.str().c_str());
             }
         }
@@ -90,7 +90,7 @@ namespace beam { namespace wallet
         void CreateOutput(Amount amount, Height currentHeight);
         void PrepareSenderUTXOs(Amount amount, Height currentHeight);
 
-        void OnFailed(bool notify = false);
+        void OnFailed(const std::string& message = "", bool notify = false);
 
         bool GetTip(Block::SystemState::Full& state) const;
 

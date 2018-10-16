@@ -46,12 +46,6 @@ namespace beam {
 #define TblTips_State			"State"
 #define TblTips_ChainWork		"ChainWork"
 
-#define TblSpendable			"Spendable"
-#define TblSpendable_Key		"Key"
-#define TblSpendable_Body		"Body"
-#define TblSpendable_Refs		"Refs"
-#define TblSpendable_Unspent	"Unspent"
-
 #define TblMined				"Mined"
 #define TblMined_Height			"Height"
 #define TblMined_State			"State"
@@ -268,7 +262,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 9;
+	const uint64_t nVersion = 10;
 
 	if (bCreate)
 	{
@@ -337,13 +331,6 @@ void NodeDB::Create()
 		"[" TblMined_Comission	"] INTEGER NOT NULL,"
 		"PRIMARY KEY (" TblMined_Height "," TblMined_State "),"
 		"FOREIGN KEY (" TblMined_State ") REFERENCES " TblStates "(OID))");
-
-	ExecQuick("CREATE TABLE [" TblSpendable "] ("
-		"[" TblSpendable_Key		"] BLOB NOT NULL,"
-		"[" TblSpendable_Body		"] BLOB,"
-		"[" TblSpendable_Refs		"] INTEGER NOT NULL,"
-		"[" TblSpendable_Unspent	"] INTEGER NOT NULL,"
-		"PRIMARY KEY (" TblSpendable_Key "))");
 
 	ExecQuick("CREATE TABLE [" TblCompressed "] ("
 		"[" TblCompressed_Row1	"] INTEGER NOT NULL,"
@@ -1447,77 +1434,6 @@ void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
     dmmr.m_kLast = sid.m_Row;
 
     dmmr.get_PredictedHash(hv, hv);
-}
-
-void NodeDB::EnumUnpsent(WalkerSpendable& x)
-{
-	x.m_Rs.Reset(Query::SpendableEnum, "SELECT " TblSpendable_Key "," TblSpendable_Unspent " FROM " TblSpendable " WHERE " TblSpendable_Unspent "!=0");
-}
-
-bool NodeDB::WalkerSpendable::MoveNext()
-{
-	if (!m_Rs.Step())
-		return false;
-	m_Rs.get(0, m_Key);
-	m_Rs.get(1, m_nUnspentCount);
-
-	return true;
-}
-
-void NodeDB::AddSpendable(const Blob& key, const Blob* pBody, uint32_t nRefs, uint32_t nUnspentCount)
-{
-	assert(nRefs > 0);
-
-	ModifySpendableSafe(key, nRefs, nUnspentCount);
-
-	if (!get_RowsChanged())
-	{
-		Recordset rs(*this, Query::SpendableAdd, "INSERT INTO " TblSpendable "(" TblSpendable_Key "," TblSpendable_Body "," TblSpendable_Refs "," TblSpendable_Unspent ") VALUES(?,?,?,?)");
-		rs.put(0, key);
-		if (pBody)
-			rs.put(1, *pBody);
-		rs.put(2, nRefs);
-		rs.put(3, nUnspentCount);
-		rs.Step();
-	}
-}
-
-void NodeDB::ModifySpendableSafe(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta)
-{
-	assert(nRefsDelta || nUnspentDelta);
-
-	Recordset rs(*this, Query::SpendableModify, "UPDATE " TblSpendable " SET " TblSpendable_Refs "=" TblSpendable_Refs "+?,"  TblSpendable_Unspent "=" TblSpendable_Unspent "+? WHERE " TblSpendable_Key "=?");
-	rs.put(0, (uint32_t)nRefsDelta);
-	rs.put(1, (uint32_t)nUnspentDelta);
-	rs.put(2, key);
-	rs.Step();
-}
-
-void NodeDB::ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta)
-{
-	ModifySpendableSafe(key, nRefsDelta, nUnspentDelta);
-	TestChanged1Row();
-
-	if (nRefsDelta < 0)
-	{
-		Recordset rs(*this, Query::SpendableDel, "DELETE FROM " TblSpendable " WHERE " TblSpendable_Key "=? AND " TblSpendable_Refs "=0");
-		rs.put(0, key);
-		rs.Step();
-	}
-}
-
-bool NodeDB::GetSpendableBody(const Blob& key, Blob& out)
-{
-	Recordset rs(*this, Query::SpendableGetBody, "SELECT " TblSpendable_Body " FROM " TblSpendable " WHERE " TblSpendable_Key "=?");
-	rs.put(0, key);
-
-	rs.StepStrict();
-
-	if (rs.IsNull(0))
-		return false;
-
-	memcpy((void*) out.p, rs.get_BlobStrict(0, out.n), out.n);
-	return true;
 }
 
 void NodeDB::SetMined(const StateID& sid, const Amount& v)

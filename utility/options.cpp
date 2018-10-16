@@ -38,7 +38,6 @@ namespace beam
         const char* IMPORT = "import";
         const char* MINING_THREADS = "mining_threads";
         const char* VERIFICATION_THREADS = "verification_threads";
-        const char* MINER_ID = "miner_id";
         const char* NODE_PEER = "peer";
         const char* PASS = "pass";
         const char* AMOUNT = "amount";
@@ -107,7 +106,6 @@ namespace beam
             (cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block pack to import treasury from")
             (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
-            (cli::MINER_ID, po::value<uint32_t>()->default_value(0), "seed for miner nonce generation")
             (cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
             (cli::IMPORT, po::value<Height>()->default_value(0), "Specify the blockchain height to import. The compressed history is asumed to be downloaded the the specified directory")
             ;

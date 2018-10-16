@@ -147,13 +147,10 @@ private:
     bool get_status(io::SerializedMsg& out) override {
         if (_statusDirty) {
             const auto& cursor = _nodeBackend.m_Cursor;
+            const auto& extra = _nodeBackend.m_Extra;
 
             _cache.currentHeight = cursor.m_Sid.m_Height;
             _cache.lowHorizon = cursor.m_LoHorizon;
-
-            AmountBig subsidy;
-            subsidy.Lo = _nodeBackend.get_DB().ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
-            subsidy.Hi = _nodeBackend.get_DB().ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
 
             char buf[80];
 
@@ -168,8 +165,9 @@ private:
                     { "low_horizon", cursor.m_LoHorizon },
                     { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
                     { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) },
-                    { "subsidy",  subsidy.Lo },
-                    { "subsidy_hi",  subsidy.Hi }
+                    { "subsidy",  extra.m_Subsidy.Lo },
+                    { "subsidy_hi",  extra.m_Subsidy.Hi },
+                    { "subsidy_open",  extra.m_SubsidyOpen }
                 }
             )) {
                 return false;
