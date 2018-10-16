@@ -294,10 +294,6 @@ namespace beam {
                 m_lastReceiver = &k;
                 return handle_decrypted_message(msg.m_TimePosted, out, size);
             }
-            else
-            {
-                LOG_DEBUG() << "failed to decrypt BBS message from channel=" << msg.m_Channel;
-            }
         }
 
         return true;
