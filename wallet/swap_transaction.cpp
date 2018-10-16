@@ -53,6 +53,10 @@ namespace beam {namespace wallet
 
         SignatureBuilder sharedSb{ *this };
         Height minHeight = 0;
+        
+        vector<Input::Ptr> sharedInputs;
+        vector<Output::Ptr> sharedOutputs;
+
         Scalar::Native sharedOffset;
         Scalar::Native sharedBlindingExcess;
         Scalar::Native sharedBlindingFactor;
@@ -60,7 +64,9 @@ namespace beam {namespace wallet
         if (!GetParameter(TxParameterID::SharedBlindingExcess, sharedBlindingExcess)
             || !GetParameter(TxParameterID::SharedOffset, sharedOffset)
             || !GetParameter(TxParameterID::MinHeight, minHeight)
-            || !GetParameter(TxParameterID::SharedBlindingFactor, sharedBlindingFactor))
+            || !GetParameter(TxParameterID::SharedBlindingFactor, sharedBlindingFactor)
+            || !GetParameter(TxParameterID::SharedInputs, sharedInputs)
+            || !GetParameter(TxParameterID::SharedOutputs, sharedOutputs))
         {
             LOG_INFO() << GetTxID() << (" Sending ") << PrintableAmount(amount) << " (fee: " << PrintableAmount(fee) << ")";
             minHeight = m_Keychain->getCurrentHeight();
@@ -70,9 +76,10 @@ namespace beam {namespace wallet
             {
                 Amount amountWithFee = amount + fee;
                 PrepareSenderUTXOs(amountWithFee, minHeight);
+                SetParameter(TxParameterID::SharedPeerInputs, GetTxInputs(GetTxID()));
             }
 
-            // create shared output. the same for sender and receiver
+            // create shared output.
             {
                 Coin newUtxo{ amount, Coin::Draft, minHeight };
                 newUtxo.m_createTxId = GetTxID();
@@ -97,6 +104,8 @@ namespace beam {namespace wallet
         sharedSb.CreateKernel(fee, minHeight);
         sharedSb.ApplyBlindingExcess(TxParameterID::SharedBlindingExcess);
 
+        Point::Native publicSharedBlindingFactor = Context::get().G * sharedBlindingFactor;
+
         Point::Native peerPublicSharedBlindingFactor;
         if (!GetParameter(TxParameterID::PeerPublicSharedBlindingFactor, peerPublicSharedBlindingFactor))
         {
@@ -107,22 +116,13 @@ namespace beam {namespace wallet
                 .AddParameter(TxParameterID::Fee, fee)
                 .AddParameter(TxParameterID::MinHeight, minHeight)
                 .AddParameter(TxParameterID::IsSender, false)
-                .AddParameter(TxParameterID::SharedPeerInputs, GetTxInputs(GetTxID()))
-                .AddParameter(TxParameterID::SharedPeerOutputs, GetTxOutputs(GetTxID()))
-                .AddParameter(TxParameterID::SharedPeerPublicExcess, sharedSb.m_PublicExcess)
-                .AddParameter(TxParameterID::SharedPeerPublicNonce, sharedSb.m_PublicNonce)
-                .AddParameter(TxParameterID::SharedPeerOffset, sharedOffset);
+                .AddParameter(TxParameterID::PeerPublicSharedBlindingFactor, publicSharedBlindingFactor);
 
-            if (!SendTxParameters(move(msg)))
-            {
-                OnFailed(false);
-            }
+            SendTxParameters(move(msg));
             return;
         }
 
-        Point::Native publicSharedBlindingFactor = Context::get().G * sharedBlindingFactor;
-
-        // create locked tx
+        // create locked rollback tx
         {
             SignatureBuilder lockedSb(*this);
             Height lockHeight = minHeight + 1440; // 24 hours
@@ -133,7 +133,7 @@ namespace beam {namespace wallet
                 || !GetParameter(TxParameterID::LockedOffset, lockedOffset)
                 || !GetParameter(TxParameterID::LockedBlindingFactor, lockedBlindingFactor))
             {
-                // output for locked utxo, it is mine
+                // output for locked rollback utxo, it is mine
                 {
                     Coin newUtxo{ amount, Coin::Draft, minHeight };
                     newUtxo.m_createTxId = GetTxID();
@@ -178,14 +178,14 @@ namespace beam {namespace wallet
                 outputs.push_back(move(lockedOutput));
                 SetTxParameter msg;
                 msg.AddParameter(TxParameterID::LockedAmount, amount)
-                    //.AddParameter(TxParameterID::Fee, fee)
-                    .AddParameter(TxParameterID::LockedMinHeight, lockHeight)
-                    .AddParameter(TxParameterID::IsSender, false)
-                    .AddParameter(TxParameterID::LockedPeerInputs, move(inputs))
-                    .AddParameter(TxParameterID::LockedPeerOutputs, move(outputs))
-                    .AddParameter(TxParameterID::LockedPeerPublicExcess, lockedSb.m_PublicExcess)
-                    .AddParameter(TxParameterID::LockedPeerPublicNonce, lockedSb.m_PublicNonce)
-                    .AddParameter(TxParameterID::LockedPeerOffset, lockedOffset);
+                   //.AddParameter(TxParameterID::Fee, fee)
+                   .AddParameter(TxParameterID::LockedMinHeight, lockHeight)
+                   .AddParameter(TxParameterID::IsSender, false)
+                   .AddParameter(TxParameterID::LockedPeerInputs, move(inputs))
+                   .AddParameter(TxParameterID::LockedPeerOutputs, move(outputs))
+                   .AddParameter(TxParameterID::LockedPeerPublicExcess, lockedSb.m_PublicExcess)
+                   .AddParameter(TxParameterID::LockedPeerPublicNonce, lockedSb.m_PublicNonce)
+                   .AddParameter(TxParameterID::LockedPeerOffset, lockedOffset);
                 SendTxParameters(move(msg));
                 return;
             }
@@ -199,6 +199,7 @@ namespace beam {namespace wallet
             }
 
             lockedSb.FinalizeSignature();
+            // here we have everithing to create rollback transaction
         }
 
 
@@ -206,7 +207,17 @@ namespace beam {namespace wallet
             || !sharedSb.ApplyPublicPeerExcess(TxParameterID::SharedPeerPublicExcess)
             || !sharedSb.ApplyPeerSignature(TxParameterID::SharedPeerSignature))
         {
-            OnFailed();
+            SetTxParameter msg;
+            msg.AddParameter(TxParameterID::Amount, amount)
+               .AddParameter(TxParameterID::Fee, fee)
+               .AddParameter(TxParameterID::MinHeight, minHeight)
+               .AddParameter(TxParameterID::IsSender, false)
+               .AddParameter(TxParameterID::SharedPeerInputs, GetTxInputs(GetTxID()))
+               .AddParameter(TxParameterID::SharedPeerOutputs, GetTxOutputs(GetTxID()))
+               .AddParameter(TxParameterID::SharedPeerPublicExcess, sharedSb.m_PublicExcess)
+               .AddParameter(TxParameterID::SharedPeerPublicNonce, sharedSb.m_PublicNonce)
+               .AddParameter(TxParameterID::SharedPeerOffset, sharedOffset);
+            SendTxParameters(move(msg));
             return;
         }
 
@@ -270,10 +281,14 @@ namespace beam {namespace wallet
         sharedSb.CreateKernel(fee, minHeight);
         sharedSb.ApplyBlindingExcess(TxParameterID::SharedBlindingExcess);
 
+
+        SignatureBuilder lockedSb(*this);
+
         Point::Native publicSharedBlindingFactor = Context::get().G * sharedBlindingFactor;
 
-        vector<Input::Ptr> lockedPeerInputs;
-        if (!GetParameter(TxParameterID::LockedPeerInputs, lockedPeerInputs))
+        Point::Native peerSharedBlindingFactor;
+        if (!lockedSb.ApplyPublicPeerNonce(TxParameterID::LockedPeerPublicNonce)
+            || !lockedSb.ApplyPublicPeerExcess(TxParameterID::LockedPeerPublicExcess))
         {
             // accept invitation 
             assert(!IsInitiator());
@@ -283,21 +298,13 @@ namespace beam {namespace wallet
             return;
         }
 
-        // create locked tx
+        // create locked rollback tx
         {
-            SignatureBuilder lockedSb(*this);
             Height lockHeight = minHeight + 1440; // 24 hours
             lockedSb.CreateKernel(0, lockHeight);
 
             SetParameter(TxParameterID::LockedBlindingExcess, Scalar::Native());
             lockedSb.ApplyBlindingExcess(TxParameterID::LockedBlindingExcess);
-
-            if (!lockedSb.ApplyPublicPeerNonce(TxParameterID::LockedPeerPublicNonce)
-                || !lockedSb.ApplyPublicPeerExcess(TxParameterID::LockedPeerPublicExcess))
-            {
-                OnFailed(true);
-                return;
-            }
 
             lockedSb.SignPartial();
 

@@ -126,8 +126,8 @@ namespace beam
             Message = 5,
             MyID = 6,
             PeerID = 7,
-            Inputs = 8,
-            Outputs = 9,
+            //Inputs = 8,
+            //Outputs = 9,
             CreateTime = 10,
             IsInitiator = 11,
 
@@ -187,7 +187,15 @@ namespace beam
 
             SharedBlindingFactor = 160,
             LockedBlindingFactor = 161,
-            SharedPeerBlindingFactor = 170
+            SharedPeerBlindingFactor = 170,
+
+            Inputs = 180,
+            SharedInputs = 181,
+            LockedInputs = 182,
+            
+            Outputs = 190,
+            SharedOutputs = 191,
+            LockedOutputs = 192
 
         };
 
