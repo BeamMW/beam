@@ -480,7 +480,6 @@ namespace ECC {
 			{
 				k = cs.m_Val[iCycle][j];
 				k *= k;
-				k = k;
 
 				if (!bc.AddCasual(pLR[j], k))
 					return false;
