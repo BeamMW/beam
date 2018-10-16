@@ -29,14 +29,9 @@ namespace {
         size_t expectedSize = 0;
         size_t receivedSize = 0;
 
-        auto on_decrypted = [&nErrors, &receivedSize](io::ErrorCode code, void* data, size_t size) {
-            if (code != EC_OK) {
-                LOG_ERROR() << error_str(code);
-                ++nErrors;
-            } else {
-                LOG_DEBUG() << "received " << size << " bytes";
-                receivedSize += size;
-            }
+        auto on_decrypted = [&receivedSize](void* data, size_t size) {
+            LOG_DEBUG() << "received " << size << " bytes";
+            receivedSize += size;
         };
 
         std::unique_ptr<SSLIO> server;
