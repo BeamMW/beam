@@ -13,13 +13,21 @@
 // limitations under the License.
 
 #include "utility/logger.h"
+#include "utility/io/timer.h"
 #include "wallet/bitcoin_rpc.h"
 
 using namespace beam;
 
 void testWithBitcoinD()
 {
+    
     io::Reactor::Ptr reactor = io::Reactor::create();
+    io::Timer::Ptr timer(io::Timer::create(*reactor));
+
+    timer->start(5000, false, [&reactor]() {
+        reactor->stop();
+    });
+
     io::Address addr(io::Address::localhost(), 18443);
     BitcoinRPC rpc(*reactor, "test", "123", addr);
 
@@ -76,6 +84,6 @@ int main()
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
 
-    //testWithBitcoinD();
+    testWithBitcoinD();
     return 0;
 }
