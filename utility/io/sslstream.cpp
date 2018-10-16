@@ -18,27 +18,39 @@
 namespace beam { namespace io {
 
 SslStream::SslStream(const SSLContext::Ptr& ctx) :
-    _ssl(ctx, BIND_THIS_MEMFN(on_decrypted_data), BIND_THIS_MEMFN(on_encrypted_data))
+    _ssl(ctx, BIND_THIS_MEMFN(on_decrypted_data), BIND_THIS_MEMFN(on_encrypted_data), 16384)
 {}
 
 Result SslStream::write(const SharedBuffer& buf, bool flush) {
     _ssl.enqueue(buf);
-    return flush ? _ssl.flush_write_buffer() : Ok();
+    return flush ? _ssl.flush() : Ok();
 }
 
-Result beam::io::SslStream::write(const SerializedMsg& fragments, bool flush) {
+Result SslStream::write(const SerializedMsg& fragments, bool flush) {
     for (const auto& buf : fragments) {
         _ssl.enqueue(buf);
     }
-    return flush ? _ssl.flush_write_buffer() : Ok();
+    return flush ? _ssl.flush() : Ok();
 }
 
-void SslStream::on_decrypted_data(io::ErrorCode ec, void* data, size_t size) {
-    TcpStream::on_read(ec, data, size);
+void SslStream::shutdown() {
+    _ssl.flush();
+    TcpStream::shutdown();
 }
 
-Result SslStream::on_encrypted_data(SerializedMsg& data) {
-    return TcpStream::write(data);
+void SslStream::on_read(ErrorCode ec, void *data, size_t size) {
+    Result res = _ssl.on_encrypted_data_from_stream(data, size);
+    if (!res) {
+        TcpStream::on_read(res.error(), 0, 0);
+    }
+}
+
+void SslStream::on_decrypted_data(void* data, size_t size) {
+    TcpStream::on_read(EC_OK, data, size);
+}
+
+Result SslStream::on_encrypted_data(const SharedBuffer& data, bool flush) {
+    return TcpStream::write(data, flush);
 }
 
 }} //namespaces

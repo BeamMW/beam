@@ -49,15 +49,18 @@ private:
 class SSLIO {
 public:
     /// Decrypted data received from stream
-    using OnDecryptedData = std::function<void(io::ErrorCode, void* data, size_t size)>;
+    using OnDecryptedData = std::function<void(void* data, size_t size)>;
 
     /// Encrypted data to be queued to stream
     using OnEncryptedData = std::function<Result(const io::SharedBuffer& data, bool flush)>;
 
-    explicit SSLIO(
+    SSLIO(const SSLIO&) = delete;
+    SSLIO& operator=(const SSLIO&) = delete;
+
+    SSLIO(
         const SSLContext::Ptr& ctx,
-        OnDecryptedData&& onDecryptedData, OnEncryptedData&& onEncryptedData,
-        size_t fragmentSize=40000
+        const OnDecryptedData& onDecryptedData, const OnEncryptedData& onEncryptedData,
+        size_t fragmentSize=16384
     );
 
     ~SSLIO();

@@ -103,7 +103,7 @@ SSLContext::~SSLContext() {
 
 SSLIO::SSLIO(
     const SSLContext::Ptr& ctx,
-    OnDecryptedData&& onDecryptedData, OnEncryptedData&& onEncryptedData,
+    const OnDecryptedData& onDecryptedData, const OnEncryptedData& onEncryptedData,
     size_t fragmentSize
 ) :
     _onDecryptedData(onDecryptedData),
@@ -155,7 +155,7 @@ Result SSLIO::flush() {
         size_t bytesRemaining = buf.size;
         const uint8_t* ptr = buf.data;
         while (bytesRemaining > 0) {
-            int n = (bytesRemaining < _fragmentSize) ? bytesRemaining : (int)_fragmentSize;
+            int n = (bytesRemaining < _fragmentSize) ? (int)bytesRemaining : (int)_fragmentSize;
             n = SSL_write(_ssl, ptr, n);
             if (n <= 0) return make_unexpected(EC_SSL_ERROR);
             bytesRemaining -= n;
@@ -219,9 +219,9 @@ Result SSLIO::on_encrypted_data_from_stream(const void *data, size_t size) {
         }
 
         do {
-            r = SSL_read(_ssl, buf, _fragmentSize);
+            r = SSL_read(_ssl, buf, (int)_fragmentSize);
             if (r > 0) {
-                _onDecryptedData(EC_OK, buf, (size_t) r);
+                _onDecryptedData(buf, (size_t)r);
             }
         } while (r > 0);
 

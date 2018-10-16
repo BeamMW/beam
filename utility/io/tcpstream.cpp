@@ -94,7 +94,7 @@ Result TcpStream::write(const SharedBuffer& buf, bool flush) {
     return do_write(flush);
 }
 
-Result TcpStream::write(const std::vector<SharedBuffer>& fragments, bool flush) {
+Result TcpStream::write(const SerializedMsg& fragments, bool flush) {
     if (!is_connected()) return make_unexpected(EC_ENOTCONN);
     if (!fragments.empty()) {
         for (const auto& f : fragments) {
@@ -104,12 +104,13 @@ Result TcpStream::write(const std::vector<SharedBuffer>& fragments, bool flush) 
     return do_write(flush);
 }
 
+/*
 Result TcpStream::write(const BufferChain& fragments, bool flush) {
     if (!is_connected()) return make_unexpected(EC_ENOTCONN);
     _writeBuffer.append(fragments);
     return do_write(flush);
 }
-
+*/
 void TcpStream::shutdown() {
     if (is_connected()) {
         disable_read();

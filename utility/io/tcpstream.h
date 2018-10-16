@@ -37,7 +37,7 @@ public:
         size_t unsent=0;
     };
 
-    virtual ~TcpStream();
+    ~TcpStream();
 
     // Sets callback and enables reading from the stream if callback is not empty
     // returns false if stream disconnected
@@ -58,14 +58,12 @@ public:
     virtual Result write(const SerializedMsg& fragments, bool flush=true);
 
     /// Writes raw data, returns status code
-    virtual Result write(const BufferChain& fragments, bool flush=true);
+    //virtual Result write(const BufferChain& fragments, bool flush=true);
 
     /// Shutdowns write side, waits for pending write requests to complete, but on reactor's side
     virtual void shutdown();
 
     bool is_connected() const;
-
-    void close();
 
     const State& state() const {
         return _state;

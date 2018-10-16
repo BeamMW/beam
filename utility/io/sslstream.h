@@ -28,14 +28,18 @@ public:
     /// Writes raw data, returns status code
     Result write(const SerializedMsg& fragments, bool flush=true) override;
 
+    /// Shutdowns write side, waits for pending write requests to complete, but on reactor's side
+    void shutdown() override;
+
 private:
     friend class SslServer;
     friend class Reactor;
 
-    SslStream(const SSLContext::Ptr& ctx);
+    explicit SslStream(const SSLContext::Ptr& ctx);
 
-    void on_decrypted_data(io::ErrorCode ec, void* data, size_t size);
-    Result on_encrypted_data(SerializedMsg& data);
+    void on_read(ErrorCode ec, void* data, size_t size) override;
+    void on_decrypted_data(void* data, size_t size);
+    Result on_encrypted_data(const SharedBuffer& data, bool flush);
 
     SSLIO _ssl;
 };
