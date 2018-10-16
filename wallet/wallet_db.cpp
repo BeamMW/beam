@@ -1207,7 +1207,7 @@ namespace beam
 
     Block::SystemState::ID Keychain::getKnownStateID(Height height)
     {
-        Block::SystemState::ID id = {};
+        Block::SystemState::ID id = wallet::GetEmptyID();
         const char* req = "SELECT DISTINCT confirmHeight, confirmHash FROM " STORAGE_NAME " WHERE confirmHeight >= ?2 LIMIT 1 OFFSET ?1;";
 
         sqlite::Statement stm(_db, req);

@@ -99,6 +99,14 @@ namespace beam
             res.second = -res.second; // different convention
             return res;
         }
+
+        Block::SystemState::ID GetEmptyID()
+        {
+            Block::SystemState::ID id;
+            ZeroObject(id);
+            id.m_Height = Rules::HeightGenesis;
+            return id;
+        }
     }
 
     struct Wallet::StateFinder
@@ -108,15 +116,15 @@ namespace beam
             , m_syncHeight{newHeight}
             , m_count{ int64_t(keychain->getKnownStateCount()) }
             , m_step{0}
-            , m_id{}
+            , m_id{wallet::GetEmptyID()}
             , m_keychain{keychain}
         {
-
         }
 
         Height getSearchHeight()
         {
             auto id = m_keychain->getKnownStateID(getSearchOffset());
+            assert(id.m_Height >= Rules::HeightGenesis);
             return id.m_Height;
         }
 
@@ -151,7 +159,7 @@ namespace beam
         , m_network{ network }
         , m_tx_completed_action{move(action)}
         , m_newState{}
-        , m_knownStateID{}
+        , m_knownStateID{wallet::GetEmptyID()}
         , m_syncDone{0}
         , m_syncTotal{0}
         , m_synchronized{false}
@@ -501,6 +509,8 @@ namespace beam
         }
 
         m_pendingUtxoProofs.pop_front();
+        m_PendingUtxoUnique.erase(coin.m_id);
+        assert(m_pendingUtxoProofs.size() == m_PendingUtxoUnique.size());
 
         return exit_sync();
     }
@@ -527,7 +537,7 @@ namespace beam
             return close_node_connection();
         }
 
-        if (m_knownStateID.m_Height <= Rules::HeightGenesis)
+        if (m_knownStateID.m_Height <= Rules::HeightGenesis && !m_stateFinder)
         {
             // cold start
             do_fast_forward();
@@ -586,7 +596,9 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::ProofState&& msg)
     {
-        if (!IsTestMode() && !m_newState.IsValidProofState(m_knownStateID, msg.m_Proof))
+        if (!IsTestMode() 
+            && m_knownStateID.m_Height > Rules::HeightGenesis 
+            && !m_newState.IsValidProofState(m_knownStateID, msg.m_Proof) )
         {
             // rollback
             // search for the latest valid known state
@@ -634,7 +646,7 @@ namespace beam
                 }
                 else
                 {
-                    ZeroObject(m_knownStateID);
+                    m_knownStateID = wallet::GetEmptyID();
                 }
                 m_stateFinder.reset();
                 LOG_INFO() << "Rolled back to " << m_knownStateID;
@@ -673,6 +685,7 @@ namespace beam
         copy(m_reg_requests.begin(), m_reg_requests.end(), back_inserter(m_pending_reg_requests));
         m_reg_requests.clear();
         m_pendingUtxoProofs.clear();
+        m_PendingUtxoUnique.clear();
 
         notifySyncProgress();
     }
@@ -712,8 +725,15 @@ namespace beam
     {
         for (auto& coin : coins)
         {
+            if (m_PendingUtxoUnique.find(coin.m_id) != m_PendingUtxoUnique.end())
+            {
+                continue;
+            }
+
             enter_sync();
             m_pendingUtxoProofs.push_back(coin);
+            m_PendingUtxoUnique.insert(coin.m_id);
+            assert(m_pendingUtxoProofs.size() == m_PendingUtxoUnique.size());
             Input input;
             input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
             LOG_DEBUG() << "Get proof: " << input.m_Commitment;

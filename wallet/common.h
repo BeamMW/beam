@@ -114,6 +114,7 @@ namespace beam
         ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
 
         std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
+        Block::SystemState::ID GetEmptyID();
         const uint32_t MaxSignatures = 10;
         enum class TxParameterID : uint8_t
         {
