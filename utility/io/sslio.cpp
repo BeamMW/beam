@@ -22,7 +22,30 @@ namespace beam { namespace io {
 
 namespace {
 
+struct SSLInitializer {
+    SSLInitializer() {
+        SSL_library_init();
+        SSL_load_error_strings();
+        ERR_load_BIO_strings();
+        OpenSSL_add_all_algorithms();
+        ERR_load_crypto_strings();
+        ok = true;
+    }
+
+    ~SSLInitializer() {
+        // TODO
+    }
+
+    bool ok=false;
+};
+
+static SSLInitializer g_sslInitializer;
+
 SSL_CTX* init_ctx(bool isServer) {
+    if (!g_sslInitializer.ok) {
+        throw std::runtime_error("SSL init failed");
+    }
+
     static const char* cipher_settings = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
     static const char* srtp_settings = "SRTP_AES128_CM_SHA1_80";
 
@@ -85,6 +108,7 @@ SSLIO::SSLIO(
 ) :
     _onDecryptedData(onDecryptedData),
     _onEncryptedData(onEncryptedData),
+    _fragmentSize(fragmentSize > 1000000 ? 1000000 : fragmentSize),
     _ctx(ctx)
 {
     _ssl = SSL_new(_ctx->get());
@@ -93,17 +117,20 @@ SSLIO::SSLIO(
         IO_EXCEPTION(EC_SSL_ERROR);
     }
 
-    _inMemoryIO = BIO_new(BIO_s_mem());
-    _outMemoryIO = BIO_new(BIO_s_mem());
-    if (!_inMemoryIO || !_outMemoryIO) {
+    SSL_set_mode(_ssl, SSL_MODE_ENABLE_PARTIAL_WRITE);
+    SSL_set_mode(_ssl, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
+
+    _rbio = BIO_new(BIO_s_mem());
+    _wbio = BIO_new(BIO_s_mem());
+    if (!_rbio || !_wbio) {
         LOG_ERROR() << "BIO_new failed";
         IO_EXCEPTION(EC_SSL_ERROR);
     }
 
-    BIO_set_mem_eof_return(_inMemoryIO, EC_EOF);
-    BIO_set_mem_eof_return(_outMemoryIO, EC_EOF);
+    BIO_set_mem_eof_return(_rbio, EC_EOF);
+    BIO_set_mem_eof_return(_wbio, EC_EOF);
 
-    SSL_set_bio(_ssl, _inMemoryIO, _outMemoryIO);
+    SSL_set_bio(_ssl, _rbio, _wbio);
 
     if (_ctx->is_server()) {
         SSL_set_accept_state(_ssl);
@@ -117,7 +144,41 @@ SSLIO::~SSLIO() {
 }
 
 void SSLIO::enqueue(const io::SharedBuffer& buf) {
+    if (!buf.empty()) _outMsg.push_back(buf);
+}
 
+Result SSLIO::flush() {
+    Result res = do_handshake();
+    if (res && !_outMsg.empty() && SSL_is_init_finished(_ssl)) {
+        auto buf = io::normalize(_outMsg, false);
+        _outMsg.clear();
+        size_t bytesRemaining = buf.size;
+        const uint8_t* ptr = buf.data;
+        while (bytesRemaining > 0) {
+            int n = (bytesRemaining < _fragmentSize) ? bytesRemaining : (int)_fragmentSize;
+            n = SSL_write(_ssl, ptr, n);
+            if (n <= 0) return make_unexpected(EC_SSL_ERROR);
+            bytesRemaining -= n;
+            ptr += n;
+            res = send_pending_data(bytesRemaining == 0);
+            if (!res) break;
+        }
+    }
+    return res;
+}
+
+Result SSLIO::send_pending_data(bool flush) {
+    int bytes = BIO_pending(_wbio);
+    LOG_DEBUG() << __FUNCTION__ << TRACE(this) << TRACE(bytes);
+    if (bytes < 0) return make_unexpected(EC_SSL_ERROR);
+    if (bytes > 0) {
+        auto p = alloc_heap((size_t) bytes);
+        assert(p.first);
+        int bytesRead = BIO_read(_wbio, p.first, bytes);
+        assert(bytesRead == bytes);
+        return _onEncryptedData(SharedBuffer(p.first, size_t(bytesRead), p.second), flush);
+    }
+    return Ok();
 }
 
 SSLIO::IOState SSLIO::get_iostate(int retCode) {
@@ -127,110 +188,52 @@ SSLIO::IOState SSLIO::get_iostate(int retCode) {
     return io_error;
 }
 
-SSLIO::IOState SSLIO::do_handshake() {
-    IOState state = get_iostate(SSL_do_handshake(_ssl));
-    if (state != io_error) {
-        flush_internal();
-        if (!flush_write_buffer()) state = io_error;
+Result SSLIO::do_handshake() {
+    if (!SSL_is_init_finished(_ssl)) {
+        SSL_do_handshake(_ssl);
+        return send_pending_data(true);
     }
-    return state;
-}
-
-void SSLIO::flush_internal() {
-    int bytes = BIO_pending(_outMemoryIO);
-    if (bytes <= 0) return;
-    auto p = alloc_heap((size_t)bytes);
-    assert(p.first);
-    int bytesRead = BIO_read(_outMemoryIO, p.first, bytes);
-    assert(bytesRead == bytes);
-    _outMsg.append(p.first, size_t(bytesRead), p.second, false);
+    return Ok();
 }
 
 Result SSLIO::on_encrypted_data_from_stream(const void *data, size_t size) {
-    const uint8_t* ptr = (const uint8_t*)data;
-    int bytesRemaining = (int)size;
+    void *buf = alloca(_fragmentSize);
+    auto ptr = (const uint8_t *) data;
+    int bytesRemaining = (int) size;
+
+    int r = 0;
+    Result res;
 
     while (bytesRemaining > 0) {
-        int r = BIO_write(_inMemoryIO, ptr, bytesRemaining);
-        if (r > 0) {
-            bytesRemaining -= r;
-            ptr += r;
+        r = BIO_write(_rbio, ptr, bytesRemaining);
+        if (r <= 0) return make_unexpected(EC_SSL_ERROR);
 
-
-        } else {
-            IOState st = get_iostate(r);
-            if (st == io_error)
-                return make_result(EC_SSL_ERROR);
-            if (st == io_handshaking)
-                continue;
-        }
+        bytesRemaining -= r;
+        ptr += r;
 
         if (!SSL_is_init_finished(_ssl)) {
-            IOState st = do_handshake();
-            if (st == io_error)
-                return make_result(EC_SSL_ERROR);
-            if (st == io_handshaking)
+            res = do_handshake();
+            if (!res) return res;
+            if (!SSL_is_init_finished(_ssl))
                 break;
         }
 
-
-    }
-
-
-        if (written <= 0) {
-            return false;
-        }
-        ptr += written;
-        bytesRemaining -= written;
-
-        if (!SSL_is_init_finished(_ssl)) {
-
-
-            n = SSL_accept(client.ssl);
-            status = get_sslstatus(client.ssl, n);
-
-            /* Did SSL request to write bytes? */
-            if (status == SSLSTATUS_WANT_IO)
-                do {
-                    n = BIO_read(client.wbio, buf, sizeof(buf));
-                    if (n > 0)
-                        queue_encrypted_bytes(buf, n);
-                    else if (!BIO_should_retry(client.wbio))
-                        return -1;
-                } while (n>0);
-
-            if (status == SSLSTATUS_FAIL)
-                return -1;
-
-            if (!SSL_is_init_finished(client.ssl))
-                return 0;
-        }
-
-        /* The encrypted data is now in the input bio so now we can perform actual
-         * read of unencrypted data. */
-
         do {
-            n = SSL_read(client.ssl, buf, sizeof(buf));
-            if (n > 0)
-                client.io_on_read(buf, (size_t)n);
-        } while (n > 0);
+            r = SSL_read(_ssl, buf, _fragmentSize);
+            if (r > 0) {
+                _onDecryptedData(EC_OK, buf, (size_t) r);
+            }
+        } while (r > 0);
 
-        status = get_sslstatus(client.ssl, n);
-
-        /* Did SSL request to write bytes? This can happen if peer has requested SSL
-         * renegotiation. */
-        if (status == SSLSTATUS_WANT_IO)
-            do {
-                n = BIO_read(client.wbio, buf, sizeof(buf));
-                if (n > 0)
-                    queue_encrypted_bytes(buf, n);
-                else if (!BIO_should_retry(client.wbio))
-                    return -1;
-            } while (n>0);
-
-        if (status == SSLSTATUS_FAIL)
-            return -1;
+        r = SSL_get_error(_ssl, r);
+        if (r == SSL_ERROR_WANT_WRITE) {
+            res = send_pending_data(true);
+            if (!res) return res;
+        } else if (r == SSL_ERROR_SYSCALL || r == SSL_ERROR_SSL || r == SSL_ERROR_ZERO_RETURN) {
+            return make_unexpected(EC_SSL_ERROR);
+        }
+    }
+    return Ok();
 }
-
 
 }} //namespaces

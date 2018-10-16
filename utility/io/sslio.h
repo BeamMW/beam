@@ -14,7 +14,7 @@
 
 #pragma once
 #include "errorhandling.h"
-#include "bufferchain.h"
+#include "buffer.h"
 #include <memory>
 #include <openssl/err.h>
 #include <openssl/dh.h>
@@ -52,7 +52,7 @@ public:
     using OnDecryptedData = std::function<void(io::ErrorCode, void* data, size_t size)>;
 
     /// Encrypted data to be queued to stream
-    using OnEncryptedData = std::function<Result(BufferChain& data)>;
+    using OnEncryptedData = std::function<Result(const io::SharedBuffer& data, bool flush)>;
 
     explicit SSLIO(
         const SSLContext::Ptr& ctx,
@@ -67,34 +67,30 @@ public:
 
     void enqueue(const SharedBuffer& buf);
 
-    Result flush_write_buffer();
+    Result flush();
 private:
     enum IOState { io_ok, io_handshaking, io_error };
     IOState get_iostate(int retCode);
 
-    IOState do_handshake();
+    Result do_handshake();
 
-    void flush_internal();
+    Result send_pending_data(bool flush);
 
     OnDecryptedData _onDecryptedData;
     OnEncryptedData _onEncryptedData;
 
-    BufferChain _writeBuffer;
+    size_t _fragmentSize;
 
-    /// Output message, encrypted
-    BufferChain _outMsg;
-
-    //SerializedMsg _unread;
+    /// Output message
+    io::SerializedMsg _outMsg;
 
     /// ssl ctx
     SSLContext::Ptr _ctx;
 
     /// connection ctx
-    SSL* _ssl=0;
-
-    /// in-memory BIOs read and write
-    BIO* _inMemoryIO=0;
-    BIO* _outMemoryIO=0;
+    SSL* _ssl = nullptr;
+    BIO* _rbio = nullptr;
+    BIO* _wbio = nullptr;
 };
 
 }} //namespaces
