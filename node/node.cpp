@@ -539,6 +539,7 @@ void Node::Processor::OnBlockData()
 bool Node::Processor::OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID& sid)
 {
 	get_ParentObj().m_Compressor.FmtPath(rw, sid.m_Height, NULL);
+	rw.ROpen();
 	return true;
 }
 

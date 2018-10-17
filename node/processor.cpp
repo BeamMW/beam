@@ -1481,11 +1481,12 @@ void NodeProcessor::InitializeFromBlocks()
 
 	for (m_DB.EnumMacroblocks(ws); ws.MoveNext(); )
 	{
+		if (ws.m_Sid.m_Height > m_Cursor.m_ID.m_Height)
+			continue; //?
+
 		Block::Body::RW rw;
 		if (!OpenMacroblock(rw, ws.m_Sid))
 			continue;
-
-		if (ws.m_Sid.m_Height > m_Cursor.m_ID.m_Height)
 
 		LOG_INFO() << "Interpreting MB up to " << ws.m_Sid.m_Height << "...";
 
