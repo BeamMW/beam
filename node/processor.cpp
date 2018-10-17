@@ -31,7 +31,7 @@ NodeProcessor::Horizon::Horizon()
 {
 }
 
-void NodeProcessor::Initialize(const char* szPath)
+void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false */)
 {
 	m_DB.Open(szPath);
 
@@ -54,6 +54,9 @@ void NodeProcessor::Initialize(const char* szPath)
 	ZeroObject(m_Extra);
 	m_Extra.m_SubsidyOpen = true;
 
+	if (bResetCursor)
+		m_DB.ResetCursor();
+
 	InitCursor();
 
 	InitializeFromBlocks();
@@ -61,9 +64,12 @@ void NodeProcessor::Initialize(const char* szPath)
 	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, m_Horizon.m_Branching);
 	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height) Rules::get().MaxRollbackHeight);
 
-	NodeDB::Transaction t(m_DB);
-	TryGoUp();
-	t.Commit();
+	if (!bResetCursor)
+	{
+		NodeDB::Transaction t(m_DB);
+		TryGoUp();
+		t.Commit();
+	}
 }
 
 void NodeProcessor::InitCursor()

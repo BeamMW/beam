@@ -1626,4 +1626,16 @@ void NodeDB::SetDummyHeight(uint64_t rowid, Height h)
 	TestChanged1Row();
 }
 
+void NodeDB::ResetCursor()
+{
+	Recordset rs(*this, Query::UnactivateAll, "UPDATE " TblStates " SET " TblStates_Flags "=" TblStates_Flags " & ?");
+	rs.put(0, ~uint32_t(StateFlags::Active));
+	rs.Step();
+
+	StateID sid;
+	sid.m_Row = 0;
+	sid.m_Height = Rules::HeightGenesis - 1;
+	put_Cursor(sid);
+}
+
 } // namespace beam

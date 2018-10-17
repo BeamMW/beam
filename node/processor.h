@@ -61,7 +61,7 @@ class NodeProcessor
 
 public:
 
-	void Initialize(const char* szPath);
+	void Initialize(const char* szPath, bool bResetCursor = false);
 
 	struct Horizon {
 

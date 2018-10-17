@@ -85,6 +85,7 @@ public:
 			EnumAncestors,
 			StateGetPrev,
 			Unactivate,
+			UnactivateAll,
 			Activate,
 			MmrGet,
 			MmrSet,
@@ -319,6 +320,9 @@ public:
 	void SetDummyHeight(uint64_t, Height);
 
 	uint64_t FindStateWorkGreater(const Difficulty::Raw&);
+
+	// reset cursor to zero. Keep all the data: Mined, local macroblocks, peers, bbs, dummy UTXOs
+	void ResetCursor();
 
 private:
 
