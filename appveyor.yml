@@ -47,6 +47,10 @@ on_success:
 
     7z a c:/projects/beam/beam/Release/beam-wallet-cli-%BEAM_VERSION%.zip c:/projects/beam/wallet/Release/beam-wallet.exe c:/projects/beam/wallet/beam-wallet.cfg
 
+    cd c:/projects/beam/wallet/Release
+
+    dir
+
     7z a c:/projects/beam/pdb.zip "c:/projects/beam/ui/Release/Beam Wallet.pdb" "c:/projects/beam/wallet/Release/beam-wallet.pdb" "c:/projects/beam/beam/Release/beam-node.pdb"
 
     set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win
