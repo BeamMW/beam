@@ -97,6 +97,9 @@ struct Node
 			// Our logic: decide when either examined enough peers, or timeout expires
 			uint32_t m_SrcPeers = 5;
 			uint32_t m_Timeout_ms = 10000;
+
+			bool m_ForceResync = false;
+
 		} m_Sync;
 
 		struct Dandelion

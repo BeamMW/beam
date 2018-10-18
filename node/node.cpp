@@ -591,8 +591,11 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 void Node::Initialize()
 {
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
-	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
+	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Sync.m_ForceResync);
 	m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
+
+	if (m_Cfg.m_Sync.m_ForceResync)
+		m_Processor.get_DB().ParamSet(NodeDB::ParamID::SyncTarget, NULL, NULL);
 
 	if (m_Cfg.m_VerificationThreads < 0)
 	{

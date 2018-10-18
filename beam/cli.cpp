@@ -198,6 +198,10 @@ int main_impl(int argc, char* argv[])
 						0x6d, 0xf0, 0x10, 0xb5, 0x3f, 0x9a, 0xaf, 0x32, 0xe3, 0xcb, 0xc7, 0x5f, 0xa3, 0x6a, 0x21, 0x97
 					};
 #endif
+
+					if (vm.count(cli::RESYNC))
+						node.m_Cfg.m_Sync.m_ForceResync = vm[cli::RESYNC].as<bool>();
+
 					node.Initialize();
 
 					Height hImport = vm[cli::IMPORT].as<Height>();

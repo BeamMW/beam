@@ -50,7 +50,8 @@ namespace beam
         const char* LISTEN = "listen";
         const char* TREASURY = "treasury";
         const char* TREASURY_BLOCK = "treasury_path";
-        const char* INIT = "init";
+		const char* RESYNC = "resync";
+		const char* INIT = "init";
         const char* SEND = "send";
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
@@ -108,7 +109,8 @@ namespace beam
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
             (cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
             (cli::IMPORT, po::value<Height>()->default_value(0), "Specify the blockchain height to import. The compressed history is asumed to be downloaded the the specified directory")
-            ;
+			(cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
+			;
 
         po::options_description wallet_options("Wallet options");
         wallet_options.add_options()
