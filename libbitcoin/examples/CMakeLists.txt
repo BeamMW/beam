@@ -23,4 +23,20 @@ target_link_libraries(${TARGET_NAME} p2p libbitcoin)
 if(MSVC)
     target_compile_options(${TARGET_NAME} PRIVATE "/wd4245")
     target_compile_options(${TARGET_NAME} PRIVATE "/wd4505")
+    target_compile_options(${TARGET_NAME} PRIVATE "/wd4996")
+endif()
+
+set(TARGET_NAME atomic_swap)
+
+add_executable(${TARGET_NAME} atomic_swap.cpp)
+
+target_include_directories(${TARGET_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/libbitcoin/include")
+add_dependencies(${TARGET_NAME} p2p libbitcoin secp256k1)
+target_link_libraries(${TARGET_NAME} p2p libbitcoin secp256k1)
+
+if(MSVC)
+    target_compile_options(${TARGET_NAME} PRIVATE "/wd4244")
+    target_compile_options(${TARGET_NAME} PRIVATE "/wd4245")
+    target_compile_options(${TARGET_NAME} PRIVATE "/wd4505")
+    target_compile_options(${TARGET_NAME} PRIVATE "/wd4996")
 endif()
