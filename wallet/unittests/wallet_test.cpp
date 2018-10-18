@@ -1513,18 +1513,18 @@ int main()
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
 
-    //TestSplitKey();
-    //TestP2PWalletNegotiationST();
-    //TestP2PWalletReverseNegotiationST();
+    TestSplitKey();
+    TestP2PWalletNegotiationST();
+    TestP2PWalletReverseNegotiationST();
 
-    //TestWalletNegotiation(CreateKeychain<TestKeyChain>(), CreateKeychain<TestKeyChain2>());
-    //TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
+    TestWalletNegotiation(CreateKeychain<TestKeyChain>(), CreateKeychain<TestKeyChain2>());
+    TestWalletNegotiation(createSenderKeychain(), createReceiverKeychain());
 
-    TestSwapTransaction();
+    //TestSwapTransaction();
 
-    //TestTxToHimself();
+    TestTxToHimself();
 
-   // TestRollback();
+    TestRollback();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

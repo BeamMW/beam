@@ -21,7 +21,6 @@
 #define BOOST_UUID_RANDOM_PROVIDER_DISABLE_GETRANDOM 1
 #endif
 
-#include <boost/uuid/uuid_generators.hpp>
 #include "core/ecc_native.h"
 #include "core/block_crypt.h"
 #include "utility/logger.h"
@@ -44,17 +43,6 @@ namespace beam
     using namespace wallet;
     using namespace std;
     using namespace ECC;
-
-    namespace
-    {
-        TxID GenerateTxID()
-        {
-            boost::uuids::uuid id = boost::uuids::random_generator()();
-            TxID txID{};
-            copy(id.begin(), id.end(), txID.begin());
-            return txID;
-        }
-    }
 
     std::ostream& operator<<(std::ostream& os, const TxID& uuid)
     {
@@ -172,7 +160,7 @@ namespace beam
 
     TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
     {
-        auto txID = GenerateTxID();
+        auto txID = wallet::GenerateTxID();
         auto tx = constructTransaction(txID, TxType::Simple);
 
         tx->SetParameter(TxParameterID::TransactionType, TxType::Simple);
@@ -196,7 +184,7 @@ namespace beam
 
     TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount)
     {
-        auto txID = GenerateTxID();
+        auto txID = wallet::GenerateTxID();
         auto tx = constructTransaction(txID, TxType::AtomicSwap);
 
         tx->SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
@@ -686,12 +674,6 @@ namespace beam
         // fast-forward
         enter_sync(); // Mined
         m_network->send_node_message(proto::GetMined{ m_knownStateID.m_Height });
-
-        auto t = m_transactions;
-        for (auto& p : t)
-        {
-            p.second->Update();
-        }
 
         vector<Coin> unconfirmed;
         m_keyChain->visit([&, this](const Coin& coin)
