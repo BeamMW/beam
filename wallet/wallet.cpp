@@ -387,6 +387,7 @@ namespace beam
 
     void Wallet::emergencyReset()
     {
+        LOG_INFO() << "System state has been reset manually!";
         resetSystemState();
         m_keyChain->clear();
         m_network->close_node_connection();
