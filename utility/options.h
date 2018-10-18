@@ -39,12 +39,15 @@ namespace beam
         extern const char* MINER_ID;
         extern const char* NODE_PEER;
         extern const char* PASS;
+        extern const char* BTC_PASS;
+        extern const char* BTC_USER;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
         extern const char* RECEIVER_ADDR;
         extern const char* RECEIVER_ADDR_FULL;
         extern const char* NODE_ADDR;
         extern const char* NODE_ADDR_FULL;
+        extern const char* BTC_NODE_ADDR;
         extern const char* COMMAND;
         extern const char* NODE;
         extern const char* WALLET;
@@ -99,4 +102,6 @@ namespace beam
     bool read_wallet_seed(ECC::NoLeak<ECC::uintBig>& walletSeed, po::variables_map& vm);
 
     bool read_wallet_pass(SecString& pass, po::variables_map& vm);
+
+    bool read_btc_pass(SecString& pass, po::variables_map& vm);
 }

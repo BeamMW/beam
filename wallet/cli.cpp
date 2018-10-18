@@ -481,6 +481,31 @@ int main_impl(int argc, char* argv[])
                             return tbg.Generate(nCount, dh, v);
                         }
 
+                        io::Address btcNodeAddr;
+                        string btcUserName;
+                        SecString btcPass;
+                        if (vm.count(cli::BTC_NODE_ADDR) > 0)
+                        {
+                            string btcNodeUri = vm[cli::BTC_NODE_ADDR].as<string>();
+                            if (!btcNodeAddr.resolve(btcNodeUri.c_str()))
+                            {
+                                LOG_ERROR() << "unable to resolve bitcoin node address: " << btcNodeUri;
+                                return -1;
+                            }
+
+                            if (vm.count(cli::BTC_USER) == 0)
+                            {
+                                LOG_ERROR() << "user name of bitcoin node should be specified";
+                                return -1;
+                            }
+                            btcUserName = vm[cli::BTC_USER].as<string>();
+                            if (!beam::read_btc_pass(btcPass, vm))
+                            {
+                                LOG_ERROR() << "Please, provide password for the bitcoin node.";
+                                return -1;
+                            }
+                        }
+
                         if (command == cli::INFO)
                         {
                             Block::SystemState::ID stateID = {};

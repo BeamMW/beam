@@ -41,12 +41,15 @@ namespace beam
         const char* MINER_ID = "miner_id";
         const char* NODE_PEER = "peer";
         const char* PASS = "pass";
+        const char* BTC_PASS = "btc_pass";
+        const char* BTC_USER_NAME = "btc_user";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
         const char* RECEIVER_ADDR_FULL = "receiver_addr,r";
         const char* NODE_ADDR = "node_addr";
         const char* NODE_ADDR_FULL = "node_addr,n";
+        const char* BTC_NODE_ADDR = "btc_node_addr";
         const char* COMMAND = "command";
         const char* LISTEN = "listen";
         const char* TREASURY = "treasury";
@@ -115,10 +118,13 @@ namespace beam
         po::options_description wallet_options("Wallet options");
         wallet_options.add_options()
             (cli::PASS, po::value<string>(), "password for the wallet")
+            (cli::BTC_PASS, po::value<string>(), "password for the bitcoin node")
+            (cli::BTC_USER, po::value<string>(), "user name for the bitcoin node")
             (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 1000000 chattle)")
             (cli::FEE_FULL, po::value<double>()->default_value(0), "fee (in Beams, 1 Beam = 1000000 chattle)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
+            (cli::BTC_NODE_ADDR, po::value<string>(), "address of bitcoin node")
             (cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
             (cli::BBS_STORAGE, po::value<string>()->default_value("bbs_keys.db"), "path to file with bbs keys")
@@ -275,8 +281,8 @@ namespace beam
         return true;
     }
 
-    bool read_wallet_pass(SecString& pass, po::variables_map& vm)
+    bool read_btc_pass(SecString& pass, po::variables_map& vm)
     {
-        return read_secret_impl(pass, "Enter password: ", cli::PASS, vm);
+        return read_secret_impl(pass, "Enter password of bitcoin node: ", cli::BTC_PASS, vm);
     }
 }

@@ -45,10 +45,7 @@ namespace beam
 
     private:
         HttpClient m_httpClient;
-        //std::string m_userName;
-        //std::string m_pass;
         io::Address m_address;
         std::string m_authorization;
-        //const HeaderPair m_headers[];
     };
 }
