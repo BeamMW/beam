@@ -339,9 +339,8 @@ namespace beam
         if (it != m_transactions.end())
         {
             it->second->SetParameter(TxParameterID::TransactionRegistered, res);
+            updateTransaction(txId);
         }
-
-        updateTransaction(txId);
     }
 
     void Wallet::cancel_tx(const TxID& txId)
@@ -499,7 +498,7 @@ namespace beam
         }
 
         m_pendingUtxoProofs.pop_front();
-        m_PendingUtxoUnique.erase(coin.m_id);
+        m_PendingUtxoUnique.erase(input.m_Commitment);
         assert(m_pendingUtxoProofs.size() == m_PendingUtxoUnique.size());
 
         return exit_sync();
@@ -507,12 +506,6 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::NewTip&& msg)
     {
-        // TODO: restore from wallet db 
-        //for (auto& r : m_pending_reg_requests)
-        //{
-        //    register_tx(r.first, r.second);
-        //}
-
         m_pending_reg_requests.clear();
 
         Block::SystemState::ID newID;
@@ -689,37 +682,28 @@ namespace beam
         enter_sync(); // Mined
         m_network->send_node_message(proto::GetMined{ m_knownStateID.m_Height });
 
-        vector<Coin> unconfirmed;
-        m_keyChain->visit([&, this](const Coin& coin)
+        auto t = m_transactions;
+        for (auto& p : t)
         {
-            if (coin.m_status == Coin::Unconfirmed 
-                && coin.m_createTxId.is_initialized()
-                && m_transactions.find(*(coin.m_createTxId)) == m_transactions.end())
-            {
-                unconfirmed.emplace_back(coin);
-            }
-
-            return true;
-        });
-
-        getUtxoProofs(unconfirmed);
+            p.second->Update();
+        }
     }
 
     void Wallet::getUtxoProofs(const vector<Coin>& coins)
     {
         for (auto& coin : coins)
         {
-            if (m_PendingUtxoUnique.find(coin.m_id) != m_PendingUtxoUnique.end())
+            Input input;
+            input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
+            if (m_PendingUtxoUnique.find(input.m_Commitment) != m_PendingUtxoUnique.end())
             {
                 continue;
             }
 
             enter_sync();
             m_pendingUtxoProofs.push_back(coin);
-            m_PendingUtxoUnique.insert(coin.m_id);
+            m_PendingUtxoUnique.insert(input.m_Commitment);
             assert(m_pendingUtxoProofs.size() == m_PendingUtxoUnique.size());
-            Input input;
-            input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
             LOG_DEBUG() << "Get proof: " << input.m_Commitment;
             m_network->send_node_message(proto::GetProofUtxo{ input, 0 });
         }
