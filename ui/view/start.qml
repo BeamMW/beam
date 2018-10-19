@@ -328,7 +328,7 @@ Item
             {
                 color: Style.marine
 
-                property Item defaultFocusItem: testnetNodeButton
+                property Item defaultFocusItem: localNodeButton
 
                 SFText {
                     text: qsTr("Setup node connectivity (testnet)")
@@ -352,52 +352,10 @@ Item
                     ButtonGroup {
                         id: nodePreferencesGroup
                     }
-                    CustomRadioButton {
-                        id: testnetNodeButton
-                        text: qsTr("Connect to randomly selected node (recommended)")
-                        ButtonGroup.group: nodePreferencesGroup
-                        font.pixelSize: 14
-                    }
-                    
-                    CustomRadioButton {
-                        id: remoteNodeButton
-                        text: qsTr("Connect to remote node")
-                        ButtonGroup.group: nodePreferencesGroup
-                        font.pixelSize: 14
-                    }
-                    Column {
-                        id: remoteNodePanel
-                        visible: remoteNodeButton.checked
-                        width: parent.width
-
-                        spacing: 10
-
-                        SFText {
-                            text: qsTr("Enter remote node address")
-                            color: Style.white
-                            font.pixelSize: 14
-                            font.styleName: "Bold"; font.weight: Font.Bold
-                        }
-
-                        SFTextInput {
-                            id:remoteNodeAddrInput
-                            width: parent.width
-                            font.pixelSize: 14
-                            color: Style.white
-                            text: "127.0.0.1:10000"
-                            validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
-                            onTextChanged: if (remoteNodeAddrInput.text.length > 0) remoteNodeAddrError.text = ""
-                        }
-                        SFText {
-                            id: remoteNodeAddrError
-                            color: Style.validator_color
-                            font.pixelSize: 14
-                        }
-                    }
 
                     CustomRadioButton {
                         id: localNodeButton
-                        text: qsTr("Run local node")
+                        text: qsTr("Run local node (recommended)")
                         ButtonGroup.group: nodePreferencesGroup
                         font.pixelSize: 14
                     }
@@ -447,6 +405,51 @@ Item
                             stepSize: 1
                         }
                     }
+
+                    CustomRadioButton {
+                        id: testnetNodeButton
+                        text: qsTr("Connect to random remote node")
+                        ButtonGroup.group: nodePreferencesGroup
+                        font.pixelSize: 14
+                    }
+                    
+                    CustomRadioButton {
+                        id: remoteNodeButton
+                        text: qsTr("Connect to specific remote node")
+                        ButtonGroup.group: nodePreferencesGroup
+                        font.pixelSize: 14
+                    }
+                    Column {
+                        id: remoteNodePanel
+                        visible: remoteNodeButton.checked
+                        width: parent.width
+
+                        spacing: 10
+
+                        SFText {
+                            text: qsTr("Enter remote node address")
+                            color: Style.white
+                            font.pixelSize: 14
+                            font.styleName: "Bold"; font.weight: Font.Bold
+                        }
+
+                        SFTextInput {
+                            id:remoteNodeAddrInput
+                            width: parent.width
+                            font.pixelSize: 14
+                            color: Style.white
+                            text: "127.0.0.1:10000"
+                            validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
+                            onTextChanged: if (remoteNodeAddrInput.text.length > 0) remoteNodeAddrError.text = ""
+                        }
+                        SFText {
+                            id: remoteNodeAddrError
+                            color: Style.validator_color
+                            font.pixelSize: 14
+                        }
+                    }
+
+                    
                 }
 
                 Row {
