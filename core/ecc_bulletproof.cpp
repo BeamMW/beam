@@ -548,8 +548,7 @@ namespace ECC {
 		Scalar::Native m_tau1;
 		Scalar::Native m_tau2;
 
-		void Init(NonceGenerator&);
-		void Init(const uintBig& seed);
+		void Init(const Scalar::Native& sk, Amount v);
 
 		void AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const;
 		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet&) const;
@@ -562,14 +561,32 @@ namespace ECC {
 		void Init(const Part2&, Oracle&);
 	};
 
+	struct RangeProof::Confidential::CreatorParams::Packed
+	{
+		uint8_t m_pOpaque[sizeof(uintBig) - sizeof(Amount)];
+		beam::uintBigFor<Amount>::Type m_Value;
+	};
+
 	bool RangeProof::Confidential::CoSign(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase)
 	{
 		NonceGenerator nonceGen;
 		nonceGen.m_Seed = cp.m_Seed;
 
 		// A = G*alpha + vec(aL)*vec(G) + vec(aR)*vec(H)
-		Scalar::Native alpha;
+		Scalar::Native alpha, ro;
 		nonceGen >> alpha;
+
+		// embed extra params into alpha
+		NoLeak<CreatorParams::Packed> packed;
+		packed.V.m_Value = cp.m_Value;
+
+		static_assert(sizeof(cp.m_pOpaque) == sizeof(packed.V.m_pOpaque), "");
+		memcpy(packed.V.m_pOpaque, cp.m_pOpaque, sizeof(packed.V.m_pOpaque));
+
+		static_assert(sizeof(CreatorParams::Packed) == sizeof(Scalar), "");
+		verify(!ro.Import((Scalar&) packed.V)); // if overflow - the params won't be recovered properly, there may be ambiguity
+
+		alpha += ro;
 
 		Point::Native comm = Context::get().G * alpha;
 
@@ -592,7 +609,6 @@ namespace ECC {
 		m_Part1.m_A = comm;
 
 		// S = G*ro + vec(sL)*vec(G) + vec(sR)*vec(H)
-		Scalar::Native ro;
 		nonceGen >> ro;
 
 		MultiMac_WithBufs<1, InnerProduct::nDim * 2 + 1> mm;
@@ -659,7 +675,7 @@ namespace ECC {
 		}
 
 		MultiSig msig;
-		msig.Init(nonceGen);
+		msig.Init(sk, cp.m_Value);
 
 		if (Phase::Finalize != ePhase) // otherwise m_Part2 already contains the whole aggregate
 		{
@@ -759,15 +775,44 @@ namespace ECC {
 		return true;
 	}
 
-	void RangeProof::Confidential::MultiSig::Init(const uintBig& seed)
+	void RangeProof::Confidential::Recover(Oracle& oracle, CreatorParams& cp) const
 	{
 		NonceGenerator nonceGen;
-		nonceGen.m_Seed.V = seed;
-		Init(nonceGen);
+		nonceGen.m_Seed = cp.m_Seed;
+
+		Scalar::Native alpha_minus_params, ro;
+		nonceGen >> alpha_minus_params;
+		nonceGen >> ro;
+
+		// get challenges
+		ChallengeSet cs;
+		cs.Init(m_Part1, oracle);
+		cs.Init(m_Part2, oracle);
+
+		// m_Mu = alpha + ro*x
+		// alpha = m_Mu - ro*x = alpha_minus_params + params
+		// params = m_Mu - ro*x - alpha_minus_params
+
+		ro *= cs.x;
+		alpha_minus_params += ro;
+		alpha_minus_params = -alpha_minus_params;
+		alpha_minus_params += m_Mu;
+
+		CreatorParams::Packed packed;
+		static_assert(sizeof(CreatorParams::Packed) == sizeof(Scalar), "");
+		((Scalar&) packed) = alpha_minus_params;
+
+		packed.m_Value.Export(cp.m_Value);
+
+		static_assert(sizeof(cp.m_pOpaque) == sizeof(packed.m_pOpaque), "");
+		memcpy(cp.m_pOpaque, packed.m_pOpaque, sizeof(packed.m_pOpaque));
 	}
 
-	void RangeProof::Confidential::MultiSig::Init(NonceGenerator& nonceGen)
+	void RangeProof::Confidential::MultiSig::Init(const Scalar::Native& sk, Amount v)
 	{
+		NonceGenerator nonceGen;
+		Hash::Processor() << sk << v >> nonceGen.m_Seed.V;
+
 		nonceGen >> m_tau1;
 		nonceGen >> m_tau2;
 	}
@@ -794,10 +839,10 @@ namespace ECC {
 		taux += t1;
 	}
 
-	void RangeProof::Confidential::CoSignPart(const uintBig& seed, Part2& p2)
+	void RangeProof::Confidential::CoSignPart(const Scalar::Native& sk, Amount v, Part2& p2)
 	{
 		MultiSig msig;
-		msig.Init(seed);
+		msig.Init(sk, v);
 
 		Point::Native ptT1, ptT2;
 		msig.AddInfo1(ptT1, ptT2);
@@ -805,10 +850,10 @@ namespace ECC {
 		p2.m_T2 = ptT2;
 	}
 
-	void RangeProof::Confidential::CoSignPart(const uintBig& seed, const Scalar::Native& sk, Oracle& oracle, const Part1& p1, const Part2& p2, Part3& p3)
+	void RangeProof::Confidential::CoSignPart(const Scalar::Native& sk, Amount v, Oracle& oracle, const Part1& p1, const Part2& p2, Part3& p3)
 	{
 		MultiSig msig;
-		msig.Init(seed);
+		msig.Init(sk, v);
 
 		ChallengeSet cs;
 		cs.Init(p1, oracle);

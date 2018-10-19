@@ -251,20 +251,22 @@ namespace ECC
 				NoLeak<uintBig> m_Seed; // must be a function of the commitment and master secret
 				Amount m_Value;
 				uint8_t m_pOpaque[sizeof(uintBig) - sizeof(Amount)];
+
+				struct Packed;
 			};
 
 			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&);
 			bool IsValid(const Point::Native&, Oracle&) const;
 			bool IsValid(const Point::Native&, Oracle&, InnerProduct::BatchContext&) const;
 
-			bool Recover(const Point::Native&, Oracle&, CreatorParams&) const;
+			void Recover(Oracle&, CreatorParams&) const;
 
 			int cmp(const Confidential&) const;
 			COMPARISON_VIA_CMP
 
 			// multisig
-			static void CoSignPart(const uintBig& seed, Part2&);
-			static void CoSignPart(const uintBig& seed, const Scalar::Native& sk, Oracle&, const Part1&, const Part2&, Part3&);
+			static void CoSignPart(const Scalar::Native& sk, Amount v, Part2&);
+			static void CoSignPart(const Scalar::Native& sk, Amount v, Oracle&, const Part1&, const Part2&, Part3&);
 
 			struct Phase {
 				enum Enum {

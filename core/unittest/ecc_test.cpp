@@ -467,7 +467,8 @@ void TestRangeProof()
 
 	RangeProof::Confidential bp;
 	RangeProof::Confidential::CreatorParams cp;
-	ZeroObject(cp.m_pOpaque);
+	GenerateRandom(cp.m_pOpaque, sizeof(cp.m_pOpaque));
+	cp.m_pOpaque[0] &= ~80; // make sure no leading bit, we shoud not exceed the max scalar value
 	SetRandom(cp.m_Seed.V);
 	cp.m_Value = 23110;
 
@@ -480,6 +481,16 @@ void TestRangeProof()
 	{
 		Oracle oracle;
 		verify_test(bp.IsValid(comm, oracle));
+	}
+	{
+		Oracle oracle;
+		RangeProof::Confidential::CreatorParams cp2;
+		cp2.m_Seed = cp.m_Seed;
+
+		bp.Recover(oracle, cp2);
+
+		verify_test(cp.m_Value == cp2.m_Value);
+		verify_test(!memcmp(cp.m_pOpaque, cp2.m_pOpaque, sizeof(cp.m_pOpaque)));
 	}
 
 	InnerProduct::BatchContextEx<2> bc;
@@ -514,14 +525,11 @@ void TestRangeProof()
 		Scalar::Native sk2;
 		SetRandom(sk2);
 
-		uintBig seed2;
-		SetRandom(seed2);
-
 		// 1. peer(s) produces partial Part2
 		RangeProof::Confidential::Part2 p2;
 		{
 			Oracle oracle;
-			RangeProof::Confidential::CoSignPart(seed2, p2);
+			RangeProof::Confidential::CoSignPart(sk2, cp.m_Value, p2);
 		}
 
 		// 2. Signer advances, produces final Part1 and Part2
@@ -538,7 +546,7 @@ void TestRangeProof()
 		RangeProof::Confidential::Part3 p3;
 		{
 			Oracle oracle;
-			RangeProof::Confidential::CoSignPart(seed2, sk2, oracle, p1, p2, p3);
+			RangeProof::Confidential::CoSignPart(sk2, cp.m_Value, oracle, p1, p2, p3);
 		}
 
 		// 4. Signer finalizes
