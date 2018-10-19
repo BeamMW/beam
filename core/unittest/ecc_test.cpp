@@ -466,12 +466,16 @@ void TestRangeProof()
 	verify_test(sig.IsValid(comm, dot, mod));
 
 	RangeProof::Confidential bp;
-	Amount v = 23110;
-	comm = Commitment(sk, v);
+	RangeProof::Confidential::CreatorParams cp;
+	ZeroObject(cp.m_pOpaque);
+	SetRandom(cp.m_Seed.V);
+	cp.m_Value = 23110;
+
+	comm = Commitment(sk, cp.m_Value);
 
 	{
 		Oracle oracle;
-		bp.Create(sk, v, oracle);
+		bp.Create(sk, cp, oracle);
 	}
 	{
 		Oracle oracle;
@@ -487,12 +491,13 @@ void TestRangeProof()
 	}
 
 	SetRandom(sk);
-	v = 7223110;
-	comm = Commitment(sk, v);
+	cp.m_Value = 7223110;
+	SetRandom(cp.m_Seed.V); // another seed for this bulletproof
+	comm = Commitment(sk, cp.m_Value);
 
 	{
 		Oracle oracle;
-		bp.Create(sk, v, oracle);
+		bp.Create(sk, cp, oracle);
 	}
 	{
 		Oracle oracle;
@@ -509,11 +514,14 @@ void TestRangeProof()
 		Scalar::Native sk2;
 		SetRandom(sk2);
 
+		uintBig seed2;
+		SetRandom(seed2);
+
 		// 1. peer(s) produces partial Part2
 		RangeProof::Confidential::Part2 p2;
 		{
 			Oracle oracle;
-			RangeProof::Confidential::CoSignPart(sk2, v, oracle, p2);
+			RangeProof::Confidential::CoSignPart(seed2, p2);
 		}
 
 		// 2. Signer advances, produces final Part1 and Part2
@@ -521,7 +529,7 @@ void TestRangeProof()
 		{
 			Oracle oracle;
 			bp.m_Part2 = p2;
-			verify_test(bp.CoSign(sk, v, oracle, RangeProof::Confidential::Phase::Step2));
+			verify_test(bp.CoSign(sk, cp, oracle, RangeProof::Confidential::Phase::Step2));
 			p1 = bp.m_Part1;
 			p2 = bp.m_Part2;
 		}
@@ -530,7 +538,7 @@ void TestRangeProof()
 		RangeProof::Confidential::Part3 p3;
 		{
 			Oracle oracle;
-			RangeProof::Confidential::CoSignPart(sk2, v, oracle, p1, p2, p3);
+			RangeProof::Confidential::CoSignPart(seed2, sk2, oracle, p1, p2, p3);
 		}
 
 		// 4. Signer finalizes
@@ -538,7 +546,7 @@ void TestRangeProof()
 			Oracle oracle;
 			bp.m_Part2 = p2;
 			bp.m_Part3 = p3;
-			verify_test(bp.CoSign(sk, v, oracle, RangeProof::Confidential::Phase::Finalize));
+			verify_test(bp.CoSign(sk, cp, oracle, RangeProof::Confidential::Phase::Finalize));
 		}
 
 		// Final UTXO commitment
@@ -1339,8 +1347,11 @@ void RunBenchmark()
 		} while (bm.ShouldContinue());
 	}
 
-	Amount v = 23110;
 	RangeProof::Confidential bp;
+	RangeProof::Confidential::CreatorParams cp;
+	ZeroObject(cp.m_pOpaque);
+	SetRandom(cp.m_Seed.V);
+	cp.m_Value = 23110;
 
 	{
 		BenchmarkMeter bm("BulletProof.Sign");
@@ -1350,13 +1361,13 @@ void RunBenchmark()
 			for (uint32_t i = 0; i < bm.N; i++)
 			{
 				Oracle oracle;
-				bp.Create(k1, v, oracle);
+				bp.Create(k1, cp, oracle);
 			}
 
 		} while (bm.ShouldContinue());
 	}
 
-	Point::Native comm = Commitment(k1, v);
+	Point::Native comm = Commitment(k1, cp.m_Value);
 
 	{
 		BenchmarkMeter bm("BulletProof.Verify");

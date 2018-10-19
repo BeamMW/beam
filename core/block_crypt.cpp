@@ -187,7 +187,13 @@ namespace beam
 		} else
 		{
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
-			m_pConfidential->Create(k, v, oracle);
+
+			ECC::RangeProof::Confidential::CreatorParams cp;
+			ZeroObject(cp.m_pOpaque);
+			cp.m_Value = v;
+			ECC::Hash::Processor() << k << m_Commitment >> cp.m_Seed.V;
+
+			m_pConfidential->Create(k, cp, oracle);
 		}
 	}
 

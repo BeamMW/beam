@@ -525,22 +525,22 @@ namespace ECC {
 	struct NonceGenerator
 	{
 		Oracle m_Oracle;
-		NoLeak<Scalar> m_sk;
+		NoLeak<uintBig> m_Seed;
 
 		void operator >> (Scalar::Native& k)
 		{
 			NoLeak<Hash::Value> hv;
 			m_Oracle >> hv.V;
 
-			k.GenerateNonce(m_sk.V.m_Value, hv.V, NULL);
+			k.GenerateNonce(m_Seed.V, hv.V, NULL);
 		}
 	};
 
 	/////////////////////
 	// Bulletproof
-	void RangeProof::Confidential::Create(const Scalar::Native& sk, Amount v, Oracle& oracle)
+	void RangeProof::Confidential::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle)
 	{
-		verify(CoSign(sk, v, oracle, Phase::SinglePass));
+		verify(CoSign(sk, cp, oracle, Phase::SinglePass));
 	}
 
 	struct RangeProof::Confidential::MultiSig
@@ -549,7 +549,7 @@ namespace ECC {
 		Scalar::Native m_tau2;
 
 		void Init(NonceGenerator&);
-		void Init(const Scalar::Native& sk, Amount v);
+		void Init(const uintBig& seed);
 
 		void AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const;
 		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet&) const;
@@ -562,11 +562,10 @@ namespace ECC {
 		void Init(const Part2&, Oracle&);
 	};
 
-	bool RangeProof::Confidential::CoSign(const Scalar::Native& sk, Amount v, Oracle& oracle, Phase::Enum ePhase)
+	bool RangeProof::Confidential::CoSign(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase)
 	{
 		NonceGenerator nonceGen;
-		nonceGen.m_sk.V = sk;
-		nonceGen.m_Oracle << v;
+		nonceGen.m_Seed = cp.m_Seed;
 
 		// A = G*alpha + vec(aL)*vec(G) + vec(aR)*vec(H)
 		Scalar::Native alpha;
@@ -580,7 +579,7 @@ namespace ECC {
 
 			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 			{
-				uint32_t iBit = 1 & (v >> i);
+				uint32_t iBit = 1 & (cp.m_Value >> i);
 
 				// protection against side-channel attacks
 				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet1_Minus[i], 0 == iBit);
@@ -632,7 +631,7 @@ namespace ECC {
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
-			uint32_t bit = 1 & (v >> i);
+			uint32_t bit = 1 & (cp.m_Value >> i);
 
 			l0 = -cs.z;
 			if (bit)
@@ -726,7 +725,7 @@ namespace ECC {
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
-			uint32_t bit = 1 & (v >> i);
+			uint32_t bit = 1 & (cp.m_Value >> i);
 
 			pS[0][i] *= cs.x;
 
@@ -760,12 +759,10 @@ namespace ECC {
 		return true;
 	}
 
-	void RangeProof::Confidential::MultiSig::Init(const Scalar::Native& sk, Amount v)
+	void RangeProof::Confidential::MultiSig::Init(const uintBig& seed)
 	{
 		NonceGenerator nonceGen;
-		nonceGen.m_sk.V = sk;
-		nonceGen.m_Oracle << v;
-
+		nonceGen.m_Seed.V = seed;
 		Init(nonceGen);
 	}
 
@@ -797,10 +794,10 @@ namespace ECC {
 		taux += t1;
 	}
 
-	void RangeProof::Confidential::CoSignPart(const Scalar::Native& sk, Amount v, Oracle&, Part2& p2)
+	void RangeProof::Confidential::CoSignPart(const uintBig& seed, Part2& p2)
 	{
 		MultiSig msig;
-		msig.Init(sk, v);
+		msig.Init(seed);
 
 		Point::Native ptT1, ptT2;
 		msig.AddInfo1(ptT1, ptT2);
@@ -808,10 +805,10 @@ namespace ECC {
 		p2.m_T2 = ptT2;
 	}
 
-	void RangeProof::Confidential::CoSignPart(const Scalar::Native& sk, Amount v, Oracle& oracle, const Part1& p1, const Part2& p2, Part3& p3)
+	void RangeProof::Confidential::CoSignPart(const uintBig& seed, const Scalar::Native& sk, Oracle& oracle, const Part1& p1, const Part2& p2, Part3& p3)
 	{
 		MultiSig msig;
-		msig.Init(sk, v);
+		msig.Init(seed);
 
 		ChallengeSet cs;
 		cs.Init(p1, oracle);
