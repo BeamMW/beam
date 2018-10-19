@@ -684,7 +684,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(6) // increment this whenever we change something in the protocol
+			<< uint32_t(7) // increment this whenever we change something in the protocol
 			// out
 			>> Checksum;
 	}

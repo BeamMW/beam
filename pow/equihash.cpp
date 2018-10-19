@@ -38,10 +38,7 @@ struct Block::PoW::Helper
 	bool TestDifficulty(const uint8_t* pSol, uint32_t nSol, Difficulty d) const
 	{
 		ECC::Hash::Value hv;
-
-		blake2b_state b2s = m_Blake;
-		blake2b_update(&b2s, pSol, nSol);
-		blake2b_final(&b2s, hv.m_pData, hv.nBytes);
+		ECC::Hash::Processor() << Blob(pSol, nSol) >> hv;
 
 		return d.IsTargetReached(hv);
 	}
