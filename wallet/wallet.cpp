@@ -21,7 +21,6 @@
 #define BOOST_UUID_RANDOM_PROVIDER_DISABLE_GETRANDOM 1
 #endif
 
-#include <boost/uuid/uuid_generators.hpp>
 #include "core/ecc_native.h"
 #include "core/block_crypt.h"
 #include "utility/logger.h"
@@ -44,17 +43,6 @@ namespace beam
     using namespace wallet;
     using namespace std;
     using namespace ECC;
-
-    namespace
-    {
-        TxID GenerateTxID()
-        {
-            boost::uuids::uuid id = boost::uuids::random_generator()();
-            TxID txID{};
-            copy(id.begin(), id.end(), txID.begin());
-            return txID;
-        }
-    }
 
     std::ostream& operator<<(std::ostream& os, const TxID& uuid)
     {
@@ -180,7 +168,7 @@ namespace beam
 
     TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
     {
-        auto txID = GenerateTxID();
+        auto txID = wallet::GenerateTxID();
         auto tx = constructTransaction(txID, TxType::Simple);
 
         tx->SetParameter(TxParameterID::TransactionType, TxType::Simple);
@@ -204,7 +192,7 @@ namespace beam
 
     TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount)
     {
-        auto txID = GenerateTxID();
+        auto txID = wallet::GenerateTxID();
         auto tx = constructTransaction(txID, TxType::AtomicSwap);
 
         tx->SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
@@ -214,6 +202,7 @@ namespace beam
         tx->SetParameter(TxParameterID::MinHeight, m_keyChain->getCurrentHeight());
         tx->SetParameter(TxParameterID::PeerID, to);
         tx->SetParameter(TxParameterID::MyID, from);
+        tx->SetParameter(TxParameterID::IsSender, true);
         tx->SetParameter(TxParameterID::IsInitiator, true);
         tx->SetParameter(TxParameterID::Status, TxStatus::Pending);
 
@@ -350,9 +339,8 @@ namespace beam
         if (it != m_transactions.end())
         {
             it->second->SetParameter(TxParameterID::TransactionRegistered, res);
+            updateTransaction(txId);
         }
-
-        updateTransaction(txId);
     }
 
     void Wallet::cancel_tx(const TxID& txId)
@@ -398,6 +386,7 @@ namespace beam
 
     void Wallet::emergencyReset()
     {
+        LOG_INFO() << "System state has been reset manually!";
         resetSystemState();
         m_keyChain->clear();
         m_network->close_node_connection();
@@ -509,7 +498,7 @@ namespace beam
         }
 
         m_pendingUtxoProofs.pop_front();
-        m_PendingUtxoUnique.erase(coin.m_id);
+        m_PendingUtxoUnique.erase(input.m_Commitment);
         assert(m_pendingUtxoProofs.size() == m_PendingUtxoUnique.size());
 
         return exit_sync();
@@ -517,12 +506,6 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::NewTip&& msg)
     {
-        // TODO: restore from wallet db 
-        //for (auto& r : m_pending_reg_requests)
-        //{
-        //    register_tx(r.first, r.second);
-        //}
-
         m_pending_reg_requests.clear();
 
         Block::SystemState::ID newID;
@@ -704,38 +687,23 @@ namespace beam
         {
             p.second->Update();
         }
-
-        vector<Coin> unconfirmed;
-        m_keyChain->visit([&, this](const Coin& coin)
-        {
-            if (coin.m_status == Coin::Unconfirmed 
-                && coin.m_createTxId.is_initialized()
-                && m_transactions.find(*(coin.m_createTxId)) == m_transactions.end())
-            {
-                unconfirmed.emplace_back(coin);
-            }
-
-            return true;
-        });
-
-        getUtxoProofs(unconfirmed);
     }
 
     void Wallet::getUtxoProofs(const vector<Coin>& coins)
     {
         for (auto& coin : coins)
         {
-            if (m_PendingUtxoUnique.find(coin.m_id) != m_PendingUtxoUnique.end())
+            Input input;
+            input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
+            if (m_PendingUtxoUnique.find(input.m_Commitment) != m_PendingUtxoUnique.end())
             {
                 continue;
             }
 
             enter_sync();
             m_pendingUtxoProofs.push_back(coin);
-            m_PendingUtxoUnique.insert(coin.m_id);
+            m_PendingUtxoUnique.insert(input.m_Commitment);
             assert(m_pendingUtxoProofs.size() == m_PendingUtxoUnique.size());
-            Input input;
-            input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
             LOG_DEBUG() << "Get proof: " << input.m_Commitment;
             m_network->send_node_message(proto::GetProofUtxo{ input, 0 });
         }

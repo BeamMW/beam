@@ -22,6 +22,9 @@
 
 namespace beam { namespace wallet
 {
+
+    TxID GenerateTxID();
+
     struct ITransaction
     {
         using Ptr = std::shared_ptr<ITransaction>;
@@ -61,14 +64,16 @@ namespace beam { namespace wallet
         }
 
         template <typename T>
-        void GetMandatoryParameter(TxParameterID paramID, T& value) const
+        T GetMandatoryParameter(TxParameterID paramID) const
         {
+            T value{};
             if (!getTxParameter(m_Keychain, GetTxID(), paramID, value))
             {
                 std::stringstream ss;
-                ss << " Failed to get parameter: " << static_cast<uint8_t>(paramID);
+                ss <<  " Failed to get parameter: " << static_cast<uint8_t>(paramID);
                 throw TransactionFailedException(true, ss.str().c_str());
             }
+            return value;
         }
 
         template <typename T>
@@ -76,9 +81,10 @@ namespace beam { namespace wallet
         {
             return setTxParameter(m_Keychain, GetTxID(), paramID, value);
         }
-
-    protected:
+        IKeyChain::Ptr GetKeychain();
         bool IsInitiator() const;
+    protected:
+
         void ConfirmKernel(const TxKernel& kernel);
         void CompleteTx();
         void RollbackTx();
@@ -117,31 +123,48 @@ namespace beam { namespace wallet
         void UpdateImpl() override;
     };
 
-    struct SignatureBuilder
+    struct TxBuilder
     {
         BaseTransaction& m_Tx;
-        TxKernel::Ptr m_Kernel;
 
+        // input
+        Amount m_Amount;
+        Amount m_Fee;
+        Amount m_Change;
+        Height m_MinHeight;
+        std::vector<Input::Ptr> m_Inputs;
+        std::vector<Output::Ptr> m_Outputs;
         ECC::Scalar::Native m_BlindingExcess;
-        ECC::Scalar::Native m_PeerSignature;
+        ECC::Scalar::Native m_Offset;
+
+        // peer values
         ECC::Scalar::Native m_PartialSignature;
-        ECC::Point::Native m_PublicPeerNonce;
-        ECC::Point::Native m_PublicPeerExcess;
-        ECC::Point::Native m_PublicNonce;
-        ECC::Point::Native m_PublicExcess;
+        ECC::Point::Native m_PeerPublicNonce;
+        ECC::Point::Native m_PeerPublicExcess;
+        
+        // deduced values, 
+        TxKernel::Ptr m_Kernel;
+        ECC::Scalar::Native m_PeerSignature;
         ECC::Hash::Value m_Message;
         ECC::Signature::MultiSig m_MultiSig;
 
-        SignatureBuilder(BaseTransaction& tx);
+        TxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
 
-        void CreateKernel(Amount fee, Height minHeight);
-        void SetBlindingExcess(const ECC::Scalar::Native& blindingExcess);
-        bool ApplyBlindingExcess();
-        bool ApplyPublicPeerNonce();
-        bool ApplyPublicPeerExcess();
+        void SelectInputs();
+        void AddChangeOutput();
+        void AddOutput(Amount amount);
+        Output::Ptr CreateOutput(Amount amount, bool shared = false, Height incubation = 0);
+        void GenerateNonce();
+        ECC::Point::Native GetPublicExcess() const;
+        ECC::Point::Native GetPublicNonce() const;
+        bool GetInitialTxParams();
+        bool GetPeerPublicExcessAndNonce();
+        bool GetPeerSignature();
+        bool GetPeerInputsAndOutputs();
+        void SetMinHeight(Height minHeight);
+        Transaction::Ptr CreateTransaction();
         void SignPartial();
-        bool ApplyPeerSignature();
-        bool IsValidPeerSignature() const;
-        void FinalizeSignature();
+        bool IsPeerSignatureValid() const;
     };
+
 }}
