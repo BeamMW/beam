@@ -930,28 +930,6 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return vTs[vTs.size() >> 1];
 }
 
-void NodeProcessor::DeriveKeys(Height h, Amount fees, ECC::Scalar::Native& kCoinbase, ECC::Scalar::Native& kFee, ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset) const
-{
-	m_pKdf->DeriveKey(kCoinbase, Key::ID(h, Key::Type::Coinbase));
-
-	kKernel = kCoinbase;
-
-	if (fees)
-	{
-		m_pKdf->DeriveKey(kFee, Key::ID(h, Key::Type::Comission));
-		kKernel += kFee;
-	}
-	else
-		kFee = Zero;
-
-	kKernel = -kKernel;
-
-	ECC::Scalar::Native k2;
-	ExtractOffset(kKernel, k2, h);
-
-	kOffset += k2;
-}
-
 bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, Height h)
 {
 	for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
@@ -1091,21 +1069,42 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 
 	LOG_INFO() << "GenerateNewBlock: size of block = " << nBlockSize << "; amount of tx = " << nAmount;
 
-	ECC::Scalar::Native kCoinbase, kFee, kKernel;
-	DeriveKeys(h, fees, kCoinbase, kFee, kKernel, offset);
+	ECC::Scalar::Native kKernel;
+
+	{
+		Output::Ptr pOutp(new Output);
+		pOutp->m_Coinbase = true;
+		pOutp->Create(kKernel, Rules::get().CoinbaseEmission, *m_pKdf, Key::ID(h, Key::Type::Coinbase));
+
+		if (!HandleBlockElement(*pOutp, h, NULL, true))
+			return false;
+
+		res.m_vOutputs.push_back(std::move(pOutp));
+	}
 
 	if (fees)
 	{
+		ECC::Scalar::Native sk;
+
 		Output::Ptr pOutp(new Output);
-		pOutp->Create(kFee, fees);
+		pOutp->Create(sk, fees, *m_pKdf, Key::ID(h, Key::Type::Comission));
 
 		if (!HandleBlockElement(*pOutp, h, NULL, true))
 			return false; // though should not happen!
 
 		res.m_vOutputs.push_back(std::move(pOutp));
+
+		kKernel += sk;
 	}
 
 	{
+		kKernel = -kKernel;
+
+		ECC::Scalar::Native k2;
+		ExtractOffset(kKernel, k2, h);
+
+		offset += k2;
+
 		TxKernel::Ptr pKrn(new TxKernel);
 		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kKernel);
 
@@ -1117,17 +1116,6 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 			return false; // Will fail if kernel key duplicated!
 
 		res.m_vKernelsOutput.push_back(std::move(pKrn));
-	}
-
-	{
-		Output::Ptr pOutp(new Output);
-		pOutp->m_Coinbase = true;
-		pOutp->Create(kCoinbase, Rules::get().CoinbaseEmission, true);
-
-		if (!HandleBlockElement(*pOutp, h, NULL, true))
-			return false;
-
-		res.m_vOutputs.push_back(std::move(pOutp));
 	}
 
 	res.m_Subsidy += Rules::get().CoinbaseEmission;

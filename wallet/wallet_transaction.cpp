@@ -192,10 +192,9 @@ namespace beam { namespace wallet
             if (c.m_createTxId == txID && c.m_status == Coin::Draft)
             {
                 Output::Ptr output = make_unique<Output>();
-                output->m_Coinbase = false;
 
-                Scalar::Native blindingFactor = m_Keychain->calcKey(c);
-                output->Create(blindingFactor, c.m_amount);
+                Scalar::Native blindingFactor;
+                output->Create(blindingFactor, c.m_amount, *m_Keychain->get_Kdf(), c.get_Kid());
 
                 outputs.push_back(move(output));
             }
@@ -518,10 +517,9 @@ namespace beam { namespace wallet
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetKeychain()->store(newUtxo);
 
-        Scalar::Native blindingFactor = m_Tx.GetKeychain()->calcKey(newUtxo);
+        Scalar::Native blindingFactor;
         Output::Ptr output = make_unique<Output>();
-        output->m_Coinbase = false;
-        output->Create(blindingFactor, amount);
+        output->Create(blindingFactor, amount, *m_Tx.GetKeychain()->get_Kdf(), newUtxo.get_Kid());
 
         auto[privateExcess, newOffset] = splitKey(blindingFactor, newUtxo.m_id);
         blindingFactor = -privateExcess;

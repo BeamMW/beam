@@ -136,8 +136,6 @@ public:
 
 	Key::IKdf::Ptr m_pKdf;
 
-	void DeriveKeys(Height, Amount fees, ECC::Scalar::Native& kCoinbase, ECC::Scalar::Native& kFee, ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset) const;
-
 	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
 	static bool ValidateTxWrtHeight(const Transaction&, Height);
 

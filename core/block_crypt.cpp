@@ -211,7 +211,7 @@ namespace beam
 	void Output::Create(ECC::Scalar::Native& sk, Amount v, Key::IKdf& kdf, const Key::ID& kid)
 	{
 		kdf.DeriveKey(sk, kid);
-		CreateInternal(sk, v, (Key::Type::Coinbase == kid.m_Type), &kdf, &kid);
+		CreateInternal(sk, v, m_Coinbase, &kdf, &kid);
 	}
 
 	void Output::Create(const ECC::Scalar::Native& sk, Amount v, bool bPublic /* = false */)
