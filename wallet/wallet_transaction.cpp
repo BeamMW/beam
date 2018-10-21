@@ -544,10 +544,16 @@ namespace beam { namespace wallet
         m_Kernel->m_Height.m_Max = MaxHeight;
         m_Kernel->m_Excess = Zero;
 
-        // generate nonce
-        Hash::Value hv;
-        m_Kernel->get_Hash(hv);
-        m_MultiSig.GenerateNonce(hv, m_BlindingExcess);
+		if (!m_Tx.GetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce))
+		{
+			Coin c;
+			c.m_id = m_Tx.GetKeychain()->get_AutoIncrID();
+			c.m_key_type = KeyType::Nonce;
+
+			m_MultiSig.m_Nonce = m_Tx.GetKeychain()->calcKey(c);
+
+			m_Tx.SetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce);
+		}
     }
 
     Point::Native TxBuilder::GetPublicExcess() const
