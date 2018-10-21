@@ -590,9 +590,19 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 
 void Node::Initialize()
 {
+	if (!m_Processor.m_pKdf)
+	{
+		if (m_Cfg.m_MiningThreads)
+			throw std::runtime_error("Mining enabled, but Kdf not specified!");
+
+		// use arbitrary, inited from system random. Needed for misc things, such as secure channel.
+		std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+		ECC::GenRandom(pKdf->m_Secret.V.m_pData, pKdf->m_Secret.V.nBytes);
+		m_Processor.m_pKdf = pKdf;
+	}
+
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Sync.m_ForceResync);
-	m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
 
 	if (m_Cfg.m_Sync.m_ForceResync)
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::SyncTarget, NULL, NULL);
@@ -650,7 +660,7 @@ void Node::InitIDs()
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, NULL, &blob);
 	}
 
-	DeriveKey(sk, m_Processor.m_Kdf, 0, Key::Type::Identity);
+	m_Processor.m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
 	proto::Sk2Pk(m_MyOwnerID, sk);
 }
 
@@ -1658,13 +1668,15 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
 
 const ECC::uintBig& Node::NextNonce()
 {
-	ECC::GenerateNonce(m_NonceLast.V, m_Processor.m_Kdf.m_Secret.V, m_NonceLast.V, NULL, 0);
+	ECC::Scalar::Native sk;
+	NextNonce(sk);
 	return m_NonceLast.V;
 }
 
 void Node::NextNonce(ECC::Scalar::Native& sk)
 {
-	sk.GenerateNonce(m_Cfg.m_WalletKey.V, NextNonce(), NULL);
+	m_Processor.m_pKdf->DeriveKey(sk, m_NonceLast.V);
+	ECC::Hash::Processor() << sk >> m_NonceLast.V;
 }
 
 uint32_t Node::RandomUInt32(uint32_t threshold)
@@ -2595,9 +2607,8 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 
 		ECC::Hash::Value hv; // pick pseudo-random initial nonce for mining.
 		ECC::Hash::Processor()
-			<< get_ParentObj().m_MyPublicID
+			<< pTask->m_hvNonceSeed
 			<< iIdx
-			<< s.m_Height
 			>> hv;
 
 		static_assert(s.m_PoW.m_Nonce.nBytes <= hv.nBytes);
@@ -2726,6 +2737,8 @@ bool Node::Miner::Restart()
 	}
 
 	LOG_INFO() << "Block generated: Height=" << pTask->m_Hdr.m_Height << ", Fee=" << pTask->m_Fees << ", Difficulty=" << pTask->m_Hdr.m_PoW.m_Difficulty << ", Size=" << pTask->m_Body.size();
+
+	pTask->m_hvNonceSeed = get_ParentObj().NextNonce();
 
 	// let's mine it.
 	std::scoped_lock<std::mutex> scope(m_Mutex);

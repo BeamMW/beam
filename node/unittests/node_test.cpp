@@ -445,7 +445,7 @@ namespace beam
 
 	struct MiniWallet
 	{
-		ECC::Kdf m_Kdf;
+		Key::IKdf::Ptr m_pKdf;
 		uint32_t m_nKernelSubIdx = 1;
 
 		struct MyUtxo
@@ -475,8 +475,9 @@ namespace beam
 			if (!n)
 				return NULL;
 
+
 			ECC::Scalar::Native key;
-			DeriveKey(key, m_Kdf, h, eType);
+			m_pKdf->DeriveKey(key, Key::ID(h, eType));
 
 			MyUtxo utxo;
 			utxo.m_Key = key;
@@ -554,7 +555,7 @@ namespace beam
 				MyUtxo utxoOut;
 				utxoOut.m_Value = utxo.m_Value - mk.m_Fee;
 
-				DeriveKey(k, m_Kdf, h, Key::Type::Regular);
+				m_pKdf->DeriveKey(k, Key::ID(h, Key::Type::Regular));
 				utxoOut.m_Key = k;
 
 				utxoOut.ToOutput(*pTx, kOffset, hIncubation);
@@ -564,7 +565,7 @@ namespace beam
 
 			m_MyUtxos.erase(it);
 
-			DeriveKey(mk.m_k, m_Kdf, h, Key::Type::Kernel, m_nKernelSubIdx++);
+			m_pKdf->DeriveKey(mk.m_k, Key::ID(h, Key::Type::Kernel, m_nKernelSubIdx++));
 
 			TxKernel::Ptr pKrn;
 			mk.Export(pKrn);
@@ -593,8 +594,11 @@ namespace beam
 
 		MyNodeProcessor1()
 		{
-			ECC::SetRandom(m_Kdf.m_Secret.V);
-			m_Wallet.m_Kdf = m_Kdf;
+			std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+			ECC::SetRandom(pKdf->m_Secret.V);
+
+			m_pKdf = pKdf;
+			m_Wallet.m_pKdf = pKdf;
 	}
 	};
 
@@ -808,8 +812,13 @@ namespace beam
 
 		node2.m_Cfg.m_BeaconPort = g_Port;
 
-		ECC::SetRandom(node.m_Cfg.m_WalletKey.V);
-		ECC::SetRandom(node2.m_Cfg.m_WalletKey.V);
+		std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+		ECC::SetRandom(pKdf->m_Secret.V);
+		node.get_Processor().m_pKdf = pKdf;
+
+		pKdf.reset(new Key::Kdf);
+		ECC::SetRandom(pKdf->m_Secret.V);
+		node2.get_Processor().m_pKdf = pKdf;
 
 		node.Initialize();
 		node2.Initialize();
@@ -824,7 +833,8 @@ namespace beam
 			Height m_HeightMax;
 			const Height m_HeightTrg = 70;
 
-			MyClient() {
+			MyClient()
+			{
 				m_pTimer = io::Timer::create(io::Reactor::get_Current());
 			}
 
@@ -924,7 +934,9 @@ namespace beam
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
 
-		ECC::SetRandom(node.m_Cfg.m_WalletKey.V);
+		std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+		ECC::SetRandom(pKdf->m_Secret.V);
+		node.get_Processor().m_pKdf = pKdf;
 
 		node.m_Cfg.m_Horizon.m_Branching = 6;
 		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
@@ -952,7 +964,9 @@ namespace beam
 			uint32_t m_nBbsMsgsPending = 0;
 
 
-			MyClient() {
+			MyClient(const Key::IKdf::Ptr& pKdf)
+			{
+				m_Wallet.m_pKdf = pKdf;
 				m_pTimer = io::Timer::create(io::Reactor::get_Current());
 			}
 
@@ -975,7 +989,7 @@ namespace beam
 				if (proto::IDType::Node == msg.m_IDType)
 				{
 					ECC::Scalar::Native sk;
-					DeriveKey(sk, m_Wallet.m_Kdf, 0, Key::Type::Identity);
+					m_Wallet.m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
 					ProveID(sk, proto::IDType::Owner);
 				}
 			}
@@ -1177,8 +1191,7 @@ namespace beam
 			}
 		};
 
-		MyClient cl;
-		cl.m_Wallet.m_Kdf.m_Secret = node.m_Cfg.m_WalletKey; // same key gen
+		MyClient cl(pKdf);
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");
@@ -1265,6 +1278,9 @@ namespace beam
 		node2.m_Cfg.m_Sync.m_Timeout_ms = 0; // sync immediately after seeing 1st peer
 		node2.m_Cfg.m_Dandelion = node.m_Cfg.m_Dandelion;
 
+		pKdf.reset(new Key::Kdf);
+		ECC::SetRandom(pKdf->m_Secret.V);
+		node2.get_Processor().m_pKdf = pKdf;
 		node2.Initialize();
 
 		pReactor->run();

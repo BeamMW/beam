@@ -45,6 +45,11 @@ namespace
     {
     public:
 
+		Key::IKdf::Ptr get_Kdf() const override
+		{
+			return Key::IKdf::Ptr();
+		}
+
         ECC::Scalar::Native calcKey(const Coin&) const override
         {
             return ECC::Scalar::Native();

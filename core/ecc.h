@@ -171,10 +171,49 @@ namespace ECC
 		static void get_Challenge(Scalar::Native&, const Point&, const Hash::Value& msg);
 	};
 
-	struct Kdf
+	struct Key
 	{
-		NoLeak<uintBig> m_Secret;
-		void DeriveKey(Scalar::Native&, uint64_t nKeyIndex, uint32_t nFlags, uint32_t nExtra = 0) const;
+		enum struct Type
+		{
+			Comission	= 0,
+			Coinbase	= 1,
+			Kernel		= 2,
+			Regular		= 3,
+			Identity	= 4,
+			Nonce		= 5,
+		};
+
+		struct ID
+		{
+			uint64_t	m_Idx;
+			uint64_t	m_IdxSecondary;
+			Type		m_Type;
+
+			ID() {}
+			ID(Zero_) { ZeroObject(*this); }
+
+			ID(beam::Height h, Type type, uint64_t nIdxSecondary = 0) // most common c'tor
+			{
+				m_Idx = h;
+				m_IdxSecondary = nIdxSecondary;
+				m_Type = type;
+			}
+		};
+
+		struct IKdf
+		{
+			typedef std::shared_ptr<IKdf> Ptr;
+
+			virtual void DeriveKey(Scalar::Native&, const Key::ID&);
+			virtual void DeriveKey(Scalar::Native&, const Hash::Value&) = 0;
+		};
+
+		struct Kdf
+			:public IKdf
+		{
+			NoLeak<uintBig> m_Secret;
+			virtual void DeriveKey(Scalar::Native&, const Hash::Value&) override;
+		};
 	};
 
 	struct InnerProduct

@@ -153,17 +153,8 @@ void AppModel::start(IKeyStore::Ptr keystore)
 
 void AppModel::startNode()
 {
-    ECC::NoLeak<ECC::uintBig> seed;
-    bool isSeedValid = m_db->getVar("WalletSeed", seed);
-
-    assert(isSeedValid);
-    if (!isSeedValid)
-    {
-        getMessages().addMessage(QObject::tr("You have no seed for key generation"));
-        return;
-    }
-
-    m_node = make_unique<NodeModel>(seed);
+    m_node = make_unique<NodeModel>();
+	m_node->m_pKdf = m_db->get_Kdf();
     m_node->start();
 }
 

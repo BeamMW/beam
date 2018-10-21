@@ -1134,11 +1134,20 @@ namespace ECC {
 		GenerateNonce(sk_.V.m_Value, msg, pMsg2, nAttempt);
 	}
 
-	void Kdf::DeriveKey(Scalar::Native& out, uint64_t nKeyIndex, uint32_t nFlags, uint32_t nExtra) const
+	void Key::IKdf::DeriveKey(Scalar::Native& out, const Key::ID& kid)
 	{
-		// the msg hash is not secret
-		Hash::Value hv;
-		Hash::Processor() << nKeyIndex << nFlags << nExtra >> hv;
+		Hash::Value hv; // the key hash is not secret
+		Hash::Processor()
+			<< kid.m_Idx
+			<< kid.m_IdxSecondary
+			<< static_cast<uint32_t>(kid.m_Type)
+			>> hv;
+
+		DeriveKey(out, hv);
+	}
+
+	void Key::Kdf::DeriveKey(Scalar::Native& out, const Hash::Value& hv)
+	{
 		out.GenerateNonce(m_Secret.V, hv, NULL);
 	}
 

@@ -734,9 +734,7 @@ namespace beam
         {
             if (isInitialized(path))
             {
-                ECC::NoLeak<ECC::uintBig> seed;
-                seed.V = Zero;
-                auto keychain = make_shared<Keychain>(seed);
+				std::shared_ptr<Keychain> keychain(new Keychain);
 
                 {
                     int ret = sqlite3_open_v2(path.c_str(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, nullptr);
@@ -792,14 +790,16 @@ namespace beam
                     throwIfError(ret, keychain->_db);
                 }
 
-                if (keychain->getVar(WalletSeed, seed))
+				std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+
+                if (!keychain->getVar(WalletSeed, pKdf->m_Secret.V))
                 {
-                    keychain->m_kdf.m_Secret = seed;
-                }
-                else
-                {
-                    assert(false && "there is no seed for keychain");
-                }
+					assert(false && "there is no seed for keychain");
+					//pKdf->m_Secret.V = Zero;
+					return Ptr();
+				}
+
+				keychain->m_pKdf = pKdf;
 
                 return static_pointer_cast<IKeyChain>(keychain);
             }
@@ -814,11 +814,18 @@ namespace beam
         return Ptr();
     }
 
+	Keychain::Keychain()
+		: _db(nullptr)
+	{
+	}
+
     Keychain::Keychain(const ECC::NoLeak<ECC::uintBig>& secretKey)
         : _db(nullptr)
     {
-        m_kdf.m_Secret = secretKey;
-    }
+		std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+		pKdf->m_Secret = secretKey;
+		m_pKdf = pKdf;
+	}
 
     Keychain::~Keychain()
     {
@@ -843,31 +850,37 @@ namespace beam
         return lastId;
     }
 
+	Key::IKdf::Ptr Keychain::get_Kdf() const
+	{
+		return m_pKdf;
+	}
+
     ECC::Scalar::Native Keychain::calcKey(const beam::Coin& coin) const
     {
         assert(coin.m_key_type != Key::Type::Regular || coin.m_id > 0);
         ECC::Scalar::Native key;
 
         // For coinbase and fee commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
-		uint32_t nIdx;
+		Key::ID kid(coin.m_createHeight, coin.m_key_type, coin.m_id);
+
 		switch (coin.m_key_type)
 		{
 		case Key::Type::Coinbase:
 		case Key::Type::Comission:
-			nIdx = 0;
+			kid.m_IdxSecondary = 0;
 			break;
 
-		default:
-			nIdx = static_cast<uint32_t>(coin.m_id);
+		default: // suppress warning
+			break;
 		}
 
-        DeriveKey(key, m_kdf, coin.m_createHeight, coin.m_key_type, nIdx); 
+		m_pKdf->DeriveKey(key, kid);
         return key;
     }
 
     void Keychain::get_IdentityKey(ECC::Scalar::Native& sk) const
     {
-        DeriveKey(sk, m_kdf, 0, Key::Type::Identity);
+		m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
     }
 
     vector<beam::Coin> Keychain::selectCoins(const Amount& amount, bool lock)

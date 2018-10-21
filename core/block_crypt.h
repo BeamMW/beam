@@ -24,6 +24,8 @@ namespace beam
 	typedef uint64_t BbsChannel;
 	typedef ECC::Hash::Value BbsMsgID;
 
+	using ECC::Key;
+
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
@@ -519,25 +521,9 @@ namespace beam
 		struct ChainWorkProof;
 	};
 
-	struct Key
-	{
-		enum struct Type
-		{
-			Comission,
-			Coinbase,
-			Kernel,
-			Regular,
-			Identity,
-			Nonce,
-		};
-	};
-
-	void DeriveKey(ECC::Scalar::Native&, const ECC::Kdf&, Height, Key::Type, uint32_t nIdx = 0);
 	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height = 0, uint32_t nIdx = 0);
 
 	std::ostream& operator << (std::ostream&, const Block::SystemState::ID&);
-
-
 
 
 	class TxBase::Context

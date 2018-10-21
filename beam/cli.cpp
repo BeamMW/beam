@@ -147,7 +147,10 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
 					if (node.m_Cfg.m_MiningThreads > 0)
 					{
-						if (!beam::read_wallet_seed(node.m_Cfg.m_WalletKey, vm)) {
+						std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+						node.get_Processor().m_pKdf = pKdf;
+
+						if (!beam::read_wallet_seed(pKdf->m_Secret, vm)) {
                             LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
                             return -1;
                         }

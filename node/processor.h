@@ -134,9 +134,9 @@ public:
 
 	uint64_t FindActiveAtStrict(Height);
 
-	ECC::Kdf m_Kdf;
+	Key::IKdf::Ptr m_pKdf;
 
-	static void DeriveKeys(const ECC::Kdf&, Height, Amount fees, ECC::Scalar::Native& kCoinbase, ECC::Scalar::Native& kFee, ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset);
+	void DeriveKeys(Height, Amount fees, ECC::Scalar::Native& kCoinbase, ECC::Scalar::Native& kFee, ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset) const;
 
 	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
 	static bool ValidateTxWrtHeight(const Transaction&, Height);

@@ -50,8 +50,8 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	, m_IsNeedToCheckFee(false)
 	, m_IsNewToCheckSpending(false)
 	, m_Counter(0)
-	, m_Generator(m_Kdf)
-	, m_FeeGenerator(m_Kdf)
+	, m_Generator(*m_pKdf)
+	, m_FeeGenerator(*m_pKdf)
 	, m_CoinsChecker(argc, argv)
 {
 	m_Timeout = 5 * 60 * 1000;

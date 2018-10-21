@@ -930,15 +930,15 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return vTs[vTs.size() >> 1];
 }
 
-void NodeProcessor::DeriveKeys(const ECC::Kdf& kdf, Height h, Amount fees, ECC::Scalar::Native& kCoinbase, ECC::Scalar::Native& kFee, ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset)
+void NodeProcessor::DeriveKeys(Height h, Amount fees, ECC::Scalar::Native& kCoinbase, ECC::Scalar::Native& kFee, ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset) const
 {
-	DeriveKey(kCoinbase, kdf, h, Key::Type::Coinbase);
+	m_pKdf->DeriveKey(kCoinbase, Key::ID(h, Key::Type::Coinbase));
 
 	kKernel = kCoinbase;
 
 	if (fees)
 	{
-		DeriveKey(kFee, kdf, h, Key::Type::Comission);
+		m_pKdf->DeriveKey(kFee, Key::ID(h, Key::Type::Comission));
 		kKernel += kFee;
 	}
 	else
@@ -1043,6 +1043,12 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 
 bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
 {
+	if (!m_pKdf)
+	{
+		LOG_WARNING() << "No Kdf. Can't generate blocks";
+		return false;
+	}
+
 	fees = 0;
 	size_t nBlockSize = 0;
 	size_t nAmount = 0;
@@ -1086,7 +1092,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 	LOG_INFO() << "GenerateNewBlock: size of block = " << nBlockSize << "; amount of tx = " << nAmount;
 
 	ECC::Scalar::Native kCoinbase, kFee, kKernel;
-	DeriveKeys(m_Kdf, h, fees, kCoinbase, kFee, kKernel, offset);
+	DeriveKeys(h, fees, kCoinbase, kFee, kKernel, offset);
 
 	if (fees)
 	{

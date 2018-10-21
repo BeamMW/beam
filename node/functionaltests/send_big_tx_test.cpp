@@ -51,7 +51,7 @@ void TestNodeConnection::GenerateTests()
 	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Generate transaction";
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		Amount amount = 20000;
 

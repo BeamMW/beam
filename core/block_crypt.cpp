@@ -886,11 +886,6 @@ namespace beam
 			ctx.IsValidBlock(*this, bSubsidyOpen);
 	}
 
-    void DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, Key::Type eType, uint32_t nIdx /* = 0 */)
-    {
-        kdf.DeriveKey(out, h, static_cast<uint32_t>(eType), nIdx);
-    }
-
 	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height h /* = 0 */, uint32_t nIdx /* = 0 */)
 	{
 		ECC::Hash::Value hv;
