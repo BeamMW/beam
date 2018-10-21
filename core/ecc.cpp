@@ -948,7 +948,14 @@ namespace ECC {
 
 						unsigned int nVal = GetPortion(x.m_K, iWord, iBitInWord, Casual::Secure::nBits);
 
+						//Point::Native ptVal;
+						//for (unsigned int i = 0; i < Casual::Secure::nCount; i++)
+						//	object_cmov(ptVal, x.m_pPt[nVal], i == nVal);
+						//
+						//res += ptVal;
+
 						res += x.m_pPt[nVal]; // cmov seems not needed, since the table is relatively small, and not in global mem (less predicatble addresses)
+						// The version with cmov (commented-out above) is ~15% slower
 					}
 				}
 

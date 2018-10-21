@@ -1190,7 +1190,7 @@ void RunBenchmark()
 	while (!p1.Import(p_))
 		p_.m_X.Inc();
 
-	{
+/*	{
 		BenchmarkMeter bm("point.Negate");
 		do
 		{
@@ -1199,7 +1199,7 @@ void RunBenchmark()
 
 		} while (bm.ShouldContinue());
 	}
-
+*/
 	{
 		BenchmarkMeter bm("point.Double");
 		do
@@ -1228,7 +1228,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 += p1 * k1;
+				p0 = p1 * k1;
 
 		} while (bm.ShouldContinue());
 	}
@@ -1241,7 +1241,7 @@ void RunBenchmark()
 		{
 			SetRandom(k1);
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 += p1 * k1;
+				p0 = p1 * k1;
 
 		} while (bm.ShouldContinue());
 	}
@@ -1254,9 +1254,24 @@ void RunBenchmark()
 		{
 			SetRandom(k1);
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 += p1 * k1;
+				p0 = p1 * k1;
 
 		} while (bm.ShouldContinue());
+	}
+
+	{
+		// result should be close to prev (i.e. constant-time)
+		Mode::Scope scope(Mode::Secure);
+		BenchmarkMeter bm("point.Multiply.Sec2");
+		do
+		{
+			k1 = Zero;
+			for (uint32_t i = 0; i < bm.N; i++)
+				p0 = p1 * k1;
+
+		} while (bm.ShouldContinue());
+
+		p0 = p1;
 	}
 
 	{
@@ -1284,7 +1299,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 += Context::get().H * uint64_t(-1);
+				p0 = Context::get().H * uint64_t(-1);
 
 		} while (bm.ShouldContinue());
 	}
@@ -1303,7 +1318,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 += Context::get().G * k1;
+				p0 = Context::get().G * k1;
 
 		} while (bm.ShouldContinue());
 	}
