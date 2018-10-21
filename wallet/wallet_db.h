@@ -58,6 +58,8 @@ namespace beam
         Height m_lockedHeight;
         boost::optional<TxID> m_createTxId;
         boost::optional<TxID> m_spentTxId;
+
+		Key::ID get_Kid() const;
     };
 
     struct TxPeer

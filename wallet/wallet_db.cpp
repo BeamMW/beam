@@ -855,15 +855,12 @@ namespace beam
 		return m_pKdf;
 	}
 
-    ECC::Scalar::Native Keychain::calcKey(const beam::Coin& coin) const
-    {
-        assert(coin.m_key_type != Key::Type::Regular || coin.m_id > 0);
-        ECC::Scalar::Native key;
+	Key::ID Coin::get_Kid() const
+	{
+		// For coinbase and fee commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
+		Key::ID kid(m_createHeight, m_key_type, m_id);
 
-        // For coinbase and fee commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
-		Key::ID kid(coin.m_createHeight, coin.m_key_type, coin.m_id);
-
-		switch (coin.m_key_type)
+		switch (m_key_type)
 		{
 		case Key::Type::Coinbase:
 		case Key::Type::Comission:
@@ -874,7 +871,15 @@ namespace beam
 			break;
 		}
 
-		m_pKdf->DeriveKey(key, kid);
+		return kid;
+	}
+
+    ECC::Scalar::Native Keychain::calcKey(const beam::Coin& coin) const
+    {
+		assert(coin.m_key_type != Key::Type::Regular || coin.m_id > 0);
+
+		ECC::Scalar::Native key;
+		m_pKdf->DeriveKey(key, coin.get_Kid());
         return key;
     }
 

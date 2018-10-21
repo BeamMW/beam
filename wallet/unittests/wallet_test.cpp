@@ -43,16 +43,27 @@ namespace
 {
     class BaseTestKeyChain : public IKeyChain
     {
+		Key::IKdf::Ptr m_pKdf;
     public:
+
+		BaseTestKeyChain()
+		{
+			std::shared_ptr<HKdf> pKdf(new HKdf);
+			pKdf->m_Secret.V = 10U;
+			m_pKdf = pKdf;
+		}
+
 
 		Key::IKdf::Ptr get_Kdf() const override
 		{
-			return Key::IKdf::Ptr();
+			return m_pKdf;
 		}
 
-        ECC::Scalar::Native calcKey(const Coin&) const override
+        ECC::Scalar::Native calcKey(const Coin& c) const override
         {
-            return ECC::Scalar::Native();
+			ECC::Scalar::Native sk;
+			m_pKdf->DeriveKey(sk, c.get_Kid());
+            return sk;
         }
 
 		void get_IdentityKey(ECC::Scalar::Native& sk) const override
