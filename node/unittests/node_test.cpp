@@ -594,7 +594,7 @@ namespace beam
 
 		MyNodeProcessor1()
 		{
-			std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+			std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 			ECC::SetRandom(pKdf->m_Secret.V);
 
 			m_pKdf = pKdf;
@@ -812,11 +812,11 @@ namespace beam
 
 		node2.m_Cfg.m_BeaconPort = g_Port;
 
-		std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 		ECC::SetRandom(pKdf->m_Secret.V);
 		node.get_Processor().m_pKdf = pKdf;
 
-		pKdf.reset(new Key::Kdf);
+		pKdf.reset(new ECC::HKdf);
 		ECC::SetRandom(pKdf->m_Secret.V);
 		node2.get_Processor().m_pKdf = pKdf;
 
@@ -934,7 +934,7 @@ namespace beam
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
 
-		std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 		ECC::SetRandom(pKdf->m_Secret.V);
 		node.get_Processor().m_pKdf = pKdf;
 
@@ -1278,7 +1278,7 @@ namespace beam
 		node2.m_Cfg.m_Sync.m_Timeout_ms = 0; // sync immediately after seeing 1st peer
 		node2.m_Cfg.m_Dandelion = node.m_Cfg.m_Dandelion;
 
-		pKdf.reset(new Key::Kdf);
+		pKdf.reset(new ECC::HKdf);
 		ECC::SetRandom(pKdf->m_Secret.V);
 		node2.get_Processor().m_pKdf = pKdf;
 		node2.Initialize();

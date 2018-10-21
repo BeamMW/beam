@@ -116,7 +116,7 @@ WaitHandle run_node(const NodeParams& params) {
             node.m_Cfg.m_MiningThreads = 1;
             node.m_Cfg.m_VerificationThreads = 1;
 
-			std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+			std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 			pKdf->m_Secret.V = params.walletSeed;
 			node.get_Processor().m_pKdf = pKdf;
 

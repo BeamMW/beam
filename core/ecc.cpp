@@ -1134,21 +1134,56 @@ namespace ECC {
 		GenerateNonce(sk_.V.m_Value, msg, pMsg2, nAttempt);
 	}
 
+	void Key::ID::get_Hash(Hash::Value& hv) const
+	{
+		Hash::Processor()
+			<< m_Idx
+			<< m_IdxSecondary
+			<< static_cast<uint32_t>(m_Type)
+			>> hv;
+	}
+
 	void Key::IKdf::DeriveKey(Scalar::Native& out, const Key::ID& kid)
 	{
 		Hash::Value hv; // the key hash is not secret
-		Hash::Processor()
-			<< kid.m_Idx
-			<< kid.m_IdxSecondary
-			<< static_cast<uint32_t>(kid.m_Type)
-			>> hv;
-
+		kid.get_Hash(hv);
 		DeriveKey(out, hv);
 	}
 
-	void Key::Kdf::DeriveKey(Scalar::Native& out, const Hash::Value& hv)
+	HKdf::HKdf()
+	{
+		ZeroObject(m_Secret.V);
+		m_kCoFactor = 1U; // by default
+	}
+
+	void HKdf::DeriveKey(Scalar::Native& out, const Hash::Value& hv)
+	{
+		DerivePKey(out, hv);
+		out *= m_kCoFactor;
+	}
+
+	void HKdf::DerivePKey(Scalar::Native& out, const Hash::Value& hv)
 	{
 		out.GenerateNonce(m_Secret.V, hv, NULL);
+	}
+
+	void HKdf::DerivePKey(Point::Native& out, const Hash::Value& hv)
+	{
+		Scalar::Native sk;
+		DeriveKey(sk, hv);
+		out = Context::get().G * sk;
+	}
+
+	void HKdfPub::DerivePKey(Scalar::Native& out, const Hash::Value& hv)
+	{
+		out.GenerateNonce(m_Secret.V, hv, NULL);
+	}
+
+	void HKdfPub::DerivePKey(Point::Native& out, const Hash::Value& hv)
+	{
+		Scalar::Native sk;
+		DerivePKey(sk, hv);
+		out = m_Pk * sk;
 	}
 
 	/////////////////////

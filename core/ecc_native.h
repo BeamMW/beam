@@ -434,6 +434,30 @@ namespace ECC
 		void operator >> (Value& hv) { Finalize(hv); }
 	};
 
+	struct HKdf
+		:public Key::IKdf
+	{
+		HKdf();
+
+		NoLeak<uintBig> m_Secret;
+		Scalar::Native m_kCoFactor;
+		// IPKdf
+		virtual void DerivePKey(Point::Native&, const Hash::Value&) override;
+		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+		// IKdf
+		virtual void DeriveKey(Scalar::Native&, const Hash::Value&) override;
+	};
+
+	struct HKdfPub
+		:public Key::IPKdf
+	{
+		NoLeak<uintBig> m_Secret;
+		Point::Native m_Pk;
+		// IPKdf
+		virtual void DerivePKey(Point::Native&, const Hash::Value&) override;
+		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+	};
+
 	struct Context
 	{
 		static const Context& get();

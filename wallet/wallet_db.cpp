@@ -790,7 +790,7 @@ namespace beam
                     throwIfError(ret, keychain->_db);
                 }
 
-				std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+				std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 
                 if (!keychain->getVar(WalletSeed, pKdf->m_Secret.V))
                 {
@@ -822,7 +822,7 @@ namespace beam
     Keychain::Keychain(const ECC::NoLeak<ECC::uintBig>& secretKey)
         : _db(nullptr)
     {
-		std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 		pKdf->m_Secret = secretKey;
 		m_pKdf = pKdf;
 	}

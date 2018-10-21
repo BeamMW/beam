@@ -198,21 +198,25 @@ namespace ECC
 				m_IdxSecondary = nIdxSecondary;
 				m_Type = type;
 			}
+
+			void get_Hash(Hash::Value&) const;
+		};
+
+		struct IPKdf
+		{
+			typedef std::shared_ptr<IPKdf> Ptr;
+
+			virtual void DerivePKey(Point::Native&, const Hash::Value&) = 0;
+			virtual void DerivePKey(Scalar::Native&, const Hash::Value&) = 0;
 		};
 
 		struct IKdf
+			:public IPKdf
 		{
 			typedef std::shared_ptr<IKdf> Ptr;
 
 			virtual void DeriveKey(Scalar::Native&, const Key::ID&);
 			virtual void DeriveKey(Scalar::Native&, const Hash::Value&) = 0;
-		};
-
-		struct Kdf
-			:public IKdf
-		{
-			NoLeak<uintBig> m_Secret;
-			virtual void DeriveKey(Scalar::Native&, const Hash::Value&) override;
 		};
 	};
 

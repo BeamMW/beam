@@ -55,7 +55,7 @@ void BaseNodeConnection::InitKdf()
 {
 	SecString seed(m_VM["wallet_seed"].as<std::string>());
 
-	std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+	std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 	pKdf->m_Secret.V = seed.hash().V;
 
 	m_pKdf = pKdf;

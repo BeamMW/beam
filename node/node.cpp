@@ -596,7 +596,7 @@ void Node::Initialize()
 			throw std::runtime_error("Mining enabled, but Kdf not specified!");
 
 		// use arbitrary, inited from system random. Needed for misc things, such as secure channel.
-		std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 		ECC::GenRandom(pKdf->m_Secret.V.m_pData, pKdf->m_Secret.V.nBytes);
 		m_Processor.m_pKdf = pKdf;
 	}

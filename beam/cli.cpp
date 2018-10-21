@@ -147,7 +147,7 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
 					if (node.m_Cfg.m_MiningThreads > 0)
 					{
-						std::shared_ptr<Key::Kdf> pKdf(new Key::Kdf);
+						std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 						node.get_Processor().m_pKdf = pKdf;
 
 						if (!beam::read_wallet_seed(pKdf->m_Secret, vm)) {

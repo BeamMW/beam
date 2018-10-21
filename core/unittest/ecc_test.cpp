@@ -866,6 +866,39 @@ void TestAES()
 	verify_test(!memcmp(pBuf, pBuf, sizeof(pPlaintext)));
 }
 
+void TestKdf()
+{
+	HKdf skdf;
+	HKdfPub pkdf;
+
+	SetRandom(skdf.m_Secret.V);
+	pkdf.m_Secret.V = skdf.m_Secret.V;
+
+	SetRandom(skdf.m_kCoFactor);
+	pkdf.m_Pk = Context::get().G * skdf.m_kCoFactor;
+
+	for (uint32_t i = 0; i < 10; i++)
+	{
+		Hash::Value hv;
+		Hash::Processor() << "test_kdf" << i >> hv;
+
+		Scalar::Native sk0, sk1;
+		skdf.DerivePKey(sk0, hv);
+		pkdf.DerivePKey(sk1, hv);
+		verify_test(Scalar(sk0) == Scalar(sk1));
+
+		skdf.DeriveKey(sk0, hv);
+		verify_test(Scalar(sk0) != Scalar(sk1));
+
+		Point::Native pk0, pk1;
+		skdf.DerivePKey(pk0, hv);
+		pkdf.DerivePKey(pk1, hv);
+		pk1 = -pk1;
+		pk0 += pk1;
+		verify_test(pk0 == Zero);
+	}
+}
+
 void TestBbs()
 {
 	Scalar::Native privateAddr, nonce;
@@ -1002,6 +1035,7 @@ void TestAll()
 	TestTransaction();
 	TestTransactionKernelConsuming();
 	TestAES();
+	TestKdf();
 	TestBbs();
 	TestDifficulty();
 }

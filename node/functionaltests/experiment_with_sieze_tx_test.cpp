@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
 	logLevel = LOG_LEVEL_VERBOSE;
 #endif
 	auto logger = Logger::create(logLevel, logLevel);
-	Key::Kdf kdf;
+	HKdf kdf;
 
 	NoLeak<uintBig> walletSeed;
 	Hash::Value hv;
