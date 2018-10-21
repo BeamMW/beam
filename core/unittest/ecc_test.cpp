@@ -82,13 +82,19 @@ void SetRandom(Scalar::Native& x)
 	}
 }
 
+template <typename T>
+void SetRandomOrd(T& x)
+{
+	GenerateRandom(&x, sizeof(x));
+}
+
 void TestUintBig()
 {
 	for (int i = 0; i < 100; i++)
 	{
 		uint32_t a, b;
-		GenerateRandom(&a, sizeof(a));
-		GenerateRandom(&b, sizeof(b));
+		SetRandomOrd(a);
+		SetRandomOrd(b);
 
 		uint64_t ab = a;
 		ab *= b;
@@ -254,7 +260,7 @@ void TestPoints()
 	for (int i = 0; i < 300; i++)
 	{
 		Amount val;
-		GenerateRandom(&val, sizeof(val));
+		SetRandomOrd(val);
 
 		p0 = Context::get().H * val; // via generator
 
@@ -467,9 +473,9 @@ void TestRangeProof()
 
 	RangeProof::Confidential bp;
 	RangeProof::Confidential::CreatorParams cp;
-	GenerateRandom(&cp.m_Kid.m_Idx, sizeof(cp.m_Kid.m_Idx));
-	GenerateRandom(&cp.m_Kid.m_IdxSecondary, sizeof(cp.m_Kid.m_IdxSecondary));
-	GenerateRandom(&cp.m_Kid.m_Type, sizeof(cp.m_Kid.m_Type));
+	SetRandomOrd(cp.m_Kid.m_Idx);
+	SetRandomOrd(cp.m_Kid.m_IdxSecondary);
+	SetRandomOrd(cp.m_Kid.m_Type);
 	SetRandom(cp.m_Seed.V);
 	cp.m_Value = 23110;
 
