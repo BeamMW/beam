@@ -289,27 +289,46 @@ namespace ECC
 
 			InnerProduct m_P_Tag; // contains commitment P - m_Mu*G
 
+			// Nonce generation policy for signing. There are two distinct nonce generators, both need to be initialized with seeds. One for value blinding and Key::ID embedding, and the other one that blinds the secret key.
+			// Seed for value and Key::ID is always specified explicitly, and should be deducible from the public Kdf and the commitment.
+			// Regaring the seed for secret keys:
+			//		In case of single-sig it's derived directly from the secret key itself.
+			//		In case of multi-sig it should be specified explicitly by the caller.
+			//			If it's guaranteed to be a single-usage key - the seed can be derived from the secret key (as with single-sig)
+			//			Otherwise - the seed *must* use external source of randomness.
+
 			struct CreatorParams
 			{
 				NoLeak<uintBig> m_Seed; // must be a function of the commitment and master secret
+				void InitSeed(Key::IPKdf&, const ECC::Point& comm);
+
 				Amount m_Value;
-				uint8_t m_pOpaque[sizeof(uintBig) - sizeof(Amount)];
+				Key::ID m_Kid;
+
+				bool IsRecovered(Key::IPKdf&) const;
 
 				struct Packed;
+				struct Padded;
 			};
 
-			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&);
+			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&); // single-pass
 			bool IsValid(const Point::Native&, Oracle&) const;
 			bool IsValid(const Point::Native&, Oracle&, InnerProduct::BatchContext&) const;
 
-			void Recover(Oracle&, CreatorParams&) const;
+			bool Recover(Oracle&, CreatorParams&) const;
 
 			int cmp(const Confidential&) const;
 			COMPARISON_VIA_CMP
 
 			// multisig
-			static void CoSignPart(const Scalar::Native& sk, Amount v, Part2&);
-			static void CoSignPart(const Scalar::Native& sk, Amount v, Oracle&, const Part1&, const Part2&, Part3&);
+			struct MultiSig
+			{
+				Scalar x, zz;
+				struct Impl;
+
+				static bool CoSignPart(const uintBig& seedSk, Part2&);
+				void CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Part3&) const;
+			};
 
 			struct Phase {
 				enum Enum {
@@ -320,11 +339,10 @@ namespace ECC
 				};
 			};
 
-			bool CoSign(const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum); // for multi-sig use 1,2,3 for 1st-pass
+			bool CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, MultiSig* pMsigOut = NULL); // for multi-sig use 1,2,3 for 1st-pass
 
 
 		private:
-			struct MultiSig;
 			struct ChallengeSet;
 		};
 

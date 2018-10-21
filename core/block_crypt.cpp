@@ -189,7 +189,7 @@ namespace beam
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
 
 			ECC::RangeProof::Confidential::CreatorParams cp;
-			ZeroObject(cp.m_pOpaque);
+			ZeroObject(cp.m_Kid);
 			cp.m_Value = v;
 			ECC::Hash::Processor() << k << m_Commitment >> cp.m_Seed.V;
 

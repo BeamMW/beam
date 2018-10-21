@@ -467,8 +467,9 @@ void TestRangeProof()
 
 	RangeProof::Confidential bp;
 	RangeProof::Confidential::CreatorParams cp;
-	GenerateRandom(cp.m_pOpaque, sizeof(cp.m_pOpaque));
-	cp.m_pOpaque[0] &= ~80; // make sure no leading bit, we shoud not exceed the max scalar value
+	GenerateRandom(&cp.m_Kid.m_Idx, sizeof(cp.m_Kid.m_Idx));
+	GenerateRandom(&cp.m_Kid.m_IdxSecondary, sizeof(cp.m_Kid.m_IdxSecondary));
+	GenerateRandom(&cp.m_Kid.m_Type, sizeof(cp.m_Kid.m_Type));
 	SetRandom(cp.m_Seed.V);
 	cp.m_Value = 23110;
 
@@ -489,8 +490,11 @@ void TestRangeProof()
 
 		bp.Recover(oracle, cp2);
 
-		verify_test(cp.m_Value == cp2.m_Value);
-		verify_test(!memcmp(cp.m_pOpaque, cp2.m_pOpaque, sizeof(cp.m_pOpaque)));
+		verify_test(
+			(cp.m_Value == cp2.m_Value) &&
+			(cp.m_Kid.m_Idx == cp2.m_Kid.m_Idx) &&
+			(cp.m_Kid.m_IdxSecondary == cp2.m_Kid.m_IdxSecondary) &&
+			(cp.m_Kid.m_Type == cp2.m_Kid.m_Type));
 	}
 
 	InnerProduct::BatchContextEx<2> bc;
@@ -522,49 +526,59 @@ void TestRangeProof()
 
 	{
 		// multi-signed bulletproof
-		Scalar::Native sk2;
-		SetRandom(sk2);
+		const uint32_t nSigners = 5;
 
-		// 1. peer(s) produces partial Part2
+		Scalar::Native pSk[nSigners];
+		uintBig pSeed[nSigners];
+
+		// 1st cycle. peers produce Part2
 		RangeProof::Confidential::Part2 p2;
+		ZeroObject(p2);
+
+		RangeProof::Confidential::MultiSig msig;
+
+		for (uint32_t i = 0; i < nSigners; i++)
 		{
-			Oracle oracle;
-			RangeProof::Confidential::CoSignPart(sk2, cp.m_Value, p2);
+			SetRandom(pSk[i]);
+			SetRandom(pSeed[i]);
+
+			if (i + 1 < nSigners)
+				verify_test(RangeProof::Confidential::MultiSig::CoSignPart(pSeed[i], p2)); // p2 aggregation
+			else
+			{
+				Oracle oracle;
+				bp.m_Part2 = p2;
+				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Step2, &msig)); // add last p2, produce msig
+				p2 = bp.m_Part2;
+			}
 		}
 
-		// 2. Signer advances, produces final Part1 and Part2
-		RangeProof::Confidential::Part1 p1;
-		{
-			Oracle oracle;
-			bp.m_Part2 = p2;
-			verify_test(bp.CoSign(sk, cp, oracle, RangeProof::Confidential::Phase::Step2));
-			p1 = bp.m_Part1;
-			p2 = bp.m_Part2;
-		}
-
-		// 3. peer(s) produces partial Part3
+		// 2nd cycle. Peers produce Part3, commitment is aggregated too
 		RangeProof::Confidential::Part3 p3;
+		ZeroObject(p3);
+
+		comm = Context::get().H * cp.m_Value;
+
+		for (uint32_t i = 0; i < nSigners; i++)
 		{
-			Oracle oracle;
-			RangeProof::Confidential::CoSignPart(sk2, cp.m_Value, oracle, p1, p2, p3);
+			comm += Context::get().G * pSk[i];
+
+			if (i + 1 < nSigners)
+				msig.CoSignPart(pSeed[i], pSk[i], p3);
+			else
+			{
+				Oracle oracle;
+				bp.m_Part2 = p2;
+				bp.m_Part3 = p3;
+				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Finalize));
+			}
 		}
 
-		// 4. Signer finalizes
-		{
-			Oracle oracle;
-			bp.m_Part2 = p2;
-			bp.m_Part3 = p3;
-			verify_test(bp.CoSign(sk, cp, oracle, RangeProof::Confidential::Phase::Finalize));
-		}
-
-		// Final UTXO commitment
-		Point::Native comm2 = comm;
-		comm2 += Context::get().G * sk2;
 
 		{
 			// test
 			Oracle oracle;
-			verify_test(bp.IsValid(comm2, oracle));
+			verify_test(bp.IsValid(comm, oracle));
 		}
 	}
 
@@ -1386,7 +1400,7 @@ void RunBenchmark()
 
 	RangeProof::Confidential bp;
 	RangeProof::Confidential::CreatorParams cp;
-	ZeroObject(cp.m_pOpaque);
+	ZeroObject(cp.m_Kid);
 	SetRandom(cp.m_Seed.V);
 	cp.m_Value = 23110;
 

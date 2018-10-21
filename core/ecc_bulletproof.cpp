@@ -540,15 +540,22 @@ namespace ECC {
 	// Bulletproof
 	void RangeProof::Confidential::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle)
 	{
-		verify(CoSign(sk, cp, oracle, Phase::SinglePass));
+		// single-pass - use deterministic seed for key blinding.
+		// For more safety - use the current oracle state
+
+		Oracle o(oracle); // copy
+		NoLeak<uintBig> seedSk;
+		o << sk << cp.m_Value >> seedSk.V;
+
+		verify(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass));
 	}
 
-	struct RangeProof::Confidential::MultiSig
+	struct RangeProof::Confidential::MultiSig::Impl
 	{
 		Scalar::Native m_tau1;
 		Scalar::Native m_tau2;
 
-		void Init(const Scalar::Native& sk, Amount v);
+		void Init(const uintBig& seedSk);
 
 		void AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const;
 		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet&) const;
@@ -561,13 +568,24 @@ namespace ECC {
 		void Init(const Part2&, Oracle&);
 	};
 
+#pragma pack (push, 1)
 	struct RangeProof::Confidential::CreatorParams::Packed
 	{
-		uint8_t m_pOpaque[sizeof(uintBig) - sizeof(Amount)];
+		beam::uintBigFor<uint64_t>::Type m_Idx;
+		beam::uintBigFor<uint64_t>::Type m_Idx2;
 		beam::uintBigFor<Amount>::Type m_Value;
+		beam::uintBigFor<uint32_t>::Type m_Type;
 	};
 
-	bool RangeProof::Confidential::CoSign(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase)
+	struct RangeProof::Confidential::CreatorParams::Padded
+	{
+		uint8_t m_Padding[sizeof(Scalar) - sizeof(Packed)];
+		Packed V;
+	};
+
+#pragma pack (pop)
+
+	bool RangeProof::Confidential::CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, MultiSig* pMsigOut /* = NULL */)
 	{
 		NonceGenerator nonceGen;
 		nonceGen.m_Seed = cp.m_Seed;
@@ -577,14 +595,16 @@ namespace ECC {
 		nonceGen >> alpha;
 
 		// embed extra params into alpha
-		NoLeak<CreatorParams::Packed> packed;
-		packed.V.m_Value = cp.m_Value;
+		static_assert(sizeof(CreatorParams::Packed) < sizeof(Scalar), "");
+		static_assert(sizeof(CreatorParams::Padded) == sizeof(Scalar), "");
+		NoLeak<CreatorParams::Padded> pad;
+		ZeroObject(pad.V.m_Padding);
+		pad.V.V.m_Idx = cp.m_Kid.m_Idx;
+		pad.V.V.m_Idx2 = cp.m_Kid.m_IdxSecondary;
+		pad.V.V.m_Type = static_cast<uint32_t>(cp.m_Kid.m_Type);
+		pad.V.V.m_Value = cp.m_Value;
 
-		static_assert(sizeof(cp.m_pOpaque) == sizeof(packed.V.m_pOpaque), "");
-		memcpy(packed.V.m_pOpaque, cp.m_pOpaque, sizeof(packed.V.m_pOpaque));
-
-		static_assert(sizeof(CreatorParams::Packed) == sizeof(Scalar), "");
-		verify(!ro.Import((Scalar&) packed.V)); // if overflow - the params won't be recovered properly, there may be ambiguity
+		verify(!ro.Import((Scalar&) pad.V)); // if overflow - the params won't be recovered properly, there may be ambiguity
 
 		alpha += ro;
 
@@ -674,8 +694,8 @@ namespace ECC {
 			t2 += lx * rx;
 		}
 
-		MultiSig msig;
-		msig.Init(sk, cp.m_Value);
+		MultiSig::Impl msig;
+		msig.Init(seedSk);
 
 		if (Phase::Finalize != ePhase) // otherwise m_Part2 already contains the whole aggregate
 		{
@@ -701,10 +721,16 @@ namespace ECC {
 			m_Part2.m_T2 = comm2;
 		}
 
+		cs.Init(m_Part2, oracle); // get challenge 
+
+		if (pMsigOut)
+		{
+			pMsigOut->x = cs.x;
+			pMsigOut->zz = cs.zz;
+		}
+
 		if (Phase::Step2 == ePhase)
 			return true; // stop after T1,T2 calculated
-
-		cs.Init(m_Part2, oracle); // get challenge 
 
 		// m_TauX = tau2*x^2 + tau1*x + sk*z^2
 		msig.AddInfo2(l0, sk, cs);
@@ -775,7 +801,7 @@ namespace ECC {
 		return true;
 	}
 
-	void RangeProof::Confidential::Recover(Oracle& oracle, CreatorParams& cp) const
+	bool RangeProof::Confidential::Recover(Oracle& oracle, CreatorParams& cp) const
 	{
 		NonceGenerator nonceGen;
 		nonceGen.m_Seed = cp.m_Seed;
@@ -798,32 +824,37 @@ namespace ECC {
 		alpha_minus_params = -alpha_minus_params;
 		alpha_minus_params += m_Mu;
 
-		CreatorParams::Packed packed;
-		static_assert(sizeof(CreatorParams::Packed) == sizeof(Scalar), "");
-		((Scalar&) packed) = alpha_minus_params;
+		CreatorParams::Padded pad;
+		static_assert(sizeof(CreatorParams::Padded) == sizeof(Scalar), "");
+		((Scalar&) pad) = alpha_minus_params;
 
-		packed.m_Value.Export(cp.m_Value);
+		if (!memis0(pad.m_Padding, sizeof(pad.m_Padding)))
+			return false;
 
-		static_assert(sizeof(cp.m_pOpaque) == sizeof(packed.m_pOpaque), "");
-		memcpy(cp.m_pOpaque, packed.m_pOpaque, sizeof(packed.m_pOpaque));
+		pad.V.m_Idx.Export(cp.m_Kid.m_Idx);
+		pad.V.m_Idx2.Export(cp.m_Kid.m_IdxSecondary);
+		pad.V.m_Type.Export(reinterpret_cast<uint32_t&>(cp.m_Kid.m_Type));
+		pad.V.m_Value.Export(cp.m_Value);
+
+		return true;
 	}
 
-	void RangeProof::Confidential::MultiSig::Init(const Scalar::Native& sk, Amount v)
+	void RangeProof::Confidential::MultiSig::Impl::Init(const uintBig& seedSk)
 	{
 		NonceGenerator nonceGen;
-		Hash::Processor() << sk << v >> nonceGen.m_Seed.V;
+		nonceGen.m_Seed.V = seedSk;
 
 		nonceGen >> m_tau1;
 		nonceGen >> m_tau2;
 	}
 
-	void RangeProof::Confidential::MultiSig::AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const
+	void RangeProof::Confidential::MultiSig::Impl::AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const
 	{
 		ptT1 = Context::get().G * m_tau1;
 		ptT2 = Context::get().G * m_tau2;
 	}
 
-	void RangeProof::Confidential::MultiSig::AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet& cs) const
+	void RangeProof::Confidential::MultiSig::Impl::AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet& cs) const
 	{
 		// m_TauX = tau2*x^2 + tau1*x + sk*z^2
 		taux = m_tau2;
@@ -839,29 +870,41 @@ namespace ECC {
 		taux += t1;
 	}
 
-	void RangeProof::Confidential::CoSignPart(const Scalar::Native& sk, Amount v, Part2& p2)
+	bool RangeProof::Confidential::MultiSig::CoSignPart(const uintBig& seedSk, Part2& p2)
 	{
-		MultiSig msig;
-		msig.Init(sk, v);
+		Impl msig;
+		msig.Init(seedSk);
 
 		Point::Native ptT1, ptT2;
 		msig.AddInfo1(ptT1, ptT2);
-		p2.m_T1 = ptT1;
-		p2.m_T2 = ptT2;
+
+		Point::Native pt;
+		if (!pt.Import(p2.m_T1))
+			return false;
+		pt += ptT1;
+		p2.m_T1 = pt;
+
+		if (!pt.Import(p2.m_T2))
+			return false;
+		pt += ptT2;
+		p2.m_T2 = pt;
+
+		return true;
 	}
 
-	void RangeProof::Confidential::CoSignPart(const Scalar::Native& sk, Amount v, Oracle& oracle, const Part1& p1, const Part2& p2, Part3& p3)
+	void RangeProof::Confidential::MultiSig::CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Part3& p3) const
 	{
-		MultiSig msig;
-		msig.Init(sk, v);
+		Impl msig;
+		msig.Init(seedSk);
 
 		ChallengeSet cs;
-		cs.Init(p1, oracle);
-		cs.Init(p2, oracle);
+		cs.x = x;
+		cs.zz = zz;
 
 		Scalar::Native taux;
 		msig.AddInfo2(taux, sk, cs);
 
+		taux += Scalar::Native(p3.m_TauX);
 		p3.m_TauX = taux;
 	}
 
