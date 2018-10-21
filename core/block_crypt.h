@@ -526,7 +526,7 @@ namespace beam
 		Kernel,
 		Regular,
 		Identity,
-		SChannelNonce
+		Nonce,
 	};
 	void DeriveKey(ECC::Scalar::Native&, const ECC::Kdf&, Height, KeyType, uint32_t nIdx = 0);
 	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height = 0, uint32_t nIdx = 0);

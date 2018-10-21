@@ -847,8 +847,21 @@ namespace beam
     {
         assert(coin.m_key_type != KeyType::Regular || coin.m_id > 0);
         ECC::Scalar::Native key;
-        // For coinbase and free commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
-        DeriveKey(key, m_kdf, coin.m_createHeight, coin.m_key_type, (coin.m_key_type == KeyType::Regular) ? static_cast<uint32_t>(coin.m_id) : 0); 
+
+        // For coinbase and fee commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
+		uint32_t nIdx;
+		switch (coin.m_key_type)
+		{
+		case KeyType::Coinbase:
+		case KeyType::Comission:
+			nIdx = 0;
+			break;
+
+		default:
+			nIdx = static_cast<uint32_t>(coin.m_id);
+		}
+
+        DeriveKey(key, m_kdf, coin.m_createHeight, coin.m_key_type, nIdx); 
         return key;
     }
 
