@@ -368,7 +368,7 @@ namespace ECC
 		//		This isn't a problem for our case, but should be taken into consideration if used in other schemes.
 		// 2. Private Key leak. If the same message signed with the same key but co-signers use different nonces (altering the challenge) - there's a potential for key leak. 
 		//		This is indeed the case if the nonce is generated from the secret key and the message only.
-		//		In order to prevent this the signed **MUST**  use an additional source of randomness, and make sure it's different for every ritual.
+		//		In order to prevent this the signer **MUST**  use an additional source of randomness, and make sure it's different for every ritual.
 
 		void SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const;
 	};
