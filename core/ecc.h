@@ -305,8 +305,6 @@ namespace ECC
 				Amount m_Value;
 				Key::ID m_Kid;
 
-				bool IsRecovered(Key::IPKdf&) const;
-
 				struct Packed;
 				struct Padded;
 			};

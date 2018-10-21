@@ -613,6 +613,7 @@ void TestRangeProof()
 struct TransactionMaker
 {
 	beam::Transaction m_Trans;
+	HKdf m_Kdf;
 
 	TransactionMaker()
 	{
@@ -658,13 +659,28 @@ struct TransactionMaker
 			m_k += k;
 		}
 
-		void AddOutput(beam::Transaction& t, Amount val)
+		void AddOutput(beam::Transaction& t, Amount val, Key::IKdf& kdf)
 		{
 			std::unique_ptr<beam::Output> pOut(new beam::Output);
 
 			Scalar::Native k;
-			SetRandom(k);
-			pOut->Create(k, val);
+
+			Key::ID kid;
+			SetRandomOrd(kid.m_Idx);
+			SetRandomOrd(kid.m_IdxSecondary);
+			kid.m_Type = Key::Type::Regular;
+
+			pOut->Create(k, val, kdf, kid);
+
+			// test recovery
+			Key::ID kid2;
+			Amount val2;
+			verify_test(pOut->Recover(kdf, kid2, val2));
+			verify_test(
+				(val2 == val) &&
+				(kid2.m_Idx == kid.m_Idx) &&
+				(kid2.m_IdxSecondary == kid.m_IdxSecondary) &&
+				(kid2.m_Type == kid.m_Type));
 
 			t.m_vOutputs.push_back(std::move(pOut));
 
@@ -758,7 +774,7 @@ struct TransactionMaker
 
 	void AddOutput(int i, Amount val)
 	{
-		m_pPeers[i].AddOutput(m_Trans, val);
+		m_pPeers[i].AddOutput(m_Trans, val, m_Kdf);
 	}
 };
 

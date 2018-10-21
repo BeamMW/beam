@@ -215,12 +215,20 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		void Create(const ECC::Scalar::Native&, Amount, bool bPublic = false);
+		void Create(ECC::Scalar::Native&, Amount, Key::IKdf&, const Key::ID&);
+
+		bool Recover(Key::IPKdf&, Key::ID&, Amount&) const;
+
 		bool IsValid(ECC::Point::Native& comm) const;
 		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden
 
 		void operator = (const Output&);
 		int cmp(const Output&) const;
 		COMPARISON_VIA_CMP
+
+	private:
+		void CreateInternal(const ECC::Scalar::Native&, Amount, bool bPublic, Key::IKdf*, const Key::ID*);
+		void get_SeedKid(ECC::uintBig&, Key::IPKdf&) const;
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }

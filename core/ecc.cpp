@@ -1144,6 +1144,7 @@ namespace ECC {
 	void Key::ID::get_Hash(Hash::Value& hv) const
 	{
 		Hash::Processor()
+			<< "kid"
 			<< m_Idx
 			<< m_IdxSecondary
 			<< static_cast<uint32_t>(m_Type)
