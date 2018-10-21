@@ -1171,15 +1171,6 @@ namespace ECC {
 		Oracle() << pt << msg >> out;
 	}
 
-	void Signature::MultiSig::GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk)
-	{
-		NoLeak<Scalar> sk_;
-		sk_.V = sk;
-
-		m_Nonce.GenerateNonce(sk_.V.m_Value, msg, NULL);
-		m_NoncePub = Context::get().G * m_Nonce;
-	}
-
 	void Signature::MultiSig::SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const
 	{
 		get_Challenge(k, m_NoncePub, msg);
@@ -1192,7 +1183,8 @@ namespace ECC {
 	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
 	{
 		MultiSig msig;
-		msig.GenerateNonce(msg, sk);
+		msig.m_Nonce.GenerateNonce(sk, msg, NULL);
+		msig.m_NoncePub = Context::get().G * msig.m_Nonce;
 
 		Scalar::Native k;
 		msig.SignPartial(k, msg, sk);

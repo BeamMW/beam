@@ -363,7 +363,13 @@ namespace ECC
 		Scalar::Native	m_Nonce;	// specific signer
 		Point::Native	m_NoncePub;	// sum of all co-signers
 
-		void GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk);
+		//	NOTE: Schnorr's multisig should be used carefully. If done naively it has the following potential weaknesses:
+		//	1. Key cancellation. (The attacker may exclude you and actually create a signature for its private key).
+		//		This isn't a problem for our case, but should be taken into consideration if used in other schemes.
+		// 2. Private Key leak. If the same message signed with the same key but co-signers use different nonces (altering the challenge) - there's a potential for key leak. 
+		//		This is indeed the case if the nonce is generated from the secret key and the message only.
+		//		In order to prevent this the signed **MUST**  use an additional source of randomness, and make sure it's different for every ritual.
+
 		void SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const;
 	};
 

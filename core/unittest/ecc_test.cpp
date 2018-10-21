@@ -658,12 +658,8 @@ struct TransactionMaker
 
 	void CoSignKernel(beam::TxKernel& krn, const Hash::Value& hvLockImage)
 	{
-		Hash::Value msg0;
-		krn.m_Excess = Zero;
-		krn.get_ID(msg0, &hvLockImage); // not a real ID, since we added excess to it now, which is not known yet.
-		// But it's ok, it's used only for nonce generation
-
 		// 1st pass. Public excesses and Nonces are summed.
+		Scalar::Native pX[_countof(m_pPeers)];
 		Scalar::Native offset(m_Trans.m_Offset);
 
 		Point::Native xG(Zero), kG(Zero);
@@ -671,19 +667,18 @@ struct TransactionMaker
 		for (size_t i = 0; i < _countof(m_pPeers); i++)
 		{
 			Peer& p = m_pPeers[i];
-			p.FinalizeExcess(xG, offset);
+			p.FinalizeExcess(kG, offset);
 
-			Signature::MultiSig msig;
-			msig.GenerateNonce(msg0, p.m_k);
-
-			kG += Context::get().G * msig.m_Nonce;
+			SetRandom(pX[i]);
+			xG += Context::get().G * pX[i];
 		}
 
 		m_Trans.m_Offset = offset;
-		krn.m_Excess = xG;
 
-		Hash::Value msg1;
-		krn.get_ID(msg1, &hvLockImage);
+		krn.m_Excess = kG;
+
+		Hash::Value msg;
+		krn.get_ID(msg, &hvLockImage);
 
 		// 2nd pass. Signing. Total excess is the signature public key.
 		Scalar::Native kSig = Zero;
@@ -693,18 +688,18 @@ struct TransactionMaker
 			Peer& p = m_pPeers[i];
 
 			Signature::MultiSig msig;
-			msig.GenerateNonce(msg0, p.m_k);
-			msig.m_NoncePub = kG;
+			msig.m_Nonce = pX[i];
+			msig.m_NoncePub = xG;
 
 			Scalar::Native k;
-			msig.SignPartial(k, msg1, p.m_k);
+			msig.SignPartial(k, msg, p.m_k);
 
 			kSig += k;
 
 			p.m_k = Zero; // signed, prepare for next tx
 		}
 
-		krn.m_Signature.m_NoncePub = kG;
+		krn.m_Signature.m_NoncePub = xG;
 		krn.m_Signature.m_k = kSig;
 	}
 
