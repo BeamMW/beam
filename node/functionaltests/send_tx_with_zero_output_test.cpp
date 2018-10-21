@@ -68,7 +68,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		m_IsInit = true;
 
 		m_Generator.GenerateInputInTx(msg.m_Description.m_Height - 70, Rules::get().CoinbaseEmission);
-		m_Generator.GenerateOutputInTx(msg.m_Description.m_Height - 70, 0, KeyType::Regular, false);
+		m_Generator.GenerateOutputInTx(msg.m_Description.m_Height - 70, 0, Key::Type::Regular, false);
 		m_Generator.GenerateKernel(msg.m_Description.m_Height - 70, Rules::get().CoinbaseEmission);
 		m_Generator.Sort();
 		Send(m_Generator.GetTransaction());

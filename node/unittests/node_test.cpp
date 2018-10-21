@@ -470,7 +470,7 @@ namespace beam
 		typedef std::multimap<Height, MyUtxo> UtxoQueue;
 		UtxoQueue m_MyUtxos;
 
-		const MyUtxo* AddMyUtxo(Amount n, Height h, KeyType eType)
+		const MyUtxo* AddMyUtxo(Amount n, Height h, Key::Type eType)
 		{
 			if (!n)
 				return NULL;
@@ -482,7 +482,7 @@ namespace beam
 			utxo.m_Key = key;
 			utxo.m_Value = n;
 
-			h += (KeyType::Coinbase == eType) ? Rules::get().MaturityCoinbase : Rules::get().MaturityStd;
+			h += (Key::Type::Coinbase == eType) ? Rules::get().MaturityCoinbase : Rules::get().MaturityStd;
 
 			return &m_MyUtxos.insert(std::make_pair(h, utxo))->second;
 		}
@@ -554,7 +554,7 @@ namespace beam
 				MyUtxo utxoOut;
 				utxoOut.m_Value = utxo.m_Value - mk.m_Fee;
 
-				DeriveKey(k, m_Kdf, h, KeyType::Regular);
+				DeriveKey(k, m_Kdf, h, Key::Type::Regular);
 				utxoOut.m_Key = k;
 
 				utxoOut.ToOutput(*pTx, kOffset, hIncubation);
@@ -564,7 +564,7 @@ namespace beam
 
 			m_MyUtxos.erase(it);
 
-			DeriveKey(mk.m_k, m_Kdf, h, KeyType::Kernel, m_nKernelSubIdx++);
+			DeriveKey(mk.m_k, m_Kdf, h, Key::Type::Kernel, m_nKernelSubIdx++);
 
 			TxKernel::Ptr pKrn;
 			mk.Export(pKrn);
@@ -646,8 +646,8 @@ namespace beam
 
 			np.OnBlock(id, pBlock->m_Body, PeerID());
 
-			np.m_Wallet.AddMyUtxo(fees, h, KeyType::Comission);
-			np.m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, h, KeyType::Coinbase);
+			np.m_Wallet.AddMyUtxo(fees, h, Key::Type::Comission);
+			np.m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase);
 
 			blockChain.push_back(std::move(pBlock));
 		}
@@ -975,7 +975,7 @@ namespace beam
 				if (proto::IDType::Node == msg.m_IDType)
 				{
 					ECC::Scalar::Native sk;
-					DeriveKey(sk, m_Wallet.m_Kdf, 0, KeyType::Identity);
+					DeriveKey(sk, m_Wallet.m_Kdf, 0, Key::Type::Identity);
 					ProveID(sk, proto::IDType::Owner);
 				}
 			}
@@ -1046,7 +1046,7 @@ namespace beam
 				m_nBbsMsgsPending++;
 
 				// assume we've mined this
-				m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
+				m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, msg.m_Description.m_Height, Key::Type::Coinbase);
 
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
@@ -1193,7 +1193,7 @@ namespace beam
 		for (int i = 0; i < 10; i++)
 		{
 			const Amount val = Rules::Coin * 10;
-			const MiniWallet::MyUtxo& utxo = *cl.m_Wallet.AddMyUtxo(val, i, KeyType::Regular);
+			const MiniWallet::MyUtxo& utxo = *cl.m_Wallet.AddMyUtxo(val, i, Key::Type::Regular);
 			utxo.ToOutput(treasury, offset, i);
 			treasury.m_Subsidy += val;
 		}

@@ -62,7 +62,7 @@ void CoinsChecker::OnMsg(proto::Authentication&& msg)
     if (proto::IDType::Node == msg.m_IDType)
     {
         ECC::Scalar::Native sk;
-        DeriveKey(sk, m_Kdf, 0, KeyType::Identity);
+        DeriveKey(sk, m_Kdf, 0, Key::Type::Identity);
         ProveID(sk, proto::IDType::Owner);
     }
 }

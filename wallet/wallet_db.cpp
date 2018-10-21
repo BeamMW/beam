@@ -355,7 +355,7 @@ namespace beam
                 throwIfError(ret, _db);
             }
 
-            void bind(int col, KeyType val)
+            void bind(int col, Key::Type val)
             {
                 int ret = sqlite3_bind_int(_stm, col, static_cast<int>(val));
                 throwIfError(ret, _db);
@@ -531,9 +531,9 @@ namespace beam
                 if (data) memcpy(blob, data, size);
             }
 
-            void get(int col, KeyType& type)
+            void get(int col, Key::Type& type)
             {
-                type = static_cast<KeyType>(sqlite3_column_int(_stm, col));
+                type = static_cast<Key::Type>(sqlite3_column_int(_stm, col));
             }
 
             void get(int col, string& str) // utf-8
@@ -610,7 +610,7 @@ namespace beam
         const int DbVersion = 5;
     }
 
-    Coin::Coin(const Amount& amount, Status status, const Height& createHeight, const Height& maturity, KeyType keyType, Height confirmHeight, Height lockedHeight)
+    Coin::Coin(const Amount& amount, Status status, const Height& createHeight, const Height& maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
         : m_id{ 0 }
         , m_amount{ amount }
         , m_status{ status }
@@ -625,14 +625,14 @@ namespace beam
     }
 
     Coin::Coin()
-        : Coin(0, Coin::Unspent, 0, MaxHeight, KeyType::Regular, MaxHeight)
+        : Coin(0, Coin::Unspent, 0, MaxHeight, Key::Type::Regular, MaxHeight)
     {
         assert(isValid());
     }
 
     bool Coin::isReward() const
     {
-        return m_key_type == KeyType::Coinbase || m_key_type == KeyType::Comission;
+        return m_key_type == Key::Type::Coinbase || m_key_type == Key::Type::Comission;
     }
 
     bool Coin::isValid() const
@@ -845,15 +845,15 @@ namespace beam
 
     ECC::Scalar::Native Keychain::calcKey(const beam::Coin& coin) const
     {
-        assert(coin.m_key_type != KeyType::Regular || coin.m_id > 0);
+        assert(coin.m_key_type != Key::Type::Regular || coin.m_id > 0);
         ECC::Scalar::Native key;
 
         // For coinbase and fee commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
 		uint32_t nIdx;
 		switch (coin.m_key_type)
 		{
-		case KeyType::Coinbase:
-		case KeyType::Comission:
+		case Key::Type::Coinbase:
+		case Key::Type::Comission:
 			nIdx = 0;
 			break;
 
@@ -867,7 +867,7 @@ namespace beam
 
     void Keychain::get_IdentityKey(ECC::Scalar::Native& sk) const
     {
-        DeriveKey(sk, m_kdf, 0, KeyType::Identity);
+        DeriveKey(sk, m_kdf, 0, Key::Type::Identity);
     }
 
     vector<beam::Coin> Keychain::selectCoins(const Amount& amount, bool lock)
@@ -1014,8 +1014,8 @@ namespace beam
     void Keychain::storeImpl(Coin& coin)
     {
         assert(coin.m_amount > 0 && coin.isValid());
-        if (coin.m_key_type == KeyType::Coinbase
-            || coin.m_key_type == KeyType::Comission)
+        if (coin.m_key_type == Key::Type::Coinbase
+            || coin.m_key_type == Key::Type::Comission)
         {
             const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createHeight=?1 AND key_type=?2;";
             sqlite::Statement stm(_db, req);
@@ -1261,8 +1261,8 @@ namespace beam
             const char* req = "DELETE FROM " STORAGE_NAME " WHERE createHeight >?1 AND (key_type=?2 OR key_type=?3);";
             sqlite::Statement stm(_db, req);
             stm.bind(1, minHeight);
-            stm.bind(2, KeyType::Coinbase);
-            stm.bind(3, KeyType::Comission);
+            stm.bind(2, Key::Type::Coinbase);
+            stm.bind(3, Key::Type::Comission);
             stm.step();
         }
 
@@ -1733,7 +1733,7 @@ namespace beam
             return total;
         }
 
-        Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType)
+        Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, Key::Type keyType)
         {
             auto currentHeight = keychain->getCurrentHeight();
             Amount total = 0;
@@ -1766,7 +1766,7 @@ namespace beam
             return total;
         }
 
-        Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType)
+        Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, Key::Type keyType)
         {
             Amount total = 0;
             keychain->visit([&total, &status, &keyType](const Coin& c)->bool

@@ -550,14 +550,14 @@ namespace beam
                                  , Coin::Unconfirmed
                                  , minedCoin.m_ID.m_Height
                                  , MaxHeight
-                                 , KeyType::Coinbase);
+                                 , Key::Type::Coinbase);
                 if (minedCoin.m_Fees > 0)
                 {
                     mined.emplace_back(minedCoin.m_Fees
                                      , Coin::Unconfirmed
                                      , minedCoin.m_ID.m_Height
                                      , MaxHeight
-                                     , KeyType::Comission);
+                                     , Key::Type::Comission);
                 }
                 lastKnownCoinHeight = minedCoin.m_ID.m_Height;
             }

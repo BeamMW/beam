@@ -548,7 +548,7 @@ namespace beam { namespace wallet
 		{
 			Coin c;
 			c.m_id = m_Tx.GetKeychain()->get_AutoIncrID();
-			c.m_key_type = KeyType::Nonce;
+			c.m_key_type = Key::Type::Nonce;
 
 			m_MultiSig.m_Nonce = m_Tx.GetKeychain()->calcKey(c);
 

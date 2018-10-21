@@ -40,7 +40,7 @@ namespace beam
            , Status status = Coin::Unspent
            , const Height& createHeight = 0
            , const Height& maturity = MaxHeight
-           , KeyType keyType = KeyType::Regular
+           , Key::Type keyType = Key::Type::Regular
            , Height confirmHeight = MaxHeight
            , Height lockedHeight = MaxHeight);
         Coin();
@@ -52,7 +52,7 @@ namespace beam
         Status m_status;
         Height m_createHeight;  // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
         Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
-        KeyType m_key_type;
+		Key::Type m_key_type;
         Height m_confirmHeight;
         Merkle::Hash m_confirmHash;
         Height m_lockedHeight;
@@ -289,8 +289,8 @@ namespace beam
         bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value);
 
         Amount getAvailable(beam::IKeyChain::Ptr keychain);
-        Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType);
+        Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, Key::Type keyType);
         Amount getTotal(beam::IKeyChain::Ptr keychain, Coin::Status status);
-        Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType);
+        Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, Key::Type keyType);
     }
 }

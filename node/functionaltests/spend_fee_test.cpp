@@ -143,7 +143,7 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 		{
 			isHaveFee = true;
 
-			m_FeeGenerator.GenerateInputInTx(mined.m_ID.m_Height, mined.m_Fees, KeyType::Comission);
+			m_FeeGenerator.GenerateInputInTx(mined.m_ID.m_Height, mined.m_Fees, Key::Type::Comission);
 			m_FeeGenerator.GenerateOutputInTx(mined.m_ID.m_Height + 1, mined.m_Fees);
 			m_FeeGenerator.GenerateKernel(mined.m_ID.m_Height + 1);
 

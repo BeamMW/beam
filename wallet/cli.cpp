@@ -64,15 +64,15 @@ namespace beam
         return os;
     }
 
-    std::ostream& operator<<(std::ostream& os, KeyType keyType)
+    std::ostream& operator<<(std::ostream& os, Key::Type keyType)
     {
         os << "[";
         switch (keyType)
         {
-        case KeyType::Coinbase: os << "Coinbase"; break;
-        case KeyType::Comission: os << "Commission"; break;
-        case KeyType::Kernel: os << "Kernel"; break;
-        case KeyType::Regular: os << "Regular"; break;
+        case Key::Type::Coinbase: os << "Coinbase"; break;
+        case Key::Type::Comission: os << "Commission"; break;
+        case Key::Type::Kernel: os << "Kernel"; break;
+        case Key::Type::Regular: os << "Regular"; break;
         default:
             assert(false && "Unknown key type");
         }
@@ -192,7 +192,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
     for (uint32_t i = 0; i < nCount; i++, h += dh)
     {
         Coin& coin = m_Coins[i];
-        coin.m_key_type = KeyType::Regular;
+        coin.m_key_type = Key::Type::Regular;
         coin.m_amount = v;
         coin.m_status = Coin::Unconfirmed;
         coin.m_createHeight = h + Rules::HeightGenesis;
@@ -218,7 +218,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
     // at least 1 kernel
     {
         Coin dummy; // not a coin actually
-        dummy.m_key_type = KeyType::Kernel;
+        dummy.m_key_type = Key::Type::Kernel;
         dummy.m_status = Coin::Unconfirmed;
 
         ECC::Scalar::Native k = m_pKeyChain->calcKey(dummy);
@@ -492,10 +492,10 @@ int main_impl(int argc, char* argv[])
                                 << "Unconfirmed..............." << PrintableAmount(wallet::getTotal(keychain, Coin::Unconfirmed)) << '\n'
                                 << "Locked...................." << PrintableAmount(wallet::getTotal(keychain, Coin::Locked)) << '\n'
                                 << "Draft....................." << PrintableAmount(wallet::getTotal(keychain, Coin::Draft)) << '\n'
-                                << "Available coinbase ......." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
-                                << "Total coinbase............" << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
-                                << "Avaliable fee............." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
-                                << "Total fee................." << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
+                                << "Available coinbase ......." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, Key::Type::Coinbase)) << '\n'
+                                << "Total coinbase............" << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, Key::Type::Coinbase)) << '\n'
+                                << "Avaliable fee............." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, Key::Type::Comission)) << '\n'
+                                << "Total fee................." << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, Key::Type::Comission)) << '\n'
                                 << "Total unspent............." << PrintableAmount(wallet::getTotal(keychain, Coin::Unspent)) << "\n\n";
                             if (vm.count(cli::TX_HISTORY))
                             {

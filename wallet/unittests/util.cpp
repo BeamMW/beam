@@ -84,7 +84,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 	for (uint32_t i = 0; i < nCount; i++, h += dh)
 	{
 		Coin& coin = m_Coins[i];
-		coin.m_key_type = KeyType::Regular;
+		coin.m_key_type = Key::Type::Regular;
 		coin.m_amount = Rules::Coin * 10;
 		coin.m_status = Coin::Unconfirmed;
 		coin.m_createHeight = h + Rules::HeightGenesis;
@@ -110,7 +110,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 	// at least 1 kernel
 	{
 		Coin dummy; // not a coin actually
-		dummy.m_key_type = KeyType::Kernel;
+		dummy.m_key_type = Key::Type::Kernel;
 		dummy.m_status = Coin::Unconfirmed;
 
 		ECC::Scalar::Native k = m_pKeyChain->calcKey(dummy);

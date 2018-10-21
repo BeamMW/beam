@@ -650,7 +650,7 @@ void Node::InitIDs()
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, NULL, &blob);
 	}
 
-	DeriveKey(sk, m_Processor.m_Kdf, 0, KeyType::Identity);
+	DeriveKey(sk, m_Processor.m_Kdf, 0, Key::Type::Identity);
 	proto::Sk2Pk(m_MyOwnerID, sk);
 }
 

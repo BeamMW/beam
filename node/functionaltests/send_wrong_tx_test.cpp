@@ -394,10 +394,10 @@ void TestNodeConnection::GenerateTests()
 		TxGenerator gen(m_Kdf);
 
 		// Inputs 
-		gen.GenerateInputInTx(17, 2, KeyType::Coinbase);
+		gen.GenerateInputInTx(17, 2, Key::Type::Coinbase);
 
 		// Outputs
-		gen.GenerateOutputInTx(17, 2, KeyType::Coinbase);
+		gen.GenerateOutputInTx(17, 2, Key::Type::Coinbase);
 
 		// Kernels
 		gen.GenerateKernel(17, 0);
@@ -420,7 +420,7 @@ void TestNodeConnection::GenerateTests()
 		gen.GenerateInputInTx(18, 0);
 
 		// Outputs
-		gen.GenerateOutputInTx(18, 0, KeyType::Regular, false);
+		gen.GenerateOutputInTx(18, 0, Key::Type::Regular, false);
 
 		// Kernels
 		gen.GenerateKernel(18, 0);
@@ -443,7 +443,7 @@ void TestNodeConnection::GenerateTests()
 		gen.GenerateInputInTx(19, 2);
 
 		// Outputs
-		gen.GenerateOutputInTx(19, 0, KeyType::Regular, false);
+		gen.GenerateOutputInTx(19, 0, Key::Type::Regular, false);
 
 		// Kernels
 		gen.GenerateKernel(19, 2);

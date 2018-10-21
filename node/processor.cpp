@@ -932,13 +932,13 @@ Timestamp NodeProcessor::get_MovingMedian()
 
 void NodeProcessor::DeriveKeys(const ECC::Kdf& kdf, Height h, Amount fees, ECC::Scalar::Native& kCoinbase, ECC::Scalar::Native& kFee, ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset)
 {
-	DeriveKey(kCoinbase, kdf, h, KeyType::Coinbase);
+	DeriveKey(kCoinbase, kdf, h, Key::Type::Coinbase);
 
 	kKernel = kCoinbase;
 
 	if (fees)
 	{
-		DeriveKey(kFee, kdf, h, KeyType::Comission);
+		DeriveKey(kFee, kdf, h, Key::Type::Comission);
 		kKernel += kFee;
 	}
 	else

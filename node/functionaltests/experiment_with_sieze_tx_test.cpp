@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
 	/*generator.GenerateInputInTx(1, Rules::get().CoinbaseEmission);
 	generator.GenerateInputInTx(1, Rules::get().CoinbaseEmission);*/
 	/*generator.GenerateOutputInTx(2, Rules::get().CoinbaseEmission);*/
-	generator.GenerateOutputInTx(2, 1, KeyType::Regular, false);
+	generator.GenerateOutputInTx(2, 1, Key::Type::Regular, false);
 	/*generator.GenerateOutputInTx(2, Rules::get().CoinbaseEmission);
 	generator.GenerateOutputInTx(2, Rules::get().CoinbaseEmission);*/
 	/*generator.GenerateKernel(2, Rules::get().CoinbaseEmission);*/

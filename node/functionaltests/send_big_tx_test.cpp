@@ -61,7 +61,7 @@ void TestNodeConnection::GenerateTests()
 		// Outputs
 		for (Amount i = 0; i < amount; ++i)
 		{
-			gen.GenerateOutputInTx(1, 1, beam::KeyType::Regular, true);
+			gen.GenerateOutputInTx(1, 1, beam::Key::Type::Regular, true);
 		}
 
 		// Kernels

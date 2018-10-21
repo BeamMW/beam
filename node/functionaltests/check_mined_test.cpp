@@ -86,7 +86,7 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 	proto::PerMined mined = msg.m_Entries.front();
 	
 	Scalar::Native key;
-	DeriveKey(key, m_Kdf, mined.m_ID.m_Height, KeyType::Coinbase);
+	DeriveKey(key, m_Kdf, mined.m_ID.m_Height, Key::Type::Coinbase);
 
 	Input input;
 	input.m_Commitment = Commitment(key, Rules::get().CoinbaseEmission);
