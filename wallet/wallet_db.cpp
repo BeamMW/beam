@@ -642,6 +642,25 @@ namespace beam
             && m_createHeight <= m_confirmHeight;
     }
 
+	uint64_t IKeyChain::get_AutoIncrID()
+	{
+		uintBigFor<uint64_t>::Type val;
+
+		const char* szParamName = "auto_id";
+
+		if (getVar(szParamName, val))
+			val.Inc();
+		else
+			val = 1U;
+
+		setVar(szParamName, val);
+		
+		uint64_t res;
+		val.Export(res);
+		return res;
+	}
+
+
     bool Keychain::isInitialized(const string& path)
     {
 #ifdef WIN32

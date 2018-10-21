@@ -174,6 +174,8 @@ namespace beam
 
         virtual bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) = 0;
         virtual bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) = 0;
+
+		uint64_t get_AutoIncrID();
     };
 
     class Keychain : public IKeyChain, public std::enable_shared_from_this<Keychain>
