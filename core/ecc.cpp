@@ -1127,6 +1127,13 @@ namespace ECC {
 		}
 	}
 
+	void Scalar::Native::GenerateNonce(const Scalar::Native& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
+	{
+		NoLeak<Scalar> sk_;
+		sk_.V = sk;
+		GenerateNonce(sk_.V.m_Value, msg, pMsg2, nAttempt);
+	}
+
 	void Kdf::DeriveKey(Scalar::Native& out, uint64_t nKeyIndex, uint32_t nFlags, uint32_t nExtra) const
 	{
 		// the msg hash is not secret

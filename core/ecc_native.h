@@ -100,6 +100,7 @@ namespace ECC
 		void Export(Scalar&) const;
 
 		void GenerateNonce(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt = 0);
+		void GenerateNonce(const Scalar::Native& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt = 0);
 	};
 
 	class Point::Native
