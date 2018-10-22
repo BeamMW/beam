@@ -215,9 +215,9 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		void Create(const ECC::Scalar::Native&, Amount, bool bPublic = false);
-		void Create(ECC::Scalar::Native&, Amount, Key::IKdf&, const Key::ID&);
+		void Create(ECC::Scalar::Native&, Key::IKdf&, const Key::IDV&);
 
-		bool Recover(Key::IPKdf&, Key::ID&, Amount&) const;
+		bool Recover(Key::IPKdf&, Key::IDV&) const;
 
 		bool IsValid(ECC::Point::Native& comm) const;
 		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden

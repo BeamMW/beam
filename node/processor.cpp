@@ -1068,7 +1068,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height 
 	{
 		Output::Ptr pOutp(new Output);
 		pOutp->m_Coinbase = true;
-		pOutp->Create(kKernel, Rules::get().CoinbaseEmission, bc.m_Kdf, Key::ID(h, Key::Type::Coinbase));
+		pOutp->Create(kKernel, bc.m_Kdf, Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
 
 		if (!HandleBlockElement(*pOutp, h, NULL, true))
 			return false;
@@ -1081,7 +1081,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height 
 		ECC::Scalar::Native sk;
 
 		Output::Ptr pOutp(new Output);
-		pOutp->Create(sk, bc.m_Fees, bc.m_Kdf, Key::ID(h, Key::Type::Comission));
+		pOutp->Create(sk, bc.m_Kdf, Key::IDV(bc.m_Fees, h, Key::Type::Comission));
 
 		if (!HandleBlockElement(*pOutp, h, NULL, true))
 			return false; // though should not happen!

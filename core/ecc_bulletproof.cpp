@@ -545,7 +545,7 @@ namespace ECC {
 
 		Oracle o(oracle); // copy
 		NoLeak<uintBig> seedSk;
-		o << sk << cp.m_Value >> seedSk.V;
+		o << sk << cp.m_Kidv.m_Value >> seedSk.V;
 
 		verify(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass));
 	}
@@ -599,10 +599,10 @@ namespace ECC {
 		static_assert(sizeof(CreatorParams::Padded) == sizeof(Scalar), "");
 		NoLeak<CreatorParams::Padded> pad;
 		ZeroObject(pad.V.m_Padding);
-		pad.V.V.m_Idx = cp.m_Kid.m_Idx;
-		pad.V.V.m_Idx2 = cp.m_Kid.m_IdxSecondary;
-		pad.V.V.m_Type = static_cast<uint32_t>(cp.m_Kid.m_Type);
-		pad.V.V.m_Value = cp.m_Value;
+		pad.V.V.m_Idx = cp.m_Kidv.m_Idx;
+		pad.V.V.m_Idx2 = cp.m_Kidv.m_IdxSecondary;
+		pad.V.V.m_Type = static_cast<uint32_t>(cp.m_Kidv.m_Type);
+		pad.V.V.m_Value = cp.m_Kidv.m_Value;
 
 		verify(!ro.Import((Scalar&) pad.V)); // if overflow - the params won't be recovered properly, there may be ambiguity
 
@@ -616,7 +616,7 @@ namespace ECC {
 
 			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 			{
-				uint32_t iBit = 1 & (cp.m_Value >> i);
+				uint32_t iBit = 1 & (cp.m_Kidv.m_Value >> i);
 
 				// protection against side-channel attacks
 				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet1_Minus[i], 0 == iBit);
@@ -667,7 +667,7 @@ namespace ECC {
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
-			uint32_t bit = 1 & (cp.m_Value >> i);
+			uint32_t bit = 1 & (cp.m_Kidv.m_Value >> i);
 
 			l0 = -cs.z;
 			if (bit)
@@ -767,7 +767,7 @@ namespace ECC {
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
-			uint32_t bit = 1 & (cp.m_Value >> i);
+			uint32_t bit = 1 & (cp.m_Kidv.m_Value >> i);
 
 			pS[0][i] *= cs.x;
 
@@ -831,13 +831,13 @@ namespace ECC {
 		if (!memis0(pad.m_Padding, sizeof(pad.m_Padding)))
 			return false;
 
-		pad.V.m_Idx.Export(cp.m_Kid.m_Idx);
-		pad.V.m_Idx2.Export(cp.m_Kid.m_IdxSecondary);
-		pad.V.m_Value.Export(cp.m_Value);
+		pad.V.m_Idx.Export(cp.m_Kidv.m_Idx);
+		pad.V.m_Idx2.Export(cp.m_Kidv.m_IdxSecondary);
+		pad.V.m_Value.Export(cp.m_Kidv.m_Value);
 
 		uint32_t val;
 		pad.V.m_Type.Export(val);
-		cp.m_Kid.m_Type = static_cast<Key::Type>(val);
+		cp.m_Kidv.m_Type = static_cast<Key::Type>(val);
 
 		return true;
 	}

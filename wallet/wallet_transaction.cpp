@@ -194,7 +194,7 @@ namespace beam { namespace wallet
                 Output::Ptr output = make_unique<Output>();
 
                 Scalar::Native blindingFactor;
-                output->Create(blindingFactor, c.m_amount, *m_Keychain->get_Kdf(), c.get_Kid());
+                output->Create(blindingFactor, *m_Keychain->get_Kdf(), c.get_Kidv());
 
                 outputs.push_back(move(output));
             }
@@ -519,7 +519,7 @@ namespace beam { namespace wallet
 
         Scalar::Native blindingFactor;
         Output::Ptr output = make_unique<Output>();
-        output->Create(blindingFactor, amount, *m_Tx.GetKeychain()->get_Kdf(), newUtxo.get_Kid());
+        output->Create(blindingFactor, *m_Tx.GetKeychain()->get_Kdf(), newUtxo.get_Kidv());
 
         auto[privateExcess, newOffset] = splitKey(blindingFactor, newUtxo.m_id);
         blindingFactor = -privateExcess;
