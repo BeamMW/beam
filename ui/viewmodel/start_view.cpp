@@ -98,7 +98,30 @@ namespace
 
 StartViewModel::StartViewModel()
 {
-
+    m_recoveryPhrases.push_back("void");
+    m_recoveryPhrases.push_back("come");
+    m_recoveryPhrases.push_back("effort");
+    m_recoveryPhrases.push_back("suffer");
+    m_recoveryPhrases.push_back("camp");
+    m_recoveryPhrases.push_back("survey");
+    m_recoveryPhrases.push_back("warrior");
+    m_recoveryPhrases.push_back("heavy");
+    m_recoveryPhrases.push_back("shoot");
+    m_recoveryPhrases.push_back("primary");
+    m_recoveryPhrases.push_back("clutch");
+    m_recoveryPhrases.push_back("crush");
+    //m_recoveryPhrases.push_back("open");
+    //m_recoveryPhrases.push_back("amazing");
+    //m_recoveryPhrases.push_back("screen");
+    //m_recoveryPhrases.push_back("patrol");
+    //m_recoveryPhrases.push_back("group");
+    //m_recoveryPhrases.push_back("space");
+    //m_recoveryPhrases.push_back("point");
+    //m_recoveryPhrases.push_back("ten");
+    //m_recoveryPhrases.push_back("exist");
+    //m_recoveryPhrases.push_back("slush");
+    //m_recoveryPhrases.push_back("involve");
+    //m_recoveryPhrases.push_back("unfold");
 }
 
 StartViewModel::~StartViewModel()
@@ -109,6 +132,11 @@ StartViewModel::~StartViewModel()
 bool StartViewModel::walletExists() const
 {
     return Keychain::isInitialized(AppModel::getInstance()->getSettings().getWalletStorage());
+}
+
+const QStringList& StartViewModel::getRecovertPhrases() const
+{
+    return m_recoveryPhrases;
 }
 
 void StartViewModel::setupLocalNode(int port, int miningThreads, bool generateGenesys)

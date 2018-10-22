@@ -94,5 +94,13 @@
         <file>controls/CustomSwitch.qml</file>
         <file>controls/CustomCheckBox.qml</file>
         <file>controls/CustomComboBox.qml</file>
+        <file>assets/copy-two-paper-sheets-interface-symbol.svg</file>
+        <file>assets/eye.svg</file>
+        <file>assets/icon-back.svg</file>
+        <file>assets/icon-print.svg</file>
+        <file>assets/icon-recovery.svg</file>
+        <file>assets/password.svg</file>
+        <file>assets/icon-next-blue.svg</file>
+        <file>controls/SecurityNote.qml</file>
     </qresource>
 </RCC>

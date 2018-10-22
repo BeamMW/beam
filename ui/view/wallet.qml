@@ -1,4 +1,4 @@
-import QtQuick 2.6
+import QtQuick 2.11
 import QtQuick.Controls 1.2
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
@@ -304,20 +304,14 @@ Item {
 
                 CustomButton {
                     text: qsTr("cancel")
-                    height: 38
-                    width: 122
                     palette.buttonText: Style.white
                     onClicked: root.state = "wallet";
                 }
 
                 CustomButton {
                     text: qsTr("Copy && Close")
-                    height: 38
-                    width: 162
                     palette.buttonText: Style.white
                     icon.source: "qrc:/assets/icon-copy.svg"
-                    icon.width: 16
-                    icon.height: 16
                     onClicked: {
                         viewModel.copyToClipboard(myAddressID.text);
                         viewModel.saveNewAddress();
@@ -683,15 +677,12 @@ Item {
                 spacing: 30
 
                 CustomButton {
-                    width: 122
                     text: qsTr("cancel")
-                    palette.buttonText: Style.white
                     icon.source: "qrc:/assets/icon-cancel.svg"
                     onClicked: root.state = "wallet"
                 }
 
                 CustomButton {
-                    width: 122
                     text: qsTr("send")
                     palette.buttonText: Style.marine
                     palette.button: Style.heliotrope
@@ -735,11 +726,7 @@ Item {
             CustomButton {
                 palette.button: Style.bright_sky_blue
                 palette.buttonText: Style.marine
-                height: 38
-                width: 122
                 icon.source: "qrc:/assets/icon-receive-blue.svg"
-                icon.height: 16
-                icon.width: 16
                 text: qsTr("receive")
 
                 onClicked: {
@@ -752,10 +739,6 @@ Item {
                 palette.button: Style.heliotrope
                 palette.buttonText: Style.marine
                 icon.source: "qrc:/assets/icon-send-blue.svg"
-                icon.height: 16
-                icon.width: 16
-                height: 38
-                width: 122
                 text: qsTr("send")
 
                 onClicked: root.state = "send"

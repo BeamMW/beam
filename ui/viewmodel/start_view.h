@@ -26,6 +26,7 @@ class StartViewModel : public QObject
     Q_OBJECT
 
     Q_PROPERTY(bool walletExists READ walletExists NOTIFY walletExistsChanged)
+    Q_PROPERTY(QStringList recoveryPhrases READ getRecovertPhrases NOTIFY recoveryPhrasesChanged)
 public:
 
     using DoneCallback = std::function<bool (beam::IKeyChain::Ptr db, const std::string& walletPass)>;
@@ -34,6 +35,7 @@ public:
     ~StartViewModel();
 
     bool walletExists() const;
+    const QStringList& getRecovertPhrases() const;
 
     Q_INVOKABLE void setupLocalNode(int port, int miningThreads, bool generateGenesys = false);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
@@ -43,8 +45,11 @@ public:
 signals:
     void walletExistsChanged();
     void generateGenesysyBlockChanged();
+    void recoveryPhrasesChanged();
 
 public slots:
     bool createWallet(const QString& seed, const QString& pass);
     bool openWallet(const QString& pass);
+private:
+    QStringList m_recoveryPhrases;
 };
