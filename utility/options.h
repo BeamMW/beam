@@ -50,7 +50,8 @@ namespace beam
         extern const char* LISTEN;
         extern const char* TREASURY;
         extern const char* TREASURY_BLOCK;
-        extern const char* INIT;
+		extern const char* RESYNC;
+		extern const char* INIT;
         extern const char* SEND;
         extern const char* INFO;
         extern const char* TX_HISTORY;

@@ -42,7 +42,6 @@ struct Node
 		std::vector<io::Address> m_Connect;
 
 		std::string m_sPathLocal;
-		ECC::NoLeak<ECC::uintBig> m_WalletKey;
 		NodeProcessor::Horizon m_Horizon;
 
 		bool m_RestrictMinedReportToOwner = true;
@@ -97,6 +96,9 @@ struct Node
 			// Our logic: decide when either examined enough peers, or timeout expires
 			uint32_t m_SrcPeers = 5;
 			uint32_t m_Timeout_ms = 10000;
+
+			bool m_ForceResync = false;
+
 		} m_Sync;
 
 		struct Dandelion
@@ -117,7 +119,6 @@ struct Node
 
 		Config()
 		{
-			m_WalletKey.V = Zero;
 			m_ControlState.m_Height = Rules::HeightGenesis - 1; // disabled
 		}
 
@@ -540,6 +541,8 @@ private:
 			Amount m_Fees;
 
 			std::shared_ptr<volatile bool> m_pStop;
+
+			ECC::Hash::Value m_hvNonceSeed; // immutable
 		};
 
 		void Initialize();

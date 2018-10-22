@@ -62,6 +62,22 @@ namespace beam
 
 #endif // WIN32
 
+	Blob::Blob(const ByteBuffer& bb)
+	{
+		if ((n = (uint32_t)bb.size()) != 0)
+			p = &bb.at(0);
+	}
+
+	void Blob::Export(ByteBuffer& x) const
+	{
+		if (n)
+		{
+			x.resize(n);
+			memcpy(&x.at(0), p, n);
+		}
+		else
+			x.clear();
+	}
 }
 
 namespace std

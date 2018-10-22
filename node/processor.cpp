@@ -31,16 +31,16 @@ NodeProcessor::Horizon::Horizon()
 {
 }
 
-void NodeProcessor::Initialize(const char* szPath)
+void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false */)
 {
 	m_DB.Open(szPath);
 
 	Merkle::Hash hv;
-	NodeDB::Blob blob(hv);
+	Blob blob(hv);
 
 	if (!m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob))
 	{
-		blob = NodeDB::Blob(Rules::get().Checksum);
+		blob = Blob(Rules::get().Checksum);
 		m_DB.ParamSet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	}
 	else
@@ -54,6 +54,9 @@ void NodeProcessor::Initialize(const char* szPath)
 	ZeroObject(m_Extra);
 	m_Extra.m_SubsidyOpen = true;
 
+	if (bResetCursor)
+		m_DB.ResetCursor();
+
 	InitCursor();
 
 	InitializeFromBlocks();
@@ -61,9 +64,12 @@ void NodeProcessor::Initialize(const char* szPath)
 	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, m_Horizon.m_Branching);
 	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height) Rules::get().MaxRollbackHeight);
 
-	NodeDB::Transaction t(m_DB);
-	TryGoUp();
-	t.Commit();
+	if (!bResetCursor)
+	{
+		NodeDB::Transaction t(m_DB);
+		TryGoUp();
+		t.Commit();
+	}
 }
 
 void NodeProcessor::InitCursor()
@@ -420,12 +426,12 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		if (bOk)
 		{
 			if (rbData.m_Inputs)
-				m_DB.SetStateRollback(sid.m_Row, NodeDB::Blob(&rbData.m_Buf.at(0), sizeof(RollbackData::Utxo) * rbData.m_Inputs));
+				m_DB.SetStateRollback(sid.m_Row, Blob(&rbData.m_Buf.at(0), sizeof(RollbackData::Utxo) * rbData.m_Inputs));
 			else
 			{
 				// make sure it's not empty, even if there were no inputs, this is how we distinguish processed blocks.
 				uint8_t zero = 0;
-				m_DB.SetStateRollback(sid.m_Row, NodeDB::Blob(&zero, 1));
+				m_DB.SetStateRollback(sid.m_Row, Blob(&zero, 1));
 
 			}
 
@@ -810,7 +816,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 	return ret;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob& block, const PeerID& peer)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const Blob& block, const PeerID& peer)
 {
 	OnBlockData();
 	if (block.n > Rules::get().MaxBodySize)
@@ -924,28 +930,6 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return vTs[vTs.size() >> 1];
 }
 
-void NodeProcessor::DeriveKeys(const ECC::Kdf& kdf, Height h, Amount fees, ECC::Scalar::Native& kCoinbase, ECC::Scalar::Native& kFee, ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset)
-{
-	DeriveKey(kCoinbase, kdf, h, KeyType::Coinbase);
-
-	kKernel = kCoinbase;
-
-	if (fees)
-	{
-		DeriveKey(kFee, kdf, h, KeyType::Comission);
-		kKernel += kFee;
-	}
-	else
-		kFee = Zero;
-
-	kKernel = -kKernel;
-
-	ECC::Scalar::Native k2;
-	ExtractOffset(kKernel, k2, h);
-
-	kOffset += k2;
-}
-
 bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, Height h)
 {
 	for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
@@ -1037,6 +1021,12 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 
 bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
 {
+	if (!m_pKdf)
+	{
+		LOG_WARNING() << "No Kdf. Can't generate blocks";
+		return false;
+	}
+
 	fees = 0;
 	size_t nBlockSize = 0;
 	size_t nAmount = 0;
@@ -1079,21 +1069,42 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 
 	LOG_INFO() << "GenerateNewBlock: size of block = " << nBlockSize << "; amount of tx = " << nAmount;
 
-	ECC::Scalar::Native kCoinbase, kFee, kKernel;
-	DeriveKeys(m_Kdf, h, fees, kCoinbase, kFee, kKernel, offset);
+	ECC::Scalar::Native kKernel;
+
+	{
+		Output::Ptr pOutp(new Output);
+		pOutp->m_Coinbase = true;
+		pOutp->Create(kKernel, Rules::get().CoinbaseEmission, *m_pKdf, Key::ID(h, Key::Type::Coinbase));
+
+		if (!HandleBlockElement(*pOutp, h, NULL, true))
+			return false;
+
+		res.m_vOutputs.push_back(std::move(pOutp));
+	}
 
 	if (fees)
 	{
+		ECC::Scalar::Native sk;
+
 		Output::Ptr pOutp(new Output);
-		pOutp->Create(kFee, fees);
+		pOutp->Create(sk, fees, *m_pKdf, Key::ID(h, Key::Type::Comission));
 
 		if (!HandleBlockElement(*pOutp, h, NULL, true))
 			return false; // though should not happen!
 
 		res.m_vOutputs.push_back(std::move(pOutp));
+
+		kKernel += sk;
 	}
 
 	{
+		kKernel = -kKernel;
+
+		ECC::Scalar::Native k2;
+		ExtractOffset(kKernel, k2, h);
+
+		offset += k2;
+
 		TxKernel::Ptr pKrn(new TxKernel);
 		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kKernel);
 
@@ -1105,17 +1116,6 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 			return false; // Will fail if kernel key duplicated!
 
 		res.m_vKernelsOutput.push_back(std::move(pKrn));
-	}
-
-	{
-		Output::Ptr pOutp(new Output);
-		pOutp->m_Coinbase = true;
-		pOutp->Create(kCoinbase, Rules::get().CoinbaseEmission, true);
-
-		if (!HandleBlockElement(*pOutp, h, NULL, true))
-			return false;
-
-		res.m_vOutputs.push_back(std::move(pOutp));
 	}
 
 	res.m_Subsidy += Rules::get().CoinbaseEmission;
@@ -1481,11 +1481,12 @@ void NodeProcessor::InitializeFromBlocks()
 
 	for (m_DB.EnumMacroblocks(ws); ws.MoveNext(); )
 	{
+		if (ws.m_Sid.m_Height > m_Cursor.m_ID.m_Height)
+			continue; //?
+
 		Block::Body::RW rw;
 		if (!OpenMacroblock(rw, ws.m_Sid))
 			continue;
-
-		if (ws.m_Sid.m_Height > m_Cursor.m_ID.m_Height)
 
 		LOG_INFO() << "Interpreting MB up to " << ws.m_Sid.m_Height << "...";
 

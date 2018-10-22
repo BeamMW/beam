@@ -25,8 +25,9 @@ class NodeModel : public QThread
 {
     Q_OBJECT
 public:
-    NodeModel(const ECC::NoLeak<ECC::uintBig>& seed);
+    NodeModel();
     ~NodeModel();
+	beam::Key::IKdf::Ptr m_pKdf;
 private:
     void run() override;
     void OnSyncProgress(int done, int total) override;
@@ -34,5 +35,4 @@ signals:
     void syncProgressUpdated(int done, int total);
 private: 
     std::weak_ptr<beam::io::Reactor> m_reactor;
-    ECC::NoLeak<ECC::uintBig> m_seed;
 };

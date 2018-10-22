@@ -220,22 +220,6 @@ void NodeDB::Recordset::get(int col, ByteBuffer& x)
 	b.Export(x);
 }
 
-NodeDB::Blob::Blob(const ByteBuffer& bb)
-{
-	if ((n = (uint32_t) bb.size()) != 0)
-		p = &bb.at(0);
-}
-
-void NodeDB::Blob::Export(ByteBuffer& x) const
-{
-	if (n)
-	{
-		x.resize(n);
-		memcpy(&x.at(0), p, n);
-	} else
-		x.clear();
-}
-
 const void* NodeDB::Recordset::get_BlobStrict(int col, uint32_t n)
 {
 	Blob x;
@@ -1640,6 +1624,18 @@ void NodeDB::SetDummyHeight(uint64_t rowid, Height h)
 	rs.put(1, rowid);
 	rs.Step();
 	TestChanged1Row();
+}
+
+void NodeDB::ResetCursor()
+{
+	Recordset rs(*this, Query::UnactivateAll, "UPDATE " TblStates " SET " TblStates_Flags "=" TblStates_Flags " & ?");
+	rs.put(0, ~uint32_t(StateFlags::Active));
+	rs.Step();
+
+	StateID sid;
+	sid.m_Row = 0;
+	sid.m_Height = Rules::HeightGenesis - 1;
+	put_Cursor(sid);
 }
 
 } // namespace beam

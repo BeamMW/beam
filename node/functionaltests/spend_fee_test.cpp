@@ -50,8 +50,8 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	, m_IsNeedToCheckFee(false)
 	, m_IsNewToCheckSpending(false)
 	, m_Counter(0)
-	, m_Generator(m_Kdf)
-	, m_FeeGenerator(m_Kdf)
+	, m_Generator(*m_pKdf)
+	, m_FeeGenerator(*m_pKdf)
 	, m_CoinsChecker(argc, argv)
 {
 	m_Timeout = 5 * 60 * 1000;
@@ -143,7 +143,7 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 		{
 			isHaveFee = true;
 
-			m_FeeGenerator.GenerateInputInTx(mined.m_ID.m_Height, mined.m_Fees, KeyType::Comission);
+			m_FeeGenerator.GenerateInputInTx(mined.m_ID.m_Height, mined.m_Fees, Key::Type::Comission);
 			m_FeeGenerator.GenerateOutputInTx(mined.m_ID.m_Height + 1, mined.m_Fees);
 			m_FeeGenerator.GenerateKernel(mined.m_ID.m_Height + 1);
 

@@ -24,6 +24,8 @@ namespace beam
 	typedef uint64_t BbsChannel;
 	typedef ECC::Hash::Value BbsMsgID;
 
+	using ECC::Key;
+
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
@@ -213,12 +215,20 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		void Create(const ECC::Scalar::Native&, Amount, bool bPublic = false);
+		void Create(ECC::Scalar::Native&, Amount, Key::IKdf&, const Key::ID&);
+
+		bool Recover(Key::IPKdf&, Key::ID&, Amount&) const;
+
 		bool IsValid(ECC::Point::Native& comm) const;
 		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden
 
 		void operator = (const Output&);
 		int cmp(const Output&) const;
 		COMPARISON_VIA_CMP
+
+	private:
+		void CreateInternal(const ECC::Scalar::Native&, Amount, bool bPublic, Key::IKdf*, const Key::ID*);
+		void get_SeedKid(ECC::uintBig&, Key::IPKdf&) const;
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
@@ -519,21 +529,9 @@ namespace beam
 		struct ChainWorkProof;
 	};
 
-	enum struct KeyType
-	{
-		Comission,
-		Coinbase,
-		Kernel,
-		Regular,
-		Identity,
-		SChannelNonce
-	};
-	void DeriveKey(ECC::Scalar::Native&, const ECC::Kdf&, Height, KeyType, uint32_t nIdx = 0);
 	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height = 0, uint32_t nIdx = 0);
 
 	std::ostream& operator << (std::ostream&, const Block::SystemState::ID&);
-
-
 
 
 	class TxBase::Context

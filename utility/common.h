@@ -87,11 +87,28 @@ namespace beam
 	typedef uint64_t Amount;
 	typedef std::vector<uint8_t> ByteBuffer;
 
+	template <uint32_t nBits_>
+	struct uintBig_t;
+
 #ifdef WIN32
 	std::wstring Utf8toUtf16(const char*);
 #endif // WIN32
 
 	bool DeleteFile(const char*);
+
+	struct Blob {
+		const void* p;
+		uint32_t n;
+
+		Blob() {}
+		Blob(const void* p_, uint32_t n_) :p(p_), n(n_) {}
+		Blob(const ByteBuffer& bb);
+
+		template <uint32_t nBits_>
+		Blob(const uintBig_t<nBits_>& x) :p(x.m_pData), n(x.nBytes) {}
+
+		void Export(ByteBuffer&) const;
+	};
 }
 
 namespace std

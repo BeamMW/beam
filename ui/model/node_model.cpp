@@ -20,10 +20,8 @@ using namespace beam;
 using namespace beam::io;
 using namespace std;
 
-NodeModel::NodeModel(const ECC::NoLeak<ECC::uintBig>& seed)
-    : m_seed{seed}
+NodeModel::NodeModel()
 {
-
 }
 
 NodeModel::~NodeModel()
@@ -71,7 +69,7 @@ void NodeModel::run()
             node.m_Cfg.m_MiningThreads = node.m_Cfg.m_VerificationThreads = 0;
         }
 
-        node.m_Cfg.m_WalletKey = m_seed;
+		node.get_Processor().m_pKdf = m_pKdf;
 
 
         node.m_Cfg.m_HistoryCompression.m_sPathOutput = settings.getTempDir();

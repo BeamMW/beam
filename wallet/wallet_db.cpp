@@ -355,7 +355,7 @@ namespace beam
                 throwIfError(ret, _db);
             }
 
-            void bind(int col, KeyType val)
+            void bind(int col, Key::Type val)
             {
                 int ret = sqlite3_bind_int(_stm, col, static_cast<int>(val));
                 throwIfError(ret, _db);
@@ -531,9 +531,9 @@ namespace beam
                 if (data) memcpy(blob, data, size);
             }
 
-            void get(int col, KeyType& type)
+            void get(int col, Key::Type& type)
             {
-                type = static_cast<KeyType>(sqlite3_column_int(_stm, col));
+                type = static_cast<Key::Type>(sqlite3_column_int(_stm, col));
             }
 
             void get(int col, string& str) // utf-8
@@ -610,7 +610,7 @@ namespace beam
         const int DbVersion = 5;
     }
 
-    Coin::Coin(const Amount& amount, Status status, const Height& createHeight, const Height& maturity, KeyType keyType, Height confirmHeight, Height lockedHeight)
+    Coin::Coin(const Amount& amount, Status status, const Height& createHeight, const Height& maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
         : m_id{ 0 }
         , m_amount{ amount }
         , m_status{ status }
@@ -625,14 +625,14 @@ namespace beam
     }
 
     Coin::Coin()
-        : Coin(0, Coin::Unspent, 0, MaxHeight, KeyType::Regular, MaxHeight)
+        : Coin(0, Coin::Unspent, 0, MaxHeight, Key::Type::Regular, MaxHeight)
     {
         assert(isValid());
     }
 
     bool Coin::isReward() const
     {
-        return m_key_type == KeyType::Coinbase || m_key_type == KeyType::Comission;
+        return m_key_type == Key::Type::Coinbase || m_key_type == Key::Type::Comission;
     }
 
     bool Coin::isValid() const
@@ -641,6 +641,25 @@ namespace beam
             && m_maturity <= m_lockedHeight
             && m_createHeight <= m_confirmHeight;
     }
+
+	uint64_t IKeyChain::get_AutoIncrID()
+	{
+		uintBigFor<uint64_t>::Type val;
+
+		const char* szParamName = "auto_id";
+
+		if (getVar(szParamName, val))
+			val.Inc();
+		else
+			val = 1U;
+
+		setVar(szParamName, val);
+		
+		uint64_t res;
+		val.Export(res);
+		return res;
+	}
+
 
     bool Keychain::isInitialized(const string& path)
     {
@@ -715,9 +734,7 @@ namespace beam
         {
             if (isInitialized(path))
             {
-                ECC::NoLeak<ECC::uintBig> seed;
-                seed.V = Zero;
-                auto keychain = make_shared<Keychain>(seed);
+				std::shared_ptr<Keychain> keychain(new Keychain);
 
                 {
                     int ret = sqlite3_open_v2(path.c_str(), &keychain->_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, nullptr);
@@ -773,14 +790,16 @@ namespace beam
                     throwIfError(ret, keychain->_db);
                 }
 
-                if (keychain->getVar(WalletSeed, seed))
+				std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+
+                if (!keychain->getVar(WalletSeed, pKdf->m_Secret.V))
                 {
-                    keychain->m_kdf.m_Secret = seed;
-                }
-                else
-                {
-                    assert(false && "there is no seed for keychain");
-                }
+					assert(false && "there is no seed for keychain");
+					//pKdf->m_Secret.V = Zero;
+					return Ptr();
+				}
+
+				keychain->m_pKdf = pKdf;
 
                 return static_pointer_cast<IKeyChain>(keychain);
             }
@@ -795,11 +814,18 @@ namespace beam
         return Ptr();
     }
 
+	Keychain::Keychain()
+		: _db(nullptr)
+	{
+	}
+
     Keychain::Keychain(const ECC::NoLeak<ECC::uintBig>& secretKey)
         : _db(nullptr)
     {
-        m_kdf.m_Secret = secretKey;
-    }
+		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+		pKdf->m_Secret = secretKey;
+		m_pKdf = pKdf;
+	}
 
     Keychain::~Keychain()
     {
@@ -824,18 +850,42 @@ namespace beam
         return lastId;
     }
 
+	Key::IKdf::Ptr Keychain::get_Kdf() const
+	{
+		return m_pKdf;
+	}
+
+	Key::ID Coin::get_Kid() const
+	{
+		// For coinbase and fee commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
+		Key::ID kid(m_createHeight, m_key_type, m_id);
+
+		switch (m_key_type)
+		{
+		case Key::Type::Coinbase:
+		case Key::Type::Comission:
+			kid.m_IdxSecondary = 0;
+			break;
+
+		default: // suppress warning
+			break;
+		}
+
+		return kid;
+	}
+
     ECC::Scalar::Native Keychain::calcKey(const beam::Coin& coin) const
     {
-        assert(coin.m_key_type != KeyType::Regular || coin.m_id > 0);
-        ECC::Scalar::Native key;
-        // For coinbase and free commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
-        DeriveKey(key, m_kdf, coin.m_createHeight, coin.m_key_type, (coin.m_key_type == KeyType::Regular) ? static_cast<uint32_t>(coin.m_id) : 0); 
+		assert(coin.m_key_type != Key::Type::Regular || coin.m_id > 0);
+
+		ECC::Scalar::Native key;
+		m_pKdf->DeriveKey(key, coin.get_Kid());
         return key;
     }
 
     void Keychain::get_IdentityKey(ECC::Scalar::Native& sk) const
     {
-        DeriveKey(sk, m_kdf, 0, KeyType::Identity);
+		m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
     }
 
     vector<beam::Coin> Keychain::selectCoins(const Amount& amount, bool lock)
@@ -982,8 +1032,8 @@ namespace beam
     void Keychain::storeImpl(Coin& coin)
     {
         assert(coin.m_amount > 0 && coin.isValid());
-        if (coin.m_key_type == KeyType::Coinbase
-            || coin.m_key_type == KeyType::Comission)
+        if (coin.m_key_type == Key::Type::Coinbase
+            || coin.m_key_type == Key::Type::Comission)
         {
             const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createHeight=?1 AND key_type=?2;";
             sqlite::Statement stm(_db, req);
@@ -1207,7 +1257,7 @@ namespace beam
 
     Block::SystemState::ID Keychain::getKnownStateID(Height height)
     {
-        Block::SystemState::ID id = {};
+        Block::SystemState::ID id = wallet::GetEmptyID();
         const char* req = "SELECT DISTINCT confirmHeight, confirmHash FROM " STORAGE_NAME " WHERE confirmHeight >= ?2 LIMIT 1 OFFSET ?1;";
 
         sqlite::Statement stm(_db, req);
@@ -1229,8 +1279,8 @@ namespace beam
             const char* req = "DELETE FROM " STORAGE_NAME " WHERE createHeight >?1 AND (key_type=?2 OR key_type=?3);";
             sqlite::Statement stm(_db, req);
             stm.bind(1, minHeight);
-            stm.bind(2, KeyType::Coinbase);
-            stm.bind(3, KeyType::Comission);
+            stm.bind(2, Key::Type::Coinbase);
+            stm.bind(3, Key::Type::Comission);
             stm.step();
         }
 
@@ -1701,7 +1751,7 @@ namespace beam
             return total;
         }
 
-        Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType)
+        Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, Key::Type keyType)
         {
             auto currentHeight = keychain->getCurrentHeight();
             Amount total = 0;
@@ -1734,7 +1784,7 @@ namespace beam
             return total;
         }
 
-        Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType)
+        Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, Key::Type keyType)
         {
             Amount total = 0;
             keychain->visit([&total, &status, &keyType](const Coin& c)->bool

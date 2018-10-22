@@ -91,7 +91,7 @@ void TestNodeConnection::GenerateTests()
 
 TxGenerator TestNodeConnection::GenerateTx()
 {
-	TxGenerator gen(m_Kdf);
+	TxGenerator gen(*m_pKdf);
 
 	// Inputs
 	gen.GenerateInputInTx(4, 5);

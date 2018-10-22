@@ -48,7 +48,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[], int h)
 
 void TestNodeConnection::BeforeConnection(Height h)
 {
-	TxGenerator gen(m_Kdf);
+	TxGenerator gen(*m_pKdf);
 
 	Amount amount = 18000;
 

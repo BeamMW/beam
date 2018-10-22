@@ -115,7 +115,10 @@ WaitHandle run_node(const NodeParams& params) {
             node.m_Cfg.m_Listen.ip(params.nodeAddress.ip());
             node.m_Cfg.m_MiningThreads = 1;
             node.m_Cfg.m_VerificationThreads = 1;
-            node.m_Cfg.m_WalletKey.V = params.walletSeed;
+
+			std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+			pKdf->m_Secret.V = params.walletSeed;
+			node.get_Processor().m_pKdf = pKdf;
 
             node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 500;
 

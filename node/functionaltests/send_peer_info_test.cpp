@@ -58,10 +58,11 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send PeerInfo message";
 
-		Hash::Processor hp;
 		Hash::Value hv;
 
-		hp << "test" >> hv;
+		Hash::Processor()
+			<< "test"
+			>> hv;
 
 		proto::PeerInfo msg;
 

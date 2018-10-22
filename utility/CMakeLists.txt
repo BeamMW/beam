@@ -28,17 +28,23 @@ set(IO_SRC
 # ~etc
 )
 
+if (BEAM_USE_AVX)   
+    if (MSVC)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX")
+    elseif(ANDROID)
+    else()
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
+    endif()
+endif()
+
+
 if (MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX")
     set_source_files_properties(logger.cpp PROPERTIES COMPILE_FLAGS "/wd4996") # 'std::fpos<_Mbstatet>::seekpos': warning STL4019: The member std::fpos::seekpos() is non-Standard
-elseif(ANDROID)
-else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
 endif()
 
 add_library(utility STATIC ${UTILITY_SRC} ${IO_SRC})
 
-if(ANDROID)
+if(ANDROID OR NOT BEAM_USE_AVX)
     add_library(crypto STATIC crypto/blake/ref/blake2b-ref.c)
 else()
     add_library(crypto STATIC crypto/blake/sse/blake2b.cpp)

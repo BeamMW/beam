@@ -172,9 +172,9 @@ namespace beam
 		return 0;
 	}
 
-	void Output::Create(const ECC::Scalar::Native& k, Amount v, bool bPublic /* = false */)
+	void Output::CreateInternal(const ECC::Scalar::Native& sk, Amount v, bool bPublic, Key::IKdf* pKdf, const Key::ID* pKid)
 	{
-		m_Commitment = ECC::Commitment(k, v);
+		m_Commitment = ECC::Commitment(sk, v);
 
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
@@ -183,12 +183,90 @@ namespace beam
 		{
 			m_pPublic.reset(new ECC::RangeProof::Public);
 			m_pPublic->m_Value = v;
-			m_pPublic->Create(k, oracle);
-		} else
+			m_pPublic->Create(sk, oracle);
+		}
+		else
 		{
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
-			m_pConfidential->Create(k, v, oracle);
+
+			ECC::RangeProof::Confidential::CreatorParams cp;
+			cp.m_Value = v;
+
+			if (pKdf)
+			{
+				assert(pKid);
+				cp.m_Kid = *pKid;
+				get_SeedKid(cp.m_Seed.V, *pKdf);
+			}
+			else
+			{
+				ZeroObject(cp.m_Kid);
+				ECC::Hash::Processor() << "outp" << sk << v >> cp.m_Seed.V;
+			}
+
+			m_pConfidential->Create(sk, cp, oracle);
 		}
+	}
+
+	void Output::Create(ECC::Scalar::Native& sk, Amount v, Key::IKdf& kdf, const Key::ID& kid)
+	{
+		kdf.DeriveKey(sk, kid);
+		CreateInternal(sk, v, m_Coinbase, &kdf, &kid);
+	}
+
+	void Output::Create(const ECC::Scalar::Native& sk, Amount v, bool bPublic /* = false */)
+	{
+		CreateInternal(sk, v, bPublic, NULL, NULL);
+	}
+
+	void Output::get_SeedKid(ECC::uintBig& seed, Key::IPKdf& kdf) const
+	{
+		ECC::Hash::Processor() << m_Commitment >> seed;
+
+		ECC::Scalar::Native sk;
+		kdf.DerivePKey(sk, seed);
+
+		ECC::Hash::Processor() << sk >> seed;
+	}
+
+	bool Output::Recover(Key::IPKdf& kdf, Key::ID& kid, Amount& v) const
+	{
+		if (!m_pConfidential)
+			return false; // coinbases should be identified other way.
+
+		ECC::RangeProof::Confidential::CreatorParams cp;
+		get_SeedKid(cp.m_Seed.V, kdf);
+
+		ECC::Oracle oracle;
+		oracle << m_Incubation;
+
+		if (!m_pConfidential->Recover(oracle, cp))
+			return false;
+
+		// reconstruct the commitment
+		ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+		ECC::Hash::Value hv;
+		cp.m_Kid.get_Hash(hv);
+
+		ECC::Point::Native comm, comm2;
+		kdf.DerivePKey(comm, hv);
+
+		comm += ECC::Context::get().H * cp.m_Value;
+
+		if (!comm2.Import(m_Commitment))
+			return false;
+
+		comm = -comm;
+		comm += comm2;
+		
+		if (!(comm == Zero))
+			return false;
+
+		// bingo!
+		kid = cp.m_Kid;
+		v = cp.m_Value;
+		return true;
 	}
 
 	void HeightAdd(Height& trg, Height val)
@@ -678,7 +756,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(6) // increment this whenever we change something in the protocol
+			<< uint32_t(8) // increment this whenever we change something in the protocol
 			// out
 			>> Checksum;
 	}
@@ -711,8 +789,9 @@ namespace beam
 
 		if (bTotal)
 		{
-			hp.Write(&m_PoW.m_Indices.at(0), sizeof(m_PoW.m_Indices));
-			hp << m_PoW.m_Nonce;
+			hp
+				<< Blob(&m_PoW.m_Indices.at(0), sizeof(m_PoW.m_Indices))
+				<< m_PoW.m_Nonce;
 		}
 
 		hp >> out;
@@ -878,11 +957,6 @@ namespace beam
 			ctx.ValidateAndSummarize(*this, std::move(r)) &&
 			ctx.IsValidBlock(*this, bSubsidyOpen);
 	}
-
-    void DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType eType, uint32_t nIdx /* = 0 */)
-    {
-        kdf.DeriveKey(out, h, static_cast<uint32_t>(eType), nIdx);
-    }
 
 	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height h /* = 0 */, uint32_t nIdx /* = 0 */)
 	{
