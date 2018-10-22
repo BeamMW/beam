@@ -642,26 +642,21 @@ void Node::InitIDs()
 {
 	ECC::GenRandom(m_NonceLast.V.m_pData, m_NonceLast.V.nBytes);
 
-	m_MyPrivateID.V.m_Value = Zero;
-
-	Blob blob(m_MyPrivateID.V.m_Value);
+	ECC::NoLeak<ECC::Scalar> s;
+	Blob blob(s.V.m_Value);
 	bool bNewID = !m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob);
 
 	if (bNewID)
 	{
-		ECC::Scalar::Native sk;
-		NextNonce(sk);
-		m_MyPrivateID.V = sk;
-	}
-
-	ECC::Scalar::Native sk = m_MyPrivateID.V;
-	proto::Sk2Pk(m_MyPublicID, sk);
-
-	if (bNewID)
-	{
-		m_MyPrivateID.V = sk; // may have been negated
+		NextNonce(m_MyPrivateID);
+		s.V = m_MyPrivateID;
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, NULL, &blob);
 	}
+	else
+		m_MyPrivateID = s.V;
+
+	proto::Sk2Pk(m_MyPublicID, m_MyPrivateID);
+
 
 	ECC::Hash::Value hv;
 	Key::ID(0, Key::Type::Identity).get_Hash(hv);
@@ -895,8 +890,7 @@ void Node::Peer::OnConnectedSecure()
 		Send(msgPi);
 	}
 
-	ECC::Scalar::Native sk = m_This.m_MyPrivateID.V;
-	ProveID(sk, proto::IDType::Node);
+	ProveID(m_This.m_MyPrivateID, proto::IDType::Node);
 
 	proto::Config msgCfg;
 	msgCfg.m_CfgChecksum = Rules::get().Checksum;

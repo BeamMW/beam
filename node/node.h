@@ -480,7 +480,7 @@ private:
 
 	uint32_t RandomUInt32(uint32_t threshold);
 
-	ECC::NoLeak<ECC::Scalar> m_MyPrivateID;
+	ECC::Scalar::Native m_MyPrivateID;
 	PeerID m_MyPublicID;
 	PeerID m_MyOwnerID;
 
