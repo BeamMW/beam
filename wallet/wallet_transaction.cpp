@@ -81,6 +81,14 @@ namespace beam { namespace wallet
                 return;
             }
 
+            WalletID myID = GetMandatoryParameter<WalletID>(TxParameterID::MyID);
+            auto address = m_Keychain->getAddress(myID);
+            if (address.is_initialized() && address->isExpired())
+            {
+                OnFailed();
+                return;
+            }
+
             UpdateImpl();
         }
         catch (const TransactionFailedException& ex)
@@ -165,44 +173,6 @@ namespace beam { namespace wallet
         return m_Keychain;
     }
 
-    vector<Input::Ptr> BaseTransaction::GetTxInputs(const TxID& txID) const
-    {
-        vector<Input::Ptr> inputs;
-        m_Keychain->visit([this, &txID, &inputs](const Coin& c)->bool
-        {
-            if (c.m_spentTxId == txID && c.m_status == Coin::Locked)
-            {
-                Input::Ptr input = make_unique<Input>();
-
-                Scalar::Native blindingFactor = m_Keychain->calcKey(c);
-                input->m_Commitment = Commitment(blindingFactor, c.m_amount);
-
-                inputs.push_back(move(input));
-            }
-            return true;
-        });
-        return inputs;
-    }
-
-    vector<Output::Ptr> BaseTransaction::GetTxOutputs(const TxID& txID) const
-    {
-        vector<Output::Ptr> outputs;
-        m_Keychain->visit([this, &txID, &outputs](const Coin& c)->bool
-        {
-            if (c.m_createTxId == txID && c.m_status == Coin::Draft)
-            {
-                Output::Ptr output = make_unique<Output>();
-
-                Scalar::Native blindingFactor;
-                output->Create(blindingFactor, c.m_amount, *m_Keychain->get_Kdf(), c.get_Kid());
-
-                outputs.push_back(move(output));
-            }
-            return true;
-        });
-        return outputs;
-    }
-
     vector<Coin> BaseTransaction::GetUnconfirmedOutputs() const
     {
         vector<Coin> outputs;
@@ -217,64 +187,6 @@ namespace beam { namespace wallet
             return true;
         });
         return outputs;
-    }
-
-    void BaseTransaction::CreateOutput(Amount amount, Height currentHeight)
-    {
-        Coin newUtxo{ amount, Coin::Draft, currentHeight };
-        newUtxo.m_createTxId = GetTxID();
-        m_Keychain->store(newUtxo);
-
-        Scalar::Native blindingFactor = m_Keychain->calcKey(newUtxo);
-        auto[privateExcess, newOffset] = splitKey(blindingFactor, newUtxo.m_id);
-
-        Scalar::Native blindingExcess, offset;
-        GetParameter(TxParameterID::BlindingExcess, blindingExcess);
-        GetParameter(TxParameterID::Offset, offset);
-
-        blindingFactor = -privateExcess;
-        blindingExcess += blindingFactor;
-        offset += newOffset;
-
-        SetParameter(TxParameterID::BlindingExcess, blindingExcess);
-        SetParameter(TxParameterID::Offset, offset);
-    }
-
-    void BaseTransaction::PrepareSenderUTXOs(Amount amount, Height currentHeight)
-    {
-        auto coins = m_Keychain->selectCoins(amount);
-        if (coins.empty())
-        {
-            LOG_ERROR() << "You only have " << PrintableAmount(getAvailable(m_Keychain));
-            throw TransactionFailedException(!IsInitiator());
-        }
-        Scalar::Native blindingExcess, offset;
-        GetParameter(TxParameterID::BlindingExcess, blindingExcess);
-        GetParameter(TxParameterID::Offset, offset);
-        for (auto& coin : coins)
-        {
-            blindingExcess += m_Keychain->calcKey(coin);
-            coin.m_spentTxId = GetTxID();
-        }
-        m_Keychain->update(coins);
-
-        SetParameter(TxParameterID::BlindingExcess, blindingExcess);
-        SetParameter(TxParameterID::Offset, offset);
-
-        // calculate change amount and create corresponding output if needed
-        Amount change = 0;
-        for (const auto &coin : coins)
-        {
-            change += coin.m_amount;
-        }
-        change -= amount;
-        SetParameter(TxParameterID::Change, change);
-
-        if (change > 0)
-        {
-            // create output utxo for change
-            CreateOutput(change, currentHeight);
-        }
     }
 
     bool BaseTransaction::SendTxParameters(SetTxParameter&& msg) const
