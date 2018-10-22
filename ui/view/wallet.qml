@@ -452,10 +452,23 @@ Item {
                                     font.styleName: "Light"; font.weight: Font.Light
                                     color: Style.heliotrope
 
-                                    text: viewModel.sendAmount
+                                    property double amount: 0
 
                                     validator: RegExpValidator { regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,5}[1-9])?$/ }
                                     selectByMouse: true
+                                    
+                                    onTextChanged: {
+                                        if (focus) {
+                                            amount = text ? text : 0;
+                                        }
+                                    }
+
+                                    onFocusChanged: {
+                                        if (amount > 0) {
+                                            // QLocale::FloatingPointShortest = -128
+                                            text = focus ? amount : amount.toLocaleString(Qt.locale(), 'f', -128);
+                                        }
+                                    }
                                 }
 
                                 Item {
@@ -474,7 +487,7 @@ Item {
                                 Binding {
                                     target: viewModel
                                     property: "sendAmount"
-                                    value: amount_input.text
+                                    value: amount_input.amount
                                 }
                             }
 
@@ -1451,7 +1464,9 @@ Item {
             PropertyChanges {target: wallet_layout; visible: false}
             PropertyChanges {target: send_layout; visible: true}
             PropertyChanges {target: amount_input; text: ""}
+            PropertyChanges {target: amount_input; amount: 0}
             PropertyChanges {target: receiverAddrInput; text: ""}
+            PropertyChanges {target: comment_input; text: ""}
             StateChangeScript {
                 script: receiverAddrInput.forceActiveFocus(Qt.TabFocusReason);
             }
