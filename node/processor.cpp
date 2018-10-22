@@ -1021,12 +1021,6 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height h, RollbackData& rbData)
 {
-	if (!m_pKdf)
-	{
-		LOG_WARNING() << "No Kdf. Can't generate blocks";
-		return false;
-	}
-
 	bc.m_Fees = 0;
 	size_t nBlockSize = 0;
 	size_t nAmount = 0;
@@ -1074,7 +1068,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height 
 	{
 		Output::Ptr pOutp(new Output);
 		pOutp->m_Coinbase = true;
-		pOutp->Create(kKernel, Rules::get().CoinbaseEmission, *m_pKdf, Key::ID(h, Key::Type::Coinbase));
+		pOutp->Create(kKernel, Rules::get().CoinbaseEmission, bc.m_Kdf, Key::ID(h, Key::Type::Coinbase));
 
 		if (!HandleBlockElement(*pOutp, h, NULL, true))
 			return false;
@@ -1087,7 +1081,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height 
 		ECC::Scalar::Native sk;
 
 		Output::Ptr pOutp(new Output);
-		pOutp->Create(sk, bc.m_Fees, *m_pKdf, Key::ID(h, Key::Type::Comission));
+		pOutp->Create(sk, bc.m_Fees, bc.m_Kdf, Key::ID(h, Key::Type::Comission));
 
 		if (!HandleBlockElement(*pOutp, h, NULL, true))
 			return false; // though should not happen!

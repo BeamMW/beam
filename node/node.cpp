@@ -590,7 +590,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 
 void Node::Initialize()
 {
-	if (!m_Processor.m_pKdf)
+	if (!m_pKdf)
 	{
 		if (m_Cfg.m_MiningThreads)
 			throw std::runtime_error("Mining enabled, but Kdf not specified!");
@@ -598,7 +598,7 @@ void Node::Initialize()
 		// use arbitrary, inited from system random. Needed for misc things, such as secure channel.
 		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 		ECC::GenRandom(pKdf->m_Secret.V.m_pData, pKdf->m_Secret.V.nBytes);
-		m_Processor.m_pKdf = pKdf;
+		m_pKdf = pKdf;
 	}
 
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
@@ -660,7 +660,7 @@ void Node::InitIDs()
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, NULL, &blob);
 	}
 
-	m_Processor.m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
+	m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
 	proto::Sk2Pk(m_MyOwnerID, sk);
 }
 
@@ -1675,7 +1675,7 @@ const ECC::uintBig& Node::NextNonce()
 
 void Node::NextNonce(ECC::Scalar::Native& sk)
 {
-	m_Processor.m_pKdf->DeriveKey(sk, m_NonceLast.V);
+	m_pKdf->DeriveKey(sk, m_NonceLast.V);
 	ECC::Hash::Processor() << sk >> m_NonceLast.V;
 }
 
@@ -2724,7 +2724,7 @@ bool Node::Miner::Restart()
 		pTreasury->m_SubsidyClosing = (dh + 1 == vTreasury.size());
 	}
 
-	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool);
+	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, *get_ParentObj().m_pKdf);
 
 	bool bRes = pTreasury ?
 		get_ParentObj().m_Processor.GenerateNewBlock(bc, *pTreasury) :

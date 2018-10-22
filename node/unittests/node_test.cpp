@@ -597,7 +597,6 @@ namespace beam
 			std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 			ECC::SetRandom(pKdf->m_Secret.V);
 
-			m_pKdf = pKdf;
 			m_Wallet.m_pKdf = pKdf;
 	}
 	};
@@ -617,7 +616,7 @@ namespace beam
 		//np.m_Horizon.m_Schwarzschild = 40; - will prevent extracting some macroblock ranges
 		np.Initialize(g_sz);
 
-		NodeProcessor::BlockContext bc(np.m_TxPool);
+		NodeProcessor::BlockContext bc(np.m_TxPool, *np.m_Wallet.m_pKdf);
 
 		const Height hIncubation = 3; // artificial incubation period for outputs.
 
@@ -816,11 +815,11 @@ namespace beam
 
 		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 		ECC::SetRandom(pKdf->m_Secret.V);
-		node.get_Processor().m_pKdf = pKdf;
+		node.m_pKdf = pKdf;
 
 		pKdf.reset(new ECC::HKdf);
 		ECC::SetRandom(pKdf->m_Secret.V);
-		node2.get_Processor().m_pKdf = pKdf;
+		node2.m_pKdf = pKdf;
 
 		node.Initialize();
 		node2.Initialize();
@@ -855,10 +854,11 @@ namespace beam
 
 				if (m_HeightMax < m_HeightTrg)
 				{
-					TxPool::Fluff txPool; // empty, no transactions
-					NodeProcessor::BlockContext bc(txPool);
-
 					Node& n = *m_ppNode[m_iNode];
+
+					TxPool::Fluff txPool; // empty, no transactions
+					NodeProcessor::BlockContext bc(txPool, *n.m_pKdf);
+
 					verify_test(n.get_Processor().GenerateNewBlock(bc));
 
 					n.get_Processor().OnState(bc.m_Hdr, PeerID());
@@ -935,7 +935,7 @@ namespace beam
 
 		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 		ECC::SetRandom(pKdf->m_Secret.V);
-		node.get_Processor().m_pKdf = pKdf;
+		node.m_pKdf = pKdf;
 
 		node.m_Cfg.m_Horizon.m_Branching = 6;
 		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
@@ -1279,7 +1279,7 @@ namespace beam
 
 		pKdf.reset(new ECC::HKdf);
 		ECC::SetRandom(pKdf->m_Secret.V);
-		node2.get_Processor().m_pKdf = pKdf;
+		node2.m_pKdf = pKdf;
 		node2.Initialize();
 
 		pReactor->run();

@@ -134,19 +134,22 @@ public:
 
 	uint64_t FindActiveAtStrict(Height);
 
-	Key::IKdf::Ptr m_pKdf;
-
 	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
 	static bool ValidateTxWrtHeight(const Transaction&, Height);
 
 	struct BlockContext
 	{
 		TxPool::Fluff& m_TxPool;
+		Key::IKdf& m_Kdf;
 		Block::SystemState::Full m_Hdr;
 		ByteBuffer m_Body;
 		Amount m_Fees;
 
-		BlockContext(TxPool::Fluff& txp) :m_TxPool(txp) {}
+		BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
+			:m_TxPool(txp)
+			,m_Kdf(kdf)
+		{
+		}
 	};
 
 	bool GenerateNewBlock(BlockContext&, Block::Body& blockInOut);

@@ -126,6 +126,8 @@ struct Node
 
 	} m_Cfg; // must not be changed after initialization
 
+	Key::IKdf::Ptr m_pKdf;
+
 	~Node();
 	void Initialize();
 	void ImportMacroblock(Height); // throws on err
