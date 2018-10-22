@@ -69,8 +69,17 @@ endfunction()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(BEAM_USE_STATIC FALSE)
+set(BEAM_USE_AVX FALSE)
+if (BEAM_CPU_ARCH MATCHES "avx")
+    set(BEAM_USE_AVX TRUE)
+endif()
 
+set(BEAM_QT_UI_WALLET TRUE)
+if (BEAM_NO_QT_UI_WALLET)
+    set(BEAM_QT_UI_WALLET FALSE)    
+endif()
+
+set(BEAM_USE_STATIC FALSE)
 if(BEAM_LINK_TYPE MATCHES "Static")
     set(BEAM_USE_STATIC TRUE)
 endif()
@@ -187,7 +196,7 @@ add_subdirectory(beam)
 add_subdirectory(explorer)
 
 # TODO: uncomment this later
-if(NOT ANDROID)
+if(NOT ANDROID AND BEAM_QT_UI_WALLET)
     add_subdirectory(ui)
 endif()
 

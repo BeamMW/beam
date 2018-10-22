@@ -53,12 +53,12 @@ void BaseNodeConnection::ParseCommandLine(int argc, char* argv[])
 
 void BaseNodeConnection::InitKdf()
 {
-	NoLeak<uintBig> walletSeed;
 	SecString seed(m_VM["wallet_seed"].as<std::string>());
 
-	walletSeed.V = seed.hash().V;
+	std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+	pKdf->m_Secret.V = seed.hash().V;
 
-	m_Kdf.m_Secret = walletSeed;
+	m_pKdf = pKdf;
 }
 
 BaseTestNode::BaseTestNode(int argc, char* argv[])
@@ -104,7 +104,7 @@ void BaseTestNode::OnMsg(proto::Authentication&& msg)
     if (proto::IDType::Node == msg.m_IDType)
     {
         ECC::Scalar::Native sk;
-        DeriveKey(sk, m_Kdf, 0, KeyType::Identity);
+		m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
         ProveID(sk, proto::IDType::Owner);
     }
 

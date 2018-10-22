@@ -188,6 +188,7 @@ namespace beam
         std::deque<std::pair<TxID, Transaction::Ptr>> m_reg_requests;
         std::vector<std::pair<TxID, Transaction::Ptr>> m_pending_reg_requests;
         std::deque<Coin> m_pendingUtxoProofs;
+        std::set<ECC::Point> m_PendingUtxoUnique;
         std::deque<wallet::BaseTransaction::Ptr> m_pendingKernelProofs;
         std::vector<Callback> m_pendingEvents;
 

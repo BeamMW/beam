@@ -62,6 +62,15 @@ namespace beam {
             d & m_bbs_timestamps;
         }
 
+        auto myAddresses = m_keychain->getAddresses(true);
+        for (const auto& address : myAddresses)
+        {
+            if (address.isExpired())
+            {
+                m_keystore->disable_key(address.m_walletID);
+            }
+        }
+
         m_keystore->get_enabled_keys(m_myPubKeys);
         for (const auto& k : m_myPubKeys)
         {
@@ -293,10 +302,6 @@ namespace beam {
                 LOG_DEBUG() << "Succeeded to decrypt BBS message from channel=" << msg.m_Channel;
                 m_lastReceiver = &k;
                 return handle_decrypted_message(msg.m_TimePosted, out, size);
-            }
-            else
-            {
-                LOG_DEBUG() << "failed to decrypt BBS message from channel=" << msg.m_Channel;
             }
         }
 

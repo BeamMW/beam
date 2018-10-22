@@ -62,7 +62,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	, m_IsInit(false)
 	//, m_IsNeedToCheckOut(false)
 	//, m_Counter(0)
-	, m_Generator(m_Kdf)
+	, m_Generator(*m_pKdf)
 	, m_CoinsChecker(argc, argv)
 	, m_NewTimer(io::Timer::create(io::Reactor::get_Current()))
 {
@@ -89,7 +89,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 
 		for (Amount i = 0; i < m_Amount; ++i)
 		{
-			m_Generator.GenerateOutputInTx(m_ID.m_Height, 1, KeyType::Regular, false, static_cast<uint32_t>(i));
+			m_Generator.GenerateOutputInTx(m_ID.m_Height, 1, Key::Type::Regular, false, static_cast<uint32_t>(i));
 			const Output::Ptr& output = m_Generator.GetTransaction().m_Transaction->m_vOutputs.back();
 			Input input;
 			input.m_Commitment = output->m_Commitment;
@@ -107,12 +107,12 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 			{
 				if (coin.m_IsValid && coin.m_Maturity < m_ID.m_Height)
 				{
-					TxGenerator gen(m_Kdf);
+					TxGenerator gen(*m_pKdf);
 
 					LOG_INFO() << "Send coin #" << coin.m_Ind << "; input = " << coin.m_Input.m_Commitment << "; h = " << coin.m_Height << "; m_ID.m_Height = " << m_ID.m_Height;
 
-					gen.GenerateInputInTx(coin.m_Height, 1, KeyType::Regular, coin.m_Ind);
-					gen.GenerateOutputInTx(m_ID.m_Height, 1, KeyType::Regular, false, coin.m_Ind);
+					gen.GenerateInputInTx(coin.m_Height, 1, Key::Type::Regular, coin.m_Ind);
+					gen.GenerateOutputInTx(m_ID.m_Height, 1, Key::Type::Regular, false, coin.m_Ind);
 					gen.GenerateKernel(m_ID.m_Height, 0, coin.m_Ind);
 
 					const Output::Ptr& output = gen.GetTransaction().m_Transaction->m_vOutputs.back();

@@ -171,10 +171,53 @@ namespace ECC
 		static void get_Challenge(Scalar::Native&, const Point&, const Hash::Value& msg);
 	};
 
-	struct Kdf
+	struct Key
 	{
-		NoLeak<uintBig> m_Secret;
-		void DeriveKey(Scalar::Native&, uint64_t nKeyIndex, uint32_t nFlags, uint32_t nExtra = 0) const;
+		enum struct Type
+		{
+			Comission	= 0,
+			Coinbase	= 1,
+			Kernel		= 2,
+			Regular		= 3,
+			Identity	= 4,
+			Nonce		= 5,
+		};
+
+		struct ID
+		{
+			uint64_t	m_Idx;
+			uint64_t	m_IdxSecondary;
+			Type		m_Type;
+
+			ID() {}
+			ID(Zero_) { ZeroObject(*this); }
+
+			ID(beam::Height h, Type type, uint64_t nIdxSecondary = 0) // most common c'tor
+			{
+				m_Idx = h;
+				m_IdxSecondary = nIdxSecondary;
+				m_Type = type;
+			}
+
+			void get_Hash(Hash::Value&) const;
+		};
+
+		struct IPKdf
+		{
+			typedef std::shared_ptr<IPKdf> Ptr;
+
+			virtual void DerivePKey(Point::Native&, const Hash::Value&) = 0;
+			virtual void DerivePKey(Scalar::Native&, const Hash::Value&) = 0;
+		};
+
+		struct IKdf
+			:public IPKdf
+		{
+			typedef std::shared_ptr<IKdf> Ptr;
+
+			virtual void DeriveKey(Scalar::Native&, const Key::ID&);
+			virtual void DeriveKey(Scalar::Native&, const Hash::Value&) = 0;
+		};
 	};
 
 	struct InnerProduct
@@ -246,16 +289,44 @@ namespace ECC
 
 			InnerProduct m_P_Tag; // contains commitment P - m_Mu*G
 
-			void Create(const Scalar::Native& sk, Amount, Oracle&);
+			// Nonce generation policy for signing. There are two distinct nonce generators, both need to be initialized with seeds. One for value blinding and Key::ID embedding, and the other one that blinds the secret key.
+			// Seed for value and Key::ID is always specified explicitly, and should be deducible from the public Kdf and the commitment.
+			// Regaring the seed for secret keys:
+			//		In case of single-sig it's derived directly from the secret key itself.
+			//		In case of multi-sig it should be specified explicitly by the caller.
+			//			If it's guaranteed to be a single-usage key - the seed can be derived from the secret key (as with single-sig)
+			//			Otherwise - the seed *must* use external source of randomness.
+
+			struct CreatorParams
+			{
+				NoLeak<uintBig> m_Seed; // must be a function of the commitment and master secret
+				void InitSeed(Key::IPKdf&, const ECC::Point& comm);
+
+				Amount m_Value;
+				Key::ID m_Kid;
+
+				struct Packed;
+				struct Padded;
+			};
+
+			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&); // single-pass
 			bool IsValid(const Point::Native&, Oracle&) const;
 			bool IsValid(const Point::Native&, Oracle&, InnerProduct::BatchContext&) const;
+
+			bool Recover(Oracle&, CreatorParams&) const;
 
 			int cmp(const Confidential&) const;
 			COMPARISON_VIA_CMP
 
 			// multisig
-			static void CoSignPart(const Scalar::Native& sk, Amount, Oracle&, Part2&);
-			static void CoSignPart(const Scalar::Native& sk, Amount, Oracle&, const Part1&, const Part2&, Part3&);
+			struct MultiSig
+			{
+				Scalar x, zz;
+				struct Impl;
+
+				static bool CoSignPart(const uintBig& seedSk, Part2&);
+				void CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Part3&) const;
+			};
 
 			struct Phase {
 				enum Enum {
@@ -266,11 +337,10 @@ namespace ECC
 				};
 			};
 
-			bool CoSign(const Scalar::Native& sk, Amount, Oracle&, Phase::Enum); // for multi-sig use 1,2,3 for 1st-pass
+			bool CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, MultiSig* pMsigOut = NULL); // for multi-sig use 1,2,3 for 1st-pass
 
 
 		private:
-			struct MultiSig;
 			struct ChallengeSet;
 		};
 

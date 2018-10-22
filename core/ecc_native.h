@@ -100,6 +100,7 @@ namespace ECC
 		void Export(Scalar&) const;
 
 		void GenerateNonce(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt = 0);
+		void GenerateNonce(const Scalar::Native& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt = 0);
 	};
 
 	class Point::Native
@@ -362,7 +363,13 @@ namespace ECC
 		Scalar::Native	m_Nonce;	// specific signer
 		Point::Native	m_NoncePub;	// sum of all co-signers
 
-		void GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk);
+		//	NOTE: Schnorr's multisig should be used carefully. If done naively it has the following potential weaknesses:
+		//	1. Key cancellation. (The attacker may exclude you and actually create a signature for its private key).
+		//		This isn't a problem for our case, but should be taken into consideration if used in other schemes.
+		// 2. Private Key leak. If the same message signed with the same key but co-signers use different nonces (altering the challenge) - there's a potential for key leak. 
+		//		This is indeed the case if the nonce is generated from the secret key and the message only.
+		//		In order to prevent this the signer **MUST**  use an additional source of randomness, and make sure it's different for every ritual.
+
 		void SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const;
 	};
 
@@ -372,6 +379,7 @@ namespace ECC
 	{
 		bool m_bInitialized;
 
+		void Write(const void*, uint32_t);
 		void Write(const char*);
 		void Write(bool);
 		void Write(uint8_t);
@@ -379,6 +387,7 @@ namespace ECC
 		void Write(const Scalar::Native&);
 		void Write(const Point&);
 		void Write(const Point::Native&);
+		void Write(const beam::Blob&);
 		template <uint32_t nBits_>
 		void Write(const beam::uintBig_t<nBits_>& x) { Write(x.m_pData, x.nBytes); }
 
@@ -404,8 +413,6 @@ namespace ECC
 
 		void Reset();
 
-		void Write(const void*, uint32_t);
-
 		template <typename T>
 		Processor& operator << (const T& t) { Write(t); return *this; }
 
@@ -425,6 +432,30 @@ namespace ECC
 		void Write(const void*, uint32_t);
 
 		void operator >> (Value& hv) { Finalize(hv); }
+	};
+
+	struct HKdf
+		:public Key::IKdf
+	{
+		HKdf();
+
+		NoLeak<uintBig> m_Secret;
+		Scalar::Native m_kCoFactor;
+		// IPKdf
+		virtual void DerivePKey(Point::Native&, const Hash::Value&) override;
+		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+		// IKdf
+		virtual void DeriveKey(Scalar::Native&, const Hash::Value&) override;
+	};
+
+	struct HKdfPub
+		:public Key::IPKdf
+	{
+		NoLeak<uintBig> m_Secret;
+		Point::Native m_Pk;
+		// IPKdf
+		virtual void DerivePKey(Point::Native&, const Hash::Value&) override;
+		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
 	};
 
 	struct Context

@@ -78,9 +78,16 @@ T.TextField {
         Action {
             text: qsTr("copy")
             icon.source: "qrc:/assets/icon-copy.svg"
-            enabled: control.enabled && (control.selectedText.length > 0) && (control.echoMode === TextInput.Normal)
+            enabled: control.enabled && (control.echoMode === TextInput.Normal)
             onTriggered: {
-                control.copy()
+                if (control.selectedText.length > 0) {
+                    control.copy();
+                }
+                else {
+                    control.selectAll();
+                    control.copy();
+                    control.deselect();
+                }
             }
         }
         Action {

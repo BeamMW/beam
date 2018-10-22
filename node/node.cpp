@@ -72,9 +72,10 @@ void Node::WantedTx::OnExpired(const KeyType& key)
 
 void Node::Bbs::CalcMsgKey(NodeDB::WalkerBbs::Data& d)
 {
-	ECC::Hash::Processor hp;
-	hp.Write(d.m_Message.p, d.m_Message.n);
-	hp << d.m_Channel >> d.m_Key;
+	ECC::Hash::Processor()
+		<< d.m_Message
+		<< d.m_Channel
+		>> d.m_Key;
 }
 
 uint32_t Node::Bbs::WantedMsg::get_Timeout_ms()
@@ -538,6 +539,7 @@ void Node::Processor::OnBlockData()
 bool Node::Processor::OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID& sid)
 {
 	get_ParentObj().m_Compressor.FmtPath(rw, sid.m_Height, NULL);
+	rw.ROpen();
 	return true;
 }
 
@@ -588,9 +590,22 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 
 void Node::Initialize()
 {
+	if (!m_Processor.m_pKdf)
+	{
+		if (m_Cfg.m_MiningThreads)
+			throw std::runtime_error("Mining enabled, but Kdf not specified!");
+
+		// use arbitrary, inited from system random. Needed for misc things, such as secure channel.
+		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+		ECC::GenRandom(pKdf->m_Secret.V.m_pData, pKdf->m_Secret.V.nBytes);
+		m_Processor.m_pKdf = pKdf;
+	}
+
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
-	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
-	m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
+	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Sync.m_ForceResync);
+
+	if (m_Cfg.m_Sync.m_ForceResync)
+		m_Processor.get_DB().ParamSet(NodeDB::ParamID::SyncTarget, NULL, NULL);
 
 	if (m_Cfg.m_VerificationThreads < 0)
 	{
@@ -626,7 +641,7 @@ void Node::InitIDs()
 
 	m_MyPrivateID.V.m_Value = Zero;
 
-	NodeDB::Blob blob(m_MyPrivateID.V.m_Value);
+	Blob blob(m_MyPrivateID.V.m_Value);
 	bool bNewID = !m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob);
 
 	if (bNewID)
@@ -645,7 +660,7 @@ void Node::InitIDs()
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, NULL, &blob);
 	}
 
-	DeriveKey(sk, m_Processor.m_Kdf, 0, KeyType::Identity);
+	m_Processor.m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
 	proto::Sk2Pk(m_MyOwnerID, sk);
 }
 
@@ -669,7 +684,7 @@ void Node::InitMode()
 	ZeroObject(m_pSync->m_Trg);
 	ZeroObject(m_pSync->m_Best);
 
-	NodeDB::Blob blobTrg = m_pSync->m_Trg.m_Hash;
+	Blob blobTrg(m_pSync->m_Trg.m_Hash);
 	m_Processor.get_DB().ParamGet(NodeDB::ParamID::SyncTarget, &m_pSync->m_Trg.m_Height, &blobTrg);
 
 	m_pSync->m_bDetecting = !m_pSync->m_Trg.m_Height;
@@ -1288,7 +1303,7 @@ void Node::OnSyncTimer()
 
 		LOG_INFO() << "Sync target final: " << m_pSync->m_Trg;
 
-		NodeDB::Blob blob = m_pSync->m_Trg.m_Hash;
+		Blob blob(m_pSync->m_Trg.m_Hash);
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::SyncTarget, &m_pSync->m_Trg.m_Height, &blob);
 
 		m_pSync->m_bDetecting = false;
@@ -1653,13 +1668,15 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
 
 const ECC::uintBig& Node::NextNonce()
 {
-	ECC::GenerateNonce(m_NonceLast.V, m_Processor.m_Kdf.m_Secret.V, m_NonceLast.V, NULL, 0);
+	ECC::Scalar::Native sk;
+	NextNonce(sk);
 	return m_NonceLast.V;
 }
 
 void Node::NextNonce(ECC::Scalar::Native& sk)
 {
-	sk.GenerateNonce(m_Cfg.m_WalletKey.V, NextNonce(), NULL);
+	m_Processor.m_pKdf->DeriveKey(sk, m_NonceLast.V);
+	ECC::Hash::Processor() << sk >> m_NonceLast.V;
 }
 
 uint32_t Node::RandomUInt32(uint32_t threshold)
@@ -1852,7 +1869,7 @@ void Node::AddDummyInputs(Transaction& tx)
 	{
 		Height h;
 		ECC::Scalar sk;
-		NodeDB::Blob blob(sk.m_Value);
+		Blob blob(sk.m_Value);
 
 		uint64_t rowid = m_Processor.get_DB().FindDummy(h, blob);
 		if (!rowid || (h > m_Processor.m_Cursor.m_ID.m_Height + 1))
@@ -1946,7 +1963,7 @@ void Node::AddDummyOutputs(Transaction& tx)
 			h += RandomUInt32(m_Cfg.m_Dandelion.m_DummyLifetimeHi - m_Cfg.m_Dandelion.m_DummyLifetimeLo);
 
 		ECC::Scalar sk_(sk); // not so secret
-		db.InsertDummy(h, NodeDB::Blob(sk_.m_Value));
+		db.InsertDummy(h, Blob(sk_.m_Value));
 
 		tx.m_vOutputs.push_back(std::move(pOutput));
 
@@ -2362,7 +2379,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
 	wlk.m_Data.m_Channel = msg.m_Channel;
 	wlk.m_Data.m_TimePosted = msg.m_TimePosted;
-	wlk.m_Data.m_Message = NodeDB::Blob(msg.m_Message);
+	wlk.m_Data.m_Message = Blob(msg.m_Message);
 
 	Bbs::CalcMsgKey(wlk.m_Data);
 
@@ -2590,9 +2607,8 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 
 		ECC::Hash::Value hv; // pick pseudo-random initial nonce for mining.
 		ECC::Hash::Processor()
-			<< get_ParentObj().m_MyPublicID
+			<< pTask->m_hvNonceSeed
 			<< iIdx
-			<< s.m_Height
 			>> hv;
 
 		static_assert(s.m_PoW.m_Nonce.nBytes <= hv.nBytes);
@@ -2721,6 +2737,8 @@ bool Node::Miner::Restart()
 	}
 
 	LOG_INFO() << "Block generated: Height=" << pTask->m_Hdr.m_Height << ", Fee=" << pTask->m_Fees << ", Difficulty=" << pTask->m_Hdr.m_PoW.m_Difficulty << ", Size=" << pTask->m_Body.size();
+
+	pTask->m_hvNonceSeed = get_ParentObj().NextNonce();
 
 	// let's mine it.
 	std::scoped_lock<std::mutex> scope(m_Mutex);

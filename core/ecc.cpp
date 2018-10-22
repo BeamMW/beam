@@ -275,6 +275,11 @@ namespace ECC {
 		m_bInitialized = false;
 	}
 
+	void Hash::Processor::Write(const beam::Blob& v)
+	{
+		Write(v.p, v.n);
+	}
+
 	void Hash::Processor::Write(const char* sz)
 	{
 		Write(sz, (uint32_t) (strlen(sz) + 1));
@@ -943,7 +948,14 @@ namespace ECC {
 
 						unsigned int nVal = GetPortion(x.m_K, iWord, iBitInWord, Casual::Secure::nBits);
 
+						//Point::Native ptVal;
+						//for (unsigned int i = 0; i < Casual::Secure::nCount; i++)
+						//	object_cmov(ptVal, x.m_pPt[nVal], i == nVal);
+						//
+						//res += ptVal;
+
 						res += x.m_pPt[nVal]; // cmov seems not needed, since the table is relatively small, and not in global mem (less predicatble addresses)
+						// The version with cmov (commented-out above) is ~15% slower
 					}
 				}
 
@@ -1122,12 +1134,64 @@ namespace ECC {
 		}
 	}
 
-	void Kdf::DeriveKey(Scalar::Native& out, uint64_t nKeyIndex, uint32_t nFlags, uint32_t nExtra) const
+	void Scalar::Native::GenerateNonce(const Scalar::Native& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
 	{
-		// the msg hash is not secret
-		Hash::Value hv;
-		Hash::Processor() << nKeyIndex << nFlags << nExtra >> hv;
+		NoLeak<Scalar> sk_;
+		sk_.V = sk;
+		GenerateNonce(sk_.V.m_Value, msg, pMsg2, nAttempt);
+	}
+
+	void Key::ID::get_Hash(Hash::Value& hv) const
+	{
+		Hash::Processor()
+			<< "kid"
+			<< m_Idx
+			<< m_IdxSecondary
+			<< static_cast<uint32_t>(m_Type)
+			>> hv;
+	}
+
+	void Key::IKdf::DeriveKey(Scalar::Native& out, const Key::ID& kid)
+	{
+		Hash::Value hv; // the key hash is not secret
+		kid.get_Hash(hv);
+		DeriveKey(out, hv);
+	}
+
+	HKdf::HKdf()
+	{
+		ZeroObject(m_Secret.V);
+		m_kCoFactor = 1U; // by default
+	}
+
+	void HKdf::DeriveKey(Scalar::Native& out, const Hash::Value& hv)
+	{
+		DerivePKey(out, hv);
+		out *= m_kCoFactor;
+	}
+
+	void HKdf::DerivePKey(Scalar::Native& out, const Hash::Value& hv)
+	{
 		out.GenerateNonce(m_Secret.V, hv, NULL);
+	}
+
+	void HKdf::DerivePKey(Point::Native& out, const Hash::Value& hv)
+	{
+		Scalar::Native sk;
+		DeriveKey(sk, hv);
+		out = Context::get().G * sk;
+	}
+
+	void HKdfPub::DerivePKey(Scalar::Native& out, const Hash::Value& hv)
+	{
+		out.GenerateNonce(m_Secret.V, hv, NULL);
+	}
+
+	void HKdfPub::DerivePKey(Point::Native& out, const Hash::Value& hv)
+	{
+		Scalar::Native sk;
+		DerivePKey(sk, hv);
+		out = m_Pk * sk;
 	}
 
 	/////////////////////
@@ -1159,15 +1223,6 @@ namespace ECC {
 		Oracle() << pt << msg >> out;
 	}
 
-	void Signature::MultiSig::GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk)
-	{
-		NoLeak<Scalar> sk_;
-		sk_.V = sk;
-
-		m_Nonce.GenerateNonce(sk_.V.m_Value, msg, NULL);
-		m_NoncePub = Context::get().G * m_Nonce;
-	}
-
 	void Signature::MultiSig::SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const
 	{
 		get_Challenge(k, m_NoncePub, msg);
@@ -1180,7 +1235,8 @@ namespace ECC {
 	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
 	{
 		MultiSig msig;
-		msig.GenerateNonce(msg, sk);
+		msig.m_Nonce.GenerateNonce(sk, msg, NULL);
+		msig.m_NoncePub = Context::get().G * msig.m_Nonce;
 
 		Scalar::Native k;
 		msig.SignPartial(k, msg, sk);

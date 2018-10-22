@@ -61,7 +61,7 @@ class NodeProcessor
 
 public:
 
-	void Initialize(const char* szPath);
+	void Initialize(const char* szPath, bool bResetCursor = false);
 
 	struct Horizon {
 
@@ -111,7 +111,7 @@ public:
 	};
 
 	DataStatus::Enum OnState(const Block::SystemState::Full&, const PeerID&);
-	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&);
+	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const Blob& block, const PeerID&);
 
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
@@ -134,9 +134,7 @@ public:
 
 	uint64_t FindActiveAtStrict(Height);
 
-	ECC::Kdf m_Kdf;
-
-	static void DeriveKeys(const ECC::Kdf&, Height, Amount fees, ECC::Scalar::Native& kCoinbase, ECC::Scalar::Native& kFee, ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset);
+	Key::IKdf::Ptr m_pKdf;
 
 	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
 	static bool ValidateTxWrtHeight(const Transaction&, Height);

@@ -43,8 +43,8 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	, m_IsInit(false)
 	, m_IsNeedToCheckOut(false)
 	, m_Counter(0)
-	, m_Generator1(m_Kdf)
-	, m_Generator2(m_Kdf)
+	, m_Generator1(*m_pKdf)
+	, m_Generator2(*m_pKdf)
 	, m_CoinsChecker(argc, argv)
 {
 	m_Timeout = 5 * 60 * 1000;

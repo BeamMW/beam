@@ -82,13 +82,19 @@ void SetRandom(Scalar::Native& x)
 	}
 }
 
+template <typename T>
+void SetRandomOrd(T& x)
+{
+	GenerateRandom(&x, sizeof(x));
+}
+
 void TestUintBig()
 {
 	for (int i = 0; i < 100; i++)
 	{
 		uint32_t a, b;
-		GenerateRandom(&a, sizeof(a));
-		GenerateRandom(&b, sizeof(b));
+		SetRandomOrd(a);
+		SetRandomOrd(b);
 
 		uint64_t ab = a;
 		ab *= b;
@@ -254,7 +260,7 @@ void TestPoints()
 	for (int i = 0; i < 300; i++)
 	{
 		Amount val;
-		GenerateRandom(&val, sizeof(val));
+		SetRandomOrd(val);
 
 		p0 = Context::get().H * val; // via generator
 
@@ -466,16 +472,35 @@ void TestRangeProof()
 	verify_test(sig.IsValid(comm, dot, mod));
 
 	RangeProof::Confidential bp;
-	Amount v = 23110;
-	comm = Commitment(sk, v);
+	RangeProof::Confidential::CreatorParams cp;
+	SetRandomOrd(cp.m_Kid.m_Idx);
+	SetRandomOrd(cp.m_Kid.m_IdxSecondary);
+	SetRandomOrd(cp.m_Kid.m_Type);
+	SetRandom(cp.m_Seed.V);
+	cp.m_Value = 23110;
+
+	comm = Commitment(sk, cp.m_Value);
 
 	{
 		Oracle oracle;
-		bp.Create(sk, v, oracle);
+		bp.Create(sk, cp, oracle);
 	}
 	{
 		Oracle oracle;
 		verify_test(bp.IsValid(comm, oracle));
+	}
+	{
+		Oracle oracle;
+		RangeProof::Confidential::CreatorParams cp2;
+		cp2.m_Seed = cp.m_Seed;
+
+		bp.Recover(oracle, cp2);
+
+		verify_test(
+			(cp.m_Value == cp2.m_Value) &&
+			(cp.m_Kid.m_Idx == cp2.m_Kid.m_Idx) &&
+			(cp.m_Kid.m_IdxSecondary == cp2.m_Kid.m_IdxSecondary) &&
+			(cp.m_Kid.m_Type == cp2.m_Kid.m_Type));
 	}
 
 	InnerProduct::BatchContextEx<2> bc;
@@ -487,12 +512,13 @@ void TestRangeProof()
 	}
 
 	SetRandom(sk);
-	v = 7223110;
-	comm = Commitment(sk, v);
+	cp.m_Value = 7223110;
+	SetRandom(cp.m_Seed.V); // another seed for this bulletproof
+	comm = Commitment(sk, cp.m_Value);
 
 	{
 		Oracle oracle;
-		bp.Create(sk, v, oracle);
+		bp.Create(sk, cp, oracle);
 	}
 	{
 		Oracle oracle;
@@ -506,49 +532,59 @@ void TestRangeProof()
 
 	{
 		// multi-signed bulletproof
-		Scalar::Native sk2;
-		SetRandom(sk2);
+		const uint32_t nSigners = 5;
 
-		// 1. peer(s) produces partial Part2
+		Scalar::Native pSk[nSigners];
+		uintBig pSeed[nSigners];
+
+		// 1st cycle. peers produce Part2
 		RangeProof::Confidential::Part2 p2;
+		ZeroObject(p2);
+
+		RangeProof::Confidential::MultiSig msig;
+
+		for (uint32_t i = 0; i < nSigners; i++)
 		{
-			Oracle oracle;
-			RangeProof::Confidential::CoSignPart(sk2, v, oracle, p2);
+			SetRandom(pSk[i]);
+			SetRandom(pSeed[i]);
+
+			if (i + 1 < nSigners)
+				verify_test(RangeProof::Confidential::MultiSig::CoSignPart(pSeed[i], p2)); // p2 aggregation
+			else
+			{
+				Oracle oracle;
+				bp.m_Part2 = p2;
+				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Step2, &msig)); // add last p2, produce msig
+				p2 = bp.m_Part2;
+			}
 		}
 
-		// 2. Signer advances, produces final Part1 and Part2
-		RangeProof::Confidential::Part1 p1;
-		{
-			Oracle oracle;
-			bp.m_Part2 = p2;
-			verify_test(bp.CoSign(sk, v, oracle, RangeProof::Confidential::Phase::Step2));
-			p1 = bp.m_Part1;
-			p2 = bp.m_Part2;
-		}
-
-		// 3. peer(s) produces partial Part3
+		// 2nd cycle. Peers produce Part3, commitment is aggregated too
 		RangeProof::Confidential::Part3 p3;
+		ZeroObject(p3);
+
+		comm = Context::get().H * cp.m_Value;
+
+		for (uint32_t i = 0; i < nSigners; i++)
 		{
-			Oracle oracle;
-			RangeProof::Confidential::CoSignPart(sk2, v, oracle, p1, p2, p3);
+			comm += Context::get().G * pSk[i];
+
+			if (i + 1 < nSigners)
+				msig.CoSignPart(pSeed[i], pSk[i], p3);
+			else
+			{
+				Oracle oracle;
+				bp.m_Part2 = p2;
+				bp.m_Part3 = p3;
+				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Finalize));
+			}
 		}
 
-		// 4. Signer finalizes
-		{
-			Oracle oracle;
-			bp.m_Part2 = p2;
-			bp.m_Part3 = p3;
-			verify_test(bp.CoSign(sk, v, oracle, RangeProof::Confidential::Phase::Finalize));
-		}
-
-		// Final UTXO commitment
-		Point::Native comm2 = comm;
-		comm2 += Context::get().G * sk2;
 
 		{
 			// test
 			Oracle oracle;
-			verify_test(bp.IsValid(comm2, oracle));
+			verify_test(bp.IsValid(comm, oracle));
 		}
 	}
 
@@ -577,6 +613,7 @@ void TestRangeProof()
 struct TransactionMaker
 {
 	beam::Transaction m_Trans;
+	HKdf m_Kdf;
 
 	TransactionMaker()
 	{
@@ -622,13 +659,28 @@ struct TransactionMaker
 			m_k += k;
 		}
 
-		void AddOutput(beam::Transaction& t, Amount val)
+		void AddOutput(beam::Transaction& t, Amount val, Key::IKdf& kdf)
 		{
 			std::unique_ptr<beam::Output> pOut(new beam::Output);
 
 			Scalar::Native k;
-			SetRandom(k);
-			pOut->Create(k, val);
+
+			Key::ID kid;
+			SetRandomOrd(kid.m_Idx);
+			SetRandomOrd(kid.m_IdxSecondary);
+			kid.m_Type = Key::Type::Regular;
+
+			pOut->Create(k, val, kdf, kid);
+
+			// test recovery
+			Key::ID kid2;
+			Amount val2;
+			verify_test(pOut->Recover(kdf, kid2, val2));
+			verify_test(
+				(val2 == val) &&
+				(kid2.m_Idx == kid.m_Idx) &&
+				(kid2.m_IdxSecondary == kid.m_IdxSecondary) &&
+				(kid2.m_Type == kid.m_Type));
 
 			t.m_vOutputs.push_back(std::move(pOut));
 
@@ -642,12 +694,8 @@ struct TransactionMaker
 
 	void CoSignKernel(beam::TxKernel& krn, const Hash::Value& hvLockImage)
 	{
-		Hash::Value msg0;
-		krn.m_Excess = Zero;
-		krn.get_ID(msg0, &hvLockImage); // not a real ID, since we added excess to it now, which is not known yet.
-		// But it's ok, it's used only for nonce generation
-
 		// 1st pass. Public excesses and Nonces are summed.
+		Scalar::Native pX[_countof(m_pPeers)];
 		Scalar::Native offset(m_Trans.m_Offset);
 
 		Point::Native xG(Zero), kG(Zero);
@@ -655,19 +703,18 @@ struct TransactionMaker
 		for (size_t i = 0; i < _countof(m_pPeers); i++)
 		{
 			Peer& p = m_pPeers[i];
-			p.FinalizeExcess(xG, offset);
+			p.FinalizeExcess(kG, offset);
 
-			Signature::MultiSig msig;
-			msig.GenerateNonce(msg0, p.m_k);
-
-			kG += Context::get().G * msig.m_Nonce;
+			SetRandom(pX[i]);
+			xG += Context::get().G * pX[i];
 		}
 
 		m_Trans.m_Offset = offset;
-		krn.m_Excess = xG;
 
-		Hash::Value msg1;
-		krn.get_ID(msg1, &hvLockImage);
+		krn.m_Excess = kG;
+
+		Hash::Value msg;
+		krn.get_ID(msg, &hvLockImage);
 
 		// 2nd pass. Signing. Total excess is the signature public key.
 		Scalar::Native kSig = Zero;
@@ -677,18 +724,18 @@ struct TransactionMaker
 			Peer& p = m_pPeers[i];
 
 			Signature::MultiSig msig;
-			msig.GenerateNonce(msg0, p.m_k);
-			msig.m_NoncePub = kG;
+			msig.m_Nonce = pX[i];
+			msig.m_NoncePub = xG;
 
 			Scalar::Native k;
-			msig.SignPartial(k, msg1, p.m_k);
+			msig.SignPartial(k, msg, p.m_k);
 
 			kSig += k;
 
 			p.m_k = Zero; // signed, prepare for next tx
 		}
 
-		krn.m_Signature.m_NoncePub = kG;
+		krn.m_Signature.m_NoncePub = xG;
 		krn.m_Signature.m_k = kSig;
 	}
 
@@ -727,7 +774,7 @@ struct TransactionMaker
 
 	void AddOutput(int i, Amount val)
 	{
-		m_pPeers[i].AddOutput(m_Trans, val);
+		m_pPeers[i].AddOutput(m_Trans, val, m_Kdf);
 	}
 };
 
@@ -853,6 +900,39 @@ void TestAES()
 
 	sd.dec.Proceed(pBuf, pBuf); // inplace decode
 	verify_test(!memcmp(pBuf, pBuf, sizeof(pPlaintext)));
+}
+
+void TestKdf()
+{
+	HKdf skdf;
+	HKdfPub pkdf;
+
+	SetRandom(skdf.m_Secret.V);
+	pkdf.m_Secret.V = skdf.m_Secret.V;
+
+	SetRandom(skdf.m_kCoFactor);
+	pkdf.m_Pk = Context::get().G * skdf.m_kCoFactor;
+
+	for (uint32_t i = 0; i < 10; i++)
+	{
+		Hash::Value hv;
+		Hash::Processor() << "test_kdf" << i >> hv;
+
+		Scalar::Native sk0, sk1;
+		skdf.DerivePKey(sk0, hv);
+		pkdf.DerivePKey(sk1, hv);
+		verify_test(Scalar(sk0) == Scalar(sk1));
+
+		skdf.DeriveKey(sk0, hv);
+		verify_test(Scalar(sk0) != Scalar(sk1));
+
+		Point::Native pk0, pk1;
+		skdf.DerivePKey(pk0, hv);
+		pkdf.DerivePKey(pk1, hv);
+		pk1 = -pk1;
+		pk0 += pk1;
+		verify_test(pk0 == Zero);
+	}
 }
 
 void TestBbs()
@@ -991,6 +1071,7 @@ void TestAll()
 	TestTransaction();
 	TestTransactionKernelConsuming();
 	TestAES();
+	TestKdf();
 	TestBbs();
 	TestDifficulty();
 }
@@ -1131,7 +1212,7 @@ void RunBenchmark()
 	while (!p1.Import(p_))
 		p_.m_X.Inc();
 
-	{
+/*	{
 		BenchmarkMeter bm("point.Negate");
 		do
 		{
@@ -1140,7 +1221,7 @@ void RunBenchmark()
 
 		} while (bm.ShouldContinue());
 	}
-
+*/
 	{
 		BenchmarkMeter bm("point.Double");
 		do
@@ -1169,7 +1250,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 += p1 * k1;
+				p0 = p1 * k1;
 
 		} while (bm.ShouldContinue());
 	}
@@ -1182,7 +1263,7 @@ void RunBenchmark()
 		{
 			SetRandom(k1);
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 += p1 * k1;
+				p0 = p1 * k1;
 
 		} while (bm.ShouldContinue());
 	}
@@ -1195,9 +1276,24 @@ void RunBenchmark()
 		{
 			SetRandom(k1);
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 += p1 * k1;
+				p0 = p1 * k1;
 
 		} while (bm.ShouldContinue());
+	}
+
+	{
+		// result should be close to prev (i.e. constant-time)
+		Mode::Scope scope(Mode::Secure);
+		BenchmarkMeter bm("point.Multiply.Sec2");
+		do
+		{
+			k1 = Zero;
+			for (uint32_t i = 0; i < bm.N; i++)
+				p0 = p1 * k1;
+
+		} while (bm.ShouldContinue());
+
+		p0 = p1;
 	}
 
 	{
@@ -1225,7 +1321,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 += Context::get().H * uint64_t(-1);
+				p0 = Context::get().H * uint64_t(-1);
 
 		} while (bm.ShouldContinue());
 	}
@@ -1244,7 +1340,7 @@ void RunBenchmark()
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				p0 += Context::get().G * k1;
+				p0 = Context::get().G * k1;
 
 		} while (bm.ShouldContinue());
 	}
@@ -1270,9 +1366,9 @@ void RunBenchmark()
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
 			{
-				Hash::Processor hp;
-				hp.Write(pBuf, sizeof(pBuf));
-				hp >> hv;
+				Hash::Processor()
+					<< beam::Blob(pBuf, sizeof(pBuf))
+					>> hv;
 			}
 
 		} while (bm.ShouldContinue());
@@ -1339,8 +1435,11 @@ void RunBenchmark()
 		} while (bm.ShouldContinue());
 	}
 
-	Amount v = 23110;
 	RangeProof::Confidential bp;
+	RangeProof::Confidential::CreatorParams cp;
+	ZeroObject(cp.m_Kid);
+	SetRandom(cp.m_Seed.V);
+	cp.m_Value = 23110;
 
 	{
 		BenchmarkMeter bm("BulletProof.Sign");
@@ -1350,13 +1449,13 @@ void RunBenchmark()
 			for (uint32_t i = 0; i < bm.N; i++)
 			{
 				Oracle oracle;
-				bp.Create(k1, v, oracle);
+				bp.Create(k1, cp, oracle);
 			}
 
 		} while (bm.ShouldContinue());
 	}
 
-	Point::Native comm = Commitment(k1, v);
+	Point::Native comm = Commitment(k1, cp.m_Value);
 
 	{
 		BenchmarkMeter bm("BulletProof.Verify");

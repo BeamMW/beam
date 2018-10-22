@@ -331,7 +331,7 @@ Item
                 property Item defaultFocusItem: localNodeButton
 
                 SFText {
-                    text: qsTr("Setup node")
+                    text: qsTr("Setup node connectivity (testnet)")
                     color: Style.white
                     font.pixelSize: 36
 
@@ -340,21 +340,11 @@ Item
                     anchors.topMargin: 50
                 }
 
-                SFText {
-                    text: qsTr("Please choose your node preferences")
-                    color: Style.white
-                    font.pixelSize: 18
-
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 123
-                }
-
                 Column {
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.top: parent.top
                     anchors.topMargin: 191
-                    width: 400
+                    width: 440
 
                     clip: true
 
@@ -362,9 +352,10 @@ Item
                     ButtonGroup {
                         id: nodePreferencesGroup
                     }
+
                     CustomRadioButton {
                         id: localNodeButton
-                        text: qsTr("Run local testnet node")
+                        text: qsTr("Run local node (recommended)")
                         ButtonGroup.group: nodePreferencesGroup
                         font.pixelSize: 14
                     }
@@ -414,9 +405,17 @@ Item
                             stepSize: 1
                         }
                     }
+
+                    CustomRadioButton {
+                        id: testnetNodeButton
+                        text: qsTr("Connect to random remote node")
+                        ButtonGroup.group: nodePreferencesGroup
+                        font.pixelSize: 14
+                    }
+                    
                     CustomRadioButton {
                         id: remoteNodeButton
-                        text: qsTr("Connect to remote node")
+                        text: qsTr("Connect to specific remote node")
                         ButtonGroup.group: nodePreferencesGroup
                         font.pixelSize: 14
                     }
@@ -449,12 +448,8 @@ Item
                             font.pixelSize: 14
                         }
                     }
-                    CustomRadioButton {
-                        id: testnetNodeButton
-                        text: qsTr("Connect to randomly selected node for testnet")
-                        ButtonGroup.group: nodePreferencesGroup
-                        font.pixelSize: 14
-                    }
+
+                    
                 }
 
                 Row {

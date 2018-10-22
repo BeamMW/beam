@@ -21,7 +21,6 @@
 #define BOOST_UUID_RANDOM_PROVIDER_DISABLE_GETRANDOM 1
 #endif
 
-#include <boost/uuid/uuid_generators.hpp>
 #include "core/ecc_native.h"
 #include "core/block_crypt.h"
 #include "utility/logger.h"
@@ -44,17 +43,6 @@ namespace beam
     using namespace wallet;
     using namespace std;
     using namespace ECC;
-
-    namespace
-    {
-        TxID GenerateTxID()
-        {
-            boost::uuids::uuid id = boost::uuids::random_generator()();
-            TxID txID{};
-            copy(id.begin(), id.end(), txID.begin());
-            return txID;
-        }
-    }
 
     std::ostream& operator<<(std::ostream& os, const TxID& uuid)
     {
@@ -99,6 +87,14 @@ namespace beam
             res.second = -res.second; // different convention
             return res;
         }
+
+        Block::SystemState::ID GetEmptyID()
+        {
+            Block::SystemState::ID id;
+            ZeroObject(id);
+            id.m_Height = Rules::HeightGenesis;
+            return id;
+        }
     }
 
     struct Wallet::StateFinder
@@ -108,15 +104,15 @@ namespace beam
             , m_syncHeight{newHeight}
             , m_count{ int64_t(keychain->getKnownStateCount()) }
             , m_step{0}
-            , m_id{}
+            , m_id{wallet::GetEmptyID()}
             , m_keychain{keychain}
         {
-
         }
 
         Height getSearchHeight()
         {
             auto id = m_keychain->getKnownStateID(getSearchOffset());
+            assert(id.m_Height >= Rules::HeightGenesis);
             return id.m_Height;
         }
 
@@ -151,7 +147,7 @@ namespace beam
         , m_network{ network }
         , m_tx_completed_action{move(action)}
         , m_newState{}
-        , m_knownStateID{}
+        , m_knownStateID{wallet::GetEmptyID()}
         , m_syncDone{0}
         , m_syncTotal{0}
         , m_synchronized{false}
@@ -172,7 +168,7 @@ namespace beam
 
     TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
     {
-        auto txID = GenerateTxID();
+        auto txID = wallet::GenerateTxID();
         auto tx = constructTransaction(txID, TxType::Simple);
 
         tx->SetParameter(TxParameterID::TransactionType, TxType::Simple);
@@ -196,7 +192,7 @@ namespace beam
 
     TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount)
     {
-        auto txID = GenerateTxID();
+        auto txID = wallet::GenerateTxID();
         auto tx = constructTransaction(txID, TxType::AtomicSwap);
 
         tx->SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
@@ -206,6 +202,7 @@ namespace beam
         tx->SetParameter(TxParameterID::MinHeight, m_keyChain->getCurrentHeight());
         tx->SetParameter(TxParameterID::PeerID, to);
         tx->SetParameter(TxParameterID::MyID, from);
+        tx->SetParameter(TxParameterID::IsSender, true);
         tx->SetParameter(TxParameterID::IsInitiator, true);
         tx->SetParameter(TxParameterID::Status, TxStatus::Pending);
 
@@ -342,9 +339,8 @@ namespace beam
         if (it != m_transactions.end())
         {
             it->second->SetParameter(TxParameterID::TransactionRegistered, res);
+            updateTransaction(txId);
         }
-
-        updateTransaction(txId);
     }
 
     void Wallet::cancel_tx(const TxID& txId)
@@ -390,6 +386,7 @@ namespace beam
 
     void Wallet::emergencyReset()
     {
+        LOG_INFO() << "System state has been reset manually!";
         resetSystemState();
         m_keyChain->clear();
         m_network->close_node_connection();
@@ -501,18 +498,14 @@ namespace beam
         }
 
         m_pendingUtxoProofs.pop_front();
+        m_PendingUtxoUnique.erase(input.m_Commitment);
+        assert(m_pendingUtxoProofs.size() == m_PendingUtxoUnique.size());
 
         return exit_sync();
     }
 
     bool Wallet::handle_node_message(proto::NewTip&& msg)
     {
-        // TODO: restore from wallet db 
-        //for (auto& r : m_pending_reg_requests)
-        //{
-        //    register_tx(r.first, r.second);
-        //}
-
         m_pending_reg_requests.clear();
 
         Block::SystemState::ID newID;
@@ -527,7 +520,7 @@ namespace beam
             return close_node_connection();
         }
 
-        if (m_knownStateID.m_Height <= Rules::HeightGenesis)
+        if (m_knownStateID.m_Height <= Rules::HeightGenesis && !m_stateFinder)
         {
             // cold start
             do_fast_forward();
@@ -557,14 +550,14 @@ namespace beam
                                  , Coin::Unconfirmed
                                  , minedCoin.m_ID.m_Height
                                  , MaxHeight
-                                 , KeyType::Coinbase);
+                                 , Key::Type::Coinbase);
                 if (minedCoin.m_Fees > 0)
                 {
                     mined.emplace_back(minedCoin.m_Fees
                                      , Coin::Unconfirmed
                                      , minedCoin.m_ID.m_Height
                                      , MaxHeight
-                                     , KeyType::Comission);
+                                     , Key::Type::Comission);
                 }
                 lastKnownCoinHeight = minedCoin.m_ID.m_Height;
             }
@@ -586,7 +579,9 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::ProofState&& msg)
     {
-        if (!IsTestMode() && !m_newState.IsValidProofState(m_knownStateID, msg.m_Proof))
+        if (!IsTestMode() 
+            && m_knownStateID.m_Height > Rules::HeightGenesis 
+            && !m_newState.IsValidProofState(m_knownStateID, msg.m_Proof) )
         {
             // rollback
             // search for the latest valid known state
@@ -634,7 +629,7 @@ namespace beam
                 }
                 else
                 {
-                    ZeroObject(m_knownStateID);
+                    m_knownStateID = wallet::GetEmptyID();
                 }
                 m_stateFinder.reset();
                 LOG_INFO() << "Rolled back to " << m_knownStateID;
@@ -673,6 +668,7 @@ namespace beam
         copy(m_reg_requests.begin(), m_reg_requests.end(), back_inserter(m_pending_reg_requests));
         m_reg_requests.clear();
         m_pendingUtxoProofs.clear();
+        m_PendingUtxoUnique.clear();
 
         notifySyncProgress();
     }
@@ -691,31 +687,23 @@ namespace beam
         {
             p.second->Update();
         }
-
-        vector<Coin> unconfirmed;
-        m_keyChain->visit([&, this](const Coin& coin)
-        {
-            if (coin.m_status == Coin::Unconfirmed 
-                && coin.m_createTxId.is_initialized()
-                && m_transactions.find(*(coin.m_createTxId)) == m_transactions.end())
-            {
-                unconfirmed.emplace_back(coin);
-            }
-
-            return true;
-        });
-
-        getUtxoProofs(unconfirmed);
     }
 
     void Wallet::getUtxoProofs(const vector<Coin>& coins)
     {
         for (auto& coin : coins)
         {
-            enter_sync();
-            m_pendingUtxoProofs.push_back(coin);
             Input input;
             input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
+            if (m_PendingUtxoUnique.find(input.m_Commitment) != m_PendingUtxoUnique.end())
+            {
+                continue;
+            }
+
+            enter_sync();
+            m_pendingUtxoProofs.push_back(coin);
+            m_PendingUtxoUnique.insert(input.m_Commitment);
+            assert(m_pendingUtxoProofs.size() == m_PendingUtxoUnique.size());
             LOG_DEBUG() << "Get proof: " << input.m_Commitment;
             m_network->send_node_message(proto::GetProofUtxo{ input, 0 });
         }
