@@ -59,6 +59,13 @@ class NodeProcessor
 	struct UtxoSig;
 	struct UnspentWalker;
 
+	struct IBlockWalker
+	{
+		virtual bool OnBlock(const Block::BodyBase&, TxBase::IReader&&, Height, const Height* pHMax) = 0;
+	};
+
+	bool EnumBlocks(IBlockWalker&);
+
 public:
 
 	void Initialize(const char* szPath, bool bResetCursor = false);

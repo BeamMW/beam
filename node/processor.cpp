@@ -1465,10 +1465,10 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	return true;
 }
 
-void NodeProcessor::InitializeFromBlocks()
+bool NodeProcessor::EnumBlocks(IBlockWalker& wlk)
 {
 	if (m_Cursor.m_ID.m_Height < Rules::HeightGenesis)
-		return;
+		return true;
 
 	NodeDB::WalkerState ws(m_DB);
 	Height h = 0;
@@ -1482,23 +1482,18 @@ void NodeProcessor::InitializeFromBlocks()
 		if (!OpenMacroblock(rw, ws.m_Sid))
 			continue;
 
-		LOG_INFO() << "Interpreting MB up to " << ws.m_Sid.m_Height << "...";
-
 		Block::BodyBase body;
 		Block::SystemState::Sequence::Prefix prefix;
 
 		rw.Reset();
 		rw.get_Start(body, prefix);
 
-		RollbackData rbData;
-		if (!HandleValidatedBlock(std::move(rw), body, Rules::HeightGenesis, true, rbData, &ws.m_Sid.m_Height))
-			OnCorrupted();
+		if (!wlk.OnBlock(body, std::move(rw), Rules::HeightGenesis, &ws.m_Sid.m_Height))
+			return false;
 
 		h = ws.m_Sid.m_Height;
 		break;
 	}
-
-	LOG_INFO() << "Interpreting blocks up to " << m_Cursor.m_ID.m_Height << "...";
 
 	std::vector<uint64_t> vPath;
 	vPath.reserve(m_Cursor.m_ID.m_Height - h);
@@ -1537,15 +1532,54 @@ void NodeProcessor::InitializeFromBlocks()
 		der.reset(&bb.at(0), bb.size());
 		der & block;
 
-		if (!HandleValidatedBlock(block.get_Reader(), block, ++h, true, rbData))
-			OnCorrupted();
+		if (!wlk.OnBlock(block, block.get_Reader(), ++h, NULL))
+			return false;
 	}
 
-	// final check
-	Merkle::Hash hv;
-	get_Definition(hv, false);
-	if (m_Cursor.m_Full.m_Definition != hv)
-		OnCorrupted();
+	return true;
+}
+
+
+void NodeProcessor::InitializeFromBlocks()
+{
+	struct MyWalker
+		:public IBlockWalker
+	{
+		NodeProcessor* m_pThis;
+		bool m_bFirstBlock = true;
+
+		virtual bool OnBlock(const Block::BodyBase& body, TxBase::IReader&& r, Height h, const Height* pHMax) override
+		{
+			if (pHMax)
+			{
+				LOG_INFO() << "Interpreting MB up to " << *pHMax << "...";
+			} else
+				if (m_bFirstBlock)
+				{
+					m_bFirstBlock = false;
+					LOG_INFO() << "Interpreting blocks up to " << m_pThis->m_Cursor.m_ID.m_Height << "...";
+				}
+
+			RollbackData rbData;
+			if (!m_pThis->HandleValidatedBlock(std::move(r), body, h, true, rbData, pHMax))
+				OnCorrupted();
+
+			return true;
+		}
+	};
+
+	MyWalker wlk;
+	wlk.m_pThis = this;
+	EnumBlocks(wlk);
+
+	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
+	{
+		// final check
+		Merkle::Hash hv;
+		get_Definition(hv, false);
+		if (m_Cursor.m_Full.m_Definition != hv)
+			OnCorrupted();
+	}
 }
 
 } // namespace beam
