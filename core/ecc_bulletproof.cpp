@@ -833,8 +833,11 @@ namespace ECC {
 
 		pad.V.m_Idx.Export(cp.m_Kid.m_Idx);
 		pad.V.m_Idx2.Export(cp.m_Kid.m_IdxSecondary);
-		pad.V.m_Type.Export(reinterpret_cast<uint32_t&>(cp.m_Kid.m_Type));
 		pad.V.m_Value.Export(cp.m_Value);
+
+		uint32_t val;
+		pad.V.m_Type.Export(val);
+		cp.m_Kid.m_Type = static_cast<Key::Type>(val);
 
 		return true;
 	}
