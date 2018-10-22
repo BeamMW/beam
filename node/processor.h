@@ -139,12 +139,22 @@ public:
 	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
 	static bool ValidateTxWrtHeight(const Transaction&, Height);
 
-	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body& blockInOut);
-	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, ByteBuffer&, Amount& fees);
+	struct BlockContext
+	{
+		TxPool::Fluff& m_TxPool;
+		Block::SystemState::Full m_Hdr;
+		ByteBuffer m_Body;
+		Amount m_Fees;
+
+		BlockContext(TxPool::Fluff& txp) :m_TxPool(txp) {}
+	};
+
+	bool GenerateNewBlock(BlockContext&, Block::Body& blockInOut);
+	bool GenerateNewBlock(BlockContext&);
 
 private:
-	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, Block::Body& block, Amount& fees, Height, RollbackData&);
-	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body&, bool bInitiallyEmpty);
+	bool GenerateNewBlock(BlockContext&, Block::Body&, Height, RollbackData&);
+	bool GenerateNewBlock(BlockContext&, Block::Body&, bool bInitiallyEmpty);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&);
 };
 

@@ -617,6 +617,8 @@ namespace beam
 		//np.m_Horizon.m_Schwarzschild = 40; - will prevent extracting some macroblock ranges
 		np.Initialize(g_sz);
 
+		NodeProcessor::BlockContext bc(np.m_TxPool);
+
 		const Height hIncubation = 3; // artificial incubation period for outputs.
 
 		for (Height h = Rules::HeightGenesis; h < 96 + Rules::HeightGenesis; h++)
@@ -638,21 +640,21 @@ namespace beam
 				np.m_TxPool.AddValidTx(std::move(pTx), ctx, key);
 			}
 
-			BlockPlus::Ptr pBlock(new BlockPlus);
+			verify_test(np.GenerateNewBlock(bc));
 
-			Amount fees = 0;
-			verify_test(np.GenerateNewBlock(np.m_TxPool, pBlock->m_Hdr, pBlock->m_Body, fees));
-
-			np.OnState(pBlock->m_Hdr, PeerID());
+			np.OnState(bc.m_Hdr, PeerID());
 
 			Block::SystemState::ID id;
-			pBlock->m_Hdr.get_ID(id);
+			bc.m_Hdr.get_ID(id);
 
-			np.OnBlock(id, pBlock->m_Body, PeerID());
+			np.OnBlock(id, bc.m_Body, PeerID());
 
-			np.m_Wallet.AddMyUtxo(fees, h, Key::Type::Comission);
+			np.m_Wallet.AddMyUtxo(bc.m_Fees, h, Key::Type::Comission);
 			np.m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase);
 
+			BlockPlus::Ptr pBlock(new BlockPlus);
+			pBlock->m_Hdr = std::move(bc.m_Hdr);
+			pBlock->m_Body = std::move(bc.m_Body);
 			blockChain.push_back(std::move(pBlock));
 		}
 
@@ -853,25 +855,22 @@ namespace beam
 
 				if (m_HeightMax < m_HeightTrg)
 				{
-					Block::SystemState::Full s;
-					ByteBuffer body, pow;
-
 					TxPool::Fluff txPool; // empty, no transactions
+					NodeProcessor::BlockContext bc(txPool);
 
 					Node& n = *m_ppNode[m_iNode];
-					Amount fees = 0;
-					n.get_Processor().GenerateNewBlock(txPool, s, body, fees);
+					verify_test(n.get_Processor().GenerateNewBlock(bc));
 
-					n.get_Processor().OnState(s, PeerID());
+					n.get_Processor().OnState(bc.m_Hdr, PeerID());
 
 					Block::SystemState::ID id;
-					s.get_ID(id);
+					bc.m_Hdr.get_ID(id);
 
-					n.get_Processor().OnBlock(id, body, PeerID());
+					n.get_Processor().OnBlock(id, bc.m_Body, PeerID());
 
-					m_HeightMax = std::max(m_HeightMax, s.m_Height);
+					m_HeightMax = std::max(m_HeightMax, bc.m_Hdr.m_Height);
 
-					printf("Mined block Height = %u, node = %u \n", (unsigned int) s.m_Height, (unsigned int)m_iNode);
+					printf("Mined block Height = %u, node = %u \n", (unsigned int) bc.m_Hdr.m_Height, (unsigned int)m_iNode);
 
 					++m_iNode %= _countof(m_ppNode);
 				}

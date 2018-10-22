@@ -2724,11 +2724,11 @@ bool Node::Miner::Restart()
 		pTreasury->m_SubsidyClosing = (dh + 1 == vTreasury.size());
 	}
 
-	Task::Ptr pTask(std::make_shared<Task>());
+	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool);
 
 	bool bRes = pTreasury ?
-		get_ParentObj().m_Processor.GenerateNewBlock(get_ParentObj().m_TxPool, pTask->m_Hdr, pTask->m_Body, pTask->m_Fees, *pTreasury) :
-		get_ParentObj().m_Processor.GenerateNewBlock(get_ParentObj().m_TxPool, pTask->m_Hdr, pTask->m_Body, pTask->m_Fees);
+		get_ParentObj().m_Processor.GenerateNewBlock(bc, *pTreasury) :
+		get_ParentObj().m_Processor.GenerateNewBlock(bc);
 
 	if (!bRes)
 	{
@@ -2736,7 +2736,12 @@ bool Node::Miner::Restart()
 		return false;
 	}
 
-	LOG_INFO() << "Block generated: Height=" << pTask->m_Hdr.m_Height << ", Fee=" << pTask->m_Fees << ", Difficulty=" << pTask->m_Hdr.m_PoW.m_Difficulty << ", Size=" << pTask->m_Body.size();
+	LOG_INFO() << "Block generated: Height=" << bc.m_Hdr.m_Height << ", Fee=" << bc.m_Fees << ", Difficulty=" << bc.m_Hdr.m_PoW.m_Difficulty << ", Size=" << bc.m_Body.size();
+
+	Task::Ptr pTask(std::make_shared<Task>());
+	pTask->m_Hdr = std::move(bc.m_Hdr);
+	pTask->m_Body = std::move(bc.m_Body);
+	pTask->m_Fees = bc.m_Fees;
 
 	pTask->m_hvNonceSeed = get_ParentObj().NextNonce();
 

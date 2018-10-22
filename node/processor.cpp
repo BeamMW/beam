@@ -1019,7 +1019,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 		ValidateTxContextKernels(tx.m_vKernelsInput, false);
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
+bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height h, RollbackData& rbData)
 {
 	if (!m_pKdf)
 	{
@@ -1027,7 +1027,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 		return false;
 	}
 
-	fees = 0;
+	bc.m_Fees = 0;
 	size_t nBlockSize = 0;
 	size_t nAmount = 0;
 
@@ -1037,14 +1037,14 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 
 	ECC::Scalar::Native offset = res.m_Offset;
 
-	for (TxPool::Fluff::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
+	for (TxPool::Fluff::ProfitSet::iterator it = bc.m_TxPool.m_setProfit.begin(); bc.m_TxPool.m_setProfit.end() != it; )
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
 
 		if (x.m_Profit.m_nSize > nSizeThreshold)
 		{
 			LOG_INFO() << "Tx is very big. It's deleted.";
-			txp.Delete(x);
+			bc.m_TxPool.Delete(x);
 			continue;
 		}
 
@@ -1058,13 +1058,13 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 		{
 			Block::Body::Writer(res).Dump(tx.get_Reader());
 
-			fees += x.m_Profit.m_Fee;
+			bc.m_Fees += x.m_Profit.m_Fee;
 			offset += ECC::Scalar::Native(tx.m_Offset);
 			nBlockSize += x.m_Profit.m_nSize;
 			++nAmount;
 		}
 		else
-			txp.Delete(x); // isn't available in this context
+			bc.m_TxPool.Delete(x); // isn't available in this context
 	}
 
 	LOG_INFO() << "GenerateNewBlock: size of block = " << nBlockSize << "; amount of tx = " << nAmount;
@@ -1082,12 +1082,12 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 		res.m_vOutputs.push_back(std::move(pOutp));
 	}
 
-	if (fees)
+	if (bc.m_Fees)
 	{
 		ECC::Scalar::Native sk;
 
 		Output::Ptr pOutp(new Output);
-		pOutp->Create(sk, fees, *m_pKdf, Key::ID(h, Key::Type::Comission));
+		pOutp->Create(sk, bc.m_Fees, *m_pKdf, Key::ID(h, Key::Type::Comission));
 
 		if (!HandleBlockElement(*pOutp, h, NULL, true))
 			return false; // though should not happen!
@@ -1122,9 +1122,9 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 
 	// Finalize block construction.
 	if (m_Cursor.m_Sid.m_Row)
-		s.m_Prev = m_Cursor.m_ID.m_Hash;
+		bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
 	else
-		ZeroObject(s.m_Prev);
+		ZeroObject(bc.m_Hdr.m_Prev);
 
 	if (!m_Extra.m_SubsidyOpen)
 		res.m_SubsidyClosing = false;
@@ -1132,40 +1132,40 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 	if (res.m_SubsidyClosing)
 		ToggleSubsidyOpened();
 
-	get_Definition(s.m_Definition, true);
+	get_Definition(bc.m_Hdr.m_Definition, true);
 
 	if (res.m_SubsidyClosing)
 		ToggleSubsidyOpened();
 
-	s.m_Height = h;
-	s.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
-	s.m_TimeStamp = getTimestamp();
+	bc.m_Hdr.m_Height = h;
+	bc.m_Hdr.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
+	bc.m_Hdr.m_TimeStamp = getTimestamp();
 
-	s.m_PoW.m_Difficulty.Inc(s.m_ChainWork, m_Cursor.m_Full.m_ChainWork);
+	bc.m_Hdr.m_PoW.m_Difficulty.Inc(bc.m_Hdr.m_ChainWork, m_Cursor.m_Full.m_ChainWork);
 
 	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
 	Timestamp tm = get_MovingMedian() + 1;
-	s.m_TimeStamp = std::max(s.m_TimeStamp, tm);
+	bc.m_Hdr.m_TimeStamp = std::max(bc.m_Hdr.m_TimeStamp, tm);
 
 	res.m_Offset = offset;
 
 	return true;
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
+bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
 	Block::Body block;
 	block.ZeroInit();
 	block.m_SubsidyClosing = true; // by default insist on it. If already closed - this flag will automatically be turned OFF
-	return GenerateNewBlock(txp, s, bbBlock, fees, block, true);
+	return GenerateNewBlock(bc, block, true);
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res)
+bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res)
 {
-	return GenerateNewBlock(txp, s, bbBlock, fees, res, false);
+	return GenerateNewBlock(bc, res, false);
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res, bool bInitiallyEmpty)
+bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bInitiallyEmpty)
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 
@@ -1183,7 +1183,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 				return false;
 		}
 
-		bool bRes = GenerateNewBlock(txp, s, res, fees, h, rbData);
+		bool bRes = GenerateNewBlock(bc, res, h, rbData);
 
 		rbData.m_Inputs = 0;
 		verify(HandleValidatedTx(res.get_Reader(), h, false, rbData)); // undo changes
@@ -1199,9 +1199,9 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 
 	ser.reset();
 	ser & res;
-	ser.swap_buf(bbBlock);
+	ser.swap_buf(bc.m_Body);
 
-	return bbBlock.size() <= Rules::get().MaxBodySize;
+	return bc.m_Body.size() <= Rules::get().MaxBodySize;
 }
 
 bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
