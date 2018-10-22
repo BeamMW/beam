@@ -22,7 +22,7 @@ struct TreasuryBlockGenerator
 	ECC::Scalar::Native m_Offset;
 
 	std::vector<Coin> m_Coins;
-	std::vector<std::pair<Height, ECC::Scalar::Native> > m_vIncubationAndKeys;
+	std::vector<Height> m_vIncubation;
 
 	std::mutex m_Mutex;
 	std::vector<std::thread> m_vThreads;
@@ -35,19 +35,19 @@ private:
 };
 
 bool ReadTreasury(std::vector<Block::Body>& vBlocks, const string& sPath)
-    {
-		if (sPath.empty())
-			return false;
+{
+	if (sPath.empty())
+		return false;
 
-		std::FStream f;
-		if (!f.Open(sPath.c_str(), true))
-			return false;
+	std::FStream f;
+	if (!f.Open(sPath.c_str(), true))
+		return false;
 
-		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
-        arc & vBlocks;
+	yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
+    arc & vBlocks;
 
-		return true;
-    }
+	return true;
+}
 
 int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 {
@@ -77,7 +77,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 	LOG_INFO() << "Generating coins...";
 
 	m_Coins.resize(nCount);
-	m_vIncubationAndKeys.resize(nCount);
+	m_vIncubation.resize(nCount);
 
 	Height h = 0;
 
@@ -90,13 +90,10 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 		coin.m_createHeight = h + Rules::HeightGenesis;
 
 
-		m_vIncubationAndKeys[i].first = h;
+		m_vIncubation[i] = h;
 	}
 
 	m_pKeyChain->store(m_Coins); // we get coin id only after store
-
-	for (uint32_t i = 0; i < nCount; ++i)
-        m_vIncubationAndKeys[i].second = m_pKeyChain->calcKey(m_Coins[i]);
 
 	m_vThreads.resize(std::thread::hardware_concurrency());
 	assert(!m_vThreads.empty());
@@ -175,19 +172,21 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 {
 	std::vector<Output::Ptr> vOut;
 
+	std::vector<ECC::Scalar::Native> vSk;
+
 	for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size())
 	{
 		const Coin& coin = m_Coins[i];
 
 		Output::Ptr pOutp(new Output);
-		pOutp->m_Incubation = m_vIncubationAndKeys[i].first;
+		pOutp->m_Incubation = m_vIncubation[i];
 
-		const ECC::Scalar::Native& k = m_vIncubationAndKeys[i].second;
-		pOutp->Create(k, coin.m_amount);
+		vSk.resize(vSk.size() + 1);
+
+		ECC::Scalar::Native& sk = vSk.back();;
+		pOutp->Create(sk, coin.m_amount, *m_pKeyChain->get_Kdf(), coin.get_Kid());
 
 		vOut.push_back(std::move(pOutp));
-		//offset += k;
-		//subBlock.m_Subsidy += coin.m_amount;
 	}
 
 	std::unique_lock<std::mutex> scope(m_Mutex);
@@ -198,8 +197,8 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 		Block::Body& block = get_WriteBlock();
 
 		block.m_vOutputs.push_back(std::move(vOut[iOutp]));
+		m_Offset += vSk[iOutp];
 		block.m_Subsidy += m_Coins[i].m_amount;
-		m_Offset += m_vIncubationAndKeys[i].second;
 	}
 }
 
