@@ -90,11 +90,7 @@ namespace beam { namespace wallet
         void RollbackTx();
         void UpdateTxDescription(TxStatus s);
 
-        std::vector<Input::Ptr> GetTxInputs(const TxID& txID) const;
-        std::vector<Output::Ptr> GetTxOutputs(const TxID& txID) const;
         std::vector<Coin> GetUnconfirmedOutputs() const;
-        void CreateOutput(Amount amount, Height currentHeight);
-        void PrepareSenderUTXOs(Amount amount, Height currentHeight);
 
         void OnFailed(const std::string& message = "", bool notify = false);
 

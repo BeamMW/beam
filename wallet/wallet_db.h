@@ -75,10 +75,19 @@ namespace beam
         std::string m_label;
         std::string m_category;
         Timestamp m_createTime;
-        uint64_t  m_duration; // seconds, 0 - for single use;
+        uint64_t  m_duration;
         bool m_own;
 
-        WalletAddress() : m_createTime(0), m_duration(0), m_own(false) {}
+        bool isExpired() const
+        {
+            return getTimestamp() > (m_createTime + m_duration);
+        }
+
+        WalletAddress() 
+            : m_createTime(0)
+            , m_duration(24 * 60 * 60) // 24h
+            , m_own(false)
+        {}
     };
 
     struct TxParameter

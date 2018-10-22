@@ -59,7 +59,6 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
             defaultAddress.m_own = true;
             defaultAddress.m_label = "default";
             defaultAddress.m_createTime = getTimestamp();
-            defaultAddress.m_duration = numeric_limits<uint64_t>::max();
             keystore->gen_keypair(defaultAddress.m_walletID);
             keystore->save_keypair(defaultAddress.m_walletID, true);
 
