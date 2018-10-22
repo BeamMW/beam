@@ -601,6 +601,9 @@ void Node::Initialize()
 		m_pKdf = pKdf;
 	}
 
+	if (!m_pOwnerKdf)
+		m_pOwnerKdf = m_pKdf;
+
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Sync.m_ForceResync);
 
@@ -660,8 +663,12 @@ void Node::InitIDs()
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, NULL, &blob);
 	}
 
-	m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
-	proto::Sk2Pk(m_MyOwnerID, sk);
+	ECC::Hash::Value hv;
+	Key::ID(0, Key::Type::Identity).get_Hash(hv);
+
+	ECC::Point::Native pt;
+	m_pOwnerKdf->DerivePKey(pt, hv);
+	m_MyOwnerID = ECC::Point(pt).m_X;
 }
 
 void Node::InitMode()

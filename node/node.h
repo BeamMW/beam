@@ -127,6 +127,7 @@ struct Node
 	} m_Cfg; // must not be changed after initialization
 
 	Key::IKdf::Ptr m_pKdf;
+	Key::IPKdf::Ptr m_pOwnerKdf;
 
 	~Node();
 	void Initialize();
