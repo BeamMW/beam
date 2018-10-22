@@ -1291,6 +1291,12 @@ namespace beam
 			fail_test("some proofs missing");
 		if (!cl.IsAllBbsReceived())
 			fail_test("some BBS messages missing");
+
+		NodeProcessor::UtxoRecover urec(node2.get_Processor());
+		urec.m_vKeys.push_back(node.m_pKdf);
+		urec.Proceed();
+
+		verify_test(!urec.m_Map.empty());
 	}
 
 

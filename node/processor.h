@@ -61,7 +61,21 @@ class NodeProcessor
 
 	struct IBlockWalker
 	{
-		virtual bool OnBlock(const Block::BodyBase&, TxBase::IReader&&, Height, const Height* pHMax) = 0;
+		virtual bool OnBlock(const Block::BodyBase&, TxBase::IReader&&, uint64_t rowid, Height, const Height* pHMax) = 0;
+	};
+
+	struct IUtxoWalker
+		:public IBlockWalker
+	{
+		NodeProcessor& m_This;
+		IUtxoWalker(NodeProcessor& x) :m_This(x) {}
+
+		Block::SystemState::Full m_Hdr;
+
+		virtual bool OnBlock(const Block::BodyBase&, TxBase::IReader&&, uint64_t rowid, Height, const Height* pHMax) override;
+
+		virtual bool OnInput(const Input&) = 0;
+		virtual bool OnOutput(const Output&) = 0;
 	};
 
 	bool EnumBlocks(IBlockWalker&);
@@ -161,6 +175,33 @@ public:
 
 	bool GenerateNewBlock(BlockContext&, Block::Body& blockInOut);
 	bool GenerateNewBlock(BlockContext&);
+
+	struct UtxoRecover
+		:public IUtxoWalker
+	{
+		std::vector<Key::IPKdf::Ptr> m_vKeys;
+
+		struct Value {
+			Key::IDV m_Kidv;
+			uint32_t m_iKey;
+			Input::Count m_Count;
+
+			Value() :m_Count(0) {}
+		};
+		
+		typedef std::map<ECC::Point, Value> UtxoMap;
+		UtxoMap m_Map;
+
+		UtxoRecover(NodeProcessor& x) :IUtxoWalker(x) {}
+
+		bool Proceed();
+
+		virtual bool OnInput(const Input&) override;
+		virtual bool OnOutput(const Output&) override;
+
+	private:
+		void Add(const ECC::Point&, const Value&);
+	};
 
 private:
 	bool GenerateNewBlock(BlockContext&, Block::Body&, Height, RollbackData&);

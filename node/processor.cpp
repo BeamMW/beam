@@ -1488,7 +1488,7 @@ bool NodeProcessor::EnumBlocks(IBlockWalker& wlk)
 		rw.Reset();
 		rw.get_Start(body, prefix);
 
-		if (!wlk.OnBlock(body, std::move(rw), Rules::HeightGenesis, &ws.m_Sid.m_Height))
+		if (!wlk.OnBlock(body, std::move(rw), 0, Rules::HeightGenesis, &ws.m_Sid.m_Height))
 			return false;
 
 		h = ws.m_Sid.m_Height;
@@ -1532,7 +1532,7 @@ bool NodeProcessor::EnumBlocks(IBlockWalker& wlk)
 		der.reset(&bb.at(0), bb.size());
 		der & block;
 
-		if (!wlk.OnBlock(block, block.get_Reader(), ++h, NULL))
+		if (!wlk.OnBlock(block, block.get_Reader(), vPath.back(), ++h, NULL))
 			return false;
 	}
 
@@ -1548,7 +1548,7 @@ void NodeProcessor::InitializeFromBlocks()
 		NodeProcessor* m_pThis;
 		bool m_bFirstBlock = true;
 
-		virtual bool OnBlock(const Block::BodyBase& body, TxBase::IReader&& r, Height h, const Height* pHMax) override
+		virtual bool OnBlock(const Block::BodyBase& body, TxBase::IReader&& r, uint64_t rowid, Height h, const Height* pHMax) override
 		{
 			if (pHMax)
 			{
@@ -1580,6 +1580,122 @@ void NodeProcessor::InitializeFromBlocks()
 		if (m_Cursor.m_Full.m_Definition != hv)
 			OnCorrupted();
 	}
+}
+
+bool NodeProcessor::IUtxoWalker::OnBlock(const Block::BodyBase&, TxBase::IReader&& r, uint64_t rowid, Height, const Height* pHMax)
+{
+	if (rowid)
+		m_This.get_DB().get_State(rowid, m_Hdr);
+	else
+		ZeroObject(m_Hdr);
+
+	for (r.Reset(); r.m_pUtxoIn; r.NextUtxoIn())
+		if (!OnInput(*r.m_pUtxoIn))
+			return false;
+
+	for ( ; r.m_pUtxoOut; r.NextUtxoOut())
+		if (!OnOutput(*r.m_pUtxoOut))
+			return false;
+
+	return true;
+}
+
+bool NodeProcessor::UtxoRecover::Proceed()
+{
+	ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+	// try to identify coinbase utxos. They can't be detected via bulletproof since they must have public signature
+	Value v;
+	v.m_Kidv.m_Value = Rules::get().CoinbaseEmission;
+
+	for (v.m_iKey = 0; v.m_iKey < m_vKeys.size(); v.m_iKey++)
+	{
+		for (Height h = Rules::HeightGenesis; h <= m_This.m_Cursor.m_ID.m_Height; h++)
+		{
+			v.m_Kidv.as_ID() = Key::ID(h, Key::Type::Coinbase);
+
+			ECC::Hash::Value hv;
+			v.m_Kidv.get_Hash(hv);
+
+			ECC::Point::Native comm;
+			m_vKeys[v.m_iKey]->DerivePKey(comm, hv);
+			comm += ECC::Context::get().H * v.m_Kidv.m_Value;
+
+			struct Traveler :public UtxoTree::ITraveler {
+				Input::Count m_Count = 0;
+				virtual bool OnLeaf(const RadixTree::Leaf& x) override
+				{
+					const UtxoTree::MyLeaf& n = (UtxoTree::MyLeaf&) x;
+					m_Count += n.m_Value.m_Count;
+					return true;
+				}
+			} t;
+
+			UtxoTree::Key kMin, kMax;
+
+			UtxoTree::Key::Data d;
+			d.m_Commitment = comm;
+			d.m_Maturity = 0;
+			kMin = d;
+			d.m_Maturity = MaxHeight;
+			kMax = d;
+
+			UtxoTree::Cursor cu;
+			t.m_pCu = &cu;
+			t.m_pBound[0] = kMin.m_pArr;
+			t.m_pBound[1] = kMax.m_pArr;
+
+			m_This.m_Utxos.Traverse(t);
+
+			if (t.m_Count > 0)
+			{
+				v.m_Count = t.m_Count;
+				Add(d.m_Commitment, v);
+			}
+		}
+	}
+
+	return m_This.EnumBlocks(*this);
+}
+
+void NodeProcessor::UtxoRecover::Add(const ECC::Point& comm, const Value& v)
+{
+	assert(v.m_Count);
+
+	Value& v0 = m_Map[comm];
+	if (v0.m_Count)
+		v0.m_Count += v.m_Count; // ignore overflow possibility
+	else
+		v0 = v;
+}
+
+bool NodeProcessor::UtxoRecover::OnInput(const Input& x)
+{
+	UtxoMap::iterator it = m_Map.find(x.m_Commitment);
+	if (m_Map.end() != it)
+	{
+		Value& v = it->second;
+		assert(v.m_Count);
+
+		if (! --v.m_Count)
+			m_Map.erase(it);
+	}
+	return true;
+}
+
+bool NodeProcessor::UtxoRecover::OnOutput(const Output& x)
+{
+	Value v;
+	v.m_Count = 1;
+
+	for (v.m_iKey = 0; v.m_iKey < m_vKeys.size(); v.m_iKey++)
+		if (x.Recover(*m_vKeys[v.m_iKey], v.m_Kidv))
+		{
+			Add(x.m_Commitment, v);
+			break;
+		}
+
+	return true;
 }
 
 } // namespace beam
