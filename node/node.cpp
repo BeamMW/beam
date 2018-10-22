@@ -1849,13 +1849,15 @@ void Node::PerformAggregation(TxPool::Stem::Element& x)
 		while (x.m_pValue->m_vOutputs.size() <= m_Cfg.m_Dandelion.m_OutputsMax)
 		{
 			TxPool::Stem::Element& src = it->get_ParentObj();
+
 			bool bEnd = (m_Dandelion.m_setProfit.begin() == it);
+			if (!bEnd)
+				--it;
 
 			m_Dandelion.TryMerge(x, src);
 
 			if (bEnd)
 				break;
-			--it;
 		}
 	}
 
