@@ -29,7 +29,7 @@ struct TreasuryBlockGenerator
 
 	Block::Body& get_WriteBlock();
 	void FinishLastBlock();
-	int Generate(uint32_t nCount, Height dh);
+	int Generate(uint32_t nCount, Height dh, Amount v);
 private:
 	void Proceed(uint32_t i);
 };
@@ -49,7 +49,7 @@ bool ReadTreasury(std::vector<Block::Body>& vBlocks, const string& sPath)
 		return true;
     }
 
-int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
+int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 {
 	if (m_sPath.empty())
 	{
@@ -85,7 +85,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 	{
 		Coin& coin = m_Coins[i];
 		coin.m_key_type = Key::Type::Regular;
-		coin.m_amount = Rules::Coin * 10;
+		coin.m_amount = v;
 		coin.m_status = Coin::Unconfirmed;
 		coin.m_createHeight = h + Rules::HeightGenesis;
 
@@ -203,6 +203,15 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 	}
 }
 
+int GenerateTreasury(IKeyChain* pKeyChain, const std::string& sPath, uint32_t nCount, Height dh, Amount v)
+{
+	TreasuryBlockGenerator tbg;
+	tbg.m_sPath = sPath;
+	tbg.m_pKeyChain = pKeyChain;
+
+	return tbg.Generate(nCount, dh, v);
+}
+
 
 IKeyChain::Ptr init_keychain(const std::string& path, uintBig* walletSeed) {
     static const std::string TEST_PASSWORD("12321");
@@ -225,7 +234,7 @@ IKeyChain::Ptr init_keychain(const std::string& path, uintBig* walletSeed) {
         tbg.m_pKeyChain = keychain.get();
 		Height dh = 1;
 		uint32_t nCount = 10;
-        tbg.Generate(nCount, dh);
+        tbg.Generate(nCount, dh, Rules::Coin * 10);
         *walletSeed = seed.V;
     }
 

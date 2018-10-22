@@ -22,6 +22,7 @@
 #include "wallet/secstring.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
+#include "unittests/util.h"
 
 #define LOG_VERBOSE_ENABLED 0
 
@@ -111,21 +112,6 @@ namespace
         cout << options << std::endl;
     }
 
-    bool ReadTreasury(std::vector<Block::Body>& vBlocks, const string& sPath)
-    {
-        if (sPath.empty())
-            return false;
-
-        std::FStream f;
-        if (!f.Open(sPath.c_str(), true))
-            return false;
-
-        yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
-        arc & vBlocks;
-
-        return true;
-    }
-
     IKeyStore::Ptr createKeyStore(const string& path, const SecString& pass)
     {
         IKeyStore::Options options;
@@ -136,180 +122,6 @@ namespace
     }
 }
 
-struct TreasuryBlockGenerator
-{
-    std::string m_sPath;
-    IKeyChain* m_pKeyChain;
-
-    std::vector<Block::Body> m_vBlocks;
-    ECC::Scalar::Native m_Offset;
-
-    std::vector<Coin> m_Coins;
-    std::vector<std::pair<Height, ECC::Scalar::Native> > m_vIncubationAndKeys;
-
-    std::mutex m_Mutex;
-    std::vector<std::thread> m_vThreads;
-
-    Block::Body& get_WriteBlock();
-    void FinishLastBlock();
-    int Generate(uint32_t nCount, Height dh, Amount);
-private:
-    void Proceed(uint32_t i);
-};
-
-int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
-{
-    if (m_sPath.empty())
-    {
-        LOG_ERROR() << "Treasury block path not specified";
-        return -1;
-    }
-
-    boost::filesystem::path path{ m_sPath };
-    boost::filesystem::path dir = path.parent_path();
-    if (!dir.empty() && !boost::filesystem::exists(dir) && !boost::filesystem::create_directory(dir))
-    {
-        LOG_ERROR() << "Failed to create directory: " << dir.c_str();
-        return -1;
-    }
-
-    if (ReadTreasury(m_vBlocks, m_sPath))
-        LOG_INFO() << "Treasury already contains " << m_vBlocks.size() << " blocks, appending.";
-
-    if (!m_vBlocks.empty())
-    {
-        m_Offset = m_vBlocks.back().m_Offset;
-        m_Offset = -m_Offset;
-    }
-
-    LOG_INFO() << "Generating coins...";
-
-    m_Coins.resize(nCount);
-    m_vIncubationAndKeys.resize(nCount);
-
-    Height h = 0;
-
-    for (uint32_t i = 0; i < nCount; i++, h += dh)
-    {
-        Coin& coin = m_Coins[i];
-        coin.m_key_type = Key::Type::Regular;
-        coin.m_amount = v;
-        coin.m_status = Coin::Unconfirmed;
-        coin.m_createHeight = h + Rules::HeightGenesis;
-
-
-        m_vIncubationAndKeys[i].first = h;
-    }
-
-    m_pKeyChain->store(m_Coins); // we get coin id only after store
-
-    for (uint32_t i = 0; i < nCount; ++i)
-        m_vIncubationAndKeys[i].second = m_pKeyChain->calcKey(m_Coins[i]);
-
-    m_vThreads.resize(std::thread::hardware_concurrency());
-    assert(!m_vThreads.empty());
-
-    for (uint32_t i = 0; i < m_vThreads.size(); i++)
-        m_vThreads[i] = std::thread(&TreasuryBlockGenerator::Proceed, this, i);
-
-    for (uint32_t i = 0; i < m_vThreads.size(); i++)
-        m_vThreads[i].join();
-
-    // at least 1 kernel
-    {
-        Coin dummy; // not a coin actually
-        dummy.m_key_type = Key::Type::Kernel;
-        dummy.m_status = Coin::Unconfirmed;
-
-        ECC::Scalar::Native k = m_pKeyChain->calcKey(dummy);
-
-        TxKernel::Ptr pKrn(new TxKernel);
-        pKrn->m_Excess = ECC::Point::Native(Context::get().G * k);
-
-        Merkle::Hash hv;
-        pKrn->get_Hash(hv);
-        pKrn->m_Signature.Sign(hv, k);
-
-        get_WriteBlock().m_vKernelsOutput.push_back(std::move(pKrn));
-        m_Offset += k;
-    }
-
-    FinishLastBlock();
-
-    for (auto i = 0u; i < m_vBlocks.size(); i++)
-    {
-        m_vBlocks[i].Sort();
-        m_vBlocks[i].DeleteIntermediateOutputs();
-    }
-
-    std::FStream f;
-    f.Open(m_sPath.c_str(), false, true);
-
-    yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
-    arc & m_vBlocks;
-    f.Flush();
-
-/*
-    for (auto i = 0; i < m_vBlocks.size(); i++)
-        m_vBlocks[i].IsValid(i + 1, true);
-*/
-
-    LOG_INFO() << "Done";
-
-    return 0;
-}
-
-void TreasuryBlockGenerator::FinishLastBlock()
-{
-    m_Offset = -m_Offset;
-    m_vBlocks.back().m_Offset = m_Offset;
-}
-
-Block::Body& TreasuryBlockGenerator::get_WriteBlock()
-{
-    if (m_vBlocks.empty() || m_vBlocks.back().m_vOutputs.size() >= 1000)
-    {
-        if (!m_vBlocks.empty())
-            FinishLastBlock();
-
-        m_vBlocks.resize(m_vBlocks.size() + 1);
-        m_vBlocks.back().ZeroInit();
-        m_Offset = ECC::Zero;
-    }
-    return m_vBlocks.back();
-}
-
-void TreasuryBlockGenerator::Proceed(uint32_t i0)
-{
-    std::vector<Output::Ptr> vOut;
-
-    for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size())
-    {
-        const Coin& coin = m_Coins[i];
-
-        Output::Ptr pOutp(new Output);
-        pOutp->m_Incubation = m_vIncubationAndKeys[i].first;
-
-        const ECC::Scalar::Native& k = m_vIncubationAndKeys[i].second;
-        pOutp->Create(k, coin.m_amount);
-
-        vOut.push_back(std::move(pOutp));
-        //offset += k;
-        //subBlock.m_Subsidy += coin.m_amount;
-    }
-
-    std::unique_lock<std::mutex> scope(m_Mutex);
-
-    uint32_t iOutp = 0;
-    for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size(), iOutp++)
-    {
-        Block::Body& block = get_WriteBlock();
-
-        block.m_vOutputs.push_back(std::move(vOut[iOutp]));
-        block.m_Subsidy += m_Coins[i].m_amount;
-        m_Offset += m_vIncubationAndKeys[i].second;
-    }
-}
 
 io::Reactor::Ptr reactor;
 
@@ -469,16 +281,13 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::TREASURY)
                         {
-                            TreasuryBlockGenerator tbg;
-                            tbg.m_sPath = vm[cli::TREASURY_BLOCK].as<string>();
-                            tbg.m_pKeyChain = keychain.get();
+							uint32_t nCount = vm[cli::TR_COUNT].as<uint32_t>();
+							Height dh = vm[cli::TR_DH].as<uint32_t>();
 
-                            Amount v = vm[cli::TR_BEAMS].as<uint32_t>();
-                            v *= Rules::Coin;
-                            Height dh = vm[cli::TR_DH].as<uint32_t>();
-                            uint32_t nCount = vm[cli::TR_COUNT].as<uint32_t>();
+							Amount v = vm[cli::TR_BEAMS].as<uint32_t>();
+							v *= Rules::Coin;
 
-                            return tbg.Generate(nCount, dh, v);
+							return GenerateTreasury(keychain.get(), vm[cli::TREASURY_BLOCK].as<string>(), nCount, dh, v);
                         }
 
                         if (command == cli::INFO)
