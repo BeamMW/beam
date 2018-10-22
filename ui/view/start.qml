@@ -204,7 +204,7 @@ Item
                             anchors.left: parent.left
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("This set of 24 words allows you to recover your wallet from the blockchain. Print or write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.")
+                            text: qsTr("This set of 12 words allows you to recover your wallet from the blockchain. Print or write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.")
                             color: Style.white
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -218,7 +218,7 @@ Item
                         width: 460
                         text: qsTr("It is strictly recommended to write down the recovery phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure.")
                         onAccepted: {
-                            onClicked: startWizzardView.push(create);
+                            onClicked: startWizzardView.push(checkRecoveryPhrase);
                         }
                     }
                     Grid{
@@ -289,6 +289,152 @@ Item
                                 text: qsTr("next")
                                 icon.source: "qrc:/assets/icon-next-blue.svg"
                                 onClicked: {confirRecoveryPhrasesDialog.open();}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Component {
+            id: checkRecoveryPhrase
+            Rectangle {
+                color: Style.marine
+
+                ColumnLayout {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.fill: parent
+                    anchors.topMargin: 50
+                    Column {
+                        spacing: 30
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                        Layout.preferredWidth: 730
+                        SFText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: qsTr("Create new wallet")
+                            color: Style.white
+                            font.pixelSize: 36
+                        }
+                        SFText {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: qsTr("To ensure the recovery phrase is written down, please fill-in the specific words below")
+                            color: Style.white
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: 14
+                        }
+                    }
+ 
+                    Grid{
+                        Layout.alignment: Qt.AlignHCenter
+
+                        topPadding: 50
+                        columnSpacing: 30
+                        rowSpacing:  20
+
+                        Repeater {
+                            model:viewModel.checkPhrases
+
+                            Row {
+                                width: 160
+                                height: 38
+                                spacing: 20
+                                Item {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.leftMargin: 9
+                                    width: 20
+                                    height: 20
+                                    Rectangle {
+                                        color: Style.dark_slate_blue
+                                        width: 20
+                                        height: 20
+                                        radius: 10
+                                        SFText {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: modelData.index + 1
+                                            font.pixelSize: 10
+                                            color: Style.white
+                                            opacity: 0.5
+                                        }
+                                        visible: !modelData.isCorrect
+                                    }
+
+                                    Rectangle {
+                                        id: correctPhraseRect
+                                        color: Style.bright_teal
+                                        width: 20
+                                        height: 20
+                                        radius: 10
+                                        SFText {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: modelData.index + 1
+                                            font.pixelSize: 10
+                                            color: Style.marine
+                                        }
+                                        visible: modelData.isCorrect
+                                    }
+
+                                    DropShadow {
+                                        anchors.fill: correctPhraseRect
+                                        radius: 5
+                                        samples: 9
+                                        color: Style.bright_teal
+                                        source: correctPhraseRect
+                                        visible: correctPhraseRect.visible
+                                    }
+                                }
+
+                                SFTextInput {
+                                    id: phraseValue
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 121
+
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                    text: modelData.value
+                                }
+                                Binding {
+                                    target: modelData
+                                    property: "value"
+                                    value: phraseValue.text
+                                }
+                            }
+                        }
+                    }
+                    
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Row {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.bottom: parent.bottom
+                            bottomPadding: 143
+
+                            spacing: 30
+                     
+                            CustomButton {
+                                text: qsTr("go back to the recovery phrase")
+                                icon.source: "qrc:/assets/icon-back.svg"
+                                onClicked: startWizzardView.pop();
+                            }
+
+                            PrimaryButton {
+                                id: checkRecoveryNextButton
+                                text: qsTr("next")
+                                enabled: {
+                                    var enable = true;
+                                    for(var i = 0; i < viewModel.checkPhrases.length; ++i)
+                                    {
+                                        enable &= viewModel.checkPhrases[i].isCorrect;
+                                    }
+                                    return enable;
+                                }
+                                icon.source: "qrc:/assets/icon-next-blue.svg"
+                                onClicked: startWizzardView.push(create);
                             }
                         }
                     }
@@ -476,6 +622,7 @@ Item
 
                             CustomButton {
                                 text: qsTr("back");
+                                icon.source: "qrc:/assets/icon-back.svg"
                                 onClicked: startWizzardView.pop();
                             }
                             PrimaryButton {
@@ -649,6 +796,7 @@ Item
 
                     CustomButton {
                         text: qsTr("back");
+                        icon.source: "qrc:/assets/icon-back.svg"
                         onClicked: startWizzardView.pop();
                     }
 

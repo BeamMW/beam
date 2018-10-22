@@ -96,6 +96,41 @@ namespace
 
 }
 
+RecoveryPhraseItem::RecoveryPhraseItem(int index, const QString& phrase)
+    : m_index(index)
+    , m_phrase(phrase)
+{
+
+}
+
+RecoveryPhraseItem::~RecoveryPhraseItem()
+{
+
+}
+
+bool RecoveryPhraseItem::isCorrect() const
+{
+    return m_userInput == m_phrase;
+}
+const QString& RecoveryPhraseItem::getValue() const
+{
+    return m_userInput;
+}
+void RecoveryPhraseItem::setValue(const QString& value)
+{
+    if (m_userInput != value)
+    {
+        m_userInput = value;
+        emit valueChanged();
+        emit isCorrectChanged();
+    }
+}
+
+int RecoveryPhraseItem::getIndex() const
+{
+    return m_index;
+}
+
 StartViewModel::StartViewModel()
 {
     m_recoveryPhrases.push_back("void");
@@ -137,6 +172,20 @@ bool StartViewModel::walletExists() const
 const QStringList& StartViewModel::getRecovertPhrases() const
 {
     return m_recoveryPhrases;
+}
+
+const QList<QObject*>& StartViewModel::getCheckPhrases()
+{
+    if (m_checkPhrases.empty())
+    {
+        srand(time(0));
+        for (int i = 0; i < 6; ++i)
+        {
+            int index = rand() % m_recoveryPhrases.size();
+            m_checkPhrases.push_back(new RecoveryPhraseItem(index, m_recoveryPhrases[index]));
+        }
+    }
+    return m_checkPhrases;
 }
 
 void StartViewModel::setupLocalNode(int port, int miningThreads, bool generateGenesys)

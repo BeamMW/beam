@@ -16,10 +16,36 @@
 
 #include <QObject>
 #include <functional>
+#include <QQmlListProperty>
 
 #include "wallet/wallet_db.h"
 
 #include "messages_view.h"
+
+class RecoveryPhraseItem : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(bool isCorrect READ isCorrect NOTIFY isCorrectChanged)
+    Q_PROPERTY(QString value READ getValue WRITE setValue NOTIFY valueChanged)
+    Q_PROPERTY(int index READ getIndex CONSTANT)
+public:
+    RecoveryPhraseItem(int index, const QString& phrase);
+    ~RecoveryPhraseItem();
+
+    bool isCorrect() const;
+    const QString& getValue() const;
+    void setValue(const QString& value);
+    int getIndex() const;
+signals: 
+    void isCorrectChanged();
+    void valueChanged();
+
+private:
+    int m_index;
+    QString m_phrase;
+    QString m_userInput;
+
+};
 
 class StartViewModel : public QObject
 {
@@ -27,6 +53,7 @@ class StartViewModel : public QObject
 
     Q_PROPERTY(bool walletExists READ walletExists NOTIFY walletExistsChanged)
     Q_PROPERTY(QStringList recoveryPhrases READ getRecovertPhrases NOTIFY recoveryPhrasesChanged)
+    Q_PROPERTY(QList<QObject*> checkPhrases READ getCheckPhrases NOTIFY checkPhrasesChanged)
 public:
 
     using DoneCallback = std::function<bool (beam::IKeyChain::Ptr db, const std::string& walletPass)>;
@@ -36,6 +63,7 @@ public:
 
     bool walletExists() const;
     const QStringList& getRecovertPhrases() const;
+    const QList<QObject*>& getCheckPhrases();
 
     Q_INVOKABLE void setupLocalNode(int port, int miningThreads, bool generateGenesys = false);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
@@ -46,10 +74,12 @@ signals:
     void walletExistsChanged();
     void generateGenesysyBlockChanged();
     void recoveryPhrasesChanged();
+    void checkPhrasesChanged();
 
 public slots:
     bool createWallet(const QString& seed, const QString& pass);
     bool openWallet(const QString& pass);
 private:
     QStringList m_recoveryPhrases;
+    QList<QObject*> m_checkPhrases;
 };
