@@ -69,6 +69,7 @@ public:
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
     Q_INVOKABLE void setupTestnetNode();
     Q_INVOKABLE uint coreAmount() const;
+    Q_INVOKABLE void copyPhrasesToClipboard();
 
 signals:
     void walletExistsChanged();

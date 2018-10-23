@@ -277,11 +277,13 @@ Item
                             CustomButton {
                                 text: qsTr("copy to clipboard")
                                 icon.source: "qrc:/assets/icon-copy.svg"
+                                onClicked: {viewModel.copyPhrasesToClipboard();}
                             }
 
                             CustomButton {
                                 text: qsTr("print")
                                 icon.source: "qrc:/assets/icon-print.svg"
+                                
                             }
 
                             PrimaryButton {

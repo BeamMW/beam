@@ -15,6 +15,9 @@
 #include "start_view.h"
 #include "wallet/keystore.h"
 #include <QMessageBox>
+#include <QStringBuilder>
+#include <QApplication>
+#include <QClipboard>
 #include "settings_view.h"
 #include "model/app_model.h"
 #include "wallet/secstring.h"
@@ -217,6 +220,19 @@ void StartViewModel::setupTestnetNode()
 uint StartViewModel::coreAmount() const
 {
     return std::thread::hardware_concurrency();
+}
+
+void StartViewModel::copyPhrasesToClipboard()
+{
+    QString phrases;
+
+    int i = 1;
+    for (const auto& p : m_recoveryPhrases)
+    {
+        phrases = phrases % QString::number(i) % " - " % p % "; ";
+        ++i;
+    }
+    QApplication::clipboard()->setText(phrases);
 }
 
 bool StartViewModel::createWallet(const QString& seed, const QString& pass)
