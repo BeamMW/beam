@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "reactor.h"
-#include "tcpstream.h"
 #include "coarsetimer.h"
+#include "sslstream.h"
 #include "utility/config.h"
 #include "utility/helpers.h"
 #include <assert.h>
@@ -59,7 +59,7 @@ public:
         return _connectRequests.count(tag) == 0;
     }
 
-    Result tcp_connect(uv_tcp_t* handle, Address address, uint64_t tag, const Callback& callback, int timeoutMsec) {
+    Result tcp_connect(uv_tcp_t* handle, Address address, uint64_t tag, const Callback& callback, int timeoutMsec, bool isTls) {
         assert(is_tag_free(tag));
 
         if (timeoutMsec >= 0) {
@@ -83,6 +83,7 @@ public:
         cr->data = this;
         cr->tag = tag;
         new(&cr->callback) Callback(callback);
+        cr->isTls = isTls;
 
         _connectRequests[tag] = cr;
 
@@ -101,7 +102,7 @@ public:
                 if (errorCode == UV_ECANCELED) {
                     tcpConnectors->_cancelledConnectRequests.erase(cr);
                 } else {
-                    tcpConnectors->connect_callback(cr->tag, (uv_handle_t*)request->handle, cr->callback, (ErrorCode)errorCode);
+                    tcpConnectors->connect_callback(cr->tag, (uv_handle_t*)request->handle, cr->callback, cr->isTls, (ErrorCode)errorCode);
                 }
                 cr->callback.~Callback();
                 tcpConnectors->_connectRequestsPool.release(cr);
@@ -131,9 +132,21 @@ private:
     struct ConnectRequest : uv_connect_s {
         uint64_t tag;
         Callback callback;
+        bool isTls;
     };
 
-    void connect_callback(uint64_t tag, uv_handle_t* h, const Callback& callback, ErrorCode errorCode) {
+    bool create_ssl_context() {
+        if (!_sslContext) {
+            try {
+                _sslContext = SSLContext::create_client_context();
+            } catch (...) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    void connect_callback(uint64_t tag, uv_handle_t* h, const Callback& callback, bool isTls, ErrorCode errorCode) {
         if (_connectRequests.count(tag) == 0) {
             _reactor.async_close(h);
             return;
@@ -141,7 +154,19 @@ private:
 
         TcpStream::Ptr stream;
         if (errorCode == 0) {
-            stream.reset(_reactor.stream_connected(h));
+            TcpStream* streamPtr = 0;
+            if (isTls) {
+                if (!create_ssl_context()) {
+                    errorCode = EC_SSL_ERROR;
+                } else {
+                    streamPtr = new SslStream(_sslContext);
+                }
+            } else {
+                streamPtr = new TcpStream();
+            }
+            if (streamPtr) {
+                stream.reset(_reactor.stream_connected(streamPtr, h));
+            }
         } else {
             _reactor.async_close(h);
         }
@@ -164,7 +189,7 @@ private:
 
     void cancel_tcp_connect_impl(std::unordered_map<uint64_t, ConnectRequest*>::iterator& it) {
         ConnectRequest* cr = it->second;
-        uv_handle_t* h = (uv_handle_t*)cr->handle;
+        auto* h = (uv_handle_t*)cr->handle;
         _reactor.async_close(h);
         _cancelledConnectRequests.insert(cr);
         _connectRequests.erase(it);
@@ -175,6 +200,7 @@ private:
     std::unordered_map<uint64_t, ConnectRequest*> _connectRequests;
     std::unordered_set<ConnectRequest*> _cancelledConnectRequests;
     std::unique_ptr<CoarseTimer> _connectTimer;
+    SSLContext::Ptr _sslContext;
 };
 
 class TcpShutdowns {
@@ -347,10 +373,6 @@ Reactor::~Reactor() {
     if (_stopEvent.data)
         uv_close((uv_handle_t*)&_stopEvent, 0);
 
-//    _tcpConnectors->cancel_all();
-//    _pendingWrites->cancel_all();
-//    _tcpShutdowns->cancel_all();
-
     // run one cycle to release all closing handles
     uv_run(&_loop, UV_RUN_NOWAIT);
 
@@ -491,8 +513,7 @@ ErrorCode Reactor::init_tcpstream(Object* o) {
     return init_object(errorCode, o, h);
 }
 
-TcpStream* Reactor::stream_connected(uv_handle_t* h) {
-    TcpStream* stream = new TcpStream();
+TcpStream* Reactor::stream_connected(TcpStream* stream, uv_handle_t* h) {
     stream->_handle = h;
     stream->_handle->data = stream;
     stream->_reactor = shared_from_this();
@@ -531,7 +552,14 @@ ErrorCode Reactor::async_write(Reactor::Object* o, BufferChain& unsent, const Re
     return _pendingWrites->async_write(o, unsent, cb);
 }
 
-Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec, Address bindTo) {
+Result Reactor::tcp_connect(
+    Address address,
+    uint64_t tag,
+    const ConnectCallback& callback,
+    int timeoutMsec,
+    bool tlsConnect,
+    Address bindTo
+) {
     assert(callback);
     assert(!address.empty());
     assert(_tcpConnectors->is_tag_free(tag));
@@ -558,7 +586,7 @@ Result Reactor::tcp_connect(Address address, uint64_t tag, const ConnectCallback
         }
     }
 
-    Result res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, address, tag, callback, timeoutMsec);
+    Result res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, address, tag, callback, timeoutMsec, tlsConnect);
 
     if (!res) {
         async_close(h);

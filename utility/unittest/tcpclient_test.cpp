@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "utility/io/reactor.h"
-#include "utility/io/tcpstream.h"
+#include "utility/io/sslstream.h"
 #include "utility/io/timer.h"
 #include "utility/config.h"
 #include <iostream>
@@ -49,20 +49,21 @@ int calc_errors() {
     return retCode;
 }
 
-static const char DOMAIN_NAME[] = "example.com";
+#define DOMAIN_NAME "example.com"
 
-void on_recv(ErrorCode what, void* data, size_t size) {
+bool on_recv(ErrorCode what, void* data, size_t size) {
     if (data && size) {
         LOG_DEBUG() << "RECEIVED " << size << " bytes";
-        LOG_VERBOSE() << "\n" << std::string((const char*)data, size);
+        LOG_DEBUG() << "\n" << std::string((const char*)data, size);
 		if (g_FirstRcv)
 		{
 			g_FirstRcv = false;
 			--callbackCount;
 		}
     } else {
-        LOG_DEBUG() << "ERROR: " << error_str(what);
+        LOG_DEBUG() << __FUNCTION__ << " ERROR: " << error_str(what);
     }
+    return true;
 };
 
 void on_connected (uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
@@ -70,35 +71,36 @@ void on_connected (uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode st
         assert(status == EC_OK);
         if (tag != tag_ok) ++errorlevel;
         newStream->enable_read(on_recv);
-        static const char* request = "GET / HTTP/1.0\r\n\r\n";
-        newStream->write(request, strlen(request));
+        static const char* request = "GET / HTTP/1.0\r\nHost: " DOMAIN_NAME "\r\n\r\n";
+        Result res = newStream->write(request, strlen(request));
+        if (!res) {
+            LOG_ERROR() << error_str(res.error());
+        }
         streams.emplace_back(move(newStream));
 
     } else {
-        LOG_DEBUG() << "ERROR: " << error_str(status);
+        LOG_DEBUG() << __FUNCTION__ << " ERROR: " << error_str(status);
         if (status == EC_ECONNREFUSED && tag != tag_refused) ++errorlevel;
         if (status == EC_ETIMEDOUT && tag != tag_timedout) ++errorlevel;
         --callbackCount;
     }
 };
 
-int tcpclient_test() {
+int tcpclient_test(bool ssl) {
     callbackCount = 3;
-    Config config;
-    config.set<Config::Int>("io.connect_timer_resolution", 1);
-    reset_global_config(std::move(config));
+    g_FirstRcv = true;
     try {
         Reactor::Ptr reactor = Reactor::create();
 
         Address a;
         // NOTE that this is blocked resolver, TODO add async resolver to Reactor
         a.resolve(DOMAIN_NAME);
-        a.port(80);
+        a.port(ssl ? 443 : 80);
 
-        if (!reactor->tcp_connect(a, tag_ok, on_connected, 10000)) ++errorlevel;
-        if (!reactor->tcp_connect(Address::localhost().port(666), tag_refused, on_connected)) ++errorlevel;
-        if (!reactor->tcp_connect(a.port(666), tag_timedout, on_connected, 100)) ++errorlevel;
-        if (!reactor->tcp_connect(a, tag_cancelled, on_connected)) ++errorlevel;
+        if (!reactor->tcp_connect(a, tag_ok, on_connected, 10000, ssl)) ++errorlevel;
+        if (!reactor->tcp_connect(Address::localhost().port(666), tag_refused, on_connected, -1, ssl)) ++errorlevel;
+        if (!reactor->tcp_connect(a.port(666), tag_timedout, on_connected, 100, ssl)) ++errorlevel;
+        if (!reactor->tcp_connect(a, tag_cancelled, on_connected, -1, ssl)) ++errorlevel;
 
         reactor->cancel_tcp_connect(tag_cancelled);
 
@@ -133,7 +135,7 @@ void on_connected_writecancel(uint64_t tag, unique_ptr<TcpStream>&& newStream, E
         newStream->write(request, strlen(request));
         writecancelInProgress=0;
     } else {
-        LOG_DEBUG() << "ERROR: " << error_str(status);
+        LOG_DEBUG() << __FUNCTION__ << " ERROR: " << error_str(status);
     }
 };
 
@@ -221,9 +223,15 @@ int main() {
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
+
+    Config config;
+    config.set<Config::Int>("io.connect_timer_resolution", 1);
+    reset_global_config(std::move(config));
+
     int retCode = 0;
-    //retCode += tcpclient_test();
-    //retCode += tcpclient_writecancel_test();
+    retCode += tcpclient_test(false);
+    retCode += tcpclient_test(true);
+    retCode += tcpclient_writecancel_test();
     retCode += tcpclient_unclosed_test();
     return retCode;
 }

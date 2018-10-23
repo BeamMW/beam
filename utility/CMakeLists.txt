@@ -18,10 +18,10 @@ set(IO_SRC
     io/timer.cpp
     io/address.cpp
     io/tcpserver.cpp
-    #io/sslserver.cpp
-    #io/sslio.cpp
+    io/sslserver.cpp
+    io/sslio.cpp
     io/tcpstream.cpp
-    #io/sslstream.cpp
+    io/sslstream.cpp
     io/errorhandling.cpp
     io/coarsetimer.cpp
     io/fragment_writer.cpp
@@ -58,6 +58,12 @@ if (UV_INTERNAL)
     target_link_libraries(utility uvinternal)
 else()
     target_link_libraries(utility uv)
+endif()
+
+target_link_libraries(utility ${OPENSSL_LIBSSL} ${OPENSSL_LIBCRYPTO})
+
+if (UNIX)
+    target_link_libraries(utility dl)
 endif()
 
 if(ANDROID)
